@@ -4,7 +4,7 @@ import JsonLd from "@/components/projects/JsonLd";
 import SourceUnavailable from "@/components/projects/SourceUnavailable";
 import { breadcrumbList } from "@/lib/projects/json-ld";
 import { projectsMetadata } from "@/lib/projects/metadata";
-import { blobUrl, getRepoFile, rawUrl } from "@/lib/projects/photonoxide/github";
+import { blobUrl, getRepoFile } from "@/lib/projects/photonoxide/github";
 import { renderMathMarkdown, repoLinkResolver } from "@/lib/projects/photonoxide/markdown";
 import {
   CROSS_CODE_DOCS_PATH,
@@ -14,7 +14,7 @@ import {
 } from "@/lib/projects/photonoxide/meta";
 
 const DESCRIPTION =
-  "photonoxide's solvers checked against openEMS (3D FDTD) and Elmer (finite elements) on the same problems and meshes: each code's error in percent against photonoxide's converged result, and the time it takes.";
+  "photonoxide's solvers, each checked against an established code that solves the same physics: against Elmer for heat and electrostatics (accuracy and speed), against openEMS for the RF line (accuracy).";
 
 export const metadata = projectsMetadata({
   title: "Cross-code comparison",
@@ -33,17 +33,11 @@ const CRUMBS = [
 
 const GUIDE = "docs/cross-code.md";
 const HARNESS = "crosscode/README.md";
-const CHART = "docs/cross-code-chart.svg";
-const CHART_DARK = "docs/cross-code-chart-dark.svg";
-const CHART_ALT =
-  "For each problem, each code's time on the same mesh on a log scale, with its time and its errors against photonoxide's converged result beside it.";
 
 export default async function CrossCodeDocsPage() {
   const markdown = await getRepoFile(GUIDE);
-  // the page has its own title, and draws the chart itself: drop the document's
-  const body = markdown
-    ? markdown.replace(/^#\s+.*\r?\n/, "").replace(/<picture>[\s\S]*?<\/picture>\s*/, "")
-    : null;
+  // the page has its own title: drop the document's
+  const body = markdown ? markdown.replace(/^#\s+.*\r?\n/, "") : null;
   const html = body ? await renderMathMarkdown(body, { resolveUrl: repoLinkResolver("docs") }) : null;
   return (
     <main className="proj-container pt-10 pb-16 sm:pt-14">
@@ -64,12 +58,6 @@ export default async function CrossCodeDocsPage() {
           </a>
         </p>
       </header>
-      <figure className="proj-rise-1 mt-10 max-w-5xl">
-        <picture>
-          <source media="(prefers-color-scheme: dark)" srcSet={rawUrl(CHART_DARK)} />
-          <img src={rawUrl(CHART)} alt={CHART_ALT} className="w-full h-auto" />
-        </picture>
-      </figure>
       {html ? (
         <article
           className="proj-prose proj-rise-1 mt-10 max-w-3xl"

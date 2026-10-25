@@ -1,56 +1,56 @@
 # Cross-code comparison
 
-photonoxide's solvers checked against established codes on the same problems and the same
-meshes: how far apart the results are, and how long each code takes. The codes are openEMS
-(3D FDTD) for the RF line and Elmer (finite elements) for heat and electrostatics, run as
-external programs by the crate in [crosscode/](../crosscode/README.md). It is local only: CI never
-runs it, and photonoxide's own validation report ([docs/validation.md](validation.md)) doesn't
-depend on it.
+photonoxide's solvers, each checked against an established code that solves the same physics.
+Each comparison is a pair. Where both codes solve the same equations on the same mesh, the pair
+compares accuracy and speed; where they solve the physics differently, it compares accuracy
+only. The crate in [crosscode/](../crosscode/README.md) runs the other codes as external programs;
+it is local only, CI never runs it, and photonoxide's own validation report
+([docs/validation.md](validation.md)) doesn't depend on it.
 
-## Results
+## Pairs
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="cross-code-chart-dark.svg">
-  <img src="cross-code-chart.svg" alt="For each problem, each code's time on the same mesh on a log scale, with its time and errors beside it: on the coplanar line photonoxide 0.057 s, Elmer 0.053 s, openEMS 40 min; on the heater photonoxide 0.036 s, Elmer 0.070 s." width="100%">
-</picture>
+| photonoxide's solver | Checked against | Why that code | Compares |
+|---|---|---|---|
+| The static solver: heat and electrostatics, 2D finite volumes | Elmer, 2D finite elements | the same equations on the same mesh lines | accuracy and speed |
+| The quasi-TEM RF line, from the static solver | openEMS, 3D FDTD | Maxwell's equations in time, with no quasi-TEM approximation | accuracy only |
 
-Each code on the same mesh, its error against photonoxide's converged result (the reference):
+Every error is against photonoxide's converged result, in percent. Both codes take the same
+mesh lines in each problem.
 
-| Problem | Quantity | Reference | photonoxide | openEMS | Elmer |
-|---|---|---:|---:|---:|---:|
-| Coplanar line, 0.25 µm mesh | n | 2.217156 | 2.217052 (−0.0047 %) | 2.217069 (−0.0039 %) | 2.217161 (+0.00021 %) |
-| | Z₀, Ω | 54.1476 | 54.5551 (+0.75 %) | 53.7113 (−0.81 %) | 53.9122 (−0.43 %) |
-| | time | | 0.057 s | 40 min 8 s | 0.053 s |
-| Heater over silicon, 0.0125 µm mesh | peak rise, K | 0.327422 | 0.327508 (+0.026 %) | — | 0.327384 (−0.012 %) |
-| | time | | 0.036 s | — | 0.070 s |
+## photonoxide against Elmer
 
-- **Agreement:** refined to convergence, openEMS and Elmer meet photonoxide within 0.20 % and 0.047 % on Z₀, 0.0039 % and 0.00090 % on n, and Elmer within 0.0099 % on the heater's rise.
-- **Speed:** photonoxide and Elmer solve the same 2D problems, so their times compare directly. Each is the code's own assembly and solve, the fastest of three runs. openEMS solves the line in 3D and in time (2.85 million cells for 339 345 steps), so its time is its own cost for that accuracy, not a like-for-like race.
-- Every mesh and both codes' numbers on it: [docs/validation-openems.md](validation-openems.md) and [docs/validation-elmer.md](validation-elmer.md). The times are on an Intel Core Ultra 7 265K (20 threads), 64 GB, Windows 11.
+| Problem | Quantity | Reference | photonoxide | Elmer |
+|---|---|---:|---:|---:|
+| Coplanar line, 0.125 µm mesh | n | 2.217156 | 2.217159 (+0.00011 %) | 2.217175 (+0.00085 %) |
+| | Z₀, Ω | 54.1476 | 54.3714 (+0.41 %) | 54.0150 (−0.24 %) |
+| | time | | 0.073 s | 0.080 s |
+| Heater over silicon, 0.0125 µm mesh | peak rise, K | 0.327422 | 0.327508 (+0.026 %) | 0.327384 (−0.012 %) |
+| | time | | 0.036 s | 0.070 s |
 
-## Problems
+- **Agreement:** refined to convergence, Elmer meets photonoxide within 0.00090 % on n, 0.047 % on Z₀ and 0.0099 % on the heater's rise.
+- **Times:** each code's own assembly and solve on the same mesh, the fastest of three runs. Elmer's are read from its log, which gives the heat solver's to 0.01 s; photonoxide's are measured around its solve. The line takes two solves in each code, with the substrate and without it. They were taken on an Intel Core Ultra 7 265K (20 threads), 64 GB, Windows 11.
+- Every mesh: [docs/validation-elmer.md](validation-elmer.md).
 
-Each problem is drawn on the same mesh lines in every code: cells from the smallest at the
-conductors' or the heater's edges, growing by 1.1 to the largest. Each code's result is
-extrapolated from its three finest meshes and compared with photonoxide's converged one.
+## photonoxide against openEMS
 
-- **Ghione and Naldi's coplanar line** (G. Ghione, C. Naldi, Electron. Lett. 20, 179 (1984),
-  doi:10.1049/el:19840120): strips of zero thickness, a 20 µm signal, 10 µm gaps, on 20 µm of
-  ε = 10, air below and above, in a perfectly conducting box ±200 µm across and high.
-  - photonoxide: the quasi-TEM line from the static solver's capacitances with and without the
-    substrate, n = √(C/C₀) and Z₀ = 1/(c√(CC₀)).
-  - Elmer: the same from StatElecSolver's capacitance matrix, on the same half box.
-  - openEMS: a 4 mm section driven by a 5 to 55 GHz pulse until its energy is down by 70 dB; k
-    and Z₀ from the voltages at three planes and the current midway, and n and Z₀ at 0 GHz from
-    a fit over 10 to 50 GHz.
-- **A heater over silicon:** 2 µm wide and 0.2 µm thick, 2 µm up in oxide (k = 1.38 W/(m·K)) on
-  10 µm of silicon (k = 148 W/(m·K)) held at 0 underneath, the other sides insulated, 1 W/m.
-  - photonoxide: the heat solver's peak rise.
-  - Elmer: HeatSolver's, with the heater's power as a heat source.
+| Problem | Quantity | Reference | photonoxide | openEMS |
+|---|---|---:|---:|---:|
+| Coplanar line, 0.25 µm mesh | n | 2.217156 | 2.217052 (−0.0047 %) | 2.217069 (−0.0039 %) |
+| | Z₀, Ω | 54.1476 | 54.5551 (+0.75 %) | 53.7113 (−0.81 %) |
 
-The harness writes each program's input from its documentation: openEMS's XML from its concept
-pages, Elmer's mesh files (`mesh.header`, `.nodes`, `.elements`, `.boundary`) and solver input
-from the ElmerSolver manual.
+- **Agreement:** refined to convergence, openEMS meets photonoxide within 0.0039 % on n and 0.20 % on Z₀. This checks the quasi-TEM approximation as well as the solver: openEMS makes no such approximation.
+- **No times:** openEMS solves a 3D section of the line, 4 mm long, in time (2.85 million cells for 339 345 steps on the 0.25 µm mesh), where photonoxide solves the 2D cross-section once. Their times measure different problems.
+- Every mesh: [docs/validation-openems.md](validation-openems.md).
+
+## The problems
+
+- **Ghione and Naldi's coplanar line:** strips of zero thickness, a 20 µm signal and 10 µm gaps, on 20 µm of ε = 10, in a perfectly conducting box ±200 µm across and high. Its index n and impedance Z₀.
+  - photonoxide's quasi-TEM line: from the static solver's capacitances with the substrate and without it.
+  - Elmer: the same capacitances, from StatElecSolver.
+  - openEMS: a 4 mm section driven by a pulse, k and Z₀ from voltages and currents along it, at 0 GHz from a fit over 10 to 50 GHz.
+- **A heater over silicon:** 2 × 0.2 µm, 2 µm up in oxide on 10 µm of silicon held at 0, dissipating 1 W/m. Its peak temperature rise, from photonoxide's heat solver and from Elmer's HeatSolver.
+
+More problems, each with the pair it suits: [#536](https://github.com/tachsin/photonoxide/issues/536).
 
 ## Licences
 
@@ -118,9 +118,9 @@ harness writes Elmer's mesh files itself.
 ## Running it
 
 ```sh
-PHOTONOXIDE_OPENEMS=C:/openEMS just openems
 PHOTONOXIDE_ELMER=C:/elmer/bin PHOTONOXIDE_ELMER_PATH=C:/msys64/ucrt64/bin just elmer
+PHOTONOXIDE_OPENEMS=C:/openEMS just openems
 ```
 
-Each writes its report and redraws the chart. Every option, where the runs are kept, and what
-each file of the harness does: [crosscode/README.md](../crosscode/README.md).
+Each writes its report. Every option, where the runs are kept, and what each file of the harness
+does: [crosscode/README.md](../crosscode/README.md).

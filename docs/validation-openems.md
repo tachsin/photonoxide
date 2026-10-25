@@ -12,7 +12,7 @@ Across the line both codes take the same mesh lines: cells from the smallest at 
 
 ### Results
 
-Every error is against photonoxide's converged quasi-TEM line, the reference, in percent. These tables give no times: openEMS solves a different problem, a 3D section of the line 4 mm long in time (on the finest mesh 2848000 cells for 339345 steps), where photonoxide solves the 2D cross-section's static fields once (8900 unknowns). Each code's own time for its accuracy is on [the cross-code chart](cross-code.md), with every case and code.
+Every error is against photonoxide's converged quasi-TEM line, the reference, in percent. This pair compares accuracy only: openEMS solves Maxwell's equations in time on a 3D section of the line 4 mm long (on the finest mesh 2848000 cells for 339345 steps), where photonoxide solves the 2D cross-section's static fields once (8900 unknowns), so their times measure different problems. [The cross-code comparison](cross-code.md) says which pairs compare speed.
 
 | | n | Error | Z₀, Ω | Error |
 |---|---:|---:|---:|---:|

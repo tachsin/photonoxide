@@ -121,10 +121,6 @@ openems:
 elmer:
     cargo test --manifest-path crosscode/Cargo.toml --release --test elmer -- --ignored --nocapture
 
-# the cross-code comparison chart, drawn again from crosscode/results/ (no program needed)
-crosscode-chart:
-    cargo test --manifest-path crosscode/Cargo.toml --test chart -- --ignored
-
 # the cross-code harness's own checks: rustfmt, clippy and its unit tests (no openEMS needed)
 crosscode:
     cargo fmt --manifest-path crosscode/Cargo.toml --check

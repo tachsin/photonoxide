@@ -12,7 +12,6 @@ use std::fmt::Write as _;
 use std::path::Path;
 use std::time::Instant;
 
-use photonoxide_crosscode::chart::{self, Point};
 use photonoxide_crosscode::cpw::{self, Cpw};
 use photonoxide_crosscode::elmer::{self, Elmer};
 use photonoxide_crosscode::heater::{self, Heater};
@@ -419,73 +418,6 @@ fn elmer_agrees_with_the_static_solver() {
     );
     print!("{r}");
     std::fs::write(REPORT, &r).expect("docs/validation-elmer.md");
-
-    // the chart's points: each code's errors and its own solve time, mesh by mesh
-    let mut points = Vec::new();
-    let mut add = |case: &str,
-                   quantity: &str,
-                   code: &str,
-                   smallest: f64,
-                   value: f64,
-                   reference: f64,
-                   seconds: f64| {
-        points.push(Point {
-            case: case.into(),
-            quantity: quantity.into(),
-            code: code.into(),
-            smallest_um: smallest,
-            value,
-            error_percent: 100.0 * (value - reference) / reference,
-            seconds,
-        });
-    };
-    for row in &lines {
-        for (code, (n, z), seconds) in [
-            ("Elmer", row.elmer, row.elmer_seconds),
-            ("photonoxide", row.ours, row.ours_seconds),
-        ] {
-            add(
-                "the coplanar line",
-                "n",
-                code,
-                row.smallest,
-                n,
-                ref_n,
-                seconds,
-            );
-            add(
-                "the coplanar line",
-                "Z₀",
-                code,
-                row.smallest,
-                z,
-                ref_z,
-                seconds,
-            );
-        }
-    }
-    for row in &heats {
-        add(
-            "the heater",
-            "peak rise",
-            "Elmer",
-            row.smallest,
-            row.elmer,
-            ref_t,
-            row.elmer_seconds,
-        );
-        add(
-            "the heater",
-            "peak rise",
-            "photonoxide",
-            row.smallest,
-            row.ours,
-            ref_t,
-            row.ours_seconds,
-        );
-    }
-    chart::write_points("elmer", &points).expect("the chart's points");
-    chart::redraw().expect("the chart");
 
     let index_error = (el_n.0 - ref_n) / ref_n;
     let impedance_error = (el_z.0 - ref_z) / ref_z;
