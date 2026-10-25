@@ -13,9 +13,9 @@ use std::fmt::Write as _;
 use std::path::Path;
 use std::time::Instant;
 
-use photonoxide_crosscode::cpw::{Cpw, FREQUENCIES_GHZ, Measured, Mesh, measured};
+use photonoxide_crosscode::cpw::{Cpw, FREQUENCIES_GHZ, LENGTH, Measured, Mesh, measured};
 use photonoxide_crosscode::openems::OpenEms;
-use photonoxide_crosscode::report::{duration, percent};
+use photonoxide_crosscode::report::{duration, machine, percent};
 
 /// The meshes' smallest cells, µm, each half the last.
 const SMALLEST: [f64; 4] = [2.0, 1.0, 0.5, 0.25];
@@ -83,6 +83,7 @@ struct Row {
     ohm: f64,
     ours: (f64, f64),
     ours_seconds: f64,
+    ours_cells: usize,
 }
 
 #[test]
@@ -146,6 +147,7 @@ fn openems_agrees_with_the_quasi_tem_line() {
             ohm,
             ours,
             ours_seconds,
+            ours_cells: y.cells() * z.cells(),
         });
     }
     // photonoxide converged: the quasi-TEM line on finer grids, its own grid study
@@ -224,22 +226,24 @@ fn write_report(
     let _ = writeln!(out, "# Validation report: openEMS\n");
     let _ = writeln!(
         out,
-        "Written by `just openems` where openEMS is installed (tachsin's machine); don't edit it \
-         by hand. It is a local comparison, never run in CI, and [the main \
-         report](validation.md) doesn't depend on it. How openEMS is found and run, and its \
-         licence: [cross-code references](cross-code.md).\n"
+        "Written by `just openems` on a computer with openEMS installed; don't edit it by \
+         hand. It is a local comparison, never run in CI, and [the main report](validation.md) \
+         doesn't depend on it. How openEMS is found and run, and its licence: [cross-code \
+         references](cross-code.md); how to run it: \
+         [crosscode/README.md](../crosscode/README.md).\n"
     );
     let _ = writeln!(
         out,
         "openEMS {} (CSXCAD {}), found through {}, its multithreaded engine on {} threads; \
-         photonoxide {}.\n",
+         photonoxide {}. Run on {}.\n",
         program.version(),
         program.csxcad(),
         program.found(),
         program
             .threads()
             .map_or("its own choice of".into(), |t| t.to_string()),
-        photonoxide::VERSION
+        photonoxide::VERSION,
+        machine()
     );
     let _ = writeln!(
         out,
@@ -271,8 +275,23 @@ fn write_report(
     let _ = writeln!(
         out,
         "Every error is against photonoxide's converged quasi-TEM line, the reference, in \
-         percent. The times are each code's own on this machine: openEMS's runs (as they ran, \
-         not this report's reuse of a finished one) and photonoxide's static solves.\n"
+         percent. The times are each code's own on the computer named above: openEMS's runs \
+         (as they ran, not this report's reuse of a finished one) and photonoxide's static \
+         solves.\n\n\
+         **The times aren't a race.** openEMS solves a 3D section of the line in time, until \
+         its pulse has died away; photonoxide solves the 2D cross-section once, for the static \
+         fields. On the finest mesh openEMS has {} cells (the cross-section times the cells \
+         along a {} mm line) and takes {} steps, each {:.2e} s, the step its smallest cell \
+         allows (the Courant limit, the same for every cell): {:.1e} cell updates at {:.0} \
+         million a second, which is what openEMS's engine does. photonoxide solves {} unknowns \
+         once. openEMS is in this study as an independent check of the numbers, not for its speed.\n",
+        last.cells,
+        LENGTH / 1000.0,
+        last.steps,
+        last.timestep,
+        last.cells as f64 * last.steps as f64,
+        last.cells as f64 * last.steps as f64 / last.seconds / 1e6,
+        last.ours_cells
     );
     let _ = writeln!(
         out,

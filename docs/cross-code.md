@@ -8,22 +8,44 @@ run them, and the tests that do skip, saying so, where they aren't installed.
 
 ## Results at a glance
 
-Each error is against photonoxide's converged result, the reference, in percent; the other
-code's value is extrapolated from its three finest meshes. The times are each code's own on a
-Core Ultra 7 265K (openEMS on 8 threads): the other code over all its meshes, and photonoxide
-over the same meshes and for its converged reference.
+Each error is against photonoxide's converged result, the reference, in percent. photonoxide
+"on the finest mesh" and the other codes are on the same mesh lines; openEMS and Elmer are
+extrapolated from their three finest meshes.
 
-| Case | Quantity | photonoxide, converged | openEMS | Error | Elmer | Error | Time: the other code | Time: photonoxide, same meshes | Time: photonoxide, converged |
-|---|---|---:|---:|---:|---:|---:|---:|---:|---:|
-| Ghione and Naldi's coplanar line | n | 2.217156 | 2.217069 | −0.0039 % | 2.217176 | +0.00090 % | openEMS 1 h 13 min (4 meshes); Elmer 1.40 s (5 meshes) | 0.11 s; 0.20 s | 6.76 s; 4.97 s |
-| the same line | Z₀, Ω | 54.1476 | 54.0387 | −0.20 % | 54.1221 | −0.047 % | (the same runs) | | |
-| a heater over silicon, 1 W/m | peak rise, K | 0.327422 | — | | 0.327390 | −0.0099 % | Elmer 0.70 s (5 meshes) | 0.10 s | 0.36 s |
+| Case | Quantity | photonoxide, converged (the reference) | photonoxide, finest mesh | openEMS | Elmer |
+|---|---|---:|---:|---:|---:|
+| Ghione and Naldi's coplanar line | n | 2.217156 | 2.217052 (−0.0047 %) | 2.217069 (−0.0039 %) | 2.217176 (+0.00090 %) |
+| the same line | Z₀, Ω | 54.1476 | 54.5551 (+0.75 %) | 54.0387 (−0.20 %) | 54.1221 (−0.047 %) |
+| a heater over silicon, 1 W/m | peak rise, K | 0.327422 | 0.327508 (+0.026 %) | — | 0.327390 (−0.0099 %) |
 
-The tolerances are 0.1 % on n and 0.5 % on Z₀ and on the rise. The two reports have every mesh,
-each code's error and time on it, and photonoxide's on the same lines:
-[docs/validation-openems.md](validation-openems.md) and [docs/validation-elmer.md](validation-elmer.md).
-openEMS is a 3D FDTD run to a decayed pulse, which is why it takes so much longer than the static
-solves; Elmer's times include starting the program and writing its files.
+photonoxide's finest-mesh row is on openEMS's finest mesh (0.25 µm) for the line and Elmer's
+(0.0125 µm) for the heater.
+
+### Times
+
+All on an Intel Core Ultra 7 265K (20 threads), 64 GB, Windows 11:
+
+| Case | openEMS | Elmer | photonoxide, the same meshes | photonoxide, converged |
+|---|---:|---:|---:|---:|
+| the coplanar line | 1 h 13 min (4 meshes) | 1.39 s (5 meshes, two solves each) | 0.12 s (openEMS's 4) and 0.21 s (Elmer's 5) | 4.9–6.8 s (timed in each study) |
+| the heater | — | 0.68 s (5 meshes) | 0.09 s | 0.35 s |
+
+The times aren't a race between the codes:
+
+- **openEMS solves a different problem:** a 3D section of the line, 4 mm long, in time, until
+  its pulse has died away. On its finest mesh that is 2.85 million cells for 339 345 time steps
+  of 4.0e-16 s (the step its smallest cell, 0.25 µm, allows), 9.7e11 cell updates at about
+  400 million a second, which is what its engine does. photonoxide and Elmer solve the 2D
+  cross-section once (8 900 unknowns on that mesh). openEMS is in the study as an independent
+  check of the numbers, not for its speed.
+- **Elmer and photonoxide solve the same 2D problems,** on the same lines. Elmer's times include
+  starting the program and writing and reading its files, most of its time on meshes this small;
+  photonoxide's are the solve alone.
+
+The two reports have every mesh, each code's value, error and time on it:
+[docs/validation-openems.md](validation-openems.md) and
+[docs/validation-elmer.md](validation-elmer.md). The licences and how to get the programs
+follow.
 
 ## Licences
 
@@ -73,7 +95,7 @@ photonoxide looks for the program in this order:
 - **Linux:** CSC's packages for Ubuntu, from their PPA
   ([`ppa:elmer-csc-ubuntu/elmer-csc-ppa`](https://launchpad.net/~elmer-csc-ubuntu/+archive/ubuntu/elmer-csc-ppa)),
   or a build from source with CMake ([its releases](https://github.com/ElmerCSC/elmerfem/releases)).
-- **Windows:** a build from source. The one run here was
+- **Windows:** a build from source. The one these reports ran was
   built from the 26.2 release's source with MSYS2's UCRT64 toolchain (gfortran, OpenBLAS, MUMPS
   and MS-MPI); its programs are in the build's `install\bin`, and its libraries in
   `C:\msys64\ucrt64\bin`.
@@ -160,3 +182,7 @@ against photonoxide's cell-centred finite volumes, on the same lines:
 
 Every mesh, its cells and time, and both codes' numbers on the same lines are in
 [docs/validation-elmer.md](validation-elmer.md).
+
+## Running it yourself
+
+The harness, how to run each study and what each of its files does: [crosscode/README.md](../crosscode/README.md).

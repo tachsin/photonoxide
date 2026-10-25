@@ -1,8 +1,8 @@
 # Validation report: Elmer
 
-Written by `just elmer` where Elmer is installed (tachsin's machine); don't edit it by hand. It is a local comparison, never run in CI, and [the main report](validation.md) doesn't depend on it. How Elmer is found and run, and its licence: [cross-code references](cross-code.md).
+Written by `just elmer` on a computer with Elmer installed; don't edit it by hand. It is a local comparison, never run in CI, and [the main report](validation.md) doesn't depend on it. How Elmer is found and run, and its licence: [cross-code references](cross-code.md); how to run it: [crosscode/README.md](../crosscode/README.md).
 
-Elmer 26.2 (ElmerSolver, found through $PHOTONOXIDE_ELMER), its direct solver (UMFPACK); photonoxide 0.5.4. Both codes take the same mesh lines: Elmer's nodes are photonoxide's cell faces, Elmer's bilinear quadrilaterals against photonoxide's cell-centred finite volumes. Every error is against photonoxide's converged result, the reference, in percent; the times are each code's own on this machine (Elmer's including the program's start and its files, photonoxide's the solve).
+Elmer 26.2 (ElmerSolver, found through $PHOTONOXIDE_ELMER), its direct solver (UMFPACK); photonoxide 0.5.4. Run on Intel Core Ultra 7 265K (20 threads), 64 GB, Windows 11. Both codes solve the same 2D problems on the same mesh lines: Elmer's nodes are photonoxide's cell faces, Elmer's bilinear quadrilaterals against photonoxide's cell-centred finite volumes. Every error is against photonoxide's converged result, the reference, in percent. The times are each code's own: Elmer's include starting the program and writing and reading its files (most of its time on meshes this small), photonoxide's are the solve alone.
 
 ## Summary
 
@@ -14,8 +14,8 @@ Elmer 26.2 (ElmerSolver, found through $PHOTONOXIDE_ELMER), its direct solver (U
 
 | Case | Elmer, all meshes | photonoxide, the same meshes | Elmer, finest mesh | photonoxide, finest mesh | photonoxide, converged |
 |---|---:|---:|---:|---:|---:|
-| the coplanar line (Elmer: two solves a mesh) | 1.40 s | 0.20 s | 0.38 s | 0.07 s | 4.97 s |
-| the heater | 0.70 s | 0.10 s | 0.19 s | 0.04 s | 0.36 s |
+| the coplanar line (Elmer: two solves a mesh) | 1.39 s | 0.21 s | 0.37 s | 0.08 s | 4.86 s |
+| the heater | 0.68 s | 0.09 s | 0.19 s | 0.04 s | 0.35 s |
 
 ## A coplanar waveguide in a box: StatElecSolver's capacitance
 
@@ -23,11 +23,11 @@ Ghione and Naldi's line, as in [the openEMS report](validation-openems.md): perf
 
 | Smallest cell | Cells | Time: Elmer, photonoxide | Elmer: n, Z₀ (Ω) | Error: n, Z₀ | photonoxide, the same lines: n, Z₀ (Ω) | Error: n, Z₀ |
 |---:|---:|---:|---|---|---|---|
-| 2 µm | 2183 | 0.21 s, 0.02 s | 2.217332, 52.4312 | +0.0079 %, −3.17 % | 2.215678, 57.1665 | −0.067 %, +5.58 % |
+| 2 µm | 2183 | 0.22 s, 0.02 s | 2.217332, 52.4312 | +0.0079 %, −3.17 % | 2.215678, 57.1665 | −0.067 %, +5.58 % |
 | 1 µm | 3672 | 0.24 s, 0.02 s | 2.217109, 53.2792 | −0.0021 %, −1.60 % | 2.216253, 55.7129 | −0.041 %, +2.89 % |
 | 0.5 µm | 5762 | 0.26 s, 0.03 s | 2.216937, 53.7105 | −0.0099 %, −0.81 % | 2.217192, 54.9224 | +0.0016 %, +1.43 % |
 | 0.25 µm | 8900 | 0.31 s, 0.06 s | 2.217161, 53.9122 | +0.00021 %, −0.43 % | 2.217052, 54.5551 | −0.0047 %, +0.75 % |
-| 0.125 µm | 12995 | 0.38 s, 0.07 s | 2.217175, 54.0150 | +0.00085 %, −0.24 % | 2.217159, 54.3714 | +0.00011 %, +0.41 % |
+| 0.125 µm | 12995 | 0.37 s, 0.08 s | 2.217175, 54.0150 | +0.00085 %, −0.24 % | 2.217159, 54.3714 | +0.00011 %, +0.41 % |
 
 | | n | Error | Z₀, Ω | Error | From |
 |---|---:|---:|---:|---:|---|
@@ -41,9 +41,9 @@ A heater 2 µm wide and 0.2 µm thick, its centre 2 µm up, dissipating 1 W/m in
 
 | Smallest cell | Cells | Time: Elmer, photonoxide | Elmer: peak rise (K) | Error | photonoxide, the same lines (K) | Error |
 |---:|---:|---:|---:|---:|---:|---:|
-| 0.2 µm | 1155 | 0.11 s, 0.00 s | 0.324539 | −0.88 % | 0.334348 | +2.12 % |
-| 0.1 µm | 2250 | 0.12 s, 0.01 s | 0.326228 | −0.36 % | 0.329440 | +0.62 % |
-| 0.05 µm | 3976 | 0.13 s, 0.01 s | 0.327070 | −0.11 % | 0.328050 | +0.19 % |
+| 0.2 µm | 1155 | 0.10 s, 0.00 s | 0.324539 | −0.88 % | 0.334348 | +2.12 % |
+| 0.1 µm | 2250 | 0.11 s, 0.01 s | 0.326228 | −0.36 % | 0.329440 | +0.62 % |
+| 0.05 µm | 3976 | 0.12 s, 0.01 s | 0.327070 | −0.11 % | 0.328050 | +0.19 % |
 | 0.025 µm | 6831 | 0.15 s, 0.03 s | 0.327346 | −0.023 % | 0.327623 | +0.061 % |
 | 0.0125 µm | 10578 | 0.19 s, 0.04 s | 0.327384 | −0.012 % | 0.327508 | +0.026 % |
 

@@ -12,6 +12,21 @@ pub fn percent(value: f64, reference: f64) -> String {
     format!("{}{text} %", if p < 0.0 { '−' } else { '+' })
 }
 
+/// The computer a report was run on, for its times: `PHOTONOXIDE_MACHINE` where it names one
+/// (`Intel Core Ultra 7 265K, 20 threads, 64 GB, Windows 11`), else its threads and system.
+pub fn machine() -> String {
+    std::env::var("PHOTONOXIDE_MACHINE")
+        .ok()
+        .filter(|m| !m.trim().is_empty())
+        .unwrap_or_else(|| {
+            let threads = std::thread::available_parallelism().map_or(0, usize::from);
+            format!(
+                "a computer with {threads} threads ({})",
+                std::env::consts::OS
+            )
+        })
+}
+
 /// A time: `0.31 s`, `14 s`, `6 min 32 s`, `1 h 5 min`.
 pub fn duration(seconds: f64) -> String {
     if seconds < 10.0 {

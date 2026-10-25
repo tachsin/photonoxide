@@ -15,7 +15,7 @@ use std::time::Instant;
 use photonoxide_crosscode::cpw::{self, Cpw};
 use photonoxide_crosscode::elmer::{self, Elmer};
 use photonoxide_crosscode::heater::{self, Heater};
-use photonoxide_crosscode::report::{duration, percent};
+use photonoxide_crosscode::report::{duration, machine, percent};
 
 /// The meshes' smallest cells, µm, each half the last, growing by 1.1 to the largest.
 const LINE_SMALLEST: [f64; 5] = [2.0, 1.0, 0.5, 0.25, 0.125];
@@ -237,14 +237,15 @@ fn elmer_agrees_with_the_static_solver() {
     let _ = writeln!(r, "# Validation report: Elmer\n");
     let _ = writeln!(
         r,
-        "Written by `just elmer` where Elmer is installed (tachsin's machine); don't edit it by hand. It is a local comparison, never run in CI, and [the main report](validation.md) doesn't depend on it. How Elmer is found and run, and its licence: [cross-code references](cross-code.md).\n"
+        "Written by `just elmer` on a computer with Elmer installed; don't edit it by hand. It is a local comparison, never run in CI, and [the main report](validation.md) doesn't depend on it. How Elmer is found and run, and its licence: [cross-code references](cross-code.md); how to run it: [crosscode/README.md](../crosscode/README.md).\n"
     );
     let _ = writeln!(
         r,
-        "Elmer {} (ElmerSolver, found through {}), its direct solver (UMFPACK); photonoxide {}. Both codes take the same mesh lines: Elmer's nodes are photonoxide's cell faces, Elmer's bilinear quadrilaterals against photonoxide's cell-centred finite volumes. Every error is against photonoxide's converged result, the reference, in percent; the times are each code's own on this machine (Elmer's including the program's start and its files, photonoxide's the solve).\n",
+        "Elmer {} (ElmerSolver, found through {}), its direct solver (UMFPACK); photonoxide {}. Run on {}. Both codes solve the same 2D problems on the same mesh lines: Elmer's nodes are photonoxide's cell faces, Elmer's bilinear quadrilaterals against photonoxide's cell-centred finite volumes. Every error is against photonoxide's converged result, the reference, in percent. The times are each code's own: Elmer's include starting the program and writing and reading its files (most of its time on meshes this small), photonoxide's are the solve alone.\n",
         program.version(),
         program.found(),
-        photonoxide::VERSION
+        photonoxide::VERSION,
+        machine()
     );
 
     let _ = writeln!(r, "## Summary\n");
