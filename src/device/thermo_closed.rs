@@ -133,6 +133,45 @@ impl Slab {
         sum
     }
 
+    /// The steady rise of all the sheets at (x, y), as [`Slab::steady`] but its series
+    /// accelerated (Kummer's transformation): inside a strip the terms tend to
+    /// (2/H) sin(k_m y) sin(k_m s) · 2/k_m², whose sum is the slab's Green's function across its
+    /// height, y₍<₎(H − y₍>₎)/H with the top held (y₍<₎ insulated), so that is summed in closed
+    /// form and the rest falls as e^(−k_m d), d the distance from x to the strip's nearer edge:
+    /// summed until k_m d exceeds 40. A point on a strip's edge isn't taken.
+    pub(super) fn steady_accelerated(&self, sheets: &[Sheets], x: f64, y: f64) -> f64 {
+        let h = self.height;
+        let mut rise = 0.0;
+        for sheet in sheets {
+            let s = sheet.height;
+            let (low, high) = (y.min(s), y.max(s));
+            let across_height = if self.held { low * (h - high) / h } else { low };
+            for &(c, w, share) in &sheet.strips {
+                let (u, half) = ((x - c).abs(), 0.5 * w);
+                let inside = u < half;
+                let d = (u - half).abs();
+                let terms = if d > 0.0 {
+                    ((40.0 * h / (PI * d)).ceil() as usize).clamp(8, 400_000)
+                } else {
+                    400_000
+                };
+                let mut sum = if inside { 2.0 * across_height } else { 0.0 };
+                let single = Sheets {
+                    height: s,
+                    strips: Vec::new(),
+                };
+                for m in 0..terms {
+                    let k = self.k(m);
+                    let near = if inside { 2.0 / k } else { 0.0 };
+                    let a = across(c64::new(k, 0.0), x - c, w).re - near;
+                    sum += self.weight(m, &single, y) * a / k;
+                }
+                rise += share / w / (2.0 * self.conductivity) * sum;
+            }
+        }
+        rise
+    }
+
     /// The rise's response at (x, y) to one sheet's drive at `frequency_hz`, the sheet's
     /// `steady` rise times its response: the steady series plus Σ_m [term(p_m) − term(k_m)],
     /// p_m = √(k_m² + iω/D), whose terms fall as 1/m⁴.

@@ -583,7 +583,9 @@ their sum.
   the centre and the contact held. Its heat goes to the oxide straight across to the held
   planes, $Y = k/d$ below and above, which leaves out the oxide's spreading beyond the silicon;
   the spreading is closed by the oxide as a slab between the held planes (the eigenfunctions
-  above with $k_m = (m+1)\pi/H$): $Y$'s steady part is taken $a$ times as large, $a$ the factor
+  above with $k_m = (m+1)\pi/H$, their series accelerated by Kummer's transformation, the part
+  that doesn't decay across summed as the slab's Green's function across its height): $Y$'s
+  steady part is taken $a$ times as large, $a$ the factor
   (about 2) at which the fin's rise at the centre is the slab's from the heat the fin gives it,
   less what the held contacts take back from the oxide (a sink at each, its strength the one
   that holds its centre at the ambient). The crosstalk is the slab's rise at the neighbour from

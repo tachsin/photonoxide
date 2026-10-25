@@ -10,5 +10,5 @@ Harris et al. 2014's in-guide heater through photonoxide's in-guide thermo-optic
   2D f_3dB on grids 1 and 1/2, kHz     109.152704   on 2 grids, error 1.3e-1 ≤ 1.092e0 ok
   2D P_pi, mW (measured)                26.365519   paper 24.77      ± 2.9e0     ok
   2D f_3dB, kHz (measured)             109.152704   paper 130        ± 3.2e1     ok
-  analytic P_pi, mW                     25.678139   2D 26.344337  ± 3.952e0      ok
+  analytic P_pi, mW                     25.677644   2D 26.344337  ± 3.952e0      ok
 all 5 within tolerance of the paper

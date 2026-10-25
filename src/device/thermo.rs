@@ -1106,44 +1106,64 @@ impl Section2d {
         })
     }
 
-    /// The heat `fin` gives the oxide, steady, as sheets at the slab's mid-height in the slab
-    /// whose isothermal plane is at `plane` (µm): each stretch's evenly across it.
-    fn leaks(&self, fin: &Fin, plane: f64) -> Sheets {
-        let strips = self
+    /// The oxide's unit responses to each stretch's heat, sheets at the slab's mid-height in
+    /// the slab whose isothermal plane is at `plane` (µm), and to the held contacts' sinks: the
+    /// steady rise (K per W/m) at each of `points` (x, y, m) from a watt per metre spread evenly
+    /// across each stretch on both sides (the ridge's one strip across the centre), and then
+    /// across both contacts.
+    fn unit_responses(&self, slab: &Slab, plane: f64, points: &[(f64, f64)]) -> Vec<Vec<f64>> {
+        let height = (0.5 * self.slab - plane) * 1e-6;
+        let xc = (self.reach - 0.5 * CONTACT) * 1e-6;
+        let mut sources: Vec<Vec<(f64, f64, f64)>> = self
             .stretches()
             .iter()
-            .zip(fin.leaks())
-            .flat_map(|(&(from, to, _), leak)| {
-                let (c, w) = (0.5 * (from + to) * 1e-6, (to - from) * 1e-6);
-                [(-c, w, leak), (c, w, leak)]
+            .map(|&(from, to, _)| {
+                if from == 0.0 {
+                    vec![(0.0, 2.0 * to * 1e-6, 1.0)]
+                } else {
+                    let (c, w) = (0.5 * (from + to) * 1e-6, (to - from) * 1e-6);
+                    vec![(-c, w, 0.5), (c, w, 0.5)]
+                }
             })
             .collect();
-        Sheets {
-            height: (0.5 * self.slab - plane) * 1e-6,
-            strips,
-        }
+        sources.push(vec![(-xc, CONTACT * 1e-6, 0.5), (xc, CONTACT * 1e-6, 0.5)]);
+        sources
+            .into_iter()
+            .map(|strips| {
+                let sheet = [Sheets { height, strips }];
+                points
+                    .iter()
+                    .map(|&(x, y)| slab.steady_accelerated(&sheet, x, y))
+                    .collect()
+            })
+            .collect()
     }
 
     /// The in-guide heater's fin closed by the oxide: its spreading the one at which the fin's
     /// rise at the centre is the oxide's (the slab's eigenfunctions, exact) from the heat the fin
     /// gives it and the held contacts in it (a sink at each, the strength that holds its centre
-    /// at the ambient), by bisection in its log from 1 to 100 to 1e-9; and those sheets.
-    fn closed_fin(&self, slab: &Slab, plane: f64, guide: f64) -> Result<(Fin, Vec<Sheets>)> {
+    /// at the ambient), by bisection in its log from 1 to 100 to 1e-9; and the oxide's rise at
+    /// the neighbour from the same.
+    fn closed_fin(&self, slab: &Slab, plane: f64, guide: f64) -> Result<(Fin, f64)> {
         let height = (0.5 * self.slab - plane) * 1e-6;
         let xc = (self.reach - 0.5 * CONTACT) * 1e-6;
-        let contacts = |share: f64| Sheets {
-            height,
-            strips: vec![(-xc, CONTACT * 1e-6, share), (xc, CONTACT * 1e-6, share)],
-        };
-        let own = slab.steady(&[contacts(1.0)], xc, height);
-        let sources = |fin: &Fin| -> Vec<Sheets> {
-            let leaks = self.leaks(fin, plane);
-            let at = slab.steady(std::slice::from_ref(&leaks), xc, height);
-            vec![leaks, contacts(-at / own)]
+        // at the guide, at a contact and at the neighbour
+        let units = self.unit_responses(
+            slab,
+            plane,
+            &[(0.0, guide), (xc, height), (self.pitch * 1e-6, guide)],
+        );
+        let (contact, stretches) = units.split_last().expect("the contacts' responses");
+        let oxide = |fin: &Fin| -> [f64; 3] {
+            // each side's leak, both sides' heat
+            let leaks: Vec<f64> = fin.leaks().iter().map(|l| 2.0 * l).collect();
+            let at = |i: usize| -> f64 { leaks.iter().zip(stretches).map(|(l, u)| l * u[i]).sum() };
+            let sink = -at(1) / contact[1];
+            [0, 1, 2].map(|i| at(i) + sink * contact[i])
         };
         let gap = |spreading: f64| -> Result<f64> {
             let fin = self.fin(spreading)?;
-            Ok(fin.steady() - slab.steady(&sources(&fin), 0.0, guide))
+            Ok(fin.steady() - oxide(&fin)[0])
         };
         let (mut lo, mut hi) = (1.0f64, 100.0f64);
         while hi / lo > 1.0 + 1e-9 {
@@ -1155,8 +1175,8 @@ impl Section2d {
             }
         }
         let fin = self.fin((lo * hi).sqrt())?;
-        let sheets = sources(&fin);
-        Ok((fin, sheets))
+        let neighbour = oxide(&fin)[2];
+        Ok((fin, neighbour))
     }
 
     /// The analytic model's figures.
@@ -1167,9 +1187,8 @@ impl Section2d {
         let (rise, crosstalk, tau, cutoff) = if self.heater == Heater::InGuide {
             // the fin's centre, and the heat it gives the oxide as sheets: their rise at the
             // neighbour over the fin's
-            let (fin, leaks) = self.closed_fin(&slab, plane, guide)?;
+            let (fin, neighbour) = self.closed_fin(&slab, plane, guide)?;
             let rise = fin.steady();
-            let neighbour = slab.steady(&leaks, self.pitch * 1e-6, guide);
             (rise, neighbour / rise, fin.one_over_e(), fin.cutoff())
         } else {
             let sheets = self.sheets(plane);

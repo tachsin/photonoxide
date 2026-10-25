@@ -181,6 +181,44 @@ fn the_geometry_draws_the_guide_and_the_heater_on_the_stack() {
 }
 
 #[test]
+fn the_accelerated_series_is_the_slabs() {
+    // Kummer's transformation of the slab's steady series against the series itself, held and
+    // insulated, inside a strip and beside it, at the sheet's height and off it
+    use super::thermo_closed::{Sheets, Slab};
+    for held in [true, false] {
+        let slab = Slab {
+            height: 12.2e-6,
+            conductivity: 1.38,
+            diffusivity: 1.38 / (2203.0 * 709.0),
+            held,
+        };
+        let sheets = [Sheets {
+            height: 2.05e-6,
+            strips: vec![
+                (0.0, 0.5e-6, 0.4),
+                (-1.5e-6, 1.0e-6, 0.3),
+                (1.5e-6, 1.0e-6, 0.3),
+            ],
+        }];
+        for (x, y) in [
+            (0.0, 2.11e-6),
+            (0.1e-6, 2.05e-6),
+            (5e-6, 2.11e-6),
+            (1.2e-6, 4e-6),
+        ] {
+            let (fast, series) = (
+                slab.steady_accelerated(&sheets, x, y),
+                slab.steady(&sheets, x, y),
+            );
+            assert!(
+                (fast / series - 1.0).abs() < 1e-4,
+                "{held} {x} {y}: {fast} {series}"
+            );
+        }
+    }
+}
+
+#[test]
 fn fixed_talbot_inverts_a_step_into_a_pole() {
     use super::thermo_closed::talbot;
     use num_complex::Complex64 as c64;
