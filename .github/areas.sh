@@ -238,6 +238,9 @@ ignored() {
     .github/full-suite.sh | .github/hooks/* | justfile) return 0 ;;
     # the codebase report on the release PR, which its own workflow runs
     .github/codebase-report.sh | .github/workflows/codebase-report.yml) return 0 ;;
+    # the cross-code harness (openEMS run on your own machine, `just openems`), a crate of its
+    # own outside the workspace that CI never builds (docs/cross-code.md)
+    crosscode/*) return 0 ;;
     # this workflow and the map run everything; the others run as themselves
     .github/workflows/ci.yml | .github/areas.sh) return 1 ;;
     .github/workflows/*) return 0 ;;
