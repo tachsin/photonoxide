@@ -10,14 +10,26 @@ Ghione and Naldi's line (G. Ghione, C. Naldi, Electron. Lett. 20, 179 (1984), do
 
 Across the line both codes take the same mesh lines: cells from the smallest at the strips' edges and in their plane, growing by 1.1 to 10 µm (openEMS's the mirror image of photonoxide's half).
 
+### Summary
+
+Every error is against photonoxide's converged quasi-TEM line, the reference, in percent. The times are each code's own on this machine: openEMS's runs (as they ran, not this report's reuse of a finished one) and photonoxide's static solves.
+
+| | n | Error | Z₀, Ω | Error | Time |
+|---|---:|---:|---:|---:|---:|
+| photonoxide, converged (the reference) | 2.217156 | — | 54.1476 | — | 6.76 s |
+| openEMS, extrapolated from its three finest meshes | 2.217069 | −0.0039 % | 54.0387 | −0.20 % | 1 h 13 min (all 4 meshes) |
+| photonoxide on the same lines, extrapolated | 2.217052 | −0.0047 % | 54.2365 | +0.16 % | 0.11 s (all 4 meshes) |
+| openEMS on its finest mesh (0.25 µm) | 2.217069 | −0.0039 % | 53.7113 | −0.81 % | 40 min 8 s |
+| photonoxide on the same mesh | 2.217052 | −0.0047 % | 54.5551 | +0.75 % | 0.05 s |
+
 ### On each mesh
 
-| Smallest cell | openEMS's cells | Steps (time step) | Time | n at 10, 20, 30, 40, 50 GHz | Z₀ at the same, Ω | openEMS at 0 GHz: n, Z₀ | photonoxide, the same lines: n, Z₀ | Difference: n, Z₀ |
-|---:|---:|---:|---:|---|---|---|---|---|
-| 2 µm | 698560 | 38112 (3.816e-15 s) | 149 s (an earlier run) | 2.21693, 2.21698, 2.21727, 2.21768, 2.21821 | 51.056, 51.062, 51.068, 51.076, 51.085 | 2.21681, 51.057 | 2.21568, 57.167 | +5.10e-4, -1.07e-1 |
-| 1 µm | 1175040 | 77895 (1.750e-15 s) | 461 s (an earlier run) | 2.21723, 2.21732, 2.21763, 2.21804, 2.21858 | 52.551, 52.557, 52.562, 52.571, 52.580 | 2.21713, 52.551 | 2.21625, 55.713 | +3.93e-4, -5.68e-2 |
-| 0.5 µm | 1843840 | 154380 (8.833e-16 s) | 1388 s (an earlier run) | 2.21681, 2.21690, 2.21722, 2.21762, 2.21818 | 53.341, 53.346, 53.352, 53.360, 53.370 | 2.21671, 53.341 | 2.21719, 54.922 | -2.18e-4, -2.88e-2 |
-| 0.25 µm | 2848000 | 339345 (4.018e-16 s) | 2408 s | 2.21718, 2.21725, 2.21757, 2.21798, 2.21853 | 53.711, 53.717, 53.723, 53.731, 53.741 | 2.21707, 53.711 | 2.21705, 54.555 | +7.42e-6, -1.55e-2 |
+| Smallest cell | openEMS's cells | Steps (time step) | Time: openEMS, photonoxide | n at 10, 20, 30, 40, 50 GHz | Z₀ at the same, Ω | openEMS at 0 GHz: n, Z₀ | Error: n, Z₀ | photonoxide, the same lines: n, Z₀ | Error: n, Z₀ |
+|---:|---:|---:|---:|---|---|---|---|---|---|
+| 2 µm | 698560 | 38112 (3.816e-15 s) | 2 min 29 s (an earlier run), 0.01 s | 2.21693, 2.21698, 2.21727, 2.21768, 2.21821 | 51.056, 51.062, 51.068, 51.076, 51.085 | 2.21681, 51.057 | −0.016 %, −5.71 % | 2.21568, 57.167 | −0.067 %, +5.58 % |
+| 1 µm | 1175040 | 77895 (1.750e-15 s) | 7 min 41 s (an earlier run), 0.02 s | 2.21723, 2.21732, 2.21763, 2.21804, 2.21858 | 52.551, 52.557, 52.562, 52.571, 52.580 | 2.21713, 52.551 | −0.0014 %, −2.95 % | 2.21625, 55.713 | −0.041 %, +2.89 % |
+| 0.5 µm | 1843840 | 154380 (8.833e-16 s) | 23 min 8 s (an earlier run), 0.03 s | 2.21681, 2.21690, 2.21722, 2.21762, 2.21818 | 53.341, 53.346, 53.352, 53.360, 53.370 | 2.21671, 53.341 | −0.020 %, −1.49 % | 2.21719, 54.922 | +0.0016 %, +1.43 % |
+| 0.25 µm | 2848000 | 339345 (4.018e-16 s) | 40 min 8 s (an earlier run), 0.05 s | 2.21718, 2.21725, 2.21757, 2.21798, 2.21853 | 53.711, 53.717, 53.723, 53.731, 53.741 | 2.21707, 53.711 | −0.0039 %, −0.81 % | 2.21705, 54.555 | −0.0047 %, +0.75 % |
 
 ### Converged
 
@@ -27,4 +39,4 @@ Across the line both codes take the same mesh lines: cells from the smallest at 
 | photonoxide on the same lines, extrapolated | 2.21705 | 54.236 | the same; n no order: the finest shown, Z₀ order 1.11 |
 | photonoxide, converged | 2.21716 | 54.148 | `QuasiTem` from 0.0025 µm, growing by 1.025 to 2 µm (from 0.01, 0.005, 0.0025 µm: n 2.217157, 2.217162, 2.217156, Z₀ 54.1580, 54.1508, 54.1476; extrapolated n 2.217156, Z₀ 54.1450, order 1.16) |
 
-openEMS against photonoxide converged: n -3.95e-5, Z₀ -2.01e-3 (relative; tolerances 1e-3 and 5e-3).
+openEMS against photonoxide converged: n −0.0039 %, Z₀ −0.20 % (tolerances 0.1 % and 0.5 %).

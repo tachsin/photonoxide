@@ -30,3 +30,4 @@ pub mod elmer;
 pub mod heater;
 pub mod line;
 pub mod openems;
+pub mod report;

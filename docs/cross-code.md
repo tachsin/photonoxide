@@ -1,11 +1,29 @@
 # Cross-code references: other codes on photonoxide's cases
 
 Meep and MPB are the references for photonoxide's optics; for the static and RF solvers of 0.6
-they are openEMS (RF) and, once a build is at hand, Elmer (heat and electrostatics): open codes
-run as external programs on shared cases, their numbers compared with photonoxide's at equal
-grids or converged (ROADMAP 0.6, decision 6; issue #422). photonoxide needs none of them: CI
-and the released program never run them, and the tests that do skip, saying so, where they
-aren't installed.
+they are openEMS (RF) and Elmer (heat and electrostatics): open codes run as external programs
+on shared cases, their numbers compared with photonoxide's at equal grids or converged (ROADMAP
+0.6, decision 6; issue #422). photonoxide needs none of them: CI and the released program never
+run them, and the tests that do skip, saying so, where they aren't installed.
+
+## Results at a glance
+
+Each error is against photonoxide's converged result, the reference, in percent; the other
+code's value is extrapolated from its three finest meshes. The times are each code's own on a
+Core Ultra 7 265K (openEMS on 8 threads): the other code over all its meshes, and photonoxide
+over the same meshes and for its converged reference.
+
+| Case | Quantity | photonoxide, converged | openEMS | Error | Elmer | Error | Time: the other code | Time: photonoxide, same meshes | Time: photonoxide, converged |
+|---|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| Ghione and Naldi's coplanar line | n | 2.217156 | 2.217069 | −0.0039 % | 2.217176 | +0.00090 % | openEMS 1 h 13 min (4 meshes); Elmer 1.40 s (5 meshes) | 0.11 s; 0.20 s | 6.76 s; 4.97 s |
+| the same line | Z₀, Ω | 54.1476 | 54.0387 | −0.20 % | 54.1221 | −0.047 % | (the same runs) | | |
+| a heater over silicon, 1 W/m | peak rise, K | 0.327422 | — | | 0.327390 | −0.0099 % | Elmer 0.70 s (5 meshes) | 0.10 s | 0.36 s |
+
+The tolerances are 0.1 % on n and 0.5 % on Z₀ and on the rise. The two reports have every mesh,
+each code's error and time on it, and photonoxide's on the same lines:
+[docs/validation-openems.md](validation-openems.md) and [docs/validation-elmer.md](validation-elmer.md).
+openEMS is a 3D FDTD run to a decayed pulse, which is why it takes so much longer than the static
+solves; Elmer's times include starting the program and writing its files.
 
 ## Licences
 
@@ -115,9 +133,9 @@ photonoxide converged (`QuasiTem` graded from 2.5 nm by 1.025): n 2.21716, Z₀ 
 extrapolated, order 1.16). Both codes' Z₀ converge at about first order in the smallest cell, from
 opposite sides; Richardson's extrapolation of the three finest meshes gives openEMS 54.039 Ω
 (order 1.09) and photonoxide on the same lines 54.236 Ω (order 1.11). **openEMS against
-photonoxide converged: n −3.95e-5, Z₀ −2.01e-3 (relative)**, within the study's tolerances of
-1e-3 and 5e-3; openEMS's index is within 4.6e-4 of the converged one on every mesh. The 0.25 µm
-run took 2408 s on 8 threads (339 345 steps of 4.0e-16 s, 2.85 million cells). Every mesh, its
+photonoxide converged: n −0.0039 %, Z₀ −0.20 %**, within the study's tolerances of
+0.1 % and 0.5 %; openEMS's index is within 0.021 % of the converged one on every mesh. The 0.25 µm
+run took 40 min 8 s on 8 threads (339 345 steps of 4.0e-16 s, 2.85 million cells). Every mesh, its
 steps and time, and n and Z₀ at 10 to 50 GHz are in [docs/validation-openems.md](validation-openems.md),
 which `just openems` writes.
 
@@ -134,11 +152,11 @@ against photonoxide's cell-centred finite volumes, on the same lines:
   it beside its mirror plane): StatElecSolver's capacitance of the signal with the substrate and
   without it, so n = √(C/C₀) and Z₀ = 1/(c√(CC₀)). On five meshes from 2 to 0.125 µm, Elmer
   extrapolated gives n 2.217176 and Z₀ 54.1221 Ω, against photonoxide's converged 2.217156 and
-  54.1476 Ω: **+8.97e-6 and −4.71e-4** (relative; tolerances 1e-3 and 5e-3).
+  54.1476 Ω: **+0.00090 % and −0.047 %** (tolerances 0.1 % and 0.5 %).
 - **A heater over silicon, by heat conduction:** a heater 2 µm wide and 0.2 µm thick, 2 µm up in
   oxide (k = 1.38 W/(m·K)) on 10 µm of silicon (k = 148 W/(m·K)) held at 0 underneath, 1 W/m:
   HeatSolver's peak rise. On five meshes from 0.2 to 0.0125 µm, Elmer extrapolated gives
-  0.327390 K against photonoxide's converged 0.327422 K: **−9.94e-5** (tolerance 5e-3).
+  0.327390 K against photonoxide's converged 0.327422 K: **−0.0099 %** (tolerance 0.5 %).
 
 Every mesh, its cells and time, and both codes' numbers on the same lines are in
 [docs/validation-elmer.md](validation-elmer.md).

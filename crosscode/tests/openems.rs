@@ -11,9 +11,11 @@
 
 use std::fmt::Write as _;
 use std::path::Path;
+use std::time::Instant;
 
 use photonoxide_crosscode::cpw::{Cpw, FREQUENCIES_GHZ, Measured, Mesh, measured};
 use photonoxide_crosscode::openems::OpenEms;
+use photonoxide_crosscode::report::{duration, percent};
 
 /// The meshes' smallest cells, µm, each half the last.
 const SMALLEST: [f64; 4] = [2.0, 1.0, 0.5, 0.25];
@@ -80,6 +82,7 @@ struct Row {
     index: f64,
     ohm: f64,
     ours: (f64, f64),
+    ours_seconds: f64,
 }
 
 #[test]
@@ -124,7 +127,9 @@ fn openems_agrees_with_the_quasi_tem_line() {
                 .map(|m| (m.frequency_ghz, m.ohm()))
                 .collect::<Vec<_>>(),
         );
+        let t = Instant::now();
         let ours = cpw.static_line(&y, &z).expect("the static solve");
+        let ours_seconds = t.elapsed().as_secs_f64();
         eprintln!(
             "{label}: n {index:.6} Z {ohm:.4}; photonoxide on the same lines n {:.6} Z {:.4}",
             ours.0, ours.1
@@ -140,12 +145,14 @@ fn openems_agrees_with_the_quasi_tem_line() {
             index,
             ohm,
             ours,
+            ours_seconds,
         });
     }
     // photonoxide converged: the quasi-TEM line on finer grids, its own grid study
-    let converged: Vec<(f64, f64)> = CONVERGED
+    let (converged, converged_seconds): (Vec<(f64, f64)>, Vec<f64>) = CONVERGED
         .iter()
         .map(|&smallest| {
+            let t = Instant::now();
             let (y, z) = cpw
                 .axes(&Mesh {
                     smallest,
@@ -154,9 +161,9 @@ fn openems_agrees_with_the_quasi_tem_line() {
                 })
                 .expect("a valid mesh");
             let line = cpw.quasi_tem(&y, &z).expect("the quasi-TEM line");
-            (line.index(), line.impedance())
+            ((line.index(), line.impedance()), t.elapsed().as_secs_f64())
         })
-        .collect();
+        .unzip();
     let column = |f: fn(&Row) -> f64| rows.iter().map(f).collect::<Vec<_>>();
     let (oe_n, oe_np) = extrapolated(&column(|r| r.index));
     let (oe_z, oe_zp) = extrapolated(&column(|r| r.ohm));
@@ -170,6 +177,7 @@ fn openems_agrees_with_the_quasi_tem_line() {
         &program,
         &rows,
         &converged,
+        &converged_seconds,
         [oe_n, oe_np, oe_z, oe_zp],
         [px_n, px_np, px_z, px_zp],
         [cv_n, cv_z, cv_zp],
@@ -207,6 +215,7 @@ fn write_report(
     program: &OpenEms,
     rows: &[Row],
     converged: &[(f64, f64)],
+    converged_seconds: &[f64],
     openems: [f64; 4],
     same_lines: [f64; 4],
     ours: [f64; 3],
@@ -251,23 +260,88 @@ fn write_report(
          strips' edges and in their plane, growing by {GROWTH} to {LARGEST} µm (openEMS's the \
          mirror image of photonoxide's half).\n"
     );
+    let [oe_n, oe_np, oe_z, oe_zp] = openems;
+    let [px_n, px_np, px_z, px_zp] = same_lines;
+    let [cv_n, cv_z, cv_zp] = ours;
+    let finest = converged[converged.len() - 1];
+    let last = &rows[rows.len() - 1];
+    let openems_total: f64 = rows.iter().map(|r| r.seconds).sum();
+    let ours_total: f64 = rows.iter().map(|r| r.ours_seconds).sum();
+    let _ = writeln!(out, "### Summary\n");
+    let _ = writeln!(
+        out,
+        "Every error is against photonoxide's converged quasi-TEM line, the reference, in \
+         percent. The times are each code's own on this machine: openEMS's runs (as they ran, \
+         not this report's reuse of a finished one) and photonoxide's static solves.\n"
+    );
+    let _ = writeln!(
+        out,
+        "| | n | Error | Z₀, Ω | Error | Time |\n|---|---:|---:|---:|---:|---:|"
+    );
+    let _ = writeln!(
+        out,
+        "| photonoxide, converged (the reference) | {} | — | {} | — | {} |",
+        sig(finest.0, 6),
+        sig(finest.1, 4),
+        duration(converged_seconds[converged_seconds.len() - 1])
+    );
+    let _ = writeln!(
+        out,
+        "| openEMS, extrapolated from its three finest meshes | {} | {} | {} | {} | {} (all {} meshes) |",
+        sig(oe_n, 6),
+        percent(oe_n, finest.0),
+        sig(oe_z, 4),
+        percent(oe_z, finest.1),
+        duration(openems_total),
+        rows.len()
+    );
+    let _ = writeln!(
+        out,
+        "| photonoxide on the same lines, extrapolated | {} | {} | {} | {} | {} (all {} meshes) |",
+        sig(px_n, 6),
+        percent(px_n, finest.0),
+        sig(px_z, 4),
+        percent(px_z, finest.1),
+        duration(ours_total),
+        rows.len()
+    );
+    let _ = writeln!(
+        out,
+        "| openEMS on its finest mesh ({} µm) | {} | {} | {} | {} | {} |",
+        last.smallest,
+        sig(last.index, 6),
+        percent(last.index, finest.0),
+        sig(last.ohm, 4),
+        percent(last.ohm, finest.1),
+        duration(last.seconds)
+    );
+    let _ = writeln!(
+        out,
+        "| photonoxide on the same mesh | {} | {} | {} | {} | {} |\n",
+        sig(last.ours.0, 6),
+        percent(last.ours.0, finest.0),
+        sig(last.ours.1, 4),
+        percent(last.ours.1, finest.1),
+        duration(last.ours_seconds)
+    );
     let _ = writeln!(out, "### On each mesh\n");
     let _ = writeln!(
         out,
-        "| Smallest cell | openEMS's cells | Steps (time step) | Time | n at {} GHz | Z₀ at the same, Ω | openEMS at 0 GHz: n, Z₀ | photonoxide, the same lines: n, Z₀ | Difference: n, Z₀ |",
+        "| Smallest cell | openEMS's cells | Steps (time step) | Time: openEMS, photonoxide | n at {} GHz | Z₀ at the same, Ω | openEMS at 0 GHz: n, Z₀ | Error: n, Z₀ | photonoxide, the same lines: n, Z₀ | Error: n, Z₀ |",
         FREQUENCIES_GHZ.map(|f| format!("{f:.0}")).join(", ")
     );
-    let _ = writeln!(out, "|---:|---:|---:|---:|---|---|---|---|---|");
+    let _ = writeln!(out, "|---:|---:|---:|---:|---|---|---|---|---|---|");
     for r in rows {
         let _ = writeln!(
             out,
-            "| {} µm | {} | {} ({:.3e} s) | {:.0} s{} | {} | {} | {}, {} | {}, {} | {:+.2e}, {:+.2e} |",
+            "| {} µm | {} | {} ({:.3e} s) | {}{}, {} | {} | {} | {}, {} | {}, {} | {}, {} | {}, {} |",
             r.smallest,
             r.cells,
             r.steps,
             r.timestep,
-            r.seconds,
+            duration(r.seconds),
             if r.reused { " (an earlier run)" } else { "" },
+            duration(r.ours_seconds),
             r.lines
                 .iter()
                 .map(|m| sig(m.index(), 5))
@@ -280,16 +354,14 @@ fn write_report(
                 .join(", "),
             sig(r.index, 5),
             sig(r.ohm, 3),
+            percent(r.index, finest.0),
+            percent(r.ohm, finest.1),
             sig(r.ours.0, 5),
             sig(r.ours.1, 3),
-            (r.index - r.ours.0) / r.ours.0,
-            (r.ohm - r.ours.1) / r.ours.1,
+            percent(r.ours.0, finest.0),
+            percent(r.ours.1, finest.1),
         );
     }
-    let [oe_n, oe_np, oe_z, oe_zp] = openems;
-    let [px_n, px_np, px_z, px_zp] = same_lines;
-    let [cv_n, cv_z, cv_zp] = ours;
-    let finest = converged[converged.len() - 1];
     let _ = writeln!(out, "\n### Converged\n");
     let _ = writeln!(out, "| | n | Z₀, Ω | From |");
     let _ = writeln!(out, "|---|---:|---:|---|");
@@ -332,10 +404,11 @@ fn write_report(
     );
     let _ = writeln!(
         out,
-        "\nopenEMS against photonoxide converged: n {:+.2e}, Z₀ {:+.2e} (relative; tolerances \
-         {INDEX_TOLERANCE:e} and {IMPEDANCE_TOLERANCE:e}).",
-        (oe_n - finest.0) / finest.0,
-        (oe_z - finest.1) / finest.1
+        "\nopenEMS against photonoxide converged: n {}, Z₀ {} (tolerances {} % and {} %).",
+        percent(oe_n, finest.0),
+        percent(oe_z, finest.1),
+        100.0 * INDEX_TOLERANCE,
+        100.0 * IMPEDANCE_TOLERANCE
     );
     out
 }
