@@ -12,10 +12,15 @@
 # loss with copper at 5.8e7 S/m, the dielectrics' by Zhang et al.'s loss tangents), and a 5.8 mm
 # modulator's electro-optic response referred to 1 GHz with its 3 and 6 dB bandwidths. Quasi-TEM,
 # valid to about 100 GHz; the grid study checks the index, the impedance and the loss at 300 GHz
-# on grids twice and four times as coarse. 2D numbers, per unit length of a straight line.
+# on grids twice and four times as coarse. Beside it the full-wave RF mode (full_wave: the copper
+# a lossy medium on the same cross-section graded from 20 nm, valid from 1 GHz up), the silicon a
+# half-space (the window opened below and to the right into 200 um of PML): at each frequency its
+# index, impedance and losses (the metal's, the dielectrics', the radiation into the silicon), the
+# response and its bandwidths from 24 solves, and its own grid study at 300 GHz. 2D numbers, per
+# unit length of a straight line.
 #   photonoxide run jobs/tfln-line.yaml
 name: tfln-line
-timeout_minutes: 10
+timeout_minutes: 20
 
 task:
   kind: static
@@ -67,3 +72,6 @@ task:
       length_mm: 5.8
       group_index: 2.26
     convergence: { tolerance: 0.01 }
+    full_wave:
+      fine_nm: 20.0
+      open_um: { bottom: 200.0, right: 200.0 }

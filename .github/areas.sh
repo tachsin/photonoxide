@@ -107,9 +107,10 @@ area thermo   "src/mode/thermo.rs src/mode/thermo_checks.rs"   "mode material st
 area pockels  "src/mode/pockels.rs src/mode/pockels/*"   "mode material statics thermo"   "mode::pockels" "pockels/" ""
 
 # travelling-wave electrodes (src/electro/*): a line's quasi-TEM index, impedance and losses from
-# the static solver's capacitances and charge, and a modulator's electro-optic response; its
+# the static solver's capacitances and charge, its full-wave RF mode on a Yee lattice of the same
+# cross-section (eigen's shift-and-invert), and a modulator's electro-optic response; its
 # cases take lithium niobate's static permittivity from the pockels cases
-area line     "src/electro/*"   "statics material mode pockels"   "electro::line" "line/" ""
+area line     "src/electro/*"   "statics material mode pockels"   "electro::line electro::full_wave" "line/" ""
 
 # the thermo-optic phase shifter (src/thermal/*): a heat solve's rise in a guide's mode, by its
 # perturbation's weights, into P_pi, the time constant and the crosstalk between neighbours; and

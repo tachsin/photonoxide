@@ -2192,6 +2192,8 @@ pub fn cases() -> Vec<Case> {
     cases.extend(crate::mode::pockels::bto::cases());
     // and the travelling-wave electrodes: quasi-TEM lines, their losses and the EO response
     cases.extend(crate::electro::line_checks::cases());
+    // and their full-wave RF mode, the metal a lossy medium
+    cases.extend(crate::electro::full_wave_checks::cases());
     // and the thermo-optic phase shifter: P_pi, its time and crosstalk, Jacques et al.'s heaters
     cases.extend(crate::thermal::shifter_checks::cases());
     // and its crosstalk against measured neighbours, and Harris et al.'s doped heater

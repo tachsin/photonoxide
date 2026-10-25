@@ -179,6 +179,45 @@ pub(crate) fn nearest_until(
     Ok(krylov_schur(n, entries, shift, count, tolerance, None, stop)?.map(|(pairs, _)| pairs))
 }
 
+/// As [`nearest`], for eigenvalues far smaller than the matrix's entries (a line's β² at RF,
+/// 1e-7 µm⁻² against entries of 1/h², 1e4): each pair accepted when its residual, as the
+/// Krylov decomposition gives it, is below `tolerance` times |λ| itself, not max(|λ|, 1). Its
+/// residual computed with A can't certify that: A x loses ε‖A‖‖x‖ to rounding, far above
+/// |λ|‖x‖ times the tolerance, so it isn't asked; the decomposition's residual, the shifted
+/// inverse's own, has no such floor.
+///
+/// # Errors
+///
+/// As [`nearest`].
+pub(crate) fn nearest_small(
+    n: usize,
+    entries: &[(usize, usize, c64)],
+    shift: c64,
+    count: usize,
+    tolerance: f64,
+) -> Result<Vec<Pair>> {
+    Ok(schur_restarted(
+        n,
+        entries,
+        shift,
+        count,
+        tolerance,
+        None,
+        &|| false,
+        Scale::Own,
+    )?
+    .map(|(pairs, _)| pairs)
+    .unwrap_or_default())
+}
+
+/// What a residual is measured against: max(|λ|, 1) with the true residual checked too
+/// ([`nearest`]), or |λ| alone ([`nearest_small`]).
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Scale {
+    Unit,
+    Own,
+}
+
 /// The Krylov space's size for `count` eigenvalues of an n × n matrix, and how many vectors a
 /// restart keeps: m = max(2 count + 20, 40), as the growing restarts' first run had, and half
 /// the unwanted ones besides the wanted, so each growth takes (m − count)/2 steps.
@@ -208,6 +247,34 @@ pub(crate) fn krylov_schur(
     space: Option<usize>,
     stop: &dyn Fn() -> bool,
 ) -> Result<Option<(Vec<Pair>, Record)>> {
+    schur_restarted(
+        n,
+        entries,
+        shift,
+        count,
+        tolerance,
+        space,
+        stop,
+        Scale::Unit,
+    )
+}
+
+/// [`krylov_schur`], its residuals measured as `scale` says.
+#[allow(clippy::too_many_arguments)]
+fn schur_restarted(
+    n: usize,
+    entries: &[(usize, usize, c64)],
+    shift: c64,
+    count: usize,
+    tolerance: f64,
+    space: Option<usize>,
+    stop: &dyn Fn() -> bool,
+    scale: Scale,
+) -> Result<Option<(Vec<Pair>, Record)>> {
+    let against = |value: c64| match scale {
+        Scale::Unit => value.norm().max(1.0),
+        Scale::Own => value.norm(),
+    };
     let mut record = Record::default();
     if count == 0 || n == 0 {
         return Ok(Some((Vec::new(), record)));
@@ -292,7 +359,7 @@ pub(crate) fn krylov_schur(
             let theta = t[(i, i)];
             let value = shift + c64::new(1.0, 0.0) / theta;
             let estimate = rho.norm() * size / theta.norm();
-            let relative = estimate / value.norm().max(1.0);
+            let relative = estimate / against(value);
             worst = worst.max(relative / tolerance);
             residuals.push(relative);
             ritz.push((value, y));
@@ -322,7 +389,7 @@ pub(crate) fn krylov_schur(
                 }
                 let xn = norm(&x);
                 x.iter_mut().for_each(|z| *z /= xn);
-                if op.residual(value, &x) > tolerance * value.norm().max(1.0) {
+                if scale == Scale::Unit && op.residual(value, &x) > tolerance * against(value) {
                     break;
                 }
                 pairs.push(Pair { value, vector: x });

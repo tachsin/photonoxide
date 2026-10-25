@@ -709,17 +709,18 @@ fn checked(m: &str, spec: &CoefficientSpec, what: &str) -> Result<Tensor> {
 }
 
 fn setup(job: &Job) -> Result<Setup> {
-    setup_scaled(job, 1.0)
+    setup_scaled(job, 1.0, None)
 }
 
 /// The job's setup on a grid whose steps are `scale` times the task's (a grid study's coarser
-/// grids).
-fn setup_scaled(job: &Job, scale: f64) -> Result<Setup> {
+/// grids), its smallest `fine_nm` instead of the task's when given (before the scale: a line's
+/// full-wave grid).
+fn setup_scaled(job: &Job, scale: f64, fine_nm: Option<f64>) -> Result<Setup> {
     let task: StaticTask = super::params::task(job)?;
     super::check_window("y_um", task.y_um)?;
     super::check_window("z_um", task.z_um)?;
     super::check_step(task.step_nm)?;
-    let fine = task.fine_nm.unwrap_or(task.step_nm);
+    let fine = fine_nm.unwrap_or(task.fine_nm.unwrap_or(task.step_nm));
     if !(fine.is_finite() && fine > 0.0 && fine <= task.step_nm) {
         return Err(task_error(format!(
             "fine_nm must be positive and at most step_nm, got {fine}"
@@ -1649,7 +1650,7 @@ pub(super) fn run(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
         }
         if let Some(chain) = &setup.electro_optic {
             let coarser = |k: u32| -> Result<Electrostatic> {
-                setup_scaled(job, f64::from(1u32 << k))?
+                setup_scaled(job, f64::from(1u32 << k), None)?
                     .electrostatic
                     .ok_or_else(|| task_error("an electrostatic job has an electrostatic problem"))
             };
@@ -1661,12 +1662,12 @@ pub(super) fn run(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
         if let Some((spec, metal)) = &setup.line
             && stop.reason().is_none()
         {
-            let coarser = |k: u32| -> Result<Electrostatic> {
-                setup_scaled(job, f64::from(1u32 << k))?
+            let rebuilt = |scale: f64, fine_nm: Option<f64>| -> Result<Electrostatic> {
+                setup_scaled(job, scale, fine_nm)?
                     .electrostatic
                     .ok_or_else(|| task_error("an electrostatic job has an electrostatic problem"))
             };
-            match super::line::run(spec, metal, e, coarser, run, stop)? {
+            match super::line::run(spec, metal, e, rebuilt, run, stop)? {
                 Some(more) => values.extend(more),
                 None => return Ok(()),
             }

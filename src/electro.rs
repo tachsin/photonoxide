@@ -40,6 +40,8 @@
 use crate::geometry::Shape;
 use crate::statics::{Discrete, Hold, Problem, spread};
 
+pub mod full_wave;
+pub(crate) mod full_wave_checks;
 pub mod line;
 pub(crate) mod line_checks;
 #[cfg(test)]

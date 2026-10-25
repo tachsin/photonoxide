@@ -411,11 +411,15 @@ pub(crate) fn wave(line: &QuasiTem, ghz: f64, metal: &Metal, tangents: &[(&str, 
 }
 
 /// The static grids of the published lines: graded from 8, 4 and 2 nm.
-const STEPS: [f64; 3] = [0.008, 0.004, 0.002];
+pub(crate) const STEPS: [f64; 3] = [0.008, 0.004, 0.002];
 
 /// `quantity` of `cpw`'s line on [`STEPS`], gated by the grid study at `tolerance` (relative):
 /// the finest grid's values.
-fn gated(cpw: &Cpw, quantity: impl Fn(&QuasiTem) -> Vec<f64>, tolerance: f64) -> Vec<f64> {
+pub(crate) fn gated(
+    cpw: &Cpw,
+    quantity: impl Fn(&QuasiTem) -> Vec<f64>,
+    tolerance: f64,
+) -> Vec<f64> {
     let values: Vec<Vec<f64>> = STEPS.iter().map(|&h| quantity(&cpw.line(h))).collect();
     (0..values[0].len())
         .map(|k| {

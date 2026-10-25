@@ -990,16 +990,25 @@ impl Section {
     /// Each cell's media on `grid`: (the medium's index in [`Section::media`], its share of
     /// the cell), the shares summing to 1.
     pub(crate) fn parts(&self, grid: &Grid) -> Vec<Vec<(usize, f64)>> {
+        self.shares_on(grid).into_iter().map(|s| s.parts).collect()
+    }
+
+    /// Each cell's media on `grid` as [`Section::parts`] has them, with the normal of the
+    /// interface that crosses it (`None` for a cell of one medium), cell (i, j) at j·nx + i.
+    pub(crate) fn shares_on(&self, grid: &Grid) -> Vec<Shares<usize>> {
         let (nx, ny) = (grid.x.cells(), grid.y.cells());
         let mut out = Vec::with_capacity(nx * ny);
         for j in 0..ny {
             for i in 0..nx {
                 let shares = self.shares(grid.bounds(i, j));
                 let total: f64 = shares.parts.iter().map(|p| p.1).sum();
-                out.push(if total > 0.0 {
-                    shares.parts.iter().map(|&(k, f)| (k, f / total)).collect()
-                } else {
-                    Vec::new()
+                out.push(Shares {
+                    parts: if total > 0.0 {
+                        shares.parts.iter().map(|&(k, f)| (k, f / total)).collect()
+                    } else {
+                        Vec::new()
+                    },
+                    normal: shares.normal,
                 });
             }
         }

@@ -42,18 +42,36 @@
 //! frequency on grids twice and four times as coarse (`grids: 2` for one coarser);
 //! `require: true` fails the run when one hasn't converged. A line's numbers are a
 //! cross-section's, per unit length of a straight line: 2D numbers.
+//!
+//! `full_wave` adds the line's full-wave RF mode ([`crate::electro::full_wave`]: the metal a
+//! lossy medium on a Yee lattice of the same cross-section), valid from 1 GHz up, beside the
+//! quasi-TEM numbers: at each frequency the `full-wave line` entries record the RF index, Z₀,
+//! the loss and its parts (the metal's, the dielectrics', and what radiates into the open
+//! sides). Its grid is the task's with its smallest step `fine_nm` (the task's by default);
+//! `open_um` opens sides of the window (`left`, `right`, `bottom`, `top`) into a perfectly
+//! matched layer that thick beyond it, in `layer_cells` cells (15) of strength `pml_strength`
+//! (4), a substrate running on into it as a half-space; `along` gives a medium's permittivity
+//! along the line where it isn't the one up. With `response`, the full-wave line's response
+//! and bandwidths come from `sweep` solves (24) log-spaced from `reference_ghz` to `up_to_ghz`,
+//! the index, the impedance and the log of the loss interpolated in log frequency between
+//! them; with `convergence`, its index, Re Z₀ and loss at the highest frequency are checked on
+//! grids of twice and four times its smallest step. A segmented line has no full-wave mode
+//! here (its periods are 3D).
 
 use std::collections::BTreeMap;
 
 use schemars::JsonSchema;
 use serde::Deserialize;
 
+use num_complex::Complex64 as c64;
+
 use super::statics::StaticValue;
 use super::{Event, task_error};
-use crate::electro::Electrostatic;
+use crate::electro::full_wave::{FullWave, Open, RfMode};
 use crate::electro::line::{
     DB_PER_NEPER, Drive, Edge, Metal, Periodic, QuasiTem, Wave, falls_to, response,
 };
+use crate::electro::{Electrostatic, Side};
 use crate::run::{Run, Stop};
 use crate::{Error, Result};
 
@@ -86,6 +104,125 @@ pub(super) struct LineSpec {
     response: Option<ResponseSpec>,
     /// The grid study.
     convergence: Option<LineConvergence>,
+    /// The full-wave RF mode beside the quasi-TEM line.
+    full_wave: Option<FullWaveSpec>,
+}
+
+/// `line.full_wave`: the line's full-wave RF mode ([`crate::electro::full_wave`]).
+#[derive(Clone, Debug, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub(super) struct FullWaveSpec {
+    /// The full-wave grid's smallest step, at the conductors' faces and corners, nm (by
+    /// default the task's `fine_nm`); its largest is the task's `step_nm`.
+    fine_nm: Option<f64>,
+    /// The sides opened into a perfectly matched layer (`left`, `right`, `bottom`, `top`),
+    /// each with the layer's thickness beyond the window, µm.
+    #[serde(default)]
+    open_um: BTreeMap<String, f64>,
+    /// The layers' cells (15 by default).
+    layer_cells: Option<usize>,
+    /// The layers' strength α, s = 1 + iα at their ends (4 by default).
+    pml_strength: Option<f64>,
+    /// Each medium's relative permittivity along the line where it isn't the one up.
+    #[serde(default)]
+    along: BTreeMap<String, f64>,
+    /// How many frequencies the response's sweep solves, from `reference_ghz` to `up_to_ghz`
+    /// (24 by default).
+    sweep: Option<usize>,
+}
+
+/// The lowest frequency the full-wave mode is taken to hold from, GHz: below it β² falls
+/// toward the rounding of the lattice's entries.
+const FULL_WAVE_FROM_GHZ: f64 = 1.0;
+
+impl FullWaveSpec {
+    /// The solver it sets up for the line of `spec`.
+    fn solver(&self, spec: &LineSpec) -> Result<FullWave> {
+        let mut fw = FullWave::new(spec.signal - 1, spec.conductivity_s_per_m)
+            .map_err(|e| err(e.to_string()))?
+            .with_loss_tangents(&spec.tangents())
+            .with_strength(self.pml_strength.unwrap_or(4.0))
+            .with_count(4);
+        if spec.mirrored {
+            fw = fw.mirrored();
+        }
+        for (m, e) in &self.along {
+            fw = fw.with_along(m, *e);
+        }
+        for (side, t) in &self.open_um {
+            let side = match side.as_str() {
+                "left" => Side::Left,
+                "right" => Side::Right,
+                "bottom" => Side::Bottom,
+                "top" => Side::Top,
+                other => {
+                    return Err(err(format!(
+                        "full_wave.open_um names the side \"{other}\": left, right, bottom or top"
+                    )));
+                }
+            };
+            let open = Open::new(side, *t)
+                .map_err(|e| err(e.to_string()))?
+                .with_cells(self.layer_cells.unwrap_or(15));
+            fw = fw.with_open(open);
+        }
+        Ok(fw)
+    }
+
+    fn check(&self, spec: &LineSpec, media: &[String]) -> Result<()> {
+        if spec.segmented.is_some() {
+            return Err(err(
+                "full_wave is for a uniform line, not a segmented one (its periods are 3D)",
+            ));
+        }
+        if let Some(nm) = self.fine_nm
+            && !(nm.is_finite() && nm > 0.0)
+        {
+            return Err(err(format!("full_wave.fine_nm must be above 0, got {nm}")));
+        }
+        if let Some(a) = self.pml_strength
+            && !(a.is_finite() && a > 0.0)
+        {
+            return Err(err(format!(
+                "full_wave.pml_strength must be above 0, got {a}"
+            )));
+        }
+        if self.sweep.is_some_and(|n| n < 4) {
+            return Err(err("full_wave.sweep takes 4 frequencies or more"));
+        }
+        if let Some((m, _)) = self.along.iter().find(|(m, _)| !media.contains(m)) {
+            return Err(err(format!(
+                "full_wave.along names {m}, which the section hasn't (it has {})",
+                media.join(", ")
+            )));
+        }
+        if let Some((m, e)) = self
+            .along
+            .iter()
+            .find(|(_, e)| !(e.is_finite() && **e > 0.0))
+        {
+            return Err(err(format!("full_wave.along {m} must be above 0, got {e}")));
+        }
+        self.solver(spec).map(|_| ())
+    }
+}
+
+/// A line known at some frequencies (Hz, rising) between which its index, impedance and the
+/// logarithm of its loss run linearly in the logarithm of the frequency: the full-wave line
+/// between the solves of a sweep.
+fn interpolated(table: &[RfMode], frequency_hz: f64) -> (c64, c64) {
+    let n = table.len();
+    let k = table
+        .partition_point(|m| m.frequency_hz <= frequency_hz)
+        .clamp(1, n - 1);
+    let (a, b) = (&table[k - 1], &table[k]);
+    let t = (frequency_hz / a.frequency_hz).ln() / (b.frequency_hz / a.frequency_hz).ln();
+    let t = t.clamp(0.0, 1.0);
+    let index = a.index() + t * (b.index() - a.index());
+    let loss = (a.attenuation().ln() + t * (b.attenuation().ln() - a.attenuation().ln())).exp();
+    let impedance = a.impedance + t * (b.impedance - a.impedance);
+    let beta = 2.0 * std::f64::consts::PI * frequency_hz * index / crate::units::SPEED_OF_LIGHT;
+    (c64::new(loss, beta), impedance)
 }
 
 /// `line.segmented`.
@@ -290,6 +427,9 @@ pub(super) fn check(
         }
     }
     spec.drive()?;
+    if let Some(f) = &spec.full_wave {
+        f.check(spec, media)?;
+    }
     let thickness = spec
         .thickness_um
         .unwrap_or_else(|| heights.get(spec.signal - 1).copied().unwrap_or(0.0));
@@ -371,15 +511,17 @@ impl Line {
 }
 
 /// The line on the run's grid, its numbers, and the grid study when the table asks for one
-/// (`coarser(k)` the electrostatic problem on grids 2^k as coarse).
+/// (`rebuilt(scale, fine_nm)` the electrostatic problem on a grid `scale` times as coarse, its
+/// smallest step `fine_nm` before the scale when given), and the full-wave mode's.
 pub(super) fn run(
     spec: &LineSpec,
     metal: &Metal,
     problem: &Electrostatic,
-    coarser: impl Fn(u32) -> Result<Electrostatic>,
+    rebuilt: impl Fn(f64, Option<f64>) -> Result<Electrostatic>,
     run: &mut Run,
     stop: &Stop,
 ) -> Result<Option<Vec<StaticValue>>> {
+    let coarser = |k: u32| rebuilt(f64::from(1u32 << k), None);
     let value = |name: String, value: f64, unit: &str| StaticValue {
         name,
         value,
@@ -590,6 +732,198 @@ pub(super) fn run(
                 "grid convergence",
                 format!(
                     "line.convergence requires the line's grids to converge: {}",
+                    failed.join("; ")
+                ),
+            ));
+        }
+    }
+    if let Some(fs) = &spec.full_wave {
+        match full_wave(
+            spec,
+            fs,
+            &built.channel,
+            metal,
+            problem,
+            &rebuilt,
+            run,
+            stop,
+        )? {
+            Some(more) => values.extend(more),
+            None => return Ok(None),
+        }
+    }
+    Ok(Some(values))
+}
+
+/// The full-wave mode's numbers ([`FullWaveSpec`]): at each frequency the RF index, Z₀ and the
+/// losses, the response through a sweep of solves, and the grid study at the highest
+/// frequency on grids of twice and four times the smallest step. `None` when stopped.
+#[allow(clippy::too_many_arguments)]
+fn full_wave(
+    spec: &LineSpec,
+    fs: &FullWaveSpec,
+    quasi: &QuasiTem,
+    metal: &Metal,
+    problem: &Electrostatic,
+    rebuilt: &impl Fn(f64, Option<f64>) -> Result<Electrostatic>,
+    run: &mut Run,
+    stop: &Stop,
+) -> Result<Option<Vec<StaticValue>>> {
+    let value = |name: String, value: f64, unit: &str| StaticValue {
+        name,
+        value,
+        unit: unit.to_owned(),
+    };
+    let tangents = spec.tangents();
+    let solver = fs.solver(spec)?;
+    let on = |fine_nm: Option<f64>| -> Result<Electrostatic> {
+        match fine_nm {
+            Some(nm) => rebuilt(1.0, Some(nm)),
+            None => Ok(problem.clone()),
+        }
+    };
+    let grid = on(fs.fine_nm)?;
+    // each solve looks near the quasi-TEM line's index there
+    let solve = |p: &Electrostatic, f: f64| -> Result<RfMode> {
+        let near = quasi.wave(f, metal, &tangents)?.index();
+        solver.solve(p, f, near).map_err(|e| err(e.to_string()))
+    };
+    let mut values = vec![value(
+        "full-wave line: from".into(),
+        FULL_WAVE_FROM_GHZ,
+        "GHz",
+    )];
+    for &f in &spec.frequencies_ghz {
+        if stop.reason().is_some() {
+            return Ok(None);
+        }
+        let m = solve(&grid, f * 1e9)?;
+        let at = if f < FULL_WAVE_FROM_GHZ {
+            format!("{f} GHz (below the full-wave's range)")
+        } else {
+            format!("{f} GHz")
+        };
+        let db = |np: f64| np * DB_PER_NEPER / 100.0;
+        values.extend([
+            value(format!("full-wave line at {at}: n_m"), m.index(), ""),
+            value(
+                format!("full-wave line at {at}: Re Z0"),
+                m.impedance.re,
+                "ohm",
+            ),
+            value(
+                format!("full-wave line at {at}: Im Z0 (e^jwt)"),
+                m.impedance.im,
+                "ohm",
+            ),
+            value(
+                format!("full-wave line at {at}: loss"),
+                m.db_per_cm(),
+                "dB/cm",
+            ),
+            value(
+                format!("full-wave line at {at}: conductor loss"),
+                db(m.conductor),
+                "dB/cm",
+            ),
+            value(
+                format!("full-wave line at {at}: dielectric loss"),
+                db(m.dielectric),
+                "dB/cm",
+            ),
+            value(
+                format!("full-wave line at {at}: radiation loss"),
+                db(m.radiation()),
+                "dB/cm",
+            ),
+        ]);
+    }
+    if let Some((d, f0, up_to)) = spec.drive()? {
+        // the sweep: log-spaced from the reference to the top
+        let n = fs.sweep.unwrap_or(24);
+        let mut table = Vec::with_capacity(n);
+        for s in 0..n {
+            if stop.reason().is_some() {
+                return Ok(None);
+            }
+            let f = f0 * (up_to / f0).powf(s as f64 / (n - 1) as f64);
+            table.push(solve(&grid, f * 1e9)?);
+        }
+        let m = |f: f64| {
+            let (gamma, z) = interpolated(&table, f);
+            response(gamma, z, f, &d)
+        };
+        let r0 = m(f0 * 1e9);
+        for &f in &spec.frequencies_ghz {
+            if f >= f0 && f <= up_to {
+                values.push(value(
+                    format!("full-wave line at {f} GHz: EO response"),
+                    20.0 * (m(f * 1e9) / r0).log10(),
+                    "dB",
+                ));
+            }
+        }
+        for level in [3.0, 6.0] {
+            let name = format!("full-wave line: EO {level} dB bandwidth");
+            match falls_to(
+                |f| Ok(20.0 * (m(f) / r0).log10()),
+                -level,
+                f0 * 1e9,
+                up_to * 1e9,
+            )? {
+                Some(f) => values.push(value(name, f / 1e9, "GHz")),
+                None => values.push(value(format!("{name} (above up_to_ghz)"), up_to, "GHz")),
+            }
+        }
+        values.push(value(
+            "full-wave line: the response's sweep".into(),
+            n as f64,
+            "frequencies",
+        ));
+    }
+    if let Some(c) = spec.convergence {
+        let grids = c.grids.unwrap_or(3);
+        let top = spec.top() * 1e9;
+        let numbers = |m: &RfMode| [m.index(), m.impedance.re, m.db_per_cm()];
+        let names = [
+            "full-wave line n_m at the highest frequency",
+            "full-wave line Re Z0 at the highest frequency, ohm",
+            "full-wave line loss at the highest frequency, dB/cm",
+        ];
+        let step = grid.grid().x().steps().0.min(grid.grid().y().steps().0);
+        let fine_nm = step * 1e3;
+        let mut studies: Vec<crate::convergence::Study> = names
+            .iter()
+            .map(|n| crate::convergence::Study::new(n))
+            .collect();
+        for k in (1..grids as u32).rev() {
+            if stop.reason().is_some() {
+                return Ok(None);
+            }
+            let scale = f64::from(1u32 << k);
+            let coarse = solve(&on(Some(fine_nm * scale))?, top)?;
+            for (s, v) in studies.iter_mut().zip(numbers(&coarse)) {
+                *s = s.clone().on(step * scale, v)?;
+            }
+        }
+        let fine = numbers(&solve(&grid, top)?);
+        let mut failed = Vec::new();
+        for (s, v) in studies.into_iter().zip(fine) {
+            let check = s.on(step, v)?.check(c.tolerance * v.abs())?;
+            if !check.converged() {
+                failed.push(format!("{}: {}", check.quantity, check.reason));
+            }
+            run.record(&Event::GridConvergence {
+                label: check.quantity.clone(),
+                wavelength_um: 0.0,
+                check,
+            })?;
+        }
+        if c.require == Some(true) && !failed.is_empty() {
+            return Err(Error::invalid(
+                "grid convergence",
+                format!(
+                    "line.convergence requires the full-wave line's grids to converge: {}",
                     failed.join("; ")
                 ),
             ));
