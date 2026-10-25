@@ -8,6 +8,16 @@ run them, and the tests that do skip, saying so, where they aren't installed.
 
 ## Results at a glance
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="cross-code-chart-dark.svg">
+  <img src="cross-code-chart.svg" alt="Each code's error against photonoxide's converged result, in percent, against its own solve time, both on log scales: photonoxide and Elmer at the bottom left (under 0.1 s, errors from 6 % down to 0.0001 %), openEMS at the right (100 to 2400 s)." width="100%">
+</picture>
+
+Every case and every code on one chart: each line is one code on one case through its meshes,
+lower is more accurate and further left is faster. The numbers behind it are in the tables below
+and in the two reports. The studies redraw it from `crosscode/results/*.tsv`, the points they
+write.
+
 Each error is against photonoxide's converged result, the reference, in percent. photonoxide
 "on the finest mesh" and the other codes are on the same mesh lines; openEMS and Elmer are
 extrapolated from their three finest meshes.
@@ -26,17 +36,17 @@ photonoxide's finest-mesh row is on openEMS's finest mesh (0.25 µm) for the lin
 Times are given only where two codes solve the same problem, so they show speed as well as
 agreement: Elmer and photonoxide solve the same 2D problems on the same mesh lines. Each is the
 code's own assembly and solve (Elmer's as its log reports them, photonoxide's measured around
-its solve), with no program start or file reading and writing; on an Intel Core Ultra 7 265K
+its solve), the fastest of three runs, with no program start or file reading and writing; on an Intel Core Ultra 7 265K
 (20 threads), 64 GB, Windows 11:
 
 | Case | Elmer, all meshes | photonoxide, the same meshes | Elmer, finest mesh | photonoxide, finest mesh |
 |---|---:|---:|---:|---:|
-| the coplanar line (5 meshes, two solves each) | 0.20 s | 0.21 s | 0.08 s | 0.08 s |
-| the heater (5 meshes) | 0.13 s | 0.08 s | 0.07 s | 0.03 s |
+| the coplanar line (5 meshes, two solves each) | 0.20 s | 0.16 s | 0.08 s | 0.06 s |
+| the heater (5 meshes) | 0.13 s | 0.06 s | 0.07 s | 0.03 s |
 
-Elmer's HeatSolve reports its times to 0.01 s. openEMS's results carry no times: it solves a
+Elmer's HeatSolve reports its times to 0.01 s. openEMS isn't in this table: it solves a
 different problem, a 3D section of the line 4 mm long in time (2.85 million cells for 339 345
-steps on its finest mesh), so it is in the study to check the numbers.
+steps on its finest mesh). Its run times are on the chart, as its own cost for its accuracy.
 
 The two reports have every mesh, with each code's value and error on it (and Elmer's and photonoxide's times):
 [docs/validation-openems.md](validation-openems.md) and

@@ -12,6 +12,7 @@ use std::fmt::Write as _;
 use std::path::Path;
 use std::time::Instant;
 
+use photonoxide_crosscode::chart::{self, Point};
 use photonoxide_crosscode::cpw::{self, Cpw};
 use photonoxide_crosscode::elmer::{self, Elmer};
 use photonoxide_crosscode::heater::{self, Heater};
@@ -75,10 +76,31 @@ fn totals<T>(rows: &[Row<T>]) -> (f64, f64) {
     })
 }
 
-fn timed<T>(f: impl FnOnce() -> T) -> (T, f64) {
-    let t = Instant::now();
-    let v = f();
-    (v, t.elapsed().as_secs_f64())
+/// Each timed solve runs this many times, the fastest kept: one run's time on a busy computer
+/// is noise at these few milliseconds.
+const REPEATS: usize = 3;
+
+/// `f`'s result and its fastest time of [`REPEATS`] runs, s.
+fn timed<T>(f: impl Fn() -> T) -> (T, f64) {
+    let mut best = f64::INFINITY;
+    let mut value = None;
+    for _ in 0..REPEATS {
+        let t = Instant::now();
+        value = Some(f());
+        best = best.min(t.elapsed().as_secs_f64());
+    }
+    (value.expect("at least one run"), best)
+}
+
+/// Elmer's run of `case` in `folder`, [`REPEATS`] times: the fastest of its solvers' own
+/// times, from its log.
+fn elmer_fastest(program: &Elmer, case: &elmer::Case, folder: &Path) -> f64 {
+    (0..REPEATS)
+        .map(|_| {
+            program.run(case, folder).expect("Elmer's run");
+            elmer::solver_seconds(folder).expect("Elmer's log")
+        })
+        .fold(f64::INFINITY, f64::min)
 }
 
 /// Elmer's capacitance of the whole line (twice the half's), F/m.
@@ -137,8 +159,8 @@ fn elmer_agrees_with_the_static_solver() {
         let c0 = capacitance(&program, &without, &air);
         let elmer = ((c / c0).sqrt(), 1.0 / (cpw::C * (c * c0).sqrt()));
         // its solvers' own times, from its logs: the two solves, as photonoxide's has two
-        let elmer_seconds = elmer::solver_seconds(&dielectric).expect("Elmer's log")
-            + elmer::solver_seconds(&air).expect("Elmer's log");
+        let elmer_seconds =
+            elmer_fastest(&program, &with, &dielectric) + elmer_fastest(&program, &without, &air);
         let (ours, ours_seconds) = timed(|| cpw.static_line(&y, &z).expect("the static solve"));
         eprintln!(
             "  Elmer n {:.6} Z {:.4} ({elmer_seconds:.2} s); photonoxide n {:.6} Z {:.4} ({ours_seconds:.2} s)",
@@ -188,7 +210,7 @@ fn elmer_agrees_with_the_static_solver() {
         let run = folder.join(format!("heater-{smallest}"));
         program.run(&case, &run).expect("Elmer's run");
         let elmer = elmer::scalars(&run).expect("Elmer's scalars")[0][0];
-        let elmer_seconds = elmer::solver_seconds(&run).expect("Elmer's log");
+        let elmer_seconds = elmer_fastest(&program, &case, &run);
         let (ours, ours_seconds) = timed(|| heater.photonoxide(&x, &y).expect("the heat solve"));
         eprintln!(
             "  Elmer {elmer:.6} K ({elmer_seconds:.2} s); photonoxide {ours:.6} K ({ours_seconds:.2} s)"
@@ -241,7 +263,7 @@ fn elmer_agrees_with_the_static_solver() {
     );
     let _ = writeln!(
         r,
-        "Elmer {} (ElmerSolver, found through {}), its direct solver (UMFPACK); photonoxide {}. Run on {}. Both codes solve the same 2D problems on the same mesh lines: Elmer's nodes are photonoxide's cell faces, Elmer's bilinear quadrilaterals against photonoxide's cell-centred finite volumes. Every error is against photonoxide's converged result, the reference, in percent. Both codes solve the same problems, so their times are compared: each code's assembly and solve, Elmer's as its log reports them (StatElecSolver's and HeatSolve's Assembly and Solve), photonoxide's measured around its solve; neither includes starting a program or reading and writing files.\n",
+        "Elmer {} (ElmerSolver, found through {}), its direct solver (UMFPACK); photonoxide {}. Run on {}. Both codes solve the same 2D problems on the same mesh lines: Elmer's nodes are photonoxide's cell faces, Elmer's bilinear quadrilaterals against photonoxide's cell-centred finite volumes. Every error is against photonoxide's converged result, the reference, in percent. Both codes solve the same problems, so their times are compared: each code's assembly and solve, the fastest of three runs, Elmer's as its log reports them (StatElecSolver's and HeatSolve's Assembly and Solve), photonoxide's measured around its solve; neither includes starting a program or reading and writing files.\n",
         program.version(),
         program.found(),
         photonoxide::VERSION,
@@ -397,6 +419,73 @@ fn elmer_agrees_with_the_static_solver() {
     );
     print!("{r}");
     std::fs::write(REPORT, &r).expect("docs/validation-elmer.md");
+
+    // the chart's points: each code's errors and its own solve time, mesh by mesh
+    let mut points = Vec::new();
+    let mut add = |case: &str,
+                   quantity: &str,
+                   code: &str,
+                   smallest: f64,
+                   value: f64,
+                   reference: f64,
+                   seconds: f64| {
+        points.push(Point {
+            case: case.into(),
+            quantity: quantity.into(),
+            code: code.into(),
+            smallest_um: smallest,
+            value,
+            error_percent: 100.0 * (value - reference) / reference,
+            seconds,
+        });
+    };
+    for row in &lines {
+        for (code, (n, z), seconds) in [
+            ("Elmer", row.elmer, row.elmer_seconds),
+            ("photonoxide", row.ours, row.ours_seconds),
+        ] {
+            add(
+                "the coplanar line",
+                "n",
+                code,
+                row.smallest,
+                n,
+                ref_n,
+                seconds,
+            );
+            add(
+                "the coplanar line",
+                "Z₀",
+                code,
+                row.smallest,
+                z,
+                ref_z,
+                seconds,
+            );
+        }
+    }
+    for row in &heats {
+        add(
+            "the heater",
+            "peak rise",
+            "Elmer",
+            row.smallest,
+            row.elmer,
+            ref_t,
+            row.elmer_seconds,
+        );
+        add(
+            "the heater",
+            "peak rise",
+            "photonoxide",
+            row.smallest,
+            row.ours,
+            ref_t,
+            row.ours_seconds,
+        );
+    }
+    chart::write_points("elmer", &points).expect("the chart's points");
+    chart::redraw().expect("the chart");
 
     let index_error = (el_n.0 - ref_n) / ref_n;
     let impedance_error = (el_z.0 - ref_z) / ref_z;

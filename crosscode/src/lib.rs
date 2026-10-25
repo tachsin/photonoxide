@@ -18,6 +18,8 @@
 //!   drawn on the same mesh lines for openEMS's FDTD, Elmer's electrostatics and photonoxide's
 //!   quasi-TEM line.
 //! - [`heater`]: the shared heat case, a heater in oxide over silicon, for Elmer and photonoxide.
+//! - [`chart`]: every case and code on one chart, error against time, drawn from the points the
+//!   studies write to `results/`.
 //!
 //! The setup, the licences and the results are in docs/cross-code.md and
 //! docs/validation-openems.md and docs/validation-elmer.md (`just openems` and `just elmer` from
@@ -25,6 +27,7 @@
 
 #![forbid(unsafe_code)]
 
+pub mod chart;
 pub mod cpw;
 pub mod elmer;
 pub mod heater;

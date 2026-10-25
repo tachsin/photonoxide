@@ -12,6 +12,7 @@
 use std::fmt::Write as _;
 use std::path::Path;
 
+use photonoxide_crosscode::chart::{self, Point};
 use photonoxide_crosscode::cpw::{Cpw, FREQUENCIES_GHZ, LENGTH, Measured, Mesh, measured};
 use photonoxide_crosscode::openems::OpenEms;
 use photonoxide_crosscode::report::percent;
@@ -75,6 +76,7 @@ struct Row {
     cells: usize,
     steps: u64,
     timestep: f64,
+    seconds: f64,
     lines: Vec<Measured>,
     index: f64,
     ohm: f64,
@@ -134,6 +136,7 @@ fn openems_agrees_with_the_quasi_tem_line() {
             cells: model.cells(),
             steps: run.steps,
             timestep: run.timestep,
+            seconds: run.seconds,
             lines,
             index,
             ohm,
@@ -175,6 +178,25 @@ fn openems_agrees_with_the_quasi_tem_line() {
     );
     print!("{report}");
     std::fs::write(REPORT, &report).expect("docs/validation-openems.md");
+
+    // the chart's points: openEMS's own run time and its errors (photonoxide's own points on
+    // these meshes come from the Elmer study, which times its solves)
+    let mut points = Vec::new();
+    for r in &rows {
+        for (quantity, value, reference) in [("n", r.index, finest.0), ("Z₀", r.ohm, finest.1)] {
+            points.push(Point {
+                case: "the coplanar line".into(),
+                quantity: quantity.into(),
+                code: "openEMS".into(),
+                smallest_um: r.smallest,
+                value,
+                error_percent: 100.0 * (value - reference) / reference,
+                seconds: r.seconds,
+            });
+        }
+    }
+    chart::write_points("openems", &points).expect("the chart's points");
+    chart::redraw().expect("the chart");
 
     let index_error = (oe_n - finest.0).abs() / finest.0;
     let impedance_error = (oe_z - finest.1).abs() / finest.1;
@@ -260,11 +282,11 @@ fn write_report(
     let _ = writeln!(
         out,
         "Every error is against photonoxide's converged quasi-TEM line, the reference, in \
-         percent. This study checks the numbers only, and gives no times: openEMS solves a \
-         different problem, a 3D section of the line {} mm long in time (on the finest mesh {} \
-         cells for {} steps), where photonoxide solves the 2D cross-section's static fields \
-         once ({} unknowns), so their times don't compare. The times are compared where two \
-         codes solve the same problem: [Elmer's report](validation-elmer.md).\n",
+         percent. These tables give no times: openEMS solves a different problem, a 3D section \
+         of the line {} mm long in time (on the finest mesh {} cells for {} steps), where \
+         photonoxide solves the 2D cross-section's static fields once ({} unknowns). Each \
+         code's own time for its accuracy is on [the cross-code chart](cross-code.md), with \
+         every case and code.\n",
         LENGTH / 1000.0,
         last.cells,
         last.steps,
