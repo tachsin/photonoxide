@@ -589,8 +589,9 @@ const SCENES = {
     await rec.speed(1);
     await cursor(true);
     await sleep(300);
-    await drag({ x: view.x - 120, y: view.y + 110 }, { x: view.x + 10, y: view.y + 100 }, 2400, (t) => t * t * (3 - 2 * t));
-    await sleep(400);
+    // turned slowly, then held: the light circling the ring at resonance is what this shows
+    await drag({ x: view.x - 120, y: view.y + 110 }, { x: view.x + 10, y: view.y + 100 }, 4000, (t) => t * t * (3 - 2 * t));
+    await sleep(1200);
     await rec.end();
     await cursor(false);
   },
@@ -828,7 +829,7 @@ async function slideTo(key, to, ms = 1000, curve = ease) {
 }
 
 /** How long the ring's run lasts in the hero GIF, in seconds: its speed-up follows from it. */
-const LAPSE = 3.5;
+const LAPSE = 5;
 
 // ---- composing the GIFs ----
 
