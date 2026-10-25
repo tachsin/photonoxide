@@ -3,7 +3,7 @@
   // one's licence, what it provides, where photonoxide looked, and how to install it. None is
   // needed: photonoxide's own solvers are the default and the reference.
   import { CircleCheck, CircleDashed, CircleX, Copy, Cpu, Download, ExternalLink, FolderSearch, Package, RefreshCw, Scale, TerminalSquare, TriangleAlert } from "@lucide/svelte";
-  import { openUrl } from "@tauri-apps/plugin-opener";
+  import { openUrl } from "../lib/open";
 
   import Tip from "../components/Tip.svelte";
   import { api, ago } from "../lib/api";

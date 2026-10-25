@@ -1,6 +1,6 @@
 <script lang="ts">
   // Release notes and the changelog: headings, bullets, links, bold and code, nothing more.
-  import { openUrl } from "@tauri-apps/plugin-opener";
+  import { openUrl } from "../lib/open";
 
   let { text }: { text: string } = $props();
 

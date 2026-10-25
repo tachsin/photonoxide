@@ -2,7 +2,8 @@
   // Settings: appearance, the workspace, tips, updates, and what this copy is.
   import { Check, ChevronDown, Download, ExternalLink, FolderOpen, GitBranch, Hammer, Lightbulb, Monitor, Moon, RefreshCw, RotateCcw, Search, Sun, Trash2, Undo2 } from "@lucide/svelte";
   import { open } from "@tauri-apps/plugin-dialog";
-  import { openUrl, revealItemInDir } from "@tauri-apps/plugin-opener";
+  import { revealItemInDir } from "@tauri-apps/plugin-opener";
+  import { openUrl } from "../lib/open";
 
   import { app, toast, updateSettings } from "../lib/app.svelte";
   import { MORE_THEMES } from "../lib/themes";

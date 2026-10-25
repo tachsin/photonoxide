@@ -5,7 +5,7 @@
   import "katex/dist/katex.min.css";
 
   import { BookMarked, ExternalLink, GraduationCap, Search, X } from "@lucide/svelte";
-  import { openUrl } from "@tauri-apps/plugin-opener";
+  import { openUrl } from "../lib/open";
 
   import LessonView from "../components/LessonView.svelte";
   import { academy, LEVELS, loadAcademy, type Lesson, type Level } from "../lib/academy.svelte";

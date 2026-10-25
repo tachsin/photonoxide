@@ -3,7 +3,7 @@
   // numbers, with its paper and DOIs, its tolerance, what the release recorded, and a run on
   // this machine that checks every line against the paper as it prints.
   import { BookMarked, CircleCheck, CircleX, ExternalLink, FileCode, Play, Search, Square, SquarePen, Timer } from "@lucide/svelte";
-  import { openUrl } from "@tauri-apps/plugin-opener";
+  import { openUrl } from "../lib/open";
   import { tick } from "svelte";
 
   import { api, duration, type Example } from "../lib/api";

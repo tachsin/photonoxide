@@ -2,7 +2,7 @@
   // A lesson's papers by year: where the idea began, the steps that changed it, the surveys, and
   // today's work, each opened by its DOI.
   import { ExternalLink } from "@lucide/svelte";
-  import { openUrl } from "@tauri-apps/plugin-opener";
+  import { openUrl } from "../lib/open";
 
   import type { Paper, Role } from "../lib/academy.svelte";
 

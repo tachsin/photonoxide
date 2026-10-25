@@ -4,7 +4,7 @@
   import "katex/dist/katex.min.css";
 
   import { BookMarked, Cpu, ExternalLink, X } from "@lucide/svelte";
-  import { openUrl } from "@tauri-apps/plugin-opener";
+  import { openUrl } from "../lib/open";
 
   import { api, KINDS } from "../lib/api";
   import { run, sweepAxis } from "../lib/app.svelte";

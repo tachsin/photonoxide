@@ -20,7 +20,7 @@
   // is a solve, started by a button and run in the background. Every number names its model.
   import { BookOpen, BookOpenCheck, CircleCheck, CirclePlus, Cpu, ExternalLink, FileDown, Play, Save } from "@lucide/svelte";
   import { ask } from "@tauri-apps/plugin-dialog";
-  import { openUrl } from "@tauri-apps/plugin-opener";
+  import { openUrl } from "../../lib/open";
   import katex from "katex";
   import { untrack } from "svelte";
   import "katex/dist/katex.min.css";

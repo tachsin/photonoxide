@@ -7,7 +7,7 @@
   // computed for the design shown, their figures side by side and how far apart they are. The
   // model in use is an explicit choice, saved with the design.
   import { BookOpen, CircleCheck, Cpu, ExternalLink, Play, TriangleAlert } from "@lucide/svelte";
-  import { openUrl } from "@tauri-apps/plugin-opener";
+  import { openUrl } from "../../lib/open";
   import { untrack } from "svelte";
 
   import { ago, api, duration, type DeviceInfo, type DeviceSpec, type RunItem } from "../../lib/api";

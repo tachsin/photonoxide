@@ -4,7 +4,7 @@
   import "katex/dist/katex.min.css";
 
   import { BookMarked, ExternalLink, X } from "@lucide/svelte";
-  import { openUrl } from "@tauri-apps/plugin-opener";
+  import { openUrl } from "../lib/open";
 
   import { api } from "../lib/api";
   import { methodHtml, parseMethod, type MethodDoc } from "../lib/methods";

@@ -3,7 +3,7 @@
   // at a wavelength, with their equation and coefficients as the paper prints them), its crystal,
   // its d and r tensors, and the paper every number comes from.
   import { Atom, BookOpen, Clock, ExternalLink, FileText, Search, Thermometer } from "@lucide/svelte";
-  import { openUrl } from "@tauri-apps/plugin-opener";
+  import { openUrl } from "../lib/open";
   import katex from "katex";
   import "katex/dist/katex.min.css";
 

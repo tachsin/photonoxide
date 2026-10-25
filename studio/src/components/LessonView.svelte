@@ -5,7 +5,7 @@
   import "katex/dist/katex.min.css";
 
   import { ArrowLeft, BookOpen, Boxes, ChevronDown, ChevronRight, CircleCheck, CircleX, CircuitBoard, Clock, Eye, ListOrdered, Play, ShieldCheck, SquarePen, TableOfContents } from "@lucide/svelte";
-  import { openUrl } from "@tauri-apps/plugin-opener";
+  import { openUrl } from "../lib/open";
 
   import { academy, DEPTHS, numbered, type ChartSpec, type DiagramSpec, type Depth, type Lesson, type LessonSection } from "../lib/academy.svelte";
   import { api, type CircuitExample } from "../lib/api";

@@ -7,7 +7,7 @@
   // waiting at main's head to install, one main has moved past to revalidate, or the build
   // running. It always names the build it offers: its commit, its date, how far behind main.
   import { CircleCheck, CircleX, Copy, ExternalLink, GitBranch, Hammer, RefreshCw, RotateCcw, TerminalSquare, TriangleAlert, X } from "@lucide/svelte";
-  import { openUrl } from "@tauri-apps/plugin-opener";
+  import { openUrl } from "../lib/open";
 
   import { duration, when } from "../lib/api";
   import { toast, updateSettings } from "../lib/app.svelte";
