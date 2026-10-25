@@ -20,6 +20,7 @@
 //! reflect.
 
 use num_complex::Complex64 as c64;
+use photonoxide::electro::EPSILON_0;
 use photonoxide::electro::line::QuasiTem;
 use photonoxide::electro::{
     Axis, Boundary, Conductor, Electrostatic, Grading, Grid, Section, Side, Tensor,
@@ -155,6 +156,59 @@ impl Cpw {
                 .capacitance()?[0][0];
         let c0 = 2.0 * self.electrostatic(across, height, 1.0)?.capacitance()?[0][0];
         Ok(((c / c0).sqrt(), 1.0 / (C * (c * c0).sqrt())))
+    }
+
+    /// Elmer's case on the same mesh lines and half box: StatElecSolver's capacitance of the
+    /// signal (its boundary at 1 V, the grounds and the box's walls at 0, the mirror plane left
+    /// free, which is its own symmetry) with the substrate's permittivity `permittivity`, the
+    /// whole line's being twice the half's ([`crate::elmer::capacitance`]).
+    ///
+    /// # Errors
+    ///
+    /// When a strip or a wall isn't on the mesh lines.
+    pub fn elmer(
+        &self,
+        across: &Axis,
+        height: &Axis,
+        permittivity: f64,
+    ) -> Result<crate::elmer::Case, String> {
+        let (a, b, h, r) = (
+            self.half_width,
+            self.ground_edge,
+            self.thickness,
+            self.reach,
+        );
+        let mut mesh = crate::elmer::Mesh::new(across.nodes(), height.nodes(), |_, y| {
+            if y > -h && y < 0.0 { 1 } else { 2 }
+        });
+        mesh.along_x(1, 0.0, [0.0, a])?
+            .along_x(2, 0.0, [b, r])?
+            .along_x(2, -r, [0.0, r])?
+            .along_x(2, r, [0.0, r])?
+            .along_y(2, r, [-r, r])?;
+        let sif = format!(
+            "Header\n  Mesh DB \".\" \"mesh\"\nEnd\n\n\
+             Simulation\n  Coordinate System = Cartesian 2D\n  Coordinate Scaling = 1.0e-6\n  \
+             Simulation Type = Steady State\n  Steady State Max Iterations = 1\n  \
+             Output Intervals = 0\nEnd\n\n\
+             Constants\n  Permittivity Of Vacuum = {EPSILON_0:e}\nEnd\n\n\
+             Body 1\n  Name = \"substrate\"\n  Equation = 1\n  Material = 1\nEnd\n\n\
+             Body 2\n  Name = \"air\"\n  Equation = 1\n  Material = 2\nEnd\n\n\
+             Equation 1\n  Active Solvers(1) = 1\nEnd\n\n\
+             Solver 1\n  Equation = Stat Elec Solver\n  \
+             Procedure = \"StatElecSolve\" \"StatElecSolver\"\n  Variable = Potential\n  \
+             Variable DOFs = 1\n  Calculate Electric Energy = True\n  \
+             Calculate Capacitance Matrix = True\n  \
+             Capacitance Matrix Filename = \"cmatrix.dat\"\n  \
+             Linear System Solver = Direct\n  Linear System Direct Method = Umfpack\nEnd\n\n\
+             Material 1\n  Relative Permittivity = {permittivity:e}\nEnd\n\n\
+             Material 2\n  Relative Permittivity = 1.0\nEnd\n\n\
+             Boundary Condition 1\n  Name = \"signal\"\n  Target Boundaries(1) = 1\n  \
+             Capacitance Body = 1\nEnd\n\n\
+             Boundary Condition 2\n  Name = \"grounds and walls\"\n  Target Boundaries(1) = 2\n  \
+             Potential = 0.0\nEnd\n"
+        );
+        Ok(crate::elmer::Case { mesh, sif })
     }
 
     fn electrostatic(

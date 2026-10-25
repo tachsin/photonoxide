@@ -115,6 +115,12 @@ validate-backend backend:
 openems:
     cargo test --manifest-path crosscode/Cargo.toml --release --test openems -- --ignored --nocapture
 
+# Elmer against the static solver (a coplanar line's capacitance, a heater's rise), where
+# Elmer is installed (PHOTONOXIDE_ELMER or PATH; PHOTONOXIDE_ELMER_PATH for its libraries'
+# folders): writes docs/validation-elmer.md
+elmer:
+    cargo test --manifest-path crosscode/Cargo.toml --release --test elmer -- --ignored --nocapture
+
 # the cross-code harness's own checks: rustfmt, clippy and its unit tests (no openEMS needed)
 crosscode:
     cargo fmt --manifest-path crosscode/Cargo.toml --check

@@ -13,7 +13,7 @@ aren't installed.
 |---|---|---|---|
 | [openEMS](https://openems.de) (3D FDTD) | v0.37.0 (the Windows package `openEMS_x64_v0.37.0_msvc`) | GPL-3.0 (its `COPYING`: GNU General Public License, version 3) | runs `openEMS` on an XML input it writes, reads the probes' files |
 | CSXCAD (openEMS's geometry library, inside openEMS) | v0.7.0 | LGPL-3.0 (its `COPYING`: GNU Lesser General Public License, version 3) | none: openEMS reads the geometry |
-| [Elmer](https://www.elmerfem.org) (finite elements: heat, electrostatics) | not yet run | GPL-2.0 (its `LICENSE.md`; LGPL-2.1 beside it in `license_texts/`, for some of its libraries), to be read in full before it is run | waiting for a binary build (below) |
+| [Elmer](https://www.elmerfem.org) (finite elements: heat, electrostatics) | 26.2 (ElmerSolver, built from its release's source) | GPL-2.0 or later (its `LICENSE.md`: "version 2 of the License, or (at your option) any later version"; the UMFPACK it ships, which these runs' direct solves use, LGPL) | runs `ElmerSolver` on a mesh and a solver input file (SIF) it writes, reads its output files |
 
 As AGENTS.md has it for GPL codes, these are run as external programs only: nothing of theirs is
 linked, built, shipped or read. The input files are written in Rust from the programs'
@@ -50,6 +50,24 @@ photonoxide looks for the program in this order:
    or the folder holding it;
 2. each folder on `PATH`.
 
+## Getting Elmer
+
+- **Linux:** CSC's packages for Ubuntu, from their PPA
+  ([`ppa:elmer-csc-ubuntu/elmer-csc-ppa`](https://launchpad.net/~elmer-csc-ubuntu/+archive/ubuntu/elmer-csc-ppa)),
+  or a build from source with CMake ([its releases](https://github.com/ElmerCSC/elmerfem/releases)).
+- **Windows:** a build from source. The one run here was
+  built from the 26.2 release's source with MSYS2's UCRT64 toolchain (gfortran, OpenBLAS, MUMPS
+  and MS-MPI); its programs are in the build's `install\bin`, and its libraries in
+  `C:\msys64\ucrt64\bin`.
+- **macOS:** a build from source with CMake.
+
+photonoxide looks for ElmerSolver in `PHOTONOXIDE_ELMER` (the program, `ElmerSolver.exe` or
+`ElmerSolver`, or the folder holding it), then on `PATH`. A build whose run-time libraries
+aren't on `PATH` names their folders in `PHOTONOXIDE_ELMER_PATH`, as `PATH` lists them: they are
+put before `PATH` for Elmer's runs only (without them a Windows build stops at once with
+0xC0000135, a library not found, and the harness says to set it). ElmerGrid isn't needed: the
+harness writes Elmer's mesh files itself.
+
 ## Running the comparison
 
 **This is a local comparison, for validation: CI never runs it.** The harness is the crate
@@ -60,8 +78,12 @@ the shared cases on photonoxide's side. From the repository's root:
 
 ```sh
 PHOTONOXIDE_OPENEMS=C:/openEMS just openems   # the comparison, in release
+PHOTONOXIDE_ELMER=C:/elmer/bin PHOTONOXIDE_ELMER_PATH=C:/msys64/ucrt64/bin just elmer   # Elmer's
 just crosscode                                # the harness's rustfmt, clippy and unit tests
 ```
+
+`just elmer` writes [docs/validation-elmer.md](validation-elmer.md) the same way, from runs kept
+in `crosscode/target/tmp/elmer/` (each with Elmer's output in `elmer.log`); its runs take seconds.
 
 `just openems` writes [docs/validation-openems.md](validation-openems.md): each run's mesh,
 steps, time and numbers, and photonoxide's on the same lines and converged; it fails when the
@@ -99,10 +121,24 @@ run took 2408 s on 8 threads (339 345 steps of 4.0e-16 s, 2.85 million cells). E
 steps and time, and n and Z₀ at 10 to 50 GHz are in [docs/validation-openems.md](validation-openems.md),
 which `just openems` writes.
 
-## Elmer: waiting for a binary build
+## Elmer's cases
 
-Elmer's cases (P1's heat conduction from a line source and a heater in a slab, the coplanar
-waveguide's capacitance by electrostatics, P4's heater) wait for a build of ElmerSolver to run;
-building it from source isn't part of this work, and its source isn't read. With a binary, the
-harness gains `crosscode::elmer` the same way: found through `PHOTONOXIDE_ELMER` or `PATH`, its
-input (a mesh and a `.sif` file) written from Elmer's documented formats, its results read.
+`crosscode::elmer` writes Elmer's input from its documented formats (the ElmerSolver manual's
+mesh files, `mesh.header`, `mesh.nodes`, `mesh.elements` and `mesh.boundary`, and its solver
+input file): a structured mesh of four-node quadrilaterals on the mesh lines photonoxide's static
+solver takes, so Elmer's nodes are photonoxide's cell faces, each cell a body by where its centre
+is, and boundary elements where the case puts conditions. Elmer's bilinear finite elements
+against photonoxide's cell-centred finite volumes, on the same lines:
+
+- **Ghione and Naldi's coplanar waveguide, by electrostatics** (the openEMS case's line, half of
+  it beside its mirror plane): StatElecSolver's capacitance of the signal with the substrate and
+  without it, so n = √(C/C₀) and Z₀ = 1/(c√(CC₀)). On five meshes from 2 to 0.125 µm, Elmer
+  extrapolated gives n 2.217176 and Z₀ 54.1221 Ω, against photonoxide's converged 2.217156 and
+  54.1476 Ω: **+8.97e-6 and −4.71e-4** (relative; tolerances 1e-3 and 5e-3).
+- **A heater over silicon, by heat conduction:** a heater 2 µm wide and 0.2 µm thick, 2 µm up in
+  oxide (k = 1.38 W/(m·K)) on 10 µm of silicon (k = 148 W/(m·K)) held at 0 underneath, 1 W/m:
+  HeatSolver's peak rise. On five meshes from 0.2 to 0.0125 µm, Elmer extrapolated gives
+  0.327390 K against photonoxide's converged 0.327422 K: **−9.94e-5** (tolerance 5e-3).
+
+Every mesh, its cells and time, and both codes' numbers on the same lines are in
+[docs/validation-elmer.md](validation-elmer.md).
