@@ -23,26 +23,22 @@ photonoxide's finest-mesh row is on openEMS's finest mesh (0.25 µm) for the lin
 
 ### Times
 
-All on an Intel Core Ultra 7 265K (20 threads), 64 GB, Windows 11:
+Times are given only where two codes solve the same problem, so they show speed as well as
+agreement: Elmer and photonoxide solve the same 2D problems on the same mesh lines. Each is the
+code's own assembly and solve (Elmer's as its log reports them, photonoxide's measured around
+its solve), with no program start or file reading and writing; on an Intel Core Ultra 7 265K
+(20 threads), 64 GB, Windows 11:
 
-| Case | openEMS | Elmer | photonoxide, the same meshes | photonoxide, converged |
+| Case | Elmer, all meshes | photonoxide, the same meshes | Elmer, finest mesh | photonoxide, finest mesh |
 |---|---:|---:|---:|---:|
-| the coplanar line | 1 h 13 min (4 meshes) | 1.39 s (5 meshes, two solves each) | 0.12 s (openEMS's 4) and 0.21 s (Elmer's 5) | 4.9–6.8 s (timed in each study) |
-| the heater | — | 0.68 s (5 meshes) | 0.09 s | 0.35 s |
+| the coplanar line (5 meshes, two solves each) | 0.20 s | 0.21 s | 0.08 s | 0.08 s |
+| the heater (5 meshes) | 0.13 s | 0.08 s | 0.07 s | 0.03 s |
 
-The times aren't a race between the codes:
+Elmer's HeatSolve reports its times to 0.01 s. openEMS's results carry no times: it solves a
+different problem, a 3D section of the line 4 mm long in time (2.85 million cells for 339 345
+steps on its finest mesh), so it is in the study to check the numbers.
 
-- **openEMS solves a different problem:** a 3D section of the line, 4 mm long, in time, until
-  its pulse has died away. On its finest mesh that is 2.85 million cells for 339 345 time steps
-  of 4.0e-16 s (the step its smallest cell, 0.25 µm, allows), 9.7e11 cell updates at about
-  400 million a second, which is what its engine does. photonoxide and Elmer solve the 2D
-  cross-section once (8 900 unknowns on that mesh). openEMS is in the study as an independent
-  check of the numbers, not for its speed.
-- **Elmer and photonoxide solve the same 2D problems,** on the same lines. Elmer's times include
-  starting the program and writing and reading its files, most of its time on meshes this small;
-  photonoxide's are the solve alone.
-
-The two reports have every mesh, each code's value, error and time on it:
+The two reports have every mesh, with each code's value and error on it (and Elmer's and photonoxide's times):
 [docs/validation-openems.md](validation-openems.md) and
 [docs/validation-elmer.md](validation-elmer.md). The licences and how to get the programs
 follow.
@@ -157,8 +153,8 @@ opposite sides; Richardson's extrapolation of the three finest meshes gives open
 (order 1.09) and photonoxide on the same lines 54.236 Ω (order 1.11). **openEMS against
 photonoxide converged: n −0.0039 %, Z₀ −0.20 %**, within the study's tolerances of
 0.1 % and 0.5 %; openEMS's index is within 0.021 % of the converged one on every mesh. The 0.25 µm
-run took 40 min 8 s on 8 threads (339 345 steps of 4.0e-16 s, 2.85 million cells). Every mesh, its
-steps and time, and n and Z₀ at 10 to 50 GHz are in [docs/validation-openems.md](validation-openems.md),
+mesh has 2.85 million cells and 339 345 steps of 4.0e-16 s. Every mesh, its cells and
+steps, and n and Z₀ at 10 to 50 GHz are in [docs/validation-openems.md](validation-openems.md),
 which `just openems` writes.
 
 ## Elmer's cases

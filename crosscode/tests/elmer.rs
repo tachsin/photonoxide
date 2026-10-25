@@ -129,15 +129,16 @@ fn elmer_agrees_with_the_static_solver() {
         let with = cpw.elmer(&y, &z, cpw.permittivity).expect("the case");
         let without = cpw.elmer(&y, &z, 1.0).expect("the case");
         let cells = with.mesh.cells();
-        let (elmer, elmer_seconds) = timed(|| {
-            let c = capacitance(&program, &with, &folder.join(format!("cpw-{smallest}")));
-            let c0 = capacitance(
-                &program,
-                &without,
-                &folder.join(format!("cpw-{smallest}-air")),
-            );
-            ((c / c0).sqrt(), 1.0 / (cpw::C * (c * c0).sqrt()))
-        });
+        let (dielectric, air) = (
+            folder.join(format!("cpw-{smallest}")),
+            folder.join(format!("cpw-{smallest}-air")),
+        );
+        let c = capacitance(&program, &with, &dielectric);
+        let c0 = capacitance(&program, &without, &air);
+        let elmer = ((c / c0).sqrt(), 1.0 / (cpw::C * (c * c0).sqrt()));
+        // its solvers' own times, from its logs: the two solves, as photonoxide's has two
+        let elmer_seconds = elmer::solver_seconds(&dielectric).expect("Elmer's log")
+            + elmer::solver_seconds(&air).expect("Elmer's log");
         let (ours, ours_seconds) = timed(|| cpw.static_line(&y, &z).expect("the static solve"));
         eprintln!(
             "  Elmer n {:.6} Z {:.4} ({elmer_seconds:.2} s); photonoxide n {:.6} Z {:.4} ({ours_seconds:.2} s)",
@@ -185,10 +186,9 @@ fn elmer_agrees_with_the_static_solver() {
         let case = heater.elmer(&x, &y).expect("the case");
         let cells = case.mesh.cells();
         let run = folder.join(format!("heater-{smallest}"));
-        let (elmer, elmer_seconds) = timed(|| {
-            program.run(&case, &run).expect("Elmer's run");
-            elmer::scalars(&run).expect("Elmer's scalars")[0][0]
-        });
+        program.run(&case, &run).expect("Elmer's run");
+        let elmer = elmer::scalars(&run).expect("Elmer's scalars")[0][0];
+        let elmer_seconds = elmer::solver_seconds(&run).expect("Elmer's log");
         let (ours, ours_seconds) = timed(|| heater.photonoxide(&x, &y).expect("the heat solve"));
         eprintln!(
             "  Elmer {elmer:.6} K ({elmer_seconds:.2} s); photonoxide {ours:.6} K ({ours_seconds:.2} s)"
@@ -241,7 +241,7 @@ fn elmer_agrees_with_the_static_solver() {
     );
     let _ = writeln!(
         r,
-        "Elmer {} (ElmerSolver, found through {}), its direct solver (UMFPACK); photonoxide {}. Run on {}. Both codes solve the same 2D problems on the same mesh lines: Elmer's nodes are photonoxide's cell faces, Elmer's bilinear quadrilaterals against photonoxide's cell-centred finite volumes. Every error is against photonoxide's converged result, the reference, in percent. The times are each code's own: Elmer's include starting the program and writing and reading its files (most of its time on meshes this small), photonoxide's are the solve alone.\n",
+        "Elmer {} (ElmerSolver, found through {}), its direct solver (UMFPACK); photonoxide {}. Run on {}. Both codes solve the same 2D problems on the same mesh lines: Elmer's nodes are photonoxide's cell faces, Elmer's bilinear quadrilaterals against photonoxide's cell-centred finite volumes. Every error is against photonoxide's converged result, the reference, in percent. Both codes solve the same problems, so their times are compared: each code's assembly and solve, Elmer's as its log reports them (StatElecSolver's and HeatSolve's Assembly and Solve), photonoxide's measured around its solve; neither includes starting a program or reading and writing files.\n",
         program.version(),
         program.found(),
         photonoxide::VERSION,
@@ -281,7 +281,7 @@ fn elmer_agrees_with_the_static_solver() {
     );
     let _ = writeln!(
         r,
-        "| the coplanar line (Elmer: two solves a mesh) | {} | {} | {} | {} | {} |",
+        "| the coplanar line (two solves a mesh, in each code) | {} | {} | {} | {} | {} |",
         duration(totals(&lines).0),
         duration(totals(&lines).1),
         duration(line_last.elmer_seconds),

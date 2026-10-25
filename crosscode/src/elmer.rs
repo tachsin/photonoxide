@@ -366,6 +366,30 @@ pub fn scalars(folder: &Path) -> Result<Vec<Vec<f64>>, String> {
     numbers(&text, &file)
 }
 
+/// The time Elmer's solvers spent assembling and solving, s, as its log (`elmer.log`) reports
+/// them: StatElecSolver's `Assembly (s)` and `Solve (s)`, HeatSolve's `Assembly: (s)` and
+/// `Solve: (s)` (the last figure, the real time), summed. Starting the program, reading the
+/// mesh and writing files aren't in it, as they aren't in photonoxide's solve.
+///
+/// # Errors
+///
+/// When the log is missing or reports no assembly or solve.
+pub fn solver_seconds(folder: &Path) -> Result<f64, String> {
+    let file = folder.join("elmer.log");
+    let text = std::fs::read_to_string(&file).map_err(|e| format!("{}: {e}", file.display()))?;
+    solver_seconds_of(&text).ok_or_else(|| format!("{}: no solver times in it", file.display()))
+}
+
+fn solver_seconds_of(log: &str) -> Option<f64> {
+    let times: Vec<f64> = log
+        .lines()
+        .filter(|l| l.contains("(s)") && (l.contains("Assembly") || l.contains("Solve")))
+        .filter(|l| !l.contains("Elapsed"))
+        .filter_map(|l| l.split_whitespace().last()?.parse::<f64>().ok())
+        .collect();
+    (!times.is_empty()).then(|| times.iter().sum())
+}
+
 fn numbers(text: &str, file: &Path) -> Result<Vec<Vec<f64>>, String> {
     text.lines()
         .filter(|l| !l.trim().is_empty())
@@ -445,6 +469,20 @@ mod tests {
             Some("26.2")
         );
         assert_eq!(version_of("no banner"), None);
+    }
+
+    #[test]
+    fn the_logs_assembly_and_solve_times_are_summed() {
+        // the lines Elmer 26.2's StatElecSolver and HeatSolve write, and one that isn't a solver's
+        let log = "LoadMesh: Elapsed REAL time:     0.0410 (s)\n\
+                   StatElecSolver:  Assembly (s)          :   1.8000000000000002E-002\n\
+                   StatElecSolver:  Solve (s)             :   1.9999999999999990E-002\n\
+                   HeatSolve: iter:    1 Assembly: (s)    0.05    0.04\n\
+                   HeatSolve: iter:    1 Solve:    (s)    0.02    0.03\n\
+                   SOLVER TOTAL TIME(CPU,REAL):         0.17        0.17\n";
+        let total = solver_seconds_of(log).unwrap();
+        assert!((total - 0.108).abs() < 1e-12, "{total}");
+        assert_eq!(solver_seconds_of("no times\n"), None);
     }
 
     #[test]
