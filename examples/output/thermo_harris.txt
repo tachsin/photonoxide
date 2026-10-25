@@ -1,0 +1,14 @@
+Harris et al. 2014's in-guide heater through photonoxide's in-guide thermo-optic phase shifter device, at 1550 nm, 61.6 um long
+
+  analytic  P_pi  25.678 mW   tau  1.00 us   f_3dB   93.6 kHz   IL 0.00 dB
+            (exact: no grid)
+  2D        P_pi  26.344 mW   tau  0.93 us   f_3dB  109.3 kHz   IL 0.00 dB
+            (heat on 186 × 56 cells graded from 20.000 nm to 1.000 um (growth 1.200) over 40 × 12.22 um; mode on 10.000 nm cells)
+  measured  P_pi  24.770 mW   tau     - us   f_3dB  130.0 kHz   IL 0.23 dB
+            (measured: Section 4.1 and Fig. 3(b), 24.77 +- 0.43 mW (Vπ 4.36 V, 769 ohm))
+  2D P_pi on grids 1 and 1/2, mW        26.365519   on 2 grids, error 2.1e-2 ≤ 2.64e-1 ok
+  2D f_3dB on grids 1 and 1/2, kHz     109.152704   on 2 grids, error 1.3e-1 ≤ 1.092e0 ok
+  2D P_pi, mW (measured)                26.365519   paper 24.77      ± 2.9e0     ok
+  2D f_3dB, kHz (measured)             109.152704   paper 130        ± 3.2e1     ok
+  analytic P_pi, mW                     25.678139   2D 26.344337  ± 3.952e0      ok
+all 5 within tolerance of the paper

@@ -1,0 +1,35 @@
+# Harris et al. 2014's doped heater in the guide, as they measured it: the in-guide thermo-optic
+# phase shifter's measured fidelity (photonoxide::device::Measurement). Read 2026-10-24 from
+# the paper.
+kind = "in-guide thermo-optic phase shifter"
+source = "N. C. Harris, Y. Ma, J. Mower, T. Baehr-Jones, D. Englund, M. Hochberg, C. Galland, Opt. Express 22, 10487 (2014), doi:10.1364/OE.22.010487: the 61.6 um phase shifter (Section 2, Fig. 1: 220 nm SOI, a ridge on a 90 nm slab, its p region 1.0 um wide, p++ channels 0.8 um wide every 2.44 um), measured in an unbalanced MZI (Section 4.1)"
+
+# what the paper gives of the design (the fill is the channels' 0.8 of every 2.44 um); the
+# ridge's width, the channels' length and the slab between them it doesn't
+[design]
+thickness = 0.22
+slab = 0.09
+doped_width = 1.0
+fill = 0.32786885245901637
+length = 61.6
+
+[[figure]]
+symbol = "P_pi"
+name = "power for a π shift"
+value = 24.77
+unit = "mW"
+where = "Section 4.1 and Fig. 3(b), 24.77 +- 0.43 mW (Vπ 4.36 V, 769 ohm)"
+
+[[figure]]
+symbol = "f_3dB"
+name = "−3 dB frequency"
+value = 130.0
+unit = "kHz"
+where = "Section 4.1 and Fig. 3(c), 130.0 +- 5.59 kHz"
+
+[[figure]]
+symbol = "IL"
+name = "insertion loss"
+value = 0.23
+unit = "dB"
+where = "Section 4.1 and Fig. 3(d), 0.23 +- 0.13 dB over 21 devices"

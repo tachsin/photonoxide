@@ -646,7 +646,8 @@ fn the_library_has_the_first_devices_each_with_its_models() {
             "MZI",
             "Y-branch MZI",
             "thermo-optic phase shifter",
-            "doped thermo-optic phase shifter"
+            "doped thermo-optic phase shifter",
+            "in-guide thermo-optic phase shifter"
         ]
     );
     for d in library() {

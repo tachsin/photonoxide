@@ -83,6 +83,7 @@ examples!(
     y_junction_zhang: "../../../examples/y_junction_zhang.rs",
     compact_mzi_ye: "../../../examples/compact_mzi_ye.rs",
     thermo_jacques: "../../../examples/thermo_jacques.rs",
+    thermo_harris: "../../../examples/thermo_harris.rs",
 );
 
 /// An example's `main` returns an exit code, or a result holding one.
@@ -217,6 +218,7 @@ fn title(name: &str) -> (&'static str, &'static str) {
             "Thermo-optic phase shifters, as devices",
             "Jacques et al. 2019",
         ),
+        "thermo_harris" => ("A heater in the guide, as a device", "Harris et al. 2014"),
         _ => ("", ""),
     }
 }
@@ -257,6 +259,7 @@ fn seconds(name: &str) -> f64 {
         "y_junction_zhang" => 15.0,
         "compact_mzi_ye" => 40.0,
         "thermo_jacques" => 40.0,
+        "thermo_harris" => 10.0,
         "rib_hadley" => 30.0,
         "crossing_liu_poon" => 30.0,
         "coupler_liu_poon" => 100.0,

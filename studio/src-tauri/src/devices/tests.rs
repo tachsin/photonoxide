@@ -116,7 +116,7 @@ fn every_device_in_the_library_opens() {
 
 #[test]
 fn the_geometry_and_figures_are_the_librarys_for_the_same_values() {
-    let cases: [(&str, &[(&str, &str)]); 13] = [
+    let cases: [(&str, &[(&str, &str)]); 14] = [
         ("waveguide", &[("width", "0.45"), ("length", "25")]),
         ("bend", &[("radius", "7.5 um"), ("angle", "60 deg")]),
         (
@@ -151,6 +151,10 @@ fn the_geometry_and_figures_are_the_librarys_for_the_same_values() {
         (
             "doped thermo-optic phase shifter",
             &[("buffer", "600 nm"), ("power", "5")],
+        ),
+        (
+            "in-guide thermo-optic phase shifter",
+            &[("reach", "4 um"), ("power", "8")],
         ),
     ];
     for (kind, parameters) in cases {

@@ -1,7 +1,7 @@
 ---
 title: "Devices"
 module: device
-summary: "A component that knows its geometry: a stack, the parameters of its shapes, its models from a fit to the solver up to 3D, and the component each gives, with every figure's fidelity and grid. The strip waveguide, bend, directional coupler and rings; the rib, the MMIs, the Y-branch and the MZIs, on custom stacks and partial etches; and the thermo-optic phase shifters, a metal heater and doped heaters, at analytic, 2D and measured fidelity, Jacques et al. 2019's through them."
+summary: "A component that knows its geometry: a stack, the parameters of its shapes, its models from a fit to the solver up to 3D, and the component each gives, with every figure's fidelity and grid. The strip waveguide, bend, directional coupler and rings; the rib, the MMIs, the Y-branch and the MZIs, on custom stacks and partial etches; and the thermo-optic phase shifters, a metal heater, doped heaters and the guide heated itself, at analytic, 2D and measured fidelity, Jacques et al. 2019's and Harris et al. 2014's through them."
 order: 22.5
 papers:
   - cite: "L. Chrostowski, M. Hochberg, Silicon Photonics Design, Cambridge University Press (2015)"
@@ -36,6 +36,10 @@ papers:
     doi: 10.1364/OE.27.010456
   - cite: "E. A. J. Marcatili, Bell Syst. Tech. J. 48, 2071 (1969) (the analytic shifters' dn_eff/dT)"
     doi: 10.1002/j.1538-7305.1969.tb01166.x
+  - cite: "N. C. Harris, Y. Ma, J. Mower, T. Baehr-Jones, D. Englund, M. Hochberg, C. Galland, Opt. Express 22, 10487 (2014) (the in-guide heater: its design, sheet resistances and model, measured)"
+    doi: 10.1364/OE.22.010487
+  - cite: "J. Abate, P. P. Valkó, Int. J. Numer. Methods Eng. 60, 979 (2004) (fixed Talbot, the in-guide heater's analytic time)"
+    doi: 10.1002/nme.995
 validation:
   - device/library-components
   - device/ring-closed-forms
@@ -76,6 +80,11 @@ validation:
   - device/thermo-jacques-npp
   - device/thermo-tin-measured
   - device/thermo-npp-measured
+  - device/thermo-analytic-in-guide
+  - device/thermo-analytic-time-in-guide
+  - device/thermo-harris
+  - device/thermo-harris-bandwidth
+  - device/thermo-in-guide-measured
   - device/thermo-2d-grid
   - device/thermo-jobs
 ---
@@ -484,8 +493,9 @@ and the arms' loss are the circuit adjoint's, exact (`device/mzi-derivatives`).
 ## Thermo-optic phase shifters
 
 `ThermoShifter`, the first active devices (0.6's phase P9): a straight silicon guide `length`
-µm long and a heater beside it, ports `o1` and `o2`. Two heaters, each a kind of its own, at
-Jacques et al. 2019's fabricated designs by default:
+µm long and a heater beside it or in it, ports `o1` and `o2`. Three heaters, each a kind of its
+own, the first two at Jacques et al. 2019's fabricated designs by default, the third at Harris
+et al. 2014's:
 
 - **a metal heater** (`ThermoShifter::metal`, kind `"thermo-optic phase shifter"`): a TiN strip
   `heater_width` wide and `heater_thickness` thick, `height` µm above a `width` × `thickness`
@@ -495,19 +505,32 @@ Jacques et al. 2019's fabricated designs by default:
   strips `heater_width` wide in a `slab` µm slab, `buffer` µm beyond a `width` × `thickness`
   rib's sides, the slab ending past them, the oxide's top `cladding` µm over the buried oxide's
   (1.0 µm strips 0.8 µm beyond a 500 × 220 nm rib on a 90 nm slab; the cladding not given: 3.32
-  µm).
+  µm);
+- **the guide heated itself** (`ThermoShifter::in_guide`, `"in-guide thermo-optic phase
+  shifter"`): a current across a `width` × `thickness` rib on a `slab` µm slab from contacts at
+  ±`reach` µm, p silicon `doped_width` wide across the guide and p++ beyond, the slab continuous
+  to ±`channel_start` and beyond it heat channels of p++ slab, a share `fill` of the length,
+  `cover` µm of oxide over the rib with its top held at the ambient (Harris et al.'s 61.6 µm
+  shifter: a 90 nm slab, the p region 1.0 µm wide, channels 0.8 µm wide every 2.44 µm; what the
+  paper doesn't give as `shifter/harris-*` takes it: a 500 nm ridge, the slab continuous to 1.0
+  µm, the contacts 3.0 µm out, 10 µm of oxide). Its materials are the catalogue's silicon films
+  (Ju & Goodson at the ridge's and the slab's thicknesses) and silica (Powell), Jacques et al.'s
+  heat capacities, and Harris et al.'s sheet resistances (136 Ω p++ and 13.6 kΩ p in the 90 nm
+  slab, 3.87 kΩ p in the ridge) and dn/dT (1.86e-4/K).
 
-Both take `pitch` (a neighbour's centre from the guide's, for the crosstalk), `power` (mW),
+All take `pitch` (a neighbour's centre from the guide's, for the crosstalk), `power` (mW),
 `loss` (dB/cm, the propagation loss the heat model doesn't give), `wavelength` (1.5 to 1.6 µm)
 and `span`. The buried oxide is the stack's, the layers under the core taken as oxide; the
-heat and thermo-optic constants are Jacques et al.'s Table 3 at 300 K (the oxide 1.38
-W/(m·K), the substrate 148, the strip 90, the slab 55, N++ 25, TiN 28; silicon's dn/dT
-1.8e-4/K, the oxide's neglected, as theirs), so the core must be silicon: a nitride core is
-refused.
+heat and thermo-optic constants of the first two are Jacques et al.'s Table 3 at 300 K (the
+oxide 1.38 W/(m·K), the substrate 148, the strip 90, the slab 55, N++ 25, TiN 28; silicon's
+dn/dT 1.8e-4/K, the oxide's neglected, as theirs), the third's as above; so the core must be
+silicon: a nitride core is refused.
 
 Its **component** is the phase the heater adds and the guide's loss: ports `o1` and `o2`,
 parameters `phase` (rad) and `loss` (dB), $S_{21} = S_{12} = 10^{-\mathrm{IL}/20}\, e^{i\varphi\lambda_0/\lambda}$
-with $\varphi = \pi P/P_\pi$ (Jacques et al.'s Eqs. 4 and 5) and IL the loss over the length.
+with $\varphi = \pi P/P_\pi$ (Jacques et al.'s Eqs. 4 and 5) and IL the loss over the length,
+or at the measured fidelity the measured device's insertion loss where it gives one (Harris et
+al.'s 0.23 dB).
 The unheated guide's own propagation is a waveguide's: a circuit puts one beside it. Its
 derivatives in the power, the loss and the length are exact. The figures, each with its
 fidelity and grid: `P_pi` (mW), `tau` (the phase's 1/e time turned on, µs), `f_3dB` (kHz), `X`
@@ -545,8 +568,39 @@ a 2D number, a straight section's of any length (the length cancels: Jacques et 
   design's parameters the paper gives, and the figures measured, each with where in the paper),
   at its design's values only: the library holds Jacques et al.'s two
   (`src/device/measured/jacques-2019-*.toml`: the TiN's 29.2 mW, 7.2 µs and 33 kHz, the N++'s
-  22.8 mW, 2.2 µs and 85 kHz, the MZIs' arms 200 µm apart), and
-  `ThermoShifter::with_measurement` adds one's own.
+  22.8 mW, 2.2 µs and 85 kHz, the MZIs' arms 200 µm apart) and Harris et al.'s
+  (`harris-2014.toml`: 24.77 mW, 130 kHz and 0.23 dB), and `ThermoShifter::with_measurement`
+  adds one's own.
+
+**The heater in the guide** has models of its own. Its current crosses, in series, the ridge
+and on each side the p slab, the p++ slab and the channels (their conductivity the fill's share
+of p++'s), so each stretch takes the share of the Joule heat that its sheet resistance is of
+their sum.
+
+- **Analytic:** its silicon is a fin across the guide (`thermo_closed::Fin`): the temperature
+  uniform through the silicon, $K T'' - Y T + q = 0$ in each stretch ($K$ the silicon's $kt$,
+  $q$ its heat), exact in cosh and sinh, $T$ and $KT'$ continuous between stretches, no flow at
+  the centre and the contact held. Its heat goes to the oxide straight across to the held
+  planes, $Y = k/d$ below and above, which leaves out the oxide's spreading beyond the silicon;
+  the spreading is closed by the oxide as a slab between the held planes (the eigenfunctions
+  above with $k_m = (m+1)\pi/H$): $Y$'s steady part is taken $a$ times as large, $a$ the factor
+  (about 2) at which the fin's rise at the centre is the slab's from the heat the fin gives it,
+  less what the held contacts take back from the oxide (a sink at each, its strength the one
+  that holds its centre at the ambient). The crosstalk is the slab's rise at the neighbour from
+  the same sheets, over the fin's. In time the layers carry their heat capacity,
+  $Y(s) = k\gamma\coth(\gamma d) + (a - 1)k/d$, $\gamma = \sqrt{s/D}$, and the fin its own: the
+  −3 dB frequency from the transfer at $s = i\omega$, the 1/e time from the step's transform
+  inverted by fixed Talbot (16 nodes; J. Abate, P. P. Valkó, Int. J. Numer. Methods Eng. 60, 979
+  (2004), doi:10.1002/nme.995). Marcatili's $dn_\mathrm{eff}/dT$ of the rib alone, Harris et
+  al.'s dn/dT. The fin is its equation's finite-difference solution to 1e-8 (a unit test).
+- **2D:** Harris et al.'s model's region (Section 3): the buried oxide's bottom and the oxide's
+  top held at the ambient, 40 µm wide; the current by current continuity (`electro::Current`,
+  1 V across the contacts, the slab's last 0.1 µm each end), its Joule heat the drive, the
+  contacts held at the ambient (the made device's vias, which their model leaves out), the
+  channels averaged into the slab; graded from 20 nm to 1 µm, BDF2 steps of 0.1 µs. At its
+  defaults it is `shifter/harris-p-pi`'s averaged section to the bit (a unit test): on its own
+  grid 186 × 56 cells over 40 × 12.22 µm, the mode on 10 nm; seconds, 3 to 4 here.
+- **Measured:** Harris et al.'s, its insertion loss the component's.
 
 Each lower model against the next one up (`device/thermo-*`): the analytic $P_\pi$ within 15%
 of the 2D model's over its validity range (the metal heater 1 to 10 µm wide, 1 to 3 µm above
@@ -560,6 +614,15 @@ them (Section 3.1). On the devices' own grids the 2D time constants are 4.1 (TiN
 (N++) above the measured ones (the paper's simulations 3.6 µs above, Section 3.2), and the
 measured bandwidths, which peak (their Fig. 10(a), the leads' inductance), 2.2 and 3.6 times
 the 2D's (`thermo_jacques` prints them).
+
+The heater in the guide (`device/thermo-*-in-guide`, `device/thermo-harris*`): the analytic
+$P_\pi$ within 10% of the 2D model's over its validity range (the p region 0.6 to 2.0 µm wide,
+the contacts 2 to 6 µm out, the rib 0.4 to 0.6 µm wide: at most 10.0% low, at a 0.4 µm rib),
+stated 15%; its time constant and bandwidth within 27% (the bandwidth 27% low with the contacts
+2 µm out, the 1/e time 23% low with them 6 µm out), stated 30%. The 2D model's $P_\pi$, gated by
+grids twice as fine, is 26.37 mW against the measured 24.77 (6.4% above), its bandwidth 109 kHz
+against 130 (`thermo_harris` prints them, with the 2D model's own grid's: 26.34 mW, 109.3 kHz):
+a 2D section's of a periodic heater, not the made device's 3D.
 
 ```python
 import photonoxide as phox
@@ -882,8 +945,11 @@ its studies run here rather than on a farm's workers, who haven't the file.
 | `device/thermo-analytic-time-metal`, `-doped` | their analytic 1/e time and −3 dB frequency over the 2D model's, three heater widths each | the same, BDF2 0.2 and 0.1 µs | 1.024 and 1.507 |
 | `device/thermo-jacques-tin`, `-npp` | Jacques et al.'s simulated heaters through the devices, gated by grids twice as fine: $P_\pi$ (the TiN's four variants' midpoint) | the same and half | 25.35 and 26.09 mW (23.9 and 25.5 ± 10 %) |
 | `device/thermo-tin-measured`, `-npp-measured` | the 2D $P_\pi$ at the fabricated designs, gated, over the measured fidelity's (29.2 and 22.8 mW) | the same and half | 1.142 and 1.144 |
-| `device/thermo-2d-grid` | the 2D $P_\pi$ at the fabricated designs on the devices' grids over twice as fine | the same and half | 1.00042 |
-| `device/thermo-jobs` | both shifters at each fidelity as jobs against `Device::component`, figures and S-parameters | the same | 0 bits differ |
+| `device/thermo-analytic-in-guide`, `-time-in-guide` | the in-guide heater's analytic $P_\pi$, and its 1/e time and −3 dB frequency, over the 2D model's at seven designs (the ratio farthest from 1) | heat 20 nm to 1 µm, mode 10 nm, BDF2 0.1 µs | 0.900 and 0.727 |
+| `device/thermo-harris`, `-harris-bandwidth` | Harris et al.'s heater through the in-guide device, gated by grids twice as fine: $P_\pi$ and the −3 dB frequency | the same and half | 26.37 mW and 109.2 kHz (24.77 ± 2.9 and 130 ± 32) |
+| `device/thermo-in-guide-measured` | its 2D $P_\pi$, gated, over the measured fidelity's (24.77 mW) | the same and half | 1.064 |
+| `device/thermo-2d-grid` | the 2D $P_\pi$ at the three fabricated designs on the devices' grids over twice as fine | the same and half | 1.00080 |
+| `device/thermo-jobs` | the three shifters at each fidelity as jobs against `Device::component`, figures and S-parameters | the same | 0 bits differ |
 
 The Y-branch MZI has none: its 3D model's FDFD of its Y-branches is more than the direct solver
 holds here (7.3 million unknowns), as for the MMIs' and the Y-branch's own 3D models (#377). The

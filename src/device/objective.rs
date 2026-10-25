@@ -514,7 +514,9 @@ pub(super) fn objectives_of(kind: &str) -> Vec<Objective> {
                 "the largest power through over the smallest across the band, in dB",
             ),
         ],
-        "thermo-optic phase shifter" | "doped thermo-optic phase shifter" => vec![
+        "thermo-optic phase shifter"
+        | "doped thermo-optic phase shifter"
+        | "in-guide thermo-optic phase shifter" => vec![
             objective(
                 "power for a π shift",
                 "P_pi",
@@ -716,35 +718,23 @@ pub(super) fn constraints_of(kind: &str) -> Vec<Constraint> {
         ],
         "MZI" => vec![smallest_width(), smallest_gap("gap")],
         "Y-branch MZI" => vec![smallest_width()],
-        "thermo-optic phase shifter" | "doped thermo-optic phase shifter" => vec![
-            constraint(
-                "power for a π shift",
-                "P_pi",
-                "mW",
-                "P_pi",
-                AtMost,
-                30.0,
-                "a π shift for no more than the driver gives",
-            ),
-            constraint(
-                "time constant",
-                "tau",
-                "µs",
-                "tau",
-                AtMost,
-                10.0,
-                "the phase within 1 − 1/e of its step in no more than this",
-            ),
-            constraint(
-                "crosstalk",
-                "crosstalk",
-                "",
-                "X",
-                AtMost,
-                0.1,
-                "the neighbour at the pitch takes no more than this share of the phase",
-            ),
-            constraint(
+        "in-guide thermo-optic phase shifter" => {
+            let mut c = shifter_constraints();
+            c.push(constraint(
+                "p++ clear of the rib",
+                "clearance",
+                "µm",
+                "(doped_width - width)/2",
+                AtLeast,
+                0.25,
+                "the p++ silicon at least this far beyond the rib's sides, clear of the mode \
+                 (Harris et al.'s 0.25 µm: the free carriers' loss the heat model doesn't give)",
+            ));
+            c
+        }
+        "thermo-optic phase shifter" | "doped thermo-optic phase shifter" => {
+            let mut c = shifter_constraints();
+            c.push(constraint(
                 "smallest heater",
                 "heater_width",
                 "µm",
@@ -756,10 +746,45 @@ pub(super) fn constraints_of(kind: &str) -> Vec<Constraint> {
                     1.0
                 },
                 "a foundry's narrowest heater (Jacques et al.'s: 2.0 µm of TiN, 1.0 µm of N++)",
-            ),
-        ],
+            ));
+            c
+        }
         _ => Vec::new(),
     }
+}
+
+/// The constraints every thermo-optic phase shifter declares.
+fn shifter_constraints() -> Vec<Constraint> {
+    use Limit::AtMost;
+    vec![
+        constraint(
+            "power for a π shift",
+            "P_pi",
+            "mW",
+            "P_pi",
+            AtMost,
+            30.0,
+            "a π shift for no more than the driver gives",
+        ),
+        constraint(
+            "time constant",
+            "tau",
+            "µs",
+            "tau",
+            AtMost,
+            10.0,
+            "the phase within 1 − 1/e of its step in no more than this",
+        ),
+        constraint(
+            "crosstalk",
+            "crosstalk",
+            "",
+            "X",
+            AtMost,
+            0.1,
+            "the neighbour at the pitch takes no more than this share of the phase",
+        ),
+    ]
 }
 
 /// Where an output's value comes from.

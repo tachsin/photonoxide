@@ -1,8 +1,8 @@
 //! The thermo-optic phase shifter devices' validation cases ([`super::ThermoShifter`]): each
-//! lower fidelity against the next one up over its stated range, Jacques et al.'s published
-//! heaters through the devices (the phase's own cases, `shifter/jacques-*`, reproduced through
-//! them), the 2D models against the measured devices, the 2D grid's convergence, and every
-//! fidelity run as a job to the bit.
+//! lower fidelity against the next one up over its stated range, Jacques et al.'s and Harris et
+//! al.'s published heaters through the devices (the phase's own cases, `shifter/jacques-*` and
+//! `shifter/harris-*`, reproduced through them), the 2D models against the measured devices,
+//! the 2D grid's convergence, and every fidelity run as a job to the bit.
 
 use std::sync::OnceLock;
 
@@ -178,46 +178,114 @@ fn midpoint(values: &[f64]) -> f64 {
     0.5 * (low + high)
 }
 
+/// The three heaters: a metal one, doped ones and the guide's own.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Kind {
+    Metal,
+    Doped,
+    InGuide,
+}
+
+/// The device of a heater, at its defaults.
+fn device(kind: Kind) -> ThermoShifter {
+    match kind {
+        Kind::Metal => ThermoShifter::metal(),
+        Kind::Doped => ThermoShifter::doped(),
+        Kind::InGuide => ThermoShifter::in_guide(),
+    }
+}
+
 /// The 2D model's P_π (mW) at the measured device's design, on its own grids and twice as fine.
-fn fabricated(doped: bool) -> &'static [f64; 2] {
-    static METAL: OnceLock<[f64; 2]> = OnceLock::new();
-    static DOPED: OnceLock<[f64; 2]> = OnceLock::new();
-    let cell = if doped { &DOPED } else { &METAL };
-    cell.get_or_init(|| {
-        let d = if doped {
-            ThermoShifter::doped()
-        } else {
-            ThermoShifter::metal()
-        };
+fn fabricated(kind: Kind) -> &'static [f64; 2] {
+    static CELLS: [OnceLock<[f64; 2]>; 3] = [OnceLock::new(), OnceLock::new(), OnceLock::new()];
+    CELLS[kind as usize].get_or_init(|| {
+        let d = device(kind);
         let v = Values::defaults(&d);
         [p_pi_2d(&d, &v, 1.0), p_pi_2d(&d, &v, 2.0)]
     })
 }
 
-/// The 2D model's P_π at the fabricated design, gated by its grids (1%), against the measured
-/// fidelity's: the relative difference.
-fn against_measured(doped: bool) -> f64 {
-    let d = if doped {
-        ThermoShifter::doped()
-    } else {
-        ThermoShifter::metal()
-    };
-    let [coarse, fine] = *fabricated(doped);
-    let gated = gated("P_pi (mW)", |r| if r == 1.0 { coarse } else { fine }, 0.01);
-    let measured = figure(&d, &Values::defaults(&d), Fidelity::Measured, "P_pi");
-    gated / measured - 1.0
+/// The 2D model's P_π (mW) at the fabricated design, gated by its grids (1%).
+fn fabricated_gated(kind: Kind) -> f64 {
+    let [coarse, fine] = *fabricated(kind);
+    gated("P_pi (mW)", |r| if r == 1.0 { coarse } else { fine }, 0.01)
 }
 
-/// The device's own 2D grid's error in P_π at both fabricated designs: its relative difference
-/// from the grid twice as fine, the larger.
+/// The 2D model's P_π at the fabricated design, gated by its grids (1%), against the measured
+/// fidelity's: the relative difference.
+fn against_measured(kind: Kind) -> f64 {
+    let d = device(kind);
+    let measured = figure(&d, &Values::defaults(&d), Fidelity::Measured, "P_pi");
+    fabricated_gated(kind) / measured - 1.0
+}
+
+/// The device's own 2D grid's error in P_π at the three fabricated designs: its relative
+/// difference from the grid twice as fine, the largest.
 fn grid_error() -> f64 {
-    [false, true]
+    [Kind::Metal, Kind::Doped, Kind::InGuide]
         .iter()
-        .map(|&doped| {
-            let [coarse, fine] = *fabricated(doped);
+        .map(|&kind| {
+            let [coarse, fine] = *fabricated(kind);
             (coarse / fine - 1.0).abs()
         })
         .fold(0.0, f64::max)
+}
+
+/// The in-guide heater's designs the analytic model is checked on: the defaults, and each
+/// parameter of its validity at its ends.
+const IN_GUIDE_DESIGNS: [&[(&str, f64)]; 7] = [
+    &[],
+    &[("doped_width", 0.6)],
+    &[("doped_width", 2.0)],
+    &[("reach", 2.0)],
+    &[("reach", 6.0)],
+    &[("width", 0.4)],
+    &[("width", 0.6)],
+];
+
+/// The in-guide heater's analytic figures over its 2D model's at [`IN_GUIDE_DESIGNS`]: P_π's,
+/// and the 1/e time's and −3 dB frequency's, each ratio's farthest from 1.
+fn in_guide_against_2d() -> &'static [f64; 2] {
+    static CELL: OnceLock<[f64; 2]> = OnceLock::new();
+    CELL.get_or_init(|| {
+        let d = ThermoShifter::in_guide();
+        let farther = |m: f64, e: f64| if e.abs() > m.abs() { e } else { m };
+        let (mut p_pi, mut time) = (0.0f64, 0.0f64);
+        for changes in IN_GUIDE_DESIGNS {
+            let v = values(&d, changes);
+            let (a, b) = (
+                d.component(&v, Fidelity::Analytic).expect(OK),
+                d.component(&v, Fidelity::TwoD).expect(OK),
+            );
+            let ratio = |s: &str| a.figure(s).expect(OK).value / b.figure(s).expect(OK).value;
+            p_pi = farther(p_pi, ratio("P_pi") - 1.0);
+            time = farther(time, ratio("tau") - 1.0);
+            time = farther(time, ratio("f_3dB") - 1.0);
+        }
+        [1.0 + p_pi, 1.0 + time]
+    })
+}
+
+/// Harris et al.'s heater's −3 dB frequency (kHz) through the device's 2D model, gated (1%).
+fn harris_cutoff() -> f64 {
+    let (d, v) = (
+        ThermoShifter::in_guide(),
+        Values::defaults(&ThermoShifter::in_guide()),
+    );
+    gated(
+        "f_3dB (kHz)",
+        |r| {
+            d.clone()
+                .with_refinement(r)
+                .expect(OK)
+                .shifter(&v)
+                .expect(OK)
+                .cutoff(0, 0)
+                .expect(OK)
+                * 1e-3
+        },
+        0.01,
+    )
 }
 
 /// Each device at each of its fidelities as a job ([`crate::job::from_device`]), run in memory:
@@ -227,7 +295,11 @@ fn jobs() -> f64 {
     use crate::job::{Compute, Event, execute, from_device};
     use crate::run::{Run, Stop};
     let mut differ = 0usize;
-    for d in [ThermoShifter::metal(), ThermoShifter::doped()] {
+    for d in [
+        ThermoShifter::metal(),
+        ThermoShifter::doped(),
+        ThermoShifter::in_guide(),
+    ] {
         for f in [Fidelity::Analytic, Fidelity::TwoD, Fidelity::Measured] {
             let mut spec = Spec::new(d.kind());
             spec.fidelity = f;
@@ -339,25 +411,60 @@ pub(crate) fn cases() -> Vec<Case> {
             title: r"Thermo-optic phase shifter, 2D against measured: $P_\pi$ of the 2D model at Jacques et al.'s fabricated TiN heater (7.5 µm wide, 2 µm above the strip, 320 µm long; the metal device's defaults), gated by its grids (1%), against the measured fidelity's (the paper's measurement): their ratio (shown), the 2D fidelity's stated error",
             tier: Tier::Published,
             source: r"M. Jacques et al., Opt. Express 27, 10456 (2019), doi:10.1364/OE.27.010456, measured: 29.2 mW, the MZI's arms 200 µm apart (Section 3.1, Fig. 8); their own simulation 3.0 mW above it (Section 3.1)",
-            run: || outcome(1.0 + against_measured(false), 1.0, 0.15),
+            run: || outcome(1.0 + against_measured(Kind::Metal), 1.0, 0.15),
         },
         Case {
             id: "device/thermo-npp-measured",
             title: r"Doped thermo-optic phase shifter, 2D against measured: $P_\pi$ of the 2D model at Jacques et al.'s fabricated N++ heater (the doped device's defaults), gated the same way, against the measured fidelity's: their ratio (shown), the 2D fidelity's stated error",
             tier: Tier::Published,
             source: r"M. Jacques et al., Opt. Express 27, 10456 (2019), doi:10.1364/OE.27.010456, measured: 22.8 mW, the arms 200 µm apart (Section 3.1, Fig. 8); their own simulation 2.7 mW above it (Section 3.1)",
-            run: || outcome(1.0 + against_measured(true), 1.0, 0.15),
+            run: || outcome(1.0 + against_measured(Kind::Doped), 1.0, 0.15),
+        },
+        Case {
+            id: "device/thermo-analytic-in-guide",
+            title: r"In-guide thermo-optic phase shifter (Harris et al.'s doped rib, the current across it), analytic against 2D: $P_\pi$ of the closed forms (the silicon a fin to the held contacts, exact in each of the ridge, the p and p++ slab and the channels; its heat to the oxide straight across, the oxide's spreading closed by the oxide as a slab between held planes; Marcatili's $dn_\mathrm{eff}/dT$) against the 2D model's (Harris et al.'s region, the heat graded from 20 nm to 1 µm, the mode on 10 nm), at seven designs: the defaults, the p region 0.6 and 2.0 µm wide, the contacts 2 and 6 µm out, the rib 0.4 and 0.6 µm wide; the ratio farthest from 1, analytic over 2D (shown), the analytic fidelity's stated error",
+            tier: Tier::Analytic,
+            source: r"the same heat problem with the silicon's temperature uniform through its thickness and its heat to the oxide straight across but for the spreading the slab closes; Marcatili's rectangle (doi:10.1002/j.1538-7305.1969.tb01166.x) of the rib alone",
+            run: || outcome(in_guide_against_2d()[0], 1.0, 0.15),
+        },
+        Case {
+            id: "device/thermo-analytic-time-in-guide",
+            title: r"In-guide thermo-optic phase shifter in time, analytic against 2D: the fin's 1/e time turned on (its transfer at s inverted by fixed Talbot, 16 nodes) and −3 dB frequency against the 2D model's (BDF2 steps of 0.1 µs, its frequency response), at the same seven designs: the ratio of either farthest from 1, analytic over 2D (shown)",
+            tier: Tier::Analytic,
+            source: r"the same heat problem, the oxide's heat capacity in its layers' transfer $k\gamma\coth(\gamma d)$; J. Abate, P. P. Valkó, doi:10.1002/nme.995, for the inversion; the tolerance is what the closed form states for the in-guide heater's time",
+            run: || outcome(in_guide_against_2d()[1], 1.0, 0.3),
+        },
+        Case {
+            id: "device/thermo-harris",
+            title: r"In-guide thermo-optic phase shifter, published, through the device: Harris et al.'s doped heater as the in-guide device's defaults (`shifter/harris-p-pi`'s averaged section, to the bit), $P_\pi$ of its 2D model on its own grids and twice as fine, gated (1%) (mW)",
+            tier: Tier::Published,
+            source: r"N. C. Harris et al., Opt. Express 22, 10487 (2014), doi:10.1364/OE.22.010487, measured: 24.77 ± 0.43 mW for the 61.6 µm device (Section 4.1); 10% and its uncertainty, for what the paper doesn't give (the ridge's width, the channels' length, the slab between them) and the device's 3D",
+            run: || outcome(fabricated_gated(Kind::InGuide), 24.77, 2.9),
+        },
+        Case {
+            id: "device/thermo-harris-bandwidth",
+            title: r"In-guide thermo-optic phase shifter in time, published, through the device: the same 2D model's −3 dB frequency (`shifter/harris-bandwidth`'s), gated the same way (kHz)",
+            tier: Tier::Published,
+            source: r"N. C. Harris et al., doi:10.1364/OE.22.010487, measured: 130.0 ± 5.59 kHz (Section 4.1); 20% and its uncertainty",
+            run: || outcome(harris_cutoff(), 130.0, 32.0),
+        },
+        Case {
+            id: "device/thermo-in-guide-measured",
+            title: r"In-guide thermo-optic phase shifter, 2D against measured: $P_\pi$ of the 2D model at Harris et al.'s design (the in-guide device's defaults), gated by its grids (1%), against the measured fidelity's (the paper's measurement): their ratio (shown), the 2D fidelity's stated error",
+            tier: Tier::Published,
+            source: r"N. C. Harris et al., Opt. Express 22, 10487 (2014), doi:10.1364/OE.22.010487, measured: 24.77 ± 0.43 mW (Section 4.1, Fig. 3(b))",
+            run: || outcome(1.0 + against_measured(Kind::InGuide), 1.0, 0.15),
         },
         Case {
             id: "device/thermo-2d-grid",
-            title: r"Thermo-optic phase shifters, the 2D model's grid: $P_\pi$ at both fabricated designs on the devices' own grids (the heat graded from 20 nm to 0.5 µm by 1.2, the mode on 10 nm) against the grids twice as fine: the ratio farther from 1 (shown), the devices' 2D figures' grid error",
+            title: r"Thermo-optic phase shifters, the 2D model's grid: $P_\pi$ at the three fabricated designs (Jacques et al.'s TiN and N++, Harris et al.'s in the guide) on the devices' own grids (the heat graded from 20 nm to 0.5 µm, 1 µm in the guide's, by 1.2, the mode on 10 nm) against the grids twice as fine: the ratio farthest from 1 (shown), the devices' 2D figures' grid error",
             tier: Tier::Analytic,
             source: r"the static solver's second order in the grid (static/line-source-order) and the mode's (thermo/slab-vector-order): halving the cells moves $P_\pi$ by less than 1%",
             run: || outcome(1.0 + grid_error(), 1.0, 0.01),
         },
         Case {
             id: "device/thermo-jobs",
-            title: r"Thermo-optic phase shifters as jobs: both devices at each fidelity (analytic, 2D and measured, 12.5 mW of heater power) as the job `job::from_device` makes, run, its figures and S-parameters from 1.53 to 1.57 µm (5 wavelengths) against `Device::component`'s: the numbers whose bits differ (count shown)",
+            title: r"Thermo-optic phase shifters as jobs: the three devices at each fidelity (analytic, 2D and measured, 12.5 mW of heater power) as the job `job::from_device` makes, run, its figures and S-parameters from 1.53 to 1.57 µm (5 wavelengths) against `Device::component`'s: the numbers whose bits differ (count shown)",
             tier: Tier::Analytic,
             source: "the same computation: a spectrum job records what the device's component gives at its design's fidelity, to the bit",
             run: || outcome(jobs(), 0.0, 0.0),

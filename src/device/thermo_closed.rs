@@ -9,7 +9,10 @@
 //! slab's), each its share of the power spread evenly across its width. In the slab's
 //! eigenfunctions φ_m(y) = √(2/H) sin(k_m y), k_m = (m + ½)π/H, each term of the temperature
 //! obeys −k(u″ − p_m² u) = q_m(x), whose Green's function across is e^(−p_m|x|)/(2k p_m), and
-//! a strip's integral of it is closed:
+//! a strip's integral of it is closed. A top held at the ambient in place of the insulated one
+//! (Harris et al.'s model, the oxide's top room temperature: [`Slab`]'s `held`) takes
+//! k_m = (m + 1)π/H. Heat at several heights (the in-guide heater's ridge and slab) is a sheet
+//! at each, its share of the power in its strips, the rises summed:
 //!
 //! - **steady,** p_m = k_m: the rise at (x, y), Σ_m φ_m(y) φ_m(s) Σ_j s_j J(k_m)/(2k k_m w_j);
 //! - **at a frequency ω,** p_m² = k_m² + iω/D: its response over the steady rise, the steady
@@ -18,6 +21,13 @@
 //! - **in time,** the step response u_m(t) = u_m(∞) − (1/ρc) ∫_t^∞ e^(−Dk_m²τ) W(x, τ) dτ, W the
 //!   strips' heat kernel e^(−x²/4Dτ)/√(4πDτ) integrated across them (a difference of erfs), the
 //!   integral by Simpson's rule in ln τ ([`Slab::one_over_e`]).
+//!
+//! **The in-guide heater** ([`Fin`]): its silicon a fin across the guide, conducting along it
+//! to the held contacts and giving its heat to the oxide straight across, exact in each stretch
+//! of the ridge, the slab and the channels; the oxide's spreading, which straight across leaves
+//! out, closed by the slab above: the factor on the oxide's steady flow at which the fin's rise
+//! at the centre is the slab's from the heat the fin gives it, less what the held contacts take
+//! back from the oxide. In time by its transfer at s, inverted by fixed Talbot ([`talbot`]).
 //!
 //! **The mode's dn_eff/dT** ([`thermo_optic`]) by Marcatili's rectangle (E^x₁₁, the TE-like
 //! mode, solved exactly: [`crate::mode::marcatili`]), its core's and cladding's indices moved by
@@ -36,20 +46,22 @@ use crate::units::{Length, Wavelength};
 use crate::{Error, Result};
 
 /// What heats the slab: strips across at one height, each (centre, width, share of the power),
-/// m; the shares sum to 1.
+/// m; the shares of all the sheets that heat it sum to 1.
 #[derive(Clone, Debug, PartialEq)]
 pub(super) struct Sheets {
     pub(super) height: f64,
     pub(super) strips: Vec<(f64, f64, f64)>,
 }
 
-/// The oxide between an isothermal plane at y = 0 and an insulated top at y = `height` (m), of
-/// conductivity `conductivity` (W/(m·K)) and diffusivity `diffusivity` (m²/s).
+/// The oxide between an isothermal plane at y = 0 and a top at y = `height` (m), insulated, or
+/// held at the ambient when `held`, of conductivity `conductivity` (W/(m·K)) and diffusivity
+/// `diffusivity` (m²/s).
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(super) struct Slab {
     pub(super) height: f64,
     pub(super) conductivity: f64,
     pub(super) diffusivity: f64,
+    pub(super) held: bool,
 }
 
 /// √(a + ib) for a > 0, its real part positive, by square roots alone (exact in IEEE
@@ -76,9 +88,10 @@ fn across(p: c64, u: f64, w: f64) -> c64 {
 }
 
 impl Slab {
-    /// The m-th eigenvalue, (m + ½)π/H.
+    /// The m-th eigenvalue, (m + ½)π/H, or (m + 1)π/H with the top held.
     fn k(&self, m: usize) -> f64 {
-        (m as f64 + 0.5) * PI / self.height
+        let shift = if self.held { 1.0 } else { 0.5 };
+        (m as f64 + shift) * PI / self.height
     }
 
     /// Mode m's weight at y from a sheet at `sheets`' height: φ_m(y) φ_m(s).
@@ -98,8 +111,13 @@ impl Slab {
         sum * self.weight(m, sheets, y) / (2.0 * self.conductivity * p)
     }
 
-    /// The steady rise (K per W/m) at (x, y), m.
-    pub(super) fn steady(&self, sheets: &Sheets, x: f64, y: f64) -> f64 {
+    /// The steady rise (K per W/m) at (x, y), m, of all the sheets.
+    pub(super) fn steady(&self, sheets: &[Sheets], x: f64, y: f64) -> f64 {
+        sheets.iter().map(|s| self.steady_of(s, x, y)).sum()
+    }
+
+    /// The steady rise of one sheet.
+    fn steady_of(&self, sheets: &Sheets, x: f64, y: f64) -> f64 {
         let h = self.height;
         // enough terms for the series' 1/m² tail at the distance between the heights
         let gap = (y - sheets.height).abs().max(1e-3 * h);
@@ -115,9 +133,9 @@ impl Slab {
         sum
     }
 
-    /// The rise's response at (x, y) to the drive at `frequency_hz`, over its steady rise:
-    /// the steady series plus Σ_m [term(p_m) − term(k_m)], p_m = √(k_m² + iω/D), whose terms
-    /// fall as 1/m⁴.
+    /// The rise's response at (x, y) to one sheet's drive at `frequency_hz`, the sheet's
+    /// `steady` rise times its response: the steady series plus Σ_m [term(p_m) − term(k_m)],
+    /// p_m = √(k_m² + iω/D), whose terms fall as 1/m⁴.
     fn response(&self, sheets: &Sheets, x: f64, y: f64, steady: f64, frequency_hz: f64) -> c64 {
         let omega = 2.0 * PI * frequency_hz;
         let mut sum = c64::new(steady, 0.0);
@@ -130,18 +148,27 @@ impl Slab {
                 break;
             }
         }
-        sum / steady
+        sum
     }
 
-    /// The −3 dB frequency (Hz) of the rise at (x, y): where its response falls to 1/√2, by
-    /// bisection in log f to 1e-9.
-    pub(super) fn cutoff(&self, sheets: &Sheets, x: f64, y: f64) -> f64 {
-        let steady = self.steady(sheets, x, y);
+    /// The −3 dB frequency (Hz) of the rise at (x, y): where its response, all the sheets' over
+    /// their steady rise, falls to 1/√2, by bisection in log f to 1e-9.
+    pub(super) fn cutoff(&self, sheets: &[Sheets], x: f64, y: f64) -> f64 {
+        let each: Vec<f64> = sheets.iter().map(|s| self.steady_of(s, x, y)).collect();
+        let steady: f64 = each.iter().sum();
+        let response = |f: f64| -> c64 {
+            let sum: c64 = sheets
+                .iter()
+                .zip(&each)
+                .map(|(s, &u)| self.response(s, x, y, u, f))
+                .sum();
+            sum / steady
+        };
         let half = std::f64::consts::FRAC_1_SQRT_2;
         let (mut lo, mut hi) = (1e-3f64, 1e12f64);
         while hi / lo > 1.0 + 1e-9 {
             let mid = (lo * hi).sqrt();
-            if norm(self.response(sheets, x, y, steady, mid)) < half {
+            if norm(response(mid)) < half {
                 hi = mid;
             } else {
                 lo = mid;
@@ -171,9 +198,9 @@ impl Slab {
         1.0 / (self.diffusivity * self.k(0) * self.k(0))
     }
 
-    /// The rise at (x, y), from 0 to `steady`, a time `t` (s) after the drive is turned on: the
-    /// steady rise less each mode's ∫_t^∞ e^(−Dk_m²τ) W dτ / ρc, by Simpson's rule in ln τ to
-    /// 40 of the slowest mode's time constants.
+    /// One sheet's rise at (x, y), from 0 to `steady`, a time `t` (s) after the drive is turned
+    /// on: the steady rise less each mode's ∫_t^∞ e^(−Dk_m²τ) W dτ / ρc, by Simpson's rule in
+    /// ln τ to 40 of the slowest mode's time constants.
     fn step(&self, sheets: &Sheets, x: f64, y: f64, steady: f64, t: f64) -> f64 {
         let end = 40.0 * self.slowest();
         if t >= end {
@@ -214,16 +241,24 @@ impl Slab {
         steady - tail
     }
 
-    /// The 1/e time (s) of the rise at (x, y) when the drive is turned on: when it is 1 − 1/e
-    /// of the way, by bisection in log t between a hundredth and five of the slowest mode's
-    /// time constants, to 1e-7.
-    pub(super) fn one_over_e(&self, sheets: &Sheets, x: f64, y: f64) -> f64 {
-        let steady = self.steady(sheets, x, y);
+    /// The 1/e time (s) of the rise at (x, y), all the sheets', when the drive is turned on:
+    /// when it is 1 − 1/e of the way, by bisection in log t between a hundredth and five of the
+    /// slowest mode's time constants, to 1e-7.
+    pub(super) fn one_over_e(&self, sheets: &[Sheets], x: f64, y: f64) -> f64 {
+        let each: Vec<f64> = sheets.iter().map(|s| self.steady_of(s, x, y)).collect();
+        let steady: f64 = each.iter().sum();
+        let rise = |t: f64| -> f64 {
+            sheets
+                .iter()
+                .zip(&each)
+                .map(|(s, &u)| self.step(s, x, y, u, t))
+                .sum()
+        };
         let target = (1.0 - libm::exp(-1.0)) * steady;
         let (mut lo, mut hi) = (1e-2 * self.slowest(), 5.0 * self.slowest());
         while hi / lo > 1.0 + 1e-7 {
             let mid = (lo * hi).sqrt();
-            if self.step(sheets, x, y, steady, mid) < target {
+            if rise(mid) < target {
                 lo = mid;
             } else {
                 hi = mid;
@@ -267,4 +302,199 @@ pub(super) fn thermo_optic(
     };
     let (up, down) = (n(1.0)?, n(-1.0)?);
     Ok((0.5 * (up - down), n(0.0)?))
+}
+
+// ---------------------------------------------------------------------------------------------
+// The in-guide heater: the silicon as a fin
+// ---------------------------------------------------------------------------------------------
+
+/// √z on the principal branch (its real part ≥ 0), by square roots alone: exact in IEEE
+/// arithmetic, the same bits everywhere. For z on the negative real axis, i√|z|.
+pub(super) fn sqrt_c(z: c64) -> c64 {
+    let r = norm(z);
+    if z.re >= 0.0 {
+        let re = (0.5 * (r + z.re)).sqrt();
+        if re == 0.0 {
+            return c64::new(0.0, 0.0);
+        }
+        c64::new(re, z.im / (2.0 * re))
+    } else {
+        let im = (0.5 * (r - z.re)).sqrt().copysign(z.im);
+        c64::new(z.im / (2.0 * im), im)
+    }
+}
+
+/// cosh z and sinh z.
+fn cosh_sinh(z: c64) -> (c64, c64) {
+    let (a, b) = (exp_c(z), exp_c(-z));
+    (0.5 * (a + b), 0.5 * (a - b))
+}
+
+/// One stretch of a [`Fin`], outward from the one before: its `length` (m), the silicon's lateral
+/// conductance k t (W/K) and heat capacity per area ρc t (J/(m²·K)), the heat it takes per area
+/// for each W/m of the drive (1/m), and the oxide below it and above it to the held planes (m).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(super) struct Stretch {
+    pub(super) length: f64,
+    pub(super) conductance: f64,
+    pub(super) capacity: f64,
+    pub(super) heat: f64,
+    pub(super) below: f64,
+    pub(super) above: f64,
+}
+
+/// The silicon of an in-guide heater as a fin across the guide, x = 0 at its centre (symmetric):
+/// in each stretch the temperature T(x) uniform through the silicon's thickness obeys
+/// K T″ − (Y + sC) T + q = 0 in Laplace's variable s, the heat it gives the oxide Y T, the oxide
+/// a layer of conductivity k and diffusivity D between the silicon and a held plane at a distance
+/// d each side, carrying it straight across: Y = Σ [k γ coth(γ d) + (a − 1) k/d], γ = √(s/D)
+/// (a k/d steady), a the `spreading`, what the oxide beyond the silicon adds to the steady flow
+/// (a fast drive's heat stays within its depth of the silicon, where straight across is right).
+/// The fin's end, the contact, held at the ambient. Exact in each stretch (cosh and sinh of λx,
+/// λ² = (Y + sC)/K), T and the heat flow −K T′ continuous between them.
+#[derive(Clone, Debug, PartialEq)]
+pub(super) struct Fin {
+    pub(super) stretches: Vec<Stretch>,
+    /// The oxide's conductivity (W/(m·K)) and diffusivity (m²/s).
+    pub(super) oxide: (f64, f64),
+    /// The oxide's heat taken as this many times the layers' straight across: its spreading
+    /// beyond the silicon, which the layers leave out.
+    pub(super) spreading: f64,
+}
+
+/// Fixed Talbot's nodes (Abate & Valkó 2004): 16, about eight digits in double precision.
+const TALBOT: usize = 16;
+
+impl Fin {
+    /// The heat a layer of oxide `d` m thick, held on its far side, takes per area and kelvin at
+    /// s: k γ coth(γ d), or k/d at s = 0, with the spreading's (a − 1) k/d.
+    fn layer(&self, s: c64, d: f64) -> c64 {
+        let (k, diffusivity) = self.oxide;
+        let spread = (self.spreading - 1.0) * k / d;
+        if s == c64::new(0.0, 0.0) {
+            return c64::new(k / d + spread, 0.0);
+        }
+        let g = sqrt_c(s / diffusivity);
+        let e = exp_c(-2.0 * g * d);
+        k * g * (1.0 + e) / (1.0 - e) + spread
+    }
+
+    /// Each stretch's λ, its particular solution q/(Y + sC), and K λ, at s.
+    fn stretch(&self, st: &Stretch, s: c64) -> (c64, c64, c64) {
+        let y = self.layer(s, st.below) + self.layer(s, st.above) + s * st.capacity;
+        let lambda = sqrt_c(y / st.conductance);
+        (lambda, st.heat / y, st.conductance * lambda)
+    }
+
+    /// The temperature and heat flow at each stretch's start, at s (per W/m of the drive), the
+    /// centre's temperature first: shot from the centre (no flow) to the contact (held).
+    fn starts(&self, s: c64) -> Vec<(c64, c64)> {
+        let zero = c64::new(0.0, 0.0);
+        // T = a + b T₀ and Φ = c + d T₀ along the fin
+        let (mut a, mut b, mut c, mut d) = (zero, c64::new(1.0, 0.0), zero, zero);
+        let mut each = Vec::with_capacity(self.stretches.len());
+        for st in &self.stretches {
+            each.push((a, b, c, d));
+            let (lambda, particular, kl) = self.stretch(st, s);
+            let (ch, sh) = cosh_sinh(lambda * st.length);
+            let u = a - particular;
+            (a, b, c, d) = (
+                particular + u * ch - c * sh / kl,
+                b * ch - d * sh / kl,
+                c * ch - kl * u * sh,
+                d * ch - kl * b * sh,
+            );
+        }
+        let t0 = -a / b;
+        each.into_iter()
+            .map(|(a, b, c, d)| (a + b * t0, c + d * t0))
+            .collect()
+    }
+
+    /// The centre's rise (K per W/m) at s, its Laplace transform's transfer.
+    fn centre(&self, s: c64) -> c64 {
+        self.starts(s)[0].0
+    }
+
+    /// The steady rise at the centre, K per W/m.
+    pub(super) fn steady(&self) -> f64 {
+        self.centre(c64::new(0.0, 0.0)).re
+    }
+
+    /// The heat each stretch gives the oxide, steady, as a share of the drive's: Y ∫ T dx over
+    /// it (one side).
+    pub(super) fn leaks(&self) -> Vec<f64> {
+        let s = c64::new(0.0, 0.0);
+        self.stretches
+            .iter()
+            .zip(self.starts(s))
+            .map(|(st, (t, flow))| {
+                let (lambda, particular, kl) = self.stretch(st, s);
+                let (ch, sh) = cosh_sinh(lambda * st.length);
+                let u = t - particular;
+                let integral = particular * st.length + (u * sh - flow / kl * (ch - 1.0)) / lambda;
+                let y = self.layer(s, st.below) + self.layer(s, st.above);
+                (y * integral).re
+            })
+            .collect()
+    }
+
+    /// The −3 dB frequency (Hz) of the centre's rise: where its response falls to 1/√2, by
+    /// bisection in log f to 1e-9, from 1 mHz to 1 GHz.
+    pub(super) fn cutoff(&self) -> f64 {
+        let steady = self.steady();
+        let half = std::f64::consts::FRAC_1_SQRT_2;
+        let (mut lo, mut hi) = (1e-3f64, 1e9f64);
+        while hi / lo > 1.0 + 1e-9 {
+            let mid = (lo * hi).sqrt();
+            if norm(self.centre(c64::new(0.0, 2.0 * PI * mid))) / steady < half {
+                hi = mid;
+            } else {
+                lo = mid;
+            }
+        }
+        (lo * hi).sqrt()
+    }
+
+    /// The centre's rise a time `t` (s) after the drive is turned on: the inverse Laplace
+    /// transform of its transfer over s, by fixed Talbot.
+    fn step(&self, t: f64) -> f64 {
+        talbot(|s| self.centre(s) / s, t)
+    }
+
+    /// The 1/e time (s) of the centre's rise when the drive is turned on, by bisection in log t
+    /// from 1 ns to 1 ms, to 1e-7.
+    pub(super) fn one_over_e(&self) -> f64 {
+        let target = (1.0 - libm::exp(-1.0)) * self.steady();
+        let (mut lo, mut hi) = (1e-9f64, 1e-3f64);
+        while hi / lo > 1.0 + 1e-7 {
+            let mid = (lo * hi).sqrt();
+            if self.step(mid) < target {
+                lo = mid;
+            } else {
+                hi = mid;
+            }
+        }
+        (lo * hi).sqrt()
+    }
+}
+
+/// f(t) from its Laplace transform F(s) by the fixed Talbot method (J. Abate, P. P. Valkó, Int.
+/// J. Numer. Methods Eng. 60, 979 (2004), doi:10.1002/nme.995): the Bromwich contour deformed
+/// to s(θ) = rθ(cot θ + i), r = 2M/(5t), and the trapezoidal rule in θ over M nodes,
+/// f(t) ≈ (r/M)[½F(r)e^(rt) + Σ_k Re(e^(t s(θ_k)) F(s(θ_k)) (1 + iσ(θ_k)))], θ_k = kπ/M,
+/// σ(θ) = θ + (θ cot θ − 1) cot θ. For an F analytic off the negative real axis.
+pub(super) fn talbot(f: impl Fn(c64) -> c64, t: f64) -> f64 {
+    let m = TALBOT as f64;
+    let r = 2.0 * m / (5.0 * t);
+    let mut sum = 0.5 * (f(c64::new(r, 0.0)) * libm::exp(r * t)).re;
+    for k in 1..TALBOT {
+        let theta = k as f64 * PI / m;
+        let (sin, cos) = libm::sincos(theta);
+        let cot = cos / sin;
+        let s = c64::new(r * theta * cot, r * theta);
+        let sigma = theta + (theta * cot - 1.0) * cot;
+        sum += (exp_c(t * s) * f(s) * c64::new(1.0, sigma)).re;
+    }
+    r / m * sum
 }

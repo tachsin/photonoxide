@@ -69,7 +69,8 @@ pub struct Spec {
     /// The device, by its kind ([`Device::kind`]): `"waveguide"`, `"bend"`,
     /// `"directional coupler"`, `"all-pass ring"`, `"add-drop ring"`, `"rib waveguide"`,
     /// `"MMI 1x2"`, `"MMI 2x2"`, `"Y-branch"`, `"MZI"`, `"Y-branch MZI"`,
-    /// `"thermo-optic phase shifter"` or `"doped thermo-optic phase shifter"`.
+    /// `"thermo-optic phase shifter"`, `"doped thermo-optic phase shifter"` or
+    /// `"in-guide thermo-optic phase shifter"`.
     pub kind: String,
     /// The fidelity it is computed at.
     pub fidelity: Fidelity,
@@ -287,14 +288,17 @@ impl Spec {
             "Y-branch MZI" => Box::new(StripMzi::on(stack, &core, true)?),
             "thermo-optic phase shifter" => Box::new(ThermoShifter::on(stack, &core, false)?),
             "doped thermo-optic phase shifter" => Box::new(ThermoShifter::on(stack, &core, true)?),
+            "in-guide thermo-optic phase shifter" => {
+                Box::new(ThermoShifter::in_guide_on(stack, &core)?)
+            }
             other => {
                 return Err(Error::invalid(
                     "device",
                     format!(
                         "no device \"{other}\": waveguide, bend, directional coupler, all-pass \
                          ring, add-drop ring, rib waveguide, MMI 1x2, MMI 2x2, Y-branch, MZI, \
-                         Y-branch MZI, thermo-optic phase shifter or doped thermo-optic phase \
-                         shifter"
+                         Y-branch MZI, thermo-optic phase shifter, doped thermo-optic phase \
+                         shifter or in-guide thermo-optic phase shifter"
                     ),
                 ));
             }
@@ -455,7 +459,9 @@ impl Spec {
             "MMI 1x2" | "MMI 2x2" => "mmi",
             "Y-branch" => "fdfd",
             "MZI" | "Y-branch MZI" => "none",
-            "thermo-optic phase shifter" | "doped thermo-optic phase shifter" => "static",
+            "thermo-optic phase shifter"
+            | "doped thermo-optic phase shifter"
+            | "in-guide thermo-optic phase shifter" => "static",
             _ => "modes",
         };
         grids.check(kind, solves)?;

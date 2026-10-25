@@ -2578,6 +2578,181 @@
               }
             }
           }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "in-guide thermo-optic phase shifter"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "description": "A doped rib heated by a current across it: the phase the guide's own heat adds follows its power, P_π for a π shift, with its time constant, bandwidth and crosstalk on a neighbour.",
+            "properties": {
+              "parameters": {
+                "properties": {
+                  "channel_start": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "channel_start µm: 1 by default, from 0.2 to 10."
+                  },
+                  "cover": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "cover µm: 10 by default, from 0.5 to 20."
+                  },
+                  "doped_width": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "doped_width µm: 1 by default, from 0.2 to 5."
+                  },
+                  "fill": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "fill: 0.3278688524590164 by default, from 0.05 to 1."
+                  },
+                  "length": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "length µm: 61.6 by default, from 1 to 100000."
+                  },
+                  "loss": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "loss dB/cm: 0 by default, from 0 to 1000."
+                  },
+                  "pitch": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "pitch µm: 5 by default, from 1 to 500."
+                  },
+                  "power": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "power mW: 0 by default, from 0 to 1000."
+                  },
+                  "reach": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "reach µm: 3 by default, from 0.5 to 20."
+                  },
+                  "slab": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "slab µm: 0.09 by default, from 0.074 to 0.5."
+                  },
+                  "span": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "span µm: 0.1 by default, from 0.004 to 0.1."
+                  },
+                  "thickness": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "thickness µm: 0.22 by default, from 0.1 to 1."
+                  },
+                  "wavelength": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "wavelength µm: 1.55 by default, from 1.5 to 1.6."
+                  },
+                  "width": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "width µm: 0.5 by default, from 0.2 to 3."
+                  }
+                }
+              }
+            }
+          }
         }
       ],
       "description": "A device of the library (docs/methods/devices.md), computed at a fidelity, studied, fitted or optimized by the task.",
@@ -2613,7 +2788,8 @@
             "MZI",
             "Y-branch MZI",
             "thermo-optic phase shifter",
-            "doped thermo-optic phase shifter"
+            "doped thermo-optic phase shifter",
+            "in-guide thermo-optic phase shifter"
           ]
         },
         "parameters": {

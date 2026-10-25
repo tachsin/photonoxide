@@ -226,6 +226,10 @@ fn thermo_doped() -> Built {
     once!(analytic(&ThermoShifter::doped()))
 }
 
+fn thermo_in_guide() -> Built {
+    once!(analytic(&ThermoShifter::in_guide()))
+}
+
 fn ring_all_pass() -> Built {
     once!(analytic(&StripRing::all_pass()))
 }
@@ -427,6 +431,16 @@ pub fn entries() -> Vec<Entry> {
             equation: r"\varphi = \pi \frac{P}{P_\pi},\qquad P_\pi = \frac{\lambda}{2\,\partial n_\mathrm{eff}/\partial P'}",
             glyph: Glyph::PhaseShifter,
             build: thermo_doped,
+        },
+        Entry {
+            id: "in-guide-thermo-optic-shifter",
+            title: "Thermo-optic phase shifter",
+            variant: "heated guide",
+            category: "Active",
+            about: "Harris et al.'s doped rib, a current across it: p silicon 1.0 µm wide in the guide, p++ channels in the 90 nm slab to the contacts, 61.6 µm long: the phase its power adds, P_π by its closed forms (the silicon as a fin to the contacts, the oxide's spreading closed by a slab).",
+            equation: r"\varphi = \pi \frac{P}{P_\pi},\qquad P_\pi = \frac{\lambda}{2\,\partial n_\mathrm{eff}/\partial P'}",
+            glyph: Glyph::PhaseShifter,
+            build: thermo_in_guide,
         },
         Entry {
             id: "terminator",

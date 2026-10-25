@@ -179,3 +179,156 @@ fn the_geometry_draws_the_guide_and_the_heater_on_the_stack() {
     let g = doped.geometry(&Values::defaults(&doped)).unwrap();
     assert!(!g.structure.is_plain("Si"));
 }
+
+#[test]
+fn fixed_talbot_inverts_a_step_into_a_pole() {
+    use super::thermo_closed::talbot;
+    use num_complex::Complex64 as c64;
+    // F(s) = 1/(s(s + a)): f(t) = (1 − e^(−at))/a
+    let a = 3.0e5;
+    for t in [1e-7, 1e-6, 5e-6, 2e-5] {
+        let f = talbot(|s: c64| 1.0 / (s * (s + a)), t);
+        let exact = (1.0 - (-a * t).exp()) / a;
+        assert!((f / exact - 1.0).abs() < 1e-8, "{t}: {f} {exact}");
+    }
+}
+
+#[test]
+fn harris_heater_through_the_device_is_the_phases_to_the_bit() {
+    // the phase's own averaged section (crosstalk_checks::harris, the contacts held) and the
+    // device's at its defaults: the same current, heat problem and mode, the same slope and
+    // bandwidth, bit for bit
+    use crate::thermal::crosstalk_checks::{Section2d, harris};
+    let d = ThermoShifter::in_guide();
+    let device = d.shifter(&Values::defaults(&d)).unwrap();
+    let phase = harris(Section2d::Averaged, 1.0, true);
+    let s = |p: &crate::thermal::PhaseShifter| p.efficiency().unwrap().slopes[0][0];
+    assert_eq!(s(&device).to_bits(), s(&phase).to_bits());
+    assert_eq!(
+        device.cutoff(0, 0).unwrap().to_bits(),
+        phase.cutoff(0, 0).unwrap().to_bits()
+    );
+}
+
+#[test]
+fn the_fin_is_its_equation_solved() {
+    // the in-guide heater's fin, steady, against a finite-difference solve of the same
+    // equation (−(K T')' + Y T = q, T'(0) = 0, T(end) = 0) on 5800 and 11 600 cells
+    let d = ThermoShifter::in_guide();
+    let fin = d.fin(&Values::defaults(&d), 2.0).unwrap();
+    let (k, _) = fin.oxide;
+    let total: f64 = fin.stretches.iter().map(|s| s.length).sum();
+    let solve = |n: usize| -> f64 {
+        let h = total / n as f64;
+        // each cell's K, Y and q, by its centre's stretch
+        let at = |x: f64| {
+            let mut from = 0.0;
+            for s in &fin.stretches {
+                if x < from + s.length {
+                    return s;
+                }
+                from += s.length;
+            }
+            fin.stretches.last().unwrap()
+        };
+        let cells: Vec<_> = (0..n)
+            .map(|i| {
+                let s = at((i as f64 + 0.5) * h);
+                let y = fin.spreading * (k / s.below + k / s.above);
+                (s.conductance, y, s.heat)
+            })
+            .collect();
+        // tridiagonal: the faces' conductances K/h (harmonic between cells), the end held half
+        // a cell beyond the last centre
+        let face = |a: f64, b: f64| 2.0 * a * b / (a + b) / h;
+        let (mut lower, mut diag, mut upper, mut rhs) =
+            (vec![0.0; n], vec![0.0; n], vec![0.0; n], vec![0.0; n]);
+        for i in 0..n {
+            let (kc, y, q) = cells[i];
+            diag[i] = y * h;
+            rhs[i] = q * h;
+            if i > 0 {
+                let g = face(cells[i - 1].0, kc);
+                lower[i] = -g;
+                diag[i] += g;
+            }
+            if i + 1 < n {
+                let g = face(kc, cells[i + 1].0);
+                upper[i] = -g;
+                diag[i] += g;
+            } else {
+                diag[i] += 2.0 * kc / h;
+            }
+        }
+        for i in 1..n {
+            let m = lower[i] / diag[i - 1];
+            diag[i] -= m * upper[i - 1];
+            rhs[i] -= m * rhs[i - 1];
+        }
+        let mut t = vec![0.0; n];
+        t[n - 1] = rhs[n - 1] / diag[n - 1];
+        for i in (0..n - 1).rev() {
+            t[i] = (rhs[i] - upper[i] * t[i + 1]) / diag[i];
+        }
+        t[0]
+    };
+    // the stretches' ends on the cells' faces (each a multiple of 50 nm of the 2.9 µm), second
+    // order: within 1e-8 of the closed form on both (2.3e-9 and 8.9e-9 here, the cells' ends
+    // rounded at the stretches' then)
+    let exact = fin.steady();
+    for n in [5_800, 11_600] {
+        let e = solve(n) / exact - 1.0;
+        assert!(e.abs() < 2e-8, "{n}: {e}");
+    }
+    // and the heat it gives the oxide and the contact take it all: twice each side's
+    let leaks: f64 = fin.leaks().iter().sum();
+    assert!(leaks > 0.3 && leaks < 0.5, "{leaks}");
+}
+
+#[test]
+fn the_in_guide_heaters_measured_loss_is_its_components() {
+    let d = ThermoShifter::in_guide();
+    let v = Values::new(&d, &[("power", 10.0), ("loss", 5.0)]).unwrap();
+    let b = d.component(&v, Fidelity::Measured).unwrap();
+    assert_eq!(b.figure("P_pi").unwrap().value, 24.77);
+    assert_eq!(b.values[1], 0.23);
+    assert_eq!(b.figures.iter().filter(|f| f.symbol == "IL").count(), 1);
+    let t = b.s_matrix(Wavelength::um(1.55).unwrap()).unwrap()[(1, 0)].norm();
+    assert!((t - 10f64.powf(-0.23 / 20.0)).abs() < 1e-15);
+    // the measured loss moves with neither the loss nor the length
+    for name in ["loss", "length"] {
+        let k = d.parameters().iter().position(|p| p.name == name).unwrap();
+        assert_eq!(b.derivatives[k], Some(vec![0.0, 0.0]), "{name}");
+    }
+    // the analytic model's loss is the loss over the length, 5 dB/cm over 61.6 µm
+    let a = d.component(&v, Fidelity::Analytic).unwrap();
+    assert!((a.values[1] - 5.0 * 61.6e-4).abs() < 1e-15);
+    // its design is Harris et al.'s: the fill 0.8 of 2.44 µm
+    let other = Values::new(&d, &[("fill", 0.5)]).unwrap();
+    let e = d.component(&other, Fidelity::Measured).unwrap_err();
+    assert!(e.to_string().contains("fill"), "{e}");
+}
+
+#[test]
+fn the_in_guide_heater_refuses_what_it_cant_take() {
+    let (d, design) = Spec::new("in-guide thermo-optic phase shifter")
+        .build()
+        .unwrap();
+    assert_eq!(design.values().get("length"), Some(61.6));
+    assert_eq!(d.fidelities().len(), 3);
+    let mut nitride = Spec::new("in-guide thermo-optic phase shifter");
+    nitride.stack = super::StackSpec::preset("nitride");
+    assert!(nitride.build().unwrap_err().to_string().contains("silicon"));
+    let d = ThermoShifter::in_guide();
+    for bad in [
+        ("doped_width", 0.4),   // narrower than the rib
+        ("channel_start", 0.4), // inside the p region
+        ("reach", 1.05),        // the contacts before the channels' start
+        ("slab", 0.3),          // thicker than the rib
+    ] {
+        let v = Values::new(&d, &[bad]).unwrap();
+        assert!(d.component(&v, Fidelity::Analytic).is_err(), "{bad:?}");
+    }
+    let g = d.geometry(&Values::defaults(&d)).unwrap();
+    assert!(!g.structure.is_plain("Si"));
+}

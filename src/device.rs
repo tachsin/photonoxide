@@ -32,9 +32,9 @@
 //! [`StripCoupler`] (a directional coupler) and the [`StripRing`] (all-pass and add-drop).
 //! [`library`] has them at their defaults, which are the studio's library's components bit
 //! for bit. The first active devices are the thermo-optic phase shifters ([`ThermoShifter`]): a
-//! metal heater over a strip and doped heaters beside a rib, their phase following the heater's
-//! power at analytic, 2D and measured fidelity, the measured one a measured device's file
-//! ([`Measurement`]).
+//! metal heater over a strip, doped heaters beside a rib and the guide heated itself (Harris et
+//! al.'s in-guide heater), their phase following the heater's power at analytic, 2D and
+//! measured fidelity, the measured one a measured device's file ([`Measurement`]).
 //!
 //! **Fidelities and grids.** Every figure names its model and its grid: an analytic figure
 //! comes from a closed form, or a fit to the full-vector solver whose grid it states; a 2D
@@ -650,7 +650,7 @@ pub fn derivative(
 /// The devices at their defaults, on 220 nm SOI: the strip waveguide, bend, directional
 /// coupler, the all-pass and add-drop rings, the rib waveguide, the 1 × 2 and 2 × 2 MMIs, the
 /// Y-branch, the MZIs of directional couplers and of Y-branches, and the thermo-optic phase
-/// shifters of a metal heater and of doped heaters.
+/// shifters of a metal heater, of doped heaters and of the guide heated itself.
 pub fn library() -> Vec<Box<dyn Device>> {
     vec![
         Box::new(StripWaveguide::new()),
@@ -666,6 +666,7 @@ pub fn library() -> Vec<Box<dyn Device>> {
         Box::new(StripMzi::y_branches()),
         Box::new(ThermoShifter::metal()),
         Box::new(ThermoShifter::doped()),
+        Box::new(ThermoShifter::in_guide()),
     ]
 }
 
