@@ -142,6 +142,23 @@ also has tags (`Entry::tags`): what the crystal is and what its symmetry allows,
 with its physics, caveats and sources. The studio's Materials page shows it all, the tags and what
 is coming as hover cards.
 
+Python has the indices: `materials` lists the catalogue's materials with their index
+models, each model's range and sources, and `refractive_index` and `group_index` evaluate one at
+vacuum wavelengths, the default model unless `model` names another. The tensors are Rust's only
+([features](../features.md)). Silicon's default is Li's (1980) at 293 K, his Table 1 at 1.55 µm:
+
+```python
+import photonoxide as phox
+
+si = next(m for m in phox.materials() if m.id == "si")
+default = next(model for model in si.models if model.default)
+lo, hi = default.range_um                            # where it is valid; outside, an error
+n = phox.refractive_index("si", wavelength_um=1.55)   # n + iκ, a complex number for one wavelength
+assert round(n.real, 4) == 3.4757                    # Li 1980, Table 1, 293 K
+ng = phox.group_index("si", wavelength_um=[1.5, 1.55, 1.6])
+assert ng.shape == (3,) and all(ng > n.real)         # normal dispersion: n_g above n
+```
+
 ## Thermal conductivities
 
 Beside the indices, `catalogue::conductivities()` has each material's thermal conductivity
@@ -226,9 +243,11 @@ phase per dB of loss, $2\pi\Delta n_\mathrm{eff}/(\lambda\alpha)$, with α the l
 loss against the film's length (Fig. 7a, b): a line through the data set's means gives 0.0096
 (Sb₂Se₃) and 0.0288 dB/µm (Sb₂S₃), the paper's 0.01 and 0.028; with its $\Delta n_\mathrm{eff}$ of
 0.0717 and 0.0356 the figure is 30.3 and 5.01 rad/dB, its 29.0 and 5.15. The paper doesn't give
-the rib's etch depth, how far the film covers it, or the polarization, and its data set doesn't
-either (its Supporting Information, which may, isn't in hand), so its $\Delta n_\mathrm{eff}$
-isn't a case. With these fits, the full-vector solver (5 nm cells) gives in TE, for etches of 70,
+the rib's etch depth, how far the film covers it, or the polarization, and neither its data set
+nor its Supporting Information does (read in full: Section S3 says only that the simulated guide
+is 220 nm SOI with a 25 nm patch and a SiO₂ cap, and its Table S1 gives the modes' overlaps with
+the uncoated guide, 0.995 and 0.987 for Sb₂S₃, 0.978 and 0.968 for Sb₂Se₃, 0.956 and 0.342 for
+GST, amorphous and crystalline), so its $\Delta n_\mathrm{eff}$ stays not a case. With these fits, the full-vector solver (5 nm cells) gives in TE, for etches of 70,
 120, 150 nm and the full 220 nm, 0.019 to 0.032 (Sb₂S₃) and 0.035 to 0.057 (Sb₂Se₃) with the film
 on the rib alone, and 0.035 to 0.038 and 0.059 to 0.062 with it over the slab too, against 0.0356
 and 0.0717; in TM the two materials move apart further. No etch, coverage and polarization tried
@@ -243,10 +262,10 @@ states (their Section 4.2).
 | | Sb₂Se₃ | Sb₂S₃ | GST |
 |---|---|---|---|
 | $T_c$ | 473 K: 200 °C (Delaney, Section 3; its anneals amorphous after 175 °C, crystalline after 200 °C); Lawson et al. 2022's model takes 473 K | 543 K: 270 °C (Delaney, Section 3; partly crystalline after 260 °C) | 423 K: about 150 °C to rock salt at 1.6 K/min, 350 °C to hexagonal (Friedrich et al. 2000) |
-| $T_m$ | 884 K, the value Lawson et al.'s model takes | coming | coming |
+| $T_m$ | 884 K, the value Lawson et al.'s model takes | 823 ± 5 K by DTA of synthetic stibnite (Gurevich et al. 2002; the literature's 819–832.5 K) | 894 K: 621 °C, the melting peak by DSC at 5 K/min, solidus 610 °C, liquidus 638 °C (Kalb et al. 2003); Zhao et al. 2022: 627 ± 15 °C |
 | $\kappa$ | 0.22 amorphous, 0.72 crystalline, W/(m·K) at room temperature (Aryana et al. 2023, TDTR; 0.36 hot, 220 to 320 °C) | 0.21 amorphous, 0.74 crystalline (Aryana et al. 2023; 0.45 at 250 to 320 °C) | 0.19 amorphous, 0.57 rock salt (1.58 hexagonal), W/(m·K) at 27 °C (Lyeo et al. 2006); Aryana et al.: 0.20 and 1.02 |
-| $c_p$ | 507 J/(kg·K) at 105 °C, rising to 574 at 260 °C (Černošková et al. 2014, an amorphous film by DSC) | coming | coming |
-| $\rho$ | 5849 kg/m³, from Efthimiopoulos et al. 2013's volume per formula unit, 136.4 Å³ | coming | coming |
+| $c_p$ | 507 J/(kg·K) at 105 °C, rising to 574 at 260 °C (Černošková et al. 2014, an amorphous film by DSC), both states | 351.9 J/(kg·K) at 298.15 K, crystalline: 119.54 ± 0.06 J/(mol·K) by adiabatic calorimetry (Gurevich et al. 2002), 359 to 393 J/(kg·K) from 338 to 823 K | 238.4 amorphous, 197.9 crystalline, J/(kg·K) at 100 °C: 27.2 ± 3.3 J/(mol·K) per mole of atoms and a 17 ± 5 % drop on crystallization, by nanocalorimetry of 10–40 nm films (Zhao et al. 2022) |
+| $\rho$ | 5849 kg/m³, from Efthimiopoulos et al. 2013's volume per formula unit, 136.4 Å³; both states | 4663 kg/m³, the crystal's cell as Gurevich et al. print it; the amorphous film's coming | 5870 amorphous, 6270 rock salt (6390 hexagonal), ± 20 kg/m³, by x-ray reflectivity (Njoroge et al. 2002) |
 
 Lawson et al.'s model takes $c_p$ = 0.15 J/(g·K) from Černošková et al., but that is the paper's
 estimate of the change of $c_p$ at a glass transition; its measured $c_p$ is 0.507 to 0.574
@@ -256,8 +275,45 @@ et al.'s (Opt. Mater. Express 13, 3277 (2023), doi:10.1364/OME.503178): time-dom
 thermoreflectance on RF-sputtered films of nominally 300 nm under a Pt/Ti transducer, effective
 values with the interfaces in them, the crystalline ones measured back at room temperature after
 heating to 320 °C. Their Table 1's $c_p$ and $\rho$ for Sb₂S₃ and GST are cited, not measured;
-the primary papers (Njoroge et al. 2002 and Kalb et al. 2003 for GST, Gurevich et al. 2002 for
-Sb₂S₃) are still to be read, so those stay coming. A film crystallizes when held above $T_c$ long enough (milliseconds for
+the catalogue takes them from the primary papers, read in full:
+
+- **GST's melting:** J. Kalb, F. Spaepen, M. Wuttig, J. Appl. Phys. 93, 2389 (2003),
+  doi:10.1063/1.1540227, DSC of sputtered films about 7 µm thick: solidus 610 °C, melting peak
+  621 °C, liquidus 638 °C at 5 K/min (Table I), heat of fusion 14.7 ± 0.7 kJ/mol and entropy of
+  fusion 16.5 ± 0.9 J/(mol·K) (Table II; 14.7 kJ/mol over 894.15 K gives 16.44,
+  `material/pcm-gst-kalb-fusion`). Its $c_p$ is AgInSbTe's only. J. Zhao et al., Adv. Mater.
+  Interfaces 9, 2200429 (2022), doi:10.1002/admi.202200429, find 627 ± 15 °C and 16.7 ± 3.4 kJ/mol
+  by nanocalorimetry of 10 to 40 nm films (`material/pcm-gst-zhao-melting`).
+- **GST's heat capacity:** Zhao et al.'s, the slope of the films' $C_p$ at 100 °C against their
+  thickness, 27.2 ± 3.3 J/(mol·K) per mole of atoms in the amorphous state, 17 ± 5 % less after
+  crystallization; over GST's mean atomic mass (114.09 g/mol) 238.4 and 197.9 J/(kg·K). K. Aryana
+  et al., Nat. Commun. 12, 774 (2021), doi:10.1038/s41467-020-20661-8, the other paper Aryana et
+  al. 2023 cite for it, assumes 1.3 and 1.4 MJ/(m³·K) (amorphous and hexagonal) and measures none.
+- **GST's densities:** W. K. Njoroge, H.-W. Wöltgens, M. Wuttig, J. Vac. Sci. Technol. A 20, 230
+  (2002), doi:10.1116/1.1430249, x-ray reflectivity of Ge₂Sb₂.₀₄Te₄.₇₄ films: 5.87, 6.27 and 6.39 ±
+  0.02 g/cm³ amorphous, NaCl-type and hexagonal, changes of 6.8 and 8.8 % (from the three, 6.81 and
+  8.86 %: `material/pcm-gst-njoroge-change`); from the stoichiometry and the lattice parameters,
+  6.016 and 6.000 Å, the crystal's 6426 and 6478 kg/m³, their XRD densities 6.43–6.48
+  (`material/pcm-gst-njoroge-xrd`).
+- **Sb₂S₃:** V. M. Gurevich et al., Geokhimiya 2002 (2), 194 (Geochem. Int. 40, 164; no DOI found),
+  adiabatic calorimetry of synthetic polycrystalline stibnite from 20.92 to 337.61 K, smoothed by
+  their Eq. (1), $C_p = n[\gamma T + 0.846D(\theta_1) + 0.760D(\theta_2) + 0.800D(\theta_3) +
+  0.200E(\theta_E)]$ with $n = 5$ and Table 5's γ = 0.002359 J/(mol·K²), θ = 130, 273, 423, 448 K:
+  evaluated here it reproduces Table 2 within 0.24 % (at 10 K; within 3e-4 from 20 K up:
+  `material/pcm-sb2s3-gurevich-low`), and their Eq. (7) for 338 to 823 K Table 3 within 0.04
+  J/(mol·K) (`material/pcm-sb2s3-gurevich-high`), the two meeting at 338 K within 0.004. The melting
+  point of their sample, 823 ± 5 K by DTA; the crystal's density 4663 kg/m³ from the cell they
+  print (Pbnm, 11.20 × 11.28 × 3.83 Å, Z = 4), against the 4640 Aryana et al. take
+  (`material/pcm-sb2s3-gurevich-density`). Aryana et al.'s 368 J/(kg·K) is Gurevich et al.'s
+  value at 430 K, not room temperature's. M. Kassem et al., J. Mater. Chem. C 11, 4654 (2023),
+  doi:10.1039/d3tc00081h, print neither the glass's density nor its melting point (they mark it on
+  their figures).
+
+So every material has $T_c$, $T_m$, κ of both states, $c_p$ and ρ, what a switching pulse needs;
+GST's states differ in ρ and $c_p$ (`PhaseChange::density_of`, `specific_heat_of`,
+`heat_capacity_of`: ρc_p 1.40 MJ/(m³·K) amorphous, 1.24 crystalline), and where a state has no
+value of its own it takes the crystal's: Sb₂Se₃'s and Sb₂S₃'s amorphous densities are coming. A
+film crystallizes when held above $T_c$ long enough (milliseconds for
 Sb₂Se₃ by Lawson et al.; the kinetics aren't modelled) and is amorphized when it melts and is
 quenched; latent heat doesn't change when a film first reaches $T_m$, so the switching
 thresholds need none.
@@ -328,7 +384,8 @@ every value a tensor gives is an element its tag names.
 | LiNbO₃, congruent | Jundt 1997 | $n_e(\lambda, T)$, Eqs. (4)–(5), Table 2 | 0.4–5 µm, 20–250 °C |
 | LiNbO₃, 5% MgO | Zelmon et al. 1997 (default) | Table 2, columns exchanged (below) | 0.4–5.0 µm, 21 °C |
 | LiNbO₃, 5% MgO | Gayer et al. 2008 | Eqs. (2)–(3), Table 1 of the 2010 erratum | $n_e$ 0.5–4 µm, 20–200 °C; $n_o$ 0.5–1.62 µm, 20–100 °C |
-| LiTaO₃ | Bond 1965 (our fit) | two-term Sellmeier for $n_o$ and $n_e$, fitted to Bond's table (refractiveindex.info, CC0) | 0.45–4.0 µm, room temperature, within 6.7e-4 of the table |
+| LiTaO₃ | Bond 1965 (our fit, default) | two-term Sellmeier for $n_o$ and $n_e$, fitted to Bond's Table IV (refractiveindex.info, CC0, checked against the paper) | 0.45–4.0 µm, room temperature, within 6.7e-4 of the table |
+| LiTaO₃ | Abedin & Ito 1996 | $n_{o,e}(\lambda, T)$, Eq. (1), Tables I and II | 0.4–4.0 µm, 25–300 °C (the temperature terms fitted at 468 and 644 nm) |
 | BaTiO₃ (thin film) | Abel et al. 2018, at 1550 nm | constant $n_o = ar n + \Delta n/2$, $n_e = ar n - \Delta n/2$; $ar n$ = 2.286, $\Delta n$ = 0.03 (Supplementary Note 6) | 1.50–1.60 µm |
 
 Two models are new forms in `Model`: `Model::Pikhtin` (Skauli's Eq. (12), photon energies in eV)
@@ -438,12 +495,29 @@ congruent Table 1 is printed the right way round.
   and 1558 nm (Table 2; 6.92 ± 0.07 and 27.4 ± 0.3 pm/V at 1558 nm), from the deflection per volt
   of a domain-patterned crystal scaled from the literature's 632.8 nm values, with the indices they
   use as constants; $r_{22}$ and $r_{51}$ unmeasured. Its index model is our two-term Sellmeier fit
-  to W. L. Bond's table (J. Appl. Phys. 36, 1674 (1965), 0.45 to 4.0 µm at room temperature) as
-  the refractiveindex.info database transcribes it (CC0): within 3.3e-4 ($n_o$) and 6.7e-4
-  ($n_e$, whose tabulated steps are irregular from 1.6 to 2.0 µm) of its 22 rows, and within
-  5.0e-4 of the indices Casson et al. print from Gervais & Fonseca's handbook chapter at 632.8 to
-  1558 nm, an independent print of the measurements. Bond's paper itself (closed) is still to be
-  read; its temperature dependence (Abedin & Ito 1996) is coming.
+  to W. L. Bond's Table IV (J. Appl. Phys. 36, 1674 (1965), 0.45 to 4.0 µm at room temperature,
+  minimum deviation on prisms of crystals grown by A. Ballman) as the refractiveindex.info
+  database transcribes it (CC0): within 3.3e-4 ($n_o$) and 6.7e-4 ($n_e$, whose tabulated steps
+  are irregular from 1.6 to 2.0 µm) of its 22 rows, and within 5.0e-4 of the indices Casson et
+  al. print from Gervais & Fonseca's handbook chapter at 632.8 to 1558 nm, an independent print
+  of the measurements. Read against the paper, the transcription has all 44 numbers as printed
+  but $n_e$ at 3.00 µm, which the paper prints 2.0299: a misprint ($n_e - n_o$ would be −0.046
+  there and +0.004 to +0.005 at every other row) for the database's 2.0799, which Abedin & Ito
+  used too (with 2.0299 their Eq. (2)'s standard deviation would be 1e-2, not their 3.5e-4).
+  The temperature model is K. S. Abedin and H. Ito's (J. Appl. Phys. 80, 6561 (1996),
+  doi:10.1063/1.363679), $n^2 = A_1 + (A_2 + B_1F)/(\lambda^2 - (A_3 + B_2F)^2) + B_3F +
+  A_4\lambda^2$ with $F = (T - 25)(T + 571)$ in °C, 0.4 to 4.0 µm and 25 to 300 °C: the $A_i$
+  fitted to Bond's table at 25 °C, the $B_i$ to Iwasaki et al.'s indices at 468 and 644 nm.
+  Redone here: the standard deviations against Bond's rows, 2.12455e-4 and 3.54671e-4 against
+  Fig. 2's 2.1247e-4 and 3.547e-4; their fit (A₃ where the variance of $n^2$ is least, the
+  others by linear least squares), A₃ = 0.198758 and 0.203426 µm against Table I's 0.19876 and
+  0.20344, all eight constants within 6.7e-5; against Fig. 3's points, read off its bitmap
+  against the axes' ticks (1.2e-4 and 1.5e-4 per pixel), standard deviations of 3.92, 1.35, 5.49
+  and 4.82e-4 against the printed 3.5, 1.4, 5.4 and 5.2e-4; and within 1.2e-4 of its dashed
+  curves from 100 to 290 °C. Its temperature terms rest on the two visible wavelengths: at 1550
+  nm they give $dn_o/dT = +8.0 \times 10^{-6}$ and $dn_e/dT = -2.7 \times 10^{-6}$ per K (25 to
+  300 °C), where at 468 nm $n_e$ rises by 8e-5 per K. No paper in hand measures the infrared
+  dn/dT to check it, so it stays coming; Bond's fit is the default at room temperature.
 - **GaAs:** $d_{14} = 119$ pm/V at 1.533 µm and 170 at 1.064 µm (Shoji, Table 11); Skauli et al.
   (2002) measure $d_{14}/d_{33}(\mathrm{LiNbO_3}) = 5.01 \pm 0.3$ at 4.1 µm. $r_{41}^S = -1.54$ and
   $-1.50$ pm/V at 1.32 and 1.52 µm (Berseth et al., with their sign convention), and the
@@ -634,7 +708,12 @@ read from the paper itself, which isn't in hand.
 - Gayer's 5% MgO indices against Zelmon's Table 2 (columns exchanged) at 21 °C: within 4.4e-4.
   The paper reports 3.1e-4 for $n_e$ and 2.2e-4 for $n_o$; we find 3.3e-4 and 4.4e-4.
 - Lithium tantalate: our fits within 6.7e-4 of Bond's 22 rows (`material/litao3-bond-fit`) and
-  within 5.0e-4 of Casson et al.'s eight indices (`material/litao3-casson`). Barium titanate: Abel
+  within 5.0e-4 of Casson et al.'s eight indices (`material/litao3-casson`); Abedin & Ito's
+  $n(\lambda, T)$ reproduces their Fig. 2's standard deviations to 3e-8
+  (`material/litao3-abedin-bond`), their Table I refitted within 6.7e-5
+  (`material/litao3-abedin-refit`), Fig. 3's standard deviations within 4.4e-5
+  (`material/litao3-abedin-points`) and its curves within 1.2e-4 (`material/litao3-abedin-curves`).
+  Barium titanate: Abel
   et al.'s film index at 1550 nm within 0.026 of the other films' 2.26 and 2.29
   (`material/batio3-abel-films`).
 - Gehrsitz: Eq. (11) reproduces Table II's $E_0^2$ of GaAs at three temperatures (5e-7), the

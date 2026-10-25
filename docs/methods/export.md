@@ -34,8 +34,8 @@ $E_z$; a device's study, fit or optimization and a chip have tables only).
 ## The tables
 
 One file a table, a header line then one line a row, in long form: one value a row with its
-coordinates beside it, so any size of table reads into pandas, MATLAB's `readtable` or a
-spreadsheet as it is. Each number is the shortest decimal that reads back to the same `f64`
+coordinates beside it, so any size of table reads into pandas, any language's CSV reader or
+a spreadsheet as it is. Each number is the shortest decimal that reads back to the same `f64`
 (lossless); a text with a comma or a quote is quoted (RFC 4180); an empty field is a number
 the record doesn't have.
 
@@ -98,9 +98,6 @@ assert ey.shape == (len(f["y_um"]), len(f["x_um"]))
 assert f["effective_index"].real == modes["n_eff_re"][0]
 ```
 
-MATLAB has `photonoxide.run_tables` (each table a MATLAB `table`) and `photonoxide.export_run`
-([matlab](../matlab.md)).
-
 ## Tests
 
 photonoxide reads a `.npz` back only to write it again (below); the tests read every one, with
@@ -151,8 +148,8 @@ task:
 
 ## HDF5
 
-NumPy's `.npz` is photonoxide's own and the default. For tools that read HDF5 (h5py, MATLAB's
-`h5read`, ParaView, HDFView), `container = "hdf5"` writes each `.npz` as an `.h5` instead, with
+NumPy's `.npz` is photonoxide's own and the default. For tools that read HDF5 (h5py, Julia's
+HDF5.jl, ParaView, HDFView), `container = "hdf5"` writes each `.npz` as an `.h5` instead, with
 **the user's own libhdf5** (release 1.10 or later), loaded at run time by `photonoxide-native`
 ([installing it](../libraries.md#hdf5)); libhdf5 is written in C, which photonoxide never
 links.
@@ -190,6 +187,15 @@ files by checkbox, with their sizes, written into the run's folder or saved into
 Its fields can't be made afterwards: a field is the solver's state, which a finished run no
 longer has, so a job asks for them in `[task.export]`.
 
+In Python, `export_run` writes a run's tables again; here the strip's of
+[The fields](#the-fields):
+
+```python
+files = phox.export_run(run.dir, tables=["modes"], out_dir="tables")
+assert [f.name for f in files] == ["modes.csv"]
+assert files[0].read_bytes() == (run.dir / "modes.csv").read_bytes()   # what the run wrote
+```
+
 ### Its fields at another precision and level
 
 The fields a run wrote can be written again, into another folder, at another precision and
@@ -205,8 +211,17 @@ field-1.npz            20125593 bytes  written again: about 9694361 bytes at f32
 ```
 
 The Export dialog has the precision and the level beside its fields, each file's size now and
-written again (`19.2 MB → ≈ 9.2 MB`) as the choice changes, and the total; Python and MATLAB have
-`estimate_fields` and `export_fields`.
+written again (`19.2 MB → ≈ 9.2 MB`) as the choice changes, and the total; Python has
+`estimate_fields` and `export_fields`:
+
+```python
+stored = phox.estimate_fields(run.dir, precision="f32", level=0)
+written = phox.export_fields(run.dir, "stored", precision="f32", level=0)
+for f, path in zip(stored, written):
+    assert f.exact and f.estimate == path.stat().st_size          # stored: to the byte
+for f in phox.estimate_fields(run.dir, precision="f32", level=9):
+    print(f.file, f.bytes, "→", f.estimate, "" if f.exact else "(about)")
+```
 
 - The arrays are read from the `.npz` the run wrote and written by the same writer, in the same
   order. The grid and the small numbers (no or one dimension) stay `f64`; the fields (two

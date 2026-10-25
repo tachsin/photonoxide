@@ -21,7 +21,7 @@ the pinned commit instead.
 
 | Folder | In the app |
 | --- | --- |
-| `app/projects/photonoxide/` | the routes: the overview, `/docs` (getting started), `/methods` and `/methods/[slug]`, `/examples` and `/examples/[slug]`, `/validation`, `/roadmap`, the sub-navigation layout and the Open Graph image |
+| `app/projects/photonoxide/` | the routes: the overview, `/docs` (getting started), `/docs/python` and `/docs/languages` (the guides beside it), `/methods` and `/methods/[slug]`, `/examples` and `/examples/[slug]`, `/validation`, `/roadmap`, the sub-navigation layout and the Open Graph image |
 | `lib/projects/photonoxide/` | the data: static facts and copy (`meta.js`), and the repository's files read from GitHub at the latest release's tag (`github.js`): the methods, the examples, the validation report, the roadmap and the release's version, and Markdown with TeX math (`markdown.js`) |
 | `components/projects/photonoxide/` | the components only these pages use: `HeroLight`, the overview's light animation, and `ValidationRows`, the report's table |
 
@@ -33,10 +33,12 @@ What the pages read from the repository, at the latest release's tag (or the pin
 | `examples/<name>.rs`, `examples/output/<name>.txt` | an example: its doc comment (the first sentence is the title), its code, and what it prints, which CI checks |
 | `docs/validation.md` | the validation report, which `photonoxide validate` writes and CI checks; its cases' math is `$…$` |
 | `docs/getting-started.md` | the docs page |
+| `docs/python.md` | the Python page |
+| `docs/languages.md` | the page for every other language: the program run on a job file, its run's folder read |
 | `ROADMAP.md` | the roadmap, the overview's milestones, and its highlights' status and hero line (each highlight in `meta.js` names its milestone) |
 | `CHANGELOG.md` | the latest release's version when GitHub's releases can't be read: its first `## [x.y.z]` heading, on the overview (`release.js`) |
 
-Links between method write-ups (`pml.md`) become links between their pages; other relative links go to GitHub.
+Links between method write-ups (`pml.md`), and to the three guides, become links between their pages; other relative links go to GitHub.
 
 Nothing else in `site/` is copied. Imports use the app's `@/` alias, which is the app's root.
 

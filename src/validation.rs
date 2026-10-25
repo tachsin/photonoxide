@@ -21,6 +21,7 @@ use crate::material::catalogue::checks as catalogue;
 use crate::material::catalogue::conductivity_checks;
 use crate::material::catalogue::ferroelectric;
 use crate::material::catalogue::phase_change_checks;
+use crate::material::catalogue::phase_change_thermal;
 use crate::material::catalogue::thermo_checks;
 use crate::material::{self, Model, Table};
 use crate::mode::Polarization;
@@ -379,6 +380,55 @@ pub fn cases() -> Vec<Case> {
             run: phase_change_checks::sb2s3_crystallization,
         },
         Case {
+            id: "material/pcm-gst-kalb-fusion",
+            title: r"GST's entropy of fusion from Kalb et al.'s heat of fusion (14.7 kJ/mol) over the catalogue's $T_m$ (621 °C, their melting peak), their Eq. (1), against their Table II's 16.5 J/(mol·K) (J/(mol·K) shown)",
+            tier: Tier::Published,
+            source: "J. Kalb, F. Spaepen, M. Wuttig, J. Appl. Phys. 93, 2389 (2003), doi:10.1063/1.1540227, Tables I and II; within the printed digits",
+            run: phase_change_thermal::gst_kalb_fusion,
+        },
+        Case {
+            id: "material/pcm-gst-zhao-melting",
+            title: r"GST's $T_m$, Kalb et al.'s melting peak by DSC of a 7 µm film at 5 K/min (894.15 K), against Zhao et al.'s by nanocalorimetry of 10 to 40 nm films (K shown)",
+            tier: Tier::Published,
+            source: "J. Zhao et al., Adv. Mater. Interfaces 9, 2200429 (2022), doi:10.1002/admi.202200429, Section 2: 627 ± 15 °C",
+            run: phase_change_thermal::gst_zhao_melting,
+        },
+        Case {
+            id: "material/pcm-gst-njoroge-change",
+            title: r"GST's density changes on crystallization from the catalogue's densities (Njoroge et al.'s 5870, 6270 and 6390 kg/m³: 6.81 and 8.86 %) against their 6.8 and 8.8 % (larger deviation shown, in percent)",
+            tier: Tier::Published,
+            source: "W. K. Njoroge, H.-W. Wöltgens, M. Wuttig, J. Vac. Sci. Technol. A 20, 230 (2002), doi:10.1116/1.1430249, abstract: 6.8 ± 0.2 % and 8.8 ± 0.2 %",
+            run: phase_change_thermal::gst_njoroge_change,
+        },
+        Case {
+            id: "material/pcm-gst-njoroge-xrd",
+            title: r"GST's rock-salt density from Njoroge et al.'s film stoichiometry (Ge₂Sb₂.₀₄Te₄.₇₄, Te on the anion sites) and their lattice parameters 6.016 and 6.000 Å (6426 and 6478 kg/m³) against their XRD densities, 6.43–6.48 g/cm³ (larger deviation shown, g/cm³)",
+            tier: Tier::Published,
+            source: "W. K. Njoroge, H.-W. Wöltgens, M. Wuttig, J. Vac. Sci. Technol. A 20, 230 (2002), doi:10.1116/1.1430249, Results and Discussion; two decimals",
+            run: phase_change_thermal::gst_njoroge_xrd,
+        },
+        Case {
+            id: "material/pcm-sb2s3-gurevich-low",
+            title: r"Crystalline Sb₂S₃'s heat capacity: Gurevich et al.'s Eq. (1), Debye and Einstein functions with their Table 5's γ and θ, against their Table 2 at 10 to 337 K and 298.15 K (119.54 J/(mol·K)): the largest relative deviation (shown)",
+            tier: Tier::Published,
+            source: "V. M. Gurevich et al., Geokhimiya 2002 (2), 194 (Geochem. Int. 40, 164), Eqs. (1)–(3), Tables 2 and 5 (no DOI found); the deviation largest at 10 K, 1.516 against 1.52",
+            run: phase_change_thermal::sb2s3_gurevich_low,
+        },
+        Case {
+            id: "material/pcm-sb2s3-gurevich-high",
+            title: r"Crystalline Sb₂S₃'s heat capacity above room temperature: Gurevich et al.'s Eq. (7), their join of their measurement with Seal et al. 1992's DSC, against their Table 3 from 338 to 823 K (largest deviation shown, J/(mol·K))",
+            tier: Tier::Published,
+            source: "V. M. Gurevich et al., Geokhimiya 2002 (2), 194 (Geochem. Int. 40, 164), Eq. (7) and Table 3 (no DOI found); one decimal",
+            run: phase_change_thermal::sb2s3_gurevich_high,
+        },
+        Case {
+            id: "material/pcm-sb2s3-gurevich-density",
+            title: r"Crystalline Sb₂S₃'s density from the cell Gurevich et al. print (Pbnm, 11.20 × 11.28 × 3.83 Å, four formula units of 339.68 g/mol: 4663 kg/m³) against the crystal's 4640 kg/m³ in Aryana et al.'s Table 1 (relative deviation shown)",
+            tier: Tier::Published,
+            source: "K. Aryana et al., Opt. Mater. Express 13, 3277 (2023), doi:10.1364/OME.503178, Table 1 (from Popescu's book)",
+            run: phase_change_thermal::sb2s3_density_check,
+        },
+        Case {
             id: "material/pcm-slab-closed-form",
             title: r"Both states of a 300 nm Sb₂Se₃ slab on silica under air, TE₀ at 1550 nm (the fits' indices, 3.2853 and 4.0497): the finite-difference slab (mode::slab_fd) at 2.5 nm against the closed form, the larger error in $n_\mathrm{eff}$ (shown)",
             tier: Tier::Analytic,
@@ -431,7 +481,7 @@ pub fn cases() -> Vec<Case> {
             id: "material/litao3-bond-fit",
             title: r"Lithium tantalate: photonoxide's two-term Sellmeier fits ($n_o$, $n_e$) against the 22 rows of Bond's table from 0.45 to 4.0 µm at room temperature (largest difference shown)",
             tier: Tier::Analytic,
-            source: "W. L. Bond, J. Appl. Phys. 36, 1674 (1965), doi:10.1063/1.1703106, the table as the refractiveindex.info database transcribes it (CC0); four decimals",
+            source: "W. L. Bond, J. Appl. Phys. 36, 1674 (1965), doi:10.1063/1.1703106, Table IV as the refractiveindex.info database transcribes it (CC0), checked against the paper: four decimals, the same 44 numbers but the printed n_e of 2.0299 at 3.00 µm, a misprint for the database's 2.0799",
             run: ferroelectric::litao3_bond_fit,
         },
         Case {
@@ -440,6 +490,34 @@ pub fn cases() -> Vec<Case> {
             tier: Tier::Published,
             source: "J. L. Casson et al., J. Opt. Soc. Am. B 21, 1948 (2004), doi:10.1364/JOSAB.21.001948, Table 2 (the curvature-adjusted indices, from F. Gervais and V. Fonseca's handbook chapter): an independent print of the indices",
             run: ferroelectric::litao3_casson,
+        },
+        Case {
+            id: "material/litao3-abedin-bond",
+            title: r"Lithium tantalate (Abedin & Ito, $n(\lambda, T)$): their Eq. (1) at 25 °C, Table I's constants, against Bond's 22 rows: the standard deviations of $n_o$ and $n_e$ (2.12455e-4 and 3.54671e-4) against the paper's 2.1247e-4 and 3.547e-4 (larger difference shown)",
+            tier: Tier::Published,
+            source: "K. S. Abedin, H. Ito, J. Appl. Phys. 80, 6561 (1996), doi:10.1063/1.363679, Table I and Fig. 2's caption; W. L. Bond's Table IV (doi:10.1063/1.1703106), its 3.00 µm n_e corrected as the paper's own standard deviation shows they did",
+            run: ferroelectric::litao3_abedin_bond,
+        },
+        Case {
+            id: "material/litao3-abedin-refit",
+            title: r"Lithium tantalate: Abedin & Ito's fit redone from Bond's table by their procedure ($A_3$ where the variance of $n^2$ is least, Fig. 1; $A_1$, $A_2$, $A_4$ by linear least squares, Eqs. (3)–(7)) against their Table I (largest relative deviation of the eight constants shown; $A_3$ 0.198758 and 0.203426 µm against 0.19876 and 0.20344)",
+            tier: Tier::Published,
+            source: "K. S. Abedin, H. Ito, J. Appl. Phys. 80, 6561 (1996), doi:10.1063/1.363679, Eqs. (2)–(7), Fig. 1 and Table I",
+            run: ferroelectric::litao3_abedin_refit,
+        },
+        Case {
+            id: "material/litao3-abedin-points",
+            title: r"Lithium tantalate: Abedin & Ito's Eq. (1) with Tables I and II against Fig. 3's 92 points ($n_o$ and $n_e$ at 468 and 644 nm, 25 to 300 °C): the four standard deviations (3.92, 1.35, 5.49 and 4.82e-4) against the paper's 3.5, 1.4, 5.4 and 5.2e-4 (largest difference shown)",
+            tier: Tier::Published,
+            source: "K. S. Abedin, H. Ito, J. Appl. Phys. 80, 6561 (1996), doi:10.1063/1.363679, Fig. 3: the points (their interpolation of Iwasaki et al. 1968) read off the figure's bitmap against its ticks, 1.2e-4 (panel (a)) and 1.5e-4 (panel (b)) per pixel",
+            run: ferroelectric::litao3_abedin_points,
+        },
+        Case {
+            id: "material/litao3-abedin-curves",
+            title: r"Lithium tantalate: Abedin & Ito's Eq. (1) against Fig. 3's own dashed curves at 100, 150, 200, 250 and 290 °C, $n_o$ and $n_e$ at 468 and 644 nm (largest difference shown)",
+            tier: Tier::Published,
+            source: "K. S. Abedin, H. Ito, J. Appl. Phys. 80, 6561 (1996), doi:10.1063/1.363679, Fig. 3: the dashes read off the figure's bitmap, 1.2e-4 to 1.5e-4 per pixel",
+            run: ferroelectric::litao3_abedin_curves,
         },
         Case {
             id: "material/batio3-abel-films",
@@ -2123,6 +2201,8 @@ pub fn cases() -> Vec<Case> {
     cases.extend(crate::circuit::heated_checks::cases());
     // and their crosstalk corrected: Gurses et al.'s networks and array
     cases.extend(crate::thermal::correction_checks::cases());
+    // and the thermo-optic phase shifters as devices, at analytic, 2D and measured fidelity
+    cases.extend(crate::device::thermo_checks::cases());
     cases
 }
 

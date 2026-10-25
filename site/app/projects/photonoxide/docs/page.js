@@ -1,4 +1,5 @@
 import { ExternalLink } from "lucide-react";
+import Link from "next/link";
 import Breadcrumbs from "@/components/projects/Breadcrumbs";
 import JsonLd from "@/components/projects/JsonLd";
 import SourceUnavailable from "@/components/projects/SourceUnavailable";
@@ -6,7 +7,14 @@ import { breadcrumbList } from "@/lib/projects/json-ld";
 import { projectsMetadata } from "@/lib/projects/metadata";
 import { blobUrl, getRepoFile } from "@/lib/projects/photonoxide/github";
 import { renderMathMarkdown, repoLinkResolver } from "@/lib/projects/photonoxide/markdown";
-import { DOCS_PATH, PHOTONOXIDE_LINKS, PHOTONOXIDE_OG_IMAGE, PHOTONOXIDE_PATH } from "@/lib/projects/photonoxide/meta";
+import {
+  DOCS_PATH,
+  LANGUAGES_DOCS_PATH,
+  PHOTONOXIDE_LINKS,
+  PHOTONOXIDE_OG_IMAGE,
+  PHOTONOXIDE_PATH,
+  PYTHON_DOCS_PATH,
+} from "@/lib/projects/photonoxide/meta";
 
 const DESCRIPTION =
   "Getting started with photonoxide: adding it to a project, the units and conventions, a first slab and strip waveguide, materials, runs, and where everything else is.";
@@ -45,6 +53,12 @@ export default async function DocsPage() {
             API reference on docs.rs
             <ExternalLink size={12} aria-hidden />
           </a>
+          <Link href={PYTHON_DOCS_PATH} className="proj-pill">
+            In Python
+          </Link>
+          <Link href={LANGUAGES_DOCS_PATH} className="proj-pill">
+            From any language
+          </Link>
           <a href={blobUrl(GUIDE)} target="_blank" rel="noopener noreferrer" className="proj-pill">
             This guide on GitHub
             <ExternalLink size={12} aria-hidden />

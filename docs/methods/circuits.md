@@ -63,7 +63,7 @@ factorization), and each wavelength of a sweep pays only for the numerical facto
 A circuit is a component too: its ports are the netlist's external ports, and its parameters
 its instances', named `instance.parameter`. Circuits nest.
 
-From Python and MATLAB, `circuit_spectrum` takes the netlist as data, compiles it and solves it
+From Python, `circuit_spectrum` takes the netlist as data, compiles it and solves it
 at each wavelength: the instances by kind (or by [device](devices.md)) with their settings and
 parameters, the connections, and the external ports in the matrices' order. A Mach–Zehnder
 interferometer of two 3 dB couplers and arms 150 and 100 µm long:
@@ -86,20 +86,6 @@ mzi = phox.circuit_spectrum(
     wavelength_um=np.linspace(1.5, 1.6, 1001),
 )
 bar = np.abs(mzi.s[:, 2, 0]) ** 2   # from in1 to out1: s[k, q, p] from port p into port q
-```
-
-```matlab
-arm = struct("kind", "waveguide", "n_eff", 2.44506, "n_g", 4.172901, "wavelength_um", 1.55);
-netlist.instances.split = struct("kind", "coupler", "coupling", 0.5);
-netlist.instances.upper = setfield(arm, "length", 150);
-netlist.instances.lower = setfield(arm, "length", 100);
-netlist.instances.combine = struct("kind", "coupler", "coupling", 0.5);
-netlist.connections = {{"split.o3", "upper.o1"}, {"split.o4", "lower.o1"}, ...
-                       {"upper.o2", "combine.o2"}, {"lower.o2", "combine.o1"}};
-netlist.ports = struct("in1", "split.o2", "in2", "split.o1", "out1", "combine.o3", ...
-                       "out2", "combine.o4");
-mzi = photonoxide.circuit_spectrum(netlist, linspace(1.5, 1.6, 1001));
-bar = abs(mzi.s(:, 3, 1)).^2;       % from in1 to out1: s(k, q, p) from port p into port q
 ```
 
 ## Sub-network growth, the reference

@@ -4762,6 +4762,17 @@ size_um = [2.0, 0.5]
         TempDir(dir)
     }
 
+    /// The `results.json` a run wrote, checked against its schema (`docs/results.schema.json`)
+    /// as it was written, then read.
+    fn results_of(dir: &std::path::Path) -> results::Results {
+        let text = std::fs::read_to_string(dir.join("results.json")).unwrap();
+        let json: serde_json::Value = serde_json::from_str(&text).unwrap();
+        if let Some(e) = results::invalid_by_schema(&json) {
+            panic!("results.json isn't valid by its schema: {e}\n{text}");
+        }
+        results::Results::read(dir).unwrap()
+    }
+
     #[test]
     fn a_structure_job_records_a_top_and_a_side_view() {
         let root = temp("views");
@@ -4881,7 +4892,7 @@ segments = [
         let job = Job::parse(FDFD).unwrap();
         let mut run = Run::create(&root.0, &job).unwrap();
         execute(&job, &mut run, &Stop::new(None)).unwrap();
-        let r = results::Results::read(run.dir()).unwrap();
+        let r = results_of(run.dir());
         assert_eq!(
             (r.schema, r.outcome.as_str(), r.kind.as_str()),
             (1, "finished", "fdfd")
@@ -4920,7 +4931,7 @@ segments = [
         let mut run = Run::create(&root.0, &job).unwrap();
         execute(&job, &mut run, &Stop::new(None)).unwrap();
         let events: Vec<Event> = replay(run.dir()).unwrap();
-        let r = results::Results::read(run.dir()).unwrap();
+        let r = results_of(run.dir());
         let recorded: Vec<([f64; 2], f64)> = events
             .iter()
             .filter_map(|e| match e {
@@ -4968,7 +4979,7 @@ segments = [
             let root = temp(&format!("results-convergence-{tolerance}-{require}"));
             let mut run = Run::create(&root.0, &job).unwrap();
             let outcome = execute(&job, &mut run, &Stop::new(None));
-            (outcome, results::Results::read(run.dir()).unwrap(), root)
+            (outcome, results_of(run.dir()), root)
         };
         // the 25 nm grid's index moves by about 1e-3 from 50 nm: not within 1e-6
         let (outcome, r, _root) = checked("1e-6", false);
@@ -5023,7 +5034,7 @@ segments = [
             panic!("{events:?}")
         };
         assert_eq!(*error, e);
-        let r = results::Results::read(run.dir()).unwrap();
+        let r = results_of(run.dir());
         assert_eq!(r.outcome, "failed");
         assert_eq!(r.error.as_deref(), Some(e.as_str()));
         // and one stopped says why
@@ -5033,7 +5044,7 @@ segments = [
         let stop = Stop::new(None);
         stop.request();
         execute(&job, &mut run, &stop).unwrap();
-        let r = results::Results::read(run.dir()).unwrap();
+        let r = results_of(run.dir());
         assert_eq!(
             (r.outcome.as_str(), r.stopped.as_deref()),
             ("stopped", Some("requested"))

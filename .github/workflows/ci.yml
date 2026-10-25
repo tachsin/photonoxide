@@ -43,6 +43,9 @@ permissions:
 
 env:
   CARGO_TERM_COLOR: always
+  # no debug info in debug and test builds: nothing here reads it, and it slows the compiling,
+  # the linking and the caches (#507). Panics still say where.
+  CARGO_PROFILE_DEV_DEBUG: 0
 
 jobs:
   changes:
@@ -228,7 +231,18 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
+      # the registry and git checkouts: the compiled crates are sccache's, shared across the jobs
+      # and the systems, so the two caches don't hold the same things twice (#507)
       - uses: Swatinem/rust-cache@v2
+        with:
+          cache-targets: false
+      # sccache in GitHub's cache; the action prints its hits and misses in the job's summary
+      - uses: mozilla-actions/sccache-action@v0.0.11
+      - name: Compile through sccache
+        shell: bash
+        run: |
+          echo "SCCACHE_GHA_ENABLED=true" >> "$GITHUB_ENV"
+          echo "RUSTC_WRAPPER=sccache" >> "$GITHUB_ENV"
       - run: cargo fmt --check
       - run: cargo clippy --all-targets --all-features -- -D warnings
       - run: cargo fmt --check -p photonoxide-native -p photonoxide-native-testlib
@@ -260,7 +274,18 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
+      # the registry and git checkouts: the compiled crates are sccache's, shared across the jobs
+      # and the systems, so the two caches don't hold the same things twice (#507)
       - uses: Swatinem/rust-cache@v2
+        with:
+          cache-targets: false
+      # sccache in GitHub's cache; the action prints its hits and misses in the job's summary
+      - uses: mozilla-actions/sccache-action@v0.0.11
+      - name: Compile through sccache
+        shell: bash
+        run: |
+          echo "SCCACHE_GHA_ENABLED=true" >> "$GITHUB_ENV"
+          echo "RUSTC_WRAPPER=sccache" >> "$GITHUB_ENV"
       # the library's test binary alone: its few doc tests would build the library once more (two
       # minutes), so they run with every test
       - name: The changed areas' unit tests
@@ -305,12 +330,31 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
+      # the registry and git checkouts: the compiled crates are sccache's, shared across the jobs
+      # and the systems, so the two caches don't hold the same things twice (#507)
       - uses: Swatinem/rust-cache@v2
+        with:
+          cache-targets: false
+      # sccache in GitHub's cache; the action prints its hits and misses in the job's summary
+      - uses: mozilla-actions/sccache-action@v0.0.11
+      - name: Compile through sccache
+        shell: bash
+        run: |
+          echo "SCCACHE_GHA_ENABLED=true" >> "$GITHUB_ENV"
+          echo "RUSTC_WRAPPER=sccache" >> "$GITHUB_ENV"
       - name: Validation cases, each row against docs/validation.md
         if: env.CASES != ''
         run: cargo test --release --test validation_report -- --ignored --nocapture
         env:
           PHOTONOXIDE_VALIDATION_CASES: ${{ matrix.cases }}
+      # all of them at once, so they compile and link side by side (#507); the loop below only
+      # runs each
+      - name: Build the examples
+        if: env.EXAMPLES != ''
+        run: |
+          args=()
+          for name in $EXAMPLES; do args+=(--example "$name"); done
+          cargo build --release --quiet "${args[@]}"
       - name: Examples, each against its paper, and their output
         if: env.EXAMPLES != ''
         run: |
@@ -377,6 +421,8 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
+      # the studio keeps its target/ in rust-cache: through sccache its Tauri build was slower,
+      # 17, 27 and 19 min on Linux, Windows and macOS against 12, 27 and 15 (#507)
       - uses: Swatinem/rust-cache@v2
       - run: pnpm install --frozen-lockfile
       # type-checks the web view and builds it
@@ -393,7 +439,18 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@1.95
+      # the registry and git checkouts: the compiled crates are sccache's, shared across the jobs
+      # and the systems, so the two caches don't hold the same things twice (#507)
       - uses: Swatinem/rust-cache@v2
+        with:
+          cache-targets: false
+      # sccache in GitHub's cache; the action prints its hits and misses in the job's summary
+      - uses: mozilla-actions/sccache-action@v0.0.11
+      - name: Compile through sccache
+        shell: bash
+        run: |
+          echo "SCCACHE_GHA_ENABLED=true" >> "$GITHUB_ENV"
+          echo "RUSTC_WRAPPER=sccache" >> "$GITHUB_ENV"
       - run: cargo check --all-targets --all-features
 
   # The library's public API, by cargo-semver-checks. A pull request is checked against its base

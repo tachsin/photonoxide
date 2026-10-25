@@ -37,6 +37,15 @@
 //! strips' edges as the magnetostatic solution has it, up to about 100 GHz, where the skin
 //! depth and the line's dispersion leave it.
 //!
+//! **Segmented electrodes** ([`Periodic`]): a line of identical periods, each a cascade of
+//! uniform sections, its Bloch wave from the period's ABCD matrix, cosh(γ_B Λ) = (A + D)/2 and
+//! Z_B = B/(e^(γ_B Λ) − A) (P. Yeh, A. Yariv, C.-S. Hong, J. Opt. Soc. Am. 67, 423 (1977),
+//! doi:10.1364/JOSA.67.000423, Eqs. (24)–(27)). A capacitively loaded section
+//! ([`QuasiTem::loaded`]) takes its capacitance from the cross-section through the loading (a
+//! segmented electrode's T-rails) and its inductance and current from the unloaded line's: J.
+//! Shin et al., IEEE Trans. Microw. Theory Tech. 53, 636 (2005), doi:10.1109/TMTT.2004.840735,
+//! Eq. (7). A line given by its numbers is [`QuasiTem::ideal`].
+//!
 //! **The electro-optic response** ([`response`]): the modulation's frequency response m(ω) of
 //! a travelling-wave modulator of length L, driven from a source through the line into a load,
 //! light of group index n_o travelling with the RF wave: G. Ghione, *Semiconductor Devices for
@@ -244,14 +253,15 @@ pub struct QuasiTem {
     far: f64,
     edges: Vec<EdgeFit>,
     surface: Option<f64>,
+    copies: f64,
 }
 
-/// The signal's charge and each face's, by conductor and column, of `problem` with the signal
-/// at 1 V and the rest at 0.
-fn grounded(problem: &Electrostatic, signal: usize) -> Electrostatic {
+/// `problem` with the conductors `signal` at 1 V and the rest, and any fixed side, at 0, no
+/// charges.
+fn grounded(problem: &Electrostatic, signal: &[usize]) -> Electrostatic {
     let mut p = problem.clone();
     for (k, c) in p.conductors.iter_mut().enumerate() {
-        *c = c.at(if k == signal { 1.0 } else { 0.0 });
+        *c = c.at(if signal.contains(&k) { 1.0 } else { 0.0 });
     }
     for b in &mut p.sides {
         if let Boundary::Fixed(v) = b {
@@ -296,11 +306,11 @@ impl QuasiTem {
                 "the signal is conductor {signal}, of {n} (counted from 0)"
             )));
         }
-        let with = grounded(problem, signal);
+        let with = grounded(problem, &[signal]);
         let field = with.solve()?;
         let capacitance = copies * field.held()[signal];
         let shares = with.energy_shares(&field)?;
-        let empty = grounded(&problem.vacuum(), signal);
+        let empty = grounded(&problem.vacuum(), &[signal]);
         let vfield = empty.solve()?;
         let vacuum = copies * vfield.held()[signal];
         // Wheeler's rule on the conductors as drawn: ∮ (J/I)² dl with J/I = ρ/Q in vacuum, for
@@ -317,7 +327,7 @@ impl QuasiTem {
             Some(sum / copies)
         };
         // the conductors as strips, in vacuum
-        let mut strips = grounded(&problem.vacuum(), signal);
+        let mut strips = grounded(&problem.vacuum(), &[signal]);
         let spans: Vec<([f64; 2], f64)> =
             strips.conductors.iter().map(Conductor::footprint).collect();
         strips.conductors = strips
@@ -442,6 +452,78 @@ impl QuasiTem {
             far,
             edges,
             surface,
+            copies,
+        })
+    }
+
+    /// A lossless line of `inductance` (H/m) and `capacitance` (F/m), with no media and no
+    /// current on its conductors: its index c√(LC) and impedance √(L/C), and no loss whatever
+    /// the metal ([`QuasiTem::wave`]). A line given by its numbers, as Shin et al. give their
+    /// unloaded line's ([`Periodic`]).
+    ///
+    /// # Errors
+    ///
+    /// [`Error::InvalidValue`] unless both are finite and positive, and the index at least 1.
+    pub fn ideal(inductance: f64, capacitance: f64) -> Result<QuasiTem> {
+        if !(inductance.is_finite()
+            && inductance > 0.0
+            && capacitance.is_finite()
+            && capacitance > 0.0)
+        {
+            return Err(invalid(format!(
+                "a line needs a positive inductance and capacitance, got {inductance} H/m and                  {capacitance} F/m"
+            )));
+        }
+        let vacuum = 1.0 / (SPEED_OF_LIGHT * SPEED_OF_LIGHT * inductance);
+        if capacitance < vacuum * (1.0 - 1e-12) {
+            return Err(invalid(format!(
+                "a line's index c√(LC) is at least 1: {inductance} H/m and {capacitance} F/m                  give {}",
+                (capacitance / vacuum).sqrt()
+            )));
+        }
+        Ok(QuasiTem {
+            capacitance,
+            vacuum,
+            shares: Vec::new(),
+            far: 0.0,
+            edges: Vec::new(),
+            surface: None,
+            copies: 1.0,
+        })
+    }
+
+    /// This line where it is capacitively loaded: `section` the line's cross-section there,
+    /// drawn as this line's was (the whole line, or its half beside the mirror), with the
+    /// loading's conductors added (a segmented electrode's T-rails), `signal` the conductors at
+    /// the signal's potential (the signal and its rails), the rest the grounds and theirs. Its
+    /// capacitance and energy shares are `section`'s; its inductance and current this line's:
+    /// the loaded line of J. Shin et al., IEEE Trans. Microw. Theory Tech. 53, 636 (2005),
+    /// doi:10.1109/TMTT.2004.840735, Eq. (7), whose rails, joined to the line by narrow stems
+    /// and cut along it, carry its charge and none of its current. The current that charges
+    /// the rails, through the stems, is left out of the conductor loss.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::InvalidValue`] if `signal` is empty or names a conductor `section` hasn't, or
+    /// a solve fails.
+    pub fn loaded(&self, section: &Electrostatic, signal: &[usize]) -> Result<QuasiTem> {
+        let n = section.conductors().len();
+        if signal.is_empty() || signal.iter().any(|&k| k >= n) || signal.len() >= n {
+            return Err(invalid(format!(
+                "a loaded section's signal is one or more of its {n} conductors (counted from                  0), not all of them: got {signal:?}"
+            )));
+        }
+        let with = grounded(section, signal);
+        let field = with.solve()?;
+        let held = field.held();
+        let capacitance = self.copies * signal.iter().map(|&k| held[k]).sum::<f64>();
+        if !(capacitance.is_finite() && capacitance > 0.0) {
+            return Err(invalid("the loaded section's signal holds no charge"));
+        }
+        Ok(QuasiTem {
+            capacitance,
+            shares: with.energy_shares(&field)?,
+            ..self.clone()
         })
     }
 
@@ -571,8 +653,18 @@ impl QuasiTem {
         Ok(rs * w / (2.0 * self.impedance()))
     }
 
+    /// The conductors' internal impedance Z_i at `frequency_hz`, Ω/m: none on an ideal line.
+    fn internal(&self, frequency_hz: f64, metal: &Metal) -> Result<c64> {
+        if self.edges.is_empty() && self.far == 0.0 {
+            return Ok(c64::new(0.0, 0.0));
+        }
+        let integral = self.current_integral(metal.stopping_distance(frequency_hz)?)?;
+        Ok(metal.surface_impedance(frequency_hz) * (integral / 2.0))
+    }
+
     /// The wave at `frequency_hz` on strips of `metal` with the dielectrics' loss tangents
-    /// `tangents` (by medium). See the module's docs.
+    /// `tangents` (by medium). See the module's docs. An ideal line ([`QuasiTem::ideal`])
+    /// carries no current on its metal: lossless, whatever `metal`.
     ///
     /// # Errors
     ///
@@ -586,8 +678,7 @@ impl QuasiTem {
             )));
         }
         let w = 2.0 * std::f64::consts::PI * frequency_hz;
-        let integral = self.current_integral(metal.stopping_distance(frequency_hz)?)?;
-        let internal = metal.surface_impedance(frequency_hz) * (integral / 2.0);
+        let internal = self.internal(frequency_hz, metal)?;
         let tan = self.loss_tangent(tangents)?;
         let z = internal + c64::new(0.0, w * self.inductance());
         let y = c64::new(w * self.capacitance * tan, w * self.capacitance);
@@ -643,6 +734,143 @@ impl Wave {
     /// The RF index βc/ω.
     pub fn index(&self) -> f64 {
         self.gamma.im * SPEED_OF_LIGHT / (2.0 * std::f64::consts::PI * self.frequency_hz)
+    }
+}
+
+/// A 2 × 2 complex matrix, row by row: a two-port's ABCD (transmission) matrix,
+/// [V₁, I₁] = T [V₂, I₂], in the e^(jωt) convention.
+pub type Abcd = [[c64; 2]; 2];
+
+fn product(a: &Abcd, b: &Abcd) -> Abcd {
+    std::array::from_fn(|i| std::array::from_fn(|j| a[i][0] * b[0][j] + a[i][1] * b[1][j]))
+}
+
+/// A line of identical periods, each a cascade of uniform sections (a segmented or
+/// capacitively loaded electrode, its loaded parts [`QuasiTem::loaded`]): its Bloch wave from
+/// the period's ABCD matrix (docs/methods/travelling-wave.md).
+///
+/// Each section of length ℓ is [[cosh γℓ, Z₀ sinh γℓ], [sinh γℓ / Z₀, cosh γℓ]] from its wave,
+/// the period's matrix T their product in order along the line. T is unimodular, and a Bloch
+/// wave is its eigenvector, its eigenvalue e^(γ_B Λ) from cosh(γ_B Λ) = (A + D)/2: P. Yeh, A.
+/// Yariv, C.-S. Hong, J. Opt. Soc. Am. 67, 423 (1977), doi:10.1364/JOSA.67.000423, Eqs.
+/// (24)–(27), the stop bands where |(A + D)/2| > 1. The eigenvector's V/I is the Bloch
+/// impedance at the period's start, Z_B = B/(e^(γ_B Λ) − A). A period drawn symmetric (half an
+/// unloaded part, the loaded part, the other half) gives Z_B in the middle of an unloaded
+/// part.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Periodic {
+    sections: Vec<(QuasiTem, f64)>,
+}
+
+impl Periodic {
+    /// A period of `sections`, each a line and its length (µm), in order along the line.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::InvalidValue`] without a section, or for a length that isn't finite and
+    /// positive.
+    pub fn new(sections: Vec<(QuasiTem, f64)>) -> Result<Periodic> {
+        if sections.is_empty() || sections.iter().any(|s| !(s.1.is_finite() && s.1 > 0.0)) {
+            return Err(invalid(
+                "a period needs one section or more, each of a positive length (µm)",
+            ));
+        }
+        Ok(Periodic { sections })
+    }
+
+    /// The sections and their lengths (µm).
+    pub fn sections(&self) -> &[(QuasiTem, f64)] {
+        &self.sections
+    }
+
+    /// The period Λ, µm.
+    pub fn period_um(&self) -> f64 {
+        self.sections.iter().map(|s| s.1).sum()
+    }
+
+    /// The period's ABCD matrix at `frequency_hz`, each section's wave on `metal` with
+    /// `tangents` (as [`QuasiTem::wave`]).
+    ///
+    /// # Errors
+    ///
+    /// As [`QuasiTem::wave`].
+    pub fn abcd(&self, frequency_hz: f64, metal: &Metal, tangents: &[(&str, f64)]) -> Result<Abcd> {
+        Ok(self.walk(frequency_hz, metal, tangents)?.0)
+    }
+
+    /// The period's matrix and each section's wave.
+    fn walk(
+        &self,
+        frequency_hz: f64,
+        metal: &Metal,
+        tangents: &[(&str, f64)],
+    ) -> Result<(Abcd, Vec<Wave>)> {
+        let one = c64::new(1.0, 0.0);
+        let zero = c64::new(0.0, 0.0);
+        let mut t: Abcd = [[one, zero], [zero, one]];
+        let mut waves = Vec::with_capacity(self.sections.len());
+        for (line, length) in &self.sections {
+            let w = line.wave(frequency_hz, metal, tangents)?;
+            let gl = w.gamma * (length * 1e-6);
+            let (c, s) = (gl.cosh(), gl.sinh());
+            t = product(&t, &[[c, w.impedance * s], [s / w.impedance, c]]);
+            waves.push(w);
+        }
+        Ok((t, waves))
+    }
+
+    /// The Bloch wave at `frequency_hz` on `metal` with `tangents`: γ_B (the forward root,
+    /// |e^(γ_B Λ)| ≥ 1 and β_B Λ in the first band, so n_B = β_B c/ω) and Z_B at the period's
+    /// start. Its losses' split, to first order, is the sections' resistance and conductance
+    /// averaged over the period by length, ⟨R⟩/(2 Re Z_B) and ⟨G⟩ Re Z_B/2, and its internal
+    /// impedance theirs averaged likewise.
+    ///
+    /// # Errors
+    ///
+    /// As [`QuasiTem::wave`], and [`Error::InvalidValue`] in a stop band (about the Bragg
+    /// frequency c/(2 n Λ)), where the wave doesn't travel.
+    pub fn bloch(
+        &self,
+        frequency_hz: f64,
+        metal: &Metal,
+        tangents: &[(&str, f64)],
+    ) -> Result<Wave> {
+        let (t, waves) = self.walk(frequency_hz, metal, tangents)?;
+        let half = (t[0][0] + t[1][1]) / 2.0;
+        let root = (half * half - 1.0).sqrt();
+        let (a, b) = (half + root, half - root);
+        let lambda = if (a.norm() - b.norm()).abs() > 1e-12 * a.norm().max(b.norm()) {
+            if a.norm() > b.norm() { a } else { b }
+        } else if a.im >= 0.0 {
+            a
+        } else {
+            b
+        };
+        let period = self.period_um() * 1e-6;
+        let gamma = lambda.ln() / period;
+        if !(gamma.im > 0.0 && gamma.im * period < std::f64::consts::PI * (1.0 - 1e-9)) {
+            return Err(invalid(format!(
+                "at {frequency_hz:.4e} Hz the period is in a stop band: the Bloch wave doesn't \
+                 travel (β Λ = {:.4})",
+                gamma.im * period
+            )));
+        }
+        let impedance = t[0][1] / (lambda - t[0][0]);
+        let w = 2.0 * std::f64::consts::PI * frequency_hz;
+        let (mut internal, mut conductance) = (c64::new(0.0, 0.0), 0.0);
+        for ((line, length), wave) in self.sections.iter().zip(&waves) {
+            let share = length * 1e-6 / period;
+            internal += wave.internal * share;
+            conductance += w * line.capacitance * line.loss_tangent(tangents)? * share;
+        }
+        Ok(Wave {
+            frequency_hz,
+            gamma,
+            impedance,
+            conductor: internal.re / (2.0 * impedance.re),
+            dielectric: 0.5 * conductance * impedance.re,
+            internal,
+        })
     }
 }
 

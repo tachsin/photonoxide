@@ -34,8 +34,6 @@ each also a built-in (an invalid value is a ``ValueError``).
 
 **The same numbers as Rust.** Each function calls photonoxide's façade, which calls the library
 as a Rust program would; the package's tests check its results against the library's to the bit.
-
-MATLAB reaches the same functions through this package: see :mod:`photonoxide.matlab`.
 """
 
 from __future__ import annotations

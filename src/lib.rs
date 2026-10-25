@@ -35,8 +35,7 @@
 //! - [`parallel`]: independent problems (a sweep's points) side by side, collected in order.
 //! - [`farm`]: the same across processes, on this machine or others over TCP: a sweep's points
 //!   or whole jobs (a population, corners) sent to workers and gathered by index.
-//! - [`facade`]: a small, stable façade of plain types, which the Python package (and MATLAB
-//!   through it) wraps.
+//! - [`facade`]: a small, stable façade of plain types, which the Python package wraps.
 //!
 //! **Released milestone by milestone;** until 1.0 the API can change between them.
 //! Thermo-optic and electro-optic devices, inverse design, layout and PDKs are planned, not here yet:

@@ -42,7 +42,7 @@ fn dndt_points(caption: &str, rows: &[(f64, f64)]) -> CoefficientTable {
     )
 }
 
-fn temperature(min: f64, max: f64, default: f64) -> Option<Parameter> {
+pub(super) fn temperature(min: f64, max: f64, default: f64) -> Option<Parameter> {
     Some(Parameter {
         symbol: "T".into(),
         name: "temperature".into(),
@@ -1965,7 +1965,10 @@ fn lithium_tantalate() -> Entry {
             },
             ..trigonal_3m()
         },
-        index: vec![super::ferroelectric::litao3_model()],
+        index: vec![
+            super::ferroelectric::litao3_model(),
+            super::ferroelectric::litao3_abedin_model(),
+        ],
         tensors: vec![
             casson_r(1.558, (6.92, 0.07), (27.4, 0.3)),
             casson_r(1.33, (6.55, 0.07), (27.7, 0.3)),
@@ -1977,6 +1980,6 @@ fn lithium_tantalate() -> Entry {
             index("n_o", "ordinary index", 2.1186),
         ],
         missing: coming::missing("litao3"),
-        references: references(&["bond-1965", "casson-2004"]),
+        references: references(&["bond-1965", "abedin-ito-1996", "casson-2004"]),
     }
 }

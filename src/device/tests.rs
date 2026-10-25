@@ -644,7 +644,9 @@ fn the_library_has_the_first_devices_each_with_its_models() {
             "MMI 2x2",
             "Y-branch",
             "MZI",
-            "Y-branch MZI"
+            "Y-branch MZI",
+            "thermo-optic phase shifter",
+            "doped thermo-optic phase shifter"
         ]
     );
     for d in library() {
@@ -655,7 +657,13 @@ fn the_library_has_the_first_devices_each_with_its_models() {
             _ => A,
         };
         assert_eq!(methods[0].fidelity, first, "{}", d.kind());
-        assert_eq!(methods.last().unwrap().fidelity, Fidelity::ThreeD);
+        // the highest 3D, or the measured device for the active ones
+        let highest = if d.kind().contains("phase shifter") {
+            Fidelity::Measured
+        } else {
+            Fidelity::ThreeD
+        };
+        assert_eq!(methods.last().unwrap().fidelity, highest, "{}", d.kind());
         assert!(methods.windows(2).all(|w| w[0].fidelity != w[1].fidelity));
         // every model but the highest states its error against a higher one, but the MZIs'
         // (their parts') and the Y-branch's 2D (its 3D isn't resolved here)

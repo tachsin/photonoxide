@@ -27,12 +27,16 @@ on:
       - "src/facade/**"
       - "docs/python.md"
       # the write-ups whose Python calls python/tests/test_methods.py runs
+      - "docs/methods/catalogue.md"
       - "docs/methods/circuits.md"
       - "docs/methods/compact.md"
       - "docs/methods/devices.md"
+      - "docs/methods/export.md"
       - "docs/methods/fdfd-ports.md"
-      - "docs/methods/vector.md"
       - "docs/methods/fields.md"
+      - "docs/methods/slab.md"
+      - "docs/methods/stacks.md"
+      - "docs/methods/vector.md"
       - "Cargo.toml"
       - "Cargo.lock"
       - "jobs/**"
@@ -174,7 +178,7 @@ jobs:
           wheel=$(ls python/dist/*-abi3-*.whl)
           uv pip install "photonoxide[docs] @ file://$PWD/$wheel"
           cd "$RUNNER_TEMP"
-          "$VIRTUAL_ENV/bin/pdoc" photonoxide photonoxide.matlab --docformat restructuredtext \
+          "$VIRTUAL_ENV/bin/pdoc" photonoxide --docformat restructuredtext \
             --footer-text "photonoxide $("$VIRTUAL_ENV/bin/python" -c 'import photonoxide; print(photonoxide.__version__)')" \
             -o "$GITHUB_WORKSPACE/reference"
           test -f "$GITHUB_WORKSPACE/reference/photonoxide.html"

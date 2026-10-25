@@ -133,12 +133,12 @@ const ITEMS: &[Item] = &[
     },
     Item {
         entry: "litao3",
-        property: "n(λ, T)",
-        source: "Abedin & Ito 1996",
-        citation: "K. S. Abedin, H. Ito, J. Appl. Phys. 80, 6561 (1996)",
-        doi: "10.1063/1.363679",
+        property: "dn/dT in the infrared, measured",
+        source: "",
+        citation: "",
+        doi: "",
         open: false,
-        detail: r"Shipped: our fits to Bond's table (1965) at room temperature, 0.45–4.0 µm, within 5e-4 of the indices Casson et al. (2004, Table 2) use. In hand: neither gives the temperature dependence; Abedin & Ito fit congruent lithium tantalate's $n_o$ and $n_e$ against wavelength and temperature, and Nakamura et al. (Jpn. J. Appl. Phys. 41, L465 (2002), doi:10.1143/JJAP.41.L465), whom Casson et al. cite, near-stoichiometric crystals.",
+        detail: r"Shipped: Abedin & Ito's $n(\lambda, T)$ (1996), whose temperature terms are fitted at 468 and 644 nm only; extrapolated to 1550 nm it gives $dn_o/dT = +8.0 \times 10^{-6}$ and $dn_e/dT = -2.7 \times 10^{-6}$ per K (25–300 °C). In hand: no paper measures lithium tantalate's index against temperature in the infrared (Bond 1965 and Casson et al. 2004 are at room temperature). Nakamura et al. (Jpn. J. Appl. Phys. 41, L465 (2002), doi:10.1143/JJAP.41.L465), whom Casson et al. cite, fit near-stoichiometric crystals.",
     },
     Item {
         entry: "litao3",

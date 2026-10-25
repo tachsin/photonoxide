@@ -1,7 +1,7 @@
 """The Python calls in the method write-ups (docs/methods): each page's ``python`` blocks run, in
 order, as one script, so a call the package doesn't have, or one whose arguments changed, fails
 here. A page that uses another's names (compact.md the MZI of circuits.md) runs after it, in the
-same namespace. MATLAB's blocks beside them aren't run: MATLAB isn't run in CI."""
+same namespace."""
 
 from __future__ import annotations
 
@@ -15,11 +15,14 @@ ROOT = Path(__file__).resolve().parents[2]
 METHODS = ROOT / "docs" / "methods"
 # each page with Python calls, and the page whose names it uses, if any
 PAGES = {
+    "catalogue": None,
     "circuits": None,
     "compact": "circuits",
     "devices": None,
     "export": None,
     "fdfd-ports": None,
+    "slab": None,
+    "stacks": None,
     "vector": None,
     "fields": "vector",
 }
@@ -33,6 +36,14 @@ def blocks(page: str) -> list[str]:
 def test_every_page_with_python_calls_is_run() -> None:
     pages = sorted(p.stem for p in METHODS.glob("*.md") if blocks(p.stem))
     assert pages == sorted(PAGES)
+
+
+def test_a_change_to_a_page_with_python_calls_runs_them() -> None:
+    # the wheels' workflow starts on its paths: each such page among them, so a pull request that
+    # changes only the page still runs its calls here
+    workflow = (ROOT / ".github" / "workflows" / "python-wheels.yml").read_text(encoding="utf-8")
+    missing = [p for p in sorted(PAGES) if f'- "docs/methods/{p}.md"' not in workflow]
+    assert missing == [], f"python-wheels.yml's paths don't name {missing}"
 
 
 @pytest.mark.parametrize("page", sorted(PAGES))

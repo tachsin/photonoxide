@@ -123,10 +123,11 @@ area shifter  "src/thermal/*"   "mode material statics thermo"   "thermal::shift
 # the optimize/ cases), and a job's [circuit] table is a chip of devices, computed, studied and
 # optimized (the chip/ cases, and optimize_chip_rings, which reads jobs/); its [[task.component]] tables are
 # the generators', and its cases of them (components with expressions, ports by name) run here;
-# docs/job.schema.json is the schema job::schema writes, which its tests check; tests/jobs-toml
+# docs/job.schema.json and docs/results.schema.json are the schemas job::schema and
+# job::results::schema write, which their tests check; tests/jobs-toml
 # holds the jobs as TOML, as they were before they were YAML, which the tests read and compare
 area job \
-  "src/job/* src/run.rs src/run/* src/farm.rs src/farm/* jobs/* tests/jobs-toml/* docs/job.schema.json" \
+  "src/job/* src/run.rs src/run/* src/farm.rs src/farm/* jobs/* tests/jobs-toml/* docs/job.schema.json docs/results.schema.json" \
   "material mode sparse fdfd fdtd circuit device generator statics shifter line export convergence" \
   "job:: run:: farm::" "job/ generator/job- device/study- device/compact- optimize/ chip/" "optimize_chip_rings"
 
@@ -161,23 +162,23 @@ area circuit \
   "circuit_fit circuit_ring_critical circuit_splitter optimize_ring_flat optimize_mzi_lattice optimize_ring_pareto optimize_mesh ring_q_factor directional_coupler mzi_dwivedi"
 
 # the devices: components that know their geometry, built from the circuit's components on the
-# mode solvers' cross-sections and by FDFD of their own drawings (through the 2D jobs' plane)
+# mode solvers' cross-sections and by FDFD of their own drawings (through the 2D jobs' plane);
+# the thermo-optic phase shifters on the static solver and the shifter's chain (src/thermal)
 area device \
   "src/device.rs src/device/*" \
-  "material mode circuit generator fdfd job compact" \
+  "material mode circuit generator fdfd job compact statics shifter" \
   "device::" "device/" \
-  "strip_waveguide directional_coupler mzi_dwivedi ring_q_factor bend_loss rib_hadley mmi_soldano y_junction_zhang"
+  "strip_waveguide directional_coupler mzi_dwivedi ring_q_factor bend_loss rib_hadley mmi_soldano y_junction_zhang thermo_jacques"
 
 area compact \
   "src/compact/*" \
   "circuit job" \
   "compact::" "compact/" "compact_mzi_ye"
 
-# with the table of what works in Rust, Python and MATLAB and the MATLAB wrappers' reference
-# (written from the .m files' help), which its tests read; its devices are the library's
-# (src/device)
+# with the table of what works in Rust and Python, which its tests read; its devices are the
+# library's (src/device)
 area facade \
-  "src/facade.rs src/facade/* docs/features.md docs/matlab.md python/photonoxide/matlab/*" \
+  "src/facade.rs src/facade/* docs/features.md" \
   "material mode job circuit compact device" \
   "facade::" "" ""
 

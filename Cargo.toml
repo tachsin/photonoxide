@@ -93,6 +93,12 @@ opt-level = 3
 [profile.dev.package.photonoxide]
 opt-level = 3
 
+# Debug and test builds keep file and line numbers for panics and backtraces, not the full debug
+# info: with everything optimized it took longer to compile and link than it gave back (#507).
+# CI sets CARGO_PROFILE_DEV_DEBUG=0. A debugger that needs variables: `debug = true` here, locally.
+[profile.dev]
+debug = "line-tables-only"
+
 # What the Python wheels are built with (`--profile dist`, `just build-dist`): link-time
 # optimization across crates and one codegen unit, for faster code at the cost of a slower build.
 # Plain `--release` (CI, the tests, the examples) keeps Cargo's defaults, so its builds stay quick.

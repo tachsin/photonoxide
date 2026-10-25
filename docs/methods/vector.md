@@ -86,13 +86,13 @@ the guides, not their surroundings): the substrate, the cladding and the layers'
 Where a guide runs into an edge, as a rib's slab does, the fastest wave along that edge is the
 slab's own mode, solved on the edge's cells by the same scheme, and a mode below it leaks into
 the slab, so a window's side should stay clear of every guide but a slab. The façade's
-`vector_modes` (Python's and MATLAB's) keeps the modes of a closed window by this rule. A
+`vector_modes` (Python's) keeps the modes of a closed window by this rule. A
 `"modes"` job keeps a count's modes by the same rule, reading the media from its stack: the
 layers' backgrounds, and the substrate and cladding its window reaches, the same index on the
 built-in jobs' cross-sections (a test checks it). `modes_above` with the surrounding index as
 its threshold gives every guided mode, however many.
 
-In Python and MATLAB, `vector_modes` takes the cross-section as arrays, the grid's nodes and
+In Python, `vector_modes` takes the cross-section as arrays, the grid's nodes and
 each cell's permittivity, and returns the guided modes with their [fields](fields.md). The
 book's strip (below) on a 10 nm grid, its quarter between an electric wall on the vertical
 mirror plane and a magnetic one on the horizontal, asked for six modes:
@@ -110,16 +110,6 @@ modes = phox.vector_modes(x_um=x, y_um=y, permittivity=eps, wavelength_um=1.55, 
                           boundaries=("electric", "zero", "magnetic", "zero"))
 for m in modes:
     print(f"n_eff {m.effective_index.real:.6f}, TE fraction {m.te_fraction:.3f}")
-```
-
-```matlab
-h = 0.01;
-x = (0:105) * h;  y = (0:75) * h;
-[xc, yc] = meshgrid((x(1:end-1) + x(2:end)) / 2, (y(1:end-1) + y(2:end)) / 2);
-eps = 1.444^2 * ones(size(xc));
-eps(xc < 0.25 & yc < 0.11) = 3.473^2;
-modes = photonoxide.vector_modes(x, y, eps, 1.55, count=6, ...
-                                 boundaries=["electric" "zero" "magnetic" "zero"]);
 ```
 
 It prints one mode, `n_eff 2.445713, TE fraction 0.975`, the 10 nm value under

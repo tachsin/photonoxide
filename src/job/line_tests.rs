@@ -69,6 +69,100 @@ fn a_job_gives_the_line_the_librarys_case_does() {
     assert!(checks.iter().all(|c| c.converged()), "{checks:?}");
 }
 
+/// jobs/tfln-segmented.yaml on a coarser grid (8 nm at the edges, a 40 nm mode), with `edit`
+/// applied to its text.
+fn segmented_text(edit: impl Fn(String) -> String) -> String {
+    let text = include_str!("../../jobs/tfln-segmented.yaml")
+        .replace("fine_nm: 4.0", "fine_nm: 8.0")
+        .replace("    step_nm: 20.0", "    step_nm: 40.0");
+    edit(text)
+}
+
+#[test]
+fn a_segmented_job_gives_the_line_the_librarys_case_does() {
+    let events = run_job("segmented", &segmented_text(|t| t));
+    let v = values(&events);
+    // the library's line (validation case line/kharel-2021-segmented-measured-*): n_B 2.2074
+    // and Re Z_B 44.08 Ω at 50 GHz, the gaps loaded too 2.2548; the job's regions leave the
+    // rib's walls two slivers of air
+    let n = named(&v, "segmented line at 50 GHz: n_B");
+    assert!((n - 2.2074).abs() < 0.01, "{n} {v:?}");
+    let z = named(&v, "segmented line at 50 GHz: Re Z_B");
+    assert!((z - 44.08).abs() < 0.5, "{z}");
+    let bound = named(&v, "segmented line at 50 GHz: n_B with the gaps loaded");
+    assert!((bound - 2.2548).abs() < 0.01, "{bound}");
+    // the channels alone: a lower index, a higher impedance
+    assert!(named(&v, "line at 50 GHz: n_m") < n - 0.3);
+    assert!(named(&v, "line at 50 GHz: Re Z0") > z + 5.0);
+    let quasi = named(&v, "segmented line: n (quasi-static");
+    // below the wave's, which the metal's internal inductance raises
+    assert!(quasi < n && n - quasi < 0.03, "{quasi} {n}");
+    assert!(named(&v, "Vpi L (push-pull") > 2.0);
+    let checks: Vec<_> = events
+        .iter()
+        .filter_map(|e| match e {
+            Event::GridConvergence { check, .. } => Some(check.clone()),
+            _ => None,
+        })
+        .collect();
+    assert!(
+        checks
+            .iter()
+            .any(|c| c.quantity.starts_with("segmented line n_B")),
+        "{checks:?}"
+    );
+    assert!(checks.iter().all(|c| c.converged()), "{checks:?}");
+}
+
+#[test]
+#[ignore = "runs jobs/tfln-segmented.yaml on its own grids and prints its record"]
+fn print_the_segmented_job() {
+    let events = run_job(
+        "segmented-full",
+        include_str!("../../jobs/tfln-segmented.yaml"),
+    );
+    for v in values(&events) {
+        println!("{}: {} {}", v.name, v.value, v.unit);
+    }
+    for e in &events {
+        if let Event::GridConvergence { check, .. } = e {
+            println!(
+                "grid: {} {} {:?}",
+                check.quantity, check.reason, check.error
+            );
+        }
+    }
+}
+
+#[test]
+fn a_segmented_table_is_refused_where_it_cant_be_one() {
+    let refused = |edit: &dyn Fn(String) -> String, what: &str| {
+        let job = Job::parse_as(&segmented_text(edit), crate::run::Format::Yaml).unwrap();
+        let e = check(&job).expect_err(what).to_string();
+        assert!(e.contains(what), "{e}");
+    };
+    refused(
+        &|t| t.replace("{ conductor: 3, of: 1 }", "{ conductor: 1, of: 2 }"),
+        "a rail is a conductor of its own",
+    );
+    refused(
+        &|t| t.replace("{ conductor: 4, of: 2 }", "{ conductor: 4, of: 3 }"),
+        "a rail is a conductor of its own",
+    );
+    refused(
+        &|t| t.replace("{ conductor: 4, of: 2 }", "{ conductor: 5, of: 2 }"),
+        "conductor = 5",
+    );
+    refused(
+        &|t| t.replace("{ conductor: 3, of: 1 }", "{ conductor: 3, of: 2 }"),
+        "a rail hanging from the signal",
+    );
+    refused(
+        &|t| t.replace("rail_um: 45.0", "rail_um: 50.0"),
+        "rail_um must be above 0 and below period_um",
+    );
+}
+
 #[test]
 fn a_line_table_is_refused_where_it_cant_be_one() {
     let refused = |edit: &dyn Fn(String) -> String, what: &str| {

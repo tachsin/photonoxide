@@ -81,6 +81,14 @@ A stopped run's folder holds what was done before it stopped.
 Every number is the one photonoxide computed, written so that it reads back to the same bits:
 the S-matrix is bit for bit what the library's `job::fdfd_s_parameters` gives for the same job.
 
+Its JSON Schema (draft 2020-12) is [docs/results.schema.json](results.schema.json), which
+`photonoxide schema --results` prints: derived from the library's own types, so it can't drift
+from what a run writes (a test checks the committed file, and checks real runs' `results.json`
+against it). A language's types can be generated from it
+([docs/languages.md](languages.md#types-generated-from-the-schema)). It names the values a field
+takes where they are fixed (`dtype`, `outcome`, `stopped`, the verdicts) and allows fields it
+doesn't name: a later photonoxide adds fields without raising `schema`.
+
 ### Arrays
 
 An array is an object:
@@ -112,25 +120,8 @@ s = array(results["s_parameters"]["s"])   # s[k, q, p]
 transmission = abs(s[:, 1, 0]) ** 2
 ```
 
-MATLAB:
-
-```matlab
-run = "runs/20261014-120000-strip-fdfd";
-results = jsondecode(fileread(fullfile(run, "results.json")));
-a = results.s_parameters.s;
-if isfield(a, "data")
-    values = a.data(:);
-else
-    f = fopen(fullfile(run, a.file), "r", "ieee-le");
-    values = fread(f, Inf, "double");
-    fclose(f);
-end
-if a.dtype == "complex128"
-    values = complex(values(1:2:end), values(2:2:end));
-end
-% C order: reverse the shape for MATLAB's column order, then the indices
-s = permute(reshape(values, flip(a.shape')), numel(a.shape):-1:1);   % s(k, q, p)
-```
+Other languages read it the same way: [docs/languages.md](languages.md) has the shell, R,
+JavaScript, TypeScript and Go.
 
 ## `events.jsonl`
 

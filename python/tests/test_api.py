@@ -403,7 +403,8 @@ def test_the_python_page_runs(capsys: pytest.CaptureFixture[str]) -> None:
 
 def test_the_devices_are_the_studios() -> None:
     kinds = [d.kind for d in phox.devices()]
-    assert kinds[:3] == ["waveguide", "bend", "directional coupler"] and len(kinds) == 11
+    assert kinds[:3] == ["waveguide", "bend", "directional coupler"] and len(kinds) == 13
+    assert kinds[11:] == ["thermo-optic phase shifter", "doped thermo-optic phase shifter"]
     coupler = phox.devices()[2]
     gap = next(p for p in coupler.parameters if p.name == "gap")
     assert (gap.unit, gap.default) == ("µm", 0.2) and gap.min < gap.default < gap.max
@@ -498,11 +499,6 @@ def test_a_compact_model_fitted_by_a_job_is_a_fidelity(tmp_path: Path) -> None:
                                  compact=model, wavelength_um=w)
     exact = phox.device_spectrum("all-pass ring", values={"gap": 0.21}, wavelength_um=w)
     assert compact.fidelity == "compact" and np.abs(compact.s - exact.s).max() < 1e-3
-    # the same model through MATLAB's side
-    from photonoxide import matlab
-    r = matlab.device_spectrum("all-pass ring", '{"gap": 0.21}', "compact", list(w), "", str(model))
-    s = np.asarray(r["s"]["re"]) + 1j * np.asarray(r["s"]["im"])
-    assert np.array_equal(s.reshape([int(n) for n in r["s"]["shape"]], order="F"), compact.s)
 
 
 def test_the_stacks_are_named_by_the_device_functions() -> None:

@@ -32,6 +32,7 @@
 //! doi:10.1146/annurev.fluid.29.1.123 (grid convergence studies and their estimates).
 
 use num_complex::Complex64;
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::{Error, Result};
@@ -49,7 +50,7 @@ pub struct Study {
 }
 
 /// Whether a number's grid has converged.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 #[non_exhaustive]
 pub enum Verdict {
@@ -73,7 +74,7 @@ impl Verdict {
 }
 
 /// A number with its grid and the check of that grid ([`Study::check`]).
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[non_exhaustive]
 pub struct Convergence {
     /// What it is.

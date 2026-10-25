@@ -1,0 +1,80 @@
+# A segmented (T-rail) travelling-wave electrode on thin-film lithium niobate on quartz: Kharel et
+# al. 2021's fabricated modulator (Optica 8, 357, doi:10.1364/OPTICA.416155, Fig. 1(e)), half of
+# it beside its mirror. A 100 um gold signal (to y = 50 um) and its ground 21 um away (100 um
+# wide, not given), 800 nm thick; rails 2 um wide, 6 um from their channels and 5 um apart (the
+# rib between them: 600 nm of x-cut film etched 350 nm, 2 um wide on top, the sidewall at 70
+# degrees: not given), 45 um long every 50 um along the line; 1 um of CVD oxide over the slab,
+# 2 um of oxide on 500 um of quartz (epsilon 4.5, theirs). The oxide over the slab is drawn as
+# regions beside and over the rib, so two slivers at the rib's walls are air.
+#
+# The conductors drawn are the section through the rails, the rails at their channels'
+# potentials: the electrode field's Vpi L comes from it (electro_optic). The line (line) is the
+# channels' (conductors 1 and 2) loaded by the rails (3 and 4) for 45 um of each 50 um period:
+# the Bloch wave's index, impedance and loss at each frequency (Holloway and Kuester's conductor
+# loss with gold at 4.1e7 S/m; lithium niobate's loss tangent 0.004, theirs), and a 20 mm
+# modulator's electro-optic response referred to 1 GHz. Quasi-TEM, valid to about 100 GHz; the
+# grid study checks the Bloch index and impedance and the loss at 100 GHz on grids twice and four
+# times as coarse. 2D numbers, per unit length of a straight line.
+#   photonoxide run jobs/tfln-segmented.yaml
+name: tfln-segmented
+timeout_minutes: 15
+
+task:
+  kind: static
+  physics: electrostatic
+  y_um: [0.0, 471.0]
+  z_um: [-500.0, 303.0]
+  step_nm: 20000.0
+  fine_nm: 4.0
+  growth: 1.15
+
+  stack:
+    substrate: sio2
+    cladding: 1.0
+    layer:
+      - { name: BOX, thickness_um: 2.0, material: sio2, background: sio2 }
+      - { name: LN, thickness_um: 0.6, material: { id: linbo3, orientation: x-cut }, background: 1.0 }
+
+  rect:
+    - { layer: LN, center_um: [0.0, 60.5], size_um: [10.0, 2.0], etch: { depth_um: 0.35, sidewall_deg: 70.0 } }
+
+  region:
+    - { y_um: [0.0, 471.0], z_um: [-500.0, 0.0], medium: quartz }
+    - { y_um: [0.0, 59.37], z_um: [2.25, 3.25], medium: clad }
+    - { y_um: [61.63, 471.0], z_um: [2.25, 3.25], medium: clad }
+    - { y_um: [59.37, 61.63], z_um: [2.6, 3.25], medium: clad }
+
+  permittivity: { quartz: 4.5, SiO2: 3.9, clad: 3.9, "n = 1": 1.0 }
+
+  conductor:
+    - { y_um: [-1.0, 50.0], z_um: [2.25, 3.05], potential_v: 1.0 }
+    - { y_um: [71.0, 171.0], z_um: [2.25, 3.05], potential_v: 0.0 }
+    - { y_um: [56.0, 58.0], z_um: [2.25, 3.05], potential_v: 1.0 }
+    - { y_um: [63.0, 65.0], z_um: [2.25, 3.05], potential_v: 0.0 }
+
+  electro_optic:
+    layer: LN
+    entry: linbo3
+    tensor: "thin film (x-cut LNOI), clamped, 1550 nm"
+    complete_from: "bulk, clamped, 633 nm"
+    wavelength_um: 1.55
+    y_um: [58.5, 62.5]
+    z_um: [0.5, 3.5]
+    step_nm: 20.0
+
+  line:
+    signal: 1
+    mirrored: true
+    conductivity_s_per_m: 4.1e7
+    loss_tangent: { "LiNbO₃ (x-cut, its y along the chip's x)": 0.004 }
+    frequencies_ghz: [10.0, 25.0, 50.0, 100.0]
+    segmented:
+      rail:
+        - { conductor: 3, of: 1 }
+        - { conductor: 4, of: 2 }
+      rail_um: 45.0
+      period_um: 50.0
+    response:
+      length_mm: 20.0
+      group_index: 2.25
+    convergence: { tolerance: 0.01 }

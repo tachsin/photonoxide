@@ -707,6 +707,13 @@ pub fn conformance(scratch: &Path) -> Result<Vec<Case>> {
         ("y-branch", "Y-branch", &[][..], Some("analytic")),
         // a 2D model: guided modes by the effective index method, exact slabs, no grid
         ("mmi-2d", "MMI 1x2", &[("length", 7.5)][..], Some("2D")),
+        // an active device: a heater's phase at its power, by its closed forms
+        (
+            "thermo-shifter",
+            "thermo-optic phase shifter",
+            &[("power", 12.5), ("loss", 2.0)][..],
+            Some("analytic"),
+        ),
     ] {
         let (d, args) = design(kind, values, fidelity);
         cases.push(case(

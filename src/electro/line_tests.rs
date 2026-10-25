@@ -1,4 +1,4 @@
-use super::line::{DB_PER_NEPER, Drive, Edge, Metal, QuasiTem, response};
+use super::line::{DB_PER_NEPER, Drive, Edge, Metal, Periodic, QuasiTem, response};
 use super::line_checks::{self as checks, COPPER, GOLD, ZHANG_TANGENTS};
 use super::{Boundary, Conductor, Electrostatic, Grading, Grid, Section, Side, Tensor};
 use num_complex::Complex64 as c64;
@@ -209,6 +209,161 @@ fn print_zhang_against_frequency() {
             w.db_per_cm(),
             w.conductor * DB_PER_NEPER / 100.0,
             w.dielectric * DB_PER_NEPER / 100.0
+        );
+    }
+}
+
+#[test]
+fn an_ideal_line_has_its_numbers_and_no_loss() {
+    let (l, c) = (4e-7, 1.6e-10);
+    let line = QuasiTem::ideal(l, c).unwrap();
+    let speed = crate::units::SPEED_OF_LIGHT;
+    assert!((line.impedance() / (l / c).sqrt() - 1.0).abs() < 1e-12);
+    assert!((line.index() / (speed * (l * c).sqrt()) - 1.0).abs() < 1e-12);
+    assert!((line.inductance() / l - 1.0).abs() < 1e-12);
+    // gold at 30 THz is beyond Holloway and Kuester's table, but an ideal line has no current
+    let gold = Metal::new(GOLD, 0.8).unwrap();
+    assert!(gold.stopping_distance(3e13).is_err());
+    let w = line.wave(3e13, &gold, &[]).unwrap();
+    assert_eq!(w.attenuation(), 0.0);
+    assert!((w.impedance.re / line.impedance() - 1.0).abs() < 1e-12);
+    assert!(QuasiTem::ideal(-1.0, c).is_err());
+    assert!(QuasiTem::ideal(l, f64::NAN).is_err());
+    // an index below 1
+    assert!(QuasiTem::ideal(l, 1e-12).is_err());
+}
+
+/// Half a coplanar waveguide of strips on silicon (a = 3, b = 6 µm) beside its mirror, graded
+/// from 10 nm, with a rail strip from 4 to 4.5 µm at y = 0 drawn as conductor 2 when `rail`.
+fn half_with_rail(rail: bool) -> Electrostatic {
+    let (a, b, reach) = (3.0, 6.0, 300.0);
+    let mut section = Section::new("air");
+    section.layer(-2.0 * reach, 0.0, "Si").unwrap();
+    let mut features = section.features().clone();
+    features
+        .strip([0.0, a], 0.0)
+        .strip([4.0, 4.5], 0.0)
+        .strip([b, reach], 0.0);
+    let grid = Grid::fitted(
+        [0.0, reach],
+        [-reach, reach],
+        &Grading::new(5.0, 0.01, 1.1).unwrap(),
+        &features,
+    )
+    .unwrap();
+    let mut p = Electrostatic::new(section, grid);
+    p.permittivity("air", Tensor::isotropic(1.0))
+        .permittivity("Si", Tensor::isotropic(11.7))
+        .boundary(Side::Right, Boundary::Fixed(0.0))
+        .boundary(Side::Bottom, Boundary::Fixed(0.0))
+        .boundary(Side::Top, Boundary::Fixed(0.0))
+        .conductor(Conductor::strip([0.0, a], 0.0, 1.0))
+        .conductor(Conductor::strip([b, reach], 0.0, 0.0));
+    if rail {
+        p.conductor(Conductor::strip([4.0, 4.5], 0.0, 1.0));
+    }
+    p
+}
+
+#[test]
+fn a_loaded_line_keeps_its_inductance_and_current_and_takes_the_rails_capacitance() {
+    let channel = QuasiTem::mirrored(&half_with_rail(false), 0).unwrap();
+    // loaded by its own section: itself
+    let same = channel.loaded(&half_with_rail(false), &[0]).unwrap();
+    assert!((same.capacitance() / channel.capacitance() - 1.0).abs() < 1e-12);
+    let loaded = channel.loaded(&half_with_rail(true), &[0, 2]).unwrap();
+    assert!(loaded.capacitance() > 1.2 * channel.capacitance());
+    assert_eq!(loaded.inductance(), channel.inductance());
+    assert_eq!(
+        loaded.current_integral(5e-9).unwrap(),
+        channel.current_integral(5e-9).unwrap()
+    );
+    let sum: f64 = loaded.shares().iter().map(|s| s.1).sum();
+    assert!((sum - 1.0).abs() < 1e-12);
+    // Z = √(L/C), n = c√(LC) of the loaded capacitance
+    let speed = crate::units::SPEED_OF_LIGHT;
+    let (l, c) = (loaded.inductance(), loaded.capacitance());
+    assert!((loaded.impedance() / (l / c).sqrt() - 1.0).abs() < 1e-12);
+    assert!((loaded.index() / (speed * (l * c).sqrt()) - 1.0).abs() < 1e-12);
+    // the rail at the ground's potential instead loads the line too, less
+    let to_ground = channel.loaded(&half_with_rail(true), &[0]).unwrap();
+    assert!(to_ground.capacitance() > channel.capacitance());
+    assert!(to_ground.capacitance() < loaded.capacitance());
+    for bad in [&[][..], &[3], &[0, 1, 2]] {
+        assert!(
+            channel.loaded(&half_with_rail(true), bad).is_err(),
+            "{bad:?}"
+        );
+    }
+}
+
+#[test]
+fn a_period_is_unimodular_and_refuses_a_stop_band() {
+    let c = crate::units::SPEED_OF_LIGHT;
+    let line = |z: f64| QuasiTem::ideal(z * 2.2 / c, 2.2 / (z * c)).unwrap();
+    let gold = Metal::new(GOLD, 0.8).unwrap();
+    let p = Periodic::new(vec![(line(30.0), 25.0), (line(60.0), 25.0)]).unwrap();
+    assert_eq!(p.period_um(), 50.0);
+    assert_eq!(p.sections().len(), 2);
+    let t = p.abcd(3e11, &gold, &[]).unwrap();
+    let det = t[0][0] * t[1][1] - t[0][1] * t[1][0];
+    assert!((det - c64::new(1.0, 0.0)).norm() < 1e-12, "{det}");
+    // the quarter wave, θ = π/2, lies in the first stop band (from θ = arccos(1/3))
+    let quarter = c / (4.0 * 2.2 * 25e-6);
+    let e = p.bloch(quarter, &gold, &[]).unwrap_err().to_string();
+    assert!(e.contains("stop band"), "{e}");
+    // below the band edge it travels
+    assert!(p.bloch(0.5 * quarter, &gold, &[]).is_ok());
+    assert!(Periodic::new(Vec::new()).is_err());
+    assert!(Periodic::new(vec![(line(50.0), 0.0)]).is_err());
+}
+
+#[test]
+fn a_lossy_period_splits_its_loss_as_its_sections_do() {
+    // a uniform lossy line cut in two: the Bloch wave's split is the line's
+    let (line, _) = checks::coplanar(3.0, 5.0, 11.7, 600.0, 300.0, 0.01, 1.1);
+    let gold = Metal::new(GOLD, 1.0).unwrap();
+    let tangents = [("substrate", 0.01)];
+    let p = Periodic::new(vec![(line.clone(), 10.0), (line.clone(), 40.0)]).unwrap();
+    let (b, u) = (
+        p.bloch(50e9, &gold, &tangents).unwrap(),
+        line.wave(50e9, &gold, &tangents).unwrap(),
+    );
+    let close = |x: f64, y: f64, tol: f64| (x / y - 1.0).abs() < tol;
+    // the line's own split takes its quasi-static Z₀, the Bloch wave's its Re Z_B
+    let ratio = line.impedance() / u.impedance.re;
+    assert!(
+        close(b.conductor, u.conductor * ratio, 1e-9),
+        "{} {}",
+        b.conductor,
+        u.conductor
+    );
+    assert!(close(b.dielectric, u.dielectric / ratio, 1e-9));
+    assert!((b.internal - u.internal).norm() < 1e-9 * u.internal.norm());
+}
+
+#[test]
+#[ignore = "prints the segmented electrodes' cases"]
+fn print_segmented_cases() {
+    let t0 = std::time::Instant::now();
+    println!("shin {:?}", checks::shin_numbers());
+    println!("kharel segmented {:?}", checks::kharel_segmented_numbers());
+    for case in checks::cases() {
+        if !["periodic", "shin", "segmented", "quartz"]
+            .iter()
+            .any(|k| case.id.contains(k))
+        {
+            continue;
+        }
+        let o = (case.run)();
+        println!(
+            "{}: measured {} expected {} tolerance {} -> {}  ({:.1} s)",
+            case.id,
+            o.measured,
+            o.expected,
+            o.tolerance,
+            o.error <= o.tolerance,
+            t0.elapsed().as_secs_f64()
         );
     }
 }
