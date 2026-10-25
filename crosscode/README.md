@@ -1,102 +1,69 @@
-# photonoxide-crosscode
+# Cross-code comparison
 
-Other codes, run as external programs on photonoxide's cases: openEMS (3D FDTD) for the RF line,
-and Elmer (finite elements) for heat and electrostatics. This is the cross-code half of
-photonoxide's validation, as Meep and MPB are for the optics.
+photonoxide's solvers checked against established codes on the same problems and the same
+meshes: how far apart the results are, and how long each code takes. The codes are openEMS
+(3D FDTD) for the RF line and Elmer (finite elements) for heat and electrostatics. This crate
+runs them as external programs; it is local only, and CI never builds it.
 
-**It is a local comparison:** CI never builds or runs this crate, and the library and the
-released program don't need it. It is a crate of its own, outside photonoxide's workspace, with
-its own `Cargo.lock`. The tests that need a program skip, saying so, where it isn't installed.
-
-## The results
+## Results
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="../docs/cross-code-chart-dark.svg">
-  <img src="../docs/cross-code-chart.svg" alt="Each code's error against photonoxide's converged result, in percent, against its own solve time, both on log scales: photonoxide and Elmer at the bottom left (under 0.1 s, errors from 6 % down to 0.0001 %), openEMS at the right (100 to 2400 s)." width="100%">
+  <img src="../docs/cross-code-chart.svg" alt="For each problem, each code's time on the same mesh on a log scale, with its time and errors beside it: on the coplanar line photonoxide 0.057 s, Elmer 0.053 s, openEMS 40 min; on the heater photonoxide 0.036 s, Elmer 0.070 s." width="100%">
 </picture>
 
-Every case and every code on one chart: each line is one code on one case through its meshes,
-lower is more accurate and further left is faster. The numbers behind it are in the tables below
-and in the two reports. The studies redraw it from `crosscode/results/*.tsv`, the points they
-write.
+Each code on the same mesh, its error against photonoxide's converged result (the reference):
 
-Each error is against photonoxide's converged result, the reference, in percent. photonoxide
-"on the finest mesh" and the other codes are on the same mesh lines; openEMS and Elmer are
-extrapolated from their three finest meshes.
-
-| Case | Quantity | photonoxide, converged (the reference) | photonoxide, finest mesh | openEMS | Elmer |
+| Problem | Quantity | Reference | photonoxide | openEMS | Elmer |
 |---|---|---:|---:|---:|---:|
-| Ghione and Naldi's coplanar line | n | 2.217156 | 2.217052 (−0.0047 %) | 2.217069 (−0.0039 %) | 2.217176 (+0.00090 %) |
-| the same line | Z₀, Ω | 54.1476 | 54.5551 (+0.75 %) | 54.0387 (−0.20 %) | 54.1221 (−0.047 %) |
-| a heater over silicon, 1 W/m | peak rise, K | 0.327422 | 0.327508 (+0.026 %) | — | 0.327390 (−0.0099 %) |
+| Coplanar line, 0.25 µm mesh | n | 2.217156 | 2.217052 (−0.0047 %) | 2.217069 (−0.0039 %) | 2.217161 (+0.00021 %) |
+| | Z₀, Ω | 54.1476 | 54.5551 (+0.75 %) | 53.7113 (−0.81 %) | 53.9122 (−0.43 %) |
+| | time | | 0.057 s | 40 min 8 s | 0.053 s |
+| Heater over silicon, 0.0125 µm mesh | peak rise, K | 0.327422 | 0.327508 (+0.026 %) | — | 0.327384 (−0.012 %) |
+| | time | | 0.036 s | — | 0.070 s |
 
-photonoxide's finest-mesh row is on openEMS's finest mesh (0.25 µm) for the line and Elmer's
-(0.0125 µm) for the heater.
+- **Agreement:** refined to convergence, openEMS and Elmer meet photonoxide within 0.20 % and 0.047 % on Z₀, 0.0039 % and 0.00090 % on n, and Elmer within 0.0099 % on the heater's rise.
+- **Speed:** photonoxide and Elmer solve the same 2D problems, so their times compare directly. Each is the code's own assembly and solve, the fastest of three runs. openEMS solves the line in 3D and in time (2.85 million cells for 339 345 steps), so its time is its own cost for that accuracy, not a like-for-like race.
+- Every mesh and both codes' numbers on it: [docs/validation-openems.md](../docs/validation-openems.md) and [docs/validation-elmer.md](../docs/validation-elmer.md). The times are on an Intel Core Ultra 7 265K (20 threads), 64 GB, Windows 11.
 
-### Times
+## Problems
 
-Times are given only where two codes solve the same problem, so they show speed as well as
-agreement: Elmer and photonoxide solve the same 2D problems on the same mesh lines. Each is the
-code's own assembly and solve (Elmer's as its log reports them, photonoxide's measured around
-its solve), the fastest of three runs, with no program start or file reading and writing; on an Intel Core Ultra 7 265K
-(20 threads), 64 GB, Windows 11:
-
-| Case | Elmer, all meshes | photonoxide, the same meshes | Elmer, finest mesh | photonoxide, finest mesh |
-|---|---:|---:|---:|---:|
-| the coplanar line (5 meshes, two solves each) | 0.20 s | 0.16 s | 0.08 s | 0.06 s |
-| the heater (5 meshes) | 0.13 s | 0.06 s | 0.07 s | 0.03 s |
-
-Elmer's HeatSolve reports its times to 0.01 s. openEMS isn't in this table: it solves a
-different problem, a 3D section of the line 4 mm long in time (2.85 million cells for 339 345
-steps on its finest mesh). Its run times are on the chart, as its own cost for its accuracy.
-
-The two reports have every mesh, with each code's value and error on it (and Elmer's and photonoxide's times):
-[docs/validation-openems.md](../docs/validation-openems.md) and
-[docs/validation-elmer.md](../docs/validation-elmer.md). The licences and how to get the programs
-are in [docs/cross-code.md](../docs/cross-code.md).
+| Problem | What is compared | Codes |
+|---|---|---|
+| Ghione and Naldi's coplanar line: strips of zero thickness, a 20 µm signal, 10 µm gaps, on 20 µm of ε = 10, in a ±200 µm box | the line's index n and impedance Z₀ | photonoxide's quasi-TEM line, openEMS, Elmer (StatElecSolver) |
+| A heater over silicon: 2 × 0.2 µm, 2 µm up in oxide on 10 µm of silicon held at 0, 1 W/m | the peak temperature rise | photonoxide's heat solver, Elmer (HeatSolver) |
 
 ## Running it
 
 From the repository's root:
 
 ```sh
-# openEMS: the program or its folder (or openEMS on PATH)
-PHOTONOXIDE_OPENEMS=C:/openEMS just openems
-
-# Elmer: ElmerSolver's folder (or ElmerSolver on PATH), and its libraries' folders if they
-# aren't on PATH (a Windows build against MSYS2's)
-PHOTONOXIDE_ELMER=C:/elmer/bin PHOTONOXIDE_ELMER_PATH=C:/msys64/ucrt64/bin just elmer
-
-# the crate's own checks: rustfmt, clippy and its unit tests (no program needed)
-just crosscode
+PHOTONOXIDE_OPENEMS=C:/openEMS just openems                                    # writes docs/validation-openems.md
+PHOTONOXIDE_ELMER=C:/elmer/bin PHOTONOXIDE_ELMER_PATH=C:/msys64/ucrt64/bin just elmer   # writes docs/validation-elmer.md
+just crosscode-chart                                                         # redraws the chart from results/
+just crosscode                                                               # this crate's fmt, clippy and unit tests
 ```
 
-`PHOTONOXIDE_MACHINE` names the computer in the reports (`Intel Core Ultra 7 265K (20 threads),
-64 GB, Windows 11`); without it they give its thread count and system. `PHOTONOXIDE_OPENEMS_THREADS`
-sets openEMS's threads (8 by default). The runs are kept in `crosscode/target/tmp/openems/` and
-`crosscode/target/tmp/elmer/`, each with the program's own output beside it (`openems.log`,
-`elmer.log`); openEMS's also log their progress (step k/N, %, elapsed and ETA) to
-`progress.log`, and a finished openEMS run of the same model is taken again, so a rerun takes
-seconds.
+- **Finding the programs:** `PHOTONOXIDE_OPENEMS` and `PHOTONOXIDE_ELMER` name each program or its folder; otherwise it is looked for on `PATH`. `PHOTONOXIDE_ELMER_PATH` names folders of Elmer's run-time libraries when they aren't on `PATH`. Without a program, its study prints `skipped:` and passes.
+- **Settings:** `PHOTONOXIDE_MACHINE` names the computer in the reports, and `PHOTONOXIDE_OPENEMS_THREADS` sets openEMS's threads (8 by default).
+- **Runs:** they are kept in `target/tmp/openems/` and `target/tmp/elmer/`, with each program's log beside them. A finished openEMS run of the same model is reused, so a rerun takes seconds; from scratch it takes about 1 h 13 min, and Elmer's study about 45 s.
+- **Getting the programs and their licences:** [docs/cross-code.md](../docs/cross-code.md).
 
-## What's in it
+## Files
 
 | File | What it does |
 |---|---|
 | `src/openems.rs` | finds openEMS, writes its XML input from its documented format, runs it with its progress, reads its probes |
-| `src/elmer.rs` | finds ElmerSolver, writes Elmer's mesh files and solver input (SIF) from its documented formats, runs it, reads its output |
-| `src/cpw.rs` | the shared RF case: Ghione and Naldi's coplanar waveguide in a box, on the same mesh lines for openEMS, Elmer and photonoxide |
-| `src/heater.rs` | the shared heat case: a heater in oxide over silicon, for Elmer and photonoxide |
+| `src/elmer.rs` | finds ElmerSolver, writes its mesh files and solver input (SIF) from its documented formats, runs it, reads its output and its solvers' times |
+| `src/cpw.rs` | the coplanar line, on the same mesh lines for photonoxide, openEMS and Elmer |
+| `src/heater.rs` | the heater, for photonoxide and Elmer |
 | `src/line.rs` | a line's wavenumber and impedance from voltages and currents at planes along it |
-| `src/chart.rs` | the chart: reads every study's points and draws it, light and dark, to docs/ |
-| `results/*.tsv` | each study's points (case, code, mesh, value, error, time), committed so the chart can be redrawn |
-| `src/report.rs` | errors in percent, times, and the computer's name, as the reports print them |
-| `tests/openems.rs`, `tests/elmer.rs` | the two studies, which write the reports |
+| `src/report.rs` | errors in percent, times and the computer's name, as the reports print them |
+| `src/chart.rs` | the chart, from every study's points |
+| `results/*.tsv` | each study's points (problem, code, mesh, value, error, time), committed |
+| `tests/openems.rs`, `tests/elmer.rs` | the two studies; `tests/chart.rs` redraws the chart |
 
-## The rules
+## Rules
 
-openEMS (GPL-3.0) and Elmer (GPL-2.0 or later) are run as external programs only. Nothing of
-theirs is linked, built, shipped or read: the input files are written in Rust from the programs'
-documentation, and only their outputs are read back. A new case goes in `src/` with both codes'
-setup on the same mesh lines, and its study reports each code's value, its error in percent and
-its time where the codes solve the same problem (and only there).
+- **External programs only:** openEMS (GPL-3.0) and Elmer (GPL-2.0 or later) are run as programs. Nothing of theirs is linked, built, shipped or read; their input is written from their documentation, and only their output is read back.
+- **A new problem:** it gets both codes' setup on the same mesh lines and a study. The study reports each code's value and its error in percent against photonoxide's converged result, and its time where the codes solve the same problem.

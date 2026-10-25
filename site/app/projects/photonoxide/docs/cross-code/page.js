@@ -14,11 +14,11 @@ import {
 } from "@/lib/projects/photonoxide/meta";
 
 const DESCRIPTION =
-  "photonoxide against other codes on the same cases: openEMS (3D FDTD) and Elmer (finite elements) on a coplanar line and a heater, each code's error in percent against photonoxide's converged result and the time it took, on one chart.";
+  "photonoxide's solvers checked against openEMS (3D FDTD) and Elmer (finite elements) on the same problems and meshes: each code's error in percent against photonoxide's converged result, and the time it takes.";
 
 export const metadata = projectsMetadata({
-  title: "Against other codes",
-  fullTitle: "photonoxide against other codes",
+  title: "Cross-code comparison",
+  fullTitle: "photonoxide: cross-code comparison",
   description: DESCRIPTION,
   path: CROSS_CODE_DOCS_PATH,
   image: PHOTONOXIDE_OG_IMAGE,
@@ -28,7 +28,7 @@ const CRUMBS = [
   { name: "Projects", path: "/projects" },
   { name: "photonoxide", path: PHOTONOXIDE_PATH },
   { name: "Docs", path: DOCS_PATH },
-  { name: "Against other codes", path: CROSS_CODE_DOCS_PATH },
+  { name: "Cross-code comparison", path: CROSS_CODE_DOCS_PATH },
 ];
 
 const GUIDE = "docs/cross-code.md";
@@ -36,7 +36,7 @@ const HARNESS = "crosscode/README.md";
 const CHART = "docs/cross-code-chart.svg";
 const CHART_DARK = "docs/cross-code-chart-dark.svg";
 const CHART_ALT =
-  "Each code's error against photonoxide's converged result, in percent, against its own solve time, both on log scales: photonoxide and Elmer at the bottom left, openEMS at the right.";
+  "For each problem, each code's time on the same mesh on a log scale, with its time and its errors against photonoxide's converged result beside it.";
 
 export default async function CrossCodeDocsPage() {
   const markdown = await getRepoFile(GUIDE);
@@ -51,7 +51,7 @@ export default async function CrossCodeDocsPage() {
       <Breadcrumbs items={CRUMBS} />
       <header className="proj-rise max-w-3xl">
         <p className="proj-eyebrow">Docs</p>
-        <h1 className="mt-2 font-semibold text-4xl tracking-tight sm:text-5xl">Against other codes</h1>
+        <h1 className="mt-2 font-semibold text-4xl tracking-tight sm:text-5xl">Cross-code comparison</h1>
         <p className="proj-lead mt-4 text-lg">{DESCRIPTION}</p>
         <p className="mt-4 flex flex-wrap gap-2">
           <a href={blobUrl(HARNESS)} target="_blank" rel="noopener noreferrer" className="proj-pill">

@@ -233,7 +233,7 @@ fn write_report(
     ours: [f64; 3],
 ) -> String {
     let mut out = String::new();
-    let _ = writeln!(out, "# Validation report: openEMS\n");
+    let _ = writeln!(out, "# Cross-code comparison: openEMS\n");
     let _ = writeln!(
         out,
         "Written by `just openems` on a computer with openEMS installed; don't edit it by \
@@ -278,7 +278,7 @@ fn write_report(
     let [cv_n, cv_z, cv_zp] = ours;
     let finest = converged[converged.len() - 1];
     let last = &rows[rows.len() - 1];
-    let _ = writeln!(out, "### Summary\n");
+    let _ = writeln!(out, "### Results\n");
     let _ = writeln!(
         out,
         "Every error is against photonoxide's converged quasi-TEM line, the reference, in \

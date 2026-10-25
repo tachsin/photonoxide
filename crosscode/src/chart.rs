@@ -1,13 +1,11 @@
-//! The cross-code chart: every case and every code on one plot, each code's error against
-//! photonoxide's converged result (the reference) against its own solve time, both on log
-//! scales. Each line is one code on one case through its meshes, finer meshes further right:
-//! a work–precision chart, where lower is more accurate and further left is faster.
+//! The cross-code comparison chart: for each problem, each code on the same mesh, its time on one
+//! log scale and beside it its time and its errors against photonoxide's converged result (the
+//! reference), so the codes' accuracy and speed read across every problem at once.
 //!
 //! The studies write their points to `crosscode/results/*.tsv` ([`write_points`]); [`redraw`]
 //! reads them all and writes `docs/cross-code-chart.svg` and its dark twin,
 //! `docs/cross-code-chart-dark.svg`.
 
-use std::collections::BTreeMap;
 use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
 
@@ -153,34 +151,6 @@ const DARK: Theme = Theme {
     ],
 };
 
-/// The quantities' markers, by the case's quantity.
-const MARKERS: [(&str, &str); 3] = [("n", "circle"), ("Z₀", "square"), ("peak rise", "triangle")];
-
-fn marker(shape: &str, x: f64, y: f64, fill: &str, ring: &str) -> String {
-    let r = 4.5;
-    match shape {
-        "square" => format!(
-            "<rect x=\"{:.1}\" y=\"{:.1}\" width=\"{:.1}\" height=\"{:.1}\" rx=\"1\" fill=\"{fill}\" stroke=\"{ring}\" stroke-width=\"2\"/>",
-            x - r,
-            y - r,
-            2.0 * r,
-            2.0 * r
-        ),
-        "triangle" => format!(
-            "<path d=\"M{:.1} {:.1} L{:.1} {:.1} L{:.1} {:.1} Z\" fill=\"{fill}\" stroke=\"{ring}\" stroke-width=\"2\" stroke-linejoin=\"round\"/>",
-            x,
-            y - 1.2 * r,
-            x + 1.1 * r,
-            y + 0.8 * r,
-            x - 1.1 * r,
-            y + 0.8 * r
-        ),
-        _ => format!(
-            "<circle cx=\"{x:.1}\" cy=\"{y:.1}\" r=\"{r}\" fill=\"{fill}\" stroke=\"{ring}\" stroke-width=\"2\"/>"
-        ),
-    }
-}
-
 fn escape(s: &str) -> String {
     s.replace('&', "&amp;")
         .replace('<', "&lt;")
@@ -196,27 +166,101 @@ fn decade(e: i32) -> String {
     }
 }
 
-/// The chart as SVG.
+/// One problem's rows: each code on the finest mesh every code in it ran (so all of them are
+/// on the same mesh lines), its time and its errors by quantity.
+struct Problem {
+    case: String,
+    smallest_um: f64,
+    rows: Vec<Row>,
+}
+
+/// One code in a problem: its index among the codes, its time (s) and its errors by quantity
+/// (percent).
+struct Row {
+    code: usize,
+    seconds: f64,
+    errors: Vec<(String, f64)>,
+}
+
+fn problems(points: &[Point], codes: &[(&str, &str); 3]) -> Vec<Problem> {
+    let mut cases: Vec<String> = Vec::new();
+    for p in points {
+        if !cases.contains(&p.case) {
+            cases.push(p.case.clone());
+        }
+    }
+    let mut out = Vec::new();
+    for case in cases {
+        let here: Vec<&Point> = points.iter().filter(|p| p.case == case).collect();
+        let present: Vec<usize> = (0..codes.len())
+            .filter(|&c| here.iter().any(|p| p.code == codes[c].0))
+            .collect();
+        // the finest mesh that every code here has
+        let mut meshes: Vec<f64> = here.iter().map(|p| p.smallest_um).collect();
+        meshes.sort_by(f64::total_cmp);
+        meshes.dedup();
+        let Some(&smallest) = meshes.iter().find(|&&m| {
+            present.iter().all(|&c| {
+                here.iter()
+                    .any(|p| p.code == codes[c].0 && p.smallest_um == m)
+            })
+        }) else {
+            continue;
+        };
+        let rows = present
+            .iter()
+            .map(|&c| {
+                let at: Vec<&&Point> = here
+                    .iter()
+                    .filter(|p| p.code == codes[c].0 && p.smallest_um == smallest)
+                    .collect();
+                let seconds = at.iter().map(|p| p.seconds).fold(0.0, f64::max);
+                let errors = at
+                    .iter()
+                    .map(|p| (p.quantity.clone(), p.error_percent))
+                    .collect();
+                Row {
+                    code: c,
+                    seconds,
+                    errors,
+                }
+            })
+            .collect();
+        out.push(Problem {
+            case,
+            smallest_um: smallest,
+            rows,
+        });
+    }
+    out
+}
+
+/// The chart as SVG: for each problem, each code's time on the same mesh as a dot on one log
+/// scale, and beside it the time and its errors against photonoxide's converged result.
 pub fn svg(points: &[Point], dark: bool) -> String {
     let t = if dark { &DARK } else { &LIGHT };
-    let (w, h) = (1000.0_f64, 640.0_f64);
-    let (left, right, top, bottom) = (84.0, 250.0, 112.0, 64.0);
-    let (pw, ph) = (w - left - right, h - top - bottom);
-    let pts: Vec<&Point> = points
+    let list = problems(points, &t.codes);
+    let (w, row, head, top) = (1000.0_f64, 30.0_f64, 40.0_f64, 112.0_f64);
+    let rows: usize = list.iter().map(|p| p.rows.len()).sum();
+    let (name_x, plot_l, plot_r, time_x, err_x) = (24.0, 150.0, 560.0, 580.0, 670.0);
+    let body = list.len() as f64 * head + rows as f64 * row;
+    let h = top + body + 56.0;
+    let times: Vec<f64> = list
         .iter()
-        .filter(|p| p.seconds > 0.0 && p.error_percent != 0.0)
+        .flat_map(|p| p.rows.iter().map(|r| r.seconds))
+        .filter(|&s| s > 0.0)
         .collect();
-    let span = |v: Vec<f64>| -> (i32, i32) {
-        let lo = v.iter().copied().fold(f64::INFINITY, f64::min);
-        let hi = v.iter().copied().fold(f64::NEG_INFINITY, f64::max);
-        (lo.log10().floor() as i32, hi.log10().ceil() as i32)
+    let lo = times.iter().copied().fold(f64::INFINITY, f64::min);
+    let hi = times.iter().copied().fold(f64::NEG_INFINITY, f64::max);
+    let (x0, x1) = if times.is_empty() {
+        (-2, 0)
+    } else {
+        let (a, b) = (lo.log10().floor() as i32, hi.log10().ceil() as i32);
+        (a, b.max(a + 1))
     };
-    let (x0, x1) = span(pts.iter().map(|p| p.seconds).collect());
-    let (y0, y1) = span(pts.iter().map(|p| p.error_percent.abs()).collect());
-    let (x1, y1) = (x1.max(x0 + 1), y1.max(y0 + 1));
-    let sx = |s: f64| left + (s.log10() - f64::from(x0)) / f64::from(x1 - x0) * pw;
-    let sy = |e: f64| top + ph - (e.abs().log10() - f64::from(y0)) / f64::from(y1 - y0) * ph;
+    let sx = |s: f64| plot_l + (s.log10() - f64::from(x0)) / f64::from(x1 - x0) * (plot_r - plot_l);
     let font = "font-family=\"system-ui, -apple-system, 'Segoe UI', sans-serif\"";
+    let num = "style=\"font-variant-numeric: tabular-nums\"";
 
     let mut s = String::new();
     let _ = writeln!(
@@ -225,7 +269,7 @@ pub fn svg(points: &[Point], dark: bool) -> String {
     );
     let _ = writeln!(
         s,
-        "<title id=\"title\">Cross-code check: each code's error against its time</title>\n<desc id=\"desc\">Each line is one code on one case through its meshes. The y axis is the error against photonoxide's converged result, in percent, on a log scale; the x axis is the code's own solve time, in seconds, on a log scale. The numbers are in docs/validation-openems.md and docs/validation-elmer.md.</desc>"
+        "<title id=\"title\">Cross-code comparison</title>\n<desc id=\"desc\">For each problem, each code's time on the same mesh (log scale) and its errors against photonoxide's converged result, in percent. The numbers are in docs/validation-openems.md and docs/validation-elmer.md.</desc>"
     );
     let _ = writeln!(
         s,
@@ -234,178 +278,117 @@ pub fn svg(points: &[Point], dark: bool) -> String {
     );
     let _ = writeln!(
         s,
-        "<text x=\"{left}\" y=\"34\" font-size=\"19\" font-weight=\"600\" fill=\"{}\">Cross-code check: error against time</text>",
+        "<text x=\"{name_x}\" y=\"36\" font-size=\"20\" font-weight=\"600\" fill=\"{}\">Cross-code comparison</text>",
         t.primary
     );
     let _ = writeln!(
         s,
-        "<text x=\"{left}\" y=\"58\" font-size=\"13\" fill=\"{}\">Each line is one code on one case, through its meshes (finer meshes to the right). Lower is more accurate, left is faster.</text>",
+        "<text x=\"{name_x}\" y=\"60\" font-size=\"13\" fill=\"{}\">Each code on the same mesh in each problem: its time, and its error against photonoxide's converged result.</text>",
         t.secondary
     );
     let _ = writeln!(
         s,
-        "<text x=\"{left}\" y=\"76\" font-size=\"13\" fill=\"{}\">Error against photonoxide's converged result; time is each code's own solve. openEMS solves the line in 3D and in time, the others in 2D.</text>",
-        t.secondary
-    );
-    let _ = writeln!(
-        s,
-        "<text x=\"{left}\" y=\"94\" font-size=\"13\" fill=\"{}\">Where an error changes sign from one mesh to the next its size dips (n). Elmer reports its heat solver's time to 0.01 s.</text>",
+        "<text x=\"{name_x}\" y=\"78\" font-size=\"13\" fill=\"{}\">photonoxide and Elmer solve the same 2D problems; openEMS solves the line in 3D and in time.</text>",
         t.secondary
     );
 
-    // the grid and the axes, at each decade
+    // the column heads and the time axis's decades, through the whole body
+    let (y_body, y_end) = (top, top + body);
     for e in x0..=x1 {
         let x = sx(10f64.powi(e));
         let _ = writeln!(
             s,
-            "<line x1=\"{x:.1}\" y1=\"{top}\" x2=\"{x:.1}\" y2=\"{:.1}\" stroke=\"{}\" stroke-width=\"1\"/>",
-            top + ph,
+            "<line x1=\"{x:.1}\" y1=\"{y_body}\" x2=\"{x:.1}\" y2=\"{y_end}\" stroke=\"{}\" stroke-width=\"1\"/>",
             t.grid
         );
         let _ = writeln!(
             s,
-            "<text x=\"{x:.1}\" y=\"{:.1}\" font-size=\"12\" fill=\"{}\" text-anchor=\"middle\" style=\"font-variant-numeric: tabular-nums\">{} s</text>",
-            top + ph + 20.0,
-            t.muted,
-            decade(e)
-        );
-    }
-    for e in y0..=y1 {
-        let y = sy(10f64.powi(e));
-        let _ = writeln!(
-            s,
-            "<line x1=\"{left}\" y1=\"{y:.1}\" x2=\"{:.1}\" y2=\"{y:.1}\" stroke=\"{}\" stroke-width=\"1\"/>",
-            left + pw,
-            t.grid
-        );
-        let _ = writeln!(
-            s,
-            "<text x=\"{:.1}\" y=\"{:.1}\" font-size=\"12\" fill=\"{}\" text-anchor=\"end\" style=\"font-variant-numeric: tabular-nums\">{} %</text>",
-            left - 10.0,
-            y + 4.0,
+            "<text x=\"{x:.1}\" y=\"{:.1}\" font-size=\"12\" fill=\"{}\" text-anchor=\"middle\" {num}>{} s</text>",
+            y_end + 20.0,
             t.muted,
             decade(e)
         );
     }
     let _ = writeln!(
         s,
-        "<line x1=\"{left}\" y1=\"{:.1}\" x2=\"{:.1}\" y2=\"{:.1}\" stroke=\"{}\" stroke-width=\"1\"/>",
-        top + ph,
-        left + pw,
-        top + ph,
+        "<text x=\"{:.1}\" y=\"{:.1}\" font-size=\"12\" fill=\"{}\" text-anchor=\"middle\">time, log scale</text>",
+        0.5 * (plot_l + plot_r),
+        y_end + 40.0,
+        t.secondary
+    );
+    let _ = writeln!(
+        s,
+        "<line x1=\"{plot_l}\" y1=\"{y_end}\" x2=\"{plot_r}\" y2=\"{y_end}\" stroke=\"{}\" stroke-width=\"1\"/>",
         t.axis
     );
-    let _ = writeln!(
-        s,
-        "<text x=\"{:.1}\" y=\"{:.1}\" font-size=\"13\" fill=\"{}\" text-anchor=\"middle\">the code's own solve time (log scale)</text>",
-        left + 0.5 * pw,
-        h - 16.0,
-        t.secondary
-    );
-    let _ = writeln!(
-        s,
-        "<text transform=\"translate(22 {:.1}) rotate(-90)\" font-size=\"13\" fill=\"{}\" text-anchor=\"middle\">error, % (log scale)</text>",
-        top + 0.5 * ph,
-        t.secondary
-    );
-
-    // the series: one code on one case's quantity, its meshes in order
-    let mut series: BTreeMap<(usize, usize, String), Vec<&Point>> = BTreeMap::new();
-    for p in &pts {
-        let code = t.codes.iter().position(|c| c.0 == p.code).unwrap_or(0);
-        let quantity = MARKERS.iter().position(|m| m.0 == p.quantity).unwrap_or(0);
-        series
-            .entry((quantity, code, p.case.clone()))
-            .or_default()
-            .push(p);
-    }
-    for ((quantity, code, _), list) in &mut series {
-        list.sort_by(|a, b| b.smallest_um.total_cmp(&a.smallest_um));
-        let colour = t.codes[*code].1;
-        let path: Vec<String> = list
-            .iter()
-            .map(|p| format!("{:.1},{:.1}", sx(p.seconds), sy(p.error_percent)))
-            .collect();
+    for (x, label) in [(time_x, "Time"), (err_x, "Error")] {
         let _ = writeln!(
             s,
-            "<polyline points=\"{}\" fill=\"none\" stroke=\"{colour}\" stroke-width=\"2\" stroke-linejoin=\"round\" stroke-linecap=\"round\"/>",
-            path.join(" ")
+            "<text x=\"{x}\" y=\"{:.1}\" font-size=\"12\" font-weight=\"600\" fill=\"{}\">{label}</text>",
+            top - 4.0,
+            t.secondary
         );
-        for p in list.iter() {
+    }
+
+    let mut y = top;
+    for p in &list {
+        y += head;
+        let _ = writeln!(
+            s,
+            "<text x=\"{name_x}\" y=\"{:.1}\" font-size=\"14\" font-weight=\"600\" fill=\"{}\">{} <tspan font-weight=\"400\" fill=\"{}\">(the same mesh: smallest cell {} µm)</tspan></text>",
+            y - 12.0,
+            t.primary,
+            escape(&capitalised(&p.case)),
+            t.secondary,
+            p.smallest_um
+        );
+        for r in &p.rows {
+            let (name, colour, seconds, errors) =
+                (t.codes[r.code].0, t.codes[r.code].1, &r.seconds, &r.errors);
+            let cy = y + 0.5 * row;
             let _ = writeln!(
                 s,
-                "<g>{}<title>{}: {} on {}, {} µm mesh: {} (error {:+.4} %), {:.3} s</title></g>",
-                marker(
-                    MARKERS[*quantity].1,
-                    sx(p.seconds),
-                    sy(p.error_percent),
-                    colour,
-                    t.surface
-                ),
-                escape(&p.code),
-                escape(&p.quantity),
-                escape(&p.case),
-                p.smallest_um,
-                p.value,
-                p.error_percent,
-                p.seconds
+                "<text x=\"{name_x}\" y=\"{:.1}\" font-size=\"13\" fill=\"{}\">{name}</text>",
+                cy + 4.0,
+                t.primary
             );
+            let _ = writeln!(
+                s,
+                "<line x1=\"{plot_l}\" y1=\"{cy:.1}\" x2=\"{plot_r}\" y2=\"{cy:.1}\" stroke=\"{}\" stroke-width=\"1\"/><circle cx=\"{:.1}\" cy=\"{cy:.1}\" r=\"6\" fill=\"{colour}\" stroke=\"{}\" stroke-width=\"2\"/>",
+                t.grid,
+                sx(*seconds),
+                t.surface
+            );
+            let _ = writeln!(
+                s,
+                "<text x=\"{time_x}\" y=\"{:.1}\" font-size=\"13\" fill=\"{}\" {num}>{}</text>",
+                cy + 4.0,
+                t.primary,
+                crate::report::duration(*seconds)
+            );
+            let errs: Vec<String> = errors
+                .iter()
+                .map(|(q, e)| format!("{} {}", escape(q), crate::report::signed_percent(*e)))
+                .collect();
+            let _ = writeln!(
+                s,
+                "<text x=\"{err_x}\" y=\"{:.1}\" font-size=\"13\" fill=\"{}\" {num}>{}</text>",
+                cy + 4.0,
+                t.primary,
+                errs.join("  ·  ")
+            );
+            y += row;
         }
-    }
-
-    // the legend: the codes by colour, the quantities by marker
-    let lx = left + pw + 28.0;
-    let mut ly = top + 6.0;
-    let _ = writeln!(
-        s,
-        "<text x=\"{lx}\" y=\"{ly}\" font-size=\"12\" font-weight=\"600\" fill=\"{}\">Code</text>",
-        t.secondary
-    );
-    for (name, colour) in t.codes {
-        if !pts.iter().any(|p| p.code == name) {
-            continue;
-        }
-        ly += 24.0;
-        let _ = writeln!(
-            s,
-            "<line x1=\"{lx}\" y1=\"{:.1}\" x2=\"{:.1}\" y2=\"{:.1}\" stroke=\"{colour}\" stroke-width=\"2\"/>{}<text x=\"{:.1}\" y=\"{:.1}\" font-size=\"13\" fill=\"{}\">{name}</text>",
-            ly - 4.0,
-            lx + 28.0,
-            ly - 4.0,
-            marker("circle", lx + 14.0, ly - 4.0, colour, t.surface),
-            lx + 38.0,
-            ly,
-            t.primary
-        );
-    }
-    ly += 40.0;
-    let _ = writeln!(
-        s,
-        "<text x=\"{lx}\" y=\"{ly}\" font-size=\"12\" font-weight=\"600\" fill=\"{}\">Case and quantity</text>",
-        t.secondary
-    );
-    let mut cases: Vec<(usize, String)> = series
-        .keys()
-        .map(|(q, _, case)| (*q, case.clone()))
-        .collect();
-    cases.dedup();
-    cases.sort();
-    cases.dedup();
-    for (q, case) in cases {
-        ly += 24.0;
-        let _ = writeln!(
-            s,
-            "{}<text x=\"{:.1}\" y=\"{:.1}\" font-size=\"13\" fill=\"{}\">{}, {}</text>",
-            marker(MARKERS[q].1, lx + 14.0, ly - 4.0, t.muted, t.surface),
-            lx + 38.0,
-            ly,
-            t.primary,
-            escape(&case),
-            escape(MARKERS[q].0)
-        );
     }
     let _ = writeln!(s, "</svg>");
     s
+}
+
+fn capitalised(s: &str) -> String {
+    let mut c = s.chars();
+    c.next()
+        .map(|f| f.to_uppercase().collect::<String>() + c.as_str())
+        .unwrap_or_default()
 }
 
 #[cfg(test)]
@@ -425,22 +408,21 @@ mod tests {
     }
 
     #[test]
-    fn the_chart_has_a_line_per_code_and_quantity_and_a_marker_per_point() {
+    fn each_code_is_drawn_on_the_finest_mesh_every_code_ran() {
         let points = [
-            point("photonoxide", "n", 1.0, 0.1, 0.01),
-            point("photonoxide", "n", 0.5, 0.01, 0.02),
-            point("Elmer", "Z₀", 1.0, -0.5, 0.1),
-            point("Elmer", "Z₀", 0.5, -0.2, 0.3),
+            point("photonoxide", "n", 0.5, 0.1, 0.01),
+            point("photonoxide", "n", 0.25, 0.01, 0.02),
+            point("photonoxide", "n", 0.125, 0.001, 0.04),
+            point("openEMS", "n", 0.5, -0.5, 100.0),
+            point("openEMS", "n", 0.25, -0.2, 300.0),
         ];
         let light = svg(&points, false);
-        assert_eq!(light.matches("<polyline").count(), 2);
-        assert_eq!(light.matches("<title>").count(), 4);
-        assert!(light.contains("#2a78d6") && light.contains("#1baf7a"));
-        assert!(light.contains("0.01 s") && light.contains("1 %"));
-        assert!(
-            !light.contains("openEMS</text>"),
-            "a code without points has no legend entry"
-        );
+        // one problem, two codes, on 0.25 µm (openEMS's finest), not photonoxide's 0.125
+        assert_eq!(light.matches("<circle").count(), 2);
+        assert!(light.contains("smallest cell 0.25 µm"));
+        assert!(light.contains("n +0.010 %") && light.contains("n −0.20 %"));
+        assert!(light.contains("5 min 0 s") && light.contains("0.020 s"));
+        assert!(light.contains("#2a78d6") && light.contains("#eb6834"));
         assert!(svg(&points, true).contains("#1a1a19"));
     }
 

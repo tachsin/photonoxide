@@ -1,4 +1,4 @@
-# Validation report: openEMS
+# Cross-code comparison: openEMS
 
 Written by `just openems` on a computer with openEMS installed; don't edit it by hand. It is a local comparison, never run in CI, and [the main report](validation.md) doesn't depend on it. How openEMS is found and run, and its licence: [cross-code references](cross-code.md); how to run it: [crosscode/README.md](../crosscode/README.md).
 
@@ -10,7 +10,7 @@ Ghione and Naldi's line (G. Ghione, C. Naldi, Electron. Lett. 20, 179 (1984), do
 
 Across the line both codes take the same mesh lines: cells from the smallest at the strips' edges and in their plane, growing by 1.1 to 10 µm (openEMS's the mirror image of photonoxide's half).
 
-### Summary
+### Results
 
 Every error is against photonoxide's converged quasi-TEM line, the reference, in percent. These tables give no times: openEMS solves a different problem, a 3D section of the line 4 mm long in time (on the finest mesh 2848000 cells for 339345 steps), where photonoxide solves the 2D cross-section's static fields once (8900 unknowns). Each code's own time for its accuracy is on [the cross-code chart](cross-code.md), with every case and code.
 

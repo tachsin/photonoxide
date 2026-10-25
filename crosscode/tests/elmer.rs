@@ -256,7 +256,7 @@ fn elmer_agrees_with_the_static_solver() {
     let heat_last = &heats[heats.len() - 1];
 
     let mut r = String::new();
-    let _ = writeln!(r, "# Validation report: Elmer\n");
+    let _ = writeln!(r, "# Cross-code comparison: Elmer\n");
     let _ = writeln!(
         r,
         "Written by `just elmer` on a computer with Elmer installed; don't edit it by hand. It is a local comparison, never run in CI, and [the main report](validation.md) doesn't depend on it. How Elmer is found and run, and its licence: [cross-code references](cross-code.md); how to run it: [crosscode/README.md](../crosscode/README.md).\n"
@@ -270,7 +270,7 @@ fn elmer_agrees_with_the_static_solver() {
         machine()
     );
 
-    let _ = writeln!(r, "## Summary\n");
+    let _ = writeln!(r, "## Results\n");
     let _ = writeln!(
         r,
         "| Case | Quantity | photonoxide, converged | Elmer, extrapolated | Error | Elmer, finest mesh | Error | photonoxide, finest mesh | Error |\n|---|---|---:|---:|---:|---:|---:|---:|---:|"

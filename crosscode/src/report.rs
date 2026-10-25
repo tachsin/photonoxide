@@ -3,7 +3,11 @@
 /// `value`'s error against `reference` in percent, signed, with enough decimals for two
 /// significant digits (and at least two): `+0.00090 %`, `−0.20 %`, `+5.57 %`.
 pub fn percent(value: f64, reference: f64) -> String {
-    let p = 100.0 * (value - reference) / reference;
+    signed_percent(100.0 * (value - reference) / reference)
+}
+
+/// An error already in percent, `p`, as [`percent`] prints it.
+pub fn signed_percent(p: f64) -> String {
     if p == 0.0 {
         return "0.00 %".to_owned();
     }
@@ -27,9 +31,11 @@ pub fn machine() -> String {
         })
 }
 
-/// A time: `0.31 s`, `14 s`, `6 min 32 s`, `1 h 5 min`.
+/// A time: `0.042 s`, `0.314 s`, `2.40 s`, `14 s`, `6 min 32 s`, `1 h 5 min`.
 pub fn duration(seconds: f64) -> String {
-    if seconds < 10.0 {
+    if seconds < 1.0 {
+        format!("{seconds:.3} s")
+    } else if seconds < 10.0 {
         format!("{seconds:.2} s")
     } else if seconds < 60.0 {
         format!("{seconds:.0} s")
@@ -56,7 +62,9 @@ mod tests {
 
     #[test]
     fn times_read_in_their_own_units() {
-        assert_eq!(duration(0.314), "0.31 s");
+        assert_eq!(duration(0.314), "0.314 s");
+        assert_eq!(duration(0.0421), "0.042 s");
+        assert_eq!(duration(2.404), "2.40 s");
         assert_eq!(duration(14.2), "14 s");
         assert_eq!(duration(2408.0), "40 min 8 s");
         assert_eq!(duration(3900.0), "1 h 5 min");

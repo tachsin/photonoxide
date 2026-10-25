@@ -61,7 +61,7 @@ export default async function DocsPage() {
             From any language
           </Link>
           <Link href={CROSS_CODE_DOCS_PATH} className="proj-pill">
-            Against other codes
+            Cross-code comparison
           </Link>
           <a href={blobUrl(GUIDE)} target="_blank" rel="noopener noreferrer" className="proj-pill">
             This guide on GitHub
