@@ -76,8 +76,7 @@ The main validation report ([docs/validation.md](validation.md)) doesn't depend 
 
 ## The cases
 
-**Work in progress: the study was stopped before its finest mesh (0.25 µm).** So far, Ghione
-and Naldi's coplanar waveguide (a = 10, b = 20 µm, perfectly conducting strips of zero
+Ghione and Naldi's coplanar waveguide (a = 10, b = 20 µm, perfectly conducting strips of zero
 thickness on 20 µm of ε = 10, air below) in a perfectly conducting box ±200 µm across and high,
 on the same mesh lines in both codes (cells from the smallest at the strips' edges, growing by
 1.1 to 10 µm), openEMS v0.37.0's n and Z₀ at 0 GHz (each run's fit of v₀ + a f² from 10 to 50
@@ -88,13 +87,17 @@ GHz, the energy down by 70 dB):
 | 2 µm | 2.216808, 51.0569 | 2.215678, 57.1665 |
 | 1 µm | 2.217125, 52.5512 | 2.216253, 55.7129 |
 | 0.5 µm | 2.216707, 53.3408 | 2.217192, 54.9224 |
+| 0.25 µm | 2.21707, 53.711 | 2.21705, 54.555 |
 
-photonoxide converged (`QuasiTem` graded from 2.5 nm by 1.0125): n 2.21716, Z₀ 54.145 Ω (54.14
-extrapolated). Both codes' Z₀ converge at about first order in the smallest cell, from opposite
-sides; Richardson's extrapolation of the three meshes gives openEMS 54.23 Ω (order 0.92) and
-photonoxide on the same lines 53.98 Ω (order 0.88), both within 0.3% of photonoxide's converged
-54.14 Ω. openEMS's index is within 4.6e-4 of the converged one on every mesh. Left: the 0.25 µm
-run (about 1.5 hours on 8 threads) and the report `just openems` writes from all four.
+photonoxide converged (`QuasiTem` graded from 2.5 nm by 1.025): n 2.21716, Z₀ 54.148 Ω (54.145
+extrapolated, order 1.16). Both codes' Z₀ converge at about first order in the smallest cell, from
+opposite sides; Richardson's extrapolation of the three finest meshes gives openEMS 54.039 Ω
+(order 1.09) and photonoxide on the same lines 54.236 Ω (order 1.11). **openEMS against
+photonoxide converged: n −3.95e-5, Z₀ −2.01e-3 (relative)**, within the study's tolerances of
+1e-3 and 5e-3; openEMS's index is within 4.6e-4 of the converged one on every mesh. The 0.25 µm
+run took 2408 s on 8 threads (339 345 steps of 4.0e-16 s, 2.85 million cells). Every mesh, its
+steps and time, and n and Z₀ at 10 to 50 GHz are in [docs/validation-openems.md](validation-openems.md),
+which `just openems` writes.
 
 ## Elmer: waiting for a binary build
 

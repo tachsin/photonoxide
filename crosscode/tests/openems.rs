@@ -230,7 +230,7 @@ fn write_report(
         program
             .threads()
             .map_or("its own choice of".into(), |t| t.to_string()),
-        env!("CARGO_PKG_VERSION")
+        photonoxide::VERSION
     );
     let _ = writeln!(
         out,
