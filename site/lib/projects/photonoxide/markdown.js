@@ -1,13 +1,20 @@
 import katex from "katex";
 import { renderMarkdown } from "@/lib/projects/highlight";
-import { blobUrl } from "./github";
-import { DOCS_PATH, LANGUAGES_DOCS_PATH, METHODS_PATH, PYTHON_DOCS_PATH } from "./meta";
+import { blobUrl, rawUrl } from "./github";
+import {
+  CROSS_CODE_DOCS_PATH,
+  DOCS_PATH,
+  LANGUAGES_DOCS_PATH,
+  METHODS_PATH,
+  PYTHON_DOCS_PATH,
+} from "./meta";
 
 /** The guides that are pages of their own here, by their file in the repository. */
 const GUIDES = {
   "docs/getting-started.md": DOCS_PATH,
   "docs/python.md": PYTHON_DOCS_PATH,
   "docs/languages.md": LANGUAGES_DOCS_PATH,
+  "docs/cross-code.md": CROSS_CODE_DOCS_PATH,
 };
 
 /**
@@ -78,17 +85,18 @@ export async function renderMathMarkdown(source, options = {}) {
 /**
  * Where a link in one of the repository's documents goes: another method's
  * Markdown (`pml.md`) to its page here, a guide with a page of its own
- * (`GUIDES`) to that page, anything else relative to the document's folder
- * to GitHub, absolute links and anchors as they are.
+ * (`GUIDES`) to that page, an image to the file itself, anything else relative
+ * to the document's folder to GitHub, absolute links and anchors as they are.
  * @param {string} folder  the document's folder in the repository, e.g. "docs/methods"
  */
 export function repoLinkResolver(folder) {
-  return (href) => {
+  return (href, kind) => {
     if (!href || /^[a-z]+:/i.test(href) || href.startsWith("#") || href.startsWith("/")) return href;
     const [target, anchor] = href.split("#");
     const resolved = new URL(target, `https://x/${folder}/`).pathname.slice(1);
     const method = /^docs\/methods\/([\w-]+)\.md$/.exec(resolved);
     if (method) return `${METHODS_PATH}/${method[1]}${anchor ? `#${anchor}` : ""}`;
+    if (kind === "image") return rawUrl(resolved);
     if (GUIDES[resolved]) return `${GUIDES[resolved]}${anchor ? `#${anchor}` : ""}`;
     return `${blobUrl(resolved)}${anchor ? `#${anchor}` : ""}`;
   };

@@ -30,6 +30,7 @@ export const ROADMAP_PATH = "/projects/photonoxide/roadmap";
 export const DOCS_PATH = "/projects/photonoxide/docs";
 export const PYTHON_DOCS_PATH = "/projects/photonoxide/docs/python";
 export const LANGUAGES_DOCS_PATH = "/projects/photonoxide/docs/languages";
+export const CROSS_CODE_DOCS_PATH = "/projects/photonoxide/docs/cross-code";
 
 export const PHOTONOXIDE_DESCRIPTION =
   "photonoxide is a photonics library for Rust: materials with provenance, mode solvers, 2D and 3D FDFD and FDTD on the CPU and GPU, components and circuits with their adjoint, and compact models, with a studio to build jobs and chips and watch every run live. Every method is validated against analytic solutions and published results. Active devices, inverse design and layout export are planned.";

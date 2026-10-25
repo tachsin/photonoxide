@@ -1,5 +1,11 @@
 import { getExamples } from "./examples";
-import { EXAMPLES_PATH, LANGUAGES_DOCS_PATH, METHODS_PATH, PYTHON_DOCS_PATH } from "./meta";
+import {
+  CROSS_CODE_DOCS_PATH,
+  EXAMPLES_PATH,
+  LANGUAGES_DOCS_PATH,
+  METHODS_PATH,
+  PYTHON_DOCS_PATH,
+} from "./meta";
 import { getMethods } from "./methods";
 
 /**
@@ -13,6 +19,7 @@ export async function photonoxidePaths() {
   return [
     PYTHON_DOCS_PATH,
     LANGUAGES_DOCS_PATH,
+    CROSS_CODE_DOCS_PATH,
     ...methods.map((m) => `${METHODS_PATH}/${m.slug}`),
     ...examples.map((e) => `${EXAMPLES_PATH}/${e.slug}`),
   ];

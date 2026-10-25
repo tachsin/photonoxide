@@ -77,6 +77,11 @@ export function blobUrl(path) {
   return `${BLOB_BASE}${path}`;
 }
 
+/** A file itself, on the branch: what an image's `src` takes. */
+export function rawUrl(path) {
+  return `https://raw.githubusercontent.com/${PHOTONOXIDE_REPO}/${PHOTONOXIDE_BRANCH}/${path}`;
+}
+
 const FRONT_MATTER = /^---[ \t]*\r?\n([\s\S]*?)\r?\n---[ \t]*(?:\r?\n|$)/;
 
 /**

@@ -8,6 +8,7 @@ import { projectsMetadata } from "@/lib/projects/metadata";
 import { blobUrl, getRepoFile } from "@/lib/projects/photonoxide/github";
 import { renderMathMarkdown, repoLinkResolver } from "@/lib/projects/photonoxide/markdown";
 import {
+  CROSS_CODE_DOCS_PATH,
   DOCS_PATH,
   LANGUAGES_DOCS_PATH,
   PHOTONOXIDE_LINKS,
@@ -58,6 +59,9 @@ export default async function DocsPage() {
           </Link>
           <Link href={LANGUAGES_DOCS_PATH} className="proj-pill">
             From any language
+          </Link>
+          <Link href={CROSS_CODE_DOCS_PATH} className="proj-pill">
+            Against other codes
           </Link>
           <a href={blobUrl(GUIDE)} target="_blank" rel="noopener noreferrer" className="proj-pill">
             This guide on GitHub
