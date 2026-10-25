@@ -60,7 +60,7 @@
   };
 </script>
 
-<div class="flex h-full flex-col">
+<div class="flex h-full min-w-0 flex-col">
   <div class="glow border-b border-base-content/8 px-8 py-6">
     <div class="flex flex-wrap items-center gap-6">
       <div class="grid size-14 place-items-center rounded-2xl bg-primary/12 text-primary"><Package size={28} /></div>
@@ -82,7 +82,7 @@
     </div>
   </div>
 
-  <div class="flex-1 space-y-6 overflow-y-auto px-8 py-6">
+  <div class="min-w-0 flex-1 space-y-6 overflow-y-auto px-8 py-6">
     <Tip id="libraries-intro">
       photonoxide needs none of these. A library found here becomes a backend you can choose by name, and the Benchmarks page measures it against photonoxide's own on this machine. Nothing is redistributed: each is installed under its vendor's licence.
     </Tip>
@@ -131,13 +131,13 @@
         </div>
       </section>
 
-      <div class="grid gap-4 xl:grid-cols-2">
+      <div class="grid grid-cols-1 gap-4 xl:grid-cols-2">
         {#each report.guides as g (g.library)}
           {@const lib = libOf(g)}
           {@const own = report.backends.filter((b) => g.backends.includes(b.name))}
           {@const instead = unsupported(g)}
           {@const steps = g.installs.filter((i) => i.systems.includes(system))}
-          <article class="panel flex flex-col p-5">
+          <article class="panel flex min-w-0 flex-col p-5">
             <div class="flex items-start gap-3">
               <div class="min-w-0 flex-1">
                 <h3 class="flex flex-wrap items-center gap-2 text-[15px] font-semibold">

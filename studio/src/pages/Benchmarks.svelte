@@ -471,7 +471,7 @@
         </section>
       {/if}
 
-      <div class="grid gap-4 xl:grid-cols-2">
+      <div class="grid grid-cols-1 gap-4 xl:grid-cols-2">
         <section class="panel p-4">
           <h3 class="mb-2 text-sm font-semibold">Time against unknowns <span class="font-normal faint">· {familyName(fam)}, {t} threads, the fastest accurate run of each problem; the line through their mean where problems share a size</span></h3>
           <LogPlot series={timeSeries} xLabel="unknowns" yLabel="time (s)" xFormat={sci} yFormat={seconds} />
