@@ -3551,7 +3551,7 @@ dependencies = [
 
 [[package]]
 name = "photonoxide"
-version = "0.5.4"
+version = "0.6.0"
 dependencies = [
  "boon",
  "crc32fast",
@@ -3575,7 +3575,7 @@ dependencies = [
 
 [[package]]
 name = "photonoxide-native"
-version = "0.5.4"
+version = "0.6.0"
 dependencies = [
  "libloading 0.9.0",
  "num-complex",
@@ -3585,14 +3585,14 @@ dependencies = [
 
 [[package]]
 name = "photonoxide-native-testlib"
-version = "0.5.4"
+version = "0.6.0"
 dependencies = [
  "num-complex",
 ]
 
 [[package]]
 name = "photonoxide-python"
-version = "0.5.4"
+version = "0.6.0"
 dependencies = [
  "numpy",
  "photonoxide",
@@ -3601,7 +3601,7 @@ dependencies = [
 
 [[package]]
 name = "photonoxide-studio"
-version = "0.5.4"
+version = "0.6.0"
 dependencies = [
  "faer",
  "flate2",
