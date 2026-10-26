@@ -53,12 +53,19 @@ on the rail, because it is reached from what it shows: the **run view** (a run, 
 `photonoxide run` and `photonoxide view`); the top bar's arrow leads back from it. **Runs** live
 in a drawer opened from the status bar.
 
-- **Home:** start from a template, a new job or a new circuit, or pick up where you left off.
-  - **Start from a template:** the simulations of `jobs/`, built in. Each card shows its
-    structure in 3D, turning slowly: the scene its run will draw (`photonoxide::job::preview`).
-    **Run** plays it live in the run view; **Open** takes it to the Custom device, to change it.
-  - Continue (the run open), recent runs, how many published results and validation cases
-    there are, and what changed in this version.
+- **Home:** pick up where you left off, or start something.
+  - **New device**, **New chip**, **New job** and **Open a run…** in a row at the top.
+  - **Continue**, the run open; **Recent work**, your designs, chips and jobs, newest first, each
+    opening where it belongs; and **Recent runs**.
+  - **Start from a template:** the simulations of `jobs/`, built in, one a row, filtered by kind.
+    **Run** plays it live in the run view; **Open** takes it to its device's page, the Chip or
+    the Custom device, to change it.
+  - At its foot, how many validation cases pass and published results are reproduced, the
+    version, and what changed in it.
+- **What is running**, at the rail's foot: a ring that fills with the followed run's progress
+  (its sweep's points, an FDTD run's time, a study's points, an optimization's evaluations), or
+  spins where it can't say. A click shows each thing going (the run, with Open and Stop; a
+  device's solve in the background; the nightly build) and opens the runs drawer.
 - **Runs** (the drawer, from **Runs** at the status bar's left): every run in the workspace,
   newest first, the one going pinned on top with its time and a Stop. Each opens where it
   belongs (a device's run on its page's Simulate tab, a device's study on its Study tab, any other

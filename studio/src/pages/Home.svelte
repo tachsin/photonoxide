@@ -1,20 +1,22 @@
 <script lang="ts">
-  // Home: start from a template (every job of jobs/, built in) or a new job or circuit, or pick
-  // up where you left off.
-  import { ArrowRight, BookOpenCheck, CircuitBoard, FolderOpen, History, Plus, ShieldCheck, Sparkles } from "@lucide/svelte";
+  // Home: pick up where you left off (the run going, your recent designs, chips and jobs, your
+  // recent runs), start something new, or run a template (every job of jobs/, built in). At its
+  // foot, what the build has checked and what's new.
+  import { ArrowRight, Boxes, ChevronDown, CircuitBoard, FileCog, FileText, FolderOpen, Plus, ShieldCheck } from "@lucide/svelte";
   import { open } from "@tauri-apps/plugin-dialog";
 
   import JobCard from "../components/JobCard.svelte";
   import Markdown from "../components/Markdown.svelte";
   import Tip from "../components/Tip.svelte";
-  import { ago, api, duration, KINDS, type Home } from "../lib/api";
-  import { app, go, newCustom, openCustom, run, showCases, showPublished, startRun } from "../lib/app.svelte";
+  import { ago, api, duration, KINDS, type CircuitItem, type Home } from "../lib/api";
+  import { app, go, newCustom, openCustom, run, showCases, showPublished, startRun, toast } from "../lib/app.svelte";
   import { catalog, loadCatalog } from "../lib/catalog.svelte";
-  import { openDeviceText, openRunItem } from "../lib/device.svelte";
-  import { openChipText, showChip } from "../lib/chip.svelte";
+  import { devices, loadDevices, openDesign, openDevice, openDeviceText, openRunItem } from "../lib/device.svelte";
+  import { openChipFile, openChipText, showChip } from "../lib/chip.svelte";
   import type { Kind } from "../lib/job";
 
   let home = $state<Home | null>(null);
+  let circuits = $state<CircuitItem[]>([]);
   let changelog = $state("");
   let report = $state<{ passed: number; total: number } | null>(null);
   api
@@ -29,8 +31,10 @@
   $effect(() => {
     void app.workspaceVersion;
     api.home().then((h) => (home = h)).catch(() => {});
+    api.circuits().then((c) => (circuits = c)).catch(() => {});
   });
   loadCatalog();
+  loadDevices();
 
   function newJob(kind: Kind) {
     newCustom(kind);
@@ -41,133 +45,171 @@
     if (typeof dir === "string") startRun(() => api.openRun(dir), "Opened the run");
   }
 
-  const newCircuit = () => showChip();
+  async function openJob(path: string) {
+    try {
+      openCustom(await api.readJob(path), path);
+    } catch (e) {
+      toast(String(e), "error");
+    }
+  }
 
   async function whatsNew() {
     changelog ||= await api.changelog().catch(() => "");
     notes = true;
   }
 
-  const hour = new Date().getHours();
-  const greeting = hour < 5 ? "Working late" : hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
-  const recent = $derived(home?.runs.slice(0, 6) ?? []);
+  /** What was worked on last: the designs, chips and jobs of the workspace, newest first, each opening where it belongs. */
+  const work = $derived(
+    [
+      ...(home?.jobs ?? []).map((j) => ({
+        key: j.path,
+        name: j.name,
+        what: j.kind === "device" ? `${j.device ?? "device"} design` : `${KINDS[j.kind]?.label ?? j.kind} job`,
+        modified: j.modified,
+        icon: j.kind === "device" ? FileCog : FileText,
+        open: () => (j.kind === "device" ? openDesign(j.path) : openJob(j.path)),
+      })),
+      ...circuits.map((c) => ({ key: c.path, name: c.name, what: `chip, ${c.instances} part${c.instances === 1 ? "" : "s"}`, modified: c.modified, icon: CircuitBoard, open: () => openChipFile(c.path) })),
+    ]
+      .sort((a, b) => b.modified - a.modified)
+      .slice(0, 8),
+  );
+  const recent = $derived(home?.runs.slice(0, 8) ?? []);
+
+  /** The templates' kinds, for the filter; and the one kept to, if any. */
+  const kinds = $derived([...new Set((catalog.data?.jobs ?? []).map((j) => j.kind))]);
+  let only = $state<string | null>(null);
 </script>
 
 <div class="h-full overflow-y-auto">
-  <div class="mx-auto max-w-7xl space-y-8 p-8">
-    <section class="glow panel relative overflow-hidden px-9 py-9">
-      <div class="flex flex-wrap items-end gap-8">
-        <div class="max-w-2xl flex-1">
-          <p class="mb-2 flex items-center gap-2 text-sm font-medium text-primary"><Sparkles size={15} /> {greeting}</p>
-          <h2 class="text-3xl font-semibold tracking-tight">Validated photonics, live.</h2>
-          <p class="mt-3 text-[15px] leading-relaxed muted">
-            Mode solvers and FDFD whose every result is checked against exact solutions and published papers. Start from a template or build your own, watch it run in 3D, and sweep it or compare it with the last one.
-          </p>
-          <div class="mt-6 flex flex-wrap gap-2.5">
-            <div class="dropdown">
-              <div tabindex="0" role="button" class="btn btn-primary gap-2"><Plus size={17} /> New job</div>
-              <ul tabindex="-1" class="dropdown-content menu z-20 mt-2 w-72 rounded-box border border-base-content/10 bg-base-100 p-2 shadow-xl">
-                {#each ["modes", "fdfd", "fdtd", "structure"] as const as kind (kind)}
-                  <li>
-                    <button onclick={() => newJob(kind)} class="flex flex-col items-start gap-0.5">
-                      <span class="font-medium">{KINDS[kind].label}</span><span class="text-xs faint">{KINDS[kind].about}</span>
-                    </button>
-                  </li>
-                {/each}
-              </ul>
-            </div>
-            <button class="btn gap-2" onclick={newCircuit} title="Place components on a chip and wire them into a circuit"><CircuitBoard size={17} /> New circuit</button>
-            <button class="btn btn-ghost gap-2" onclick={openRunFolder}><FolderOpen size={17} /> Open a run…</button>
-          </div>
-        </div>
-        <div class="grid grid-cols-3 gap-3">
-          {#each [
-            { n: home?.runs.length ?? "–", label: "runs", icon: History, open: () => (app.drawer = true) },
-            { n: catalog.data?.examples.length || "–", label: "published results reproduced", icon: BookOpenCheck, open: () => showPublished() },
-            { n: report ? `${report.passed}/${report.total}` : "–", label: "validation cases pass", icon: ShieldCheck, open: showCases },
-          ] as stat (stat.label)}
-            {@const Icon = stat.icon}
-            <!-- narrow enough that the buttons beside them stay on one line -->
-            <button class="w-40 rounded-xl border border-base-content/8 bg-base-100/70 px-4 py-4 text-left transition-colors hover:border-primary/30" onclick={stat.open}>
-              <Icon size={17} class="mb-2 text-primary" />
-              <div class="text-2xl font-semibold num">{stat.n}</div>
-              <div class="text-xs faint">{stat.label}</div>
-            </button>
+  <div class="mx-auto max-w-6xl space-y-6 px-4 py-6 sm:px-8">
+    <!-- start something -->
+    <div class="flex flex-wrap items-center gap-2">
+      <div class="dropdown">
+        <div tabindex="0" role="button" class="btn btn-primary btn-sm gap-1.5"><Boxes size={15} /> New device <ChevronDown size={13} /></div>
+        <ul tabindex="-1" class="dropdown-content menu z-20 mt-1 max-h-80 w-72 flex-nowrap overflow-y-auto rounded-box border border-base-content/10 bg-base-100 p-2 shadow-xl">
+          {#each devices.list as d (d.id)}
+            <li>
+              <button onclick={() => openDevice(d.id, "design")} class="flex flex-col items-start gap-0.5">
+                <span class="font-medium first-letter:uppercase">{d.kind}</span><span class="line-clamp-1 text-xs faint">{d.about}</span>
+              </button>
+            </li>
           {/each}
-        </div>
+        </ul>
       </div>
-    </section>
+      <button class="btn btn-sm gap-1.5" onclick={() => showChip()} title="Place components on a chip and wire them into a circuit"><CircuitBoard size={15} /> New chip</button>
+      <div class="dropdown">
+        <div tabindex="0" role="button" class="btn btn-sm gap-1.5"><Plus size={15} /> New job <ChevronDown size={13} /></div>
+        <ul tabindex="-1" class="dropdown-content menu z-20 mt-1 w-72 rounded-box border border-base-content/10 bg-base-100 p-2 shadow-xl">
+          {#each ["modes", "fdfd", "fdtd", "structure"] as const as kind (kind)}
+            <li>
+              <button onclick={() => newJob(kind)} class="flex flex-col items-start gap-0.5">
+                <span class="font-medium">{KINDS[kind].label}</span><span class="text-xs faint">{KINDS[kind].about}</span>
+              </button>
+            </li>
+          {/each}
+        </ul>
+      </div>
+      <button class="btn btn-ghost btn-sm gap-1.5" onclick={openRunFolder}><FolderOpen size={15} /> Open a run…</button>
+    </div>
 
     <Tip id="home-start" title="New here?">
-      Run one of the templates below: it plays live in the run view. <strong>Open</strong> takes it to the Custom device, on Components, to change it and save your own. Your runs are in the drawer at the bottom left, and <kbd class="kbd kbd-xs">Ctrl</kbd> <kbd class="kbd kbd-xs">K</kbd> finds any page, template, published result, circuit or run. The question mark at the top replays the tour.
+      Run a template below: it plays live in the run view, and <strong>Open</strong> lets you change it and save your own. The rail's lists hold the components, the parts and circuits, the lessons and the materials; your runs are in the drawer at the bottom left, and <kbd class="kbd kbd-xs">Ctrl</kbd> <kbd class="kbd kbd-xs">K</kbd> finds anything. The question mark at the top replays the tour.
     </Tip>
 
-    <div class="grid gap-6 xl:grid-cols-[1fr_380px]">
+    <!-- pick up where you left off -->
+    {#if run.info?.dir}
+      <button class="panel flex w-full items-center gap-3 p-4 text-left transition-colors hover:border-primary/30" onclick={() => go("viewer")}>
+        <span class="status {run.finished ? 'status-neutral' : 'status-success animate-pulse'}"></span>
+        <span class="min-w-0 flex-1">
+          <span class="block truncate font-medium">{run.job?.job ?? run.info.name}</span>
+          <span class="block truncate text-xs faint">{run.finished ? `finished in ${duration(run.finished.seconds)}` : "running now"} · {run.info.name}</span>
+        </span>
+        <span class="flex items-center gap-1 text-sm text-primary">Continue <ArrowRight size={15} /></span>
+      </button>
+    {/if}
+
+    <div class="grid gap-6 lg:grid-cols-2">
       <section>
-        <div class="mb-3 flex items-baseline gap-2">
-          <h3 class="panel-title">Start from a template</h3>
-          <span class="text-xs faint">{catalog.data?.jobs.length ? `${catalog.data.jobs.length}, built in: run one, or open it to change it` : ""}</span>
+        <h3 class="panel-title mb-2">Recent work</h3>
+        <div class="panel divide-y divide-base-content/6">
+          {#each work as w (w.key)}
+            {@const Icon = w.icon}
+            <button class="flex w-full items-center gap-3 px-4 py-2.5 text-left hover:bg-base-content/3" onclick={w.open} title={w.key}>
+              <Icon size={15} class="shrink-0 text-primary" />
+              <span class="min-w-0 flex-1">
+                <span class="block truncate text-sm font-medium">{w.name}</span>
+                <span class="block truncate text-xs faint">{w.what}</span>
+              </span>
+              <span class="shrink-0 text-xs faint">{ago(w.modified)}</span>
+            </button>
+          {:else}
+            <p class="px-4 py-6 text-center text-sm faint">Nothing saved yet: a design, a chip or a job you save appears here.</p>
+          {/each}
         </div>
-        <div class="grid gap-4 sm:grid-cols-2">
-          {#each catalog.data?.jobs ?? [] as j (j.file)}
+      </section>
+      <section>
+        <div class="mb-2 flex items-center">
+          <h3 class="panel-title">Recent runs</h3>
+          <span class="flex-1"></span>
+          <button class="btn btn-ghost btn-xs gap-1" onclick={() => (app.drawer = true)}>All runs <ArrowRight size={13} /></button>
+        </div>
+        <div class="panel divide-y divide-base-content/6">
+          {#each recent as r (r.dir)}
+            <button class="flex w-full items-center gap-3 px-4 py-2.5 text-left hover:bg-base-content/3" onclick={() => openRunItem(r)}>
+              <span class="status shrink-0 {r.finished ? (r.stopped ? 'status-warning' : 'status-success') : 'status-neutral'}"></span>
+              <span class="min-w-0 flex-1">
+                <span class="block truncate text-sm font-medium">{r.job || r.name}</span>
+                <span class="block truncate text-xs faint">{KINDS[r.kind]?.label ?? r.kind}{r.seconds !== null ? ` · ${duration(r.seconds)}` : ""}</span>
+              </span>
+              <span class="shrink-0 text-xs faint">{ago(r.started)}</span>
+            </button>
+          {:else}
+            <p class="px-4 py-6 text-center text-sm faint">No runs yet: run a template and it appears here.</p>
+          {/each}
+        </div>
+      </section>
+    </div>
+
+    <!-- the templates, compact: run one, or open it to change it -->
+    <section>
+      <div class="mb-2 flex flex-wrap items-center gap-2">
+        <h3 class="panel-title">Start from a template</h3>
+        <span class="flex-1"></span>
+        <button class="btn btn-xs {only === null ? 'btn-primary' : 'btn-ghost'}" onclick={() => (only = null)}>all</button>
+        {#each kinds as k (k)}
+          <button class="btn btn-xs {only === k ? 'btn-primary' : 'btn-ghost'}" onclick={() => (only = only === k ? null : k)} title={KINDS[k]?.about}>{KINDS[k]?.label ?? k}</button>
+        {/each}
+      </div>
+      <div class="panel divide-y divide-base-content/6">
+        {#each catalog.data?.jobs ?? [] as j (j.file)}
+          {#if !only || j.kind === only}
             <JobCard
               name={j.name}
               kind={j.kind}
               about={j.about}
-              text={j.text}
               onrun={() => startRun(() => api.runText(j.text), `Running ${j.name}`)}
               onopen={async () => {
-                // a device's job on its device's page, any other in the Custom device
+                // a device's job on its device's page, a chip's on the Chip, any other in the Custom device
                 if (!(await openChipText(j.text)) && !(await openDeviceText(j.text))) openCustom(j.text);
               }}
             />
-          {:else}
-            {#each [0, 1] as k (k)}<div class="skeleton h-64"></div>{/each}
-          {/each}
-        </div>
-      </section>
+          {/if}
+        {:else}
+          {#each [0, 1, 2] as k (k)}<div class="skeleton m-3 h-9"></div>{/each}
+        {/each}
+      </div>
+    </section>
 
-      <aside class="space-y-6">
-        {#if run.info?.dir}
-          <section>
-            <h3 class="panel-title mb-3">Continue</h3>
-            <button class="panel flex w-full items-center gap-3 p-4 text-left transition-colors hover:border-primary/30" onclick={() => go("viewer")}>
-              <span class="status {run.finished ? 'status-neutral' : 'status-success animate-pulse'}"></span>
-              <span class="min-w-0 flex-1">
-                <span class="block truncate font-medium">{run.job?.job ?? run.info.name}</span>
-                <span class="block truncate text-xs faint">{run.finished ? `finished in ${duration(run.finished.seconds)}` : "running now"} · {run.info.name}</span>
-              </span>
-              <ArrowRight size={16} class="faint" />
-            </button>
-          </section>
-        {/if}
-        <section>
-          <div class="mb-3 flex items-center">
-            <h3 class="panel-title">Recent runs</h3>
-            <span class="flex-1"></span>
-            <button class="btn btn-ghost btn-xs gap-1" onclick={() => (app.drawer = true)}>All runs <ArrowRight size={13} /></button>
-          </div>
-          <div class="panel divide-y divide-base-content/6">
-            {#each recent as r (r.dir)}
-              <button class="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-base-content/3" onclick={() => openRunItem(r)}>
-                <span class="status {r.finished ? (r.stopped ? 'status-warning' : 'status-success') : 'status-neutral'}"></span>
-                <span class="min-w-0 flex-1">
-                  <span class="block truncate text-sm font-medium">{r.job || r.name}</span>
-                  <span class="block truncate text-xs faint">{KINDS[r.kind]?.label ?? r.kind} · {ago(r.started)}{r.seconds !== null ? ` · ${duration(r.seconds)}` : ""}</span>
-                </span>
-              </button>
-            {:else}
-              <p class="px-4 py-6 text-center text-sm faint">No runs yet: run a template and it appears here.</p>
-            {/each}
-          </div>
-        </section>
-        <section class="panel p-4">
-          <h3 class="panel-title mb-2">This version</h3>
-          <p class="text-sm muted">photonoxide {app.state?.version} on {app.state?.platform}.</p>
-          <button class="btn btn-ghost btn-xs mt-2 -ml-2 gap-1" onclick={whatsNew}>What's new <ArrowRight size={13} /></button>
-        </section>
-      </aside>
-    </div>
+    <!-- what the build has checked, and what's new -->
+    <footer class="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-base-content/8 pt-4 text-xs faint">
+      <button class="flex items-center gap-1.5 hover:text-base-content" onclick={showCases} title="The validation report: every solver against exact solutions and papers">
+        <ShieldCheck size={13} class="text-success" />{report ? `${report.passed} of ${report.total} validation cases pass` : "validation cases"}
+      </button>
+      <button class="hover:text-base-content" onclick={() => showPublished()} title="The examples that reproduce published papers">{catalog.data?.examples.length ?? "–"} published results reproduced</button>
+      <span>photonoxide {app.state?.version} on {app.state?.platform}</span>
+      <button class="flex items-center gap-1 text-primary hover:underline" onclick={whatsNew}>What's new <ArrowRight size={12} /></button>
+    </footer>
   </div>
 </div>
 

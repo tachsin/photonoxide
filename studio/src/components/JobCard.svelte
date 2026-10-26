@@ -1,45 +1,33 @@
 <script lang="ts">
-  // A template as a card: its device in 3D, turning, what it is, and Run or Open (in the Custom device).
+  // A template as a row on Home: its name, its kind, what it is in a line, and Run (live, in the
+  // run view) or Open (on its device's page, the Chip or the Custom device, to change it).
   import { Play, SquarePen } from "@lucide/svelte";
 
   import { KINDS } from "../lib/api";
-  import ScenePreview from "./ScenePreview.svelte";
 
   let {
     name,
     kind,
     about,
-    text,
     onrun,
     onopen,
-    badge,
   }: {
     name: string;
     kind: string;
     about: string;
-    text: string;
     onrun: () => void;
     onopen: () => void;
-    badge?: string;
   } = $props();
 
-  const tone: Record<string, string> = { modes: "badge-primary", fdfd: "badge-secondary", fdtd: "badge-info", structure: "badge-accent" };
+  const tone: Record<string, string> = { modes: "badge-primary", fdfd: "badge-secondary", fdtd: "badge-info", structure: "badge-accent", static: "badge-warning", device: "badge-success" };
 </script>
 
-<article class="panel group flex flex-col overflow-hidden transition-all hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-xl hover:shadow-black/10">
-  <div class="glow border-b border-base-content/8 bg-base-200/60" title="What its run will draw, before it runs">
-    <ScenePreview {text} height={160} />
-  </div>
-  <div class="flex flex-1 flex-col gap-2 p-4">
-    <div class="flex items-center gap-2">
-      <h3 class="truncate font-semibold">{name}</h3>
-      <span class="badge badge-soft badge-sm {tone[kind] ?? ''}" title={KINDS[kind]?.about}>{KINDS[kind]?.label ?? kind}</span>
-      {#if badge}<span class="badge badge-ghost badge-sm">{badge}</span>{/if}
-    </div>
-    <p class="line-clamp-3 flex-1 text-[13px] leading-relaxed muted">{about || KINDS[kind]?.about}</p>
-    <div class="mt-1 flex gap-2">
-      <button class="btn btn-primary btn-sm flex-1 gap-1.5" onclick={onrun} title="Run it now and watch it live"><Play size={14} /> Run</button>
-      <button class="btn btn-ghost btn-sm gap-1.5" onclick={onopen} title="Open it in the Custom device, to change it"><SquarePen size={14} /> Open</button>
-    </div>
-  </div>
-</article>
+<div class="group flex items-center gap-3 px-4 py-2.5 transition-colors hover:bg-base-content/3">
+  <span class="badge badge-soft badge-sm w-[4.5rem] shrink-0 justify-center {tone[kind] ?? ''}" title={KINDS[kind]?.about}>{KINDS[kind]?.label ?? kind}</span>
+  <span class="min-w-0 flex-1">
+    <span class="block truncate text-sm font-medium">{name}</span>
+    <span class="block truncate text-xs faint" title={about || KINDS[kind]?.about}>{about || KINDS[kind]?.about}</span>
+  </span>
+  <button class="btn btn-ghost btn-xs gap-1.5" onclick={onopen} title="Open it, to change it and save your own"><SquarePen size={14} /> Open</button>
+  <button class="btn btn-primary btn-xs gap-1.5" onclick={onrun} title="Run it now and watch it live"><Play size={14} /> Run</button>
+</div>

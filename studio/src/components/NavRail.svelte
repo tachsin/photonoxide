@@ -2,16 +2,17 @@
   // The navigation rail: the five pages where work happens, and at its foot the System group
   // (Validation, Libraries, Benchmarks), folded, beside Settings. It folds to its icons and back
   // with one animation of its width: the icons stay where they are and the labels are clipped
-  // and faded, so nothing in it moves. Folded, an item says what it is in a hint beside it.
+  // and faded, so nothing in it moves. At its very foot, what is running (RailActivity). Folded, an item says what it is in a hint beside it.
   // Under Components, Chip, the Academy and Materials, while that page is shown, its tree (its
   // parts, its lessons, its materials) opens in a card of its own: the pages stay in sight and only the tree scrolls.
-  import { ChevronRight, ChevronsLeft, FlaskConical, MonitorCog } from "@lucide/svelte";
+  import { ChevronRight, ChevronsLeft, MonitorCog } from "@lucide/svelte";
   import { untrack, type Component } from "svelte";
 
   import { app, go, type Page } from "../lib/app.svelte";
   import { PAGES, RAIL, SYSTEM } from "../lib/pages";
   import { rail, toggleTree, unfold } from "../lib/rail.svelte";
   import Logo from "./Logo.svelte";
+  import RailActivity from "./RailActivity.svelte";
   import AcademyTree from "./rail/AcademyTree.svelte";
   import ChipTree from "./rail/ChipTree.svelte";
   import ComponentsTree from "./rail/ComponentsTree.svelte";
@@ -205,9 +206,7 @@
       <span class="shrink-0 transition-transform duration-200 motion-reduce:transition-none" class:rotate-180={collapsed}><ChevronsLeft size={18} /></span>
       <span class={LABEL} class:opacity-0={collapsed}>Collapse</span>
     </button>
-    <div class="flex items-center gap-1.5 overflow-hidden px-3 pt-2 text-[11px] whitespace-nowrap transition-opacity duration-200 faint motion-reduce:transition-none" class:opacity-0={collapsed}>
-      <span class="shrink-0"><FlaskConical size={12} /></span> validated photonics
-    </div>
+    <RailActivity {collapsed} />
   </div>
 </nav>
 
