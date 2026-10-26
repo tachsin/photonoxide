@@ -519,11 +519,27 @@ fn gated((value, _, ok): (f64, f64, bool)) -> f64 {
     if ok { value } else { f64::NAN }
 }
 
+/// A full-wave value to four significant digits. At 1 GHz β² is 1e-10 of the operator's entries
+/// and the metal's ε about 5 × 10⁸ i, so the last bits of a platform's math library reach the
+/// fifth digit (Heinrich's R at 1 GHz: 986.687 Ω/m on Windows, 986.675 on Linux), far inside the
+/// grid study's 0.5%: the report shows what every platform computes.
+fn four(v: f64) -> f64 {
+    if v == 0.0 || !v.is_finite() {
+        return v;
+    }
+    let scale = 10f64.powi(3 - v.abs().log10().floor() as i32);
+    (v * scale).round() / scale
+}
+
 /// Heinrich's R (Ω/m) at frequency `k` of [`HEINRICH_GHZ`], full-wave against his Eqs. (5)–(8).
 fn heinrich_r(k: usize) -> Outcome {
     let omega = 2.0 * std::f64::consts::PI * HEINRICH_GHZ[k] * 1e9;
     let expected = HEINRICH.resistance(omega);
-    outcome(gated(heinrich_numbers().0[k][0]), expected, 0.1 * expected)
+    outcome(
+        four(gated(heinrich_numbers().0[k][0])),
+        expected,
+        0.1 * expected,
+    )
 }
 
 /// His L (µH/m) at frequency `k`, full-wave against his Eqs. (9)–(11).
@@ -531,7 +547,7 @@ fn heinrich_l(k: usize) -> Outcome {
     let omega = 2.0 * std::f64::consts::PI * HEINRICH_GHZ[k] * 1e9;
     let expected = HEINRICH.inductance(omega) * 1e6;
     outcome(
-        gated(heinrich_numbers().0[k][1]) * 1e6,
+        four(gated(heinrich_numbers().0[k][1]) * 1e6),
         expected,
         0.03 * expected,
     )
@@ -542,7 +558,7 @@ fn heinrich_l(k: usize) -> Outcome {
 fn frankel_radiation(k: usize) -> Outcome {
     let [eps, radiation] = frankel_numbers()[k];
     let expected = frankel_9a(30e-6, 20e-6, gated(eps), FRANKEL_EPS, FRANKEL_GHZ[k] * 1e9);
-    outcome(gated(radiation), expected, 0.1 * expected)
+    outcome(four(gated(radiation)), expected, 0.1 * expected)
 }
 
 pub(crate) fn cases() -> Vec<Case> {
@@ -559,7 +575,7 @@ pub(crate) fn cases() -> Vec<Case> {
         },
         Case {
             id: "line/heinrich-1993-resistance-1ghz",
-            title: r"Heinrich's line full-wave at 1 GHz (the skin depth 2.9 µm, twice the metal's thickness: the current through the whole strip), his κ = 3 × 10⁷ S/m, the substrate a half-space (the window open below and to the right into 200 µm of PML), on grids graded from 100, 50 and 25 nm and gated at 0.5%: R = Re $\gamma Z_0$ (Ω/m, shown) against his model",
+            title: r"Heinrich's line full-wave at 1 GHz (the skin depth 2.9 µm, twice the metal's thickness: the current through the whole strip), his κ = 3 × 10⁷ S/m, the substrate a half-space (the window open below and to the right into 200 µm of PML), on grids graded from 100, 50 and 25 nm and gated at 0.5%: R = Re $\gamma Z_0$ (Ω/m, shown to four digits: the last bits of a platform's math library reach the fifth at 1 GHz) against his model",
             tier: Tier::Published,
             source: r"Heinrich 1993, Eqs. (5)–(8) and (21), his resistance from DC through the intermediate range to the skin effect, fitted to his mode-matching analysis (his Fig. 4); his Section VI: the resistance his model's main error, its skin-effect form an order of 10% high for narrow slots: 10%",
             run: || heinrich_r(0),
@@ -580,7 +596,7 @@ pub(crate) fn cases() -> Vec<Case> {
         },
         Case {
             id: "line/heinrich-1993-inductance-1ghz",
-            title: r"Heinrich's line full-wave at 1 GHz (as line/heinrich-1993-resistance-1ghz): L = Im $\gamma Z_0/\omega$ (µH/m, shown; 1.36 times $L_{e\infty}$, the external inductance itself raised by the current spreading through the grounds) against his model",
+            title: r"Heinrich's line full-wave at 1 GHz (as line/heinrich-1993-resistance-1ghz): L = Im $\gamma Z_0/\omega$ (µH/m, shown to four digits; 1.36 times $L_{e\infty}$, the external inductance itself raised by the current spreading through the grounds) against his model",
             tier: Tier::Published,
             source: r"Heinrich 1993, Eqs. (9)–(11) and (22), his inductance from its DC value (Eq. 19, 0.50 µH/m) to $L_{e\infty}$ plus the skin effect's internal part (his Fig. 5); his Section VI: $\varepsilon_{eff}$ and Z within 3% of his full-wave analysis: 3%",
             run: || heinrich_l(0),
@@ -616,7 +632,7 @@ pub(crate) fn cases() -> Vec<Case> {
         },
         Case {
             id: "line/frankel-1991-radiation-100ghz",
-            title: r"The full-wave line's radiation into its substrate: Frankel et al.'s line (i) (a 30 µm centre strip, 20 µm slots, 0.4 µm of gold at 4.1 × 10⁷ S/m) on a GaAs half-space of $\varepsilon_r$ = 13, the grounds and the substrate running on into 200 µm of PML (half-planes, as their formula takes them), on grids graded from 40, 20 and 10 nm and gated at 0.5%: at 100 GHz, the loss neither the metal nor the dielectric takes (Np/m, shown) against their Eq. (9a) with the full-wave $\varepsilon_{eff}$",
+            title: r"The full-wave line's radiation into its substrate: Frankel et al.'s line (i) (a 30 µm centre strip, 20 µm slots, 0.4 µm of gold at 4.1 × 10⁷ S/m) on a GaAs half-space of $\varepsilon_r$ = 13, the grounds and the substrate running on into 200 µm of PML (half-planes, as their formula takes them), on grids graded from 40, 20 and 10 nm and gated at 0.5%: at 100 GHz, the loss neither the metal nor the dielectric takes (Np/m, shown to four digits) against their Eq. (9a) with the full-wave $\varepsilon_{eff}$",
             tier: Tier::Published,
             source: r"M. Y. Frankel et al., IEEE Trans. Microw. Theory Tech. 39, 910 (1991), doi:10.1109/22.81658, Eq. (9a): Rutledge et al.'s radiation of the slots' quasi-static field into a half-space, the angle and the impedance from the guided mode's $\varepsilon_{eff}(f)$, for wavelengths above $s + 2w$; the window's own effect on the split up to 3% (grounds 300 against 600 µm, the substrate 300 against 600 µm deep): 10%",
             run: || frankel_radiation(0),
