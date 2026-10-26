@@ -12,17 +12,17 @@
     "lint": "oxlint --deny-warnings"
   },
   "dependencies": {
-    "@codemirror/autocomplete": "^6.20.3",
+    "@codemirror/autocomplete": "^6.20.4",
     "@codemirror/commands": "^6.11.1",
     "@codemirror/language": "^6.13.1",
     "@codemirror/legacy-modes": "^6.5.5",
     "@codemirror/lint": "^6.9.7",
     "@codemirror/state": "^6.7.6",
-    "@codemirror/view": "^6.43.14",
+    "@codemirror/view": "^6.43.15",
     "@fontsource-variable/inter": "^5.3.0",
     "@fontsource-variable/jetbrains-mono": "^5.3.0",
     "@lezer/highlight": "^1.2.5",
-    "@lucide/svelte": "^1.57.0",
+    "@lucide/svelte": "^1.61.0",
     "@tauri-apps/api": "^2.12.4",
     "@tauri-apps/plugin-dialog": "^2.8.3",
     "@tauri-apps/plugin-opener": "^2.7.2",
@@ -36,13 +36,13 @@
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^7.3.1",
     "@tailwindcss/vite": "^4.3.3",
-    "@tauri-apps/cli": "^2.12.3",
+    "@tauri-apps/cli": "^2.12.4",
     "@types/three": "^0.186.0",
     "daisyui": "^5.7.50",
     "oxlint": "^1.89.0",
-    "svelte-check": "^4.7.6",
+    "svelte-check": "^4.7.7",
     "tailwindcss": "^4.3.3",
     "typescript": "^5.9.3",
-    "vite": "^8.3.4"
+    "vite": "^8.3.5"
   }
 }

@@ -168,7 +168,7 @@ jobs:
         with:
           name: wheels-linux-x86_64
           path: python/dist
-      - uses: astral-sh/setup-uv@v10.2.0
+      - uses: astral-sh/setup-uv@v10.3.2
       # pdoc's version is the package's `docs` extra (python/pyproject.toml); run outside python/,
       # so the package imported is the installed wheel
       - name: Generate
@@ -256,4 +256,4 @@ jobs:
           versions=$(ls dist | sed -E 's/^photonoxide-([^-]+)(-|\.tar\.gz).*/\1/' | sort -u)
           echo "version: $versions"
           [ "$(wc -l <<<"$versions")" -eq 1 ]
-      - uses: pypa/gh-action-pypi-publish@v1.14.2
+      - uses: pypa/gh-action-pypi-publish@v1.14.3

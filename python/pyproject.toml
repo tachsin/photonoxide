@@ -9,7 +9,7 @@ readme = "README.md"
 license = "MIT OR Apache-2.0"
 license-files = ["licenses/LICENSE-MIT", "licenses/LICENSE-APACHE"]
 requires-python = ">=3.10"
-dependencies = ["numpy>=1.21"]
+dependencies = ["numpy>=2.2.6"]
 keywords = [
     "photonics",
     "silicon-photonics",
@@ -38,7 +38,7 @@ Documentation = "https://github.com/tachsin/photonoxide/blob/main/docs/python.md
 Changelog = "https://github.com/tachsin/photonoxide/blob/main/CHANGELOG.md"
 
 [project.optional-dependencies]
-test = ["pytest>=8"]
+test = ["pytest>=9.1.1"]
 # the API reference's generator (docs/python.md, "Publishing"), pinned so the reference changes
 # only with the package
 docs = ["pdoc==16.0.0"]
