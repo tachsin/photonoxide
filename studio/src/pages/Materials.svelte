@@ -78,6 +78,7 @@
   function choose(id: string) {
     chosen = id;
     modelId = null;
+    fact = null;
     picked = {};
   }
 
@@ -214,18 +215,36 @@
     optical: "Optical class",
   };
 
-  /** The category outlined, a symmetry that allows χ⁽²⁾ in the accent colour, the rest quiet. */
-  function tagStyle(t: MaterialTag): string {
-    if (t.kind === "category") return "badge-outline";
-    if (t.kind === "symmetry" && t.label.startsWith("non-")) return "badge-secondary badge-soft";
-    return "badge-ghost";
-  }
+  /** A fact's name in its cell, short enough for a narrow one; TAG_KIND says it in full above its detail. */
+  const TAG_SHORT: Record<MaterialTag["kind"], string> = {
+    category: "Category",
+    system: "Crystal system",
+    "point-group": "Point group",
+    "space-group": "Space group",
+    symmetry: "Symmetry",
+    optical: "Optical",
+  };
 
-  const opticalLabel = (e: MaterialEntry) =>
-    e.crystal.optical.kind === "isotropic" ? "isotropic" : `uniaxial, ${e.crystal.optical.positive ? "positive" : "negative"}`;
+  /** The crystal's facts for the header: every tag but the category, which the list already groups by. */
+  const facts = (e: MaterialEntry) => e.tags.filter((t) => t.kind !== "category");
+  /** The fact whose physics is shown under the cells, if one is. */
+  let fact = $state<MaterialTag["kind"] | null>(null);
+
+  const SUBSCRIPT = "₀₁₂₃₄₅₆₇₈₉";
+  /**
+   * The Materials Project's search for the material's formula, where it is one crystal of one
+   * composition: not an amorphous film, an alloy of variable or fractional composition, or a doped crystal.
+   */
+  function structureUrl(e: MaterialEntry): string | null {
+    if (e.crystal.system.toLowerCase() === "amorphous") return null;
+    const formula = [...e.formula].map((c) => (SUBSCRIPT.includes(c) ? String(SUBSCRIPT.indexOf(c)) : c)).join("");
+    if (!/^([A-Z][a-z]?\d*)+$/.test(formula)) return null;
+    return `https://next-gen.materialsproject.org/materials?formula=${formula}`;
+  }
 </script>
 
-<div class="grid h-full grid-cols-[18rem_1fr]">
+<!-- the list narrower in a narrow window, so the material keeps its width -->
+<div class="grid h-full grid-cols-[13rem_minmax(0,1fr)] xl:grid-cols-[18rem_minmax(0,1fr)]">
   <!-- the list -->
   <aside class="flex min-h-0 flex-col border-r border-base-content/8">
     <div class="p-4">
@@ -260,69 +279,73 @@
   <!-- the material -->
   <div class="min-h-0 overflow-y-auto">
     {#if entry}
-      <div class="glow border-b border-base-content/8 px-8 py-6">
-        <div class="flex flex-wrap items-start gap-6">
-          <div class="grid size-14 place-items-center rounded-2xl bg-primary/12 text-primary"><Atom size={28} /></div>
+      <div class="glow border-b border-base-content/8 px-4 py-5 sm:px-8 sm:py-6">
+        <div class="flex items-start gap-4">
+          <div class="hidden size-12 shrink-0 place-items-center rounded-2xl bg-primary/12 text-primary sm:grid"><Atom size={24} /></div>
           <div class="min-w-0 flex-1">
-            <h2 class="text-2xl font-semibold tracking-tight">{entry.formula} <span class="ml-1 text-base font-normal muted">{entry.name}</span></h2>
-            <p class="mt-1 max-w-3xl text-sm muted">{entry.summary}</p>
-            <!-- the tags: each a statement, its physics and caveats on hover -->
-            <div class="mt-3 flex flex-wrap gap-1.5 text-xs" data-tags>
-              {#each entry.tags as t (t.kind + t.label)}
-                <span class="group relative">
-                  <span
-                    class="badge badge-sm h-auto cursor-help py-0.5 {tagStyle(t)}"
-                    tabindex="0"
-                    role="button"
-                    aria-label="{TAG_KIND[t.kind]}: {t.label}"
-                    data-tag={t.kind}
-                  >
-                    <MathText text={t.label} />
-                  </span>
-                  <span
-                    role="tooltip"
-                    class="invisible absolute top-full left-0 z-30 w-[26rem] max-w-[70vw] pt-1.5 opacity-0 transition-opacity duration-100 group-focus-within:visible group-focus-within:opacity-100 group-hover:visible group-hover:opacity-100"
-                  >
-                    <span class="block rounded-box border border-base-content/10 bg-base-100 p-3.5 text-left text-xs leading-relaxed font-normal shadow-xl">
-                      <span class="block text-[10.5px] font-semibold tracking-wider uppercase faint">{TAG_KIND[t.kind]}</span>
-                      <span class="mt-1 block text-sm font-medium"><MathText text={t.label} /></span>
-                      <span class="mt-1.5 block muted selectable"><MathText text={t.detail} /></span>
-                      {#if t.source}
-                        <span class="mt-2 flex gap-1.5 border-t border-base-content/8 pt-2 faint selectable"><BookOpen size={12} class="mt-0.5 shrink-0" /><span>{t.source}</span></span>
-                      {/if}
-                    </span>
-                  </span>
-                </span>
-              {/each}
-            </div>
+            <h2 class="text-2xl font-semibold tracking-tight break-words">{entry.formula} <span class="ml-1 text-base font-normal muted">{entry.name}</span></h2>
+            <p class="mt-1 line-clamp-2 max-w-3xl text-sm muted" title={entry.summary}>{entry.summary}</p>
           </div>
-          <!-- the index ellipsoid's cross-section through the optic axis -->
-          <div class="flex flex-col items-center gap-1" title="The index ellipsoid's section through the optic axis">
-            <svg width="96" height="96" viewBox="-48 -48 96 96" class="text-primary">
-              {#if entry.crystal.optical.kind === "isotropic"}
-                <circle r="30" class="fill-primary/10 stroke-primary" stroke-width="1.5" />
-                <text y="4" text-anchor="middle" class="fill-base-content/60 text-[11px]">n</text>
-              {:else}
-                {@const prolate = entry.crystal.optical.positive}
-                <line x1="0" y1="-44" x2="0" y2="44" class="stroke-base-content/40" stroke-dasharray="3 3" />
-                <ellipse rx={prolate ? 24 : 34} ry={prolate ? 36 : 24} class="fill-primary/10 stroke-primary" stroke-width="1.5" />
-                <text x="4" y="-38" class="fill-base-content/60 text-[10px]">c</text>
-                <text x={prolate ? 26 : 36} y="4" class="fill-base-content/60 text-[10px]">nₒ</text>
-                <text x="4" y={prolate ? 33 : 21} class="fill-base-content/60 text-[10px]">nₑ</text>
-              {/if}
-            </svg>
-            <span class="text-xs faint">{opticalLabel(entry)}</span>
-          </div>
+          {#if structureUrl(entry)}
+            <button
+              class="btn btn-ghost btn-sm shrink-0 gap-1.5 text-primary"
+              onclick={() => openUrl(structureUrl(entry)!)}
+              title="Its crystal structure, band structure and atomic positions on the Materials Project (computed, not this catalogue's)"
+            >
+              <ExternalLink size={14} /><span class="hidden md:inline">Materials Project</span>
+            </button>
+          {/if}
         </div>
+
+        <!-- the crystal, one fact a cell; a click shows the physics and its source under them -->
+        <div class="mt-4 grid grid-cols-[repeat(auto-fill,minmax(9rem,1fr))] gap-2" data-tags>
+          {#each facts(entry) as t (t.kind + t.label)}
+            {@const open = fact === t.kind}
+            <button
+              class="flex min-w-0 items-center gap-2 rounded-lg border px-3 py-2 text-left transition-colors {open ? 'border-primary/40 bg-primary/8' : 'border-base-content/8 hover:bg-base-content/5'}"
+              onclick={() => (fact = open ? null : t.kind)}
+              aria-expanded={open}
+              aria-label="{TAG_KIND[t.kind]}: {t.label}"
+              data-tag={t.kind}
+            >
+              <span class="min-w-0 flex-1">
+                <span class="block truncate text-[10.5px] font-semibold tracking-wider uppercase faint">{TAG_SHORT[t.kind]}</span>
+                <span class="block truncate text-sm {t.kind === 'symmetry' && t.label.startsWith('non-') ? 'text-secondary' : ''}"><MathText text={t.label} /></span>
+              </span>
+              {#if t.kind === "optical"}
+                <!-- the index ellipsoid's section through the optic axis -->
+                <svg width="30" height="30" viewBox="-48 -48 96 96" class="shrink-0" aria-hidden="true">
+                  {#if entry.crystal.optical.kind === "isotropic"}
+                    <circle r="34" class="fill-primary/10 stroke-primary" stroke-width="5" />
+                  {:else}
+                    {@const prolate = entry.crystal.optical.positive}
+                    <line x1="0" y1="-46" x2="0" y2="46" class="stroke-base-content/40" stroke-width="4" stroke-dasharray="8 8" />
+                    <ellipse rx={prolate ? 26 : 40} ry={prolate ? 40 : 26} class="fill-primary/10 stroke-primary" stroke-width="5" />
+                  {/if}
+                </svg>
+              {/if}
+            </button>
+          {/each}
+        </div>
+        {#if fact && facts(entry).find((t) => t.kind === fact)}
+          {@const t = facts(entry).find((t) => t.kind === fact)!}
+          <div class="mt-2 max-w-3xl rounded-lg bg-base-content/4 p-3.5 text-xs leading-relaxed" role="region" aria-label={TAG_KIND[t.kind]}>
+            <span class="block text-[10.5px] font-semibold tracking-wider uppercase faint">{TAG_KIND[t.kind]}</span>
+            <span class="mt-1 block muted selectable"><MathText text={t.detail} /></span>
+            {#if t.source}
+              <span class="mt-2 flex gap-1.5 border-t border-base-content/8 pt-2 faint selectable"><BookOpen size={12} class="mt-0.5 shrink-0" /><span>{t.source}</span></span>
+            {/if}
+          </div>
+        {/if}
         {#if entry.crystal.optical.kind === "uniaxial" || entry.crystal.notes}
-          <p class="mt-3 text-xs faint">
+          <p class="mt-3 line-clamp-2 max-w-3xl text-xs faint" title={entry.crystal.notes}>
             {#if entry.crystal.optical.kind === "uniaxial"}Optic axis {entry.crystal.optical.optic_axis}.{/if}
             {entry.crystal.notes}
           </p>
         {/if}
       </div>
 
-      <div class="space-y-6 px-8 py-6">
+      <div class="space-y-6 px-4 py-5 sm:px-8 sm:py-6">
         <Tip id="materials-intro" title="Every number from its paper">
           Each model is the paper's own equation and coefficients, valid over the range it states; outside it the library refuses, it doesn't extrapolate.
           The references at the bottom open the papers.
@@ -575,7 +598,8 @@
               {/each}
             </div>
             {#if entry.constants.length}
-              <table class="table table-sm mt-5 w-auto">
+              <div class="mt-5 overflow-x-auto">
+              <table class="table table-sm w-auto">
                 <tbody>
                   {#each entry.constants as k (k.symbol + k.conditions)}
                     <tr>
@@ -592,6 +616,7 @@
                   {/each}
                 </tbody>
               </table>
+              </div>
             {/if}
           </section>
         {/if}
