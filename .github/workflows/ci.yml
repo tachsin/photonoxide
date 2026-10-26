@@ -238,11 +238,19 @@ jobs:
           cache-targets: false
       # sccache in GitHub's cache; the action prints its hits and misses in the job's summary
       - uses: mozilla-actions/sccache-action@v0.0.11
+      # and compiling without it when GitHub's cache can't be reached (its storage answers 503 when the
+      # account's egress is over its limit): sccache would otherwise fail every compile
       - name: Compile through sccache
         shell: bash
         run: |
-          echo "SCCACHE_GHA_ENABLED=true" >> "$GITHUB_ENV"
-          echo "RUSTC_WRAPPER=sccache" >> "$GITHUB_ENV"
+          export SCCACHE_GHA_ENABLED=true
+          if sccache --start-server; then
+            echo "SCCACHE_GHA_ENABLED=true" >> "$GITHUB_ENV"
+            echo "SCCACHE_IGNORE_SERVER_IO_ERROR=1" >> "$GITHUB_ENV"
+            echo "RUSTC_WRAPPER=sccache" >> "$GITHUB_ENV"
+          else
+            echo "::warning::sccache didn't start (GitHub's cache unreachable): compiling without it"
+          fi
       - run: cargo fmt --check
       - run: cargo clippy --all-targets --all-features -- -D warnings
       - run: cargo fmt --check -p photonoxide-native -p photonoxide-native-testlib
@@ -281,11 +289,19 @@ jobs:
           cache-targets: false
       # sccache in GitHub's cache; the action prints its hits and misses in the job's summary
       - uses: mozilla-actions/sccache-action@v0.0.11
+      # and compiling without it when GitHub's cache can't be reached (its storage answers 503 when the
+      # account's egress is over its limit): sccache would otherwise fail every compile
       - name: Compile through sccache
         shell: bash
         run: |
-          echo "SCCACHE_GHA_ENABLED=true" >> "$GITHUB_ENV"
-          echo "RUSTC_WRAPPER=sccache" >> "$GITHUB_ENV"
+          export SCCACHE_GHA_ENABLED=true
+          if sccache --start-server; then
+            echo "SCCACHE_GHA_ENABLED=true" >> "$GITHUB_ENV"
+            echo "SCCACHE_IGNORE_SERVER_IO_ERROR=1" >> "$GITHUB_ENV"
+            echo "RUSTC_WRAPPER=sccache" >> "$GITHUB_ENV"
+          else
+            echo "::warning::sccache didn't start (GitHub's cache unreachable): compiling without it"
+          fi
       # the library's test binary alone: its few doc tests would build the library once more (two
       # minutes), so they run with every test
       - name: The changed areas' unit tests
@@ -337,11 +353,19 @@ jobs:
           cache-targets: false
       # sccache in GitHub's cache; the action prints its hits and misses in the job's summary
       - uses: mozilla-actions/sccache-action@v0.0.11
+      # and compiling without it when GitHub's cache can't be reached (its storage answers 503 when the
+      # account's egress is over its limit): sccache would otherwise fail every compile
       - name: Compile through sccache
         shell: bash
         run: |
-          echo "SCCACHE_GHA_ENABLED=true" >> "$GITHUB_ENV"
-          echo "RUSTC_WRAPPER=sccache" >> "$GITHUB_ENV"
+          export SCCACHE_GHA_ENABLED=true
+          if sccache --start-server; then
+            echo "SCCACHE_GHA_ENABLED=true" >> "$GITHUB_ENV"
+            echo "SCCACHE_IGNORE_SERVER_IO_ERROR=1" >> "$GITHUB_ENV"
+            echo "RUSTC_WRAPPER=sccache" >> "$GITHUB_ENV"
+          else
+            echo "::warning::sccache didn't start (GitHub's cache unreachable): compiling without it"
+          fi
       - name: Validation cases, each row against docs/validation.md
         if: env.CASES != ''
         run: cargo test --release --test validation_report -- --ignored --nocapture
@@ -446,11 +470,19 @@ jobs:
           cache-targets: false
       # sccache in GitHub's cache; the action prints its hits and misses in the job's summary
       - uses: mozilla-actions/sccache-action@v0.0.11
+      # and compiling without it when GitHub's cache can't be reached (its storage answers 503 when the
+      # account's egress is over its limit): sccache would otherwise fail every compile
       - name: Compile through sccache
         shell: bash
         run: |
-          echo "SCCACHE_GHA_ENABLED=true" >> "$GITHUB_ENV"
-          echo "RUSTC_WRAPPER=sccache" >> "$GITHUB_ENV"
+          export SCCACHE_GHA_ENABLED=true
+          if sccache --start-server; then
+            echo "SCCACHE_GHA_ENABLED=true" >> "$GITHUB_ENV"
+            echo "SCCACHE_IGNORE_SERVER_IO_ERROR=1" >> "$GITHUB_ENV"
+            echo "RUSTC_WRAPPER=sccache" >> "$GITHUB_ENV"
+          else
+            echo "::warning::sccache didn't start (GitHub's cache unreachable): compiling without it"
+          fi
       - run: cargo check --all-targets --all-features
 
   # The library's public API, by cargo-semver-checks. A pull request is checked against its base
