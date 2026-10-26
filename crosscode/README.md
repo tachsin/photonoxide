@@ -22,12 +22,12 @@ mesh lines in each problem.
 |---|---|---:|---:|---:|
 | Coplanar line, 0.125 µm mesh | n | 2.217156 | 2.217159 (+0.00011 %) | 2.217175 (+0.00085 %) |
 | | Z₀, Ω | 54.1476 | 54.3714 (+0.41 %) | 54.0150 (−0.24 %) |
-| | time | | 0.073 s | 0.080 s |
+| | time | | 0.053 s | 0.075 s |
 | Heater over silicon, 0.0125 µm mesh | peak rise, K | 0.327422 | 0.327508 (+0.026 %) | 0.327384 (−0.012 %) |
-| | time | | 0.036 s | 0.070 s |
+| | time | | 0.029 s | 0.070 s |
 
 - **Agreement:** refined to convergence, Elmer meets photonoxide within 0.00090 % on n, 0.047 % on Z₀ and 0.0099 % on the heater's rise.
-- **Times:** each code's own assembly and solve on the same mesh, the fastest of three runs. Elmer's are read from its log, which gives the heat solver's to 0.01 s; photonoxide's are measured around its solve. The line takes two solves in each code, with the substrate and without it. They were taken on an Intel Core Ultra 7 265K (20 threads), 64 GB, Windows 11.
+- **Times:** each code's own assembly and solve on the same mesh, the fastest of three runs. Elmer's are read from its log, which gives the heat solver's to 0.01 s; photonoxide's are measured around its solve. The line takes two solves in each code, with the substrate and without it. They were taken on an Intel Core Ultra 7 265K (20 threads), 64 GB, Windows 11, with nothing else running.
 - Every mesh: [docs/validation-elmer.md](../docs/validation-elmer.md).
 
 ## photonoxide against openEMS
