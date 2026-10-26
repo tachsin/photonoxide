@@ -1442,7 +1442,7 @@ rounding grows (`src/fdtd/gpu/tests.rs`):
   −67), in about 3 s.
 
 These, every FDTD case of the validation report run again on the GPU, and its speed are
-[the GPU's report](../validation-gpu.md), written on tachsin's machine before each release.
+[the GPU's report](../validation-gpu.md), written on a computer with a GPU before each release.
 
 **Speed** on an RTX 4060 (Vulkan, driver 616.56), `fdtd::gpu::rates`: the kernel alone
 on the cubes of the CPU's table above (50 nm cells of vacuum inside CPMLs of 8, random fields),

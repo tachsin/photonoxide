@@ -2,10 +2,11 @@
 
 photonoxide is released milestone by milestone: a library whose public API can change between milestones until 1.0, and
 the `photonoxide` program (the studio). [ROADMAP.md](ROADMAP.md) is the plan and the record of
-what is done; [CHANGELOG.md](CHANGELOG.md) has what each release changed. 0.1 to 0.5 and their
-patches are released, the latest 0.5.4 (geometry for any device, the devices on pages of their
-own with their studies and optimization, compact models, the chip built from devices, devices in
-Python); next is 0.6, thermal and electro-optic devices, with 0.5.5 (the job editor and exports) beside it. The library's modules, each with a write-up in
+what is done; [CHANGELOG.md](CHANGELOG.md) has what each release changed. 0.1 to 0.6 and their
+patches are released, the latest 0.6.0 (thermal and electro-optic devices: heat, thermo-optic
+phase shifters as devices, Pockels modulation, travelling-wave electrodes, phase-change materials;
+and 0.5.5's job editor and exports); next is 0.6.1, nonlinear integrated optics, after 0.6's
+leftovers (#543: the TFLN modulator as a device, the studio's views, GDS read into jobs). The library's modules, each with a write-up in
 `docs/methods/`:
 
 - `units`, `material` (with `material::catalogue`), `geometry` (the kernel: regions, transforms,

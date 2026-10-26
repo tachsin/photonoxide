@@ -1,7 +1,7 @@
 //! The GPU's validation report, docs/validation-gpu.md: the GPU against the CPU, its runs'
 //! repeatability, a published result on it, every FDTD case of the main report run again on it,
-//! and its speed. GitHub's runners have no GPU, so this report is written on tachsin's machine
-//! before each release (`cargo test --release --features gpu --test gpu_report -- --ignored`),
+//! and its speed. GitHub's runners have no GPU, so this report is written on a computer with a
+//! GPU before each release (`cargo test --release --features gpu --test gpu_report -- --ignored`),
 //! not checked by CI; docs/validation.md is the same with or without a GPU.
 
 use std::fmt::Write as _;
@@ -402,7 +402,7 @@ pub fn gpu_report() -> Result<(String, bool)> {
         "# Validation report: the GPU\n\
          \n\
          Written by `cargo test --release --features gpu --test gpu_report -- --ignored` on \
-         tachsin's machine before each release; don't edit it by hand. GitHub's runners have no \
+         a computer with a GPU before each release; don't edit it by hand. GitHub's runners have no \
          GPU, so CI doesn't run this report: [the main report](validation.md) is the same with \
          or without one. A GPU run repeats bit for bit on the same device and driver, and agrees \
          with the CPU to the tolerances below (see [FDTD](methods/fdtd.md#the-gpu)).\n\

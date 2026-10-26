@@ -235,9 +235,8 @@ or the committed report isn't the one the code writes. CI checks every example's
 | 0.5.2 Many solves at once | Ports as a block, recycling across sweeps, more contour-integral mode solvers, farming across processes | ✅ released |
 | 0.5.3 QMR without the matrix | QMR without its matrix where the matrix wouldn't fit, MUMPS 5.9 | ✅ released |
 | 0.5.4 Geometry and devices | Geometry for any device; the device library on pages of its own, with its models, runs, sweeps, corners and optimization; compact models; the chip built from devices; devices in Python | ✅ released |
-| 0.5.5 Writing jobs and taking results away | The job editor (the text beside the design, a popover of fields and expressions, a schema), YAML first, every example as a job too, exports of modes and fields in compressed files, GDS read into jobs | planned |
-| 0.6 Thermal and electro-optic | Heat, thermo-optic phase shifters, Pockels modulators, travelling-wave electrodes | 🚧 next |
-| 0.6.1 Nonlinear integrated optics | Transparency windows, phase matching, SHG, SFG, DFG, SPDC and FWM in waveguides, Kerr combs | planned |
+| 0.6.0 Thermal and electro-optic, and writing jobs | Heat, steady and transient; thermo-optic phase shifters as devices; Pockels modulation; travelling-wave electrodes, quasi-TEM and full-wave; phase-change materials; the job editor, YAML first, every example as a job, exports of modes and fields (0.5.5's, released here) | ✅ released |
+| 0.6.1 Nonlinear integrated optics | First 0.6's leftovers: the TFLN modulator as a device, the studio's temperature and field views, GDS read into jobs; then transparency windows, phase matching, SHG, SFG, DFG, SPDC and FWM in waveguides, Kerr combs | 🚧 next |
 | 0.6.2 Quantum light | Linear-optical statistics, photon-pair sources, Gaussian states, loss budgets of quantum circuits | planned |
 | 0.6.3 Eigenmode expansion and the mode solver's tools | Eigenmode expansion, convergence to a tolerance, adaptive sweeps, effective area and fibre coupling, sidewall-roughness loss | planned |
 | 0.7 Inverse design | Topology and shape optimization with fabrication constraints | planned |
