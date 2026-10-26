@@ -557,7 +557,14 @@ fn heinrich_l(k: usize) -> Outcome {
 /// against their Eq. (9a) with the full-wave ε_eff.
 fn frankel_radiation(k: usize) -> Outcome {
     let [eps, radiation] = frankel_numbers()[k];
-    let expected = frankel_9a(30e-6, 20e-6, gated(eps), FRANKEL_EPS, FRANKEL_GHZ[k] * 1e9);
+    // ε_eff to four digits too: the tolerance, a tenth of the expected, is shown in full
+    let expected = frankel_9a(
+        30e-6,
+        20e-6,
+        four(gated(eps)),
+        FRANKEL_EPS,
+        FRANKEL_GHZ[k] * 1e9,
+    );
     outcome(four(gated(radiation)), expected, 0.1 * expected)
 }
 
