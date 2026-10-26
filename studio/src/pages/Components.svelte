@@ -9,6 +9,7 @@
   // every template opens.
   import { Boxes, ChevronDown, ChevronRight, CircleCheck, CirclePlus, Copy, FileCog, FileDown, FileText, FileUp, PanelLeftClose, PanelLeftOpen, RotateCcw, Search, Shapes } from "@lucide/svelte";
   import katex from "katex";
+  import { untrack } from "svelte";
   import { fade, fly } from "svelte/transition";
   import "katex/dist/katex.min.css";
 
@@ -151,6 +152,34 @@
 
   const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 
+  // ---- the list's groups: each folds away under its row, as the rail's System group does, and
+  // stays as it was left; the group of the component shown opens when it is chosen (here, from
+  // Ctrl+K or from the chip), and a search shows every group it finds something in ----
+  function groupsWere(): Record<string, boolean> {
+    try {
+      return JSON.parse(localStorage.getItem("components-groups") ?? "{}");
+    } catch {
+      return {};
+    }
+  }
+  /** Each group's open state as it was left; one never touched is open, but for the long lists of jobs and templates. */
+  let opened = $state<Record<string, boolean>>(groupsWere());
+  const searching = $derived(query.trim() !== "");
+  const isOpen = (key: string) => searching || (opened[key] ?? (key !== "jobs" && key !== "templates"));
+  function toggleGroup(key: string) {
+    if (searching) return;
+    opened[key] = !isOpen(key);
+    try {
+      localStorage.setItem("components-groups", JSON.stringify(opened));
+    } catch {
+      // storage blocked: the groups just forget
+    }
+  }
+  $effect(() => {
+    const category = custom ? undefined : kind?.category;
+    if (category) untrack(() => isOpen(category) || (opened[category] = true));
+  });
+
   // ---- the list: out of the way once a component is open, one click (or Ctrl+B) away ----
   function listWas(): string | null {
     try {
@@ -248,6 +277,21 @@
 
 <svelte:window onkeydown={listKeys} />
 
+<!-- a group's row: its name, how many it holds, and the chevron that folds it; lit while it is folded over the component shown -->
+{#snippet group(key: string, title: string, count: number, holdsShown: boolean)}
+  {@const open = isOpen(key)}
+  <button
+    class="mt-1.5 flex w-full items-center gap-2 rounded-lg px-3 py-1.5 text-left text-[13px] font-medium transition-colors {holdsShown && !open ? 'bg-primary/12 text-primary' : 'text-base-content/70 hover:bg-base-content/5 hover:text-base-content'}"
+    onclick={() => toggleGroup(key)}
+    aria-expanded={open}
+    title={searching ? "Every group the search finds something in is open" : open ? `Fold ${title} away` : `Show ${title}`}
+  >
+    <span class="min-w-0 flex-1 truncate">{title}</span>
+    <span class="num text-[11px] faint">{count}</span>
+    <span class="shrink-0 transition-transform duration-200 motion-reduce:transition-none" class:rotate-90={open}><ChevronRight size={15} /></span>
+  </button>
+{/snippet}
+
 {#snippet list()}
     <div class="p-3">
       <div class="mb-2 flex items-center gap-2">
@@ -279,7 +323,8 @@
         </button>
       {/if}
       {#if designs.length}
-        <div class="px-3 pt-3 pb-1 text-[10.5px] font-semibold tracking-wider uppercase faint">Your designs</div>
+        {@render group("designs", "Your designs", designs.length, false)}
+        {#if isOpen("designs")}<div class="pl-2.5">
         {#each designs as d (d.path)}
           <button class="flex w-full items-center gap-3 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-base-content/5" onclick={() => (fold(), openDesign(d.path))} title={d.path}>
             <span class="grid h-7 w-11 shrink-0 place-items-center text-primary"><FileCog size={16} /></span>
@@ -289,11 +334,13 @@
             </span>
           </button>
         {/each}
+        </div>{/if}
       {/if}
       {#each categories as category (category)}
         {@const items = shown.filter((k) => k.category === category && familyOf(k).find((f) => shown.includes(f)) === k)}
         {#if items.length}
-          <div class="px-3 pt-3 pb-1 text-[10.5px] font-semibold tracking-wider uppercase faint">{category}</div>
+          {@render group(category, category, items.length, !custom && kind?.category === category)}
+          {#if isOpen(category)}<div class="pl-2.5">
           {#each items as k (partKey(k))}
             {@const family = familyOf(k)}
             {@const on = !!kind && family.includes(kind)}
@@ -310,13 +357,15 @@
               </span>
             </button>
           {/each}
+          </div>{/if}
         {/if}
       {:else}
         {#if library.loaded}<p class="px-3 text-sm faint">The library is empty.</p>{/if}
       {/each}
       <!-- the workspace's other jobs and the templates: each opens in the Custom device -->
       {#if mine.length}
-        <div class="px-3 pt-3 pb-1 text-[10.5px] font-semibold tracking-wider uppercase faint">Your jobs</div>
+        {@render group("jobs", "Your jobs", mine.length, false)}
+        {#if isOpen("jobs")}<div class="pl-2.5">
         {#each mine as j (j.path)}
           <button class="flex w-full items-center gap-3 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-base-content/5" onclick={() => (fold(), openJob(j.path))} title="{j.path}: opens in the Custom device">
             <span class="grid h-7 w-11 shrink-0 place-items-center faint"><FileText size={15} /></span>
@@ -326,9 +375,11 @@
             </span>
           </button>
         {/each}
+        </div>{/if}
       {/if}
       {#if templates.length}
-        <div class="px-3 pt-3 pb-1 text-[10.5px] font-semibold tracking-wider uppercase faint">Templates</div>
+        {@render group("templates", "Templates", templates.length, false)}
+        {#if isOpen("templates")}<div class="pl-2.5">
         {#each templates as j (j.file)}
           <button class="flex w-full items-center gap-3 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-base-content/5" onclick={async () => (fold(), (await openChipText(j.text)) || (await openDeviceText(j.text)) || openCustom(j.text))} title="{j.about}: opens {j.kind === 'device' ? 'on its device’s page' : 'in the Custom device'}, to change and save as your own">
             <span class="grid h-7 w-11 shrink-0 place-items-center faint"><Copy size={14} /></span>
@@ -338,6 +389,7 @@
             </span>
           </button>
         {/each}
+        </div>{/if}
       {/if}
     </div>
 {/snippet}
