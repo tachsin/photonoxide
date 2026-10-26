@@ -403,11 +403,12 @@ def test_the_python_page_runs(capsys: pytest.CaptureFixture[str]) -> None:
 
 def test_the_devices_are_the_studios() -> None:
     kinds = [d.kind for d in phox.devices()]
-    assert kinds[:3] == ["waveguide", "bend", "directional coupler"] and len(kinds) == 14
+    assert kinds[:3] == ["waveguide", "bend", "directional coupler"] and len(kinds) == 15
     assert kinds[11:] == [
         "thermo-optic phase shifter",
         "doped thermo-optic phase shifter",
         "in-guide thermo-optic phase shifter",
+        "TFLN Mach-Zehnder modulator",
     ]
     coupler = phox.devices()[2]
     gap = next(p for p in coupler.parameters if p.name == "gap")

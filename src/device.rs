@@ -66,6 +66,7 @@ mod solve;
 pub(crate) mod spec;
 mod thermo;
 mod thermo_closed;
+mod tfln;
 mod waveguide;
 mod ybranch;
 
@@ -76,8 +77,11 @@ mod splitter_tests;
 #[cfg(test)]
 mod tests;
 pub(crate) mod thermo_checks;
+pub(crate) mod tfln_checks;
 #[cfg(test)]
 mod thermo_tests;
+#[cfg(test)]
+mod tfln_tests;
 
 pub use active::Measurement;
 pub use bend::StripBend;
@@ -92,6 +96,7 @@ pub use section::{Cells, Mesh, Scheme, Symmetry};
 pub use solve::FdfdGrid;
 pub use spec::{LayerSpec, MaterialSpec, PRESETS, Spec, StackSpec, fidelity};
 pub use thermo::ThermoShifter;
+pub use tfln::TflnModulator;
 pub use waveguide::StripWaveguide;
 pub use ybranch::StripYBranch;
 
@@ -667,6 +672,7 @@ pub fn library() -> Vec<Box<dyn Device>> {
         Box::new(ThermoShifter::metal()),
         Box::new(ThermoShifter::doped()),
         Box::new(ThermoShifter::in_guide()),
+        Box::new(TflnModulator::new()),
     ]
 }
 

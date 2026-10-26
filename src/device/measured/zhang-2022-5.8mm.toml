@@ -1,0 +1,54 @@
+# Zhang et al. 2022's 5.8 mm thin-film lithium niobate Mach-Zehnder modulator, as they
+# measured it: the TFLN Mach-Zehnder modulator's measured fidelity
+# (photonoxide::device::Measurement). Read 2026-10-26 from the paper.
+kind = "TFLN Mach-Zehnder modulator"
+source = "Y. Zhang, L. Shao, J. Yang, Z. Chen, K. Zhang, K.-M. Shum, D. Zhu, C. H. Chan, M. Loncar, C. Wang, Photon. Res. 10, 2380 (2022), doi:10.1364/PRJ.468518: the 5.8 mm modulator (Section 3.A, Fig. 1: a 600 nm x-cut film etched 300 nm to ribs 1.2 um wide on top, 5 um gaps beside a 20 um signal of 800 nm of copper under 30 nm of gold, 2 um of thermal oxide on silicon, 0.6 um of PECVD silica), measured to 325 GHz (Sections 3.B and 3.C)"
+
+# what the paper gives of the design (the PECVD silica's 5.5 as their model has it); the walls'
+# angle and the grounds' width it doesn't
+[design]
+film = 0.6
+slab = 0.3
+width = 1.2
+gap = 5.0
+signal = 20.0
+metal = 0.83
+buried = 2.0
+cladding = 0.6
+cladding_permittivity = 5.5
+length = 5800.0
+
+[[figure]]
+symbol = "VpiL"
+name = "voltage-length product for a π shift, push–pull"
+value = 2.3
+unit = "V·cm"
+where = "Section 2, at DC (2.67 V·cm at 1 GHz)"
+
+[[figure]]
+symbol = "VpiL_1GHz"
+name = "voltage-length product for a π shift at 1 GHz"
+value = 2.67
+unit = "V·cm"
+where = "Section 2"
+
+[[figure]]
+symbol = "f_3dB"
+name = "3 dB electro-optic bandwidth, from 1 GHz"
+value = 170.0
+unit = "GHz"
+where = "Section 3.C and Fig. 5(d) (175 GHz in Section 1)"
+
+[[figure]]
+symbol = "f_6dB"
+name = "6 dB electro-optic bandwidth, from 1 GHz"
+value = 295.0
+unit = "GHz"
+where = "Section 3.C and Fig. 5(d)"
+
+[[figure]]
+symbol = "Vpi_250GHz"
+name = "RF half-wave voltage at 250 GHz"
+value = 8.3
+unit = "V"
+where = "Section 3.C and Fig. 5(b)"

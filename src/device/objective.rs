@@ -559,6 +559,50 @@ pub(super) fn objectives_of(kind: &str) -> Vec<Objective> {
                 "the share of the guide's phase the neighbour at the pitch takes",
             ),
         ],
+        "TFLN Mach-Zehnder modulator" => vec![
+            objective(
+                "voltage-length product",
+                "VpiL",
+                "V·cm",
+                "VpiL",
+                Minimize,
+                None,
+                None,
+                "the cross-section's efficiency, push–pull: the same for any length",
+            ),
+            objective(
+                "bandwidth",
+                "f_3dB",
+                "GHz",
+                "f_3dB",
+                Maximize,
+                None,
+                None,
+                "the 3 dB electro-optic bandwidth, from 1 GHz: the electrode's loss, its walk-off \
+                 from the light and its impedance against the source's",
+            ),
+            objective(
+                "RF half-wave voltage",
+                "Vpi_f",
+                "V",
+                "Vpi_f",
+                Minimize,
+                None,
+                None,
+                "V_π at the drive's frequency, V_π / |m(f)|: the length traded between the DC \
+                 V_π and the response",
+            ),
+            objective(
+                "impedance",
+                "Z0",
+                "Ω",
+                "Z0",
+                Target,
+                Some(50.0),
+                None,
+                "the line's impedance brought to the source's 50 Ω",
+            ),
+        ],
         _ => Vec::new(),
     }
 }
@@ -718,6 +762,35 @@ pub(super) fn constraints_of(kind: &str) -> Vec<Constraint> {
         ],
         "MZI" => vec![smallest_width(), smallest_gap("gap")],
         "Y-branch MZI" => vec![smallest_width()],
+        "TFLN Mach-Zehnder modulator" => vec![
+            constraint(
+                "half-wave voltage",
+                "Vpi",
+                "V",
+                "Vpi",
+                AtMost,
+                5.0,
+                "a π shift at DC for no more than the driver gives",
+            ),
+            constraint(
+                "bandwidth",
+                "f_3dB",
+                "GHz",
+                "f_3dB",
+                AtLeast,
+                50.0,
+                "the 3 dB electro-optic bandwidth at least this",
+            ),
+            constraint(
+                "velocity match",
+                "walk-off",
+                "",
+                "abs(n_rf - n_g)",
+                AtMost,
+                0.1,
+                "the RF index within this of the light's group index",
+            ),
+        ],
         "in-guide thermo-optic phase shifter" => {
             let mut c = shifter_constraints();
             c.push(constraint(

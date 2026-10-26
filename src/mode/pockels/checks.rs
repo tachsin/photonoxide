@@ -311,7 +311,11 @@ impl Tfln {
     /// The optical cross-section on a grid `h` fine over the film and the rib, growing away
     /// from them, and the material's permittivities: the crystal x-cut with c across.
     pub(crate) fn optics(&self, h: f64) -> (CrossSection, Optics) {
-        let w = wavelength();
+        self.optics_at(h, wavelength())
+    }
+
+    /// The same at the wavelength `w`: the crystal's and the oxide's permittivities there.
+    pub(crate) fn optics_at(&self, h: f64, w: Wavelength) -> (CrossSection, Optics) {
         let x_cut = Orientation::cut(CrystalAxis::X, Some(CrystalAxis::Z)).expect(OK);
         // along y: the chip's x across, so the crystal's c across
         let crystal = Along::Y.tensor(oriented_linbo3(x_cut).tensor(w).expect(OK));
@@ -447,18 +451,27 @@ impl Optics {
 }
 
 /// The crystal's tensor in a thin-film cross-section's axes: x-cut, c across a guide along y.
-fn section_pockels(coefficients: Coefficients) -> Pockels {
+pub(crate) fn section_pockels(coefficients: Coefficients) -> Pockels {
     let x_cut = Orientation::cut(CrystalAxis::X, Some(CrystalAxis::Z)).expect(OK);
     coefficients.pockels().rotated(&x_cut).in_section(Along::Y)
 }
 
 /// The TE-like fundamental mode of `cs`: of the two highest, the one with the larger TE share.
 fn te_mode(cs: &CrossSection) -> VectorMode {
-    let modes = vector::modes(cs, wavelength(), 2, None).expect(OK);
+    te_mode_at(cs, wavelength()).expect(OK)
+}
+
+/// The same at the wavelength `w`.
+///
+/// # Errors
+///
+/// The solver's, and [`crate::Error::InvalidValue`] when it finds no mode.
+pub(crate) fn te_mode_at(cs: &CrossSection, w: Wavelength) -> crate::Result<VectorMode> {
+    let modes = vector::modes(cs, w, 2, None)?;
     modes
         .into_iter()
         .max_by(|a, b| a.te_fraction().total_cmp(&b.te_fraction()))
-        .expect("a mode")
+        .ok_or_else(|| crate::Error::invalid("thin-film modulator", "its cross-section guides no mode"))
 }
 
 /// `tfln`'s push–pull Vπ·L (V·cm) with `coefficients`, the static grid graded by `grading`,

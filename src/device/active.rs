@@ -1,5 +1,6 @@
-//! What the active devices share: the component a drive's phase gives ([`Driven`]), and a
-//! measured device's file ([`Measurement`]), the fidelity a device is measured at.
+//! What the active devices share: the components a drive's phase gives (a phase shifter's,
+//! [`Driven`], and a balanced Mach–Zehnder modulator's, [`Balanced`]), and a measured device's
+//! file ([`Measurement`]), the fidelity a device is measured at.
 
 use std::f64::consts::LN_10;
 use std::path::Path;
@@ -75,6 +76,92 @@ fn through(t: c64) -> SMatrix {
 }
 
 impl Component for Driven {
+    fn kind(&self) -> &str {
+        &self.kind
+    }
+
+    fn ports(&self) -> &[Port] {
+        &self.ports
+    }
+
+    fn parameters(&self) -> &[Parameter] {
+        &self.parameters
+    }
+
+    fn s_matrix(&self, wavelength: Wavelength, values: &[f64]) -> Result<SMatrix> {
+        Ok(through(self.transmission(wavelength, values)?[0]))
+    }
+
+    fn provenance(&self) -> Provenance {
+        self.provenance.clone()
+    }
+
+    fn derivatives(&self, wavelength: Wavelength, values: &[f64]) -> Result<Option<Vec<SMatrix>>> {
+        let [_, phase, loss] = self.transmission(wavelength, values)?;
+        Ok(Some(vec![through(phase), through(loss)]))
+    }
+}
+
+/// A balanced Mach–Zehnder modulator of ideal Y-branches whose arms' phase difference a drive
+/// sets: ports `o1` and `o2`, parameters `phase` (the arms' difference φ, rad, at the design's
+/// wavelength λ₀) and `loss` (dB, the insertion loss), reciprocal,
+/// S₂₁ = S₁₂ = 10^(−loss/20) cos(θ/2), θ = φλ₀/λ: the light the second Y-branch can't take into
+/// its guide (its odd supermode) is radiated, and the arms' common phase, which a two-port's
+/// intensity doesn't see, is left out.
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) struct Balanced {
+    kind: String,
+    wavelength_um: f64,
+    ports: Vec<Port>,
+    parameters: Vec<Parameter>,
+    provenance: Provenance,
+}
+
+impl Balanced {
+    /// A modulator of kind `kind`, its phase stated at `wavelength_um`, from `provenance`.
+    pub(crate) fn new(kind: &str, wavelength_um: f64, provenance: Provenance) -> Balanced {
+        Balanced {
+            kind: kind.to_owned(),
+            wavelength_um,
+            ports: crate::circuit::ports(&["o1", "o2"]),
+            parameters: vec![
+                Parameter::new("phase", "rad", 0.0, -1e6, 1e6),
+                Parameter::new("loss", "dB", 0.0, 0.0, 1e3),
+            ],
+            provenance,
+        }
+    }
+
+    /// The transmission and its derivatives in the phase and the loss.
+    fn transmission(&self, wavelength: Wavelength, values: &[f64]) -> Result<[c64; 3]> {
+        if values.len() != 2
+            || !self
+                .parameters
+                .iter()
+                .zip(values)
+                .all(|(p, &v)| p.allows(v))
+        {
+            return Err(Error::invalid(
+                "balanced modulator",
+                format!(
+                    "a {} takes its arms' phase difference (rad) and a loss (dB), got {values:?}",
+                    self.kind
+                ),
+            ));
+        }
+        let scale = self.wavelength_um / wavelength.to_um();
+        let half = 0.5 * values[0] * scale;
+        let a = 10f64.powf(-values[1] / 20.0);
+        let t = a * half.cos();
+        Ok([
+            c64::new(t, 0.0),
+            c64::new(-0.5 * scale * a * half.sin(), 0.0),
+            c64::new(-t * (LN_10 / 20.0), 0.0),
+        ])
+    }
+}
+
+impl Component for Balanced {
     fn kind(&self) -> &str {
         &self.kind
     }

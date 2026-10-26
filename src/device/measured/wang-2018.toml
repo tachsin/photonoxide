@@ -1,0 +1,47 @@
+# Wang et al. 2018's 2 mm thin-film lithium niobate Mach-Zehnder modulator, as they measured
+# it: the TFLN Mach-Zehnder modulator's measured fidelity (photonoxide::device::Measurement).
+# Read 2026-10-26 from the paper.
+kind = "TFLN Mach-Zehnder modulator"
+source = "C. Wang, M. Zhang, B. Stern, M. Lipson, M. Loncar, Opt. Express 26, 1547 (2018), doi:10.1364/OE.26.001547: the 2 mm Mach-Zehnder modulator (Section 2, Fig. 2(e): an x-cut film, ribs 900 nm wide on top and 400 nm high on a 300 nm slab, a 3.5 um gap, electrodes of 15 nm of Ti and 300 nm of Au, a silica cladding), its electrode a capacitor driven directly (Section 3)"
+
+# what the paper gives of the design (the 2 um of oxide under the film and the 1.5 um of
+# silica over the electrodes as P6's case takes them); the walls' angle and the signal's and
+# grounds' widths it doesn't
+[design]
+film = 0.7
+slab = 0.3
+width = 0.9
+gap = 3.5
+metal = 0.315
+buried = 2.0
+cladding = 1.5
+cladding_permittivity = 3.9
+length = 2000.0
+
+[[figure]]
+symbol = "VpiL"
+name = "voltage-length product for a π shift, push–pull"
+value = 1.8
+unit = "V·cm"
+where = "Section 3.1 and Fig. 3(c), from Vπ 9 V over 2 mm"
+
+[[figure]]
+symbol = "Vpi"
+name = "half-wave voltage, DC"
+value = 9.0
+unit = "V"
+where = "Section 3.1 and Fig. 3(c), 10 dB extinction"
+
+[[figure]]
+symbol = "f_3dB"
+name = "3 dB electro-optic bandwidth"
+value = 15.0
+unit = "GHz"
+where = "Section 3.2 and Fig. 4(c), limited by the electrode's 0.2 pF through the 50 ohm drive"
+
+[[figure]]
+symbol = "IL"
+name = "insertion loss"
+value = 2.0
+unit = "dB"
+where = "Section 2, on chip over 7 mm of guide (5 dB more at each facet)"

@@ -1,0 +1,26 @@
+# Kharel et al. 2021's regular electrode on thin-film lithium niobate on silicon, as they
+# measured it: its RF loss only (no modulator's Vπ is measured on it), a file of the TFLN
+# Mach-Zehnder modulator's measured fidelity (photonoxide::device::Measurement) for the line's
+# figure. Read 2026-10-26 from the paper.
+kind = "TFLN Mach-Zehnder modulator"
+source = "P. Kharel, C. Reimer, K. Luke, L. He, M. Zhang, Optica 8, 357 (2021), doi:10.1364/OPTICA.416155: the 10 mm regular electrode on LN on silicon (Table 1's regular electrode with a 5 um gap: a 30 um signal, 800 nm of gold on a 600 nm x-cut film etched 350 nm to a rib 2 um wide, 2 um of oxide over 500 um of silicon, 1 um of oxide over the slab), its loss measured (Section 3, Fig. 2(a))"
+
+# what the paper gives of the design; the walls' angle and the grounds' width it doesn't
+[design]
+film = 0.6
+slab = 0.25
+width = 2.0
+gap = 5.0
+signal = 30.0
+metal = 0.8
+buried = 2.0
+cladding = 1.0
+cladding_permittivity = 3.9
+length = 10000.0
+
+[[figure]]
+symbol = "alpha_c"
+name = "conductor loss at 50 GHz over its square root"
+value = 0.69
+unit = "dB/(cm·√GHz)"
+where = "Section 3 and Fig. 2(a), 0.69 dB cm^-1 GHz^-1/2 fitted to the 10 mm electrode's measured loss"

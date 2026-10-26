@@ -647,7 +647,8 @@ fn the_library_has_the_first_devices_each_with_its_models() {
             "Y-branch MZI",
             "thermo-optic phase shifter",
             "doped thermo-optic phase shifter",
-            "in-guide thermo-optic phase shifter"
+            "in-guide thermo-optic phase shifter",
+            "TFLN Mach-Zehnder modulator"
         ]
     );
     for d in library() {
@@ -659,7 +660,7 @@ fn the_library_has_the_first_devices_each_with_its_models() {
         };
         assert_eq!(methods[0].fidelity, first, "{}", d.kind());
         // the highest 3D, or the measured device for the active ones
-        let highest = if d.kind().contains("phase shifter") {
+        let highest = if d.kind().contains("phase shifter") || d.kind().contains("modulator") {
             Fidelity::Measured
         } else {
             Fidelity::ThreeD
