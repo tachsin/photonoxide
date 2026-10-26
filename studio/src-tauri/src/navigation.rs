@@ -6,9 +6,10 @@
 //!
 //! - every published result of `examples/` is on Validation's Published results tab, and in
 //!   Ctrl+K;
-//! - every job of `jobs/` is a template on Home, and opens in the Custom device on Components (a
-//!   device's job on its device's page), as do the workspace's own jobs;
-//! - every circuit of `circuits/` is in the Chip's "New from…";
+//! - every job of `jobs/` is a template on Home and in the rail's Components list, and opens in
+//!   the Custom device on Components (a device's job on its device's page), as do the
+//!   workspace's own jobs;
+//! - every circuit of `circuits/` is in the rail's Chip list, under New chip;
 //! - a run started with `photonoxide run` opens the run view, and is pinned in the runs drawer
 //!   while it goes; every run is in the drawer, a device's opening on its page (a study on its
 //!   Study tab), and overlays of runs (once the Compare page, then the drawer's) are a device's
@@ -236,7 +237,7 @@ fn every_job_has_a_home() {
 
 #[test]
 fn every_job_opens_in_the_custom_device_or_on_its_devices_page() {
-    // the Custom device is on Components, in its list and in Ctrl+K
+    // the Custom device is on Components, in the rail's list of it and in Ctrl+K
     let app = source("lib/app.svelte.ts");
     assert!(app.contains(r#"export const CUSTOM = "custom";"#));
     let open = &app[app.find("export function openCustom").unwrap()..];
@@ -245,13 +246,13 @@ fn every_job_opens_in_the_custom_device_or_on_its_devices_page() {
         open.contains("app.component = CUSTOM;") && open.contains(r#"go("components");"#),
         "openCustom must show the Custom device on Components"
     );
-    let components = "pages/Components.svelte";
+    let components = "components/rail/ComponentsTree.svelte";
     holds(
         components,
         "onclick={() => choose(CUSTOM)}",
         "the list's Custom device",
     );
-    holds(components, "<CustomDevice />", "the page");
+    holds("pages/Components.svelte", "<CustomDevice />", "the page");
     // the workspace's jobs: a device's on its page, any other in the Custom device; the
     // templates in the Custom device too
     holds(
@@ -310,18 +311,18 @@ fn every_circuit_has_a_home() {
         .collect();
     listed.sort();
     assert_eq!(listed, files("circuits", "toml"), "the built-in circuits");
-    // each in the Chip's New from…, after the empty chip
-    let chip = source("pages/Chip.svelte");
+    // each in the rail's Chip list, under New chip, after the empty chip
+    let chip = source("components/rail/ChipTree.svelte");
     let menu = &chip[chip
-        .find("New from… <ChevronDown")
-        .expect("no New from… on the Chip")..];
-    let menu = &menu[..menu.find("</ul>").unwrap()];
+        .find(r#"<TreeGroup key="chip/new" title="New chip""#)
+        .expect("no New chip in the rail's Chip list")..];
+    let menu = &menu[..menu.find("</TreeGroup>").unwrap()];
     assert!(
-        menu.contains("{#each examples as ex (ex.file)}"),
-        "the Chip's New from… lists every built-in circuit"
+        menu.contains("An empty chip") && menu.contains("{#each starts as ex (ex.file)}"),
+        "the Chip list's New chip lists every built-in circuit"
     );
     holds(
-        "pages/Chip.svelte",
+        "components/rail/ChipTree.svelte",
         "(examples = e)",
         "the built-in circuits",
     );
