@@ -278,7 +278,7 @@ pub(crate) fn cases() -> Vec<Case> {
             id: "line/full-wave-quasi-tem-index",
             title: r"The full-wave and the quasi-TEM line where both hold: Zhang et al.'s line (a 20 µm signal, 5 µm gaps, 0.83 µm of copper on thin-film lithium niobate, see line/zhang-2022-index) at 50 GHz, the full-wave grids graded from 40, 20 and 10 nm, the static from 8, 4 and 2 nm, each gated at 0.5%: the full-wave RF index against the quasi-TEM one (relative difference shown)",
             tier: Tier::Analytic,
-            source: r"at 50 GHz the line's cross-section (30 µm across the gaps) is a two-hundredth of the RF wavelength and the copper 2.8 skin depths thick, where quasi-TEM with Holloway and Kuester's internal impedance holds (W. Heinrich, IEEE Trans. Microw. Theory Tech. 41, 45 (1993), doi:10.1109/22.210228, Section VI: $\lvert\Delta\beta/\beta\rvert$ < 1.5% for their quasi-TEM model): 0.5%",
+            source: r"at 50 GHz the line's cross-section (30 µm across the gaps) is a two-hundredth of the RF wavelength and the copper 2.8 skin depths thick, where quasi-TEM with Holloway and Kuester's internal impedance holds (W. Heinrich, IEEE Trans. Microw. Theory Tech. 41, 45 (1993), doi:10.1109/22.210228, Section VI: $\lvert\Delta\beta/\beta\rvert$ below 1.5% for their quasi-TEM model): 0.5%",
             run: || outcome(against_quasi_tem(0), 0.0, 5e-3),
         },
         Case {
