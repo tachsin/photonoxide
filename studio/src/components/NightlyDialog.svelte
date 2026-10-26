@@ -97,6 +97,11 @@
 
   const mb = (b: number) => (b / 1048576).toFixed(1);
   const short = (sha: string | null | undefined) => (sha ?? "").slice(0, 7);
+  /** A commit's date and time in full, in the local time zone, for its hint (`when` shows it short). */
+  const full = (iso: string) => {
+    const d = new Date(iso);
+    return Number.isNaN(d.getTime()) ? iso : d.toLocaleString(undefined, { dateStyle: "full", timeStyle: "long" });
+  };
 </script>
 
 {#snippet sha(commit: string, cls = "link link-primary font-mono")}
@@ -110,7 +115,7 @@
         <li class="flex items-baseline gap-3 px-3 py-1.5">
           {@render sha(c.sha, "link link-hover shrink-0 font-mono text-xs faint")}
           <span class="min-w-0 flex-1">{c.title}</span>
-          <span class="shrink-0 text-xs faint">{c.date.slice(0, 10)}</span>
+          <span class="num shrink-0 text-xs faint" title={full(c.date)}>{when(c.date)}</span>
         </li>
       {/each}
     </ul>
@@ -201,6 +206,7 @@
           </h3>
           <p class="truncate text-sm muted">You have photonoxide {thisBuild()?.label}{thisBuild()?.short ? ` (${thisBuild()?.short})` : ""}.</p>
         </div>
+        <button class="btn btn-ghost btn-sm gap-1.5" onclick={() => checkForUpdate(false)} disabled={nightly.checking || running} title="Look at main again for new commits"><RefreshCw size={14} class={nightly.checking ? "animate-spin" : ""} /> Check</button>
         <button class="btn btn-ghost btn-sm btn-square" aria-label="Close" onclick={close} title={running ? "Close: the build goes on" : "Close"}><X size={17} /></button>
       </div>
     </div>

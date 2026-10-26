@@ -1,5 +1,6 @@
 <script lang="ts">
-  // The status bar: the runs drawer, the workspace, the run being followed, and the version.
+  // The status bar: the runs drawer, the workspace, the run being followed, and at the right the
+  // version, compact (the platform and the build's commit in its hint).
   import { FolderOpen, History } from "@lucide/svelte";
   import { revealItemInDir } from "@tauri-apps/plugin-opener";
 
@@ -55,6 +56,5 @@
       building main @ {nightly.progress.commit.slice(0, 7)} · {nightly.progress.doing} · {duration(nightly.progress.seconds)}
     </button>
   {/if}
-  <span class="shrink-0">{app.state?.platform}</span>
-  <span class="shrink-0" title={app.state?.build.commit ? `Built from ${app.state.build.commit}${app.state.build.dirty ? ", with changes not committed" : ""}` : undefined}>photonoxide {app.state?.build.label ?? app.state?.version}</span>
+  <span class="num shrink-0" title="photonoxide {app.state?.build.label ?? app.state?.version} on {app.state?.platform}{app.state?.build.commit ? `, built from ${app.state.build.commit}${app.state.build.dirty ? ' with changes not committed' : ''}` : ''}">v{app.state?.build.label ?? app.state?.version}</span>
 </footer>
