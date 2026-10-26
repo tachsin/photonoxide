@@ -23,7 +23,7 @@ use photonoxide::compact::Measured;
 use photonoxide::compact::touchstone::{Convention, Touchstone};
 use photonoxide::device::{
     Device, Mesh, RibWaveguide, Scheme, StripBend, StripCoupler, StripMmi, StripMzi, StripRing,
-    StripWaveguide, StripYBranch, ThermoShifter, Values,
+    StripWaveguide, StripYBranch, ThermoShifter, TflnModulator, Values,
 };
 use photonoxide::material::{self, Material, Model, Provenance};
 use photonoxide::stack::{Layer, LayerStack};
@@ -228,6 +228,10 @@ fn thermo_doped() -> Built {
 
 fn thermo_in_guide() -> Built {
     once!(analytic(&ThermoShifter::in_guide()))
+}
+
+fn tfln_modulator() -> Built {
+    once!(analytic(&TflnModulator::new()))
 }
 
 fn ring_all_pass() -> Built {
@@ -441,6 +445,16 @@ pub fn entries() -> Vec<Entry> {
             equation: r"\varphi = \pi \frac{P}{P_\pi},\qquad P_\pi = \frac{\lambda}{2\,\partial n_\mathrm{eff}/\partial P'}",
             glyph: Glyph::PhaseShifter,
             build: thermo_in_guide,
+        },
+        Entry {
+            id: "tfln-modulator",
+            title: "Mach–Zehnder modulator",
+            variant: "thin-film lithium niobate",
+            category: "Active",
+            about: "Zhang et al.'s 5.8 mm modulator: x-cut ribs 1.2 µm wide on a 600 nm film in the 5 µm gaps of a coplanar copper line, driven in push and pull: the arms' phase at a voltage and a frequency, V_π·L and the response m(f) by its closed forms (the field at the gap's centre across the film's slab mode; the line by conformal mapping).",
+            equation: r"S_{21} = 10^{-\mathrm{IL}/20} \cos\frac{\varphi}{2},\qquad \varphi = \pi \frac{V\,\lvert m(f)\rvert}{V_\pi} + \varphi_0",
+            glyph: Glyph::Mzi,
+            build: tfln_modulator,
         },
         Entry {
             id: "terminator",

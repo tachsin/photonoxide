@@ -134,6 +134,7 @@ pub fn id_of(kind: &str) -> Option<&'static str> {
         "thermo-optic phase shifter" => "thermo-optic-shifter",
         "doped thermo-optic phase shifter" => "doped-thermo-optic-shifter",
         "in-guide thermo-optic phase shifter" => "in-guide-thermo-optic-shifter",
+        "TFLN Mach-Zehnder modulator" => "tfln-modulator",
         _ => return None,
     })
 }
@@ -155,6 +156,7 @@ pub fn kind_of(id: &str) -> Option<&'static str> {
         "thermo-optic phase shifter",
         "doped thermo-optic phase shifter",
         "in-guide thermo-optic phase shifter",
+        "TFLN Mach-Zehnder modulator",
     ]
     .into_iter()
     .find(|k| id_of(k) == Some(id))
