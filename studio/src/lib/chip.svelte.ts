@@ -116,6 +116,22 @@ export function kindOf(key: string): KindInfo | undefined {
   return library.kinds.find((k) => k.id === key) ?? library.measured.find((k) => partKey(k) === key);
 }
 
+/**
+ * A part being dragged in from the rail's Chip tree onto the canvas: a library id, or "#port"
+ * for an external port, where the pointer went down and, once over the canvas, where it lands.
+ * The Chip page follows the pointer and places it.
+ */
+export const palette = $state({
+  placing: null as { part: string; sx: number; sy: number; x: number; y: number; over: boolean; moved: boolean } | null,
+});
+
+/** Starts dragging `part` from the rail; a click without moving places it in the canvas's middle. */
+export function grab(e: PointerEvent, part: string) {
+  if (e.button !== 0) return;
+  e.preventDefault();
+  palette.placing = { part, sx: e.clientX, sy: e.clientY, x: 0, y: 0, over: false, moved: false };
+}
+
 export const editor = $state({
   chip: emptyChip() as Chip,
   /** The file it was opened from or saved to, if any. */

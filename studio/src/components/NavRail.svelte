@@ -3,14 +3,48 @@
   // (Validation, Libraries, Benchmarks), folded, beside Settings. It folds to its icons and back
   // with one animation of its width: the icons stay where they are and the labels are clipped
   // and faded, so nothing in it moves. Folded, an item says what it is in a hint beside it.
+  // Under Components, Chip and the Academy, while that page is shown, its tree (its parts, its
+  // lessons) opens in a card of its own: the pages stay in sight and only the tree scrolls.
   import { ChevronRight, ChevronsLeft, FlaskConical, MonitorCog } from "@lucide/svelte";
-  import { untrack } from "svelte";
+  import { untrack, type Component } from "svelte";
 
   import { app, go, type Page } from "../lib/app.svelte";
   import { PAGES, RAIL, SYSTEM } from "../lib/pages";
+  import { rail, toggleTree, unfold } from "../lib/rail.svelte";
   import Logo from "./Logo.svelte";
+  import AcademyTree from "./rail/AcademyTree.svelte";
+  import ChipTree from "./rail/ChipTree.svelte";
+  import ComponentsTree from "./rail/ComponentsTree.svelte";
 
   let collapsed = $state(stored("rail") === "collapsed");
+
+  /** The pages with a tree in the rail. */
+  const TREES: Partial<Record<Page, Component>> = { components: ComponentsTree, chip: ChipTree, academy: AcademyTree };
+  /** The tree open: the shown page's, unless it was folded away or the rail is folded to its icons. */
+  const tree = $derived(!collapsed && TREES[app.page] && !rail.shut[app.page] ? app.page : null);
+
+  /** An item of a page with a tree: going to it opens its tree; on it, the click folds or opens the tree. */
+  function pick(page: Page) {
+    if (!TREES[page]) return go(page);
+    if (app.page !== page) {
+      go(page);
+      toggleTree(page, true);
+    } else if (collapsed) {
+      toggle();
+      toggleTree(page, true);
+    } else {
+      toggleTree(page);
+    }
+  }
+
+  function keys(e: KeyboardEvent) {
+    // Ctrl+B folds the shown page's tree away and back
+    if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !app.palette && e.key.toLowerCase() === "b" && TREES[app.page]) {
+      e.preventDefault();
+      pick(app.page);
+    }
+  }
+
   /** Whether the System group shows its pages; it opens by itself while one of them is shown. */
   let systemOpen = $state(stored("rail-system") === "open");
   const inSystem = $derived(SYSTEM.includes(app.page));
@@ -82,21 +116,35 @@
   const tone = (on: boolean) => (on ? "bg-primary/12 text-primary" : "text-base-content/70 hover:bg-base-content/5 hover:text-base-content");
 </script>
 
+<svelte:window onkeydown={keys} />
+
 {#snippet item(page: Page)}
   {@const p = PAGES[page]}
   {@const Icon = p.icon}
   {@const on = app.page === page}
-  <button class="{ITEM} {tone(on)}" onclick={() => go(page)} title={collapsed ? undefined : p.hint} aria-label={p.label} aria-current={on ? "page" : undefined} {...hinted(p.label, p.hint)}>
+  {@const hasTree = !!TREES[page]}
+  <button
+    class="{ITEM} {tone(on)}"
+    onclick={() => pick(page)}
+    title={collapsed ? undefined : hasTree && on ? `${tree === page ? "Fold" : "Show"} its list in the menu (Ctrl+B)` : p.hint}
+    aria-label={p.label}
+    aria-current={on ? "page" : undefined}
+    aria-expanded={hasTree && on ? tree === page : undefined}
+    {...hinted(p.label, p.hint)}
+  >
     {#if on}<span class="absolute top-1.5 bottom-1.5 left-0 w-[3px] rounded-full bg-primary"></span>{/if}
     <span class="shrink-0"><Icon size={18} strokeWidth={on ? 2.2 : 1.8} /></span>
     <span class={LABEL} class:opacity-0={collapsed}>{p.label}</span>
+    {#if hasTree && on}
+      <span class="shrink-0 transition-[transform,opacity] duration-200 motion-reduce:transition-none" class:rotate-90={tree === page} class:opacity-0={collapsed}><ChevronRight size={15} /></span>
+    {/if}
   </button>
 {/snippet}
 
-<!-- 58 px folded: the icons, 18 px wide and 20 px in, sit at its middle -->
+<!-- 58 px folded: the icons, 18 px wide and 20 px in, sit at its middle; a little wider with a tree open -->
 <nav
   class="flex h-full shrink-0 flex-col overflow-hidden border-r border-base-content/8 bg-base-300 transition-[width] duration-200 ease-out motion-reduce:transition-none"
-  style="width: {collapsed ? 58 : 224}px"
+  style="width: {collapsed ? 58 : tree ? 264 : 224}px"
   aria-label="Pages"
 >
   <button class="flex items-center gap-2.5 py-4 pr-2 pb-5 pl-3.5 text-left" onclick={() => go("home")} {...hinted("photonoxide", `studio ${app.state?.version ?? ""}`)} title={collapsed ? undefined : "photonoxide"}>
@@ -107,11 +155,22 @@
     </span>
   </button>
 
-  <div class="flex-1 space-y-0.5 overflow-x-hidden overflow-y-auto px-2">
-    {#each RAIL as page (page)}{@render item(page)}{/each}
+  <!-- the pages, always in sight; the open tree takes the height left and is the only part that scrolls -->
+  <div class="flex min-h-0 flex-1 flex-col gap-0.5 overflow-hidden px-2">
+    {#each RAIL as page (page)}
+      <div class="shrink-0">{@render item(page)}</div>
+      {#if tree === page}
+        {@const Tree = TREES[page]!}
+        <div class="flex min-h-0 flex-1 flex-col py-1 pl-2" transition:unfold={{ duration: 220 }}>
+          <div class="min-h-0 flex-1 overflow-x-hidden overflow-y-auto rounded-xl border border-base-content/8 bg-base-100/70 p-1.5 shadow-sm" aria-label="{PAGES[page].label}: its list">
+            <Tree />
+          </div>
+        </div>
+      {/if}
+    {/each}
   </div>
 
-  <div class="space-y-0.5 overflow-x-hidden px-2 pt-2 pb-3">
+  <div class="shrink-0 space-y-0.5 overflow-x-hidden px-2 pt-2 pb-3">
     <!-- the System group: a row that folds its pages away, lit while one of them is shown and they are folded -->
     <button
       class="{ITEM} {tone(inSystem && !systemOpen)}"

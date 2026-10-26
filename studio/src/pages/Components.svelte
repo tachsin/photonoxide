@@ -3,14 +3,13 @@
   // units, ranges and defaults), model and provenance, its schematic symbol, and its S-parameters
   // over wavelength, recomputed by the library as the parameters move. A device of the library's
   // (photonoxide::device: the waveguide, bend, directional coupler, rings, rib, MMIs, Y-branch
-  // and MZIs) has its own page (components/device/DevicePage.svelte); the designs saved in the
-  // workspace's jobs/ are listed first and reopen there. Any other structure is the Custom
-  // device (components/custom/CustomDevice.svelte), where every other job of the workspace and
-  // every template opens.
-  import { Boxes, ChevronDown, ChevronRight, CircleCheck, CirclePlus, Copy, FileCog, FileDown, FileText, FileUp, PanelLeftClose, PanelLeftOpen, RotateCcw, Search, Shapes } from "@lucide/svelte";
+  // and MZIs) has its own page (components/device/DevicePage.svelte), where the designs saved in
+  // the workspace's jobs/ reopen. Any other structure is the Custom device
+  // (components/custom/CustomDevice.svelte). They are listed in the rail, under Components
+  // (components/rail/ComponentsTree.svelte).
+  import { Boxes, CircleCheck, CirclePlus, FileDown, RotateCcw } from "@lucide/svelte";
   import katex from "katex";
   import { untrack } from "svelte";
-  import { fade, fly } from "svelte/transition";
   import "katex/dist/katex.min.css";
 
   import CustomDevice from "../components/custom/CustomDevice.svelte";
@@ -20,52 +19,20 @@
   import SpectrumPlot from "../components/SpectrumPlot.svelte";
   import Tip from "../components/Tip.svelte";
   import UnitChip from "../components/UnitChip.svelte";
-  import { api, type JobItem, type KindInfo, type Part, type SpectrumData, type Sweep } from "../lib/api";
-  import { app, CUSTOM, go, openCustom, toast } from "../lib/app.svelte";
-  import { catalog, loadCatalog } from "../lib/catalog.svelte";
-  import { addInstance, exportTouchstone, importTouchstone, library, loadLibrary, openChipText, partKey, partOf } from "../lib/chip.svelte";
+  import { api, type KindInfo, type Part, type SpectrumData, type Sweep } from "../lib/api";
+  import { app, CUSTOM, go } from "../lib/app.svelte";
+  import { addInstance, exportTouchstone, library, loadLibrary, partKey, partOf } from "../lib/chip.svelte";
   import { sweepProblem, type Quantity } from "../lib/circuit";
-  import { deviceOf, devices, loadDevices, openDesign, openDeviceText } from "../lib/device.svelte";
+  import { deviceOf, loadDevices } from "../lib/device.svelte";
   import { label } from "../lib/plot";
   import { isMicrometres, len, showIn, shown as inUnit, storeIn, stored, unitOf } from "../lib/units";
 
   loadLibrary();
   loadDevices();
-  loadCatalog();
 
-  /** The designs saved in the workspace's jobs/, each a device's; and its other jobs, each the Custom device's. */
-  let designs = $state<JobItem[]>([]);
-  let jobs = $state<JobItem[]>([]);
-  $effect(() => {
-    void app.workspaceVersion;
-    api
-      .home()
-      .then((h) => {
-        designs = h.jobs.filter((j) => j.kind === "device");
-        jobs = h.jobs.filter((j) => j.kind !== "device");
-      })
-      .catch(() => {});
-  });
   /** Whether the Components page shows the Custom device. */
   const custom = $derived(app.component === CUSTOM);
-  /** The workspace's other jobs and the templates the search leaves, each the Custom device's. */
-  const matches = (j: { name: string; about: string; kind: string }) => {
-    const q = query.trim().toLowerCase();
-    return !q || `${j.name} ${j.about} ${j.kind}`.toLowerCase().includes(q);
-  };
-  const mine = $derived(jobs.filter(matches));
-  const templates = $derived((catalog.data?.jobs ?? []).filter((j) => j.kind !== "device" && matches(j)));
 
-  /** Opens a job of the workspace in the Custom device. */
-  async function openJob(path: string) {
-    try {
-      openCustom(await api.readJob(path), path);
-    } catch (e) {
-      toast(String(e), "error");
-    }
-  }
-
-  let query = $state("");
   let values = $state<Record<string, number[]>>({});
   let sweep = $state<Sweep>({ from_um: 1.5, to_um: 1.6, points: 501 });
   let spectrum = $state<SpectrumData | null>(null);
@@ -75,13 +42,6 @@
 
   /** The library's components, then the measured ones imported. */
   const everything = $derived([...library.kinds, ...library.measured]);
-  const shown = $derived(
-    everything.filter((k) => {
-      const q = query.trim().toLowerCase();
-      return !q || `${k.title} ${k.id} ${k.kind} ${k.category} ${k.about} ${k.provenance.fidelity}`.toLowerCase().includes(q);
-    }),
-  );
-  const categories = $derived([...new Set(everything.map((k) => k.category))]);
   /** The models of each kind of component, by the library's kind: an analytic one, a solver's… */
   const families = $derived.by(() => {
     const all = new Map<string, KindInfo[]>();
@@ -152,93 +112,15 @@
 
   const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 
-  // ---- the list's groups: each folds away under its row, as the rail's System group does, and
-  // stays as it was left; the group of the component shown opens when it is chosen (here, from
-  // Ctrl+K or from the chip), and a search shows every group it finds something in ----
-  function groupsWere(): Record<string, boolean> {
-    try {
-      return JSON.parse(localStorage.getItem("components-groups") ?? "{}");
-    } catch {
-      return {};
-    }
-  }
-  /** Each group's open state as it was left; one never touched is open, but for the long lists of jobs and templates. */
-  let opened = $state<Record<string, boolean>>(groupsWere());
-  const searching = $derived(query.trim() !== "");
-  const isOpen = (key: string) => searching || (opened[key] ?? (key !== "jobs" && key !== "templates"));
-  function toggleGroup(key: string) {
-    if (searching) return;
-    opened[key] = !isOpen(key);
-    try {
-      localStorage.setItem("components-groups", JSON.stringify(opened));
-    } catch {
-      // storage blocked: the groups just forget
-    }
-  }
-  $effect(() => {
-    const category = custom ? undefined : kind?.category;
-    if (category) untrack(() => isOpen(category) || (opened[category] = true));
-  });
-
-  // ---- the list: out of the way once a component is open, one click (or Ctrl+B) away ----
-  function listWas(): string | null {
-    try {
-      return localStorage.getItem("components-list");
-    } catch {
-      return null;
-    }
-  }
-  function store(open: boolean) {
-    try {
-      localStorage.setItem("components-list", open ? "open" : "closed");
-    } catch {
-      // storage blocked: the list just forgets
-    }
-  }
-  let pageWidth = $state(0);
-  /** A narrow page (a 960 px window): the list is a drawer only. */
-  const narrow = $derived(pageWidth > 0 && pageWidth < 1100);
-  /** Whether the list stands beside the component, as it was left. */
-  let pinned = $state(listWas() !== "closed");
-  /** The list as a drawer over the page. */
-  let drawer = $state(false);
-  const inline = $derived(pinned && !narrow);
-
-  /** Opens or closes the list: beside the page in a wide window, as a drawer in a narrow one. */
-  function toggleList() {
-    if (narrow) {
-      drawer = !drawer;
-      return;
-    }
-    pinned = !pinned;
-    drawer = false;
-    store(pinned);
-  }
-
-  function listKeys(e: KeyboardEvent) {
-    if (app.page !== "components" || app.palette) return;
-    if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === "b") {
-      e.preventDefault();
-      toggleList();
-    } else if (e.key === "Escape" && drawer) {
-      drawer = false;
-    }
-  }
-
-  /** Opening a component gives it the width: the list folds to its breadcrumb. */
-  function fold() {
-    drawer = false;
-    if (pinned) {
-      pinned = false;
-      store(false);
-    }
-  }
-
+  /** Another model of the same component, from its page. */
   function choose(id: string) {
     app.component = id;
-    input = 0;
-    fold();
   }
+  // a component chosen (here, in the rail, from Ctrl+K or the chip) starts from its first port
+  $effect(() => {
+    void app.component;
+    untrack(() => (input = 0));
+  });
 
   // a model valid over a limited range is shown over that range
   $effect(() => {
@@ -261,11 +143,6 @@
     go("chip");
   }
 
-  async function importFile() {
-    const k = await importTouchstone();
-    if (k) choose(partKey(k));
-  }
-
   const FIDELITY: Record<string, string> = {
     analytic: "a closed form",
     compact: "a compact model fitted to a solver's or a measurement's results",
@@ -275,140 +152,7 @@
   };
 </script>
 
-<svelte:window onkeydown={listKeys} />
-
-<!-- a group's row: its name, how many it holds, and the chevron that folds it; lit while it is folded over the component shown -->
-{#snippet group(key: string, title: string, count: number, holdsShown: boolean)}
-  {@const open = isOpen(key)}
-  <button
-    class="mt-1.5 flex w-full items-center gap-2 rounded-lg px-3 py-1.5 text-left text-[13px] font-medium transition-colors {holdsShown && !open ? 'bg-primary/12 text-primary' : 'text-base-content/70 hover:bg-base-content/5 hover:text-base-content'}"
-    onclick={() => toggleGroup(key)}
-    aria-expanded={open}
-    title={searching ? "Every group the search finds something in is open" : open ? `Fold ${title} away` : `Show ${title}`}
-  >
-    <span class="min-w-0 flex-1 truncate">{title}</span>
-    <span class="num text-[11px] faint">{count}</span>
-    <span class="shrink-0 transition-transform duration-200 motion-reduce:transition-none" class:rotate-90={open}><ChevronRight size={15} /></span>
-  </button>
-{/snippet}
-
-{#snippet list()}
-    <div class="p-3">
-      <div class="mb-2 flex items-center gap-2">
-        <span class="panel-title mr-auto">Components</span>
-        <button class="btn btn-ghost btn-xs btn-square" aria-label="Fold the list" title="Fold the list (Ctrl+B)" onclick={() => (drawer ? (drawer = false) : toggleList())}><PanelLeftClose size={15} /></button>
-      </div>
-      <label class="input input-sm w-full">
-        <Search size={14} class="faint" />
-        <input type="search" placeholder="Search the components" bind:value={query} />
-      </label>
-      <button class="btn btn-ghost btn-sm mt-2 w-full justify-start gap-2 text-primary" onclick={importFile} title="Read S-parameters from a Touchstone file (.sNp) as a measured component">
-        <FileUp size={15} /> Import Touchstone…
-      </button>
-    </div>
-    <div class="min-h-0 flex-1 overflow-y-auto px-2 pb-4">
-      {#if library.problem}<p class="px-3 text-sm text-error">{library.problem}</p>{/if}
-      {#if devices.problem}<p class="px-3 text-sm text-error">{devices.problem}</p>{/if}
-      {#if !query.trim() || "custom device job structure".includes(query.trim().toLowerCase())}
-        <button
-          class="mt-1 flex w-full items-center gap-3 rounded-lg px-2 py-1.5 text-left transition-colors {custom ? 'bg-primary/12 text-primary' : 'hover:bg-base-content/5'}"
-          onclick={() => choose(CUSTOM)}
-          title="Any structure no device describes, as a job: its stack, shapes, ports, sources, monitors, window, grid and sweep"
-        >
-          <span class="grid h-7 w-11 shrink-0 place-items-center text-primary"><Shapes size={17} /></span>
-          <span class="min-w-0 flex-1">
-            <span class="block truncate text-sm font-medium">Custom device</span>
-            <span class="block truncate text-xs {custom ? '' : 'faint'}">any structure, as a job</span>
-          </span>
-        </button>
-      {/if}
-      {#if designs.length}
-        {@render group("designs", "Your designs", designs.length, false)}
-        {#if isOpen("designs")}<div class="pl-2.5">
-        {#each designs as d (d.path)}
-          <button class="flex w-full items-center gap-3 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-base-content/5" onclick={() => (fold(), openDesign(d.path))} title={d.path}>
-            <span class="grid h-7 w-11 shrink-0 place-items-center text-primary"><FileCog size={16} /></span>
-            <span class="min-w-0 flex-1">
-              <span class="block truncate text-sm font-medium">{d.name}</span>
-              <span class="block truncate text-xs faint">{d.about || "a saved design"}</span>
-            </span>
-          </button>
-        {/each}
-        </div>{/if}
-      {/if}
-      {#each categories as category (category)}
-        {@const items = shown.filter((k) => k.category === category && familyOf(k).find((f) => shown.includes(f)) === k)}
-        {#if items.length}
-          {@render group(category, category, items.length, !custom && kind?.category === category)}
-          {#if isOpen(category)}<div class="pl-2.5">
-          {#each items as k (partKey(k))}
-            {@const family = familyOf(k)}
-            {@const on = !!kind && family.includes(kind)}
-            <button
-              class="flex w-full items-center gap-3 rounded-lg px-2 py-1.5 text-left transition-colors {on ? 'bg-primary/12 text-primary' : 'hover:bg-base-content/5'}"
-              onclick={() => choose(partKey(k))}
-            >
-              <svg width="44" height="28" viewBox="{-k.symbol.width / 2 - 6} {-k.symbol.height / 2 - 6} {k.symbol.width + 12} {k.symbol.height + 12}" class="shrink-0">
-                <Glyph symbol={k.symbol} />
-              </svg>
-              <span class="min-w-0 flex-1">
-                <span class="block truncate text-sm font-medium">{k.title}</span>
-                <span class="block truncate text-xs {on ? '' : 'faint'}">{plural(k.ports.length, "port")} · {[...new Set(family.map((f) => f.provenance.fidelity))].join(", ")}</span>
-              </span>
-            </button>
-          {/each}
-          </div>{/if}
-        {/if}
-      {:else}
-        {#if library.loaded}<p class="px-3 text-sm faint">The library is empty.</p>{/if}
-      {/each}
-      <!-- the workspace's other jobs and the templates: each opens in the Custom device -->
-      {#if mine.length}
-        {@render group("jobs", "Your jobs", mine.length, false)}
-        {#if isOpen("jobs")}<div class="pl-2.5">
-        {#each mine as j (j.path)}
-          <button class="flex w-full items-center gap-3 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-base-content/5" onclick={() => (fold(), openJob(j.path))} title="{j.path}: opens in the Custom device">
-            <span class="grid h-7 w-11 shrink-0 place-items-center faint"><FileText size={15} /></span>
-            <span class="min-w-0 flex-1">
-              <span class="block truncate text-sm font-medium">{j.name}</span>
-              <span class="block truncate text-xs faint">{j.kind} · {j.about || "a job"}</span>
-            </span>
-          </button>
-        {/each}
-        </div>{/if}
-      {/if}
-      {#if templates.length}
-        {@render group("templates", "Templates", templates.length, false)}
-        {#if isOpen("templates")}<div class="pl-2.5">
-        {#each templates as j (j.file)}
-          <button class="flex w-full items-center gap-3 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-base-content/5" onclick={async () => (fold(), (await openChipText(j.text)) || (await openDeviceText(j.text)) || openCustom(j.text))} title="{j.about}: opens {j.kind === 'device' ? 'on its device’s page' : 'in the Custom device'}, to change and save as your own">
-            <span class="grid h-7 w-11 shrink-0 place-items-center faint"><Copy size={14} /></span>
-            <span class="min-w-0 flex-1">
-              <span class="block truncate text-sm">{j.name}</span>
-              <span class="block truncate text-xs faint">{j.kind}</span>
-            </span>
-          </button>
-        {/each}
-        </div>{/if}
-      {/if}
-    </div>
-{/snippet}
-
-<div class="relative grid h-full {inline ? 'grid-cols-[18rem_minmax(0,1fr)]' : 'grid-cols-[minmax(0,1fr)]'}" bind:clientWidth={pageWidth}>
-  <!-- the library, beside the component while it is pinned open in a wide window -->
-  {#if inline}
-    <aside class="flex min-h-0 flex-col border-r border-base-content/8">{@render list()}</aside>
-  {/if}
-
-  <!-- the component, under a breadcrumb back to the list when the list is folded -->
-  <div class="flex min-h-0 min-w-0 flex-col">
-    {#if !inline}
-      <div class="flex shrink-0 items-center gap-1 border-b border-base-content/8 px-3 py-1">
-        <button class="btn btn-ghost btn-xs gap-1.5" onclick={toggleList} title="The components (Ctrl+B)"><PanelLeftOpen size={14} /> Components</button>
-        <ChevronRight size={12} class="faint" />
-        <button class="btn btn-ghost btn-xs gap-1" onclick={toggleList} title="Pick another component (Ctrl+B)">{custom ? "Custom device" : (kind?.title ?? "…")} <ChevronDown size={12} /></button>
-      </div>
-    {/if}
+<div class="flex h-full min-h-0 min-w-0 flex-col">
     <div class="min-h-0 flex-1 {custom || (kind && device) ? 'overflow-hidden' : 'overflow-x-hidden overflow-y-auto'}">
     {#if custom}
       <CustomDevice />
@@ -644,13 +388,4 @@
       <div class="grid h-full place-items-center"><span class="loading loading-ring loading-lg text-primary"></span></div>
     {/if}
     </div>
-  </div>
-
-  <!-- the list as a drawer over the page: in a narrow window, or opened from the breadcrumb -->
-  {#if drawer && !inline}
-    <button class="absolute inset-0 z-20 cursor-default bg-black/25" aria-label="Close the list" transition:fade={{ duration: 120 }} onclick={() => (drawer = false)}></button>
-    <aside class="absolute top-0 bottom-0 left-0 z-20 flex w-[19rem] max-w-[85%] flex-col border-r border-base-content/10 bg-base-100 shadow-2xl" transition:fly={{ x: -30, duration: 160 }}>
-      {@render list()}
-    </aside>
-  {/if}
 </div>

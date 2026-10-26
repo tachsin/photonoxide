@@ -1,14 +1,15 @@
 <script lang="ts">
   // The Academy: lessons on how devices work and how the ideas came about, by topic and level,
   // each at three depths, with charts photonoxide computes as their sliders move. The lessons
-  // are academy/*.md, built into the program.
+  // are academy/*.md, built into the program; they are listed in the rail, under Academy
+  // (components/rail/AcademyTree.svelte).
   import "katex/dist/katex.min.css";
 
-  import { BookMarked, ExternalLink, GraduationCap, Search, X } from "@lucide/svelte";
+  import { BookMarked, ExternalLink, GraduationCap, X } from "@lucide/svelte";
   import { openUrl } from "../lib/open";
 
   import LessonView from "../components/LessonView.svelte";
-  import { academy, LEVELS, loadAcademy, type Lesson, type Level } from "../lib/academy.svelte";
+  import { academy, loadAcademy } from "../lib/academy.svelte";
   import { api } from "../lib/api";
   import { app } from "../lib/app.svelte";
   import { methodHtml, parseMethod, type MethodDoc } from "../lib/methods";
@@ -20,51 +21,17 @@
     .then((all) => (docs = all.map((d) => parseMethod(d.file, d.text))))
     .catch(() => {});
 
-  // a lesson another page sent us to opens, and on a narrow window shows instead of the list
-  let reading = $state(!!app.lesson);
+  // a lesson another page sent us to opens
   if (app.lesson) academy.lesson = app.lesson;
   app.lesson = null;
 
-  let query = $state("");
-  let level = $state<Level | null>(null);
-  /** Only the lessons already written. */
-  let written = $state(false);
   const lessons = $derived(academy.data?.lessons ?? []);
   const published = $derived(lessons.filter((l) => l.status === "published"));
   // opened without a choice: the first lesson written, not the first laid out
   const current = $derived(lessons.find((l) => l.id === academy.lesson) ?? published[0] ?? lessons[0]);
 
-  /** What a search looks through: the lesson's words, its sections' titles and what each coming one will answer, and its papers. */
-  const haystack = (l: Lesson) =>
-    [
-      l.title,
-      l.summary,
-      l.topic,
-      l.status === "coming" ? "coming soon" : "",
-      l.milestone ?? "",
-      ...l.examples,
-      ...l.sections.map((s) => `${s.title} ${s.coming?.answers ?? ""}`),
-      ...l.papers.map((p) => `${p.cite} ${p.title}`),
-    ]
-      .join(" ")
-      .toLowerCase();
-  const shown = $derived(
-    lessons.filter((l) => (!level || l.level === level) && (!written || l.status === "published") && (!query.trim() || haystack(l).includes(query.trim().toLowerCase()))),
-  );
-  /** The lessons shown, by topic in the order they first come. */
-  const topics = $derived.by(() => {
-    const out: [string, Lesson[]][] = [];
-    for (const l of shown) {
-      const t = out.find(([name]) => name === l.topic);
-      if (t) t[1].push(l);
-      else out.push([l.topic, [l]]);
-    }
-    return out;
-  });
-
   function choose(id: string) {
     academy.lesson = id;
-    reading = true;
   }
 
   /** The method write-up shown beside the lesson. */
@@ -78,65 +45,13 @@
     else if (a.dataset.doc) doc = docs.find((d) => d.file === a.dataset.doc) ?? doc;
   }
 
-  const LEVEL_DOT: Record<Level, string> = { introductory: "bg-success", intermediate: "bg-warning", advanced: "bg-error" };
 </script>
 
-<div class="grid h-full min-h-0 grid-cols-1 md:grid-cols-[280px_minmax(0,1fr)] xl:grid-cols-[320px_minmax(0,1fr)]">
-  <aside class="flex min-h-0 flex-col border-r border-base-content/8 bg-base-100/40 {reading ? 'max-md:hidden' : ''}">
-    <div class="space-y-2.5 p-4 pb-2">
-      <label class="input input-sm flex w-full items-center gap-2">
-        <Search size={14} class="faint" />
-        <input bind:value={query} placeholder="Search lessons, papers, topics" />
-      </label>
-      <div class="flex flex-wrap gap-1">
-        <button class="btn btn-xs {level === null ? 'btn-primary' : 'btn-ghost'}" onclick={() => (level = null)}>every level</button>
-        {#each LEVELS as l (l)}
-          <button class="btn gap-1.5 btn-xs {level === l ? 'btn-primary' : 'btn-ghost'}" onclick={() => (level = level === l ? null : l)}>
-            <span class="size-1.5 rounded-full {LEVEL_DOT[l]}"></span>{l}
-          </button>
-        {/each}
-        <button class="btn btn-xs {written ? 'btn-primary' : 'btn-ghost'}" aria-pressed={written} onclick={() => (written = !written)} title="Hide the lessons coming soon">written only</button>
-      </div>
-    </div>
-    <div class="flex-1 overflow-y-auto px-2 pb-4">
-      {#each topics as [topic, items] (topic)}
-        <p class="px-3 pt-4 pb-1.5 panel-title">{topic}</p>
-        <ul class="space-y-0.5">
-          {#each items as l (l.id)}
-            {@const on = current?.id === l.id}
-            {@const coming = l.status === "coming"}
-            <li>
-              <button class="w-full rounded-lg px-3 py-2.5 text-left transition-colors {on ? 'bg-primary/12' : 'hover:bg-base-content/4'}" onclick={() => choose(l.id)}>
-                <span class="flex items-start gap-2">
-                  <span class="min-w-0 flex-1 text-sm font-medium {on ? 'text-primary' : coming ? 'text-base-content/70' : ''}">{l.title}</span>
-                  {#if coming}<span class="coming-chip mt-px shrink-0">coming soon</span>{/if}
-                </span>
-                <span class="mt-0.5 flex items-center gap-1.5 text-xs faint">
-                  <span class="size-1.5 rounded-full {LEVEL_DOT[l.level]}"></span>
-                  {#if coming}
-                    {l.level} · {l.sections.length} subsections{l.milestone ? ` · with ${l.milestone}` : ""}
-                  {:else}
-                    {l.level} · {l.minutes} min · {l.papers.length} papers
-                  {/if}
-                </span>
-                <span class="mt-1 line-clamp-2 text-xs leading-relaxed {coming ? 'faint' : 'muted'}">{l.summary}</span>
-              </button>
-            </li>
-          {/each}
-        </ul>
-      {:else}
-        <p class="px-3 py-8 text-center text-sm faint">{academy.data ? "No lesson matches." : academy.error || "Loading the lessons…"}</p>
-      {/each}
-    </div>
-    <div class="border-t border-base-content/8 px-4 py-3 text-[11px] leading-relaxed faint">
-      {published.length} lessons written and {lessons.length - published.length} laid out, coming soon; each is a file in <code class="font-mono">academy/</code>, built into the program.
-    </div>
-  </aside>
-
-  <section class="min-h-0 min-w-0 {reading ? '' : 'max-md:hidden'}">
+<div class="h-full min-h-0">
+  <section class="h-full min-h-0 min-w-0">
     {#if current && academy.data}
       {#key current.id}
-        <LessonView lesson={current} {lessons} diagrams={academy.data.diagrams} charts={academy.data.charts} {docs} onlesson={choose} ondoc={(d) => (doc = d)} onback={() => (reading = false)} />
+        <LessonView lesson={current} {lessons} diagrams={academy.data.diagrams} charts={academy.data.charts} {docs} onlesson={choose} ondoc={(d) => (doc = d)} />
       {/key}
     {:else}
       <div class="grid h-full place-items-center">

@@ -43,7 +43,12 @@ only on a network you trust. See [docs/farming.md](../docs/farming.md).
 The rail on the left holds five pages, the places where work happens: **Home**,
 **Components**, **Chip**, **Academy** and **Materials**. At its foot, the **System** group
 (Validation, Libraries and Benchmarks) folds away beside **Settings**; it opens by itself when one
-of its pages is shown. The rail folds to its icons, each naming itself in a hint. One page isn't
+of its pages is shown. Under **Components**, **Chip** and **Academy**, while that page is shown,
+its list opens in the rail, in a card of its own: the components, the parts and circuits, or the
+lessons, each in groups that fold away with a search at the top. The pages above and below stay
+in sight and only the list scrolls; a click on the page's item, or Ctrl+B, folds the list and
+brings it back, and the groups are left as they were. The rail folds to its icons, each naming
+itself in a hint. One page isn't
 on the rail, because it is reached from what it shows: the **run view** (a run, Home's Continue,
 `photonoxide run` and `photonoxide view`); the top bar's arrow leads back from it. **Runs** live
 in a drawer opened from the status bar.
@@ -153,9 +158,7 @@ in a drawer opened from the status bar.
     waveguide, the two MMIs, the Y-branch and the MZIs of directional couplers and of Y-branches
     are the library's devices (`photonoxide::device`): components that know their geometry. Each
     opens on a page of its own, at its cheapest model (analytic; 2D for the rib and the MMIs,
-    whose slabs solve in a moment). Opening one folds the components' list away, leaving a
-    breadcrumb (Components › Waveguide) that opens it again, beside the page or, in a narrow
-    window, as a drawer; Ctrl+B does the same, and the list is left as it was last time. One
+    whose slabs solve in a moment), chosen from the rail's list under Components. One
     header holds the device's name and kind, the fidelity in use (a badge that switches it:
     analytic, 2D or 3D as the device has them, each with its method and stated error), a dot
     when the design has changed since it was saved, **Run**, **Save** (Ctrl+S) and **Place on
@@ -283,7 +286,7 @@ in a drawer opened from the status bar.
       computes it (with a task, as **Simulate** saves it), its model or its FDTD run, live in the
       run view, or headless with `--headless`.
 - **Chip:** components placed on a canvas and wired port to port.
-  - Drag parts from the left onto the canvas (or click one for the middle). Everything snaps
+  - Drag parts from the rail's list under Chip onto the canvas (or click one for the middle). Everything snaps
     to a grid of 10. Drag the background to pan, scroll to zoom, F fits the chip in view.
   - Drag from a port to another port to connect them. The library checks every connection as it
     is made (`photonoxide::circuit::Netlist`) and refuses what it can't build, saying why: a

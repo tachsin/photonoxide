@@ -4,12 +4,9 @@
   // sparse solve. Saved to the workspace's circuits/ as a chip file.
   import {
     ArrowRightLeft,
-    ChevronDown,
     CircleAlert,
     CirclePlay,
     FileDown,
-    FilePlus2,
-    FileUp,
     FlipVertical2,
     Maximize,
     Redo2,
@@ -21,7 +18,6 @@
     ZoomIn,
     ZoomOut,
   } from "@lucide/svelte";
-  import { ask } from "@tauri-apps/plugin-dialog";
   import { onMount } from "svelte";
 
   import ChipOptimize from "../components/chip/ChipOptimize.svelte";
@@ -31,32 +27,29 @@
   import SpectrumPlot from "../components/SpectrumPlot.svelte";
   import Tip from "../components/Tip.svelte";
   import UnitChip from "../components/UnitChip.svelte";
-  import { ago, api, type Chip, type ChipOptimizeInfo, type CircuitExample, type CircuitItem, type KindInfo, type Problem } from "../lib/api";
+  import { api, type Chip, type ChipOptimizeInfo, type KindInfo, type Problem } from "../lib/api";
   import { app, go, toast } from "../lib/app.svelte";
   import { COMPACT,
+    palette,
     addInstance,
     change,
     dirty,
     allParts,
     editor,
     exportTouchstone,
-    importTouchstone,
     kindOf,
     library,
     loadLibrary,
-    openChipFile,
     panels,
     partKey,
     redo,
     remember,
     saveChip,
-    showChip,
     simulate,
     undo,
   } from "../lib/chip.svelte";
   import {
     bounds,
-    emptyChip,
     externalPin,
     freshPortName,
     nameProblem,
@@ -78,21 +71,9 @@
 
   loadLibrary();
 
-  let examples = $state<CircuitExample[]>([]);
-  let files = $state<CircuitItem[]>([]);
-  api
-    .circuitExamples()
-    .then((e) => (examples = e))
-    .catch((e) => toast(String(e), "error"));
-  $effect(() => {
-    void app.workspaceVersion;
-    api.circuits().then((c) => (files = c)).catch(() => {});
-  });
-
   const chip = $derived(editor.chip);
   /** Every part by its key; an instance's is `partKey(inst)`. */
   const kinds = $derived(allParts());
-  const categories = $derived([...new Set(library.kinds.map((k) => k.category))]);
 
   // ---- the canvas's geometry ----
 
@@ -195,8 +176,6 @@
     | { kind: "wire"; from: WorldPin; x: number; y: number };
 
   let drag = $state<Drag | null>(null);
-  /** A part being dragged in from the palette: a library id, or "#port" for an external port. */
-  let placing = $state<{ part: string; sx: number; sy: number; x: number; y: number; over: boolean; moved: boolean } | null>(null);
   /** A connection just refused, drawn red for a moment. */
   let refused = $state<{ a: WorldPin; b: { x: number; y: number } } | null>(null);
   let hoverPin = $state<string | null>(null);
@@ -335,27 +314,21 @@
     change(apply);
   }
 
-  // ---- placing parts from the palette ----
-
-  function grab(e: PointerEvent, part: string) {
-    if (e.button !== 0) return;
-    e.preventDefault();
-    placing = { part, sx: e.clientX, sy: e.clientY, x: 0, y: 0, over: false, moved: false };
-  }
+  // ---- placing a part dragged in from the rail (palette.placing, lib/chip.svelte.ts) ----
 
   function placeMove(e: PointerEvent) {
-    if (!placing || !svg) return;
-    if (!placing.moved && Math.hypot(e.clientX - placing.sx, e.clientY - placing.sy) > 4) placing.moved = true;
+    if (!palette.placing || !svg) return;
+    if (!palette.placing.moved && Math.hypot(e.clientX - palette.placing.sx, e.clientY - palette.placing.sy) > 4) palette.placing.moved = true;
     const r = svg.getBoundingClientRect();
-    placing.over = e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom;
+    palette.placing.over = e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom;
     const [x, y] = toWorld(e.clientX - r.left, e.clientY - r.top);
-    placing.x = snap(x);
-    placing.y = snap(y);
+    palette.placing.x = snap(x);
+    palette.placing.y = snap(y);
   }
 
   function placeUp() {
-    const p = placing;
-    placing = null;
+    const p = palette.placing;
+    palette.placing = null;
     if (!p || (p.moved && !p.over)) return;
     const at = p.moved ? { x: p.x, y: p.y } : { x: snap(view.cx), y: snap(view.cy) };
     if (p.part === "#port") {
@@ -404,25 +377,6 @@
     });
   }
 
-  function open(c: Chip, path: string | null) {
-    (document.activeElement as HTMLElement | null)?.blur?.();
-    showChip(c, path);
-  }
-
-  const openFile = openChipFile;
-
-  async function remove(item: CircuitItem) {
-    if (!(await ask(`Delete circuits/${item.name}.toml?`, { title: "Delete the circuit?", kind: "warning" }))) return;
-    try {
-      await api.deleteCircuit(item.path);
-      if (editor.path === item.path) editor.path = null;
-      app.workspaceVersion++;
-      toast(`Deleted ${item.name}`, "success", undefined, 2500);
-    } catch (e) {
-      toast(String(e), "error");
-    }
-  }
-
   function keys(e: KeyboardEvent) {
     const typing = (e.target as HTMLElement).closest?.("input, textarea, select, [contenteditable]");
     const mod = e.ctrlKey || e.metaKey;
@@ -454,7 +408,7 @@
       fit();
     } else if (e.key === "Escape") {
       drag = null;
-      placing = null;
+      palette.placing = null;
       editor.selection = null;
     }
   }
@@ -567,101 +521,8 @@
 
 <svelte:window onkeydown={keys} onpointermove={placeMove} onpointerup={placeUp} />
 
-<div class="grid h-full grid-cols-[16rem_minmax(0,1fr)_19rem] max-xl:grid-cols-[13rem_minmax(0,1fr)_16rem]">
-  <!-- the parts and the circuits -->
-  <aside class="flex min-h-0 flex-col border-r border-base-content/8 bg-base-100/40">
-    <div class="flex gap-2 p-3">
-      <div class="dropdown flex-1">
-        <div tabindex="0" role="button" class="btn btn-primary btn-sm w-full gap-1.5"><FilePlus2 size={15} /> New from… <ChevronDown size={14} /></div>
-        <!-- an empty chip, or each built-in circuit (circuits/ in the repository) -->
-        <ul tabindex="-1" class="dropdown-content menu z-30 mt-1 w-72 rounded-box border border-base-content/10 bg-base-100 p-2 shadow-xl">
-          <li><button onclick={() => open(emptyChip(), null)}><span class="font-medium">An empty chip</span></button></li>
-          <li class="menu-title pt-2">A built-in circuit</li>
-          {#each examples as ex (ex.file)}
-            <li>
-              <button class="flex flex-col items-start gap-0" onclick={() => open(ex.chip, null)}>
-                <span class="font-medium">{ex.chip.name}</span><span class="text-xs faint">{ex.chip.about}</span>
-              </button>
-            </li>
-          {/each}
-        </ul>
-      </div>
-    </div>
-    <div class="min-h-0 flex-1 overflow-y-auto px-2 pb-3">
-      <p class="px-2 pt-1 pb-1 text-[10.5px] font-semibold tracking-wider uppercase faint">Parts: drag onto the chip</p>
-      {#each categories as category (category)}
-        <p class="px-2 pt-2 text-[11px] faint">{category}</p>
-        {#each library.kinds.filter((k) => k.category === category) as k (k.id)}
-          <button
-            class="flex w-full cursor-grab items-center gap-2 rounded-lg px-2 py-1 text-left text-sm hover:bg-base-content/5 active:cursor-grabbing"
-            onpointerdown={(e) => grab(e, k.id)}
-            title="{k.title}{k.variant ? ` (${k.variant})` : ''}: drag it onto the chip, or click to place it in the middle"
-          >
-            <svg width="36" height="22" viewBox="{-k.symbol.width / 2 - 4} {-k.symbol.height / 2 - 4} {k.symbol.width + 8} {k.symbol.height + 8}" class="shrink-0">
-              <Glyph symbol={k.symbol} />
-            </svg>
-            <span class="min-w-0 truncate">{k.title}{#if k.variant && library.kinds.some((o) => o !== k && o.title === k.title)}<span class="ml-1 text-xs faint">{k.variant}</span>{/if}</span>
-          </button>
-        {/each}
-      {/each}
-      {#if library.measured.some((k) => k.id === COMPACT)}
-        <p class="px-2 pt-2 text-[11px] faint">Compact models</p>
-        {#each library.measured.filter((k) => k.id === COMPACT) as k (partKey(k))}
-          <button
-            class="flex w-full cursor-grab items-center gap-2 rounded-lg px-2 py-1 text-left text-sm hover:bg-base-content/5 active:cursor-grabbing"
-            onpointerdown={(e) => grab(e, partKey(k))}
-            title="{k.about} Drag it onto the chip."
-          >
-            <svg width="36" height="22" viewBox="{-k.symbol.width / 2 - 4} {-k.symbol.height / 2 - 4} {k.symbol.width + 8} {k.symbol.height + 8}" class="shrink-0">
-              <Glyph symbol={k.symbol} />
-            </svg>
-            <span class="min-w-0 truncate">{k.title}<span class="ml-1 text-xs faint">{k.variant}</span></span>
-          </button>
-        {/each}
-      {/if}
-      <p class="px-2 pt-2 text-[11px] faint">Measured</p>
-      {#each library.measured.filter((k) => k.id !== COMPACT) as k (partKey(k))}
-        <button
-          class="flex w-full cursor-grab items-center gap-2 rounded-lg px-2 py-1 text-left text-sm hover:bg-base-content/5 active:cursor-grabbing"
-          onpointerdown={(e) => grab(e, partKey(k))}
-          title="{k.title}: {k.ports.length} ports, measured from {range(k.provenance.validity)}. Drag it onto the chip."
-        >
-          <svg width="36" height="22" viewBox="{-k.symbol.width / 2 - 4} {-k.symbol.height / 2 - 4} {k.symbol.width + 8} {k.symbol.height + 8}" class="shrink-0">
-            <Glyph symbol={k.symbol} />
-          </svg>
-          <span class="min-w-0 truncate">{k.title}</span>
-        </button>
-      {/each}
-      <button class="flex w-full items-center gap-2 rounded-lg px-2 py-1 text-left text-sm text-primary hover:bg-base-content/5" onclick={importTouchstone} title="Read S-parameters from a Touchstone file (.sNp) as a measured component">
-        <FileUp size={15} class="mx-2.5 shrink-0" /> Import Touchstone…
-      </button>
-      <p class="px-2 pt-2 text-[11px] faint">The circuit's own</p>
-      <button
-        class="flex w-full cursor-grab items-center gap-2 rounded-lg px-2 py-1 text-left text-sm hover:bg-base-content/5"
-        onpointerdown={(e) => grab(e, "#port")}
-        title="An external port: drag it onto the chip and wire it to a component's port. Or drag a wire from a port to empty space."
-      >
-        <svg width="36" height="22" viewBox="-24 -12 48 24" class="shrink-0"><path d="M -20 -8 L 10 -8 L 19 0 L 10 8 L -20 8 Z" class="fill-accent/20 stroke-accent" stroke-width="1.4" /></svg>
-        <span>External port</span>
-      </button>
-
-      <p class="px-2 pt-4 pb-1 text-[10.5px] font-semibold tracking-wider uppercase faint">In the workspace</p>
-      {#each files as f (f.path)}
-        <div class="group flex items-center rounded-lg {editor.path === f.path ? 'bg-primary/12' : 'hover:bg-base-content/4'}">
-          <button class="min-w-0 flex-1 px-2 py-1.5 text-left" onclick={() => openFile(f.path)} title={f.about}>
-            <span class="block truncate text-sm font-medium">{f.name}</span>
-            <span class="block truncate text-xs faint">{plural(f.instances, "part")} · {ago(f.modified)}</span>
-          </button>
-          <div class="tooltip tooltip-left" data-tip="Delete">
-            <button class="btn btn-ghost btn-xs btn-square opacity-0 group-hover:opacity-100" aria-label="Delete {f.name}" onclick={() => remove(f)}><Trash2 size={13} /></button>
-          </div>
-        </div>
-      {:else}
-        <p class="px-2 text-xs faint">None yet: Ctrl+S saves this one to circuits/.</p>
-      {/each}
-    </div>
-  </aside>
-
+<!-- the parts and the circuits are in the rail, under Chip (components/rail/ChipTree.svelte) -->
+<div class="grid h-full grid-cols-[minmax(0,1fr)_19rem] max-xl:grid-cols-[minmax(0,1fr)_16rem]">
   <!-- the canvas -->
   <div class="flex min-h-0 min-w-0 flex-col">
     <!-- Save and Simulate stay in view; too narrow for the rest, the tools beside them scroll
@@ -826,11 +687,11 @@
           {/if}
 
           <!-- a part being dragged in -->
-          {#if placing?.moved && placing.over}
-            {#if placing.part === "#port"}
-              <path d="M -20 -8 L 10 -8 L 20 0 L 10 8 L -20 8 Z" transform="translate({placing.x} {placing.y})" class="fill-accent/20 stroke-accent pointer-events-none opacity-70" />
-            {:else if kindOf(placing.part)}
-              <g transform="translate({placing.x} {placing.y})" class="pointer-events-none opacity-60"><Glyph symbol={kindOf(placing.part)!.symbol} selected /></g>
+          {#if palette.placing?.moved && palette.placing.over}
+            {#if palette.placing.part === "#port"}
+              <path d="M -20 -8 L 10 -8 L 20 0 L 10 8 L -20 8 Z" transform="translate({palette.placing.x} {palette.placing.y})" class="fill-accent/20 stroke-accent pointer-events-none opacity-70" />
+            {:else if kindOf(palette.placing.part)}
+              <g transform="translate({palette.placing.x} {palette.placing.y})" class="pointer-events-none opacity-60"><Glyph symbol={kindOf(palette.placing.part)!.symbol} selected /></g>
             {/if}
           {/if}
         </g>

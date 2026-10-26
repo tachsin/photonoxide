@@ -4,7 +4,7 @@
   // lesson's Markdown with KaTeX; its charts, examples, validation cases and timeline are blocks.
   import "katex/dist/katex.min.css";
 
-  import { ArrowLeft, BookOpen, Boxes, ChevronDown, ChevronRight, CircleCheck, CircleX, CircuitBoard, Clock, Eye, ListOrdered, Play, ShieldCheck, SquarePen, TableOfContents } from "@lucide/svelte";
+  import { BookOpen, Boxes, ChevronDown, ChevronRight, CircleCheck, CircleX, CircuitBoard, Clock, Eye, ListOrdered, Play, ShieldCheck, SquarePen, TableOfContents } from "@lucide/svelte";
   import { openUrl } from "../lib/open";
 
   import { academy, DEPTHS, numbered, type ChartSpec, type DiagramSpec, type Depth, type Lesson, type LessonSection } from "../lib/academy.svelte";
@@ -30,7 +30,6 @@
     docs,
     onlesson,
     ondoc,
-    onback,
   }: {
     lesson: Lesson;
     lessons: Lesson[];
@@ -39,7 +38,6 @@
     docs: MethodDoc[];
     onlesson: (id: string) => void;
     ondoc: (doc: MethodDoc) => void;
-    onback: () => void;
   } = $props();
 
   loadCatalog();
@@ -169,7 +167,6 @@
   <article class="min-w-0 flex-1 overflow-y-auto" onclick={click}>
     <header class="glow border-b border-base-content/8">
       <div class="mx-auto max-w-3xl px-5 pt-6 pb-6 sm:px-8">
-        <button class="btn -ml-2 mb-3 gap-1.5 btn-ghost btn-sm md:hidden" onclick={onback}><ArrowLeft size={15} /> Lessons</button>
         <div class="flex flex-wrap items-center gap-2 text-xs">
           <span class="font-medium text-primary">{lesson.topic}</span>
           <span class="badge badge-soft badge-sm {LEVEL[lesson.level]}">{lesson.level}</span>
