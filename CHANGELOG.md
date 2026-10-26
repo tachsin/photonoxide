@@ -64,15 +64,33 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - *(device)* Harris et al.'s in-guide heater as a third thermo-optic phase shifter, at analytic, 2D and measured fidelity (part of #420) ([#539](https://github.com/tachsin/photonoxide/pull/539))
 - *(electro)* a travelling-wave electrode's full-wave RF mode, the metal a lossy medium (part of #418) ([#540](https://github.com/tachsin/photonoxide/pull/540))
 - *(electro)* Heinrich's coplanar line's R and L and Frankel et al.'s radiation into the substrate as full-wave cases (part of #418) ([#542](https://github.com/tachsin/photonoxide/pull/542))
+- *(studio)* the Academy's strip waveguide lesson, from hybrid modes to the device's fidelities ([#410](https://github.com/tachsin/photonoxide/pull/410))
+- *(studio)* the axes in the design views, and a frame switch between the chip's and the cross-section's ([#461](https://github.com/tachsin/photonoxide/pull/461))
+- *(studio)* the cut and its across axis in every design view, a cursor readout in both frames, and the crystals a job uses for the crystal frame ([#465](https://github.com/tachsin/photonoxide/pull/465))
+- *(studio)* the job's text beside its design, the schema's keys and docs at the cursor, and the check's error where it points (part of #430) ([#469](https://github.com/tachsin/photonoxide/pull/469))
+- *(studio)* the crystal frame: the chip's axes named by the crystal's, its axes on what it fills, and the 3D view along its c axis ([#470](https://github.com/tachsin/photonoxide/pull/470))
+- *(studio)* click a structure beside the job's text to select its entry and edit it in a sidebar (part of #430) ([#472](https://github.com/tachsin/photonoxide/pull/472))
+- *(studio)* the dispersion lesson's D from Frey's smooth silicon ([#473](https://github.com/tachsin/photonoxide/pull/473))
+- *(studio)* the sidebar in the form's 3D and Top views, a medium's index, range and source in it, and a crystal's orientation set there (closes #435) ([#474](https://github.com/tachsin/photonoxide/pull/474))
+- *(studio)* an expression's functions, units and parameters with their values, and the sidebar's values, in the editor's popover; a key's method page on hover (part of #430) ([#476](https://github.com/tachsin/photonoxide/pull/476))
+- *(studio)* the job editor's tabs for open jobs, and beside the text a Reference of the whole job and every problem, each a click from its place (part of #430) ([#478](https://github.com/tachsin/photonoxide/pull/478))
+- *(academy)* the leaky and bent guides lesson, its diagram and three exact charts (part of #228) ([#483](https://github.com/tachsin/photonoxide/pull/483))
+- *(site)* the cross-code comparison as a docs page, its chart drawn light and dark ([#531](https://github.com/tachsin/photonoxide/pull/531))
 
 ### <!-- 1 -->Fixed
 
 - three tests steady under load: a worker's handshake by the clock, a cancelled build's processes ended as a job, the farm's deadline on a yardstick ([#475](https://github.com/tachsin/photonoxide/pull/475))
 - *(examples)* strip_waveguide quotes Hadley's index, gated by its grids ([#485](https://github.com/tachsin/photonoxide/pull/485))
+- *(studio)* a nightly's version is main's, with the date and commit as build metadata ([#428](https://github.com/tachsin/photonoxide/pull/428))
+- *(studio)* one WebGL context for every preview, so many cards don't go white ([#490](https://github.com/tachsin/photonoxide/pull/490))
+- *(studio)* a finished FDFD sweep shows the field its job asks for, not its last point ([#503](https://github.com/tachsin/photonoxide/pull/503))
+- *(studio)* links open again: the opener's URL scope allowed, and a toast when one can't ([#533](https://github.com/tachsin/photonoxide/pull/533))
+- *(studio)* the Libraries page fits a narrow window: its cards' grid and the page may shrink ([#535](https://github.com/tachsin/photonoxide/pull/535))
 
 ### <!-- 2 -->Performance
 
 - *(fdfd)* [**breaking**] a multigrid without the finest matrix, its smoother from the stencil and its coarse levels rediscretized ([#351](https://github.com/tachsin/photonoxide/pull/351))
+- *(studio)* KaTeX's fonts as woff2 alone, 0.8 MiB less in every installer ([#504](https://github.com/tachsin/photonoxide/pull/504))
 
 ### <!-- 4 -->Documentation
 
@@ -94,6 +112,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - *(crosscode)* the comparison by pair, photonoxide against Elmer (accuracy and speed) and against openEMS (accuracy), and no chart ([#537](https://github.com/tachsin/photonoxide/pull/537))
 - *(crosscode)* the Elmer pair's times taken again with nothing else running ([#541](https://github.com/tachsin/photonoxide/pull/541))
 - 0.6.0 in the README, the roadmap and AGENTS.md, and the GPU's report written again ([#545](https://github.com/tachsin/photonoxide/pull/545))
+- *(academy)* the leaky lesson checked against Tamir and Oliner's two papers (part of #228) ([#510](https://github.com/tachsin/photonoxide/pull/510))
+- *(crosscode)* a README for the cross-code harness: the results, how to run it, what's in it ([#526](https://github.com/tachsin/photonoxide/pull/526))
+- *(studio)* the hero GIF recorded again, the ring lit at resonance in 3D, 20.5 s ([#532](https://github.com/tachsin/photonoxide/pull/532))
 
 ## [0.5.4](https://github.com/tachsin/photonoxide/compare/v0.5.3...v0.5.4) - 2026-10-16
 
