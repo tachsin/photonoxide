@@ -1,7 +1,7 @@
 ---
 title: "Travelling-wave electrodes: the RF line and the electro-optic response"
 module: "electro::line"
-summary: "A modulator's electrode as a transmission line, from the static solver: C and C₀ give the RF index √(C/C₀) and the impedance 1/(c√(CC₀)); each medium's share of the electric energy weighs its loss tangent; the conductor loss by Holloway and Kuester's method on the strips' current (their Eq. 12 to 1.3e-3 on a coplanar waveguide) or by Wheeler's incremental-inductance rule on the thick metal (2/w on plates to 4e-14; the two within 6% at 300 GHz); the wave's γ and Z₀ with the internal impedance; and the response m(ω) of a modulator driven through the line (Ghione's Eq. 6.31, its sinc and loss limits). Kharel et al. 2021's regular electrodes within 8% in Z, 2% in the index and 9% in the loss; Zhang et al. 2022's line at 2.259 (100 GHz), 41.1 Ω and 15.2 dB/cm (250 GHz) against 2.27, 41.5 Ω and 13 dB/cm. Segmented electrodes by each period's ABCD matrix, the Bloch wave's index and impedance, the rails' loading as Shin et al.'s loaded line: Shin's T-rail electrodes within 0.14σ of their measured velocity and impedance; Kharel et al.'s segmented rows on quartz within 5.8% in Z and 3.7% in the index, their measured electrode at 2.207 against 2.23 and 0.272 against 0.26 dB cm⁻¹ GHz⁻½. Quasi-TEM, to about 100 GHz; beyond it the full-wave RF mode on a Yee lattice of the same cross-section, the metal a lossy medium and the substrate a half-space if asked: lossy parallel plates to 9.6e-6 of their exact β at second order, quasi-TEM met at 50 GHz to 0.1% in index and impedance and 0.9% in loss, Zhang et al.'s line at 250 GHz 2.258, 41.4 Ω and 16.3 dB/cm against their 2.26 simulated, 41.5 Ω and about 16 dB/cm measured, 1.34 dB/cm radiated into the silicon at 300 GHz; its bandwidths 84 and 31 GHz, which don't close the gap to their measured 170 and 100."
+summary: "A modulator's electrode as a transmission line, from the static solver: C and C₀ give the RF index √(C/C₀) and the impedance 1/(c√(CC₀)); each medium's share of the electric energy weighs its loss tangent; the conductor loss by Holloway and Kuester's method on the strips' current (their Eq. 12 to 1.3e-3 on a coplanar waveguide) or by Wheeler's incremental-inductance rule on the thick metal (2/w on plates to 4e-14; the two within 6% at 300 GHz); the wave's γ and Z₀ with the internal impedance; and the response m(ω) of a modulator driven through the line (Ghione's Eq. 6.31, its sinc and loss limits). Kharel et al. 2021's regular electrodes within 8% in Z, 2% in the index and 9% in the loss; Zhang et al. 2022's line at 2.259 (100 GHz), 41.1 Ω and 15.2 dB/cm (250 GHz) against 2.27, 41.5 Ω and 13 dB/cm. Segmented electrodes by each period's ABCD matrix, the Bloch wave's index and impedance, the rails' loading as Shin et al.'s loaded line: Shin's T-rail electrodes within 0.14σ of their measured velocity and impedance; Kharel et al.'s segmented rows on quartz within 5.8% in Z and 3.7% in the index, their measured electrode at 2.207 against 2.23 and 0.272 against 0.26 dB cm⁻¹ GHz⁻½. Quasi-TEM, to about 100 GHz; beyond it the full-wave RF mode on a Yee lattice of the same cross-section, the metal a lossy medium and the substrate a half-space if asked: lossy parallel plates to 9.6e-6 of their exact β at second order, quasi-TEM met at 50 GHz to 0.1% in index and impedance and 0.9% in loss, Zhang et al.'s line at 250 GHz 2.258, 41.4 Ω and 16.3 dB/cm against their 2.26 simulated, 41.5 Ω and about 16 dB/cm measured, 1.34 dB/cm radiated into the silicon at 300 GHz; its bandwidths 84 and 31 GHz, which don't close the gap to their measured 170 and 100. Heinrich's coplanar line from 1 to 100 GHz, the current through the metal to the skin effect: R within 3.7 to 6.4% and L within 1.3% of his closed-form model; Frankel et al.'s line on a GaAs half-space radiating into it within 2% of their Eq. (9a) at 100, 200 and 400 GHz."
 order: 25.6
 papers:
   - cite: "C. L. Holloway, E. F. Kuester, IEEE Trans. Microw. Theory Tech. 43, 2695 (1995) (a CPW's conductor loss: the strips' current stopped short of their edges, Eqs. 4, 7–13 and Table I)"
@@ -22,11 +22,11 @@ papers:
     doi: 10.1109/TMTT.2004.840735
   - cite: "K. S. Yee, IEEE Trans. Antennas Propag. 14, 302 (1966) (the staggered lattice of E and H)"
     doi: 10.1109/TAP.1966.1138693
-  - cite: "W. Heinrich, IEEE Trans. Microw. Theory Tech. 41, 45 (1993) (a CPW's frequency-dependent R and L as the current reaches through the metal; Section VI, the quasi-TEM model's accuracy against full-wave)"
+  - cite: "W. Heinrich, IEEE Trans. Microw. Theory Tech. 41, 45 (1993) (a CPW's frequency-dependent R and L as the current reaches through the metal, in closed form, Eqs. (1)–(11) and (14)–(22); Section VI, the quasi-TEM model's accuracy against full-wave)"
     doi: 10.1109/22.210228
   - cite: "W. C. Chew, W. H. Weedon, Microw. Opt. Technol. Lett. 7, 599 (1994) (complex-stretched coordinates as a perfectly matched layer)"
     doi: 10.1002/mop.4650071304
-  - cite: "M. Y. Frankel et al., IEEE Trans. Microw. Theory Tech. 39, 910 (1991) (a coplanar line's radiation into its substrate, measured to 1 THz)"
+  - cite: "M. Y. Frankel et al., IEEE Trans. Microw. Theory Tech. 39, 910 (1991) (a coplanar line's radiation into its substrate, Eq. (9a) and Fig. 2's line (i); measured to 1 THz)"
     doi: 10.1109/22.81658
   - cite: "P. Yeh, A. Yariv, C.-S. Hong, J. Opt. Soc. Am. 67, 423 (1977) (Bloch waves from a period's unimodular matrix, Eqs. (24)–(27))"
     doi: 10.1364/JOSA.67.000423
@@ -72,6 +72,18 @@ validation:
   - line/zhang-2022-full-wave-index
   - line/zhang-2022-full-wave-impedance
   - line/zhang-2022-full-wave-loss
+  - line/heinrich-1993-external
+  - line/heinrich-1993-resistance-1ghz
+  - line/heinrich-1993-resistance-10ghz
+  - line/heinrich-1993-resistance-100ghz
+  - line/heinrich-1993-inductance-1ghz
+  - line/heinrich-1993-inductance-10ghz
+  - line/heinrich-1993-inductance-100ghz
+  - line/heinrich-1993-grid
+  - line/frankel-1991-radiation-100ghz
+  - line/frankel-1991-radiation-200ghz
+  - line/frankel-1991-radiation-400ghz
+  - line/frankel-1991-grid
 ---
 
 A Pockels modulator's Vπ·L ([electro-optic](electro-optic.md)) is its electrodes' field at DC.
@@ -383,6 +395,78 @@ dB bandwidth comes within 7% of theirs. What would explain the 3 dB points is in
 line loss there near their fit's (1.6 dB/cm at 10 GHz, half ours), or a reference at 1 GHz that
 already holds part of the fall (their Vπ·L of 2.3 V·cm at DC and 2.67 at 1 GHz).
 
+**Heinrich's coplanar line** (`line/heinrich-1993-*`). W. Heinrich (1993) gives a coplanar
+line's R and L in closed form from DC to the skin effect, fitted to his mode-matching analysis: a
+40 µm signal, 5 µm slots, grounds 200 µm wide, 1.5 µm of metal at κ = 3 × 10⁷ S/m, on GaAs (ε_r
+12.9) without a backside (his Figs. 4 and 5). His Eq. (1) is the quarter line's capacitance with
+the metal's thickness by conformal mapping, Eq. (3) the external inductance L_e∞ = μ₀/(4F₀),
+Eqs. (4)–(8) and (21) the resistance in three intervals (DC, a power law between his transition
+frequencies, the skin effect by Wheeler's rule on L_e∞), Eqs. (9)–(11), (19), (20) and (22) the
+inductance in four, from L_DC (0.50 µH/m) down to L_e∞ plus the internal part. The transcription
+is checked by its own conditions: R and L and their slopes continuous at every transition (a
+unit test, to 1e-6 and 1e-3), R and L at DC his 1/(κwt) + 1/(2κw_g t) and L_DC. One term needs
+reading: the third interval of Eq. (9) holds a₄(ω/ω_L2) to the first power, which is what Eq.
+(22)'s a₂ to a₅ make continuous with its slope at ω_L1 and ω_L2 (squared, L jumps by about
+1e-4 at ω_L1). The full-wave line is the right half beside the mirror, the substrate a half-space (open
+below and to the right into 200 µm of PML), on grids graded from 100, 50 and 25 nm (189 × 126 to
+249 × 160 cells, the layers' besides), each number gated at 0.5% (the largest estimated error
+1.4e-3, R at 100 GHz):
+
+| f (GHz) | skin depth | R full-wave (Ω/m) | Heinrich | L full-wave (µH/m) | Heinrich |
+|---|---|---|---|---|---|
+| 1 | 2.9 µm | 986.7 | 1024.2 (−3.7%) | 0.32761 | 0.32546 (+0.66%) |
+| 10 | 0.92 µm | 2117.9 | 2263.2 (−6.4%) | 0.26808 | 0.27167 (−1.3%) |
+| 100 | 0.29 µm | 6188.4 | 6591.0 (−6.1%) | 0.25128 | 0.25155 (−0.11%) |
+
+The quasi-TEM line's L_e∞ = 1/(c²C₀) on the same grids is 0.24107 µH/m against his Eq. (3)'s
+0.24118 (−0.043%; he puts his approximations within 1%). The tolerances are his Section VI's:
+his ε_eff and Z within 3% of full-wave (3% on L), and the resistance his model's main error, its
+skin-effect form an order of 10% high for narrow slots (10% on R). At 1 GHz the skin depth is twice the
+metal, the current spreads through the strips and the grounds, and L is 1.36 times L_e∞: the
+range quasi-TEM with a surface impedance can't hold and the volume current does.
+
+**Radiation into the substrate** (`line/frankel-1991-*`). A coplanar line on a substrate much
+thicker than itself is faster than the substrate's plane waves (ε_eff about (ε_r + 1)/2) and
+sheds a shock wave into it. M. Y. Frankel et al. (1991) give its loss as Eq. (9a), Rutledge et
+al.'s radiation of the slots' quasi-static field into a half-space with the angle and the
+impedance taken from the guided mode's ε_eff(f):
+
+$$\alpha_{rad} = \left(\frac{\pi}{2}\right)^5 2\,\frac{(1 - \varepsilon_{eff}/\varepsilon_r)^2}{\sqrt{\varepsilon_{eff}/\varepsilon_r}}\,\frac{(s + 2w)^2\varepsilon_r^{3/2}}{c^3 K'(k)K(k)}\,f^3, \qquad k = \frac{s}{s + 2w},$$
+
+s the centre strip and w the slots. Their Fig. 2 line (i), a 30 µm centre and 20 µm slots, on
+GaAs (ε_r 13: their f_te of 43 GHz at d = 500 µm, and their ε_q of about 7), with 0.4 µm of
+gold (bulk, 4.1 × 10⁷ S/m; theirs isn't given), its grounds and the substrate running on into
+200 µm of PML (half-planes, as the formula takes them), on grids graded from 40, 20 and 10 nm
+(198 × 186 to 240 × 218 cells), gated at 0.5% (the largest estimated error 1.6e-4): the loss
+neither the metal nor the GaAs takes against Eq. (9a) with our own ε_eff,
+
+| f (GHz) | ε_eff | radiation (Np/m) | Eq. (9a) |
+|---|---|---|---|
+| 100 | 7.059 | 11.94 | 12.18 (−2.0%) |
+| 200 | 7.225 | 91.74 | 91.07 (+0.7%) |
+| 400 | 7.674 | 589.1 | 601.1 (−2.0%) |
+
+within 10% (their formula's quasi-static slot field, for wavelengths above s + 2w; the window's
+own effect on the split is up to 3%, grounds 300 against 600 µm wide and the substrate 300
+against 600 µm deep, on a grid graded from 50 nm). The rise slows below f³ as ε_eff climbs
+toward ε_r, as their Fig. 2 has it; the radiation is a sixth of the line's loss at 100 GHz, more
+than half at 200 and nine tenths at 400 (on the grid graded from 50 nm). From about 300 GHz the
+leaky wave's field, growing away from the line, holds a share of the window's power that grows
+with the window, and the power–current Z₀ stops being the line's (on that grid, at 400 GHz 76 Ω in this window
+and 103 Ω with the grounds 600 µm wide, against 49 Ω at 100 GHz); there the eigenvalue's α
+changes by 0.4% between the windows, the split by up to 2.3%.
+
+Finite grounds radiate far less where they are narrow against the substrate's transverse
+wavelength (1.2 mm at 100 GHz): with grounds 200 µm wide ending 100 µm inside the window, on a
+grid graded from 50 nm, 1.0 to 1.3 Np/m at 100 GHz (the layer 400 µm at strength 30 to 200 µm at 4) and 43.1 at
+200 GHz, against Eq. (9a)'s 12.2 and 88.6; 100 µm grounds 0.67 and 9.5, 400 µm 4.9 and 81.0. A radiation number belongs to its line's
+grounds as much as to its slots.
+
+Their measured attenuation (Figs. 6(a) and 7(a), a CPW on 500 µm of GaAs, 0.05/0.35 µm of
+Ti/Au) isn't a case: the paper doesn't give that line's centre and slots, only its dispersion
+fit's a = 1840, which line (i)'s geometry puts at 334, and the measurement holds the metal's
+loss too.
+
 ## Segmented electrodes
 
 A segmented (T-rail) electrode hangs short rails off its channels, each by a narrow stem: on
@@ -541,8 +625,11 @@ minutes.
 
 ## Not yet
 
-- Heinrich 1993's resistance and inductance of a coplanar line from DC to 100 GHz, and the
-  radiation into a substrate half-space against Frankel et al. 1991's Eq. (9a), as cases.
+- Zhang et al.'s 3 dB bandwidths (170 and 100 GHz measured; 84 and 31 full-wave, 92 and 33
+  quasi-TEM): not understood (see their line, full-wave, above).
+- Below 1 GHz the full-wave mode's β² nears the rounding of the lattice's entries, so Heinrich's
+  DC end (his L_DC and R_DC, which his own closed form meets) is the quasi-static solvers' and his
+  model's, not a full-wave case.
 - A segmented electrode's 3D parts: the rails' ends fringing across the gaps between them (the 2D
   sections bound it), and the current that charges the rails through their stems; a segmented
   line full-wave.

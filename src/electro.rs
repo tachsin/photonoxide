@@ -42,6 +42,7 @@ use crate::statics::{Discrete, Hold, Problem, spread};
 
 pub mod full_wave;
 pub(crate) mod full_wave_checks;
+pub(crate) mod full_wave_coplanar;
 pub mod line;
 pub(crate) mod line_checks;
 #[cfg(test)]
