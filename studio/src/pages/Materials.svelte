@@ -1,8 +1,9 @@
 <script lang="ts">
-  // Materials: the catalogue. Each material's index models (plotted over their range, evaluated
+  // Materials: the catalogue, listed in the rail. Each material's index models (plotted over their range, evaluated
   // at a wavelength, with their equation and coefficients as the paper prints them), its crystal,
   // its d and r tensors, and the paper every number comes from.
-  import { Atom, BookOpen, Clock, ExternalLink, FileText, Search, Thermometer } from "@lucide/svelte";
+  import { Atom, BookOpen, Clock, ExternalLink, FileText, Thermometer } from "@lucide/svelte";
+  import { untrack } from "svelte";
   import { openUrl } from "../lib/open";
   import katex from "katex";
   import "katex/dist/katex.min.css";
@@ -24,12 +25,9 @@
     type Tensor,
   } from "../lib/api";
   import type { Series } from "../lib/plot";
+  import { loadMaterials, materials } from "../lib/materials.svelte";
   import { len, lenUnit, shown as inUnit, stored } from "../lib/units";
 
-  let entries = $state<MaterialEntry[]>([]);
-  let problem = $state("");
-  let query = $state("");
-  let chosen = $state<string | null>(null);
   let modelId = $state<string | null>(null);
   let temperature = $state<number | null>(null);
   let composition = $state<number | null>(null);
@@ -45,25 +43,11 @@
   const KINDS = ["second-order", "electro-optic"] as const;
   let curveProblem = $state("");
 
-  api
-    .materials()
-    .then((all) => (entries = all))
-    .catch((e) => (problem = String(e)));
+  loadMaterials();
+  const entries = $derived(materials.entries);
+  const problem = $derived(materials.problem);
 
-  const CATEGORIES: [MaterialEntry["category"], string][] = [
-    ["dielectric", "Dielectrics"],
-    ["semiconductor", "Semiconductors"],
-    ["nonlinear-crystal", "Nonlinear crystals"],
-    ["phase-change", "Phase-change materials"],
-  ];
-
-  const shown = $derived(
-    entries.filter((e) => {
-      const q = query.trim().toLowerCase();
-      return !q || `${e.name} ${e.formula} ${e.id} ${e.summary}`.toLowerCase().includes(q);
-    }),
-  );
-  const entry = $derived(entries.find((e) => e.id === (chosen ?? entries[0]?.id)));
+  const entry = $derived(entries.find((e) => e.id === (materials.chosen ?? entries[0]?.id)));
   const model = $derived<IndexModel | undefined>(
     entry ? (entry.index.find((m) => m.id === modelId) ?? entry.index.find((m) => m.default) ?? entry.index[0]) : undefined,
   );
@@ -75,12 +59,15 @@
     composition = m?.composition?.default ?? null;
   });
 
-  function choose(id: string) {
-    chosen = id;
-    modelId = null;
-    fact = null;
-    picked = {};
-  }
+  // another material (chosen in the rail) starts at its default model, with nothing picked
+  $effect(() => {
+    void entry?.id;
+    untrack(() => {
+      modelId = null;
+      fact = null;
+      picked = {};
+    });
+  });
 
   // the curves follow the model and its conditions
   $effect(() => {
@@ -243,41 +230,10 @@
   }
 </script>
 
-<!-- the list narrower in a narrow window, so the material keeps its width -->
-<div class="grid h-full grid-cols-[13rem_minmax(0,1fr)] xl:grid-cols-[18rem_minmax(0,1fr)]">
-  <!-- the list -->
-  <aside class="flex min-h-0 flex-col border-r border-base-content/8">
-    <div class="p-4">
-      <label class="input input-sm w-full"><Search size={14} class="faint" /><input bind:value={query} placeholder="Search the materials" /></label>
-    </div>
-    <div class="min-h-0 flex-1 overflow-y-auto px-2 pb-4">
-      {#if problem}
-        <p class="px-3 text-sm text-error">{problem}</p>
-      {/if}
-      {#each CATEGORIES as [category, title] (category)}
-        {@const items = shown.filter((e) => e.category === category)}
-        {#if items.length}
-          <div class="px-3 pt-3 pb-1 text-[10.5px] font-semibold tracking-wider uppercase faint">{title}</div>
-          {#each items as e (e.id)}
-            {@const on = entry?.id === e.id}
-            <button
-              class="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left transition-colors {on ? 'bg-primary/12 text-primary' : 'hover:bg-base-content/5'}"
-              onclick={() => choose(e.id)}
-            >
-              <span class="w-20 shrink-0 truncate font-medium">{e.formula}</span>
-              <span class="min-w-0 flex-1 truncate text-xs {on ? '' : 'muted'}">{e.name}</span>
-              {#if !e.index.length}
-                <span class="badge badge-xs badge-ghost" title="No index model yet">soon</span>
-              {/if}
-            </button>
-          {/each}
-        {/if}
-      {/each}
-    </div>
-  </aside>
-
+<!-- the catalogue is listed in the rail, under Materials (components/rail/MaterialsTree.svelte) -->
+<div class="h-full">
   <!-- the material -->
-  <div class="min-h-0 overflow-y-auto">
+  <div class="h-full min-h-0 overflow-y-auto">
     {#if entry}
       <div class="glow border-b border-base-content/8 px-4 py-5 sm:px-8 sm:py-6">
         <div class="flex items-start gap-4">

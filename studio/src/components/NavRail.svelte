@@ -3,8 +3,8 @@
   // (Validation, Libraries, Benchmarks), folded, beside Settings. It folds to its icons and back
   // with one animation of its width: the icons stay where they are and the labels are clipped
   // and faded, so nothing in it moves. Folded, an item says what it is in a hint beside it.
-  // Under Components, Chip and the Academy, while that page is shown, its tree (its parts, its
-  // lessons) opens in a card of its own: the pages stay in sight and only the tree scrolls.
+  // Under Components, Chip, the Academy and Materials, while that page is shown, its tree (its
+  // parts, its lessons, its materials) opens in a card of its own: the pages stay in sight and only the tree scrolls.
   import { ChevronRight, ChevronsLeft, FlaskConical, MonitorCog } from "@lucide/svelte";
   import { untrack, type Component } from "svelte";
 
@@ -15,11 +15,12 @@
   import AcademyTree from "./rail/AcademyTree.svelte";
   import ChipTree from "./rail/ChipTree.svelte";
   import ComponentsTree from "./rail/ComponentsTree.svelte";
+  import MaterialsTree from "./rail/MaterialsTree.svelte";
 
   let collapsed = $state(stored("rail") === "collapsed");
 
   /** The pages with a tree in the rail. */
-  const TREES: Partial<Record<Page, Component>> = { components: ComponentsTree, chip: ChipTree, academy: AcademyTree };
+  const TREES: Partial<Record<Page, Component>> = { components: ComponentsTree, chip: ChipTree, academy: AcademyTree, materials: MaterialsTree };
   /** The tree open: the shown page's, unless it was folded away or the rail is folded to its icons. */
   const tree = $derived(!collapsed && TREES[app.page] && !rail.shut[app.page] ? app.page : null);
 

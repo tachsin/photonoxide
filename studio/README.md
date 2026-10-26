@@ -43,9 +43,9 @@ only on a network you trust. See [docs/farming.md](../docs/farming.md).
 The rail on the left holds five pages, the places where work happens: **Home**,
 **Components**, **Chip**, **Academy** and **Materials**. At its foot, the **System** group
 (Validation, Libraries and Benchmarks) folds away beside **Settings**; it opens by itself when one
-of its pages is shown. Under **Components**, **Chip** and **Academy**, while that page is shown,
-its list opens in the rail, in a card of its own: the components, the parts and circuits, or the
-lessons, each in groups that fold away with a search at the top. The pages above and below stay
+of its pages is shown. Under **Components**, **Chip**, **Academy** and **Materials**, while that page is
+shown, its list opens in the rail, in a card of its own: the components, the parts and circuits,
+the lessons or the materials, each in groups that fold away with a search at the top. The pages above and below stay
 in sight and only the list scrolls; a click on the page's item, or Ctrl+B, folds the list and
 brings it back, and the groups are left as they were. The rail folds to its icons, each naming
 itself in a hint. One page isn't
