@@ -512,9 +512,11 @@ fn methods(d: &ThermoShifter) -> Vec<Method> {
             STATED_METAL_MEASURED,
         ),
         Heater::Doped => (
-            "closed forms: the slab as a fin of silicon leaking through the buried oxide (exact \
-             in each of the rib, the buffer and the doped strips), times Marcatili's dn_eff/dT; \
-             the oxide slab's 1/e time and -3 dB frequency, heated in the slab",
+            "closed forms: each doped strip's heat a sheet at the slab's mid-height, half the \
+             power across its width, in the oxide as a slab between the isothermal substrate and \
+             an insulated top (its eigenfunctions, the strips' widths in closed form), times \
+             Marcatili's dn_eff/dT; the oxide slab's 1/e time and -3 dB frequency, heated in the \
+             slab",
             STATED_DOPED_2D,
             STATED_DOPED_MEASURED,
         ),
