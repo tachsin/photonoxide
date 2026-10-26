@@ -3971,6 +3971,84 @@
       ],
       "type": "object"
     },
+    "FullWaveSpec": {
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "not": {
+            "required": [
+              "fine",
+              "fine_nm"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "open",
+              "open_um"
+            ]
+          }
+        }
+      ],
+      "description": "`line.full_wave`: the line's full-wave RF mode (`crate::electro::full_wave`).",
+      "properties": {
+        "along": {
+          "additionalProperties": {
+            "type": "number"
+          },
+          "default": {},
+          "description": "Each medium's relative permittivity along the line where it isn't the one up.",
+          "type": "object"
+        },
+        "fine": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "The full-wave grid's smallest step, at the conductors' faces and corners, nm (by default the task's `fine_nm`); its largest is the task's `step_nm`. With its unit in the value, in place of fine_nm: a length with its unit, e.g. \"20 nm\"."
+        },
+        "fine_nm": {
+          "description": "The full-wave grid's smallest step, at the conductors' faces and corners, nm (by default the task's `fine_nm`); its largest is the task's `step_nm`.",
+          "type": "number"
+        },
+        "layer_cells": {
+          "description": "The layers' cells (15 by default).",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "open": {
+          "additionalProperties": {
+            "type": "number"
+          },
+          "default": {},
+          "description": "The sides opened into a perfectly matched layer (`left`, `right`, `bottom`, `top`), each with the layer's thickness beyond the window, µm. With its unit in the value, in place of open_um: a length with its unit, e.g. \"1.55 um\".",
+          "type": "object"
+        },
+        "open_um": {
+          "additionalProperties": {
+            "type": "number"
+          },
+          "default": {},
+          "description": "The sides opened into a perfectly matched layer (`left`, `right`, `bottom`, `top`), each with the layer's thickness beyond the window, µm.",
+          "type": "object"
+        },
+        "pml_strength": {
+          "description": "The layers' strength α, s = 1 + iα at their ends (4 by default).",
+          "type": "number"
+        },
+        "sweep": {
+          "description": "How many frequencies the response's sweep solves, from `reference_ghz` to `up_to_ghz` (24 by default).",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "type": "object"
+    },
     "ItemSpec": {
       "additionalProperties": false,
       "allOf": [
@@ -4364,6 +4442,10 @@
             "type": "number"
           },
           "type": "array"
+        },
+        "full_wave": {
+          "$ref": "#/$defs/FullWaveSpec",
+          "description": "The full-wave RF mode beside the quasi-TEM line."
         },
         "loss_tangent": {
           "additionalProperties": {
