@@ -126,6 +126,10 @@ jobs:
       - name: Its backend's tests, the library required
         if: matrix.test != ''
         run: env ${{ matrix.require }} cargo test -p photonoxide-native --release --test ${{ matrix.test }}
+      # temporary (#557): the test that failed once, 20 times on macOS's OpenMP build
+      - name: The exported systems' test, 20 times (#557)
+        if: matrix.test == 'blas' && runner.os == 'macOS' && matrix.package == 'openblas'
+        run: for i in $(seq 1 20); do echo "run $i"; env ${{ matrix.require }} cargo test -p photonoxide-native --release --test blas on_the_exported_systems || exit 1; done
 
   pip:
     name: pip ${{ matrix.package }} (${{ matrix.os }})
