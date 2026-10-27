@@ -63,6 +63,7 @@ pub(crate) struct Runtime {
     memcpy: unsafe extern "C" fn(Opaque, *const c_void, usize, c_int) -> c_int,
     synchronize: unsafe extern "C" fn() -> c_int,
     mem_get_info: unsafe extern "C" fn(*mut usize, *mut usize) -> c_int,
+    device_attribute: Option<unsafe extern "C" fn(*mut c_int, c_int, c_int) -> c_int>,
     // last: the functions above must not outlive it
     _library: Library,
 }
@@ -82,6 +83,7 @@ impl Runtime {
                     memcpy: library.function("cudaMemcpy")?,
                     synchronize: library.function("cudaDeviceSynchronize")?,
                     mem_get_info: library.function("cudaMemGetInfo")?,
+                    device_attribute: library.function("cudaDeviceGetAttribute").ok(),
                     _library: library,
                 })
             }
@@ -97,6 +99,19 @@ impl Runtime {
             unsafe { (self.synchronize)() },
             &format!("cudaDeviceSynchronize after {what}"),
         )
+    }
+
+    /// How many times faster the GPU is in single precision than in double
+    /// (`cudaDevAttrSingleToDoublePrecisionPerfRatio`): 64 on a GeForce, 2 on a data-centre
+    /// GPU; none where the runtime doesn't say.
+    pub(crate) fn single_to_double_ratio(&self) -> Option<i32> {
+        const SINGLE_TO_DOUBLE_PRECISION_PERF_RATIO: c_int = 87;
+        let get = self.device_attribute?;
+        let _serial = serial();
+        let mut ratio = 0;
+        // SAFETY: a writable int; the attribute and device 0 (the current one) are ints
+        let status = unsafe { get(&mut ratio, SINGLE_TO_DOUBLE_PRECISION_PERF_RATIO, 0) };
+        (status == 0 && ratio > 0).then_some(ratio)
     }
 
     /// The GPU's free memory, in bytes.

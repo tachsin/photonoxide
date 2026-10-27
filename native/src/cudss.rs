@@ -24,12 +24,30 @@
 //!   factorized as a matrix of its own the first time it is asked for (its rows are the
 //!   matrix's columns, as given). A symmetric matrix is its own: its transpose solve is its
 //!   solve.
-//! - **Memory:** a factorization whose estimated peak doesn't fit in the GPU's free memory is
-//!   refused, with both numbers. cuDSS's hybrid (host and device) mode is not used yet.
+//! - **Memory:** cuDSS's hybrid mode (`CUDSS_CONFIG_HYBRID_MEMORY_MODE`) is on: a factorization
+//!   whose peak doesn't fit in the GPU's free memory keeps part of its factors in the host's,
+//!   the device's share held to 90 % of what is free, as long as cuDSS's minimum for it fits;
+//!   one that doesn't is refused, with both numbers. On, it costs nothing where the factors
+//!   fit (the same times, within 1 %, on the tests' systems); the 3D strip's LU at 48³, which
+//!   needs 7.3 GiB against an 8 GB GPU's 6.6 free, factorizes in 32 s with 6.0 GiB on it.
+//! - **Double precision emulated** (`CUDSS_CONFIG_EMULATION_MANTISSA_BIT_COUNT` at 53, all of
+//!   a double's mantissa), from cuDSS 1.0, on a GPU much slower in double precision than in
+//!   single (eight times or more: a GeForce's is 64): its tensor cores carry the factorization.
+//!   On the RTX 4060 the L D Lᵀ factorizations of the 3D strip at 32³, 36³, 40³ and 48³ take
+//!   1.05, 1.66, 2.46 and 5.58 s against 1.59, 2.92, 5.37 and 15.8 s, their solutions as
+//!   close to photonoxide's own (3e-13 to 5e-12); at 40 bits they leave it by 1e-10 and more,
+//!   so a double's 53 it is. A data-centre GPU keeps its own double precision.
 //! - **Determinism:** not declared. cuDSS 0.8's deterministic mode makes its kernels read an
 //!   illegal address on the GPU when handles are used from more than one thread, even one call
-//!   at a time, so it is off; repeated solves then differ in their last bits (the tests bound
-//!   the difference). photonoxide's own solver stays the deterministic default.
+//!   at a time; 1.0's doesn't (the tests, three times over in parallel, repeat to the bit), but
+//!   it needs two to seven times the device memory (the 3D strip at 32³: 6.2 GiB against
+//!   0.9), so it is off; repeated solves then differ in their last bits (the tests bound the
+//!   difference). photonoxide's own solver stays the deterministic default.
+//! - **The CPU's part, one thread:** cuDSS's analysis (its reordering) runs on the CPU, and its
+//!   OpenMP threading layer (`cudssSetThreadingLayer`) would run it on several; on Windows,
+//!   cuDSS 1.0's `cudss_mtlayer_vcomp14064_1.dll` makes the first call after it read an
+//!   illegal address however it is named (by the call, by `CUDSS_THREADING_LIB`) and whatever
+//!   the stacks, so it isn't set.
 //! - **Matching off** (`CUDSS_CONFIG_MATCHING_ALG` set to `CUDSS_MATCHING_ALG_NONE`), as 0.x
 //!   defaults it: 1.0 defaults to its own choice, which factors differently, and a zero pivot
 //!   it meets is then not reported as replaced. Set, both releases factor alike.
@@ -68,6 +86,14 @@ const DATA_NPIVOTS: c_int = 2;
 const DATA_MEMORY_ESTIMATES: c_int = 13;
 const CONFIG_MATCHING_ALG: c_int = 3;
 static MATCHING_ALG_NONE: c_int = 0;
+const CONFIG_HYBRID_MEMORY_MODE: c_int = 11;
+static HYBRID_MEMORY_ON: c_int = 1;
+const CONFIG_HYBRID_DEVICE_MEMORY_LIMIT: c_int = 12;
+// from cuDSS 1.0 (0.x has no 26th setting)
+const CONFIG_EMULATION_MANTISSA_BIT_COUNT: c_int = 26;
+static EMULATION_MANTISSA_BITS: c_int = 53;
+// none: the GPU's own double precision
+static NATIVE_DOUBLE: c_int = 0;
 
 /// cuDSS's functions, the library that holds them, and the CUDA runtime.
 struct Api {
@@ -100,6 +126,8 @@ struct Api {
     dense: unsafe extern "C" fn(*mut Opaque, i64, i64, i64, *const c_void, c_int, c_int) -> c_int,
     matrix_destroy: unsafe extern "C" fn(Opaque) -> c_int,
     execute: unsafe extern "C" fn(Opaque, c_int, Opaque, Opaque, Opaque, Opaque, Opaque) -> c_int,
+    /// Whether its factorizations emulate double precision (the module's notes).
+    emulate: bool,
     version: String,
     // last: the functions above must not outlive them
     _cudss: Library,
@@ -130,6 +158,8 @@ impl Api {
                     dense: cudss.function("cudssMatrixCreateDn")?,
                     matrix_destroy: cudss.function("cudssMatrixDestroy")?,
                     execute: cudss.function("cudssExecute")?,
+                    emulate: !version.starts_with("0.")
+                        && runtime.single_to_double_ratio().is_some_and(|r| r >= 8),
                     version: version.clone(),
                     _cudss: cudss,
                     runtime,
@@ -224,6 +254,25 @@ impl Engine {
                 ),
                 "cudssConfigSet",
             )?;
+            // the config is live; each value an int, its size an int's
+            let set = |param: c_int, value: &'static c_int| {
+                check(
+                    (api.config_set)(
+                        e.config,
+                        param,
+                        (value as *const c_int).cast(),
+                        size_of::<c_int>(),
+                    ),
+                    "cudssConfigSet",
+                )
+            };
+            set(CONFIG_HYBRID_MEMORY_MODE, &HYBRID_MEMORY_ON)?;
+            if api.emulate {
+                set(
+                    CONFIG_EMULATION_MANTISSA_BIT_COUNT,
+                    &EMULATION_MANTISSA_BITS,
+                )?;
+            }
             check((api.data_create)(e.handle, &mut e.data), "cudssDataCreate")?;
             check(
                 (api.csr)(
@@ -253,13 +302,49 @@ impl Engine {
         }
         let start = Instant::now();
         e.run(PHASE_ANALYSIS, "analysis")?;
-        let seconds = start.elapsed().as_secs_f64();
         let mut estimates = [0i64; 16];
         e.get(DATA_MEMORY_ESTIMATES, &mut estimates)?;
         // [1]: the peak of device memory the factorization needs
         e.peak_bytes = estimates[1].max(0) as u64;
         let free = api.runtime.free_memory()?;
-        if e.peak_bytes > free as u64 {
+        // [4]: the least device memory hybrid mode needs; the device's share held to 90 % of
+        // what is free, the rest of the factors in the host's
+        let (hybrid_least, share) = (estimates[4].max(0) as u64, free as u64 / 10 * 9);
+        if e.peak_bytes > free as u64 && hybrid_least <= share {
+            // the host's share moves on and off the GPU as the factorization goes, and emulated
+            // it waits for that (the 3D strip's LU at 48³: 92 s against 32), so a hybrid
+            // factorization keeps the GPU's own double precision; cuDSS settles it in the
+            // analysis, which is done again
+            if api.emulate {
+                check(
+                    // SAFETY: the config is live; the value an int, its size an int's
+                    unsafe {
+                        (api.config_set)(
+                            e.config,
+                            CONFIG_EMULATION_MANTISSA_BIT_COUNT,
+                            (&raw const NATIVE_DOUBLE).cast(),
+                            size_of::<c_int>(),
+                        )
+                    },
+                    "cudssConfigSet",
+                )?;
+                e.run(PHASE_ANALYSIS, "analysis")?;
+            }
+            let limit = share as i64;
+            check(
+                // SAFETY: the config is live; the limit an int64, its size its own
+                unsafe {
+                    (api.config_set)(
+                        e.config,
+                        CONFIG_HYBRID_DEVICE_MEMORY_LIMIT,
+                        (&raw const limit).cast(),
+                        size_of::<i64>(),
+                    )
+                },
+                "cudssConfigSet",
+            )?;
+            e.peak_bytes = share;
+        } else if e.peak_bytes > free as u64 {
             const GIB: f64 = 1024.0 * 1024.0 * 1024.0;
             return Err(error(format!(
                 "cuDSS's factorization needs {:.2} GiB of the GPU and {:.2} GiB is free",
@@ -267,7 +352,8 @@ impl Engine {
                 free as f64 / GIB
             )));
         }
-        Ok((e, seconds))
+        // the analysis's time, done again or not
+        Ok((e, start.elapsed().as_secs_f64()))
     }
 
     fn run(&self, phase: c_int, what: &str) -> Result<()> {
