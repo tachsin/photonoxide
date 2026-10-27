@@ -261,6 +261,12 @@ jobs:
       - run: cargo doc --no-deps --all-features
         env:
           RUSTDOCFLAGS: -D warnings
+      # dependencies no crate uses (a manifest's `[package.metadata.cargo-machete]` names those
+      # used where it doesn't look), for the smallest download
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-machete@0.9.2
+      - run: cargo machete
 
   # Tier 1: the changed areas' unit tests on Linux. Tier 2 and 3: every test on the three
   # systems, and on Linux once more on one thread: parallel code must not rely on having more

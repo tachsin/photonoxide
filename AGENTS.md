@@ -57,6 +57,8 @@ just python-test                                       # the Python package: pyt
 PHOTONOXIDE_VALIDATION_CASES="circuit/ components/" cargo test --release --test validation_report -- --ignored   # some cases' rows
 bash .github/full-suite.sh                              # the full suite here, as the release PR runs it (--fast: no release build)
 bash .github/codebase-report.sh                         # the codebase report: size by area and the download against the last release, as CI posts it on the release PR
+just codebase-report-crates                             # the same with the program's code by crate (cargo-bloat; builds the release binary)
+cargo machete                                           # dependencies nothing uses (a Lint step in CI and the hooks)
 git diff --name-only origin/main...HEAD | AREAS_RANGE=origin/main...HEAD bash .github/areas.sh   # what CI runs for a branch
 cargo semver-checks check-release -p photonoxide --baseline-rev origin/main   # a branch's own breaks (CI's Semver job on a PR)
 cargo semver-checks check-release -p photonoxide        # the public API against the latest release (the release PR's check)

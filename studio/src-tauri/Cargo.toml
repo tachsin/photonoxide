@@ -14,6 +14,10 @@ repository = "https://github.com/tachsin/photonoxide"
 publish = false
 default-run = "photonoxide"
 
+# cargo-machete reads src/ only: the examples, built in from examples/ by `#[path]`, use faer
+[package.metadata.cargo-machete]
+ignored = ["faer"]
+
 [[bin]]
 name = "photonoxide"
 path = "src/main.rs"

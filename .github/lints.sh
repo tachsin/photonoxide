@@ -15,6 +15,8 @@ LINTS=(
   "clippy, native|cargo clippy -p photonoxide-native -p photonoxide-native-testlib --all-targets -- -D warnings"
   "clippy, Python|cargo clippy -p photonoxide-python --all-targets -- -D warnings"
   "docs|env RUSTDOCFLAGS=\"-D warnings\" cargo doc --no-deps --all-features"
+  # every crate's manifest, for dependencies nothing uses; skipped, and said, without the tool
+  "unused dependencies|if command -v cargo-machete > /dev/null; then cargo machete; else echo 'cargo-machete not installed (cargo install cargo-machete): skipped'; fi"
 )
 
 # The stamps' key for the code checked out here, or nothing when tracked files differ from HEAD.

@@ -197,6 +197,11 @@ suite-fast:
 codebase-report:
     bash .github/codebase-report.sh
 
+# the same with the program's code by crate, by cargo-bloat (`cargo install cargo-bloat`), which
+# builds the studio's release binary first (minutes)
+codebase-report-crates:
+    CODEBASE_REPORT_BLOAT=1 bash .github/codebase-report.sh
+
 # run the full suite after every merge and rebase, and the lints before every push
 hooks:
     git config core.hooksPath .github/hooks

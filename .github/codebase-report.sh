@@ -14,6 +14,8 @@
 #   CODEBASE_REPORT_DIST   the window's built front end (default: studio/dist; measured when it
 #                          exists, so run `pnpm exec vite build` in studio/ first)
 #   GITHUB_REPOSITORY      owner/name, for the releases' installers (default: tachsin/photonoxide)
+#   CODEBASE_REPORT_BLOAT  1: the program's code by crate, by cargo-bloat (`cargo install
+#                          cargo-bloat`), which builds the studio's release binary (minutes)
 #
 # Needs git, coreutils, awk and curl; cargo for the crate's packaged size, gh for the installers'
 # sizes, jq if there (a sed fallback reads crates.io's answer without it). Bash only, no Python
@@ -200,6 +202,32 @@ if command -v gh >/dev/null &&
     }' <<<"$g_rel"
 else
   echo "Not available here (needs gh, signed in)."
+fi
+echo
+
+# the program's code by crate, from cargo-bloat on the studio's release build (what `pnpm tauri
+# build` compiles), when asked for: it builds that binary, which takes minutes
+echo "#### The program's code, by crate"
+echo
+if [ "${CODEBASE_REPORT_BLOAT:-}" = 1 ] && command -v cargo-bloat >/dev/null; then
+  if cargo bloat --release -p photonoxide-studio --bin photonoxide --features tauri/custom-protocol \
+    --crates -n 20 --message-format json >"$tmp/bloat.json" 2>"$tmp/bloat.err"; then
+    # {"file-size":F,"text-section-size":T,"crates":[{"name":N,"size":S},...]}, a key and its
+    # value to a line: "key":number or "name":"crate"
+    tr '{},[]' '\n\n\n\n\n' <"$tmp/bloat.json" | awk -F'"' "$LIB"'
+      { v = substr($3, 2) + 0 }
+      $2 == "file-size" { F = v } $2 == "text-section-size" { T = v }
+      $2 == "name" { name[++k] = $4 } $2 == "size" { size[k] = v; S += v }
+      END {
+        printf "The binary is %s, its code (`.text`) %s; the twenty biggest crates in the code, by cargo-bloat (which attributes generic code to the crate it is compiled in, so the counts are estimates). `photonoxide` is the library and the studio'"'"'s own code together, which share the name:\n\n", kib(F), kib(T)
+        print "| Crate | Code | Share |"; print "|---|--:|--:|"
+        for (i = 1; i <= k; i++) printf "| `%s` | %s | %.1f%% |\n", name[i], kib(size[i]), 100 * size[i] / T
+        printf "| the other crates | %s | %.1f%% |\n", kib(T - S), 100 * (T - S) / T }'
+  else
+    echo "Not measured: cargo-bloat failed ($(tail -n 1 "$tmp/bloat.err"))."
+  fi
+else
+  echo "Not measured: run with \`CODEBASE_REPORT_BLOAT=1\` and cargo-bloat installed (\`cargo install cargo-bloat\`); it builds the studio's release binary."
 fi
 echo
 
