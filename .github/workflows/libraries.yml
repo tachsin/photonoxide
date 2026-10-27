@@ -276,6 +276,8 @@ jobs:
           - { os: macos-15, require: 'PHOTONOXIDE_REQUIRE_ACCELERATE=1' }
           - { os: macos-15-intel, require: 'PHOTONOXIDE_REQUIRE_ACCELERATE=1' }
           - { os: macos-26, require: 'PHOTONOXIDE_REQUIRE_ACCELERATE=symmetric' }
+          # macOS 27, GitHub's public preview (actions/runner-images#14404): its label is the image's
+          - { os: xcode-27, require: 'PHOTONOXIDE_REQUIRE_ACCELERATE=symmetric' }
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v7
