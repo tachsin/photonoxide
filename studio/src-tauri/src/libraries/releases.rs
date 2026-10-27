@@ -24,8 +24,9 @@ use crate::watch::{Fetch, Report, cell, compare, day, is_new, numbers, record};
 pub const ISSUE_TITLE: &str = "New releases of external libraries";
 
 /// The macOS of the newest image the Libraries workflow runs Accelerate's tests on
-/// (`macos-26` in `.github/workflows/libraries.yml`): Accelerate has no install to check.
-pub const ACCELERATE_CHECKED: &str = "26";
+/// (`xcode-27`, GitHub's macOS 27 preview, in `.github/workflows/libraries.yml`): Accelerate has
+/// no install to check.
+pub const ACCELERATE_CHECKED: &str = "27";
 
 /// What to do with a new release, in the issue and in docs/libraries.md.
 pub const STEPS: &str = "\
@@ -1006,7 +1007,7 @@ mod tests {
             baseline(s)
         };
         assert_eq!(of("oneMKL", "conda-forge mkl").as_deref(), Some("2026.1.0"));
-        assert_eq!(of("oneMKL", "PyPI mkl").as_deref(), Some("2026.1.0"));
+        assert_eq!(of("oneMKL", "PyPI mkl").as_deref(), Some("2026.2.0"));
         // the newest of conda-forge's and Ubuntu's
         assert_eq!(of("MUMPS", "mumps-solver.org").as_deref(), Some("5.8.2"));
         assert_eq!(
@@ -1023,11 +1024,11 @@ mod tests {
         );
         assert_eq!(
             of("cuDSS", "NVIDIA's cuDSS redistributables").as_deref(),
-            Some("0.8.0.10")
+            Some("1.0.0.35")
         );
         assert_eq!(
             of("Accelerate", "GitHub's macOS runners").as_deref(),
-            Some("26")
+            Some("27")
         );
         // every guided source has a checked version, and every key is distinct
         let mut keys = std::collections::HashSet::new();
@@ -1048,8 +1049,10 @@ mod tests {
             "/../../.github/workflows/libraries.yml"
         );
         let workflow = std::fs::read_to_string(path).unwrap();
+        // a macOS image by its own name, or a preview by its Xcode's
         assert!(
-            workflow.contains(&format!("os: macos-{ACCELERATE_CHECKED}")),
+            workflow.contains(&format!("os: macos-{ACCELERATE_CHECKED}"))
+                || workflow.contains(&format!("os: xcode-{ACCELERATE_CHECKED}")),
             "libraries.yml runs Accelerate on another macOS than {ACCELERATE_CHECKED}"
         );
     }
@@ -1213,7 +1216,7 @@ mod tests {
         assert_eq!(record["MUMPS | mumps-solver.org"], "5.10.0");
         assert!(!record.contains_key("SuperLU | GitHub xiaoyeli/superlu"));
         assert!(first.contains("| MUMPS | [mumps-solver.org](https://mumps-solver.org/index.php?page=dwnld) | 5.8.2 | **5.10.0**, newer | 2026-09 | [MUMPS's changelog](https://mumps-solver.org/index.php?page=dwnld#cl) | **no**: 5.4.1 to 5.9.1, the releases whose structure it knows |"), "{first}");
-        assert!(first.contains("| oneMKL | [PyPI mkl](https://pypi.org/project/mkl/) | 2026.1.0 | 2026.1.0 | 2026-07-01 |"));
+        assert!(first.contains("| oneMKL | [PyPI mkl](https://pypi.org/project/mkl/) | 2026.2.0 | 2026.1.0 | 2026-07-01 |"));
         assert!(first.contains("**Couldn't be read:**\n\n- SuperLU \\| GitHub xiaoyeli/superlu: "));
         assert!(first.contains("MUMPS 5.10.0 (mumps-solver.org, 2026-09)"));
         assert!(first.contains("## When a release is new"));

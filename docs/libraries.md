@@ -75,8 +75,8 @@ Intel's oneAPI Math Kernel Library, through its single library mkl_rt: PARDISO, 
 
   The wheel puts mkl_rt beside Python (Library\bin on Windows, lib elsewhere), where photonoxide looks: the Python on PATH, or the active virtual environment's.
 
-  - Checked on Linux (ubuntu-24.04), 2026-10-09: installed mkl 2026.1.0; found oneMKL 2026.1, and the pardiso backend after its smoke test.
-  - Checked on Windows (windows-2025-vs2026), 2026-10-09: installed mkl 2026.1.0; found oneMKL 2026.1, and the pardiso backend after its smoke test.
+  - Checked on Linux (ubuntu-24.04), 2026-10-27: installed mkl 2026.2.0; found oneMKL 2026.2, and the pardiso backend after its smoke test.
+  - Checked on Windows (windows-2025-vs2026), 2026-10-27: installed mkl 2026.2.0; found oneMKL 2026.2, and the pardiso backend after its smoke test.
 
 - **apt** (Linux):
 
@@ -192,8 +192,8 @@ NVIDIA's sparse direct solver on the GPU.
 
   Into the active conda environment: start photonoxide from it.
 
-  - Checked on Linux (ubuntu-24.04), 2026-10-09: installed libcudss 0.8.0.10; found cuDSS 0.8.0, loaded; the runner has no GPU, so the backend's smoke test couldn't run.
-  - Checked on Windows (windows-2025-vs2026), 2026-10-09: installed libcudss 0.8.0.10; found cuDSS 0.8.0, loaded; the runner has no GPU, so the backend's smoke test couldn't run.
+  - Checked on Linux (ubuntu-24.04), 2026-10-27: installed libcudss 1.0.0.35; found cuDSS 1.0.0, loaded; the runner has no GPU, so the backend's smoke test couldn't run.
+  - Checked on Windows (windows-2025-vs2026), 2026-10-27: installed libcudss 1.0.0.35; found cuDSS 1.0.0, loaded; the runner has no GPU, so the backend's smoke test couldn't run.
 
 - **pip** (Windows, Linux):
 
@@ -203,8 +203,8 @@ NVIDIA's sparse direct solver on the GPU.
 
   The CUDA 13 build (nvidia-cudss-cu12 for CUDA 12), found in site-packages/nvidia/cu13; it brings NVRTC, which cuDSS 1.0 needs at load time. Release 0.x is found too.
 
-  - Checked on Linux (ubuntu-24.04), 2026-10-09: installed nvidia-cudss-cu13 0.8.0.10; found cuDSS 0.8.0, loaded; the runner has no GPU, so the backend's smoke test couldn't run.
-  - Checked on Windows (windows-2025-vs2026), 2026-10-09: installed nvidia-cudss-cu13 0.8.0.10; found cuDSS 0.8.0, loaded; the runner has no GPU, so the backend's smoke test couldn't run.
+  - Checked on Linux (ubuntu-24.04), 2026-10-27: installed nvidia-cudss-cu13 1.0.0.35; found cuDSS 1.0.0, loaded; the runner has no GPU, so the backend's smoke test couldn't run.
+  - Checked on Windows (windows-2025-vs2026), 2026-10-27: installed nvidia-cudss-cu13 1.0.0.35; found cuDSS 1.0.0, loaded; the runner has no GPU, so the backend's smoke test couldn't run.
 
 - **macos:** NVIDIA's libraries have no macOS build: photonoxide's own solvers run there.
 
