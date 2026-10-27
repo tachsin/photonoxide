@@ -30,6 +30,9 @@
 //!   illegal address on the GPU when handles are used from more than one thread, even one call
 //!   at a time, so it is off; repeated solves then differ in their last bits (the tests bound
 //!   the difference). photonoxide's own solver stays the deterministic default.
+//! - **Matching off** (`CUDSS_CONFIG_MATCHING_ALG` set to `CUDSS_MATCHING_ALG_NONE`), as 0.x
+//!   defaults it: 1.0 defaults to its own choice, which factors differently, and a zero pivot
+//!   it meets is then not reported as replaced. Set, both releases factor alike.
 //! - **Threads:** one cuDSS or CUDA call at a time in the process ([`SERIAL`]): there is one GPU.
 //! - **Indices** are 32-bit: matrices with more than 2³¹ − 1 entries are refused, far beyond a
 //!   consumer GPU's memory.
@@ -49,7 +52,7 @@ use crate::cuda::{Buffer, C_64F, Opaque, R_32I, Runtime, check, serial};
 use crate::library::{Library, error, load};
 use crate::nvidia::CUDSS;
 
-// cuDSS's enums, from its header (cuDSS 0.8)
+// cuDSS's enums, from its headers (cuDSS 0.8 and 1.0 give each the same value)
 const MTYPE_GENERAL: c_int = 0;
 const MTYPE_SYMMETRIC: c_int = 1;
 const MVIEW_FULL: c_int = 0;
@@ -63,6 +66,8 @@ const DATA_INFO: c_int = 0;
 const DATA_LU_NNZ: c_int = 1;
 const DATA_NPIVOTS: c_int = 2;
 const DATA_MEMORY_ESTIMATES: c_int = 13;
+const CONFIG_MATCHING_ALG: c_int = 3;
+static MATCHING_ALG_NONE: c_int = 0;
 
 /// cuDSS's functions, the library that holds them, and the CUDA runtime.
 struct Api {
@@ -70,6 +75,7 @@ struct Api {
     create: unsafe extern "C" fn(*mut Opaque) -> c_int,
     destroy: unsafe extern "C" fn(Opaque) -> c_int,
     config_create: unsafe extern "C" fn(*mut Opaque) -> c_int,
+    config_set: unsafe extern "C" fn(Opaque, c_int, *const c_void, usize) -> c_int,
     config_destroy: unsafe extern "C" fn(Opaque) -> c_int,
     data_create: unsafe extern "C" fn(Opaque, *mut Opaque) -> c_int,
     data_destroy: unsafe extern "C" fn(Opaque, Opaque) -> c_int,
@@ -115,6 +121,7 @@ impl Api {
                     create: cudss.function("cudssCreate")?,
                     destroy: cudss.function("cudssDestroy")?,
                     config_create: cudss.function("cudssConfigCreate")?,
+                    config_set: cudss.function("cudssConfigSet")?,
                     config_destroy: cudss.function("cudssConfigDestroy")?,
                     data_create: cudss.function("cudssDataCreate")?,
                     data_destroy: cudss.function("cudssDataDestroy")?,
@@ -207,6 +214,16 @@ impl Engine {
         unsafe {
             check((api.create)(&mut e.handle), "cudssCreate")?;
             check((api.config_create)(&mut e.config), "cudssConfigCreate")?;
+            // matching off: see the module's notes (the value an int, its size an int's)
+            check(
+                (api.config_set)(
+                    e.config,
+                    CONFIG_MATCHING_ALG,
+                    (&raw const MATCHING_ALG_NONE).cast(),
+                    std::mem::size_of::<c_int>(),
+                ),
+                "cudssConfigSet",
+            )?;
             check((api.data_create)(e.handle, &mut e.data), "cudssDataCreate")?;
             check(
                 (api.csr)(
