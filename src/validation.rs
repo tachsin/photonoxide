@@ -119,9 +119,9 @@ pub enum Numerical {
     Exact,
     /// What the case measures is our grid's own error, or its order.
     Measured,
-    /// Noted by the case as it runs, relative: its grid study's estimate.
+    /// Noted by the case as it runs, in the rule's measure: its grid study's estimate.
     Noted,
-    /// Measured by a test elsewhere, relative: its value, and where.
+    /// Measured by a test elsewhere, in the rule's measure: its value, and where.
     Stated(f64, &'static str),
 }
 
@@ -196,14 +196,9 @@ impl Rule {
             Numerical::Stated(v, _) => Some(v),
             Numerical::Exact | Numerical::Measured => None,
         };
-        // the tolerance as a fraction of the expected value, where it is one
-        let relative = match self.measure {
-            Measure::Relative => Some(self.tolerance),
-            Measure::Absolute if o.expected != 0.0 => Some(self.tolerance / o.expected.abs()),
-            Measure::Absolute => None,
-        };
-        if let (Some(ours), Some(relative)) = (ours, relative)
-            && ours > relative / 3.0
+        // ours and the tolerance are in the same measure
+        if let Some(ours) = ours
+            && ours > self.tolerance / 3.0
         {
             return Some(format!(
                 "our own error {ours:.1e} is above a third of the tolerance"
@@ -217,6 +212,7 @@ impl Rule {
 pub fn rules() -> Vec<(&'static str, Rule)> {
     let mut rules = Vec::new();
     rules.extend(crate::statics::checks::rules());
+    rules.extend(materials::rules());
     rules
 }
 
@@ -233,12 +229,13 @@ thread_local! {
     static NOTED: std::cell::Cell<Option<f64>> = const { std::cell::Cell::new(None) };
 }
 
-/// Notes the case's own numerical error while it runs, relative: its grid study's estimate.
-/// The report shows it beside the tolerance, and fails a case whose error is above a third of it.
+/// Notes the case's own numerical error while it runs, in its rule's measure (relative, or in
+/// the value's unit): its grid study's estimate. The report shows it beside the tolerance, and
+/// fails a case whose error is above a third of it.
 // no case notes one yet: the areas whose cases run their own grid studies do, as they move
 #[allow(dead_code)]
-pub(crate) fn note_numerical(relative: f64) {
-    NOTED.with(|n| n.set(Some(relative)));
+pub(crate) fn note_numerical(error: f64) {
+    NOTED.with(|n| n.set(Some(error)));
 }
 
 /// One validation case.
@@ -5293,6 +5290,7 @@ fn um(value: f64) -> Wavelength {
 
 #[cfg(feature = "gpu")]
 mod gpu;
+mod materials;
 #[cfg(feature = "gpu")]
 pub use gpu::gpu_report;
 
@@ -5422,11 +5420,16 @@ fn tolerance_cell(rule: &Rule) -> String {
 
 /// A rule's cell of our own numerical error.
 fn ours_cell(rule: &Rule, noted: Option<f64>) -> String {
+    // in the rule's measure, as its tolerance reads
+    let shown = |v: f64| match rule.measure {
+        Measure::Relative => relative_as(v, rule.tolerance),
+        Measure::Absolute => format!("{} abs", sig2(v)),
+    };
     match rule.numerical {
         Numerical::Exact => "exact".into(),
         Numerical::Measured => "what it measures".into(),
-        Numerical::Noted => noted.map_or("—".into(), relative),
-        Numerical::Stated(v, from) => format!("{} ({from})", relative(v)),
+        Numerical::Noted => noted.map_or("—".into(), shown),
+        Numerical::Stated(v, from) => format!("{} ({from})", shown(v)),
     }
 }
 
@@ -5745,7 +5748,8 @@ mod tests {
                 !rule.why.contains('|') && !rule.why.contains('<'),
                 "{id}'s why holds a | or a <"
             );
-            assert!(rule.tolerance > 0.0, "{id}'s tolerance");
+            // an exact identity has none: its result is the same bits
+            assert!(rule.tolerance >= 0.0, "{id}'s tolerance");
         }
         let missing = ids.len() - seen.len();
         eprintln!(
