@@ -22,11 +22,25 @@
     "license": "MIT OR Apache-2.0",
     "homepage": "https://tachsin.gr/projects/photonoxide",
     "category": "Education",
-    "shortDescription": "Validated photonics simulation, with a live studio",
-    "longDescription": "photonoxide runs photonics jobs (mode solvers and FDFD, with FDTD and inverse design to come) live in its studio, reproduces published results, and replays their records.",
+    "shortDescription": "Photonics simulation, with a live studio",
+    "longDescription": "photonoxide simulates integrated photonics: mode solvers, FDFD and FDTD, circuits, thermal and electro-optic devices, and inverse design. Its studio runs jobs live, reproduces published results, and replays their records.",
+    "licenseFile": "installer/license.txt",
     "windows": {
       "nsis": {
-        "installMode": "currentUser"
+        "installMode": "currentUser",
+        "installerIcon": "icons/icon.ico",
+        "headerImage": "installer/header.bmp",
+        "uninstallerHeaderImage": "installer/header.bmp",
+        "sidebarImage": "installer/sidebar.bmp",
+        "installerHooks": "installer/hooks.nsh"
+      }
+    },
+    "macOS": {
+      "dmg": {
+        "background": "installer/dmg-background.png",
+        "windowSize": { "width": 660, "height": 400 },
+        "appPosition": { "x": 180, "y": 170 },
+        "applicationFolderPosition": { "x": 480, "y": 170 }
       }
     },
     "icon": [

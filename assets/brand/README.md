@@ -11,6 +11,9 @@ The design is photons + oxide, in genoxide's family: genoxide's hexagon and iron
 | `lockup-light.svg`, `lockup-dark.svg` | The mark beside the wordmark, for light and dark backgrounds | Headers, slides |
 | `banner.svg` | The banner, 1280 × 320: a dark card that suits both themes | The top of README.md |
 | `social-preview.svg`, `social-preview.png` | 1280 × 640 | GitHub's social preview (Settings → General → Social preview: upload the PNG), link previews |
+| `studio/src-tauri/installer/sidebar.bmp` | 164 × 314, the dark card with the mark, the name and the guided wave | The Windows installer's welcome and finish pages |
+| `studio/src-tauri/installer/header.bmp` | 150 × 57, the mark on white | The Windows installer's other pages, right of the title |
+| `studio/src-tauri/installer/dmg-background.png` | 660 × 400, light so Finder's labels read, an arrow from the app to Applications | The macOS disk image's window |
 
 README.md and docs.rs load them from `main` on raw.githubusercontent.com, so they aren't in the published crate (`exclude` in the root `Cargo.toml`).
 

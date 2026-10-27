@@ -28,8 +28,7 @@ const MUTED: &str = "#d8c3ae";
 const TAGLINE: &str = "Photonics for Rust: validated and visible while it runs";
 /// The banners' title, for screen readers.
 const TITLE: &str = "photonoxide: validated photonics for Rust";
-const DETAILS: &str =
-    "mode solvers · FDFD · FDTD · inverse design · layout · a live studio";
+const DETAILS: &str = "mode solvers · FDFD · FDTD · inverse design · layout · a live studio";
 
 /// A number for an SVG: at most two decimals, no trailing zeros.
 fn fmt(v: f64) -> String {
@@ -434,6 +433,114 @@ fn files(font: &Font) -> Vec<File> {
     out
 }
 
+// ---- the installers ----------------------------------------------------------------------------
+
+/// The installers' pictures, as SVGs at their pixel sizes: the Windows installer's sidebar
+/// (its welcome and finish pages, 164 × 314) and header (its other pages, 150 × 57, on the
+/// right of the page's title), and the macOS disk image's window (660 × 400, the app's icon at
+/// (180, 170) and the Applications folder's at (480, 170), as `bundle.macOS.dmg` places them).
+fn installer(font: &Font) -> Vec<File> {
+    let mut out = Vec::new();
+
+    // the sidebar: the dark card, the mark and the name, and the guided wave with its photons
+    let (w, h, p) = (164.0, 314.0, "px-sidebar");
+    let (_, width) = wordmark(font, p, PAPER, 23.0, 0.0, 0.0);
+    let (word, _) = wordmark(font, p, PAPER, 23.0, (w - width) / 2.0, 170.0);
+    assert!(width < w - 16.0, "the sidebar's name doesn't fit");
+    let sidebar = card(p, w, h, 0.0, w / 2.0, 92.0)
+        + &format!(r#"<g clip-path="url(#{p}-clip)">"#)
+        + &contours(w / 2.0, 250.0, 6, 11.0)
+        + &wave(&format!("{p}-wave"), w / 2.0, 250.0, 16.0, 30.0, 52.0)
+        + &photons(w / 2.0, 250.0, 15.0, 60, 13, w, h)
+        + "</g>"
+        + &mark(p, 92.0, (w - 92.0) / 2.0, 44.0)
+        + &word;
+    out.push(File {
+        name: "sidebar.bmp".into(),
+        width: w,
+        text: svg(w, h, &sidebar, "photonoxide"),
+    });
+
+    // the header: the mark on the page's white, over the faint contours of its mode
+    let (w, h, p) = (150.0, 57.0, "px-header");
+    let header = format!(r##"<rect width="{w}" height="{h}" fill="#ffffff"/>"##)
+        + &contours(118.0, 28.5, 5, 7.0)
+        + &mark(p, 46.0, 95.0, 5.5);
+    out.push(File {
+        name: "header.bmp".into(),
+        width: w,
+        text: svg(w, h, &header, "photonoxide"),
+    });
+
+    // the disk image: light, so Finder's dark labels read; the name above, an arrow from the
+    // app to Applications, and what to do below
+    let (w, h, p) = (660.0, 400.0, "px-dmg");
+    let (_, width) = wordmark(font, p, INK, 40.0, 0.0, 0.0);
+    let (word, _) = wordmark(font, p, INK, 40.0, (w - width) / 2.0, 72.0);
+    let hint = "Drag photonoxide to Applications";
+    let (_, hint_width) = font.text(hint, 500.0, 17.0, 0.0, 0.0, 0.0);
+    let (hint, _) = font.text(hint, 500.0, 17.0, (w - hint_width) / 2.0, 330.0, 0.0);
+    let dmg = format!(
+        r##"<defs><linearGradient id="{p}-paper" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fdf8f3"/><stop offset="1" stop-color="{PAPER}"/></linearGradient>
+<linearGradient id="{p}-arrow" x1="262" y1="0" x2="398" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="{RUST}" stop-opacity="0.35"/><stop offset="1" stop-color="{COPPER}"/></linearGradient></defs>
+<rect width="{w}" height="{h}" fill="url(#{p}-paper)"/>"##
+    ) + &wave(&format!("{p}-wave"), w / 2.0, 375.0, 9.0, 40.0, 170.0)
+        + &word
+        + &format!(
+            r#"<path d="M262 170 H384" fill="none" stroke="url(#{p}-arrow)" stroke-width="5" stroke-linecap="round"/>
+<path d="M374 157 L398 170 L374 183 Z" fill="{COPPER}" stroke="{COPPER}" stroke-width="3" stroke-linejoin="round"/>
+<path d="{hint}" fill="{INK}" opacity="0.62"/>"#
+        );
+    out.push(File {
+        name: "dmg-background.png".into(),
+        width: w,
+        text: svg(w, h, &dmg, "photonoxide"),
+    });
+    out
+}
+
+/// Renders an SVG at its own size to an uncompressed 24-bit BMP, the kind NSIS's pages show.
+fn bmp(svg: &str, path: &Path) {
+    let tree =
+        resvg::usvg::Tree::from_str(svg, &resvg::usvg::Options::default()).expect("a valid SVG");
+    let (width, height) = (tree.size().width() as u32, tree.size().height() as u32);
+    let mut pixmap = resvg::tiny_skia::Pixmap::new(width, height).expect("a non-empty image");
+    resvg::render(
+        &tree,
+        resvg::tiny_skia::Transform::identity(),
+        &mut pixmap.as_mut(),
+    );
+    // rows bottom up, each blue, green, red, padded to four bytes; the pictures are opaque
+    let row = (width * 3).div_ceil(4) * 4;
+    let size = 54 + row * height;
+    let mut out = Vec::with_capacity(size as usize);
+    out.extend_from_slice(b"BM");
+    for v in [size, 0, 54, 40] {
+        out.extend_from_slice(&v.to_le_bytes());
+    }
+    out.extend_from_slice(&width.to_le_bytes());
+    out.extend_from_slice(&height.to_le_bytes());
+    out.extend_from_slice(&1u16.to_le_bytes());
+    out.extend_from_slice(&24u16.to_le_bytes());
+    // no compression, the image's size, 96 dpi (3780 per metre), no palette
+    for v in [0, row * height, 3780, 3780, 0, 0] {
+        out.extend_from_slice(&v.to_le_bytes());
+    }
+    for y in (0..height).rev() {
+        let start = out.len();
+        for x in 0..width {
+            let c = pixmap.pixel(x, y).expect("a pixel inside").demultiply();
+            out.extend_from_slice(&[c.blue(), c.green(), c.red()]);
+        }
+        out.resize(start + row as usize, 0);
+    }
+    std::fs::write(path, out).expect("a writable file");
+    println!(
+        "{}: {width} x {height}",
+        path.file_name().unwrap().to_string_lossy()
+    );
+}
+
 /// Renders an SVG to a PNG `width` pixels wide.
 fn png(svg: &str, width: u32, path: &Path) {
     let tree =
@@ -491,4 +598,22 @@ fn main() {
         .unwrap()
         .text;
     png(social, 1280, &out.join("social-preview.png"));
+
+    // the installers' pictures, beside the studio's bundle settings (tauri.conf.json)
+    let dir = out.join("../../studio/src-tauri/installer");
+    std::fs::create_dir_all(&dir).expect("a writable folder");
+    for f in installer(&font) {
+        if f.name.ends_with(".bmp") {
+            bmp(&f.text, &dir.join(&f.name));
+        } else {
+            png(&f.text, f.width as u32, &dir.join(&f.name));
+        }
+        if let Some(preview) = &preview {
+            let name = f
+                .name
+                .replace(".bmp", ".png")
+                .replace(".png", "-preview.png");
+            png(&f.text, f.width as u32 * 2, &preview.join(name));
+        }
+    }
 }
