@@ -70,7 +70,6 @@
       { group: "Actions", label: "Save the circuit", detail: "the chip being edited, to circuits/ (Ctrl+S there)", run: () => chipAction(saveChip) },
       { group: "Actions", label: "Check for updates", run: () => checkForUpdate(false) },
       { group: "Actions", label: "Switch the theme", run: () => updateSettings((s) => (s.theme = app.dark ? "light" : "dark")) },
-      { group: "Actions", label: "Take the tour", run: () => (app.tour = true) },
     ];
     // (each group whole: the sort below is stable, so a group's items stay together under its name)
     for (const j of catalog?.jobs ?? []) {

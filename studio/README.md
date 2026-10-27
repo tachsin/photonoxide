@@ -389,7 +389,8 @@ in a drawer opened from the status bar.
   (µm, and nm where a field's name says so).
 
 Help is built in:
-- a tour on the first start, following the rail, which the question mark brings back;
+- a welcome on the first start, which asks for the channel, Stable or Nightly (Settings › Updates
+  changes it later);
 - tips on each page, each closable;
 - tooltips on the controls;
 - **Ctrl+K** (⌘K) to jump to any page, template, published result, job, circuit or run.
@@ -718,7 +719,7 @@ node scripts/record-gifs.mjs --only hero,academy  # some: hero, device, material
   port 9228; `--port` changes it), Node.js 24, and ffmpeg and gifski on the PATH
   (`winget install ffmpeg`, `cargo install gifski`).
 - **What it touches:** it backs up the studio's settings (`%APPDATA%gr.tachsin.photonoxide`),
-  records with photonoxide dark, no tips and no tour, and puts them back as they were when it
+  records with photonoxide dark, no tips and no welcome, and puts them back as they were when it
   ends or fails. The program runs in an empty workspace, `C:photonoxide-demo`, removed
   afterwards, with a WebView2 profile of its own. The window shows on screen while it records.
 - **How:** each scene is played with a drawn pointer and screencast at 1280 × 760; the ring's run
@@ -757,7 +758,7 @@ node scripts/record-gifs.mjs --only hero,academy  # some: hero, device, material
   - `pages/`: one file per page.
   - `components/`: what pages share. The rail, the runs drawer, the overlays of runs and designs
     on shared axes (`Overlay.svelte`), Validation's published results, the plots and pictures,
-    the device preview, the TOML editor (CodeMirror), the tour, the Ctrl+K palette, and the
+    the device preview, the TOML editor (CodeMirror), the welcome, the Ctrl+K palette, and the
     update dialog. `components/device/`: a device's page, its stack editor, parameter form,
     figures, views from above, across and in 3D, and its tabs (the Study tab, its results and
     maps).

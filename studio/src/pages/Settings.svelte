@@ -8,8 +8,8 @@
   import { app, toast, updateSettings } from "../lib/app.svelte";
   import { MORE_THEMES } from "../lib/themes";
   import { lengthUnit } from "../lib/units";
-  import { available, building, clearCache, commits, nightly, refresh, rollBack } from "../lib/nightly.svelte";
-  import { checkForUpdate, updater } from "../lib/updater.svelte";
+  import { available, building, clearCache, commits, nightly, rollBack } from "../lib/nightly.svelte";
+  import { checkForUpdate, switchChannel, updater } from "../lib/updater.svelte";
 
   const s = $derived(app.state!.settings);
   let query = $state("");
@@ -26,19 +26,6 @@
   const nightlyOn = $derived(s.channel === "nightly");
   /** Going back to the previous build, waiting for the user's confirmation. */
   let confirmingBack = $state(false);
-
-  /** Switches the channel, and looks for an update on the new one. */
-  async function switchChannel(channel: "stable" | "nightly") {
-    if (s.channel === channel) return;
-    await updateSettings((x) => (x.channel = channel));
-    if (channel === "nightly") {
-      toast("Nightly: photonoxide now follows main, and offers to build its new commits here.", "info", undefined, 7000);
-      await refresh();
-    } else if (build.channel === "nightly") {
-      toast("Stable: the latest release replaces this nightly build when you update, even if it is older.", "info", undefined, 9000);
-    }
-    checkForUpdate(false);
-  }
 
   async function chooseWorkspace() {
     const dir = await open({ title: "Choose the workspace folder", directory: true, defaultPath: app.state?.workspace });
@@ -203,7 +190,6 @@
             updateSettings((x) => {
               x.dismissed = [];
             })}>Bring back the {s.dismissed.length} closed tip{s.dismissed.length === 1 ? "" : "s"}</button>
-        <button class="btn btn-ghost btn-sm" onclick={() => (app.tour = true)}>Take the tour</button>
       </div>
     </section>
 

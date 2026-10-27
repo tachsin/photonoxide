@@ -115,7 +115,7 @@
     </div>
 
     <Tip id="home-start" title="New here?">
-      Run a template below: it plays live in the run view, and <strong>Open</strong> lets you change it and save your own. The rail's lists hold the components, the parts and circuits, the lessons and the materials; your runs are in the drawer at the bottom left, and <kbd class="kbd kbd-xs">Ctrl</kbd> <kbd class="kbd kbd-xs">K</kbd> finds anything. The question mark at the top replays the tour.
+      Run a template below: it plays live in the run view, and <strong>Open</strong> lets you change it and save your own. The rail's lists hold the components, the parts and circuits, the lessons and the materials; your runs are in the drawer at the bottom left, and <kbd class="kbd kbd-xs">Ctrl</kbd> <kbd class="kbd kbd-xs">K</kbd> finds anything.
     </Tip>
 
     <!-- pick up where you left off -->

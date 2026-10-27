@@ -1,6 +1,6 @@
 <script lang="ts">
   // The top bar: where you are, the search, an update when there is one, help and the theme.
-  import { ArrowLeft, CircleHelp, Download, GitBranch, Hammer, Moon, RefreshCw, Search, Sun } from "@lucide/svelte";
+  import { ArrowLeft, Download, GitBranch, Hammer, Moon, RefreshCw, Search, Sun } from "@lucide/svelte";
 
   import { app, go, run, updateSettings } from "../lib/app.svelte";
   import { PAGES, RAIL, SYSTEM } from "../lib/pages";
@@ -71,9 +71,6 @@
   {/if}
 
   <div class="flex items-center gap-1">
-    <div class="tooltip tooltip-bottom" data-tip="Take the tour again">
-      <button class="btn btn-ghost btn-sm btn-square" aria-label="Take the tour" onclick={() => (app.tour = true)}><CircleHelp size={18} /></button>
-    </div>
     <div class="tooltip tooltip-bottom tooltip-left" data-tip={app.dark ? "Switch to photonoxide light" : "Switch to photonoxide dark"}>
       <button
         class="btn btn-ghost btn-sm btn-square"

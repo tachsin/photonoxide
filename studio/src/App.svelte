@@ -8,7 +8,7 @@
   import StatusBar from "./components/StatusBar.svelte";
   import Toasts from "./components/Toasts.svelte";
   import TopBar from "./components/TopBar.svelte";
-  import Tour from "./components/Tour.svelte";
+  import Welcome from "./components/Welcome.svelte";
   import TouchstoneImport from "./components/TouchstoneImport.svelte";
   import NightlyDialog from "./components/NightlyDialog.svelte";
   import UpdateDialog from "./components/UpdateDialog.svelte";
@@ -84,7 +84,7 @@
   <UpdateDialog />
   <NightlyDialog />
   <TouchstoneImport />
-  <Tour />
+  <Welcome />
   <Toasts />
 {:else}
   <div class="grid h-full place-items-center">
