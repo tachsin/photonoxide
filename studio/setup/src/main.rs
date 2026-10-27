@@ -16,8 +16,8 @@ use std::path::Path;
 use std::process::{Command, ExitCode};
 use std::time::Duration;
 
-/// The program, as xz.
-const PAYLOAD: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/photonoxide.exe.xz"));
+/// The program, as BCJ2's streams compressed (build.rs).
+const PAYLOAD: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/photonoxide.exe.bcj2"));
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 fn main() -> ExitCode {
@@ -79,12 +79,48 @@ fn run() -> Result<ExitCode, String> {
 }
 
 /// Writes the program out of its xz stream.
+/// Writes the program out of its streams: the header (its length, then the four streams'),
+/// the code and the calls' and jumps' targets as xz, the range coder's as it is, joined by BCJ2.
 fn unpack(payload: &[u8], to: &Path) -> Result<(), String> {
-    let mut reader = lzma_rust2::XzReader::new(payload, false);
+    use std::io::{Cursor, Read};
+    let damaged = || "its copy of the program is damaged: download the setup again".to_string();
+    let number = |at: usize, n: usize| -> Result<u64, String> {
+        let bytes = payload.get(at..at + n).ok_or_else(damaged)?;
+        Ok(bytes
+            .iter()
+            .rev()
+            .fold(0u64, |v, &b| (v << 8) | u64::from(b)))
+    };
+    let size = number(0, 8)?;
+    let mut at = 24;
+    let mut streams = Vec::with_capacity(4);
+    for k in 0..4 {
+        let n = usize::try_from(number(8 + 4 * k, 4)?).map_err(|_| damaged())?;
+        streams.push(payload.get(at..at + n).ok_or_else(damaged)?);
+        at += n;
+    }
+    let unxz = |stream: &[u8]| -> Result<Cursor<Vec<u8>>, String> {
+        let mut out = Vec::new();
+        lzma_rust2::XzReader::new(stream, false)
+            .read_to_end(&mut out)
+            .map_err(|_| damaged())?;
+        Ok(Cursor::new(out))
+    };
+    let inputs = vec![
+        unxz(streams[0])?,
+        unxz(streams[1])?,
+        unxz(streams[2])?,
+        Cursor::new(streams[3].to_vec()),
+    ];
+    let mut reader = lzma_rust2::filter::bcj2::Bcj2Reader::new(inputs, size);
     let mut file = std::fs::File::create(to).map_err(|e| format!("{}: {e}", to.display()))?;
-    std::io::copy(&mut reader, &mut file)
-        .map(drop)
-        .map_err(|e| format!("unpacking the program into {}: {e}", to.display()))
+    let written = std::io::copy(&mut reader, &mut file)
+        .map_err(|e| format!("unpacking the program into {}: {e}", to.display()))?;
+    if written == size {
+        Ok(())
+    } else {
+        Err(damaged())
+    }
 }
 
 /// The folder and what's in it; the web view's helpers may hold their files a moment after the

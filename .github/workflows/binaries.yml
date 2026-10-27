@@ -152,7 +152,7 @@ jobs:
           echo "PROFILE=$profile" >> "$GITHUB_ENV"
           pnpm tauri build --bundles "${{ matrix.bundles }}" --config "$config" ${{ matrix.target && format('--target {0}', matrix.target) || '' }} "${cargo_args[@]}"
       # Windows: photonoxide's own setup (studio/setup), carrying the program Tauri built, marked
-      # as installed by a setup and signed, compressed by xz behind the x86 filter: smaller than
+      # as installed by a setup and signed, compressed by BCJ2 and xz: smaller than
       # Tauri's NSIS setup, whose place it takes. A tag from before it has no setup crate and
       # keeps NSIS's
       - name: The Windows setup
