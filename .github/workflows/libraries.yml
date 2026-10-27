@@ -54,8 +54,8 @@ jobs:
           - { os: ubuntu-latest, package: mkl, found: '^oneMKL 20[0-9]+\.[0-9]+: .*\(from the conda environment\)', backend: '^backend photonoxide-mkl \(direct\): .* available', test: blas, require: 'PHOTONOXIDE_REQUIRE_BLAS=mkl' }
           - { os: windows-latest, package: mkl, found: '^oneMKL 20[0-9]+\.[0-9]+: .*\(from the conda environment\)', backend: '^backend photonoxide-mkl \(direct\): .* available', test: blas, require: 'PHOTONOXIDE_REQUIRE_BLAS=mkl' }
           # cuDSS 1.0 (libcudss.so.1, cudss64_1.dll); photonoxide-native finds 0.x too
-          - { os: ubuntu-latest, package: libcudss=1.0, found: '^cuDSS 1.[0-9.]+: .*\(from the conda environment\)' }
-          - { os: windows-latest, package: libcudss=1.0, found: '^cuDSS 1.[0-9.]+: .*\(from the conda environment\)' }
+          - { os: ubuntu-latest, package: libcudss=1.0, found: '^cuDSS 1\.[0-9.]+: .*\(from the conda environment\)' }
+          - { os: windows-latest, package: libcudss=1.0, found: '^cuDSS 1\.[0-9.]+: .*\(from the conda environment\)' }
           - { os: ubuntu-latest, package: cuda-cudart libcusparse, found: '^cuSPARSE [0-9.]+: .*\(from the conda environment\)' }
           - { os: windows-latest, package: cuda-cudart libcusparse, found: '^cuSPARSE [0-9.]+: .*\(from the conda environment\)' }
           - { os: ubuntu-latest, package: mumps-seq, found: '^MUMPS 5\.[0-9.]+: .*\(from the conda environment\)', backend: '^backend mumps \(direct\): .* available', test: mumps, require: 'PHOTONOXIDE_REQUIRE_MUMPS=1' }
@@ -137,8 +137,8 @@ jobs:
           - { os: windows-latest, package: mkl, found: '^oneMKL 20[0-9]+\.[0-9]+: ', backend: '^backend pardiso \(direct\): .* available' }
           - { os: ubuntu-latest, package: nvidia-cuda-runtime nvidia-cusparse, found: '^cuSPARSE [0-9.]+: .*\(from a Python wheel\)' }
           - { os: windows-latest, package: nvidia-cuda-runtime nvidia-cusparse, found: '^cuSPARSE [0-9.]+: .*\(from a Python wheel\)' }
-          - { os: ubuntu-latest, package: 'nvidia-cudss-cu13==1.0.*', found: '^cuDSS 1.[0-9.]+: .*\(from a Python wheel\)' }
-          - { os: windows-latest, package: 'nvidia-cudss-cu13==1.0.*', found: '^cuDSS 1.[0-9.]+: .*\(from a Python wheel\)' }
+          - { os: ubuntu-latest, package: 'nvidia-cudss-cu13==1.0.*', found: '^cuDSS 1\.[0-9.]+: .*\(from a Python wheel\)' }
+          - { os: windows-latest, package: 'nvidia-cudss-cu13==1.0.*', found: '^cuDSS 1\.[0-9.]+: .*\(from a Python wheel\)' }
           - { os: ubuntu-latest, package: scipy-openblas32, found: '^OpenBLAS [0-9.]+: .*\(from a Python wheel\)', backend: '^backend photonoxide-openblas \(direct\): .* available', test: blas, require: 'PHOTONOXIDE_REQUIRE_BLAS=openblas' }
           - { os: windows-latest, package: scipy-openblas32, found: '^OpenBLAS [0-9.]+: .*\(from a Python wheel\)', backend: '^backend photonoxide-openblas \(direct\): .* available', test: blas, require: 'PHOTONOXIDE_REQUIRE_BLAS=openblas' }
           - { os: macos-latest, package: scipy-openblas32, found: '^OpenBLAS [0-9.]+: .*\(from a Python wheel\)', backend: '^backend photonoxide-openblas \(direct\): .* available', test: blas, require: 'PHOTONOXIDE_REQUIRE_BLAS=openblas' }
