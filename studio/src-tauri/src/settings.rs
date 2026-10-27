@@ -24,8 +24,10 @@ pub struct Settings {
     pub channel: String,
     /// Show the tips on each page.
     pub hints: bool,
-    /// The welcome tour was seen.
-    pub tour_done: bool,
+    /// The welcome was answered: the channel chosen on the first start. Read from the
+    /// `tour_done` of the settings written before it, the tour it replaced.
+    #[serde(alias = "tour_done")]
+    pub welcomed: bool,
     /// The tips the user closed.
     pub dismissed: Vec<String>,
     /// The view a run opens in: `"3d"` or `"2d"`.
@@ -44,7 +46,7 @@ impl Default for Settings {
             check_updates: true,
             channel: "stable".into(),
             hints: true,
-            tour_done: false,
+            welcomed: false,
             dismissed: Vec::new(),
             view: "3d".into(),
             length_unit: "um".into(),
@@ -120,6 +122,15 @@ mod tests {
         let json = serde_json::to_string(&nm).unwrap();
         assert!(json.contains(r#""length_unit":"nm""#));
         assert_eq!(serde_json::from_str::<Settings>(&json).unwrap(), nm);
+    }
+
+    #[test]
+    fn whoever_finished_the_tour_isnt_welcomed_again() {
+        let old: Settings = serde_json::from_str(r#"{"tour_done":true}"#).unwrap();
+        assert!(old.welcomed);
+        assert!(!Settings::default().welcomed);
+        let json = serde_json::to_string(&old).unwrap();
+        assert!(json.contains(r#""welcomed":true"#) && !json.contains("tour_done"));
     }
 
     #[test]

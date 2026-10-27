@@ -19,7 +19,7 @@ export interface Settings {
   /** The release channel: "stable", the signed releases, or "nightly", main built here (lib/nightly.svelte.ts). */
   channel: string;
   hints: boolean;
-  tour_done: boolean;
+  welcomed: boolean;
   dismissed: string[];
   view: "3d" | "2d";
   /** The unit lengths are shown and edited in, app-wide: "um" (µm) or "nm" (lib/units.ts). */

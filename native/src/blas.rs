@@ -37,6 +37,12 @@
 //!   on one thread). OpenBLAS's LU runs on one thread always: its threaded `zgetrf` keeps
 //!   arrays sized by its build's largest thread count on the stack at each level of its
 //!   recursion, and overflowed a 2 MiB thread's stack (pip's and Ubuntu's builds, on Linux).
+//!   OpenBLAS built with OpenMP (`openblas_get_parallel` 2: conda-forge's on macOS) takes each
+//!   call's count from its calling thread's OpenMP count, all of the cores where the thread
+//!   never set it, and makes it the process's: rayon's threads then made threaded calls side
+//!   by side, and one factorization in a run came out wrong (#557). Each thread's own count is
+//!   set to one before its first call (`openblas_set_num_threads` sets the calling thread's in
+//!   that build).
 //!   Without an OpenMP runtime, AOCL-BLAS is held to one thread by
 //!   `bli_thread_set_num_threads`; Accelerate has no control photonoxide sets, and is left to
 //!   itself.
@@ -1205,6 +1211,12 @@ type GetInt = unsafe extern "C" fn() -> c_int;
 /// OpenBLAS loaded shares it; it is only a lock.)
 static OPENBLAS_CALLS: std::sync::RwLock<()> = std::sync::RwLock::new(());
 
+thread_local! {
+    /// Whether this thread's OpenMP count is one, for OpenBLAS built with OpenMP: set before
+    /// its first call, and left at one by a threaded call when it ends.
+    static OPENMP_ONE: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
 /// How a call's threads are set.
 enum Threading {
     /// `mkl_set_num_threads_local`.
@@ -1213,6 +1225,9 @@ enum Threading {
     /// `openblas_set_num_threads_local` sets the same, despite its name), around a threaded
     /// call made while no other runs ([`OPENBLAS_CALLS`]); one thread otherwise.
     OpenBlas(SetIntOnly),
+    /// The same for OpenBLAS built with OpenMP, which takes a call's count from its calling
+    /// thread's OpenMP count: each thread's is set to one before its first call.
+    OpenBlasOpenMp(SetIntOnly),
     /// The OpenMP runtime's `omp_set_num_threads` on the calling thread, and
     /// `omp_get_max_threads` to restore.
     OpenMp(SetIntOnly, GetInt),
@@ -1454,7 +1469,7 @@ impl Blas {
                 mkl.set_threads_here(usize::try_from(before).unwrap_or(0));
                 result
             }
-            Threading::OpenBlas(set) if threads > 1 => {
+            Threading::OpenBlas(set) | Threading::OpenBlasOpenMp(set) if threads > 1 => {
                 // the count is the process's: no other call into OpenBLAS runs meanwhile
                 let _alone = OPENBLAS_CALLS
                     .write()
@@ -1466,6 +1481,20 @@ impl Blas {
                 // SAFETY: as above
                 unsafe { set(1) };
                 result
+            }
+            Threading::OpenBlasOpenMp(set) => {
+                let _shared = OPENBLAS_CALLS
+                    .read()
+                    .unwrap_or_else(std::sync::PoisonError::into_inner);
+                OPENMP_ONE.with(|one| {
+                    if !one.get() {
+                        // SAFETY: `void openblas_set_num_threads(int)`, one: in an OpenMP
+                        // build, this thread's OpenMP count, which its calls take
+                        unsafe { set(1) };
+                        one.set(true);
+                    }
+                });
+                call()
             }
             Threading::OpenBlas(_) => {
                 let _shared = OPENBLAS_CALLS
@@ -1596,13 +1625,21 @@ fn openblas(library: Library, found: Detected) -> Blas {
     let triangular = found.calls.triangular_product() && at_least(&version, [0, 3, 27]);
     // SAFETY: `void openblas_set_num_threads(int)`, the process's count of OpenBLAS's threads
     let global = unsafe { first::<SetIntOnly>(&library, &names("openblas_set_num_threads")) };
+    // SAFETY: `int openblas_get_parallel(void)`: 0 sequential, 1 pthreads, 2 OpenMP
+    let parallel = unsafe { first::<GetInt>(&library, &names("openblas_get_parallel")) }
+        // SAFETY: as above, no arguments
+        .map(|f| unsafe { f() });
     let (threading, threads) = match global {
         Some(set) => {
             // one thread but for a threaded call, which sets it around itself
             // SAFETY: as above: any positive count
             unsafe { set(1) };
             (
-                Threading::OpenBlas(set),
+                if parallel == Some(2) {
+                    Threading::OpenBlasOpenMp(set)
+                } else {
+                    Threading::OpenBlas(set)
+                },
                 Threads::Library(
                     "OpenBLAS's own, on rayon's thread count (RAYON_NUM_THREADS) by \
                      openblas_set_num_threads, the process's count, around each threaded call, \

@@ -179,8 +179,19 @@ fn perturbation_dndt(guide: Guide, thickness: f64, h: f64, beyond: f64) -> f64 {
 /// silica go from `cold` to `warm` (K, each (silicon, silica)), by Hadley's equations on a 10 nm
 /// grid with 1 µm of oxide beyond the core.
 fn hadley_change(width: f64, thickness: f64, cold: (f64, f64), warm: (f64, f64)) -> f64 {
+    hadley_change_on(width, thickness, cold, warm, 0.01)
+}
+
+/// [`hadley_change`] on a grid of `step` µm.
+fn hadley_change_on(
+    width: f64,
+    thickness: f64,
+    cold: (f64, f64),
+    warm: (f64, f64),
+    step: f64,
+) -> f64 {
     let neff = |t: (f64, f64)| {
-        let cs = quarter(Guide::Wire(width), thickness, t, 0.01, 1.0);
+        let cs = quarter(Guide::Wire(width), thickness, t, step, 1.0);
         hadley::modes(&cs, wavelength(), 1, None)
             .expect(OK)
             .remove(0)
@@ -247,6 +258,15 @@ const LI_DNDT_UNCERTAINTY: f64 = 0.15;
 fn dwivedi(i: usize) -> Outcome {
     let (width, measured) = DWIVEDI_FIG_8[i];
     let all = hadley_change(width, 0.211, (T0 - 0.5, T0 - 0.5), (T0 + 0.5, T0 + 0.5));
+    // our own error, ×1e-4 per K: the change from a grid twice as coarse, 20 nm
+    let coarse = hadley_change_on(
+        width,
+        0.211,
+        (T0 - 0.5, T0 - 0.5),
+        (T0 + 0.5, T0 + 0.5),
+        0.02,
+    );
+    crate::validation::note_numerical((all - coarse).abs() * 1e4);
     let silicon = hadley_change(width, 0.211, (T0 - 0.5, T0), (T0 + 0.5, T0));
     let (si0, _) = indices(T0 - 0.5, T0);
     let (si1, _) = indices(T0 + 0.5, T0);

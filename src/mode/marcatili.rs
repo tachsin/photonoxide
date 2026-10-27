@@ -252,7 +252,13 @@ pub(crate) fn closed_form_deviation(core: f64, cladding: f64) -> f64 {
 /// B = 2b/λ (n₁² − n₄²)^½ and λ = 1 µm: the fundamental mode of `family` by photonoxide's
 /// full-vector solver (a quarter, behind the mode's walls; b/40 in the core) and by Marcatili's
 /// transcendental equations, as normalized constants.
+#[cfg(test)]
 pub(crate) fn against_vector(big_b: f64, family: Family) -> (f64, f64) {
+    against_vector_on(big_b, family, 40.0)
+}
+
+/// [`against_vector`] with `divisions` cells across the core's height b.
+pub(crate) fn against_vector_on(big_b: f64, family: Family, divisions: f64) -> (f64, f64) {
     use crate::mode::vector::{
         self, Boundaries, Boundary, CrossSection, Permittivity, graded_nodes,
     };
@@ -261,7 +267,7 @@ pub(crate) fn against_vector(big_b: f64, family: Family) -> (f64, f64) {
     let (core, clad) = (1.5f64, 1.5f64 / 1.05);
     let b = big_b / (2.0 * (core * core - clad * clad).sqrt());
     let a = 2.0 * b;
-    let h = b / 40.0;
+    let h = b / divisions;
     let x = graded_nodes(
         0.0,
         a / 2.0 + 4.0,

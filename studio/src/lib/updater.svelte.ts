@@ -4,8 +4,8 @@
 import { relaunch } from "@tauri-apps/plugin-process";
 import { check, type Update } from "@tauri-apps/plugin-updater";
 
-import { app, toast } from "./app.svelte";
-import { checkNightly, onNightly } from "./nightly.svelte";
+import { app, toast, updateSettings } from "./app.svelte";
+import { checkNightly, onNightly, refresh } from "./nightly.svelte";
 
 export const updater = $state({
   status: "idle" as "idle" | "checking" | "none" | "publishing" | "available" | "downloading" | "installing" | "error",
@@ -62,6 +62,23 @@ function onTheWay(version: string, quiet: boolean) {
   }
   clearTimeout(soon);
   soon = setTimeout(() => checkForUpdate(true), 3 * 60_000);
+}
+
+/**
+ * Switches the channel (Settings, and the welcome on the first start), and looks for an update
+ * on the new one.
+ */
+export async function switchChannel(channel: "stable" | "nightly") {
+  const settings = app.state?.settings;
+  if (!settings || settings.channel === channel) return;
+  await updateSettings((x) => (x.channel = channel));
+  if (channel === "nightly") {
+    toast("Nightly: photonoxide now follows main, and offers to build its new commits here.", "info", undefined, 7000);
+    await refresh();
+  } else if (app.state?.build.channel === "nightly") {
+    toast("Stable: the latest release replaces this nightly build when you update, even if it is older.", "info", undefined, 9000);
+  }
+  checkForUpdate(false);
 }
 
 /**

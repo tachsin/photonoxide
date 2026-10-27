@@ -213,6 +213,7 @@ pub fn rules() -> Vec<(&'static str, Rule)> {
     let mut rules = Vec::new();
     rules.extend(crate::statics::checks::rules());
     rules.extend(materials::rules());
+    rules.extend(modes::rules());
     rules
 }
 
@@ -232,8 +233,6 @@ thread_local! {
 /// Notes the case's own numerical error while it runs, in its rule's measure (relative, or in
 /// the value's unit): its grid study's estimate. The report shows it beside the tolerance, and
 /// fails a case whose error is above a third of it.
-// no case notes one yet: the areas whose cases run their own grid studies do, as they move
-#[allow(dead_code)]
 pub(crate) fn note_numerical(error: f64) {
     NOTED.with(|n| n.set(Some(error)));
 }
@@ -914,7 +913,7 @@ pub fn cases() -> Vec<Case> {
         },
         Case {
             id: "mode/strip-group-index-book",
-            title: r"The group index of a $500 \times 220$ nm strip at 1.55 µm, with the book's dispersive silicon and 1.444 oxide, on a $6.25 \times 5$ nm grid (group index shown)",
+            title: r"The group index of a $500 \times 220$ nm strip at 1.55 µm, with the book's dispersive silicon and 1.444 oxide, on grids of 12.5 × 10, 6.25 × 5 and 3.125 × 2.5 nm, the finest's group index shown and our error estimated from the three (about first order at the corners)",
             tier: Tier::Published,
             source: r"L. Chrostowski, M. Hochberg, Silicon Photonics Design (2015), doi:10.1017/CBO9781316084168, Fig. 3.22b: about 4.18, read off the plot to $\pm 0.005$ (Lumerical MODE, 20 nm mesh); materials from its Listing 3.1",
             run: strip_group_index_book,
@@ -1054,7 +1053,7 @@ pub fn cases() -> Vec<Case> {
         },
         Case {
             id: "mode/marcatili-vector",
-            title: r"Marcatili's approximation (his transcendental equations) against the full-vector solver, $E^x_{11}$ of his guide $a = 2b$, $n_1/n_4 = 1.05$, at $(2b/\lambda)(n_1^2 - n_4^2)^{1/2} = 3$, far from cutoff (difference in the normalized constant shown)",
+            title: r"Marcatili's approximation (his transcendental equations) against the full-vector solver, $E^x_{11}$ of his guide $a = 2b$, $n_1/n_4 = 1.05$, at $(2b/\lambda)(n_1^2 - n_4^2)^{1/2} = 3$, far from cutoff, on grids of b/40, b/80 and b/160 in the core, the finest's (difference in the normalized constant shown)",
             tier: Tier::Published,
             source: "E. A. J. Marcatili, Bell Syst. Tech. J. 48, 2071 (1969), doi:10.1002/j.1538-7305.1969.tb01166.x, Eqs. 3, 6-7, 20-21; Fig. 6b's regime: 1e-4 apart at $B = 3$ and 4, 1.2e-3 at 1.5, 9e-3 at 1 near cutoff, where the corners Marcatili ignores hold field",
             run: marcatili_vector,
@@ -4649,7 +4648,32 @@ fn slab_group_index() -> Outcome {
     }
 }
 
+/// The book's strip's group index on grids of 12.5 × 10, 6.25 × 5 and 3.125 × 2.5 nm, the
+/// finest's shown, its error noted from the three: about first order at the strip's corners
+/// (4.1651, 4.1729 and 4.1771), Richardson's estimate 5.0e-3 at the finest, under a third of the
+/// tolerance (6.25 × 5 nm's, 9e-3, wasn't).
 fn strip_group_index_book() -> Outcome {
+    let n = [(84, 75), (168, 150), (336, 300)].map(|(nx, ny)| strip_group_index(nx, ny));
+    let (d1, d2) = ((n[1] - n[0]).abs(), (n[2] - n[1]).abs());
+    // the observed order, or first where the changes don't say
+    let order = (d1 / d2).log2();
+    let order = if order.is_finite() && order > 0.5 {
+        order
+    } else {
+        1.0
+    };
+    note_numerical(d2 / (2f64.powf(order) - 1.0));
+    Outcome {
+        measured: n[2],
+        expected: 4.18,
+        // the plot's reading (±0.005) and the book's 20 nm mesh
+        tolerance: 0.02,
+        error: (n[2] - 4.18).abs(),
+    }
+}
+
+/// The group index of the book's strip on `nx` × `ny` cells of its quarter.
+fn strip_group_index(nx: usize, ny: usize) -> f64 {
     use crate::material::{LorentzPole, Material, Model, Provenance};
     use crate::mode::vector::{Boundaries, Boundary, CrossSection, Permittivity};
     use faer::c64;
@@ -4680,7 +4704,7 @@ fn strip_group_index_book() -> Outcome {
     // the TE-like mode's quarter, behind an electric wall at x = 0 and a magnetic one at y = 0
     let strip = |l: Wavelength| {
         let si = silicon.permittivity(l)?;
-        CrossSection::uniform((0.0, 1.05, 168), (0.0, 0.75, 150), |x, y| {
+        CrossSection::uniform((0.0, 1.05, nx), (0.0, 0.75, ny), |x, y| {
             Permittivity::isotropic(if x < 0.25 && y < 0.11 {
                 si
             } else {
@@ -4694,21 +4718,13 @@ fn strip_group_index_book() -> Outcome {
         })
     };
     let wavelengths = [um(1.54), um(1.55), um(1.56)];
-    let ng = crate::mode::dispersion::track(strip, &wavelengths, None, 3)
+    crate::mode::dispersion::track(strip, &wavelengths, None, 3)
         .ok()
         .and_then(|m| {
             let n: Vec<f64> = m.iter().map(|m| m.effective_index().re).collect();
             crate::mode::dispersion::group_index(&wavelengths, &n).ok()
         })
-        .map_or(f64::NAN, |ng| ng[1]);
-    Outcome {
-        measured: ng,
-        expected: 4.18,
-        // the plot's reading (±0.005), the book's 20 nm mesh and our corners' convergence
-        // (4.1651, 4.1729 at 12.5 and 6.25 nm)
-        tolerance: 0.02,
-        error: (ng - 4.18).abs(),
-    }
+        .map_or(f64::NAN, |ng| ng[1])
 }
 
 /// Chilwell and Hodgkinson's Table 3: each bound mode's effective index and the % of its power
@@ -5113,7 +5129,20 @@ fn marcatili_closed_form() -> Outcome {
 }
 
 fn marcatili_vector() -> Outcome {
-    let (v, m) = crate::mode::marcatili::against_vector(3.0, crate::mode::marcatili::Family::Ex);
+    // b/40, b/80 and b/160 in the core: about first order, then 1.6 (0.9015168, 0.9016251,
+    // 0.9016605); b/160's value, its error Richardson's from the three (1.7e-5; b/40's, 1.6e-4,
+    // was as large as what the case measures)
+    use crate::mode::marcatili::{Family, against_vector_on};
+    let [(v1, _), (v2, _), (v, m)] =
+        [40.0, 80.0, 160.0].map(|d| against_vector_on(3.0, Family::Ex, d));
+    let (d1, d2) = ((v2 - v1).abs(), (v - v2).abs());
+    let order = (d1 / d2).log2();
+    let order = if order.is_finite() && order > 0.5 {
+        order
+    } else {
+        1.0
+    };
+    note_numerical(d2 / (2f64.powf(order) - 1.0));
     Outcome {
         measured: (v - m).abs(),
         expected: 0.0,
@@ -5291,6 +5320,7 @@ fn um(value: f64) -> Wavelength {
 #[cfg(feature = "gpu")]
 mod gpu;
 mod materials;
+mod modes;
 #[cfg(feature = "gpu")]
 pub use gpu::gpu_report;
 

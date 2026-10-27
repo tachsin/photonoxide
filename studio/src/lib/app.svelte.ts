@@ -33,7 +33,8 @@ export const app = $state({
   /** The theme's backdrop colour (its base-200) as hex, for the 3D view; see `themeBackdrop`. */
   backdrop: "#0f1115",
   palette: false,
-  tour: false,
+  /** The welcome, open on the first start until its channel is chosen (Welcome.svelte). */
+  welcome: false,
   /** A job for the Custom device to open, its text and the file it came from, set by whoever sends the user there. */
   jobOpen: null as { text: string; path: string | null } | null,
   /** The Custom device's job as it was left, saved or not, so a run and the way back to it lose nothing. */
@@ -593,7 +594,7 @@ export async function boot() {
     app.state = await api.appState();
   } catch {
     app.state = {
-      settings: { theme: "system", workspace: null, check_updates: false, channel: "stable", hints: true, tour_done: true, dismissed: [], view: "3d", length_unit: "um" },
+      settings: { theme: "system", workspace: null, check_updates: false, channel: "stable", hints: true, welcomed: true, dismissed: [], view: "3d", length_unit: "um" },
       workspace: "",
       version: "dev",
       platform: "browser",
@@ -602,7 +603,7 @@ export async function boot() {
     };
   }
   applyTheme();
-  app.tour = !app.state.settings.tour_done;
+  app.welcome = !app.state.settings.welcomed;
   app.ready = true;
   follow();
 }
