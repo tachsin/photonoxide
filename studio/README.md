@@ -661,7 +661,7 @@ platforms research groups use:
 |---|---|---|
 | Linux x86_64 and ARM64, a workstation | `.deb` (Debian, Ubuntu), `.rpm` (Fedora, RHEL, openSUSE) | Start here: about 14 MB. The package manager installs it system-wide with WebKitGTK, the browser engine the window uses, from the distribution (`sudo apt install ./photonoxide-….deb`, or `sudo dnf install ./photonoxide-….rpm`). Built on Ubuntu 22.04: glibc 2.35 or newer. |
 | Linux, anywhere else (clusters, other distributions, no root) | `.AppImage` | Runs anywhere: it carries WebKitGTK and its libraries, which is why it is about 88 MB. `chmod +x` it and run it, with `--appimage-extract-and-run` where FUSE is missing (most clusters). |
-| Windows x86_64 | `-setup.exe` | A per-user installer: it needs no administrator rights. |
+| Windows x86_64 | `-setup.exe` | A per-user installer: it needs no administrator rights. photonoxide's own (`studio/setup`), about 12 MB: it carries the program compressed by xz behind the x86 filter, and its window is the studio's (`photonoxide setup`). Apps & Features removes it with `photonoxide uninstall`. |
 | macOS, Apple Silicon and Intel | `.dmg`, `.app.tar.gz` | One universal app. Until it is signed (see below), right-click it and choose Open the first time, or run `xattr -dr com.apple.quarantine photonoxide.app`. From a terminal, the program is `photonoxide.app/Contents/MacOS/photonoxide`. |
 
 The release workflow, `.github/workflows/binaries.yml`, builds them from the release's tag.
@@ -673,7 +673,7 @@ it builds unsigned.
 
 - **Windows:** Certum's open-source code-signing certificate, in its SimplySign cloud, used through
   `ssign`. Secrets: `CERTUM_EMAIL`, and `CERTUM_OTP` (the base32 seed from SimplySign's QR code).
-  - Tauri signs the program inside the installer and the installer itself.
+  - Tauri signs the program inside the setup as it builds it, and the workflow signs the setup.
   - Windows SmartScreen still warns about a new publisher until downloads build its reputation.
     Signing every release with the same certificate lets that reputation carry over.
 - **macOS:** a Developer ID Application certificate, with notarization by an App Store Connect
@@ -697,6 +697,16 @@ pnpm tauri build -- --profile dist   # as released (thin LTO, one codegen unit):
 
 The released binaries are built with the `dist` profile (`just studio`), slower to build; its
 bundles land under `target/dist/bundle`.
+
+The Windows setup is built around that program, after it:
+
+```sh
+pnpm tauri build --bundles nsis -- --profile dist     # marks the program as installed by a setup
+PHOTONOXIDE_SETUP_PAYLOAD=target/dist/photonoxide.exe cargo build -p photonoxide-setup --profile dist
+```
+
+It writes `target/dist/photonoxide-setup.exe`. Without `PHOTONOXIDE_SETUP_PAYLOAD` it builds
+without the program, as the lints do, and says so when run.
 
 Build with the Tauri CLI, never with plain `cargo build`. Plain cargo leaves out the bundled
 window, so the window points at a dev server that isn't running. `pnpm tauri dev` serves the

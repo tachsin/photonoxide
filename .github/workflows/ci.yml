@@ -457,9 +457,10 @@ jobs:
       - run: pnpm install --frozen-lockfile
       # type-checks the web view and builds it
       - run: pnpm build
-      - run: cargo fmt -p photonoxide-studio --check
-      - run: cargo clippy -p photonoxide-studio --all-targets -- -D warnings
-      - run: cargo test -p photonoxide-studio
+      # and the Windows setup that carries it (studio/setup), built without its payload
+      - run: cargo fmt -p photonoxide-studio -p photonoxide-setup --check
+      - run: cargo clippy -p photonoxide-studio -p photonoxide-setup --all-targets -- -D warnings
+      - run: cargo test -p photonoxide-studio -p photonoxide-setup
 
   msrv:
     name: MSRV (1.95)

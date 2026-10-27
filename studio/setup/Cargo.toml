@@ -1,0 +1,33 @@
+# photonoxide's Windows setup: a small program carrying the studio's photonoxide.exe, compressed,
+# which it unpacks to a folder of its own and runs as `photonoxide setup`, the install's window
+# (studio/src-tauri/src/setup.rs). Built by the release workflow from Tauri's build of the
+# program; never published.
+[package]
+name = "photonoxide-setup"
+version.workspace = true
+edition = "2024"
+rust-version = "1.95"
+description = "photonoxide's Windows setup"
+authors = ["tachsin"]
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/tachsin/photonoxide"
+publish = false
+
+[[bin]]
+name = "photonoxide-setup"
+path = "src/main.rs"
+
+[dependencies]
+# the payload's xz stream, decoded (pure Rust)
+lzma-rust2 = { version = "0.24.0", default-features = false, features = ["std", "xz"] }
+
+[build-dependencies]
+# the payload compressed at build time: xz -9e behind the x86 filter
+lzma-rust2 = { version = "0.24.0", default-features = false, features = ["std", "xz", "encoder", "optimization"] }
+# the setup's icon, and its manifest: asInvoker, so Windows doesn't ask for an administrator
+# because the name has "setup" in it; per-user installs need none
+tauri-winres = "0.3"
+
+[target.'cfg(windows)'.dependencies]
+# the one thing it says itself: that it couldn't start (the program's window says the rest)
+rfd = { version = "0.16", default-features = false }

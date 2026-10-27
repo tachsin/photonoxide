@@ -27,6 +27,7 @@ mod navigation;
 mod optimize;
 mod runner;
 mod settings;
+mod setup;
 mod studio;
 mod tasks;
 mod watch;
@@ -117,6 +118,13 @@ const USAGE: &str = "usage:
       the nightly channel: main's head and the commits since this build, what building
       here needs, a build of main at its head (which runs main's code), its install in
       place of this copy, and the way back
+  photonoxide setup [/P | /S] [/UPDATE] [/R] [/D=<folder>] [/ARGS <args>...]
+      on Windows, what photonoxide's setup runs: the install, in a window of its own (/P: the
+      progress only, /S: nothing; /UPDATE or /R: start the program again, with the arguments
+      after /ARGS)
+  photonoxide uninstall [/S] [--delete-data]
+      on Windows, what Apps & Features runs: removes this install (--delete-data: its
+      settings and benchmark records too)
   photonoxide --version";
 
 fn main() -> ExitCode {
@@ -142,6 +150,8 @@ fn main() -> ExitCode {
         Some("libraries") => libraries::run(&args[1..]),
         Some("dependencies") => dependencies::run(&args[1..]),
         Some("nightly") => channels::run(&args[1..]),
+        Some("setup") => setup::run(&args[1..]),
+        Some("uninstall") => setup::remove(&args[1..]),
         Some("--version" | "-V") => {
             let build = channels::this_build();
             match (build.nightly(), build.short) {
@@ -164,6 +174,7 @@ fn main() -> ExitCode {
 
 fn open() -> ExitCode {
     console::release();
+    setup::at_start();
     match studio::show(None, None) {
         Ok(()) => ExitCode::SUCCESS,
         Err(e) => fail(e),

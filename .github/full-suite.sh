@@ -61,9 +61,9 @@ examples() {
 
 studio() {
   (cd studio && pnpm install --frozen-lockfile && pnpm build) &&
-    cargo fmt -p photonoxide-studio --check &&
-    cargo clippy -p photonoxide-studio --all-targets -- -D warnings &&
-    cargo test -p photonoxide-studio
+    cargo fmt -p photonoxide-studio -p photonoxide-setup --check &&
+    cargo clippy -p photonoxide-studio -p photonoxide-setup --all-targets -- -D warnings &&
+    cargo test -p photonoxide-studio -p photonoxide-setup
 }
 
 # the lints (.github/lints.sh): one that already passed on this commit, here or in the pre-push

@@ -17,7 +17,7 @@ exclude = [".github", "academy", "assets", "python", "site", "studio"]
 # headless, and is built from the repository, not published. python/ is the Python package
 # (PyO3), which maturin builds; it shares photonoxide's version and Cargo.lock.
 [workspace]
-members = ["studio/src-tauri", "native", "native/testlib", "python"]
+members = ["studio/src-tauri", "studio/setup", "native", "native/testlib", "python"]
 default-members = ["."]
 
 [workspace.package]

@@ -151,6 +151,17 @@ jobs:
           if grep -q '^\[profile\.dist\]' ../Cargo.toml; then profile=dist; cargo_args=(-- --profile dist); fi
           echo "PROFILE=$profile" >> "$GITHUB_ENV"
           pnpm tauri build --bundles "${{ matrix.bundles }}" --config "$config" ${{ matrix.target && format('--target {0}', matrix.target) || '' }} "${cargo_args[@]}"
+      # Windows: photonoxide's own setup (studio/setup), carrying the program Tauri built, marked
+      # as installed by a setup and signed, compressed by xz behind the x86 filter: smaller than
+      # Tauri's NSIS setup, whose place it takes. A tag from before it has no setup crate and
+      # keeps NSIS's
+      - name: The Windows setup
+        if: runner.os == 'Windows'
+        run: |
+          [ -f studio/setup/Cargo.toml ] || { echo "no studio/setup at $TAG: NSIS's setup"; exit 0; }
+          PHOTONOXIDE_SETUP_PAYLOAD="target/$PROFILE/photonoxide.exe" cargo build -p photonoxide-setup --profile "$PROFILE"
+          if [ -n "$CERTUM_OTP" ]; then ssign "target/$PROFILE/photonoxide-setup.exe"; fi
+          ls -l "target/$PROFILE/photonoxide.exe" "target/$PROFILE/photonoxide-setup.exe"
       - name: Collect
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
@@ -168,7 +179,11 @@ jobs:
               updates=("$base-linux-${{ matrix.arch }}.AppImage" "$base-linux-${{ matrix.arch }}.deb" "$base-linux-${{ matrix.arch }}.rpm")
               ;;
             Windows)
-              cp "$bundle"/nsis/*-setup.exe "out/$base-windows-${{ matrix.arch }}-setup.exe"
+              if [ -f "$built/photonoxide-setup.exe" ]; then
+                cp "$built/photonoxide-setup.exe" "out/$base-windows-${{ matrix.arch }}-setup.exe"
+              else
+                cp "$bundle"/nsis/*-setup.exe "out/$base-windows-${{ matrix.arch }}-setup.exe"
+              fi
               updates=("$base-windows-${{ matrix.arch }}-setup.exe")
               ;;
             macOS)
