@@ -55,11 +55,12 @@ tauri-plugin-process = "2.4.0"
 tauri-plugin-updater = "2.13.1"
 tauri-plugin-window-state = "2.5.0"
 toml = "1"
+# where the setup puts things: the user's local and roaming app data, and their Desktop, which
+# may be moved (to OneDrive, say), as Windows' known folders say (setup.rs, which builds on every
+# system and says elsewhere that it is for Windows)
+dirs = "7"
 
 [target."cfg(windows)".dependencies]
-# where the setup puts things: the user's local and roaming app data, and their Desktop, which
-# may be moved (to OneDrive, say), as Windows' known folders say (setup.rs)
-dirs = "7"
 # the setup's shortcuts, written as .lnk files (pure Rust; setup.rs)
 mslnk = "0.1.8"
 # what the setup says when it can't open its window: a message box (the dialog plugin's, as is)
