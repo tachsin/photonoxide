@@ -119,7 +119,7 @@ pub enum Numerical {
     Exact,
     /// What the case measures is our grid's own error, or its order.
     Measured,
-    /// Noted by the case as it runs ([`note_numerical`]), relative: its grid study's estimate.
+    /// Noted by the case as it runs, relative: its grid study's estimate.
     Noted,
     /// Measured by a test elsewhere, relative: its value, and where.
     Stated(f64, &'static str),
