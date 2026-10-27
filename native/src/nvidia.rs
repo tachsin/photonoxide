@@ -52,8 +52,10 @@ fn cudss_folders() -> Vec<PathBuf> {
 pub const CUDA_RUNTIME_RELEASES: &[u32] = &[13, 12];
 /// cuSPARSE's, likewise (`cusparse64_12.dll`).
 pub const CUSPARSE_RELEASES: &[u32] = &[12];
-/// cuDSS's, likewise (`cudss64_0.dll`).
-pub const CUDSS_RELEASES: &[u32] = &[0];
+/// cuDSS's, likewise (`cudss64_1.dll`, `libcudss.so.1`): 1.0 first, its calls and their
+/// arguments those of 0.x (its release notes change none photonoxide makes; it needs NVRTC at
+/// load time, which its wheel and conda package bring).
+pub const CUDSS_RELEASES: &[u32] = &[1, 0];
 
 /// The CUDA runtime.
 pub const CUDA_RUNTIME: Spec = Spec {
@@ -89,9 +91,9 @@ pub const CUSPARSE: Spec = Spec {
 pub const CUDSS: Spec = Spec {
     name: "cuDSS",
     files: if cfg!(windows) {
-        &["cudss64_0.dll"]
+        &["cudss64_1.dll", "cudss64_0.dll"]
     } else if cfg!(target_os = "linux") {
-        &["libcudss.so.0"]
+        &["libcudss.so.1", "libcudss.so.0"]
     } else {
         &[]
     },

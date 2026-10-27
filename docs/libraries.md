@@ -187,7 +187,7 @@ NVIDIA's sparse direct solver on the GPU.
 - **conda-forge** (Windows, Linux):
 
   ```sh
-  conda install -c conda-forge libcudss=0.8
+  conda install -c conda-forge libcudss=1.0
   ```
 
   Into the active conda environment: start photonoxide from it.
@@ -198,10 +198,10 @@ NVIDIA's sparse direct solver on the GPU.
 - **pip** (Windows, Linux):
 
   ```sh
-  pip install "nvidia-cudss-cu13==0.8.*"
+  pip install "nvidia-cudss-cu13==1.0.*"
   ```
 
-  The CUDA 13 build (nvidia-cudss-cu12 for CUDA 12), found in site-packages/nvidia. Release 0.8: the next release's wheel (site-packages/nvidia/cu13, libcudss.so.1) isn't loaded yet.
+  The CUDA 13 build (nvidia-cudss-cu12 for CUDA 12), found in site-packages/nvidia/cu13; it brings NVRTC, which cuDSS 1.0 needs at load time. Release 0.x is found too.
 
   - Checked on Linux (ubuntu-24.04), 2026-10-09: installed nvidia-cudss-cu13 0.8.0.10; found cuDSS 0.8.0, loaded; the runner has no GPU, so the backend's smoke test couldn't run.
   - Checked on Windows (windows-2025-vs2026), 2026-10-09: installed nvidia-cudss-cu13 0.8.0.10; found cuDSS 0.8.0, loaded; the runner has no GPU, so the backend's smoke test couldn't run.

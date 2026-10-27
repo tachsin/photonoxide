@@ -975,8 +975,10 @@ mod tests {
         assert!(range("cuSPARSE").unwrap().contains("12.8.6.72"));
         assert!(!range("cuSPARSE").unwrap().contains("13.0.0"));
         let cudss = range("cuDSS").unwrap();
-        assert!(cudss.contains("0.8.0.10") && !cudss.contains("1.0.0"));
-        assert!(cudss.describe().starts_with("0.x"));
+        assert!(
+            cudss.contains("0.8.0.10") && cudss.contains("1.0.0.35") && !cudss.contains("2.0.0")
+        );
+        assert!(cudss.describe().starts_with("0.x and 1.x"));
         assert!(range("OpenBLAS").unwrap().contains("0.3.34"));
         assert!(range("oneMKL").unwrap().contains("2026.1.0"));
         assert!(range("oneMKL").unwrap().contains("2020.4.304"));
