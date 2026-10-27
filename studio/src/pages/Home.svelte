@@ -23,7 +23,8 @@
     .publishedReport()
     .then((r) => {
       const rows = r.split("\n").filter((l) => l.startsWith("| `"));
-      report = { passed: rows.filter((l) => l.trimEnd().endsWith("| pass |")).length, total: rows.length };
+      // the eighth cell is the result (#544's columns come after it)
+      report = { passed: rows.filter((l) => l.slice(1, -1).split(" | ")[7]?.trim() === "pass").length, total: rows.length };
     })
     .catch(() => {});
   let notes = $state(false);

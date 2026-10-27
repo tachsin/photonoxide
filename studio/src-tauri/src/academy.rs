@@ -563,7 +563,9 @@ fn case_row(id: &str) -> Option<CaseRow> {
     let prefix = format!("| `{id}` |");
     let line = report.lines().find(|l| l.starts_with(&prefix))?;
     let cells: Vec<&str> = line.trim_matches('|').split(" | ").map(str::trim).collect();
-    if cells.len() != 8 {
+    // the case, its tier, what, against, measured, expected, tolerance and result, then the
+    // rule's error, basis and our own error (#544)
+    if cells.len() < 8 {
         return None;
     }
     Some(CaseRow {

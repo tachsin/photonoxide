@@ -10,7 +10,7 @@ use crate::electro::{Conductor, Current, EPSILON_0, Electrostatic};
 use crate::geometry::{Point, Shape};
 use crate::thermal::{Heat, Scheme, Stepping};
 use crate::units::Length;
-use crate::validation::{Case, Outcome, Tier};
+use crate::validation::{Case, Outcome, Rule, Tier};
 
 fn rect(x: [f64; 2], y: [f64; 2]) -> Shape {
     Shape::rect(
@@ -1143,6 +1143,285 @@ pub(crate) fn cases() -> Vec<Case> {
                 }
             },
         },
+    ]
+}
+
+/// The cases' rules (#544), by id.
+pub(crate) fn rules() -> Vec<(&'static str, Rule)> {
+    use crate::validation::{Basis::*, Measure::*, Numerical::*};
+    // an order from two grids is the scheme's within 0.1 where the solution is smooth; the
+    // parabola's error is the scheme's leading term alone, so its order is held to 0.05
+    vec![
+        (
+            "static/two-layer-temperature",
+            Rule::new(
+                Absolute,
+                RoundOff,
+                1e-12,
+                Exact,
+                "exact on the grid's lines, so the solve's round-off on temperatures of 1 K",
+            ),
+        ),
+        (
+            "static/two-layer-flux",
+            Rule::new(
+                Relative,
+                RoundOff,
+                1e-12,
+                Exact,
+                "the layers' series resistance is the scheme's own, so round-off",
+            ),
+        ),
+        (
+            "static/heated-slab-order",
+            Rule::new(
+                Absolute,
+                Order,
+                0.05,
+                Measured,
+                "second order; the parabola's error is the scheme's leading term alone, so within 0.05",
+            ),
+        ),
+        (
+            "static/heated-slab",
+            Rule::new(
+                Relative,
+                Discretisation,
+                2e-4,
+                Measured,
+                "the 25 nm grid's second-order error, its order static/heated-slab-order's",
+            ),
+        ),
+        (
+            "static/transient-slab",
+            Rule::new(
+                Relative,
+                Discretisation,
+                3e-4,
+                Measured,
+                "the grid's error, as the steady slab's (static/heated-slab), with the steps' below it",
+            ),
+        ),
+        (
+            "static/transient-slab-order-time-cn",
+            Rule::new(
+                Absolute,
+                Order,
+                0.1,
+                Measured,
+                "Crank–Nicolson's second order in the step, within 0.1",
+            ),
+        ),
+        (
+            "static/transient-slab-order-time-bdf2",
+            Rule::new(
+                Absolute,
+                Order,
+                0.1,
+                Measured,
+                "BDF2's second order in the step, within 0.1",
+            ),
+        ),
+        (
+            "static/transient-slab-order-grid",
+            Rule::new(
+                Absolute,
+                Order,
+                0.05,
+                Measured,
+                "second order in the grid, as the steady parabola's, within 0.05",
+            ),
+        ),
+        (
+            "static/transient-rc-step",
+            Rule::new(
+                Relative,
+                Discretisation,
+                1e-3,
+                Measured,
+                "the grid's and the steps' error, the lumped RC exact in the limit the case sets (Biot number 1e-3)",
+            ),
+        ),
+        (
+            "static/transient-rc-cutoff",
+            Rule::new(
+                Relative,
+                Discretisation,
+                1e-3,
+                Measured,
+                "the grid's error, as the step's (static/transient-rc-step)",
+            ),
+        ),
+        (
+            "static/parallel-plate",
+            Rule::new(
+                Relative,
+                RoundOff,
+                1e-12,
+                Exact,
+                "the field uniform in each layer, which the scheme takes exactly: round-off",
+            ),
+        ),
+        (
+            "static/coaxial",
+            Rule::new(
+                Relative,
+                Discretisation,
+                3e-5,
+                Measured,
+                "the 6.25 nm grid's second-order error, its order static/coaxial-order's",
+            ),
+        ),
+        (
+            "static/coaxial-order",
+            Rule::new(
+                Absolute,
+                Order,
+                0.1,
+                Measured,
+                "second order at curved conductors met by Shortley and Weller's boundaries, within 0.1",
+            ),
+        ),
+        (
+            "static/line-source-images",
+            Rule::new(
+                Absolute,
+                Discretisation,
+                2e-5,
+                Measured,
+                "the 10 nm grid's second-order error in K, its order static/line-source-order's",
+            ),
+        ),
+        (
+            "static/line-source-order",
+            Rule::new(
+                Absolute,
+                Order,
+                0.15,
+                Measured,
+                "second order; the disk's fill spread over the cells costs a little of it, so within 0.15",
+            ),
+        ),
+        (
+            "static/coplanar-wen",
+            Rule::new(
+                Relative,
+                Discretisation,
+                1e-3,
+                Measured,
+                "the 2 nm edge grading's error, first order at the strips' singular edges (static/coplanar-edges-order)",
+            ),
+        ),
+        (
+            "static/coplanar-edges-order",
+            Rule::new(
+                Absolute,
+                Order,
+                0.25,
+                Measured,
+                "first order at edges where the field is singular as r^(-1/2), within 0.25",
+            ),
+        ),
+        (
+            "static/joule-resistor",
+            Rule::new(
+                Relative,
+                RoundOff,
+                1e-12,
+                Exact,
+                "a uniform bar's conductance is the scheme's own, so round-off",
+            ),
+        ),
+        (
+            "static/joule-balance",
+            Rule::new(
+                Relative,
+                RoundOff,
+                1e-12,
+                Exact,
+                "finite volumes conserve energy face by face: round-off",
+            ),
+        ),
+        (
+            "static/jacques-tin-heater",
+            Rule::new(
+                Relative,
+                Reference,
+                0.1,
+                Stated(1e-3, "a grid twice as fine"),
+                "10 % for what the paper doesn't state: the TiN's thickness and where its 2 µm are from",
+            ),
+        ),
+        (
+            "static/jacques-tin-heater-time",
+            Rule::new(
+                Relative,
+                Reference,
+                0.1,
+                Stated(1e-3, "a grid twice as fine; the steps' 3e-5"),
+                "10 % for what the paper doesn't state, as static/jacques-tin-heater",
+            ),
+        ),
+        (
+            "static/jacques-tin-heater-catalogue",
+            Rule::new(
+                Relative,
+                Reference,
+                0.1,
+                Stated(1e-3, "a grid twice as fine"),
+                "10 % for what the paper doesn't state, as static/jacques-tin-heater",
+            ),
+        ),
+        (
+            "static/catalogue-series",
+            Rule::new(
+                Relative,
+                RoundOff,
+                1e-12,
+                Exact,
+                "layers' resistances in series are the scheme's own, so round-off",
+            ),
+        ),
+        (
+            "static/soi-heater-balance",
+            Rule::new(
+                Relative,
+                RoundOff,
+                1e-12,
+                Exact,
+                "the free cells' balances add up to the window's: round-off",
+            ),
+        ),
+        (
+            "static/pulse-slab-peak",
+            Rule::new(
+                Relative,
+                Discretisation,
+                1e-3,
+                Measured,
+                "the grid's and BDF2's steps' error at 80 rows and 100 steps",
+            ),
+        ),
+        (
+            "static/pulse-slab-after",
+            Rule::new(
+                Relative,
+                Discretisation,
+                2e-4,
+                Measured,
+                "the grid's error, as the steady slab's (static/heated-slab)",
+            ),
+        ),
+        (
+            "static/pcm-cell-convergence",
+            Rule::new(
+                Absolute,
+                Discretisation,
+                2.0,
+                Measured,
+                "the grid-convergence gate: 2 K, a twentieth of the film's 40 K margin above its melting point",
+            ),
+        ),
     ]
 }
 

@@ -69,6 +69,178 @@ impl Outcome {
     }
 }
 
+/// How a case's error is measured (#544).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum Measure {
+    /// \|measured − expected\| / \|expected\|; for a case whose expected value is 0, the
+    /// relative error it reports.
+    Relative,
+    /// \|measured − expected\| in the value's own unit: where the expected value is zero by
+    /// nature (a residual, an imbalance, an order's distance from the scheme's) or the
+    /// reference states an absolute uncertainty.
+    Absolute,
+}
+
+/// Where a case's tolerance comes from (#544).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum Basis {
+    /// An exact discrete identity: the arithmetic's round-off, at most 1e-8 relative.
+    RoundOff,
+    /// A closed form against our grid: the grid's own error, its order checked by another case.
+    Discretisation,
+    /// A published number: the paper's stated uncertainty, or half a unit of its last printed
+    /// digit where it states none.
+    Reference,
+    /// A published approximate model: the accuracy its paper gives it.
+    Model,
+    /// A convergence test: the scheme's order, within a margin.
+    Order,
+}
+
+impl Basis {
+    fn label(self) -> &'static str {
+        match self {
+            Basis::RoundOff => "round-off",
+            Basis::Discretisation => "discretisation",
+            Basis::Reference => "reference",
+            Basis::Model => "model",
+            Basis::Order => "order",
+        }
+    }
+}
+
+/// Where a case's own numerical error comes from, shown beside its tolerance (#544).
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[non_exhaustive]
+pub enum Numerical {
+    /// No grid and no iteration to converge: the arithmetic's round-off only.
+    Exact,
+    /// What the case measures is our grid's own error, or its order.
+    Measured,
+    /// Noted by the case as it runs ([`note_numerical`]), relative: its grid study's estimate.
+    Noted,
+    /// Measured by a test elsewhere, relative: its value, and where.
+    Stated(f64, &'static str),
+}
+
+/// A case's rule (#544): how its error is measured, where its tolerance comes from and what it
+/// is in that measure, and where our own numerical error comes from. Each area keeps its
+/// cases' rules beside them, by the case's id ([`rules`]).
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[non_exhaustive]
+pub struct Rule {
+    /// How the case's error is measured.
+    pub measure: Measure,
+    /// Where its tolerance comes from.
+    pub basis: Basis,
+    /// The tolerance, in `measure`: the case's own, converted (relative to its expected value
+    /// for [`Measure::Relative`]).
+    pub tolerance: f64,
+    /// Where our own numerical error comes from.
+    pub numerical: Numerical,
+    /// The tolerance's origin, in words: a paper's statement, a printed digit, a grid study.
+    pub why: &'static str,
+}
+
+impl Rule {
+    /// A rule: its measure, basis, tolerance in that measure, our own error's origin, and why.
+    pub const fn new(
+        measure: Measure,
+        basis: Basis,
+        tolerance: f64,
+        numerical: Numerical,
+        why: &'static str,
+    ) -> Rule {
+        Rule {
+            measure,
+            basis,
+            tolerance,
+            numerical,
+            why,
+        }
+    }
+
+    /// What's wrong with the case's outcome against this rule, if anything: a tolerance other
+    /// than the rule's, a round-off tolerance above 1e-8, a published comparison without our
+    /// own error beside it, or our own error above a third of the tolerance.
+    fn fault(&self, o: &Outcome, noted: Option<f64>) -> Option<String> {
+        let own = if o.expected == 0.0 || self.measure == Measure::Absolute {
+            o.tolerance
+        } else {
+            o.tolerance / o.expected.abs()
+        };
+        if (own - self.tolerance).abs() > 1e-9 * self.tolerance.abs().max(f64::MIN_POSITIVE) {
+            return Some(format!(
+                "its tolerance {own:e} isn't the rule's {:e}",
+                self.tolerance
+            ));
+        }
+        if self.basis == Basis::RoundOff
+            && self.measure == Measure::Relative
+            && self.tolerance > 1e-8
+        {
+            return Some("a round-off tolerance above 1e-8".into());
+        }
+        if matches!(self.basis, Basis::Reference | Basis::Model)
+            && self.numerical == Numerical::Measured
+        {
+            return Some("a published comparison needs our own error beside it".into());
+        }
+        let ours = match self.numerical {
+            Numerical::Noted => match noted {
+                Some(v) => Some(v),
+                None => return Some("it noted no numerical error".into()),
+            },
+            Numerical::Stated(v, _) => Some(v),
+            Numerical::Exact | Numerical::Measured => None,
+        };
+        // the tolerance as a fraction of the expected value, where it is one
+        let relative = match self.measure {
+            Measure::Relative => Some(self.tolerance),
+            Measure::Absolute if o.expected != 0.0 => Some(self.tolerance / o.expected.abs()),
+            Measure::Absolute => None,
+        };
+        if let (Some(ours), Some(relative)) = (ours, relative)
+            && ours > relative / 3.0
+        {
+            return Some(format!(
+                "our own error {ours:.1e} is above a third of the tolerance"
+            ));
+        }
+        None
+    }
+}
+
+/// Every case's rule, by the case's id (#544): each area's table, beside its cases.
+pub fn rules() -> Vec<(&'static str, Rule)> {
+    let mut rules = Vec::new();
+    rules.extend(crate::statics::checks::rules());
+    rules
+}
+
+fn rule_of(id: &str) -> Option<Rule> {
+    static RULES: std::sync::OnceLock<std::collections::HashMap<&'static str, Rule>> =
+        std::sync::OnceLock::new();
+    RULES
+        .get_or_init(|| rules().into_iter().collect())
+        .get(id)
+        .copied()
+}
+
+thread_local! {
+    static NOTED: std::cell::Cell<Option<f64>> = const { std::cell::Cell::new(None) };
+}
+
+/// Notes the case's own numerical error while it runs, relative: its grid study's estimate.
+/// The report shows it beside the tolerance, and fails a case whose error is above a third of it.
+// no case notes one yet: the areas whose cases run their own grid studies do, as they move
+#[allow(dead_code)]
+pub(crate) fn note_numerical(relative: f64) {
+    NOTED.with(|n| n.set(Some(relative)));
+}
+
 /// One validation case.
 ///
 /// Its `title` and `source` are cells of the report's Markdown table: their math is inline TeX
@@ -5173,33 +5345,140 @@ pub fn header() -> String {
      this file is out of date. Values have six significant digits; a value that should be \
      zero shows as \"≤ tolerance\" when it is within it.\n\
      \n\
-     | Case | Tier | What | Against | Measured | Expected | Tolerance | Result |\n\
-     |---|---|---|---|---|---|---|---|\n"
+     Every tolerance follows from a rule (#544): the case's **measure**, relative (rel) or in \
+     its own unit (abs), and its **basis**: round-off for an exact discrete identity (at most \
+     1e-8 relative); discretisation for a closed form against our grid, whose order another \
+     case checks; reference for a published number, its stated uncertainty or half a unit of \
+     its last printed digit; model for a published approximation, the accuracy its paper gives \
+     it; order for a convergence test, the scheme's order within a margin. **Error** is the \
+     case's error in that measure, to two digits (or under 1 % of the tolerance). **Ours** is \
+     our own numerical error beside it: exact (no grid to converge), what the case itself \
+     measures, or a grid study's estimate, which must be under a third of the tolerance. A case \
+     whose rule isn't written yet says so.\n\
+     \n\
+     | Case | Tier | What | Against | Measured | Expected | Tolerance | Result | Error | Basis | Ours |\n\
+     |---|---|---|---|---|---|---|---|---|---|---|\n"
         .to_owned()
+}
+
+/// A relative number: a percentage from 0.1 %, else in powers of ten; two significant digits.
+fn relative(v: f64) -> String {
+    relative_as(v, v)
+}
+
+/// `v` as `like` is shown: a percentage where `like` is 0.1 % or more, else in powers of ten,
+/// so that an error reads in its tolerance's form.
+fn relative_as(v: f64, like: f64) -> String {
+    if like >= 1e-3 {
+        format!("{} %", sig2(100.0 * v))
+    } else {
+        format!("{v:.1e}")
+    }
+}
+
+/// Two significant digits, trailing zeros kept to them ("0.50", "12", "3.0e-6").
+fn sig2(v: f64) -> String {
+    if v == 0.0 || !v.is_finite() {
+        return v.to_string();
+    }
+    let digits = 1 - v.abs().log10().floor() as i32;
+    if (-3..6).contains(&-digits) {
+        format!("{:.*}", digits.max(0) as usize, v)
+    } else {
+        format!("{v:.1e}")
+    }
+}
+
+/// A rule's error cell: the case's error in the rule's measure, or under 1 % of the tolerance.
+fn error_cell(rule: &Rule, o: &Outcome) -> String {
+    let v = if o.expected == 0.0 {
+        o.measured.abs()
+    } else if rule.measure == Measure::Relative {
+        o.error / o.expected.abs()
+    } else {
+        o.error
+    };
+    if !v.is_finite() {
+        "—".into()
+    } else if rule.basis == Basis::RoundOff && v <= rule.tolerance {
+        // its digits are the platform's math library's: the report reads the same everywhere
+        "within round-off".into()
+    } else if v < 0.01 * rule.tolerance {
+        "under 1 % of it".into()
+    } else if rule.measure == Measure::Relative {
+        relative_as(v, rule.tolerance)
+    } else {
+        sig2(v)
+    }
+}
+
+/// A rule's tolerance cell, in its measure.
+fn tolerance_cell(rule: &Rule) -> String {
+    match rule.measure {
+        Measure::Relative => format!("{} rel", relative(rule.tolerance)),
+        Measure::Absolute => format!("{} abs", sig2(rule.tolerance)),
+    }
+}
+
+/// A rule's cell of our own numerical error.
+fn ours_cell(rule: &Rule, noted: Option<f64>) -> String {
+    match rule.numerical {
+        Numerical::Exact => "exact".into(),
+        Numerical::Measured => "what it measures".into(),
+        Numerical::Noted => noted.map_or("—".into(), relative),
+        Numerical::Stated(v, from) => format!("{} ({from})", relative(v)),
+    }
 }
 
 /// Runs one case and returns its row of the report (ending in a newline), and whether it passed.
 /// The rows are independent: a pull request's CI runs the cases of the areas it changed and
 /// checks only their rows (`tests/validation_report.rs`).
 pub fn row(case: &Case) -> (String, bool) {
+    NOTED.with(|n| n.set(None));
     let o = (case.run)();
-    let passed = o.passed();
+    let noted = NOTED.with(|n| n.take());
+    let rule = rule_of(case.id);
+    let fault = rule.and_then(|r| r.fault(&o, noted));
+    let passed = o.passed() && fault.is_none();
     let (measured, expected) = if o.expected == 0.0 {
         (small(o.measured, o.tolerance), "0".to_owned())
     } else {
         (sig(o.measured), sig(o.expected))
     };
+    let (tolerance, error, basis, ours) = match &rule {
+        Some(r) => (
+            tolerance_cell(r),
+            error_cell(r, &o),
+            format!("{}: {}", r.basis.label(), r.why),
+            ours_cell(r, noted),
+        ),
+        None => (
+            format!("{:e}", o.tolerance),
+            "—".into(),
+            "not written yet (#544)".into(),
+            "—".into(),
+        ),
+    };
     debug_assert!(!case.title.contains('|') && !case.source.contains('|'));
+    debug_assert!(rule.is_none_or(|r| !r.why.contains('|')));
+    let result = match (&fault, passed) {
+        (Some(why), _) => format!("**FAIL**: the rule ({why})"),
+        (None, true) => "pass".into(),
+        (None, false) => "**FAIL**".into(),
+    };
     let row = format!(
-        "| `{}` | {} | {} | {} | {} | {} | {:e} | {} |\n",
+        "| `{}` | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} |\n",
         case.id,
         case.tier.label(),
         case.title,
         case.source,
         measured,
         expected,
-        o.tolerance,
-        if passed { "pass" } else { "**FAIL**" }
+        tolerance,
+        result,
+        error,
+        basis,
+        ours,
     );
     (row, passed)
 }
@@ -5453,6 +5732,109 @@ mod tests {
         assert!((mean - 10.5).abs() < 0.05, "{mean}");
         // wavelengths increase, within the material's range
         assert!(MALITSON_TABLE_I.windows(2).all(|w| w[1].0 > w[0].0));
+    }
+
+    #[test]
+    fn every_rule_is_a_cases_once() {
+        let ids: std::collections::HashSet<&str> = cases().iter().map(|c| c.id).collect();
+        let mut seen = std::collections::HashSet::new();
+        for (id, rule) in rules() {
+            assert!(ids.contains(id), "a rule for {id}, which isn't a case");
+            assert!(seen.insert(id), "two rules for {id}");
+            assert!(
+                !rule.why.contains('|') && !rule.why.contains('<'),
+                "{id}'s why holds a | or a <"
+            );
+            assert!(rule.tolerance > 0.0, "{id}'s tolerance");
+        }
+        let missing = ids.len() - seen.len();
+        eprintln!(
+            "{} of {} cases have their rule (#544); {missing} to go",
+            seen.len(),
+            ids.len()
+        );
+    }
+
+    #[test]
+    fn a_rule_finds_what_is_wrong() {
+        let rule = Rule::new(
+            Measure::Relative,
+            Basis::Reference,
+            0.1,
+            Numerical::Stated(1e-3, "a finer grid"),
+            "10 %",
+        );
+        let o = Outcome {
+            measured: 25.4,
+            expected: 23.9,
+            tolerance: 2.39,
+            error: 1.5,
+        };
+        assert_eq!(rule.fault(&o, None), None);
+        assert!(
+            rule.fault(
+                &Outcome {
+                    tolerance: 3.0,
+                    ..o.clone()
+                },
+                None
+            )
+            .is_some(),
+            "another tolerance"
+        );
+        let rough = Rule {
+            numerical: Numerical::Stated(0.05, "a coarse grid"),
+            ..rule
+        };
+        assert!(
+            rough.fault(&o, None).is_some(),
+            "our own error above a third of the tolerance"
+        );
+        let measured = Rule {
+            numerical: Numerical::Measured,
+            ..rule
+        };
+        assert!(
+            measured.fault(&o, None).is_some(),
+            "a published comparison without our own error"
+        );
+        let noted = Rule {
+            numerical: Numerical::Noted,
+            ..rule
+        };
+        assert!(noted.fault(&o, None).is_some(), "nothing noted");
+        assert_eq!(noted.fault(&o, Some(1e-3)), None);
+        let loose = Rule::new(
+            Measure::Relative,
+            Basis::RoundOff,
+            1e-6,
+            Numerical::Exact,
+            "round-off",
+        );
+        let zero = Outcome {
+            measured: 1e-9,
+            expected: 0.0,
+            tolerance: 1e-6,
+            error: 1e-9,
+        };
+        assert!(loose.fault(&zero, None).is_some(), "round-off above 1e-8");
+        assert_eq!(error_cell(&rule, &o), "6.3 %");
+        assert_eq!(tolerance_cell(&rule), "10 % rel");
+        assert_eq!(error_cell(&loose, &zero), "within round-off");
+        let rc = Rule::new(
+            Measure::Relative,
+            Basis::Discretisation,
+            1e-3,
+            Numerical::Measured,
+            "the grid's",
+        );
+        let small = Outcome {
+            measured: 3.7e-4,
+            expected: 0.0,
+            tolerance: 1e-3,
+            error: 3.7e-4,
+        };
+        assert_eq!(error_cell(&rc, &small), "0.037 %");
     }
 
     #[test]
