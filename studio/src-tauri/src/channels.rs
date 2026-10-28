@@ -385,6 +385,9 @@ pub struct Status {
     pub previous: Option<Previous>,
     /// Why this copy can't install a nightly, if it can't.
     pub cannot_install: Option<String>,
+    /// Where a nightly goes when this copy isn't installed (a build from the repository): its
+    /// first install, which then updates itself.
+    pub first_install: Option<String>,
     /// The bundle it would build.
     pub bundle: Option<String>,
     pub folder: String,
@@ -402,6 +405,10 @@ fn status_of(state: &State) -> Status {
         offer,
         previous: install::previous(&state.dirs),
         cannot_install: needed.as_ref().err().cloned(),
+        first_install: (!running.installed())
+            .then(|| running.target().ok())
+            .flatten()
+            .map(|t| t.display().to_string()),
         bundle: needed.ok().map(str::to_owned),
         folder: state.dirs.root.display().to_string(),
     }

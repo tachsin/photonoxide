@@ -163,6 +163,8 @@ export interface Status {
   offer: Offer;
   previous: Previous | null;
   cannot_install: string | null;
+  /** Where a nightly goes when this copy isn't installed: its first install. */
+  first_install: string | null;
   bundle: string | null;
   folder: string;
 }
