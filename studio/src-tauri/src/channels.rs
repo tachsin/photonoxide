@@ -17,6 +17,7 @@ pub mod github;
 pub mod install;
 pub mod offer;
 pub mod prereqs;
+pub mod release;
 
 use std::path::PathBuf;
 use std::process::ExitCode;
@@ -385,6 +386,9 @@ pub struct Status {
     pub previous: Option<Previous>,
     /// Why this copy can't install a nightly, if it can't.
     pub cannot_install: Option<String>,
+    /// Where a nightly goes when this copy isn't installed (a build from the repository): its
+    /// first install, which then updates itself.
+    pub first_install: Option<String>,
     /// The bundle it would build.
     pub bundle: Option<String>,
     pub folder: String,
@@ -402,6 +406,10 @@ fn status_of(state: &State) -> Status {
         offer,
         previous: install::previous(&state.dirs),
         cannot_install: needed.as_ref().err().cloned(),
+        first_install: (!running.installed())
+            .then(|| running.target().ok())
+            .flatten()
+            .map(|t| t.display().to_string()),
         bundle: needed.ok().map(str::to_owned),
         folder: state.dirs.root.display().to_string(),
     }
@@ -500,6 +508,73 @@ pub fn nightly_install(
         .ready()
         .ok_or("there is no build waiting to be installed")?;
     let build = this_build();
+    let outcome = install::install(
+        &state.dirs,
+        &ready,
+        &Running::here(),
+        &build.label,
+        build.commit.as_deref(),
+    )?;
+    if outcome == Outcome::Restart {
+        exit_soon(&app);
+    }
+    Ok(outcome)
+}
+
+/// The updater's endpoint (its first) and release key, as tauri.conf.json gives them: the stable
+/// channel of a copy that isn't installed reads and checks releases as the updater does.
+fn updater_config(app: &tauri::AppHandle) -> Result<(String, String), String> {
+    let updater = app
+        .config()
+        .plugins
+        .0
+        .get("updater")
+        .ok_or("tauri.conf.json has no updater settings")?;
+    let endpoint = updater["endpoints"][0]
+        .as_str()
+        .ok_or("tauri.conf.json's updater has no endpoint")?;
+    let key = updater["pubkey"]
+        .as_str()
+        .ok_or("tauri.conf.json's updater has no release key")?;
+    Ok((endpoint.to_owned(), key.to_owned()))
+}
+
+/// The latest release for this system, for a copy that isn't installed, which Tauri's updater
+/// doesn't update ([`release`]): whether it's later than this build, and what it says.
+#[tauri::command(async)]
+pub fn release_check(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, State>,
+) -> Result<release::Release, String> {
+    let (endpoint, _) = updater_config(&app)?;
+    let build = this_build();
+    release::latest(&*state.http, &endpoint, &build.version, build.nightly())
+}
+
+/// Downloads the latest release, checks its signature as the updater does, and installs it
+/// where a first install goes (or over an older one there); the program then exits, and the
+/// release opens. The window follows `release-progress` (bytes, and the size when known).
+#[tauri::command(async)]
+pub fn release_install(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, State>,
+) -> Result<Outcome, String> {
+    use tauri::Emitter;
+    let (endpoint, key) = updater_config(&app)?;
+    let build = this_build();
+    let latest = release::latest(&*state.http, &endpoint, &build.version, build.nightly())?;
+    let commit = release::commit_of(&*state.http, &latest.version)?;
+    let emitter = app.clone();
+    let ready = release::fetch(
+        &*state.http,
+        &state.dirs,
+        &latest,
+        &key,
+        &commit,
+        &mut |done, total| {
+            let _ = emitter.emit("release-progress", (done, total));
+        },
+    )?;
     let outcome = install::install(
         &state.dirs,
         &ready,

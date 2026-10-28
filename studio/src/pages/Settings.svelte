@@ -294,7 +294,7 @@
           <span class="selectable text-xs text-error">{updater.error}</span>
         {/if}
         {#if !app.state?.updatable}
-          <span class="text-xs faint">This copy was built from the repository; installed releases update themselves.</span>
+          <span class="text-xs faint">This copy isn't installed (it runs from where it was built): a release installs where the setup puts photonoxide, opens from there, and updates itself after.</span>
         {/if}
       </div>
       {#if build.channel === "nightly"}

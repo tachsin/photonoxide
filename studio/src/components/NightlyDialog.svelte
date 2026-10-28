@@ -320,6 +320,8 @@
         <!-- main's new commits, the warning, the prerequisites -->
         {#if status?.cannot_install}
           <div role="alert" class="alert alert-warning alert-soft text-sm"><TriangleAlert size={18} /><span>{status.cannot_install}</span></div>
+        {:else if status?.first_install}
+          <p class="text-sm muted">This copy runs from where it was built, not installed: the nightly installs at <span class="selectable font-mono text-xs">{status.first_install}</span> and opens from there, and updates itself after.</p>
         {/if}
         {#if offer?.kind === "unchecked" || !last}
           <p class="text-sm muted">photonoxide hasn't looked at main from this build yet, so nothing is offered: <span class="font-medium">Check now</span> in Settings › Updates.</p>

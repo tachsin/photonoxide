@@ -88,7 +88,15 @@ impl Running {
         }
     }
 
-    /// The bundle a nightly build makes to replace this copy.
+    /// Whether this copy was installed (by the setup, a disk image, an AppImage or a package);
+    /// a build from the repository isn't, and a nightly installs it for the first time.
+    pub fn installed(&self) -> bool {
+        self.bundle.is_some()
+    }
+
+    /// The bundle a nightly build makes to replace this copy; for a copy that isn't installed,
+    /// the one a first install takes on its system: the setup on Windows, the app bundle on
+    /// macOS, an AppImage elsewhere (it needs no root).
     pub fn bundle_needed(&self) -> Result<&'static str, String> {
         match self.bundle.as_deref() {
             Some("nsis") => Ok("nsis"),
@@ -100,17 +108,19 @@ impl Running {
                 "this copy was installed from a {other} package, which photonoxide doesn't make: \
                  install a release's, then switch to Nightly"
             )),
-            None => Err(
-                "this copy was built from the repository, not installed, so it can't \
-                         replace itself: pull and rebuild, or install a release"
-                    .into(),
-            ),
+            None if cfg!(windows) => Ok("nsis"),
+            None if cfg!(target_os = "macos") => Ok("app"),
+            None => Ok("appimage"),
         }
     }
 
     /// What an install replaces: the program (Windows, or a package's), the `.app` bundle,
-    /// or the AppImage.
+    /// or the AppImage; for a copy that isn't installed, where a first install goes
+    /// ([`first_install`]).
     pub fn target(&self) -> Result<PathBuf, String> {
+        if !self.installed() {
+            return first_install(self.bundle_needed()?);
+        }
         match self.bundle_needed()? {
             "app" => self
                 .exe
@@ -126,6 +136,21 @@ impl Running {
             _ => Ok(self.exe.clone()),
         }
     }
+}
+
+/// Where a first install of `bundle` goes, for a copy that isn't installed: where the setup
+/// puts the program on Windows (the last install's folder, or `%LOCALAPPDATA%\photonoxide`),
+/// and the user's own `~/Applications` elsewhere, which needs no administrator.
+pub fn first_install(bundle: &str) -> Result<PathBuf, String> {
+    if bundle == "nsis" {
+        return crate::setup::Target::user(None).map(|t| t.program());
+    }
+    let home = dirs::home_dir().ok_or("the user's home folder isn't known")?;
+    let applications = home.join("Applications");
+    Ok(match bundle {
+        "app" => applications.join("photonoxide.app"),
+        _ => applications.join("photonoxide.AppImage"),
+    })
 }
 
 /// Where an install is.
@@ -184,6 +209,14 @@ pub struct Handover {
     /// The installer the watchdog runs (Windows).
     #[serde(default)]
     pub installer: Option<PathBuf>,
+    /// Nothing was installed at the target before: a first install, from a copy that isn't
+    /// installed. The installer then makes the shortcuts, which an update leaves alone.
+    #[serde(default)]
+    pub first: bool,
+    /// On a first install, the copy that was running, where it runs: what opens again when the
+    /// install fails or the new build doesn't start, in place of putting anything back.
+    #[serde(default)]
+    pub from_exe: Option<PathBuf>,
     /// By when the new build must have started, seconds since 1970.
     pub deadline: u64,
     /// What builds before 0.5.2 read and write, kept from the stage: `started`, and
@@ -359,12 +392,26 @@ fn new_id() -> String {
     format!("{}-{}", now(), std::process::id())
 }
 
+#[cfg(test)]
 /// Keeps a copy of what is installed at `target` (the build running now) in `previous/<id>/`,
 /// and removes the copies of earlier installs, those it can: one still running (an earlier
 /// install's watchdog) goes at a later install.
 pub fn keep_previous(
     dirs: &Dirs,
     id: &str,
+    target: &Path,
+    label: &str,
+    commit: Option<&str>,
+) -> Result<Previous, String> {
+    keep_copy(dirs, id, target, target, label, commit)
+}
+
+/// Keeps a copy of `from`, to go back to at `target`: what is installed there, or on a first
+/// install the build running now, from wherever it runs.
+fn keep_copy(
+    dirs: &Dirs,
+    id: &str,
+    from: &Path,
     target: &Path,
     label: &str,
     commit: Option<&str>,
@@ -385,7 +432,7 @@ pub fn keep_previous(
         None => format!("{name}-previous"),
     };
     let copied = dir.join(name);
-    copy(target, &copied)?;
+    copy(from, &copied)?;
     let previous = Previous {
         label: label.to_owned(),
         commit: commit.map(str::to_owned),
@@ -715,18 +762,38 @@ pub fn install(
     let target = running.target()?;
     supersede(dirs)?;
     let id = new_id();
+    // nothing installed where it goes yet: this copy (a build from the repository) installs the
+    // build for the first time, and is what a rollback opens again
+    let first = !target.exists();
     log(
         dirs,
         &id,
-        &format!(
-            "installing {} in place of {} at {}",
-            ready.label,
-            from_label,
-            target.display()
-        ),
+        &if first {
+            format!(
+                "installing {} at {}, its first install there ({} runs from {}, not installed)",
+                ready.label,
+                target.display(),
+                from_label,
+                running.exe.display()
+            )
+        } else {
+            format!(
+                "installing {} in place of {} at {}",
+                ready.label,
+                from_label,
+                target.display()
+            )
+        },
     );
-    let previous = keep_previous(dirs, &id, &target, from_label, from_commit)?;
+    let kept_from = if first { &running.exe } else { &target };
+    let previous = keep_copy(dirs, &id, kept_from, &target, from_label, from_commit)?;
     let nsis = needed == "nsis";
+    if first
+        && !nsis
+        && let Some(folder) = target.parent()
+    {
+        std::fs::create_dir_all(folder).map_err(|e| format!("{}: {e}", folder.display()))?;
+    }
     let mut handover = Handover {
         id: id.clone(),
         stage: Stage::Waiting,
@@ -739,6 +806,8 @@ pub fn install(
         previous: previous.copy.clone(),
         target: target.clone(),
         installer: nsis.then(|| ready.artifact.clone()),
+        first,
+        from_exe: first.then(|| running.exe.clone()),
         // the watchdog sets the start's own deadline once the new build is in; until then,
         // one no watchdog of a build before 0.5.2 reaches while this install runs
         deadline: now() + EXIT_WITHIN + INSTALL_WITHIN + START_WITHIN,
@@ -750,7 +819,13 @@ pub fn install(
         replace(&target, &ready.artifact)?;
         let found = version_of(&target);
         if !found.as_ref().is_ok_and(|v| is_build(v, &ready.commit)) {
-            let put_back = replace(&target, &previous.copy);
+            // a first install had nothing there: what it put goes again
+            let put_back = if first {
+                remove(&target);
+                Ok(())
+            } else {
+                replace(&target, &previous.copy)
+            };
             let found = found.unwrap_or_else(|e| e);
             log(dirs, &id, &format!("the new build isn't right: {found}"));
             return Err(match put_back {
@@ -779,7 +854,9 @@ pub fn install(
         Err(e) => {
             // nothing goes on without the watchdog: on Windows nothing was replaced; elsewhere
             // the build that was running goes back
-            if !nsis {
+            if !nsis && first {
+                remove(&target);
+            } else if !nsis {
                 let _ = replace(&target, &previous.copy);
             }
             handover.set(Stage::Failed);
@@ -803,16 +880,24 @@ pub fn install(
 
 /// The installer's arguments: passive (a progress bar, no questions) and as an update (no
 /// uninstall first), as Tauri's updater runs it, into `dir` (`/D=`, which NSIS takes last and
-/// unquoted). No `/R`: the watchdog opens the new build itself, once it has checked it.
-pub fn installer_args(dir: &Path) -> String {
-    format!("/P /UPDATE /D={}", dir.display())
+/// unquoted). No `/R`: the watchdog opens the new build itself, once it has checked it. A
+/// `first` install isn't an update: without `/UPDATE` the installer makes the Start menu's and
+/// the Desktop's shortcuts, which an update leaves as they are.
+pub fn installer_args(dir: &Path, first: bool) -> String {
+    let update = if first { "" } else { " /UPDATE" };
+    format!("/P{update} /D={}", dir.display())
 }
 
 /// Runs the NSIS installer and waits for it, up to `within`: its exit code, or none when it
 /// didn't finish in time and was stopped. A per-user installer needs no elevation; one that
 /// asks for it goes through the shell, which asks the user.
-fn run_installer(installer: &Path, dir: &Path, within: Duration) -> Result<Option<i32>, String> {
-    let args = installer_args(dir);
+fn run_installer(
+    installer: &Path,
+    dir: &Path,
+    first: bool,
+    within: Duration,
+) -> Result<Option<i32>, String> {
+    let args = installer_args(dir, first);
     #[cfg(windows)]
     let mut child = {
         use std::os::windows::process::CommandExt;
@@ -895,10 +980,19 @@ fn failed(dirs: &Dirs, file: &Path, id: &str, reason: String, reopen: bool) -> R
             failed: Some(reason),
         },
     )?;
-    if reopen && let Err(e) = launch(&h.target, &[]) {
+    if reopen && let Err(e) = launch(&reopened(&h), &[]) {
         log(dirs, id, &e);
     }
     Ok(())
+}
+
+/// What opens again when an install doesn't take: the build at the target, or on a first
+/// install the copy that was running, where it runs (when it's still there).
+fn reopened(h: &Handover) -> PathBuf {
+    match &h.from_exe {
+        Some(exe) if h.first && exe.exists() => exe.clone(),
+        _ => h.target.clone(),
+    }
 }
 
 /// Waits up to `within` for the program at `target` to be free, no process running from it.
@@ -966,10 +1060,15 @@ fn install_now(dirs: &Dirs, file: &Path, id: &str) -> Result<(), String> {
     say(&format!(
         "running {} {}",
         installer.display(),
-        installer_args(dir)
+        installer_args(dir, h.first)
     ));
     let begun = Instant::now();
-    let code = match run_installer(&installer, dir, Duration::from_secs(INSTALL_WITHIN)) {
+    let code = match run_installer(
+        &installer,
+        dir,
+        h.first,
+        Duration::from_secs(INSTALL_WITHIN),
+    ) {
         Ok(code) => code,
         Err(e) => return failed(dirs, file, id, e, true),
     };
@@ -1006,7 +1105,8 @@ fn install_now(dirs: &Dirs, file: &Path, id: &str) -> Result<(), String> {
     let unchanged = found
         .as_ref()
         .is_ok_and(|v| h.from_commit.as_deref().is_some_and(|c| is_build(v, c)));
-    if !unchanged {
+    // a first install had nothing there to put back: the copy that was running opens again
+    if !unchanged && !h.first {
         match replace(&h.target, &h.previous) {
             Ok(()) => say("put the build that was running back"),
             Err(e) => say(&e),
@@ -1182,7 +1282,15 @@ pub fn watch(dirs: &Dirs, file: &Path) -> Result<Decision, String> {
                     asked: false,
                     failed: None,
                 };
-                go_back(dirs, &h.previous, &h.target, &note)?;
+                if h.first {
+                    // nothing was installed there before: the new build stays installed, and
+                    // the copy that was running opens again
+                    close(&h.target);
+                    write_json(&dirs.rollback_note(), &note)?;
+                    launch(&reopened(&h), &[])?;
+                } else {
+                    go_back(dirs, &h.previous, &h.target, &note)?;
+                }
                 return Ok(Decision::Restore);
             }
         }
@@ -1270,6 +1378,8 @@ mod tests {
             previous: "p".into(),
             target: "t".into(),
             installer: None,
+            first: false,
+            from_exe: None,
             deadline: 100,
             started: false,
             rolled_back: false,
@@ -1343,12 +1453,39 @@ mod tests {
                 .unwrap_err()
                 .contains("msi package")
         );
+        // a copy built from the repository isn't installed: a nightly installs it for the first
+        // time, with its system's bundle, where a first install goes
+        let built = running(None, "x");
+        assert!(!built.installed());
+        let first = if cfg!(windows) {
+            "nsis"
+        } else if cfg!(target_os = "macos") {
+            "app"
+        } else {
+            "appimage"
+        };
+        assert_eq!(built.bundle_needed(), Ok(first));
+        assert_eq!(built.target().unwrap(), first_install(first).unwrap());
+        let name = |b: &str| {
+            first_install(b)
+                .unwrap()
+                .file_name()
+                .unwrap()
+                .to_string_lossy()
+                .into_owned()
+        };
+        assert_eq!(name("app"), "photonoxide.app");
+        assert_eq!(name("appimage"), "photonoxide.AppImage");
         assert!(
-            running(None, "x")
-                .bundle_needed()
-                .unwrap_err()
-                .contains("built from the repository")
+            first_install("app")
+                .unwrap()
+                .parent()
+                .unwrap()
+                .ends_with("Applications")
         );
+        if cfg!(windows) {
+            assert_eq!(name("nsis"), "photonoxide.exe");
+        }
     }
 
     #[test]
@@ -1356,8 +1493,13 @@ mod tests {
         let dir = Path::new(r"C:\Users\me\AppData\Local\photo noxide");
         // /D= last and unquoted, even with a space; no /R: the watchdog opens the build itself
         assert_eq!(
-            installer_args(dir),
+            installer_args(dir, false),
             r"/P /UPDATE /D=C:\Users\me\AppData\Local\photo noxide"
+        );
+        // a first install isn't an update: the installer makes the shortcuts
+        assert_eq!(
+            installer_args(dir, true),
+            r"/P /D=C:\Users\me\AppData\Local\photo noxide"
         );
         assert_eq!(installer_says(Some(0)), "finished");
         assert!(installer_says(Some(2)).contains("error (exit code 2)"));

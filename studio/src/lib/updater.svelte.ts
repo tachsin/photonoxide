@@ -1,6 +1,8 @@
 // Updates: a release newer than this copy is found on GitHub, downloaded, checked against the
 // release key's signature, installed, and the program restarted, all from the window.
 
+import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { check, type Update } from "@tauri-apps/plugin-updater";
 
@@ -20,6 +22,12 @@ export const updater = $state({
 });
 
 let found: Update | null = null;
+/**
+ * The release found for a copy that isn't installed (a build from the repository), which Tauri's
+ * updater doesn't update: the program installs it where a first install goes instead
+ * (src-tauri/src/channels/release.rs), checked as the updater checks.
+ */
+let firstInstall: { version: string; notes: string; date: string; newer: boolean } | null = null;
 
 /** `a` is a later version than `b` ("0.3.10" after "0.3.9"). */
 export function newer(a: string, b: string): boolean {
@@ -87,10 +95,7 @@ export async function switchChannel(channel: "stable" | "nightly") {
  */
 export async function checkForUpdate(quiet: boolean) {
   if (onNightly()) return checkNightly(quiet);
-  if (!app.state?.updatable) {
-    if (!quiet) toast("This copy was built from the repository, so it doesn't update itself: pull and rebuild.", "info");
-    return;
-  }
+  if (!app.state?.updatable) return checkRelease(quiet);
   if (updater.status === "checking" || updater.status === "downloading" || updater.status === "installing") return;
   // a release already found stays offered; the hourly check doesn't announce it again
   if (quiet && updater.status === "available") return;
@@ -127,8 +132,63 @@ export async function checkForUpdate(quiet: boolean) {
   }
 }
 
+/**
+ * For a copy that isn't installed: the latest release for this system, offered when it's later
+ * than this build. Installing it puts it where a first install goes, and it updates itself after.
+ */
+async function checkRelease(quiet: boolean) {
+  if (updater.status === "checking" || updater.status === "downloading" || updater.status === "installing") return;
+  if (quiet && updater.status === "available") return;
+  updater.status = "checking";
+  updater.error = "";
+  try {
+    firstInstall = await invoke<typeof firstInstall>("release_check");
+    updater.checkedAt = Date.now();
+    if (firstInstall?.newer) {
+      updater.status = "available";
+      updater.version = firstInstall.version;
+      updater.notes = firstInstall.notes;
+      updater.date = firstInstall.date;
+      toast(`photonoxide ${firstInstall.version} is out.`, "info", { label: "See what's new", run: () => (updater.dialog = true) }, 12000);
+    } else {
+      const coming = await publishing();
+      if (coming) onTheWay(coming, quiet);
+      else {
+        updater.status = "none";
+        if (!quiet) toast(`You have the latest photonoxide, ${app.state?.version}.`, "success");
+      }
+    }
+  } catch (e) {
+    updater.status = "error";
+    updater.error = String(e);
+    if (!quiet) toast(`Couldn't reach the update server; check the connection and try again in a few minutes. (${e})`, "error");
+  }
+}
+
+/** Installs the release found for a copy that isn't installed; the program exits, and it opens. */
+async function installRelease() {
+  updater.status = "downloading";
+  updater.downloaded = 0;
+  updater.total = 0;
+  const stop = await listen<[number, number | null]>("release-progress", ({ payload: [done, total] }) => {
+    updater.downloaded = done;
+    updater.total = total ?? 0;
+  });
+  try {
+    await invoke("release_install");
+    updater.status = "installing";
+  } catch (e) {
+    updater.status = "error";
+    updater.error = String(e);
+    toast(`The install failed: ${e}`, "error");
+  } finally {
+    stop();
+  }
+}
+
 /** Downloads and installs the release found, then restarts into it. */
 export async function installUpdate() {
+  if (!app.state?.updatable && firstInstall) return installRelease();
   if (!found) return;
   updater.status = "downloading";
   updater.downloaded = 0;
