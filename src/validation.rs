@@ -1183,14 +1183,14 @@ pub fn cases() -> Vec<Case> {
             id: "fdfd/adjoint-gradient-ez",
             title: r"2D FDFD, $E$ along $z$: the adjoint gradient of the power a silicon slab with a bump beside it delivers into its right port's mode, against fourth-order central finite differences ($\delta = 10^{-3}$) on a cell each in the bump, the core and the oxide (largest relative difference shown)",
             tier: Tier::Analytic,
-            source: r"the adjoint variable method, G. Veronis, R. W. Dutton, S. Fan, Opt. Lett. 29, 2288 (2004), doi:10.1364/OL.29.002288, Eqs. 2-4: $\nabla F = -2\operatorname{Re}(\lambda^T \mathrm{d}A\thinspace u)$, $A^T\lambda = \mathrm{d}F/\mathrm{d}u$; the finite differences' own round-off is about $10^{-10}/\delta$",
+            source: r"the adjoint variable method, G. Veronis, R. W. Dutton, S. Fan, Opt. Lett. 29, 2288 (2004), doi:10.1364/OL.29.002288, Eqs. 2-4: $\nabla F = -2\operatorname{Re}(\lambda^T \mathrm{d}A\thinspace u)$, $A^T\lambda = \mathrm{d}F/\mathrm{d}u$; the differences resolve the derivative $g$ to $\frac{18}{12}\thinspace \epsilon P/(\delta g)$, the powers' precision $\epsilon$ (twice the solve's relative residual, rounded up to a power of ten) through the formula's weights, their truncation far below it; an error within that on every probe is shown as it, the error at most it, since below it the error is round-off whose digits are each platform's",
             run: fdfd_adjoint_ez,
         },
         Case {
             id: "fdfd/adjoint-gradient-hz",
             title: r"The same with $H$ along $z$, where the permittivity enters through the faces' $1/\varepsilon$ (shown)",
             tier: Tier::Analytic,
-            source: "the adjoint variable method, as above; the faces' permittivity the mean of their two cells",
+            source: "the adjoint variable method, as above; the faces' permittivity the mean of their two cells; an error within what the differences resolve shown as that, as above",
             run: fdfd_adjoint_hz,
         },
         Case {
@@ -4290,8 +4290,24 @@ fn fdfd_step_reflection_te() -> Outcome {
     }
 }
 
+/// The adjoint's derivative against fourth-order differences at δ = 1e-3, on three probes. Where
+/// every probe's error is within what the differences resolve there, the case reports that
+/// resolution, the largest, as the error (at most it): below it the error is the differences'
+/// round-off, whose digits are each platform's (5.3e-8 and 1.9e-7 here).
 fn fdfd_adjoint(polarization: crate::fdfd::Polarization) -> Outcome {
-    let error = crate::fdfd::checks::gradient_check(polarization);
+    let probes = crate::fdfd::checks::gradient_probes(polarization, 1e-3);
+    let errors: Vec<(f64, f64)> = probes
+        .iter()
+        .map(|p| {
+            let error = (p.gradient - p.differences()).abs() / p.gradient.abs();
+            (error, p.resolution())
+        })
+        .collect();
+    let error = if errors.iter().all(|(e, r)| e <= r) {
+        errors.iter().map(|&(_, r)| r).fold(0.0, f64::max)
+    } else {
+        errors.iter().map(|&(e, _)| e).fold(0.0, f64::max)
+    };
     Outcome {
         measured: error,
         expected: 0.0,

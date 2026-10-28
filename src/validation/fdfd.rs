@@ -181,7 +181,7 @@ pub(crate) fn rules() -> Vec<(&'static str, Rule)> {
                 Discretisation,
                 1e-6,
                 Measured,
-                "fourth-order differences at δ = 1e-3: their round-off, about 1e-10/δ, and their truncation",
+                "fourth-order differences at δ = 1e-3: the error they resolve, the powers' precision through their weights (6.6e-7 and 8.4e-7 here)",
             ),
         ),
         (

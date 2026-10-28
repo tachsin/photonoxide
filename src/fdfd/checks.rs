@@ -305,7 +305,46 @@ pub(crate) fn port_mode_index(polarization: Polarization, h: f64) -> (f64, f64) 
 /// bump of permittivity 6 beside it, 0.2 × 0.2 µm) delivers into its right port's mode, from its
 /// left port's, against fourth-order central finite differences of the same power on a cell each in the bump,
 /// the core and the oxide: the largest relative difference.
+#[cfg(test)]
 pub(crate) fn gradient_check(polarization: Polarization) -> f64 {
+    gradient_probes(polarization, 1e-3)
+        .iter()
+        .map(|p| (p.gradient - p.differences()).abs() / p.gradient.abs().max(1e-12))
+        .fold(0.0, f64::max)
+}
+
+/// One probe of [`gradient_probes`]: the adjoint's derivative there, the power, the power with
+/// the cell's permittivity moved by −2δ, −δ, δ and 2δ, and the unperturbed solve's relative
+/// residual.
+pub(crate) struct Probe {
+    pub(crate) gradient: f64,
+    pub(crate) power: f64,
+    pub(crate) delta: f64,
+    pub(crate) at: [f64; 4],
+    pub(crate) residual: f64,
+}
+
+impl Probe {
+    /// The fourth-order central difference.
+    pub(crate) fn differences(&self) -> f64 {
+        let [m2, m1, p1, p2] = self.at;
+        (-p2 + 8.0 * p1 - 8.0 * m1 + m2) / (12.0 * self.delta)
+    }
+
+    /// The relative error of the adjoint's derivative the differences can resolve: the powers'
+    /// precision u carried through the formula's weights, (1 + 8 + 8 + 1)/12 · u · P / (δ |g|).
+    /// u is the solve's: a power is the field squared, so twice its relative residual, rounded
+    /// up to a power of ten (the residual's own digits are each platform's maths library's).
+    /// The differences' truncation, δ⁴ P⁽⁵⁾/30, is far below it: under 5e-9 at δ = 4e-3, where
+    /// the round-off is a quarter of δ = 1e-3's.
+    pub(crate) fn resolution(&self) -> f64 {
+        let u = 10f64.powf((2.0 * self.residual).log10().ceil());
+        18.0 / 12.0 * u * self.power.abs() / (self.delta * self.gradient.abs())
+    }
+}
+
+/// [`gradient_check`]'s three probes, its differences `delta` wide.
+pub(crate) fn gradient_probes(polarization: Polarization, delta: f64) -> Vec<Probe> {
     let (h, pml) = (0.02, 20);
     let grid = Grid {
         nx: (2.0 / h) as usize + 2 * pml,
@@ -347,8 +386,8 @@ pub(crate) fn gradient_check(polarization: Polarization) -> f64 {
         j * grid.nx + i
     };
     let probes = [cell(1.0, 0.2), cell(1.0, 0.0), cell(1.2, -0.2)];
-    // fourth-order central differences: truncation of order δ⁴, round-off of order 1e-10/δ
-    let delta = 1e-3;
+    let base_power = power(&base);
+    let residual = base.residual(&field, &source).unwrap();
     probes
         .iter()
         .map(|&k| {
@@ -357,9 +396,13 @@ pub(crate) fn gradient_check(polarization: Polarization) -> f64 {
                 varied[k] += d;
                 power(&base.reuse_cells(lam, &varied).unwrap())
             };
-            let fd = (-at(2.0 * delta) + 8.0 * at(delta) - 8.0 * at(-delta) + at(-2.0 * delta))
-                / (12.0 * delta);
-            (gradient[k] - fd).abs() / gradient[k].abs().max(1e-12)
+            Probe {
+                gradient: gradient[k],
+                power: base_power,
+                delta,
+                at: [-2.0, -1.0, 1.0, 2.0].map(|s| at(s * delta)),
+                residual,
+            }
         })
-        .fold(0.0, f64::max)
+        .collect()
 }
