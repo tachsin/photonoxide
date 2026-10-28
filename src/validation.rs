@@ -214,6 +214,7 @@ pub fn rules() -> Vec<(&'static str, Rule)> {
     rules.extend(crate::statics::checks::rules());
     rules.extend(materials::rules());
     rules.extend(modes::rules());
+    rules.extend(fdfd::rules());
     rules
 }
 
@@ -1172,9 +1173,9 @@ pub fn cases() -> Vec<Case> {
         },
         Case {
             id: "fdfd/step-reflection-te",
-            title: "The same step's reflection of the 220 nm slab's TE mode, $E$ along $z$ (shown)",
+            title: "The same step's reflection of the 220 nm slab's TE mode, $E$ along $z$, on grids of 10, 5 and 2.5 nm (the finest's shown)",
             tier: Tier::Analytic,
-            source: r"Fresnel's formula on the two modes' effective indices, $((n_1 - n_2)/(n_1 + n_2))^2 = 1.16503 \times 10^{-3}$ for 2.84742 and 3.04866: the TE modal impedance is the effective index; an approximation, good here to 0.07 %",
+            source: r"Fresnel's formula on the two modes' effective indices, $((n_1 - n_2)/(n_1 + n_2))^2 = 1.16738 \times 10^{-3}$ for 2.84498 and 3.04626 at 2.5 nm: the TE modal impedance is the effective index; an approximation, 0.50 % above the step's reflection here, 0.53 % in the grids' limit (at 10 nm the two met to 0.07 %, by the grid's error)",
             run: fdfd_step_reflection_te,
         },
         Case {
@@ -4250,10 +4251,27 @@ fn fdfd_reciprocity() -> Outcome {
     }
 }
 
+/// The step's TE reflection against Fresnel's formula on its two modes' effective indices, on
+/// grids of 10, 5 and 2.5 nm, the finest's shown, the error of their difference noted from the
+/// three: second order (−7.9e-7, −4.9e-6 and −5.9e-6), Richardson's estimate 3.4e-7 at the
+/// finest. At 10 nm alone the grid's error, 5.4e-6, was as large as the formula's own (6.2e-6),
+/// and the two met to 0.07 % by chance.
 fn fdfd_step_reflection_te() -> Outcome {
-    let (s, n1, n2) = crate::fdfd::checks::step(crate::fdfd::Polarization::Ez);
-    let measured = s[0][0].norm_sqr();
-    let expected = ((n1 - n2) / (n1 + n2)).powi(2);
+    let runs = [0.01, 0.005, 0.0025].map(|h| {
+        let (s, n1, n2) = crate::fdfd::checks::step_on(crate::fdfd::Polarization::Ez, h);
+        (s[0][0].norm_sqr(), ((n1 - n2) / (n1 + n2)).powi(2))
+    });
+    let d = runs.map(|(r, fresnel)| r - fresnel);
+    let (d1, d2) = ((d[1] - d[0]).abs(), (d[2] - d[1]).abs());
+    // the observed order, or second, the scheme's, where the changes don't say
+    let order = (d1 / d2).log2();
+    let order = if order.is_finite() && order > 0.5 {
+        order
+    } else {
+        2.0
+    };
+    note_numerical(d2 / (2f64.powf(order) - 1.0));
+    let (measured, expected) = runs[2];
     Outcome {
         measured,
         expected,
@@ -5317,6 +5335,7 @@ fn um(value: f64) -> Wavelength {
     Wavelength::from_um_unchecked(value)
 }
 
+mod fdfd;
 #[cfg(feature = "gpu")]
 mod gpu;
 mod materials;

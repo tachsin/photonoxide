@@ -100,10 +100,12 @@ S12 are $e^{i\beta L}$, all to 1e-13 for both polarizations: the mode crosses th
 **Reciprocity:** a slab stepping from 220 to 300 nm thick. S21 and S12 agree to 1e-14 for both
 polarizations.
 
-**The step's reflection, E along z:** 1.16424e-3, against 1.16503e-3 from Fresnel's formula on
-the two modes' effective indices (2.84742 and 3.04866). For a TE slab mode the modal impedance
-is the effective index, and this estimate is good to 0.07 %. The step radiates 1.9e-4 and
-transmits the rest, 0.99865. With H along z the TM mode is more weakly confined: the step
+**The step's reflection, E along z:** 1.16424e-3 on the 10 nm grid, against 1.16503e-3 from
+Fresnel's formula on the two modes' effective indices there (2.84742 and 3.04866). For a TE slab
+mode the modal impedance is the effective index, and the formula is a good estimate, but the
+0.07 % between the two at 10 nm is the grid's: on 5 and 2.5 nm grids the reflection is 1.16204e-3
+and 1.16150e-3 against 1.16690e-3 and 1.16738e-3, their difference converging at second order
+to 0.53 % of the formula's. The step radiates 1.9e-4 and transmits the rest, 0.99865 (10 nm). With H along z the TM mode is more weakly confined: the step
 reflects 2.1e-3 and radiates 6 %. There, Fresnel on the effective indices isn't the right
 estimate, since a TM mode's impedance isn't its index.
 

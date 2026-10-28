@@ -269,7 +269,12 @@ pub(crate) fn straight_guide_error(polarization: Polarization) -> f64 {
 /// A slab (3.473 in 1.444) stepping from 220 to 300 nm at x = 1 µm, 10 nm grid: its S-matrix
 /// between the two guides' fundamental modes, and their effective indices.
 pub(crate) fn step(polarization: Polarization) -> (Vec<Vec<c64>>, f64, f64) {
-    let solver = guide(polarization, 0.01, 2.0, (3.473, 1.444), |x| {
+    step_on(polarization, 0.01)
+}
+
+/// [`step`] on an `h` grid.
+pub(crate) fn step_on(polarization: Polarization, h: f64) -> (Vec<Vec<c64>>, f64, f64) {
+    let solver = guide(polarization, h, 2.0, (3.473, 1.444), |x| {
         if x < 1.0 { 0.22 } else { 0.30 }
     });
     let ports = two_ports(&solver);
