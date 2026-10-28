@@ -283,12 +283,22 @@ fn relative(a: &[f64], b: &[f64]) -> f64 {
         / largest
 }
 
+/// The step of [`strip_differences`], in density.
+pub(crate) const DELTA: f64 = 1e-3;
+
+/// What [`strip_differences`] resolve, relative to the largest gradient (of the objective's own
+/// size): each value of the objective is its runs' transforms settled to [`SETTLED`], and the
+/// fourth-order differences weigh four of them by (8 + 8 + 1 + 1)/12 over [`DELTA`], 1.5e-8.
+/// Their truncation, δ⁴ times the fifth derivative, lies below it. A difference from the adjoint
+/// below this is the platform's arithmetic, not the gradient's.
+pub(crate) const DIFFERENCES_RESOLVE: f64 = (8.0 + 8.0 + 1.0 + 1.0) / 12.0 * SETTLED / DELTA;
+
 /// [`Strip`]: the gradient of `objective` with respect to every design cell's density by
-/// fourth-order central differences (δ = 1e-3).
+/// fourth-order central differences (δ = [`DELTA`]).
 pub(crate) fn strip_differences(objective: Objective) -> Vec<f64> {
     let strip = Strip::new();
     let density = uneven(&strip.design);
-    let delta = 1e-3;
+    let delta = DELTA;
     let value = |v: usize, d: f64| {
         let mut rho = density.clone();
         rho[v] += d;

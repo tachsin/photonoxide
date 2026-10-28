@@ -9,7 +9,8 @@
 //! another case. A fit of a material by Lorentz terms is treated as a grid: its residual is what
 //! the case measures. An adjoint gradient against finite differences is judged by the
 //! differences' own error: the transforms' settling over the step, with the step's truncation
-//! below it.
+//! below it. Below that the digits are each platform's arithmetic, so an error under it is
+//! shown as it, and the row reads the same everywhere.
 
 use super::{Basis::*, Measure::*, Numerical::*, Rule};
 
@@ -680,7 +681,7 @@ pub(crate) fn rules() -> Vec<(&'static str, Rule)> {
                 Discretisation,
                 1e-7,
                 Measured,
-                "fourth-order differences at δ = 1e-3: the transforms settled to 1e-11 of their largest, over δ, the truncation δ⁴ below it",
+                "fourth-order differences at δ = 1e-3, which resolve 1.5e-8 (the transforms settled to 1e-11, over δ; the truncation δ⁴ below it), an error under that shown as it",
             ),
         ),
         (

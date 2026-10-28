@@ -2029,14 +2029,14 @@ pub fn cases() -> Vec<Case> {
             id: "fdtd/adjoint-modes",
             title: r"FDTD adjoint gradients in 3D: a strip guide (core $\varepsilon = 6$, $0.3 \times 0.3$ µm, in vacuum; $36 \times 20 \times 20$ cells of 50 nm, CPMLs of 6) with a design of $3 \times 2 \times 2$ cells in its core at uneven densities ($\varepsilon$ 1 to 6), its mode launched by a pulse; $F = \lvert a_+(f_0)\rvert^2 + \lvert a_+(f_1)\rvert^2 - \frac12\lvert a_-(f_0)\rvert^2$ at 1 and 1.06 c/µm: the gradient with respect to every cell's density against fourth-order central differences ($\delta = 10^{-3}$) (largest difference relative to the largest gradient shown)",
             tier: Tier::Analytic,
-            source: r"the run's transforms solve $K x = b$ exactly; $K^T D = D K$, $D$ the CPMLs' stretches, so the adjoint is a run; $\partial F/\partial\varepsilon = \sum 2\operatorname{Re}(i\tilde\omega\thinspace\hat E_\text{adj}\hat E)$ (G. Veronis, R. W. Dutton, S. Fan, Opt. Lett. 29, 2288 (2004), doi:10.1364/OL.29.002288; C. M. Lalau-Keraly et al., Opt. Express 21, 21693 (2013), doi:10.1364/OE.21.021693, Eq. 5); the mode's complex profile whole (dropped, the gradient is wrong by orders of magnitude); measured 5.5e-10, and 0.49 with the imaginary parts dropped",
+            source: r"the run's transforms solve $K x = b$ exactly; $K^T D = D K$, $D$ the CPMLs' stretches, so the adjoint is a run; $\partial F/\partial\varepsilon = \sum 2\operatorname{Re}(i\tilde\omega\thinspace\hat E_\text{adj}\hat E)$ (G. Veronis, R. W. Dutton, S. Fan, Opt. Lett. 29, 2288 (2004), doi:10.1364/OL.29.002288; C. M. Lalau-Keraly et al., Opt. Express 21, 21693 (2013), doi:10.1364/OE.21.021693, Eq. 5); the mode's complex profile whole (dropped, the gradient is wrong by orders of magnitude); measured below the differences' resolution of 1.5e-8 (the transforms settled to 1e-11, weighed by (8 + 8 + 1 + 1)/12 over $\delta$), shown as it; 0.49 with the imaginary parts dropped",
             run: fdtd_adjoint_modes,
         },
         Case {
             id: "fdtd/adjoint-flux",
             title: r"The same strip with the flux through a plane ahead (its window reaching into the CPMLs) at 1 c/µm plus $\lvert E_y\rvert^2$ at a point ahead at 1.06 c/µm (shown)",
             tier: Tier::Analytic,
-            source: r"as above; the flux $\frac12\operatorname{Re}(E \times \tilde H^*)$ gives sources of both $J$ and $M$; measured 1.5e-9",
+            source: r"as above; the flux $\frac12\operatorname{Re}(E \times \tilde H^*)$ gives sources of both $J$ and $M$; measured below the differences' resolution of 1.5e-8, shown as it",
             run: fdtd_adjoint_flux,
         },
         Case {
@@ -5654,27 +5654,33 @@ fn fdfd3d_adjoint_gradient() -> Outcome {
     }
 }
 
-fn fdtd_adjoint_modes() -> Outcome {
-    use crate::fdtd::adjoint_checks::{Objective, strip_against_differences};
-    let (measured, _) = strip_against_differences(Objective::Modes);
+/// The strip's adjoint gradient of `objective` against its finite differences: their largest
+/// difference, relative to the largest gradient, and no less than what the differences resolve
+/// (below it the digits are each platform's arithmetic, so it is shown as that resolution).
+fn fdtd_adjoint_against_differences(objective: crate::fdtd::adjoint_checks::Objective) -> Outcome {
+    use crate::fdtd::adjoint_checks::{DIFFERENCES_RESOLVE, strip_against_differences};
+    let (difference, _) = strip_against_differences(objective);
+    // a NaN stays one, and fails
+    let measured = if difference.is_nan() {
+        difference
+    } else {
+        difference.max(DIFFERENCES_RESOLVE)
+    };
     Outcome {
         measured,
         expected: 0.0,
-        // the differences' round-off and the transforms' settling, 1e-13 a block
+        // the differences' error, the transforms' settling over δ
         tolerance: 1e-7,
         error: measured,
     }
 }
 
+fn fdtd_adjoint_modes() -> Outcome {
+    fdtd_adjoint_against_differences(crate::fdtd::adjoint_checks::Objective::Modes)
+}
+
 fn fdtd_adjoint_flux() -> Outcome {
-    use crate::fdtd::adjoint_checks::{Objective, strip_against_differences};
-    let (measured, _) = strip_against_differences(Objective::Flux);
-    Outcome {
-        measured,
-        expected: 0.0,
-        tolerance: 1e-7,
-        error: measured,
-    }
+    fdtd_adjoint_against_differences(crate::fdtd::adjoint_checks::Objective::Flux)
 }
 
 fn fdtd_adjoint_fdfd() -> Outcome {
