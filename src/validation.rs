@@ -1432,9 +1432,9 @@ pub fn cases() -> Vec<Case> {
         },
         Case {
             id: "fdfd3d/block-qmr-iterations",
-            title: r"Convergence: the block's iterations (one product with $A$ and one with $A^\mathsf{T}$ each) over the single solves' summed, for the ILU(0)-preconditioned coupler's 8 ports to 1e-10 (fdfd3d/block-qmr-ilu-s-matrix; shown)",
+            title: r"Convergence: the block's iterations (one product with $A$ and one with $A^\mathsf{T}$ each) over the single solves' summed, for the ILU(0)-preconditioned coupler's 8 ports to 1e-10 (fdfd3d/block-qmr-ilu-s-matrix; shown rounded up to one decimal: iteration counts vary between platforms)",
             tier: Tier::Analytic,
-            source: r"a block Krylov space of dimension $\mu$ serves all the systems where $m$ single solves each build their own, so a block can take up to $m$ times fewer products (Freund and Malhotra, doi:10.1016/S0024-3795(96)00529-0, Section 2.3); measured 0.44. Without a preconditioner the curl-curl coupler's ratio is 0.93: a product carries a field one cell, so each source still needs as many as its distance across the grid",
+            source: r"a block Krylov space of dimension $\mu$ serves all the systems where $m$ single solves each build their own, so a block can take up to $m$ times fewer products (Freund and Malhotra, doi:10.1016/S0024-3795(96)00529-0, Section 2.3); measured 0.45 (0.48 on Linux). Without a preconditioner the curl-curl coupler's ratio is 0.93: a product carries a field one cell, so each source still needs as many as its distance across the grid",
             run: fdfd3d_block_qmr_iterations,
         },
         Case {
@@ -1446,9 +1446,9 @@ pub fn cases() -> Vec<Case> {
         },
         Case {
             id: "fdfd3d/block-qmr-convergence",
-            title: r"Convergence in the tolerance: a closed guide's S-matrix by block QMR (a silicon strip stepping from 300 to 400 nm wide in a box of oxide, $20 \times 12 \times 10$ cells of 50 nm, two modes at each of two ports) against the direct solver's, at relative residuals of 1e-4 and 1e-10: the error's decades per decade of the tolerance, its departure from 1 (shown)",
+            title: r"Convergence in the tolerance: a closed guide's S-matrix by block QMR (a silicon strip stepping from 300 to 400 nm wide in a box of oxide, $20 \times 12 \times 10$ cells of 50 nm, two modes at each of two ports) against the direct solver's, at relative residuals of 1e-4 and 1e-10: the error's decades per decade of the tolerance, to one decimal, its departure from 1 (shown; iteration counts vary between platforms)",
             tier: Tier::Analytic,
-            source: r"the block's fields hold each system to its own residual, so their error, and S's, falls with the tolerance: as $\kappa(A)$ times it, a slope of 1; measured 1.2e-5, 1.7e-7, 2.3e-9 and 1.9e-11 at 1e-4, 1e-6, 1e-8 and 1e-10",
+            source: r"the block's fields hold each system to its own residual, so their error, and S's, falls with the tolerance: as $\kappa(A)$ times it, a slope of 1; measured 1.2e-5, 1.7e-7, 2.3e-9 and 1.9e-11 at 1e-4, 1e-6, 1e-8 and 1e-10; the slope from 1e-4 to 1e-10 0.98 (1.00 on Linux)",
             run: fdfd3d_block_qmr_convergence,
         },
         Case {
@@ -1481,7 +1481,7 @@ pub fn cases() -> Vec<Case> {
         },
         Case {
             id: "fdfd3d/recycle-convergence",
-            title: r"Convergence as the recycled space grows: the coupler's S-matrix (fdfd3d/recycle-s-matrix's, by the multigrid, to 1e-10) at 1.500, 1.505, … 1.535 µm, recycling the last 0, 2, 4, 6 and 8 solutions: the iterations at the last wavelength, which fall with each, the 8 solutions' over the plain sweep's (shown)",
+            title: r"Convergence as the recycled space grows: the coupler's S-matrix (fdfd3d/recycle-s-matrix's, by the multigrid, to 1e-10) at 1.500, 1.505, … 1.535 µm, recycling the last 0, 2, 4, 6 and 8 solutions: the iterations at the last wavelength, which fall with each, the 8 solutions' over the plain sweep's (shown rounded up to one decimal: iteration counts vary between platforms)",
             tier: Tier::Analytic,
             source: r"a wavelength's field is near a polynomial in the wavelength through the last ones' (Fischer, doi:10.1016/S0045-7825(98)00012-7, Method 1, finds the best combination), so each pair of solutions kept (two ports) raises the order the start is good to; measured 103, 78, 62, 42 and 24 iterations, 0.23 of the plain sweep's",
             run: fdfd3d_recycle_convergence,
@@ -1537,7 +1537,7 @@ pub fn cases() -> Vec<Case> {
         },
         Case {
             id: "fdfd3d/multigrid-stencil-refinement",
-            title: r"Convergence as the grid refines: GMRES's iterations to a relative residual of 1e-8 on fdfd3d/gmres-multigrid-direct's strip ($0.96 \times 0.8 \times 0.64$ µm, a point current at its centre) on cells of 40, 30 and 20 nm ($24 \times 20 \times 16$, $32 \times 26 \times 22$ and $48 \times 40 \times 32$, stretched PMLs of 6, 8 and 12 cells), by the stored matrix's multigrid and without the finest matrix (Galerkin's coarse operators, and discretized again): the largest of each one's iterations at 20 nm over its iterations at 40 nm (shown)",
+            title: r"Convergence as the grid refines: GMRES's iterations to a relative residual of 1e-8 on fdfd3d/gmres-multigrid-direct's strip ($0.96 \times 0.8 \times 0.64$ µm, a point current at its centre) on cells of 40, 30 and 20 nm ($24 \times 20 \times 16$, $32 \times 26 \times 22$ and $48 \times 40 \times 32$, stretched PMLs of 6, 8 and 12 cells), by the stored matrix's multigrid and without the finest matrix (Galerkin's coarse operators, and discretized again): the largest of each one's iterations at 20 nm over its iterations at 40 nm (shown rounded up to one decimal: iteration counts vary between platforms)",
             tier: Tier::Analytic,
             source: "a multigrid's convergence doesn't depend on the step (Erlangga, Oosterlee and Vuik, SIAM J. Sci. Comput. 27, 1471 (2006), doi:10.1137/040615195, Section 4.3, for the shifted operator with ω-Jacobi): on a box of fixed size, the iterations stay level as the cells halve; measured 18, 16 and 16 iterations by the stored matrix's multigrid, 18, 17 and 19 without the finest matrix, 23, 21 and 23 discretized again: at most 1.06 times as many at 20 nm as at 40",
             run: fdfd3d_multigrid_stencil_refinement,
@@ -3712,8 +3712,16 @@ fn fdfd3d_block_qmr_ilu_s_matrix() -> Outcome {
     }
 }
 
+/// An upper bound's ratio of iteration counts rounded up to one decimal, the digits that hold on
+/// every platform: the counts move with the last bits of each one's maths library (the block's
+/// 0.45 on Windows is 0.48 on Linux). Rounded up, it never reads below what it is.
+fn counts_ratio(ratio: f64) -> f64 {
+    (ratio * 10.0).ceil() / 10.0
+}
+
 fn fdfd3d_block_qmr_iterations() -> Outcome {
     let (_, ratio) = ilu_coupler_block();
+    let ratio = counts_ratio(ratio);
     Outcome {
         measured: ratio,
         expected: 0.0,
@@ -3735,10 +3743,11 @@ fn fdfd3d_block_qmr_dependent() -> Outcome {
 
 fn fdfd3d_block_qmr_convergence() -> Outcome {
     let errors = crate::fdfd::block_checks3d::against_direct(&[1e-4, 1e-10]);
-    // the slope's departure from 1, shown as within its tolerance: the slope itself differs
-    // between systems in its second decimal (0.965 on Windows, 0.94 on Linux), as the iterations
-    // near 1e-10 run on rounding that the systems' maths libraries make differently
-    let departure = ((errors[0] / errors[1]).log10() / 6.0 - 1.0).abs();
+    // the slope to one decimal, and its departure from 1: the slope differs between systems in
+    // its second decimal (0.98 on Windows, 1.00 on Linux), as the iterations near 1e-10 run on
+    // rounding that the systems' maths libraries make differently
+    let slope = ((errors[0] / errors[1]).log10() / 6.0 * 10.0).round() / 10.0;
+    let departure = (slope - 1.0).abs();
     Outcome {
         measured: departure,
         expected: 0.0,
@@ -3806,7 +3815,7 @@ fn fdfd3d_recycle_convergence() -> Outcome {
     let ratio = last
         .last()
         .zip(last.first())
-        .map_or(f64::NAN, |(a, b)| a / b);
+        .map_or(f64::NAN, |(a, b)| counts_ratio(a / b));
     Outcome {
         measured: ratio,
         expected: 0.0,
@@ -3929,7 +3938,7 @@ fn fdfd3d_multigrid_stencil_refinement() -> Outcome {
     let all = runs.iter().flatten().all(|&i| i > 0);
     let growth = runs
         .iter()
-        .map(|r| r[2] as f64 / r[0] as f64)
+        .map(|r| counts_ratio(r[2] as f64 / r[0] as f64))
         .fold(0.0, f64::max);
     Outcome {
         measured: growth,
