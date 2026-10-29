@@ -35,7 +35,7 @@ use crate::statics::spread;
 use crate::units::Wavelength;
 use crate::{Error, Result};
 
-use super::{Assembled, Field, Grid, Heat, History, Section, Stepping};
+use crate::thermal::{Assembled, Field, Grid, Heat, History, Section, Stepping};
 
 fn invalid(reason: impl Into<String>) -> Error {
     Error::invalid("phase shifter", reason)
@@ -578,7 +578,7 @@ impl PhaseShifter {
 
     /// Every drive's step response, turned on from the background: each guide's phase per W
     /// of the drive's power (rad/W, over any length of a straight section: 2π s P/λ), at every
-    /// time of `stepping` from 0, and its steady value. What [`super::RcModel::fit`] takes.
+    /// time of `stepping` from 0, and its steady value. What [`crate::thermal::RcModel::fit`] takes.
     /// The drives step in parallel, the same bits on any number of threads.
     ///
     /// # Errors
