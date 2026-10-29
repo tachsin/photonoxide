@@ -21,6 +21,7 @@ use schemars::{JsonSchema, Schema, SchemaGenerator, json_schema};
 use serde_json::{Map, Value, json};
 
 use super::kind::TaskKind;
+use super::modes::ModesKind;
 use super::params::{PATH, PLACE, SEGMENT, SHAPE, SHAPES, SHIFT, Want};
 use super::structure::StructureKind;
 
@@ -152,7 +153,7 @@ pub(crate) fn base() -> Value {
         &mut g,
         &[
             ("structure", |g| StructureKind.schema(g)),
-            ("modes", task::<super::ModesTask>),
+            ("modes", |g| ModesKind.schema(g)),
             ("fdfd", task::<super::fdfd::FdfdTask>),
             ("fdtd", task::<super::fdtd::FdtdTask>),
             ("static", task::<super::statics::StaticTask>),

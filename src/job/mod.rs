@@ -529,8 +529,7 @@ use check::{
 };
 use execute::{execute_task, reason};
 use modes::{
-    Along, ExportSpec, Frame, ModesTask, cell_tensor, cross_section, export_in, export_of,
-    intensity,
+    Along, ExportSpec, Frame, cell_tensor, cross_section, export_in, export_of, intensity,
 };
 use scene::{device_scene, record_ports, scene};
 use structure::{

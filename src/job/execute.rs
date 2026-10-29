@@ -3,9 +3,8 @@
 use super::check::{check, check_direct, task_error};
 use super::event::Event;
 use super::kind::{Holder, find};
-use super::modes::{check_export, modes, modes_scene, modes_task};
+use super::modes::check_export;
 use super::scene::device_scene;
-use super::structure::{draw, tensor_stack};
 use super::{chip, device, fdfd, fdtd, results, statics};
 use crate::Result;
 use crate::run::{Job, Run, Stop, StopReason};
@@ -98,7 +97,6 @@ pub(super) fn execute_task(job: &Job, run: &mut Run, stop: &Stop, kind: &str) ->
                  supplies its objectives and records it (photonoxide::job::Problem, Recorder)",
             ))
         }
-        "modes" => modes(job, run, stop),
         "fdfd" => fdfd::run(job, run, stop),
         "fdtd" => fdtd::run(job, run, stop),
         "static" => statics::run(job, run, stop),
@@ -148,11 +146,6 @@ pub fn preview(job: &Job) -> Result<Event> {
     }
     check(job)?;
     match name {
-        Some("modes") => {
-            let task = modes_task(job, None)?;
-            let stack = tensor_stack(&task.stack, task.core_nm, task.bottom_oxide_um)?;
-            modes_scene(&task, &draw(stack, &task.rect, &task.circle, &task.ring)?)
-        }
         Some("fdtd") => fdtd::preview(job),
         Some("static") => statics::preview(job),
         _ => fdfd::preview(job),

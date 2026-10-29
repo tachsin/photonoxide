@@ -1,18 +1,20 @@
 //! The modes task: its cross-section, its checks and its run.
 
-use schemars::JsonSchema;
+use schemars::{JsonSchema, SchemaGenerator};
 use serde::Deserialize;
 
 use super::check::{
-    check_cells, check_finite, check_materials, check_step, check_sweep, check_window, task_error,
+    check_cells, check_finite, check_layer, check_materials, check_step, check_sweep, check_window,
+    task_error,
 };
 use super::event::Event;
-use super::kind::{Holder, find};
+use super::execute::solver_run;
+use super::kind::{EM_FIELDS, Holder, TaskKind, find};
 use super::scene::{scene, scene_shapes};
 use super::structure::{
     CircleSpec, EtchSpec, RectSpec, RingSpec, StackField, draw, tensor_stack, window_z,
 };
-use super::{device, in_flight, params, sweep_points};
+use super::{device, in_flight, params, schema, sweep_points};
 use crate::geometry::Point;
 use crate::raster::Raster;
 use crate::run::{Job, Run, Stop};
@@ -696,7 +698,7 @@ pub(super) fn export_in(dir: &std::path::Path) -> ExportSpec {
 /// What a job computes that `[task.export]` may write as fields, and what to call it in an
 /// error: none for a structure, a device's study, fit or optimization, or a chip.
 fn export_fields(job: &Job) -> Result<(&'static str, &'static [&'static str])> {
-    const EH: &[&str] = &["Ex", "Ey", "Ez", "Hx", "Hy", "Hz"];
+    const EH: &[&str] = EM_FIELDS;
     if job.circuit().is_some() {
         return Ok(("a chip", &[]));
     }
@@ -713,7 +715,6 @@ fn export_fields(job: &Job) -> Result<(&'static str, &'static [&'static str])> {
         return Ok(k.exports(job));
     }
     Ok(match kind.as_str() {
-        "modes" => ("a modes job", EH),
         // the field along z: H for TE (the default), E for TM
         "fdfd" => match job.task().get("polarization").and_then(|p| p.as_str()) {
             Some("tm") => ("an fdfd job in TM", &["Ez"]),
@@ -1415,6 +1416,77 @@ fn export_mode(
         &|name| export.keeps(name),
     )?;
     Ok(())
+}
+
+/// The `"modes"` kind: the guided modes of a waveguide's cross-section, by the full-vector
+/// solver.
+pub(super) struct ModesKind;
+
+impl TaskKind for ModesKind {
+    fn name(&self) -> &'static str {
+        "modes"
+    }
+
+    fn schema(&self, g: &mut SchemaGenerator) -> serde_json::Value {
+        schema::task::<ModesTask>(g)
+    }
+
+    fn check(&self, job: &Job) -> Result<()> {
+        let task = modes_task(job, None)?;
+        task.validate()?;
+        let stack = tensor_stack(&task.stack, task.core_nm, task.bottom_oxide_um)?;
+        let s = draw(stack, &task.rect, &task.circle, &task.ring)?;
+        let z = modes_z(&task, &s)?;
+        modes_guide(&task, &s, z)?;
+        modes_pml(&task, &s, z)?;
+        let mut wavelengths = Vec::new();
+        if let Some(sw) = task.sweep.iter().find(|sw| sw.parameter == "wavelength") {
+            wavelengths.extend([sw.from, sw.to]);
+        }
+        if task.modes_above.is_some() {
+            // (each material's data at these wavelengths is checked first, as below)
+            check_materials(s.stack(), &[task.wavelength_um])?;
+            check_materials(s.stack(), &wavelengths)?;
+        }
+        let mut at = vec![task.wavelength_um];
+        at.extend(&wavelengths);
+        check_threshold(&task, &s, z, &at)?;
+        for &w in &at {
+            check_tensors(s.stack(), task.along()?, w)?;
+        }
+        // a parameter's sweep: its shapes at both ends must be shapes
+        if let Some(sw) = task
+            .sweep
+            .iter()
+            .find(|sw| task.parameters.contains(&sw.parameter))
+        {
+            for end in [sw.from, sw.to] {
+                let at = modes_task(job, Some((&sw.parameter, end)))?;
+                let stack = tensor_stack(&at.stack, at.core_nm, at.bottom_oxide_um)?;
+                draw(stack, &at.rect, &at.circle, &at.ring)
+                    .and_then(|swept| modes_pml(&task, &swept, z))
+                    .map_err(|e| {
+                        task_error(format!("at the sweep's {} = {end}: {e}", sw.parameter))
+                    })?;
+            }
+        }
+        check_layer(&s, &task.layer, &at)
+    }
+
+    fn preview(&self, job: &Job) -> Result<Event> {
+        super::check(job)?;
+        let task = modes_task(job, None)?;
+        let stack = tensor_stack(&task.stack, task.core_nm, task.bottom_oxide_um)?;
+        modes_scene(&task, &draw(stack, &task.rect, &task.circle, &task.ring)?)
+    }
+
+    fn execute(&self, job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
+        solver_run(job, run, stop, self.name(), modes)
+    }
+
+    fn exports(&self, _: &Job) -> (&'static str, &'static [&'static str]) {
+        ("a modes job", EM_FIELDS)
+    }
 }
 
 pub(super) fn modes(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {

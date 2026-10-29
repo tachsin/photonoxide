@@ -15,6 +15,7 @@ use schemars::SchemaGenerator;
 use serde_json::Value;
 
 use super::event::Event;
+use super::modes::ModesKind;
 use super::structure::StructureKind;
 use crate::Result;
 use crate::run::{Job, Run, Stop};
@@ -77,8 +78,12 @@ pub(super) trait TaskKind: Sync {
     fn exports(&self, job: &Job) -> (&'static str, &'static [&'static str]);
 }
 
+/// The fields of a job that computes the electromagnetic field, which `[task.export]` may ask
+/// for.
+pub(super) const EM_FIELDS: &[&str] = &["Ex", "Ey", "Ez", "Hx", "Hy", "Hz"];
+
 /// The kinds of a task alone, in the order the schema lists them.
-static SOLVER: [&dyn TaskKind; 1] = [&StructureKind];
+static SOLVER: [&dyn TaskKind; 2] = [&StructureKind, &ModesKind];
 
 /// The kinds of a task beside a `[device]`, in the order the schema lists them.
 static DEVICE: [&dyn TaskKind; 0] = [];
