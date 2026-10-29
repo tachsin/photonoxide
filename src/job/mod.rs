@@ -494,6 +494,8 @@ mod fit_checks;
 #[cfg(test)]
 mod fit_tests;
 mod kind;
+#[cfg(test)]
+mod kind_tests;
 mod leaky_checks;
 #[cfg(test)]
 mod leaky_tests;
