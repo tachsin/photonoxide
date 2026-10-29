@@ -135,11 +135,23 @@ pub(crate) fn rules() -> Vec<(&'static str, Rule)> {
         ),
         (
             "circuit/adjoint-mesh",
-            Rule::new(Relative, Discretisation, 1e-8, Measured, "as circuit/adjoint-mzi"),
+            Rule::new(
+                Relative,
+                Discretisation,
+                1e-8,
+                Measured,
+                "as circuit/adjoint-mzi",
+            ),
         ),
         (
             "circuit/adjoint-nested",
-            Rule::new(Relative, Discretisation, 1e-8, Measured, "as circuit/adjoint-ring"),
+            Rule::new(
+                Relative,
+                Discretisation,
+                1e-8,
+                Measured,
+                "as circuit/adjoint-ring",
+            ),
         ),
         (
             "circuit/adjoint-differences",
@@ -591,7 +603,10 @@ pub(crate) fn rules() -> Vec<(&'static str, Rule)> {
                 Absolute,
                 Model,
                 7e-2,
-                Stated(1.0e-4, "the 3D model's 20 nm cells against 10 nm, second order"),
+                Stated(
+                    1.0e-4,
+                    "the 3D model's 20 nm cells against 10 nm, second order",
+                ),
                 "the effective index method's error, the 2D model's stated one over its range",
             ),
         ),
@@ -1117,13 +1132,7 @@ pub(crate) fn rules() -> Vec<(&'static str, Rule)> {
         ),
         (
             "compact/param-ring-piecewise-stable",
-            Rule::new(
-                Absolute,
-                RoundOff,
-                0.0,
-                Exact,
-                "a count of crossings: none",
-            ),
+            Rule::new(Absolute, RoundOff, 0.0, Exact, "a count of crossings: none"),
         ),
         (
             "compact/param-ring-piecewise-crossings",
@@ -1373,13 +1382,7 @@ pub(crate) fn rules() -> Vec<(&'static str, Rule)> {
         ),
         (
             "thermal-rc/coenen-cauer",
-            Rule::new(
-                Relative,
-                Reference,
-                1e-2,
-                Exact,
-                "Table I's digits",
-            ),
+            Rule::new(Relative, Reference, 1e-2, Exact, "Table I's digits"),
         ),
         (
             "thermal-rc/coenen-200khz",
@@ -1525,23 +1528,11 @@ pub(crate) fn rules() -> Vec<(&'static str, Rule)> {
         ),
         (
             "device/thermo-jacques-tin",
-            Rule::new(
-                Relative,
-                Reference,
-                0.1,
-                GATED,
-                "as shifter/jacques-tin",
-            ),
+            Rule::new(Relative, Reference, 0.1, GATED, "as shifter/jacques-tin"),
         ),
         (
             "device/thermo-jacques-npp",
-            Rule::new(
-                Relative,
-                Reference,
-                0.1,
-                GATED,
-                "as shifter/jacques-npp",
-            ),
+            Rule::new(Relative, Reference, 0.1, GATED, "as shifter/jacques-npp"),
         ),
         (
             "device/thermo-tin-measured",
