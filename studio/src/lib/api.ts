@@ -267,7 +267,14 @@ export const api = {
   readCircuit: (path: string) => invoke<Chip>("read_circuit", { path }),
   deleteCircuit: (path: string) => invoke<void>("delete_circuit", { path }),
   libraries: () => invoke<LibraryReport>("libraries"),
-  installLibrary: (library: string, id: string) => invoke<string>("install", { library, id }),
+  /** The command a library's install runs here, as it will run. */
+  libraryInstallPlan: (library: string, id: string) => invoke<string>("library_install_plan", { library, id }),
+  /** Installs a library by its guide's install, its output on `library-install` as it runs. */
+  libraryInstall: (library: string, id: string) => invoke<void>("library_install", { library, id }),
+  /** Removes what the program installed for a library from its own environment. */
+  libraryRemove: (library: string) => invoke<void>("library_remove", { library }),
+  /** What the program installed into its own environment, and where that is. */
+  librariesInstalled: () => invoke<{ environment: string | null; installed: { libraries: Record<string, { id: string; manager: string; packages: string[] }> } }>("libraries_installed"),
   benchData: () => invoke<BenchData>("bench_data"),
   benchCatalogue: () => invoke<CatalogueEntry[]>("bench_catalogue"),
   benchPlan: (request: BenchRequest) => invoke<Planned[]>("bench_plan", { request }),

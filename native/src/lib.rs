@@ -43,7 +43,9 @@ pub mod zstd;
 pub use accelerate::Accelerate;
 pub use blas::Blas;
 pub use cudss::Cudss;
-pub use discovery::{Candidate, Discovery, Source, Spec, Status, discover, versioned};
+pub use discovery::{
+    Candidate, Discovery, Source, Spec, Status, discover, own_environment, versioned,
+};
 pub use gpu_qmr::GpuQmr;
 pub use hdf5::Hdf5;
 pub use library::{Library, load};

@@ -30,6 +30,8 @@ pub enum Source {
     Setting,
     /// An environment variable.
     Variable(String),
+    /// photonoxide's own environment, where the program installs libraries ([`own_environment`]).
+    Own,
     /// The active conda environment (`CONDA_PREFIX`).
     Conda,
     /// The library's default install folder.
@@ -46,6 +48,7 @@ impl fmt::Display for Source {
         match self {
             Source::Setting => write!(f, "the setting"),
             Source::Variable(name) => write!(f, "${name}"),
+            Source::Own => write!(f, "photonoxide's own environment"),
             Source::Conda => write!(f, "the conda environment"),
             Source::InstallFolder => write!(f, "the install folder"),
             Source::Wheel => write!(f, "a Python wheel"),
@@ -109,8 +112,9 @@ impl Discovery {
     }
 }
 
-/// Every file that may be `spec`'s library, the setting first, then the variables, conda, the
-/// install folders, the wheels and the system's paths; each file once.
+/// Every file that may be `spec`'s library, the setting first, then the variables,
+/// photonoxide's own environment, conda, the install folders, the wheels and the system's paths;
+/// each file once.
 pub fn discover(spec: &Spec, setting: Option<&Path>) -> Discovery {
     let mut found = Vec::new();
     let mut add = |dir_or_file: &Path, source: Source| {
@@ -134,6 +138,9 @@ pub fn discover(spec: &Spec, setting: Option<&Path>) -> Discovery {
         if let Some(value) = env::var_os(name) {
             add(Path::new(&value), Source::Variable((*name).to_owned()));
         }
+    }
+    if let Some(own) = own_environment().filter(|d| d.is_dir()) {
+        add(&own, Source::Own);
     }
     if let Some(prefix) = env::var_os("CONDA_PREFIX") {
         add(Path::new(&prefix), Source::Conda);
@@ -165,6 +172,37 @@ pub fn discover(spec: &Spec, setting: Option<&Path>) -> Discovery {
         library: spec.name,
         candidates,
     }
+}
+
+/// photonoxide's own environment: a conda environment the program makes and installs libraries
+/// into, of the user's and isolated from any other (the studio's Libraries page, `libraries`
+/// in the program). `$PHOTONOXIDE_LIBRARIES_DIR` when set; else `libraries` in the program's
+/// local data folder, as Tauri names it from the bundle identifier: `%LOCALAPPDATA%` on
+/// Windows, `~/Library/Application Support` on macOS, `$XDG_DATA_HOME` or `~/.local/share`
+/// elsewhere.
+pub fn own_environment() -> Option<PathBuf> {
+    if let Some(dir) = env::var_os("PHOTONOXIDE_LIBRARIES_DIR").filter(|d| !d.is_empty()) {
+        return Some(PathBuf::from(dir));
+    }
+    let local = if cfg!(windows) {
+        PathBuf::from(env::var_os("LOCALAPPDATA")?)
+    } else if cfg!(target_os = "macos") {
+        PathBuf::from(env::var_os("HOME")?)
+            .join("Library")
+            .join("Application Support")
+    } else {
+        env::var_os("XDG_DATA_HOME")
+            .filter(|d| !d.is_empty())
+            .map(PathBuf::from)
+            .or_else(|| {
+                Some(
+                    PathBuf::from(env::var_os("HOME")?)
+                        .join(".local")
+                        .join("share"),
+                )
+            })?
+    };
+    Some(local.join("gr.tachsin.photonoxide").join("libraries"))
 }
 
 /// A folder and the ones libraries sit in below an install root.
