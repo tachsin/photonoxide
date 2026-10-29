@@ -122,19 +122,19 @@ pub const DEVICES: [(&str, &str, &str, &[&str]); 17] = [
         "GST phase-change phase shifter",
         "gst-phase-shifter",
         "modulators",
-        &[],
+        &["pcm_delaney"],
     ),
     (
         "Sb2S3 phase-change phase shifter",
         "sb2s3-phase-shifter",
         "modulators",
-        &[],
+        &["pcm_delaney"],
     ),
     (
         "Sb2Se3 phase-change phase shifter",
         "sb2se3-phase-shifter",
         "modulators",
-        &[],
+        &["pcm_delaney"],
     ),
 ];
 

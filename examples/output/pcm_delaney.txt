@@ -1,0 +1,24 @@
+Delaney et al. 2020's 25 nm phase-change films through photonoxide's phase-change phase shifter devices, on a 500 x 220 nm silicon strip, TE, at 1550 nm
+
+  Sb2Se3 analytic  dn_eff  0.0533   alpha_c   6.317e-4 dB/um   L_pi  14.53 um   FOM 342.228 rad/dB
+         (exact: no grid)
+  Sb2Se3 2D        dn_eff  0.0568   alpha_c   6.691e-4 dB/um   L_pi  13.64 um   FOM 344.169 rad/dB
+         (101 × 148 cells of the half cross-section, 5.000 nm in and near the guide and the film, growing by 0.1 per µm to 100 nm, 1 µm of cladding)
+  Sb2S3  analytic  dn_eff  0.0296   alpha_c    0.000e0 dB/um   L_pi  26.21 um   FOM       - rad/dB
+         (exact: no grid)
+  Sb2S3  2D        dn_eff  0.0318   alpha_c    0.000e0 dB/um   L_pi  24.39 um   FOM       - rad/dB
+         (101 × 148 cells of the half cross-section, 5.000 nm in and near the guide and the film, growing by 0.1 per µm to 100 nm, 1 µm of cladding)
+  GST    analytic  dn_eff  0.8020   alpha_c    1.645e1 dB/um   L_pi   0.97 um   FOM   0.198 rad/dB
+         (exact: no grid)
+  GST    2D        dn_eff  0.8172   alpha_c    1.650e1 dB/um   L_pi   0.95 um   FOM   0.201 rad/dB
+         (101 × 148 cells of the half cross-section, 5.000 nm in and near the guide and the film, growing by 0.1 per µm to 100 nm, 1 µm of cladding)
+
+  Sb2Se3 FOM, rad/dB (Eq. 1)            29.064799   paper 29         ± 1.45e0    ok
+  Sb2S3 FOM, rad/dB (Eq. 1)              5.153949   paper 5.15       ± 2.6e-1    ok
+  Sb2Se3 2D dn_eff, cells 1 and 1/2      0.056577   on 2 grids, error 2.3e-4 ≤ 1e-3 ok
+  Sb2Se3 analytic dn_eff                 0.053330   2D 0.056808   ± 9e-3         ok
+  Sb2S3 2D dn_eff, cells 1 and 1/2       0.031700   on 2 grids, error 7.9e-5 ≤ 1e-3 ok
+  Sb2S3 analytic dn_eff                  0.029568   2D 0.031779   ± 5e-3         ok
+  GST 2D dn_eff, cells 1 and 1/2         0.816303   on 2 grids, error 9.5e-4 ≤ 1.6e-2 ok
+  GST analytic dn_eff                    0.801968   2D 0.817248   ± 1.23e-1      ok
+all 8 within tolerance of the paper

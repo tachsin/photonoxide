@@ -688,7 +688,8 @@ straight section's, any length, with no bends, leads or ends.
 | analytic | the effective index method with exact complex slabs ([eim.md](eim.md), [multilayer.md](multilayer.md)): the vertical column through the guide (cladding, the film at its fraction, silicon, buried oxide), the column beside it (a rib's slab, or the cladding alone) and the lateral stack across (the film's width over the bare silicon, and the bare silicon either side of it), each the root of a transfer matrix's dispersion relation; a lossy film's root followed from the lossless stack as its absorption is switched on in 50 steps. The loss is the imaginary part of the index | $\Delta n_\mathrm{eff}$ and $\alpha_\mathrm{c}$ within 15 % of 2D | widths 0.4–0.6 µm, films 10–50 nm, slabs 0–100 nm |
 | 2D | the full-vector mode solver on the cross-section ([vector.md](vector.md)): the standard scheme with complex permittivities, half of the section behind an electric wall, cells of 5 nm in and near the guide and the film (the faces on nodes) growing by 0.1 per µm to 0.1 µm, 1 µm of cladding around; the guided TE-like mode of the largest real index. Labelled 2D | — | — |
 
-`PcmShifter::with_refinement(r)` divides the cells by r, as the validation does. Our numbers,
+`PcmShifter::with_refinement(r)` divides the cells by r, as the validation does. The example
+`pcm_delaney` prints the numbers below, with Delaney et al.'s Eq. (1) from their own numbers. Ours,
 the cell on the default guide, at the defaults (25 nm, strip, 1.55 µm):
 
 | Cell | Fidelity | $\Delta n_\mathrm{eff}$ (amorphous to crystalline) | $\alpha$ amorphous (dB/µm) | $\alpha$ crystalline (dB/µm) | $L_\pi$ (µm) | FOM (rad/dB) |
