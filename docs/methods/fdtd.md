@@ -1443,6 +1443,10 @@ rounding grows (`src/fdtd/gpu/tests.rs`):
 
 These, every FDTD case of the validation report run again on the GPU, and its speed are
 [the GPU's report](../validation-gpu.md), written on a computer with a GPU before each release.
+Its own cases hold the GPU to one rule (#544), in multiples of the precision's unit round-off u
+(2⁻⁵³ in f64, 2⁻²⁴ in f32): the worst case N u after N steps where a case sums over them
+(probes, transforms, fluxes: 8.9e-14 in f64 and 4.8e-5 in f32 at 800 steps), a random walk
+3 u √N where it compares fields alone (the closed box: 5.3e-14 and 2.9e-5 at 25 600).
 
 **Speed** on an RTX 4060 (Vulkan, driver 616.56), `fdtd::gpu::rates`: the kernel alone
 on the cubes of the CPU's table above (50 nm cells of vacuum inside CPMLs of 8, random fields),

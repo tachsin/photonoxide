@@ -7,7 +7,7 @@
 use std::fmt::Write as _;
 use std::time::Instant;
 
-use super::{Outcome, Tier, cases};
+use super::{Basis, Measure, Numerical, Outcome, Rule, Tier, cases};
 use crate::Result;
 use crate::fdtd::gpu::checks::{
     Agreement, agreement, busy, closed, kernel_against_cpu, repeats, roden_gedney,
@@ -23,6 +23,41 @@ struct GpuCase {
     source: &'static str,
     precision: Precision,
     run: fn(&Gpu) -> Outcome,
+    /// Its rule (#544), as the main report's cases have theirs.
+    rule: Rule,
+}
+
+/// The unit round-off of f64 and of f32, 2⁻⁵³ and 2⁻²⁴: each tolerance of the GPU's own
+/// cases against the CPU is a multiple of its precision's (#544). Where a case sums over its
+/// steps (probes, transforms, fluxes) the bound is their worst case, N u after N steps (N. J.
+/// Higham, Accuracy and Stability of Numerical Algorithms (2002), doi:10.1137/1.9780898718027,
+/// §3.1); where it compares fields alone, a random walk of one rounding a step, three of its
+/// standard deviations, 3 u √N.
+const U64: f64 = f64::EPSILON / 2.0;
+const U32: f64 = f32::EPSILON as f64 / 2.0;
+
+/// The steps of the 3D and 2D runs against the CPU, of the closed box, and of Roden and
+/// Gedney's run.
+const AGREEMENT_STEPS: f64 = 800.0;
+const CLOSED_STEPS: usize = 25_600;
+const RODEN_GEDNEY_STEPS: f64 = 2000.0;
+
+/// The worst case of `steps` steps' rounding at unit round-off `u`.
+fn worst(u: f64, steps: f64) -> f64 {
+    steps * u
+}
+
+/// The random walk of `steps` steps' rounding at unit round-off `u`, three deviations.
+fn walk(u: f64, steps: f64) -> f64 {
+    3.0 * u * steps.sqrt()
+}
+
+/// f32's rounding in Roden and Gedney's errors, dB: an error e (relative to the field's
+/// largest value) moves by (20 / ln 10) δ / e in dB for a change δ in it, most at the smaller
+/// error, the CFS-PML's.
+fn roden_gedney_rounding() -> f64 {
+    let e = 10f64.powf(RODEN_GEDNEY_CPU[1] / 20.0);
+    20.0 / std::f64::consts::LN_10 * walk(U32, RODEN_GEDNEY_STEPS) / e
 }
 
 /// The CPU's errors on Roden and Gedney's plate, the `cpml_roden_gedney` example's output.
@@ -63,7 +98,14 @@ fn gpu_cases() -> Vec<GpuCase> {
             tier: Tier::CrossCode,
             source: "photonoxide's CPU kernel in f64, the same problem",
             precision: Precision::Double,
-            run: |gpu| outcome(agreement_all(gpu, false), 0.0, 1e-13),
+            run: |gpu| outcome(agreement_all(gpu, false), 0.0, worst(U64, AGREEMENT_STEPS)),
+            rule: Rule::new(
+                Measure::Relative,
+                Basis::RoundOff,
+                800.0 * U64,
+                Numerical::Exact,
+                "the worst case of 800 steps' rounding in f64, $N u$ with $u = 2^{-53}$: the probes, transforms and fluxes sum over the steps",
+            ),
         },
         GpuCase {
             id: "gpu/f64-2d",
@@ -71,7 +113,14 @@ fn gpu_cases() -> Vec<GpuCase> {
             tier: Tier::CrossCode,
             source: "photonoxide's CPU kernel in f64, the same problem",
             precision: Precision::Double,
-            run: |gpu| outcome(agreement_all(gpu, true), 0.0, 1e-13),
+            run: |gpu| outcome(agreement_all(gpu, true), 0.0, worst(U64, AGREEMENT_STEPS)),
+            rule: Rule::new(
+                Measure::Relative,
+                Basis::RoundOff,
+                800.0 * U64,
+                Numerical::Exact,
+                "as gpu/f64-3d",
+            ),
         },
         GpuCase {
             id: "gpu/f32-3d",
@@ -79,7 +128,15 @@ fn gpu_cases() -> Vec<GpuCase> {
             tier: Tier::CrossCode,
             source: "photonoxide's CPU kernel in f64, the same problem",
             precision: Precision::Single,
-            run: |gpu| outcome(agreement_all(gpu, false), 0.0, 2e-5),
+            run: |gpu| outcome(agreement_all(gpu, false), 0.0, worst(U32, AGREEMENT_STEPS)),
+            rule: Rule::new(
+                Measure::Relative,
+                Basis::RoundOff,
+                800.0 * U32,
+                Numerical::Exact,
+                "the worst case of 800 steps' rounding in f32, $N u$ with $u = 2^{-24}$, as gpu/f64-3d's in f64",
+            )
+            .in_f32(),
         },
         GpuCase {
             id: "gpu/f32-2d",
@@ -87,40 +144,71 @@ fn gpu_cases() -> Vec<GpuCase> {
             tier: Tier::CrossCode,
             source: "photonoxide's CPU kernel in f64, the same problem",
             precision: Precision::Single,
-            run: |gpu| outcome(agreement_all(gpu, true), 0.0, 2e-5),
+            run: |gpu| outcome(agreement_all(gpu, true), 0.0, worst(U32, AGREEMENT_STEPS)),
+            rule: Rule::new(
+                Measure::Relative,
+                Basis::RoundOff,
+                800.0 * U32,
+                Numerical::Exact,
+                "as gpu/f32-3d",
+            )
+            .in_f32(),
         },
         GpuCase {
             id: "gpu/f32-rounding",
-            title: "In f32, a closed box (40 × 36 × 32 cells of 50 nm, a block of ε = 12, random fields) after $N$ = 25 600 steps: E against the CPU's f32 kernel, relative, a random walk of rounding (tolerance $2 \\times 10^{-7} \\sqrt{N}$)",
+            title: "In f32, a closed box (40 × 36 × 32 cells of 50 nm, a block of ε = 12, random fields) after $N$ = 25 600 steps: E against the CPU's f32 kernel, relative",
             tier: Tier::CrossCode,
             source: "photonoxide's CPU kernel in f32, the same problem",
             precision: Precision::Single,
             run: |gpu| {
-                let g = kernel_against_cpu(&closed(), gpu, &[25_600], true);
-                outcome(g[0][0], 0.0, 3.2e-5)
+                let g = kernel_against_cpu(&closed(), gpu, &[CLOSED_STEPS], true);
+                outcome(g[0][0], 0.0, walk(U32, CLOSED_STEPS as f64))
             },
+            rule: Rule::new(
+                Measure::Relative,
+                Basis::RoundOff,
+                3.0 * U32 * 160.0,
+                Numerical::Exact,
+                "a random walk of rounding, fields alone: $3 u \\sqrt{N}$ with $u = 2^{-24}$ at $N$ = 25 600",
+            )
+            .in_f32(),
         },
         GpuCase {
             id: "gpu/f32-drift",
-            title: "In f32, the closed box's drift from f64 after 25 600 steps (the coefficients rounded to f32), over the CPU's f32 kernel's drift",
+            title: "In f32, the closed box's drift from f64 after 25 600 steps (the coefficients rounded to f32): the GPU's less the CPU's f32 kernel's, relative to E's largest value",
             tier: Tier::CrossCode,
             source: "photonoxide's CPU kernels in f32 and f64, the same problem",
             precision: Precision::Single,
             run: |gpu| {
-                let g = kernel_against_cpu(&closed(), gpu, &[25_600], true);
-                outcome((g[0][1] / g[0][2] * 1e4).round() / 1e4, 1.0, 0.05)
+                let g = kernel_against_cpu(&closed(), gpu, &[CLOSED_STEPS], true);
+                outcome((g[0][1] - g[0][2]).abs(), 0.0, walk(U32, CLOSED_STEPS as f64))
             },
+            rule: Rule::new(
+                Measure::Relative,
+                Basis::RoundOff,
+                3.0 * U32 * 160.0,
+                Numerical::Exact,
+                "the two kernels' coefficients round alike, so their drifts differ by their rounding's random walk, as gpu/f32-rounding",
+            )
+            .in_f32(),
         },
         GpuCase {
             id: "gpu/f64-rounding",
-            title: "In f64, the closed box after $N$ = 25 600 steps: E against the CPU's, relative (tolerance $10^{-15} \\sqrt{N}$)",
+            title: "In f64, the closed box after $N$ = 25 600 steps: E against the CPU's, relative",
             tier: Tier::CrossCode,
             source: "photonoxide's CPU kernel in f64, the same problem",
             precision: Precision::Double,
             run: |gpu| {
-                let g = kernel_against_cpu(&closed(), gpu, &[25_600], true);
-                outcome(g[0][0], 0.0, 1.6e-13)
+                let g = kernel_against_cpu(&closed(), gpu, &[CLOSED_STEPS], true);
+                outcome(g[0][0], 0.0, walk(U64, CLOSED_STEPS as f64))
             },
+            rule: Rule::new(
+                Measure::Relative,
+                Basis::RoundOff,
+                3.0 * U64 * 160.0,
+                Numerical::Exact,
+                "a random walk of rounding, fields alone: $3 u \\sqrt{N}$ with $u = 2^{-53}$ at $N$ = 25 600",
+            ),
         },
         GpuCase {
             id: "gpu/repeat-f32",
@@ -129,6 +217,14 @@ fn gpu_cases() -> Vec<GpuCase> {
             source: "no atomics, fixed workgroups, every sum by one invocation in step order: the same bits on the same device and driver",
             precision: Precision::Single,
             run: |gpu| repeat_all(gpu),
+            rule: Rule::new(
+                Measure::Absolute,
+                Basis::RoundOff,
+                0.0,
+                Numerical::Exact,
+                "the same arithmetic in the same order: the same bits, no value may differ",
+            )
+            .in_f32(),
         },
         GpuCase {
             id: "gpu/repeat-f64",
@@ -137,6 +233,13 @@ fn gpu_cases() -> Vec<GpuCase> {
             source: "as above",
             precision: Precision::Double,
             run: |gpu| repeat_all(gpu),
+            rule: Rule::new(
+                Measure::Absolute,
+                Basis::RoundOff,
+                0.0,
+                Numerical::Exact,
+                "as gpu/repeat-f32",
+            ),
         },
         GpuCase {
             id: "gpu/roden-gedney",
@@ -148,6 +251,17 @@ fn gpu_cases() -> Vec<GpuCase> {
                 let [a, _] = roden_gedney_on(gpu);
                 outcome(a, -48.0, 5.0)
             },
+            rule: Rule::new(
+                Measure::Absolute,
+                Basis::Reference,
+                5.0,
+                Numerical::Stated(
+                    0.12,
+                    "the reference lattice padded by 40 cells against 75, the example's study",
+                ),
+                "the paper's numbers read off its contour plots, \"on the order of\": within 5 dB, as the `cpml_roden_gedney` example",
+            )
+            .in_f32(),
         },
         GpuCase {
             id: "gpu/roden-gedney-cfs",
@@ -159,6 +273,17 @@ fn gpu_cases() -> Vec<GpuCase> {
                 let [_, b] = roden_gedney_on(gpu);
                 outcome(b, -67.0, 5.0)
             },
+            rule: Rule::new(
+                Measure::Absolute,
+                Basis::Reference,
+                5.0,
+                Numerical::Stated(
+                    0.12,
+                    "the reference lattice padded by 40 cells against 75, the example's study",
+                ),
+                "the paper's numbers read off its contour plots, \"on the order of\": within 5 dB, as the `cpml_roden_gedney` example",
+            )
+            .in_f32(),
         },
         GpuCase {
             id: "gpu/roden-gedney-cpu",
@@ -173,8 +298,17 @@ fn gpu_cases() -> Vec<GpuCase> {
                     .zip(RODEN_GEDNEY_CPU)
                     .map(|(a, b)| (a - b).abs())
                     .fold(0.0, f64::max);
-                outcome(d, 0.0, 0.05)
+                // the rule's 0.23: f32's rounding in dB, rounded down
+                outcome(d, 0.0, (roden_gedney_rounding() * 100.0).floor() / 100.0)
             },
+            rule: Rule::new(
+                Measure::Absolute,
+                Basis::RoundOff,
+                0.23,
+                Numerical::Exact,
+                "f32's random walk of rounding over 2000 steps, $3 u \\sqrt{N}$, as the CFS-PML's error of −70.47 dB (relative to the field's largest value) magnifies it in dB: $(20 / \\ln 10) \\cdot 3 u \\sqrt{N} / 10^{-70.47/20}$ = 0.232, rounded down",
+            )
+            .in_f32(),
         },
     ]
 }
@@ -313,7 +447,7 @@ pub fn gpu_report() -> Result<(String, bool)> {
                 None => {
                     let _ = writeln!(
                         rows,
-                        "| `{}` | {} | {} | {} | — | — | — | no f64 GPU |",
+                        "| `{}` | {} | {} | {} | — | — | — | no f64 GPU | — | — | — |",
                         case.id,
                         case.tier.label(),
                         case.title,
@@ -324,19 +458,28 @@ pub fn gpu_report() -> Result<(String, bool)> {
             },
         };
         let o = (case.run)(gpu);
-        let passed = o.passed();
+        let fault = case.rule.fault(&o, None);
+        let passed = o.passed() && fault.is_none();
         all &= passed;
         let _ = writeln!(
             rows,
-            "| `{}` | {} | {} | {} | {} | {} | {:e} | {} |",
+            "| `{}` | {} | {} | {} | {} | {} | {} | {} | {} | {}: {} | {} |",
             case.id,
             case.tier.label(),
             case.title,
             case.source,
             e(o.measured),
             e(o.expected),
-            o.tolerance,
-            if passed { "pass" } else { "**FAIL**" }
+            super::tolerance_cell(&case.rule),
+            match &fault {
+                None if passed => "pass".to_owned(),
+                None => "**FAIL**".to_owned(),
+                Some(f) => format!("**FAIL**: {f}"),
+            },
+            super::error_cell(&case.rule, &o),
+            case.rule.basis.label(),
+            case.rule.why,
+            super::ours_cell(&case.rule, None),
         );
     }
     let mut every = String::new();
@@ -411,8 +554,13 @@ pub fn gpu_report() -> Result<(String, bool)> {
          \n\
          ## The GPU's cases\n\
          \n\
-         | Case | Tier | What | Against | Measured | Expected | Tolerance | Result |\n\
-         |---|---|---|---|---|---|---|---|\n\
+         Each tolerance follows from its rule, as in the main report: against the CPU, a \
+         multiple of the precision's unit round-off $u$ ($2^{{-53}}$ in f64, $2^{{-24}}$ in f32), \
+         the worst case $N u$ after $N$ steps where a case sums over them, a random walk \
+         $3 u \\sqrt{{N}}$ where it compares fields alone.\n\
+         \n\
+         | Case | Tier | What | Against | Measured | Expected | Tolerance | Result | Error | Basis | Ours |\n\
+         |---|---|---|---|---|---|---|---|---|---|---|\n\
          {rows}\
          \n\
          ## Every FDTD case on the GPU\n\
@@ -448,6 +596,43 @@ pub fn gpu_report() -> Result<(String, bool)> {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+
+    #[test]
+    fn every_gpu_case_has_its_rules_tolerance() {
+        let tolerance = |id: &str| -> f64 {
+            match id {
+                "gpu/f64-3d" | "gpu/f64-2d" => worst(U64, AGREEMENT_STEPS),
+                "gpu/f32-3d" | "gpu/f32-2d" => worst(U32, AGREEMENT_STEPS),
+                "gpu/f32-rounding" | "gpu/f32-drift" => walk(U32, CLOSED_STEPS as f64),
+                "gpu/f64-rounding" => walk(U64, CLOSED_STEPS as f64),
+                "gpu/repeat-f32" | "gpu/repeat-f64" => 0.0,
+                "gpu/roden-gedney" | "gpu/roden-gedney-cfs" => 5.0,
+                "gpu/roden-gedney-cpu" => 0.23,
+                other => panic!("{other} has no tolerance here"),
+            }
+        };
+        // f32's rounding in dB, 0.232, rounded down for the rule
+        let db = roden_gedney_rounding();
+        assert!((0.23..0.235).contains(&db), "{db}");
+        for case in gpu_cases() {
+            let t = tolerance(case.id);
+            let o = Outcome {
+                measured: 0.0,
+                expected: 0.0,
+                tolerance: t,
+                error: 0.0,
+            };
+            assert_eq!(case.rule.fault(&o, None), None, "{}", case.id);
+            assert_eq!(
+                case.rule.single,
+                case.precision == Precision::Single,
+                "{}",
+                case.id
+            );
+        }
+    }
+
     #[test]
     fn the_gpu_cases_have_unique_ids_without_pipes() {
         let cases = super::gpu_cases();

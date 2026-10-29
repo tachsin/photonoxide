@@ -86,7 +86,8 @@ pub enum Measure {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum Basis {
-    /// An exact discrete identity: the arithmetic's round-off, at most 1e-8 relative.
+    /// An exact discrete identity: the arithmetic's round-off, at most 1e-8 relative in f64
+    /// (about the square root of its unit round-off), 2e-4 in f32 ([`Rule::in_f32`]).
     RoundOff,
     /// A closed form against our grid: the grid's own error, its order checked by another case.
     Discretisation,
@@ -146,6 +147,8 @@ pub struct Rule {
     /// noise-level difference): the report shows it as a bound below a third of the tolerance,
     /// so it reads the same on every system ([`Rule::varying`]).
     pub varies: bool,
+    /// The case computes in f32, so a round-off tolerance may be up to 2e-4 ([`Rule::in_f32`]).
+    pub single: bool,
 }
 
 impl Rule {
@@ -164,6 +167,7 @@ impl Rule {
             numerical,
             why,
             varies: false,
+            single: false,
         }
     }
 
@@ -177,8 +181,17 @@ impl Rule {
         }
     }
 
+    /// The same rule for a case that computes in f32 (the GPU's): its round-off limit is f32's,
+    /// 2e-4 relative, as 1e-8 is f64's.
+    pub const fn in_f32(self) -> Rule {
+        Rule {
+            single: true,
+            ..self
+        }
+    }
+
     /// What's wrong with the case's outcome against this rule, if anything: a tolerance other
-    /// than the rule's, a round-off tolerance above 1e-8, a published comparison without our
+    /// than the rule's, a round-off tolerance above 1e-8 (2e-4 in f32), a published comparison without our
     /// own error beside it, or our own error above a third of the tolerance.
     fn fault(&self, o: &Outcome, noted: Option<f64>) -> Option<String> {
         let own = if o.expected == 0.0 || self.measure == Measure::Absolute {
@@ -192,11 +205,12 @@ impl Rule {
                 self.tolerance
             ));
         }
+        let limit = if self.single { 2e-4 } else { 1e-8 };
         if self.basis == Basis::RoundOff
             && self.measure == Measure::Relative
-            && self.tolerance > 1e-8
+            && self.tolerance > limit
         {
-            return Some("a round-off tolerance above 1e-8".into());
+            return Some(format!("a round-off tolerance above {limit:e}"));
         }
         if matches!(self.basis, Basis::Reference | Basis::Model)
             && self.numerical == Numerical::Measured
@@ -5951,6 +5965,17 @@ mod tests {
             error: 1e-9,
         };
         assert!(loose.fault(&zero, None).is_some(), "round-off above 1e-8");
+        // in f32 the limit is 2e-4
+        assert_eq!(loose.in_f32().fault(&zero, None), None);
+        let looser = Rule {
+            tolerance: 1e-3,
+            ..loose.in_f32()
+        };
+        let zero3 = Outcome {
+            tolerance: 1e-3,
+            ..zero
+        };
+        assert!(looser.fault(&zero3, None).is_some(), "round-off above 2e-4");
         assert_eq!(error_cell(&rule, &o), "6.3 %");
         assert_eq!(tolerance_cell(&rule), "10 % rel");
         assert_eq!(error_cell(&loose, &zero), "within round-off");
