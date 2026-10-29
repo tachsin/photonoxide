@@ -168,7 +168,7 @@ pub(crate) fn cases() -> Vec<Case> {
         },
         Case {
             id: "device/coupler-chrostowski",
-            title: r"Devices: two 500 x 220 nm strips 200 nm apart (the book's silicon in 1.444 oxide) through the coupler device, a quarter of the book's 5.5 x 1.22 µm window on a 5 nm grid: the cross-over length at 1.55 µm (µm, shown)",
+            title: r"Devices: two 500 x 220 nm strips 200 nm apart (the book's silicon in 1.444 oxide) through the coupler device, a quarter of the book's 5.5 x 1.22 µm window on grids of 10, 5 and 2.5 nm: the cross-over length at 1.55 µm, Richardson's extrapolation from the three at their observed order (µm, shown)",
             tier: Tier::Published,
             source: "L. Chrostowski, M. Hochberg, Silicon Photonics Design (2015), doi:10.1017/CBO9781316084168, Eq. 4.14 at a 200 nm gap: 37.5 µm, as the directional_coupler example",
             run: coupler_chrostowski,
@@ -791,10 +791,11 @@ fn books_silicon() -> Material {
     .expect(OK)
 }
 
-fn coupler_chrostowski() -> Outcome {
+/// The coupler's cross-over length on a quarter of the book's window, cells of `nx` by `ny`.
+fn coupler_chrostowski_on(nx: usize, ny: usize) -> f64 {
     let coupler = StripCoupler::on(books_stack(books_silicon()), "Si")
         .expect(OK)
-        .with_mesh(Mesh::window(5.5, 1.22, 550, 122, Scheme::Standard));
+        .with_mesh(Mesh::window(5.5, 1.22, nx, ny, Scheme::Standard));
     let l = um(1.55);
     let (even, odd) = coupler
         .cross_sections(&Values::defaults(&coupler), l)
@@ -804,8 +805,25 @@ fn coupler_chrostowski() -> Outcome {
             .effective_index()
             .re
     };
-    let lx = 1.55 / (2.0 * (n(&even) - n(&odd)));
-    outcome(lx, 37.5, 1.0)
+    1.55 / (2.0 * (n(&even) - n(&odd)))
+}
+
+/// L_x is the small difference of two supermodes' indices, each limited by the strips'
+/// corners: it converges below first order (36.74, 37.15 and 37.39 µm on 10, 5 and 2.5 nm
+/// cells). So it is Richardson's extrapolation from the three, at their observed order, that
+/// meets the book; our own error is the extrapolation's spread against one at first order.
+fn coupler_chrostowski() -> Outcome {
+    let lx = [(275, 61), (550, 122), (1100, 244)].map(|(nx, ny)| coupler_chrostowski_on(nx, ny));
+    let (coarse, fine) = (lx[1] - lx[0], lx[2] - lx[1]);
+    // the observed order, in the ratio of the grids' halving
+    let order = (coarse / fine).log2();
+    if !(order.is_finite() && order > 0.0) {
+        return outcome(f64::NAN, 37.5, 1.0);
+    }
+    let extrapolated = lx[2] + fine / (2f64.powf(order) - 1.0);
+    let first_order = lx[2] + fine;
+    crate::validation::note_numerical((extrapolated - first_order).abs());
+    outcome(extrapolated, 37.5, 1.0)
 }
 
 /// The round trip (µm) in [lo, hi] where `f` peaks, by golden-section search.
