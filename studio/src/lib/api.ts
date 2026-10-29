@@ -154,9 +154,20 @@ export interface Progress {
   seconds: number;
 }
 
+/** The CPU's cores, caches (bytes) and NUMA nodes (libraries/topology.rs); 0 or null where the system doesn't say. */
+export interface CpuTopology {
+  cores: number;
+  performance_cores: number;
+  efficiency_cores: number;
+  l1d: number | null;
+  l2: number | null;
+  l3: number | null;
+  numa_nodes: number;
+}
+
 /** This machine and the libraries suggested for it (libraries/hardware.rs). */
 export interface HardwareAdvice {
-  hardware: { os: string; arch: string; cpu: { vendor: string; brand: string; threads: number; features: string[] }; gpu: { name: string; driver: string } | null };
+  hardware: { os: string; arch: string; cpu: { vendor: string; brand: string; threads: number; features: string[]; topology: CpuTopology }; gpu: { name: string; driver: string } | null };
   suggestions: { library: string; why: string; install: string | null; command: string | null; download: string; system: boolean }[];
 }
 

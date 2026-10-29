@@ -8,6 +8,8 @@
 
 use serde::Serialize;
 
+use super::topology::{self, Topology};
+
 #[derive(Clone, Debug, Serialize)]
 pub struct Hardware {
     pub os: &'static str,
@@ -25,6 +27,8 @@ pub struct Cpu {
     pub threads: usize,
     /// The instruction sets the solvers use where they're there: AVX2, FMA, AVX-512.
     pub features: Vec<&'static str>,
+    /// Its cores, caches and NUMA nodes.
+    pub topology: Topology,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -82,6 +86,7 @@ fn cpu() -> Cpu {
         brand,
         threads: threads(),
         features,
+        topology: topology::here(),
     }
 }
 
@@ -115,6 +120,7 @@ fn cpu() -> Cpu {
         brand,
         threads: threads(),
         features: vec!["NEON"],
+        topology: topology::here(),
     }
 }
 
@@ -217,6 +223,7 @@ mod tests {
                 brand: String::new(),
                 threads: 8,
                 features: vec![],
+                topology: Topology::default(),
             },
             gpu: gpu.then(|| Gpu {
                 name: "a GPU".into(),
