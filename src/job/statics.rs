@@ -114,9 +114,11 @@
 
 use std::collections::BTreeMap;
 
-use schemars::JsonSchema;
+use schemars::{JsonSchema, SchemaGenerator};
 use serde::{Deserialize, Serialize};
 
+use super::execute::solver_run;
+use super::kind::TaskKind;
 use super::{
     CircleSpec, Event, PathSpec, RectSpec, RingSpec, StackField, draw, draw_paths, named_stack,
     task_error,
@@ -1239,6 +1241,37 @@ fn shifter(task: &StaticTask, spec: &ShifterSpec, section: &Section) -> Result<S
         record,
         poles: spec.poles,
     })
+}
+
+/// The `"static"` kind: heat conduction, electrostatics or current continuity on a
+/// cross-section.
+pub(super) struct StaticKind;
+
+impl TaskKind for StaticKind {
+    fn name(&self) -> &'static str {
+        "static"
+    }
+
+    fn schema(&self, g: &mut SchemaGenerator) -> serde_json::Value {
+        super::schema::task::<StaticTask>(g)
+    }
+
+    fn check(&self, job: &Job) -> Result<()> {
+        check(job)
+    }
+
+    fn preview(&self, job: &Job) -> Result<Event> {
+        super::check(job)?;
+        preview(job)
+    }
+
+    fn execute(&self, job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
+        solver_run(job, run, stop, self.name(), self::run)
+    }
+
+    fn exports(&self, _: &Job) -> (&'static str, &'static [&'static str]) {
+        ("a static job", &["temperature", "potential"])
+    }
 }
 
 /// Checks a static job without solving it: its task, the stack and shapes, the grid's size,

@@ -18,6 +18,7 @@ use super::event::Event;
 use super::fdfd::FdfdKind;
 use super::fdtd::FdtdKind;
 use super::modes::ModesKind;
+use super::statics::StaticKind;
 use super::structure::StructureKind;
 use crate::Result;
 use crate::run::{Job, Run, Stop};
@@ -85,7 +86,13 @@ pub(super) trait TaskKind: Sync {
 pub(super) const EM_FIELDS: &[&str] = &["Ex", "Ey", "Ez", "Hx", "Hy", "Hz"];
 
 /// The kinds of a task alone, in the order the schema lists them.
-static SOLVER: [&dyn TaskKind; 4] = [&StructureKind, &ModesKind, &FdfdKind, &FdtdKind];
+static SOLVER: [&dyn TaskKind; 5] = [
+    &StructureKind,
+    &ModesKind,
+    &FdfdKind,
+    &FdtdKind,
+    &StaticKind,
+];
 
 /// The kinds of a task beside a `[device]`, in the order the schema lists them.
 static DEVICE: [&dyn TaskKind; 0] = [];

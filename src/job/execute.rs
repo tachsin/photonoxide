@@ -5,7 +5,7 @@ use super::event::Event;
 use super::kind::{Holder, find};
 use super::modes::check_export;
 use super::scene::device_scene;
-use super::{chip, device, fdfd, fdtd, results, statics};
+use super::{chip, device, fdfd, fdtd, results};
 use crate::Result;
 use crate::run::{Job, Run, Stop, StopReason};
 
@@ -88,7 +88,7 @@ pub(super) fn execute_task(job: &Job, run: &mut Run, stop: &Stop, kind: &str) ->
     if let Some(k) = find(Holder::Solver, kind) {
         return k.execute(job, run, stop);
     }
-    solver_run(job, run, stop, kind, |job, run, stop| match kind {
+    solver_run(job, run, stop, kind, |job, _, _| match kind {
         "optimize" => {
             check(job)?;
             Err(task_error(
@@ -97,7 +97,6 @@ pub(super) fn execute_task(job: &Job, run: &mut Run, stop: &Stop, kind: &str) ->
                  supplies its objectives and records it (photonoxide::job::Problem, Recorder)",
             ))
         }
-        "static" => statics::run(job, run, stop),
         other => Err(task_error(format!("unknown kind \"{other}\""))),
     })
 }
@@ -143,8 +142,5 @@ pub fn preview(job: &Job) -> Result<Event> {
         return k.preview(job);
     }
     check(job)?;
-    match name {
-        Some("static") => statics::preview(job),
-        _ => fdfd::preview(job),
-    }
+    fdfd::preview(job)
 }

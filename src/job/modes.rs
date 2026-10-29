@@ -714,7 +714,6 @@ fn export_fields(job: &Job) -> Result<(&'static str, &'static [&'static str])> {
         return Ok(k.exports(job));
     }
     Ok(match kind.as_str() {
-        "static" => ("a static job", &["temperature", "potential"]),
         _ if job.device().is_some() => ("this device's task", &[]),
         _ => ("this job", &[]),
     })
