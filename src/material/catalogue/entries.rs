@@ -1939,6 +1939,60 @@ fn casson_r(wavelength: f64, r13: (f64, f64), r33: (f64, f64)) -> Tensor {
     }
 }
 
+/// The thermo-optic coefficients measured in the infrared, on doped crystals (Dolev et al.'s
+/// 0.5 mol% MgO-doped stoichiometric crystal, Moutzouris et al.'s 8 mol% Mg-doped congruent
+/// one): no paper in hand measures this entry's undoped congruent crystal there.
+fn litao3_dndt() -> Vec<Constant> {
+    use super::litao3_dndt::{DOLEV_TABLE_1, dolev_beta, moutzouris_slopes};
+    let dolev = |k: usize, extraordinary: bool| {
+        let (lam, (o0, o1), (e0, e1)) = DOLEV_TABLE_1[k];
+        let (beta_o, beta_e) = dolev_beta(k, 25.0);
+        let (axis, value, a0, a1) = if extraordinary {
+            ("e", beta_e, e0, e1)
+        } else {
+            ("o", beta_o, o0, o1)
+        };
+        Constant {
+            symbol: format!(r"\frac{{1}}{{n_{axis}}}\frac{{dn_{axis}}}{{dT}}"),
+            name: format!(
+                "normalized thermo-optic coefficient, {}, measured",
+                if extraordinary {
+                    "extraordinary"
+                } else {
+                    "ordinary"
+                }
+            ),
+            value,
+            uncertainty: None,
+            unit: "1/K".into(),
+            conditions: format!(
+                "0.5 mol% MgO-doped stoichiometric LiTaO₃, not this entry's congruent crystal; {lam} µm, 25 °C: the paper's linear fit β = a₀ + a₁T (T in °C) to Fabry–Pérot temperature-scanning interferometry of the optical thickness, less the measured thermal expansion, from −30 to 80 °C; a₀ = {a0:e}, a₁ = {a1:e}"
+            ),
+            source: src("dolev-2009", "Table 1 (p. 427)"),
+        }
+    };
+    let (slope_o, slope_e) = moutzouris_slopes();
+    let moutzouris = |axis: &str, value: f64| Constant {
+        symbol: format!("dn_{axis}/dT"),
+        name: format!("thermo-optic coefficient, n_{axis}, measured"),
+        value,
+        uncertainty: None,
+        unit: "1/K".into(),
+        conditions: format!(
+            "8 mol% Mg-doped congruent LiTaO₃, not this entry's undoped crystal; 1551 nm, the mean from 22 to 200 °C: the slope of a least-squares line through Table 1's ten indices measured by prism coupling (ours; their fourth decimal leaves it ±0.03e-5). Their fit, Eq. (1), gives dn_{axis}/dT rising with temperature"
+        ),
+        source: src("moutzouris-2011", "Table 1 (p. 461)"),
+    };
+    vec![
+        dolev(0, true),
+        dolev(1, true),
+        dolev(0, false),
+        dolev(1, false),
+        moutzouris("e", slope_e),
+        moutzouris("o", slope_o),
+    ]
+}
+
 fn lithium_tantalate() -> Entry {
     let index = |symbol: &str, name: &str, value: f64| {
         Constant {
@@ -1975,11 +2029,21 @@ fn lithium_tantalate() -> Entry {
             casson_r(0.98, (6.96, 0.07), (29.6, 0.3)),
             casson_r(0.6328, (7.62, 0.08), (30.5, 0.3)),
         ],
-        constants: vec![
-            index("n_e", "extraordinary index", 2.1224),
-            index("n_o", "ordinary index", 2.1186),
-        ],
+        constants: {
+            let mut c = vec![
+                index("n_e", "extraordinary index", 2.1224),
+                index("n_o", "ordinary index", 2.1186),
+            ];
+            c.extend(litao3_dndt());
+            c
+        },
         missing: coming::missing("litao3"),
-        references: references(&["bond-1965", "abedin-ito-1996", "casson-2004"]),
+        references: references(&[
+            "bond-1965",
+            "abedin-ito-1996",
+            "casson-2004",
+            "dolev-2009",
+            "moutzouris-2011",
+        ]),
     }
 }

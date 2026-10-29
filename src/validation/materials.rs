@@ -623,6 +623,16 @@ pub(crate) fn rules() -> Vec<(&'static str, Rule)> {
             ),
         ),
         (
+            "material/litao3-moutzouris-fit",
+            Rule::new(
+                Absolute,
+                Reference,
+                5e-5,
+                Exact,
+                "the paper's ~0.0004, one digit: half a unit of it",
+            ),
+        ),
+        (
             "material/batio3-abel-films",
             Rule::new(
                 Absolute,

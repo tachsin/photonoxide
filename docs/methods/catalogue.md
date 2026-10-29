@@ -74,6 +74,12 @@ papers:
     doi: 10.1063/1.123994
   - cite: "R. W. Powell, C. Y. Ho, P. E. Liley, NSRDS-NBS 8 (1966)"
     doi: 10.6028/NBS.NSRDS.8
+  - cite: "I. Dolev, A. Ganany-Padowicz, O. Gayer, A. Arie, J. Mangin, G. Gadret, Appl. Phys. B 96, 423 (2009)"
+    doi: 10.1007/s00340-009-3502-3
+  - cite: "K. Moutzouris, G. Hloupis, I. Stavrakas, D. Triantis, M.-H. Chou, Opt. Mater. Express 1, 458 (2011)"
+    doi: 10.1364/OME.1.000458
+  - cite: "A. Bruner, D. Eger, M. B. Oron, P. Blau, M. Katz, S. Ruschin, Opt. Lett. 28, 194 (2003)"
+    doi: 10.1364/OL.28.000194
   - cite: "E. Z. Ulsig et al., Opt. Express 32, 36986 (2024)"
     doi: 10.1364/OE.523615
   - cite: "International Tables for Crystallography, Vol. A (2016)"
@@ -516,8 +522,34 @@ congruent Table 1 is printed the right way round.
   and 4.82e-4 against the printed 3.5, 1.4, 5.4 and 5.2e-4; and within 1.2e-4 of its dashed
   curves from 100 to 290 °C. Its temperature terms rest on the two visible wavelengths: at 1550
   nm they give $dn_o/dT = +8.0 \times 10^{-6}$ and $dn_e/dT = -2.7 \times 10^{-6}$ per K (25 to
-  300 °C), where at 468 nm $n_e$ rises by 8e-5 per K. No paper in hand measures the infrared
-  dn/dT to check it, so it stays coming; Bond's fit is the default at room temperature.
+  300 °C), where at 468 nm $n_e$ rises by 8e-5 per K. Bond's fit is the default at room
+  temperature.
+
+  **Measured in the infrared, on doped crystals.** No paper in hand measures the undoped
+  congruent crystal's dn/dT in the infrared, so that stays coming; two measure doped crystals,
+  and the entry has their values as constants, each naming its crystal:
+
+  | Crystal | λ | Measured | At | Source |
+  |---|---|---|---|---|
+  | 0.5 mol% MgO, stoichiometric | 1.0642 µm | $(1/n_e)\,dn_e/dT$ = 1.96e-5; $(1/n_o)\,dn_o/dT$ = 7.9e-7 per K | 25 °C (fit from −30 to 80 °C) | Dolev et al. 2009, Table 1 |
+  | 0.5 mol% MgO, stoichiometric | 3.39 µm | $(1/n_e)\,dn_e/dT$ = 1.59e-5; $(1/n_o)\,dn_o/dT$ = 7.1e-7 per K | 25 °C | Dolev et al. 2009, Table 1 |
+  | 8 mol% Mg, congruent | 1551 nm | $dn_e/dT$ = 5.38e-5; $dn_o/dT$ = 5.9e-6 per K | 22 to 200 °C, mean | Moutzouris et al. 2011, Table 1 (our least-squares slope) |
+
+  Dolev et al. measure the change of the optical thickness by Fabry–Pérot interferometry and the
+  expansion by dilatometry on the same sample, and print linear fits $\beta = a_0 + a_1T$ of
+  $\beta = (1/n)\,dn/dT$ from −30 to 80 °C; with their own Sellmeier $n_e$ (Table 3), 1.96e-5 is
+  $dn_e/dT$ = 4.2e-5 per K at 1.0642 µm. Moutzouris et al. measure both indices by prism coupling
+  at five wavelengths and ten temperatures (Table 1, to the fourth decimal); the slope of a
+  least-squares line through the ten at 1551 nm is ours, ±0.03e-5 from that last decimal, and
+  their fit (Eq. (1), Table 2) gives the table back to 4.02e-4 on average, the ~0.0004 they state
+  (`material/litao3-moutzouris-fit`). Both put the infrared $dn_e/dT$ near +4e-5 to +5e-5 per K,
+  fifteen to twenty times Abedin & Ito's extrapolation and of the other sign, though on other
+  crystals: Moutzouris et al. find the doping raises the coefficient (their Fig. 2(a)). A. Bruner et al. (Opt. Lett. 28, 194 (2003)) fit $n_e(\lambda, T)$
+  of stoichiometric LiTaO₃ from 0.39 to 4.1 µm and 30 to 200 °C to quasi-phase-matched wavelengths
+  and room-temperature indices; phase matching is "sensitive mostly to the dependence of
+  wavelength on refractive indices (the dispersion)" (p. 195), so its $dn_e/dT$ (2.1e-6 per K at
+  1.55 µm and 25 °C, 4.4e-6 at 1.0642 µm) is not a measurement of it, and Dolev et al.'s Fig. 8
+  shows it far from their interferometry. It isn't taken.
 - **GaAs:** $d_{14} = 119$ pm/V at 1.533 µm and 170 at 1.064 µm (Shoji, Table 11); Skauli et al.
   (2002) measure $d_{14}/d_{33}(\mathrm{LiNbO_3}) = 5.01 \pm 0.3$ at 4.1 µm. $r_{41}^S = -1.54$ and
   $-1.50$ pm/V at 1.32 and 1.52 µm (Berseth et al., with their sign convention), and the
@@ -712,7 +744,9 @@ read from the paper itself, which isn't in hand.
   $n(\lambda, T)$ reproduces their Fig. 2's standard deviations to 3e-8
   (`material/litao3-abedin-bond`), their Table I refitted within 6.7e-5
   (`material/litao3-abedin-refit`), Fig. 3's standard deviations within 4.4e-5
-  (`material/litao3-abedin-points`) and its curves within 1.2e-4 (`material/litao3-abedin-curves`).
+  (`material/litao3-abedin-points`) and its curves within 1.2e-4 (`material/litao3-abedin-curves`);
+  Moutzouris et al.'s fit gives their 100 measured indices of the Mg-doped crystal back to
+  4.02e-4 on average, their ~0.0004 (`material/litao3-moutzouris-fit`).
   Barium titanate: Abel
   et al.'s film index at 1550 nm within 0.026 of the other films' 2.26 and 2.29
   (`material/batio3-abel-films`).

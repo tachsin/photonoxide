@@ -20,6 +20,7 @@ use crate::circuit::components::checks as components;
 use crate::material::catalogue::checks as catalogue;
 use crate::material::catalogue::conductivity_checks;
 use crate::material::catalogue::ferroelectric;
+use crate::material::catalogue::litao3_dndt;
 use crate::material::catalogue::phase_change_checks;
 use crate::material::catalogue::phase_change_thermal;
 use crate::material::catalogue::thermo_checks;
@@ -721,6 +722,13 @@ pub fn cases() -> Vec<Case> {
             tier: Tier::Published,
             source: "K. S. Abedin, H. Ito, J. Appl. Phys. 80, 6561 (1996), doi:10.1063/1.363679, Fig. 3: the dashes read off the figure's bitmap, 1.2e-4 to 1.5e-4 per pixel",
             run: ferroelectric::litao3_abedin_curves,
+        },
+        Case {
+            id: "material/litao3-moutzouris-fit",
+            title: r"Lithium tantalate, 8 mol% Mg-doped congruent: Moutzouris et al.'s Eq. (1) with their Table 2 against their Table 1's measured indices, the table the catalogue's $dn/dT$ at 1551 nm comes from: $n_o$ and $n_e$ at 450 to 1551 nm and 22 to 200 °C, 100 values, their mean absolute deviation against the paper's ~0.0004 (shown)",
+            tier: Tier::Published,
+            source: "K. Moutzouris et al., Opt. Mater. Express 1, 458 (2011), doi:10.1364/OME.1.000458, Eq. (1), Tables 1 and 2, and p. 462: 'average difference between calculated and measured values ... ~0.0004'",
+            run: litao3_dndt::moutzouris_fit,
         },
         Case {
             id: "material/batio3-abel-films",

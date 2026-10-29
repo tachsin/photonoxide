@@ -133,12 +133,12 @@ const ITEMS: &[Item] = &[
     },
     Item {
         entry: "litao3",
-        property: "dn/dT in the infrared, measured",
+        property: "dn/dT in the infrared, measured on the undoped congruent crystal",
         source: "",
         citation: "",
         doi: "",
         open: false,
-        detail: r"Shipped: Abedin & Ito's $n(\lambda, T)$ (1996), whose temperature terms are fitted at 468 and 644 nm only; extrapolated to 1550 nm it gives $dn_o/dT = +8.0 \times 10^{-6}$ and $dn_e/dT = -2.7 \times 10^{-6}$ per K (25–300 °C). In hand: no paper measures lithium tantalate's index against temperature in the infrared (Bond 1965 and Casson et al. 2004 are at room temperature). Nakamura et al. (Jpn. J. Appl. Phys. 41, L465 (2002), doi:10.1143/JJAP.41.L465), whom Casson et al. cite, fit near-stoichiometric crystals.",
+        detail: r"Shipped: Abedin & Ito's $n(\lambda, T)$ (1996), whose temperature terms are fitted at 468 and 644 nm only; extrapolated to 1550 nm it gives $dn_o/dT = +8.0 \times 10^{-6}$ and $dn_e/dT = -2.7 \times 10^{-6}$ per K (25–300 °C). Beside it, as constants, the coefficients measured on doped crystals: Dolev et al. 2009's interferometry of 0.5 mol% MgO-doped stoichiometric LiTaO₃ (Table 1: $(1/n_e)\,dn_e/dT = 1.96 \times 10^{-5}$ per K at 1.0642 µm and 25 °C, about $4.2 \times 10^{-5}$ in $dn_e/dT$; $1.59 \times 10^{-5}$ at 3.39 µm) and Moutzouris et al. 2011's prism coupling of 8 mol% Mg-doped congruent LiTaO₃ at 1551 nm (Table 1: $dn_e/dT = 5.4 \times 10^{-5}$, $dn_o/dT = 5.9 \times 10^{-6}$ per K from 22 to 200 °C). Both put $dn_e/dT$ an order of magnitude above Abedin & Ito's extrapolation and of the other sign, but neither is this entry's crystal. Bruner et al. 2003 (Opt. Lett. 28, 194, doi:10.1364/OL.28.000194) fit $n_e(\lambda, T)$ of stoichiometric LiTaO₃ to 4.1 µm from quasi-phase-matching, which constrains the dispersion, not $n$ itself ('sensitive mostly to the dependence of wavelength on refractive indices', p. 195): its $dn_e/dT$ at 1.55 µm, $2.1 \times 10^{-6}$ per K, isn't a measurement of it, and Dolev et al. find it far from theirs. A measurement on the undoped congruent crystal wasn't found.",
     },
     Item {
         entry: "litao3",

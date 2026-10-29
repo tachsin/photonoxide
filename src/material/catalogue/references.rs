@@ -494,6 +494,20 @@ const PAPERS: &[(&str, &str, &str, &str, &str)] = &[
         "10.1063/1.363679",
         "",
     ),
+    (
+        "dolev-2009",
+        "I. Dolev, A. Ganany-Padowicz, O. Gayer, A. Arie, J. Mangin, G. Gadret, Appl. Phys. B 96, 423 (2009)",
+        "Linear and nonlinear optical properties of MgO:LiTaO3",
+        "10.1007/s00340-009-3502-3",
+        "",
+    ),
+    (
+        "moutzouris-2011",
+        "K. Moutzouris, G. Hloupis, I. Stavrakas, D. Triantis, M.-H. Chou, Opt. Mater. Express 1, 458 (2011)",
+        "Temperature-dependent visible to near-infrared optical properties of 8 mol% Mg-doped lithium tantalate",
+        "10.1364/OME.1.000458",
+        "https://doi.org/10.1364/OME.1.000458",
+    ),
 ];
 
 /// The papers with these keys.
