@@ -21,6 +21,7 @@
     markers = true,
     xLength = false,
     yLog = false,
+    guides = [],
   }: {
     series: Series[];
     xLabel: string;
@@ -36,6 +37,8 @@
     xLength?: boolean;
     /** Whether y is drawn on a logarithmic scale: its values must be positive; others aren't drawn. */
     yLog?: boolean;
+    /** Dashed lines across the plot, each with its label: a level (y) or a value of x (a bandwidth, say), in the data's units. */
+    guides?: { x?: number; y?: number; label: string }[];
   } = $props();
 
   /** The x axis's name with its unit, and the data and the marker in that unit. */
@@ -136,6 +139,15 @@
     {#if !xLength}
       <text x={(L + width - R) / 2} y={height - 6} text-anchor="middle" class="fill-base-content/70 text-[12px]">{xLabel}</text>
     {/if}
+    {#each guides as g, k (k)}
+      {#if g.y !== undefined && scaled(g.y) >= ys[0] && scaled(g.y) <= ys[1]}
+        <line x1={L} x2={width - R} y1={Y(g.y)} y2={Y(g.y)} class="stroke-base-content/45" stroke-dasharray="5 4" />
+        <text x={L + 6} y={Y(g.y) - 4} class="fill-base-content/70 text-[11px]">{g.label}</text>
+      {:else if g.x !== undefined && g.x >= xs[0] && g.x <= xs[1]}
+        <line x1={X(g.x)} x2={X(g.x)} y1={T} y2={height - B} class="stroke-base-content/45" stroke-dasharray="5 4" />
+        <text x={X(g.x) + 4} y={T + 12 + 13 * (k % 2)} class="fill-base-content/70 text-[11px]">{g.label}</text>
+      {/if}
+    {/each}
     {#if mark !== null && mark >= xs[0] && mark <= xs[1]}
       <line x1={X(mark)} x2={X(mark)} y1={T} y2={height - B} class="stroke-accent" stroke-width="1.5" />
     {/if}

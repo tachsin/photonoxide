@@ -228,16 +228,27 @@ impl Tfln {
             || ((self.slab..self.film).contains(&y) && x.abs() < self.half_width(y))
     }
 
+    /// The rib's corners (µm): its foot on the slab, left and right, then its top, right and
+    /// left.
+    pub(crate) fn rib_corners(&self) -> [[f64; 2]; 4] {
+        let (b, t) = (self.half_width(self.slab), 0.5 * self.top);
+        [
+            [-b, self.slab],
+            [b, self.slab],
+            [t, self.film],
+            [-t, self.film],
+        ]
+    }
+
     /// The rib as a polygon.
     fn rib(&self) -> Shape {
-        let (b, t) = (self.half_width(self.slab), 0.5 * self.top);
         Shape::Polygon(
-            Polygon::new(vec![
-                Point::um(-b, self.slab),
-                Point::um(b, self.slab),
-                Point::um(t, self.film),
-                Point::um(-t, self.film),
-            ])
+            Polygon::new(
+                self.rib_corners()
+                    .iter()
+                    .map(|c| Point::um(c[0], c[1]))
+                    .collect(),
+            )
             .expect(OK),
         )
     }

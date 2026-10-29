@@ -11,7 +11,7 @@ use num_complex::Complex64 as c64;
 use crate::circuit::{Fidelity, Parameter, Provenance};
 use crate::electro::line::{DB_PER_NEPER, Drive as LineDrive, Metal, QuasiTem, falls_to, response};
 use crate::electro::line_checks::{Cpw, ZHANG_TANGENTS, holloway_kuester_integral};
-use crate::electro::{EPSILON_0, Grading};
+use crate::electro::{EPSILON_0, ElectricField, Grading};
 use crate::geometry::{Point, Polygon, Shape};
 use crate::material::catalogue::{Conditions, entry};
 use crate::material::{self, Material};
@@ -20,6 +20,8 @@ use crate::mode::pockels::checks::{Coefficients, Tfln, section_pockels, te_mode_
 use crate::mode::pockels::{Drive, half_wave_voltage_length};
 use crate::mode::slab::Slab;
 use crate::mode::thermo::index_change;
+use crate::mode::vector::{CrossSection, VectorMode};
+use crate::raster::Raster;
 use crate::stack::{Etch, Layer, LayerStack, Structure};
 use crate::units::{Length, SPEED_OF_LIGHT, Wavelength};
 use crate::{Error, Result};
@@ -303,6 +305,113 @@ impl TflnModulator {
         Ok(self.solved(values)?.vpi_l)
     }
 
+    /// The 2D model's static field at 1 V and its mode at `values`, on one window of the
+    /// cross-section: the gap, the rib and the electrodes' edges, from 1.5 µm under the film to
+    /// 1 µm over what is highest (see [`ElectrodeField`]). The same solves as the 2D model's
+    /// Vπ·L, made again (its line isn't solved).
+    ///
+    /// # Errors
+    ///
+    /// As [`TflnModulator::vpi_l`].
+    pub fn electrode_field(&self, values: &Values) -> Result<ElectrodeField> {
+        let s = self.section(values)?;
+        let p = s.pockels(self.refinement)?;
+        let t = &s.tfln;
+        let half = (0.5 * t.gap + 1.5).max(3.0);
+        let x = [-half, half];
+        let y = [
+            -1.5,
+            t.film.max(t.slab + t.clad).max(t.slab + t.metal) + 1.0,
+        ];
+        let pixel = p.h.max((x[1] - x[0]).max(y[1] - y[0]) / PICTURE_PIXELS);
+        let (nx, ny) = (
+            ((x[1] - x[0]) / pixel).round().max(2.0) as usize,
+            ((y[1] - y[0]) / pixel).round().max(2.0) as usize,
+        );
+        let centre = |i: usize, j: usize| {
+            [
+                x[0] + (i as f64 + 0.5) * (x[1] - x[0]) / nx as f64,
+                y[0] + (j as f64 + 0.5) * (y[1] - y[0]) / ny as f64,
+            ]
+        };
+        let fields = p.mode.fields(&p.cs)?;
+        let (xs, ys) = (p.cs.x(), p.cs.y());
+        // the optical cell holding a coordinate along one axis, if any
+        let cell = |nodes: &[f64], v: f64| {
+            (nodes[0]..nodes[nodes.len() - 1])
+                .contains(&v)
+                .then(|| nodes.partition_point(|&n| n <= v) - 1)
+        };
+        let (mut strength, mut intensity) = (Vec::with_capacity(nx * ny), vec![0.0; nx * ny]);
+        for j in 0..ny {
+            for i in 0..nx {
+                let [xc, yc] = centre(i, j);
+                let e = p.field.at(xc, yc);
+                strength.push(e[0].hypot(e[1]) as f32);
+                if let (Some(a), Some(b)) = (cell(xs, xc), cell(ys, yc)) {
+                    intensity[j * nx + i] = fields.e(a, b).iter().map(|c| c.norm_sqr()).sum();
+                }
+            }
+        }
+        let peak = intensity
+            .iter()
+            .copied()
+            .fold(0.0, f64::max)
+            .max(f64::MIN_POSITIVE);
+        let raster = |values: Vec<f32>| Raster {
+            nx,
+            ny,
+            x0: x[0],
+            x1: x[1],
+            y0: y[0],
+            y1: y[1],
+            values,
+        };
+        let step = (x[1] - x[0]) / ARROWS_ACROSS as f64;
+        let up = ((y[1] - y[0]) / step).round().max(1.0) as usize;
+        let mut arrows = Vec::with_capacity(ARROWS_ACROSS * up);
+        for j in 0..up {
+            for i in 0..ARROWS_ACROSS {
+                let at = [
+                    x[0] + (i as f64 + 0.5) * step,
+                    y[0] + (j as f64 + 0.5) * (y[1] - y[0]) / up as f64,
+                ];
+                arrows.push((at, p.field.at(at[0], at[1])));
+            }
+        }
+        let clip = |a: f64| a.clamp(x[0], x[1]);
+        let electrode = |from: f64, to: f64| {
+            let (a, b) = (clip(from), clip(to));
+            let (bottom, top) = (t.slab, t.slab + t.metal);
+            vec![[a, bottom], [b, bottom], [b, top], [a, top], [a, bottom]]
+        };
+        let mut rib: Vec<[f64; 2]> = t.rib_corners().to_vec();
+        rib.push(rib[0]);
+        let mut shapes = vec![rib];
+        for (from, to) in [
+            (-0.5 * t.gap - t.ground, -0.5 * t.gap),
+            (0.5 * t.gap, 0.5 * t.gap + t.signal),
+        ] {
+            if clip(from) < clip(to) {
+                shapes.push(electrode(from, to));
+            }
+        }
+        let interfaces = [0.0, t.slab, t.slab + t.clad]
+            .into_iter()
+            .filter(|v| (y[0]..y[1]).contains(v))
+            .collect();
+        Ok(ElectrodeField {
+            field: raster(strength),
+            mode: raster(intensity.iter().map(|v| (v / peak) as f32).collect()),
+            arrows,
+            shapes,
+            interfaces,
+            vpi_l: p.vpi_l,
+            n_eff: p.mode.effective_index().re,
+            grid: p.grid,
+        })
+    }
+
     /// The figures at `fidelity`, the provenance of its phase, the response at the frequency,
     /// and whether its insertion loss (the figure `IL`) is a measured device's.
     fn model(
@@ -498,6 +607,52 @@ struct Solved {
     line_grid: String,
 }
 
+/// The 2D model's Pockels chain at a cross-section ([`Section::pockels`]).
+struct Pockels {
+    field: ElectricField,
+    cs: CrossSection,
+    mode: VectorMode,
+    vpi_l: f64,
+    h: f64,
+    grid: String,
+}
+
+/// The most pixels across or up [`ElectrodeField`]'s pictures.
+const PICTURE_PIXELS: f64 = 400.0;
+/// The arrows across [`ElectrodeField`]'s window.
+const ARROWS_ACROSS: usize = 32;
+
+/// The 2D model's static field and its mode on one window of the cross-section, as
+/// [`TflnModulator::electrode_field`] gives them: where they overlap is what moves the mode's
+/// index, and what sets Vπ·L. One arm's gap: the ground on the left, the signal on the right
+/// (the other arm is its mirror).
+#[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
+pub struct ElectrodeField {
+    /// |E| (V/m) at 1 V on the signal, the ground at 0, each pixel [`ElectricField::at`] its
+    /// centre (zero inside a conductor): x across (0 at the rib's centre), y up (0 at the film's
+    /// bottom), µm.
+    pub field: Raster,
+    /// The mode's |E|² on the same pixels, 1 at its peak: each pixel the optical cell it falls
+    /// in, 0 outside the optical cross-section.
+    pub mode: Raster,
+    /// E (V/m, across and up) at 1 V on a coarser grid over the window, for arrows: where (µm)
+    /// and E.
+    pub arrows: Vec<([f64; 2], [f64; 2])>,
+    /// The rib's outline and the electrodes' rectangles in the window, each a closed polygon
+    /// (µm).
+    pub shapes: Vec<Vec<[f64; 2]>>,
+    /// The layers' interfaces in the window, y (µm): the buried oxide's top, the slab's, and the
+    /// cladding's.
+    pub interfaces: Vec<f64>,
+    /// The 2D model's Vπ·L push–pull (V·cm), from this field and this mode: the `VpiL` figure.
+    pub vpi_l: f64,
+    /// The mode's effective index.
+    pub n_eff: f64,
+    /// The field's and the mode's grids, in words: the `VpiL` figure's grid.
+    pub grid: String,
+}
+
 /// The catalogue entry `id`'s default model's material along its axis `k`.
 fn axis_material(id: &str, k: usize) -> Result<Material> {
     let e =
@@ -592,8 +747,10 @@ impl Section {
         ))
     }
 
-    /// The 2D model's solves, its grids refined by `r`.
-    fn solve(&self, r: f64) -> Result<Solved> {
+    /// The 2D model's Pockels chain, its grids refined by `r`: the static field at 1 V on the
+    /// signal, the optical cross-section and its TE mode, Vπ·L push–pull from their overlap,
+    /// and the grids in words.
+    fn pockels(&self, r: f64) -> Result<Pockels> {
         let h = OPTICAL_STEP / r;
         let w = Wavelength::um(LAMBDA)?;
         let grading = Grading::new(1.0, h, 1.15)?;
@@ -605,6 +762,34 @@ impl Section {
         });
         let per_volt = index_change(&mode, &cs, &delta)?.re;
         let vpi_l = 100.0 * half_wave_voltage_length(per_volt, w, Drive::PushPull)?;
+        let grid = format!(
+            "the field on {} cells graded from {:.3} nm by 1.15 to 1 um, the mode on {} x {} \
+             cells of {:.3} nm over the film",
+            field.grid().cells(),
+            h * 1e3,
+            cs.x().len() - 1,
+            cs.y().len() - 1,
+            h * 1e3
+        );
+        Ok(Pockels {
+            field,
+            cs,
+            mode,
+            vpi_l,
+            h,
+            grid,
+        })
+    }
+
+    /// The 2D model's solves, its grids refined by `r`.
+    fn solve(&self, r: f64) -> Result<Solved> {
+        let Pockels {
+            mode,
+            vpi_l,
+            h,
+            grid: optical_grid,
+            ..
+        } = self.pockels(r)?;
         let n_eff = mode.effective_index().re;
         let index_at = |um: f64| -> Result<f64> {
             let w = Wavelength::um(um)?;
@@ -617,15 +802,6 @@ impl Section {
         let problem = self.cpw.electrostatic(s);
         let line_cells = problem.grid().cells();
         let line = QuasiTem::mirrored(&problem, 0)?;
-        let field_cells = field.grid().cells();
-        let optical_grid = format!(
-            "the field on {field_cells} cells graded from {:.3} nm by 1.15 to 1 um, the mode on \
-             {} x {} cells of {:.3} nm over the film",
-            h * 1e3,
-            cs.x().len() - 1,
-            cs.y().len() - 1,
-            h * 1e3
-        );
         Ok(Solved {
             vpi_l,
             n_eff,

@@ -48,6 +48,8 @@
   import StackEditor from "./StackEditor.svelte";
   import OptimizeTab from "./OptimizeTab.svelte";
   import StudyTab from "./StudyTab.svelte";
+  import ElectrodeFieldView from "./ElectrodeFieldView.svelte";
+  import { MODULATOR } from "./ModulatorSweeps.svelte";
   import TemperatureView from "./TemperatureView.svelte";
   import TopView from "./TopView.svelte";
 
@@ -210,12 +212,15 @@
   }
 
   // ---- the view, always on screen, and the panel beside it ----
-  /** What the design's view shows: 3D, from above, the cross-section at the cut, the cells the model solves on, or a heater's temperature. */
-  let shape = $state<"3d" | "top" | "cut" | "solved" | "heat">("3d");
+  /** What the design's view shows: 3D, from above, the cross-section at the cut, the cells the model solves on, a heater's temperature, or a modulator's electrode field. */
+  let shape = $state<"3d" | "top" | "cut" | "solved" | "heat" | "field">("3d");
   /** A thermo-optic shifter: its view shows its temperature too. */
   const heated = $derived(info.kind.includes("thermo-optic"));
+  /** An electro-optic modulator: its view shows its electrodes' field too. */
+  const driven = $derived(info.kind === MODULATOR);
   $effect(() => {
-    if (!heated && untrack(() => shape) === "heat") shape = "3d";
+    const s = untrack(() => shape);
+    if ((!heated && s === "heat") || (!driven && s === "field")) shape = "3d";
   });
   const shapes = $derived<[typeof shape, string][]>([
     ["3d", "3D"],
@@ -223,6 +228,7 @@
     ["cut", "Cross-section"],
     ["solved", "As solved"],
     ...(heated ? [["heat", "Temperature"] as [typeof shape, string]] : []),
+    ...(driven ? [["field", "Electrode field"] as [typeof shape, string]] : []),
   ]);
   /** The design, or the run shown on the device. */
   let mainView = $state<"design" | "run">("design");
@@ -506,6 +512,8 @@
               <CutView scene={shownDrawn.scene} {normal} at={cutAt ?? 0} height={Math.max(100, Math.round(0.64 * viewHeight) - 64)} />
             {:else if shape === "heat"}
               <TemperatureView spec={draft.spec} height={Math.max(160, viewHeight - 24)} />
+            {:else if shape === "field"}
+              <ElectrodeFieldView spec={draft.spec} height={Math.max(160, viewHeight - 24)} />
             {:else}
               <SolvedView spec={draft.spec} compute={draft.compute} {normal} at={cutAt ?? 0} height={Math.max(140, viewHeight - 40)} />
             {/if}
@@ -530,14 +538,14 @@
               <button class="btn btn-xs join-item {shape === v ? 'btn-primary btn-soft' : ''}" aria-pressed={shape === v} onclick={() => (shape = v)}>{label}</button>
             {/each}
           </div>
-          {#if shape !== "3d" && shape !== "heat"}
+          {#if shape !== "3d" && shape !== "heat" && shape !== "field"}
             <div class="join" role="group" aria-label="The cut">
               <button class="btn btn-xs join-item {normal === 'x' ? 'btn-active' : 'btn-ghost'}" onclick={() => ((normal = "x"), (cutAt = drawn ? (drawn.scene.x_um[0] + drawn.scene.x_um[1]) / 2 : 0))}>cut across x</button>
               <button class="btn btn-xs join-item {normal === 'y' ? 'btn-active' : 'btn-ghost'}" onclick={() => ((normal = "y"), (cutAt = drawn ? (drawn.scene.y_um[0] + drawn.scene.y_um[1]) / 2 : 0))}>across y</button>
             </div>
           {/if}
           <span class="flex-1"></span>
-          <span class="hidden text-[11px] faint lg:inline">{shape === "3d" ? "as its job draws it: drag to turn it" : shape === "solved" ? "on the cells the chosen model solves" : shape === "heat" ? "the 2D model's heat, true to scale" : "true to scale"}</span>
+          <span class="hidden text-[11px] faint lg:inline">{shape === "3d" ? "as its job draws it: drag to turn it" : shape === "solved" ? "on the cells the chosen model solves" : shape === "heat" ? "the 2D model's heat, true to scale" : shape === "field" ? "the 2D model's field and mode, true to scale" : "true to scale"}</span>
         {/if}
       </div>
     </section>

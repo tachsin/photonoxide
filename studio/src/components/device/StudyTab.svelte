@@ -20,19 +20,28 @@
 
   import { ago, api, duration, type DeviceField, type DeviceInfo, type DeviceSpec, type JobItem, type RunItem, type StudyIn } from "../../lib/api";
   import { app, run, startRunHere, toast } from "../../lib/app.svelte";
-  import { designSpectrum, rungOf, rungs, shownRun, studies, studyOf, took, type Draft } from "../../lib/device.svelte";
+  import { designSpectrum, rungOf, rungs, shownRun, studies, studyOf, took, type Draft, type StudyState } from "../../lib/device.svelte";
   import { plain } from "../../lib/deviceview";
   import type { Event } from "../../lib/events";
   import { designCurves, overlaidOf, recordOf, type StudyRecord } from "../../lib/study";
   import { shown as inUnit, stored, unitText } from "../../lib/units";
   import Overlay, { type OverlayItem } from "../Overlay.svelte";
   import UnitChip from "../UnitChip.svelte";
+  import ModulatorSweeps, { MODULATOR } from "./ModulatorSweeps.svelte";
   import StudyResults from "./StudyResults.svelte";
 
   let { info, draft, designKey, values, fields }: { info: DeviceInfo; draft: Draft; designKey: string; values: Record<string, number>; fields: DeviceField[] } = $props();
 
   untrack(() => studyOf(info));
   const st = $derived(studies[info.id] ?? studyOf(info));
+  /** A modulator's Study tab has its Vπ·L and bandwidth sweeps too. */
+  const driven = $derived(info.kind === MODULATOR);
+  const modes = $derived<[StudyState["mode"], string][]>([
+    ["sweep", "Sweep"],
+    ["corners", "Corners"],
+    ...(driven ? [["modulator", "Vπ·L, f₃dB"] as [StudyState["mode"], string]] : []),
+    ["compare", "Compare"],
+  ]);
   const ladder = $derived(rungs(info));
   /** The fidelity the study computes at: the one chosen here, the design's by default. */
   const rung = $derived(ladder.find((r) => r.key === st.rung) ?? ladder.find((r) => r.key === rungOf(draft.spec.fidelity, draft.compute.fdfd_2d)) ?? ladder[0]);
@@ -263,12 +272,12 @@
 
 <div class="space-y-5">
   <div class="join w-full" role="tablist" aria-label="What the study does">
-    {#each [["sweep", "Sweep"], ["corners", "Corners"], ["compare", "Compare"]] as const as [m, label] (m)}
-      <button role="tab" class="btn btn-sm join-item flex-1 {st.mode === m ? 'btn-primary btn-soft' : ''}" onclick={() => (st.mode = m)}>{label}</button>
+    {#each modes as [m, label] (m)}
+      <button role="tab" aria-selected={st.mode === m} class="btn btn-sm join-item flex-1 {st.mode === m ? 'btn-primary btn-soft' : ''}" onclick={() => (st.mode = m)}>{label}</button>
     {/each}
   </div>
 
-  {#if st.mode !== "compare"}
+  {#if st.mode === "sweep" || st.mode === "corners"}
     <section>
       <h3 class="panel-title">Fidelity</h3>
       <div class="mt-2 flex flex-wrap items-center gap-2">
@@ -363,7 +372,7 @@
     </section>
   {/if}
 
-  {#if st.mode !== "compare"}
+  {#if st.mode === "sweep" || st.mode === "corners"}
     <section>
       <h3 class="panel-title">Band at each point</h3>
       <div class="mt-2 flex flex-wrap items-end gap-3 text-xs">
@@ -430,6 +439,8 @@
         {/each}
       </div>
     </section>
+  {:else if st.mode === "modulator" && driven}
+    <ModulatorSweeps spec={draft.spec} {values} {designKey} />
   {:else}
     <section>
       <h3 class="panel-title">Compare</h3>

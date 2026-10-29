@@ -186,7 +186,12 @@ in a drawer opened from the status bar.
     media's edges, and where the guide's mode takes its phase from the heat (its thermo-optic
     weights at half and 1/e² of their largest), the peak and the rise the mode feels (its
     weights' mean, which times its dn_eff/dT and 2πL/λ is the 2D model's phase), and the grids;
-    the rise under the pointer. The tabs:
+    the rise under the pointer. The TFLN modulator's view has **Electrode field**: its 2D model's
+    static field |E| at 1 V on the signal electrode across one arm's gap, its colours up to where
+    99% of its pixels are (the electrodes' corners are singular), its direction as arrows, the
+    rib, the electrodes and the layers' interfaces, and the optical mode's |E|² at half and 1/e²
+    of its peak over it; with |E| under the mode's peak and the Vπ·L their overlap gives (the
+    same solves as the 2D model's figure). The tabs:
     - **Design** (open first): the geometry, each parameter a field that takes a number in its
       unit or an expression (`w/2.5`, `450 nm`), with its slider and range, what it uses and
       what uses it, and its error in place with a caret under the column; named parameters can
@@ -255,6 +260,13 @@ in a drawer opened from the status bar.
         silicon and silica take none), one at a time or every combination, each a point beside
         the nominal design; their spectra overlaid and a table of each corner's value against
         the nominal one.
+      - **Vπ·L, f₃dB** (the TFLN modulator's): at its analytic or 2D model, Vπ·L, Vπ at
+        DC or the 3 or 6 dB bandwidth against the electrode gap, the signal electrode's width,
+        the rib's width or the length, each point the device's own figures with the parameter
+        there (one point a call, shown as it comes, **Stop** between points); and the
+        electro-optic response against frequency, 20 log₁₀ |m(f)| less its value at 1 GHz (the
+        reference the figures' bandwidths take), each point the figure `m_dB` at that frequency,
+        the 3 and 6 dB points marked. Both say they are our model's.
       - **Compare:** tick any of this device's designs (the one being edited, those saved) and
         runs, and they are drawn on shared axes with any quantity they share, each curve's legend
         naming its fidelity and grid, a 2D one said to be 2D, and their figures side by side. It

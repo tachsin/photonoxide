@@ -276,6 +276,14 @@ export const api = {
   deviceTemperature: (spec: DeviceSpec) => invoke<Temperature>("device_temperature", { spec }),
   /** The lines where a picture takes each of `levels` (isotherms, a mode's outline). */
   rasterContours: (raster: Raster, levels: number[]) => invoke<Isoline[]>("raster_contours", { raster, levels }),
+  /** A TFLN modulator's static field at 1 V and its mode on the cross-section, by its 2D model: the same solves as its Vπ·L. */
+  deviceElectrodeField: (spec: DeviceSpec) => invoke<ElectrodeField>("device_electrode_field", { spec }),
+  /** A TFLN modulator's figures (Vπ·L, V_π, the bandwidths) with one parameter at each of `values`, at the analytic or 2D model. */
+  deviceVpiLSweep: (spec: DeviceSpec, fidelity: string, parameter: string, values: number[]) =>
+    invoke<VpiSweep>("device_vpi_l_sweep", { spec, fidelity, parameter, values }),
+  /** A TFLN modulator's electro-optic response against frequency, referred to 1 GHz, its 3 and 6 dB bandwidths on it. */
+  deviceEoResponse: (spec: DeviceSpec, fidelity: string, toGhz: number | null, points: number | null) =>
+    invoke<EoResponse>("device_eo_response", { spec, fidelity, toGhz, points }),
   chipDevice: (device: DeviceRef) => invoke<InstanceDevice>("chip_device", { device }),
   chipDeviceRef: (spec: DeviceSpec) => invoke<DeviceRef>("chip_device_ref", { spec }),
   chipOptimizeInfo: (chip: Chip) => invoke<ChipOptimizeInfo>("chip_optimize_info", { chip }),
@@ -617,6 +625,54 @@ export interface Temperature {
   peak_at: [number, number];
   /** The rise the mode feels, K: its weights' mean of the rise. */
   guide: number;
+  grid: string;
+}
+
+/** A TFLN modulator's static field and mode by its 2D model (studio/src-tauri/src/devices/modulator.rs). */
+export interface ElectrodeField {
+  /** |E| at 1 V on the signal, V/m: x across from the rib's centre (the ground left, the signal right), y up from the film's bottom, µm. */
+  raster: Raster;
+  /** The largest |E| (the electrodes' corners), and |E| where the mode peaks, V/m. */
+  peak: number;
+  at_mode: number;
+  /** The mode's |E|² at half its peak and at 1/e². */
+  mode: Isoline[];
+  /** E at 1 V on a coarser grid: where (µm) and E (V/m, across and up). */
+  arrows: [[number, number], [number, number]][];
+  /** The rib's and the electrodes' outlines, closed; the layers' interfaces (y, µm). */
+  shapes: Line[];
+  interfaces: number[];
+  /** The 2D model's Vπ·L push–pull, V·cm, and the mode's effective index. */
+  vpi_l: number;
+  n_eff: number;
+  grid: string;
+}
+/** A modulator's figures at one value of the parameter swept (null where the model gives none). */
+export interface VpiPoint {
+  x: number;
+  vpi_l: number | null;
+  vpi: number | null;
+  f_3db: number | null;
+  f_6db: number | null;
+  problem?: string;
+}
+export interface VpiSweep {
+  parameter: string;
+  unit: string;
+  fidelity: string;
+  points: VpiPoint[];
+  grid: string;
+}
+/** A modulator's electro-optic response: (GHz, dB below its value at the reference), the bandwidths among the points. */
+export interface EoResponse {
+  fidelity: string;
+  reference_ghz: number;
+  reference_db: number;
+  points: [number, number][];
+  f_3db: number;
+  f_6db: number;
+  falls_3db: boolean;
+  falls_6db: boolean;
   grid: string;
 }
 

@@ -222,7 +222,8 @@ export async function solve(d: DeviceInfo, spec: DeviceSpec, fidelity: string) {
 
 /** A device's Study tab: what it does, its sweep's axes, its corners' settings, the run it shows and the things ticked to compare. */
 export interface StudyState {
-  mode: "sweep" | "corners" | "compare";
+  /** `modulator`: a TFLN modulator's Vπ·L and bandwidth sweeps (ModulatorSweeps). */
+  mode: "sweep" | "corners" | "compare" | "modulator";
   /** The fidelity's rung the study computes at; null for the design's. */
   rung: string | null;
   axes: { parameter: string; from: number; to: number; points: number }[];
