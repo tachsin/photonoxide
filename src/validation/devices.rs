@@ -742,7 +742,8 @@ pub(crate) fn rules() -> Vec<(&'static str, Rule)> {
                 1e-6,
                 Measured,
                 "the fit's own error between its samples",
-            ),
+            )
+            .varying(),
         ),
         (
             "device/compact-ring-held-out",
@@ -752,7 +753,8 @@ pub(crate) fn rules() -> Vec<(&'static str, Rule)> {
                 1e-6,
                 Measured,
                 "the fit's own error at its held-out samples",
-            ),
+            )
+            .varying(),
         ),
         (
             "device/compact-ring-convergence",
@@ -762,7 +764,8 @@ pub(crate) fn rules() -> Vec<(&'static str, Rule)> {
                 0.1,
                 Measured,
                 "the error falling at least tenfold with each step in samples and degree",
-            ),
+            )
+            .varying(),
         ),
         (
             "device/compact-ring-derivatives",
@@ -802,7 +805,8 @@ pub(crate) fn rules() -> Vec<(&'static str, Rule)> {
                 1e-3,
                 Measured,
                 "the compact fidelity's stated error against its source, at held-out samples",
-            ),
+            )
+            .varying(),
         ),
         (
             "device/compact-bend-2d",
@@ -812,7 +816,8 @@ pub(crate) fn rules() -> Vec<(&'static str, Rule)> {
                 1e-3,
                 Measured,
                 "as device/compact-waveguide-3d",
-            ),
+            )
+            .varying(),
         ),
         (
             "device/compact-coupler-3d",
@@ -852,7 +857,8 @@ pub(crate) fn rules() -> Vec<(&'static str, Rule)> {
                 1e-3,
                 Measured,
                 "as device/compact-waveguide-3d",
-            ),
+            )
+            .varying(),
         ),
         (
             "device/compact-mmi-1x2-2d",
@@ -862,7 +868,8 @@ pub(crate) fn rules() -> Vec<(&'static str, Rule)> {
                 5e-3,
                 Measured,
                 "as device/compact-waveguide-3d",
-            ),
+            )
+            .varying(),
         ),
         (
             "device/compact-mmi-2x2-2d",
@@ -892,7 +899,8 @@ pub(crate) fn rules() -> Vec<(&'static str, Rule)> {
                 1e-3,
                 Measured,
                 "as device/compact-waveguide-3d",
-            ),
+            )
+            .varying(),
         ),
         // ---- optimizations and chips ----
         (
@@ -1412,7 +1420,8 @@ pub(crate) fn rules() -> Vec<(&'static str, Rule)> {
                 1e-4,
                 Measured,
                 "the 8-pole fit's own error over the record",
-            ),
+            )
+            .varying(),
         ),
         (
             "thermal-rc/jacques-cutoff",
@@ -1422,7 +1431,8 @@ pub(crate) fn rules() -> Vec<(&'static str, Rule)> {
                 2e-3,
                 Measured,
                 "the transient's 0.1 µs steps the model is fitted to",
-            ),
+            )
+            .varying(),
         ),
         (
             "circuit/heated-mzi-transient",
