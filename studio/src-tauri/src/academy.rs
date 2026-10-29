@@ -1215,7 +1215,16 @@ mod tests {
     fn case_rows_come_from_the_report() {
         let row = case_row("mode/multilayer-bragg").unwrap();
         assert_eq!(row.tier, "analytic");
-        assert_eq!(row.measured, "0.999258");
+        // the case's own closed form (8 quarter-wave pairs, 2.3 / 1.38 on 1.52, from air), so a
+        // change to the case's number is a change here too; the report prints six decimals
+        let q = 1.52 * (2.3_f64 / 1.38).powi(16);
+        let closed = ((1.0 - q) / (1.0 + q)).powi(2);
+        let measured: f64 = row.measured.parse().unwrap();
+        // half the last printed digit
+        assert!(
+            (measured - closed).abs() <= 5e-7,
+            "{measured} against {closed}"
+        );
         assert!(row.pass);
         assert!(case_row("no/such-case").is_none());
     }

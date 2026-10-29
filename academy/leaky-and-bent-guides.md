@@ -197,14 +197,14 @@ argument above; their angle $\xi_p$ is this $\theta$.
 
 Such a field can't be normalized, so a leaky wave isn't one of the guide's modes in the strict
 sense: those are the bound modes and a continuum of radiation modes. Tamir and Oliner's Section 3.5
-puts it so: an improper wave is part of the continuous spectrum, never a mode by itself, and is
-present in a source's field only inside a wedge between the interface and a ray from the source at
+puts it so: an improper wave can never exist by itself as a mode of a spectral representation, and
+is present in a source's field only inside a wedge between the interface and a ray from the source at
 their angle $\theta_c$, beyond $\theta$ and nearer the interface. Inside the wedge the field decays
 along every radius, so its growth with depth ends at that ray, along which it gives its power to
 the radiation (their Section 4). They called **leaky** every complex wave that radiates so, proper
 or improper. [Part 2](https://doi.org/10.1049/piee.1963.0045) finds the radiation pattern from the
-wave's field along the interface: a wave launched one way, as down a guide fed at one end, gives
-a single peak a little nearer the normal than $\theta$ (its Eqs. 29 and 44), close to $\theta$
+wave's field along the interface: a wave excited in one direction only (their unidirectional
+excitation) gives a single peak a little nearer the normal than $\theta$ (its Eqs. 29 and 44), close to $\theta$
 while the wave decays slowly (Eq. 43), and broader the faster it decays (Eqs. 30–31).
 [Hu and Menyuk (2009)](https://doi.org/10.1364/AOP.1.000058) show on the slab where a leaky wave
 describes the field: near the guide, over the length on which it was launched, where it stands
