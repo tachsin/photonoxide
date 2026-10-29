@@ -711,6 +711,16 @@ pub(crate) fn rules() -> Vec<(&'static str, Rule)> {
             ),
         ),
         (
+            "device/coupler-chrostowski",
+            Rule::new(
+                Absolute,
+                Reference,
+                1.0,
+                Noted,
+                "the book's Eq. 4.14 at 200 nm, a fit to their 10 nm mesh's points, whose own error is about 1 µm: within 1 µm",
+            ),
+        ),
+        (
             "device/study-coupler-chrostowski",
             Rule::new(
                 Relative,

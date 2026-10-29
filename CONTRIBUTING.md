@@ -22,6 +22,21 @@ photonoxide is pre-1.0: ideas, use cases and validation cases are as welcome as 
 - **No AI attribution, anywhere.** Commits, PR and issue descriptions, comments and files carry no attribution to AI tools: no `Co-Authored-By` trailers naming an assistant, no "Generated with …" lines.
 - **Before pushing, run:** `just lint test` (rustfmt, clippy, the docs, the unit tests); or everything the release PR runs, `just suite` (`bash .github/full-suite.sh`). `just` lists every recipe.
 
+## Validation cases and their tolerances
+
+Every validation case has a rule, kept beside its area's cases in `src/validation/` (#544): no tolerance is chosen by hand. A rule says three things, and the report shows them beside the result (the Error, Basis and Ours columns):
+
+- **How the error is measured.** Relative, |measured − expected| / |expected|, for a value whose size matters; absolute, in the value's own unit, for one that is zero by nature (a residual, an imbalance, an order's distance from the scheme's) or a reference that states an absolute uncertainty.
+- **Where the tolerance comes from, its basis:**
+  - *round-off*: an exact identity, at most 1e-8 relative;
+  - *discretisation*: a closed form against our grid, the tolerance the grid's error, bounded or found by a grid study;
+  - *reference*: a published number, to its stated uncertainty, or half a unit of its last printed digit where it states none;
+  - *model*: a published approximate model, to the accuracy its paper gives it;
+  - *order*: a convergence test, the scheme's order within a margin that says why it's that wide.
+- **Our own numerical error** beside it: none beyond round-off (*exact*), the very thing the case measures, a value a grid study or a finer run gives (where it was found), or one the case notes as it runs (`note_numerical`).
+
+The report marks a case whose rule doesn't hold: a tolerance other than the rule's, a round-off tolerance above 1e-8, a published comparison without our own error beside it, or our own error above a third of the tolerance. Where a grid isn't precise enough to judge what it compares with, refine the grid; never loosen the tolerance. The report must read the same on every system: a value that depends on a platform's last bits (an iteration count, a slope over iterative results, a noise-level difference) is shown only to the digits that hold everywhere, rounded in the case, or as the resolution the comparison has.
+
 ## What CI runs
 
 CI runs in three tiers, so that a PR waits only for what its change can break:
