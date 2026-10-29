@@ -10,6 +10,21 @@
   import { tick } from "svelte";
 
   import { api, type HardwareAdvice } from "../lib/api";
+  import { bytes } from "../lib/bench.svelte";
+
+  /** The CPU's cores, caches and NUMA nodes, as far as the system said. */
+  function shape(cpu: HardwareAdvice["hardware"]["cpu"]): string {
+    const t = cpu.topology;
+    const parts = [`${cpu.threads} threads`];
+    if (t.cores) {
+      parts.push(t.performance_cores ? `${t.performance_cores} P + ${t.efficiency_cores} E cores` : `${t.cores} cores`);
+    }
+    const caches = [["L1d", t.l1d], ["L2", t.l2], ["L3", t.l3]].filter(([, b]) => b);
+    if (caches.length) parts.push(caches.map(([name, b]) => `${name} ${bytes(b as number)}`).join(", "));
+    if (t.numa_nodes > 1) parts.push(`${t.numa_nodes} NUMA nodes`);
+    if (cpu.features.length) parts.push(cpu.features.join(", "));
+    return parts.join(" · ");
+  }
   import { app, updateSettings } from "../lib/app.svelte";
   import { detect, libraries } from "../lib/libraries.svelte";
   import { openUrl } from "../lib/open";
@@ -175,7 +190,7 @@
           <p class="flex items-center gap-2 text-sm muted"><span class="loading loading-spinner loading-xs"></span> Looking at this machine…</p>
         {:else}
           <div class="grid gap-2 text-sm sm:grid-cols-2">
-            <div class="hw"><Cpu size={15} class="text-primary" /><span><span class="font-medium">{advice.hardware.cpu.brand || advice.hardware.cpu.vendor}</span><span class="block text-xs faint">{advice.hardware.cpu.threads} threads{advice.hardware.cpu.features.length ? ` · ${advice.hardware.cpu.features.join(", ")}` : ""}</span></span></div>
+            <div class="hw"><Cpu size={15} class="text-primary" /><span><span class="font-medium">{advice.hardware.cpu.brand || advice.hardware.cpu.vendor}</span><span class="block text-xs faint">{shape(advice.hardware.cpu)}</span></span></div>
             <div class="hw"><MonitorSmartphone size={15} class="text-primary" /><span>{#if advice.hardware.gpu}<span class="font-medium">{advice.hardware.gpu.name}</span><span class="block text-xs faint">NVIDIA driver {advice.hardware.gpu.driver}</span>{:else}<span class="font-medium">No NVIDIA GPU found</span><span class="block text-xs faint">{advice.hardware.os} on {advice.hardware.arch}</span>{/if}</span></div>
           </div>
           <ul class="space-y-2">

@@ -28,6 +28,7 @@ use serde::Serialize;
 pub mod environment;
 pub mod hardware;
 pub mod releases;
+pub mod topology;
 
 /// A command that installs a library.
 #[derive(Clone, Copy, Debug, Serialize)]
