@@ -202,7 +202,7 @@ pub(super) fn path_of(
 #[derive(Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub(super) struct StructureTask {
-    #[allow(dead_code)] // read to dispatch, checked by serde
+    #[allow(dead_code)] // looked up by the registry (job::kind); kept for serde and the schema
     kind: String,
     stack: StackField,
     core_nm: Option<f64>,

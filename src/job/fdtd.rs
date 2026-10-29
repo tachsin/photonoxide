@@ -179,7 +179,7 @@ struct ViewSpec {
 #[derive(Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub(super) struct FdtdTask {
-    #[allow(dead_code)] // read to dispatch, checked by serde
+    #[allow(dead_code)] // looked up by the registry (job::kind); kept for serde and the schema
     kind: String,
     /// The stack; a job's `[device]` gives its own instead.
     stack: Option<super::StackField>,

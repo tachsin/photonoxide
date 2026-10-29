@@ -204,7 +204,8 @@
 //! [`execute`] refuses the job and says so. [`optimize_from_device`] writes such a job. See
 //! `optimize.rs`.
 //!
-//! A job file's `[task]` table names its kind. The kinds so far:
+//! A job file's `[task]` table names its kind. Each kind is one file implementing one trait, and
+//! one line in a registry (`kind.rs`; CONTRIBUTING.md, "A new kind of job"). The kinds so far:
 //!
 //! - `"structure"`: a layer stack with shapes drawn on it, recorded as pictures of its
 //!   permittivity, seen from above and on a vertical cut.

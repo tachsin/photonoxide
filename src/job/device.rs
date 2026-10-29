@@ -453,7 +453,7 @@ fn keep_compact(job: &Job, run: &Run) -> Result<()> {
 #[derive(Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub(super) struct SpectrumTask {
-    #[allow(dead_code)] // read to dispatch, checked by serde
+    #[allow(dead_code)] // looked up by the registry (job::kind); kept for serde and the schema
     kind: String,
     from_um: Option<f64>,
     to_um: Option<f64>,

@@ -48,7 +48,7 @@ use crate::{Error, Result};
 #[serde(deny_unknown_fields)]
 pub(in crate::job) struct CrosstalkTask {
     /// `"optimize"`.
-    #[allow(dead_code)] // read to dispatch, checked by serde
+    #[allow(dead_code)] // looked up by the registry (job::kind); kept for serde and the schema
     kind: String,
     /// genoxide's method: lbfgsb, adam, mma, gcmma, nelder-mead, cmaes, de, pso.
     method: String,

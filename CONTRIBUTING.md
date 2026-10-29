@@ -37,6 +37,17 @@ Every validation case has a rule, kept beside its area's cases in `src/validatio
 
 The report marks a case whose rule doesn't hold: a tolerance other than the rule's, a round-off tolerance above 1e-8, a published comparison without our own error beside it, or our own error above a third of the tolerance. Where a grid isn't precise enough to judge what it compares with, refine the grid; never loosen the tolerance. The report must read the same on every system: a value that depends on a platform's last bits (an iteration count, a slope over iterative results, a noise-level difference) is shown only to the digits that hold everywhere, rounded in the case, or as the resolution the comparison has.
 
+## A new kind of job
+
+A job's `[task]` names its kind (`kind = "fdfd"`), and what the task sits beside decides which kinds there are: a task alone, one beside a `[device]`, or one beside a `[circuit]`. Each kind implements the trait `TaskKind` in `src/job/kind.rs`: its name, its task table's schema, and how a job of it is checked, previewed, run and farmed, and which fields its `[task.export]` may ask for. The registry, `kinds` in the same file, lists the kinds of each holder; checking, previewing, running, farming and the schema look a kind up there. A new kind is:
+
+1. **One file** in `src/job/` with the task's struct, `#[derive(Deserialize, JsonSchema)]` and `#[serde(deny_unknown_fields)]`, with a `kind: String` field (serde must accept the key, and the schema lists it), and a unit struct implementing `TaskKind`. A kind of a task alone runs through `solver_run` (its direct solver checked, then its start and end recorded); a device's through `device::computed`.
+2. **One line in the registry**, in the list of its holder, where the schema should list it.
+3. **Its line in `kind_tests.rs`**: the fields it refuses an unknown field with. That test runs every kind in the registry and fails for one without a line.
+4. **The schema written again**: `cargo run -p photonoxide-studio --release -- schema --write docs/job.schema.json`.
+
+The task isn't one internally tagged enum (`#[serde(tag = "kind")]`) because such an enum can't refuse a field it doesn't know, which every kind's struct does, by name.
+
 ## What CI runs
 
 CI runs in three tiers, so that a PR waits only for what its change can break:

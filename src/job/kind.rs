@@ -70,7 +70,9 @@ pub(super) trait TaskKind: Sync {
     /// checks (the direct solver's) have passed.
     fn check(&self, job: &Job) -> Result<()>;
 
-    /// The scene a run of this kind records first, without running it: [`super::preview`].
+    /// The scene a run of this kind records first, without running it ([`super::preview`]): the
+    /// job checked first as [`super::check`] checks it, but for a `[device]`'s computations,
+    /// whose design is drawn as it is, while it is edited.
     fn preview(&self, job: &Job) -> Result<Event>;
 
     /// Runs a job of this kind into `run`, from its start to its end: [`super::execute`] once
