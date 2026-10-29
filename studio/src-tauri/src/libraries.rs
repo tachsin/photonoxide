@@ -180,7 +180,7 @@ pub const GUIDES: &[Guide] = &[
                 manager: "conda-forge",
                 command: "conda install -c conda-forge mkl",
                 systems: &["windows", "linux", "macos"],
-                note: "Into the active conda environment: start photonoxide from it, so $CONDA_PREFIX points there. On macOS, Intel Macs only.",
+                note: "The Libraries page installs it into photonoxide's own environment, found with nothing to set; copied, it goes into the active conda environment: start photonoxide from it, so $CONDA_PREFIX points there. On macOS, Intel Macs only.",
                 checked: &[
                     Checked {
                         system: "linux",
@@ -342,7 +342,7 @@ pub const GUIDES: &[Guide] = &[
                 manager: "conda-forge",
                 command: "conda install -c conda-forge cuda-cudart libcusparse",
                 systems: &["windows", "linux"],
-                note: "Into the active conda environment: start photonoxide from it.",
+                note: "The Libraries page installs it into photonoxide's own environment, found with nothing to set; copied, it goes into the active conda environment: start photonoxide from it.",
                 checked: &[
                     Checked {
                         system: "linux",
@@ -402,7 +402,7 @@ pub const GUIDES: &[Guide] = &[
                 manager: "conda-forge",
                 command: "conda install -c conda-forge libcudss=1.0",
                 systems: &["windows", "linux"],
-                note: "Into the active conda environment: start photonoxide from it.",
+                note: "The Libraries page installs it into photonoxide's own environment, found with nothing to set; copied, it goes into the active conda environment: start photonoxide from it.",
                 checked: &[
                     Checked {
                         system: "linux",
@@ -462,7 +462,7 @@ pub const GUIDES: &[Guide] = &[
                 manager: "conda-forge",
                 command: "conda install -c conda-forge superlu",
                 systems: &["linux", "macos"],
-                note: "Into the active conda environment: start photonoxide from it.",
+                note: "The Libraries page installs it into photonoxide's own environment, found with nothing to set; copied, it goes into the active conda environment: start photonoxide from it.",
                 checked: &[
                     Checked {
                         system: "linux",
@@ -618,7 +618,7 @@ pub const GUIDES: &[Guide] = &[
                 manager: "conda-forge",
                 command: "conda install -c conda-forge openblas",
                 systems: &["windows", "linux", "macos"],
-                note: "Into the active conda environment: start photonoxide from it.",
+                note: "The Libraries page installs it into photonoxide's own environment, found with nothing to set; copied, it goes into the active conda environment: start photonoxide from it.",
                 checked: &[
                     Checked {
                         system: "linux",
@@ -642,6 +642,14 @@ pub const GUIDES: &[Guide] = &[
                         found: "OpenBLAS 0.3.34, and the photonoxide-openblas backend after its smoke test and its tests, on one thread",
                     },
                 ],
+            },
+            Install {
+                id: "conda-openmp",
+                manager: "conda-forge",
+                command: "conda install -c conda-forge libopenblas=*=*openmp*",
+                systems: &["linux", "macos"],
+                note: "OpenBLAS built with OpenMP in place of its own threads, which some machines run faster: Benchmarks compares the two here. photonoxide holds each of its threads' OpenMP count at one, so its own parallel loops and OpenBLAS's don't multiply (#557).",
+                checked: &[],
             },
             Install {
                 id: "apt",
@@ -749,7 +757,7 @@ pub const GUIDES: &[Guide] = &[
                 manager: "conda-forge",
                 command: "conda install -c conda-forge hdf5",
                 systems: &["windows", "linux", "macos"],
-                note: "Into the active conda environment: start photonoxide from it.",
+                note: "The Libraries page installs it into photonoxide's own environment, found with nothing to set; copied, it goes into the active conda environment: start photonoxide from it.",
                 checked: &[
                     Checked {
                         system: "linux",
@@ -817,7 +825,7 @@ pub const GUIDES: &[Guide] = &[
                 manager: "conda-forge",
                 command: "conda install -c conda-forge zstd",
                 systems: &["windows", "linux", "macos"],
-                note: "Into the active conda environment: start photonoxide from it. Many environments have it already, as a dependency.",
+                note: "The Libraries page installs it into photonoxide's own environment, found with nothing to set; copied, it goes into the active conda environment: start photonoxide from it. Many environments have it already, as a dependency.",
                 checked: &[
                     Checked {
                         system: "linux",

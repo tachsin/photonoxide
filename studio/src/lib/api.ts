@@ -24,6 +24,8 @@ export interface Settings {
   view: "3d" | "2d";
   /** The unit lengths are shown and edited in, app-wide: "um" (µm) or "nm" (lib/units.ts). */
   length_unit: string;
+  /** The builds made here are tuned to this CPU (#564). */
+  tuned_builds: boolean;
 }
 
 export interface AppState {

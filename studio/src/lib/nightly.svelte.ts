@@ -177,7 +177,9 @@ const call = {
   check: (quiet: boolean) => invoke<Nightly | null>("nightly_check", { quiet }),
   prerequisites: () => invoke<Prerequisites>("nightly_prerequisites"),
   installTool: (id: string) => invoke<string>("nightly_install_tool", { id }),
-  build: (commit: string) => invoke<Status>("nightly_build", { commit }),
+  build: (commit: string, tuned: boolean) => invoke<Status>("nightly_build", { commit, tuned }),
+  /** Builds the latest release here at its tag, tuned to this CPU when `tuned`. */
+  release: (tuned: boolean) => invoke<Status>("release_build", { tuned }),
   restart: (commit: string) => invoke<Status>("nightly_restart", { commit }),
   progress: (from: number) => invoke<BuildProgress | null>("nightly_progress", { from }),
   cancel: () => invoke<void>("nightly_cancel"),
@@ -367,8 +369,25 @@ export async function build(commit: string) {
   try {
     nightly.log = [];
     nightly.pkg = null;
-    nightly.status = await call.build(commit);
+    nightly.status = await call.build(commit, app.state?.settings.tuned_builds ?? false);
     nightly.progress = nightly.status.progress;
+    follow();
+  } catch (e) {
+    toast(String(e), "error");
+  }
+}
+
+/**
+ * Builds the latest release here at its tag (tuned to this CPU when the settings say so), and
+ * follows the build in the nightly dialog; it installs as a nightly does, as that release (#564).
+ */
+export async function buildRelease() {
+  try {
+    nightly.log = [];
+    nightly.pkg = null;
+    nightly.status = await call.release(app.state?.settings.tuned_builds ?? false);
+    nightly.progress = nightly.status.progress;
+    nightly.dialog = true;
     follow();
   } catch (e) {
     toast(String(e), "error");

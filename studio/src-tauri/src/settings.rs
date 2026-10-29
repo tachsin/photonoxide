@@ -36,6 +36,9 @@ pub struct Settings {
     /// Job files, runs and chips keep their own units; only the window converts. The window
     /// takes a value it doesn't know as `"um"`.
     pub length_unit: String,
+    /// The builds made here (a nightly, or a release built at its tag) are tuned to this CPU:
+    /// its instruction sets and fat LTO, the fastest code, for this machine alone (#564).
+    pub tuned_builds: bool,
 }
 
 impl Default for Settings {
@@ -50,6 +53,7 @@ impl Default for Settings {
             dismissed: Vec::new(),
             view: "3d".into(),
             length_unit: "um".into(),
+            tuned_builds: false,
         }
     }
 }
