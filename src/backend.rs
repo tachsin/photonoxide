@@ -42,7 +42,9 @@ use crate::{Error, Result};
 
 pub mod auto;
 pub mod dense;
-mod iterative;
+pub use crate::dense::Threads;
+pub(crate) mod iterative;
+pub(crate) mod krylov;
 pub use iterative::{
     IluFactors, IterativeSolver, MultigridCycle, MultigridLevel, QmrRun, RowMatrix, iterative,
     iterative_solvers, prefer_iterative, preferred_iterative, register_iterative,
@@ -184,18 +186,6 @@ impl<'a> Matrix<'a> {
         );
         SparseColMatRef::new(symbolic, self.values)
     }
-}
-
-/// How a backend's threads are set.
-#[derive(Clone, Debug, PartialEq, Eq)]
-#[non_exhaustive]
-pub enum Threads {
-    /// One thread.
-    One,
-    /// rayon's: the pool the solve is called in, or `RAYON_NUM_THREADS`.
-    Rayon,
-    /// The library's own, set as these words say (an environment variable, a call).
-    Library(String),
 }
 
 /// What a backend is and can do.

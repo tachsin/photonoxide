@@ -1,5 +1,5 @@
 use super::*;
-use crate::fdfd::krylov::{Ilu0, Sparse, gmres_preconditioned};
+use crate::backend::krylov::{Ilu0, Sparse, gmres_preconditioned};
 
 /// A complex, nonsymmetric, diagonally dominant matrix of n rows, shifted by `shift` on its
 /// diagonal, and a right-hand side: the same on every run.

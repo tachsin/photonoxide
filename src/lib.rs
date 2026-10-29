@@ -57,6 +57,7 @@ pub mod bench;
 pub mod circuit;
 pub mod compact;
 pub mod convergence;
+mod dense;
 pub mod device;
 mod eigen;
 pub mod electro;

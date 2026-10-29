@@ -1030,17 +1030,19 @@ mod crystal_tests;
 pub(crate) mod direct;
 mod fill;
 pub(crate) mod fill_checks;
-pub(crate) mod krylov;
 mod ports;
 #[cfg(test)]
 mod tests;
 mod three;
 
-pub use krylov::{BlockConvergence, Convergence, Stopping};
+// the Krylov solvers live in `backend` now (#508); these are their old paths
+pub use crate::backend::iterative::CycleShape;
+pub(crate) use crate::backend::krylov;
+pub use crate::backend::krylov::{BlockConvergence, Convergence, Stopping};
 pub use ports::{Direction, Port, PortMode, Side};
 pub use three::{
-    Axis, Boundaries3d, Coarse, CycleShape, Field3d, Formulation, Grid3d, IterativeSolver3d,
-    Jacobi, Multigrid, Port3d, PortMode3d, Product, Recycler, Solver3d,
+    Axis, Boundaries3d, Coarse, Field3d, Formulation, Grid3d, IterativeSolver3d, Jacobi, Multigrid,
+    Port3d, PortMode3d, Product, Recycler, Solver3d,
 };
 
 pub(crate) use three::adjoint as checks3d_adjoint;

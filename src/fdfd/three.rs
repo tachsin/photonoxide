@@ -1169,7 +1169,7 @@ mod tests;
 
 pub use iterative::{Formulation, IterativeSolver3d, Product, Recycler};
 pub(crate) use iterative::{MATRIX_FREE_SOLVE_BYTES, MATRIX_SOLVE_BYTES};
-pub use multigrid::{Coarse, CycleShape, Jacobi, Multigrid};
+pub use multigrid::{Coarse, Jacobi, Multigrid};
 pub use ports::{Port3d, PortMode3d};
 pub(crate) use ports::{mode_amplitude_weights_of, mode_amplitudes_of};
 

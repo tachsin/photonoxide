@@ -27,7 +27,6 @@
 
 use std::sync::{Arc, OnceLock};
 
-use faer::dyn_stack::{MemBuffer, MemStack};
 use faer::linalg::matmul::matmul;
 use faer::linalg::triangular_solve::{
     solve_lower_triangular_in_place, solve_unit_lower_triangular_in_place,
@@ -47,7 +46,7 @@ use super::matching::{Matching, matching};
 use super::{adjacency, nested_dissection};
 use crate::{Error, Result};
 
-use crate::backend::dense::{Block, BlockMut, DenseKernels, Product};
+use crate::dense::{Block, BlockMut, DenseKernels, Product, faer_lu};
 
 fn failed(what: &str, why: impl std::fmt::Display) -> Error {
     Error::invalid("the multifrontal LU", format!("{what}: {why}"))
@@ -964,31 +963,6 @@ fn eliminate_symmetric(
         }
     }
     perturbed
-}
-
-/// faer's LU with partial pivoting of the square block in place: the rows' order, entry i the
-/// row of the block that the factors' row i was.
-pub(crate) fn faer_lu(a: MatMut<'_, c64>, par: Par) -> Vec<usize> {
-    let k = a.nrows();
-    let mut forward = vec![0usize; k];
-    let mut inverse = vec![0usize; k];
-    let mut stack = MemBuffer::new(
-        faer::linalg::lu::partial_pivoting::factor::lu_in_place_scratch::<usize, c64>(
-            k,
-            k,
-            par,
-            Default::default(),
-        ),
-    );
-    faer::linalg::lu::partial_pivoting::factor::lu_in_place(
-        a,
-        &mut forward,
-        &mut inverse,
-        par,
-        MemStack::new(&mut stack),
-        Default::default(),
-    );
-    forward
 }
 
 /// LU with partial pivoting of the k × k block in place, rows swapped only among its own: the

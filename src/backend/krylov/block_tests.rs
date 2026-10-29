@@ -1,5 +1,5 @@
 use super::*;
-use crate::fdfd::krylov::{Sparse, qmr, qmr_symmetric};
+use crate::backend::krylov::{Sparse, qmr, qmr_symmetric};
 
 fn stop(tolerance: f64, max_iterations: usize) -> Stopping {
     Stopping {
@@ -311,7 +311,7 @@ fn block_qmr_is_the_same_bit_for_bit_on_any_number_of_threads() {
 fn a_blocks_products_and_triangular_solves_are_each_vectors_own() {
     // taken together, the matrix's rows and ILU(0)'s factors read once for all: each result
     // the same bits as alone
-    use crate::fdfd::krylov::{Ilu0, Preconditioner};
+    use crate::backend::krylov::{Ilu0, Preconditioner};
     let n = 2 * super::super::ROWS + 37;
     let a = nonsymmetric(n);
     let ilu = Ilu0::new(&a).unwrap();

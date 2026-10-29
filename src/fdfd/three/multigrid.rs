@@ -27,21 +27,11 @@ use num_complex::Complex64 as c64;
 
 use super::matrix_free::MatrixFree;
 use super::{Axis, Grid3d, Lattice};
+use crate::backend::iterative::CycleShape;
 use crate::backend::{Columns, DirectSolver, Factorization, Form};
 use crate::fdfd::Edges;
 use crate::fdfd::krylov::{BlockIlu0, Operator, Preconditioner, Sparse};
 use crate::{Error, Result};
-
-/// The shape of a multigrid cycle.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum CycleShape {
-    /// One coarse correction per level.
-    V,
-    /// An F-cycle: an F-cycle then a V-cycle on the coarser level.
-    F,
-    /// Two coarse corrections per level.
-    W,
-}
 
 /// How the multigrid preconditioner is built and cycled.
 #[derive(Clone, Copy, Debug, PartialEq)]

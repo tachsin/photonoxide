@@ -57,10 +57,10 @@ area material \
   "silicon_index silica_index group_index directional_coupler mzi_dwivedi"
 
 # the linear algebra under the solvers: sparse factorizations, the backends' trait and dense
-# kernels, the bytes they move. (The iterative backend, which takes fdfd's stopping rules, is
-# fdfd's.)
+# kernels, the bytes they move. (The iterative backend and the Krylov solvers, which fdfd
+# stops and measures, are fdfd's.)
 area sparse \
-  "src/sparse.rs src/sparse/* src/backend.rs src/backend/auto.rs src/backend/dense.rs src/traffic.rs" \
+  "src/sparse.rs src/sparse/* src/backend.rs src/backend/auto.rs src/backend/dense.rs src/dense.rs src/traffic.rs" \
   "" \
   "sparse:: backend:: traffic::" "" "" \
   "bench"
@@ -76,9 +76,9 @@ area mode \
 # with the allocations counted in FDFD's iterations and FDTD's time steps (tests/no_allocation.rs,
 # its tests named fdfd:: and fdtd::, which runs with every test, as tests/method_study.rs does)
 area fdfd \
-  "src/fdfd/* src/backend/iterative.rs tests/no_allocation.rs" \
+  "src/fdfd/* src/backend/iterative.rs src/backend/krylov.rs src/backend/krylov/* tests/no_allocation.rs" \
   "mode sparse" \
-  "fdfd:: backend::iterative::" "fdfd/ fdfd3d/" \
+  "fdfd:: backend::iterative:: backend::krylov::" "fdfd/ fdfd3d/" \
   "bump_oskooi cpml_roden_gedney lorentz_okoniewski pml_oskooi subpixel_holes tfsf_square_cylinder"
 
 # eigenmode expansion (#432): slab stacks' modes and their S-matrices; its taper case runs 2D FDFD

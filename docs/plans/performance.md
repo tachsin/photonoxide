@@ -99,7 +99,7 @@ e458386 (the examples, release build, all on the machine above):
 Threads were set with `RAYON_NUM_THREADS`, which sets faer's parallelism too. Three facts about
 the code explain part of these numbers:
 
-- `krylov::product` (src/fdfd/krylov.rs) spawns one OS thread per core on *every* product and
+- `krylov::product` (src/backend/krylov.rs) spawns one OS thread per core on *every* product and
   allocates its output each time; `dot` and `norm` are sequential.
 - The FDFD job's wavelength sweep (src/job/fdfd.rs, the loops at lines 410 and 551 on main) solves
   one wavelength after another; the circuit's sweep (src/circuit/mod.rs) already runs its

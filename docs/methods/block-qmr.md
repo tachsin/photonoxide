@@ -47,7 +47,7 @@ and with the multigrid, it is slower (the measurements below).
 R. W. Freund and M. Malhotra, "A block QMR algorithm for non-Hermitian linear systems with
 multiple right-hand sides", Linear Algebra Appl. 254, 119 (1997),
 [doi:10.1016/S0024-3795(96)00529-0](https://doi.org/10.1016/S0024-3795(96)00529-0). The
-implementation is `fdfd::krylov::block`.
+implementation is `backend::krylov::block`.
 
 **Lanczos vectors for many starting vectors** (their Algorithm 3.1, without look-ahead). Right
 vectors $v_1, v_2, \ldots$ span the block Krylov space of $A$ and the right-hand sides $B$; left

@@ -8,7 +8,7 @@
 //! For QMR, photonoxide keeps what surrounds a run: the restarts after a breakdown of the Lanczos
 //! process, and the tightened tolerance of QMR on a symmetric similar matrix
 //! ([`crate::fdfd::IterativeSolver3d`]). A backend does one run, from x₀ = 0 to the tolerance
-//! or a breakdown, as `fdfd::krylov` does it: R. W. Freund, N. M. Nachtigal, Numer. Math. 60,
+//! or a breakdown, as `backend::krylov` does it: R. W. Freund, N. M. Nachtigal, Numer. Math. 60,
 //! 315 (1991), doi:10.1007/BF01385726, without look-ahead; on a complex symmetric matrix, R. W.
 //! Freund, SIAM J. Sci. Stat. Comput. 13, 425 (1992), doi:10.1137/0913023.
 
@@ -16,9 +16,20 @@ use std::sync::{Arc, OnceLock, RwLock};
 
 use num_complex::Complex64 as c64;
 
+use super::krylov::{Convergence, Stopping};
 use super::{Capabilities, Choice, Listed, Matrix, OWN, check_name, invalid};
 use crate::Result;
-use crate::fdfd::{Convergence, Stopping};
+
+/// The shape of a multigrid cycle.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum CycleShape {
+    /// One coarse correction per level.
+    V,
+    /// An F-cycle: an F-cycle then a V-cycle on the coarser level.
+    F,
+    /// Two coarse corrections per level.
+    W,
+}
 
 /// How one run of QMR ended.
 #[derive(Clone, Debug, PartialEq)]
@@ -242,13 +253,13 @@ impl<'a> MultigridLevel<'a> {
 ///
 /// 1. [`MultigridCycle::pre`] smoothing steps, each xₗ ← xₗ + M⁻¹(bₗ − Aₗ xₗ) (the first,
 ///    from xₗ = 0, M⁻¹ bₗ);
-/// 2. the coarse corrections the [`crate::fdfd::CycleShape`] asks for (V: one, a V-cycle
+/// 2. the coarse corrections the [`CycleShape`] asks for (V: one, a V-cycle
 ///    below; W: two W-cycles; F: an F-cycle then a V-cycle), each
 ///    xₗ ← xₗ + P cycle(l + 1, Pᵀ(bₗ − Aₗ xₗ)); on the coarsest level, the cycle is the direct
 ///    solve;
 /// 3. [`MultigridCycle::post`] smoothing steps, as in 1.
 pub struct MultigridCycle<'a> {
-    pub(crate) shape: crate::fdfd::CycleShape,
+    pub(crate) shape: CycleShape,
     pub(crate) pre: usize,
     pub(crate) post: usize,
     pub(crate) restart: usize,
@@ -262,7 +273,7 @@ pub struct MultigridCycle<'a> {
 
 impl<'a> MultigridCycle<'a> {
     /// The cycle's shape.
-    pub fn shape(&self) -> crate::fdfd::CycleShape {
+    pub fn shape(&self) -> CycleShape {
         self.shape
     }
 
@@ -310,8 +321,7 @@ impl<'a> MultigridCycle<'a> {
         self.cycle_from(0, b, self.shape)
     }
 
-    fn cycle_from(&self, level: usize, b: &[c64], shape: crate::fdfd::CycleShape) -> Vec<c64> {
-        use crate::fdfd::CycleShape;
+    fn cycle_from(&self, level: usize, b: &[c64], shape: CycleShape) -> Vec<c64> {
         if level == self.levels.len() {
             return self
                 .coarsest_solve(b)
