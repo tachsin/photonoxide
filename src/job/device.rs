@@ -736,7 +736,7 @@ pub(super) fn execute(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
     let kind = task_kind(job)?;
     if kind.as_deref() == Some("fdtd") {
         // as any fdtd job, its structure the device's
-        return super::execute_task(job, run, stop, "fdtd");
+        return super::kind::TaskKind::execute(&super::fdtd::FdtdKind, job, run, stop);
     }
     if kind.as_deref() == Some("optimize") {
         super::check(job)?;

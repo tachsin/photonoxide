@@ -2662,6 +2662,16 @@ pub(super) fn check(job: &Job) -> Result<()> {
     Problem::of(job).map(|_| ())
 }
 
+/// What [`super::execute`] says of an `"optimize"` job, whatever it optimizes: the program runs
+/// it.
+pub(super) fn runs_elsewhere() -> Error {
+    task_error(
+        "an \"optimize\" job's optimizer is genoxide's, which the photonoxide program runs: \
+         photonoxide run <job> (the studio window shows it live); the library supplies its \
+         objectives and records it (photonoxide::job::Problem, Recorder)",
+    )
+}
+
 /// The design of evaluation `x` of the optimization `job`, as Apply takes it: the job's
 /// `[device]` with the variables at `x`.
 ///

@@ -14,14 +14,16 @@
 use schemars::SchemaGenerator;
 use serde_json::Value;
 
+use super::check::task_error;
 use super::event::Event;
 use super::fdfd::FdfdKind;
 use super::fdtd::FdtdKind;
 use super::modes::ModesKind;
+use super::optimize::crosstalk::CrosstalkKind;
 use super::statics::StaticKind;
 use super::structure::StructureKind;
-use crate::Result;
 use crate::run::{Job, Run, Stop};
+use crate::{Error, Result};
 
 /// What a job's task sits beside, which decides the kinds it may be.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -86,12 +88,13 @@ pub(super) trait TaskKind: Sync {
 pub(super) const EM_FIELDS: &[&str] = &["Ex", "Ey", "Ez", "Hx", "Hy", "Hz"];
 
 /// The kinds of a task alone, in the order the schema lists them.
-static SOLVER: [&dyn TaskKind; 5] = [
+static SOLVER: [&dyn TaskKind; 6] = [
     &StructureKind,
     &ModesKind,
     &FdfdKind,
     &FdtdKind,
     &StaticKind,
+    &CrosstalkKind,
 ];
 
 /// The kinds of a task beside a `[device]`, in the order the schema lists them.
@@ -107,6 +110,19 @@ pub(super) fn kinds(holder: Holder) -> &'static [&'static dyn TaskKind] {
         Holder::Device => &DEVICE,
         Holder::Chip => &CHIP,
     }
+}
+
+/// The name of the kind a task alone gives, which it must give.
+pub(super) fn named(job: &Job) -> Result<&str> {
+    job.task()
+        .get("kind")
+        .and_then(|k| k.as_str())
+        .ok_or_else(|| task_error("needs a kind, e.g. kind = \"structure\""))
+}
+
+/// What a task alone of a kind the registry hasn't is refused with.
+pub(super) fn unknown(name: &str) -> Error {
+    task_error(format!("unknown kind \"{name}\""))
 }
 
 /// The kind named `name` of a task beside `holder`, if there is one.

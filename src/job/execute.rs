@@ -1,8 +1,8 @@
 //! Running a job into a run's record.
 
-use super::check::{check, check_direct, task_error};
+use super::check::{check, check_direct};
 use super::event::Event;
-use super::kind::{Holder, find};
+use super::kind::{Holder, find, named, unknown};
 use super::modes::check_export;
 use super::scene::device_scene;
 use super::{chip, device, fdfd, fdtd, results};
@@ -59,13 +59,12 @@ fn execute_job(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
     if job.device().is_some() {
         return device::execute(job, run, stop);
     }
-    let kind = job
-        .task()
-        .get("kind")
-        .and_then(|k| k.as_str())
-        .ok_or_else(|| task_error("needs a kind, e.g. kind = \"structure\""))?
-        .to_owned();
-    execute_task(job, run, stop, &kind)
+    let name = named(job)?;
+    match find(Holder::Solver, name) {
+        Some(kind) => kind.execute(job, run, stop),
+        // refused where a kind's run starts: the direct solver checked, the start recorded
+        None => solver_run(job, run, stop, name, |_, _, _| Err(unknown(name))),
+    }
 }
 
 /// Whether `job` has a sweep whose points a farm's workers can solve ([`crate::farm`]): a
@@ -81,24 +80,6 @@ pub fn farms(job: &Job) -> bool {
     let compact = job.device().is_some_and(|d| d.contains_key("compact"));
     job.task().get("sweep").is_some()
         || (job.device().is_some() && !compact && matches!(name, Some("sweep" | "corners" | "fit")))
-}
-
-/// Runs `job`'s task of `kind` into `run`, from its start to its end.
-pub(super) fn execute_task(job: &Job, run: &mut Run, stop: &Stop, kind: &str) -> Result<()> {
-    if let Some(k) = find(Holder::Solver, kind) {
-        return k.execute(job, run, stop);
-    }
-    solver_run(job, run, stop, kind, |job, _, _| match kind {
-        "optimize" => {
-            check(job)?;
-            Err(task_error(
-                "an \"optimize\" job's optimizer is genoxide's, which the photonoxide program \
-                 runs: photonoxide run <job> (the studio window shows it live); the library \
-                 supplies its objectives and records it (photonoxide::job::Problem, Recorder)",
-            ))
-        }
-        other => Err(task_error(format!("unknown kind \"{other}\""))),
-    })
 }
 
 /// Runs a task alone of kind `kind` into `run`: its direct solver checked, then

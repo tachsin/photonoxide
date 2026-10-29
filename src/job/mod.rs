@@ -527,7 +527,7 @@ mod templates;
 use check::{
     check_cells, check_finite, check_materials, check_step, check_sweep, check_window, task_error,
 };
-use execute::{execute_task, reason};
+use execute::reason;
 use modes::{
     Along, ExportSpec, Frame, cell_tensor, cross_section, export_in, export_of, intensity,
 };

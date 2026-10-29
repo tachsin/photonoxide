@@ -29,15 +29,17 @@
 //! `power_mw` and each shifter's error `error_k` (rad, into (−π, π]). The optimizer is
 //! genoxide's, the run the `photonoxide` program's, as for a device.
 
-use schemars::JsonSchema;
+use schemars::{JsonSchema, SchemaGenerator};
 use serde::Deserialize;
 
+use super::super::execute::solver_run;
+use super::super::kind::TaskKind;
 use super::super::{Event, task_error};
 use super::{Point, Problem, Quantity, Settings, Target, Variable, figures_of, settings};
 use crate::device::objective::{Names, Source};
 use crate::device::{Goal, Reduce};
 use crate::expr::{Dual, Scope};
-use crate::run::{Job, Run};
+use crate::run::{Job, Run, Stop};
 use crate::thermal::Correction;
 use crate::{Error, Result};
 
@@ -89,6 +91,48 @@ struct CrosstalkSpec {
 #[derive(Debug)]
 pub(in crate::job) struct CrosstalkTarget {
     correction: Correction,
+}
+
+/// The `"optimize"` kind of a task alone: a heater array's crosstalk corrected, the one
+/// optimization without a `[device]` or a `[circuit]`.
+pub(in crate::job) struct CrosstalkKind;
+
+impl TaskKind for CrosstalkKind {
+    fn name(&self) -> &'static str {
+        "optimize"
+    }
+
+    fn schema(&self, g: &mut SchemaGenerator) -> serde_json::Value {
+        super::super::schema::task::<CrosstalkTask>(g)
+    }
+
+    fn check(&self, job: &Job) -> Result<()> {
+        if corrects(job) {
+            super::check(job)
+        } else {
+            Err(task_error(
+                "an \"optimize\" task optimizes a [device], a [circuit], or a heater array's \
+                 [task.crosstalk]",
+            ))
+        }
+    }
+
+    fn preview(&self, job: &Job) -> Result<Event> {
+        super::super::check(job)?;
+        // no scene of its own: as before, what reading the task as an fdfd job's refuses
+        super::super::fdfd::preview(job)
+    }
+
+    fn execute(&self, job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
+        solver_run(job, run, stop, self.name(), |job, _, _| {
+            super::super::check(job)?;
+            Err(super::runs_elsewhere())
+        })
+    }
+
+    fn exports(&self, _: &Job) -> (&'static str, &'static [&'static str]) {
+        ("this job", &[])
+    }
 }
 
 /// Whether `job`'s task is a crosstalk correction's: an `"optimize"` task with a

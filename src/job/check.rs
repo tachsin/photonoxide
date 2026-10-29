@@ -1,6 +1,6 @@
 //! Checking a job without running it.
 
-use super::kind::{Holder, find};
+use super::kind::{Holder, find, named, unknown};
 use super::modes::check_export;
 use super::scene::device_scene;
 use super::{chip, device, fdtd, fit, optimize, study};
@@ -199,21 +199,9 @@ fn check_inner(job: &Job) -> Result<()> {
             }
         };
     }
-    let kind = job
-        .task()
-        .get("kind")
-        .and_then(|k| k.as_str())
-        .ok_or_else(|| task_error("needs a kind, e.g. kind = \"structure\""))?;
-    check_direct(job, kind)?;
-    if let Some(k) = find(Holder::Solver, kind) {
-        return k.check(job);
-    }
-    match kind {
-        "optimize" if optimize::crosstalk::corrects(job) => optimize::check(job),
-        "optimize" => Err(task_error(
-            "an \"optimize\" task optimizes a [device], a [circuit], or a heater array's \
-             [task.crosstalk]",
-        )),
-        other => Err(task_error(format!("unknown kind \"{other}\""))),
-    }
+    let name = named(job)?;
+    check_direct(job, name)?;
+    find(Holder::Solver, name)
+        .ok_or_else(|| unknown(name))?
+        .check(job)
 }

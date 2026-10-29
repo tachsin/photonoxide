@@ -20,13 +20,8 @@ use schemars::generate::SchemaSettings;
 use schemars::{JsonSchema, Schema, SchemaGenerator, json_schema};
 use serde_json::{Map, Value, json};
 
-use super::fdfd::FdfdKind;
-use super::fdtd::FdtdKind;
-use super::kind::TaskKind;
-use super::modes::ModesKind;
+use super::kind::{self, Holder};
 use super::params::{PATH, PLACE, SEGMENT, SHAPE, SHAPES, SHIFT, Want};
-use super::statics::StaticKind;
-use super::structure::StructureKind;
 
 /// Where the published schema is, for a job file's `$schema` and an editor's settings.
 pub const SCHEMA_URL: &str =
@@ -152,22 +147,9 @@ pub fn schema() -> Value {
 pub(crate) fn base() -> Value {
     let mut g = SchemaSettings::draft2020_12().into_generator();
     let job = g.subschema_for::<crate::run::JobFile>();
-    let solver = kinds(
-        &mut g,
-        &[
-            ("structure", |g| StructureKind.schema(g)),
-            ("modes", |g| ModesKind.schema(g)),
-            ("fdfd", |g| FdfdKind.schema(g)),
-            ("fdtd", |g| FdtdKind.schema(g)),
-            ("static", |g| StaticKind.schema(g)),
-            (
-                "optimize",
-                task::<super::optimize::crosstalk::CrosstalkTask>,
-            ),
-        ],
-    );
+    let solver = kinds(&mut g, Holder::Solver);
     // a device's task may be empty, or left out: the design at its fidelity, its own model
-    let mut device = kinds(
+    let mut device = hand_kinds(
         &mut g,
         &[
             ("spectrum", task::<super::device::SpectrumTask>),
@@ -184,7 +166,7 @@ pub(crate) fn base() -> Value {
         .as_array_mut()
         .expect("its kinds")
         .push(json!({ "anyOf": [{ "maxProperties": 0 }, { "required": ["kind"] }] }));
-    let chip = kinds(
+    let chip = hand_kinds(
         &mut g,
         &[
             ("spectrum", task::<super::chip::ChipTask>),
@@ -281,8 +263,29 @@ pub(super) fn task<T: JsonSchema>(g: &mut SchemaGenerator) -> Value {
     g.subschema_for::<T>().to_value()
 }
 
+/// A task table beside `holder`: its `kind` one of the registry's names, the rest its kind's.
+fn kinds(g: &mut SchemaGenerator, holder: Holder) -> Value {
+    let registered = kind::kinds(holder);
+    let names: Vec<&str> = registered.iter().map(|k| k.name()).collect();
+    let cases: Vec<Value> = registered
+        .iter()
+        .map(|k| {
+            json!({
+                "if": { "properties": { "kind": { "const": k.name() } }, "required": ["kind"] },
+                "then": k.schema(g)
+            })
+        })
+        .collect();
+    json!({
+        "type": "object",
+        "required": ["kind"],
+        "properties": { "kind": { "enum": names, "description": "What the task computes." } },
+        "allOf": cases
+    })
+}
+
 /// A task table that is one of `kinds`: its `kind` one of their names, the rest its kind's.
-fn kinds(g: &mut SchemaGenerator, kinds: &[(&str, TaskSchema)]) -> Value {
+fn hand_kinds(g: &mut SchemaGenerator, kinds: &[(&str, TaskSchema)]) -> Value {
     let names: Vec<&str> = kinds.iter().map(|(k, _)| *k).collect();
     let cases: Vec<Value> = kinds
         .iter()
