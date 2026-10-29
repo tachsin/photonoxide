@@ -68,6 +68,10 @@ base64 = "0.22"
 # Rust, without the asm feature
 sha2 = "0.10"
 
+[target.'cfg(any(target_arch = "x86", target_arch = "x86_64"))'.dependencies]
+# the CPU's vendor and model, for the libraries suggested for it (libraries/hardware.rs)
+raw-cpuid = "11"
+
 [target."cfg(windows)".dependencies]
 # the setup's shortcuts, written as .lnk files (pure Rust; setup.rs)
 mslnk = "0.1.8"

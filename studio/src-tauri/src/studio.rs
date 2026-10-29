@@ -104,6 +104,8 @@ pub fn show(dir: Option<&Path>, live: Option<Live>) -> Result<(), String> {
             crate::libraries::library_install_plan,
             crate::libraries::library_remove,
             crate::libraries::libraries_installed,
+            crate::libraries::hardware_advice,
+            crate::libraries::performance_on_start,
             crate::channels::nightly_status,
             crate::channels::nightly_started,
             crate::channels::nightly_check,

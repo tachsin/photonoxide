@@ -89,6 +89,26 @@ fn tools() -> Result<PathBuf, String> {
         .map_or_else(|| prefix.join("tools"), |p| p.join("tools")))
 }
 
+/// The marker the setup's Advanced path leaves for the first start: open on the performance
+/// step. In the tools folder, beside the record, never in the program's settings.
+fn performance_marker() -> Result<PathBuf, String> {
+    Ok(tools()?.join("performance-on-start"))
+}
+
+/// Leaves the marker (the setup, on its Advanced path).
+pub fn leave_performance_marker() -> Result<(), String> {
+    let file = performance_marker()?;
+    if let Some(dir) = file.parent() {
+        std::fs::create_dir_all(dir).map_err(|e| format!("{}: {e}", dir.display()))?;
+    }
+    std::fs::write(&file, b"").map_err(|e| format!("{}: {e}", file.display()))
+}
+
+/// Whether the marker was there; it's removed as it's read.
+pub fn take_performance_marker() -> bool {
+    performance_marker().is_ok_and(|f| std::fs::remove_file(f).is_ok())
+}
+
 /// What the program installed: by library, the install id and the packages.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct Installed {

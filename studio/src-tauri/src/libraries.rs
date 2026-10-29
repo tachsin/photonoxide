@@ -26,6 +26,7 @@ use photonoxide_native::{
 use serde::Serialize;
 
 pub mod environment;
+pub mod hardware;
 pub mod releases;
 
 /// A command that installs a library.
@@ -1571,6 +1572,22 @@ pub fn library_remove(app: tauri::AppHandle, library: String) -> Result<(), Stri
     say(&format!("{program} {}", args.join(" ")));
     environment::run(std::path::Path::new(&program), &args, &[], &mut say)?;
     environment::forget(&library)
+}
+
+/// This machine, and the libraries suggested for it (the setup's Advanced path and the first
+/// start's performance step).
+#[tauri::command(async)]
+pub fn hardware_advice() -> serde_json::Value {
+    let hardware = hardware::here();
+    let suggestions = hardware::suggest(&hardware);
+    serde_json::json!({ "hardware": hardware, "suggestions": suggestions })
+}
+
+/// Whether the setup's Advanced path asked for the performance step at this start: read once,
+/// then forgotten.
+#[tauri::command]
+pub fn performance_on_start() -> bool {
+    environment::take_performance_marker()
 }
 
 /// What the program installed into its own environment, and where that is.

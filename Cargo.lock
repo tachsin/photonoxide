@@ -3686,6 +3686,7 @@ dependencies = [
  "num-complex",
  "photonoxide",
  "photonoxide-native",
+ "raw-cpuid",
  "rayon",
  "reqwest",
  "rfd",

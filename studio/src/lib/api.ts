@@ -152,6 +152,12 @@ export interface Progress {
   seconds: number;
 }
 
+/** This machine and the libraries suggested for it (libraries/hardware.rs). */
+export interface HardwareAdvice {
+  hardware: { os: string; arch: string; cpu: { vendor: string; brand: string; threads: number; features: string[] }; gpu: { name: string; driver: string } | null };
+  suggestions: { library: string; why: string; install: string | null; command: string | null; download: string; system: boolean }[];
+}
+
 export const api = {
   info: () => invoke<Info>("info"),
   poll: (from: number) => invoke<Poll>("poll", { from }),
@@ -273,6 +279,10 @@ export const api = {
   libraryInstall: (library: string, id: string) => invoke<void>("library_install", { library, id }),
   /** Removes what the program installed for a library from its own environment. */
   libraryRemove: (library: string) => invoke<void>("library_remove", { library }),
+  /** This machine, and the libraries suggested for it. */
+  hardwareAdvice: () => invoke<HardwareAdvice>("hardware_advice"),
+  /** Whether the setup's Advanced path asked for the performance step at this start. */
+  performanceOnStart: () => invoke<boolean>("performance_on_start"),
   /** What the program installed into its own environment, and where that is. */
   librariesInstalled: () => invoke<{ environment: string | null; installed: { libraries: Record<string, { id: string; manager: string; packages: string[] }> } }>("libraries_installed"),
   benchData: () => invoke<BenchData>("bench_data"),
