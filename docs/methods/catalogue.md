@@ -16,6 +16,12 @@ papers:
     doi: 10.1364/OL.38.003878
   - cite: "A. W. Elshaari, I. E. Zadeh, K. D. Jöns, V. Zwiller, IEEE Photonics J. 8, 2701009 (2016)"
     doi: 10.1109/JPHOT.2016.2561622
+  - cite: "I. Dolev, A. Ganany-Padowicz, O. Gayer, A. Arie, J. Mangin, G. Gadret, Appl. Phys. B 96, 423 (2009)"
+    doi: 10.1007/s00340-009-3502-3
+  - cite: "K. Moutzouris, G. Hloupis, I. Stavrakas, D. Triantis, M.-H. Chou, Opt. Mater. Express 1, 458 (2011)"
+    doi: 10.1364/OME.1.000458
+  - cite: "A. Bruner, D. Eger, M. B. Oron, P. Blau, M. Katz, S. Ruschin, Opt. Lett. 28, 194 (2003)"
+    doi: 10.1364/OL.28.000194
   - cite: "D. E. Zelmon, D. L. Small, D. Jundt, J. Opt. Soc. Am. B 14, 3319 (1997)"
     doi: 10.1364/JOSAB.14.003319
   - cite: "D. H. Jundt, Opt. Lett. 22, 1553 (1997)"
@@ -74,12 +80,6 @@ papers:
     doi: 10.1063/1.123994
   - cite: "R. W. Powell, C. Y. Ho, P. E. Liley, NSRDS-NBS 8 (1966)"
     doi: 10.6028/NBS.NSRDS.8
-  - cite: "I. Dolev, A. Ganany-Padowicz, O. Gayer, A. Arie, J. Mangin, G. Gadret, Appl. Phys. B 96, 423 (2009)"
-    doi: 10.1007/s00340-009-3502-3
-  - cite: "K. Moutzouris, G. Hloupis, I. Stavrakas, D. Triantis, M.-H. Chou, Opt. Mater. Express 1, 458 (2011)"
-    doi: 10.1364/OME.1.000458
-  - cite: "A. Bruner, D. Eger, M. B. Oron, P. Blau, M. Katz, S. Ruschin, Opt. Lett. 28, 194 (2003)"
-    doi: 10.1364/OL.28.000194
   - cite: "E. Z. Ulsig et al., Opt. Express 32, 36986 (2024)"
     doi: 10.1364/OE.523615
   - cite: "International Tables for Crystallography, Vol. A (2016)"

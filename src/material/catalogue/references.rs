@@ -488,13 +488,6 @@ const PAPERS: &[(&str, &str, &str, &str, &str)] = &[
         "https://doi.org/10.1039/d3tc00081h",
     ),
     (
-        "abedin-ito-1996",
-        "K. S. Abedin, H. Ito, J. Appl. Phys. 80, 6561 (1996)",
-        "Temperature-dependent dispersion relation of ferroelectric lithium tantalate",
-        "10.1063/1.363679",
-        "",
-    ),
-    (
         "dolev-2009",
         "I. Dolev, A. Ganany-Padowicz, O. Gayer, A. Arie, J. Mangin, G. Gadret, Appl. Phys. B 96, 423 (2009)",
         "Linear and nonlinear optical properties of MgO:LiTaO3",
@@ -507,6 +500,13 @@ const PAPERS: &[(&str, &str, &str, &str, &str)] = &[
         "Temperature-dependent visible to near-infrared optical properties of 8 mol% Mg-doped lithium tantalate",
         "10.1364/OME.1.000458",
         "https://doi.org/10.1364/OME.1.000458",
+    ),
+    (
+        "abedin-ito-1996",
+        "K. S. Abedin, H. Ito, J. Appl. Phys. 80, 6561 (1996)",
+        "Temperature-dependent dispersion relation of ferroelectric lithium tantalate",
+        "10.1063/1.363679",
+        "",
     ),
 ];
 
