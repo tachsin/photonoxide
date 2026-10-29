@@ -27,7 +27,7 @@ number is the value on the finest grid. `Study::check(tolerance)` estimates that
 | three or more, the last three in one ratio r | from the changes' ratio q = Δ₁/Δ₂ (below) |
 
 - **q above 1:** the grids converge at the observed order p = ln q / ln r. The estimate is
-  Richardson's, \|v − v∞\| = \|Δ₂\|/(q − 1), with v∞ from `mode::vector::richardson`. That
+  Richardson's, \|v − v∞\| = \|Δ₂\|/(q − 1), with v∞ from `convergence::richardson`. That
   limit doesn't depend on r.
 - **q below 0:** the values oscillate, and the estimate is the larger of the last two changes.
 - **q between 0 and 1:** the changes don't shrink, the grids don't show convergence, and the

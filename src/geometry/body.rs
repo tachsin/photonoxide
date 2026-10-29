@@ -518,7 +518,7 @@ impl Body {
                 ),
             ));
         }
-        let run = crate::stack::Etch::FULL.with_sidewall(sidewall).run();
+        let run = crate::etch::Etch::FULL.with_sidewall(sidewall).run();
         let b = shape.bounds();
         let bounds = [b.min.x, b.min.y, b.max.x, b.max.y].map(|v| v.to_um());
         Ok(Body(Kind::Etched {

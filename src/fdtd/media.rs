@@ -503,7 +503,7 @@ pub(super) fn roots(coefficients: &[f64]) -> Vec<c64> {
 
 /// min ‖A x − b‖ over x ≥ 0, A `rows` × `columns` by rows: Lawson and Hanson's active set
 /// (Ch. 23, Algorithm NNLS), each least squares on the free columns by
-/// [`crate::compact::fit::least_squares`].
+/// [`crate::lstsq::least_squares`].
 fn nonnegative_least_squares(a: &[f64], b: &[f64], rows: usize, columns: usize) -> Vec<f64> {
     use faer::Mat;
     // columns scaled to unit norm, so that the gradient's entries compare
@@ -530,7 +530,7 @@ fn nonnegative_least_squares(a: &[f64], b: &[f64], rows: usize, columns: usize) 
     let solve = |free: &[usize]| -> Vec<f64> {
         let m = Mat::from_fn(rows, free.len(), |i, k| at(i, free[k]));
         let rhs = Mat::from_fn(rows, 1, |i, _| b[i]);
-        crate::compact::fit::least_squares(m, &rhs)
+        crate::lstsq::least_squares(m, &rhs)
     };
     let tolerance = 1e-12 * b.iter().map(|v| v * v).sum::<f64>().sqrt().max(1e-300);
     let mut x = vec![0.0; columns];

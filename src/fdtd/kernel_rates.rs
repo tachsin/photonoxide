@@ -68,7 +68,7 @@ fn kernel_rates() {
     let threads = [1, 20];
     let triad: Vec<f64> = threads
         .iter()
-        .map(|&t| pool(t).install(|| crate::bench::triad(1 << 24, 10)))
+        .map(|&t| pool(t).install(|| crate::traffic::triad(1 << 24, 10)))
         .collect();
     println!("triad: {triad:?} GB/s on {threads:?} threads");
     println!(

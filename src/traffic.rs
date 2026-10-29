@@ -13,6 +13,9 @@
 //! one at a time.
 
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::time::Instant;
+
+use rayon::prelude::*;
 
 static MOVED: AtomicU64 = AtomicU64::new(0);
 
@@ -49,6 +52,30 @@ pub(crate) fn triangular(rows: usize, nonzeros: usize, diagonal: bool) -> usize 
 /// A pass over vectors of `n` values, reading `read` of them and writing `written`.
 pub(crate) fn vectors(n: usize, read: usize, written: usize) -> usize {
     n * (read + written) * VALUE
+}
+
+/// The STREAM triad, a = b + s c over `len` doubles, on rayon's threads: the best of `repeats`
+/// runs, in GB/s, counting 24 bytes an element as STREAM does (two reads and a write).
+pub fn triad(len: usize, repeats: usize) -> f64 {
+    const CHUNK: usize = 1 << 14;
+    let b = vec![1.0_f64; len];
+    let c = vec![2.0_f64; len];
+    let mut a = vec![0.0_f64; len];
+    let s = std::hint::black_box(3.0);
+    let mut best = f64::INFINITY;
+    for _ in 0..repeats.max(1) {
+        let t = Instant::now();
+        a.par_chunks_mut(CHUNK)
+            .zip(b.par_chunks(CHUNK).zip(c.par_chunks(CHUNK)))
+            .for_each(|(a, (b, c))| {
+                for ((a, b), c) in a.iter_mut().zip(b).zip(c) {
+                    *a = b + s * c;
+                }
+            });
+        std::hint::black_box(&a);
+        best = best.min(t.elapsed().as_secs_f64());
+    }
+    24.0 * len as f64 / best / 1e9
 }
 
 #[cfg(test)]

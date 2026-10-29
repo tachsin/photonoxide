@@ -939,15 +939,7 @@ pub fn graded_nodes(
     nodes
 }
 
-/// Richardson extrapolation from results on three grids, each half the spacing of the last:
-/// the convergence order p is fitted from the real parts, (v₀ − v₁)/(v₁ − v₂) = 2^p, and the
-/// limit is v₂ − (v₁ − v₂)/(2^p − 1), for real and imaginary parts alike. Returns the limit and p.
-/// Meaningful once the three are in the asymptotic range (the ratio steady).
-pub fn richardson(values: [c64; 3]) -> (c64, f64) {
-    let ratio = (values[0].re - values[1].re) / (values[1].re - values[2].re);
-    let order = ratio.log2();
-    (values[2] - (values[1] - values[2]) / (ratio - 1.0), order)
-}
+pub use crate::convergence::richardson;
 
 /// A full-vector mode of a cross-section.
 #[derive(Clone, Debug, PartialEq)]

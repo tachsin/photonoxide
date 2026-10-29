@@ -16,7 +16,7 @@
 //!   once the grids are in the asymptotic range;
 //! - **three grids or more,** the last three in one ratio r: the changes' ratio q = Δ₁/Δ₂.
 //!   Above 1 the grids converge at the observed order p = ln q / ln r, and the estimate is
-//!   Richardson's, |v − v∞| = |Δ₂|/(q − 1) ([`crate::mode::vector::richardson`], whose limit
+//!   Richardson's, |v − v∞| = |Δ₂|/(q − 1) ([`richardson`], whose limit
 //!   v∞ doesn't depend on r). Below 0 the values oscillate, and the estimate is the larger of
 //!   the last two changes. Between 0 and 1 the changes don't shrink: the grids
 //!   don't show convergence, and the verdict is [`Verdict::NotConverged`] whatever the
@@ -36,6 +36,16 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::{Error, Result};
+
+/// Richardson extrapolation from results on three grids, each half the spacing of the last:
+/// the convergence order p is fitted from the real parts, (v₀ − v₁)/(v₁ − v₂) = 2^p, and the
+/// limit is v₂ − (v₁ − v₂)/(2^p − 1), for real and imaginary parts alike. Returns the limit and p.
+/// Meaningful once the three are in the asymptotic range (the ratio steady).
+pub fn richardson(values: [Complex64; 3]) -> (Complex64, f64) {
+    let ratio = (values[0].re - values[1].re) / (values[1].re - values[2].re);
+    let order = ratio.log2();
+    (values[2] - (values[1] - values[2]) / (ratio - 1.0), order)
+}
 
 /// A quantity computed on grids each finer than the last: the grid study behind a number.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -187,7 +197,7 @@ impl Study {
             let q = d1 / d2;
             if q > 1.0 {
                 let three = [v[n - 3], v[n - 2], v[n - 1]].map(|x| Complex64::new(x, 0.0));
-                let (limit, _) = crate::mode::vector::richardson(three);
+                let (limit, _) = richardson(three);
                 c.limit = Some(limit.re);
                 c.order = Some(q.ln() / r.ln());
                 error = (value - limit.re).abs();

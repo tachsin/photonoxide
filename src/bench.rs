@@ -17,7 +17,6 @@
 use std::time::Instant;
 
 use num_complex::Complex64 as c64;
-use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 
 use crate::Result;
@@ -27,6 +26,8 @@ use crate::fdfd::{
     Polarization, Port, Port3d, Product, Side, Solver2d, Solver3d, Stopping,
 };
 use crate::units::Wavelength;
+
+pub use crate::traffic::triad;
 
 /// One fixed problem.
 #[derive(Clone, Copy, Debug)]
@@ -362,30 +363,6 @@ pub fn problems() -> Vec<Problem> {
             run: |timed| strip_ports_3d(0.02, 16, Solve::Ilu, 1e-8, timed),
         },
     ]
-}
-
-/// The STREAM triad, a = b + s c over `len` doubles, on rayon's threads: the best of `repeats`
-/// runs, in GB/s, counting 24 bytes an element as STREAM does (two reads and a write).
-pub fn triad(len: usize, repeats: usize) -> f64 {
-    const CHUNK: usize = 1 << 14;
-    let b = vec![1.0_f64; len];
-    let c = vec![2.0_f64; len];
-    let mut a = vec![0.0_f64; len];
-    let s = std::hint::black_box(3.0);
-    let mut best = f64::INFINITY;
-    for _ in 0..repeats.max(1) {
-        let t = Instant::now();
-        a.par_chunks_mut(CHUNK)
-            .zip(b.par_chunks(CHUNK).zip(c.par_chunks(CHUNK)))
-            .for_each(|(a, (b, c))| {
-                for ((a, b), c) in a.iter_mut().zip(b).zip(c) {
-                    *a = b + s * c;
-                }
-            });
-        std::hint::black_box(&a);
-        best = best.min(t.elapsed().as_secs_f64());
-    }
-    24.0 * len as f64 / best / 1e9
 }
 
 /// Times one phase.

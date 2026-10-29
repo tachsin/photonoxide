@@ -22,8 +22,8 @@
 # change can break. The uses are the library code's own (`use crate::...`, tests left out); an
 # area's tests that use another area's code (sparse's and native's solve bench's problems) run
 # when that area runs, without running further. A file that other areas use more narrowly than
-# its own area is in theirs too: fdtd's media fit their poles with compact's least squares, and
-# its kernel's rates are timed with bench's triad.
+# its own area is in theirs too: fdtd's media fit their poles with src/lstsq.rs, the least
+# squares compact's fits use too, and its kernel's rates are timed with the triad in src/traffic.rs.
 #
 # A file in no area is shared and runs everything (the library's root, units, geometry, expr,
 # error, parallel, portable, stack (and src/stack/, its etches' validation cases and its boxes' fill),
@@ -69,7 +69,7 @@ area sparse \
 # with the method study on multilayers (tests/method_study.rs, whose small study runs here)
 area mode \
   "src/mode/* src/eigen.rs src/eigen/* tests/method_study.rs" \
-  "sparse" \
+  "sparse convergence" \
   "mode:: eigen:: a_small_study_" "mode/" \
   "slab_soi slab_yariv_yeh bend_loss effective_index_method group_index leaky_waves leaky_wire_benchmark marcatili multilayer_chilwell optimize_bragg hadley_corners strip_waveguide directional_coupler mzi_dwivedi"
 
@@ -89,7 +89,7 @@ area eme \
 
 # with the GPU's report (tests/gpu_report.rs, docs/validation-gpu.md, run by hand)
 area fdtd \
-  "src/fdtd.rs src/fdtd/* src/validation/* tests/gpu_report.rs src/compact/fit.rs src/compact/fit/* src/bench.rs" \
+  "src/fdtd.rs src/fdtd/* src/validation/* tests/gpu_report.rs src/lstsq.rs src/traffic.rs" \
   "mode material fdfd" \
   "fdtd::" "fdtd/" \
   "bump_oskooi cpml_roden_gedney l3_akahane lorentz_okoniewski pml_oskooi subpixel_holes tfsf_square_cylinder"
@@ -138,12 +138,12 @@ area job \
   "material mode sparse fdfd fdtd circuit device generator statics shifter line export convergence" \
   "job:: run:: farm::" "job/ generator/job- device/study- device/compact- optimize/ chip/" "optimize_chip_rings"
 
-# grid convergence, the gate a reported number passes (its grid study, by mode::vector's
-# Richardson extrapolation): a modes job's [task.convergence] and results.json take it, and the
-# examples' Checks (hadley_corners)
+# grid convergence, the gate a reported number passes (its grid study, by Richardson
+# extrapolation, which mode::vector uses too): a modes job's [task.convergence] and results.json
+# take it, and the examples' Checks (hadley_corners)
 area convergence \
   "src/convergence.rs" \
-  "mode" \
+  "" \
   "convergence::" "" "hadley_corners"
 
 # exporting a run's results (issue #431): every run's tables as csv, from its record, and the
@@ -179,7 +179,7 @@ area device \
   "strip_waveguide directional_coupler mzi_dwivedi ring_q_factor bend_loss rib_hadley mmi_soldano y_junction_zhang thermo_jacques thermo_harris pcm_delaney tfln_zhang"
 
 area compact \
-  "src/compact/*" \
+  "src/compact/* src/lstsq.rs" \
   "circuit job" \
   "compact::" "compact/" "compact_mzi_ye"
 
