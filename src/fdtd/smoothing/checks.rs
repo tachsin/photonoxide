@@ -693,13 +693,14 @@ pub(crate) fn disc_lattice(eps: f64) -> Structure {
 /// How fast a run grows: one period of [`disc_lattice`] on `n` cells, from random D and H̃, for
 /// `time` periods/c or until ‖E‖ has grown by 10²⁰⁰: the largest ‖E‖ relative to the first,
 /// and where it has grown by 10²⁰ the rate of growth from there on (c/a, the least-squares
-/// slope of ln ‖E‖), as Werner et al. measure their wc07's.
+/// slope of ln ‖E‖), as Werner et al. measure their wc07's, and how far the slopes over its
+/// first and second halves differ.
 pub(crate) fn disc_growth(
     scheme: impl Into<Scheme>,
     eps: f64,
     n: usize,
     time: f64,
-) -> (f64, Option<f64>) {
+) -> (f64, Option<(f64, f64)>) {
     let structure = disc_lattice(eps);
     let mut s = lattice_simulation(scheme, &structure, [1, 1], n, false).unwrap();
     let g = s.grid;
@@ -735,15 +736,19 @@ pub(crate) fn disc_growth(
             break;
         }
     }
-    let rate = (grown.len() >= 3).then(|| {
-        let m = grown.len() as f64;
-        let (sx, sy) = grown
+    let slope = |points: &[(f64, f64)]| {
+        let m = points.len() as f64;
+        let (sx, sy) = points
             .iter()
             .fold((0.0, 0.0), |(a, b), (x, y)| (a + x, b + y));
-        let (sxx, sxy) = grown
+        let (sxx, sxy) = points
             .iter()
             .fold((0.0, 0.0), |(a, b), (x, y)| (a + x * x, b + x * y));
         (m * sxy - sx * sy) / (m * sxx - sx * sx)
+    };
+    let rate = (grown.len() >= 6).then(|| {
+        let (early, late) = grown.split_at(grown.len() / 2);
+        (slope(&grown), (slope(early) - slope(late)).abs())
     });
     (largest, rate)
 }

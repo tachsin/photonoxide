@@ -612,6 +612,26 @@ pub fn latest_release(http: &dyn Http) -> Result<String, String> {
     Ok(version)
 }
 
+/// The commit a tag (`v0.6.0`) points at.
+pub fn tag_commit(http: &dyn Http, tag: &str) -> Result<String, String> {
+    let url = format!("{API}/repos/{REPO}/commits/{tag}");
+    let r = http.get(&url, &[("Accept", "application/vnd.github+json")])?;
+    if r.status != 200 {
+        return Err(format!("GitHub answered {} for {tag}'s commit", r.status));
+    }
+    #[derive(Deserialize)]
+    struct Commit {
+        sha: String,
+    }
+    let commit: Commit =
+        serde_json::from_slice(&r.body).map_err(|e| format!("{tag}'s commit doesn't read: {e}"))?;
+    if is_sha(&commit.sha) {
+        Ok(commit.sha)
+    } else {
+        Err(format!("{tag}'s commit isn't one: {}", commit.sha))
+    }
+}
+
 #[derive(Deserialize)]
 struct CompareCommit {
     sha: String,

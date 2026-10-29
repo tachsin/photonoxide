@@ -111,6 +111,8 @@ pub fn show(dir: Option<&Path>, live: Option<Live>) -> Result<(), String> {
             crate::channels::nightly_progress,
             crate::channels::nightly_cancel,
             crate::channels::nightly_install,
+            crate::channels::release_check,
+            crate::channels::release_install,
             crate::channels::nightly_install_package,
             crate::channels::nightly_roll_back,
             crate::channels::nightly_clear_cache,

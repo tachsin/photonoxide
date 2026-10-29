@@ -59,6 +59,11 @@ toml = "1"
 # may be moved (to OneDrive, say), as Windows' known folders say (setup.rs, which builds on every
 # system and says elsewhere that it is for Windows)
 dirs = "7"
+# a release installed by a copy that isn't installed (channels/release.rs), checked as Tauri's
+# updater checks an update: its minisign signature against the release key (pure Rust), the
+# signature and the key in base64
+minisign-verify = "0.3"
+base64 = "0.22"
 
 [target."cfg(windows)".dependencies]
 # the setup's shortcuts, written as .lnk files (pure Rust; setup.rs)
