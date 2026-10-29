@@ -568,3 +568,39 @@ pub(crate) fn mmi_beat_length() -> Outcome {
         error: (exact - eq6).abs(),
     }
 }
+
+/// A measured interferometer's case: [`measured::dwivedi`]'s reading of `wire` (0, 1, 2: 470,
+/// 602, 805 nm), its n_g if `group`, else its n_eff.
+fn dwivedi(wire: usize, group: bool) -> Outcome {
+    let (measured, expected, tolerance) = measured::dwivedi(wire, group);
+    Outcome {
+        measured,
+        expected,
+        tolerance,
+        error: (measured - expected).abs(),
+    }
+}
+
+pub(crate) fn dwivedi_neff_470() -> Outcome {
+    dwivedi(0, false)
+}
+
+pub(crate) fn dwivedi_ng_470() -> Outcome {
+    dwivedi(0, true)
+}
+
+pub(crate) fn dwivedi_neff_602() -> Outcome {
+    dwivedi(1, false)
+}
+
+pub(crate) fn dwivedi_ng_602() -> Outcome {
+    dwivedi(1, true)
+}
+
+pub(crate) fn dwivedi_neff_805() -> Outcome {
+    dwivedi(2, false)
+}
+
+pub(crate) fn dwivedi_ng_805() -> Outcome {
+    dwivedi(2, true)
+}

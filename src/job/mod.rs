@@ -511,6 +511,7 @@ mod pockels;
 #[cfg(test)]
 mod pockels_tests;
 pub mod results;
+mod sampled;
 mod scene;
 pub(crate) mod schema;
 mod shapes;
