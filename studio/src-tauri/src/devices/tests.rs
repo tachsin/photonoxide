@@ -116,7 +116,7 @@ fn every_device_in_the_library_opens() {
 
 #[test]
 fn the_geometry_and_figures_are_the_librarys_for_the_same_values() {
-    let cases: [(&str, &[(&str, &str)]); 14] = [
+    let cases: [(&str, &[(&str, &str)]); 17] = [
         ("waveguide", &[("width", "0.45"), ("length", "25")]),
         ("bend", &[("radius", "7.5 um"), ("angle", "60 deg")]),
         (
@@ -155,6 +155,18 @@ fn the_geometry_and_figures_are_the_librarys_for_the_same_values() {
         (
             "in-guide thermo-optic phase shifter",
             &[("reach", "4 um"), ("power", "8")],
+        ),
+        (
+            "GST phase-change phase shifter",
+            &[("film_thickness", "20 nm"), ("crystallized", "0.5")],
+        ),
+        (
+            "Sb2S3 phase-change phase shifter",
+            &[("width", "450 nm"), ("length", "30")],
+        ),
+        (
+            "Sb2Se3 phase-change phase shifter",
+            &[("coverage", "0.6"), ("crystallized", "1")],
         ),
     ];
     for (kind, parameters) in cases {

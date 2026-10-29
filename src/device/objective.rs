@@ -559,6 +559,42 @@ pub(super) fn objectives_of(kind: &str) -> Vec<Objective> {
                 "the share of the guide's phase the neighbour at the pitch takes",
             ),
         ],
+        "GST phase-change phase shifter"
+        | "Sb2S3 phase-change phase shifter"
+        | "Sb2Se3 phase-change phase shifter" => vec![
+            objective(
+                "length for a π shift",
+                "L_pi",
+                "µm",
+                "L_pi",
+                Minimize,
+                None,
+                None,
+                "the cell's length that turns the phase by π between the amorphous and the \
+                 crystalline state",
+            ),
+            objective(
+                "index change",
+                "dn_eff_ac",
+                "",
+                "dn_eff_ac",
+                Maximize,
+                None,
+                None,
+                "the change of effective index from the amorphous to the crystalline state",
+            ),
+            objective(
+                "crystalline loss",
+                "alpha_c",
+                "dB/µm",
+                "alpha_c",
+                Minimize,
+                None,
+                None,
+                "the cell's loss per length in the crystalline state, the lossier one for the \
+                 materials of the library",
+            ),
+        ],
         _ => Vec::new(),
     }
 }
@@ -749,6 +785,37 @@ pub(super) fn constraints_of(kind: &str) -> Vec<Constraint> {
             ));
             c
         }
+        "GST phase-change phase shifter"
+        | "Sb2S3 phase-change phase shifter"
+        | "Sb2Se3 phase-change phase shifter" => vec![
+            constraint(
+                "insertion loss",
+                "IL",
+                "dB",
+                "IL",
+                AtMost,
+                3.0,
+                "the cell at its crystallized fraction loses no more than this",
+            ),
+            constraint(
+                "cell length",
+                "length",
+                "µm",
+                "length",
+                AtMost,
+                100.0,
+                "a cell no longer than this",
+            ),
+            constraint(
+                "thinnest film",
+                "film_thickness",
+                "µm",
+                "film_thickness",
+                AtLeast,
+                0.01,
+                "the thinnest film the models are checked on (10 nm)",
+            ),
+        ],
         _ => Vec::new(),
     }
 }

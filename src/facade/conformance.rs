@@ -714,6 +714,14 @@ pub fn conformance(scratch: &Path) -> Result<Vec<Case>> {
             &[("power", 12.5), ("loss", 2.0)][..],
             Some("analytic"),
         ),
+        // a phase-change cell part-way crystallized: its phase against the amorphous state and
+        // its loss, by the effective index method with exact complex slabs
+        (
+            "pcm-shifter",
+            "Sb2Se3 phase-change phase shifter",
+            &[("crystallized", 0.6), ("length", 14.0)][..],
+            Some("analytic"),
+        ),
     ] {
         let (d, args) = design(kind, values, fidelity);
         cases.push(case(

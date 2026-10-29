@@ -32,7 +32,7 @@ use crate::studio::Studio;
 
 /// Each device: the component library's id it stands for, its Academy lesson, and the
 /// published results (examples/) on it.
-pub const DEVICES: [(&str, &str, &str, &[&str]); 14] = [
+pub const DEVICES: [(&str, &str, &str, &[&str]); 17] = [
     (
         "waveguide",
         "waveguide",
@@ -117,6 +117,24 @@ pub const DEVICES: [(&str, &str, &str, &[&str]); 14] = [
         "in-guide-thermo-optic-shifter",
         "modulators",
         &["thermo_harris"],
+    ),
+    (
+        "GST phase-change phase shifter",
+        "gst-phase-shifter",
+        "modulators",
+        &[],
+    ),
+    (
+        "Sb2S3 phase-change phase shifter",
+        "sb2s3-phase-shifter",
+        "modulators",
+        &[],
+    ),
+    (
+        "Sb2Se3 phase-change phase shifter",
+        "sb2se3-phase-shifter",
+        "modulators",
+        &[],
     ),
 ];
 

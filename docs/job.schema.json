@@ -2753,6 +2753,366 @@
               }
             }
           }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "GST phase-change phase shifter"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "description": "A silicon guide with a cell of GST on top: the effective index, phase and loss of its amorphous and crystalline states and those between, held without power.",
+            "properties": {
+              "parameters": {
+                "properties": {
+                  "coverage": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "coverage: 1 by default, from 0.1 to 1."
+                  },
+                  "crystallized": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "crystallized: 0 by default, from 0 to 1."
+                  },
+                  "film_thickness": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "film_thickness µm: 0.025 by default, from 0.005 to 0.2."
+                  },
+                  "length": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "length µm: 10 by default, from 0.1 to 100000."
+                  },
+                  "loss": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "loss dB/cm: 0 by default, from 0 to 1000."
+                  },
+                  "slab": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "slab µm: 0 by default, from 0 to 0.5."
+                  },
+                  "thickness": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "thickness µm: 0.22 by default, from 0.1 to 1."
+                  },
+                  "wavelength": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "wavelength µm: 1.55 by default, from 1.25 to 1.65."
+                  },
+                  "width": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "width µm: 0.5 by default, from 0.2 to 3."
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "Sb2S3 phase-change phase shifter"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "description": "A silicon guide with a cell of Sb₂S₃ on top: the effective index, phase and loss of its amorphous and crystalline states and those between, held without power.",
+            "properties": {
+              "parameters": {
+                "properties": {
+                  "coverage": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "coverage: 1 by default, from 0.1 to 1."
+                  },
+                  "crystallized": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "crystallized: 0 by default, from 0 to 1."
+                  },
+                  "film_thickness": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "film_thickness µm: 0.025 by default, from 0.005 to 0.2."
+                  },
+                  "length": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "length µm: 10 by default, from 0.1 to 100000."
+                  },
+                  "loss": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "loss dB/cm: 0 by default, from 0 to 1000."
+                  },
+                  "slab": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "slab µm: 0 by default, from 0 to 0.5."
+                  },
+                  "thickness": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "thickness µm: 0.22 by default, from 0.1 to 1."
+                  },
+                  "wavelength": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "wavelength µm: 1.55 by default, from 1.25 to 1.65."
+                  },
+                  "width": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "width µm: 0.5 by default, from 0.2 to 3."
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "Sb2Se3 phase-change phase shifter"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "description": "A silicon guide with a cell of Sb₂Se₃ on top: the effective index, phase and loss of its amorphous and crystalline states and those between, held without power.",
+            "properties": {
+              "parameters": {
+                "properties": {
+                  "coverage": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "coverage: 1 by default, from 0.1 to 1."
+                  },
+                  "crystallized": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "crystallized: 0 by default, from 0 to 1."
+                  },
+                  "film_thickness": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "film_thickness µm: 0.025 by default, from 0.005 to 0.2."
+                  },
+                  "length": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "length µm: 10 by default, from 0.1 to 100000."
+                  },
+                  "loss": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "loss dB/cm: 0 by default, from 0 to 1000."
+                  },
+                  "slab": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "slab µm: 0 by default, from 0 to 0.5."
+                  },
+                  "thickness": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "thickness µm: 0.22 by default, from 0.1 to 1."
+                  },
+                  "wavelength": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "wavelength µm: 1.55 by default, from 1.25 to 1.65."
+                  },
+                  "width": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "width µm: 0.5 by default, from 0.2 to 3."
+                  }
+                }
+              }
+            }
+          }
         }
       ],
       "description": "A device of the library (docs/methods/devices.md), computed at a fidelity, studied, fitted or optimized by the task.",
@@ -2789,7 +3149,10 @@
             "Y-branch MZI",
             "thermo-optic phase shifter",
             "doped thermo-optic phase shifter",
-            "in-guide thermo-optic phase shifter"
+            "in-guide thermo-optic phase shifter",
+            "GST phase-change phase shifter",
+            "Sb2S3 phase-change phase shifter",
+            "Sb2Se3 phase-change phase shifter"
           ]
         },
         "parameters": {

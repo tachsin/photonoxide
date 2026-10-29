@@ -22,8 +22,8 @@ use photonoxide::circuit::{Component, Fidelity, Fixed, Port, SMatrix, Spectrum};
 use photonoxide::compact::Measured;
 use photonoxide::compact::touchstone::{Convention, Touchstone};
 use photonoxide::device::{
-    Device, Mesh, RibWaveguide, Scheme, StripBend, StripCoupler, StripMmi, StripMzi, StripRing,
-    StripWaveguide, StripYBranch, ThermoShifter, Values,
+    Device, Mesh, PcmShifter, RibWaveguide, Scheme, StripBend, StripCoupler, StripMmi, StripMzi,
+    StripRing, StripWaveguide, StripYBranch, ThermoShifter, Values,
 };
 use photonoxide::material::{self, Material, Model, Provenance};
 use photonoxide::stack::{Layer, LayerStack};
@@ -228,6 +228,18 @@ fn thermo_doped() -> Built {
 
 fn thermo_in_guide() -> Built {
     once!(analytic(&ThermoShifter::in_guide()))
+}
+
+fn pcm_gst() -> Built {
+    once!(analytic(&PcmShifter::gst()))
+}
+
+fn pcm_sb2s3() -> Built {
+    once!(analytic(&PcmShifter::sb2s3()))
+}
+
+fn pcm_sb2se3() -> Built {
+    once!(analytic(&PcmShifter::sb2se3()))
 }
 
 fn ring_all_pass() -> Built {
@@ -441,6 +453,36 @@ pub fn entries() -> Vec<Entry> {
             equation: r"\varphi = \pi \frac{P}{P_\pi},\qquad P_\pi = \frac{\lambda}{2\,\partial n_\mathrm{eff}/\partial P'}",
             glyph: Glyph::PhaseShifter,
             build: thermo_in_guide,
+        },
+        Entry {
+            id: "gst-phase-shifter",
+            title: "Phase-change phase shifter",
+            variant: "GST",
+            category: "Active",
+            about: "Ge₂Sb₂Te₅ (our fits to Delaney et al.'s ellipsometry): its 25 nm film on a 500 × 220 nm silicon strip, 10 µm long, in the amorphous state; the phase and loss of its crystalline state and those between come with the device's figures, from the effective index method with exact complex slabs.",
+            equation: r"\varphi = \frac{2\pi}{\lambda}\,\Delta n_\mathrm{eff}\,L,\qquad \Delta n_\mathrm{eff} = n_\mathrm{eff}(f) - n_\mathrm{eff}(0)",
+            glyph: Glyph::PhaseShifter,
+            build: pcm_gst,
+        },
+        Entry {
+            id: "sb2s3-phase-shifter",
+            title: "Phase-change phase shifter",
+            variant: "Sb₂S₃",
+            category: "Active",
+            about: "Sb₂S₃ (our fits to Delaney et al.'s ellipsometry): its 25 nm film on a 500 × 220 nm silicon strip, 10 µm long, in the amorphous state; the phase of its crystalline state and those between come with the device's figures, from the effective index method with exact complex slabs.",
+            equation: r"\varphi = \frac{2\pi}{\lambda}\,\Delta n_\mathrm{eff}\,L,\qquad \Delta n_\mathrm{eff} = n_\mathrm{eff}(f) - n_\mathrm{eff}(0)",
+            glyph: Glyph::PhaseShifter,
+            build: pcm_sb2s3,
+        },
+        Entry {
+            id: "sb2se3-phase-shifter",
+            title: "Phase-change phase shifter",
+            variant: "Sb₂Se₃",
+            category: "Active",
+            about: "Sb₂Se₃ (our fits to Delaney et al.'s ellipsometry): its 25 nm film on a 500 × 220 nm silicon strip, 10 µm long, in the amorphous state; the phase and loss of its crystalline state and those between come with the device's figures, from the effective index method with exact complex slabs.",
+            equation: r"\varphi = \frac{2\pi}{\lambda}\,\Delta n_\mathrm{eff}\,L,\qquad \Delta n_\mathrm{eff} = n_\mathrm{eff}(f) - n_\mathrm{eff}(0)",
+            glyph: Glyph::PhaseShifter,
+            build: pcm_sb2se3,
         },
         Entry {
             id: "terminator",

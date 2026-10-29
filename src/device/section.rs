@@ -444,6 +444,22 @@ impl<'a> Cut<'a> {
         CrossSection::new(x, y, cells)
     }
 
+    /// The half x ≥ 0 of a structure mirrored about x = 0, on the nodes `x` (from 0) and `y` the
+    /// caller places (a film over a strip, whose faces the nodes must hit), behind an electric
+    /// wall on the plane: the TE-like modes.
+    pub(super) fn raster(
+        &self,
+        x: Vec<f64>,
+        y: Vec<f64>,
+        wavelength: Wavelength,
+    ) -> Result<CrossSection> {
+        self.check_mirror(&x, &y, false, true)?;
+        self.sample(x, y, wavelength)?.with_boundaries(Boundaries {
+            west: Boundary::ElectricWall,
+            ..Boundaries::default()
+        })
+    }
+
     /// A single strip's or rib's cross-section, its core `width` × `thickness` µm and the core
     /// layer's material left `slab` µm thick beside it (0 for a strip), on `mesh`: when
     /// mirrored, an electric wall on the vertical mirror plane and a magnetic one on the

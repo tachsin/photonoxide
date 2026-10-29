@@ -606,7 +606,7 @@ fn methods(d: &ThermoShifter) -> Vec<Method> {
 }
 
 /// A source's citation, up to its first colon.
-fn short(source: &str) -> &str {
+pub(super) fn short(source: &str) -> &str {
     source.split(':').next().unwrap_or(source)
 }
 

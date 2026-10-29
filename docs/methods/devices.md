@@ -1,7 +1,7 @@
 ---
 title: "Devices"
 module: device
-summary: "A component that knows its geometry: a stack, the parameters of its shapes, its models from a fit to the solver up to 3D, and the component each gives, with every figure's fidelity and grid. The strip waveguide, bend, directional coupler and rings; the rib, the MMIs, the Y-branch and the MZIs, on custom stacks and partial etches; and the thermo-optic phase shifters, a metal heater, doped heaters and the guide heated itself, at analytic, 2D and measured fidelity, Jacques et al. 2019's and Harris et al. 2014's through them."
+summary: "A component that knows its geometry: a stack, the parameters of its shapes, its models from a fit to the solver up to 3D, and the component each gives, with every figure's fidelity and grid. The strip waveguide, bend, directional coupler and rings; the rib, the MMIs, the Y-branch and the MZIs, on custom stacks and partial etches; and the thermo-optic phase shifters, a metal heater, doped heaters and the guide heated itself, at analytic, 2D and measured fidelity, Jacques et al. 2019's and Harris et al. 2014's through them; and the phase-change phase shifters, a cell of GST, Sb₂S₃ or Sb₂Se₃ on a silicon guide, its effective index, phase and loss in either state or part-way between, at analytic and 2D fidelity."
 order: 22.5
 papers:
   - cite: "L. Chrostowski, M. Hochberg, Silicon Photonics Design, Cambridge University Press (2015)"
@@ -40,6 +40,12 @@ papers:
     doi: 10.1364/OE.22.010487
   - cite: "J. Abate, P. P. Valkó, Int. J. Numer. Methods Eng. 60, 979 (2004) (fixed Talbot, the in-guide heater's analytic time)"
     doi: 10.1002/nme.995
+  - cite: "M. Delaney, I. Zeimpekis, D. Lawson, D. W. Hewak, O. L. Muskens, Adv. Funct. Mater. 30, 2002447 (2020) (the phase-change shifters: the two states' indices, the 25 nm film and the figure of merit, Eq. 1)"
+    doi: 10.1002/adfm.202002447
+  - cite: "J. A. Frantz et al., Opt. Mater. Express 13, 3631 (2023) (a part-crystallized film as the linear effective medium of the two states)"
+    doi: 10.1364/OME.506019
+  - cite: "J. Chilwell, I. Hodgkinson, J. Opt. Soc. Am. A 1, 742 (1984) (the exact complex slab modes of the effective index method)"
+    doi: 10.1364/JOSAA.1.000742
 validation:
   - device/library-components
   - device/ring-closed-forms
@@ -87,6 +93,13 @@ validation:
   - device/thermo-in-guide-measured
   - device/thermo-2d-grid
   - device/thermo-jobs
+  - device/pcm-analytic-index
+  - device/pcm-analytic-loss
+  - device/pcm-wide-guide
+  - device/pcm-2d-grid
+  - device/pcm-frantz-mix
+  - device/pcm-fom
+  - device/pcm-jobs
 ---
 
 A [component](components.md) maps its parameters to an S-matrix, and its physical inputs are
@@ -106,7 +119,9 @@ ring, all-pass and add-drop. Then the rest of the studio's library: the rib wave
 and 2 × 2 MMIs, the Y-branch, and the Mach–Zehnder interferometers of directional couplers and
 of Y-branches; and the waveguide and the coupler take ribs and sloped walls too. The first
 active devices follow: the thermo-optic phase shifters, a metal heater over a strip and doped
-heaters beside a rib, their phase following the heater's power.
+heaters beside a rib, their phase following the heater's power; and the phase-change phase
+shifters, a cell of GST, Sb₂S₃ or Sb₂Se₃ on a strip, its phase following its crystallized
+fraction.
 
 ## The abstraction
 
@@ -633,6 +648,93 @@ heater = phox.device_derived("thermo-optic phase shifter", values={"power": 12.5
 print({f.symbol: (round(f.value, 4), f.unit) for f in heater})   # P_pi, tau, f_3dB, X, ...
 ```
 
+## Phase-change phase shifters
+
+`PcmShifter`, the device the phase-change materials of the catalogue were added for (0.6's phase
+P8): a straight silicon guide `length` µm long with a cell of a phase-change material on top of
+it, ports `o1` and `o2`. One kind for each material, `"GST phase-change phase shifter"`
+(`PcmShifter::gst`), `"Sb2S3 phase-change phase shifter"` (`sb2s3`) and `"Sb2Se3 phase-change
+phase shifter"` (`sb2se3`), each on a 500 × 220 nm strip of 220 nm SOI under Delaney et al.
+2020's 25 nm film. The materials are the catalogue's, our fits to their ellipsometry
+([catalogue.md](catalogue.md)); a cell part-way between the states, `crystallized` of its volume
+crystalline, has Frantz et al. 2023's linear effective medium of the two permittivities,
+$\varepsilon = (1-f)\,\varepsilon_\mathrm{a} + f\,\varepsilon_\mathrm{c}$, at the wavelength asked.
+
+Its parameters: `width` and `thickness` of the guide, `slab` (µm of the silicon left beside it,
+0 for a strip, a rib otherwise), `film_thickness`, `coverage` (the film's width as a share of the
+guide's, centred), `crystallized` (0 to 1), `length`, `loss` (dB/cm, the propagation loss of the
+guide that the models don't give, added to the cell's) and `wavelength` (1.25 to 1.65 µm, the
+fits' range). The mode is the fundamental TE-like one. The film lies on the guide's top only: a
+patch that also covers the slab beside a rib (Delaney et al.'s lift-off patches) isn't drawn.
+
+Its **component** is the phase the cell adds against its amorphous state and the loss of the
+cell: ports `o1` and `o2`, parameters `phase` (rad) and `loss` (dB),
+$S_{21} = S_{12} = 10^{-\mathrm{IL}/20}\, e^{i\varphi\lambda_0/\lambda}$ with
+$\varphi = 2\pi\,(n_\mathrm{eff}(f) - n_\mathrm{eff}(0))\,L/\lambda$ and IL the cell's loss over
+its length plus the guide's. The state is held without power: the device has no drive, only the
+fraction `crystallized` to set (a circuit that switches a cell is a netlist of one component per
+state). Its derivatives in the length and the loss are exact. The figures, each with its
+fidelity and grid: `n_eff` (the real part, at the fraction), `alpha` (the cell's loss, dB/µm,
+$20\log_{10}e\,k_0\,\mathrm{Im}\,n_\mathrm{eff}$), `dn_eff` (the change from the amorphous
+state at the fraction), `dn_eff_ac` (amorphous to crystalline), `alpha_a` and `alpha_c` (the loss
+of either state), `L_pi` ($\lambda/(2\,|\Delta n_\mathrm{eff}|)$, the length that turns the phase
+by π between the states), `FOM` (Delaney et al.'s Eq. 1, $2\pi\,|\Delta
+n_\mathrm{eff}|/(\lambda\alpha)$ in rad/dB, with $\alpha$ the loss of the lossier state; left out
+for a film that absorbs nothing, as the fits of Sb₂S₃ do), `phi` and `IL`. They are 2D numbers: a
+straight section's, any length, with no bends, leads or ends.
+
+| Fidelity | Model | Stated error | Holds over |
+|---|---|---|---|
+| analytic | the effective index method with exact complex slabs ([eim.md](eim.md), [multilayer.md](multilayer.md)): the vertical column through the guide (cladding, the film at its fraction, silicon, buried oxide), the column beside it (a rib's slab, or the cladding alone) and the lateral stack across (the film's width over the bare silicon, and the bare silicon either side of it), each the root of a transfer matrix's dispersion relation; a lossy film's root followed from the lossless stack as its absorption is switched on in 50 steps. The loss is the imaginary part of the index | $\Delta n_\mathrm{eff}$ and $\alpha_\mathrm{c}$ within 15 % of 2D | widths 0.4–0.6 µm, films 10–50 nm, slabs 0–100 nm |
+| 2D | the full-vector mode solver on the cross-section ([vector.md](vector.md)): the standard scheme with complex permittivities, half of the section behind an electric wall, cells of 5 nm in and near the guide and the film (the faces on nodes) growing by 0.1 per µm to 0.1 µm, 1 µm of cladding around; the guided TE-like mode of the largest real index. Labelled 2D | — | — |
+
+`PcmShifter::with_refinement(r)` divides the cells by r, as the validation does. Our numbers,
+the cell on the default guide, at the defaults (25 nm, strip, 1.55 µm):
+
+| Cell | Fidelity | $\Delta n_\mathrm{eff}$ (amorphous to crystalline) | $\alpha$ amorphous (dB/µm) | $\alpha$ crystalline (dB/µm) | $L_\pi$ (µm) | FOM (rad/dB) |
+|---|---|---|---|---|---|---|
+| Sb₂Se₃ | analytic | 0.05333 | 0 | 6.32e-4 | 14.53 | 342 |
+| Sb₂Se₃ | 2D | 0.05681 | 0 | 6.69e-4 | 13.64 | 344 |
+| Sb₂S₃ | analytic | 0.02957 | 0 | 0 | 26.21 | — |
+| Sb₂S₃ | 2D | 0.03178 | 0 | 0 | 24.39 | — |
+| GST | analytic | 0.8020 | 0.2106 | 16.45 | 0.966 | 0.198 |
+| GST | 2D | 0.8172 | 0.2219 | 16.50 | 0.948 | 0.201 |
+
+The index change is the film's volume share times its contrast, so GST's, with its crystalline
+$n = 7.91 + 1.03i$ against $4.35 + 0.06i$ amorphous, is more than ten times the others'. It is
+also a different mode: crystalline GST holds the light in the film, and the guide's real index
+rises from 2.605 to 3.422 (2D); the others' rise by 0.03 to 0.06. Sb₂Se₃ and Sb₂S₃ absorb almost
+nothing in the fits, so the losses of the table are the materials' alone. Delaney et al.
+measured 0.01 and 0.028 dB/µm in their crystalline cells, far above what the materials absorb
+(they point to grain boundaries and voids), so their figures of merit (29.0 and 5.15 rad/dB,
+from their measured losses) are not comparable with the table's. For GST they quote 0.282 rad/dB
+from another group's 20 nm patch on an SOI waveguide (3.72 dB/µm and $\Delta n_\mathrm{eff}$ 0.259,
+their ref. 58, which we don't have). Ours is 0.20 rad/dB (2D), 29 % below, from an index change
+3.2 times and a loss 4.4 times theirs, for 25 nm. We have not explained the gap, so GST is not a
+case.
+
+**Not a case.** Delaney et al.'s $\Delta n_\mathrm{eff}$ of 0.0717 (Sb₂Se₃) and 0.0356 (Sb₂S₃)
+for a 25 nm film on a 500 nm wide 220 nm SOI rib are not reproduced, and not compared: the paper
+and its supplement give neither the rib's etch, the patch's extent over the slab nor the
+polarization, and a patch may cover the slab as well as the rib, which the device doesn't draw.
+For a film on a strip alone we get 0.0568 and 0.0318 (2D), 21 % and 11 % below theirs.
+
+Each lower model against the next one up (`device/pcm-*`), stated 15 %: the analytic
+$\Delta n_\mathrm{eff}$ within 12.5 % of the 2D model's over its validity (the three materials
+at six designs each: the defaults, the guide 0.4 and 0.6 µm wide, the film 10 and 50 nm thick, a
+100 nm slab; the worst is Sb₂S₃ in the 0.4 µm guide, 12.5 % low), and the crystalline loss of
+Sb₂Se₃ and GST within 10.4 % (Sb₂Se₃ in the 0.4 µm guide). On a guide 2 µm wide, where the
+effective index method is nearly exact, the two agree within 0.12 %. The 2D model's own cells
+against cells half the size move its figures by 1.2 % at most (the 10 nm film, two cells thick,
+the worst). The devices as jobs equal `Device::component`, 0 bits apart.
+
+```python
+import photonoxide as phox
+
+cell = phox.device_derived("Sb2Se3 phase-change phase shifter", values={"crystallized": 1.0})
+print({f.symbol: (round(f.value, 4), f.unit) for f in cell})   # n_eff, alpha, dn_eff_ac, L_pi, ...
+```
+
 ## Saved as a job
 
 A device's design is a job file with a `[device]` table in place of a task (`device::Spec`):
@@ -952,6 +1054,12 @@ its studies run here rather than on a farm's workers, who haven't the file.
 | `device/thermo-in-guide-measured` | its 2D $P_\pi$, gated, over the measured fidelity's (24.77 mW) | the same and half | 1.064 |
 | `device/thermo-2d-grid` | the 2D $P_\pi$ at the three fabricated designs on the devices' grids over twice as fine | the same and half | 1.00080 |
 | `device/thermo-jobs` | the three shifters at each fidelity as jobs against `Device::component`, figures and S-parameters | the same | 0 bits differ |
+| `device/pcm-analytic-index`, `-loss` | the phase-change shifters' analytic $\Delta n_\mathrm{eff}$ (amorphous to crystalline) and crystalline loss over the 2D model's at six designs for each of the three materials (the ratio farthest from 1) | cells of 5 nm to 0.1 µm | 0.875 and 0.897 |
+| `device/pcm-wide-guide` | the same $\Delta n_\mathrm{eff}$ on a guide 2 µm wide, over the 2D model on cells half the size | the same and half | 0.99875 |
+| `device/pcm-2d-grid` | the 2D $\Delta n_\mathrm{eff}$ and loss at the defaults and a 10 nm film on the device's cells over cells half the size | the same and half | 1.0118 |
+| `device/pcm-frantz-mix` | a part-crystallized film's permittivity in the device's stack against Frantz et al.'s linear mix | exact | 3.5e-16 |
+| `device/pcm-fom` | the device's figure of merit against Delaney et al.'s Eq. (1) from its own index change and loss | exact | 0 |
+| `device/pcm-jobs` | the three cells at each fidelity as jobs against `Device::component`, figures and S-parameters | the same | 0 bits differ |
 
 The Y-branch MZI has none: its 3D model's FDFD of its Y-branches is more than the direct solver
 holds here (7.3 million unknowns), as for the MMIs' and the Y-branch's own 3D models (#377). The

@@ -34,7 +34,10 @@
 //! for bit. The first active devices are the thermo-optic phase shifters ([`ThermoShifter`]): a
 //! metal heater over a strip, doped heaters beside a rib and the guide heated itself (Harris et
 //! al.'s in-guide heater), their phase following the heater's power at analytic, 2D and
-//! measured fidelity, the measured one a measured device's file ([`Measurement`]).
+//! measured fidelity, the measured one a measured device's file ([`Measurement`]); and the
+//! phase-change phase shifters ([`PcmShifter`]): a cell of GST, Sb₂S₃ or Sb₂Se₃ on a silicon
+//! guide, its effective index, phase and loss in either state or part-way between, held without
+//! power, at analytic and 2D fidelity.
 //!
 //! **Fidelities and grids.** Every figure names its model and its grid: an analytic figure
 //! comes from a closed form, or a fit to the full-vector solver whose grid it states; a 2D
@@ -59,6 +62,7 @@ mod guide;
 mod mmi;
 mod mzi;
 pub mod objective;
+mod pcm;
 mod rib;
 mod ring;
 mod section;
@@ -70,6 +74,9 @@ mod waveguide;
 mod ybranch;
 
 pub(crate) mod checks;
+pub(crate) mod pcm_checks;
+#[cfg(test)]
+mod pcm_tests;
 pub(crate) mod splitter_checks;
 #[cfg(test)]
 mod splitter_tests;
@@ -86,6 +93,7 @@ pub use coupler::StripCoupler;
 pub use mmi::{Model2d, StripMmi};
 pub use mzi::StripMzi;
 pub use objective::{Constraint, Goal, Limit, Objective, Reduce};
+pub use pcm::PcmShifter;
 pub use rib::RibWaveguide;
 pub use ring::StripRing;
 pub use section::{Cells, Mesh, Scheme, Symmetry};
@@ -650,7 +658,8 @@ pub fn derivative(
 /// The devices at their defaults, on 220 nm SOI: the strip waveguide, bend, directional
 /// coupler, the all-pass and add-drop rings, the rib waveguide, the 1 × 2 and 2 × 2 MMIs, the
 /// Y-branch, the MZIs of directional couplers and of Y-branches, and the thermo-optic phase
-/// shifters of a metal heater, of doped heaters and of the guide heated itself.
+/// shifters of a metal heater, of doped heaters and of the guide heated itself, and the
+/// phase-change phase shifters of GST, Sb₂S₃ and Sb₂Se₃.
 pub fn library() -> Vec<Box<dyn Device>> {
     vec![
         Box::new(StripWaveguide::new()),
@@ -667,6 +676,9 @@ pub fn library() -> Vec<Box<dyn Device>> {
         Box::new(ThermoShifter::metal()),
         Box::new(ThermoShifter::doped()),
         Box::new(ThermoShifter::in_guide()),
+        Box::new(PcmShifter::gst()),
+        Box::new(PcmShifter::sb2s3()),
+        Box::new(PcmShifter::sb2se3()),
     ]
 }
 

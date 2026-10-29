@@ -57,8 +57,8 @@ use crate::units::Length;
 use crate::{Error, Result};
 
 use super::{
-    Cells, Design, Device, FdfdGrid, Mesh, Model2d, RibWaveguide, StripBend, StripCoupler,
-    StripMmi, StripMzi, StripRing, StripWaveguide, StripYBranch, ThermoShifter,
+    Cells, Design, Device, FdfdGrid, Mesh, Model2d, PcmShifter, RibWaveguide, StripBend,
+    StripCoupler, StripMmi, StripMzi, StripRing, StripWaveguide, StripYBranch, ThermoShifter,
 };
 use crate::circuit::components::MmiKind;
 
@@ -290,6 +290,11 @@ impl Spec {
             "doped thermo-optic phase shifter" => Box::new(ThermoShifter::on(stack, &core, true)?),
             "in-guide thermo-optic phase shifter" => {
                 Box::new(ThermoShifter::in_guide_on(stack, &core)?)
+            }
+            "GST phase-change phase shifter" => Box::new(PcmShifter::on("gst", stack, &core)?),
+            "Sb2S3 phase-change phase shifter" => Box::new(PcmShifter::on("sb2s3", stack, &core)?),
+            "Sb2Se3 phase-change phase shifter" => {
+                Box::new(PcmShifter::on("sb2se3", stack, &core)?)
             }
             other => {
                 return Err(Error::invalid(
