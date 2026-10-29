@@ -282,7 +282,8 @@ fn coupler_grid() -> Outcome {
     Outcome {
         measured: middle,
         expected: fine,
-        tolerance: round(1e-3 * fine, 9),
+        // 1e-3 of it: its rule's, in its measure (#544)
+        tolerance: 1e-3 * fine.abs(),
         error: (middle - fine).abs(),
     }
 }

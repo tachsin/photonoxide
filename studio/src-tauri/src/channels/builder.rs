@@ -125,6 +125,26 @@ pub struct Plan {
     pub path: OsString,
     /// The hard timeout of the whole build.
     pub timeout: Duration,
+    /// What else the build is.
+    pub options: Options,
+}
+
+/// What else a build is (#564): tuned to this CPU, and of a release rather than of main.
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+pub struct Options {
+    /// For this CPU alone: its instruction sets (`-C target-cpu=native`) and fat LTO (the
+    /// `fastest` profile). The build runs only on CPUs with this one's instruction sets.
+    pub tuned: bool,
+    /// The release built at its tag (its version, `0.6.0`), in place of main's head: it is that
+    /// release, on the stable channel, as the updater would install it.
+    pub release: Option<String>,
+}
+
+impl Options {
+    /// The Cargo profile the build compiles with, and the folder under the target it lands in.
+    pub fn profile(&self) -> &'static str {
+        if self.tuned { "fastest" } else { "release" }
+    }
 }
 
 /// A build ready to install.
@@ -418,9 +438,9 @@ fn is_artifact(bundle: &str, name: &str) -> bool {
 }
 
 /// The bundle the build made: the newest of its kind made since `since`.
-fn find_artifact(target: &Path, bundle: &str, since: SystemTime) -> Option<PathBuf> {
+fn find_artifact(target: &Path, profile: &str, bundle: &str, since: SystemTime) -> Option<PathBuf> {
     let dir = target
-        .join("release")
+        .join(profile)
         .join("bundle")
         .join(bundle_folder(bundle));
     let since = since.checked_sub(Duration::from_secs(5)).unwrap_or(since);
@@ -828,9 +848,25 @@ fn build(
     if let Some(note) = note {
         lock(shared).say(note);
     }
-    let bundled = bundle_version(&version)?;
-    let version = nightly_version(&version, sha, plan.date.as_deref())?;
-    let label = nightly_label(&version, sha, plan.date.as_deref());
+    let (bundled, version, label) = match &plan.options.release {
+        // the release as it is: its own version, on the stable channel
+        Some(release) => (
+            release.clone(),
+            release.clone(),
+            format!("{release} (built here at its tag)"),
+        ),
+        None => {
+            let bundled = bundle_version(&version)?;
+            let version = nightly_version(&version, sha, plan.date.as_deref())?;
+            let label = nightly_label(&version, sha, plan.date.as_deref());
+            (bundled, version, label)
+        }
+    };
+    let label = if plan.options.tuned {
+        format!("{label}, tuned to this CPU")
+    } else {
+        label
+    };
     lock(shared).say(format!("pnpm: {}; building {label}", pnpm.display()));
 
     // this copy's name and identifier, main's plain version for the bundle (the nightly's own is
@@ -861,11 +897,32 @@ fn build(
             plan.date.clone().unwrap_or_default().into(),
         ),
         ("PHOTONOXIDE_DIRTY", "false".into()),
-        ("PHOTONOXIDE_CHANNEL", "nightly".into()),
-        ("PHOTONOXIDE_NIGHTLY_VERSION", version.clone().into()),
+        (
+            "PHOTONOXIDE_CHANNEL",
+            if plan.options.release.is_some() {
+                ""
+            } else {
+                "nightly"
+            }
+            .into(),
+        ),
+        (
+            "PHOTONOXIDE_NIGHTLY_VERSION",
+            if plan.options.release.is_some() {
+                OsString::new()
+            } else {
+                version.clone().into()
+            },
+        ),
     ]
     .into_iter()
     .map(|(k, v)| (OsString::from(k), v))
+    .chain(
+        // this CPU's instruction sets, for every crate
+        plan.options
+            .tuned
+            .then(|| ("RUSTFLAGS".into(), "-C target-cpu=native".into())),
+    )
     .collect();
 
     say(
@@ -898,17 +955,27 @@ fn build(
             plan.bundle.clone().into(),
             "--config".into(),
             config_file.into_os_string(),
-        ],
+        ]
+        .into_iter()
+        .chain(
+            plan.options
+                .tuned
+                .then(|| ["--".into(), "--profile".into(), "fastest".into()])
+                .into_iter()
+                .flatten(),
+        )
+        .collect(),
         cwd: &studio,
         env: &env,
     };
     run(&tauri, shared, cancel, deadline, plan.timeout)?;
 
-    let made = find_artifact(&dirs.target(), &plan.bundle, begun).ok_or_else(|| {
+    let profile = plan.options.profile();
+    let made = find_artifact(&dirs.target(), profile, &plan.bundle, begun).ok_or_else(|| {
         format!(
             "the build finished, but made no {} bundle in {}",
             plan.bundle,
-            dirs.target().join("release").join("bundle").display()
+            dirs.target().join(profile).join("bundle").display()
         )
     })?;
     // each commit's build in a folder of its own: the build waiting until now stays whole (and
@@ -1087,6 +1154,19 @@ mod tests {
         }
     }
 
+    #[test]
+    fn a_tuned_build_compiles_with_the_fastest_profile_and_a_release_keeps_its_version() {
+        assert_eq!(Options::default().profile(), "release");
+        let tuned = Options {
+            tuned: true,
+            release: Some("0.6.0".into()),
+        };
+        assert_eq!(tuned.profile(), "fastest");
+        // what the window sends reads back the same
+        let json = serde_json::to_string(&tuned).unwrap();
+        assert_eq!(serde_json::from_str::<Options>(&json).unwrap(), tuned);
+    }
+
     fn plan(timeout: Duration) -> Plan {
         Plan {
             commit: HEAD.into(),
@@ -1099,6 +1179,7 @@ mod tests {
             },
             path: std::env::var_os("PATH").unwrap_or_default(),
             timeout,
+            options: Options::default(),
         }
     }
 

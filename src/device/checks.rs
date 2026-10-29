@@ -98,7 +98,7 @@ pub(crate) fn cases() -> Vec<Case> {
         },
         Case {
             id: "device/waveguide-3d-order",
-            title: r"Devices: the 3D waveguide's order of convergence in its grid, the 500 x 220 nm strip's $n_\text{eff}$ at 1.55 µm on cells fitted 20, 10 and 5 nm apart by Hadley's equations (shown to two decimals)",
+            title: r"Devices: the 3D waveguide's order of convergence in its grid, the 500 x 220 nm strip's $n_\text{eff}$ at 1.55 µm by Hadley's equations on a quarter of a 2.1 x 1.5 µm window, cells of 12.5 x 10, 6.25 x 5 and 3.125 x 2.5 nm (shown to two decimals)",
             tier: Tier::Analytic,
             source: "second order at the strip's corners: G. R. Hadley, J. Lightwave Technol. 20, 1219 (2002), doi:10.1109/JLT.2002.800371 (the standard scheme's is about first)",
             run: waveguide_order,
@@ -133,7 +133,7 @@ pub(crate) fn cases() -> Vec<Case> {
         },
         Case {
             id: "device/coupler-3d-order",
-            title: r"Devices: the 3D coupler's order of convergence in its grid, two 500 x 220 nm strips 200 nm apart, $\Delta n$ at 1.55 µm on cells fitted 20, 10 and 5 nm apart (shown to two decimals)",
+            title: r"Devices: the 3D coupler's order of convergence in its grid, two 500 x 220 nm strips 200 nm apart, $\Delta n$ at 1.55 µm on a quarter of a 5.5 x 1.32 µm window, cells of 25 x 27.5, 12.5 x 13.75 and 6.25 x 6.875 nm (shown to two decimals)",
             tier: Tier::Analytic,
             source: "about first order: the standard full-vector scheme at the strips' convex corners (Fallahkhair et al. 2008, doi:10.1109/JLT.2008.923643)",
             run: coupler_order,

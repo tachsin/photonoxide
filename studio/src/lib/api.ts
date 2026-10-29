@@ -24,6 +24,8 @@ export interface Settings {
   view: "3d" | "2d";
   /** The unit lengths are shown and edited in, app-wide: "um" (µm) or "nm" (lib/units.ts). */
   length_unit: string;
+  /** The builds made here are tuned to this CPU (#564). */
+  tuned_builds: boolean;
 }
 
 export interface AppState {
@@ -152,6 +154,12 @@ export interface Progress {
   seconds: number;
 }
 
+/** This machine and the libraries suggested for it (libraries/hardware.rs). */
+export interface HardwareAdvice {
+  hardware: { os: string; arch: string; cpu: { vendor: string; brand: string; threads: number; features: string[] }; gpu: { name: string; driver: string } | null };
+  suggestions: { library: string; why: string; install: string | null; command: string | null; download: string; system: boolean }[];
+}
+
 export const api = {
   info: () => invoke<Info>("info"),
   poll: (from: number) => invoke<Poll>("poll", { from }),
@@ -267,7 +275,18 @@ export const api = {
   readCircuit: (path: string) => invoke<Chip>("read_circuit", { path }),
   deleteCircuit: (path: string) => invoke<void>("delete_circuit", { path }),
   libraries: () => invoke<LibraryReport>("libraries"),
-  installLibrary: (library: string, id: string) => invoke<string>("install", { library, id }),
+  /** The command a library's install runs here, as it will run. */
+  libraryInstallPlan: (library: string, id: string) => invoke<string>("library_install_plan", { library, id }),
+  /** Installs a library by its guide's install, its output on `library-install` as it runs. */
+  libraryInstall: (library: string, id: string) => invoke<void>("library_install", { library, id }),
+  /** Removes what the program installed for a library from its own environment. */
+  libraryRemove: (library: string) => invoke<void>("library_remove", { library }),
+  /** This machine, and the libraries suggested for it. */
+  hardwareAdvice: () => invoke<HardwareAdvice>("hardware_advice"),
+  /** Whether the setup's Advanced path asked for the performance step at this start. */
+  performanceOnStart: () => invoke<boolean>("performance_on_start"),
+  /** What the program installed into its own environment, and where that is. */
+  librariesInstalled: () => invoke<{ environment: string | null; installed: { libraries: Record<string, { id: string; manager: string; packages: string[] }> } }>("libraries_installed"),
   benchData: () => invoke<BenchData>("bench_data"),
   benchCatalogue: () => invoke<CatalogueEntry[]>("bench_catalogue"),
   benchPlan: (request: BenchRequest) => invoke<Planned[]>("bench_plan", { request }),

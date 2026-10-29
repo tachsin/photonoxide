@@ -192,10 +192,10 @@ fn film_loss() -> Outcome {
 }
 
 fn film_order() -> Outcome {
-    let order = (film_error(10.0) / film_error(5.0)).log2();
+    // two decimals, its error too: the report reads the same on every platform
+    let order = ((film_error(10.0) / film_error(5.0)).log2() * 100.0).round() / 100.0;
     Outcome {
-        // two decimals: the report reads the same on every platform
-        measured: (order * 100.0).round() / 100.0,
+        measured: order,
         expected: 2.0,
         tolerance: 0.1,
         error: (order - 2.0).abs(),

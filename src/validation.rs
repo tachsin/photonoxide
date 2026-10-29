@@ -142,6 +142,10 @@ pub struct Rule {
     pub numerical: Numerical,
     /// The tolerance's origin, in words: a paper's statement, a printed digit, a grid study.
     pub why: &'static str,
+    /// The case's error is set by a platform's last bits (a fit, an iteration count, a
+    /// noise-level difference): the report shows it as a bound below a third of the tolerance,
+    /// so it reads the same on every system ([`Rule::varying`]).
+    pub varies: bool,
 }
 
 impl Rule {
@@ -159,6 +163,17 @@ impl Rule {
             tolerance,
             numerical,
             why,
+            varies: false,
+        }
+    }
+
+    /// The same rule for a case whose error a platform's last bits set: an iterative fit's
+    /// residual, say, which moves by half itself between systems. Its Error cell reads "under a
+    /// third of it" while the error is below a third of the tolerance, the value above.
+    pub const fn varying(self) -> Rule {
+        Rule {
+            varies: true,
+            ..self
         }
     }
 
@@ -218,6 +233,7 @@ pub fn rules() -> Vec<(&'static str, Rule)> {
     rules.extend(fdtd::rules());
     rules.extend(geometry::rules());
     rules.extend(line::rules());
+    rules.extend(devices::rules());
     rules
 }
 
@@ -5388,6 +5404,7 @@ fn um(value: f64) -> Wavelength {
     Wavelength::from_um_unchecked(value)
 }
 
+mod devices;
 mod fdfd;
 mod fdtd;
 mod geometry;
@@ -5506,6 +5523,9 @@ fn error_cell(rule: &Rule, o: &Outcome) -> String {
     } else if rule.basis == Basis::RoundOff && v <= rule.tolerance {
         // its digits are the platform's math library's: the report reads the same everywhere
         "within round-off".into()
+    } else if rule.varies && v < rule.tolerance / 3.0 {
+        // its digits are the platform's: the bound reads the same everywhere
+        "under a third of it".into()
     } else if v < 0.01 * rule.tolerance {
         "under 1 % of it".into()
     } else if rule.measure == Measure::Relative {
@@ -5942,6 +5962,31 @@ mod tests {
         assert_eq!(error_cell(&rule, &o), "6.3 %");
         assert_eq!(tolerance_cell(&rule), "10 % rel");
         assert_eq!(error_cell(&loose, &zero), "within round-off");
+        // a fit's residual, which moves with a platform's last bits: a bound, not its digits
+        let fit = Rule::new(
+            Measure::Absolute,
+            Basis::Discretisation,
+            1e-6,
+            Numerical::Measured,
+            "a fit",
+        )
+        .varying();
+        for v in [3.3e-7, 2.1e-7] {
+            let o = Outcome {
+                measured: v,
+                expected: 0.0,
+                tolerance: 1e-6,
+                error: v,
+            };
+            assert_eq!(error_cell(&fit, &o), "under a third of it");
+        }
+        let near = Outcome {
+            measured: 5e-7,
+            expected: 0.0,
+            tolerance: 1e-6,
+            error: 5e-7,
+        };
+        assert_eq!(error_cell(&fit, &near), "5.0e-7");
         let rc = Rule::new(
             Measure::Relative,
             Basis::Discretisation,

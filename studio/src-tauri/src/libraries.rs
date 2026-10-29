@@ -7,10 +7,12 @@
 //!   "Detect again" see a library installed since the window opened.
 //! - **The guides** ([`GUIDES`]): each library's licence, its official download, the variables
 //!   and folders its loader searches, and the package-manager commands that install it where
-//!   one is standard. The window shows a command to copy; only a winget command on Windows can
-//!   be run from it, in a terminal of its own, after the user confirms having read the licence
-//!   and the command ([`install`]). Elevation, if needed, is winget's to ask for. Nothing is
-//!   redistributed with photonoxide.
+//!   one is standard. After the user confirms having read the licence, the window installs one
+//!   with a click, its output shown live ([`library_install`]): a conda-forge one into
+//!   photonoxide's own environment ([`environment`]), on any system; winget on Windows,
+//!   Homebrew on macOS and apt (through pkexec, which asks for the password) on Linux, as their
+//!   vendors ship them. A pip command is shown to copy: each library it installs has a
+//!   conda-forge one too. Nothing is redistributed with photonoxide.
 //! - **New releases** ([`releases`]): each library's newest, against the version its guide
 //!   was checked with, read every week by the Releases workflow.
 
@@ -23,6 +25,8 @@ use photonoxide_native::{
 };
 use serde::Serialize;
 
+pub mod environment;
+pub mod hardware;
 pub mod releases;
 
 /// A command that installs a library.
@@ -176,7 +180,7 @@ pub const GUIDES: &[Guide] = &[
                 manager: "conda-forge",
                 command: "conda install -c conda-forge mkl",
                 systems: &["windows", "linux", "macos"],
-                note: "Into the active conda environment: start photonoxide from it, so $CONDA_PREFIX points there. On macOS, Intel Macs only.",
+                note: "The Libraries page installs it into photonoxide's own environment, found with nothing to set; copied, it goes into the active conda environment: start photonoxide from it, so $CONDA_PREFIX points there. On macOS, Intel Macs only.",
                 checked: &[
                     Checked {
                         system: "linux",
@@ -338,7 +342,7 @@ pub const GUIDES: &[Guide] = &[
                 manager: "conda-forge",
                 command: "conda install -c conda-forge cuda-cudart libcusparse",
                 systems: &["windows", "linux"],
-                note: "Into the active conda environment: start photonoxide from it.",
+                note: "The Libraries page installs it into photonoxide's own environment, found with nothing to set; copied, it goes into the active conda environment: start photonoxide from it.",
                 checked: &[
                     Checked {
                         system: "linux",
@@ -398,7 +402,7 @@ pub const GUIDES: &[Guide] = &[
                 manager: "conda-forge",
                 command: "conda install -c conda-forge libcudss=1.0",
                 systems: &["windows", "linux"],
-                note: "Into the active conda environment: start photonoxide from it.",
+                note: "The Libraries page installs it into photonoxide's own environment, found with nothing to set; copied, it goes into the active conda environment: start photonoxide from it.",
                 checked: &[
                     Checked {
                         system: "linux",
@@ -458,7 +462,7 @@ pub const GUIDES: &[Guide] = &[
                 manager: "conda-forge",
                 command: "conda install -c conda-forge superlu",
                 systems: &["linux", "macos"],
-                note: "Into the active conda environment: start photonoxide from it.",
+                note: "The Libraries page installs it into photonoxide's own environment, found with nothing to set; copied, it goes into the active conda environment: start photonoxide from it.",
                 checked: &[
                     Checked {
                         system: "linux",
@@ -614,7 +618,7 @@ pub const GUIDES: &[Guide] = &[
                 manager: "conda-forge",
                 command: "conda install -c conda-forge openblas",
                 systems: &["windows", "linux", "macos"],
-                note: "Into the active conda environment: start photonoxide from it.",
+                note: "The Libraries page installs it into photonoxide's own environment, found with nothing to set; copied, it goes into the active conda environment: start photonoxide from it.",
                 checked: &[
                     Checked {
                         system: "linux",
@@ -638,6 +642,14 @@ pub const GUIDES: &[Guide] = &[
                         found: "OpenBLAS 0.3.34, and the photonoxide-openblas backend after its smoke test and its tests, on one thread",
                     },
                 ],
+            },
+            Install {
+                id: "conda-openmp",
+                manager: "conda-forge",
+                command: "conda install -c conda-forge libopenblas=*=*openmp*",
+                systems: &["linux", "macos"],
+                note: "OpenBLAS built with OpenMP in place of its own threads, which some machines run faster: Benchmarks compares the two here. photonoxide holds each of its threads' OpenMP count at one, so its own parallel loops and OpenBLAS's don't multiply (#557).",
+                checked: &[],
             },
             Install {
                 id: "apt",
@@ -745,7 +757,7 @@ pub const GUIDES: &[Guide] = &[
                 manager: "conda-forge",
                 command: "conda install -c conda-forge hdf5",
                 systems: &["windows", "linux", "macos"],
-                note: "Into the active conda environment: start photonoxide from it.",
+                note: "The Libraries page installs it into photonoxide's own environment, found with nothing to set; copied, it goes into the active conda environment: start photonoxide from it.",
                 checked: &[
                     Checked {
                         system: "linux",
@@ -813,7 +825,7 @@ pub const GUIDES: &[Guide] = &[
                 manager: "conda-forge",
                 command: "conda install -c conda-forge zstd",
                 systems: &["windows", "linux", "macos"],
-                note: "Into the active conda environment: start photonoxide from it. Many environments have it already, as a dependency.",
+                note: "The Libraries page installs it into photonoxide's own environment, found with nothing to set; copied, it goes into the active conda environment: start photonoxide from it. Many environments have it already, as a dependency.",
                 checked: &[
                     Checked {
                         system: "linux",
@@ -1395,6 +1407,20 @@ pub fn libraries() -> Result<serde_json::Value, String> {
     probe_in_a_child()
 }
 
+/// How `install` runs on this system, if it can be run from the window: `conda-forge` into
+/// photonoxide's own environment anywhere, the vendors' package managers where they are this
+/// system's (winget on Windows, Homebrew on macOS, apt on Linux). pip's is copied: each library
+/// it installs has a conda-forge install too.
+fn runs_here(install: &Install) -> bool {
+    match install.manager {
+        "conda-forge" => true,
+        "winget" => cfg!(windows),
+        "brew" => cfg!(target_os = "macos"),
+        "apt" => cfg!(target_os = "linux"),
+        _ => false,
+    }
+}
+
 /// The install `id` of `library`'s guide, if it can be run on this system.
 fn runnable(library: &str, id: &str) -> Result<&'static Install, String> {
     let guide = GUIDES
@@ -1406,7 +1432,7 @@ fn runnable(library: &str, id: &str) -> Result<&'static Install, String> {
         .iter()
         .find(|i| i.id == id)
         .ok_or_else(|| format!("{library} has no install {id}"))?;
-    if install.manager != "winget" || !cfg!(windows) {
+    if !runs_here(install) {
         return Err(format!(
             "{} is copied and run by you, in the environment it installs into",
             install.command
@@ -1415,25 +1441,170 @@ fn runnable(library: &str, id: &str) -> Result<&'static Install, String> {
     Ok(install)
 }
 
-/// Runs `library`'s install `id` in a terminal of its own, which stays open to show what the
-/// package manager did. The window asks the user first, showing the licence and the command;
-/// only the catalogue's winget commands run, on Windows, never a command the window sends.
+/// The program and arguments a vendor's package manager runs, without asking anything in a
+/// terminal: winget accepts the agreements the user confirmed in the window; apt goes through
+/// pkexec, which asks for the password in a window of its own.
+fn vendor_command(install: &Install) -> (String, Vec<String>) {
+    let words: Vec<String> = install
+        .command
+        .split_whitespace()
+        .map(|w| w.trim_matches('"').to_owned())
+        .collect();
+    match install.manager {
+        "winget" => {
+            let mut args = words[1..].to_vec();
+            args.extend(
+                [
+                    "--accept-package-agreements",
+                    "--accept-source-agreements",
+                    "--disable-interactivity",
+                ]
+                .map(str::to_owned),
+            );
+            ("winget".into(), args)
+        }
+        "apt" => {
+            // `sudo apt-get install <packages>`: pkexec in place of sudo, and no question
+            let packages: Vec<String> = words
+                .iter()
+                .skip_while(|w| *w != "install")
+                .skip(1)
+                .cloned()
+                .collect();
+            let mut args = vec!["apt-get".to_owned(), "install".into(), "-y".into()];
+            args.extend(packages);
+            ("pkexec".into(), args)
+        }
+        _ => (words[0].clone(), words[1..].to_vec()),
+    }
+}
+
+/// What the window shows for an install before it runs: the command, as it will run.
 #[tauri::command]
-pub fn install(library: String, id: String) -> Result<String, String> {
+pub fn library_install_plan(library: String, id: String) -> Result<String, String> {
     let install = runnable(&library, &id)?;
-    let mut command = Command::new("cmd");
-    // start opens a new console, whose cmd /k runs the command and stays open
-    command.args(["/c", "start", "photonoxide: installing", "cmd", "/k"]);
-    command.args(install.command.split(' '));
-    // no standard handles: a studio opened from Explorer has let go of its console, and a
-    // child given its handles doesn't start
-    command
-        .stdin(Stdio::null())
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .spawn()
-        .map_err(|e| format!("can't open a terminal: {e}"))?;
-    Ok(install.command.to_owned())
+    if install.manager == "conda-forge" {
+        let prefix = environment::prefix()?;
+        return Ok(format!(
+            "micromamba {} --prefix {} --channel conda-forge {}",
+            if prefix.join("conda-meta").is_dir() {
+                "install"
+            } else {
+                "create"
+            },
+            prefix.display(),
+            environment::packages_of(install.command).join(" ")
+        ));
+    }
+    let (program, args) = vendor_command(install);
+    Ok(format!("{program} {}", args.join(" ")))
+}
+
+/// A line of an install's output, for the window.
+#[derive(Clone, Serialize)]
+struct InstallLine {
+    library: String,
+    line: String,
+}
+
+/// Installs `library` by its guide's install `id`, after the user confirmed the licence in the
+/// window: its output goes to the window line by line (`library-install`) as it runs. Only the
+/// guide's own installs run, never a command the window sends.
+#[tauri::command(async)]
+pub fn library_install(app: tauri::AppHandle, library: String, id: String) -> Result<(), String> {
+    use tauri::Emitter;
+    let install = runnable(&library, &id)?;
+    let mut say = |line: &str| {
+        let _ = app.emit(
+            "library-install",
+            InstallLine {
+                library: library.clone(),
+                line: line.to_owned(),
+            },
+        );
+    };
+    if install.manager == "conda-forge" {
+        let packages = environment::packages_of(install.command);
+        return environment::install(&library, &id, &packages, &mut say);
+    }
+    let (program, args) = vendor_command(install);
+    say(&format!("{program} {}", args.join(" ")));
+    environment::run(std::path::Path::new(&program), &args, &[], &mut say)?;
+    environment::remember(
+        &library,
+        &id,
+        install.manager,
+        &[install.command.to_owned()],
+    )
+}
+
+/// The command that removes what a vendor's manager installed: its own uninstall, as the
+/// install ran (winget's agreements accepted, apt through pkexec).
+fn vendor_uninstall(install: &Install) -> (String, Vec<String>) {
+    let (program, mut args) = vendor_command(install);
+    match install.manager {
+        "winget" => {
+            args[0] = "uninstall".into();
+            args.retain(|a| a != "--accept-package-agreements");
+        }
+        "apt" => args[1] = "remove".into(),
+        _ => args[0] = "uninstall".into(),
+    }
+    (program, args)
+}
+
+/// Removes what the program installed for `library`: from its own environment, or by the
+/// vendor's manager that installed it.
+#[tauri::command(async)]
+pub fn library_remove(app: tauri::AppHandle, library: String) -> Result<(), String> {
+    use tauri::Emitter;
+    let mut say = |line: &str| {
+        let _ = app.emit(
+            "library-install",
+            InstallLine {
+                library: library.clone(),
+                line: line.to_owned(),
+            },
+        );
+    };
+    let record = environment::installed()
+        .libraries
+        .get(&library)
+        .cloned()
+        .ok_or_else(|| format!("photonoxide didn't install {library}"))?;
+    if record.manager == "conda-forge" {
+        return environment::remove(&library, &mut say);
+    }
+    let install = runnable(&library, &record.id)?;
+    let (program, args) = vendor_uninstall(install);
+    say(&format!("{program} {}", args.join(" ")));
+    environment::run(std::path::Path::new(&program), &args, &[], &mut say)?;
+    environment::forget(&library)
+}
+
+/// This machine, and the libraries suggested for it (the setup's Advanced path and the first
+/// start's performance step).
+#[tauri::command(async)]
+pub fn hardware_advice() -> serde_json::Value {
+    let hardware = hardware::here();
+    let suggestions = hardware::suggest(&hardware);
+    serde_json::json!({ "hardware": hardware, "suggestions": suggestions })
+}
+
+/// Whether the setup's Advanced path asked for the performance step at this start: read once,
+/// then forgotten.
+#[tauri::command]
+pub fn performance_on_start() -> bool {
+    environment::take_performance_marker()
+}
+
+/// What the program installed into its own environment, and where that is.
+#[tauri::command]
+pub fn libraries_installed() -> serde_json::Value {
+    serde_json::json!({
+        "environment": environment::prefix().ok().map(|p| p.display().to_string()),
+        "installed": environment::installed(),
+    })
 }
 
 /// No console window for a child of the window, on Windows.
@@ -1578,11 +1749,60 @@ mod tests {
     }
 
     #[test]
-    fn only_the_catalogues_winget_commands_run_and_only_on_windows() {
+    fn the_vendors_managers_run_without_a_question_in_a_terminal() {
+        let winget = Install {
+            id: "winget",
+            manager: "winget",
+            command: "winget install --id Intel.oneMKL --exact",
+            systems: &["windows"],
+            note: "",
+            checked: &[],
+        };
+        let (program, args) = vendor_command(&winget);
+        assert_eq!(program, "winget");
+        let (_, gone) = vendor_uninstall(&winget);
+        assert_eq!(&gone[..4], ["uninstall", "--id", "Intel.oneMKL", "--exact"]);
+        assert!(!gone.iter().any(|a| a == "--accept-package-agreements"));
+        assert_eq!(&args[..4], ["install", "--id", "Intel.oneMKL", "--exact"]);
+        assert!(args.iter().any(|a| a == "--accept-package-agreements"));
+        assert!(args.iter().any(|a| a == "--disable-interactivity"));
+        let apt = Install {
+            manager: "apt",
+            command: "sudo apt-get install libmkl-rt",
+            ..winget
+        };
+        assert_eq!(
+            vendor_command(&apt),
+            (
+                "pkexec".to_owned(),
+                ["apt-get", "install", "-y", "libmkl-rt"]
+                    .map(str::to_owned)
+                    .to_vec()
+            )
+        );
+        assert_eq!(vendor_uninstall(&apt).1[..3], ["apt-get", "remove", "-y"]);
+        let brew = Install {
+            manager: "brew",
+            command: "brew install --cask arm-performance-libraries",
+            ..winget
+        };
+        assert_eq!(
+            vendor_command(&brew),
+            (
+                "brew".to_owned(),
+                ["install", "--cask", "arm-performance-libraries"]
+                    .map(str::to_owned)
+                    .to_vec()
+            )
+        );
+    }
+
+    #[test]
+    fn only_the_catalogues_installs_run_each_where_its_manager_is_the_system_s() {
         assert!(runnable("oneMKL", "nothing").is_err());
         assert!(runnable("nothing", "winget").is_err());
-        // conda and pip install into an environment the window can't know
-        assert!(runnable("oneMKL", "conda").is_err());
+        // conda-forge runs anywhere, into photonoxide's own environment; pip is copied
+        assert!(runnable("oneMKL", "conda").is_ok());
         assert!(runnable("cuDSS", "pip").is_err());
         let winget = runnable("oneMKL", "winget");
         if cfg!(windows) {

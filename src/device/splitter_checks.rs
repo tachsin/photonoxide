@@ -93,7 +93,7 @@ pub(crate) fn cases() -> Vec<Case> {
             id: "device/rib-hadley",
             title: r"Devices: Hadley's standard rib through the rib device (3 µm wide, a 1 µm film of 3.44 on 3.40 under air, 1.15 µm, TE, slabs of 0.1 to 0.7 µm; Hadley's equations on a 50 nm grid, the half), as the rib_hadley example (largest difference from his Table I shown)",
             tier: Tier::Published,
-            source: "G. R. Hadley, J. Lightwave Technol. 20, 1219 (2002), doi:10.1109/JLT.2002.800371, Table I (6 decimals); the 50 nm grid's error, 1.4e-6 (stack/rib-hadley-table), sets the tolerance",
+            source: "G. R. Hadley, J. Lightwave Technol. 20, 1219 (2002), doi:10.1109/JLT.2002.800371, Table I (6 decimals), to his ±2–3e-6, the lower end the tolerance; our converged index is 1.4e-6 from it, and the 50 nm grid's own error 1.7e-7 (the grid study at 50, 25 and 12.5 nm of stack/rib-hadley-table)",
             run: rib_hadley,
         },
         Case {

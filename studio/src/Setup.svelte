@@ -33,6 +33,8 @@
   let desktop = $state(false);
   let deleteData = $state(false);
   let launch = $state(true);
+  /** Express installs the program alone; Advanced opens it on its performance step (#564). */
+  let advanced = $state(false);
   let done = $state(0);
   let lines = $state<{ id: number; text: string }[]>([]);
   let error = $state("");
@@ -97,7 +99,7 @@
   async function start() {
     phase = "working";
     try {
-      await invoke("setup_start", { dir, desktop, deleteData });
+      await invoke("setup_start", { dir, desktop, deleteData, advanced });
     } catch (e) {
       phase = "failed";
       error = String(e);
@@ -169,6 +171,14 @@
               <input type="checkbox" class="checkbox checkbox-sm checkbox-primary" bind:checked={desktop} />
               <Monitor size={16} /> A shortcut on the Desktop
             </label>
+            <div class="paths" role="radiogroup" aria-label="How to set it up">
+              <button class="box route" class:on={!advanced} role="radio" aria-checked={!advanced} onclick={() => (advanced = false)}>
+                <span class="font-medium">Express</span><span class="text-xs muted">photonoxide alone: its own solvers need nothing more</span>
+              </button>
+              <button class="box route" class:on={advanced} role="radio" aria-checked={advanced} onclick={() => (advanced = true)}>
+                <span class="font-medium">Advanced</span><span class="text-xs muted">then, at its first start, the libraries for the most performance here</span>
+              </button>
+            </div>
             <ul class="facts">
               <li><User size={14} /> For you only: no administrator needed</li>
               <li><HardDrive size={14} /> {mib} MiB on disk, one program</li>
@@ -421,6 +431,26 @@
     white-space: nowrap;
     font-family: var(--font-mono, ui-monospace, monospace);
     font-size: 12.5px;
+  }
+  .paths {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 10px;
+  }
+  .route {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+    min-width: 0;
+    text-align: left;
+    white-space: normal;
+    font-family: inherit;
+    line-height: 1.35;
+    cursor: pointer;
+  }
+  .route.on {
+    border-color: var(--color-primary);
+    background: color-mix(in oklch, var(--color-primary) 9%, transparent);
   }
   .facts {
     display: flex;

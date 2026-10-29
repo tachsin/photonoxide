@@ -8,7 +8,7 @@
   import { app, toast, updateSettings } from "../lib/app.svelte";
   import { MORE_THEMES } from "../lib/themes";
   import { lengthUnit } from "../lib/units";
-  import { available, building, clearCache, commits, nightly, rollBack } from "../lib/nightly.svelte";
+  import { available, buildRelease, building, clearCache, commits, nightly, rollBack } from "../lib/nightly.svelte";
   import { checkForUpdate, switchChannel, updater } from "../lib/updater.svelte";
 
   const s = $derived(app.state!.settings);
@@ -301,6 +301,19 @@
         <p class="mt-3 text-xs faint">This copy is a nightly build: the latest release replaces it when you update, even if it is older.</p>
       {/if}
       {/if}
+      <div class="mt-5 border-t border-base-content/8 pt-4">
+        <label class="flex cursor-pointer items-center justify-between gap-4">
+          <span>
+            <span class="block text-sm font-medium">Builds made here are tuned to this CPU</span>
+            <span class="block text-xs faint">Its instruction sets and fat LTO: the fastest code, for this machine alone, and a longer build. A nightly is built so, and so is the release built here below.</span>
+          </span>
+          <input type="checkbox" class="toggle toggle-primary" checked={s.tuned_builds} onchange={() => updateSettings((x) => (x.tuned_builds = !x.tuned_builds))} />
+        </label>
+        <div class="mt-3 flex flex-wrap items-center gap-3">
+          <button class="btn btn-sm gap-1.5" disabled={building()} onclick={buildRelease} title="Builds the latest release from its tag on this machine, then installs it as that release"><Hammer size={14} /> Build the latest release here{s.tuned_builds ? ", tuned" : ""}</button>
+          <span class="text-xs faint">From its tag, with what building needs (Rust, Node, the platform's tools); installed as the release, on Stable. Benchmarks then measures it against the one you have.</span>
+        </div>
+      </div>
     </section>
 
     <section class="panel p-6">

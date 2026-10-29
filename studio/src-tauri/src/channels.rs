@@ -273,6 +273,11 @@ impl State {
 
     /// Starts building `commit`, which must be main's head as the last check found it.
     pub fn start_build(&self, commit: &str) -> Result<(), String> {
+        self.start_build_with(commit, builder::Options::default())
+    }
+
+    /// Starts building `commit` (main's head) with `options`: tuned to this CPU, say.
+    pub fn start_build_with(&self, commit: &str, options: builder::Options) -> Result<(), String> {
         let shown = lock(&self.checker).last.clone();
         let shown = shown.filter(|n| n.head == commit).ok_or_else(|| {
             format!(
@@ -283,6 +288,31 @@ impl State {
         if !github::is_sha(commit) {
             return Err(format!("{commit} isn't a commit"));
         }
+        self.start(commit, shown.head_date.clone(), options)
+    }
+
+    /// Starts building the latest release at its tag, tuned to this CPU when `tuned`: that
+    /// release, on the stable channel, built for this machine (#564).
+    pub fn start_release_build(&self, tuned: bool) -> Result<(), String> {
+        let version = github::latest_release(&*self.http)?;
+        let commit = github::tag_commit(&*self.http, &format!("v{version}"))?;
+        self.start(
+            &commit,
+            None,
+            builder::Options {
+                tuned,
+                release: Some(version),
+            },
+        )
+    }
+
+    /// Starts the build of `commit`, from its date and `options`.
+    fn start(
+        &self,
+        commit: &str,
+        date: Option<String>,
+        options: builder::Options,
+    ) -> Result<(), String> {
         let bundle = Running::here().bundle_needed()?;
         let mut build = lock(&self.build);
         if build.as_ref().is_some_and(|b| !b.finished()) {
@@ -295,11 +325,12 @@ impl State {
         let system = System::here();
         let plan = Plan {
             commit: commit.to_owned(),
-            date: shown.head_date.clone(),
+            date,
             bundle: bundle.to_owned(),
             identity: self.identity.clone(),
             path: system.path_var(),
             timeout: BUILD_TIMEOUT,
+            options,
         };
         let check: builder::Check = Box::new(move |needs: &Needs| {
             let system = System::here();
@@ -466,8 +497,26 @@ pub fn nightly_install_tool(state: tauri::State<'_, State>, id: String) -> Resul
 }
 
 #[tauri::command(async)]
-pub fn nightly_build(state: tauri::State<'_, State>, commit: String) -> Result<Status, String> {
-    state.start_build(&commit)?;
+pub fn nightly_build(
+    state: tauri::State<'_, State>,
+    commit: String,
+    tuned: Option<bool>,
+) -> Result<Status, String> {
+    state.start_build_with(
+        &commit,
+        builder::Options {
+            tuned: tuned.unwrap_or(false),
+            release: None,
+        },
+    )?;
+    Ok(status_of(&state))
+}
+
+/// Builds the latest release here at its tag, tuned to this CPU when `tuned` (#564): the
+/// build follows as a nightly's does, and installs the same way.
+#[tauri::command(async)]
+pub fn release_build(state: tauri::State<'_, State>, tuned: bool) -> Result<Status, String> {
+    state.start_release_build(tuned)?;
     Ok(status_of(&state))
 }
 

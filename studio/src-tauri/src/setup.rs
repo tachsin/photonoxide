@@ -557,8 +557,9 @@ struct Done {
     error: Option<String>,
 }
 
-/// Starts the install (into `dir`, with or without the Desktop shortcut) or the uninstall; the
-/// window follows `setup-note` and hears `setup-done` at the end.
+/// Starts the install (into `dir`, with or without the Desktop shortcut; `advanced`: the program
+/// opens on its performance step, #564) or the uninstall; the window follows `setup-note` and
+/// hears `setup-done` at the end.
 #[tauri::command]
 fn setup_start(
     app: tauri::AppHandle,
@@ -566,6 +567,7 @@ fn setup_start(
     dir: Option<String>,
     desktop: bool,
     delete_data: bool,
+    advanced: bool,
 ) -> Result<(), String> {
     {
         let mut started = lock(&state.started);
@@ -584,10 +586,20 @@ fn setup_start(
         let mut note = move |n: Note| {
             let _ = emitter.emit("setup-note", n);
         };
-        let outcome = match kind {
+        let mut outcome = match kind {
             Kind::Install => install(&target, &running, desktop, &mut note),
             Kind::Uninstall => uninstall(&target, &running, delete_data, &mut note),
         };
+        // the Advanced path: the program's first start opens on its performance step
+        if kind == Kind::Install && advanced && outcome.is_ok() {
+            outcome = crate::libraries::environment::leave_performance_marker().map(|()| {
+                note(Note::Line {
+                    text:
+                        "photonoxide opens on its performance step: the libraries for this machine"
+                            .into(),
+                });
+            });
+        }
         let state = app.state::<Setup>();
         *lock(&state.finished) = outcome.is_ok();
         let _ = app.emit(

@@ -17,7 +17,7 @@ This page is written by `photonoxide libraries --write docs/libraries.md` from t
 | [SuperLU](#superlu) | `superlu` | see below | conda-forge ✓, apt ✓ | conda-forge ✓ |
 | [MUMPS](#mumps) | `mumps`, `mumps-blr` | conda-forge ✓ | conda-forge ✓, apt ✓ | conda-forge ✓ |
 | [Accelerate](#accelerate) | `accelerate`, `photonoxide-accelerate` | see below | see below | see below |
-| [OpenBLAS](#openblas) | `photonoxide-openblas` | conda-forge ✓, pip | conda-forge ✓, apt ✓, pip | conda-forge ✓, pip |
+| [OpenBLAS](#openblas) | `photonoxide-openblas` | conda-forge ✓, pip | conda-forge ✓, conda-forge, apt ✓, pip | conda-forge ✓, conda-forge, pip |
 | [AMD AOCL](#amd-aocl) | `photonoxide-aocl` | see below | see below | see below |
 | [Arm Performance Libraries](#arm-performance-libraries) | `photonoxide-armpl` | winget | see below | brew |
 | [HDF5](#hdf5) | — | conda-forge | conda-forge ✓, apt ✓ | conda-forge ✓, brew |
@@ -62,7 +62,7 @@ Intel's oneAPI Math Kernel Library, through its single library mkl_rt: PARDISO, 
   conda install -c conda-forge mkl
   ```
 
-  Into the active conda environment: start photonoxide from it, so $CONDA_PREFIX points there. On macOS, Intel Macs only.
+  The Libraries page installs it into photonoxide's own environment, found with nothing to set; copied, it goes into the active conda environment: start photonoxide from it, so $CONDA_PREFIX points there. On macOS, Intel Macs only.
 
   - Checked on Linux (ubuntu-24.04), 2026-10-09: installed mkl 2026.1.0; found oneMKL 2026.1, and the pardiso backend after its smoke test.
   - Checked on Windows (windows-2025-vs2026), 2026-10-09: installed mkl 2026.1.0; found oneMKL 2026.1, and the pardiso backend after its smoke test.
@@ -157,7 +157,7 @@ The CUDA toolkit's sparse kernels: photonoxide's QMR (plain, complex symmetric, 
   conda install -c conda-forge cuda-cudart libcusparse
   ```
 
-  Into the active conda environment: start photonoxide from it.
+  The Libraries page installs it into photonoxide's own environment, found with nothing to set; copied, it goes into the active conda environment: start photonoxide from it.
 
   - Checked on Linux (ubuntu-24.04), 2026-10-09: installed cuda-cudart 13.4.92, libcusparse 12.8.6.72; found cuSPARSE 12.8.6, loaded; the runner has no GPU, so the backend's smoke test couldn't run.
   - Checked on Windows (windows-2025-vs2026), 2026-10-09: installed cuda-cudart 13.4.92, libcusparse 12.8.6.72; found cuSPARSE 12.8.6, loaded; the runner has no GPU, so the backend's smoke test couldn't run.
@@ -190,7 +190,7 @@ NVIDIA's sparse direct solver on the GPU.
   conda install -c conda-forge libcudss=1.0
   ```
 
-  Into the active conda environment: start photonoxide from it.
+  The Libraries page installs it into photonoxide's own environment, found with nothing to set; copied, it goes into the active conda environment: start photonoxide from it.
 
   - Checked on Linux (ubuntu-24.04), 2026-10-27: installed libcudss 1.0.0.35; found cuDSS 1.0.0, loaded; the runner has no GPU, so the backend's smoke test couldn't run.
   - Checked on Windows (windows-2025-vs2026), 2026-10-27: installed libcudss 1.0.0.35; found cuDSS 1.0.0, loaded; the runner has no GPU, so the backend's smoke test couldn't run.
@@ -222,7 +222,7 @@ A supernodal sparse LU with partial pivoting (Demmel, Eisenstat, Gilbert, Li, Li
   conda install -c conda-forge superlu
   ```
 
-  Into the active conda environment: start photonoxide from it.
+  The Libraries page installs it into photonoxide's own environment, found with nothing to set; copied, it goes into the active conda environment: start photonoxide from it.
 
   - Checked on Linux (ubuntu-24.04), 2026-10-09: installed superlu 7.0.1; found SuperLU 7.0.0 by its file's name, and the superlu backend after its smoke test and its tests.
   - Checked on macOS (macos-latest (Apple silicon)), 2026-10-09: installed superlu 7.0.1; found SuperLU 7.0.0 by its file's name, and the superlu backend after its smoke test and its tests.
@@ -297,11 +297,21 @@ An open BLAS and LAPACK: the dense kernels of photonoxide's own solver's fronts,
   conda install -c conda-forge openblas
   ```
 
-  Into the active conda environment: start photonoxide from it.
+  The Libraries page installs it into photonoxide's own environment, found with nothing to set; copied, it goes into the active conda environment: start photonoxide from it.
 
   - Checked on Linux (ubuntu-24.04), 2026-10-09: installed openblas 0.3.34; found OpenBLAS 0.3.34, and the photonoxide-openblas backend after its smoke test and its tests.
   - Checked on Windows (windows-2025-vs2026), 2026-10-09: installed openblas 0.3.34; found OpenBLAS 0.3.34, and the photonoxide-openblas backend after its smoke test and its tests.
   - Checked on macOS (macos-latest (Apple silicon)), 2026-10-09: installed openblas 0.3.34; found OpenBLAS 0.3.34, and the photonoxide-openblas backend after its smoke test and its tests, on one thread.
+
+- **conda-forge** (Linux, macOS):
+
+  ```sh
+  conda install -c conda-forge libopenblas=*=*openmp*
+  ```
+
+  OpenBLAS built with OpenMP in place of its own threads, which some machines run faster: Benchmarks compares the two here. photonoxide holds each of its threads' OpenMP count at one, so its own parallel loops and OpenBLAS's don't multiply (#557).
+
+  Not run on a clean machine.
 
 - **apt** (Linux):
 
@@ -379,7 +389,7 @@ The HDF Group's Hierarchical Data Format 5, the library libhdf5, release 1.10 or
   conda install -c conda-forge hdf5
   ```
 
-  Into the active conda environment: start photonoxide from it.
+  The Libraries page installs it into photonoxide's own environment, found with nothing to set; copied, it goes into the active conda environment: start photonoxide from it.
 
   - Checked on Linux (ubuntu-24.04), 2026-10-23: installed hdf5 2.2.0; found HDF5 2.2.0, and its tests: an exported .h5 read back to the arrays of photonoxide's own .npz, and the same file twice.
   - Checked on macOS (macos-latest (Apple silicon)), 2026-10-23: installed hdf5 2.2.0; found HDF5 2.2.0, and its tests: an exported .h5 read back to the arrays of photonoxide's own .npz, and the same file twice.
@@ -418,7 +428,7 @@ Zstandard's compression (Collet and Kucherawy, RFC 8878), the reference library 
   conda install -c conda-forge zstd
   ```
 
-  Into the active conda environment: start photonoxide from it. Many environments have it already, as a dependency.
+  The Libraries page installs it into photonoxide's own environment, found with nothing to set; copied, it goes into the active conda environment: start photonoxide from it. Many environments have it already, as a dependency.
 
   - Checked on Linux (ubuntu-24.04), 2026-10-23: installed zstd 1.5.7; found Zstandard 1.5.7, and its tests: an exported .npz read back to the bytes of photonoxide's own.
   - Checked on macOS (macos-latest (Apple silicon)), 2026-10-23: installed zstd 1.5.7; found Zstandard 1.5.7, and its tests: an exported .npz read back to the bytes of photonoxide's own.

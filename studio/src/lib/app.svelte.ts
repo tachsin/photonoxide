@@ -35,6 +35,8 @@ export const app = $state({
   palette: false,
   /** The welcome, open on the first start until its channel is chosen (Welcome.svelte). */
   welcome: false,
+  /** Where the welcome opens: the channel, or the performance step (the setup's Advanced path). */
+  welcomeStep: "channel" as "channel" | "performance",
   /** A job for the Custom device to open, its text and the file it came from, set by whoever sends the user there. */
   jobOpen: null as { text: string; path: string | null } | null,
   /** The Custom device's job as it was left, saved or not, so a run and the way back to it lose nothing. */
@@ -594,7 +596,7 @@ export async function boot() {
     app.state = await api.appState();
   } catch {
     app.state = {
-      settings: { theme: "system", workspace: null, check_updates: false, channel: "stable", hints: true, welcomed: true, dismissed: [], view: "3d", length_unit: "um" },
+      settings: { theme: "system", workspace: null, check_updates: false, channel: "stable", hints: true, welcomed: true, dismissed: [], view: "3d", length_unit: "um", tuned_builds: false },
       workspace: "",
       version: "dev",
       platform: "browser",
@@ -604,6 +606,11 @@ export async function boot() {
   }
   applyTheme();
   app.welcome = !app.state.settings.welcomed;
+  // the setup's Advanced path: the performance step, once
+  if (await api.performanceOnStart().catch(() => false)) {
+    app.welcome = true;
+    app.welcomeStep = "performance";
+  }
   app.ready = true;
   follow();
 }

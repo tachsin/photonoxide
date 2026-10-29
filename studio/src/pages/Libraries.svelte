@@ -2,7 +2,9 @@
   // Libraries: the external libraries photonoxide can use, as found on this machine, with each
   // one's licence, what it provides, where photonoxide looked, and how to install it. None is
   // needed: photonoxide's own solvers are the default and the reference.
-  import { CircleCheck, CircleDashed, CircleX, Copy, Cpu, Download, ExternalLink, FolderSearch, Package, RefreshCw, Scale, TerminalSquare, TriangleAlert } from "@lucide/svelte";
+  import { CircleCheck, CircleDashed, CircleX, Copy, Cpu, Download, FolderSearch, Package, RefreshCw, Scale, Trash2, TriangleAlert } from "@lucide/svelte";
+  import { listen } from "@tauri-apps/api/event";
+  import { tick } from "svelte";
   import { openUrl } from "../lib/open";
 
   import Tip from "../components/Tip.svelte";
@@ -18,8 +20,36 @@
   const found = $derived(external.filter((g) => report?.libraries.find((l) => l.name === g.library)?.found).length);
   const available = $derived(report?.backends.filter((b) => b.available).length ?? 0);
 
-  /** The install waiting for the user's confirmation. */
-  let confirming = $state<{ guide: Guide; install: Install } | null>(null);
+  /** The install waiting for the user's confirmation, and the command it will run. */
+  let confirming = $state<{ guide: Guide; install: Install; plan: string } | null>(null);
+  /** An install or removal under way, or just done: its output as it came, and what changed. */
+  let running = $state<{ library: string; verb: string; lines: string[]; state: "running" | "done" | "failed"; error: string; changed: string[] } | null>(null);
+  let log: HTMLElement | undefined = $state();
+  /** What the program installed into its own environment, and where that is. */
+  let mine = $state<{ environment: string | null; libraries: Record<string, { id: string; manager: string; packages: string[] }> }>({ environment: null, libraries: {} });
+
+  async function loadOwn() {
+    try {
+      const r = await api.librariesInstalled();
+      mine = { environment: r.environment, libraries: r.installed.libraries };
+    } catch {
+      // the page works without it: nothing is offered to remove
+    }
+  }
+  loadOwn();
+
+  /** Whether an install runs from the window on this system, as the program decides. */
+  function runsHere(i: Install): boolean {
+    return i.manager === "conda-forge" || (i.manager === "winget" && system === "windows") || (i.manager === "brew" && system === "macos") || (i.manager === "apt" && system === "linux");
+  }
+
+  async function ask(guide: Guide, install: Install) {
+    try {
+      confirming = { guide, install, plan: await api.libraryInstallPlan(guide.library, install.id) };
+    } catch (e) {
+      toast(String(e), "error");
+    }
+  }
 
   function libOf(g: Guide) {
     return report?.libraries.find((l) => l.name === g.library) ?? null;
@@ -40,16 +70,49 @@
     }
   }
 
+  /** What is found now: the libraries, and the backends that passed their smoke tests. */
+  function foundNow(): Set<string> {
+    const libs = (report?.libraries ?? []).filter((l) => l.found).map((l) => l.name);
+    const backends = (report?.backends ?? []).filter((b) => b.available).map((b) => `the ${b.name} backend`);
+    return new Set([...libs, ...backends]);
+  }
+
+  /** Runs `work` with its output shown as it comes, then detects again and says what changed. */
+  async function follow(library: string, verb: string, work: () => Promise<void>) {
+    const before = foundNow();
+    running = { library, verb, lines: [], state: "running", error: "", changed: [] };
+    const stop = await listen<{ library: string; line: string }>("library-install", async ({ payload }) => {
+      if (!running || payload.library !== library) return;
+      running.lines.push(payload.line);
+      await tick();
+      log?.scrollTo({ top: log.scrollHeight });
+    });
+    try {
+      await work();
+      await detect();
+      await loadOwn();
+      const after = foundNow();
+      const gained = [...after].filter((x) => !before.has(x));
+      const lost = [...before].filter((x) => !after.has(x)).map((x) => `no longer ${x}`);
+      running.changed = [...gained, ...lost];
+      running.state = "done";
+    } catch (e) {
+      running.state = "failed";
+      running.error = String(e);
+    } finally {
+      stop();
+    }
+  }
+
   async function install() {
     if (!confirming) return;
     const { guide, install } = confirming;
     confirming = null;
-    try {
-      const command = await api.installLibrary(guide.library, install.id);
-      toast(`Running ${command} in a terminal. When it is done, press Detect again.`, "info", { label: "Detect again", run: detect }, 12000);
-    } catch (e) {
-      toast(String(e), "error");
-    }
+    await follow(guide.library, "Installing", () => api.libraryInstall(guide.library, install.id));
+  }
+
+  async function remove(library: string) {
+    await follow(library, "Removing", () => api.libraryRemove(library));
   }
 
   const provides: Record<string, string> = {
@@ -205,15 +268,23 @@
                           <div class="tooltip tooltip-left" data-tip="Copy the command">
                             <button class="btn btn-ghost btn-xs btn-square" aria-label="Copy the command" onclick={() => copy(i.command)}><Copy size={13} /></button>
                           </div>
-                          {#if i.manager === "winget" && system === "windows"}
-                            <button class="btn btn-primary btn-xs gap-1" onclick={() => (confirming = { guide: g, install: i })} title="See the licence and the command, then run it in a terminal"><TerminalSquare size={12} /> Install…</button>
+                          {#if runsHere(i)}
+                            <button class="btn btn-primary btn-xs gap-1" disabled={running?.state === "running"} onclick={() => ask(g, i)} title="See the licence and the command, then install it here, its output shown as it runs"><Download size={12} /> Install…</button>
                           {/if}
                         </div>
                         <p class="mt-1 text-xs faint">{i.note}</p>
                       </li>
                     {/each}
                   </ol>
-                  <p class="mt-3 text-xs faint">Then press <span class="font-medium">Detect again</span>. A conda or pip install is found when photonoxide is started from that environment.</p>
+                  <p class="mt-3 text-xs faint">
+                    Install puts a conda-forge one into photonoxide's own environment{mine.environment ? ` (${mine.environment})` : ""}, where photonoxide finds it with nothing to set, and runs the others as their vendors ship them. A pip command is to copy: its conda-forge one installs the same library here.
+                  </p>
+                  {#if mine.libraries[g.library]}
+                    <p class="mt-2 flex items-center gap-2 text-xs">
+                      <span class="faint">Installed by photonoxide: {mine.libraries[g.library].packages.join(", ")}</span>
+                      <button class="btn btn-ghost btn-xs gap-1 text-error" disabled={running?.state === "running"} onclick={() => remove(g.library)}><Trash2 size={12} /> Remove</button>
+                    </p>
+                  {/if}
                 {:else}
                   <p class="text-sm muted">No package manager installs it on {system}: use <button class="link link-primary" onclick={() => openUrl(g.download)}>the vendor's download</button>.</p>
                 {/if}
@@ -266,15 +337,45 @@
         {confirming.guide.library} is not part of photonoxide: it is installed under its vendor's licence,
         <button class="link link-primary" onclick={() => openUrl(confirming!.guide.licence_url)}>{confirming.guide.licence}</button>. Read it before you go on.
       </p>
-      <p class="mt-4 panel-title">The command</p>
-      <code class="mt-1 block rounded-lg [font-variant-ligatures:none] bg-base-300/70 px-3 py-2 font-mono text-[13px] selectable">{confirming.install.command}</code>
+      <p class="mt-4 panel-title">What runs</p>
+      <code class="mt-1 block rounded-lg [font-variant-ligatures:none] bg-base-300/70 px-3 py-2 font-mono text-[13px] break-all selectable">{confirming.plan}</code>
       <p class="mt-2 text-xs faint">{confirming.install.note}</p>
-      <p class="mt-4 text-sm muted">photonoxide opens a terminal that runs this command and nothing else, and stays open to show what it did. If it needs administrator rights, {confirming.install.manager} asks for them.</p>
+      <p class="mt-4 text-sm muted">
+        {#if confirming.install.manager === "conda-forge"}
+          It goes into photonoxide's own environment, of yours alone, apart from any other conda or Python here: micromamba (conda-forge's installer) is downloaded once and checked first. Remove takes it out again.
+        {:else if confirming.install.manager === "apt"}
+          pkexec asks for your password before apt installs it for the whole system.
+        {:else}
+          {confirming.install.manager} installs it as its vendor ships it, and asks for administrator rights if it needs them.
+        {/if}
+        Its output is shown here as it runs.
+      </p>
       <div class="modal-action">
         <button class="btn btn-ghost" onclick={() => (confirming = null)}>Cancel</button>
-        <button class="btn btn-primary gap-2" onclick={install}><ExternalLink size={15} /> I accept the licence: run it</button>
+        <button class="btn btn-primary gap-2" onclick={install}><Download size={15} /> I accept the licence: install it</button>
       </div>
     </div>
     <form method="dialog" class="modal-backdrop"><button onclick={() => (confirming = null)}>close</button></form>
+  {/if}
+</dialog>
+
+<dialog class="modal" class:modal-open={running !== null}>
+  {#if running}
+    <div class="modal-box max-w-2xl">
+      <h3 class="flex items-center gap-2 text-lg font-semibold">
+        {#if running.state === "running"}<span class="loading loading-spinner loading-sm text-primary"></span>{:else if running.state === "done"}<CircleCheck size={20} class="text-success" />{:else}<CircleX size={20} class="text-error" />{/if}
+        {running.verb} {running.library}{running.state === "done" ? ": done" : running.state === "failed" ? ": stopped" : "…"}
+      </h3>
+      <pre bind:this={log} class="mt-3 max-h-80 overflow-auto rounded-lg bg-base-300/70 px-3 py-2 font-mono text-[12px] leading-relaxed whitespace-pre-wrap selectable">{running.lines.join("\n") || "Starting…"}</pre>
+      {#if running.state === "failed"}<p class="mt-3 text-sm text-error selectable">{running.error}</p>{/if}
+      {#if running.state === "done"}
+        <p class="mt-3 text-sm">
+          {#if running.changed.length}Found again, and what changed: {running.changed.join(", ")}.{:else}Found again: nothing changed in what photonoxide finds. A library may need the program restarted, or a driver it depends on.{/if}
+        </p>
+      {/if}
+      <div class="modal-action">
+        <button class="btn" disabled={running.state === "running"} onclick={() => (running = null)}>Close</button>
+      </div>
+    </div>
   {/if}
 </dialog>
