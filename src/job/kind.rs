@@ -15,6 +15,7 @@ use schemars::SchemaGenerator;
 use serde_json::Value;
 
 use super::event::Event;
+use super::fdfd::FdfdKind;
 use super::modes::ModesKind;
 use super::structure::StructureKind;
 use crate::Result;
@@ -83,7 +84,7 @@ pub(super) trait TaskKind: Sync {
 pub(super) const EM_FIELDS: &[&str] = &["Ex", "Ey", "Ez", "Hx", "Hy", "Hz"];
 
 /// The kinds of a task alone, in the order the schema lists them.
-static SOLVER: [&dyn TaskKind; 2] = [&StructureKind, &ModesKind];
+static SOLVER: [&dyn TaskKind; 3] = [&StructureKind, &ModesKind, &FdfdKind];
 
 /// The kinds of a task beside a `[device]`, in the order the schema lists them.
 static DEVICE: [&dyn TaskKind; 0] = [];

@@ -9,9 +9,11 @@
 //! and `"tm"` is E along z.
 
 use num_complex::Complex64 as c64;
-use schemars::JsonSchema;
+use schemars::{JsonSchema, SchemaGenerator};
 use serde::Deserialize;
 
+use super::execute::solver_run;
+use super::kind::TaskKind;
 use super::{
     CircleSpec, Event, PathSpec, RectSpec, RingSpec, check_cells, check_finite, check_materials,
     check_step, check_sweep, check_window, diagonal_stack, draw, draw_paths, scene, task_error,
@@ -643,6 +645,40 @@ fn scene_of(task: &FdfdTask, s: &Structure) -> Result<Event> {
         [bottom.to_um() - 1.0, top.to_um() + 1.0],
         Wavelength::um(task.wavelength_um)?,
     )
+}
+
+/// The `"fdfd"` kind: a device on one layer, seen from above, by 2D FDFD with ports.
+pub(super) struct FdfdKind;
+
+impl TaskKind for FdfdKind {
+    fn name(&self) -> &'static str {
+        "fdfd"
+    }
+
+    fn schema(&self, g: &mut SchemaGenerator) -> serde_json::Value {
+        super::schema::task::<FdfdTask>(g)
+    }
+
+    fn check(&self, job: &Job) -> Result<()> {
+        check(job)
+    }
+
+    fn preview(&self, job: &Job) -> Result<Event> {
+        super::check(job)?;
+        preview(job)
+    }
+
+    fn execute(&self, job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
+        solver_run(job, run, stop, self.name(), self::run)
+    }
+
+    fn exports(&self, job: &Job) -> (&'static str, &'static [&'static str]) {
+        // the field along z: H for TE (the default), E for TM
+        match job.task().get("polarization").and_then(|p| p.as_str()) {
+            Some("tm") => ("an fdfd job in TM", &["Ez"]),
+            _ => ("an fdfd job in TE", &["Hz"]),
+        }
+    }
 }
 
 /// [`super::preview`] for an `"fdfd"` job.

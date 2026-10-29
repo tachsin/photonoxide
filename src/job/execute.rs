@@ -97,7 +97,6 @@ pub(super) fn execute_task(job: &Job, run: &mut Run, stop: &Stop, kind: &str) ->
                  supplies its objectives and records it (photonoxide::job::Problem, Recorder)",
             ))
         }
-        "fdfd" => fdfd::run(job, run, stop),
         "fdtd" => fdtd::run(job, run, stop),
         "static" => statics::run(job, run, stop),
         other => Err(task_error(format!("unknown kind \"{other}\""))),

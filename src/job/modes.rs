@@ -715,11 +715,6 @@ fn export_fields(job: &Job) -> Result<(&'static str, &'static [&'static str])> {
         return Ok(k.exports(job));
     }
     Ok(match kind.as_str() {
-        // the field along z: H for TE (the default), E for TM
-        "fdfd" => match job.task().get("polarization").and_then(|p| p.as_str()) {
-            Some("tm") => ("an fdfd job in TM", &["Ez"]),
-            _ => ("an fdfd job in TE", &["Hz"]),
-        },
         "fdtd" => ("an fdtd job", EH),
         "static" => ("a static job", &["temperature", "potential"]),
         _ if job.device().is_some() => ("this device's task", &[]),

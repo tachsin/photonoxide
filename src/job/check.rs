@@ -3,7 +3,7 @@
 use super::kind::{Holder, find};
 use super::modes::check_export;
 use super::scene::device_scene;
-use super::{chip, device, fdfd, fdtd, fit, optimize, statics, study};
+use super::{chip, device, fdtd, fit, optimize, statics, study};
 use crate::run::Job;
 use crate::stack::{LayerStack, Structure};
 use crate::units::Wavelength;
@@ -209,7 +209,6 @@ fn check_inner(job: &Job) -> Result<()> {
         return k.check(job);
     }
     match kind {
-        "fdfd" => fdfd::check(job),
         "fdtd" => fdtd::check(job),
         "static" => statics::check(job),
         "optimize" if optimize::crosstalk::corrects(job) => optimize::check(job),
