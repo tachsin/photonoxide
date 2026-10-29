@@ -93,7 +93,7 @@ pub(crate) fn cases() -> Vec<Case> {
             id: "device/rib-hadley",
             title: r"Devices: Hadley's standard rib through the rib device (3 µm wide, a 1 µm film of 3.44 on 3.40 under air, 1.15 µm, TE, slabs of 0.1 to 0.7 µm; Hadley's equations on a 50 nm grid, the half), as the rib_hadley example (largest difference from his Table I shown)",
             tier: Tier::Published,
-            source: "G. R. Hadley, J. Lightwave Technol. 20, 1219 (2002), doi:10.1109/JLT.2002.800371, Table I (6 decimals); the 50 nm grid's error, 1.4e-6 (stack/rib-hadley-table), sets the tolerance",
+            source: "G. R. Hadley, J. Lightwave Technol. 20, 1219 (2002), doi:10.1109/JLT.2002.800371, Table I (6 decimals), to his ±2–3e-6, the lower end the tolerance; our converged index is 1.4e-6 from it, and the 50 nm grid's own error 1.7e-7 (the grid study at 50, 25 and 12.5 nm of stack/rib-hadley-table)",
             run: rib_hadley,
         },
         Case {
@@ -602,4 +602,37 @@ pub(crate) fn straight_mismatch() -> f64 {
 
 fn fdfd_straight() -> Outcome {
     small(straight_mismatch(), 1e-4)
+}
+
+// TEMPORARY (part 7 of #544): grid experiments. Not to be committed.
+#[cfg(test)]
+mod p7x {
+    use super::*;
+
+    #[test]
+    #[ignore = "experiment"]
+    fn p7x_rib_eim_grid() {
+        let lam = um(1.55);
+        for h in [0.02, 0.01] {
+            let rib = RibWaveguide::new().with_mesh(Mesh::fitted(h, 1.5, Scheme::Hadley));
+            let t = std::time::Instant::now();
+            let n: Vec<(f64, f64)> = map_in_order(&RIBS, |&(w, e)| {
+                let v = Values::new(&rib, &[("width", w), ("etch_depth", e)]).expect(OK);
+                let (eim, _) = rib.effective_index(&v, lam).expect(OK);
+                let cs = rib.cross_section(&v, lam).expect(OK);
+                let n = crate::mode::hadley::modes(&cs, lam, 1, None).expect(OK)[0]
+                    .effective_index()
+                    .re;
+                (eim, n)
+            });
+            eprintln!("P7X rib h {h}: {n:?} ({:.1} s)", t.elapsed().as_secs_f64());
+        }
+    }
+
+    #[test]
+    #[ignore = "experiment"]
+    fn p7x_two_d_values() {
+        eprintln!("P7X mmi_2d {:?}", mmi_2d());
+        eprintln!("P7X y_branch_2d {:?}", y_branch_2d());
+    }
 }

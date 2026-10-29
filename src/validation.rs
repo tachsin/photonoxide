@@ -215,6 +215,7 @@ pub fn rules() -> Vec<(&'static str, Rule)> {
     rules.extend(materials::rules());
     rules.extend(modes::rules());
     rules.extend(geometry::rules());
+    rules.extend(devices::rules());
     rules
 }
 
@@ -5318,6 +5319,7 @@ fn um(value: f64) -> Wavelength {
     Wavelength::from_um_unchecked(value)
 }
 
+mod devices;
 mod geometry;
 #[cfg(feature = "gpu")]
 mod gpu;

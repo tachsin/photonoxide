@@ -98,7 +98,7 @@ pub(crate) fn cases() -> Vec<Case> {
         },
         Case {
             id: "device/waveguide-3d-order",
-            title: r"Devices: the 3D waveguide's order of convergence in its grid, the 500 x 220 nm strip's $n_\text{eff}$ at 1.55 µm on cells fitted 20, 10 and 5 nm apart by Hadley's equations (shown to two decimals)",
+            title: r"Devices: the 3D waveguide's order of convergence in its grid, the 500 x 220 nm strip's $n_\text{eff}$ at 1.55 µm by Hadley's equations on a quarter of a 2.1 x 1.5 µm window, cells of 12.5 x 10, 6.25 x 5 and 3.125 x 2.5 nm (shown to two decimals)",
             tier: Tier::Analytic,
             source: "second order at the strip's corners: G. R. Hadley, J. Lightwave Technol. 20, 1219 (2002), doi:10.1109/JLT.2002.800371 (the standard scheme's is about first)",
             run: waveguide_order,
@@ -133,7 +133,7 @@ pub(crate) fn cases() -> Vec<Case> {
         },
         Case {
             id: "device/coupler-3d-order",
-            title: r"Devices: the 3D coupler's order of convergence in its grid, two 500 x 220 nm strips 200 nm apart, $\Delta n$ at 1.55 µm on cells fitted 20, 10 and 5 nm apart (shown to two decimals)",
+            title: r"Devices: the 3D coupler's order of convergence in its grid, two 500 x 220 nm strips 200 nm apart, $\Delta n$ at 1.55 µm on a quarter of a 5.5 x 1.32 µm window, cells of 25 x 27.5, 12.5 x 13.75 and 6.25 x 6.875 nm (shown to two decimals)",
             tier: Tier::Analytic,
             source: "about first order: the standard full-vector scheme at the strips' convex corners (Fallahkhair et al. 2008, doi:10.1109/JLT.2008.923643)",
             run: coupler_order,
@@ -870,5 +870,59 @@ mod tests {
         }
         // the round trip's peak, as the ring_q_factor example prints it
         assert_eq!(ring_q_bogaerts().measured, 9.353);
+    }
+}
+
+// TEMPORARY (part 7 of #544): grid experiments. Not to be committed.
+#[cfg(test)]
+mod p7x {
+    use super::*;
+
+    #[test]
+    #[ignore = "experiment"]
+    fn p7x_coupler_chrostowski_grid() {
+        let l = um(1.55);
+        for s in [1usize, 2, 4] {
+            let coupler = StripCoupler::on(books_stack(books_silicon()), "Si")
+                .expect(OK)
+                .with_mesh(Mesh::window(5.5, 1.22, 275 * s, 61 * s, Scheme::Standard));
+            let t = std::time::Instant::now();
+            let (even, odd) = coupler
+                .cross_sections(&Values::defaults(&coupler), l)
+                .expect(OK);
+            let n = |cs| {
+                vector::modes(cs, l, 1, None).expect(OK)[0]
+                    .effective_index()
+                    .re
+            };
+            let lx = 1.55 / (2.0 * (n(&even) - n(&odd)));
+            eprintln!(
+                "P7X coupler s {s}: L_x {lx:.6} ({:.1} s)",
+                t.elapsed().as_secs_f64()
+            );
+        }
+    }
+
+    #[test]
+    #[ignore = "experiment"]
+    fn p7x_strip_grid() {
+        let guide = StripWaveguide::new();
+        let wide: Vec<(&str, f64)> = vec![("width", 0.602), ("thickness", 0.211), ("span", 0.06)];
+        for (name, changes) in [("default", vec![]), ("602x211", wide)] {
+            for h in [0.01, 0.005] {
+                let g = guide
+                    .clone()
+                    .with_mesh(Mesh::fitted(h, 1.0, Scheme::Hadley));
+                let v = Values::new(&g, &changes).expect(OK);
+                let t = std::time::Instant::now();
+                let b = g.component(&v, D3).expect(OK);
+                eprintln!(
+                    "P7X strip {name} h {h}: n_eff {:.8} n_g {:.8} ({:.1} s)",
+                    b.figure("n_eff").unwrap().value,
+                    b.figure("n_g").unwrap().value,
+                    t.elapsed().as_secs_f64()
+                );
+            }
+        }
     }
 }

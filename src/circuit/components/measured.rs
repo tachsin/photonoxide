@@ -197,3 +197,84 @@ pub(crate) fn dwivedi_neff_805() -> Outcome {
 pub(crate) fn dwivedi_ng_805() -> Outcome {
     outcome(2, true)
 }
+
+// TEMPORARY (part 7 of #544): grid experiments. Not to be committed.
+#[cfg(test)]
+mod p7x {
+    use super::*;
+
+    fn quarter_at(
+        width: f64,
+        thickness: f64,
+        wavelength: Wavelength,
+        h: f64,
+    ) -> crate::Result<CrossSection> {
+        let (si, ox) = (
+            material::silicon().permittivity(wavelength)?,
+            material::silica().permittivity(wavelength)?,
+        );
+        let (a, b) = (width / 2.0, thickness / 2.0);
+        let (dx, dy) = (a / (a / h).round(), b / (b / h).round());
+        let (nx, ny) = (
+            ((a + 1.0) / dx).round() as usize,
+            ((b + 1.0) / dy).round() as usize,
+        );
+        CrossSection::uniform(
+            (0.0, nx as f64 * dx, nx),
+            (0.0, ny as f64 * dy, ny),
+            |x, y| Permittivity::isotropic(if x < a && y < b { si } else { ox }),
+        )?
+        .with_boundaries(Boundaries {
+            west: Boundary::ElectricWall,
+            south: Boundary::MagneticWall,
+            ..Boundaries::default()
+        })
+    }
+
+    #[test]
+    #[ignore = "experiment"]
+    fn p7x_dwivedi_grid() {
+        for width in [0.470, 0.602, 0.805] {
+            for h in [0.01, 0.005] {
+                let t = std::time::Instant::now();
+                let d = Dispersion::from_hadley(
+                    |w| quarter_at(width, 0.211, w, h),
+                    Wavelength::um(CENTRE).unwrap(),
+                    0.015,
+                    None,
+                )
+                .unwrap()
+                .0;
+                eprintln!(
+                    "P7X dwivedi w {width} h {h}: n_eff {:.8} n_g {:.8} ({:.1} s)",
+                    d.effective_index,
+                    d.group_index,
+                    t.elapsed().as_secs_f64()
+                );
+            }
+        }
+    }
+
+    #[test]
+    #[ignore = "experiment"]
+    fn p7x_mmi_job_grid() {
+        use crate::job::fdfd_s_parameters;
+        use crate::run::Job;
+        let text = include_str!("../../../jobs/mmi-fdfd.yaml");
+        for step in ["20.0", "10.0", "5.0"] {
+            let t = std::time::Instant::now();
+            let job = Job::parse_as(
+                &text.replace("step_nm: 20.0", &format!("step_nm: {step}")),
+                crate::run::Format::Yaml,
+            )
+            .unwrap();
+            let sp = fdfd_s_parameters(&job, Some(&[1.55])).unwrap();
+            eprintln!(
+                "P7X mmi job {step}: {:.6} {:.6} ({:.1} s)",
+                sp.s[0][1][0].norm_sqr(),
+                sp.s[0][2][0].norm_sqr(),
+                t.elapsed().as_secs_f64()
+            );
+        }
+    }
+}
