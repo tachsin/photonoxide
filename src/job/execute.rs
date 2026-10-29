@@ -5,7 +5,7 @@ use super::event::Event;
 use super::kind::{Holder, find, named, unknown};
 use super::modes::check_export;
 use super::scene::device_scene;
-use super::{chip, device, fdfd, results};
+use super::{chip, device, results};
 use crate::Result;
 use crate::run::{Job, Run, Stop, StopReason};
 
@@ -120,10 +120,12 @@ pub fn preview(job: &Job) -> Result<Event> {
             Some(kind) => kind.preview(job),
         };
     }
+    // a task alone's or a chip's kind checks the job first, as check does
     let name = job.task().get("kind").and_then(|k| k.as_str());
-    if let Some(k) = name.and_then(|n| find(Holder::of(job), n)) {
-        return k.preview(job);
+    if let Some(kind) = name.and_then(|n| find(Holder::of(job), n)) {
+        return kind.preview(job);
     }
+    // a kind the registry hasn't, or none: refused as check refuses it
     check(job)?;
-    fdfd::preview(job)
+    Err(unknown(name.unwrap_or_default()))
 }

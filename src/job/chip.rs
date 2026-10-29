@@ -56,11 +56,12 @@
 //! gradients the circuit adjoint ([`crate::circuit::Circuit::jacobian`]) through each device's
 //! derivatives. The band is the task's `from_um`, `to_um` and `points`.
 
-use schemars::JsonSchema;
+use schemars::{JsonSchema, SchemaGenerator};
 use serde::{Deserialize, Serialize};
 use toml::{Table, Value};
 
 use super::device::fidelity_name;
+use super::kind::{Holder, TaskKind, find};
 use super::study::{Named, set};
 use super::{Corner, Event, SweepAxis, reason, task_error};
 use crate::circuit::components::{Coupler, PhaseShifter};
@@ -969,13 +970,7 @@ fn prepare(job: &Job) -> Result<Prepared> {
             }
             Some(ChipStudy::Corners(super::study::corners_of(&task.corner)?))
         }
-        other => {
-            return Err(task_error(format!(
-                "a job with a [circuit] table computes it by a \"spectrum\" task, studies it by a \
-                 \"sweep\" or \"corners\" one, or optimizes it by an \"optimize\" one, not \
-                 \"{other}\""
-            )));
-        }
+        other => return Err(not_a_kind(other)),
     };
     let wavelengths = band(
         task.from_um,
@@ -1003,29 +998,79 @@ fn prepare(job: &Job) -> Result<Prepared> {
     })
 }
 
-/// [`super::check`] for a job with a `[circuit]` table.
-pub(super) fn check(job: &Job) -> Result<()> {
+/// What a chip's task of a kind the registry hasn't is refused with.
+fn not_a_kind(name: &str) -> Error {
+    task_error(format!(
+        "a job with a [circuit] table computes it by a \"spectrum\" task, studies it by a \
+         \"sweep\" or \"corners\" one, or optimizes it by an \"optimize\" one, not \"{name}\""
+    ))
+}
+
+/// The kind of the task beside a job's `[circuit]`. A job that holds a `[device]` too is
+/// refused first; then a kind the registry hasn't, with what reading the task as a study's
+/// refuses (a field no chip's task takes, a kind left out).
+pub(super) fn kind_of(job: &Job) -> Result<&'static dyn TaskKind> {
     if job.device().is_some() {
         return Err(task_error(
             "a job holds a [device] or a [circuit], not both: a chip's devices are its instances",
         ));
     }
-    if job.task().get("kind").and_then(Value::as_str) == Some("optimize") {
-        return super::optimize::check(job);
+    let name = job.task().get("kind").and_then(Value::as_str);
+    if let Some(kind) = name.and_then(|n| find(Holder::Chip, n)) {
+        return Ok(kind);
     }
-    prepare(job).map(|_| ())
+    prepare(job)?;
+    Err(not_a_kind(name.unwrap_or_default()))
 }
 
-/// Runs a job with a `[circuit]` table: its spectrum, or its study.
+/// [`super::check`] for a job with a `[circuit]` table.
+pub(super) fn check(job: &Job) -> Result<()> {
+    kind_of(job)?.check(job)
+}
+
+/// Runs a job with a `[circuit]` table: its spectrum, its study or its optimization.
 pub(super) fn execute(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
-    check(job)?;
-    if job.task().get("kind").and_then(Value::as_str) == Some("optimize") {
-        return Err(task_error(
-            "an \"optimize\" job's optimizer is genoxide's, which the photonoxide program runs: \
-             photonoxide run <job> (the studio window shows it live); the library supplies its \
-             objectives and records it (photonoxide::job::Problem, Recorder)",
-        ));
+    kind_of(job)?.execute(job, run, stop)
+}
+
+/// The `"spectrum"`, `"sweep"` and `"corners"` kinds beside a `[circuit]`: the chip computed or
+/// studied, its kind named.
+pub(super) struct ChipStudyKind(pub(super) &'static str);
+
+impl TaskKind for ChipStudyKind {
+    fn name(&self) -> &'static str {
+        self.0
     }
+
+    fn schema(&self, g: &mut SchemaGenerator) -> serde_json::Value {
+        super::schema::task::<ChipTask>(g)
+    }
+
+    fn check(&self, job: &Job) -> Result<()> {
+        prepare(job).map(|_| ())
+    }
+
+    fn preview(&self, job: &Job) -> Result<Event> {
+        super::check(job)?;
+        // no scene of its own: as before, what reading the task as an fdfd job's refuses
+        super::fdfd::preview(job)
+    }
+
+    fn execute(&self, job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
+        self.check(job)?;
+        run_study(job, run, stop)
+    }
+
+    fn exports(&self, _: &Job) -> (&'static str, &'static [&'static str]) {
+        CHIP_EXPORTS
+    }
+}
+
+/// What a chip's tasks may export as fields, and call themselves: none.
+pub(super) const CHIP_EXPORTS: (&str, &[&str]) = ("a chip", &[]);
+
+/// Runs a chip's spectrum or study, checked.
+fn run_study(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
     let p = prepare(job)?;
     run.record(&Event::Started {
         job: job.name().to_owned(),

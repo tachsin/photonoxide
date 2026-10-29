@@ -7,6 +7,8 @@ use super::check::{
     check_cells, check_finite, check_layer, check_materials, check_step, check_sweep, check_window,
     task_error,
 };
+use super::chip::CHIP_EXPORTS;
+use super::device::DEVICE_EXPORTS;
 use super::event::Event;
 use super::execute::solver_run;
 use super::kind::{EM_FIELDS, Holder, TaskKind, find};
@@ -698,16 +700,16 @@ pub(super) fn export_in(dir: &std::path::Path) -> ExportSpec {
 /// What a job computes that `[task.export]` may write as fields, and what to call it in an
 /// error: none for a structure, a device's study, fit or optimization, or a chip.
 fn export_fields(job: &Job) -> Result<(&'static str, &'static [&'static str])> {
-    if job.circuit().is_some() {
-        return Ok(("a chip", &[]));
-    }
-    if job.device().is_some() {
-        return Ok(device::task_kind(job)?.map_or(device::DEVICE_EXPORTS, |k| k.exports(job)));
-    }
-    let kind = job.task().get("kind").and_then(|k| k.as_str());
-    Ok(kind
-        .and_then(|name| find(Holder::Solver, name))
-        .map_or(("this job", &[]), |k| k.exports(job)))
+    let name = job.task().get("kind").and_then(|k| k.as_str());
+    Ok(match Holder::of(job) {
+        Holder::Chip => name
+            .and_then(|n| find(Holder::Chip, n))
+            .map_or(CHIP_EXPORTS, |k| k.exports(job)),
+        Holder::Device => device::task_kind(job)?.map_or(DEVICE_EXPORTS, |k| k.exports(job)),
+        Holder::Solver => name
+            .and_then(|n| find(Holder::Solver, n))
+            .map_or(("this job", &[]), |k| k.exports(job)),
+    })
 }
 
 /// Checks `job`'s `[task.export]`: its own fields, and that the fields it asks for are ones the

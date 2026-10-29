@@ -39,12 +39,14 @@
 
 use std::f64::consts::PI;
 
+use schemars::SchemaGenerator;
 use serde::Deserialize;
 use toml::Value;
 
 use super::super::chip::{
-    Assembled, ChipDesign, InstanceModel, Resolved, band, chip_job, chip_of, corner,
+    Assembled, CHIP_EXPORTS, ChipDesign, InstanceModel, Resolved, band, chip_job, chip_of, corner,
 };
+use super::super::kind::TaskKind;
 use super::super::study::{CornerTask, check_corners, corners_of};
 use super::super::{Event, task_error};
 use super::{
@@ -55,7 +57,7 @@ use crate::circuit::SMatrix;
 use crate::device::objective::{Names, Source};
 use crate::device::{Goal, Limit, Reduce};
 use crate::expr::{Dual, Scope};
-use crate::run::{Job, Run};
+use crate::run::{Job, Run, Stop};
 use crate::units::Wavelength;
 use crate::{Error, Result};
 
@@ -91,6 +93,40 @@ struct ChipOptimizeTask {
     constraint: Vec<Bound>,
     #[serde(default)]
     corner: Vec<CornerTask>,
+}
+
+/// The `"optimize"` kind beside a `[circuit]`: the chip's instances' parameters optimized, by
+/// genoxide in the `photonoxide` program.
+pub(in crate::job) struct ChipOptimizeKind;
+
+impl TaskKind for ChipOptimizeKind {
+    fn name(&self) -> &'static str {
+        "optimize"
+    }
+
+    /// A device's optimization's table, which the schema has stood for a chip's too.
+    fn schema(&self, g: &mut SchemaGenerator) -> serde_json::Value {
+        super::super::schema::task::<super::OptimizeTask>(g)
+    }
+
+    fn check(&self, job: &Job) -> Result<()> {
+        super::check(job)
+    }
+
+    fn preview(&self, job: &Job) -> Result<Event> {
+        super::super::check(job)?;
+        // no scene of its own: as before, what reading the task as an fdfd job's refuses
+        super::super::fdfd::preview(job)
+    }
+
+    fn execute(&self, job: &Job, _: &mut Run, _: &Stop) -> Result<()> {
+        self.check(job)?;
+        Err(super::runs_elsewhere())
+    }
+
+    fn exports(&self, _: &Job) -> (&'static str, &'static [&'static str]) {
+        CHIP_EXPORTS
+    }
 }
 
 /// The chip's outputs: the powers between its external ports, and the wavelength.

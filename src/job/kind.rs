@@ -15,14 +15,15 @@ use schemars::SchemaGenerator;
 use serde_json::Value;
 
 use super::check::task_error;
+use super::chip::ChipStudyKind;
 use super::device::SpectrumKind;
 use super::event::Event;
 use super::fdfd::FdfdKind;
 use super::fdtd::FdtdKind;
 use super::fit::FitKind;
 use super::modes::ModesKind;
-use super::optimize::DeviceOptimizeKind;
 use super::optimize::crosstalk::CrosstalkKind;
+use super::optimize::{ChipOptimizeKind, DeviceOptimizeKind};
 use super::statics::StaticKind;
 use super::structure::StructureKind;
 use super::study::StudyKind;
@@ -112,7 +113,12 @@ static DEVICE: [&dyn TaskKind; 6] = [
 ];
 
 /// The kinds of a task beside a `[circuit]`, in the order the schema lists them.
-static CHIP: [&dyn TaskKind; 0] = [];
+static CHIP: [&dyn TaskKind; 4] = [
+    &ChipStudyKind("spectrum"),
+    &ChipStudyKind("sweep"),
+    &ChipStudyKind("corners"),
+    &ChipOptimizeKind,
+];
 
 /// The registry: every kind a task beside `holder` may be.
 pub(super) fn kinds(holder: Holder) -> &'static [&'static dyn TaskKind] {

@@ -2718,6 +2718,7 @@ pub fn design_of(job: &Job, x: &[f64]) -> Result<Spec> {
 }
 
 mod chip;
+pub(super) use chip::ChipOptimizeKind;
 pub use chip::optimize_from_chip;
 pub(super) mod crosstalk;
 

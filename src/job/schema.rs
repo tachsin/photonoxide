@@ -156,15 +156,7 @@ pub(crate) fn base() -> Value {
         .as_array_mut()
         .expect("its kinds")
         .push(json!({ "anyOf": [{ "maxProperties": 0 }, { "required": ["kind"] }] }));
-    let chip = hand_kinds(
-        &mut g,
-        &[
-            ("spectrum", task::<super::chip::ChipTask>),
-            ("sweep", task::<super::chip::ChipTask>),
-            ("corners", task::<super::chip::ChipTask>),
-            ("optimize", task::<super::optimize::OptimizeTask>),
-        ],
-    );
+    let chip = kinds(&mut g, Holder::Chip);
     let mut defs = g.take_definitions(true);
     let name = job
         .as_object()
@@ -245,9 +237,6 @@ pub fn schema_text() -> String {
     text
 }
 
-/// A function writing a task struct's schema: [`task`] at its type.
-type TaskSchema = fn(&mut SchemaGenerator) -> Value;
-
 /// A task's schema: a reference to its struct's.
 pub(super) fn task<T: JsonSchema>(g: &mut SchemaGenerator) -> Value {
     g.subschema_for::<T>().to_value()
@@ -263,26 +252,6 @@ fn kinds(g: &mut SchemaGenerator, holder: Holder) -> Value {
             json!({
                 "if": { "properties": { "kind": { "const": k.name() } }, "required": ["kind"] },
                 "then": k.schema(g)
-            })
-        })
-        .collect();
-    json!({
-        "type": "object",
-        "required": ["kind"],
-        "properties": { "kind": { "enum": names, "description": "What the task computes." } },
-        "allOf": cases
-    })
-}
-
-/// A task table that is one of `kinds`: its `kind` one of their names, the rest its kind's.
-fn hand_kinds(g: &mut SchemaGenerator, kinds: &[(&str, TaskSchema)]) -> Value {
-    let names: Vec<&str> = kinds.iter().map(|(k, _)| *k).collect();
-    let cases: Vec<Value> = kinds
-        .iter()
-        .map(|(k, schema)| {
-            json!({
-                "if": { "properties": { "kind": { "const": k } }, "required": ["kind"] },
-                "then": schema(g)
             })
         })
         .collect();
