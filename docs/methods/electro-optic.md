@@ -132,6 +132,7 @@ measurement is compared with them within its own spread.
 | `pockels/overlap-gamma` | the papers' Γ form scaled by n_eff/n_e against the perturbation | 10 nm | Γ = 0.51, 0.8% |
 | `pockels/wang-2018` | published: Wang et al. 2018, 1.8 V·cm (DC) | both 40, 20, 10 nm, gated at 0.5% | 1.84 V·cm |
 | `pockels/zhang-2022` | published: Zhang et al. 2022, 2.3 V·cm (DC) | as above | 2.37 V·cm |
+| `pockels/valdez-2023` | published: Valdez et al. 2023, 0.8 V·cm at 784 nm (DC) | both 20, 10, 5 nm, gated at 0.5% | 0.844 V·cm |
 | `pockels/bto-angle` | barium titanate's 4mm tensor turned in the plane, 0 to 90°: r_eff against r₃₃ sin³φ + (r₁₃ + 2r₄₂) cos²φ sin φ | — | ≤ 1e-12 |
 | `pockels/bto-deng` | published: Deng et al. 2026's r₄₂ = 358 pm/V at 45°, against their measured 253 pm/V | — | 253.1 pm/V |
 | `pockels/bto-eltes` | published: Eltes et al. 2019's one-arm Vπ·L from their r_eff, n, Γ and gap, against 0.23 V·cm | — | 0.2324 V·cm |
@@ -160,6 +161,18 @@ the optics.
   oxide on silicon, a 5 µm gap beside a 20 µm signal electrode 0.83 µm thick, 0.6 µm of PECVD
   oxide (ε 5.5, as their model has it) and air; 2.3 V·cm at DC, 2.67 V·cm at 1 GHz through the
   line's impedance. The sidewall isn't given (70°; 60 to 90° spans ±0.03). 2.372 V·cm.
+
+- **Valdez et al. 2023** (Optica 10, 578; `pockels/valdez-2023`): not a rib but an unetched 200 nm
+  film of 5 mol% MgO-doped lithium niobate, bonded over 40 nm of silica onto a planarized silicon
+  nitride strip 0.9 µm wide and 0.18 µm thick, at 784 nm; the hybrid mode's push–pull Vπ·L from
+  electrodes 4 µm apart (the narrowest gap of their segmented electrode, taken as a plain gap), 0.8 V·cm
+  measured (2.0 V on 0.4 cm, 1.0 V on 0.8 cm). The coefficients are Akiyama et al.'s r₁₃ and r₃₃ of the
+  doped crystal with the bulk's other unclamped elements and ε^T. The tolerance is the paper's one digit.
+  0.844 V·cm. What the main text doesn't give, and what we took: the nitride's index (the catalogue's
+  LPCVD, 2.03), the electrodes' thickness (1 µm) and widths. The hybrid mode hangs on that index: the
+  paper's Fig. 1(e) gives n_eff 1.90 and the power in the film and the strip 0.69 and 0.15 where we get
+  1.908, 0.64 and 0.20, and a nitride index lower by 0.05 gives 1.898, 0.67 and 0.16; so the mode's
+  numbers are not cases, only the Vπ·L.
 
 Each tolerance is r₃₃'s ±0.9 pm/V carried through (±3.3%), the spans of what the paper doesn't
 give, and its two digits. Wang et al. 2018's Nature modulator (doi:10.1038/s41586-018-0551-y:

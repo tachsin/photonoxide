@@ -791,6 +791,16 @@ pub(crate) fn rules() -> Vec<(&'static str, Rule)> {
             ),
         ),
         (
+            "pockels/valdez-2023",
+            Rule::new(
+                Relative,
+                Reference,
+                0.05 / 0.8,
+                Stated(5e-3, "its grids gated at 0.5 %"),
+                "the paper's one digit, 0.8 V·cm: half a unit of it",
+            ),
+        ),
+        (
             "pockels/bto-angle",
             Rule::new(
                 Relative,

@@ -29,6 +29,8 @@ use crate::mode::vector::{self, CrossSection, Permittivity, VectorMode, graded_n
 use crate::units::{Length, Wavelength};
 use crate::validation::{Case, Outcome, Tier};
 
+mod hybrid;
+
 const OK: &str = "a valid model";
 
 /// The wavelength of the thin-film cases, µm.
@@ -62,6 +64,9 @@ fn linbo3_tensor(label: &str) -> Tensor {
 pub(crate) enum Coefficients {
     /// Jazbinšek & Zgonik's clamped r^S and ε^S (633 nm).
     Clamped,
+    /// Jazbinšek & Zgonik's unclamped r^T and ε^T (633 nm): the low-frequency values, below the
+    /// crystal's acoustic resonances.
+    Unclamped,
     /// The thin film's r₃₃ at 1550 nm (Chelladurai et al., clamped, 100 MHz to 330 GHz) with
     /// the bulk crystal's clamped other elements and ε^S.
     Film,
@@ -73,6 +78,7 @@ impl Coefficients {
         let bulk = |label| Pockels::from_tensor(&linbo3_tensor(label)).expect(OK);
         match self {
             Coefficients::Clamped => bulk("bulk, clamped, 633 nm"),
+            Coefficients::Unclamped => bulk("bulk, unclamped, 633 nm"),
             Coefficients::Film => Pockels::completed(
                 &linbo3_tensor("thin film (x-cut LNOI), clamped, 1550 nm"),
                 &linbo3_tensor("bulk, clamped, 633 nm"),
@@ -95,6 +101,9 @@ impl Coefficients {
         match self {
             Coefficients::Clamped | Coefficients::Film => {
                 (symbol(r"\varepsilon^S_{11}"), symbol(r"\varepsilon^S_{33}"))
+            }
+            Coefficients::Unclamped => {
+                (symbol(r"\varepsilon^T_{11}"), symbol(r"\varepsilon^T_{33}"))
             }
         }
     }
@@ -996,6 +1005,13 @@ pub(crate) fn cases() -> Vec<Case> {
             tier: Tier::Published,
             source: r"Y. Zhang et al., Photon. Res. 10, 2380 (2022), doi:10.1364/PRJ.468518: 2.3 V·cm at DC (2.67 at 1 GHz, through the line's impedance). The tolerance: $r_{33}$'s ±0.9 pm/V, the sidewall from 60 to 90° (±0.03 V·cm), the paper's two digits; DC, as above",
             run: zhang_2022_vpi_l,
+        },
+        Case {
+            id: "pockels/valdez-2023",
+            title: r"Valdez et al. 2023's hybrid modulator at 784 nm: an unetched 200 nm x-cut film of 5 mol% MgO-doped lithium niobate bonded, over 40 nm of silica, onto a planarized silicon nitride strip (0.9 µm wide, 0.18 µm thick, LPCVD index, 2.03 here) in silica on silicon, gold electrodes 1 µm thick on the film 4 µm apart (the narrowest gap of their segmented electrode, taken as a plain gap), air above: push–pull $V_\pi L$ of the hybrid TE mode (V·cm, a cross-section's, per unit length; shown), from Akiyama et al.'s unclamped $r_{13}$ = 9.3 and $r_{33}$ = 30.1 pm/V of the doped crystal (633 nm) with the bulk's other unclamped elements and $\varepsilon^T$; both grids refined together to 5 nm and gated at 0.5%",
+            tier: Tier::Published,
+            source: r"F. Valdez, V. Mere, S. Mookherjea, Optica 10, 578 (2023), doi:10.1364/OPTICA.484549: a push–pull $V_\pi$ of 2.0 V (0.4 cm) and 1.0 V (0.8 cm), $V_\pi L$ = 0.8 V·cm at 100 kHz; the tolerance their one digit. Not in the main text, and left as taken here: the nitride's index (its Fig. 1(e) gives $n_\mathrm{eff}$ 1.90 and the power in the film and the strip 0.69 and 0.15; ours are 1.908, 0.64 and 0.20, and a nitride index lower by 0.05 gives 1.898, 0.67 and 0.16, so these hang on it), the electrodes' thickness and widths, and the field of the segmented electrode between its segments; the coefficients are those measured near 633 nm, not 784 nm",
+            run: hybrid::valdez_2023_vpi_l,
         },
         Case {
             id: "pockels/bto-angle",
