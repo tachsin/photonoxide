@@ -494,6 +494,27 @@ const PAPERS: &[(&str, &str, &str, &str, &str)] = &[
         "10.1063/1.363679",
         "",
     ),
+    (
+        "lee-2001-linbo3",
+        "M. Lee, Appl. Phys. Lett. 79, 1342 (2001)",
+        "Dielectric constant and loss tangent in LiNbO3 crystals from 90 to 147 GHz",
+        "10.1063/1.1399305",
+        "",
+    ),
+    (
+        "krupka-2006",
+        "J. Krupka, J. Breeze, A. Centeno, N. Alford, T. Claussen, L. Jensen, IEEE Trans. Microw. Theory Tech. 54, 3995 (2006)",
+        "Measurements of permittivity, dielectric loss tangent, and resistivity of float-zone silicon at microwave frequencies",
+        "10.1109/TMTT.2006.883655",
+        "",
+    ),
+    (
+        "lamb-1996",
+        "J. W. Lamb, Int. J. Infrared Millim. Waves 17, 1997 (1996)",
+        "Miscellaneous data on materials for millimetre and submillimetre optics",
+        "10.1007/BF02069487",
+        "",
+    ),
 ];
 
 /// The papers with these keys.

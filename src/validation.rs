@@ -22,6 +22,7 @@ use crate::material::catalogue::conductivity_checks;
 use crate::material::catalogue::ferroelectric;
 use crate::material::catalogue::phase_change_checks;
 use crate::material::catalogue::phase_change_thermal;
+use crate::material::catalogue::rf_checks;
 use crate::material::catalogue::thermo_checks;
 use crate::material::{self, Model, Table};
 use crate::mode::Polarization;
@@ -518,6 +519,20 @@ pub fn cases() -> Vec<Case> {
             tier: Tier::Analytic,
             source: r"the midpoint rule's error is $\frac{h^2}{24} \int_0^1 f''$ to leading order, its integrand smooth on $[0, 1]$",
             run: conductivity_checks::sondheimer_order,
+        },
+        Case {
+            id: "material/rf-krupka-table-1",
+            title: r"Float-zone silicon's loss tangent at 4.8 to 6.8 GHz: Krupka et al.'s Eq. (3), $\tan\delta = (Q_u^{-1} - Q_p^{-1})/p_e$, on their Table I's unloaded and parasitic Q factors and filling factors, against the catalogue's $\tan\delta$ (their printed 1.866, 1.901 and 2.101e-3), within the table's printed digits (largest relative deviation shown)",
+            tier: Tier::Published,
+            source: "J. Krupka et al., IEEE Trans. Microw. Theory Tech. 54, 3995 (2006), doi:10.1109/TMTT.2006.883655, Eq. (3) and Table I",
+            run: rf_checks::krupka_table_1,
+        },
+        Case {
+            id: "material/rf-lamb-table-1",
+            title: r"Lamb's compilation of millimetre-wave dielectrics: on the 22 rows the catalogue takes from his Table I (fused silica, crystalline quartz, sapphire and silicon, 2 to 300 GHz), his Eq. (6), $\varepsilon' = n^2$, against the $\varepsilon'$ he prints beside $n$, within each row's printed digits (largest deviation shown, in units of that bound). His fused silica at 393 GHz (n 1.9469, $\varepsilon'$ 3.801, whose root is 1.9496) isn't taken",
+            tier: Tier::Published,
+            source: "J. W. Lamb, Int. J. Infrared Millim. Waves 17, 1997 (1996), doi:10.1007/BF02069487, Eq. (6) and Table I, pp. 2006–2019",
+            run: rf_checks::lamb_table_1,
         },
         Case {
             id: "material/pcm-delaney-fits",

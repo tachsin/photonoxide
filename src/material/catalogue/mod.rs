@@ -23,6 +23,10 @@
 //! each model with its paper, temperature range and, for a film, thickness. The static solver
 //! ([`crate::thermal`]) takes them for a job's media it isn't given a value for.
 //!
+//! Permittivities and loss tangents at microwave and millimetre-wave frequencies
+//! ([`RfDielectric`], [`Entry::rf_dielectric`]): fused silica, crystalline quartz, sapphire,
+//! silicon and lithium niobate, each value with its sample, frequency and paper ([`rf_dielectrics`]).
+//!
 //! Phase-change materials (Sb₂Se₃, Sb₂S₃, GST): each state an entry of its own
 //! ([`Category::PhaseChange`], e.g. `sb2se3-amorphous` and `sb2se3-crystalline`), the pair in a
 //! [`PhaseChange`] with the temperatures that switch it and its thermal properties
@@ -45,6 +49,8 @@ pub(crate) mod phase_change;
 pub(crate) mod phase_change_checks;
 pub(crate) mod phase_change_thermal;
 mod references;
+pub(crate) mod rf;
+pub(crate) mod rf_checks;
 mod symmetry;
 mod tags;
 #[cfg(test)]
@@ -57,6 +63,7 @@ pub use conductivity::{Conductivity, ConductivityModel, conductivities, conducti
 pub use phase_change::{
     PhaseChange, State, figure_of_merit, partly_crystalline, phase_change, phase_changes,
 };
+pub use rf::{RfDielectric, RfValue, rf_dielectric, rf_dielectrics};
 pub use symmetry::{Pattern, pattern};
 pub use tags::Tag;
 
@@ -471,6 +478,12 @@ impl Entry {
     /// ([`conductivity`]).
     pub fn conductivity(&self) -> Option<Conductivity> {
         conductivity(&self.id)
+    }
+
+    /// The material's permittivities and loss tangents at microwave frequencies, beside its
+    /// index, when the catalogue has them ([`rf_dielectric`]).
+    pub fn rf_dielectric(&self) -> Option<RfDielectric> {
+        rf_dielectric(&self.id)
     }
 
     /// A reference by its key.

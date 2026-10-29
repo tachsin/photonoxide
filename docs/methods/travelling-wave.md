@@ -124,8 +124,11 @@ $$q_i = \frac{\varepsilon_i}{C}\frac{\partial C}{\partial \varepsilon_i}, \qquad
 energy g Δu², split between its two half cells in proportion to their resistances d/c (that is
 c ∂(g Δu²)/∂c at fixed u), each cell's part to its media by their areas. Its shares sum to 1, and
 two dielectrics in series between plates divide the energy as their elastances d_i/ε_i to round-off
-(`line/filling-plates`, 1e-14). The loss tangents are the job's, by medium: no catalogue entry
-has a dielectric's RF loss tangent yet, so each case says where its come from.
+(`line/filling-plates`, 1e-14). The loss tangents are the job's, by medium, and each case says
+where its come from. The catalogue lists measured ones with their samples and frequencies
+(`catalogue::rf_dielectrics()`: lithium niobate, silicon, fused silica, quartz and sapphire;
+[the catalogue](catalogue.md#microwave-permittivities-and-loss-tangents)), to choose a job's
+from: a loss tangent depends on the sample, a silicon handle's on its resistivity.
 
 ## Conductor loss
 
@@ -633,7 +636,9 @@ minutes.
 - A segmented electrode's 3D parts: the rails' ends fringing across the gaps between them (the 2D
   sections bound it), and the current that charges the rails through their stems; a segmented
   line full-wave.
-- Loss tangents in the catalogue, with their sources and frequency ranges: none in hand yet
-  from a primary measurement (Zhang et al.'s come from M. Lee 2001 for lithium niobate, Wan et al.
-  2020 for silicon and Li et al. 2013 for the deposited oxide, not read here), so each case and
-  job gives its own.
+- Loss tangents taken from the catalogue by default: the catalogue has measured ones
+  ([its section](catalogue.md#microwave-permittivities-and-loss-tangents); M. Lee 2001's lithium
+  niobate, 6.0 to 6.8e-3 across c and 7.0 to 8.0e-3 along it from 91 to 147 GHz, read off his
+  Fig. 2, where Zhang et al. take 0.008), but each sample's differs, so each case and job still
+  gives its own. Zhang et al.'s silicon and deposited oxide (Wan et al. 2020, Li et al. 2013) are
+  not read here.

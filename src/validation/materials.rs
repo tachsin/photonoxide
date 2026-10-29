@@ -330,6 +330,27 @@ pub(crate) fn rules() -> Vec<(&'static str, Rule)> {
                 "the midpoint rule's second order, within 0.05",
             ),
         ),
+        // ---- microwave permittivities and loss tangents ----
+        (
+            "material/rf-krupka-table-1",
+            Rule::new(
+                Relative,
+                Reference,
+                1e-3,
+                Exact,
+                "Table I's printed digits through Eq. (3): half a unit of the third row's p_e (5.6e-4), tan δ (2.4e-4), Q_u and Q_p (1.8e-4)",
+            ),
+        ),
+        (
+            "material/rf-lamb-table-1",
+            Rule::new(
+                Absolute,
+                Reference,
+                1.0,
+                Exact,
+                "each row's printed digits: half a unit of ε′'s last and 2n times half a unit of n's, the deviation in units of that bound",
+            ),
+        ),
         // ---- phase-change materials ----
         (
             "material/pcm-delaney-fits",
