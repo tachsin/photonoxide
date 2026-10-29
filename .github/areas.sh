@@ -121,7 +121,7 @@ area line     "src/electro/*"   "statics material mode pockels"   "electro::line
 # the thermo-optic phase shifter (src/thermal/*): a heat solve's rise in a guide's mode, by its
 # perturbation's weights, into P_pi, the time constant and the crosstalk between neighbours; and
 # the dynamic thermal compact models fitted to its step responses (src/thermal/rc*)
-area shifter  "src/thermal/*"   "mode material statics thermo"   "thermal::shifter thermal::rc thermal::correction" "shifter/ thermal-rc/ correction/" ""
+area shifter  "src/thermal/* src/shifter.rs"   "mode material statics thermo"   "thermal::shifter thermal::rc thermal::correction" "shifter/ thermal-rc/ correction/" ""
 
 # jobs, their runs and replay, and farming them out; the job files in jobs/ are read by the
 # library's tests and validation cases, by the studio's and by the Python package's; a job's

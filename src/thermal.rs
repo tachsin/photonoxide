@@ -49,13 +49,13 @@ use crate::geometry::Shape;
 use crate::statics::{Discrete, Hold, Problem, spread};
 use crate::{Error, Result};
 
+pub use crate::shifter::{Drive, Efficiency, Guide, Optics, PhaseShifter, StepResponses, Timing};
 pub use crate::statics::{
     Axis, Boundary, Cut, Features, Field, Grading, Grid, MAX_CELLS, Section, Side, Tensor,
 };
 pub use correction::Correction;
 pub use network::Network;
 pub use rc::{Cauer, Fitted, Foster, RcFit, RcModel};
-pub use shifter::{Drive, Efficiency, Guide, Optics, PhaseShifter, StepResponses, Timing};
 
 mod correction;
 pub(crate) mod correction_checks;
@@ -67,7 +67,6 @@ mod rc;
 pub(crate) mod rc_checks;
 #[cfg(test)]
 mod rc_tests;
-mod shifter;
 pub(crate) mod shifter_checks;
 #[cfg(test)]
 mod shifter_tests;
@@ -76,16 +75,16 @@ mod shifter_tests;
 #[derive(Clone, Debug)]
 pub struct Heat {
     section: Section,
-    grid: Grid,
+    pub(crate) grid: Grid,
     conductivity: Vec<(String, Tensor)>,
     sides: [Boundary; 4],
     sinks: Vec<(Shape, f64)>,
-    heaters: Vec<(Shape, f64)>,
+    pub(crate) heaters: Vec<(Shape, f64)>,
     extra: Option<Vec<f64>>,
     capacity: Vec<(String, f64)>,
     /// Heaters given cell by cell (W/m in each), which follow the heaters' factor as they do:
-    /// a phase shifter's drive of a current's Joule heat ([`shifter`]).
-    driven: Vec<Vec<f64>>,
+    /// a phase shifter's drive of a current's Joule heat ([`crate::shifter`]).
+    pub(crate) driven: Vec<Vec<f64>>,
 }
 
 /// How [`Heat::transient`] steps in time. Both are implicit, unconditionally stable and second
@@ -719,7 +718,7 @@ impl Heat {
 
     /// The problem assembled and factorized: its discrete form, the sources that don't follow
     /// the heaters (a current's Joule heat), the heaters' own, and the sinks' temperatures.
-    fn discretize(&self) -> Result<Assembled> {
+    pub(crate) fn discretize(&self) -> Result<Assembled> {
         let coefficients = self.section.coefficients(
             &self.grid,
             |m| {
@@ -798,11 +797,11 @@ impl Heat {
 
 /// A heat problem assembled: its discrete form, the sources that don't follow the heaters (a
 /// current's Joule heat), the heaters' own, and the sinks' temperatures.
-struct Assembled {
-    discrete: Discrete,
-    base: Vec<f64>,
-    heat: Vec<f64>,
-    values: Vec<f64>,
+pub(crate) struct Assembled {
+    pub(crate) discrete: Discrete,
+    pub(crate) base: Vec<f64>,
+    pub(crate) heat: Vec<f64>,
+    pub(crate) values: Vec<f64>,
 }
 
 /// A shifted operator asked for where no cell is free (which the callers rule out first).

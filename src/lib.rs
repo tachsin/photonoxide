@@ -80,6 +80,7 @@ pub mod parallel;
 mod portable;
 pub mod raster;
 pub mod run;
+mod shifter;
 mod sparse;
 pub mod stack;
 mod statics;
