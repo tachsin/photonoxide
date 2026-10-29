@@ -217,6 +217,7 @@ pub fn rules() -> Vec<(&'static str, Rule)> {
     rules.extend(fdfd::rules());
     rules.extend(fdtd::rules());
     rules.extend(geometry::rules());
+    rules.extend(line::rules());
     rules
 }
 
@@ -5392,6 +5393,7 @@ mod fdtd;
 mod geometry;
 #[cfg(feature = "gpu")]
 mod gpu;
+mod line;
 mod materials;
 mod modes;
 #[cfg(feature = "gpu")]
@@ -5847,7 +5849,7 @@ mod tests {
     }
 
     #[test]
-    fn every_rule_is_a_cases_once() {
+    fn every_case_has_one_rule_and_every_rule_a_case() {
         let ids: std::collections::HashSet<&str> = cases().iter().map(|c| c.id).collect();
         let mut seen = std::collections::HashSet::new();
         for (id, rule) in rules() {
@@ -5860,11 +5862,17 @@ mod tests {
             // an exact identity has none: its result is the same bits
             assert!(rule.tolerance >= 0.0, "{id}'s tolerance");
         }
-        let missing = ids.len() - seen.len();
-        eprintln!(
-            "{} of {} cases have their rule (#544); {missing} to go",
-            seen.len(),
-            ids.len()
+        // every case has its rule: a new one comes with it, in its area's table (CONTRIBUTING.md)
+        let mut without: Vec<&str> = ids
+            .iter()
+            .copied()
+            .filter(|id| !seen.contains(id))
+            .collect();
+        without.sort_unstable();
+        assert!(
+            without.is_empty(),
+            "{} cases have no rule (#544; src/validation/ has each area's): {without:?}",
+            without.len()
         );
     }
 
