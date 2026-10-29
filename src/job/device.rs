@@ -32,10 +32,11 @@
 
 use std::time::Instant;
 
-use schemars::JsonSchema;
+use schemars::{JsonSchema, SchemaGenerator};
 use serde::{Deserialize, Serialize};
 use toml::{Table, Value};
 
+use super::kind::{Holder, TaskKind, find};
 use super::{Event, ScenePort, reason, task_error};
 use crate::circuit::Fidelity;
 use crate::device::spec::Grids;
@@ -279,20 +280,19 @@ pub(super) fn spec_of(job: &Job) -> Result<Spec> {
 }
 
 /// The kind of the task beside a job's `[device]`: `None` for a design alone.
-pub(super) fn task_kind(job: &Job) -> Result<Option<String>> {
+pub(super) fn task_kind(job: &Job) -> Result<Option<&'static dyn TaskKind>> {
     if job.task().is_empty() {
         return Ok(None);
     }
     match job.task().get("kind").and_then(Value::as_str) {
-        Some(k @ ("spectrum" | "fdtd" | "sweep" | "corners" | "optimize" | "fit")) => {
-            Ok(Some(k.to_owned()))
-        }
-        Some(other) => Err(task_error(format!(
-            "a job with a [device] table computes it by a \"spectrum\" task (its own model), \
+        Some(name) => find(Holder::Device, name).map(Some).ok_or_else(|| {
+            task_error(format!(
+                "a job with a [device] table computes it by a \"spectrum\" task (its own model), \
              studies it by a \"sweep\" or \"corners\" one, optimizes it by an \"optimize\" one, \
              fits a compact model to it by a \"fit\" one, or steps it in time by an \"fdtd\" \
-             one, not \"{other}\": the device is the structure"
-        ))),
+             one, not \"{name}\": the device is the structure"
+            ))
+        }),
         None => Err(task_error(
             "a device's task needs a kind: \"spectrum\", \"sweep\", \"corners\", \"optimize\", \
              \"fit\" or \"fdtd\"",
@@ -505,7 +505,7 @@ fn prepare(job: &Job) -> Result<Prepared> {
 /// What [`super::check`] refuses of the device and its grids, and a 3D solve larger than the
 /// direct solver holds here (1.2 million unknowns), the error saying how large.
 pub fn fdfd_size(job: &Job) -> Result<Option<(usize, usize, f64)>> {
-    if job.device().is_none() || task_kind(job)?.as_deref() != Some("spectrum") {
+    if job.device().is_none() || task_kind(job)?.map(|k| k.name()) != Some("spectrum") {
         return Ok(None);
     }
     let (_, grids) = spectrum_task(job)?;
@@ -733,20 +733,20 @@ pub(super) fn run_spectrum(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> 
 /// its model's S-parameters; a `"sweep"` or `"corners"` task its model at each of the study's
 /// designs ([`super::study`]); an `"fdtd"` task its structure in time.
 pub(super) fn execute(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
-    let kind = task_kind(job)?;
-    if kind.as_deref() == Some("fdtd") {
-        // as any fdtd job, its structure the device's
-        return super::kind::TaskKind::execute(&super::fdtd::FdtdKind, job, run, stop);
+    match task_kind(job)? {
+        Some(kind) => kind.execute(job, run, stop),
+        None => computed(job, run, stop, |_, run, _, scene| run.record(&scene)),
     }
-    if kind.as_deref() == Some("optimize") {
-        super::check(job)?;
-        return Err(task_error(
-            "an \"optimize\" job's optimizer is genoxide's, which the photonoxide program runs: \
-             photonoxide run <job> (the studio window shows it live); the library supplies its \
-             objectives and records it (photonoxide::job::Problem, Recorder)",
-        ));
-    }
-    // checked before anything is recorded
+}
+
+/// Runs a job computing its `[device]`: checked before anything is recorded, its compact model
+/// kept, then [`Event::Started`], `body` (given the design's scene), and [`Event::Finished`].
+pub(super) fn computed(
+    job: &Job,
+    run: &mut Run,
+    stop: &Stop,
+    body: impl FnOnce(&Job, &mut Run, &Stop, Event) -> Result<()>,
+) -> Result<()> {
     super::check(job)?;
     let scene = super::device_scene(job)?;
     keep_compact(job, run)?;
@@ -754,15 +754,53 @@ pub(super) fn execute(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
         job: job.name().to_owned(),
         kind: "device".into(),
     })?;
-    match kind.as_deref() {
-        Some("sweep" | "corners") => super::study::run(job, run, stop, scene)?,
-        Some("fit") => super::fit::run(job, run, stop, scene)?,
-        Some(_) => run_spectrum(job, run, stop)?,
-        None => run.record(&scene)?,
-    }
+    body(job, run, stop, scene)?;
     let seconds = run.elapsed().as_secs_f64();
     run.record(&Event::Finished {
         stopped: reason(stop),
         seconds,
     })
+}
+
+/// Whether a device's study or fit has points a farm's workers can solve: a `[task.sweep]`, or
+/// a design without a compact model. One with a compact model computes in microseconds, and
+/// names a file a worker on another machine hasn't: its studies run here.
+pub(super) fn farmed(job: &Job) -> bool {
+    let compact = job.device().is_some_and(|d| d.contains_key("compact"));
+    job.task().contains_key("sweep") || !compact
+}
+
+/// What a device's computations may export as fields, and call themselves: none.
+pub(super) const DEVICE_EXPORTS: (&str, &[&str]) = ("this device's task", &[]);
+
+/// The `"spectrum"` kind beside a `[device]`: the device's own model at its design's fidelity.
+pub(super) struct SpectrumKind;
+
+impl TaskKind for SpectrumKind {
+    fn name(&self) -> &'static str {
+        "spectrum"
+    }
+
+    fn schema(&self, g: &mut SchemaGenerator) -> serde_json::Value {
+        super::schema::task::<SpectrumTask>(g)
+    }
+
+    fn check(&self, job: &Job) -> Result<()> {
+        super::device_scene(job)?;
+        check_spectrum(job)
+    }
+
+    fn preview(&self, job: &Job) -> Result<Event> {
+        super::device_scene(job)
+    }
+
+    fn execute(&self, job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
+        computed(job, run, stop, |job, run, stop, _| {
+            run_spectrum(job, run, stop)
+        })
+    }
+
+    fn exports(&self, _: &Job) -> (&'static str, &'static [&'static str]) {
+        DEVICE_EXPORTS
+    }
 }

@@ -49,13 +49,15 @@
 //!       temperature_k: 340.0   # every material of the stack whose model takes a temperature
 //! ```
 
-use schemars::JsonSchema;
+use schemars::{JsonSchema, SchemaGenerator};
 use serde::{Deserialize, Serialize};
 use toml::{Table, Value};
 
 use super::device::{
-    Compute, DeviceFigure, band_of, fidelity_name, grids_of, own_band, scene_ports, spec_of,
+    Compute, DEVICE_EXPORTS, DeviceFigure, band_of, computed, farmed, fidelity_name, grids_of,
+    own_band, scene_ports, spec_of,
 };
+use super::kind::TaskKind;
 use super::{Event, task_error};
 use crate::circuit::Fidelity;
 use crate::device::spec::Grids;
@@ -759,6 +761,40 @@ fn describe(study: &Study, designs: &[Spec], k: usize) -> String {
 /// [`super::check`] for a `"sweep"` or `"corners"` job.
 pub(super) fn check(job: &Job) -> Result<()> {
     prepare(job).map(|_| ())
+}
+
+/// The `"sweep"` and `"corners"` kinds beside a `[device]`: the design studied, its kind named.
+pub(super) struct StudyKind(pub(super) &'static str);
+
+impl TaskKind for StudyKind {
+    fn name(&self) -> &'static str {
+        self.0
+    }
+
+    fn schema(&self, g: &mut SchemaGenerator) -> serde_json::Value {
+        super::schema::task::<StudyTask>(g)
+    }
+
+    fn check(&self, job: &Job) -> Result<()> {
+        super::device_scene(job)?;
+        check(job)
+    }
+
+    fn preview(&self, job: &Job) -> Result<Event> {
+        super::device_scene(job)
+    }
+
+    fn execute(&self, job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
+        computed(job, run, stop, self::run)
+    }
+
+    fn farms(&self, job: &Job) -> bool {
+        farmed(job)
+    }
+
+    fn exports(&self, _: &Job) -> (&'static str, &'static [&'static str]) {
+        DEVICE_EXPORTS
+    }
 }
 
 /// The ports' names of a study's device, in its component's order.

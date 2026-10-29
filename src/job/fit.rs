@@ -36,11 +36,15 @@
 //!       points: 5             # a grid's; a Latin hypercube takes count
 //! ```
 
-use schemars::JsonSchema;
+use schemars::{JsonSchema, SchemaGenerator};
 use serde::Deserialize;
 use toml::{Table, Value};
 
-use super::device::{Compute, band_of, fidelity_name, grids_of, own_band, scene_ports, spec_of};
+use super::device::{
+    Compute, DEVICE_EXPORTS, band_of, computed, farmed, fidelity_name, grids_of, own_band,
+    scene_ports, spec_of,
+};
+use super::kind::TaskKind;
 use super::study::{design_point, set};
 use super::{Event, task_error};
 use crate::circuit::{Fidelity, SMatrix, Spectrum};
@@ -276,6 +280,40 @@ fn prepare(job: &Job) -> Result<Prepared> {
 /// [`super::check`] for a `"fit"` job.
 pub(super) fn check(job: &Job) -> Result<()> {
     prepare(job).map(|_| ())
+}
+
+/// The `"fit"` kind beside a `[device]`: a compact model fitted to the device's own runs.
+pub(super) struct FitKind;
+
+impl TaskKind for FitKind {
+    fn name(&self) -> &'static str {
+        "fit"
+    }
+
+    fn schema(&self, g: &mut SchemaGenerator) -> serde_json::Value {
+        super::schema::task::<FitTask>(g)
+    }
+
+    fn check(&self, job: &Job) -> Result<()> {
+        super::device_scene(job)?;
+        check(job)
+    }
+
+    fn preview(&self, job: &Job) -> Result<Event> {
+        super::device_scene(job)
+    }
+
+    fn execute(&self, job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
+        computed(job, run, stop, self::run)
+    }
+
+    fn farms(&self, job: &Job) -> bool {
+        farmed(job)
+    }
+
+    fn exports(&self, _: &Job) -> (&'static str, &'static [&'static str]) {
+        DEVICE_EXPORTS
+    }
 }
 
 /// The job that fits a compact model of `spec`'s device at its fidelity as `plan` says,

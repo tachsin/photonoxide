@@ -3,7 +3,7 @@
 use super::kind::{Holder, find, named, unknown};
 use super::modes::check_export;
 use super::scene::device_scene;
-use super::{chip, device, fdtd, fit, optimize, study};
+use super::{chip, device};
 use crate::run::Job;
 use crate::stack::{LayerStack, Structure};
 use crate::units::Wavelength;
@@ -171,31 +171,11 @@ fn check_inner(job: &Job) -> Result<()> {
         return chip::check(job);
     }
     if job.device().is_some() {
-        return match device::task_kind(job)?.as_deref() {
+        return match device::task_kind(job)? {
             None => device_scene(job).map(|_| ()),
-            Some("fdtd") => {
-                check_direct(job, "fdtd")?;
-                fdtd::check(job)
-            }
-            Some(kind @ ("sweep" | "corners")) => {
-                check_direct(job, kind)?;
-                device_scene(job)?;
-                study::check(job)
-            }
-            Some("fit") => {
-                check_direct(job, "fit")?;
-                device_scene(job)?;
-                fit::check(job)
-            }
-            Some("optimize") => {
-                check_direct(job, "optimize")?;
-                device_scene(job)?;
-                optimize::check(job)
-            }
-            Some(_) => {
-                check_direct(job, "spectrum")?;
-                device_scene(job)?;
-                device::check_spectrum(job)
+            Some(kind) => {
+                check_direct(job, kind.name())?;
+                kind.check(job)
             }
         };
     }

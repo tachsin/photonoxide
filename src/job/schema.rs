@@ -149,17 +149,7 @@ pub(crate) fn base() -> Value {
     let job = g.subschema_for::<crate::run::JobFile>();
     let solver = kinds(&mut g, Holder::Solver);
     // a device's task may be empty, or left out: the design at its fidelity, its own model
-    let mut device = hand_kinds(
-        &mut g,
-        &[
-            ("spectrum", task::<super::device::SpectrumTask>),
-            ("sweep", task::<super::study::StudyTask>),
-            ("corners", task::<super::study::StudyTask>),
-            ("fit", task::<super::fit::FitTask>),
-            ("optimize", task::<super::optimize::OptimizeTask>),
-            ("fdtd", task::<super::fdtd::FdtdTask>),
-        ],
-    );
+    let mut device = kinds(&mut g, Holder::Device);
     let device_task = device.as_object_mut().expect("a task's schema");
     device_task.remove("required");
     device_task["allOf"]

@@ -701,22 +701,13 @@ fn export_fields(job: &Job) -> Result<(&'static str, &'static [&'static str])> {
     if job.circuit().is_some() {
         return Ok(("a chip", &[]));
     }
-    let kind = if job.device().is_some() {
-        device::task_kind(job)?.unwrap_or_default()
-    } else {
-        job.task()
-            .get("kind")
-            .and_then(|k| k.as_str())
-            .unwrap_or_default()
-            .to_owned()
-    };
-    if let Some(k) = find(Holder::of(job), &kind) {
-        return Ok(k.exports(job));
+    if job.device().is_some() {
+        return Ok(device::task_kind(job)?.map_or(device::DEVICE_EXPORTS, |k| k.exports(job)));
     }
-    Ok(match kind.as_str() {
-        _ if job.device().is_some() => ("this device's task", &[]),
-        _ => ("this job", &[]),
-    })
+    let kind = job.task().get("kind").and_then(|k| k.as_str());
+    Ok(kind
+        .and_then(|name| find(Holder::Solver, name))
+        .map_or(("this job", &[]), |k| k.exports(job)))
 }
 
 /// Checks `job`'s `[task.export]`: its own fields, and that the fields it asks for are ones the

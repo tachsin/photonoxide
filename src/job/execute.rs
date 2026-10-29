@@ -5,7 +5,7 @@ use super::event::Event;
 use super::kind::{Holder, find, named, unknown};
 use super::modes::check_export;
 use super::scene::device_scene;
-use super::{chip, device, fdfd, fdtd, results};
+use super::{chip, device, fdfd, results};
 use crate::Result;
 use crate::run::{Job, Run, Stop, StopReason};
 
@@ -71,15 +71,17 @@ fn execute_job(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
 /// `"modes"` or `"fdfd"` job's `[task.sweep]`, or a device's study (a `[device]` with a
 /// `"sweep"` or `"corners"` task).
 pub fn farms(job: &Job) -> bool {
-    let name = job.task().get("kind").and_then(toml::Value::as_str);
-    if let Some(k) = name.and_then(|n| find(Holder::of(job), n)) {
-        return k.farms(job);
-    }
-    // a design with a compact model computes in microseconds, and names a file a worker on
-    // another machine hasn't: its studies run here
-    let compact = job.device().is_some_and(|d| d.contains_key("compact"));
-    job.task().get("sweep").is_some()
-        || (job.device().is_some() && !compact && matches!(name, Some("sweep" | "corners" | "fit")))
+    // a [device] first, as the preview takes it: a job holding a [circuit] too is refused by
+    // check, and farms as its device's task would
+    let kind = if job.device().is_some() {
+        device::task_kind(job).ok().flatten()
+    } else {
+        job.task()
+            .get("kind")
+            .and_then(toml::Value::as_str)
+            .and_then(|name| find(Holder::of(job), name))
+    };
+    kind.map_or_else(|| job.task().contains_key("sweep"), |k| k.farms(job))
 }
 
 /// Runs a task alone of kind `kind` into `run`: its direct solver checked, then
@@ -111,12 +113,12 @@ pub(super) fn solver_run(
 ///
 /// The errors of [`check`].
 pub fn preview(job: &Job) -> Result<Event> {
+    // a device's design drawn as it is edited, unchecked; its fdtd task checked first
     if job.device().is_some() {
-        if device::task_kind(job)?.as_deref() == Some("fdtd") {
-            check(job)?;
-            return fdtd::preview(job);
-        }
-        return device_scene(job);
+        return match device::task_kind(job)? {
+            None => device_scene(job),
+            Some(kind) => kind.preview(job),
+        };
     }
     let name = job.task().get("kind").and_then(|k| k.as_str());
     if let Some(k) = name.and_then(|n| find(Holder::of(job), n)) {

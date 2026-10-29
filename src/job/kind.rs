@@ -15,13 +15,17 @@ use schemars::SchemaGenerator;
 use serde_json::Value;
 
 use super::check::task_error;
+use super::device::SpectrumKind;
 use super::event::Event;
 use super::fdfd::FdfdKind;
 use super::fdtd::FdtdKind;
+use super::fit::FitKind;
 use super::modes::ModesKind;
+use super::optimize::DeviceOptimizeKind;
 use super::optimize::crosstalk::CrosstalkKind;
 use super::statics::StaticKind;
 use super::structure::StructureKind;
+use super::study::StudyKind;
 use crate::run::{Job, Run, Stop};
 use crate::{Error, Result};
 
@@ -98,7 +102,14 @@ static SOLVER: [&dyn TaskKind; 6] = [
 ];
 
 /// The kinds of a task beside a `[device]`, in the order the schema lists them.
-static DEVICE: [&dyn TaskKind; 0] = [];
+static DEVICE: [&dyn TaskKind; 6] = [
+    &SpectrumKind,
+    &StudyKind("sweep"),
+    &StudyKind("corners"),
+    &FitKind,
+    &DeviceOptimizeKind,
+    &FdtdKind,
+];
 
 /// The kinds of a task beside a `[circuit]`, in the order the schema lists them.
 static CHIP: [&dyn TaskKind; 0] = [];
