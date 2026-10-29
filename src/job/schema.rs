@@ -20,7 +20,9 @@ use schemars::generate::SchemaSettings;
 use schemars::{JsonSchema, Schema, SchemaGenerator, json_schema};
 use serde_json::{Map, Value, json};
 
+use super::kind::TaskKind;
 use super::params::{PATH, PLACE, SEGMENT, SHAPE, SHAPES, SHIFT, Want};
+use super::structure::StructureKind;
 
 /// Where the published schema is, for a job file's `$schema` and an editor's settings.
 pub const SCHEMA_URL: &str =
@@ -149,7 +151,7 @@ pub(crate) fn base() -> Value {
     let solver = kinds(
         &mut g,
         &[
-            ("structure", task::<super::StructureTask>),
+            ("structure", |g| StructureKind.schema(g)),
             ("modes", task::<super::ModesTask>),
             ("fdfd", task::<super::fdfd::FdfdTask>),
             ("fdtd", task::<super::fdtd::FdtdTask>),
@@ -271,7 +273,7 @@ pub fn schema_text() -> String {
 type TaskSchema = fn(&mut SchemaGenerator) -> Value;
 
 /// A task's schema: a reference to its struct's.
-fn task<T: JsonSchema>(g: &mut SchemaGenerator) -> Value {
+pub(super) fn task<T: JsonSchema>(g: &mut SchemaGenerator) -> Value {
     g.subschema_for::<T>().to_value()
 }
 

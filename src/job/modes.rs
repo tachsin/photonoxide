@@ -7,6 +7,7 @@ use super::check::{
     check_cells, check_finite, check_materials, check_step, check_sweep, check_window, task_error,
 };
 use super::event::Event;
+use super::kind::{Holder, find};
 use super::scene::{scene, scene_shapes};
 use super::structure::{
     CircleSpec, EtchSpec, RectSpec, RingSpec, StackField, draw, tensor_stack, window_z,
@@ -708,6 +709,9 @@ fn export_fields(job: &Job) -> Result<(&'static str, &'static [&'static str])> {
             .unwrap_or_default()
             .to_owned()
     };
+    if let Some(k) = find(Holder::of(job), &kind) {
+        return Ok(k.exports(job));
+    }
     Ok(match kind.as_str() {
         "modes" => ("a modes job", EH),
         // the field along z: H for TE (the default), E for TM
@@ -717,7 +721,6 @@ fn export_fields(job: &Job) -> Result<(&'static str, &'static [&'static str])> {
         },
         "fdtd" => ("an fdtd job", EH),
         "static" => ("a static job", &["temperature", "potential"]),
-        "structure" => ("a structure job", &[]),
         _ if job.device().is_some() => ("this device's task", &[]),
         _ => ("this job", &[]),
     })

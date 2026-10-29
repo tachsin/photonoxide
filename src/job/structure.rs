@@ -1,12 +1,14 @@
 //! The structure task, and the structures the other tasks draw.
 
-use schemars::JsonSchema;
+use schemars::{JsonSchema, SchemaGenerator};
 use serde::Deserialize;
 
-use super::check::{check_cells, check_finite, check_step, check_window, task_error};
+use super::check::{check_cells, check_finite, check_layer, check_step, check_window, task_error};
 use super::event::Event;
+use super::execute::solver_run;
+use super::kind::TaskKind;
 use super::scene::{record_ports, scene};
-use super::{bodies, components, params, shapes};
+use super::{bodies, components, params, schema, shapes};
 use crate::geometry::{Point, Shape};
 use crate::run::{Job, Run, Stop};
 use crate::stack::{LayerStack, Structure};
@@ -499,6 +501,42 @@ impl StructureTask {
             &self.component,
         )
         .and_then(|s| bodies::place(s, &self.body))
+    }
+}
+
+/// The `"structure"` kind: a layer stack with shapes drawn on it, recorded as pictures of its
+/// permittivity.
+pub(super) struct StructureKind;
+
+impl TaskKind for StructureKind {
+    fn name(&self) -> &'static str {
+        "structure"
+    }
+
+    fn schema(&self, g: &mut SchemaGenerator) -> serde_json::Value {
+        schema::task::<StructureTask>(g)
+    }
+
+    fn check(&self, job: &Job) -> Result<()> {
+        let task: StructureTask = params::task(job)?;
+        task.validate()?;
+        let s = task.structure()?;
+        window_z(task.z_um, &task.layer, &s, task.step_nm)?;
+        check_layer(&s, &task.layer, &[task.wavelength_um])
+    }
+
+    fn preview(&self, job: &Job) -> Result<Event> {
+        super::check(job)?;
+        let task: StructureTask = params::task(job)?;
+        structure_scene(&task, &task.structure()?)
+    }
+
+    fn execute(&self, job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
+        solver_run(job, run, stop, self.name(), structure)
+    }
+
+    fn exports(&self, _: &Job) -> (&'static str, &'static [&'static str]) {
+        ("a structure job", &[])
     }
 }
 

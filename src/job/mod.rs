@@ -470,6 +470,8 @@ use crate::units::{Length, Wavelength};
 use modes::{modes_task, modes_z, window_edge_highest};
 #[cfg(test)]
 use scene::outline;
+#[cfg(test)]
+use structure::StructureTask;
 
 mod bodies;
 #[cfg(test)]
@@ -491,6 +493,7 @@ mod fit;
 mod fit_checks;
 #[cfg(test)]
 mod fit_tests;
+mod kind;
 mod leaky_checks;
 #[cfg(test)]
 mod leaky_tests;
@@ -531,9 +534,8 @@ use modes::{
 };
 use scene::{device_scene, record_ports, scene};
 use structure::{
-    CircleSpec, EtchSpec, PathSpec, RectSpec, RingSpec, SegmentSpec, StackField, StructureTask,
-    check_etches_2d, diagonal_stack, draw, draw_paths, named_stack, path_of, stack_media,
-    tensor_stack,
+    CircleSpec, EtchSpec, PathSpec, RectSpec, RingSpec, SegmentSpec, StackField, check_etches_2d,
+    diagonal_stack, draw, draw_paths, named_stack, path_of, stack_media, tensor_stack,
 };
 
 pub use check::check;

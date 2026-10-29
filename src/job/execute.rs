@@ -2,10 +2,11 @@
 
 use super::check::{check, check_direct, task_error};
 use super::event::Event;
+use super::kind::{Holder, find};
 use super::modes::{check_export, modes, modes_scene, modes_task};
 use super::scene::device_scene;
-use super::structure::{StructureTask, draw, structure, structure_scene, tensor_stack};
-use super::{chip, device, fdfd, fdtd, params, results, statics};
+use super::structure::{draw, tensor_stack};
+use super::{chip, device, fdfd, fdtd, results, statics};
 use crate::Result;
 use crate::run::{Job, Run, Stop, StopReason};
 
@@ -72,42 +73,54 @@ fn execute_job(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
 /// `"modes"` or `"fdfd"` job's `[task.sweep]`, or a device's study (a `[device]` with a
 /// `"sweep"` or `"corners"` task).
 pub fn farms(job: &Job) -> bool {
+    let name = job.task().get("kind").and_then(toml::Value::as_str);
+    if let Some(k) = name.and_then(|n| find(Holder::of(job), n)) {
+        return k.farms(job);
+    }
     // a design with a compact model computes in microseconds, and names a file a worker on
     // another machine hasn't: its studies run here
     let compact = job.device().is_some_and(|d| d.contains_key("compact"));
     job.task().get("sweep").is_some()
-        || (job.device().is_some()
-            && !compact
-            && matches!(
-                job.task().get("kind").and_then(toml::Value::as_str),
-                Some("sweep" | "corners" | "fit")
-            ))
+        || (job.device().is_some() && !compact && matches!(name, Some("sweep" | "corners" | "fit")))
 }
 
 /// Runs `job`'s task of `kind` into `run`, from its start to its end.
 pub(super) fn execute_task(job: &Job, run: &mut Run, stop: &Stop, kind: &str) -> Result<()> {
-    let kind = kind.to_owned();
-    check_direct(job, &kind)?;
-    run.record(&Event::Started {
-        job: job.name().to_owned(),
-        kind: kind.clone(),
-    })?;
-    match kind.as_str() {
+    if let Some(k) = find(Holder::Solver, kind) {
+        return k.execute(job, run, stop);
+    }
+    solver_run(job, run, stop, kind, |job, run, stop| match kind {
         "optimize" => {
             check(job)?;
-            return Err(task_error(
+            Err(task_error(
                 "an \"optimize\" job's optimizer is genoxide's, which the photonoxide program \
                  runs: photonoxide run <job> (the studio window shows it live); the library \
                  supplies its objectives and records it (photonoxide::job::Problem, Recorder)",
-            ));
+            ))
         }
-        "structure" => structure(job, run, stop)?,
-        "modes" => modes(job, run, stop)?,
-        "fdfd" => fdfd::run(job, run, stop)?,
-        "fdtd" => fdtd::run(job, run, stop)?,
-        "static" => statics::run(job, run, stop)?,
-        other => return Err(task_error(format!("unknown kind \"{other}\""))),
-    }
+        "modes" => modes(job, run, stop),
+        "fdfd" => fdfd::run(job, run, stop),
+        "fdtd" => fdtd::run(job, run, stop),
+        "static" => statics::run(job, run, stop),
+        other => Err(task_error(format!("unknown kind \"{other}\""))),
+    })
+}
+
+/// Runs a task alone of kind `kind` into `run`: its direct solver checked, then
+/// [`Event::Started`], `body`, and [`Event::Finished`] if `body` ends well.
+pub(super) fn solver_run(
+    job: &Job,
+    run: &mut Run,
+    stop: &Stop,
+    kind: &str,
+    body: impl FnOnce(&Job, &mut Run, &Stop) -> Result<()>,
+) -> Result<()> {
+    check_direct(job, kind)?;
+    run.record(&Event::Started {
+        job: job.name().to_owned(),
+        kind: kind.to_owned(),
+    })?;
+    body(job, run, stop)?;
     let seconds = run.elapsed().as_secs_f64();
     run.record(&Event::Finished {
         stopped: reason(stop),
@@ -129,12 +142,12 @@ pub fn preview(job: &Job) -> Result<Event> {
         }
         return device_scene(job);
     }
+    let name = job.task().get("kind").and_then(|k| k.as_str());
+    if let Some(k) = name.and_then(|n| find(Holder::of(job), n)) {
+        return k.preview(job);
+    }
     check(job)?;
-    match job.task().get("kind").and_then(|k| k.as_str()) {
-        Some("structure") => {
-            let task: StructureTask = params::task(job)?;
-            structure_scene(&task, &task.structure()?)
-        }
+    match name {
         Some("modes") => {
             let task = modes_task(job, None)?;
             let stack = tensor_stack(&task.stack, task.core_nm, task.bottom_oxide_um)?;

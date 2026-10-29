@@ -1,13 +1,14 @@
 //! Checking a job without running it.
 
+use super::kind::{Holder, find};
 use super::modes::{
     check_export, check_tensors, check_threshold, modes_guide, modes_pml, modes_task, modes_z,
 };
 use super::scene::device_scene;
-use super::structure::{StructureTask, draw, tensor_stack, window_z};
-use super::{chip, device, fdfd, fdtd, fit, optimize, params, statics, study};
+use super::structure::{draw, tensor_stack};
+use super::{chip, device, fdfd, fdtd, fit, optimize, statics, study};
 use crate::run::Job;
-use crate::stack::LayerStack;
+use crate::stack::{LayerStack, Structure};
 use crate::units::Wavelength;
 use crate::{Error, Result};
 
@@ -111,6 +112,15 @@ pub(super) fn check_materials(stack: &LayerStack, wavelengths_um: &[f64]) -> Res
     Ok(())
 }
 
+/// The layer a job draws on is one of its structure's stack, and every material of the stack has
+/// data at each of `wavelengths_um`, the job's own first ([`check_materials`]).
+pub(super) fn check_layer(s: &Structure, layer: &str, wavelengths_um: &[f64]) -> Result<()> {
+    s.stack()
+        .layer(layer)
+        .ok_or_else(|| task_error(format!("the stack has no layer {layer}")))?;
+    check_materials(s.stack(), wavelengths_um)
+}
+
 /// A sweep's range: finite ends that differ, and at least 2 points.
 pub(super) fn check_sweep(from: f64, to: f64, points: usize) -> Result<()> {
     if points < 2 || !(from.is_finite() && to.is_finite()) {
@@ -198,15 +208,11 @@ fn check_inner(job: &Job) -> Result<()> {
         .and_then(|k| k.as_str())
         .ok_or_else(|| task_error("needs a kind, e.g. kind = \"structure\""))?;
     check_direct(job, kind)?;
+    if let Some(k) = find(Holder::Solver, kind) {
+        return k.check(job);
+    }
     let mut wavelengths = Vec::new();
     let (s, layer, wavelength_um) = match kind {
-        "structure" => {
-            let task: StructureTask = params::task(job)?;
-            task.validate()?;
-            let s = task.structure()?;
-            window_z(task.z_um, &task.layer, &s, task.step_nm)?;
-            (s, task.layer, task.wavelength_um)
-        }
         "modes" => {
             let task = modes_task(job, None)?;
             task.validate()?;
@@ -259,9 +265,6 @@ fn check_inner(job: &Job) -> Result<()> {
         }
         other => return Err(task_error(format!("unknown kind \"{other}\""))),
     };
-    s.stack()
-        .layer(&layer)
-        .ok_or_else(|| task_error(format!("the stack has no layer {layer}")))?;
     wavelengths.insert(0, wavelength_um);
-    check_materials(s.stack(), &wavelengths)
+    check_layer(&s, &layer, &wavelengths)
 }
