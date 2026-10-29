@@ -15,10 +15,12 @@
 use std::time::Instant;
 
 use num_complex::Complex64 as c64;
-use schemars::JsonSchema;
+use schemars::{JsonSchema, SchemaGenerator};
 use serde::{Deserialize, Serialize};
 
+use super::execute::solver_run;
 use super::fdfd::{InPlane, in_plane};
+use super::kind::{EM_FIELDS, TaskKind};
 use super::{
     CircleSpec, Event, PathSpec, RectSpec, RingSpec, check_cells, check_materials, check_step,
     check_window, diagonal_stack, draw, draw_paths, scene, task_error,
@@ -1830,6 +1832,36 @@ impl MonitorPlan {
             | MonitorPlan::Resonance { name, .. } => Some(name),
             MonitorPlan::Field { .. } => None,
         }
+    }
+}
+
+/// The `"fdtd"` kind: a structure stepped in time by FDTD, its own or a `[device]`'s.
+pub(super) struct FdtdKind;
+
+impl TaskKind for FdtdKind {
+    fn name(&self) -> &'static str {
+        "fdtd"
+    }
+
+    fn schema(&self, g: &mut SchemaGenerator) -> serde_json::Value {
+        super::schema::task::<FdtdTask>(g)
+    }
+
+    fn check(&self, job: &Job) -> Result<()> {
+        check(job)
+    }
+
+    fn preview(&self, job: &Job) -> Result<Event> {
+        super::check(job)?;
+        preview(job)
+    }
+
+    fn execute(&self, job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
+        solver_run(job, run, stop, self.name(), self::run)
+    }
+
+    fn exports(&self, _: &Job) -> (&'static str, &'static [&'static str]) {
+        ("an fdtd job", EM_FIELDS)
     }
 }
 

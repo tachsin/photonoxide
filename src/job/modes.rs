@@ -698,7 +698,6 @@ pub(super) fn export_in(dir: &std::path::Path) -> ExportSpec {
 /// What a job computes that `[task.export]` may write as fields, and what to call it in an
 /// error: none for a structure, a device's study, fit or optimization, or a chip.
 fn export_fields(job: &Job) -> Result<(&'static str, &'static [&'static str])> {
-    const EH: &[&str] = EM_FIELDS;
     if job.circuit().is_some() {
         return Ok(("a chip", &[]));
     }
@@ -715,7 +714,6 @@ fn export_fields(job: &Job) -> Result<(&'static str, &'static [&'static str])> {
         return Ok(k.exports(job));
     }
     Ok(match kind.as_str() {
-        "fdtd" => ("an fdtd job", EH),
         "static" => ("a static job", &["temperature", "potential"]),
         _ if job.device().is_some() => ("this device's task", &[]),
         _ => ("this job", &[]),

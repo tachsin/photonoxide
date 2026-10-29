@@ -209,7 +209,6 @@ fn check_inner(job: &Job) -> Result<()> {
         return k.check(job);
     }
     match kind {
-        "fdtd" => fdtd::check(job),
         "static" => statics::check(job),
         "optimize" if optimize::crosstalk::corrects(job) => optimize::check(job),
         "optimize" => Err(task_error(

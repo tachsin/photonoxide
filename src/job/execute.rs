@@ -97,7 +97,6 @@ pub(super) fn execute_task(job: &Job, run: &mut Run, stop: &Stop, kind: &str) ->
                  supplies its objectives and records it (photonoxide::job::Problem, Recorder)",
             ))
         }
-        "fdtd" => fdtd::run(job, run, stop),
         "static" => statics::run(job, run, stop),
         other => Err(task_error(format!("unknown kind \"{other}\""))),
     })
@@ -145,7 +144,6 @@ pub fn preview(job: &Job) -> Result<Event> {
     }
     check(job)?;
     match name {
-        Some("fdtd") => fdtd::preview(job),
         Some("static") => statics::preview(job),
         _ => fdfd::preview(job),
     }

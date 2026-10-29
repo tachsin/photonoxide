@@ -21,6 +21,7 @@ use schemars::{JsonSchema, Schema, SchemaGenerator, json_schema};
 use serde_json::{Map, Value, json};
 
 use super::fdfd::FdfdKind;
+use super::fdtd::FdtdKind;
 use super::kind::TaskKind;
 use super::modes::ModesKind;
 use super::params::{PATH, PLACE, SEGMENT, SHAPE, SHAPES, SHIFT, Want};
@@ -156,7 +157,7 @@ pub(crate) fn base() -> Value {
             ("structure", |g| StructureKind.schema(g)),
             ("modes", |g| ModesKind.schema(g)),
             ("fdfd", |g| FdfdKind.schema(g)),
-            ("fdtd", task::<super::fdtd::FdtdTask>),
+            ("fdtd", |g| FdtdKind.schema(g)),
             ("static", task::<super::statics::StaticTask>),
             (
                 "optimize",
