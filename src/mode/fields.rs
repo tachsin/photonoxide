@@ -36,6 +36,10 @@ pub struct Fields {
     pub(crate) e: Vec<[c64; 3]>,
     /// H_x, H_y, H_z at each cell, the four nodes' average.
     pub(crate) h: Vec<[c64; 3]>,
+    /// The plane of symmetry along x and along y: the coordinate of a wall on one edge of the
+    /// window only (a wall on both edges, or none, is `None`). The quantities that integrate
+    /// over the whole cross-section ([`crate::mode::quantities`]) add the mirror image there.
+    pub(crate) mirrors: [Option<f64>; 2],
 }
 
 impl Fields {

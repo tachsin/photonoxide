@@ -1,11 +1,13 @@
 ---
 title: "Fields, power and coupling"
-module: mode::fields, mode::thermo
-summary: "A full-vector mode's six field components from its transverse H, the power it carries, the share of it that launches another mode, and its effective index's change for a change of permittivity, such as a temperature field's, by first-order perturbation and by re-solve."
+module: mode::fields, mode::quantities, mode::thermo
+summary: "A full-vector mode's six field components from its transverse H, the power it carries, the share of it that launches another mode, its effective area, nonlinear coefficient and confinement, the orthogonality of a set of modes, and its effective index's change for a change of permittivity, such as a temperature field's, by first-order perturbation and by re-solve."
 order: 12
 papers:
   - cite: "A. B. Fallahkhair, K. S. Li, T. E. Murphy, J. Lightwave Technol. 26, 1423 (2008) (the transverse H the fields start from)"
     doi: 10.1109/JLT.2008.923643
+  - cite: "S. Afshar V., T. M. Monro, Opt. Express 17, 2298 (2009) (the effective area from S_z, Eq. 41, and the standard one, Eq. 44)"
+    doi: 10.1364/OE.17.002298
   - cite: "S. G. Johnson, M. Ibanescu, M. A. Skorobogatiy, O. Weisberg, J. D. Joannopoulos, Y. Fink, Phys. Rev. E 65, 066611 (2002) (first-order perturbation, away from moving boundaries)"
     doi: 10.1103/PhysRevE.65.066611
   - cite: "S. Dwivedi et al., J. Lightwave Technol. 33, 4471 (2015) (silicon wires' measured dn_eff/dT, Fig. 8)"
@@ -14,6 +16,14 @@ papers:
     doi: 10.1364/OE.27.010456
 validation:
   - mode/fields-butt-coupling
+  - mode/effective-area-gaussian
+  - mode/effective-area-slab-te
+  - mode/effective-area-slab-te-order
+  - mode/confinement-slab-te
+  - mode/confinement-slab-tm
+  - mode/confinement-slab-order
+  - mode/orthogonality-slab
+  - mode/orthogonality-slab-order
   - thermo/slab-first-order
   - thermo/slab-vector
   - thermo/slab-vector-order
@@ -63,6 +73,70 @@ $$
 
 It is 1 for a mode with itself and 0 between modes that are orthogonal. Both modes must be on the
 same grid.
+
+## A mode's quantities
+
+`mode::quantities` adds what a designer asks of a mode beside its index. With
+$S_z = (\mathbf E \times \mathbf H^*)\cdot\hat z$:
+
+| Quantity | Call | Definition |
+|---|---|---|
+| Effective area | `Fields::effective_area` | $A_\mathrm{eff} = \lvert\int S_z\thinspace dA\rvert^2 / \int \lvert S_z\rvert^2 dA$ (Afshar & Monro 2009, Eq. 41) |
+| Standard effective area | `Fields::effective_area_transverse` | $A_\mathrm{eff} = (\int \lvert\mathbf E_t\rvert^2 dA)^2 / \int \lvert\mathbf E_t\rvert^4 dA$ (their Eq. 44) |
+| Nonlinear coefficient | `Fields::nonlinear_coefficient` | $\gamma = 2\pi n_2 / (\lambda A_\mathrm{eff})$, $n_2$ given (their Eq. 42 with $\bar n_2 = n_2$) |
+| Confinement | `VectorMode::confinement` | $\Gamma = \int_R \operatorname{Re} S_z\thinspace dA / \int \operatorname{Re} S_z\thinspace dA$, $R$ a material or a box |
+| Orthogonality | `orthogonality` | $O_{ab} = \langle a, b\rangle / (\operatorname{Re}\langle a, a\rangle \operatorname{Re}\langle b, b\rangle)^{1/2}$, or the unconjugated product |
+| Normalization | `Fields::normalized` | the fields scaled to $P = 1$ |
+
+**The two areas.** Faraday's law gives, with our $e^{i(\beta z - \omega t)}$,
+$S_z = (\beta^* \lvert\mathbf E_t\rvert^2 - i\thinspace\mathbf E_t\cdot\nabla_t E_z^*)/k$ (the paper's
+Eq. 43 in its own convention). Where $\nabla_t E_z = 0$, as in a TE slab, Eqs. 41 and 44 are the
+same area; elsewhere they differ by that term. On a grid Eq. 44 is the fragile one: $\lvert\mathbf
+E_t\rvert^4$ takes the field's singularity at a dielectric corner twice. For a 500 × 220 nm silicon
+strip in silica at 1.55 µm (TE-like, fields from `fields_one_sided`):
+
+| Grid | Eq. 41, µm² | Eq. 44, µm² | γ for $n_2$ = 5e-18 m²/W, 1/(W m) | Γ in the silicon |
+|---|---|---|---|---|
+| 20 nm | 0.11363 | 0.15226 | 178.38 | 0.78547 |
+| 10 nm | 0.11343 | 0.13112 | 178.69 | 0.78330 |
+| 5 nm | 0.11329 | 0.09705 | 178.91 | 0.78260 |
+
+Eq. 41 settles to four digits while Eq. 44 keeps falling, so `effective_area` and γ take Eq. 41.
+The $n_2$ here is only an input to show the units: γ scales with it.
+
+**Which fields.** The integrals take the fields at the cells' centres. From
+`VectorMode::fields_one_sided`, E's normal component keeps its jump at each interface and a
+region's share converges at second order; from `VectorMode::fields`, a TM slab's confinement
+converges at first order only (3.9e-2, 1.8e-2, 9.0e-3 relative at 20, 10 and 5 nm, against 7.0e-3,
+1.4e-3 and 3.2e-4 one-sided). `confinement` takes the one-sided fields.
+
+**Walls.** A window cut by a wall on one edge is half the cross-section: the area, γ and the
+confinement add the mirror image, so half a slab behind a wall gives the whole slab's numbers. A
+window closed by walls at both ends of an axis is taken as it is: a slab uniform between two walls
+has the effective width times the window's height as its area. A box straddling a wall counts
+with its image. Next to a wall, $\partial_x E_z$ is taken one-sided, at first order, so a TM slab's
+area from half the window is 8e-4 off the whole window's at 10 nm (a TE slab, with no $E_z$,
+agrees to round-off).
+
+**Orthogonality.** The conjugated product is the one `coupling` takes: power orthogonality,
+between a lossless guide's modes. The unconjugated $\int (\mathbf E_a \times \mathbf H_b)\cdot\hat z\thinspace dA$
+holds for lossy and leaky modes too, as [eigenmode expansion](eme.md) uses it; each mode is then
+normalized by its own product, and the diagonal is 1 by construction. `off_diagonal` gives the
+largest $\lvert O_{ab}\rvert$, `diagonal` the largest $\lvert O_{aa} - 1\rvert$ (with the conjugated
+product, a mode's reactive power along z).
+
+| Check (cases `mode/…`) | Grid | Ours | Reference |
+|---|---|---|---|
+| Gaussian $e^{-r^2/w^2}$, whole, half and quarter window, Eqs. 41 and 44 | 50 nm | within 3e-14 of $\pi w^2$ | $\pi w^2$ |
+| 220 nm silicon slab TE₀ (3.473 in 1.444, 1.55 µm): effective width | 2.5 nm | 0.299874 µm | 0.299858 µm, closed form |
+| the same, its confinement in the silicon | 2.5 nm | 0.809915 | 0.809930, `multilayer` |
+| the same slab's TM₀, its confinement | 2.5 nm | 0.582843 | 0.582886, `multilayer` |
+| 1 µm slab, four TE modes: largest $\lvert O_{ab}\rvert$ | 10, 5, 2.5 nm | 3.0e-4, 7.4e-5, 1.9e-5 | 0 |
+
+The errors fall at second order: 2.00 for the TE width, the TE confinement and the orthogonality;
+2.30, 2.17 and 2.10 at the TM confinement's successive halvings from 20 nm. The paper itself plots
+γ against a rod's diameter (its Figs. 1 and 5) but prints no table of areas, so no case compares
+with its numbers.
 
 ## A change of permittivity: perturbation and re-solve
 
