@@ -17,7 +17,18 @@
 //! - [`cpw`]: the shared case, a coplanar waveguide on a finite substrate in a shielding box,
 //!   drawn on the same mesh lines for openEMS's FDTD, Elmer's electrostatics and photonoxide's
 //!   quasi-TEM line.
+//! - [`microstrip`]: a microstrip line in a box, for openEMS's FDTD and photonoxide's quasi-TEM
+//!   line.
+//! - [`lossy_line`]: a copper coplanar line to 300 GHz, for openEMS's FDTD with the copper a
+//!   conductor and photonoxide's full-wave RF mode.
+//! - [`zhang_line`]: Zhang et al.'s thin-film lithium niobate line with its whole stack, for
+//!   openEMS's FDTD and photonoxide's quasi-TEM line.
 //! - [`heater`]: the shared heat case, a heater in oxide over silicon, for Elmer and photonoxide.
+//! - [`heaters`]: two heaters side by side, the thermal crosstalk, for Elmer and photonoxide.
+//! - [`transient`]: a heater turned on, its guide's rise in time, for Elmer and photonoxide.
+//! - [`joule`]: a doped heater's current and its Joule heat, for Elmer and photonoxide.
+//! - [`tfln`]: a thin-film lithium niobate modulator's electrodes, the film's permittivity a
+//!   tensor, for Elmer and photonoxide.
 //!
 //! The setup, the licences and the results are in docs/cross-code.md and
 //! docs/validation-openems.md and docs/validation-elmer.md (`just openems` and `just elmer` from
@@ -28,6 +39,13 @@
 pub mod cpw;
 pub mod elmer;
 pub mod heater;
+pub mod heaters;
+pub mod joule;
 pub mod line;
+pub mod lossy_line;
+pub mod microstrip;
 pub mod openems;
 pub mod report;
+pub mod tfln;
+pub mod transient;
+pub mod zhang_line;
