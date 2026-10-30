@@ -298,7 +298,8 @@ impl Cpw {
             end_energy,
             materials: vec![Material {
                 name: "substrate".into(),
-                epsilon: self.permittivity,
+                epsilon: [self.permittivity; 3],
+                kappa: 0.0,
                 boxes: vec![along(-r, r, -h, 0.0)],
             }],
             metal: vec![

@@ -340,6 +340,217 @@ impl Mesh {
         }
         Ok(())
     }
+
+    fn span(lines: &[f64], range: [f64; 2], axis: &str) -> Result<(usize, usize), String> {
+        let lo = Mesh::line(lines, range[0])
+            .ok_or_else(|| format!("{axis} = {} µm isn't a mesh line", range[0]))?;
+        let hi = Mesh::line(lines, range[1])
+            .ok_or_else(|| format!("{axis} = {} µm isn't a mesh line", range[1]))?;
+        if hi <= lo {
+            return Err(format!(
+                "{axis} from {} to {} µm is empty",
+                range[0], range[1]
+            ));
+        }
+        Ok((lo, hi))
+    }
+
+    /// The mean of a nodal field over the rectangle `x` × `y` (µm, on mesh lines), as Elmer's
+    /// bilinear elements have it: each element's integral, its area times its four nodes'
+    /// mean, summed and divided by the rectangle's area.
+    ///
+    /// # Errors
+    ///
+    /// When a side isn't on the mesh lines.
+    pub fn mean(&self, x: [f64; 2], y: [f64; 2]) -> Result<Watch, String> {
+        let (i0, i1) = Mesh::span(&self.x, x, "x")?;
+        let (j0, j1) = Mesh::span(&self.y, y, "y")?;
+        let area = (x[1] - x[0]) * (y[1] - y[0]);
+        let mut terms = Vec::new();
+        for j in j0..j1 {
+            for i in i0..i1 {
+                let w = 0.25 * (self.x[i + 1] - self.x[i]) * (self.y[j + 1] - self.y[j]) / area;
+                for (a, b) in [(i, j), (i + 1, j), (i + 1, j + 1), (i, j + 1)] {
+                    terms.push((self.node(a, b), w));
+                }
+            }
+        }
+        Ok(Watch::from_terms(terms))
+    }
+
+    /// The mean over the rectangle `x` × `y` (µm, on mesh lines) of −∂u/∂x, per metre, of a
+    /// nodal field u (a potential's field across, E_x): −(1/A)∮ u n_x ds, the difference of u
+    /// along the rectangle's two sides, exact for Elmer's bilinear elements (u is linear along
+    /// each edge, so the trapezoid rule integrates it).
+    ///
+    /// # Errors
+    ///
+    /// When a side isn't on the mesh lines.
+    pub fn mean_across(&self, x: [f64; 2], y: [f64; 2]) -> Result<Watch, String> {
+        let (i0, i1) = Mesh::span(&self.x, x, "x")?;
+        let (j0, j1) = Mesh::span(&self.y, y, "y")?;
+        let scale = 1.0 / ((x[1] - x[0]) * 1e-6 * (y[1] - y[0]));
+        let mut terms = Vec::new();
+        for j in j0..j1 {
+            let half = 0.5 * (self.y[j + 1] - self.y[j]) * scale;
+            for b in [j, j + 1] {
+                terms.push((self.node(i1, b), -half));
+                terms.push((self.node(i0, b), half));
+            }
+        }
+        Ok(Watch::from_terms(terms))
+    }
+}
+
+/// A weighted sum of a nodal field's values ([`Mesh::mean`], [`Mesh::mean_across`]): Elmer's
+/// SaveScalars writes the nodes' values (`Save Points`), and the sum is taken here.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Watch {
+    terms: Vec<(usize, f64)>,
+}
+
+impl Watch {
+    fn from_terms(mut terms: Vec<(usize, f64)>) -> Watch {
+        terms.sort_by_key(|t| t.0);
+        let mut merged: Vec<(usize, f64)> = Vec::with_capacity(terms.len());
+        for (n, w) in terms {
+            match merged.last_mut() {
+                Some(last) if last.0 == n => last.1 += w,
+                _ => merged.push((n, w)),
+            }
+        }
+        Watch { terms: merged }
+    }
+
+    /// The sum over `values`, a node's value by its number.
+    ///
+    /// # Errors
+    ///
+    /// When a node of the sum has no value.
+    pub fn of(&self, values: &std::collections::HashMap<usize, f64>) -> Result<f64, String> {
+        self.terms
+            .iter()
+            .map(|(n, w)| {
+                values
+                    .get(n)
+                    .map(|v| w * v)
+                    .ok_or_else(|| format!("Elmer saved no value at node {n}"))
+            })
+            .sum()
+    }
+}
+
+/// The SIF line asking SaveScalars for the values at every node of `watches`: `Save Points`,
+/// ten nodes a line.
+pub fn save_points(watches: &[&Watch]) -> String {
+    let mut nodes: Vec<usize> = watches
+        .iter()
+        .flat_map(|w| w.terms.iter().map(|t| t.0))
+        .collect();
+    nodes.sort_unstable();
+    nodes.dedup();
+    let mut line = format!("  Save Points({}) = Integer", nodes.len());
+    for (k, n) in nodes.iter().enumerate() {
+        if k > 0 && k % 10 == 0 {
+            line.push_str("\n   ");
+        }
+        let _ = write!(line, " {n}");
+    }
+    line.push('\n');
+    line
+}
+
+/// One call of SaveScalars with `Save Points` (a step of a transient, or a steady run's one):
+/// the time (0 when it isn't saved) and each saved node's value.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Saved {
+    /// The time, s.
+    pub time: f64,
+    /// The values, by node.
+    pub values: std::collections::HashMap<usize, f64>,
+}
+
+/// The rows SaveScalars wrote to `scalars.dat` with `Save Points`: the time and `variable`'s
+/// values (`temperature`, `potential`; it saves the solvers' other nodal fields beside them),
+/// its columns named by `scalars.dat.names` (`value: temperature at node 12`, `value: time
+/// scalar variable`).
+///
+/// # Errors
+///
+/// When a file is missing or isn't SaveScalars'.
+pub fn saved(folder: &Path, variable: &str) -> Result<Vec<Saved>, String> {
+    let names = folder.join("scalars.dat.names");
+    let text = std::fs::read_to_string(&names).map_err(|e| format!("{}: {e}", names.display()))?;
+    let (time, nodes) = columns(&text, variable);
+    if nodes.is_empty() {
+        return Err(format!(
+            "{}: no {variable} at a node in it",
+            names.display()
+        ));
+    }
+    Ok(scalars(folder)?
+        .into_iter()
+        .map(|row| Saved {
+            time: time.and_then(|c| row.get(c).copied()).unwrap_or(0.0),
+            values: nodes
+                .iter()
+                .filter_map(|&(c, n)| row.get(c).map(|&v| (n, v)))
+                .collect(),
+        })
+        .collect())
+}
+
+/// A result a solver gave SaveScalars (`res: capacitance` for `name` `capacitance`), at its
+/// last call, from `scalars.dat` and its names.
+///
+/// # Errors
+///
+/// When a file is missing or doesn't hold the result.
+pub fn result(folder: &Path, name: &str) -> Result<f64, String> {
+    let names = folder.join("scalars.dat.names");
+    let text = std::fs::read_to_string(&names).map_err(|e| format!("{}: {e}", names.display()))?;
+    let column = named(&text)
+        .into_iter()
+        .find(|(_, n)| n.strip_prefix("res: ") == Some(name))
+        .map(|(c, _)| c)
+        .ok_or_else(|| format!("{}: no result {name:?}", names.display()))?;
+    scalars(folder)?
+        .last()
+        .and_then(|row| row.get(column).copied())
+        .ok_or_else(|| format!("{}: no value of {name:?}", folder.display()))
+}
+
+/// SaveScalars' columns (from 0) and their names, in order.
+fn named(names: &str) -> Vec<(usize, &str)> {
+    // the columns are listed in order after this line, numbered, though past 9999 the number
+    // is printed as `****`: counted here
+    names
+        .lines()
+        .skip_while(|l| !l.starts_with("Variables in columns of matrix"))
+        .skip(1)
+        .filter_map(|line| line.trim().split_once(": ").map(|(_, n)| n.trim()))
+        .enumerate()
+        .collect()
+}
+
+/// The time's column and each node's value of `variable`'s column (from 0) in SaveScalars'
+/// names.
+fn columns(names: &str, variable: &str) -> (Option<usize>, Vec<(usize, usize)>) {
+    let mut time = None;
+    let mut nodes = Vec::new();
+    for (column, name) in named(names) {
+        if name == "value: time scalar variable" {
+            time = Some(column);
+        } else if let Some((saved, node)) = name
+            .strip_prefix("value: ")
+            .and_then(|v| v.rsplit_once(" at node "))
+            && saved.eq_ignore_ascii_case(variable)
+            && let Ok(node) = node.trim().parse::<usize>()
+        {
+            nodes.push((column, node));
+        }
+    }
+    (time, nodes)
 }
 
 /// The capacitance matrix StatElecSolver writes (`Capacitance Matrix Filename`), F/m, row by
@@ -460,6 +671,37 @@ mod tests {
         assert_eq!(files[3].1.lines().nth(1).unwrap(), "2 2 2 0 202 3 6");
         assert_eq!(files[3].1.lines().nth(2).unwrap(), "3 2 4 0 202 6 9");
         assert!(mesh.along_x(3, 0.5, [0.0, 2.0]).is_err());
+    }
+
+    /// A rectangle's mean weighs each element by its area; the field across takes its sides.
+    #[test]
+    fn a_rectangles_mean_and_field_are_its_nodes_sums() {
+        let mesh = Mesh::new(&[0.0, 1.0, 3.0], &[0.0, 2.0], |_, _| 1);
+        // u = x: the mean over [0, 3] is 1.5 and −∂u/∂x is −1 per µm
+        let values: std::collections::HashMap<usize, f64> =
+            [(1, 0.0), (2, 1.0), (3, 3.0), (4, 0.0), (5, 1.0), (6, 3.0)].into();
+        let mean = mesh
+            .mean([0.0, 3.0], [0.0, 2.0])
+            .unwrap()
+            .of(&values)
+            .unwrap();
+        assert!((mean - 1.5).abs() < 1e-12, "{mean}");
+        let across = mesh.mean_across([0.0, 3.0], [0.0, 2.0]).unwrap();
+        assert!((across.of(&values).unwrap() + 1e6).abs() < 1e-6);
+        assert!(mesh.mean([0.0, 2.0], [0.0, 2.0]).is_err());
+        assert_eq!(
+            save_points(&[&across]),
+            "  Save Points(4) = Integer 1 3 4 6\n"
+        );
+    }
+
+    #[test]
+    fn savescalars_names_give_the_nodes_columns() {
+        let names = "Metadata for SaveScalars file: ./scalars.dat\n \nVariables in columns of matrix: \n   1: max: temperature\n   2: value: time scalar variable\n   3: value: coordinate 1 at node 12\n   4: value: coordinate 2 at node 12\n   5: value: coordinate 3 at node 12\n   6: value: temperature at node 12\n   7: value: temperature loads at node 12\n****: value: coordinate 1 at node 56\n****: value: temperature at node 56\n";
+        assert_eq!(
+            columns(names, "temperature"),
+            (Some(1), vec![(5, 12), (8, 56)])
+        );
     }
 
     #[test]
