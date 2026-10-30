@@ -4,8 +4,9 @@
 //!   its cross-section with the optical mode over it, and the Pockels Δn the field makes
 //!   (`TflnModulator::electrode_field`, the same solves as its Vπ·L);
 //! - [`device_vpi_l_sweep`]: Vπ·L, V_π and the bandwidths against one of its parameters (the
-//!   gap, the signal electrode's width, the rib's width, the length, ...), each point the
-//!   device's own figures at that value (`Device::component`, as the page's figures are);
+//!   gap, the signal electrode's width, the rib's width, the length, the cladding's thickness
+//!   and permittivity, ...), each point the device's own figures at that value
+//!   (`Device::component`, as the page's figures are);
 //! - [`device_eo_response`]: the electro-optic response 20 log₁₀ |m(f)| against frequency,
 //!   referred to its value at 1 GHz as the figures' `f_3dB` and `f_6dB` are, each point the
 //!   figure `m_dB` with the design's frequency at f, and the two bandwidths marked.
@@ -392,15 +393,18 @@ mod tests {
 
     #[test]
     fn a_vpi_l_sweep_s_points_are_the_device_s_figures_at_each_value() {
-        for (parameter, values) in [
-            ("gap", vec![3.5, 5.0, 8.0]),
-            ("signal", vec![10.0, 40.0]),
-            ("width", vec![0.9, 2.0]),
-            ("length", vec![2000.0, 5800.0, 10800.0]),
+        for (parameter, unit, values) in [
+            ("gap", "µm", vec![3.5, 5.0, 8.0]),
+            ("signal", "µm", vec![10.0, 40.0]),
+            ("width", "µm", vec![0.9, 2.0]),
+            ("length", "µm", vec![2000.0, 5800.0, 10800.0]),
+            // the bandwidth against the cladding: its thickness and its permittivity
+            ("cladding", "µm", vec![0.1, 0.6, 3.0]),
+            ("cladding_permittivity", "", vec![1.0, 3.9, 8.0]),
         ] {
             let s = vpi_l_sweep(&zhang(&[]), "analytic", parameter, &values).unwrap();
             assert_eq!(s.fidelity, "analytic");
-            assert_eq!(s.unit, "µm");
+            assert_eq!(s.unit, unit);
             assert_eq!(s.points.len(), values.len());
             for p in &s.points {
                 assert_eq!(p.problem, None, "{parameter} {}", p.x);
@@ -421,6 +425,15 @@ mod tests {
             }
             assert!(!s.grid.is_empty(), "{parameter}");
         }
+        // the cladding's permittivity moves the line, so the bandwidth
+        let s = vpi_l_sweep(
+            &zhang(&[]),
+            "analytic",
+            "cladding_permittivity",
+            &[1.0, 8.0],
+        )
+        .unwrap();
+        assert!(s.points[0].f_3db != s.points[1].f_3db, "{:?}", s.points);
         // Vπ·L is per length: the length moves V_π alone
         let s = vpi_l_sweep(&zhang(&[]), "analytic", "length", &[2000.0, 4000.0]).unwrap();
         assert!(same(s.points[0].vpi_l, s.points[1].vpi_l));

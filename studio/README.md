@@ -266,8 +266,9 @@ in a drawer opened from the status bar.
         the nominal one.
       - **Vπ·L, f₃dB** (the TFLN modulator's): at its analytic or 2D model, Vπ·L, Vπ at
         DC or the 3 or 6 dB bandwidth against the electrode gap, the signal electrode's width,
-        the rib's width or the length, each point the device's own figures with the parameter
-        there (one point a call, shown as it comes, **Stop** between points); and the
+        the rib's width, the length, or the cladding's thickness or permittivity (the bandwidth
+        against the cladding, shown first for it), each point the device's own figures with the
+        parameter there (one point a call, shown as it comes, **Stop** between points); and the
         electro-optic response against frequency, 20 log₁₀ |m(f)| less its value at 1 GHz (the
         reference the figures' bandwidths take), each point the figure `m_dB` at that frequency,
         the 3 and 6 dB points marked. Both say they are our model's.
