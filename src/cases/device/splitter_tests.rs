@@ -377,6 +377,151 @@ fn survey() {
     }
 }
 
+/// A device's 3D FDFD solves directly up to 1.2 million unknowns and iteratively above, to its
+/// stated residual by the default multigrid; it refuses what the iterative solve can't hold here.
+#[test]
+fn a_3d_solve_is_direct_up_to_its_size_and_iterative_above() {
+    use super::solve::{RESIDUAL_3D, Route, check_size};
+    assert_eq!(Route::of(1.2e6), Route::Direct);
+    assert_eq!(
+        Route::of(1.2e6 + 3.0),
+        Route::Iterative {
+            multigrid: crate::fdfd::Multigrid::default(),
+            residual: RESIDUAL_3D
+        }
+    );
+    assert!(check_size(1.2e7).is_ok());
+    let e = check_size(1e9).unwrap_err().to_string();
+    assert!(e.contains("million unknowns"), "{e}");
+}
+
+/// The 3D grid study's runs, one a process (its peak memory the process's), by hand:
+///
+/// ```sh
+/// DEV=mmi GRID=0.044:0.022 PML=8 MARGIN=0.4 ROUTE=auto cargo test --release --lib \
+///     device::splitter_tests::survey_3d -- --ignored --nocapture
+/// ```
+///
+/// `DEV` as [`super::splitter_checks::splitter_3d`]; `GRID` in-plane:vertical steps (µm); `ROUTE` `auto` (the device's
+/// own), `direct`, `stretched` (the direct solver in the iterative route's PMLs), `galerkin` or
+/// `rediscretized` (the iterative route with those coarse operators), `RES` its residual; and
+/// `2d`, the 2D models of the same design (guided modes, and 2D FDFD on `GRID`'s in-plane steps,
+/// comma-separated). Prints one line a run, `LOG` appended with it too.
+#[test]
+#[ignore = "a survey, not a check"]
+fn survey_3d() {
+    use crate::fdfd::{Coarse, Multigrid};
+    use std::io::Write;
+    let var = |k: &str, d: &str| std::env::var(k).unwrap_or_else(|_| d.to_owned());
+    let which = var("DEV", "mmi");
+    let (device, v) = super::splitter_checks::splitter_3d(&which);
+    let route = var("ROUTE", "auto");
+    let log = |line: &str| {
+        println!("{line}");
+        if let Ok(path) = std::env::var("LOG") {
+            let mut f = std::fs::OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open(path)
+                .unwrap();
+            writeln!(f, "{line}").unwrap();
+        }
+    };
+    let lam = um(1.55);
+    let geometry = device.geometry(&v).unwrap();
+    let core = "Si";
+    let report = |s: &crate::circuit::SMatrix| {
+        if s.size() == 2 {
+            return format!(
+                "T {:.6} R {:.2e} reciprocity {:.1e}",
+                s.power(1, 0),
+                s.power(0, 0),
+                s.reciprocity_error()
+            );
+        }
+        let (a, b) = (s.power(1, 0), s.power(2, 0));
+        format!(
+            "P_o2 {a:.6} P_o3 {b:.6} sum {:.6} excess {:.5} dB imbalance {:.2e} dB R {:.2e} reciprocity {:.1e}",
+            a + b,
+            -10.0 * (a + b).log10(),
+            10.0 * (a / b).log10(),
+            s.power(0, 0),
+            s.reciprocity_error()
+        )
+    };
+    if route == "2d" {
+        let b = device.component(&v, Fidelity::TwoD).unwrap();
+        let s = b.s_matrix(lam).unwrap();
+        log(&format!("{which} 2D default model: {}", report(&s)));
+        for step in var("GRID", "0.02,0.01,0.005").split(',') {
+            let h: f64 = step.parse().unwrap();
+            let t = Instant::now();
+            let g = FdfdGrid::new(h)
+                .with_samples(1)
+                .with_averaging(crate::averaging::Averaging::Diagonal);
+            let (sampled, _) =
+                super::solve::sampled("m", &geometry, core, &[lam], &g, false).unwrap();
+            let s = sampled.s_matrix(lam, &[]).unwrap();
+            log(&format!(
+                "{which} 2D FDFD {h}: {} {:?}",
+                report(&s),
+                t.elapsed()
+            ));
+        }
+        return;
+    }
+    let (h, hz) = var("GRID", "0.044:0.022")
+        .split_once(':')
+        .map(|(a, b)| (a.parse::<f64>().unwrap(), b.parse::<f64>().unwrap()))
+        .unwrap();
+    let pml: usize = var("PML", "8").parse().unwrap();
+    let margin: f64 = var("MARGIN", "0.4").parse().unwrap();
+    let residual: f64 = var("RES", "1e-9").parse().unwrap();
+    let grid = FdfdGrid::new(h)
+        .with_step_z(hz)
+        .with_margin(margin)
+        .with_pml(pml)
+        .with_samples(1);
+    let iterative = |coarse| super::solve::Route::Iterative {
+        multigrid: Multigrid {
+            coarse,
+            ..Multigrid::default()
+        },
+        residual,
+    };
+    let chosen = match route.as_str() {
+        "direct" => Some(super::solve::Route::Direct),
+        "stretched" => Some(super::solve::Route::DirectStretched),
+        "galerkin" => Some(iterative(Coarse::Galerkin)),
+        "rediscretized" => Some(iterative(Coarse::Rediscretized)),
+        _ => None,
+    };
+    let (nx, ny, unknowns) = super::solve::size(&geometry, core, &grid, true).unwrap();
+    log(&format!(
+        "{which} 3D {h}:{hz} PML {pml} margin {margin} {route} res {residual:e}: {nx} x {ny}, {unknowns} unknowns, started"
+    ));
+    let t = Instant::now();
+    let (sampled, description, iterations) =
+        super::solve::sampled_by("s", &geometry, core, &[lam], &grid, true, chosen).unwrap();
+    let s = sampled.s_matrix(lam, &[]).unwrap();
+    log(&format!(
+        "{which} 3D {h}:{hz} PML {pml} margin {margin} {route} res {residual:e}: {} iterations {iterations:?} {:.1} s; {description}",
+        report(&s),
+        t.elapsed().as_secs_f64()
+    ));
+    // the S-matrix whole, to compare runs by
+    let n = s.size();
+    let rows: Vec<String> = (0..n)
+        .map(|q| {
+            (0..n)
+                .map(|p| format!("{:.10e}{:+.10e}i", s[(q, p)].re, s[(q, p)].im))
+                .collect::<Vec<_>>()
+                .join(" ")
+        })
+        .collect();
+    log(&format!("  S = [{}]", rows.join("; ")));
+}
+
 /// A strip with its guides led out of its ends, through the devices' FDFD with each cell
 /// averaged from the fill: the leads abut the strip, and the seams no longer reflect (issue
 /// #376: |S₁₁|² 6e-5 and |S₂₁ − S₁₂| 3e-4 on these 100 nm cells), as with samples.

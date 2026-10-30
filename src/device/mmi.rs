@@ -379,9 +379,8 @@ fn methods(model: Model2d) -> Vec<Method> {
 }
 
 /// The guided modes' largest |Δ|S_qp|²| against 2D FDFD of the same plane, the next model up
-/// (`device/mmi-guided-2d`: 1.4e-3 on a 5 nm grid, whose own error is about 1e-3). Against 3D
-/// it isn't stated: the 3D FDFD of an MMI isn't resolved on the grids its direct solver can
-/// hold here (docs/methods/devices.md).
+/// (`device/mmi-guided-2d`: 1.4e-3 on a 5 nm grid, whose own error is about 1e-3). Against 3D,
+/// 0.05 on the 2 µm MMI at its image (`device/mmi-guided-3d`, docs/methods/devices.md).
 pub(super) const GUIDED_ERROR: f64 = 5e-3;
 
 /// An MMI's or a splitter's figures from its S-matrix at the design wavelength: the powers out

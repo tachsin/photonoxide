@@ -748,12 +748,17 @@ fn as_text_an_edit_the_form_holds_moves_it_and_one_it_cant_is_kept_and_named() {
         "{:?}",
         form.size
     );
-    let fine = ComputeIn {
-        step_nm: Some(20.0),
-        step_z_nm: Some(20.0),
+    // a 3D solve holds 13 million unknowns: on 20 nm cells this MMI fits, and on 10 nm, about
+    // eight times as many, it doesn't
+    let cells = |nm: f64| ComputeIn {
+        step_nm: Some(nm),
+        step_z_nm: Some(nm),
         ..ComputeIn::default()
     };
-    let e = job_text_of(&mmi, &fine, "mmi").unwrap_err();
+    let form = read_job_form(&job_text_of(&mmi, &cells(20.0), "mmi").unwrap());
+    let (_, _, at_20) = form.size.unwrap();
+    assert!(at_20 < 13e6 && 7.0 * at_20 > 13e6, "{at_20}");
+    let e = job_text_of(&mmi, &cells(10.0), "mmi").unwrap_err();
     assert!(e.contains("million unknowns"), "{e}");
 }
 

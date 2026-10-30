@@ -615,7 +615,7 @@ pub fn device_geometry(design: &DeviceDesign) -> Result<DeviceGeometry> {
 ///
 /// [`Error::InvalidValue`] for an unknown format, a name that isn't a job's, and the errors of
 /// [`device_spectrum`]'s design and of [`super::check_job`] for the job it makes (a 3D solve
-/// larger than the direct solver holds here).
+/// larger than a 3D solve holds here).
 pub fn device_job(design: &DeviceDesign, name: &str, format: &str) -> Result<String> {
     let format = match format.to_ascii_lowercase().as_str() {
         "toml" => Format::Toml,

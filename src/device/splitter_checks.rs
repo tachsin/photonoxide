@@ -104,6 +104,13 @@ pub(crate) fn cases() -> Vec<Case> {
             run: fdfd_straight,
         },
         Case {
+            id: "device/fdfd-3d-iterative",
+            title: r"Devices: a strip 2 µm long through the devices' 3D FDFD (as `device/fdfd-straight`: 100 nm cells, 55 nm up the stack, PMLs of 8 cells, stretched) by the route a device takes above the direct solver's 1.2 million unknowns, GMRES with the multigrid without its finest matrix to a relative residual of 1e-9, against the direct solver on the same system: the largest $\lvert \Delta S_{qp} \rvert$ over the largest $\lvert S_{qp} \rvert$ (shown)",
+            tier: Tier::Analytic,
+            source: "the same discrete system solved two ways, so they agree to the iterative solve's residual (W. Shin, S. Fan, Opt. Express 21, 22578 (2013), doi:10.1364/OE.21.022578, their operator; B. Reps, W. Vanroose, H. bin Zubair, J. Comput. Phys. 229, 8384 (2010), doi:10.1016/j.jcp.2010.07.022, the multigrid)",
+            run: fdfd_3d_iterative,
+        },
+        Case {
             id: "device/mmi-2d-grid",
             title: r"Devices: a 1 × 2 MMI's 2D FDFD (3 µm wide, 0.5 µm access guides, at its first two-fold image, 8.48 µm) on grids of 20, 10 and 5 nm: the power into an output, its change from 10 to 5 nm (shown)",
             tier: Tier::Analytic,
@@ -118,11 +125,32 @@ pub(crate) fn cases() -> Vec<Case> {
             run: mmi_guided_2d,
         },
         Case {
+            id: "device/mmi-guided-3d",
+            title: r"Devices: a 1 × 2 MMI 2 µm wide with 0.5 µm access guides at its image (the guided modes' $3L_\pi/8$, 4.05 µm): its 2D model, Soldano and Pennings's guided-mode analysis on the effective index method's plane, against its 3D FDFD extrapolated from cubic cells of 44, 31.4 and 22 nm: the power into an output (shown, and the 3D value expected)",
+            tier: Tier::Analytic,
+            source: "the guided modes' stated error against 3D (L. B. Soldano, E. C. M. Pennings, J. Lightwave Technol. 13, 615 (1995), doi:10.1109/50.372474, Section III, on G. B. Hocker, W. K. Burns's effective index method, Appl. Opt. 16, 113 (1977), doi:10.1364/AO.16.000113); the 3D value from the grid study in docs/methods/devices.md, too large to run here (8.4 million unknowns on the finest grid)",
+            run: mmi_guided_3d,
+        },
+        Case {
+            id: "device/mmi-fdfd-3d",
+            title: r"Devices: the same MMI's 2D FDFD (its 20 nm grid, the effective index method's plane) against its 3D FDFD, extrapolated: the power into an output (shown, and the 3D value expected)",
+            tier: Tier::Analytic,
+            source: "2D FDFD's stated error against 3D: the effective index method's plane (G. B. Hocker, W. K. Burns, Appl. Opt. 16, 113 (1977), doi:10.1364/AO.16.000113); the 3D value from the grid study in docs/methods/devices.md",
+            run: mmi_fdfd_3d,
+        },
+        Case {
             id: "device/y-branch-2d-grid",
             title: r"Devices: Zhang et al.'s Y-branch through the Y-branch device's 2D FDFD (its spline outline, arms 3 µm long to ports 1.5 µm apart) on grids of 40, 20 and 10 nm: the power into an arm, its change from 20 to 10 nm (shown)",
             tier: Tier::Analytic,
             source: "2D FDFD by the effective index method, each cell averaged from the fill (the diagonal of Farjadpour et al.'s tensor); the change halving the grid bounds what is left (8.4e-5 more from 10 to 5 nm, measured; sampled 8 times a side, 4.2e-4 and then 1.3e-4)",
             run: y_branch_2d_grid,
+        },
+        Case {
+            id: "device/y-branch-2d-3d",
+            title: r"Devices: Zhang et al.'s Y-branch with arms 3 µm long to ports 1.5 µm apart: its 2D model (2D FDFD on its 20 nm grid) against its 3D FDFD, extrapolated from cubic cells of 44, 31.4 and 22 nm: the power into an arm (shown, and the 3D value expected)",
+            tier: Tier::Analytic,
+            source: "the 2D model's stated error against 3D: the effective index method's plane (G. B. Hocker, W. K. Burns, Appl. Opt. 16, 113 (1977), doi:10.1364/AO.16.000113) sheds more of the junction's light than the stack does; the 3D value from the grid study in docs/methods/devices.md, too large to run here (10.5 million unknowns on the finest grid)",
+            run: y_branch_2d_3d,
         },
         Case {
             id: "device/y-branch-ideal-2d",
@@ -602,4 +630,114 @@ pub(crate) fn straight_mismatch() -> f64 {
 
 fn fdfd_straight() -> Outcome {
     small(straight_mismatch(), 1e-4)
+}
+
+/// The splitters the 3D grid study solves (docs/methods/devices.md, "In 3D"), and the strip:
+/// `"mmi"`, the 2 µm 1 × 2 MMI with 0.5 µm access guides at its 2D image (the guided modes'
+/// $3L_\pi/8$); `"y"`, Zhang et al.'s Y-branch with arms 3 µm long to ports 1.5 µm apart (as
+/// `device/y-branch-2d-grid`); `"strip"`, a strip 2 µm long. The device and its values.
+pub(crate) fn splitter_3d(which: &str) -> (Box<dyn Device>, Values) {
+    if which == "strip" {
+        let guide = StripWaveguide::new();
+        let v = Values::new(&guide, &[("length", 2.0)]).expect(OK);
+        return (Box::new(guide), v);
+    }
+    if which == "y" {
+        let y = StripYBranch::new();
+        let v = Values::new(&y, &[("arm_length", 3.0), ("separation", 1.5)]).expect(OK);
+        return (Box::new(y), v);
+    }
+    let mmi = StripMmi::one_by_two();
+    let v = Values::new(
+        &mmi,
+        &[("width", 2.0), ("access_width", 0.5), ("port_width", 0.5)],
+    )
+    .expect(OK);
+    let image = mmi
+        .component(&v, Fidelity::TwoD)
+        .expect(OK)
+        .figure("L_image")
+        .expect(OK)
+        .value;
+    let v = v.with(&mmi, "length", image).expect(OK);
+    (Box::new(mmi), v)
+}
+
+/// The grid of `device/fdfd-3d-iterative`, `device/fdfd-straight`'s: 100 nm cells, 55 nm up the
+/// stack, 0.4 µm of margin and PMLs of 8 cells.
+fn check_grid() -> FdfdGrid {
+    FdfdGrid::new(0.1)
+        .with_step_z(0.055)
+        .with_margin(0.4)
+        .with_pml(8)
+        .with_samples(1)
+}
+
+/// The device's iterative 3D route ([`super::solve::Route::iterative`]: GMRES and the multigrid
+/// without its finest matrix, to [`super::solve::RESIDUAL_3D`]) against the direct solver in the
+/// same stretched PMLs, on `which` of [`splitter_3d`] on `grid`: the largest
+/// $\lvert \Delta S_{qp} \rvert$ over the largest $\lvert S_{qp} \rvert$, and each port's
+/// iterations.
+pub(crate) fn iterative_against_direct(which: &str, grid: &FdfdGrid) -> (f64, Vec<usize>) {
+    use super::solve::{Route, sampled_by};
+    let (device, v) = splitter_3d(which);
+    let g = device.geometry(&v).expect(OK);
+    let lam = um(1.55);
+    let run = |route| {
+        let (sampled, _, iterations) =
+            sampled_by(which, &g, "Si", &[lam], grid, true, Some(route)).expect(OK);
+        (sampled.s_matrix(lam, &[]).expect(OK), iterations)
+    };
+    let (direct, _) = run(Route::DirectStretched);
+    let (iterative, iterations) = run(Route::iterative());
+    let n = direct.size();
+    let largest = (0..n)
+        .flat_map(|q| (0..n).map(move |p| (q, p)))
+        .map(|(q, p)| direct[(q, p)].norm())
+        .fold(0.0, f64::max);
+    (
+        direct.max_difference(&iterative).unwrap_or(f64::INFINITY) / largest,
+        iterations,
+    )
+}
+
+/// The 3D grid study's results (docs/methods/devices.md, "In 3D"; `device::splitter_tests::
+/// survey_3d` reruns it, hours): the power into `o2` from `o1` of the devices of [`splitter_3d`]
+/// by 3D FDFD on cubic cells of 44, 31.4 and 22 nm (220 nm in 5, 7 and 10; stretched PMLs about
+/// 0.35 µm thick, 0.4 µm of margin, GMRES and the multigrid to 1e-9), extrapolated at second
+/// order, the scheme's; and its uncertainty, which spans the extrapolations at first order and
+/// at the order the three grids show.
+pub(crate) const Y_BRANCH_3D: (f64, f64) = (0.48104, 3e-4);
+
+/// As [`Y_BRANCH_3D`], for the 2 µm MMI.
+pub(crate) const MMI_3D: (f64, f64) = (0.40992, 6e-3);
+
+/// The 2D models' stated error against 3D in the power into an output, on the designs the grid
+/// study solved: the difference measured (the Y-branch's 2D model 0.0131 below 3D; the MMI's
+/// guided modes 0.0438 and its 2D FDFD 0.0386 above) and the 3D value's uncertainty, rounded up
+/// to one digit. The Y-branch's.
+pub(crate) const Y_BRANCH_2D_3D: f64 = 0.02;
+
+/// As [`Y_BRANCH_2D_3D`], the MMI's.
+pub(crate) const MMI_2D_3D: f64 = 0.05;
+
+fn mmi_guided_3d() -> Outcome {
+    let (mmi, v) = splitter_3d("mmi");
+    outcome(fdfd_power(mmi.as_ref(), &v), MMI_3D.0, MMI_2D_3D)
+}
+
+fn mmi_fdfd_3d() -> Outcome {
+    let (_, v) = splitter_3d("mmi");
+    let mmi = StripMmi::one_by_two().with_model_2d(Model2d::Fdfd);
+    outcome(fdfd_power(&mmi, &v), MMI_3D.0, MMI_2D_3D)
+}
+
+fn y_branch_2d_3d() -> Outcome {
+    let (y, v) = splitter_3d("y");
+    let p = fdfd_power(y.as_ref(), &v);
+    outcome(p, Y_BRANCH_3D.0, Y_BRANCH_2D_3D)
+}
+
+fn fdfd_3d_iterative() -> Outcome {
+    small(iterative_against_direct("strip", &check_grid()).0, 1e-8)
 }

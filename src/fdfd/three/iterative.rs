@@ -264,26 +264,35 @@ impl IterativeSolver3d {
         formulation: Formulation,
         product: Product,
     ) -> Result<IterativeSolver3d> {
+        let (lattice, eps) = Solver3d::setup(grid, wavelength, eps, boundaries)?;
+        Ok(Self::from_values(lattice, eps, formulation, product))
+    }
+
+    /// The solver on `lattice` with the permittivity `eps` at each value of E, as
+    /// [`IterativeSolver3d::new_with`] builds it from them: what it and
+    /// [`IterativeSolver3d::from_structure`] share.
+    pub(super) fn from_values(
+        lattice: Lattice,
+        eps: Vec<c64>,
+        formulation: Formulation,
+        product: Product,
+    ) -> IterativeSolver3d {
         let free = match product {
             Product::Auto => crate::backend::auto::free_memory(),
             _ => None,
         };
-        match product.resolved(formulation, grid.unknowns(), free) {
-            Product::MatrixFree => {
-                Self::without_matrix(grid, wavelength, eps, boundaries, formulation)
-            }
-            _ => Self::new(grid, wavelength, eps, boundaries, formulation),
+        match product.resolved(formulation, lattice.grid.unknowns(), free) {
+            Product::MatrixFree => Self::without_matrix(lattice, eps, formulation),
+            _ => Self::assembled(lattice, eps, formulation),
         }
     }
 
     fn without_matrix(
-        grid: Grid3d,
-        wavelength: Wavelength,
-        eps: impl Fn(f64, f64, f64) -> c64,
-        boundaries: Boundaries3d,
+        lattice: Lattice,
+        eps: Vec<c64>,
         formulation: Formulation,
-    ) -> Result<IterativeSolver3d> {
-        let (lattice, eps) = Solver3d::setup(grid, wavelength, eps, boundaries)?;
+    ) -> IterativeSolver3d {
+        let grid = lattice.grid;
         let operator = match formulation {
             Formulation::CurlCurl => MatrixFree::new(&lattice, &eps),
             Formulation::ShinFan => MatrixFree::shin_fan(&lattice, &eps, 0.0),
@@ -294,7 +303,7 @@ impl IterativeSolver3d {
             Some((s, b)) => (Some(s), b),
             None => (None, operator),
         };
-        Ok(IterativeSolver3d {
+        IterativeSolver3d {
             lattice,
             eps,
             formulation,
@@ -306,7 +315,7 @@ impl IterativeSolver3d {
             auto: true,
             block: false,
             id: next_id(),
-        })
+        }
     }
 
     /// Refuses what needs the matrix of a solver that has none.
@@ -513,6 +522,12 @@ impl IterativeSolver3d {
     /// The grid.
     pub fn grid(&self) -> Grid3d {
         self.lattice.grid
+    }
+
+    /// The permittivity at every value of E, as [`Solver3d::values`] has it.
+    #[cfg(test)]
+    pub(crate) fn values(&self) -> &[c64] {
+        &self.eps
     }
 
     /// The nonzeros of the matrix QMR multiplies by: none for
