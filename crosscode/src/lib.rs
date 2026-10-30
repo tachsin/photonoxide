@@ -19,6 +19,8 @@
 //!   quasi-TEM line.
 //! - [`microstrip`]: a microstrip line in a box, for openEMS's FDTD and photonoxide's quasi-TEM
 //!   line.
+//! - [`lossy_line`]: a copper coplanar line to 300 GHz, for openEMS's FDTD with the copper a
+//!   conductor and photonoxide's full-wave RF mode.
 //! - [`zhang_line`]: Zhang et al.'s thin-film lithium niobate line with its whole stack, for
 //!   openEMS's FDTD and photonoxide's quasi-TEM line.
 //! - [`heater`]: the shared heat case, a heater in oxide over silicon, for Elmer and photonoxide.
@@ -40,6 +42,7 @@ pub mod heater;
 pub mod heaters;
 pub mod joule;
 pub mod line;
+pub mod lossy_line;
 pub mod microstrip;
 pub mod openems;
 pub mod report;

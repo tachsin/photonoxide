@@ -59,4 +59,30 @@ Zhang et al.'s line (Photon. Res. 10, 2380 (2022), Section 2) with everything ar
 
 An extrapolation of order below 0.5 says little: its three meshes' differences barely shrink, and the finest mesh is the better guide. Here: photonoxide's n on the same lines (order 0.04).
 
-openEMS extrapolated against photonoxide converged: the microstrip: n −0.11 % (tolerance 0.5 %); the microstrip: Z₀ +0.13 % (tolerance 0.5 %); Zhang et al.'s line: n +0.29 % (tolerance 0.5 %); Zhang et al.'s line: Z₀ −0.35 % (tolerance 0.5 %).
+## A lossy line to 300 GHz
+
+A coplanar line of copper (5.8 × 10⁷ S/m) 0.5 µm thick, about four skin depths at 300 GHz (0.12 µm), the signal 10 µm wide, gaps of 5 µm, grounds 20 µm wide, on 10 µm of fused silica (ε 3.8) whose underside is the floor of a perfectly conducting box, the grounds running to its sides at ±30 µm (so that they are the box's potential, and no static charge is left on them), its lid 50 µm above the substrate: small enough that the box's own modes start above 300 GHz. Where the quasi-TEM line no longer holds, photonoxide's full-wave RF mode (the cross-section as a waveguide at the frequency, the copper a lossy medium whose skin the grid resolves; half the line beside the mirror through the signal, its even mode) against openEMS with the copper a conductor (its Kappa) whose skin the mesh resolves. openEMS runs a section 1.2 mm long in 10 µm cells (25 to the guided wavelength at 300 GHz), 8-cell PMLs at both ends, driven across both gaps by a Gaussian pulse of 25 to 325 GHz until the energy is down by 60 dB (its slow last tens of dB would take hours more on the finest mesh; the planes' voltages have rung down by more than 80 dB by then, which the study checks); the voltage across a gap at three planes 150 µm apart (a quarter of the guided wavelength at 300 GHz, so that the three-plane wavenumber's principal value is the right one) and the current around the signal midway give k = β + iα and Z₀. Both take the same mesh lines across, the smallest cells at the copper's faces two skin depths (at 300 GHz), one and a half, growing by 1.1 to 5 µm; photonoxide converged graded from 0.0075 µm by 1.05 to 1 µm. The index βc/ω, Re Z₀ and the attenuation α at 100, 200, 300 GHz.
+
+| Frequency | Quantity | photonoxide, converged (the reference) | openEMS, extrapolated | Error | photonoxide on the same lines, extrapolated | Error | openEMS, finest mesh | Error | openEMS against photonoxide on that mesh |
+|---:|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| 100 GHz | n | 1.59865 | 1.59936 (no order: the finest shown) | +0.045 % | 1.59925 (no order: the finest shown) | +0.038 % | 1.59936 | +0.045 % | +0.0072 % |
+| 100 GHz | Re Z₀, Ω | 62.838 | 62.794 (order 1.44) | −0.071 % | 62.813 (order 1.40) | −0.040 % | 62.715 | −0.20 % | −0.024 % |
+| 100 GHz | α, dB/cm | 6.204 | 6.095 (order 1.18) | −1.75 % | 6.098 (order 1.19) | −1.71 % | 6.298 | +1.51 % | −0.043 % |
+| 200 GHz | n | 1.59247 | 1.59333 (order 2.24) | +0.054 % | 1.59303 (order 2.24) | +0.035 % | 1.59309 | +0.039 % | +0.019 % |
+| 200 GHz | Re Z₀, Ω | 62.544 | 62.474 (order 1.39) | −0.11 % | 62.532 (order 1.39) | −0.019 % | 62.366 | −0.28 % | −0.093 % |
+| 200 GHz | α, dB/cm | 8.424 | -2.733 (order 0.08) | −132.44 % | -3.429 (order 0.08) | −140.71 % | 8.670 | +2.93 % | +0.053 % |
+| 300 GHz | n | 1.58990 | 1.59157 (order 1.54) | +0.10 % | 1.59090 (order 1.54) | +0.062 % | 1.59070 | +0.050 % | +0.042 % |
+| 300 GHz | Re Z₀, Ω | 62.359 | 62.244 (order 1.23) | −0.18 % | 62.384 (order 1.22) | +0.040 % | 62.094 | −0.42 % | −0.22 % |
+| 300 GHz | α, dB/cm | 10.423 | 10.825 (no order: the finest shown) | +3.86 % | 10.814 (no order: the finest shown) | +3.75 % | 10.825 | +3.86 % | +0.11 % |
+
+On every mesh openEMS and photonoxide agree within 0.22 % on every figure (the last column, for the finest): mesh by mesh the two codes give the same line. The loss, though, still moves by up to 9.3 % between the two finest meshes, the copper's skin only a few cells deep, and where its three meshes' differences don't shrink steadily (an order far from the others', or none) their extrapolation can't stand for the converged loss. What would settle it is a finer openEMS mesh, its smallest cells 0.03 µm (a quarter of the skin depth at 300 GHz; about five hours on 4 threads).
+
+| Smallest cell | openEMS's cells | Steps (its run) | openEMS: n, Re Z₀ (Ω), α (dB/cm) at 100, 200, 300 GHz | photonoxide, the same lines |
+|---:|---:|---:|---|---|
+| 0.24 µm | 816480 | 148230 (9 min; the voltage 100 dB down) | 1.59743, 62.209, 7.141; 1.58791, 61.739, 10.030; 1.58430, 61.422, 12.019 | 1.59732, 62.225, 7.148; 1.58762, 61.797, 10.025; 1.58363, 61.560, 12.003 |
+| 0.12 µm | 1468800 | 221754 (20 min; the voltage 97 dB down) | 1.59940, 62.579, 6.555; 1.59218, 62.193, 9.331; 1.58906, 61.893, 11.827 | 1.59927, 62.591, 6.559; 1.59189, 62.251, 9.327; 1.58839, 62.031, 11.814 |
+| 0.06 µm | 2476800 | 434448 (93 min; the voltage 96 dB down) | 1.59936, 62.715, 6.298; 1.59309, 62.366, 8.670; 1.59070, 62.094, 10.825 | 1.59925, 62.730, 6.300; 1.59279, 62.425, 8.666; 1.59003, 62.233, 10.814 |
+
+photonoxide converged, graded from 0.03, 0.015, 0.0075 µm: 1.59895, 62.813, 6.231; 1.59269, 62.515, 8.495; 1.59007, 62.329, 10.544 | 1.59876, 62.831, 6.210; 1.59256, 62.535, 8.440; 1.58999, 62.350, 10.451 | 1.59865, 62.838, 6.204; 1.59247, 62.544, 8.424; 1.58990, 62.359, 10.423.
+
+openEMS extrapolated against photonoxide converged: the microstrip: n −0.11 % (tolerance 0.5 %); the microstrip: Z₀ +0.13 % (tolerance 0.5 %); Zhang et al.'s line: n +0.29 % (tolerance 0.5 %); Zhang et al.'s line: Z₀ −0.35 % (tolerance 0.5 %); the lossy line at 100 GHz: n +0.045 % (tolerance 0.5 %); the lossy line at 100 GHz: Re Z₀, Ω −0.071 % (tolerance 0.5 %); the lossy line at 100 GHz: α, dB/cm −1.75 % (tolerance 2 %); the lossy line at 200 GHz: n +0.054 % (tolerance 0.5 %); the lossy line at 200 GHz: Re Z₀, Ω −0.11 % (tolerance 0.5 %); the lossy line at 200 GHz: α, dB/cm −132.44 % (tolerance 2 %); the lossy line at 300 GHz: n +0.10 % (tolerance 0.5 %); the lossy line at 300 GHz: Re Z₀, Ω −0.18 % (tolerance 0.5 %); the lossy line at 300 GHz: α, dB/cm +3.86 % (tolerance 2 %).

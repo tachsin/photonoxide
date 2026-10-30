@@ -79,7 +79,7 @@ impl OpenEms {
     /// ends, for the line to carry it away) and the energy has settled: held
     /// within 0.01 dB over ten progress reports (openEMS's own end criterion, a fall by the
     /// model's end energy, can't be met where the pulse leaves a static field behind, which no
-    /// probe of a line sees). Such a run is [Run::settled].
+    /// probe of a line sees). Such a run is [`Run::settled`].
     pub fn with_settled_stop(mut self) -> OpenEms {
         self.settle = true;
         self
@@ -302,7 +302,7 @@ pub struct Run {
     pub steps: u64,
     /// Whether the energy fell to the end criterion (else the most steps were reached).
     pub decayed: bool,
-    /// Where the energy settled, dB, when the run was stopped there ([OpenEms::with_settled_stop]).
+    /// Where the energy settled, dB, when the run was stopped there ([`OpenEms::with_settled_stop`]).
     pub settled: Option<f64>,
     /// Its wall time, s.
     pub seconds: f64,

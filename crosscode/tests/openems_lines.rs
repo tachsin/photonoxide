@@ -8,7 +8,7 @@
 //! It skips, saying so, where openEMS isn't found. The runs log their progress to stderr and
 //! to `progress.log` in their folders under `crosscode/target/tmp/openems/`; a finished run of
 //! the same model is taken again. Where `PHOTONOXIDE_OPENEMS_ONLY` names some of the lines
-//! (`microstrip`, `zhang`, comma-separated), only those run, and the report is printed, not written.
+//! (`microstrip`, `zhang`, `lossy`, comma-separated), only those run, and the report is printed, not written.
 
 use std::fmt::Write as _;
 use std::path::Path;
@@ -16,6 +16,10 @@ use std::time::Instant;
 
 use photonoxide::electro::Axis;
 use photonoxide_crosscode::cpw::{FREQUENCIES_GHZ, LENGTH, Measured, Mesh, measured};
+use photonoxide_crosscode::lossy_line::{
+    FREQUENCIES_GHZ as LOSSY_FREQUENCIES_GHZ, Figures, LossyLine, SILICA,
+    measured as lossy_measured,
+};
 use photonoxide_crosscode::microstrip::Microstrip;
 use photonoxide_crosscode::openems::Model;
 use photonoxide_crosscode::openems::{OpenEms, Run};
@@ -44,6 +48,24 @@ const CONVERGED_LARGEST: f64 = 2.0;
 /// that with room for a second line's own edge.
 const INDEX_TOLERANCE: f64 = 5e-3;
 const IMPEDANCE_TOLERANCE: f64 = 5e-3;
+
+/// The lossy line's meshes: the smallest cell at the copper's faces two skin depths at 300 GHz
+/// (0.12 µm), then one, then half; growing by [`GROWTH`] to 5 µm.
+const LOSSY_SMALLEST: [f64; 3] = [0.24, 0.12, 0.06];
+const LOSSY_LARGEST: f64 = 5.0;
+/// The lossy line's end criterion: the energy down by 60 dB. Past it the copper line's energy
+/// falls by about 2 dB in every 50 000 steps (on the coarsest mesh), and 70 dB would take the
+/// finest about six hours; its planes' voltages have rung down by more than 90 dB by then.
+const LOSSY_END: f64 = 1e-6;
+/// photonoxide's full-wave converged study on the lossy line.
+const LOSSY_CONVERGED: [f64; 3] = [0.03, 0.015, 0.0075];
+const LOSSY_CONVERGED_GROWTH: f64 = 1.05;
+const LOSSY_CONVERGED_LARGEST: f64 = 1.0;
+/// openEMS extrapolated against photonoxide's full-wave mode converged, relative: the index
+/// and Re Z₀ as the quasi-static lines' (0.5 %), the attenuation 2 %: the plan for #536's
+/// lossy line, the loss converging more slowly than the index as the current crowds into the
+/// copper's skin and corners.
+const LOSS_TOLERANCE: f64 = 2e-2;
 
 const REPORT: &str = concat!(
     env!("CARGO_MANIFEST_DIR"),
@@ -104,17 +126,18 @@ fn order(p: f64) -> String {
     }
 }
 
-/// How the run ended: nothing to say where its energy fell to the end criterion; where it
-/// settled instead ([OpenEms::with_settled_stop]), the level and how far the planes' first
-/// voltage had rung down by then (its last tenth's largest against its peak). It fails a run
-/// that did neither, or whose voltage hadn't rung down by 80 dB.
-fn stopped(run: &Run, label: &str) -> String {
-    if run.decayed {
+/// How the run ended. Nothing to say where its energy fell by 70 dB, the coplanar line's end
+/// criterion. A run that ended otherwise, its energy settled ([`OpenEms::with_settled_stop`]) or
+/// a looser criterion (`loose`), must show that the first plane's voltage has rung down at least
+/// as far as the 70 dB runs' do (78 dB on the microstrip's coarsest mesh; 80 dB asked, its last
+/// tenth's largest against its peak): its level and that ring-down are said.
+fn stopped(run: &Run, label: &str, loose: bool) -> String {
+    if !run.decayed && run.settled.is_none() {
+        panic!("{label}: the energy neither fell to the end criterion nor settled");
+    }
+    if run.decayed && !loose {
         return String::new();
     }
-    let db = run.settled.unwrap_or_else(|| {
-        panic!("{label}: the energy neither fell to the end criterion nor settled")
-    });
     let v = run.probe("v1").expect("openEMS's probe");
     let peak = v.value.iter().fold(0.0f64, |m, x| m.max(x.abs()));
     let tail = v.value[v.value.len() * 9 / 10..]
@@ -123,12 +146,15 @@ fn stopped(run: &Run, label: &str) -> String {
     let down = 20.0 * (tail / peak).log10();
     assert!(
         down < -80.0,
-        "{label}: its energy settled at {db:.1} dB, but the voltage is only {down:.0} dB down"
+        "{label}: its voltage is only {down:.0} dB down at the end"
     );
-    format!(
-        "; its energy settled at {db:.1} dB, the voltage {:.0} dB down",
-        -down
-    )
+    match run.settled {
+        Some(db) => format!(
+            "; its energy settled at {db:.1} dB, the voltage {:.0} dB down",
+            -down
+        ),
+        None => format!("; the voltage {:.0} dB down", -down),
+    }
 }
 
 /// One mesh's runs.
@@ -191,7 +217,7 @@ fn study(program: &OpenEms, folder: &Path, started: Instant, case: &Case) -> (St
                 &label,
             )
             .expect("openEMS's run");
-        let stop = stopped(&run, &label);
+        let stop = stopped(&run, &label, false);
         let lines = measured(&run, &FREQUENCIES_GHZ).expect("openEMS's probes");
         let fit = |f: fn(&Measured) -> f64| {
             at_zero(
@@ -370,6 +396,192 @@ fn study(program: &OpenEms, folder: &Path, started: Instant, case: &Case) -> (St
     (out, checks)
 }
 
+/// A mesh of the lossy line: its smallest cell, openEMS's cells, steps and minutes, its figures and photonoxide's on the same lines.
+type LossyRow = (f64, usize, u64, f64, String, Vec<Figures>, Vec<Figures>);
+
+/// The lossy line: openEMS with the copper a conductor against photonoxide's full-wave mode.
+fn lossy(program: &OpenEms, folder: &Path, started: Instant) -> (String, Vec<Check>) {
+    let line = LossyLine::copper_on_silica();
+    let axes = |smallest: f64, growth: f64, largest: f64| {
+        line.axes(&Mesh {
+            smallest,
+            growth,
+            largest,
+        })
+        .expect("a valid mesh")
+    };
+    let total = LOSSY_SMALLEST.len();
+    // each mesh: its cells, steps, minutes, openEMS's figures and photonoxide's on its lines
+    let mut rows: Vec<LossyRow> = Vec::new();
+    for (k, &smallest) in LOSSY_SMALLEST.iter().enumerate() {
+        let (y, z) = axes(smallest, GROWTH, LOSSY_LARGEST);
+        let model = line.model(&y, &z, LOSSY_END);
+        eprintln!(
+            "[openems-lines] step {}/{total} ({:.0}%), {:.0} s elapsed: the lossy line, {smallest} µm, {} cells",
+            k + 1,
+            100.0 * k as f64 / total as f64,
+            started.elapsed().as_secs_f64(),
+            model.cells()
+        );
+        let label = format!("lossy {}/{total}, {smallest} µm", k + 1);
+        let run = program
+            .run(&model, &folder.join(format!("lossy-{smallest}")), &label)
+            .expect("openEMS's run");
+        let stop = stopped(&run, &label, true);
+        let theirs = lossy_measured(&run).expect("openEMS's probes");
+        let ours = line.photonoxide(&y, &z).expect("the full-wave mode");
+        eprintln!("  openEMS {theirs:?}\n  photonoxide on the same lines {ours:?}");
+        rows.push((
+            smallest,
+            model.cells(),
+            run.steps,
+            run.seconds / 60.0,
+            stop,
+            theirs,
+            ours,
+        ));
+    }
+    eprintln!("[openems-lines] the lossy line, photonoxide converged");
+    let converged: Vec<Vec<Figures>> = LOSSY_CONVERGED
+        .iter()
+        .map(|&smallest| {
+            let (y, z) = axes(smallest, LOSSY_CONVERGED_GROWTH, LOSSY_CONVERGED_LARGEST);
+            let f = line.photonoxide(&y, &z).expect("the full-wave mode");
+            eprintln!("  photonoxide, {smallest} µm: {f:?}");
+            f
+        })
+        .collect();
+    type Pick = fn(&Figures) -> f64;
+    let quantities: [(&str, Pick, usize, f64); 3] = [
+        ("n", |f| f.index, 5, INDEX_TOLERANCE),
+        ("Re Z₀, Ω", |f| f.ohm, 3, IMPEDANCE_TOLERANCE),
+        ("α, dB/cm", Figures::db_per_cm, 3, LOSS_TOLERANCE),
+    ];
+    let mut out = format!(
+        "## A lossy line to 300 GHz\n\n\
+         A coplanar line of copper (5.8 × 10⁷ S/m) {} µm thick, about four skin depths at 300 \
+         GHz (0.12 µm), the signal {} µm wide, gaps of {} µm, grounds {} µm wide, on {} µm of \
+         fused silica (ε {SILICA}) whose underside is the floor of a perfectly conducting box, \
+         the grounds running to its sides at ±{} µm (so that they are the box's potential, and \
+         no static charge is left on them), its lid {} µm above the substrate: small enough that \
+         the box's own modes start above 300 GHz. Where the quasi-TEM line no longer holds, photonoxide's full-wave \
+         RF mode (the cross-section as a waveguide at the frequency, the copper a lossy medium \
+         whose skin the grid resolves; half the line beside the mirror through the signal, its \
+         even mode) against openEMS with the copper a conductor (its Kappa) whose skin the mesh \
+         resolves. openEMS runs a section 1.2 mm long in 10 µm cells (25 to the guided \
+         wavelength at 300 GHz), 8-cell PMLs at both ends, driven across both gaps by a Gaussian \
+         pulse of 25 to 325 GHz until the energy is down by 60 dB (its slow last tens of dB would \
+         take hours more on the finest mesh; the planes' voltages have rung down by more than \
+         80 dB by then, which the study checks); the voltage across a gap at \
+         three planes 150 µm apart (a quarter of the guided wavelength at 300 GHz, so that the \
+         three-plane wavenumber's principal value is the right one) and the current around the \
+         signal midway give k = β + iα and Z₀. Both take the same mesh lines across, the \
+         smallest cells at the copper's faces two skin depths (at 300 GHz), one and a half, \
+         growing by {GROWTH} to {LOSSY_LARGEST} µm; photonoxide converged graded from {} µm by \
+         {LOSSY_CONVERGED_GROWTH} to {LOSSY_CONVERGED_LARGEST} µm. The index βc/ω, Re Z₀ and the \
+         attenuation α at {} GHz.\n\n",
+        line.metal,
+        2.0 * line.signal,
+        line.gap,
+        line.ground,
+        line.substrate,
+        line.reach(),
+        line.lid,
+        LOSSY_CONVERGED[LOSSY_CONVERGED.len() - 1],
+        LOSSY_FREQUENCIES_GHZ.map(|f| format!("{f:.0}")).join(", ")
+    );
+    let _ = writeln!(
+        out,
+        "| Frequency | Quantity | photonoxide, converged (the reference) | openEMS, extrapolated | Error | photonoxide on the same lines, extrapolated | Error | openEMS, finest mesh | Error | openEMS against photonoxide on that mesh |\n|---:|---|---:|---:|---:|---:|---:|---:|---:|---:|"
+    );
+    let mut checks = Vec::new();
+    let mut same_worst: f64 = 0.0;
+    for (j, f) in LOSSY_FREQUENCIES_GHZ.iter().enumerate() {
+        for (name, pick, digits, tolerance) in quantities {
+            let theirs: Vec<f64> = rows.iter().map(|r| pick(&r.5[j])).collect();
+            let ours: Vec<f64> = rows.iter().map(|r| pick(&r.6[j])).collect();
+            let (oe, oe_p) = extrapolated(&theirs);
+            let (px, px_p) = extrapolated(&ours);
+            let reference = pick(&converged[converged.len() - 1][j]);
+            let last = theirs[theirs.len() - 1];
+            let same = ours[ours.len() - 1];
+            let _ = writeln!(
+                out,
+                "| {f:.0} GHz | {name} | {} | {} ({}) | {} | {} ({}) | {} | {} | {} | {} |",
+                sig(reference, digits),
+                sig(oe, digits),
+                order(oe_p),
+                percent(oe, reference),
+                sig(px, digits),
+                order(px_p),
+                percent(px, reference),
+                sig(last, digits),
+                percent(last, reference),
+                percent(last, same)
+            );
+            for (a, b) in theirs.iter().zip(&ours) {
+                same_worst = same_worst.max(((a - b) / b).abs());
+            }
+            checks.push((
+                format!("the lossy line at {f:.0} GHz: {name}"),
+                (oe - reference) / reference,
+                tolerance,
+            ));
+        }
+    }
+    // how far the loss still moves between the two finest meshes, at its worst
+    let moving = (0..LOSSY_FREQUENCIES_GHZ.len())
+        .map(|j| {
+            let a = rows[rows.len() - 1].5[j].alpha;
+            let b = rows[rows.len() - 2].5[j].alpha;
+            ((a - b) / a).abs()
+        })
+        .fold(0.0f64, f64::max);
+    let _ = writeln!(
+        out,
+        "\nOn every mesh openEMS and photonoxide agree within {:.2} % on every figure (the last column, for the finest): mesh by mesh the two codes give the same line. The loss, though, still moves by up to {:.1} % between the two finest meshes, the copper's skin only a few cells deep, and where its three meshes' differences don't shrink steadily (an order far from the others', or none) their extrapolation can't stand for the converged loss. What would settle it is a finer openEMS mesh, its smallest cells 0.03 µm (a quarter of the skin depth at 300 GHz; about five hours on 4 threads).",
+        100.0 * same_worst,
+        100.0 * moving
+    );
+    let _ = writeln!(
+        out,
+        "\n| Smallest cell | openEMS's cells | Steps (its run) | openEMS: n, Re Z₀ (Ω), α (dB/cm) at {} GHz | photonoxide, the same lines |\n|---:|---:|---:|---|---|",
+        LOSSY_FREQUENCIES_GHZ.map(|f| format!("{f:.0}")).join(", ")
+    );
+    let shown = |v: &[Figures]| {
+        v.iter()
+            .map(|f| {
+                format!(
+                    "{}, {}, {}",
+                    sig(f.index, 5),
+                    sig(f.ohm, 3),
+                    sig(f.db_per_cm(), 3)
+                )
+            })
+            .collect::<Vec<_>>()
+            .join("; ")
+    };
+    for (smallest, cells, steps, minutes, stop, theirs, ours) in &rows {
+        let _ = writeln!(
+            out,
+            "| {smallest} µm | {cells} | {steps} ({minutes:.0} min{stop}) | {} | {} |",
+            shown(theirs),
+            shown(ours)
+        );
+    }
+    let _ = writeln!(
+        out,
+        "\nphotonoxide converged, graded from {} µm: {}.\n",
+        LOSSY_CONVERGED.map(|s| s.to_string()).join(", "),
+        converged
+            .iter()
+            .map(|c| shown(c))
+            .collect::<Vec<_>>()
+            .join(" | ")
+    );
+    (out, checks)
+}
+
 #[test]
 #[ignore = "runs openEMS, where it is installed: hours"]
 fn openems_agrees_on_more_lines() {
@@ -382,7 +594,7 @@ fn openems_agrees_on_more_lines() {
     };
     let folder = Path::new(env!("CARGO_TARGET_TMPDIR")).join("openems");
     let started = Instant::now();
-    let all = ["microstrip", "zhang"];
+    let all = ["microstrip", "zhang", "lossy"];
     let mut sections = String::new();
     let mut checks: Vec<Check> = Vec::new();
     let strip = Microstrip::alumina_like();
@@ -447,6 +659,11 @@ fn openems_agrees_on_more_lines() {
             sections.push_str(&s);
             checks.extend(c);
         }
+    }
+    if runs("lossy") {
+        let (s, c) = lossy(&program, &folder, started);
+        sections.push_str(&s);
+        checks.extend(c);
     }
     eprintln!(
         "[openems-lines] done in {:.0} s",
