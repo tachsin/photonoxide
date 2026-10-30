@@ -32,6 +32,8 @@
 //!   shows them.
 //! - [`convergence`]: the gate a number from a grid solve passes before it is reported: its
 //!   grid and a grid study's estimate of its error, Richardson's where three grids allow.
+//! - [`sweep`]: adaptive sweeps over wavelength or frequency, a response from few solves as an
+//!   AAA rational fit with its estimated error, and a mode followed through crossings by overlap.
 //! - [`bench`](mod@bench): fixed problems that time the solvers at a stated accuracy, which
 //!   `photonoxide bench` runs.
 //! - [`parallel`]: independent problems (a sweep's points) side by side, collected in order.
@@ -87,6 +89,7 @@ mod sparse;
 pub mod stack;
 mod statics;
 mod stop;
+pub mod sweep;
 pub mod thermal;
 mod traffic;
 pub mod units;

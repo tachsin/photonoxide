@@ -89,6 +89,12 @@ area eme \
   "mode fdfd" \
   "eme::" "eme/" ""
 
+# adaptive sweeps (#432): AAA fits with their error estimate, and a vector mode followed by overlap
+area sweep \
+  "src/sweep.rs src/sweep/* src/validation/sweep.rs" \
+  "mode" \
+  "sweep::" "sweep/" ""
+
 # with the GPU's report (tests/gpu_report.rs, docs/validation-gpu.md, run by hand)
 area fdtd \
   "src/fdtd.rs src/fdtd/* src/cases/fdtd/* src/validation/* tests/gpu_report.rs src/lstsq.rs src/traffic.rs" \

@@ -55,7 +55,7 @@ const LAYERS: &[Layer] = &[
     },
     Layer {
         name: "mode",
-        modules: &["mode", "eme"],
+        modules: &["mode", "eme", "sweep"],
         may_use: &["core", "geometry", "linalg"],
     },
     Layer {
