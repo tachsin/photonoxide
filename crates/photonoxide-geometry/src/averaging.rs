@@ -620,6 +620,11 @@ impl<K: Copy + PartialEq> Clone for Layout<K> {
 /// later ones on top. It answers a point ([`Plane::at`]) and a cell ([`Plane::shares`]).
 ///
 /// ```
+/// # // the crates these modules are in; users name them photonoxide
+/// # mod photonoxide {
+/// #     pub use photonoxide_core::units;
+/// #     pub use photonoxide_geometry::{averaging, geometry};
+/// # }
 /// use num_complex::Complex64 as c64;
 /// use photonoxide::averaging::Plane;
 /// use photonoxide::geometry::{Bounds, Point, Shape};

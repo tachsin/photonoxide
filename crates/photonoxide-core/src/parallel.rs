@@ -12,6 +12,7 @@ use rayon::prelude::*;
 /// order.
 ///
 /// ```
+/// # use photonoxide_core as photonoxide; // the crate it is in; users name it photonoxide
 /// let squares = photonoxide::parallel::map_in_order(&[1, 2, 3], |x| x * x);
 /// assert_eq!(squares, [1, 4, 9]);
 /// ```
