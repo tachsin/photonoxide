@@ -25,12 +25,10 @@
     {/if}
     <span>
       <span class="font-medium {faster ? 'text-success' : slower ? 'text-warning' : ''}">Measured here:</span>
+      {#if m.stale}<span class="badge badge-ghost badge-xs gap-1 align-middle" title={m.stale}><History size={10} /> stale</span>{/if}
       {m.said}
     </span>
   </p>
-  {#if m.stale}
-    <p class="mt-0.5 flex items-start gap-1.5 text-xs faint"><History size={13} class="mt-px shrink-0" /> <span>Stale: {m.stale}.</span></p>
-  {/if}
 {:else if !s.backends.length}
   <p class="mt-1 flex items-start gap-1.5 text-xs faint"><CircleDashed size={13} class="mt-px shrink-0" /> <span>Nothing to measure on its own: the backends that run on it are measured instead.</span></p>
 {:else}
