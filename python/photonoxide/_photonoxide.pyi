@@ -8,8 +8,8 @@ from typing import Any
 import numpy as np
 import numpy.typing as npt
 
-#: photonoxide's version: the crate the package was built with.
 core_version: str
+"""photonoxide's version: the crate the package was built with."""
 
 def materials() -> list[dict[str, Any]]: ...
 def refractive_index(

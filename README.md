@@ -121,7 +121,7 @@ uv pip install photonoxide  # or into the active environment
 ```
 
 `pip install photonoxide` works too: the guide is [docs/python.md](docs/python.md), the
-[API reference](https://tachsin.github.io/photonoxide/) has every function. Any other language runs the
+[API reference](https://tachsin.gr/projects/photonoxide/docs/python/reference) has every function. Any other language runs the
 `photonoxide` program on a job file and reads its results: [docs/languages.md](docs/languages.md).
 
 **The studio:** the `photonoxide` program for Linux (x86_64 and ARM64), Windows and macOS is on

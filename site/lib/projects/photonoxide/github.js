@@ -72,6 +72,33 @@ export const getRepoFile = cache(async (path) => {
   );
 });
 
+/**
+ * One page of the Python API reference, as HTML text, or null when the latest release has none
+ * (the releases before the reference was attached, or GitHub can't be reached).
+ *
+ * pdoc makes the reference in every run of python-wheels.yml, and a publishing run at a release's
+ * tag attaches its pages to that GitHub release, one asset per page, named
+ * `python-reference-<path with "/" as ".">`: `photonoxide.html` is
+ * `python-reference-photonoxide.html`, `photonoxide/errors.html` is
+ * `python-reference-photonoxide.errors.html`. The reference is never committed.
+ * @param {string} path  the page's path inside the reference, e.g. "photonoxide/errors.html"
+ * @returns {Promise<string | null>}
+ */
+export const getPythonReferencePage = cache(async (path) => {
+  const segments = String(path).split("/");
+  // only the file names pdoc makes: no "..", no odd characters
+  if (!segments.every((s) => /^[A-Za-z0-9_-]+(\.[A-Za-z0-9_-]+)*$/.test(s) && !s.includes(".."))) {
+    return null;
+  }
+  const tag = await getLatestTag();
+  if (!tag) return null;
+  const asset = `python-reference-${segments.join(".")}`;
+  return fetchCached(
+    `https://github.com/${PHOTONOXIDE_REPO}/releases/download/${tag}/${encodeURIComponent(asset)}`,
+    { tags: ["photonoxide"] },
+  );
+});
+
 /** A file's page on GitHub, on the branch. */
 export function blobUrl(path) {
   return `${BLOB_BASE}${path}`;
