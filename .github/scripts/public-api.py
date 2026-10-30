@@ -103,6 +103,11 @@ def reexports(doc, internal):
                 continue
             if crates.get(str(source["crate_id"]), {}).get("name") in internal:
                 found.append(("::".join(source["path"]), at))
+                # an item at its re-exported path too: a workspace crate that re-exports another's
+                # item (`photonoxide_fdfd::fdfd::Convergence`, from the linalg crate) lists its
+                # methods and fields there, which aren't a private module's items
+                if not use["is_glob"]:
+                    items.add(at)
 
     walk(doc["root"], index[str(doc["root"])]["name"], 0)
     return found, local, modules, items
