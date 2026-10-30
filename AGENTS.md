@@ -5,9 +5,13 @@ the `photonoxide` program (the studio). [ROADMAP.md](ROADMAP.md) is the plan and
 what is done; [CHANGELOG.md](CHANGELOG.md) has what each release changed. 0.1 to 0.6 and their
 patches are released, the latest 0.6.0 (thermal and electro-optic devices: heat, thermo-optic
 phase shifters as devices, Pockels modulation, travelling-wave electrodes, phase-change materials;
-and 0.5.5's job editor and exports); next is 0.6.1, nonlinear integrated optics, after 0.6's
-leftovers (#543: the TFLN modulator as a device, the studio's views, GDS read into jobs). The library's modules, each with a write-up in
-`docs/methods/`:
+and 0.5.5's job editor and exports). 0.6's leftovers (#543) are on main since: the TFLN modulator
+and the phase-change phase shifter as devices, the studio's temperature and field views and its
+sweeps, GDS read into jobs. Two published results aren't reproduced yet and stay open, Zhang 2022's
+bandwidths (#418) and He 2019's Vπ·L (#420), with the other gaps against papers in #595. Next is
+0.6.1, nonlinear integrated optics; 0.6.3's eigenmode expansion and mode tools are under way
+(#432), and the library's split into workspace crates is in progress (#508, #509). The library's
+modules, each with a write-up in `docs/methods/`:
 
 - `units`, `material` (with `material::catalogue`), `geometry` (the kernel: regions, transforms,
   polygons, a spatial index), `expr` (expressions with units and parameters), `stack`, `raster`,
@@ -21,8 +25,11 @@ leftovers (#543: the TFLN modulator as a device, the studio's views, GDS read in
 - `circuit`: components, netlists, the circuit solve and its adjoint, objectives for genoxide;
 - `device`: components that know their geometry (a stack, parameters as expressions, shapes
   with ports, models from a fit to 3D): the strip waveguide, bend, directional coupler and rings,
-  the rib, the MMIs, the Y-branch and the MZIs;
+  the rib, the MMIs, the Y-branch and the MZIs; the thermo-optic and phase-change phase shifters
+  and the TFLN Mach–Zehnder modulator;
 - `compact`: vector fitting, models over parameters, Touchstone files;
+- `eme`: eigenmode expansion, 2D for slab stacks; `sweep`: adaptive sweeps by AAA with an error
+  estimate, modes followed by their overlaps;
 - `thermal`, `electro`: the static solver on a cross-section (heat conduction, electrostatics,
   current continuity and its Joule heat) on graded grids, over a core inside the crate
   (`statics`) both re-export; a job's `kind = "static"`;
@@ -31,7 +38,8 @@ leftovers (#543: the TFLN modulator as a device, the studio's views, GDS read in
 - `job`, `run`: job files (a device computed at a fidelity or by FDTD: `job::from_device`), run
   records and replay; `validation`: the report's cases; `bench`: the benchmark problems;
   `convergence`: the gate a grid solve's reported number passes (its grid study, a modes job's
-  `[task.convergence]`, results.json's `convergence`, the examples' `Checks::converged`).
+  `[task.convergence]`, results.json's `convergence`, the examples' `Checks::converged`), and
+  `ToTolerance`, a solve refined until it meets a stated tolerance.
 - `facade`: what the bindings wrap, plain types only: materials, slab and full-vector modes, jobs
   and their runs, an FDFD job's S-parameters, circuits from a netlist given as data, Touchstone
   files; and `facade::conformance()`, calls with their results for the bindings' tests. A

@@ -92,7 +92,7 @@ them with the light, slower or faster than it, losing power to the metal and the
 reflected where the line's impedance meets the source's and the load's. `electro::line` takes
 the line from the static solver ([static](static.md)) and the modulator's response from the
 line. Everything here is per unit length of a straight line: a 2D number until a device's
-length, ends and fidelity make it one (#420).
+length, ends and fidelity make it one, as the TFLN modulator does ([devices](devices.md)).
 
 ## Quasi-TEM
 
@@ -633,7 +633,8 @@ minutes.
 ## Not yet
 
 - Zhang et al.'s 3 dB bandwidths (170 and 100 GHz measured; 84 and 31 full-wave, 92 and 33
-  quasi-TEM): not understood (see their line, full-wave, above).
+  quasi-TEM): not understood (see their line, full-wave, above; what would settle it is listed in
+  #595).
 - Below 1 GHz the full-wave mode's β² nears the rounding of the lattice's entries, so Heinrich's
   DC end (his L_DC and R_DC, which his own closed form meets) is the quasi-static solvers' and his
   model's, not a full-wave case.
