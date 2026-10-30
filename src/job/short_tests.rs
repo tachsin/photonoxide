@@ -412,7 +412,10 @@ fn a_float_with_its_unit_reads_back_to_the_bit() {
 #[test]
 fn the_api_docs_job_files_are_yaml_that_reads() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR"));
-    let mut files = vec![root.join("src/run.rs"), root.join("src/device/spec.rs")];
+    let mut files = vec![
+        root.join("src/run.rs"),
+        root.join("crates/photonoxide-device/src/device/spec.rs"),
+    ];
     for dir in ["src/job", "src/job/optimize"] {
         for entry in std::fs::read_dir(root.join(dir)).unwrap() {
             let path = entry.unwrap().path();
