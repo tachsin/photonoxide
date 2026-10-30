@@ -125,15 +125,38 @@ pub struct Path {
     points: Vec<[f64; 2]>,
     angles: Vec<f64>,
     widths: Vec<f64>,
+    /// How it was drawn, step by step, in words.
+    steps: Vec<String>,
 }
 
 impl Path {
     /// A path from (x, y), heading `angle` degrees from x, `width` wide.
     pub fn new(x: f64, y: f64, angle: f64, width: f64) -> Path {
+        use super::common::{length, number, point};
         Path {
             points: vec![[x, y]],
             angles: vec![angle.to_radians()],
             widths: vec![width],
+            steps: vec![format!(
+                "a guide from {} heading {}°, {} wide",
+                point(x, y),
+                number(angle),
+                length(width)
+            )],
+        }
+    }
+
+    /// How the path was drawn, in words: its start, then each step with its dimensions.
+    pub fn described(&self) -> String {
+        self.steps.join("; ")
+    }
+
+    /// A step's width in words: `to 700 nm wide` when it changes, else nothing.
+    fn widening(&self, width: f64) -> String {
+        if width == self.end().2 {
+            String::new()
+        } else {
+            format!(", to {} wide", super::common::length(width))
         }
     }
 
@@ -150,6 +173,12 @@ impl Path {
 
     /// Straight on for `length`, the width going linearly to `width`.
     pub fn straight(mut self, length: f64, width: f64) -> Path {
+        let step = format!(
+            "straight {}{}",
+            super::common::length(length),
+            self.widening(width)
+        );
+        self.steps.push(step);
         let (p, a, _) = self.end();
         self.push([p[0] + length * a.cos(), p[1] + length * a.sin()], a, width);
         self
@@ -159,6 +188,13 @@ impl Path {
     /// (dx/2, dy) and (dx, dy) in the path's frame (dy to the left), the width going linearly in
     /// the curve's parameter to `width`.
     pub fn bezier(mut self, dx: f64, dy: f64, width: f64) -> Path {
+        let step = format!(
+            "an S-bend (cubic Bézier) {} along and {} across{}",
+            super::common::length(dx),
+            super::common::length(dy),
+            self.widening(width)
+        );
+        self.steps.push(step);
         let (p, a, w0) = self.end();
         let (s, c) = a.sin_cos();
         let n = 400;
@@ -196,6 +232,11 @@ impl Path {
     /// the same spiral back, scaled so that its end is where a circular arc of `radius` would
     /// end; turning left by `angle` degrees (right if negative).
     pub fn euler(mut self, radius: f64, angle: f64) -> Path {
+        self.steps.push(format!(
+            "an Euler bend of radius {}, turning {}°",
+            super::common::length(radius),
+            super::common::number(angle)
+        ));
         let p = 0.5;
         let (start, a0, w) = self.end();
         let alpha = angle.abs().to_radians();
@@ -366,6 +407,17 @@ pub struct Device {
     pub ports: Vec<Port>,
     /// The highest and lowest y of the device's shapes (without the extensions), µm.
     pub y_range: [f64; 2],
+    /// How each shape was drawn, in words, with the index of its layer.
+    pub drawn: Vec<(usize, String)>,
+}
+
+/// A polygon's vertices in words.
+fn vertices(points: &[[f64; 2]]) -> String {
+    points
+        .iter()
+        .map(|p| super::common::point(p[0], p[1]))
+        .collect::<Vec<_>>()
+        .join(", ")
 }
 
 impl Device {
@@ -604,6 +656,163 @@ pub struct Run {
     pub sim: Simulation,
 }
 
+/// What a device's example prints first ([`super::common::Setup`]), from the same values its
+/// runs take: the layers from the top down, the shapes, the ports, the materials at
+/// `settings.wavelength`, the cells at each of `resolutions`, the pulse and the run. The
+/// caller adds its tolerance and prints it.
+pub fn described(settings: &Setup, resolutions: &[f64]) -> super::common::Setup {
+    use super::common::{Setup, describe, length, n, number, point};
+    let device = settings.device;
+    let lambda = Wavelength::um(settings.wavelength).expect("a wavelength");
+    let (si, ox) = (material::silicon(), material::silica());
+    let mut setup = Setup::new();
+    let cladding = match device.above {
+        Some(e) => ("the upper cladding".to_owned(), format!("ε {}", number(e))),
+        None => (ox.name().to_owned(), n(silica(settings.wavelength))),
+    };
+    setup.layer("cladding", None, &cladding.0, &cladding.1);
+    // the silicon's layers, each from z = 0, the thickest (the top) first
+    let mut order: Vec<usize> = (0..device.layers.len()).collect();
+    order.sort_by(|&a, &b| {
+        device.layers[b]
+            .thickness
+            .total_cmp(&device.layers[a].thickness)
+    });
+    for &k in &order {
+        let layer = &device.layers[k];
+        setup.layer(
+            &format!("silicon {}", k + 1),
+            Some(layer.thickness),
+            &format!(
+                "{} in its shapes, the cladding elsewhere (from z = 0)",
+                si.name()
+            ),
+            &n(silicon(settings.wavelength)),
+        );
+    }
+    setup.layer(
+        "buried oxide",
+        None,
+        &format!("{}, below z = 0", ox.name()),
+        &n(silica(settings.wavelength)),
+    );
+    for &k in &order {
+        let name = format!("silicon {}", k + 1);
+        for (_, drawn) in device.drawn.iter().filter(|(l, _)| *l == k) {
+            setup.shape(&name, drawn);
+        }
+        for hole in &device.layers[k].holes {
+            setup.shape(
+                &name,
+                &format!("the cladding inside it: {}", describe(hole)),
+            );
+        }
+    }
+    for (k, p) in device.ports.iter().enumerate() {
+        setup.item(
+            &format!("port {}", k + 1),
+            &format!(
+                "at {}, {} wide, facing {}°{}",
+                point(p.center[0], p.center[1]),
+                length(p.width),
+                number(p.orientation),
+                if k == 0 { ", the input" } else { "" }
+            ),
+        );
+    }
+    setup.item(
+        "modes",
+        &format!(
+            "{:?} launched into port 1; measured: {}",
+            settings.input,
+            settings
+                .outputs
+                .iter()
+                .map(|o| format!(
+                    "{} at port {}",
+                    o.kinds
+                        .iter()
+                        .map(|k| format!("{k:?}"))
+                        .collect::<Vec<_>>()
+                        .join(" and "),
+                    o.port + 1
+                ))
+                .collect::<Vec<_>>()
+                .join("; ")
+        ),
+    );
+    setup.item(
+        "wavelengths",
+        &format!(
+            "the materials at {} µm; a pulse at {} µm, its width {BANDWIDTH} c/µm; measured at \
+             {} µm",
+            number(settings.wavelength),
+            number(1.0 / CARRIER),
+            settings
+                .wavelengths
+                .iter()
+                .map(|l| number(*l))
+                .collect::<Vec<_>>()
+                .join(", ")
+        ),
+    );
+    let [x, y] = device.cell();
+    setup.item(
+        "window",
+        &format!(
+            "x {} to {} µm, y {} to {} µm (the ports and the device, 1 µm beyond), {} of \
+             cladding below and above the silicon, CPMLs of {CPML} cells",
+            number(x[0]),
+            number(x[1]),
+            number(y[0]),
+            number(y[1]),
+            length(CLADDING)
+        ),
+    );
+    for &r in resolutions {
+        setup.item(
+            &format!("grid at {r} cells a wavelength"),
+            &self::describe(&grid(device, step(r))),
+        );
+    }
+    let stop = if settings.decay {
+        format!(
+            "until the outputs' fields decay to {DECAY:e} or {} µm/c",
+            number(settings.limit)
+        )
+    } else {
+        format!("for {} µm/c", number(settings.limit))
+    };
+    setup.item(
+        "solver",
+        &format!(
+            "3D FDTD, subpixel smoothing (diagonal), Courant number {COURANT}; the ports' modes \
+             by FDFD; {stop}"
+        ),
+    );
+    setup.material(&si, lambda);
+    setup.material(&ox, lambda);
+    setup
+}
+
+/// A check's tolerance in words, as [`within`] makes it: `what` within half the span of the
+/// paper's `values` (about their middle) plus `margin`.
+pub fn tolerance(what: &str, values: &[f64], margin: f64) -> String {
+    format!(
+        "{what} within half the span of {} plus {}",
+        values
+            .iter()
+            .map(|v| super::common::number(*v))
+            .collect::<Vec<_>>()
+            .join(", "),
+        super::common::number(margin)
+    )
+}
+
+/// The Courant number of every run, and the decay that ends one.
+const COURANT: f64 = 0.99;
+const DECAY: f64 = 1e-6;
+
 /// A run's settings.
 pub struct Setup<'a> {
     pub device: &'a Device,
@@ -648,7 +857,7 @@ pub fn run(setup: &Setup, extra: &mut dyn FnMut(&mut Simulation) -> Result<()>) 
             ..Smoothing::with(Average::Subpixel)
         }
     };
-    let mut sim = Simulation::smoothed(g, &structure, smoothing, Boundaries::cpml(CPML), 0.99)?;
+    let mut sim = Simulation::smoothed(g, &structure, smoothing, Boundaries::cpml(CPML), COURANT)?;
     let smoothed = clock.elapsed().as_secs_f64();
     let clock = Instant::now();
     let source = &device.ports[0];
@@ -711,7 +920,7 @@ pub fn run(setup: &Setup, extra: &mut dyn FnMut(&mut Simulation) -> Result<()>) 
         1.55 / (silicon(1.55) * h)
     );
     let decayed = if decay {
-        super::common::run_until_decayed(&mut sim, &probes, 1e-6, 20.0, limit, &label)?
+        super::common::run_until_decayed(&mut sim, &probes, DECAY, 20.0, limit, &label)?
     } else {
         super::common::run_until(&mut sim, limit, &label);
         false
@@ -931,15 +1140,16 @@ pub fn coupler() -> Device {
             .straight(20.0, w)
             .bezier(10.0, -d, w)
             .straight(e, w)
-            .polygon()
     };
+    let arms = [arm(-1.632, dy), arm(2.368, -dy)];
     let port = |x: f64, y: f64, orientation: f64| Port {
         center: [x, y],
         width: w,
         orientation,
     };
     Device {
-        layers: vec![core(vec![arm(-1.632, dy), arm(2.368, -dy)])],
+        layers: vec![core(arms.iter().map(Path::polygon).collect())],
+        drawn: arms.iter().map(|a| (0, a.described())).collect(),
         above: None,
         ports: vec![
             port(-10.0, -1.632, 180.0),
@@ -957,7 +1167,8 @@ pub fn coupler() -> Device {
 pub fn crossing() -> Device {
     let e = 4.0 + EXTENSION;
     let (a, b, c) = (0.25, 0.6, 4.0);
-    let cross = polygon(&[
+    let axes = [3.0, 1.1];
+    let outline = [
         [-e, -a],
         [-c, -a],
         [-b, -b],
@@ -978,9 +1189,10 @@ pub fn crossing() -> Device {
         [-b, b],
         [-c, a],
         [-e, a],
-    ]);
+    ];
+    let cross = polygon(&outline);
     let ellipse = |angle: f64| {
-        Shape::ellipse(Point::um(0.0, 0.0), [um(3.0), um(1.1)], angle).expect("an ellipse")
+        Shape::ellipse(Point::um(0.0, 0.0), [um(axes[0]), um(axes[1])], angle).expect("an ellipse")
     };
     let port = |x: f64, y: f64, orientation: f64| Port {
         center: [x, y],
@@ -995,6 +1207,21 @@ pub fn crossing() -> Device {
                 thickness: SLAB,
             },
             core(vec![cross]),
+        ],
+        drawn: vec![
+            (
+                0,
+                format!(
+                    "two ellipses centred at (0, 0) µm, semi-axes {} and {}, one along x and \
+                     one along y",
+                    super::common::length(axes[0]),
+                    super::common::length(axes[1])
+                ),
+            ),
+            (
+                1,
+                format!("the crossing, a polygon through {}", vertices(&outline)),
+            ),
         ],
         above: None,
         ports: vec![
@@ -1012,7 +1239,7 @@ pub fn crossing() -> Device {
 /// 0.45 µm from the axis, and brought to ports 4.5 µm apart by `bend_s` 11 µm long.
 pub fn mmi() -> Device {
     let e = EXTENSION;
-    let body = polygon(&[
+    let outline = [
         [0.0, -0.8],
         [2.0, -0.74],
         [4.0, -0.74],
@@ -1023,34 +1250,41 @@ pub fn mmi() -> Device {
         [4.0, 0.74],
         [2.0, 0.74],
         [0.0, 0.8],
-    ]);
+    ];
+    let body = polygon(&outline);
     let left = |s: f64| {
         Path::new(-12.0 - e, 2.25 * s, 0.0, 0.5)
             .straight(e, 0.5)
             .bezier(11.0, -1.8 * s, 0.5)
             .straight(1.0, 0.7)
-            .polygon()
     };
     let right = |s: f64| {
         Path::new(8.0, 0.45 * s, 0.0, 0.7)
             .straight(1.0, 0.5)
             .bezier(11.0, 1.8 * s, 0.5)
             .straight(e, 0.5)
-            .polygon()
     };
+    let guides = [left(-1.0), left(1.0), right(-1.0), right(1.0)];
     let port = |x: f64, y: f64, orientation: f64| Port {
         center: [x, y],
         width: 0.5,
         orientation,
     };
     Device {
-        layers: vec![core(vec![
-            body,
-            left(-1.0),
-            left(1.0),
-            right(-1.0),
-            right(1.0),
-        ])],
+        layers: vec![core(
+            std::iter::once(body)
+                .chain(guides.iter().map(Path::polygon))
+                .collect(),
+        )],
+        drawn: std::iter::once((
+            0,
+            format!(
+                "the multimode region, a polygon through {}",
+                vertices(&outline)
+            ),
+        ))
+        .chain(guides.iter().map(|g| (0, g.described())))
+        .collect(),
         above: None,
         ports: vec![
             port(-12.0, -2.25, 180.0),
@@ -1074,22 +1308,21 @@ pub fn mode_converter() -> Device {
         .straight(20.0, 0.5)
         .euler(10.0, 45.0)
         .euler(10.0, -45.0)
-        .straight(e, 0.5)
-        .polygon();
+        .straight(e, 0.5);
     let wide = Path::new(-25.0 - e, 0.0, 0.0, 1.2)
         .straight(e, 1.2)
         .straight(25.0, 1.0)
         .straight(20.0, 1.0)
         .straight(25.0, 1.2)
-        .straight(e, 1.2)
-        .polygon();
+        .straight(e, 1.2);
     let port = |x: f64, y: f64, width: f64, orientation: f64| Port {
         center: [x, y],
         width,
         orientation,
     };
     Device {
-        layers: vec![core(vec![narrow, wide])],
+        layers: vec![core(vec![narrow.polygon(), wide.polygon()])],
+        drawn: vec![(0, narrow.described()), (0, wide.described())],
         above: None,
         ports: vec![
             port(-14.142, 6.758, 0.5, 180.0),
@@ -1114,20 +1347,19 @@ pub fn splitter_rotator() -> Device {
         .straight(1.867, 0.9)
         .straight(7.0, 0.9)
         .straight(14.33, 0.54)
-        .straight(e, 0.54)
-        .polygon();
+        .straight(e, 0.54);
     let upper = Path::new(0.0, 0.8025, 0.0, 0.405)
         .straight(7.0, 0.405)
         .bezier(14.33, 5.0, 0.54)
-        .straight(e, 0.54)
-        .polygon();
+        .straight(e, 0.54);
     let port = |x: f64, y: f64, orientation: f64| Port {
         center: [x, y],
         width: 0.54,
         orientation,
     };
     Device {
-        layers: vec![core(vec![lower, upper])],
+        layers: vec![core(vec![lower.polygon(), upper.polygon()])],
+        drawn: vec![(0, lower.described()), (0, upper.described())],
         above: Some(4.0),
         ports: vec![
             port(-49.867, 0.0, 180.0),
@@ -1155,9 +1387,7 @@ pub fn ring_path() -> Path {
 
 pub fn ring() -> Device {
     let e = EXTENSION;
-    let bus = Path::new(-17.0 - e, 0.0, 0.0, 0.5)
-        .straight(30.0 + 2.0 * e, 0.5)
-        .polygon();
+    let bus = Path::new(-17.0 - e, 0.0, 0.0, 0.5).straight(30.0 + 2.0 * e, 0.5);
     let (outer, inner) = ring_path().ring();
     let port = |x: f64, orientation: f64| Port {
         center: [x, 0.0],
@@ -1166,10 +1396,14 @@ pub fn ring() -> Device {
     };
     Device {
         layers: vec![Layer {
-            shapes: vec![bus, outer],
+            shapes: vec![bus.polygon(), outer],
             holes: vec![inner],
             thickness: CORE,
         }],
+        drawn: vec![
+            (0, format!("the bus, {}", bus.described())),
+            (0, format!("the ring, {}", ring_path().described())),
+        ],
         above: None,
         ports: vec![port(-17.0, 180.0), port(13.0, 0.0)],
         y_range: [-0.25, 21.55],

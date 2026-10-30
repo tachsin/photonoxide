@@ -72,12 +72,24 @@ use photonoxide::units::Frequency;
 /// The resolutions, pixels a period.
 const RESOLUTIONS: [usize; 8] = [12, 16, 20, 24, 32, 40, 48, 64];
 
+/// The background's ε; each hole's semi-axes (µm) and its tilt (degrees), in a period of 1 µm.
+const EPS: f64 = 12.0;
+const SEMI_AXES: [f64; 2] = [0.19, 0.14];
+const TILT: f64 = 53.0;
+/// The pulse's carrier (c/µm) and relative width; the Courant number.
+const CARRIER: f64 = 0.155;
+const WIDTH: f64 = 0.08;
+const COURANT: f64 = 0.99;
+/// The finer resolution of the reference's Richardson extrapolation, and the slopes' tolerance.
+const REFERENCE: usize = 96;
+const TOLERANCE: f64 = 0.3;
+
 /// The lattice, two periods (1 µm each) along x and one along y.
 fn holes() -> Structure {
-    let mut s = Structure::new(Permittivity::isotropic(12.0).expect("ε"));
+    let mut s = Structure::new(Permittivity::isotropic(EPS).expect("ε"));
     for i in 0..2 {
         let centre = [i as f64 + 0.5, 0.5];
-        let hole = Body::ellipse(centre, [0.19, 0.14], 53f64.to_radians()).expect("the hole");
+        let hole = Body::ellipse(centre, SEMI_AXES, TILT.to_radians()).expect("the hole");
         s = s.with(hole, Permittivity::isotropic(1.0).expect("air"));
     }
     s
@@ -133,8 +145,8 @@ fn modes(smoothing: Smoothing, n: usize) -> [f64; 2] {
         cpml: Cpml::default(),
     };
     let mut s =
-        Simulation::smoothed(grid, &holes(), smoothing, boundaries, 0.99).expect("the grid");
-    let pulse = Waveform::pulse(Frequency::natural(0.155).expect("f"), 0.08).expect("the pulse");
+        Simulation::smoothed(grid, &holes(), smoothing, boundaries, COURANT).expect("the grid");
+    let pulse = Waveform::pulse(Frequency::natural(CARRIER).expect("f"), WIDTH).expect("the pulse");
     // a magnetic current ∝ cos(πx) on every H̃_z and two electric point currents, all with
     // k = (½, 0) 2π/µm or folded onto it by the two periods. The cosine is genoxide's portable
     // one, as photonoxide's waveforms are: the matrix pencil below turns an ulp of the source
@@ -178,7 +190,7 @@ fn modes(smoothing: Smoothing, n: usize) -> [f64; 2] {
     let start = (2.0 * delay / s.dt()).ceil() as usize;
     s.run_until(2.0 * delay + 80.0);
     // 16 samples a period of the carrier
-    let every = (1.0 / 0.155 / 16.0 / s.dt()) as usize;
+    let every = (1.0 / CARRIER / 16.0 / s.dt()) as usize;
     let signals: Vec<Vec<f64>> = probes
         .iter()
         .map(|&q| s.probe(q)[start..].iter().step_by(every).copied().collect())
@@ -213,6 +225,45 @@ fn slope(errors: &[f64], from: usize) -> f64 {
 }
 
 pub fn main() -> ExitCode {
+    let mut setup = common::Setup::new();
+    setup.item(
+        "medium",
+        &format!("{} with elliptical air holes, ε 1", common::eps(EPS)),
+    );
+    setup.shape(
+        "the plane",
+        &format!(
+            "a square lattice of period 1 µm, a hole centred in each period: semi-axes {} and \
+             {}, tilted {TILT}°; the window two periods along x by one along y, periodic",
+            common::length(SEMI_AXES[0]),
+            common::length(SEMI_AXES[1])
+        ),
+    );
+    setup.item(
+        "source",
+        &format!(
+            "a pulse at {CARRIER} c/µm, relative width {WIDTH}: a magnetic current ∝ cos(πx) \
+             and two electric point currents, k = (½, 0) 2π/a"
+        ),
+    );
+    setup.item(
+        "grid",
+        &format!(
+            "{} pixels a period ({REFERENCE} for the reference), Courant number {COURANT}",
+            RESOLUTIONS.map(|n| n.to_string()).join(", ")
+        ),
+    );
+    setup.item(
+        "solver",
+        "2D FDTD, TE, subpixel smoothing (none, the mean ε, Farjadpour et al.'s at s = 1 and 2, \
+         at the nodes); the frequencies by a matrix pencil; the reference by Richardson's \
+         extrapolation",
+    );
+    setup.item(
+        "tolerance",
+        &format!("{TOLERANCE} in each slope; their method below the mean at every resolution"),
+    );
+    setup.print();
     println!("Farjadpour et al.'s square lattice of elliptical air holes in eps = 12, TE");
     println!("the two lowest modes at k = (1/2, 0) 2 pi/a: relative error against pixels a period");
     let with = |average, diameter, coupling| Smoothing {
@@ -236,7 +287,7 @@ pub fn main() -> ExitCode {
     let mut jobs: Vec<(usize, usize)> = (0..methods.len())
         .flat_map(|m| RESOLUTIONS.iter().map(move |&n| (m, n)))
         .collect();
-    jobs.push((3, 96));
+    jobs.push((3, REFERENCE));
     // the slowest first
     jobs.sort_by_key(|&(_, n)| std::cmp::Reverse(n));
     // side by side, in order, on photonoxide's threads: the studio builds this example in
@@ -252,7 +303,7 @@ pub fn main() -> ExitCode {
     };
     let mut checks = common::Checks::default();
     for band in 0..2 {
-        let (coarse, fine) = (get(3, 64)[band], get(3, 96)[band]);
+        let (coarse, fine) = (get(3, 64)[band], get(3, REFERENCE)[band]);
         let reference = fine + (fine - coarse) * 64.0 * 64.0 / (96.0 * 96.0 - 64.0 * 64.0);
         println!();
         println!(
@@ -285,9 +336,15 @@ pub fn main() -> ExitCode {
         // terms: 0.3. The second mode's against the quadratic the paper shows it for.
         let two = slope(&errors[3], 16);
         if band == 0 {
-            checks.compare(&label("new (2 dx), slope"), two, -2.43, 0.3);
+            checks.compare(&label("new (2 dx), slope"), two, -2.43, TOLERANCE);
         } else {
-            checks.against(&label("new (2 dx), slope"), two, "quadratic", -2.0, 0.3);
+            checks.against(
+                &label("new (2 dx), slope"),
+                two,
+                "quadratic",
+                -2.0,
+                TOLERANCE,
+            );
         }
         let below = (0..RESOLUTIONS.len())
             .filter(|&q| errors[2][q] < errors[1][q])
@@ -295,7 +352,7 @@ pub fn main() -> ExitCode {
         if band == 0 {
             // "we expect our method to be asymptotically quadratic"
             let s = slope(&errors[2], 16);
-            checks.against(&label("new, slope"), s, "quadratic", -2.0, 0.3);
+            checks.against(&label("new, slope"), s, "quadratic", -2.0, TOLERANCE);
             checks.count(&label("new below the mean"), below, RESOLUTIONS.len());
             println!(
                 "band 1: mean epsilon's slope {:.2}, the paper's -1.33 (printed, not checked)",
@@ -306,7 +363,7 @@ pub fn main() -> ExitCode {
                 &label("mean epsilon, slope"),
                 slope(&errors[1], 16),
                 -1.33,
-                0.3,
+                TOLERANCE,
             );
             println!(
                 "band 2: the new method below the mean at {below} of {} resolutions, its slope \

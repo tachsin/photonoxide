@@ -154,13 +154,19 @@ const SAMPLES: usize = 101;
 const BAND: [f64; 2] = [1.54, 1.56];
 /// Shorter records read the same way, to show what the record's length does, µm/c.
 const SHORTER: [f64; 2] = [1000.0, 1500.0];
+/// The strip's cross-section for its group index: the quarter's width and cells across, its
+/// height and cells up (µm); the strip's half width and half thickness (µm); the wavelengths
+/// either side of `MATERIALS` (µm).
+const QUARTER: (f64, usize, f64, usize) = (1.05, 168, 0.75, 150);
+const HALF: (f64, f64) = (0.25, 0.11);
+const SIDES: (f64, f64) = (1.535, 1.555);
 
 /// The 500 × 220 nm strip's group index at 1.545 µm, with silicon's and silica's dispersion
 /// (`dispersive`) or with their indices at 1.545 µm: the quarter x, y ≥ 0 on a 6.25 × 5 nm grid
 /// in a 1.05 × 0.75 µm window, an electric wall at x = 0 and a magnetic wall at y = 0 keeping
 /// the TE-like modes.
 fn strip_group_index(dispersive: bool) -> photonoxide::Result<f64> {
-    let wavelengths = [1.535, MATERIALS, 1.555]
+    let wavelengths = [SIDES.0, MATERIALS, SIDES.1]
         .iter()
         .map(|&l| Wavelength::um(l))
         .collect::<photonoxide::Result<Vec<_>>>()?;
@@ -172,8 +178,9 @@ fn strip_group_index(dispersive: bool) -> photonoxide::Result<f64> {
         };
         let si = material::silicon().permittivity(at)?;
         let ox = material::silica().permittivity(at)?;
-        CrossSection::uniform((0.0, 1.05, 168), (0.0, 0.75, 150), |x, y| {
-            let core = x < 0.25 && y < 0.11;
+        let (across, nx, up, ny) = QUARTER;
+        CrossSection::uniform((0.0, across, nx), (0.0, up, ny), |x, y| {
+            let core = x < HALF.0 && y < HALF.1;
             Permittivity::isotropic(if core { si } else { ox })
         })?
         .with_boundaries(Boundaries {
@@ -293,6 +300,67 @@ pub fn main() -> photonoxide::Result<ExitCode> {
         port: 1,
         kinds: vec![Kind::Te0],
     }];
+    let resolutions = pdk::requested(&[15.0, 20.0]);
+    let settings = |res: f64| Setup {
+        device: &device,
+        h: pdk::step(res),
+        wavelength: MATERIALS,
+        input: Kind::Te0,
+        outputs: &outputs,
+        wavelengths: &[1.55],
+        limit: RECORD,
+        decay: false,
+    };
+    // the free spectral range in the text; both codes' resonance (nm), FWHM (nm) and Q at 20
+    // and 25 cells, read by the paper from its record; the margins
+    let fsr_text = ([7.4, 7.6], 0.05);
+    let resonance = ([1545.57, 1545.67, 1545.07, 1544.96], 0.02);
+    let width = ([0.90, 0.88, 0.88, 0.90], 0.002);
+    let quality = ([1716.0, 1755.0, 1754.0, 1715.0], 3.0);
+    let mut setup = pdk::described(&settings(15.0), &resolutions);
+    let (across, nx, up, ny) = QUARTER;
+    setup.item(
+        "the strip's group index",
+        &format!(
+            "the {} × {} strip's TE-like mode at {}, {MATERIALS} and {} µm, full-vector, on the \
+             quarter of a {} × {} window, {nx} × {ny} cells ({} by {}), mirror walls; silicon and \
+             silica dispersive, and at {MATERIALS} µm",
+            common::length(2.0 * HALF.0),
+            common::length(2.0 * HALF.1),
+            SIDES.0,
+            SIDES.1,
+            common::length(2.0 * across),
+            common::length(2.0 * up),
+            common::length(across / nx as f64),
+            common::length(up / ny as f64)
+        ),
+    );
+    setup.item(
+        "record",
+        &format!(
+            "with --full: {RECORD} µm/c, the through port read at {SAMPLES} wavelengths from {} \
+             to {} µm (and over {} µm/c); the ring's own Q by harmonic inversion from {SETTLED} \
+             µm/c",
+            BAND[0],
+            BAND[1],
+            SHORTER.map(common::number).join(" and ")
+        ),
+    );
+    setup.item(
+        "tolerance",
+        &[
+            pdk::tolerance(
+                "the free spectral range (nm) from n_g and L",
+                &fsr_text.0,
+                fsr_text.1,
+            ),
+            pdk::tolerance("with --full, the resonance (nm)", &resonance.0, resonance.1),
+            pdk::tolerance("the FWHM (nm)", &width.0, width.1),
+            pdk::tolerance("Q", &quality.0, quality.1),
+        ]
+        .join("; "),
+    );
+    setup.print();
     let (dispersive, fixed) = (strip_group_index(true)?, strip_group_index(false)?);
     let ratio = dispersive / fixed;
     let length = pdk::ring_path().length();
@@ -310,42 +378,30 @@ pub fn main() -> photonoxide::Result<ExitCode> {
         &mut checks,
         "free spectral range (nm), n_g and L",
         fsr,
-        &[7.4, 7.6],
-        0.05,
+        &fsr_text.0,
+        fsr_text.1,
     );
-    for res in pdk::requested(&[15.0, 20.0]) {
+    for res in resolutions {
         let mut probes = Vec::new();
-        let run = pdk::run(
-            &Setup {
-                device: &device,
-                h: pdk::step(res),
-                wavelength: MATERIALS,
-                input: Kind::Te0,
-                outputs: &outputs,
-                wavelengths: &[1.55],
-                limit: RECORD,
-                decay: false,
-            },
-            &mut |sim| {
-                let g = sim.grid();
-                let at = |x: f64, y: f64| {
-                    (
-                        ((x - g.x0) / g.dx).round() as usize,
-                        ((y - g.y0) / g.dy).round() as usize,
-                        ((0.11 - g.z0) / g.dz).round() as usize,
-                    )
-                };
-                // E_y on the top straight's centre line and E_x on the right one's, mid-silicon
-                probes.push(sim.add_probe(Field::E, Axis::Y, at(-2.0, 21.3))?);
-                probes.push(sim.add_probe(Field::E, Axis::X, at(10.0, 11.0))?);
-                // E_y on the bus's centre, 0.3 µm out of the input port (the incident pulse)
-                // and of the through port, where the mode monitors are
-                let (i, o) = (device.ports[0].out(0.3), device.ports[1].out(0.3));
-                probes.push(sim.add_probe(Field::E, Axis::Y, at(i[0], i[1]))?);
-                probes.push(sim.add_probe(Field::E, Axis::Y, at(o[0], o[1]))?);
-                Ok(())
-            },
-        )?;
+        let run = pdk::run(&settings(res), &mut |sim| {
+            let g = sim.grid();
+            let at = |x: f64, y: f64| {
+                (
+                    ((x - g.x0) / g.dx).round() as usize,
+                    ((y - g.y0) / g.dy).round() as usize,
+                    ((0.11 - g.z0) / g.dz).round() as usize,
+                )
+            };
+            // E_y on the top straight's centre line and E_x on the right one's, mid-silicon
+            probes.push(sim.add_probe(Field::E, Axis::Y, at(-2.0, 21.3))?);
+            probes.push(sim.add_probe(Field::E, Axis::X, at(10.0, 11.0))?);
+            // E_y on the bus's centre, 0.3 µm out of the input port (the incident pulse)
+            // and of the through port, where the mode monitors are
+            let (i, o) = (device.ports[0].out(0.3), device.ports[1].out(0.3));
+            probes.push(sim.add_probe(Field::E, Axis::Y, at(i[0], i[1]))?);
+            probes.push(sim.add_probe(Field::E, Axis::Y, at(o[0], o[1]))?);
+            Ok(())
+        })?;
         let m = &run.measured;
         pdk::report_cost("ring_liu_poon", m);
         println!(
@@ -449,23 +505,17 @@ pub fn main() -> photonoxide::Result<ExitCode> {
             &mut checks,
             &format!("resonance (nm), {tag}"),
             lambda0,
-            &[1545.57, 1545.67, 1545.07, 1544.96],
-            0.02,
+            &resonance.0,
+            resonance.1,
         );
         pdk::within(
             &mut checks,
             &format!("FWHM (nm), {tag}"),
             fwhm,
-            &[0.90, 0.88, 0.88, 0.90],
-            0.002,
+            &width.0,
+            width.1,
         );
-        pdk::within(
-            &mut checks,
-            &format!("Q, {tag}"),
-            q,
-            &[1716.0, 1755.0, 1754.0, 1715.0],
-            3.0,
-        );
+        pdk::within(&mut checks, &format!("Q, {tag}"), q, &quality.0, quality.1);
     }
     Ok(checks.finish())
 }

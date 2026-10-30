@@ -1,3 +1,14 @@
+Setup
+  instance c1: a coupler: coupling 0.5
+  instance c2: a coupler: coupling 0.5
+  instance upper: a phase shifter: phase 2 rad
+  instance lower: a phase shifter: phase 0 rad
+  ports: in1, in2, out1, out2
+  wavelength: 1.55 µm
+  grid: none: the circuit's S-matrix, exact
+  solver: θ, the upper arm's phase, in 0 to π, to 0.3 of the power in the bar port, by L-BFGS-B and by Adam (learning rate 0.02) on the circuit adjoint's gradient
+  tolerance: 1e-6 rad in θ, 1e-9 in the bar power
+
 An MZI of two 50:50 couplers, phase θ in one arm, at 1.55 µm (Clements et al. 2016, Eq. 1), exact: no grid
   from θ = 2 rad, to 0.3 of the power in the bar port
   L-BFGS-B: 8 evaluations, each the circuit solve and one adjoint solve

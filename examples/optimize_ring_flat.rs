@@ -273,7 +273,61 @@ fn fit(filter: &Filter) -> Fit {
     }
 }
 
+/// The tolerances on μᵢ²/μ⁴: the printed digits, 0.1 and above to three decimals (but N = 4's),
+/// the rest to four.
+const COARSE: f64 = 5e-4;
+const FINE: f64 = 5e-5;
+
 pub fn main() -> photonoxide::Result<ExitCode> {
+    let rings = 2..=6;
+    let buses = [1e-3, 1e-4, 1e-5];
+    let mut setup = common::Setup::new();
+    let example = Filter::new(*rings.start(), buses[0])?;
+    setup.part(&format!(
+        "the circuit, at N = {} rings (each N alike: couplers c0 … cN, a ring's halves aₖ and bₖ)",
+        rings.start()
+    ));
+    setup.circuit(
+        &example.circuit,
+        &example.values(&table(*rings.start()), 0.0),
+    );
+    setup.part("the fits");
+    setup.item(
+        "rings",
+        &format!(
+            "N = {} to {}, lossless; bus couplings κ_b² = {}",
+            rings.start(),
+            rings.end(),
+            buses.map(|b| format!("{b:e}")).join(", ")
+        ),
+    );
+    let d = detunings();
+    setup.item(
+        "detunings",
+        &format!(
+            "{} from {} to {} κ_b²; the wavelength {LAMBDA} µm (the phases don't depend on it)",
+            d.len(),
+            common::number(d[0]),
+            common::number(d[d.len() - 1])
+        ),
+    );
+    setup.item("grid", "none: the circuit's S-matrix, exact");
+    setup.item(
+        "solver",
+        &format!(
+            "the couplings fitted to 1/(1 + (δ/δ_c)^2N) by L-BFGS-B on the circuit adjoint from \
+             {STARTS} seeded starts; CMA-ES then L-BFGS-B as a global check"
+        ),
+    );
+    setup.item(
+        "tolerance",
+        &format!(
+            "at κ_b² = {:e}: {COARSE:e} on a printed 0.1 or more (N = 4: {FINE:e} on the \
+             prototype), {FINE:e} on the rest and between mirror couplings",
+            buses[2]
+        ),
+    );
+    setup.print();
     let mut checks = common::Checks::default();
     println!(
         "Maximally flat filters of N series-coupled lossless rings (Little et al. 1997, Table I), the circuit solve, exact: no grid"
@@ -309,12 +363,12 @@ pub fn main() -> photonoxide::Result<ExitCode> {
             0.0,
         );
     }
-    for n in 2..=6 {
+    for n in rings {
         let g = prototype(n);
         let printed = table(n);
         let half = printed.len();
         println!("\nN = {n}: μᵢ²/μ⁴ = κᵢ²/κ_b⁴, i = 1 … {half}");
-        for bus in [1e-3, 1e-4, 1e-5] {
+        for bus in buses {
             let filter = Filter::new(n, bus)?;
             let Fit { x, misfit, cmaes } = fit(&filter);
             let ratios: Vec<String> = x[..n - 1].iter().map(|r| format!("{r:.5}")).collect();
@@ -325,15 +379,15 @@ pub fn main() -> photonoxide::Result<ExitCode> {
                 x[n - 1],
                 magnitude(cmaes)
             );
-            if bus > 1e-5 {
+            if bus > buses[2] {
                 continue;
             }
             for i in 0..half {
                 let closed = g[0] * g[0] / (4.0 * g[i] * g[i + 1]);
                 let tolerance = if printed[i] >= 0.1 && n != 4 {
-                    5e-4
+                    COARSE
                 } else {
-                    5e-5
+                    FINE
                 };
                 if n == 4 {
                     checks.against(
@@ -341,7 +395,7 @@ pub fn main() -> photonoxide::Result<ExitCode> {
                         x[i],
                         "prototype",
                         closed,
-                        5e-5,
+                        FINE,
                     );
                     println!("  {:<34} the paper prints {}", "", printed[i]);
                 } else {
@@ -358,7 +412,7 @@ pub fn main() -> photonoxide::Result<ExitCode> {
                     x[n - 2 - i],
                     "μ²/μ⁴ of its mirror",
                     x[i],
-                    5e-5,
+                    FINE,
                 );
             }
         }

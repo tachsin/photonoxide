@@ -73,28 +73,54 @@ pub fn main() -> photonoxide::Result<ExitCode> {
         port: 2,
         kinds: vec![Kind::Te1, Kind::Te0],
     }];
+    let resolutions = pdk::resolutions(&[15.0], 5.0);
+    let settings = |res: f64| Setup {
+        device: &device,
+        h: pdk::step(res),
+        wavelength: 1.55,
+        input: Kind::Te0,
+        outputs: &outputs,
+        wavelengths: if res < 10.0 {
+            &[1.55]
+        } else {
+            &pdk::WAVELENGTHS
+        },
+        limit: 3000.0,
+        decay: true,
+    };
+    // both codes from 15 to 25 cells a wavelength, both pulses: TE1 and the crosstalk; their
+    // values at 6 cells; the margins
+    let settled = [0.443, 0.362, 0.482, 0.512, 0.492, 0.522, 0.479, 0.430];
+    let settled_crosstalk = [-37.2, -38.1, -36.9, -35.4, -35.3, -35.6];
+    let (at_six, crosstalk_at_six) = ([0.967, 0.357], [-47.3, -39.6]);
+    let (margin, crosstalk_margin) = (0.005, 0.2);
+    let mut setup = pdk::described(&settings(resolutions[0]), &resolutions);
+    setup.item(
+        "tolerance",
+        &[
+            pdk::tolerance("the cross port's TE1 at 1550 nm", &settled, margin),
+            pdk::tolerance(
+                "its TE0 crosstalk (dB)",
+                &settled_crosstalk,
+                crosstalk_margin,
+            ),
+            format!(
+                "at 5 cells, plus how far the codes stray at 6 ({}; {} dB)",
+                at_six.map(common::number).join(", "),
+                crosstalk_at_six.map(common::number).join(", ")
+            ),
+        ]
+        .join("; "),
+    );
+    setup.print();
     println!(
         "Liu and Poon's mode converter (gdsfactory's generic PDK), 3D FDTD, TE0 into the narrow \
          guide; materials at 1.55 um"
     );
     let mut checks = common::Checks::default();
-    for res in pdk::resolutions(&[15.0], 5.0) {
+    for res in resolutions {
         let coarse = res < 10.0;
-        let wavelengths: &[f64] = if coarse { &[1.55] } else { &pdk::WAVELENGTHS };
-        let m = pdk::run(
-            &Setup {
-                device: &device,
-                h: pdk::step(res),
-                wavelength: 1.55,
-                input: Kind::Te0,
-                outputs: &outputs,
-                wavelengths,
-                limit: 3000.0,
-                decay: true,
-            },
-            &mut |_| Ok(()),
-        )?
-        .measured;
+        let m = pdk::run(&settings(res), &mut |_| Ok(()))?.measured;
         pdk::report_cost("mode_converter_liu_poon", &m);
         println!("{res} cells a wavelength: {}", pdk::describe(&m.grid));
         println!("  wavelength  cross TE1  cross TE0 (crosstalk)  reflection");
@@ -108,25 +134,22 @@ pub fn main() -> photonoxide::Result<ExitCode> {
             );
         }
         let (te1, crosstalk) = (m.at_1550(0, 0), pdk::db(m.at_1550(0, 1)));
-        // both codes from 15 to 25 cells a wavelength, both pulses
-        let settled = [0.443, 0.362, 0.482, 0.512, 0.492, 0.522, 0.479, 0.430];
-        let settled_crosstalk = [-37.2, -38.1, -36.9, -35.4, -35.3, -35.6];
         if coarse {
             pdk::coarse(
                 &mut checks,
                 &format!("cross TE1, 1550 nm, {res} cells"),
                 te1,
                 &settled,
-                &[0.967, 0.357],
-                0.005,
+                &at_six,
+                margin,
             );
             pdk::coarse(
                 &mut checks,
                 &format!("crosstalk (dB), 1550 nm, {res} cells"),
                 crosstalk,
                 &settled_crosstalk,
-                &[-47.3, -39.6],
-                0.2,
+                &crosstalk_at_six,
+                crosstalk_margin,
             );
         } else {
             let tag = format!("{res} cells");
@@ -135,14 +158,14 @@ pub fn main() -> photonoxide::Result<ExitCode> {
                 &format!("cross TE1, 1550 nm, {tag}"),
                 te1,
                 &settled,
-                0.005,
+                margin,
             );
             pdk::within(
                 &mut checks,
                 &format!("crosstalk (dB), 1550 nm, {tag}"),
                 crosstalk,
                 &settled_crosstalk,
-                0.2,
+                crosstalk_margin,
             );
         }
     }

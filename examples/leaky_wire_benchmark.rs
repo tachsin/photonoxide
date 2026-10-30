@@ -28,19 +28,46 @@ use photonoxide::mode::vector::{
 };
 use photonoxide::units::Wavelength;
 
+/// The benchmark's indices: silicon, oxide and air.
+const SI: f64 = 3.5;
+const OX: f64 = 1.45;
+const AIR: f64 = 1.0;
+/// The wire's half width and thickness, and the oxide's thickness, µm.
+const HALF_WIDTH: f64 = 0.25;
+const THICKNESS: f64 = 0.22;
+const BOX: f64 = 1.0;
+/// The window, µm: x from the wall at the wire's centre, y up from the oxide's top.
+const X_WINDOW: (f64, f64) = (0.0, 1.6);
+const Y_WINDOW: (f64, f64) = (-2.6, 1.5);
+/// The grid: the core grid's box (x, then y, µm), the coarsest spacing away from it (µm).
+const FINE_X: (f64, f64) = (0.0, 0.35);
+const FINE_Y: (f64, f64) = (-0.1, 0.32);
+const COARSE: f64 = 0.0125;
+/// The PML below, in the substrate (µm), and its strength.
+const PML_SOUTH: f64 = 1.0;
+const PML_STRENGTH: f64 = 3.0;
+
 /// The wire's right half with the core's box at spacing `h` (µm): x from the wall at the
 /// centre, y up from the oxide's top.
 fn wire(h: f64) -> photonoxide::Result<CrossSection> {
-    let (si, ox) = (3.5, 1.45);
-    let x = graded_nodes(0.0, 1.6, (0.0, 0.35), h, 0.0125, 0.01, &[0.25]);
-    let y = graded_nodes(
-        -2.6,
-        1.5,
-        (-0.1, 0.32),
+    let (si, ox) = (SI, OX);
+    let x = graded_nodes(
+        X_WINDOW.0,
+        X_WINDOW.1,
+        FINE_X,
         h,
-        0.0125,
+        COARSE,
         0.01,
-        &[0.0, 0.22, -1.0, -1.6],
+        &[HALF_WIDTH],
+    );
+    let y = graded_nodes(
+        Y_WINDOW.0,
+        Y_WINDOW.1,
+        FINE_Y,
+        h,
+        COARSE,
+        0.01,
+        &[0.0, THICKNESS, -BOX, -1.6],
     );
     let mut cells = Vec::new();
     for i in 0..x.len() - 1 {
@@ -48,15 +75,15 @@ fn wire(h: f64) -> photonoxide::Result<CrossSection> {
         for j in 0..y.len() - 1 {
             let yc = 0.5 * (y[j] + y[j + 1]);
             let n: f64 = match yc {
-                yc if yc > 0.22 => 1.0,
+                yc if yc > THICKNESS => AIR,
                 yc if yc > 0.0 => {
-                    if xc < 0.25 {
+                    if xc < HALF_WIDTH {
                         si
                     } else {
-                        1.0
+                        AIR
                     }
                 }
-                yc if yc > -1.0 => ox,
+                yc if yc > -BOX => ox,
                 _ => si,
             };
             cells.push(Permittivity::isotropic(c64::new(n * n, 0.0)));
@@ -68,8 +95,8 @@ fn wire(h: f64) -> photonoxide::Result<CrossSection> {
             ..Boundaries::default()
         })?
         .with_pml(Pml {
-            south: 1.0,
-            strength: 3.0,
+            south: PML_SOUTH,
+            strength: PML_STRENGTH,
             ..Pml::default()
         })
 }
@@ -77,12 +104,73 @@ fn wire(h: f64) -> photonoxide::Result<CrossSection> {
 pub fn main() -> photonoxide::Result<ExitCode> {
     let w = Wavelength::um(1.55)?;
     let reference = c64::new(2.412372, 2.9135e-8);
+    let grids = [0.005, 0.0025, 0.00125];
+    // 7 digits printed; ours after extrapolation within 2e-4. The methods' spread is 0.02e-8
+    // among the best three; ours within 2 %
+    let (re_tolerance, im_tolerance) = (2e-4, 0.06);
+    let mut setup = common::Setup::new();
+    setup.layer("cladding", None, "air", &common::n(AIR));
+    setup.layer(
+        "wire",
+        Some(THICKNESS),
+        "silicon in the wire, air beside it",
+        &format!("{}; {}", common::n(SI), common::n(AIR)),
+    );
+    setup.layer("oxide", Some(BOX), "oxide", &common::n(OX));
+    setup.layer("substrate", None, "silicon", &common::n(SI));
+    setup.shape(
+        "wire",
+        &format!(
+            "the wire centred at x = 0, {} wide",
+            common::length(2.0 * HALF_WIDTH)
+        ),
+    );
+    setup.wavelength(w);
+    setup.item(
+        "window",
+        &format!(
+            "the right half, x {} to {} µm from an electric wall at the centre; y {} to {} µm \
+             from the oxide's top; a PML of {} in the substrate's bottom, strength {}",
+            common::number(X_WINDOW.0),
+            common::number(X_WINDOW.1),
+            common::number(Y_WINDOW.0),
+            common::number(Y_WINDOW.1),
+            common::length(PML_SOUTH),
+            common::number(PML_STRENGTH)
+        ),
+    );
+    setup.item(
+        "grid",
+        &format!(
+            "graded: {} nm in the core's box (x {} to {} µm, y {} to {} µm), at most {} away \
+             from it; Richardson-extrapolated",
+            grids.map(|h| common::number(h * 1000.0)).join(", "),
+            common::number(FINE_X.0),
+            common::number(FINE_X.1),
+            common::number(FINE_Y.0),
+            common::number(FINE_Y.1),
+            common::length(COARSE)
+        ),
+    );
+    setup.item(
+        "solver",
+        "the full-vector finite-difference mode solver, TE",
+    );
+    setup.item(
+        "tolerance",
+        &format!("{re_tolerance:e} in Re n_eff, {im_tolerance} in Im n_eff × 1e8 (2 %)"),
+    );
+    setup.medium(
+        "silicon, oxide, air",
+        "constant indices, the benchmark's (Bienstman et al. 2006)",
+    );
+    setup.print();
     println!(
         "Bienstman et al.'s leaky wire, TE; reference (CAMFR) {:.6} + {:.4e}i",
         reference.re, reference.im
     );
     let mut found = [c64::new(0.0, 0.0); 3];
-    for (k, h) in [0.005, 0.0025, 0.00125].into_iter().enumerate() {
+    for (k, h) in grids.into_iter().enumerate() {
         let cs = wire(h)?;
         let n = vector::modes(&cs, w, 1, Some(2.41))?[0].effective_index();
         println!(
@@ -103,9 +191,17 @@ pub fn main() -> photonoxide::Result<ExitCode> {
         limit.re, limit.im
     );
     let mut checks = common::Checks::default();
-    // 7 digits printed; ours after extrapolation within 2e-4
-    checks.compare("Re n_eff, extrapolated", limit.re, reference.re, 2e-4);
-    // the methods' spread is 0.02e-8 among the best three; ours within 2 %
-    checks.compare("Im n_eff x 1e8, extrapolated", limit.im * 1e8, 2.9135, 0.06);
+    checks.compare(
+        "Re n_eff, extrapolated",
+        limit.re,
+        reference.re,
+        re_tolerance,
+    );
+    checks.compare(
+        "Im n_eff x 1e8, extrapolated",
+        limit.im * 1e8,
+        2.9135,
+        im_tolerance,
+    );
     Ok(checks.finish())
 }

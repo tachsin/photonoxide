@@ -161,6 +161,38 @@ pub fn main() -> photonoxide::Result<ExitCode> {
             .or(Stop::time(Duration::from_secs(120)))
     };
 
+    let mut setup = common::Setup::new();
+    setup.circuit(&circuit, &values(&TRUTH));
+    setup.item(
+        "the ring's guide",
+        &format!("n_eff {INDEX} and n_g {GROUP_INDEX} at {LAMBDA} µm, first order in λ"),
+    );
+    setup.item(
+        "wavelengths",
+        &format!(
+            "{} from {} to {} µm",
+            wavelengths.len(),
+            common::number(wavelengths[0].to_um()),
+            common::number(wavelengths[wavelengths.len() - 1].to_um())
+        ),
+    );
+    setup.item("grid", "none: the circuit's S-matrices, exact");
+    setup.item(
+        "solver",
+        &format!(
+            "κ₁², κ₂², the loss (dB/cm) and the radius (µm) from {} by L-BFGS-B on the circuit \
+             adjoint's gradient and by CMA-ES (seed 1) on the response alone",
+            START.map(common::number).join(", ")
+        ),
+    );
+    setup.item(
+        "tolerance",
+        &format!(
+            "{:e} and {:e} in κ₁² and κ₂², {:e} dB/cm, {:e} µm",
+            TOLERANCE[0], TOLERANCE[1], TOLERANCE[2], TOLERANCE[3]
+        ),
+    );
+    setup.print();
     println!(
         "An add-drop ring's through and drop spectra, 81 wavelengths from 1.548 to 1.556 µm, made by Bogaerts et al.'s Eqs. 5 and 6, exact: no grid"
     );

@@ -1,3 +1,17 @@
+Setup
+  the all-pass ring:
+    all-pass ring: width 0.5 µm, thickness 0.22 µm, radius 10 µm, gap 0.2 µm, coupling_length 0 µm, loss 2.7 dB/cm, round_trip_loss 0.075 dB, wavelength 1.55 µm, span 0.1 µm
+  the add-drop ring:
+    add-drop ring: width 0.5 µm, thickness 0.22 µm, radius 10 µm, gap 0.2 µm, gap_drop 0.2 µm, coupling_length 0 µm, loss 2.7 dB/cm, round_trip_loss 0.11 dB, wavelength 1.55 µm, span 0.1 µm
+    its drop side: r₂ = 0.99
+  both:
+    the guide: stated: n_eff 2.4, n_g 4.3 at 1.55 µm, 2.7 dB/cm
+    wavelength: 1.55 µm
+    lengths: searched from 1 to 30 mm, at critical coupling
+    grid: none: the analytic fidelity, Bogaerts et al.'s Eqs. 19 to 22, exact
+    solver: golden-section search for the best length; bisection for the measured width
+    tolerance: 1 mm and 0.5 mm in the best lengths, 0.0075 in the ratio of the peak Qs
+
 Bogaerts's Eqs. 19-22 at critical coupling, 2.7 dB/cm, exact: no grid
   all-pass: Q peaks at 9.353 mm, 1.3413e5 with n_g 4.30
   add-drop: Q peaks at 12.708 mm, 1.2879e5 with n_g 4.30

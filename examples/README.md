@@ -15,6 +15,15 @@ After changing an example, regenerate its output:
 cargo run --release --quiet --example <name> > examples/output/<name>.txt
 ```
 
+Each example prints its setup first (`common::Setup`, in `common/setup.rs`), from the same values its
+computation uses: the layers from the top down (the bottom one, the substrate, is the first
+laid down in fabrication), each with its thickness, its material and the material's index at
+the example's wavelength; the shapes on them, where and how large; the wavelengths, the window,
+the grid, the solver and the tolerance; and each material's model, its parameters, its source
+and its range. `PHOTONOXIDE_SETUP_ONLY=1` prints the setup and stops, before the computation:
+a long run's setup without the run. A long run's recorded output is its setup, printed so,
+followed by what its run printed.
+
 The long 3D FDTD runs (the `*_liu_poon` examples, `l3_akahane`) print their progress to stderr
 every 5 minutes, which leaves the output above unchanged. Each line gives the steps done of the
 total, the share, the time taken and left, when the run should end (UTC) and the
@@ -151,6 +160,8 @@ column says so.
 
 - One file per published result. Its doc comment names the paper (with its DOI), the table, figure or page, and how many digits it prints.
 - Compare with `common::Checks`, against the paper's numbers as printed. Set the tolerance from the printed digits, or from the paper's stated accuracy.
+- Print its setup first, with `common::Setup`, from the values the computation uses: the layers,
+  the shapes, the materials, the grid, the solver and the tolerance.
 - Print the grid for every computed number ("exact: no grid" for closed forms).
 - Add a row to the table above, and its output to `output/`.
 - Add its row to As jobs: its job files, built into the studio and checked to the bit against

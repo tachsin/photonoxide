@@ -29,8 +29,43 @@ pub fn main() -> photonoxide::Result<ExitCode> {
         .iter()
         .map(|&n| (c64::new(n, 0.0), Length::nm(500.0)))
         .collect();
-    let stack = Multilayer::new(c64::new(1.0, 0.0), &films, c64::new(1.5, 0.0))?;
+    let (cover, substrate) = (c64::new(1.0, 0.0), c64::new(1.5, 0.0));
+    let stack = Multilayer::new(cover, &films, substrate)?;
     let wavelength = Wavelength::nm(632.8)?;
+    // (bound indices, leaky Re, leaky Im, power in % points)
+    let tolerances = (5e-7, 1.5e-5, 5e-6, 0.06);
+    let mut setup = common::Setup::new();
+    // the films are listed from the cover's side: the top down
+    setup.layer("cover", None, "medium", &common::n(cover.re));
+    for (k, (n, t)) in films.iter().enumerate() {
+        setup.layer(
+            &format!("film {}", k + 1),
+            Some(t.to_um()),
+            "medium",
+            &common::n(n.re),
+        );
+    }
+    setup.layer("substrate", None, "medium", &common::n(substrate.re));
+    setup.wavelength(wavelength);
+    setup.item("grid", "none: transfer matrices, exact");
+    setup.item(
+        "solver",
+        "the planar multilayer's transfer matrices: bound modes, and leaky waves by contour \
+         integrals in the complex plane",
+    );
+    setup.item(
+        "tolerance",
+        &format!(
+            "{:e} on the bound indices, {:e} and {:e} on the leaky waves' Re and Im, {} % \
+             points on the powers",
+            tolerances.0, tolerances.1, tolerances.2, tolerances.3
+        ),
+    );
+    setup.medium(
+        "medium",
+        "constant indices, Chilwell & Hodgkinson's (1984), lossless",
+    );
+    setup.print();
     let mut checks = common::Checks::default();
 
     println!("bound modes (Table 3), exact: no grid; power in cover, films 1-4, substrate (%)");
@@ -63,7 +98,7 @@ pub fn main() -> photonoxide::Result<ExitCode> {
                 &format!("{name}{order} effective index"),
                 m.effective_index().re,
                 index,
-                5e-7,
+                tolerances.0,
             );
             let got: Vec<String> = m
                 .power_fractions()
@@ -81,7 +116,7 @@ pub fn main() -> photonoxide::Result<ExitCode> {
                 &format!("{name}{order} power: worst error (% points)"),
                 worst,
                 0.0,
-                0.06,
+                tolerances.3,
             );
         }
     }
@@ -103,8 +138,8 @@ pub fn main() -> photonoxide::Result<ExitCode> {
         (8, 1.00304, 0.07077),
     ]) {
         let n = m.effective_index();
-        checks.compare(&format!("TE{order} Re n_eff"), n.re, re, 1.5e-5);
-        checks.compare(&format!("TE{order} Im n_eff"), n.im, im, 5e-6);
+        checks.compare(&format!("TE{order} Re n_eff"), n.re, re, tolerances.1);
+        checks.compare(&format!("TE{order} Im n_eff"), n.im, im, tolerances.2);
     }
     Ok(checks.finish())
 }

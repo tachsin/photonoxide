@@ -80,28 +80,48 @@ pub fn main() -> photonoxide::Result<ExitCode> {
             kinds: vec![Kind::Te0],
         },
     ];
+    let resolutions = pdk::resolutions(&[15.0, 20.0], 6.0);
+    let settings = |res: f64| Setup {
+        device: &device,
+        h: pdk::step(res),
+        wavelength: 1.55,
+        input: Kind::Te0,
+        outputs: &outputs,
+        wavelengths: if res < 10.0 {
+            &[1.55]
+        } else {
+            &pdk::WAVELENGTHS
+        },
+        limit: 3000.0,
+        decay: true,
+    };
+    // both codes from 15 to 25 cells a wavelength, both pulses, and Fig. 28's; their values
+    // at 6 cells; the excess loss's; and the margins
+    let settled = [0.411, 0.441, 0.446, 0.430, 0.448, 0.492, 0.456, 0.47];
+    let at_six = [0.493, 0.697];
+    let loss_settled = [0.0, 0.001, 0.0, -0.013, -0.002, -0.007];
+    let (margin, loss_margin) = (0.003, 0.001);
+    let mut setup = pdk::described(&settings(resolutions[0]), &resolutions);
+    setup.item(
+        "tolerance",
+        &format!(
+            "the cross port's TE0 within half the span of both codes' {} plus {margin}, the \
+             excess loss within half the span of their {} dB plus {loss_margin} dB; at 6 cells, \
+             how far the codes stray there ({})",
+            settled.map(common::number).join(", "),
+            loss_settled.map(common::number).join(", "),
+            at_six.map(common::number).join(", ")
+        ),
+    );
+    setup.print();
     println!(
         "Liu and Poon's directional coupler (gdsfactory's generic PDK), 3D FDTD, TE0 into the \
          lower left port; materials at 1.55 um"
     );
     let mut checks = common::Checks::default();
-    for res in pdk::resolutions(&[15.0, 20.0], 6.0) {
+    for res in resolutions {
         let coarse = res < 10.0;
-        let wavelengths: &[f64] = if coarse { &[1.55] } else { &pdk::WAVELENGTHS };
-        let m = pdk::run(
-            &Setup {
-                device: &device,
-                h: pdk::step(res),
-                wavelength: 1.55,
-                input: Kind::Te0,
-                outputs: &outputs,
-                wavelengths,
-                limit: 3000.0,
-                decay: true,
-            },
-            &mut |_| Ok(()),
-        )?
-        .measured;
+        let m = pdk::run(&settings(res), &mut |_| Ok(()))?.measured;
         pdk::report_cost("coupler_liu_poon", &m);
         println!("{res} cells a wavelength: {}", pdk::describe(&m.grid));
         println!("  wavelength  cross TE0  bar TE0   reflection  excess loss");
@@ -117,16 +137,14 @@ pub fn main() -> photonoxide::Result<ExitCode> {
         }
         let cross = m.at_1550(0, 0);
         let loss = pdk::db(cross + m.at_1550(1, 0));
-        // both codes from 15 to 25 cells a wavelength, both pulses, and Fig. 28's
-        let settled = [0.411, 0.441, 0.446, 0.430, 0.448, 0.492, 0.456, 0.47];
         if coarse {
             pdk::coarse(
                 &mut checks,
                 "cross TE0, 1550 nm, 6 cells",
                 cross,
                 &settled,
-                &[0.493, 0.697],
-                0.003,
+                &at_six,
+                margin,
             );
         } else {
             let tag = format!("{res} cells");
@@ -135,14 +153,14 @@ pub fn main() -> photonoxide::Result<ExitCode> {
                 &format!("cross TE0, 1550 nm, {tag}"),
                 cross,
                 &settled,
-                0.003,
+                margin,
             );
             pdk::within(
                 &mut checks,
                 &format!("excess loss (dB), 1550 nm, {tag}"),
                 loss,
-                &[0.0, 0.001, 0.0, -0.013, -0.002, -0.007],
-                0.001,
+                &loss_settled,
+                loss_margin,
             );
         }
     }

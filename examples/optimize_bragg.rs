@@ -51,6 +51,11 @@ const HALF_WAVE: f64 = 1e3 * LAMBDA / (2.0 * LOW);
 const THINNEST: f64 = 1e-6;
 /// The seed of every random method.
 const SEED: u64 = 1;
+/// The cover's index: air.
+const COVER: f64 = 1.0;
+/// The tolerances: R to the printed 6 digits, the thicknesses after the polish (nm).
+const R_TOLERANCE: f64 = 5e-7;
+const D_TOLERANCE: f64 = 0.01;
 
 /// Layer j's index: 1.8 from the top, alternating.
 fn index(j: usize) -> f64 {
@@ -64,7 +69,7 @@ fn stack(d: &[f64]) -> Multilayer {
         .enumerate()
         .map(|(j, &t)| (c64::new(index(j), 0.0), Length::nm(t.max(THINNEST))))
         .collect();
-    Multilayer::new(c64::new(1.0, 0.0), &films, c64::new(SUBSTRATE, 0.0)).expect("a valid stack")
+    Multilayer::new(c64::new(COVER, 0.0), &films, c64::new(SUBSTRATE, 0.0)).expect("a valid stack")
 }
 
 fn lambda() -> Wavelength {
@@ -211,11 +216,55 @@ fn thicknesses(d: &[f64]) -> String {
 }
 
 pub fn main() -> photonoxide::Result<ExitCode> {
+    let designs = [(20, 0.985521, 20_000), (10, 0.835144, 5_000)];
+    let mut setup = common::Setup::new();
+    for (n, _, budget) in designs {
+        setup.part(&format!("{n} layers"));
+        setup.layer("cover", None, "air", &common::n(COVER));
+        for j in 0..n {
+            setup.layer_sized(
+                &format!("film {}", j + 1),
+                &format!("0 to {}", common::length(HALF_WAVE / 1e3)),
+                &format!(
+                    "medium (searched; the quarter-wave {})",
+                    common::length(quarter_wave(n)[j] / 1e3)
+                ),
+                &common::n(index(j)),
+            );
+        }
+        setup.layer("substrate", None, "medium", &common::n(SUBSTRATE));
+        setup.item(
+            "budget",
+            &format!("{budget} evaluations for DE and for CMA-ES"),
+        );
+    }
+    setup.part("both");
+    setup.wavelength(lambda());
+    setup.item(
+        "grid",
+        "none: transfer matrices, exact, TE at normal incidence",
+    );
+    setup.item(
+        "solver",
+        &format!(
+            "1 − R minimized by DE (current-to-best/1, F 0.8, CR 0.5, 30 individuals) and CMA-ES, \
+             seed {SEED}, each polished by L-BFGS-B on the exact dR/dd"
+        ),
+    );
+    setup.item(
+        "tolerance",
+        &format!(
+            "R to {R_TOLERANCE:e}; the thicknesses within {} of the quarter-wave stack",
+            common::length(D_TOLERANCE / 1e3)
+        ),
+    );
+    setup.medium("air, medium", "constant indices, Bennet et al.'s (2024)");
+    setup.print();
     let mut checks = common::Checks::default();
     println!(
         "Bragg mirrors of n = 1.8/1.4 on 1.8 under air at 600 nm (Bennet et al. 2024), transfer matrices, exact: no grid"
     );
-    for (n, printed, budget) in [(20, 0.985521, 20_000), (10, 0.835144, 5_000)] {
+    for (n, printed, budget) in designs {
         println!("\n{n} layers, each 0 to {HALF_WAVE:.2} nm; cost 1 − R");
         let qw = quarter_wave(n);
         checks.against(
@@ -229,7 +278,7 @@ pub fn main() -> photonoxide::Result<ExitCode> {
             &format!("its closed form, {n} layers"),
             closed_form(n),
             printed,
-            5e-7,
+            R_TOLERANCE,
         );
         let mut g = vec![0.0; n];
         cost_and_gradient(&qw, &mut g);
@@ -277,14 +326,14 @@ pub fn main() -> photonoxide::Result<ExitCode> {
             &format!("R after the polish, {n} layers"),
             1.0 - c,
             printed,
-            5e-7,
+            R_TOLERANCE,
         );
         checks.against(
             "largest |d − λ/4n| after it (nm)",
             from_quarter_wave(&d),
             "λ/4n, Fig. 7c",
             0.0,
-            0.01,
+            D_TOLERANCE,
         );
 
         let (d_cma, c_cma) = cmaes(n, budget);

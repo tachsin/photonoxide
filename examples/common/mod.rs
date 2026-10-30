@@ -8,6 +8,10 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use photonoxide::fdtd::Simulation;
 
+mod setup;
+#[allow(unused_imports)]
+pub use setup::{Setup, describe, eps, length, n, number, point};
+
 /// The comparisons of one example. Each prints a row; [`Checks::finish`] fails the example
 /// when any of them is outside its tolerance.
 #[derive(Default)]

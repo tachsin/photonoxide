@@ -49,7 +49,43 @@ fn printed(tolerance: f64) -> f64 {
     (tolerance * 1e3).round() / 1e3
 }
 
+/// The tolerances: Eq. (1)'s figures of merit from their rounded numbers (rad/dB, 5 %), the 2D
+/// grid's and the analytic model's against the 2D, relative.
+const FOM: [f64; 2] = [1.45, 0.26];
+const GRID: f64 = 0.02;
+const ANALYTIC: f64 = 0.15;
+
 pub fn main() -> photonoxide::Result<ExitCode> {
+    let lam = Wavelength::um(1.55)?;
+    let mut setup = common::Setup::new();
+    for d in [PcmShifter::sb2se3(), PcmShifter::sb2s3(), PcmShifter::gst()] {
+        setup.part(&format!("the {}, at its defaults", d.kind()));
+        setup.device(&d, &Values::defaults(&d), lam);
+    }
+    setup.part("every film");
+    setup.wavelength(lam);
+    setup.item(
+        "grid",
+        "the 2D model's own cells, and cells half the size (the gate); the analytic model's \
+         exact complex slabs",
+    );
+    setup.item(
+        "solver",
+        "the full-vector mode solver, TE (2D); the effective index method with exact complex \
+         slabs (analytic)",
+    );
+    setup.item(
+        "tolerance",
+        &format!(
+            "{} and {} rad/dB on Eq. (1)'s figures of merit; the 2D cells within {} %; the \
+             analytic within {} % of the 2D",
+            FOM[0],
+            FOM[1],
+            common::number(100.0 * GRID),
+            common::number(100.0 * ANALYTIC)
+        ),
+    );
+    setup.print();
     let mut checks = common::Checks::default();
     println!(
         "Delaney et al. 2020's 25 nm phase-change films through photonoxide's phase-change phase \
@@ -85,13 +121,13 @@ pub fn main() -> photonoxide::Result<ExitCode> {
         "Sb2Se3 FOM, rad/dB (Eq. 1)",
         figure_of_merit(0.0717, 0.01, lambda),
         29.0,
-        1.45,
+        FOM[0],
     );
     checks.compare(
         "Sb2S3 FOM, rad/dB (Eq. 1)",
         figure_of_merit(0.0356, 0.028, lambda),
         5.15,
-        0.26,
+        FOM[1],
     );
     for (name, d, row) in &changes {
         // the 2D model gated by its cells
@@ -99,14 +135,14 @@ pub fn main() -> photonoxide::Result<ExitCode> {
         let c = Study::new("dn_eff")
             .on(0.005, c1)?
             .on(0.0025, c2)?
-            .check(printed(0.02 * c2))?;
+            .check(printed(GRID * c2))?;
         checks.converged(&format!("{name} 2D dn_eff, cells 1 and 1/2"), &c);
         checks.against(
             &format!("{name} analytic dn_eff"),
             row[0],
             "2D",
             row[1],
-            printed(0.15 * row[1]),
+            printed(ANALYTIC * row[1]),
         );
     }
     Ok(checks.finish())

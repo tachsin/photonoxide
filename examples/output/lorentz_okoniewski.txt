@@ -1,3 +1,14 @@
+Setup
+  media: vacuum before a face across the line, the Lorentz medium (ε∞ 1.5, ε_s 3) filling the half-space beyond it; normal incidence
+  source: E_z, a differentiated Gaussian peaking at 25 GHz, 100 cells before the face; probed 50 cells before it
+  frequencies: 24 from 2.5 to 60 GHz
+  window: a line of 200 cells of vacuum and 400 of the medium between CPMLs of 40 cells (counted in 37.5 µm cells)
+  grid: cells of 37.5 µm at a Courant number of 1; cells of 37.5 µm at a Courant number of 0.5; cells of 18.75 µm at a Courant number of 1
+  solver: 1D FDTD with auxiliary differential equations; r against (1 − n)/(1 + n)
+  tolerance: within the paper's curves (at most 1 of them) at every frequency; the error at half the cell 0.25 of it, ± 0.05
+  materials:
+    the Lorentz medium: ε = ε∞ + Σ (ε_s − ε∞) A_p ω_p²/(ω_p² − ω² − 2iδ_pω), (A_p, f_p) = (0.4, 20 GHz), (0.6, 50 GHz), δ_p = 0.1 ω_p (Okoniewski et al. 1997)
+
 Okoniewski, Mrozowski and Stuchly's two-term Lorentz half-space, normal incidence:
 the reflection coefficient against the analytic one (e^(-iwt): the phase error's
 sign is the opposite of the paper's, whose e^(+jwt) conjugates r)

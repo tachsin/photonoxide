@@ -85,6 +85,23 @@ pub fn main() -> photonoxide::Result<ExitCode> {
     };
     // the closed form, to the 9 decimals printed
     let exact = (2.0 * TARGET.sqrt().asin() * 1e9).round() / 1e9;
+    let (theta_tolerance, power_tolerance, rate) = (1e-6, 1e-9, 0.02);
+    let mut setup = common::Setup::new();
+    setup.circuit(&circuit, circuit.values());
+    setup.wavelength(wavelength[0]);
+    setup.item("grid", "none: the circuit's S-matrix, exact");
+    setup.item(
+        "solver",
+        &format!(
+            "θ, the upper arm's phase, in 0 to π, to {TARGET} of the power in the bar port, by \
+             L-BFGS-B and by Adam (learning rate {rate}) on the circuit adjoint's gradient"
+        ),
+    );
+    setup.item(
+        "tolerance",
+        &format!("{theta_tolerance:e} rad in θ, {power_tolerance:e} in the bar power"),
+    );
+    setup.print();
     println!(
         "An MZI of two 50:50 couplers, phase θ in one arm, at 1.55 µm (Clements et al. 2016, Eq. 1), exact: no grid"
     );
@@ -107,14 +124,14 @@ pub fn main() -> photonoxide::Result<ExitCode> {
         "  L-BFGS-B: {} evaluations, each the circuit solve and one adjoint solve",
         outcome.evaluations()
     );
-    checks.compare("θ by L-BFGS-B (rad)", theta, exact, 1e-6);
+    checks.compare("θ by L-BFGS-B (rad)", theta, exact, theta_tolerance);
     let mut values = circuit.values().to_vec();
     values[k] = theta;
     let power = circuit.s_matrix_with(wavelength[0], &values)?.power(2, 0);
-    checks.compare("bar power", power, TARGET, 1e-9);
+    checks.compare("bar power", power, TARGET, power_tolerance);
 
     let adam = FirstOrder::builder(real)
-        .step(first_order::Step::adam(0.02))
+        .step(first_order::Step::adam(rate))
         .initial_genome(Reals::from(vec![start]))
         .minimize()
         .build()
@@ -128,6 +145,6 @@ pub fn main() -> photonoxide::Result<ExitCode> {
         "  Adam (learning rate 0.02): {} evaluations",
         outcome.evaluations()
     );
-    checks.compare("θ by Adam (rad)", theta, exact, 1e-6);
+    checks.compare("θ by Adam (rad)", theta, exact, theta_tolerance);
     Ok(checks.finish())
 }

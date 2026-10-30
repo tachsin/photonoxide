@@ -1,3 +1,13 @@
+Setup
+  shapes:
+    on the plane: a square perfectly conducting cylinder, 318.3099 nm a side (k₀A = 1), centred
+  medium: vacuum, ε 1
+  source: a TM plane wave (E_z) along +y by total-field/scattered-field, continuous at 1 µm, ramped over 5 periods
+  window: at 20 cells a side: the total field 5 cells around the cylinder, 10 cells beyond, a CPML of 20 cells (κ 5, α 0.5); all scale with the cells
+  grid: 20 and 40 cells a side, 100 steps a period at 20 (scaled), 29 periods, then the amplitudes over 3
+  solver: 2D FDTD, TM; the moment method (Eq. 8a, pulses and point matching) at 100 and 20 pulses a side
+  tolerance: at 20 cells, 0.045 on the lit and 0.026 on the side face (the reading plus 2 %); at 40, 0.017, 0.0077, 0.0017 on the lit, side and shadowed faces against the moment method (1 %)
+
 Umashankar and Taflove's square conducting cylinder, k0 A = 1, TM, normal incidence
 |J_z| / |H_x^i| at the middle of the lit, side and shadowed faces
 FD-TD, 20 cells a side (62.8 a wavelength):    lit 1.7316, side 0.7644, shadowed 0.1689

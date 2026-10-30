@@ -46,6 +46,18 @@ use photonoxide::units::Frequency;
 
 /// The paper's cell, µm.
 const DZ: f64 = 37.5;
+/// The paper's medium: ε∞, ε_s, each term's (A_p, f_p in GHz), and δ_p/ω_p.
+const EPS_INF: f64 = 1.5;
+const EPS_S: f64 = 3.0;
+const TERMS: [(f64, f64); 2] = [(0.4, 20.0), (0.6, 50.0)];
+const DELTA: f64 = 0.1;
+/// The line, in the paper's cells: the CPML at each end, vacuum before the face, the medium
+/// after it; the source and the probe before the face.
+const LINE: (f64, f64, f64) = (40.0, 200.0, 400.0);
+const SOURCE: f64 = 100.0;
+const PROBE: f64 = 50.0;
+/// The frequency where the pulse's spectrum peaks, GHz.
+const PEAK: f64 = 25.0;
 
 /// A frequency in GHz.
 fn ghz(f: f64) -> Frequency {
@@ -56,13 +68,13 @@ fn ghz(f: f64) -> Frequency {
 /// γ_p = 2δ_p.
 fn medium() -> Dispersive {
     let term = |a: f64, f0: f64| Pole::Lorentz {
-        strength: (3.0 - 1.5) * a,
+        strength: (EPS_S - EPS_INF) * a,
         resonance: ghz(f0),
-        damping: 2.0 * 0.1 * ghz(f0).to_natural(),
+        damping: 2.0 * DELTA * ghz(f0).to_natural(),
     };
     Dispersive {
-        eps_inf: 1.5,
-        poles: vec![term(0.4, 20.0), term(0.6, 50.0)],
+        eps_inf: EPS_INF,
+        poles: vec![term(TERMS[0].0, TERMS[0].1), term(TERMS[1].0, TERMS[1].1)],
     }
 }
 
@@ -70,7 +82,7 @@ fn medium() -> Dispersive {
 /// `courant`.
 fn reflection(dz: f64, courant: f64, frequencies: &[f64]) -> Vec<c64> {
     let cells = |x: f64| (x / dz).round() as usize;
-    let (cpml, before, after) = (cells(40.0 * DZ), cells(200.0 * DZ), cells(400.0 * DZ));
+    let (cpml, before, after) = (cells(LINE.0 * DZ), cells(LINE.1 * DZ), cells(LINE.2 * DZ));
     let n = 2 * cpml + before + after;
     let grid = Grid3d {
         nx: n,
@@ -94,11 +106,11 @@ fn reflection(dz: f64, courant: f64, frequencies: &[f64]) -> Vec<c64> {
     };
     let face = grid.node(Axis::X, cpml + before) - dz / 2.0;
     let (source, probe) = (
-        cpml + before - cells(100.0 * DZ),
-        cpml + before - cells(50.0 * DZ),
+        cpml + before - cells(SOURCE * DZ),
+        cpml + before - cells(PROBE * DZ),
     );
     // no DC; its spectrum peaks at 25 GHz and is 1e-3 of that by 120 GHz
-    let width = std::f64::consts::SQRT_2 / ghz(25.0).angular();
+    let width = std::f64::consts::SQRT_2 / ghz(PEAK).angular();
     let pulse = Waveform::DifferentiatedGaussian {
         width,
         delay: 6.0 * width,
@@ -118,7 +130,7 @@ fn reflection(dz: f64, courant: f64, frequencies: &[f64]) -> Vec<c64> {
         .unwrap();
         let p = s.add_probe(Field::E, Axis::Z, (probe, 0, 0)).unwrap();
         // 40 times the slower resonance's decay time, 1/δ₁ = 80 ps
-        s.run_until(40.0 / (0.1 * ghz(20.0).angular()));
+        s.run_until(40.0 / (DELTA * ghz(TERMS[0].1).angular()));
         (s.probe(p).to_vec(), s.dt())
     };
     let ((full, dt), (empty, _)) = std::thread::scope(|s| {
@@ -184,14 +196,84 @@ fn bound(f: f64) -> (f64, f64) {
 pub fn main() -> ExitCode {
     let frequencies: Vec<f64> = (1..=24).map(|i| 2.5 * i as f64).collect();
     let frequencies = &frequencies;
-    println!("Okoniewski, Mrozowski and Stuchly's two-term Lorentz half-space, normal incidence:");
-    println!("the reflection coefficient against the analytic one (e^(-iwt): the phase error's");
-    println!("sign is the opposite of the paper's, whose e^(+jwt) conjugates r)");
+    // within the paper's curves (at most 1 of them); the error a quarter at half the cell
+    let (within, order, order_tolerance) = (1.0, 0.25, 0.05);
     let runs = [
         (DZ, 1.0, "dz = 37.5 um, C = 1"),
         (DZ, 0.5, "dz = 37.5 um, C = 0.5"),
         (DZ / 2.0, 1.0, "dz = 18.75 um, C = 1"),
     ];
+    let mut setup = common::Setup::new();
+    setup.item(
+        "media",
+        &format!(
+            "vacuum before a face across the line, the Lorentz medium (ε∞ {EPS_INF}, ε_s \
+             {EPS_S}) filling the half-space beyond it; normal incidence"
+        ),
+    );
+    setup.medium(
+        "the Lorentz medium",
+        &format!(
+            "ε = ε∞ + Σ (ε_s − ε∞) A_p ω_p²/(ω_p² − ω² − 2iδ_pω), (A_p, f_p) = {}, δ_p = {DELTA} \
+             ω_p (Okoniewski et al. 1997)",
+            TERMS.map(|(a, f)| format!("({a}, {f} GHz)")).join(", ")
+        ),
+    );
+    setup.item(
+        "source",
+        &format!(
+            "E_z, a differentiated Gaussian peaking at {PEAK} GHz, {SOURCE} cells before the \
+             face; probed {PROBE} cells before it"
+        ),
+    );
+    setup.item(
+        "frequencies",
+        &format!(
+            "{} from {} to {} GHz",
+            frequencies.len(),
+            frequencies[0],
+            frequencies[frequencies.len() - 1]
+        ),
+    );
+    setup.item(
+        "window",
+        &format!(
+            "a line of {} cells of vacuum and {} of the medium between CPMLs of {} cells \
+             (counted in {} µm cells)",
+            LINE.1,
+            LINE.2,
+            LINE.0,
+            common::number(DZ)
+        ),
+    );
+    setup.item(
+        "grid",
+        &runs
+            .iter()
+            .map(|&(dz, courant, _)| {
+                format!(
+                    "cells of {} µm at a Courant number of {courant}",
+                    common::number(dz)
+                )
+            })
+            .collect::<Vec<_>>()
+            .join("; "),
+    );
+    setup.item(
+        "solver",
+        "1D FDTD with auxiliary differential equations; r against (1 − n)/(1 + n)",
+    );
+    setup.item(
+        "tolerance",
+        &format!(
+            "within the paper's curves (at most {within} of them) at every frequency; the error \
+             at half the cell {order} of it, ± {order_tolerance}"
+        ),
+    );
+    setup.print();
+    println!("Okoniewski, Mrozowski and Stuchly's two-term Lorentz half-space, normal incidence:");
+    println!("the reflection coefficient against the analytic one (e^(-iwt): the phase error's");
+    println!("sign is the opposite of the paper's, whose e^(+jwt) conjugates r)");
     let results: Vec<Vec<c64>> = std::thread::scope(|s| {
         let handles: Vec<_> = runs
             .iter()
@@ -236,14 +318,14 @@ pub fn main() -> ExitCode {
             over_m,
             "within it",
             0.0,
-            1.0,
+            within,
         );
         checks.against(
             &format!("{which}: |d phase| over the curve"),
             over_p,
             "within it",
             0.0,
-            1.0,
+            within,
         );
     }
     // halving the cell at C = 1 quarters the error: second order
@@ -251,15 +333,15 @@ pub fn main() -> ExitCode {
         "|d|r||, dz/2 over dz",
         worst[2].0 / worst[0].0,
         "second order",
-        0.25,
-        0.05,
+        order,
+        order_tolerance,
     );
     checks.against(
         "|d phase|, dz/2 over dz",
         worst[2].1 / worst[0].1,
         "second order",
-        0.25,
-        0.05,
+        order,
+        order_tolerance,
     );
     checks.finish()
 }

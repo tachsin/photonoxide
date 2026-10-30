@@ -55,7 +55,44 @@ fn printed(tolerance: f64) -> f64 {
     (tolerance * 1e3).round() / 1e3
 }
 
+/// The tolerances, relative: against the paper's simulation and its measurement, the analytic
+/// model against the 2D, and the 2D grid's.
+const SIMULATED: f64 = 0.1;
+const MEASURED: f64 = 0.15;
+const ANALYTIC: f64 = 0.15;
+const GRID: f64 = 0.01;
+
 pub fn main() -> photonoxide::Result<ExitCode> {
+    let lam = photonoxide::units::Wavelength::um(1.55)?;
+    let mut setup = common::Setup::new();
+    for d in [ThermoShifter::doped(), ThermoShifter::metal()] {
+        setup.part(&format!("the {}, at its defaults", d.kind()));
+        setup.device(&d, &Values::defaults(&d), lam);
+    }
+    setup.part("both");
+    setup.wavelength(lam);
+    setup.item(
+        "grid",
+        "the 2D model's own grids, and grids twice as fine (the gate); the analytic model's \
+         closed forms",
+    );
+    setup.item(
+        "solver",
+        "the static (heat) solver's rise and the full-vector mode's perturbation (2D); closed \
+         forms (analytic); the paper's measurements (measured)",
+    );
+    setup.item(
+        "tolerance",
+        &format!(
+            "P_π within {} % of the paper's simulation and {} % of its measurement; the \
+             analytic within {} % of the 2D; the 2D grid within {} %",
+            common::number(100.0 * SIMULATED),
+            common::number(100.0 * MEASURED),
+            common::number(100.0 * ANALYTIC),
+            common::number(100.0 * GRID)
+        ),
+    );
+    setup.print();
     let mut checks = common::Checks::default();
     println!(
         "Jacques et al. 2019's heaters through photonoxide's thermo-optic phase shifter devices, \
@@ -87,16 +124,26 @@ pub fn main() -> photonoxide::Result<ExitCode> {
         let c = Study::new("P_pi (mW)")
             .on(0.02, coarse)?
             .on(0.01, fine)?
-            .check(printed(0.01 * fine))?;
+            .check(printed(GRID * fine))?;
         checks.converged("2D P_pi on grids 1 and 1/2, mW", &c);
-        checks.compare("2D P_pi, mW (simulated)", fine, simulated, 0.1 * simulated);
-        checks.compare("2D P_pi, mW (measured)", fine, measured, 0.15 * measured);
+        checks.compare(
+            "2D P_pi, mW (simulated)",
+            fine,
+            simulated,
+            SIMULATED * simulated,
+        );
+        checks.compare(
+            "2D P_pi, mW (measured)",
+            fine,
+            measured,
+            MEASURED * measured,
+        );
         checks.against(
             "analytic P_pi, mW",
             figures[0],
             "2D",
             figures[1],
-            printed(0.15 * figures[1]),
+            printed(ANALYTIC * figures[1]),
         );
     }
     Ok(checks.finish())

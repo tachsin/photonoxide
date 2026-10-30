@@ -1,3 +1,21 @@
+Setup
+  Fig. 4:
+    media: a box, 1 µm by 1 µm, centred, ε 2.25, in ε 1
+  Fig. 5:
+    media: a box, 1 µm by 1 µm, centred, ε 8, in ε 1
+  Fig. 6:
+    media: an impinged corner: everything but the quadrant beyond (0.5, 0.5) µm from the centre, on each side, ε 2.25, in ε 1
+  Fig. 7:
+    media: an impinged corner: everything but the quadrant beyond (0.5, 0.5) µm from the centre, on each side, ε 8, in ε 1
+  every figure:
+    wavelength: 1.5 µm
+    window: the quarter, 1 µm by 1 µm, behind mirror walls through the core's centre
+    grid: uniform, 8, 16, 32, 64, 128 cells a side
+    solver: the full-vector mode solver, the standard scheme and Hadley's high-accuracy equations
+    tolerance: on the 7.8 nm grid, 5e-5 for the standard scheme, 1e-6 for Hadley's, and the same on each one's grid study
+  materials:
+    media: constant permittivities, Hadley's (2002)
+
 Fig. 4: box, eps 2.25 and 1, 1 x 1 um quarter domain; relative errors
   grid                    standard scheme            Hadley's equations
     8 x 8   (125.00 nm):  1.274534164 -1.36e-3   1.276463872 +1.49e-4

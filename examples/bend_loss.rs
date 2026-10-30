@@ -43,19 +43,102 @@ use photonoxide::units::{Length, Wavelength};
 /// `fidelity`. jobs/bend-2um-2d.yaml and jobs/bend-2um-3d.yaml compute the same, to the bit.
 pub fn bend_device(fidelity: Fidelity) -> photonoxide::Result<Built> {
     let bend = StripBend::new();
-    let values = Values::new(&bend, &[("radius", 2.0), ("loss", 0.0)])?;
+    let values = bend_values(&bend)?;
     bend.component(&values, fidelity)
 }
 
+/// The bend device's design: bent at 2 µm, lossless.
+fn bend_values(bend: &StripBend) -> photonoxide::Result<Values> {
+    Values::new(bend, &[("radius", 2.0), ("loss", 0.0)])
+}
+
+/// The bent slab's window: from the strip's centre, `INNER` µm inward (at most 0.9 R) to
+/// `OUTER` µm outward, a PML from `PML_FROM` µm on, of strength `PML_STRENGTH`.
+const INNER: f64 = 0.75;
+const OUTER: f64 = 6.0;
+const PML_FROM: f64 = 2.5;
+const PML_STRENGTH: f64 = 3.0;
+
 pub fn main() -> photonoxide::Result<ExitCode> {
+    // Marcuse's slab: (core, cladding, thickness µm, wavelength µm), the radii (µm), and the
+    // tolerance on Marcuse's loss over the exact one at the largest
+    let marcuse_slab = (1.6, 1.5, 1.0, 1.0);
+    let radii = [20.0, 40.0, 80.0, 120.0];
+    let tolerance = 0.1;
+    // the strip seen as a slab: (core, cladding, width µm, wavelength µm), its grid (µm), radii
+    let strip_slab = (2.845, 1.444, 0.5, 1.55);
+    let h = 0.005;
+    let strip_radii = [1.0f64, 2.0];
+    let mut setup = common::Setup::new();
+    let (core, clad, t, um) = marcuse_slab;
+    setup.part("a bent slab against Marcuse's formula");
+    setup.layer("outside", None, "cladding", &common::n(clad));
+    setup.layer("slab", Some(t), "core", &common::n(core));
+    setup.layer("inside", None, "cladding", &common::n(clad));
+    setup.item("wavelength", &format!("{} µm, TE", common::number(um)));
+    setup.item(
+        "radii",
+        &format!("{} µm", radii.map(common::number).join(", ")),
+    );
+    setup.item(
+        "solver",
+        "the bent slab's exact modes (no grid), and Marcuse's Eqs. 32-33",
+    );
+    setup.item(
+        "tolerance",
+        &format!(
+            "Marcuse's loss within {tolerance} of the exact one, relative, at {} µm",
+            common::number(radii[3])
+        ),
+    );
+    let (core, clad, t, um) = strip_slab;
+    setup.part("the strip as a bent slab, full-vector (printed)");
+    setup.layer("outside", None, "cladding", &common::n(clad));
+    setup.layer("slab", Some(t), "core", &common::n(core));
+    setup.layer("inside", None, "cladding", &common::n(clad));
+    setup.item(
+        "wavelength",
+        &format!("{} µm, TE and TM", common::number(um)),
+    );
+    setup.item(
+        "radii",
+        &format!("{} µm", strip_radii.map(common::number).join(", ")),
+    );
+    setup.item(
+        "window",
+        &format!(
+            "from {} inside the strip's centre to {} outside it, a PML from {} \
+             out, strength {PML_STRENGTH}",
+            common::length(INNER),
+            common::length(OUTER),
+            common::length(PML_FROM)
+        ),
+    );
+    setup.item("grid", &format!("uniform, {}", common::length(h)));
+    setup.item(
+        "solver",
+        "the full-vector mode solver on the conformally mapped cross-section, beside the exact",
+    );
+    let bend = StripBend::new();
+    let values = bend_values(&bend)?;
+    setup.part("the bend device at its 2D and 3D models (printed)");
+    setup.device(&bend, &values, Wavelength::um(um)?);
+    setup.wavelength(Wavelength::um(um)?);
+    setup.medium(
+        "core, cladding",
+        "constant indices: Marcuse's slab's, and the strip's (the effective index method's \
+         2.845 in Chrostowski & Hochberg's 1.444)",
+    );
+    setup.print();
     let mut checks = common::Checks::default();
 
-    let (core, clad, t) = (1.6, 1.5, Length::um(1.0));
-    let w = Wavelength::um(1.0)?;
+    let (core, clad, t, um) = marcuse_slab;
+    let (core, clad, t) = (core, clad, Length::um(t));
+    let w = Wavelength::um(um)?;
     let straight = Slab::new(clad, core, clad, t)?.modes(Polarization::Te, w)[0].effective_index();
     println!("slab of 1.6 in 1.5, 1 um, at 1 um, TE; straight n_eff {straight:.6}; exact: no grid");
     println!("  radius   exact Im n_eff   Marcuse      ratio   exact loss per 90 deg");
-    for r in [20.0, 40.0, 80.0, 120.0] {
+    for r in radii {
         let exact = SlabBend::new(Length::um(r), clad, &[(core, t)], clad, Length::um(-0.5))?
             .fundamental(Polarization::Te, w)?;
         let marcuse = marcuse_loss(core, clad, t, Length::um(r), w, straight)?;
@@ -65,19 +148,18 @@ pub fn main() -> photonoxide::Result<ExitCode> {
             marcuse / exact.im,
             bend_loss_db(exact, w, Length::um(r))
         );
-        if r == 120.0 {
+        if r == radii[3] {
             checks.compare(
                 "Marcuse / exact loss at 120 um",
                 marcuse / exact.im,
                 1.0,
-                0.1,
+                tolerance,
             );
         }
     }
 
-    let (core, clad, t) = (2.845, 1.444, 0.5);
-    let w = Wavelength::um(1.55)?;
-    let h = 0.005;
+    let (core, clad, t, um) = strip_slab;
+    let w = Wavelength::um(um)?;
     println!("strip as a slab: 2.845, 500 nm, in 1.444, at 1.55 um; full-vector on a 5 nm grid");
     for (polarization, label) in [
         (Polarization::Te, "E normal to the bend plane"),
@@ -88,15 +170,15 @@ pub fn main() -> photonoxide::Result<ExitCode> {
         } else {
             Boundary::MagneticWall
         };
-        for r in [1.0f64, 2.0] {
+        for r in strip_radii {
             // x from the strip's centre, outward positive; a PML from 2.5 to 6 um
-            let pml = r * (6.0 / r).ln_1p() - r * (2.5 / r).ln_1p();
+            let pml = r * (OUTER / r).ln_1p() - r * (PML_FROM / r).ln_1p();
             let bent = CrossSection::bent(
                 r,
                 (
-                    -0.75f64.max(-0.9 * r),
-                    6.0,
-                    ((6.0 + 0.75f64.min(0.9 * r)) / h).round() as usize,
+                    -INNER.max(-0.9 * r),
+                    OUTER,
+                    ((OUTER + INNER.min(0.9 * r)) / h).round() as usize,
                 ),
                 (0.0, 4.0 * h, 4),
                 |x, _| {
@@ -111,7 +193,7 @@ pub fn main() -> photonoxide::Result<ExitCode> {
             })?
             .with_pml(Pml {
                 east: pml,
-                strength: 3.0,
+                strength: PML_STRENGTH,
                 ..Pml::default()
             })?;
             let found = vector::modes(&bent, w, 1, Some(core))?[0].effective_index();

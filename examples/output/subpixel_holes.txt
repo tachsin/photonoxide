@@ -1,3 +1,12 @@
+Setup
+  shapes:
+    on the plane: a square lattice of period 1 µm, a hole centred in each period: semi-axes 190 nm and 140 nm, tilted 53°; the window two periods along x by one along y, periodic
+  medium: ε 12 with elliptical air holes, ε 1
+  source: a pulse at 0.155 c/µm, relative width 0.08: a magnetic current ∝ cos(πx) and two electric point currents, k = (½, 0) 2π/a
+  grid: 12, 16, 20, 24, 32, 40, 48, 64 pixels a period (96 for the reference), Courant number 0.99
+  solver: 2D FDTD, TE, subpixel smoothing (none, the mean ε, Farjadpour et al.'s at s = 1 and 2, at the nodes); the frequencies by a matrix pencil; the reference by Richardson's extrapolation
+  tolerance: 0.3 in each slope; their method below the mean at every resolution
+
 Farjadpour et al.'s square lattice of elliptical air holes in eps = 12, TE
 the two lowest modes at k = (1/2, 0) 2 pi/a: relative error against pixels a period
 

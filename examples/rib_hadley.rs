@@ -73,9 +73,74 @@ pub fn main() -> photonoxide::Result<ExitCode> {
         air,
     )?;
     let lam = Wavelength::um(1.15)?;
-    let mesh = Mesh::window(10.0, 9.0, 100, 180, Scheme::Hadley).with_symmetry(Symmetry::Vertical);
+    // the window (µm across and up) and its half's cells; the rib's width and the film's
+    // thickness (µm); the tolerance
+    let (window, cells) = ((10.0, 9.0), (100, 180));
+    let (width, thickness, tolerance) = (3.0, 1.0, 2e-6);
+    let mesh = Mesh::window(window.0, window.1, cells.0, cells.1, Scheme::Hadley)
+        .with_symmetry(Symmetry::Vertical);
     let rib = RibWaveguide::on(stack.clone(), "film")?.with_mesh(mesh);
     let strip = StripWaveguide::on(stack, "film")?.with_mesh(mesh);
+    let design = |d: f64| {
+        Values::new(
+            &rib,
+            &[
+                ("width", width),
+                ("thickness", thickness),
+                ("etch_depth", thickness - d),
+                ("wavelength", lam.to_um()),
+            ],
+        )
+    };
+    let mut setup = common::Setup::new();
+    let slabs: Vec<f64> = (0..TABLE.len()).map(|k| k as f64 / 10.0).collect();
+    setup.part(&format!(
+        "the rib at D = {} µm (each D alike)",
+        common::number(slabs[1])
+    ));
+    setup.device(&rib, &design(slabs[1])?, lam);
+    setup.part("every D");
+    setup.item(
+        "slab",
+        &format!(
+            "D = {} µm, the etch {} − D deep; at D = 0 the strip device",
+            slabs
+                .iter()
+                .map(|d| common::number(*d))
+                .collect::<Vec<_>>()
+                .join(", "),
+            common::length(thickness)
+        ),
+    );
+    setup.wavelength(lam);
+    setup.item(
+        "window",
+        &format!(
+            "{} across by {} up, its half behind a vertical mirror plane",
+            common::length(window.0),
+            common::length(window.1)
+        ),
+    );
+    setup.item(
+        "grid",
+        &format!(
+            "the half's {} × {} cells: {} by {}",
+            cells.0,
+            cells.1,
+            common::length(window.0 / 2.0 / cells.0 as f64),
+            common::length(window.1 / cells.1 as f64)
+        ),
+    );
+    setup.item(
+        "solver",
+        "the full-vector mode solver by Hadley's equations, TE; the device's 2D model (the \
+         effective index method) beside it",
+    );
+    setup.item(
+        "tolerance",
+        &format!("{tolerance:e} on Table I's 6 decimals"),
+    );
+    setup.print();
     println!(
         "Hadley's standard rib (3 um wide, a 1 um film of 3.44 on 3.40 under air, 1.15 um, TE) \
          through the rib device, by Hadley's equations on a 50 nm grid (the half, 100 x 180 \
@@ -89,19 +154,15 @@ pub fn main() -> photonoxide::Result<ExitCode> {
         let (n, eim) = if k == 0 {
             let v = Values::new(
                 &strip,
-                &[("width", 3.0), ("thickness", 1.0), ("wavelength", 1.15)],
+                &[
+                    ("width", width),
+                    ("thickness", thickness),
+                    ("wavelength", lam.to_um()),
+                ],
             )?;
             (te(&strip.cross_section(&v, lam)?)?, None)
         } else {
-            let v = Values::new(
-                &rib,
-                &[
-                    ("width", 3.0),
-                    ("thickness", 1.0),
-                    ("etch_depth", 1.0 - d),
-                    ("wavelength", 1.15),
-                ],
-            )?;
+            let v = design(d)?;
             let (eim, _) = rib.effective_index(&v, lam)?;
             (te(&rib.cross_section(&v, lam)?)?, Some(eim))
         };
@@ -119,7 +180,7 @@ pub fn main() -> photonoxide::Result<ExitCode> {
                 n - printed
             ),
         }
-        checks.compare(&format!("n_eff, D = {d:.1} um"), n, printed, 2e-6);
+        checks.compare(&format!("n_eff, D = {d:.1} um"), n, printed, tolerance);
     }
     println!(
         "the effective index method's largest error here: {worst_eim:.1e} (2D, printed, not checked)"

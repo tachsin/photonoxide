@@ -66,6 +66,12 @@ const CENTRE: f64 = 1.55;
 /// jobs/wire-602nm-corners.yaml and jobs/wire-805nm-corners.yaml compute the SEM's wires and
 /// their Eq. 5 corners the same way, to the bit.
 pub fn wire(width: f64, thickness: f64) -> photonoxide::Result<(Dispersion, String)> {
+    let (device, values) = design(width, thickness)?;
+    device.dispersion(&values, Fidelity::ThreeD)
+}
+
+/// The waveguide device and its values for a wire `width` × `thickness` µm.
+fn design(width: f64, thickness: f64) -> photonoxide::Result<(StripWaveguide, Values)> {
     let device = StripWaveguide::new();
     let values = Values::new(
         &device,
@@ -76,8 +82,17 @@ pub fn wire(width: f64, thickness: f64) -> photonoxide::Result<(Dispersion, Stri
             ("span", 0.06),
         ],
     )?;
-    device.dispersion(&values, Fidelity::ThreeD)
+    Ok((device, values))
 }
+
+/// The wires' thickness, µm: drawn and measured (SEM).
+const DRAWN: f64 = 0.215;
+const MEASURED: f64 = 0.211;
+/// Their Eq. 5's spreads, µm: of width and of thickness.
+const SPREAD: (f64, f64) = (0.02, 0.005);
+/// The interferometers' orders at 1550 nm, and their shorter arm, µm.
+const ORDERS: (f64, f64) = (15.0, 110.0);
+const ARM: f64 = 50.0;
 
 /// A Mach-Zehnder interferometer of two ideal splitters whose arms of `wire` differ by
 /// `delta` µm.
@@ -85,8 +100,8 @@ fn interferometer(wire: Dispersion, delta: f64) -> photonoxide::Result<Circuit> 
     let guide: Arc<dyn Component> = Arc::new(Waveguide::new(wire));
     let split: Arc<dyn Component> = Arc::new(YBranch::new());
     let mut n = mzi_y(split.clone(), split, guide.clone(), guide)?;
-    n.set("lower", "length", 50.0)?;
-    n.set("upper", "length", 50.0 + delta)?;
+    n.set("lower", "length", ARM)?;
+    n.set("upper", "length", ARM + delta)?;
     n.compile()
 }
 
@@ -168,12 +183,12 @@ struct Wire {
 /// The wire `width` µm wide, its interferometers designed for the drawn wire `design` µm wide.
 fn study(design: f64, width: f64) -> photonoxide::Result<Wire> {
     // the interferometers, designed for the drawn 215 nm wire to resonate at 1550 nm
-    let (drawn, _) = wire(design, 0.215)?;
+    let (drawn, _) = wire(design, DRAWN)?;
     let (small, big) = (
-        15.0 * CENTRE / drawn.effective_index,
-        110.0 * CENTRE / drawn.effective_index,
+        ORDERS.0 * CENTRE / drawn.effective_index,
+        ORDERS.1 * CENTRE / drawn.effective_index,
     );
-    let (fab, grid) = wire(width, 0.211)?;
+    let (fab, grid) = wire(width, MEASURED)?;
     let extracted = extract(
         &interferometer(fab, big)?,
         big,
@@ -182,8 +197,8 @@ fn study(design: f64, width: f64) -> photonoxide::Result<Wire> {
     )?;
     // their Eq. 5: half of what the wire's n_eff and n_g change between the extremes
     let moved = |w: f64, t: f64| -> photonoxide::Result<(f64, f64)> {
-        let (a, _) = wire(width + w, 0.211 + t)?;
-        let (b, _) = wire(width - w, 0.211 - t)?;
+        let (a, _) = wire(width + w, MEASURED + t)?;
+        let (b, _) = wire(width - w, MEASURED - t)?;
         Ok((
             (a.effective_index - b.effective_index).abs() / 2.0,
             (a.group_index - b.group_index).abs() / 2.0,
@@ -195,8 +210,8 @@ fn study(design: f64, width: f64) -> photonoxide::Result<Wire> {
         drawn: drawn.effective_index,
         delta: (small, big),
         extracted,
-        by_width: moved(0.02, 0.0)?,
-        by_thickness: moved(0.0, 0.005)?,
+        by_width: moved(SPREAD.0, 0.0)?,
+        by_thickness: moved(0.0, SPREAD.1)?,
     })
 }
 
@@ -207,6 +222,49 @@ pub fn main() -> photonoxide::Result<ExitCode> {
         (0.60, 0.602, (2.534, 0.0035), (4.0453, 0.0045)),
         (0.80, 0.805, (2.67, 0.004), (3.8902, 0.005)),
     ];
+    let mut setup = common::Setup::new();
+    for &(drawn, width, _, _) in &table {
+        setup.part(&format!(
+            "the {} wire as measured (designed {} × {})",
+            common::length(width),
+            common::length(drawn),
+            common::length(DRAWN)
+        ));
+        let (device, values) = design(width, MEASURED)?;
+        setup.device(&device, &values, Wavelength::um(CENTRE)?);
+    }
+    setup.part("every wire");
+    setup.item(
+        "interferometers",
+        &format!(
+            "two ideal splitters, arms {} and {} + ΔL long, ΔL for the orders m = {} and M = {} \
+             at {CENTRE} µm in the designed wire; their spectra read from 1.53 to 1.57 µm and \
+             1.52 to 1.58 µm",
+            common::length(ARM),
+            common::length(ARM),
+            ORDERS.0,
+            ORDERS.1
+        ),
+    );
+    setup.item(
+        "grid",
+        "the device's 3D model: a quarter of the cross-section on a uniform grid of about \
+         10 nm, its lines on the core's faces",
+    );
+    setup.item(
+        "solver",
+        "the full-vector mode solver, Hadley's equations; the interferometers' circuit solve",
+    );
+    setup.item(
+        "tolerance",
+        &format!(
+            "the paper's Eq. 5 with ±{} of width and ±{} of thickness, by the solver's \
+             derivatives, plus Table I's uncertainty",
+            common::length(SPREAD.0),
+            common::length(SPREAD.1)
+        ),
+    );
+    setup.print();
     // the three wires at once
     let wires: Vec<photonoxide::Result<Wire>> = std::thread::scope(|scope| {
         let running: Vec<_> = table

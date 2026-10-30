@@ -28,14 +28,23 @@ use photonoxide::mode::eim::Ridge;
 use photonoxide::mode::vector::{Boundaries, Boundary, CrossSection, Permittivity};
 use photonoxide::units::{Length, Wavelength};
 
+/// The book's media: silicon and oxide, and the film's thickness.
+const CORE: f64 = 3.473;
+const CLAD: f64 = 1.444;
+const THICKNESS_NM: f64 = 220.0;
+
+/// The quarter of the window, x, y ≥ 0: its width and cells across, its height and cells up.
+const QUARTER: (f64, usize, f64, usize) = (1.05, 168, 0.75, 150);
+
 /// The quarter x, y ≥ 0 of a strip `width` µm wide and 220 nm thick, on a 6.25 × 5 nm grid,
 /// behind the TE-like mode's two mirror walls.
 fn strip(width: f64) -> photonoxide::Result<CrossSection> {
-    CrossSection::uniform((0.0, 1.05, 168), (0.0, 0.75, 150), |x, y| {
-        let n: f64 = if x < width / 2.0 && y < 0.11 {
-            3.473
+    let (across, nx, up, ny) = QUARTER;
+    CrossSection::uniform((0.0, across, nx), (0.0, up, ny), |x, y| {
+        let n: f64 = if x < width / 2.0 && y < THICKNESS_NM / 2000.0 {
+            CORE
         } else {
-            1.444
+            CLAD
         };
         Permittivity::isotropic(c64::new(n * n, 0.0))
     })?
@@ -51,11 +60,79 @@ pub fn main() -> photonoxide::Result<ExitCode> {
         .iter()
         .map(|&l| Wavelength::um(l))
         .collect::<photonoxide::Result<Vec<_>>>()?;
+    let widths = [0.40, 0.45, 0.50, 0.55, 0.60];
+    let (book, tolerance) = (2.489, 1e-3);
+    let (across, nx, up, ny) = QUARTER;
+    let mut setup = common::Setup::new();
+    setup.layer("cladding", None, "oxide", &common::n(CLAD));
+    setup.layer(
+        "core",
+        Some(THICKNESS_NM / 1000.0),
+        "silicon in the strip, oxide beside it",
+        &format!("{}; {}", common::n(CORE), common::n(CLAD)),
+    );
+    setup.layer("substrate", None, "oxide", &common::n(CLAD));
+    setup.shape(
+        "core",
+        &format!(
+            "strip centred at x = 0, {} µm wide",
+            widths.map(common::number).join(", ")
+        ),
+    );
+    setup.item(
+        "wavelengths",
+        &format!(
+            "{} µm (n_g by central differences)",
+            wavelengths
+                .iter()
+                .map(|l| common::number(l.to_um()))
+                .collect::<Vec<_>>()
+                .join(", ")
+        ),
+    );
+    setup.item(
+        "window",
+        &format!(
+            "the quarter x, y ≥ 0, {} by {}, behind the TE-like mode's mirror walls",
+            common::length(across),
+            common::length(up)
+        ),
+    );
+    setup.item(
+        "grid",
+        &format!(
+            "uniform, {nx} × {ny} cells: {} by {}",
+            common::length(across / nx as f64),
+            common::length(up / ny as f64)
+        ),
+    );
+    setup.item(
+        "solver",
+        "the effective index method (Hocker & Burns), against the full-vector mode solver",
+    );
+    setup.item(
+        "tolerance",
+        &format!(
+            "{tolerance:e} on the book's {book} for the {} strip",
+            common::length(widths[2])
+        ),
+    );
+    setup.medium(
+        "silicon, oxide",
+        "constant indices, the book's (Chrostowski & Hochberg 2015, Section 3.2.5)",
+    );
+    setup.print();
     let mut checks = common::Checks::default();
     println!("220 nm strips of 3.473 in 1.444, TE-like; 2D: 6.25 x 5 nm grid");
     println!("  width   EIM n_eff  2D n_eff   error    EIM n_g  2D n_g   error");
-    for width in [0.40, 0.45, 0.50, 0.55, 0.60] {
-        let ridge = Ridge::strip(1.444, 3.473, 1.444, Length::nm(220.0), Length::um(width))?;
+    for width in widths {
+        let ridge = Ridge::strip(
+            CLAD,
+            CORE,
+            CLAD,
+            Length::nm(THICKNESS_NM),
+            Length::um(width),
+        )?;
         let eim: Vec<f64> = wavelengths
             .iter()
             .map(|&l| ridge.mode(Polarization::Te, l).map(|m| m.effective_index))
@@ -78,9 +155,9 @@ pub fn main() -> photonoxide::Result<ExitCode> {
             ng_full,
             100.0 * (ng_eim / ng_full - 1.0)
         );
-        if width == 0.50 {
+        if width == widths[2] {
             // printed to 3 decimals, from the rounded slab index and a 10 nm mesh (see above)
-            checks.compare("EIM n_eff, 500 nm strip", eim[1], 2.489, 1e-3);
+            checks.compare("EIM n_eff, 500 nm strip", eim[1], book, tolerance);
         }
     }
     Ok(checks.finish())

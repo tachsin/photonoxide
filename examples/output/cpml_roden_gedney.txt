@@ -1,3 +1,13 @@
+Setup
+  shapes:
+    on the middle plane along z: a perfectly conducting plate of 100 × 25 cells, 100 × 25 mm
+  medium: soil filling the lattice, ε 7.73, σ 0.273 S/m
+  source: E_z at the plate's corner, a differentiated Gaussian of width 0.72/(π · 6 GHz), delayed 4 widths; E_z probed one cell above the opposite corner
+  window: the plate and 3 cells beyond it, inside a CPML of 10 cells; the reference 40 cells larger on every side
+  grid: cubic cells of 1 mm, Courant number 0.99, 2000 steps
+  solver: 3D FDTD; the CPML of order 4: σ 0.7 σ_opt, κ 11, α 0 S/m (traditional) and σ 1.1 σ_opt, κ 7, α 0.05 S/m (complex-frequency-shifted)
+  tolerance: 5 dB on each largest error and on the gain (read off contour plots)
+
 Roden and Gedney's plate in soil: 1 mm cells, CPML of 10 cells 3 cells from it
 126 x 51 x 26 cells; reference 206 x 131 x 106 (40 more on every side), 2000 steps
 sigma_opt = 3.8163 S/m (their Eq. 15)

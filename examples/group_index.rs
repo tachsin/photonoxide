@@ -53,14 +53,25 @@ fn silicon() -> photonoxide::Result<Material> {
     )
 }
 
+/// The oxide's index, the book's, and the silicon film's thickness.
+const OXIDE: f64 = 1.444;
+const THICKNESS_NM: f64 = 220.0;
+
+/// The quarter of the window, x, y ≥ 0: its width and cells across, its height and cells up.
+const QUARTER: (f64, usize, f64, usize) = (1.05, 168, 0.75, 150);
+
+/// The tolerance on n_g: the plot's reading (±0.005), the book's 20 nm mesh and our corners.
+const TOLERANCE: f64 = 0.02;
+
 /// The quarter x, y ≥ 0 of a strip `width` µm wide and 220 nm thick, centred at the origin, on a
 /// 6.25 × 5 nm grid in a 1.05 × 0.75 µm window: an electric wall at x = 0 and a magnetic wall at
 /// y = 0 keep the TE-like modes.
 fn strip(si: &Material, width: f64, wavelength: Wavelength) -> photonoxide::Result<CrossSection> {
     let eps_si = si.permittivity(wavelength)?;
-    let eps_ox = c64::new(1.444 * 1.444, 0.0);
-    CrossSection::uniform((0.0, 1.05, 168), (0.0, 0.75, 150), |x, y| {
-        let core = x < width / 2.0 && y < 0.11;
+    let eps_ox = c64::new(OXIDE * OXIDE, 0.0);
+    let (across, nx, up, ny) = QUARTER;
+    CrossSection::uniform((0.0, across, nx), (0.0, up, ny), |x, y| {
+        let core = x < width / 2.0 && y < THICKNESS_NM / 2000.0;
         Permittivity::isotropic(if core { eps_si } else { eps_ox })
     })?
     .with_boundaries(Boundaries {
@@ -76,8 +87,6 @@ pub fn main() -> photonoxide::Result<ExitCode> {
         .iter()
         .map(|&l| Wavelength::um(l))
         .collect::<photonoxide::Result<Vec<_>>>()?;
-    println!("220 nm strips of the book's Si in 1.444 oxide, 6.25 x 5 nm grid, quarter domain");
-    let mut checks = common::Checks::default();
     let strips = [
         (0.40, 4.37),
         (0.45, 4.27),
@@ -85,6 +94,63 @@ pub fn main() -> photonoxide::Result<ExitCode> {
         (0.55, 4.10),
         (0.60, 4.04),
     ];
+    let (across, nx, up, ny) = QUARTER;
+    let mut setup = common::Setup::new();
+    let at = wavelengths[1];
+    let n_si = si.refractive_index(at)?.re;
+    setup.layer("cladding", None, "oxide", &common::n(OXIDE));
+    setup.layer(
+        "core",
+        Some(THICKNESS_NM / 1000.0),
+        &format!("{} in the strip, oxide beside it", si.name()),
+        &format!("{}; {}", common::n(n_si), common::n(OXIDE)),
+    );
+    setup.layer("substrate", None, "oxide", &common::n(OXIDE));
+    setup.shape(
+        "core",
+        &format!(
+            "strip centred at x = 0, {} µm wide",
+            strips.map(|s| common::number(s.0)).join(", ")
+        ),
+    );
+    setup.item(
+        "wavelengths",
+        &format!(
+            "{} µm, the TE-like mode tracked over them (n_g by central differences)",
+            wavelengths
+                .iter()
+                .map(|l| common::number(l.to_um()))
+                .collect::<Vec<_>>()
+                .join(", ")
+        ),
+    );
+    setup.item(
+        "window",
+        &format!(
+            "the quarter x, y ≥ 0, {} by {}, an electric wall at x = 0 and a magnetic wall at \
+             y = 0",
+            common::length(across),
+            common::length(up)
+        ),
+    );
+    setup.item(
+        "grid",
+        &format!(
+            "uniform, {nx} × {ny} cells: {} by {}",
+            common::length(across / nx as f64),
+            common::length(up / ny as f64)
+        ),
+    );
+    setup.item("solver", "the full-vector finite-difference mode solver");
+    setup.item(
+        "tolerance",
+        &format!("{TOLERANCE} on n_g, read off the book's Fig. 3.22b"),
+    );
+    setup.material(&si, at);
+    setup.medium("oxide", "a constant index, the book's 1.444");
+    setup.print();
+    println!("220 nm strips of the book's Si in 1.444 oxide, 6.25 x 5 nm grid, quarter domain");
+    let mut checks = common::Checks::default();
     // each width's mode tracked over the wavelengths, the widths side by side, then printed in
     // order
     let tracked = photonoxide::parallel::map_in_order(&strips, |&(width, _)| {
@@ -104,7 +170,7 @@ pub fn main() -> photonoxide::Result<ExitCode> {
             &format!("n_g at 1.55 um, {:.0} nm wide", width * 1000.0),
             ng,
             printed,
-            0.02,
+            TOLERANCE,
         );
     }
     Ok(checks.finish())

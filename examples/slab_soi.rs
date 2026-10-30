@@ -17,8 +17,27 @@ use photonoxide::mode::slab::Slab;
 use photonoxide::units::{Length, Wavelength};
 
 pub fn main() -> ExitCode {
-    let slab = Slab::new(1.444, 3.473, 1.444, Length::nm(220.0)).expect("a valid slab");
+    // the book's indices, oxide below and above the silicon film
+    let (below, core, above, thickness) = (1.444, 3.473, 1.444, Length::nm(220.0));
+    let slab = Slab::new(below, core, above, thickness).expect("a valid slab");
     let wavelength = Wavelength::um(1.55).expect("a valid wavelength");
+    let tolerance = 5e-4;
+    let mut setup = common::Setup::new();
+    setup.layer("cladding", None, "oxide", &common::n(above));
+    setup.layer("film", Some(thickness.to_um()), "silicon", &common::n(core));
+    setup.layer("substrate", None, "oxide", &common::n(below));
+    setup.wavelength(wavelength);
+    setup.item("grid", "none: the slab's modes found exactly");
+    setup.item("solver", "the slab's dispersion relation, its roots");
+    setup.item(
+        "tolerance",
+        &format!("{tolerance:e} absolute (the book prints 3 decimals)"),
+    );
+    setup.medium(
+        "silicon, oxide",
+        "constant indices, the book's (Chrostowski & Hochberg 2015, Section 3.2.2)",
+    );
+    setup.print();
     println!(
         "220 nm of 3.473 in 1.444 at 1550 nm (Chrostowski & Hochberg, Section 3.2.2), exact: no grid"
     );
@@ -32,7 +51,7 @@ pub fn main() -> ExitCode {
             Polarization::Te => "TE",
             Polarization::Tm => "TM",
         };
-        checks.compare(&format!("{label}0 effective index"), n, printed, 5e-4);
+        checks.compare(&format!("{label}0 effective index"), n, printed, tolerance);
     }
     checks.finish()
 }

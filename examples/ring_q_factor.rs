@@ -35,9 +35,18 @@ use photonoxide::circuit::{Component, Fidelity};
 use photonoxide::device::{StripRing, Values};
 use photonoxide::units::Wavelength;
 
+/// The guide's loss, dB/cm, its indices at 1.55 µm, and the fixed loss per round trip (the
+/// bends' and couplers'), dB: the all-pass ring's and the add-drop ring's.
+const LOSS: f64 = 2.7;
+const INDEX: f64 = 2.4;
+const GROUP_INDEX: f64 = 4.30;
+const FIXED: (f64, f64) = (0.075, 0.11);
+/// The lengths searched, µm.
+const LENGTHS: (f64, f64) = (1e3, 3e4);
+
 /// The single-pass amplitude of a ring `length` µm round losing 2.7 dB/cm and `fixed` dB.
 fn single_pass(length: f64, fixed: f64) -> f64 {
-    10f64.powf(-(2.7 * length * 1e-4 + fixed) / 20.0)
+    10f64.powf(-(LOSS * length * 1e-4 + fixed) / 20.0)
 }
 
 /// The length (µm) in [lo, hi] where `f` peaks, by golden-section search, and the peak.
@@ -92,30 +101,68 @@ pub fn main() -> photonoxide::Result<ExitCode> {
     let l0 = Wavelength::um(1.55)?;
     // the ring devices on the paper's guide: its indices stated, its 2.7 dB/cm the devices'
     // default loss, and the fixed loss per round trip
-    let guide = Dispersion::new(l0, 2.4, 4.30);
+    let guide = Dispersion::new(l0, INDEX, GROUP_INDEX);
     let ring = |device: StripRing, extra: f64| -> photonoxide::Result<(StripRing, Values)> {
         let device = device.with_guide(guide);
         let values = Values::new(&device, &[("round_trip_loss", extra)])?;
         Ok((device, values))
     };
-    let (device, values) = ring(StripRing::all_pass(), 0.075)?;
-    let all_pass: AllPassRing = device.all_pass_ring(&values, Fidelity::Analytic)?;
-    let (device, values) = ring(StripRing::add_drop(), 0.11)?;
-    let add_drop: AddDropRing = device.add_drop_ring(&values, Fidelity::Analytic)?;
     let r2: f64 = 0.99;
+    // the best lengths (mm) and the ratio of the peak Qs: their tolerances
+    let tolerances = (1.0, 0.5, 0.0075);
+    let mut setup = common::Setup::new();
+    let (device, values) = ring(StripRing::all_pass(), FIXED.0)?;
+    setup.part("the all-pass ring");
+    setup.parameters(&device, &values);
+    let all_pass: AllPassRing = device.all_pass_ring(&values, Fidelity::Analytic)?;
+    let (device, values) = ring(StripRing::add_drop(), FIXED.1)?;
+    setup.part("the add-drop ring");
+    setup.parameters(&device, &values);
+    setup.item("its drop side", &format!("r₂ = {r2}"));
+    let add_drop: AddDropRing = device.add_drop_ring(&values, Fidelity::Analytic)?;
+    setup.part("both");
+    setup.item(
+        "the guide",
+        &format!("stated: n_eff {INDEX}, n_g {GROUP_INDEX} at 1.55 µm, {LOSS} dB/cm"),
+    );
+    setup.wavelength(l0);
+    setup.item(
+        "lengths",
+        &format!(
+            "searched from {} to {} mm, at critical coupling",
+            common::number(LENGTHS.0 / 1e3),
+            common::number(LENGTHS.1 / 1e3)
+        ),
+    );
+    setup.item(
+        "grid",
+        "none: the analytic fidelity, Bogaerts et al.'s Eqs. 19 to 22, exact",
+    );
+    setup.item(
+        "solver",
+        "golden-section search for the best length; bisection for the measured width",
+    );
+    setup.item(
+        "tolerance",
+        &format!(
+            "{} mm and {} mm in the best lengths, {} in the ratio of the peak Qs",
+            tolerances.0, tolerances.1, tolerances.2
+        ),
+    );
+    setup.print();
     // critical coupling: r = a, so k² = 1 − a²; r₁ = r₂a, so k₁² = 1 − r₂²a²
     let q_all_pass = |l: f64| {
-        let a = single_pass(l, 0.075);
+        let a = single_pass(l, FIXED.0);
         all_pass.q_factor(l0, &[l, 1.0 - a * a]).unwrap_or(f64::NAN)
     };
     let q_add_drop = |l: f64| {
-        let a = single_pass(l, 0.11);
+        let a = single_pass(l, FIXED.1);
         add_drop
             .q_factor(l0, &[l, 1.0 - (r2 * a).powi(2), 1.0 - r2 * r2])
             .unwrap_or(f64::NAN)
     };
-    let (la, qa) = peak(q_all_pass, 1e3, 3e4);
-    let (ld, qd) = peak(q_add_drop, 1e3, 3e4);
+    let (la, qa) = peak(q_all_pass, LENGTHS.0, LENGTHS.1);
+    let (ld, qd) = peak(q_add_drop, LENGTHS.0, LENGTHS.1);
     println!("Bogaerts's Eqs. 19-22 at critical coupling, 2.7 dB/cm, exact: no grid");
     println!(
         "  all-pass: Q peaks at {:.3} mm, {qa:.4e} with n_g 4.30",
@@ -127,13 +174,18 @@ pub fn main() -> photonoxide::Result<ExitCode> {
     );
     let mut checks = common::Checks::default();
     // "approximately 10 mm" and "almost 13 mm"
-    checks.compare("all-pass, best length (mm)", la / 1e3, 10.0, 1.0);
-    checks.compare("add-drop, best length (mm)", ld / 1e3, 12.5, 0.5);
+    checks.compare("all-pass, best length (mm)", la / 1e3, 10.0, tolerances.0);
+    checks.compare("add-drop, best length (mm)", ld / 1e3, 12.5, tolerances.1);
     // 1.42/1.36, each to three digits: ±0.005 in each
-    checks.compare("peak Q, all-pass over add-drop", qa / qd, 1.0441, 0.0075);
+    checks.compare(
+        "peak Q, all-pass over add-drop",
+        qa / qd,
+        1.0441,
+        tolerances.2,
+    );
 
     // the all-pass ring at its best length, from its spectrum: the FWHM measured, not Eq. 7
-    let kappa2 = 1.0 - single_pass(la, 0.075).powi(2);
+    let kappa2 = 1.0 - single_pass(la, FIXED.0).powi(2);
     let values = [la, kappa2];
     let centre = all_pass.resonance(l0, la)?;
     let fsr = all_pass.fsr(centre, la)?;

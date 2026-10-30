@@ -73,16 +73,28 @@ const CPML: f64 = 1.5;
 /// The box about the bump: x and y extents.
 const BOX_X: (f64, f64) = (1.25, 3.25);
 const BOX_Y: (f64, f64) = (-1.0, 1.5);
+/// The guide's width and length (a).
+const GUIDE: (f64, f64) = (1.0, 100.0);
+/// The pulse's carrier (c/a) and relative width, the Courant number, and the decay that ends a
+/// run: the fraction, how often it's checked and the longest run (a/c).
+const CARRIER: f64 = 0.2;
+const WIDTH: f64 = 0.1;
+const COURANT: f64 = 0.9;
+const DECAY: (f64, f64, f64) = (1e-11, 10.0, 2000.0);
+/// The resolutions, pixels a: from, to, step.
+const RESOLUTIONS: (usize, usize, usize) = (10, 30, 2);
+/// The tolerances on the orders: smoothed (2), sampled (1).
+const TOLERANCES: (f64, f64) = (0.6, 0.5);
 
 /// The structure, with or without the bump.
 fn structure(bump: bool) -> Structure {
     let um = |v: f64| Length::um(v);
     let core = Permittivity::isotropic(CORE).expect("the core");
-    let guide = Shape::rect(Point::um(0.0, 0.0), um(100.0), um(1.0)).expect("the guide");
+    let guide = Shape::rect(Point::um(0.0, 0.0), um(GUIDE.1), um(GUIDE.0)).expect("the guide");
     let s = Structure::new(Permittivity::isotropic(1.0).expect("air"))
         .with(Body::extruded(guide), core);
     if bump {
-        let disc = Shape::circle(Point::um(BUMP, 0.5), um(RADIUS)).expect("the bump");
+        let disc = Shape::circle(Point::um(BUMP, GUIDE.0 / 2.0), um(RADIUS)).expect("the bump");
         s.with(Body::extruded(disc), core)
     } else {
         s
@@ -126,12 +138,12 @@ fn scattered(resolution: usize, smoothed: bool) -> f64 {
     } else {
         Smoothing::with(Average::Sampled)
     };
-    let frequency = Frequency::natural(0.2).expect("0.2 c/a");
-    let pulse = Waveform::pulse(frequency, 0.1).expect("the pulse");
+    let frequency = Frequency::natural(CARRIER).expect("0.2 c/a");
+    let pulse = Waveform::pulse(frequency, WIDTH).expect("the pulse");
     let (x0, x1) = (node(BOX_X.0, grid.x0), node(BOX_X.1, grid.x0));
     let (y0, y1) = (node(BOX_Y.0, grid.y0), node(BOX_Y.1, grid.y0));
     let fields = |bump: bool| {
-        let mut s = Simulation::smoothed(grid, &structure(bump), smoothing, boundaries, 0.9)
+        let mut s = Simulation::smoothed(grid, &structure(bump), smoothing, boundaries, COURANT)
             .expect("the cell");
         let axis = node(0.0, grid.y0);
         s.add_source(Source {
@@ -153,7 +165,7 @@ fn scattered(resolution: usize, smoothed: bool) -> f64 {
             .add_probe(Field::E, Axis::Z, (x1 + 1, axis, 0))
             .expect("the probe");
         let decayed = s
-            .run_until_decayed(&[probe], 1e-11, 10.0, 2000.0)
+            .run_until_decayed(&[probe], DECAY.0, DECAY.1, DECAY.2)
             .expect("the run");
         assert!(decayed, "the field didn't decay");
         let spectrum = pulse.spectrum(Field::E, s.dt(), s.steps(), frequency);
@@ -209,6 +221,65 @@ fn rounded(v: f64, digits: i32) -> f64 {
 
 pub fn main() -> ExitCode {
     let reference_resolution = 50;
+    let mut setup = common::Setup::new();
+    setup.item("medium", "air, ε 1, in 2D (a = 1 µm)");
+    setup.shape(
+        "the plane",
+        &format!(
+            "a guide of {} along x, {} wide, centred on y = 0; a disc of radius {} centred \
+             on its upper edge at x = {}: a half disc on the guide",
+            common::eps(CORE),
+            common::length(GUIDE.0),
+            common::length(RADIUS),
+            common::length(BUMP)
+        ),
+    );
+    setup.item(
+        "source",
+        &format!(
+            "a dipole of E_z on the guide's axis at x = {}, a pulse at {CARRIER} c/a, relative \
+             width {WIDTH}",
+            common::length(DIPOLE)
+        ),
+    );
+    setup.item(
+        "window",
+        &format!(
+            "x {} to {} µm, y {} to {} µm inside CPMLs of {}; the scattered flux out of the box \
+             x {} to {} µm, y {} to {} µm",
+            X.0,
+            X.1,
+            Y.0,
+            Y.1,
+            common::length(CPML),
+            BOX_X.0,
+            BOX_X.1,
+            BOX_Y.0,
+            BOX_Y.1
+        ),
+    );
+    setup.item(
+        "grid",
+        &format!(
+            "{} to {} pixels a, every {}; the reference smoothed at {reference_resolution}; \
+             Courant number {COURANT}; each run until E_z decays to {:e}",
+            RESOLUTIONS.0, RESOLUTIONS.1, RESOLUTIONS.2, DECAY.0
+        ),
+    );
+    setup.item(
+        "solver",
+        "2D FDTD, with subpixel smoothing and with ε sampled; the scattering, the difference of \
+         runs with and without the bump",
+    );
+    setup.item(
+        "tolerance",
+        &format!(
+            "{} on the smoothed order (2), {} on the sampled one (1); smoothing better at every \
+             resolution",
+            TOLERANCES.0, TOLERANCES.1
+        ),
+    );
+    setup.print();
     println!("Oskooi et al.'s Fig. 7: a half disc of radius 0.25a on a guide of eps = 12, a wide,");
     println!("E_z from a dipole 4.5a from it, f = 0.2 c/a; the scattered field's flux out of a");
     println!("2a x 2.5a box about the bump, per unit dipole moment (a = 1 um)");
@@ -219,7 +290,7 @@ pub fn main() -> ExitCode {
     );
     println!("pixels/a   smoothed: power, error   no smoothing: power, error");
     let (mut smoothed, mut sampled) = (Vec::new(), Vec::new());
-    for r in (10..=30).step_by(2) {
+    for r in (RESOLUTIONS.0..=RESOLUTIONS.1).step_by(RESOLUTIONS.2) {
         let (s, u) = (scattered(r, true), scattered(r, false));
         let (es, eu) = (
             (s - reference).abs() / reference,
@@ -243,13 +314,13 @@ pub fn main() -> ExitCode {
         "order, smoothed (least squares)",
         rounded(-slope(&smoothed), 3),
         2.0,
-        0.6,
+        TOLERANCES.0,
     );
     checks.compare(
         "order, no smoothing (least squares)",
         rounded(-slope(&sampled), 3),
         1.0,
-        0.5,
+        TOLERANCES.1,
     );
     // smoothing is the more accurate at every resolution, as in Fig. 7
     let below = smoothed

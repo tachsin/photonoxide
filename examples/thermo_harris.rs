@@ -50,10 +50,43 @@ fn printed(tolerance: f64) -> f64 {
     (tolerance * 1e3).round() / 1e3
 }
 
+/// The tolerances: P_π (mW, 10 % and the measurement's uncertainty) and the −3 dB frequency
+/// (kHz, 20 % and its uncertainty) against the measurement; the analytic model against the 2D,
+/// and the 2D grid's, relative.
+const P_PI: f64 = 2.9;
+const F_3DB: f64 = 32.0;
+const ANALYTIC: f64 = 0.15;
+const GRID: f64 = 0.01;
+
 pub fn main() -> photonoxide::Result<ExitCode> {
-    let mut checks = common::Checks::default();
     let d = ThermoShifter::in_guide();
     let v = Values::defaults(&d);
+    let lam = photonoxide::units::Wavelength::um(1.55)?;
+    let mut setup = common::Setup::new();
+    setup.device(&d, &v, lam);
+    setup.wavelength(lam);
+    setup.item(
+        "grid",
+        "the 2D model's own grids, and grids twice as fine (the gate); the analytic model's \
+         closed forms",
+    );
+    setup.item(
+        "solver",
+        "current continuity for the heat, the static (heat) solver's rise, the full-vector \
+         mode's perturbation (2D); the silicon as a fin and the oxide's spreading closed by a \
+         slab (analytic); the paper's measurements (measured)",
+    );
+    setup.item(
+        "tolerance",
+        &format!(
+            "{P_PI} mW on P_π and {F_3DB} kHz on f_3dB against the measurement; the analytic \
+             within {} % of the 2D; the 2D grid within {} %",
+            common::number(100.0 * ANALYTIC),
+            common::number(100.0 * GRID)
+        ),
+    );
+    setup.print();
+    let mut checks = common::Checks::default();
     println!(
         "Harris et al. 2014's in-guide heater through photonoxide's in-guide thermo-optic phase \
          shifter device, at 1550 nm, 61.6 um long"
@@ -80,22 +113,22 @@ pub fn main() -> photonoxide::Result<ExitCode> {
     let c = Study::new("P_pi (mW)")
         .on(0.02, p1)?
         .on(0.01, p2)?
-        .check(printed(0.01 * p2))?;
+        .check(printed(GRID * p2))?;
     checks.converged("2D P_pi on grids 1 and 1/2, mW", &c);
     let c = Study::new("f_3dB (kHz)")
         .on(0.02, f1)?
         .on(0.01, f2)?
-        .check(printed(0.01 * f2))?;
+        .check(printed(GRID * f2))?;
     checks.converged("2D f_3dB on grids 1 and 1/2, kHz", &c);
     // 10% and the uncertainty, 2.9 mW; 20% and the uncertainty, 32 kHz
-    checks.compare("2D P_pi, mW (measured)", p2, 24.77, 2.9);
-    checks.compare("2D f_3dB, kHz (measured)", f2, 130.0, 32.0);
+    checks.compare("2D P_pi, mW (measured)", p2, 24.77, P_PI);
+    checks.compare("2D f_3dB, kHz (measured)", f2, 130.0, F_3DB);
     checks.against(
         "analytic P_pi, mW",
         figures[0],
         "2D",
         figures[1],
-        printed(0.15 * figures[1]),
+        printed(ANALYTIC * figures[1]),
     );
     Ok(checks.finish())
 }

@@ -73,6 +73,13 @@ const SITES: [i64; 2] = [10, 7];
 const MATERIALS: f64 = 1.57;
 /// The resonances Fig. 4a shows, µm.
 const MEASURED: [f64; 2] = [1.565, 1.580];
+/// The CPMLs' cells, and the air above and below the slab (over a).
+const PML: usize = 12;
+const AIR: f64 = 0.7;
+/// The pulse's centre and width, a/λ, and the Courant number.
+const CENTRE: f64 = 0.264;
+const WIDTH: f64 = 0.04;
+const COURANT: f64 = 0.9;
 
 fn um(v: f64) -> Length {
     Length::um(v)
@@ -153,13 +160,13 @@ fn geometry() -> photonoxide::Result<(f64, usize, usize)> {
 /// Q and the grid.
 fn resonance(shift: f64, cells: usize, record: f64) -> photonoxide::Result<(f64, f64, Grid3d)> {
     let h = A / cells as f64;
-    let pml = 12;
+    let pml = PML;
     let row = A * 3f64.sqrt() / 2.0;
     // the lattice and a lattice constant beyond, a·0.7 of air above and below, then the CPMLs
     let span = [
         2.0 * (SITES[0] as f64 + 1.0) * A,
         2.0 * (SITES[1] as f64 + 1.0) * row,
-        (T + 1.4) * A,
+        (T + 2.0 * AIR) * A,
     ];
     let n = span.map(|s| (s / h).round() as usize + 2 * pml);
     let grid = Grid3d {
@@ -184,9 +191,10 @@ fn resonance(shift: f64, cells: usize, record: f64) -> photonoxide::Result<(f64,
         diameter: 1.0,
         coupling: Coupling::Diagonal,
     };
-    let mut sim = Simulation::smoothed(grid, &structure, smoothing, Boundaries::cpml(pml), 0.9)?;
-    let centre = 0.264 / A;
-    let pulse = Waveform::pulse(Frequency::natural(centre)?, 0.04 / A)?;
+    let mut sim =
+        Simulation::smoothed(grid, &structure, smoothing, Boundaries::cpml(pml), COURANT)?;
+    let centre = CENTRE / A;
+    let pulse = Waveform::pulse(Frequency::natural(centre)?, WIDTH / A)?;
     let Waveform::Gaussian { delay, width, .. } = pulse else {
         unreachable!("a pulse is a Gaussian")
     };
@@ -237,6 +245,78 @@ fn resonance(shift: f64, cells: usize, record: f64) -> photonoxide::Result<(f64,
 
 pub fn main() -> photonoxide::Result<ExitCode> {
     let full = std::env::args().any(|a| a == "--full");
+    let cells: &[usize] = if full { &[12, 16] } else { &[8] };
+    let record = if full { 1000.0 } else { 300.0 };
+    // the measured span widened by 1.5 % (12 cells and more) or 2 %; Q's rise and Q within a
+    // factor of 2; the body's volume
+    let (widened, factor, volume_tolerance) = ((0.015, 0.02), 1.0, 1e-7);
+    let lambda = Wavelength::um(MATERIALS)?;
+    let si = material::silicon();
+    let mut setup = common::Setup::new();
+    let index = si.refractive_index(lambda)?.re;
+    setup.layer("cladding", None, "air", &common::n(1.0));
+    setup.layer(
+        "slab",
+        Some(T * A),
+        &format!("{} less its holes (air)", si.name()),
+        &common::n(index),
+    );
+    setup.layer("substrate", None, "air", &common::n(1.0));
+    setup.shape(
+        "slab",
+        &format!(
+            "a triangular lattice of a = {}, holes of radius {} ({R}a), {} × {} sites less \
+             three in a row (L3); the end holes moved out by 0 and {SHIFT}a",
+            common::length(A),
+            common::length(R * A),
+            2 * SITES[0] + 1,
+            2 * SITES[1] + 1
+        ),
+    );
+    setup.item(
+        "wavelength",
+        &format!(
+            "silicon taken at {MATERIALS} µm; the pulse at a/λ = {CENTRE} ± {WIDTH}, an E_y \
+             current at the centre"
+        ),
+    );
+    setup.item(
+        "window",
+        &format!(
+            "the lattice and a lattice constant beyond, {AIR}a of air above and below, CPMLs of \
+             {PML} cells"
+        ),
+    );
+    setup.item(
+        "grid",
+        &format!(
+            "{} cells a lattice constant, subpixel smoothing (diagonal), Courant number \
+             {COURANT}; the record {record} µm/c after the pulse",
+            cells
+                .iter()
+                .map(|n| n.to_string())
+                .collect::<Vec<_>>()
+                .join(" and ")
+        ),
+    );
+    setup.item(
+        "solver",
+        "3D FDTD; the mode's frequency and Q by harmonic inversion",
+    );
+    setup.item(
+        "tolerance",
+        &format!(
+            "the measured {} to {} µm widened by {} % ({} % at 12 cells and more); Q's rise and \
+             the shifted Q within a factor of {}; the body's volume to {volume_tolerance:e}",
+            MEASURED[0],
+            MEASURED[1],
+            common::number(100.0 * widened.1),
+            common::number(100.0 * widened.0),
+            2f64.powf(factor)
+        ),
+    );
+    setup.material(&si, lambda);
+    setup.print();
     println!(
         "Akahane et al.'s L3 cavity: a = {A} um, slab {T}a, holes of radius {R}a, {} x {} sites, \
          the end holes moved by 0 and {SHIFT}a",
@@ -249,10 +329,14 @@ pub fn main() -> photonoxide::Result<ExitCode> {
         "the cavity as one body (exact: no grid): its volume from its fills over a/4 cells \
          {volume:.1e} off T(|A| - N pi r^2); {wrong} of {points} points on the wrong side"
     );
-    checks.against("volume, relative difference", volume, "fills", 0.0, 1e-7);
+    checks.against(
+        "volume, relative difference",
+        volume,
+        "fills",
+        0.0,
+        volume_tolerance,
+    );
     checks.count("points on the wrong side", wrong, 0);
-    let cells: &[usize] = if full { &[12, 16] } else { &[8] };
-    let record = if full { 1000.0 } else { 300.0 };
     let middle = 0.5 * (MEASURED[0] + MEASURED[1]);
     for &n in cells {
         let (f0, q0, grid) = resonance(0.0, n, record)?;
@@ -277,7 +361,7 @@ pub fn main() -> photonoxide::Result<ExitCode> {
             q1 / q0
         );
         // the measured span, widened by the fabricated holes' and slab's uncertainty and the grid
-        let widened = if n >= 12 { 0.015 } else { 0.02 };
+        let widened = if n >= 12 { widened.0 } else { widened.1 };
         let tolerance = 0.5 * (MEASURED[1] - MEASURED[0]) + widened * middle;
         checks.compare(
             &format!("lambda unshifted (um), {n} cells"),
@@ -296,13 +380,13 @@ pub fn main() -> photonoxide::Result<ExitCode> {
             &format!("log2 of Q's rise, {n} cells"),
             (q1 / q0).log2(),
             10f64.log2(),
-            1.0,
+            factor,
         );
         checks.compare(
             &format!("log2 of Q shifted, {n} cells"),
             q1.log2(),
             45000f64.log2(),
-            1.0,
+            factor,
         );
     }
     Ok(checks.finish())

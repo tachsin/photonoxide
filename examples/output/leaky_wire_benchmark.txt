@@ -1,3 +1,20 @@
+Setup
+  (layers from the top down: the bottom one, the substrate, is the first laid down)
+  layers:
+    cladding       half-space   air, n 1.000000
+    wire           220 nm       silicon in the wire, air beside it, n 3.500000; n 1.000000
+    oxide          1 µm         oxide, n 1.450000
+    substrate      half-space   silicon, n 3.500000
+  shapes:
+    on wire: the wire centred at x = 0, 500 nm wide
+  wavelength: 1.55 µm
+  window: the right half, x 0 to 1.6 µm from an electric wall at the centre; y -2.6 to 1.5 µm from the oxide's top; a PML of 1 µm in the substrate's bottom, strength 3
+  grid: graded: 5, 2.5, 1.25 nm in the core's box (x 0 to 0.35 µm, y -0.1 to 0.32 µm), at most 12.5 nm away from it; Richardson-extrapolated
+  solver: the full-vector finite-difference mode solver, TE
+  tolerance: 2e-4 in Re n_eff, 0.06 in Im n_eff × 1e8 (2 %)
+  materials:
+    silicon, oxide, air: constant indices, the benchmark's (Bienstman et al. 2006)
+
 Bienstman et al.'s leaky wire, TE; reference (CAMFR) 2.412372 + 2.9135e-8i
   core grid 5.00 nm (212 x 485 nodes): 2.416406 + 2.8219e-8i, Re error +4.03e-3, Im / reference 0.9686
   core grid 2.50 nm (318 x 640 nodes): 2.414878 + 2.8583e-8i, Re error +2.51e-3, Im / reference 0.9811

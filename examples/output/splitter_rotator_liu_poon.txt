@@ -1,3 +1,31 @@
+Setup
+  (layers from the top down: the bottom one, the substrate, is the first laid down)
+  layers:
+    cladding       half-space   the upper cladding, ε 4
+    silicon 1      220 nm       Si in its shapes, the cladding elsewhere (from z = 0), n 3.475700
+    buried oxide   half-space   SiO2, below z = 0, n 1.444024
+  shapes:
+    on silicon 1: a guide from (-59.867, 0) µm heading 0°, 540 nm wide; straight 10 µm; straight 4 µm, to 690 nm wide; straight 44 µm, to 830 nm wide; straight 1.867 µm, to 900 nm wide; straight 7 µm; straight 14.33 µm, to 540 nm wide; straight 10 µm
+    on silicon 1: a guide from (0, 0.8025) µm heading 0°, 405 nm wide; straight 7 µm; an S-bend (cubic Bézier) 14.33 µm along and 5 µm across, to 540 nm wide; straight 10 µm
+  port 1: at (-49.867, 0) µm, 540 nm wide, facing 180°, the input
+  port 2: at (21.33, 5.802) µm, 540 nm wide, facing 0°
+  port 3: at (21.33, 0) µm, 540 nm wide, facing 0°
+  modes: Tm0 launched into port 1; measured: Te0 and Tm0 at port 2; Te0 and Tm0 at port 3
+  wavelengths: the materials at 1.55 µm; a pulse at 1.55 µm, its width 0.04 c/µm; measured at 1.55 µm
+  window: x -50.867 to 22.33 µm, y -1.54 to 7.342 µm (the ports and the device, 1 µm beyond), 1 µm of cladding below and above the silicon, CPMLs of 12 cells
+  grid at 5 cells a wavelength: 845 × 124 × 49 cells of 89.2 nm (5.1 million), CPMLs of 12
+  solver: 3D FDTD, subpixel smoothing (diagonal), Courant number 0.99; the ports' modes by FDFD; until the outputs' fields decay to 1e-6 or 3000 µm/c
+  tolerance: the upper port's TE0 at 1550 nm within half the span of 0.942, 0.9425, 0.946, 0.955, 0.948, 0.9475, 0.95 plus 0.003; its TM0 crosstalk (dB) within half the span of -36.8, -41.1, -35.4, -42.6 plus 0.5; at 5 cells, plus how far the codes stray at 6 (0.147, 0.051)
+  materials:
+    Si: a table of 35 wavelengths, 1.2 to 14 µm, between them natural cubic splines; valid 1.2 to 14 µm
+      source: H. H. Li, J. Phys. Chem. Ref. Data 9, 561 (1980), doi:10.1063/1.555624, at 293 K
+      crystalline silicon; Table 1, 293 K, checked against the paper; uncertainty ±2e-3 (Li)
+      n 3.475700 at 1.55 µm
+    SiO2: Sellmeier, n² = A + Σ Bλ²/(λ² − C²), A = 1, B = 0.6961663, 0.4079426, 0.8974794, C = 0.0684043, 0.1162414, 9.896161 µm; valid 0.21 to 3.71 µm
+      source: I. H. Malitson, J. Opt. Soc. Am. 55, 1205 (1965), doi:10.1364/JOSA.55.001205, at 293.15 K
+      fused silica, Eq. (1), checked against the paper; fit residual 10.5e-6 on average; thermal and deposited oxides differ slightly
+      n 1.444024 at 1.55 µm
+
 Liu and Poon's polarization splitter-rotator (gdsfactory's generic PDK), 3D FDTD, TM0 into the input; silicon nitride (n = 2.0) above, materials at 1.55 um
 5 cells a wavelength: 845 × 124 × 49 cells of 89.2 nm (5.1 million), CPMLs of 12
   wavelength  upper TE0  upper TM0 (crosstalk)  lower TE0  lower TM0  reflection

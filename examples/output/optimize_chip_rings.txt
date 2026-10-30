@@ -1,3 +1,36 @@
+Setup
+  (layers from the top down: the bottom one, the substrate, is the first laid down)
+  the buses' couplers, c0 and c2:
+    layers:
+      cladding       half-space   SiO2, n 1.444024
+      Si             220 nm       Si, n 3.475700 in its shapes; SiO2, n 1.444024 elsewhere
+      BOX            2 µm         SiO2, n 1.444024
+      substrate      half-space   Si, n 3.475700
+    shapes:
+      on Si: rectangle centred at (0.3740309, -0.35) µm, 748.0617 nm along x by 500 nm along y
+      on Si: rectangle centred at (0.3740309, 0.35) µm, 748.0617 nm along x by 500 nm along y
+    directional coupler: width 0.5 µm, thickness 0.22 µm, slab 0 µm, sidewall 90 °, gap 0.2 µm, length 0.7480617 µm, loss 0 dB/cm, wavelength 1.55 µm, span 0.1 µm
+  the rings' coupler, c1:
+    directional coupler: width 0.5 µm, thickness 0.22 µm, slab 0 µm, sidewall 90 °, gap 0.42 µm, length 0.1 µm, loss 0 dB/cm, wavelength 1.55 µm, span 0.1 µm
+    its gap: searched, 0.3 to 0.5 µm; the first start's above
+  the rings' bends: a1 and a2 fixed, b1 and b2 searched:
+    bend: width 0.5 µm, thickness 0.22 µm, radius 10 µm, angle 180 °, loss 0 dB/cm, wavelength 1.55 µm, span 0.1 µm
+    b1, b2: as a1, of radius R₀ + u × 1e-6 µm, R₀ = 9.908713 µm, u from −200 to 200
+  the fit:
+    wavelengths: 61 from 1.549996 to 1.550004 µm
+    grid: the devices' analytic models; the circuit solve, exact
+    solver: L-BFGS-B by central differences, 3000 evaluations from each of 3 starts (gap, u₁, u₂): (0.42, 20, -15), (0.46, -10, 25), (0.44, 5, 5)
+    tolerance: 5e-4 on μ₁²/μ⁴; 1e-6 nm on the radii, alike and on resonance
+  materials:
+    SiO2: Sellmeier, n² = A + Σ Bλ²/(λ² − C²), A = 1, B = 0.6961663, 0.4079426, 0.8974794, C = 0.0684043, 0.1162414, 9.896161 µm; valid 0.21 to 3.71 µm
+      source: I. H. Malitson, J. Opt. Soc. Am. 55, 1205 (1965), doi:10.1364/JOSA.55.001205, at 293.15 K
+      fused silica, Eq. (1), checked against the paper; fit residual 10.5e-6 on average; thermal and deposited oxides differ slightly
+      n 1.444024 at 1.55 µm
+    Si: a table of 35 wavelengths, 1.2 to 14 µm, between them natural cubic splines; valid 1.2 to 14 µm
+      source: H. H. Li, J. Phys. Chem. Ref. Data 9, 561 (1980), doi:10.1063/1.555624, at 293 K
+      crystalline silicon; Table 1, 293 K, checked against the paper; uncertainty ±2e-3 (Li)
+      n 3.475700 at 1.55 µm
+
 A maximally flat filter of two rings of devices on a chip (Little et al. 1997, Table I): lossless 500 x 220 nm strips, analytic, the circuit solve, exact: no grid
   the buses' couplers 200 nm apart, 0.7481 µm long for κ_b² = 1e-3; the rings' coupler 0.1 µm long; each ring a bend of 10 µm and one of R = 9.908713 µm + u × 1e-6 µm
   variables: the rings' coupler's gap, u₁ and u₂, by central differences; fitted to 1/(1 + (δ/δ_c)⁴) at 61 wavelengths, δ_c = κ_b²/√2 = 1.0221 pm, by L-BFGS-B

@@ -74,28 +74,52 @@ pub fn main() -> photonoxide::Result<ExitCode> {
             kinds: vec![Kind::Te0],
         },
     ];
+    let resolutions = pdk::resolutions(&[15.0, 20.0], 6.0);
+    let settings = |res: f64| Setup {
+        device: &device,
+        h: pdk::step(res),
+        wavelength: 1.55,
+        input: Kind::Te0,
+        outputs: &outputs,
+        wavelengths: if res < 10.0 {
+            &[1.55]
+        } else {
+            &pdk::WAVELENGTHS
+        },
+        limit: 3000.0,
+        decay: true,
+    };
+    // both codes from 15 to 25 cells a wavelength; their values at 6 cells; the excess loss's;
+    // the band's ends at 15 cells (Fig. 12(b)); the margins
+    let settled = [0.483, 0.486, 0.489, 0.479, 0.484, 0.489];
+    let at_six = [0.376, 0.358];
+    let loss_settled = [-0.14, -0.13, -0.12, -0.155, -0.145, -0.125];
+    let ends = [[0.488, 0.4815], [0.477, 0.4724]];
+    let (margin, loss_margin) = (0.002, 0.01);
+    let mut setup = pdk::described(&settings(resolutions[0]), &resolutions);
+    setup.item(
+        "tolerance",
+        &[
+            pdk::tolerance("the cross port's TE0 at 1550 nm", &settled, margin),
+            pdk::tolerance("the excess loss (dB)", &loss_settled, loss_margin),
+            pdk::tolerance("at 15 cells, at 1540 nm", &ends[0], margin),
+            pdk::tolerance("at 1560 nm", &ends[1], margin),
+            format!(
+                "at 6 cells, plus how far the codes stray there ({})",
+                at_six.map(common::number).join(", ")
+            ),
+        ]
+        .join("; "),
+    );
+    setup.print();
     println!(
         "Liu and Poon's 2 x 2 MMI (gdsfactory's generic PDK), 3D FDTD, TE0 into the lower left \
          port; materials at 1.55 um"
     );
     let mut checks = common::Checks::default();
-    for res in pdk::resolutions(&[15.0, 20.0], 6.0) {
+    for res in resolutions {
         let coarse = res < 10.0;
-        let wavelengths: &[f64] = if coarse { &[1.55] } else { &pdk::WAVELENGTHS };
-        let m = pdk::run(
-            &Setup {
-                device: &device,
-                h: pdk::step(res),
-                wavelength: 1.55,
-                input: Kind::Te0,
-                outputs: &outputs,
-                wavelengths,
-                limit: 3000.0,
-                decay: true,
-            },
-            &mut |_| Ok(()),
-        )?
-        .measured;
+        let m = pdk::run(&settings(res), &mut |_| Ok(()))?.measured;
         pdk::report_cost("mmi_liu_poon", &m);
         println!("{res} cells a wavelength: {}", pdk::describe(&m.grid));
         println!("  wavelength  cross TE0  bar TE0   reflection  excess loss");
@@ -111,16 +135,14 @@ pub fn main() -> photonoxide::Result<ExitCode> {
         }
         let cross = m.at_1550(0, 0);
         let loss = pdk::db(cross + m.at_1550(1, 0));
-        // both codes from 15 to 25 cells a wavelength
-        let settled = [0.483, 0.486, 0.489, 0.479, 0.484, 0.489];
         if coarse {
             pdk::coarse(
                 &mut checks,
                 "cross TE0, 1550 nm, 6 cells",
                 cross,
                 &settled,
-                &[0.376, 0.358],
-                0.002,
+                &at_six,
+                margin,
             );
         } else {
             let tag = format!("{res} cells");
@@ -129,14 +151,14 @@ pub fn main() -> photonoxide::Result<ExitCode> {
                 &format!("cross TE0, 1550 nm, {tag}"),
                 cross,
                 &settled,
-                0.002,
+                margin,
             );
             pdk::within(
                 &mut checks,
                 &format!("excess loss (dB), 1550 nm, {tag}"),
                 loss,
-                &[-0.14, -0.13, -0.12, -0.155, -0.145, -0.125],
-                0.01,
+                &loss_settled,
+                loss_margin,
             );
         }
         // the band's ends, which the paper gives at 15 cells (Fig. 12(b))
@@ -145,15 +167,15 @@ pub fn main() -> photonoxide::Result<ExitCode> {
                 &mut checks,
                 "cross TE0, 1540 nm, 15 cells",
                 m.transmission[0][0][0],
-                &[0.488, 0.4815],
-                0.002,
+                &ends[0],
+                margin,
             );
             pdk::within(
                 &mut checks,
                 "cross TE0, 1560 nm, 15 cells",
                 m.transmission[4][0][0],
-                &[0.477, 0.4724],
-                0.002,
+                &ends[1],
+                margin,
             );
         }
     }

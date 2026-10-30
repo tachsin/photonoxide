@@ -22,6 +22,9 @@ use photonoxide::mode::Polarization;
 use photonoxide::mode::slab::Slab;
 use photonoxide::units::{Length, Wavelength};
 
+/// The tolerance on an effective index: the book prints 4 decimals.
+const TOLERANCE: f64 = 5e-5;
+
 /// Checks a slab's TE effective indices, and its number of guided modes of each polarization.
 fn check(
     checks: &mut common::Checks,
@@ -37,7 +40,7 @@ fn check(
             &format!("TE{} effective index", m.order()),
             m.effective_index(),
             *printed,
-            5e-5,
+            TOLERANCE,
         );
     }
     let tm = slab.modes(Polarization::Tm, wavelength).len();
@@ -45,14 +48,41 @@ fn check(
 }
 
 pub fn main() -> ExitCode {
+    // (below, film, above, thickness µm, wavelength µm): the indices of the slab's three media
+    let asymmetric = (1.0, 2.0, 1.7, 1.0, 1.0);
+    let symmetric = (1.5, 1.6, 1.5, 5.0, 1.55);
+    let mut setup = common::Setup::new();
+    for (title, (below, film, above, t, um)) in [
+        ("asymmetric slab (Section 3.2)", asymmetric),
+        ("symmetric slab (Section 3.1)", symmetric),
+    ] {
+        setup.part(title);
+        setup.layer("above", None, "medium", &common::n(above));
+        setup.layer("film", Some(t), "medium", &common::n(film));
+        setup.layer("below", None, "medium", &common::n(below));
+        setup.wavelength(Wavelength::um(um).expect("a valid wavelength"));
+    }
+    setup.part("both");
+    setup.item("grid", "none: the slab's modes found exactly");
+    setup.item(
+        "solver",
+        "the slab's dispersion relation, its roots, TE and TM",
+    );
+    setup.item(
+        "tolerance",
+        &format!("{TOLERANCE:e} absolute (the book prints 4 decimals); the mode counts exactly"),
+    );
+    setup.medium("medium", "constant indices, the book's (Yariv & Yeh 2007)");
+    setup.print();
     let mut checks = common::Checks::default();
 
     println!("asymmetric slab: n = 1.0 / 2.0 / 1.7, t = λ = 1 µm (Section 3.2), exact: no grid");
-    let slab = Slab::new(1.0, 2.0, 1.7, Length::um(1.0)).expect("a valid slab");
+    let (below, film, above, t, um) = asymmetric;
+    let slab = Slab::new(below, film, above, Length::um(t)).expect("a valid slab");
     check(
         &mut checks,
         slab,
-        Wavelength::um(1.0).expect("a valid wavelength"),
+        Wavelength::um(um).expect("a valid wavelength"),
         &[1.9594, 1.8375],
         2,
     );
@@ -60,12 +90,13 @@ pub fn main() -> ExitCode {
     println!(
         "symmetric slab: n = 1.5 / 1.6 / 1.5, d = 5 µm, λ = 1.55 µm (Section 3.1), exact: no grid"
     );
-    let slab = Slab::new(1.5, 1.6, 1.5, Length::um(5.0)).expect("a valid slab");
+    let (below, film, above, t, um) = symmetric;
+    let slab = Slab::new(below, film, above, Length::um(t)).expect("a valid slab");
     // TE_m and TM_m share the cutoff V = mπ/2: four of each at V = 5.6425 < 2π
     check(
         &mut checks,
         slab,
-        Wavelength::um(1.55).expect("a valid wavelength"),
+        Wavelength::um(um).expect("a valid wavelength"),
         &[1.5946, 1.5785, 1.5521, 1.5175],
         4,
     );

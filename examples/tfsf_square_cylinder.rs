@@ -54,6 +54,20 @@ use photonoxide::units::Frequency;
 
 /// The wavelength, µm.
 const WAVELENGTH: f64 = 1.0;
+/// At 20 cells a side, in cells: the total-field region's gap around the cylinder, the margin
+/// beyond it, the CPML; and the steps a period. They scale with the cells a side.
+const LAYOUT: (usize, usize, usize) = (5, 10, 20);
+const STEPS_PER_PERIOD: usize = 100;
+/// The continuous wave's ramp, periods.
+const RAMP: f64 = 5.0;
+/// The CPML's κ and α.
+const KAPPA: f64 = 5.0;
+const ALPHA: f64 = 0.5;
+/// The periods run before the amplitudes are read, and the periods they are read over.
+const PERIODS: (usize, usize) = (29, 3);
+/// The FD-TD's cells a side, and the moment method's pulses a side: the reference, and theirs.
+const SIDES: [usize; 2] = [20, 40];
+const PULSES: [usize; 2] = [100, 20];
 
 /// FD-TD's |J_z|/|H_xⁱ| at the middle of the lit face, a side face and the shadowed face, with
 /// `side` cells along the cylinder's side.
@@ -61,7 +75,7 @@ fn fdtd(side: usize) -> [f64; 3] {
     let half = WAVELENGTH / TAU;
     let h = 2.0 * half / side as f64;
     let scale = side / 20;
-    let (gap, margin, cpml) = (5 * scale, 10 * scale, 20 * scale);
+    let (gap, margin, cpml) = (LAYOUT.0 * scale, LAYOUT.1 * scale, LAYOUT.2 * scale);
     let edge = cpml + margin + gap;
     let n = side + 2 * edge;
     let grid = Grid3d {
@@ -77,11 +91,11 @@ fn fdtd(side: usize) -> [f64; 3] {
     };
     let mut boundaries = Boundaries::cpml_2d(cpml);
     boundaries.cpml = Cpml {
-        kappa: 5.0,
-        alpha: 0.5,
+        kappa: KAPPA,
+        alpha: ALPHA,
         ..Cpml::default()
     };
-    let steps_per_period = 100 * scale;
+    let steps_per_period = STEPS_PER_PERIOD * scale;
     let dt = WAVELENGTH / steps_per_period as f64;
     let courant = dt * 2f64.sqrt() / h;
     let mut s = Simulation::new(grid, |_, _, _| 1.0, boundaries, courant).expect("the grid");
@@ -103,7 +117,7 @@ fn fdtd(side: usize) -> [f64; 3] {
             waveform: Waveform::Continuous {
                 frequency,
                 amplitude: c64::new(1.0, 0.0),
-                ramp: 5.0 * WAVELENGTH,
+                ramp: RAMP * WAVELENGTH,
             },
         })
         .expect("the plane wave");
@@ -115,11 +129,11 @@ fn fdtd(side: usize) -> [f64; 3] {
         (Axis::Y, (first + side, middle)),
         (Axis::X, (middle, first + side)),
     ];
-    s.run(29 * steps_per_period);
+    s.run(PERIODS.0 * steps_per_period);
     let omega = frequency.angular();
     let mut amplitude = [c64::new(0.0, 0.0); 3];
     let mut incident = c64::new(0.0, 0.0);
-    for _ in 0..3 * steps_per_period {
+    for _ in 0..PERIODS.1 * steps_per_period {
         s.step();
         // H̃ is half a step behind E
         let w = c64::new(0.0, omega * (s.time() - 0.5 * s.dt())).exp();
@@ -246,12 +260,71 @@ fn moments(per: usize) -> [f64; 3] {
 }
 
 pub fn main() -> ExitCode {
+    // FD-TD at 20 cells against the figure: the reading, 0.01, plus 2 %; at 40 cells against
+    // the moment method: their ±1 %
+    let figure = [(1.750, 0.045), (0.785, 0.026)];
+    let one_percent = [0.017, 0.0077, 0.0017];
+    let mut setup = common::Setup::new();
+    let side = 2.0 * WAVELENGTH / TAU;
+    setup.item("medium", "vacuum, ε 1");
+    setup.shape(
+        "the plane",
+        &format!(
+            "a square perfectly conducting cylinder, {} a side (k₀A = 1), centred",
+            common::length(side)
+        ),
+    );
+    setup.item(
+        "source",
+        &format!(
+            "a TM plane wave (E_z) along +y by total-field/scattered-field, continuous at \
+             {WAVELENGTH} µm, ramped over {RAMP} periods"
+        ),
+    );
+    setup.item(
+        "window",
+        &format!(
+            "at 20 cells a side: the total field {} cells around the cylinder, {} cells beyond, \
+             a CPML of {} cells (κ {KAPPA}, α {ALPHA}); all scale with the cells",
+            LAYOUT.0, LAYOUT.1, LAYOUT.2
+        ),
+    );
+    setup.item(
+        "grid",
+        &format!(
+            "{} cells a side, {} steps a period at 20 (scaled), {} periods, then the amplitudes \
+             over {}",
+            SIDES.map(|n| n.to_string()).join(" and "),
+            STEPS_PER_PERIOD,
+            PERIODS.0,
+            PERIODS.1
+        ),
+    );
+    setup.item(
+        "solver",
+        &format!(
+            "2D FDTD, TM; the moment method (Eq. 8a, pulses and point matching) at {} pulses a \
+             side",
+            PULSES.map(|n| n.to_string()).join(" and ")
+        ),
+    );
+    setup.item(
+        "tolerance",
+        &format!(
+            "at 20 cells, {} on the lit and {} on the side face (the reading plus 2 %); at 40, \
+             {} on the lit, side and shadowed faces against the moment method (1 %)",
+            figure[0].1,
+            figure[1].1,
+            one_percent.map(common::number).join(", ")
+        ),
+    );
+    setup.print();
     println!("Umashankar and Taflove's square conducting cylinder, k0 A = 1, TM, normal incidence");
     println!("|J_z| / |H_x^i| at the middle of the lit, side and shadowed faces");
-    let coarse = fdtd(20);
-    let fine = fdtd(40);
-    let reference = moments(100);
-    let theirs = moments(20);
+    let coarse = fdtd(SIDES[0]);
+    let fine = fdtd(SIDES[1]);
+    let reference = moments(PULSES[0]);
+    let theirs = moments(PULSES[1]);
     let show = |what: &str, v: [f64; 3]| {
         println!(
             "{what:<46} lit {:.4}, side {:.4}, shadowed {:.4}",
@@ -268,13 +341,28 @@ pub fn main() -> ExitCode {
     );
     let mut checks = common::Checks::default();
     // the reading, 0.01, plus 2 %
-    checks.compare("FD-TD 20: middle of the lit face", coarse[0], 1.750, 0.045);
-    checks.compare("FD-TD 20: middle of a side face", coarse[1], 0.785, 0.026);
+    checks.compare(
+        "FD-TD 20: middle of the lit face",
+        coarse[0],
+        figure[0].0,
+        figure[0].1,
+    );
+    checks.compare(
+        "FD-TD 20: middle of a side face",
+        coarse[1],
+        figure[1].0,
+        figure[1].1,
+    );
     // their ±1 %
     for (what, got, value, tolerance) in [
-        ("FD-TD 40: lit face", fine[0], reference[0], 0.017),
-        ("FD-TD 40: side face", fine[1], reference[1], 0.0077),
-        ("FD-TD 40: shadowed face", fine[2], reference[2], 0.0017),
+        ("FD-TD 40: lit face", fine[0], reference[0], one_percent[0]),
+        ("FD-TD 40: side face", fine[1], reference[1], one_percent[1]),
+        (
+            "FD-TD 40: shadowed face",
+            fine[2],
+            reference[2],
+            one_percent[2],
+        ),
     ] {
         checks.against(what, got, "Eq. 8a", value, tolerance);
     }

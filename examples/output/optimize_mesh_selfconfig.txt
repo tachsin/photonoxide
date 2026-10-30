@@ -1,3 +1,10 @@
+Setup
+  mesh: Fig. 3a's hexagonal mesh: 36 tunable units, 72 phase shifters (two a unit), 24 ports; each unit's loss drawn at 0.15 ± 0.05 dB, its passive phases drawn at random
+  target: the all-cross state, Fig. 3b's 12 channels, each at the best of 8 frequencies over the response's period
+  grid: none: exact solves of the mesh
+  solver: 100 meshes a method: the particle swarm of Fig. 3 (108 particles, inertia 0.9 to 0.35 over 1000 operations, cognitive 0.7, social 1.8, 36 moves) and of Table 18 (inertia 0.5, cognitive 0.8, social 1, 26 moves); the genetic algorithm (population 144, 18 parents, 36 mutated within 1.570796 rad, decay 0.5, 22 generations); gradient descent with momentum 0.5 by central differences of 0.0003 rad on 20 meshes, learning rates 50 and 1, to 0.2 in at most 60 iterations; Fig. 3's swarm with 0 to 5 % thermal crosstalk on 20 meshes
+  tolerance: Fig. 3's swarm's share above −3 dB within two standard deviations of the difference of two counts of 100; Fig. 3b's channels exactly; the solve against photonoxide's circuit solve to 1e-12
+
 The 36-unit hexagonal mesh of Pérez-López et al. 2020 set to all-cross by a GA and a PSO, without calibration: exact solves, 8 frequencies a period
 
 The mesh: 36 units, 72 phase shifters, 24 ports

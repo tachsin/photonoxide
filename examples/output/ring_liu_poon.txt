@@ -1,3 +1,32 @@
+Setup
+  (layers from the top down: the bottom one, the substrate, is the first laid down)
+  layers:
+    cladding       half-space   SiO2, n 1.444083
+    silicon 1      220 nm       Si in its shapes, the cladding elsewhere (from z = 0), n 3.476101
+    buried oxide   half-space   SiO2, below z = 0, n 1.444083
+  shapes:
+    on silicon 1: the bus, a guide from (-27, 0) µm heading 0°, 500 nm wide; straight 50 µm
+    on silicon 1: the ring, a guide from (-4, 0.7) µm heading 0°, 500 nm wide; straight 4 µm; an Euler bend of radius 10 µm, turning 90°; straight 600 nm; an Euler bend of radius 10 µm, turning 90°; straight 4 µm; an Euler bend of radius 10 µm, turning 90°; straight 600 nm; an Euler bend of radius 10 µm, turning 90°
+    on silicon 1: the cladding inside it: polygon of 2668 vertices, within (-13.75, 0.95) µm to (9.75, 21.05) µm: 23.5 µm along x by 20.1 µm along y
+  port 1: at (-17, 0) µm, 500 nm wide, facing 180°, the input
+  port 2: at (13, 0) µm, 500 nm wide, facing 0°
+  modes: Te0 launched into port 1; measured: Te0 at port 2
+  wavelengths: the materials at 1.545 µm; a pulse at 1.55 µm, its width 0.04 c/µm; measured at 1.55 µm
+  window: x -18 to 14 µm, y -1.5 to 22.55 µm (the ports and the device, 1 µm beyond), 1 µm of cladding below and above the silicon, CPMLs of 12 cells
+  solver: 3D FDTD, subpixel smoothing (diagonal), Courant number 0.99; the ports' modes by FDFD; for 1920 µm/c
+  the strip's group index: the 500 nm × 220 nm strip's TE-like mode at 1.535, 1.545 and 1.555 µm, full-vector, on the quarter of a 2.1 µm × 1.5 µm window, 168 × 150 cells (6.25 nm by 5 nm), mirror walls; silicon and silica dispersive, and at 1.545 µm
+  record: with --full: 1920 µm/c, the through port read at 101 wavelengths from 1.54 to 1.56 µm (and over 1000 and 1500 µm/c); the ring's own Q by harmonic inversion from 200 µm/c
+  tolerance: the free spectral range (nm) from n_g and L within half the span of 7.4, 7.6 plus 0.05; with --full, the resonance (nm) within half the span of 1545.57, 1545.67, 1545.07, 1544.96 plus 0.02; the FWHM (nm) within half the span of 0.9, 0.88, 0.88, 0.9 plus 0.002; Q within half the span of 1716, 1755, 1754, 1715 plus 3
+  materials:
+    Si: a table of 35 wavelengths, 1.2 to 14 µm, between them natural cubic splines; valid 1.2 to 14 µm
+      source: H. H. Li, J. Phys. Chem. Ref. Data 9, 561 (1980), doi:10.1063/1.555624, at 293 K
+      crystalline silicon; Table 1, 293 K, checked against the paper; uncertainty ±2e-3 (Li)
+      n 3.476101 at 1.545 µm
+    SiO2: Sellmeier, n² = A + Σ Bλ²/(λ² − C²), A = 1, B = 0.6961663, 0.4079426, 0.8974794, C = 0.0684043, 0.1162414, 9.896161 µm; valid 0.21 to 3.71 µm
+      source: I. H. Malitson, J. Opt. Soc. Am. 55, 1205 (1965), doi:10.1364/JOSA.55.001205, at 293.15 K
+      fused silica, Eq. (1), checked against the paper; fit residual 10.5e-6 on average; thermal and deposited oxides differ slightly
+      n 1.444083 at 1.545 µm
+
 Liu and Poon's ring (gdsfactory's generic PDK), TE0 into the bus; materials at 1.545 um
 the 500 x 220 nm strip's group index at 1.545 um (full-vector, 6.25 x 5 nm grid): 4.1792 dispersive, 4.0421 not (1.0339); the ring 75.747 um round
   free spectral range (nm), n_g and L     7.540394   paper 7.5        ± 1.5e-1   ok
