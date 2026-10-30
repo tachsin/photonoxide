@@ -160,7 +160,7 @@ The split is tracked in [#508](https://github.com/tachsin/photonoxide/issues/508
 | 2 | `photonoxide-linalg`, `photonoxide-mode`, `photonoxide-statics` | done |
 | 3 | `photonoxide-fdfd`, `photonoxide-fdtd` (with the `gpu` feature) | done |
 | 4 | `photonoxide-circuit`, `photonoxide-device` | done |
-| 5 | Measure the build again and record the numbers | planned |
+| 5 | Measure the build again and record the numbers ([performance plan](plans/performance.md), section 6) | done |
 
 Each phase is a set of pure moves: code goes to another crate, and `photonoxide` re-exports it at
 the path it had. The internal crates are for `photonoxide` and are not meant to be used directly:

@@ -566,6 +566,30 @@ or HSS (Ghysels et al. 2016); if not, the phase stops with its measurement publi
    cycle. *Recommended:* leave 0.4.1 as it is; try symmetric QMR first on the curl-curl operator
    with an incomplete LDLᵀ, and decide afterwards whether the multigrid moves.
 
+## 6. The build: compile times after the split into crates
+
+The library was one crate until [#508](https://github.com/tachsin/photonoxide/issues/508) split
+it into a crate per layer (docs/architecture.md): `photonoxide-core`, `-geometry`, `-linalg`,
+`-mode`, `-statics`, `-fdfd`, `-fdtd`, `-circuit` and `-device`, with `photonoxide` on top. Cargo
+compiles crates that don't depend on each other side by side, and an edit recompiles its own crate
+and the ones above it. Measured with `cargo test --all-features --lib --no-run`, the build of every
+unit test, on one Windows workstation, the dev profile at `opt-level = 3`:
+
+| | One crate (before #508) | The core and geometry crates | Every layer a crate |
+|---|---|---|---|
+| A clean build | 284 s | 267 s | 253 s |
+| After touching `fdtd` | 32 s | 9 s | 19 s |
+| After touching `geometry` | 19 s | 21 s | 14 s |
+| After touching `job` | 19 s | 9 s | 8 s |
+| After touching `units` (core) | not measured | 11 s | 15 s |
+| After touching `device` | not measured | not measured | 10 s |
+
+A touch is a file's time stamp moved, then the same build: the incremental rebuild of the crate
+and every crate above it. With every layer a crate, the clean build's dependencies take the first
+108 s; the layers then build in parallel, the lowest first (core in 5 s, geometry and linalg side
+by side), and `photonoxide`'s own tests last (72 s, against 136 s when only core and geometry were
+crates). Touching `fdtd` took longer than with two crates (19 s against 9 s): then it was a module of `photonoxide`, rebuilt incrementally in one crate, and now its crate, the device crate and `photonoxide` each rebuild after it. The numbers move by a few seconds from run to run, and with what else runs beside them.
+
 ## References
 
 Every DOI below was checked on Crossref on 2026-10-04. "Folder" marks a copy in the papers
