@@ -2250,6 +2250,43 @@ fn the_repositorys_jobs_pass_the_check() {
     assert!(e.to_string().contains("port"), "{e}");
 }
 
+/// The job files the README and the design page show, their ```yaml blocks: each passes the
+/// check, as the repository's jobs do, and each is one of jobs/ as written, so that the
+/// `photonoxide run jobs/<file>.yaml` beside it runs what the page shows.
+#[test]
+fn the_readme_and_design_pages_jobs_are_jobs_that_pass_the_check() {
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+    let text =
+        |path: &std::path::Path| std::fs::read_to_string(path).unwrap().replace("\r\n", "\n");
+    let jobs: Vec<String> = std::fs::read_dir(root.join("jobs"))
+        .unwrap()
+        .map(|entry| entry.unwrap().path())
+        .filter(|path| path.extension().is_some_and(|x| x == "yaml"))
+        .map(|path| text(&path))
+        .collect();
+    let mut count = 0;
+    for page in ["README.md", "docs/design.md"] {
+        let page_text = text(&root.join(page));
+        let mut lines = page_text.lines();
+        while lines.any(|l| l == "```yaml") {
+            let yaml: String = lines
+                .by_ref()
+                .take_while(|l| *l != "```")
+                .map(|l| format!("{l}\n"))
+                .collect();
+            let job = Job::parse_as(&yaml, crate::run::Format::Yaml)
+                .unwrap_or_else(|e| panic!("{page}: {e}\n{yaml}"));
+            check(&job).unwrap_or_else(|e| panic!("{page}: {e}\n{yaml}"));
+            assert!(
+                jobs.contains(&yaml),
+                "{page}: a job that isn't one of jobs/ as written:\n{yaml}"
+            );
+            count += 1;
+        }
+    }
+    assert!(count >= 5, "{count} job files");
+}
+
 const FDFD: &str = r#"
 name = "strip-fdfd"
 

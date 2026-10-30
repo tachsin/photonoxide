@@ -59,3 +59,17 @@ def test_a_pages_python_calls_run(page: str, tmp_path: Path, monkeypatch: pytest
     for name in chain:
         for k, code in enumerate(blocks(name)):
             exec(compile(code, f"docs/methods/{name}.md, python block {k + 1}", "exec"), namespace)
+
+def test_the_design_pages_python_calls_run(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    # docs/design.md shows each design as a job file and as Python calls: its blocks run in
+    # order, as one script, on a copy of the jobs, as a write-up's do
+    page = ROOT / "docs" / "design.md"
+    code = PYTHON.findall(page.read_text(encoding="utf-8"))
+    assert len(code) >= 4, len(code)
+    workflow = (ROOT / ".github" / "workflows" / "python-wheels.yml").read_text(encoding="utf-8")
+    assert '- "docs/design.md"' in workflow, "python-wheels.yml's paths don't name docs/design.md"
+    shutil.copytree(ROOT / "jobs", tmp_path / "jobs")
+    monkeypatch.chdir(tmp_path)
+    namespace: dict[str, object] = {"__name__": "design"}
+    for k, block in enumerate(code):
+        exec(compile(block, f"docs/design.md, python block {k + 1}", "exec"), namespace)

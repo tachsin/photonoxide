@@ -318,6 +318,9 @@ the effective indices as the points arrive, and for a wavelength sweep the group
   `docs/methods/`.
 - **Examples**: each reproduces a published result and fails when it disagrees,
   `cargo run --release --example <name>`.
+- **Designs**: a strip waveguide's modes, a ring's spectrum and a directional coupler, each as a
+  job file beside the same calls in Python, with its layers from the top down,
+  [docs/design.md](design.md).
 - **Validation**: the report the library writes and CI checks, `docs/validation.md`.
 - **API**: the rustdoc of every item, `cargo doc --open`, or docs.rs for the released versions.
 - **Roadmap**: what comes next, and the papers behind it, `ROADMAP.md`.

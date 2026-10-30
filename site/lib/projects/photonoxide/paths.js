@@ -1,6 +1,7 @@
 import { getExamples } from "./examples";
 import {
   CROSS_CODE_DOCS_PATH,
+  DESIGN_DOCS_PATH,
   EXAMPLES_PATH,
   LANGUAGES_DOCS_PATH,
   METHODS_PATH,
@@ -22,6 +23,7 @@ export async function photonoxidePaths() {
     PYTHON_REFERENCE_PATH,
     LANGUAGES_DOCS_PATH,
     CROSS_CODE_DOCS_PATH,
+    DESIGN_DOCS_PATH,
     ...methods.map((m) => `${METHODS_PATH}/${m.slug}`),
     ...examples.map((e) => `${EXAMPLES_PATH}/${e.slug}`),
   ];
