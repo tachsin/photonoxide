@@ -12,6 +12,7 @@ import {
   PHOTONOXIDE_OG_IMAGE,
   PHOTONOXIDE_PATH,
   PYTHON_DOCS_PATH,
+  PYTHON_REFERENCE_PATH,
 } from "@/lib/projects/photonoxide/meta";
 
 const DESCRIPTION =
@@ -51,6 +52,9 @@ export default async function PythonDocsPage() {
           <a href={PHOTONOXIDE_LINKS.pypi} target="_blank" rel="noopener noreferrer" className="proj-pill">
             The package on PyPI
             <ExternalLink size={12} aria-hidden />
+          </a>
+          <a href={PYTHON_REFERENCE_PATH} className="proj-pill">
+            API reference
           </a>
           <a href={blobUrl(GUIDE)} target="_blank" rel="noopener noreferrer" className="proj-pill">
             This guide on GitHub

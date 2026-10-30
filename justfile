@@ -175,7 +175,7 @@ python-reference:
     uv venv --allow-existing
     uv pip install maturin
     uv run maturin develop --release --uv --extras docs
-    uv run pdoc photonoxide --docformat restructuredtext -o ../target/python-reference
+    uv run pdoc photonoxide --docformat restructuredtext --no-search -o ../target/python-reference
 
 # the Python package's wheel for this machine, with the dist profile, into python/dist
 [working-directory: 'python']

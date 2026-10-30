@@ -29,6 +29,7 @@ export const VALIDATION_PATH = "/projects/photonoxide/validation";
 export const ROADMAP_PATH = "/projects/photonoxide/roadmap";
 export const DOCS_PATH = "/projects/photonoxide/docs";
 export const PYTHON_DOCS_PATH = "/projects/photonoxide/docs/python";
+export const PYTHON_REFERENCE_PATH = "/projects/photonoxide/docs/python/reference";
 export const LANGUAGES_DOCS_PATH = "/projects/photonoxide/docs/languages";
 export const CROSS_CODE_DOCS_PATH = "/projects/photonoxide/docs/cross-code";
 

@@ -3,7 +3,7 @@
 `photonoxide <https://github.com/tachsin/photonoxide>`_.
 
 220 nm of silicon in oxide at 1550 nm, each material with its published dispersion, and the
-slab's modes solved exactly::
+slab's modes solved exactly:
 
     import photonoxide as phox
 
@@ -48,7 +48,6 @@ from typing import Any, Mapping, Sequence, Union
 import numpy as np
 
 from . import errors
-from ._photonoxide import core_version
 from . import _photonoxide as _native
 
 __all__ = [
@@ -99,68 +98,75 @@ __all__ = [
     "device_job",
 ]
 
-try:
-    __version__: str = metadata.version("photonoxide")
-except metadata.PackageNotFoundError:  # built in place, not installed
-    __version__ = core_version
+core_version: str = _native.core_version
+"""The version of the Rust crate the package was built with, e.g. ``"0.6.0"``: the same as
+:data:`__version__` for a release."""
 
-#: A job: the path of a job file (YAML, TOML or JSON, by its extension), or the job as data, a
-#: dict with a job file's fields (``name``, ``timeout_minutes``, ``task``, ...).
+try:
+    _installed = metadata.version("photonoxide")
+except metadata.PackageNotFoundError:  # built in place, not installed
+    _installed = core_version
+__version__: str = _installed
+"""The package's version, e.g. ``"0.6.0"``; a fix to the package alone is a post-release,
+``"0.6.0.post1"``."""
+
 Job = Union[str, "os.PathLike[str]", Mapping[str, Any]]
+"""A job: the path of a job file (YAML, TOML or JSON, by its extension), or the job as data, a
+dict with a job file's fields (``name``, ``timeout_minutes``, ``task``, ...)."""
 
 
 @dataclass(frozen=True)
 class IndexModel:
     """An index model of a material, from one paper."""
 
-    #: Its id, e.g. ``"li-1980"``.
     id: str
-    #: Its name, e.g. ``"Li 1980"``.
+    """Its id, e.g. ``"li-1980"``."""
     name: str
-    #: Whether it is the material's default model.
+    """Its name, e.g. ``"Li 1980"``."""
     default: bool
-    #: The indices it gives: ``["isotropic"]``, or ``["ordinary", "extraordinary"]``.
+    """Whether it is the material's default model."""
     axes: list[str]
-    #: The wavelengths it is valid for at its default conditions, µm.
+    """The indices it gives: ``["isotropic"]``, or ``["ordinary", "extraordinary"]``."""
     range_um: tuple[float, float]
-    #: Its default temperature, K, when it has one.
+    """The wavelengths it is valid for at its default conditions, µm."""
     temperature_k: float | None
-    #: Its default composition (e.g. x in AlₓGa₁₋ₓAs), when it has one.
+    """Its default temperature, K, when it has one."""
     composition: float | None
-    #: The accuracy its paper states.
+    """Its default composition (e.g. x in AlₓGa₁₋ₓAs), when it has one."""
     accuracy: str
-    #: Where it comes from: each paper's citation, DOI and place.
+    """The accuracy its paper states."""
     sources: list[str]
+    """Where it comes from: each paper's citation, DOI and place."""
 
 
 @dataclass(frozen=True)
 class Material:
     """A material of photonoxide's catalogue, with its index models."""
 
-    #: Its id, e.g. ``"si"`` or ``"linbo3"``: what :func:`refractive_index` takes.
     id: str
-    #: Its name, e.g. ``"Silicon"``.
+    """Its id, e.g. ``"si"`` or ``"linbo3"``: what :func:`refractive_index` takes."""
     name: str
-    #: Its formula, e.g. ``"Si"``.
+    """Its name, e.g. ``"Silicon"``."""
     formula: str
-    #: Its index models, the default first.
+    """Its formula, e.g. ``"Si"``."""
     models: list[IndexModel]
+    """Its index models, the default first."""
 
 
 @dataclass(frozen=True)
 class SlabMode:
     """A guided mode of a three-layer slab."""
 
-    #: ``"te"`` or ``"tm"``.
     polarization: str
-    #: Its order: 0 for the fundamental mode of its polarization.
+    """``"te"`` or ``"tm"``."""
     order: int
-    #: The effective index n_eff = β/k.
+    """Its order: 0 for the fundamental mode of its polarization."""
     effective_index: float
-    #: Where its field is given across the slab, µm, 0 at the core's bottom.
+    """The effective index n_eff = β/k."""
     x_um: np.ndarray
-    #: Its field there: E_y for TE, H_y for TM, unnormalized, 1 (TE) or h/q̄ (TM) at x = 0.
+    """Where its field is given across the slab, µm, 0 at the core's bottom."""
     field: np.ndarray
+    """Its field there: E_y for TE, H_y for TM, unnormalized, 1 (TE) or h/q̄ (TM) at x = 0."""
 
 
 @dataclass(frozen=True)
@@ -168,42 +174,42 @@ class VectorMode:
     """A full-vector mode of a cross-section, with its six field components at the centres of
     the grid's cells, each ``(ny, nx)``: ``ex[j, i]`` at ``(x_um[i], y_um[j])``."""
 
-    #: The effective index n_eff = β/k; its imaginary part, ≥ 0 in a passive structure, is the
-    #: loss along z.
     effective_index: complex
-    #: The share of the transverse magnetic field in H_y: near 1 for a TE-like mode (E mostly
-    #: along x), near 0 for a TM-like one.
+    """The effective index n_eff = β/k; its imaginary part, ≥ 0 in a passive structure, is the
+    loss along z."""
     te_fraction: float
-    #: The cells' centres along x, µm.
+    """The share of the transverse magnetic field in H_y: near 1 for a TE-like mode (E mostly
+    along x), near 0 for a TM-like one."""
     x_um: np.ndarray
-    #: The cells' centres along y, µm.
+    """The cells' centres along x, µm."""
     y_um: np.ndarray
-    #: E_x, in units of Z₀ times H's.
+    """The cells' centres along y, µm."""
     ex: np.ndarray
-    #: E_y.
+    """E_x, in units of Z₀ times H's."""
     ey: np.ndarray
-    #: E_z.
+    """E_y, in the same units as ``ex`` (Z₀ times H's)."""
     ez: np.ndarray
-    #: H_x, the largest transverse component of H at the grid's nodes 1.
+    """E_z, in the same units as ``ex`` (Z₀ times H's)."""
     hx: np.ndarray
-    #: H_y.
+    """H_x, the largest transverse component of H at the grid's nodes 1."""
     hy: np.ndarray
-    #: H_z.
+    """H_y, in the same units as ``hx``."""
     hz: np.ndarray
+    """H_z, in the same units as ``hx``."""
 
 
 @dataclass(frozen=True)
 class JobRun:
     """A job's run: its folder and its record."""
 
-    #: The run's folder, ``<runs_dir>/<YYYYMMDD>-<HHMMSS>-<name>``, which the photonoxide program
-    #: replays (``photonoxide view <folder>``).
     dir: Path
-    #: Its events in order, each a dict with its ``"type"``, as the folder's ``events.jsonl``
-    #: has them.
+    """The run's folder, ``<runs_dir>/<YYYYMMDD>-<HHMMSS>-<name>``, which the photonoxide program
+    replays (``photonoxide view <folder>``)."""
     events: list[dict[str, Any]]
-    #: Why it ended early, if it did: ``"timeout"`` or ``"requested"``.
+    """Its events in order, each a dict with its ``"type"``, as the folder's ``events.jsonl``
+    has them."""
     stopped: str | None
+    """Why it ended early, if it did: ``"timeout"`` or ``"requested"``."""
 
 
 @dataclass(frozen=True)
@@ -211,20 +217,20 @@ class SParameters:
     """An ``"fdfd"`` job's S-parameters by 2D FDFD: an estimate, not a device's performance
     in 3D."""
 
-    #: The ports' names, in the job's order, e.g. ``"1 (left, x = -3.5 um)"``.
     ports: list[str]
-    #: The wavelengths, µm.
+    """The ports' names, in the job's order, e.g. ``"1 (left, x = -3.5 um)"``."""
     wavelength_um: np.ndarray
-    #: The power-normalized S-matrices, ``(nλ, n, n)``: ``s[k, q, p]`` from port p into port q,
-    #: the phases referred to the ports' columns.
+    """The wavelengths, µm."""
     s: np.ndarray
-    #: Each port mode's effective index at each wavelength, ``(nλ, n)``.
+    """The power-normalized S-matrices, ``(nλ, n, n)``: ``s[k, q, p]`` from port p into port q,
+    the phases referred to the ports' columns."""
     effective_index: np.ndarray
-    #: The grid's cell, dx and dy, µm.
+    """Each port mode's effective index at each wavelength, ``(nλ, n)``."""
     cell_um: tuple[float, float]
-    #: The slab mode's polarization the plane's indices come from: ``"te"`` (H along z in the
-    #: plane) or ``"tm"`` (E along z).
+    """The grid's cell, dx and dy, µm."""
     polarization: str
+    """The slab mode's polarization the plane's indices come from: ``"te"`` (H along z in the
+    plane) or ``"tm"`` (E along z)."""
 
 
 @dataclass(frozen=True)
@@ -232,13 +238,13 @@ class Spectrum:
     """S-matrices at several wavelengths between named ports: a circuit's spectrum, or a
     Touchstone file's."""
 
-    #: The ports' names, in the matrices' order.
     ports: list[str]
-    #: The vacuum wavelengths, µm.
+    """The ports' names, in the matrices' order."""
     wavelength_um: np.ndarray
-    #: The S-matrices, ``(nλ, n, n)``: ``s[k, q, p]`` from port p into port q, in photonoxide's
-    #: e^(−iωt) convention.
+    """The vacuum wavelengths, µm."""
     s: np.ndarray
+    """The S-matrices, ``(nλ, n, n)``: ``s[k, q, p]`` from port p into port q, in photonoxide's
+    e^(−iωt) convention."""
 
 
 def _wavelengths(wavelength_um: Any) -> tuple[np.ndarray, tuple[int, ...]]:
@@ -254,7 +260,12 @@ def _shaped(values: np.ndarray, shape: tuple[int, ...]) -> Any:
 
 def materials() -> list[Material]:
     """Every material of photonoxide's catalogue, with its index models, their ranges and their
-    sources by DOI."""
+    sources by DOI. A material's ``id`` is what :func:`refractive_index` takes:
+
+    >>> si = next(m for m in phox.materials() if m.id == "si")
+    >>> si.name, si.models[0].id, si.models[0].range_um
+    ('Silicon', 'li-1980', (1.2, 14.0))
+    """
     return [
         Material(
             id=m["id"],
@@ -285,7 +296,13 @@ def refractive_index(
     ``model`` picks an index model other than the default; ``axis`` (``"ordinary"`` or
     ``"extraordinary"``) is needed for a material with two; ``temperature_k`` and
     ``composition`` set a model's conditions. A wavelength outside the model's data raises
-    :class:`~photonoxide.errors.OutsideValidity`: photonoxide doesn't extrapolate.
+    :class:`~photonoxide.errors.OutsideValidity`: photonoxide doesn't extrapolate:
+
+    >>> n = phox.refractive_index("si", wavelength_um=1.55)  # Li 1980
+    >>> round(n.real, 4), n.imag
+    (3.4757, 0.0)
+    >>> phox.refractive_index("si", wavelength_um=[1.5, 1.6]).round(4)
+    array([3.4799+0.j, 3.4719+0.j])
     """
     w, shape = _wavelengths(wavelength_um)
     n = _native.refractive_index(material, w, model, axis, temperature_k, composition)
@@ -302,7 +319,11 @@ def group_index(
     composition: float | None = None,
 ) -> Any:
     """The bulk group index n − λ dn/dλ of a material of the catalogue at vacuum wavelengths,
-    µm, as :func:`refractive_index` takes them: a float for one, an array for several."""
+    µm, as :func:`refractive_index` takes them: a float for one, an array for several:
+
+    >>> round(phox.group_index("si", wavelength_um=1.55), 3)
+    3.599
+    """
     w, shape = _wavelengths(wavelength_um)
     n = _native.group_index(material, w, model, axis, temperature_k, composition)
     return _shaped(n, shape)
@@ -321,7 +342,14 @@ def slab_modes(
     """The guided modes of one polarization (``"te"`` or ``"tm"``) of a lossless three-layer
     slab, a core of index ``core`` and thickness ``thickness_um`` between ``below`` and
     ``above``, at ``wavelength_um``, solved exactly: fundamental first, each with its field at
-    ``x_um`` (0 at the core's bottom; none when not given). Empty when the slab guides none."""
+    ``x_um`` (0 at the core's bottom; none when not given). Empty when the slab guides none.
+    A 220 nm silicon slab in oxide guides one TE mode at 1550 nm:
+
+    >>> modes = phox.slab_modes(below=1.444, core=3.473, above=1.444, thickness_um=0.22,
+    ...                         polarization="te", wavelength_um=1.55)
+    >>> [(m.order, round(m.effective_index, 4)) for m in modes]
+    [(0, 2.8448)]
+    """
     x = np.ascontiguousarray(np.asarray([] if x_um is None else x_um, dtype=np.float64).ravel())
     modes = _native.slab_modes(
         float(below),
@@ -372,6 +400,17 @@ def vector_modes(
     same edges, µm thick, with stretching ``pml_strength`` (a few units).
 
     The solve stops after ``timeout_s`` seconds (``None``: never) with ``TimeoutError``.
+
+    A 500 × 220 nm silicon strip in oxide, on a 50 nm grid, 2 µm across:
+
+    >>> x = np.linspace(-1.0, 1.0, 41)
+    >>> y = np.linspace(-1.0, 1.0, 41)
+    >>> inside = (np.abs((x[:-1] + x[1:]) / 2)[None, :] < 0.25) & (
+    ...     np.abs((y[:-1] + y[1:]) / 2)[:, None] < 0.11)
+    >>> eps = np.where(inside, 3.473**2, 1.444**2)  # (ny, nx)
+    >>> [mode] = phox.vector_modes(x_um=x, y_um=y, permittivity=eps, wavelength_um=1.55)
+    >>> round(mode.effective_index.real, 4), round(mode.te_fraction, 2), mode.ex.shape
+    (2.3639, 0.97, (40, 40))
     """
     eps = np.ascontiguousarray(np.asarray(permittivity, dtype=np.complex128))
     if eps.ndim != 2:
@@ -409,7 +448,13 @@ def _job(job: Job) -> tuple[str | None, str | None]:
 
 def check_job(job: Job) -> None:
     """Checks a job without running it, as the photonoxide program does before a run: raises
-    what the run would raise for its settings."""
+    what the run would raise for its settings, and returns ``None`` when the job is fine:
+
+    >>> phox.check_job({"name": "x", "task": {"kind": "modes", "nonsense": 1}})
+    Traceback (most recent call last):
+        ...
+    photonoxide.errors.ParseError: ...
+    """
     path, text = _job(job)
     _native.check_job(path, text, "json")
 
@@ -425,6 +470,19 @@ def run_job(
     ``timeout_minutes``, whichever comes first, or on Ctrl+C. A run stopped by its timeout is
     still returned, its record ending there and its ``stopped`` saying ``"timeout"``; Ctrl+C
     raises ``KeyboardInterrupt`` once the run has stopped.
+
+    The fundamental mode of a 500 nm silicon strip (220 nm thick, in oxide), solved on a 50 nm
+    grid, into a ``runs`` folder:
+
+    >>> job = {"name": "strip", "task": {
+    ...     "kind": "modes", "stack": "soi_220", "wavelength_um": 1.55, "layer": "Si",
+    ...     "propagation": "x", "y_um": [-1.0, 1.0], "step_nm": 50.0, "modes": 1,
+    ...     "rect": [{"layer": "Si", "center_um": [0.0, 0.0], "size_um": [10.0, 0.5]}]}}
+    >>> run = phox.run_job(job, runs_dir="runs")
+    >>> run.stopped, run.events[0]["type"], run.events[-1]["type"]
+    (None, 'started', 'finished')
+    >>> round(float(phox.run_tables(run.dir)["modes"]["n_eff_re"][0]), 4)
+    2.4447
     """
     path, text = _job(job)
     run = _native.run_job(
@@ -442,7 +500,17 @@ def fdfd_s_parameters(job: Job, *, wavelength_um: Any = None) -> SParameters:
     an array), or at the job's own wavelengths (its sweep, or its one wavelength) when
     ``None``. A 2D result, by the effective index method: an estimate, not a device's
     performance in 3D. The wavelengths are solved side by side on every core, the same bits on
-    any number of them."""
+    any number of them. A straight 500 nm guide passes its mode whole:
+
+    >>> job = {"name": "straight", "task": {
+    ...     "kind": "fdfd", "stack": "soi_220", "wavelength_um": 1.55, "layer": "Si",
+    ...     "polarization": "te", "x_um": [-3.0, 3.0], "y_um": [-2.0, 2.0], "step_nm": 50.0,
+    ...     "rect": [{"layer": "Si", "center_um": [0.0, 0.0], "size_um": [6.0, 0.5]}],
+    ...     "port": [{"x_um": -1.5, "side": "left"}, {"x_um": 1.5, "side": "right"}]}}
+    >>> result = phox.fdfd_s_parameters(job, wavelength_um=[1.5, 1.55])
+    >>> result.s.shape, bool(np.all(np.abs(result.s[:, 1, 0]) > 0.99))
+    ((2, 2, 2), True)
+    """
     path, text = _job(job)
     w = None if wavelength_um is None else _wavelengths(wavelength_um)[0]
     s = _native.fdfd_s_parameters(path, text, "json", w)
@@ -458,7 +526,7 @@ def circuit_spectrum(
 ) -> Spectrum:
     """The S-matrices at ``wavelength_um`` of a circuit given as data: its ``instances`` by
     name, the ``connections`` between their ports (``"instance.port"`` pairs), and its external
-    ``ports``, each name to the instance's port it exposes, in the matrices' order::
+    ``ports``, each name to the instance's port it exposes, in the matrices' order:
 
         import numpy as np
         import photonoxide as phox
@@ -502,7 +570,7 @@ def circuit_spectrum(
     An instance can instead name a ``device`` of the library (see :func:`devices`) in place of
     a ``kind``: its design as a job's ``[device]`` table holds it, ``kind``, ``fidelity`` (its
     cheapest when not given), ``stack`` and ``parameters`` (numbers in their units, or
-    expressions such as ``"450 nm"`` or ``"w/2.5"``)::
+    expressions such as ``"450 nm"`` or ``"w/2.5"``):
 
         ring = {"device": {"kind": "all-pass ring", "fidelity": "analytic",
                            "parameters": {"radius": 5.0, "gap": 0.18}}}
@@ -531,7 +599,16 @@ def read_touchstone(path: str | os.PathLike[str], *, convention: str) -> Spectru
     convention ``convention``: ``"physics"`` (e^(−iωt), photonoxide's) or ``"engineering"``
     (e^(+jωt), most RF tools'). The format doesn't say which, so the reader must. In the file's
     order: increasing frequency, so decreasing wavelength, λ = c/f; the ports named ``o1``,
-    ``o2``, ..."""
+    ``o2``, ... A file written by :func:`write_touchstone` reads back to the same values:
+
+    >>> s = np.zeros((2, 2, 2), dtype=complex)
+    >>> s[:, 1, 0] = s[:, 0, 1] = 1.0  # a lossless through
+    >>> through = phox.Spectrum(ports=["a", "b"], wavelength_um=np.array([1.5, 1.55]), s=s)
+    >>> phox.write_touchstone("through.s2p", through, convention="physics")
+    >>> back = phox.read_touchstone("through.s2p", convention="physics")
+    >>> back.ports, back.wavelength_um.round(2), bool(np.array_equal(back.s, s))
+    (['o1', 'o2'], array([1.55, 1.5 ]), True)
+    """
     return Spectrum(**_native.read_touchstone(os.fspath(path), convention))
 
 
@@ -567,7 +644,12 @@ def run_tables(run_dir: str | os.PathLike[str]) -> dict[str, dict[str, Any]]:
     ``"s_parameters"``, ``"spectra"``, ``"study"``, ``"history"``, ``"static"``, ...) to its
     columns in order, each a float array (NaN where the table has no number) or a list of text.
     Every number is the one the run recorded, to the bit: the same as its CSV file's, which
-    :func:`export_run` writes. ``pandas.DataFrame(tables["modes"])`` makes one a data frame."""
+    :func:`export_run` writes. ``pandas.DataFrame(tables["modes"])`` makes one a data frame.
+    For the run of :func:`run_job`'s example:
+
+    >>> list(phox.run_tables(run.dir)["modes"])
+    ['label', 'wavelength_um', 'n_eff_re', 'n_eff_im', 'loss_db_per_cm', 'te_fraction']
+    """
     return _native.run_tables(os.fspath(run_dir))
 
 
@@ -580,7 +662,12 @@ def export_run(
     """Writes the tables of the run in ``run_dir`` as CSV files into ``out_dir`` (the run's own
     folder when ``None``): those named in ``tables``, every one it has when ``None``. Returns the
     files written. A run writes its tables itself when it ends; its fields (``.npz``) are
-    written then too, when its job's ``[task.export]`` asks for them."""
+    written then too, when its job's ``[task.export]`` asks for them. For the run of
+    :func:`run_job`'s example:
+
+    >>> [file.name for file in phox.export_run(run.dir, tables=["modes"], out_dir="csv")]
+    ['modes.csv']
+    """
     paths = _native.export_run(
         os.fspath(run_dir),
         None if tables is None else [str(t) for t in tables],
@@ -594,20 +681,20 @@ class FieldFile:
     """A field file of a run (an ``.npz``, or a container's ``.h5``), and its size written
     again at a precision and a deflate level, estimated before writing it."""
 
-    #: Its name in the run's folder, e.g. ``"mode-1-of-2.npz"``.
     file: str
-    #: Its size as the run wrote it, bytes.
+    """Its name in the run's folder, e.g. ``"mode-1-of-2.npz"``."""
     bytes: int
-    #: Its size written again as asked, bytes (``bytes`` for a file copied as it is).
+    """Its size as the run wrote it, bytes."""
     estimate: int
-    #: Whether ``estimate`` is the size to the byte, not an estimate from slices of it.
+    """Its size written again as asked, bytes (``bytes`` for a file copied as it is)."""
     exact: bool
-    #: The precision its fields have written again, ``"f64"`` or ``"f32"``; ``"as written"``
-    #: for a file copied as it is.
+    """Whether ``estimate`` is the size to the byte, not an estimate from slices of it."""
     precision: str
-    #: Whether it can be written again: an ``.h5``, or an ``.npz`` compressed with Zstandard,
-    #: is copied as it is.
+    """The precision its fields have written again, ``"f64"`` or ``"f32"``; ``"as written"``
+    for a file copied as it is."""
     rewritable: bool
+    """Whether it can be written again: an ``.h5``, or an ``.npz`` compressed with Zstandard,
+    is copied as it is."""
 
 
 def estimate_fields(
@@ -651,16 +738,16 @@ def export_fields(
 class DeviceParameter:
     """A parameter of a device: its name, unit, default and range."""
 
-    #: Its name, e.g. ``"gap"``.
     name: str
-    #: Its unit, e.g. ``"µm"`` or ``"°"``, or ``""`` for a pure number.
+    """Its name, e.g. ``"gap"``."""
     unit: str
-    #: Its default.
+    """Its unit, e.g. ``"µm"`` or ``"°"``, or ``""`` for a pure number."""
     default: float
-    #: The smallest value it takes.
+    """Its default."""
     min: float
-    #: The largest.
+    """The smallest value it takes."""
     max: float
+    """The largest."""
 
 
 @dataclass(frozen=True)
@@ -668,26 +755,26 @@ class StatedError:
     """A model's stated error: the largest difference in one quantity against another
     fidelity, measured by photonoxide's validation report."""
 
-    #: The quantity, e.g. ``"n_eff"``.
     quantity: str
-    #: The largest difference, in ``unit``.
+    """The quantity, e.g. ``"n_eff"``."""
     bound: float
-    #: Its unit: ``""`` for a pure number, ``"%"`` for a relative one.
+    """The largest difference, in ``unit``."""
     unit: str
-    #: The fidelity it is measured against.
+    """Its unit: ``""`` for a pure number, ``"%"`` for a relative one."""
     against: str
+    """The fidelity it is measured against."""
 
 
 @dataclass(frozen=True)
 class ValidityRange:
     """A range a model holds over, for one parameter or the wavelength (µm)."""
 
-    #: The parameter's name, or ``"wavelength"``.
     name: str
-    #: The smallest value.
+    """The parameter's name, or ``"wavelength"``."""
     min: float
-    #: The largest.
+    """The smallest value."""
     max: float
+    """The largest."""
 
 
 @dataclass(frozen=True)
@@ -695,50 +782,50 @@ class DeviceModel:
     """One of a device's models: its fidelity, what computes it, its write-up and papers, its
     stated error against the next fidelity up, and where it holds."""
 
-    #: ``"analytic"``, ``"compact"``, ``"2D"``, ``"3D"`` or ``"measured"``.
     fidelity: str
-    #: What computes it, in a sentence.
+    """``"analytic"``, ``"compact"``, ``"2D"``, ``"3D"`` or ``"measured"``."""
     name: str
-    #: Its write-up in photonoxide's docs/methods, e.g. ``"devices"``.
+    """What computes it, in a sentence."""
     write_up: str
-    #: The papers it implements, each with its DOI.
+    """Its write-up in photonoxide's docs/methods, e.g. ``"devices"``."""
     papers: list[str]
-    #: Its error against the next fidelity up over its validity; ``None`` for the highest.
+    """The papers it implements, each with its DOI."""
     error: StatedError | None
-    #: Where it holds: a range for each parameter it limits, and ``"wavelength"``.
+    """Its error against the next fidelity up over its validity; ``None`` for the highest."""
     validity: list[ValidityRange]
+    """Where it holds: a range for each parameter it limits, and ``"wavelength"``."""
 
 
 @dataclass(frozen=True)
 class Device:
     """A device of photonoxide's library: a component that knows its geometry."""
 
-    #: Its kind, what the device functions take, e.g. ``"directional coupler"``.
     kind: str
-    #: What it is, in a sentence or two.
+    """Its kind, what the device functions take, e.g. ``"directional coupler"``."""
     about: str
-    #: Its parameters, in order.
+    """What it is, in a sentence or two."""
     parameters: list[DeviceParameter]
-    #: Its models, cheapest first: the first is a design's when it names none.
+    """Its parameters, in order."""
     fidelities: list[DeviceModel]
-    #: Its ports' names, in the order of its S-matrices.
+    """Its models, cheapest first: the first is a design's when it names none."""
     ports: list[str]
+    """Its ports' names, in the order of its S-matrices."""
 
 
 @dataclass(frozen=True)
 class StackLayer:
     """A layer of a stack of the catalogue."""
 
-    #: Its name, e.g. ``"BOX"``.
     name: str
-    #: Its thickness, µm; the core's is the stack's own until a device sets it to its
-    #: ``thickness``.
+    """Its name, e.g. ``"BOX"``."""
     thickness_um: float
-    #: What the shapes drawn on it are made of: the catalogue's id (see :func:`materials`),
-    #: e.g. ``"si"``.
+    """Its thickness, µm; the core's is the stack's own until a device sets it to its
+    ``thickness``."""
     material: str
-    #: What fills it elsewhere, the catalogue's id.
+    """What the shapes drawn on it are made of: the catalogue's id (see :func:`materials`),
+    e.g. ``"si"``."""
     background: str
+    """What fills it elsewhere, the catalogue's id."""
 
 
 @dataclass(frozen=True)
@@ -746,19 +833,19 @@ class Stack:
     """A stack of the catalogue, by the name the device functions take as ``stack``: its layers
     of the materials catalogue's, bottom to top, between a substrate and a cladding."""
 
-    #: Its name, e.g. ``"soi_220"``.
     name: str
-    #: What it is, in a sentence or two.
+    """Its name, e.g. ``"soi_220"``."""
     about: str
-    #: The material below the layers, the catalogue's id, e.g. ``"si"``.
+    """What it is, in a sentence or two."""
     substrate: str
-    #: The layers, bottom to top.
+    """The material below the layers, the catalogue's id, e.g. ``"si"``."""
     layers: list[StackLayer]
-    #: The material above them, the catalogue's id.
+    """The layers, bottom to top."""
     cladding: str
-    #: The layer a device draws its guides on, e.g. ``"Si"``: its thickness is the device's
-    #: ``thickness`` parameter.
+    """The material above them, the catalogue's id."""
     core: str
+    """The layer a device draws its guides on, e.g. ``"Si"``: its thickness is the device's
+    ``thickness`` parameter."""
 
 
 @dataclass(frozen=True)
@@ -766,72 +853,72 @@ class DeviceSpectrum:
     """A device's S-parameters over wavelength, with the model they come from. A 2D result is
     an estimate, not the device's performance."""
 
-    #: The device's ports' names, in the matrices' order.
     ports: list[str]
-    #: The vacuum wavelengths, µm.
+    """The device's ports' names, in the matrices' order."""
     wavelength_um: np.ndarray
-    #: The S-matrices, ``(nλ, n, n)``: ``s[k, q, p]`` from port p into port q, in photonoxide's
-    #: e^(−iωt) convention.
+    """The vacuum wavelengths, µm."""
     s: np.ndarray
-    #: The fidelity of the model: ``"analytic"``, ``"2D"``, ``"3D"``, ...
+    """The S-matrices, ``(nλ, n, n)``: ``s[k, q, p]`` from port p into port q, in photonoxide's
+    e^(−iωt) convention."""
     fidelity: str
-    #: The grid its figures name, or ``"exact: no grid"`` for a closed form; a fit names the grid
-    #: of the solves it was fitted to.
+    """The fidelity of the model: ``"analytic"``, ``"2D"``, ``"3D"``, ..."""
     grid: str
-    #: What the model reproduces: a paper with its DOI and equation, or a solver with its grid.
+    """The grid its figures name, or ``"exact: no grid"`` for a closed form; a fit names the grid
+    of the solves it was fitted to."""
     source: str
-    #: The wavelengths it holds for, µm, if limited.
+    """What the model reproduces: a paper with its DOI and equation, or a solver with its grid."""
     validity_um: tuple[float, float] | None
+    """The wavelengths it holds for, µm, if limited."""
 
 
 @dataclass(frozen=True)
 class DeviceFigure:
     """One of a device's figures, with the fidelity and grid it comes from."""
 
-    #: What it is, e.g. ``"effective index"``.
     name: str
-    #: Its symbol, unique among a device's figures, e.g. ``"n_eff"``.
+    """What it is, e.g. ``"effective index"``."""
     symbol: str
-    #: Its value, in ``unit``.
+    """Its symbol, unique among a device's figures, e.g. ``"n_eff"``."""
     value: float
-    #: Its unit, e.g. ``"µm"``, or ``""`` for a pure number.
+    """Its value, in ``unit``."""
     unit: str
-    #: The fidelity of the model that gives it.
+    """Its unit, e.g. ``"µm"``, or ``""`` for a pure number."""
     fidelity: str
-    #: The grid it was computed on, or ``"exact: no grid"`` for a closed form.
+    """The fidelity of the model that gives it."""
     grid: str
+    """The grid it was computed on, or ``"exact: no grid"`` for a closed form."""
 
 
 @dataclass(frozen=True)
 class DevicePolygon:
     """A polygon with holes, seen from above, and how its edges were etched."""
 
-    #: Its outer boundary, ``(n, 2)``: (x, y) in µm, counterclockwise, the first vertex not
-    #: repeated.
     outer: np.ndarray
-    #: Its holes, each ``(n, 2)``, clockwise.
+    """Its outer boundary, ``(n, 2)``: (x, y) in µm, counterclockwise, the first vertex not
+    repeated."""
     holes: list[np.ndarray]
-    #: How deep the etch around it went from the layer's top, µm: ``None`` through the layer (a
-    #: strip), less than the layer's thickness for a rib.
+    """Its holes, each ``(n, 2)``, clockwise."""
     etch_depth_um: float | None
-    #: Its walls' angle from the layer's plane, degrees: 90 vertical.
+    """How deep the etch around it went from the layer's top, µm: ``None`` through the layer (a
+    strip), less than the layer's thickness for a rib."""
     sidewall_deg: float
+    """Its walls' angle from the layer's plane, degrees: 90 vertical."""
 
 
 @dataclass(frozen=True)
 class GeometryLayer:
     """A layer of a device's stack, and the polygons drawn on it."""
 
-    #: Its name, e.g. ``"Si"``.
     name: str
-    #: Its bottom and top, µm.
+    """Its name, e.g. ``"Si"``."""
     z_um: tuple[float, float]
-    #: What the polygons are made of.
+    """Its bottom and top, µm."""
     material: str
-    #: What fills the layer elsewhere.
+    """What the polygons are made of."""
     background: str
-    #: The polygons drawn on it.
+    """What fills the layer elsewhere."""
     polygons: list[DevicePolygon]
+    """The polygons drawn on it."""
 
 
 @dataclass(frozen=True)
@@ -839,16 +926,16 @@ class DevicePort:
     """A device's port: where it crosses the device's edge, the direction light leaves by, the
     guide's width there, and its layer."""
 
-    #: Its name, e.g. ``"o1"``.
     name: str
-    #: Its centre seen from above, µm.
+    """Its name, e.g. ``"o1"``."""
     position_um: tuple[float, float]
-    #: The direction light leaves by, degrees counterclockwise from +x.
+    """Its centre seen from above, µm."""
     direction_deg: float
-    #: The guide's width there, µm.
+    """The direction light leaves by, degrees counterclockwise from +x."""
     width_um: float
-    #: The layer the guide is drawn on.
+    """The guide's width there, µm."""
     layer: str
+    """The layer the guide is drawn on."""
 
 
 @dataclass(frozen=True)
@@ -856,14 +943,14 @@ class DeviceGeometry:
     """A device's geometry: its stack's layers bottom to top with the polygons on each, and its
     ports."""
 
-    #: The layers, bottom to top.
     layers: list[GeometryLayer]
-    #: The material below them.
+    """The layers, bottom to top."""
     substrate: str
-    #: The material above them.
+    """The material below them."""
     cladding: str
-    #: The ports, in the order of the device's S-matrices.
+    """The material above them."""
     ports: list[DevicePort]
+    """The ports, in the order of the device's S-matrices."""
 
 
 def _path(path: str | os.PathLike[str] | None) -> str | None:
@@ -875,11 +962,19 @@ def _values(values: Mapping[str, float] | None) -> list[tuple[str, float]]:
 
 
 def devices() -> list[Device]:
-    """The devices of photonoxide's library: the strip and rib waveguides, the bend, the
-    directional coupler, the all-pass and add-drop rings, the 1 × 2 and 2 × 2 MMIs, the
-    Y-branch, and the MZIs of directional couplers and of Y-branches, each with its parameters
-    (name, unit, default, range), its models (cheapest first, each with its papers, stated error
-    and validity) and its ports."""
+    """The devices of photonoxide's library: the waveguides (strip and rib), the bend, the
+    directional coupler, the rings, the MMIs, the Y-branch, the MZIs, the phase shifters
+    (thermo-optic and phase-change) and the thin-film lithium niobate modulator, each with its
+    parameters (name, unit, default, range), its models (cheapest first, each with its papers,
+    stated error and validity) and its ports. A device's ``kind`` is what the other device
+    functions take:
+
+    >>> ring = next(d for d in phox.devices() if d.kind == "all-pass ring")
+    >>> [(p.name, p.unit) for p in ring.parameters][:3], ring.ports
+    ([('width', 'µm'), ('thickness', 'µm'), ('radius', 'µm')], ['in', 'through'])
+    >>> [model.fidelity for model in ring.fidelities]
+    ['analytic', '3D']
+    """
     return [
         Device(
             kind=d["kind"],
@@ -905,7 +1000,7 @@ def stacks() -> list[Stack]:
     """The stacks of photonoxide's catalogue, each by the name the device functions take as
     ``stack``: ``"soi_220"`` (220 nm of silicon on 2 µm of oxide, the default), ``"soi"`` and
     ``"nitride"``, each with its layers of the materials catalogue's (their ids, which
-    :func:`refractive_index` takes) and the core layer a device draws its guides on::
+    :func:`refractive_index` takes) and the core layer a device draws its guides on:
 
         import photonoxide as phox
 
@@ -935,7 +1030,7 @@ def device_spectrum(
     as the device has them; its cheapest when ``None``) on ``stack``, one of :func:`stacks` by
     name (``"soi_220"``, the default, ``"soi"`` or ``"nitride"``). ``fidelity="compact"`` takes a compact model fitted to the
     device's runs, its file ``compact`` (the ``compact.json`` that a ``"fit"`` job's run writes in
-    its folder)::
+    its folder):
 
         import numpy as np
         import photonoxide as phox
@@ -979,7 +1074,12 @@ def device_derived(
 ) -> list[DeviceFigure]:
     """A device's figures at ``fidelity`` (see :func:`device_spectrum` for the design): n_eff
     and n_g, the cross-over length, the free spectral range, Q, a bend's loss, as its model
-    gives them, each with its fidelity and grid."""
+    gives them, each with its fidelity and grid:
+
+    >>> figures = phox.device_derived("all-pass ring", values={"radius": 5.0}, fidelity="analytic")
+    >>> {f.symbol: (round(f.value, 3), f.unit) for f in figures}["FSR"]
+    (18.326, 'nm')
+    """
     return [
         DeviceFigure(**f)
         for f in _native.device_derived(kind, _values(values), fidelity, stack, _path(compact))
@@ -994,7 +1094,12 @@ def device_geometry(
 ) -> DeviceGeometry:
     """A device's geometry at ``values`` (see :func:`device_spectrum`): its stack's layers,
     bottom to top, each with the polygons drawn on it (every curve within 1 nm, every vertex on
-    a 1 nm grid, as GDSII's usual database unit), how each was etched, and the device's ports."""
+    a 1 nm grid, as GDSII's usual database unit), how each was etched, and the device's ports:
+
+    >>> geometry = phox.device_geometry("directional coupler")
+    >>> [layer.name for layer in geometry.layers], [port.name for port in geometry.ports]
+    (['BOX', 'Si'], ['o1', 'o2', 'o3', 'o4'])
+    """
     g = _native.device_geometry(kind, _values(values), stack)
     return DeviceGeometry(
         layers=[
@@ -1030,7 +1135,13 @@ def device_job(
     Without a ``format``, the job as data, a dict, which :func:`run_job` and :func:`check_job`
     take; with ``format`` (``"yaml"``, the format we recommend, ``"toml"`` or ``"json"``), the
     job file's text, to save and run with ``photonoxide run`` or open in the studio. Its run records what
-    :func:`device_spectrum` gives, to the bit."""
+    :func:`device_spectrum` gives, to the bit:
+
+    >>> job = phox.device_job("all-pass ring", values={"radius": 5.0})
+    >>> job["name"], job["task"]["kind"]
+    ('all-pass-ring', 'spectrum')
+    >>> phox.check_job(job)
+    """
     job_name = name if name is not None else str(kind).lower().replace(" ", "-")
     if format is None:
         return json.loads(
