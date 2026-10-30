@@ -8,8 +8,6 @@ openEMS v0.37.0 (CSXCAD v0.7.0), found through $PHOTONOXIDE_OPENEMS, its multith
 
 A perfectly conducting strip of zero thickness, 20 µm wide, on 20 µm of a substrate of ε = 10 (w/h = 1) over a ground plane, in a perfectly conducting box ±200 µm across and 200 µm high above the strip, its walls at the ground's potential. openEMS runs a section 4 mm long as the coplanar line's (25 µm cells along it, 8-cell PMLs at both ends), driven by a soft source of E between the strip and the ground (a Gaussian pulse of 5 to 55 GHz) until the energy is down by 70 dB; k and Z₀ at each frequency come from the voltage from the strip down to the ground at three planes 1025 µm apart and the current around the strip midway (a loop ±20 µm across and ±5 µm about the strip, clear of the ground), its quasi-static n and Z₀ the limits at 0 GHz of v(f) = v₀ + a f². photonoxide's quasi-TEM line is its static solver's on half the box: n = √(C/C₀), Z₀ = 1/(c√(CC₀)). Across the line both take the same mesh lines, cells from the smallest at the strip's edge and in its plane growing by 1.1 to 10 µm; three meshes, the fewest an extrapolation takes.
 
-The closed form, Hammerstad and Jensen's (1980), will stand beside both codes: pending the paper.
-
 | | n | Error | Z₀, Ω | Error |
 |---|---:|---:|---:|---:|
 | photonoxide, converged (the reference) | 2.580191 | — | 48.6603 | — |
@@ -17,8 +15,9 @@ The closed form, Hammerstad and Jensen's (1980), will stand beside both codes: p
 | photonoxide on the same lines, extrapolated | 2.579828 | −0.014 % | 48.5756 | −0.17 % |
 | openEMS on its finest mesh (0.5 µm) | 2.581084 | +0.035 % | 48.2319 | −0.88 % |
 | photonoxide on the same mesh | 2.579828 | −0.014 % | 49.0329 | +0.77 % |
-| Hammerstad and Jensen (1980), closed form | pending the paper | | pending the paper | |
+| Hammerstad and Jensen (1980), closed form, the line in the open | 2.589451 | +0.36 % | 48.8226 | +0.33 % |
 
+Hammerstad and Jensen's closed form (their Eqs. 1–5, the strip of zero thickness, at zero frequency; IEEE MTT-S Digest 1980, p. 407) is for the line in the open, and their stated accuracy is 0.2 % on ε_e (0.1 % on n) and 0.01 % on Z₀₁ (0.11 % on Z₀ with ε_e's). In the box both codes meet each other, not the open line: the box's walls, ten substrate heights away, add a little capacitance. photonoxide's converged line in a box twenty times as wide and as high (±4000 µm, graded as the reference out to 50 µm cells) gives n 2.588506 and Z₀ 48.8432 Ω, against the closed form's 2.589451 and 48.8226 Ω: −0.036 % on n and +0.042 % on Z₀, both within the paper's stated accuracy. In the box, photonoxide's converged line is −0.36 % on n and −0.33 % on Z₀ from the closed form, openEMS's extrapolated −0.47 % and −0.21 %: the box's effect, which the twenty-times box shows is nearly all of it.
 | Smallest cell | openEMS's cells | Steps (its run) | n at 10, 20, 30, 40, 50 GHz | Z₀ at the same, Ω | openEMS at 0 GHz: n, Z₀ | Error: n, Z₀ | photonoxide, the same lines: n, Z₀ | Error: n, Z₀ |
 |---:|---:|---:|---|---|---|---|---|---|
 | 2 µm | 390720 | 40494 (2 min) | 2.58484, 2.58552, 2.58655, 2.58795, 2.58965 | 47.076, 47.091, 47.117, 47.153, 47.197 | 2.58470, 47.071 | +0.17 %, −3.27 % | 2.57750, 50.106 | −0.10 %, +2.97 % |

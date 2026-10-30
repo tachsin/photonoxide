@@ -174,6 +174,67 @@ struct Row {
 /// A check: what, openEMS's error against photonoxide converged, the tolerance.
 type Check = (String, f64, f64);
 
+/// A line's n and Z₀ (Ω): photonoxide's converged, the reference, and openEMS's extrapolated.
+#[derive(Clone, Copy)]
+struct Limits {
+    reference: (f64, f64),
+    openems: (f64, f64),
+}
+
+/// The microstrip's closed form: its row of the results' table, and what it says beside the
+/// codes. Hammerstad and Jensen's line is in the open, so photonoxide's converged line in a box
+/// twenty times as wide and as high, nearly open, is what the paper's stated accuracy holds it
+/// to: 0.1 % on n (their 0.2 % on ε_e, under its square root) and 0.11 % on Z₀ (their 0.01 % on
+/// Z₀₁ with that); the box's own effect is the rest.
+fn hammerstad_jensen(strip: &Microstrip, limits: Limits) -> (String, String) {
+    let (n, z) = strip.hammerstad_jensen();
+    let open = strip.widened(20.0);
+    let (y, h) = open
+        .axes(&Mesh {
+            smallest: CONVERGED[CONVERGED.len() - 1],
+            growth: CONVERGED_GROWTH,
+            largest: 50.0,
+        })
+        .expect("a valid mesh");
+    let (on, oz) = open.static_line(&y, &h).expect("the static solve");
+    let (rn, rz) = limits.reference;
+    let (en, ez) = limits.openems;
+    let within = |a: f64, b: f64, tolerance: f64| {
+        if ((a - b) / b).abs() <= tolerance {
+            "within"
+        } else {
+            "outside"
+        }
+    };
+    let verdict = match (within(on, n, 1e-3), within(oz, z, 1.1e-3)) {
+        ("within", "within") => "both within the paper's stated accuracy".to_owned(),
+        (a, b) => format!("{a} the paper's stated accuracy on n and {b} it on Z₀"),
+    };
+    let row = format!(
+        "| Hammerstad and Jensen (1980), closed form, the line in the open | {} | {} | {} | {} |\n",
+        sig(n, 6),
+        percent(n, rn),
+        sig(z, 4),
+        percent(z, rz)
+    );
+    let text = format!(
+        "Hammerstad and Jensen's closed form (their Eqs. 1–5, the strip of zero thickness, at zero frequency; IEEE MTT-S Digest 1980, p. 407) is for the line in the open, and their stated accuracy is 0.2 % on ε_e (0.1 % on n) and 0.01 % on Z₀₁ (0.11 % on Z₀ with ε_e's). In the box both codes meet each other, not the open line: the box's walls, ten substrate heights away, add a little capacitance. photonoxide's converged line in a box twenty times as wide and as high (±{} µm, graded as the reference out to 50 µm cells) gives n {} and Z₀ {} Ω, against the closed form's {} and {} Ω: {} on n and {} on Z₀, {}. In the box, photonoxide's converged line is {} on n and {} on Z₀ from the closed form, openEMS's extrapolated {} and {}: the box's effect, which the twenty-times box shows is nearly all of it.\n",
+        open.reach,
+        sig(on, 6),
+        sig(oz, 4),
+        sig(n, 6),
+        sig(z, 4),
+        percent(on, n),
+        percent(oz, z),
+        verdict,
+        percent(rn, n),
+        percent(rz, z),
+        percent(en, n),
+        percent(ez, z)
+    );
+    (row, text)
+}
+
 /// A line both codes solve: its name, its report's heading and description, its meshes, and
 /// its mesh lines, openEMS model and static line on them.
 struct Case<'a> {
@@ -187,7 +248,7 @@ struct Case<'a> {
     model: &'a dyn Fn(&Axis, &Axis) -> Model,
     statics: &'a dyn Fn(&Axis, &Axis) -> (f64, f64),
     /// The closed form's row of the results' table, if it has one.
-    closed_form: Option<&'static str>,
+    closed_form: Option<&'a dyn Fn(Limits) -> (String, String)>,
 }
 
 fn study(program: &OpenEms, folder: &Path, started: Instant, case: &Case) -> (String, Vec<Check>) {
@@ -265,6 +326,14 @@ fn study(program: &OpenEms, folder: &Path, started: Instant, case: &Case) -> (St
     let (cv_z, cv_zp) = extrapolated(&converged.iter().map(|c| c.1).collect::<Vec<_>>());
     let (ref_n, ref_z) = converged[converged.len() - 1];
     let last = &rows[rows.len() - 1];
+    let closed = case
+        .closed_form
+        .map_or((String::new(), String::new()), |f| {
+            f(Limits {
+                reference: (ref_n, ref_z),
+                openems: (oe_n, oe_z),
+            })
+        });
 
     let mut out = String::new();
     let _ = writeln!(out, "## {}\n\n{}\n", case.heading, case.about);
@@ -295,9 +364,9 @@ fn study(program: &OpenEms, folder: &Path, started: Instant, case: &Case) -> (St
         percent(last.ours.0, ref_n),
         sig(last.ours.1, 4),
         percent(last.ours.1, ref_z),
-        case.closed_form
-            .map_or(String::new(), |row| format!("{row}\n"))
+        closed.0
     );
+    out.push_str(&closed.1);
     let _ = writeln!(
         out,
         "| Smallest cell | openEMS's cells | Steps (its run) | n at {} GHz | Z₀ at the same, Ω | openEMS at 0 GHz: n, Z₀ | Error: n, Z₀ | photonoxide, the same lines: n, Z₀ | Error: n, Z₀ |\n|---:|---:|---:|---|---|---|---|---|---|",
@@ -605,7 +674,7 @@ fn openems_agrees_on_more_lines() {
             name: "the microstrip",
             heading: "A microstrip line in a box",
             about: format!(
-                "A perfectly conducting strip of zero thickness, {} µm wide, on {} µm of a substrate of ε = {} (w/h = 1) over a ground plane, in a perfectly conducting box ±{r} µm across and {r} µm high above the strip, its walls at the ground's potential. openEMS runs a section {} mm long as the coplanar line's (25 µm cells along it, 8-cell PMLs at both ends), driven by a soft source of E between the strip and the ground (a Gaussian pulse of 5 to 55 GHz) until the energy is down by 70 dB; k and Z₀ at each frequency come from the voltage from the strip down to the ground at three planes 1025 µm apart and the current around the strip midway (a loop ±{} µm across and ±5 µm about the strip, clear of the ground), its quasi-static n and Z₀ the limits at 0 GHz of v(f) = v₀ + a f². photonoxide's quasi-TEM line is its static solver's on half the box: n = √(C/C₀), Z₀ = 1/(c√(CC₀)). Across the line both take the same mesh lines, cells from the smallest at the strip's edge and in its plane growing by {GROWTH} to {LARGEST} µm; three meshes, the fewest an extrapolation takes.\n\nThe closed form, Hammerstad and Jensen's (1980), will stand beside both codes: pending the paper.",
+                "A perfectly conducting strip of zero thickness, {} µm wide, on {} µm of a substrate of ε = {} (w/h = 1) over a ground plane, in a perfectly conducting box ±{r} µm across and {r} µm high above the strip, its walls at the ground's potential. openEMS runs a section {} mm long as the coplanar line's (25 µm cells along it, 8-cell PMLs at both ends), driven by a soft source of E between the strip and the ground (a Gaussian pulse of 5 to 55 GHz) until the energy is down by 70 dB; k and Z₀ at each frequency come from the voltage from the strip down to the ground at three planes 1025 µm apart and the current around the strip midway (a loop ±{} µm across and ±5 µm about the strip, clear of the ground), its quasi-static n and Z₀ the limits at 0 GHz of v(f) = v₀ + a f². photonoxide's quasi-TEM line is its static solver's on half the box: n = √(C/C₀), Z₀ = 1/(c√(CC₀)). Across the line both take the same mesh lines, cells from the smallest at the strip's edge and in its plane growing by {GROWTH} to {LARGEST} µm; three meshes, the fewest an extrapolation takes.",
                 2.0 * strip.half_width,
                 strip.height,
                 strip.permittivity,
@@ -618,9 +687,7 @@ fn openems_agrees_on_more_lines() {
             axes: &|m| strip.axes(m).expect("a valid mesh"),
             model: &|y, z| strip.model(y, z, END),
             statics: &|y, z| strip.static_line(y, z).expect("the static solve"),
-            closed_form: Some(
-                "| Hammerstad and Jensen (1980), closed form | pending the paper | | pending the paper | |",
-            ),
+            closed_form: Some(&|limits| hammerstad_jensen(&strip, limits)),
         },
         Case {
             key: "zhang",

@@ -94,6 +94,38 @@ impl Microstrip {
         Ok(((c / c0).sqrt(), 1.0 / (C * (c * c0).sqrt())))
     }
 
+    /// Hammerstad and Jensen's closed form for the line in the open (no box), its strip of zero
+    /// thickness, at zero frequency (E. Hammerstad, Ø. Jensen, "Accurate models for microstrip
+    /// computer-aided design", IEEE MTT-S International Microwave Symposium Digest, 407 (1980),
+    /// doi:10.1109/MWSYM.1980.1124303, Eqs. 1–5): the index √ε_e and Z₀ = Z₀₁/√ε_e (Ω), u = w/h,
+    /// η₀ = 376.73 Ω as the paper has it. Their stated accuracy: Z₀₁ to 0.01 % for u ≤ 1, ε_e to
+    /// 0.2 % for ε_r ≤ 128 and 0.01 ≤ u ≤ 100.
+    pub fn hammerstad_jensen(&self) -> (f64, f64) {
+        use std::f64::consts::PI;
+        let (u, er, eta) = (
+            2.0 * self.half_width / self.height,
+            self.permittivity,
+            376.73,
+        );
+        let f = 6.0 + (2.0 * PI - 6.0) * (-(30.666 / u).powf(0.7528)).exp();
+        let z01 = eta / (2.0 * PI) * (f / u + (1.0 + (2.0 / u).powi(2)).sqrt()).ln();
+        let a = 1.0
+            + ((u.powi(4) + (u / 52.0).powi(2)) / (u.powi(4) + 0.432)).ln() / 49.0
+            + (1.0 + (u / 18.1).powi(3)).ln() / 18.7;
+        let b = 0.564 * ((er - 0.9) / (er + 3.0)).powf(0.053);
+        let ee = 0.5 * (er + 1.0) + 0.5 * (er - 1.0) * (1.0 + 10.0 / u).powf(-a * b);
+        (ee.sqrt(), z01 / ee.sqrt())
+    }
+
+    /// The same line in a box `factor` times as wide and as high: nearly the open line the
+    /// closed form describes.
+    pub fn widened(&self, factor: f64) -> Microstrip {
+        Microstrip {
+            reach: factor * self.reach,
+            ..*self
+        }
+    }
+
     /// The openEMS model on the mesh lines `across` (half the line, mirrored for the whole)
     /// and `height`, ended at an energy of `end_energy`.
     pub fn model(&self, across: &Axis, height: &Axis, end_energy: f64) -> Model {
@@ -191,5 +223,14 @@ mod tests {
         assert_eq!(m.lines[1].len(), 2 * y.nodes().len() - 1);
         assert_eq!(m.lines[2], z.nodes());
         assert!(m.xml().is_ok());
+    }
+
+    /// Hammerstad and Jensen's Eqs. 1–5 at w/h = 1, ε_r = 10, evaluated by hand: Z₀₁ =
+    /// 126.4238 Ω, ε_e = 6.70526, so n = 2.58945 and Z₀ = 48.8226 Ω.
+    #[test]
+    fn the_closed_form_is_hammerstad_and_jensens() {
+        let (n, ohm) = Microstrip::alumina_like().hammerstad_jensen();
+        assert!((n - 2.589_451).abs() < 1e-6, "{n}");
+        assert!((ohm - 48.822_61).abs() < 1e-4, "{ohm}");
     }
 }
