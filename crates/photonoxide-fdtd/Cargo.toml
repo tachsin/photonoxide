@@ -1,0 +1,29 @@
+# photonoxide's FDTD layer (docs/architecture.md, #508). Internal: users depend on photonoxide,
+# which re-exports it at its old paths.
+[package]
+name = "photonoxide-fdtd"
+# photonoxide's version, from the workspace, as every crate here has it
+version.workspace = true
+edition = "2024"
+rust-version = "1.95"
+description = "Internal crate of photonoxide (FDTD in 2D and 3D, on the CPU and the GPU); use photonoxide"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/tachsin/photonoxide"
+readme = "README.md"
+
+[dependencies]
+# the crates of the workspace pin each other exactly: they are released together
+photonoxide-core = { version = "=0.6.0", path = "../photonoxide-core" }
+photonoxide-geometry = { version = "=0.6.0", path = "../photonoxide-geometry" }
+photonoxide-fdfd = { version = "=0.6.0", path = "../photonoxide-fdfd" }
+faer = { version = "0.24.4", default-features = false, features = ["std", "rayon", "sparse-linalg", "rand"] }
+num-complex = "0.4"
+rayon = "1.12.0"
+# FDTD on the GPU (the `gpu` feature): compute shaders on Vulkan, DirectX 12 or Metal, the
+# system's driver loaded at run time; photonoxide's own code stays free of `unsafe`
+wgpu = { version = "30.0.1", optional = true, default-features = false, features = ["std", "parking_lot", "wgsl", "vulkan", "dx12", "metal"] }
+
+[features]
+# FDTD on the GPU through wgpu (fdtd::gpu); photonoxide's `gpu` feature turns it on
+gpu = ["dep:wgpu"]
+

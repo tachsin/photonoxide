@@ -25,6 +25,8 @@ members = [
   "crates/photonoxide-linalg",
   "crates/photonoxide-mode",
   "crates/photonoxide-statics",
+  "crates/photonoxide-fdfd",
+  "crates/photonoxide-fdtd",
   "studio/src-tauri",
   "studio/setup",
   "native",
@@ -38,6 +40,8 @@ default-members = [
   "crates/photonoxide-linalg",
   "crates/photonoxide-mode",
   "crates/photonoxide-statics",
+  "crates/photonoxide-fdfd",
+  "crates/photonoxide-fdtd",
 ]
 
 [workspace.package]
@@ -52,6 +56,8 @@ photonoxide-geometry = { version = "=0.6.0", path = "crates/photonoxide-geometry
 photonoxide-linalg = { version = "=0.6.0", path = "crates/photonoxide-linalg" }
 photonoxide-mode = { version = "=0.6.0", path = "crates/photonoxide-mode" }
 photonoxide-statics = { version = "=0.6.0", path = "crates/photonoxide-statics" }
+photonoxide-fdfd = { version = "=0.6.0", path = "crates/photonoxide-fdfd" }
+photonoxide-fdtd = { version = "=0.6.0", path = "crates/photonoxide-fdtd" }
 # without faer's `npy` default: nothing here reads .npy files, and it brought pest, whose newer
 # releases assemble and link .asm files (psm) at build time, against AGENTS.md's "nothing linked"
 faer = { version = "0.24.4", default-features = false, features = ["std", "rayon", "sparse-linalg", "rand"] }
@@ -74,14 +80,11 @@ serde-saphyr = "2.0"
 # the job file's JSON Schema (job::schema), derived from the structs the tasks are read into so
 # the two can't drift: what editors complete and check a job with. MIT, pure Rust
 schemars = "1.2.3"
-# FDTD on the GPU (the `gpu` feature): compute shaders on Vulkan, DirectX 12 or Metal, the
-# system's driver loaded at run time; photonoxide's own code stays free of `unsafe`
-wgpu = { version = "30.0.1", optional = true, default-features = false, features = ["std", "parking_lot", "wgsl", "vulkan", "dx12", "metal"] }
 
 [features]
 # FDTD on the GPU through wgpu (fdtd::gpu): off by default, since wgpu and its shader compiler
 # lengthen a clean build; CI builds and lints it, and its tests skip without a GPU
-gpu = ["dep:wgpu"]
+gpu = ["photonoxide-fdtd/gpu"]
 
 # faer's matrix-product kernel on x86, named here only for its version: 0.1.20's threaded
 # complex product was wrong on AMD Zen 3 under Windows (GitHub's EPYC 7763 runners), and with
@@ -127,6 +130,12 @@ opt-level = 3
 opt-level = 3
 
 [profile.dev.package.photonoxide-statics]
+opt-level = 3
+
+[profile.dev.package.photonoxide-fdfd]
+opt-level = 3
+
+[profile.dev.package.photonoxide-fdtd]
 opt-level = 3
 
 # Debug and test builds keep file and line numbers for panics and backtraces, not the full debug

@@ -1,0 +1,21 @@
+# photonoxide's FDFD layer (docs/architecture.md, #508). Internal: users depend on photonoxide,
+# which re-exports it at its old paths.
+[package]
+name = "photonoxide-fdfd"
+# photonoxide's version, from the workspace, as every crate here has it
+version.workspace = true
+edition = "2024"
+rust-version = "1.95"
+description = "Internal crate of photonoxide (2D and 3D FDFD); use photonoxide"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/tachsin/photonoxide"
+readme = "README.md"
+
+[dependencies]
+# the crates of the workspace pin each other exactly: they are released together
+photonoxide-core = { version = "=0.6.0", path = "../photonoxide-core" }
+photonoxide-geometry = { version = "=0.6.0", path = "../photonoxide-geometry" }
+photonoxide-linalg = { version = "=0.6.0", path = "../photonoxide-linalg" }
+faer = { version = "0.24.4", default-features = false, features = ["std", "rayon", "sparse-linalg", "rand"] }
+num-complex = "0.4"
+rayon = "1.12.0"

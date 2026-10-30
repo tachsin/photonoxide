@@ -3625,6 +3625,8 @@ dependencies = [
  "libm",
  "num-complex",
  "photonoxide-core",
+ "photonoxide-fdfd",
+ "photonoxide-fdtd",
  "photonoxide-geometry",
  "photonoxide-linalg",
  "photonoxide-mode",
@@ -3636,7 +3638,6 @@ dependencies = [
  "serde-saphyr",
  "serde_json",
  "toml 1.1.8+spec-1.1.0",
- "wgpu",
  "zip",
 ]
 
@@ -3650,6 +3651,31 @@ dependencies = [
  "rayon",
  "schemars 1.2.3",
  "serde",
+]
+
+[[package]]
+name = "photonoxide-fdfd"
+version = "0.6.0"
+dependencies = [
+ "faer",
+ "num-complex",
+ "photonoxide-core",
+ "photonoxide-geometry",
+ "photonoxide-linalg",
+ "rayon",
+]
+
+[[package]]
+name = "photonoxide-fdtd"
+version = "0.6.0"
+dependencies = [
+ "faer",
+ "num-complex",
+ "photonoxide-core",
+ "photonoxide-fdfd",
+ "photonoxide-geometry",
+ "rayon",
+ "wgpu",
 ]
 
 [[package]]
