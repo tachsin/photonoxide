@@ -51,13 +51,39 @@ fn invalid(message: String) -> Error {
 /// a polish that doesn't take off what was deposited for it, a layer etched open that nothing
 /// fills, or no wafer or cladding.
 pub fn execute(flow: &Flow) -> Result<Made> {
+    run(&flow.steps, false)
+}
+
+/// The wafer after each of `flow`'s steps, for the cross-section of each: what is made so far,
+/// with air where a region is etched open and above the top until the cladding goes on (the
+/// resist isn't drawn). The last is [`execute`]'s.
+///
+/// # Errors
+///
+/// [`execute`]'s, for the steps up to each.
+pub fn stages(flow: &Flow) -> Result<Vec<Made>> {
+    (1..=flow.steps.len())
+        .map(|k| run(&flow.steps[..k], k < flow.steps.len()))
+        .collect()
+}
+
+/// The air a stage shows where nothing is yet.
+fn air() -> Film {
+    Film {
+        name: "air".into(),
+        optical: crate::material::vacuum(),
+    }
+}
+
+/// Runs `steps`; `partial`, the wafer so far, with air where nothing is yet.
+fn run(steps: &[super::flow::Step], partial: bool) -> Result<Made> {
     let mut substrate: Option<Film> = None;
     let mut cladding: Option<Film> = None;
     let mut layers: Vec<Building> = Vec::new();
     let mut resist: Option<(Vec<Shape>, Tone)> = None;
     let mut evaporated: Option<(Film, Length)> = None;
     let mut extra = Length::ZERO;
-    for (k, step) in flow.steps.iter().enumerate() {
+    for (k, step) in steps.iter().enumerate() {
         let at = |what: &str| invalid(format!("step {} ({}): {what}", k + 1, step.name));
         match &step.operation {
             Operation::Wafer {
@@ -174,8 +200,12 @@ pub fn execute(flow: &Flow) -> Result<Made> {
         }
     }
     let substrate = substrate.ok_or_else(|| invalid("the flow has no wafer".into()))?;
-    let cladding = cladding.ok_or_else(|| invalid("the flow never covers the wafer".into()))?;
-    if resist.is_some() || extra != Length::ZERO {
+    let cladding = match cladding {
+        Some(c) => c,
+        None if partial => air(),
+        None => return Err(invalid("the flow never covers the wafer".into())),
+    };
+    if !partial && (resist.is_some() || extra != Length::ZERO) {
         return Err(invalid(
             "the flow ends with resist on the wafer or a deposition not polished".into(),
         ));
@@ -186,6 +216,7 @@ pub fn execute(flow: &Flow) -> Result<Made> {
         let background = match (&l.background, l.shapes.is_empty()) {
             (Some(b), _) => b.clone(),
             (None, true) => l.film.clone(),
+            (None, false) if partial => air(),
             (None, false) => {
                 return Err(invalid(format!(
                     "{} is etched open and nothing fills it",

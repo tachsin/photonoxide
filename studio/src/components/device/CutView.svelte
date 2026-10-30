@@ -4,11 +4,14 @@
   // cut, across a ring and its buses, has its height stretched and says by how much), from
   // 1 µm below the core to 1 µm above it.
   import { cut, fillOf, tick } from "../../lib/deviceview";
-  import type { Scene } from "../../lib/events";
+  import type { Scene, SceneEtched } from "../../lib/events";
   import { ticks } from "../../lib/plot";
   import { unitText } from "../../lib/units";
 
-  let { scene, normal, at, height = 300 }: { scene: Scene; normal: "x" | "y"; at: number; height?: number } = $props();
+  // `etched`, the etched layers' shapes with their etches (photonoxide::job::scene_etched), draws
+  // each such shape exactly, a trapezoid from its top face down to its floor with its walls leaning
+  // out, in place of the bands' staircase the scene draws them in (their slab stays the bands')
+  let { scene, etched = [], normal, at, height = 300 }: { scene: Scene; etched?: SceneEtched[]; normal: "x" | "y"; at: number; height?: number } = $props();
 
   let width = $state(400);
   // the layers' names go at the right, beyond the window
@@ -39,6 +42,18 @@
 
   const top = $derived(scene.layers.length ? scene.layers[scene.layers.length - 1].z_um[1] : 0);
   const band = (from: number, to: number) => ({ y: Z(Math.min(z[1], to)), height: Math.max(0, (Math.min(z[1], to) - Math.max(z[0], from)) * scaleZ) });
+  /** The etched layers: the scene draws them in bands (`name 2`, `name 3`, … below), a staircase; their shapes are drawn exactly instead. */
+  const etchedLayers = $derived(new Set(etched.map((e) => e.layer)));
+  const banded = (name: string) => etchedLayers.has(name) || etchedLayers.has(name.replace(/ \d+$/, ""));
+  /** The exact shapes the cut meets, each with its etch. */
+  const exact = $derived(cut({ ...scene, shapes: etched.map((e) => ({ layer: e.layer, outline: e.outline })) }, normal, at).map((p) => ({ ...p, e: etched[p.shape] })));
+  /** A cut piece etched by `e` on its layer `[z0, z1]`: its trapezoid's corners, as SVG points. */
+  function trapezoid(from: number, to: number, z0: number, z1: number, e: SceneEtched): string {
+    const depth = Math.min(e.depth_um, z1 - z0);
+    const run = e.sidewall_deg >= 90 ? 0 : depth / Math.tan((e.sidewall_deg * Math.PI) / 180);
+    const floor = z1 - depth;
+    return [[from - run, floor], [from, z1], [to, z1], [to + run, floor]].map(([u, v]) => `${X(u)},${Z(v)}`).join(" ");
+  }
 </script>
 
 <div bind:clientWidth={width} class="w-full">
@@ -56,8 +71,14 @@
       <!-- the shapes the cut meets -->
       {#each pieces as p, k (k)}
         {@const l = scene.layers.find((x) => x.name === p.layer)}
-        {#if l}
+        {#if l && !banded(l.name)}
           <rect x={X(p.from)} width={(p.to - p.from) * scale} {...band(l.z_um[0], l.z_um[1])} class={fillOf(l.material.eps) ?? "fill-none"} stroke-width="1" />
+        {/if}
+      {/each}
+      {#each exact as p, k (k)}
+        {@const l = scene.layers.find((x) => x.name === p.layer)}
+        {#if l}
+          <polygon points={trapezoid(p.from, p.to, p.e.z_um[0], p.e.z_um[1], p.e)} class={fillOf(l.material.eps) ?? "fill-none"} stroke-width="1" />
         {/if}
       {/each}
     </g>

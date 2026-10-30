@@ -34,7 +34,7 @@ export function deviceOf(id: string | null | undefined): DeviceInfo | undefined 
 }
 
 /** A device page's tabs. */
-export type Tab = "overview" | "design" | "model" | "simulate" | "study" | "optimize";
+export type Tab = "overview" | "design" | "model" | "simulate" | "study" | "optimize" | "fabrication";
 
 /** A device's page: its design as edited, its tab, and the file it was saved to or opened from. */
 export interface Draft {

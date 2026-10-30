@@ -211,6 +211,50 @@ pub(super) fn scene_shapes(s: &Structure) -> Vec<SceneShape> {
         .collect()
 }
 
+/// A shape of an etched layer (a partial etch, sloped walls) as drawn: a scene draws such a
+/// layer in bands ([`Event::Scene`]'s `name 2`, `name 3`, … below it), its walls a staircase; a
+/// cross-section that wants them exact draws each shape from its top face down to its etch's
+/// floor, its walls leaning out by its sidewall.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[non_exhaustive]
+pub struct SceneEtched {
+    /// The layer it is drawn on, as the stack names it.
+    pub layer: String,
+    /// The layer's bottom and top, µm.
+    pub z_um: [f64; 2],
+    /// Its top face's outline, as [`SceneShape::outline`].
+    pub outline: Vec<[f64; 2]>,
+    /// How deep the etch went from the layer's top, µm: the layer's thickness for a full etch.
+    pub depth_um: f64,
+    /// The walls' angle from the layer's plane, degrees: 90 for vertical walls.
+    pub sidewall_deg: f64,
+}
+
+/// Every shape of `s`'s etched layers (those a scene draws in bands), each with its etch: what a
+/// cross-section draws in place of the bands' staircase. Layers etched through with vertical
+/// walls have none here: the scene's shapes are already exact.
+pub fn scene_etched(s: &Structure) -> Vec<SceneEtched> {
+    let mut out = Vec::new();
+    let mut bottom = 0.0;
+    for layer in s.stack().layers() {
+        let t = layer.thickness.to_um();
+        if !s.is_plain(&layer.name) {
+            for (shape, e) in s.shapes(&layer.name).iter().zip(s.etches(&layer.name)) {
+                for outline in outlines(shape) {
+                    out.push(SceneEtched {
+                        layer: layer.name.clone(),
+                        z_um: [bottom, bottom + t],
+                        outline,
+                        depth_um: e.depth.map_or(t, Length::to_um),
+                        sidewall_deg: e.sidewall.to_degrees(),
+                    });
+                }
+            }
+        }
+        bottom += t;
+    }
+    out
+}
 /// An array's or a reference's elements, when no two of them meet: each drawn as its own
 /// outline (circles as 64-gons, as everywhere in a scene); `None` for any other shape, or for
 /// elements that touch or overlap, which are drawn as their union's polygons.

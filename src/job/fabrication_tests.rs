@@ -95,3 +95,29 @@ fn a_fabrication_job_refuses_processes_the_library_hasnt_and_preferences_that_do
     let job = Job::parse(&format!("{TFLN}prefer = [\"ebl-pmma\"]\n")).unwrap();
     check(&job).unwrap();
 }
+
+#[test]
+fn the_fabrication_view_has_the_wafer_after_every_step() {
+    let job = Job::parse(TFLN).unwrap();
+    let spec = super::device::spec_of(&job).unwrap();
+    let view = fabrication_of(&spec, &[], &[]).unwrap();
+    assert_eq!(view.stages.len(), view.flow.steps.len());
+    assert!(view.flow.round_trip.unwrap().exact());
+    // the rib's etch is in the last stage: 0.3 µm deep, walls at 70°, on the 0.6 µm film
+    let last = view.stages.last().unwrap();
+    let rib = last.etched.first().expect("an etched shape");
+    assert_eq!(rib.layer, "LN");
+    assert!((rib.depth_um - 0.3).abs() < 1e-12, "{rib:?}");
+    assert!((rib.sidewall_deg - 70.0).abs() < 1e-9, "{rib:?}");
+    assert!((rib.z_um[1] - rib.z_um[0] - 0.6).abs() < 1e-12, "{rib:?}");
+    assert!(last.etched.iter().all(|e| e.layer == "LN"));
+    assert!(matches!(last.scene, Event::Scene { .. })); // the first stage is the bare wafer, open to the air above it
+    let Event::Scene {
+        cladding, shapes, ..
+    } = &view.stages[0].scene
+    else {
+        panic!("a scene")
+    };
+    assert!(shapes.is_empty());
+    assert!(cladding.eps < 1.0 + 1e-12, "{cladding:?}");
+}

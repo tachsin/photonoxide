@@ -98,9 +98,9 @@ export function valueText(v: number | null, unit: string): string {
 }
 
 /** The intervals along a cut where the shapes of `s` on each layer are: a cut normal to x at x = `at` gives intervals in y, normal to y intervals in x. */
-export function cut(s: Scene, normal: "x" | "y", at: number): { layer: string; from: number; to: number }[] {
-  const out: { layer: string; from: number; to: number }[] = [];
-  for (const shape of s.shapes) {
+export function cut(s: Scene, normal: "x" | "y", at: number): { layer: string; from: number; to: number; shape: number }[] {
+  const out: { layer: string; from: number; to: number; shape: number }[] = [];
+  for (const [index, shape] of s.shapes.entries()) {
     const crossings: number[] = [];
     const o = shape.outline;
     for (let k = 0; k < o.length; k++) {
@@ -110,7 +110,7 @@ export function cut(s: Scene, normal: "x" | "y", at: number): { layer: string; f
     }
     crossings.sort((p, q) => p - q);
     for (let k = 0; k + 1 < crossings.length; k += 2) {
-      if (crossings[k + 1] - crossings[k] > 1e-9) out.push({ layer: shape.layer, from: crossings[k], to: crossings[k + 1] });
+      if (crossings[k + 1] - crossings[k] > 1e-9) out.push({ layer: shape.layer, from: crossings[k], to: crossings[k + 1], shape: index });
     }
   }
   return out;

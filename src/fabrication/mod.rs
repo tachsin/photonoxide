@@ -42,7 +42,7 @@ pub(crate) mod checks;
 #[cfg(test)]
 mod tests;
 
-pub use execute::{Made, RoundTrip, execute, round_trip};
+pub use execute::{Made, RoundTrip, execute, round_trip, stages};
 pub use flow::{Alternative, Depth, Flow, FlowRecord, Laid, Operation, Step, StepRecord, Tone};
 pub use generate::{Choices, Thermal, generate, thermal};
 pub use library::{
