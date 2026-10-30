@@ -1,5 +1,7 @@
 //! The rules (#544) of 0.6.1's data cases ([`crate::nonlinear::data_checks`]): undoped congruent
-//! LiTaO₃'s extraordinary index against temperature, each against what its paper prints.
+//! LiTaO₃'s extraordinary index against temperature and the Kerr data, each against what its
+//! paper prints (half a unit of a printed digit, or a stated uncertainty); the unit conversions
+//! and γ against their closed forms (round-off).
 
 use super::{Basis::*, Measure::*, Numerical::*, Rule};
 
@@ -34,6 +36,47 @@ pub(crate) fn rules() -> Vec<(&'static str, Rule)> {
                 Exact,
                 "half a unit of the last digit of the printed 2.177; from 20 to 30 °C the equation gives 2.1769 to 2.1770, so the unstated room temperature doesn't matter",
             ),
+        ),
+        (
+            "material/kerr-desalvo-esu",
+            Rule::new(
+                Absolute,
+                Reference,
+                1.0,
+                Exact,
+                "half a unit of each value's last printed digit, the error measured in those halves: the paper states the pairs as the same numbers, to two digits",
+            ),
+        ),
+        (
+            "material/kerr-units-round-trip",
+            Rule::new(
+                Relative,
+                RoundOff,
+                1e-15,
+                Exact,
+                "a product and a quotient each way, each rounded once in f64 (2⁻⁵³ ≈ 1.1e-16): four roundings at most",
+            ),
+        ),
+        (
+            "material/kerr-bristow-readings",
+            Rule::new(
+                Absolute,
+                Reference,
+                1.0,
+                Stated(0.27, "half a pixel of Fig. 3, 0.013 × 10⁻¹⁴ cm²/W, in halves of the last digit; Fig. 2's is 0.046"),
+                "half a unit of the last digit of the printed 2.1, 0.4, 4.7 and 2.0, the error measured in those halves",
+            ),
+        ),
+        (
+            "nonlinear/kerr-gamma-gaussian",
+            Rule::new(
+                Relative,
+                RoundOff,
+                1e-10,
+                Exact,
+                "a Gaussian's midpoint sums at 20 cells a width are exact to round-off (as mode/effective-area-gaussian), and γ is that area's closed form",
+            )
+            .varying(),
         ),
     ]
 }

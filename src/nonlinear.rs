@@ -13,6 +13,9 @@
 //! - [`pairs`]: photon pairs by spontaneous parametric down-conversion: the joint spectral
 //!   amplitude and its Schmidt decomposition, the pairs' purity (Grice and Walmsley 1997).
 //!
+//! The materials' third-order data, n₂ and two-photon absorption, are the catalogue's
+//! ([`crate::material::catalogue::kerr`]); a guide's γ is [`crate::mode::quantities`]'.
+//!
 //! The write-up is `docs/methods/nonlinear.md`.
 
 pub(crate) mod checks;

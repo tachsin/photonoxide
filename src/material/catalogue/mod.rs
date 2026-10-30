@@ -25,6 +25,11 @@
 //! Electrical resistivities of films ([`Resistivity`], [`resistivities`]): TiN's, film by film,
 //! each with how it was made, its thickness and paper.
 //!
+//! Third-order data ([`Kerr`], [`Entry::kerr`]): the Kerr coefficient n₂ and two-photon
+//! absorption of silicon, silicon nitride, lithium niobate and aluminium nitride, each value with
+//! its wavelength, stated uncertainty and how it was obtained, and the unit conversions
+//! ([`n2_from_esu`] and the others).
+//!
 //! Permittivities and loss tangents at microwave and millimetre-wave frequencies
 //! ([`RfDielectric`], [`Entry::rf_dielectric`]): fused silica, crystalline quartz, sapphire,
 //! silicon and lithium niobate, each value with its sample, frequency and paper ([`rf_dielectrics`]).
@@ -47,6 +52,7 @@ pub(crate) mod conductivity;
 pub(crate) mod conductivity_checks;
 mod entries;
 pub(crate) mod ferroelectric;
+pub(crate) mod kerr;
 pub(crate) mod litao3_dndt;
 pub(crate) mod litao3_ne;
 mod models;
@@ -70,6 +76,10 @@ pub(crate) mod thermo_checks;
 pub use coming::Coming;
 pub use conductivity::{Conductivity, ConductivityModel, conductivities, conductivity};
 pub(crate) use entries::lithium_rich_jundt_1990;
+pub use kerr::{
+    Kerr, KerrQuantity, Obtained, beta_from_cm_per_gw, beta_to_cm_per_gw, kerr, n2_from_cm2_per_w,
+    n2_from_esu, n2_to_cm2_per_w, n2_to_esu,
+};
 pub use phase_change::{
     PhaseChange, State, figure_of_merit, partly_crystalline, phase_change, phase_changes,
 };

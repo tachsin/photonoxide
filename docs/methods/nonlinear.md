@@ -8,6 +8,8 @@ papers:
     doi: 10.1109/3.161322
   - cite: "R. W. Boyd, Nonlinear Optics, 4th ed., Academic Press (2020) (Eqs. (2.2.11), (2.3.8); Table 2.3.2)"
     doi: 10.1016/C2015-0-05510-1
+  - cite: "S. Afshar V., T. M. Monro, Opt. Express 17, 2298 (2009) (Eq. 42, γ)"
+    doi: 10.1364/OE.17.002298
   - cite: "G. J. Edwards, M. Lawrence, Opt. Quantum Electron. 16, 373 (1984) (Eq. 1, Table I)"
     doi: 10.1007/BF00620081
   - cite: "D. H. Jundt, M. M. Fejer, R. L. Byer, IEEE J. Quantum Electron. 26, 135 (1990) (Table III)"
@@ -39,6 +41,7 @@ validation:
   - nonlinear/coupled-manley-rowe
   - nonlinear/coupled-rk4-order
   - nonlinear/pairs-gaussian-purity
+  - nonlinear/kerr-gamma-gaussian
 ---
 
 A second- or third-order process converts light efficiently only when its waves stay in step:
@@ -300,6 +303,18 @@ process, the pump held and the idler tuned, its grating first order. With Zelmon
 idler of a 1.064 µm pump at a 30 µm period is 3.354 µm (their Fig. 3: 3.35); with Jundt's n_e(T)
 at 250 °C and a 25.5 µm period, expanded by his Eq. (3), it is 4.755 µm (his Fig. 1: 4.755). Both
 are the numbers these cases gave before they were moved onto phase matching.
+
+## The Kerr coefficient in a guide
+
+The catalogue has n₂ and two-photon absorption with their papers (`catalogue::kerr`, the
+[catalogue's write-up](catalogue.md#kerr-coefficients-and-two-photon-absorption)). A guide's
+nonlinear coefficient is γ = 2π n₂ / (λ A_eff) (Afshar & Monro, Eq. 42 with n₂ uniform), from
+the mode's effective area: `Fields::kerr_coefficient` takes a catalogue value,
+`Fields::nonlinear_coefficient` a number in m²/W, and `mode::quantities::nonlinear_coefficient`
+the closed form with any area. For a Gaussian mode of area π µm² and silicon nitride's n₂
+(2.4 × 10⁻¹⁵ cm²/W at 1548 nm), γ is 0.310 /(W·m), the closed form to round-off
+(`nonlinear/kerr-gamma-gaussian`). A value holds at its own wavelength: silicon's n₂ changes
+fourfold from 850 to 2200 nm, and nothing here moves it.
 
 ## Limits
 

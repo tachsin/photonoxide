@@ -26,6 +26,14 @@ papers:
     doi: 10.1007/s00340-009-3434-y
   - cite: "A. Bruner, D. Eger, M. B. Oron, P. Blau, M. Katz, S. Ruschin, Proc. SPIE 4628, 66 (2002)"
     doi: 10.1117/12.460817
+  - cite: "A. D. Bristow, N. Rotenberg, H. M. van Driel, Appl. Phys. Lett. 90, 191104 (2007)"
+    doi: 10.1063/1.2737359
+  - cite: "K. Ikeda, R. E. Saperstein, N. Alic, Y. Fainman, Opt. Express 16, 12987 (2008)"
+    doi: 10.1364/OE.16.012987
+  - cite: "R. DeSalvo, A. A. Said, D. J. Hagan, E. W. Van Stryland, M. Sheik-Bahae, IEEE J. Quantum Electron. 32, 1324 (1996)"
+    doi: 10.1109/3.511545
+  - cite: "H. Jung, C. Xiong, K. Y. Fong, X. Zhang, H. X. Tang, Opt. Lett. 38, 2810 (2013)"
+    doi: 10.1364/OL.38.002810
   - cite: "D. E. Zelmon, D. L. Small, D. Jundt, J. Opt. Soc. Am. B 14, 3319 (1997)"
     doi: 10.1364/JOSAB.14.003319
   - cite: "D. H. Jundt, Opt. Lett. 22, 1553 (1997)"
@@ -165,6 +173,9 @@ validation:
   - material/litao3-barboza-thg-period
   - material/litao3-barboza-tables
   - material/litao3-bruner-slt-633
+  - material/kerr-desalvo-esu
+  - material/kerr-units-round-trip
+  - material/kerr-bristow-readings
 ---
 
 `material::catalogue` lists materials with everything a design needs about them, each number
@@ -485,6 +496,59 @@ should be chosen, not an average.
   without breaking the vacuum, and adds that D's is 13 % below E's and 10 % above F's (78.0/70.2
   = 1.11); their Fig. 2(b) shows it as D's, and so it is taken. E, annealed after exposure to
   air, has a TCR of 6.9e-4 per K and a resistivity 13 % higher, not printed.
+
+## Kerr coefficients and two-photon absorption
+
+`catalogue::kerr` (and `Entry::kerr`) has the third-order data of four entries: the Kerr
+coefficient $n_2$ ($n = n_0 + n_2 I$, in m²/W) and the degenerate two-photon absorption
+coefficient $\beta$ ($dI/dz = -\beta I^2$, in m/W). Each value keeps the paper's printed form, its
+wavelength, its uncertainty as the paper states it (none where it states none), the sample, and
+how it was obtained: printed, read from a figure, or derived through a model.
+
+| Entry | Quantity | λ | Printed | Ours (SI) | How | Source |
+|---|---|---|---|---|---|---|
+| Si | $\beta$ | 1220 nm | 2.1 ± 0.4 cm/GW | (2.1 ± 0.4) × 10⁻¹¹ m/W | z-scan, printed | Bristow et al. 2007, p. 191104-2 |
+| Si | $n_2$ | 1220 nm | (4.7 ± 2.0) × 10⁻⁵ cm²/GW | (4.7 ± 2.0) × 10⁻¹⁸ m²/W | z-scan, printed | Bristow et al. 2007, p. 191104-2 |
+| Si | $n_2$ | 1800 nm | 1.2 × 10⁻¹³ cm²/W, the peak | 1.2 × 10⁻¹⁷ m²/W, no uncertainty printed | z-scan, printed | Bristow et al. 2007, abstract |
+| Si | $\beta$ | 1550 nm | read from Fig. 2: 0.79 ± 0.39 cm/GW | (7.9 ± 3.9) × 10⁻¹² m/W | read from the figure, to 0.0023 cm/GW | Bristow et al. 2007, Fig. 2 |
+| Si | $n_2$ | 1550 nm | read from Fig. 3: (4.8 ± 2.0) × 10⁻¹⁴ cm²/W | (4.8 ± 2.0) × 10⁻¹⁸ m²/W | read from the figure, to 0.013 × 10⁻¹⁴ cm²/W | Bristow et al. 2007, Fig. 3 |
+| Si₃N₄ (PECVD SiN) | $n_2$ | 1548 nm | 2.4 × 10⁻¹⁵ cm²/W | 2.4 × 10⁻¹⁹ m²/W, no uncertainty given | ring pump–probe at 1 GHz, printed | Ikeda et al. 2008, p. 12993 |
+| LiNbO₃ (e) | $n_2$ | 1064 nm | (48 ± 7) × 10⁻¹⁴ esu | (9.15 ± 1.33) × 10⁻²⁰ m²/W | z-scan, printed; $n_0$ = 2.2 | DeSalvo et al. 1996, Tables I–II |
+| LiNbO₃ (e) | $n_2$ | 532 nm | (440 ± 70) × 10⁻¹⁴ esu | (8.27 ± 1.32) × 10⁻¹⁹ m²/W | z-scan, printed; $n_0$ = 2.23 | DeSalvo et al. 1996, Tables I–II |
+| LiNbO₃ (e) | $\beta$ | 532 nm | 0.38 ± 0.08 cm/GW | (3.8 ± 0.8) × 10⁻¹² m/W | z-scan, printed | DeSalvo et al. 1996, Table I |
+| AlN | $n_2$ | near 1550 nm | (2.3 ± 1.5) × 10⁻¹⁵ cm²/W | (2.3 ± 1.5) × 10⁻¹⁹ m²/W | derived from a comb threshold | Jung et al. 2013, Eq. (1), p. 2812 |
+
+- **Silicon** (Bristow, Rotenberg & van Driel): a 125 µm intrinsic (001) wafer at 300 K, z-scan
+  with 200 fs pulses from 850 to 2200 nm. The text prints $\beta$ and $n_2$ at 1220 nm and
+  $n_2$'s peak at 1800 nm; $\beta$'s maximum, 2 ± 0.5 cm/GW in "a broad peak near the indirect
+  gap" (abstract), has no single wavelength and isn't kept. At 1550 nm the paper prints no number, so the values are read
+  off Figs. 2 and 3: the PDF's bitmaps, each marker's centre and error bar against the axes'
+  ticks. The same reading at 1220 nm gives 2.08 ± 0.39 cm/GW and (4.71 ± 1.99) × 10⁻¹⁴ cm²/W
+  against the printed 2.1 ± 0.4 and 4.7 ± 2.0 (`material/kerr-bristow-readings`). $\beta$ tends
+  to zero beyond 2200 nm, half the indirect gap (1.12 eV).
+- **Silicon nitride** (Ikeda et al.): plasma-deposited SiN (film index about 1.99) in PECVD oxide,
+  from the shift of a ring's resonance under a pump modulated at 1 GHz, too fast for the
+  thermal response: $\Delta n = 1.2 \times 10^{-6}$ at 2.6 W in the ring. It isn't the entry's
+  stoichiometric LPCVD film, and the paper gives no uncertainty.
+- **Lithium niobate** (DeSalvo et al.): x-cut congruent LiNbO₃, the light along the optic axis
+  (extraordinary), z-scan with 30 ps pulses. $n_2$ is printed in esu for $n = n_0 +
+  n_2\langle E^2\rangle$; `n2_from_esu` converts it, $n_2(\mathrm{m^2/W}) = 40\pi\,
+  n_2(\mathrm{esu})/(c\,n_0)$ with $c$ in m/s and the paper's $n_0$ (Table II). The uncertainty is
+  Table I's; the paper puts the overall experimental uncertainty at about ±20 %. The conversion
+  gives the paper's two printed examples for BaF₂ both ways within half their last digit
+  (`material/kerr-desalvo-esu`). At 1064 nm the photon is below half the gap (3.9 eV), so there
+  is no $\beta$ there.
+- **Aluminium nitride** (Jung et al.): not measured directly but derived from the comb threshold
+  of a microring (about 210 mW) through Kippenberg et al.'s threshold formula, with a simulated
+  effective area (1.34 µm²) and index (1.96), the measured Q₀ (800,000), coupling ($K$ = 0.3),
+  mismatch (3 ± 1.5 GHz) and a correction factor between 1 and 2: the TE-like mode in the (001)
+  plane. Its ±1.5 is the paper's.
+
+The units: `n2_from_cm2_per_w`, `n2_to_cm2_per_w`, `beta_from_cm_per_gw`, `beta_to_cm_per_gw`,
+`n2_from_esu` and `n2_to_esu`; every value goes there and back to round-off
+(`material/kerr-units-round-trip`). A guide's γ from one of these values is in
+[nonlinear](nonlinear.md#the-kerr-coefficient-in-a-guide). Silicon's $n_2$ changes fourfold over
+its measured band, so a value is for its own wavelength.
 
 ## Tags
 
@@ -985,6 +1049,9 @@ read from the paper itself, which isn't in hand.
   0.5 °C lower here (176.4 °C printed, 175.9 here, at 2.159 µm): the pump's wavelength is given only
   as 488 nm, and with the vacuum 488.12 nm the difference falls to 0.1 °C. Not yet a case.
 - Shoji's $d_{33}$ with Zelmon's $n_e$ gives his Miller's $\Delta_{33}$ (Table 12) to 0.5%.
+- Kerr data: DeSalvo et al.'s esu conversion both ways on their two BaF₂ examples, within half
+  their last digit; every value to its printed unit and back to round-off; Bristow et al.'s
+  figures read at 1220 nm give the printed values within half their last digit.
 - Gayer's 5% MgO indices against Zelmon's Table 2 (columns exchanged) at 21 °C: within 4.4e-4.
   The paper reports 3.1e-4 for $n_e$ and 2.2e-4 for $n_o$; we find 3.3e-4 and 4.4e-4.
 - Lithium tantalate: our fits within 6.7e-4 of Bond's 22 rows (`material/litao3-bond-fit`) and

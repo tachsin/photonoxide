@@ -265,7 +265,12 @@ fn silicon_nitride() -> Entry {
         ),
         constants: vec![],
         missing: vec![],
-        references: references(&["luke-2015", "arbabi-goddard-2013", "elshaari-2016"]),
+        references: references(&[
+            "luke-2015",
+            "arbabi-goddard-2013",
+            "elshaari-2016",
+            "ikeda-2008",
+        ]),
     }
 }
 
@@ -357,7 +362,7 @@ fn silicon() -> Entry {
         tensors: centrosymmetric("m-3m", "the diamond structure has a centre of inversion: the bulk χ⁽²⁾ and r vanish in the electric-dipole approximation (the symmetry tag has what remains: surfaces, strain gradients, a static field)"),
         constants: vec![],
         missing: vec![],
-        references: references(&["li-1980", "frey-2006", "komma-2012"]),
+        references: references(&["li-1980", "frey-2006", "komma-2012", "bristow-2007"]),
     }
 }
 
@@ -1075,6 +1080,7 @@ fn lithium_niobate() -> Entry {
             "choy-byer-1976",
             "jazbinsek-zgonik-2002",
             "chelladurai-2025",
+            "desalvo-1996",
         ]),
     }
 }
@@ -1615,6 +1621,7 @@ fn aln() -> Entry {
             "majkic-2017",
             "graupner-1992",
             "shoji-1997",
+            "jung-2013",
         ]),
     }
 }
