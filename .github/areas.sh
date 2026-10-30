@@ -176,7 +176,7 @@ area circuit \
   "src/circuit/* src/cases/circuit/*" \
   "material mode job shifter" \
   "circuit::" "circuit/ components/" \
-  "circuit_fit circuit_ring_critical circuit_splitter optimize_ring_flat optimize_mzi_lattice optimize_ring_pareto optimize_mesh ring_q_factor directional_coupler mzi_dwivedi"
+  "circuit_fit circuit_ring_critical circuit_splitter optimize_ring_flat optimize_mzi_lattice optimize_ring_mzi optimize_ring_pareto optimize_mesh optimize_mesh_selfconfig ring_q_factor directional_coupler mzi_dwivedi"
 
 # the devices: components that know their geometry, built from the circuit's components on the
 # mode solvers' cross-sections and by FDFD of their own drawings (through the 2D jobs' plane);

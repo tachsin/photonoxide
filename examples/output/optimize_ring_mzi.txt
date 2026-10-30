@@ -1,0 +1,27 @@
+Wang et al. 2022's double-ring-loaded MZI filter: the fourth-order elliptic low-passes, derived here, against its circuit, exact
+
+Elliptic, order 4, 2 dB ripple, 40 dB attenuation, passband edge 0.5π: stopband edge 0.606941π
+  b: 0.0925, 0.2221, 0.3002, 0.2221, 0.0925
+  a: 1.0000, -0.7992, 1.2899, -0.6645, 0.3438
+  response at ω_p, dB (40 dB)           -2.000000   −A_p -2.000000  ± 2e-8       ok
+  response at ω_s, dB (40 dB)          -40.000000   −A_s -40.000000 ± 4e-7       ok
+
+Elliptic, order 4, 1 dB ripple, 60 dB attenuation, passband edge 0.5π: stopband edge 0.754271π
+  b: 0.0702, 0.2385, 0.3403, 0.2385, 0.0702
+  a: 1.0000, -0.7055, 1.0843, -0.5410, 0.2367
+  response at ω_p, dB (60 dB)           -1.000000   −A_p -1.000000  ± 1e-8       ok
+  response at ω_s, dB (60 dB)          -60.000000   −A_s -60.000000 ± 6e-7       ok
+
+Eq. 10 as printed: 1.02 dB of ripple, 20.00 dB of attenuation from the 40 dB design's stopband edge; 20.00 dB at π
+  Eq. 11's sections multiplied: b 0.1170, 0.1705, 0.2674, 0.1705, 0.1170, a 1.0000, -0.3396, 0.9775, -0.3142, 0.0708; their peak -4.38 dB. Printed, not checked
+
+The circuit (Fig. 4's values) against photonoxide's circuit solve of it as a netlist, 2 × 2 at 3 frequencies: up to 3e-16
+  largest |ΔT|                           0.000000   round-off 0.000000   ± 1e-12 ok
+  Fig. 4's circuit: 1.38 dB of ripple, 19.26 dB of attenuation from the 40 dB design's stopband edge (paper, Fig. 5: "around 34 dB extinction ratio"). Printed, not checked
+
+Nelder–Mead from Fig. 4's values on Eq. 12, weights 1 and 100, 20000 evaluations. Printed, not checked
+  towards 40 dB and 2 dB of ripple: 6.94 dB of ripple, 39.62 dB of attenuation, Eq. 12 at 68.649 (Fig. 6: the 40 dB filter)
+    k1–k9 0.2553, 0.1888, 0.9919, 0.2944, 0.4702, 0.6848, 0.7228, 0.7068, 0.1995; φ1–φ8 -0.5809, 2.2721, -0.7609, -0.4831, -0.4936, 2.0512, -0.2186, -0.9211
+  towards 60 dB and 1 dB of ripple: 1.64 dB of ripple, 59.44 dB of attenuation, Eq. 12 at 39.937 (Fig. 7: 60 dB, 1 dB of ripple)
+    k1–k9 0.1108, 0.2309, 1.0000, 0.2010, 0.5064, 0.7583, 0.5158, 0.7466, 0.3327; φ1–φ8 0.1630, 3.3376, 0.2289, 0.1361, 0.3816, 3.4437, 0.3530, 0.3147
+all 5 within tolerance of the paper
