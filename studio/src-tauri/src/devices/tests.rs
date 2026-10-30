@@ -1035,7 +1035,12 @@ fn a_modulator_sweep_saved_as_a_study_job_runs_to_its_points_bit_for_bit() {
     let kind = "TFLN Mach-Zehnder modulator";
     // the sweep as the Study tab's Vπ·L tab takes it: from, to and the points, each value
     // from + (to − from) k / (n − 1), the page's own arithmetic
-    for (parameter, from, to, n) in [("gap", 3.0, 10.0, 5), ("length", 2000.0, 20000.0, 4)] {
+    for (parameter, from, to, n) in [
+        ("gap", 3.0, 10.0, 5),
+        ("length", 2000.0, 20000.0, 4),
+        ("cladding", 0.1, 3.0, 4),
+        ("cladding_permittivity", 1.0, 8.0, 3),
+    ] {
         let xs: Vec<f64> = (0..n)
             .map(|k| from + ((to - from) * k as f64) / (n - 1) as f64)
             .collect();

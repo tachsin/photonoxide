@@ -152,6 +152,73 @@ fn the_measured_fidelity_is_at_dc_and_the_designs_values() {
 }
 
 #[test]
+fn the_pockels_index_change_over_the_mode_gives_the_2d_vpi_l() {
+    use crate::mode::pockels::checks::Coefficients;
+    use crate::mode::pockels::{Drive, half_wave_voltage_length};
+    let d = TflnModulator::new();
+    let v = Values::defaults(&d);
+    let e = d.electrode_field(&v).unwrap();
+    // the picture's Δn over the mode, with the elements it leaves out, is the first-order Δn_eff
+    // whose Vπ·L is the 2D model's figure: two sums over the same cells, to round-off
+    let per_volt = e.index_shown + e.index_rest;
+    let vpi_l = 100.0 * half_wave_voltage_length(per_volt, w(1.55), Drive::PushPull).unwrap();
+    let figure = d
+        .component(&v, Fidelity::TwoD)
+        .unwrap()
+        .figure("VpiL")
+        .unwrap()
+        .value;
+    assert!(
+        (vpi_l / figure - 1.0).abs() < 1e-12,
+        "{vpi_l} against {figure}"
+    );
+    assert!((e.vpi_l / figure - 1.0).abs() < 1e-12);
+    // r₃₃ across carries nearly all of it: r₁₃ on the ordinary index and r₅₁ the rest
+    assert!(e.index_shown > 0.0 && e.index_rest.abs() < 0.05 * e.index_shown);
+    // in the rib, the picture is −½ n_e³ r₃₃ E_x (Jazbinšek & Zgonik's Eq. 8 to first order),
+    // E_x there the field at an arrow's foot against the cell's mean around it: within 2 %
+    let (n_e, _) = super::tfln::indices(w(1.55)).unwrap();
+    let r33 = Coefficients::Film.pockels().voigt()[2][2] * 1e-12;
+    let r = &e.index;
+    let mut checked = 0;
+    for &([x, y], [ex, _]) in &e.arrows {
+        if !(x.abs() < 0.3 && (0.31..0.58).contains(&y)) {
+            continue;
+        }
+        let i = ((x - r.x0) / (r.x1 - r.x0) * r.nx as f64) as usize;
+        let j = ((y - r.y0) / (r.y1 - r.y0) * r.ny as f64) as usize;
+        let shown = f64::from(r.values[j * r.nx + i]);
+        let want = -0.5 * n_e.powi(3) * r33 * ex;
+        assert!(
+            (shown / want - 1.0).abs() < 0.02,
+            "({x}, {y}): {shown} against {want}"
+        );
+        checked += 1;
+    }
+    assert!(checked >= 2, "{checked}");
+    // nothing outside the crystal
+    for (k, &dn) in r.values.iter().enumerate() {
+        let y = r.y0 + ((k / r.nx) as f64 + 0.5) * (r.y1 - r.y0) / r.ny as f64;
+        if !(-0.02..0.62).contains(&y) {
+            assert_eq!(dn, 0.0, "{y}");
+        }
+    }
+}
+
+#[test]
+fn the_analytic_bandwidths_state_their_error_against_the_2d_model() {
+    let d = TflnModulator::new();
+    let a = d
+        .component(&Values::defaults(&d), Fidelity::Analytic)
+        .unwrap();
+    for symbol in ["f_3dB", "f_6dB"] {
+        let name = &a.figure(symbol).unwrap().name;
+        let stated = format!("stated error {}%", TflnModulator::ANALYTIC_BANDWIDTH_ERROR);
+        assert!(name.ends_with(&stated), "{name}");
+    }
+}
+
+#[test]
 fn a_rib_outside_its_gap_is_refused() {
     let d = TflnModulator::new();
     let v = Values::new(&d, &[("gap", 2.0), ("width", 2.0)]).unwrap();
@@ -179,13 +246,17 @@ fn print_analytic_against_2d() {
         let b = d.component(&v, Fidelity::TwoD).unwrap();
         let r = |s: &str| a.figure(s).unwrap().value / b.figure(s).unwrap().value;
         println!(
-            "{changes:?}: VpiL {:.4} ({:.4}), n_rf {:.4}, Z0 {:.4}, alpha_rf {:.4}, f_3dB {:.4}, n_g {:.4}",
+            "{changes:?}: VpiL {:.4} ({:.4}), n_rf {:.4}, Z0 {:.4}, alpha_rf {:.4}, f_3dB {:.4} \
+             ({:.2} GHz), f_6dB {:.4} ({:.2} GHz), n_g {:.4}",
             r("VpiL"),
             b.figure("VpiL").unwrap().value,
             r("n_rf"),
             r("Z0"),
             r("alpha_rf"),
             r("f_3dB"),
+            b.figure("f_3dB").unwrap().value,
+            r("f_6dB"),
+            b.figure("f_6dB").unwrap().value,
             r("n_g")
         );
     }

@@ -20,7 +20,7 @@ use crate::mode::pockels::checks::{Coefficients, Tfln, section_pockels, te_mode_
 use crate::mode::pockels::{Drive, half_wave_voltage_length};
 use crate::mode::slab::Slab;
 use crate::mode::thermo::index_change;
-use crate::mode::vector::{CrossSection, VectorMode};
+use crate::mode::vector::{CrossSection, Permittivity, VectorMode};
 use crate::raster::Raster;
 use crate::stack::{Etch, Layer, LayerStack, Structure};
 use crate::units::{Length, SPEED_OF_LIGHT, Wavelength};
@@ -95,9 +95,10 @@ const STATED_MEASURED: f64 = 10.0;
 ///   anisotropy by scaling its thickness), the strips' thickness as parallel plates across the
 ///   gaps, the conductor loss by Holloway & Kuester's Eq. 12 on strips of zero thickness, the
 ///   dielectric loss by the layers' shares of C; the response by Ghione's Eq. 6.31. Its stated
-///   errors against the 2D model over its validity: Vπ·L 15%, the line's RF index and Z₀ 10%;
-///   its bandwidths aren't stated (the RF index 8 to 9% high puts them at a third or so of the
-///   2D model's).
+///   errors against the 2D model over its validity: Vπ·L 15%, the line's RF index and Z₀ 10%,
+///   the 3 and 6 dB bandwidths 80% ([`TflnModulator::ANALYTIC_BANDWIDTH_ERROR`]): they are low
+///   by a factor of 2.4 to 4.3, as the RF index 8 to 9% high about doubles the line's walk-off
+///   from the light, and are stated as that, not corrected by a factor.
 /// - **2D:** the static solver's field in the film at 1 V and the full-vector mode's change by
 ///   first-order perturbation, Vπ·L push–pull ([`crate::mode::pockels`], P6's thin-film
 ///   cross-section); the group index from the mode at 1.54 and 1.56 µm; the quasi-TEM line from
@@ -132,6 +133,18 @@ impl Default for TflnModulator {
 }
 
 impl TflnModulator {
+    /// The analytic fidelity's stated error in its 3 and 6 dB bandwidths (`f_3dB`, `f_6dB`)
+    /// against the 2D model's, %, over its validity (a gap of 3.5 to 8 µm, ribs 0.9 to 2.0 µm
+    /// wide, a film 0.5 to 0.8 µm thick): the validation report's
+    /// `device/tfln-analytic-bandwidth`. The analytic bandwidths are low there, 0.32 to 0.41 of
+    /// the 2D model's at 3 dB and 0.23 to 0.30 at 6 dB (2026-10-30): the conformal-mapping line's
+    /// RF index runs 8 to 9% high (`device/tfln-analytic-line`), which about doubles its walk-off
+    /// from the light, |n_rf − n_g| (0.46 against 0.21 at the defaults), and the walk-off sets
+    /// these bandwidths. The bound is that measured spread, 77% at worst, rounded up to the next
+    /// 5% as the analytic Vπ·L's (12%, stated 15) and line's (9%, stated 10) are; no factor
+    /// corrects it.
+    pub const ANALYTIC_BANDWIDTH_ERROR: f64 = 80.0;
+
     /// Zhang et al. 2022's 5.8 mm modulator: a 600 nm film etched 300 nm to ribs 1.2 µm wide on
     /// top, gaps of 5 µm beside a 20 µm signal, 0.83 µm of copper (58 MS/m), 2 µm of thermal
     /// oxide on silicon, 0.6 µm of PECVD oxide (ε 5.5) and air; what the paper doesn't give, as
@@ -305,10 +318,11 @@ impl TflnModulator {
         Ok(self.solved(values)?.vpi_l)
     }
 
-    /// The 2D model's static field at 1 V and its mode at `values`, on one window of the
-    /// cross-section: the gap, the rib and the electrodes' edges, from 1.5 µm under the film to
-    /// 1 µm over what is highest (see [`ElectrodeField`]). The same solves as the 2D model's
-    /// Vπ·L, made again (its line isn't solved).
+    /// The 2D model's static field at 1 V, its mode and the Pockels change of the index they
+    /// meet in at `values`, on one window of the cross-section: the gap, the rib and the
+    /// electrodes' edges, from 1.5 µm under the film to 1 µm over what is highest (see
+    /// [`ElectrodeField`]). The same solves as the 2D model's Vπ·L, made again (its line isn't
+    /// solved).
     ///
     /// # Errors
     ///
@@ -336,6 +350,14 @@ impl TflnModulator {
         };
         let fields = p.mode.fields(&p.cs)?;
         let (xs, ys) = (p.cs.x(), p.cs.y());
+        let rows = ys.len() - 1;
+        // each optical cell's Δn for light polarized across, at 1 V: Δε_xx / (2 n), n = √ε_xx
+        let across: Vec<f64> =
+            p.cs.cells()
+                .iter()
+                .zip(&p.delta)
+                .map(|(c, d)| 0.5 * d.xx.re / c.xx.re.sqrt())
+                .collect();
         // the optical cell holding a coordinate along one axis, if any
         let cell = |nodes: &[f64], v: f64| {
             (nodes[0]..nodes[nodes.len() - 1])
@@ -343,6 +365,7 @@ impl TflnModulator {
                 .then(|| nodes.partition_point(|&n| n <= v) - 1)
         };
         let (mut strength, mut intensity) = (Vec::with_capacity(nx * ny), vec![0.0; nx * ny]);
+        let mut index = vec![0.0f32; nx * ny];
         for j in 0..ny {
             for i in 0..nx {
                 let [xc, yc] = centre(i, j);
@@ -350,7 +373,27 @@ impl TflnModulator {
                 strength.push(e[0].hypot(e[1]) as f32);
                 if let (Some(a), Some(b)) = (cell(xs, xc), cell(ys, yc)) {
                     intensity[j * nx + i] = fields.e(a, b).iter().map(|c| c.norm_sqr()).sum();
+                    index[j * nx + i] = across[a * rows + b] as f32;
                 }
+            }
+        }
+        // the overlap the picture's Δn implies, ∫ Δn_xx 2n |E_x|² dA / (4P), and the rest of
+        // ∫ E*·Δε·E dA / (4P): the elements it doesn't show (Δε_yy and Δε_zz by r₁₃ E_x, Δε_xy
+        // by r₅₁ E_y)
+        let sided = p.mode.fields_sided(&p.cs, true)?;
+        let scale = 1.0 / (4.0 * sided.power());
+        let (mut shown, mut rest) = (0.0, 0.0);
+        for a in 0..xs.len() - 1 {
+            for b in 0..rows {
+                let k = a * rows + b;
+                let area = (xs[a + 1] - xs[a]) * (ys[b + 1] - ys[b]) * scale;
+                let (d, e) = (p.delta[k], sided.e(a, b));
+                let n = p.cs.cells()[k].xx.re.sqrt();
+                shown += across[k] * 2.0 * n * e[0].norm_sqr() * area;
+                let others = e[0].conj() * d.xy * e[1]
+                    + e[1].conj() * (d.yx * e[0] + d.yy * e[1])
+                    + e[2].conj() * d.zz * e[2];
+                rest += others.re * area;
             }
         }
         let peak = intensity
@@ -403,6 +446,9 @@ impl TflnModulator {
         Ok(ElectrodeField {
             field: raster(strength),
             mode: raster(intensity.iter().map(|v| (v / peak) as f32).collect()),
+            index: raster(index),
+            index_shown: shown,
+            index_rest: rest,
             arrows,
             shapes,
             interfaces,
@@ -607,11 +653,14 @@ struct Solved {
     line_grid: String,
 }
 
-/// The 2D model's Pockels chain at a cross-section ([`Section::pockels`]).
+/// The 2D model's Pockels chain at a cross-section ([`Section::pockels`]): the static field at 1
+/// V, the optical cross-section, its TE mode, each optical cell's change of permittivity at 1 V
+/// (in the order of [`CrossSection::cells`]), and the Vπ·L their overlap gives.
 struct Pockels {
     field: ElectricField,
     cs: CrossSection,
     mode: VectorMode,
+    delta: Vec<Permittivity>,
     vpi_l: f64,
     h: f64,
     grid: String,
@@ -636,6 +685,23 @@ pub struct ElectrodeField {
     /// The mode's |E|² on the same pixels, 1 at its peak: each pixel the optical cell it falls
     /// in, 0 outside the optical cross-section.
     pub mode: Raster,
+    /// The Pockels change of the index at 1 V for light polarized across (the crystal's c axis,
+    /// the TE mode's), on the same pixels: each pixel the optical cell it falls in, Δn =
+    /// Δε_xx / (2√ε_xx), 0 outside the crystal and the optical cross-section. Δε is the 2D
+    /// model's own, −ε Δη ε with Δη_ij = r_ijk E_k (M. Jazbinšek, M. Zgonik, Appl. Phys. B 74,
+    /// 407 (2002), doi:10.1007/s003400200818, Eq. 8, its clamped r^S of Table 5 with the film's
+    /// r₃₃), so in the crystal Δn = −½ n_e³ r₃₃ E_x, E_x the field across averaged over the cell's
+    /// samples; a cell the rib's edge or the slab's top cuts holds its crystal's share.
+    pub index: Raster,
+    /// The mode's index change at 1 V on one arm that [`ElectrodeField::index`] gives, its
+    /// overlap with the mode: Σ Δn 2√ε_xx |E_x|² dA / (4P) over the optical cells, P the mode's
+    /// power, ½ Re ∫ (E × H*)·ẑ dA.
+    pub index_shown: f64,
+    /// The rest of the mode's index change at 1 V, from the elements of Δε the picture leaves
+    /// out: Δε_yy and Δε_zz (r₁₃ E_x on the ordinary index) and Δε_xy (r₅₁ E_y). With
+    /// [`ElectrodeField::index_shown`] it is the first-order Δn_eff = ∫ E*·Δε·E dA / (4P) that
+    /// sets [`ElectrodeField::vpi_l`]: λ / (4 |Δn_eff|) push–pull.
+    pub index_rest: f64,
     /// E (V/m, across and up) at 1 V on a coarser grid over the window, for arrows: where (µm)
     /// and E.
     pub arrows: Vec<([f64; 2], [f64; 2])>,
@@ -668,7 +734,7 @@ fn axis_material(id: &str, k: usize) -> Result<Material> {
 
 /// Lithium niobate's extraordinary index (Zelmon et al.'s, the catalogue's default) and
 /// silica's (Malitson's) at `w`.
-fn indices(w: Wavelength) -> Result<(f64, f64)> {
+pub(super) fn indices(w: Wavelength) -> Result<(f64, f64)> {
     // Zelmon's axes: ordinary, extraordinary
     let n_e = axis_material("linbo3", 1)?.refractive_index(w)?.re;
     let n_ox = axis_material("sio2", 0)?.refractive_index(w)?.re;
@@ -775,6 +841,7 @@ impl Section {
             field,
             cs,
             mode,
+            delta,
             vpi_l,
             h,
             grid,
@@ -1019,6 +1086,15 @@ impl Line {
                 * 1e-9)
         };
         let (f3, f6) = (fall(-3.0)?, fall(-6.0)?);
+        // the analytic bandwidths' stated error, in their names
+        let stated = if f == Fidelity::Analytic {
+            format!(
+                "; the analytic line's, low against the 2D model's: stated error {}%",
+                TflnModulator::ANALYTIC_BANDWIDTH_ERROR
+            )
+        } else {
+            String::new()
+        };
         let here = "at the frequency (1 GHz at DC)";
         let capacitance = match self {
             Line::Closed(l) => l.capacitance,
@@ -1084,8 +1160,10 @@ impl Line {
                     grid,
                 ),
                 figure(
-                    "3 dB electro-optic bandwidth, from 1 GHz (the highest sought when it \
-                     doesn't fall)",
+                    &format!(
+                        "3 dB electro-optic bandwidth, from 1 GHz (the highest sought when it \
+                         doesn't fall){stated}"
+                    ),
                     "f_3dB",
                     f3,
                     "GHz",
@@ -1093,7 +1171,7 @@ impl Line {
                     grid,
                 ),
                 figure(
-                    "6 dB electro-optic bandwidth, from 1 GHz",
+                    &format!("6 dB electro-optic bandwidth, from 1 GHz{stated}"),
                     "f_6dB",
                     f6,
                     "GHz",

@@ -46,14 +46,15 @@ const DESIGNS: [&[(&str, f64)]; 7] = [
     &[("film", 0.8)],
 ];
 
-/// The analytic figures over the 2D model's at [`DESIGNS`]: Vπ·L's, and the line's RF index's
-/// and impedance's at 50 GHz, each ratio's farthest from 1.
-fn analytic_against_2d() -> &'static [f64; 2] {
-    static CELL: OnceLock<[f64; 2]> = OnceLock::new();
+/// The analytic figures over the 2D model's at [`DESIGNS`]: Vπ·L's; the line's RF index's and
+/// impedance's at 50 GHz; and the 3 and 6 dB bandwidths' (referred to 1 GHz, whatever the
+/// frequency); each ratio's farthest from 1.
+fn analytic_against_2d() -> &'static [f64; 3] {
+    static CELL: OnceLock<[f64; 3]> = OnceLock::new();
     CELL.get_or_init(|| {
         let d = TflnModulator::new();
         let farther = |m: f64, e: f64| if e.abs() > m.abs() { e } else { m };
-        let (mut vpi_l, mut line) = (0.0f64, 0.0f64);
+        let (mut vpi_l, mut line, mut bandwidth) = (0.0f64, 0.0f64, 0.0f64);
         for changes in DESIGNS {
             let v = values(changes).with(&d, "frequency", 50.0).expect(OK);
             let (a, b) = (
@@ -64,8 +65,10 @@ fn analytic_against_2d() -> &'static [f64; 2] {
             vpi_l = farther(vpi_l, ratio("VpiL") - 1.0);
             line = farther(line, ratio("n_rf") - 1.0);
             line = farther(line, ratio("Z0") - 1.0);
+            bandwidth = farther(bandwidth, ratio("f_3dB") - 1.0);
+            bandwidth = farther(bandwidth, ratio("f_6dB") - 1.0);
         }
-        [1.0 + vpi_l, 1.0 + line]
+        [1.0 + vpi_l, 1.0 + line, 1.0 + bandwidth]
     })
 }
 
@@ -298,10 +301,23 @@ pub(crate) fn cases() -> Vec<Case> {
         },
         Case {
             id: "device/tfln-analytic-line",
-            title: r"TFLN Mach-Zehnder modulator's electrode, analytic against 2D: the RF index and Re $Z_0$ at 50 GHz of the closed-form coplanar line (each layer's partial capacitance by conformal mapping, lithium niobate's slab scaled to an isotropic layer, the strips' thickness as plates across the gaps, Holloway and Kuester's internal impedance) against the quasi-TEM line of the static solver (graded from 4 nm), at the same seven designs: the ratio of either farthest from 1, analytic over 2D (shown); the 3 dB bandwidth, whose walk-off the index's error sets, isn't stated",
+            title: r"TFLN Mach-Zehnder modulator's electrode, analytic against 2D: the RF index and Re $Z_0$ at 50 GHz of the closed-form coplanar line (each layer's partial capacitance by conformal mapping, lithium niobate's slab scaled to an isotropic layer, the strips' thickness as plates across the gaps, Holloway and Kuester's internal impedance) against the quasi-TEM line of the static solver (graded from 4 nm), at the same seven designs: the ratio of either farthest from 1, analytic over 2D (shown); the bandwidths, whose walk-off the index's error sets, are device/tfln-analytic-bandwidth",
             tier: Tier::Analytic,
             source: r"G. Ghione, C. Naldi, Electron. Lett. 20, 179 (1984), doi:10.1049/el:19840120, Eqs. 2-3, layer on layer (exact for one layer, device::tfln's unit test); the layers' superposition overstates the silicon under the buried oxide, which raises the index: the analytic line's stated 10%",
             run: || outcome(analytic_against_2d()[1], 1.0, 0.10),
+        },
+        Case {
+            id: "device/tfln-analytic-bandwidth",
+            title: r"TFLN Mach-Zehnder modulator's bandwidths, analytic against 2D: the 3 and 6 dB electro-optic bandwidths from 1 GHz of the closed forms (the conformal-mapping line, Holloway and Kuester's conductor loss, the slab's group index, Ghione's response; a 50 Ω source and load) against the 2D model's (the quasi-TEM line of the static solver graded from 4 nm, the mode's group index), at the same seven designs: the ratio of either farthest from 1, analytic over 2D (shown), the analytic fidelity's stated error in its bandwidths",
+            tier: Tier::Analytic,
+            source: r"the analytic line's RF index runs 8 to 9 % high (device/tfln-analytic-line), which about doubles its walk-off from the light, $\lvert n_{RF} - n_g \rvert$, 0.46 against 0.21 at the defaults: the analytic bandwidths are low by a factor, 0.32 to 0.41 of the 2D model's at 3 dB and 0.23 to 0.30 at 6 dB. The stated error is that spread, 77 % at worst, rounded up to the next 5 %, not a factor that corrects it",
+            run: || {
+                outcome(
+                    analytic_against_2d()[2],
+                    1.0,
+                    TflnModulator::ANALYTIC_BANDWIDTH_ERROR / 100.0,
+                )
+            },
         },
         Case {
             id: "device/tfln-zhang-vpil",
