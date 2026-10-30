@@ -53,6 +53,7 @@ pub fn rules() -> Vec<(&'static str, Rule)> {
     rules.extend(modulator::rules());
     rules.extend(modulator_error::rules());
     rules.extend(mode_quantities::rules());
+    rules.extend(sweep::rules());
     rules
 }
 
@@ -2244,6 +2245,8 @@ pub fn cases() -> Vec<Case> {
     cases.extend(crate::device::tfln_checks::cases());
     // and a mode's quantities: its effective area, confinement and orthogonality
     cases.extend(crate::mode::quantities_checks::cases());
+    // and the adaptive sweeps': AAA, its error estimate, a slab's dispersion and a mode crossing
+    cases.extend(crate::sweep::checks::cases());
     cases
 }
 
@@ -5268,6 +5271,7 @@ mod modes;
 mod modulator;
 mod modulator_error;
 mod pcm;
+mod sweep;
 #[cfg(feature = "gpu")]
 pub use gpu::gpu_report;
 
