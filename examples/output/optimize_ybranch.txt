@@ -1,0 +1,17 @@
+Zhang et al.'s Y-branch on 220 nm SOI, its 2 µm taper's widths w2–w12 optimized by genoxide's PSO at 1.55 µm, as in the paper; arms 3 µm long to ports 1.5 µm apart
+  the swarm's 2D model, 374 × 224 cells of 20 nm, PMLs 12 cells: Table 1's widths, 0.465515 and 0.465515 into the arms, 0.3104 dB
+  the device's 2D model (2D FDFD by the effective index method, 292 × 226 cells of 20.0 nm, cells averaged by "diagonal", PMLs 12 cells): Table 1's widths, 0.467984 into each arm, 0.2874 dB
+  PSO, 30 particles, seed 1: 1500 evaluations; its best, 0.497111 into the upper arm in the swarm's model
+  the widths w1–w13 (µm): 0.5000, 1.1832, 1.4668, 0.9511, 1.6000, 1.3899, 1.5374, 1.4749, 1.4149, 1.4602, 1.3066, 1.3296, 1.2000
+  the device's 2D model: 0.496783 into each arm, 0.0280 dB
+  insertion loss, 2D, 20 nm (dB)         0.028035   paper below 0.2              ok
+3D FDFD of the swarm's design, TE-like, at 1.55 µm:
+  what --full found (recorded):
+  44.0 nm cells: 0.468725 into each arm, 0.2805 dB
+  31.4 nm cells: 0.473111 into each arm, 0.2401 dB
+  22.0 nm cells: 0.475224 into each arm, 0.2207 dB
+  the grids' order 2.3
+  extrapolated: 0.4773 ± 0.0029 into each arm, 0.202 ± 0.027 dB (Zhang et al.'s 3D FDTD: 0.13 dB, 48.5 % into each arm)
+  Table 1's design in 3D on the same grids (docs/methods/devices.md): 0.168 ± 0.003 dB, +0.038 dB from Zhang et al.'s, a gap listed in #595
+  insertion loss, 3D: 0.202 dB against 0.13 dB, +0.072 dB, beyond 0.05: a gap, reported and not checked
+all 1 within tolerance of the paper
