@@ -1,11 +1,12 @@
 //! A TFLN Mach–Zehnder modulator's page beyond its figures (`photonoxide::device::TflnModulator`):
 //!
 //! - [`device_electrode_field`]: the electrode-field view, the 2D model's static field at 1 V on
-//!   its cross-section with the optical mode over it (`TflnModulator::electrode_field`, the same
-//!   solves as its Vπ·L);
+//!   its cross-section with the optical mode over it, and the Pockels Δn the field makes
+//!   (`TflnModulator::electrode_field`, the same solves as its Vπ·L);
 //! - [`device_vpi_l_sweep`]: Vπ·L, V_π and the bandwidths against one of its parameters (the
-//!   gap, the signal electrode's width, the rib's width, the length, ...), each point the
-//!   device's own figures at that value (`Device::component`, as the page's figures are);
+//!   gap, the signal electrode's width, the rib's width, the length, the cladding's thickness
+//!   and permittivity, ...), each point the device's own figures at that value
+//!   (`Device::component`, as the page's figures are);
 //! - [`device_eo_response`]: the electro-optic response 20 log₁₀ |m(f)| against frequency,
 //!   referred to its value at 1 GHz as the figures' `f_3dB` and `f_6dB` are, each point the
 //!   figure `m_dB` with the design's frequency at f, and the two bandwidths marked.
@@ -75,6 +76,15 @@ pub struct ElectrodeView {
     pub at_mode: f64,
     /// The mode's |E|² at half its peak and at 1/e² (levels 0.5 and 0.135).
     pub mode: Vec<Isoline>,
+    /// The Pockels Δn at 1 V for light polarized across, on the same pixels
+    /// (`ElectrodeField::index`: −½ n_e³ r₃₃ E_x in the crystal, 0 outside it), and Δn where
+    /// the mode peaks.
+    pub index: Raster,
+    pub index_at_mode: f64,
+    /// The mode's Δn_eff at 1 V on one arm: the part the picture's Δn gives over the mode, and
+    /// the rest (r₁₃ on the ordinary index, r₅₁), whose sum sets `vpi_l`.
+    pub index_shown: f64,
+    pub index_rest: f64,
     /// E at 1 V on a coarser grid, for arrows: where (µm) and E (V/m, across and up).
     pub arrows: Vec<([f64; 2], [f64; 2])>,
     /// The rib's and the electrodes' outlines, and the layers' interfaces (y, µm).
@@ -116,6 +126,10 @@ pub fn electrode_field(spec: &SpecIn) -> Result<ElectrodeView, String> {
         at_mode: e.field.values[k].into(),
         raster: e.field,
         mode,
+        index_at_mode: e.index.values[k].into(),
+        index: e.index,
+        index_shown: e.index_shown,
+        index_rest: e.index_rest,
         arrows: e.arrows,
         shapes: e.shapes,
         interfaces: e.interfaces,
@@ -156,6 +170,14 @@ pub struct VpiSweep {
     pub points: Vec<SweepPoint>,
     /// The grid the `VpiL` figure names at the first point that has one.
     pub grid: String,
+    /// The model's stated error in the bandwidths against the 2D model, %: the analytic
+    /// fidelity's (`TflnModulator::ANALYTIC_BANDWIDTH_ERROR`), none for the 2D model itself.
+    pub bandwidth_error: Option<f64>,
+}
+
+/// The stated error in the bandwidths of the model at `f`, % against the 2D model's.
+fn bandwidth_error(f: Fidelity) -> Option<f64> {
+    (f == Fidelity::Analytic).then_some(TflnModulator::ANALYTIC_BANDWIDTH_ERROR)
 }
 
 /// `spec`'s figures at `fidelity` with `parameter` at each of `values` (and what uses it
@@ -222,6 +244,7 @@ pub fn vpi_l_sweep(
         fidelity: fidelity_name(f),
         points,
         grid,
+        bandwidth_error: bandwidth_error(f),
     })
 }
 
@@ -254,6 +277,8 @@ pub struct Response {
     pub falls_6db: bool,
     /// The line's grid, as the figures name it.
     pub grid: String,
+    /// The model's stated error in the bandwidths against the 2D model, %, as the sweep's.
+    pub bandwidth_error: Option<f64>,
 }
 
 /// `spec`'s response at `fidelity` from the reference to `to_ghz` (if not given, 1.5 times the
@@ -327,6 +352,7 @@ pub fn eo_response(
         falls_3db,
         falls_6db,
         grid,
+        bandwidth_error: bandwidth_error(f),
     })
 }
 
@@ -379,15 +405,22 @@ mod tests {
 
     #[test]
     fn a_vpi_l_sweep_s_points_are_the_device_s_figures_at_each_value() {
-        for (parameter, values) in [
-            ("gap", vec![3.5, 5.0, 8.0]),
-            ("signal", vec![10.0, 40.0]),
-            ("width", vec![0.9, 2.0]),
-            ("length", vec![2000.0, 5800.0, 10800.0]),
+        for (parameter, unit, values) in [
+            ("gap", "µm", vec![3.5, 5.0, 8.0]),
+            ("signal", "µm", vec![10.0, 40.0]),
+            ("width", "µm", vec![0.9, 2.0]),
+            ("length", "µm", vec![2000.0, 5800.0, 10800.0]),
+            // the bandwidth against the cladding: its thickness and its permittivity
+            ("cladding", "µm", vec![0.1, 0.6, 3.0]),
+            ("cladding_permittivity", "", vec![1.0, 3.9, 8.0]),
         ] {
             let s = vpi_l_sweep(&zhang(&[]), "analytic", parameter, &values).unwrap();
             assert_eq!(s.fidelity, "analytic");
-            assert_eq!(s.unit, "µm");
+            assert_eq!(
+                s.bandwidth_error,
+                Some(TflnModulator::ANALYTIC_BANDWIDTH_ERROR)
+            );
+            assert_eq!(s.unit, unit);
             assert_eq!(s.points.len(), values.len());
             for p in &s.points {
                 assert_eq!(p.problem, None, "{parameter} {}", p.x);
@@ -408,6 +441,15 @@ mod tests {
             }
             assert!(!s.grid.is_empty(), "{parameter}");
         }
+        // the cladding's permittivity moves the line, so the bandwidth
+        let s = vpi_l_sweep(
+            &zhang(&[]),
+            "analytic",
+            "cladding_permittivity",
+            &[1.0, 8.0],
+        )
+        .unwrap();
+        assert!(s.points[0].f_3db != s.points[1].f_3db, "{:?}", s.points);
         // Vπ·L is per length: the length moves V_π alone
         let s = vpi_l_sweep(&zhang(&[]), "analytic", "length", &[2000.0, 4000.0]).unwrap();
         assert!(same(s.points[0].vpi_l, s.points[1].vpi_l));
@@ -441,6 +483,15 @@ mod tests {
         // the bandwidths are the figures, on the curve where it is 3 and 6 dB down
         let g = figures(&[], Fidelity::Analytic);
         assert!(same(r.f_3db, figure(&g, "f_3dB")) && same(r.f_6db, figure(&g, "f_6dB")));
+        // with the analytic model's stated error in them, which the figures' names give too
+        assert_eq!(
+            r.bandwidth_error,
+            Some(TflnModulator::ANALYTIC_BANDWIDTH_ERROR)
+        );
+        for symbol in ["f_3dB", "f_6dB"] {
+            let name = &g.iter().find(|f| f.symbol == symbol).unwrap().name;
+            assert!(name.ends_with("stated error 80%"), "{name}");
+        }
         assert!(r.falls_3db && r.falls_6db && r.f_3db < r.f_6db);
         for (bw, level) in [(r.f_3db, -3.0), (r.f_6db, -6.0)] {
             let p = r.points.iter().find(|p| p[0] == bw).unwrap();
@@ -466,6 +517,8 @@ mod tests {
         assert!(same(s.points[0].vpi_l, vpi_l) && same(s.points[0].f_3db, figure(&g, "f_3dB")));
         let r = eo_response(&zhang(&[]), "2D", Some(60.0), 12).unwrap();
         assert!(same(r.f_3db, figure(&g, "f_3dB")));
+        // the 2D model is what the analytic one's bandwidths are stated against
+        assert_eq!((s.bandwidth_error, r.bandwidth_error), (None, None));
         assert!(r.grid.contains("line's static grid"), "{}", r.grid);
         for &[ghz, db] in &r.points {
             let m = figure(&figures(&[("frequency", ghz)], Fidelity::TwoD), "m_dB");
@@ -489,6 +542,14 @@ mod tests {
             e.at_mode
         );
         assert!(e.peak > e.at_mode);
+        // the Pockels Δn on the same pixels: its overlap with the mode and the elements it
+        // leaves out give the figure's Vπ·L, push–pull, λ / (4 |Δn_eff|)
+        let i = &e.index;
+        assert_eq!([i.nx, i.ny, i.values.len()], [r.nx, r.ny, r.values.len()]);
+        assert_eq!([i.x0, i.x1, i.y0, i.y1], [r.x0, r.x1, r.y0, r.y1]);
+        let from_index = 100.0 * 1.55e-6 / (4.0 * (e.index_shown + e.index_rest).abs());
+        assert!(same(from_index, vpi_l), "{from_index} {vpi_l}");
+        assert!(e.index_at_mode > 0.0 && e.index_shown > 0.0);
         assert_eq!(e.mode.len(), 2);
         for m in &e.mode {
             let longest = m.lines.iter().max_by_key(|l| l.len()).unwrap();

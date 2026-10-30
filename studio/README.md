@@ -191,7 +191,11 @@ in a drawer opened from the status bar.
     99% of its pixels are (the electrodes' corners are singular), its direction as arrows, the
     rib, the electrodes and the layers' interfaces, and the optical mode's |E|² at half and 1/e²
     of its peak over it; with |E| under the mode's peak and the Vπ·L their overlap gives (the
-    same solves as the 2D model's figure). The tabs:
+    same solves as the 2D model's figure). Its **Δn** channel shows instead the Pockels change
+    of the index that field makes for light polarized across, −½ n_e³ r₃₃ E_x in the crystal
+    (each optical cell's Δε_xx / 2n), with the same outlines, and its overlap with the mode: the
+    share of Δn_eff it carries (the rest is r₁₃ on the ordinary index and r₅₁), and Δn_eff, whose
+    λ / (4 |Δn_eff|) is the Vπ·L shown. The tabs:
     - **Design** (open first): the geometry, each parameter a field that takes a number in its
       unit or an expression (`w/2.5`, `450 nm`), with its slider and range, what it uses and
       what uses it, and its error in place with a caret under the column; named parameters can
@@ -262,8 +266,9 @@ in a drawer opened from the status bar.
         the nominal one.
       - **Vπ·L, f₃dB** (the TFLN modulator's): at its analytic or 2D model, Vπ·L, Vπ at
         DC or the 3 or 6 dB bandwidth against the electrode gap, the signal electrode's width,
-        the rib's width or the length, each point the device's own figures with the parameter
-        there (one point a call, shown as it comes, **Stop** between points); and the
+        the rib's width, the length, or the cladding's thickness or permittivity (the bandwidth
+        against the cladding, shown first for it), each point the device's own figures with the
+        parameter there (one point a call, shown as it comes, **Stop** between points); and the
         electro-optic response against frequency, 20 log₁₀ |m(f)| less its value at 1 GHz (the
         reference the figures' bandwidths take), each point the figure `m_dB` at that frequency,
         the 3 and 6 dB points marked. Both say they are our model's.

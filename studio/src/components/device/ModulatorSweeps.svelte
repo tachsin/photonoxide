@@ -8,7 +8,8 @@
   // number one the device's own model gives, at its analytic or 2D fidelity:
   //
   // - Vπ·L, Vπ at DC, or the 3 or 6 dB bandwidth against the electrode gap, the signal
-  //   electrode's width, the rib's width or the length: each point the device's figures with the
+  //   electrode's width, the rib's width, the length, or the cladding's thickness or permittivity
+  //   (the bandwidth against the cladding): each point the device's figures with the
   //   parameter there and the rest as designed, one point a call so the sweep shows as it goes
   //   and stops between points;
   // - the electro-optic response against frequency, 20 log10 |m(f)| less its value at 1 GHz (the
@@ -26,12 +27,14 @@
 
   let { spec, values, designKey }: { spec: DeviceSpec; values: Record<string, number>; designKey: string } = $props();
 
-  /** The parameters swept, µm, and a range for each to start from. */
+  /** The parameters swept, a length (µm) or a pure number, and a range for each to start from. */
   const PARAMETERS = [
-    { name: "gap", label: "electrode gap", from: 3, to: 10 },
-    { name: "signal", label: "signal electrode width", from: 5, to: 60 },
-    { name: "width", label: "rib width", from: 0.8, to: 2 },
-    { name: "length", label: "length", from: 2000, to: 20000 },
+    { name: "gap", label: "electrode gap", from: 3, to: 10, length: true },
+    { name: "signal", label: "signal electrode width", from: 5, to: 60, length: true },
+    { name: "width", label: "rib width", from: 0.8, to: 2, length: true },
+    { name: "length", label: "length", from: 2000, to: 20000, length: true },
+    { name: "cladding", label: "cladding thickness", from: 0.1, to: 3, length: true },
+    { name: "cladding_permittivity", label: "cladding permittivity", from: 1, to: 8, length: false },
   ] as const;
   /** What the chart shows of each point. */
   const QUANTITIES = [
@@ -56,10 +59,15 @@
     parameter = p.name;
     from = p.from;
     to = p.to;
+    // the cladding is swept for the bandwidth
+    if (p.name.startsWith("cladding") && (quantity === "vpi_l" || quantity === "vpi")) quantity = "f_3db";
   }
+  /** A parameter's value as the fields show it: a length in the chosen unit, a pure number as it is. */
+  const shownX = (v: number, length: boolean) => (length ? inUnit(v) : v);
+  const storedX = (v: number, length: boolean) => (length ? stored(v) : v);
 
   // ---- the sweep: one point a call ----
-  let sweep = $state<{ parameter: string; fidelity: string; key: string; points: VpiPoint[]; grid: string; total: number } | null>(null);
+  let sweep = $state<{ parameter: string; fidelity: string; key: string; points: VpiPoint[]; grid: string; total: number; bandwidthError: number | null } | null>(null);
   let going = $state(false);
   let stopping = false;
   let started = $state(0);
@@ -70,7 +78,7 @@
     const s = $state.snapshot(spec) as DeviceSpec;
     const n = Math.max(2, Math.round(count));
     const xs = Array.from({ length: n }, (_, k) => from + ((to - from) * k) / (n - 1));
-    sweep = { parameter, fidelity, key: designKey, points: [], grid: "", total: n };
+    sweep = { parameter, fidelity, key: designKey, points: [], grid: "", total: n, bandwidthError: null };
     going = true;
     stopping = false;
     problem = "";
@@ -82,6 +90,7 @@
         const r = await api.deviceVpiLSweep(s, fidelity, parameter, [x]);
         sweep.points.push(...r.points);
         if (!sweep.grid && r.grid) sweep.grid = r.grid;
+        sweep.bandwidthError = r.bandwidth_error;
         now = Date.now();
       }
     } catch (e) {
@@ -106,6 +115,8 @@
       : [],
   );
   const refused = $derived(sweep?.points.filter((p) => p.problem) ?? []);
+  /** The parameter the sweep shown was of. */
+  const swept = $derived(sweep ? PARAMETERS.find((p) => p.name === sweep!.parameter) : undefined);
 
   // ---- the response against frequency: at once by the analytic model, on asking by the 2D ----
   let response = $state<{ key: string; data: EoResponse } | null>(null);
@@ -183,12 +194,12 @@
         </select>
       </label>
       <label class="flex flex-col gap-1">
-        <span class="muted">From (<UnitChip />)</span>
-        <input class="input input-xs w-24 num" type="number" value={inUnit(from)} disabled={going} onchange={(e) => (from = stored(Number((e.currentTarget as HTMLInputElement).value)))} />
+        <span class="muted">From{#if chosen.length}&nbsp;(<UnitChip />){/if}</span>
+        <input class="input input-xs w-24 num" type="number" value={shownX(from, chosen.length)} disabled={going} onchange={(e) => (from = storedX(Number((e.currentTarget as HTMLInputElement).value), chosen.length))} />
       </label>
       <label class="flex flex-col gap-1">
-        <span class="muted">To (<UnitChip />)</span>
-        <input class="input input-xs w-24 num" type="number" value={inUnit(to)} disabled={going} onchange={(e) => (to = stored(Number((e.currentTarget as HTMLInputElement).value)))} />
+        <span class="muted">To{#if chosen.length}&nbsp;(<UnitChip />){/if}</span>
+        <input class="input input-xs w-24 num" type="number" value={shownX(to, chosen.length)} disabled={going} onchange={(e) => (to = storedX(Number((e.currentTarget as HTMLInputElement).value), chosen.length))} />
       </label>
       <label class="flex flex-col gap-1">
         <span class="muted">Points</span>
@@ -215,16 +226,21 @@
       </div>
       {#if series[0]?.points.length}
         <div class="mt-2">
-          <Plot {series} xLabel={PARAMETERS.find((p) => p.name === sweep!.parameter)?.label ?? sweep.parameter} xLength yLabel={shownQuantity.axis} height={240} name="modulator-{sweep.parameter}-{quantity}" marker={values[sweep.parameter] ?? null} />
+          <Plot {series} xLabel={swept?.label ?? sweep.parameter} xLength={swept?.length ?? true} yLabel={shownQuantity.axis} height={240} name="modulator-{sweep.parameter}-{quantity}" marker={values[sweep.parameter] ?? null} />
         </div>
       {/if}
       <p class="mt-1 text-[11px] faint">
-        Each point is our {sweep.fidelity} model's figures with the {PARAMETERS.find((p) => p.name === sweep!.parameter)?.label ?? sweep.parameter} there and the rest as designed (what uses it evaluated
-        again): the same figures the Design tab shows. The line marks the design's value. Vπ·L is per length, so the length moves Vπ and the bandwidths alone. {#if sweep.grid}{sentence(sweep.grid)}.{/if}
+        Each point is our {sweep.fidelity} model's figures with the {swept?.label ?? sweep.parameter} there and the rest as designed (what uses it evaluated again): the same figures the Design tab shows.
+        The line marks the design's value. Vπ·L is per length, so the length moves Vπ and the bandwidths alone.
+        {#if (quantity === "f_3db" || quantity === "f_6db") && sweep.bandwidthError !== null}Our analytic model's bandwidths are low against the 2D model's: their stated error is
+          <span class="num">{sweep.bandwidthError}%</span> (validation case device/tfln-analytic-bandwidth), so the 2D model gives the bandwidth.{/if}
+        {#if sweep.parameter.startsWith("cladding")}The cladding enters the line (its RF index, impedance and loss, so the bandwidths) and the static field; its thickness also the mode's
+          surroundings.{/if}
+        {#if sweep.grid}{sentence(sweep.grid)}.{/if}
       </p>
       {#if refused.length}
         <p class="mt-1 text-[11px] text-warning selectable">
-          {refused.length} point{refused.length === 1 ? "" : "s"} the model refused, the first at {tick(inUnit(refused[0].x))} <UnitChip />: {plain(refused[0].problem ?? "")}
+          {refused.length} point{refused.length === 1 ? "" : "s"} the model refused, the first at {tick(shownX(refused[0].x, swept?.length ?? true))}{#if swept?.length ?? true}&nbsp;<UnitChip />{/if}: {plain(refused[0].problem ?? "")}
         </p>
       {/if}
     {/if}
@@ -260,8 +276,9 @@
         there. It falls 3 dB at
         <span class="num">{r.falls_3db ? ghz(r.f_3db) : `none below ${ghz(r.f_3db)}`}</span>
         and 6 dB at <span class="num">{r.falls_6db ? ghz(r.f_6db) : `none below ${ghz(r.f_6db)}`}</span>.
-        {#if r.fidelity === "2D"}The line is quasi-TEM: past about 100 GHz the curve is that line's.{:else}The analytic line's bandwidths have no stated error: its RF index runs high against the 2D line's, which
-          puts them low.{/if}
+        {#if r.fidelity === "2D"}The line is quasi-TEM: past about 100 GHz the curve is that line's.{:else if r.bandwidth_error !== null}The analytic line's bandwidths are low against the 2D line's: its RF
+          index runs high, which about doubles its walk-off from the light. Their stated error against the 2D model's is <span class="num">{r.bandwidth_error}%</span> (validation case device/tfln-analytic-bandwidth),
+          so the 2D model gives the bandwidth.{/if}
         {sentence(r.grid)}.
       </p>
     {:else if fidelity === "2D"}

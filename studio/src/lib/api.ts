@@ -637,6 +637,12 @@ export interface ElectrodeField {
   at_mode: number;
   /** The mode's |E|² at half its peak and at 1/e². */
   mode: Isoline[];
+  /** The Pockels Δn at 1 V for light polarized across (−½ n_e³ r₃₃ E_x in the crystal, 0 outside it) on the same pixels, and where the mode peaks. */
+  index: Raster;
+  index_at_mode: number;
+  /** The mode's Δn_eff at 1 V on one arm: what the Δn shown gives over the mode, and the rest (r₁₃ on the ordinary index, r₅₁); their sum sets vpi_l. */
+  index_shown: number;
+  index_rest: number;
   /** E at 1 V on a coarser grid: where (µm) and E (V/m, across and up). */
   arrows: [[number, number], [number, number]][];
   /** The rib's and the electrodes' outlines, closed; the layers' interfaces (y, µm). */
@@ -662,6 +668,8 @@ export interface VpiSweep {
   fidelity: string;
   points: VpiPoint[];
   grid: string;
+  /** The model's stated error in the bandwidths against the 2D model's, %: the analytic model's; null at 2D. */
+  bandwidth_error: number | null;
 }
 /** A modulator's electro-optic response: (GHz, dB below its value at the reference), the bandwidths among the points. */
 export interface EoResponse {
@@ -674,6 +682,8 @@ export interface EoResponse {
   falls_3db: boolean;
   falls_6db: boolean;
   grid: string;
+  /** As the sweep's: the analytic model's stated error in the bandwidths, %; null at 2D. */
+  bandwidth_error: number | null;
 }
 
 /** A device job's text read into the Simulate tab's form. */
