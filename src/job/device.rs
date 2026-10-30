@@ -503,7 +503,7 @@ fn prepare(job: &Job) -> Result<Prepared> {
 /// # Errors
 ///
 /// What [`super::check`] refuses of the device and its grids, and a 3D solve larger than a 3D
-/// solve holds here (14 million unknowns, by the iterative solver), the error saying how large.
+/// solve holds here (13 million unknowns, by the iterative solver), the error saying how large.
 pub fn fdfd_size(job: &Job) -> Result<Option<(usize, usize, f64)>> {
     if job.device().is_none() || task_kind(job)?.map(|k| k.name()) != Some("spectrum") {
         return Ok(None);

@@ -453,22 +453,20 @@ fn survey_3d() {
         let b = device.component(&v, Fidelity::TwoD).unwrap();
         let s = b.s_matrix(lam).unwrap();
         log(&format!("{which} 2D default model: {}", report(&s)));
-        if which == "mmi" {
-            for step in var("GRID", "0.02,0.01,0.005").split(',') {
-                let h: f64 = step.parse().unwrap();
-                let t = Instant::now();
-                let g = FdfdGrid::new(h)
-                    .with_samples(1)
-                    .with_averaging(crate::averaging::Averaging::Diagonal);
-                let (sampled, _) =
-                    super::solve::sampled("m", &geometry, core, &[lam], &g, false).unwrap();
-                let s = sampled.s_matrix(lam, &[]).unwrap();
-                log(&format!(
-                    "{which} 2D FDFD {h}: {} {:?}",
-                    report(&s),
-                    t.elapsed()
-                ));
-            }
+        for step in var("GRID", "0.02,0.01,0.005").split(',') {
+            let h: f64 = step.parse().unwrap();
+            let t = Instant::now();
+            let g = FdfdGrid::new(h)
+                .with_samples(1)
+                .with_averaging(crate::averaging::Averaging::Diagonal);
+            let (sampled, _) =
+                super::solve::sampled("m", &geometry, core, &[lam], &g, false).unwrap();
+            let s = sampled.s_matrix(lam, &[]).unwrap();
+            log(&format!(
+                "{which} 2D FDFD {h}: {} {:?}",
+                report(&s),
+                t.elapsed()
+            ));
         }
         return;
     }

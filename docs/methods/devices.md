@@ -97,7 +97,10 @@ validation:
   - device/fdfd-3d-iterative
   - device/mmi-2d-grid
   - device/mmi-guided-2d
+  - device/mmi-guided-3d
+  - device/mmi-fdfd-3d
   - device/y-branch-2d-grid
+  - device/y-branch-2d-3d
   - device/y-branch-ideal-2d
   - device/thermo-analytic-metal
   - device/thermo-analytic-doped
@@ -507,8 +510,8 @@ guides on 220 nm SOI, 33.56 µm long (3L_π/8) and 44.74 µm (L_π/2).
 
 | Fidelity | Model | Stated error | Holds over |
 |---|---|---|---|
-| 2D, guided modes (the default) | Soldano & Pennings's guided-mode propagation analysis (their Section III, Eqs. 8–12) on the plane seen from above by the effective index method, the section's and access guides' exact slab modes ([components.md](components.md)): the S-matrix between the access guides' fundamental modes at the section's faces; the tapers taken as adiabatic and lossless, their phase left out. On the default stack the film is Li's silicon in Malitson's silica, as the studio's MMIs have always been built; on another stack, or a rib, the slabs' indices at the design wavelength. Labelled 2D | each $\lvert S_{qp}\rvert^2$ within 5e-3 of 2D FDFD of the same plane | widths 3–6 µm, access guides 0.5–1.5 µm, vertical walls, 1.5–1.6 µm |
-| 2D, FDFD (`with_model_2d(Model2d::Fdfd)`) | the drawn geometry by 2D FDFD on the effective index method's plane (below) | — (3D isn't resolved here) | — |
+| 2D, guided modes (the default) | Soldano & Pennings's guided-mode propagation analysis (their Section III, Eqs. 8–12) on the plane seen from above by the effective index method, the section's and access guides' exact slab modes ([components.md](components.md)): the S-matrix between the access guides' fundamental modes at the section's faces; the tapers taken as adiabatic and lossless, their phase left out. On the default stack the film is Li's silicon in Malitson's silica, as the studio's MMIs have always been built; on another stack, or a rib, the slabs' indices at the design wavelength. Labelled 2D | each $\lvert S_{qp}\rvert^2$ within 5e-3 of 2D FDFD of the same plane; within 0.05 of 3D on the 2 µm 1 × 2 MMI at its image ([In 3D](#in-3d-the-mmi-and-the-y-branch-and-the-2d-models-errors)) | widths 3–6 µm, access guides 0.5–1.5 µm, vertical walls, 1.5–1.6 µm |
+| 2D, FDFD (`with_model_2d(Model2d::Fdfd)`) | the drawn geometry by 2D FDFD on the effective index method's plane (below) | each $\lvert S_{qp}\rvert^2$ within 0.05 of 3D, as the guided modes ([In 3D](#in-3d-the-mmi-and-the-y-branch-and-the-2d-models-errors)) | the 2 µm 1 × 2 MMI at its image, 1.55 µm |
 | 3D | the drawn geometry on its stack by 3D FDFD (below) | — | — |
 
 The MMI has two 2D models, and a device setting chooses which its 2D fidelity is, as the strip's
@@ -543,7 +546,7 @@ strip to two 500 nm arms 200 nm apart; the arms, 5 µm long to ports 2 µm apart
 | Fidelity | Model | Stated error | Holds over |
 |---|---|---|---|
 | analytic | ideal: the stem's power split equally, with an excess loss | $\lvert S\rvert^2$ within 0.05 of 2D, on Zhang et al.'s junction | — |
-| 2D | the drawn geometry by 2D FDFD on the effective index method's plane. Labelled 2D | — (3D isn't resolved here) | — |
+| 2D | the drawn geometry by 2D FDFD on the effective index method's plane. Labelled 2D | each $\lvert S_{qp}\rvert^2$ within 0.02 of 3D ([In 3D](#in-3d-the-mmi-and-the-y-branch-and-the-2d-models-errors)) | Zhang et al.'s junction, arms 3 µm long to ports 1.5 µm apart, 1.55 µm |
 | 3D | the drawn geometry on its stack by 3D FDFD | — | — |
 
 Its 2D model converges at about second order: 0.46817, 0.46775 and 0.46763 into each arm at 20,
@@ -622,23 +625,96 @@ and the other 3D rows of the report are as they were).
   memory: on that MMI they took 2.2 times the iterations and 1.6 times the time, and on 125 nm
   cells (3.6 a wavelength in silicon) neither reached 1e-9 in 2 000 iterations (discretized
   again, it stalled at 1.8e-6). The multigrid wants cells that resolve the wavelength in the
-  core: on 100 nm cells the MMI took 1 291 to 1 506 iterations; a solve that doesn't converge
+  core: on 100 nm cells the MMI took 1 291 to 1 506 iterations (discretized again); a solve
+  that doesn't converge in 5 000
   is an error that says to refine the grid, not a result.
 - **Checked against the direct solver** on the same system by `device/fdfd-3d-iterative`: the
   strip of `device/fdfd-straight`, its two ports' S-matrix within 4e-10 of the direct solver's
   (235 iterations a port).
-- **Memory and time.** About 3.2 to 3.5 kB an unknown at its peak: the 2 µm MMI below on 44 nm
-  cells (1.15 million unknowns) committed 4.0 GB and took 206 s, 381 to 428 iterations a port
-  (8 threads, the machine shared with other work). So a device's 3D solve refuses more than 14
-  million unknowns (about 49 GB) and asks for a coarser grid.
+- **Memory and time.** 3.5 to 4.1 kB an unknown at its peak, 3.5 to 3.7 kB from 8 million
+  unknowns on (the study below): the 2 µm MMI on 22 nm cells, 8.4 million unknowns, committed
+  31 GB and took 26 min on 8 threads. So a device's 3D solve refuses more than 13 million
+  unknowns (about 48 GB) and asks for a coarser grid.
 
-That doesn't resolve an MMI on coarse cells: its
-self-image is sensitive to the higher modes' phases, which coarse cells get wrong. The 3 µm MMI
-above gives 0.15981, 0.18082 and 0.22351 into each output on 100, 80 and 67 nm cells (55, 44 and
-37 nm up), against 0.406 in 2D, still moving by 0.04 a step; the 2 µm one 0.299, 0.354 and 0.390
-on 80, 67 and 50 nm cells. So the guided modes' and 2D FDFD's errors against 3D aren't stated
-here; resolving them needs about 20 nm cells, an iterative solve's (`IterativeSolver3d`) or a
-larger machine's. The surveys are `device::splitter_tests::survey` (ignored: run by hand).
+### In 3D: the MMI and the Y-branch, and the 2D models' errors
+
+An MMI's self-image is sensitive to its higher modes' phases, which coarse cells get wrong: the
+3 µm MMI above gives 0.15981, 0.18082 and 0.22351 into each output on 100, 80 and 67 nm cells
+(55, 44 and 37 nm up), against 0.406 in 2D, still moving by 0.04 a step. The iterative route
+resolves it. Two devices were solved in full 3D on three grids of cubic cells, 44, 31.4 and 22
+nm (the 220 nm film in 5, 7 and 10 cells, its faces on nodes), with stretched PMLs about 0.35 µm
+thick (8, 11 and 16 cells) and 0.4 µm of oxide beside, below and above, each port's run to a
+residual of 1e-9, at 1.55 µm:
+
+- **the 1 × 2 MMI 2 µm wide**, 0.5 µm access guides at ±0.5 µm, as long as its 2D model's first
+  two-fold image, $3L_\pi/8$ = 4.05 µm (Soldano and Pennings's symmetric interference);
+- **Zhang et al.'s Y-branch**, its spline junction 2 µm long, its arms 3 µm long to ports 1.5 µm
+  apart (as `device/y-branch-2d-grid`).
+
+The power into an output, $P = \lvert S_{21}\rvert^2 = \lvert S_{31}\rvert^2$, and the excess loss
+$-10\log_{10}(2P)$:
+
+| Device | Grid | Unknowns | Iterations a port | Run time | Peak memory | $P$ | Excess loss |
+|---|---|---|---|---|---|---|---|
+| MMI | 44 nm | 1 152 000 | 381–428 | 3.4 min | 4.0 GB | 0.386710 | 1.116 dB |
+| | 31.4 nm | 2 956 800 | 387–428 | 11 min | 10.6 GB | 0.401933 | 0.948 dB |
+| | 22 nm | 8 418 240 | 439–487 | 26 min | 31.0 GB | 0.406004 | 0.904 dB |
+| | extrapolated | | | | | 0.410 ± 0.006 | 0.86 ± 0.06 dB |
+| Y-branch | 44 nm | 1 401 600 | 140–149 | 1.5 min | 5.8 GB | 0.479813 | 0.179 dB |
+| | 31.4 nm | 3 659 040 | 140–149 | 4.6 min | 12.3 GB | 0.480658 | 0.171 dB |
+| | 22 nm | 10 465 920 | 130–137 | 11 min | 36.9 GB | 0.480852 | 0.170 dB |
+| | extrapolated | | | | | 0.4810 ± 0.0003 | 0.168 ± 0.003 dB |
+
+(8 threads of a Core Ultra 7 265K with 64 GB, shared with other work while these ran, so the
+times are only a guide; memory is the process's committed peak. `device::splitter_tests::
+survey_3d` runs each, one a process.)
+
+- **The order.** The changes from grid to grid give an order of 4.0 for the MMI and 4.4 for the
+  Y-branch, above the scheme's second: the 44 nm grid, five cells across the film, isn't yet in
+  the range where the error goes as a power of the cell. So each is extrapolated at second order,
+  and its uncertainty spans the extrapolations at first order and at the order the grids show
+  (the MMI: 0.4073 to 0.4155; the Y-branch: 0.48090 to 0.48131). A fourth grid, 15.7 nm, would
+  take the MMI about 23 million unknowns, more than this machine holds.
+- **What doesn't move it.** On the 44 nm grid, PMLs of 12 cells instead of 8 moved $P$ by 3e-6
+  (MMI) and 4e-6 (Y-branch), and 0.6 µm of oxide instead of 0.4 by 8e-6 and 0. Each solve's
+  residual (1e-9) moves it by about 1e-9.
+- **The split.** Both devices split evenly, as the grid is mirrored about their axis: the
+  outputs differ by at most 1.6e-7 dB, the iterative solve's residual. That is Soldano and
+  Pennings's symmetric interference, 1 to 1; what the MMI loses at its 2D image is the next
+  point.
+
+**The 2D models against 3D**, at the extrapolated 3D values:
+
+| Device | Model | $P$ | Error in $P$ | Excess loss | Error in excess loss |
+|---|---|---|---|---|---|
+| MMI | 3D, extrapolated | 0.410 ± 0.006 | | 0.86 ± 0.06 dB | |
+| | 2D, guided modes (its default) | 0.453733 | +0.044 | 0.422 dB | −0.44 dB |
+| | 2D FDFD, 20 nm (its grid) | 0.448519 | +0.039 | 0.472 dB | −0.39 dB |
+| | 2D FDFD, extrapolated from 20, 10 and 5 nm | 0.4523 | +0.042 | 0.435 dB | −0.43 dB |
+| Y-branch | 3D, extrapolated | 0.4810 ± 0.0003 | | 0.168 ± 0.003 dB | |
+| | 2D FDFD, 20 nm (its model) | 0.467984 | −0.013 | 0.287 dB | +0.12 dB |
+| | 2D FDFD, extrapolated from 40 to 5 nm | 0.46757 | −0.013 | 0.291 dB | +0.12 dB |
+
+So the 2D models' errors against 3D, their stated ones on these designs: each $\lvert S\rvert^2$
+within 0.05 of 3D for the MMI's two (they put 4 points of the input more into each output, and
+find about half the loss 3D finds at this length), within 0.02 for the Y-branch's (1.3 points
+less into each arm, 0.12 dB more loss). Each bound is the difference measured and the 3D
+value's uncertainty, rounded up. Both come from the effective index method's plane, the 2D model's own grid
+error being a tenth of them or less. On the MMI, the likely cause is the image's length: the
+plane's lateral index steps aren't the stack's, so 3D images at a slightly different length than
+the 2D model's $3L_\pi/8$, which a 3D sweep of the length would show (not run: a 3D point is
+26 min here). On the Y-branch, the plane sheds more of the junction's light than the stack
+does. The cases are `device/mmi-guided-3d`, `device/mmi-fdfd-3d` and `device/y-branch-2d-3d`;
+the 3D values are the study's, too large to run in the report.
+
+**Against Zhang et al.** Their 3D FDTD on cells of λ/34 (46 nm) gave the junction an insertion
+loss of 0.13 dB, 48.5 % into each arm. Ours, 0.168 ± 0.003 dB and 48.10 %, is 0.04 dB more. The
+arms differ: theirs, in their Fig. 1(b), run on nearly straight from the junction; ours are S-bends
+3 µm long, and in 2D the arms alone move the power into each by 0.011 (0.46775 against 0.47862
+with the default arms, 5 µm to 2 µm, at 10 nm). That is the likely difference, not shown here,
+so the comparison isn't a validation case.
+
+The earlier surveys are `device::splitter_tests::survey` (ignored: run by hand).
 
 ## MZI
 
@@ -1201,7 +1277,7 @@ run = phox.run_job(job)                        # run.dir, which photonoxide view
 
 `job::check` refuses a grid a device doesn't take (a 3D FDFD's cells' height or an FDFD's
 samples for a mode solve, any grid for an MZI, whose parts solve on their own), a band that isn't
-one, and a 3D FDFD larger than a 3D solve holds here (14 million unknowns, by the iterative
+one, and a 3D FDFD larger than a 3D solve holds here (13 million unknowns, by the iterative
 solver), saying how large it is, before anything runs. A stop (the window's Stop, the job's timeout) ends the run at
 once: a solve already started is let go and its result discarded. The unit tests run each
 device's job at each fidelity, the mode solves on a 50 nm mesh and the FDFDs on 200 nm cells, and
@@ -1385,6 +1461,9 @@ its studies run here rather than on a farm's workers, who haven't the file.
 | `device/rib-hadley` | Hadley's Table I through the rib device | 50 nm, Hadley | 1.4e-6 |
 | `device/fdfd-straight` | a straight strip through the FDFD solves: $S_{21} = e^{i\beta L}$, no reflection, reciprocal | 100 nm (55 nm up) | 2.6e-5 |
 | `device/mmi-2d-grid`, `device/mmi-guided-2d` | a 3 µm MMI's 2D FDFD from 10 to 5 nm; its guided modes against it | 20, 10, 5 nm | 2.1e-3 and 1.4e-3 |
+| `device/fdfd-3d-iterative` | the strip through the iterative 3D route against the direct solver on the same system | 100 nm (55 nm up) | ≤ 1e-8 |
+| `device/mmi-guided-3d`, `device/mmi-fdfd-3d` | the 2 µm MMI's guided modes and 2D FDFD (20 nm) against its 3D FDFD, extrapolated | 44, 31.4, 22 nm | 0.044 and 0.039 |
+| `device/y-branch-2d-3d` | Zhang et al.'s Y-branch's 2D model (20 nm) against its 3D FDFD, extrapolated | 44, 31.4, 22 nm | 0.013 |
 | `device/y-branch-2d-grid`, `device/y-branch-ideal-2d` | Zhang et al.'s Y-branch's 2D FDFD from 20 to 10 nm; the ideal model against it | 40, 20, 10 nm | 4.2e-4 and 0.032 |
 | `device/study-sweep-analytic` | a coupler's sweep in its gap and length as a job against the device at each pair of values | exact | 0 bits differ |
 | `device/study-threads` | a ring's radius sweep and a waveguide's corners on 1 and 20 threads | exact | 0 lines differ |

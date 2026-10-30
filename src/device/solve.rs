@@ -147,12 +147,12 @@ struct Placed {
 const MOST_DIRECT_3D: usize = 1_200_000;
 
 /// The most unknowns a device's 3D FDFD solves at all, iteratively: at [`MULTIGRID_BYTES`] an
-/// unknown, about 49 GB.
-const MOST_3D: usize = 14_000_000;
+/// unknown, about 48 GB.
+const MOST_3D: usize = 13_000_000;
 
-/// The peak bytes an unknown of a device's iterative 3D solve: 3.2 to 3.5 kB measured on the
+/// The peak bytes an unknown of a device's iterative 3D solve: 3.5 to 4.1 kB measured on the
 /// MMI and the Y-branch (docs/methods/devices.md, "FDFD fidelities").
-const MULTIGRID_BYTES: f64 = 3_500.0;
+const MULTIGRID_BYTES: f64 = 3_700.0;
 
 /// The relative residual of Shin and Fan's system a device's iterative 3D solve reaches. Their
 /// residual measures the field less well than the curl-curl one's: at 1e-8 the multigrid's
