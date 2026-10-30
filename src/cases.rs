@@ -43,14 +43,16 @@ pub(crate) mod material {
     pub(crate) mod catalogue {
         #[allow(unused_imports)]
         use crate::material::catalogue::*;
+        // `phase_change` is private to its crate: what the checks use of it
+        use crate::material::catalogue::phase_change_items as phase_change;
 
         pub(crate) mod phase_change_checks;
     }
 
     /// The crystals' tensors, checked by the mode solvers.
     pub(crate) mod crystal {
-        #[allow(unused_imports)]
-        use crate::material::crystal::*;
+        // the crystal module is private to its crate: its public types
+        use crate::material::{CrystalAxis, Orientation};
         // what the tests took from the crystal module's own imports
         #[cfg(test)]
         use num_complex::Complex64;

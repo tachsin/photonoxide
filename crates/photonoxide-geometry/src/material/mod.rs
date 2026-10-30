@@ -27,8 +27,7 @@ use num_complex::Complex64;
 use crate::units::{Frequency, Wavelength, refractive_index};
 
 pub mod catalogue;
-#[doc(hidden)]
-pub mod crystal;
+pub(crate) mod crystal;
 mod graded;
 mod refractiveindex;
 

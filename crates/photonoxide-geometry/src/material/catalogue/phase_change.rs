@@ -767,6 +767,7 @@ fn frantz_material(name: &str, rows: &[(f64, f64, f64)], notes: &str) -> Result<
     )
 }
 
+#[doc(hidden)]
 pub fn sb2se3_amorphous() -> Result<Material> {
     sellmeier_material(
         "Sb2Se3 (amorphous)",
@@ -777,6 +778,7 @@ pub fn sb2se3_amorphous() -> Result<Material> {
     )
 }
 
+#[doc(hidden)]
 pub fn sb2se3_crystalline() -> Result<Material> {
     sellmeier_material(
         "Sb2Se3 (crystalline)",
@@ -787,6 +789,7 @@ pub fn sb2se3_crystalline() -> Result<Material> {
     )
 }
 
+#[doc(hidden)]
 pub fn sb2s3_amorphous() -> Result<Material> {
     sellmeier_material(
         "Sb2S3 (amorphous)",
@@ -797,6 +800,7 @@ pub fn sb2s3_amorphous() -> Result<Material> {
     )
 }
 
+#[doc(hidden)]
 pub fn sb2s3_crystalline() -> Result<Material> {
     sellmeier_material(
         "Sb2S3 (crystalline)",
@@ -807,6 +811,7 @@ pub fn sb2s3_crystalline() -> Result<Material> {
     )
 }
 
+#[doc(hidden)]
 pub fn gst_amorphous() -> Result<Material> {
     lorentz_material(
         "Ge2Sb2Te5 (amorphous)",
@@ -815,6 +820,7 @@ pub fn gst_amorphous() -> Result<Material> {
     )
 }
 
+#[doc(hidden)]
 pub fn gst_crystalline() -> Result<Material> {
     lorentz_material(
         "Ge2Sb2Te5 (crystalline)",
@@ -823,6 +829,7 @@ pub fn gst_crystalline() -> Result<Material> {
     )
 }
 
+#[doc(hidden)]
 pub fn frantz_amorphous() -> Result<Material> {
     frantz_material(
         "Ge2Sb2Te5 (amorphous)",
@@ -831,6 +838,7 @@ pub fn frantz_amorphous() -> Result<Material> {
     )
 }
 
+#[doc(hidden)]
 pub fn frantz_crystalline() -> Result<Material> {
     frantz_material(
         "Ge2Sb2Te5 (crystalline)",

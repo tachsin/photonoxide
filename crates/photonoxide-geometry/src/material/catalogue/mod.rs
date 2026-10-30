@@ -54,13 +54,11 @@ pub mod ferroelectric;
 #[doc(hidden)]
 pub mod litao3_dndt;
 mod models;
-#[doc(hidden)]
-pub mod phase_change;
+pub(crate) mod phase_change;
 #[doc(hidden)]
 pub mod phase_change_thermal;
 mod references;
-#[doc(hidden)]
-pub mod resistivity;
+pub(crate) mod resistivity;
 pub(crate) mod rf;
 #[doc(hidden)]
 pub mod rf_checks;
@@ -72,6 +70,17 @@ mod tests;
 pub mod thermo;
 #[doc(hidden)]
 pub mod thermo_checks;
+
+/// What photonoxide's checks use of `phase_change` and `resistivity`. Those two stay private:
+/// `catalogue` re-exports their public types, which a hidden module would hide.
+#[doc(hidden)]
+pub mod phase_change_items {
+    pub use super::phase_change::*;
+}
+#[doc(hidden)]
+pub mod resistivity_items {
+    pub use super::resistivity::*;
+}
 
 pub use coming::Coming;
 pub use conductivity::{Conductivity, ConductivityModel, conductivities, conductivity};

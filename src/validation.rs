@@ -24,7 +24,7 @@ use crate::material::catalogue::conductivity_checks;
 use crate::material::catalogue::ferroelectric;
 use crate::material::catalogue::litao3_dndt;
 use crate::material::catalogue::phase_change_thermal;
-use crate::material::catalogue::resistivity;
+use crate::material::catalogue::resistivity_items as resistivity;
 use crate::material::catalogue::rf_checks;
 use crate::material::catalogue::thermo_checks;
 use crate::material::{self, Model, Table};
