@@ -1031,6 +1031,7 @@ pub(crate) mod direct;
 mod fill;
 pub(crate) mod fill_checks;
 mod ports;
+pub(crate) mod slab_plane;
 #[cfg(test)]
 mod tests;
 mod three;

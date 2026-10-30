@@ -80,7 +80,7 @@ In the order a Python user would meet them:
 | S-parameters | `Solver2d::port_modes`, `s_matrix(&[Port]) -> Vec<Vec<c64>>`; 3D: `Solver3d::s_matrix` | `src/fdfd/ports.rs:164`, `:372`; `src/fdfd/three.rs:927` |
 | Adjoint gradients | `mode_power_gradient(field, mode, direction) -> (f64, Vec<f64>)` | `src/fdfd/adjoint.rs:50` |
 | FDTD | `Simulation::new(grid, eps, boundaries, courant)`, sources, monitors, `run`, `run_until` | `src/fdtd.rs:475`, `:1042`, `:1061` |
-| Circuits | `Netlist::new`, `add(name, Arc<dyn Component>)`, `connect`; `compile`, `Circuit::spectrum` | `src/circuit/netlist.rs:281`, `:343`; `src/circuit/solve.rs:95`, `:251` |
+| Circuits | `Netlist::new`, `add(name, Arc<dyn Component>)`, `connect`; `compile`, `Circuit::spectrum` | `src/circuit/netlist.rs:116`, `:178`; `src/circuit/solve.rs:95`, `:251` |
 | Circuit gradients | `Circuit::gradient(wavelengths, values, objective)` | `src/circuit/adjoint.rs:117` |
 | Touchstone | `Touchstone::read(path)`, `parse(text, ports)`, `write_file(path, precision)` | `src/compact/touchstone.rs:313`, `:341`, `:326` |
 | Compact models | `vector_fit(s, responses, options)`; `CompactModel::fit` | `src/compact/fit.rs:449` |
@@ -189,7 +189,7 @@ saying so. See [decision 3](#5-decisions).
 
 - A solve can take minutes. The binding releases the GIL while Rust works, so other Python threads
   run; photonoxide's own threads (rayon) never touch Python.
-- **Cancellation exists for jobs:** `run::Stop` (`src/run.rs:421`), an `Arc<AtomicBool>` and a
+- **Cancellation exists for jobs:** `run::Stop` (`src/stop.rs:20`), an `Arc<AtomicBool>` and a
   deadline, polled by the job's solvers. Direct API calls mostly have none:
   `vector::modes_until(..., stop: impl Fn() -> bool)` (`src/mode/vector.rs:1026`) is the
   exception, and FDTD's `run` and `run_until` have no hook (a binding can run steps in chunks).
@@ -211,12 +211,12 @@ saying so. See [decision 3](#5-decisions).
 
 ### Errors
 
-`photonoxide::Error` (`src/error.rs:11`) is a `#[non_exhaustive]` enum: `InvalidValue`,
+`photonoxide::Error` (`src/error.rs:13`) is a `#[non_exhaustive]` enum: `InvalidValue`,
 `OutsideValidity` (with the material, the wavelength and the range), `Io`, `Parse`, `Netlist` and
 `Gpu`. In Python, one exception class per variant under a base `photonoxide.Error`, each also
 deriving from the built-in it resembles (`ValueError` for `InvalidValue`, `OSError` for `Io`),
 with the variant's fields as attributes; an unknown future variant maps to the base class. photonoxide
-reports invalid input as an `Error`, never a panic (`src/error.rs:7`); a panic that still happens
+reports invalid input as an `Error`, never a panic (`src/error.rs:9`); a panic that still happens
 becomes Python's `PanicException`, not a crash.
 
 ### Determinism

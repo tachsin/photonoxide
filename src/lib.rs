@@ -86,11 +86,13 @@ mod shifter;
 mod sparse;
 pub mod stack;
 mod statics;
+mod stop;
 pub mod sweep;
 pub mod thermal;
 mod traffic;
 pub mod units;
 pub mod validation;
+mod verdict;
 
 pub use error::{Error, Result};
 
