@@ -700,7 +700,7 @@ pub(crate) fn component_until(
     device: Box<dyn Device>,
     values: &Values,
     fidelity: Fidelity,
-    stop: &crate::run::Stop,
+    stop: &crate::stop::Stop,
 ) -> Result<Option<Built>> {
     use std::sync::mpsc;
     use std::time::Duration;

@@ -26,7 +26,7 @@
 # squares compact's fits use too, and its kernel's rates are timed with the triad in src/traffic.rs.
 #
 # A file in no area is shared and runs everything (the library's root, units, geometry, expr,
-# error, parallel, portable, stack (and src/stack/, its etches' validation cases and its boxes' fill),
+# error (and the netlist errors in it), stop (run::Stop), verdict (the validation types), parallel, portable, stack (and src/stack/, its etches' validation cases and its boxes' fill),
 # raster and averaging (src/averaging.rs and src/averaging/, its analytic cases, which FDFD and the
 # rasters read);
 # Cargo.toml and Cargo.lock; anything new). When in doubt, a file is shared. Files nothing builds or reads (the site, Markdown no test reads, the
@@ -288,7 +288,7 @@ else
         fi
         continue ;;
       # the cases themselves: all of them (a change here usually comes with its area's too)
-      src/validation.rs | tests/validation_report.rs)
+      src/validation.rs | src/verdict.rs | tests/validation_report.rs)
         direct_cases="*"; touch_area studio; continue ;;
       # an example or its output: that example (the studio builds the examples in); their
       # helpers: every example using them

@@ -8,7 +8,7 @@ use super::{Axis, IndexModel};
 use crate::Result;
 use crate::material::{Material, Model, Provenance, Table};
 use crate::units::Wavelength;
-use crate::validation::Outcome;
+use crate::verdict::Outcome;
 
 /// hc in eV·µm: the photon energy E = HC/λ.
 const HC: f64 = 1.239842;

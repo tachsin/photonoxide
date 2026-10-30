@@ -25,7 +25,7 @@ use super::{Axis, IndexModel};
 use crate::Result;
 use crate::material::{Material, Model, Provenance, SellmeierTerm};
 use crate::units::Wavelength;
-use crate::validation::Outcome;
+use crate::verdict::Outcome;
 use num_complex::Complex64 as c64;
 
 /// A two-term Sellmeier fit, n² = A + Σ B λ²/(λ² − C²) (λ, C in µm): (A, [(B, C); 2]).
