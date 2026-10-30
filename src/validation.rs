@@ -49,9 +49,11 @@ pub fn rules() -> Vec<(&'static str, Rule)> {
     rules.extend(devices::rules());
     rules.extend(pcm::rules());
     rules.extend(eme::rules());
+    rules.extend(convergence::rules());
     rules.extend(modulator::rules());
     rules.extend(mode_quantities::rules());
     rules.extend(roughness::rules());
+    rules.extend(sweep::rules());
     rules
 }
 
@@ -2237,12 +2239,16 @@ pub fn cases() -> Vec<Case> {
     cases.extend(crate::device::pcm_checks::cases());
     // and eigenmode expansion's: slab steps against closed forms, tapers against FDFD
     cases.extend(crate::eme::checks::cases());
+    // and convergence to a tolerance: the mode solver, FDFD and the expansion driven to one
+    cases.extend(crate::convergence::checks::cases());
     // and the thin-film lithium niobate Mach-Zehnder modulator as a device
     cases.extend(crate::device::tfln_checks::cases());
     // and a mode's quantities: its effective area, confinement and orthogonality
     cases.extend(crate::mode::quantities_checks::cases());
     // and sidewall roughness: Payne and Lacey's slab, Barwicz and Haus's 3D analysis on the grid
     cases.extend(crate::mode::roughness_checks::cases());
+    // and the adaptive sweeps': AAA, its error estimate, a slab's dispersion and a mode crossing
+    cases.extend(crate::sweep::checks::cases());
     cases
 }
 
@@ -5252,6 +5258,7 @@ fn um(value: f64) -> Wavelength {
     Wavelength::from_um_unchecked(value)
 }
 
+mod convergence;
 mod devices;
 mod eme;
 mod fdfd;
@@ -5266,6 +5273,7 @@ mod modes;
 mod modulator;
 mod pcm;
 mod roughness;
+mod sweep;
 #[cfg(feature = "gpu")]
 pub use gpu::gpu_report;
 

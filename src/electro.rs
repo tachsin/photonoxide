@@ -44,6 +44,7 @@ pub mod full_wave;
 pub(crate) mod full_wave_checks;
 pub(crate) mod full_wave_coplanar;
 pub mod line;
+#[path = "cases/electro/line_checks.rs"]
 pub(crate) mod line_checks;
 #[cfg(test)]
 mod line_tests;

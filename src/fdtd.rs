@@ -1512,6 +1512,7 @@ pub use gpu::{Gpu, Precision};
 mod adjoint_tests;
 pub(crate) mod agreement_checks;
 mod bloch;
+#[path = "cases/fdtd/bloch_checks.rs"]
 pub(crate) mod bloch_checks;
 pub(crate) mod checks;
 pub(crate) mod crystal_checks;

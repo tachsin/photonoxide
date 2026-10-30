@@ -48,6 +48,7 @@ use std::fmt;
 mod parse;
 mod special;
 #[cfg(test)]
+#[path = "cases/expr/tests.rs"]
 mod tests;
 
 pub use parse::Expr;

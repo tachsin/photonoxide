@@ -68,8 +68,8 @@ export const CATEGORIES = [
   {
     id: "circuits",
     title: "Circuits and compact models",
-    blurb: "A chip as a netlist of S-matrices, its components' models, the devices that build them from their geometry, and spectra fitted as rational functions and written as Touchstone files.",
-    groups: [{ title: null, slugs: ["circuits", "components", "devices", "compact"] }],
+    blurb: "A chip as a netlist of S-matrices, its components' models, the devices that build them from their geometry, spectra fitted as rational functions and written as Touchstone files, and adaptive sweeps that sample a response where it changes.",
+    groups: [{ title: null, slugs: ["circuits", "components", "devices", "compact", "sweep"] }],
   },
   {
     id: "foundations",
@@ -88,6 +88,7 @@ const MORE = { id: "more", title: "More", blurb: "Write-ups added since this pag
  * FDTD). The site test checks every slug.
  */
 export const ALGORITHMS = [
+  { name: "AAA rational approximation", does: "a response from few samples as a barycentric rational function, with its error estimated between them", methods: ["sweep"] },
   { name: "Adjoint variable method", does: "every parameter's gradient from one more solve", methods: ["fdfd-adjoint", "fdtd-adjoint", "circuit-adjoint", "averaging"] },
   { name: "Anisotropic averaging from fill fractions", does: "a cell's permittivity from its materials' exact shares and the interface's normal", methods: ["averaging"] },
   { name: "Arnoldi, shift and invert", does: "the eigenvalues nearest a shift", methods: ["eigen"] },

@@ -57,6 +57,7 @@ use crate::stack::{Fill, Structure};
 use crate::units::Length;
 use crate::{Error, Result};
 
+#[path = "cases/statics/checks.rs"]
 pub(crate) mod checks;
 #[cfg(test)]
 mod tests;

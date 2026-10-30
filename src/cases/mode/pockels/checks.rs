@@ -29,6 +29,7 @@ use crate::mode::vector::{self, CrossSection, Permittivity, VectorMode, graded_n
 use crate::units::{Length, Wavelength};
 use crate::validation::{Case, Outcome, Tier};
 
+#[path = "checks/hybrid.rs"]
 mod hybrid;
 
 const OK: &str = "a valid model";

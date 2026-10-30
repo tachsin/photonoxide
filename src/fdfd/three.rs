@@ -1153,18 +1153,22 @@ impl Lattice {
 
 pub(crate) mod adjoint;
 pub(crate) mod block_checks;
+#[path = "../cases/fdfd/three/checks.rs"]
 pub(crate) mod checks;
 pub(crate) mod fill;
 mod iterative;
 mod matrix_free;
 mod multigrid;
+#[path = "../cases/fdfd/three/port_checks.rs"]
 pub(crate) mod port_checks;
 #[cfg(test)]
+#[path = "../cases/fdfd/three/port_tests.rs"]
 mod port_tests;
 mod ports;
 pub(crate) mod recycle_checks;
 pub(crate) mod stencil_checks;
 #[cfg(test)]
+#[path = "../cases/fdfd/three/tests.rs"]
 mod tests;
 
 pub use iterative::{Formulation, IterativeSolver3d, Product, Recycler};

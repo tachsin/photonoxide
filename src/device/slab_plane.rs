@@ -4,7 +4,7 @@
 
 use num_complex::Complex64 as c64;
 
-use super::Grid;
+use crate::fdfd::Grid;
 use crate::geometry::Point;
 use crate::mode::slab::Slab;
 use crate::stack::Structure;

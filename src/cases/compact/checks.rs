@@ -208,7 +208,7 @@ pub(crate) fn fdfd_ring_spectrum(
     use crate::job::{Event, execute};
     use crate::run::{Job, Run, Stop, replay};
     use crate::units::Wavelength;
-    let text = include_str!("../../jobs/ring-fdfd.yaml")
+    let text = include_str!("../../../jobs/ring-fdfd.yaml")
         .replace("step_nm: 25.0", &format!("step_nm: {step_nm}"))
         .replace("points: 201", &format!("points: {points}"));
     let job = Job::parse_as(&text, crate::run::Format::Yaml)?;

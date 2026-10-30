@@ -66,6 +66,7 @@ mod pcm;
 mod rib;
 mod ring;
 mod section;
+pub(crate) mod slab_plane;
 mod solve;
 pub(crate) mod spec;
 mod tfln;
@@ -75,17 +76,21 @@ mod waveguide;
 mod ybranch;
 
 pub(crate) mod checks;
+#[path = "cases/device/pcm_checks.rs"]
 pub(crate) mod pcm_checks;
 #[cfg(test)]
 mod pcm_tests;
 pub(crate) mod splitter_checks;
 #[cfg(test)]
+#[path = "cases/device/splitter_tests.rs"]
 mod splitter_tests;
 #[cfg(test)]
 mod tests;
+#[path = "cases/device/tfln_checks.rs"]
 pub(crate) mod tfln_checks;
 #[cfg(test)]
 mod tfln_tests;
+#[path = "cases/device/thermo_checks.rs"]
 pub(crate) mod thermo_checks;
 #[cfg(test)]
 mod thermo_tests;

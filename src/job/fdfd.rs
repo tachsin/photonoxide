@@ -20,7 +20,7 @@ use super::{
 };
 use crate::averaging::Averaging;
 #[doc(inline)]
-pub(crate) use crate::fdfd::slab_plane::{etched_plane, fill_plane, plane_along, slab_index};
+pub(crate) use crate::device::slab_plane::{etched_plane, fill_plane, plane_along, slab_index};
 use crate::fdfd::{Boundaries, Direction, Grid, Polarization, Port, Side, Solver2d};
 use crate::raster::Raster;
 use crate::run::{Job, Run, Stop};

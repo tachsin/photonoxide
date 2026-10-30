@@ -55,10 +55,12 @@ pub(crate) mod array_checks;
 #[cfg(test)]
 mod array_tests;
 mod body;
+#[path = "cases/geometry/body_checks.rs"]
 pub(crate) mod body_checks;
 mod body_fill;
 mod body_section;
 #[cfg(test)]
+#[path = "cases/geometry/body_tests.rs"]
 mod body_tests;
 pub(crate) mod boolean_checks;
 #[cfg(test)]

@@ -18,6 +18,7 @@
 //! decomposition itself; when every wanted one is small, it is accepted only when its true
 //! residual ‖Ax − λx‖ / (|λ| ‖x‖) is small too, computed with A itself.
 
+#[path = "cases/eigen/checks.rs"]
 pub(crate) mod checks;
 pub(crate) mod contour;
 mod growing;

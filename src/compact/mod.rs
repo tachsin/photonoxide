@@ -44,6 +44,7 @@
 //! # Ok::<(), photonoxide::Error>(())
 //! ```
 
+#[path = "../cases/compact/checks.rs"]
 pub(crate) mod checks;
 pub mod fit;
 pub mod model;
