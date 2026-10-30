@@ -255,6 +255,7 @@ pub fn rules() -> Vec<(&'static str, Rule)> {
     rules.extend(pcm::rules());
     rules.extend(eme::rules());
     rules.extend(modulator::rules());
+    rules.extend(mode_quantities::rules());
     rules
 }
 
@@ -2473,6 +2474,8 @@ pub fn cases() -> Vec<Case> {
     cases.extend(crate::eme::checks::cases());
     // and the thin-film lithium niobate Mach-Zehnder modulator as a device
     cases.extend(crate::device::tfln_checks::cases());
+    // and a mode's quantities: its effective area, confinement and orthogonality
+    cases.extend(crate::mode::quantities_checks::cases());
     cases
 }
 
@@ -5491,6 +5494,7 @@ mod geometry;
 mod gpu;
 mod line;
 mod materials;
+mod mode_quantities;
 mod modes;
 mod modulator;
 mod pcm;
