@@ -265,6 +265,157 @@ fn jobs() -> f64 {
     differ as f64
 }
 
+/// Delaney et al.'s 25 nm film following the guide: on its top, its walls and the oxide beside
+/// a strip.
+const CONFORMAL: &[(&str, f64)] = &[("wall_film", 0.025), ("slab_film", 0.025)];
+
+/// The films that follow the guide the cases draw: [`CONFORMAL`], the same over a rib's 100 nm
+/// slab, the film on the top and the slab alone (as Delaney et al.'s Fig. 7d–f draws it), and on
+/// the top and the walls alone.
+const FOLLOWING: [&[(&str, f64)]; 4] = [
+    CONFORMAL,
+    &[("slab", 0.1), ("wall_film", 0.025), ("slab_film", 0.025)],
+    &[("slab", 0.1), ("slab_film", 0.025)],
+    &[("wall_film", 0.025)],
+];
+
+/// The film drawn to follow a guide of no step against the stack's film layer drawn across the
+/// window, for each material, crystalline, in either polarization: the cells and the n_eff whose
+/// bits differ (count).
+fn step_limit() -> f64 {
+    let mut differ = 0usize;
+    for d in devices() {
+        for tm in [0.0, 1.0] {
+            let mut changes = CONFORMAL.to_vec();
+            changes.push(("tm", tm));
+            let v = Values::new(&d, &changes).expect(OK);
+            let [(a, na), (b, nb)] = d.zero_step(&v, 1.0).expect(OK);
+            differ += a
+                .cells()
+                .iter()
+                .zip(b.cells())
+                .filter(|(p, q)| p != q)
+                .count();
+            differ += usize::from(na.re.to_bits() != nb.re.to_bits());
+            differ += usize::from(na.im.to_bits() != nb.im.to_bits());
+        }
+    }
+    differ as f64
+}
+
+/// The film's area in the 2D model's cross-section (the film's cells, both halves) against the
+/// closed form of the rectangles it is drawn of, 2 [t_f (w/2 + t_w) + t_w h + t_s (X − w/2) −
+/// t_w t_s] with h the rib's step and X the window's half-width, over [`FOLLOWING`]: the largest
+/// relative difference.
+fn film_area() -> f64 {
+    use crate::material::catalogue::State;
+    let wl = Wavelength::um(1.55).expect(OK);
+    let mut worst = 0.0f64;
+    for d in devices() {
+        let eps = d
+            .state(State::Crystalline)
+            .expect(OK)
+            .permittivity(wl)
+            .expect(OK);
+        let film = crate::mode::vector::Permittivity::isotropic(eps);
+        for design in FOLLOWING {
+            let v = Values::new(&d, design).expect(OK);
+            let cs = d.cross_section(&v, 1.0).expect(OK);
+            let (x, y) = (cs.x(), cs.y());
+            let ny = y.len() - 1;
+            let mut area = 0.0;
+            for i in 0..x.len() - 1 {
+                for j in 0..ny {
+                    if cs.cells()[i * ny + j] == film {
+                        area += (x[i + 1] - x[i]) * (y[j + 1] - y[j]);
+                    }
+                }
+            }
+            let at = |name: &str| v.get(name).expect(OK);
+            let (w, tf, tw, ts) = (
+                at("width"),
+                at("film_thickness"),
+                at("wall_film"),
+                at("slab_film"),
+            );
+            let step = at("thickness") - at("slab");
+            let half = x[x.len() - 1];
+            let want = 2.0 * (tf * (0.5 * w + tw) + tw * step + ts * (half - 0.5 * w) - tw * ts);
+            worst = worst.max((2.0 * area - want).abs() / want);
+        }
+    }
+    worst
+}
+
+/// The designs of the 2D model's grid study for a film that follows the guide: [`CONFORMAL`] in
+/// TE and TM, and over a rib's 100 nm slab in TE (the rib's TM-like mode leaks into the slab,
+/// and so does every mode under crystalline GST over the slab: neither is drawn).
+fn following_designs(d: &PcmShifter) -> Vec<Vec<(&'static str, f64)>> {
+    let mut designs = vec![CONFORMAL.to_vec(), [CONFORMAL, &[("tm", 1.0)]].concat()];
+    if d.kind() != PcmShifter::gst().kind() {
+        designs.push(FOLLOWING[1].to_vec());
+    }
+    designs
+}
+
+/// The 2D model's Δn_eff,ac and α_c for a film that follows the guide ([`following_designs`])
+/// on its own cells and on cells half the size: the relative difference of the coarser from the
+/// finer, farthest from 0 (the lossless Sb₂S₃'s loss left out).
+fn following_grid() -> f64 {
+    let mut worst = 0.0f64;
+    for (k, d) in devices().iter().enumerate() {
+        for design in following_designs(d) {
+            let v = Values::new(d, &design).expect(OK);
+            let coarse = change_and_loss(d, &v, Fidelity::TwoD);
+            let fine = change_and_loss(
+                &d.clone().with_refinement(2.0).expect(OK),
+                &v,
+                Fidelity::TwoD,
+            );
+            for q in 0..2 {
+                if q == 1 && k == 1 {
+                    continue;
+                }
+                let e = coarse[q] / fine[q] - 1.0;
+                if e.abs() > worst.abs() {
+                    worst = e;
+                }
+            }
+        }
+    }
+    worst
+}
+
+/// The wide guide (2 µm) in the TM-like mode with the film on its top, and in the TE-like mode
+/// with [`CONFORMAL`]: the analytic Δn_eff,ac over the 2D one on cells half the size, minus 1,
+/// farthest from 0, over the three devices; the grid study's estimate of the 2D one's error
+/// noted, as [`wide_guide`] does.
+fn wide_guide_tm_conformal() -> f64 {
+    let (mut worst, mut grid) = (0.0f64, 0.0f64);
+    for d in devices() {
+        for design in [
+            vec![("width", 2.0), ("tm", 1.0)],
+            [&[("width", 2.0)], CONFORMAL].concat(),
+        ] {
+            let v = Values::new(&d, &design).expect(OK);
+            let analytic = change_and_loss(&d, &v, Fidelity::Analytic)[0];
+            let coarse = change_and_loss(&d, &v, Fidelity::TwoD)[0];
+            let fine = change_and_loss(
+                &d.clone().with_refinement(2.0).expect(OK),
+                &v,
+                Fidelity::TwoD,
+            )[0];
+            let e = analytic / fine - 1.0;
+            if e.abs() > worst.abs() {
+                worst = e;
+            }
+            grid = grid.max((coarse / fine - 1.0).abs() / 3.0);
+        }
+    }
+    crate::validation::note_numerical(grid);
+    worst
+}
+
 /// The cases.
 pub(crate) fn cases() -> Vec<Case> {
     vec![
@@ -316,6 +467,34 @@ pub(crate) fn cases() -> Vec<Case> {
             tier: Tier::Analytic,
             source: "the same computation: a spectrum job records what the device's component gives at its design's fidelity, to the bit",
             run: || outcome(jobs(), 0.0, 0.0),
+        },
+        Case {
+            id: "device/pcm-conformal-step-limit",
+            title: r"Phase-change phase shifters, the film following the guide (25 nm on its top, its walls and beside it) in the limit of a guide of no step, its core as wide as the window: the cross-section the conformal construction draws (the film on the top, then on the walls and over the slab) against the stack's film layer drawn across the window, on the same nodes, for each material crystalline, in the TE-like and the TM-like mode; the cells and the full-vector $n_\mathrm{eff}$ whose bits differ (count shown)",
+            tier: Tier::Analytic,
+            source: "the same layered film: at no step the walls vanish and the film over the slab meets the film on the top, the layer the stack draws, to the bit",
+            run: || outcome(step_limit(), 0.0, 0.0),
+        },
+        Case {
+            id: "device/pcm-conformal-area",
+            title: r"Phase-change phase shifters, the film following the guide: the area of the film's cells in the 2D model's cross-section (both halves), for a 25 nm film on the top, the walls and beside a strip, the same over a rib's 100 nm slab, on the top and the slab alone, and on the top and the walls alone, against the closed form of its rectangles, $2\thinspace [t_f (w/2 + t_w) + t_w h + t_s (X - w/2) - t_w t_s]$ ($h$ the rib's step, $X$ the window's half-width; the corners square); the largest relative difference (shown)",
+            tier: Tier::Analytic,
+            source: r"the film's thickness measured normal to the face it lies on: $t_f$ on the top, $t_w$ on the walls, $t_s$ over the slab, as M. Delaney et al., Adv. Funct. Mater. 30, 2002447 (2020), doi:10.1002/adfm.202002447, Fig. 7d–f draws a 25 nm film over a rib and its slab",
+            run: || outcome(film_area(), 0.0, 1e-12),
+        },
+        Case {
+            id: "device/pcm-conformal-grid",
+            title: r"Phase-change phase shifters, the 2D model's grid for a film following the guide: $\Delta n_\mathrm{eff}$ and $\alpha_\mathrm{c}$ of the three devices with a 25 nm film on the top, the walls and beside a 500 × 220 nm strip, in the TE-like and the TM-like mode, and over a rib's 100 nm slab in the TE-like mode (Sb₂Se₃ and Sb₂S₃: under crystalline GST over the slab the mode leaks into it), on the device's cells against cells half the size; the ratio farthest from 1 (shown)",
+            tier: Tier::Analytic,
+            source: r"the full-vector solver's cells (thermo/slab-vector-order); halving them moves the figures by less than 2 %, as device/pcm-2d-grid finds for the film on the top",
+            run: || outcome(1.0 + following_grid(), 1.0, 2e-2),
+        },
+        Case {
+            id: "device/pcm-wide-guide-tm-conformal",
+            title: r"Phase-change phase shifters, the wide guide in the TM-like mode and with the film following it: the three devices on a guide 2 µm wide, the 25 nm film on its top in the TM-like mode, and on its top, walls and beside it in the TE-like mode; $\Delta n_\mathrm{eff}$ of the analytic fidelity (the vertical columns in TM and the lateral stack in TE for the TM-like mode; the column through the film on the wall beside the guide's) against the 2D one's on cells half the size of the device's; the ratio farthest from 1, analytic over 2D (shown)",
+            tier: Tier::Analytic,
+            source: r"the effective index method, exact as the lateral profile separates from the vertical (Chrostowski and Hochberg: 1.2 % in n_eff for the 500 × 220 nm strip, Fig. 3.14); at 2 µm the two models agree to well under that",
+            run: || outcome(1.0 + wide_guide_tm_conformal(), 1.0, 1e-2),
         },
     ]
 }

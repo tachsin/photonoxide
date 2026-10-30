@@ -783,8 +783,23 @@ Its parameters: `width` and `thickness` of the guide, `slab` (µm of the silicon
 0 for a strip, a rib otherwise), `film_thickness`, `coverage` (the film's width as a share of the
 guide's, centred), `crystallized` (0 to 1), `length`, `loss` (dB/cm, the propagation loss of the
 guide that the models don't give, added to the cell's) and `wavelength` (1.25 to 1.65 µm, the
-fits' range). The mode is the fundamental TE-like one. The film lies on the guide's top only: a
-patch that also covers the slab beside a rib (Delaney et al.'s lift-off patches) isn't drawn.
+fits' range). Three more, each 0 by default, which leaves the film on the guide's top alone in
+the TE-like mode, the same numbers as before they were added:
+
+- `wall_film` and `slab_film` (µm, 0 to 0.2): the film that follows the guide, as a patch
+  deposited over it does, on its walls and over the slab beside it (the buried oxide beside a
+  strip), out to the edge of the window. Each thickness is measured normal to the face the film
+  lies on, and the corners are square: the film on the top runs on over the film on the walls.
+  Delaney et al. give one thickness, 25 nm, and draw the film over the rib and the slab alike
+  (their Fig. 7d–f, the film on the walls too thin to tell at the figure's scale), so a
+  conformal 25 nm film is `wall_film = slab_film = film_thickness = 0.025`. A film on the
+  walls needs `coverage` 1, and the film over the slab must be thinner than the rib's step.
+- `tm` (0 or 1): 1 for the fundamental TM-like mode instead of the TE-like one, with the same
+  figures, the film's states mixed the same way.
+
+A rib's TM-like mode leaks into its slab (its index is below the slab's TE mode's): the 2D model
+finds no guided mode there and says so, and the same for any mode under a film over the slab
+whose index rises above the guide's (crystalline GST over a rib's slab).
 
 Its **component** is the phase the cell adds against its amorphous state and the loss of the
 cell: ports `o1` and `o2`, parameters `phase` (rad) and `loss` (dB),
@@ -804,8 +819,8 @@ straight section's, any length, with no bends, leads or ends.
 
 | Fidelity | Model | Stated error | Holds over |
 |---|---|---|---|
-| analytic | the effective index method with exact complex slabs ([eim.md](eim.md), [multilayer.md](multilayer.md)): the vertical column through the guide (cladding, the film at its fraction, silicon, buried oxide), the column beside it (a rib's slab, or the cladding alone) and the lateral stack across (the film's width over the bare silicon, and the bare silicon either side of it), each the root of a transfer matrix's dispersion relation; a lossy film's root followed from the lossless stack as its absorption is switched on in 50 steps. The loss is the imaginary part of the index | $\Delta n_\mathrm{eff}$ and $\alpha_\mathrm{c}$ within 15 % of 2D | widths 0.4–0.6 µm, films 10–50 nm, slabs 0–100 nm |
-| 2D | the full-vector mode solver on the cross-section ([vector.md](vector.md)): the standard scheme with complex permittivities, half of the section behind an electric wall, cells of 5 nm in and near the guide and the film (the faces on nodes) growing by 0.1 per µm to 0.1 µm, 1 µm of cladding around; the guided TE-like mode of the largest real index. Labelled 2D | — | — |
+| analytic | the effective index method with exact complex slabs ([eim.md](eim.md), [multilayer.md](multilayer.md)): the vertical column through the guide (cladding, the film at its fraction, silicon, buried oxide), the column beside it (a rib's slab, or the cladding alone) and the lateral stack across (the film's width over the bare silicon, and the bare silicon either side of it), each the root of a transfer matrix's dispersion relation; a lossy film's root followed from the lossless stack as its absorption is switched on in 50 steps. The loss is the imaginary part of the index. For the TM-like mode the columns are solved in TM and the lateral stack in TE; a film on the walls adds the column through it (the slab, then the film up to the top's film) beside the guide's, and a film over the slab is in the column beside | $\Delta n_\mathrm{eff}$ and $\alpha_\mathrm{c}$ within 15 % of 2D | widths 0.4–0.6 µm, films 10–50 nm, slabs 0–100 nm; the film on the top alone, TE-like |
+| 2D | the full-vector mode solver on the cross-section ([vector.md](vector.md)): the standard scheme with complex permittivities, half of the section behind an electric wall (a magnetic one for the TM-like mode), cells of 5 nm in and near the guide and the film (the faces on nodes, the film's on the walls and over the slab too) growing by 0.1 per µm to 0.1 µm, 1 µm of cladding around; the guided mode of the polarization asked of the largest real index. Labelled 2D | — | — |
 
 `PcmShifter::with_refinement(r)` divides the cells by r, as the validation does. The example
 `pcm_delaney` prints the numbers below, with Delaney et al.'s Eq. (1) from their own numbers. Ours,
@@ -833,11 +848,70 @@ their ref. 58, which we don't have). Ours is 0.20 rad/dB (2D), 29 % below, from 
 3.2 times and a loss 4.4 times theirs, for 25 nm. We have not explained the gap, so GST is not a
 case.
 
+**A film that follows the guide, and the TM-like mode.** Ours, 25 nm films at 1.55 µm on the
+default 500 × 220 nm guide (a strip, or a rib with a 100 nm slab), the film on the top alone or
+following the guide (`wall_film` and `slab_film` 0.025, or the slab's alone):
+
+| Cell | Mode | Guide | Film | $\Delta n_\mathrm{eff}$ | $\alpha$ amorphous (dB/µm) | $\alpha$ crystalline (dB/µm) | $L_\pi$ (µm) | FOM (rad/dB) |
+|---|---|---|---|---|---|---|---|---|
+| Sb₂Se₃ | TE | strip | top | 0.0568 | 0 | 6.69e-4 | 13.64 | 344 |
+| Sb₂Se₃ | TM | strip | top | 0.0817 | 0 | 8.54e-4 | 9.48 | 388 |
+| Sb₂Se₃ | TE | strip | following | 0.0868 | 0 | 9.50e-4 | 8.93 | 371 |
+| Sb₂Se₃ | TM | strip | following | 0.1166 | 0 | 1.28e-3 | 6.64 | 371 |
+| Sb₂Se₃ | TE | rib | top | 0.0430 | 0 | 5.14e-4 | 18.02 | 339 |
+| Sb₂Se₃ | TE | rib | top and slab | 0.0613 | 0 | 6.93e-4 | 12.64 | 359 |
+| Sb₂Se₃ | TE | rib | following | 0.0743 | 0 | 8.32e-4 | 10.43 | 362 |
+| Sb₂S₃ | TE | strip | top | 0.0318 | 0 | 0 | 24.39 | — |
+| Sb₂S₃ | TM | strip | top | 0.0561 | 0 | 0 | 13.82 | — |
+| Sb₂S₃ | TE | strip | following | 0.0558 | 0 | 0 | 13.89 | — |
+| Sb₂S₃ | TM | strip | following | 0.0749 | 0 | 0 | 10.35 | — |
+| Sb₂S₃ | TE | rib | top | 0.0235 | 0 | 0 | 32.95 | — |
+| Sb₂S₃ | TE | rib | top and slab | 0.0371 | 0 | 0 | 20.87 | — |
+| Sb₂S₃ | TE | rib | following | 0.0459 | 0 | 0 | 16.89 | — |
+| GST | TE | strip | top | 0.8172 | 0.222 | 16.50 | 0.948 | 0.201 |
+| GST | TM | strip | top | 0.4045 | 0.254 | 3.77 | 1.916 | 0.435 |
+| GST | TE | strip | following | 0.8449 | 0.297 | 15.71 | 0.917 | 0.218 |
+| GST | TM | strip | following | 0.9758 | 0.396 | 16.10 | 0.794 | 0.246 |
+| GST | TE | rib | top | 0.7241 | 0.173 | 16.08 | 1.070 | 0.183 |
+
+All 2D, on the device's cells. Following the guide raises the change of Sb₂Se₃ and Sb₂S₃ by half
+or more on the strip (0.0568 to 0.0868, 0.0318 to 0.0558), where the TE-like field is strongest,
+just outside the walls; GST's by 3 %. In TM the change of Sb₂Se₃ and Sb₂S₃ is larger than in TE
+even with the film on the top alone. Under GST on the top the TM-like mode changes half as much
+as the TE-like one and loses a quarter as much when crystalline (3.77 against 16.50 dB/µm), so
+its figure of merit is twice as high, 0.435 rad/dB; with the film following the strip the two
+modes come close. On the rib with GST over the slab, crystalline GST raises the slab's index
+above the guide's and the light leaks into it (no row); the rib's TM-like mode leaks too, with
+any film.
+
+The effective index method's stated error holds for the film on the top in the TE-like mode
+only. Beyond it, against the 2D model on the device's cells: the film following the strip within
+10 % in $\Delta n_\mathrm{eff}$ (GST, TE, 9.7 % high) and the rib within 12 % (Sb₂Se₃, the film
+on the top and the slab, 11.9 %; its loss 15.1 %); the TM-like mode on the top within 12 % in
+$\Delta n_\mathrm{eff}$ (GST in the 0.4 µm guide, 11.6 % low) but 23 % in GST's crystalline loss
+(the same guide). So the analytic numbers there are estimates (the 2D model's starting point),
+and its validity lists `wall_film`, `slab_film` and `tm` at 0.
+
+The 2D model's grid, for the film following the strip (TE and TM) and the rib (TE): cells half
+the size move $\Delta n_\mathrm{eff}$ and $\alpha_\mathrm{c}$ by 0.30 % at most
+(`device/pcm-conformal-grid`), and cells a quarter the size (1.25 nm) by 0.52 % at most from the
+device's (Sb₂Se₃ on the rib). The changes from one grid to the next are not yet steady enough
+for an order: where they shrink monotonically, the observed order is 0.5 (Sb₂Se₃, strip, TE),
+0.4 and 0.6 (Sb₂Se₃ and Sb₂S₃ on the rib) and 1.5 (GST, strip, TM), the field's corners at the
+film's square edges; elsewhere they change sign at the 1e-4 level. Either way the grid's error is
+well under the 2 % the device's 2D figures are checked to.
+
 **Not a case.** Delaney et al.'s $\Delta n_\mathrm{eff}$ of 0.0717 (Sb₂Se₃) and 0.0356 (Sb₂S₃)
 for a 25 nm film on a 500 nm wide 220 nm SOI rib are not reproduced, and not compared: the paper
 and its supplement give neither the rib's etch, the patch's extent over the slab nor the
-polarization, and a patch may cover the slab as well as the rib, which the device doesn't draw.
-For a film on a strip alone we get 0.0568 and 0.0318 (2D), 21 % and 11 % below theirs.
+polarization (#595). The device now draws the film over the rib and its slab, so the gap is the
+geometry's alone. For a film on a strip alone we get 0.0568 and 0.0318 (2D), 21 % and 11 % below
+theirs. On a rib with a 100 nm slab (the 120 nm etch of Delaney et al. 2021's platform, an
+assumption), in TE: the film on the top and the slab, as their Fig. 7 draws it, 0.0613 and
+0.0371; following the walls too, 0.0743 and 0.0459. The rib's TM-like mode leaks into the slab,
+so their numbers are TE-like ones, or of another rib. No single geometry we tried gives both of
+theirs (Sb₂Se₃ 3.6 % above with the conformal film, where Sb₂S₃ is 29 % above), so this stays
+not a case.
 
 Each lower model against the next one up (`device/pcm-*`), stated 15 %: the analytic
 $\Delta n_\mathrm{eff}$ within 12.5 % of the 2D model's over its validity (the three materials
@@ -847,6 +921,19 @@ Sb₂Se₃ and GST within 10.4 % (Sb₂Se₃ in the 0.4 µm guide). On a guide 2
 effective index method is nearly exact, the two agree within 0.12 %. The 2D model's own cells
 against cells half the size move its figures by 1.2 % at most (the 10 nm film, two cells thick,
 the worst). The devices as jobs equal `Device::component`, 0 bits apart.
+
+The film that follows the guide and the TM-like mode have four cases of their own, each with
+its rule (`src/validation/pcm_conformal.rs`):
+
+| Case | What it compares | Ours | Tolerance and its basis |
+|---|---|---|---|
+| `device/pcm-conformal-step-limit` | the conformal film over a guide of no step against the stack's film layer across the window, same nodes, three materials, TE and TM: cells and $n_\mathrm{eff}$ whose bits differ | 0 | 0, round-off: the same cells drawn two ways |
+| `device/pcm-conformal-area` | the film's cells' area against $2\thinspace [t_f (w/2 + t_w) + t_w h + t_s (X - w/2) - t_w t_s]$, four films (strip and rib, walls and slab, slab alone, walls alone) | 0 | 1e-12 relative, round-off: rectangles whose faces are nodes |
+| `device/pcm-conformal-grid` | $\Delta n_\mathrm{eff}$ and $\alpha_\mathrm{c}$ on the device's cells against half the size, the film following the strip (TE, TM) and the rib (TE) | 0.30 % | 2 % relative, discretisation, as `device/pcm-2d-grid` |
+| `device/pcm-wide-guide-tm-conformal` | analytic $\Delta n_\mathrm{eff}$ against 2D on half the cells, a 2 µm guide, TM with the film on the top and TE with the film following it | 0.64 % (GST, TE, following); the 2D grid's own 0.061 % | 1 % relative, model: the effective index method at a guide four times wider, as `device/pcm-wide-guide` |
+
+No paper we have gives a TM-like number with a complete geometry, so the TM-like mode has no
+published comparison.
 
 ```python
 import photonoxide as phox

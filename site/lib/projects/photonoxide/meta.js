@@ -29,6 +29,7 @@ export const VALIDATION_PATH = "/projects/photonoxide/validation";
 export const ROADMAP_PATH = "/projects/photonoxide/roadmap";
 export const DOCS_PATH = "/projects/photonoxide/docs";
 export const PYTHON_DOCS_PATH = "/projects/photonoxide/docs/python";
+export const PYTHON_REFERENCE_PATH = "/projects/photonoxide/docs/python/reference";
 export const LANGUAGES_DOCS_PATH = "/projects/photonoxide/docs/languages";
 export const CROSS_CODE_DOCS_PATH = "/projects/photonoxide/docs/cross-code";
 
@@ -144,7 +145,7 @@ export const PHOTONOXIDE_HIGHLIGHTS = [
     title: "Active devices",
     milestone: "0.6",
     hero: "active devices",
-    body: "Thermo-optic phase shifters, Pockels modulators in thin-film lithium niobate, travelling-wave electrodes, and carrier modulators.",
+    body: "Thermo-optic and phase-change phase shifters, Pockels modulators in thin-film lithium niobate, and travelling-wave electrodes; carrier modulators come with 0.8.",
   },
   {
     icon: "inverse",
@@ -243,8 +244,8 @@ export const FALLBACK_MILESTONES = [
   "0.5.2: Many solves at once ✅",
   "0.5.3: QMR without the matrix ✅",
   "0.5.4: Geometry and devices ✅",
-  "0.5.5: Writing jobs and taking results away",
-  "0.6: Thermal and electro-optic devices",
+  "0.5.5: Writing jobs and taking results away ✅",
+  "0.6: Thermal and electro-optic devices ✅",
   "0.6.1: Nonlinear integrated optics",
   "0.6.2: Quantum light and linear-optical statistics",
   "0.6.3: Eigenmode expansion and the mode solver's tools",

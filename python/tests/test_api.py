@@ -361,21 +361,27 @@ def test_the_catalogue_has_its_sources() -> None:
     assert "doi:10.1063/1.555624" in si.models[0].sources[0]
 
 
+def _first_code_block(doc: str) -> str:
+    """The first indented block in a docstring, after a line ending in a colon."""
+    block = re.search(r":\n\n((?:    .*\n|\n)+)", inspect.cleandoc(doc) + "\n")
+    assert block, "no code block in the docstring"
+    return inspect.cleandoc(block.group(1))
+
+
 def test_the_readme_and_the_module_example_run(capsys: pytest.CaptureFixture[str]) -> None:
     readme = (PACKAGE / "README.md").read_text(encoding="utf-8")
     (block,) = re.findall(r"```python\n(.*?)```", readme, re.DOTALL)
     exec(compile(block, "README.md", "exec"), {})
     assert capsys.readouterr().out == "TE0: n_eff = 2.8475\nTM0: n_eff = 2.0531\n"
-    example = inspect.cleandoc(phox.__doc__ or "").split("::\n")[1].split("\n\nIt prints")[0]
-    exec(compile(inspect.cleandoc(example), "photonoxide.__doc__", "exec"), {})
+    example = _first_code_block(phox.__doc__ or "")
+    exec(compile(example, "photonoxide.__doc__", "exec"), {})
     assert capsys.readouterr().out == "TE0: n_eff = 2.8475\nTM0: n_eff = 2.0531\n"
 
 
 def test_the_circuit_example_runs() -> None:
-    doc = inspect.getdoc(phox.circuit_spectrum) or ""
-    example = doc.split("::\n")[1].split("\n\nEach instance")[0]
+    example = _first_code_block(phox.circuit_spectrum.__doc__ or "")
     namespace: dict[str, object] = {}
-    exec(compile(inspect.cleandoc(example), "circuit_spectrum.__doc__", "exec"), namespace)
+    exec(compile(example, "circuit_spectrum.__doc__", "exec"), namespace)
     bar = namespace["bar"]
     assert isinstance(bar, np.ndarray) and bar.shape == (1001,) and 0.0 <= bar.min() < bar.max() <= 1.0
 
