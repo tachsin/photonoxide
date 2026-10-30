@@ -1,6 +1,7 @@
 //! The validation cases of 0.6.1's data: undoped congruent LiTaO₃'s extraordinary index against
 //! temperature (Barboza & Cudney 2009, Bruner et al. 2002), each against the numbers its paper
-//! prints; and the Kerr data's units, readings and γ.
+//! prints; the Kerr data's units, readings and γ; and Miller's rule against the catalogue's own
+//! d coefficients measured at several wavelengths.
 
 use crate::material::Material;
 use crate::material::catalogue::kerr::{BRISTOW_1220, BRISTOW_FIGURES};
@@ -9,9 +10,10 @@ use crate::material::catalogue::litao3_ne::{
     bruner_n2,
 };
 use crate::material::catalogue::{
-    KerrQuantity, beta_from_cm_per_gw, beta_to_cm_per_gw, kerr, n2_from_cm2_per_w, n2_from_esu,
-    n2_to_cm2_per_w, n2_to_esu,
+    self, Axis, Conditions, KerrQuantity, TensorKind, beta_from_cm_per_gw, beta_to_cm_per_gw, kerr,
+    n2_from_cm2_per_w, n2_from_esu, n2_to_cm2_per_w, n2_to_esu,
 };
+use crate::nonlinear::miller::miller_shg;
 use crate::units::Wavelength;
 use crate::verdict::{Case, Outcome, Tier};
 
@@ -168,6 +170,87 @@ fn gamma_gaussian_case() -> Outcome {
     outcome(gamma_gaussian(), 0.0, 1e-10)
 }
 
+// ---------------------------------------------------------------------------------------------
+// Miller's rule
+// ---------------------------------------------------------------------------------------------
+
+/// The fundamental the catalogue's d is carried from, µm, and the ones it is compared at.
+pub(crate) const MILLER_FROM: f64 = 1.064;
+pub(crate) const MILLER_TO: [f64; 2] = [1.313, 0.852];
+
+/// Miller's rule from the entry's d at 1.064 µm to 1.313 and 0.852 µm, with the entry's default
+/// index model, against the entry's own d there: each prediction's relative deviation, d₃₃
+/// (`d33`) or d₃₁.
+pub(crate) fn miller_deviations(entry: &str, d33: bool) -> Vec<(f64, f64, f64)> {
+    let Some(e) = catalogue::entry(entry) else {
+        return vec![(f64::NAN, f64::NAN, f64::NAN)];
+    };
+    let Some(model) = e.default_model() else {
+        return vec![(f64::NAN, f64::NAN, f64::NAN)];
+    };
+    let Ok(materials) = model.materials(Conditions::default()) else {
+        return vec![(f64::NAN, f64::NAN, f64::NAN)];
+    };
+    let axis = |a: Axis| {
+        model
+            .axes
+            .iter()
+            .position(|x| *x == a)
+            .map(|k| &materials[k])
+    };
+    let (Some(o), Some(ex)) = (axis(Axis::Ordinary), axis(Axis::Extraordinary)) else {
+        return vec![(f64::NAN, f64::NAN, f64::NAN)];
+    };
+    let col = if d33 { 3 } else { 1 };
+    let d_at = |lam: f64| {
+        e.tensors
+            .iter()
+            .filter(|t| t.kind == TensorKind::SecondOrder && t.wavelength == Some(lam))
+            .find_map(|t| t.value(3, col))
+            .unwrap_or(f64::NAN)
+    };
+    let fundamental = if d33 { [ex, ex] } else { [o, o] };
+    let from = d_at(MILLER_FROM);
+    MILLER_TO
+        .iter()
+        .map(|&lam| {
+            let predicted = match (Wavelength::um(MILLER_FROM), Wavelength::um(lam)) {
+                (Ok(a), Ok(b)) => miller_shg(from, a, b, ex, fundamental).unwrap_or(f64::NAN),
+                _ => f64::NAN,
+            };
+            let measured = d_at(lam);
+            (lam, predicted, (predicted / measured - 1.0).abs())
+        })
+        .collect()
+}
+
+fn miller_case(entry: &str, d33: bool) -> Outcome {
+    let worst = miller_deviations(entry, d33)
+        .iter()
+        .map(|r| r.2)
+        .fold(
+            0.0,
+            |w: f64, e| if e.is_nan() { f64::NAN } else { w.max(e) },
+        );
+    outcome(worst, 0.0, 0.5)
+}
+
+fn miller_linbo3_d33() -> Outcome {
+    miller_case("linbo3", true)
+}
+
+fn miller_linbo3_d31() -> Outcome {
+    miller_case("linbo3", false)
+}
+
+fn miller_mgo_d33() -> Outcome {
+    miller_case("linbo3-mgo", true)
+}
+
+fn miller_mgo_d31() -> Outcome {
+    miller_case("linbo3-mgo", false)
+}
+
 /// The cases.
 pub(crate) fn cases() -> Vec<Case> {
     vec![
@@ -220,6 +303,34 @@ pub(crate) fn cases() -> Vec<Case> {
             source: r"$\gamma = 2\pi n_2/(\lambda A_\text{eff})$ (Afshar & Monro, Opt. Express 17, 2298 (2009), doi:10.1364/OE.17.002298, Eq. 42 with $n_2$ uniform); the Gaussian's area $\pi w^2$",
             run: gamma_gaussian_case,
         },
+        Case {
+            id: "nonlinear/miller-linbo3-d33",
+            title: r"Miller's rule, congruent lithium niobate's $d_{33}$ carried from 1.064 µm to 1.313 and 0.852 µm with Zelmon's $n_e$, $d \propto \chi(2\omega)\chi(\omega)^2$, against Shoji's $d_{33}$ measured there (largest relative deviation shown)",
+            tier: Tier::Published,
+            source: "R. C. Miller, Appl. Phys. Lett. 5, 17 (1964), doi:10.1063/1.1754022, Eq. (4) and its ±50 % (p. 17); I. Shoji et al., J. Opt. Soc. Am. B 14, 2268 (1997), doi:10.1364/JOSAB.14.002268, Table 10 (25.2, 19.5 and 25.7 pm/V)",
+            run: miller_linbo3_d33,
+        },
+        Case {
+            id: "nonlinear/miller-linbo3-d31",
+            title: r"Miller's rule, congruent lithium niobate's $d_{31}$ carried from 1.064 µm to 1.313 and 0.852 µm with Zelmon's $n_e$ at the harmonic and $n_o$ at the fundamental, against Shoji's $d_{31}$ measured there (largest relative deviation shown)",
+            tier: Tier::Published,
+            source: "R. C. Miller, Appl. Phys. Lett. 5, 17 (1964), doi:10.1063/1.1754022, Eq. (4) and its ±50 % (p. 17); I. Shoji et al., J. Opt. Soc. Am. B 14, 2268 (1997), doi:10.1364/JOSAB.14.002268, Table 10 (4.6, 3.2 and 4.8 pm/V)",
+            run: miller_linbo3_d31,
+        },
+        Case {
+            id: "nonlinear/miller-linbo3-mgo-d33",
+            title: r"Miller's rule, 5% MgO-doped lithium niobate's $d_{33}$ carried from 1.064 µm to 1.313 and 0.852 µm with Zelmon's $n_e$ (Table 2, columns exchanged), against Shoji's $d_{33}$ measured there (largest relative deviation shown)",
+            tier: Tier::Published,
+            source: "R. C. Miller, Appl. Phys. Lett. 5, 17 (1964), doi:10.1063/1.1754022, Eq. (4) and its ±50 % (p. 17); I. Shoji et al., J. Opt. Soc. Am. B 14, 2268 (1997), doi:10.1364/JOSAB.14.002268, Table 10 (25.0, 20.3 and 28.4 pm/V)",
+            run: miller_mgo_d33,
+        },
+        Case {
+            id: "nonlinear/miller-linbo3-mgo-d31",
+            title: r"Miller's rule, 5% MgO-doped lithium niobate's $d_{31}$ carried from 1.064 µm to 1.313 and 0.852 µm, $n_e$ at the harmonic and $n_o$ at the fundamental, against Shoji's $d_{31}$ measured there (largest relative deviation shown)",
+            tier: Tier::Published,
+            source: "R. C. Miller, Appl. Phys. Lett. 5, 17 (1964), doi:10.1063/1.1754022, Eq. (4) and its ±50 % (p. 17); I. Shoji et al., J. Opt. Soc. Am. B 14, 2268 (1997), doi:10.1364/JOSAB.14.002268, Table 10 (4.4, 3.4 and 4.9 pm/V)",
+            run: miller_mgo_d31,
+        },
     ]
 }
 
@@ -241,5 +352,29 @@ mod tests {
             barboza_tables()
         );
         assert!((bruner_slt_633() - 2.17697).abs() < 1e-5);
+        // Miller's rule: d33 of congruent LiNbO₃ predicted 23.6 pm/V at 1.313 µm, where 19.5 is
+        // measured (+21 %); 28.1 at 0.852, where 25.7 (+9 %)
+        let d = miller_deviations("linbo3", true);
+        assert!(
+            (d[0].1 - 23.58).abs() < 0.005 && (d[1].1 - 28.12).abs() < 0.005,
+            "{d:?}"
+        );
+        // the write-up's table: the deviations at 1.313 and 0.852 µm, in percent
+        for (entry, d33, at_1313, at_852) in [
+            ("linbo3", true, 20.9, 9.4),
+            ("linbo3", false, 34.2, 7.3),
+            ("linbo3-mgo", true, 15.4, 2.0),
+            ("linbo3-mgo", false, 20.9, 0.4),
+        ] {
+            let d = miller_deviations(entry, d33);
+            assert!(
+                (100.0 * d[0].2 - at_1313).abs() < 0.05,
+                "{entry} {d33} {d:?}"
+            );
+            assert!(
+                (100.0 * d[1].2 - at_852).abs() < 0.05,
+                "{entry} {d33} {d:?}"
+            );
+        }
     }
 }

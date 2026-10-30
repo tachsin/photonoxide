@@ -12,6 +12,8 @@
 //!   (Armstrong et al. 1962).
 //! - [`pairs`]: photon pairs by spontaneous parametric down-conversion: the joint spectral
 //!   amplitude and its Schmidt decomposition, the pairs' purity (Grice and Walmsley 1997).
+//! - [`miller`]: Miller's rule, a d coefficient carried from the wavelength it was measured at
+//!   to another through the three waves' linear susceptibilities (Miller 1964).
 //!
 //! The materials' third-order data, n₂ and two-photon absorption, are the catalogue's
 //! ([`crate::material::catalogue::kerr`]); a guide's γ is [`crate::mode::quantities`]'.
@@ -21,5 +23,6 @@
 pub(crate) mod checks;
 pub mod coupled;
 pub(crate) mod data_checks;
+pub mod miller;
 pub mod pairs;
 pub mod phase;

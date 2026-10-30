@@ -1049,6 +1049,9 @@ read from the paper itself, which isn't in hand.
   0.5 °C lower here (176.4 °C printed, 175.9 here, at 2.159 µm): the pump's wavelength is given only
   as 488 nm, and with the vacuum 488.12 nm the difference falls to 0.1 °C. Not yet a case.
 - Shoji's $d_{33}$ with Zelmon's $n_e$ gives his Miller's $\Delta_{33}$ (Table 12) to 0.5%.
+  Miller's rule carries the catalogue's $d_{33}$ and $d_{31}$ of LiNbO₃ and MgO:LiNbO₃ from
+  1.064 µm to 0.852 µm within 9.4 % of Shoji's measurements there, and to 1.313 µm 15 to 34 %
+  above them, inside Miller's ±50 % ([nonlinear](nonlinear.md#millers-rule)).
 - Kerr data: DeSalvo et al.'s esu conversion both ways on their two BaF₂ examples, within half
   their last digit; every value to its printed unit and back to round-off; Bristow et al.'s
   figures read at 1220 nm give the printed values within half their last digit.

@@ -1,7 +1,8 @@
 //! The rules (#544) of 0.6.1's data cases ([`crate::nonlinear::data_checks`]): undoped congruent
 //! LiTaO₃'s extraordinary index against temperature and the Kerr data, each against what its
 //! paper prints (half a unit of a printed digit, or a stated uncertainty); the unit conversions
-//! and γ against their closed forms (round-off).
+//! and γ against their closed forms (round-off); and Miller's rule against measured d, to the
+//! rule's own stated spread.
 
 use super::{Basis::*, Measure::*, Numerical::*, Rule};
 
@@ -78,5 +79,34 @@ pub(crate) fn rules() -> Vec<(&'static str, Rule)> {
             )
             .varying(),
         ),
+        (
+            "nonlinear/miller-linbo3-d33",
+            miller(),
+        ),
+        (
+            "nonlinear/miller-linbo3-d31",
+            miller(),
+        ),
+        (
+            "nonlinear/miller-linbo3-mgo-d33",
+            miller(),
+        ),
+        (
+            "nonlinear/miller-linbo3-mgo-d31",
+            miller(),
+        ),
     ]
+}
+
+/// Miller's rule against measured d: the model's stated accuracy, Miller's δ "all equal to within
+/// ±50 %" for one coefficient among crystals of a class (p. 17), which the observed deviation is
+/// shown against; never fitted.
+fn miller() -> Rule {
+    Rule::new(
+        Relative,
+        Model,
+        0.5,
+        Exact,
+        "Miller 1964's ±50 % for δ of one coefficient within a symmetry class (p. 17), the rule's own stated spread; the deviation shown is the finding",
+    )
 }
