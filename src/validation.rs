@@ -59,6 +59,7 @@ pub fn rules() -> Vec<(&'static str, Rule)> {
     rules.extend(sweep::rules());
     rules.extend(nonlinear::rules());
     rules.extend(nonlinear_data::rules());
+    rules.extend(nonlinear_data::transparency_rules());
     rules
 }
 
@@ -2256,7 +2257,7 @@ pub fn cases() -> Vec<Case> {
     cases.extend(crate::sweep::checks::cases());
     // and phase matching (0.6.1): sinc², Fejer et al.'s Table I, a duty cycle's cost
     cases.extend(crate::nonlinear::checks::cases());
-    // and its data: LiTaO₃'s n_e(λ, T)
+    // and its data: LiTaO₃'s n_e(λ, T), the Kerr data, Miller's rule, a band edge
     cases.extend(crate::nonlinear::data_checks::cases());
     cases
 }

@@ -1,7 +1,7 @@
 //! The validation cases of 0.6.1's data: undoped congruent LiTaO₃'s extraordinary index against
 //! temperature (Barboza & Cudney 2009, Bruner et al. 2002), each against the numbers its paper
-//! prints; the Kerr data's units, readings and γ; and Miller's rule against the catalogue's own
-//! d coefficients measured at several wavelengths.
+//! prints; the Kerr data's units, readings and γ; Miller's rule against the catalogue's own d
+//! coefficients measured at several wavelengths; and GaAs's band edge against the reported range.
 
 use crate::material::Material;
 use crate::material::catalogue::kerr::{BRISTOW_1220, BRISTOW_FIGURES};
@@ -251,6 +251,29 @@ fn miller_mgo_d31() -> Outcome {
     miller_case("linbo3-mgo", false)
 }
 
+// ---------------------------------------------------------------------------------------------
+// Transparency windows
+// ---------------------------------------------------------------------------------------------
+
+/// GaAs's band edge at 300 K from Vurgaftman et al.'s Table I (the Varshni form), in eV: hc/λ
+/// of the catalogue's edge.
+pub(crate) fn gaas_gap_300() -> f64 {
+    catalogue::transparency(
+        "gaas",
+        Conditions {
+            temperature: Some(300.0),
+            composition: None,
+        },
+    )
+    .and_then(|t| t.band_edge.wavelength)
+    .map_or(f64::NAN, |lam| 1.239_841_98 / lam)
+}
+
+fn gaas_gap_case() -> Outcome {
+    // Table I's range of reported values at 300 K, 1.420 to 1.435 eV: its middle and half-width
+    outcome(gaas_gap_300(), 1.4275, 0.0075)
+}
+
 /// The cases.
 pub(crate) fn cases() -> Vec<Case> {
     vec![
@@ -330,6 +353,13 @@ pub(crate) fn cases() -> Vec<Case> {
             tier: Tier::Published,
             source: "R. C. Miller, Appl. Phys. Lett. 5, 17 (1964), doi:10.1063/1.1754022, Eq. (4) and its ±50 % (p. 17); I. Shoji et al., J. Opt. Soc. Am. B 14, 2268 (1997), doi:10.1364/JOSAB.14.002268, Table 10 (4.4, 3.4 and 4.9 pm/V)",
             run: miller_mgo_d31,
+        },
+        Case {
+            id: "material/transparency-gaas-gap",
+            title: r"GaAs's band edge at 300 K, the catalogue's transparency window: the direct gap from Vurgaftman et al.'s Varshni parameters ($E_g(0)$ = 1.519 eV, $\alpha$ = 0.5405 meV/K, $\beta$ = 204 K) against the range of reported values their Table I gives at 300 K, 1.420 to 1.435 eV (eV, shown)",
+            tier: Tier::Published,
+            source: "I. Vurgaftman, J. R. Meyer, L. R. Ram-Mohan, J. Appl. Phys. 89, 5815 (2001), doi:10.1063/1.1368156, Table I (p. 5825) and Eq. (2.13) (p. 5818); the range's middle and half-width",
+            run: gaas_gap_case,
         },
     ]
 }

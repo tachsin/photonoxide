@@ -607,6 +607,27 @@ const PAPERS: &[(&str, &str, &str, &str, &str)] = &[
         "https://arxiv.org/abs/1307.6761",
     ),
     (
+        "vurgaftman-2001",
+        "I. Vurgaftman, J. R. Meyer, L. R. Ram-Mohan, J. Appl. Phys. 89, 5815 (2001)",
+        "Band parameters for III–V compound semiconductors and their alloys",
+        "10.1063/1.1368156",
+        "",
+    ),
+    (
+        "leidinger-2015",
+        "M. Leidinger, S. Fieberg, N. Waasem, F. Kühnemann, K. Buse, I. Breunig, Opt. Express 23, 21690 (2015)",
+        "Comparative study on three highly sensitive absorption measurement techniques characterizing lithium niobate over its entire transparent spectral range",
+        "10.1364/OE.23.021690",
+        "https://doi.org/10.1364/OE.23.021690",
+    ),
+    (
+        "aitchison-1997",
+        "J. S. Aitchison, D. C. Hutchings, J. U. Kang, G. I. Stegeman, A. Villeneuve, IEEE J. Quantum Electron. 33, 341 (1997)",
+        "The nonlinear optical properties of AlGaAs at the half band gap",
+        "10.1109/3.556002",
+        "",
+    ),
+    (
         "lee-2001-linbo3",
         "M. Lee, Appl. Phys. Lett. 79, 1342 (2001)",
         "Dielectric constant and loss tangent in LiNbO3 crystals from 90 to 147 GHz",

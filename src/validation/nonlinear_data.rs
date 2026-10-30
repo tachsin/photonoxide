@@ -1,8 +1,8 @@
 //! The rules (#544) of 0.6.1's data cases ([`crate::nonlinear::data_checks`]): undoped congruent
 //! LiTaO₃'s extraordinary index against temperature and the Kerr data, each against what its
 //! paper prints (half a unit of a printed digit, or a stated uncertainty); the unit conversions
-//! and γ against their closed forms (round-off); and Miller's rule against measured d, to the
-//! rule's own stated spread.
+//! and γ against their closed forms (round-off); Miller's rule against measured d, to the rule's
+//! own stated spread; and a transparency window's band edge against the range its paper prints.
 
 use super::{Basis::*, Measure::*, Numerical::*, Rule};
 
@@ -96,6 +96,20 @@ pub(crate) fn rules() -> Vec<(&'static str, Rule)> {
             miller(),
         ),
     ]
+}
+
+/// The transparency windows' case.
+pub(crate) fn transparency_rules() -> Vec<(&'static str, Rule)> {
+    vec![(
+        "material/transparency-gaas-gap",
+        Rule::new(
+            Absolute,
+            Reference,
+            0.0075,
+            Exact,
+            "the range of reported values Table I prints at 300 K, 1.420 to 1.435 eV: its half-width about its middle",
+        ),
+    )]
 }
 
 /// Miller's rule against measured d: the model's stated accuracy, Miller's δ "all equal to within

@@ -636,6 +636,8 @@ fn gaas() -> Entry {
         missing: vec![],
         references: references(&[
             "skauli-2003",
+            "vurgaftman-2001",
+            "aitchison-1997",
             "gehrsitz-2000",
             "berseth-1992",
             "sugie-tada-1976",
@@ -714,6 +716,8 @@ fn algaas() -> Entry {
         missing: coming::missing("algaas"),
         references: references(&[
             "glick-1988",
+            "vurgaftman-2001",
+            "aitchison-1997",
             "gehrsitz-2000",
             "papatryfonos-2021",
             "afromowitz-1974",
@@ -1073,6 +1077,8 @@ fn lithium_niobate() -> Entry {
         references: references(&[
             "zelmon-1997",
             "jundt-1997",
+            "leidinger-2015",
+            "aitchison-1997",
             "edwards-lawrence-1984",
             "shoji-1997",
             "miller-1971",
@@ -1350,6 +1356,8 @@ fn ingap() -> Entry {
         missing: coming::missing("ingap"),
         references: references(&[
             "tanaka-1986",
+            "vurgaftman-2001",
+            "aitchison-1997",
             "ferrini-2002",
             "schubert-1995",
             "ueno-1997",
@@ -1496,7 +1504,13 @@ fn inp() -> Entry {
             },
         ],
         missing: coming::missing("inp"),
-        references: references(&["pettit-turner-1965", "suzuki-tada-1984", "lee-fan-1974"]),
+        references: references(&[
+            "pettit-turner-1965",
+            "suzuki-tada-1984",
+            "lee-fan-1974",
+            "vurgaftman-2001",
+            "aitchison-1997",
+        ]),
     }
 }
 
@@ -1617,6 +1631,8 @@ fn aln() -> Entry {
         missing: vec![],
         references: references(&[
             "rigler-2015",
+            "vurgaftman-2001",
+            "aitchison-1997",
             "pastrnak-roskovcova-1966",
             "majkic-2017",
             "graupner-1992",
@@ -1802,7 +1818,12 @@ fn algan() -> Entry {
         ],
         constants: vec![],
         missing: coming::missing("algan"),
-        references: references(&["rigler-2013", "sanford-2005"]),
+        references: references(&[
+            "rigler-2013",
+            "sanford-2005",
+            "vurgaftman-2001",
+            "aitchison-1997",
+        ]),
     }
 }
 
@@ -2177,6 +2198,7 @@ fn lithium_tantalate() -> Entry {
         missing: coming::missing("litao3"),
         references: references(&[
             "bond-1965",
+            "aitchison-1997",
             "abedin-ito-1996",
             "casson-2004",
             "dolev-2009",

@@ -34,6 +34,12 @@ papers:
     doi: 10.1109/3.511545
   - cite: "H. Jung, C. Xiong, K. Y. Fong, X. Zhang, H. X. Tang, Opt. Lett. 38, 2810 (2013)"
     doi: 10.1364/OL.38.002810
+  - cite: "I. Vurgaftman, J. R. Meyer, L. R. Ram-Mohan, J. Appl. Phys. 89, 5815 (2001)"
+    doi: 10.1063/1.1368156
+  - cite: "M. Leidinger, S. Fieberg, N. Waasem, F. Kühnemann, K. Buse, I. Breunig, Opt. Express 23, 21690 (2015)"
+    doi: 10.1364/OE.23.021690
+  - cite: "J. S. Aitchison, D. C. Hutchings, J. U. Kang, G. I. Stegeman, A. Villeneuve, IEEE J. Quantum Electron. 33, 341 (1997)"
+    doi: 10.1109/3.556002
   - cite: "D. E. Zelmon, D. L. Small, D. Jundt, J. Opt. Soc. Am. B 14, 3319 (1997)"
     doi: 10.1364/JOSAB.14.003319
   - cite: "D. H. Jundt, Opt. Lett. 22, 1553 (1997)"
@@ -176,6 +182,7 @@ validation:
   - material/kerr-desalvo-esu
   - material/kerr-units-round-trip
   - material/kerr-bristow-readings
+  - material/transparency-gaas-gap
 ---
 
 `material::catalogue` lists materials with everything a design needs about them, each number
@@ -549,6 +556,58 @@ The units: `n2_from_cm2_per_w`, `n2_to_cm2_per_w`, `beta_from_cm_per_gw`, `beta_
 (`material/kerr-units-round-trip`). A guide's γ from one of these values is in
 [nonlinear](nonlinear.md#the-kerr-coefficient-in-a-guide). Silicon's $n_2$ changes fourfold over
 its measured band, so a value is for its own wavelength.
+
+## Transparency windows
+
+`catalogue::transparency` (and `Entry::transparency`) gives a material's window at a temperature
+(300 K when none is given) and, for an alloy, a composition: the band edge, where two-photon
+absorption sets in, the multiphonon edge, and the range the default index model covers (the
+Models table above). Each edge has its paper, or says it is not specified:
+
+| Entry | Band edge | Two-photon absorption below | Multiphonon edge | Source |
+|---|---|---|---|---|
+| Si | 1.107 µm (indirect, 1.12 eV) | 2.2 µm, as printed (E_gi/2) | not specified | Bristow et al. 2007, pp. 191104-1 and -2 |
+| GaAs | 0.8716 µm (Γ, 1.4225 eV) | 1.743 µm | not specified | Vurgaftman et al. 2001, Table I |
+| AlₓGa₁₋ₓAs, x = 0.2 | 0.7221 µm (Γ, 1.7170 eV) | 1.444 µm | not specified | Tables I, II and XII |
+| AlₓGa₁₋ₓAs, x = 0.4 | 0.6328 µm (Γ, 1.9594 eV) | 1.266 µm | not specified | Tables I, II and XII |
+| InP | 0.9164 µm (Γ, 1.3529 eV) | 1.833 µm | not specified | Table VI |
+| In₀.₄₉Ga₀.₅₁P | 0.6468 µm (Γ, 1.9168 eV, disordered) | 1.294 µm | not specified | Tables IV, VI and XV |
+| AlN | 0.2020 µm (6.138 eV) | 0.404 µm | not specified | Table X |
+| AlₓGa₁₋ₓN, x = 0.1 | 0.3430 µm (3.615 eV) | 0.686 µm | not specified | Tables X and XXX |
+| AlₓGa₁₋ₓN, x = 0.3 | 0.3072 µm (4.036 eV) | 0.614 µm | not specified | Tables X and XXX |
+| LiNbO₃ | about 0.32 µm | about 0.64 µm | about 3.0 µm | Leidinger et al. 2015, p. 21692 |
+| LiTaO₃ | 0.28 µm, as stated | 0.56 µm | 5.5 µm, as stated | Barboza & Cudney 2009, p. 453 |
+| SiO₂, Si₃N₄, MgO:LiNbO₃, BaTiO₃ | not specified | not specified | not specified | no paper in hand |
+
+- **III–V band gaps** are I. Vurgaftman, J. R. Meyer and L. R. Ram-Mohan's (J. Appl. Phys. 89,
+  5815 (2001)): the Varshni form $E_g(T) = E_g(0) - \alpha T^2/(T + \beta)$ (Eq. (2.13)) with each
+  binary's Γ, X and L parameters and the alloys' bowing, $E_g(x) = (1 - x)E_g(A) + xE_g(B) -
+  x(1 - x)C$; AlGaAs's Γ bowing is Aspnes et al.'s $C = -0.127 + 1.310x$ eV, which the paper
+  recommends. The edge is the lowest of the three gaps. GaAs's at 300 K, 1.4225 eV, lies in the
+  range of reported values Table I prints for 300 K, 1.420 to 1.435 eV
+  (`material/transparency-gaas-gap`). AlGaAs turns indirect between x = 0.40 and 0.45: the L
+  gap falls below Γ at x = 0.410 and X at 0.435 (300 K). The paper's text puts the Γ–X
+  crossover at x = 0.39 at 300 K and 0.38 at low temperature (p. 5838), where its tables give
+  0.435 and 0.417 here: a difference not explained yet, so not a case. InGaP's gap is the
+  disordered alloy's; CuPt ordering lowers it (Schubert et al.'s films, 1.85 ± 0.02 eV, are on
+  the entry's coming list). For InGaP with Al, and for AlGaN without a composition, the edge
+  is not specified.
+- **Silicon:** the indirect gap, 1.12 eV, as Bristow et al. write it; its absorption is weak up
+  to the direct gap. Two-photon absorption "tends to zero for λ > 2200 nm, corresponding to a
+  photon energy of E_gi/2" (2214 nm by 1.12 eV).
+- **Two-photon absorption** sets in where the photon energy passes half the gap, below twice the
+  band edge's wavelength: detuned below the half band gap "the detrimental effects of two-photon
+  absorption can be ignored" (J. S. Aitchison et al., IEEE J. Quantum Electron. 33, 341 (1997),
+  p. 342, for AlGaAs), though three-photon absorption then matters.
+- **Lithium niobate:** "the band edge at around 320 nm and the multiphonon absorption in the IR,
+  starting at around 3000 nm" (M. Leidinger et al., Opt. Express 23, 21690 (2015), p. 21692), on
+  an undoped congruent crystal; the multiphonon absorption "starts to dominate" at around
+  3300 nm, after the OH⁻ band at 2870 nm, and the measured window runs from 320 to 6000 nm.
+  DeSalvo et al.'s gap, 3.9 eV, is 0.318 µm.
+- **Lithium tantalate:** the range Barboza & Cudney state in their introduction, 0.28 to 5.5 µm,
+  a statement and not their measurement.
+- **Not specified:** the multiphonon edges of Si, Si₃N₄, GaAs, AlGaAs, InP, InGaP, AlN and AlGaN,
+  and every edge of SiO₂, Si₃N₄, MgO:LiNbO₃ and BaTiO₃: no paper in hand gives them.
 
 ## Tags
 
@@ -1055,6 +1114,8 @@ read from the paper itself, which isn't in hand.
 - Kerr data: DeSalvo et al.'s esu conversion both ways on their two BaF₂ examples, within half
   their last digit; every value to its printed unit and back to round-off; Bristow et al.'s
   figures read at 1220 nm give the printed values within half their last digit.
+- Transparency: GaAs's band edge at 300 K from Vurgaftman et al.'s Varshni parameters, 1.4225 eV,
+  inside the 1.420 to 1.435 eV their Table I gives at 300 K.
 - Gayer's 5% MgO indices against Zelmon's Table 2 (columns exchanged) at 21 °C: within 4.4e-4.
   The paper reports 3.1e-4 for $n_e$ and 2.2e-4 for $n_o$; we find 3.3e-4 and 4.4e-4.
 - Lithium tantalate: our fits within 6.7e-4 of Bond's 22 rows (`material/litao3-bond-fit`) and
