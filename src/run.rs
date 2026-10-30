@@ -17,8 +17,6 @@
 use std::fs::{self, File, OpenOptions};
 use std::io::{BufRead, BufReader, BufWriter, Write};
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use schemars::JsonSchema;
@@ -29,6 +27,9 @@ use crate::backend::Choice;
 use crate::{Error, Result};
 
 pub mod arrays;
+
+#[doc(inline)]
+pub use crate::stop::{Stop, StopReason};
 
 /// The job file's layout, the same in every [`Format`].
 #[derive(Deserialize, Serialize, JsonSchema)]
@@ -759,70 +760,6 @@ fn each_line(dir: &Path, mut f: impl FnMut(usize, &str) -> Result<()>) -> Result
     }
 }
 
-/// Why a run stopped early.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum StopReason {
-    /// Its deadline passed.
-    Timeout,
-    /// It was asked to stop.
-    Requested,
-}
-
-/// Tells a running job to stop: at its deadline, or when [`Stop::request`] is called. Clones
-/// share the request, so a window can hold one and the solver another.
-#[derive(Clone, Debug)]
-pub struct Stop {
-    requested: Arc<AtomicBool>,
-    deadline: Option<Instant>,
-}
-
-impl Stop {
-    /// A stop at `timeout` from now, if any, or on request.
-    pub fn new(timeout: Option<Duration>) -> Stop {
-        Stop {
-            requested: Arc::new(AtomicBool::new(false)),
-            deadline: timeout.map(|t| Instant::now() + t),
-        }
-    }
-
-    /// Asks the job to stop.
-    pub fn request(&self) {
-        self.requested.store(true, Ordering::Relaxed);
-    }
-
-    /// The same stop with a deadline at `timeout` from now, if that is sooner than its own: a
-    /// request to either is a request to both. A caller's stop, held to a job's own
-    /// `timeout_minutes` as well.
-    #[must_use]
-    pub fn within(&self, timeout: Option<Duration>) -> Stop {
-        let other = timeout.map(|t| Instant::now() + t);
-        Stop {
-            requested: Arc::clone(&self.requested),
-            deadline: match (self.deadline, other) {
-                (Some(a), Some(b)) => Some(a.min(b)),
-                (a, b) => a.or(b),
-            },
-        }
-    }
-
-    /// The time left before the deadline, if there is one (zero once it has passed).
-    pub fn remaining(&self) -> Option<Duration> {
-        self.deadline
-            .map(|d| d.saturating_duration_since(Instant::now()))
-    }
-
-    /// Why the job should stop now, or `None` to go on.
-    pub fn reason(&self) -> Option<StopReason> {
-        if self.requested.load(Ordering::Relaxed) {
-            Some(StopReason::Requested)
-        } else if self.deadline.is_some_and(|d| Instant::now() >= d) {
-            Some(StopReason::Timeout)
-        } else {
-            None
-        }
-    }
-}
-
 /// The UTC date (`YYYY-MM-DD`) and time (`HH:MM:SS`) of a Unix time in seconds, by the
 /// proleptic Gregorian calendar: `civil_from_days` of H. Hinnant, "chrono-Compatible Low-Level
 /// Date Algorithms", <https://howardhinnant.github.io/date_algorithms.html> (checked against it
@@ -853,7 +790,7 @@ fn utc(unix_seconds: u64) -> (String, String) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::atomic::AtomicUsize;
+    use std::sync::atomic::{AtomicUsize, Ordering};
 
     /// A run is Send, Sync, UnwindSafe and RefUnwindSafe, as it was in 0.5.1: losing one is a
     /// breaking change (cargo-semver-checks' auto_trait_impl_removed).
