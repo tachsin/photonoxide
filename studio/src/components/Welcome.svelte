@@ -3,8 +3,9 @@
   // follows, Stable or Nightly (Settings › Updates changes it later); then Express, which starts
   // at once, or Advanced, for the most performance on this machine: what it has (the CPU, an
   // NVIDIA GPU, the system), the libraries suggested for it, installed in one go into
-  // photonoxide's own environment, their output shown as it runs (#564). The setup's Advanced
-  // path opens it on that step.
+  // photonoxide's own environment, their output shown as it runs (#564); ranked and said by what
+  // this machine's own benchmark records measured, where they did. The setup's Advanced path
+  // opens it on that step.
   import { CircleCheck, CircleX, Cpu, FlaskConical, Gauge, MonitorSmartphone, ShieldCheck, Zap } from "@lucide/svelte";
   import { listen } from "@tauri-apps/api/event";
   import { tick } from "svelte";
@@ -26,10 +27,11 @@
     return parts.join(" · ");
   }
   import { app, updateSettings } from "../lib/app.svelte";
-  import { detect, libraries } from "../lib/libraries.svelte";
+  import { detect, libraries, pickedAtFirst, suggestedBy } from "../lib/libraries.svelte";
   import { openUrl } from "../lib/open";
   import { switchChannel } from "../lib/updater.svelte";
   import Logo from "./Logo.svelte";
+  import MeasuredHere from "./MeasuredHere.svelte";
 
   const channels = [
     {
@@ -74,7 +76,7 @@
     try {
       if (!libraries.report) await detect();
       advice = await api.hardwareAdvice();
-      picked = Object.fromEntries(advice.suggestions.map((s) => [s.library, !!s.install && !found(s.library)]));
+      picked = Object.fromEntries(advice.suggestions.map((s) => [s.library, pickedAtFirst(s, found(s.library))]));
     } catch (e) {
       adviceError = String(e);
     }
@@ -202,8 +204,9 @@
                   <span class="mt-0.5 size-5 shrink-0"></span>
                 {/if}
                 <div class="min-w-0 flex-1">
-                  <p class="text-sm"><span class="font-medium">{s.library}</span>{#if found(s.library)}<span class="badge badge-success badge-soft badge-xs ml-2">found</span>{/if}</p>
+                  <p class="text-sm"><span class="font-medium">{s.library}</span>{#if found(s.library)}<span class="badge badge-success badge-soft badge-xs ml-2">found</span>{/if}{#if s.by === "records"}<span class="badge badge-primary badge-soft badge-xs ml-2">suggested by its benchmark here</span>{/if}</p>
                   <p class="text-xs muted">{s.why}</p>
+                  <MeasuredHere {s} found={found(s.library)} />
                   {#if s.system}
                     <p class="text-xs faint">Part of the system: nothing to install.</p>
                   {:else if s.command}
@@ -215,7 +218,7 @@
               </li>
             {/each}
           </ul>
-          <p class="text-xs faint">Suggested by the hardware. Each is installed under its vendor's licence, a conda-forge one into photonoxide's own environment; the Benchmarks page then measures it against photonoxide's own here, and each stays optional.</p>
+          <p class="text-xs faint">{suggestedBy(advice.records)} Each is installed under its vendor's licence, a conda-forge one into photonoxide's own environment, and each stays optional.</p>
           {#if installing !== "idle"}
             <pre bind:this={log} class="max-h-48 overflow-auto rounded-lg bg-base-300/70 px-3 py-2 font-mono text-[11px] leading-relaxed whitespace-pre-wrap selectable">{lines.join("\n") || "Starting…"}</pre>
             {#each outcomes as o (o.library)}

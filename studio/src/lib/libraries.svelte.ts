@@ -1,7 +1,7 @@
 // The external libraries found on this machine (studio/src-tauri/src/libraries.rs), asked of a
 // process of its own and kept here, so the Libraries and Benchmarks pages share one report.
 
-import { api } from "./api";
+import { api, type HardwareAdvice, type Suggestion } from "./api";
 
 export interface Candidate {
   path: string;
@@ -106,6 +106,21 @@ export async function detect(): Promise<void> {
 /** The report, asked for once. */
 export function ensureLibraries(): void {
   if (!libraries.report && !libraries.loading && !libraries.error) detect();
+}
+
+/** Where the suggestions come from, in a sentence: this machine's benchmark records when it has
+ *  them, the hardware otherwise. */
+export function suggestedBy(records: HardwareAdvice["records"]): string {
+  if (records.error) return `Suggested by the hardware: this machine's benchmark records couldn't be read (${records.error}).`;
+  if (!records.count) return "Suggested by the hardware: this machine has no benchmark records yet. Once a library is installed, the Benchmarks page measures it against photonoxide's own here.";
+  const n = records.count === 1 ? "1 benchmark record" : `${records.count} benchmark records`;
+  return `Ranked by this machine's ${n}, the latest of ${records.latest}: those measured faster than photonoxide's own first, then those not measured yet in the hardware's order, then those measured slower. Each figure is a record's, with its problem and day.`;
+}
+
+/** Whether a suggestion is picked to install at first: one that installs here, isn't found
+ *  already, and wasn't measured slower than photonoxide's own. */
+export function pickedAtFirst(s: Suggestion, found: boolean): boolean {
+  return !!s.install && !found && !(s.measured && s.measured.speedup < 1);
 }
 
 /** The system of a platform (`windows-x86_64` → `windows`). */

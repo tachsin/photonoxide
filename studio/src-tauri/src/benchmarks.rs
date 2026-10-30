@@ -237,7 +237,7 @@ pub struct BenchData {
 }
 
 /// This machine, read once: its processor's name comes from a program (`reg` on Windows).
-fn here() -> Machine {
+pub(crate) fn here() -> Machine {
     static HERE: std::sync::OnceLock<Machine> = std::sync::OnceLock::new();
     HERE.get_or_init(Machine::here).clone()
 }

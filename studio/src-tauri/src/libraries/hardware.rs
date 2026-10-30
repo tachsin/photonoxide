@@ -3,11 +3,13 @@
 //! the solvers use), an NVIDIA GPU and its driver, and the system; and the external libraries
 //! suggested for them, each with the install that runs here ([`super::library_install`]).
 //!
-//! The suggestions go by the hardware, and say so: the benchmark records (`photonoxide bench`)
-//! are what measures them on the machine, once they're installed.
+//! The suggestions go by the hardware, and say so; where this machine's benchmark records
+//! (`photonoxide bench`) measured a library against photonoxide's own, they're ranked and said
+//! by what was measured ([`super::measured`]), the hardware's order the fallback.
 
 use serde::Serialize;
 
+use super::measured::Measured;
 use super::topology::{self, Topology};
 
 #[derive(Clone, Debug, Serialize)]
@@ -43,6 +45,11 @@ pub struct Suggestion {
     pub library: &'static str,
     /// Why, for this machine.
     pub why: &'static str,
+    /// What suggested it: `hardware`, or `records` for a library the hardware didn't suggest
+    /// that this machine's benchmark records measured faster than photonoxide's own.
+    pub by: &'static str,
+    /// Its backends, by name: what the records measure of it.
+    pub backends: &'static [&'static str],
     /// The install that runs here, by its id in the library's guide; none when its vendor's
     /// download is the only way (then `download`).
     pub install: Option<&'static str>,
@@ -50,6 +57,8 @@ pub struct Suggestion {
     pub download: &'static str,
     /// Part of the system (Accelerate, on macOS): nothing to install.
     pub system: bool,
+    /// What this machine's benchmark records measured of it, if they did.
+    pub measured: Option<Measured>,
 }
 
 /// This machine.
@@ -201,10 +210,13 @@ pub fn suggest(hardware: &Hardware) -> Vec<Suggestion> {
             Some(Suggestion {
                 library,
                 why,
+                by: "hardware",
+                backends: guide.backends,
                 install: install.map(|i| i.id),
                 command: install.map(|i| i.command),
                 download: guide.download,
                 system: library == "Accelerate",
+                measured: None,
             })
         })
         .collect()

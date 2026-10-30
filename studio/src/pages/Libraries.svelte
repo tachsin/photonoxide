@@ -1,18 +1,32 @@
 <script lang="ts">
   // Libraries: the external libraries photonoxide can use, as found on this machine, with each
   // one's licence, what it provides, where photonoxide looked, and how to install it. None is
-  // needed: photonoxide's own solvers are the default and the reference.
-  import { CircleCheck, CircleDashed, CircleX, Copy, Cpu, Download, FolderSearch, Package, RefreshCw, Scale, Trash2, TriangleAlert } from "@lucide/svelte";
+  // needed: photonoxide's own solvers are the default and the reference. First, those suggested
+  // for this machine, ranked and said by what its own benchmark records measured (#564).
+  import { CircleCheck, CircleDashed, CircleX, Copy, Cpu, Download, FolderSearch, Gauge, Package, RefreshCw, Scale, Trash2, TriangleAlert } from "@lucide/svelte";
   import { listen } from "@tauri-apps/api/event";
   import { tick } from "svelte";
   import { openUrl } from "../lib/open";
 
+  import MeasuredHere from "../components/MeasuredHere.svelte";
   import Tip from "../components/Tip.svelte";
-  import { api, ago } from "../lib/api";
-  import { toast } from "../lib/app.svelte";
-  import { detect, ensureLibraries, libraries, systemOf, type Guide, type Install } from "../lib/libraries.svelte";
+  import { api, ago, type HardwareAdvice } from "../lib/api";
+  import { go, toast } from "../lib/app.svelte";
+  import { detect, ensureLibraries, libraries, suggestedBy, systemOf, type Guide, type Install } from "../lib/libraries.svelte";
 
   ensureLibraries();
+
+  /** The libraries suggested for this machine, ranked by its benchmark records where they
+   *  measured them. */
+  let advice = $state<HardwareAdvice | null>(null);
+  async function loadAdvice() {
+    try {
+      advice = await api.hardwareAdvice();
+    } catch {
+      // the page works without it: no suggestions are shown
+    }
+  }
+  loadAdvice();
 
   const report = $derived(libraries.report);
   const system = $derived(report ? systemOf(report.platform) : "");
@@ -156,6 +170,35 @@
 
     {#if !report && libraries.loading}
       <div class="grid place-items-center py-20"><span class="loading loading-ring loading-lg text-primary"></span></div>
+    {/if}
+
+    {#if report && advice?.suggestions.length}
+      <section class="panel overflow-hidden">
+        <div class="flex flex-wrap items-center gap-2 border-b border-base-content/8 px-4 py-3">
+          <Gauge size={15} class="faint" />
+          <h3 class="font-semibold">Suggested for this machine</h3>
+          <span class="text-xs faint">{advice.records.count ? "by what its benchmark records measured, and its hardware" : "by its hardware"}</span>
+          <button class="btn btn-ghost btn-xs ml-auto gap-1 text-primary" onclick={() => go("benchmarks")} title="Measure the libraries found against photonoxide's own on this machine"><Gauge size={12} /> Benchmarks</button>
+        </div>
+        <ol class="divide-y divide-base-content/8">
+          {#each advice.suggestions as s, i (s.library)}
+            {@const isFound = !!report.libraries.find((l) => l.name === s.library)?.found}
+            <li class="flex items-start gap-3 px-4 py-3">
+              <span class="mt-0.5 w-4 shrink-0 text-right text-xs num faint">{i + 1}</span>
+              <div class="min-w-0 flex-1">
+                <p class="text-sm">
+                  <span class="font-medium">{s.library}</span>
+                  {#if s.system}<span class="badge badge-primary badge-soft badge-xs ml-2">part of the system</span>{:else if isFound}<span class="badge badge-success badge-soft badge-xs ml-2">found</span>{:else}<span class="badge badge-ghost badge-xs ml-2">not found</span>{/if}
+                  {#if s.by === "records"}<span class="badge badge-primary badge-soft badge-xs ml-1">suggested by its benchmark here</span>{/if}
+                </p>
+                <p class="text-xs muted">{s.why}</p>
+                <MeasuredHere {s} found={isFound || s.system} />
+              </div>
+            </li>
+          {/each}
+        </ol>
+        <p class="border-t border-base-content/8 px-4 py-2.5 text-xs faint">{suggestedBy(advice.records)}</p>
+      </section>
     {/if}
 
     {#if report}
