@@ -191,7 +191,11 @@ in a drawer opened from the status bar.
     99% of its pixels are (the electrodes' corners are singular), its direction as arrows, the
     rib, the electrodes and the layers' interfaces, and the optical mode's |E|² at half and 1/e²
     of its peak over it; with |E| under the mode's peak and the Vπ·L their overlap gives (the
-    same solves as the 2D model's figure). The tabs:
+    same solves as the 2D model's figure). Its **Δn** channel shows instead the Pockels change
+    of the index that field makes for light polarized across, −½ n_e³ r₃₃ E_x in the crystal
+    (each optical cell's Δε_xx / 2n), with the same outlines, and its overlap with the mode: the
+    share of Δn_eff it carries (the rest is r₁₃ on the ordinary index and r₅₁), and Δn_eff, whose
+    λ / (4 |Δn_eff|) is the Vπ·L shown. The tabs:
     - **Design** (open first): the geometry, each parameter a field that takes a number in its
       unit or an expression (`w/2.5`, `450 nm`), with its slider and range, what it uses and
       what uses it, and its error in place with a caret under the column; named parameters can
