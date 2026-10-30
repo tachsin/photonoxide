@@ -5,9 +5,9 @@ name: CI
 # - Tier 1, every pull request and every push to main: what the change can break, on Linux. The
 #   area map (.github/areas.sh) turns the changed files into the unit tests, validation cases and
 #   examples of their areas and of the areas that use them; a file of no area runs everything.
-#   Files nothing reads run only the docs' links. A pull request that changes the library (src/
-#   or the root Cargo.toml) has its public API checked against its base's (cargo-semver-checks,
-#   and cargo-public-api's listing of the façade).
+#   Files nothing reads run only the docs' links. A pull request that changes the library (src/,
+#   a layer's crate in crates/, or the root Cargo.toml) has its public API checked against its
+#   base's (cargo-public-api's listing of the façade; cargo-semver-checks, which only reports).
 # - Tier 2, the release pull request (release-plz's branch), a pull request labelled `full-ci`
 #   (the Full CI workflow starts it), and a change to this workflow or to Cargo.toml or
 #   Cargo.lock: everything, the tests on Linux, Windows and macOS, single-threaded too, every
@@ -95,14 +95,14 @@ jobs:
               fi
             fi
           fi
-          # the library's public API, checked on a pull request that changes it (src/ or the root
-          # manifest), or this workflow, on any tier; not on the release PR, whose version
-          # release-plz chose by the same check
+          # the library's public API, checked on a pull request that changes it (src/, a layer's
+          # crate in crates/, or the root manifest), or this workflow, on any tier; not on the
+          # release PR, whose version release-plz chose by the same check
           library=false
           if [ "$EVENT" = pull_request ] && [[ "$HEAD_REF" != release-plz-* ]] &&
             git cat-file -e "$PR_BASE^{commit}" 2>/dev/null; then
             git diff --name-only "$range" > "$RUNNER_TEMP/pr-files.txt"
-            if grep -qE '^(src/|Cargo\.toml$|\.github/workflows/ci\.yml$)' "$RUNNER_TEMP/pr-files.txt"; then
+            if grep -qE '^(src/|crates/[^/]+/(src/|Cargo\.toml$)|Cargo\.toml$|\.github/workflows/ci\.yml$)' "$RUNNER_TEMP/pr-files.txt"; then
               library=true
             fi
           fi
@@ -501,14 +501,12 @@ jobs:
   # Conventional Commits mark it) or the `breaking` label. Release-plz then raises the minor
   # version, 0.5 to 0.6, where a patch was meant.
   #
-  # To be replaced by the Public API job below from the first pull request of the crate split
-  # (phases 1 to 5 of #508): cargo-semver-checks doesn't follow a re-export of an item from
-  # another crate of the workspace (the #508 spike, decision D3), so once a module moves into
-  # crates/ and photonoxide re-exports it, this job reports its items as removed although
-  # photonoxide's API is the same. That pull request deletes this job (and AGENTS.md's and
-  # CONTRIBUTING.md's lines on it), leaving the Public API job as the check, or, if the
-  # Semver job is still wanted for the lints the listing can't see, gives it
-  # `continue-on-error: true` so that it only reports. Until then both run, and both must pass.
+  # It only reports since the first pull request of the crate split (#508 phase 1, the core and
+  # geometry crates): cargo-semver-checks doesn't follow a re-export of an item from another
+  # crate of the workspace (the #508 spike, decision D3), so with modules moved into crates/ and
+  # re-exported by photonoxide at their old paths, it reports their items as removed although
+  # photonoxide's API is the same. The Public API job below is the check; this one stays for the
+  # lints the listing can't see (read its log), its last step with `continue-on-error: true`.
   semver:
     name: Semver
     needs: changes
@@ -533,6 +531,8 @@ jobs:
       # after marking the pull request breaking passes
       - name: A break needs the pull request to say so
         if: steps.check.outcome == 'failure'
+        # reports only (#508): see the job's comment
+        continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
           PR: ${{ github.event.pull_request.number }}

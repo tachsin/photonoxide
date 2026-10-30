@@ -40,10 +40,35 @@ commit_parsers = [
   { message = ".*", group = "<!-- 5 -->Project setup" },
 ]
 
-# Every crate in the workspace has photonoxide's version ([workspace.package] in Cargo.toml), and
-# only photonoxide is released here: the others are named below with release = false, so a
-# release bumps their version along with the workspace's (and their lines in Cargo.lock) and
-# nothing else.
+# Every crate in the workspace has photonoxide's version ([workspace.package] in Cargo.toml). photonoxide
+# and the library's layers (crates/, #508) are released here, the layers with it; the others are
+# named below with release = false, so a release bumps their version along with the workspace's
+# (and their lines in Cargo.lock) and nothing else.
+
+# photonoxide: its changelog has the layers' changes too, since users see them through it
+[[package]]
+name = "photonoxide"
+changelog_include = ["photonoxide-core", "photonoxide-geometry"]
+
+# the library's layers (crates/, docs/architecture.md): internal crates that photonoxide depends on
+# exactly (=x.y.z) and re-exports at its own paths, published to crates.io with each release at
+# photonoxide's version, with no tag, GitHub release or changelog of their own (photonoxide's
+# lists their changes). Their API is photonoxide's business: photonoxide's is checked (CI's
+# Public API job), theirs isn't. The first upload of each needs a crates.io token, before trusted
+# publishing can be set up for it.
+[[package]]
+name = "photonoxide-core"
+git_tag_enable = false
+git_release_enable = false
+changelog_update = false
+semver_check = false
+
+[[package]]
+name = "photonoxide-geometry"
+git_tag_enable = false
+git_release_enable = false
+changelog_update = false
+semver_check = false
 
 # the photonoxide program (studio/) is built from the repository and attached to the releases as
 # binaries (.github/workflows/binaries.yml), never published to crates.io

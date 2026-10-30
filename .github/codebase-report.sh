@@ -52,6 +52,8 @@ files_at HEAD "$tmp/head.tsv"
 AREAS="src/fdtd|src/fdfd|src/mode|src/circuit|src/compact|src/geometry|src/job|src/material|src/thermal, electro, statics|src/export|src/, the rest|native/|python/|studio/src-tauri/src|studio/src|academy/|docs/|examples/|jobs/|site/|tests/|.github/|everything else"
 LIB='
 function area(p,   x) {
+  # a layer's crate (crates/<crate>/src/, #508) counts as the library's source of its module
+  sub(/^crates\/[^\/]+\/src\//, "src/", p)
   if (p ~ /^src\/(fdtd|fdfd|mode|circuit|compact|geometry|job|material|export)(\/|\.rs$)/) {
     split(p, x, /[\/.]/); return "src/" x[2] }
   if (p ~ /^src\/(thermal|electro|statics)(\/|\.rs$)/) return "src/thermal, electro, statics"

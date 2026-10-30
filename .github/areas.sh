@@ -22,15 +22,19 @@
 # change can break. The uses are the library code's own (`use crate::...`, tests left out); an
 # area's tests that use another area's code (sparse's and native's solve bench's problems) run
 # when that area runs, without running further. A file that other areas use more narrowly than
-# its own area is in theirs too: fdtd's media fit their poles with src/lstsq.rs, the least
-# squares compact's fits use too, and its kernel's rates are timed with the triad in src/traffic.rs.
+# its own area is in theirs too: fdtd's media fit their poles with lstsq.rs (in the core crate,
+# crates/photonoxide-core/src/), the least squares compact's fits use too, and its kernel's rates are
+# timed with the triad in the core crate's traffic.rs.
 # The checks and tests that reach above their module sit in src/cases/<module>/ (docs/architecture.md)
 # and belong to the area of the module they came from, so each area lists src/cases/<module>/* too.
+# A module of a layer's crate (crates/<crate>/src/, docs/architecture.md) is listed by its path
+# there; its checks that reach above its crate are photonoxide's, in src/cases/<module>/.
 #
-# A file in no area is shared and runs everything (the library's root, units, geometry, expr,
-# error (and the netlist errors in it), stop (run::Stop), verdict (the validation types), parallel, portable, stack (and src/stack/, its etches' validation cases and its boxes' fill),
-# raster and averaging (src/averaging.rs and src/averaging/, its analytic cases, which FDFD and the
-# rasters read);
+# A file in no area is shared and runs everything (the library's root; the core crate's units, expr,
+# error (and the netlist errors in it), stop (run::Stop), verdict (the validation types), parallel
+# and portable; the geometry crate's geometry, stack (and its etches' validation cases, in
+# src/cases/stack/, and its boxes' fill), raster and averaging (and its analytic cases, which FDFD
+# and the rasters read); the crates' manifests;
 # Cargo.toml and Cargo.lock; anything new). When in doubt, a file is shared. Files nothing builds or reads (the site, Markdown no test reads, the
 # other workflows) run nothing but the docs' links. The Python wheels (python-wheels.yml) and the
 # Libraries workflow's installs (libraries.yml) start by their own `paths`.
@@ -53,7 +57,7 @@ area() {
 }
 
 area material \
-  "src/material/* src/cases/material/*" \
+  "crates/photonoxide-geometry/src/material/* src/cases/material/*" \
   "" \
   "material::" "material/" \
   "silicon_index silica_index group_index directional_coupler mzi_dwivedi"
@@ -62,7 +66,7 @@ area material \
 # kernels, the bytes they move. (The iterative backend and the Krylov solvers, which fdfd
 # stops and measures, are fdfd's.)
 area sparse \
-  "src/sparse.rs src/sparse/* src/cases/sparse/* src/backend.rs src/backend/auto.rs src/backend/dense.rs src/dense.rs src/traffic.rs" \
+  "src/sparse.rs src/sparse/* src/cases/sparse/* src/backend.rs src/backend/auto.rs src/backend/dense.rs src/dense.rs crates/photonoxide-core/src/traffic.rs" \
   "" \
   "sparse:: backend:: traffic::" "" "" \
   "bench"
@@ -97,7 +101,7 @@ area sweep \
 
 # with the GPU's report (tests/gpu_report.rs, docs/validation-gpu.md, run by hand)
 area fdtd \
-  "src/fdtd.rs src/fdtd/* src/cases/fdtd/* src/validation/* tests/gpu_report.rs src/lstsq.rs src/traffic.rs" \
+  "src/fdtd.rs src/fdtd/* src/cases/fdtd/* src/validation/* tests/gpu_report.rs crates/photonoxide-core/src/lstsq.rs crates/photonoxide-core/src/traffic.rs" \
   "mode material fdfd" \
   "fdtd::" "fdtd/" \
   "bump_oskooi cpml_roden_gedney l3_akahane lorentz_okoniewski pml_oskooi subpixel_holes tfsf_square_cylinder"
@@ -151,7 +155,7 @@ area job \
 # take it, and the examples' Checks (hadley_corners); and convergence to a tolerance (#432), whose
 # cases drive the slab mode solver, 2D FDFD and eigenmode expansion, so their changes run them
 area convergence \
-  "src/convergence.rs src/convergence/* src/validation/convergence.rs" \
+  "crates/photonoxide-core/src/convergence.rs src/cases/convergence/* src/validation/convergence.rs" \
   "" \
   "convergence::" "convergence/" "hadley_corners" \
   "mode fdfd eme"
@@ -189,7 +193,7 @@ area device \
   "strip_waveguide directional_coupler mzi_dwivedi ring_q_factor bend_loss rib_hadley mmi_soldano y_junction_zhang thermo_jacques thermo_harris pcm_delaney tfln_zhang"
 
 area compact \
-  "src/compact/* src/cases/compact/* src/lstsq.rs" \
+  "src/compact/* src/cases/compact/* crates/photonoxide-core/src/lstsq.rs" \
   "circuit job" \
   "compact::" "compact/" "compact_mzi_ye"
 
@@ -201,7 +205,7 @@ area facade \
   "facade::" "" ""
 
 # the layering test (src/layering.rs; the layers are in docs/architecture.md): it reads every
-# file under src/, so any change to the source runs it, whatever area the change is in (below,
+# file under src/ and crates/, so any change to the source runs it, whatever area the change is in (below,
 # where files are matched), and it makes no file shared
 area layering \
   "src/layering.rs docs/architecture.md" \
@@ -252,7 +256,7 @@ matches() {
 ignored() {
   local a
   case "$1" in
-    docs/validation.md | examples/* | src/* | tests/*) return 1 ;;
+    docs/validation.md | examples/* | src/* | crates/*/src/* | tests/*) return 1 ;;
   esac
   for a in "${areas[@]}"; do
     if matches "$1" "${files[$a]}"; then return 1; fi
@@ -306,7 +310,7 @@ else
         fi
         continue ;;
       # the cases themselves: all of them (a change here usually comes with its area's too)
-      src/validation.rs | src/verdict.rs | tests/validation_report.rs)
+      src/validation.rs | crates/photonoxide-core/src/verdict.rs | tests/validation_report.rs)
         direct_cases="*"; touch_area studio; continue ;;
       # an example or its output: that example (the studio builds the examples in); their
       # helpers: every example using them
@@ -323,7 +327,7 @@ else
         name=${f#examples/}; direct_examples+=" ${name%.rs}"; touch_area studio; continue ;;
     esac
     found=false
-    case "$f" in src/*) touch_area layering ;; esac
+    case "$f" in src/* | crates/*/src/*) touch_area layering ;; esac
     for a in "${areas[@]}"; do
       if matches "$f" "${files[$a]}"; then touch_area "$a"; found=true; fi
     done

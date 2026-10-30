@@ -37,11 +37,16 @@ leftovers (#543: the TFLN modulator as a device, the studio's views, GDS read in
   files; and `facade::conformance()`, calls with their results for the bindings' tests. A
   change elsewhere in the API that touches it is absorbed in it, in the same PR.
 
-The modules sit in layers that are to become crates (#508), and production code imports only
-downward: [docs/architecture.md](docs/architecture.md) has the layers, `src/layering.rs` the test
-that keeps them (a new module goes in its table). The checks and tests that reach above their
+The modules sit in layers that become crates (#508), and production code imports only downward:
+[docs/architecture.md](docs/architecture.md) has the layers, `src/layering.rs` the test that
+keeps them (a new module goes in its table). Two layers are crates already, in `crates/`:
+`photonoxide-core` (`units`, `expr`, `convergence`, `parallel`, the error type, the validation
+verdicts, `Stop`) and `photonoxide-geometry` (`geometry`, `material`, `stack`, `averaging`,
+`raster`); photonoxide re-exports their modules at the same paths (`photonoxide::units`), and a
+change to them is made in `crates/<crate>/src/`. The checks and tests that reach above their
 module, such as a geometry check that builds an FDTD structure, are in `src/cases/<module>/`, the
-module's own path, and are declared by the module with `#[path]`.
+module's own path: declared by the module with `#[path]` when it is in photonoxide, by
+`src/cases.rs` when it is in a layer's crate below.
 
 ## Commands
 
@@ -74,15 +79,14 @@ PUBLIC_API_NIGHTLY=nightly-2026-05-24 python3 .github/scripts/public-api.py . > 
 CI runs in tiers (issue #315). **Tier 1**, every PR and push to main: on Linux, lint, MSRV, and the
 unit tests, validation cases and examples (not the 3D devices) of the areas a change touches and
 of the areas that use them, as the area map [.github/areas.sh](.github/areas.sh) has them; a file
-in no area (the library's root, units, geometry, the manifests) runs everything, and files nothing
+in no area (the library's root, units, geometry, the crates' and the root's manifests) runs everything, and files nothing
 reads (most Markdown, the site, the other workflows) run only the docs' links. A new area, module
-or test-read file gets its line in the map. A PR that changes the library (`src/`, the root
-`Cargo.toml`) also runs the Semver job, cargo-semver-checks against the PR's base on main, so a
-PR answers for its own breaks only; the release PR is checked against the latest release on
-crates.io. The same PRs run the Public API job: cargo-public-api's listing of the façade at the
-base and the head, items of `crates/` at the paths the façade re-exports them at, failing on a
-removed or changed item; from the crate split's first PR (#508) it replaces the Semver job,
-which doesn't follow re-exports from other crates (CONTRIBUTING.md, "The Public API job").
+or test-read file gets its line in the map. A PR that changes the library (`src/`, a layer's
+crate in `crates/`, the root `Cargo.toml`) also runs the Public API job: cargo-public-api's
+listing of the façade at the base and the head, items of `crates/` at the paths the façade
+re-exports them at, failing on a removed or changed item (CONTRIBUTING.md, "The Public API
+job"). The Semver job, cargo-semver-checks against the PR's base, runs beside it and only
+reports since the crate split's first PR (#508): it doesn't follow re-exports from other crates.
 **Tier 2**, the release PR, a PR labelled `full-ci`, and
 a change to `ci.yml`, `Cargo.toml` or `Cargo.lock`: every test on Linux, Windows and macOS (and on
 one thread), every example on the three systems, the 3D devices, the whole validation report. **Tier
