@@ -17,6 +17,8 @@
 //! - [`cpw`]: the shared case, a coplanar waveguide on a finite substrate in a shielding box,
 //!   drawn on the same mesh lines for openEMS's FDTD, Elmer's electrostatics and photonoxide's
 //!   quasi-TEM line.
+//! - [`microstrip`]: a microstrip line in a box, for openEMS's FDTD and photonoxide's quasi-TEM
+//!   line.
 //! - [`heater`]: the shared heat case, a heater in oxide over silicon, for Elmer and photonoxide.
 //! - [`heaters`]: two heaters side by side, the thermal crosstalk, for Elmer and photonoxide.
 //! - [`transient`]: a heater turned on, its guide's rise in time, for Elmer and photonoxide.
@@ -36,6 +38,7 @@ pub mod heater;
 pub mod heaters;
 pub mod joule;
 pub mod line;
+pub mod microstrip;
 pub mod openems;
 pub mod report;
 pub mod tfln;

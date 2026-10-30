@@ -50,10 +50,12 @@ mesh lines in each problem.
 |---|---|---:|---:|---:|
 | Coplanar line, 0.25 µm mesh | n | 2.217156 | 2.217052 (−0.0047 %) | 2.217069 (−0.0039 %) |
 | | Z₀, Ω | 54.1476 | 54.5551 (+0.75 %) | 53.7113 (−0.81 %) |
+| Microstrip, 0.5 µm mesh | n | 2.580191 | 2.579828 (−0.014 %) | 2.581084 (+0.035 %) |
+| | Z₀, Ω | 48.6603 | 49.0329 (+0.77 %) | 48.2319 (−0.88 %) |
 
-- **Agreement:** refined to convergence, openEMS meets photonoxide within 0.0039 % on n and 0.20 % on Z₀. This checks the quasi-TEM approximation as well as the solver: openEMS makes no such approximation.
+- **Agreement:** refined to convergence, openEMS meets photonoxide within 0.0039 % on n and 0.20 % on Z₀. This checks the quasi-TEM approximation as well as the solver: openEMS makes no such approximation. The microstrip, from three meshes (2, 1 and 0.5 µm) and openEMS on 4 threads, meets it within 0.11 % on n and 0.13 % on Z₀ (tolerances 0.5 %); its n's extrapolation, of order 0.49, overshoots, where its finest mesh is within 0.035 %.
 - **No times:** openEMS solves a 3D section of the line, 4 mm long, in time (2.85 million cells for 339 345 steps on the 0.25 µm mesh), where photonoxide solves the 2D cross-section once. Their times measure different problems.
-- Every mesh: [docs/validation-openems.md](validation-openems.md).
+- Every mesh: [docs/validation-openems.md](validation-openems.md) and, for the lines after it, [docs/validation-openems-lines.md](validation-openems-lines.md).
 
 ## The problems
 
@@ -61,6 +63,7 @@ mesh lines in each problem.
   - photonoxide's quasi-TEM line: from the static solver's capacitances with the substrate and without it.
   - Elmer: the same capacitances, from StatElecSolver.
   - openEMS: a 4 mm section driven by a pulse, k and Z₀ from voltages and currents along it, at 0 GHz from a fit over 10 to 50 GHz.
+- **A microstrip line:** a strip of zero thickness 20 µm wide on 20 µm of ε = 10 (w/h = 1) over a ground plane, in a perfectly conducting box ±200 µm across and 200 µm high. Its n and Z₀: photonoxide's quasi-TEM line from its static solver, and openEMS's 4 mm section driven between the strip and the ground, as the coplanar line's. Hammerstad and Jensen's closed form (1980) will stand beside them, pending the paper.
 - **A heater over silicon:** 2 × 0.2 µm, 2 µm up in oxide on 10 µm of silicon held at 0, dissipating 1 W/m. Its peak temperature rise, from photonoxide's heat solver and from Elmer's HeatSolver.
 - **Two heaters side by side:** Jacques et al.'s N++ silicon heater (Opt. Express 27, 10456 (2019)) beside a second one, 5 µm between their N++ strips, in the paper's stack (2 µm of buried oxide, the oxide's top 3.32 µm up with 10 W/(m²·K) to air, the window 18 µm high), the first dissipating the paper's P_π, 22.8 mW over 320 µm, and the second off. The mean rise of the second one's rib, the thermal crosstalk.
 - **A heater turned on:** the same heater alone in the paper's 40 × 18 µm window, cold until it is switched on, with the paper's heat capacities. Its rib's mean rise at 1, 5 and 20 µs and its 1/e time, both codes stepping by BDF of order 2 with the same 0.025 µs steps; on one mesh, halving that step moves them by 0.0063 % or less.

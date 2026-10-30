@@ -49,10 +49,12 @@ mesh lines in each problem.
 |---|---|---:|---:|---:|
 | Coplanar line, 0.25 µm mesh | n | 2.217156 | 2.217052 (−0.0047 %) | 2.217069 (−0.0039 %) |
 | | Z₀, Ω | 54.1476 | 54.5551 (+0.75 %) | 53.7113 (−0.81 %) |
+| Microstrip, 0.5 µm mesh | n | 2.580191 | 2.579828 (−0.014 %) | 2.581084 (+0.035 %) |
+| | Z₀, Ω | 48.6603 | 49.0329 (+0.77 %) | 48.2319 (−0.88 %) |
 
-- **Agreement:** refined to convergence, openEMS meets photonoxide within 0.0039 % on n and 0.20 % on Z₀. This checks the quasi-TEM approximation as well as the solver: openEMS makes no such approximation.
+- **Agreement:** refined to convergence, openEMS meets photonoxide within 0.0039 % on n and 0.20 % on Z₀. This checks the quasi-TEM approximation as well as the solver: openEMS makes no such approximation. The microstrip, from three meshes (2, 1 and 0.5 µm) and openEMS on 4 threads, meets it within 0.11 % on n and 0.13 % on Z₀ (tolerances 0.5 %); its n's extrapolation, of order 0.49, overshoots, where its finest mesh is within 0.035 %.
 - **No times:** openEMS solves a 3D section of the line, 4 mm long, in time (2.85 million cells for 339 345 steps on the 0.25 µm mesh), where photonoxide solves the 2D cross-section once. Their times measure different problems.
-- Every mesh: [docs/validation-openems.md](../docs/validation-openems.md).
+- Every mesh: [docs/validation-openems.md](../docs/validation-openems.md) and, for the lines after it, [docs/validation-openems-lines.md](../docs/validation-openems-lines.md).
 
 ## The problems
 
@@ -60,6 +62,7 @@ mesh lines in each problem.
   - photonoxide's quasi-TEM line: from the static solver's capacitances with the substrate and without it.
   - Elmer: the same capacitances, from StatElecSolver.
   - openEMS: a 4 mm section driven by a pulse, k and Z₀ from voltages and currents along it, at 0 GHz from a fit over 10 to 50 GHz.
+- **A microstrip line:** a strip of zero thickness 20 µm wide on 20 µm of ε = 10 (w/h = 1) over a ground plane, in a perfectly conducting box ±200 µm across and 200 µm high. Its n and Z₀: photonoxide's quasi-TEM line from its static solver, and openEMS's 4 mm section driven between the strip and the ground, as the coplanar line's. Hammerstad and Jensen's closed form (1980) will stand beside them, pending the paper.
 - **A heater over silicon:** 2 × 0.2 µm, 2 µm up in oxide on 10 µm of silicon held at 0, dissipating 1 W/m. Its peak temperature rise, from photonoxide's heat solver and from Elmer's HeatSolver.
 - **Two heaters side by side:** Jacques et al.'s N++ silicon heater (2019) beside a second one, 5 µm between their N++ strips, the first dissipating the paper's P_π (71.25 W/m) and the second off. The rise at the second one's guide, the thermal crosstalk, from photonoxide's heat solver and from Elmer's HeatSolver.
 - **A heater turned on:** the same heater alone, cold until it is switched on. Its guide's rise at 1, 5 and 20 µs and its 1/e time, from photonoxide's transient (BDF2) and from Elmer's HeatSolver in time (BDF of order 2), with the same time steps.
@@ -75,11 +78,12 @@ From the repository's root:
 ```sh
 PHOTONOXIDE_ELMER=C:/elmer/bin PHOTONOXIDE_ELMER_PATH=C:/msys64/ucrt64/bin just elmer   # writes docs/validation-elmer.md
 PHOTONOXIDE_OPENEMS=C:/openEMS just openems                                    # writes docs/validation-openems.md
+PHOTONOXIDE_OPENEMS=C:/openEMS cargo test --manifest-path crosscode/Cargo.toml --release --test openems_lines -- --ignored --nocapture   # writes docs/validation-openems-lines.md
 just crosscode                                                               # this crate's fmt, clippy and unit tests
 ```
 
 - **Finding the programs:** `PHOTONOXIDE_ELMER` and `PHOTONOXIDE_OPENEMS` name each program or its folder; otherwise it is looked for on `PATH`. `PHOTONOXIDE_ELMER_PATH` names folders of Elmer's run-time libraries when they aren't on `PATH`. Without a program, its study prints `skipped:` and passes.
-- **Settings:** `PHOTONOXIDE_MACHINE` names the computer in the reports. `PHOTONOXIDE_OPENEMS_THREADS` sets openEMS's threads (8 by default). `PHOTONOXIDE_LOADED=1` says in Elmer's report that its times were taken while the computer was busy with other work. `PHOTONOXIDE_ELMER_ONLY` runs only some of Elmer's problems (`line`, `heater`, `heaters`, `transient`, `joule`, `tfln`, comma-separated) and prints their report without writing it.
+- **Settings:** `PHOTONOXIDE_MACHINE` names the computer in the reports. `PHOTONOXIDE_OPENEMS_THREADS` sets openEMS's threads (8 by default). `PHOTONOXIDE_LOADED=1` says in Elmer's report that its times were taken while the computer was busy with other work. `PHOTONOXIDE_ELMER_ONLY` runs only some of Elmer's problems (`line`, `heater`, `heaters`, `transient`, `joule`, `tfln`, comma-separated) and prints their report without writing it; `PHOTONOXIDE_OPENEMS_ONLY` does the same for the later openEMS lines (`microstrip`).
 - **Runs:** they are kept in `target/tmp/elmer/` and `target/tmp/openems/`, with each program's log beside them. Elmer's study takes about 35 minutes, most of it Elmer's steps in time. openEMS's takes about 1 h 13 min from scratch, and seconds when it can reuse its finished runs.
 - **Timings:** take them with the computer otherwise idle.
 - **Getting the programs and their licences:** [docs/cross-code.md](../docs/cross-code.md).
@@ -91,6 +95,7 @@ just crosscode                                                               # t
 | `src/elmer.rs` | finds ElmerSolver, writes its mesh files and solver input (SIF) from its documented formats, runs it, reads its output (values at nodes too, for a guide's mean or a field across it) and its solvers' times |
 | `src/openems.rs` | finds openEMS, writes its XML input from its documented format, runs it with its progress, reads its probes |
 | `src/cpw.rs` | the coplanar line, on the same mesh lines for photonoxide, Elmer and openEMS |
+| `src/microstrip.rs` | a microstrip line, on the same mesh lines for photonoxide and openEMS |
 | `src/heater.rs` | the heater, for photonoxide and Elmer |
 | `src/heaters.rs` | two heaters side by side, the crosstalk, for photonoxide and Elmer |
 | `src/transient.rs` | a heater turned on, its rise in time, for photonoxide and Elmer |
@@ -98,7 +103,7 @@ just crosscode                                                               # t
 | `src/tfln.rs` | a thin-film lithium niobate modulator's electrodes, for photonoxide and Elmer |
 | `src/line.rs` | a line's wavenumber and impedance from voltages and currents at planes along it |
 | `src/report.rs` | errors in percent, times and the computer's name, as the reports print them |
-| `tests/elmer.rs`, `tests/openems.rs` | the two studies, which write the reports |
+| `tests/elmer.rs`, `tests/openems.rs`, `tests/openems_lines.rs` | the studies, which write the reports (the last, openEMS on the lines after the coplanar one, writes its own) |
 
 ## Rules
 
