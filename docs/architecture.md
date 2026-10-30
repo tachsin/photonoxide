@@ -19,7 +19,7 @@ from any other layer. The rows are in dependency order: a layer imports only fro
 | core | `photonoxide-core` | `units`, `expr`, `portable`, `parallel`, `traffic`, `convergence`, `lstsq`, and the error, stop and verdict types (`error`, `stop`, `verdict`) | (nothing) |
 | geometry | `photonoxide-geometry` | `geometry`, `material`, `stack`, `averaging`, `raster`, `etch` | core |
 | linalg | `photonoxide-linalg` | `dense`, `sparse`, `backend` (with the Krylov solvers), `eigen` | core |
-| mode | `photonoxide-mode` | `mode`, `eme` | core, geometry, linalg |
+| mode | `photonoxide-mode` | `mode`, `eme`, `sweep` | core, geometry, linalg |
 | statics | `photonoxide-statics` | `statics`, `thermal`, `electro` | core, geometry, linalg |
 | fdfd | `photonoxide-fdfd` | `fdfd` | core, geometry, linalg |
 | fdtd | `photonoxide-fdtd` | `fdtd` | core, geometry, linalg, fdfd |
