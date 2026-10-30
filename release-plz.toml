@@ -45,9 +45,14 @@ commit_parsers = [
 # named below with release = false, so a release bumps their version along with the workspace's
 # (and their lines in Cargo.lock) and nothing else.
 
-# photonoxide: its changelog has the layers' changes too, since users see them through it
+# photonoxide: its changelog has the layers' changes too, since users see them through it.
+# No cargo-semver-checks: it can't follow photonoxide's re-exports of the split crates' items
+# (#508) and would report them as removed. The Public API job is the gate
+# (.github/workflows/ci.yml, .github/scripts/public-api.py, CONTRIBUTING.md "The Public API
+# job"), and the bump size follows the commit messages: a `!` marks a break.
 [[package]]
 name = "photonoxide"
+semver_check = false
 changelog_include = [
   "photonoxide-core",
   "photonoxide-geometry",
