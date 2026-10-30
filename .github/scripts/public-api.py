@@ -95,6 +95,9 @@ def reexports(doc, internal):
                     walk(target, at, depth + 1)
                 elif source is not None and not use["is_glob"] and "::".join(source["path"]) != at:
                     local.append(("::".join(source["path"]), at))
+                    # an item at its re-exported path too, so that its methods aren't taken for a
+                    # private module's items
+                    items.add(at)
                 continue
             if source is None or source["crate_id"] == 0:
                 continue
