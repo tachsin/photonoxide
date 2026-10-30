@@ -27,6 +27,8 @@ members = [
   "crates/photonoxide-statics",
   "crates/photonoxide-fdfd",
   "crates/photonoxide-fdtd",
+  "crates/photonoxide-circuit",
+  "crates/photonoxide-device",
   "studio/src-tauri",
   "studio/setup",
   "native",
@@ -42,6 +44,8 @@ default-members = [
   "crates/photonoxide-statics",
   "crates/photonoxide-fdfd",
   "crates/photonoxide-fdtd",
+  "crates/photonoxide-circuit",
+  "crates/photonoxide-device",
 ]
 
 [workspace.package]
@@ -58,6 +62,8 @@ photonoxide-mode = { version = "=0.6.0", path = "crates/photonoxide-mode" }
 photonoxide-statics = { version = "=0.6.0", path = "crates/photonoxide-statics" }
 photonoxide-fdfd = { version = "=0.6.0", path = "crates/photonoxide-fdfd" }
 photonoxide-fdtd = { version = "=0.6.0", path = "crates/photonoxide-fdtd" }
+photonoxide-circuit = { version = "=0.6.0", path = "crates/photonoxide-circuit" }
+photonoxide-device = { version = "=0.6.0", path = "crates/photonoxide-device" }
 # without faer's `npy` default: nothing here reads .npy files, and it brought pest, whose newer
 # releases assemble and link .asm files (psm) at build time, against AGENTS.md's "nothing linked"
 faer = { version = "0.24.4", default-features = false, features = ["std", "rayon", "sparse-linalg", "rand"] }
@@ -66,9 +72,6 @@ faer = { version = "0.24.4", default-features = false, features = ["std", "rayon
 flate2 = "1.1"
 # the ZIP format's own checksum, for export's minimal ZIP writer (export::zip)
 crc32fast = "1.5"
-# exp, sin and cos in pure Rust, the same bits on every system, where the system's maths library
-# would move a result between Linux, Windows and macOS (the `portable` module)
-libm = "0.2.16"
 num-complex = "0.4"
 # spectra: their wavelengths solved in parallel, each on its own, collected in order
 rayon = "1.12.0"
@@ -136,6 +139,12 @@ opt-level = 3
 opt-level = 3
 
 [profile.dev.package.photonoxide-fdtd]
+opt-level = 3
+
+[profile.dev.package.photonoxide-circuit]
+opt-level = 3
+
+[profile.dev.package.photonoxide-device]
 opt-level = 3
 
 # Debug and test builds keep file and line numbers for panics and backtraces, not the full debug

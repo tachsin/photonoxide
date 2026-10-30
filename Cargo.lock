@@ -3622,9 +3622,10 @@ dependencies = [
  "faer",
  "flate2",
  "genoxide",
- "libm",
  "num-complex",
+ "photonoxide-circuit",
  "photonoxide-core",
+ "photonoxide-device",
  "photonoxide-fdfd",
  "photonoxide-fdtd",
  "photonoxide-geometry",
@@ -3642,6 +3643,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "photonoxide-circuit"
+version = "0.6.0"
+dependencies = [
+ "faer",
+ "num-complex",
+ "photonoxide-core",
+ "photonoxide-geometry",
+ "photonoxide-mode",
+ "photonoxide-statics",
+ "rayon",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "photonoxide-core"
 version = "0.6.0"
 dependencies = [
@@ -3651,6 +3667,25 @@ dependencies = [
  "rayon",
  "schemars 1.2.3",
  "serde",
+]
+
+[[package]]
+name = "photonoxide-device"
+version = "0.6.0"
+dependencies = [
+ "faer",
+ "libm",
+ "num-complex",
+ "photonoxide-circuit",
+ "photonoxide-core",
+ "photonoxide-fdfd",
+ "photonoxide-geometry",
+ "photonoxide-mode",
+ "photonoxide-statics",
+ "rayon",
+ "serde",
+ "serde_json",
+ "toml 1.1.8+spec-1.1.0",
 ]
 
 [[package]]
