@@ -267,7 +267,7 @@
           outline={lineOutline}
           lines={lines.slice(1)}
           scale={[-changeTop, changeTop]}
-          ends={[`≤ −${short(changeTop)} V/m`, `≥ ${short(changeTop)} V/m`]}
+          ends={[`≤ −${fmt(changeTop)} V/m`, `≥ ${fmt(changeTop)} V/m`]}
         />
       {:else}
         <RasterView
