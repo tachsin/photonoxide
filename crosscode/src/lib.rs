@@ -30,6 +30,7 @@ pub mod cpw;
 pub mod elmer;
 pub mod heater;
 pub mod heaters;
+pub mod joule;
 pub mod line;
 pub mod openems;
 pub mod report;

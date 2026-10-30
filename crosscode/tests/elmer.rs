@@ -19,6 +19,7 @@ use photonoxide_crosscode::cpw::{self, Cpw};
 use photonoxide_crosscode::elmer::{self, Elmer};
 use photonoxide_crosscode::heater::{self, Heater};
 use photonoxide_crosscode::heaters::{self, Heaters};
+use photonoxide_crosscode::joule::Joule;
 use photonoxide_crosscode::report::{duration, machine, percent, signed_percent};
 use photonoxide_crosscode::transient::{self, Transient};
 
@@ -51,6 +52,7 @@ const STEP_STUDY_MESH: f64 = 0.02;
 const INDEX_TOLERANCE: f64 = 1e-3;
 const IMPEDANCE_TOLERANCE: f64 = 5e-3;
 const RISE_TOLERANCE: f64 = 5e-3;
+const CURRENT_TOLERANCE: f64 = 1e-3;
 
 const REPORT: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../docs/validation-elmer.md");
 
@@ -586,6 +588,47 @@ fn transient_pair(program: &Elmer, folder: &Path, progress: &mut Progress) -> Pa
     }
 }
 
+fn joule_pair(program: &Elmer, folder: &Path, progress: &mut Progress) -> Pair {
+    let case = Joule::harris();
+    let axes = |g: Grading| case.axes(&mesh_of(g)).expect("a valid mesh");
+    let elmer = |g: Grading, name: &str| {
+        let (x, y) = axes(g);
+        let c = case.elmer(&x, &y).expect("the case");
+        let run = folder.join(name);
+        let seconds = elmer_fastest(program, &c, &run);
+        let row = &elmer::scalars(&run).expect("Elmer's scalars")[0];
+        (vec![row[1], row[0]], seconds, c.mesh.cells())
+    };
+    let ours = |g: Grading| {
+        let (x, y) = axes(g);
+        let (v, s) = timed(|| case.photonoxide(&x, &y).expect("the solves"));
+        (v.to_vec(), s)
+    };
+    let (rows, converged) = study(progress, "joule", &elmer, &ours);
+    Pair {
+        case: "the doped heater",
+        heading: "Joule heating: StatCurrentSolver and HeatSolve",
+        about: "Harris et al.'s doped silicon heater (Opt. Express 22, 10487 (2014), Section 2 and Fig. 1), the section through one of its channels, where the doped slab runs to the contacts: a ridge 500 nm wide and 220 nm high on a 90 nm slab, p-doped 1 µm wide across the guide and p++ beyond to ±3 µm, contacts on the slab's last 100 nm each side at 1 V and 0 V. The conductivities from the paper's sheet resistances, σ = 1/(R_s t): 8.17 × 10⁴ S/m (p++, 136 Ω), 817 S/m (p, 13.6 kΩ) and 1175 S/m (the ridge, 3.87 kΩ). As the paper's model has it, 2 µm of buried oxide with its bottom held at 0 and 10 µm of oxide over the silicon with its top held at 0; the window ±20 µm wide, its sides insulated. The thermal conductivities, which the paper doesn't give, are Jacques et al.'s Table 3's: the ridge 90, the slab 55, the oxide 1.38 W/(m·K). Elmer's StatCurrentSolver in the silicon, its Joule heating the source of HeatSolve, the current the sum of the first contact's nodal reactions (its Potential Loads); photonoxide's current continuity, its Joule heat the source of its heat solver, the current its contact's. The current per metre of guide and the peak rise.".to_owned(),
+        quantities: vec![
+            Quantity {
+                name: "current at 1 V, A/m",
+                scale: 1.0,
+                decimals: 5,
+                tolerance: CURRENT_TOLERANCE,
+            },
+            Quantity {
+                name: "peak rise, K",
+                scale: 1.0,
+                decimals: 4,
+                tolerance: RISE_TOLERANCE,
+            },
+        ],
+        rows,
+        converged,
+        more: String::new(),
+    }
+}
+
 #[test]
 #[ignore = "runs Elmer, where it is installed: minutes"]
 fn elmer_agrees_with_the_static_solver() {
@@ -729,6 +772,9 @@ fn elmer_agrees_with_the_static_solver() {
     }
     if runs("transient") {
         pairs.push(transient_pair(&program, &folder, &mut progress));
+    }
+    if runs("joule") {
+        pairs.push(joule_pair(&program, &folder, &mut progress));
     }
     eprintln!(
         "[elmer] done in {:.0} s",
