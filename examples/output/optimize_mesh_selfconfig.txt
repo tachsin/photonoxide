@@ -21,6 +21,10 @@ Genetic algorithm: 144 genomes, the best 18 kept as parents, one-point crossover
   t the operations in thousands:
   99 of 100 meshes above −3 dB (paper 95 %); OF1 -2.06 dB on average; 2916 operations
 
+Gradient descent with momentum 0.5, central differences of 0.0003 rad (145 operations an iteration), from uniform phases until CF < 0.2 or 60 iterations, 20 meshes. Printed, not checked: the paper's 5 to 6 iterations at a learning rate of 50 hang on how its CF is scaled, which it doesn't say
+  learning rate 50: CF < 0.2 on 0 of 20 meshes; OF1 -11.75 dB on average where they stopped
+  learning rate 1: CF < 0.2 on 19 of 20 meshes in a median of 18 iterations (2610 operations); OF1 -1.68 dB on average where they stopped
+
 The particle swarm of Fig. 3 with crosstalk from 0 to 5 % between every pair of shifters (Fig. 4's), 20 meshes. Printed, not checked: the paper has no all-cross run with it
   12 of 20 meshes above −3 dB (paper none); OF1 -2.99 dB on average; 3996 operations
 all 3 within tolerance of the paper

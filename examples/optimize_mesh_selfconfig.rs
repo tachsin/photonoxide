@@ -50,7 +50,15 @@
 //! step within ±r, r = 0.5π e^(−0.5 t) (Table 15's initial range and decay); within 3000
 //! operations, 144 + 22 × 126 = 2916. The text's "20 % mating" is Table 15's 25 % of the phases,
 //! 12.5 % of the population. Phases are within [0, 2π]; the genetic algorithm's steps wrap
-//! around the circle, as a phase does, and the swarm stops at the bounds.
+//! around the circle, as a phase does, and the swarm stops at the bounds. Gradient descent
+//! with momentum (Suppl. Eqs. 5 and 7, Suppl. pp. 7–8 and 23), genoxide's: the gradient by
+//! central differences of 0.3 mrad (Suppl. p. 7), 1 + 2 × 72 = 145 operations an iteration,
+//! momentum 0.5, from uniform phases until CF is below 0.2 (Suppl. p. 23's "acceptable") or 60
+//! iterations (its limit), on 20 meshes. The supplement raises the momentum by 0.05 an
+//! iteration up to 0.5, which genoxide's step rule doesn't do: here it is 0.5 from the start.
+//! The paper's learning rate is 50 (p. 5; Suppl. p. 23), but Suppl. Fig. 23's axis runs from
+//! 10⁻¹ to 10⁰, and the step a rate makes depends on how the CF is scaled, which the paper
+//! doesn't give: both 50 and 1 are run.
 //!
 //! **The checks.** The paper ran each method on 100 meshes and reports the share above −3 dB:
 //! 76.66 % for Fig. 3's swarm (p. 5), 70 % for Table 18's (Suppl. p. 22), 95 % for the genetic
@@ -60,7 +68,10 @@
 //! swarm is checked: 79 of 100. Table 18's swarm ends 2.0 standard deviations below the paper,
 //! 57 against 70: printed, not checked. The genetic algorithm hangs on what t counts, which the
 //! paper doesn't say: over generations, its range is 0.5π e^(−11) by the last and 4 of 100
-//! meshes succeed; over thousands of operations, 99. Both are printed, neither checked. Fig. 3's
+//! meshes succeed; over thousands of operations, 99. Both are printed, neither checked. The
+//! paper's descent converges in 5 to 6 iterations, 750 to 900 operations, at a rate of 50
+//! (Suppl. p. 23); here a rate of 50 overshoots on every mesh and never gets there, while 1 does
+//! on 19 of 20 in a median of 18 iterations: printed, not checked. Fig. 3's
 //! curves (c, i) end near −2.3 dB; ours average −2.51 dB for Fig. 3's swarm, and −0.90 dB with
 //! every unit exactly in cross, the meshes' loss alone. The drawing's all-cross routes are
 //! checked against Fig. 3b's pairs, and our solve of the mesh against photonoxide's circuit
@@ -134,6 +145,17 @@ const PSO_SOCIAL: f64 = 1.8;
 const PSO_INERTIA: (f64, f64) = (0.9, 0.35);
 /// The operations over which the inertia falls (Suppl. p. 7).
 const PSO_SCHEDULE: f64 = 1000.0;
+/// Gradient descent with momentum (Suppl. p. 23): the central differences' step, rad (Suppl.
+/// p. 7), the momentum, the "acceptable" CF it runs to, and the most iterations.
+const GD_STEP: f64 = 0.3e-3;
+const GD_MOMENTUM: f64 = 0.5;
+const GD_TARGET: f64 = 0.2;
+const GD_ITERATIONS: u64 = 60;
+/// Meshes per learning rate.
+const GD_RUNS: u64 = 20;
+/// The learning rates: the text's 50 (p. 5 and Suppl. p. 23), and 1, the top of Suppl. Fig. 23's
+/// axis (10⁻¹ to 10⁰).
+const GD_RATES: [f64; 2] = [50.0, 1.0];
 
 /// e^(ix), by genoxide's portable sine and cosine.
 fn cis(x: f64) -> c64 {
@@ -756,6 +778,51 @@ fn finish(solver: &Solver, draw: &Draw, z: &[c64], outcome: &Outcome<Reals>) -> 
     }
 }
 
+/// Gradient descent with momentum (Suppl. Eqs. 5 and 7, Suppl. pp. 7–8 and 23): the gradient
+/// by central differences of `GD_STEP`, 1 + 2 × 72 operations an iteration, from uniform
+/// phases, until CF is below 0.2 or after 60 iterations (Suppl. p. 23). The run's end: OF1 at
+/// its best point, and its iterations, or none if it didn't get there.
+fn descent(solver: &Solver, draw: &Draw, z: &[c64], rate: f64, seed: u64) -> (f64, Option<u64>) {
+    let start: Vec<f64> = Uniform::new(seed)
+        .take(GENES)
+        .iter()
+        .map(|u| TAU * u)
+        .collect();
+    // the phases free, as a phase is: bounds never reached
+    let real = Real::uniform(GENES, -1e3..=1e3).expect("bounds");
+    let gd = FirstOrder::builder(real)
+        .step(first_order::Step::momentum(rate, GD_MOMENTUM))
+        .initial_genome(Reals::from(start))
+        .gradient_tolerance(0.0)
+        .minimize()
+        .build()
+        .expect("a valid descent");
+    let fitness = |x: &Reals, gradient: &mut [f64]| {
+        let mut probe = x.to_vec();
+        for (k, g) in gradient.iter_mut().enumerate() {
+            probe[k] = x[k] + GD_STEP;
+            let up = cost(&powers(solver, draw, &probe, z));
+            probe[k] = x[k] - GD_STEP;
+            let down = cost(&powers(solver, draw, &probe, z));
+            probe[k] = x[k];
+            *g = (up - down) / (2.0 * GD_STEP);
+        }
+        cost(&powers(solver, draw, x, z))
+    };
+    let outcome = Engine::new(gd, Differentiable(&fitness))
+        .stop_when(Stop::target(GD_TARGET).or(Stop::evaluations(GD_ITERATIONS)))
+        .run()
+        .expect("a run");
+    let reached = outcome
+        .best_fitness()
+        .score()
+        .is_some_and(|cf| cf < GD_TARGET);
+    (
+        feature(&powers(solver, draw, outcome.best_genome(), z)),
+        reached.then(|| outcome.evaluations()),
+    )
+}
+
 /// What the genetic algorithm's mutation range decays over: e^(−0.5 t), t this clock.
 #[derive(Clone, Copy)]
 enum Clock {
@@ -1026,6 +1093,30 @@ pub fn main() -> photonoxide::Result<ExitCode> {
             .collect();
         println!("  {what}:");
         report(&ga, "95 %");
+    }
+
+    // gradient descent: printed, not checked
+    println!(
+        "\nGradient descent with momentum {GD_MOMENTUM}, central differences of {GD_STEP} rad (145 operations an iteration), from uniform phases until CF < {GD_TARGET} or {GD_ITERATIONS} iterations, {GD_RUNS} meshes. Printed, not checked: the paper's 5 to 6 iterations at a learning rate of 50 hang on how its CF is scaled, which it doesn't say"
+    );
+    for rate in GD_RATES {
+        let runs: Vec<(f64, Option<u64>)> = draws[..GD_RUNS as usize]
+            .par_iter()
+            .enumerate()
+            .map(|(r, d)| descent(&solver, d, &z, rate, 5000 + r as u64))
+            .collect();
+        let mut reached: Vec<u64> = runs.iter().filter_map(|r| r.1).collect();
+        reached.sort_unstable();
+        let mean = runs.iter().map(|r| r.0).sum::<f64>() / runs.len() as f64;
+        let median = reached
+            .get(reached.len() / 2)
+            .map_or_else(String::new, |i| {
+                format!(" in a median of {i} iterations ({} operations)", i * 145)
+            });
+        println!(
+            "  learning rate {rate}: CF < {GD_TARGET} on {} of {GD_RUNS} meshes{median}; OF1 {mean:.2} dB on average where they stopped",
+            reached.len()
+        );
     }
 
     // with crosstalk: printed, not checked
