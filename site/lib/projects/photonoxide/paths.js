@@ -5,6 +5,7 @@ import {
   LANGUAGES_DOCS_PATH,
   METHODS_PATH,
   PYTHON_DOCS_PATH,
+  PYTHON_REFERENCE_PATH,
 } from "./meta";
 import { getMethods } from "./methods";
 
@@ -18,6 +19,7 @@ export async function photonoxidePaths() {
   const [{ methods }, { examples }] = await Promise.all([getMethods(), getExamples()]);
   return [
     PYTHON_DOCS_PATH,
+    PYTHON_REFERENCE_PATH,
     LANGUAGES_DOCS_PATH,
     CROSS_CODE_DOCS_PATH,
     ...methods.map((m) => `${METHODS_PATH}/${m.slug}`),
