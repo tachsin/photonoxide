@@ -3626,6 +3626,9 @@ dependencies = [
  "num-complex",
  "photonoxide-core",
  "photonoxide-geometry",
+ "photonoxide-linalg",
+ "photonoxide-mode",
+ "photonoxide-statics",
  "private-gemm-x86",
  "rayon",
  "schemars 1.2.3",
@@ -3663,6 +3666,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "photonoxide-linalg"
+version = "0.6.0"
+dependencies = [
+ "faer",
+ "num-complex",
+ "photonoxide-core",
+ "rayon",
+]
+
+[[package]]
+name = "photonoxide-mode"
+version = "0.6.0"
+dependencies = [
+ "faer",
+ "num-complex",
+ "photonoxide-core",
+ "photonoxide-geometry",
+ "photonoxide-linalg",
+ "rayon",
+]
+
+[[package]]
 name = "photonoxide-native"
 version = "0.6.0"
 dependencies = [
@@ -3695,6 +3720,18 @@ dependencies = [
  "lzma-rust2",
  "rfd",
  "tauri-winres",
+]
+
+[[package]]
+name = "photonoxide-statics"
+version = "0.6.0"
+dependencies = [
+ "faer",
+ "num-complex",
+ "photonoxide-core",
+ "photonoxide-geometry",
+ "photonoxide-linalg",
+ "rayon",
 ]
 
 [[package]]
