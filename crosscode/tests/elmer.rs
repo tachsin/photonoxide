@@ -20,6 +20,7 @@ use photonoxide_crosscode::elmer::{self, Elmer};
 use photonoxide_crosscode::heater::{self, Heater};
 use photonoxide_crosscode::heaters::{self, Heaters};
 use photonoxide_crosscode::report::{duration, machine, percent, signed_percent};
+use photonoxide_crosscode::transient::{self, Transient};
 
 /// The meshes' smallest cells, µm, each half the last, growing by 1.1 to the largest.
 const LINE_SMALLEST: [f64; 5] = [2.0, 1.0, 0.5, 0.25, 0.125];
@@ -39,6 +40,12 @@ const HEATER_CONVERGED_LARGEST: f64 = 1.0;
 /// [`GROWTH`] to [`SILICON_LARGEST`]; photonoxide's converged ones as the heater's.
 const SILICON_SMALLEST: [f64; 5] = [0.08, 0.04, 0.02, 0.01, 0.005];
 const SILICON_LARGEST: f64 = 2.0;
+
+/// The transient's step, s, and the steps the step study takes on one mesh.
+const STEP_S: f64 = 0.025e-6;
+const STEP_STUDY_S: [f64; 4] = [0.1e-6, 0.05e-6, 0.025e-6, 0.0125e-6];
+/// The mesh the step study takes, its smallest cell (µm).
+const STEP_STUDY_MESH: f64 = 0.02;
 
 /// Elmer extrapolated against photonoxide converged, relative.
 const INDEX_TOLERANCE: f64 = 1e-3;
@@ -433,6 +440,152 @@ fn heaters_pair(program: &Elmer, folder: &Path, progress: &mut Progress) -> Pair
     }
 }
 
+/// A step, s, in µs as written: 0.0125, not 0.012499999999999999.
+fn us(seconds: f64) -> f64 {
+    (seconds * 1e10).round() / 1e4
+}
+
+/// The transient's figures by Elmer on `g` with steps of `step_s` in `run`: the rises at
+/// [`transient::TIMES_US`] and the 1/e time, its fastest time over `repeats` runs, its cells.
+fn transient_elmer(
+    program: &Elmer,
+    case: &Transient,
+    g: Grading,
+    step_s: f64,
+    run: &Path,
+    repeats: usize,
+) -> (Vec<f64>, f64, usize) {
+    let (x, y) = case.axes(&mesh_of(g)).expect("a valid mesh");
+    let steps = (transient::END_US * 1e-6 / step_s).round() as usize;
+    let (steady, stepped, rib) = case.elmer(&x, &y, step_s, steps).expect("the case");
+    let at_rest = run.join("steady");
+    program.run(&steady, &at_rest).expect("Elmer's run");
+    let rise = rib
+        .of(&last_saved(&at_rest, "temperature"))
+        .expect("the rib's nodes");
+    let seconds = (0..repeats)
+        .map(|_| {
+            program.run(&stepped, run).expect("Elmer's run");
+            elmer::solver_seconds(run).expect("Elmer's log")
+        })
+        .fold(f64::INFINITY, f64::min);
+    let mut history = vec![(0.0, 0.0)];
+    for row in elmer::saved(run, "temperature").expect("Elmer's values") {
+        history.push((row.time, rib.of(&row.values).expect("the rib's nodes")));
+    }
+    assert_eq!(history.len(), steps + 1, "Elmer saved every step");
+    (
+        transient::figures(&history, rise),
+        seconds,
+        stepped.mesh.cells(),
+    )
+}
+
+/// The same by photonoxide: its figures, and its transient's fastest time over `repeats` runs
+/// (its steady solve, for the 1/e time, not in it).
+fn transient_ours(case: &Transient, g: Grading, step_s: f64, repeats: usize) -> (Vec<f64>, f64) {
+    let (x, y) = case.axes(&mesh_of(g)).expect("a valid mesh");
+    let steps = (transient::END_US * 1e-6 / step_s).round() as usize;
+    let rise = case.steady(&x, &y).expect("the heat solve");
+    let mut best = f64::INFINITY;
+    let mut history = Vec::new();
+    for _ in 0..repeats {
+        let t = Instant::now();
+        history = case
+            .photonoxide(&x, &y, step_s, steps)
+            .expect("the transient");
+        best = best.min(t.elapsed().as_secs_f64());
+    }
+    (transient::figures(&history, rise), best)
+}
+
+fn transient_pair(program: &Elmer, folder: &Path, progress: &mut Progress) -> Pair {
+    let case = Transient::jacques();
+    let elmer = |g: Grading, name: &str| {
+        transient_elmer(program, &case, g, STEP_S, &folder.join(name), REPEATS)
+    };
+    let ours = |g: Grading| transient_ours(&case, g, STEP_S, REPEATS);
+    let (rows, converged) = study(progress, "transient", &elmer, &ours);
+    progress.next("the transient's step study");
+    let mesh = (STEP_STUDY_MESH, GROWTH, SILICON_LARGEST);
+    let steps: Vec<(f64, Vec<f64>, Vec<f64>)> = STEP_STUDY_S
+        .iter()
+        .map(|&dt| {
+            let run = folder.join(format!("transient-step-{}", us(dt)));
+            let e = transient_elmer(program, &case, mesh, dt, &run, 1).0;
+            let o = transient_ours(&case, mesh, dt, 1).0;
+            eprintln!("  step {} µs: Elmer {e:?}; photonoxide {o:?}", us(dt));
+            (dt, e, o)
+        })
+        .collect();
+    let mut more = format!(
+        "The time step, on the {STEP_STUDY_MESH} µm mesh: each code's figures with steps from {} to {} µs, and how far each moves from the step before, in percent. The meshes above take {} µs, {} steps.\n\n| Step | Elmer: rise at 1, 5, 20 µs (K); 1/e time (µs) | Change | photonoxide: the same | Change |\n|---:|---|---|---|---|\n",
+        us(STEP_STUDY_S[0]),
+        us(STEP_STUDY_S[STEP_STUDY_S.len() - 1]),
+        us(STEP_S),
+        (transient::END_US * 1e-6 / STEP_S).round()
+    );
+    let list = |v: &[f64]| -> String {
+        v.iter()
+            .map(|x| format!("{x:.4}"))
+            .collect::<Vec<_>>()
+            .join(", ")
+    };
+    let change = |v: &[f64], before: Option<&Vec<f64>>| -> String {
+        before.map_or("—".to_owned(), |b| {
+            v.iter()
+                .zip(b)
+                .map(|(x, y)| percent(*x, *y))
+                .collect::<Vec<_>>()
+                .join(", ")
+        })
+    };
+    for (k, (dt, e, o)) in steps.iter().enumerate() {
+        let before = k.checked_sub(1).map(|j| &steps[j]);
+        let _ = writeln!(
+            more,
+            "| {} µs | {} | {} | {} | {} |",
+            us(*dt),
+            list(e),
+            change(e, before.map(|b| &b.1)),
+            list(o),
+            change(o, before.map(|b| &b.2))
+        );
+    }
+    more.push('\n');
+    let rise = |t: f64| Quantity {
+        name: match t {
+            1.0 => "rise at 1 µs, K",
+            5.0 => "rise at 5 µs, K",
+            _ => "rise at 20 µs, K",
+        },
+        scale: 1.0,
+        decimals: 4,
+        tolerance: RISE_TOLERANCE,
+    };
+    let mut quantities: Vec<Quantity> = transient::TIMES_US.iter().map(|&t| rise(t)).collect();
+    quantities.push(Quantity {
+        name: "1/e time, µs",
+        scale: 1.0,
+        decimals: 4,
+        tolerance: RISE_TOLERANCE,
+    });
+    Pair {
+        case: "the heater in time",
+        heading: "A heater turned on: HeatSolve in time",
+        about: format!(
+            "Jacques et al.'s N++ silicon heater of the two-heater problem, alone in the paper's 40 × 18 µm window, its sides insulated; half of it beside the mirror plane through the rib. Cold (0) until t = 0, then dissipating the paper's P_π, {:.2} W/m. Table 3's heat capacities per volume: silicon 2330 × 711 and oxide 2203 × 709 J/(m³·K). Elmer's HeatSolve in time, BDF of order 2 (its first step by backward Euler); photonoxide's transient, BDF2 (its first step by backward Euler), both with the same {} µs steps to {} µs. The rib's mean rise at 1, 5 and 20 µs, and its 1/e time, when it first reaches 1 − 1/e of its steady rise (each code's own steady rise on the same mesh, read between steps linearly). The paper's simulated limiting 1/e time, of the phase, is about 5.8 µs (Fig. 1(c)). The times are each code's whole run of steps. Elmer's HeatSolve, as set up here with its defaults, assembles and factorizes its matrix at every step (keeping the first step's factors isn't right here, as BDF2's matrix changes after its first step); photonoxide factorizes its two matrices once and then only solves, which is most of the difference in time.",
+            heaters::WATTS_PER_METRE,
+            us(STEP_S),
+            transient::END_US
+        ),
+        quantities,
+        rows,
+        converged,
+        more,
+    }
+}
+
 #[test]
 #[ignore = "runs Elmer, where it is installed: minutes"]
 fn elmer_agrees_with_the_static_solver() {
@@ -573,6 +726,9 @@ fn elmer_agrees_with_the_static_solver() {
     let mut pairs: Vec<Pair> = Vec::new();
     if runs("heaters") {
         pairs.push(heaters_pair(&program, &folder, &mut progress));
+    }
+    if runs("transient") {
+        pairs.push(transient_pair(&program, &folder, &mut progress));
     }
     eprintln!(
         "[elmer] done in {:.0} s",
