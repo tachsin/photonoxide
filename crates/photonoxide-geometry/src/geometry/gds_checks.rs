@@ -37,6 +37,7 @@ pub(crate) fn excess64(v: f64) -> [u8; 8] {
 }
 
 /// A GDSII stream written record by record, for tests and checks.
+#[doc(hidden)]
 pub struct Writer {
     bytes: Vec<u8>,
 }
@@ -44,6 +45,7 @@ pub struct Writer {
 impl Writer {
     /// A stream's HEADER, BGNLIB, LIBNAME and UNITS: `user` database units in a user unit, the
     /// database unit `unit_m` metres.
+    #[doc(hidden)]
     pub fn new(user: f64, unit_m: f64) -> Writer {
         let mut w = Writer::without_units();
         w.reals(0x03, &[user, unit_m]);
@@ -100,12 +102,14 @@ impl Writer {
     }
 
     /// BGNSTR and STRNAME.
+    #[doc(hidden)]
     pub fn begin(&mut self, name: &str) {
         self.int2(0x05, &[2026, 10, 29, 12, 0, 0, 2026, 10, 29, 12, 0, 0]);
         self.text(0x06, name);
     }
 
     /// ENDSTR.
+    #[doc(hidden)]
     pub fn end(&mut self) {
         self.none(0x07);
     }
@@ -122,6 +126,7 @@ impl Writer {
     }
 
     /// A BOX from `lo` to `hi`, its BOXTYPE `layer[1]`.
+    #[doc(hidden)]
     pub fn rect(&mut self, layer: [i16; 2], lo: [i32; 2], hi: [i32; 2]) {
         self.none(0x2D);
         self.int2(0x0D, &[layer[0]]);
@@ -166,6 +171,7 @@ impl Writer {
 
     /// An SREF of `cell` at `at`: reflected about x if `mirror`, magnified by `mag`, turned by
     /// `angle` degrees.
+    #[doc(hidden)]
     pub fn sref(&mut self, cell: &str, mirror: bool, mag: f64, angle: f64, at: [i32; 2]) {
         self.none(0x0A);
         self.text(0x12, cell);
@@ -201,6 +207,7 @@ impl Writer {
     }
 
     /// ENDLIB, and the stream.
+    #[doc(hidden)]
     pub fn finish(mut self) -> Vec<u8> {
         self.none(0x04);
         self.bytes
@@ -311,6 +318,7 @@ pub(crate) fn area_error() -> f64 {
 }
 
 /// The GDSII reader's validation cases.
+#[doc(hidden)]
 pub fn cases() -> Vec<Case> {
     vec![Case {
         id: "geometry/gds",

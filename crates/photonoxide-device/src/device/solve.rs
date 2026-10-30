@@ -353,7 +353,8 @@ pub(super) fn check_size(unknowns: f64) -> Result<()> {
 ///
 /// [`Error::InvalidValue`] for ports that don't face along x or a grid [`FdfdGrid`] refuses, and
 /// the solvers' errors.
-pub(super) fn sampled(
+#[doc(hidden)]
+pub fn sampled(
     kind: &str,
     geometry: &Geometry,
     core: &str,

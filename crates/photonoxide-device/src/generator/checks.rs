@@ -944,7 +944,8 @@ fn count(n: usize) -> Outcome {
 }
 
 /// The generators' validation cases.
-pub(crate) fn cases() -> Vec<Case> {
+#[doc(hidden)]
+pub fn cases() -> Vec<Case> {
     vec![
         Case {
             id: "generator/ports",

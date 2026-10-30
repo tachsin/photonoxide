@@ -47,9 +47,8 @@
 use faer::Mat;
 use num_complex::Complex64 as c64;
 
-#[cfg(test)]
-use crate::lstsq::jacobi_svd;
-pub(crate) use crate::lstsq::least_squares;
+#[doc(hidden)]
+pub use crate::lstsq::least_squares;
 use crate::{Error, Result};
 
 /// Whether a model is a real system's (poles and residues in conjugate pairs) or any complex
@@ -176,7 +175,8 @@ impl Rational {
 
 /// A pole of the model being fitted, with its share of the least squares' real unknowns.
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub(crate) enum Pole {
+#[doc(hidden)]
+pub enum Pole {
     /// A real pole: one real residue.
     Real(f64),
     /// A complex-conjugate pair a, ā (stored with Im a > 0): residues c, c̄ from two real
@@ -187,14 +187,16 @@ pub(crate) enum Pole {
 }
 
 impl Pole {
-    pub(crate) fn unknowns(self) -> usize {
+    #[doc(hidden)]
+    pub fn unknowns(self) -> usize {
         match self {
             Pole::Real(_) => 1,
             Pole::Pair(_) | Pole::Complex(_) => 2,
         }
     }
 
-    pub(crate) fn value(self) -> c64 {
+    #[doc(hidden)]
+    pub fn value(self) -> c64 {
         match self {
             Pole::Real(a) => c64::new(a, 0.0),
             Pole::Pair(a) | Pole::Complex(a) => a,
@@ -205,7 +207,8 @@ impl Pole {
 const I: c64 = c64 { re: 0.0, im: 1.0 };
 
 /// The basis functions of `poles`, a column each per real unknown, at `s`.
-pub(crate) fn partial_fractions(poles: &[Pole], s: c64, out: &mut Vec<c64>) {
+#[doc(hidden)]
+pub fn partial_fractions(poles: &[Pole], s: c64, out: &mut Vec<c64>) {
     for &p in poles {
         match p {
             Pole::Real(a) => out.push(1.0 / (s - a)),
@@ -224,7 +227,8 @@ pub(crate) fn partial_fractions(poles: &[Pole], s: c64, out: &mut Vec<c64>) {
 }
 
 /// The derivatives d/ds of [`partial_fractions`]' columns at `s`.
-pub(crate) fn partial_fraction_slopes(poles: &[Pole], s: c64, out: &mut Vec<c64>) {
+#[doc(hidden)]
+pub fn partial_fraction_slopes(poles: &[Pole], s: c64, out: &mut Vec<c64>) {
     for &p in poles {
         match p {
             Pole::Real(a) => out.push(-1.0 / ((s - a) * (s - a))),
@@ -243,7 +247,8 @@ pub(crate) fn partial_fraction_slopes(poles: &[Pole], s: c64, out: &mut Vec<c64>
 }
 
 /// The complex coefficients of `poles` (each pair's two poles) from the real unknowns `x`.
-pub(crate) fn residues_of(poles: &[Pole], x: &[f64]) -> Vec<c64> {
+#[doc(hidden)]
+pub fn residues_of(poles: &[Pole], x: &[f64]) -> Vec<c64> {
     let mut out = Vec::new();
     let mut k = 0;
     for &p in poles {
@@ -266,7 +271,8 @@ pub(crate) fn residues_of(poles: &[Pole], x: &[f64]) -> Vec<c64> {
     out
 }
 
-pub(crate) fn expanded(poles: &[Pole]) -> Vec<c64> {
+#[doc(hidden)]
+pub fn expanded(poles: &[Pole]) -> Vec<c64> {
     poles
         .iter()
         .flat_map(|&p| match p {
@@ -277,7 +283,8 @@ pub(crate) fn expanded(poles: &[Pole]) -> Vec<c64> {
 }
 
 /// The basis columns of the terms d and s h, for `symmetry`.
-pub(crate) fn polynomial_terms(options: &Options, s: c64, out: &mut Vec<c64>) {
+#[doc(hidden)]
+pub fn polynomial_terms(options: &Options, s: c64, out: &mut Vec<c64>) {
     let complex = options.symmetry == Symmetry::Complex;
     if options.constant {
         out.push(c64::new(1.0, 0.0));
@@ -294,7 +301,8 @@ pub(crate) fn polynomial_terms(options: &Options, s: c64, out: &mut Vec<c64>) {
 }
 
 /// Rows of a real least squares from complex equations: real parts, then imaginary parts.
-pub(crate) fn real_rows(rows: &[Vec<c64>]) -> Mat<f64> {
+#[doc(hidden)]
+pub fn real_rows(rows: &[Vec<c64>]) -> Mat<f64> {
     let (m, n) = (rows.len(), rows.first().map_or(0, Vec::len));
     Mat::from_fn(2 * m, n, |i, j| {
         if i < m {
@@ -411,7 +419,8 @@ pub fn vector_fit(s: &[c64], responses: &[Vec<c64>], options: &Options) -> Resul
 /// Runs `f` with faer's dense factorizations on one thread, so that their sums are taken in one
 /// order and the result is the same however many threads the machine has (faer splits its work
 /// over the current rayon pool).
-pub(crate) fn sequential<T: Send>(f: impl FnOnce() -> T + Send) -> T {
+#[doc(hidden)]
+pub fn sequential<T: Send>(f: impl FnOnce() -> T + Send) -> T {
     if rayon::current_num_threads() == 1 {
         return f();
     }
@@ -526,7 +535,8 @@ fn max_move(old: &[c64], new: &[c64]) -> f64 {
 }
 
 /// Starting poles as the fit's poles: a real model's in conjugate pairs or real.
-pub(crate) fn classify(poles: &[c64], symmetry: Symmetry) -> Result<Vec<Pole>> {
+#[doc(hidden)]
+pub fn classify(poles: &[c64], symmetry: Symmetry) -> Result<Vec<Pole>> {
     match symmetry {
         Symmetry::Complex => Ok(poles.iter().map(|&a| Pole::Complex(a)).collect()),
         Symmetry::Real => {
@@ -563,7 +573,8 @@ pub(crate) fn classify(poles: &[c64], symmetry: Symmetry) -> Result<Vec<Pole>> {
 /// column-scaled block leaves, below A's rows of R, the least squares that remains for the
 /// shared unknowns: B's and b's columns there, the scaling of B's undone. The rows are pushed
 /// onto `out`, `shared` + 1 values each.
-pub(crate) fn eliminate(mut m: Mat<f64>, own: usize, shared: usize, out: &mut Vec<Vec<f64>>) {
+#[doc(hidden)]
+pub fn eliminate(mut m: Mat<f64>, own: usize, shared: usize, out: &mut Vec<Vec<f64>>) {
     let scale: Vec<f64> = (0..m.ncols())
         .map(|j| {
             let v = m.col(j).norm_l2();
@@ -588,7 +599,8 @@ pub(crate) fn eliminate(mut m: Mat<f64>, own: usize, shared: usize, out: &mut Ve
 }
 
 /// The least squares of stacked rows from [`eliminate`]: the shared unknowns.
-pub(crate) fn solve_stacked(stacked: &[Vec<f64>], shared: usize) -> Vec<f64> {
+#[doc(hidden)]
+pub fn solve_stacked(stacked: &[Vec<f64>], shared: usize) -> Vec<f64> {
     let a = Mat::from_fn(stacked.len(), shared, |i, j| stacked[i][j]);
     let b = Mat::from_fn(stacked.len(), 1, |i, _| stacked[i][shared]);
     least_squares(a, &b)
@@ -597,7 +609,8 @@ pub(crate) fn solve_stacked(stacked: &[Vec<f64>], shared: usize) -> Vec<f64> {
 /// The zeros of σ(s) = 1 + Σ c̃ φ(s) over the basis of `poles`, `c_tilde` its real unknowns:
 /// the eigenvalues of A − b c̃ᵀ (the paper's B.1), a real model's pairs as real 2 × 2 blocks
 /// (B.2), so that its zeros are real or exact conjugate pairs. Not made stable.
-pub(crate) fn sigma_zeros(poles: &[Pole], c_tilde: &[f64]) -> Result<Vec<c64>> {
+#[doc(hidden)]
+pub fn sigma_zeros(poles: &[Pole], c_tilde: &[f64]) -> Result<Vec<c64>> {
     let failed = |e: faer::linalg::evd::EvdError| {
         Error::invalid("vector fit", format!("the zeros of sigma: {e:?}"))
     };
@@ -652,7 +665,8 @@ pub(crate) fn sigma_zeros(poles: &[Pole], c_tilde: &[f64]) -> Result<Vec<c64>> {
 /// with σ(s) = 1 + cᵀ(sI − A)⁻¹ b, so that its zeros are the eigenvalues of A − b cᵀ, as in
 /// [`sigma_zeros`]: a real model's pairs as real 2 × 2 blocks (the paper's B.2), every lone
 /// complex pole as itself with c its two real unknowns as one complex number.
-pub(crate) fn sigma_realization(poles: &[Pole], c_tilde: &[f64]) -> (Mat<c64>, Vec<c64>, Vec<c64>) {
+#[doc(hidden)]
+pub fn sigma_realization(poles: &[Pole], c_tilde: &[f64]) -> (Mat<c64>, Vec<c64>, Vec<c64>) {
     let n: usize = poles
         .iter()
         .map(|p| match p {
@@ -698,7 +712,8 @@ pub(crate) fn sigma_realization(poles: &[Pole], c_tilde: &[f64]) -> (Mat<c64>, V
 
 /// New poles from σ's zeros, unstable ones flipped into the left half plane (the paper's
 /// Section 2); a real model's as real poles and pairs.
-pub(crate) fn stable_poles(zeros: Vec<c64>, symmetry: Symmetry) -> Vec<Pole> {
+#[doc(hidden)]
+pub fn stable_poles(zeros: Vec<c64>, symmetry: Symmetry) -> Vec<Pole> {
     let stable = |a: c64| c64::new(-a.re.abs(), a.im);
     match symmetry {
         Symmetry::Complex => zeros
@@ -758,7 +773,8 @@ fn relocate(s: &[c64], data: &[Vec<c64>], poles: &[Pole], options: &Options) -> 
 }
 
 /// Stage 2: each response's residues and terms, with `poles` fixed, and the fit's error.
-pub(crate) fn residues(
+#[doc(hidden)]
+pub fn residues(
     s: &[c64],
     data: &[Vec<c64>],
     poles: &[Pole],
@@ -825,7 +841,8 @@ pub(crate) fn residues(
 }
 
 /// The model's error against `responses` at `s`.
-pub(crate) fn error_of(model: &Rational, s: &[c64], responses: &[Vec<c64>]) -> FitError {
+#[doc(hidden)]
+pub fn error_of(model: &Rational, s: &[c64], responses: &[Vec<c64>]) -> FitError {
     let (mut sum_e, mut sum_f, mut max_e, mut max_f, mut count) =
         (0.0, 0.0, 0.0f64, 0.0f64, 0usize);
     for (e, f) in responses.iter().enumerate() {
@@ -847,6 +864,3 @@ pub(crate) fn error_of(model: &Rational, s: &[c64], responses: &[Vec<c64>]) -> F
         max_relative: if max_f > 0.0 { max_e / max_f } else { max_e },
     }
 }
-
-#[cfg(test)]
-mod tests;

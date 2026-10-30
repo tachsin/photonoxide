@@ -38,7 +38,7 @@ use super::params::{self, Want};
 use super::shapes::ShapeSpec;
 use super::task_error;
 use crate::Result;
-use crate::device::spec::MaterialSpec;
+use crate::device::spec_items::MaterialSpec;
 use crate::expr::{Expr, Parameters};
 use crate::geometry::{Body, Operation};
 use crate::material::Graded;

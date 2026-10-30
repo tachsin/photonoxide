@@ -20,7 +20,7 @@
 //! expression ([`crate::expr::Expr::eval_dual`]). A figure, or a parameter the component is built
 //! from (a width, a gap), is differentiated by central differences. An optimization checks every
 //! exact derivative against fourth-order differences before its optimizer uses it
-//! ([`crate::job`]'s `"optimize"` task).
+//! (`photonoxide::job`'s `"optimize"` task).
 //!
 //! docs/methods/optimization.md describes them, with the validation of each.
 
@@ -929,7 +929,8 @@ fn shifter_constraints() -> Vec<Constraint> {
 
 /// Where an output's value comes from.
 #[derive(Clone, Debug, PartialEq)]
-pub(crate) enum Source {
+#[doc(hidden)]
+pub enum Source {
     /// |S_qp|², by the ports' indices.
     Power(usize, usize),
     /// A figure of the model, by its symbol.
@@ -945,11 +946,15 @@ pub(crate) enum Source {
 /// The names an objective's expression may use at a design, each with where its value comes
 /// from: the scope its expressions are parsed in.
 #[derive(Clone, Debug)]
-pub(crate) struct Names {
-    pub(crate) scope: Scope,
+#[doc(hidden)]
+pub struct Names {
+    #[doc(hidden)]
+    pub scope: Scope,
     /// (slot, source), in the order defined.
-    pub(crate) sources: Vec<(usize, Source)>,
-    pub(crate) outputs: Vec<Output>,
+    #[doc(hidden)]
+    pub sources: Vec<(usize, Source)>,
+    #[doc(hidden)]
+    pub outputs: Vec<Output>,
 }
 
 impl Names {
@@ -959,7 +964,8 @@ impl Names {
     /// # Errors
     ///
     /// What the device's geometry refuses.
-    pub(crate) fn of(device: &dyn Device, values: &Values, built: Option<&Built>) -> Result<Names> {
+    #[doc(hidden)]
+    pub fn of(device: &dyn Device, values: &Values, built: Option<&Built>) -> Result<Names> {
         let ports: Vec<String> = device
             .geometry(values)?
             .ports
@@ -1007,7 +1013,8 @@ impl Names {
     }
 
     /// Adds a name, unless one hides it (a figure hides a parameter of its name).
-    pub(crate) fn add(
+    #[doc(hidden)]
+    pub fn add(
         &mut self,
         name: &str,
         source: Source,
@@ -1032,7 +1039,8 @@ impl Names {
     ///
     /// [`Error::InvalidValue`] for an expression that doesn't parse, names an output the device
     /// hasn't, or isn't a number.
-    pub(crate) fn parse(&self, what: &str, text: &str) -> Result<Expr> {
+    #[doc(hidden)]
+    pub fn parse(&self, what: &str, text: &str) -> Result<Expr> {
         let e = Expr::parse(text, &self.scope).map_err(|e| {
             Error::invalid(
                 "objective",

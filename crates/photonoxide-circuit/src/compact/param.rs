@@ -144,7 +144,8 @@ pub struct ParametricModel {
 }
 
 /// The monomials of total degree at most `degree` in `vars` variables, constant first.
-fn monomials(vars: usize, degree: usize) -> Vec<Vec<usize>> {
+#[doc(hidden)]
+pub fn monomials(vars: usize, degree: usize) -> Vec<Vec<usize>> {
     fn fill(i: usize, left: usize, current: &mut Vec<usize>, out: &mut Vec<Vec<usize>>) {
         if i + 1 == current.len() {
             current[i] = left;
@@ -173,7 +174,8 @@ fn evaluate_monomials(exponents: &[Vec<usize>], x: &[f64]) -> Vec<f64> {
 }
 
 /// The multilinear hat-function weights of the grid's nodes at `values` (within the grid).
-fn grid_weights(axes: &[Vec<f64>], values: &[f64]) -> Vec<f64> {
+#[doc(hidden)]
+pub fn grid_weights(axes: &[Vec<f64>], values: &[f64]) -> Vec<f64> {
     let count: usize = axes.iter().map(Vec::len).product();
     let mut w = vec![0.0; count];
     // per parameter: the segment and the position in it
@@ -202,7 +204,8 @@ fn grid_weights(axes: &[Vec<f64>], values: &[f64]) -> Vec<f64> {
 /// The derivatives of [`grid_weights`] at `values` with respect to parameter `along`: on the
 /// segment each value lies in (the one above it at a node, the last at the top), the hat
 /// functions' slopes along it times their values along the others.
-fn grid_slopes(axes: &[Vec<f64>], values: &[f64], along: usize) -> Vec<f64> {
+#[doc(hidden)]
+pub fn grid_slopes(axes: &[Vec<f64>], values: &[f64], along: usize) -> Vec<f64> {
     let count: usize = axes.iter().map(Vec::len).product();
     let mut w = vec![0.0; count];
     let segments: Vec<(usize, f64, f64)> = axes
@@ -1377,5 +1380,3 @@ impl Component for ParametricModel {
 }
 
 mod file;
-#[cfg(test)]
-mod tests;

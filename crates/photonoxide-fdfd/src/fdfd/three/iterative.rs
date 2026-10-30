@@ -70,9 +70,11 @@ pub enum Product {
 /// the assembly and the vectors included: the process's peak measured at 1.65 to 1.67 kB an
 /// unknown on the guide (192 000 and 255 552 unknowns) and the strip with ports (941 688), in
 /// docs/methods/fdfd-3d.md ("Without the matrix").
+#[doc(hidden)]
 pub const MATRIX_SOLVE_BYTES: u64 = 1_700;
 
 /// The peak bytes an unknown of the same solve without the matrix: 0.47 to 0.53 kB measured.
+#[doc(hidden)]
 pub const MATRIX_FREE_SOLVE_BYTES: u64 = 500;
 
 impl Product {

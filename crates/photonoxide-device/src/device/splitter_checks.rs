@@ -45,7 +45,8 @@ fn small(e: f64, tolerance: f64) -> Outcome {
 }
 
 /// The new devices' validation cases, in report order.
-pub(crate) fn cases() -> Vec<Case> {
+#[doc(hidden)]
+pub fn cases() -> Vec<Case> {
     vec![
         Case {
             id: "device/mmi-library",
@@ -559,7 +560,8 @@ fn y_branch_2d_grid() -> Outcome {
 /// stack), each cell averaged by `averaging` (in 3D the tensor's diagonal for the tensor): the
 /// largest |S₁₁|² (both ends), |S₂₁ − S₁₂| and |S₂₁ − e^(iβL)|. Its guides led out through the
 /// PMLs abut it at its ends.
-pub(crate) fn straight(averaging: Averaging) -> [f64; 3] {
+#[doc(hidden)]
+pub fn straight(averaging: Averaging) -> [f64; 3] {
     let guide = StripWaveguide::new();
     let v = Values::new(&guide, &[("length", 2.0)]).expect(OK);
     let g = guide.geometry(&v).expect(OK);

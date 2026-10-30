@@ -675,6 +675,7 @@ const GROWTH: f64 = 1e3;
 /// energy slowly could look like it at monitors in only one of them, which a monitor in the
 /// other prevents.
 #[derive(Clone, Debug)]
+#[doc(hidden)]
 pub struct Growth {
     #[doc(hidden)]
     pub needed: usize,

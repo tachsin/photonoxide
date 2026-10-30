@@ -680,19 +680,27 @@ impl Shape {
 #[doc(hidden)]
 pub struct Radiation {
     /// k₀, 1/µm.
+    #[doc(hidden)]
     pub k0: f64,
     /// The cladding's index.
+    #[doc(hidden)]
     pub cladding: f64,
     /// The core's and the cladding's relative permittivities.
+    #[doc(hidden)]
     pub eps_core: f64,
+    #[doc(hidden)]
     pub eps_cladding: f64,
     /// The core's width, the slab the rod radiates beside; `None` radiates in the cladding alone
     /// (their Section IV).
+    #[doc(hidden)]
     pub width: Option<f64>,
     /// The rod's height a, µm.
+    #[doc(hidden)]
     pub height: f64,
     /// The mode's β, 1/µm.
+    #[doc(hidden)]
     pub beta: f64,
+    #[doc(hidden)]
     pub roughness: Roughness,
     /// Barwicz and Haus's G₁,₁ as printed, the reflected p-wave projected on the outgoing wave's
     /// vector, (1 + R̂_TM) for a current along the wall's plane: only to measure its difference

@@ -29,6 +29,7 @@ fn cells(n: usize, m: usize, h: f64, (x0, y0): (f64, f64)) -> Vec<Bounds> {
 /// A strip 0.5 µm wide along x from −4 to 4 µm, its axis at y = 0.0137 µm, drawn whole and in
 /// pieces: two abutting at x = 0.037 µm, three with seams at an angle to the grid, and four with
 /// a seam at x = 0.2 µm under a piece that overlaps the one before it and seams at an angle.
+#[doc(hidden)]
 pub fn strip_pieces() -> (Shape, Vec<Vec<Shape>>) {
     let (w, y0, end) = (0.5, 0.0137, 4.0);
     let rect = |x0: f64, x1: f64| {
@@ -141,6 +142,7 @@ pub(crate) fn aligned_difference() -> f64 {
 }
 
 /// The cases.
+#[doc(hidden)]
 pub fn cases() -> Vec<Case> {
     vec![
         Case {

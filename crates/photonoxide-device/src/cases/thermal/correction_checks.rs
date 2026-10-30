@@ -95,7 +95,8 @@ fn gradient_error() -> f64 {
 }
 
 /// The cases.
-pub(crate) fn cases() -> Vec<Case> {
+#[doc(hidden)]
+pub fn cases() -> Vec<Case> {
     vec![
         Case {
             id: "correction/gurses-cutoff",

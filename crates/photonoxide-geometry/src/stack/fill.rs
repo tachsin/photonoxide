@@ -16,6 +16,7 @@ use super::Structure;
 
 /// One slice of a box: its share of the box's height, and what fills it.
 #[derive(Clone, Debug, PartialEq)]
+#[doc(hidden)]
 pub enum Slice {
     /// The materials' shares in the plane (indexes into [`Fills::materials`]) and the normal of
     /// the walls crossing it, the same at every height of the slice.
@@ -35,6 +36,7 @@ pub enum Slice {
 }
 
 /// A structure's layers as layouts of their shapes, for the shares of boxes.
+#[doc(hidden)]
 pub struct Fills<'a> {
     structure: &'a Structure,
     /// Each layer's shapes, `true` for the layer's material over its background.
@@ -51,6 +53,7 @@ fn layer_material(i: usize, inside: bool) -> usize {
 
 impl<'a> Fills<'a> {
     /// The layouts of `structure`'s layers.
+    #[doc(hidden)]
     pub fn new(structure: &'a Structure) -> Fills<'a> {
         let layouts = structure
             .shapes
@@ -75,6 +78,7 @@ impl<'a> Fills<'a> {
 
     /// The materials the shares' indexes name: the substrate, the cladding, then each layer's
     /// material and background.
+    #[doc(hidden)]
     pub fn materials(&self) -> Vec<&'a Material> {
         let stack = &self.structure.stack;
         let mut out = vec![&stack.substrate, &stack.cladding];
@@ -87,6 +91,7 @@ impl<'a> Fills<'a> {
 
     /// The slices of the box from `lo` to `hi` (x, y, z in µm), bottom to top. A box without
     /// height is one slice, at its height.
+    #[doc(hidden)]
     pub fn slices(&self, lo: [f64; 3], hi: [f64; 3]) -> Vec<Slice> {
         let face = crate::geometry::Bounds::new(
             crate::geometry::Point::um(lo[0], lo[1]),
@@ -199,6 +204,7 @@ impl<'a> Fills<'a> {
 /// ([`Shares::component`], with its walls' normal), and then, the slices being layers normal to
 /// z, their mean for x and y and their harmonic mean for z: Farjadpour et al.'s rule for walls
 /// along z and interfaces normal to it. One slice is its own value, to the bit.
+#[doc(hidden)]
 pub fn combine(
     slices: &[Slice],
     eps: &[num_complex::Complex64],

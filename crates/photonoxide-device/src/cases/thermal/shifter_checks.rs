@@ -1,4 +1,4 @@
-//! The phase shifter's validation cases ([`super::shifter`]): a heated slab and a line source
+//! The phase shifter's validation cases (`super::shifter`): a heated slab and a line source
 //! above an isothermal substrate in closed form, the order of their errors, Jacques et al.'s two
 //! heaters (TiN above the strip, N++ silicon beside the rib) reproduced through the whole
 //! chain, and their numbers' convergence in the grids and the time step.
@@ -209,7 +209,8 @@ pub(crate) mod table3 {
 
 /// Which of Jacques et al.'s heaters.
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub(crate) enum Heater {
+#[doc(hidden)]
+pub enum Heater {
     /// TiN, 2.0 µm wide, `thickness` µm, 2 µm above the strip's top (`true`) or the buried
     /// oxide's.
     Tin {
@@ -222,11 +223,13 @@ pub(crate) enum Heater {
 }
 
 /// The N++ heater, the oxide's top 3.32 µm over the buried oxide's (the first TiN variant's).
-pub(crate) const NPP: Heater = Heater::Npp { top: 3.32 };
+#[doc(hidden)]
+pub const NPP: Heater = Heater::Npp { top: 3.32 };
 
 /// The TiN variants: what the paper doesn't state (the thickness withheld in Table 3; whether
 /// Fig. 4's H_clad of 2 µm is from the strip's top or the buried oxide's).
-pub(crate) const TIN: [Heater; 4] = [
+#[doc(hidden)]
+pub const TIN: [Heater; 4] = [
     Heater::Tin {
         thickness: 0.1,
         from_strip_top: true,
@@ -400,7 +403,8 @@ pub(crate) fn gated(quantity: &str, value: impl Fn(f64) -> f64, tolerance: f64) 
 // ---------------------------------------------------------------------------------------------
 
 /// The cases.
-pub(crate) fn cases() -> Vec<Case> {
+#[doc(hidden)]
+pub fn cases() -> Vec<Case> {
     vec![
         Case {
             id: "shifter/slab-sheet",

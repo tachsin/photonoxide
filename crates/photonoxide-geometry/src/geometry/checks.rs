@@ -211,6 +211,7 @@ pub(crate) fn transform_errors() -> (f64, f64) {
 }
 
 /// The geometry kernel's validation cases.
+#[doc(hidden)]
 pub fn cases() -> Vec<Case> {
     vec![
         Case {

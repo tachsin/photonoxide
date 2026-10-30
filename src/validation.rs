@@ -16,8 +16,8 @@ use std::f64::consts::TAU;
 
 use num_complex::Complex64;
 
+use crate::cases::circuit::components::checks as components;
 use crate::cases::material::catalogue::phase_change_checks;
-use crate::circuit::components::checks as components;
 use crate::material::catalogue::batio3_film;
 use crate::material::catalogue::checks as catalogue;
 use crate::material::catalogue::conductivity_checks;
@@ -2183,7 +2183,7 @@ pub fn cases() -> Vec<Case> {
     // and chips of devices, computed, studied and optimized
     cases.extend(crate::job::chip_cases());
     // the compact models' cases live with them
-    cases.extend(crate::compact::checks::cases());
+    cases.extend(crate::cases::compact::checks::cases());
     // and the geometry kernel's
     cases.extend(crate::geometry::checks::cases());
     // and its paths', with the published bends
@@ -2232,19 +2232,19 @@ pub fn cases() -> Vec<Case> {
     cases.extend(crate::thermal::crosstalk_checks::cases());
     // and the heaters' dynamic thermal compact models, and a circuit heated through them
     cases.extend(crate::thermal::rc_checks::cases());
-    cases.extend(crate::circuit::heated_checks::cases());
+    cases.extend(crate::cases::circuit::heated_checks::cases());
     // and their crosstalk corrected: Gurses et al.'s networks and array
     cases.extend(crate::thermal::correction_checks::cases());
     // and the thermo-optic phase shifters as devices, at analytic, 2D and measured fidelity
-    cases.extend(crate::device::thermo_checks::cases());
+    cases.extend(crate::cases::device::thermo_checks::cases());
     // and the phase-change phase shifters as devices, at analytic and 2D fidelity
-    cases.extend(crate::device::pcm_checks::cases());
+    cases.extend(crate::cases::device::pcm_checks::cases());
     // and eigenmode expansion's: slab steps against closed forms, tapers against FDFD
     cases.extend(crate::cases::eme::checks::cases());
     // and convergence to a tolerance: the mode solver, FDFD and the expansion driven to one
     cases.extend(crate::cases::convergence::checks::cases());
     // and the thin-film lithium niobate Mach-Zehnder modulator as a device
-    cases.extend(crate::device::tfln_checks::cases());
+    cases.extend(crate::cases::device::tfln_checks::cases());
     // and a mode's quantities: its effective area, confinement and orthogonality
     cases.extend(crate::mode::quantities_checks::cases());
     // and sidewall roughness: Payne and Lacey's slab, Barwicz and Haus's 3D analysis on the grid

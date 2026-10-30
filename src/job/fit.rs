@@ -49,7 +49,7 @@ use super::study::{design_point, set};
 use super::{Event, task_error};
 use crate::circuit::{Fidelity, SMatrix, Spectrum};
 use crate::compact::{Interpolation, Sample};
-use crate::device::spec::Grids;
+use crate::device::spec_items::Grids;
 use crate::device::{FitAxis, FitPlan, Fitted, Sampling, Spec};
 use crate::run::{Job, Run, Stop};
 use crate::units::Wavelength;
@@ -378,6 +378,8 @@ pub fn fit_from_device(name: &str, spec: &Spec, compute: &Compute, plan: &FitPla
                 })?),
             );
         }
+        // #[non_exhaustive] in its crate (photonoxide-device)
+        _ => unreachable!("an arm for each kind"),
     }
     task.insert("held_out".into(), int(plan.held_out));
     task.insert("poles".into(), int(plan.poles));

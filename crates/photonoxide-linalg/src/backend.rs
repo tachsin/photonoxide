@@ -755,18 +755,25 @@ pub mod tests {
     /// photonoxide's own backend under another name, counting what is asked of it: the proof
     /// that a solver went through the registry.
     #[derive(Default)]
+    #[doc(hidden)]
     pub struct Recording {
         name: String,
+        #[doc(hidden)]
         pub analyses: Arc<AtomicUsize>,
+        #[doc(hidden)]
         pub factorizations: Arc<AtomicUsize>,
+        #[doc(hidden)]
         pub solves: Arc<AtomicUsize>,
+        #[doc(hidden)]
         pub transpose_solves: Arc<AtomicUsize>,
         /// Each factorization's report, in order.
+        #[doc(hidden)]
         pub reports: Arc<std::sync::Mutex<Vec<Report>>>,
     }
 
     impl Recording {
         /// Registered under `name`.
+        #[doc(hidden)]
         pub fn register(name: &str) -> Arc<Recording> {
             let recording = Arc::new(Recording {
                 name: name.to_owned(),
@@ -776,6 +783,7 @@ pub mod tests {
             recording
         }
 
+        #[doc(hidden)]
         pub fn counts(&self) -> [usize; 4] {
             [
                 self.analyses.load(Ordering::SeqCst),

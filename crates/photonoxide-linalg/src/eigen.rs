@@ -18,10 +18,12 @@
 //! decomposition itself; when every wanted one is small, it is accepted only when its true
 //! residual ‖Ax − λx‖ / (|λ| ‖x‖) is small too, computed with A itself.
 
+#[doc(hidden)]
 pub mod contour;
 mod growing;
 mod schur;
 
+#[doc(hidden)]
 pub use growing::nearest_growing;
 
 use faer::linalg::matmul::matmul;
@@ -32,6 +34,7 @@ use faer::{Accum, Mat, Par, c64};
 use crate::{Error, Result};
 
 /// An eigenpair of A.
+#[doc(hidden)]
 pub struct Pair {
     pub value: c64,
     pub vector: Vec<c64>,
@@ -123,6 +126,7 @@ fn start(n: usize) -> Vec<c64> {
 
 /// What a Krylov–Schur solve took.
 #[derive(Clone, Debug, Default, PartialEq)]
+#[doc(hidden)]
 pub struct Record {
     /// Restarts: truncations of the decomposition, one per growth but the last.
     pub restarts: usize,
@@ -149,6 +153,7 @@ const GROWTHS: usize = 200;
 ///
 /// [`Error::InvalidValue`] if the shifted matrix is singular or the eigenpairs don't converge
 /// within the restarts.
+#[doc(hidden)]
 pub fn nearest(
     n: usize,
     entries: &[(usize, usize, c64)],
@@ -167,6 +172,7 @@ pub fn nearest(
 /// # Errors
 ///
 /// As [`nearest`].
+#[doc(hidden)]
 pub fn nearest_until(
     n: usize,
     entries: &[(usize, usize, c64)],
@@ -188,6 +194,7 @@ pub fn nearest_until(
 /// # Errors
 ///
 /// As [`nearest`].
+#[doc(hidden)]
 pub fn nearest_small(
     n: usize,
     entries: &[(usize, usize, c64)],
@@ -220,6 +227,7 @@ enum Scale {
 /// The Krylov space's size for `count` eigenvalues of an n × n matrix, and how many vectors a
 /// restart keeps: m = max(2 count + 20, 40), as the growing restarts' first run had, and half
 /// the unwanted ones besides the wanted, so each growth takes (m − count)/2 steps.
+#[doc(hidden)]
 pub fn sizes(n: usize, count: usize) -> (usize, usize) {
     sizes_of(n, count, (2 * count + 20).max(40))
 }
@@ -237,6 +245,7 @@ fn sizes_of(n: usize, count: usize, m: usize) -> (usize, usize) {
 /// # Errors
 ///
 /// As [`nearest`].
+#[doc(hidden)]
 pub fn krylov_schur(
     n: usize,
     entries: &[(usize, usize, c64)],

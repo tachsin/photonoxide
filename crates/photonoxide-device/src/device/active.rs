@@ -345,7 +345,8 @@ impl Measurement {
     }
 
     /// Whether `values` are this design's: each parameter it gives at its value.
-    pub(crate) fn matches(&self, values: &Values) -> bool {
+    #[doc(hidden)]
+    pub fn matches(&self, values: &Values) -> bool {
         self.design.iter().all(|(n, v)| {
             values
                 .get(n)

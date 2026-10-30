@@ -226,6 +226,7 @@ pub(crate) fn li_eq22_silicon(t: f64) -> Result<Material> {
 /// and up to 750 K, below by Frey et al.'s formula on from there to `COLD_JOIN_T` (at Li's
 /// points up to 5 µm), and below that by Komma et al.'s dn/dT at 1550 nm, integrated, at every
 /// point (to 5 K); splined as the table is.
+#[doc(hidden)]
 pub fn li_silicon(t: f64) -> Result<Material> {
     if t == LI_T0 {
         return Ok(material::silicon());
@@ -330,6 +331,7 @@ fn silica_shift(lam: f64, t: f64) -> Result<f64> {
 /// Fused silica at a temperature (K): Malitson's formula ([`material::silica`], bit for bit at
 /// 20 °C), elsewhere moved by Leviton & Frey's change of index from 20 °C, on their wavelengths
 /// (0.4 to 2.6 µm) every 20 nm, splined.
+#[doc(hidden)]
 pub fn malitson_silica(t: f64) -> Result<Material> {
     if t == MALITSON_T0 {
         return Ok(material::silica());

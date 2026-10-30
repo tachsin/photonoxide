@@ -44,6 +44,7 @@ pub const DEPTH: u32 = 6;
 /// s = Σaᵢ/2 − d. Along the axis of the smallest a, the area of the rest's cut is piecewise
 /// quadratic between the sums of the rest's a, so two-point Gauss–Legendre on each piece is
 /// exact, with no division by a small a.
+#[doc(hidden)]
 pub fn plane_share(n: [f64; 3], d: f64, size: [f64; 3]) -> f64 {
     let mut a: Vec<f64> = (0..3).map(|i| n[i].abs() * size[i]).collect();
     let total: f64 = a.iter().sum();

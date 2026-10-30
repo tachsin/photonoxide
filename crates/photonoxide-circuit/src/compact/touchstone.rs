@@ -27,7 +27,7 @@
 //! # Photonics
 //!
 //! Touchstone comes from microwave engineering, where S is defined against reference impedances.
-//! An optical S-matrix ([`crate::fdfd::Solver2d::s_matrix`]) is **power-normalized** instead:
+//! An optical S-matrix (`photonoxide::fdfd::Solver2d::s_matrix`) is **power-normalized** instead:
 //! |S_qp|² is the share of the power in at port p that comes out at port q. For a real reference
 //! resistance that is also what a microwave S-matrix means, so the numbers carry over; the
 //! reference resistance written with optical data (50 Ω) is nominal and means nothing optically.

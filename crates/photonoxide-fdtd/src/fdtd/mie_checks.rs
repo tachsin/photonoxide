@@ -222,6 +222,7 @@ pub enum Material {
 }
 
 /// A sphere's cross-sections from an FDTD run, and Mie's at the same frequencies.
+#[doc(hidden)]
 pub struct SphereRun {
     /// The scattering cross-sections over πρ², from the flux out of a box in the scattered
     /// field.

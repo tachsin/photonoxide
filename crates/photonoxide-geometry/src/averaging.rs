@@ -234,6 +234,7 @@ enum Filled<K> {
 const INDEXED: usize = 8;
 
 impl<K: Copy + PartialEq> Layout<K> {
+    #[doc(hidden)]
     pub fn new(background: K) -> Layout<K> {
         Layout {
             background,
@@ -244,6 +245,7 @@ impl<K: Copy + PartialEq> Layout<K> {
         }
     }
 
+    #[doc(hidden)]
     pub fn push(&mut self, shape: Shape, key: K) {
         self.shapes.push(shape);
         self.keys.push(key);
@@ -276,6 +278,7 @@ impl<K: Copy + PartialEq> Layout<K> {
     }
 
     /// The material at `p`: the last shape drawn that holds it, or the background.
+    #[doc(hidden)]
     pub fn at(&self, p: Point) -> K {
         let cell = Bounds { min: p, max: p };
         self.near(cell)
@@ -296,6 +299,7 @@ impl<K: Copy + PartialEq> Layout<K> {
     /// [`crate::geometry::FILL_TOLERANCE`] of its size), made once per set of shapes. So two
     /// shapes of one material that abut are one region, and the edge between them, which no
     /// interface is, leaves no trace; nor in the normal ([`Layout::normal`]).
+    #[doc(hidden)]
     pub fn shares(&self, cell: Bounds) -> Shares<K> {
         match self.filled(cell) {
             Filled::Uniform(k) => Shares::uniform(k),

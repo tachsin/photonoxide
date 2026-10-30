@@ -486,6 +486,7 @@ pub fn slab_resonance(h: f64) -> (f64, f64) {
 /// reflection into the input guide's, by FDTD's mode monitors (divided by the source's
 /// amplitude at the carrier) and by FDFD's `mode_amplitudes` for the same mode source.
 #[derive(Clone, Copy, Debug)]
+#[doc(hidden)]
 pub struct Scattering {
     #[doc(hidden)]
     pub fdtd: [c64; 2],

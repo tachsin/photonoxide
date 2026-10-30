@@ -360,6 +360,7 @@ fn error(e: f64, tolerance: f64) -> Outcome {
 }
 
 /// The paths' validation cases.
+#[doc(hidden)]
 pub fn cases() -> Vec<Case> {
     vec![
         Case {

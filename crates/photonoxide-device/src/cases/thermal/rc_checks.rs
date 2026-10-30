@@ -208,7 +208,8 @@ pub(crate) fn pair(pitch: f64, r: f64) -> PhaseShifter {
 }
 
 /// The pair's step responses: BDF2 steps of 0.2 µs to 200 µs.
-pub(crate) fn pair_steps(pitch: f64) -> (PhaseShifter, StepResponses) {
+#[doc(hidden)]
+pub fn pair_steps(pitch: f64) -> (PhaseShifter, StepResponses) {
     let s = pair(pitch, 1.0);
     let r = s
         .step_responses(&Stepping::new(0.2e-6, 1000, Scheme::Bdf2))
@@ -217,7 +218,8 @@ pub(crate) fn pair_steps(pitch: f64) -> (PhaseShifter, StepResponses) {
 }
 
 /// The cases.
-pub(crate) fn cases() -> Vec<Case> {
+#[doc(hidden)]
+pub fn cases() -> Vec<Case> {
     vec![
         Case {
             id: "thermal-rc/known-sum",

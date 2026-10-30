@@ -493,12 +493,14 @@ pub(crate) fn mask_rows() -> Vec<Vec<f64>> {
 
 /// Zhang et al. 2013's Y-junction taper: 2 µm long, its widths w1 to w13 at 13 points of equal
 /// spacing (their Table 1), µm.
+#[doc(hidden)]
 pub const ZHANG_WIDTHS: [f64; 13] = [
     0.5, 0.5, 0.6, 0.7, 0.9, 1.26, 1.4, 1.4, 1.4, 1.4, 1.31, 1.2, 1.2,
 ];
 
 /// The not-a-knot cubic spline through (x_k, y_k) at equal spacing h: each piece's
 /// coefficients (a, b, c, d) of a + b u + c u² + d u³, u = x − x_k.
+#[doc(hidden)]
 pub fn spline(y: &[f64], h: f64) -> Vec<[f64; 4]> {
     let n = y.len() - 1;
     // the second derivatives M: rows 1..n−1 M_{i−1} + 4 M_i + M_{i+1} = 6 Δ²y/h², and the ends
@@ -663,6 +665,7 @@ fn outcome(measured: f64, expected: f64, tolerance: f64) -> Outcome {
 }
 
 /// The validation cases of the shapes defined by functions and masks.
+#[doc(hidden)]
 pub fn cases() -> Vec<Case> {
     vec![
         Case {

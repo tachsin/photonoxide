@@ -60,7 +60,7 @@ use super::device::{
 use super::kind::TaskKind;
 use super::{Event, task_error};
 use crate::circuit::Fidelity;
-use crate::device::spec::Grids;
+use crate::device::spec_items::Grids;
 use crate::device::{Design, Device, MaterialSpec, Spec, StackSpec};
 use crate::expr::Dim;
 use crate::material::catalogue;

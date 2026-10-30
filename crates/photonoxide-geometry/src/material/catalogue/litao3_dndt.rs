@@ -165,6 +165,7 @@ pub(crate) fn moutzouris_slopes() -> (f64, f64) {
 /// Moutzouris et al.'s Eq. (1) with their Table 2 against their Table 1, all 100 values (both
 /// indices, five wavelengths, ten temperatures): the mean absolute deviation, against the paper's
 /// "~0.0004" (p. 462).
+#[doc(hidden)]
 pub fn moutzouris_fit() -> Outcome {
     let mut sum = 0.0;
     let mut count = 0.0;

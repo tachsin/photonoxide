@@ -22,6 +22,7 @@
 //! stack, a line source above an isothermal substrate by images, and the order of the error.
 //!
 //! ```
+//! # mod photonoxide { pub use photonoxide_core::*; pub use photonoxide_geometry::*; pub use photonoxide_mode::*; pub use photonoxide_statics::electro; pub use photonoxide_fdfd::*; pub use photonoxide_circuit::*; pub use photonoxide_device::*; pub use num_complex::Complex64; } // the crates users name photonoxide
 //! use photonoxide::geometry::{Point, Shape};
 //! use photonoxide::thermal::{Boundary, Features, Grading, Grid, Heat, Section, Side, Tensor};
 //! use photonoxide::units::Length;
@@ -47,7 +48,7 @@
 //! a heat solve's rise in a guide's mode) is here too.
 
 // the statics crate's module (photonoxide-statics), and the shifter, which joins it to the mode
-// solver and so sits in the device layer: one path for both, as before the split (#508)
+// solver and so sits in this, the device layer: one path for both, as before the split (#508)
 #[doc(inline)]
 pub use photonoxide_statics::thermal::*;
 
@@ -58,16 +59,20 @@ use crate::geometry::Shape;
 
 // the checks and tests of the heat solver that use the shifter
 #[path = "cases/thermal/correction_checks.rs"]
-pub(crate) mod correction_checks;
+#[doc(hidden)]
+pub mod correction_checks;
 #[cfg(test)]
 #[path = "cases/thermal/correction_tests.rs"]
 mod correction_tests;
 #[path = "cases/thermal/crosstalk_checks.rs"]
-pub(crate) mod crosstalk_checks;
+#[doc(hidden)]
+pub mod crosstalk_checks;
 #[path = "cases/thermal/rc_checks.rs"]
-pub(crate) mod rc_checks;
+#[doc(hidden)]
+pub mod rc_checks;
 #[path = "cases/thermal/shifter_checks.rs"]
-pub(crate) mod shifter_checks;
+#[doc(hidden)]
+pub mod shifter_checks;
 #[cfg(test)]
 #[path = "cases/thermal/shifter_tests.rs"]
 mod shifter_tests;

@@ -1,4 +1,4 @@
-//! Validation against measured circuits (the cases in [`super::checks`]): Dwivedi et al. 2015's
+//! Validation against measured circuits (the cases in `super::checks`): Dwivedi et al. 2015's
 //! Mach-Zehnder interferometers of silicon wires, predicted from the wires' measured
 //! cross-sections and read the way the paper reads the measured spectra.
 //!
@@ -160,7 +160,8 @@ const TOLERANCE: [(f64, f64); 3] = [(0.061, 0.049), (0.042, 0.032), (0.031, 0.02
 
 /// Wire `wire`'s (0, 1, 2: 470, 602, 805 nm) n_g if `group`, else its n_eff, as
 /// (extracted, Table I's, the tolerance): what its validation case compares.
-pub(crate) fn dwivedi(wire: usize, group: bool) -> (f64, f64, f64) {
+#[doc(hidden)]
+pub fn dwivedi(wire: usize, group: bool) -> (f64, f64, f64) {
     let (n_eff, n_g) = extracted()[wire];
     if group {
         (n_g, TABLE[wire].1.0, TOLERANCE[wire].1)

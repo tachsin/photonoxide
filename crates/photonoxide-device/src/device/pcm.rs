@@ -142,13 +142,17 @@ pub struct PcmShifter {
 /// The effective indices of the cell in its three states: amorphous, at its fraction, and
 /// crystalline.
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub(super) struct States {
+#[doc(hidden)]
+pub struct States {
     /// The amorphous state's n_eff.
-    pub(super) amorphous: c64,
+    #[doc(hidden)]
+    pub amorphous: c64,
     /// The cell's n_eff.
-    pub(super) now: c64,
+    #[doc(hidden)]
+    pub now: c64,
     /// The crystalline state's n_eff.
-    pub(super) crystalline: c64,
+    #[doc(hidden)]
+    pub crystalline: c64,
 }
 
 impl PcmShifter {
@@ -225,7 +229,8 @@ impl PcmShifter {
     }
 
     /// The catalogue's material of one state.
-    pub(super) fn state(&self, state: State) -> Result<Material> {
+    #[doc(hidden)]
+    pub fn state(&self, state: State) -> Result<Material> {
         let pc = phase_change(self.pcm.id()).ok_or_else(|| {
             Error::invalid("device", format!("the catalogue has no {}", self.pcm.id()))
         })?;
@@ -478,11 +483,8 @@ impl PcmShifter {
     /// # Errors
     ///
     /// As [`PcmShifter::cross_section`], and [`Error::InvalidValue`] for a film on the top alone.
-    pub(super) fn zero_step(
-        &self,
-        values: &Values,
-        fraction: f64,
-    ) -> Result<[(CrossSection, c64); 2]> {
+    #[doc(hidden)]
+    pub fn zero_step(&self, values: &Values, fraction: f64) -> Result<[(CrossSection, c64); 2]> {
         values.check(self)?;
         PcmShifter::check_design(values)?;
         let Some((wall, _)) = PcmShifter::conformal(values) else {
@@ -715,7 +717,8 @@ impl PcmShifter {
     }
 
     /// The cell's three states at `fidelity`, and the grid they name.
-    pub(super) fn states(&self, values: &Values, fidelity: Fidelity) -> Result<(States, String)> {
+    #[doc(hidden)]
+    pub fn states(&self, values: &Values, fidelity: Fidelity) -> Result<(States, String)> {
         values.check(self)?;
         PcmShifter::check_design(values)?;
         let f = values.at("crystallized");
@@ -927,7 +930,8 @@ pub(super) fn conformal_film(
 /// The power loss, dB/µm, of a mode of effective index `n` at the free-space wavenumber `k0`
 /// (rad/µm). A passive medium's imaginary part is not negative, and below 1e-12 it is round-off
 /// (the lossless films' solves leave 1e-16 of either sign): both give 0.
-pub(super) fn loss(n: c64, k0: f64) -> f64 {
+#[doc(hidden)]
+pub fn loss(n: c64, k0: f64) -> f64 {
     if n.im > 1e-12 { DB * k0 * n.im } else { 0.0 }
 }
 

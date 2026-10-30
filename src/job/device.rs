@@ -39,7 +39,7 @@ use toml::{Table, Value};
 use super::kind::{Holder, TaskKind, find};
 use super::{Event, ScenePort, reason, task_error};
 use crate::circuit::Fidelity;
-use crate::device::spec::Grids;
+use crate::device::spec_items::Grids;
 use crate::device::{Design, Device, Spec};
 use crate::generator;
 use crate::geometry::{Point, Polygon, Shape};

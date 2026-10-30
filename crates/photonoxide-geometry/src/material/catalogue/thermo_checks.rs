@@ -83,6 +83,7 @@ pub(crate) const LI_TABLE_2: [(f64, [f64; 14]); 7] = [
 /// Li's Table 1 from his Table 1 at 293 K moved by Eq. (22) (the default silicon from 250 K
 /// up): the largest difference over the 98 entries, within three units of the printed fourth
 /// decimal (the table at 293 K rounded, Eq. (22) to the other columns rounded).
+#[doc(hidden)]
 pub fn li_table_1() -> Outcome {
     let errors = LI_TABLE_T.iter().enumerate().flat_map(|(j, &t)| {
         let m = thermo::li_eq22_silicon(t).ok();
@@ -97,6 +98,7 @@ pub fn li_table_1() -> Outcome {
 /// Li's Table 2 from Eq. (22)'s derivative (the default silicon's dn/dT from 250 K up): the
 /// largest difference over the 98 entries, in units of 1e-4 per K, within five units of the
 /// printed third decimal.
+#[doc(hidden)]
 pub fn li_table_2() -> Outcome {
     let errors = LI_TABLE_T.iter().enumerate().flat_map(|(j, &t)| {
         LI_TABLE_2
@@ -108,6 +110,7 @@ pub fn li_table_2() -> Outcome {
 
 /// The order at which central differences of Eq. (22), 1 and 0.5 K wide, approach its dn/dT in
 /// closed form at 1.55 µm and 400 K (2 for a central difference).
+#[doc(hidden)]
 pub fn li_dndt_order() -> Outcome {
     let (lam, t) = (1.55, 400.0);
     let exact = thermo::li_eq22(lam, t).1;
@@ -142,6 +145,7 @@ pub(crate) const FREY_TABLE_4: [(f64, [f64; 12]); 13] = [
 /// n (1e-4) over Table 4's finest step in temperature (10 K). At 295 K, the end of its range,
 /// the formula falls 0.06e-4 to 0.24e-4 per K below the measurements, which is why the default
 /// silicon takes Li's above 250 K ([`li_dndt_join`]).
+#[doc(hidden)]
 pub fn frey_dndt() -> Outcome {
     let errors = FREY_TABLE_2_T
         .iter()
@@ -158,6 +162,7 @@ pub fn frey_dndt() -> Outcome {
 /// The default silicon's dn/dT (Li's Eq. (22) from 250 K up) against Frey et al.'s measured
 /// Table 4 at 250 and 295 K, 1.2 to 5.5 µm: the largest difference, in units of 1e-4 per K,
 /// within Li's stated ±0.15e-4.
+#[doc(hidden)]
 pub fn li_dndt_join() -> Outcome {
     let errors = FREY_TABLE_2_T
         .iter()
@@ -199,6 +204,7 @@ pub(crate) const LEVITON_TABLE_6: [(f64, [f64; 13]); 16] = [
 /// within 1e-6 per K. That is what a guide needs of its cladding: silica holds a strip's field
 /// at a tenth of silicon's weight or less, so 1e-6 per K in silica moves its dn_eff/dT by
 /// 1e-7 per K, 0.05% of silicon's 1.8e-4.
+#[doc(hidden)]
 pub fn leviton_dndt() -> Outcome {
     let errors = LEVITON_TABLE_4_T
         .iter()
@@ -235,6 +241,7 @@ pub(crate) const KOMMA_BAR_35: f64 = 2.57e-6;
 /// Our reading of Komma et al.'s Fig. 4, checked on what it plots from a table: its crosses,
 /// Frey et al.'s Table 4 at 1.5 µm, read with the axes the points are read with, against the
 /// table as printed. The largest relative deviation, within 1 %.
+#[doc(hidden)]
 pub fn komma_frey_reading() -> Outcome {
     let row = FREY_TABLE_4
         .iter()
@@ -261,6 +268,7 @@ pub fn komma_frey_reading() -> Outcome {
 /// Where the default silicon passes from Komma et al.'s dn/dT to Frey et al.'s formula, 40 K at
 /// 1.55 µm: the formula's against Komma et al.'s point, in units of 1e-6 per K, within the
 /// half-width of Komma et al.'s last error bar.
+#[doc(hidden)]
 pub fn komma_join() -> Outcome {
     let t = thermo::COLD_JOIN_T;
     let komma = thermo::KOMMA_FIG_4
@@ -276,12 +284,14 @@ pub fn komma_join() -> Outcome {
 
 /// The default silicon's dn/dT at 1.55 µm and 300 K (Li's Eq. (22)) against the 1.8e-4 per K
 /// Komma et al. measured there (their abstract), in units of 1e-4 per K, within Li's ±0.15e-4.
+#[doc(hidden)]
 pub fn komma_room() -> Outcome {
     outcome(dndt("si", "li-1980", 1.55, 300.0) * 1e4, 1.8, 0.15)
 }
 
 /// The default silicon's dn/dT at 1.55 µm at every kelvin from 5 to 750 K: how many are not
 /// positive (none; Frey et al.'s formula alone turns negative below 27 K).
+#[doc(hidden)]
 pub fn silicon_dndt_positive() -> Outcome {
     let (lo, hi) = thermo::SILICON_T;
     let count = (lo as usize..=hi as usize)
@@ -320,6 +330,7 @@ fn quartic(c: &[f64; 5], t: f64) -> f64 {
 /// Our reading of Elshaari et al.'s Fig. 4, checked where the paper gives the curve in closed
 /// form: Fig. 4(b)'s points, read with that figure's axes as Fig. 4(a)'s are, against their
 /// Eq. (4) from 40 to 300 K. The largest relative deviation, within 1 %.
+#[doc(hidden)]
 pub fn elshaari_reading() -> Outcome {
     let worst = ELSHAARI_FIG_4B
         .iter()
@@ -331,6 +342,7 @@ pub fn elshaari_reading() -> Outcome {
 /// Elshaari et al.'s points of Fig. 4(a) between their neighbours: each inner point against the
 /// power law in T of the two about it, the largest relative deviation, within the ±0.08e-5 of
 /// their 2.51e-5 at room temperature (3.2 %).
+#[doc(hidden)]
 pub fn elshaari_between() -> Outcome {
     let p = &thermo::ELSHAARI_FIG_4A;
     let worst = p
@@ -343,6 +355,7 @@ pub fn elshaari_between() -> Outcome {
 /// Where the two nitrides meet: the default's dn/dT at 295 K (Arbabi & Goddard's LPCVD Si₃N₄),
 /// in units of 1e-5 per K, against the 2.51 ± 0.08 Elshaari et al. measured on their PECVD SiN
 /// at room temperature, within the two uncertainties summed (±0.09 and ±0.08).
+#[doc(hidden)]
 pub fn nitride_room() -> Outcome {
     outcome(dndt("si3n4", "luke-2015", 1.55, 295.0) * 1e5, 2.51, 0.17)
 }
@@ -368,6 +381,7 @@ pub(crate) const ARBABI_COMPUTED: [[f64; 4]; 3] = [
 /// six dn/dT of Table 2 and Eqs. (3), and the two combined uncertainties, against the printed
 /// values, in units of 1e-5 per K. The largest deviation, within a unit of the printed second
 /// decimal.
+#[doc(hidden)]
 pub fn arbabi_table_2() -> Outcome {
     let mut errors = vec![];
     for (ring, computed) in ARBABI_TABLE_2.iter().zip(ARBABI_COMPUTED) {

@@ -314,6 +314,7 @@ fn missing(property: &str, reason: &str) -> Missing {
 
 /// Sb₂Se₃'s anneals in Delaney's data set (Supporting Fig. S1, `anneal_tests_all.txt`): each
 /// anneal temperature (°C) and the film's n at 1551.18 nm after it.
+#[doc(hidden)]
 pub const DELANEY_SB2SE3_ANNEALS: [(f64, f64); 6] = [
     (125.0, 3.333138),
     (150.0, 3.311244),
@@ -324,6 +325,7 @@ pub const DELANEY_SB2SE3_ANNEALS: [(f64, f64); 6] = [
 ];
 
 /// Sb₂S₃'s anneals, the same way.
+#[doc(hidden)]
 pub const DELANEY_SB2S3_ANNEALS: [(f64, f64); 8] = [
     (220.0, 2.881186),
     (230.0, 2.842302),
@@ -337,6 +339,7 @@ pub const DELANEY_SB2S3_ANNEALS: [(f64, f64); 8] = [
 
 /// The first anneal (K) after which a film's index stands more than half way from its
 /// as-deposited value to its last: where it crystallized.
+#[doc(hidden)]
 pub fn crystallized_at(anneals: &[(f64, f64)]) -> f64 {
     let (first, last) = (anneals[0].1, anneals[anneals.len() - 1].1);
     anneals

@@ -1,7 +1,7 @@
 use std::f64::consts::TAU;
 
 use super::*;
-use crate::compact::checks::*;
+use crate::cases::compact::checks::*;
 
 /// Every pole of a model is stable.
 fn stable(model: &Rational) -> bool {
@@ -204,7 +204,7 @@ fn bad_inputs_are_errors() {
 // Deschrijver et al. 2008, Eqs. 8, 10 and 11: the same least squares, reduced
 #[test]
 fn eliminating_each_responses_unknowns_is_the_full_least_squares() {
-    let d = crate::compact::checks::fast_vf_difference();
+    let d = crate::cases::compact::checks::fast_vf_difference();
 
     assert!(d < 1e-8, "{d}");
 }

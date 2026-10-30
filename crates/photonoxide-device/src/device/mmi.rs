@@ -199,7 +199,8 @@ impl StripMmi {
     }
 
     /// Its FDFD grids: the 2D one's and the 3D one's.
-    pub(super) fn grids(&self) -> (FdfdGrid, FdfdGrid) {
+    #[doc(hidden)]
+    pub fn grids(&self) -> (FdfdGrid, FdfdGrid) {
         (self.grid_2d, self.grid_3d)
     }
 

@@ -752,6 +752,7 @@ fn propagates(beta: c64) -> bool {
 /// # Panics
 ///
 /// If the mode's plane doesn't fit `grid` (its size and step) or the next plane isn't on it.
+#[doc(hidden)]
 pub fn mode_amplitudes_of(
     grid: Grid3d,
     boundaries: Boundaries3d,
@@ -772,6 +773,7 @@ pub fn mode_amplitudes_of(
 /// # Panics
 ///
 /// As [`mode_amplitudes_of`].
+#[doc(hidden)]
 pub fn mode_amplitude_weights_of(
     grid: Grid3d,
     boundaries: Boundaries3d,

@@ -50,6 +50,7 @@ fn failed(why: impl Into<String>) -> Error {
 
 /// A pencil A x = λ B x of n × n sparse matrices, as (row, column, value) entries (repeated
 /// entries are summed); B the identity when `None`.
+#[doc(hidden)]
 pub struct Pencil<'a> {
     pub n: usize,
     pub a: &'a [(usize, usize, c64)],
@@ -106,6 +107,7 @@ impl Operators {
 /// Quadrature on a closed curve: nodes z_j and weights w_j with
 /// Σ w_j f(z_j) ≈ (1/2πi) ∮ f(z) dz for f analytic near the curve.
 #[derive(Clone, Debug)]
+#[doc(hidden)]
 pub struct Quadrature {
     nodes: Vec<c64>,
     weights: Vec<c64>,
@@ -124,6 +126,7 @@ impl Quadrature {
     ///
     /// [`Error::InvalidValue`] for fewer than 2 points, an odd count with `symmetric`, or a
     /// curve that isn't finite.
+    #[doc(hidden)]
     pub fn trapezoid(
         points: usize,
         symmetric: bool,
@@ -168,6 +171,7 @@ impl Quadrature {
 
     /// The rational filter Σ w_j / (z_j − λ): about 1 inside the curve and 0 outside. (Not only
     /// in this crate's tests: the mode crate's tests call it.)
+    #[doc(hidden)]
     pub fn filter(&self, lambda: c64) -> c64 {
         self.nodes
             .iter()
@@ -179,6 +183,7 @@ impl Quadrature {
 
 /// What to search with.
 #[derive(Clone, Copy, Debug)]
+#[doc(hidden)]
 pub struct Options {
     /// The subspace's size; when `None`, chosen from the count's estimate and grown as needed.
     pub subspace: Option<usize>,
@@ -189,6 +194,7 @@ pub struct Options {
 }
 
 /// The eigenpairs inside the curve, and how they were found.
+#[doc(hidden)]
 pub struct Found {
     pub pairs: Vec<Pair>,
     /// Each pair's relative residual, as in [`Options::tolerance`].
@@ -495,6 +501,7 @@ pub(crate) fn solve(
 /// # Errors
 ///
 /// As `solve`.
+#[doc(hidden)]
 pub fn solve_until(
     pencil: &Pencil,
     quadrature: &Quadrature,
@@ -768,6 +775,7 @@ pub(crate) fn sakurai_sugiura_example_5() -> (Entries, Entries) {
 /// (centre 0.015, radius 0.02: 0, 0.01, 0.02, 0.03) by their Hankel method with m = 4 at
 /// `points` points, u and v vectors uniform in (0, 1) as theirs from Matlab's `rand`, the
 /// `draw`-th of a fixed sequence of them.
+#[doc(hidden)]
 pub fn sakurai_sugiura_error(points: usize, draw: u64) -> f64 {
     let (a, b) = sakurai_sugiura_example_5();
     let pencil = Pencil {

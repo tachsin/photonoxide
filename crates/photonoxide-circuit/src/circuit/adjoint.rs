@@ -27,7 +27,8 @@
 //! fourth-order one-sided differences inwards at a bound. A nested [`Circuit`] gives its own
 //! derivatives exactly, by [`Circuit::jacobian`].
 
-pub(crate) mod checks;
+#[doc(hidden)]
+pub mod checks;
 #[cfg(test)]
 mod tests;
 

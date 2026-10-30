@@ -733,6 +733,7 @@ fn outcome(measured: f64, expected: f64, tolerance: f64) -> Outcome {
 }
 
 /// The validation cases of booleans, offsets and corner rounding.
+#[doc(hidden)]
 pub fn cases() -> Vec<Case> {
     vec![
         Case {

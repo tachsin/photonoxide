@@ -47,6 +47,7 @@ use crate::fdtd::Field;
 
 /// How the blocked path cuts the grid and the steps.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[doc(hidden)]
 pub struct Blocking {
     /// About how many rows along y a tile has: at least 2s + 2, s the steps at a time.
     #[doc(hidden)]
@@ -114,6 +115,7 @@ impl Blocking {
 
 /// How a problem chooses its tiles.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[doc(hidden)]
 pub enum Tiling {
     /// [`Blocking::auto`].
     #[default]
@@ -129,6 +131,7 @@ pub enum Tiling {
 /// A value taken from a field right after its update, a source's or a current's: H̃ −= amount
 /// (Δt times the waveform, already), E −= cb amount.
 #[derive(Clone, Copy, Debug)]
+#[doc(hidden)]
 pub struct Injection<T> {
     pub(crate) field: Field,
     pub(crate) component: usize,
@@ -140,6 +143,7 @@ pub struct Injection<T> {
 
 /// A box of one component's values read after every step: a probe's value, a monitor's box.
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[doc(hidden)]
 pub struct Tap {
     pub(crate) field: Field,
     pub(crate) component: usize,

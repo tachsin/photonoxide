@@ -15,6 +15,7 @@ type Window = (std::ops::Range<usize>, std::ops::Range<usize>);
 
 /// A guide's two S-parameters at each frequency of a band, by FDTD and by FDFD.
 #[derive(Clone, Debug)]
+#[doc(hidden)]
 pub struct Band {
     /// The frequencies, c/µm (the tests print them).
     #[cfg_attr(not(test), allow(dead_code))]
@@ -27,6 +28,7 @@ pub struct Band {
 
 impl Band {
     /// The largest |ΔS| over the band.
+    #[doc(hidden)]
     pub fn largest_difference(&self) -> f64 {
         self.fdtd
             .iter()

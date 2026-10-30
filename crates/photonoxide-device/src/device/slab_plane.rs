@@ -42,10 +42,11 @@ pub(crate) fn index_along(
     Ok(refractive_index(m.tensor(wavelength)?[axis][axis]).re)
 }
 
-/// [`effective_index`] of the column whose material at each height z is `material(z)`: the
+/// `effective_index` of the column whose material at each height z is `material(z)`: the
 /// layer's, between what lies just below and above it, each medium's index for E along the
-/// chip's `axis` ([`index_along`]): for TE, the in-plane E's.
-pub(crate) fn slab_index<'a>(
+/// chip's `axis` (`index_along`): for TE, the in-plane E's.
+#[doc(hidden)]
+pub fn slab_index<'a>(
     material: impl Fn(Length) -> &'a crate::material::Material,
     (bottom, top): (Length, Length),
     (kind, axis): (crate::mode::Polarization, usize),
@@ -80,9 +81,10 @@ const ETCHED_LAYERS: usize = 6;
 /// # Errors
 ///
 /// [`Error::Parse`] for an etched layer other than `name`, or a stack of more than
-/// [`ETCHED_LAYERS`] layers; [`Error::OutsideValidity`] for a material without data at
+/// `ETCHED_LAYERS` layers; `Error::OutsideValidity` for a material without data at
 /// `wavelength`, and the multilayer's errors.
-pub(crate) fn etched_plane(
+#[doc(hidden)]
+pub fn etched_plane(
     s: &Structure,
     name: &str,
     (kind, axis): (crate::mode::Polarization, usize),
@@ -237,7 +239,8 @@ fn column_index(
 ///
 /// [`Error::Parse`] for shapes on another layer or a sloped wall; [`Error::OutsideValidity`]
 /// for a material without data at `wavelength`, and the slabs' errors.
-pub(crate) fn fill_plane(
+#[doc(hidden)]
+pub fn fill_plane(
     s: &Structure,
     name: &str,
     kind: crate::mode::Polarization,
@@ -318,8 +321,9 @@ pub(crate) fn plane(
     plane_along(s, grid, name, layer, (kind, 0), wavelength)
 }
 
-/// [`plane`] of each medium's index for E along the chip's `axis` ([`index_along`]).
-pub(crate) fn plane_along(
+/// `plane` of each medium's index for E along the chip's `axis` (`index_along`).
+#[doc(hidden)]
+pub fn plane_along(
     s: &Structure,
     grid: &Grid,
     name: &str,

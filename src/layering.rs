@@ -102,7 +102,6 @@ const LAYERS: &[Layer] = &[
             "bench",
             "export",
             "facade",
-            "cases",
         ],
         may_use: &[
             "core", "geometry", "linalg", "mode", "statics", "fdfd", "fdtd", "circuit", "device",
@@ -110,27 +109,17 @@ const LAYERS: &[Layer] = &[
     },
 ];
 
-/// Modules of the crate that belong to no layer: the test modules.
-const UNLAYERED: &[&str] = &["layering"];
+/// Modules that belong to no layer: the test modules, and `cases`, which a crate declares for its
+/// checks and tests (photonoxide's, those that reach above every crate below; the device
+/// crate's, those of the statics and mode crates that the devices use) and which, like checks,
+/// may look upward.
+const UNLAYERED: &[&str] = &["layering", "cases"];
 
 /// An import that points upward and is allowed for now: the file, the module it imports and
-/// why. Each resolves when the crates are made (#508). (`thermal`'s re-export of the shifter went
-/// when `photonoxide::thermal` became a facade in the top layer.)
-const ALLOWED: &[(&str, &str, &str)] = &[
-    (
-        "src/device/tfln.rs",
-        "cases",
-        "the TFLN modulator takes its line's and its Pockels section's numbers from the checks \
-         that compare them (`cases::electro::line_checks`, `cases::mode::pockels::checks`), which \
-         join the statics and mode layers and so sit in photonoxide's cases since phase 2. They \
-         move into the device crate, which sees both layers, in phase 4, and these entries go.",
-    ),
-    (
-        "src/device/tfln_line.rs",
-        "cases",
-        "as src/device/tfln.rs: the line's tangents from `cases::electro::line_checks`",
-    ),
-];
+/// why. None is left: the last ones went when the crates were made (#508): `thermal`'s re-export
+/// of the shifter (`thermal` is now a facade in the device crate) and the TFLN modulator's use of
+/// its line's and Pockels section's checks (declared in the device crate's `cases`).
+const ALLOWED: &[(&str, &str, &str)] = &[];
 
 fn layer_of(module: &str) -> Option<&'static Layer> {
     LAYERS.iter().find(|l| l.modules.contains(&module))
@@ -504,7 +493,13 @@ mod tests {
             let path = root.join("crates").join(&krate).join("src/lib.rs");
             let lib = fs::read_to_string(&path).expect("a crate's src/lib.rs");
             for name in declared_modules(&lib) {
-                if !layer.modules.contains(&name.as_str()) {
+                // its layer's modules, the test and cases modules, and a facade of a layer below
+                // (the device crate's `thermal`: the statics crate's with the shifter)
+                let facade = layer_of(&name).is_some_and(|l| layer.may_use.contains(&l.name));
+                if !layer.modules.contains(&name.as_str())
+                    && !UNLAYERED.contains(&name.as_str())
+                    && !facade
+                {
                     unplaced.push(format!("{name} in crates/{krate}"));
                 }
             }

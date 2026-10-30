@@ -771,7 +771,7 @@ fn device_table() -> Value {
             })
         })
         .collect();
-    let keys = crate::device::spec::DEVICE_KEYS;
+    let keys = crate::device::spec_items::DEVICE_KEYS;
     let mut properties = Map::new();
     for key in keys {
         let key: &str = key;
@@ -780,7 +780,7 @@ fn device_table() -> Value {
             match key {
                 "kind" => json!({ "enum": kinds, "description": "The device, of the library's." }),
                 "fidelity" => json!({
-                    "enum": crate::device::spec::FIDELITIES,
+                    "enum": crate::device::spec_items::FIDELITIES,
                     "description": "The model it is computed by: the device's cheapest by default."
                 }),
                 "stack" => json!({
@@ -1027,11 +1027,11 @@ mod tests {
             .map(|d| d.kind().to_owned())
             .collect();
         assert_eq!(kinds, library);
-        for f in crate::device::spec::FIDELITIES {
-            crate::device::spec::fidelity(f).unwrap_or_else(|e| panic!("{f}: {e}"));
+        for f in crate::device::spec_items::FIDELITIES {
+            crate::device::spec_items::fidelity(f).unwrap_or_else(|e| panic!("{f}: {e}"));
         }
         let keys: Vec<&String> = device["properties"].as_object().unwrap().keys().collect();
-        assert_eq!(keys.len(), crate::device::spec::DEVICE_KEYS.len());
+        assert_eq!(keys.len(), crate::device::spec_items::DEVICE_KEYS.len());
     }
 
     #[test]

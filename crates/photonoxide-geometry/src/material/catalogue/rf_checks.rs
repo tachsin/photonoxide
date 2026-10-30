@@ -41,6 +41,7 @@ fn values(id: &str, key: &str) -> Vec<RfValue> {
 
 /// Eq. (3) on each row of Table I's Q factors and filling factor, against the catalogue's
 /// tan δ at that frequency (the table's): the largest relative deviation.
+#[doc(hidden)]
 pub fn krupka_table_1() -> Outcome {
     let catalogue = values("si", "krupka-2006");
     let worst = KRUPKA_TABLE_I
@@ -92,6 +93,7 @@ pub(crate) const LAMB_N: [(f64, (f64, f64), u32, u32); 22] = [
 /// Lamb's Eq. (6), ε′ = n² for a low-loss material, on every row the catalogue takes from his
 /// Table I (both ends of a range): |n² − ε′| over the printed digits' bound, half a unit of ε′'s
 /// last and 2n times half a unit of n's; the largest.
+#[doc(hidden)]
 pub fn lamb_table_1() -> Outcome {
     let rows: Vec<RfValue> = ["sio2", "quartz", "sapphire", "si"]
         .iter()

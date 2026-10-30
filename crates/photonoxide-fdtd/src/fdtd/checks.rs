@@ -191,6 +191,7 @@ pub(crate) fn cpml_error_with(thickness: usize, cpml: Cpml) -> f64 {
 
 /// What [`late_strip`] records.
 #[cfg_attr(not(test), allow(dead_code))] // the probes read by the tests
+#[doc(hidden)]
 pub struct LateStrip {
     /// The fields' energy, Σ(E² + H̃²), every 50 µm/c.
     #[doc(hidden)]
@@ -823,6 +824,7 @@ pub fn mode_source_open(pulse: bool) -> Vec<(f64, f64, f64)> {
 
 /// What [`beam`] measures.
 #[derive(Clone, Debug)]
+#[doc(hidden)]
 pub struct BeamMeasured {
     /// At each distance from the plane (µm): the beam's width 2√⟨(y − ȳ)²⟩ of |E_z|² and its
     /// centre ȳ, across the beam's columns.

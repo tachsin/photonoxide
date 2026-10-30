@@ -15,8 +15,10 @@
 //! wrap-around), where George's sets are drawn for one.
 
 mod matching;
+#[doc(hidden)]
 pub mod multifrontal;
 
+#[doc(hidden)]
 pub use multifrontal::{Analysis, Multifrontal};
 
 /// Below this many unknowns a part is numbered as it is, not dissected further.

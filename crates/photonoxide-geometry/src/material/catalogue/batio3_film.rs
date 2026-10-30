@@ -197,6 +197,7 @@ pub(crate) fn film_reflectance(n1: f64, d: f64, n2: f64, lam: f64) -> f64 {
 
 /// The catalogue's film (its n at 1550 nm), 36.53 nm on their GdScO₃ (their Cauchy model), at
 /// normal incidence: the reflectance against the 0.124 they measured at 4° (Note S3).
+#[doc(hidden)]
 pub fn suceava_reflectance() -> Outcome {
     let lam = 1.55;
     let n = suceava_material()

@@ -10,7 +10,7 @@
 //! with the [`objective`]s), for genoxide's optimizers.
 //!
 //! **Conventions** (docs/design/components.md has them in full, docs/methods/circuits.md the solve), the same as the FDFD solver's
-//! ([`crate::fdfd`]):
+//! (`photonoxide::fdfd`):
 //!
 //! - fields go as e^(−iωt), so a waveguide of effective index n and length L transmits
 //!   e^(+i 2π n L/λ);
@@ -54,14 +54,15 @@
 //! assert!((s[(1, 0)] - c64::new(-1.0, 0.0)).norm() < 1e-15); // a half turn
 //! # Ok::<(), photonoxide::Error>(())
 //! ```
+//! # mod photonoxide { pub use photonoxide_core::*; pub use photonoxide_geometry::*; pub use photonoxide_mode::*; pub use photonoxide_statics::*; pub use photonoxide_circuit::*; pub use num_complex::Complex64; } // the crates users name photonoxide
 
 pub mod adjoint;
 pub mod components;
 mod heated;
-pub(crate) mod heated_checks;
 #[cfg(test)]
 mod heated_tests;
-pub(crate) mod ideal;
+#[doc(hidden)]
+pub mod ideal;
 mod netlist;
 pub mod objective;
 mod solve;
@@ -107,7 +108,7 @@ impl SMatrix {
         }
     }
 
-    /// The matrix from its rows, `rows[q][p]` = S_qp: the form [`crate::fdfd::Solver2d::s_matrix`]
+    /// The matrix from its rows, `rows[q][p]` = S_qp: the form `photonoxide::fdfd::Solver2d::s_matrix`
     /// returns.
     ///
     /// # Errors

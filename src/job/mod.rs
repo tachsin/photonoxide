@@ -512,6 +512,7 @@ mod pockels;
 mod pockels_tests;
 pub mod results;
 mod sampled;
+pub use sampled::sampled_from_fdfd;
 mod scene;
 pub(crate) mod schema;
 mod shapes;

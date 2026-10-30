@@ -285,7 +285,7 @@ pub(super) fn check_etches_2d(s: &Structure, layer: &str) -> Result<()> {
 }
 
 /// A task's stack: a named one, `soi_220`, or `soi` / `nitride` with their core and bottom
-/// oxide; or a `[task.stack]` table of layers ([`crate::device::spec::task_stack`]), whose
+/// oxide; or a `[task.stack]` table of layers ([`crate::device::spec_items::task_stack`]), whose
 /// crystals may be oriented ([`crate::material::Orientation`]) only in a job whose solver takes
 /// them ([`TENSOR_JOBS`]): this one refuses them, for a static job; [`tensor_stack`] and
 /// [`diagonal_stack`] take them.
@@ -381,7 +381,7 @@ fn named_stack_of(
                      each layer's thickness",
                 ));
             }
-            return crate::device::spec::task_stack(table).map_err(|e| match e {
+            return crate::device::spec_items::task_stack(table).map_err(|e| match e {
                 Error::InvalidValue { reason, .. } => task_error(format!("[task.stack]: {reason}")),
                 other => other,
             });

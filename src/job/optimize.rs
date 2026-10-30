@@ -97,7 +97,7 @@ use super::study::{CornerTask, Named, check_corners, corners_of, set};
 use super::{Corner, Event, Study, task_error};
 use crate::circuit::SMatrix;
 use crate::device::objective::{Names, Source};
-use crate::device::spec::Grids;
+use crate::device::spec_items::Grids;
 use crate::device::{Built, Design, Goal, Limit, Reduce, Spec};
 use crate::expr::{Dim, Dual, Expr};
 use crate::run::{Job, Run, Stop};
@@ -529,6 +529,8 @@ impl Bound {
                 at_most: None,
                 ..self
             },
+            // #[non_exhaustive] in its crate (photonoxide-device)
+            _ => unreachable!("an arm for each kind"),
         }
     }
 
@@ -2236,6 +2238,8 @@ fn reduce(q: &Quantity, f: &[f64]) -> Reduced {
             Some((Goal::Minimize, _)) | None => (v, 1.0),
             Some((Goal::Maximize, _)) => (-v, -1.0),
             Some((Goal::Target, t)) => ((v - t) * (v - t), 2.0 * (v - t)),
+            // #[non_exhaustive] in its crate (photonoxide-device)
+            _ => unreachable!("an arm for each kind"),
         }
     };
     // the first largest and smallest, in the samples' order
@@ -2250,6 +2254,8 @@ fn reduce(q: &Quantity, f: &[f64]) -> Reduced {
                 Some((Limit::AtLeast, b)) => (b - spread, -1.0),
                 Some((Limit::AtMost, b)) => (spread - b, 1.0),
                 None => cost(spread),
+                // #[non_exhaustive] in its crate (photonoxide-device)
+                _ => unreachable!("an arm for each kind"),
             };
             if hi != lo {
                 weights[hi] += dc;
@@ -2317,7 +2323,11 @@ fn reduce(q: &Quantity, f: &[f64]) -> Reduced {
                     weights,
                 }
             }
+            // #[non_exhaustive] in its crate (photonoxide-device)
+            _ => unreachable!("an arm for each kind"),
         },
+        // #[non_exhaustive] in its crate (photonoxide-device)
+        _ => unreachable!("an arm for each kind"),
     }
 }
 

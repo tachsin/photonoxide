@@ -571,6 +571,7 @@ fn merged(t: &mut Vec<Triplet<usize, usize, c64>>, r: usize, row: &mut [(usize, 
 
 /// The permittivity of the cell of size `h` centred on `centre`, for a field component along
 /// `along`, from `samples`³ points: harmonic along the component, arithmetic across it.
+#[doc(hidden)]
 pub fn averaged(
     eps: &impl Fn(f64, f64, f64) -> c64,
     centre: [f64; 3],
@@ -1172,6 +1173,7 @@ impl Lattice {
     }
 }
 
+#[doc(hidden)]
 pub mod adjoint;
 #[doc(hidden)]
 pub mod fill;
@@ -1241,6 +1243,7 @@ pub fn factorize(
 }
 
 /// Each value of E at its place on the grid, for nested dissection.
+#[doc(hidden)]
 pub fn positions(grid: &Grid3d) -> Vec<[f64; 3]> {
     let mut positions = vec![[0.0; 3]; grid.unknowns()];
     for component in Axis::ALL {

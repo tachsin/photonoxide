@@ -45,7 +45,8 @@ fn rect(x: [f64; 2], y: [f64; 2]) -> Shape {
 /// x = 0 to `a`, the ground from `b` to the window's edge `reach` (µm); a substrate of `eps`
 /// `h` thick under the strips (air below it and above them), the window's far sides at 0 V,
 /// graded from `smallest` at the strips' edges by `growth` to 5 µm.
-pub(crate) fn coplanar(
+#[doc(hidden)]
+pub fn coplanar(
     a: f64,
     b: f64,
     eps: f64,
@@ -92,7 +93,8 @@ pub(crate) fn holloway_kuester_integral(a: f64, b: f64, delta: f64) -> f64 {
 /// The coplanar waveguide of Holloway and Kuester's Fig. 3 (a = 5, b = 25 µm) with Δ = 4 nm:
 /// the static solver's current integral against their Eq. 12 (relative error), graded from
 /// `smallest` µm.
-pub(crate) fn current_against_closed_form(smallest: f64) -> f64 {
+#[doc(hidden)]
+pub fn current_against_closed_form(smallest: f64) -> f64 {
     let (a, b, delta) = (5.0, 25.0, 0.004);
     let (line, _) = coplanar(a, b, 12.9, 2000.0, 800.0, smallest, 1.08);
     let numeric = line.current_integral(delta * 1e-6).expect(OK);
@@ -102,7 +104,8 @@ pub(crate) fn current_against_closed_form(smallest: f64) -> f64 {
 
 /// Ghione and Naldi's Eq. 2: a coplanar waveguide's effective permittivity on a substrate of
 /// `eps`, `h` thick, a the signal's half width and b the ground's inner edge.
-pub(crate) fn ghione_naldi_permittivity(a: f64, b: f64, eps: f64, h: f64) -> f64 {
+#[doc(hidden)]
+pub fn ghione_naldi_permittivity(a: f64, b: f64, eps: f64, h: f64) -> f64 {
     let k = a / b;
     let kp = (1.0 - k * k).sqrt();
     let k1 = (std::f64::consts::PI * a / (2.0 * h)).sinh()
@@ -114,7 +117,8 @@ pub(crate) fn ghione_naldi_permittivity(a: f64, b: f64, eps: f64, h: f64) -> f64
 /// The effective permittivity and impedance of a coplanar waveguide (a = 10, b = 20 µm, k =
 /// 0.5) on a substrate of ε = 10 (their Figs. 1–2) `h` thick, against Ghione and Naldi's Eqs.
 /// 2 and 1: the relative errors.
-pub(crate) fn ghione_naldi(h: f64, smallest: f64) -> (f64, f64) {
+#[doc(hidden)]
+pub fn ghione_naldi(h: f64, smallest: f64) -> (f64, f64) {
     let (a, b, eps) = (10.0, 20.0, 10.0);
     let (line, _) = coplanar(a, b, eps, h, 1000.0, smallest, 1.1);
     let e = ghione_naldi_permittivity(a, b, eps, h);
@@ -212,7 +216,8 @@ pub(crate) fn loss_point(level_db: f64) -> f64 {
 
 /// Half a ground–signal–ground line on thin-film lithium niobate (µm). See the module's docs.
 #[derive(Clone, Copy, Debug)]
-pub(crate) struct Cpw {
+#[doc(hidden)]
+pub struct Cpw {
     /// Half the signal's width.
     pub signal: f64,
     /// The gap between the signal and the ground.
@@ -252,7 +257,8 @@ impl Cpw {
     }
 
     /// The electrostatic problem on a grid graded from `smallest` by 15% a cell to 20 µm.
-    pub(crate) fn electrostatic(&self, smallest: f64) -> Electrostatic {
+    #[doc(hidden)]
+    pub fn electrostatic(&self, smallest: f64) -> Electrostatic {
         self.with_rails(smallest, None, false)
     }
 
@@ -342,7 +348,8 @@ impl Cpw {
     }
 
     /// The line on a grid graded from `smallest`.
-    pub(crate) fn line(&self, smallest: f64) -> QuasiTem {
+    #[doc(hidden)]
+    pub fn line(&self, smallest: f64) -> QuasiTem {
         QuasiTem::mirrored(&self.electrostatic(smallest), 0).expect(OK)
     }
 }
@@ -373,7 +380,8 @@ pub(crate) fn kharel_regular(gap: f64) -> Cpw {
 /// under 30 nm of gold), on their film (600 nm, 300 nm etched to a rib 1.2 µm wide on top, the
 /// sidewall at 70°: not given) on 2 µm of thermal oxide over 500 µm of silicon, 0.6 µm of PECVD
 /// oxide (ε 5.5, their model's); the ground 100 µm wide (not given).
-pub(crate) fn zhang_2022() -> Cpw {
+#[doc(hidden)]
+pub fn zhang_2022() -> Cpw {
     Cpw {
         signal: 10.0,
         gap: 5.0,
@@ -392,13 +400,16 @@ pub(crate) fn zhang_2022() -> Cpw {
 }
 
 /// Gold's conductivity, S/m: bulk, at room temperature (the papers don't give theirs).
-pub(crate) const GOLD: f64 = 4.1e7;
+#[doc(hidden)]
+pub const GOLD: f64 = 4.1e7;
 /// Copper's, S/m.
-pub(crate) const COPPER: f64 = 5.8e7;
+#[doc(hidden)]
+pub const COPPER: f64 = 5.8e7;
 
 /// Zhang et al.'s loss tangents: silicon 0.013, lithium niobate 0.008, the deposited oxide
 /// 0.006 (their Section 3.B; the thermal oxide's isn't given, taken as the deposited one's).
-pub(crate) const ZHANG_TANGENTS: [(&str, f64); 4] = [
+#[doc(hidden)]
+pub const ZHANG_TANGENTS: [(&str, f64); 4] = [
     ("substrate", 0.013),
     ("LN", 0.008),
     ("clad", 0.006),
@@ -406,7 +417,8 @@ pub(crate) const ZHANG_TANGENTS: [(&str, f64); 4] = [
 ];
 
 /// The wave on `line` at `ghz` on `metal`, with `tangents`.
-pub(crate) fn wave(line: &QuasiTem, ghz: f64, metal: &Metal, tangents: &[(&str, f64)]) -> Wave {
+#[doc(hidden)]
+pub fn wave(line: &QuasiTem, ghz: f64, metal: &Metal, tangents: &[(&str, f64)]) -> Wave {
     line.wave(ghz * 1e9, metal, tangents).expect(OK)
 }
 
@@ -415,11 +427,8 @@ pub(crate) const STEPS: [f64; 3] = [0.008, 0.004, 0.002];
 
 /// `quantity` of `cpw`'s line on [`STEPS`], gated by the grid study at `tolerance` (relative):
 /// the finest grid's values.
-pub(crate) fn gated(
-    cpw: &Cpw,
-    quantity: impl Fn(&QuasiTem) -> Vec<f64>,
-    tolerance: f64,
-) -> Vec<f64> {
+#[doc(hidden)]
+pub fn gated(cpw: &Cpw, quantity: impl Fn(&QuasiTem) -> Vec<f64>, tolerance: f64) -> Vec<f64> {
     let values: Vec<Vec<f64>> = STEPS.iter().map(|&h| quantity(&cpw.line(h))).collect();
     (0..values[0].len())
         .map(|k| {
@@ -447,7 +456,8 @@ pub(crate) const KHAREL_TABLE: [(f64, f64, f64, f64); 3] = [
 
 /// photonoxide's numbers for [`KHAREL_TABLE`]'s lines at 50 GHz, each gated at 0.5%: Re Z₀,
 /// the RF index, and the conductor loss over √(50 GHz).
-pub(crate) fn kharel_numbers() -> &'static [[f64; 3]; 3] {
+#[doc(hidden)]
+pub fn kharel_numbers() -> &'static [[f64; 3]; 3] {
     static NUMBERS: std::sync::OnceLock<[[f64; 3]; 3]> = std::sync::OnceLock::new();
     NUMBERS.get_or_init(|| {
         let gold = Metal::new(GOLD, 0.8).expect(OK);
@@ -485,7 +495,8 @@ fn kharel_worst(k: usize) -> f64 {
 /// Two plates 10 µm wide and 1 µm apart across the whole window, its sides a mirror (plates
 /// without end): Wheeler's surface integral against 2/w, the current uniform on the plates'
 /// inner faces (relative error).
-pub(crate) fn wheeler_plates() -> f64 {
+#[doc(hidden)]
+pub fn wheeler_plates() -> f64 {
     let w = 10.0;
     let section = Section::new("air");
     let lower = rect([-1.0, w + 1.0], [-0.5, 0.0]);
@@ -512,7 +523,8 @@ pub(crate) fn wheeler_plates() -> f64 {
 /// Kharel et al.'s regular electrode with a 5 µm gap at `ghz`: the conductor loss by
 /// Wheeler's rule on the thick metal against Holloway and Kuester's (relative difference), on
 /// the grid graded from 2 nm.
-pub(crate) fn wheeler_against_holloway_kuester(ghz: f64) -> f64 {
+#[doc(hidden)]
+pub fn wheeler_against_holloway_kuester(ghz: f64) -> f64 {
     let gold = Metal::new(GOLD, 0.8).expect(OK);
     let line = kharel_regular(5.0).line(0.002);
     let wheeler = line.wheeler_loss(ghz * 1e9, &gold).expect(OK);
@@ -529,7 +541,8 @@ const ZHANG_VPI_L_1GHZ: f64 = 2.67;
 /// photonoxide's numbers for Zhang et al.'s line, each gated at 0.5%: the RF index at 100 GHz,
 /// Re Z₀ and the loss (dB/cm) at 250 GHz, and the electro-optic response at 250 GHz against
 /// 1 GHz (m(250)/m(1)) for 5.8 and 10.8 mm.
-pub(crate) fn zhang_numbers() -> &'static [f64; 5] {
+#[doc(hidden)]
+pub fn zhang_numbers() -> &'static [f64; 5] {
     static NUMBERS: std::sync::OnceLock<[f64; 5]> = std::sync::OnceLock::new();
     NUMBERS.get_or_init(|| {
         let copper = Metal::new(COPPER, 0.83).expect(OK);
@@ -565,9 +578,10 @@ pub(crate) fn zhang_rf_vpi(mm: f64, ratio: f64) -> f64 {
 }
 
 /// The 3 dB bandwidth (GHz, referred to 1 GHz) of Zhang et al.'s modulator `mm` long on the
-/// quasi-TEM line graded from `smallest`.
-#[cfg(test)]
-pub(crate) fn zhang_bandwidth(mm: f64, smallest: f64) -> f64 {
+/// quasi-TEM line graded from `smallest`. (Not only in this crate's tests: photonoxide's tests
+/// of the line call it.)
+#[doc(hidden)]
+pub fn zhang_bandwidth(mm: f64, smallest: f64) -> f64 {
     let copper = Metal::new(COPPER, 0.83).expect(OK);
     let line = zhang_2022().line(smallest);
     let d = Drive::new(50.0, ZHANG_GROUP_INDEX, mm * 1e-3).expect(OK);
@@ -740,7 +754,8 @@ fn gated_by(at: impl Fn(f64) -> Vec<f64>, tolerance: f64) -> (Vec<f64>, f64) {
 /// photonoxide's numbers for Kharel et al.'s segmented rows d, e, f and their fabricated
 /// electrode ([`segmented_numbers`], each gated at 0.5%), and the largest estimated relative
 /// error of row d's.
-pub(crate) fn kharel_segmented_numbers() -> &'static ([[f64; 5]; 4], f64) {
+#[doc(hidden)]
+pub fn kharel_segmented_numbers() -> &'static ([[f64; 5]; 4], f64) {
     static NUMBERS: std::sync::OnceLock<([[f64; 5]; 4], f64)> = std::sync::OnceLock::new();
     NUMBERS.get_or_init(|| {
         let lines = [
@@ -886,7 +901,8 @@ pub(crate) fn two_section_dispersion() -> f64 {
 /// Shin et al.'s two T-rail electrodes (Table I: w = 4 and 2 µm, ΔC 2.02 and 1.26 pF/cm by
 /// their Eq. (6)) at 40 GHz, the top of their measurement: the Bloch phase velocity (cm/ns)
 /// and Re Z_B (Ω) of each.
-pub(crate) fn shin_numbers() -> [[f64; 2]; 2] {
+#[doc(hidden)]
+pub fn shin_numbers() -> [[f64; 2]; 2] {
     let metal = Metal::new(GOLD, 1.0).expect(OK);
     [2.02e-10, 1.26e-10].map(|dc| {
         let w = shin_period(dc).bloch(40e9, &metal, &[]).expect(OK);
@@ -911,7 +927,8 @@ fn shin_worst(k: usize) -> f64 {
 }
 
 // The cases.
-pub(crate) fn cases() -> Vec<Case> {
+#[doc(hidden)]
+pub fn cases() -> Vec<Case> {
     vec![
         Case {
             id: "line/holloway-kuester-current",

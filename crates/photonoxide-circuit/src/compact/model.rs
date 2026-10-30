@@ -25,7 +25,8 @@ pub fn laplace(wavelength: Wavelength) -> c64 {
 }
 
 /// The shortest and longest of `wavelengths` (not empty).
-pub(crate) fn band_of(wavelengths: &[Wavelength]) -> (Wavelength, Wavelength) {
+#[doc(hidden)]
+pub fn band_of(wavelengths: &[Wavelength]) -> (Wavelength, Wavelength) {
     wavelengths
         .iter()
         .fold((wavelengths[0], wavelengths[0]), |(a, b), &w| {
@@ -34,7 +35,8 @@ pub(crate) fn band_of(wavelengths: &[Wavelength]) -> (Wavelength, Wavelength) {
 }
 
 /// `wavelength` is within the band, to round-off.
-pub(crate) fn check_band(
+#[doc(hidden)]
+pub fn check_band(
     what: &'static str,
     (lo, hi): (Wavelength, Wavelength),
     wavelength: Wavelength,
@@ -51,7 +53,8 @@ pub(crate) fn check_band(
 }
 
 /// The responses of a spectrum, response q n + p being S_qp over the wavelengths.
-pub(crate) fn responses_of(spectrum: &Spectrum) -> Vec<Vec<c64>> {
+#[doc(hidden)]
+pub fn responses_of(spectrum: &Spectrum) -> Vec<Vec<c64>> {
     let n = spectrum.ports().len();
     (0..n * n).map(|e| spectrum.element(e / n, e % n)).collect()
 }
@@ -89,7 +92,8 @@ impl Passivity {
 
 /// The largest singular value of `s(λ)` at `points` wavelengths evenly spaced in frequency over
 /// `band`, and where it exceeds 1.
-pub(crate) fn passivity_of(
+#[doc(hidden)]
+pub fn passivity_of(
     band: (Wavelength, Wavelength),
     points: usize,
     s: impl Fn(Wavelength) -> Result<SMatrix>,
@@ -391,6 +395,3 @@ impl Component for Measured {
         }
     }
 }
-
-#[cfg(test)]
-mod tests;

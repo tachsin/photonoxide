@@ -17,6 +17,7 @@
 //! ([`crate::circuit::Component`]). The method's page is docs/methods/compact.md.
 //!
 //! ```
+//! # mod photonoxide { pub use photonoxide_core::*; pub use photonoxide_geometry::*; pub use photonoxide_mode::*; pub use photonoxide_statics::*; pub use photonoxide_circuit::*; pub use num_complex::Complex64; } // the crates users name photonoxide
 //! use photonoxide::circuit::{Component, SMatrix, Spectrum};
 //! use photonoxide::compact::{CompactModel, Options};
 //! use photonoxide::units::Wavelength;
@@ -44,8 +45,6 @@
 //! # Ok::<(), photonoxide::Error>(())
 //! ```
 
-#[path = "../cases/compact/checks.rs"]
-pub(crate) mod checks;
 pub mod fit;
 pub mod model;
 pub mod param;

@@ -13,9 +13,10 @@
 //!     width: w
 //!     gap: w/2.5
 //! ```
+//! # mod photonoxide { pub use photonoxide_core::*; pub use photonoxide_geometry::*; pub use photonoxide_mode::*; pub use photonoxide_statics::electro; pub use photonoxide_fdfd::*; pub use photonoxide_circuit::*; pub use photonoxide_device::*; pub use num_complex::Complex64; } // the crates users name photonoxide
 //!
 //! A design with a compact model fitted to its runs ([`super::compact`]) names its file, next to
-//! the job's (a relative path is from the job file's folder, [`crate::run::Job::dir`]), and
+//! the job's (a relative path is from the job file's folder, `photonoxide::run::Job::dir`), and
 //! may then be computed at the compact fidelity:
 //!
 //! ```yaml
@@ -46,6 +47,7 @@
 //!         material: { id: si, model: li-1980 }   # a model, temperature (K) and composition
 //!         background: sio2
 //! ```
+//! # mod photonoxide { pub use photonoxide_core::*; pub use photonoxide_geometry::*; pub use photonoxide_mode::*; pub use photonoxide_statics::electro; pub use photonoxide_fdfd::*; pub use photonoxide_circuit::*; pub use photonoxide_device::*; pub use num_complex::Complex64; } // the crates users name photonoxide
 
 use toml::{Table, Value};
 
@@ -357,19 +359,26 @@ impl Spec {
     }
 }
 
-/// The grids a job sets on a device's solves (a `"spectrum"` task, [`crate::job`]): the cells'
+/// The grids a job sets on a device's solves (a `"spectrum"` task, `photonoxide::job`): the cells'
 /// size in the chip's plane, µm (a cross-section's mesh step for a mode solve, the cells of an
 /// FDFD), the FDFD cells' height in 3D, the cladding kept beside the guides, µm, the
 /// wavelengths an FDFD samples, the FDFD's PML cells, and an MMI's 2D model by FDFD in place of
 /// its guided modes. Each left out is the device's own.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
-pub(crate) struct Grids {
-    pub(crate) step: Option<f64>,
-    pub(crate) step_z: Option<f64>,
-    pub(crate) margin: Option<f64>,
-    pub(crate) samples: Option<usize>,
-    pub(crate) pml: Option<usize>,
-    pub(crate) fdfd_2d: bool,
+#[doc(hidden)]
+pub struct Grids {
+    #[doc(hidden)]
+    pub step: Option<f64>,
+    #[doc(hidden)]
+    pub step_z: Option<f64>,
+    #[doc(hidden)]
+    pub margin: Option<f64>,
+    #[doc(hidden)]
+    pub samples: Option<usize>,
+    #[doc(hidden)]
+    pub pml: Option<usize>,
+    #[doc(hidden)]
+    pub fdfd_2d: bool,
 }
 
 impl Grids {
@@ -466,7 +475,8 @@ impl Spec {
     ///
     /// Those of [`Spec::device`], and [`Error::InvalidValue`] for a grid the device doesn't
     /// take (a 3D FDFD's cells' height for a mode solve, any for an MZI).
-    pub(crate) fn device_with(&self, grids: &Grids) -> Result<Box<dyn Device>> {
+    #[doc(hidden)]
+    pub fn device_with(&self, grids: &Grids) -> Result<Box<dyn Device>> {
         if *grids == Grids::default() {
             return self.device();
         }
@@ -553,7 +563,8 @@ impl Spec {
     ///
     /// Those of [`Spec::build`] and [`Spec::device_with`], and [`Error::InvalidValue`] for a 3D
     /// solve too large.
-    pub(crate) fn fdfd_size(&self, grids: &Grids) -> Result<Option<(usize, usize, f64)>> {
+    #[doc(hidden)]
+    pub fn fdfd_size(&self, grids: &Grids) -> Result<Option<(usize, usize, f64)>> {
         let (_, design) = self.build()?;
         if self.fidelity == Fidelity::Compact {
             // the grids checked against the device all the same, as at any fidelity
@@ -805,8 +816,9 @@ pub(crate) fn layered(
 ///
 /// # Errors
 ///
-/// [`Error::Parse`] for a table that isn't one, and the errors of [`layered`].
-pub(crate) fn task_stack(t: &Table) -> Result<LayerStack> {
+/// `Error::Parse` for a table that isn't one, and the errors of `layered`.
+#[doc(hidden)]
+pub fn task_stack(t: &Table) -> Result<LayerStack> {
     let at = "[task.stack]";
     known(t, at, &["substrate", "cladding", "layer"])?;
     let medium = |key: &str| -> Result<Material> {
@@ -1003,7 +1015,8 @@ impl MaterialSpec {
         Ok(materials.remove(0))
     }
 
-    pub(crate) fn from_value(v: &Value, at: &str) -> Result<MaterialSpec> {
+    #[doc(hidden)]
+    pub fn from_value(v: &Value, at: &str) -> Result<MaterialSpec> {
         match v {
             Value::String(id) => Ok(MaterialSpec::id(id)),
             Value::Table(t) => {
@@ -1042,11 +1055,11 @@ impl MaterialSpec {
 }
 
 /// The keys a `[device]` table takes.
-pub(crate) const DEVICE_KEYS: [&str; 5] = ["kind", "fidelity", "stack", "parameters", "compact"];
+#[doc(hidden)]
+pub const DEVICE_KEYS: [&str; 5] = ["kind", "fidelity", "stack", "parameters", "compact"];
 
 /// The names [`fidelity`] reads, as a job writes them.
-pub(crate) const FIDELITIES: [&str; 7] =
-    ["analytic", "compact", "2D", "3D", "measured", "2d", "3d"];
+pub const FIDELITIES: [&str; 7] = ["analytic", "compact", "2D", "3D", "measured", "2d", "3d"];
 
 /// A fidelity by the name it is written with: analytic, compact, 2D, 3D or measured.
 ///

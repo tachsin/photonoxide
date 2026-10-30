@@ -9,6 +9,7 @@ use crate::fdtd::{Field, Simulation, invalid};
 
 /// A Yee grid's state in precision `T`: E and H̃, E's coefficients, the CPMLs.
 #[derive(Clone, Debug)]
+#[doc(hidden)]
 pub struct Yee<T> {
     grid: Grid3d,
     dt: T,

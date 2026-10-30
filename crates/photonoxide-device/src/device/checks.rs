@@ -52,7 +52,8 @@ fn order(coarse: f64, middle: f64, fine: f64) -> f64 {
 }
 
 /// The devices' validation cases, in report order.
-pub(crate) fn cases() -> Vec<Case> {
+#[doc(hidden)]
+pub fn cases() -> Vec<Case> {
     vec![
         Case {
             id: "device/library-components",

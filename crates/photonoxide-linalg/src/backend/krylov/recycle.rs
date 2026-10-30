@@ -50,6 +50,7 @@ pub struct Space {
     /// Which operator C = 𝒜 U was taken with ([`gcro_dr`]'s `operator`), if any.
     pub(crate) operator: Option<u64>,
     /// The products with 𝒜 spent rebuilding C for a new operator, summed over the solves.
+    #[doc(hidden)]
     pub products: usize,
 }
 

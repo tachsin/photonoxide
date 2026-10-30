@@ -55,9 +55,13 @@ fn failed(what: &str, why: impl std::fmt::Display) -> Error {
 /// One supernode: its columns `begin..end` (in the elimination order), the rows below them that
 /// its factor's columns reach (ascending), its children.
 #[derive(Clone, Debug)]
+#[doc(hidden)]
 pub struct Front {
+    #[doc(hidden)]
     pub begin: usize,
+    #[doc(hidden)]
     pub end: usize,
+    #[doc(hidden)]
     pub below: Vec<usize>,
     children: Vec<usize>,
     /// The front's work, to decide what is worth a thread: its subtree's flops, estimated.
@@ -68,13 +72,16 @@ pub struct Front {
 /// the matrix's structure and, through the matching, on its values; a matrix of the same
 /// structure and similar values (another wavelength) is factorized with it as it is.
 #[derive(Debug)]
+#[doc(hidden)]
 pub struct Analysis {
     n: usize,
+    #[doc(hidden)]
     pub matching: Matching,
     /// The node (column, with its matched row) eliminated k-th.
     order: Vec<usize>,
     /// The inverse: the step at which node j is eliminated.
     step: Vec<usize>,
+    #[doc(hidden)]
     pub fronts: Vec<Front>,
     roots: Vec<usize>,
     entries: usize,
@@ -103,6 +110,7 @@ impl Analysis {
     ///
     /// [`Error::InvalidValue`] if `a` isn't square, is structurally singular, or faer's
     /// analysis fails (out of memory).
+    #[doc(hidden)]
     pub fn new(
         a: SparseColMatRef<'_, usize, c64>,
         positions: Option<&[[f64; 3]]>,
@@ -128,6 +136,7 @@ impl Analysis {
     /// # Errors
     ///
     /// As [`Analysis::new`].
+    #[doc(hidden)]
     pub fn new_symmetric(
         a: SparseColMatRef<'_, usize, c64>,
         positions: Option<&[[f64; 3]]>,
@@ -309,6 +318,7 @@ impl Analysis {
 
     /// The factors' entries: L and U, each front's diagonal block and its L and U panels; or
     /// L D Lᵀ, the block's lower half and its L panel.
+    #[doc(hidden)]
     pub fn factor_entries(&self) -> usize {
         self.entries
     }
@@ -331,6 +341,7 @@ struct Factors {
 /// The LU factorization of [`Analysis`]'s matrix: B = P Pr Dr A Dc Pᵀ = L U, P the elimination
 /// order, Pr the matching, Dr and Dc its scaling.
 #[derive(Debug)]
+#[doc(hidden)]
 pub struct Multifrontal {
     analysis: Arc<Analysis>,
     factors: Vec<Factors>,
@@ -354,6 +365,7 @@ impl Multifrontal {
     ///
     /// [`Error::InvalidValue`] if `a` isn't the analysed size or holds an entry outside the
     /// analysed structure.
+    #[doc(hidden)]
     pub fn new(
         analysis: Arc<Analysis>,
         a: SparseColMatRef<'_, usize, c64>,
@@ -444,11 +456,13 @@ impl Multifrontal {
     }
 
     /// The pivots set to √ε ‖B‖₁.
+    #[doc(hidden)]
     pub fn perturbed(&self) -> usize {
         self.perturbed
     }
 
     /// x with A x = `b`.
+    #[doc(hidden)]
     pub fn solve(&self, b: &[c64]) -> Vec<c64> {
         if self.analysis.symmetric {
             return self.solve_symmetric(b);

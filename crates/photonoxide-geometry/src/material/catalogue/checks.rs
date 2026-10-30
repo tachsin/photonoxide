@@ -155,6 +155,7 @@ fn deviation(largest: f64, tolerance: f64) -> Outcome {
 }
 
 /// Leviton & Frey's Table 4 from their Table 3: the largest difference over all 208 entries.
+#[doc(hidden)]
 pub fn leviton_table() -> Outcome {
     let errors = LEVITON_TABLE_4_T.iter().enumerate().flat_map(|(j, &t)| {
         let m = models::leviton_frey(t).ok();
@@ -190,6 +191,7 @@ pub(crate) const FREY_TABLE_2: [(f64, [f64; 12]); 13] = [
 
 /// Frey et al.'s Table 2 from their Table 5: the largest difference over all 156 entries, within
 /// one unit of the fifth decimal (the entries sit 0 to 7e-6 below the formula: cut, not rounded).
+#[doc(hidden)]
 pub fn frey_table() -> Outcome {
     let errors = FREY_TABLE_2_T.iter().enumerate().flat_map(|(j, &t)| {
         let m = models::frey_silicon(t).ok();
@@ -208,6 +210,7 @@ pub(crate) const AIR: f64 = 1.00027;
 /// Frey et al. at 293 K against Li's table (293 K, in air: Li brings vacuum data to air) times
 /// `AIR`, at Li's three points around 1.55 µm: the largest difference, within the two stated
 /// uncertainties summed (Li's ±2e-3, Frey's 8.67e-5 at 1.5 µm and 295 K, Table 1).
+#[doc(hidden)]
 pub fn frey_li() -> Outcome {
     let li = crate::material::silicon();
     let frey = models::frey_silicon(293.0).ok();
@@ -242,6 +245,7 @@ pub(crate) fn reversals(d: &[f64]) -> usize {
 }
 
 /// Silicon's D from Frey et al.'s formula at 295 K, 1.25 to 2.45 µm: no reversal of its slope.
+#[doc(hidden)]
 pub fn frey_smooth() -> Outcome {
     let measured =
         models::frey_silicon(295.0).map_or(f64::NAN, |m| reversals(&dispersion_samples(&m)) as f64);
@@ -277,6 +281,7 @@ pub(crate) fn opo_idler(material: &Material, pump: f64, period: f64, longest: f6
 
 /// Zelmon et al.'s Fig. 3: the predicted idler of Myers et al.'s 1.064 µm-pumped PPLN OPO at a
 /// 30 µm grating, read off the plot as 3.35 µm (±0.03).
+#[doc(hidden)]
 pub fn zelmon_opo() -> Outcome {
     let (e, _) = models::ZELMON_CONGRUENT;
     let idler = models::zelmon("LiNbO3 (e)", e, "Table 1")
@@ -286,6 +291,7 @@ pub fn zelmon_opo() -> Outcome {
 
 /// Zelmon's congruent n_o and n_e at 633 nm against the values Jazbinšek & Zgonik quote for
 /// their tensors (n_o = 2.2864, n_e = 2.2022, their ref. 27): the larger difference.
+#[doc(hidden)]
 pub fn zelmon_633() -> Outcome {
     let (e, o) = models::ZELMON_CONGRUENT;
     let pair = models::zelmon("o", o, "").and_then(|o| Ok((o, models::zelmon("e", e, "")?)));
@@ -299,6 +305,7 @@ pub fn zelmon_633() -> Outcome {
 
 /// Jundt's Fig. 1: the idler of a 1.064 µm-pumped PPLN OPO at 250 °C and a 25.5 µm grating
 /// (at 25 °C, expanded by Jundt's Eq. (3)), read off the plot as 4.755 µm (±0.02).
+#[doc(hidden)]
 pub fn jundt_opo() -> Outcome {
     let celsius: f64 = 250.0;
     let dt = celsius - 25.0;
@@ -310,6 +317,7 @@ pub fn jundt_opo() -> Outcome {
 
 /// Gayer et al.'s comparison with Zelmon et al. at 21 °C, after exchanging Zelmon's MgO
 /// columns: the largest difference in n_e over 0.5–3 µm and in n_o over 0.5–1.62 µm.
+#[doc(hidden)]
 pub fn gayer_zelmon() -> Outcome {
     let (printed_e, printed_o) = models::ZELMON_MGO;
     let t = models::ZELMON_T;
@@ -330,6 +338,7 @@ pub fn gayer_zelmon() -> Outcome {
 
 /// Gehrsitz et al.'s Table II, GaAs Fit 2: n∞² = A + C₁/E₁² + C₀/E₀² (Eq. (8)) from the
 /// temperature forms at 298, 185 and 103 K against the table's columns.
+#[doc(hidden)]
 pub fn gehrsitz_n_inf() -> Outcome {
     let errors = [(298.0, 10.89761), (185.0, 10.75246), (103.0, 10.65684)]
         .iter()
@@ -341,6 +350,7 @@ pub fn gehrsitz_n_inf() -> Outcome {
 }
 
 /// Gehrsitz et al.'s Eq. (11) against Table II's E₀² of GaAs at 298, 185 and 103 K.
+#[doc(hidden)]
 pub fn gehrsitz_gap() -> Outcome {
     let errors = [(298.0, 1.321079), (185.0, 1.416284), (103.0, 1.475453)]
         .iter()
@@ -351,6 +361,7 @@ pub fn gehrsitz_gap() -> Outcome {
 /// Table IV's analytic model against each sample's own fit (Table III) at 23 °C, over the
 /// grating-coupling band 0.73–0.83 µm (where every sample was measured to 5e-4): the largest
 /// difference as a fraction of that sample's Δn_max(Table IV) + Δn_max(Table III).
+#[doc(hidden)]
 pub fn gehrsitz_samples() -> Outcome {
     let ratios = models::TABLE_III
         .iter()
@@ -372,6 +383,7 @@ pub fn gehrsitz_samples() -> Outcome {
 
 /// Papatryfonos et al.'s Table III (MBE AlGaAs, ellipsometry, room temperature) against the
 /// model at 23 °C: the largest relative difference over the 17 points below the gap.
+#[doc(hidden)]
 pub fn gehrsitz_papatryfonos() -> Outcome {
     const DATA: [(f64, [f64; 3]); 6] = [
         (0.0, [3.608, 3.405, 3.378]),
@@ -411,6 +423,7 @@ pub(crate) const SKAULI_TABLE_I: [(f64, f64); 8] = [
 
 /// Skauli et al.'s Table I against the Pikhtin form at 21 °C: the largest relative difference
 /// of Λ/m over the rows whose second harmonic lies in the model's range (all but 966.1 nm).
+#[doc(hidden)]
 pub fn skauli_shg() -> Outcome {
     let errors = SKAULI_TABLE_I
         .iter()
@@ -425,6 +438,7 @@ pub fn skauli_shg() -> Outcome {
 
 /// Skauli et al.: "dn/dT = 2.33 × 10⁻⁴ K⁻¹ obtained from our fits" at 1.5 µm and room
 /// temperature (shown in units of 10⁻⁴ K⁻¹).
+#[doc(hidden)]
 pub fn skauli_dndt() -> Outcome {
     let at = |t: f64| models::skauli(t).map_or(f64::NAN, |m| n(&m, 1.5));
     let t = models::SKAULI_T0;
@@ -433,6 +447,7 @@ pub fn skauli_dndt() -> Outcome {
 }
 
 /// Afromowitz's η of GaAs, printed as 0.1032 (Eq. (11) with E₀ = 3.65, E_d = 36.1, E_Γ = 1.424 eV).
+#[doc(hidden)]
 pub fn afromowitz_eta() -> Outcome {
     let (e0, ed, gap) = models::afromowitz_parameters(0.0);
     let (_, eta) = models::afromowitz_constants(e0, ed, gap);
@@ -442,6 +457,7 @@ pub fn afromowitz_eta() -> Outcome {
 /// Shoji et al.'s Miller Δ₃₃ of congruent LiNbO₃ (Table 12, 10⁻¹³ m/V) from their d33
 /// (Table 10) and Zelmon's n_e: Δ = d/[(n²(2ω) − 1)(n²(ω) − 1)²] (Eq. (1)), at the fundamentals
 /// 1.313, 1.064 and 0.852 µm; the largest relative difference.
+#[doc(hidden)]
 pub fn shoji_miller() -> Outcome {
     let (e, _) = models::ZELMON_CONGRUENT;
     let errors = [
@@ -463,6 +479,7 @@ pub fn shoji_miller() -> Outcome {
 
 /// Ueno et al.'s Table 2 lists InGaP's n_ω = 3.12 at their fundamental, 1.579 µm, from Tanaka
 /// et al.'s model: the model here at x = 0.
+#[doc(hidden)]
 pub fn tanaka_ueno() -> Outcome {
     outcome(
         models::tanaka(0.0).map_or(f64::NAN, |m| n(&m, 1.579)),
@@ -474,6 +491,7 @@ pub fn tanaka_ueno() -> Outcome {
 /// The indices Suzuki & Tada list beside InP's r41 (their Table I: 3.29, 3.23, 3.20 and 3.17 at
 /// 1.064, 1.208, 1.306 and 1.50 µm, citing Pettit & Turner in the text) against Pettit & Turner's
 /// fit at 298 K: the largest difference.
+#[doc(hidden)]
 pub fn pettit_turner_suzuki() -> Outcome {
     let errors = [(1.064, 3.29), (1.208, 3.23), (1.306, 3.20), (1.50, 3.17)]
         .into_iter()
@@ -483,6 +501,7 @@ pub fn pettit_turner_suzuki() -> Outcome {
 
 /// Suzuki & Tada's half-wave voltages V = λ₀/(2n₀³|r41^T|) (Table I) from their r41^T and n₀:
 /// the largest relative difference from the printed 11.4, 12.0, 12.9 and 14.4 kV.
+#[doc(hidden)]
 pub fn suzuki_tada_voltages() -> Outcome {
     let errors = [
         (1.064, 3.29, 1.32, 11.4),
@@ -503,6 +522,7 @@ pub fn suzuki_tada_voltages() -> Outcome {
 /// 1.064 µm: d^EO = −n₀⁴r₄₁ˢ/4 with their n₀ = 3.29, d^E = d^EO/(1 + C) with C = −0.53, and
 /// d^L = d^EO − d^E, against the printed 39, 83 and −44 pm/V (the catalogue's constants): the
 /// largest relative difference.
+#[doc(hidden)]
 pub fn suzuki_tada_faust_henry() -> Outcome {
     let r = super::entry("inp").and_then(|e| {
         e.tensors
@@ -531,6 +551,7 @@ pub fn suzuki_tada_faust_henry() -> Outcome {
 /// AlN's |d33| (Majkić et al.: 4.3 pm/V at 1030 nm) from the ratio they measure,
 /// (0.169 ± 0.009)·d33(LiNbO₃), and the catalogue's Shoji d33 of congruent LiNbO₃ at 1.064 µm,
 /// 25.2 pm/V, which they use.
+#[doc(hidden)]
 pub fn majkic_d33() -> Outcome {
     let ln = super::entry("linbo3").and_then(|e| {
         e.tensors
@@ -563,18 +584,21 @@ fn rigler_2015_658(maie: bool) -> f64 {
 
 /// The SE column of Rigler et al. 2015's Table I, from the same fit: to its three decimals and
 /// the rounding of A and B.
+#[doc(hidden)]
 pub fn rigler_2015_se() -> Outcome {
     deviation(rigler_2015_658(false), 1e-3)
 }
 
 /// The MAIE column of Rigler et al. 2015's Table I, an independent measurement at 658 nm,
 /// within its stated ±0.01.
+#[doc(hidden)]
 pub fn rigler_2015_maie() -> Outcome {
     deviation(rigler_2015_658(true), 0.01)
 }
 
 /// Ferrini et al.'s Table 3 holds together: ε₁ = n² − k² and ε₂ = 2nk from its n and k
 /// against its printed ε, over all 37 rows (largest difference).
+#[doc(hidden)]
 pub fn ferrini_table_consistency() -> Outcome {
     let errors = models::FERRINI_TABLE_3
         .iter()
@@ -584,6 +608,7 @@ pub fn ferrini_table_consistency() -> Outcome {
 
 /// The catalogue's InGaP above the gap passes through Ferrini et al.'s Table 3: n and k at
 /// every printed energy (largest difference; the spline is exact at its knots).
+#[doc(hidden)]
 pub fn ferrini_table_knots() -> Outcome {
     let errors = models::FERRINI_TABLE_3.iter().map(|&(e, n0, k0, _, _)| {
         models::ferrini_table().map_or(f64::NAN, |m| {

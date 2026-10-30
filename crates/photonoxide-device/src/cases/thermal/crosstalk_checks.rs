@@ -348,7 +348,8 @@ const HARRIS_P_PI: (f64, f64) = (24.77, 0.43);
 const HARRIS_F3DB: (f64, f64) = (130.0, 5.59);
 
 /// The cases.
-pub(crate) fn cases() -> Vec<Case> {
+#[doc(hidden)]
+pub fn cases() -> Vec<Case> {
     vec![
         Case {
             id: "shifter/line-source-crosstalk",

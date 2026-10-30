@@ -16,7 +16,7 @@
 //!   Its component is the model, its parameters the ones it covers, with exact derivatives in
 //!   them; the parameters it doesn't cover must keep the values it was fitted at.
 //!
-//! The samples are run as a device's study is ([`crate::job`], `kind = "fit"`): each point
+//! The samples are run as a device's study is (`photonoxide::job`, `kind = "fit"`): each point
 //! the design with the covered parameters set, computed at the source fidelity, on rayon's
 //! threads or a farm's workers. docs/methods/devices.md describes the device fits.
 

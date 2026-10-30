@@ -527,15 +527,16 @@ fn generator_of(f: &Fields<'_>, kind: &str) -> Result<Box<dyn Generator>> {
                     "is needed: [i, j], the sites either side of the centre",
                 )
             })?;
-            Box::new(PhotonicCrystal {
-                lattice,
-                ..PhotonicCrystal::hexagonal(
-                    len("pitch")?,
-                    len("radius")?,
-                    [ni as i64, nj as i64],
-                    defect,
-                )
-            })
+            // the generators' types are #[non_exhaustive] in their crate (photonoxide-device):
+            // changed copies, not literals
+            let mut crystal = PhotonicCrystal::hexagonal(
+                len("pitch")?,
+                len("radius")?,
+                [ni as i64, nj as i64],
+                defect,
+            );
+            crystal.lattice = lattice;
+            Box::new(crystal)
         }
         "edge_coupler" => {
             let mut e = EdgeCoupler::new(len("tip_width")?, len("width")?, len("taper_length")?);
@@ -1447,9 +1448,11 @@ fn expected() -> Vec<Drawing> {
             .transformed(&Transform::mirror(Point::default(), 0.0).then(&at(30.0, 15.0))),
         d(&Mmi::new(um(6.0 * w), um(40.0 * w), 2, 2, um(w)).with_tapers(um(2.0 * w), um(5.0)))
             .transformed(&at(60.0, 0.0)),
-        d(&YBranch {
-            gap: um(0.1 * w),
-            ..YBranch::new(um(w), um(w), um(2.0), um(10.0), um(3.0))
+        d(&{
+            // the generators' types are #[non_exhaustive] in their crate (photonoxide-device)
+            let mut y = YBranch::new(um(w), um(w), um(2.0), um(10.0), um(3.0));
+            y.gap = um(0.1 * w);
+            y
         })
         .transformed(&at(60.0, 15.0)),
         d(&Crossing::new(um(w), um(3.0)).with_centre_width(um(1.2))).transformed(&at(60.0, -15.0)),
@@ -1469,9 +1472,10 @@ fn expected() -> Vec<Drawing> {
         .transformed(&at(100.0, 25.0)),
         d(&SBend::new(um(w), um(12.0), um(3.0), SBendKind::Bezier)).transformed(&at(100.0, -25.0)),
         d(&SBend::new(um(w), um(12.0), um(3.0), SBendKind::Sine)).transformed(&at(100.0, -28.0)),
-        d(&Spiral {
-            straight: um(2.0),
-            ..Spiral::new(um(w), um(4.0 * w), um(r), 3)
+        d(&{
+            let mut s = Spiral::new(um(w), um(4.0 * w), um(r), 3);
+            s.straight = um(2.0);
+            s
         })
         .transformed(&at(0.0, -60.0)),
         d(
@@ -1481,10 +1485,11 @@ fn expected() -> Vec<Drawing> {
             ),
         )
         .transformed(&at(30.0, -40.0)),
-        d(&SwgWaveguide {
-            width_end: um(0.8 * w),
-            bridge: um(w / 5.0),
-            ..SwgWaveguide::new(um(w), um(0.25), 0.6, 20)
+        d(&{
+            let mut s = SwgWaveguide::new(um(w), um(0.25), 0.6, 20);
+            s.width_end = um(0.8 * w);
+            s.bridge = um(w / 5.0);
+            s
         })
         .transformed(&at(30.0, -45.0)),
         d(
@@ -1502,9 +1507,10 @@ fn expected() -> Vec<Drawing> {
             Defect::W1,
         ))
         .transformed(&at(90.0, -45.0)),
-        d(&EdgeCoupler {
-            straight: um(r),
-            ..EdgeCoupler::new(um(0.15), um(w), um(30.0))
+        d(&{
+            let mut e = EdgeCoupler::new(um(0.15), um(w), um(30.0));
+            e.straight = um(r);
+            e
         })
         .transformed(&rotation(180.0).then(&at(-15.0, -25.0))),
     ]

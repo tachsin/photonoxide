@@ -1,5 +1,5 @@
 use super::*;
-use crate::compact::checks::Ring;
+use crate::cases::compact::checks::Ring;
 use crate::compact::fit::Symmetry;
 
 fn um(v: f64) -> Wavelength {
@@ -183,6 +183,6 @@ fn a_measured_spectrum_interpolates_in_frequency() {
     ignore = "runs the ring-fdfd job; the validation report runs it in release"
 )]
 fn the_fdfd_rings_spectrum_is_fitted_and_predicts_between_samples() {
-    let (fitted, held) = crate::compact::checks::fdfd_ring_held_out();
+    let (fitted, held) = crate::cases::compact::checks::fdfd_ring_held_out();
     assert!(fitted < 1e-5 && held < 2e-4, "{fitted} {held}");
 }

@@ -83,6 +83,7 @@ pub(crate) fn harmonics(signals: &[Vec<f64>], dt: f64) -> Vec<Harmonic> {
 /// Oskooi et al.'s 2D anisotropic lattice (their Fig. 2): ellipses of a tensor of principal
 /// values 1.45, 2.81 and 4.98 in one of 8.49, 8.78 and 11.52, the principal axes ours (they
 /// give none).
+#[doc(hidden)]
 pub fn anisotropic_lattice(periods: [usize; 2]) -> Structure {
     let a = Permittivity::principal([1.45, 2.81, 4.98], rotation([0.3, 1.1, 0.7])).unwrap();
     let b = Permittivity::principal([8.49, 8.78, 11.52], rotation([1.2, 0.4, 2.1])).unwrap();
@@ -116,6 +117,7 @@ pub(crate) fn rotation([alpha, beta, gamma]: [f64; 3]) -> [[f64; 3]; 3] {
 /// How a check takes the structure's ε̃⁻¹: by a [`Smoothing`], or by Bauer, Werner and Cary's
 /// 2011 triplet tensors as they are, not made symmetric (second order but not stable).
 #[derive(Clone, Copy, Debug)]
+#[doc(hidden)]
 pub enum Scheme {
     Smoothed(Smoothing),
     Accurate,
@@ -403,6 +405,7 @@ pub(crate) fn slab_exact(eps: Permittivity) -> Vec<[c64; 2]> {
 }
 
 /// The largest difference between the measured and the exact reflection.
+#[doc(hidden)]
 pub fn slab_error(h: f64, eps: Permittivity, scheme: impl Into<Scheme>) -> f64 {
     let measured = slab_reflection(h, eps, scheme);
     let exact = slab_exact(eps);
@@ -415,6 +418,7 @@ pub fn slab_error(h: f64, eps: Permittivity, scheme: impl Into<Scheme>) -> f64 {
 
 /// The anisotropic slab's tensor: principal values 2, 3 and 4.5 along axes turned from the
 /// grid's, so that every entry is non-zero.
+#[doc(hidden)]
 pub fn tilted_crystal() -> Permittivity {
     Permittivity::principal([2.0, 3.0, 4.5], rotation([0.4, 0.9, 1.3])).unwrap()
 }
@@ -478,6 +482,7 @@ pub(crate) fn tilted_layers_exact([p, q]: [f64; 2], guess: f64) -> f64 {
 
 /// The relative error of the tilted layers' (n = (1, 2)/√5) lowest mode along them, on `n`
 /// cells a micrometre with `smoothing`, against `tilted_layers_exact`.
+#[doc(hidden)]
 pub fn oblique(scheme: impl Into<Scheme>, n: usize) -> f64 {
     let structure = tilted_layers([1.0, 2.0]);
     let lattice = Lattice {
@@ -495,6 +500,7 @@ pub fn oblique(scheme: impl Into<Scheme>, n: usize) -> f64 {
 
 /// Oskooi et al.'s anisotropic lattice's lowest mode at k = (½, 0) 2π/µm (two periods along x),
 /// c/µm, on `n` cells a period with `smoothing`.
+#[doc(hidden)]
 pub fn oskooi(smoothing: impl Into<Scheme>, n: usize) -> f64 {
     let structure = anisotropic_lattice([2, 1]);
     let lattice = Lattice {
@@ -511,6 +517,7 @@ pub fn oskooi(smoothing: impl Into<Scheme>, n: usize) -> f64 {
 
 /// A closed box with an anisotropic ellipsoid at an angle to the grid and random D: the
 /// leapfrog's ½ Σ E·D + ½ Σ H̃⁻·H̃⁺ over `steps` steps, its largest change relative to it.
+#[doc(hidden)]
 pub fn tensor_energy_drift(coupling: Coupling, steps: usize) -> f64 {
     let g = grid([10, 9, 8], 0.05);
     let ellipsoid = Body::ellipsoid(
@@ -537,6 +544,7 @@ pub fn tensor_energy_drift(coupling: Coupling, steps: usize) -> f64 {
 
 /// A simulation whose tensor couples E's components, from random D and H̃: the leapfrog's
 /// ½ Σ E·D + ½ Σ H̃⁻·H̃⁺ over `steps` steps, its largest change relative to it.
+#[doc(hidden)]
 pub fn drift(mut s: Simulation, steps: usize) -> f64 {
     let g = s.grid;
     for c in 0..3 {
@@ -569,11 +577,13 @@ pub fn drift(mut s: Simulation, steps: usize) -> f64 {
 /// stepped `steps` times at Courant number 0.99 from random D and H: the largest ‖E‖ over the
 /// run relative to the first, or `None` where [`Simulation::smoothed`] refuses the ellipsoid,
 /// its ε̃⁻¹ not positive definite; or without that check when not `checked`.
+#[doc(hidden)]
 pub fn contrast_growth(contrast: f64, steps: usize, checked: bool) -> Option<f64> {
     contrast_growth_with(Coupling::Nodes, contrast, steps, checked)
 }
 
 /// As [`contrast_growth`], ε̃⁻¹ by `scheme`.
+#[doc(hidden)]
 pub fn contrast_growth_with(
     scheme: impl Into<Scheme>,
     contrast: f64,
@@ -627,6 +637,7 @@ fn contrast_box(contrast: f64) -> (Grid3d, Structure) {
 }
 
 /// [`drift`] in [`contrast_growth`]'s box, at Courant number 0.99, ε̃⁻¹ by `scheme`.
+#[doc(hidden)]
 pub fn contrast_drift(scheme: impl Into<Scheme>, contrast: f64, steps: usize) -> f64 {
     let (g, structure) = contrast_box(contrast);
     let s = (scheme.into())
@@ -638,6 +649,7 @@ pub fn contrast_drift(scheme: impl Into<Scheme>, contrast: f64, steps: usize) ->
 /// A 2D lattice of period 1 µm, `periods` along x and y, on `n` cells a period, one cell thick
 /// and periodic (k = 0), stepped at Courant number 0.99; checked as [`Simulation::smoothed`]
 /// checks it when `checked`.
+#[doc(hidden)]
 pub fn lattice_simulation(
     scheme: impl Into<Scheme>,
     structure: &Structure,
@@ -670,6 +682,7 @@ pub fn lattice_simulation(
 /// Farjadpour et al.'s lattice (Opt. Lett. 31, 2972 (2006), Fig. 1, as `examples/subpixel_holes`
 /// reads it): elliptical air holes 0.19 × 0.14 of the period, the long axis 53° from x, in ε =
 /// 12, `periods` along x and y.
+#[doc(hidden)]
 pub fn hole_lattice(periods: [usize; 2]) -> Structure {
     let mut s = Structure::new(Permittivity::isotropic(12.0).unwrap());
     for i in 0..periods[0] {
@@ -695,6 +708,7 @@ pub(crate) fn disc_lattice(eps: f64) -> Structure {
 /// and where it has grown by 10²⁰ the rate of growth from there on (c/a, the least-squares
 /// slope of ln ‖E‖), as Werner et al. measure their wc07's, and how far the slopes over its
 /// first and second halves differ.
+#[doc(hidden)]
 pub fn disc_growth(
     scheme: impl Into<Scheme>,
     eps: f64,
@@ -817,6 +831,7 @@ pub(crate) fn ellipsoid_crystal() -> Structure {
 
 /// Bauer et al.'s Table 1: the crystal's nine lowest bands at k = 0 by Richardson's
 /// extrapolation of their own (second-order) results at N = 96 and 128, c/|a₁|.
+#[doc(hidden)]
 pub const ELLIPSOID_BANDS: [f64; 9] = [
     0.32300245, 0.35626134, 0.37826015, 0.38601562, 0.40978571, 0.42944672, 0.44031804, 0.47125309,
     0.48171559,
@@ -827,6 +842,7 @@ pub const ELLIPSOID_BANDS: [f64; 9] = [
 /// a pulse over the nine bands, the harmonics of four probes over 400 µm/c; each band of
 /// [`ELLIPSOID_BANDS`] matched to the nearest frequency found, c/|a₁|, the leapfrog's own
 /// frequency error taken out (sin(ωΔt/2) = Ω Δt/2).
+#[doc(hidden)]
 pub fn ellipsoid_bands(scheme: impl Into<Scheme>, n: usize) -> Vec<f64> {
     let cell = [1.2, 1.5, 1.8];
     let g = Grid3d {
@@ -975,6 +991,7 @@ fn both_models() -> Result<Vec<(Body, super::before::Body)>> {
 /// triplets take them. The smoothing's averages, tensors and triplets are the same code as before
 /// on these, so equal bits here are equal bits there. The values that differ in any bit (and
 /// every value if a body can't be made).
+#[doc(hidden)]
 pub fn bodies_differences() -> usize {
     let Ok(bodies) = both_models() else {
         return usize::MAX;

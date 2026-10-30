@@ -24,11 +24,10 @@
 //!
 //! docs/methods/components.md derives each model, with its references and its validity.
 
-#[path = "../../cases/circuit/components/checks.rs"]
-pub(crate) mod checks;
 mod coupler;
 mod dual;
-pub(crate) mod measured;
+#[doc(hidden)]
+pub mod measured;
 mod mmi;
 mod mzi;
 mod ring;

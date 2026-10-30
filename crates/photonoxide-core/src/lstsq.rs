@@ -11,6 +11,7 @@ const RCOND: f64 = 1e-13;
 /// Real least squares min ‖A x − b‖, columns scaled to unit norm first, and solved through the
 /// singular values of R (A = QR), the smallest dropped below `RCOND`: the minimum-norm solution
 /// when the problem is rank-deficient.
+#[doc(hidden)]
 pub fn least_squares(a: Mat<f64>, b: &Mat<f64>) -> Vec<f64> {
     let (m, n) = (a.nrows(), a.ncols());
     let scale: Vec<f64> = (0..n)
@@ -65,6 +66,7 @@ pub fn least_squares(a: Mat<f64>, b: &Mat<f64>) -> Vec<f64> {
 /// pair is orthogonal to round-off, V accumulating the rotations; the columns' norms are Σ.
 /// Slower than faer's, but it converges on any finite matrix: [`least_squares`]' fallback.
 /// The singular values are in the columns' order, not sorted; a zero one has a zero column of U.
+#[doc(hidden)]
 pub fn jacobi_svd(a: &Mat<f64>) -> (Mat<f64>, Vec<f64>, Mat<f64>) {
     let (m, n) = (a.nrows(), a.ncols());
     let mut u = a.to_owned();

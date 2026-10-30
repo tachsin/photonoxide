@@ -18,7 +18,8 @@ use super::{Built, Device, Geometry, Method, Values, method, parameter};
 
 /// The outline's widths at its 13 points: Y. Zhang et al., Opt. Express 21, 1310 (2013),
 /// doi:10.1364/OE.21.001310, Table 1, from the 0.5 µm input to the two 0.5 µm arms 0.2 µm apart.
-pub(super) const ZHANG: [f64; 13] = [
+#[doc(hidden)]
+pub const ZHANG: [f64; 13] = [
     0.5, 0.5, 0.6, 0.7, 0.9, 1.26, 1.4, 1.4, 1.4, 1.4, 1.31, 1.2, 1.2,
 ];
 
@@ -112,7 +113,8 @@ impl StripYBranch {
     }
 
     /// Its FDFD grids: the 2D one's and the 3D one's.
-    pub(super) fn grids(&self) -> (FdfdGrid, FdfdGrid) {
+    #[doc(hidden)]
+    pub fn grids(&self) -> (FdfdGrid, FdfdGrid) {
         (self.grid_2d, self.grid_3d)
     }
 

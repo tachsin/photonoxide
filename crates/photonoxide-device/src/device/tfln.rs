@@ -746,7 +746,8 @@ fn axis_material(id: &str, k: usize) -> Result<Material> {
 
 /// Lithium niobate's extraordinary index (Zelmon et al.'s, the catalogue's default) and
 /// silica's (Malitson's) at `w`.
-pub(super) fn indices(w: Wavelength) -> Result<(f64, f64)> {
+#[doc(hidden)]
+pub fn indices(w: Wavelength) -> Result<(f64, f64)> {
     // Zelmon's axes: ordinary, extraordinary
     let n_e = axis_material("linbo3", 1)?.refractive_index(w)?.re;
     let n_ox = axis_material("sio2", 0)?.refractive_index(w)?.re;
@@ -755,7 +756,8 @@ pub(super) fn indices(w: Wavelength) -> Result<(f64, f64)> {
 
 /// A TE slab mode's share of ∫E² in its core, in closed form: E = cos hx + (q/h) sin hx in the
 /// core (0 to t), e^(qx) below and its top's value times e^(−p(x − t)) above.
-pub(super) fn confinement(h: f64, q: f64, p: f64, t: f64) -> f64 {
+#[doc(hidden)]
+pub fn confinement(h: f64, q: f64, p: f64, t: f64) -> f64 {
     let (a, b) = (1.0, q / h);
     let core = (a * a + b * b) * t / 2.0
         + (a * a - b * b) * (2.0 * h * t).sin() / (4.0 * h)
@@ -900,7 +902,8 @@ impl Section {
 
 /// K(k)/K(k′) by the arithmetic–geometric mean, K(k) = π/(2 AGM(1, k′)): exact at both ends,
 /// where k or k′ is too small for 1 − k² to hold it.
-pub(super) fn elliptic_ratio(k: f64) -> f64 {
+#[doc(hidden)]
+pub fn elliptic_ratio(k: f64) -> f64 {
     let agm = |mut a: f64, mut b: f64| {
         for _ in 0..64 {
             let (x, y) = (0.5 * (a + b), (a * b).sqrt());
@@ -932,10 +935,14 @@ fn layer_ratio(a: f64, b: f64, h: f64) -> f64 {
 /// The analytic coplanar line: its capacitances per unit length (F/m), each medium's share of
 /// the electric energy, and the strips' half widths for Holloway & Kuester's current.
 #[derive(Clone, Debug, PartialEq)]
-pub(super) struct ClosedLine {
-    pub(super) capacitance: f64,
-    pub(super) vacuum: f64,
-    pub(super) shares: Vec<(&'static str, f64)>,
+#[doc(hidden)]
+pub struct ClosedLine {
+    #[doc(hidden)]
+    pub capacitance: f64,
+    #[doc(hidden)]
+    pub vacuum: f64,
+    #[doc(hidden)]
+    pub shares: Vec<(&'static str, f64)>,
     a: f64,
     b: f64,
 }
@@ -948,7 +955,8 @@ impl ClosedLine {
     /// partial capacitances, their Eqs. 2–3, layer on layer); and `plates` (a medium, its
     /// permittivity and height, m) between the strips' edges across each of the two gaps, the
     /// strips' thickness, 2ε₀ ε h/(b − a) for each in C and 2ε₀ h/(b − a) in C₀.
-    pub(super) fn new(
+    #[doc(hidden)]
+    pub fn new(
         a: f64,
         b: f64,
         below: &[(&'static str, f64, f64)],

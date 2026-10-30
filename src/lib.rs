@@ -55,26 +55,26 @@
 
 pub mod bench;
 mod cases;
-pub mod circuit;
-pub mod compact;
-pub mod device;
 pub mod export;
 pub mod facade;
 pub mod farm;
-pub mod generator;
 pub mod job;
 #[cfg(test)]
 mod layering;
 pub mod run;
-mod shifter;
-pub mod thermal;
 pub mod validation;
 
 // The layers below, crates of their own (crates/, docs/architecture.md), at the paths their
 // modules had here.
 #[doc(inline)]
+pub use photonoxide_circuit::{circuit, compact};
+#[doc(inline)]
 pub use photonoxide_core::{convergence, error, expr, parallel, units};
-use photonoxide_core::{lstsq, portable, stop, traffic, verdict};
+#[cfg(test)]
+use photonoxide_core::{lstsq, portable};
+use photonoxide_core::{stop, traffic, verdict};
+#[doc(inline)]
+pub use photonoxide_device::{device, generator, thermal};
 #[doc(inline)]
 pub use photonoxide_fdfd::fdfd;
 #[doc(inline)]

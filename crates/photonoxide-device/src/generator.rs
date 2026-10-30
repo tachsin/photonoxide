@@ -52,7 +52,8 @@ mod gratings;
 mod resonators;
 mod waveguides;
 
-pub(crate) mod checks;
+#[doc(hidden)]
+pub mod checks;
 #[cfg(test)]
 mod grating_tests;
 #[cfg(test)]
@@ -186,7 +187,8 @@ pub(crate) fn angle_of(v: [f64; 2]) -> f64 {
 }
 
 /// A rotation by `d` degrees about the origin, exact at whole quarter turns.
-pub(crate) fn rotation(d: f64) -> Transform {
+#[doc(hidden)]
+pub fn rotation(d: f64) -> Transform {
     let q = d / 90.0;
     if q.fract() == 0.0 && q.abs() < 1e15 {
         Transform::rotate(

@@ -47,8 +47,8 @@
 //!
 //! **Saved as a job.** A [`Spec`] is a device's design as a job file's `[device]` table holds
 //! it: the device's kind, its stack (a preset or layers of the materials catalogue's), its
-//! parameters' expressions and its fidelity. [`crate::job::check`] checks it and
-//! [`crate::job::preview`] draws it.
+//! parameters' expressions and its fidelity. `photonoxide::job::check` checks it and
+//! `photonoxide::job::preview` draws it.
 //!
 //! docs/methods/devices.md describes the abstraction and each device's models, with their
 //! papers and the validation of each.
@@ -66,7 +66,8 @@ mod pcm;
 mod rib;
 mod ring;
 mod section;
-pub(crate) mod slab_plane;
+#[doc(hidden)]
+pub mod slab_plane;
 mod solve;
 pub(crate) mod spec;
 mod tfln;
@@ -75,23 +76,14 @@ mod thermo_closed;
 mod waveguide;
 mod ybranch;
 
-pub(crate) mod checks;
-#[path = "cases/device/pcm_checks.rs"]
-pub(crate) mod pcm_checks;
+#[doc(hidden)]
+pub mod checks;
 #[cfg(test)]
 mod pcm_tests;
-pub(crate) mod splitter_checks;
-#[cfg(test)]
-#[path = "cases/device/splitter_tests.rs"]
-mod splitter_tests;
+#[doc(hidden)]
+pub mod splitter_checks;
 #[cfg(test)]
 mod tests;
-#[path = "cases/device/tfln_checks.rs"]
-pub(crate) mod tfln_checks;
-#[cfg(test)]
-mod tfln_tests;
-#[path = "cases/device/thermo_checks.rs"]
-pub(crate) mod thermo_checks;
 #[cfg(test)]
 mod thermo_tests;
 
@@ -109,6 +101,35 @@ pub use section::{Cells, Mesh, Scheme, Symmetry};
 pub use solve::FdfdGrid;
 pub use spec::{LayerSpec, MaterialSpec, PRESETS, Spec, StackSpec, fidelity};
 pub use tfln::{ElectrodeField, LineField, TflnModulator};
+/// What photonoxide's checks use of `pcm`. The module stays private: its public types are
+/// re-exported here, and a hidden module would hide them from the API listing.
+#[doc(hidden)]
+pub mod pcm_items {
+    pub use super::pcm::*;
+}
+/// What photonoxide's checks use of `tfln`. The module stays private: its public types are
+/// re-exported here, and a hidden module would hide them from the API listing.
+/// As `pcm_items`, for `spec`.
+#[doc(hidden)]
+pub mod spec_items {
+    pub use super::spec::*;
+}
+#[doc(hidden)]
+pub mod tfln_items {
+    pub use super::tfln::*;
+}
+/// What photonoxide's checks use of `solve`. The module stays private: its public types are
+/// re-exported here, and a hidden module would hide them from the API listing.
+#[doc(hidden)]
+pub mod solve_items {
+    pub use super::solve::*;
+}
+/// What photonoxide's checks use of `ybranch`. The module stays private: its public types are
+/// re-exported here, and a hidden module would hide them from the API listing.
+#[doc(hidden)]
+pub mod ybranch_items {
+    pub use super::ybranch::*;
+}
 pub use thermo::{ThermoShifter, TurnOn};
 pub use waveguide::StripWaveguide;
 pub use ybranch::StripYBranch;
@@ -701,7 +722,8 @@ pub fn library() -> Vec<Box<dyn Device>> {
 /// # Errors
 ///
 /// [`Device::component`]'s, and [`Error::InvalidValue`] if the thread can't be started.
-pub(crate) fn component_until(
+#[doc(hidden)]
+pub fn component_until(
     device: Box<dyn Device>,
     values: &Values,
     fidelity: Fidelity,

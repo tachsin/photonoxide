@@ -4,7 +4,7 @@
 //! modulator's cross-section and its convergence on both grids, and the published thin-film
 //! modulators' Vπ·L.
 //!
-//! The thin-film cross-sections ([`Tfln`]): x-cut lithium niobate (its c axis across the guide,
+//! The thin-film cross-sections (`Tfln`): x-cut lithium niobate (its c axis across the guide,
 //! so a TE mode and the field across the gap meet through r₃₃) on a buried oxide over silicon,
 //! a rib etched into the film, two electrodes on the slab on either side of it, under an oxide
 //! cladding. The electrostatic problem holds one gap: the ground electrode to the window's left
@@ -62,7 +62,8 @@ fn linbo3_tensor(label: &str) -> Tensor {
 
 /// Which coefficients a case takes.
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub(crate) enum Coefficients {
+#[doc(hidden)]
+pub enum Coefficients {
     /// Jazbinšek & Zgonik's clamped r^S and ε^S (633 nm).
     Clamped,
     /// Jazbinšek & Zgonik's unclamped r^T and ε^T (633 nm): the low-frequency values, below the
@@ -75,7 +76,8 @@ pub(crate) enum Coefficients {
 
 impl Coefficients {
     /// The tensor in the crystal's axes.
-    pub(crate) fn pockels(self) -> Pockels {
+    #[doc(hidden)]
+    pub fn pockels(self) -> Pockels {
         let bulk = |label| Pockels::from_tensor(&linbo3_tensor(label)).expect(OK);
         match self {
             Coefficients::Clamped => bulk("bulk, clamped, 633 nm"),
@@ -947,7 +949,8 @@ fn litao3_x_cut() -> Outcome {
 }
 
 /// The cases.
-pub(crate) fn cases() -> Vec<Case> {
+#[doc(hidden)]
+pub fn cases() -> Vec<Case> {
     vec![
         Case {
             id: "pockels/bulk-x-cut",

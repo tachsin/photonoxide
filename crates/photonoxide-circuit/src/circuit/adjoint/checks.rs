@@ -344,7 +344,8 @@ fn mesh_target() -> SMatrix {
 
 /// The objective of a gradient check.
 #[derive(Clone, Copy, Debug)]
-pub(crate) enum Check {
+#[doc(hidden)]
+pub enum Check {
     /// An MZI's bar power, Σ_λ |S_out1,in1|² over five wavelengths, 1.549 to 1.551 µm: its four
     /// parameters (two κ², two lengths).
     Mzi,
@@ -437,7 +438,8 @@ impl Check {
 
     /// The largest difference between the adjoint gradient and the finite differences, relative
     /// to the gradient's largest component.
-    pub(crate) fn error(self) -> f64 {
+    #[doc(hidden)]
+    pub fn error(self) -> f64 {
         let (adjoint, differences) = self.gradients();
         let scale = differences.iter().fold(0.0f64, |m, g| m.max(g.abs()));
         adjoint
@@ -449,11 +451,12 @@ impl Check {
     }
 }
 
-/// A component's ∂S/∂θ by [`super::finite_difference`] against its closed form: the wire at 100
+/// A component's ∂S/∂θ by `super::finite_difference` against its closed form: the wire at 100
 /// µm and at its lower bound, 0 (one-sided forwards), the coupler at κ² = 0.3, and the phase
 /// shifter at its upper bound, 100 rad (one-sided backwards), and 1e-5 rad inside its lower one
 /// (one-sided forwards): the largest difference relative to the derivative's largest entry.
-pub(crate) fn fallback_error() -> f64 {
+#[doc(hidden)]
+pub fn fallback_error() -> f64 {
     let w = um(1.55);
     let shifter: Arc<dyn Component> = Arc::new(Shifter::new());
     let cases: [(Arc<dyn Component>, f64); 5] = [

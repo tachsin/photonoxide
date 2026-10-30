@@ -14,13 +14,15 @@ use crate::units::Wavelength;
 /// index first order in λ about λ₀ with group index n_g, n(λ) = n₀ + (n₀ − n_g)(λ − λ₀)/λ₀, and
 /// α its loss in dB/cm. Parameter: `length`, µm.
 #[derive(Clone, Debug)]
-pub(crate) struct Waveguide {
+#[doc(hidden)]
+pub struct Waveguide {
     ports: Vec<Port>,
     parameters: Vec<Parameter>,
     /// n₀, the effective index at λ₀.
     pub(crate) index: f64,
     /// n_g.
-    pub(crate) group_index: f64,
+    #[doc(hidden)]
+    pub group_index: f64,
     /// λ₀, µm.
     pub(crate) reference_um: f64,
     /// α, dB/cm.
@@ -52,7 +54,8 @@ impl Waveguide {
     }
 
     /// The transmission over `length` µm at `wavelength_um`.
-    pub(crate) fn transmission(&self, wavelength_um: f64, length: f64) -> c64 {
+    #[doc(hidden)]
+    pub fn transmission(&self, wavelength_um: f64, length: f64) -> c64 {
         let amplitude = 10f64.powf(-self.loss_db_per_cm * length * 1e-4 / 20.0);
         let phase = TAU * self.effective_index(wavelength_um) * length / wavelength_um;
         amplitude * c64::new(0.0, phase).exp()
@@ -146,14 +149,16 @@ impl Component for Coupler {
 }
 
 /// A wavelength the caller knows is valid.
-pub(crate) fn um(value: f64) -> Wavelength {
+#[doc(hidden)]
+pub fn um(value: f64) -> Wavelength {
     Wavelength::um(value).expect("a valid wavelength")
 }
 
 /// An all-pass ring (Bogaerts 2011, Fig. 2A): a coupler with power cross-coupling `kappa2`, the
 /// bus from `a1` (external `in`) to `b1` (`through`), and `b2` fed back to `a2` through `guide`
 /// `length` µm long.
-pub(crate) fn all_pass(guide: &Waveguide, length: f64, kappa2: f64) -> Result<super::Circuit> {
+#[doc(hidden)]
+pub fn all_pass(guide: &Waveguide, length: f64, kappa2: f64) -> Result<super::Circuit> {
     let mut n = super::Netlist::new();
     n.add("c", std::sync::Arc::new(Coupler::new()))?;
     n.add("ring", std::sync::Arc::new(guide.clone()))?;
@@ -168,7 +173,8 @@ pub(crate) fn all_pass(guide: &Waveguide, length: f64, kappa2: f64) -> Result<su
 
 /// An add-drop ring (Bogaerts 2011, Fig. 2B): two couplers, `kappa2` and `kappa2_drop`, joined
 /// by two halves of a ring `length` µm round; external ports `in`, `through`, `add`, `drop`.
-pub(crate) fn add_drop(
+#[doc(hidden)]
+pub fn add_drop(
     guide: &Waveguide,
     length: f64,
     kappa2: f64,
@@ -197,12 +203,7 @@ pub(crate) fn add_drop(
 
 /// A Mach–Zehnder interferometer: two couplers of `kappa2` joined by arms `upper` and `lower` µm
 /// long (`b1` to `a1`, `b2` to `a2`); external ports `in1`, `in2`, `out1`, `out2`.
-pub(crate) fn mzi(
-    guide: &Waveguide,
-    upper: f64,
-    lower: f64,
-    kappa2: f64,
-) -> Result<super::Circuit> {
+pub fn mzi(guide: &Waveguide, upper: f64, lower: f64, kappa2: f64) -> Result<super::Circuit> {
     let mut n = super::Netlist::new();
     for name in ["c1", "c2"] {
         n.add(name, std::sync::Arc::new(Coupler::new()))?;
@@ -225,7 +226,8 @@ pub(crate) fn mzi(
 
 /// The MZI's transmission from input p to output q (0 or 1), the product of the couplers' and
 /// arms' transfer matrices: C diag(t_upper, t_lower) C, C = [[r, iκ], [iκ, r]].
-pub(crate) fn mzi_closed_form(t_upper: c64, t_lower: c64, kappa2: f64, q: usize, p: usize) -> c64 {
+#[doc(hidden)]
+pub fn mzi_closed_form(t_upper: c64, t_lower: c64, kappa2: f64, q: usize, p: usize) -> c64 {
     let r = c64::new((1.0 - kappa2).sqrt(), 0.0);
     let k = c64::new(0.0, kappa2.sqrt());
     let c = [[r, k], [k, r]];
@@ -234,35 +236,41 @@ pub(crate) fn mzi_closed_form(t_upper: c64, t_lower: c64, kappa2: f64, q: usize,
 
 /// Bogaerts 2011, Eq. 1: the all-pass ring's through field, e^(i(π + φ)) (a − r e^(−iφ)) /
 /// (1 − r a e^(iφ)), r the self-coupling, a the single-pass amplitude, φ the single-pass phase.
-pub(crate) fn bogaerts_eq1(r: f64, a: f64, phi: f64) -> c64 {
+#[doc(hidden)]
+pub fn bogaerts_eq1(r: f64, a: f64, phi: f64) -> c64 {
     let e = |x: f64| c64::new(0.0, x).exp();
     e(std::f64::consts::PI + phi) * (a - r * e(-phi)) / (1.0 - r * a * e(phi))
 }
 
 /// Bogaerts 2011, Eq. 2: the all-pass ring's through intensity.
-pub(crate) fn bogaerts_eq2(r: f64, a: f64, phi: f64) -> f64 {
+#[doc(hidden)]
+pub fn bogaerts_eq2(r: f64, a: f64, phi: f64) -> f64 {
     (a * a - 2.0 * r * a * phi.cos() + r * r) / (1.0 - 2.0 * a * r * phi.cos() + (r * a).powi(2))
 }
 
 /// Bogaerts 2011, Eq. 5: the add-drop ring's through intensity.
-pub(crate) fn bogaerts_eq5(r1: f64, r2: f64, a: f64, phi: f64) -> f64 {
+#[doc(hidden)]
+pub fn bogaerts_eq5(r1: f64, r2: f64, a: f64, phi: f64) -> f64 {
     (r2 * r2 * a * a - 2.0 * r1 * r2 * a * phi.cos() + r1 * r1)
         / (1.0 - 2.0 * r1 * r2 * a * phi.cos() + (r1 * r2 * a).powi(2))
 }
 
 /// Bogaerts 2011, Eq. 6: the add-drop ring's drop intensity.
-pub(crate) fn bogaerts_eq6(r1: f64, r2: f64, a: f64, phi: f64) -> f64 {
+#[doc(hidden)]
+pub fn bogaerts_eq6(r1: f64, r2: f64, a: f64, phi: f64) -> f64 {
     (1.0 - r1 * r1) * (1.0 - r2 * r2) * a
         / (1.0 - 2.0 * r1 * r2 * a * phi.cos() + (r1 * r2 * a).powi(2))
 }
 
 /// A silicon wire's numbers: n_eff 2.4 and n_g 4.2 at 1.55 µm, 3 dB/cm.
-pub(crate) fn wire() -> Waveguide {
+#[doc(hidden)]
+pub fn wire() -> Waveguide {
     Waveguide::new(2.4, 4.2, 1.55, 3.0)
 }
 
 /// 1.54 to 1.56 µm in steps of 0.5 nm.
-pub(crate) fn sweep() -> Vec<Wavelength> {
+#[doc(hidden)]
+pub fn sweep() -> Vec<Wavelength> {
     (0..41).map(|i| um(1.54 + 0.0005 * f64::from(i))).collect()
 }
 
@@ -282,7 +290,8 @@ pub(crate) fn reflective(n: usize, seed: f64) -> std::sync::Arc<dyn Component> {
 
 /// A netlist with loops, reflections and a port joined to its own component: two rings, an MZI
 /// and three reflective multiports.
-pub(crate) fn tangle() -> super::Circuit {
+#[doc(hidden)]
+pub fn tangle() -> super::Circuit {
     let guide = wire();
     let mut n = super::Netlist::new();
     n.add(
@@ -334,7 +343,8 @@ pub(crate) fn tangle() -> super::Circuit {
 
 /// A lossless netlist: an add-drop ring, an MZI and an all-pass ring, without loss in their
 /// waveguides; four external ports.
-pub(crate) fn lossless() -> super::Circuit {
+#[doc(hidden)]
+pub fn lossless() -> super::Circuit {
     let guide = Waveguide::new(2.4, 4.2, 1.55, 0.0);
     let ok = "a valid netlist";
     let mut n = super::Netlist::new();

@@ -191,10 +191,15 @@ fn transpose(a: &Mat<c64>) -> Mat<c64> {
 
 /// A two-port's S-matrix in blocks: 11 and 22 reflections, 21 from port 1 to port 2.
 #[derive(Clone, Debug)]
+#[doc(hidden)]
 pub struct Blocks {
+    #[doc(hidden)]
     pub s11: Mat<c64>,
+    #[doc(hidden)]
     pub s12: Mat<c64>,
+    #[doc(hidden)]
     pub s21: Mat<c64>,
+    #[doc(hidden)]
     pub s22: Mat<c64>,
 }
 
@@ -322,6 +327,7 @@ pub(super) fn structure(eme: &Eme, sections: &[Section]) -> Result<Scattering> {
 
 /// Bienstman and Baets's Eq. 3, both continuities tested with section I's modes: for comparison
 /// (in photonoxide's tests of the expansion).
+#[doc(hidden)]
 pub fn interface_eq3(o12: &Mat<c64>, o21: &Mat<c64>) -> (Mat<c64>, Mat<c64>) {
     let sum = o12 + &transpose(o21);
     let t = scaled(&solve(&sum, &identity(o12.nrows())), 2.0);

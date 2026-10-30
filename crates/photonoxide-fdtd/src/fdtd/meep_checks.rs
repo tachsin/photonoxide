@@ -78,6 +78,7 @@ pub fn pml_rates(thickness: usize) -> [f64; 3] {
 /// A resonance of the ring of [`ring_resonances`]: its azimuthal order, FDTD's complex
 /// frequency f − iγ/2π (c/µm) and the exact one.
 #[derive(Clone, Copy, Debug)]
+#[doc(hidden)]
 pub struct RingMode {
     #[doc(hidden)]
     pub order: u32,
