@@ -3,9 +3,9 @@
 photonoxide's modules sit in layers, and the layers are drawn so that each can become a crate of
 its own: Cargo then builds independent crates side by side, and an edit rebuilds only its own
 crate and the ones above it (tracking issue
-[#508](https://github.com/tachsin/photonoxide/issues/508)). The two lowest layers are crates
-already, in `crates/`: `photonoxide-core` and `photonoxide-geometry`. The others are still
-modules of `photonoxide` (`src/`). This page describes the layers, the rules that keep them, how
+[#508](https://github.com/tachsin/photonoxide/issues/508)). The core, geometry, linalg, mode and
+statics layers are crates already, in `crates/`. The others are still modules of `photonoxide`
+(`src/`). This page describes the layers, the rules that keep them, how
 to add a module, and where the split to crates stands.
 
 The public API does not change with the split. `photonoxide` stays the crate users depend on and
@@ -26,9 +26,9 @@ from any other layer. The rows are in dependency order: a layer imports only fro
 |---|---|---|---|
 | core | `photonoxide-core` (`crates/photonoxide-core`) | `units`, `expr`, `portable`, `parallel`, `traffic`, `convergence`, `lstsq`, and the error, stop and verdict types (`error`, `stop`, `verdict`) | (nothing) |
 | geometry | `photonoxide-geometry` (`crates/photonoxide-geometry`) | `geometry`, `material`, `stack`, `averaging`, `raster`, `etch` | core |
-| linalg | `photonoxide-linalg` (planned; `src/`) | `dense`, `sparse`, `backend` (with the Krylov solvers), `eigen` | core |
-| mode | `photonoxide-mode` (planned; `src/`) | `mode`, `eme`, `sweep` | core, geometry, linalg |
-| statics | `photonoxide-statics` (planned; `src/`) | `statics`, `thermal`, `electro` | core, geometry, linalg |
+| linalg | `photonoxide-linalg` (`crates/photonoxide-linalg`) | `dense`, `sparse`, `backend` (with the Krylov solvers), `eigen` | core |
+| mode | `photonoxide-mode` (`crates/photonoxide-mode`) | `mode`, `eme`, `sweep` | core, geometry, linalg |
+| statics | `photonoxide-statics` (`crates/photonoxide-statics`) | `statics`, `thermal`, `electro` | core, geometry, linalg |
 | fdfd | `photonoxide-fdfd` (planned; `src/`) | `fdfd` | core, geometry, linalg |
 | fdtd | `photonoxide-fdtd` (planned; `src/`) | `fdtd` | core, geometry, linalg, fdfd |
 | circuit | `photonoxide-circuit` (planned; `src/`) | `circuit`, `compact` | core, geometry, linalg, mode, statics |
@@ -127,17 +127,22 @@ and tests that use only its own layer and the ones below stay inside it, beside 
 check (`crates/photonoxide-geometry/src/geometry/checks.rs`), and run under
 `cargo test -p photonoxide-geometry` and a plain `cargo test`.
 
-### The exception
+### Facades and the exceptions
 
-One production import points upward and is listed in the layering test's allow-list:
+`photonoxide::thermal` is a module of photonoxide, in the top layer: it re-exports the statics
+crate's `thermal` and the device layer's shifter, so that the shifter's types keep their
+`thermal::` paths, and it declares the heat solver's checks that use the shifter
+(`src/cases/thermal/`), with their test names unchanged. The layering test reads such a module
+of `src/`, named after a module of a layer's crate, as the top layer's.
+
+Two production imports point upward and are listed in the layering test's allow-list:
 
 | File | Imports | Why |
 |---|---|---|
-| `src/thermal.rs` | `shifter` | `thermal` re-exports the shifter's types, so that their `thermal::` paths keep working |
+| `src/device/tfln.rs`, `src/device/tfln_line.rs` | `cases` | the TFLN modulator takes numbers from the checks of its line and its Pockels section, which join the statics and mode layers and so sit in `src/cases/` |
 
-It goes when the statics crate is made (phase 2 below): `photonoxide::thermal` then becomes a
-module of the top crate that re-exports the statics crate's `thermal` and the shifter, with the
-same paths.
+They go when the device crate is made (phase 4 below): those checks move into it, which sees
+both layers.
 
 ## Adding a module
 
@@ -162,7 +167,7 @@ The split is tracked in [#508](https://github.com/tachsin/photonoxide/issues/508
 |---|---|---|
 | 0 | Remove the cycles between modules; move the error, verdict and stop types down; move the checks that reach above their layer up; this page and the layering test | done |
 | 1 | `photonoxide-core`, `photonoxide-geometry` | done |
-| 2 | `photonoxide-linalg`, `photonoxide-mode`, `photonoxide-statics` | planned |
+| 2 | `photonoxide-linalg`, `photonoxide-mode`, `photonoxide-statics` | done |
 | 3 | `photonoxide-fdfd`, `photonoxide-fdtd` (with the `gpu` feature) | planned |
 | 4 | `photonoxide-circuit`, `photonoxide-device` | planned |
 | 5 | Measure the build again and record the numbers | planned |

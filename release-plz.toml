@@ -48,7 +48,13 @@ commit_parsers = [
 # photonoxide: its changelog has the layers' changes too, since users see them through it
 [[package]]
 name = "photonoxide"
-changelog_include = ["photonoxide-core", "photonoxide-geometry"]
+changelog_include = [
+  "photonoxide-core",
+  "photonoxide-geometry",
+  "photonoxide-linalg",
+  "photonoxide-mode",
+  "photonoxide-statics",
+]
 
 # the library's layers (crates/, docs/architecture.md): internal crates that photonoxide depends on
 # exactly (=x.y.z) and re-exports at its own paths, published to crates.io with each release at
@@ -65,6 +71,27 @@ semver_check = false
 
 [[package]]
 name = "photonoxide-geometry"
+git_tag_enable = false
+git_release_enable = false
+changelog_update = false
+semver_check = false
+
+[[package]]
+name = "photonoxide-linalg"
+git_tag_enable = false
+git_release_enable = false
+changelog_update = false
+semver_check = false
+
+[[package]]
+name = "photonoxide-mode"
+git_tag_enable = false
+git_release_enable = false
+changelog_update = false
+semver_check = false
+
+[[package]]
+name = "photonoxide-statics"
 git_tag_enable = false
 git_release_enable = false
 changelog_update = false

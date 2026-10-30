@@ -39,11 +39,14 @@ leftovers (#543: the TFLN modulator as a device, the studio's views, GDS read in
 
 The modules sit in layers that become crates (#508), and production code imports only downward:
 [docs/architecture.md](docs/architecture.md) has the layers, `src/layering.rs` the test that
-keeps them (a new module goes in its table). Two layers are crates already, in `crates/`:
+keeps them (a new module goes in its table). These layers are crates already, in `crates/`:
 `photonoxide-core` (`units`, `expr`, `convergence`, `parallel`, the error type, the validation
-verdicts, `Stop`) and `photonoxide-geometry` (`geometry`, `material`, `stack`, `averaging`,
-`raster`); photonoxide re-exports their modules at the same paths (`photonoxide::units`), and a
-change to them is made in `crates/<crate>/src/`. The checks and tests that reach above their
+verdicts, `Stop`), `photonoxide-geometry` (`geometry`, `material`, `stack`, `averaging`,
+`raster`), `photonoxide-linalg` (`backend`, the sparse and dense solvers, the eigensolvers),
+`photonoxide-mode` (`mode`, `eme`, `sweep`) and `photonoxide-statics` (`electro`, `thermal`, the
+static solver); photonoxide re-exports their modules at the same paths (`photonoxide::units`;
+`photonoxide::thermal` is a module of photonoxide that re-exports the statics crate's and the
+shifter), and a change to them is made in `crates/<crate>/src/`. The checks and tests that reach above their
 module, such as a geometry check that builds an FDTD structure, are in `src/cases/<module>/`, the
 module's own path: declared by the module with `#[path]` when it is in photonoxide, by
 `src/cases.rs` when it is in a layer's crate below.

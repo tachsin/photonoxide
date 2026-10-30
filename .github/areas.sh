@@ -66,7 +66,7 @@ area material \
 # kernels, the bytes they move. (The iterative backend and the Krylov solvers, which fdfd
 # stops and measures, are fdfd's.)
 area sparse \
-  "src/sparse.rs src/sparse/* src/cases/sparse/* src/backend.rs src/backend/auto.rs src/backend/dense.rs src/dense.rs crates/photonoxide-core/src/traffic.rs" \
+  "crates/photonoxide-linalg/src/sparse.rs crates/photonoxide-linalg/src/sparse/* src/cases/sparse/* crates/photonoxide-linalg/src/backend.rs crates/photonoxide-linalg/src/backend/auto.rs crates/photonoxide-linalg/src/backend/dense.rs crates/photonoxide-linalg/src/dense.rs crates/photonoxide-core/src/traffic.rs" \
   "" \
   "sparse:: backend:: traffic::" "" "" \
   "bench"
@@ -74,7 +74,7 @@ area sparse \
 # the mode solvers, and the eigensolvers under them (their contour integrals factorize with sparse);
 # with the method study on multilayers (tests/method_study.rs, whose small study runs here)
 area mode \
-  "src/mode/* src/cases/mode/* src/eigen.rs src/eigen/* src/cases/eigen/* tests/method_study.rs" \
+  "crates/photonoxide-mode/src/mode/* src/cases/mode/* crates/photonoxide-linalg/src/eigen.rs crates/photonoxide-linalg/src/eigen/* src/cases/eigen/* tests/method_study.rs" \
   "sparse convergence" \
   "mode:: eigen:: a_small_study_" "mode/" \
   "slab_soi slab_yariv_yeh bend_loss effective_index_method group_index leaky_waves leaky_wire_benchmark marcatili multilayer_chilwell optimize_bragg hadley_corners strip_waveguide directional_coupler mzi_dwivedi"
@@ -82,20 +82,20 @@ area mode \
 # with the allocations counted in FDFD's iterations and FDTD's time steps (tests/no_allocation.rs,
 # its tests named fdfd:: and fdtd::, which runs with every test, as tests/method_study.rs does)
 area fdfd \
-  "src/fdfd/* src/cases/fdfd/* src/backend/iterative.rs src/backend/krylov.rs src/backend/krylov/* tests/no_allocation.rs" \
+  "src/fdfd/* src/cases/fdfd/* crates/photonoxide-linalg/src/backend/iterative.rs crates/photonoxide-linalg/src/backend/krylov.rs crates/photonoxide-linalg/src/backend/krylov/* tests/no_allocation.rs" \
   "mode sparse" \
   "fdfd:: backend::iterative:: backend::krylov::" "fdfd/ fdfd3d/" \
   "bump_oskooi cpml_roden_gedney lorentz_okoniewski pml_oskooi subpixel_holes tfsf_square_cylinder"
 
 # eigenmode expansion (#432): slab stacks' modes and their S-matrices; its taper case runs 2D FDFD
 area eme \
-  "src/eme.rs src/eme/* src/cases/eme/* src/validation/eme.rs" \
+  "crates/photonoxide-mode/src/eme.rs crates/photonoxide-mode/src/eme/* src/cases/eme/* src/validation/eme.rs" \
   "mode fdfd" \
   "eme::" "eme/" ""
 
 # adaptive sweeps (#432): AAA fits with their error estimate, and a vector mode followed by overlap
 area sweep \
-  "src/sweep.rs src/sweep/* src/validation/sweep.rs" \
+  "crates/photonoxide-mode/src/sweep.rs crates/photonoxide-mode/src/sweep/* src/validation/sweep.rs" \
   "mode" \
   "sweep::" "sweep/" ""
 
@@ -110,30 +110,30 @@ area fdtd \
 # core and the thermal and electro modules on it; it cuts stacks (shared) and factorizes with
 # sparse's multifrontal solver. Its job kind (src/job/statics.rs) is the job area's.
 area statics \
-  "src/statics.rs src/statics/* src/cases/statics/* src/thermal.rs src/electro.rs" \
+  "crates/photonoxide-statics/src/statics.rs crates/photonoxide-statics/src/statics/* src/cases/statics/* crates/photonoxide-statics/src/thermal.rs src/thermal.rs crates/photonoxide-statics/src/electro.rs" \
   "sparse material" \
   "statics:: thermal:: electro::" "static/" ""
 
 # a change of temperature in a full-vector mode, by first-order perturbation and by re-solve
 # (src/mode/thermo.rs, in the mode area too); its cases take the catalogue's dn/dT and a heat
 # solve's field
-area thermo   "src/mode/thermo.rs src/mode/thermo_checks.rs src/cases/mode/thermo_checks.rs"   "mode material statics"   "mode::thermo" "thermo/" ""
+area thermo   "crates/photonoxide-mode/src/mode/thermo.rs crates/photonoxide-mode/src/mode/thermo_checks.rs src/cases/mode/thermo_checks.rs"   "mode material statics"   "mode::thermo" "thermo/" ""
 
 # the Pockels effect in a full-vector mode (src/mode/pockels.rs, in the mode area too): the
 # catalogue's electro-optic tensor turned into the guide's frame, the static solver's field, the
 # perturbation (thermo's) and Vpi L; its cases read the catalogue's lithium niobate
-area pockels  "src/mode/pockels.rs src/mode/pockels/* src/cases/mode/pockels/*"   "mode material statics thermo"   "mode::pockels" "pockels/" ""
+area pockels  "crates/photonoxide-mode/src/mode/pockels.rs crates/photonoxide-mode/src/mode/pockels/* src/cases/mode/pockels/*"   "mode material statics thermo"   "mode::pockels" "pockels/" ""
 
 # travelling-wave electrodes (src/electro/*): a line's quasi-TEM index, impedance and losses from
 # the static solver's capacitances and charge, its full-wave RF mode on a Yee lattice of the same
 # cross-section (eigen's shift-and-invert), and a modulator's electro-optic response; its
 # cases take lithium niobate's static permittivity from the pockels cases
-area line     "src/electro/* src/cases/electro/*"   "statics material mode pockels"   "electro::line electro::full_wave" "line/" ""
+area line     "crates/photonoxide-statics/src/electro/* src/cases/electro/*"   "statics material mode pockels"   "electro::line electro::full_wave" "line/" ""
 
 # the thermo-optic phase shifter (src/thermal/*): a heat solve's rise in a guide's mode, by its
 # perturbation's weights, into P_pi, the time constant and the crosstalk between neighbours; and
 # the dynamic thermal compact models fitted to its step responses (src/thermal/rc*)
-area shifter  "src/thermal/* src/cases/thermal/* src/shifter.rs"   "mode material statics thermo"   "thermal::shifter thermal::rc thermal::correction" "shifter/ thermal-rc/ correction/" ""
+area shifter  "crates/photonoxide-statics/src/thermal/* src/cases/thermal/* src/shifter.rs"   "mode material statics thermo"   "thermal::shifter thermal::rc thermal::correction" "shifter/ thermal-rc/ correction/" ""
 
 # jobs, their runs and replay, and farming them out; the job files in jobs/ are read by the
 # library's tests and validation cases, by the studio's and by the Python package's; a job's
