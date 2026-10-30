@@ -300,8 +300,11 @@ pub struct FlowRecord {
     /// The round trip: whether the executed flow gives the design's structure and films, and
     /// how many of the points compared differ.
     pub round_trip: Option<super::execute::RoundTrip>,
-    /// Every reference the flow cites, by key, with its citation and DOI or ISBN.
+    /// Every reference the flow cites, by key, with its citation and DOI or ISBN: the steps'
+    /// and the glossary's.
     pub references: Vec<super::references::Reference>,
+    /// The words the narration uses, each with its plain definition and source.
+    pub glossary: Vec<super::glossary::Term>,
 }
 
 impl Flow {
@@ -321,6 +324,12 @@ impl Flow {
                 }
             }
         }
+        let glossary = super::glossary::glossary();
+        for t in &glossary {
+            if !keys.contains(&t.source.reference) {
+                keys.push(t.source.reference.clone());
+            }
+        }
         FlowRecord {
             library: super::LIBRARY_VERSION.into(),
             steps,
@@ -331,6 +340,7 @@ impl Flow {
                 .iter()
                 .filter_map(|k| super::references::reference(k))
                 .collect(),
+            glossary,
         }
     }
 }

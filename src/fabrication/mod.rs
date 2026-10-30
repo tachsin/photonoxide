@@ -31,6 +31,7 @@
 mod execute;
 mod flow;
 mod generate;
+mod glossary;
 mod library;
 pub mod measure;
 pub mod oxidation;
@@ -45,6 +46,7 @@ mod tests;
 pub use execute::{Made, RoundTrip, execute, round_trip, stages};
 pub use flow::{Alternative, Depth, Flow, FlowRecord, Laid, Operation, Step, StepRecord, Tone};
 pub use generate::{Choices, Thermal, generate, thermal};
+pub use glossary::{Term, glossary};
 pub use library::{
     Budget, LIBRARY_VERSION, Mask, Platform, Process, Purpose, StepType, Stop, Use, budget,
     library, process,

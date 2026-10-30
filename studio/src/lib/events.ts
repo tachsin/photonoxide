@@ -121,6 +121,8 @@ export interface FlowRecord {
   not_specified: string[];
   round_trip: { structure_equal: boolean; films_equal: boolean; points: number; differing: number } | null;
   references: FlowReference[];
+  /** The words the narration uses, each with its plain definition and source. */
+  glossary: { term: string; definition: string; source: FlowSource }[];
 }
 /** A named port of a job's component: where its guide ends (photonoxide::job::ScenePort). */
 export interface ScenePort {

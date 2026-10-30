@@ -8,14 +8,16 @@
 //! the design, which must give it back to the bit. A flow is data, fully set by the design and
 //! the library, so its record replays bit for bit.
 //!
-//! ```toml
-//! [device]
-//! kind = "TFLN Mach-Zehnder modulator"
+//! ```yaml
+//! name: tfln-flow
 //!
-//! [task]
-//! kind = "fabrication"
-//! prefer = ["ebl-hsq"]     # process ids to prefer where several qualify
-//! avoid = ["bosch-si"]     # process ids not to use
+//! device:
+//!   kind: TFLN Mach-Zehnder modulator
+//!
+//! task:
+//!   kind: fabrication
+//!   prefer: [ebl-hsq]     # process ids to prefer where several qualify
+//!   avoid: [bosch-si]     # process ids not to use
 //! ```
 
 use schemars::{JsonSchema, SchemaGenerator};

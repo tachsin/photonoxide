@@ -273,25 +273,29 @@ These are listed in every flow that meets them, and wait for a source:
 ## In the studio
 
 A component's page has a **Fabrication** tab, opened by the **Fabricate** button beside Run. It
-shows the flow for the design as it stands, read-only: the steps in order, the wafer's
-cross-section after the step picked (at the design view's cut, with air where nothing is yet),
-and for that step what the process does, why it was chosen, what else could do it, what it can
-achieve with each number's source on hover, and what isn't certain; then the warnings, what no
-source states, the round trip and the references. A scene draws an etched layer in bands, its
+shows the flow for the design as it stands, read-only: the steps in order, and the wafer's
+cross-section at the design view's cut, animated step by step (`fabrication::stages`, air where
+nothing is yet): a deposition revealed from below as the film grows, an etch, a lift-off, a
+polish or the resist's removal from above as material goes, a lithography faded in; play, pause,
+step back and forward, a speed, and no motion under `prefers-reduced-motion`. For the step shown:
+what the process does, why it was chosen, what else could do it, what it can achieve with each
+number's source on hover, and what isn't certain, with the glossary's definitions of the words
+it uses, each following a textbook's or paper's section (`fabrication::glossary`); then the
+warnings, what no source states, the round trip and the references. A scene draws an etched layer in bands, its
 sloped walls a staircase; the design view's cross-section and the flow's stages draw each of its
 shapes exactly instead, a trapezoid from its top face down to its etch's floor
 (`job::scene_etched`), over the bands' slab.
 
 ## As a job
 
-```toml
-[device]
-kind = "TFLN Mach-Zehnder modulator"
+```yaml
+device:
+  kind: TFLN Mach-Zehnder modulator
 
-[task]
-kind = "fabrication"
-prefer = ["ebl-hsq"]   # process ids to prefer where several qualify
-avoid = ["bosch-si"]   # process ids not to use
+task:
+  kind: fabrication
+  prefer: [ebl-hsq]   # process ids to prefer where several qualify
+  avoid: [bosch-si]   # process ids not to use
 ```
 
 `job::check` refuses a process the library hasn't, one both preferred and avoided, and a

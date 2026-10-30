@@ -157,6 +157,9 @@ pub(crate) fn source_faults() -> Vec<String> {
             check(&format!("{} use", p.id), &u.source);
         }
     }
+    for t in super::glossary() {
+        check(&format!("the glossary's {}", t.term), &t.source);
+    }
     for film in ["Si", "SiO2", "LiNbO3", "TiN", "Al", "Sb₂Se₃"] {
         let b = budget(film);
         for v in [&b.survives, &b.limit] {
@@ -404,7 +407,7 @@ pub(crate) fn cases() -> Vec<Case> {
         },
         Case {
             id: "fabrication/capabilities-cited",
-            title: "Every number and statement in the process library names a reference in its list, with a DOI or an ISBN, and a place in it (faults shown)",
+            title: "Every number and statement in the process library and its glossary names a reference in its list, with a DOI or an ISBN, and a place in it (faults shown)",
             tier: Tier::Analytic,
             source: "the library's own references, each DOI checked on Crossref and each ISBN read in the copy in hand",
             run: capabilities_cited,

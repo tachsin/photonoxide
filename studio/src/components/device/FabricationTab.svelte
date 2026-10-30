@@ -10,7 +10,7 @@
   import { api, type DeviceFabrication, type DeviceSpec } from "../../lib/api";
   import { plain } from "../../lib/deviceview";
   import type { FlowCapability, FlowSource, Stated } from "../../lib/events";
-  import CutView from "./CutView.svelte";
+  import ProcessAnimation from "./ProcessAnimation.svelte";
 
   let { spec, designKey, normal, at }: { spec: DeviceSpec; designKey: unknown; normal: "x" | "y"; at: number } = $props();
 
@@ -48,7 +48,12 @@
   });
 
   const step = $derived(shown?.flow.steps[picked] ?? null);
-  const stage = $derived(shown?.stages[picked] ?? null);
+  /** The glossary's words the step's narration uses. */
+  const words = $derived.by(() => {
+    if (!shown || !step) return [];
+    const text = `${step.plain} ${step.does} ${step.reason}`.toLowerCase();
+    return shown.flow.glossary.filter((g) => text.includes(g.term.toLowerCase()));
+  });
 
   const UNIT: Record<string, string> = { nm: " nm", um: " µm", degree: "°", celsius: " °C", ratio: ":1" };
   /** A number to four significant digits, without trailing zeros. */
@@ -113,15 +118,23 @@
     {#if step}
       <section class="space-y-2 rounded-box border border-base-content/10 p-3" aria-label="Step {picked + 1}">
         <h3 class="text-sm font-medium">{picked + 1}. {step.name}</h3>
-        {#if stage}
-          <div>
-            <div class="mb-1 faint">The wafer after this step, at the design view's cut ({normal} = <span class="num">{num(at)}</span> µm)</div>
-            <CutView scene={stage.scene} etched={stage.etched} {normal} {at} height={180} />
-          </div>
-        {/if}
+        <div>
+          <div class="mb-1 faint">The wafer as this step leaves it, at the design view's cut ({normal} = <span class="num">{num(at)}</span> µm)</div>
+          <ProcessAnimation stages={shown.stages} steps={shown.flow.steps} bind:picked {normal} {at} />
+        </div>
         <p class="selectable"><span class="font-medium">What it does.</span> {step.plain}</p>
         <p class="selectable"><span class="font-medium">Here.</span> {step.does}.</p>
         <p class="selectable"><span class="font-medium">Why.</span> {step.reason}</p>
+        {#if words.length}
+          <div>
+            <div class="font-medium">The words</div>
+            <dl class="ml-1 space-y-0.5">
+              {#each words as g (g.term)}
+                <div title={source(g.source)}><dt class="inline font-medium">{g.term}:</dt> <dd class="inline">{g.definition}</dd></div>
+              {/each}
+            </dl>
+          </div>
+        {/if}
         {#if step.capabilities.length}
           <div>
             <div class="font-medium">What it can achieve</div>
