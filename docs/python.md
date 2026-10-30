@@ -189,9 +189,12 @@ library as a Rust program would. Both steps are tested:
   (`circuit/ring-fsr-bogaerts`, 9.08149 nm), an MZI against its transfer matrices, silicon
   against Li's table;
 - [`python/examples`](../python/examples) has Python versions of a few of the Rust examples
-  (silicon's index, the book's slab and strip, a ring's free spectral range), each checked
-  against its paper as the Rust ones are; those with a Rust twin print what it prints after
-  its setup block, line for line (`python/tests/test_examples.py`);
+  (silicon's index, the book's slab and strip, a ring's free spectral range, and a ring
+  through a Touchstone file), each printing its setup first (the layers, the shapes, the
+  materials, the grid, the solver and the tolerance) and then its numbers beside its paper's,
+  as the Rust ones do; each prints exactly what is recorded in `python/examples/output`, and
+  those with a Rust twin print what it prints after its setup block, line for line
+  (`python/tests/test_examples.py`, in the Python job of CI);
 - the method write-ups (`docs/methods`) that show a call the package has give the Python call
   beside it: [the catalogue](methods/catalogue.md), [the slab](methods/slab.md),
   [stacks](methods/stacks.md), [circuits](methods/circuits.md), [Touchstone
