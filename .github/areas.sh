@@ -140,11 +140,13 @@ area job \
 
 # grid convergence, the gate a reported number passes (its grid study, by Richardson
 # extrapolation, which mode::vector uses too): a modes job's [task.convergence] and results.json
-# take it, and the examples' Checks (hadley_corners)
+# take it, and the examples' Checks (hadley_corners); and convergence to a tolerance (#432), whose
+# cases drive the slab mode solver, 2D FDFD and eigenmode expansion, so their changes run them
 area convergence \
-  "src/convergence.rs" \
+  "src/convergence.rs src/convergence/* src/validation/convergence.rs" \
   "" \
-  "convergence::" "" "hadley_corners"
+  "convergence::" "convergence/" "hadley_corners" \
+  "mode fdfd eme"
 
 # exporting a run's results (issue #431): every run's tables as csv, from its record, and the
 # fields as `.npz`; used by the job area, which wires `[task.export]` into every kind
