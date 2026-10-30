@@ -939,6 +939,175 @@ fn the_temperature_view_is_the_2d_model_s_heat_at_the_design_s_power() {
 }
 
 #[test]
+fn the_temperature_in_time_is_the_2d_model_s_turn_on_its_times_the_device_s_figures() {
+    let same = |a: f64, b: f64| a == b || (a / b - 1.0).abs() < 1e-12;
+    for kind in [
+        "thermo-optic phase shifter",
+        "doped thermo-optic phase shifter",
+        "in-guide thermo-optic phase shifter",
+    ] {
+        let spec = design(kind, &[]);
+        let t = fields::temperature_in_time(&spec).unwrap();
+        // the 1/e time plotted is the device's own 2D figure tau, from the same transient; the
+        // 10-90 % rise time the difference of the two times marked
+        let s = spec.spec().unwrap();
+        let (d, design) = s.build().unwrap();
+        let figures = d
+            .component(design.values(), photonoxide::circuit::Fidelity::TwoD)
+            .unwrap()
+            .figures;
+        let tau = figures.iter().find(|f| f.symbol == "tau").unwrap();
+        assert_eq!(tau.unit, "µs");
+        assert_eq!(
+            t.tau_us.to_bits(),
+            tau.value.to_bits(),
+            "{kind}: {} {}",
+            t.tau_us,
+            tau.value
+        );
+        assert!(same(t.rise_us, t.ninety_us - t.ten_us), "{kind}");
+        assert!(t.ten_us < t.tau_us && t.tau_us < t.ninety_us, "{kind}");
+        // the curve plotted crosses 10 %, 1 - 1/e and 90 % of its steady value at those times
+        let at = |time: f64| {
+            let k = t.times_us.iter().position(|&x| x >= time).unwrap();
+            let (a, b) = (t.times_us[k - 1], t.times_us[k]);
+            t.guide[k - 1] + (time - a) / (b - a) * (t.guide[k] - t.guide[k - 1])
+        };
+        for (time, share) in [
+            (t.ten_us, 0.1),
+            (t.tau_us, 1.0 - (-1.0f64).exp()),
+            (t.ninety_us, 0.9),
+        ] {
+            assert!(
+                (at(time) / t.steady - share).abs() < 1e-9,
+                "{kind}: {} at {time} us",
+                at(time) / t.steady
+            );
+        }
+        assert_eq!(t.guide[0], 0.0);
+        assert_eq!(t.times_us.len(), t.guide.len());
+        // where it goes is the steady view's rise the mode feels, at the same power
+        let steady = fields::temperature(&spec).unwrap();
+        assert!(
+            (t.steady / steady.guide - 1.0).abs() < 1e-9,
+            "{kind}: {} {}",
+            t.steady,
+            steady.guide
+        );
+        assert_eq!((t.power_mw, t.peak), (steady.power_mw, steady.peak));
+        // the pictures: the start's (the ambient), then evenly to the record's end, warming
+        assert_eq!(t.frames.len(), fields::FRAMES + 1, "{kind}");
+        assert_eq!(t.frames[0].time_us, 0.0);
+        assert!(same(
+            t.frames.last().unwrap().time_us,
+            *t.times_us.last().unwrap()
+        ));
+        assert!(t.frames[0].raster.values.iter().all(|v| *v == 0.0));
+        let peak = |f: &fields::Frame| f.raster.values.iter().copied().fold(f32::MIN, f32::max);
+        assert!(
+            t.frames.windows(2).all(|w| peak(&w[1]) > peak(&w[0])),
+            "{kind}"
+        );
+        assert!(f64::from(peak(t.frames.last().unwrap())) <= t.peak * (1.0 + 1e-6));
+        // each picture's isotherms at the steady view's levels, the hottest ones found only late
+        let levels: Vec<f64> = steady.isotherms.iter().map(|i| i.level).collect();
+        assert_eq!(t.levels, levels);
+        assert!(t.frames.iter().all(|f| f.isotherms.len() == levels.len()));
+        assert!(t.frames[0].isotherms.iter().all(|i| i.lines.is_empty()));
+        assert!(
+            t.frames
+                .last()
+                .unwrap()
+                .isotherms
+                .iter()
+                .any(|i| !i.lines.is_empty())
+        );
+        assert!(t.grid.contains("BDF2 steps of"), "{}", t.grid);
+    }
+    let e = fields::temperature_in_time(&design("waveguide", &[])).unwrap_err();
+    assert!(e.contains("no heat model"), "{e}");
+}
+
+#[test]
+fn a_modulator_sweep_saved_as_a_study_job_runs_to_its_points_bit_for_bit() {
+    use photonoxide::job::{Event, check, execute};
+    use photonoxide::run::{Format, Job, Run, Stop};
+    let kind = "TFLN Mach-Zehnder modulator";
+    // the sweep as the Study tab's Vπ·L tab takes it: from, to and the points, each value
+    // from + (to − from) k / (n − 1), the page's own arithmetic
+    for (parameter, from, to, n) in [
+        ("gap", 3.0, 10.0, 5),
+        ("length", 2000.0, 20000.0, 4),
+        ("cladding", 0.1, 3.0, 4),
+        ("cladding_permittivity", 1.0, 8.0, 3),
+    ] {
+        let xs: Vec<f64> = (0..n)
+            .map(|k| from + ((to - from) * k as f64) / (n - 1) as f64)
+            .collect();
+        let spec = design(kind, &[]);
+        let sweep = modulator::vpi_l_sweep(&spec, "analytic", parameter, &xs).unwrap();
+        // saved: the design at the sweep's fidelity, its axis exactly the sweep's
+        let study = StudyIn {
+            kind: "sweep".into(),
+            axes: vec![AxisIn {
+                parameter: parameter.into(),
+                from,
+                to,
+                points: n,
+            }],
+            corners: Vec::new(),
+        };
+        let name = format!("modulator-{parameter}");
+        let text = study_text_of(&spec, &ComputeIn::default(), &study, &name).unwrap();
+        let form = read_job_form(&text);
+        assert_eq!(form.error, None, "{text}");
+        assert_eq!(form.study.as_ref(), Some(&study));
+        // run: each point's figures are the sweep's, to the bit
+        let job = Job::parse_as(&text, Format::Yaml).unwrap();
+        check(&job).unwrap();
+        let mut run = Run::in_memory();
+        execute(&job, &mut run, &Stop::new(None)).unwrap();
+        let points: Vec<(Vec<f64>, Vec<photonoxide::job::DeviceFigure>)> = run
+            .lines()
+            .iter()
+            .filter_map(|l| match serde_json::from_str::<Event>(l) {
+                Ok(Event::DevicePoint {
+                    at, figures, error, ..
+                }) => {
+                    assert_eq!(error, None);
+                    Some((at, figures))
+                }
+                _ => None,
+            })
+            .collect();
+        assert_eq!(points.len(), sweep.points.len(), "{parameter}");
+        for ((at, figures), p) in points.iter().zip(&sweep.points) {
+            assert_eq!(
+                at[0].to_bits(),
+                p.x.to_bits(),
+                "{parameter}: {at:?} {}",
+                p.x
+            );
+            let value = |symbol: &str| figures.iter().find(|f| f.symbol == symbol).unwrap().value;
+            for (symbol, v) in [
+                ("VpiL", p.vpi_l),
+                ("Vpi", p.vpi),
+                ("f_3dB", p.f_3db),
+                ("f_6dB", p.f_6db),
+            ] {
+                assert_eq!(
+                    value(symbol).to_bits(),
+                    v.to_bits(),
+                    "{parameter} {}: {symbol} {} against {v}",
+                    p.x,
+                    value(symbol)
+                );
+            }
+        }
+    }
+}
+
+#[test]
 fn a_compact_model_is_fitted_from_the_page_and_kept_next_to_its_design() {
     use photonoxide::job::{Event, execute};
     use photonoxide::run::{Job, Run, Stop};

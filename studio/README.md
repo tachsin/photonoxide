@@ -133,7 +133,10 @@ in a drawer opened from the status bar.
     tick turns it off.
   - **A static job's fields** (heat, electrostatics, current) on its cross-section, each from
     its smallest value to its largest, the value under the pointer; a temperature with its
-    isotherms at round levels. With an `electro_optic` table, the electrode-field view: the
+    isotherms at round levels. A transient's probes' means against time, live as the steps go,
+    with the 10 %, 90 % and 1/e times the run recorded marked; with `frames` in its
+    `[task.transient]`, the cross-section at the time a slider picks, every picture on one scale
+    with its isotherms at fixed levels. With an `electro_optic` table, the electrode-field view: the
     electrodes' |E| (V/m, at their potentials) on the mode's window, the mode's outline over it
     (its |E|² at half and 1/e² of its peak), so the overlap that sets Vπ·L can be seen.
   - **An FDTD run** opens on the 2D view: its field as it propagates, frame by frame, live or
@@ -186,7 +189,11 @@ in a drawer opened from the status bar.
     media's edges, and where the guide's mode takes its phase from the heat (its thermo-optic
     weights at half and 1/e² of their largest), the peak and the rise the mode feels (its
     weights' mean, which times its dn_eff/dT and 2πL/λ is the 2D model's phase), and the grids;
-    the rise under the pointer. The TFLN modulator's view has **Electrode field**: its 2D model's
+    the rise under the pointer. **In time** turns the same model on from the ambient at that
+    power, by the transient its figures take: the rise the mode feels against time with its 10 %
+    and 90 % times (the 10–90 % rise time between them) and its 1/e time, the figure τ, marked,
+    and the cross-section at the time a slider (or Play) picks, on the steady peak's scale with
+    isotherms at the steady picture's levels. The TFLN modulator's view has **Electrode field**: its 2D model's
     static field |E| at 1 V on the signal electrode across one arm's gap, its colours up to where
     99% of its pixels are (the electrodes' corners are singular), its direction as arrows, the
     rib, the electrodes and the layers' interfaces, and the optical mode's |E|² at half and 1/e²
@@ -268,8 +275,10 @@ in a drawer opened from the status bar.
         DC or the 3 or 6 dB bandwidth against the electrode gap, the signal electrode's width,
         the rib's width, the length, or the cladding's thickness or permittivity (the bandwidth
         against the cladding, shown first for it), each point the device's own figures with the
-        parameter there (one point a call, shown as it comes, **Stop** between points); and the
-        electro-optic response against frequency, 20 log₁₀ |m(f)| less its value at 1 GHz (the
+        parameter there (one point a call, shown as it comes, **Stop** between points; **Save as
+        a study job** writes the sweep shown, its design at its model and its parameter's from,
+        to and points, as a study job in `jobs/`, whose run gives the same points to the bit); and
+        the electro-optic response against frequency, 20 log₁₀ |m(f)| less its value at 1 GHz (the
         reference the figures' bandwidths take), each point the figure `m_dB` at that frequency,
         the 3 and 6 dB points marked. Both say they are our model's.
       - **Compare:** tick any of this device's designs (the one being edited, those saved) and

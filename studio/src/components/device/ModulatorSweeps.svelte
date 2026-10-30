@@ -24,6 +24,7 @@
   import { shown as inUnit, stored } from "../../lib/units";
   import Plot from "../Plot.svelte";
   import UnitChip from "../UnitChip.svelte";
+  import SaveSweepJob from "./SaveSweepJob.svelte";
 
   let { spec, values, designKey }: { spec: DeviceSpec; values: Record<string, number>; designKey: string } = $props();
 
@@ -67,7 +68,7 @@
   const storedX = (v: number, length: boolean) => (length ? stored(v) : v);
 
   // ---- the sweep: one point a call ----
-  let sweep = $state<{ parameter: string; fidelity: string; key: string; points: VpiPoint[]; grid: string; total: number; bandwidthError: number | null } | null>(null);
+  let sweep = $state<{ parameter: string; fidelity: string; key: string; points: VpiPoint[]; grid: string; total: number; bandwidthError: number | null; spec: DeviceSpec; from: number; to: number } | null>(null);
   let going = $state(false);
   let stopping = false;
   let started = $state(0);
@@ -78,7 +79,7 @@
     const s = $state.snapshot(spec) as DeviceSpec;
     const n = Math.max(2, Math.round(count));
     const xs = Array.from({ length: n }, (_, k) => from + ((to - from) * k) / (n - 1));
-    sweep = { parameter, fidelity, key: designKey, points: [], grid: "", total: n, bandwidthError: null };
+    sweep = { parameter, fidelity, key: designKey, points: [], grid: "", total: n, bandwidthError: null, spec: s, from, to };
     going = true;
     stopping = false;
     problem = "";
@@ -223,6 +224,7 @@
           {#if going}point {done + 1} of {sweep.total} · {duration(elapsed)}{left !== null ? ` · about ${duration(left)} left` : ""}{:else}{done} of {sweep.total} points{/if}
         </span>
         {#if sweep.key !== designKey && !going}<span class="badge badge-warning badge-soft badge-sm" title="The design has changed since this sweep: sweep again for the design as it is">an earlier design</span>{/if}
+        <SaveSweepJob spec={sweep.spec} fidelity={sweep.fidelity} parameter={sweep.parameter} from={sweep.from} to={sweep.to} points={sweep.total} name="modulator-{sweep.parameter}-sweep" disabled={going} />
       </div>
       {#if series[0]?.points.length}
         <div class="mt-2">

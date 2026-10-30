@@ -149,6 +149,7 @@ pub fn show(dir: Option<&Path>, live: Option<Live>) -> Result<(), String> {
             crate::devices::device_job_read,
             crate::devices::device_solved,
             crate::devices::fields::device_temperature,
+            crate::devices::fields::device_temperature_in_time,
             crate::devices::fields::raster_contours,
             crate::devices::modulator::device_electrode_field,
             crate::devices::modulator::device_vpi_l_sweep,

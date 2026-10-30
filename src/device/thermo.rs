@@ -303,6 +303,18 @@ impl ThermoShifter {
         geometry.shifter(self.refinement, values.at("wavelength"))
     }
 
+    /// The 2D model `shifter` ([`ThermoShifter::shifter`] at this device's values) turned on
+    /// from the ambient as its figures take it ([`TurnOn`]), with `frames` + 1 pictures of the
+    /// rise evenly over the record (none for 0): its 1/e time is the 2D figure `tau` (µs there),
+    /// to the bit.
+    ///
+    /// # Errors
+    ///
+    /// The transient's, and [`Error::InvalidValue`] if the phase doesn't get 90 % of the way.
+    pub fn turn_on(&self, shifter: &PhaseShifter, frames: usize) -> Result<TurnOn> {
+        turned_on(self.heater, shifter, frames)
+    }
+
     /// The in-guide heater's fin at `values`, its oxide's flow `spreading` times straight
     /// across's.
     #[cfg(test)]
@@ -475,6 +487,87 @@ fn kind_of(heater: Heater) -> &'static str {
         Heater::Doped => "doped thermo-optic phase shifter",
         Heater::InGuide => "in-guide thermo-optic phase shifter",
     }
+}
+
+/// The 2D model's time step, µs: 0.2 for the metal heater, 0.1 for the doped and in-guide ones.
+fn time_step(heater: Heater) -> f64 {
+    match heater {
+        Heater::Metal => 0.2,
+        Heater::Doped | Heater::InGuide => 0.1,
+    }
+}
+
+/// The step numbers of `frames` + 1 pictures evenly over `steps` steps, the start's first.
+fn frame_steps(steps: usize, frames: usize) -> Vec<usize> {
+    if frames == 0 {
+        return Vec::new();
+    }
+    let mut at: Vec<usize> = (0..=frames)
+        .map(|k| (k * steps + frames / 2) / frames)
+        .collect();
+    at.dedup();
+    at
+}
+
+/// The 2D model's phase turned on ([`ThermoShifter::turn_on`]): BDF2 steps of
+/// [`time_step`], 300 of them, the record four times as long until the phase gets 90 % of the
+/// way (at most three times), and `frames` + 1 pictures of the rise over the record.
+fn turned_on(heater: Heater, shifter: &PhaseShifter, frames: usize) -> Result<TurnOn> {
+    let step = time_step(heater);
+    let mut steps = 300;
+    for _ in 0..4 {
+        let stepping = Stepping::new(step * 1e-6, steps, Scheme::Bdf2);
+        let at = frame_steps(steps, frames);
+        let attempt = shifter
+            .step_with_fields(0, &stepping, &at)
+            .and_then(|(history, fields)| {
+                let timing = shifter.timing(0, 0, &history, true)?;
+                Ok((history, fields, timing))
+            });
+        let Ok((history, fields, timing)) = attempt else {
+            steps *= 4;
+            continue;
+        };
+        let power = shifter.drives()[0].power();
+        let slope = shifter.guides()[0].thermo_optic();
+        let start = history.watched[0][0];
+        let felt = |w: f64| (w - start) / power / slope;
+        return Ok(TurnOn {
+            stepping,
+            guide: history.watched[0].iter().map(|&w| felt(w)).collect(),
+            steady: felt(shifter.steady(0, 0, true)?),
+            frames: at.iter().map(|&k| history.times_s[k]).zip(fields).collect(),
+            times_s: history.times_s,
+            timing,
+        });
+    }
+    Err(Error::invalid(
+        "device",
+        "the phase doesn't get 90% of the way to its steady value within 19 ms",
+    ))
+}
+
+/// A thermo-optic shifter's 2D model turned on from the ambient ([`ThermoShifter::turn_on`]):
+/// the rise its guide's mode feels in time, the times its figures give, and pictures of the rise
+/// on the way.
+#[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
+pub struct TurnOn {
+    /// The steps taken: BDF2, 0.2 µs (the metal heater's) or 0.1 µs, as many as the phase took
+    /// to get 90 % of the way.
+    pub stepping: Stepping,
+    /// The times, seconds: 0, then each step's.
+    pub times_s: Vec<f64>,
+    /// The rise the guide's mode feels at each time, K per W/m of the drive: its weights' sum of
+    /// the rise over its dn_eff/dT, what its phase follows.
+    pub guide: Vec<f64>,
+    /// Where it goes, K per W/m: the steady rise the mode feels.
+    pub steady: f64,
+    /// The phase's 1/e and 10–90 % times (and its 10 % and 90 % ones): the 1/e time is the 2D
+    /// figure `tau`, to the bit.
+    pub timing: crate::thermal::Timing,
+    /// The rise above the ambient, K per W/m, at evenly spaced times from 0 (its time, seconds).
+    pub frames: Vec<(f64, crate::thermal::Field)>,
 }
 
 /// Jacques et al. 2019, with what the device takes from it.
@@ -907,29 +1000,8 @@ impl Section2d {
         let grid = self.grid_2d(&shifter, r);
         let e = shifter.efficiency()?;
         let p_pi = e.p_pi(0, 0) * 1e3;
-        let step = match self.heater {
-            Heater::Metal => 0.2,
-            Heater::Doped | Heater::InGuide => 0.1,
-        };
-        // the phase turned on, its record lengthened until it gets 90 % of the way
-        let mut timing = None;
-        let mut steps = 300;
-        for _ in 0..4 {
-            let stepping = Stepping::new(step * 1e-6, steps, Scheme::Bdf2);
-            match shifter.times(0, 0, &stepping, true) {
-                Ok(t) => {
-                    timing = Some(t);
-                    break;
-                }
-                Err(_) => steps *= 4,
-            }
-        }
-        let timing = timing.ok_or_else(|| {
-            Error::invalid(
-                "device",
-                "the phase doesn't get 90% of the way to its steady value within 19 ms",
-            )
-        })?;
+        let timing = turned_on(self.heater, &shifter, 0)?.timing;
+        let step = time_step(self.heater);
         let cutoff = shifter.cutoff(0, 0)?;
         let guide = &shifter.guides()[0];
         let f = Fidelity::TwoD;

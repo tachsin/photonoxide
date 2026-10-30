@@ -535,6 +535,24 @@ impl PhaseShifter {
         on: bool,
     ) -> Result<Timing> {
         let history = self.step(drive, stepping, on)?;
+        self.timing(drive, guide, &history, on)
+    }
+
+    /// Guide `guide`'s times in `history`, drive `drive`'s step response turned `on` or off
+    /// ([`PhaseShifter::step`], [`PhaseShifter::step_with_fields`]): what
+    /// [`PhaseShifter::times`] gives of the same history.
+    ///
+    /// # Errors
+    ///
+    /// As [`PhaseShifter::steady`], and [`Error::InvalidValue`] if the phase doesn't get 90 % of
+    /// the way within the history.
+    pub fn timing(
+        &self,
+        drive: usize,
+        guide: usize,
+        history: &History,
+        on: bool,
+    ) -> Result<Timing> {
         let end = self.steady(drive, guide, on)?;
         let start = history.watched[guide][0];
         let at = |f: f64| {
@@ -543,7 +561,7 @@ impl PhaseShifter {
                     "the guide {}'s phase doesn't get {}% of the way in {} s: take more steps",
                     self.guides[guide].name,
                     f * 100.0,
-                    stepping.step_s * stepping.steps as f64
+                    history.times_s.last().copied().unwrap_or(0.0)
                 ))
             })
         };
@@ -552,7 +570,64 @@ impl PhaseShifter {
         Ok(Timing {
             one_over_e_s: e,
             ten_ninety_s: b - a,
+            ten_s: a,
+            ninety_s: b,
         })
+    }
+
+    /// Drive `drive` turned on from the background, as [`PhaseShifter::step`] (the same
+    /// history, to the bit), with its rise above the background (K per W/m, as
+    /// [`PhaseShifter::rise`]) at each step number of `at` (0 the start, where it is zero), in
+    /// `at`'s order.
+    ///
+    /// # Errors
+    ///
+    /// As [`PhaseShifter::step`], and [`Error::InvalidValue`] for a step number past the
+    /// steps.
+    pub fn step_with_fields(
+        &self,
+        drive: usize,
+        stepping: &Stepping,
+        at: &[usize],
+    ) -> Result<(History, Vec<Field>)> {
+        if let Some(k) = at.iter().find(|&&k| k > stepping.steps) {
+            return Err(invalid(format!(
+                "step {k} is past the transient's {} steps",
+                stepping.steps
+            )));
+        }
+        let heat = self.driven(drive);
+        let background = if at.is_empty() {
+            None
+        } else {
+            Some(heat.steady_at(0.0)?)
+        };
+        let power = self.drives[drive].power();
+        let mut kept: Vec<(usize, Field)> = Vec::new();
+        if let Some(b) = &background
+            && at.contains(&0)
+        {
+            kept.push((0, b.above(b, power)));
+        }
+        let history =
+            heat.transient_weighted(stepping, 0.0, &|_| 1.0, &self.weights, &mut |step| {
+                if let Some(b) = &background
+                    && at.contains(&step.index)
+                {
+                    kept.push((step.index, step.field().above(b, power)));
+                }
+                Ok(true)
+            })?;
+        let fields = at
+            .iter()
+            .map(|k| {
+                kept.iter()
+                    .find(|(i, _)| i == k)
+                    .map(|(_, f)| f.clone())
+                    .ok_or_else(|| invalid(format!("the transient stopped before step {k}")))
+            })
+            .collect::<Result<Vec<_>>>()?;
+        Ok((history, fields))
     }
 
     /// The −3 dB frequency of guide `guide`'s phase in response to drive `drive`'s power, Hz
@@ -635,6 +710,10 @@ pub struct StepResponses {
 pub struct Timing {
     /// When the phase is 1 − 1/e of the way, seconds.
     pub one_over_e_s: f64,
-    /// From 10 % to 90 % of the way, seconds.
+    /// From 10 % to 90 % of the way, seconds: `ninety_s − ten_s`.
     pub ten_ninety_s: f64,
+    /// When it is 10 % of the way, seconds.
+    pub ten_s: f64,
+    /// When it is 90 % of the way, seconds.
+    pub ninety_s: f64,
 }

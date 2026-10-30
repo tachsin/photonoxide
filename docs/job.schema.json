@@ -10183,6 +10183,11 @@
         "duration_us": {
           "type": "number"
         },
+        "frames": {
+          "description": "Pictures of the temperature the run records on the way, evenly over the steps (1 to 200; none by default): this many and the start's, each an `Event::StaticFrame`, for the studio's time slider.",
+          "minimum": 0,
+          "type": "integer"
+        },
         "pulse_ns": {
           "description": "The heaters on from t = 0 for this long, then off: a pulse, a whole number of steps.",
           "type": "number"

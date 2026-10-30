@@ -274,6 +274,8 @@ export const api = {
   deviceSolved: (spec: DeviceSpec, compute: Compute, normal: "x" | "y", at: number) => invoke<Solved>("device_solved", { spec, compute, normal, at }),
   /** A thermo-optic shifter's temperature rise at its power (P_π when that is zero), by its 2D model: isotherms, the media's edges and the mode's weights over it. */
   deviceTemperature: (spec: DeviceSpec) => invoke<Temperature>("device_temperature", { spec }),
+  /** The same shifter turned on from the ambient, by its 2D model's transient (the one its figures take): the rise the mode feels against time with its 1/e, 10 % and 90 % times, and pictures of the rise on the way. */
+  deviceTemperatureInTime: (spec: DeviceSpec) => invoke<TemperatureInTime>("device_temperature_in_time", { spec }),
   /** The lines where a picture takes each of `levels` (isotherms, a mode's outline). */
   rasterContours: (raster: Raster, levels: number[]) => invoke<Isoline[]>("raster_contours", { raster, levels }),
   /** A TFLN modulator's static field at 1 V and its mode on the cross-section, by its 2D model: the same solves as its Vπ·L. */
@@ -625,6 +627,36 @@ export interface Temperature {
   peak_at: [number, number];
   /** The rise the mode feels, K: its weights' mean of the rise. */
   guide: number;
+  grid: string;
+}
+/** A picture of a thermo-optic shifter's rise in time, with its isotherms. */
+export interface TemperatureFrame {
+  time_us: number;
+  raster: Raster;
+  isotherms: Isoline[];
+}
+/** A thermo-optic shifter's 2D model turned on from the ambient at the steady view's power (studio/src-tauri/src/devices/fields.rs, photonoxide::device::ThermoShifter::turn_on). */
+export interface TemperatureInTime {
+  /** The times, µs, and the rise the mode feels at each, K; where it goes. */
+  times_us: number[];
+  guide: number[];
+  steady: number;
+  /** The phase's 1/e time (the 2D figure tau), its 10 % and 90 % times and the 10–90 % rise time, µs. */
+  tau_us: number;
+  ten_us: number;
+  ninety_us: number;
+  rise_us: number;
+  /** The rise above the ambient at evenly spaced times from 0. */
+  frames: TemperatureFrame[];
+  /** The isotherms' levels (the steady view's) and the steady peak, K. */
+  levels: number[];
+  peak: number;
+  outline: Line[];
+  mode: Isoline[];
+  power_mw: number;
+  at_pi: boolean;
+  p_pi_mw: number;
+  watts_per_metre: number;
   grid: string;
 }
 
