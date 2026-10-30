@@ -13,7 +13,7 @@ use crate::material::catalogue::{State, partly_crystalline, phase_change};
 use crate::material::{Material, Model, Provenance as Source};
 use crate::mode::Polarization;
 use crate::mode::multilayer::Multilayer;
-use crate::mode::vector::{self, CrossSection, graded_nodes};
+use crate::mode::vector::{self, Boundaries, Boundary, CrossSection, Permittivity, graded_nodes};
 use crate::stack::{Layer, LayerStack, Structure};
 use crate::units::{Length, Wavelength};
 use crate::{Error, Result};
@@ -108,19 +108,27 @@ impl Pcm {
 ///   al.'s 25 nm film on a 500 × 220 nm silicon strip, the film on the guide's top only.
 ///
 /// All take `loss` (dB/cm, the propagation loss of the guide that the models don't give, added
-/// to the cell's) and `wavelength` (1.25 to 1.65 µm: the fits' range). The mode is the
-/// fundamental TE-like one.
+/// to the cell's) and `wavelength` (1.25 to 1.65 µm: the fits' range). The film can follow the
+/// guide: `wall_film` µm on its walls and `slab_film` µm over the slab beside it (or the oxide
+/// beside a strip), out to the window's edge, each thickness measured normal to the face it
+/// lies on, the corners square; both 0 (the default) is the film on the top alone, and equal to
+/// `film_thickness` a conformal film. The mode is the fundamental TE-like one, or with `tm` 1
+/// the TM-like one.
 ///
 /// - **Analytic:** the effective index method with the slabs' modes exact and complex
 ///   (docs/methods/devices.md): the vertical column through the guide (cladding, the film at
 ///   its fraction, silicon, buried oxide), beside it (a rib's slab, or the cladding alone), and
 ///   the lateral stack across (the film's width and the bare silicon either side of it), each
 ///   the root of a transfer matrix's dispersion relation. The loss is the imaginary part of the
-///   effective index.
+///   effective index. For the TM-like mode the columns are solved in TM and the lateral stack
+///   in TE; a film on the walls adds a column through it beside the guide's. Its stated error
+///   holds for the film on the top and the TE-like mode.
 /// - **2D:** the full-vector mode solver on the cross-section ([`crate::mode::vector`], the
-///   standard scheme with complex permittivities), half of it behind an electric wall, cells
-///   from 5 nm in and near the guide and the film, 1 µm of cladding around. A 2D number: a
-///   straight section's, any length.
+///   standard scheme with complex permittivities), half of it behind an electric wall (a
+///   magnetic one for the TM-like mode), cells from 5 nm in and near the guide and the film,
+///   1 µm of cladding around. A 2D number: a straight section's, any length. A rib's TM-like
+///   mode leaks into its slab, as does a mode under a film that raises the slab's index above
+///   the guide's: the model refuses them.
 #[derive(Clone, Debug, PartialEq)]
 pub struct PcmShifter {
     pcm: Pcm,
@@ -178,6 +186,9 @@ impl PcmShifter {
             parameter("slab", "µm", 0.0, 0.0, 0.5),
             parameter("film_thickness", "µm", 0.025, 0.005, 0.2),
             parameter("coverage", "", 1.0, 0.1, 1.0),
+            parameter("wall_film", "µm", 0.0, 0.0, 0.2),
+            parameter("slab_film", "µm", 0.0, 0.0, 0.2),
+            parameter("tm", "", 0.0, 0.0, 1.0),
             parameter("crystallized", "", 0.0, 0.0, 1.0),
             parameter("length", "µm", 10.0, 0.1, 1e5),
             parameter("loss", "dB/cm", 0.0, 0.0, 1e3),
@@ -277,6 +288,55 @@ impl PcmShifter {
         LayerStack::new(stack.substrate().clone(), layers, stack.cladding().clone())
     }
 
+    /// The film's thicknesses on the guide's walls and over the slab beside it, µm, when either
+    /// isn't 0 (a film that follows the guide); `None` for the film on the top alone.
+    fn conformal(values: &Values) -> Option<(f64, f64)> {
+        let (wall, slab) = (values.at("wall_film"), values.at("slab_film"));
+        (wall > 0.0 || slab > 0.0).then_some((wall, slab))
+    }
+
+    /// The mode the figures are of: TE-like (`tm` 0) or TM-like (`tm` 1).
+    fn polarization(values: &Values) -> Polarization {
+        if values.at("tm") == 1.0 {
+            Polarization::Tm
+        } else {
+            Polarization::Te
+        }
+    }
+
+    /// Refuses a design the models can't draw: `tm` other than 0 or 1, and a film on the walls
+    /// or the slab with a patch narrower than the guide, or a film over the slab as thick as the
+    /// rib's step or thicker.
+    fn check_design(values: &Values) -> Result<()> {
+        let tm = values.at("tm");
+        if tm != 0.0 && tm != 1.0 {
+            return Err(Error::invalid(
+                "device",
+                format!("tm is 0 (the TE-like mode) or 1 (the TM-like mode), got {tm}"),
+            ));
+        }
+        if let Some((_, slab_film)) = PcmShifter::conformal(values) {
+            if values.at("coverage") < 1.0 {
+                return Err(Error::invalid(
+                    "device",
+                    "a film on the guide's walls or over its slab covers the whole guide: \
+                     coverage 1",
+                ));
+            }
+            let step = values.at("thickness") - values.at("slab");
+            if slab_film >= step {
+                return Err(Error::invalid(
+                    "device",
+                    format!(
+                        "the film over the slab ({slab_film} µm) must be thinner than the rib's \
+                         step ({step} µm)"
+                    ),
+                ));
+            }
+        }
+        Ok(())
+    }
+
     /// The profile of the guide's etch.
     fn profile(values: &Values) -> Profile {
         Profile {
@@ -294,10 +354,7 @@ impl PcmShifter {
         let etch = PcmShifter::profile(values).etch(t)?;
         let mut s = Structure::new(stack);
         s.draw_etched(&self.core, section::straight(w, 0.0, -0.5, 0.5)?, etch)?;
-        s.draw(
-            "PCM",
-            section::straight(values.at("coverage") * w, 0.0, -0.5, 0.5)?,
-        )?;
+        s.draw("PCM", section::straight(top_width(values), 0.0, -0.5, 0.5)?)?;
         Ok((s, 0.5 * (bottom + top)))
     }
 
@@ -310,13 +367,17 @@ impl PcmShifter {
     /// its range.
     pub fn cross_section(&self, values: &Values, fraction: f64) -> Result<CrossSection> {
         values.check(self)?;
+        PcmShifter::check_design(values)?;
         let film = self.film(fraction, values.at("wavelength"))?;
         self.cross_section_of(values, film)
     }
 
     /// The cross-section with a film of `film` (any material): the guide's and the film's faces
-    /// on nodes.
+    /// on nodes, behind an electric wall on x = 0 for the TE-like mode and a magnetic one for
+    /// the TM-like.
     pub(super) fn cross_section_of(&self, values: &Values, film: Material) -> Result<CrossSection> {
+        let wavelength = Wavelength::um(values.at("wavelength"))?;
+        let eps = film.permittivity(wavelength)?;
         let (structure, mid) = self.piece(values, film)?;
         let (w, t, s) = (
             values.at("width"),
@@ -325,16 +386,76 @@ impl PcmShifter {
         );
         let (cw, tf) = (values.at("coverage") * w, values.at("film_thickness"));
         let h = STEP / self.refinement;
+        let (bottom, top) = (-0.5 * t, 0.5 * t);
+        let cs = match PcmShifter::conformal(values) {
+            None => {
+                let x = graded_nodes(
+                    0.0,
+                    0.5 * w + MARGIN,
+                    (0.0, 0.5 * w + NEAR),
+                    h,
+                    GROWTH,
+                    LARGEST,
+                    &[0.5 * cw, 0.5 * w],
+                );
+                let y = graded_nodes(
+                    bottom - MARGIN,
+                    top + tf + MARGIN,
+                    (bottom - NEAR, top + tf + NEAR),
+                    h,
+                    GROWTH,
+                    LARGEST,
+                    &[bottom, top, bottom + s, top + tf],
+                );
+                Cut {
+                    structure: &structure,
+                    at: 0.0,
+                    mid,
+                }
+                .raster(x, y, wavelength)?
+            }
+            Some((wall, over)) => {
+                let (x, y) = self.conformal_nodes(values);
+                let flat = Cut {
+                    structure: &structure,
+                    at: 0.0,
+                    mid,
+                }
+                .raster(x, y, wavelength)?;
+                conformal_film(&flat, 0.5 * w, bottom + s, top, (wall, over), eps)?
+            }
+        };
+        match PcmShifter::polarization(values) {
+            Polarization::Te => Ok(cs),
+            Polarization::Tm => cs.with_boundaries(Boundaries {
+                west: Boundary::MagneticWall,
+                ..Boundaries::default()
+            }),
+        }
+    }
+
+    /// The nodes of the cross-section of a film that follows the guide: the guide's top and
+    /// walls, the film's faces on the top, the walls and the slab, and the slab's top on nodes.
+    fn conformal_nodes(&self, values: &Values) -> (Vec<f64>, Vec<f64>) {
+        let (w, t, s) = (
+            values.at("width"),
+            values.at("thickness"),
+            values.at("slab"),
+        );
+        let (wall, over) = (values.at("wall_film"), values.at("slab_film"));
+        let tf = values.at("film_thickness");
+        let h = STEP / self.refinement;
+        let (bottom, top) = (-0.5 * t, 0.5 * t);
+        let edge = 0.5 * w + wall;
         let x = graded_nodes(
             0.0,
-            0.5 * w + MARGIN,
-            (0.0, 0.5 * w + NEAR),
+            edge + MARGIN,
+            (0.0, edge + NEAR),
             h,
             GROWTH,
             LARGEST,
-            &[0.5 * cw, 0.5 * w],
+            &[0.5 * w, edge],
         );
-        let (bottom, top) = (-0.5 * t, 0.5 * t);
         let y = graded_nodes(
             bottom - MARGIN,
             top + tf + MARGIN,
@@ -342,14 +463,106 @@ impl PcmShifter {
             h,
             GROWTH,
             LARGEST,
-            &[bottom, top, bottom + s, top + tf],
+            &[bottom, top, bottom + s, bottom + s + over, top + tf],
         );
-        Cut {
-            structure: &structure,
-            at: 0.0,
-            mid,
-        }
-        .raster(x, y, Wavelength::um(values.at("wavelength"))?)
+        (x, y)
+    }
+
+    /// The film of a cell that follows the guide (`values` with a film on its walls and over its
+    /// slab) in the limit of a guide of no step, its core as wide as the window, at the film's
+    /// `fraction`: the conformal construction (the film on the top `wall_film` wider than the
+    /// guide each side, then on the walls and over the slab, as thick as on the top) against the
+    /// stack's film layer drawn across the window, on the same nodes. Their cross-sections, and
+    /// each one's mode of the device's polarization nearest the vertical column's exact n_eff.
+    ///
+    /// # Errors
+    ///
+    /// As [`PcmShifter::cross_section`], and [`Error::InvalidValue`] for a film on the top alone.
+    pub(super) fn zero_step(
+        &self,
+        values: &Values,
+        fraction: f64,
+    ) -> Result<[(CrossSection, c64); 2]> {
+        values.check(self)?;
+        PcmShifter::check_design(values)?;
+        let Some((wall, _)) = PcmShifter::conformal(values) else {
+            return Err(Error::invalid(
+                "device",
+                "the film is on the guide's top alone",
+            ));
+        };
+        let lambda = values.at("wavelength");
+        let wavelength = Wavelength::um(lambda)?;
+        let film = self.film(fraction, lambda)?;
+        let eps = film.permittivity(wavelength)?;
+        let film_index = film.refractive_index(wavelength)?;
+        let stack = self.film_stack(values, film)?;
+        let (bottom, top) = core_span(&stack, &self.core)?;
+        let mid = 0.5 * (bottom + top);
+        let (w, t, tf) = (
+            values.at("width"),
+            values.at("thickness"),
+            values.at("film_thickness"),
+        );
+        let (x, y) = self.conformal_nodes(values);
+        // wider than the window: the core and the film run into its edge
+        let across = 4.0 * x[x.len() - 1];
+        let raster = |film_width: f64| -> Result<CrossSection> {
+            let mut s = Structure::new(stack.clone());
+            s.draw(&self.core, section::straight(across, 0.0, -0.5, 0.5)?)?;
+            s.draw("PCM", section::straight(film_width, 0.0, -0.5, 0.5)?)?;
+            Cut {
+                structure: &s,
+                at: 0.0,
+                mid,
+            }
+            .raster(x.clone(), y.clone(), wavelength)
+        };
+        let conformal = conformal_film(
+            &raster(w + 2.0 * wall)?,
+            0.5 * w,
+            0.5 * t,
+            0.5 * t,
+            (wall, tf),
+            eps,
+        )?;
+        let layered = raster(across)?;
+        // the column's exact n_eff: the film over the core, between the core's neighbours
+        let (below, core, above, _) = indices(
+            &with_thickness(&self.stack, &self.core, t)?,
+            &self.core,
+            wavelength,
+        )?;
+        let polarization = PcmShifter::polarization(values);
+        let near = Multilayer::new(
+            c64::new(above, 0.0),
+            &[
+                (c64::new(film_index.re, 0.0), Length::um(tf)),
+                (c64::new(core, 0.0), Length::um(t)),
+            ],
+            c64::new(below, 0.0),
+        )?
+        .bound_modes(polarization, wavelength)?
+        .first()
+        .map_or(core, |m| m.effective_index().re);
+        let walls = |cs: CrossSection| -> Result<CrossSection> {
+            match polarization {
+                Polarization::Te => Ok(cs),
+                Polarization::Tm => cs.with_boundaries(Boundaries {
+                    west: Boundary::MagneticWall,
+                    ..Boundaries::default()
+                }),
+            }
+        };
+        let solve = |cs: CrossSection| -> Result<(CrossSection, c64)> {
+            let cs = walls(cs)?;
+            let n = vector::modes(&cs, wavelength, 1, Some(near))?
+                .first()
+                .map(vector::VectorMode::effective_index)
+                .ok_or_else(|| Error::invalid("device", "no mode near the column's"))?;
+            Ok((cs, n))
+        };
+        Ok([solve(conformal)?, solve(layered)?])
     }
 
     /// The cell's n_eff by the effective index method with exact complex slabs, the film at
@@ -398,15 +611,57 @@ impl PcmShifter {
             c64::new(below, 0.0),
             c64::new(core, 0.0),
         );
+        // the vertical columns' polarization is the mode's, the lateral stack's the other
+        let (vertical, lateral) = match PcmShifter::polarization(values) {
+            Polarization::Te => (Polarization::Te, Polarization::Tm),
+            Polarization::Tm => (Polarization::Tm, Polarization::Te),
+        };
         let with_film = root(
-            Polarization::Te,
+            vertical,
             n_above,
             &[(film, tf), (n_core, t)],
             n_below,
             "the column through the guide",
         )?;
+        if let Some((wall, over)) = PcmShifter::conformal(values) {
+            // the film over the slab beside the guide, and down the walls from the top's film
+            let mut beside_films = Vec::new();
+            if over > 0.0 {
+                beside_films.push((film, over));
+            }
+            if slab > 0.0 {
+                beside_films.push((n_core, slab));
+            }
+            let beside = if beside_films.is_empty() {
+                c64::new(side, 0.0)
+            } else {
+                root(
+                    vertical,
+                    n_above,
+                    &beside_films,
+                    n_below,
+                    "the column beside the guide",
+                )?
+            };
+            let mut across = vec![(with_film, w)];
+            if wall > 0.0 {
+                let mut films = vec![(film, t - slab + tf)];
+                if slab > 0.0 {
+                    films.push((n_core, slab));
+                }
+                let on_wall = root(
+                    vertical,
+                    n_above,
+                    &films,
+                    n_below,
+                    "the column through the film on the wall",
+                )?;
+                across = vec![(on_wall, wall), (with_film, w), (on_wall, wall)];
+            }
+            return root(lateral, beside, &across, beside, "the lateral stack");
+        }
         let bare = root(
-            Polarization::Te,
+            vertical,
             n_above,
             &[(n_core, t)],
             n_below,
@@ -414,7 +669,7 @@ impl PcmShifter {
         )?;
         let beside = if slab > 0.0 {
             root(
-                Polarization::Te,
+                vertical,
                 n_above,
                 &[(n_core, slab)],
                 n_below,
@@ -429,13 +684,7 @@ impl PcmShifter {
             let edge = 0.5 * (w - cw);
             vec![(bare, edge), (with_film, cw), (bare, edge)]
         };
-        root(
-            Polarization::Tm,
-            beside,
-            &across,
-            beside,
-            "the lateral stack",
-        )
+        root(lateral, beside, &across, beside, "the lateral stack")
     }
 
     /// The full-vector solver's n_eff at the film's `fraction`, and the grid it names: the
@@ -443,9 +692,15 @@ impl PcmShifter {
     fn solved(&self, values: &Values, fraction: f64) -> Result<(c64, String)> {
         let cs = self.cross_section(values, fraction)?;
         let near = self.eim(values, fraction)?.re;
-        let mode = fundamental(&cs, Wavelength::um(values.at("wavelength"))?, near)?;
+        let polarization = PcmShifter::polarization(values);
+        let mode = fundamental_of(
+            &cs,
+            Wavelength::um(values.at("wavelength"))?,
+            near,
+            polarization,
+        )?;
         let h = STEP / self.refinement;
-        let grid = format!(
+        let mut grid = format!(
             "{} × {} cells of the half cross-section, {:.3} nm in and near the guide and the \
              film, growing by {GROWTH} per µm to {:.0} nm, {MARGIN} µm of cladding",
             cs.x().len() - 1,
@@ -453,12 +708,16 @@ impl PcmShifter {
             h * 1e3,
             LARGEST * 1e3,
         );
+        if polarization == Polarization::Tm {
+            grid.push_str(", the TM-like mode");
+        }
         Ok((mode.effective_index(), grid))
     }
 
     /// The cell's three states at `fidelity`, and the grid they name.
     pub(super) fn states(&self, values: &Values, fidelity: Fidelity) -> Result<(States, String)> {
         values.check(self)?;
+        PcmShifter::check_design(values)?;
         let f = values.at("crystallized");
         match fidelity {
             Fidelity::Analytic => Ok((
@@ -618,6 +877,53 @@ impl PcmShifter {
     }
 }
 
+/// The width of the film on the guide's top, µm: `coverage` of the guide's, or, for a film that
+/// follows the guide, the guide's and the film on both walls (the corners square).
+fn top_width(values: &Values) -> f64 {
+    let w = values.at("width");
+    match PcmShifter::conformal(values) {
+        None => values.at("coverage") * w,
+        Some((wall, _)) => w + 2.0 * wall,
+    }
+}
+
+/// `flat` (the guide with the film on its top, `wall` wider than the guide's half
+/// `half_width` µm on either side) with the film also on the guide's wall, `wall` µm thick from
+/// the slab's top `floor` up to the guide's `top`, and over the slab, `over` µm thick from the
+/// wall out to the window's edge: the cells whose centres lie there take the film's permittivity
+/// `eps`. The faces are the caller's nodes.
+///
+/// # Errors
+///
+/// As [`CrossSection::new`] and [`CrossSection::with_boundaries`] (never, for a valid `flat`).
+pub(super) fn conformal_film(
+    flat: &CrossSection,
+    half_width: f64,
+    floor: f64,
+    top: f64,
+    (wall, over): (f64, f64),
+    eps: c64,
+) -> Result<CrossSection> {
+    let (x, y) = (flat.x(), flat.y());
+    let ny = y.len() - 1;
+    let mut cells = flat.cells().to_vec();
+    for i in 0..x.len() - 1 {
+        let cx = 0.5 * (x[i] + x[i + 1]);
+        if cx < half_width {
+            continue;
+        }
+        for j in 0..ny {
+            let cy = 0.5 * (y[j] + y[j + 1]);
+            let on_wall = cx < half_width + wall && cy > floor && cy < top;
+            let on_slab = cy > floor && cy < floor + over;
+            if on_wall || on_slab {
+                cells[i * ny + j] = Permittivity::isotropic(eps);
+            }
+        }
+    }
+    CrossSection::new(x.to_vec(), y.to_vec(), cells)?.with_boundaries(flat.boundaries())
+}
+
 /// The power loss, dB/µm, of a mode of effective index `n` at the free-space wavenumber `k0`
 /// (rad/µm). A passive medium's imaginary part is not negative, and below 1e-12 it is round-off
 /// (the lossless films' solves leave 1e-16 of either sign): both give 0.
@@ -625,18 +931,30 @@ pub(super) fn loss(n: c64, k0: f64) -> f64 {
     if n.im > 1e-12 { DB * k0 * n.im } else { 0.0 }
 }
 
-/// The fundamental guided TE-like mode of `cs`: the one of the largest Re n_eff among the three
-/// guided modes nearest `near`.
-pub(super) fn fundamental(
+/// The fundamental guided mode of `polarization`, TE-like or TM-like, of `cs`: the one of the
+/// largest Re n_eff of that polarization among the three guided modes nearest `near`.
+fn fundamental_of(
     cs: &CrossSection,
     wavelength: Wavelength,
     near: f64,
+    polarization: Polarization,
 ) -> Result<vector::VectorMode> {
+    let te = polarization == Polarization::Te;
     vector::guided_modes(cs, wavelength, 3, Some(near))?
         .into_iter()
-        .filter(|m| m.te_fraction() > 0.5)
+        .filter(|m| (m.te_fraction() > 0.5) == te)
         .max_by(|a, b| a.effective_index().re.total_cmp(&b.effective_index().re))
-        .ok_or_else(|| Error::invalid("device", "the cross-section guides no TE-like mode"))
+        .ok_or_else(|| {
+            let which = if te { "TE" } else { "TM" };
+            Error::invalid(
+                "device",
+                format!(
+                    "the cross-section guides no {which}-like mode (beside a rib, a mode below \
+                     the slab's leaks into it: a rib's TM-like mode, or one under a film over \
+                     the slab that raises the slab's index above the guide's)"
+                ),
+            )
+        })
 }
 
 /// Delaney et al. 2020, with what the device takes from it.
@@ -706,6 +1024,12 @@ fn analytic_validity() -> Vec<Range> {
         Range::new("width", 0.4, 0.6),
         Range::new("film_thickness", 0.01, 0.05),
         Range::new("slab", 0.0, 0.1),
+        // the film on the top alone and the TE-like mode: against the 2D model the method is
+        // off by up to 15 % (a film over a rib's slab) and 23 % (the TM-like mode's loss under
+        // GST) beyond them (docs/methods/devices.md)
+        Range::new("wall_film", 0.0, 0.0),
+        Range::new("slab_film", 0.0, 0.0),
+        Range::new("tm", 0.0, 0.0),
     ]
 }
 
@@ -762,7 +1086,7 @@ impl Device for PcmShifter {
             Shape::rect(
                 Point::um(0.5 * l, 0.0),
                 Length::um(l),
-                Length::um(values.at("coverage") * w),
+                Length::um(top_width(values)),
             )?,
         )?;
         Ok(g)
