@@ -44,6 +44,7 @@ pub struct OpenEms {
     version: String,
     csxcad: String,
     threads: Option<usize>,
+    settle: bool,
 }
 
 impl OpenEms {
@@ -61,6 +62,7 @@ impl OpenEms {
             version,
             csxcad,
             threads: None,
+            settle: false,
         })
     }
 
@@ -70,6 +72,16 @@ impl OpenEms {
     /// is its own.
     pub fn with_threads(mut self, threads: usize) -> OpenEms {
         self.threads = Some(threads.max(1));
+        self
+    }
+
+    /// The same, its runs stopped once the pulse has passed (half its length again after it
+    /// ends, for the line to carry it away) and the energy has settled: held
+    /// within 0.01 dB over ten progress reports (openEMS's own end criterion, a fall by the
+    /// model's end energy, can't be met where the pulse leaves a static field behind, which no
+    /// probe of a line sees). Such a run is [`Run::settled`].
+    pub fn with_settled_stop(mut self) -> OpenEms {
+        self.settle = true;
         self
     }
 
@@ -155,6 +167,8 @@ impl OpenEms {
         let mut tracker = Tracker::new(model.max_steps, target);
         let mut steps = 0;
         let mut ended = false;
+        let mut settled: Option<f64> = None;
+        let mut levels: Vec<f64> = Vec::new();
         let mut timestep = f64::NAN;
         for line in BufReader::new(stdout).lines() {
             let line = line.map_err(io)?;
@@ -172,6 +186,26 @@ impl OpenEms {
                 let message = tracker.report(label, &p, start.elapsed().as_secs_f64());
                 eprintln!("{message}");
                 let _ = writeln!(progress, "{message}");
+                if self.settle && tracker.pulse.is_some_and(|n| 2 * p.step > 3 * n) && p.db < -10.0
+                {
+                    levels.push(p.db);
+                    let last = &levels[levels.len().saturating_sub(10)..];
+                    let (lo, hi) = last
+                        .iter()
+                        .fold((f64::INFINITY, f64::NEG_INFINITY), |(a, b), &v| {
+                            (a.min(v), b.max(v))
+                        });
+                    if last.len() == 10 && hi - lo < 0.01 && settled.is_none() {
+                        settled = Some(p.db);
+                        let message = format!(
+                            "[{label}] the energy has settled at {:.2} dB: stopped",
+                            p.db
+                        );
+                        eprintln!("{message}");
+                        let _ = writeln!(progress, "{message}");
+                        let _ = child.kill();
+                    }
+                }
             }
             if let Some(n) = after(&line, "end-criteria of") {
                 steps = n;
@@ -181,7 +215,7 @@ impl OpenEms {
         let status = child.wait().map_err(io)?;
         let errors = errors.join().unwrap_or_default();
         let _ = write!(output, "{errors}");
-        if !status.success() {
+        if !status.success() && settled.is_none() {
             return Err(format!(
                 "openEMS failed ({status}) in {}: {}",
                 folder.display(),
@@ -208,6 +242,7 @@ impl OpenEms {
             folder: folder.to_path_buf(),
             steps: if ended { steps } else { tracker.last_step },
             decayed: ended,
+            settled,
             seconds,
             timestep,
             reused: false,
@@ -215,8 +250,14 @@ impl OpenEms {
         fs::write(
             folder.join(FINISHED),
             format!(
-                "openEMS {}\nsteps {}\ndecayed {}\nseconds {}\ntimestep {}\n",
-                self.version, run.steps, run.decayed, run.seconds, run.timestep
+                "openEMS {}\nsteps {}\ndecayed {}\nseconds {}\ntimestep {}\n{}",
+                self.version,
+                run.steps,
+                run.decayed,
+                run.seconds,
+                run.timestep,
+                run.settled
+                    .map_or(String::new(), |db| format!("settled {db}\n"))
             ),
         )
         .map_err(io)?;
@@ -241,6 +282,7 @@ impl OpenEms {
             folder: folder.to_path_buf(),
             steps: field("steps")?.parse().ok()?,
             decayed: field("decayed")?.parse().ok()?,
+            settled: field("settled").and_then(|v| v.parse().ok()),
             seconds: field("seconds")?.parse().ok()?,
             timestep: field("timestep")?.parse().ok()?,
             reused: true,
@@ -260,6 +302,8 @@ pub struct Run {
     pub steps: u64,
     /// Whether the energy fell to the end criterion (else the most steps were reached).
     pub decayed: bool,
+    /// Where the energy settled, dB, when the run was stopped there ([`OpenEms::with_settled_stop`]).
+    pub settled: Option<f64>,
     /// Its wall time, s.
     pub seconds: f64,
     /// openEMS's time step, s.
@@ -526,13 +570,16 @@ pub struct Cuboid {
     pub to: [f64; 3],
 }
 
-/// A dielectric: its relative permittivity, isotropic, in boxes.
+/// A dielectric: its relative permittivity, diagonal in the model's axes, in boxes.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Material {
     /// Its name, letters, digits and `_`.
     pub name: String,
-    /// Its relative permittivity.
-    pub epsilon: f64,
+    /// Its relative permittivity along x, y and z (the same three for an isotropic one).
+    pub epsilon: [f64; 3],
+    /// Its electrical conductivity, S/m (0 for a lossless dielectric; a metal's, for a metal
+    /// whose skin the mesh resolves).
+    pub kappa: f64,
     /// Where it is.
     pub boxes: Vec<Cuboid>,
 }
@@ -673,10 +720,26 @@ impl Model {
         let _ = writeln!(out, "  <ContinuousStructure CoordSystem=\"0\">");
         let _ = writeln!(out, "    <Properties>");
         for m in &self.materials {
-            let e = m.epsilon;
-            let _ = writeln!(out, "      <Material Name=\"{}\">", named(&m.name)?);
+            let [ex, ey, ez] = m.epsilon;
+            // anisotropic: CSXCAD reads the three components only with isotropy off
+            let isotropy = if ex == ey && ey == ez {
+                ""
+            } else {
+                " Isotropy=\"0\""
+            };
+            let _ = writeln!(
+                out,
+                "      <Material Name=\"{}\"{isotropy}>",
+                named(&m.name)?
+            );
             // three components: one value sets x's alone (`--debug-CSX` shows ε = (e, 1, 1))
-            let _ = writeln!(out, "        <Property Epsilon=\"{e},{e},{e}\"/>");
+            let kappa = if m.kappa == 0.0 {
+                String::new()
+            } else {
+                let k = m.kappa;
+                format!(" Kappa=\"{k},{k},{k}\"")
+            };
+            let _ = writeln!(out, "        <Property Epsilon=\"{ex},{ey},{ez}\"{kappa}/>");
             let _ = writeln!(out, "        <Primitives>");
             for c in &m.boxes {
                 cuboid(&mut out, c, 0, "          ");
@@ -882,7 +945,8 @@ mod tests {
             end_energy: 1e-5,
             materials: vec![Material {
                 name: "substrate".into(),
-                epsilon: 10.0,
+                epsilon: [10.0; 3],
+                kappa: 0.0,
                 boxes: vec![at],
             }],
             metal: vec![at],
