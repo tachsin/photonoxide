@@ -59,6 +59,7 @@ examples!(
     optimize_bragg: "../../../examples/optimize_bragg.rs",
     optimize_ring_flat: "../../../examples/optimize_ring_flat.rs",
     optimize_mzi_lattice: "../../../examples/optimize_mzi_lattice.rs",
+    optimize_ring_mzi: "../../../examples/optimize_ring_mzi.rs",
     optimize_ring_pareto: "../../../examples/optimize_ring_pareto.rs",
     optimize_chip_rings: "../../../examples/optimize_chip_rings.rs",
     optimize_mesh: "../../../examples/optimize_mesh.rs",
@@ -180,6 +181,10 @@ fn title(name: &str) -> (&'static str, &'static str) {
             "A half-band lattice filter by optimization",
             "Jinguji & Oguma 2000",
         ),
+        "optimize_ring_mzi" => (
+            "An elliptic filter of two ring pairs in an MZI",
+            "Wang et al. 2022",
+        ),
         "optimize_chip_rings" => (
             "A maximally flat ring filter co-designed from devices",
             "Little et al. 1997",
@@ -257,6 +262,7 @@ fn seconds(name: &str) -> f64 {
         "optimize_bragg" => 0.5,
         "optimize_ring_flat" => 70.0,
         "optimize_mzi_lattice" => 20.0,
+        "optimize_ring_mzi" => 3.0,
         "optimize_ring_pareto" => 3.0,
         "optimize_chip_rings" => 2.0,
         "optimize_mesh" => 5.0,
