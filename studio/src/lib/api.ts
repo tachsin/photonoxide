@@ -165,10 +165,51 @@ export interface CpuTopology {
   numa_nodes: number;
 }
 
-/** This machine and the libraries suggested for it (libraries/hardware.rs). */
+/** What this machine's benchmark records measured of a suggested library: one of its backends
+ *  against photonoxide's own on one problem, from two stored records (libraries/measured.rs). */
+export interface Measured {
+  backend: string;
+  id: string;
+  family: string;
+  grid: string;
+  unknowns: number;
+  threads: number;
+  seconds: number;
+  own_seconds: number;
+  /** photonoxide's time over the backend's: above 1, the backend was faster. */
+  speedup: number;
+  /** The days the two records ran, as 2026-10-30. */
+  date: string;
+  own_date: string;
+  version: string;
+  problems: number;
+  faster_on: number;
+  /** Why the record may no longer hold (another photonoxide version), if it may not. */
+  stale: string | null;
+  /** All of it in a sentence or two. */
+  said: string;
+}
+
+/** A library suggested for this machine: by the hardware, or by the records. */
+export interface Suggestion {
+  library: string;
+  why: string;
+  by: "hardware" | "records";
+  backends: string[];
+  install: string | null;
+  command: string | null;
+  download: string;
+  system: boolean;
+  measured: Measured | null;
+}
+
+/** This machine and the libraries suggested for it (libraries/hardware.rs), ranked by its own
+ *  benchmark records where they measured them (libraries/measured.rs). */
 export interface HardwareAdvice {
   hardware: { os: string; arch: string; cpu: { vendor: string; brand: string; threads: number; features: string[]; topology: CpuTopology }; gpu: { name: string; driver: string } | null };
-  suggestions: { library: string; why: string; install: string | null; command: string | null; download: string; system: boolean }[];
+  suggestions: Suggestion[];
+  /** This machine's benchmark records: how many, the latest's day, and why they couldn't be read. */
+  records: { count: number; latest: string | null; error: string | null };
 }
 
 export const api = {
