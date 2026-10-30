@@ -46,6 +46,15 @@ const BUS: f64 = 1e-3;
 const INNER_LENGTH: f64 = 0.1;
 /// The fixed bend's radius, µm.
 const FIXED: f64 = 10.0;
+/// The buses' couplers' gap, µm.
+const BUS_GAP: f64 = 0.2;
+/// The starts (the rings' gap µm, u₁, u₂), the evaluations of each, and the wavelengths.
+const STARTS: [[f64; 3]; 3] = [[0.42, 20.0, -15.0], [0.46, -10.0, 25.0], [0.44, 5.0, 5.0]];
+const EVALUATIONS: u64 = 3_000;
+const POINTS: usize = 61;
+/// The tolerances: μ₁²/μ⁴ (three printed digits), the radii (nm).
+const RATIO_TOLERANCE: f64 = 5e-4;
+const RADIUS_TOLERANCE: f64 = 1e-6;
 
 /// A directional-coupler device's table: lossless, at `gap` and `length` µm.
 fn coupler(gap: &str, length: f64) -> String {
@@ -128,10 +137,10 @@ at = "c2.o4"
 kind = "optimize"
 method = "lbfgsb"
 seed = 1
-evaluations = 3000
+evaluations = {EVALUATIONS}
 from_um = {lo:?}
 to_um = {hi:?}
-points = 61
+points = {POINTS}
 reduce = "average"
 
 [[task.variable]]
@@ -153,7 +162,7 @@ to = 200.0
 expression = "(T_drop_in - 1/(1 + ((lambda - {LAMBDA:?})/{width:?})^4))^2"
 goal = "minimize"
 "#,
-        bus = coupler("0.2", bus_length),
+        bus = coupler(&format!("{BUS_GAP:?}"), bus_length),
         inner = coupler(&format!("{:?}", start[0]), INNER_LENGTH),
         fixed = bend(&format!("{FIXED:?}"), None),
         b1 = bend(&r, Some(start[1])),
@@ -172,7 +181,7 @@ pub fn main() -> photonoxide::Result<ExitCode> {
     let dc = StripCoupler::new();
     let c_bus = dc
         .component(
-            &Values::new(&dc, &[("gap", 0.2), ("loss", 0.0)])?,
+            &Values::new(&dc, &[("gap", BUS_GAP), ("loss", 0.0)])?,
             photonoxide::circuit::Fidelity::Analytic,
         )?
         .figure("C")
@@ -195,13 +204,76 @@ pub fn main() -> photonoxide::Result<ExitCode> {
         Ok(s[(2, 1)].arg())
     };
     let beta = TAU * n_eff / LAMBDA;
-    let rest = common(0.2, bus_length)? + common(0.42, INNER_LENGTH)? + beta * PI * FIXED;
+    let rest =
+        common(BUS_GAP, bus_length)? + common(STARTS[0][0], INNER_LENGTH)? + beta * PI * FIXED;
     let m = ((rest + beta * PI * FIXED) / TAU).round();
     let r0 = (TAU * m - rest) / (beta * PI);
     // the Butterworth half-width δ_c = κ_b²/√2 of round-trip phase, in wavelength: dφ/dλ =
     // 2π n_g L/λ² over the round trip's length L
     let length = PI * (FIXED + r0) + bus_length + INNER_LENGTH;
     let width = BUS / 2f64.sqrt() * LAMBDA * LAMBDA / (TAU * n_g * length);
+    let mut setup = common::Setup::new();
+    setup.part("the buses' couplers, c0 and c2");
+    let bus = Values::new(
+        &dc,
+        &[("gap", BUS_GAP), ("length", bus_length), ("loss", 0.0)],
+    )?;
+    setup.device(&dc, &bus, at);
+    setup.part("the rings' coupler, c1");
+    let inner = Values::new(
+        &dc,
+        &[
+            ("gap", STARTS[0][0]),
+            ("length", INNER_LENGTH),
+            ("loss", 0.0),
+        ],
+    )?;
+    setup.parameters(&dc, &inner);
+    setup.item(
+        "its gap",
+        "searched, 0.3 to 0.5 µm; the first start's above",
+    );
+    setup.part("the rings' bends: a1 and a2 fixed, b1 and b2 searched");
+    setup.parameters(
+        &db,
+        &Values::new(&db, &[("angle", 180.0), ("radius", FIXED), ("loss", 0.0)])?,
+    );
+    setup.item(
+        "b1, b2",
+        &format!("as a1, of radius R₀ + u × 1e-6 µm, R₀ = {r0:.6} µm, u from −200 to 200"),
+    );
+    setup.part("the fit");
+    setup.item(
+        "wavelengths",
+        &format!(
+            "{POINTS} from {:.6} to {:.6} µm",
+            LAMBDA - 3.0 * width * 2f64.sqrt(),
+            LAMBDA + 3.0 * width * 2f64.sqrt()
+        ),
+    );
+    setup.item(
+        "grid",
+        "the devices' analytic models; the circuit solve, exact",
+    );
+    setup.item(
+        "solver",
+        &format!(
+            "L-BFGS-B by central differences, {EVALUATIONS} evaluations from each of {} starts \
+             (gap, u₁, u₂): {}",
+            STARTS.len(),
+            STARTS
+                .map(|s| format!("({})", s.map(common::number).join(", ")))
+                .join(", ")
+        ),
+    );
+    setup.item(
+        "tolerance",
+        &format!(
+            "{RATIO_TOLERANCE:e} on μ₁²/μ⁴; {RADIUS_TOLERANCE:e} nm on the radii, alike and on \
+             resonance"
+        ),
+    );
+    setup.print();
     println!(
         "A maximally flat filter of two rings of devices on a chip (Little et al. 1997, Table I): lossless 500 x 220 nm strips, analytic, the circuit solve, exact: no grid"
     );
@@ -214,14 +286,14 @@ pub fn main() -> photonoxide::Result<ExitCode> {
     );
     // the built-in job (jobs/chip-little-rings.yaml) is this chip, from the first start
     let builtin = Job::parse_as(include_str!("../jobs/chip-little-rings.yaml"), Format::Yaml)?;
-    let first = job(r0, bus_length, width, [0.42, 20.0, -15.0])?;
+    let first = job(r0, bus_length, width, STARTS[0])?;
     checks.count(
         "jobs/chip-little-rings.yaml is this job",
         usize::from(builtin.circuit() == first.circuit() && builtin.task() == first.task()),
         1,
     );
     let mut best: Option<(f64, Vec<f64>)> = None;
-    for start in [[0.42, 20.0, -15.0], [0.46, -10.0, 25.0], [0.44, 5.0, 5.0]] {
+    for start in STARTS {
         let problem = Problem::of(&job(r0, bus_length, width, start)?)?;
         let real = Real::new([0.3..=0.5, -200.0..=200.0, -200.0..=200.0]).expect("bounds");
         let f = |x: &Reals, g: &mut [f64]| {
@@ -242,7 +314,7 @@ pub fn main() -> photonoxide::Result<ExitCode> {
             .build()
             .expect("a valid L-BFGS-B");
         let outcome = Engine::new(lbfgsb, Differentiable(&f))
-            .stop_when(Stop::evaluations(3_000))
+            .stop_when(Stop::evaluations(EVALUATIONS))
             .run()
             .expect("a run");
         let x = outcome.best_genome().to_vec();
@@ -260,7 +332,7 @@ pub fn main() -> photonoxide::Result<ExitCode> {
             .figure("cross")
             .map_or(f64::NAN, |f| f.value))
     };
-    let kb = cross(0.2, bus_length)?;
+    let kb = cross(BUS_GAP, bus_length)?;
     let ki = cross(x[0], INNER_LENGTH)?;
     println!(
         "  the best of 3 starts: misfit {}, the rings' gap {:.5} µm",
@@ -271,7 +343,7 @@ pub fn main() -> photonoxide::Result<ExitCode> {
         },
         x[0]
     );
-    checks.compare("μ₁²/μ⁴ = κ₁²/κ_b⁴", ki / (kb * kb), 0.250, 5e-4);
+    checks.compare("μ₁²/μ⁴ = κ₁²/κ_b⁴", ki / (kb * kb), 0.250, RATIO_TOLERANCE);
     checks.against(
         "the rings' radii alike, |R₁ − R₂| (nm)",
         (x[1] - x[2]).abs() * 1e-3,

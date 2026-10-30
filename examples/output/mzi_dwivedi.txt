@@ -1,3 +1,47 @@
+Setup
+  (layers from the top down: the bottom one, the substrate, is the first laid down)
+  the 470 nm wire as measured (designed 450 nm × 215 nm):
+    layers:
+      cladding       half-space   SiO2, n 1.444024
+      Si             211 nm       Si, n 3.475700 in its shapes; SiO2, n 1.444024 elsewhere
+      BOX            2 µm         SiO2, n 1.444024
+      substrate      half-space   Si, n 3.475700
+    shapes:
+      on Si: rectangle centred at (5, 0) µm, 10 µm along x by 470 nm along y
+    waveguide: width 0.47 µm, thickness 0.211 µm, slab 0 µm, sidewall 90 °, length 10 µm, loss 2.7 dB/cm, roughness 0 µm, correlation 0.05 µm, wavelength 1.55 µm, span 0.06 µm
+  the 602 nm wire as measured (designed 600 nm × 215 nm):
+    layers:
+      cladding       half-space   SiO2, n 1.444024
+      Si             211 nm       Si, n 3.475700 in its shapes; SiO2, n 1.444024 elsewhere
+      BOX            2 µm         SiO2, n 1.444024
+      substrate      half-space   Si, n 3.475700
+    shapes:
+      on Si: rectangle centred at (5, 0) µm, 10 µm along x by 602 nm along y
+    waveguide: width 0.602 µm, thickness 0.211 µm, slab 0 µm, sidewall 90 °, length 10 µm, loss 2.7 dB/cm, roughness 0 µm, correlation 0.05 µm, wavelength 1.55 µm, span 0.06 µm
+  the 805 nm wire as measured (designed 800 nm × 215 nm):
+    layers:
+      cladding       half-space   SiO2, n 1.444024
+      Si             211 nm       Si, n 3.475700 in its shapes; SiO2, n 1.444024 elsewhere
+      BOX            2 µm         SiO2, n 1.444024
+      substrate      half-space   Si, n 3.475700
+    shapes:
+      on Si: rectangle centred at (5, 0) µm, 10 µm along x by 805 nm along y
+    waveguide: width 0.805 µm, thickness 0.211 µm, slab 0 µm, sidewall 90 °, length 10 µm, loss 2.7 dB/cm, roughness 0 µm, correlation 0.05 µm, wavelength 1.55 µm, span 0.06 µm
+  every wire:
+    interferometers: two ideal splitters, arms 50 µm and 50 µm + ΔL long, ΔL for the orders m = 15 and M = 110 at 1.55 µm in the designed wire; their spectra read from 1.53 to 1.57 µm and 1.52 to 1.58 µm
+    grid: the device's 3D model: a quarter of the cross-section on a uniform grid of about 10 nm, its lines on the core's faces
+    solver: the full-vector mode solver, Hadley's equations; the interferometers' circuit solve
+    tolerance: the paper's Eq. 5 with ±20 nm of width and ±5 nm of thickness, by the solver's derivatives, plus Table I's uncertainty
+  materials:
+    SiO2: Sellmeier, n² = A + Σ Bλ²/(λ² − C²), A = 1, B = 0.6961663, 0.4079426, 0.8974794, C = 0.0684043, 0.1162414, 9.896161 µm; valid 0.21 to 3.71 µm
+      source: I. H. Malitson, J. Opt. Soc. Am. 55, 1205 (1965), doi:10.1364/JOSA.55.001205, at 293.15 K
+      fused silica, Eq. (1), checked against the paper; fit residual 10.5e-6 on average; thermal and deposited oxides differ slightly
+      n 1.444024 at 1.55 µm
+    Si: a table of 35 wavelengths, 1.2 to 14 µm, between them natural cubic splines; valid 1.2 to 14 µm
+      source: H. H. Li, J. Phys. Chem. Ref. Data 9, 561 (1980), doi:10.1063/1.555624, at 293 K
+      crystalline silicon; Table 1, 293 K, checked against the paper; uncertainty ±2e-3 (Li)
+      n 3.475700 at 1.55 µm
+
 silicon wires (Li 1980) in silica (Malitson 1965), Hadley's equations, quarter domain
   470 x 211 nm (121 × 115 cells, 9.591 nm): n_eff 2.35831, n_g 4.23299
     designed 450 x 215 nm: n_eff 2.33370, path differences 9.963 um (m = 15) and 73.060 um (M = 110)

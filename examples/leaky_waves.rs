@@ -25,18 +25,80 @@ use num_complex::Complex64 as c64;
 use photonoxide::mode::vector::{self, Boundaries, Boundary, CrossSection, Permittivity, Pml};
 use photonoxide::units::Wavelength;
 
+/// Chilwell and Hodgkinson's guide: the cover's index, the films' (index, thickness µm) from
+/// the cover down, and the substrate's.
+const COVER: f64 = 1.0;
+const FILMS: [(f64, f64); 4] = [(1.66, 0.5), (1.53, 0.5), (1.60, 0.5), (1.66, 0.5)];
+const SUBSTRATE: f64 = 1.5;
+
+/// The PML below the substrate: its thickness (µm) and strength.
+const PML: (f64, f64) = (2.0, 5.0);
+
 pub fn main() -> photonoxide::Result<ExitCode> {
     let h = 0.0025;
     // y = 0 is the cover's interface; the films and the substrate lie below it
-    let index = |y: f64| match y {
-        y if y > 0.0 => 1.0,
-        y if y > -0.5 => 1.66,
-        y if y > -1.0 => 1.53,
-        y if y > -1.5 => 1.60,
-        y if y > -2.0 => 1.66,
-        _ => 1.5,
+    let index = |y: f64| {
+        if y > 0.0 {
+            return COVER;
+        }
+        let mut top = 0.0;
+        for (n, t) in FILMS {
+            top -= t;
+            if y > top {
+                return n;
+            }
+        }
+        SUBSTRATE
     };
     let (bottom, top) = (-5.0, 1.0);
+    let rows = [
+        (4, 1.46186, 0.00716, 5e-5),
+        (5, 1.38250, 0.01817, 5e-5),
+        (6, 1.28136, 0.03588, 5e-5),
+        (7, 1.14231, 0.05288, 5e-5),
+        (8, 1.00304, 0.07077, 2e-4),
+    ];
+    let wavelength = Wavelength::nm(632.8)?;
+    let mut setup = common::Setup::new();
+    setup.layer("cover", None, "medium", &common::n(COVER));
+    for (k, (n, t)) in FILMS.iter().enumerate() {
+        setup.layer(
+            &format!("film {}", k + 1),
+            Some(*t),
+            "medium",
+            &common::n(*n),
+        );
+    }
+    setup.layer("substrate", None, "medium", &common::n(SUBSTRATE));
+    setup.wavelength(wavelength);
+    setup.item(
+        "window",
+        &format!(
+            "flat: y from {} to {} µm (0 at the cover's interface), 4 cells wide between \
+             electric walls; a PML of {} at the bottom, strength {}",
+            common::number(bottom),
+            common::number(top),
+            common::length(PML.0),
+            common::number(PML.1)
+        ),
+    );
+    setup.item("grid", &format!("uniform, {}", common::length(h)));
+    setup.item(
+        "solver",
+        "the full-vector mode solver, TE, with a PML for the leakage",
+    );
+    setup.item(
+        "tolerance",
+        &format!(
+            "{:e} in Re and Im (TE8, at the cover's cutoff: {:e})",
+            rows[0].3, rows[4].3
+        ),
+    );
+    setup.medium(
+        "medium",
+        "constant indices, Chilwell & Hodgkinson's (1984), lossless",
+    );
+    setup.print();
     let guide = CrossSection::uniform(
         (0.0, 4.0 * h, 4),
         (bottom, top, ((top - bottom) / h).round() as usize),
@@ -48,20 +110,13 @@ pub fn main() -> photonoxide::Result<ExitCode> {
         ..Boundaries::default()
     })?
     .with_pml(Pml {
-        south: 2.0,
-        strength: 5.0,
+        south: PML.0,
+        strength: PML.1,
         ..Pml::default()
     })?;
-    let wavelength = Wavelength::nm(632.8)?;
     println!("Chilwell & Hodgkinson's guide, flat, 2.5 nm grid, PML below the substrate");
     let mut checks = common::Checks::default();
-    for (order, re, im, tolerance) in [
-        (4, 1.46186, 0.00716, 5e-5),
-        (5, 1.38250, 0.01817, 5e-5),
-        (6, 1.28136, 0.03588, 5e-5),
-        (7, 1.14231, 0.05288, 5e-5),
-        (8, 1.00304, 0.07077, 2e-4),
-    ] {
+    for (order, re, im, tolerance) in rows {
         let printed = c64::new(re, im);
         // of the three modes nearest the printed real part, the one nearest the printed index
         let found = vector::modes(&guide, wavelength, 3, Some(re))?

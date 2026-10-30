@@ -1,3 +1,31 @@
+Setup
+  (layers from the top down: the bottom one, the substrate, is the first laid down)
+  the rib at D = 0.1 µm (each D alike):
+    layers:
+      cladding       half-space   air, n 1.000000
+      film           1 µm         film, n 3.440000 in its shapes; air, n 1.000000 elsewhere
+      substrate      half-space   substrate, n 3.400000
+    shapes:
+      on film: rectangle centred at (5, 0) µm, 10 µm along x by 3 µm along y
+    rib waveguide: width 3 µm, thickness 1 µm, etch_depth 0.9 µm, sidewall 90 °, length 10 µm, loss 2.7 dB/cm, wavelength 1.15 µm, span 0.1 µm
+  every D:
+    slab: D = 0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7 µm, the etch 1 µm − D deep; at D = 0 the strip device
+    wavelength: 1.15 µm
+    window: 10 µm across by 9 µm up, its half behind a vertical mirror plane
+    grid: the half's 100 × 180 cells: 50 nm by 50 nm
+    solver: the full-vector mode solver by Hadley's equations, TE; the device's 2D model (the effective index method) beside it
+    tolerance: 2e-6 on Table I's 6 decimals
+  materials:
+    air: a constant index, n 1; valid 1 to 1.3 µm
+      source: G. R. Hadley, J. Lightwave Technol. 20, 1219 (2002), Fig. 13, doi:10.1109/JLT.2002.800371
+      n 1.000000 at 1.15 µm
+    film: a constant index, n 3.44; valid 1 to 1.3 µm
+      source: G. R. Hadley, J. Lightwave Technol. 20, 1219 (2002), Fig. 13, doi:10.1109/JLT.2002.800371
+      n 3.440000 at 1.15 µm
+    substrate: a constant index, n 3.4; valid 1 to 1.3 µm
+      source: G. R. Hadley, J. Lightwave Technol. 20, 1219 (2002), Fig. 13, doi:10.1109/JLT.2002.800371
+      n 3.400000 at 1.15 µm
+
 Hadley's standard rib (3 um wide, a 1 um film of 3.44 on 3.40 under air, 1.15 um, TE) through the rib device, by Hadley's equations on a 50 nm grid (the half, 100 x 180 cells); the device's 2D model beside it
   D (um)   Table I     the device   difference   2D (EIM)    its error
   0.0      3.412022    3.412022     +2.3e-7      (a strip)

@@ -1,3 +1,15 @@
+Setup
+  instance c1: a coupler: coupling 0.5
+  instance c2: a coupler: coupling 0.5
+  instance top: a waveguide: length 10 µm, loss 0 dB/cm
+  instance bottom: a waveguide: length 10 µm, loss 0 dB/cm
+  ports: in, through, add, drop
+  the ring's guide: n_eff 2.4 and n_g 4.2 at 1.55 µm, 20 dB/cm; radius 10 µm
+  wavelength: the ring's resonance, 1.552627 µm
+  grid: none: the circuit solve and Eq. 8, exact
+  solver: the couplings κ₁², κ₂² from 0.005 to 0.3; costs −D and the width (nm); NSGA-II and SMS-EMOA, population 60, 40000 evaluations, seed 1; each point polished by GCMMA at its width on the circuit adjoint
+  tolerance: the fronts' hypervolume up to (0, 3 nm) within 0.01 of the closed form's, relative; each polished point's drop within 1e-3
+
 An add-drop ring, R = 10 µm, 20 dB/cm (a = 0.985637), n_eff 2.4, n_g 4.2, at its resonance 1.552627 µm (Bogaerts et al. 2011, Eqs. 5–8); couplings κ² from 0.005 to 0.3
   the drop by the circuit solve and the width by Eq. 8, exact: no grid; costs −D and FWHM (nm)
   drop at resonance, κ² = 0.05, 0.12     0.605803   Eq. 6 0.605803   ± 1e-12     ok

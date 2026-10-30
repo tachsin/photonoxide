@@ -222,6 +222,13 @@ const PAPERS: &[(&str, &str, &str, &str, &str)] = &[
         "",
     ),
     (
+        "edwards-lawrence-1984",
+        "G. J. Edwards, M. Lawrence, Opt. Quantum Electron. 16, 373 (1984)",
+        "A temperature-dependent dispersion equation for congruently grown lithium niobate",
+        "10.1007/BF00620081",
+        "",
+    ),
+    (
         "jundt-1997",
         "D. H. Jundt, Opt. Lett. 22, 1553 (1997)",
         "Temperature-dependent Sellmeier equation for the index of refraction, n_e, in congruent lithium niobate",

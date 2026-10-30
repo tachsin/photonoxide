@@ -1,3 +1,13 @@
+Setup
+  wavelengths: 0.546074, 0.852111, 1.01398, 1.52952, 2.0581, 3.2439 µm
+  grid: none: the material's model, evaluated
+  tolerance: 1e-6 absolute (Malitson prints 6 decimals)
+  materials:
+    SiO2: Sellmeier, n² = A + Σ Bλ²/(λ² − C²), A = 1, B = 0.6961663, 0.4079426, 0.8974794, C = 0.0684043, 0.1162414, 9.896161 µm; valid 0.21 to 3.71 µm
+      source: I. H. Malitson, J. Opt. Soc. Am. 55, 1205 (1965), doi:10.1364/JOSA.55.001205, at 293.15 K
+      fused silica, Eq. (1), checked against the paper; fit residual 10.5e-6 on average; thermal and deposited oxides differ slightly
+      n 1.444268 at 1.52952 µm
+
 SiO2 (Malitson 1965, Table I), no grid
   n at 0.546074 µm                       1.460078   paper 1.460078   ± 1e-6      ok
   n at 0.852111 µm                       1.452466   paper 1.452465   ± 1e-6      ok

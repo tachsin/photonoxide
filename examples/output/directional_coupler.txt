@@ -1,3 +1,27 @@
+Setup
+  (layers from the top down: the bottom one, the substrate, is the first laid down)
+  layers:
+    cladding       half-space   oxide (1.444), n 1.444000
+    Si             220 nm       Si (Chrostowski & Hochberg's Lorentz fit), n 3.473425 in its shapes; oxide (1.444), n 1.444000 elsewhere
+    BOX            2 µm         oxide (1.444), n 1.444000
+    substrate      half-space   oxide (1.444), n 1.444000
+  shapes:
+    on Si: rectangle centred at (9.288058, -0.35) µm, 18.57612 µm along x by 500 nm along y
+    on Si: rectangle centred at (9.288058, 0.35) µm, 18.57612 µm along x by 500 nm along y
+  directional coupler: width 0.5 µm, thickness 0.22 µm, slab 0 µm, sidewall 90 °, gap 0.2 µm, length 18.57612 µm, loss 0 dB/cm, wavelength 1.55 µm, span 0.04 µm
+  wavelengths: 1.55 µm; the supermodes tracked over 1.53 to 1.57 µm
+  window: 5.5 µm across by 1.22 µm up, centred on the pair; its quarter
+  grid: uniform, 10 nm (the 3D model) and 5 nm (L_x checked)
+  solver: the full-vector mode solver, the standard scheme: the even and odd supermodes, L_x = λ/(2(n_even − n_odd))
+  tolerance: 1 µm on the book's L_x = 37.5 µm
+  materials:
+    oxide (1.444): a constant index, n 1.444; valid 1.15 to 1.8 µm
+      source: L. Chrostowski, M. Hochberg, Silicon Photonics Design (2015), Eq. 3.2, doi:10.1017/CBO9781316084168, at 300 K
+      n 1.444000 at 1.55 µm
+    Si (Chrostowski & Hochberg's Lorentz fit): Lorentz, ε = ε∞ + Σ Δε ω₀²/(ω₀² − ω² − iγω), ε∞ = 7.987375, (Δε, f₀ c/µm, γ/2π c/µm) = (3.687991, 2.087873, 0); valid 1.15 to 1.8 µm
+      source: L. Chrostowski, M. Hochberg, Silicon Photonics Design (2015), Eq. 3.2, doi:10.1017/CBO9781316084168, at 300 K
+      n 3.473425 at 1.55 µm
+
 two 500 x 220 nm strips of the book's Si in 1.444 oxide, 200 nm apart, quarter domain
   10 nm grid: L_x 36.740 um; at L_x/2 0.500000 of the power crosses, 0.500000 goes through
   10 nm grid: L_x at 1.53 um 40.059 um

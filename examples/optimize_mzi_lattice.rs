@@ -41,6 +41,12 @@ use photonoxide::circuit::{Circuit, Netlist, SMatrix};
 use photonoxide::units::Wavelength;
 
 const LAMBDA: f64 = 1.55;
+/// The seeded random starts of each fit.
+const STARTS: u64 = 16;
+/// The tolerances: θ (units of π, Table I's 4 printed digits), φ (π), the power couplings.
+const THETA_TOLERANCE: f64 = 5e-5;
+const PHI_TOLERANCE: f64 = 1e-6;
+const KAPPA_TOLERANCE: f64 = 5e-4;
 
 /// Couplers c1, c2, c3; between c1 and c2 the upper arm u1 (2ΔL and φ₁) and the lower l1,
 /// between c2 and c3 u2 (ΔL and φ₂) and l2; ports in1, in2, out1 (bar), out2 (cross).
@@ -317,6 +323,37 @@ pub fn main() -> photonoxide::Result<ExitCode> {
     let lattice = Lattice::new()?;
     let power: Misfit<'_> = &|x: &[f64], g: &mut [f64]| lattice.misfit(x, g);
     let field: Misfit<'_> = &|x: &[f64], g: &mut [f64]| lattice.misfit_field(x, g);
+    let mut setup = common::Setup::new();
+    setup.part("the circuit, at its parameters' defaults");
+    setup.circuit(&lattice.circuit, lattice.circuit.values());
+    setup.part("the fits");
+    setup.item(
+        "delays",
+        "u1 2ΔL and u2 ΔL longer than l1 and l2: their phases 2ω + φ₁ and ω + φ₂",
+    );
+    setup.item(
+        "phases",
+        &format!(
+            "{} values of ω across ΔL, 0 to 2π; the wavelength {LAMBDA} µm",
+            phases().len()
+        ),
+    );
+    setup.item("grid", "none: the circuit's S-matrix, exact");
+    setup.item(
+        "solver",
+        &format!(
+            "x = (κ₁², κ₂², κ₃², φ₁, φ₂) by L-BFGS-B on the circuit adjoint from {STARTS} seeded \
+             random starts, by power and by field; CMA-ES as a global check"
+        ),
+    );
+    setup.item(
+        "tolerance",
+        &format!(
+            "{THETA_TOLERANCE:e} π in θ, {PHI_TOLERANCE:e} π in φ, {KAPPA_TOLERANCE:e} in the \
+             power couplings"
+        ),
+    );
+    setup.print();
     let mut checks = common::Checks::default();
     println!(
         "A maximally flat half-band lattice: couplers θ₁, θ₂, θ₃, delays 2ΔL + φ₁ and ΔL + φ₂ (Jinguji & Oguma 2000, Table I), the circuit solve, exact: no grid"
@@ -367,7 +404,7 @@ pub fn main() -> photonoxide::Result<ExitCode> {
     // the power alone: its double zero at ω = π makes the misfit quartic near the design, so
     // that the design is found only to about the fourth root of the misfit
     let starts = |misfit: Misfit<'_>| -> Vec<(Vec<f64>, f64, u64)> {
-        (1..=16)
+        (1..=STARTS)
             .map(|seed| {
                 polish(
                     misfit,
@@ -423,16 +460,16 @@ pub fn main() -> photonoxide::Result<ExitCode> {
     let printed = [0.0833, 0.3333, 0.25];
     if let Some(d) = designs.first() {
         for (k, p) in printed.iter().enumerate() {
-            checks.compare(&format!("θ{} (π)", k + 1), d[k], *p, 5e-5);
+            checks.compare(&format!("θ{} (π)", k + 1), d[k], *p, THETA_TOLERANCE);
         }
-        checks.compare("|φ₁| (π)", d[3].abs(), 1.0, 1e-6);
-        checks.compare("φ₂ (π)", d[4], 0.0, 1e-6);
+        checks.compare("|φ₁| (π)", d[3].abs(), 1.0, PHI_TOLERANCE);
+        checks.compare("φ₂ (π)", d[4], 0.0, PHI_TOLERANCE);
         for (k, kappa) in [0.067, 0.75, 0.5].iter().enumerate() {
             checks.compare(
                 &format!("power coupling {}", k + 1),
                 (d[k] * PI).sin().powi(2),
                 *kappa,
-                5e-4,
+                KAPPA_TOLERANCE,
             );
         }
     }

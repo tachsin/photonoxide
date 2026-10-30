@@ -89,30 +89,74 @@ fn stack() -> photonoxide::Result<LayerStack> {
     )
 }
 
+/// The window the cross-section is cut to, centred on the strip, µm (across, up).
+const WINDOW: (f64, f64) = (2.1, 1.5);
+
+/// The book's index, its effective index of the TE-like mode, and our tolerance on it.
+const BOOK: f64 = 2.443;
+const TOLERANCE: f64 = 3e-3;
+
 /// The waveguide device on the book's stack, solved on the quarter of a 2.1 × 1.5 µm window
 /// centred on the strip, on a uniform grid of spacing `h` (µm): the quarter's 1.05 × 0.75 µm and
 /// the core's edges (0.25 and 0.11 µm from the mirror planes) fall on nodes for 10 nm and its
 /// halvings.
 fn strip(h: f64) -> photonoxide::Result<StripWaveguide> {
-    let columns = (1.05 / h).round() as usize;
-    let rows = (0.75 / h).round() as usize;
+    let columns = (WINDOW.0 / 2.0 / h).round() as usize;
+    let rows = (WINDOW.1 / 2.0 / h).round() as usize;
     Ok(StripWaveguide::on(stack()?, "Si")?.with_mesh(
-        Mesh::window(2.1, 1.5, columns, rows, Scheme::Hadley).with_symmetry(Symmetry::Mirrored),
+        Mesh::window(WINDOW.0, WINDOW.1, columns, rows, Scheme::Hadley)
+            .with_symmetry(Symmetry::Mirrored),
     ))
 }
 
 pub fn main() -> ExitCode {
     let wavelength = Wavelength::um(1.55).expect("a valid wavelength");
     let full = std::env::args().any(|a| a == "--full");
-    println!("500 x 220 nm strip of 3.473 in 1.444 at 1550 nm (Chrostowski & Hochberg, Fig. 3.14)");
-    println!("  the quarter of a 2.1 x 1.5 um window, zero walls; TE-like n_eff by scheme");
-    println!("  grid     nodes       standard scheme   Hadley's equations   TE fraction");
-    let mut checks = common::Checks::default();
     let grids: &[f64] = if full {
         &[10.0, 5.0, 2.5]
     } else {
         &[10.0, 5.0]
     };
+    let mut setup = common::Setup::new();
+    let device = strip(grids[0] / 1000.0).expect("the book's stack");
+    setup.device(&device, &Values::defaults(&device), wavelength);
+    setup.wavelength(wavelength);
+    setup.item(
+        "window",
+        &format!(
+            "{} across by {} up, centred on the strip; its quarter behind the strip's two \
+             mirror planes, zero walls outside",
+            common::length(WINDOW.0),
+            common::length(WINDOW.1)
+        ),
+    );
+    setup.item(
+        "grid",
+        &format!(
+            "uniform, {} nm, nested, the core's edges on nodes",
+            grids
+                .iter()
+                .map(|h| common::number(*h))
+                .collect::<Vec<_>>()
+                .join(" and ")
+        ),
+    );
+    setup.item(
+        "solver",
+        "the full-vector finite-difference mode solver, Hadley's equations (quoted) and the \
+         standard scheme",
+    );
+    setup.item(
+        "tolerance",
+        &format!(
+            "{TOLERANCE:e} on the book's {BOOK}; Hadley's grid error at most {GRID_TOLERANCE:e}"
+        ),
+    );
+    setup.print();
+    println!("500 x 220 nm strip of 3.473 in 1.444 at 1550 nm (Chrostowski & Hochberg, Fig. 3.14)");
+    println!("  the quarter of a 2.1 x 1.5 um window, zero walls; TE-like n_eff by scheme");
+    println!("  grid     nodes       standard scheme   Hadley's equations   TE fraction");
+    let mut checks = common::Checks::default();
     // every grid and scheme solved side by side, then printed in order
     let problems: Vec<(f64, bool)> = grids
         .iter()
@@ -159,8 +203,8 @@ pub fn main() -> ExitCode {
     checks.compare(
         &format!("TE-like n_eff, Hadley's, {h_nm} nm"),
         n_eff,
-        2.443,
-        3e-3,
+        BOOK,
+        TOLERANCE,
     );
     checks.converged(
         "TE-like n_eff, Hadley's, its grids",

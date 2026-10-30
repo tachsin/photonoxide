@@ -1,3 +1,15 @@
+Setup
+  shapes:
+    on the cladding: the core, a rectangle a = 2b wide, b high, centred; b = 1.0932, 1.6398, 2.1864, 3.2796, 4.3729 µm at B = 1, 1.5, 2, 3, 4
+  media: the core, n 1.500000, in the cladding all around it, n 1.428571
+  wavelength: 1 µm
+  window: the quarter x, y ≥ 0 to 4 µm beyond the core, mirror walls through its centre (by family)
+  grid: graded, b/40 in the core and to 200 nm beyond it, at most 50 nm farther
+  solver: the full-vector mode solver; Marcatili's exact and closed-form solutions
+  tolerance: the closed form within 0.05 of the exact, relative, where B ≥ 0.5
+  materials:
+    core, cladding: constant indices, Marcatili's n1 = 1.5 and n1/n4 = 1.05
+
 Marcatili's guide a = 2b, n1 = 1.5, n1/n4 = 1.05, at 1 um; normalized constants
     B   mode   full-vector  Marcatili  closed form
     1   Ex_11    0.5071      0.4983     0.4761

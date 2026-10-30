@@ -79,6 +79,9 @@ const GRID: usize = 501;
 const FINE: usize = 20_000;
 /// Nelder–Mead's evaluations for each target.
 const EVALUATIONS: u64 = 20_000;
+/// The tolerances: each design at its edges (relative), the 2 × 2 model against the circuit's.
+const EDGE_TOLERANCE: f64 = 1e-8;
+const CIRCUIT_TOLERANCE: f64 = 1e-12;
 /// Fig. 4's couplings k1–k9 (p. 5).
 const FIG4_K: [f64; 9] = [
     0.29, 0.097747, 1.0, 0.097747, 0.7617, 0.7715, 0.9142, 0.7715, 0.7617,
@@ -459,13 +462,60 @@ fn optimize(target: &Filter, start: &[f64]) -> (Vec<f64>, f64) {
 }
 
 pub fn main() -> photonoxide::Result<ExitCode> {
+    // (passband ripple A_p, stopband attenuation A_s), dB
+    let specifications = [(2.0, 40.0), (1.0, 60.0)];
+    let mut setup = common::Setup::new();
+    setup.item(
+        "circuit",
+        "Fig. 4's: couplers k1 to k9 and two pairs of rings between MZI arms of phases φ1 to φ8, \
+         lossless, solved as 2 × 2 transfer matrices and by photonoxide's circuit solve",
+    );
+    setup.item("k1 to k9", &FIG4_K.map(common::number).join(", "));
+    setup.item(
+        "φ1 to φ8",
+        &FIG4_PHI
+            .map(|p| format!("{}π", common::number(p / PI)))
+            .join(", "),
+    );
+    setup.item(
+        "designs",
+        &format!(
+            "elliptic low-passes of order 4, passband edge 0.5π, {}",
+            specifications
+                .map(|(rp, rs)| format!("{rp} dB ripple and {rs} dB attenuation"))
+                .join("; ")
+        ),
+    );
+    setup.item(
+        "frequencies",
+        &format!(
+            "ω the rings' round-trip phase: {GRID} over 0 to π for the optimizer's target, \
+             {FINE} for a response's ripple and attenuation"
+        ),
+    );
+    setup.item("grid", "none: closed forms and the circuit solve, exact");
+    setup.item(
+        "solver",
+        &format!(
+            "Nelder–Mead on the paper's Eq. 12 (weights 1 and 100) from Fig. 4's values, \
+             {EVALUATIONS} evaluations a target"
+        ),
+    );
+    setup.item(
+        "tolerance",
+        &format!(
+            "each design at its edges to {EDGE_TOLERANCE:e} of A_p and A_s; the 2 × 2 model \
+             against the circuit to {CIRCUIT_TOLERANCE:e}"
+        ),
+    );
+    setup.print();
     println!(
         "Wang et al. 2022's double-ring-loaded MZI filter: the fourth-order elliptic low-passes, derived here, against its circuit, exact"
     );
     let mut checks = common::Checks::default();
 
     // the elliptic designs: their edges exactly at −A_p and −A_s
-    let designs = [(2.0, 40.0), (1.0, 60.0)].map(|(rp, rs)| {
+    let designs = specifications.map(|(rp, rs)| {
         let f = Filter::elliptic(4, rp, rs, PI / 2.0);
         println!(
             "\nElliptic, order 4, {rp} dB ripple, {rs} dB attenuation, passband edge 0.5π: stopband edge {:.6}π",
@@ -483,14 +533,14 @@ pub fn main() -> photonoxide::Result<ExitCode> {
             db(f.power(f.wp)),
             "−A_p",
             -rp,
-            1e-8 * rp,
+            EDGE_TOLERANCE * rp,
         );
         checks.against(
             &format!("response at ω_s, dB ({rs} dB)"),
             db(f.power(f.ws)),
             "−A_s",
             -rs,
-            1e-8 * rs,
+            EDGE_TOLERANCE * rs,
         );
         f
     });
@@ -553,7 +603,7 @@ pub fn main() -> photonoxide::Result<ExitCode> {
     println!(
         "\nThe circuit (Fig. 4's values) against photonoxide's circuit solve of it as a netlist, 2 × 2 at 3 frequencies: up to {worst:.0e}"
     );
-    checks.against("largest |ΔT|", worst, "round-off", 0.0, 1e-12);
+    checks.against("largest |ΔT|", worst, "round-off", 0.0, CIRCUIT_TOLERANCE);
     let (ripple, stop) = spec(&|w| low_pass(&fig4, w), forty.wp, forty.ws);
     println!(
         "  Fig. 4's circuit: {ripple:.2} dB of ripple, {stop:.2} dB of attenuation from the 40 dB design's stopband edge (paper, Fig. 5: \"around 34 dB extinction ratio\"). Printed, not checked"

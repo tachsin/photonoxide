@@ -1,3 +1,10 @@
+Setup
+  meshes: Clements meshes of N = 8 and 16 modes: N(N − 1)/2 MZIs, each two 50:50 couplers with phases θ and φ, and N output phases; lossless
+  targets: 8 Haar-random unitaries for each N; the initialization's statistics over 10000 meshes
+  grid: none: the meshes' matrix model, checked against the circuit solve, exact
+  solver: (1/2N)‖Û − U‖² by L-BFGS-B, and by Adam at a learning rate of 0.0025 for 20000 iterations, from Pai's Haar initialization
+  tolerance: the mean sensitivity index exactly; E|U_qp|⁴ within 3 standard errors over the mesh and 4 at each entry; every fit to 1e-20
+
 Clements meshes (Clements et al. 2016) fitted to Haar-random unitaries from Pai et al. 2019's Haar initialization: the matrix model, exact: no grid
 
 N = 8: 28 MZIs, 64 phases

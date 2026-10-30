@@ -97,28 +97,53 @@ pub fn main() -> photonoxide::Result<ExitCode> {
             kinds: vec![Kind::Te0, Kind::Tm0],
         },
     ];
+    let resolutions = pdk::resolutions(&[15.0, 20.0], 5.0);
+    let settings = |res: f64| Setup {
+        device: &device,
+        h: pdk::step(res),
+        wavelength: 1.55,
+        input: Kind::Tm0,
+        outputs: &outputs,
+        wavelengths: if res < 10.0 {
+            &[1.55]
+        } else {
+            &pdk::WAVELENGTHS
+        },
+        limit: 3000.0,
+        decay: true,
+    };
+    // both codes at 20 and 25 cells a wavelength, both pulses: TE0 and the crosstalk; their
+    // values at 6 cells; the margins
+    let settled = [0.942, 0.9425, 0.946, 0.955, 0.948, 0.9475, 0.950];
+    let settled_crosstalk = [-36.8, -41.1, -35.4, -42.6];
+    let at_six = [0.147, 0.051];
+    let (margin, crosstalk_margin) = (0.003, 0.5);
+    let mut setup = pdk::described(&settings(resolutions[0]), &resolutions);
+    setup.item(
+        "tolerance",
+        &[
+            pdk::tolerance("the upper port's TE0 at 1550 nm", &settled, margin),
+            pdk::tolerance(
+                "its TM0 crosstalk (dB)",
+                &settled_crosstalk,
+                crosstalk_margin,
+            ),
+            format!(
+                "at 5 cells, plus how far the codes stray at 6 ({})",
+                at_six.map(common::number).join(", ")
+            ),
+        ]
+        .join("; "),
+    );
+    setup.print();
     println!(
         "Liu and Poon's polarization splitter-rotator (gdsfactory's generic PDK), 3D FDTD, TM0 \
          into the input; silicon nitride (n = 2.0) above, materials at 1.55 um"
     );
     let mut checks = common::Checks::default();
-    for res in pdk::resolutions(&[15.0, 20.0], 5.0) {
+    for res in resolutions {
         let coarse = res < 10.0;
-        let wavelengths: &[f64] = if coarse { &[1.55] } else { &pdk::WAVELENGTHS };
-        let m = pdk::run(
-            &Setup {
-                device: &device,
-                h: pdk::step(res),
-                wavelength: 1.55,
-                input: Kind::Tm0,
-                outputs: &outputs,
-                wavelengths,
-                limit: 3000.0,
-                decay: true,
-            },
-            &mut |_| Ok(()),
-        )?
-        .measured;
+        let m = pdk::run(&settings(res), &mut |_| Ok(()))?.measured;
         pdk::report_cost("splitter_rotator_liu_poon", &m);
         println!("{res} cells a wavelength: {}", pdk::describe(&m.grid));
         println!(
@@ -136,16 +161,14 @@ pub fn main() -> photonoxide::Result<ExitCode> {
             );
         }
         let (te0, crosstalk) = (m.at_1550(0, 0), pdk::db(m.at_1550(0, 1)));
-        // both codes at 20 and 25 cells a wavelength, both pulses
-        let settled = [0.942, 0.9425, 0.946, 0.955, 0.948, 0.9475, 0.950];
         if coarse {
             pdk::coarse(
                 &mut checks,
                 &format!("upper TE0, 1550 nm, {res} cells"),
                 te0,
                 &settled,
-                &[0.147, 0.051],
-                0.003,
+                &at_six,
+                margin,
             );
         } else {
             let tag = format!("{res} cells");
@@ -154,14 +177,14 @@ pub fn main() -> photonoxide::Result<ExitCode> {
                 &format!("upper TE0, 1550 nm, {tag}"),
                 te0,
                 &settled,
-                0.003,
+                margin,
             );
             pdk::within(
                 &mut checks,
                 &format!("crosstalk (dB), 1550 nm, {tag}"),
                 crosstalk,
-                &[-36.8, -41.1, -35.4, -42.6],
-                0.5,
+                &settled_crosstalk,
+                crosstalk_margin,
             );
         }
     }

@@ -53,17 +53,29 @@ const ETA0: f64 = 376.730_313_668;
 /// The speed of light, m/s.
 const C: f64 = 299_792_458.0;
 
-/// The soil's relative permittivity and conductivity (1/µm).
+/// The soil's relative permittivity, and its conductivity in S/m and in 1/µm.
 const EPS: f64 = 7.73;
-const SIGMA: f64 = 0.273 * ETA0 * 1e-6;
+const CONDUCTIVITY: f64 = 0.273;
+const SIGMA: f64 = CONDUCTIVITY * ETA0 * 1e-6;
+/// The plate's cells along x and y; the CPML's cells, and the cells between it and the plate.
+const PLATE: [usize; 2] = [100, 25];
+const PML: usize = 10;
+const GAP: usize = 3;
+/// The steps, the Courant number, and the pulse's width as a share of 1/(π · 6 GHz).
+const STEPS: usize = 2000;
+const COURANT: f64 = 0.99;
+const WIDTH: f64 = 0.72;
+/// The reference's padding, cells, and the tolerance on each error and the gain, dB.
+const PAD: usize = 40;
+const TOLERANCE: f64 = 5.0;
 
 /// E_z one cell above the plate's corner opposite the source, every step for 2000 steps, on a
 /// lattice padded by `pad` cells beyond Roden and Gedney's on every side, terminated by a CPML of
 /// 10 cells with `cpml`.
 fn run(pad: usize, cpml: Cpml) -> Vec<f64> {
-    let (pml, gap) = (10, 3);
+    let (pml, gap) = (PML, GAP);
     let edge = pml + gap + pad;
-    let n = [100 + 2 * edge, 25 + 2 * edge, 2 * edge];
+    let n = [PLATE[0] + 2 * edge, PLATE[1] + 2 * edge, 2 * edge];
     let grid = Grid3d {
         nx: n[0],
         ny: n[1],
@@ -85,15 +97,15 @@ fn run(pad: usize, cpml: Cpml) -> Vec<f64> {
         z: walls,
         cpml,
     };
-    let mut s = Simulation::new(grid, |_, _, _| EPS, boundaries, 0.99)
+    let mut s = Simulation::new(grid, |_, _, _| EPS, boundaries, COURANT)
         .expect("the lattice")
         .with_conductivity(|_, _, _| SIGMA)
         .expect("the soil");
     // the plate on the middle node along z, its 100 x 25 cells
     let plate = n[2] / 2;
-    s.plate(Axis::Z, plate, edge..edge + 100, edge..edge + 25);
+    s.plate(Axis::Z, plate, edge..edge + PLATE[0], edge..edge + PLATE[1]);
     // the differentiated Gaussian: τ = 1/(π · 6 GHz), in µm/c
-    let tau = 0.72 / (std::f64::consts::PI * 6e9) * C * 1e6;
+    let tau = WIDTH / (std::f64::consts::PI * 6e9) * C * 1e6;
     s.add_source(Source {
         field: Field::E,
         component: Axis::Z,
@@ -105,9 +117,9 @@ fn run(pad: usize, cpml: Cpml) -> Vec<f64> {
     })
     .expect("the source");
     let probe = s
-        .add_probe(Field::E, Axis::Z, (edge + 100, edge + 25, plate))
+        .add_probe(Field::E, Axis::Z, (edge + PLATE[0], edge + PLATE[1], plate))
         .expect("the probe");
-    s.run(2000);
+    s.run(STEPS);
     s.probe(probe).to_vec()
 }
 
@@ -138,19 +150,76 @@ pub fn main() -> ExitCode {
         alpha: 0.05 * ETA0 * 1e-6,
         ..Cpml::default()
     };
+    let mut setup = common::Setup::new();
+    setup.item(
+        "medium",
+        &format!(
+            "soil filling the lattice, {}, σ {CONDUCTIVITY} S/m",
+            common::eps(EPS)
+        ),
+    );
+    setup.shape(
+        "the middle plane along z",
+        &format!(
+            "a perfectly conducting plate of {} × {} cells, {} × {} mm",
+            PLATE[0],
+            PLATE[1],
+            common::number(PLATE[0] as f64 * MM / 1000.0),
+            common::number(PLATE[1] as f64 * MM / 1000.0)
+        ),
+    );
+    setup.item(
+        "source",
+        &format!(
+            "E_z at the plate's corner, a differentiated Gaussian of width {WIDTH}/(π · 6 GHz), \
+             delayed 4 widths; E_z probed one cell above the opposite corner"
+        ),
+    );
+    setup.item(
+        "window",
+        &format!(
+            "the plate and {GAP} cells beyond it, inside a CPML of {PML} cells; the reference \
+             {PAD} cells larger on every side"
+        ),
+    );
+    setup.item(
+        "grid",
+        &format!(
+            "cubic cells of {} mm, Courant number {COURANT}, {STEPS} steps",
+            common::number(MM / 1000.0)
+        ),
+    );
+    setup.item(
+        "solver",
+        &format!(
+            "3D FDTD; the CPML of order {m}: σ {} σ_opt, κ {}, α {} S/m (traditional) and σ {} \
+             σ_opt, κ {}, α {} S/m (complex-frequency-shifted)",
+            common::number(traditional.sigma.unwrap_or(f64::NAN) / optimal),
+            traditional.kappa,
+            traditional.alpha / (ETA0 * 1e-6),
+            common::number(shifted.sigma.unwrap_or(f64::NAN) / optimal),
+            shifted.kappa,
+            common::number(shifted.alpha / (ETA0 * 1e-6))
+        ),
+    );
+    setup.item(
+        "tolerance",
+        &format!("{TOLERANCE} dB on each largest error and on the gain (read off contour plots)"),
+    );
+    setup.print();
     println!("Roden and Gedney's plate in soil: 1 mm cells, CPML of 10 cells 3 cells from it");
     println!("126 x 51 x 26 cells; reference 206 x 131 x 106 (40 more on every side), 2000 steps");
     println!(
         "sigma_opt = {:.4} S/m (their Eq. 15)",
         optimal / (ETA0 * 1e-6)
     );
-    let pad = 40;
+    let pad = PAD;
     let reference = run(pad, shifted);
     let a = error_db(&run(0, traditional), &reference);
     let b = error_db(&run(0, shifted), &reference);
     let mut checks = common::Checks::default();
-    checks.compare("alpha = 0: largest error, dB", a, -48.0, 5.0);
-    checks.compare("alpha = 0.05 S/m: largest error, dB", b, -67.0, 5.0);
-    checks.compare("the CFS-PML's gain, dB", a - b, 19.0, 5.0);
+    checks.compare("alpha = 0: largest error, dB", a, -48.0, TOLERANCE);
+    checks.compare("alpha = 0.05 S/m: largest error, dB", b, -67.0, TOLERANCE);
+    checks.compare("the CFS-PML's gain, dB", a - b, 19.0, TOLERANCE);
     checks.finish()
 }

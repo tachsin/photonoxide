@@ -57,6 +57,12 @@ const TARGETS: u64 = 8;
 const SAMPLES: u64 = 10_000;
 /// Adam's iterations, as Pai's Figure 6.
 const ADAM: u64 = 20_000;
+/// Adam's learning rate, Pai's.
+const RATE: f64 = 0.0025;
+/// The meshes' sizes.
+const SIZES: [usize; 2] = [8, 16];
+/// The tolerance on a fit's (1/2N)‖Û − U‖².
+const FIT_TOLERANCE: f64 = 1e-20;
 
 /// e^(ix), by genoxide's portable sine and cosine.
 fn cis(x: f64) -> c64 {
@@ -472,7 +478,7 @@ fn fit(mesh: &Mesh, target: &[c64], start: Vec<f64>, adam: bool) -> (u64, f64) {
     let fitness = |x: &Reals, gradient: &mut [f64]| mesh.cost(target, x, gradient);
     let outcome = if adam {
         let adam = FirstOrder::builder(real)
-            .step(first_order::Step::adam(0.0025))
+            .step(first_order::Step::adam(RATE))
             .initial_genome(Reals::from(start))
             .minimize()
             .build()
@@ -509,11 +515,46 @@ fn median(mut v: Vec<f64>) -> f64 {
 }
 
 pub fn main() -> photonoxide::Result<ExitCode> {
+    let mut setup = common::Setup::new();
+    setup.item(
+        "meshes",
+        &format!(
+            "Clements meshes of N = {} modes: N(N − 1)/2 MZIs, each two 50:50 couplers with \
+             phases θ and φ, and N output phases; lossless",
+            SIZES.map(|n| n.to_string()).join(" and ")
+        ),
+    );
+    setup.item(
+        "targets",
+        &format!(
+            "{TARGETS} Haar-random unitaries for each N; the initialization's statistics over \
+             {SAMPLES} meshes"
+        ),
+    );
+    setup.item(
+        "grid",
+        "none: the meshes' matrix model, checked against the circuit solve, exact",
+    );
+    setup.item(
+        "solver",
+        &format!(
+            "(1/2N)‖Û − U‖² by L-BFGS-B, and by Adam at a learning rate of {RATE} for {ADAM} \
+             iterations, from Pai's Haar initialization"
+        ),
+    );
+    setup.item(
+        "tolerance",
+        &format!(
+            "the mean sensitivity index exactly; E|U_qp|⁴ within 3 standard errors over the \
+             mesh and 4 at each entry; every fit to {FIT_TOLERANCE:e}"
+        ),
+    );
+    setup.print();
     println!(
         "Clements meshes (Clements et al. 2016) fitted to Haar-random unitaries from Pai et al. 2019's Haar initialization: the matrix model, exact: no grid"
     );
     let mut checks = common::Checks::default();
-    for n in [8usize, 16] {
+    for n in SIZES {
         let mesh = Mesh::new(n);
         let genes = mesh.genes();
         let alpha = mesh.sensitivity();
@@ -622,7 +663,7 @@ pub fn main() -> photonoxide::Result<ExitCode> {
             lbfgsb.iter().map(|r| r.1).fold(0.0, f64::max),
             "round-off",
             0.0,
-            1e-20,
+            FIT_TOLERANCE,
         );
         let from_uniform: Vec<String> = fits(false, false)
             .iter()

@@ -990,7 +990,62 @@ fn check_share(checks: &mut common::Checks, what: &str, share: f64, paper: f64) 
     );
 }
 
+/// The tolerance on the mesh's solve against photonoxide's circuit solve.
+const SOLVE_TOLERANCE: f64 = 1e-12;
+
 pub fn main() -> photonoxide::Result<ExitCode> {
+    let mut setup = common::Setup::new();
+    setup.item(
+        "mesh",
+        &format!(
+            "Fig. 3a's hexagonal mesh: {UNITS} tunable units, {GENES} phase shifters (two a \
+             unit), {PORTS} ports; each unit's loss drawn at {} ± {} dB, its passive phases drawn \
+             at random",
+            LOSS_DB.0, LOSS_DB.1
+        ),
+    );
+    setup.item(
+        "target",
+        &format!(
+            "the all-cross state, Fig. 3b's {} channels, each at the best of {SAMPLES} \
+             frequencies over the response's period",
+            CHANNELS.len()
+        ),
+    );
+    setup.item("grid", "none: exact solves of the mesh");
+    setup.item(
+        "solver",
+        &format!(
+            "{RUNS} meshes a method: the particle swarm of Fig. 3 ({PSO_PARTICLES} particles, \
+             inertia {} to {} over {PSO_SCHEDULE} operations, cognitive {PSO_COGNITIVE}, social \
+             {PSO_SOCIAL}, {} moves) and of Table 18 (inertia {}, cognitive {}, social {}, {} \
+             moves); the genetic algorithm (population {GA_POPULATION}, {GA_PARENTS} parents, \
+             {GA_MUTATED} mutated within {} rad, decay {GA_DECAY}, {GA_GENERATIONS} \
+             generations); gradient descent with momentum {GD_MOMENTUM} by central differences \
+             of {GD_STEP} rad on {GD_RUNS} meshes, learning rates {}, to {GD_TARGET} in at most \
+             {GD_ITERATIONS} iterations; Fig. 3's swarm with 0 to {} % thermal crosstalk on \
+             {CROSSTALK_RUNS} meshes",
+            PSO_INERTIA.0,
+            PSO_INERTIA.1,
+            PAPER_SWARM.moves,
+            TABLE_18_SWARM.inertia.0,
+            TABLE_18_SWARM.cognitive,
+            TABLE_18_SWARM.social,
+            TABLE_18_SWARM.moves,
+            common::number(GA_RANGE),
+            GD_RATES.map(common::number).join(" and "),
+            common::number(100.0 * CROSSTALK)
+        ),
+    );
+    setup.item(
+        "tolerance",
+        &format!(
+            "Fig. 3's swarm's share above −3 dB within two standard deviations of the \
+             difference of two counts of {RUNS}; Fig. 3b's channels exactly; the solve against \
+             photonoxide's circuit solve to {SOLVE_TOLERANCE:e}"
+        ),
+    );
+    setup.print();
     println!(
         "The 36-unit hexagonal mesh of Pérez-López et al. 2020 set to all-cross by a GA and a PSO, without calibration: exact solves, {SAMPLES} frequencies a period"
     );
@@ -1036,7 +1091,7 @@ pub fn main() -> photonoxide::Result<ExitCode> {
     println!(
         "  the solve against photonoxide's circuit solve of the mesh as a netlist, 24 × 24: |ΔS| up to {worst:.0e}"
     );
-    checks.against("largest |ΔS|", worst, "round-off", 0.0, 1e-12);
+    checks.against("largest |ΔS|", worst, "round-off", 0.0, SOLVE_TOLERANCE);
 
     // the loss floor: every unit exactly in cross
     let draws: Vec<Draw> = (0..RUNS).map(|r| Draw::new(r, None)).collect();

@@ -1,3 +1,11 @@
+Setup
+  medium: vacuum, ε 1, in 2D
+  source: a point source of E_z at the centre, a pulse at 1 c/µm (λ = 1 µm), relative width 0.2; E_z read a wavelength from it at the carrier
+  window: 4 × 4 wavelengths inside CPMLs L = 1 to 9 wavelengths thick, σ graded as (x/L)^d, d = 1, 2, 3, round-trip reflection 1e-15
+  grid: 20 cells a wavelength, Courant number 1/√2; each run until E_z decays to 1e-26 (checked every 5 µm/c, at most 400 µm/c)
+  solver: 2D FDTD; the change of E_z as the PML thickens a wavelength, its rate in L
+  tolerance: 0.1 in each rate at L = 8, against 2d + 4
+
 Oskooi et al.'s Fig. 8: a point source of E_z in 2D vacuum, 20 cells a wavelength
 4 x 4 wavelengths inside PMLs L wavelengths thick, R = 1e-15; E_z a wavelength from the source
 sigma ~ (x/L)^1:

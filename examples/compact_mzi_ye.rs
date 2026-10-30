@@ -38,9 +38,12 @@ const C_UM_THZ: f64 = 299.792_458;
 /// The paper's target, |ΔS| in dB.
 const TARGET_DB: f64 = -60.0;
 
+/// The arms' guide: n_eff and n_g at 1.55 µm.
+const GUIDE: (f64, f64) = (2.35, 4.3);
+
 /// The MZI of Section 6.A: arms of 150 and 100 µm, n_eff 2.35 and n_g 4.3 at 1.55 µm, 2 dB/cm.
 fn interferometer() -> photonoxide::Result<Circuit> {
-    let wire = Dispersion::new(Wavelength::um(1.55)?, 2.35, 4.3);
+    let wire = Dispersion::new(Wavelength::um(1.55)?, GUIDE.0, GUIDE.1);
     let guide: Arc<dyn Component> = Arc::new(Waveguide::new(wire));
     let coupler: Arc<dyn Component> = Arc::new(Coupler::new());
     let mut n = mzi(coupler.clone(), coupler, guide.clone(), guide)?;
@@ -112,6 +115,40 @@ fn fewest(c: &Circuit, from: f64, to: f64, count: usize) -> photonoxide::Result<
 
 pub fn main() -> photonoxide::Result<ExitCode> {
     let c = interferometer()?;
+    // Model A's band (THz) and frequencies; Model B's centre, half-width (THz) and frequencies;
+    // the tolerance on Model A's poles
+    let (band_a, count_a) = ((187.5, 200.0), 2001);
+    let (fc, delta, count_b) = (193.72, 0.15, 201);
+    let pole_tolerance = 1.0;
+    let mut setup = common::Setup::new();
+    setup.circuit(&c, c.values());
+    setup.item(
+        "the arms' guide",
+        &format!("n_eff {} and n_g {} at 1.55 µm", GUIDE.0, GUIDE.1),
+    );
+    setup.item(
+        "frequencies",
+        &format!(
+            "Model A: {count_a} from {} to {} THz; Model B: {count_b} over {fc} THz ± {} GHz; \
+             each fitted at the even-numbered and checked at the odd-numbered",
+            band_a.0,
+            band_a.1,
+            common::number(delta * 1e3)
+        ),
+    );
+    setup.item("grid", "none: the circuit's S-parameters, exact");
+    setup.item(
+        "solver",
+        &format!(
+            "vector fitting with real poles and conjugate pairs, the fewest poles whose error at \
+             the frequencies left out is below {TARGET_DB} dB"
+        ),
+    );
+    setup.item(
+        "tolerance",
+        &format!("Model A within {pole_tolerance} pole of 67; Model B's 8 exactly"),
+    );
+    setup.print();
     println!(
         "Ye et al.'s MZI (Photonics Res. 6, 560, 2018): ideal 50/50 couplers, arms of 150 and 100 µm, \
          n_eff 2.35 and n_g 4.3 at 1.55 µm, 200 dB/m; a closed form, exact: no grid"
@@ -122,15 +159,19 @@ pub fn main() -> photonoxide::Result<ExitCode> {
     );
     let mut checks = common::Checks::default();
     // Model A: 187.5 to 200 THz
-    let (poles, error, fewer) = fewest(&c, 187.5, 200.0, 2001)?;
+    let (poles, error, fewer) = fewest(&c, band_a.0, band_a.1, count_a)?;
     println!(
         "  Model A, 187.5 to 200 THz, fitted at 1001 frequencies: {poles} poles {error:.0} dB, {} poles {fewer:.0} dB",
         poles - 2
     );
-    checks.compare("Model A, poles for −60 dB (pairs)", poles as f64, 67.0, 1.0);
+    checks.compare(
+        "Model A, poles for −60 dB (pairs)",
+        poles as f64,
+        67.0,
+        pole_tolerance,
+    );
     // Model B: f_c ± 150 GHz
-    let (fc, delta) = (193.72, 0.15);
-    let (poles, error, fewer) = fewest(&c, fc - delta, fc + delta, 201)?;
+    let (poles, error, fewer) = fewest(&c, fc - delta, fc + delta, count_b)?;
     println!(
         "  Model B, {fc} THz ± 150 GHz, fitted at 101 frequencies: {poles} poles {error:.0} dB, {} poles {fewer:.0} dB",
         poles - 2

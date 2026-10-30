@@ -50,6 +50,13 @@ const RESOLUTION: usize = 20;
 const INTERIOR: usize = 4;
 /// The PMLs' round-trip reflection.
 const REFLECTION: f64 = 1e-15;
+/// The pulse's relative width; the decay that ends a run, how often it's checked and the
+/// longest run (µm/c).
+const WIDTH: f64 = 0.2;
+const DECAY: (f64, f64, f64) = (1e-26, 5.0, 400.0);
+/// The grading orders d, and the tolerance on each rate.
+const ORDERS: [u32; 3] = [1, 2, 3];
+const TOLERANCE: f64 = 0.1;
 
 /// E_z a wavelength from the source, at the source's frequency, per unit source spectrum, with
 /// a PML `thickness` wavelengths thick graded as (x/L)^`order`.
@@ -83,7 +90,7 @@ fn field(thickness: usize, order: f64) -> c64 {
     )
     .expect("the cell");
     let frequency = Frequency::natural(1.0).expect("1 c/µm");
-    let pulse = Waveform::pulse(frequency, 0.2).expect("the pulse");
+    let pulse = Waveform::pulse(frequency, WIDTH).expect("the pulse");
     let centre = n / 2;
     s.add_source(Source {
         field: Field::E,
@@ -96,7 +103,7 @@ fn field(thickness: usize, order: f64) -> c64 {
     let dft = s.add_dft(at, at, &[frequency]).expect("the transform");
     let probe = s.add_probe(Field::E, Axis::Z, at).expect("the probe");
     let decayed = s
-        .run_until_decayed(&[probe], 1e-26, 5.0, 400.0)
+        .run_until_decayed(&[probe], DECAY.0, DECAY.1, DECAY.2)
         .expect("the run");
     assert!(decayed, "the field didn't decay");
     let spectrum = pulse.spectrum(Field::E, s.dt(), s.steps(), frequency);
@@ -114,13 +121,48 @@ fn rounded(v: f64, digits: i32) -> f64 {
 }
 
 pub fn main() -> ExitCode {
+    let thickest = 8;
+    let mut setup = common::Setup::new();
+    setup.item("medium", "vacuum, ε 1, in 2D");
+    setup.item(
+        "source",
+        &format!(
+            "a point source of E_z at the centre, a pulse at 1 c/µm (λ = 1 µm), relative width \
+             {WIDTH}; E_z read a wavelength from it at the carrier"
+        ),
+    );
+    setup.item(
+        "window",
+        &format!(
+            "{INTERIOR} × {INTERIOR} wavelengths inside CPMLs L = 1 to {} wavelengths thick, σ \
+             graded as (x/L)^d, d = {}, round-trip reflection {REFLECTION:e}",
+            thickest + 1,
+            ORDERS.map(|d| d.to_string()).join(", ")
+        ),
+    );
+    setup.item(
+        "grid",
+        &format!(
+            "{RESOLUTION} cells a wavelength, Courant number 1/√2; each run until E_z decays to \
+             {:e} (checked every {} µm/c, at most {} µm/c)",
+            DECAY.0, DECAY.1, DECAY.2
+        ),
+    );
+    setup.item(
+        "solver",
+        "2D FDTD; the change of E_z as the PML thickens a wavelength, its rate in L",
+    );
+    setup.item(
+        "tolerance",
+        &format!("{TOLERANCE} in each rate at L = {thickest}, against 2d + 4"),
+    );
+    setup.print();
     println!("Oskooi et al.'s Fig. 8: a point source of E_z in 2D vacuum, 20 cells a wavelength");
     println!(
         "{INTERIOR} x {INTERIOR} wavelengths inside PMLs L wavelengths thick, R = {REFLECTION:e}; E_z a wavelength from the source"
     );
-    let thickest = 8;
     let mut checks = common::Checks::default();
-    for d in [1u32, 2, 3] {
+    for d in ORDERS {
         let fields: Vec<c64> = (1..=thickest + 1).map(|l| field(l, f64::from(d))).collect();
         let size = fields[0].norm_sqr();
         let changes: Vec<f64> = fields
@@ -146,7 +188,7 @@ pub fn main() -> ExitCode {
             &format!("rate at L = {thickest}, d = {d}"),
             rounded(rate, 2),
             f64::from(2 * d + 4),
-            0.1,
+            TOLERANCE,
         );
     }
     checks.finish()

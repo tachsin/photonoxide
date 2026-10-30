@@ -26,6 +26,8 @@ papers:
     doi: 10.1364/JOSAB.14.003319
   - cite: "D. H. Jundt, Opt. Lett. 22, 1553 (1997)"
     doi: 10.1364/OL.22.001553
+  - cite: "G. J. Edwards, M. Lawrence, Opt. Quantum Electron. 16, 373 (1984)"
+    doi: 10.1007/BF00620081
   - cite: "O. Gayer, Z. Sacks, E. Galun, A. Arie, Appl. Phys. B 91, 343 (2008); erratum 101, 481 (2010)"
     doi: 10.1007/s00340-008-2998-2
   - cite: "M. Jazbinšek, M. Zgonik, Appl. Phys. B 74, 407 (2002)"
@@ -541,6 +543,7 @@ every value a tensor gives is an element its tag names.
 | InP | Pettit & Turner 1965 | one-term Sellmeier, Table I, at 298 K (default) and 77 K | 0.60 eV to the gap |
 | LiNbO₃, congruent | Zelmon et al. 1997 (default) | three-oscillator Sellmeier, Table 1 | 0.4–5.0 µm, 21 °C |
 | LiNbO₃, congruent | Jundt 1997 | $n_e(\lambda, T)$, Eqs. (4)–(5), Table 2 | 0.4–5 µm, 20–250 °C |
+| LiNbO₃, congruent | Edwards & Lawrence 1984 | $n_o(\lambda, T)$ and $n_e(\lambda, T)$, Eq. 1, Table I (the indices of Fejer et al.'s Table I) | 0.4–4.5 µm, 0–500 °C, standard deviation 1.8e-4 |
 | LiNbO₃, 5% MgO | Zelmon et al. 1997 (default) | Table 2, columns exchanged (below) | 0.4–5.0 µm, 21 °C |
 | LiNbO₃, 5% MgO | Gayer et al. 2008 | Eqs. (2)–(3), Table 1 of the 2010 erratum | $n_e$ 0.5–4 µm, 20–200 °C; $n_o$ 0.5–1.62 µm, 20–100 °C |
 | LiTaO₃ | Bond 1965 (our fit, default) | two-term Sellmeier for $n_o$ and $n_e$, fitted to Bond's Table IV (refractiveindex.info, CC0, checked against the paper) | 0.45–4.0 µm, room temperature, within 6.7e-4 of the table |
@@ -550,7 +553,7 @@ every value a tensor gives is an element its tag names.
 
 Two models are new forms in `Model`: `Model::Pikhtin` (Skauli's Eq. (12), photon energies in eV)
 and `Model::Afromowitz`. Gehrsitz's oscillators $C/(E_i^2 - E^2)$, with $E = 1/\lambda$ in
-µm⁻¹, are Sellmeier terms $(C/E_i^2)\,\lambda^2/(\lambda^2 - 1/E_i^2)$; Jundt's and Gayer's form is
+µm⁻¹, are Sellmeier terms $(C/E_i^2)\,\lambda^2/(\lambda^2 - 1/E_i^2)$; Jundt's, Gayer's and Edwards & Lawrence's form is
 the refractiveindex.info formula 4.
 
 **Temperature in the defaults.** Silicon's, silica's and silicon nitride's default models take a
@@ -910,7 +913,14 @@ read from the paper itself, which isn't in hand.
 - Zelmon's congruent $n_o$, $n_e$ at 633 nm against the values Jazbinšek & Zgonik give their
   tensors at: within 3e-5. Zelmon's $n_e$ puts the idler of Myers' 1.064 µm-pumped PPLN OPO at
   a 30 µm grating at 3.354 µm, as the paper's Fig. 3 predicts (3.35). Jundt's $n_e(\lambda, T)$
-  puts it at 4.755 µm for 250 °C and 25.5 µm, as his Fig. 1 does.
+  puts it at 4.755 µm for 250 °C and 25.5 µm, as his Fig. 1 does. Both idlers are found by phase
+  matching ([nonlinear](nonlinear.md)).
+- Edwards & Lawrence's congruent $n_o(\lambda, T)$ and $n_e(\lambda, T)$ reproduce Fejer et al.'s
+  Table I, which was computed with them: 41 of its quasi-phase-matched values to half their last
+  digit ([nonlinear](nonlinear.md#fejer-et-als-table-i)). Their own Table II, the phase-matching
+  temperatures of type-I mixing of 488 nm to 2.16–3.24 µm that Eq. 1 gives, comes out 0.2 to
+  0.5 °C lower here (176.4 °C printed, 175.9 here, at 2.159 µm): the pump's wavelength is given only
+  as 488 nm, and with the vacuum 488.12 nm the difference falls to 0.1 °C. Not yet a case.
 - Shoji's $d_{33}$ with Zelmon's $n_e$ gives his Miller's $\Delta_{33}$ (Table 12) to 0.5%.
 - Gayer's 5% MgO indices against Zelmon's Table 2 (columns exchanged) at 21 °C: within 4.4e-4.
   The paper reports 3.1e-4 for $n_e$ and 2.2e-4 for $n_o$; we find 3.3e-4 and 4.4e-4.

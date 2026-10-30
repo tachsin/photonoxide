@@ -1,3 +1,45 @@
+Setup
+  (layers from the top down: the bottom one, the substrate, is the first laid down)
+  a bent slab against Marcuse's formula:
+    layers:
+      outside        half-space   cladding, n 1.500000
+      slab           1 µm         core, n 1.600000
+      inside         half-space   cladding, n 1.500000
+    wavelength: 1 µm, TE
+    radii: 20, 40, 80, 120 µm
+    solver: the bent slab's exact modes (no grid), and Marcuse's Eqs. 32-33
+    tolerance: Marcuse's loss within 0.1 of the exact one, relative, at 120 µm
+  the strip as a bent slab, full-vector (printed):
+    layers:
+      outside        half-space   cladding, n 1.444000
+      slab           500 nm       core, n 2.845000
+      inside         half-space   cladding, n 1.444000
+    wavelength: 1.55 µm, TE and TM
+    radii: 1, 2 µm
+    window: from 750 nm inside the strip's centre to 6 µm outside it, a PML from 2.5 µm out, strength 3
+    grid: uniform, 5 nm
+    solver: the full-vector mode solver on the conformally mapped cross-section, beside the exact
+  the bend device at its 2D and 3D models (printed):
+    layers:
+      cladding       half-space   SiO2, n 1.444024
+      Si             220 nm       Si, n 3.475700 in its shapes; SiO2, n 1.444024 elsewhere
+      BOX            2 µm         SiO2, n 1.444024
+      substrate      half-space   Si, n 3.475700
+    shapes:
+      on Si: shape, within (1.071566e-16, -0.25) µm to (2.25, 2) µm: 2.25 µm along x by 2.25 µm along y
+    bend: width 0.5 µm, thickness 0.22 µm, radius 2 µm, angle 90 °, loss 0 dB/cm, wavelength 1.55 µm, span 0.1 µm
+    wavelength: 1.55 µm
+  materials:
+    SiO2: Sellmeier, n² = A + Σ Bλ²/(λ² − C²), A = 1, B = 0.6961663, 0.4079426, 0.8974794, C = 0.0684043, 0.1162414, 9.896161 µm; valid 0.21 to 3.71 µm
+      source: I. H. Malitson, J. Opt. Soc. Am. 55, 1205 (1965), doi:10.1364/JOSA.55.001205, at 293.15 K
+      fused silica, Eq. (1), checked against the paper; fit residual 10.5e-6 on average; thermal and deposited oxides differ slightly
+      n 1.444024 at 1.55 µm
+    Si: a table of 35 wavelengths, 1.2 to 14 µm, between them natural cubic splines; valid 1.2 to 14 µm
+      source: H. H. Li, J. Phys. Chem. Ref. Data 9, 561 (1980), doi:10.1063/1.555624, at 293 K
+      crystalline silicon; Table 1, 293 K, checked against the paper; uncertainty ±2e-3 (Li)
+      n 3.475700 at 1.55 µm
+    core, cladding: constant indices: Marcuse's slab's, and the strip's (the effective index method's 2.845 in Chrostowski & Hochberg's 1.444)
+
 slab of 1.6 in 1.5, 1 um, at 1 um, TE; straight n_eff 1.569443; exact: no grid
   radius   exact Im n_eff   Marcuse      ratio   exact loss per 90 deg
     20 um  2.5169e-3       4.6043e-3   1.829   4.315e0 dB

@@ -49,16 +49,55 @@ fn printed(tolerance: f64) -> f64 {
     (tolerance * 1e3).round() / 1e3
 }
 
+/// The tolerances: Vπ·L against the measurement at DC (V·cm); the response at 250 GHz (20 %),
+/// the 2D grid's and the analytic model's against the 2D, relative.
+const VPI_L: f64 = 0.15;
+const RESPONSE: f64 = 0.2;
+const GRID: f64 = 0.01;
+const ANALYTIC: f64 = 0.15;
+
 pub fn main() -> photonoxide::Result<ExitCode> {
-    let mut checks = common::Checks::default();
     let d = TflnModulator::new();
+    // each design's length (mm), its measured RF V_π at 250 GHz (V) and 3 dB bandwidth (GHz)
+    let designs = [(5.8, 8.3, 170.0), (10.8, 7.3, 100.0)];
+    let lam = photonoxide::units::Wavelength::um(1.55)?;
+    let mut setup = common::Setup::new();
+    for (mm, _, _) in designs {
+        setup.part(&format!("the {mm} mm modulator"));
+        setup.device(&d, &Values::new(&d, &[("length", mm * 1e3)])?, lam);
+    }
+    setup.part("both");
+    setup.wavelength(lam);
+    setup.item(
+        "grid",
+        "the 2D model's own grids, and grids twice as fine (the gate); the analytic model's \
+         closed forms",
+    );
+    setup.item(
+        "solver",
+        "the static solver's field and the full-vector mode's perturbation, the quasi-TEM line \
+         of the static solver (2D); the field at a coplanar gap's centre across the film's slab \
+         mode, the line by conformal mapping (analytic)",
+    );
+    setup.item(
+        "tolerance",
+        &format!(
+            "{VPI_L} V·cm on Vπ·L; {} % on the response at 250 GHz; the 2D grid within {} %; the \
+             analytic within {} % of the 2D",
+            common::number(100.0 * RESPONSE),
+            common::number(100.0 * GRID),
+            common::number(100.0 * ANALYTIC)
+        ),
+    );
+    setup.print();
+    let mut checks = common::Checks::default();
     println!(
         "Zhang et al. 2022's thin-film lithium niobate modulators through photonoxide's TFLN \
          Mach-Zehnder modulator device, at 1550 nm"
     );
     let mut analytic_vpi_l = 0.0;
     let mut own_vpi_l = 0.0;
-    for (mm, vpi_250, f3_measured) in [(5.8, 8.3, 170.0), (10.8, 7.3, 100.0)] {
+    for (mm, vpi_250, f3_measured) in designs {
         println!();
         println!("{mm} mm long");
         let v = Values::new(&d, &[("length", mm * 1e3)])?;
@@ -120,7 +159,7 @@ pub fn main() -> photonoxide::Result<ExitCode> {
         let c = Study::new("m(250 GHz)/m(1 GHz)")
             .on(0.02, coarse)?
             .on(0.01, fine)?
-            .check(printed(0.01 * fine))?;
+            .check(printed(GRID * fine))?;
         checks.converged(
             &format!("{mm} mm: 2D response at 250 GHz, grids 1 and 1/2"),
             &c,
@@ -130,16 +169,16 @@ pub fn main() -> photonoxide::Result<ExitCode> {
             &format!("{mm} mm: 2D m(250)/m(1) (measured)"),
             fine,
             (theirs * 1e4).round() / 1e4,
-            printed(0.2 * theirs),
+            printed(RESPONSE * theirs),
         );
         if mm == 5.8 {
             let (a, b) = (get(&c1, "VpiL"), get(&f1, "VpiL"));
             let c = Study::new("VpiL (V cm)")
                 .on(0.02, a)?
                 .on(0.01, b)?
-                .check(printed(0.01 * b))?;
+                .check(printed(GRID * b))?;
             checks.converged("2D VpiL on grids 1 and 1/2, V cm", &c);
-            checks.compare("2D VpiL, V cm (measured at DC)", b, 2.3, 0.15);
+            checks.compare("2D VpiL, V cm (measured at DC)", b, 2.3, VPI_L);
         }
     }
     checks.against(
@@ -147,7 +186,7 @@ pub fn main() -> photonoxide::Result<ExitCode> {
         analytic_vpi_l,
         "2D",
         own_vpi_l,
-        printed(0.15 * own_vpi_l),
+        printed(ANALYTIC * own_vpi_l),
     );
     Ok(checks.finish())
 }

@@ -221,8 +221,47 @@ where
         .collect()
 }
 
+/// Each method's population and evaluations, and the tolerances: the fronts' hypervolume
+/// (relative to the closed form's), each polished point's drop.
+const POPULATION: usize = 60;
+const BUDGET: u64 = 40_000;
+const HYPERVOLUME_TOLERANCE: f64 = 0.01;
+const DROP_TOLERANCE: f64 = 1e-3;
+
 pub fn main() -> photonoxide::Result<ExitCode> {
     let problem = Problem::new()?;
+    let mut setup = common::Setup::new();
+    let circuit = ring()?;
+    setup.circuit(&circuit, circuit.values());
+    setup.item(
+        "the ring's guide",
+        &format!(
+            "n_eff {INDEX} and n_g {GROUP_INDEX} at {LAMBDA} µm, {LOSS} dB/cm; radius {RADIUS} µm"
+        ),
+    );
+    setup.item(
+        "wavelength",
+        &format!("the ring's resonance, {:.6} µm", resonance()),
+    );
+    setup.item("grid", "none: the circuit solve and Eq. 8, exact");
+    setup.item(
+        "solver",
+        &format!(
+            "the couplings κ₁², κ₂² from {} to {}; costs −D and the width (nm); NSGA-II and \
+             SMS-EMOA, population {POPULATION}, {BUDGET} evaluations, seed 1; each point polished \
+             by GCMMA at its width on the circuit adjoint",
+            KAPPA2.0, KAPPA2.1
+        ),
+    );
+    setup.item(
+        "tolerance",
+        &format!(
+            "the fronts' hypervolume up to ({}, {} nm) within {HYPERVOLUME_TOLERANCE} of the \
+             closed form's, relative; each polished point's drop within {DROP_TOLERANCE:e}",
+            REFERENCE[0], REFERENCE[1]
+        ),
+    );
+    setup.print();
     let mut checks = common::Checks::default();
     let a = amplitude();
     println!(
@@ -256,13 +295,13 @@ pub fn main() -> photonoxide::Result<ExitCode> {
             run(
                 &problem,
                 Nsga2::builder(space(), [Objective::Minimize; 2])
-                    .population_size(60)
+                    .population_size(POPULATION)
                     .crossover(SimulatedBinaryCrossover::new(30.0).expect("valid"))
                     .mutate(PolynomialMutation::per_gene(0.5, 100.0).expect("valid"))
                     .seed(1)
                     .build()
                     .expect("a valid NSGA-II"),
-                40_000,
+                BUDGET,
             ),
         ),
         (
@@ -270,13 +309,13 @@ pub fn main() -> photonoxide::Result<ExitCode> {
             run(
                 &problem,
                 SmsEmoa::builder(space(), [Objective::Minimize; 2])
-                    .population_size(60)
+                    .population_size(POPULATION)
                     .crossover(SimulatedBinaryCrossover::new(30.0).expect("valid"))
                     .mutate(PolynomialMutation::per_gene(0.5, 100.0).expect("valid"))
                     .seed(1)
                     .build()
                     .expect("a valid SMS-EMOA"),
-                40_000,
+                BUDGET,
             ),
         ),
     ];
@@ -305,7 +344,7 @@ pub fn main() -> photonoxide::Result<ExitCode> {
             hv / analytic,
             "the closed form",
             1.0,
-            0.01,
+            HYPERVOLUME_TOLERANCE,
         );
         // each point polished by GCMMA: the most drop at no more than its width (an
         // ε-constraint), on the circuit adjoint's gradient
@@ -336,7 +375,7 @@ pub fn main() -> photonoxide::Result<ExitCode> {
             worst,
             "the closed form",
             0.0,
-            1e-3,
+            DROP_TOLERANCE,
         );
     }
     Ok(checks.finish())

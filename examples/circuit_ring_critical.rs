@@ -60,6 +60,31 @@ pub fn main() -> photonoxide::Result<ExitCode> {
     let (kappa2, radius) = (0.05, 9.97);
     let circuit = ring(kappa2, radius)?;
     let wavelength = [Wavelength::um(LAMBDA)?];
+    // the radius (µm), κ² × 1e3, r / a and the through power
+    let tolerances = (1e-9, 1e-6, 1e-9, 1e-12);
+    let mut setup = common::Setup::new();
+    setup.circuit(&circuit, circuit.values());
+    setup.item(
+        "the ring's guide",
+        &format!("n_eff {INDEX} and n_g {GROUP_INDEX} at {LAMBDA} µm, {LOSS} dB/cm"),
+    );
+    setup.wavelength(wavelength[0]);
+    setup.item("grid", "none: the circuit's S-matrix, exact");
+    setup.item(
+        "solver",
+        &format!(
+            "κ² and the radius, from {kappa2} and {radius} µm, by L-BFGS-B on the circuit \
+             adjoint's gradient, until the through port is dark"
+        ),
+    );
+    setup.item(
+        "tolerance",
+        &format!(
+            "{:e} µm in the radius, {:e} in κ² × 1e3, {:e} in r / a, {:e} in the through power",
+            tolerances.0, tolerances.1, tolerances.2, tolerances.3
+        ),
+    );
+    setup.print();
     let k = circuit.parameter("coupler.coupling").expect("a parameter");
     let l = circuit.parameter("ring.length").expect("a parameter");
     // the genes: κ² and the radius R, the ring's length 2πR
@@ -113,17 +138,22 @@ pub fn main() -> photonoxide::Result<ExitCode> {
         "  resonance order m = {m}: R = m λ/(2π n_eff), a = {a:.6}, critical κ² = 1 − a² (Eqs. 3 and 2)"
     );
     let mut checks = common::Checks::default();
-    checks.compare("radius (µm)", radius_found, round(radius_exact, 9), 1e-9);
+    checks.compare(
+        "radius (µm)",
+        radius_found,
+        round(radius_exact, 9),
+        tolerances.0,
+    );
     checks.compare(
         "κ² (× 1e-3)",
         kappa2_found * 1e3,
         round(kappa2_exact * 1e3, 9),
-        1e-6,
+        tolerances.1,
     );
     let r_over_a =
         (1.0 - kappa2_found).sqrt() / 10f64.powf(-LOSS * 1e-4 * TAU * radius_found / 20.0);
-    checks.compare("r / a (Eq. 2: 1)", r_over_a, 1.0, 1e-9);
-    checks.compare("through power (Eq. 12: 0)", through, 0.0, 1e-12);
+    checks.compare("r / a (Eq. 2: 1)", r_over_a, 1.0, tolerances.2);
+    checks.compare("through power (Eq. 12: 0)", through, 0.0, tolerances.3);
     Ok(checks.finish())
 }
 

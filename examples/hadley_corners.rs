@@ -38,6 +38,15 @@ use photonoxide::mode::hadley;
 use photonoxide::mode::vector::{self, Boundaries, Boundary, CrossSection, Permittivity};
 use photonoxide::units::Wavelength;
 
+/// The quarter domain's side (µm), where the core's corner lies on each axis (µm), and the ε
+/// outside the core.
+const QUARTER: f64 = 1.0;
+const CORNER: f64 = 0.5;
+const OUTSIDE: f64 = 1.0;
+
+/// The tolerances on the 7.8 nm grid: the standard scheme's, Hadley's.
+const TOLERANCES: [f64; 2] = [5e-5, 1e-6];
+
 /// Hadley's problem on an `n` × `n` grid: the core's ε, and whether it is a box.
 fn problem(eps: f64, boxed: bool, n: usize) -> CrossSection {
     use Boundary::{ElectricWall, MagneticWall};
@@ -56,13 +65,13 @@ fn problem(eps: f64, boxed: bool, n: usize) -> CrossSection {
             north: ElectricWall,
         }
     };
-    CrossSection::uniform((0.0, 1.0, n), (0.0, 1.0, n), |x, y| {
+    CrossSection::uniform((0.0, QUARTER, n), (0.0, QUARTER, n), |x, y| {
         let high = if boxed {
-            x < 0.5 && y < 0.5
+            x < CORNER && y < CORNER
         } else {
-            !(x > 0.5 && y > 0.5)
+            !(x > CORNER && y > CORNER)
         };
-        Permittivity::isotropic(c64::new(if high { eps } else { 1.0 }, 0.0))
+        Permittivity::isotropic(c64::new(if high { eps } else { OUTSIDE }, 0.0))
     })
     .and_then(|cs| cs.with_boundaries(boundaries))
     .expect("a valid problem")
@@ -70,7 +79,6 @@ fn problem(eps: f64, boxed: bool, n: usize) -> CrossSection {
 
 pub fn main() -> ExitCode {
     let wavelength = Wavelength::um(1.5).expect("a valid wavelength");
-    let mut checks = common::Checks::default();
     let figures = [
         (4, 2.25, true, 1.276_274_04),
         (5, 8.0, true, 2.656_796_92),
@@ -78,6 +86,60 @@ pub fn main() -> ExitCode {
         (7, 8.0, false, 2.761_465_320),
     ];
     let grids = [8, 16, 32, 64, 128];
+    let mut setup = common::Setup::new();
+    for &(fig, eps, boxed, _) in &figures {
+        setup.part(&format!("Fig. {fig}"));
+        let core = if boxed {
+            format!(
+                "a box, {} by {}, centred",
+                common::length(2.0 * CORNER),
+                common::length(2.0 * CORNER)
+            )
+        } else {
+            format!(
+                "an impinged corner: everything but the quadrant beyond ({}, {}) µm from the \
+                 centre, on each side",
+                common::number(CORNER),
+                common::number(CORNER)
+            )
+        };
+        setup.item(
+            "media",
+            &format!("{core}, {}, in {}", common::eps(eps), common::eps(OUTSIDE)),
+        );
+    }
+    setup.part("every figure");
+    setup.wavelength(wavelength);
+    setup.item(
+        "window",
+        &format!(
+            "the quarter, {} by {}, behind mirror walls through the core's centre",
+            common::length(QUARTER),
+            common::length(QUARTER)
+        ),
+    );
+    setup.item(
+        "grid",
+        &format!(
+            "uniform, {} cells a side",
+            grids.map(|n| n.to_string()).join(", ")
+        ),
+    );
+    setup.item(
+        "solver",
+        "the full-vector mode solver, the standard scheme and Hadley's high-accuracy equations",
+    );
+    setup.item(
+        "tolerance",
+        &format!(
+            "on the 7.8 nm grid, {:e} for the standard scheme, {:e} for Hadley's, and the same \
+             on each one's grid study",
+            TOLERANCES[0], TOLERANCES[1]
+        ),
+    );
+    setup.medium("media", "constant permittivities, Hadley's (2002)");
+    setup.print();
+    let mut checks = common::Checks::default();
     // every figure's grids solved side by side, both ways, then printed in order
     let problems: Vec<(f64, bool, usize)> = figures
         .iter()
@@ -124,16 +186,16 @@ pub fn main() -> ExitCode {
             &format!("Fig. {fig}, standard, 7.8 nm grid"),
             standard,
             exact,
-            5e-5,
+            TOLERANCES[0],
         );
         checks.compare(
             &format!("Fig. {fig}, Hadley's, 7.8 nm grid"),
             high,
             exact,
-            1e-6,
+            TOLERANCES[1],
         );
         // the same tolerances on the grids' own estimates: the grid has converged
-        for (s, tolerance) in studies.iter().zip([5e-5, 1e-6]) {
+        for (s, tolerance) in studies.iter().zip(TOLERANCES) {
             checks.converged(
                 &format!("Fig. {fig}, {}, its grids", s.quantity),
                 &s.check(tolerance).expect("a tolerance"),

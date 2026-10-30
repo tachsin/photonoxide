@@ -173,6 +173,84 @@ Both print `TE0: n_eff = 2.8475` and `TM0: n_eff = 2.0531`. Each of the
 cargo run --release --example strip_waveguide   # or: just example strip_waveguide
 ```
 
+Every example prints its setup first: the layers from the top down, the shapes with their
+positions and sizes, the materials with their models and sources, the grid, the solver and the
+tolerance.
+
+## A design as a job file
+
+A job file holds a whole design, every dimension in it. This one is the leaky silicon wire of
+Bienstman et al. (Opt. Quantum Electron. 38, 731 (2006)): a 500 × 220 nm wire on 1 µm of oxide
+over a silicon substrate, whose light leaks through the oxide into the substrate.
+
+```yaml
+# Bienstman et al.'s leaky silicon wire: 500 x 220 nm of silicon (3.5) on 1 um of oxide (1.45)
+# over a silicon substrate, air above, at 1.55 um. Its light leaks through the oxide into the
+# substrate, whose index is above the mode's: a PML in the substrate absorbs it, and the mode is
+# leaky, its loss in dB/cm. Their consensus is 2.412372 + 2.9135e-8 i; on this 10 nm grid the job
+# gives 2.4187 + 2.757e-8 i, and on 5 nm 2.4164 + 2.805e-8 i (the core's corners converge slowly).
+#   photonoxide run jobs/leaky-wire.yaml
+name: leaky-wire
+timeout_minutes: 10
+
+task:
+  kind: modes
+  wavelength_um: 1.55
+  layer: Si
+  propagation: x           # the modes travel along x, cut at x = 0 (cut_x_um)
+  y_um: [-1.0, 1.0]        # the window across the guide
+  z_um: [-1.6, 2.0]        # 1.6 um of the substrate, its last 1 um the PML
+  step_nm: 10.0
+  modes: 2
+  modes_near: 2.4          # the count nearest this index: the substrate's own modes lie above it
+
+  stack:
+    substrate: 3.5         # fixed indices, the benchmark's
+    cladding: 1.0
+
+    layer:
+      - name: BOX
+        thickness_um: 1.0
+        material: 1.45
+        background: 1.45
+
+      - name: Si
+        thickness_um: 0.22
+        material: 3.5
+        background: 1.0
+
+  rect:
+    - layer: Si
+      center_um: [0.0, 0.0]
+      size_um: [10.0, 0.5]  # 500 nm wide, along x
+
+  pml:
+    thickness_um: [0.0, 0.0, 1.0, 0.0]  # across the guide low and high, below and above
+    strength: 3.0
+```
+
+```sh
+photonoxide run jobs/leaky-wire.yaml
+```
+
+Its layers, from the top down; the bottom one, the substrate, is the first laid down in
+fabrication. The file lists them the other way, bottom to top (`BOX`, then `Si`), the order
+they are laid down in.
+
+| Layer | Thickness | Material, and its index at 1.55 µm |
+|---|---|---|
+| cladding | above the stack | air, 1.0 |
+| Si | 220 nm (z = 1.0 to 1.22 µm) | silicon, 3.5, in the 500 nm wire centred at y = 0; air, 1.0, beside it |
+| BOX | 1 µm (z = 0 to 1.0 µm) | oxide, 1.45 |
+| substrate | below the stack | silicon, 3.5; its last 1 µm (z = −1.6 to −0.6 µm) the PML |
+
+The job solves the full-vector modes of the cross-section at x = 0 on a 10 nm grid over y from
+−1.0 to 1.0 µm and z from −1.6 to 2.0 µm, the two nearest n_eff = 2.4. It gives
+2.4187 + 2.757 × 10⁻⁸ i, against the benchmark's consensus 2.412372 + 2.9135 × 10⁻⁸ i; on a
+5 nm grid, 2.4164 + 2.805 × 10⁻⁸ i. [docs/design.md](docs/design.md) shows the designs people
+start from (a strip's modes, a ring's spectrum, a directional coupler) as job files beside the
+same calls in Python, each with its layers, materials, grid and solver.
+
 ## Building from source
 
 You need:

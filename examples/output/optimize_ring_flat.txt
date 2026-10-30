@@ -1,3 +1,20 @@
+Setup
+  the circuit, at N = 2 rings (each N alike: couplers c0 … cN, a ring's halves aₖ and bₖ):
+    instance c0: a coupler: coupling 0.001
+    instance c1: a coupler: coupling 2.5e-7
+    instance c2: a coupler: coupling 0.001
+    instance a1: a phase shifter: phase 0 rad
+    instance b1: a phase shifter: phase 0 rad
+    instance a2: a phase shifter: phase 0 rad
+    instance b2: a phase shifter: phase 0 rad
+    ports: in, through, add, drop
+  the fits:
+    rings: N = 2 to 6, lossless; bus couplings κ_b² = 1e-3, 1e-4, 1e-5
+    detunings: 61 from -3 to 3 κ_b²; the wavelength 1.55 µm (the phases don't depend on it)
+    grid: none: the circuit's S-matrix, exact
+    solver: the couplings fitted to 1/(1 + (δ/δ_c)^2N) by L-BFGS-B on the circuit adjoint from 16 seeded starts; CMA-ES then L-BFGS-B as a global check
+    tolerance: at κ_b² = 1e-5: 5e-4 on a printed 0.1 or more (N = 4: 5e-5 on the prototype), 5e-5 on the rest and between mirror couplings
+
 Maximally flat filters of N series-coupled lossless rings (Little et al. 1997, Table I), the circuit solve, exact: no grid
   each fitted to 1/(1 + (δ/δ_c)^2N) at 61 detunings over ±3κ_b², by L-BFGS-B on the circuit adjoint from 16 seeded random starts, the couplings symmetric; CMA-ES then L-BFGS-B as a global check
   N = 4: adjoint within 1e-8 of differences     1.000000   yes 1.000000   ± 0e0  ok

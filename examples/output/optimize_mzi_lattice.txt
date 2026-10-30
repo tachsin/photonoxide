@@ -1,3 +1,20 @@
+Setup
+  the circuit, at its parameters' defaults:
+    instance c1: a coupler: coupling 0.5
+    instance c2: a coupler: coupling 0.5
+    instance c3: a coupler: coupling 0.5
+    instance u1: a phase shifter: phase 0 rad
+    instance l1: a phase shifter: phase 0 rad
+    instance u2: a phase shifter: phase 0 rad
+    instance l2: a phase shifter: phase 0 rad
+    ports: in1, in2, out1, out2
+  the fits:
+    delays: u1 2ΔL and u2 ΔL longer than l1 and l2: their phases 2ω + φ₁ and ω + φ₂
+    phases: 64 values of ω across ΔL, 0 to 2π; the wavelength 1.55 µm
+    grid: none: the circuit's S-matrix, exact
+    solver: x = (κ₁², κ₂², κ₃², φ₁, φ₂) by L-BFGS-B on the circuit adjoint from 16 seeded random starts, by power and by field; CMA-ES as a global check
+    tolerance: 5e-5 π in θ, 1e-6 π in φ, 5e-4 in the power couplings
+
 A maximally flat half-band lattice: couplers θ₁, θ₂, θ₃, delays 2ΔL + φ₁ and ΔL + φ₂ (Jinguji & Oguma 2000, Table I), the circuit solve, exact: no grid
   T(ω) = cos⁴(ω/2)(1 + 2 sin²(ω/2)) at 64 phases ω across ΔL; the cross port from in1
   Table I's design: |P_cross − T|, largest     0.000000   T, maximally flat 0.000000   ± 1e-14 ok

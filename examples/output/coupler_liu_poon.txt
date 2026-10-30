@@ -1,3 +1,32 @@
+Setup
+  (layers from the top down: the bottom one, the substrate, is the first laid down)
+  layers:
+    cladding       half-space   SiO2, n 1.444024
+    silicon 1      220 nm       Si in its shapes, the cladding elsewhere (from z = 0), n 3.475700
+    buried oxide   half-space   SiO2, below z = 0, n 1.444024
+  shapes:
+    on silicon 1: a guide from (-20, -1.632) µm heading 0°, 500 nm wide; straight 10 µm; an S-bend (cubic Bézier) 10 µm along and 1.632 µm across; straight 20 µm; an S-bend (cubic Bézier) 10 µm along and -1.632 µm across; straight 10 µm
+    on silicon 1: a guide from (-20, 2.368) µm heading 0°, 500 nm wide; straight 10 µm; an S-bend (cubic Bézier) 10 µm along and -1.632 µm across; straight 20 µm; an S-bend (cubic Bézier) 10 µm along and 1.632 µm across; straight 10 µm
+  port 1: at (-10, -1.632) µm, 500 nm wide, facing 180°, the input
+  port 2: at (-10, 2.368) µm, 500 nm wide, facing 180°
+  port 3: at (30, 2.368) µm, 500 nm wide, facing 0°
+  port 4: at (30, -1.632) µm, 500 nm wide, facing 0°
+  modes: Te0 launched into port 1; measured: Te0 at port 3; Te0 at port 4
+  wavelengths: the materials at 1.55 µm; a pulse at 1.55 µm, its width 0.04 c/µm; measured at 1.55 µm
+  window: x -11 to 31 µm, y -3.132 to 3.868 µm (the ports and the device, 1 µm beyond), 1 µm of cladding below and above the silicon, CPMLs of 12 cells
+  grid at 6 cells a wavelength: 590 × 119 × 54 cells of 74.3 nm (3.8 million), CPMLs of 12
+  solver: 3D FDTD, subpixel smoothing (diagonal), Courant number 0.99; the ports' modes by FDFD; until the outputs' fields decay to 1e-6 or 3000 µm/c
+  tolerance: the cross port's TE0 within half the span of both codes' 0.411, 0.441, 0.446, 0.43, 0.448, 0.492, 0.456, 0.47 plus 0.003, the excess loss within half the span of their 0, 0.001, 0, -0.013, -0.002, -0.007 dB plus 0.001 dB; at 6 cells, how far the codes stray there (0.493, 0.697)
+  materials:
+    Si: a table of 35 wavelengths, 1.2 to 14 µm, between them natural cubic splines; valid 1.2 to 14 µm
+      source: H. H. Li, J. Phys. Chem. Ref. Data 9, 561 (1980), doi:10.1063/1.555624, at 293 K
+      crystalline silicon; Table 1, 293 K, checked against the paper; uncertainty ±2e-3 (Li)
+      n 3.475700 at 1.55 µm
+    SiO2: Sellmeier, n² = A + Σ Bλ²/(λ² − C²), A = 1, B = 0.6961663, 0.4079426, 0.8974794, C = 0.0684043, 0.1162414, 9.896161 µm; valid 0.21 to 3.71 µm
+      source: I. H. Malitson, J. Opt. Soc. Am. 55, 1205 (1965), doi:10.1364/JOSA.55.001205, at 293.15 K
+      fused silica, Eq. (1), checked against the paper; fit residual 10.5e-6 on average; thermal and deposited oxides differ slightly
+      n 1.444024 at 1.55 µm
+
 Liu and Poon's directional coupler (gdsfactory's generic PDK), 3D FDTD, TE0 into the lower left port; materials at 1.55 um
 6 cells a wavelength: 590 × 119 × 54 cells of 74.3 nm (3.8 million), CPMLs of 12
   wavelength  cross TE0  bar TE0   reflection  excess loss

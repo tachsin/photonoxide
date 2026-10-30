@@ -62,6 +62,35 @@ pub fn main() -> photonoxide::Result<ExitCode> {
     let geometry = device.geometry(&values)?;
     let stem = geometry.structure.shapes("Si")[0].clone();
     let inside = |p: Point| stem.contains(p);
+    // the 2D grids (µm); the outline's tolerance (µm); the paper's "sub-0.2 dB"
+    let (steps, outline, below) = ([0.02, 0.01], 1e-12, 0.2);
+    let lam = photonoxide::units::Wavelength::um(1.55)?;
+    let mut setup = common::Setup::new();
+    setup.device(&device, &values, lam);
+    setup.item(
+        "outline",
+        &format!(
+            "the taper's widths at 13 points 2 µm apart: {} µm (Zhang et al.'s Table 1)",
+            TABLE.map(common::number).join(", ")
+        ),
+    );
+    setup.wavelength(lam);
+    setup.item(
+        "grid",
+        &format!(
+            "2D FDFD on the effective index method's plane, cells of {} (sampled)",
+            steps.map(common::length).join(" and ")
+        ),
+    );
+    setup.item("solver", "the Y-branch device's 2D model: 2D FDFD");
+    setup.item(
+        "tolerance",
+        &format!(
+            "the drawn outline within {outline:e} µm of Table 1; the 2D insertion loss below \
+             {below} dB"
+        ),
+    );
+    setup.print();
     println!(
         "Zhang et al.'s Y-junction through the Y-branch device: 220 nm SOI, a 2 um taper, arms 5 \
          um long to ports 2 um apart"
@@ -74,9 +103,9 @@ pub fn main() -> photonoxide::Result<ExitCode> {
         worst = worst.max((width(&inside, x) - w).abs());
     }
     println!("the drawn outline at its 13 points against Table 1 (largest difference):");
-    checks.compare("outline against Table 1 (um)", worst, 0.0, 1e-12);
+    checks.compare("outline against Table 1 (um)", worst, 0.0, outline);
     println!("its 2D model, 2D FDFD by the effective index method at 1.55 um (2D estimates):");
-    for step in [0.02, 0.01] {
+    for step in steps {
         let d = device
             .clone()
             .with_grid_2d(FdfdGrid::new(step).with_samples(1));
@@ -92,7 +121,7 @@ pub fn main() -> photonoxide::Result<ExitCode> {
         checks.at_most(
             &format!("insertion loss, 2D, {:.0} nm (dB)", step * 1e3),
             loss,
-            0.2,
+            below,
         );
     }
     Ok(checks.finish())

@@ -1,3 +1,26 @@
+Setup
+  (layers from the top down: the bottom one, the substrate, is the first laid down)
+  layers:
+    cladding       half-space   oxide (1.444), n 1.444000
+    Si             220 nm       Si (3.473), n 3.473000 in its shapes; oxide (1.444), n 1.444000 elsewhere
+    BOX            2 µm         oxide (1.444), n 1.444000
+    substrate      half-space   oxide (1.444), n 1.444000
+  shapes:
+    on Si: rectangle centred at (5, 0) µm, 10 µm along x by 500 nm along y
+  waveguide: width 0.5 µm, thickness 0.22 µm, slab 0 µm, sidewall 90 °, length 10 µm, loss 2.7 dB/cm, roughness 0 µm, correlation 0.05 µm, wavelength 1.55 µm, span 0.1 µm
+  wavelength: 1.55 µm
+  window: 2.1 µm across by 1.5 µm up, centred on the strip; its quarter behind the strip's two mirror planes, zero walls outside
+  grid: uniform, 10 and 5 nm, nested, the core's edges on nodes
+  solver: the full-vector finite-difference mode solver, Hadley's equations (quoted) and the standard scheme
+  tolerance: 3e-3 on the book's 2.443; Hadley's grid error at most 1e-4
+  materials:
+    oxide (1.444): a constant index, n 1.444; valid 1 to 2 µm
+      source: L. Chrostowski, M. Hochberg, Silicon Photonics Design (2015), Fig. 3.14, doi:10.1017/CBO9781316084168
+      n 1.444000 at 1.55 µm
+    Si (3.473): a constant index, n 3.473; valid 1 to 2 µm
+      source: L. Chrostowski, M. Hochberg, Silicon Photonics Design (2015), Fig. 3.14, doi:10.1017/CBO9781316084168
+      n 3.473000 at 1.55 µm
+
 500 x 220 nm strip of 3.473 in 1.444 at 1550 nm (Chrostowski & Hochberg, Fig. 3.14)
   the quarter of a 2.1 x 1.5 um window, zero walls; TE-like n_eff by scheme
   grid     nodes       standard scheme   Hadley's equations   TE fraction

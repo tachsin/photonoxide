@@ -1,3 +1,20 @@
+Setup
+  (layers from the top down: the bottom one, the substrate, is the first laid down)
+  layers:
+    cover          half-space   medium, n 1.000000
+    film 1         500 nm       medium, n 1.660000
+    film 2         500 nm       medium, n 1.530000
+    film 3         500 nm       medium, n 1.600000
+    film 4         500 nm       medium, n 1.660000
+    substrate      half-space   medium, n 1.500000
+  wavelength: 0.6328 µm
+  window: flat: y from -5 to 1 µm (0 at the cover's interface), 4 cells wide between electric walls; a PML of 2 µm at the bottom, strength 5
+  grid: uniform, 2.5 nm
+  solver: the full-vector mode solver, TE, with a PML for the leakage
+  tolerance: 5e-5 in Re and Im (TE8, at the cover's cutoff: 2e-4)
+  materials:
+    medium: constant indices, Chilwell & Hodgkinson's (1984), lossless
+
 Chilwell & Hodgkinson's guide, flat, 2.5 nm grid, PML below the substrate
   TE4 Re n_eff                           1.461858   paper 1.46186    ± 5e-5      ok
   TE4 Im n_eff                           0.007156   paper 0.00716    ± 5e-5      ok

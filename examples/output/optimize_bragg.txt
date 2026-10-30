@@ -1,3 +1,53 @@
+Setup
+  (layers from the top down: the bottom one, the substrate, is the first laid down)
+  20 layers:
+    layers:
+      cover          half-space   air, n 1.000000
+      film 1         0 to 214.2857 nm medium (searched; the quarter-wave 83.33333 nm), n 1.800000
+      film 2         0 to 214.2857 nm medium (searched; the quarter-wave 107.1429 nm), n 1.400000
+      film 3         0 to 214.2857 nm medium (searched; the quarter-wave 83.33333 nm), n 1.800000
+      film 4         0 to 214.2857 nm medium (searched; the quarter-wave 107.1429 nm), n 1.400000
+      film 5         0 to 214.2857 nm medium (searched; the quarter-wave 83.33333 nm), n 1.800000
+      film 6         0 to 214.2857 nm medium (searched; the quarter-wave 107.1429 nm), n 1.400000
+      film 7         0 to 214.2857 nm medium (searched; the quarter-wave 83.33333 nm), n 1.800000
+      film 8         0 to 214.2857 nm medium (searched; the quarter-wave 107.1429 nm), n 1.400000
+      film 9         0 to 214.2857 nm medium (searched; the quarter-wave 83.33333 nm), n 1.800000
+      film 10        0 to 214.2857 nm medium (searched; the quarter-wave 107.1429 nm), n 1.400000
+      film 11        0 to 214.2857 nm medium (searched; the quarter-wave 83.33333 nm), n 1.800000
+      film 12        0 to 214.2857 nm medium (searched; the quarter-wave 107.1429 nm), n 1.400000
+      film 13        0 to 214.2857 nm medium (searched; the quarter-wave 83.33333 nm), n 1.800000
+      film 14        0 to 214.2857 nm medium (searched; the quarter-wave 107.1429 nm), n 1.400000
+      film 15        0 to 214.2857 nm medium (searched; the quarter-wave 83.33333 nm), n 1.800000
+      film 16        0 to 214.2857 nm medium (searched; the quarter-wave 107.1429 nm), n 1.400000
+      film 17        0 to 214.2857 nm medium (searched; the quarter-wave 83.33333 nm), n 1.800000
+      film 18        0 to 214.2857 nm medium (searched; the quarter-wave 107.1429 nm), n 1.400000
+      film 19        0 to 214.2857 nm medium (searched; the quarter-wave 83.33333 nm), n 1.800000
+      film 20        0 to 214.2857 nm medium (searched; the quarter-wave 107.1429 nm), n 1.400000
+      substrate      half-space   medium, n 1.800000
+    budget: 20000 evaluations for DE and for CMA-ES
+  10 layers:
+    layers:
+      cover          half-space   air, n 1.000000
+      film 1         0 to 214.2857 nm medium (searched; the quarter-wave 83.33333 nm), n 1.800000
+      film 2         0 to 214.2857 nm medium (searched; the quarter-wave 107.1429 nm), n 1.400000
+      film 3         0 to 214.2857 nm medium (searched; the quarter-wave 83.33333 nm), n 1.800000
+      film 4         0 to 214.2857 nm medium (searched; the quarter-wave 107.1429 nm), n 1.400000
+      film 5         0 to 214.2857 nm medium (searched; the quarter-wave 83.33333 nm), n 1.800000
+      film 6         0 to 214.2857 nm medium (searched; the quarter-wave 107.1429 nm), n 1.400000
+      film 7         0 to 214.2857 nm medium (searched; the quarter-wave 83.33333 nm), n 1.800000
+      film 8         0 to 214.2857 nm medium (searched; the quarter-wave 107.1429 nm), n 1.400000
+      film 9         0 to 214.2857 nm medium (searched; the quarter-wave 83.33333 nm), n 1.800000
+      film 10        0 to 214.2857 nm medium (searched; the quarter-wave 107.1429 nm), n 1.400000
+      substrate      half-space   medium, n 1.800000
+    budget: 5000 evaluations for DE and for CMA-ES
+  both:
+    wavelength: 0.6 µm
+    grid: none: transfer matrices, exact, TE at normal incidence
+    solver: 1 − R minimized by DE (current-to-best/1, F 0.8, CR 0.5, 30 individuals) and CMA-ES, seed 1, each polished by L-BFGS-B on the exact dR/dd
+    tolerance: R to 5e-7; the thicknesses within 0.01 nm of the quarter-wave stack
+  materials:
+    air, medium: constant indices, Bennet et al.'s (2024)
+
 Bragg mirrors of n = 1.8/1.4 on 1.8 under air at 600 nm (Bennet et al. 2024), transfer matrices, exact: no grid
 
 20 layers, each 0 to 214.29 nm; cost 1 − R

@@ -9,6 +9,7 @@ import { blobUrl, getRepoFile } from "@/lib/projects/photonoxide/github";
 import { renderMathMarkdown, repoLinkResolver } from "@/lib/projects/photonoxide/markdown";
 import {
   CROSS_CODE_DOCS_PATH,
+  DESIGN_DOCS_PATH,
   DOCS_PATH,
   LANGUAGES_DOCS_PATH,
   PHOTONOXIDE_LINKS,
@@ -56,6 +57,9 @@ export default async function DocsPage() {
           </a>
           <Link href={PYTHON_DOCS_PATH} className="proj-pill">
             In Python
+          </Link>
+          <Link href={DESIGN_DOCS_PATH} className="proj-pill">
+            Designs as job files
           </Link>
           <Link href={LANGUAGES_DOCS_PATH} className="proj-pill">
             From any language

@@ -1,5 +1,7 @@
 """The Python examples (python/examples): each reproduces its paper's numbers and exits 0, and
-one with a Rust twin in examples/ prints what the twin prints (examples/output), line for line."""
+one with a Rust twin in examples/ prints what the twin prints (examples/output), line for line,
+after the setup block the Rust example prints first (its layers, materials and grid, from the
+Rust values: examples/common/setup.rs)."""
 
 from __future__ import annotations
 
@@ -43,4 +45,8 @@ def test_an_example_reproduces_its_paper(name: str) -> None:
     assert re.search(r"^all \d+ within tolerance of the paper$", out, re.MULTILINE), out
     if name in TWINS:
         rust = (ROOT / "examples" / "output" / f"{name}.txt").read_text(encoding="utf-8")
-        assert out == rust.replace("\r\n", "\n")
+        rust = rust.replace("\r\n", "\n")
+        # the setup block, up to and including its blank line
+        setup, blank, rest = rust.partition("\n\n")
+        assert setup.startswith("Setup\n") and blank, rust
+        assert out == rest

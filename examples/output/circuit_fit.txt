@@ -1,3 +1,15 @@
+Setup
+  instance c1: a coupler: coupling 0.08
+  instance c2: a coupler: coupling 0.05
+  instance top: a waveguide: length 31.41593 µm, loss 20 dB/cm
+  instance bottom: a waveguide: length 31.41593 µm, loss 20 dB/cm
+  ports: in, through, add, drop
+  the ring's guide: n_eff 2.4 and n_g 4.2 at 1.55 µm, first order in λ
+  wavelengths: 81 from 1.548 to 1.556 µm
+  grid: none: the circuit's S-matrices, exact
+  solver: κ₁², κ₂², the loss (dB/cm) and the radius (µm) from 0.12, 0.03, 10, 10.002 by L-BFGS-B on the circuit adjoint's gradient and by CMA-ES (seed 1) on the response alone
+  tolerance: 1e-8 and 1e-8 in κ₁² and κ₂², 1e-5 dB/cm, 1e-9 µm
+
 An add-drop ring's through and drop spectra, 81 wavelengths from 1.548 to 1.556 µm, made by Bogaerts et al.'s Eqs. 5 and 6, exact: no grid
   made with κ₁² = 0.08, κ₂² = 0.05, 20 dB/cm, R = 10 µm; both fits from κ₁² = 0.12, κ₂² = 0.03, 10 dB/cm, R = 10.002 µm, to F below 1e-18
   L-BFGS-B with the adjoint gradient: 79 evaluations, each 81 circuit solves and 81 adjoint solves

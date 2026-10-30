@@ -1,3 +1,64 @@
+Setup
+  (layers from the top down: the bottom one, the substrate, is the first laid down)
+  the 5.8 mm modulator:
+    layers:
+      cladding       half-space   SiO2, n 1.444024
+      metal          830 nm       SiO2, n 1.444024
+      LN             600 nm       LiNbO3 (e), n 2.137560 in its shapes; SiO2, n 1.444024 elsewhere
+      BOX            2 µm         SiO2, n 1.444024
+      substrate      half-space   Si, n 3.475700
+    shapes:
+      on metal: rectangle centred at (3045, 0) µm, 5800 µm along x by 20 µm along y
+      on metal: rectangle centred at (3045, 65) µm, 5800 µm along x by 100 µm along y
+      on metal: rectangle centred at (3045, -65) µm, 5800 µm along x by 100 µm along y
+      on LN: rectangle centred at (10, 0) µm, 20 µm along x by 1.2 µm along y
+      on LN: rectangle centred at (6080, 0) µm, 20 µm along x by 1.2 µm along y
+      on LN: rectangle centred at (3045, -12.5) µm, 5800 µm along x by 1.2 µm along y
+      on LN: polygon of 4 vertices, within (20, -13.1) µm to (145, 0.6) µm: 125 µm along x by 13.7 µm along y
+      on LN: polygon of 4 vertices, within (5945, -13.1) µm to (6070, 0.6) µm: 125 µm along x by 13.7 µm along y
+      on LN: rectangle centred at (3045, 12.5) µm, 5800 µm along x by 1.2 µm along y
+      on LN: polygon of 4 vertices, within (20, -0.6) µm to (145, 13.1) µm: 125 µm along x by 13.7 µm along y
+      on LN: polygon of 4 vertices, within (5945, -0.6) µm to (6070, 13.1) µm: 125 µm along x by 13.7 µm along y
+    TFLN Mach-Zehnder modulator: film 0.6 µm, slab 0.3 µm, width 1.2 µm, sidewall 70 °, gap 5 µm, signal 20 µm, ground 100 µm, metal 0.83 µm, conductivity 58 MS/m, buried 2 µm, substrate_permittivity 11.7, cladding 0.6 µm, cladding_permittivity 5.5, length 5800 µm, load 50 Ω, voltage 0 V, frequency 0 GHz, bias 0 rad, loss 0 dB/cm
+  the 10.8 mm modulator:
+    layers:
+      cladding       half-space   SiO2, n 1.444024
+      metal          830 nm       SiO2, n 1.444024
+      LN             600 nm       LiNbO3 (e), n 2.137560 in its shapes; SiO2, n 1.444024 elsewhere
+      BOX            2 µm         SiO2, n 1.444024
+      substrate      half-space   Si, n 3.475700
+    shapes:
+      on metal: rectangle centred at (5545, 0) µm, 10800 µm along x by 20 µm along y
+      on metal: rectangle centred at (5545, 65) µm, 10800 µm along x by 100 µm along y
+      on metal: rectangle centred at (5545, -65) µm, 10800 µm along x by 100 µm along y
+      on LN: rectangle centred at (10, 0) µm, 20 µm along x by 1.2 µm along y
+      on LN: rectangle centred at (11080, 0) µm, 20 µm along x by 1.2 µm along y
+      on LN: rectangle centred at (5545, -12.5) µm, 10800 µm along x by 1.2 µm along y
+      on LN: polygon of 4 vertices, within (20, -13.1) µm to (145, 0.6) µm: 125 µm along x by 13.7 µm along y
+      on LN: polygon of 4 vertices, within (10945, -13.1) µm to (11070, 0.6) µm: 125 µm along x by 13.7 µm along y
+      on LN: rectangle centred at (5545, 12.5) µm, 10800 µm along x by 1.2 µm along y
+      on LN: polygon of 4 vertices, within (20, -0.6) µm to (145, 13.1) µm: 125 µm along x by 13.7 µm along y
+      on LN: polygon of 4 vertices, within (10945, -0.6) µm to (11070, 13.1) µm: 125 µm along x by 13.7 µm along y
+    TFLN Mach-Zehnder modulator: film 0.6 µm, slab 0.3 µm, width 1.2 µm, sidewall 70 °, gap 5 µm, signal 20 µm, ground 100 µm, metal 0.83 µm, conductivity 58 MS/m, buried 2 µm, substrate_permittivity 11.7, cladding 0.6 µm, cladding_permittivity 5.5, length 10800 µm, load 50 Ω, voltage 0 V, frequency 0 GHz, bias 0 rad, loss 0 dB/cm
+  both:
+    wavelength: 1.55 µm
+    grid: the 2D model's own grids, and grids twice as fine (the gate); the analytic model's closed forms
+    solver: the static solver's field and the full-vector mode's perturbation, the quasi-TEM line of the static solver (2D); the field at a coplanar gap's centre across the film's slab mode, the line by conformal mapping (analytic)
+    tolerance: 0.15 V·cm on Vπ·L; 20 % on the response at 250 GHz; the 2D grid within 1 %; the analytic within 15 % of the 2D
+  materials:
+    SiO2: Sellmeier, n² = A + Σ Bλ²/(λ² − C²), A = 1, B = 0.6961663, 0.4079426, 0.8974794, C = 0.0684043, 0.1162414, 9.896161 µm; valid 0.21 to 3.71 µm
+      source: I. H. Malitson, J. Opt. Soc. Am. 55, 1205 (1965), doi:10.1364/JOSA.55.001205, at 293.15 K
+      fused silica, Eq. (1), checked against the paper; fit residual 10.5e-6 on average; thermal and deposited oxides differ slightly
+      n 1.444024 at 1.55 µm
+    LiNbO3 (e): Sellmeier, n² = A + Σ Bλ²/(λ² − C²), A = 1, B = 2.9804, 0.5981, 8.9543, C = 0.1430734, 0.2580698, 20.39804 µm; valid 0.4 to 5 µm
+      source: D. E. Zelmon, D. L. Small, D. Jundt, J. Opt. Soc. Am. B 14, 3319 (1997), doi:10.1364/JOSAB.14.003319, at 294.15 K
+      minimum deviation on prisms, 0.4 to 5.0 um at 21 C; the fit is within 2e-4 of every measured index
+      n 2.137560 at 1.55 µm
+    Si: a table of 35 wavelengths, 1.2 to 14 µm, between them natural cubic splines; valid 1.2 to 14 µm
+      source: H. H. Li, J. Phys. Chem. Ref. Data 9, 561 (1980), doi:10.1063/1.555624, at 293 K
+      crystalline silicon; Table 1, 293 K, checked against the paper; uncertainty ±2e-3 (Li)
+      n 3.475700 at 1.55 µm
+
 Zhang et al. 2022's thin-film lithium niobate modulators through photonoxide's TFLN Mach-Zehnder modulator device, at 1550 nm
 
 5.8 mm long

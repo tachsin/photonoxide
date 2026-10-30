@@ -1,3 +1,13 @@
+Setup
+  circuit: Fig. 4's: couplers k1 to k9 and two pairs of rings between MZI arms of phases φ1 to φ8, lossless, solved as 2 × 2 transfer matrices and by photonoxide's circuit solve
+  k1 to k9: 0.29, 0.097747, 1, 0.097747, 0.7617, 0.7715, 0.9142, 0.7715, 0.7617
+  φ1 to φ8: 0π, 1π, 0π, 0π, 0π, 1π, 0π, 0π
+  designs: elliptic low-passes of order 4, passband edge 0.5π, 2 dB ripple and 40 dB attenuation; 1 dB ripple and 60 dB attenuation
+  frequencies: ω the rings' round-trip phase: 501 over 0 to π for the optimizer's target, 20000 for a response's ripple and attenuation
+  grid: none: closed forms and the circuit solve, exact
+  solver: Nelder–Mead on the paper's Eq. 12 (weights 1 and 100) from Fig. 4's values, 20000 evaluations a target
+  tolerance: each design at its edges to 1e-8 of A_p and A_s; the 2 × 2 model against the circuit to 1e-12
+
 Wang et al. 2022's double-ring-loaded MZI filter: the fourth-order elliptic low-passes, derived here, against its circuit, exact
 
 Elliptic, order 4, 2 dB ripple, 40 dB attenuation, passband edge 0.5π: stopband edge 0.606941π

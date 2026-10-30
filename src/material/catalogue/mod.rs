@@ -49,6 +49,8 @@ mod entries;
 pub(crate) mod ferroelectric;
 pub(crate) mod litao3_dndt;
 mod models;
+#[path = "../../cases/material/catalogue/opo_checks.rs"]
+pub(crate) mod opo_checks;
 pub(crate) mod phase_change;
 #[path = "../../cases/material/catalogue/phase_change_checks.rs"]
 pub(crate) mod phase_change_checks;
@@ -66,6 +68,7 @@ pub(crate) mod thermo_checks;
 
 pub use coming::Coming;
 pub use conductivity::{Conductivity, ConductivityModel, conductivities, conductivity};
+pub(crate) use entries::lithium_rich_jundt_1990;
 pub use phase_change::{
     PhaseChange, State, figure_of_merit, partly_crystalline, phase_change, phase_changes,
 };

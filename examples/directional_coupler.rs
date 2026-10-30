@@ -94,27 +94,77 @@ fn stack() -> photonoxide::Result<LayerStack> {
 /// `step` µm.
 fn quarter(step: f64) -> photonoxide::Result<StripCoupler> {
     let (nx, ny) = (
-        (2.75 / step).round() as usize,
-        (0.61 / step).round() as usize,
+        (WINDOW.0 / 2.0 / step).round() as usize,
+        (WINDOW.1 / 2.0 / step).round() as usize,
     );
     Ok(StripCoupler::on(stack()?, "Si")?.with_mesh(Mesh::window(
-        5.5,
-        1.22,
+        WINDOW.0,
+        WINDOW.1,
         nx,
         ny,
         Scheme::Standard,
     )))
 }
 
+/// The cross-section's window, µm across and up, centred on the pair.
+const WINDOW: (f64, f64) = (5.5, 1.22);
+/// The grids, µm: the 3D model's, and the finer one of the check.
+const GRIDS: (f64, f64) = (0.01, 0.005);
+/// The book's L_x (µm) and the tolerance: their fit to a 10 nm mesh, and our corners.
+const BOOK: f64 = 37.5;
+const TOLERANCE: f64 = 1.0;
+
 pub fn main() -> photonoxide::Result<ExitCode> {
     let l0 = Wavelength::um(1.55)?;
+    let band = [1.53, 1.57];
+    let device = quarter(GRIDS.0)?;
+    let values = Values::new(&device, &[("span", 0.04), ("loss", 0.0)])?;
+    let mut setup = common::Setup::new();
+    setup.device(&device, &values, l0);
+    setup.item(
+        "wavelengths",
+        &format!(
+            "{} µm; the supermodes tracked over {} to {} µm",
+            common::number(l0.to_um()),
+            band[0],
+            band[1]
+        ),
+    );
+    setup.item(
+        "window",
+        &format!(
+            "{} across by {} up, centred on the pair; its quarter",
+            common::length(WINDOW.0),
+            common::length(WINDOW.1)
+        ),
+    );
+    setup.item(
+        "grid",
+        &format!(
+            "uniform, {} (the 3D model) and {} (L_x checked)",
+            common::length(GRIDS.0),
+            common::length(GRIDS.1)
+        ),
+    );
+    setup.item(
+        "solver",
+        "the full-vector mode solver, the standard scheme: the even and odd supermodes, \
+         L_x = λ/(2(n_even − n_odd))",
+    );
+    setup.item(
+        "tolerance",
+        &format!(
+            "{} on the book's L_x = {}",
+            common::length(TOLERANCE),
+            common::length(BOOK)
+        ),
+    );
+    setup.print();
     let mut checks = common::Checks::default();
     println!(
         "two 500 x 220 nm strips of the book's Si in 1.444 oxide, 200 nm apart, quarter domain"
     );
     // the coupler's 3D model, the supermodes tracked over 1.53-1.57 um on a 10 nm grid, lossless
-    let device = quarter(0.01)?;
-    let values = Values::new(&device, &[("span", 0.04), ("loss", 0.0)])?;
     let coupler: DirectionalCoupler = device.coupler(&values, Fidelity::ThreeD)?;
     let lx = coupler.supermodes().cross_over_length(l0);
     let s = coupler.s_matrix(l0, &[lx / 2.0])?;
@@ -123,7 +173,7 @@ pub fn main() -> photonoxide::Result<ExitCode> {
         s.power(2, 0),
         s.power(3, 0)
     );
-    for w in [1.53, 1.57] {
+    for w in band {
         let w = Wavelength::um(w)?;
         println!(
             "  10 nm grid: L_x at {} um {:.3} um",
@@ -132,7 +182,7 @@ pub fn main() -> photonoxide::Result<ExitCode> {
         );
     }
     // L_x at 1.55 um on a finer grid: the device's two cross-sections, solved
-    let fine = quarter(0.005)?;
+    let fine = quarter(GRIDS.1)?;
     let (even, odd) = fine.cross_sections(&Values::defaults(&fine), l0)?;
     let index =
         |cs| -> photonoxide::Result<f64> { Ok(modes(cs, l0, 1, None)?[0].effective_index().re) };
@@ -141,6 +191,6 @@ pub fn main() -> photonoxide::Result<ExitCode> {
     println!("  5 nm grid: n_eff {even:.5} (even), {odd:.5} (odd), L_x {fine:.3} um");
     // the book's Eq. 4.14 at 200 nm, 37.5 um as printed: a fit to their 10 nm mesh's points;
     // ours moves 0.4 um from 10 to 5 nm, the corners converging slowly
-    checks.compare("L_x at a 200 nm gap (um), 5 nm grid", fine, 37.5, 1.0);
+    checks.compare("L_x at a 200 nm gap (um), 5 nm grid", fine, BOOK, TOLERANCE);
     Ok(checks.finish())
 }

@@ -3,6 +3,7 @@ import { renderMarkdown } from "@/lib/projects/highlight";
 import { blobUrl, rawUrl } from "./github";
 import {
   CROSS_CODE_DOCS_PATH,
+  DESIGN_DOCS_PATH,
   DOCS_PATH,
   LANGUAGES_DOCS_PATH,
   METHODS_PATH,
@@ -15,6 +16,7 @@ const GUIDES = {
   "docs/python.md": PYTHON_DOCS_PATH,
   "docs/languages.md": LANGUAGES_DOCS_PATH,
   "docs/cross-code.md": CROSS_CODE_DOCS_PATH,
+  "docs/design.md": DESIGN_DOCS_PATH,
 };
 
 /**

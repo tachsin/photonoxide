@@ -18,21 +18,35 @@ use photonoxide::units::Wavelength;
 
 pub fn main() -> ExitCode {
     let si = material::silicon();
-    println!("{} (Li 1980, Table 1, 293 K), no grid", si.name());
-    let mut checks = common::Checks::default();
     // (wavelength in µm, Li's printed index)
-    for (um, printed) in [
+    let rows = [
         (1.30, 3.5016),
         (1.55, 3.4757),
         (2.00, 3.4510),
         (5.00, 3.4195),
         (10.0, 3.4150),
-    ] {
+    ];
+    let tolerance = 5e-5;
+    let mut setup = common::Setup::new();
+    setup.item(
+        "wavelengths",
+        &format!("{} µm", rows.map(|r| common::number(r.0)).join(", ")),
+    );
+    setup.item("grid", "none: the material's model, evaluated");
+    setup.item(
+        "tolerance",
+        &format!("{tolerance:e} absolute (Li prints 4 decimals)"),
+    );
+    setup.material(&si, Wavelength::um(rows[1].0).expect("a valid wavelength"));
+    setup.print();
+    println!("{} (Li 1980, Table 1, 293 K), no grid", si.name());
+    let mut checks = common::Checks::default();
+    for (um, printed) in rows {
         let n = si
             .refractive_index(Wavelength::um(um).expect("a valid wavelength"))
             .expect("inside Li's range")
             .re;
-        checks.compare(&format!("n at {um} µm"), n, printed, 5e-5);
+        checks.compare(&format!("n at {um} µm"), n, printed, tolerance);
     }
     checks.finish()
 }

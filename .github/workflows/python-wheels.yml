@@ -27,6 +27,8 @@ on:
       - "src/facade.rs"
       - "src/facade/**"
       - "docs/python.md"
+      # the design page, whose Python calls python/tests/test_methods.py runs too
+      - "docs/design.md"
       # the write-ups whose Python calls python/tests/test_methods.py runs
       - "docs/methods/catalogue.md"
       - "docs/methods/circuits.md"

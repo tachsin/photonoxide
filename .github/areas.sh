@@ -95,6 +95,14 @@ area sweep \
   "mode" \
   "sweep::" "sweep/" ""
 
+# nonlinear optics (0.6.1): phase matching, quasi-phase matching and the acceptance bandwidths on
+# the catalogue's indices; the catalogue's PPLN OPO cases (src/cases/material/catalogue/opo_checks.rs)
+# find their idler through it
+area nonlinear \
+  "src/nonlinear.rs src/nonlinear/* src/cases/nonlinear/* src/validation/nonlinear.rs" \
+  "material mode" \
+  "nonlinear::" "nonlinear/ material/linbo3-zelmon-opo material/linbo3-jundt-opo" ""
+
 # with the GPU's report (tests/gpu_report.rs, docs/validation-gpu.md, run by hand)
 area fdtd \
   "src/fdtd.rs src/fdtd/* src/cases/fdtd/* src/validation/* tests/gpu_report.rs src/lstsq.rs src/traffic.rs" \

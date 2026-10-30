@@ -1,3 +1,13 @@
+Setup
+  shapes:
+    on the plane: a guide of ε 12 along x, 1 µm wide, centred on y = 0; a disc of radius 250 nm centred on its upper edge at x = 2.25 µm: a half disc on the guide
+  medium: air, ε 1, in 2D (a = 1 µm)
+  source: a dipole of E_z on the guide's axis at x = -2.25 µm, a pulse at 0.2 c/a, relative width 0.1
+  window: x -3 to 3.75 µm, y -1.5 to 2 µm inside CPMLs of 1.5 µm; the scattered flux out of the box x 1.25 to 3.25 µm, y -1 to 1.5 µm
+  grid: 10 to 30 pixels a, every 2; the reference smoothed at 50; Courant number 0.9; each run until E_z decays to 1e-11
+  solver: 2D FDTD, with subpixel smoothing and with ε sampled; the scattering, the difference of runs with and without the bump
+  tolerance: 0.6 on the smoothed order (2), 0.5 on the sampled one (1); smoothing better at every resolution
+
 Oskooi et al.'s Fig. 7: a half disc of radius 0.25a on a guide of eps = 12, a wide,
 E_z from a dipole 4.5a from it, f = 0.2 c/a; the scattered field's flux out of a
 2a x 2.5a box about the bump, per unit dipole moment (a = 1 um)

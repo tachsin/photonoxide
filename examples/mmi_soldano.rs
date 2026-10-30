@@ -40,6 +40,10 @@ use photonoxide::units::{Length, Wavelength};
 /// The sections: each width and its access guides' width, µm.
 pub const SECTIONS: [(f64, f64); 3] = [(3.0, 0.8), (6.0, 1.5), (12.0, 1.5)];
 
+/// The tolerance on each image's length, per mille of Soldano and Pennings's: Eq. 6 is
+/// paraxial, about 1 % short at 3 µm.
+const PER_MILLE: f64 = 12.0;
+
 /// The MMI `device` with a section `width` µm wide and access and port guides `access` µm wide:
 /// its values, and its 2D model there. jobs/mmi-1x2-self-imaging.yaml and
 /// jobs/mmi-2x2-self-imaging.yaml compute the same designs, to the bit.
@@ -61,8 +65,52 @@ pub fn main() -> photonoxide::Result<ExitCode> {
     let n =
         |m: &material::Material| -> photonoxide::Result<f64> { Ok(m.refractive_index(lam)?.re) };
     let (nf, nc) = (n(&material::silicon())?, n(&material::silica())?);
-    let nr =
-        Slab::new(nc, nf, nc, Length::nm(220.0))?.modes(Polarization::Te, lam)[0].effective_index();
+    let film = Length::nm(220.0);
+    let nr = Slab::new(nc, nf, nc, film)?.modes(Polarization::Te, lam)[0].effective_index();
+    let mut setup = common::Setup::new();
+    for device in [StripMmi::one_by_two(), StripMmi::two_by_two()] {
+        let (width, access) = SECTIONS[0];
+        setup.part(&format!(
+            "the {}, at its first section (each alike)",
+            device.kind()
+        ));
+        setup.device(&device, &model(&device, width, access)?.0, lam);
+    }
+    setup.part("both");
+    setup.item(
+        "sections",
+        &SECTIONS
+            .map(|(w, a)| {
+                format!(
+                    "{} wide with {} access guides",
+                    common::length(w),
+                    common::length(a)
+                )
+            })
+            .join("; "),
+    );
+    setup.wavelength(lam);
+    setup.item(
+        "grid",
+        &format!(
+            "none: the 2D model's exact slab modes, the effective index method's plane (the \
+             {} film's TE index {nr:.5} in {nc:.5})",
+            common::length(film.to_um())
+        ),
+    );
+    setup.item(
+        "solver",
+        "the MMI devices' 2D model: guided-mode analysis on the plane; Soldano and Pennings's \
+         Eqs. 4, 6, 33 and 37",
+    );
+    setup.item(
+        "tolerance",
+        &format!(
+            "{} % of Soldano and Pennings's image lengths",
+            common::number(PER_MILLE / 10.0)
+        ),
+    );
+    setup.print();
     println!(
         "Soldano and Pennings's self-imaging lengths against the MMI devices' on 220 nm SOI at \
          1.55 um (2D: the effective index method, n_r {nr:.5}, n_c {nc:.5}; exact slab modes, no \
@@ -109,7 +157,7 @@ pub fn main() -> photonoxide::Result<ExitCode> {
                 image,
                 "Soldano & Pennings",
                 paper,
-                (12.0 * paper).round() / 1000.0,
+                (PER_MILLE * paper).round() / 1000.0,
             );
         }
     }

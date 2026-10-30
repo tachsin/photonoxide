@@ -1,3 +1,13 @@
+Setup
+  instance coupler: a coupler: coupling 0.05
+  instance ring: a waveguide: length 62.64336 µm, loss 3 dB/cm
+  ports: in, through
+  the ring's guide: n_eff 2.4 and n_g 4.2 at 1.55 µm, 3 dB/cm
+  wavelength: 1.55 µm
+  grid: none: the circuit's S-matrix, exact
+  solver: κ² and the radius, from 0.05 and 9.97 µm, by L-BFGS-B on the circuit adjoint's gradient, until the through port is dark
+  tolerance: 1e-9 µm in the radius, 1e-6 in κ² × 1e3, 1e-9 in r / a, 1e-12 in the through power
+
 An all-pass ring, n_eff 2.4, n_g 4.2, 3 dB/cm, tuned at 1.55 µm (Bogaerts et al. 2011), exact: no grid
   from κ² = 0.05, R = 9.97 µm: L-BFGS-B, 40 evaluations, each the circuit solve and one adjoint solve
   resonance order m = 97: R = m λ/(2π n_eff), a = 0.997839, critical κ² = 1 − a² (Eqs. 3 and 2)

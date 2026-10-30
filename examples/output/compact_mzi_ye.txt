@@ -1,3 +1,15 @@
+Setup
+  instance splitter: a coupler: coupling 0.5
+  instance combiner: a coupler: coupling 0.5
+  instance upper: a waveguide: length 150 µm, loss 2 dB/cm
+  instance lower: a waveguide: length 100 µm, loss 2 dB/cm
+  ports: o1, o2, o3, o4
+  the arms' guide: n_eff 2.35 and n_g 4.3 at 1.55 µm
+  frequencies: Model A: 2001 from 187.5 to 200 THz; Model B: 201 over 193.72 THz ± 150 GHz; each fitted at the even-numbered and checked at the odd-numbered
+  grid: none: the circuit's S-parameters, exact
+  solver: vector fitting with real poles and conjugate pairs, the fewest poles whose error at the frequencies left out is below -60 dB
+  tolerance: Model A within 1 pole of 67; Model B's 8 exactly
+
 Ye et al.'s MZI (Photonics Res. 6, 560, 2018): ideal 50/50 couplers, arms of 150 and 100 µm, n_eff 2.35 and n_g 4.3 at 1.55 µm, 200 dB/m; a closed form, exact: no grid
   real poles and conjugate pairs, each fit checked at the frequencies between those it was fitted at; the target -60 dB in |ΔS|
   Model A, 187.5 to 200 THz, fitted at 1001 frequencies: 66 poles -68 dB, 64 poles -51 dB
