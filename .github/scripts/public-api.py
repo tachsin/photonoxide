@@ -108,9 +108,12 @@ def reexports(doc, internal):
                 # methods and fields there, which aren't a private module's items
                 if not use["is_glob"]:
                     items.add(at)
+                else:
+                    globs.append(("::".join(source["path"]), at))
 
+    globs = []
     walk(doc["root"], index[str(doc["root"])]["name"], 0)
-    return found, local, modules, items
+    return found, local, modules, items, globs
 
 
 def main():
@@ -139,12 +142,13 @@ def main():
         sys.exit(f"no package {FACADE} in {workspace}")
     internal = {lib for name, lib in packages if name != FACADE}
 
-    lines, rules, aliases, modules, items = [], [], [], {}, {}
+    lines, rules, aliases, modules, items, globs = [], [], [], {}, {}, []
     for name, lib in packages:
         doc, path = rustdoc_json(workspace, nightly, name, lib, target_dir)
         lines += listing(workspace, path)
-        found, local, modules[lib], items[lib] = reexports(doc, internal)
+        found, local, modules[lib], items[lib], crate_globs = reexports(doc, internal)
         rules += found
+        globs += crate_globs
         if lib in internal:
             rules += local
             aliases += local
@@ -159,11 +163,24 @@ def main():
             return None
         for k in range(2, len(segments)):
             prefix = "::".join(segments[:k])
-            if prefix in items[crate]:
+            if prefix in items[crate] or through_glob(prefix):
                 return None
             if prefix not in modules[crate]:
                 return prefix
         return None
+
+    def through_glob(prefix):
+        """Whether `prefix` is an item or module a workspace crate's glob re-export of another's
+        module makes public (`photonoxide_device::thermal::Cauer`, from the device crate's
+        `pub use photonoxide_statics::thermal::*`)."""
+        for source, at in globs:
+            if prefix.startswith(at + "::"):
+                name = source + prefix[len(at):]
+                owner = name.split("::")[0]
+                if name != prefix and (name in items.get(owner, ()) or name in modules.get(owner, ())
+                                       or through_glob(name)):
+                    return True
+        return False
 
     known = {}
 
