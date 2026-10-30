@@ -3,8 +3,8 @@
 photonoxide's modules sit in layers, and the layers are drawn so that each can become a crate of
 its own: Cargo then builds independent crates side by side, and an edit rebuilds only its own
 crate and the ones above it (tracking issue
-[#508](https://github.com/tachsin/photonoxide/issues/508)). The core, geometry, linalg, mode and
-statics layers are crates already, in `crates/`. The others are still modules of `photonoxide`
+[#508](https://github.com/tachsin/photonoxide/issues/508)). The core, geometry, linalg, mode,
+statics, fdfd and fdtd layers are crates already, in `crates/`. The others are still modules of `photonoxide`
 (`src/`). This page describes the layers, the rules that keep them, how
 to add a module, and where the split to crates stands.
 
@@ -29,8 +29,8 @@ from any other layer. The rows are in dependency order: a layer imports only fro
 | linalg | `photonoxide-linalg` (`crates/photonoxide-linalg`) | `dense`, `sparse`, `backend` (with the Krylov solvers), `eigen` | core |
 | mode | `photonoxide-mode` (`crates/photonoxide-mode`) | `mode`, `eme`, `sweep` | core, geometry, linalg |
 | statics | `photonoxide-statics` (`crates/photonoxide-statics`) | `statics`, `thermal`, `electro` | core, geometry, linalg |
-| fdfd | `photonoxide-fdfd` (planned; `src/`) | `fdfd` | core, geometry, linalg |
-| fdtd | `photonoxide-fdtd` (planned; `src/`) | `fdtd` | core, geometry, linalg, fdfd |
+| fdfd | `photonoxide-fdfd` (`crates/photonoxide-fdfd`) | `fdfd` | core, geometry, linalg |
+| fdtd | `photonoxide-fdtd` (`crates/photonoxide-fdtd`) | `fdtd` | core, geometry, linalg, fdfd |
 | circuit | `photonoxide-circuit` (planned; `src/`) | `circuit`, `compact` | core, geometry, linalg, mode, statics |
 | device | `photonoxide-device` (planned; `src/`) | `generator`, `device`, `shifter` | core, geometry, linalg, mode, statics, fdfd, fdtd, circuit |
 | top | `photonoxide` (`src/`) | `job`, `run`, `farm`, `validation`, `bench`, `export`, `facade`, the checks of the crates below that reach above them (`cases`), and the re-exports of everything below | every layer |
@@ -95,14 +95,12 @@ allow-list no longer matches an import.
 ### Where the cases live: `src/cases/`
 
 `src/cases/<module>/...` holds the checks and tests that reach above their module, under the path
-they had before (`src/fdfd/three/tests.rs` is now `src/cases/fdfd/three/tests.rs`). The module
-itself is still declared by the module it belongs to, with a `#[path]` attribute, for example in
-`src/fdfd/three.rs`:
+they had before (`src/device/pcm_checks.rs` is now `src/cases/device/pcm_checks.rs`). A module
+of photonoxide declares them itself, with a `#[path]` attribute, for example in `src/device.rs`:
 
 ```rust
-#[cfg(test)]
-#[path = "../cases/fdfd/three/tests.rs"]
-mod tests;
+#[path = "cases/device/pcm_checks.rs"]
+pub(crate) mod pcm_checks;
 ```
 
 So the move changes where a file is, and nothing else: the module path, the names of the tests
@@ -168,7 +166,7 @@ The split is tracked in [#508](https://github.com/tachsin/photonoxide/issues/508
 | 0 | Remove the cycles between modules; move the error, verdict and stop types down; move the checks that reach above their layer up; this page and the layering test | done |
 | 1 | `photonoxide-core`, `photonoxide-geometry` | done |
 | 2 | `photonoxide-linalg`, `photonoxide-mode`, `photonoxide-statics` | done |
-| 3 | `photonoxide-fdfd`, `photonoxide-fdtd` (with the `gpu` feature) | planned |
+| 3 | `photonoxide-fdfd`, `photonoxide-fdtd` (with the `gpu` feature) | done |
 | 4 | `photonoxide-circuit`, `photonoxide-device` | planned |
 | 5 | Measure the build again and record the numbers | planned |
 

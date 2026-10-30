@@ -1223,7 +1223,7 @@ Every update is a fixed stencil with no reduction, its rows shared among rayon's
 of about 4096 values fixed by the grid (so a 2D grid, one plane thick, is shared as a 3D one is),
 so the fields are the same bits on any number of threads.
 
-**The kernel** (`src/fdtd/kernel.rs`) runs in f32 or f64.
+**The kernel** (`crates/photonoxide-fdtd/src/fdtd/kernel.rs`) runs in f32 or f64.
 - **Rows:** it goes through the grid row by row along x. Along a row, the neighbours along y and
   z are whole rows away, the same offset for every value, and those along x are the next value
   except at the row's ends. So each row is plain loops over slices of equal length, which the
@@ -1258,7 +1258,7 @@ and AVX2 changes nothing measurable. In cache the same kernel is about eight tim
 twenty 64 × 16 × 16 periodic grids stepped side by side made about 2000 million
 cell-updates/s in f64 on 20 threads, 280 on one.
 
-**Blocking** (`src/fdtd/kernel/blocked.rs`) steps a tile of the grid while it is in cache,
+**Blocking** (`crates/photonoxide-fdtd/src/fdtd/kernel/blocked.rs`) steps a tile of the grid while it is in cache,
 after T. M. Malas et al. (2015, 2016), who tiled a Yee stencil like this one.
 - **The tiles:** whole rows along x (the fastest axis, left whole as Malas et al. leave it, so
   the rows stay long for the vector units), a run of rows along y, every plane along z.
@@ -1391,7 +1391,7 @@ s.run(2000); // the fields there and back, the probes and transforms with them
   lengthen a clean build, and the default build needs no GPU. CI builds it, lints it and runs
   its tests, which skip there (its runners have no GPU, decision 7).
 
-**The kernels** are WGSL written by hand (`src/fdtd/gpu/yee.wgsl`), compiled for f32 or f64.
+**The kernels** are WGSL written by hand (`crates/photonoxide-fdtd/src/fdtd/gpu/yee.wgsl`), compiled for f32 or f64.
 
 - **Slice by slice** (P. Micikevicius 2009): a workgroup of 32 × 8 invocations owns a tile of
   32 × 8 values in each plane of a run of 4 (f32) or 8 (f64) planes along z, and marches through
@@ -1423,7 +1423,7 @@ written by one invocation and every sum taken by one in step order, so a GPU run
 bit on the same device and driver: fields, probes and transforms, f32 and f64, fused and in two
 passes (`a_run_on_the_gpu_repeats_bit_for_bit`). WGSL lets a compiler fuse and reorder
 arithmetic, so the GPU isn't the CPU's bits; it agrees with the CPU to tolerances measured by how
-rounding grows (`src/fdtd/gpu/tests.rs`):
+rounding grows (`crates/photonoxide-fdtd/src/fdtd/gpu/tests.rs`):
 
 - **f64:** a 3D problem with CPMLs (κ and α), a wall, conductivity, a conductor, sources on E and
   H̃, a current, a dipole, probes, a transform box and a flux box (37 × 21 × 19 cells, sizes that

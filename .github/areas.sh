@@ -82,7 +82,7 @@ area mode \
 # with the allocations counted in FDFD's iterations and FDTD's time steps (tests/no_allocation.rs,
 # its tests named fdfd:: and fdtd::, which runs with every test, as tests/method_study.rs does)
 area fdfd \
-  "src/fdfd/* src/cases/fdfd/* crates/photonoxide-linalg/src/backend/iterative.rs crates/photonoxide-linalg/src/backend/krylov.rs crates/photonoxide-linalg/src/backend/krylov/* tests/no_allocation.rs" \
+  "crates/photonoxide-fdfd/src/fdfd/* src/cases/fdfd/* crates/photonoxide-linalg/src/backend/iterative.rs crates/photonoxide-linalg/src/backend/krylov.rs crates/photonoxide-linalg/src/backend/krylov/* tests/no_allocation.rs" \
   "mode sparse" \
   "fdfd:: backend::iterative:: backend::krylov::" "fdfd/ fdfd3d/" \
   "bump_oskooi cpml_roden_gedney lorentz_okoniewski pml_oskooi subpixel_holes tfsf_square_cylinder"
@@ -101,7 +101,7 @@ area sweep \
 
 # with the GPU's report (tests/gpu_report.rs, docs/validation-gpu.md, run by hand)
 area fdtd \
-  "src/fdtd.rs src/fdtd/* src/cases/fdtd/* src/validation/* tests/gpu_report.rs crates/photonoxide-core/src/lstsq.rs crates/photonoxide-core/src/traffic.rs" \
+  "crates/photonoxide-fdtd/src/fdtd.rs crates/photonoxide-fdtd/src/fdtd/* src/cases/fdtd/* src/validation/* tests/gpu_report.rs crates/photonoxide-core/src/lstsq.rs crates/photonoxide-core/src/traffic.rs" \
   "mode material fdfd" \
   "fdtd::" "fdtd/" \
   "bump_oskooi cpml_roden_gedney l3_akahane lorentz_okoniewski pml_oskooi subpixel_holes tfsf_square_cylinder"
