@@ -1,0 +1,17 @@
+Setup
+  (layers from the top down: the bottom one, the substrate, is the first laid down)
+  layers:
+    cladding       half-space   oxide, n 1.444000
+    film           220 nm       silicon, n 3.473000
+    substrate      half-space   oxide, n 1.444000
+  wavelength: 1.55 µm
+  grid: none: the slab's modes found exactly
+  solver: the slab's dispersion relation, its roots
+  tolerance: 5e-4 absolute (the book prints 3 decimals)
+  materials:
+    silicon, oxide: constant indices, the book's (Chrostowski & Hochberg 2015, Section 3.2.2)
+
+220 nm of 3.473 in 1.444 at 1550 nm (Chrostowski & Hochberg, Section 3.2.2), exact: no grid
+  TE0 effective index                    2.844816   paper 2.845      ± 5e-4      ok
+  TM0 effective index                    2.051101   paper 2.051      ± 5e-4      ok
+all 2 within tolerance of the paper

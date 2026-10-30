@@ -15,7 +15,6 @@ three samples, are an FSR within 1e-4 nm of Eq. 9 at their midpoint, as ring_fsr
 
 from __future__ import annotations
 
-import math
 import tempfile
 from pathlib import Path
 
@@ -23,10 +22,11 @@ import numpy as np
 
 import photonoxide as phox
 from _checks import Checks
+from _ring import CONNECTIONS, INSTANCES, LENGTH, N_G, PORTS, UNITS, WAVELENGTH_UM
+from _setup import Setup
 
-LENGTH = 2 * math.pi * 10.0  # µm
-N_G = 4.2
 WAVELENGTHS = 1.53 + 1e-5 * np.arange(4001)  # µm, every 10 pm
+TOLERANCE_NM = 1e-4
 
 
 def minima(wavelength_um: np.ndarray, power: np.ndarray) -> list[float]:
@@ -41,23 +41,26 @@ def minima(wavelength_um: np.ndarray, power: np.ndarray) -> list[float]:
     return found
 
 
+setup = Setup()
+setup.instances(INSTANCES, UNITS, PORTS)
+setup.wavelength(WAVELENGTH_UM)
+setup.item("file", "Touchstone 2.0, 2 ports, 4001 wavelengths from 1.53 to 1.57 µm every 10 pm, physics convention")
+setup.item("grid", "none: the circuit's S-matrix, exact; the file's samples every 10 pm")
+setup.item("solver", "the circuit solve; the file written, read back, and taken in as a measured component")
+setup.item("tolerance", "the bits exactly; 1e-4 nm on the free spectral range (the samples' minima are within 3e-5 nm)")
+setup.medium(
+    "the ring's guide",
+    "stated, not computed: n_eff 2.4 and n_g 4.2 at 1.55 µm, 3 dB/cm (Bogaerts et al. 2012)",
+)
+setup.print()
+
 print("an all-pass ring, kappa^2 = 0.1, 62.8 um of n_eff 2.4, n_g 4.2, 3 dB/cm (Bogaerts et al. 2012)")
 print("  through a Touchstone 2.0 file, 4001 wavelengths from 1.53 to 1.57 um every 10 pm")
 checks = Checks()
 ring = phox.circuit_spectrum(
-    instances={
-        "c": {"kind": "coupler", "coupling": 0.1},
-        "ring": {
-            "kind": "waveguide",
-            "n_eff": 2.4,
-            "n_g": N_G,
-            "wavelength_um": 1.55,
-            "length": LENGTH,
-            "loss": 3.0,
-        },
-    },
-    connections=[("c.o3", "ring.o1"), ("ring.o2", "c.o2")],
-    ports={"in": "c.o1", "through": "c.o4"},
+    instances=INSTANCES,
+    connections=CONNECTIONS,
+    ports=PORTS,
     wavelength_um=WAVELENGTHS,
 )
 with tempfile.TemporaryDirectory() as folder:
@@ -85,5 +88,7 @@ below = max(w for w in found if w < 1.55)
 above = min(w for w in found if w >= 1.55)
 mid = 0.5 * (below + above)
 print(f"  resonances at {below:.6f} and {above:.6f} um, each from its three samples")
-checks.against("FSR around 1.55 µm, nm", (above - below) * 1e3, "Eq. 9", mid**2 / (N_G * LENGTH) * 1e3, 1e-4)
+checks.against(
+    "FSR around 1.55 µm, nm", (above - below) * 1e3, "Eq. 9", mid**2 / (N_G * LENGTH) * 1e3, TOLERANCE_NM
+)
 checks.finish()

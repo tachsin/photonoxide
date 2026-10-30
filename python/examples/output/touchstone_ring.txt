@@ -1,0 +1,20 @@
+Setup
+  instance c: a coupler: coupling 0.1
+  instance ring: a waveguide: n_eff 2.4, n_g 4.2, wavelength_um 1.55 µm, length 62.83185 µm, loss 3 dB/cm
+  ports: in, through
+  wavelength: 1.55 µm
+  file: Touchstone 2.0, 2 ports, 4001 wavelengths from 1.53 to 1.57 µm every 10 pm, physics convention
+  grid: none: the circuit's S-matrix, exact; the file's samples every 10 pm
+  solver: the circuit solve; the file written, read back, and taken in as a measured component
+  tolerance: the bits exactly; 1e-4 nm on the free spectral range (the samples' minima are within 3e-5 nm)
+  materials:
+    the ring's guide: stated, not computed: n_eff 2.4 and n_g 4.2 at 1.55 µm, 3 dB/cm (Bogaerts et al. 2012)
+
+an all-pass ring, kappa^2 = 0.1, 62.8 um of n_eff 2.4, n_g 4.2, 3 dB/cm (Bogaerts et al. 2012)
+  through a Touchstone 2.0 file, 4001 wavelengths from 1.53 to 1.57 um every 10 pm
+  S read back, values that differ        0.000000   written 0.000000   ± 0e0     ok
+  wavelengths read back as c/f: within 3.3e-16 of those written
+  measured S, values that differ         0.000000   circuit 0.000000   ± 0e0     ok
+  resonances at 1.543545 and 1.552627 um, each from its three samples
+  FSR around 1.55 µm, nm                 9.081516   Eq. 9 9.081571   ± 1e-4      ok
+all 3 within tolerance of the paper
