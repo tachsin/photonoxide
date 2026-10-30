@@ -85,7 +85,7 @@ $$V_\pi L = \frac{\lambda}{4\,|dn_\mathrm{eff}/dV|}$$
 (`Drive::PushPull`), dn_eff/dV that of one arm with V across its gap. Both are a cross-section's
 numbers per unit length of a straight section, at DC or the quasi-static limit: 2D quantities, not
 a device's performance (its electrodes' RF loss, the velocity mismatch and the line's impedance
-are 0.6's travelling-wave electrodes, #418).
+are the travelling-wave electrodes', [travelling-wave.md](travelling-wave.md)).
 
 **The papers' overlap.** The thin-film papers write it with an overlap
 Γ = (g/V) ∫_LN E_s |E|² dA / ∫ |E|² dA, E_s the static field along c (`overlap_factor`), as
@@ -301,9 +301,15 @@ gives 1.863 on the same grids, its cells sampled its own way).
 
 ## Not yet
 
-- Barium titanate's index against wavelength, so that a film of it can be a stack's material, and
-  a cross-section's Vπ·L (Eltes et al. 2019; Deng et al. 2026).
-- Lithium tantalate's index against wavelength (Nakamura et al. 2002's Sellmeier fit, not in hand),
-  its r₂₂ and r₅₁, its static permittivity, and a thin-film modulator's Vπ·L (C. Wang et al.,
-  Nature 629, 784 (2024), doi:10.1038/s41586-024-07369-1).
-- The response in frequency: the travelling-wave electrodes (#418).
+- A barium titanate cross-section's Vπ·L for Eltes et al. 2019's and Deng et al. 2026's devices:
+  their coefficients are checked (`pockels/bto-eltes`, `pockels/bto-deng`), and the films' indices
+  are in the catalogue ([catalogue.md](catalogue.md)).
+- Lithium tantalate's r₂₂ and r₅₁, its static permittivity, and a thin-film modulator's Vπ·L
+  (C. Wang et al., Nature 629, 784 (2024), doi:10.1038/s41586-024-07369-1). Its index against
+  wavelength is in the catalogue (above).
+- He et al. 2019's modulator as a case: its cross-section gives 2.87 V·cm push–pull with the thin
+  film's r₃₃ against the 2.2 to 2.5 V·cm measured, and which coefficient their film has isn't
+  settled ([devices](devices.md); #595).
+
+The response in frequency is the travelling-wave electrodes' ([travelling-wave.md](travelling-wave.md))
+and the TFLN modulator's ([devices](devices.md)).

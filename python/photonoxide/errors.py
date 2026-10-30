@@ -3,7 +3,7 @@
 Every error photonoxide raises is an :class:`Error`; each kind also derives from the built-in
 exception it resembles, so ``except ValueError`` catches an invalid value as it would anywhere
 else. The error's fields are attributes: an :class:`OutsideValidity` has the ``material``, the
-``wavelength_um`` asked for and the range, ``shortest_um`` to ``longest_um``::
+``wavelength_um`` asked for and the range, ``shortest_um`` to ``longest_um``:
 
     import photonoxide as phox
 
@@ -45,7 +45,9 @@ class InvalidValue(Error, ValueError):
     """
 
     what: str
+    """What was invalid, e.g. ``"wavelength"``."""
     reason: str
+    """Why it is invalid, in a sentence."""
 
 
 class OutsideValidity(Error, ValueError):
@@ -55,16 +57,22 @@ class OutsideValidity(Error, ValueError):
     """
 
     material: str
+    """The material's id, e.g. ``"si"``."""
     wavelength_um: float
+    """The wavelength asked for, µm."""
     shortest_um: float
+    """The shortest wavelength the data is valid for, µm."""
     longest_um: float
+    """The longest wavelength the data is valid for, µm."""
 
 
 class IoError(Error, OSError):
     """A file or folder can't be read or written. Attributes: ``path`` and ``reason``."""
 
     path: str
+    """The file or folder."""
     reason: str
+    """What went wrong, in the operating system's words."""
 
 
 class ParseError(Error, ValueError):
@@ -74,7 +82,9 @@ class ParseError(Error, ValueError):
     """
 
     what: str
+    """What was being read, e.g. a path and a line."""
     reason: str
+    """Why it can't be read, in a sentence."""
 
 
 class NetlistError(Error, ValueError):
@@ -86,3 +96,4 @@ class GpuError(Error, RuntimeError):
     """A GPU can't be found or opened, or can't do what was asked. Attribute: ``reason``."""
 
     reason: str
+    """What went wrong, in a sentence."""

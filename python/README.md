@@ -43,7 +43,7 @@ arrays are NumPy's, in C order, with their coordinates; errors are photonoxide's
 messages. The package's version is the Rust crate's it was built from. The guide:
 [docs/python.md](https://github.com/tachsin/photonoxide/blob/main/docs/python.md). Every
 function and class, from the package's docstrings and type stubs: the
-[API reference](https://tachsin.github.io/photonoxide/).
+[API reference](https://tachsin.gr/projects/photonoxide/docs/python/reference).
 
 ## License
 
