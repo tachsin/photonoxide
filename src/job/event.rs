@@ -746,4 +746,11 @@ pub enum Event {
         /// The picture.
         raster: Raster,
     },
+    /// A design's process flow ([`crate::fabrication`]): its steps with their reasons,
+    /// alternatives, capabilities and sources, the warnings, what is not specified, the
+    /// library's version and the round trip.
+    Flow {
+        /// The flow.
+        flow: Box<crate::fabrication::FlowRecord>,
+    },
 }

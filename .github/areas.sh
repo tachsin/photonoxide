@@ -151,7 +151,7 @@ area shifter  "src/thermal/* src/cases/thermal/* src/shifter.rs"   "mode materia
 # holds the jobs as TOML, as they were before they were YAML, which the tests read and compare
 area job \
   "src/job/* src/run.rs src/run/* src/farm.rs src/farm/* jobs/* tests/jobs-toml/* docs/job.schema.json docs/results.schema.json" \
-  "material mode sparse fdfd fdtd circuit device generator statics shifter line export convergence" \
+  "material mode sparse fdfd fdtd circuit device generator statics shifter line export convergence fabrication" \
   "job:: run:: farm::" "job/ generator/job- device/study- device/compact- optimize/ chip/" "optimize_chip_rings"
 
 # grid convergence, the gate a reported number passes (its grid study, by Richardson
@@ -200,6 +200,14 @@ area compact \
   "src/compact/* src/cases/compact/* src/lstsq.rs" \
   "circuit job" \
   "compact::" "compact/" "compact_mzi_ye"
+
+# the fabrication engine (#622): the process library, the flow generator and the executor on the
+# stack's geometry; its cases run the library devices' flows (the device area's), and its job kind
+# (src/job/fabrication.rs) is the job area's
+area fabrication \
+  "src/fabrication/* src/validation/fabrication.rs" \
+  "material device" \
+  "fabrication::" "fabrication/" ""
 
 # with the table of what works in Rust and Python, which its tests read; its devices are the
 # library's (src/device)

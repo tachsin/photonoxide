@@ -58,6 +58,7 @@ pub fn rules() -> Vec<(&'static str, Rule)> {
     rules.extend(roughness::rules());
     rules.extend(sweep::rules());
     rules.extend(nonlinear::rules());
+    rules.extend(fabrication::rules());
     rules
 }
 
@@ -2255,6 +2256,9 @@ pub fn cases() -> Vec<Case> {
     cases.extend(crate::sweep::checks::cases());
     // and phase matching (0.6.1): sinc², Fejer et al.'s Table I, a duty cycle's cost
     cases.extend(crate::nonlinear::checks::cases());
+    // and the fabrication engine: the round trip of the first designs, the library's sources and
+    // the rules' choices
+    cases.extend(crate::fabrication::checks::cases());
     cases
 }
 
@@ -5267,6 +5271,7 @@ fn um(value: f64) -> Wavelength {
 mod convergence;
 mod devices;
 mod eme;
+mod fabrication;
 mod fdfd;
 mod fdtd;
 mod geometry;

@@ -488,6 +488,9 @@ mod device;
 mod device_tests;
 mod event;
 mod execute;
+mod fabrication;
+#[cfg(test)]
+mod fabrication_tests;
 mod fdfd;
 mod fdtd;
 mod fit;
