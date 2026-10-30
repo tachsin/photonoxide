@@ -36,6 +36,73 @@ fn samples_from_a_structure_are_its_permittivity_function_to_the_bit() {
     assert_eq!(a.values(), n.values());
 }
 
+/// The iterative solver built from a structure has the direct one's permittivity to the bit,
+/// with the matrix and without, refuses the tensor as it does, and solves the same system.
+#[test]
+fn the_iterative_solver_from_a_structure_is_the_direct_ones_system() {
+    let s = strip();
+    let lam = Wavelength::um(1.55).unwrap();
+    let g = grid();
+    let b = Boundaries3d::pml(0);
+    for a in [Averaging::Samples, Averaging::Diagonal] {
+        let direct = Solver3d::from_structure(g, lam, &s, b, a).unwrap();
+        for (formulation, product) in [
+            (Formulation::CurlCurl, Product::Matrix),
+            (Formulation::ShinFan, Product::MatrixFree),
+        ] {
+            let it =
+                IterativeSolver3d::from_structure(g, lam, &s, b, a, formulation, product).unwrap();
+            assert_eq!(it.values(), direct.values(), "{a:?} {product:?}");
+            assert_eq!(it.product(), product);
+        }
+    }
+    let Err(e) = IterativeSolver3d::from_structure(
+        g,
+        lam,
+        &s,
+        b,
+        Averaging::Tensor,
+        Formulation::ShinFan,
+        Product::MatrixFree,
+    ) else {
+        panic!("the tensor is refused");
+    };
+    assert!(e.to_string().contains("diagonal"), "{e}");
+    // a current in the strip: QMR to 1e-12 gives the direct solver's field
+    let mut current = vec![c64::new(0.0, 0.0); g.unknowns()];
+    current[g.index(Axis::Y, (2, 7, 6))] = c64::new(1.0, 0.0);
+    let want = Solver3d::from_structure(g, lam, &s, b, Averaging::Diagonal)
+        .unwrap()
+        .solve(&current)
+        .unwrap();
+    let (got, _) = IterativeSolver3d::from_structure(
+        g,
+        lam,
+        &s,
+        b,
+        Averaging::Diagonal,
+        Formulation::CurlCurl,
+        Product::Matrix,
+    )
+    .unwrap()
+    .solve(
+        &current,
+        crate::fdfd::Stopping {
+            tolerance: 1e-12,
+            max_iterations: 100_000,
+        },
+    )
+    .unwrap();
+    let largest = want.values().iter().map(|v| v.norm()).fold(0.0, f64::max);
+    let worst = want
+        .values()
+        .iter()
+        .zip(got.values())
+        .map(|(w, v)| (w - v).norm())
+        .fold(0.0, f64::max);
+    assert!(worst < 1e-9 * largest, "{worst:e} of {largest:e}");
+}
+
 #[test]
 fn the_fills_values_are_the_same_on_any_number_of_threads_and_the_tensor_is_refused() {
     let s = strip();

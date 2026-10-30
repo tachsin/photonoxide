@@ -547,7 +547,7 @@ impl Spec {
     /// The size of the FDFD solve this design takes at its fidelity on `grids`, when its model is
     /// one (an MMI's or a Y-branch's 2D and 3D, an MMI's 2D by FDFD only): the cells along x
     /// and y and the unknowns of a solve; and refused, as the solve would refuse it, when a 3D
-    /// one is more than the direct solver holds here.
+    /// one is more than a 3D solve holds here.
     ///
     /// # Errors
     ///

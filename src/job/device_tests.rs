@@ -308,7 +308,7 @@ fn every_device_at_every_fidelity_runs_as_a_job_to_the_bit() {
             let tag = format!("{}-{}", m.fidelity, d.kind().replace(' ', "-"));
             match from_device(&tag, &s, &band()) {
                 Ok(_) => reproduces(&s, &band(), d.as_ref(), &tag),
-                // a 3D FDFD larger than the direct solver holds here is refused before it runs
+                // a 3D FDFD larger than a 3D solve holds here is refused before it runs
                 Err(e) => assert!(e.to_string().contains("million unknowns"), "{tag}: {e}"),
             }
         }
@@ -338,7 +338,7 @@ fn a_device_job_refuses_what_it_cant_compute() {
         )
         .is_err()
     );
-    // a 3D FDFD larger than the direct solver holds here says how large, before it runs
+    // a 3D FDFD larger than a 3D solve holds here says how large, before it runs
     let big = spec("MMI 1x2", Fidelity::ThreeD, &[]);
     let fine = Compute {
         step_nm: Some(20.0),

@@ -484,7 +484,7 @@ fn at_temperature(stack: &StackSpec, kelvin: f64) -> Result<StackSpec> {
 /// [`Error::InvalidValue`] for a `compute` by FDTD (a study computes its designs by their own
 /// model) or a name that isn't a job's; the errors of [`Study::designs`]; and those of
 /// [`super::check`] for the job it makes (a grid the device doesn't take, a 3D solve larger than
-/// the direct solver holds here at any point).
+/// a 3D solve holds here at any point).
 pub fn study_from_device(name: &str, spec: &Spec, compute: &Compute, study: &Study) -> Result<Job> {
     if compute.fdtd.is_some() {
         return Err(Error::invalid(
@@ -682,7 +682,7 @@ struct Prepared {
 }
 
 /// Reads and checks a study: every point's design builds, takes the grids, and a 3D FDFD at
-/// each is one the direct solver holds here.
+/// each is one a 3D solve holds here.
 fn prepare(job: &Job) -> Result<Prepared> {
     let spec = spec_of(job)?;
     let task: StudyTask = job

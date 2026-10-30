@@ -634,6 +634,17 @@ pub(crate) fn rules() -> Vec<(&'static str, Rule)> {
             ),
         ),
         (
+            "device/fdfd-3d-iterative",
+            Rule::new(
+                Relative,
+                RoundOff,
+                1e-8,
+                Exact,
+                "the iterative solve's residual, 1e-9, which the S-matrix's difference follows (4.7e-10 on a 2 µm MMI on 80 nm cells)",
+            )
+            .varying(),
+        ),
+        (
             "device/mmi-2d-grid",
             Rule::new(
                 Absolute,

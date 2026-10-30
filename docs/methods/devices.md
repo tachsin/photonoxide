@@ -94,6 +94,7 @@ validation:
   - device/rib-eim
   - device/rib-hadley
   - device/fdfd-straight
+  - device/fdfd-3d-iterative
   - device/mmi-2d-grid
   - device/mmi-guided-2d
   - device/y-branch-2d-grid
@@ -588,9 +589,50 @@ The MMIs' and the Y-branch's FDFD models solve the device's own drawing (`device
   `Sampled` one, interpolated between them; one samples the centre only.
 
 The 2D grid is 20 nm by default; 3D, 40 nm in the plane and 20 nm up the stack with 0.6 µm of
-margin. **3D is limited by the direct solver's memory**, which grows faster than the unknowns:
-a 2 µm MMI's 1.26 million (50 × 50 × 27.5 nm cells) took 32 GB, so a device's 3D solve refuses
-more than 1.2 million unknowns and asks for a coarser grid. That doesn't resolve an MMI: its
+margin.
+
+**3D solves directly up to 1.2 million unknowns, and iteratively above.** The direct solver's
+memory grows faster than the unknowns (a 2 µm MMI's 1.26 million, on 50 × 50 × 27.5 nm cells,
+took 32 GB). A larger solve is built from the same structure by
+`IterativeSolver3d::from_structure`, the permittivity of every cell the direct solver's to the
+bit, and solved by GMRES with the multigrid without its finest matrix
+([multigrid-stencil.md](multigrid-stencil.md); Galerkin's coarse operators, V(0, 1), the shift
+of 0.5) on Shin and Fan's operator, inside stretched PMLs (`Boundaries3d::stretched_pml`, the
+grid's `pml` cells), each port's run to a relative residual of 1e-9. The component's provenance
+says so. Below the limit nothing changed: the same direct solve, to the bit (`device/fdfd-straight`
+and the other 3D rows of the report are as they were).
+
+- **The residual, 1e-9.** Shin and Fan's residual measures the field less well than the
+  curl-curl one's: at 1e-8 the multigrid's field was 2e-6 to 2e-5 from its reference between
+  2 × 10⁵ and 6 × 10⁶ unknowns, the error growing with the size, and the largest wanted a decade
+  lower ([multigrid-stencil.md](multigrid-stencil.md#measured)). A device's S-matrix follows its
+  residual more closely. On the 2 µm MMI below on 80 × 80 × 40 nm cells (524 160 unknowns,
+  stretched PMLs of 8), against the direct solver on the same system:
+
+  | Residual | Galerkin's: iterations a port | largest $\lvert\Delta S\rvert$ | discretized again: iterations | largest $\lvert\Delta S\rvert$ |
+  |---|---|---|---|---|
+  | 1e-7 | 307–331 | 5.0e-8 | 677–710 | 1.2e-7 |
+  | 1e-8 | 358–379 | 7.2e-9 | 807–825 | 1.1e-8 |
+  | 1e-9 | 413–434 | 4.7e-10 | 913–951 | 1.1e-9 |
+  | 1e-10 | 467–492 | 6.3e-11 | | |
+
+  So at 1e-9 the S-matrix is within about 1e-9 of the direct solver's, six decades below the
+  grids' own errors, at 15 % more iterations than 1e-8.
+- **Galerkin's coarse operators, not those discretized again,** although those take half the
+  memory: on that MMI they took 2.2 times the iterations and 1.6 times the time, and on 125 nm
+  cells (3.6 a wavelength in silicon) neither reached 1e-9 in 2 000 iterations (discretized
+  again, it stalled at 1.8e-6). The multigrid wants cells that resolve the wavelength in the
+  core: on 100 nm cells the MMI took 1 291 to 1 506 iterations; a solve that doesn't converge
+  is an error that says to refine the grid, not a result.
+- **Checked against the direct solver** on the same system by `device/fdfd-3d-iterative`: the
+  strip of `device/fdfd-straight`, its two ports' S-matrix within 4e-10 of the direct solver's
+  (235 iterations a port).
+- **Memory and time.** About 3.2 to 3.5 kB an unknown at its peak: the 2 µm MMI below on 44 nm
+  cells (1.15 million unknowns) committed 4.0 GB and took 206 s, 381 to 428 iterations a port
+  (8 threads, the machine shared with other work). So a device's 3D solve refuses more than 14
+  million unknowns (about 49 GB) and asks for a coarser grid.
+
+That doesn't resolve an MMI on coarse cells: its
 self-image is sensitive to the higher modes' phases, which coarse cells get wrong. The 3 µm MMI
 above gives 0.15981, 0.18082 and 0.22351 into each output on 100, 80 and 67 nm cells (55, 44 and
 37 nm up), against 0.406 in 2D, still moving by 0.04 a step; the 2 µm one 0.299, 0.354 and 0.390
@@ -1159,8 +1201,8 @@ run = phox.run_job(job)                        # run.dir, which photonoxide view
 
 `job::check` refuses a grid a device doesn't take (a 3D FDFD's cells' height or an FDFD's
 samples for a mode solve, any grid for an MZI, whose parts solve on their own), a band that isn't
-one, and a 3D FDFD larger than the direct solver holds here (1.2 million unknowns), saying how
-large it is, before anything runs. A stop (the window's Stop, the job's timeout) ends the run at
+one, and a 3D FDFD larger than a 3D solve holds here (14 million unknowns, by the iterative
+solver), saying how large it is, before anything runs. A stop (the window's Stop, the job's timeout) ends the run at
 once: a solve already started is let go and its result discarded. The unit tests run each
 device's job at each fidelity, the mode solves on a 50 nm mesh and the FDFDs on 200 nm cells, and
 compare their records with `Device::component` bit for bit; an ignored test does the same on each
@@ -1227,8 +1269,8 @@ rayon's threads, as many at once as memory allows by their solves' size, or by a
 (the window's Stop, the job's timeout) ends the study at its next point, the points done kept; a
 solve already started finishes first.
 
-`job::check` builds every point's design, refuses a 3D FDFD at any point larger than the direct
-solver holds here, at most 10 000 points (an axis of 2 to 1001), 256 corners, a parameter the
+`job::check` builds every point's design, refuses a 3D FDFD at any point larger than a 3D solve
+holds here, at most 10 000 points (an axis of 2 to 1001), 256 corners, a parameter the
 design doesn't have, a corner without offsets or temperature, and a temperature at the analytic
 fidelity (the fits and closed forms don't solve the materials) or on a stack none of whose
 materials' models takes one. Li's silicon (293 K) and Malitson's silica (20 °C), the presets'
@@ -1388,8 +1430,8 @@ its studies run here rather than on a farm's workers, who haven't the file.
 | `device/tfln-2d-grid` | the 2D figures at Zhang et al.'s design on the device's grids against twice as fine | the same and half | 4.8e-3 |
 | `device/tfln-jobs` | the modulator at each fidelity as jobs against `Device::component`, figures and S-parameters | the same | 0 bits differ |
 
-The Y-branch MZI has none: its 3D model's FDFD of its Y-branches is more than the direct solver
-holds here (7.3 million unknowns), as for the MMIs' and the Y-branch's own 3D models (#377). The
+The Y-branch MZI has none: its 3D model's FDFD of its Y-branches (7.3 million unknowns) was more
+than the direct solver holds here, and is iterative now, too long for a fit's many designs. The
 Y-branch's fit is the coarsest: its 2D FDFD's spectrum on 40 nm cells fits no closer than 1.5e-2
 at its own samples with 8 poles, so its error is that and not the interpolation's. Each held-out
 error is the one its compact fidelity states, against its source.
