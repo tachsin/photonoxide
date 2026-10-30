@@ -9,7 +9,7 @@ use super::{Conductor, Electrostatic, Features, Grading, Grid, Section, Side, Te
 use crate::geometry::{Point, Shape};
 use crate::statics::elliptic_k;
 use crate::units::{Length, SPEED_OF_LIGHT};
-use crate::validation::{Case, Outcome, Tier};
+use crate::verdict::{Case, Outcome, Tier};
 
 const OK: &str = "a valid model";
 

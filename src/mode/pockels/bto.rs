@@ -25,7 +25,7 @@ use crate::mode::pockels::{Along, Drive, Pockels, half_wave_voltage_length, sect
 use crate::mode::thermo::index_change;
 use crate::mode::vector::{self, CrossSection, Permittivity, VectorMode, graded_nodes};
 use crate::units::Wavelength;
-use crate::validation::{Case, Outcome, Tier};
+use crate::verdict::{Case, Outcome, Tier};
 
 const OK: &str = "a valid model";
 

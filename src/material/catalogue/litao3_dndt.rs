@@ -5,7 +5,7 @@
 //! 200 °C (Opt. Mater. Express 1, 458 (2011), doi:10.1364/OME.1.000458, Table 1), with the case
 //! that checks the latter's table against their own fit (Eq. (1), Table 2).
 
-use crate::validation::Outcome;
+use crate::verdict::Outcome;
 
 /// A linear fit's a₀ and a₁.
 type Fit = (f64, f64);

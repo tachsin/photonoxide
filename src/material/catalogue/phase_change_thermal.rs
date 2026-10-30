@@ -9,7 +9,7 @@
 use super::phase_change::{
     self, GUREVICH_CP_298, KAITO_TABLE_1, NJOROGE_DENSITY, njoroge_xrd_density, sb2s3_density,
 };
-use crate::validation::Outcome;
+use crate::verdict::Outcome;
 
 fn outcome(measured: f64, expected: f64, tolerance: f64) -> Outcome {
     Outcome {
