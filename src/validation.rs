@@ -48,6 +48,7 @@ pub fn rules() -> Vec<(&'static str, Rule)> {
     rules.extend(line::rules());
     rules.extend(devices::rules());
     rules.extend(pcm::rules());
+    rules.extend(pcm_conformal::rules());
     rules.extend(eme::rules());
     rules.extend(convergence::rules());
     rules.extend(modulator::rules());
@@ -5274,6 +5275,7 @@ mod modes;
 mod modulator;
 mod modulator_error;
 mod pcm;
+mod pcm_conformal;
 mod roughness;
 mod sweep;
 #[cfg(feature = "gpu")]

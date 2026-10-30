@@ -3,6 +3,9 @@
 //! - [`device_electrode_field`]: the electrode-field view, the 2D model's static field at 1 V on
 //!   its cross-section with the optical mode over it, and the Pockels Δn the field makes
 //!   (`TflnModulator::electrode_field`, the same solves as its Vπ·L);
+//! - [`device_line_field`]: the RF line's own field at a frequency, the full-wave mode of the
+//!   line's cross-section at 1 V beside the quasi-TEM line's static field, with the mode's
+//!   numbers and the device's own line figures there (`TflnModulator::line_field`);
 //! - [`device_vpi_l_sweep`]: Vπ·L, V_π and the bandwidths against one of its parameters (the
 //!   gap, the signal electrode's width, the rib's width, the length, the cladding's thickness
 //!   and permittivity, ...), each point the device's own figures at that value
@@ -145,6 +148,84 @@ pub fn device_electrode_field(spec: SpecIn) -> Result<ElectrodeView, String> {
     electrode_field(&spec)
 }
 
+/// The RF line's own field at one frequency (`TflnModulator::line_field`): the full-wave mode's
+/// field at 1 V beside the quasi-TEM line's, on one window of the cross-section, and both lines'
+/// numbers there.
+#[derive(Debug, Serialize)]
+pub struct LineView {
+    /// The frequency, GHz, and the highest the view offers: the 2D model's response's top
+    /// (1.5 times its 6 dB bandwidth, from 20 to 500 GHz, as the Study tab's response).
+    pub frequency_ghz: f64,
+    pub top_ghz: f64,
+    /// |E| and |E_x| of the full-wave mode at 1 V, and |E| of the quasi-TEM (static) line at 1
+    /// V, V/m, on the same pixels: x across from the rib's centre (the ground left, the signal
+    /// right), y up from the film's bottom, µm.
+    pub field: Raster,
+    pub across: Raster,
+    pub quasi_static: Raster,
+    /// The full-wave mode's |E| less its |E| at 1 GHz, V/m, on the same pixels.
+    pub change: Raster,
+    /// The rib's and the electrodes' outlines, and the layers' interfaces (y, µm).
+    pub shapes: Vec<Line>,
+    pub interfaces: Vec<f64>,
+    /// The full-wave mode: its RF index, Z₀ (Ω, real and imaginary), its loss and the metal's,
+    /// the dielectrics' and the radiated parts of it (dB/cm), and its grid.
+    pub index: f64,
+    pub impedance: [f64; 2],
+    pub loss: f64,
+    pub conductor: f64,
+    pub dielectric: f64,
+    pub radiated: f64,
+    pub grid: String,
+    /// The device's own figures at the frequency (its 2D model's quasi-TEM line): `n_rf`, `Z0`,
+    /// `alpha_rf`, and their grid.
+    pub n_rf: f64,
+    pub z0: f64,
+    pub alpha_rf: f64,
+    pub line_grid: String,
+}
+
+/// `spec`'s RF line at `frequency_ghz` by its 2D model, whatever fidelity the page uses.
+///
+/// # Errors
+///
+/// A design that isn't a modulator's, a frequency outside 1 to 500 GHz, or what the model
+/// refuses.
+pub fn line_field(spec: &SpecIn, frequency_ghz: f64) -> Result<LineView, String> {
+    let (_, _, design) = modulator(spec)?;
+    let d = TflnModulator::new();
+    let values = design.values();
+    let figures = d.component(values, Fidelity::TwoD).map_err(text)?.figures;
+    let l = d.line_field(values, frequency_ghz).map_err(text)?;
+    Ok(LineView {
+        frequency_ghz: l.frequency_ghz,
+        top_ghz: response_top(figure(&figures, "f_6dB")),
+        field: l.field,
+        across: l.across,
+        quasi_static: l.quasi_static,
+        change: l.change,
+        shapes: l.shapes,
+        interfaces: l.interfaces,
+        index: l.index,
+        impedance: l.impedance,
+        loss: l.loss,
+        conductor: l.conductor,
+        dielectric: l.dielectric,
+        radiated: l.radiated,
+        grid: l.grid,
+        n_rf: l.n_rf,
+        z0: l.z0,
+        alpha_rf: l.alpha_rf,
+        line_grid: l.line_grid,
+    })
+}
+
+/// The RF line's own field of a modulator's design at a frequency, by its 2D model.
+#[tauri::command(async)]
+pub fn device_line_field(spec: SpecIn, frequency_ghz: f64) -> Result<LineView, String> {
+    line_field(&spec, frequency_ghz)
+}
+
 /// One point of a sweep: the device's figures at the parameter's value.
 #[derive(Clone, Debug, PartialEq, Serialize)]
 pub struct SweepPoint {
@@ -281,6 +362,16 @@ pub struct Response {
     pub bandwidth_error: Option<f64>,
 }
 
+/// The highest frequency a response is drawn to when none is asked, GHz: 1.5 times the 6 dB
+/// bandwidth `f_6db` (GHz), from 20 to 500 GHz.
+fn response_top(f_6db: f64) -> f64 {
+    if f_6db.is_finite() {
+        (1.5 * f_6db).clamp(20.0, HIGHEST_GHZ)
+    } else {
+        HIGHEST_GHZ
+    }
+}
+
 /// `spec`'s response at `fidelity` from the reference to `to_ghz` (if not given, 1.5 times the
 /// 6 dB bandwidth, from 20 to 500 GHz), on `points` frequencies evenly apart, the two bandwidths
 /// added.
@@ -321,11 +412,7 @@ pub fn eo_response(
     };
     let (falls_3db, falls_6db) = (falls(f_3db, -3.0)?, falls(f_6db, -6.0)?);
     let to = to_ghz
-        .unwrap_or(if f_6db.is_finite() {
-            1.5 * f_6db
-        } else {
-            HIGHEST_GHZ
-        })
+        .unwrap_or_else(|| response_top(f_6db))
         .clamp(20.0, HIGHEST_GHZ);
     let n = points.max(2);
     let mut frequencies: Vec<f64> = (0..n)
@@ -564,5 +651,50 @@ mod tests {
         let mut guide = zhang(&[]);
         guide.kind = "waveguide".into();
         assert!(electrode_field(&guide).is_err());
+    }
+
+    #[test]
+    fn the_line_field_is_the_library_s_and_its_numbers_the_device_s_figures() {
+        let ghz = 50.0;
+        let l = line_field(&zhang(&[]), ghz).unwrap();
+        // the quasi-TEM line's numbers are the device's figures at that frequency
+        let g = figures(&[("frequency", ghz)], Fidelity::TwoD);
+        for (symbol, shown) in [("n_rf", l.n_rf), ("Z0", l.z0), ("alpha_rf", l.alpha_rf)] {
+            assert!(same(shown, figure(&g, symbol)), "{symbol}: {shown}");
+        }
+        let n_rf = g.iter().find(|f| f.symbol == "n_rf").unwrap();
+        assert_eq!(l.line_grid, n_rf.grid);
+        // the field and the mode's numbers are the library's line field (a solve of its own, so
+        // to round-off)
+        let d = TflnModulator::new();
+        let lib = d.line_field(&Values::new(&d, &[]).unwrap(), ghz).unwrap();
+        let close = |a: f64, b: f64| (a - b).abs() <= 1e-9 * b.abs();
+        assert!(close(l.index, lib.index) && close(l.loss, lib.loss));
+        assert!(close(l.impedance[0], lib.impedance[0]));
+        for (a, b) in [
+            (&l.field, &lib.field),
+            (&l.across, &lib.across),
+            (&l.quasi_static, &lib.quasi_static),
+        ] {
+            assert_eq!([a.nx, a.ny], [b.nx, b.ny]);
+            assert_eq!([a.x0, a.x1, a.y0, a.y1], [b.x0, b.x1, b.y0, b.y1]);
+            for (u, v) in a.values.iter().zip(&b.values) {
+                assert!((u - v).abs() <= 1e-6 * v.abs().max(1.0), "{u} {v}");
+            }
+        }
+        assert_eq!(l.change.values.len(), l.field.values.len());
+        // the slider's top is the 2D response's
+        let r = eo_response(&zhang(&[]), "2D", None, 2).unwrap();
+        assert!(
+            same(l.top_ghz, r.points.last().unwrap()[0]),
+            "{}",
+            l.top_ghz
+        );
+        assert_eq!(l.frequency_ghz, ghz);
+        // below 1 GHz, and another device, are refused
+        assert!(line_field(&zhang(&[]), 0.5).is_err());
+        let mut guide = zhang(&[]);
+        guide.kind = "waveguide".into();
+        assert!(line_field(&guide, ghz).is_err());
     }
 }

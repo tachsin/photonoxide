@@ -108,7 +108,7 @@ pub use ring::StripRing;
 pub use section::{Cells, Mesh, Scheme, Symmetry};
 pub use solve::FdfdGrid;
 pub use spec::{LayerSpec, MaterialSpec, PRESETS, Spec, StackSpec, fidelity};
-pub use tfln::{ElectrodeField, TflnModulator};
+pub use tfln::{ElectrodeField, LineField, TflnModulator};
 pub use thermo::{ThermoShifter, TurnOn};
 pub use waveguide::StripWaveguide;
 pub use ybranch::StripYBranch;

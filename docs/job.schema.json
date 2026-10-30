@@ -2858,6 +2858,17 @@
                     ],
                     "description": "slab µm: 0 by default, from 0 to 0.5."
                   },
+                  "slab_film": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "slab_film µm: 0 by default, from 0 to 0.2."
+                  },
                   "thickness": {
                     "anyOf": [
                       {
@@ -2868,6 +2879,28 @@
                       }
                     ],
                     "description": "thickness µm: 0.22 by default, from 0.1 to 1."
+                  },
+                  "tm": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "tm: 0 by default, from 0 to 1."
+                  },
+                  "wall_film": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "wall_film µm: 0 by default, from 0 to 0.2."
                   },
                   "wavelength": {
                     "anyOf": [
@@ -2978,6 +3011,17 @@
                     ],
                     "description": "slab µm: 0 by default, from 0 to 0.5."
                   },
+                  "slab_film": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "slab_film µm: 0 by default, from 0 to 0.2."
+                  },
                   "thickness": {
                     "anyOf": [
                       {
@@ -2988,6 +3032,28 @@
                       }
                     ],
                     "description": "thickness µm: 0.22 by default, from 0.1 to 1."
+                  },
+                  "tm": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "tm: 0 by default, from 0 to 1."
+                  },
+                  "wall_film": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "wall_film µm: 0 by default, from 0 to 0.2."
                   },
                   "wavelength": {
                     "anyOf": [
@@ -3098,6 +3164,17 @@
                     ],
                     "description": "slab µm: 0 by default, from 0 to 0.5."
                   },
+                  "slab_film": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "slab_film µm: 0 by default, from 0 to 0.2."
+                  },
                   "thickness": {
                     "anyOf": [
                       {
@@ -3108,6 +3185,28 @@
                       }
                     ],
                     "description": "thickness µm: 0.22 by default, from 0.1 to 1."
+                  },
+                  "tm": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "tm: 0 by default, from 0 to 1."
+                  },
+                  "wall_film": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "wall_film µm: 0 by default, from 0 to 0.2."
                   },
                   "wavelength": {
                     "anyOf": [

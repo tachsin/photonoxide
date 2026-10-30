@@ -32,6 +32,10 @@ use super::{
     parameter,
 };
 
+#[path = "tfln_line.rs"]
+mod line_field;
+pub use line_field::LineField;
+
 /// The device's kind.
 pub(crate) const KIND: &str = "TFLN Mach-Zehnder modulator";
 
@@ -422,27 +426,7 @@ impl TflnModulator {
                 arrows.push((at, p.field.at(at[0], at[1])));
             }
         }
-        let clip = |a: f64| a.clamp(x[0], x[1]);
-        let electrode = |from: f64, to: f64| {
-            let (a, b) = (clip(from), clip(to));
-            let (bottom, top) = (t.slab, t.slab + t.metal);
-            vec![[a, bottom], [b, bottom], [b, top], [a, top], [a, bottom]]
-        };
-        let mut rib: Vec<[f64; 2]> = t.rib_corners().to_vec();
-        rib.push(rib[0]);
-        let mut shapes = vec![rib];
-        for (from, to) in [
-            (-0.5 * t.gap - t.ground, -0.5 * t.gap),
-            (0.5 * t.gap, 0.5 * t.gap + t.signal),
-        ] {
-            if clip(from) < clip(to) {
-                shapes.push(electrode(from, to));
-            }
-        }
-        let interfaces = [0.0, t.slab, t.slab + t.clad]
-            .into_iter()
-            .filter(|v| (y[0]..y[1]).contains(v))
-            .collect();
+        let (shapes, interfaces) = outlines(t, x, y);
         Ok(ElectrodeField {
             field: raster(strength),
             mode: raster(intensity.iter().map(|v| (v / peak) as f32).collect()),
@@ -588,6 +572,34 @@ impl TflnModulator {
     }
 }
 
+/// The rib's outline and the electrodes' rectangles in the window `x` by `y` (µm, x across from
+/// the rib's centre, the ground on the left), each a closed polygon, and the layers' interfaces
+/// in it: the substrate's top, the buried oxide's, the slab's and the cladding's.
+fn outlines(t: &Tfln, x: [f64; 2], y: [f64; 2]) -> (Vec<Vec<[f64; 2]>>, Vec<f64>) {
+    let clip = |a: f64| a.clamp(x[0], x[1]);
+    let electrode = |from: f64, to: f64| {
+        let (a, b) = (clip(from), clip(to));
+        let (bottom, top) = (t.slab, t.slab + t.metal);
+        vec![[a, bottom], [b, bottom], [b, top], [a, top], [a, bottom]]
+    };
+    let mut rib: Vec<[f64; 2]> = t.rib_corners().to_vec();
+    rib.push(rib[0]);
+    let mut shapes = vec![rib];
+    for (from, to) in [
+        (-0.5 * t.gap - t.ground, -0.5 * t.gap),
+        (0.5 * t.gap, 0.5 * t.gap + t.signal),
+    ] {
+        if clip(from) < clip(to) {
+            shapes.push(electrode(from, to));
+        }
+    }
+    let interfaces = [-t.buried, 0.0, t.slab, t.slab + t.clad]
+        .into_iter()
+        .filter(|v| (y[0]..y[1]).contains(v))
+        .collect();
+    (shapes, interfaces)
+}
+
 /// The figures of the optics: Vπ·L and V_π, the effective and group indices.
 fn optical(
     vpi_l: f64,
@@ -708,8 +720,8 @@ pub struct ElectrodeField {
     /// The rib's outline and the electrodes' rectangles in the window, each a closed polygon
     /// (µm).
     pub shapes: Vec<Vec<[f64; 2]>>,
-    /// The layers' interfaces in the window, y (µm): the buried oxide's top, the slab's, and the
-    /// cladding's.
+    /// The layers' interfaces in the window, y (µm): the substrate's top, the buried oxide's,
+    /// the slab's, and the cladding's.
     pub interfaces: Vec<f64>,
     /// The 2D model's Vπ·L push–pull (V·cm), from this field and this mode: the `VpiL` figure.
     pub vpi_l: f64,

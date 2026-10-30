@@ -671,6 +671,60 @@ impl FullWave {
     /// [`Error::InvalidValue`] for a frequency or guess that isn't finite and positive, a
     /// conductor of zero thickness, a side the solver can't take, or an eigensolve that fails.
     pub fn solve(&self, problem: &Electrostatic, frequency_hz: f64, near: f64) -> Result<RfMode> {
+        Ok(self.picked(problem, frequency_hz, near)?.0.mode)
+    }
+
+    /// The line's full-wave mode as [`FullWave::solve`] finds it, with its electric field on
+    /// `problem`'s own grid (the open sides' layers left out), scaled to 1 V on the signal: the
+    /// mode over its voltage V = 2P/I*, P its complex power and I the signal's current, the
+    /// voltage whose Z₀ = V/I is [`RfMode::impedance`] (for a TEM line, the signal's potential
+    /// against the ground's). See [`RfField`].
+    ///
+    /// # Errors
+    ///
+    /// As [`FullWave::solve`], and a mode that carries no power or no current on the signal.
+    pub fn field(&self, problem: &Electrostatic, frequency_hz: f64, near: f64) -> Result<RfField> {
+        let (m, lattice) = self.picked(problem, frequency_hz, near)?;
+        if m.voltage.norm() == 0.0 || !m.voltage.is_finite() {
+            return Err(invalid(
+                "the mode carries no power or no current on the signal: it has no voltage",
+            ));
+        }
+        let l = &lattice;
+        let grid = &problem.grid;
+        let (gx, gy) = (grid.x().cells(), grid.y().cells());
+        let west = l.x.partition_point(|&v| v < grid.x().nodes()[0]);
+        let south = l.y.partition_point(|&v| v < grid.y().nodes()[0]);
+        let ny = l.ny;
+        let eta = (mu_0() / EPSILON_0).sqrt();
+        let scale = eta / m.voltage;
+        let mut e = Vec::with_capacity(gx * gy);
+        for b in south..south + gy {
+            for a in west..west + gx {
+                // E_x on the cell's bottom and top edges, E_y on its left and right, E_z at its
+                // corners
+                let ex = 0.5 * (m.ex[a * (ny + 1) + b] + m.ex[a * (ny + 1) + b + 1]);
+                let ey = 0.5 * (m.ey[a * ny + b] + m.ey[(a + 1) * ny + b]);
+                let node = |i: usize, j: usize| m.ez[i * (ny + 1) + j];
+                let ez = 0.25 * (node(a, b) + node(a + 1, b) + node(a, b + 1) + node(a + 1, b + 1));
+                e.push([ex * scale, ey * scale, ez * scale]);
+            }
+        }
+        Ok(RfField {
+            mode: m.mode,
+            x: grid.x().nodes().to_vec(),
+            y: grid.y().nodes().to_vec(),
+            e,
+        })
+    }
+
+    /// The mode [`FullWave::solve`] picks, measured, and its lattice.
+    fn picked(
+        &self,
+        problem: &Electrostatic,
+        frequency_hz: f64,
+        near: f64,
+    ) -> Result<(Measured, Lattice)> {
         if !(frequency_hz.is_finite() && frequency_hz > 0.0 && near.is_finite() && near > 0.0) {
             return Err(invalid(format!(
                 "a frequency and an index to look near must be positive, got {frequency_hz} Hz \
@@ -683,21 +737,23 @@ impl FullWave {
         let shift = c64::new(k * k * near * near, 0.0);
         let pairs =
             crate::eigen::nearest_small(lattice.unknowns, &entries, shift, self.count, TOLERANCE)?;
-        let mut best: Option<RfMode> = None;
+        let mut best: Option<Measured> = None;
         for p in &pairs {
             let rf = self.measure(&lattice, p.value, &p.vector, frequency_hz);
             if best
                 .as_ref()
-                .is_none_or(|b| rf.current_per_field > b.current_per_field)
+                .is_none_or(|b| rf.mode.current_per_field > b.mode.current_per_field)
             {
                 best = Some(rf);
             }
         }
-        best.ok_or_else(|| invalid("the eigensolver found no mode"))
+        let best = best.ok_or_else(|| invalid("the eigensolver found no mode"))?;
+        Ok((best, lattice))
     }
 
-    /// The numbers of the mode `h` of eigenvalue `beta2` (µm⁻²) on `lattice`.
-    fn measure(&self, lattice: &Lattice, beta2: c64, h: &[c64], frequency_hz: f64) -> RfMode {
+    /// The numbers of the mode `h` of eigenvalue `beta2` (µm⁻²) on `lattice`, and its electric
+    /// field over η (E_x on the horizontal edges, E_y on the vertical ones, E_z at the nodes).
+    fn measure(&self, lattice: &Lattice, beta2: c64, h: &[c64], frequency_hz: f64) -> Measured {
         let l = lattice;
         let (nx, ny) = (l.nx, l.ny);
         let w = 2.0 * std::f64::consts::PI * frequency_hz;
@@ -726,6 +782,10 @@ impl FullWave {
         };
         let (mut power, mut current) = (c64::new(0.0, 0.0), c64::new(0.0, 0.0));
         let (mut in_metal, mut in_dielectric, mut field) = (0.0, 0.0, 0.0);
+        let zero = c64::new(0.0, 0.0);
+        let mut ex_at = vec![zero; nx * (ny + 1)];
+        let mut ey_at = vec![zero; (nx + 1) * ny];
+        let mut ez_at = vec![zero; (nx + 1) * (ny + 1)];
         // the power E absorbs at a location, ½ωε₀ε''|E|² over its cells' shares (component
         // `a` of each cell's ε), the metal's apart from the dielectrics'
         let mut absorb = |cells: &[(usize, f64)], a: usize, e: c64| {
@@ -754,6 +814,7 @@ impl FullWave {
                 let dhz = (hz(i as isize, j as isize) - hz(i as isize, j as isize - 1)) / l.dyd(j);
                 let eps = l.eps_x(i, j);
                 let ex = i1 * (dhz - i1 * beta * hyv) / (k * eps);
+                ex_at[i * (ny + 1) + j] = ex;
                 power += 0.5 * eta * ex * hyv.conj() * area * 1e-12;
                 absorb(&cells, 0, ex);
                 field += hyv.norm_sqr() * area;
@@ -771,6 +832,7 @@ impl FullWave {
                 let dhz = (hz(i as isize, j as isize) - hz(i as isize - 1, j as isize)) / l.dxd(i);
                 let eps = l.eps_y(i, j);
                 let ey = i1 * (i1 * beta * hxv - dhz) / (k * eps);
+                ey_at[i * ny + j] = ey;
                 power -= 0.5 * eta * ey * hxv.conj() * area * 1e-12;
                 absorb(&cells, 1, ey);
                 field += hxv.norm_sqr() * area;
@@ -786,7 +848,9 @@ impl FullWave {
                 }
                 let c = curl_at(i, j);
                 let eps = l.eps_z(i, j);
-                absorb(&cells, 2, i1 * c / (k * eps));
+                let ez = i1 * c / (k * eps);
+                ez_at[i * (ny + 1) + j] = ez;
+                absorb(&cells, 2, ez);
                 if cells
                     .iter()
                     .any(|&(cell, _)| l.metal[cell].is_some_and(|(m, _)| m == self.signal))
@@ -808,13 +872,69 @@ impl FullWave {
             } else {
                 (c64::new(0.0, 0.0), 0.0, 0.0, 0.0)
             };
-        RfMode {
-            frequency_hz,
-            gamma,
-            impedance,
-            conductor,
-            dielectric,
-            current_per_field: per_field,
+        Measured {
+            mode: RfMode {
+                frequency_hz,
+                gamma,
+                impedance,
+                conductor,
+                dielectric,
+                current_per_field: per_field,
+            },
+            // the voltage V = 2P/I* (photonoxide's convention; P and I the window's, so the
+            // whole line's for a mirrored one too)
+            voltage: if current.norm() > 0.0 {
+                2.0 * power / current.conj()
+            } else {
+                zero
+            },
+            ex: ex_at,
+            ey: ey_at,
+            ez: ez_at,
+        }
+    }
+}
+
+/// A mode as [`FullWave::measure`] gives it: its numbers, its voltage (V) and its field over η.
+struct Measured {
+    mode: RfMode,
+    voltage: c64,
+    ex: Vec<c64>,
+    ey: Vec<c64>,
+    ez: Vec<c64>,
+}
+
+/// A line's full-wave mode with its electric field ([`FullWave::field`]), in photonoxide's
+/// e^(i(βz − ωt)): E at the centre of each cell of the static problem's grid, V/m, scaled to 1 V
+/// on the signal (the mode over V = 2P/I*, so that Z₀ = V/I is [`RfMode::impedance`]). Each cell's
+/// E_x is the mean of its bottom and top edges' (where the Yee lattice holds it), E_y of its left
+/// and right edges', E_z of its four corners'. At low frequency its transverse part is the static
+/// field of the same problem at 1 V on the signal, the grounds at 0.
+#[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
+pub struct RfField {
+    /// The mode's numbers.
+    pub mode: RfMode,
+    /// The grid's nodes across, µm.
+    pub x: Vec<f64>,
+    /// The grid's nodes up, µm.
+    pub y: Vec<f64>,
+    /// E (across, up, along) at each cell's centre, V/m at 1 V, cell (i, j) at
+    /// j·(x.len() − 1) + i.
+    pub e: Vec<[c64; 3]>,
+}
+
+impl RfField {
+    /// E at (x, y), µm: the value of the cell that holds the point, zero outside the grid.
+    pub fn at(&self, x: f64, y: f64) -> [c64; 3] {
+        let cell = |nodes: &[f64], v: f64| {
+            (nodes[0]..nodes[nodes.len() - 1])
+                .contains(&v)
+                .then(|| nodes.partition_point(|&n| n <= v) - 1)
+        };
+        match (cell(&self.x, x), cell(&self.y, y)) {
+            (Some(i), Some(j)) => self.e[j * (self.x.len() - 1) + i],
+            _ => [c64::new(0.0, 0.0); 3],
         }
     }
 }
