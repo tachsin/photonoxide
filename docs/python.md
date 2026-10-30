@@ -190,8 +190,8 @@ library as a Rust program would. Both steps are tested:
   against Li's table;
 - [`python/examples`](../python/examples) has Python versions of a few of the Rust examples
   (silicon's index, the book's slab and strip, a ring's free spectral range), each checked
-  against its paper as the Rust ones are; those with a Rust twin print what it prints, line
-  for line (`python/tests/test_examples.py`);
+  against its paper as the Rust ones are; those with a Rust twin print what it prints after
+  its setup block, line for line (`python/tests/test_examples.py`);
 - the method write-ups (`docs/methods`) that show a call the package has give the Python call
   beside it: [the catalogue](methods/catalogue.md), [the slab](methods/slab.md),
   [stacks](methods/stacks.md), [circuits](methods/circuits.md), [Touchstone

@@ -3,7 +3,7 @@
 Each example reproduces a published result through the Python package, as the Rust examples in
 [`examples/`](../../examples) do: it prints its numbers beside the paper's, with the grid and the
 tolerance, and exits with 1 when they disagree. An example with a Rust twin prints what the twin
-prints, line for line, and CI checks both: the package's tests run every example
+prints after its setup block, line for line, and CI checks both: the package's tests run every example
 (`python/tests/test_examples.py`) and compare a twin's output with the Rust one's in
 [`examples/output`](../../examples/output).
 
