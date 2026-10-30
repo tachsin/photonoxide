@@ -126,7 +126,7 @@ pub(crate) fn cases() -> Vec<Case> {
         },
         Case {
             id: "device/mmi-guided-3d",
-            title: r"Devices: a 1 × 2 MMI 2 µm wide with 0.5 µm access guides at its image (the guided modes' $3L_\pi/8$, 4.05 µm): its 2D model, Soldano and Pennings's guided-mode analysis on the effective index method's plane, against its 3D FDFD extrapolated from cubic cells of 44, 31.4 and 22 nm: the power into an output (shown, and the 3D value expected)",
+            title: r"Devices: a 1 × 2 MMI 2 µm wide with 0.5 µm access guides at its image (the guided modes' $3L_\pi/8$, 3.79 µm): its 2D model, Soldano and Pennings's guided-mode analysis on the effective index method's plane, against its 3D FDFD extrapolated from cubic cells of 44, 31.4 and 22 nm: the power into an output (shown, and the 3D value expected)",
             tier: Tier::Analytic,
             source: "the guided modes' stated error against 3D (L. B. Soldano, E. C. M. Pennings, J. Lightwave Technol. 13, 615 (1995), doi:10.1109/50.372474, Section III, on G. B. Hocker, W. K. Burns's effective index method, Appl. Opt. 16, 113 (1977), doi:10.1364/AO.16.000113); the 3D value from the grid study in docs/methods/devices.md, too large to run here (8.4 million unknowns on the finest grid)",
             run: mmi_guided_3d,
@@ -137,6 +137,20 @@ pub(crate) fn cases() -> Vec<Case> {
             tier: Tier::Analytic,
             source: "2D FDFD's stated error against 3D: the effective index method's plane (G. B. Hocker, W. K. Burns, Appl. Opt. 16, 113 (1977), doi:10.1364/AO.16.000113); the 3D value from the grid study in docs/methods/devices.md",
             run: mmi_fdfd_3d,
+        },
+        Case {
+            id: "device/mmi-best-length-3d",
+            title: r"Devices: the same MMI's 2D model (the guided modes) at the length where it puts the most power into an output (not its $3L_\pi/8$ of 3.79 µm), against the length where its 3D FDFD does, from 3D length sweeps on cubic cells of 44 and 31.4 nm, extrapolated (shown, and the 3D length expected, µm)",
+            tier: Tier::Analytic,
+            source: "the guided modes' stated error against 3D in the image's length: the effective index method's plane (G. B. Hocker, W. K. Burns, Appl. Opt. 16, 113 (1977), doi:10.1364/AO.16.000113) gives the section's even modes a beat 3.2 % slower than the stack's (β₀ − β₂ against the full-vector modes', Hadley's equations); the 3D length from the study in docs/methods/devices.md, too large to run here",
+            run: mmi_best_length_3d,
+        },
+        Case {
+            id: "device/mmi-best-power-3d",
+            title: r"Devices: the same MMI's 2D model (the guided modes) at its best length against its 3D FDFD at its own: the power into an output (shown, and the 3D value expected)",
+            tier: Tier::Analytic,
+            source: "the guided modes' stated error against 3D at their best lengths: at its own image the stack splits nearly as the plane does (L. B. Soldano, E. C. M. Pennings, J. Lightwave Technol. 13, 615 (1995), doi:10.1109/50.372474, Section III); the 3D value from the length study in docs/methods/devices.md",
+            run: mmi_best_power_3d,
         },
         Case {
             id: "device/y-branch-2d-grid",
@@ -720,6 +734,66 @@ pub(crate) const Y_BRANCH_2D_3D: f64 = 0.02;
 
 /// As [`Y_BRANCH_2D_3D`], the MMI's.
 pub(crate) const MMI_2D_3D: f64 = 0.05;
+
+/// The length between `a` and `b` µm where `power` is largest, by golden-section search to
+/// 1e-6 µm, and the power there.
+fn best_length(power: impl Fn(f64) -> f64, (mut a, mut b): (f64, f64)) -> (f64, f64) {
+    let r = 0.5 * (5f64.sqrt() - 1.0);
+    let (mut x, mut y) = (b - r * (b - a), a + r * (b - a));
+    let (mut px, mut py) = (power(x), power(y));
+    while b - a > 1e-6 {
+        if px > py {
+            (b, y, py) = (y, x, px);
+            x = b - r * (b - a);
+            px = power(x);
+        } else {
+            (a, x, px) = (x, y, py);
+            y = a + r * (b - a);
+            py = power(y);
+        }
+    }
+    let l = 0.5 * (a + b);
+    (l, power(l))
+}
+
+/// The 2 µm MMI of [`splitter_3d`] by its 2D model (the guided modes) at the length where it
+/// puts the most power into an output, between 3.2 and 3.8 µm: that length and power. The
+/// guided modes' image, 3L_π/8, is 3.79 µm; their best length 3.495 µm.
+pub(crate) fn mmi_best_2d() -> (f64, f64) {
+    let (mmi, v) = splitter_3d("mmi");
+    let power = |l: f64| fdfd_power(mmi.as_ref(), &v.with(mmi.as_ref(), "length", l).expect(OK));
+    best_length(power, (3.2, 3.8))
+}
+
+/// The 3D length study's result (docs/methods/devices.md, "The MMI against its length";
+/// `device::splitter_tests::survey_3d` with `LENGTH` reruns it, hours): the length of the 2 µm
+/// MMI of [`splitter_3d`] where its 3D FDFD puts the most power into an output, from the sweeps
+/// on cubic cells of 44 and 31.4 nm (best at about 3.25 and 3.30 µm), spanning the 31.4 nm
+/// grid's to the second-order extrapolation's with the fits' spread, and that span's half (µm);
+/// the most power into an output, from the 31.4 nm sweep and the 22 nm point at 3.337 µm
+/// (0.474703, 8e-5 from 31.4 nm's there), and its uncertainty.
+pub(crate) const MMI_BEST_3D: [f64; 4] = [3.34, 0.05, 0.4752, 8e-4];
+
+/// The guided modes' stated error against 3D at their best lengths, relative in the length:
+/// the difference measured (their 3.495 µm, 4.6 % longer) and the 3D length's uncertainty
+/// (1.5 %), rounded up to one digit.
+pub(crate) const MMI_BEST_LENGTH_2D_3D: f64 = 0.07;
+
+/// As [`MMI_BEST_LENGTH_2D_3D`], in the power into an output there: 0.0050 more than 3D's, and
+/// its 8e-4.
+pub(crate) const MMI_BEST_POWER_2D_3D: f64 = 0.006;
+
+fn mmi_best_length_3d() -> Outcome {
+    let expected = MMI_BEST_3D[0];
+    // to 0.1 nm: the search's last steps compare nearly equal powers, which a platform's last
+    // bits may order differently
+    let l = (mmi_best_2d().0 * 1e4).round() / 1e4;
+    outcome(l, expected, MMI_BEST_LENGTH_2D_3D * expected)
+}
+
+fn mmi_best_power_3d() -> Outcome {
+    outcome(mmi_best_2d().1, MMI_BEST_3D[2], MMI_BEST_POWER_2D_3D)
+}
 
 fn mmi_guided_3d() -> Outcome {
     let (mmi, v) = splitter_3d("mmi");

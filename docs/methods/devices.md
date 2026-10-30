@@ -510,7 +510,7 @@ guides on 220 nm SOI, 33.56 µm long (3L_π/8) and 44.74 µm (L_π/2).
 
 | Fidelity | Model | Stated error | Holds over |
 |---|---|---|---|
-| 2D, guided modes (the default) | Soldano & Pennings's guided-mode propagation analysis (their Section III, Eqs. 8–12) on the plane seen from above by the effective index method, the section's and access guides' exact slab modes ([components.md](components.md)): the S-matrix between the access guides' fundamental modes at the section's faces; the tapers taken as adiabatic and lossless, their phase left out. On the default stack the film is Li's silicon in Malitson's silica, as the studio's MMIs have always been built; on another stack, or a rib, the slabs' indices at the design wavelength. Labelled 2D | each $\lvert S_{qp}\rvert^2$ within 5e-3 of 2D FDFD of the same plane; within 0.05 of 3D on the 2 µm 1 × 2 MMI at its image ([In 3D](#in-3d-the-mmi-and-the-y-branch-and-the-2d-models-errors)) | widths 3–6 µm, access guides 0.5–1.5 µm, vertical walls, 1.5–1.6 µm |
+| 2D, guided modes (the default) | Soldano & Pennings's guided-mode propagation analysis (their Section III, Eqs. 8–12) on the plane seen from above by the effective index method, the section's and access guides' exact slab modes ([components.md](components.md)): the S-matrix between the access guides' fundamental modes at the section's faces; the tapers taken as adiabatic and lossless, their phase left out. On the default stack the film is Li's silicon in Malitson's silica, as the studio's MMIs have always been built; on another stack, or a rib, the slabs' indices at the design wavelength. Labelled 2D | each $\lvert S_{qp}\rvert^2$ within 5e-3 of 2D FDFD of the same plane; within 0.05 of 3D on the 2 µm 1 × 2 MMI at its image ([In 3D](#in-3d-the-mmi-and-the-y-branch-and-the-2d-models-errors)); at their own best lengths, that length within 7 % of 3D's and $\lvert S_{21}\rvert^2$ within 0.006 ([its length](#the-mmi-against-its-length)) | widths 3–6 µm, access guides 0.5–1.5 µm, vertical walls, 1.5–1.6 µm |
 | 2D, FDFD (`with_model_2d(Model2d::Fdfd)`) | the drawn geometry by 2D FDFD on the effective index method's plane (below) | each $\lvert S_{qp}\rvert^2$ within 0.05 of 3D, as the guided modes ([In 3D](#in-3d-the-mmi-and-the-y-branch-and-the-2d-models-errors)) | the 2 µm 1 × 2 MMI at its image, 1.55 µm |
 | 3D | the drawn geometry on its stack by 3D FDFD (below) | — | — |
 
@@ -647,7 +647,7 @@ thick (8, 11 and 16 cells) and 0.4 µm of oxide beside, below and above, each po
 residual of 1e-9, at 1.55 µm:
 
 - **the 1 × 2 MMI 2 µm wide**, 0.5 µm access guides at ±0.5 µm, as long as its 2D model's first
-  two-fold image, $3L_\pi/8$ = 4.05 µm (Soldano and Pennings's symmetric interference);
+  two-fold image, $3L_\pi/8$ = 3.79 µm (Soldano and Pennings's symmetric interference);
 - **Zhang et al.'s Y-branch**, its spline junction 2 µm long, its arms 3 µm long to ports 1.5 µm
   apart (as `device/y-branch-2d-grid`).
 
@@ -700,11 +700,11 @@ within 0.05 of 3D for the MMI's two (they put 4 points of the input more into ea
 find about half the loss 3D finds at this length), within 0.02 for the Y-branch's (1.3 points
 less into each arm, 0.12 dB more loss). Each bound is the difference measured and the 3D
 value's uncertainty, rounded up. Both come from the effective index method's plane, the 2D model's own grid
-error being a tenth of them or less. On the MMI, the likely cause is the image's length: the
-plane's lateral index steps aren't the stack's, so 3D images at a slightly different length than
-the 2D model's $3L_\pi/8$, which a 3D sweep of the length would show (not run: a 3D point is
-26 min here). On the Y-branch, the plane sheds more of the junction's light than the stack
-does. The cases are `device/mmi-guided-3d`, `device/mmi-fdfd-3d` and `device/y-branch-2d-3d`;
+error being a tenth of them or less. On the MMI, the cause is the image's length: 3D images at
+3.34 µm, 12 % shorter than $3L_\pi/8$, so at 3.79 µm it is well past its image; at its own
+best length it loses 0.22 dB, against the 2D model's 0.18 dB at its own
+([below](#the-mmi-against-its-length)). On the Y-branch, the plane sheds more of the junction's
+light than the stack does. The cases are `device/mmi-guided-3d`, `device/mmi-fdfd-3d` and `device/y-branch-2d-3d`;
 the 3D values are the study's, too large to run in the report.
 
 **Against Zhang et al.** Their 3D FDTD on cells of λ/34 (46 nm) gave the junction an insertion
@@ -713,6 +713,102 @@ arms differ: theirs, in their Fig. 1(b), run on nearly straight from the junctio
 3 µm long, and in 2D the arms alone move the power into each by 0.011 (0.46775 against 0.47862
 with the default arms, 5 µm to 2 µm, at 10 nm). That is the likely difference, not shown here,
 so the comparison isn't a validation case.
+
+#### The MMI against its length
+
+The same MMI was solved in 3D at lengths from 0.80 to 1.10 of its 2D model's $3L_\pi/8$ (3.03
+to 4.17 µm): on the 44 nm cells in steps of 2 %; on the 31.4 nm cells from 0.80 to 0.98, with
+0.87 and 0.89 added where the loss is lowest; on the 22 nm cells at 3.337 µm only, the best
+length the coarser two point to. The route, PMLs, oxide and residual are the study's above. The
+sweep reaches 20 % below the image and 10 % above it because 3D's best length is 12 % below.
+Beside it, the 2D models at the same lengths: the guided modes, and 2D FDFD on 10 nm cells. The
+power into an output $P$ and the excess loss, in dB:
+
+| Length (µm) | of $3L_\pi/8$ | 2D, guided modes: $P$ | dB | 2D FDFD, 10 nm: $P$ | dB | 3D, 44 nm: $P$ | dB | 3D, 31.4 nm: $P$ | dB | 3D, 22 nm: $P$ | dB |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 3.034 | 0.80 | 0.4165 | 0.793 | 0.4208 | 0.749 | 0.4607 | 0.356 | 0.4507 | 0.451 | | |
+| 3.109 | 0.82 | 0.4344 | 0.611 | 0.4416 | 0.539 | 0.4691 | 0.277 | 0.4669 | 0.297 | | |
+| 3.185 | 0.84 | 0.4500 | 0.458 | 0.4518 | 0.441 | 0.4706 | 0.263 | 0.4686 | 0.281 | | |
+| 3.261 | 0.86 | 0.4626 | 0.337 | 0.4633 | 0.331 | 0.4741 | 0.231 | 0.4728 | 0.243 | | |
+| 3.299 | 0.87 | 0.4678 | 0.289 | 0.4716 | 0.254 | | | 0.4747 | 0.226 | | |
+| 3.337 | 0.88 | 0.4721 | 0.249 | 0.4770 | 0.204 | 0.4713 | 0.256 | 0.4746 | 0.226 | 0.4747 | 0.225 |
+| 3.375 | 0.89 | 0.4755 | 0.218 | 0.4787 | 0.189 | | | 0.4692 | 0.276 | | |
+| 3.413 | 0.90 | 0.4780 | 0.196 | 0.4789 | 0.187 | 0.4589 | 0.373 | 0.4640 | 0.324 | | |
+| 3.489 | 0.92 | 0.4802 | 0.176 | 0.4797 | 0.180 | 0.4540 | 0.419 | 0.4602 | 0.360 | | |
+| 3.564 | 0.94 | 0.4786 | 0.190 | 0.4779 | 0.196 | 0.4402 | 0.553 | 0.4523 | 0.435 | | |
+| 3.640 | 0.96 | 0.4735 | 0.236 | 0.4677 | 0.290 | 0.4118 | 0.843 | 0.4274 | 0.682 | | |
+| 3.716 | 0.98 | 0.4651 | 0.314 | 0.4592 | 0.369 | 0.3989 | 0.981 | 0.4117 | 0.844 | | |
+| 3.792 | 1.00 | 0.4537 | 0.422 | 0.4509 | 0.449 | 0.3867 | 1.116 | 0.4019 | 0.948 | 0.4060 | 0.904 |
+| 3.868 | 1.02 | 0.4399 | 0.556 | 0.4297 | 0.659 | 0.3486 | 1.566 | | | | |
+| 3.944 | 1.04 | 0.4242 | 0.714 | 0.4058 | 0.906 | 0.3223 | 1.908 | | | | |
+| 4.019 | 1.06 | 0.4072 | 0.892 | 0.3928 | 1.048 | 0.3284 | 1.825 | | | | |
+| 4.095 | 1.08 | 0.3894 | 1.086 | 0.3763 | 1.235 | 0.3223 | 1.907 | | | | |
+| 4.171 | 1.10 | 0.3714 | 1.291 | 0.3467 | 1.590 | 0.2729 | 2.629 | | | | |
+
+(The 3.792 µm row's 31.4 and 22 nm runs are the study's above. 44 nm: 2 to 4.4 minutes a
+length, 0.98 to 1.23 million unknowns, 3.5 to 4.8 GB; 31.4 nm: 4 to 16 minutes, 2.51 to 2.92
+million, 9.5 to 10.4 GB; 22 nm: 7.58 million unknowns, 33 minutes, 28.6 GB; 8 threads of the
+same machine, shared with other work, so the times are only a guide. Each grid's curve has steps of a few hundredths of a dB, as in the 44 nm column from
+3.94 to 4.10 µm: the window is a whole, even number of cells, so the section's faces fall at a
+different fraction of a cell from one length to the next.)
+
+Where each puts the most power into an output, from a parabola through the three to five lowest
+losses (its spread the ± on a grid), and what the image's length is predicted to be:
+
+| | Best length (µm) | $P$ there | Excess loss there |
+|---|---|---|---|
+| 2D, guided modes | 3.495 | 0.4802 | 0.176 dB |
+| 2D FDFD, 10 nm | 3.49 ± 0.02 | 0.4797 | 0.180 dB |
+| 3D, 44 nm | 3.25 ± 0.02 | 0.4741 | 0.231 dB |
+| 3D, 31.4 nm | 3.30 ± 0.02 | 0.4750 | 0.223 dB |
+| 3D, 22 nm, at 3.337 µm | | 0.4747 | 0.225 dB |
+| 3D, extrapolated | 3.34 ± 0.05 | 0.4752 ± 0.0008 | 0.221 ± 0.007 dB |
+| guided modes with the 3D even modes' indices (below) | 3.361 | 0.4775 | 0.200 dB |
+| Soldano and Pennings's $3L_\pi/8$, their Eqs. 4 and 6 ($W_e$ = 2.052 µm on the film's TE index, 2.8475, in the oxide's, 1.4440) | 3.867 | | |
+| $3L_\pi/8$ from the plane's exact $\beta_0 - \beta_1$ (the device's `L_image`, its default length) | 3.792 | | |
+| $\pi/(\beta_0 - \beta_2)$, the plane's even modes | 3.716 | | |
+| $\pi/(\beta_0 - \beta_2)$, the 3D even modes (Hadley's equations, 10 nm) | 3.602 | | |
+
+- **The 3D best length.** 3.25 µm at 44 nm, 3.30 at 31.4 nm. Near it the power hardly depends
+  on the grid: at 3.337 µm it is 0.471334, 0.474621 and 0.474703 on 44, 31.4 and 22 nm, where at
+  3.79 µm it moved 0.004 from 31.4 to 22 nm. So the best length is 3.34 ± 0.05 µm: from the
+  31.4 nm grid's to the second-order extrapolation from 44 and 31.4 nm (3.35 to 3.37 as the
+  fits go), with each grid's spread; and the most power 0.4752 ± 0.0008, the 31.4 nm grid's
+  with the 22 nm point's change and the fits' spread.
+- **Why 3Lπ/8 is long, in 2D already.** Soldano and Pennings's lengths assume a two-dimensional
+  guide (the effective index method's plane), the propagation constants quadratic in the mode
+  number (the binomial expansion behind their Eq. 5, $k_{y\nu}^2 \ll k_0^2 n_r^2$), one
+  effective width for every mode, and the guided modes alone. A 2 µm silicon section is far
+  from the second: mode 4's lateral wavenumber, about $5\pi/W_e$ = 7.7 µm⁻¹, against
+  $k_0 n_r$ = 11.5 µm⁻¹. So at $\pi/(\beta_0 - \beta_2)$ mode 4 is 0.22π from the phase the
+  quadratic law gives it, and the image is blurred; the paper notes that such phase errors can be
+  partly balanced by "a slight correction of the imaging lengths" (their Section VI-B). Here the
+  correction is large: the 2D model's own best length is 8 % short of its $3L_\pi/8$, and
+  0.25 dB less lossy.
+- **Why 3D is shorter still.** The stack's even modes beat 3.2 % faster than the plane's (their
+  $\pi/(\beta_0 - \beta_2)$, 3.602 against 3.716 µm), and the plane's fourth even mode (index
+  1.475) isn't guided in 3D (the solver's next is 1.410, below the oxide's 1.444). The guided
+  modes with the 3D indices in place of the plane's (their couplings the plane's, the fourth
+  left out; `device::splitter_tests::survey_mmi_modes`) put the best length at 3.361 µm, within
+  3D's 3.34 ± 0.05: 4 % shorter than the plane's 3.495.
+- **What is left.** At its best length 3D loses 0.221 ± 0.007 dB, 0.045 dB more than the 2D
+  model at its own, where at 3.79 µm it lost 0.44 dB more. The guided modes with the 3D indices
+  account for 0.024 dB of it (0.200 dB): the fourth mode's power, radiated, and mode 4's
+  larger phase error (0.25π). The other 0.021 ± 0.007 dB is beyond the guided modes. In 2D the
+  junctions shed 0.004 dB (2D FDFD's best against the guided modes'); in 3D a junction can also
+  scatter out of the plane, the likely rest, not shown here (the field wasn't examined).
+
+So the 0.86 dB at 3.79 µm is the image's length, not a loss of the stack's: the formula's
+paraxial length is 8 % long for the plane's own modes, and the stack images 4 % shorter than
+the plane. The stated errors at the best lengths: the guided modes' best length within 7 % of
+3D's (4.6 % longer, `device/mmi-best-length-3d`) and their most power within 0.006 of 3D's
+(0.0050 more, `device/mmi-best-power-3d`), each the difference measured and the 3D value's
+uncertainty, rounded up. At 3.79 µm the 0.05 stands, the error at that length, where the 2D
+model's power falls fastest. To design such a narrow MMI, sweep its length rather than take
+`L_image`; on this one the 2D model's best length is 4 % long, against 12 % for `L_image`.
+
+The runs: `device::splitter_tests::survey_3d` with `LENGTH` set (µm), each length a process;
+`survey_mmi_modes` for the modes and the guided modes with the 3D indices.
 
 The earlier surveys are `device::splitter_tests::survey` (ignored: run by hand).
 
@@ -1464,6 +1560,7 @@ its studies run here rather than on a farm's workers, who haven't the file.
 | `device/mmi-2d-grid`, `device/mmi-guided-2d` | a 3 µm MMI's 2D FDFD from 10 to 5 nm; its guided modes against it | 20, 10, 5 nm | 2.1e-3 and 1.4e-3 |
 | `device/fdfd-3d-iterative` | the strip through the iterative 3D route against the direct solver on the same system | 100 nm (55 nm up) | ≤ 1e-8 |
 | `device/mmi-guided-3d`, `device/mmi-fdfd-3d` | the 2 µm MMI's guided modes and 2D FDFD (20 nm) against its 3D FDFD, extrapolated | 44, 31.4, 22 nm | 0.044 and 0.039 |
+| `device/mmi-best-length-3d`, `device/mmi-best-power-3d` | the same MMI's guided modes at their best length against 3D's best, from 3D length sweeps: the length, and the power into an output there | 44, 31.4 nm (22 nm at one length) | 4.6 % and 0.0050 |
 | `device/y-branch-2d-3d` | Zhang et al.'s Y-branch's 2D model (20 nm) against its 3D FDFD, extrapolated | 44, 31.4, 22 nm | 0.013 |
 | `device/y-branch-2d-grid`, `device/y-branch-ideal-2d` | Zhang et al.'s Y-branch's 2D FDFD from 20 to 10 nm; the ideal model against it | 40, 20, 10 nm | 4.2e-4 and 0.032 |
 | `device/study-sweep-analytic` | a coupler's sweep in its gap and length as a job against the device at each pair of values | exact | 0 bits differ |
