@@ -19,6 +19,10 @@
 //!   quasi-TEM line.
 //! - [`heater`]: the shared heat case, a heater in oxide over silicon, for Elmer and photonoxide.
 //! - [`heaters`]: two heaters side by side, the thermal crosstalk, for Elmer and photonoxide.
+//! - [`transient`]: a heater turned on, its guide's rise in time, for Elmer and photonoxide.
+//! - [`joule`]: a doped heater's current and its Joule heat, for Elmer and photonoxide.
+//! - [`tfln`]: a thin-film lithium niobate modulator's electrodes, the film's permittivity a
+//!   tensor, for Elmer and photonoxide.
 //!
 //! The setup, the licences and the results are in docs/cross-code.md and
 //! docs/validation-openems.md and docs/validation-elmer.md (`just openems` and `just elmer` from
@@ -34,4 +38,5 @@ pub mod joule;
 pub mod line;
 pub mod openems;
 pub mod report;
+pub mod tfln;
 pub mod transient;

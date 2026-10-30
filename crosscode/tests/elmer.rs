@@ -21,6 +21,7 @@ use photonoxide_crosscode::heater::{self, Heater};
 use photonoxide_crosscode::heaters::{self, Heaters};
 use photonoxide_crosscode::joule::Joule;
 use photonoxide_crosscode::report::{duration, machine, percent, signed_percent};
+use photonoxide_crosscode::tfln::Tfln;
 use photonoxide_crosscode::transient::{self, Transient};
 
 /// The meshes' smallest cells, µm, each half the last, growing by 1.1 to the largest.
@@ -53,6 +54,8 @@ const INDEX_TOLERANCE: f64 = 1e-3;
 const IMPEDANCE_TOLERANCE: f64 = 5e-3;
 const RISE_TOLERANCE: f64 = 5e-3;
 const CURRENT_TOLERANCE: f64 = 1e-3;
+const CAPACITANCE_TOLERANCE: f64 = 1e-3;
+const FIELD_TOLERANCE: f64 = 5e-3;
 
 const REPORT: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../docs/validation-elmer.md");
 
@@ -629,6 +632,50 @@ fn joule_pair(program: &Elmer, folder: &Path, progress: &mut Progress) -> Pair {
     }
 }
 
+fn tfln_pair(program: &Elmer, folder: &Path, progress: &mut Progress) -> Pair {
+    let case = Tfln::zhang();
+    let axes = |g: Grading| case.axes(&mesh_of(g)).expect("a valid mesh");
+    let elmer = |g: Grading, name: &str| {
+        let (x, y) = axes(g);
+        let (c, field) = case.elmer(&x, &y).expect("the case");
+        let run = folder.join(name);
+        let seconds = elmer_fastest(program, &c, &run);
+        let capacitance = 2.0 * elmer::result(&run, "capacitance").expect("Elmer's capacitance");
+        let e = field
+            .of(&last_saved(&run, "potential"))
+            .expect("the guide's nodes");
+        (vec![capacitance, e], seconds, c.mesh.cells())
+    };
+    let ours = |g: Grading| {
+        let (x, y) = axes(g);
+        let (v, s) = timed(|| case.photonoxide(&x, &y).expect("the electrostatic solve"));
+        (v.to_vec(), s)
+    };
+    let (rows, converged) = study(progress, "tfln", &elmer, &ours);
+    Pair {
+        case: "the modulator's electrodes",
+        heading: "A thin-film lithium niobate modulator: StatElecSolver with a tensor permittivity",
+        about: "Zhang et al.'s cross-section (Photon. Res. 10, 2380 (2022), Section 2): an x-cut film 600 nm thick, etched 300 nm to a rib 1.2 µm wide (its sidewalls upright here, so that the mesh lines follow them), on 2 µm of thermal oxide (ε 3.9) on 20 µm of silicon (ε 11.7); electrodes 0.83 µm thick on the slab, a signal 20 µm wide 5 µm from a ground 15 µm wide (not given); 0.6 µm of PECVD oxide (ε 5.5, the paper's) and 20 µm of air above. The film's clamped static permittivity, diagonal in the section's frame: 26.2 across (along the crystal's c axis) and 45.5 up. Half of the push–pull line beside the mirror plane through the signal, every side of the window without surface charge. Elmer's StatElecSolver with the film's permittivity a tensor and the signal at 1 V, its capacitance from the field's energy (2W/V², which its capacitance matrix matches to ten digits) and the potential at the guide's sides; photonoxide's electrostatics with the diagonal tensor, the signal's charge at 1 V and its field E_x (from the displacement through each face) averaged over the guide's cells. The whole line's capacitance (twice the half's), and the mean E_x over the guide, the rib and the slab under it, at 1 V on the signal: what the Pockels effect sees, so what sets V_π·L. It is negative, the field pointing from the signal to the ground.".to_owned(),
+        quantities: vec![
+            Quantity {
+                name: "capacitance, pF/m",
+                scale: 1e12,
+                decimals: 4,
+                tolerance: CAPACITANCE_TOLERANCE,
+            },
+            Quantity {
+                name: "mean E_x at 1 V, V/µm",
+                scale: 1e-6,
+                decimals: 6,
+                tolerance: FIELD_TOLERANCE,
+            },
+        ],
+        rows,
+        converged,
+        more: String::new(),
+    }
+}
+
 #[test]
 #[ignore = "runs Elmer, where it is installed: minutes"]
 fn elmer_agrees_with_the_static_solver() {
@@ -775,6 +822,9 @@ fn elmer_agrees_with_the_static_solver() {
     }
     if runs("joule") {
         pairs.push(joule_pair(&program, &folder, &mut progress));
+    }
+    if runs("tfln") {
+        pairs.push(tfln_pair(&program, &folder, &mut progress));
     }
     eprintln!(
         "[elmer] done in {:.0} s",
