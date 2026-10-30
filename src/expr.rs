@@ -257,6 +257,7 @@ impl Scope {
     }
 
     /// Whether it has no names (never: the coordinates are always there).
+    #[doc(hidden)]
     pub fn is_empty(&self) -> bool {
         self.names.is_empty()
     }
