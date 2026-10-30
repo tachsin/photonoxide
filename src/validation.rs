@@ -255,6 +255,7 @@ pub fn rules() -> Vec<(&'static str, Rule)> {
     rules.extend(pcm::rules());
     rules.extend(eme::rules());
     rules.extend(modulator::rules());
+    rules.extend(sweep::rules());
     rules
 }
 
@@ -2473,6 +2474,8 @@ pub fn cases() -> Vec<Case> {
     cases.extend(crate::eme::checks::cases());
     // and the thin-film lithium niobate Mach-Zehnder modulator as a device
     cases.extend(crate::device::tfln_checks::cases());
+    // and the adaptive sweeps': AAA, its error estimate, a slab's dispersion and a mode crossing
+    cases.extend(crate::sweep::checks::cases());
     cases
 }
 
@@ -5494,6 +5497,7 @@ mod materials;
 mod modes;
 mod modulator;
 mod pcm;
+mod sweep;
 #[cfg(feature = "gpu")]
 pub use gpu::gpu_report;
 
