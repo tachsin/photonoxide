@@ -16,6 +16,8 @@
 //!   confinement in a region, and the orthogonality and normalization of a set of modes.
 //! - [`region`]: every mode in a region of the complex effective-index plane, with no count
 //!   and no guess, by contour integrals.
+//! - [`roughness`]: the loss from rough sidewalls, by the volume-current method, on a slab's
+//!   exact mode and a rectangular core's full-vector mode.
 //! - [`slab_fd`]: any planar profile (graded, lossy, leaky) by 1D finite differences.
 //! - [`slab`]: the modes of a three-layer slab, exactly (TE and TM).
 //! - [`thermo`]: a change of the cross-section, such as a temperature's, in a full-vector
@@ -33,6 +35,8 @@ pub mod pockels;
 pub mod quantities;
 pub(crate) mod quantities_checks;
 pub mod region;
+pub mod roughness;
+pub(crate) mod roughness_checks;
 pub mod slab;
 pub mod slab_fd;
 pub mod thermo;

@@ -4,9 +4,10 @@ use crate::Result;
 use crate::circuit::components::{Dispersion, Waveguide};
 use crate::circuit::{Fidelity, Parameter, Provenance};
 use crate::generator::{Generator, Straight};
+use crate::mode::roughness;
 use crate::mode::vector::CrossSection;
 use crate::stack::{LayerStack, Structure};
-use crate::units::Wavelength;
+use crate::units::{Length, Wavelength};
 
 use super::guide::{Profile, Strip, um};
 use super::section::{self, Mesh};
@@ -78,9 +79,16 @@ pub(super) fn guide_figures(d: &Dispersion, fidelity: Fidelity, grid: &str) -> V
 ///
 /// Parameters `width`, `thickness` (the core layer's), `slab` and `sidewall` (how the layer is
 /// cut beside the strip: a slab of it left there makes a rib, and walls below 90° slope out
-/// going down; a strip has neither), `length`, `loss` (dB/cm, the propagation loss the mode
-/// solvers don't give: sidewall roughness, absorption), and the band its mode is modelled over,
+/// going down; a strip has neither), `length`, `loss` (dB/cm, the propagation loss the model
+/// doesn't give: absorption, and sidewall roughness unless `roughness` is set), `roughness` and
+/// `correlation` (µm: the walls' rms roughness σ and its correlation length L_c, an exponential
+/// autocorrelation; σ = 0 by default, no roughness loss), and the band its mode is modelled over,
 /// `wavelength` (the centre) and `span`.
+///
+/// With σ above 0 the 3D model adds the sidewall-roughness loss of its mode at `wavelength`,
+/// by Barwicz and Haus's volume-current analysis ([`crate::mode::roughness::sidewall_loss`]),
+/// to `loss`, and gives it as the figure `alpha_rough` (dB/cm). It is for a strip with
+/// vertical walls in one cladding; the analytic model, which has no mode, refuses it.
 ///
 /// - **Analytic:** the closed form on the fit's dispersion (n_eff and n_g at 1.55 µm, first
 ///   order in λ), or on a stated one ([`StripWaveguide::with_guide`]). The fit is a strip's
@@ -180,6 +188,8 @@ impl StripWaveguide {
         parameters.extend(etch_parameters());
         parameters.push(parameter("length", "µm", 10.0, 0.0, 1e5));
         parameters.push(parameter("loss", "dB/cm", 2.7, 0.0, 1e3));
+        parameters.push(parameter("roughness", "µm", 0.0, 0.0, 0.05));
+        parameters.push(parameter("correlation", "µm", 0.05, 0.001, 2.0));
         parameters.extend(band_parameters());
         StripWaveguide {
             methods: methods(&strip),
@@ -283,6 +293,58 @@ impl StripWaveguide {
         };
         Ok((guide, grid))
     }
+
+    /// The sidewall-roughness loss of its mode at `values` (dB/cm) and its grid, by the 3D
+    /// model's solver at the band's centre; `None` for σ = 0.
+    ///
+    /// # Errors
+    ///
+    /// [`crate::Error::InvalidValue`] for σ above 0 at the analytic fidelity, on a rib or a
+    /// sloped wall, or where [`roughness::sidewall_loss`] refuses the cross-section (a cladding
+    /// that isn't uniform); and the solver's.
+    pub fn roughness_loss(
+        &self,
+        values: &Values,
+        fidelity: Fidelity,
+    ) -> Result<Option<(f64, String)>> {
+        values.check(self)?;
+        let sigma = values.at("roughness");
+        if sigma == 0.0 {
+            return Ok(None);
+        }
+        let m = method(self.kind(), &self.methods, fidelity)?;
+        if m.fidelity == Fidelity::Analytic {
+            return Err(crate::Error::invalid(
+                "device",
+                "the sidewall roughness loss needs the guide's mode: solve the modes (3D)",
+            ));
+        }
+        let p = profile(values);
+        if !p.is_strip() {
+            return Err(crate::Error::invalid(
+                "device",
+                "the sidewall roughness loss is for a strip with vertical walls, not a rib or \
+                 sloped walls",
+            ));
+        }
+        let at = Wavelength::um(values.at("wavelength"))?;
+        let cs = self
+            .strip
+            .cross_section_of(values.at("width"), values.at("thickness"), p, at)?;
+        let modes = match self.strip.scheme_for(p) {
+            section::Scheme::Hadley => crate::mode::hadley::modes(&cs, at, 1, None)?,
+            section::Scheme::Standard => crate::mode::vector::modes(&cs, at, 1, None)?,
+        };
+        let mode = modes
+            .first()
+            .ok_or_else(|| crate::Error::invalid("device", "the solver found no mode"))?;
+        let r = roughness::Roughness::exponential(
+            Length::um(sigma),
+            Length::um(values.at("correlation")),
+        )?;
+        let loss = roughness::sidewall_loss(&cs, mode, at, &r)?;
+        Ok(Some((loss.db_per_cm(), Strip::grid(&cs))))
+    }
 }
 
 /// The waveguide's models.
@@ -365,7 +427,19 @@ impl Device for StripWaveguide {
     fn component(&self, values: &Values, fidelity: Fidelity) -> Result<Built> {
         let (guide, grid) = self.build(values, fidelity)?;
         let f = method(self.kind(), &self.methods, fidelity)?.fidelity;
-        let figures = guide_figures(guide.dispersion(), f, &grid);
+        let mut figures = guide_figures(guide.dispersion(), f, &grid);
+        let mut loss = values.at("loss");
+        if let Some((rough, rough_grid)) = self.roughness_loss(values, fidelity)? {
+            figures.push(figure(
+                "sidewall roughness loss",
+                "alpha_rough",
+                rough,
+                "dB/cm",
+                f,
+                &rough_grid,
+            ));
+            loss += rough;
+        }
         let n = self.parameters.len();
         // the component's length and loss are the device's own
         let derivatives = (0..n)
@@ -376,7 +450,7 @@ impl Device for StripWaveguide {
             })
             .collect();
         Ok(Built {
-            values: vec![values.at("length"), values.at("loss")],
+            values: vec![values.at("length"), loss],
             derivatives,
             figures,
             component: Box::new(guide),

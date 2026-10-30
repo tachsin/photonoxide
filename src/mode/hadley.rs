@@ -624,7 +624,10 @@ fn norm(v: &[c64]) -> f64 {
 
 /// Nonlinear inverse iteration (Güttel and Tisseur, Algorithm 4.7) on M(ε̄) h = 0 from
 /// (`eb`, `start`): solve M(ε̄ₖ) w = M′(ε̄ₖ) vₖ, set ε̄ₖ₊₁ = ε̄ₖ − (u·vₖ)/(u·w) with u the
-/// starting vector, and vₖ₊₁ = w/‖w‖. M′ by central differences. Returns ε̄ and h.
+/// starting vector, and vₖ₊₁ = w/‖w‖. M′ by central differences. Returns ε̄ and h once the
+/// change in ε̄ is below 1e-13 relative, or has stopped falling once below 1e-10: on a large grid
+/// (the 2.5 nm silicon strip's 134 921 unknowns) the solves' round-off holds it between 1e-13
+/// and 1e-12, so a fixed 1e-13 is met or not by chance, differently on each system.
 fn refine(
     cs: &CrossSection,
     numbering: &Numbering,
@@ -638,6 +641,7 @@ fn refine(
     let u: Vec<c64> = start.iter().map(|x| x / s).collect();
     let mut v = u.clone();
     let mut eb = eb;
+    let mut last = f64::INFINITY;
     for _ in 0..30 {
         let grid = |eb: c64| Grid { k2, eb, hx, hy };
         let m = assemble(cs, numbering, &grid(eb))?;
@@ -662,9 +666,13 @@ fn refine(
         eb -= step;
         let wn = norm(&w);
         v = w.iter().map(|x| x / wn).collect();
-        if step.norm() <= 1e-13 * eb.norm() {
+        // converged: the change is below 1e-13 relative, or, on a grid large enough that the
+        // solves' round-off holds it above that, it has stopped falling once below 1e-10
+        let change = step.norm() / eb.norm();
+        if change <= 1e-13 || (change <= 1e-10 && change >= last) {
             return Ok((eb, v));
         }
+        last = change;
     }
     Err(Error::invalid(
         "Hadley's equations",
@@ -720,9 +728,9 @@ fn check(cs: &CrossSection) -> Result<(f64, f64)> {
 /// highest index in the cross-section when `None`), by Hadley's high-accuracy equations.
 ///
 /// Each mode starts from the one [`vector::modes`] finds on the same grid and is refined until
-/// ε̄ = n_eff² changes by less than 1e-13 relative. The cross-section's grid must be uniform
-/// along each axis, its media isotropic and lossless, without a PML; mirror walls and zero
-/// boundaries work as in [`vector`].
+/// ε̄ = n_eff² changes by less than 1e-13 relative, or stops changing less once below 1e-10.
+/// The cross-section's grid must be uniform along each axis, its media isotropic and lossless,
+/// without a PML; mirror walls and zero boundaries work as in [`vector`].
 ///
 /// # Errors
 ///

@@ -6,8 +6,8 @@ name: CI
 #   area map (.github/areas.sh) turns the changed files into the unit tests, validation cases and
 #   examples of their areas and of the areas that use them; a file of no area runs everything.
 #   Files nothing reads run only the docs' links. A pull request that changes the library (src/
-#   or the root Cargo.toml) has its public API checked against the latest release's
-#   (cargo-semver-checks).
+#   or the root Cargo.toml) has its public API checked against its base's (cargo-semver-checks,
+#   and cargo-public-api's listing of the façade).
 # - Tier 2, the release pull request (release-plz's branch), a pull request labelled `full-ci`
 #   (the Full CI workflow starts it), and a change to this workflow or to Cargo.toml or
 #   Cargo.lock: everything, the tests on Linux, Windows and macOS, single-threaded too, every
@@ -500,6 +500,15 @@ jobs:
   # fails it, unless the pull request says it breaks: a `!` in its title (`fix(fdfd)!: ...`, as
   # Conventional Commits mark it) or the `breaking` label. Release-plz then raises the minor
   # version, 0.5 to 0.6, where a patch was meant.
+  #
+  # To be replaced by the Public API job below from the first pull request of the crate split
+  # (phases 1 to 5 of #508): cargo-semver-checks doesn't follow a re-export of an item from
+  # another crate of the workspace (the #508 spike, decision D3), so once a module moves into
+  # crates/ and photonoxide re-exports it, this job reports its items as removed although
+  # photonoxide's API is the same. That pull request deletes this job (and AGENTS.md's and
+  # CONTRIBUTING.md's lines on it), leaving the Public API job as the check, or, if the
+  # Semver job is still wanted for the lints the listing can't see, gives it
+  # `continue-on-error: true` so that it only reports. Until then both run, and both must pass.
   semver:
     name: Semver
     needs: changes
@@ -537,6 +546,124 @@ jobs:
             exit 0
           fi
           echo "::error::The public API breaks semver against the pull request's base (or, on the release PR, the latest release; the lints above): users' code that compiles against it may not compile against this. Keep the old API working (a field added to a public struct breaks every literal of it: put new settings in a type of their own marked #[non_exhaustive], with a new method taking it), or, if the break is meant, put a ! in the pull request's title (fix(area)!: ...) or add the breaking label, then rerun this job: release-plz will then raise the minor version."
+          exit 1
+
+  # The façade's public API as users see it, every public path of `photonoxide` one item a line,
+  # listed by cargo-public-api at the pull request's base and at its head (#508, decision D3).
+  # rustdoc's JSON leaves out an item photonoxide re-exports from another crate, keeping only
+  # the `pub use`, so .github/scripts/public-api.py lists the crates of crates/ too and puts
+  # their items at the paths photonoxide re-exports them at: a module moved into crates/ and
+  # re-exported at its old path shows no change.
+  # A line of the base missing at the head is an item removed or changed (a changed item's old
+  # line goes and its new one comes) and fails the job, unless the pull request says it breaks,
+  # as for the Semver job: a `!` in its title or the `breaking` label. An added item passes.
+  # cargo-public-api reads rustdoc's JSON, which only a nightly writes and whose format changes,
+  # so the tool's version and the nightly are pinned together: 0.52.x reads the JSON of
+  # nightly-2025-11-22 up to the format change of 2026-05-31. Raise both at once, to a release
+  # of cargo-public-api and a nightly its README's table pairs it with.
+  public-api:
+    name: Public API
+    needs: changes
+    if: needs.changes.outputs.library == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    env:
+      PUBLIC_API_VERSION: 0.52.0
+      PUBLIC_API_NIGHTLY: nightly-2026-05-24
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # the base commit, listed beside the head
+          fetch-depth: 0
+      # the pinned nightly for rustdoc's JSON, then stable, the default, which builds the tool
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ env.PUBLIC_API_NIGHTLY }}
+      - uses: dtolnay/rust-toolchain@stable
+      # the registry, git checkouts and ~/.cargo/bin (the installed tool); the compiled crates
+      # are sccache's (#507)
+      - uses: Swatinem/rust-cache@v2
+        with:
+          cache-targets: false
+      # sccache in GitHub's cache; the action prints its hits and misses in the job's summary
+      - uses: mozilla-actions/sccache-action@v0.0.11
+      # and compiling without it when GitHub's cache can't be reached (its storage answers 503 when the
+      # account's egress is over its limit): sccache would otherwise fail every compile
+      - name: Compile through sccache
+        shell: bash
+        run: |
+          export SCCACHE_GHA_ENABLED=true
+          if sccache --start-server; then
+            echo "SCCACHE_GHA_ENABLED=true" >> "$GITHUB_ENV"
+            echo "SCCACHE_IGNORE_SERVER_IO_ERROR=1" >> "$GITHUB_ENV"
+            echo "RUSTC_WRAPPER=sccache" >> "$GITHUB_ENV"
+          else
+            echo "::warning::sccache didn't start (GitHub's cache unreachable): compiling without it"
+          fi
+      # skipped when the cache brought the same version back
+      - name: cargo-public-api
+        run: cargo install cargo-public-api --version "$PUBLIC_API_VERSION" --locked
+      # a failure to list either side fails here, whatever the title says
+      - name: The public API at the base and at the head
+        id: diff
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -euo pipefail
+          # both sides in one target directory, so the dependencies are built once
+          export CARGO_TARGET_DIR="$GITHUB_WORKSPACE/target"
+          git worktree add --detach "$RUNNER_TEMP/base" "$BASE"
+          out="$RUNNER_TEMP/public-api"
+          mkdir -p "$out"
+          # the head's script lists both sides
+          python3 .github/scripts/public-api.py "$RUNNER_TEMP/base" > "$out/base.txt"
+          python3 .github/scripts/public-api.py "$GITHUB_WORKSPACE" > "$out/head.txt"
+          git worktree remove --force "$RUNNER_TEMP/base"
+          LC_ALL=C sort "$out/base.txt" > "$out/base.sorted"
+          LC_ALL=C sort "$out/head.txt" > "$out/head.sorted"
+          # at the base and not at the head: removed or changed; at the head only: added
+          LC_ALL=C comm -23 "$out/base.sorted" "$out/head.sorted" > "$out/gone.txt"
+          LC_ALL=C comm -13 "$out/base.sorted" "$out/head.sorted" > "$out/added.txt"
+          gone=$(wc -l < "$out/gone.txt") added=$(wc -l < "$out/added.txt")
+          echo "$(wc -l < "$out/base.txt") items at the base, $(wc -l < "$out/head.txt") at the head: $gone removed or changed, $added added"
+          diff -u "$out/base.txt" "$out/head.txt" || true
+          { sed 's/^/- /' "$out/gone.txt"; sed 's/^/+ /' "$out/added.txt"; } > "$out/changes.diff"
+          {
+            echo "### Public API: $gone removed or changed, $added added"
+            echo
+            echo "A \`-\` line is an item of the base the head no longer has (removed, or changed: its new form is a \`+\` line); a \`+\` line is new. The listings are the job's artifact."
+            echo
+            echo '```diff'
+            # the first 500 lines; the log has them all
+            sed -n '1,500p' "$out/changes.diff"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ "$gone" -gt 0 ]; then echo "breaks=true" >> "$GITHUB_OUTPUT"; else echo "breaks=false" >> "$GITHUB_OUTPUT"; fi
+      - uses: actions/upload-artifact@v7
+        if: always() && steps.diff.outcome != 'skipped'
+        with:
+          name: public-api
+          path: ${{ runner.temp }}/public-api/*.txt
+          if-no-files-found: ignore
+      # the title and labels as they are now, not as the run's event had them, so that a rerun
+      # after marking the pull request breaking passes
+      - name: A removed or changed item needs the pull request to say so
+        if: steps.diff.outputs.breaks == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          pr=$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR")
+          title=$(jq -r .title <<<"$pr")
+          if jq -e '[.labels[].name] | index("breaking")' <<<"$pr" > /dev/null ||
+            [[ "$title" =~ ^[a-z]+(\([^\)]*\))?!: ]]; then
+            echo "::notice::The public API lost or changed items (the - lines in the previous step and in the summary), and the pull request says so: the next release raises the minor version."
+            exit 0
+          fi
+          echo "::error::The public API lost or changed items against the pull request's base (the - lines in the previous step and in the job's summary): users' code that uses them may not compile against this. Keep them (a moved item stays at its old path through a pub use), or, if the break is meant, put a ! in the pull request's title (fix(area)!: ...) or add the breaking label, then rerun this job: release-plz will then raise the minor version."
           exit 1
 
   # a push to the release PR (lines added to its changelog by hand) is checked again

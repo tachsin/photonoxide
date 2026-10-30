@@ -58,6 +58,14 @@ papers:
     doi: 10.1109/22.477846
   - cite: "G. Ghione, Semiconductor Devices for High-Speed Optoelectronics, Cambridge University Press (2009) (the travelling-wave response, Eq. 6.31)"
     doi: 10.1017/CBO9780511635595
+  - cite: "F. P. Payne, J. P. R. Lacey, Opt. Quantum Electron. 26, 977 (1994) (the slab's roughness loss, Eqs. 1-12)"
+    doi: 10.1007/BF00708339
+  - cite: "T. Barwicz, H. A. Haus, J. Lightwave Technol. 23, 2719 (2005) (sidewall roughness by the volume-current method, Sections III-V)"
+    doi: 10.1109/JLT.2005.850816
+  - cite: "J. Meixner, IEEE Trans. Antennas Propag. 20, 442 (1972) (the field at a corner)"
+    doi: 10.1109/TAP.1972.1140243
+  - cite: "L. Novotny, B. Hecht, Principles of Nano-Optics, 2nd ed., Cambridge University Press (2012) (a dipole at a planar interface, Ch. 10)"
+    doi: 10.1017/CBO9780511794193
 validation:
   - device/library-components
   - device/ring-closed-forms
@@ -122,6 +130,9 @@ validation:
   - device/tfln-kharel-loss
   - device/tfln-2d-grid
   - device/tfln-jobs
+  - roughness/payne-lacey-eq9
+  - roughness/payne-lacey-slab
+  - roughness/silicon-grid-order
 ---
 
 A [component](components.md) maps its parameters to an S-matrix, and its physical inputs are
@@ -274,8 +285,10 @@ indices by more than 0.01: on another platform, solve the modes.
 ## Waveguide
 
 `StripWaveguide`: ports `o1`, `o2`; parameters `width`, `thickness`, `length`, `loss` (dB/cm:
-what the mode solvers don't give, roughness and absorption), and the band its 3D model samples,
-`wavelength` (the centre) and `span`. Its component is a `Waveguide`,
+absorption, and sidewall roughness unless it is computed), `roughness` and `correlation` (µm:
+the walls' rms roughness σ, 0 by default, and its correlation length $L_c$, 50 nm by default;
+[Sidewall roughness](#sidewall-roughness)), and the band its 3D model samples, `wavelength`
+(the centre) and `span`. Its component is a `Waveguide`,
 $S_{21} = e^{i\gamma L}$ ([components.md](components.md)), its parameters the device's `length`
 and `loss`.
 
@@ -289,6 +302,89 @@ The 3D model's n_eff converges at second order by Hadley's equations (1.92 from 
 less on practical grids (2.445713, 2.444396 and 2.443506 at 10, 5 and 2.5 nm, where Hadley's
 give 2.442212, 2.442178 and 2.442168: `strip_waveguide --full`),
 is there for windows Hadley's equations can't take.
+
+### Sidewall roughness
+
+With `roughness` (σ) above 0, the 3D model adds the loss the mode radiates from its rough
+sidewalls to `loss`, and gives it as the figure `alpha_rough` (dB/cm), by
+`mode::roughness::sidewall_loss` on the mode at `wavelength`. In a job:
+
+```toml
+[device]
+kind = "waveguide"
+fidelity = "3D"
+parameters = { width = "400 nm", roughness = "2 nm", correlation = "50 nm" }
+```
+
+The method is Barwicz & Haus's volume-current analysis (their Sections III–V). A wall
+displaced by f(z) is a sheet of polarization current $-i\omega\varepsilon_0 (n_\text{core}^2 -
+n_\text{clad}^2) E f(z)$, E the smooth guide's mode at the wall on the core's side; f has the
+exponential autocorrelation $R(u) = \sigma^2 e^{-|u|/L_c}$, its spectrum
+$\tilde R(\xi) = 2\sigma^2 L_c/(1 + L_c^2\xi^2)$, so a wall radiates at the angle θ from the axis
+what the spectrum holds at $\beta - n_\text{clad}k_0\cos\theta$, and the two walls' powers add.
+Each wall's current is a rod the core's height tall, its strength $v^2 = \int |E|^2$ along the
+wall, shaped as a cosine along the height (a sine for the TM-like mode's $E_z$); it radiates
+beside a slab of the core's index and width, and the far field is integrated over the sphere.
+The TE-like mode's currents are the field normal to the wall and $E_z$, the TM-like mode's the
+vertical field and $E_z$, weighted by their powers at the wall. It is first order in σ, for a
+strip with vertical walls in one cladding; the analytic model, which has no mode, refuses σ.
+
+Three things differ from the paper as printed, each checked:
+
+- **Payne & Lacey's factor of 2.** Barwicz & Haus (p. 2729) write that Payne & Lacey's slab
+  formula carries an extra factor of 2 in its Eq. 9, offsetting one missing from its Eq. 1. On the
+  exact slab mode both hold: Eq. 9 is twice the field at the wall normalized to
+  $\int\varphi^2 = 1$ (`roughness/payne-lacey-eq9`: 2 to 1e-10 for slabs of 1.50, 2.00 and 3.50
+  in 1.45), and the volume current on that mode, its far field from the 2D Green's function
+  and the mode's power each by quadrature, is twice Eq. 1, so equal to their Eq. 10 as printed
+  (`roughness/payne-lacey-slab`). Eq. 1's $1/n_1$ is the weakly guiding $\beta \approx n_1k_0$;
+  the mode's power carries β, so the loss is Eq. 10 times $n_1k_0/\beta$ (1.01 for the 1.50 slab,
+  1.25 for silicon). A tall rod in the cladding alone, by the 3D analysis's own point-source
+  Green's function, tends to the same 2D loss as its height grows (a unit test), so the 2D and
+  3D halves agree on the factor.
+- **The reflected p-wave.** The paper's leading-order Green's function beside the core (p. 2727,
+  $\bar{\bar G}_{1,1}$) takes the outgoing wave's polarization for the wave the source sends
+  towards the core too, so a current along the wall gets $(1 + \hat R^\text{TM})$ where a
+  dipole at an interface has $(1 - \hat R^\text{TM})$ (Novotny & Hecht, Ch. 10). Only the
+  second makes the s and p waves the same along the wall's normal, where they are one wave (a
+  unit test). We use it; the difference is small beside a low-index core and large beside
+  silicon (the table below).
+- **The corners.** The field normal to a face is singular at the core's corners,
+  $|E|^2 \propto r^{2\tau - 2}$, τ the root of
+  $\varepsilon_\text{core}\tan(\tau\pi/4) = -\varepsilon_\text{clad}\tan(3\tau\pi/4)$ (Meixner):
+  0.770 for silicon in silica, 0.901 for nitride. It is integrable, but the finite differences'
+  fields in the two rows of cells nearest a corner don't converge to it: taken as they are, they
+  raise the silicon guide's loss on the standard scheme 1.3, 1.5 and 1.6 times with each halving
+  of the grid from 10 to 1.25 nm. Those rows take the
+  singularity's integral, fitted to the next row; and the mode comes from Hadley's equations,
+  whose fields beside a corner converge. The silicon guide's loss then converges at the order the
+  corners leave, $2\tau - 1$ = 0.54: 0.3873, 0.4039, 0.4144 and 0.4213 (dB/cm)/nm² on 20, 10, 5
+  and 2.5 nm, orders 0.66 and 0.61, Richardson's limit 0.434, 3 % above the 2.5 nm value
+  (`roughness/silicon-grid-order`). The device solves on its own mesh, 10 nm by default, where
+  this guide's loss is 7 % below its limit: refine the mesh for a figure closer than that.
+
+**Against Barwicz & Haus's Fig. 12** (loss over σ² in (dB/cm)/nm², λ = 1550 nm, $L_c$ = 50 nm,
+cores in SiO₂ of 1.45; read off the figure, its raster at 0.76 nm per pixel for silicon): our
+values with our Green's function, and with theirs as printed.
+
+| Core | Height × width | Mode | Fig. 12, read | Ours | With the printed Green's function | Our grid |
+|---|---|---|---|---|---|---|
+| SiON (1.50) | 1.5 × 3.0 µm | TE-like | between the 6e-5 and 8e-5 lines, about 6.8e-5 | 6.58e-5 | 6.58e-5 | 25 nm |
+| SiON (1.50) | 1.5 × 3.0 µm | TM-like | on the 1.2e-4 line | 1.137e-4 | 1.142e-4 | 25 nm |
+| Si₃N₄ (2.00) | 0.4 × 0.8 µm | TE-like | between the 0.01 and 0.02 lines, about 0.017 | 0.01746 | 0.01726 | 5 nm |
+| Si₃N₄ (2.00) | 0.4 × 0.8 µm | TM-like | between the 0.01 and 0.02 lines | 0.01359 | 0.01333 | 5 nm |
+| Si (3.50) | 0.2 × 0.4 µm | TE-like | just above the 0.6 line, 0.62 to 0.65; the caption's "around 7 dB/cm" at σ² = 10 nm² | 0.421 | 0.586 | 2.5 nm |
+| Si (3.50) | 0.2 × 0.4 µm | TM-like | below the 0.1 line, about 0.09 | 0.0608 | 0.0866 | 2.5 nm |
+
+Every mode by Hadley's equations on the quarter of a uniform grid. Beside the low-contrast cores
+the two Green's functions agree to 1 %, and our values come within 3 to 7 % of the figure where
+it can be read closely (the SiON TM-like guide lies on a line: 5 % below it). Beside silicon
+they part by 40 %, and the printed one comes within 3 to 7 % of the figure for both modes, as
+it does for the others: their Fig. 11's ratio to the 2D theory, about 0.11 for silicon's TE-like
+mode, is 0.10 with it and 0.072 without. So the figure was most likely computed with the
+Green's function as printed, and the silicon guides' difference from ours is that. The rest, 3
+to 7 % on every core, is above the figure's reading uncertainty (about 1.5 % on a line) and
+isn't explained: Fig. 12 is not a validation case.
 
 ## Bend
 
