@@ -341,6 +341,35 @@ impl Component for Mmi {
     }
 
     fn s_matrix(&self, wavelength: Wavelength, values: &[f64]) -> Result<SMatrix> {
+        self.s_matrix_with(wavelength, values, &[])
+    }
+
+    fn provenance(&self) -> Provenance {
+        Provenance {
+            fidelity: Fidelity::TwoD,
+            source: format!(
+                "guided-mode propagation analysis (Soldano & Pennings 1995, doi:10.1109/50.372474, \
+                 Eqs. 8-12) with the exact slab modes of the plane seen from above ({:?}), \
+                 access guides {} um wide; radiation modes and reflections left out",
+                self.planar_summary(),
+                self.access
+            ),
+            error: None,
+            validity: None,
+        }
+    }
+}
+
+impl Mmi {
+    /// Its S-matrix, the section's mode v travelling with the effective index `indices[v]`
+    /// instead of its own where that is `Some`, left out where `None`; the modes past the
+    /// slice's end as they are. With no indices, [`Component::s_matrix`].
+    pub(crate) fn s_matrix_with(
+        &self,
+        wavelength: Wavelength,
+        values: &[f64],
+        indices: &[Option<f64>],
+    ) -> Result<SMatrix> {
         super::check(self.kind(), &self.parameters, values)?;
         let (length, width) = (values[0], values[1]);
         let (_, _, polarization) = self.planar.at(wavelength)?;
@@ -379,9 +408,15 @@ impl Component for Mmi {
                     .collect()
             })
             .collect();
+        let k = wavelength.wavenumber();
         let travel: Vec<c64> = modes
             .iter()
-            .map(|m| crate::portable::exp_c(c64::new(0.0, m.beta * length)))
+            .enumerate()
+            .map(|(v, m)| match indices.get(v) {
+                None => crate::portable::exp_c(c64::new(0.0, m.beta * length)),
+                Some(Some(n)) => crate::portable::exp_c(c64::new(0.0, k * n * length)),
+                Some(None) => c64::new(0.0, 0.0),
+            })
             .collect();
         let n = layout.len();
         Ok(SMatrix::from_fn(n, |q, p| {
@@ -395,23 +430,6 @@ impl Component for Mmi {
         }))
     }
 
-    fn provenance(&self) -> Provenance {
-        Provenance {
-            fidelity: Fidelity::TwoD,
-            source: format!(
-                "guided-mode propagation analysis (Soldano & Pennings 1995, doi:10.1109/50.372474, \
-                 Eqs. 8-12) with the exact slab modes of the plane seen from above ({:?}), \
-                 access guides {} um wide; radiation modes and reflections left out",
-                self.planar_summary(),
-                self.access
-            ),
-            error: None,
-            validity: None,
-        }
-    }
-}
-
-impl Mmi {
     /// A short description of the plane, for the provenance.
     fn planar_summary(&self) -> String {
         match &self.planar {

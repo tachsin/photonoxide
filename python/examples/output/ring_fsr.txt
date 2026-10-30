@@ -1,0 +1,16 @@
+Setup
+  instance c: a coupler: coupling 0.1
+  instance ring: a waveguide: n_eff 2.4, n_g 4.2, wavelength_um 1.55 µm, length 62.83185 µm, loss 3 dB/cm
+  ports: in, through
+  wavelength: 1.55 µm
+  scan: 1.53 to 1.57 µm every 0.1 nm, then each minimum to 1e-12 µm by golden sections
+  grid: none: the circuit's S-matrix, exact
+  solver: the circuit solve: the coupler's and the guide's S-matrices, the loop closed
+  tolerance: 1e-4 nm on the free spectral range
+  materials:
+    the ring's guide: stated, not computed: n_eff 2.4 and n_g 4.2 at 1.55 µm, 3 dB/cm (Bogaerts et al. 2012)
+
+an all-pass ring, kappa^2 = 0.1, 62.8 um of n_eff 2.4, n_g 4.2, 3 dB/cm (Bogaerts et al. 2012)
+  resonances at 1.543545 and 1.552627 um, found on a 0.1 nm grid then to 1e-12 um
+  FSR around 1.55 µm, nm                 9.081493   Eq. 9 9.081571   ± 1e-4      ok
+all 1 within tolerance of the paper
