@@ -68,6 +68,7 @@ cargo machete                                           # dependencies nothing u
 git diff --name-only origin/main...HEAD | AREAS_RANGE=origin/main...HEAD bash .github/areas.sh   # what CI runs for a branch
 cargo semver-checks check-release -p photonoxide --baseline-rev origin/main   # a branch's own breaks (CI's Semver job on a PR)
 cargo semver-checks check-release -p photonoxide        # the public API against the latest release (the release PR's check)
+PUBLIC_API_NIGHTLY=nightly-2026-05-24 python3 .github/scripts/public-api.py . > head.txt   # the façade's API, one item a line (CI's Public API job; needs cargo-public-api 0.52.0 and that nightly)
 ```
 
 CI runs in tiers (issue #315). **Tier 1**, every PR and push to main: on Linux, lint, MSRV, and the
@@ -78,7 +79,11 @@ reads (most Markdown, the site, the other workflows) run only the docs' links. A
 or test-read file gets its line in the map. A PR that changes the library (`src/`, the root
 `Cargo.toml`) also runs the Semver job, cargo-semver-checks against the PR's base on main, so a
 PR answers for its own breaks only; the release PR is checked against the latest release on
-crates.io. **Tier 2**, the release PR, a PR labelled `full-ci`, and
+crates.io. The same PRs run the Public API job: cargo-public-api's listing of the façade at the
+base and the head, items of `crates/` at the paths the façade re-exports them at, failing on a
+removed or changed item; from the crate split's first PR (#508) it replaces the Semver job,
+which doesn't follow re-exports from other crates (CONTRIBUTING.md, "The Public API job").
+**Tier 2**, the release PR, a PR labelled `full-ci`, and
 a change to `ci.yml`, `Cargo.toml` or `Cargo.lock`: every test on Linux, Windows and macOS (and on
 one thread), every example on the three systems, the 3D devices, the whole validation report. **Tier
 3**, the Weekly workflow on Mondays when code changed that week: Tier 2, every Python wheel, the
@@ -165,7 +170,7 @@ checks their rows (and the report's head and list of cases); the release PR chec
   - headless only for batches.
 - **Optimizers come from genoxide.** photonoxide supplies objectives, gradients and parametrizations. A missing method is added to genoxide as a general method, not written here and not made photonics-specific.
 - **A public API change that breaks 0.x semver needs `!` in the PR title** (or the `breaking`
-  label); CI's semver check enforces it, since release-plz then raises the minor version. Keep
+  label); CI's Semver and Public API jobs enforce it, since release-plz then raises the minor version. Keep
   0.x patches compatible where it costs little: a new field on a public struct that users build
   with a literal breaks them; put new settings in a type of their own, `#[non_exhaustive]`, taken
   by a new method.

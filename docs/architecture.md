@@ -7,7 +7,12 @@ rebuilds only its own crate and the ones above it (tracking issue
 rules that keep them, how to add a module, and where the split to crates stands.
 
 The public API does not change with the split. `photonoxide` stays the crate users depend on and
-re-exports every module at its current path.
+re-exports every module at its current path. CI's Public API job checks it on every PR that
+changes the library: it lists `photonoxide`'s public API at the PR's base and head, with the
+items of `crates/` at the paths `photonoxide` re-exports them at, and fails on an item removed
+or changed ([CONTRIBUTING.md](../CONTRIBUTING.md#the-public-api-job)). cargo-semver-checks, the
+Semver job, doesn't follow a re-export from another crate of the workspace, so the Public API
+job replaces it from the split's first PR.
 
 ## The layers
 
