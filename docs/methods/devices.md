@@ -928,7 +928,7 @@ its rule (`src/validation/pcm_conformal.rs`):
 | Case | What it compares | Ours | Tolerance and its basis |
 |---|---|---|---|
 | `device/pcm-conformal-step-limit` | the conformal film over a guide of no step against the stack's film layer across the window, same nodes, three materials, TE and TM: cells and $n_\mathrm{eff}$ whose bits differ | 0 | 0, round-off: the same cells drawn two ways |
-| `device/pcm-conformal-area` | the film's cells' area against $2\,[t_f (w/2 + t_w) + t_w h + t_s (X - w/2) - t_w t_s]$, four films (strip and rib, walls and slab, slab alone, walls alone) | 0 | 1e-12 relative, round-off: rectangles whose faces are nodes |
+| `device/pcm-conformal-area` | the film's cells' area against $2\thinspace [t_f (w/2 + t_w) + t_w h + t_s (X - w/2) - t_w t_s]$, four films (strip and rib, walls and slab, slab alone, walls alone) | 0 | 1e-12 relative, round-off: rectangles whose faces are nodes |
 | `device/pcm-conformal-grid` | $\Delta n_\mathrm{eff}$ and $\alpha_\mathrm{c}$ on the device's cells against half the size, the film following the strip (TE, TM) and the rib (TE) | 0.30 % | 2 % relative, discretisation, as `device/pcm-2d-grid` |
 | `device/pcm-wide-guide-tm-conformal` | analytic $\Delta n_\mathrm{eff}$ against 2D on half the cells, a 2 µm guide, TM with the film on the top and TE with the film following it | 0.64 % (GST, TE, following); the 2D grid's own 0.061 % | 1 % relative, model: the effective index method at a guide four times wider, as `device/pcm-wide-guide` |
 

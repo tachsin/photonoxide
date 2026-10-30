@@ -477,7 +477,7 @@ pub(crate) fn cases() -> Vec<Case> {
         },
         Case {
             id: "device/pcm-conformal-area",
-            title: r"Phase-change phase shifters, the film following the guide: the area of the film's cells in the 2D model's cross-section (both halves), for a 25 nm film on the top, the walls and beside a strip, the same over a rib's 100 nm slab, on the top and the slab alone, and on the top and the walls alone, against the closed form of its rectangles, $2\,[t_f (w/2 + t_w) + t_w h + t_s (X - w/2) - t_w t_s]$ ($h$ the rib's step, $X$ the window's half-width; the corners square); the largest relative difference (shown)",
+            title: r"Phase-change phase shifters, the film following the guide: the area of the film's cells in the 2D model's cross-section (both halves), for a 25 nm film on the top, the walls and beside a strip, the same over a rib's 100 nm slab, on the top and the slab alone, and on the top and the walls alone, against the closed form of its rectangles, $2\thinspace [t_f (w/2 + t_w) + t_w h + t_s (X - w/2) - t_w t_s]$ ($h$ the rib's step, $X$ the window's half-width; the corners square); the largest relative difference (shown)",
             tier: Tier::Analytic,
             source: r"the film's thickness measured normal to the face it lies on: $t_f$ on the top, $t_w$ on the walls, $t_s$ over the slab, as M. Delaney et al., Adv. Funct. Mater. 30, 2002447 (2020), doi:10.1002/adfm.202002447, Fig. 7d–f draws a 25 nm film over a rib and its slab",
             run: || outcome(film_area(), 0.0, 1e-12),
