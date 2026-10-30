@@ -190,7 +190,7 @@ struct Prepared {
 }
 
 /// Reads and checks a fit: its plan is one for the device at its fidelity, every sample's
-/// design builds and takes the grids (a 3D FDFD at each one the direct solver holds here), and
+/// design builds and takes the grids (a 3D FDFD at each one a 3D solve holds here), and
 /// the parameters the model doesn't cover keep their values at every sample.
 fn prepare(job: &Job) -> Result<Prepared> {
     let spec = spec_of(job)?;

@@ -20,6 +20,13 @@ const TIME_GRID: Numerical = Stated(
     "the 2D grids and steps gated at 1 % (shifter/jacques-*-time, device/thermo-harris-bandwidth)",
 );
 
+/// The 3D MMI's own error: its grid study at 44, 31.4 and 22 nm, extrapolated at second order,
+/// spanning first order to the 4.0 the grids show.
+const MMI_3D: Numerical = Stated(
+    6e-3,
+    "the 3D grid study at 44, 31.4 and 22 nm, extrapolated at second order and spanning first order to the 4.0 the grids show (docs/methods/devices.md)",
+);
+
 /// The 2D thermal models' grids at the three fabricated designs (device/thermo-2d-grid).
 const THERMO_GRID: Numerical = Stated(
     8.0e-4,
@@ -634,6 +641,17 @@ pub(crate) fn rules() -> Vec<(&'static str, Rule)> {
             ),
         ),
         (
+            "device/fdfd-3d-iterative",
+            Rule::new(
+                Relative,
+                RoundOff,
+                1e-8,
+                Exact,
+                "the iterative solve's residual, 1e-9, which the S-matrix's difference follows (4.7e-10 on a 2 µm MMI on 80 nm cells)",
+            )
+            .varying(),
+        ),
+        (
             "device/mmi-2d-grid",
             Rule::new(
                 Absolute,
@@ -664,6 +682,39 @@ pub(crate) fn rules() -> Vec<(&'static str, Rule)> {
                 1e-3,
                 Measured,
                 "the change halving the grid bounds what is left",
+            ),
+        ),
+        (
+            "device/mmi-guided-3d",
+            Rule::new(
+                Absolute,
+                Model,
+                5e-2,
+                MMI_3D,
+                "the guided modes' stated error against 3D: the difference measured and the 3D value's uncertainty, rounded up",
+            ),
+        ),
+        (
+            "device/mmi-fdfd-3d",
+            Rule::new(
+                Absolute,
+                Model,
+                5e-2,
+                MMI_3D,
+                "2D FDFD's stated error against 3D: the difference measured and the 3D value's uncertainty, rounded up",
+            ),
+        ),
+        (
+            "device/y-branch-2d-3d",
+            Rule::new(
+                Absolute,
+                Model,
+                2e-2,
+                Stated(
+                    3e-4,
+                    "the 3D grid study at 44, 31.4 and 22 nm, extrapolated at second order and spanning first order to the 4.4 the grids show (docs/methods/devices.md)",
+                ),
+                "the 2D model's stated error against 3D: the difference measured and the 3D value's uncertainty, rounded up",
             ),
         ),
         (

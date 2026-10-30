@@ -10,8 +10,8 @@ use crate::averaging::Averaging;
 use crate::circuit::components::Sampled;
 use crate::circuit::{Fidelity, Port as CircuitPort, PortMode, Provenance, SMatrix, Spectrum};
 use crate::fdfd::{
-    Axis, Boundaries, Boundaries3d, Grid, Grid3d, Polarization as Field, Port, Port3d, Side,
-    Solver2d, Solver3d,
+    Axis, Boundaries, Boundaries3d, Formulation, Grid, Grid3d, IterativeSolver3d, Multigrid,
+    Polarization as Field, Port, Port3d, Product, Side, Solver2d, Solver3d, Stopping,
 };
 use crate::geometry::{Point, Shape};
 use crate::mode::Polarization;
@@ -141,9 +141,75 @@ struct Placed {
     x: f64,
 }
 
-/// The most unknowns a device's 3D FDFD solves: the direct solver's memory grows faster than
-/// they do (a 1 × 2 MMI's 1.26 million took 32 GB).
-const MOST_3D: usize = 1_200_000;
+/// The most unknowns a device's 3D FDFD solves by the direct solver: its memory grows faster
+/// than they do (a 1 × 2 MMI's 1.26 million took 32 GB). Above it, iteratively
+/// ([`Route::Iterative`]).
+const MOST_DIRECT_3D: usize = 1_200_000;
+
+/// The most unknowns a device's 3D FDFD solves at all, iteratively: at [`MULTIGRID_BYTES`] an
+/// unknown, about 48 GB.
+const MOST_3D: usize = 13_000_000;
+
+/// The peak bytes an unknown of a device's iterative 3D solve: 3.5 to 4.1 kB measured on the
+/// MMI and the Y-branch (docs/methods/devices.md, "FDFD fidelities").
+const MULTIGRID_BYTES: f64 = 3_700.0;
+
+/// The relative residual of Shin and Fan's system a device's iterative 3D solve reaches. Their
+/// residual measures the field less well than the curl-curl one's: at 1e-8 the multigrid's
+/// field was 2e-6 to 2e-5 from the reference from 2 × 10⁵ to 6 × 10⁶ unknowns, growing with the
+/// size (docs/methods/multigrid-stencil.md, "Measured"), and a decade lower is what the largest
+/// wanted; so 1e-9, for the 10⁷ unknowns of an MMI on 20 nm cells. A device's S-matrix follows
+/// it: within 4.7e-10 of the direct solver's on a 2 µm MMI (docs/methods/devices.md).
+pub(super) const RESIDUAL_3D: f64 = 1e-9;
+
+/// How a device's 3D FDFD solves.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(super) enum Route {
+    /// The sparse direct solver, inside the plain PMLs ([`Boundaries3d::pml`]): up to
+    /// [`MOST_DIRECT_3D`] unknowns.
+    Direct,
+    /// The direct solver inside the stretched PMLs the iterative route takes: the same system,
+    /// to check it by.
+    DirectStretched,
+    /// GMRES preconditioned by `multigrid` without its finest matrix, on Shin and Fan's
+    /// operator, inside stretched PMLs ([`Boundaries3d::stretched_pml`]), to the relative
+    /// `residual`: above [`MOST_DIRECT_3D`], [`multigrid`] to [`RESIDUAL_3D`].
+    Iterative { multigrid: Multigrid, residual: f64 },
+}
+
+impl Route {
+    /// The route a solve of `unknowns` takes.
+    pub(super) fn of(unknowns: f64) -> Route {
+        if unknowns > MOST_DIRECT_3D as f64 {
+            Route::iterative()
+        } else {
+            Route::Direct
+        }
+    }
+
+    /// The iterative route a device takes above the direct solver's size.
+    pub(super) fn iterative() -> Route {
+        Route::Iterative {
+            multigrid: multigrid(),
+            residual: RESIDUAL_3D,
+        }
+    }
+
+    fn boundaries(self, pml: usize) -> Boundaries3d {
+        match self {
+            Route::Direct => Boundaries3d::pml(pml),
+            Route::DirectStretched | Route::Iterative { .. } => Boundaries3d::stretched_pml(pml),
+        }
+    }
+}
+
+/// The multigrid a device's iterative 3D solve takes: [`Multigrid::default`], Galerkin's coarse
+/// operators, V(0, 1) and the shift of 0.5. Discretized again they take half the memory, but on
+/// the 2 µm MMI on 80 nm cells 2.2 times the iterations, 1.6 times the time, and on 125 nm cells
+/// neither converged (docs/methods/devices.md, "FDFD fidelities").
+pub(super) fn multigrid() -> Multigrid {
+    Multigrid::default()
+}
 
 /// The cells between the device's port and the port's plane, and from the plane to the PML.
 const TO_PLANE: usize = 3;
@@ -319,7 +385,7 @@ pub(super) fn size(
     ))
 }
 
-/// Refuses a 3D solve of `unknowns` the direct solver can't hold here.
+/// Refuses a 3D solve of `unknowns` the iterative solver can't hold here.
 ///
 /// # Errors
 ///
@@ -330,10 +396,11 @@ pub(super) fn check_size(unknowns: f64) -> Result<()> {
             "device",
             format!(
                 "3D FDFD of this device on this grid takes {:.1} million unknowns, more than \
-                 the direct solver holds here ({:.1} million: 1.3 million took 32 GB); \
+                 a 3D solve holds here ({:.0} million, about {:.0} GB by the iterative solver); \
                  coarsen the grid (FdfdGrid) or shrink the device",
                 unknowns / 1e6,
-                MOST_3D as f64 / 1e6
+                MOST_3D as f64 / 1e6,
+                MOST_3D as f64 * MULTIGRID_BYTES / 1e9
             ),
         ));
     }
@@ -361,10 +428,33 @@ pub(super) fn sampled(
     grid: &FdfdGrid,
     three: bool,
 ) -> Result<(Sampled, String)> {
+    let (sampled, description, _) =
+        sampled_by(kind, geometry, core, wavelengths, grid, three, None)?;
+    Ok((sampled, description))
+}
+
+/// [`sampled`], in 3D by `route` where it is given, and by the solve's size
+/// ([`Route::of`]) where not; and the iterations of each of its iterative runs, in order (none
+/// for the direct solver).
+///
+/// # Errors
+///
+/// As [`sampled`].
+pub(super) fn sampled_by(
+    kind: &str,
+    geometry: &Geometry,
+    core: &str,
+    wavelengths: &[Wavelength],
+    grid: &FdfdGrid,
+    three: bool,
+    route: Option<Route>,
+) -> Result<(Sampled, String, Vec<usize>)> {
+    let mut iterations = Vec::new();
     let (nx, ny, unknowns) = size(geometry, core, grid, three)?;
     if three {
         check_size(unknowns)?;
     }
+    let route = route.unwrap_or_else(|| Route::of(unknowns));
     let ((x0, x1), (y0, y1)) = window(geometry, core, grid)?;
     let h = grid.step;
     let x0 = 0.5 * (x0 + x1) - 0.5 * nx as f64 * h;
@@ -398,9 +488,9 @@ pub(super) fn sampled(
             y0,
             z0,
         };
-        let boundaries = Boundaries3d::pml(grid.pml);
+        let boundaries = route.boundaries(grid.pml);
         description = format!(
-            "3D FDFD, {nx} × {ny} × {nz} cells of {:.1} × {:.1} × {:.1} nm{}, PMLs {} cells",
+            "3D FDFD, {nx} × {ny} × {nz} cells of {:.1} × {:.1} × {:.1} nm{}, PMLs {} cells{}",
             1e3 * h,
             1e3 * h,
             1e3 * hz,
@@ -409,22 +499,77 @@ pub(super) fn sampled(
             } else {
                 format!(", cells averaged by \"{}\"", grid.averaging.name())
             },
-            grid.pml
+            grid.pml,
+            match route {
+                Route::Direct => String::new(),
+                Route::DirectStretched => " (stretched)".to_owned(),
+                Route::Iterative { residual, .. } => format!(
+                    " (stretched), by GMRES and the multigrid to a residual of {residual:e}"
+                ),
+            }
         );
         for &wl in wavelengths {
-            let solver = Solver3d::from_structure(g, wl, &structure, boundaries, grid.averaging)?;
-            let ports = placed
-                .iter()
-                .map(|p| -> Result<Port3d> {
-                    let mut modes =
-                        solver.port_modes_within(Axis::X, p.plane, (p.rows.clone(), 0..nz), 1)?;
-                    Ok(Port3d {
-                        mode: modes.remove(0),
-                        side: p.side,
+            let rows = |p: &Placed| (p.rows.clone(), 0..nz);
+            let (ports, s) = if let Route::Iterative {
+                multigrid,
+                residual,
+            } = route
+            {
+                let stopping = Stopping {
+                    tolerance: residual,
+                    max_iterations: 5_000,
+                };
+                let solver = IterativeSolver3d::from_structure(
+                    g,
+                    wl,
+                    &structure,
+                    boundaries,
+                    grid.averaging,
+                    Formulation::ShinFan,
+                    Product::MatrixFree,
+                )?
+                .with_multigrid(multigrid)?;
+                let ports = placed
+                    .iter()
+                    .map(|p| -> Result<Port3d> {
+                        let mut modes = solver.port_modes_within(Axis::X, p.plane, rows(p), 1)?;
+                        Ok(Port3d {
+                            mode: modes.remove(0),
+                            side: p.side,
+                        })
                     })
-                })
-                .collect::<Result<Vec<_>>>()?;
-            let s = solver.s_matrix(&ports)?;
+                    .collect::<Result<Vec<_>>>()?;
+                let (s, runs) = solver.s_matrix_with_convergence(&ports, stopping).map_err(
+                    |e| {
+                        Error::invalid(
+                            "device",
+                            format!(
+                                "the iterative 3D solve failed ({e}): the multigrid wants cells \
+                                 that resolve the wavelength in the core (on silicon at 1.55 µm \
+                                 it converged on 100 nm cells, not on 125 nm); refine the grid \
+                                 (FdfdGrid)"
+                            ),
+                        )
+                    },
+                )?;
+                iterations.extend(runs.iter().map(|r| r.iterations));
+                (ports, s)
+            } else {
+                let solver =
+                    Solver3d::from_structure(g, wl, &structure, boundaries, grid.averaging)?;
+                let ports = placed
+                    .iter()
+                    .map(|p| -> Result<Port3d> {
+                        let mut modes = solver.port_modes_within(Axis::X, p.plane, rows(p), 1)?;
+                        Ok(Port3d {
+                            mode: modes.remove(0),
+                            side: p.side,
+                        })
+                    })
+                    .collect::<Result<Vec<_>>>()?;
+                let s = solver.s_matrix(&ports)?;
+                (ports, s)
+            };
             let planes: Vec<f64> = ports
                 .iter()
                 .map(|p| g.node(Axis::X, p.mode.plane()))
@@ -549,5 +694,6 @@ pub(super) fn sampled(
     Ok((
         Sampled::new(kind, ports, spectrum, provenance)?,
         description,
+        iterations,
     ))
 }

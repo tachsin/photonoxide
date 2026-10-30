@@ -103,7 +103,7 @@ impl Compute {
 ///
 /// [`Error::InvalidValue`] for a name that isn't a job's, a design [`Spec::build`] refuses, and
 /// the errors of [`super::check`] for the job it makes (a grid the device doesn't take, a 3D
-/// solve larger than the direct solver holds here).
+/// solve larger than a 3D solve holds here).
 pub fn from_device(name: &str, spec: &Spec, compute: &Compute) -> Result<Job> {
     let (device, design) = spec.build()?;
     let values = design.values();
@@ -484,7 +484,7 @@ fn prepare(job: &Job) -> Result<Prepared> {
     let (task, grids) = spectrum_task(job)?;
     let (_, design) = spec.build()?;
     let device = spec.device_with(&grids)?;
-    // a 3D FDFD larger than the direct solver holds here is refused before it starts
+    // a 3D FDFD larger than a 3D solve holds here is refused before it starts
     spec.fdfd_size(&grids)?;
     let wavelengths = band_of(task.from_um, task.to_um, task.points, 101, &design)?;
     Ok(Prepared {
@@ -502,8 +502,8 @@ fn prepare(job: &Job) -> Result<Prepared> {
 ///
 /// # Errors
 ///
-/// What [`super::check`] refuses of the device and its grids, and a 3D solve larger than the
-/// direct solver holds here (1.2 million unknowns), the error saying how large.
+/// What [`super::check`] refuses of the device and its grids, and a 3D solve larger than a 3D
+/// solve holds here (13 million unknowns, by the iterative solver), the error saying how large.
 pub fn fdfd_size(job: &Job) -> Result<Option<(usize, usize, f64)>> {
     if job.device().is_none() || task_kind(job)?.map(|k| k.name()) != Some("spectrum") {
         return Ok(None);

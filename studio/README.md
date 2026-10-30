@@ -255,7 +255,7 @@ in a drawer opened from the status bar.
     - **Simulate:** the design run as a job (`photonoxide::job::from_device`): by its own model at
       a fidelity (a closed form, its cross-section's modes, 2D FDFD labelled 2D, 3D FDFD), or by
       FDTD of its drawn structure in 2D or 3D; over a band, on the device's own grid or one set
-      here (an FDFD's size shown as it is set; a 3D one larger than the direct solver holds here
+      here (an FDFD's size shown as it is set; a 3D one larger than a 3D solve holds here
       is refused before it runs, saying how large). **Run** (here or in the header) checks it,
       records it in `runs/` and shows it in place: the view switches between the design and the
       run on the device (an FDTD run's fields), its S-parameters, figures and an FDTD run's

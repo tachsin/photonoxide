@@ -15,7 +15,10 @@
 use num_complex::Complex64 as c64;
 use rayon::prelude::*;
 
-use super::{Axis, Boundaries3d, Edges, Grid3d, Lattice, Solver3d, averaged, factorize};
+use super::{
+    Axis, Boundaries3d, Edges, Formulation, Grid3d, IterativeSolver3d, Lattice, Product, Solver3d,
+    averaged, factorize,
+};
 use crate::averaging::Averaging;
 use crate::backend::Choice;
 use crate::fdfd::direct::Plan;
@@ -190,9 +193,7 @@ impl Solver3d {
         averaging: Averaging,
         direct: &Choice,
     ) -> Result<Solver3d> {
-        grid.check()?;
-        boundaries.check(&grid)?;
-        let eps = structure_values(grid, wavelength, structure, averaging)?;
+        let (lattice, eps) = setup(grid, wavelength, structure, boundaries, averaging)?;
         let bloch = |e: Edges| matches!(e, Edges::Bloch { .. });
         let problem = crate::backend::auto::Problem {
             family: "fdfd3d",
@@ -203,8 +204,6 @@ impl Solver3d {
             },
             unknowns: grid.unknowns(),
         };
-        let k0 = 2.0 * std::f64::consts::PI / wavelength.to_um();
-        let lattice = Lattice::new(grid, boundaries, k0);
         let entries = lattice.assemble(&eps);
         let lu = factorize(&grid, &entries, Plan::for_problem(direct, problem)?)?;
         Ok(Solver3d {
@@ -213,6 +212,53 @@ impl Solver3d {
             entries,
             lu,
         })
+    }
+}
+
+/// The checked lattice for `grid` inside `boundaries` at `wavelength`, and `structure`'s
+/// permittivity at each value of E by `averaging` ([`structure_values`]): what the direct and
+/// the iterative solvers built from a structure share.
+fn setup(
+    grid: Grid3d,
+    wavelength: Wavelength,
+    structure: &Structure,
+    boundaries: Boundaries3d,
+    averaging: Averaging,
+) -> Result<(Lattice, Vec<c64>)> {
+    grid.check()?;
+    boundaries.check(&grid)?;
+    let eps = structure_values(grid, wavelength, structure, averaging)?;
+    let k0 = 2.0 * std::f64::consts::PI / wavelength.to_um();
+    Ok((Lattice::new(grid, boundaries, k0), eps))
+}
+
+impl IterativeSolver3d {
+    /// Assembles the problem at `wavelength` on `grid` for `structure` (x and y in its plane, z
+    /// its height, µm), each component of E averaged over its cell by `averaging` as
+    /// [`Solver3d::from_structure`] averages it, inside `boundaries`, for `formulation`, its
+    /// products as `product` says ([`IterativeSolver3d::new_with`]). The same permittivity as
+    /// the direct solver's, to the bit, so the two solve the same system; see the module's docs
+    /// for the fill.
+    ///
+    /// For a device's drawing on its stack: `Formulation::ShinFan` with `Product::MatrixFree`
+    /// and [`IterativeSolver3d::with_multigrid`] is the multigrid without its finest matrix,
+    /// what a device's 3D FDFD takes above the direct solver's size (docs/methods/devices.md).
+    ///
+    /// # Errors
+    ///
+    /// As [`IterativeSolver3d::new`], [`Error::OutsideValidity`] if a material has no data at
+    /// `wavelength`, and [`Error::InvalidValue`] for [`Averaging::Tensor`].
+    pub fn from_structure(
+        grid: Grid3d,
+        wavelength: Wavelength,
+        structure: &Structure,
+        boundaries: Boundaries3d,
+        averaging: Averaging,
+        formulation: Formulation,
+        product: Product,
+    ) -> Result<IterativeSolver3d> {
+        let (lattice, eps) = setup(grid, wavelength, structure, boundaries, averaging)?;
+        Ok(Self::from_values(lattice, eps, formulation, product))
     }
 }
 

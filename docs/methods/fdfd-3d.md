@@ -890,6 +890,9 @@ not read) factorizes a slab of a few planes per layer: faer's sparse LU took 19 
   plain QMR takes thousands, at about twice ILU(0)'s memory (9.5 GB for 1.8 M unknowns; 6.0 and
   3.3 GB without the finest matrix, [its page](multigrid-stencil.md)). The
   multigrid was measured with stretched PMLs only, and on silicon in vacuum and in oxide.
+  `IterativeSolver3d::from_structure` builds the iterative solver from a structure as
+  `Solver3d::from_structure` builds the direct one, the same permittivity to the bit; a
+  device's 3D FDFD takes it above the direct solver's size ([devices](devices.md#fdfd-fidelities)).
 - QMR without look-ahead: a breakdown of the Lanczos process restarts it, which costs the
   Krylov space built so far, rather than being stepped over.
 - A uniform grid along each axis, and interfaces averaged by sampling by default; from the fill
