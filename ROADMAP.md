@@ -368,7 +368,7 @@ Second- and third-order processes in waveguides and resonators: SHG, SFG, DFG, p
   - d tensors on Shoji 1997's scale (in), dispersed by Miller's rule (Miller 1964);
   - χ⁽³⁾ and n₂, with their sources;
   - temperature-dependent indices for phase matching (Gayer 2008 for MgO:LiNbO₃, Skauli 2003 for GaAs, Gehrsitz 2000 for AlGaAs).
-- [ ] **Phase matching:**
+- [ ] **Phase matching:** *(All but focused beams done in `nonlinear::phase`: Δk of any process from a catalogue model, a material or a mode's n_eff as data; QPM's period, order and duty cycle; types 0, I and II, angle and temperature tuned; sinc² and the acceptance bandwidths, linear, noncritical and numerical. Fejer 1992's Table I reproduced from Edwards & Lawrence's indices, now in the catalogue, to half its last digit for 41 of its 49 QPM values; the rest are listed in [the write-up](docs/methods/nonlinear.md#fejer-et-als-table-i). See [phase matching](docs/methods/nonlinear.md).)*
   - Δk for any three- or four-wave process;
   - birefringent (types 0, I and II);
   - quasi-phase matching by periodic poling or orientation patterning: the poling period, its duty-cycle errors, and Fejer 1992's tuning and tolerances;

@@ -249,41 +249,6 @@ pub(crate) fn frey_smooth() -> Outcome {
     deviation(measured, 0.5)
 }
 
-/// The idler of an OPO pumped at `pump` (µm) in a periodically poled crystal of period
-/// `period` (µm), all waves extraordinary (d33): the root of
-/// n_p/λ_p − n_s/λ_s − n_i/λ_i − 1/Λ = 0 between degeneracy and `longest`, by bisection.
-pub(crate) fn opo_idler(material: &Material, pump: f64, period: f64, longest: f64) -> f64 {
-    let mismatch = |idler: f64| {
-        let signal = 1.0 / (1.0 / pump - 1.0 / idler);
-        n(material, pump) / pump
-            - n(material, signal) / signal
-            - n(material, idler) / idler
-            - 1.0 / period
-    };
-    let (mut lo, mut hi) = (2.0 * pump + 1e-9, longest);
-    if mismatch(lo).signum() == mismatch(hi).signum() {
-        return f64::NAN;
-    }
-    for _ in 0..60 {
-        let mid = 0.5 * (lo + hi);
-        if mismatch(mid).signum() == mismatch(lo).signum() {
-            lo = mid;
-        } else {
-            hi = mid;
-        }
-    }
-    0.5 * (lo + hi)
-}
-
-/// Zelmon et al.'s Fig. 3: the predicted idler of Myers et al.'s 1.064 µm-pumped PPLN OPO at a
-/// 30 µm grating, read off the plot as 3.35 µm (±0.03).
-pub(crate) fn zelmon_opo() -> Outcome {
-    let (e, _) = models::ZELMON_CONGRUENT;
-    let idler = models::zelmon("LiNbO3 (e)", e, "Table 1")
-        .map_or(f64::NAN, |m| opo_idler(&m, 1.064, 30.0, 5.0));
-    outcome(idler, 3.35, 0.03)
-}
-
 /// Zelmon's congruent n_o and n_e at 633 nm against the values Jazbinšek & Zgonik quote for
 /// their tensors (n_o = 2.2864, n_e = 2.2022, their ref. 27): the larger difference.
 pub(crate) fn zelmon_633() -> Outcome {
@@ -295,17 +260,6 @@ pub(crate) fn zelmon_633() -> Outcome {
             .max((n(&e, 0.633) - 2.2022).abs())
     });
     deviation(error, 2e-4)
-}
-
-/// Jundt's Fig. 1: the idler of a 1.064 µm-pumped PPLN OPO at 250 °C and a 25.5 µm grating
-/// (at 25 °C, expanded by Jundt's Eq. (3)), read off the plot as 4.755 µm (±0.02).
-pub(crate) fn jundt_opo() -> Outcome {
-    let celsius: f64 = 250.0;
-    let dt = celsius - 25.0;
-    let period = 25.5 * (1.0 + 1.54e-5 * dt + 5.3e-9 * dt * dt);
-    let idler =
-        models::jundt(celsius + 273.15).map_or(f64::NAN, |m| opo_idler(&m, 1.064, period, 5.0));
-    outcome(idler, 4.755, 0.02)
 }
 
 /// Gayer et al.'s comparison with Zelmon et al. at 21 °C, after exchanging Zelmon's MgO

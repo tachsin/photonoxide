@@ -24,7 +24,7 @@ from any other layer. The rows are in dependency order: a layer imports only fro
 | core | `photonoxide-core` | `units`, `expr`, `portable`, `parallel`, `traffic`, `convergence`, `lstsq`, and the error, stop and verdict types (`error`, `stop`, `verdict`) | (nothing) |
 | geometry | `photonoxide-geometry` | `geometry`, `material`, `stack`, `averaging`, `raster`, `etch` | core |
 | linalg | `photonoxide-linalg` | `dense`, `sparse`, `backend` (with the Krylov solvers), `eigen` | core |
-| mode | `photonoxide-mode` | `mode`, `eme`, `sweep` | core, geometry, linalg |
+| mode | `photonoxide-mode` | `mode`, `eme`, `sweep`, `nonlinear` | core, geometry, linalg |
 | statics | `photonoxide-statics` | `statics`, `thermal`, `electro` | core, geometry, linalg |
 | fdfd | `photonoxide-fdfd` | `fdfd` | core, geometry, linalg |
 | fdtd | `photonoxide-fdtd` | `fdtd` | core, geometry, linalg, fdfd |
@@ -37,7 +37,9 @@ one another, so their crates can be built in parallel. `src/layering.rs` holds t
 code.
 
 What joins two physical models sits above both. The thermo-optic phase shifter joins a heat solve
-and a mode solve, so it is in the device layer (`shifter`), and `statics` needs no optics.
+and a mode solve, so it is in the device layer (`shifter`), and `statics` needs no optics. Nonlinear optics
+(`nonlinear`) reads the catalogue's indices and a mode's quantities, so it is in the mode layer,
+the lowest that sees both.
 
 ## The rules
 

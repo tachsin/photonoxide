@@ -9,6 +9,8 @@
 //!   catalogue of photonic materials, every number read from its paper.
 //! - [`mode`]: waveguide modes, from the exact slab and multilayers to full-vector finite
 //!   differences of a cross-section, with bends, dispersion and loss.
+//! - [`nonlinear`]: nonlinear integrated optics: phase matching of three- and four-wave
+//!   processes, quasi-phase matching and the acceptance bandwidths.
 //! - [`fdfd`]: frequency-domain finite differences in 2D and 3D on Yee's grid, with PMLs, mode
 //!   ports, S-parameters and adjoint gradients.
 //! - [`eme`]: eigenmode expansion, a structure cut into uniform sections joined by their modes'
@@ -80,6 +82,7 @@ mod layering;
 mod lstsq;
 pub mod material;
 pub mod mode;
+pub mod nonlinear;
 pub mod parallel;
 mod portable;
 pub mod raster;

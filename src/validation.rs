@@ -22,6 +22,7 @@ use crate::material::catalogue::checks as catalogue;
 use crate::material::catalogue::conductivity_checks;
 use crate::material::catalogue::ferroelectric;
 use crate::material::catalogue::litao3_dndt;
+use crate::material::catalogue::opo_checks;
 use crate::material::catalogue::phase_change_checks;
 use crate::material::catalogue::phase_change_thermal;
 use crate::material::catalogue::resistivity;
@@ -56,6 +57,7 @@ pub fn rules() -> Vec<(&'static str, Rule)> {
     rules.extend(mode_quantities::rules());
     rules.extend(roughness::rules());
     rules.extend(sweep::rules());
+    rules.extend(nonlinear::rules());
     rules
 }
 
@@ -468,14 +470,14 @@ pub fn cases() -> Vec<Case> {
             title: r"Congruent lithium niobate (Zelmon, $n_e$): the idler of a 1.064 µm-pumped PPLN OPO with a 30 µm grating, from $n_p/\lambda_p - n_s/\lambda_s - n_i/\lambda_i = 1/\Lambda$ (µm, shown)",
             tier: Tier::Published,
             source: "D. E. Zelmon, D. L. Small, D. Jundt, J. Opt. Soc. Am. B 14, 3319 (1997), doi:10.1364/JOSAB.14.003319, Fig. 3, the predicted points: 3.35 µm, read off the plot to 0.03",
-            run: catalogue::zelmon_opo,
+            run: opo_checks::zelmon_opo,
         },
         Case {
             id: "material/linbo3-jundt-opo",
             title: r"Congruent lithium niobate (Jundt, $n_e(\lambda, T)$): the idler of a 1.064 µm-pumped PPLN OPO at 250 °C with a 25.5 µm grating, expanded by Jundt's Eq. (3) (µm, shown)",
             tier: Tier::Published,
             source: "D. H. Jundt, Opt. Lett. 22, 1553 (1997), doi:10.1364/OL.22.001553, Fig. 1, the 250 °C fit at 25.5 µm: 4.755 µm, read off the plot to 0.02",
-            run: catalogue::jundt_opo,
+            run: opo_checks::jundt_opo,
         },
         Case {
             id: "material/linbo3-shoji-miller",
@@ -2251,6 +2253,8 @@ pub fn cases() -> Vec<Case> {
     cases.extend(crate::mode::roughness_checks::cases());
     // and the adaptive sweeps': AAA, its error estimate, a slab's dispersion and a mode crossing
     cases.extend(crate::sweep::checks::cases());
+    // and phase matching (0.6.1): sinc², Fejer et al.'s Table I, a duty cycle's cost
+    cases.extend(crate::nonlinear::checks::cases());
     cases
 }
 
@@ -5274,6 +5278,7 @@ mod mode_quantities;
 mod modes;
 mod modulator;
 mod modulator_error;
+mod nonlinear;
 mod pcm;
 mod pcm_conformal;
 mod roughness;

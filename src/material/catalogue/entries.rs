@@ -813,6 +813,90 @@ fn jundt_model() -> IndexModel {
     }
 }
 
+const EDWARDS_EQUATION: &str = r"n^2 = A_1 + \frac{A_2 + B_1 F}{L^2 - (A_3 + B_2 F)^2} + B_3 F - A_4 L^2, \quad F = (T - T_0)(T + T_0 + 546)";
+
+fn edwards_lawrence_model() -> IndexModel {
+    IndexModel {
+        id: "edwards-lawrence-1984".into(),
+        name: "Edwards & Lawrence 1984".into(),
+        axes: vec![Axis::Ordinary, Axis::Extraordinary],
+        equation: EDWARDS_EQUATION.into(),
+        symbols: r"$L$, the vacuum wavelength, in µm; $T$ in °C; $T_0 = 24.5$ °C; a separate equation for each index".into(),
+        coefficients: vec![table(
+            "Table I, congruently grown LiNbO₃",
+            &["", "$A_1$", "$A_2$", "$A_3$", "$A_4$", "$B_1$", "$B_2$", "$B_3$"],
+            vec![
+                strings(&[
+                    "ordinary", "4.9048", "0.11775", "0.21802", "0.027153", "2.2314×10⁻⁸",
+                    "−2.9671×10⁻⁸", "2.1429×10⁻⁸",
+                ]),
+                strings(&[
+                    "extraordinary", "4.5820", "0.09921", "0.21090", "0.021940", "5.2716×10⁻⁸",
+                    "−4.9143×10⁻⁸", "2.2971×10⁻⁷",
+                ]),
+            ],
+        )],
+        wavelength: models::EDWARDS_LAWRENCE_LAMBDA,
+        temperature: temperature(
+            models::EDWARDS_LAWRENCE_T.0,
+            models::EDWARDS_LAWRENCE_T.1,
+            297.65,
+        ),
+        composition: None,
+        accuracy: "the A's fit Nelson and Mikulyak's 30 room-temperature points (0.4–3.1 µm, quoted to ±2e-4) with a standard deviation of 1.3e-4; the B's fit Smith et al.'s temperature data at 0.63299 and 3.3922 µm, 0–500 °C, with a standard deviation of 1.8e-4 for both indices; phase-matching temperatures of type-I difference-frequency mixing to 2.2–3.2 µm about 3 °C from the measured (Table II)".into(),
+        dndt: None,
+        sources: vec![src("edwards-lawrence-1984", "Eq. 1 and Table I")],
+        default: false,
+        notes: "the model Fejer et al. 1992 computed their Table I with; claimed for 0.4–4.5 µm, 'the bulk of the transparency range'".into(),
+        eval: |t, _| {
+            Ok(vec![
+                models::edwards_lawrence(false, t)?,
+                models::edwards_lawrence(true, t)?,
+            ])
+        },
+    }
+}
+
+/// Lithium-rich LiNbO₃ (vapor transport equilibrated, about 49.9 mol% Li₂O) from Jundt, Fejer and
+/// Byer 1990: not congruent, so in no entry; Fejer et al. 1992 take its temperature dependence for
+/// their Table I's δT at 0.86 µm (footnote f), and so does that case.
+pub(crate) fn lithium_rich_jundt_1990() -> IndexModel {
+    IndexModel {
+        id: "jundt-1990".into(),
+        name: "Jundt, Fejer & Byer 1990".into(),
+        axes: vec![Axis::Ordinary, Axis::Extraordinary],
+        equation: r"n^2 = A_1 + \frac{A_2 + B_1 F}{\lambda^2 - (A_3 + B_2 F)^2} + B_3 F - A_4 \lambda^2, \quad F = (T - 24.5)(T + 570.5)".into(),
+        symbols: r"$\lambda$ in nm (in µm here, the coefficients converted); $T$ in °C".into(),
+        coefficients: vec![table(
+            "Table III, lithium-rich LiNbO₃ (λ in nm)",
+            &["", "$n_e$", "$n_o$"],
+            vec![
+                strings(&["$A_1$", "4.546 ± 0.007", "4.913 ± 0.006"]),
+                strings(&["$A_2$", "(9.17 ± 0.16)×10⁴", "(1.163 ± 0.013)×10⁵"]),
+                strings(&["$A_3$", "(2.148 ± 0.025)×10²", "(2.201 ± 0.015)×10²"]),
+                strings(&["$A_4$", "(3.03 ± 0.59)×10⁻⁸", "(2.73 ± 0.44)×10⁻⁸"]),
+                strings(&["$B_1$", "(1.93 ± 0.55)×10⁻²", "(9.4 ± 2.9)×10⁻³"]),
+                strings(&["$B_2$", "(5.3 ± 0.77)×10⁻⁵", "(3.98 ± 0.30)×10⁻⁵"]),
+                strings(&["$B_3$", "(2.72 ± 0.15)×10⁻⁷", "(1.6 ± 0.72)×10⁻⁸"]),
+            ],
+        )],
+        wavelength: models::JUNDT_1990_LAMBDA,
+        temperature: temperature(models::JUNDT_1990_T.0, models::JUNDT_1990_T.1, 298.15),
+        composition: None,
+        accuracy: "indices measured to ±4e-4 to ±5e-4; phase-matching temperatures predicted 'within a few kelvins' from 0 to 400 °C".into(),
+        dndt: None,
+        sources: vec![src("jundt-1990", "Table III")],
+        default: false,
+        notes: "lithium-rich, not congruent".into(),
+        eval: |t, _| {
+            Ok(vec![
+                models::jundt_1990(false, t)?,
+                models::jundt_1990(true, t)?,
+            ])
+        },
+    }
+}
+
 const JUNDT_EQUATION: &str = r"n^2 = a_1 + b_1 f + \frac{a_2 + b_2 f}{\lambda^2 - (a_3 + b_3 f)^2} + \frac{a_4 + b_4 f}{\lambda^2 - a_5^2} - a_6\lambda^2, \quad f = (T - 24.5)(T + 570.82)";
 const JUNDT_SYMBOLS: &str =
     r"$\lambda$ in µm; $T$ in °C; $f$ vanishes at the reference temperature 24.5 °C";
@@ -922,6 +1006,7 @@ fn lithium_niobate() -> Entry {
                 eval: |_, _| zelmon_pair(models::ZELMON_CONGRUENT, "Table 1"),
             },
             jundt_model(),
+            edwards_lawrence_model(),
         ],
         tensors: vec![
             shoji_d(1.064, 25.2, 4.6, "Table 10"),
@@ -983,6 +1068,7 @@ fn lithium_niobate() -> Entry {
         references: references(&[
             "zelmon-1997",
             "jundt-1997",
+            "edwards-lawrence-1984",
             "shoji-1997",
             "miller-1971",
             "roberts-1992",

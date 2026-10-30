@@ -66,6 +66,12 @@ export const CATEGORIES = [
     groups: [{ title: null, slugs: ["static", "phase-shifter", "thermal-compact", "electro-optic", "travelling-wave"] }],
   },
   {
+    id: "nonlinear",
+    title: "Nonlinear optics",
+    blurb: "Second- and third-order processes in crystals and waveguides: the wave-vector mismatch of any three- or four-wave process, quasi-phase matching and its duty cycle, birefringent phase matching, and the acceptance bandwidths in wavelength, temperature and angle.",
+    groups: [{ title: null, slugs: ["nonlinear"] }],
+  },
+  {
     id: "circuits",
     title: "Circuits and compact models",
     blurb: "A chip as a netlist of S-matrices, its components' models, the devices that build them from their geometry, spectra fitted as rational functions and written as Touchstone files, and adaptive sweeps that sample a response where it changes.",
@@ -116,6 +122,7 @@ export const ALGORITHMS = [
   { name: "Nonlinear inverse iteration", does: "an eigenproblem whose matrix depends on its eigenvalue", methods: ["hadley"] },
   { name: "Perturbation theory, first order", does: "a mode's index change from a change of permittivity, a temperature's or an electrode field's", methods: ["fields", "electro-optic"] },
   { name: "Polygon overlay on an integer grid", does: "union, intersection, difference and xor of polygons, exact on shared edges", methods: ["booleans"] },
+  { name: "Quasi-phase matching", does: "a process kept in step by a periodically reversed nonlinear coefficient, its period, order, duty cycle and acceptance bandwidths", methods: ["nonlinear"] },
   { name: "QMR, complex symmetric", does: "3D FDFD by iteration, with or without the matrix", methods: ["fdfd-3d"] },
   { name: "Richardson extrapolation", does: "the grid's error removed from three grids", methods: ["vector"] },
   { name: "Shortley–Weller boundary points", does: "curved conductors met between the grid's points, at second order", methods: ["static"] },

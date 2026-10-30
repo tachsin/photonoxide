@@ -607,6 +607,114 @@ pub(crate) fn jundt(kelvin: f64) -> Result<Material> {
     )
 }
 
+/// The coefficients of Edwards and Lawrence's Eq. 1, in µm: A₁, A₂ (µm²), A₃ (µm), A₄ (µm⁻²),
+/// B₁ (µm²), B₂ (µm), B₃.
+pub(crate) type EdwardsForm = [f64; 7];
+
+/// Edwards and Lawrence 1984, Table I, congruent LiNbO₃: (n_o, n_e).
+pub(crate) const EDWARDS_LAWRENCE: (EdwardsForm, EdwardsForm) = (
+    [
+        4.9048, 0.11775, 0.21802, 0.027153, 2.2314e-8, -2.9671e-8, 2.1429e-8,
+    ],
+    [
+        4.5820, 0.09921, 0.21090, 0.021940, 5.2716e-8, -4.9143e-8, 2.2971e-7,
+    ],
+);
+
+/// Jundt, Fejer and Byer 1990, Table III, lithium-rich LiNbO₃ (vapor transport equilibrated):
+/// (n_o, n_e), brought from the paper's nm to µm (A₂ and B₁ × 10⁻⁶, A₃ and B₂ × 10⁻³, A₄ × 10⁶).
+pub(crate) const JUNDT_1990: (EdwardsForm, EdwardsForm) = (
+    [4.913, 0.1163, 0.2201, 0.0273, 9.4e-9, 3.98e-8, 1.6e-8],
+    [4.546, 0.0917, 0.2148, 0.0303, 1.93e-8, 5.3e-8, 2.72e-7],
+);
+
+/// Edwards and Lawrence's validity: claimed for 0.4 to 4.5 µm (their room-temperature data, from
+/// Nelson and Mikulyak, cover 0.4 to 3.1 µm), fitted over 0 to 500 °C.
+pub(crate) const EDWARDS_LAWRENCE_LAMBDA: (f64, f64) = (0.4, 4.5);
+pub(crate) const EDWARDS_LAWRENCE_T: (f64, f64) = (273.15, 773.15);
+/// Jundt et al. 1990's data: indices from 325 to 1064 nm, dn/dT to 300 °C; the fit's predictions
+/// hold "within a few kelvins in the temperature range 0 to 400 °C".
+pub(crate) const JUNDT_1990_LAMBDA: (f64, f64) = (0.325, 1.064);
+pub(crate) const JUNDT_1990_T: (f64, f64) = (273.15, 673.15);
+
+/// n² = A₁ + (A₂ + B₁F)/(λ² − (A₃ + B₂F)²) + B₃F − A₄λ², F = (T − 24.5)(T + 570.5), T in °C
+/// (Edwards and Lawrence's Eq. 1 with T₀ = 24.5 °C), as the refractiveindex.info formula 4.
+pub(crate) fn edwards_model(form: EdwardsForm, celsius: f64) -> Model {
+    let [a1, a2, a3, a4, b1, b2, b3] = form;
+    let f = (celsius - 24.5) * (celsius + 570.5);
+    Model::Formula {
+        number: 4,
+        coefficients: vec![
+            a1 + b3 * f,
+            a2 + b1 * f,
+            0.0,
+            a3 + b2 * f,
+            2.0,
+            0.0,
+            0.0,
+            0.0,
+            2.0,
+            -a4,
+            2.0,
+        ],
+    }
+}
+
+/// Congruent LiNbO₃ at a temperature (K), from Edwards and Lawrence 1984: n_e
+/// (`extraordinary`) or n_o.
+pub(crate) fn edwards_lawrence(extraordinary: bool, kelvin: f64) -> Result<Material> {
+    check_range(
+        "temperature",
+        kelvin,
+        EDWARDS_LAWRENCE_T.0,
+        EDWARDS_LAWRENCE_T.1,
+    )?;
+    let (o, e) = EDWARDS_LAWRENCE;
+    let (form, name) = if extraordinary {
+        (e, "LiNbO3 (e)")
+    } else {
+        (o, "LiNbO3 (o)")
+    };
+    Material::new(
+        name,
+        edwards_model(form, kelvin - 273.15),
+        um(EDWARDS_LAWRENCE_LAMBDA.0)?,
+        um(EDWARDS_LAWRENCE_LAMBDA.1)?,
+        Provenance {
+            reference: "G. J. Edwards, M. Lawrence, Opt. Quantum Electron. 16, 373 (1984)".into(),
+            doi: "10.1007/BF00620081".into(),
+            data: "our own transcription of Eq. 1 and Table I, read from the page images".into(),
+            temperature: Some(kelvin),
+            notes: "congruently grown LiNbO3; the A's fit Nelson and Mikulyak's 30 room-temperature indices (0.4-3.1 um, standard deviation 1.3e-4), the B's Smith et al.'s temperature data at 0.63299 and 3.3922 um, 0-500 C (standard deviation 1.8e-4)".into(),
+        },
+    )
+}
+
+/// Lithium-rich LiNbO₃ (about 49.9 mol% Li₂O, by vapor transport equilibration) at a
+/// temperature (K), from Jundt, Fejer and Byer 1990: n_e (`extraordinary`) or n_o.
+pub(crate) fn jundt_1990(extraordinary: bool, kelvin: f64) -> Result<Material> {
+    check_range("temperature", kelvin, JUNDT_1990_T.0, JUNDT_1990_T.1)?;
+    let (o, e) = JUNDT_1990;
+    let (form, name) = if extraordinary {
+        (e, "Li-rich LiNbO3 (e)")
+    } else {
+        (o, "Li-rich LiNbO3 (o)")
+    };
+    Material::new(
+        name,
+        edwards_model(form, kelvin - 273.15),
+        um(JUNDT_1990_LAMBDA.0)?,
+        um(JUNDT_1990_LAMBDA.1)?,
+        Provenance {
+            reference: "D. H. Jundt, M. M. Fejer, R. L. Byer, IEEE J. Quantum Electron. 26, 135 (1990)".into(),
+            doi: "10.1109/3.44926".into(),
+            data: "our own transcription of Table III (lambda in nm there), read from the page images".into(),
+            temperature: Some(kelvin),
+            notes: "lithium-rich LiNbO3 by vapor transport equilibration, not congruent; indices measured 325-1064 nm at room temperature (+-4e-4 to 5e-4), dn/dT to 300 C".into(),
+        },
+    )
+}
+
 /// 5% MgO-doped congruent LiNbO₃ at a temperature (K), from Gayer et al. 2008: n_e
 /// (`extraordinary`) or n_o.
 pub(crate) fn gayer(extraordinary: bool, kelvin: f64) -> Result<Material> {
