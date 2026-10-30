@@ -52,12 +52,15 @@ keeps them (a new module goes in its table). These layers are crates already, in
 verdicts, `Stop`), `photonoxide-geometry` (`geometry`, `material`, `stack`, `averaging`,
 `raster`), `photonoxide-linalg` (`backend`, the sparse and dense solvers, the eigensolvers),
 `photonoxide-mode` (`mode`, `eme`, `sweep`), `photonoxide-statics` (`electro`, `thermal`, the
-static solver), `photonoxide-fdfd` (`fdfd`) and `photonoxide-fdtd` (`fdtd`, with the `gpu` feature); photonoxide re-exports their modules at the same paths (`photonoxide::units`;
-`photonoxide::thermal` is a module of photonoxide that re-exports the statics crate's and the
-shifter), and a change to them is made in `crates/<crate>/src/`. The checks and tests that reach above their
-module, such as a geometry check that builds an FDTD structure, are in `src/cases/<module>/`, the
-module's own path: declared by the module with `#[path]` when it is in photonoxide, by
-`src/cases.rs` when it is in a layer's crate below.
+static solver), `photonoxide-fdfd` (`fdfd`), `photonoxide-fdtd` (`fdtd`, with the `gpu` feature),
+`photonoxide-circuit` (`circuit`, `compact`) and `photonoxide-device` (`device`, `generator`, the
+shifter, and `thermal`, the statics crate's with the shifter's types); `photonoxide` is the top
+layer, and re-exports their modules at the same paths (`photonoxide::units`), and a change to
+them is made in `crates/<crate>/src/`. The checks and tests that reach above their module, such
+as a geometry check that builds an FDTD structure, are in `src/cases/<module>/`, the module's own
+path: declared by the module with `#[path]` when it is in photonoxide, by `src/cases.rs` when it
+is in a layer's crate below (or by the device crate's own `cases`, for the line's and the Pockels
+section's checks the devices use).
 
 ## Commands
 

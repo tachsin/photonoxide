@@ -110,7 +110,7 @@ area fdtd \
 # core and the thermal and electro modules on it; it cuts stacks (shared) and factorizes with
 # sparse's multifrontal solver. Its job kind (src/job/statics.rs) is the job area's.
 area statics \
-  "crates/photonoxide-statics/src/statics.rs crates/photonoxide-statics/src/statics/* src/cases/statics/* crates/photonoxide-statics/src/thermal.rs src/thermal.rs crates/photonoxide-statics/src/electro.rs" \
+  "crates/photonoxide-statics/src/statics.rs crates/photonoxide-statics/src/statics/* src/cases/statics/* crates/photonoxide-statics/src/thermal.rs crates/photonoxide-device/src/thermal.rs crates/photonoxide-statics/src/electro.rs" \
   "sparse material" \
   "statics:: thermal:: electro::" "static/" ""
 
@@ -122,18 +122,18 @@ area thermo   "crates/photonoxide-mode/src/mode/thermo.rs crates/photonoxide-mod
 # the Pockels effect in a full-vector mode (src/mode/pockels.rs, in the mode area too): the
 # catalogue's electro-optic tensor turned into the guide's frame, the static solver's field, the
 # perturbation (thermo's) and Vpi L; its cases read the catalogue's lithium niobate
-area pockels  "crates/photonoxide-mode/src/mode/pockels.rs crates/photonoxide-mode/src/mode/pockels/* src/cases/mode/pockels/*"   "mode material statics thermo"   "mode::pockels" "pockels/" ""
+area pockels  "crates/photonoxide-mode/src/mode/pockels.rs crates/photonoxide-mode/src/mode/pockels/* src/cases/mode/pockels/* crates/photonoxide-device/src/cases/mode/pockels/*"   "mode material statics thermo"   "mode::pockels" "pockels/" ""
 
 # travelling-wave electrodes (src/electro/*): a line's quasi-TEM index, impedance and losses from
 # the static solver's capacitances and charge, its full-wave RF mode on a Yee lattice of the same
 # cross-section (eigen's shift-and-invert), and a modulator's electro-optic response; its
 # cases take lithium niobate's static permittivity from the pockels cases
-area line     "crates/photonoxide-statics/src/electro/* src/cases/electro/*"   "statics material mode pockels"   "electro::line electro::full_wave" "line/" ""
+area line     "crates/photonoxide-statics/src/electro/* src/cases/electro/* crates/photonoxide-device/src/cases/electro/*"   "statics material mode pockels"   "electro::line electro::full_wave" "line/" ""
 
 # the thermo-optic phase shifter (src/thermal/*): a heat solve's rise in a guide's mode, by its
 # perturbation's weights, into P_pi, the time constant and the crosstalk between neighbours; and
 # the dynamic thermal compact models fitted to its step responses (src/thermal/rc*)
-area shifter  "crates/photonoxide-statics/src/thermal/* src/cases/thermal/* src/shifter.rs"   "mode material statics thermo"   "thermal::shifter thermal::rc thermal::correction" "shifter/ thermal-rc/ correction/" ""
+area shifter  "crates/photonoxide-statics/src/thermal/* src/cases/thermal/* crates/photonoxide-device/src/cases/thermal/* crates/photonoxide-device/src/shifter.rs"   "mode material statics thermo"   "thermal::shifter thermal::rc thermal::correction" "shifter/ thermal-rc/ correction/" ""
 
 # jobs, their runs and replay, and farming them out; the job files in jobs/ are read by the
 # library's tests and validation cases, by the studio's and by the Python package's; a job's
@@ -170,14 +170,14 @@ area export \
 # the component generators: shapes on layers with named ports, which the devices draw their
 # geometry with and jobs place; their cases compare the devices' geometry with what it was
 area generator \
-  "src/generator.rs src/generator/*" \
+  "crates/photonoxide-device/src/generator.rs crates/photonoxide-device/src/generator/*" \
   "circuit device" \
   "generator::" "generator/" ""
 
 # a component sampled from an fdfd job's S-parameters runs the job; a heated circuit's phases
 # come from the shifter's thermal compact models (src/circuit/heated*)
 area circuit \
-  "src/circuit/* src/cases/circuit/*" \
+  "crates/photonoxide-circuit/src/circuit/* src/cases/circuit/*" \
   "material mode job shifter" \
   "circuit::" "circuit/ components/" \
   "circuit_fit circuit_ring_critical circuit_splitter optimize_ring_flat optimize_mzi_lattice optimize_ring_pareto optimize_mesh ring_q_factor directional_coupler mzi_dwivedi"
@@ -187,13 +187,13 @@ area circuit \
 # the thermo-optic phase shifters on the static solver and the shifter's chain (src/thermal);
 # the TFLN modulator on the Pockels cross-section and the travelling-wave line (src/electro)
 area device \
-  "src/device.rs src/device/* src/cases/device/*" \
+  "crates/photonoxide-device/src/device.rs crates/photonoxide-device/src/device/* src/cases/device/*" \
   "material mode circuit generator fdfd job compact statics shifter pockels line" \
   "device::" "device/" \
   "strip_waveguide directional_coupler mzi_dwivedi ring_q_factor bend_loss rib_hadley mmi_soldano y_junction_zhang thermo_jacques thermo_harris pcm_delaney tfln_zhang"
 
 area compact \
-  "src/compact/* src/cases/compact/* crates/photonoxide-core/src/lstsq.rs" \
+  "crates/photonoxide-circuit/src/compact/* src/cases/compact/* crates/photonoxide-core/src/lstsq.rs" \
   "circuit job" \
   "compact::" "compact/" "compact_mzi_ye"
 

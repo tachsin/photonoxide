@@ -298,7 +298,7 @@ laid out (the listing's 50 and 150 µm don't fit the plotted fringes' 11 nm spac
 `Sampled` interpolates S-matrices sampled over wavelength: each $S_{qp}$ linearly in its
 magnitude and its phase, the phase unwrapped between neighbouring samples, which must then be
 less than half a turn apart (the sampling must resolve the device's delays and resonances).
-`Sampled::from_fdfd` samples an `"fdfd"` job's device by 2D FDFD (`job::fdfd_s_parameters`),
+`job::sampled_from_fdfd` samples an `"fdfd"` job's device by 2D FDFD (`job::fdfd_s_parameters`),
 its ports `o1`, `o2`, … in the job's order with the reference planes at the ports' columns: a 2D
 estimate by the effective index method, not the device's 3D performance. For a smooth model,
 fit the samples ([compact models](compact.md), `CompactModel::fit` of `Sampled::spectrum`).

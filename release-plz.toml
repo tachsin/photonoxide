@@ -56,6 +56,8 @@ changelog_include = [
   "photonoxide-statics",
   "photonoxide-fdfd",
   "photonoxide-fdtd",
+  "photonoxide-circuit",
+  "photonoxide-device",
 ]
 
 # the library's layers (crates/, docs/architecture.md): internal crates that photonoxide depends on
@@ -108,6 +110,20 @@ semver_check = false
 
 [[package]]
 name = "photonoxide-fdtd"
+git_tag_enable = false
+git_release_enable = false
+changelog_update = false
+semver_check = false
+
+[[package]]
+name = "photonoxide-circuit"
+git_tag_enable = false
+git_release_enable = false
+changelog_update = false
+semver_check = false
+
+[[package]]
+name = "photonoxide-device"
 git_tag_enable = false
 git_release_enable = false
 changelog_update = false
