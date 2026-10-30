@@ -1,0 +1,32 @@
+# photonoxide's geometry layer (docs/architecture.md, #508): shapes and bodies, materials and
+# their catalogue, layer stacks and their etches, subpixel averaging and rasters. Internal: users
+# depend on photonoxide, which re-exports it at its old paths.
+[package]
+name = "photonoxide-geometry"
+# photonoxide's version, from the workspace, as every crate here has it
+version.workspace = true
+edition = "2024"
+rust-version = "1.95"
+description = "Internal crate of photonoxide (geometry, materials, stacks); use photonoxide"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/tachsin/photonoxide"
+readme = "README.md"
+
+[dependencies]
+# the crates of the workspace pin each other exactly: they are released together
+photonoxide-core = { version = "=0.6.0", path = "../photonoxide-core" }
+# polygon booleans for the geometry's layout polygons (geometry::Polygons::boolean): integer
+# overlays on a fixed grid, robust on shared edges, touching vertices and collinear overlaps
+# (docs/methods/booleans.md has the measurements that chose it); single-threaded, so the same
+# bits on any thread count. MIT OR Apache-2.0, its own dependencies MIT
+i_overlay = { version = "9.1.0", default-features = false }
+num-complex = "0.4"
+serde = { version = "1", features = ["derive"] }
+# the crystals' tables (material::crystal)
+toml = "1"
+# refractiveindex.info's YAML files (material::from_refractiveindex_info)
+yaml-rust2 = "0.13.0"
+
+# the tests that check the same bits on any number of threads
+[dev-dependencies]
+rayon = "1.12.0"

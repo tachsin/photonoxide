@@ -15,10 +15,20 @@ exclude = [".github", "academy", "assets", "python", "site", "studio"]
 
 # the studio (studio/src-tauri) is the photonoxide program: it runs jobs, live in its window or
 # headless, and is built from the repository, not published. python/ is the Python package
-# (PyO3), which maturin builds; it shares photonoxide's version and Cargo.lock.
+# (PyO3), which maturin builds; it shares photonoxide's version and Cargo.lock. crates/ holds
+# the library's layers (docs/architecture.md, #508), each a crate of its own that photonoxide
+# depends on and re-exports at its old paths; a plain `cargo test` runs their tests too.
 [workspace]
-members = ["studio/src-tauri", "studio/setup", "native", "native/testlib", "python"]
-default-members = ["."]
+members = [
+  "crates/photonoxide-core",
+  "crates/photonoxide-geometry",
+  "studio/src-tauri",
+  "studio/setup",
+  "native",
+  "native/testlib",
+  "python",
+]
+default-members = [".", "crates/photonoxide-core", "crates/photonoxide-geometry"]
 
 [workspace.package]
 # photonoxide's version, which every crate here has (the program, the native libraries' crate and
@@ -26,6 +36,9 @@ default-members = ["."]
 version = "0.6.0"
 
 [dependencies]
+# the library's layers (crates/), pinned exactly: they are released with photonoxide, at its version
+photonoxide-core = { version = "=0.6.0", path = "crates/photonoxide-core" }
+photonoxide-geometry = { version = "=0.6.0", path = "crates/photonoxide-geometry" }
 # without faer's `npy` default: nothing here reads .npy files, and it brought pest, whose newer
 # releases assemble and link .asm files (psm) at build time, against AGENTS.md's "nothing linked"
 faer = { version = "0.24.4", default-features = false, features = ["std", "rayon", "sparse-linalg", "rand"] }
@@ -34,11 +47,6 @@ faer = { version = "0.24.4", default-features = false, features = ["std", "rayon
 flate2 = "1.1"
 # the ZIP format's own checksum, for export's minimal ZIP writer (export::zip)
 crc32fast = "1.5"
-# polygon booleans for the geometry's layout polygons (geometry::Polygons::boolean): integer
-# overlays on a fixed grid, robust on shared edges, touching vertices and collinear overlaps
-# (docs/methods/booleans.md has the measurements that chose it); single-threaded, so the same
-# bits on any thread count. MIT OR Apache-2.0, its own dependencies MIT
-i_overlay = { version = "9.1.0", default-features = false }
 # exp, sin and cos in pure Rust, the same bits on every system, where the system's maths library
 # would move a result between Linux, Windows and macOS (the `portable` module)
 libm = "0.2.16"
@@ -48,7 +56,6 @@ rayon = "1.12.0"
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["float_roundtrip"] }
 toml = "1"
-yaml-rust2 = "0.13.0"
 # job files in YAML (run::Format): serde, YAML 1.2, pure Rust with no unsafe code
 serde-saphyr = "2.0"
 # the job file's JSON Schema (job::schema), derived from the structs the tasks are read into so
@@ -91,6 +98,13 @@ zip = { version = "4", default-features = false, features = ["deflate"] }
 opt-level = 3
 
 [profile.dev.package.photonoxide]
+opt-level = 3
+
+# the workspace's own crates, which "*" (the dependencies) doesn't cover
+[profile.dev.package.photonoxide-core]
+opt-level = 3
+
+[profile.dev.package.photonoxide-geometry]
 opt-level = 3
 
 # Debug and test builds keep file and line numbers for panics and backtraces, not the full debug

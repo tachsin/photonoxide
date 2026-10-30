@@ -3622,9 +3622,10 @@ dependencies = [
  "faer",
  "flate2",
  "genoxide",
- "i_overlay",
  "libm",
  "num-complex",
+ "photonoxide-core",
+ "photonoxide-geometry",
  "private-gemm-x86",
  "rayon",
  "schemars 1.2.3",
@@ -3633,8 +3634,32 @@ dependencies = [
  "serde_json",
  "toml 1.1.8+spec-1.1.0",
  "wgpu",
- "yaml-rust2",
  "zip",
+]
+
+[[package]]
+name = "photonoxide-core"
+version = "0.6.0"
+dependencies = [
+ "faer",
+ "libm",
+ "num-complex",
+ "rayon",
+ "schemars 1.2.3",
+ "serde",
+]
+
+[[package]]
+name = "photonoxide-geometry"
+version = "0.6.0"
+dependencies = [
+ "i_overlay",
+ "num-complex",
+ "photonoxide-core",
+ "rayon",
+ "serde",
+ "toml 1.1.8+spec-1.1.0",
+ "yaml-rust2",
 ]
 
 [[package]]

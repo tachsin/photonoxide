@@ -1,0 +1,25 @@
+# The lowest layer of photonoxide (docs/architecture.md, #508): units, expressions, the
+# portable maths, parallel collection, the error type, the validation verdicts, convergence and
+# the stop signal. Internal: users depend on photonoxide, which re-exports it at its old paths.
+[package]
+name = "photonoxide-core"
+# photonoxide's version, from the workspace, as every crate here has it
+version.workspace = true
+edition = "2024"
+rust-version = "1.95"
+description = "Internal crate of photonoxide (units, expressions, errors, verdicts); use photonoxide"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/tachsin/photonoxide"
+readme = "README.md"
+
+[dependencies]
+# the least squares' QR and SVD (lstsq), with the root crate's features
+faer = { version = "0.24.4", default-features = false, features = ["std", "rayon", "sparse-linalg", "rand"] }
+# exp, sin and cos in pure Rust, the same bits on every system (the `portable` module)
+libm = "0.2.16"
+num-complex = "0.4"
+# parallel's independent problems, collected in order
+rayon = "1.12.0"
+serde = { version = "1", features = ["derive"] }
+# convergence's settings in the job file's JSON Schema
+schemars = "1.2.3"
