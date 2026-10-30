@@ -6,6 +6,10 @@
 //!   (`photonoxide::thermal::PhaseShifter`, the static solver's heat on the device's own
 //!   cross-section), with its isotherms, the media's edges and where the mode takes its phase
 //!   from (its thermo-optic weights);
+//! - [`device_temperature_in_time`]: the same shifter turned on from the ambient at that power,
+//!   by its 2D model's transient (`ThermoShifter::turn_on`, the one its figures take): the rise
+//!   its mode feels against time with the 1/e, 10 % and 90 % times, and pictures of the rise on
+//!   the way, each with its isotherms;
 //! - [`raster_contours`]: the lines at given levels of any picture, for the run view's
 //!   isotherms and the outline of a static job's mode over its electrodes' field.
 //!
@@ -344,13 +348,26 @@ fn weights_picture(weights: &[([f64; 2], f64)]) -> Option<(Raster, f64)> {
     ))
 }
 
-/// `spec`'s temperature by its 2D model at its power (P_π when its power is zero): see
-/// [`Temperature`].
-///
-/// # Errors
-///
-/// A design that isn't a thermo-optic shifter's or that its 2D model refuses.
-pub fn temperature(spec: &SpecIn) -> Result<Temperature, String> {
+/// What both temperature views take from a design: its 2D model, its rise at 1 W/m, the power
+/// the pictures are at, and their window, edges and the mode's outline.
+struct Heated {
+    device: ThermoShifter,
+    shifter: PhaseShifter,
+    rise: Field,
+    power_mw: f64,
+    at_pi: bool,
+    p_pi_mw: f64,
+    watts_per_metre: f64,
+    x: [f64; 2],
+    y: [f64; 2],
+    pixel: f64,
+    outline: Vec<Line>,
+    mode: Vec<Isoline>,
+    mode_step: f64,
+}
+
+/// `spec`'s 2D model and what its pictures take.
+fn heated(spec: &SpecIn) -> Result<Heated, String> {
     let s = spec.spec()?;
     let device = thermo_shifter(&s)?;
     let (_, design) = s.build().map_err(text)?;
@@ -380,36 +397,7 @@ pub fn temperature(spec: &SpecIn) -> Result<Temperature, String> {
     let x = [(x[0] - MARGIN).max(gx[0]), (x[1] + MARGIN).min(gx[1])];
     let y = [(y[0] - MARGIN).max(gy[0]), (y[1] + MARGIN).min(gy[1])];
     let pixel = (x[1] - x[0]).max(y[1] - y[0]) / PIXELS;
-    let (nx, ny) = (
-        ((x[1] - x[0]) / pixel).round().max(2.0) as usize,
-        ((y[1] - y[0]) / pixel).round().max(2.0) as usize,
-    );
-    let mut picture = Vec::with_capacity(nx * ny);
-    for j in 0..ny {
-        let yc = y[0] + (j as f64 + 0.5) * (y[1] - y[0]) / ny as f64;
-        for i in 0..nx {
-            let xc = x[0] + (i as f64 + 0.5) * (x[1] - x[0]) / nx as f64;
-            picture.push((rise.at(xc, yc) * watts_per_metre) as f32);
-        }
-    }
-    let raster = Raster {
-        nx,
-        ny,
-        x0: x[0],
-        x1: x[1],
-        y0: y[0],
-        y1: y[1],
-        values: picture,
-    };
-    let (peak, peak_at) = rise.max();
-    let peak = peak * watts_per_metre;
-    let isotherms = levels(peak, 8)
-        .into_iter()
-        .map(|level| Isoline {
-            level,
-            lines: contours(&raster, level),
-        })
-        .collect();
+    let (nx, ny) = pixels(x, y, pixel);
     let (mode, mode_step) = match weights_picture(guide.weights()) {
         Some((w, h)) => {
             let top = w.values.iter().copied().fold(0.0f32, f32::max);
@@ -424,35 +412,231 @@ pub fn temperature(spec: &SpecIn) -> Result<Temperature, String> {
         }
         None => (Vec::new(), f64::NAN),
     };
-    let feels = guide.index_change(&rise) / guide.thermo_optic() * watts_per_metre;
-    let (fine, coarse) = rise.grid().x().steps();
-    let (fine_y, coarse_y) = rise.grid().y().steps();
-    let grid = format!(
-        "heat on {} × {} cells from {:.0} nm to {:.2} µm over {:.0} × {:.0} µm; mode on {:.0} nm \
-         cells; drawn on {nx} × {ny} pixels of {:.0} nm",
-        rise.grid().x().cells(),
-        rise.grid().y().cells(),
-        fine.min(fine_y) * 1e3,
-        coarse.max(coarse_y),
-        gx[1] - gx[0],
-        gy[1] - gy[0],
-        mode_step * 1e3,
-        pixel * 1e3,
-    );
-    Ok(Temperature {
-        outline: edges(section, x, y, nx, ny),
-        raster,
-        isotherms,
-        mode,
+    let outline = edges(section, x, y, nx, ny);
+    Ok(Heated {
+        device,
+        shifter,
+        rise,
         power_mw,
         at_pi,
         p_pi_mw,
         watts_per_metre,
+        x,
+        y,
+        pixel,
+        outline,
+        mode,
+        mode_step,
+    })
+}
+
+/// The pixels across and up a window `x` × `y` (µm) of square pixels `pixel` µm wide.
+fn pixels(x: [f64; 2], y: [f64; 2], pixel: f64) -> (usize, usize) {
+    (
+        ((x[1] - x[0]) / pixel).round().max(2.0) as usize,
+        ((y[1] - y[0]) / pixel).round().max(2.0) as usize,
+    )
+}
+
+/// `field` times `scale` on `nx` × `ny` pixels over `x` × `y` (µm), each pixel its value at
+/// the pixel's centre.
+fn picture(field: &Field, scale: f64, x: [f64; 2], y: [f64; 2], nx: usize, ny: usize) -> Raster {
+    let mut values = Vec::with_capacity(nx * ny);
+    for j in 0..ny {
+        let yc = y[0] + (j as f64 + 0.5) * (y[1] - y[0]) / ny as f64;
+        for i in 0..nx {
+            let xc = x[0] + (i as f64 + 0.5) * (x[1] - x[0]) / nx as f64;
+            values.push((field.at(xc, yc) * scale) as f32);
+        }
+    }
+    Raster {
+        nx,
+        ny,
+        x0: x[0],
+        x1: x[1],
+        y0: y[0],
+        y1: y[1],
+        values,
+    }
+}
+
+impl Heated {
+    /// The heat problem's grid and the mode's, and the picture's pixels, in words.
+    fn grid(&self, nx: usize, ny: usize, pixel: f64) -> String {
+        let rise = &self.rise;
+        let (gx, gy) = (rise.grid().x().span(), rise.grid().y().span());
+        let (fine, coarse) = rise.grid().x().steps();
+        let (fine_y, coarse_y) = rise.grid().y().steps();
+        format!(
+            "heat on {} × {} cells from {:.0} nm to {:.2} µm over {:.0} × {:.0} µm; mode on {:.0} \
+             nm cells; drawn on {nx} × {ny} pixels of {:.0} nm",
+            rise.grid().x().cells(),
+            rise.grid().y().cells(),
+            fine.min(fine_y) * 1e3,
+            coarse.max(coarse_y),
+            gx[1] - gx[0],
+            gy[1] - gy[0],
+            self.mode_step * 1e3,
+            pixel * 1e3,
+        )
+    }
+
+    /// The largest rise at the picture's power, K, and where it is (µm).
+    fn peak(&self) -> (f64, [f64; 2]) {
+        let (peak, at) = self.rise.max();
+        (peak * self.watts_per_metre, at)
+    }
+}
+
+/// `spec`'s temperature by its 2D model at its power (P_π when its power is zero): see
+/// [`Temperature`].
+///
+/// # Errors
+///
+/// A design that isn't a thermo-optic shifter's or that its 2D model refuses.
+pub fn temperature(spec: &SpecIn) -> Result<Temperature, String> {
+    let h = heated(spec)?;
+    let (nx, ny) = pixels(h.x, h.y, h.pixel);
+    let raster = picture(&h.rise, h.watts_per_metre, h.x, h.y, nx, ny);
+    let (peak, peak_at) = h.peak();
+    let isotherms = levels(peak, 8)
+        .into_iter()
+        .map(|level| Isoline {
+            level,
+            lines: contours(&raster, level),
+        })
+        .collect();
+    let guide = &h.shifter.guides()[0];
+    let feels = guide.index_change(&h.rise) / guide.thermo_optic() * h.watts_per_metre;
+    Ok(Temperature {
+        grid: h.grid(nx, ny, h.pixel),
+        outline: h.outline,
+        raster,
+        isotherms,
+        mode: h.mode,
+        power_mw: h.power_mw,
+        at_pi: h.at_pi,
+        p_pi_mw: h.p_pi_mw,
+        watts_per_metre: h.watts_per_metre,
         peak,
         peak_at,
         guide: feels,
+    })
+}
+
+/// A thermo-optic shifter's temperature in time, as its page's Temperature view shows it: its
+/// 2D model turned on from the ambient at the steady view's power
+/// (`photonoxide::device::ThermoShifter::turn_on`, the transient its figures take).
+#[derive(Debug, Serialize)]
+pub struct InTime {
+    /// The times, µs: 0, then each BDF2 step's.
+    pub times_us: Vec<f64>,
+    /// The rise the guide's mode feels at each time, K: its weights' sum of the rise over its
+    /// dn_eff/dT, what its phase follows; and where it goes.
+    pub guide: Vec<f64>,
+    pub steady: f64,
+    /// The phase's 1/e time (the 2D figure `tau`, to the bit), its 10 % and 90 % times and
+    /// their difference, the 10–90 % rise time, µs.
+    pub tau_us: f64,
+    pub ten_us: f64,
+    pub ninety_us: f64,
+    pub rise_us: f64,
+    /// The rise above the ambient at evenly spaced times from 0, each with its isotherms at
+    /// `levels`.
+    pub frames: Vec<Frame>,
+    /// The isotherms' levels, K (the steady picture's), and the steady peak, the colours' top.
+    pub levels: Vec<f64>,
+    pub peak: f64,
+    /// Where the media change on the pictures, and the mode's outline, as the steady view's.
+    pub outline: Vec<Line>,
+    pub mode: Vec<Isoline>,
+    /// The power, as the steady view's.
+    pub power_mw: f64,
+    pub at_pi: bool,
+    pub p_pi_mw: f64,
+    pub watts_per_metre: f64,
+    /// The grids, the steps and the pictures' pixels, in words.
+    pub grid: String,
+}
+
+/// A picture of the rise in time.
+#[derive(Debug, Serialize)]
+pub struct Frame {
+    /// Its time, µs.
+    pub time_us: f64,
+    /// The rise above the ambient, K, on the steady view's window.
+    pub raster: Raster,
+    pub isotherms: Vec<Isoline>,
+}
+
+/// How many pictures in time after the start's: one every 1/24 of the record.
+pub const FRAMES: usize = 24;
+
+/// `spec`'s temperature in time by its 2D model at its power (P_π when its power is zero): see
+/// [`InTime`].
+///
+/// # Errors
+///
+/// A design that isn't a thermo-optic shifter's or that its 2D model refuses.
+pub fn temperature_in_time(spec: &SpecIn) -> Result<InTime, String> {
+    let h = heated(spec)?;
+    let on = h.device.turn_on(&h.shifter, FRAMES).map_err(text)?;
+    let w = h.watts_per_metre;
+    // half the steady view's pixels across: many pictures, each a pixel per few cells
+    let pixel = 2.0 * h.pixel;
+    let (nx, ny) = pixels(h.x, h.y, pixel);
+    let (peak, _) = h.peak();
+    let levels = levels(peak, 8);
+    let frames = on
+        .frames
+        .iter()
+        .map(|(t, field)| {
+            let raster = picture(field, w, h.x, h.y, nx, ny);
+            let isotherms = levels
+                .iter()
+                .map(|&level| Isoline {
+                    level,
+                    lines: contours(&raster, level),
+                })
+                .collect();
+            Frame {
+                time_us: t * 1e6,
+                raster,
+                isotherms,
+            }
+        })
+        .collect();
+    let step_us = on.stepping.step_s * 1e6;
+    let grid = format!(
+        "{}; BDF2 steps of {step_us} µs, {} of them",
+        h.grid(nx, ny, pixel),
+        on.stepping.steps
+    );
+    Ok(InTime {
+        times_us: on.times_s.iter().map(|t| t * 1e6).collect(),
+        guide: on.guide.iter().map(|g| g * w).collect(),
+        steady: on.steady * w,
+        tau_us: on.timing.one_over_e_s * 1e6,
+        ten_us: on.timing.ten_s * 1e6,
+        ninety_us: on.timing.ninety_s * 1e6,
+        rise_us: on.timing.ten_ninety_s * 1e6,
+        frames,
+        levels,
+        peak,
+        outline: h.outline,
+        mode: h.mode,
+        power_mw: h.power_mw,
+        at_pi: h.at_pi,
+        p_pi_mw: h.p_pi_mw,
+        watts_per_metre: w,
         grid,
     })
+}
+
+/// A thermo-optic shifter's temperature in time, by its 2D model.
+#[tauri::command(async)]
+pub fn device_temperature_in_time(spec: SpecIn) -> Result<InTime, String> {
+    temperature_in_time(&spec)
 }
 
 /// A thermo-optic shifter's temperature at its power, by its 2D model.

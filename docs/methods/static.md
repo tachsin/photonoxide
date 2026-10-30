@@ -342,5 +342,8 @@ A heat job's `[task.transient]` (`step_ns`, `duration_us`, `scheme`, `turn = "on
 with `[task.heat_capacity]` for every medium, steps the heaters' turn-on or turn-off after the
 steady solve: the run records each probe's mean as the steps go (`Event::StaticStep`, about 2000 of
 them, which the studio plots live), the last field, the time step and each probe's 1/e time,
-10–90 % time and −3 dB frequency. The job's own `timeout_minutes` is the hard limit; a stopped run
-ends its steps where it is.
+10–90 % time (and the 10 % and 90 % times, which the studio marks) and −3 dB frequency. With
+`frames = n` (1 to 200) it also records n + 1 pictures of the temperature evenly over the steps,
+the start's first (`Event::StaticFrame`), which the studio's time slider redraws with their
+isotherms. The job's own `timeout_minutes` is the hard limit; a stopped run ends its steps where
+it is.

@@ -3,14 +3,16 @@
   import { run, shownField, shownLoss, shownModes, shownScene, sweepAxis } from "../lib/app.svelte";
   import { cutOutline, topOutline } from "../lib/outline";
   import { api } from "../lib/api";
+  import { range } from "../lib/colours";
   import { lossText, modeKind } from "../lib/events";
-  import type { Series } from "../lib/plot";
+  import { ticks, type Series } from "../lib/plot";
   import { len } from "../lib/units";
   import FdtdPlayer from "./FdtdPlayer.svelte";
   import FdtdSpectra from "./FdtdSpectra.svelte";
   import Plot from "./Plot.svelte";
   import RasterView from "./RasterView.svelte";
   import StaticFields from "./StaticFields.svelte";
+  import TemperatureInTime from "./TemperatureInTime.svelte";
   import UnitChip from "./UnitChip.svelte";
   import OptimizeResults from "./device/OptimizeResults.svelte";
   import StudyResults from "./device/StudyResults.svelte";
@@ -41,6 +43,35 @@
       points: run.staticSteps.map((s): [number, number] => [s.time_us, s.means[k]?.value ?? NaN]),
     }));
   });
+
+  /** The times the run recorded for each probe's rise, µs: its 10 % and 90 % times and its 1/e time, marked on the curves. */
+  const transientMarks = $derived.by(() => {
+    const values = run.staticResult?.values ?? [];
+    const us = (name: string) => {
+      const v = values.find((x) => x.name === name);
+      return v && v.unit === "s" ? v.value * 1e6 : null;
+    };
+    return transient.flatMap((s) => {
+      const who = transient.length > 1 ? `${s.label} ` : "";
+      return (
+        [
+          [`10 % time of ${s.label}`, `${who}10 %`],
+          [`1/e time of ${s.label}`, `${who}1/e`],
+          [`90 % time of ${s.label}`, `${who}90 %`],
+        ] as const
+      ).flatMap(([name, label]) => {
+        const x = us(name);
+        return x === null ? [] : [{ x, label }];
+      });
+    });
+  });
+  /** The transient's pictures on one scale: from the smallest to the largest of them all. */
+  const frameScale = $derived.by((): [number, number] => {
+    const spans = run.staticFrames.map((f) => range(f.raster));
+    return spans.length ? [Math.min(...spans.map((s) => s[0])), Math.max(...spans.map((s) => s[1]))] : [0, 1];
+  });
+  /** Their isotherms' levels: round ones inside that scale, as a static field's. */
+  const frameLevels = $derived(ticks(frameScale[0], frameScale[1], 8).filter((t) => t > frameScale[0] && t < frameScale[1]));
 
   /** A sweep's series, one per mode by rank: (value, Re n_eff). */
   const sweep = $derived.by((): Series[] => {
@@ -123,9 +154,31 @@
     <!-- a static job's transient: each probe's mean temperature as the steps go -->
     <section class="panel p-5">
       <h3 class="mb-1 font-semibold">Temperature in time <span class="font-normal faint">· each probe's mean, K</span></h3>
-      <p class="mb-3 text-xs faint">from the heaters' turn-on or turn-off at t = 0{run.finished ? "" : ", as the steps go"}</p>
-      {#if transient.length}
-        <Plot series={transient} xLabel="time (µs)" yLabel="mean (K)" markers={false} name="{run.job?.job ?? 'run'}-transient" />
+      <p class="mb-3 text-xs faint">
+        from the heaters' turn-on or turn-off at t = 0{run.finished ? "" : ", as the steps go"}{#if transientMarks.length}; marked, the times the run recorded: 10 % and 90 % of the way to the steady
+          state (the 10–90 % time between them) and 1 − 1/e of it{/if}{#if run.staticFrames.length}. Below, the cross-section at the time the slider picks, from <span class="num"
+            >{frameScale[0].toPrecision(4)}</span
+          >
+          K (black) to <span class="num">{frameScale[1].toPrecision(4)}</span> K (pale yellow) in every picture, isotherms at fixed levels{/if}
+      </p>
+      {#if transient.length && run.staticFrames.length}
+        {@const first = run.staticFrames[0]}
+        <TemperatureInTime
+          series={transient}
+          marks={transientMarks}
+          frames={run.staticFrames}
+          levels={frameLevels}
+          scale={frameScale}
+          ends={[`${Number(frameScale[0].toPrecision(4))} ${first.unit}`, `${Number(frameScale[1].toPrecision(4))} ${first.unit}`]}
+          axes={first.axes}
+          outline={outlined && scene ? cutOutline(scene, "x", (scene.x_um[0] + scene.x_um[1]) / 2, [first.raster.x0, first.raster.x1]) : undefined}
+          quantity="temperature ({first.unit})"
+          yLabel="mean (K)"
+          name="{run.job?.job ?? 'run'}-transient"
+          maxHeight={380}
+        />
+      {:else if transient.length}
+        <Plot series={transient} xLabel="time (µs)" yLabel="mean (K)" markers={false} name="{run.job?.job ?? 'run'}-transient" guides={transientMarks} />
       {:else}
         <p class="text-sm faint">The job has no probe to follow: give it a [[task.probe]].</p>
       {/if}

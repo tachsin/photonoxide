@@ -600,6 +600,18 @@ export interface StaticStep {
   means: StaticValue[];
 }
 
+/** A picture of a static job's temperature in time (photonoxide::job::Event::StaticFrame), when its transient asks for frames: the start's first. */
+export interface StaticFrame {
+  type: "static_frame";
+  /** The time, µs. */
+  time_us: number;
+  /** "K". */
+  unit: string;
+  /** Across the guide and up: ["y", "z"]. */
+  axes: [string, string];
+  raster: Raster;
+}
+
 export type Event =
   | { type: "started"; job: string; kind: string }
   | ChipEvent
@@ -640,6 +652,7 @@ export type Event =
   | StaticField
   | StaticResult
   | StaticStep
+  | StaticFrame
   | { type: "finished"; stopped: string | null; seconds: number }
   | { type: "failed"; error: string; seconds: number };
 

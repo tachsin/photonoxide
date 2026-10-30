@@ -37,8 +37,10 @@
 //! default, the more accurate of the two at the same step on the slab's series solution) or
 //! `"bdf2"` ([`crate::thermal::Scheme`]). `[task.heat_capacity]` gives each medium's ρc_p in
 //! J/(m³·K). The run records each probe's mean as the steps go ([`Event::StaticStep`]), the
-//! last field, and each probe's 1/e and 10–90 % times and the −3 dB frequency of its
-//! small-signal response to the heaters' power.
+//! last field, and each probe's 1/e and 10–90 % times (with the 10 % and 90 % times it is the
+//! difference of) and the −3 dB frequency of its small-signal response to the heaters' power.
+//! `frames = 20` records 20 pictures of the temperature evenly over the steps, and the start's,
+//! as the steps go ([`Event::StaticFrame`]): the studio's time slider.
 //!
 //! **A pulse:** `pulse_ns` in `[task.transient]` turns the heaters on at t = 0 for that long, a
 //! whole number of steps, then off to `duration_us` ([`crate::thermal::Heat::pulse`]; BDF2
@@ -264,14 +266,22 @@ struct TransientSpec {
     turn: Option<String>,
     /// The heaters on from t = 0 for this long, then off: a pulse, a whole number of steps.
     pulse_ns: Option<f64>,
+    /// Pictures of the temperature the run records on the way, evenly over the steps (1 to
+    /// 200; none by default): this many and the start's, each an `Event::StaticFrame`, for the
+    /// studio's time slider.
+    frames: Option<usize>,
 }
 
-/// A transient as a run takes it: its steps, whether the heaters turn on (or off), and a
-/// pulse's length (s).
+/// The most pictures a transient records ([`TransientSpec::frames`]).
+const MOST_FRAMES: usize = 200;
+
+/// A transient as a run takes it: its steps, whether the heaters turn on (or off), a pulse's
+/// length (s), and the step numbers whose pictures it records.
 struct Transient {
     stepping: Stepping,
     on: bool,
     pulse_s: Option<f64>,
+    frames: Vec<usize>,
 }
 
 /// `[[task.switching]]`: a probe over a phase-change film and the material's id (`sb2se3`),
@@ -356,14 +366,30 @@ impl TransientSpec {
                 Some(p * 1e-9)
             }
         };
+        let steps = steps as usize;
+        let frames = match self.frames {
+            None => Vec::new(),
+            Some(n) if (1..=MOST_FRAMES).contains(&n) => {
+                let mut at: Vec<usize> = (0..=n).map(|k| (k * steps + n / 2) / n).collect();
+                at.dedup();
+                at
+            }
+            Some(n) => {
+                return Err(task_error(format!(
+                    "[task.transient] frames = {n}: a transient records 1 to {MOST_FRAMES} \
+                     pictures"
+                )));
+            }
+        };
         Ok(Transient {
             stepping: Stepping {
                 step_s: step * 1e-9,
-                steps: steps as usize,
+                steps,
                 scheme,
             },
             on,
             pulse_s,
+            frames,
         })
     }
 }
@@ -1349,8 +1375,20 @@ fn summary(
     Ok(())
 }
 
-/// A heat job's transient: each probe's mean recorded as the steps go, the last field, and
-/// each probe's 1/e and 10–90 % times and −3 dB frequency.
+/// A picture of a transient's temperature at `time_s` ([`TransientSpec::frames`]), on the
+/// pixels of the job's other fields.
+fn frame(setup: &Setup, time_s: f64, field: &Field) -> Event {
+    Event::StaticFrame {
+        time_us: time_s * 1e6,
+        unit: "K".into(),
+        axes: ["y".to_owned(), "z".to_owned()],
+        raster: setup.picture(field),
+    }
+}
+
+/// A heat job's transient: each probe's mean recorded as the steps go (and with `frames`, the
+/// temperature's pictures), the last field, and each probe's 1/e, 10 %, 90 % and 10–90 % times
+/// and −3 dB frequency.
 fn in_time(
     setup: &Setup,
     heat: &Heat,
@@ -1378,10 +1416,17 @@ fn in_time(
             .map(|((name, _), m)| value(format!("mean over {name}"), *m, "K"))
             .collect(),
     };
-    run.record(&step_event(0.0, &means(&heat.steady_at(from)?)?))?;
+    let start = heat.steady_at(from)?;
+    run.record(&step_event(0.0, &means(&start)?))?;
+    if transient.frames.contains(&0) {
+        run.record(&frame(setup, 0.0, &start))?;
+    }
     let history = heat.transient_observed(stepping, from, &|_| to, &shapes, &mut |step| {
         if step.index % every == 0 || step.index == stepping.steps {
             run.record(&step_event(step.time_s, &step.means))?;
+        }
+        if transient.frames.contains(&step.index) {
+            run.record(&frame(setup, step.time_s, &step.field()))?;
         }
         Ok(stop.reason().is_none())
     })?;
@@ -1405,6 +1450,8 @@ fn in_time(
             history.crossing(k, start, ends[k], 0.9),
         ) {
             values.push(value(format!("10-90 % time of {name}"), b - a, "s"));
+            values.push(value(format!("10 % time of {name}"), a, "s"));
+            values.push(value(format!("90 % time of {name}"), b, "s"));
         }
         if stop.reason().is_none()
             && let Ok(f) = heat.cutoff(shape)
@@ -1445,9 +1492,15 @@ fn in_pulse(
         .map(|s| start.mean(s))
         .collect::<Result<_>>()?;
     run.record(&step_event(0.0, &first))?;
+    if transient.frames.contains(&0) {
+        run.record(&frame(setup, 0.0, &start))?;
+    }
     let pulse = heat.pulse_observed(stepping, pulse_s, &shapes, &mut |step| {
         if step.index % every == 0 || step.index == stepping.steps {
             run.record(&step_event(step.time_s, &step.means))?;
+        }
+        if transient.frames.contains(&step.index) {
+            run.record(&frame(setup, step.time_s, &step.field()))?;
         }
         Ok(stop.reason().is_none())
     })?;

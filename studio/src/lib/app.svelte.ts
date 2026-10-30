@@ -1,7 +1,7 @@
 // The window's shared state: settings, the page shown, toasts, and the run being followed.
 
 import { api, type AppState, type Info, type JobFormat, type Settings } from "./api";
-import type { ChipEvent, CompactFit, CompactPlan, ChipPoint, ChipStudy, DeviceModel, DevicePoint, DeviceStudy, Evaluation, Event, FdtdFrame, FdtdProgress, FdtdResonances, FdtdSpectrum, Field, Front, Mode, ModeField, ModeLoss, Optimization, Optimum, Permittivity, Scene, ScenePort, Shape, SolveError, Solver, SParameters, StaticField, StaticResult, StaticStep, Sweep, SweepField, SweepMode, SweepPermittivity, SweepPoint } from "./events";
+import type { ChipEvent, CompactFit, CompactPlan, ChipPoint, ChipStudy, DeviceModel, DevicePoint, DeviceStudy, Evaluation, Event, FdtdFrame, FdtdProgress, FdtdResonances, FdtdSpectrum, Field, Front, Mode, ModeField, ModeLoss, Optimization, Optimum, Permittivity, Scene, ScenePort, Shape, SolveError, Solver, SParameters, StaticField, StaticFrame, StaticResult, StaticStep, Sweep, SweepField, SweepMode, SweepPermittivity, SweepPoint } from "./events";
 import { template, type Kind } from "./job";
 import type { Looks } from "./layers";
 import { themeName } from "./themes";
@@ -253,6 +253,8 @@ export const run = $state({
   staticResult: null as StaticResult | null,
   /** A static job's transient, step by step as recorded. */
   staticSteps: [] as StaticStep[],
+  /** A static job's pictures of its temperature in time, as recorded when its transient asks for frames. */
+  staticFrames: [] as StaticFrame[],
   /** The FDTD frame shown, or null to follow the latest. */
   frame: null as number | null,
   finished: null as { stopped: string | null; seconds: number } | null,
@@ -453,6 +455,9 @@ function take(e: Event) {
     case "static_step":
       run.staticSteps.push(e);
       break;
+    case "static_frame":
+      run.staticFrames.push(e);
+      break;
     case "finished":
       run.finished = { stopped: e.stopped, seconds: e.seconds };
       // a sweep followed to its end settles on the field the job asks for (its field_um: a
@@ -514,6 +519,7 @@ function reset(info: Info) {
     statics: [],
     staticResult: null,
     staticSteps: [],
+    staticFrames: [],
     frame: null,
     finished: null,
     problem: null,
