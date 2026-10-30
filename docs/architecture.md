@@ -1,40 +1,32 @@
 # Architecture
 
-photonoxide is one crate today. Its modules sit in layers, and the layers are drawn so that each
-can become a crate of its own: Cargo then builds independent crates side by side, and an edit
-rebuilds only its own crate and the ones above it (tracking issue
-[#508](https://github.com/tachsin/photonoxide/issues/508)). This page describes the layers, the
-rules that keep them, how to add a module, and where the split to crates stands.
-
-The public API does not change with the split. `photonoxide` stays the crate users depend on and
-re-exports every module at its current path. CI's Public API job checks it on every PR that
-changes the library: it lists `photonoxide`'s public API at the PR's base and head, with the
-items of `crates/` at the paths `photonoxide` re-exports them at, and fails on an item removed
-or changed ([CONTRIBUTING.md](../CONTRIBUTING.md#the-public-api-job)). cargo-semver-checks, the
-Semver job, doesn't follow a re-export from another crate of the workspace, so the Public API
-job replaces it from the split's first PR.
+photonoxide is a single crate. Its modules sit in layers inside it, and the layers are drawn so
+that the dependencies between the parts of the library stay few, one-way and easy to follow
+(tracking issue [#508](https://github.com/tachsin/photonoxide/issues/508)). The layers are not
+separate crates: the library is not split into workspace crates, and `photonoxide` is the one
+library crate users depend on. The layers are enforced by the layering test, `cargo test --lib
+layering`. This page describes the layers, the rules that keep them and how to add a module.
 
 ## The layers
 
 A layer may import from the layers listed in its last column, and from itself. It may not import
 from any other layer. The rows are in dependency order: a layer imports only from rows above it.
 
-| Layer | Planned crate | Modules | May import from |
-|---|---|---|---|
-| core | `photonoxide-core` | `units`, `expr`, `portable`, `parallel`, `traffic`, `convergence`, `lstsq`, and the error, stop and verdict types (`error`, `stop`, `verdict`) | (nothing) |
-| geometry | `photonoxide-geometry` | `geometry`, `material`, `stack`, `averaging`, `raster`, `etch` | core |
-| linalg | `photonoxide-linalg` | `dense`, `sparse`, `backend` (with the Krylov solvers), `eigen` | core |
-| mode | `photonoxide-mode` | `mode`, `eme`, `sweep` | core, geometry, linalg |
-| statics | `photonoxide-statics` | `statics`, `thermal`, `electro` | core, geometry, linalg |
-| fdfd | `photonoxide-fdfd` | `fdfd` | core, geometry, linalg |
-| fdtd | `photonoxide-fdtd` | `fdtd` | core, geometry, linalg, fdfd |
-| circuit | `photonoxide-circuit` | `circuit`, `compact` | core, geometry, linalg, mode, statics |
-| device | `photonoxide-device` | `generator`, `device`, `shifter` | core, geometry, linalg, mode, statics, fdfd, fdtd, circuit |
-| top | `photonoxide` | `job`, `run`, `farm`, `validation`, `bench`, `export`, `facade`, and the re-exports of everything below | every layer |
+| Layer | Modules | May import from |
+|---|---|---|
+| core | `units`, `expr`, `portable`, `parallel`, `traffic`, `convergence`, `lstsq`, and the error, stop and verdict types (`error`, `stop`, `verdict`) | (nothing) |
+| geometry | `geometry`, `material`, `stack`, `averaging`, `raster`, `etch` | core |
+| linalg | `dense`, `sparse`, `backend` (with the Krylov solvers), `eigen` | core |
+| mode | `mode`, `eme`, `sweep` | core, geometry, linalg |
+| statics | `statics`, `thermal`, `electro` | core, geometry, linalg |
+| fdfd | `fdfd` | core, geometry, linalg |
+| fdtd | `fdtd` | core, geometry, linalg, fdfd |
+| circuit | `circuit`, `compact` | core, geometry, linalg, mode, statics |
+| device | `generator`, `device`, `shifter` | core, geometry, linalg, mode, statics, fdfd, fdtd, circuit |
+| top | `job`, `run`, `farm`, `validation`, `bench`, `export`, `facade`, and the re-exports of everything below | every layer |
 
 The mode, statics and fdfd layers each import from core, geometry and linalg only, and not from
-one another, so their crates can be built in parallel. `src/layering.rs` holds the same table as
-code.
+one another. `src/layering.rs` holds the same table as code.
 
 What joins two physical models sits above both. The thermo-optic phase shifter joins a heat solve
 and a mode solve, so it is in the device layer (`shifter`), and `statics` needs no optics.
@@ -81,8 +73,7 @@ mod tests;
 ```
 
 So the move changes where a file is, and nothing else: the module path, the names of the tests
-and the ids of the validation cases stay the same, and `docs/validation.md` is identical. When
-the crates are made, each such declaration moves to the top crate, and the file stays where it is.
+and the ids of the validation cases stay the same, and `docs/validation.md` is identical.
 
 ### The exception
 
@@ -92,9 +83,7 @@ One production import points upward and is listed in the layering test's allow-l
 |---|---|---|
 | `src/thermal.rs` | `shifter` | `thermal` re-exports the shifter's types, so that their `thermal::` paths keep working |
 
-It goes when the statics crate is made (phase 2 below): `photonoxide::thermal` then becomes a
-module of the top crate that re-exports the statics crate's `thermal` and the shifter, with the
-same paths.
+It goes when the shifter's types are given another home and `thermal` stops re-exporting them.
 
 ## Adding a module
 
@@ -107,19 +96,3 @@ same paths.
    in `src/cases/<module>/` and declare it with `#[path]` as shown above.
 4. Add its line to the area map (`.github/areas.sh`) and a write-up in `docs/methods/`, as for any
    module (see `AGENTS.md`).
-
-## The crate plan
-
-The split is tracked in [#508](https://github.com/tachsin/photonoxide/issues/508).
-
-| Phase | What | Status |
-|---|---|---|
-| 0 | Remove the cycles between modules; move the error, verdict and stop types down; move the checks that reach above their layer up; this page and the layering test | done |
-| 1 | `photonoxide-core`, `photonoxide-geometry` | planned |
-| 2 | `photonoxide-linalg`, `photonoxide-mode`, `photonoxide-statics` | planned |
-| 3 | `photonoxide-fdfd`, `photonoxide-fdtd` (with the `gpu` feature) | planned |
-| 4 | `photonoxide-circuit`, `photonoxide-device` | planned |
-| 5 | Measure the build again and record the numbers | planned |
-
-Each phase is a set of pure moves: code goes to another crate, and `photonoxide` re-exports it at
-the path it had. The internal crates are for `photonoxide` and are not meant to be used directly.

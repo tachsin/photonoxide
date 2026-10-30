@@ -10,8 +10,8 @@ and the phase-change phase shifter as devices, the studio's temperature and fiel
 sweeps, GDS read into jobs. Two published results aren't reproduced yet and stay open, Zhang 2022's
 bandwidths (#418) and He 2019's Vπ·L (#420), with the other gaps against papers in #595. Next is
 0.6.1, nonlinear integrated optics; 0.6.3's eigenmode expansion and mode tools are under way
-(#432), and the library's split into workspace crates is in progress (#508, #509). The library's
-modules, each with a write-up in `docs/methods/`:
+(#432). The library stays one crate: its modules sit in layers that a test keeps (#508). The
+library's modules, each with a write-up in `docs/methods/`:
 
 - `units`, `material` (with `material::catalogue`), `geometry` (the kernel: regions, transforms,
   polygons, a spatial index), `expr` (expressions with units and parameters), `stack`, `raster`,
@@ -45,7 +45,7 @@ modules, each with a write-up in `docs/methods/`:
   files; and `facade::conformance()`, calls with their results for the bindings' tests. A
   change elsewhere in the API that touches it is absorbed in it, in the same PR.
 
-The modules sit in layers that are to become crates (#508), and production code imports only
+photonoxide is one crate, and its modules sit in layers (#508): production code imports only
 downward: [docs/architecture.md](docs/architecture.md) has the layers, `src/layering.rs` the test
 that keeps them (a new module goes in its table). The checks and tests that reach above their
 module, such as a geometry check that builds an FDTD structure, are in `src/cases/<module>/`, the
@@ -76,7 +76,6 @@ cargo machete                                           # dependencies nothing u
 git diff --name-only origin/main...HEAD | AREAS_RANGE=origin/main...HEAD bash .github/areas.sh   # what CI runs for a branch
 cargo semver-checks check-release -p photonoxide --baseline-rev origin/main   # a branch's own breaks (CI's Semver job on a PR)
 cargo semver-checks check-release -p photonoxide        # the public API against the latest release (the release PR's check)
-PUBLIC_API_NIGHTLY=nightly-2026-05-24 python3 .github/scripts/public-api.py . > head.txt   # the façade's API, one item a line (CI's Public API job; needs cargo-public-api 0.52.0 and that nightly)
 ```
 
 CI runs in tiers (issue #315). **Tier 1**, every PR and push to main: on Linux, lint, MSRV, and the
@@ -87,10 +86,7 @@ reads (most Markdown, the site, the other workflows) run only the docs' links. A
 or test-read file gets its line in the map. A PR that changes the library (`src/`, the root
 `Cargo.toml`) also runs the Semver job, cargo-semver-checks against the PR's base on main, so a
 PR answers for its own breaks only; the release PR is checked against the latest release on
-crates.io. The same PRs run the Public API job: cargo-public-api's listing of the façade at the
-base and the head, items of `crates/` at the paths the façade re-exports them at, failing on a
-removed or changed item; from the crate split's first PR (#508) it replaces the Semver job,
-which doesn't follow re-exports from other crates (CONTRIBUTING.md, "The Public API job").
+crates.io.
 **Tier 2**, the release PR, a PR labelled `full-ci`, and
 a change to `ci.yml`, `Cargo.toml` or `Cargo.lock`: every test on Linux, Windows and macOS (and on
 one thread), every example on the three systems, the 3D devices, the whole validation report. **Tier
@@ -178,7 +174,7 @@ checks their rows (and the report's head and list of cases); the release PR chec
   - headless only for batches.
 - **Optimizers come from genoxide.** photonoxide supplies objectives, gradients and parametrizations. A missing method is added to genoxide as a general method, not written here and not made photonics-specific.
 - **A public API change that breaks 0.x semver needs `!` in the PR title** (or the `breaking`
-  label); CI's Semver and Public API jobs enforce it, since release-plz then raises the minor version. Keep
+  label); CI's Semver job enforces it, since release-plz then raises the minor version. Keep
   0.x patches compatible where it costs little: a new field on a public struct that users build
   with a literal breaks them; put new settings in a type of their own, `#[non_exhaustive]`, taken
   by a new method.
