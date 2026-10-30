@@ -552,6 +552,15 @@ What a designer needs to take a design to a process of their choice. photonoxide
   - connectivity: every port connected and no open waveguide ends.
 - [ ] **Design record** next to the layout: simulated spectra, process corners, the grid each number came from, and what to measure.
 - [ ] **Measurements in:** import measured spectra the user has and compare them with the prediction.
+- [ ] **A fabrication engine** ([docs/plans/fabrication.md](docs/plans/fabrication.md), #622): for any design, the process flow that would make it, each step with its reason, its alternatives and what it can achieve, animated in cross-section for someone new to fabrication. Every capability in its process library is a range with its paper, or "not specified"; its rules read the layers below and above each feature, its size and aspect ratio, and the thermal budgets of what is already on the wafer; executing a flow gives back the design's structure to the bit. Decision support and teaching, not a foundry sign-off. The first slice (F1 to F3, with F5) needs only 0.5.4's devices and may land before this milestone (the plan's decision 3).
+  - [ ] F1: the first flows, as data: the process library's types and the entries an SOI strip, the TFLN modulator and the TiN heater need, `Device::physical`, the executor, a `fabrication` task kind, and the round trip.
+  - [ ] F2: the Fabrication tab, read-only, opened by Fabricate on a component's page and in the run view; scene shapes with their etch, so cross-sections draw ribs and sloped walls.
+  - [ ] F3: the animated cross-section, its narration and glossary, and the profile checked against the structure.
+  - [ ] F4: the rules in full: features and gaps measured, lithography by cited resolution, masks by selectivity, etch stops or timed etches with their uncertainty, thermal-budget ordering, overlay and planarization, checked on textbook cases and on flows papers report.
+  - [ ] F5: the Academy's `::fabrication` directive and lesson "How a chip is made", and Fabricate beside the examples.
+  - [ ] F6: more platforms, one at a time: LPCVD silicon nitride, phase-change cells, aluminium nitride, gallium arsenide.
+  - [ ] F7: the flow in the façade, and exported as JSON, CSV and a printable report.
+  - [ ] F8, later: 3D animation, implants once doped regions are drawn (0.8), a user's PDK as a source of capabilities (0.9), and a flow's uncertainties as 0.11's corners.
 - [ ] **Studio:** the export view (floorplan, DRC markers, checklist).
 - [ ] **Validation:**
   - the package's layout round-trips byte for byte, and its checks agree with KLayout's on the same rules;
