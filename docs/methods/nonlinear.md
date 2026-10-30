@@ -1,7 +1,7 @@
 ---
 title: "Phase matching"
 module: nonlinear::phase
-summary: "The wave-vector mismatch of any three- or four-wave process from any index (a catalogue model with its temperature, a material, or a mode's effective indices given as data); quasi-phase matching, its period, order and duty cycle; birefringent phase matching of types 0, I and II, noncritical or angle tuned; the undepleted response sinc²(ΔkL/2); and the acceptance bandwidths in wavelength, temperature and angle, checked against Fejer et al.'s Table I."
+summary: "The wave-vector mismatch of any three- or four-wave process from any index (a catalogue model with its temperature, a material, or a mode's effective indices given as data); quasi-phase matching, its period, order and duty cycle; birefringent phase matching of types 0, I and II, noncritical or angle tuned; the undepleted response sinc²(ΔkL/2); the acceptance bandwidths in wavelength, temperature and angle, checked against Fejer et al.'s Table I; and the coupled-amplitude equations of SHG, sum- and difference-frequency generation, depleted and lossy, against Armstrong et al.'s closed forms."
 order: 30
 papers:
   - cite: "M. M. Fejer, G. A. Magel, D. H. Jundt, R. L. Byer, IEEE J. Quantum Electron. 28, 2631 (1992) (Eqs. (2), (19)–(25), (30), (41)–(44), (A1.1)–(A1.9); Table I)"
@@ -14,6 +14,8 @@ papers:
     doi: 10.1109/3.44926
   - cite: "D. H. Jundt, Opt. Lett. 22, 1553 (1997) (Eq. (3), the thermal expansion)"
     doi: 10.1364/OL.22.001553
+  - cite: "J. A. Armstrong, N. Bloembergen, J. Ducuing, P. S. Pershan, Phys. Rev. 127, 1918 (1962) (Eq. (6.6), Sec. VI)"
+    doi: 10.1103/PhysRev.127.1918
   - cite: "C. Wang et al., Optica 5, 1438 (2018) (the duty cycle, p. 1439)"
     doi: 10.1364/OPTICA.5.001438
 validation:
@@ -27,6 +29,13 @@ validation:
   - nonlinear/wang-2018-duty-cycle
   - material/linbo3-zelmon-opo
   - material/linbo3-jundt-opo
+  - nonlinear/coupled-undepleted
+  - nonlinear/coupled-lossy
+  - nonlinear/coupled-shg-tanh
+  - nonlinear/coupled-sfg-sech
+  - nonlinear/coupled-opa-cosh
+  - nonlinear/coupled-manley-rowe
+  - nonlinear/coupled-rk4-order
 ---
 
 A second- or third-order process converts light efficiently only when its waves stay in step:
@@ -36,8 +45,10 @@ the polarization they drive and the wave it radiates must keep the same phase al
 waveguide's dispersion. It gives the response of a device of length L to a detuning, and the
 detunings it accepts, in wavelength, temperature and angle.
 
-This is the first part of 0.6.1's nonlinear optics. The coupled-mode equations of waveguides,
-with their efficiencies, and photon pairs come next, on the same conventions.
+`photonoxide::nonlinear::coupled` follows the waves along the guide when the process does deplete:
+the coupled-amplitude equations of second-harmonic, sum- and difference-frequency generation, with
+loss. The efficiencies from a mode solver's overlaps, and photon pairs, come next, on the same
+conventions.
 
 ## Conventions
 
@@ -213,6 +224,38 @@ Eq. (A1.9) is first order in the birefringence. The full curvature of Δk in the
 147.1 and 309.2 mrad where (A1.9) gives 79.4, 102.8, 102.5, 145.7 and 306.2. The numerical widths
 are within 0.5 % of the full curvature's.
 
+## The coupled-amplitude equations
+
+`nonlinear::coupled` integrates the amplitudes A_j (√W, |A_j|² the power) of a second-order
+process along the guide, by the classical fourth-order Runge–Kutta method:
+
+- **SHG** (`SecondHarmonic`): dA₁/dz = −iκ A₁* A₂ e^{iΔkz} − α₁A₁/2,
+  dA₂/dz = −iκ A₁² e^{−iΔkz} − α₂A₂/2.
+- **Three waves**, ω₃ = ω₁ + ω₂ (`ThreeWave`): dA₁/dz = −iκ(ν₁/ν₃) A₂*A₃ e^{iΔkz},
+  dA₂/dz = −iκ(ν₂/ν₃) A₁*A₃ e^{iΔkz}, dA₃/dz = −iκ A₁A₂ e^{−iΔkz}, each with its loss; this is
+  sum- and difference-frequency generation and parametric amplification, by the inputs given.
+
+Δk is the module's (k₃ − k₁ − k₂ − K_m). Wang et al. write Δk = 2k₁ − k₂ for SHG, the opposite
+sign; the response is the same. κ is set by the undepleted normalized efficiency, η = κ²:
+P_2ω = η P_ω² L² sinc²(ΔkL/2), and P₃ = η P₁P₂L² sinc²(ΔkL/2) for a sum. `coupling_from_efficiency`
+takes η in %/(W·cm²), `loss_from_db_per_cm` a loss in dB/cm.
+
+The cases, each on 1000 steps over 4 mm with η = 4500 %/(W·cm²), Wang et al.'s calculated
+efficiency (their 4 mm device's ideal transfer function, p. 1439):
+
+| Case | Ours | Closed form | Error on 1000 steps | On 500 (the tolerance's basis) |
+|---|---|---|---|---|
+| Undepleted SHG, ΔkL/2 = 1 | 5.09813e-40 W | η P₀² L² sinc²(1), the same | 1.2e-14 | 1.8e-13 |
+| The same with 3 and 6 dB/cm | 2.93367e-40 W | the closed form above, the same | 1.2e-14 | 1.7e-13 |
+| Depleted SHG, κ√P₀L = 2 (Armstrong) | 0.929349 | tanh² 2 | 5.7e-14 | 9.3e-13 |
+| Sum of equal photon fluxes, L = 2l (Armstrong) | 0.929349 | tanh² 2 | 5.7e-14 | 9.3e-13 |
+| Parametric gain, ΓL = 2 | 14.1541 | cosh² 2 | 5.1e-13 | 8.2e-12 |
+| Manley–Rowe fluxes, mismatched and depleted | drift 2.3e-15 | 0 | | |
+
+The errors fall as the fourth power of the step: 4.06, 4.03 and 4.04 for the halvings from 125
+steps in the depleted SHG case. Without loss, P₁ + P₂ (SHG) and the Manley–Rowe photon fluxes
+P₁/ν₁ + P₃/ν₃ and P₂/ν₂ + P₃/ν₃ (Armstrong et al., Eq. (6.6)) are conserved by the equations,
+and by the integration to round-off on 1000 steps.
 ## Optical parametric oscillators
 
 The catalogue's PPLN OPO cases find their idler through this module: a difference-frequency
@@ -227,5 +270,6 @@ are the numbers these cases gave before they were moved onto phase matching.
   polarization: no biaxial index surface yet.
 - The tilt geometry has the grating along the reference axis (Fejer's κ = 0) and the inputs
   collinear.
-- Plane waves: focused beams (Boyd and Kleinman) and the waveguide overlaps that give an
-  efficiency in %/W/cm² come with the coupled-mode equations.
+- Plane waves: focused beams (Boyd and Kleinman) are not in yet, nor the waveguide overlaps that
+  give κ from the mode solver's fields. Wang et al.'s 4500 %/(W·cm²) needs their ridge's etch depth
+  and sidewall, which the paper doesn't print; it is used here as a value of η only.

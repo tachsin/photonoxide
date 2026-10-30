@@ -7,8 +7,12 @@
 //!   duty cycle; birefringent phase matching of types 0, I and II, noncritical or angle tuned;
 //!   the undepleted response sinc²(ΔkL/2); and the acceptance bandwidths in wavelength,
 //!   temperature and angle, after Fejer et al. 1992.
+//! - [`coupled`]: the coupled-amplitude equations of SHG, sum- and difference-frequency
+//!   generation and parametric amplification along a guide, depleted or not, with loss
+//!   (Armstrong et al. 1962).
 //!
 //! The write-up is `docs/methods/nonlinear.md`.
 
 pub(crate) mod checks;
+pub mod coupled;
 pub mod phase;

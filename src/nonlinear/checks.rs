@@ -4,6 +4,9 @@
 //! and the effective coefficient Wang et al.'s duty cycle leaves.
 
 use crate::material::catalogue::{self, Axis};
+use crate::nonlinear::coupled::{
+    SecondHarmonic, ThreeWave, coupling_from_efficiency, loss_from_db_per_cm, undepleted_lossy_shg,
+};
 use crate::nonlinear::phase::{
     Device, Expansion, HALF_MAXIMUM, Index, Plane, Polarization, State, Type, Uniaxial, Variable,
     effective_d, first_order_tilt, sinc2, undepleted,
@@ -338,6 +341,197 @@ fn wang_duty_cycle() -> Outcome {
     }
 }
 
+fn real(x: f64) -> num_complex::Complex64 {
+    num_complex::Complex64::new(x, 0.0)
+}
+
+/// The coupled-mode cases' length: 4 mm, Wang et al.'s.
+const LENGTH: f64 = 4000.0;
+
+/// Lossless undepleted SHG, η = 4500 %/(W·cm²) over 4 mm at ΔkL/2 = 1, from 1e-20 W (depletion
+/// below 1e-19): (ours by `steps` of RK4, η P₀² L² sinc²(1)).
+pub(crate) fn coupled_undepleted(steps: usize) -> (f64, f64) {
+    let shg = SecondHarmonic {
+        coupling: coupling_from_efficiency(4500.0),
+        mismatch: 2.0 / LENGTH,
+        loss: [0.0; 2],
+    };
+    let p0: f64 = 1e-20;
+    let ours = shg
+        .propagate([real(p0.sqrt()), real(0.0)], LENGTH, steps)
+        .map_or(f64::NAN, |a| a[1].norm_sqr());
+    (
+        ours,
+        shg.coupling.powi(2) * p0 * p0 * undepleted(shg.mismatch, LENGTH),
+    )
+}
+
+/// The same with losses of 3 and 6 dB/cm: (ours, the closed form).
+pub(crate) fn coupled_lossy(steps: usize) -> (f64, f64) {
+    let shg = SecondHarmonic {
+        coupling: coupling_from_efficiency(4500.0),
+        mismatch: 2.0 / LENGTH,
+        loss: [loss_from_db_per_cm(3.0), loss_from_db_per_cm(6.0)],
+    };
+    let p0: f64 = 1e-20;
+    let ours = shg
+        .propagate([real(p0.sqrt()), real(0.0)], LENGTH, steps)
+        .map_or(f64::NAN, |a| a[1].norm_sqr());
+    (ours, undepleted_lossy_shg(&shg, p0, LENGTH))
+}
+
+/// Phase-matched SHG depleted to 93 %: κ√P₀L = 2 (η = 4500 %/(W·cm²), 4 mm, P₀ = 55.6 mW):
+/// (ours, P₀ tanh²(2)), the harmonic's share.
+pub(crate) fn coupled_tanh(steps: usize) -> (f64, f64) {
+    let coupling = coupling_from_efficiency(4500.0);
+    let p0 = (2.0 / (coupling * LENGTH)).powi(2);
+    let shg = SecondHarmonic {
+        coupling,
+        mismatch: 0.0,
+        loss: [0.0; 2],
+    };
+    let ours = shg
+        .propagate([real(p0.sqrt()), real(0.0)], LENGTH, steps)
+        .map_or(f64::NAN, |a| a[1].norm_sqr() / p0);
+    (ours, 2.0_f64.tanh().powi(2))
+}
+
+/// 1.55 and 1.31 µm summed with equal photon fluxes F, phase matched: the sum's share
+/// P₃/(ν₃F) at L = 2l, against Armstrong et al.'s tanh²(L/l), l⁻¹ = κ√(ν₁ν₂F/ν₃) (Sec. VI).
+pub(crate) fn coupled_sech(steps: usize) -> (f64, f64) {
+    let tw = ThreeWave {
+        frequencies: [1.0 / 1.55, 1.0 / 1.31],
+        coupling: coupling_from_efficiency(4500.0),
+        mismatch: 0.0,
+        loss: [0.0; 3],
+    };
+    let [n1, n2] = tw.frequencies;
+    let n3 = n1 + n2;
+    // F so that L = 2l
+    let flux = (2.0 / (tw.coupling * LENGTH)).powi(2) * n3 / (n1 * n2);
+    let start = [
+        real((n1 * flux).sqrt()),
+        real((n2 * flux).sqrt()),
+        real(0.0),
+    ];
+    let ours = tw
+        .propagate(start, LENGTH, steps)
+        .map_or(f64::NAN, |a| a[2].norm_sqr() / (n3 * flux));
+    (ours, 2.0_f64.tanh().powi(2))
+}
+
+/// Parametric amplification of 1.55 µm by an undepleted 0.775 µm pump, phase matched: the
+/// signal's gain against cosh²(ΓL), Γ = κ√(ν₁ν₂P₃)/ν₃, at ΓL = 2 (the pump 0.86 W, the signal 1e-24 W, so that the pump's depletion is below 1e-22).
+pub(crate) fn coupled_cosh(steps: usize) -> (f64, f64) {
+    let tw = ThreeWave {
+        frequencies: [1.0 / 1.55, 1.0 / 1.55],
+        coupling: coupling_from_efficiency(4500.0),
+        mismatch: 0.0,
+        loss: [0.0; 3],
+    };
+    let [n1, n2] = tw.frequencies;
+    let pump = (2.0 / LENGTH * (n1 + n2) / (tw.coupling * (n1 * n2).sqrt())).powi(2);
+    let ours = tw
+        .propagate([real(1e-12), real(0.0), real(pump.sqrt())], LENGTH, steps)
+        .map_or(f64::NAN, |a| a[0].norm_sqr() / 1e-24);
+    (ours, 2.0_f64.cosh().powi(2))
+}
+
+/// Strongly depleted, mismatched mixing of 1.55 and 1.31 µm from three nonzero inputs: the
+/// largest relative drift of the two Manley–Rowe fluxes over 4 mm.
+pub(crate) fn coupled_drift(steps: usize) -> f64 {
+    let tw = ThreeWave {
+        frequencies: [1.0 / 1.55, 1.0 / 1.31],
+        coupling: coupling_from_efficiency(4500.0),
+        mismatch: 1.5e-3,
+        loss: [0.0; 3],
+    };
+    let start = [
+        real(0.1),
+        num_complex::Complex64::new(0.03, 0.04),
+        real(0.01),
+    ];
+    let before = tw.manley_rowe(&start);
+    tw.propagate(start, LENGTH, steps).map_or(f64::NAN, |a| {
+        let after = tw.manley_rowe(&a);
+        (after[0] / before[0] - 1.0)
+            .abs()
+            .max((after[1] / before[1] - 1.0).abs())
+    })
+}
+
+/// Every coupled-mode case's error at `steps`, for the grid study.
+#[cfg(test)]
+pub(crate) fn coupled_errors(steps: usize) -> [f64; 6] {
+    let rel = |(a, b): (f64, f64)| (a / b - 1.0).abs();
+    [
+        rel(coupled_undepleted(steps)),
+        rel(coupled_lossy(steps)),
+        rel(coupled_tanh(steps)),
+        rel(coupled_sech(steps)),
+        rel(coupled_cosh(steps)),
+        coupled_drift(steps),
+    ]
+}
+/// The coupled-mode cases' number of RK4 steps; each tolerance is the error on half as many,
+/// rounded up.
+const STEPS: usize = 1000;
+
+fn relative(pair: (f64, f64), tolerance: f64) -> Outcome {
+    let (measured, expected) = pair;
+    Outcome {
+        measured,
+        expected,
+        tolerance: tolerance * expected.abs(),
+        error: (measured - expected).abs(),
+    }
+}
+
+fn coupled_undepleted_case() -> Outcome {
+    relative(coupled_undepleted(STEPS), 2e-13)
+}
+
+fn coupled_lossy_case() -> Outcome {
+    relative(coupled_lossy(STEPS), 2e-13)
+}
+
+fn coupled_tanh_case() -> Outcome {
+    relative(coupled_tanh(STEPS), 1e-12)
+}
+
+fn coupled_sech_case() -> Outcome {
+    relative(coupled_sech(STEPS), 1e-12)
+}
+
+fn coupled_cosh_case() -> Outcome {
+    relative(coupled_cosh(STEPS), 9e-12)
+}
+
+fn coupled_drift_case() -> Outcome {
+    let d = coupled_drift(STEPS);
+    Outcome {
+        measured: d,
+        expected: 0.0,
+        tolerance: 1e-12,
+        error: d,
+    }
+}
+
+/// RK4's order from the depleted SHG case on 125 and 250 steps, to two decimals.
+fn coupled_order_case() -> Outcome {
+    let e = |n| {
+        let (a, b) = coupled_tanh(n);
+        (a / b - 1.0).abs()
+    };
+    let order = (e(125) / e(250)).log2();
+    let shown = (order * 100.0).round() / 100.0;
+    Outcome {
+        measured: shown,
+        expected: 4.0,
+        tolerance: 0.1,
+        error: (shown - 4.0).abs(),
+    }
+}
 const FEJER: &str = "M. M. Fejer, G. A. Magel, D. H. Jundt, R. L. Byer, IEEE J. Quantum Electron. 28, 2631 (1992), doi:10.1109/3.161322, Table I (computed with G. J. Edwards, M. Lawrence, Opt. Quantum Electron. 16, 373 (1984), doi:10.1007/BF00620081, at 25 °C; the 0.86 µm δT with D. H. Jundt, M. M. Fejer, R. L. Byer, IEEE J. Quantum Electron. 26, 135 (1990), doi:10.1109/3.44926), each value to half a unit of its last printed digit";
 
 /// The cases.
@@ -398,6 +592,55 @@ pub(crate) fn cases() -> Vec<Case> {
             tier: Tier::Published,
             source: r"C. Wang et al., Optica 5, 1438 (2018), doi:10.1364/OPTICA.5.001438, p. 1439: a duty cycle of 39 % ± 3 % (Fig. 2) reduces $d_\mathrm{eff}$ by 7 %; ±3 % moves the cut by up to 3.6 %",
             run: wang_duty_cycle,
+        },
+        Case {
+            id: "nonlinear/coupled-undepleted",
+            title: r"The coupled-amplitude equations of SHG by RK4 (1000 steps), undepleted: $\eta = 4500$ %/(W·cm²), 4 mm, $\Delta k L/2 = 1$, from $10^{-20}$ W, against $\eta P_0^2 L^2 \operatorname{sinc}^2(1)$ (the harmonic's power shown, W)",
+            tier: Tier::Analytic,
+            source: r"the undepleted limit, Fejer et al., Eq. (19); the depletion is below $10^{-19}$",
+            run: coupled_undepleted_case,
+        },
+        Case {
+            id: "nonlinear/coupled-lossy",
+            title: r"The same with propagation losses of 3 dB/cm at the fundamental and 6 dB/cm at the harmonic, against the closed form $\eta P_0^2 e^{-\alpha_2 L} \lvert (e^{\gamma L} - 1)/\gamma \rvert^2$, $\gamma = -\alpha_1 + \alpha_2/2 - i\Delta k$ (W shown)",
+            tier: Tier::Analytic,
+            source: r"the harmonic generated at $z$ by the fundamental's $e^{-\alpha_1 z}$, carried to $L$ with $e^{-\alpha_2 (L - z)/2}$",
+            run: coupled_lossy_case,
+        },
+        Case {
+            id: "nonlinear/coupled-shg-tanh",
+            title: r"Phase-matched SHG depleted by RK4 (1000 steps): $\kappa\sqrt{P_0}L = 2$, the harmonic's share of the power against $\tanh^2 2 = 0.9293$ (shown)",
+            tier: Tier::Analytic,
+            source: r"J. A. Armstrong, N. Bloembergen, J. Ducuing, P. S. Pershan, Phys. Rev. 127, 1918 (1962), doi:10.1103/PhysRev.127.1918, Sec. VI: $u_3 = u_1(0)\tanh(z/l)$",
+            run: coupled_tanh_case,
+        },
+        Case {
+            id: "nonlinear/coupled-sfg-sech",
+            title: r"Phase-matched sum-frequency generation of 1.55 and 1.31 µm from equal photon fluxes $F$, depleted, by RK4 (1000 steps): the sum's photons $P_3/\nu_3 F$ at $L = 2l$ against $\tanh^2 2$ (shown)",
+            tier: Tier::Analytic,
+            source: r"Armstrong et al., Sec. VI: with equal numbers of photons at $\omega_1$ and $\omega_2$, $u_1 = u_2 = u_1(0)\operatorname{sech}(z/l)$ and $u_3 = u_1(0)\tanh(z/l)$",
+            run: coupled_sech_case,
+        },
+        Case {
+            id: "nonlinear/coupled-opa-cosh",
+            title: r"Degenerate parametric amplification of 1.55 µm by an undepleted 0.775 µm pump, phase matched, by RK4 (1000 steps): the signal's gain against $\cosh^2(\Gamma L)$, $\Gamma = \kappa\sqrt{\nu_1\nu_2 P_3}/\nu_3$, at $\Gamma L = 2$ (gain shown)",
+            tier: Tier::Analytic,
+            source: r"the undepleted pump's linear equations for the signal and the idler's conjugate, whose growing solution is $\cosh(\Gamma z)$",
+            run: coupled_cosh_case,
+        },
+        Case {
+            id: "nonlinear/coupled-manley-rowe",
+            title: r"Mismatched, depleted mixing of 1.55 and 1.31 µm from three nonzero inputs over 4 mm, by RK4 (1000 steps): the largest relative change of the Manley–Rowe fluxes $P_1/\nu_1 + P_3/\nu_3$ and $P_2/\nu_2 + P_3/\nu_3$ (shown)",
+            tier: Tier::Analytic,
+            source: r"Armstrong et al., Eq. (6.6): the photon fluxes are conserved without loss",
+            run: coupled_drift_case,
+        },
+        Case {
+            id: "nonlinear/coupled-rk4-order",
+            title: r"The order of the coupled-amplitude integration: the depleted SHG case's error on 125 and 250 steps (order shown)",
+            tier: Tier::Analytic,
+            source: "the classical Runge–Kutta method is fourth order",
+            run: coupled_order_case,
         },
     ]
 }

@@ -9,6 +9,8 @@ const TABLE_1: &str = "half a unit of each value's last printed digit, the error
 
 pub(crate) fn rules() -> Vec<(&'static str, Rule)> {
     let table = |numerical| Rule::new(Absolute, Reference, 1.0, numerical, TABLE_1);
+    let grid =
+        |tolerance, why| Rule::new(Relative, Discretisation, tolerance, Measured, why).varying();
     vec![
         (
             "nonlinear/sinc2-half-maximum",
@@ -44,6 +46,47 @@ pub(crate) fn rules() -> Vec<(&'static str, Rule)> {
                 3.6,
                 Exact,
                 "the paper's ±3 % on the 39 % duty cycle: at 36 % the cut is 3.61 points larger, at 42 % 2.77 smaller; the larger, rounded down",
+            ),
+        ),
+        (
+            "nonlinear/coupled-undepleted",
+            grid(2e-13, "the error on 500 steps, 1.77e-13, rounded up: on 1000 it is 1.2e-14, the fourth order nonlinear/coupled-rk4-order checks"),
+        ),
+        (
+            "nonlinear/coupled-lossy",
+            grid(2e-13, "the error on 500 steps, 1.72e-13, rounded up: on 1000 it is 1.2e-14"),
+        ),
+        (
+            "nonlinear/coupled-shg-tanh",
+            grid(1e-12, "the error on 500 steps, 9.3e-13, rounded up: on 1000 it is 5.7e-14"),
+        ),
+        (
+            "nonlinear/coupled-sfg-sech",
+            grid(1e-12, "the error on 500 steps, 9.3e-13, rounded up: on 1000 it is 5.7e-14"),
+        ),
+        (
+            "nonlinear/coupled-opa-cosh",
+            grid(9e-12, "the error on 500 steps, 8.2e-12, rounded up: on 1000 it is 5.1e-13"),
+        ),
+        (
+            "nonlinear/coupled-manley-rowe",
+            Rule::new(
+                Absolute,
+                RoundOff,
+                1e-12,
+                Measured,
+                "the invariants are exact for the equations; RK4's drift from them, 9.2e-14 on 250 steps and 2.4e-15 on 500, is at round-off on 1000",
+            )
+            .varying(),
+        ),
+        (
+            "nonlinear/coupled-rk4-order",
+            Rule::new(
+                Absolute,
+                Order,
+                0.1,
+                Measured,
+                "fourth order within 0.1: the halvings from 125 steps give 4.06, 4.03 and 4.04, before round-off",
             ),
         ),
     ]
