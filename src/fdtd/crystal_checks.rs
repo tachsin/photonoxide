@@ -2,8 +2,8 @@
 //! tests and the validation report.
 
 use super::{Boundaries, Field, Simulation, Source, Waveform};
+use crate::cases::material::crystal::checks::SLAB;
 use crate::fdfd::{Axis, Grid3d};
-use crate::material::crystal::checks::SLAB;
 use crate::material::{CrystalAxis, Orientation};
 use crate::units::Frequency;
 

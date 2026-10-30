@@ -1,5 +1,6 @@
 //! Permittivities and loss tangents at microwave and millimetre-wave frequencies, beside the
-//! indices: what a travelling-wave electrode's dielectric loss weighs ([`crate::electro::line`]).
+//! indices: what a travelling-wave electrode's dielectric loss weighs
+//! (`photonoxide::electro::line`).
 //! Each value is a measurement, with its sample, frequency, temperature and paper.
 //!
 //! - Lithium niobate: M. Lee's reflectometry of congruent, poled crystals from 90 to 147 GHz

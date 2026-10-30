@@ -1393,6 +1393,8 @@ impl Setup {
                 let eps = match medium {
                     crate::stack::Medium::Material(m) => Ok(real(m)?),
                     crate::stack::Medium::Graded(g) => Err(g.clone()),
+                    // `Medium` is #[non_exhaustive] in its crate (photonoxide-geometry)
+                    _ => unreachable!("a body's medium is a material or a graded one"),
                 };
                 bodies.push((body.clone(), eps));
             }

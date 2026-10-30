@@ -16,7 +16,7 @@
 //!   ε̃⁻¹ = P ⟨ε⁻¹⟩ + (1 − P) ⟨ε⟩⁻¹, P = n nᵀ: the mean for a component along the interface, the
 //!   harmonic mean for one across it (their "VP-EP" scheme);
 //! - [`Averaging::Tensor`]: the whole tensor, its off-diagonal part too, which only the 2D
-//!   problem with H along z couples ([`crate::fdfd::Solver2d::from_plane`]).
+//!   problem with H along z couples (`photonoxide::fdfd::Solver2d::from_plane`).
 //!
 //! Farjadpour et al. show why: a smoothing perturbs the interface's fields by Δε |E∥|² −
 //! Δ(ε⁻¹) |D⊥|², and only their tensor makes that vanish to first order on an interface of any
@@ -195,7 +195,8 @@ impl Shares<c64> {
 
 /// Shapes drawn on a background, each with its material `K`, later ones on top: a plane as the
 /// averaging reads it. Cells are answered through an [`Index`] when there are many shapes.
-pub(crate) struct Layout<K> {
+#[doc(hidden)]
+pub struct Layout<K> {
     background: K,
     shapes: Vec<Shape>,
     keys: Vec<K>,
@@ -233,7 +234,7 @@ enum Filled<K> {
 const INDEXED: usize = 8;
 
 impl<K: Copy + PartialEq> Layout<K> {
-    pub(crate) fn new(background: K) -> Layout<K> {
+    pub fn new(background: K) -> Layout<K> {
         Layout {
             background,
             shapes: Vec::new(),
@@ -243,7 +244,7 @@ impl<K: Copy + PartialEq> Layout<K> {
         }
     }
 
-    pub(crate) fn push(&mut self, shape: Shape, key: K) {
+    pub fn push(&mut self, shape: Shape, key: K) {
         self.shapes.push(shape);
         self.keys.push(key);
         self.index = OnceLock::new();
@@ -275,7 +276,7 @@ impl<K: Copy + PartialEq> Layout<K> {
     }
 
     /// The material at `p`: the last shape drawn that holds it, or the background.
-    pub(crate) fn at(&self, p: Point) -> K {
+    pub fn at(&self, p: Point) -> K {
         let cell = Bounds { min: p, max: p };
         self.near(cell)
             .into_iter()
@@ -295,7 +296,7 @@ impl<K: Copy + PartialEq> Layout<K> {
     /// [`crate::geometry::FILL_TOLERANCE`] of its size), made once per set of shapes. So two
     /// shapes of one material that abut are one region, and the edge between them, which no
     /// interface is, leaves no trace; nor in the normal ([`Layout::normal`]).
-    pub(crate) fn shares(&self, cell: Bounds) -> Shares<K> {
+    pub fn shares(&self, cell: Bounds) -> Shares<K> {
         match self.filled(cell) {
             Filled::Uniform(k) => Shares::uniform(k),
             Filled::Sampled => self.sampled(cell),
@@ -678,7 +679,8 @@ impl Plane {
     }
 
     /// The cell centred on (x, y) of `size` (µm), as [`Plane::shares`] has it.
-    pub(crate) fn shares_at(&self, (x, y): (f64, f64), size: (f64, f64)) -> Shares<c64> {
+    #[doc(hidden)]
+    pub fn shares_at(&self, (x, y): (f64, f64), size: (f64, f64)) -> Shares<c64> {
         self.shares(Bounds::new(
             Point::um(x - size.0 / 2.0, y - size.1 / 2.0),
             Point::um(x + size.0 / 2.0, y + size.1 / 2.0),
@@ -703,6 +705,7 @@ impl PartialEq for Plane {
     }
 }
 
-pub(crate) mod checks;
+#[doc(hidden)]
+pub mod checks;
 #[cfg(test)]
 mod tests;

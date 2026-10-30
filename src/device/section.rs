@@ -260,6 +260,8 @@ impl<'a> Media<'a> {
                 fraction,
             )),
             Fill::Uniform(m) => self.of(m),
+            // `Fill` is #[non_exhaustive] in its crate (photonoxide-geometry)
+            _ => unreachable!("a cell is uniform or a wall"),
         }
     }
 

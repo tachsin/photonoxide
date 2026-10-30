@@ -469,7 +469,8 @@ impl Parameters {
     }
 
     /// Whether the coordinate in `slot` was set by [`Parameters::at_coordinate`].
-    pub(crate) fn is_placed(&self, slot: usize) -> bool {
+    #[doc(hidden)]
+    pub fn is_placed(&self, slot: usize) -> bool {
         self.placed.contains(&slot)
     }
 

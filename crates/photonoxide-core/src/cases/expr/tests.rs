@@ -404,30 +404,8 @@ fn lengths(v: &[f64]) -> String {
         .join(", ")
 }
 
-#[test]
-fn a_spline_is_zhangs_not_a_knot_spline() {
-    // Zhang et al.'s 13 widths 1/6 µm apart: the expression against the spline the geometry's
-    // check solves for itself, at 1001 points across the knots and beyond the ends
-    let widths = crate::geometry::curve_checks::ZHANG_WIDTHS;
-    let h = 2.0 / 12.0;
-    let pieces = crate::geometry::curve_checks::spline(&widths, h);
-    let knots: Vec<f64> = (0..13).map(|k| f64::from(k) * h).collect();
-    let mut worst = 0.0f64;
-    for i in 0..=1000 {
-        let x = -0.1 + 2.2 * f64::from(i) / 1000.0;
-        let k = ((x / h).floor().max(0.0) as usize).min(11);
-        let t = x - k as f64 * h;
-        let c = &pieces[k];
-        let expected = c[0] + t * (c[1] + t * (c[2] + t * c[3]));
-        let got = spline_at(&lengths(&knots), &lengths(&widths), x);
-        worst = worst.max((got - expected).abs());
-    }
-    assert!(worst < 1e-13, "{worst:e}");
-    // through every knot
-    for (x, w) in knots.iter().zip(widths) {
-        assert!((spline_at(&lengths(&knots), &lengths(&widths), *x) - w).abs() < 1e-14);
-    }
-}
+// a_spline_is_zhangs_not_a_knot_spline, which compares with the geometry's own spline, is in
+// photonoxide's src/cases/expr/spline_tests.rs: this crate is below the geometry's
 
 #[test]
 fn a_spline_reproduces_cubics_on_any_knots() {

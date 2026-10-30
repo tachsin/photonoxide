@@ -21,7 +21,7 @@
 //! Beside the indices, thermal conductivities ([`Conductivity`], [`Entry::conductivity`]): bulk
 //! and thin-film silicon, fused silica, the heater metals tungsten, titanium and platinum, and a
 //! TiN film, each model with its paper, temperature range and, for a film, thickness. The static
-//! solver ([`crate::thermal`]) takes them for a job's media it isn't given a value for.
+//! solver (`photonoxide::thermal`) takes them for a job's media it isn't given a value for.
 //! Electrical resistivities of films ([`Resistivity`], [`resistivities`]): TiN's, film by film,
 //! each with how it was made, its thickness and paper.
 //!
@@ -40,29 +40,38 @@ use super::Material;
 use crate::Result;
 use crate::units::Wavelength;
 
-pub(crate) mod batio3_film;
-pub(crate) mod checks;
+#[doc(hidden)]
+pub mod batio3_film;
+#[doc(hidden)]
+pub mod checks;
 mod coming;
 pub(crate) mod conductivity;
-pub(crate) mod conductivity_checks;
+#[doc(hidden)]
+pub mod conductivity_checks;
 mod entries;
-pub(crate) mod ferroelectric;
-pub(crate) mod litao3_dndt;
+#[doc(hidden)]
+pub mod ferroelectric;
+#[doc(hidden)]
+pub mod litao3_dndt;
 mod models;
-pub(crate) mod phase_change;
-#[path = "../../cases/material/catalogue/phase_change_checks.rs"]
-pub(crate) mod phase_change_checks;
-pub(crate) mod phase_change_thermal;
+#[doc(hidden)]
+pub mod phase_change;
+#[doc(hidden)]
+pub mod phase_change_thermal;
 mod references;
-pub(crate) mod resistivity;
+#[doc(hidden)]
+pub mod resistivity;
 pub(crate) mod rf;
-pub(crate) mod rf_checks;
+#[doc(hidden)]
+pub mod rf_checks;
 mod symmetry;
 mod tags;
 #[cfg(test)]
 mod tests;
-pub(crate) mod thermo;
-pub(crate) mod thermo_checks;
+#[doc(hidden)]
+pub mod thermo;
+#[doc(hidden)]
+pub mod thermo_checks;
 
 pub use coming::Coming;
 pub use conductivity::{Conductivity, ConductivityModel, conductivities, conductivity};

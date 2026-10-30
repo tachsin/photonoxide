@@ -914,6 +914,8 @@ pub(super) fn cross_section(
                 Fill::Wall {
                     inside, outside, ..
                 } => inside.is_anisotropic() || outside.is_anisotropic(),
+                // `Fill` is #[non_exhaustive] in its crate (photonoxide-geometry)
+                _ => unreachable!("a cell is uniform or a wall"),
             };
             cells.push(if anisotropic {
                 cell_tensor(fill.tensor(wavelength)?, along)?

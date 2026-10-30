@@ -43,7 +43,7 @@
 //! normal, its bounds and volume, and the volume it fills of an axis-aligned cell
 //! ([`Body::fill`]: exact for planar faces by clipping and for quadrics by their slices, to a
 //! stated tolerance where two curved surfaces cross a cell). FDTD's subpixel smoothing reads
-//! these bodies ([`crate::fdtd::Body`] is [`Body`]). See docs/methods/bodies.md.
+//! these bodies (`photonoxide::fdtd::Body` is [`Body`]). See docs/methods/bodies.md.
 
 use std::f64::consts::TAU;
 
@@ -51,32 +51,32 @@ use crate::units::Length;
 use crate::{Error, Result};
 
 mod array;
-pub(crate) mod array_checks;
+#[doc(hidden)]
+pub mod array_checks;
 #[cfg(test)]
 mod array_tests;
 mod body;
-#[path = "cases/geometry/body_checks.rs"]
-pub(crate) mod body_checks;
 mod body_fill;
 mod body_section;
-#[cfg(test)]
-#[path = "cases/geometry/body_tests.rs"]
-mod body_tests;
-pub(crate) mod boolean_checks;
+#[doc(hidden)]
+pub mod boolean_checks;
 #[cfg(test)]
 mod boolean_tests;
 mod boundary;
-pub(crate) mod checks;
+#[doc(hidden)]
+pub mod checks;
 mod clip;
 mod compose;
-pub(crate) mod curve_checks;
+#[doc(hidden)]
+pub mod curve_checks;
 #[cfg(test)]
 mod curve_tests;
 mod curves;
 mod flat;
 mod fresnel;
 mod gds;
-pub(crate) mod gds_checks;
+#[doc(hidden)]
+pub mod gds_checks;
 #[cfg(test)]
 mod gds_tests;
 mod implicit;
@@ -85,7 +85,8 @@ mod lattice;
 mod mask;
 mod outline;
 mod path;
-pub(crate) mod path_checks;
+#[doc(hidden)]
+pub mod path_checks;
 #[cfg(test)]
 mod path_tests;
 mod primitives;
@@ -98,7 +99,8 @@ mod transform;
 pub use array::{Array, Cell, Element, Reference};
 pub use body::{Body, Bounds3d, Distance3d};
 pub use body_fill::DEPTH as FILL_DEPTH;
-pub(crate) use body_fill::plane_share;
+#[doc(hidden)]
+pub use body_fill::plane_share;
 pub use clip::{Join, Operation};
 pub use compose::{Boolean, Offset, Rounded};
 pub use curves::{Between, ClosedCurve, Polar};

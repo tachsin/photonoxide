@@ -398,6 +398,8 @@ pub(super) fn modulation(
                     f64::from(u8::from(inside.name() == name)) * fraction
                         + f64::from(u8::from(outside.name() == name)) * (1.0 - fraction)
                 }
+                // `Fill` is #[non_exhaustive] in its crate (photonoxide-geometry)
+                _ => unreachable!("a cell is uniform or a wall"),
             };
             delta.push(if share > 0.0 {
                 let e = field.at(xc, zc);

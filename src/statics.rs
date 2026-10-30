@@ -877,6 +877,8 @@ impl Section {
                 ],
                 Some(normal),
             ),
+            // `Fill` is #[non_exhaustive] in its crate (photonoxide-geometry)
+            _ => unreachable!("a cell is uniform or a wall"),
         };
         let mut parts: Vec<(usize, f64)> = Vec::new();
         let mut add = |k: usize, f: f64| {

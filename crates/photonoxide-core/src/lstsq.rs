@@ -1,6 +1,6 @@
 //! Real least squares for small dense problems: min ‖A x − b‖ by a QR factorization and an SVD of
-//! its triangle, the kernel of the vector fits ([`crate::compact`]) and of the media fits (the
-//! non-negative poles of [`crate::fdtd`]).
+//! its triangle, the kernel of the vector fits (`photonoxide::compact`) and of the media fits (the
+//! non-negative poles of `photonoxide::fdtd`).
 
 use faer::Mat;
 
@@ -9,9 +9,9 @@ use faer::Mat;
 const RCOND: f64 = 1e-13;
 
 /// Real least squares min ‖A x − b‖, columns scaled to unit norm first, and solved through the
-/// singular values of R (A = QR), the smallest dropped below [`RCOND`]: the minimum-norm solution
+/// singular values of R (A = QR), the smallest dropped below `RCOND`: the minimum-norm solution
 /// when the problem is rank-deficient.
-pub(crate) fn least_squares(a: Mat<f64>, b: &Mat<f64>) -> Vec<f64> {
+pub fn least_squares(a: Mat<f64>, b: &Mat<f64>) -> Vec<f64> {
     let (m, n) = (a.nrows(), a.ncols());
     let scale: Vec<f64> = (0..n)
         .map(|j| {
@@ -65,7 +65,7 @@ pub(crate) fn least_squares(a: Mat<f64>, b: &Mat<f64>) -> Vec<f64> {
 /// pair is orthogonal to round-off, V accumulating the rotations; the columns' norms are Σ.
 /// Slower than faer's, but it converges on any finite matrix: [`least_squares`]' fallback.
 /// The singular values are in the columns' order, not sorted; a zero one has a zero column of U.
-pub(crate) fn jacobi_svd(a: &Mat<f64>) -> (Mat<f64>, Vec<f64>, Mat<f64>) {
+pub fn jacobi_svd(a: &Mat<f64>) -> (Mat<f64>, Vec<f64>, Mat<f64>) {
     let (m, n) = (a.nrows(), a.ncols());
     let mut u = a.to_owned();
     let mut v = Mat::<f64>::from_fn(n, n, |i, j| f64::from(u8::from(i == j)));

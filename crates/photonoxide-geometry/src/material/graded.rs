@@ -8,13 +8,14 @@
 //! samples it refuses what it finds there so.
 //!
 //! **How the solvers read it.** Each samples it at its own points, as it samples any
-//! permittivity: FDTD's and 3D FDFD's [`crate::fdtd::Simulation::new`] and
-//! [`crate::fdfd::Solver3d`] average ε over each value's cell from 8³ points (harmonic along the
-//! component, arithmetic across it); FDTD's smoothing ([`crate::fdtd::Structure::with_graded`])
-//! takes it at the point each value's cell is about (the nodes, for the triplets), and inside a
-//! body's surface the tangent plane's share of it at the cell's centre; the mode solvers' planar
-//! profiles and cross-sections ([`crate::mode::slab_fd::Profile::uniform`],
-//! [`crate::mode::vector::CrossSection`]) at their cells' centres. For a medium smooth over a
+//! permittivity: FDTD's and 3D FDFD's `photonoxide::fdtd::Simulation::new` and
+//! `photonoxide::fdfd::Solver3d` average ε over each value's cell from 8³ points (harmonic along
+//! the component, arithmetic across it); FDTD's smoothing
+//! (`photonoxide::fdtd::Structure::with_graded`) takes it at the point each value's cell is about
+//! (the nodes, for the triplets), and inside a body's surface the tangent plane's share of it at
+//! the cell's centre; the mode solvers' planar
+//! profiles and cross-sections (`photonoxide::mode::slab_fd::Profile::uniform`,
+//! `photonoxide::mode::vector::CrossSection`) at their cells' centres. For a medium smooth over a
 //! cell each is second order, the order of the schemes. docs/methods/bodies.md has the method
 //! and its validation.
 

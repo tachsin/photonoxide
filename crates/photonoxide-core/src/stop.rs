@@ -1,5 +1,5 @@
 //! Telling a running job to stop: at a deadline, or when asked (a window closed, a user
-//! cancelled). Every long loop checks a [`Stop`]. [`crate::run`] re-exports it.
+//! cancelled). Every long loop checks a [`Stop`]. `photonoxide::run` re-exports it.
 
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};

@@ -45,19 +45,19 @@ fn melting(id: &str) -> f64 {
 
 /// Kalb et al.'s entropy of fusion from their heat of fusion over the catalogue's T_m (their
 /// Eq. (1)), J/(mol·K): a check that 621 °C is the T_m they divide by.
-pub(crate) fn gst_kalb_fusion() -> Outcome {
+pub fn gst_kalb_fusion() -> Outcome {
     outcome(KALB_FUSION.0 / melting("gst"), KALB_FUSION.1, 0.1)
 }
 
 /// GST's T_m (Kalb et al.'s DSC of a thick film) against Zhao et al.'s nanocalorimetry of 10 to
 /// 40 nm films, 900 ± 15 K (K shown).
-pub(crate) fn gst_zhao_melting() -> Outcome {
+pub fn gst_zhao_melting() -> Outcome {
     outcome(melting("gst"), ZHAO_MELTING.0, ZHAO_MELTING.1)
 }
 
 /// Njoroge et al.'s density changes on crystallization from their three densities, against
 /// their 6.8 ± 0.2 % (NaCl-type) and 8.8 ± 0.2 % (hexagonal): the larger deviation, in percent.
-pub(crate) fn gst_njoroge_change() -> Outcome {
+pub fn gst_njoroge_change() -> Outcome {
     let [a, c, h] = NJOROGE_DENSITY;
     let d = (100.0 * (c / a - 1.0) - 6.8)
         .abs()
@@ -68,7 +68,7 @@ pub(crate) fn gst_njoroge_change() -> Outcome {
 /// Njoroge et al.'s XRD densities of the NaCl-type phase from the film's stoichiometry and the
 /// lattice parameters they measure (6.016 Å after 170 °C, 6.000 Å after 260 °C), against their
 /// 6.43 and 6.48 g/cm³: the larger deviation, g/cm³.
-pub(crate) fn gst_njoroge_xrd() -> Outcome {
+pub fn gst_njoroge_xrd() -> Outcome {
     let d = (njoroge_xrd_density(6.016) * 1e-3 - 6.43)
         .abs()
         .max((njoroge_xrd_density(6.000) * 1e-3 - 6.48).abs());
@@ -171,7 +171,7 @@ pub(crate) const GUREVICH_TABLE_3: [(f64, f64); 6] = [
 
 /// Eq. (1) with Table 5's parameters against Table 2 from 10 to 337 K: the largest relative
 /// deviation.
-pub(crate) fn sb2s3_gurevich_low() -> Outcome {
+pub fn sb2s3_gurevich_low() -> Outcome {
     let d = GUREVICH_TABLE_2.iter().fold(0.0f64, |w, &(t, cp)| {
         w.max((gurevich_cp(t) / cp - 1.0).abs())
     });
@@ -179,7 +179,7 @@ pub(crate) fn sb2s3_gurevich_low() -> Outcome {
 }
 
 /// Eq. (7) against Table 3 from 338 to 823 K: the largest deviation, J/(mol·K).
-pub(crate) fn sb2s3_gurevich_high() -> Outcome {
+pub fn sb2s3_gurevich_high() -> Outcome {
     let d = GUREVICH_TABLE_3.iter().fold(0.0f64, |w, &(t, cp)| {
         w.max((gurevich_cp_high(t) - cp).abs())
     });
@@ -189,7 +189,7 @@ pub(crate) fn sb2s3_gurevich_high() -> Outcome {
 /// Kaito et al.'s density deficit of amorphous Sb₂S₃ films from Table 1's two densities, the
 /// catalogue's amorphous 3420 kg/m³ against their crystal's 4.64 g/cm³, against the 26 % the same
 /// table prints (percent).
-pub(crate) fn sb2s3_kaito_deficit() -> Outcome {
+pub fn sb2s3_kaito_deficit() -> Outcome {
     let amorphous = phase_change::phase_change("sb2s3")
         .and_then(|p| p.amorphous_density)
         .map_or(f64::NAN, |c| c.value);
@@ -199,7 +199,7 @@ pub(crate) fn sb2s3_kaito_deficit() -> Outcome {
 
 /// Sb₂S₃'s crystal density from Gurevich et al.'s cell against the 4640 kg/m³ Aryana et al.
 /// 2023 take for the crystal (from Popescu's book): the relative deviation.
-pub(crate) fn sb2s3_density_check() -> Outcome {
+pub fn sb2s3_density_check() -> Outcome {
     outcome((sb2s3_density() / 4640.0 - 1.0).abs(), 0.0, 0.01)
 }
 

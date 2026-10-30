@@ -27,7 +27,7 @@
 //! material and its normal (the cell then takes their [`mean`]), and [`Structure::kept`], the
 //! height of a layer's material over a point, for the effective index method's columns. FDTD's
 //! subpixel smoothing has the same walls as bodies
-//! ([`crate::fdtd::Body::etched`]). docs/methods/stacks.md has the method and its
+//! (`photonoxide::fdtd::Body::etched`). docs/methods/stacks.md has the method and its
 //! validation.
 //!
 //! **Bodies over the stack.** [`Structure::place`] puts a body in space
@@ -406,13 +406,13 @@ impl Fill<'_> {
 /// The permittivity of a cell `fraction` of which is `inside` and the rest `outside`: their
 /// mean by area, `inside` or `outside` to the bit at a fraction of 1 or 0.
 ///
-/// The full-vector scheme ([`crate::mode::vector`], Fallahkhair et al. 2008) assumes every
+/// The full-vector scheme (`photonoxide::mode::vector`, Fallahkhair et al. 2008) assumes every
 /// interface on its grid lines, so a sloped wall is a run of cells between them whatever their
 /// value. Of the averages tried against exact answers on a 5 nm grid, the plain mean did best
 /// there: on a silicon rod in silica (HE₁₁ exact from the step-index fibre's equation) it is
 /// 1.6e-3 off in n_eff, on a strip turned 30° 8e-4 off the same strip on the grid; the tensor
 /// of Farjadpour et al. (Opt. Lett. 31, 2972 (2006), doi:10.1364/OL.31.002972), the right
-/// average on Yee's grid ([`crate::fdtd`]), 3.4e-3 and 1.5e-2, and staircasing 6.1e-3 and
+/// average on Yee's grid (`photonoxide::fdtd`), 3.4e-3 and 1.5e-2, and staircasing 6.1e-3 and
 /// 9.3e-3 (docs/methods/stacks.md).
 pub fn mean(
     inside: num_complex::Complex64,
@@ -822,9 +822,8 @@ impl Structure {
     }
 }
 
-#[path = "cases/stack/checks.rs"]
-pub(crate) mod checks;
-pub(crate) mod fill;
+#[doc(hidden)]
+pub mod fill;
 
 #[cfg(test)]
 mod tests {

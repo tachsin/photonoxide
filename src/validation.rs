@@ -16,13 +16,13 @@ use std::f64::consts::TAU;
 
 use num_complex::Complex64;
 
+use crate::cases::material::catalogue::phase_change_checks;
 use crate::circuit::components::checks as components;
 use crate::material::catalogue::batio3_film;
 use crate::material::catalogue::checks as catalogue;
 use crate::material::catalogue::conductivity_checks;
 use crate::material::catalogue::ferroelectric;
 use crate::material::catalogue::litao3_dndt;
-use crate::material::catalogue::phase_change_checks;
 use crate::material::catalogue::phase_change_thermal;
 use crate::material::catalogue::resistivity;
 use crate::material::catalogue::rf_checks;
@@ -2196,9 +2196,9 @@ pub fn cases() -> Vec<Case> {
     // and its GDSII reader, on a file written byte by byte
     cases.extend(crate::geometry::gds_checks::cases());
     // and its bodies in space, with the L3 cavity as one, and FDTD's smoothing on them
-    cases.extend(crate::geometry::body_checks::cases());
+    cases.extend(crate::cases::geometry::body_checks::cases());
     // and graded media, in the planar mode solver and in FDTD
-    cases.extend(crate::material::graded_checks::cases());
+    cases.extend(crate::cases::material::graded_checks::cases());
     // and the component generators', with their ports, the devices drawn with them
     cases.extend(crate::generator::checks::cases());
     cases.extend(crate::job::component_cases());
@@ -2209,7 +2209,7 @@ pub fn cases() -> Vec<Case> {
     // and modes jobs' leaky modes, with a PML, Bienstman et al.'s wire through one
     cases.extend(crate::job::leaky_cases());
     // and the stacks' etches and sidewalls, as the mode solver reads them
-    cases.extend(crate::stack::checks::cases());
+    cases.extend(crate::cases::stack::checks::cases());
     // and the averaging from the fill, and FDFD reading it, with Farjadpour et al.'s crystal
     cases.extend(crate::averaging::checks::cases());
     cases.extend(crate::fdfd::fill_checks::cases());
@@ -2241,7 +2241,7 @@ pub fn cases() -> Vec<Case> {
     // and eigenmode expansion's: slab steps against closed forms, tapers against FDFD
     cases.extend(crate::eme::checks::cases());
     // and convergence to a tolerance: the mode solver, FDFD and the expansion driven to one
-    cases.extend(crate::convergence::checks::cases());
+    cases.extend(crate::cases::convergence::checks::cases());
     // and the thin-film lithium niobate Mach-Zehnder modulator as a device
     cases.extend(crate::device::tfln_checks::cases());
     // and a mode's quantities: its effective area, confinement and orthogonality
@@ -4449,7 +4449,7 @@ fn silica_measured() -> Outcome {
 }
 
 fn crystal_turned_tensor() -> Outcome {
-    let error = material::crystal::checks::turned_tensor_error();
+    let error = crate::cases::material::crystal::checks::turned_tensor_error();
     Outcome {
         measured: error,
         expected: 0.0,
@@ -4461,7 +4461,7 @@ fn crystal_turned_tensor() -> Outcome {
 
 /// The cut slab's fundamental mode at a 2.5 nm mesh, against its exact effective index.
 fn crystal_cut_slab(cut: material::CrystalAxis, polarization: Polarization) -> Outcome {
-    use material::crystal::checks::{cut_slab_error, cut_slab_exact};
+    use crate::cases::material::crystal::checks::{cut_slab_error, cut_slab_exact};
     let expected = cut_slab_exact(cut, polarization);
     let error = cut_slab_error(cut, polarization, 0.0025);
     Outcome {
@@ -5403,6 +5403,8 @@ fn tolerance_cell(rule: &Rule) -> String {
     match rule.measure {
         Measure::Relative => format!("{} rel", relative(rule.tolerance)),
         Measure::Absolute => format!("{} abs", sig2(rule.tolerance)),
+        // Measure is #[non_exhaustive] in its crate (photonoxide-core)
+        _ => unreachable!("a measure is relative or absolute"),
     }
 }
 
@@ -5412,12 +5414,15 @@ fn ours_cell(rule: &Rule, noted: Option<f64>) -> String {
     let shown = |v: f64| match rule.measure {
         Measure::Relative => relative_as(v, rule.tolerance),
         Measure::Absolute => format!("{} abs", sig2(v)),
+        _ => unreachable!("a measure is relative or absolute"),
     };
     match rule.numerical {
         Numerical::Exact => "exact".into(),
         Numerical::Measured => "what it measures".into(),
         Numerical::Noted => noted.map_or("—".into(), shown),
         Numerical::Stated(v, from) => format!("{} ({from})", shown(v)),
+        // Numerical is #[non_exhaustive] in its crate (photonoxide-core)
+        _ => unreachable!("our own error is exact, measured, noted or stated"),
     }
 }
 
@@ -5786,26 +5791,21 @@ mod tests {
             .is_some(),
             "another tolerance"
         );
-        let rough = Rule {
-            numerical: Numerical::Stated(0.05, "a coarse grid"),
-            ..rule
-        };
+        // Rule is #[non_exhaustive] in its crate (photonoxide-core): changed copies, not literals
+        let mut rough = rule;
+        rough.numerical = Numerical::Stated(0.05, "a coarse grid");
         assert!(
             rough.fault(&o, None).is_some(),
             "our own error above a third of the tolerance"
         );
-        let measured = Rule {
-            numerical: Numerical::Measured,
-            ..rule
-        };
+        let mut measured = rule;
+        measured.numerical = Numerical::Measured;
         assert!(
             measured.fault(&o, None).is_some(),
             "a published comparison without our own error"
         );
-        let noted = Rule {
-            numerical: Numerical::Noted,
-            ..rule
-        };
+        let mut noted = rule;
+        noted.numerical = Numerical::Noted;
         assert!(noted.fault(&o, None).is_some(), "nothing noted");
         assert_eq!(noted.fault(&o, Some(1e-3)), None);
         let loose = Rule::new(
@@ -5824,10 +5824,8 @@ mod tests {
         assert!(loose.fault(&zero, None).is_some(), "round-off above 1e-8");
         // in f32 the limit is 2e-4
         assert_eq!(loose.in_f32().fault(&zero, None), None);
-        let looser = Rule {
-            tolerance: 1e-3,
-            ..loose.in_f32()
-        };
+        let mut looser = loose.in_f32();
+        looser.tolerance = 1e-3;
         let zero3 = Outcome {
             tolerance: 1e-3,
             ..zero

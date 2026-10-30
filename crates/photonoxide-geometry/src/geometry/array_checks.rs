@@ -18,13 +18,13 @@ fn um(v: f64) -> Length {
 }
 
 /// Akahane et al.'s lattice constant, µm: a = 0.42 µm.
-pub(crate) const AKAHANE_A: f64 = 0.42;
+pub const AKAHANE_A: f64 = 0.42;
 /// Their air holes' radius over a: R = 0.29 a.
-pub(crate) const AKAHANE_R: f64 = 0.29;
+pub const AKAHANE_R: f64 = 0.29;
 /// Their slab's thickness over a: T = 0.6 a.
-pub(crate) const AKAHANE_T: f64 = 0.6;
+pub const AKAHANE_T: f64 = 0.6;
 /// The shift of the holes at both ends of the cavity, over a: 0.15 a.
-pub(crate) const AKAHANE_SHIFT: f64 = 0.15;
+pub const AKAHANE_SHIFT: f64 = 0.15;
 
 /// The relative difference of `got` from `want`.
 fn rel(got: f64, want: f64) -> f64 {
@@ -34,7 +34,7 @@ fn rel(got: f64, want: f64) -> f64 {
 /// The hexagonal lattice of pitch `a` with an L3 cavity on row 0: sites (−1, 0), (0, 0) and
 /// (1, 0) removed, and the holes at its ends, (∓2, 0), moved out along the row by `shift`
 /// (µm); i from −`n[0]` to `n[0]`, j from −`n[1]` to `n[1]`.
-pub(crate) fn l3_lattice(a: f64, shift: f64, n: [i64; 2]) -> Result<Lattice> {
+pub fn l3_lattice(a: f64, shift: f64, n: [i64; 2]) -> Result<Lattice> {
     Lattice::hexagonal(um(a), [-n[0], n[0]], [-n[1], n[1]])?
         .remove([-1, 0])?
         .remove([0, 0])?
@@ -592,7 +592,7 @@ fn count(n: usize) -> Outcome {
 }
 
 /// The validation cases of arrays, lattices and references.
-pub(crate) fn cases() -> Vec<Case> {
+pub fn cases() -> Vec<Case> {
     vec![
         Case {
             id: "geometry/arrays/lattices",

@@ -45,8 +45,6 @@ use serde::{Deserialize, Serialize};
 
 use crate::{Error, Result};
 
-pub(crate) mod checks;
-
 /// Richardson extrapolation from results on three grids, each half the spacing of the last:
 /// the convergence order p is fitted from the real parts, (v₀ − v₁)/(v₁ − v₂) = 2^p, and the
 /// limit is v₂ − (v₁ − v₂)/(2^p − 1), for real and imaginary parts alike. Returns the limit and p.

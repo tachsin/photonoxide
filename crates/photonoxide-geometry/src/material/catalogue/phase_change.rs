@@ -314,7 +314,7 @@ fn missing(property: &str, reason: &str) -> Missing {
 
 /// Sb₂Se₃'s anneals in Delaney's data set (Supporting Fig. S1, `anneal_tests_all.txt`): each
 /// anneal temperature (°C) and the film's n at 1551.18 nm after it.
-pub(crate) const DELANEY_SB2SE3_ANNEALS: [(f64, f64); 6] = [
+pub const DELANEY_SB2SE3_ANNEALS: [(f64, f64); 6] = [
     (125.0, 3.333138),
     (150.0, 3.311244),
     (175.0, 3.340207),
@@ -324,7 +324,7 @@ pub(crate) const DELANEY_SB2SE3_ANNEALS: [(f64, f64); 6] = [
 ];
 
 /// Sb₂S₃'s anneals, the same way.
-pub(crate) const DELANEY_SB2S3_ANNEALS: [(f64, f64); 8] = [
+pub const DELANEY_SB2S3_ANNEALS: [(f64, f64); 8] = [
     (220.0, 2.881186),
     (230.0, 2.842302),
     (240.0, 2.868777),
@@ -337,7 +337,7 @@ pub(crate) const DELANEY_SB2S3_ANNEALS: [(f64, f64); 8] = [
 
 /// The first anneal (K) after which a film's index stands more than half way from its
 /// as-deposited value to its last: where it crystallized.
-pub(crate) fn crystallized_at(anneals: &[(f64, f64)]) -> f64 {
+pub fn crystallized_at(anneals: &[(f64, f64)]) -> f64 {
     let (first, last) = (anneals[0].1, anneals[anneals.len() - 1].1);
     anneals
         .iter()
@@ -767,7 +767,7 @@ fn frantz_material(name: &str, rows: &[(f64, f64, f64)], notes: &str) -> Result<
     )
 }
 
-pub(crate) fn sb2se3_amorphous() -> Result<Material> {
+pub fn sb2se3_amorphous() -> Result<Material> {
     sellmeier_material(
         "Sb2Se3 (amorphous)",
         SB2SE3_A,
@@ -777,7 +777,7 @@ pub(crate) fn sb2se3_amorphous() -> Result<Material> {
     )
 }
 
-pub(crate) fn sb2se3_crystalline() -> Result<Material> {
+pub fn sb2se3_crystalline() -> Result<Material> {
     sellmeier_material(
         "Sb2Se3 (crystalline)",
         SB2SE3_C,
@@ -787,7 +787,7 @@ pub(crate) fn sb2se3_crystalline() -> Result<Material> {
     )
 }
 
-pub(crate) fn sb2s3_amorphous() -> Result<Material> {
+pub fn sb2s3_amorphous() -> Result<Material> {
     sellmeier_material(
         "Sb2S3 (amorphous)",
         SB2S3_A,
@@ -797,7 +797,7 @@ pub(crate) fn sb2s3_amorphous() -> Result<Material> {
     )
 }
 
-pub(crate) fn sb2s3_crystalline() -> Result<Material> {
+pub fn sb2s3_crystalline() -> Result<Material> {
     sellmeier_material(
         "Sb2S3 (crystalline)",
         SB2S3_C,
@@ -807,7 +807,7 @@ pub(crate) fn sb2s3_crystalline() -> Result<Material> {
     )
 }
 
-pub(crate) fn gst_amorphous() -> Result<Material> {
+pub fn gst_amorphous() -> Result<Material> {
     lorentz_material(
         "Ge2Sb2Te5 (amorphous)",
         GST_A,
@@ -815,7 +815,7 @@ pub(crate) fn gst_amorphous() -> Result<Material> {
     )
 }
 
-pub(crate) fn gst_crystalline() -> Result<Material> {
+pub fn gst_crystalline() -> Result<Material> {
     lorentz_material(
         "Ge2Sb2Te5 (crystalline)",
         GST_C,
@@ -823,7 +823,7 @@ pub(crate) fn gst_crystalline() -> Result<Material> {
     )
 }
 
-pub(crate) fn frantz_amorphous() -> Result<Material> {
+pub fn frantz_amorphous() -> Result<Material> {
     frantz_material(
         "Ge2Sb2Te5 (amorphous)",
         &FRANTZ_A,
@@ -831,7 +831,7 @@ pub(crate) fn frantz_amorphous() -> Result<Material> {
     )
 }
 
-pub(crate) fn frantz_crystalline() -> Result<Material> {
+pub fn frantz_crystalline() -> Result<Material> {
     frantz_material(
         "Ge2Sb2Te5 (crystalline)",
         &FRANTZ_C,

@@ -172,7 +172,8 @@ impl Wavelength {
     }
 
     /// A wavelength the caller knows is positive and finite (built-in data).
-    pub(crate) const fn from_um_unchecked(value: f64) -> Wavelength {
+    #[doc(hidden)]
+    pub const fn from_um_unchecked(value: f64) -> Wavelength {
         Wavelength(value)
     }
 

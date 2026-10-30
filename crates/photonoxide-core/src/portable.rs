@@ -18,17 +18,17 @@
 use num_complex::Complex64 as c64;
 
 /// e^x.
-pub(crate) fn exp(x: f64) -> f64 {
+pub fn exp(x: f64) -> f64 {
     libm::exp(x)
 }
 
 /// sin x and cos x.
-pub(crate) fn sin_cos(x: f64) -> (f64, f64) {
+pub fn sin_cos(x: f64) -> (f64, f64) {
     libm::sincos(x)
 }
 
 /// e^z, as `Complex64::exp`: e^re (cos im + i sin im), real for a real z.
-pub(crate) fn exp_c(z: c64) -> c64 {
+pub fn exp_c(z: c64) -> c64 {
     let r = exp(z.re);
     if z.im == 0.0 {
         return c64::new(r, 0.0);
@@ -38,13 +38,13 @@ pub(crate) fn exp_c(z: c64) -> c64 {
 }
 
 /// cos z = cos a cosh b − i sin a sinh b, as `Complex64::cos`.
-pub(crate) fn cos_c(z: c64) -> c64 {
+pub fn cos_c(z: c64) -> c64 {
     let (s, c) = sin_cos(z.re);
     c64::new(c * libm::cosh(z.im), -s * libm::sinh(z.im))
 }
 
 /// sin z = sin a cosh b + i cos a sinh b, as `Complex64::sin`.
-pub(crate) fn sin_c(z: c64) -> c64 {
+pub fn sin_c(z: c64) -> c64 {
     let (s, c) = sin_cos(z.re);
     c64::new(s * libm::cosh(z.im), c * libm::sinh(z.im))
 }

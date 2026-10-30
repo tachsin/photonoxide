@@ -116,7 +116,7 @@ pub(crate) fn tsai_eq_3(rho_grain: f64, l0: f64, d: f64) -> f64 {
 /// The lowest-resistivity films (collimated, 500 °C, −100 V): Eq. (3) with Table IV's last row
 /// at 100 nm, the thickest of Table II's films, against the 45 µΩ·cm of the abstract and Table
 /// II's lower end (µΩ·cm shown).
-pub(crate) fn tsai_lowest() -> crate::verdict::Outcome {
+pub fn tsai_lowest() -> crate::verdict::Outcome {
     let (_, rho_grain, l0) = TSAI_TABLE_IV[3];
     let rho = tsai_eq_3(rho_grain, l0, 100.0);
     crate::verdict::Outcome {

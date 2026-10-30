@@ -5,9 +5,9 @@ use num_complex::Complex64 as c64;
 
 use super::{Axis, Boundaries, Boundaries3d, Grid, Grid3d, Polarization, Solver2d, Solver3d};
 use crate::averaging::Averaging;
+use crate::cases::material::crystal::checks::{SLAB, cut_slab_exact};
 use crate::geometry::{Point, Shape};
 use crate::material::catalogue::{Conditions, entry};
-use crate::material::crystal::checks::{SLAB, cut_slab_exact};
 use crate::material::{CrystalAxis, Material, Orientation};
 use crate::stack::{Layer, LayerStack, Structure};
 use crate::units::{Length, Wavelength};

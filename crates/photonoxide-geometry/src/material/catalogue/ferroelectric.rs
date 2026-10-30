@@ -353,7 +353,7 @@ fn deviation(measured: f64, tolerance: f64) -> Outcome {
 }
 
 /// Our fits against Bond's 22 rows, both axes: the largest difference.
-pub(crate) fn litao3_bond_fit() -> Outcome {
+pub fn litao3_bond_fit() -> Outcome {
     let worst = litao3_bond().map_or(f64::NAN, |m| {
         BOND_TABLE.iter().fold(0.0f64, |w, &(lam, no, ne)| {
             w.max((n(&m[0], lam) - no).abs())
@@ -365,7 +365,7 @@ pub(crate) fn litao3_bond_fit() -> Outcome {
 
 /// Our fits against the indices of Casson et al.'s Table 2 at 632.8, 980, 1330 and 1558 nm:
 /// the largest difference.
-pub(crate) fn litao3_casson() -> Outcome {
+pub fn litao3_casson() -> Outcome {
     let worst = litao3_bond().map_or(f64::NAN, |m| {
         CASSON_INDICES.iter().fold(0.0f64, |w, &(lam, ne, no)| {
             w.max((n(&m[0], lam) - no).abs())
@@ -378,7 +378,7 @@ pub(crate) fn litao3_casson() -> Outcome {
 /// Abel et al.'s film index at 1550 nm against the other films' there (Eltes et al. 2019's
 /// 2.29 by ellipsometry, Chelladurai et al. 2025's and Deng et al. 2026's 2.26): the largest
 /// difference of the model's mean.
-pub(crate) fn batio3_films() -> Outcome {
+pub fn batio3_films() -> Outcome {
     let mean = batio3_abel().map_or(f64::NAN, |m| 0.5 * (n(&m[0], 1.55) + n(&m[1], 1.55)));
     let worst = [2.29, 2.26]
         .iter()
@@ -467,7 +467,7 @@ pub(crate) fn abedin_bond_sd() -> [f64; 2] {
 
 /// Their Fig. 2's standard deviations reproduced from Table I and Bond's table: the larger
 /// difference.
-pub(crate) fn litao3_abedin_bond() -> Outcome {
+pub fn litao3_abedin_bond() -> Outcome {
     let sd = abedin_bond_sd();
     let worst = (sd[0] - ABEDIN_FIG2_SD[0])
         .abs()
@@ -544,7 +544,7 @@ pub(crate) fn abedin_refit(axis: usize) -> [f64; 4] {
 
 /// Their Table I refitted from Bond's table by their procedure: the largest relative deviation
 /// of the eight constants from the printed ones.
-pub(crate) fn litao3_abedin_refit() -> Outcome {
+pub fn litao3_abedin_refit() -> Outcome {
     let worst = [0, 1].iter().fold(0.0f64, |w, &axis| {
         abedin_refit(axis)
             .iter()
@@ -566,7 +566,7 @@ pub(crate) fn abedin_fig3_sd() -> [f64; 4] {
 
 /// Fig. 3's standard deviations reproduced from Tables I and II and the points read off the
 /// figure: the largest difference (the paper prints two digits).
-pub(crate) fn litao3_abedin_points() -> Outcome {
+pub fn litao3_abedin_points() -> Outcome {
     let worst = abedin_fig3_sd()
         .iter()
         .zip(ABEDIN_FIG3_SD)
@@ -576,7 +576,7 @@ pub(crate) fn litao3_abedin_points() -> Outcome {
 
 /// Eq. (1) against Fig. 3's dashed curves (the paper's own evaluation of it) at 100 to 290 °C,
 /// all four series: the largest difference.
-pub(crate) fn litao3_abedin_curves() -> Outcome {
+pub fn litao3_abedin_curves() -> Outcome {
     let worst =
         ABEDIN_FIG3
             .iter()

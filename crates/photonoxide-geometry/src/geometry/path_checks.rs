@@ -360,7 +360,7 @@ fn error(e: f64, tolerance: f64) -> Outcome {
 }
 
 /// The paths' validation cases.
-pub(crate) fn cases() -> Vec<Case> {
+pub fn cases() -> Vec<Case> {
     vec![
         Case {
             id: "geometry/paths/fresnel",

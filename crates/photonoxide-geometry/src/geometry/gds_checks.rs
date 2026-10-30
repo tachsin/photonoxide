@@ -37,14 +37,14 @@ pub(crate) fn excess64(v: f64) -> [u8; 8] {
 }
 
 /// A GDSII stream written record by record, for tests and checks.
-pub(crate) struct Writer {
+pub struct Writer {
     bytes: Vec<u8>,
 }
 
 impl Writer {
     /// A stream's HEADER, BGNLIB, LIBNAME and UNITS: `user` database units in a user unit, the
     /// database unit `unit_m` metres.
-    pub(crate) fn new(user: f64, unit_m: f64) -> Writer {
+    pub fn new(user: f64, unit_m: f64) -> Writer {
         let mut w = Writer::without_units();
         w.reals(0x03, &[user, unit_m]);
         w
@@ -100,13 +100,13 @@ impl Writer {
     }
 
     /// BGNSTR and STRNAME.
-    pub(crate) fn begin(&mut self, name: &str) {
+    pub fn begin(&mut self, name: &str) {
         self.int2(0x05, &[2026, 10, 29, 12, 0, 0, 2026, 10, 29, 12, 0, 0]);
         self.text(0x06, name);
     }
 
     /// ENDSTR.
-    pub(crate) fn end(&mut self) {
+    pub fn end(&mut self) {
         self.none(0x07);
     }
 
@@ -122,7 +122,7 @@ impl Writer {
     }
 
     /// A BOX from `lo` to `hi`, its BOXTYPE `layer[1]`.
-    pub(crate) fn rect(&mut self, layer: [i16; 2], lo: [i32; 2], hi: [i32; 2]) {
+    pub fn rect(&mut self, layer: [i16; 2], lo: [i32; 2], hi: [i32; 2]) {
         self.none(0x2D);
         self.int2(0x0D, &[layer[0]]);
         self.int2(0x2E, &[layer[1]]);
@@ -166,7 +166,7 @@ impl Writer {
 
     /// An SREF of `cell` at `at`: reflected about x if `mirror`, magnified by `mag`, turned by
     /// `angle` degrees.
-    pub(crate) fn sref(&mut self, cell: &str, mirror: bool, mag: f64, angle: f64, at: [i32; 2]) {
+    pub fn sref(&mut self, cell: &str, mirror: bool, mag: f64, angle: f64, at: [i32; 2]) {
         self.none(0x0A);
         self.text(0x12, cell);
         self.strans(mirror, mag, angle);
@@ -201,7 +201,7 @@ impl Writer {
     }
 
     /// ENDLIB, and the stream.
-    pub(crate) fn finish(mut self) -> Vec<u8> {
+    pub fn finish(mut self) -> Vec<u8> {
         self.none(0x04);
         self.bytes
     }
@@ -311,7 +311,7 @@ pub(crate) fn area_error() -> f64 {
 }
 
 /// The GDSII reader's validation cases.
-pub(crate) fn cases() -> Vec<Case> {
+pub fn cases() -> Vec<Case> {
     vec![Case {
         id: "geometry/gds",
         title: r"A GDSII file written here byte by byte: a cell of an L-shaped boundary, a box and a mitred path 0.2 µm wide, placed moved, turned a quarter, reflected and turned 30°, magnified 1.5 and as a 3 × 2 array, on a 1 nm database unit; each layer's area read back (the union and its polygons summed) against the closed form, and the excess-64 numbers 1, 0.5, −2.5, 10⁻³ and 10⁻⁹ as files hold them against their values (largest relative difference shown)",

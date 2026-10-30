@@ -183,7 +183,8 @@ impl Transform {
     }
 
     /// The image of a direction (or a derivative): M v.
-    pub(crate) fn linear(&self, v: [f64; 2]) -> [f64; 2] {
+    #[doc(hidden)]
+    pub fn linear(&self, v: [f64; 2]) -> [f64; 2] {
         [
             self.m[0][0] * v[0] + self.m[0][1] * v[1],
             self.m[1][0] * v[0] + self.m[1][1] * v[1],

@@ -1,12 +1,18 @@
 //! The layering test (#508): the library's modules sit in layers, and production code imports
 //! only downward. `docs/architecture.md` explains the layers and why; this test keeps them.
 //!
-//! It reads the source tree. For every file under `src/` that is not a check or a test (a file
+//! It reads the source tree: `src/`, photonoxide's own modules, and `crates/<name>/src/`, the
+//! layers that are crates of their own (`crates/photonoxide-core` is the core layer,
+//! `crates/photonoxide-geometry` the geometry layer). A file under `src/` is in its module's
+//! layer, one under a crate in that crate's. For every file that is not a check or a test (a file
 //! named `checks.rs`, `tests.rs`, `*_checks.rs` or `*_tests.rs`, one under a `checks/` or
-//! `tests/` directory, or one under `src/cases/`) it takes the `crate::<module>` paths outside
-//! comments and `#[cfg(test)]` items, and asserts that each module is in the file's own layer or
-//! in one it may depend on. A deliberate exception goes in [`ALLOWED`], with its reason; an
-//! entry that no longer matches an import fails the test, so the list cannot go stale.
+//! `tests/` directory, or one under its `src/cases/`) it takes the `crate::<module>` and
+//! `photonoxide_<layer>::` paths outside comments and `#[cfg(test)]` items, and asserts that
+//! each is in the file's own layer or in one it may depend on. (Cargo refuses a crate that
+//! depends on one above it; this test also catches a module of a crate that imports, through
+//! the crate's root, one of a layer its own layer may not use.) A deliberate exception goes in
+//! [`ALLOWED`], with its reason; an entry that no longer matches an import fails the test, so
+//! the list cannot go stale.
 
 use std::fs;
 use std::path::Path;
@@ -18,7 +24,8 @@ struct Layer {
     may_use: &'static [&'static str],
 }
 
-/// The layers, lowest first. Each becomes a crate in phase 2 of #508.
+/// The layers, lowest first. Each becomes a crate, `crates/photonoxide-<name>` (#508): core and
+/// geometry are, the others follow; `top` is photonoxide itself.
 const LAYERS: &[Layer] = &[
     Layer {
         name: "core",
@@ -95,6 +102,7 @@ const LAYERS: &[Layer] = &[
             "bench",
             "export",
             "facade",
+            "cases",
         ],
         may_use: &[
             "core", "geometry", "linalg", "mode", "statics", "fdfd", "fdtd", "circuit", "device",
@@ -120,6 +128,36 @@ fn layer_of(module: &str) -> Option<&'static Layer> {
     LAYERS.iter().find(|l| l.modules.contains(&module))
 }
 
+fn layer_named(name: &str) -> Option<&'static Layer> {
+    LAYERS.iter().find(|l| l.name == name)
+}
+
+/// The crate prefix of a layer's crate in a path: `photonoxide_core::units` names the core layer.
+const CRATE_PREFIX: &str = "photonoxide_";
+
+/// The layer an import names: `fdtd` (from `crate::fdtd`) by its module, `photonoxide_core` by
+/// its crate.
+fn layer_of_import(to: &str) -> Option<&'static Layer> {
+    match to.strip_prefix(CRATE_PREFIX) {
+        Some(name) => layer_named(name),
+        None => layer_of(to),
+    }
+}
+
+/// A file's layer and its path inside its crate's `src/`, from its path in the repository (with
+/// `/`): a file of photonoxide (`src/`) is in its module's layer, one of a layer's crate
+/// (`crates/photonoxide-<layer>/src/`) in that crate's. None for a file in no layer.
+fn file_layer(path: &str) -> Option<(&'static Layer, &str)> {
+    if let Some(rel) = path.strip_prefix("src/") {
+        let first = rel.split('/').next().unwrap_or("");
+        return layer_of(first.strip_suffix(".rs").unwrap_or(first)).map(|l| (l, rel));
+    }
+    let (name, rel) = path
+        .strip_prefix("crates/photonoxide-")?
+        .split_once("/src/")?;
+    layer_named(name).map(|l| (l, rel))
+}
+
 /// One import that breaks the layering.
 #[derive(Debug, PartialEq, Eq)]
 struct Violation {
@@ -131,13 +169,19 @@ struct Violation {
 
 impl Violation {
     fn message(&self) -> String {
+        let layer = file_layer(&self.file).map(|(l, _)| l);
         let (from, to) = (
-            layer_of(&self.from).map_or("?", |l| l.name),
-            layer_of(&self.to).map_or("?", |l| l.name),
+            layer.map_or("?", |l| l.name),
+            layer_of_import(&self.to).map_or("?", |l| l.name),
         );
-        let may = layer_of(&self.from).map_or(String::new(), |l| l.may_use.join(", "));
+        let may = layer.map_or(String::new(), |l| l.may_use.join(", "));
+        let path = if self.to.starts_with(CRATE_PREFIX) {
+            self.to.clone()
+        } else {
+            format!("crate::{}", self.to)
+        };
         format!(
-            "{}:{}: module `{}` (layer {from}) imports `crate::{}` (layer {to}), which is not \
+            "{}:{}: module `{}` (layer {from}) imports `{path}` (layer {to}), which is not \
              below it. The {from} layer may import from: {from}{}{may}. Move the code or the \
              check down or up (a check that compares solvers goes in src/cases/, see \
              docs/architecture.md), or, for a temporary exception, add it to ALLOWED with a \
@@ -145,7 +189,6 @@ impl Violation {
             self.file,
             self.line,
             self.from,
-            self.to,
             if may.is_empty() { "" } else { ", " }
         )
     }
@@ -270,6 +313,26 @@ fn crate_modules(text: &str) -> Vec<(usize, String)> {
     found
 }
 
+/// The layers' crates named in `text`, each with its 1-based line: `photonoxide_core` in
+/// `use photonoxide_core::units` or `photonoxide_core::Error`.
+fn crate_names(text: &str) -> Vec<(usize, String)> {
+    let mut found = Vec::new();
+    let mut from = 0;
+    while let Some(at) = text[from..].find(CRATE_PREFIX) {
+        let start = from + at;
+        from = start + CRATE_PREFIX.len();
+        let before = text[..start].chars().next_back();
+        if before.is_some_and(|c| c.is_alphanumeric() || c == '_') {
+            continue;
+        }
+        let name = ident_at(&text[start..]);
+        if text[start + name.len()..].starts_with("::") {
+            found.push((text[..start].matches('\n').count() + 1, name.to_string()));
+        }
+    }
+    found
+}
+
 /// The imports of `files` (path relative to the repository, text) that break the layering, and
 /// the entries of `allowed` that none of them used.
 fn check(
@@ -279,7 +342,7 @@ fn check(
     let mut violations = Vec::new();
     let mut used = vec![false; allowed.len()];
     for (path, text) in files {
-        let Some(rel) = path.strip_prefix("src/") else {
+        let Some((layer, rel)) = file_layer(path) else {
             continue;
         };
         if is_check_or_test(rel) {
@@ -287,11 +350,12 @@ fn check(
         }
         let first = rel.split('/').next().unwrap_or("");
         let module = first.strip_suffix(".rs").unwrap_or(first);
-        let Some(layer) = layer_of(module) else {
-            continue;
-        };
-        for (line, to) in crate_modules(&production_text(text)) {
-            let Some(target) = layer_of(&to) else {
+        let text = production_text(text);
+        let mut imports = crate_modules(&text);
+        imports.extend(crate_names(&text));
+        imports.sort();
+        for (line, to) in imports {
+            let Some(target) = layer_of_import(&to) else {
                 continue; // `crate::Error`, a macro, a name that is no module
             };
             if target.name == layer.name || layer.may_use.contains(&target.name) {
@@ -341,10 +405,29 @@ fn source_files(dir: &Path, root: &Path, out: &mut Vec<(String, String)>) {
     }
 }
 
+/// The layers' crates in `crates/`: each one's directory name, `photonoxide-<layer>`.
+fn layer_crates(root: &Path) -> Vec<String> {
+    let mut names: Vec<String> = fs::read_dir(root.join("crates"))
+        .unwrap_or_else(|e| panic!("cannot read crates/: {e}"))
+        .filter_map(Result::ok)
+        .filter(|e| e.path().join("Cargo.toml").is_file())
+        .map(|e| e.file_name().to_string_lossy().into_owned())
+        .collect();
+    names.sort();
+    names
+}
+
 fn repository_sources() -> Vec<(String, String)> {
     let root = Path::new(env!("CARGO_MANIFEST_DIR"));
     let mut files = Vec::new();
     source_files(&root.join("src"), root, &mut files);
+    for name in layer_crates(root) {
+        source_files(
+            &root.join("crates").join(name).join("src"),
+            root,
+            &mut files,
+        );
+    }
     files
 }
 
@@ -372,25 +455,48 @@ mod tests {
         );
     }
 
+    /// The modules a crate root declares (`mod x;`, `pub mod x;`).
+    fn declared_modules(lib: &str) -> Vec<String> {
+        lib.lines()
+            .filter_map(|line| {
+                let t = line.trim();
+                let t = t.strip_prefix("pub ").unwrap_or(t);
+                t.strip_prefix("mod ")
+                    .and_then(|r| r.strip_suffix(';'))
+                    .map(str::to_string)
+            })
+            .collect()
+    }
+
     #[test]
     fn every_module_is_in_a_layer() {
-        let lib = fs::read_to_string(Path::new(env!("CARGO_MANIFEST_DIR")).join("src/lib.rs"))
-            .expect("src/lib.rs");
+        let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+        let lib = fs::read_to_string(root.join("src/lib.rs")).expect("src/lib.rs");
         let mut unplaced = Vec::new();
-        for line in lib.lines() {
-            let t = line.trim();
-            let t = t.strip_prefix("pub ").unwrap_or(t);
-            if let Some(name) = t.strip_prefix("mod ").and_then(|r| r.strip_suffix(';'))
-                && layer_of(name).is_none()
-                && !UNLAYERED.contains(&name)
-            {
-                unplaced.push(name.to_string());
+        for name in declared_modules(&lib) {
+            if layer_of(&name).is_none() && !UNLAYERED.contains(&name.as_str()) {
+                unplaced.push(name);
+            }
+        }
+        // a layer's crate holds that layer's modules only
+        for krate in layer_crates(root) {
+            let layer = krate.strip_prefix("photonoxide-").and_then(layer_named);
+            let Some(layer) = layer else {
+                unplaced.push(format!("crates/{krate}, which names no layer"));
+                continue;
+            };
+            let path = root.join("crates").join(&krate).join("src/lib.rs");
+            let lib = fs::read_to_string(&path).expect("a crate's src/lib.rs");
+            for name in declared_modules(&lib) {
+                if !layer.modules.contains(&name.as_str()) {
+                    unplaced.push(format!("{name} in crates/{krate}"));
+                }
             }
         }
         assert!(
             unplaced.is_empty(),
-            "modules in no layer: {unplaced:?}. Add each to LAYERS in src/layering.rs and to \
-             the table in docs/architecture.md"
+            "modules in no layer, or in another layer's crate: {unplaced:?}. Add each to LAYERS \
+             in src/layering.rs and to the table in docs/architecture.md, in its crate's layer"
         );
         let mut twice = Vec::new();
         for l in LAYERS {
@@ -499,6 +605,53 @@ mod tests {
         let (violations, _) = check(&files, &[]);
         assert_eq!(violations.len(), 1, "{violations:?}");
         assert_eq!(violations[0].line, 7);
+    }
+
+    #[test]
+    fn a_crates_files_are_in_its_layer_and_its_crate_imports_are_read() {
+        let files = [
+            // a module of the geometry crate, through its root, and a crate it may not name
+            file(
+                "crates/photonoxide-geometry/src/stack.rs",
+                "use crate::units::Length;\nuse crate::mode::Slab;\n",
+            ),
+            file(
+                "crates/photonoxide-geometry/src/lib.rs",
+                "use photonoxide_core::{Error, units};\nuse photonoxide_fdtd::Simulation;\n",
+            ),
+            // a check in a crate's cases, and a lower crate's own import
+            file(
+                "crates/photonoxide-core/src/cases/expr/tests.rs",
+                "use crate::geometry::Point;\n",
+            ),
+            file(
+                "crates/photonoxide-core/src/expr.rs",
+                "use crate::units::Length;\n",
+            ),
+        ];
+        let (violations, stale) = check(&files, &[]);
+        assert!(stale.is_empty());
+        let found: Vec<(&str, usize, &str)> = violations
+            .iter()
+            .map(|v| (v.file.as_str(), v.line, v.to.as_str()))
+            .collect();
+        assert_eq!(
+            found,
+            vec![
+                ("crates/photonoxide-geometry/src/stack.rs", 2, "mode"),
+                (
+                    "crates/photonoxide-geometry/src/lib.rs",
+                    2,
+                    "photonoxide_fdtd"
+                ),
+            ]
+        );
+        let message = violations[1].message();
+        assert!(message.contains("(layer geometry)"), "{message}");
+        assert!(
+            message.contains("`photonoxide_fdtd` (layer fdtd)"),
+            "{message}"
+        );
     }
 
     #[test]

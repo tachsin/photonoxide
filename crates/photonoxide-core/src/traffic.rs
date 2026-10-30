@@ -1,5 +1,5 @@
-//! The bytes the iterative solvers' kernels move: what [`crate::bench`] divides by a phase's time
-//! for the memory bandwidth a solve reached, against the machine's measured roof (S. Williams,
+//! The bytes the iterative solvers' kernels move: what `photonoxide::bench` divides by a phase's
+//! time for the memory bandwidth a solve reached, against the machine's measured roof (S. Williams,
 //! A. Waterman, D. Patterson, Commun. ACM 52(4), 65 (2009), doi:10.1145/1498765.1498785).
 //!
 //! The model counts what a kernel must read and write at least once: each stored nonzero's value
@@ -20,12 +20,14 @@ use rayon::prelude::*;
 static MOVED: AtomicU64 = AtomicU64::new(0);
 
 /// Adds a kernel's bytes.
-pub(crate) fn add(bytes: usize) {
+#[doc(hidden)]
+pub fn add(bytes: usize) {
     MOVED.fetch_add(bytes as u64, Ordering::Relaxed);
 }
 
 /// The bytes moved so far in this process.
-pub(crate) fn moved() -> u64 {
+#[doc(hidden)]
+pub fn moved() -> u64 {
     MOVED.load(Ordering::Relaxed)
 }
 
@@ -36,13 +38,15 @@ const INDEX: usize = 8;
 
 /// A sparse product by rows, y = A x: A's values and columns, its row pointers, x read once and
 /// y written.
-pub(crate) fn product(rows: usize, columns: usize, nonzeros: usize) -> usize {
+#[doc(hidden)]
+pub fn product(rows: usize, columns: usize, nonzeros: usize) -> usize {
     nonzeros * (VALUE + INDEX) + (rows + 1) * INDEX + columns * VALUE + rows * VALUE
 }
 
 /// A triangular solve in place by rows, with or without a stored inverse diagonal: the factor's
 /// off-diagonal values and columns, its row pointers, the diagonal, and x read and written.
-pub(crate) fn triangular(rows: usize, nonzeros: usize, diagonal: bool) -> usize {
+#[doc(hidden)]
+pub fn triangular(rows: usize, nonzeros: usize, diagonal: bool) -> usize {
     nonzeros * (VALUE + INDEX)
         + (rows + 1) * INDEX
         + if diagonal { rows * VALUE } else { 0 }
@@ -50,7 +54,8 @@ pub(crate) fn triangular(rows: usize, nonzeros: usize, diagonal: bool) -> usize 
 }
 
 /// A pass over vectors of `n` values, reading `read` of them and writing `written`.
-pub(crate) fn vectors(n: usize, read: usize, written: usize) -> usize {
+#[doc(hidden)]
+pub fn vectors(n: usize, read: usize, written: usize) -> usize {
     n * (read + written) * VALUE
 }
 

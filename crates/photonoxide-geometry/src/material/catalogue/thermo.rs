@@ -5,10 +5,10 @@
 //!   14 µm and 100 to 750 K (H. H. Li, J. Phys. Chem. Ref. Data 9, 561 (1980),
 //!   doi:10.1063/1.555624), from which he computed his Tables 1 and 2; below 250 K on by Frey,
 //!   Leviton & Madison's formula (Proc. SPIE 6273, 62732J (2006), doi:10.1117/12.672850), 20 to
-//!   300 K, which their measurements there follow more closely ([`JOIN_T`]); below 40 K by
+//!   300 K, which their measurements there follow more closely (`JOIN_T`); below 40 K by
 //!   Komma et al.'s measured dn/dT at 1550 nm (Appl. Phys. Lett. 101, 041905 (2012),
 //!   doi:10.1063/1.4738989), 5 to 300 K, where Frey et al.'s formula no longer follows their own
-//!   measurements ([`COLD_JOIN_T`]).
+//!   measurements (`COLD_JOIN_T`).
 //! - Silica: Malitson's formula (20 °C) moved by Leviton & Frey's change of index with
 //!   temperature (Proc. SPIE 6273, 62732K (2006), doi:10.1117/12.672853), 30 to 300 K, and
 //!   from 300 to 400 K by their dn/dT at 300 K, held: an extrapolation.
@@ -16,7 +16,7 @@
 //!   of LPCVD Si₃N₄ at 1550 nm (Opt. Lett. 38, 3878 (2013), doi:10.1364/OL.38.003878), measured
 //!   near room temperature and held from 270 to 400 K, and below 270 K by Elshaari et al.'s
 //!   measured dn/dT of PECVD SiN from 18 to 300 K (IEEE Photonics J. 8, 2701009 (2016),
-//!   doi:10.1109/JPHOT.2016.2561622), which meets Arbabi & Goddard's there ([`NITRIDE_JOIN_T`]).
+//!   doi:10.1109/JPHOT.2016.2561622), which meets Arbabi & Goddard's there (`NITRIDE_JOIN_T`).
 
 use super::models::{self, check_range};
 use crate::Result;
@@ -222,11 +222,11 @@ pub(crate) fn li_eq22_silicon(t: f64) -> Result<Material> {
 }
 
 /// The default silicon at a temperature (K): Li's Table 1 at 293 K ([`material::silicon`], bit
-/// for bit at 293 K), each of its points moved by Li's Eq. (22) from 293 K down to [`JOIN_T`]
-/// and up to 750 K, below by Frey et al.'s formula on from there to [`COLD_JOIN_T`] (at Li's
+/// for bit at 293 K), each of its points moved by Li's Eq. (22) from 293 K down to `JOIN_T`
+/// and up to 750 K, below by Frey et al.'s formula on from there to `COLD_JOIN_T` (at Li's
 /// points up to 5 µm), and below that by Komma et al.'s dn/dT at 1550 nm, integrated, at every
 /// point (to 5 K); splined as the table is.
-pub(crate) fn li_silicon(t: f64) -> Result<Material> {
+pub fn li_silicon(t: f64) -> Result<Material> {
     if t == LI_T0 {
         return Ok(material::silicon());
     }
@@ -330,7 +330,7 @@ fn silica_shift(lam: f64, t: f64) -> Result<f64> {
 /// Fused silica at a temperature (K): Malitson's formula ([`material::silica`], bit for bit at
 /// 20 °C), elsewhere moved by Leviton & Frey's change of index from 20 °C, on their wavelengths
 /// (0.4 to 2.6 µm) every 20 nm, splined.
-pub(crate) fn malitson_silica(t: f64) -> Result<Material> {
+pub fn malitson_silica(t: f64) -> Result<Material> {
     if t == MALITSON_T0 {
         return Ok(material::silica());
     }

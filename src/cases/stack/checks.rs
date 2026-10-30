@@ -194,6 +194,8 @@ pub(crate) fn sloped_fill() -> f64 {
                 ) {
                     super::Fill::Uniform(m) => f64::from(u8::from(m.name() == "core")),
                     super::Fill::Wall { fraction, .. } => fraction,
+                    // `Fill` is #[non_exhaustive] in its crate (photonoxide-geometry)
+                    _ => unreachable!("a cell is uniform or a wall"),
                 };
                 area += f * size[0] * size[1];
             }

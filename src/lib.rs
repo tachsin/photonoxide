@@ -53,48 +53,41 @@
 #![warn(missing_docs)]
 #![warn(clippy::missing_errors_doc, clippy::missing_panics_doc)]
 
-pub mod averaging;
 pub mod backend;
 pub mod bench;
+mod cases;
 pub mod circuit;
 pub mod compact;
-pub mod convergence;
 mod dense;
 pub mod device;
 mod eigen;
 pub mod electro;
 pub mod eme;
-pub mod error;
-mod etch;
 pub mod export;
-pub mod expr;
 pub mod facade;
 pub mod farm;
 pub mod fdfd;
 pub mod fdtd;
 pub mod generator;
-pub mod geometry;
 pub mod job;
 #[cfg(test)]
 mod layering;
-mod lstsq;
-pub mod material;
 pub mod mode;
-pub mod parallel;
-mod portable;
-pub mod raster;
 pub mod run;
 mod shifter;
 mod sparse;
-pub mod stack;
 mod statics;
-mod stop;
 pub mod sweep;
 pub mod thermal;
-mod traffic;
-pub mod units;
 pub mod validation;
-mod verdict;
+
+// The layers below, crates of their own (crates/, docs/architecture.md), at the paths their
+// modules had here: the core layer's and the geometry layer's.
+#[doc(inline)]
+pub use photonoxide_core::{convergence, error, expr, parallel, units};
+use photonoxide_core::{lstsq, portable, stop, traffic, verdict};
+#[doc(inline)]
+pub use photonoxide_geometry::{averaging, geometry, material, raster, stack};
 
 pub use error::{Error, Result};
 

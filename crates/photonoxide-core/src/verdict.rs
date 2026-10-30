@@ -2,7 +2,7 @@
 //! it is checked against ([`Tier`]) and its [`Rule`] (#544).
 //!
 //! They import nothing above themselves, so the layers below the validation cases (which run
-//! the solvers) can state their cases' outcomes and rules. [`crate::validation`] re-exports
+//! the solvers) can state their cases' outcomes and rules. `photonoxide::validation` re-exports
 //! them, lists the cases and writes the report.
 
 /// What a case is checked against.
@@ -17,7 +17,8 @@ pub enum Tier {
 }
 
 impl Tier {
-    pub(crate) fn label(self) -> &'static str {
+    #[doc(hidden)]
+    pub fn label(self) -> &'static str {
         match self {
             Tier::Analytic => "analytic",
             Tier::CrossCode => "cross-code",
@@ -78,7 +79,8 @@ pub enum Basis {
 }
 
 impl Basis {
-    pub(crate) fn label(self) -> &'static str {
+    #[doc(hidden)]
+    pub fn label(self) -> &'static str {
         match self {
             Basis::RoundOff => "round-off",
             Basis::Discretisation => "discretisation",
@@ -105,7 +107,7 @@ pub enum Numerical {
 
 /// A case's rule (#544): how its error is measured, where its tolerance comes from and what it
 /// is in that measure, and where our own numerical error comes from. Each area keeps its
-/// cases' rules beside them, by the case's id ([`crate::validation::rules`]).
+/// cases' rules beside them, by the case's id (`photonoxide::validation::rules`).
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[non_exhaustive]
 pub struct Rule {
@@ -170,7 +172,8 @@ impl Rule {
     /// What's wrong with the case's outcome against this rule, if anything: a tolerance other
     /// than the rule's, a round-off tolerance above 1e-8 (2e-4 in f32), a published comparison without our
     /// own error beside it, or our own error above a third of the tolerance.
-    pub(crate) fn fault(&self, o: &Outcome, noted: Option<f64>) -> Option<String> {
+    #[doc(hidden)]
+    pub fn fault(&self, o: &Outcome, noted: Option<f64>) -> Option<String> {
         let own = if o.expected == 0.0 || self.measure == Measure::Absolute {
             o.tolerance
         } else {
@@ -221,17 +224,20 @@ thread_local! {
 /// Notes the case's own numerical error while it runs, in its rule's measure (relative, or in
 /// the value's unit): its grid study's estimate. The report shows it beside the tolerance, and
 /// fails a case whose error is above a third of it.
-pub(crate) fn note_numerical(error: f64) {
+#[doc(hidden)]
+pub fn note_numerical(error: f64) {
     NOTED.with(|n| n.set(Some(error)));
 }
 
 /// Forgets what the last case noted, before the next one runs.
-pub(crate) fn clear_noted() {
+#[doc(hidden)]
+pub fn clear_noted() {
     NOTED.with(|n| n.set(None));
 }
 
 /// What the case that just ran noted, taken.
-pub(crate) fn take_noted() -> Option<f64> {
+#[doc(hidden)]
+pub fn take_noted() -> Option<f64> {
     NOTED.with(|n| n.take())
 }
 

@@ -330,10 +330,3 @@ fn product(a: [[f64; 3]; 3], b: [[f64; 3]; 3]) -> [[f64; 3]; 3] {
     }
     c
 }
-
-#[path = "../cases/material/crystal_checks.rs"]
-pub(crate) mod checks;
-
-#[cfg(test)]
-#[path = "../cases/material/crystal_tests.rs"]
-mod tests;

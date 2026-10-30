@@ -50,7 +50,7 @@ pub enum Error {
         /// Why, e.g. `"no GPU found"`.
         reason: String,
     },
-    /// A farm ([`crate::farm`]) can't do its work: no worker left, a worker refused, a task
+    /// A farm (`photonoxide::farm`) can't do its work: no worker left, a worker refused, a task
     /// past its timeout, a message that isn't the protocol's.
     Farm {
         /// Why, e.g. `"no worker left: 127.0.0.1:7878: connection refused"`.
@@ -58,7 +58,7 @@ pub enum Error {
     },
     /// A time-domain run's fields grew again after its sources had ended, and it stopped: a
     /// wave of the grid amplified in a CPML, which a finer grid removes (docs/methods/fdtd.md,
-    /// "Late growth"). See [`crate::fdtd::Simulation::run_until_decayed`].
+    /// "Late growth"). See `photonoxide::fdtd::Simulation::run_until_decayed`.
     Growing {
         /// When the run stopped, µm/c.
         time_um: f64,
@@ -71,7 +71,8 @@ pub enum Error {
 
 impl Error {
     /// An [`Error::InvalidValue`].
-    pub(crate) fn invalid(what: &'static str, reason: impl Into<String>) -> Self {
+    #[doc(hidden)]
+    pub fn invalid(what: &'static str, reason: impl Into<String>) -> Self {
         Error::InvalidValue {
             what,
             reason: reason.into(),

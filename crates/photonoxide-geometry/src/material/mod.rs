@@ -27,10 +27,9 @@ use num_complex::Complex64;
 use crate::units::{Frequency, Wavelength, refractive_index};
 
 pub mod catalogue;
-pub(crate) mod crystal;
+#[doc(hidden)]
+pub mod crystal;
 mod graded;
-#[path = "../cases/material/graded_checks.rs"]
-pub(crate) mod graded_checks;
 mod refractiveindex;
 
 use crate::{Error, Result};

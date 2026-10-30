@@ -23,7 +23,7 @@
 //! operands' by min and max: exact outside a union and inside an intersection, a bound below
 //! the true distance elsewhere.
 //!
-//! **FDTD's smoothing reads these bodies** ([`crate::fdtd::Body`] is this type): each surface
+//! **FDTD's smoothing reads these bodies** (`photonoxide::fdtd::Body` is this type): each surface
 //! as the plane through its nearest point, [`Body::surface`]'s estimate, which for an
 //! ellipsoid is f/|∇f| (second order in itself, as #161 has always taken it) and exact
 //! otherwise. docs/methods/bodies.md has the methods and their validation.
@@ -637,7 +637,8 @@ impl Body {
     }
 
     /// [`Body::distance`] in µm.
-    pub(crate) fn distance_um(&self, p: [f64; 3]) -> (f64, [f64; 3]) {
+    #[doc(hidden)]
+    pub fn distance_um(&self, p: [f64; 3]) -> (f64, [f64; 3]) {
         match &self.0 {
             Kind::HalfSpace { .. } | Kind::Extruded { .. } | Kind::Cuboid { .. } => self.surface(p),
             Kind::Ellipsoid {
@@ -785,7 +786,8 @@ impl Body {
     /// is outside the body and farther than `r` from its surface, known without the surface's
     /// distance, which for a polygon costs a pass over its edges. Never for a half-space or an
     /// ellipsoid.
-    pub(crate) fn beyond(&self, p: [f64; 3], r: f64) -> bool {
+    #[doc(hidden)]
+    pub fn beyond(&self, p: [f64; 3], r: f64) -> bool {
         match &self.0 {
             Kind::Extruded { bounds, .. } => {
                 let dx = (bounds[0] - p[0]).max(p[0] - bounds[2]).max(0.0);
@@ -814,7 +816,8 @@ impl Body {
     /// sphere and the planar shapes, to second order in itself for an ellipsoid), and the unit
     /// normal pointing out of the body at the nearest point of the surface: what FDTD's
     /// smoothing takes as the plane through the nearest point.
-    pub(crate) fn surface(&self, p: [f64; 3]) -> (f64, [f64; 3]) {
+    #[doc(hidden)]
+    pub fn surface(&self, p: [f64; 3]) -> (f64, [f64; 3]) {
         match &self.0 {
             Kind::HalfSpace { point, normal } => (dot(*normal, sub(p, *point)), *normal),
             Kind::Ellipsoid {
@@ -912,7 +915,8 @@ impl Body {
     /// Whether its sections by horizontal planes are all the same: a box, an extrusion with
     /// vertical walls, a cylinder or an elliptic cylinder along z, a half-space with a
     /// horizontal normal, and booleans of those.
-    pub(crate) fn upright(&self) -> bool {
+    #[doc(hidden)]
+    pub fn upright(&self) -> bool {
         match &self.0 {
             Kind::Cuboid { .. } | Kind::Extruded { .. } => true,
             Kind::Etched { run, .. } => *run == 0.0,
