@@ -176,7 +176,8 @@ impl Ring {
 
 /// The largest relative error of the Wronskian J_m Y′_m − J′_m Y_m = 2/(πz) for orders 0 to
 /// 11 at complex arguments across |z| ≤ 15.
-pub(crate) fn wronskian_error() -> f64 {
+#[doc(hidden)]
+pub fn wronskian_error() -> f64 {
     let mut worst = 0.0f64;
     for m in 0..12 {
         for &(re, im) in &[
@@ -196,7 +197,8 @@ pub(crate) fn wronskian_error() -> f64 {
 }
 
 /// A resonance's Q from its complex frequency f − iγ/2π: ω_r/2γ.
-pub(crate) fn ring_q(frequency: c64) -> f64 {
+#[doc(hidden)]
+pub fn ring_q(frequency: c64) -> f64 {
     -frequency.re / (2.0 * frequency.im)
 }
 

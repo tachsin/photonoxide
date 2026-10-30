@@ -32,7 +32,8 @@ fn pulse() -> Waveform {
 /// box and a flux box. 3D: 37 × 21 × 19 cells of 50 nm, sizes that leave workgroups part-filled;
 /// CPMLs of 4 and 5 along x, 4 and a wall along y, 3 and 3 along z. 2D: 70 × 45 cells, periodic
 /// along x, CPMLs of 6 along y.
-pub(crate) fn busy(two_d: bool) -> Simulation {
+#[doc(hidden)]
+pub fn busy(two_d: bool) -> Simulation {
     let (g, boundaries) = if two_d {
         let p = Edges::Bloch { k: 0.0 };
         let b = Boundaries {
@@ -147,15 +148,20 @@ pub(crate) fn busy(two_d: bool) -> Simulation {
 
 /// How far a GPU's run is from the CPU's, each relative to the CPU's largest value.
 #[derive(Clone, Copy, Debug)]
-pub(crate) struct Agreement {
+#[doc(hidden)]
+pub struct Agreement {
     /// E and H̃.
-    pub(crate) fields: f64,
+    #[doc(hidden)]
+    pub fields: f64,
     /// The probes' values over the run.
-    pub(crate) probes: f64,
+    #[doc(hidden)]
+    pub probes: f64,
     /// Every transform's sums.
-    pub(crate) transforms: f64,
+    #[doc(hidden)]
+    pub transforms: f64,
     /// The flux monitors' fluxes.
-    pub(crate) flux: f64,
+    #[doc(hidden)]
+    pub flux: f64,
 }
 
 /// Everything a run leaves: the fields, the probes, the transforms and the fluxes, as numbers.
@@ -181,13 +187,8 @@ fn outputs(s: &Simulation) -> [Vec<f64>; 4] {
 
 /// `s` run `steps` steps on the CPU (f64) and on `gpu`, in runs of `piece` steps on the GPU,
 /// by the fused step if `fused` (where it fits) or by two passes.
-pub(crate) fn agreement(
-    s: &Simulation,
-    gpu: &Gpu,
-    steps: usize,
-    piece: usize,
-    fused: bool,
-) -> Agreement {
+#[doc(hidden)]
+pub fn agreement(s: &Simulation, gpu: &Gpu, steps: usize, piece: usize, fused: bool) -> Agreement {
     let mut cpu = s.clone();
     cpu.run(steps);
     let on = run_on(s, gpu, steps, piece, fused);
@@ -224,7 +225,8 @@ pub(crate) fn run_on(
 }
 
 /// Whether two runs of `s` on `gpu` leave the same bits: fields, probes and transforms.
-pub(crate) fn repeats(s: &Simulation, gpu: &Gpu, steps: usize, fused: bool) -> bool {
+#[doc(hidden)]
+pub fn repeats(s: &Simulation, gpu: &Gpu, steps: usize, fused: bool) -> bool {
     let bits =
         |s: &Simulation| -> Vec<u64> { outputs(s).iter().flatten().map(|v| v.to_bits()).collect() };
     let one = bits(&run_on(s, gpu, steps, steps, fused));
@@ -236,7 +238,8 @@ pub(crate) fn repeats(s: &Simulation, gpu: &Gpu, steps: usize, fused: bool) -> b
 /// f64, compared after each of `checkpoints` steps (counted from the start): E's largest
 /// differences relative to its largest value, [GPU against the CPU in the GPU's precision, GPU
 /// against the CPU in f64, the CPU's f32 against its f64].
-pub(crate) fn kernel_against_cpu(
+#[doc(hidden)]
+pub fn kernel_against_cpu(
     s: &Simulation,
     gpu: &Gpu,
     checkpoints: &[usize],
@@ -278,7 +281,8 @@ pub(crate) fn kernel_against_cpu(
 
 /// A closed box of 40 × 36 × 32 cells of 50 nm with a block of ε = 12, random fields: nothing
 /// leaves it, so rounding has the whole run to grow.
-pub(crate) fn closed() -> Simulation {
+#[doc(hidden)]
+pub fn closed() -> Simulation {
     let mut s = Simulation::new(
         grid([40, 36, 32], 0.05),
         |x, y, _| {
@@ -308,7 +312,8 @@ pub(crate) fn closed() -> Simulation {
 /// the largest error of E_z one cell above the plate's far corner over 2000 steps, in dB of the
 /// reference's largest value, with their traditional PML and with their CFS-PML, every run on
 /// `device`.
-pub(crate) fn roden_gedney(device: &Device) -> [f64; 2] {
+#[doc(hidden)]
+pub fn roden_gedney(device: &Device) -> [f64; 2] {
     use crate::fdfd::Grid3d;
     const MM: f64 = 1000.0;
     const ETA0: f64 = 376.730_313_668;

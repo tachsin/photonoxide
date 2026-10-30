@@ -503,7 +503,7 @@ pub(crate) fn cases() -> Vec<Case> {
             tier: Tier::Analytic,
             source: r"the same arithmetic on the same bodies, the smoothing's averages, tensors and triplets the same code on them (FDTD's bodies of commit ff50758); measured 0",
             run: || {
-                let e = crate::fdtd::smoothing::checks::bodies_differences() as f64;
+                let e = crate::fdtd::smoothing_items::checks::bodies_differences() as f64;
                 error(e, 0.0)
             },
         },

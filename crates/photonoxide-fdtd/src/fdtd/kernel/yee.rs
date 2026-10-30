@@ -9,7 +9,7 @@ use crate::fdtd::{Field, Simulation, invalid};
 
 /// A Yee grid's state in precision `T`: E and H̃, E's coefficients, the CPMLs.
 #[derive(Clone, Debug)]
-pub(crate) struct Yee<T> {
+pub struct Yee<T> {
     grid: Grid3d,
     dt: T,
     e: [Vec<T>; 3],
@@ -27,7 +27,8 @@ impl<T: Real> Yee<T> {
     ///
     /// [`crate::Error::InvalidValue`] if `s` has what the kernel alone doesn't step: a Bloch
     /// phase, a dispersive medium or a tensor permittivity that couples E's components.
-    pub(crate) fn from_simulation(s: &Simulation) -> Result<Yee<T>> {
+    #[doc(hidden)]
+    pub fn from_simulation(s: &Simulation) -> Result<Yee<T>> {
         if s.bloch.is_some() || s.anisotropic.is_some() || !s.media.is_empty() {
             return Err(invalid(
                 "the kernel alone steps E, H and the CPMLs: no Bloch phase, dispersive medium \
@@ -51,7 +52,8 @@ impl<T: Real> Yee<T> {
     }
 
     /// One step: H̃ by E's curl and its CPMLs, then E by H̃'s, as [`Simulation::step`] does.
-    pub(crate) fn step(&mut self) {
+    #[doc(hidden)]
+    pub fn step(&mut self) {
         curl_update(
             self.grid,
             &mut self.h,
@@ -92,7 +94,8 @@ impl<T: Real> Yee<T> {
 
     /// `steps` steps, by tiles of `blocking` where the grid allows ([`blocked::blockable`]),
     /// else one at a time: the same bits either way.
-    pub(crate) fn run(&mut self, steps: usize, blocking: Option<Blocking>) {
+    #[doc(hidden)]
+    pub fn run(&mut self, steps: usize, blocking: Option<Blocking>) {
         let blocking = blocking.filter(|_| blocked::blockable(self.grid, &self.stencils));
         let Some(b) = blocking else {
             for _ in 0..steps {
@@ -128,7 +131,8 @@ impl<T: Real> Yee<T> {
     }
 
     /// E's `component`.
-    pub(crate) fn e(&self, component: Axis) -> &[T] {
+    #[doc(hidden)]
+    pub fn e(&self, component: Axis) -> &[T] {
         &self.e[component.index()]
     }
 
@@ -141,7 +145,8 @@ impl<T: Real> Yee<T> {
     /// The bytes a step reads and writes at least once: each field's three components read
     /// and the updated field's written, E's two coefficients, and in the CPMLs each ψ read
     /// and written with the value it updates (and cb for E).
-    pub(crate) fn bytes_per_step(&self) -> usize {
+    #[doc(hidden)]
+    pub fn bytes_per_step(&self) -> usize {
         let size = std::mem::size_of::<T>();
         let cells = self.grid.cells();
         let slabs: usize = self

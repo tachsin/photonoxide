@@ -256,7 +256,8 @@ impl IterativeSolver3d {
     }
 
     /// As [`IterativeSolver3d::s_matrix_recycled`], with how each port's run went.
-    pub(crate) fn s_matrix_recycled_with_convergence(
+    #[doc(hidden)]
+    pub fn s_matrix_recycled_with_convergence(
         &self,
         ports: &[Port3d],
         stopping: Stopping,

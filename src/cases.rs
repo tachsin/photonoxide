@@ -34,6 +34,83 @@ pub(crate) mod electro {
     mod line_tests;
 }
 
+/// 2D and 3D FDFD, checked against the mode solvers' modes.
+pub(crate) mod fdfd {
+    #[allow(unused_imports)]
+    use crate::fdfd::*;
+    // what the checks and tests took from the module's own imports
+    #[allow(unused_imports)]
+    use crate::units::Wavelength;
+    #[allow(unused_imports)]
+    use num_complex::Complex64 as c64;
+
+    pub(crate) mod checks;
+    pub(crate) mod crystal_checks;
+    #[cfg(test)]
+    mod crystal_tests;
+    pub(crate) mod fill_checks;
+    #[cfg(test)]
+    mod tests;
+
+    /// The fill of 2D FDFD's cells.
+    #[cfg(test)]
+    mod fill {
+        #[allow(unused_imports)]
+        use crate::fdfd::fill::*;
+        // what the tests took from the module's own imports
+        use crate::averaging::{Averaging, Plane};
+        use crate::backend::Choice;
+        use crate::fdfd::*;
+        use crate::units::Wavelength;
+
+        mod tests;
+    }
+
+    /// 3D FDFD.
+    pub(crate) mod three {
+        #[allow(unused_imports)]
+        use crate::fdfd::three_items::*;
+        // what the checks and tests took from the module's own imports
+        #[allow(unused_imports)]
+        use crate::units::Wavelength;
+        #[allow(unused_imports)]
+        use num_complex::Complex64 as c64;
+        // the multigrid, ports and iterative modules are private to their crate: what the
+        // checks and tests use of them
+        #[allow(unused_imports)]
+        use crate::fdfd::three_items::{
+            iterative_items as iterative, multigrid_items as multigrid, ports_items as ports,
+        };
+
+        pub(crate) mod block_checks;
+        pub(crate) mod checks;
+        pub(crate) mod port_checks;
+        #[cfg(test)]
+        mod port_tests;
+        pub(crate) mod recycle_checks;
+        pub(crate) mod stencil_checks;
+        #[cfg(test)]
+        mod tests;
+    }
+}
+
+/// FDTD, checked against the mode solvers' Bloch modes and the crystals' slab.
+pub(crate) mod fdtd {
+    #[allow(unused_imports)]
+    use crate::fdtd::*;
+    // what the checks took from the module's own imports
+    use crate::fdfd::{Axis, Edges, Grid3d};
+    use crate::units::Frequency;
+    use num_complex::Complex64 as c64;
+
+    pub(crate) mod bloch_checks;
+    pub(crate) mod crystal_checks;
+    #[cfg(test)]
+    mod crystal_tests;
+    #[cfg(test)]
+    mod media_tests;
+}
+
 /// Eigenmode expansion, checked against 2D FDFD and the validation report's rows.
 pub(crate) mod eme {
     #[allow(unused_imports)]

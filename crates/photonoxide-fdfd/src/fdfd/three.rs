@@ -41,14 +41,17 @@ pub enum Axis {
 }
 
 impl Axis {
-    pub(crate) const ALL: [Axis; 3] = [Axis::X, Axis::Y, Axis::Z];
+    #[doc(hidden)]
+    pub const ALL: [Axis; 3] = [Axis::X, Axis::Y, Axis::Z];
 
-    pub(crate) fn index(self) -> usize {
+    #[doc(hidden)]
+    pub fn index(self) -> usize {
         self as usize
     }
 
     /// The next two axes in cyclic order: (y, z) for x, (z, x) for y, (x, y) for z.
-    pub(crate) fn others(self) -> (Axis, Axis) {
+    #[doc(hidden)]
+    pub fn others(self) -> (Axis, Axis) {
         match self {
             Axis::X => (Axis::Y, Axis::Z),
             Axis::Y => (Axis::Z, Axis::X),
@@ -124,7 +127,8 @@ impl Grid3d {
     }
 
     /// The component and (i, j, k) of a field's value `r`.
-    fn at(&self, r: usize) -> (Axis, [usize; 3]) {
+    #[doc(hidden)]
+    pub fn at(&self, r: usize) -> (Axis, [usize; 3]) {
         let n = self.cells();
         let (c, rest) = (r / n, r % n);
         let i = rest % self.nx;
@@ -262,17 +266,20 @@ impl Boundaries3d {
 /// The grid with its boundaries at one wavelength: the discrete curls, and which values of E
 /// are fixed at zero.
 #[derive(Clone, Debug, PartialEq)]
-pub(crate) struct Lattice {
+#[doc(hidden)]
+pub struct Lattice {
     pub(crate) grid: Grid3d,
     pub(crate) boundaries: Boundaries3d,
-    pub(crate) k0: f64,
+    #[doc(hidden)]
+    pub k0: f64,
     /// The PML stretch at the nodes of each axis, and halfway after each node.
     nodes: [Vec<c64>; 3],
     halves: [Vec<c64>; 3],
 }
 
 impl Lattice {
-    pub(crate) fn new(grid: Grid3d, boundaries: Boundaries3d, k0: f64) -> Lattice {
+    #[doc(hidden)]
+    pub fn new(grid: Grid3d, boundaries: Boundaries3d, k0: f64) -> Lattice {
         let along = |axis: Axis, offset: f64| -> Vec<c64> {
             let n = grid.n(axis);
             let h = grid.step(axis);
@@ -327,7 +334,8 @@ impl Lattice {
     }
 
     /// Whether E's value `r` is on a wall behind a PML, tangential to it: fixed at zero.
-    pub(crate) fn fixed(&self, r: usize) -> bool {
+    #[doc(hidden)]
+    pub fn fixed(&self, r: usize) -> bool {
         let (c, at) = self.grid.at(r);
         Axis::ALL.into_iter().any(|a| {
             a != c && at[a.index()] == 0 && matches!(self.boundaries.edges(a), Edges::Pml { .. })
@@ -384,7 +392,8 @@ impl Lattice {
 
     /// The matrix A = −∇ × ∇ × + k₀² ε, row by row, with ε at each value of E; a value fixed at
     /// zero has a row and column of its own, with 1 on the diagonal.
-    pub(crate) fn assemble(&self, eps: &[c64]) -> Vec<Triplet<usize, usize, c64>> {
+    #[doc(hidden)]
+    pub fn assemble(&self, eps: &[c64]) -> Vec<Triplet<usize, usize, c64>> {
         self.assemble_with(eps, 0.0)
     }
 
@@ -392,7 +401,8 @@ impl Lattice {
     /// (2013), doi:10.1364/OE.21.022578, Eq. 7, times −1 (their A is ∇ × ∇ × − k₀² ε), with ε⁻¹
     /// at the nodes, where the divergence lives, inside the gradient. s = 0 is A itself, and
     /// s = −1 their choice.
-    pub(crate) fn assemble_with(&self, eps: &[c64], s: f64) -> Vec<Triplet<usize, usize, c64>> {
+    #[doc(hidden)]
+    pub fn assemble_with(&self, eps: &[c64], s: f64) -> Vec<Triplet<usize, usize, c64>> {
         let mut t = Vec::with_capacity(if s == 0.0 { 13 } else { 15 } * eps.len());
         let mut row: Vec<(usize, c64)> = Vec::with_capacity(32);
         for r in 0..eps.len() {
@@ -419,7 +429,8 @@ impl Lattice {
 
     /// Row `r` of [`Lattice::assemble_with`]'s matrix, its entries unsorted and possibly with
     /// repeated columns, into `row` (cleared first).
-    pub(crate) fn row_into(&self, eps: &[c64], s: f64, r: usize, row: &mut Vec<(usize, c64)>) {
+    #[doc(hidden)]
+    pub fn row_into(&self, eps: &[c64], s: f64, r: usize, row: &mut Vec<(usize, c64)>) {
         row.clear();
         if self.fixed(r) {
             row.push((r, c64::new(1.0, 0.0)));
@@ -505,7 +516,8 @@ impl Lattice {
 
     /// The right-hand side of Shin and Fan's Eq. 7 for A x = `b`: b − (s / k₀²) ∇(ε⁻¹ ∇ · b),
     /// which leaves the solution as it is, since ∇ · (ε E) = ∇ · b / k₀² for the solution.
-    pub(crate) fn transformed_rhs(&self, eps: &[c64], b: &[c64], s: f64) -> Vec<c64> {
+    #[doc(hidden)]
+    pub fn transformed_rhs(&self, eps: &[c64], b: &[c64], s: f64) -> Vec<c64> {
         let k2 = self.k0 * self.k0;
         let cells = self.grid.cells();
         let div: Vec<c64> = (0..cells)
@@ -559,7 +571,7 @@ fn merged(t: &mut Vec<Triplet<usize, usize, c64>>, r: usize, row: &mut [(usize, 
 
 /// The permittivity of the cell of size `h` centred on `centre`, for a field component along
 /// `along`, from `samples`³ points: harmonic along the component, arithmetic across it.
-pub(crate) fn averaged(
+pub fn averaged(
     eps: &impl Fn(f64, f64, f64) -> c64,
     centre: [f64; 3],
     h: [f64; 3],
@@ -590,15 +602,18 @@ pub(crate) fn averaged(
 /// A 3D FDFD problem, assembled and factorized: one structure at one wavelength, ready for any
 /// number of sources.
 pub struct Solver3d {
-    lattice: Lattice,
+    #[doc(hidden)]
+    pub lattice: Lattice,
     /// The permittivity each value of E sees, averaged over its cell of the dual grid.
     eps: Vec<c64>,
     /// The matrix's entries, for its products with fields.
-    entries: Vec<Triplet<usize, usize, c64>>,
+    #[doc(hidden)]
+    pub entries: Vec<Triplet<usize, usize, c64>>,
     /// The factors ([`super::direct::Direct`]: L D Lᵀ of the complex symmetric similarity, or
     /// LU); their analysis depends on the grid, the boundaries and, through its scaling, roughly
     /// on the values, and [`Solver3d::reuse`] reuses it.
-    lu: Direct,
+    #[doc(hidden)]
+    pub lu: Direct,
 }
 
 impl Solver3d {
@@ -668,7 +683,8 @@ impl Solver3d {
     }
 
     /// The factors' entries, as the direct solver reports them.
-    pub(crate) fn factor_entries(&self) -> Option<u64> {
+    #[doc(hidden)]
+    pub fn factor_entries(&self) -> Option<u64> {
         self.lu.report().factor_entries.map(|e| e as u64)
     }
 
@@ -751,7 +767,8 @@ impl Solver3d {
     ///
     /// [`Error::InvalidValue`] for a permittivity of the wrong length, or if the system can't be
     /// factorized.
-    pub(crate) fn with_values(&self, eps: Vec<c64>) -> Result<Solver3d> {
+    #[doc(hidden)]
+    pub fn with_values(&self, eps: Vec<c64>) -> Result<Solver3d> {
         if eps.len() != self.eps.len() {
             return Err(Error::invalid(
                 "fdfd",
@@ -778,7 +795,8 @@ impl Solver3d {
     }
 
     /// The checked lattice and the averaged permittivity at each value of E.
-    pub(crate) fn setup(
+    #[doc(hidden)]
+    pub fn setup(
         grid: Grid3d,
         wavelength: Wavelength,
         eps: impl Fn(f64, f64, f64) -> c64,
@@ -1002,7 +1020,8 @@ impl Solver3d {
 
     /// The same problem factorized by LU, where [`Solver3d::new`] takes L D Lᵀ of the complex
     /// symmetric similarity: to check one against the other.
-    pub(crate) fn with_lu(&self) -> Result<Solver3d> {
+    #[doc(hidden)]
+    pub fn with_lu(&self) -> Result<Solver3d> {
         Ok(Solver3d {
             lattice: self.lattice.clone(),
             eps: self.eps.clone(),
@@ -1012,12 +1031,14 @@ impl Solver3d {
     }
 
     /// Whether the factors are L D Lᵀ of the complex symmetric similarity.
-    pub(crate) fn symmetric_factors(&self) -> bool {
+    #[doc(hidden)]
+    pub fn symmetric_factors(&self) -> bool {
         self.lu.symmetric()
     }
 
     /// A v, the assembled matrix times `v`.
-    pub(crate) fn apply(&self, v: &[c64]) -> Vec<c64> {
+    #[doc(hidden)]
+    pub fn apply(&self, v: &[c64]) -> Vec<c64> {
         let mut out = vec![c64::new(0.0, 0.0); v.len()];
         for t in &self.entries {
             out[t.row] += t.val * v[t.col];
@@ -1151,31 +1172,37 @@ impl Lattice {
     }
 }
 
-pub(crate) mod adjoint;
-pub(crate) mod block_checks;
-#[path = "../cases/fdfd/three/checks.rs"]
-pub(crate) mod checks;
-pub(crate) mod fill;
+pub mod adjoint;
+#[doc(hidden)]
+pub mod fill;
 mod iterative;
 mod matrix_free;
 mod multigrid;
-#[path = "../cases/fdfd/three/port_checks.rs"]
-pub(crate) mod port_checks;
-#[cfg(test)]
-#[path = "../cases/fdfd/three/port_tests.rs"]
-mod port_tests;
 mod ports;
-pub(crate) mod recycle_checks;
-pub(crate) mod stencil_checks;
-#[cfg(test)]
-#[path = "../cases/fdfd/three/tests.rs"]
-mod tests;
 
 pub use iterative::{Formulation, IterativeSolver3d, Product, Recycler};
-pub(crate) use iterative::{MATRIX_FREE_SOLVE_BYTES, MATRIX_SOLVE_BYTES};
+#[doc(hidden)]
+pub use iterative::{MATRIX_FREE_SOLVE_BYTES, MATRIX_SOLVE_BYTES};
 pub use multigrid::{Coarse, Jacobi, Multigrid};
+/// What photonoxide's checks of the multigrid use of it. The module stays private: `three`
+/// re-exports its public types, which a hidden module would hide.
+#[doc(hidden)]
+pub mod multigrid_items {
+    pub use super::multigrid::*;
+}
+/// As `multigrid_items`, for the ports and the iterative solver.
+#[doc(hidden)]
+pub mod ports_items {
+    pub use super::ports::*;
+}
+/// As `multigrid_items`, for the iterative solver.
+#[doc(hidden)]
+pub mod iterative_items {
+    pub use super::iterative::*;
+}
 pub use ports::{Port3d, PortMode3d};
-pub(crate) use ports::{mode_amplitude_weights_of, mode_amplitudes_of};
+#[doc(hidden)]
+pub use ports::{mode_amplitude_weights_of, mode_amplitudes_of};
 
 /// The relative residual a direct solve guarantees: round-off, above the 1e-15 to 1e-14 that an
 /// accurate factorization and one step of refinement leave, and within what QMR reaches.
@@ -1204,7 +1231,8 @@ pub(crate) fn nans(n: usize) -> Vec<c64> {
 /// symmetric similarity, or its LU, with static pivoting, the columns in nested-dissection order
 /// on Yee's grid (docs/methods/fdfd-3d.md, "Cost"). `analysis`, if given, is that of a matrix
 /// of the same structure.
-fn factorize(
+#[doc(hidden)]
+pub fn factorize(
     grid: &Grid3d,
     triplets: &[Triplet<usize, usize, c64>],
     analysis: Plan,
@@ -1213,7 +1241,7 @@ fn factorize(
 }
 
 /// Each value of E at its place on the grid, for nested dissection.
-pub(crate) fn positions(grid: &Grid3d) -> Vec<[f64; 3]> {
+pub fn positions(grid: &Grid3d) -> Vec<[f64; 3]> {
     let mut positions = vec![[0.0; 3]; grid.unknowns()];
     for component in Axis::ALL {
         for k in 0..grid.nz {

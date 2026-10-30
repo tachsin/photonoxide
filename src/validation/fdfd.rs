@@ -1,5 +1,5 @@
 //! The rules (#544) of the 2D and 3D FDFD cases, by the case's id: most of them are in
-//! [`super::cases`], the fill fractions' beside their module (`crate::fdfd::fill_checks`). A
+//! [`super::cases`], the fill fractions' beside their module (`crate::cases::fdfd::fill_checks`). A
 //! closed form against our grid (the exact stack, the exact slab) leaves the grid's own error as
 //! what the case measures, its order checked by another case; the scheme's exact identities (its
 //! flux, reciprocity, a mirror, a uniform guide) and the solvers' agreement with each other are

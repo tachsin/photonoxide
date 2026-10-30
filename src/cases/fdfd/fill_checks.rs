@@ -89,7 +89,7 @@ pub(crate) fn film_index(
     averaging: Averaging,
     cells: usize,
 ) -> (f64, f64) {
-    use crate::fdfd::three::port_checks::share;
+    use crate::cases::fdfd::three::port_checks::share;
     use crate::fdfd::{Axis, Boundaries3d, Grid3d};
     use crate::material::{silica, silicon};
     use crate::stack::{Layer, LayerStack, Structure};
@@ -129,10 +129,11 @@ pub(crate) fn film_index(
         z: wall,
         ..Boundaries3d::pml(0)
     };
-    let eps = crate::fdfd::three::fill::structure_values(grid, wavelength, &structure, averaging)
-        .expect("the film's permittivity");
+    let eps =
+        crate::fdfd::three_items::fill::structure_values(grid, wavelength, &structure, averaging)
+            .expect("the film's permittivity");
     let k0 = 2.0 * std::f64::consts::PI / lam;
-    let lattice = crate::fdfd::three::Lattice::new(grid, boundaries, k0);
+    let lattice = crate::fdfd::three_items::Lattice::new(grid, boundaries, k0);
     let modes = lattice
         .port_modes(&eps, (Axis::X, 2), [0..1, 0..nz], 2)
         .expect("the film guides");

@@ -26,7 +26,8 @@ use crate::{Error, Result};
 
 impl Solver2d {
     /// u of Aᵀ u = `rhs`, with one step of iterative refinement.
-    pub(super) fn solve_transposed(&self, rhs: &[c64]) -> Result<Vec<c64>> {
+    #[doc(hidden)]
+    pub fn solve_transposed(&self, rhs: &[c64]) -> Result<Vec<c64>> {
         let mut values = self.lu.solve_transpose(rhs)?;
         let mut residual = rhs.to_vec();
         for t in &self.entries {

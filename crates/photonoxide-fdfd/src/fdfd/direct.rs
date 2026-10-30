@@ -22,7 +22,8 @@ use crate::{Error, Result};
 /// The backend a solver factorizes with, and the analysis of its matrix's structure once there
 /// is one: what a solver hands to the next of a sweep.
 #[derive(Clone)]
-pub(crate) struct Plan {
+#[doc(hidden)]
+pub struct Plan {
     solver: Arc<dyn DirectSolver>,
     analysis: Option<Arc<dyn Analysis>>,
     /// Why `auto` chose the backend, if it did.
@@ -36,7 +37,8 @@ impl Plan {
     ///
     /// [`Error::InvalidValue`] if the backend isn't registered or isn't available
     /// ([`crate::backend::direct`]).
-    pub(crate) fn new(choice: &Choice) -> Result<Plan> {
+    #[doc(hidden)]
+    pub fn new(choice: &Choice) -> Result<Plan> {
         Ok(Plan {
             solver: crate::backend::direct(choice)?,
             analysis: None,
@@ -83,7 +85,8 @@ impl Plan {
 }
 
 /// A system's factors, with the similarity they were taken through.
-pub(crate) struct Direct {
+#[doc(hidden)]
+pub struct Direct {
     solver: Arc<dyn DirectSolver>,
     /// Why `auto` chose the backend, if it did.
     chosen: Option<String>,
@@ -101,7 +104,8 @@ impl Direct {
     /// # Errors
     ///
     /// [`Error::InvalidValue`] if the matrix can't be assembled or factorized.
-    pub(crate) fn new(
+    #[doc(hidden)]
+    pub fn new(
         entries: &[Triplet<usize, usize, c64>],
         positions: &[[f64; 3]],
         plan: Plan,
@@ -199,12 +203,14 @@ impl Direct {
     }
 
     /// Whether the factors are L D Lᵀ of the similarity.
-    pub(crate) fn symmetric(&self) -> bool {
+    #[doc(hidden)]
+    pub fn symmetric(&self) -> bool {
         self.similarity.is_some()
     }
 
     /// The backend and the analysis, for a matrix of the same structure.
-    pub(crate) fn plan(&self) -> Plan {
+    #[doc(hidden)]
+    pub fn plan(&self) -> Plan {
         Plan {
             solver: self.solver.clone(),
             analysis: Some(self.analysis.clone()),
@@ -213,7 +219,8 @@ impl Direct {
     }
 
     /// What the factorization took, as the backend reports it.
-    pub(crate) fn report(&self) -> crate::backend::Report {
+    #[doc(hidden)]
+    pub fn report(&self) -> crate::backend::Report {
         self.factors.report()
     }
 
@@ -233,7 +240,8 @@ impl Direct {
     /// # Errors
     ///
     /// The backend's.
-    pub(crate) fn solve(&self, b: &[c64]) -> Result<Vec<c64>> {
+    #[doc(hidden)]
+    pub fn solve(&self, b: &[c64]) -> Result<Vec<c64>> {
         match &self.similarity {
             None => self.factors.solve(b),
             // B (S x) = S b

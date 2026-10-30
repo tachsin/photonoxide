@@ -181,7 +181,8 @@ pub(crate) struct Run {
 
 /// Which objective [`Run`] is asked for.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) enum Objective {
+#[doc(hidden)]
+pub enum Objective {
     /// The power into the guide's mode ahead at both frequencies, less half the power
     /// reflected into it behind at the carrier: F = |a₊(f₀)|² + |a₊(f₁)|² − ½|a₋(f₀)|², each
     /// amplitude in the transforms' units.
@@ -291,7 +292,8 @@ pub(crate) const DELTA: f64 = 1e-3;
 /// fourth-order differences weigh four of them by (8 + 8 + 1 + 1)/12 over [`DELTA`], 1.5e-8.
 /// Their truncation, δ⁴ times the fifth derivative, lies below it. A difference from the adjoint
 /// below this is the platform's arithmetic, not the gradient's.
-pub(crate) const DIFFERENCES_RESOLVE: f64 = (8.0 + 8.0 + 1.0 + 1.0) / 12.0 * SETTLED / DELTA;
+#[doc(hidden)]
+pub const DIFFERENCES_RESOLVE: f64 = (8.0 + 8.0 + 1.0 + 1.0) / 12.0 * SETTLED / DELTA;
 
 /// [`Strip`]: the gradient of `objective` with respect to every design cell's density by
 /// fourth-order central differences (δ = [`DELTA`]).
@@ -316,7 +318,8 @@ pub(crate) fn strip_differences(objective: Objective) -> Vec<f64> {
 
 /// [`Strip`]: the gradient of `objective` by the adjoint against [`strip_differences`], at
 /// every design cell. The largest difference relative to the largest gradient, and the pairs.
-pub(crate) fn strip_against_differences(objective: Objective) -> (f64, Vec<(f64, f64)>) {
+#[doc(hidden)]
+pub fn strip_against_differences(objective: Objective) -> (f64, Vec<(f64, f64)>) {
     let strip = Strip::new();
     let run = strip.forward(&uneven(&strip.design));
     let adjoint = run.gradient(objective);
@@ -529,14 +532,16 @@ impl LossyBox {
 /// [`LossyBox`] closed (walls all round, 64 steps a period): FDTD's gradient against FDFD's on
 /// the same values, the largest difference relative to the largest gradient, and the number of
 /// values compared.
-pub(crate) fn against_fdfd_closed() -> (f64, usize) {
+#[doc(hidden)]
+pub fn against_fdfd_closed() -> (f64, usize) {
     LossyBox::new(0, 64).against_fdfd()
 }
 
 /// [`LossyBox`] open along the guide (CPMLs of 8 cells against FDFD's PMLs) at `steps` steps a
 /// period: FDTD's gradient against FDFD's, the largest difference relative to the largest
 /// gradient. The CPML is FDFD's PML only to first order in Δt.
-pub(crate) fn against_fdfd_open(steps: usize) -> f64 {
+#[doc(hidden)]
+pub fn against_fdfd_open(steps: usize) -> f64 {
     LossyBox::new(8, steps).against_fdfd().0
 }
 
@@ -549,7 +554,8 @@ pub(crate) fn against_fdfd_open(steps: usize) -> f64 {
 /// (docs/methods/fdtd-adjoint.md). Returns the largest |Ê_adj/(ā Ê_back) − ΔV/4| relative to
 /// ΔV/4, over the design's values where Ê_back is above a thousandth of its largest, and the
 /// ratio's mean over ΔV/4.
-pub(crate) fn adjoint_is_the_mode_sent_backward() -> (f64, c64) {
+#[doc(hidden)]
+pub fn adjoint_is_the_mode_sent_backward() -> (f64, c64) {
     let b = LossyBox::new(0, 64);
     let (_, adjoint, design, a, _) = b.forward_and_adjoint();
     let (back, _, monitor, amplitude) = b.run(&b.ahead, Direction::Backward);
@@ -574,7 +580,8 @@ pub(crate) fn adjoint_is_the_mode_sent_backward() -> (f64, c64) {
 
 /// A slab of ε = 4, 0.3 µm thick, in vacuum, lit at normal incidence at 1 c/µm (λ = 1 µm): its
 /// transmission T = 1/(1 + ((ε − 1)²/(4ε)) sin²(√ε k₀ d)) (Airy's formula) and dT/dε.
-pub(crate) fn airy() -> (f64, f64) {
+#[doc(hidden)]
+pub fn airy() -> (f64, f64) {
     let (eps, d, k0) = (4.0f64, 0.3, std::f64::consts::TAU);
     let a = (eps - 1.0).powi(2) / (4.0 * eps);
     let phase = eps.sqrt() * k0 * d;
@@ -591,7 +598,8 @@ pub(crate) fn airy() -> (f64, f64) {
 /// 0.5 c/µm wide, and F = |Ê_x|² 0.25 µm after it, at 1 c/µm. Returns F per unit incident
 /// |Ê_x|² (the run without the slab) and the adjoint gradient summed over the slab's cells per
 /// unit incident |Ê_x|² and unit ε: the discrete T and dT/dε.
-pub(crate) fn slab(h: f64) -> (f64, f64) {
+#[doc(hidden)]
+pub fn slab(h: f64) -> (f64, f64) {
     let cells = |length: f64| (length / h).round() as usize;
     let pml = 40;
     let (before, thick, after) = (cells(0.5), cells(0.3), cells(0.5));

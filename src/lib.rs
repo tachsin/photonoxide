@@ -61,8 +61,6 @@ pub mod device;
 pub mod export;
 pub mod facade;
 pub mod farm;
-pub mod fdfd;
-pub mod fdtd;
 pub mod generator;
 pub mod job;
 #[cfg(test)]
@@ -77,6 +75,10 @@ pub mod validation;
 #[doc(inline)]
 pub use photonoxide_core::{convergence, error, expr, parallel, units};
 use photonoxide_core::{lstsq, portable, stop, traffic, verdict};
+#[doc(inline)]
+pub use photonoxide_fdfd::fdfd;
+#[doc(inline)]
+pub use photonoxide_fdtd::fdtd;
 #[doc(inline)]
 pub use photonoxide_geometry::{averaging, geometry, material, raster, stack};
 #[doc(inline)]

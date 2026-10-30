@@ -923,7 +923,7 @@ fn averaged_eps(
 /// One sweep of the finest level's damped Jacobi without its matrix, as it acts on an error `e`
 /// of A x = b: e − ω D⁻¹ A e, A Shin and Fan's operator on `lattice` shifted as `options` says,
 /// D its diagonal from the stencil. For the checks of the smoother against its Fourier symbol.
-pub(crate) fn jacobi_on_error(
+pub fn jacobi_on_error(
     lattice: &Lattice,
     eps: &[c64],
     options: &Multigrid,

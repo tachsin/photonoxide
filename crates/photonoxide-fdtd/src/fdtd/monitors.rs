@@ -668,15 +668,16 @@ const GROWTH: f64 = 1e3;
 /// (docs/methods/fdtd.md, "Late growth"), which grows until the fields overflow, and which a
 /// finer grid removes. An FDTD job's run and [`Simulation::run_until_decayed`] both stop by it.
 ///
-/// Growing means rising at each of the last `needed` checks, to [`GROWTH`] times the level
+/// Growing means rising at each of the last `needed` checks, to `GROWTH` times the level
 /// before the first of them. `needed` spans more than the pulse lasts, so light reaching a
 /// point late, or a resonator filling, doesn't count: what a pulse lights rises for no longer
 /// than the pulse. A passive run's fields otherwise only fall: two resonators trading their
 /// energy slowly could look like it at monitors in only one of them, which a monitor in the
 /// other prevents.
 #[derive(Clone, Debug)]
-pub(crate) struct Growth {
-    pub(crate) needed: usize,
+pub struct Growth {
+    #[doc(hidden)]
+    pub needed: usize,
     /// The level before the current rise.
     start: f64,
     last: f64,
@@ -684,7 +685,8 @@ pub(crate) struct Growth {
 }
 
 impl Growth {
-    pub(crate) fn new(needed: usize) -> Growth {
+    #[doc(hidden)]
+    pub fn new(needed: usize) -> Growth {
         Growth {
             needed,
             start: 0.0,
@@ -695,13 +697,15 @@ impl Growth {
 
     /// For checks every `check` (µm/c) after a pulse that ends at `pulse_end`: rising at more
     /// checks in a row than the pulse lasts, and at 4 at least.
-    pub(crate) fn after(pulse_end: f64, check: f64) -> Growth {
+    #[doc(hidden)]
+    pub fn after(pulse_end: f64, check: f64) -> Growth {
         Growth::new(((pulse_end / check).ceil() as usize + 1).max(4))
     }
 
     /// Takes the level at a check: if the fields are growing, how many times the level before
     /// the rise they have reached.
-    pub(crate) fn check(&mut self, level: f64) -> Option<f64> {
+    #[doc(hidden)]
+    pub fn check(&mut self, level: f64) -> Option<f64> {
         if self.last > 0.0 && level > self.last {
             if self.rises == 0 {
                 self.start = self.last;

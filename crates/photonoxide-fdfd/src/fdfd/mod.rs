@@ -123,7 +123,8 @@ pub enum Edges {
 }
 
 impl Edges {
-    pub(crate) fn pml(self) -> (usize, usize) {
+    #[doc(hidden)]
+    pub fn pml(self) -> (usize, usize) {
         match self {
             Edges::Pml { low, high } => (low, high),
             Edges::Bloch { .. } => (0, 0),
@@ -163,7 +164,8 @@ impl Boundaries {
 /// The permittivity of the cell [x ± hx/2] × [y ± hy/2] for a field component along `along`
 /// (0: x, 1: y, 2: z), from `samples`² points: harmonic along the component and arithmetic
 /// across it; along z, arithmetic over the cell.
-fn averaged(
+#[doc(hidden)]
+pub fn averaged(
     eps: &impl Fn(f64, f64) -> c64,
     (x, y): (f64, f64),
     (hx, hy): (f64, f64),
@@ -245,17 +247,20 @@ pub struct Solver2d {
     k0: f64,
     boundaries: Boundaries,
     /// Ez: ε_z at the centres, `nx` × `ny`.
-    eps_z: Vec<c64>,
+    #[doc(hidden)]
+    pub eps_z: Vec<c64>,
     /// Hz: ε_y on the x-faces (x0 + i dx, i = 0 … nx), `(nx + 1)` × `ny`.
     eps_y: Vec<c64>,
     /// Hz: ε_x on the y-faces (y0 + j dy, j = 0 … ny), `nx` × `(ny + 1)`.
     eps_x: Vec<c64>,
     /// The matrix's entries, for its products with sources.
-    entries: Vec<Triplet<usize, usize, c64>>,
+    #[doc(hidden)]
+    pub entries: Vec<Triplet<usize, usize, c64>>,
     /// The factors ([`direct::Direct`]: L D Lᵀ of the complex symmetric similarity, or LU);
     /// their analysis (matching, ordering and symbolic factorization) depends on the grid, the
     /// boundaries and roughly on the values, and [`Solver2d::reuse`] reuses it.
-    lu: Direct,
+    #[doc(hidden)]
+    pub lu: Direct,
     /// Given cell by cell ([`Solver2d::from_cells`]), so a cell's permittivity is a parameter.
     cellwise: bool,
     /// How the cells were averaged: [`Averaging::Samples`] unless given a plane
@@ -333,7 +338,8 @@ impl Solver2d {
     }
 
     /// The factors' entries, as the direct solver reports them.
-    pub(crate) fn factor_entries(&self) -> Option<u64> {
+    #[doc(hidden)]
+    pub fn factor_entries(&self) -> Option<u64> {
         self.lu.report().factor_entries.map(|e| e as u64)
     }
 
@@ -713,7 +719,8 @@ fn face_mean(n: usize, len: usize, bloch: bool, cell: impl Fn(usize) -> c64) -> 
 }
 
 /// The checks every problem passes: the grid, and the boundaries on it.
-pub(crate) fn check(grid: Grid, b: &Boundaries) -> Result<()> {
+#[doc(hidden)]
+pub fn check(grid: Grid, b: &Boundaries) -> Result<()> {
     grid.check()?;
     if !(b.reflection > 0.0 && b.reflection < 1.0) || !(b.order.is_finite() && b.order >= 0.0) {
         return Err(Error::invalid(
@@ -828,7 +835,8 @@ impl Solver2d {
 }
 
 /// The matrix: at each cell, the four faces' couplings and the diagonal.
-pub(crate) fn assemble(
+#[doc(hidden)]
+pub fn assemble(
     g: Grid,
     polarization: Polarization,
     k0: f64,
@@ -914,10 +922,8 @@ pub(crate) fn assemble(
 
 /// What `auto` chooses a direct solver for, for the 2D problem on `grid` inside `boundaries`:
 /// a system with a complex symmetric similarity unless a side is Bloch-periodic.
-pub(crate) fn problem_2d(
-    grid: Grid,
-    boundaries: &Boundaries,
-) -> crate::backend::auto::Problem<'static> {
+#[doc(hidden)]
+pub fn problem_2d(grid: Grid, boundaries: &Boundaries) -> crate::backend::auto::Problem<'static> {
     let bloch = |e: Edges| matches!(e, Edges::Bloch { .. });
     crate::backend::auto::Problem {
         family: "fdfd2d",
@@ -951,7 +957,8 @@ pub struct Field2d {
     grid: Grid,
     polarization: Polarization,
     k0: f64,
-    values: Vec<c64>,
+    #[doc(hidden)]
+    pub values: Vec<c64>,
     /// Hz: ε_x on the y-faces and ε_y on the x-faces, for the fluxes.
     eps_x: Vec<c64>,
     eps_y: Vec<c64>,
@@ -1023,25 +1030,23 @@ impl Field2d {
 }
 
 mod adjoint;
-#[path = "../cases/fdfd/checks.rs"]
-pub(crate) mod checks;
-#[path = "../cases/fdfd/crystal_checks.rs"]
-pub(crate) mod crystal_checks;
-#[cfg(test)]
-#[path = "../cases/fdfd/crystal_tests.rs"]
-mod crystal_tests;
-pub(crate) mod direct;
-mod fill;
-#[path = "../cases/fdfd/fill_checks.rs"]
-pub(crate) mod fill_checks;
+#[doc(hidden)]
+pub mod direct;
+#[doc(hidden)]
+pub mod fill;
 mod ports;
-#[cfg(test)]
-mod tests;
 mod three;
+/// What photonoxide uses of `three`. The module stays private: its public types are re-exported
+/// here, and a hidden module would hide them from the API listing.
+#[doc(hidden)]
+pub mod three_items {
+    pub use super::three::*;
+}
 
 // the Krylov solvers live in `backend` now (#508); these are their old paths
 pub use photonoxide_linalg::CycleShape;
-pub(crate) use photonoxide_linalg::krylov;
+#[doc(hidden)]
+pub use photonoxide_linalg::krylov;
 pub use photonoxide_linalg::{BlockConvergence, Convergence, Stopping};
 pub use ports::{Direction, Port, PortMode, Side};
 pub use three::{
@@ -1049,13 +1054,11 @@ pub use three::{
     Port3d, PortMode3d, Product, Recycler, Solver3d,
 };
 
-pub(crate) use three::adjoint as checks3d_adjoint;
-pub(crate) use three::block_checks as block_checks3d;
-pub(crate) use three::checks as checks3d;
-pub(crate) use three::port_checks as port_checks3d;
-pub(crate) use three::recycle_checks as recycle_checks3d;
-pub(crate) use three::stencil_checks as stencil_checks3d;
-pub(crate) use three::{MATRIX_FREE_SOLVE_BYTES, MATRIX_SOLVE_BYTES};
-pub(crate) use three::{
+#[doc(hidden)]
+pub use three::adjoint as checks3d_adjoint;
+#[doc(hidden)]
+pub use three::{MATRIX_FREE_SOLVE_BYTES, MATRIX_SOLVE_BYTES};
+#[doc(hidden)]
+pub use three::{
     averaged as averaged_3d, mode_amplitude_weights_of, mode_amplitudes_of, positions,
 };

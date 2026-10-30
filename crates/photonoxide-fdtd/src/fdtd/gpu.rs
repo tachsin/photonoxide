@@ -366,7 +366,8 @@ static STEPS: [AtomicUsize; 2] = [AtomicUsize::new(0), AtomicUsize::new(0)];
 /// GPU can't step fall back to the CPU when they first step. Returns `f`'s result and the steps
 /// taken on the GPU and on the CPU meanwhile. For running the validation cases on the GPU, one
 /// at a time: the default is the process's.
-pub(crate) fn everything_on<T>(gpu: &Gpu, f: impl FnOnce() -> T) -> (T, [usize; 2]) {
+#[doc(hidden)]
+pub fn everything_on<T>(gpu: &Gpu, f: impl FnOnce() -> T) -> (T, [usize; 2]) {
     *DEFAULT.lock().unwrap_or_else(|e| e.into_inner()) = Some(gpu.clone());
     for s in &STEPS {
         s.store(0, Ordering::Relaxed);
@@ -466,7 +467,9 @@ pub(crate) fn for_tests(precision: Precision) -> Option<Gpu> {
     }
 }
 
-pub(crate) mod checks;
-pub(crate) mod rates;
+#[doc(hidden)]
+pub mod checks;
+#[doc(hidden)]
+pub mod rates;
 #[cfg(test)]
 mod tests;

@@ -125,18 +125,21 @@ impl PortMode3d {
     }
 
     /// The wavenumber k₀ = ω/c the mode was solved at, rad/µm.
-    pub(crate) fn k0(&self) -> f64 {
+    #[doc(hidden)]
+    pub fn k0(&self) -> f64 {
         self.k0
     }
 
     /// The cells along the plane's two axes, `axis.others()`, and the step along the axis.
-    pub(crate) fn shape(&self) -> ([usize; 2], f64) {
+    #[doc(hidden)]
+    pub fn shape(&self) -> ([usize; 2], f64) {
         (self.size, self.step)
     }
 
     /// The mode with the imaginary parts of its profile and of β dropped: what an adjoint that
     /// treats the mode as real would project on, for the check that shows it is wrong.
-    pub(crate) fn real_part(&self) -> PortMode3d {
+    #[doc(hidden)]
+    pub fn real_part(&self) -> PortMode3d {
         let mut m = self.clone();
         for v in m.tangential.iter_mut().chain(m.normal.iter_mut()) {
             *v = c64::new(v.re, 0.0);
@@ -154,14 +157,16 @@ impl PortMode3d {
     }
 
     /// The mode's value `r` of the 3D field, going `direction` at unit amplitude on the plane.
-    pub(super) fn value(&self, lattice: &Lattice, r: usize, direction: Direction) -> c64 {
+    #[doc(hidden)]
+    pub fn value(&self, lattice: &Lattice, r: usize, direction: Direction) -> c64 {
         let (component, at) = lattice.grid.at(r);
         self.value_at(component, at, direction)
     }
 
     /// The mode's `component` at the 3D index `at`, going `direction` at unit amplitude on the
     /// plane: its profile on the plane, carried along the axis as e^(±iβΔa) per step.
-    pub(crate) fn value_at(&self, component: Axis, at: [usize; 3], direction: Direction) -> c64 {
+    #[doc(hidden)]
+    pub fn value_at(&self, component: Axis, at: [usize; 3], direction: Direction) -> c64 {
         let (b, c) = self.axis.others();
         let (u, v, m) = (at[b.index()], at[c.index()], at[self.axis.index()]);
         let steps = m as f64 - self.plane as f64;
@@ -222,7 +227,8 @@ impl Window<'_> {
 impl Lattice {
     /// The product of the PML's stretches along the three axes at E's value `r`: the weight V
     /// that makes V A symmetric.
-    pub(crate) fn volume(&self, r: usize) -> c64 {
+    #[doc(hidden)]
+    pub fn volume(&self, r: usize) -> c64 {
         let (component, at) = self.grid.at(r);
         Axis::ALL
             .into_iter()
@@ -402,7 +408,8 @@ impl Lattice {
 
     /// The `count` modes of the guide crossing `plane` normal to `axis`, within `window`,
     /// highest effective index first (see the module's docs).
-    pub(crate) fn port_modes(
+    #[doc(hidden)]
+    pub fn port_modes(
         &self,
         eps: &[c64],
         (axis, plane): (Axis, usize),
@@ -630,11 +637,8 @@ impl Lattice {
     }
 
     /// The forward and backward amplitudes of `mode` in the field whose value `r` is `u(r)`.
-    pub(crate) fn mode_amplitudes(
-        &self,
-        mode: &PortMode3d,
-        u: &impl Fn(usize) -> c64,
-    ) -> (c64, c64) {
+    #[doc(hidden)]
+    pub fn mode_amplitudes(&self, mode: &PortMode3d, u: &impl Fn(usize) -> c64) -> (c64, c64) {
         assert!(
             self.fits(mode),
             "the mode must come from this problem's port_modes"
@@ -655,7 +659,8 @@ impl Lattice {
     }
 
     /// The S-matrix between `ports`, from `solve`, which gives the field for a right-hand side.
-    pub(crate) fn s_matrix(
+    #[doc(hidden)]
+    pub fn s_matrix(
         &self,
         ports: &[Port3d],
         mut solve: impl FnMut(&[c64]) -> Result<Field3d>,
@@ -747,7 +752,7 @@ fn propagates(beta: c64) -> bool {
 /// # Panics
 ///
 /// If the mode's plane doesn't fit `grid` (its size and step) or the next plane isn't on it.
-pub(crate) fn mode_amplitudes_of(
+pub fn mode_amplitudes_of(
     grid: Grid3d,
     boundaries: Boundaries3d,
     mode: &PortMode3d,
@@ -767,7 +772,7 @@ pub(crate) fn mode_amplitudes_of(
 /// # Panics
 ///
 /// As [`mode_amplitudes_of`].
-pub(crate) fn mode_amplitude_weights_of(
+pub fn mode_amplitude_weights_of(
     grid: Grid3d,
     boundaries: Boundaries3d,
     mode: &PortMode3d,

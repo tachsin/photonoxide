@@ -296,7 +296,8 @@ impl Dispersive {
     /// whose curl's largest eigenvalue is `top` (4 Σ wᵢ/Δᵢ²): every (KΔt)² up to `top` Δt²,
     /// in 200 steps. K = 0 is left out: there z = 1 is a double root, a static field, which
     /// the iteration finds only to the cube root of round-off.
-    pub(super) fn stable(&self, sigma: f64, dt: f64, top: f64) -> bool {
+    #[doc(hidden)]
+    pub fn stable(&self, sigma: f64, dt: f64, top: f64) -> bool {
         let points = 200;
         let most = top * dt * dt;
         (1..=points).all(|i| {

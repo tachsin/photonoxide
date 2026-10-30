@@ -318,7 +318,7 @@ fn time_a_3d_problem() {
 }
 
 #[test]
-#[ignore = "a timing, for the docs: FDFD3D_LENGTH=40 cargo test --release fdfd::three::tests::time_qmr -- --ignored --nocapture"]
+#[ignore = "a timing, for the docs: FDFD3D_LENGTH=40 cargo test --release fdfd::three_items::tests::time_qmr -- --ignored --nocapture"]
 fn time_qmr_on_a_silicon_guide() {
     // Shin and Fan's Diel (their Fig. 9b), smaller: a silicon guide (400 x 300 nm, eps 12.09)
     // along x in vacuum, 1.55 um, 10 nm grid, PMLs of 10 cells all round, a y-polarized current
@@ -552,7 +552,7 @@ fn shin_and_fans_square_converges_as_their_fig_3_shows() {
 }
 
 #[test]
-#[ignore = "iteration counts, for the docs: cargo test --release fdfd::three::tests::iteration_counts -- --ignored --nocapture"]
+#[ignore = "iteration counts, for the docs: cargo test --release fdfd::three_items::tests::iteration_counts -- --ignored --nocapture"]
 fn iteration_counts_with_and_without_shin_and_fans_operator() {
     // 40^3 cells of 10 nm (0.4 um across), 1.55 um, an x-polarized current near the centre;
     // periodic, or PMLs of 10 cells all round; QMR to a relative residual of 1e-6 of each system
@@ -643,7 +643,7 @@ fn iteration_counts_with_and_without_shin_and_fans_operator() {
 }
 
 #[test]
-#[ignore = "field errors, for the docs: cargo test --release fdfd::three::tests::field_error -- --ignored --nocapture"]
+#[ignore = "field errors, for the docs: cargo test --release fdfd::three_items::tests::field_error -- --ignored --nocapture"]
 fn field_error_against_iterations() {
     // as iteration_counts_with_and_without_shin_and_fans_operator, with PMLs: QMR on each
     // operator to tolerances 1e-5 to 1e-8 of its own residual, and the field's error against a
@@ -721,7 +721,7 @@ fn field_error_against_iterations() {
 }
 
 #[test]
-#[ignore = "port modes against the mode solvers, for the docs: PORT_GRIDS=0.02,0.01,0.005 cargo test --release fdfd::three::tests::port_modes_against -- --ignored --nocapture"]
+#[ignore = "port modes against the mode solvers, for the docs: PORT_GRIDS=0.02,0.01,0.005 cargo test --release fdfd::three_items::tests::port_modes_against -- --ignored --nocapture"]
 fn port_modes_against_the_mode_solvers() {
     use super::port_checks::{strip_port_indices, strip_solver_indices};
     let grids: Vec<f64> = std::env::var("PORT_GRIDS")
@@ -824,7 +824,7 @@ fn a_pml_stretched_as_much_as_it_absorbs_barely_reflects_too() {
 }
 
 #[test]
-#[ignore = "QMR with and without ILU(0), for the docs: PRECONDITION_CASE=guide|diel cargo test --release fdfd::three::tests::qmr_with_ilu -- --ignored --nocapture"]
+#[ignore = "QMR with and without ILU(0), for the docs: PRECONDITION_CASE=guide|diel cargo test --release fdfd::three_items::tests::qmr_with_ilu -- --ignored --nocapture"]
 fn qmr_with_ilu_against_plain_qmr() {
     // each solve against its own problem's reference (ILU(0) on Shin and Fan's operator to
     // 1e-12), at several tolerances: iterations, time, and the field's error
@@ -1004,7 +1004,7 @@ fn ilu_on_the_curl_curl_operator_is_an_error() {
 }
 
 #[test]
-#[ignore = "a strip's S-matrix by QMR, for the docs: cargo test --release fdfd::three::tests::a_strips_s_matrix_by_qmr -- --ignored --nocapture"]
+#[ignore = "a strip's S-matrix by QMR, for the docs: cargo test --release fdfd::three_items::tests::a_strips_s_matrix_by_qmr -- --ignored --nocapture"]
 fn a_strips_s_matrix_by_qmr() {
     // a straight silicon strip (0.5 x 0.22 um) in oxide on a 20 nm grid, ports 0.6 um apart:
     // S21 must be e^(i beta L) and S11 zero, whatever the PMLs, so their errors measure the
@@ -1178,7 +1178,7 @@ fn a_strips_s_matrix_by_qmr() {
 
 #[test]
 fn gmres_with_the_multigrid_gives_the_direct_solvers_field() {
-    let (error, iterations) = crate::fdfd::checks3d::multigrid_against_direct();
+    let (error, iterations) = crate::cases::fdfd::three::checks::multigrid_against_direct();
     assert!(error < 1e-8, "{error}");
     // measured 2.0e-10 in 24 iterations, against 160 for QMR with ILU(0) on the same problem
     assert!(iterations < 40, "{iterations}");
@@ -1265,7 +1265,7 @@ fn nested_dissection_gives_colamds_solution() {
 }
 
 #[test]
-#[ignore = "whether a diagonal scaling makes the 3D matrices symmetric: cargo test --release fdfd::three::tests::symmetrizable -- --ignored --nocapture"]
+#[ignore = "whether a diagonal scaling makes the 3D matrices symmetric: cargo test --release fdfd::three_items::tests::symmetrizable -- --ignored --nocapture"]
 fn symmetrizable() {
     // for each matrix A, a diagonal d with d_i A_ij = d_j A_ji, found by walking A's graph from
     // each unvisited unknown, and the largest relative mismatch over all entries
@@ -1358,7 +1358,7 @@ fn symmetrizable() {
 }
 
 #[test]
-#[ignore = "symmetric QMR and COCG against QMR, for the docs: SYM_CELLS=40 cargo test --release fdfd::three::tests::symmetric_solvers -- --ignored --nocapture"]
+#[ignore = "symmetric QMR and COCG against QMR, for the docs: SYM_CELLS=40 cargo test --release fdfd::three_items::tests::symmetric_solvers -- --ignored --nocapture"]
 fn symmetric_solvers() {
     // the 40^3 guide of the benchmark (100 nm of silicon in vacuum, a dipole beside it, cells of
     // 10 nm, plain PMLs of 10), on the curl-curl operator: QMR on A, QMR for complex symmetric
@@ -1492,7 +1492,7 @@ fn symmetric_solvers() {
 }
 
 #[test]
-#[ignore = "ILU(0) with triangular solves by Jacobi sweeps, for the docs: SWEEP_CASE=guide|diel cargo test --release fdfd::three::tests::ilu_sweeps -- --ignored --nocapture"]
+#[ignore = "ILU(0) with triangular solves by Jacobi sweeps, for the docs: SWEEP_CASE=guide|diel cargo test --release fdfd::three_items::tests::ilu_sweeps -- --ignored --nocapture"]
 fn ilu_sweeps() {
     // the benchmark's guide (40^3 cells of 10 nm, stretched PMLs of 10) or Diel (40 x 90 x 80),
     // by QMR + ILU(0) on Shin and Fan's operator to 1e-8, its triangular solves exact or by k

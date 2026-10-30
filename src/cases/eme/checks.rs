@@ -243,7 +243,7 @@ pub(crate) fn stepped_eme(modes: usize) -> (c64, c64) {
 /// The stepped taper's |S₁₁|² by 2D FDFD (E along z, the guides' fundamental port modes at 0.3
 /// and 1.7 µm, PMLs of 20 cells beyond ±1.5 µm) on an `h` grid.
 pub(crate) fn stepped_fdfd(h: f64) -> f64 {
-    use crate::fdfd::checks::{guide, two_ports};
+    use crate::cases::fdfd::checks::{guide, two_ports};
     let solver = guide(crate::fdfd::Polarization::Ez, h, 2.0, (CORE, CLAD), stepped);
     let ports = two_ports(&solver);
     solver.s_matrix(&ports).expect("the S-matrix")[0][0].norm_sqr()

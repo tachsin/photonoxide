@@ -188,7 +188,8 @@ pub(crate) fn table_one_entries() -> Vec<Entry> {
 
 /// For a lossless sphere the power taken from the wave is the power scattered: the largest
 /// |Q_ext − Q_sca|/Q_sca over spheres from α = 0.1 to 1000.
-pub(crate) fn lossless_balance() -> f64 {
+#[doc(hidden)]
+pub fn lossless_balance() -> f64 {
     let mut worst: f64 = 0.0;
     for &size in &[0.1, 0.5, 1.0, 3.0, 10.0, 30.0, 100.0, 300.0, 1000.0] {
         for &index in &[1.05, 1.33, 1.5, 2.0, 3.5] {
@@ -201,7 +202,8 @@ pub(crate) fn lossless_balance() -> f64 {
 }
 
 /// The error in Q_ext of the first `terms` terms, against the converged series.
-pub(crate) fn truncation_error(size: f64, index: c64, terms: usize) -> f64 {
+#[doc(hidden)]
+pub fn truncation_error(size: f64, index: c64, terms: usize) -> f64 {
     let full = Mie::new(size, Some(index)).expect("valid").extinction();
     let part = Mie::with_terms(size, Some(index), terms)
         .expect("valid")
@@ -211,7 +213,8 @@ pub(crate) fn truncation_error(size: f64, index: c64, terms: usize) -> f64 {
 
 /// What a sphere in the FDTD runs is made of.
 #[derive(Clone, Debug)]
-pub(crate) enum Material {
+#[doc(hidden)]
+pub enum Material {
     /// A real permittivity, taken by the given average over each cell.
     Dielectric(f64, crate::fdtd::Average),
     /// A dispersive medium, sampled at each value of E.
@@ -219,7 +222,7 @@ pub(crate) enum Material {
 }
 
 /// A sphere's cross-sections from an FDTD run, and Mie's at the same frequencies.
-pub(crate) struct SphereRun {
+pub struct SphereRun {
     /// The scattering cross-sections over πρ², from the flux out of a box in the scattered
     /// field.
     pub(crate) scattering: Vec<f64>,
@@ -237,7 +240,8 @@ pub(crate) const SIZES: [f64; 9] = [1.0, 1.25, 1.5, 1.75, 2.0, 2.25, 2.5, 2.75, 
 /// from flux boxes outside and inside the TF/SF box, divided by the incident intensity from a
 /// run of the same plane wave on a grid one cell across (periodic) at the same step. Mie's
 /// series takes the permittivity the leapfrog sees at each frequency, for a dispersive sphere.
-pub(crate) fn sphere_run(cells: usize, material: &Material, time: f64) -> SphereRun {
+#[doc(hidden)]
+pub fn sphere_run(cells: usize, material: &Material, time: f64) -> SphereRun {
     use crate::fdfd::{Axis, Edges};
     use crate::fdtd::{
         Body, Boundaries, FluxPlane, Permittivity, PlaneWave, Simulation, Smoothing, Structure,
@@ -367,7 +371,8 @@ pub(crate) fn sphere_run(cells: usize, material: &Material, time: f64) -> Sphere
 impl SphereRun {
     /// The mean of |C/C_Mie − 1| over the band, for scattering and, if `absorption`, for
     /// absorption too.
-    pub(crate) fn mean_error(&self, absorption: bool) -> f64 {
+    #[doc(hidden)]
+    pub fn mean_error(&self, absorption: bool) -> f64 {
         let relative = |a: f64, b: f64| (a / b - 1.0).abs();
         let mut errors: Vec<f64> = self
             .scattering
@@ -387,7 +392,8 @@ impl SphereRun {
     }
 
     /// The largest |C_abs| over the band relative to C_sca: zero for a lossless sphere.
-    pub(crate) fn spurious_absorption(&self) -> f64 {
+    #[doc(hidden)]
+    pub fn spurious_absorption(&self) -> f64 {
         self.absorption
             .iter()
             .zip(&self.scattering)
@@ -398,12 +404,14 @@ impl SphereRun {
 
 /// The time the FDTD sphere runs last, µm/c: the pulse, and the ringing after it below 10⁻³ of
 /// its power.
-pub(crate) const SPHERE_TIME: f64 = 100.0;
+#[doc(hidden)]
+pub const SPHERE_TIME: f64 = 100.0;
 
 /// The damped Drude metal of the FDTD sphere runs: ε = 1 − ω_p²/(ω² + iγω), f_p = 0.5 c/µm,
 /// γ/2π = 0.2 c/µm; over α = 1 to 3 (radius 1 µm), Re ε from −2.8 to 0.3 and Im ε from 4.8 to
 /// 0.5.
-pub(crate) fn damped_drude() -> crate::fdtd::Dispersive {
+#[doc(hidden)]
+pub fn damped_drude() -> crate::fdtd::Dispersive {
     crate::fdtd::Dispersive {
         eps_inf: 1.0,
         poles: vec![crate::fdtd::Pole::Drude {
@@ -421,7 +429,8 @@ pub(crate) const TABLE_ONE_OFF: [(u32, f64); 5] =
 
 /// Mie's Table I against the series: the median |Δ𝔞₁|, and whether the entries off by more
 /// than 0.016 are [`TABLE_ONE_OFF`], of all 66.
-pub(crate) fn table_one_agreement() -> (f64, bool) {
+#[doc(hidden)]
+pub fn table_one_agreement() -> (f64, bool) {
     let entries = table_one_entries();
     let mut deviations: Vec<f64> = entries.iter().map(|e| (e.series - e.mie).norm()).collect();
     deviations.sort_by(f64::total_cmp);

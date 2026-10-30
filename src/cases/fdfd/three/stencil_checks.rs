@@ -286,29 +286,31 @@ mod tests {
     use super::*;
 
     #[test]
-    #[ignore = "a measurement, for the docs and fdfd3d/multigrid-stencil-refinement: cargo test --release fdfd::three::stencil_checks::tests::iterations_as_the_grid_refines -- --ignored --nocapture"]
+    #[ignore = "a measurement, for the docs and fdfd3d/multigrid-stencil-refinement: cargo test --release fdfd::three_items::stencil_checks::tests::iterations_as_the_grid_refines -- --ignored --nocapture"]
     fn iterations_as_the_grid_refines() {
         println!("{:?}", refinement());
     }
 
     #[test]
-    #[ignore = "a measurement, the validation cases' values for their sources: cargo test --release fdfd::three::stencil_checks::tests::the_cases_values -- --ignored --nocapture"]
+    #[ignore = "a measurement, the validation cases' values for their sources: cargo test --release fdfd::three_items::stencil_checks::tests::the_cases_values -- --ignored --nocapture"]
     fn the_cases_values() {
         use super::super::{Coarse, Product};
-        use crate::fdfd::recycle_checks3d::stencil_against_stored;
+        use crate::cases::fdfd::three::recycle_checks::stencil_against_stored;
         for coarse in [Coarse::Galerkin, Coarse::Rediscretized] {
             let options = Multigrid {
                 coarse,
                 ..Multigrid::default()
             };
-            let direct =
-                crate::fdfd::checks3d::multigrid_of_against_direct(Product::MatrixFree, options);
+            let direct = crate::cases::fdfd::three::checks::multigrid_of_against_direct(
+                Product::MatrixFree,
+                options,
+            );
             let sweep = stencil_against_stored(options);
             println!("{coarse:?}: against the direct solver {direct:?}; the sweep {sweep:?}");
         }
         println!(
             "stored against the direct solver {:?}",
-            crate::fdfd::checks3d::multigrid_against_direct()
+            crate::cases::fdfd::three::checks::multigrid_against_direct()
         );
         println!("plane waves {:?}", plane_wave_damping());
         println!("Table 5 {:?}", table_5());

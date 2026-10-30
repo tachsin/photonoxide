@@ -34,7 +34,7 @@ use crate::{Error, Result};
 /// [`Error::OutsideValidity`] if a material has no data at `wavelength`, and
 /// [`Error::InvalidValue`] for [`Averaging::Tensor`], whose off-diagonal coupling the 3D problem
 /// doesn't have.
-pub(crate) fn structure_values(
+pub fn structure_values(
     grid: Grid3d,
     wavelength: Wavelength,
     structure: &Structure,

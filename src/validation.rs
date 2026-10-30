@@ -2213,7 +2213,7 @@ pub fn cases() -> Vec<Case> {
     cases.extend(crate::cases::stack::checks::cases());
     // and the averaging from the fill, and FDFD reading it, with Farjadpour et al.'s crystal
     cases.extend(crate::averaging::checks::cases());
-    cases.extend(crate::fdfd::fill_checks::cases());
+    cases.extend(crate::cases::fdfd::fill_checks::cases());
     // and the static solver's: heat, electrostatics and current on a cross-section
     cases.extend(crate::cases::statics::checks::cases());
     // and a temperature in the modes: dn/dT by perturbation and by re-solve, a heat solve's field
@@ -2517,7 +2517,7 @@ fn circuit_unitarity() -> Outcome {
 }
 
 fn fdfd3d_port_mode_slab(kind: Polarization, tolerance: f64) -> Outcome {
-    let (got, exact) = crate::fdfd::port_checks3d::slab_port_index(kind, 0.0025);
+    let (got, exact) = crate::cases::fdfd::three::port_checks::slab_port_index(kind, 0.0025);
     Outcome {
         measured: got,
         expected: exact,
@@ -2537,7 +2537,7 @@ fn fdfd3d_port_mode_slab_tm() -> Outcome {
 }
 
 fn fdfd3d_port_mode_strip() -> Outcome {
-    let [te, _] = crate::fdfd::port_checks3d::strip_port_indices(0.02);
+    let [te, _] = crate::cases::fdfd::three::port_checks::strip_port_indices(0.02);
     // Hadley's equations on 20, 10 and 5 nm grids (2.44558833, 2.44543164, 2.44539267),
     // extrapolated at their fitted order (2.01)
     let limit = 2.445380;
@@ -2551,7 +2551,7 @@ fn fdfd3d_port_mode_strip() -> Outcome {
 }
 
 fn fdfd3d_straight_strip() -> Outcome {
-    let (worst, _) = crate::fdfd::port_checks3d::straight_strip();
+    let (worst, _) = crate::cases::fdfd::three::port_checks::straight_strip();
     Outcome {
         measured: worst,
         expected: 0.0,
@@ -2562,7 +2562,7 @@ fn fdfd3d_straight_strip() -> Outcome {
 }
 
 fn fdfd3d_reciprocity() -> Outcome {
-    let s = crate::fdfd::port_checks3d::width_step();
+    let s = crate::cases::fdfd::three::port_checks::width_step();
     let asymmetry = (s[1][0] - s[0][1]).norm() / s[1][0].norm();
     Outcome {
         measured: asymmetry,
@@ -2574,7 +2574,7 @@ fn fdfd3d_reciprocity() -> Outcome {
 }
 
 fn fdfd3d_closed_guide_energy() -> Outcome {
-    use crate::fdfd::port_checks3d::{closed_step, unitarity};
+    use crate::cases::fdfd::three::port_checks::{closed_step, unitarity};
     let (s, _) = closed_step(20);
     let distance = unitarity(&s);
     Outcome {
@@ -2587,7 +2587,7 @@ fn fdfd3d_closed_guide_energy() -> Outcome {
 }
 
 fn fdfd3d_two_d_s_matrix() -> Outcome {
-    use crate::fdfd::port_checks3d::two_d_s_difference;
+    use crate::cases::fdfd::three::port_checks::two_d_s_difference;
     let worst = two_d_s_difference(crate::fdfd::Polarization::Ez)
         .max(two_d_s_difference(crate::fdfd::Polarization::Hz));
     Outcome {
@@ -2600,8 +2600,8 @@ fn fdfd3d_two_d_s_matrix() -> Outcome {
 }
 
 fn fdfd3d_qmr_direct() -> Outcome {
+    use crate::cases::fdfd::three::checks::qmr_against_direct;
     use crate::fdfd::Formulation;
-    use crate::fdfd::checks3d::qmr_against_direct;
     let worst = qmr_against_direct(Formulation::CurlCurl)
         .0
         .max(qmr_against_direct(Formulation::ShinFan).0);
@@ -2616,8 +2616,8 @@ fn fdfd3d_qmr_direct() -> Outcome {
 }
 
 fn fdfd3d_qmr_symmetric_direct() -> Outcome {
+    use crate::cases::fdfd::three::checks::qmr_against_direct;
     use crate::fdfd::Formulation;
-    use crate::fdfd::checks3d::qmr_against_direct;
     // the curl-curl operator with PMLs is solved by QMR for symmetric matrices
     let worst = qmr_against_direct(Formulation::CurlCurl).0;
     Outcome {
@@ -2630,7 +2630,7 @@ fn fdfd3d_qmr_symmetric_direct() -> Outcome {
 }
 
 fn fdfd3d_ldlt_lu() -> Outcome {
-    let (worst, symmetric) = crate::fdfd::checks3d::ldlt_against_lu();
+    let (worst, symmetric) = crate::cases::fdfd::three::checks::ldlt_against_lu();
     // the solver must have taken L D Lᵀ for the comparison to mean anything
     let measured = if symmetric { worst } else { f64::INFINITY };
     Outcome {
@@ -2883,7 +2883,7 @@ fn fdtd_lorentz_group_delay() -> Outcome {
 }
 
 fn fdtd_bloch_fdfd() -> Outcome {
-    use crate::fdtd::bloch_checks::against_fdfd;
+    use crate::cases::fdtd::bloch_checks::against_fdfd;
     let measured = against_fdfd(false).max(against_fdfd(true));
     Outcome {
         measured,
@@ -2895,7 +2895,7 @@ fn fdtd_bloch_fdfd() -> Outcome {
 }
 
 fn fdtd_bloch_multilayer() -> Outcome {
-    use crate::fdtd::bloch_checks::multilayer;
+    use crate::cases::fdtd::bloch_checks::multilayer;
     let measured = multilayer(0.005, false).0.max(multilayer(0.005, true).0);
     Outcome {
         measured,
@@ -2907,7 +2907,7 @@ fn fdtd_bloch_multilayer() -> Outcome {
 }
 
 fn fdtd_bloch_bands() -> Outcome {
-    use crate::fdtd::bloch_checks::{analytic_bands, bands};
+    use crate::cases::fdtd::bloch_checks::{analytic_bands, bands};
     let k = 0.3 * std::f64::consts::PI / 0.5;
     let exact = analytic_bands(k, 2.0);
     let got = bands(0.00625, k);
@@ -2962,7 +2962,7 @@ fn fdtd_fitted_slab() -> Outcome {
 }
 
 fn fdtd_smoothing_slab() -> Outcome {
-    use crate::fdtd::smoothing::checks::slab_error;
+    use crate::fdtd::smoothing_items::checks::slab_error;
     let eps = crate::fdtd::Permittivity::isotropic(4.0).expect("ε");
     let measured = slab_error(1.0 / 160.0, eps, crate::fdtd::Smoothing::default());
     Outcome {
@@ -2975,7 +2975,7 @@ fn fdtd_smoothing_slab() -> Outcome {
 }
 
 fn fdtd_smoothing_anisotropic_slab() -> Outcome {
-    use crate::fdtd::smoothing::checks::{slab_error, tilted_crystal};
+    use crate::fdtd::smoothing_items::checks::{slab_error, tilted_crystal};
     let smoothing = crate::fdtd::Smoothing::default();
     let measured = slab_error(1.0 / 160.0, tilted_crystal(), smoothing);
     Outcome {
@@ -2993,7 +2993,7 @@ fn fdtd_smoothing_oblique() -> Outcome {
         coupling: Coupling::Points,
         ..Smoothing::default()
     };
-    let measured = crate::fdtd::smoothing::checks::oblique(points, 128).abs();
+    let measured = crate::fdtd::smoothing_items::checks::oblique(points, 128).abs();
     Outcome {
         measured,
         expected: 0.0,
@@ -3005,7 +3005,7 @@ fn fdtd_smoothing_oblique() -> Outcome {
 
 fn fdtd_smoothing_oblique_nodes() -> Outcome {
     let smoothing = crate::fdtd::Smoothing::with(crate::fdtd::Average::Subpixel);
-    let measured = crate::fdtd::smoothing::checks::oblique(smoothing, 128).abs();
+    let measured = crate::fdtd::smoothing_items::checks::oblique(smoothing, 128).abs();
     Outcome {
         measured,
         expected: 0.0,
@@ -3017,7 +3017,8 @@ fn fdtd_smoothing_oblique_nodes() -> Outcome {
 
 fn fdtd_smoothing_energy() -> Outcome {
     use crate::fdtd::Coupling;
-    let measured = crate::fdtd::smoothing::checks::tensor_energy_drift(Coupling::Nodes, 100_000);
+    let measured =
+        crate::fdtd::smoothing_items::checks::tensor_energy_drift(Coupling::Nodes, 100_000);
     Outcome {
         measured,
         expected: 0.0,
@@ -3264,7 +3265,7 @@ fn fdtd_slab_resonance() -> Outcome {
 
 fn fdtd_smoothing_contrast() -> Outcome {
     use crate::fdtd::Coupling;
-    use crate::fdtd::smoothing::checks::{contrast_drift, contrast_growth};
+    use crate::fdtd::smoothing_items::checks::{contrast_drift, contrast_growth};
     let refused = contrast_growth(50.0, 0, true).is_none();
     let (drift, grown) = rayon::join(
         || contrast_drift(Coupling::Nodes, 40.0, 100_000),
@@ -3287,7 +3288,7 @@ fn fdtd_smoothing_contrast() -> Outcome {
 }
 
 fn fdtd_smoothing_oskooi() -> Outcome {
-    use crate::fdtd::smoothing::checks::oskooi;
+    use crate::fdtd::smoothing_items::checks::oskooi;
     use crate::fdtd::{Average, Smoothing};
     use rayon::prelude::*;
     let with = |average, diameter| Smoothing {
@@ -3328,7 +3329,7 @@ fn fdtd_smoothing_oskooi() -> Outcome {
 
 fn fdtd_smoothing_triplets_oblique() -> Outcome {
     use crate::fdtd::Coupling;
-    let measured = crate::fdtd::smoothing::checks::oblique(Coupling::Triplets, 128).abs();
+    let measured = crate::fdtd::smoothing_items::checks::oblique(Coupling::Triplets, 128).abs();
     Outcome {
         measured,
         expected: 0.0,
@@ -3339,10 +3340,10 @@ fn fdtd_smoothing_triplets_oblique() -> Outcome {
 }
 
 /// log₂ of the oblique layers' error at 64 cells a µm over that at 128, by `scheme`.
-fn oblique_order(scheme: crate::fdtd::smoothing::checks::Scheme) -> f64 {
+fn oblique_order(scheme: crate::fdtd::smoothing_items::checks::Scheme) -> f64 {
     let (coarse, fine) = rayon::join(
-        || crate::fdtd::smoothing::checks::oblique(scheme, 64),
-        || crate::fdtd::smoothing::checks::oblique(scheme, 128),
+        || crate::fdtd::smoothing_items::checks::oblique(scheme, 64),
+        || crate::fdtd::smoothing_items::checks::oblique(scheme, 128),
     );
     (coarse / fine).abs().log2()
 }
@@ -3360,7 +3361,7 @@ fn fdtd_smoothing_triplets_order() -> Outcome {
 
 fn fdtd_smoothing_diagonal_oblique() -> Outcome {
     use crate::fdtd::Coupling;
-    let measured = crate::fdtd::smoothing::checks::oblique(Coupling::Diagonal, 128).abs();
+    let measured = crate::fdtd::smoothing_items::checks::oblique(Coupling::Diagonal, 128).abs();
     Outcome {
         measured,
         expected: 0.0,
@@ -3382,7 +3383,7 @@ fn fdtd_smoothing_diagonal_order() -> Outcome {
 }
 
 fn fdtd_smoothing_bauer_order() -> Outcome {
-    let measured = oblique_order(crate::fdtd::smoothing::checks::Scheme::Accurate);
+    let measured = oblique_order(crate::fdtd::smoothing_items::checks::Scheme::Accurate);
     Outcome {
         measured,
         expected: 2.0,
@@ -3394,7 +3395,7 @@ fn fdtd_smoothing_bauer_order() -> Outcome {
 
 fn fdtd_smoothing_triplets_contrast() -> Outcome {
     use crate::fdtd::Coupling;
-    use crate::fdtd::smoothing::checks::{contrast_drift, contrast_growth_with};
+    use crate::fdtd::smoothing_items::checks::{contrast_drift, contrast_growth_with};
     let (drift, grown) = rayon::join(
         || contrast_drift(Coupling::Triplets, 100.0, 100_000),
         || contrast_growth_with(Coupling::Triplets, 100.0, 100_000, true),
@@ -3411,7 +3412,7 @@ fn fdtd_smoothing_triplets_contrast() -> Outcome {
 
 fn fdtd_smoothing_triplets_lattices() -> Outcome {
     use crate::fdtd::Coupling;
-    use crate::fdtd::smoothing::checks::{
+    use crate::fdtd::smoothing_items::checks::{
         anisotropic_lattice, drift, hole_lattice, lattice_simulation,
     };
     let run = |structure: crate::fdtd::Structure| {
@@ -3435,7 +3436,7 @@ fn fdtd_smoothing_triplets_lattices() -> Outcome {
 
 fn fdtd_smoothing_wc07_growth() -> Outcome {
     use crate::fdtd::Coupling;
-    use crate::fdtd::smoothing::checks::disc_growth;
+    use crate::fdtd::smoothing_items::checks::disc_growth;
     use rayon::prelude::*;
     let runs = [
         (Coupling::Nodes, 32),
@@ -3474,7 +3475,7 @@ fn fdtd_smoothing_wc07_growth() -> Outcome {
 
 fn fdtd_smoothing_crystal() -> Outcome {
     use crate::fdtd::Coupling;
-    use crate::fdtd::smoothing::checks::{ELLIPSOID_BANDS, ellipsoid_bands};
+    use crate::fdtd::smoothing_items::checks::{ELLIPSOID_BANDS, ellipsoid_bands};
     let bands = ellipsoid_bands(Coupling::Triplets, 48);
     let measured = bands
         .iter()
@@ -3491,7 +3492,7 @@ fn fdtd_smoothing_crystal() -> Outcome {
 }
 
 fn fdtd_smoothing_crystal_order() -> Outcome {
-    use crate::fdtd::smoothing::checks::{ELLIPSOID_BANDS, Scheme, ellipsoid_bands};
+    use crate::fdtd::smoothing_items::checks::{ELLIPSOID_BANDS, Scheme, ellipsoid_bands};
     let rms = |n: usize| {
         let bands = ellipsoid_bands(Scheme::Accurate, n);
         let sum: f64 = bands
@@ -3513,7 +3514,7 @@ fn fdtd_smoothing_crystal_order() -> Outcome {
 }
 
 fn fdfd3d_qmr_plateau() -> Outcome {
-    let how = crate::fdfd::checks3d::shin_fan_square(0.0, 1e-6);
+    let how = crate::cases::fdfd::three::checks::shin_fan_square(0.0, 1e-6);
     let measured = how.history[19];
     Outcome {
         measured,
@@ -3526,7 +3527,7 @@ fn fdfd3d_qmr_plateau() -> Outcome {
 }
 
 fn fdfd3d_qmr_iterations(s: f64, read: f64) -> Outcome {
-    let measured = crate::fdfd::checks3d::shin_fan_square(s, 1e-6).iterations as f64;
+    let measured = crate::cases::fdfd::three::checks::shin_fan_square(s, 1e-6).iterations as f64;
     Outcome {
         measured,
         expected: read,
@@ -3545,7 +3546,7 @@ fn fdfd3d_qmr_iterations_shin_fan() -> Outcome {
 }
 
 fn fdfd3d_pml_reflection_stretched() -> Outcome {
-    use crate::fdfd::checks3d::pml_reflection_stretched;
+    use crate::cases::fdfd::three::checks::pml_reflection_stretched;
     let worst = pml_reflection_stretched(Polarization::Te, 1.0)
         .max(pml_reflection_stretched(Polarization::Tm, 1.0));
     Outcome {
@@ -3558,7 +3559,7 @@ fn fdfd3d_pml_reflection_stretched() -> Outcome {
 }
 
 fn fdfd3d_qmr_ilu_direct() -> Outcome {
-    let (worst, _, _) = crate::fdfd::checks3d::ilu_against_direct();
+    let (worst, _, _) = crate::cases::fdfd::three::checks::ilu_against_direct();
     Outcome {
         measured: worst,
         expected: 0.0,
@@ -3569,7 +3570,7 @@ fn fdfd3d_qmr_ilu_direct() -> Outcome {
 }
 
 fn fdfd3d_gmres_multigrid_direct() -> Outcome {
-    let (worst, _) = crate::fdfd::checks3d::multigrid_against_direct();
+    let (worst, _) = crate::cases::fdfd::three::checks::multigrid_against_direct();
     Outcome {
         measured: worst,
         expected: 0.0,
@@ -3581,7 +3582,7 @@ fn fdfd3d_gmres_multigrid_direct() -> Outcome {
 }
 
 fn fdfd3d_block_qmr_s_matrix() -> Outcome {
-    use crate::fdfd::block_checks3d::{Solve, coupler_block};
+    use crate::cases::fdfd::three::block_checks::{Solve, coupler_block};
     let worst = coupler_block(Solve::Stored)
         .0
         .max(coupler_block(Solve::Free).0);
@@ -3596,13 +3597,13 @@ fn fdfd3d_block_qmr_s_matrix() -> Outcome {
 
 /// The ILU(0) coupler's block against its single solves, run once for its two cases.
 fn ilu_coupler_block() -> (f64, f64) {
-    use crate::fdfd::block_checks3d::{Solve, coupler_block};
+    use crate::cases::fdfd::three::block_checks::{Solve, coupler_block};
     static RUN: std::sync::OnceLock<(f64, f64)> = std::sync::OnceLock::new();
     *RUN.get_or_init(|| coupler_block(Solve::Ilu))
 }
 
 fn fdfd3d_block_qmr_ilu_s_matrix() -> Outcome {
-    use crate::fdfd::block_checks3d::{Solve, coupler_block};
+    use crate::cases::fdfd::three::block_checks::{Solve, coupler_block};
     let worst = ilu_coupler_block().0.max(coupler_block(Solve::Multigrid).0);
     Outcome {
         measured: worst,
@@ -3632,7 +3633,7 @@ fn fdfd3d_block_qmr_iterations() -> Outcome {
 }
 
 fn fdfd3d_block_qmr_dependent() -> Outcome {
-    let worst = crate::fdfd::block_checks3d::dependent_columns();
+    let worst = crate::cases::fdfd::three::block_checks::dependent_columns();
     Outcome {
         measured: worst,
         expected: 0.0,
@@ -3642,7 +3643,7 @@ fn fdfd3d_block_qmr_dependent() -> Outcome {
 }
 
 fn fdfd3d_block_qmr_convergence() -> Outcome {
-    let errors = crate::fdfd::block_checks3d::against_direct(&[1e-4, 1e-10]);
+    let errors = crate::cases::fdfd::three::block_checks::against_direct(&[1e-4, 1e-10]);
     // the slope to one decimal, and its departure from 1: the slope differs between systems in
     // its second decimal (0.98 on Windows, 1.00 on Linux), as the iterations near 1e-10 run on
     // rounding that the systems' maths libraries make differently
@@ -3668,7 +3669,7 @@ fn fdfd3d_block_qmr_freund_malhotra() -> Outcome {
 }
 
 fn fdfd3d_block_qmr_threads() -> Outcome {
-    let differ = crate::fdfd::block_checks3d::thread_differences();
+    let differ = crate::cases::fdfd::three::block_checks::thread_differences();
     Outcome {
         measured: differ,
         expected: 0.0,
@@ -3678,7 +3679,7 @@ fn fdfd3d_block_qmr_threads() -> Outcome {
 }
 
 fn fdfd3d_recycle_s_matrix() -> Outcome {
-    use crate::fdfd::recycle_checks3d::{Solve, s_matrix_against_plain};
+    use crate::cases::fdfd::three::recycle_checks::{Solve, s_matrix_against_plain};
     let worst = s_matrix_against_plain(Solve::Multigrid(crate::fdfd::Multigrid::default()))
         .max(s_matrix_against_plain(Solve::Symmetric));
     Outcome {
@@ -3706,7 +3707,7 @@ fn fdfd3d_recycle_deflation() -> Outcome {
 }
 
 fn fdfd3d_recycle_convergence() -> Outcome {
-    let runs = crate::fdfd::recycle_checks3d::sweep_convergence();
+    let runs = crate::cases::fdfd::three::recycle_checks::sweep_convergence();
     let last: Vec<f64> = runs
         .iter()
         .filter_map(|r| r.last().map(|&i| i as f64))
@@ -3726,7 +3727,8 @@ fn fdfd3d_recycle_convergence() -> Outcome {
 }
 
 fn fdfd3d_recycle_adjoint() -> Outcome {
-    let (symmetric, multigrid) = crate::fdfd::recycle_checks3d::adjoint_against_direct();
+    let (symmetric, multigrid) =
+        crate::cases::fdfd::three::recycle_checks::adjoint_against_direct();
     let worst = symmetric.max(multigrid);
     Outcome {
         measured: worst,
@@ -3738,7 +3740,7 @@ fn fdfd3d_recycle_adjoint() -> Outcome {
 }
 
 fn fdfd3d_recycle_threads() -> Outcome {
-    let differ = crate::fdfd::recycle_checks3d::thread_differences();
+    let differ = crate::cases::fdfd::three::recycle_checks::thread_differences();
     Outcome {
         measured: differ,
         expected: 0.0,
@@ -3748,7 +3750,7 @@ fn fdfd3d_recycle_threads() -> Outcome {
 }
 
 fn fdfd3d_qmr_matrix_free_sweep() -> Outcome {
-    let (plain, recycled) = crate::fdfd::recycle_checks3d::free_against_stored();
+    let (plain, recycled) = crate::cases::fdfd::three::recycle_checks::free_against_stored();
     let worst = plain.max(recycled);
     Outcome {
         measured: worst,
@@ -3760,7 +3762,7 @@ fn fdfd3d_qmr_matrix_free_sweep() -> Outcome {
 }
 
 fn fdfd3d_qmr_matrix_free_threads() -> Outcome {
-    use crate::fdfd::recycle_checks3d::{Solve, thread_differences_of};
+    use crate::cases::fdfd::three::recycle_checks::{Solve, thread_differences_of};
     let differ = thread_differences_of(Solve::Free);
     Outcome {
         measured: differ,
@@ -3784,7 +3786,7 @@ fn fdfd3d_multigrid_stencil_direct() -> Outcome {
     let worst = [Coarse::Galerkin, Coarse::Rediscretized]
         .into_iter()
         .map(|coarse| {
-            crate::fdfd::checks3d::multigrid_of_against_direct(
+            crate::cases::fdfd::three::checks::multigrid_of_against_direct(
                 Product::MatrixFree,
                 stencil_multigrid(coarse),
             )
@@ -3807,7 +3809,9 @@ fn fdfd3d_multigrid_stencil_s_matrix() -> Outcome {
         .into_iter()
         .map(|coarse| {
             let (plain, recycled, _, _) =
-                crate::fdfd::recycle_checks3d::stencil_against_stored(stencil_multigrid(coarse));
+                crate::cases::fdfd::three::recycle_checks::stencil_against_stored(
+                    stencil_multigrid(coarse),
+                );
             plain.max(recycled)
         })
         .fold(0.0, f64::max);
@@ -3821,7 +3825,7 @@ fn fdfd3d_multigrid_stencil_s_matrix() -> Outcome {
 }
 
 fn fdfd3d_multigrid_stencil_threads() -> Outcome {
-    use crate::fdfd::recycle_checks3d::{Solve, thread_differences_of};
+    use crate::cases::fdfd::three::recycle_checks::{Solve, thread_differences_of};
     let differ = thread_differences_of(Solve::MultigridFree(stencil_multigrid(
         crate::fdfd::Coarse::Galerkin,
     )));
@@ -3834,7 +3838,7 @@ fn fdfd3d_multigrid_stencil_threads() -> Outcome {
 }
 
 fn fdfd3d_multigrid_stencil_refinement() -> Outcome {
-    let runs = crate::fdfd::stencil_checks3d::refinement();
+    let runs = crate::cases::fdfd::three::stencil_checks::refinement();
     let all = runs.iter().flatten().all(|&i| i > 0);
     let growth = runs
         .iter()
@@ -3850,7 +3854,7 @@ fn fdfd3d_multigrid_stencil_refinement() -> Outcome {
 }
 
 fn fdfd3d_multigrid_stencil_plane_waves() -> Outcome {
-    let (worst, departure) = crate::fdfd::stencil_checks3d::plane_wave_damping();
+    let (worst, departure) = crate::cases::fdfd::three::stencil_checks::plane_wave_damping();
     Outcome {
         measured: worst,
         expected: 0.0,
@@ -3865,7 +3869,7 @@ fn fdfd3d_multigrid_stencil_plane_waves() -> Outcome {
 }
 
 fn fdfd3d_multigrid_stencil_smoothing_factors() -> Outcome {
-    use crate::fdfd::stencil_checks3d::{TABLE_5, table_5};
+    use crate::cases::fdfd::three::stencil_checks::{TABLE_5, table_5};
     let (rows, departure) = table_5();
     let worst = rows
         .iter()
@@ -3921,7 +3925,7 @@ fn fdfd3d_recycle_parks_rerun() -> Outcome {
 }
 
 fn fdfd3d_film(kind: Polarization, tolerance: f64) -> Outcome {
-    use crate::fdfd::checks3d::{PML, film_ratios, film_run};
+    use crate::cases::fdfd::three::checks::{PML, film_ratios, film_run};
     let run = film_run(kind, 0.0025, 30f64.to_radians(), (PML, 1e-8));
     let ((r, _), (exact, _)) = film_ratios(&run);
     Outcome {
@@ -3943,7 +3947,7 @@ fn fdfd3d_film_tm() -> Outcome {
 }
 
 fn fdfd3d_flux_conservation() -> Outcome {
-    use crate::fdfd::checks3d::{PML, film_run, flux_spread};
+    use crate::cases::fdfd::three::checks::{PML, film_run, flux_spread};
     let mut worst: f64 = 0.0;
     for kind in [Polarization::Te, Polarization::Tm] {
         for deg in [0.0, 30.0, 60.0_f64] {
@@ -3960,7 +3964,7 @@ fn fdfd3d_flux_conservation() -> Outcome {
 }
 
 fn fdfd3d_pml_reflection() -> Outcome {
-    use crate::fdfd::checks3d::pml_reflection;
+    use crate::cases::fdfd::three::checks::pml_reflection;
     let worst = pml_reflection(Polarization::Te).max(pml_reflection(Polarization::Tm));
     Outcome {
         measured: worst,
@@ -3972,7 +3976,7 @@ fn fdfd3d_pml_reflection() -> Outcome {
 }
 
 fn fdfd3d_two_d_agreement() -> Outcome {
-    use crate::fdfd::checks3d::two_d_difference;
+    use crate::cases::fdfd::three::checks::two_d_difference;
     let worst = two_d_difference(crate::fdfd::Polarization::Ez)
         .max(two_d_difference(crate::fdfd::Polarization::Hz));
     Outcome {
@@ -3985,7 +3989,7 @@ fn fdfd3d_two_d_agreement() -> Outcome {
 }
 
 fn fdfd_slab(polarization: crate::fdfd::Polarization) -> Outcome {
-    use crate::fdfd::checks::{PML, slab_ratios, slab_run};
+    use crate::cases::fdfd::checks::{PML, slab_ratios, slab_run};
     let run = slab_run(polarization, 0.0025, 30f64.to_radians(), (PML, 1e-8));
     let ((r, _), (exact, _)) = slab_ratios(&run);
     Outcome {
@@ -4005,8 +4009,8 @@ fn fdfd_slab_hz() -> Outcome {
 }
 
 fn fdfd_flux_conservation() -> Outcome {
+    use crate::cases::fdfd::checks::{PML, flux_spread, slab_run};
     use crate::fdfd::Polarization;
-    use crate::fdfd::checks::{PML, flux_spread, slab_run};
     let mut worst: f64 = 0.0;
     for polarization in [Polarization::Ez, Polarization::Hz] {
         for deg in [0.0, 30.0, 60.0_f64] {
@@ -4023,8 +4027,8 @@ fn fdfd_flux_conservation() -> Outcome {
 }
 
 fn fdfd_pml_reflection() -> Outcome {
+    use crate::cases::fdfd::checks::pml_reflection;
     use crate::fdfd::Polarization;
-    use crate::fdfd::checks::pml_reflection;
     let worst = pml_reflection(Polarization::Ez).max(pml_reflection(Polarization::Hz));
     Outcome {
         measured: worst,
@@ -4037,7 +4041,7 @@ fn fdfd_pml_reflection() -> Outcome {
 }
 
 fn fdfd_port_mode(polarization: crate::fdfd::Polarization) -> Outcome {
-    let (got, exact) = crate::fdfd::checks::port_mode_index(polarization, 0.0025);
+    let (got, exact) = crate::cases::fdfd::checks::port_mode_index(polarization, 0.0025);
     Outcome {
         measured: got,
         expected: exact,
@@ -4048,7 +4052,7 @@ fn fdfd_port_mode(polarization: crate::fdfd::Polarization) -> Outcome {
 
 /// The cut slab's port mode in 2D FDFD on a 2.5 nm grid, against its exact effective index.
 fn fdfd_crystal_slab(cut: material::CrystalAxis, kind: Polarization) -> Outcome {
-    let (got, exact) = crate::fdfd::crystal_checks::slab_index(cut, kind, 0.0025);
+    let (got, exact) = crate::cases::fdfd::crystal_checks::slab_index(cut, kind, 0.0025);
     Outcome {
         measured: got,
         expected: exact,
@@ -4075,7 +4079,7 @@ fn fdfd_crystal_z_cut_tm() -> Outcome {
 }
 
 fn fdfd_crystal_slab_order() -> Outcome {
-    let (_, orders) = crate::fdfd::crystal_checks::slab_errors(
+    let (_, orders) = crate::cases::fdfd::crystal_checks::slab_errors(
         material::CrystalAxis::Z,
         Polarization::Tm,
         &[0.01, 0.005, 0.0025],
@@ -4090,7 +4094,7 @@ fn fdfd_crystal_slab_order() -> Outcome {
 }
 
 fn fdfd_crystal_turned() -> Outcome {
-    let error = crate::fdfd::crystal_checks::turned_2d();
+    let error = crate::cases::fdfd::crystal_checks::turned_2d();
     Outcome {
         measured: error,
         expected: 0.0,
@@ -4101,7 +4105,7 @@ fn fdfd_crystal_turned() -> Outcome {
 }
 
 fn fdfd_crystal_turned_3d() -> Outcome {
-    let error = crate::fdfd::crystal_checks::turned_3d();
+    let error = crate::cases::fdfd::crystal_checks::turned_3d();
     Outcome {
         measured: error,
         expected: 0.0,
@@ -4112,7 +4116,7 @@ fn fdfd_crystal_turned_3d() -> Outcome {
 }
 
 fn fdtd_crystal_turned() -> Outcome {
-    let error = crate::fdtd::crystal_checks::turned(400);
+    let error = crate::cases::fdtd::crystal_checks::turned(400);
     Outcome {
         measured: error,
         expected: 0.0,
@@ -4131,8 +4135,8 @@ fn fdfd_port_mode_tm() -> Outcome {
 }
 
 fn fdfd_straight_guide() -> Outcome {
+    use crate::cases::fdfd::checks::straight_guide_error;
     use crate::fdfd::Polarization;
-    use crate::fdfd::checks::straight_guide_error;
     let worst = straight_guide_error(Polarization::Ez).max(straight_guide_error(Polarization::Hz));
     Outcome {
         measured: worst,
@@ -4143,8 +4147,8 @@ fn fdfd_straight_guide() -> Outcome {
 }
 
 fn fdfd_reciprocity() -> Outcome {
+    use crate::cases::fdfd::checks::step;
     use crate::fdfd::Polarization;
-    use crate::fdfd::checks::step;
     let worst = [Polarization::Ez, Polarization::Hz]
         .into_iter()
         .map(|p| {
@@ -4167,7 +4171,7 @@ fn fdfd_reciprocity() -> Outcome {
 /// and the two met to 0.07 % by chance.
 fn fdfd_step_reflection_te() -> Outcome {
     let runs = [0.01, 0.005, 0.0025].map(|h| {
-        let (s, n1, n2) = crate::fdfd::checks::step_on(crate::fdfd::Polarization::Ez, h);
+        let (s, n1, n2) = crate::cases::fdfd::checks::step_on(crate::fdfd::Polarization::Ez, h);
         (s[0][0].norm_sqr(), ((n1 - n2) / (n1 + n2)).powi(2))
     });
     let d = runs.map(|(r, fresnel)| r - fresnel);
@@ -4194,7 +4198,7 @@ fn fdfd_step_reflection_te() -> Outcome {
 /// resolution, the largest, as the error (at most it): below it the error is the differences'
 /// round-off, whose digits are each platform's (5.3e-8 and 1.9e-7 here).
 fn fdfd_adjoint(polarization: crate::fdfd::Polarization) -> Outcome {
-    let probes = crate::fdfd::checks::gradient_probes(polarization, 1e-3);
+    let probes = crate::cases::fdfd::checks::gradient_probes(polarization, 1e-3);
     let errors: Vec<(f64, f64)> = probes
         .iter()
         .map(|p| {

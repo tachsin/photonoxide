@@ -47,11 +47,13 @@ use crate::fdtd::Field;
 
 /// How the blocked path cuts the grid and the steps.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) struct Blocking {
+pub struct Blocking {
     /// About how many rows along y a tile has: at least 2s + 2, s the steps at a time.
-    pub(crate) rows: usize,
+    #[doc(hidden)]
+    pub rows: usize,
     /// The steps a tile takes at a time: 1 is spatial blocking alone.
-    pub(crate) steps: usize,
+    #[doc(hidden)]
+    pub steps: usize,
     /// Whether a block's gaps and the next block's tiles run as one task (diamonds), or as
     /// phases of their own (split tiling).
     pub(crate) diamonds: bool,
@@ -80,12 +82,8 @@ impl Blocking {
     /// most [`TILE_BYTES`] in flight (2s + 2 planes); none if no tile fits. One step at a time,
     /// from [`CACHED_SPATIAL`] on: tiles of 4 to 16 rows, as many. The fields are the same bits
     /// whatever this chooses.
-    pub(crate) fn auto(
-        grid: Grid3d,
-        size: usize,
-        temporal: bool,
-        threads: usize,
-    ) -> Option<Blocking> {
+    #[doc(hidden)]
+    pub fn auto(grid: Grid3d, size: usize, temporal: bool, threads: usize) -> Option<Blocking> {
         let cell = 12 * size;
         let bytes = grid.cells() * cell;
         if bytes < if temporal { CACHED } else { CACHED_SPATIAL } {
@@ -116,7 +114,7 @@ impl Blocking {
 
 /// How a problem chooses its tiles.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub(crate) enum Tiling {
+pub enum Tiling {
     /// [`Blocking::auto`].
     #[default]
     Auto,
@@ -131,7 +129,7 @@ pub(crate) enum Tiling {
 /// A value taken from a field right after its update, a source's or a current's: H̃ −= amount
 /// (Δt times the waveform, already), E −= cb amount.
 #[derive(Clone, Copy, Debug)]
-pub(crate) struct Injection<T> {
+pub struct Injection<T> {
     pub(crate) field: Field,
     pub(crate) component: usize,
     /// The value's index in its component, and its row: the index over nx.
@@ -142,7 +140,7 @@ pub(crate) struct Injection<T> {
 
 /// A box of one component's values read after every step: a probe's value, a monitor's box.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub(crate) struct Tap {
+pub struct Tap {
     pub(crate) field: Field,
     pub(crate) component: usize,
     /// Its indices along x, y and z.

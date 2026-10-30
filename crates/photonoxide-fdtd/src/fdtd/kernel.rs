@@ -579,7 +579,9 @@ pub(crate) fn update_slabs<T: Real>(
 }
 
 pub(crate) mod blocked;
-pub(crate) use blocked::{Blocking, Injection, Tap, Tiling};
+#[doc(hidden)]
+pub use blocked::{Blocking, Injection, Tap, Tiling};
 pub(crate) mod reference;
 mod yee;
-pub(crate) use yee::Yee;
+#[doc(hidden)]
+pub use yee::Yee;

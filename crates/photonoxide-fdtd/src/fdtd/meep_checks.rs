@@ -62,7 +62,8 @@ pub(crate) fn point_source_field(
 /// Fig. 8's rates: for σ graded as (x/L)^d, d = 1, 2 and 3, the slope of log |E^(L+1) − E^L|²
 /// against log L at `thickness` wavelengths, from the differences either side taken at their
 /// midpoints (20 cells a wavelength, a cell of 4 wavelengths inside the PMLs, R = 1e-15).
-pub(crate) fn pml_rates(thickness: usize) -> [f64; 3] {
+#[doc(hidden)]
+pub fn pml_rates(thickness: usize) -> [f64; 3] {
     [1.0, 2.0, 3.0].map(|order| {
         let fields: Vec<c64> = (thickness - 1..=thickness + 1)
             .map(|l| point_source_field(20, 4, l, order, 1e-15))
@@ -77,10 +78,13 @@ pub(crate) fn pml_rates(thickness: usize) -> [f64; 3] {
 /// A resonance of the ring of [`ring_resonances`]: its azimuthal order, FDTD's complex
 /// frequency f − iγ/2π (c/µm) and the exact one.
 #[derive(Clone, Copy, Debug)]
-pub(crate) struct RingMode {
-    pub(crate) order: u32,
-    pub(crate) fdtd: c64,
-    pub(crate) exact: c64,
+pub struct RingMode {
+    #[doc(hidden)]
+    pub order: u32,
+    #[doc(hidden)]
+    pub fdtd: c64,
+    #[doc(hidden)]
+    pub exact: c64,
 }
 
 /// Fig. 11's ring (ε = 11.56) in 2D, between radii 1 and 2 µm in vacuum (inside the inset's
@@ -88,7 +92,8 @@ pub(crate) struct RingMode {
 /// it, then CPMLs of 2 µm), smoothed: E_z kicked by a pulse at 0.15 c/µm on one point of the
 /// ring and recorded on another for 300 µm/c after it, its resonances from 0.1 to 0.2 c/µm by
 /// harmonic inversion, each against the exact resonance of the order whose root is nearest.
-pub(crate) fn ring_resonances(resolution: usize) -> Vec<RingMode> {
+#[doc(hidden)]
+pub fn ring_resonances(resolution: usize) -> Vec<RingMode> {
     // the report's cases share each resolution's run
     static RUNS: std::sync::Mutex<Vec<(usize, Vec<RingMode>)>> = std::sync::Mutex::new(Vec::new());
     if let Some((_, modes)) = RUNS.lock().unwrap().iter().find(|(r, _)| *r == resolution) {

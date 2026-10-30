@@ -22,7 +22,7 @@
 //! η⁽ʸ⁾ the xy entry at the E_y points (x-faces) and η⁽ˣ⁾ at the E_x points (y-faces). T is not
 //! symmetric where η_xy varies, so the system is factorized by LU rather than through its
 //! complex symmetric similarity. That is FDFD's only price for it: in time the same placement
-//! grows from round-off ([`crate::fdtd`]), and the symmetric placements that are stable there
+//! grows from round-off (`photonoxide::fdtd`), and the symmetric placements that are stable there
 //! are first order in the end at a sharp interface (G. R. Werner, C. A. Bauer, J. R. Cary,
 //! J. Comput. Phys. 255, 436 (2013), doi:10.1016/j.jcp.2013.08.009). Here the symmetric one,
 //! ½ (T + Tᵍ), each placement half with its transpose, was measured on Farjadpour et al.'s
@@ -54,7 +54,8 @@ use crate::{Error, Result};
 pub(crate) type Values = (Vec<c64>, Vec<c64>, Vec<c64>, (Vec<c64>, Vec<c64>));
 
 /// `plane`'s permittivity for each field component of `polarization` on `grid`, by `averaging`.
-pub(crate) fn plane_values(
+#[doc(hidden)]
+pub fn plane_values(
     grid: Grid,
     polarization: Polarization,
     plane: &Plane,
@@ -293,7 +294,8 @@ impl Solver2d {
 
 /// `entries` with the tensor's off-diagonal terms added (see the module's docs), duplicates
 /// summed, row by row.
-pub(super) fn with_mixed(
+#[doc(hidden)]
+pub fn with_mixed(
     entries: Vec<Triplet<usize, usize, c64>>,
     g: Grid,
     k0: f64,
@@ -441,6 +443,3 @@ pub(super) fn with_mixed(
     }
     out
 }
-
-#[cfg(test)]
-mod tests;

@@ -15,7 +15,7 @@ type Window = (std::ops::Range<usize>, std::ops::Range<usize>);
 
 /// A guide's two S-parameters at each frequency of a band, by FDTD and by FDFD.
 #[derive(Clone, Debug)]
-pub(crate) struct Band {
+pub struct Band {
     /// The frequencies, c/µm (the tests print them).
     #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) frequencies: Vec<f64>,
@@ -27,7 +27,7 @@ pub(crate) struct Band {
 
 impl Band {
     /// The largest |ΔS| over the band.
-    pub(crate) fn largest_difference(&self) -> f64 {
+    pub fn largest_difference(&self) -> f64 {
         self.fdtd
             .iter()
             .zip(&self.fdfd)
@@ -350,7 +350,8 @@ fn band_of_three() -> Vec<f64> {
 /// A 3D strip along z (a core of ε = 12, 0.4 × 0.25 µm, in ε = 2.1) on cells of 50 nm (24 × 20
 /// × 28 inside CPMLs of `cpml` cells), its fundamental mode launched at 1.55 µm: S over the
 /// band, from 4 cells after the source to 3 before the far CPML.
-pub(crate) fn strip_3d(cpml: usize) -> Band {
+#[doc(hidden)]
+pub fn strip_3d(cpml: usize) -> Band {
     let h = 0.05;
     let n = [24 + 2 * cpml, 20 + 2 * cpml, 28 + 2 * cpml];
     let g = grid(n, h);
@@ -380,7 +381,8 @@ pub(crate) fn strip_3d(cpml: usize) -> Band {
 /// The strip of [`strip_3d`] along x bent by 90° into +y around a quarter circle of 0.8 µm
 /// (its centre line), on cells of 50 nm (40 × 40 × 18 inside CPMLs of `cpml` cells): S over
 /// the band, from the input guide into the output's.
-pub(crate) fn bend_3d(cpml: usize) -> Band {
+#[doc(hidden)]
+pub fn bend_3d(cpml: usize) -> Band {
     let h = 0.05;
     let n = [34 + 2 * cpml, 34 + 2 * cpml, 16 + 2 * cpml];
     let g = grid(n, h);
@@ -416,7 +418,8 @@ pub(crate) fn bend_3d(cpml: usize) -> Band {
 
 /// The largest |ΔS| over the band of the straight and the bent 2D guides of [`guide_2d`] on
 /// cells of `h`, FDTD's ε averaged as FDFD's.
-pub(crate) fn guides_2d(h: f64) -> f64 {
+#[doc(hidden)]
+pub fn guides_2d(h: f64) -> f64 {
     [false, true]
         .into_iter()
         .map(|bend| guide_2d(h, bend, false).largest_difference())
@@ -425,7 +428,8 @@ pub(crate) fn guides_2d(h: f64) -> f64 {
 
 /// The bent 2D guide of [`guide_2d`] on cells of `h`, smoothed for FDTD by Werner, Bauer and
 /// Cary's triplets and averaged as FDFD averages it there: the largest |ΔS| over the band.
-pub(crate) fn smoothed_bend_2d(h: f64) -> f64 {
+#[doc(hidden)]
+pub fn smoothed_bend_2d(h: f64) -> f64 {
     guide_2d(h, true, true).largest_difference()
 }
 

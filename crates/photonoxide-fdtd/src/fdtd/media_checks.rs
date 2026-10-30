@@ -8,7 +8,8 @@ use crate::units::Wavelength;
 
 /// A Drude term and a Lorentz term, both well damped: ε∞ = 2, f_p = 1.2 c/µm, f₀ = 0.9 c/µm,
 /// Δε = 1.5, dampings 0.3 c/µm.
-pub(crate) fn drude_lorentz() -> Dispersive {
+#[doc(hidden)]
+pub fn drude_lorentz() -> Dispersive {
     Dispersive {
         eps_inf: 2.0,
         poles: vec![
@@ -33,7 +34,8 @@ pub(crate) fn drude_lorentz() -> Dispersive {
 ///
 /// The medium fills the box: it is sampled at the values, FDFD's permittivity averaged over
 /// their cells, and the two are the same only where the medium is uniform over a cell.
-pub(crate) fn against_fdfd() -> (f64, f64) {
+#[doc(hidden)]
+pub fn against_fdfd() -> (f64, f64) {
     let (h, n, steps_per_period, sigma) = (0.05, [16usize, 14, 12], 64, 2.0);
     let g = grid(n, h);
     let medium = drude_lorentz();
@@ -85,7 +87,8 @@ pub(crate) fn against_fdfd() -> (f64, f64) {
 
 /// A column one cell across (periodic across, `kx` the Bloch wavenumber along x) of `nz` cells
 /// of `h` µm along z, with CPMLs of `cpml` cells at its ends.
-pub(crate) fn column(h: f64, nz: usize, cpml: usize, kx: f64) -> (Grid3d, Boundaries) {
+#[doc(hidden)]
+pub fn column(h: f64, nz: usize, cpml: usize, kx: f64) -> (Grid3d, Boundaries) {
     let g = Grid3d {
         nx: 1,
         ny: 1,
@@ -111,7 +114,8 @@ pub(crate) fn column(h: f64, nz: usize, cpml: usize, kx: f64) -> (Grid3d, Bounda
 
 /// `a` and `b` side by side, each on one thread of its own: a column's updates are too small to
 /// share among threads, and two runs on two threads take half the time.
-pub(crate) fn both<A: Send, B: Send>(
+#[doc(hidden)]
+pub fn both<A: Send, B: Send>(
     a: impl FnOnce() -> A + Send,
     b: impl FnOnce() -> B + Send,
 ) -> (A, B) {
@@ -123,7 +127,8 @@ pub(crate) fn both<A: Send, B: Send>(
 }
 
 /// `f` on one thread.
-pub(crate) fn alone<T: Send>(f: impl FnOnce() -> T + Send) -> T {
+#[doc(hidden)]
+pub fn alone<T: Send>(f: impl FnOnce() -> T + Send) -> T {
     rayon::ThreadPoolBuilder::new()
         .num_threads(1)
         .build()
@@ -151,7 +156,8 @@ fn transforms(series: &[c64], dt: f64, frequencies: &[f64], count: usize) -> Vec
 }
 
 /// The Drude metal of the half-space: ε∞ = 1, f_p = 1 c/µm, collisions 0.05 c/µm.
-pub(crate) fn drude_metal() -> Dispersive {
+#[doc(hidden)]
+pub fn drude_metal() -> Dispersive {
     Dispersive {
         eps_inf: 1.0,
         poles: vec![Pole::Drude {
@@ -170,7 +176,8 @@ pub(crate) const DRUDE_BAND: [f64; 7] = [0.4, 0.6, 0.8, 1.0, 1.2, 1.4, 1.6];
 /// reflection coefficient from the run with the metal and the run without, referred to the
 /// face with the grid's own wavenumber, against Fresnel's (1 − n)/(1 + n) with the metal's
 /// ε(ω) at [`DRUDE_BAND`]. The largest |Δr|, and each frequency's r and Fresnel's.
-pub(crate) fn drude_reflection(h: f64) -> (f64, Vec<(f64, c64, c64)>) {
+#[doc(hidden)]
+pub fn drude_reflection(h: f64) -> (f64, Vec<(f64, c64, c64)>) {
     let cells = |x: f64| (x / h).round() as usize;
     let cpml = cells(0.5);
     let nz = 2 * cpml + cells(4.0);
@@ -253,7 +260,8 @@ pub(crate) fn group_index(medium: &Dispersive, f: f64) -> f64 {
 /// 1 + τ/d, at [`LORENTZ_BAND`], against the first pass's exact delay through the continuum,
 /// d/dω arg(t₁₂ t₂₁ e^(i(n − 1)ωd)), as the same. The largest difference, and each frequency's
 /// measured index, the exact first pass's and the medium's Re d(nω)/dω.
-pub(crate) fn lorentz_delay(h: f64) -> (f64, Vec<(f64, f64, f64, f64)>) {
+#[doc(hidden)]
+pub fn lorentz_delay(h: f64) -> (f64, Vec<(f64, f64, f64, f64)>) {
     let thickness = 10.0;
     let cells = |x: f64| (x / h).round() as usize;
     let cpml = cells(0.5);
@@ -326,7 +334,8 @@ fn pulse_peak(w: &Waveform) -> f64 {
 
 /// The catalogue's material `id`, from its model `model` (its default if `None`), at its
 /// default conditions: the first of its axes.
-pub(crate) fn catalogue_material(id: &str, model: Option<&str>) -> crate::material::Material {
+#[doc(hidden)]
+pub fn catalogue_material(id: &str, model: Option<&str>) -> crate::material::Material {
     let entry = crate::material::catalogue::entry(id).expect("a catalogue entry");
     let model = match model {
         Some(m) => entry.index.iter().find(|x| x.id == m).expect("a model"),
@@ -347,7 +356,8 @@ pub(crate) const FITS: [(&str, Option<&str>, (f64, f64)); 3] = [
 
 /// Each of [`FITS`] fitted by [`Dispersive::fit`]: its largest relative error and its number of
 /// terms.
-pub(crate) fn fits() -> Vec<(f64, usize)> {
+#[doc(hidden)]
+pub fn fits() -> Vec<(f64, usize)> {
     FITS.iter()
         .map(|&(id, model, (a, b))| {
             let material = catalogue_material(id, model);
@@ -371,7 +381,8 @@ pub(crate) const SLAB_WAVELENGTHS: [f64; 3] = [1.3, 1.45, 1.6];
 /// the slab and the run without, |DFT(E_s)|²/|DFT(E_i)|², at [`SLAB_WAVELENGTHS`], against
 /// Airy's formula with the catalogue's own index. The largest difference, and each
 /// wavelength's reflectance and Airy's.
-pub(crate) fn fitted_slab(h: f64) -> (f64, Vec<(f64, f64, f64)>) {
+#[doc(hidden)]
+pub fn fitted_slab(h: f64) -> (f64, Vec<(f64, f64, f64)>) {
     let thickness = 0.4;
     let material = catalogue_material("si", None);
     let fit = Dispersive::fit(

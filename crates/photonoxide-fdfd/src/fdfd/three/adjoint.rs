@@ -119,7 +119,8 @@ impl Solver3d {
 /// power against fourth-order central differences (δ = 1e-3) at a value of each component in
 /// the block, the core and the cladding between the planes: the largest difference relative to
 /// the largest of those gradients, and the gradients by both.
-pub(crate) fn gradient_against_differences() -> (f64, Vec<(f64, f64)>) {
+#[doc(hidden)]
+pub fn gradient_against_differences() -> (f64, Vec<(f64, f64)>) {
     use super::{Axis, Boundaries3d, Grid3d};
     use crate::units::Wavelength;
     let (nx, ny, nz, h) = (14usize, 12usize, 24usize, 0.05);

@@ -31,7 +31,8 @@ fn lossy_box() -> (Simulation, Waveform, (usize, usize, usize)) {
 /// The lossy box's E transformed by a monitor on a box of values and by hand
 /// ([`dft_e`]) over the same run, at two frequencies: the largest difference relative to the
 /// largest transform.
-pub(crate) fn transforms_against_hand() -> f64 {
+#[doc(hidden)]
+pub fn transforms_against_hand() -> f64 {
     let (mut s, _, _) = lossy_box();
     let mut by_hand = s.clone();
     let frequencies = [1.0 / 1.55, 1.0 / 1.55 + 0.12];
@@ -69,7 +70,8 @@ pub(crate) fn transforms_against_hand() -> f64 {
 /// spectrum (ε + iσ cos(ωΔt/2)/ω̃): FDFD's [`crate::fdfd::Field3d::flux`] through the plane,
 /// and what the box's faces give from FDFD's field. The largest difference relative to the
 /// plane's flux.
-pub(crate) fn flux_against_fdfd() -> f64 {
+#[doc(hidden)]
+pub fn flux_against_fdfd() -> f64 {
     let (mut s, pulse, at) = lossy_box();
     let frequency = Frequency::natural(1.0 / 1.55).unwrap();
     let plane = s
@@ -184,7 +186,8 @@ fn flux_box_of(e: &crate::fdfd::Field3d, planes: [(usize, usize); 3], k0: f64) -
 /// outside it (σ = 3/µm from a cell beyond the box), a Gaussian pulse on one value of E_y
 /// outside the box (`inside` false) or inside it, run until the fields have died away: the
 /// flux out of the box, and the largest of its faces' fluxes in magnitude.
-pub(crate) fn box_balance(inside: bool) -> (f64, f64) {
+#[doc(hidden)]
+pub fn box_balance(inside: bool) -> (f64, f64) {
     let g = grid([16, 14, 12], 0.05);
     let planes = [(5usize, 10usize), (4, 9), (3, 8)];
     // lossless wherever a value the box weighs is: from the node before its first half-plane
@@ -251,7 +254,8 @@ pub(crate) fn box_balance(inside: bool) -> (f64, f64) {
 /// source's amplitude at the carrier), against `Solver3d`'s for its own mode source of the
 /// same mode, at the leapfrog's frequency with ε + iσ cos(ωΔt/2)/ω̃. The largest difference
 /// relative to the largest amplitude.
-pub(crate) fn modes_against_fdfd() -> f64 {
+#[doc(hidden)]
+pub fn modes_against_fdfd() -> f64 {
     let (n, sigma, steps_per_period) = ([16usize, 14, 24], 4.0, 64);
     let g = grid(n, 0.05);
     let frequency = Frequency::natural(1.0 / 1.55).unwrap();
@@ -307,7 +311,8 @@ pub(crate) fn modes_against_fdfd() -> f64 {
 /// H̃ ← H̃ − Δt ∇ × E, makes its amplitude a sum of uⁿ with u² − (1 + ca − cb Δt λ) u + ca = 0.
 /// Returns the number of modes found (error below 1e-8) and the largest |u − u_exact|, each
 /// against the nearest exact u.
-pub(crate) fn cavity_resonances() -> (usize, f64) {
+#[doc(hidden)]
+pub fn cavity_resonances() -> (usize, f64) {
     let (nx, ny, h) = (24usize, 18usize, 0.05);
     let g = Grid3d {
         nz: 1,
@@ -393,7 +398,8 @@ pub(crate) fn cavity_resonances() -> (usize, f64) {
 /// index n and thickness L resonates where r² e^(2inkL) = 1, r = (n − 1)/(n + 1): ω =
 /// (πm + i ln r)/(nL), Q = πm/(2 |ln r|) (1.0 c/µm and Q = 2.86 for m = 2). Returns the relative
 /// errors of Re ω and of the decay rate.
-pub(crate) fn slab_resonance(h: f64) -> (f64, f64) {
+#[doc(hidden)]
+pub fn slab_resonance(h: f64) -> (f64, f64) {
     let (n_index, thickness, gap, cpml) = (2.0, 0.5, 1.0, 30usize);
     let cells = ((thickness + 2.0 * gap) / h).round() as usize + 2 * cpml;
     let g = Grid3d {
@@ -480,9 +486,11 @@ pub(crate) fn slab_resonance(h: f64) -> (f64, f64) {
 /// reflection into the input guide's, by FDTD's mode monitors (divided by the source's
 /// amplitude at the carrier) and by FDFD's `mode_amplitudes` for the same mode source.
 #[derive(Clone, Copy, Debug)]
-pub(crate) struct Scattering {
-    pub(crate) fdtd: [c64; 2],
-    pub(crate) fdfd: [c64; 2],
+pub struct Scattering {
+    #[doc(hidden)]
+    pub fdtd: [c64; 2],
+    #[doc(hidden)]
+    pub fdfd: [c64; 2],
 }
 
 /// A 2D guide (one cell along z, periodic there) of ε = 12 and 0.25 µm in air on cells of
@@ -491,7 +499,8 @@ pub(crate) struct Scattering {
 /// a pulse 0.1 c/µm wide: the transmission into the output's fundamental mode (along x on
 /// plane 52, or along y on plane 52) and the reflection into the input's (behind the source,
 /// on plane 15), at the carrier.
-pub(crate) fn guide_2d(bend: bool) -> Scattering {
+#[doc(hidden)]
+pub fn guide_2d(bend: bool) -> Scattering {
     use crate::fdfd::Edges as E;
     let (n, h, cpml) = (70usize, 0.05, 10usize);
     let g = Grid3d {
@@ -577,7 +586,8 @@ pub(crate) fn guide_2d(bend: bool) -> Scattering {
 /// error of the two terms' frequencies and decay rates (c/µm and per µm/c) and of their
 /// amplitudes relative to them, or infinity unless exactly two terms are found with an error
 /// below 1e-6.
-pub(crate) fn harmonic_synthetic() -> f64 {
+#[doc(hidden)]
+pub fn harmonic_synthetic() -> f64 {
     let (tau, n) = (0.1, 400);
     let terms = [
         (1.0, 0.01, c64::new(1.0, 0.5)),

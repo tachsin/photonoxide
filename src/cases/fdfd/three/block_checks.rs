@@ -325,7 +325,7 @@ mod tests {
 
     /// Times an S-matrix's runs one at a time and as a block.
     #[test]
-    #[ignore = "a measurement: H (0.04), LENGTH (1.0), PML (6), MODES (4), SOLVE (stored, free, ilu, multigrid), TOL (1e-6), RAYON_NUM_THREADS; cargo test --release fdfd::three::block_checks::tests::measure -- --ignored --nocapture"]
+    #[ignore = "a measurement: H (0.04), LENGTH (1.0), PML (6), MODES (4), SOLVE (stored, free, ilu, multigrid), TOL (1e-6), RAYON_NUM_THREADS; cargo test --release fdfd::three_items::block_checks::tests::measure -- --ignored --nocapture"]
     fn measure() {
         use std::time::Instant;
         let var = |name: &str, default: &str| std::env::var(name).unwrap_or(default.into());

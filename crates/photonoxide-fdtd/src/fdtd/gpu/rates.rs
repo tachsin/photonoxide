@@ -19,7 +19,8 @@ use crate::fdtd::checks::{grid, noise};
 use crate::fdtd::{Blocking, Boundaries, Real, Simulation, Yee};
 
 /// A cube of `n` cells of 50 nm of vacuum inside CPMLs of 8, random fields.
-pub(crate) fn filled(n: usize) -> Simulation {
+#[doc(hidden)]
+pub fn filled(n: usize) -> Simulation {
     let mut s =
         Simulation::in_uniform_medium(grid([n; 3], 0.05), 1.0, Boundaries::cpml(8), 0.9).unwrap();
     for c in Axis::ALL {
@@ -36,7 +37,8 @@ pub(crate) fn filled(n: usize) -> Simulation {
 
 /// The GPU's rate on `s`, the kernel alone, the best of three runs of enough steps to take a few
 /// tenths of a second, in cell-updates per second.
-pub(crate) fn gpu_rate(s: &mut Simulation, gpu: &Gpu, planes: usize, fused: bool) -> f64 {
+#[doc(hidden)]
+pub fn gpu_rate(s: &mut Simulation, gpu: &Gpu, planes: usize, fused: bool) -> f64 {
     let mut resident = Resident::new(gpu, s).unwrap();
     if planes > 0 {
         resident.planes = planes;
@@ -70,7 +72,8 @@ fn rate_of(s: &mut Simulation, resident: &mut Resident) -> f64 {
 
 /// The blocked CPU kernel's rate on `s` in precision `T` on all the threads, by the diamonds
 /// [`Blocking::auto`] chooses, the best of three runs.
-pub(crate) fn cpu_rate<T: Real>(s: &Simulation) -> f64 {
+#[doc(hidden)]
+pub fn cpu_rate<T: Real>(s: &Simulation) -> f64 {
     let mut yee = Yee::<T>::from_simulation(s).unwrap();
     let blocking = Blocking::auto(
         s.grid(),

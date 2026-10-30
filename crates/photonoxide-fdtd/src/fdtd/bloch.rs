@@ -44,10 +44,12 @@ pub(super) fn curl_bound(grid: &Grid3d, boundaries: &Boundaries) -> f64 {
 
 /// A complex run's imaginary part, and the phases across its Bloch sides.
 #[derive(Clone, Debug)]
-pub(super) struct Bloch {
+#[doc(hidden)]
+pub struct Bloch {
     /// The imaginary part: its fields, currents, CPMLs' and media's auxiliary fields, and
     /// probes.
-    pub(super) twin: Simulation,
+    #[doc(hidden)]
+    pub twin: Simulation,
     /// The axes with a Bloch phase, k ≠ 0.
     along: [bool; 3],
     /// e^(ikL) along each axis.

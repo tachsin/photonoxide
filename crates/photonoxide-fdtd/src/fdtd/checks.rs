@@ -4,7 +4,8 @@ use super::*;
 use crate::fdfd::{Boundaries3d, Solver3d};
 use crate::units::Wavelength;
 
-pub(crate) fn grid(n: [usize; 3], h: f64) -> Grid3d {
+#[doc(hidden)]
+pub fn grid(n: [usize; 3], h: f64) -> Grid3d {
     Grid3d {
         nx: n[0],
         ny: n[1],
@@ -18,7 +19,8 @@ pub(crate) fn grid(n: [usize; 3], h: f64) -> Grid3d {
     }
 }
 
-pub(crate) fn periodic() -> Boundaries {
+#[doc(hidden)]
+pub fn periodic() -> Boundaries {
     let p = Edges::Bloch { k: 0.0 };
     Boundaries {
         x: p,
@@ -31,7 +33,8 @@ pub(crate) fn periodic() -> Boundaries {
 /// E_z of a plane wave cos(kx x + ky y) on a periodic box, H̃ zero: an eigenvector of the
 /// discrete curl-curl, so E_z(t) = cos(nθ) E_z(0) exactly. The measured θ against Taflove and
 /// Brodwin's relation sin²(θ/2) = (Δt²/4) Σ (4/Δ_i²) sin²(k_i Δ_i/2).
-pub(crate) fn dispersion(m: (usize, usize), courant: f64) -> (f64, f64) {
+#[doc(hidden)]
+pub fn dispersion(m: (usize, usize), courant: f64) -> (f64, f64) {
     let g = Grid3d {
         nx: 24,
         ny: 18,
@@ -80,7 +83,8 @@ pub(crate) fn dispersion(m: (usize, usize), courant: f64) -> (f64, f64) {
 }
 
 /// A pseudo-random value in [−1, 1) from an integer.
-pub(crate) fn noise(r: usize) -> f64 {
+#[doc(hidden)]
+pub fn noise(r: usize) -> f64 {
     let mut x = (r as u64).wrapping_mul(0x9E37_79B9_7F4A_7C15) ^ 0x5DEE_CE66;
     x ^= x >> 31;
     x = x.wrapping_mul(0xBF58_476D_1CE4_E5B9);
@@ -90,7 +94,8 @@ pub(crate) fn noise(r: usize) -> f64 {
 
 /// A closed box with a dielectric block and random fields, stepped 300 times: the largest
 /// change of the leapfrog's invariant ½ Σ ε E·E + ½ Σ H̃(t − Δt/2)·H̃(t + Δt/2), relative to it.
-pub(crate) fn energy_drift() -> f64 {
+#[doc(hidden)]
+pub fn energy_drift() -> f64 {
     let g = grid([10, 9, 8], 0.05);
     let mut s = Simulation::new(
         g,
@@ -134,7 +139,8 @@ pub(crate) fn energy_drift() -> f64 {
 /// A 2D pulse from a dipole in vacuum, recorded `gap` cells from a CPML `thickness` cells thick,
 /// against the same interior inside a much larger grid: the largest difference over the run,
 /// relative to the largest field.
-pub(crate) fn cpml_error(thickness: usize) -> f64 {
+#[doc(hidden)]
+pub fn cpml_error(thickness: usize) -> f64 {
     cpml_error_with(thickness, Cpml::default())
 }
 
@@ -185,28 +191,33 @@ pub(crate) fn cpml_error_with(thickness: usize, cpml: Cpml) -> f64 {
 
 /// What [`late_strip`] records.
 #[cfg_attr(not(test), allow(dead_code))] // the probes read by the tests
-pub(crate) struct LateStrip {
+pub struct LateStrip {
     /// The fields' energy, Σ(E² + H̃²), every 50 µm/c.
-    pub(crate) energy: Vec<f64>,
+    #[doc(hidden)]
+    pub energy: Vec<f64>,
     /// E_y at every step in the guide, off its axes, halfway through the CPML at its far end,
     /// where what grows is largest.
     pub(crate) in_cpml: Vec<f64>,
     /// E_y at every step in the guide, off its axes, 0.4 µm past the grid's middle, where a
     /// monitor would be.
-    pub(crate) inside: Vec<f64>,
+    #[doc(hidden)]
+    pub inside: Vec<f64>,
     /// The time step, µm/c.
-    pub(crate) dt: f64,
+    #[doc(hidden)]
+    pub dt: f64,
 }
 
 /// The pulse [`late_strip`] is lit by in #251: at 1 c/µm, 0.25 c/µm wide.
 #[cfg_attr(not(test), allow(dead_code))] // read by the tests
-pub(crate) fn late_pulse() -> Waveform {
+#[doc(hidden)]
+pub fn late_pulse() -> Waveform {
     Waveform::pulse(Frequency::natural(1.0).unwrap(), 0.25).unwrap()
 }
 
 /// A differentiated Gaussian 0.03 µm/c wide: broad enough to light the grid's own waves, at a
 /// few cells a wavelength, far above round-off.
-pub(crate) fn late_broadband() -> Waveform {
+#[doc(hidden)]
+pub fn late_broadband() -> Waveform {
     Waveform::DifferentiatedGaussian {
         width: 0.03,
         delay: 0.18,
@@ -222,13 +233,8 @@ pub(crate) fn late_broadband() -> Waveform {
 ///
 /// On cells of 50 nm with CPMLs of 6 the energy falls and then grows again, by e^(0.066 t c/µm),
 /// at 3.0 c/µm; on cells of 25 nm with CPMLs as thick, of 12, it doesn't.
-pub(crate) fn late_strip(
-    h: f64,
-    cells: usize,
-    cpml: Cpml,
-    waveform: Waveform,
-    steps: usize,
-) -> LateStrip {
+#[doc(hidden)]
+pub fn late_strip(h: f64, cells: usize, cpml: Cpml, waveform: Waveform, steps: usize) -> LateStrip {
     let (mut s, in_cpml, inside) = late_strip_simulation(h, cells, cpml, waveform);
     let energy = |s: &Simulation| -> f64 {
         Axis::ALL
@@ -301,7 +307,8 @@ pub(crate) fn late_strip_simulation(
 /// the leapfrog's steady state then solves FDFD's equations exactly at ω̃ with
 /// ε + iσ cos(ωΔt/2)/ω̃ (the conductivity averaged over the step), with no PML to differ.
 /// Without, a silicon block in a CPML of 4 cells (FDFD's PML in the time domain).
-pub(crate) fn against_fdfd(steps_per_period: usize, conductivity: Option<f64>) -> (f64, f64) {
+#[doc(hidden)]
+pub fn against_fdfd(steps_per_period: usize, conductivity: Option<f64>) -> (f64, f64) {
     let (h, n) = (0.05, [16usize, 14, 12]);
     let pml = if conductivity.is_some() { 0 } else { 4usize };
     let g = grid(n, h);
@@ -410,7 +417,8 @@ pub(crate) fn dft_e(s: &mut Simulation, steps: usize, frequencies: &[f64]) -> Ve
 /// fields die away: E's DFT at the carrier and 0.12 c/µm off it, against `Solver3d`'s field
 /// for the sources' own transforms ([`Waveform::spectrum`]) at the leapfrog's frequency. The
 /// largest difference relative to the largest field.
-pub(crate) fn spectrum_against_fdfd() -> f64 {
+#[doc(hidden)]
+pub fn spectrum_against_fdfd() -> f64 {
     let (h, n) = (0.05, [16usize, 14, 12]);
     let g = grid(n, h);
     let (eps, sigma) = (2.1, 2.0);
@@ -505,11 +513,8 @@ fn in_box(
 /// largest field anywhere in the scattered region over the run (E and H̃), relative to the
 /// largest incident field. In 2D (`three_d` false) on 80 × 80 cells of 50 nm, the box 30 cells
 /// a side; in 3D on 36³ cells, the box 12 a side; CPMLs of 10 and 8.
-pub(crate) fn tfsf_leakage(
-    direction: (i64, i64, i64),
-    polarization: [f64; 3],
-    three_d: bool,
-) -> f64 {
+#[doc(hidden)]
+pub fn tfsf_leakage(direction: (i64, i64, i64), polarization: [f64; 3], three_d: bool) -> f64 {
     let h = 0.05;
     let (n, low, high, cpml) = if three_d {
         ([36usize, 36, 36], [12usize, 12, 12], [24usize, 24, 24], 8)
@@ -560,7 +565,8 @@ pub(crate) fn tfsf_leakage(
 /// (a column one cell across, periodic across, cells of `h` µm along z), lit by a pulse: the
 /// power reflection from the scattered field in front, |DFT(E_s)|²/|DFT(E_i)|², at 0.8, 1 and
 /// 1.2 c/µm, against Airy's formula for the slab. The largest difference.
-pub(crate) fn tfsf_slab(h: f64) -> f64 {
+#[doc(hidden)]
+pub fn tfsf_slab(h: f64) -> f64 {
     let (thickness, eps_slab) = (0.3, 4.0);
     let cells = |x: f64| (x / h).round() as usize;
     let cpml = cells(0.5);
@@ -676,7 +682,8 @@ pub(crate) fn courant_for(steps_per_period: usize) -> f64 {
 /// amplitude against `Solver3d`'s field for its own mode source of the same mode at the
 /// leapfrog's frequency, with ε + iσ cos(ωΔt/2)/ω̃: the largest difference relative to the
 /// largest field.
-pub(crate) fn mode_source_against_fdfd() -> f64 {
+#[doc(hidden)]
+pub fn mode_source_against_fdfd() -> f64 {
     let (n, sigma, steps_per_period) = ([16usize, 14, 24], 4.0, 64);
     let g = grid(n, 0.05);
     let frequency = Frequency::natural(1.0 / 1.55).unwrap();
@@ -726,7 +733,8 @@ pub(crate) fn mode_source_against_fdfd() -> f64 {
 /// going backward behind the source (the mode's backward amplitude on plane 10, squared, times
 /// its power) relative to the forward power ahead (the flux through plane 26), and that flux
 /// relative to the mode's own power at the source's amplitude there.
-pub(crate) fn mode_source_open(pulse: bool) -> Vec<(f64, f64, f64)> {
+#[doc(hidden)]
+pub fn mode_source_open(pulse: bool) -> Vec<(f64, f64, f64)> {
     use crate::fdfd::{Direction, Formulation, IterativeSolver3d};
     let (n, cpml, steps_per_period) = ([40usize, 36, 40], 8, 64);
     let g = grid(n, 0.05);
@@ -815,10 +823,11 @@ pub(crate) fn mode_source_open(pulse: bool) -> Vec<(f64, f64, f64)> {
 
 /// What [`beam`] measures.
 #[derive(Clone, Debug)]
-pub(crate) struct BeamMeasured {
+pub struct BeamMeasured {
     /// At each distance from the plane (µm): the beam's width 2√⟨(y − ȳ)²⟩ of |E_z|² and its
     /// centre ȳ, across the beam's columns.
-    pub(crate) columns: Vec<(f64, f64, f64)>,
+    #[doc(hidden)]
+    pub columns: Vec<(f64, f64, f64)>,
     /// The largest |E_z| behind the plane relative to the largest ahead.
     // read by the tests
     #[cfg_attr(not(test), allow(dead_code))]
@@ -829,7 +838,8 @@ pub(crate) struct BeamMeasured {
 /// tilted by `angle` (radians) towards y, launched by a continuous wave on cells of 50 nm
 /// (32 steps a period, CPMLs of 10): its steady |E_z| across y at 2, 5, 8, 11 and 14 µm from
 /// the plane.
-pub(crate) fn beam(angle: f64) -> BeamMeasured {
+#[doc(hidden)]
+pub fn beam(angle: f64) -> BeamMeasured {
     let h = 0.05;
     let n = [10 + 2 + 320 + 10, 460, 1];
     let g = Grid3d {
@@ -899,7 +909,8 @@ pub(crate) fn beam(angle: f64) -> BeamMeasured {
 
 /// The waist, the focus's distance from the plane and the divergence of a beam measured by
 /// [`beam`]: w² = w₀² + θ² (d − d₀)², fitted by least squares to its columns' widths.
-pub(crate) fn beam_fit(measured: &BeamMeasured) -> (f64, f64, f64) {
+#[doc(hidden)]
+pub fn beam_fit(measured: &BeamMeasured) -> (f64, f64, f64) {
     // w² = c0 + c1 d + c2 d², the normal equations of the quadratic
     let mut a = [[0.0f64; 3]; 3];
     let mut rhs = [0.0f64; 3];
@@ -937,7 +948,8 @@ pub(crate) fn beam_fit(measured: &BeamMeasured) -> (f64, f64, f64) {
 /// step (µm) and time step of the grid, k_x(k_y) from its dispersion,
 /// (2/Δ)² (sin²(k_xΔ/2) + sin²(k_yΔ/2)) = ω̃², ω̃ = (2/Δt) sin(ωΔt/2); without, the continuum's,
 /// k_x = √(k² − k_y²). λ/(π w₀) is its paraxial limit.
-pub(crate) fn beam_divergence(waist: f64, wavelength: f64, grid: Option<(f64, f64)>) -> f64 {
+#[doc(hidden)]
+pub fn beam_divergence(waist: f64, wavelength: f64, grid: Option<(f64, f64)>) -> f64 {
     let omega = std::f64::consts::TAU / wavelength;
     let slope = |ky: f64| -> Option<f64> {
         match grid {
@@ -983,7 +995,8 @@ pub(crate) fn beam_divergence(waist: f64, wavelength: f64, grid: Option<(f64, f6
 /// e^(−κ²w₀²/2) across its axis (κ = k sin(φ − angle), φ a wave's direction, k = ω̃ as the
 /// beam's profile has it), weighted on the plane by dκ/dk_y, and k_x(k_y) from the grid's
 /// dispersion. tan(angle) is the continuum's paraxial limit.
-pub(crate) fn beam_centre_slope(waist: f64, angle: f64, wavelength: f64, h: f64, dt: f64) -> f64 {
+#[doc(hidden)]
+pub fn beam_centre_slope(waist: f64, angle: f64, wavelength: f64, h: f64, dt: f64) -> f64 {
     let omega = std::f64::consts::TAU / wavelength;
     let tilde = 2.0 / dt * (omega * dt / 2.0).sin();
     let points = 20_000;

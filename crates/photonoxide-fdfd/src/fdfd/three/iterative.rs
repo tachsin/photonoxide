@@ -70,10 +70,10 @@ pub enum Product {
 /// the assembly and the vectors included: the process's peak measured at 1.65 to 1.67 kB an
 /// unknown on the guide (192 000 and 255 552 unknowns) and the strip with ports (941 688), in
 /// docs/methods/fdfd-3d.md ("Without the matrix").
-pub(crate) const MATRIX_SOLVE_BYTES: u64 = 1_700;
+pub const MATRIX_SOLVE_BYTES: u64 = 1_700;
 
 /// The peak bytes an unknown of the same solve without the matrix: 0.47 to 0.53 kB measured.
-pub(crate) const MATRIX_FREE_SOLVE_BYTES: u64 = 500;
+pub const MATRIX_FREE_SOLVE_BYTES: u64 = 500;
 
 impl Product {
     /// What `self` comes to for `unknowns` on `formulation`, with `free` bytes of memory
@@ -351,9 +351,10 @@ impl IterativeSolver3d {
     ///
     /// # Errors
     ///
-    /// As [`IterativeSolver3d::with_ilu`].
-    #[cfg(test)]
-    pub(crate) fn with_ilu_sweeps(self, sweeps: usize) -> Result<IterativeSolver3d> {
+    /// As [`IterativeSolver3d::with_ilu`]. (Not only in this crate's tests: photonoxide's 3D FDFD
+    /// tests use it.)
+    #[doc(hidden)]
+    pub fn with_ilu_sweeps(self, sweeps: usize) -> Result<IterativeSolver3d> {
         let mut solver = self.with_ilu()?;
         if let Preconditioning::Ilu(ilu) = solver.preconditioner {
             solver.preconditioner = Preconditioning::Ilu(Box::new(ilu.with_sweeps(sweeps)));
@@ -503,7 +504,8 @@ impl IterativeSolver3d {
     /// A field of this problem from E's `values`, laid out as [`Grid3d::index`] says: another
     /// solver's field (FDTD's at the leapfrog's frequency) read with this one's fluxes and
     /// mode projections, with no factorization to build.
-    pub(crate) fn field(&self, values: Vec<c64>) -> Field3d {
+    #[doc(hidden)]
+    pub fn field(&self, values: Vec<c64>) -> Field3d {
         Field3d {
             lattice: self.lattice.clone(),
             values,
@@ -808,7 +810,8 @@ impl IterativeSolver3d {
 
     /// As [`IterativeSolver3d::s_matrix`], with how each run's QMR went, in the ports' order;
     /// for a block, each port's column of it (its `iterations` the block's when it converged).
-    pub(crate) fn s_matrix_with_convergence(
+    #[doc(hidden)]
+    pub fn s_matrix_with_convergence(
         &self,
         ports: &[Port3d],
         stopping: Stopping,

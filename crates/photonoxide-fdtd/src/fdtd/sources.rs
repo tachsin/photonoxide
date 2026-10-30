@@ -128,9 +128,11 @@ pub struct GaussianBeam {
 
 /// A distributed current as the step applies it: component, value's index, amplitude.
 #[derive(Clone, Debug)]
-pub(super) struct Applied {
+#[doc(hidden)]
+pub struct Applied {
     pub(super) field: Field,
-    pub(super) values: Vec<(usize, usize, c64)>,
+    #[doc(hidden)]
+    pub values: Vec<(usize, usize, c64)>,
     pub(super) waveform: Waveform,
 }
 

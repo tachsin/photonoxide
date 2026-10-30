@@ -1248,6 +1248,7 @@ impl Anisotropic {
 }
 
 pub(crate) mod before;
-pub(crate) mod checks;
+#[doc(hidden)]
+pub mod checks;
 #[cfg(test)]
 mod tests;

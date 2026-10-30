@@ -403,7 +403,8 @@ pub struct Simulation {
     points: sources::Points,
     sources: Vec<Source>,
     /// Distributed currents (J or M), each with its complex amplitudes and waveform.
-    currents: Vec<sources::Applied>,
+    #[doc(hidden)]
+    pub currents: Vec<sources::Applied>,
     /// Plane waves on total-field/scattered-field boxes, each with its auxiliary grid.
     plane_waves: Vec<sources::PlaneWaveRun>,
     probes: Vec<Probe>,
@@ -412,7 +413,8 @@ pub struct Simulation {
     /// The dispersive media's polarization currents.
     media: media::Media,
     /// With a Bloch phase on a side, the fields' imaginary part.
-    bloch: Option<Box<bloch::Bloch>>,
+    #[doc(hidden)]
+    pub bloch: Option<Box<bloch::Bloch>>,
     /// A smoothed permittivity whose tensor couples E's components: D, and E from it.
     anisotropic: Option<Box<smoothing::Anisotropic>>,
     /// Transforms, flux and mode monitors.
@@ -1410,7 +1412,8 @@ impl Simulation {
 
     /// Steps with the plain loops the kernel replaced, from now on: the reference the kernel
     /// is checked against (the same bits).
-    pub(crate) fn use_reference_kernel(&mut self) {
+    #[doc(hidden)]
+    pub fn use_reference_kernel(&mut self) {
         self.reference = true;
         if let Some(b) = &mut self.bloch {
             b.twin.reference = true;
@@ -1503,21 +1506,19 @@ impl Simulation {
 }
 
 pub(crate) mod adjoint;
-pub(crate) mod adjoint_checks;
+#[doc(hidden)]
+pub mod adjoint_checks;
 #[cfg(feature = "gpu")]
 pub mod gpu;
 #[cfg(feature = "gpu")]
 pub use gpu::{Gpu, Precision};
 #[cfg(test)]
 mod adjoint_tests;
-pub(crate) mod agreement_checks;
+#[doc(hidden)]
+pub mod agreement_checks;
 mod bloch;
-#[path = "cases/fdtd/bloch_checks.rs"]
-pub(crate) mod bloch_checks;
-pub(crate) mod checks;
-pub(crate) mod crystal_checks;
-#[cfg(test)]
-mod crystal_tests;
+#[doc(hidden)]
+pub mod checks;
 mod harmonic;
 #[cfg(test)]
 mod harmonic_tests;
@@ -1527,29 +1528,40 @@ mod kernel_rates;
 #[cfg(test)]
 mod kernel_tests;
 mod media;
-pub(crate) mod media_checks;
-pub(crate) mod meep_checks;
+#[doc(hidden)]
+pub mod media_checks;
+#[doc(hidden)]
+pub mod meep_checks;
 pub(crate) mod mie;
-pub(crate) mod mie_checks;
+#[doc(hidden)]
+pub mod mie_checks;
 #[cfg(test)]
 mod mie_tests;
 mod monitors;
-pub(crate) mod monitors_checks;
+#[doc(hidden)]
+pub mod monitors_checks;
 #[cfg(test)]
 mod monitors_tests;
-pub(crate) mod ring;
+#[doc(hidden)]
+pub mod ring;
 pub(crate) mod smoothing;
+/// What photonoxide uses of `smoothing`. The module stays private: its public types are re-exported
+/// here, and a hidden module would hide them from the API listing.
+#[doc(hidden)]
+pub mod smoothing_items {
+    pub use super::smoothing::*;
+}
 mod sources;
 pub use adjoint::{Design, Term, ValueGradient};
 pub use harmonic::{Resonance, harmonic_inversion};
-pub(crate) use kernel::{Blocking, Real, Yee};
+#[doc(hidden)]
+pub use kernel::{Blocking, Real, Yee};
 pub use media::{Dispersive, Fit, Pole};
 pub use mie::{CrossSections, Mie, Sphere};
-pub(crate) use monitors::Growth;
+#[doc(hidden)]
+pub use monitors::Growth;
 pub use monitors::{Dft, FluxPlane};
 pub use smoothing::{Average, Body, Coupling, Permittivity, Smoothing, Structure};
 pub use sources::{BeamPolarization, Current, Dipole, GaussianBeam, PlaneWave};
-#[cfg(test)]
-mod media_tests;
 #[cfg(test)]
 mod tests;
