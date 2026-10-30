@@ -1,0 +1,7 @@
+[package]
+name = "photonoxide-expr"
+version = "0.0.0"
+edition = "2024"
+publish = false
+description = "Scratch: photonoxide's expr module as a crate of its own, for the Public API job's test run."
+license = "MIT OR Apache-2.0"

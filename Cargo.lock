@@ -3625,6 +3625,7 @@ dependencies = [
  "i_overlay",
  "libm",
  "num-complex",
+ "photonoxide-expr",
  "private-gemm-x86",
  "rayon",
  "schemars 1.2.3",
@@ -3636,6 +3637,10 @@ dependencies = [
  "yaml-rust2",
  "zip",
 ]
+
+[[package]]
+name = "photonoxide-expr"
+version = "0.0.0"
 
 [[package]]
 name = "photonoxide-native"

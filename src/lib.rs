@@ -65,7 +65,7 @@ pub mod eme;
 pub mod error;
 mod etch;
 pub mod export;
-pub mod expr;
+pub use photonoxide_expr as expr;
 pub mod facade;
 pub mod farm;
 pub mod fdfd;

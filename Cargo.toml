@@ -26,6 +26,7 @@ default-members = ["."]
 version = "0.6.0"
 
 [dependencies]
+photonoxide-expr = { path = "crates/photonoxide-expr" }
 # without faer's `npy` default: nothing here reads .npy files, and it brought pest, whose newer
 # releases assemble and link .asm files (psm) at build time, against AGENTS.md's "nothing linked"
 faer = { version = "0.24.4", default-features = false, features = ["std", "rayon", "sparse-linalg", "rand"] }
