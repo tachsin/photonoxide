@@ -97,6 +97,9 @@ opt-level = 3
 # Debug and test builds keep file and line numbers for panics and backtraces, not the full debug
 # info: with everything optimized it took longer to compile and link than it gave back (#507).
 # CI sets CARGO_PROFILE_DEV_DEBUG=0. A debugger that needs variables: `debug = true` here, locally.
+[profile.dev.package.photonoxide-expr]
+opt-level = 3
+
 [profile.dev]
 debug = "line-tables-only"
 
