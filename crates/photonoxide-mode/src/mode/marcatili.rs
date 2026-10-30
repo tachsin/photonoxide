@@ -220,7 +220,8 @@ pub fn normalized(n_eff: f64, core: f64, cladding: f64) -> Result<f64> {
 /// The largest relative difference in the normalized constant between Marcatili's closed form
 /// and his exact transcendental solution, for E^x_11 and E^y_11 of a guide a = 2b where the
 /// latter is at least 0.5, over 2b/λ (n₁² − n₄²)^½ from 0.8 to 4 (his Fig. 6b), at λ = 1 µm.
-pub(crate) fn closed_form_deviation(core: f64, cladding: f64) -> f64 {
+#[doc(hidden)]
+pub fn closed_form_deviation(core: f64, cladding: f64) -> f64 {
     let lam = Wavelength::from_um_unchecked(1.0);
     let mut worst: f64 = 0.0;
     for k in 0..=32 {
@@ -258,7 +259,8 @@ pub(crate) fn against_vector(big_b: f64, family: Family) -> (f64, f64) {
 }
 
 /// [`against_vector`] with `divisions` cells across the core's height b.
-pub(crate) fn against_vector_on(big_b: f64, family: Family, divisions: f64) -> (f64, f64) {
+#[doc(hidden)]
+pub fn against_vector_on(big_b: f64, family: Family, divisions: f64) -> (f64, f64) {
     use crate::mode::vector::{
         self, Boundaries, Boundary, CrossSection, Permittivity, graded_nodes,
     };

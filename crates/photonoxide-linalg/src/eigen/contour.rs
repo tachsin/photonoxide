@@ -50,7 +50,7 @@ fn failed(why: impl Into<String>) -> Error {
 
 /// A pencil A x = λ B x of n × n sparse matrices, as (row, column, value) entries (repeated
 /// entries are summed); B the identity when `None`.
-pub(crate) struct Pencil<'a> {
+pub struct Pencil<'a> {
     pub n: usize,
     pub a: &'a [(usize, usize, c64)],
     pub b: Option<&'a [(usize, usize, c64)]>,
@@ -106,7 +106,7 @@ impl Operators {
 /// Quadrature on a closed curve: nodes z_j and weights w_j with
 /// Σ w_j f(z_j) ≈ (1/2πi) ∮ f(z) dz for f analytic near the curve.
 #[derive(Clone, Debug)]
-pub(crate) struct Quadrature {
+pub struct Quadrature {
     nodes: Vec<c64>,
     weights: Vec<c64>,
     /// The second half's nodes and weights are the first half's conjugates, exactly.
@@ -124,7 +124,7 @@ impl Quadrature {
     ///
     /// [`Error::InvalidValue`] for fewer than 2 points, an odd count with `symmetric`, or a
     /// curve that isn't finite.
-    pub(crate) fn trapezoid(
+    pub fn trapezoid(
         points: usize,
         symmetric: bool,
         curve: impl Fn(f64) -> (c64, c64),
@@ -166,9 +166,9 @@ impl Quadrature {
         &self.nodes
     }
 
-    /// The rational filter Σ w_j / (z_j − λ): about 1 inside the curve and 0 outside.
-    #[cfg(test)]
-    pub(crate) fn filter(&self, lambda: c64) -> c64 {
+    /// The rational filter Σ w_j / (z_j − λ): about 1 inside the curve and 0 outside. (Not only
+    /// in this crate's tests: the mode crate's tests call it.)
+    pub fn filter(&self, lambda: c64) -> c64 {
         self.nodes
             .iter()
             .zip(&self.weights)
@@ -179,7 +179,7 @@ impl Quadrature {
 
 /// What to search with.
 #[derive(Clone, Copy, Debug)]
-pub(crate) struct Options {
+pub struct Options {
     /// The subspace's size; when `None`, chosen from the count's estimate and grown as needed.
     pub subspace: Option<usize>,
     /// The largest relative residual ‖A x − λ B x‖ / (α ‖B x‖) accepted, α the largest |z_j|.
@@ -189,7 +189,7 @@ pub(crate) struct Options {
 }
 
 /// The eigenpairs inside the curve, and how they were found.
-pub(crate) struct Found {
+pub struct Found {
     pub pairs: Vec<Pair>,
     /// Each pair's relative residual, as in [`Options::tolerance`].
     pub residuals: Vec<f64>,
@@ -489,13 +489,13 @@ pub(crate) fn solve(
     Ok(solve_until(pencil, quadrature, inside, options, &|| false)?.expect("not stopped"))
 }
 
-/// As [`solve`], giving up when `stop` says so: `None` then. It is asked before each batch of
+/// As `solve`, giving up when `stop` says so: `None` then. It is asked before each batch of
 /// quadrature points (a factorization and solves each, side by side).
 ///
 /// # Errors
 ///
-/// As [`solve`].
-pub(crate) fn solve_until(
+/// As `solve`.
+pub fn solve_until(
     pencil: &Pencil,
     quadrature: &Quadrature,
     inside: &(dyn Fn(c64) -> bool + Sync),
@@ -768,7 +768,7 @@ pub(crate) fn sakurai_sugiura_example_5() -> (Entries, Entries) {
 /// (centre 0.015, radius 0.02: 0, 0.01, 0.02, 0.03) by their Hankel method with m = 4 at
 /// `points` points, u and v vectors uniform in (0, 1) as theirs from Matlab's `rand`, the
 /// `draw`-th of a fixed sequence of them.
-pub(crate) fn sakurai_sugiura_error(points: usize, draw: u64) -> f64 {
+pub fn sakurai_sugiura_error(points: usize, draw: u64) -> f64 {
     let (a, b) = sakurai_sugiura_example_5();
     let pencil = Pencil {
         n: 100,

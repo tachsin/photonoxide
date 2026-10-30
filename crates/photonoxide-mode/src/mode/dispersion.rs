@@ -176,7 +176,8 @@ pub fn track(
 /// at 1.548 to 1.552 µm, and exactly. Without material dispersion, Hellmann–Feynman applied to
 /// E'' + (k²ε − β²)E = 0 gives dβ²/d(k²) = ∫ε E² / ∫E², so n_g = dβ/dk = ⟨ε⟩/n_eff, with ⟨ε⟩
 /// from the exact field. The slab: 220 nm of 3.473 between 1.444 and air, at 1.55 µm.
-pub(crate) fn te_slab_group_index() -> (f64, f64) {
+#[doc(hidden)]
+pub fn te_slab_group_index() -> (f64, f64) {
     use crate::mode::Polarization;
     use crate::mode::slab::Slab;
     use crate::units::Length;

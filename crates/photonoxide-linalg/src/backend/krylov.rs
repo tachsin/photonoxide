@@ -28,14 +28,19 @@ use crate::{Error, Result};
 
 mod block;
 pub use block::BlockConvergence;
-pub(crate) use block::example as block_example;
-pub(crate) use block::{block_qmr, block_qmr_preconditioned, block_qmr_similar};
+#[doc(hidden)]
+pub use block::example as block_example;
+#[doc(hidden)]
+pub use block::{block_qmr, block_qmr_preconditioned, block_qmr_similar};
 mod recycle;
-pub(crate) use recycle::example as recycle_example;
-pub(crate) use recycle::{Space, gcro_dr, least_residual};
+#[doc(hidden)]
+pub use recycle::example as recycle_example;
+#[doc(hidden)]
+pub use recycle::{Space, gcro_dr, least_residual};
 
 /// A sparse matrix by rows, with its transpose by rows, for the products QMR takes.
-pub(crate) struct Sparse {
+#[doc(hidden)]
+pub struct Sparse {
     n: usize,
     starts: Vec<usize>,
     columns: Vec<usize>,
@@ -49,10 +54,8 @@ pub(crate) struct Sparse {
 impl Sparse {
     /// The matrix by columns, as a backend takes it ([`crate::backend::Matrix`]): its
     /// transpose's rows are its columns.
-    pub(crate) fn as_matrix(
-        &self,
-        form: crate::backend::Form,
-    ) -> Result<crate::backend::Matrix<'_>> {
+    #[doc(hidden)]
+    pub fn as_matrix(&self, form: crate::backend::Form) -> Result<crate::backend::Matrix<'_>> {
         crate::backend::Matrix::new(
             self.n,
             &self.t_starts,
@@ -63,12 +66,14 @@ impl Sparse {
     }
 
     /// The matrix by rows, as a backend takes it ([`crate::backend::RowMatrix`]).
-    pub(crate) fn rows(&self) -> crate::backend::RowMatrix<'_> {
+    #[doc(hidden)]
+    pub fn rows(&self) -> crate::backend::RowMatrix<'_> {
         crate::backend::RowMatrix::trusted(self.n, &self.starts, &self.columns, &self.values)
     }
 
     /// The n × n matrix with these entries, (row, column, value); repeated entries are summed.
-    pub(crate) fn new(n: usize, entries: impl IntoIterator<Item = (usize, usize, c64)>) -> Sparse {
+    #[doc(hidden)]
+    pub fn new(n: usize, entries: impl IntoIterator<Item = (usize, usize, c64)>) -> Sparse {
         let entries: Vec<(usize, usize, c64)> = entries.into_iter().collect();
         let by_rows = |transposed: bool| {
             let mut sorted: Vec<(usize, usize, c64)> = entries
@@ -109,7 +114,8 @@ impl Sparse {
 
     /// The n × n matrix whose row r is `rows[r]`, its columns sorted and distinct. The
     /// transpose is laid out by counting, without sorting.
-    pub(crate) fn from_rows(rows: Vec<Vec<(usize, c64)>>) -> Sparse {
+    #[doc(hidden)]
+    pub fn from_rows(rows: Vec<Vec<(usize, c64)>>) -> Sparse {
         let n = rows.len();
         let mut starts = Vec::with_capacity(n + 1);
         starts.push(0);
@@ -151,17 +157,20 @@ impl Sparse {
     }
 
     /// The number of stored entries.
-    pub(crate) fn nonzeros(&self) -> usize {
+    #[doc(hidden)]
+    pub fn nonzeros(&self) -> usize {
         self.values.len()
     }
 
     /// Row `r`'s entries, (column, value).
-    pub(crate) fn row(&self, r: usize) -> impl Iterator<Item = (usize, c64)> + '_ {
+    #[doc(hidden)]
+    pub fn row(&self, r: usize) -> impl Iterator<Item = (usize, c64)> + '_ {
         (self.starts[r]..self.starts[r + 1]).map(|k| (self.columns[k], self.values[k]))
     }
 
     /// A v.
-    pub(crate) fn apply(&self, v: &[c64]) -> Vec<c64> {
+    #[doc(hidden)]
+    pub fn apply(&self, v: &[c64]) -> Vec<c64> {
         let mut out = vec![c64::new(0.0, 0.0); self.n];
         product(&self.starts, &self.columns, &self.values, v, &mut out);
         out
@@ -186,7 +195,8 @@ impl Sparse {
     /// iterations. A x = b is B (S x) = S b. The 3D curl-curl operator with PMLs is symmetric so,
     /// D its cells' stretch factors (measured: to 7e-15); Shin and Fan's operator, and a Bloch
     /// side's phases, aren't.
-    pub(crate) fn symmetrized(&self) -> Option<(Vec<c64>, Sparse)> {
+    #[doc(hidden)]
+    pub fn symmetrized(&self) -> Option<(Vec<c64>, Sparse)> {
         let n = self.n;
         let entry = |r: usize, c: usize| -> Option<c64> {
             let row = &self.columns[self.starts[r]..self.starts[r + 1]];
@@ -255,7 +265,8 @@ fn product(starts: &[usize], columns: &[usize], values: &[c64], v: &[c64], out: 
 }
 
 /// A linear operator QMR can solve with: its products with vectors and its transpose's.
-pub(crate) trait Operator {
+#[doc(hidden)]
+pub trait Operator {
     /// The number of rows (and columns).
     fn size(&self) -> usize;
     /// A v.
@@ -369,7 +380,8 @@ pub(crate) fn by_chunks(vectors: &mut [Vec<c64>], size: usize) -> Vec<Vec<&mut [
 }
 
 /// An approximate inverse of a matrix M, for preconditioning: M⁻¹ v and M⁻ᵀ v.
-pub(crate) trait Preconditioner {
+#[doc(hidden)]
+pub trait Preconditioner {
     /// M⁻¹ v.
     fn solve(&self, v: &[c64]) -> Vec<c64>;
     /// M⁻ᵀ v (the transpose, not the conjugate transpose).
@@ -423,7 +435,8 @@ impl<A: Operator, M: Preconditioner> Operator for RightPreconditioned<'_, A, M> 
 /// # Errors
 ///
 /// As [`qmr_preconditioned`].
-pub(crate) fn qmr_preconditioned_by(
+#[doc(hidden)]
+pub fn qmr_preconditioned_by(
     a: &impl Operator,
     m: &impl Preconditioner,
     b: &[c64],
@@ -441,7 +454,8 @@ pub(crate) fn qmr_preconditioned_by(
 /// # Errors
 ///
 /// As [`qmr`].
-pub(crate) fn qmr_preconditioned(
+#[doc(hidden)]
+pub fn qmr_preconditioned(
     a: &impl Operator,
     m: &impl Preconditioner,
     b: &[c64],
@@ -499,7 +513,8 @@ fn combine(w: &mut [c64], coefficients: &[c64], vectors: &[Vec<c64>]) {
 ///
 /// [`Error::InvalidValue`] if `b` doesn't match A, if the tolerance isn't positive, if
 /// `restart` is 0, or if the tolerance isn't reached within the iterations allowed.
-pub(crate) fn gmres_preconditioned(
+#[doc(hidden)]
+pub fn gmres_preconditioned(
     a: &impl Operator,
     m: &impl Preconditioner,
     b: &[c64],
@@ -867,11 +882,8 @@ const RESTARTS: usize = 10;
 /// [`Error::InvalidValue`] if `b` doesn't match A, if the tolerance isn't positive, if the
 /// Lanczos process breaks down at its first step, or more than 10 times, or if the tolerance
 /// isn't reached within the iterations allowed.
-pub(crate) fn qmr(
-    a: &impl Operator,
-    b: &[c64],
-    stopping: Stopping,
-) -> Result<(Vec<c64>, Convergence)> {
+#[doc(hidden)]
+pub fn qmr(a: &impl Operator, b: &[c64], stopping: Stopping) -> Result<(Vec<c64>, Convergence)> {
     restarted(a, b, stopping, false)
 }
 
@@ -886,9 +898,9 @@ pub(crate) fn qmr(
 ///
 /// # Errors
 ///
-/// As [`qmr`].
-#[cfg(test)]
-pub(crate) fn qmr_symmetric(
+/// As [`qmr`]. (Not only in this crate's tests: photonoxide's call it.)
+#[doc(hidden)]
+pub fn qmr_symmetric(
     a: &impl Operator,
     b: &[c64],
     stopping: Stopping,
@@ -907,7 +919,8 @@ pub(crate) fn qmr_symmetric(
 ///
 /// As [`qmr`], and [`Error::InvalidValue`] if A's residual is still above the tolerance after
 /// 5 rounds.
-pub(crate) fn qmr_similar(
+#[doc(hidden)]
+pub fn qmr_similar(
     b_matrix: &impl Operator,
     s: &[c64],
     b: &[c64],
@@ -923,7 +936,8 @@ pub(crate) fn qmr_similar(
 /// # Errors
 ///
 /// As [`qmr_similar`].
-pub(crate) fn qmr_similar_by(
+#[doc(hidden)]
+pub fn qmr_similar_by(
     b_matrix: &impl Operator,
     s: &[c64],
     b: &[c64],
@@ -1003,7 +1017,8 @@ fn restarted(
 
 /// QMR by `run`, restarted from its iterate at a breakdown on its true residual (A's products
 /// by `a`).
-pub(crate) fn restarted_by(
+#[doc(hidden)]
+pub fn restarted_by(
     a: &impl Operator,
     b: &[c64],
     stopping: Stopping,
@@ -1384,7 +1399,8 @@ impl Triangle {
 /// Linear Systems, 2nd ed., SIAM (2003), doi:10.1137/1.9780898718003): L and U
 /// on A's own sparsity, so that (LU)_ij = a_ij wherever a_ij ≠ 0. The triangular solves are
 /// sequential.
-pub(crate) struct Ilu0 {
+#[doc(hidden)]
+pub struct Ilu0 {
     /// L y = v (unit diagonal), U x = y; and for the transpose, Uᵀ y = v, Lᵀ x = y.
     l: Triangle,
     u: Triangle,
@@ -1400,7 +1416,8 @@ impl Ilu0 {
     /// # Errors
     ///
     /// [`Error::InvalidValue`] for a row without a diagonal entry or a zero pivot.
-    pub(crate) fn new(a: &Sparse) -> Result<Ilu0> {
+    #[doc(hidden)]
+    pub fn new(a: &Sparse) -> Result<Ilu0> {
         let n = a.n;
         let (starts, columns) = (&a.starts, &a.columns);
         let mut values = a.values.clone();
@@ -1481,22 +1498,25 @@ impl Ilu0 {
 
     /// The same factors, each triangular solve taken as `sweeps` Jacobi sweeps instead of
     /// exactly: in parallel where the exact solves are sequential, and a fixed linear operator,
-    /// so QMR can use it as its preconditioner.
-    #[cfg(test)]
-    pub(crate) fn with_sweeps(mut self, sweeps: usize) -> Ilu0 {
+    /// so QMR can use it as its preconditioner. (Not only in this crate's tests: photonoxide's
+    /// FDFD tests use it.)
+    #[doc(hidden)]
+    pub fn with_sweeps(mut self, sweeps: usize) -> Ilu0 {
         self.sweeps = Some(sweeps.max(1));
         self
     }
 
     /// Whether [`Ilu0::factors`] has factors to give: its solves exact, not Jacobi sweeps.
-    pub(crate) fn has_factors(&self) -> bool {
+    #[doc(hidden)]
+    pub fn has_factors(&self) -> bool {
         self.sweeps.is_none() && self.u.inverse_diagonal.is_some()
     }
 
     /// Its factors as a backend takes them: L's rows below the diagonal, and U's with their
     /// diagonal (the inverse of the one kept here) first. The exact solves only: `None` with
     /// Jacobi sweeps.
-    pub(crate) fn factors(&self) -> Option<crate::backend::IluFactors> {
+    #[doc(hidden)]
+    pub fn factors(&self) -> Option<crate::backend::IluFactors> {
         let n = self.l.starts.len() - 1;
         let (lower, upper) = self.factors_numbered(|i| i)?;
         Some(crate::backend::IluFactors { n, lower, upper })
@@ -1582,7 +1602,8 @@ impl Preconditioner for Ilu0 {
 /// block-Jacobi preconditioner whose blocks are solved by their incomplete factors, all at once
 /// on rayon's threads. The blocks are fixed by the caller, not by the threads, so the result is
 /// the same bit for bit on any number of them.
-pub(crate) struct BlockIlu0 {
+#[doc(hidden)]
+pub struct BlockIlu0 {
     n: usize,
     /// Each block's rows, ascending, and its factors.
     blocks: Vec<(Vec<usize>, Ilu0)>,
@@ -1594,7 +1615,8 @@ impl BlockIlu0 {
     /// # Errors
     ///
     /// As [`Ilu0::new`], for any block.
-    pub(crate) fn new(a: &Sparse, blocks: Vec<Vec<usize>>) -> Result<BlockIlu0> {
+    #[doc(hidden)]
+    pub fn new(a: &Sparse, blocks: Vec<Vec<usize>>) -> Result<BlockIlu0> {
         use rayon::prelude::*;
         let n = a.n;
         let factors: Vec<Result<Ilu0>> = blocks
@@ -1625,7 +1647,8 @@ impl BlockIlu0 {
     /// block's in the matrix's own numbering. A block's rows are ascending, so each row's
     /// columns stay ascending, and LU is block diagonal: the ILU(0) of the matrix without its
     /// entries between blocks.
-    pub(crate) fn factors(&self) -> Option<crate::backend::IluFactors> {
+    #[doc(hidden)]
+    pub fn factors(&self) -> Option<crate::backend::IluFactors> {
         use rayon::prelude::*;
         let n = self.n;
         // each block's factors by its rows, their columns the matrix's, on rayon's threads

@@ -84,7 +84,8 @@ pub(crate) fn points(a: &[&Mode], b: &[&Mode]) -> Vec<Point> {
 }
 
 /// O_ij = ⟨E_i^a, H_j^b⟩ = ∫ (E_i^a × H_j^b)·ẑ dx̃, across the window.
-pub(crate) fn overlaps(a: &[Mode], b: &[Mode]) -> Mat<c64> {
+#[doc(hidden)]
+pub fn overlaps(a: &[Mode], b: &[Mode]) -> Mat<c64> {
     let ra: Vec<&Mode> = a.iter().collect();
     let rb: Vec<&Mode> = b.iter().collect();
     let pts = points(&ra, &rb);
@@ -190,17 +191,18 @@ fn transpose(a: &Mat<c64>) -> Mat<c64> {
 
 /// A two-port's S-matrix in blocks: 11 and 22 reflections, 21 from port 1 to port 2.
 #[derive(Clone, Debug)]
-pub(crate) struct Blocks {
-    pub(crate) s11: Mat<c64>,
-    pub(crate) s12: Mat<c64>,
-    pub(crate) s21: Mat<c64>,
-    pub(crate) s22: Mat<c64>,
+pub struct Blocks {
+    pub s11: Mat<c64>,
+    pub s12: Mat<c64>,
+    pub s21: Mat<c64>,
+    pub s22: Mat<c64>,
 }
 
 /// The interface whose overlaps are `o` (O_ij = ⟨E_i^I, H_j^II⟩), as the ideal transformer of
 /// the module's third point: R = (1 + OOᵀ)⁻¹(1 − OOᵀ), T = 2Oᵀ(1 + OOᵀ)⁻¹, and from section II,
 /// R' = (1 + OᵀO)⁻¹(OᵀO − 1), T' = 2O(1 + OᵀO)⁻¹.
-pub(crate) fn interface(o: &Mat<c64>) -> Blocks {
+#[doc(hidden)]
+pub fn interface(o: &Mat<c64>) -> Blocks {
     let ot = transpose(o);
     let (n1, n2) = (o.nrows(), o.ncols());
     let m = product(o, &ot);
@@ -318,9 +320,9 @@ pub(super) fn structure(eme: &Eme, sections: &[Section]) -> Result<Scattering> {
     })
 }
 
-/// Bienstman and Baets's Eq. 3, both continuities tested with section I's modes: for comparison.
-#[cfg(test)]
-pub(crate) fn interface_eq3(o12: &Mat<c64>, o21: &Mat<c64>) -> (Mat<c64>, Mat<c64>) {
+/// Bienstman and Baets's Eq. 3, both continuities tested with section I's modes: for comparison
+/// (in photonoxide's tests of the expansion).
+pub fn interface_eq3(o12: &Mat<c64>, o21: &Mat<c64>) -> (Mat<c64>, Mat<c64>) {
     let sum = o12 + &transpose(o21);
     let t = scaled(&solve(&sum, &identity(o12.nrows())), 2.0);
     let r = scaled(&product(&(&transpose(o21) - o12), &t), 0.5);

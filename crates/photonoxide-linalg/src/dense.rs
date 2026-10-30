@@ -45,7 +45,8 @@ impl<'a> Block<'a> {
     /// # Panics
     ///
     /// If its rows aren't one after another in memory (a transposed view).
-    pub(crate) fn new(matrix: MatRef<'a, c64>) -> Block<'a> {
+    #[doc(hidden)]
+    pub fn new(matrix: MatRef<'a, c64>) -> Block<'a> {
         assert!(matrix.nrows() == 0 || matrix.row_stride() == 1);
         Block(matrix)
     }
@@ -92,7 +93,8 @@ impl<'a> BlockMut<'a> {
     /// # Panics
     ///
     /// As [`Block::new`].
-    pub(crate) fn new(matrix: MatMut<'a, c64>) -> BlockMut<'a> {
+    #[doc(hidden)]
+    pub fn new(matrix: MatMut<'a, c64>) -> BlockMut<'a> {
         assert!(matrix.nrows() == 0 || matrix.row_stride() == 1);
         BlockMut(matrix)
     }

@@ -55,7 +55,7 @@
 //!
 //! **S-parameters** are in the modes' amplitudes: |S_qp|² is the share of power from mode p into
 //! mode q for a real mode, and S's reflections are the tangential E's, as the FDFD ports'
-//! ([`crate::fdfd::PortMode`]): the conventions are the same, so the two compare directly.
+//! (`photonoxide::fdfd::PortMode`): the conventions are the same, so the two compare directly.
 //!
 //! Not here yet: 3D cross-sections, sections drawn from a device's geometry or a job's shapes,
 //! adaptive steps along a taper, and S over wavelength (#432).
@@ -66,10 +66,9 @@ use crate::mode::Polarization;
 use crate::units::{Length, Wavelength};
 use crate::{Error, Result};
 
-#[path = "cases/eme/checks.rs"]
-pub(crate) mod checks;
 mod modes;
-mod scattering;
+#[doc(hidden)]
+pub mod scattering;
 
 pub use modes::Mode;
 
@@ -340,7 +339,3 @@ impl Eme {
         scattering::structure(self, sections)
     }
 }
-
-#[cfg(test)]
-#[path = "cases/eme/tests.rs"]
-mod tests;

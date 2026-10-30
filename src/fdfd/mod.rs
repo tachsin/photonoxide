@@ -1040,9 +1040,9 @@ mod tests;
 mod three;
 
 // the Krylov solvers live in `backend` now (#508); these are their old paths
-pub use crate::backend::iterative::CycleShape;
-pub(crate) use crate::backend::krylov;
-pub use crate::backend::krylov::{BlockConvergence, Convergence, Stopping};
+pub use photonoxide_linalg::CycleShape;
+pub(crate) use photonoxide_linalg::krylov;
+pub use photonoxide_linalg::{BlockConvergence, Convergence, Stopping};
 pub use ports::{Direction, Port, PortMode, Side};
 pub use three::{
     Axis, Boundaries3d, Coarse, Field3d, Formulation, Grid3d, IterativeSolver3d, Jacobi, Multigrid,

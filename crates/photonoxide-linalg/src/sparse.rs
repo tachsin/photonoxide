@@ -15,9 +15,9 @@
 //! wrap-around), where George's sets are drawn for one.
 
 mod matching;
-mod multifrontal;
+pub mod multifrontal;
 
-pub(crate) use multifrontal::{Analysis, Multifrontal};
+pub use multifrontal::{Analysis, Multifrontal};
 
 /// Below this many unknowns a part is numbered as it is, not dissected further.
 const LEAF: usize = 64;

@@ -31,7 +31,8 @@ use num_complex::Complex64 as c64;
 pub struct Fields {
     pub(crate) xc: Vec<f64>,
     pub(crate) yc: Vec<f64>,
-    pub(crate) area: Vec<f64>,
+    #[doc(hidden)]
+    pub area: Vec<f64>,
     /// E_x, E_y, E_z at each cell, cell (i, j) at i·ny + j, in units of Z₀ times H's.
     pub(crate) e: Vec<[c64; 3]>,
     /// H_x, H_y, H_z at each cell, the four nodes' average.
@@ -130,7 +131,8 @@ pub(crate) fn slab_te(
 /// The power a 220 nm slab's TE mode launches into a 300 nm slab's (3.473 in 1.444, 1.55 µm):
 /// from the full-vector fields at spacing `h`, and exactly. For TE slabs H ∝ E, so the exact
 /// η = (∫E₁E₂)² / (∫E₁² ∫E₂²), from the slabs' exact fields by a fine midpoint rule.
-pub(crate) fn slab_butt_coupling(h: f64) -> (f64, f64) {
+#[doc(hidden)]
+pub fn slab_butt_coupling(h: f64) -> (f64, f64) {
     use crate::mode::Polarization;
     use crate::mode::slab::Slab;
     use crate::units::{Length, Wavelength};

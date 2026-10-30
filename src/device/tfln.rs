@@ -8,15 +8,15 @@ use std::sync::{Arc, Mutex};
 
 use num_complex::Complex64 as c64;
 
+use crate::cases::electro::line_checks::{Cpw, ZHANG_TANGENTS, holloway_kuester_integral};
+use crate::cases::mode::pockels::checks::{Coefficients, Tfln, section_pockels, te_mode_at};
 use crate::circuit::{Fidelity, Parameter, Provenance};
 use crate::electro::line::{DB_PER_NEPER, Drive as LineDrive, Metal, QuasiTem, falls_to, response};
-use crate::electro::line_checks::{Cpw, ZHANG_TANGENTS, holloway_kuester_integral};
 use crate::electro::{EPSILON_0, ElectricField, Grading};
 use crate::geometry::{Point, Polygon, Shape};
 use crate::material::catalogue::{Conditions, entry};
 use crate::material::{self, Material};
 use crate::mode::Polarization;
-use crate::mode::pockels::checks::{Coefficients, Tfln, section_pockels, te_mode_at};
 use crate::mode::pockels::{Drive, half_wave_voltage_length};
 use crate::mode::slab::Slab;
 use crate::mode::thermo::index_change;

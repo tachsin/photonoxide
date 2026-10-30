@@ -8,6 +8,7 @@
 //! and its estimated error.
 //!
 //! ```
+//! # mod photonoxide { pub use photonoxide_core::*; pub use photonoxide_geometry::*; pub use photonoxide_mode::*; pub use num_complex::Complex64; } // the crates users name photonoxide
 //! use photonoxide::Complex64;
 //! use photonoxide::sweep::{Options, Sweep};
 //!
@@ -62,7 +63,8 @@
 
 mod aaa;
 mod branch;
-pub(crate) mod checks;
+#[doc(hidden)]
+pub mod checks;
 #[cfg(test)]
 mod tests;
 

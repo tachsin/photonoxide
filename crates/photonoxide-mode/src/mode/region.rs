@@ -21,7 +21,8 @@ use num_complex::Complex64 as c64;
 
 use crate::eigen::contour::{self, Quadrature};
 
-pub(crate) mod checks;
+#[doc(hidden)]
+pub mod checks;
 use crate::{Error, Result};
 
 /// A region of effective indices: the inside of an ellipse with its axes along the real and

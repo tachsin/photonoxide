@@ -336,6 +336,5 @@ pub fn overlap_factor(
 #[cfg(test)]
 mod tests;
 
-pub(crate) mod bto;
-#[path = "../cases/mode/pockels/checks.rs"]
-pub(crate) mod checks;
+#[doc(hidden)]
+pub mod bto;

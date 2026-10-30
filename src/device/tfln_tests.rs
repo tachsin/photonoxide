@@ -41,7 +41,7 @@ fn one_layer_is_ghione_and_naldis_finite_substrate() {
     // their Figs. 1-2's line, a = 10 and b = 20 µm on ε 10, 5 µm thick, air above and below
     let (a, b, h, eps) = (10e-6, 20e-6, 5e-6, 10.0);
     let line = ClosedLine::new(a, b, &[("substrate", eps, h)], ("clad", 1.0, 1e-6), &[]);
-    let want = crate::electro::line_checks::ghione_naldi_permittivity(a, b, eps, h);
+    let want = crate::cases::electro::line_checks::ghione_naldi_permittivity(a, b, eps, h);
     let got = line.capacitance / line.vacuum;
     assert!((got / want - 1.0).abs() < 1e-12, "{got} against {want}");
     // the substrate's share, ε ∂C/∂ε over C: ε (C − C₀)/((ε − 1) C)
@@ -153,7 +153,7 @@ fn the_measured_fidelity_is_at_dc_and_the_designs_values() {
 
 #[test]
 fn the_pockels_index_change_over_the_mode_gives_the_2d_vpi_l() {
-    use crate::mode::pockels::checks::Coefficients;
+    use crate::cases::mode::pockels::checks::Coefficients;
     use crate::mode::pockels::{Drive, half_wave_voltage_length};
     let d = TflnModulator::new();
     let v = Values::defaults(&d);

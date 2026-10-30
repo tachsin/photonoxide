@@ -288,7 +288,7 @@ const HEATER_RISE: f64 = 10.0;
 /// strip), each cell's Δε from the materials' dn/dT at `T0`, and the TE-like mode's Δn_eff by
 /// perturbation and by re-solve: their relative difference.
 fn heater_field() -> Outcome {
-    let (rise, strip) = crate::statics::checks::jacques_rise();
+    let (rise, strip) = crate::cases::statics::checks::jacques_rise();
     let scale = HEATER_RISE / rise.mean(&strip).expect("the strip's cells");
     let h: f64 = 0.005;
     let at = |t: f64| {

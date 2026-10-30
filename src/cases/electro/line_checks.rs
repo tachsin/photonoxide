@@ -267,7 +267,7 @@ impl Cpw {
         loaded: bool,
     ) -> Electrostatic {
         let (perpendicular, along_c) =
-            crate::mode::pockels::checks::Coefficients::Clamped.static_permittivity();
+            crate::cases::mode::pockels::checks::Coefficients::Clamped.static_permittivity();
         let outer = self.signal + self.gap + self.ground;
         let right = outer + 300.0;
         let (bottom, top) = (

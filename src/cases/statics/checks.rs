@@ -165,11 +165,8 @@ pub(crate) fn slab_transient(cells: usize, scheme: Scheme, steps: usize, until: 
         .boundary(Side::Bottom, Boundary::Fixed(0.0))
         .boundary(Side::Top, Boundary::Fixed(0.0))
         .heater(rect([0.0, width], [0.0, length]), power);
-    let stepping = Stepping {
-        step_s: until / steps as f64,
-        steps,
-        scheme,
-    };
+    // `Stepping` is #[non_exhaustive] in its crate (photonoxide-statics)
+    let stepping = Stepping::new(until / steps as f64, steps, scheme);
     let slab = rect([0.0, width], [0.0, length]);
     let history = heat
         .transient(&stepping, 0.0, &|_| 1.0, std::slice::from_ref(&slab))
@@ -261,11 +258,7 @@ pub(crate) fn lumped_rc() -> (f64, f64, f64) {
         .expect("a solve")
         .mean(&silicon)
         .expect("the silicon");
-    let stepping = Stepping {
-        step_s: tau / 400.0,
-        steps: 1200,
-        scheme: Scheme::Bdf2,
-    };
+    let stepping = Stepping::new(tau / 400.0, 1200, Scheme::Bdf2);
     let history = heat
         .transient(&stepping, 0.0, &|_| 1.0, std::slice::from_ref(&silicon))
         .expect("a transient");
@@ -651,11 +644,7 @@ fn jacques_section(
 /// (Section 2.2, Fig. 1(c)). The fall from the steady state is the same: the problem is linear,
 /// so a turn-off's history is the steady state less a turn-on's.
 pub(crate) fn jacques_tin_heater_times(grading: &Grading, step_s: f64) -> Vec<f64> {
-    let stepping = Stepping {
-        step_s,
-        steps: (20e-6 / step_s).round() as usize,
-        scheme: Scheme::Bdf2,
-    };
+    let stepping = Stepping::new(step_s, (20e-6 / step_s).round() as usize, Scheme::Bdf2);
     JACQUES_VARIANTS
         .iter()
         .map(|&(tin, from_strip_top)| {

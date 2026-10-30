@@ -790,7 +790,8 @@ pub fn modes(
 /// on `n` × `n` cells, its field H_y = cos(πx/4) sin(πy/2): zero derivative on the west edge (a
 /// plane of symmetry) and zero on the others. Returns the cross-section, the wavelength and the
 /// exact effective index, √(ε − ((π/4)² + (π/2)²)/k²).
-pub(crate) fn uniform_box(n: usize) -> (CrossSection, Wavelength, f64) {
+#[doc(hidden)]
+pub fn uniform_box(n: usize) -> (CrossSection, Wavelength, f64) {
     use vector::Boundary::{ElectricWall, MagneticWall};
     let eps = 3.44f64 * 3.44;
     let cs = CrossSection::uniform((0.0, 2.0, n), (0.0, 2.0, n), |_, _| {
@@ -832,11 +833,8 @@ fn tan_term(kappa2: f64, l: f64) -> f64 {
 /// index solves κ_b tan κ_b L_b + κ_t tan κ_t L_t = 0, κ² = k²(ε − ε̄) − (π/W)². Returns the
 /// cross-section, the wavelength and the exact effective index of the mode with H_y ≈
 /// sin(πx/W) cos(κ_b y).
-pub(crate) fn two_dielectric_box(
-    high: bool,
-    n: usize,
-    vertical: bool,
-) -> (CrossSection, Wavelength, f64) {
+#[doc(hidden)]
+pub fn two_dielectric_box(high: bool, n: usize, vertical: bool) -> (CrossSection, Wavelength, f64) {
     use vector::Boundary::MagneticWall;
     let (top, bottom) = if high { (1.0, 11.8336) } else { (10.5, 10.89) };
     let (lt, lb, width) = (0.5, 1.5, 1.5);

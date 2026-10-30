@@ -413,7 +413,8 @@ fn zero(measured: f64, tolerance: f64) -> Outcome {
 }
 
 /// Every adaptive-sweep case, in report order.
-pub(crate) fn cases() -> Vec<Case> {
+#[doc(hidden)]
+pub fn cases() -> Vec<Case> {
     vec![
         Case {
             id: "sweep/aaa-rational",

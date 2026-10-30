@@ -57,11 +57,6 @@ use crate::stack::{Fill, Structure};
 use crate::units::Length;
 use crate::{Error, Result};
 
-#[path = "cases/statics/checks.rs"]
-pub(crate) mod checks;
-#[cfg(test)]
-mod tests;
-
 /// The most cells an axis may have.
 pub const MAX_CELLS: usize = 20_000;
 
@@ -229,7 +224,8 @@ impl Axis {
     }
 
     /// The cell holding `v` (the nearest end cell outside the axis).
-    pub(crate) fn cell_of(&self, v: f64) -> usize {
+    #[doc(hidden)]
+    pub fn cell_of(&self, v: f64) -> usize {
         self.nodes
             .partition_point(|&n| n <= v)
             .clamp(1, self.nodes.len() - 1)
@@ -317,8 +313,10 @@ impl Grading {
 /// concentrates the field).
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Features {
-    xs: Vec<f64>,
-    ys: Vec<f64>,
+    #[doc(hidden)]
+    pub xs: Vec<f64>,
+    #[doc(hidden)]
+    pub ys: Vec<f64>,
     corners: Vec<[f64; 2]>,
 }
 
@@ -485,7 +483,8 @@ impl Grid {
 
     /// The cells and weights [`Field::at`] interpolates (x, y) from (µm): bilinear between the
     /// four nearest cells' centres, the nearest edge cells' beyond the outermost centres.
-    pub(crate) fn bilinear(&self, x: f64, y: f64) -> [(usize, f64); 4] {
+    #[doc(hidden)]
+    pub fn bilinear(&self, x: f64, y: f64) -> [(usize, f64); 4] {
         let locate = |a: &Axis, v: f64| -> (usize, usize, f64) {
             let n = a.cells();
             if n == 1 || v <= a.centre(0) {
@@ -707,7 +706,7 @@ impl Section {
     /// etches and sloped walls, and the cladding, each cell filled as the full-vector mode
     /// solver fills it ([`Structure::cut_cell`]: its material, or a sloped wall's shares), and
     /// a body's catalogue material at the cell's centre. Each material is a medium named by
-    /// [`crate::material::Material::name`]. Its [`Section::features`] are the layers'
+    /// `crate::material::Material::name`. Its `Section::features` are the layers'
     /// interfaces, the etches' floors and the shapes' edges along the cut, each wall's foot too.
     ///
     /// # Errors
@@ -1099,14 +1098,16 @@ fn crossings(shape: &Shape, cut: Cut, reach: f64) -> Vec<f64> {
 /// A region a problem holds at a value: the cells whose centres a shape contains, or the faces
 /// a strip of zero thickness covers on a horizontal grid line.
 #[derive(Clone, Debug, PartialEq)]
-pub(crate) enum Hold {
+#[doc(hidden)]
+pub enum Hold {
     Shape(Shape),
     Strip { x: [f64; 2], y: f64 },
 }
 
 /// The discrete problem: a grid, each cell's coefficient (in SI units, per axis), the sides'
 /// boundaries, the held regions with their values, and each cell's source (per unit length).
-pub(crate) struct Problem<'a> {
+#[doc(hidden)]
+pub struct Problem<'a> {
     pub grid: &'a Grid,
     pub coefficients: Vec<[f64; 2]>,
     pub sides: [Boundary; 4],
@@ -1137,7 +1138,8 @@ struct Face {
 }
 
 /// The factorized problem, ready for any values of the held regions and any sources.
-pub(crate) struct Discrete {
+#[doc(hidden)]
+pub struct Discrete {
     grid: Grid,
     /// each cell's unknown, or the held region holding it
     cell: Vec<Place>,
@@ -1194,7 +1196,8 @@ fn reach(shape: &Shape, from: [f64; 2], to: [f64; 2]) -> Option<f64> {
 
 impl Discrete {
     /// Assembles and factorizes `problem`.
-    pub(crate) fn new(problem: &Problem<'_>) -> Result<Discrete> {
+    #[doc(hidden)]
+    pub fn new(problem: &Problem<'_>) -> Result<Discrete> {
         Discrete::build(problem, true)
     }
 
@@ -1621,7 +1624,8 @@ impl Discrete {
 
     /// The field for the held regions at `values` and the cells' `sources` (per unit length;
     /// empty for none).
-    pub(crate) fn solve(&self, values: &[f64], sources: &[f64]) -> Result<Field> {
+    #[doc(hidden)]
+    pub fn solve(&self, values: &[f64], sources: &[f64]) -> Result<Field> {
         if values.len() != self.holds {
             return Err(invalid(format!(
                 "{} held regions, {} values",
@@ -1814,7 +1818,8 @@ impl Field {
     /// (`self` − `other`) / `by`, every part of it: a rise above a background per unit of
     /// what drives it (the problem being linear). Both on the same grid, which the caller
     /// ensures.
-    pub(crate) fn above(&self, other: &Field, by: f64) -> Field {
+    #[doc(hidden)]
+    pub fn above(&self, other: &Field, by: f64) -> Field {
         let d = |a: &[f64], b: &[f64]| -> Vec<f64> {
             a.iter().zip(b).map(|(a, b)| (a - b) / by).collect()
         };
@@ -1984,7 +1989,8 @@ impl Field {
 
 /// Each cell's share of `total` (per unit length) spread over `shape` by area: what a heater or
 /// a charge gives each cell. The shares add up to `total` to round-off.
-pub(crate) fn spread(grid: &Grid, shape: &Shape, total: f64, into: &mut [f64]) -> Result<()> {
+#[doc(hidden)]
+pub fn spread(grid: &Grid, shape: &Shape, total: f64, into: &mut [f64]) -> Result<()> {
     let parts = grid.overlap(shape);
     let area: f64 = parts.iter().map(|p| p.1).sum();
     if area <= 0.0 {
@@ -1998,7 +2004,8 @@ pub(crate) fn spread(grid: &Grid, shape: &Shape, total: f64, into: &mut [f64]) -
 
 /// K(k), the complete elliptic integral of the first kind of modulus `k` (0 ≤ k < 1), by the
 /// arithmetic-geometric mean: K = π / (2 AGM(1, √(1 − k²))).
-pub(crate) fn elliptic_k(k: f64) -> f64 {
+#[doc(hidden)]
+pub fn elliptic_k(k: f64) -> f64 {
     let (mut a, mut b) = (1.0f64, (1.0 - k * k).sqrt());
     for _ in 0..64 {
         let (an, bn) = (0.5 * (a + b), (a * b).sqrt());

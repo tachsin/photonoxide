@@ -33,15 +33,15 @@ pub mod marcatili;
 pub mod multilayer;
 pub mod pockels;
 pub mod quantities;
-pub(crate) mod quantities_checks;
+#[doc(hidden)]
+pub mod quantities_checks;
 pub mod region;
 pub mod roughness;
-pub(crate) mod roughness_checks;
+#[doc(hidden)]
+pub mod roughness_checks;
 pub mod slab;
 pub mod slab_fd;
 pub mod thermo;
-#[path = "../cases/mode/thermo_checks.rs"]
-pub(crate) mod thermo_checks;
 pub mod vector;
 
 /// The polarization of a slab mode.

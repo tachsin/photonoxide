@@ -90,7 +90,8 @@ pub struct BlockConvergence {
 ///
 /// [`Error::InvalidValue`] if a column doesn't match A, if the tolerance isn't positive, if
 /// the tolerance isn't reached within the iterations allowed, or after 10 restarts.
-pub(crate) fn block_qmr(
+#[doc(hidden)]
+pub fn block_qmr(
     a: &impl Operator,
     b: &[Vec<c64>],
     stopping: Stopping,
@@ -236,7 +237,8 @@ pub(crate) fn block_qmr_left(
 /// # Errors
 ///
 /// As [`block_qmr`].
-pub(crate) fn block_qmr_preconditioned(
+#[doc(hidden)]
+pub fn block_qmr_preconditioned(
     a: &impl Operator,
     m: &impl Preconditioner,
     b: &[Vec<c64>],
@@ -255,7 +257,8 @@ pub(crate) fn block_qmr_preconditioned(
 /// # Errors
 ///
 /// As [`block_qmr`].
-pub(crate) fn block_qmr_similar(
+#[doc(hidden)]
+pub fn block_qmr_similar(
     b_matrix: &impl Operator,
     s: &[c64],
     b: &[Vec<c64>],
@@ -1195,7 +1198,8 @@ fn direction(
 }
 
 #[path = "example.rs"]
-pub(crate) mod example;
+#[doc(hidden)]
+pub mod example;
 
 #[cfg(test)]
 #[path = "block_tests.rs"]

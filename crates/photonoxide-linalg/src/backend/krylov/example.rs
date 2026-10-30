@@ -159,7 +159,8 @@ pub(crate) fn uniform(seed: u64, n: usize) -> Vec<c64> {
 /// for five. Theirs: 19 and 85. Each the median over `draws` draws. Their stopping test isn't
 /// legible in our scanned copy (nor is Eq. 7.4 whole); at 1e-6 this gives 14 and 63, at 1e-9 18
 /// and 85: the counts depend on it, their ratio (4.5 to 4.7) hardly.
-pub(crate) fn iterations(draws: u64) -> (usize, usize) {
+#[doc(hidden)]
+pub fn iterations(draws: u64) -> (usize, usize) {
     let a = matrix();
     let ssor = Ssor::new(&a);
     let n = a.n;

@@ -51,7 +51,8 @@ pub(crate) fn convection_diffusion(c: f64) -> (Sparse, Vec<c64>) {
 /// fractions of ‖b‖). The largest difference between the two histories relative to the
 /// reference's value at that step, and the iterations each took and full GMRES took on A itself,
 /// to 1e-10.
-pub(crate) fn deflated_against_gmres() -> (f64, usize, usize, usize) {
+#[doc(hidden)]
+pub fn deflated_against_gmres() -> (f64, usize, usize, usize) {
     const N: usize = 300;
     const K: usize = 8;
     let w: Vec<c64> = (0..N)
@@ -144,7 +145,8 @@ fn stopping() -> Stopping {
 /// The problem with `c` solved twice by GCRO-DR(25, 10), the second time recycling the space
 /// the first left (their "ideal" case), and once by full GMRES: the Arnoldi steps of each
 /// (first, second, full GMRES) and the space the first left.
-pub(crate) fn twice(c: f64) -> (usize, usize, usize, Space) {
+#[doc(hidden)]
+pub fn twice(c: f64) -> (usize, usize, usize, Space) {
     let (a, b) = convection_diffusion(c);
     let mut space = Space::default();
     let first = gcro_dr(&a, &Identity, &b, stopping(), 25, 10, &mut space, 0)
@@ -163,7 +165,8 @@ pub(crate) fn twice(c: f64) -> (usize, usize, usize, Space) {
 /// are sin(pπ i h) sin(qπ j h) with eigenvalues −4 sin²(pπh/2) − 4 sin²(qπh/2): the 10 smallest
 /// are (p, q) = (1, 1), (1, 2), (2, 1), (2, 2), (1, 3), (3, 1), (2, 3), (3, 2), (1, 4), (4, 1),
 /// and (3, 3) the 11th.
-pub(crate) fn table_cosines() -> Vec<f64> {
+#[doc(hidden)]
+pub fn table_cosines() -> Vec<f64> {
     let (_, _, _, space) = twice(0.0);
     let h = 1.0 / (P + 1) as f64;
     let pi = std::f64::consts::PI;

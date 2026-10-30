@@ -4,7 +4,7 @@
 //!
 //! - **Static pivoting** (X. S. Li, J. W. Demmel, "SuperLU_DIST", ACM Trans. Math. Softw. 29, 110
 //!   (2003), doi:10.1145/779359.779361, their Figure 1): large entries are first permuted onto
-//!   the diagonal and the matrix scaled ([`super::matching`], Duff & Koster's MC64 option 5),
+//!   the diagonal and the matrix scaled (`super::matching`, Duff & Koster's MC64 option 5),
 //!   so pivots can be taken from the diagonal blocks; a pivot still smaller than √ε ‖A‖₁ is set
 //!   to that (a half-precision perturbation), and the solve is refined afterwards.
 //! - **The fronts** (I. S. Duff, J. K. Reid, "The multifrontal solution of indefinite sparse
@@ -23,7 +23,7 @@
 //!
 //! The supernodes and their row structures are faer's symbolic supernodal Cholesky of the
 //! structure of A + Aᵀ, in our order: nested dissection with one-step separators on a grid
-//! (George's sets, [`super::nested_dissection`]), or AMD otherwise.
+//! (George's sets, `super::nested_dissection`), or AMD otherwise.
 
 use std::sync::{Arc, OnceLock};
 
@@ -55,10 +55,10 @@ fn failed(what: &str, why: impl std::fmt::Display) -> Error {
 /// One supernode: its columns `begin..end` (in the elimination order), the rows below them that
 /// its factor's columns reach (ascending), its children.
 #[derive(Clone, Debug)]
-struct Front {
-    begin: usize,
-    end: usize,
-    below: Vec<usize>,
+pub struct Front {
+    pub begin: usize,
+    pub end: usize,
+    pub below: Vec<usize>,
     children: Vec<usize>,
     /// The front's work, to decide what is worth a thread: its subtree's flops, estimated.
     work: f64,
@@ -68,14 +68,14 @@ struct Front {
 /// the matrix's structure and, through the matching, on its values; a matrix of the same
 /// structure and similar values (another wavelength) is factorized with it as it is.
 #[derive(Debug)]
-pub(crate) struct Analysis {
+pub struct Analysis {
     n: usize,
-    matching: Matching,
+    pub matching: Matching,
     /// The node (column, with its matched row) eliminated k-th.
     order: Vec<usize>,
     /// The inverse: the step at which node j is eliminated.
     step: Vec<usize>,
-    fronts: Vec<Front>,
+    pub fronts: Vec<Front>,
     roots: Vec<usize>,
     entries: usize,
     /// Factorized as complex symmetric, L D Lᵀ: the matrix is (B = Bᵀ, not Hermitian), the
@@ -103,7 +103,7 @@ impl Analysis {
     ///
     /// [`Error::InvalidValue`] if `a` isn't square, is structurally singular, or faer's
     /// analysis fails (out of memory).
-    pub(crate) fn new(
+    pub fn new(
         a: SparseColMatRef<'_, usize, c64>,
         positions: Option<&[[f64; 3]]>,
     ) -> Result<Analysis> {
@@ -128,7 +128,7 @@ impl Analysis {
     /// # Errors
     ///
     /// As [`Analysis::new`].
-    pub(crate) fn new_symmetric(
+    pub fn new_symmetric(
         a: SparseColMatRef<'_, usize, c64>,
         positions: Option<&[[f64; 3]]>,
     ) -> Result<Option<Analysis>> {
@@ -309,7 +309,7 @@ impl Analysis {
 
     /// The factors' entries: L and U, each front's diagonal block and its L and U panels; or
     /// L D Lᵀ, the block's lower half and its L panel.
-    pub(crate) fn factor_entries(&self) -> usize {
+    pub fn factor_entries(&self) -> usize {
         self.entries
     }
 }
@@ -331,7 +331,7 @@ struct Factors {
 /// The LU factorization of [`Analysis`]'s matrix: B = P Pr Dr A Dc Pᵀ = L U, P the elimination
 /// order, Pr the matching, Dr and Dc its scaling.
 #[derive(Debug)]
-pub(crate) struct Multifrontal {
+pub struct Multifrontal {
     analysis: Arc<Analysis>,
     factors: Vec<Factors>,
     /// Pivots perturbed to √ε ‖B‖₁: 0 on a matrix the matching made safe.
@@ -354,7 +354,7 @@ impl Multifrontal {
     ///
     /// [`Error::InvalidValue`] if `a` isn't the analysed size or holds an entry outside the
     /// analysed structure.
-    pub(crate) fn new(
+    pub fn new(
         analysis: Arc<Analysis>,
         a: SparseColMatRef<'_, usize, c64>,
     ) -> Result<Multifrontal> {
@@ -444,12 +444,12 @@ impl Multifrontal {
     }
 
     /// The pivots set to √ε ‖B‖₁.
-    pub(crate) fn perturbed(&self) -> usize {
+    pub fn perturbed(&self) -> usize {
         self.perturbed
     }
 
     /// x with A x = `b`.
-    pub(crate) fn solve(&self, b: &[c64]) -> Vec<c64> {
+    pub fn solve(&self, b: &[c64]) -> Vec<c64> {
         if self.analysis.symmetric {
             return self.solve_symmetric(b);
         }
@@ -1314,7 +1314,3 @@ mod tests {
         }
     }
 }
-
-#[cfg(test)]
-#[path = "../cases/sparse/multifrontal_measure.rs"]
-mod measure;

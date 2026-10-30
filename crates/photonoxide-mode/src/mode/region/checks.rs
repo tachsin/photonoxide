@@ -19,7 +19,8 @@ fn outcome(measured: f64, expected: f64, tolerance: f64) -> Outcome {
 }
 
 /// Chilwell and Hodgkinson's Table 3, the bound modes' effective indices: TE₀ … TE₃, then TM.
-pub(crate) const TABLE_3: [f64; 8] = [
+#[doc(hidden)]
+pub const TABLE_3: [f64; 8] = [
     1.622729, 1.605276, 1.557136, 1.503587, 1.620031, 1.594788, 1.554981, 1.501818,
 ];
 
@@ -78,7 +79,8 @@ pub(crate) fn chilwell_bound() -> f64 {
 }
 
 /// The leaky profile: the four-layer guide with 2 µm of PML (α = 5) in the substrate.
-pub(crate) fn leaky_profile(h: f64) -> Profile {
+#[doc(hidden)]
+pub fn leaky_profile(h: f64) -> Profile {
     chilwell_profile(h)
         .with_pml(2.0, 0.0, 5.0)
         .expect("a valid PML")
@@ -332,7 +334,8 @@ pub(crate) fn sakurai_sugiura_ratio() -> f64 {
 }
 
 /// The contour solver's validation cases.
-pub(crate) fn cases() -> Vec<Case> {
+#[doc(hidden)]
+pub fn cases() -> Vec<Case> {
     vec![
         Case {
             id: "mode/contour-uniform-box",

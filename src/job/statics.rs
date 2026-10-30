@@ -382,11 +382,7 @@ impl TransientSpec {
             }
         };
         Ok(Transient {
-            stepping: Stepping {
-                step_s: step * 1e-9,
-                steps,
-                scheme,
-            },
+            stepping: Stepping::new(step * 1e-9, steps, scheme),
             on,
             pulse_s,
             frames,

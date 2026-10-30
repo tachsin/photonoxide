@@ -7,7 +7,7 @@
 //!
 //! For QMR, photonoxide keeps what surrounds a run: the restarts after a breakdown of the Lanczos
 //! process, and the tightened tolerance of QMR on a symmetric similar matrix
-//! ([`crate::fdfd::IterativeSolver3d`]). A backend does one run, from x₀ = 0 to the tolerance
+//! (`photonoxide::fdfd::IterativeSolver3d`). A backend does one run, from x₀ = 0 to the tolerance
 //! or a breakdown, as `backend::krylov` does it: R. W. Freund, N. M. Nachtigal, Numer. Math. 60,
 //! 315 (1991), doi:10.1007/BF01385726, without look-ahead; on a complex symmetric matrix, R. W.
 //! Freund, SIAM J. Sci. Stat. Comput. 13, 425 (1992), doi:10.1137/0913023.
@@ -159,7 +159,8 @@ impl<'a> RowMatrix<'a> {
 
     /// The matrix of these entries, laid out as [`RowMatrix::new`] asks, unchecked: for
     /// photonoxide's own, which are.
-    pub(crate) fn trusted(
+    #[doc(hidden)]
+    pub fn trusted(
         columns: usize,
         starts: &'a [usize],
         indices: &'a [usize],
@@ -214,10 +215,14 @@ impl<'a> RowMatrix<'a> {
 /// One level of a [`MultigridCycle`] above the coarsest.
 #[derive(Clone, Copy, Debug)]
 pub struct MultigridLevel<'a> {
-    pub(crate) operator: RowMatrix<'a>,
-    pub(crate) smoother: &'a IluFactors,
-    pub(crate) restriction: RowMatrix<'a>,
-    pub(crate) prolongation: RowMatrix<'a>,
+    #[doc(hidden)]
+    pub operator: RowMatrix<'a>,
+    #[doc(hidden)]
+    pub smoother: &'a IluFactors,
+    #[doc(hidden)]
+    pub restriction: RowMatrix<'a>,
+    #[doc(hidden)]
+    pub prolongation: RowMatrix<'a>,
 }
 
 impl<'a> MultigridLevel<'a> {
@@ -259,16 +264,24 @@ impl<'a> MultigridLevel<'a> {
 ///    solve;
 /// 3. [`MultigridCycle::post`] smoothing steps, as in 1.
 pub struct MultigridCycle<'a> {
-    pub(crate) shape: CycleShape,
-    pub(crate) pre: usize,
-    pub(crate) post: usize,
-    pub(crate) restart: usize,
-    pub(crate) levels: Vec<MultigridLevel<'a>>,
-    pub(crate) coarsest: RowMatrix<'a>,
-    pub(crate) lu: &'a dyn super::Factorization,
+    #[doc(hidden)]
+    pub shape: CycleShape,
+    #[doc(hidden)]
+    pub pre: usize,
+    #[doc(hidden)]
+    pub post: usize,
+    #[doc(hidden)]
+    pub restart: usize,
+    #[doc(hidden)]
+    pub levels: Vec<MultigridLevel<'a>>,
+    #[doc(hidden)]
+    pub coarsest: RowMatrix<'a>,
+    #[doc(hidden)]
+    pub lu: &'a dyn super::Factorization,
     /// The thread the coarsest solves run on: their sums then come in one order whatever the
     /// machine.
-    pub(crate) one: &'a rayon::ThreadPool,
+    #[doc(hidden)]
+    pub one: &'a rayon::ThreadPool,
 }
 
 impl<'a> MultigridCycle<'a> {
@@ -517,7 +530,7 @@ fn preference() -> &'static RwLock<Option<Arc<dyn IterativeSolver>>> {
 }
 
 /// Makes `auto` stand for the iterative backend `choice` names, in this process, where it runs
-/// a solve as photonoxide's own would ([`crate::fdfd::IterativeSolver3d::with_iterative_backend`]);
+/// a solve as photonoxide's own would (`photonoxide::fdfd::IterativeSolver3d::with_iterative_backend`);
 /// `auto` and `photonoxide` make it photonoxide's own again, as it is until this is called. For
 /// running photonoxide's own checks on a backend (the validation cases, as
 /// `photonoxide-native`'s `validate` example does): nothing in photonoxide calls it.

@@ -628,7 +628,8 @@ impl Core {
 /// The shape of a rod's current along its height a, normalized to ∫ Υ² = 1 (Barwicz and Haus's
 /// vertical shape functions, Fig. 4(d)).
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub(crate) enum Shape {
+#[doc(hidden)]
+pub enum Shape {
     /// 1/√a: the tests' check of the 3D analysis against the 2D one.
     #[cfg_attr(not(test), allow(dead_code))]
     Square,
@@ -642,7 +643,8 @@ impl Shape {
     /// |F(k)|² = |∫ Υ(x) e^(−ikx) dx|², µm: a sinc² for the square, and Barwicz and Haus's
     /// Eqs. 10 and 11 for the cosine and the sine, written about their removable poles at
     /// |k|a = π and 2π as sin(δa/2)/(δ(2p + δ)), δ = |k| − p.
-    pub(crate) fn power(self, a: f64, k: f64) -> f64 {
+    #[doc(hidden)]
+    pub fn power(self, a: f64, k: f64) -> f64 {
         let k = k.abs();
         let pole = |p: f64| {
             let d = k - p;
@@ -675,33 +677,36 @@ impl Shape {
 /// A rod of current at a wall, radiating beside the slab of the core (or in the cladding alone):
 /// Barwicz and Haus's Sections IV and V.
 #[derive(Clone, Copy, Debug)]
-pub(crate) struct Radiation {
+#[doc(hidden)]
+pub struct Radiation {
     /// k₀, 1/µm.
-    pub(crate) k0: f64,
+    pub k0: f64,
     /// The cladding's index.
-    pub(crate) cladding: f64,
+    pub cladding: f64,
     /// The core's and the cladding's relative permittivities.
-    pub(crate) eps_core: f64,
-    pub(crate) eps_cladding: f64,
+    pub eps_core: f64,
+    pub eps_cladding: f64,
     /// The core's width, the slab the rod radiates beside; `None` radiates in the cladding alone
     /// (their Section IV).
-    pub(crate) width: Option<f64>,
+    pub width: Option<f64>,
     /// The rod's height a, µm.
-    pub(crate) height: f64,
+    pub height: f64,
     /// The mode's β, 1/µm.
-    pub(crate) beta: f64,
-    pub(crate) roughness: Roughness,
+    pub beta: f64,
+    pub roughness: Roughness,
     /// Barwicz and Haus's G₁,₁ as printed, the reflected p-wave projected on the outgoing wave's
     /// vector, (1 + R̂_TM) for a current along the wall's plane: only to measure its difference
     /// (the module's).
-    pub(crate) printed: bool,
+    #[doc(hidden)]
+    pub printed: bool,
 }
 
 impl Radiation {
     /// α over the pattern's integral: k₀⁴ Δε² n_clad (v²/P) / (32π²). A point current J radiates
     /// iωμ₀ e^(ikr)/(4πr) J⊥, so r²|E|²/(2η) = (ωμ₀)² |J⊥|² n_clad/(32π² Z₀); J = ωε₀ Δε v, and
     /// ωμ₀ ωε₀ = k₀².
-    pub(crate) fn prefactor(&self, delta_eps: f64, field: f64) -> f64 {
+    #[doc(hidden)]
+    pub fn prefactor(&self, delta_eps: f64, field: f64) -> f64 {
         self.k0.powi(4) * delta_eps * delta_eps * self.cladding * field / (32.0 * PI * PI)
     }
 
@@ -710,7 +715,8 @@ impl Radiation {
     /// the slab, the s and p waves each with the slab's generalized reflection (on the source's
     /// side) or transmission (beyond it), the source on its face (Barwicz and Haus's Eq. 14 and
     /// their G₁,₁ and G₁,₃).
-    pub(crate) fn far(&self, j: [f64; 3], r: [f64; 3]) -> f64 {
+    #[doc(hidden)]
+    pub fn far(&self, j: [f64; 3], r: [f64; 3]) -> f64 {
         let dot = |a: [f64; 3], b: [f64; 3]| a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
         let cross = |a: [f64; 3], b: [f64; 3]| {
             [
@@ -768,11 +774,13 @@ impl Radiation {
     /// r_v (even, so over [0, 1] twice) and the azimuth about it, in panels a lobe of F wide and
     /// a quarter turn wide, each mapped by t²(3 − 2t) so the square roots at grazing angles to
     /// the slab are smooth.
-    pub(crate) fn integral(&self, j: [f64; 3], shape: Shape) -> f64 {
+    #[doc(hidden)]
+    pub fn integral(&self, j: [f64; 3], shape: Shape) -> f64 {
         self.integral_with(j, shape, 24, 48)
     }
 
-    pub(crate) fn integral_with(&self, j: [f64; 3], shape: Shape, nu: usize, npsi: usize) -> f64 {
+    #[doc(hidden)]
+    pub fn integral_with(&self, j: [f64; 3], shape: Shape, nu: usize, npsi: usize) -> f64 {
         let k1 = self.cladding * self.k0;
         let lobes = (self.height * k1 / PI).ceil().max(4.0) as usize;
         let (xu, wu) = gauss_legendre(nu);
@@ -811,7 +819,8 @@ fn smooth(a: f64, b: f64, t: f64, w: f64) -> (f64, f64) {
 
 /// The n-point Gauss–Legendre rule on [−1, 1]: nodes and weights, by Newton's iteration on
 /// P_n from Chebyshev's guesses.
-pub(crate) fn gauss_legendre(n: usize) -> (Vec<f64>, Vec<f64>) {
+#[doc(hidden)]
+pub fn gauss_legendre(n: usize) -> (Vec<f64>, Vec<f64>) {
     let mut nodes = vec![0.0; n];
     let mut weights = vec![0.0; n];
     for i in 0..n.div_ceil(2) {
@@ -842,7 +851,8 @@ pub(crate) fn gauss_legendre(n: usize) -> (Vec<f64>, Vec<f64>) {
 }
 
 /// ∫ f over [a, b] in `panels` equal panels of 20-point Gauss–Legendre.
-fn integrate(a: f64, b: f64, panels: usize, f: &dyn Fn(f64) -> f64) -> f64 {
+#[doc(hidden)]
+pub fn integrate(a: f64, b: f64, panels: usize, f: &dyn Fn(f64) -> f64) -> f64 {
     let (x, w) = gauss_legendre(20);
     let h = (b - a) / panels as f64;
     (0..panels)
@@ -855,7 +865,3 @@ fn integrate(a: f64, b: f64, panels: usize, f: &dyn Fn(f64) -> f64) -> f64 {
         })
         .sum()
 }
-
-#[cfg(test)]
-#[path = "roughness_tests.rs"]
-mod tests;

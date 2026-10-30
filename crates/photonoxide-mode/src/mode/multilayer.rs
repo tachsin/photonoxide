@@ -641,7 +641,8 @@ impl MultilayerMode {
 
 /// Chilwell and Hodgkinson's four-layer guide (their Fig. 2): cover 1.0, films 1.66, 1.53,
 /// 1.60 and 1.66, each 500 nm thick, substrate 1.50, at 632.8 nm.
-pub(crate) fn chilwell_four_layer() -> (Multilayer, Wavelength) {
+#[doc(hidden)]
+pub fn chilwell_four_layer() -> (Multilayer, Wavelength) {
     let films: Vec<(c64, Length)> = [1.66, 1.53, 1.60, 1.66]
         .iter()
         .map(|&n| (c64::new(n, 0.0), Length::nm(500.0)))

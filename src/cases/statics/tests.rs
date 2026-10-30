@@ -176,11 +176,7 @@ fn a_turn_off_is_the_steady_state_less_a_turn_on() {
     let (heat, upper) = column();
     let steady = heat.solve().unwrap().mean(&upper).unwrap();
     for scheme in [Scheme::Bdf2, Scheme::CrankNicolson] {
-        let stepping = Stepping {
-            step_s: 1e-7,
-            steps: 40,
-            scheme,
-        };
+        let stepping = Stepping::new(1e-7, 40, scheme);
         let watch = std::slice::from_ref(&upper);
         let on = heat.transient(&stepping, 0.0, &|_| 1.0, watch).unwrap();
         let off = heat.transient(&stepping, 1.0, &|_| 0.0, watch).unwrap();
@@ -229,20 +225,15 @@ fn a_response_is_one_at_zero_frequency_and_falls() {
 fn a_transient_names_what_it_lacks() {
     let (heat, upper) = column();
     let watch = std::slice::from_ref(&upper);
-    let bad = Stepping {
-        step_s: 0.0,
-        steps: 4,
-        scheme: Scheme::Bdf2,
-    };
+    let bad = Stepping::new(0.0, 4, Scheme::Bdf2);
     let e = heat
         .transient(&bad, 0.0, &|_| 1.0, watch)
         .unwrap_err()
         .to_string();
     assert!(e.contains("positive step"), "{e}");
-    let good = Stepping {
-        step_s: 1e-8,
-        ..bad
-    };
+    // `Stepping` is #[non_exhaustive] in its crate (photonoxide-statics): a changed copy
+    let mut good = bad;
+    good.step_s = 1e-8;
     let e = heat
         .transient(&good, 0.0, &|_| f64::NAN, watch)
         .unwrap_err()
@@ -273,20 +264,19 @@ fn a_transient_names_what_it_lacks() {
 
 #[test]
 fn a_crossing_interpolates_between_steps() {
-    let history = crate::thermal::History {
-        times_s: vec![0.0, 1.0, 2.0, 3.0],
-        watched: vec![vec![0.0, 0.2, 0.6, 0.9]],
-        last: column().0.solve().unwrap(),
-    };
+    // `History` is #[non_exhaustive] in its crate (photonoxide-statics)
+    let history = crate::thermal::History::from_parts(
+        vec![0.0, 1.0, 2.0, 3.0],
+        vec![vec![0.0, 0.2, 0.6, 0.9]],
+        column().0.solve().unwrap(),
+    );
     assert!((history.crossing(0, 0.0, 1.0, 0.5).unwrap() - 1.75).abs() < 1e-12);
     assert_eq!(history.crossing(0, 0.0, 1.0, 0.0), Some(0.0));
     assert_eq!(history.crossing(0, 0.0, 1.0, 0.95), None);
     assert_eq!(history.crossing(1, 0.0, 1.0, 0.5), None);
     // falling
-    let falling = crate::thermal::History {
-        watched: vec![vec![1.0, 0.8, 0.4, 0.1]],
-        ..history
-    };
+    let mut falling = history;
+    falling.watched = vec![vec![1.0, 0.8, 0.4, 0.1]];
     assert!((falling.crossing(0, 1.0, 0.0, 0.5).unwrap() - 1.75).abs() < 1e-12);
 }
 

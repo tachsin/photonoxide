@@ -15,6 +15,102 @@ pub(crate) mod convergence {
     pub(crate) mod checks;
 }
 
+/// The eigensolvers, checked on the mode solvers' problems.
+pub(crate) mod eigen {
+    #[allow(unused_imports)]
+    use crate::eigen::*;
+
+    pub(crate) mod checks;
+}
+
+/// The travelling-wave lines, checked with the Pockels cases' lithium niobate.
+pub(crate) mod electro {
+    #[allow(unused_imports)]
+    use crate::electro::*;
+
+    pub(crate) mod full_wave_checks;
+    pub(crate) mod line_checks;
+    #[cfg(test)]
+    mod line_tests;
+}
+
+/// Eigenmode expansion, checked against 2D FDFD and the validation report's rows.
+pub(crate) mod eme {
+    #[allow(unused_imports)]
+    use crate::eme::*;
+    // what the tests took from the module's own imports
+    #[cfg(test)]
+    use crate::mode::Polarization;
+    #[cfg(test)]
+    use crate::units::{Length, Wavelength};
+    #[cfg(test)]
+    use num_complex::Complex64 as c64;
+
+    pub(crate) mod checks;
+    #[cfg(test)]
+    mod tests;
+}
+
+/// The mode solvers' perturbations, checked with the static solver's fields, and the roughness
+/// loss, checked through the devices.
+pub(crate) mod mode {
+    #[allow(unused_imports)]
+    use crate::mode::*;
+
+    pub(crate) mod thermo_checks;
+
+    /// The Pockels effect, checked with the static solver's field.
+    pub(crate) mod pockels {
+        #[allow(unused_imports)]
+        use crate::mode::pockels::*;
+
+        pub(crate) mod checks;
+    }
+
+    /// The roughness loss, through the strip waveguide device.
+    pub(crate) mod roughness {
+        #[allow(unused_imports)]
+        use crate::mode::roughness::*;
+        // what the tests took from the module's own imports
+        #[cfg(test)]
+        use crate::mode::vector::{Boundary, CrossSection};
+        #[cfg(test)]
+        use crate::units::{Length, Wavelength};
+        #[cfg(test)]
+        use num_complex::Complex64 as c64;
+        #[cfg(test)]
+        use std::f64::consts::PI;
+
+        #[cfg(test)]
+        mod tests;
+    }
+}
+
+/// The multifrontal solver, measured on the benchmark's systems.
+#[cfg(test)]
+mod sparse {
+    mod multifrontal {
+        #[allow(unused_imports)]
+        use crate::sparse::multifrontal::*;
+        // what the measurement took from the module's own imports
+        use faer::sparse::{SparseColMat, Triplet};
+        use num_complex::Complex64 as c64;
+        use std::sync::Arc;
+
+        mod measure;
+    }
+}
+
+/// The static solver, checked against the full-vector mode solver.
+pub(crate) mod statics {
+    #[allow(unused_imports)]
+    use crate::statics::*;
+
+    pub(crate) mod checks;
+    #[cfg(test)]
+    mod tests;
+}
+
 /// The expressions' spline against the geometry's own (a test of the core crate's `expr` that
 /// needs the geometry crate).
 #[cfg(test)]

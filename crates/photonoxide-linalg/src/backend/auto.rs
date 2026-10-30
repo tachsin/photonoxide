@@ -344,7 +344,7 @@ fn current() -> State {
 
 /// The machine's free memory now, in bytes, as [`configure`] (or [`with`]) gave `auto` a way
 /// to read it: None when nothing does (the library alone) or the reading fails. What
-/// [`crate::fdfd::Product::Auto`] asks too.
+/// `photonoxide::fdfd::Product::Auto` asks too.
 pub fn free_memory() -> Option<u64> {
     current().free_memory.as_ref().and_then(|read| read())
 }

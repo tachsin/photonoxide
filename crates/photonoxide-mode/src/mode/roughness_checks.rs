@@ -12,8 +12,8 @@ use crate::validation::{Case, Outcome, Tier};
 /// The slabs of the slab cases: a weakly guiding one (SiON-like, 1.50 in 1.45, 2 µm), silicon
 /// nitride (2.00 in 1.45, 0.4 µm) and silicon (3.50 in 1.45, 0.2 µm), all single-mode at
 /// 1.55 µm: Barwicz and Haus's three cores.
-pub(crate) const SLABS: [(f64, f64, f64); 3] =
-    [(1.5, 1.45, 2.0), (2.0, 1.45, 0.4), (3.5, 1.45, 0.2)];
+#[doc(hidden)]
+pub const SLABS: [(f64, f64, f64); 3] = [(1.5, 1.45, 2.0), (2.0, 1.45, 0.4), (3.5, 1.45, 0.2)];
 
 /// The correlation lengths of the slab cases, nm: Barwicz and Haus's 50, and a decade each side.
 const CORRELATIONS: [f64; 3] = [5.0, 50.0, 500.0];
@@ -26,7 +26,8 @@ fn lam() -> Wavelength {
 /// µm with `margin` µm of cladding, as Hadley's equations take it: its quarter x, y ≥ 0 behind
 /// mirror walls for the TE-like modes (`te`, an electric wall on x = 0 and a magnetic one on
 /// y = 0) or the TM-like ones, or the whole of it (`full`).
-pub(crate) fn rectangle(
+#[doc(hidden)]
+pub fn rectangle(
     (w, h): (f64, f64),
     (n_core, n_clad): (f64, f64),
     step: f64,
@@ -69,7 +70,8 @@ pub(crate) fn rectangle(
 
 /// Payne and Lacey's Eq. 9 over our exact slab's φ²(d), normalized to ∫ φ² = 1, the one
 /// furthest from 2 of the three slabs.
-pub(crate) fn eq9_ratio() -> f64 {
+#[doc(hidden)]
+pub fn eq9_ratio() -> f64 {
     let r = Roughness::exponential(Length::nm(1.0), Length::nm(50.0)).expect("roughness");
     SLABS
         .iter()
@@ -90,7 +92,8 @@ pub(crate) fn eq9_ratio() -> f64 {
 
 /// The largest relative difference of the volume current on our exact slab mode from Payne
 /// and Lacey's Eq. 10, its 1/n₁ read as k₀/β, over the three slabs and three correlation lengths.
-pub(crate) fn slab_error() -> f64 {
+#[doc(hidden)]
+pub fn slab_error() -> f64 {
     let mut worst = 0.0f64;
     for lc in CORRELATIONS {
         let r = Roughness::exponential(Length::nm(1.0), Length::nm(lc)).expect("roughness");
@@ -111,7 +114,8 @@ pub(crate) const STEPS: [f64; 3] = [0.01, 0.005, 0.0025];
 /// Barwicz and Haus's silicon guide (200 nm high, 400 nm wide, 3.50 in 1.45, 1.55 µm), its
 /// TE-like mode by Hadley's equations on the quarter with 0.5 µm of cladding, σ = 1 nm and
 /// L_c = 50 nm: its loss, dB/cm, on each of [`STEPS`], as a grid study.
-pub(crate) fn silicon_study() -> crate::convergence::Study {
+#[doc(hidden)]
+pub fn silicon_study() -> crate::convergence::Study {
     let r = Roughness::exponential(Length::nm(1.0), Length::nm(50.0)).expect("roughness");
     let mut study = crate::convergence::Study::new("the silicon guide's roughness loss, dB/cm");
     for step in STEPS {
@@ -125,7 +129,8 @@ pub(crate) fn silicon_study() -> crate::convergence::Study {
 
 /// The corner's exponent's 2τ − 1 for silicon in silica at Barwicz and Haus's indices: the order
 /// of the singular part of the wall's ∫ |E|² over the last cells.
-pub(crate) fn corner_order() -> f64 {
+#[doc(hidden)]
+pub fn corner_order() -> f64 {
     2.0 * roughness::corner_exponent(3.5 * 3.5, 1.45 * 1.45) - 1.0
 }
 
@@ -139,7 +144,8 @@ fn zero(measured: f64, tolerance: f64) -> Outcome {
 }
 
 /// Every sidewall-roughness case, in report order.
-pub(crate) fn cases() -> Vec<Case> {
+#[doc(hidden)]
+pub fn cases() -> Vec<Case> {
     vec![
         Case {
             id: "roughness/payne-lacey-eq9",

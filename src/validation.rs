@@ -39,7 +39,7 @@ use crate::verdict::{clear_noted, take_noted};
 /// Every case's rule, by the case's id (#544): each area's table, beside its cases.
 pub fn rules() -> Vec<(&'static str, Rule)> {
     let mut rules = Vec::new();
-    rules.extend(crate::statics::checks::rules());
+    rules.extend(crate::cases::statics::checks::rules());
     rules.extend(materials::rules());
     rules.extend(modes::rules());
     rules.extend(fdfd::rules());
@@ -2205,7 +2205,7 @@ pub fn cases() -> Vec<Case> {
     // and the contour solver's, every mode in a region
     cases.extend(crate::mode::region::checks::cases());
     // and the shift-and-invert solver's restarts, many modes, and every guided mode
-    cases.extend(crate::eigen::checks::cases());
+    cases.extend(crate::cases::eigen::checks::cases());
     // and modes jobs' leaky modes, with a PML, Bienstman et al.'s wire through one
     cases.extend(crate::job::leaky_cases());
     // and the stacks' etches and sidewalls, as the mode solver reads them
@@ -2214,15 +2214,15 @@ pub fn cases() -> Vec<Case> {
     cases.extend(crate::averaging::checks::cases());
     cases.extend(crate::fdfd::fill_checks::cases());
     // and the static solver's: heat, electrostatics and current on a cross-section
-    cases.extend(crate::statics::checks::cases());
+    cases.extend(crate::cases::statics::checks::cases());
     // and a temperature in the modes: dn/dT by perturbation and by re-solve, a heat solve's field
-    cases.extend(crate::mode::thermo_checks::cases());
-    cases.extend(crate::mode::pockels::checks::cases());
+    cases.extend(crate::cases::mode::thermo_checks::cases());
+    cases.extend(crate::cases::mode::pockels::checks::cases());
     cases.extend(crate::mode::pockels::bto::cases());
     // and the travelling-wave electrodes: quasi-TEM lines, their losses and the EO response
-    cases.extend(crate::electro::line_checks::cases());
+    cases.extend(crate::cases::electro::line_checks::cases());
     // and their full-wave RF mode, the metal a lossy medium
-    cases.extend(crate::electro::full_wave_checks::cases());
+    cases.extend(crate::cases::electro::full_wave_checks::cases());
     // and its coplanar lines: Heinrich's R and L, Frankel et al.'s radiation into the substrate
     cases.extend(crate::electro::full_wave_coplanar::cases());
     // and the thermo-optic phase shifter: P_pi, its time and crosstalk, Jacques et al.'s heaters
@@ -2239,7 +2239,7 @@ pub fn cases() -> Vec<Case> {
     // and the phase-change phase shifters as devices, at analytic and 2D fidelity
     cases.extend(crate::device::pcm_checks::cases());
     // and eigenmode expansion's: slab steps against closed forms, tapers against FDFD
-    cases.extend(crate::eme::checks::cases());
+    cases.extend(crate::cases::eme::checks::cases());
     // and convergence to a tolerance: the mode solver, FDFD and the expansion driven to one
     cases.extend(crate::cases::convergence::checks::cases());
     // and the thin-film lithium niobate Mach-Zehnder modulator as a device

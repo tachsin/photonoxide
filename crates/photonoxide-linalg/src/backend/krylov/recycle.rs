@@ -43,18 +43,20 @@ use crate::{Error, Result};
 /// The recycled space U, C with 𝒜 U = C and Cᴴ C = I, in the right-preconditioned variable
 /// (A M⁻¹ u = b, x = M⁻¹ u), and the operator C belongs to.
 #[derive(Clone, Debug, Default)]
-pub(crate) struct Space {
+#[doc(hidden)]
+pub struct Space {
     pub(crate) u: Vec<Vec<c64>>,
     pub(crate) c: Vec<Vec<c64>>,
     /// Which operator C = 𝒜 U was taken with ([`gcro_dr`]'s `operator`), if any.
     pub(crate) operator: Option<u64>,
     /// The products with 𝒜 spent rebuilding C for a new operator, summed over the solves.
-    pub(crate) products: usize,
+    pub products: usize,
 }
 
 impl Space {
     /// The recycled space's dimension k.
-    pub(crate) fn dimension(&self) -> usize {
+    #[doc(hidden)]
+    pub fn dimension(&self) -> usize {
         self.u.len()
     }
 }
@@ -181,7 +183,8 @@ fn qr(a: Vec<Vec<c64>>) -> (Vec<Vec<c64>>, Vec<Vec<c64>>, Vec<usize>) {
 /// doi:10.1016/S0045-7825(98)00012-7, his Method 1 (b projected onto the orthonormalized
 /// A xᵢ, Eq. 4), which is Parks et al.'s line 6, x₁ = x₀ + U Cᴴ r₀, with U the earlier
 /// solutions. An A xᵢ dependent on the earlier ones (to 1e-12) is dropped with its xᵢ.
-pub(crate) fn least_residual(b: &[c64], xs: &[&[c64]], axs: &[&[c64]]) -> Vec<c64> {
+#[doc(hidden)]
+pub fn least_residual(b: &[c64], xs: &[&[c64]], axs: &[&[c64]]) -> Vec<c64> {
     let n = b.len();
     let zero = c64::new(0.0, 0.0);
     let (q, r, kept) = qr(axs.iter().map(|v| v.to_vec()).collect());
@@ -225,7 +228,8 @@ fn turn((c, s): (c64, f64), a: c64, b: c64) -> (c64, c64) {
 /// `cycle` isn't larger than `keep`, if the small eigenproblem fails, or if the tolerance isn't
 /// reached within the iterations allowed.
 #[allow(clippy::too_many_arguments)]
-pub(crate) fn gcro_dr(
+#[doc(hidden)]
+pub fn gcro_dr(
     a: &impl Operator,
     m: &impl Preconditioner,
     b: &[c64],
@@ -596,4 +600,5 @@ fn small_qr(a: Vec<Vec<c64>>) -> (Vec<Vec<c64>>, Vec<Vec<c64>>, Vec<usize>) {
 mod tests;
 
 #[path = "recycle_example.rs"]
-pub(crate) mod example;
+#[doc(hidden)]
+pub mod example;

@@ -216,7 +216,8 @@ fn abel_vpi_l() -> Outcome {
 }
 
 /// The cases.
-pub(crate) fn cases() -> Vec<Case> {
+#[doc(hidden)]
+pub fn cases() -> Vec<Case> {
     vec![
         Case {
             id: "pockels/bto-abel-response",

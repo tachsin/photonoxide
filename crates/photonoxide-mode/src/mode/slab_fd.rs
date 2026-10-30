@@ -224,7 +224,8 @@ impl Profile {
     }
 
     /// The matrix whose eigenvalues are β², as (row, column, value) entries.
-    pub(crate) fn entries(&self, polarization: Polarization, k2: f64) -> Vec<(usize, usize, c64)> {
+    #[doc(hidden)]
+    pub fn entries(&self, polarization: Polarization, k2: f64) -> Vec<(usize, usize, c64)> {
         let (start, end) = (self.nodes[0], self.nodes[self.nodes.len() - 1]);
         // complex coordinates inside the PML (Chew et al., Eq. 45)
         let x: Vec<c64> = self
@@ -307,7 +308,8 @@ impl ProfileMode {
 /// Chilwell and Hodgkinson's four-layer guide (their Fig. 2) as a profile at spacing `h`, from
 /// the substrate (x < −2 µm, 1.50; 6 µm of it, for TE₃'s slow tail) through the films (1.66, 1.60, 1.53, 1.66 upwards)
 /// to the cover (x > 0, 1.0; 1 µm of it).
-pub(crate) fn chilwell_profile(h: f64) -> Profile {
+#[doc(hidden)]
+pub fn chilwell_profile(h: f64) -> Profile {
     let index = |x: f64| match x {
         x if x > 0.0 => 1.0,
         x if x > -0.5 => 1.66,

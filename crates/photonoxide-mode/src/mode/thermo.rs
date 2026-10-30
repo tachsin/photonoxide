@@ -23,7 +23,7 @@
 //! cross-section at a temperature and the same one a step warmer, each cell's
 //! dε/dT = (ε_warm − ε_cold)/step, mixing the materials as the cross-section's cells do;
 //! [`permittivity_change`] scales it by a temperature rise at each cell's centre: a uniform one,
-//! or a heat solve's field ([`crate::thermal`]).
+//! or a heat solve's field (`photonoxide::thermal`).
 
 use faer::c64;
 
@@ -71,7 +71,7 @@ pub fn index_change(mode: &VectorMode, cs: &CrossSection, delta: &[Permittivity]
 /// E*·Δε·E dA over 4 times the power, in the order of [`CrossSection::cells`]; their sum is
 /// [`index_change`]'s real part, to round-off. With `delta` a change per kelvin, the shares are
 /// how much a rise of 1 K in each cell alone moves the index: the weights a temperature field
-/// is summed with ([`crate::thermal::Guide`]).
+/// is summed with (`photonoxide::thermal::Guide`).
 ///
 /// # Errors
 ///

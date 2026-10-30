@@ -3,7 +3,7 @@
 //!
 //! A backend is a [`DirectSolver`]. It analyses a matrix's structure ([`DirectSolver::analyse`]),
 //! factorizes values on an [`Analysis`] (the same one for every matrix of a sweep, as
-//! [`crate::fdfd::Solver2d::reuse`] does), and a [`Factorization`] solves with the matrix and
+//! `photonoxide::fdfd::Solver2d::reuse` does), and a [`Factorization`] solves with the matrix and
 //! with its transpose (the adjoints and QMR's preconditioner need the transpose). Each backend
 //! declares its [`Capabilities`]: the forms it takes, how its threads are set, whether it gives
 //! the same bits on every run, and its library's name, version and licence.
@@ -707,7 +707,8 @@ impl Factorization for FaerFactors {
 }
 
 /// A matrix of triplets by columns, its repeated entries summed: what [`Matrix`] borrows.
-pub(crate) struct Columns {
+#[doc(hidden)]
+pub struct Columns {
     n: usize,
     matrix: SparseColMat<usize, c64>,
 }
@@ -715,14 +716,16 @@ pub(crate) struct Columns {
 impl Columns {
     /// The n × n matrix of `triplets`, assembled as faer does (so that photonoxide's own
     /// backend sees the matrix it always has, to the bit).
-    pub(crate) fn new(n: usize, triplets: &[Triplet<usize, usize, c64>]) -> Result<Columns> {
+    #[doc(hidden)]
+    pub fn new(n: usize, triplets: &[Triplet<usize, usize, c64>]) -> Result<Columns> {
         let matrix = SparseColMat::<usize, c64>::try_new_from_triplets(n, n, triplets)
             .map_err(|e| invalid(format!("can't assemble the matrix: {e:?}")))?;
         Ok(Columns { n, matrix })
     }
 
     /// The matrix for a backend, in `form`, with the unknowns' `positions` if known.
-    pub(crate) fn matrix<'a>(
+    #[doc(hidden)]
+    pub fn matrix<'a>(
         &'a self,
         form: Form,
         positions: Option<&'a [[f64; 3]]>,
@@ -742,8 +745,9 @@ impl Columns {
     }
 }
 
-#[cfg(test)]
-pub(crate) mod tests {
+// not only for this crate's tests: photonoxide's tests record their solves with it
+#[doc(hidden)]
+pub mod tests {
     use std::sync::atomic::{AtomicUsize, Ordering};
 
     use super::*;
@@ -751,19 +755,19 @@ pub(crate) mod tests {
     /// photonoxide's own backend under another name, counting what is asked of it: the proof
     /// that a solver went through the registry.
     #[derive(Default)]
-    pub(crate) struct Recording {
+    pub struct Recording {
         name: String,
-        pub(crate) analyses: Arc<AtomicUsize>,
-        pub(crate) factorizations: Arc<AtomicUsize>,
-        pub(crate) solves: Arc<AtomicUsize>,
-        pub(crate) transpose_solves: Arc<AtomicUsize>,
+        pub analyses: Arc<AtomicUsize>,
+        pub factorizations: Arc<AtomicUsize>,
+        pub solves: Arc<AtomicUsize>,
+        pub transpose_solves: Arc<AtomicUsize>,
         /// Each factorization's report, in order.
-        pub(crate) reports: Arc<std::sync::Mutex<Vec<Report>>>,
+        pub reports: Arc<std::sync::Mutex<Vec<Report>>>,
     }
 
     impl Recording {
         /// Registered under `name`.
-        pub(crate) fn register(name: &str) -> Arc<Recording> {
+        pub fn register(name: &str) -> Arc<Recording> {
             let recording = Arc::new(Recording {
                 name: name.to_owned(),
                 ..Recording::default()
@@ -772,7 +776,7 @@ pub(crate) mod tests {
             recording
         }
 
-        pub(crate) fn counts(&self) -> [usize; 4] {
+        pub fn counts(&self) -> [usize; 4] {
             [
                 self.analyses.load(Ordering::SeqCst),
                 self.factorizations.load(Ordering::SeqCst),
@@ -852,6 +856,7 @@ pub(crate) mod tests {
     }
 
     /// A 2D Helmholtz-like matrix on an nx × ny grid, complex symmetric, with its positions.
+    #[cfg(test)]
     fn grid_matrix(nx: usize, ny: usize) -> (Columns, Vec<[f64; 3]>) {
         let n = nx * ny;
         let at = |i: usize, j: usize| i + nx * j;
@@ -876,6 +881,7 @@ pub(crate) mod tests {
     }
 
     /// The largest |b − A x| (or |b − Aᵀ x|) over the largest |b|.
+    #[cfg(test)]
     fn residual(matrix: &Matrix<'_>, x: &[c64], b: &[c64], transpose: bool) -> f64 {
         let mut r = b.to_vec();
         for j in 0..matrix.n() {

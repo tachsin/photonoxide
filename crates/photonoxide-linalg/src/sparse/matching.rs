@@ -23,9 +23,9 @@ use crate::{Error, Result};
 
 /// The matching and the scaling of [`matching`].
 #[derive(Clone, Debug, PartialEq)]
-pub(crate) struct Matching {
+pub struct Matching {
     /// The row put on column j's diagonal: (Pr A)_jj = a_{rows[j], j}.
-    pub(crate) rows: Vec<usize>,
+    pub rows: Vec<usize>,
     /// The rows' scale factors, powers of two, by original row.
     pub(crate) row_scale: Vec<f64>,
     /// The columns' scale factors, powers of two.

@@ -1,47 +1,6 @@
-//! Heat conduction on a waveguide's cross-section: −∇·(k∇T) = Q, steady, and in time,
-//! ρc_p ∂T/∂t = ∇·(k∇T) + Q ([`Heat::transient`], [`Heat::response`], a pulse by
-//! [`Heat::pulse`] and what it does to a phase-change film by [`Switch`]), per unit length along
-//! the guide.
-//!
-//! A [`Heat`] problem is a [`Section`] (what fills the cross-section: shapes drawn with media,
-//! or a [`Structure`](crate::stack::Structure)'s cut with its stack, etches and walls) on a
-//! [`Grid`], each medium's thermal conductivity k in W/(m·K) ([`Tensor`]: isotropic, or
-//! diagonal in the section's frame), the window's sides ([`Boundary`]: a fixed temperature, a
-//! flux, or a convective film), heat sinks held at a temperature, and heaters that give a
-//! power per unit length (W/m), or the Joule heat of a current ([`crate::electro::Current`]).
-//! Its solution is a [`Field`] of temperatures at the cells' centres, with the heat each sink
-//! takes and what leaves through each side; a 2D number, per metre of a straight section.
-//!
-//! Temperatures are in whatever unit the problem's are (K or °C); a rise above a sink at 0 is
-//! a temperature difference.
-//!
-//! The method, shared with [`crate::electro`], is the static solver of docs/methods/static.md:
-//! cell-centred finite volumes on a graded grid, exact for layered media on the grid's lines,
-//! second order elsewhere, solved by photonoxide's multifrontal solver. Its validation cases
-//! (`static/` in docs/validation.md) check it against closed forms: a slab and a two-layer
-//! stack, a line source above an isothermal substrate by images, and the order of the error.
-//!
-//! ```
-//! use photonoxide::geometry::{Point, Shape};
-//! use photonoxide::thermal::{Boundary, Features, Grading, Grid, Heat, Section, Side, Tensor};
-//! use photonoxide::units::Length;
-//!
-//! // 2 µm of oxide on an isothermal substrate, a 1 W/m heater 1 µm up
-//! let mut section = Section::new("oxide");
-//! let heater = Shape::rect(Point::um(0.0, 1.0), Length::um(0.5), Length::um(0.1))?;
-//! let mut features = section.features().clone();
-//! features.shape(&heater);
-//! let grid = Grid::fitted([-20.0, 20.0], [0.0, 2.0], &Grading::new(0.5, 0.02, 1.2)?, &features)?;
-//! let mut heat = Heat::new(section, grid);
-//! heat.conductivity("oxide", Tensor::isotropic(1.4))
-//!     .boundary(Side::Bottom, Boundary::Fixed(0.0))
-//!     .heater(heater, 1.0);
-//! let t = heat.solve()?;
-//! // all the heat leaves through the substrate
-//! assert!((t.outflow(Side::Bottom) - 1.0).abs() < 1e-9);
-//! assert!(t.max().0 > 0.0);
-//! # Ok::<(), photonoxide::Error>(())
-//! ```
+//! Heat conduction on a waveguide's cross-section, steady and in time. photonoxide re-exports
+//! this module as `photonoxide::thermal`, with the thermo-optic phase shifter's types beside it,
+//! and documents it there.
 
 use num_complex::Complex64 as c64;
 
@@ -49,9 +8,6 @@ use crate::geometry::Shape;
 use crate::statics::{Discrete, Hold, Problem, spread};
 use crate::{Error, Result};
 
-// the one import that points up a layer (the allow-list in src/layering.rs): the shifter's types
-// keep their `thermal::` paths until the crates are made (#508)
-pub use crate::shifter::{Drive, Efficiency, Guide, Optics, PhaseShifter, StepResponses, Timing};
 pub use crate::statics::{
     Axis, Boundary, Cut, Features, Field, Grading, Grid, MAX_CELLS, Section, Side, Tensor,
 };
@@ -60,34 +16,28 @@ pub use network::Network;
 pub use rc::{Cauer, Fitted, Foster, RcFit, RcModel};
 
 mod correction;
-pub(crate) mod correction_checks;
-#[cfg(test)]
-mod correction_tests;
-pub(crate) mod crosstalk_checks;
 mod network;
 mod rc;
-pub(crate) mod rc_checks;
 #[cfg(test)]
 mod rc_tests;
-#[path = "cases/thermal/shifter_checks.rs"]
-pub(crate) mod shifter_checks;
-#[cfg(test)]
-mod shifter_tests;
 
 /// A heat-conduction problem on a cross-section, steady or in time. See the module's docs.
 #[derive(Clone, Debug)]
 pub struct Heat {
     section: Section,
-    pub(crate) grid: Grid,
+    #[doc(hidden)]
+    pub grid: Grid,
     conductivity: Vec<(String, Tensor)>,
     sides: [Boundary; 4],
     sinks: Vec<(Shape, f64)>,
-    pub(crate) heaters: Vec<(Shape, f64)>,
+    #[doc(hidden)]
+    pub heaters: Vec<(Shape, f64)>,
     extra: Option<Vec<f64>>,
     capacity: Vec<(String, f64)>,
     /// Heaters given cell by cell (W/m in each), which follow the heaters' factor as they do:
-    /// a phase shifter's drive of a current's Joule heat ([`crate::shifter`]).
-    pub(crate) driven: Vec<Vec<f64>>,
+    /// a phase shifter's drive of a current's Joule heat (`photonoxide::shifter`).
+    #[doc(hidden)]
+    pub driven: Vec<Vec<f64>>,
 }
 
 /// How [`Heat::transient`] steps in time. Both are implicit, unconditionally stable and second
@@ -149,6 +99,18 @@ pub struct History {
     pub watched: Vec<Vec<f64>>,
     /// The field at the last time.
     pub last: Field,
+}
+
+impl History {
+    /// A history from its parts, for photonoxide's tests (`History` is `#[non_exhaustive]`).
+    #[doc(hidden)]
+    pub fn from_parts(times_s: Vec<f64>, watched: Vec<Vec<f64>>, last: Field) -> History {
+        History {
+            times_s,
+            watched,
+            last,
+        }
+    }
 }
 
 impl Stepping {
@@ -407,7 +369,8 @@ impl Heat {
 
     /// [`Heat::transient_observed`], each watch a weighted sum of cells' temperatures,
     /// (cell, weight) in the grid's order of cells, in place of a shape's mean.
-    pub(crate) fn transient_weighted(
+    #[doc(hidden)]
+    pub fn transient_weighted(
         &self,
         stepping: &Stepping,
         start: f64,
@@ -649,7 +612,8 @@ impl Heat {
 
     /// [`Heat::response`] at any frequency, the problem assembled once, of a weighted sum of
     /// cells' temperatures (as [`Heat::transient_weighted`]'s).
-    pub(crate) fn responder(&self, watch: &[(usize, f64)]) -> Result<impl Fn(f64) -> Result<c64>> {
+    #[doc(hidden)]
+    pub fn responder(&self, watch: &[(usize, f64)]) -> Result<impl Fn(f64) -> Result<c64>> {
         let Assembled {
             discrete,
             heat,
@@ -697,7 +661,8 @@ impl Heat {
     }
 
     /// [`Heat::cutoff`] of a weighted sum of cells' temperatures.
-    pub(crate) fn cutoff_weighted(&self, watch: &[(usize, f64)]) -> Result<f64> {
+    #[doc(hidden)]
+    pub fn cutoff_weighted(&self, watch: &[(usize, f64)]) -> Result<f64> {
         let half = std::f64::consts::FRAC_1_SQRT_2;
         let response = self.responder(watch)?;
         let below = |f: f64| -> Result<bool> { Ok(response(f)?.norm() < half) };
@@ -721,7 +686,8 @@ impl Heat {
 
     /// The problem assembled and factorized: its discrete form, the sources that don't follow
     /// the heaters (a current's Joule heat), the heaters' own, and the sinks' temperatures.
-    pub(crate) fn discretize(&self) -> Result<Assembled> {
+    #[doc(hidden)]
+    pub fn discretize(&self) -> Result<Assembled> {
         let coefficients = self.section.coefficients(
             &self.grid,
             |m| {
@@ -800,11 +766,15 @@ impl Heat {
 
 /// A heat problem assembled: its discrete form, the sources that don't follow the heaters (a
 /// current's Joule heat), the heaters' own, and the sinks' temperatures.
-pub(crate) struct Assembled {
-    pub(crate) discrete: Discrete,
-    pub(crate) base: Vec<f64>,
+#[doc(hidden)]
+pub struct Assembled {
+    #[doc(hidden)]
+    pub discrete: Discrete,
+    #[doc(hidden)]
+    pub base: Vec<f64>,
     pub(crate) heat: Vec<f64>,
-    pub(crate) values: Vec<f64>,
+    #[doc(hidden)]
+    pub values: Vec<f64>,
 }
 
 /// A shifted operator asked for where no cell is free (which the callers rule out first).

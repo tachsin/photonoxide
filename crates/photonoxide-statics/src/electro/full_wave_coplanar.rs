@@ -568,7 +568,8 @@ fn frankel_radiation(k: usize) -> Outcome {
     outcome(four(gated(radiation)), expected, 0.1 * expected)
 }
 
-pub(crate) fn cases() -> Vec<Case> {
+#[doc(hidden)]
+pub fn cases() -> Vec<Case> {
     vec![
         Case {
             id: "line/heinrich-1993-external",

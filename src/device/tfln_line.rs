@@ -15,10 +15,10 @@ use std::sync::{Arc, Mutex};
 
 use num_complex::Complex64 as c64;
 
+use crate::cases::electro::line_checks::ZHANG_TANGENTS;
 use crate::circuit::Fidelity;
 use crate::electro::Side;
 use crate::electro::full_wave::{FullWave, Open, RfField};
-use crate::electro::line_checks::ZHANG_TANGENTS;
 use crate::raster::Raster;
 use crate::{Error, Result};
 

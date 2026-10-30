@@ -13,7 +13,7 @@
 //! β² H_y = k₀² ε_x H_y + ∂_y(∇_t·H_t) + ε_x ∂_x(ε_z⁻¹ (∂_x H_y − ∂_y H_x)),
 //!
 //! each difference the lattice's own. This is the transverse-H formulation of a vector mode
-//! solver; Fallahkhair et al.'s nodal scheme ([`crate::mode::vector`]) solves the same equations
+//! solver; Fallahkhair et al.'s nodal scheme (`photonoxide::mode::vector`) solves the same equations
 //! at the optical wavelengths, where β² is near k₀²ε_max. At RF it can't: a line's β² is
 //! 1e-7 µm⁻² against entries of 1/h², and the quasi-TEM mode lives on the cancellation of the
 //! transverse operator's static part, which a nodal scheme leaves to its truncation error

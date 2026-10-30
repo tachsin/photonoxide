@@ -189,7 +189,8 @@ fn orders(measured: f64) -> Outcome {
 }
 
 /// Every case of a mode's quantities, in report order.
-pub(crate) fn cases() -> Vec<Case> {
+#[doc(hidden)]
+pub fn cases() -> Vec<Case> {
     vec![
         Case {
             id: "mode/effective-area-gaussian",

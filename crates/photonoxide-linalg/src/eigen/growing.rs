@@ -8,7 +8,7 @@ use super::{Pair, Shifted, dot, norm};
 use crate::{Error, Result};
 
 /// As [`super::nearest`], by the growing restarts; with the most basis vectors held at once.
-pub(crate) fn nearest_growing(
+pub fn nearest_growing(
     n: usize,
     entries: &[(usize, usize, c64)],
     shift: c64,

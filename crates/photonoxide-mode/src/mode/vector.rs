@@ -463,7 +463,8 @@ impl CrossSection {
 
     /// [`CrossSection::bent`] with each straight cell's permittivity from `cell(centre, size)`,
     /// its physical centre and size (µm), as a cell averaged over its area takes it.
-    pub(crate) fn bent_cells(
+    #[doc(hidden)]
+    pub fn bent_cells(
         radius: f64,
         (x0, x1, nx): (f64, f64, usize),
         (y0, y1, ny): (f64, f64, usize),
@@ -564,7 +565,8 @@ impl CrossSection {
     }
 
     /// The cell (i, j), clamped to the grid: outside the window the edge cells continue.
-    pub(crate) fn cell(&self, i: isize, j: isize) -> Permittivity {
+    #[doc(hidden)]
+    pub fn cell(&self, i: isize, j: isize) -> Permittivity {
         let (nx, ny) = (self.x.len() - 1, self.y.len() - 1);
         let i = i.clamp(0, nx as isize - 1) as usize;
         let j = j.clamp(0, ny as isize - 1) as usize;
@@ -1010,7 +1012,8 @@ impl VectorMode {
     /// others of other materials keeps the central difference. An integral of |E|² over a
     /// material, as first-order perturbation takes, then converges at second order in the grid,
     /// not first.
-    pub(crate) fn fields_sided(
+    #[doc(hidden)]
+    pub fn fields_sided(
         &self,
         cs: &CrossSection,
         sided: bool,
@@ -1212,7 +1215,8 @@ pub(crate) fn highest_index(cs: &CrossSection) -> f64 {
 
 /// The matrix [`modes`] solves, as (row, column, value) entries over the unknowns (its
 /// eigenvalues β²), and its shift k₀² n² for `near` (the highest index when `None`).
-pub(crate) fn eigenproblem(
+#[doc(hidden)]
+pub fn eigenproblem(
     cs: &CrossSection,
     wavelength: Wavelength,
     near: Option<f64>,
@@ -1409,7 +1413,8 @@ impl VectorMode {
 
 /// The book's 500 × 220 nm silicon strip in oxide (3.473 in 1.444), on a uniform grid of
 /// spacing `h` (µm) with nodes on the core's edges, in a 2.1 × 1.5 µm window.
-pub(crate) fn strip(h: f64) -> CrossSection {
+#[doc(hidden)]
+pub fn strip(h: f64) -> CrossSection {
     let nx = (2.1 / h).round() as usize;
     let ny = (1.5 / h).round() as usize;
     CrossSection::uniform((-1.05, 1.05, nx), (-0.75, 0.75, ny), |x, y| {
@@ -1431,7 +1436,8 @@ pub(crate) fn strip(h: f64) -> CrossSection {
 /// of zero derivative and H_x zero on all four edges; 3 and 4 (Figs. 6–7) are impinged
 /// corners, ε = 1 for x, y > 0.5 µm and 2.25 or 8 elsewhere, with H_y of zero derivative on
 /// the west and south edges and zero on the others, and H_x the opposite.
-pub(crate) fn hadley_problem(problem: usize, n: usize) -> (CrossSection, f64) {
+#[doc(hidden)]
+pub fn hadley_problem(problem: usize, n: usize) -> (CrossSection, f64) {
     use Boundary::{ElectricWall, MagneticWall};
     let (eps, boxed, expected) = match problem {
         1 => (2.25, true, 1.276_274_04),
@@ -1523,11 +1529,8 @@ pub(crate) fn flat_slab(
 /// The leaky TE mode of 220 nm of silicon (3.473) in oxide (1.444) above a buried oxide
 /// `box_um` thick on a silicon substrate, at 1.55 µm: from the full-vector solver at spacing `h`
 /// with a 1 µm PML (α = 3) in the substrate, and exactly ([`crate::mode::multilayer`]).
-pub(crate) fn soi_leakage(
-    polarization: crate::mode::Polarization,
-    box_um: f64,
-    h: f64,
-) -> (c64, c64) {
+#[doc(hidden)]
+pub fn soi_leakage(polarization: crate::mode::Polarization, box_um: f64, h: f64) -> (c64, c64) {
     use crate::mode::multilayer::Multilayer;
     use crate::units::Length;
     let (si, ox) = (3.473, 1.444);
@@ -1564,7 +1567,8 @@ pub(crate) fn soi_leakage(
 /// Chilwell and Hodgkinson's four-layer guide lying flat (cover 1.0, 1 µm, zero wall above;
 /// films 1.66, 1.53, 1.60, 1.66 of 500 nm; substrate 1.50, 1 µm, over a 2 µm PML of α = 5) at
 /// 632.8 nm and spacing `h`: its TE leaky waves nearest each of `near`.
-pub(crate) fn chilwell_leaky(h: f64, near: &[c64]) -> Vec<c64> {
+#[doc(hidden)]
+pub fn chilwell_leaky(h: f64, near: &[c64]) -> Vec<c64> {
     let cs = chilwell_flat(h);
     let w = Wavelength::from_um_unchecked(0.6328);
     near.iter()
@@ -1603,11 +1607,8 @@ pub(crate) fn chilwell_flat(h: f64) -> CrossSection {
 /// `radius` µm, at 1.55 µm: from the full-vector solver on a bent cross-section at spacing `h`,
 /// uniform along y between walls (E along y for TE, E in the bend plane for TM), with a PML on
 /// the outside from x = 2.5 to 6 µm; and exactly ([`crate::mode::bend::SlabBend`]).
-pub(crate) fn bent_slab(
-    polarization: crate::mode::Polarization,
-    radius: f64,
-    h: f64,
-) -> (c64, c64) {
+#[doc(hidden)]
+pub fn bent_slab(polarization: crate::mode::Polarization, radius: f64, h: f64) -> (c64, c64) {
     use crate::mode::Polarization;
     use crate::units::Length;
     let (core, clad, t) = (2.845, 1.444, 0.5);
@@ -1659,7 +1660,8 @@ pub(crate) fn bent_slab(
 /// (2006): 500 × 220 nm of silicon (3.5) on 1 µm of oxide (1.45) on a silicon substrate, air
 /// above, at 1.55 µm. Its right half behind an electric wall, the core's box at spacing `h`, the
 /// rest growing to 10 nm, a 1 µm PML in the substrate; the TE-like mode's effective index.
-pub(crate) fn bienstman_wire(h: f64) -> c64 {
+#[doc(hidden)]
+pub fn bienstman_wire(h: f64) -> c64 {
     let (si, ox) = (3.5, 1.45);
     let x = graded_nodes(0.0, 1.6, (0.0, 0.35), h, 0.0125, 0.01, &[0.25]);
     let y = graded_nodes(
@@ -1710,7 +1712,8 @@ pub(crate) fn bienstman_wire(h: f64) -> c64 {
 /// The full-vector solver's error on the book's slab (220 nm of 3.473 in 1.444) turned on its
 /// side and uniform along y, against the exact slab mode of `polarization`, at spacing `h`
 /// (µm) in a 4 µm window. `te_like` picks the vector mode whose H is mostly along y.
-pub(crate) fn slab_limit_error(
+#[doc(hidden)]
+pub fn slab_limit_error(
     polarization: crate::mode::Polarization,
     te_like: bool,
     wavelength: Wavelength,

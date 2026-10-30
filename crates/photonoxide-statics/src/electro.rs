@@ -19,6 +19,7 @@
 //! mapping, and a resistor's Joule heat.
 //!
 //! ```
+//! # mod photonoxide { pub use photonoxide_core::*; pub use photonoxide_geometry::*; pub use photonoxide_statics::*; pub use num_complex::Complex64; } // the crates users name photonoxide
 //! use photonoxide::electro::{Boundary, Conductor, Electrostatic, Grid, Axis, Section, Side, Tensor};
 //! use photonoxide::geometry::{Point, Shape};
 //! use photonoxide::units::Length;
@@ -41,13 +42,9 @@ use crate::geometry::Shape;
 use crate::statics::{Discrete, Hold, Problem, spread};
 
 pub mod full_wave;
-pub(crate) mod full_wave_checks;
-pub(crate) mod full_wave_coplanar;
+#[doc(hidden)]
+pub mod full_wave_coplanar;
 pub mod line;
-#[path = "cases/electro/line_checks.rs"]
-pub(crate) mod line_checks;
-#[cfg(test)]
-mod line_tests;
 use crate::thermal::side_index;
 use crate::{Error, Result};
 
@@ -345,7 +342,8 @@ impl Electrostatic {
     }
 
     /// The same problem without the conductors `drop` (counted from 0), the others in order.
-    pub(crate) fn without_conductors(&self, drop: &[usize]) -> Electrostatic {
+    #[doc(hidden)]
+    pub fn without_conductors(&self, drop: &[usize]) -> Electrostatic {
         let mut v = self.clone();
         v.conductors = self
             .conductors

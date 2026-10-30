@@ -114,15 +114,23 @@ const LAYERS: &[Layer] = &[
 const UNLAYERED: &[&str] = &["layering"];
 
 /// An import that points upward and is allowed for now: the file, the module it imports and
-/// why. Each resolves when the crates are made (phase 2 of #508).
-const ALLOWED: &[(&str, &str, &str)] = &[(
-    "src/thermal.rs",
-    "shifter",
-    "`thermal` re-exports the thermo-optic shifter's types (`pub use crate::shifter::{..}`) so \
-     that their `thermal::` paths keep working. The shifter is in the device layer, `thermal` \
-     in the statics layer. In phase 2 `photonoxide::thermal` becomes a module of the top crate \
-     that re-exports the statics crate's `thermal` and the shifter, and this entry goes.",
-)];
+/// why. Each resolves when the crates are made (#508). (`thermal`'s re-export of the shifter went
+/// when `photonoxide::thermal` became a facade in the top layer.)
+const ALLOWED: &[(&str, &str, &str)] = &[
+    (
+        "src/device/tfln.rs",
+        "cases",
+        "the TFLN modulator takes its line's and its Pockels section's numbers from the checks \
+         that compare them (`cases::electro::line_checks`, `cases::mode::pockels::checks`), which \
+         join the statics and mode layers and so sit in photonoxide's cases since phase 2. They \
+         move into the device crate, which sees both layers, in phase 4, and these entries go.",
+    ),
+    (
+        "src/device/tfln_line.rs",
+        "cases",
+        "as src/device/tfln.rs: the line's tangents from `cases::electro::line_checks`",
+    ),
+];
 
 fn layer_of(module: &str) -> Option<&'static Layer> {
     LAYERS.iter().find(|l| l.modules.contains(&module))
@@ -341,11 +349,19 @@ fn check(
 ) -> (Vec<Violation>, Vec<String>) {
     let mut violations = Vec::new();
     let mut used = vec![false; allowed.len()];
+    // the layers that are crates: a module of photonoxide (src/) named after one of their
+    // modules is a facade in the top layer (`photonoxide::thermal` re-exports the statics crate's
+    // `thermal` and the device layer's shifter), which may import from every layer
+    let crated: Vec<&str> = files
+        .iter()
+        .filter_map(|(p, _)| p.strip_prefix("crates/photonoxide-")?.split_once('/'))
+        .map(|(name, _)| name)
+        .collect();
     for (path, text) in files {
         let Some((layer, rel)) = file_layer(path) else {
             continue;
         };
-        if is_check_or_test(rel) {
+        if is_check_or_test(rel) || (path.starts_with("src/") && crated.contains(&layer.name)) {
             continue;
         }
         let first = rel.split('/').next().unwrap_or("");
