@@ -260,7 +260,7 @@ fn seconds(name: &str) -> f64 {
         "optimize_ring_pareto" => 3.0,
         "optimize_chip_rings" => 2.0,
         "optimize_mesh" => 5.0,
-        "optimize_mesh_selfconfig" => 40.0,
+        "optimize_mesh_selfconfig" => 25.0,
         "bend_loss" | "leaky_waves" | "strip_waveguide" => 10.0,
         "lorentz_okoniewski" | "subpixel_holes" => 15.0,
         "directional_coupler" | "tfsf_square_cylinder" => 20.0,
