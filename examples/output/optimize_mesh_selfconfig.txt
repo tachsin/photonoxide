@@ -1,0 +1,30 @@
+The 36-unit hexagonal mesh of Pérez-López et al. 2020 set to all-cross by a GA and a PSO, without calibration: exact solves, 8 frequencies a period
+
+The mesh: 36 units, 72 phase shifters, 24 ports
+  all-cross routes (units crossed): 12–23 (8), 14–21 (6), 10–1 (6), 8–3 (4), 13–6 (6), 15–4 (8), 17–2 (6), 19–24 (4), 11–16 (4), 9–18 (6), 7–20 (8), 5–22 (6)
+  Fig. 3b's channels routed                    12   paper 12                     ok
+  the solve against photonoxide's circuit solve of the mesh as a netlist, 24 × 24: |ΔS| up to 4e-16
+  largest |ΔS|                           0.000000   round-off 0.000000   ± 1e-12 ok
+  every unit exactly in cross: OF1 -0.90 dB on average over the 100 meshes, their loss alone
+
+Particle swarm, as in Fig. 3: 108 particles, cognitive 0.7, social 1.8, the inertia from 0.9 to 0.35 over the first 1000 operations
+  79 of 100 meshes above −3 dB (paper 76.66 %); OF1 -2.51 dB on average; 3996 operations
+  PSO's share above −3 dB                0.790000   paper, 2σ of 2 counts 0.766600   ± 1.196e-1 ok
+
+Particle swarm, Suppl. Table 18: 108 particles, inertia 0.5, cognitive 0.8, social 1
+  57 of 100 meshes above −3 dB (paper 70 %); OF1 -3.15 dB on average; 2916 operations
+  2.0 standard deviations of the difference from the paper's 70 %: printed, not checked
+
+Genetic algorithm: 144 genomes, the best 18 kept as parents, one-point crossover, 36 phases moved within ±0.5π·e^(−0.5 t). Printed, not checked: the paper doesn't say what t counts
+  t the generation:
+  4 of 100 meshes above −3 dB (paper 95 %); OF1 -4.27 dB on average; 2916 operations
+  t the operations in thousands:
+  99 of 100 meshes above −3 dB (paper 95 %); OF1 -2.06 dB on average; 2916 operations
+
+Gradient descent with momentum 0.5, central differences of 0.0003 rad (145 operations an iteration), from uniform phases until CF < 0.2 or 60 iterations, 20 meshes. Printed, not checked: the paper's 5 to 6 iterations at a learning rate of 50 hang on how its CF is scaled, which it doesn't say
+  learning rate 50: CF < 0.2 on 0 of 20 meshes; OF1 -11.75 dB on average where they stopped
+  learning rate 1: CF < 0.2 on 19 of 20 meshes in a median of 18 iterations (2610 operations); OF1 -1.68 dB on average where they stopped
+
+The particle swarm of Fig. 3 with crosstalk from 0 to 5 % between every pair of shifters (Fig. 4's), 20 meshes. Printed, not checked: the paper has no all-cross run with it
+  12 of 20 meshes above −3 dB (paper none); OF1 -2.99 dB on average; 3996 operations
+all 3 within tolerance of the paper
