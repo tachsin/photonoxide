@@ -1158,8 +1158,9 @@ isn't the device's bandwidth. On Kharel et al.'s regular electrode the device's 
 dB cm⁻¹ GHz⁻½ (gated) against their simulated 0.75 (Table 1). Their measured 0.69 is 8% below
 their own simulation, and ours is 15% above it, more than the conductor loss's uncertainty
 (12%), so the measurement isn't a case. He et al. 2019's modulator isn't a case either: with the film's $r_{33}$ its
-cross-section gives 2.87 V·cm push–pull against the 2.2 to 2.5 they measured, and which
-coefficient their film has isn't settled. `tfln_zhang` prints each fidelity at both of Zhang et
+cross-section gives 2.85 V·cm push–pull against the 2.2 and 2.5 they measured at 100 kHz, and
+no structural, permittivity or clamping candidate closes it ([electro-optic.md](electro-optic.md),
+"He et al. 2019: which coefficient the measurement probes"). `tfln_zhang` prints each fidelity at both of Zhang et
 al.'s lengths.
 
 ```python
