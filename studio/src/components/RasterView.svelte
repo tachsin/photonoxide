@@ -3,6 +3,7 @@
   // with axes, a colour bar, and the value under the pointer.
   import { intensityColour, permittivityColour, pixels, range } from "../lib/colours";
   import type { Raster } from "../lib/events";
+  import { signedColour } from "../lib/fdtd";
   import type { Outline } from "../lib/outline";
   import { len, lenUnit } from "../lib/units";
   import UnitChip from "./UnitChip.svelte";
@@ -20,7 +21,8 @@
     scale,
   }: {
     raster: Raster;
-    kind: "eps" | "intensity";
+    /** ε, an intensity from 0, or a signed quantity (blue below the middle of `scale`, red above it). */
+    kind: "eps" | "intensity" | "signed";
     axes?: [string, string];
     maxHeight?: number;
     /** The structure's edges to draw over the picture, in its coordinates. */
@@ -43,7 +45,7 @@
   let canvas: HTMLCanvasElement | undefined = $state();
   let bar: HTMLCanvasElement | undefined = $state();
   let readout: string | null = $state(null);
-  const colour = $derived(kind === "eps" ? permittivityColour : intensityColour);
+  const colour = $derived(kind === "eps" ? permittivityColour : kind === "signed" ? (t: number) => signedColour(2 * t - 1) : intensityColour);
   const span = $derived(range(raster));
   const aspect = $derived((raster.x1 - raster.x0) / (raster.y1 - raster.y0));
 
