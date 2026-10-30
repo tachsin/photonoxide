@@ -27,6 +27,7 @@ use serde::Serialize;
 
 pub mod environment;
 pub mod hardware;
+pub mod measured;
 pub mod releases;
 pub mod topology;
 
@@ -1583,13 +1584,39 @@ pub fn library_remove(app: tauri::AppHandle, library: String) -> Result<(), Stri
     environment::forget(&library)
 }
 
-/// This machine, and the libraries suggested for it (the setup's Advanced path and the first
-/// start's performance step).
+/// This machine, and the libraries suggested for it (the setup's Advanced path, the first
+/// start's performance step and the Libraries page): by the hardware, then ranked and said by
+/// what this machine's benchmark records measured ([`measured`]). With the records, how many
+/// there are and the latest's day; a database that can't be read leaves the hardware's
+/// suggestions, and says why.
 #[tauri::command(async)]
 pub fn hardware_advice() -> serde_json::Value {
     let hardware = hardware::here();
-    let suggestions = hardware::suggest(&hardware);
-    serde_json::json!({ "hardware": hardware, "suggestions": suggestions })
+    let here = crate::benchmarks::here();
+    let (records, records_error) = match crate::runner::default_database()
+        .ok_or_else(|| "no data folder for the results database".to_string())
+        .and_then(|path| crate::runner::read(&path))
+    {
+        Ok(all) => (
+            all.into_iter()
+                .filter(|r| r.machine == here)
+                .collect::<Vec<_>>(),
+            None,
+        ),
+        Err(e) => (Vec::new(), Some(e)),
+    };
+    let suggestions =
+        measured::by_records(hardware::suggest(&hardware), &records, photonoxide::VERSION);
+    let latest = records
+        .iter()
+        .map(|r| r.unix_seconds)
+        .max()
+        .map(|s| crate::watch::date(i64::try_from(s / 86_400).unwrap_or(0)));
+    serde_json::json!({
+        "hardware": hardware,
+        "suggestions": suggestions,
+        "records": { "count": records.len(), "latest": latest, "error": records_error },
+    })
 }
 
 /// Whether the setup's Advanced path asked for the performance step at this start: read once,
