@@ -7,9 +7,10 @@ use crate::material::catalogue::{self, Axis};
 use crate::nonlinear::coupled::{
     SecondHarmonic, ThreeWave, coupling_from_efficiency, loss_from_db_per_cm, undepleted_lossy_shg,
 };
+use crate::nonlinear::pairs::{Matching, Pump, gaussian_gamma, gaussian_purity, joint_spectrum};
 use crate::nonlinear::phase::{
-    Device, Expansion, HALF_MAXIMUM, Index, Plane, Polarization, State, Type, Uniaxial, Variable,
-    effective_d, first_order_tilt, sinc2, undepleted,
+    Device, Expansion, HALF_MAXIMUM, Index, Plane, Polarization, Process, State, Type, Uniaxial,
+    Variable, Wave, effective_d, first_order_tilt, sinc2, undepleted,
 };
 use crate::units::Wavelength;
 use crate::verdict::{Case, Outcome, Tier, note_numerical};
@@ -532,6 +533,57 @@ fn coupled_order_case() -> Outcome {
         error: (shown - 4.0).abs(),
     }
 }
+/// A linear index n = a + bλ: its group index is a, and k = 2π(aν + b) is linear in ν, so the
+/// mismatch of a process of three such waves is linear in their frequencies.
+fn linear_index(a: f64, b: f64) -> crate::Result<Index> {
+    let w: Vec<f64> = (0..=27).map(|k| 0.3 + 0.1 * f64::from(k)).collect();
+    let n = w.iter().map(|l| a + b * l).collect();
+    Index::effective(w, n)
+}
+
+/// Degenerate down-conversion of 0.775 µm into 1.55 µm over 1 cm, the signal's, idler's and
+/// pump's group indices 2.30, 2.25 and 2.40, a Gaussian pump 1e-3 /µm wide (0.6 nm) and Gaussian
+/// phase matching: (our purity on an `n` × `n` grid ±0.025 /µm, five of the amplitude's widths along its ridge, the closed form). Δk is linear
+/// in the frequencies, so the joint amplitude is exactly a two-dimensional Gaussian.
+pub(crate) fn pairs_gaussian(n: usize) -> (f64, f64) {
+    let length = 10_000.0;
+    let (gs, gi, gp) = (2.30, 2.25, 2.40);
+    let run = || -> crate::Result<f64> {
+        let process = Process::difference_frequency(
+            Wave::new(Wavelength::um(0.775)?, linear_index(gp, -0.25)?),
+            Wave::new(Wavelength::um(1.55)?, linear_index(gs, -0.08)?),
+            linear_index(gi, -0.06)?,
+        )?;
+        let device = Device::quasi_phase_matched(process, length, State::default(), 1, 0.5)?;
+        let pump = Pump {
+            center: 1.0 / 0.775,
+            bandwidth: 1e-3,
+        };
+        let jsa = joint_spectrum(&device, pump, Matching::Gaussian, 0.025, n)?;
+        Ok(jsa.schmidt()?.purity())
+    };
+    // ln f = −2 ln 2 (δs + δi)²/Δν² − γ (πL)² (A δs + B δi)², A = g_p − g_s, B = g_p − g_i
+    let p = 2.0 * std::f64::consts::LN_2 / 1e-6;
+    let g = gaussian_gamma() * (std::f64::consts::PI * length).powi(2);
+    let (a, b) = (gp - gs, gp - gi);
+    let closed = gaussian_purity(p + g * a * a, p + g * b * b, p + g * a * b);
+    (run().unwrap_or(f64::NAN), closed)
+}
+
+/// Every pairs case's error at `n` points a side, for the grid study.
+#[cfg(test)]
+pub(crate) fn pairs_errors(n: usize) -> f64 {
+    let (a, b) = pairs_gaussian(n);
+    (a / b - 1.0).abs()
+}
+
+fn pairs_gaussian_case() -> Outcome {
+    relative(pairs_gaussian(201), PAIRS_TOLERANCE)
+}
+
+/// The Gaussian joint spectrum's tolerance: on 201 points a side the grid's error is below the
+/// singular value decomposition's round-off (3.4e-13; 4.4e-13 and 2.3e-12 on 301 and 401).
+const PAIRS_TOLERANCE: f64 = 1e-11;
 const FEJER: &str = "M. M. Fejer, G. A. Magel, D. H. Jundt, R. L. Byer, IEEE J. Quantum Electron. 28, 2631 (1992), doi:10.1109/3.161322, Table I (computed with G. J. Edwards, M. Lawrence, Opt. Quantum Electron. 16, 373 (1984), doi:10.1007/BF00620081, at 25 °C; the 0.86 µm δT with D. H. Jundt, M. M. Fejer, R. L. Byer, IEEE J. Quantum Electron. 26, 135 (1990), doi:10.1109/3.44926), each value to half a unit of its last printed digit";
 
 /// The cases.
@@ -641,6 +693,13 @@ pub(crate) fn cases() -> Vec<Case> {
             tier: Tier::Analytic,
             source: "the classical Runge–Kutta method is fourth order",
             run: coupled_order_case,
+        },
+        Case {
+            id: "nonlinear/pairs-gaussian-purity",
+            title: r"Photon pairs: degenerate down-conversion of 0.775 µm over 1 cm (group indices 2.30, 2.25 and 2.40), a Gaussian pump 0.6 nm wide and Gaussian phase matching: the purity of the joint spectral amplitude by the singular value decomposition of 201 × 201 samples, against the two-dimensional Gaussian's $P = \sqrt{1 - c^2/ab}$ (purity shown)",
+            tier: Tier::Analytic,
+            source: r"$\operatorname{Tr}\rho^2$ of a Gaussian amplitude $e^{-z^T M z/2}$, $M = [[a, c], [c, b]]$, in closed form; the amplitude as W. P. Grice, I. A. Walmsley, Phys. Rev. A 56, 1627 (1997), doi:10.1103/PhysRevA.56.1627, Eq. (9), its phase matching a Gaussian of the sinc²'s FWHM",
+            run: pairs_gaussian_case,
         },
     ]
 }

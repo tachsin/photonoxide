@@ -976,6 +976,24 @@ impl Device {
         Ok(sinc2(self.phase(state)?))
     }
 
+    /// The phase ΔkL/2 at `state` with the waves at the frequencies `nu` (1/µm, the reciprocal
+    /// vacuum wavelengths, one per wave, in the process's order): what a joint spectrum is
+    /// built from.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::InvalidValue`] for a frequency per wave missing, and the errors of
+    /// [`Process::mismatch`].
+    pub fn phase_at_frequencies(&self, nu: &[f64], state: &State) -> Result<f64> {
+        if nu.len() != self.process.waves.len() {
+            return Err(Error::invalid(
+                "frequencies",
+                format!("needs {} frequencies", self.process.waves.len()),
+            ));
+        }
+        self.phase_at(nu, state)
+    }
+
     fn phase_at(&self, nu: &[f64], state: &State) -> Result<f64> {
         let s = 1.0 + self.expansion.strain(state.temperature);
         let k = self.grating.map_or(0.0, |g| g.wavevector() / s);

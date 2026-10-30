@@ -16,6 +16,8 @@ papers:
     doi: 10.1364/OL.22.001553
   - cite: "J. A. Armstrong, N. Bloembergen, J. Ducuing, P. S. Pershan, Phys. Rev. 127, 1918 (1962) (Eq. (6.6), Sec. VI)"
     doi: 10.1103/PhysRev.127.1918
+  - cite: "W. P. Grice, I. A. Walmsley, Phys. Rev. A 56, 1627 (1997) (Eqs. (7)–(12), the joint spectral amplitude)"
+    doi: 10.1103/PhysRevA.56.1627
   - cite: "C. Wang et al., Optica 5, 1438 (2018) (the duty cycle, p. 1439)"
     doi: 10.1364/OPTICA.5.001438
 validation:
@@ -36,6 +38,7 @@ validation:
   - nonlinear/coupled-opa-cosh
   - nonlinear/coupled-manley-rowe
   - nonlinear/coupled-rk4-order
+  - nonlinear/pairs-gaussian-purity
 ---
 
 A second- or third-order process converts light efficiently only when its waves stay in step:
@@ -47,8 +50,8 @@ detunings it accepts, in wavelength, temperature and angle.
 
 `photonoxide::nonlinear::coupled` follows the waves along the guide when the process does deplete:
 the coupled-amplitude equations of second-harmonic, sum- and difference-frequency generation, with
-loss. The efficiencies from a mode solver's overlaps, and photon pairs, come next, on the same
-conventions.
+loss. `photonoxide::nonlinear::pairs` gives photon pairs' joint spectra and their purity. The
+efficiencies from a mode solver's overlaps come next, on the same conventions.
 
 ## Conventions
 
@@ -256,6 +259,40 @@ The errors fall as the fourth power of the step: 4.06, 4.03 and 4.04 for the hal
 steps in the depleted SHG case. Without loss, P₁ + P₂ (SHG) and the Manley–Rowe photon fluxes
 P₁/ν₁ + P₃/ν₃ and P₂/ν₂ + P₃/ν₃ (Armstrong et al., Eq. (6.6)) are conserved by the equations,
 and by the integration to round-off on 1000 steps.
+## Photon pairs
+
+`nonlinear::pairs` builds the joint spectral amplitude of spontaneous parametric
+down-conversion, f(ν_s, ν_i) = α(ν_s + ν_i) Φ(ν_s, ν_i) (Grice and Walmsley, Eqs. (7)–(9)). The
+pump's amplitude α is a Gaussian whose intensity has the FWHM Δν. Φ is the device's phase
+matching, sinc(ΔkL/2), or its Gaussian stand-in exp(−γ(ΔkL/2)²), γ = ln 2/(2·1.39156²) = 0.17897,
+whose square has the sinc²'s FWHM. Frequencies are ν = 1/λ in 1/µm. Any difference-frequency
+`Device` of `phase` gives the mismatch, with its indices, grating and temperature.
+
+The Schmidt decomposition is the singular value decomposition of f sampled on a grid. Its
+weights λ_k give the purity P = Σλ_k² and the Schmidt number K = 1/P. With a Gaussian pump and
+Gaussian phase matching, and Δk linear in the frequencies, f is a two-dimensional Gaussian,
+exp(−½zᵀMz) with M = [[a, c], [c, b]], and its purity is P = √(1 − c²/(ab)): Tr ρ² in closed form.
+The case `nonlinear/pairs-gaussian-purity` is such a source: 0.775 µm down-converted to 1.55 µm
+over 1 cm, group indices 2.30, 2.25 and 2.40, a pump 0.6 nm wide. The sampled purity is 0.190323,
+as the closed form gives:
+
+| Points a side (±0.025 /µm) | Purity | Relative error |
+|---|---|---|
+| 101 | 0.190573 | 1.3e-3 |
+| 201 | 0.190323 | 3.4e-13 |
+| 301 | 0.190323 | 4.4e-13 |
+| 401 | 0.190323 | 2.3e-12 |
+| closed form | 0.190323 | |
+
+From 201 points the grid's error is below the decomposition's round-off.
+
+Grice and Walmsley's Eq. (8) writes the phase matching as sin(ΔkL)/(ΔkL), and its Eq. (11) and
+cw bandwidth Δν_cw = 2.78/|k′_o − k′_e|L follow it. The integral of their Eq. (6) over the
+crystal, −L/2 to L/2, gives sin(ΔkL/2)/(ΔkL/2), as Fejer et al.'s Eq. (19) does, and so a
+bandwidth twice as wide, 5.57/|k′_o − k′_e|L. We use the integral's form. Zhao et al.'s thin-film
+source (2020) is next: their paper gives the guide (300 nm of x-cut 5 % MgO:LN, 50 nm etch, 1.24
+µm wide, 5 mm poled at 2.8 µm), so its modes can be solved; that is the modal phase matching still
+to come.
 ## Optical parametric oscillators
 
 The catalogue's PPLN OPO cases find their idler through this module: a difference-frequency

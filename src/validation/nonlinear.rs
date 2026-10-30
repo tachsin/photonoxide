@@ -80,6 +80,10 @@ pub(crate) fn rules() -> Vec<(&'static str, Rule)> {
             .varying(),
         ),
         (
+            "nonlinear/pairs-gaussian-purity",
+            grid(1e-11, "on 201 points a side the grid's error is below the SVD's round-off: 3.4e-13, and 4.4e-13 and 2.3e-12 on 301 and 401 (on 101 it is 1.3e-3)"),
+        ),
+        (
             "nonlinear/coupled-rk4-order",
             Rule::new(
                 Absolute,

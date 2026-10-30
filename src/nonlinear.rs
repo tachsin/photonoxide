@@ -10,9 +10,12 @@
 //! - [`coupled`]: the coupled-amplitude equations of SHG, sum- and difference-frequency
 //!   generation and parametric amplification along a guide, depleted or not, with loss
 //!   (Armstrong et al. 1962).
+//! - [`pairs`]: photon pairs by spontaneous parametric down-conversion: the joint spectral
+//!   amplitude and its Schmidt decomposition, the pairs' purity (Grice and Walmsley 1997).
 //!
 //! The write-up is `docs/methods/nonlinear.md`.
 
 pub(crate) mod checks;
 pub mod coupled;
+pub mod pairs;
 pub mod phase;
