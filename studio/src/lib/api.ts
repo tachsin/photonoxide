@@ -668,6 +668,8 @@ export interface VpiSweep {
   fidelity: string;
   points: VpiPoint[];
   grid: string;
+  /** The model's stated error in the bandwidths against the 2D model's, %: the analytic model's; null at 2D. */
+  bandwidth_error: number | null;
 }
 /** A modulator's electro-optic response: (GHz, dB below its value at the reference), the bandwidths among the points. */
 export interface EoResponse {
@@ -680,6 +682,8 @@ export interface EoResponse {
   falls_3db: boolean;
   falls_6db: boolean;
   grid: string;
+  /** As the sweep's: the analytic model's stated error in the bandwidths, %; null at 2D. */
+  bandwidth_error: number | null;
 }
 
 /** A device job's text read into the Simulate tab's form. */

@@ -114,6 +114,7 @@ validation:
   - device/pcm-jobs
   - device/tfln-analytic-vpil
   - device/tfln-analytic-line
+  - device/tfln-analytic-bandwidth
   - device/tfln-zhang-vpil
   - device/tfln-wang-vpil
   - device/tfln-measured
@@ -804,10 +805,15 @@ bends and the Y-branches aren't in it.
   across the gaps, the conductor loss by Holloway & Kuester's Eq. 12 on strips of zero thickness,
   the dielectric loss by the layers' shares of the capacitance (Zhang et al.'s loss tangents);
   the response by Ghione's Eq. 6.31. Its stated errors: $V_\pi L$ within 15% of the 2D model's,
-  the line's RF index and impedance within 10%, over a gap of 3.5 to 8 µm, ribs 0.9 to 2.0 µm
-  wide and a film 0.5 to 0.8 µm thick. Its bandwidths aren't stated: the RF index 8 to 9% high
-  puts the line's walk-off from the light at about twice the 2D model's, and its 3 dB bandwidth
-  at 0.32 to 0.41 of the 2D model's over the same range. Microseconds.
+  the line's RF index and impedance within 10%, and the 3 and 6 dB bandwidths within 80%
+  (`TflnModulator::ANALYTIC_BANDWIDTH_ERROR`), over a gap of 3.5 to 8 µm, ribs 0.9 to 2.0 µm
+  wide and a film 0.5 to 0.8 µm thick. The bandwidths are wrong by a factor: the RF index 8 to
+  9% high puts the line's walk-off from the light, $\lvert n_{RF} - n_g \rvert$, at about twice
+  the 2D model's (0.46 against 0.21 at the defaults), and the analytic bandwidths at 0.32 to 0.41
+  of the 2D model's at 3 dB and 0.23 to 0.30 at 6 dB over that range. The stated 80% is that
+  measured spread (77% at worst) rounded up to the next 5%, as the other two are; no factor
+  corrects them, and the analytic figures `f_3dB` and `f_6dB` say so in their names. Use the 2D
+  model for a bandwidth. Microseconds.
 - **2D:** P6's and P7's cross-sections ([electro-optic.md](electro-optic.md),
   [travelling-wave.md](travelling-wave.md)): the static
   solver's field in the film at 1 V, graded from 20 nm by 15% a cell to 1 µm, and the
@@ -1183,6 +1189,7 @@ its studies run here rather than on a farm's workers, who haven't the file.
 | `device/pcm-jobs` | the three cells at each fidelity as jobs against `Device::component`, figures and S-parameters | the same | 0 bits differ |
 | `device/tfln-analytic-vpil` | the modulator's analytic $V_\pi L$ over the 2D model's at seven designs over its validity (the ratio farthest from 1) | field 20 nm to 1 µm, mode 20 nm | 0.879 (15 %) |
 | `device/tfln-analytic-line` | the analytic line's RF index and $Z_0$ at 50 GHz over the 2D line's at the same designs | line 4 nm to 20 µm | 1.093 (10 %) |
+| `device/tfln-analytic-bandwidth` | the analytic 3 and 6 dB bandwidths over the 2D model's at the same designs (the ratio farthest from 1) | line 4 nm to 20 µm, mode 20 nm | 0.232 (80 %) |
 | `device/tfln-zhang-vpil`, `-wang-vpil` | Zhang et al.'s and Wang et al.'s $V_\pi L$ through the device, gated by grids twice as fine | the same and half | 2.370 and 1.839 V·cm (2.3 and 1.8 ± 0.15) |
 | `device/tfln-measured` | the 2D $V_\pi L$ at both designs, gated, over the measured fidelity's | the same and half | 1.031 (10 %) |
 | `device/tfln-zhang-response` | the response at 250 GHz over 1 GHz at 5.8 and 10.8 mm against their measured (2.67 V·cm / L) / RF $V_\pi$ | the same and half | +0.9 % and +16 % (20 %) |

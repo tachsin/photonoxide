@@ -206,6 +206,19 @@ fn the_pockels_index_change_over_the_mode_gives_the_2d_vpi_l() {
 }
 
 #[test]
+fn the_analytic_bandwidths_state_their_error_against_the_2d_model() {
+    let d = TflnModulator::new();
+    let a = d
+        .component(&Values::defaults(&d), Fidelity::Analytic)
+        .unwrap();
+    for symbol in ["f_3dB", "f_6dB"] {
+        let name = &a.figure(symbol).unwrap().name;
+        let stated = format!("stated error {}%", TflnModulator::ANALYTIC_BANDWIDTH_ERROR);
+        assert!(name.ends_with(&stated), "{name}");
+    }
+}
+
+#[test]
 fn a_rib_outside_its_gap_is_refused() {
     let d = TflnModulator::new();
     let v = Values::new(&d, &[("gap", 2.0), ("width", 2.0)]).unwrap();
@@ -233,13 +246,17 @@ fn print_analytic_against_2d() {
         let b = d.component(&v, Fidelity::TwoD).unwrap();
         let r = |s: &str| a.figure(s).unwrap().value / b.figure(s).unwrap().value;
         println!(
-            "{changes:?}: VpiL {:.4} ({:.4}), n_rf {:.4}, Z0 {:.4}, alpha_rf {:.4}, f_3dB {:.4}, n_g {:.4}",
+            "{changes:?}: VpiL {:.4} ({:.4}), n_rf {:.4}, Z0 {:.4}, alpha_rf {:.4}, f_3dB {:.4} \
+             ({:.2} GHz), f_6dB {:.4} ({:.2} GHz), n_g {:.4}",
             r("VpiL"),
             b.figure("VpiL").unwrap().value,
             r("n_rf"),
             r("Z0"),
             r("alpha_rf"),
             r("f_3dB"),
+            b.figure("f_3dB").unwrap().value,
+            r("f_6dB"),
+            b.figure("f_6dB").unwrap().value,
             r("n_g")
         );
     }

@@ -95,9 +95,10 @@ const STATED_MEASURED: f64 = 10.0;
 ///   anisotropy by scaling its thickness), the strips' thickness as parallel plates across the
 ///   gaps, the conductor loss by Holloway & Kuester's Eq. 12 on strips of zero thickness, the
 ///   dielectric loss by the layers' shares of C; the response by Ghione's Eq. 6.31. Its stated
-///   errors against the 2D model over its validity: Vπ·L 15%, the line's RF index and Z₀ 10%;
-///   its bandwidths aren't stated (the RF index 8 to 9% high puts them at a third or so of the
-///   2D model's).
+///   errors against the 2D model over its validity: Vπ·L 15%, the line's RF index and Z₀ 10%,
+///   the 3 and 6 dB bandwidths 80% ([`TflnModulator::ANALYTIC_BANDWIDTH_ERROR`]): they are low
+///   by a factor of 2.4 to 4.3, as the RF index 8 to 9% high about doubles the line's walk-off
+///   from the light, and are stated as that, not corrected by a factor.
 /// - **2D:** the static solver's field in the film at 1 V and the full-vector mode's change by
 ///   first-order perturbation, Vπ·L push–pull ([`crate::mode::pockels`], P6's thin-film
 ///   cross-section); the group index from the mode at 1.54 and 1.56 µm; the quasi-TEM line from
@@ -132,6 +133,18 @@ impl Default for TflnModulator {
 }
 
 impl TflnModulator {
+    /// The analytic fidelity's stated error in its 3 and 6 dB bandwidths (`f_3dB`, `f_6dB`)
+    /// against the 2D model's, %, over its validity (a gap of 3.5 to 8 µm, ribs 0.9 to 2.0 µm
+    /// wide, a film 0.5 to 0.8 µm thick): the validation report's
+    /// `device/tfln-analytic-bandwidth`. The analytic bandwidths are low there, 0.32 to 0.41 of
+    /// the 2D model's at 3 dB and 0.23 to 0.30 at 6 dB (2026-10-30): the conformal-mapping line's
+    /// RF index runs 8 to 9% high (`device/tfln-analytic-line`), which about doubles its walk-off
+    /// from the light, |n_rf − n_g| (0.46 against 0.21 at the defaults), and the walk-off sets
+    /// these bandwidths. The bound is that measured spread, 77% at worst, rounded up to the next
+    /// 5% as the analytic Vπ·L's (12%, stated 15) and line's (9%, stated 10) are; no factor
+    /// corrects it.
+    pub const ANALYTIC_BANDWIDTH_ERROR: f64 = 80.0;
+
     /// Zhang et al. 2022's 5.8 mm modulator: a 600 nm film etched 300 nm to ribs 1.2 µm wide on
     /// top, gaps of 5 µm beside a 20 µm signal, 0.83 µm of copper (58 MS/m), 2 µm of thermal
     /// oxide on silicon, 0.6 µm of PECVD oxide (ε 5.5) and air; what the paper doesn't give, as
@@ -1073,6 +1086,15 @@ impl Line {
                 * 1e-9)
         };
         let (f3, f6) = (fall(-3.0)?, fall(-6.0)?);
+        // the analytic bandwidths' stated error, in their names
+        let stated = if f == Fidelity::Analytic {
+            format!(
+                "; the analytic line's, low against the 2D model's: stated error {}%",
+                TflnModulator::ANALYTIC_BANDWIDTH_ERROR
+            )
+        } else {
+            String::new()
+        };
         let here = "at the frequency (1 GHz at DC)";
         let capacitance = match self {
             Line::Closed(l) => l.capacitance,
@@ -1138,8 +1160,10 @@ impl Line {
                     grid,
                 ),
                 figure(
-                    "3 dB electro-optic bandwidth, from 1 GHz (the highest sought when it \
-                     doesn't fall)",
+                    &format!(
+                        "3 dB electro-optic bandwidth, from 1 GHz (the highest sought when it \
+                         doesn't fall){stated}"
+                    ),
                     "f_3dB",
                     f3,
                     "GHz",
@@ -1147,7 +1171,7 @@ impl Line {
                     grid,
                 ),
                 figure(
-                    "6 dB electro-optic bandwidth, from 1 GHz",
+                    &format!("6 dB electro-optic bandwidth, from 1 GHz{stated}"),
                     "f_6dB",
                     f6,
                     "GHz",

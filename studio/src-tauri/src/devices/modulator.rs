@@ -170,6 +170,14 @@ pub struct VpiSweep {
     pub points: Vec<SweepPoint>,
     /// The grid the `VpiL` figure names at the first point that has one.
     pub grid: String,
+    /// The model's stated error in the bandwidths against the 2D model, %: the analytic
+    /// fidelity's (`TflnModulator::ANALYTIC_BANDWIDTH_ERROR`), none for the 2D model itself.
+    pub bandwidth_error: Option<f64>,
+}
+
+/// The stated error in the bandwidths of the model at `f`, % against the 2D model's.
+fn bandwidth_error(f: Fidelity) -> Option<f64> {
+    (f == Fidelity::Analytic).then_some(TflnModulator::ANALYTIC_BANDWIDTH_ERROR)
 }
 
 /// `spec`'s figures at `fidelity` with `parameter` at each of `values` (and what uses it
@@ -236,6 +244,7 @@ pub fn vpi_l_sweep(
         fidelity: fidelity_name(f),
         points,
         grid,
+        bandwidth_error: bandwidth_error(f),
     })
 }
 
@@ -268,6 +277,8 @@ pub struct Response {
     pub falls_6db: bool,
     /// The line's grid, as the figures name it.
     pub grid: String,
+    /// The model's stated error in the bandwidths against the 2D model, %, as the sweep's.
+    pub bandwidth_error: Option<f64>,
 }
 
 /// `spec`'s response at `fidelity` from the reference to `to_ghz` (if not given, 1.5 times the
@@ -341,6 +352,7 @@ pub fn eo_response(
         falls_3db,
         falls_6db,
         grid,
+        bandwidth_error: bandwidth_error(f),
     })
 }
 
@@ -404,6 +416,10 @@ mod tests {
         ] {
             let s = vpi_l_sweep(&zhang(&[]), "analytic", parameter, &values).unwrap();
             assert_eq!(s.fidelity, "analytic");
+            assert_eq!(
+                s.bandwidth_error,
+                Some(TflnModulator::ANALYTIC_BANDWIDTH_ERROR)
+            );
             assert_eq!(s.unit, unit);
             assert_eq!(s.points.len(), values.len());
             for p in &s.points {
@@ -467,6 +483,15 @@ mod tests {
         // the bandwidths are the figures, on the curve where it is 3 and 6 dB down
         let g = figures(&[], Fidelity::Analytic);
         assert!(same(r.f_3db, figure(&g, "f_3dB")) && same(r.f_6db, figure(&g, "f_6dB")));
+        // with the analytic model's stated error in them, which the figures' names give too
+        assert_eq!(
+            r.bandwidth_error,
+            Some(TflnModulator::ANALYTIC_BANDWIDTH_ERROR)
+        );
+        for symbol in ["f_3dB", "f_6dB"] {
+            let name = &g.iter().find(|f| f.symbol == symbol).unwrap().name;
+            assert!(name.ends_with("stated error 80%"), "{name}");
+        }
         assert!(r.falls_3db && r.falls_6db && r.f_3db < r.f_6db);
         for (bw, level) in [(r.f_3db, -3.0), (r.f_6db, -6.0)] {
             let p = r.points.iter().find(|p| p[0] == bw).unwrap();
@@ -492,6 +517,8 @@ mod tests {
         assert!(same(s.points[0].vpi_l, vpi_l) && same(s.points[0].f_3db, figure(&g, "f_3dB")));
         let r = eo_response(&zhang(&[]), "2D", Some(60.0), 12).unwrap();
         assert!(same(r.f_3db, figure(&g, "f_3dB")));
+        // the 2D model is what the analytic one's bandwidths are stated against
+        assert_eq!((s.bandwidth_error, r.bandwidth_error), (None, None));
         assert!(r.grid.contains("line's static grid"), "{}", r.grid);
         for &[ghz, db] in &r.points {
             let m = figure(&figures(&[("frequency", ghz)], Fidelity::TwoD), "m_dB");

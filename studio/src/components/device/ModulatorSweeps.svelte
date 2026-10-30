@@ -67,7 +67,7 @@
   const storedX = (v: number, length: boolean) => (length ? stored(v) : v);
 
   // ---- the sweep: one point a call ----
-  let sweep = $state<{ parameter: string; fidelity: string; key: string; points: VpiPoint[]; grid: string; total: number } | null>(null);
+  let sweep = $state<{ parameter: string; fidelity: string; key: string; points: VpiPoint[]; grid: string; total: number; bandwidthError: number | null } | null>(null);
   let going = $state(false);
   let stopping = false;
   let started = $state(0);
@@ -78,7 +78,7 @@
     const s = $state.snapshot(spec) as DeviceSpec;
     const n = Math.max(2, Math.round(count));
     const xs = Array.from({ length: n }, (_, k) => from + ((to - from) * k) / (n - 1));
-    sweep = { parameter, fidelity, key: designKey, points: [], grid: "", total: n };
+    sweep = { parameter, fidelity, key: designKey, points: [], grid: "", total: n, bandwidthError: null };
     going = true;
     stopping = false;
     problem = "";
@@ -90,6 +90,7 @@
         const r = await api.deviceVpiLSweep(s, fidelity, parameter, [x]);
         sweep.points.push(...r.points);
         if (!sweep.grid && r.grid) sweep.grid = r.grid;
+        sweep.bandwidthError = r.bandwidth_error;
         now = Date.now();
       }
     } catch (e) {
@@ -231,6 +232,8 @@
       <p class="mt-1 text-[11px] faint">
         Each point is our {sweep.fidelity} model's figures with the {swept?.label ?? sweep.parameter} there and the rest as designed (what uses it evaluated again): the same figures the Design tab shows.
         The line marks the design's value. Vπ·L is per length, so the length moves Vπ and the bandwidths alone.
+        {#if (quantity === "f_3db" || quantity === "f_6db") && sweep.bandwidthError !== null}Our analytic model's bandwidths are low against the 2D model's: their stated error is
+          <span class="num">{sweep.bandwidthError}%</span> (validation case device/tfln-analytic-bandwidth), so the 2D model gives the bandwidth.{/if}
         {#if sweep.parameter.startsWith("cladding")}The cladding enters the line (its RF index, impedance and loss, so the bandwidths) and the static field; its thickness also the mode's
           surroundings.{/if}
         {#if sweep.grid}{sentence(sweep.grid)}.{/if}
@@ -273,8 +276,9 @@
         there. It falls 3 dB at
         <span class="num">{r.falls_3db ? ghz(r.f_3db) : `none below ${ghz(r.f_3db)}`}</span>
         and 6 dB at <span class="num">{r.falls_6db ? ghz(r.f_6db) : `none below ${ghz(r.f_6db)}`}</span>.
-        {#if r.fidelity === "2D"}The line is quasi-TEM: past about 100 GHz the curve is that line's.{:else}The analytic line's bandwidths have no stated error: its RF index runs high against the 2D line's, which
-          puts them low.{/if}
+        {#if r.fidelity === "2D"}The line is quasi-TEM: past about 100 GHz the curve is that line's.{:else if r.bandwidth_error !== null}The analytic line's bandwidths are low against the 2D line's: its RF
+          index runs high, which about doubles its walk-off from the light. Their stated error against the 2D model's is <span class="num">{r.bandwidth_error}%</span> (validation case device/tfln-analytic-bandwidth),
+          so the 2D model gives the bandwidth.{/if}
         {sentence(r.grid)}.
       </p>
     {:else if fidelity === "2D"}
