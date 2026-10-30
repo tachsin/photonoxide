@@ -12,6 +12,8 @@ papers:
     doi: 10.1364/OE.26.001547
   - cite: "Y. Zhang et al., Photon. Res. 10, 2380 (2022) (a thin-film modulator's full stack, 2.3 V·cm at DC)"
     doi: 10.1364/PRJ.468518
+  - cite: "M. He et al., Nat. Photonics 13, 359 (2019) (a hybrid silicon and thin-film lithium niobate modulator, 2.2 and 2.5 V·cm at 100 kHz, not reproduced)"
+    doi: 10.1038/s41566-019-0378-6
   - cite: "D. Zhu et al., Adv. Opt. Photon. 13, 242 (2021) (thin-film lithium niobate, its modulators and their overlap)"
     doi: 10.1364/AOP.411024
   - cite: "J. Holzgrafe et al., Opt. Express 32, 3619 (2024) (the electro-optic response's relaxation below about 1 MHz)"
@@ -211,6 +213,81 @@ quartz, segmented), so the 5 µm number may be a common reference rather than th
 can't reproduce the trend without those details. Their measured 1.35 V at 20 mm (2.7 V·cm,
 segmented, on quartz) is a device's.
 
+### He et al. 2019: which coefficient the measurement probes
+
+He et al. 2019 (Nat. Photonics 13, 359, doi:10.1038/s41566-019-0378-6) bond an x-cut film onto a
+silicon circuit with BCB and etch the modulator's ribs into it: a 600 nm film (a 420 nm slab, a
+180 nm rib 1 µm wide on top, 60° sidewalls), on about 300 nm of BCB over 3 µm of silica on
+silicon, no cladding, gold electrodes 0.6 µm thick on the slab 2.75 µm from the rib's top edge
+(w + 2g = 6.5 µm in the arXiv copy's supplement, Section II), a 19.5 µm signal and 30 µm grounds.
+Vπ is 7.4 V on the 3 mm device and 5.1 V on the 5 mm one, push–pull, measured with a 100 kHz
+triangular sweep (p. 3): 2.2 and 2.5 V·cm. Fig. 1b draws a silicon strip under each rib, but the
+couplers move the light fully into the film over a taper that ends in an 80 nm tip (Fig. 1e, f);
+a 500 × 220 nm strip 80 nm under the rib would carry the mode itself (n_eff 2.48 against 1.92),
+so the arms are taken without it, and the tip's row below bounds what is left. The supplement's
+simulation (COMSOL's static field, Δn = n_e³ r₃₃ E_z/2 with the in-plane field only, Lumerical's
+mode) gives 2.46 V·cm without saying which r₃₃.
+
+photonoxide's cross-section gives 2.851 V·cm with the film's r₃₃ and the bulk's other clamped
+elements and ε^S, on 10 nm static and optical cells (2.852 on 20 nm). BCB isn't in the catalogue;
+its static permittivity is taken as 2.65 and its index as 1.54, and the rows below bracket both.
+Each candidate changes one thing:
+
+| Candidate | Vπ·L (V·cm) | Against 2.851 |
+|---|---|---|
+| **The coefficient and its clamping** (Jazbinšek & Zgonik, Tables 4 and 5, 633 nm) | | |
+| bulk clamped r^S (r₃₃ = 31.2 pm/V) and ε^S | 2.464 | −13.6% |
+| bulk unclamped r^T (31.45) with ε^S | 2.429 | −14.8% |
+| bulk unclamped r^T and ε^T | 2.400 | −15.8% |
+| the film's tensor with r₃₃ = 28.8, Table 4's measured clamped input (line 74) | 2.666 | −6.5% |
+| **The static permittivities** | | |
+| the film's r with ε^T (84.48, 27.78) for ε^S (45.5, 26.2) | 2.811 | −1.4% |
+| BCB's static permittivity 2.5 | 2.851 | 0.0% |
+| BCB as silica (3.9, index 1.444) | 2.811 | −1.4% |
+| the silicon substrate a conductor (doped, at 100 kHz) | 2.972 | +4.2% |
+| **The cross-section** | | |
+| the gap from the rib's foot, 6.71 µm | 2.955 | +3.7% |
+| electrodes 50 nm or 1.1 µm thick | 2.888, 2.829 | +1.3%, −0.8% |
+| sidewalls at 70° or 90° | 2.845, 2.830 | −0.2%, −0.7% |
+| a 620 nm film, its slab 440 nm (20 nm cells) | 2.803 | −1.7% |
+| the taper's 80 nm silicon tip under the rib, a conductor | 2.882 | +1.1% |
+| **The definition** | | |
+| the paper's Eq. (1): r₃₃ and the in-plane field only, the film's r₃₃ | 2.905 | +1.9% |
+| the same with the bulk's r^S and ε^S, or r^T and ε^T | 2.505, 2.444 | −12.1%, −14.3% |
+| one arm instead of push–pull | 5.701 | +100% |
+
+Clamping moves Vπ·L by 2.6% (r^S and ε^S to r^T and ε^T: 2.464 to 2.400), since r₃₃^T and
+r₃₃^S differ by 0.8% in the fit (Jazbinšek & Zgonik's Fig. 1: "unresolvable"). Every
+structural or electrostatic candidate moves it by 4.2% or less. The paper's Eq. (1) with a bulk
+coefficient gives 2.44 to 2.51, around their 2.46, so their simulation agrees with this one and
+took a bulk r₃₃ of about 31 pm/V; it doesn't say which coefficient their film has.
+
+Only r₃₃ itself closes the gap: 2.5 V·cm needs 30.7 pm/V and 2.2 V·cm needs 34.9 pm/V, against the
+film's 26.9 ± 0.9 at 1550 nm (Chelladurai et al. 2025, flat from 100 MHz to 330 GHz), which
+gives Wang et al.'s and Zhang et al.'s Vπ·L to 2 and 3% (both measured at DC). The 3 mm device's
+34.9 pm/V is above even the bulk's unclamped 31.45 pm/V at 633 nm, so the bulk coefficients
+don't explain it either: with r^T and ε^T, 2.400 V·cm is 9% above the 3 mm device's 2.2 and 4%
+below the 5 mm device's 2.5, and they put Wang et al.'s and Zhang et al.'s at 1.56 and 2.02 against
+1.8 and 2.3.
+
+The two devices also disagree with each other. Vπ ∝ 1/L would take the 3 mm device's 7.4 V to
+4.44 V at 5 mm, not 5.1 V: their products, 2.22 and 2.55 V·cm before rounding, differ by 15%,
+more than any candidate above but r₃₃. One Vπ·L fits both only if each active length is 1.43 mm
+longer than its arm, and that gives 3.28 V·cm.
+
+What is left is the measurement's frequency. Below 1 MHz a thin film's response needn't be its
+high-frequency one: Holzgrafe et al. 2024 measure modulators whose response rises up to 2.5 dB
+(×1.33) above its 100 kHz to 1 MHz value in a band between 1 and 20 kHz, from conduction at the
+film's surface. ×1.33 takes 2.851 to 2.14 V·cm, enough to span both devices. Where the band falls depends on the layers'
+conductivities, and He et al.'s film is bonded on BCB and has no cladding, unlike Holzgrafe et
+al.'s, so it can't be computed from what the papers give.
+
+**What would settle it:** the same devices' Vπ over frequency, from 1 kHz to a few MHz, joined to
+the electro-optic S21 at its low end (a Vπ that rises towards 2.85 V·cm above the band would be
+the relaxation); more lengths than two, or the electrodes' length against the arms'; and the
+published Supplementary Information, which may name the r₃₃ behind the 2.46 V·cm (that settles
+their simulation, not the device). Until then He et al.'s modulator isn't a case (#420, #595).
+
 ### Barium titanate
 
 The catalogue's films ([catalogue.md](catalogue.md)): Abel et al. 2018's tensor on silicon
@@ -307,9 +384,9 @@ gives 1.863 on the same grids, its cells sampled its own way).
 - Lithium tantalate's r₂₂ and r₅₁, its static permittivity, and a thin-film modulator's Vπ·L
   (C. Wang et al., Nature 629, 784 (2024), doi:10.1038/s41586-024-07369-1). Its index against
   wavelength is in the catalogue (above).
-- He et al. 2019's modulator as a case: its cross-section gives 2.87 V·cm push–pull with the thin
-  film's r₃₃ against the 2.2 to 2.5 V·cm measured, and which coefficient their film has isn't
-  settled ([devices](devices.md); #595).
+- He et al. 2019's modulator as a case: its cross-section gives 2.85 V·cm push–pull with the thin
+  film's r₃₃ against the 2.2 and 2.5 V·cm measured at 100 kHz; no structural, permittivity or
+  clamping candidate closes it (the section above; #595).
 
 The response in frequency is the travelling-wave electrodes' ([travelling-wave.md](travelling-wave.md))
 and the TFLN modulator's ([devices](devices.md)).

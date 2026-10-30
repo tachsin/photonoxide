@@ -1,5 +1,6 @@
-//! The layering test (#508): the library's modules sit in layers, and production code imports
-//! only downward. `docs/architecture.md` explains the layers and why; this test keeps them.
+//! The layering test (#508): the library's modules sit in layers inside the one `photonoxide`
+//! crate, and production code imports only downward. `docs/architecture.md` explains the layers
+//! and why; this test keeps them.
 //!
 //! It reads the source tree. For every file under `src/` that is not a check or a test (a file
 //! named `checks.rs`, `tests.rs`, `*_checks.rs` or `*_tests.rs`, one under a `checks/` or
@@ -18,7 +19,7 @@ struct Layer {
     may_use: &'static [&'static str],
 }
 
-/// The layers, lowest first. Each becomes a crate in phase 2 of #508.
+/// The layers, lowest first. They are groups of modules of the one crate, not crates.
 const LAYERS: &[Layer] = &[
     Layer {
         name: "core",
@@ -102,11 +103,11 @@ const LAYERS: &[Layer] = &[
     },
 ];
 
-/// Modules of the crate that belong to no layer: the test modules.
+/// Modules that belong to no layer: the test modules.
 const UNLAYERED: &[&str] = &["layering"];
 
 /// An import that points upward and is allowed for now: the file, the module it imports and
-/// why. Each resolves when the crates are made (phase 2 of #508).
+/// why. An entry goes when its import is moved down or the path it keeps is given up.
 const ALLOWED: &[(&str, &str, &str)] = &[(
     "src/thermal.rs",
     "shifter",
