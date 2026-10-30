@@ -66,16 +66,17 @@
     const timer = setTimeout(() => {
       api
         .deviceTemperatureInTime(s)
+        // done here, not in a finally: setting `timed` runs this effect again, which ends `current`
         .then((data) => {
           if (!current) return;
+          timing = false;
           timed = { key, data };
           timeProblem = "";
         })
         .catch((e) => {
-          if (current) timeProblem = String(e);
-        })
-        .finally(() => {
-          if (current) timing = false;
+          if (!current) return;
+          timing = false;
+          timeProblem = String(e);
         });
     }, 300);
     return () => {
@@ -116,7 +117,7 @@
       <p class="text-sm text-warning selectable">{plain(timeProblem)}</p>
     {:else if t}
       <p class="text-xs muted">
-        The 2D model turned on from the ambient at <span class="num">{milliwatts(t.power_mw)}</span>{#if t.at_pi} (the power for a π shift: the design's is zero){/if}: the rise the mode feels goes to
+        The 2D model turned on from the ambient at <span class="num">{milliwatts(t.power_mw)}</span>{t.at_pi ? ", the power for a π shift (the design's is zero)" : ""}: the rise the mode feels goes to
         <span class="num">{kelvin(t.steady)}</span>, 10 % to 90 % of the way in <span class="num">{micro(t.rise_us)}</span> (from <span class="num">{micro(t.ten_us)}</span> to
         <span class="num">{micro(t.ninety_us)}</span>), 1 − 1/e of it at <span class="num">{micro(t.tau_us)}</span>, the figure τ.
         {#if timing || stale}<span class="loading loading-spinner loading-xs align-middle text-primary"></span>{/if}
@@ -127,7 +128,6 @@
           { x: t.ten_us, label: "10 %" },
           { x: t.tau_us, label: "τ" },
           { x: t.ninety_us, label: "90 %" },
-          { y: t.steady, label: "steady" },
         ]}
         frames={t.frames.map((f) => ({ time_us: f.time_us, raster: f.raster, lines: f.isotherms.flatMap((i) => i.lines) }))}
         scale={[0, t.peak]}

@@ -169,6 +169,7 @@
           frames={run.staticFrames}
           levels={frameLevels}
           scale={frameScale}
+          ends={[`${Number(frameScale[0].toPrecision(4))} ${first.unit}`, `${Number(frameScale[1].toPrecision(4))} ${first.unit}`]}
           axes={first.axes}
           outline={outlined && scene ? cutOutline(scene, "x", (scene.x_um[0] + scene.x_um[1]) / 2, [first.raster.x0, first.raster.x1]) : undefined}
           quantity="temperature ({first.unit})"
