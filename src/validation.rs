@@ -255,6 +255,7 @@ pub fn rules() -> Vec<(&'static str, Rule)> {
     rules.extend(pcm::rules());
     rules.extend(eme::rules());
     rules.extend(modulator::rules());
+    rules.extend(roughness::rules());
     rules
 }
 
@@ -2473,6 +2474,8 @@ pub fn cases() -> Vec<Case> {
     cases.extend(crate::eme::checks::cases());
     // and the thin-film lithium niobate Mach-Zehnder modulator as a device
     cases.extend(crate::device::tfln_checks::cases());
+    // and sidewall roughness: Payne and Lacey's slab, Barwicz and Haus's 3D analysis on the grid
+    cases.extend(crate::mode::roughness_checks::cases());
     cases
 }
 
@@ -5494,6 +5497,7 @@ mod materials;
 mod modes;
 mod modulator;
 mod pcm;
+mod roughness;
 #[cfg(feature = "gpu")]
 pub use gpu::gpu_report;
 
