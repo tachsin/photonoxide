@@ -217,7 +217,7 @@ pub(crate) fn ring_linewidth() -> Outcome {
 }
 
 /// The 2D FDFD ring of `jobs/ring-fdfd.yaml`.
-const RING_JOB: &str = include_str!("../../../jobs/ring-fdfd.yaml");
+const RING_JOB: &str = include_str!("../../../../jobs/ring-fdfd.yaml");
 
 /// A resonance of the FDFD ring near `start` (µm). An all-pass ring's 1/(1 − T) is
 /// A − B cos(φ − φ₀) exactly (the denominator of Bogaerts's Eq. 2 over its numerator, which is
@@ -517,7 +517,7 @@ fn soi() -> Planar {
 }
 
 /// The 1 × 2 MMI of `jobs/mmi-fdfd.yaml`.
-const MMI_JOB: &str = include_str!("../../../jobs/mmi-fdfd.yaml");
+const MMI_JOB: &str = include_str!("../../../../jobs/mmi-fdfd.yaml");
 
 /// The 1 × 2 MMI's two output powers at 1.55 µm, by guided-mode propagation and by 2D FDFD.
 pub(crate) fn mmi_fdfd_measure() -> ([f64; 2], [f64; 2]) {

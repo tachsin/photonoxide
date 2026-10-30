@@ -465,8 +465,7 @@ pub(super) fn sampled(
         let mut first: Option<Solver2d> = None;
         for &wl in wavelengths {
             let solver = if fill {
-                let plane =
-                    crate::fdfd::slab_plane::fill_plane(&structure, core, Polarization::Te, wl)?;
+                let plane = super::slab_plane::fill_plane(&structure, core, Polarization::Te, wl)?;
                 match &first {
                     None => {
                         Solver2d::from_plane(g, Field::Hz, wl, &plane, boundaries, grid.averaging)?
@@ -474,7 +473,7 @@ pub(super) fn sampled(
                     Some(f) => f.reuse_plane(wl, &plane)?,
                 }
             } else {
-                let eps = crate::fdfd::slab_plane::plane(
+                let eps = super::slab_plane::plane(
                     &structure,
                     &g,
                     core,

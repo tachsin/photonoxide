@@ -49,6 +49,8 @@ use crate::geometry::Shape;
 use crate::statics::{Discrete, Hold, Problem, spread};
 use crate::{Error, Result};
 
+// the one import that points up a layer (the allow-list in src/layering.rs): the shifter's types
+// keep their `thermal::` paths until the crates are made (#508)
 pub use crate::shifter::{Drive, Efficiency, Guide, Optics, PhaseShifter, StepResponses, Timing};
 pub use crate::statics::{
     Axis, Boundary, Cut, Features, Field, Grading, Grid, MAX_CELLS, Section, Side, Tensor,
@@ -67,6 +69,7 @@ mod rc;
 pub(crate) mod rc_checks;
 #[cfg(test)]
 mod rc_tests;
+#[path = "cases/thermal/shifter_checks.rs"]
 pub(crate) mod shifter_checks;
 #[cfg(test)]
 mod shifter_tests;

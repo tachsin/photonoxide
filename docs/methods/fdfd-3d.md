@@ -428,7 +428,7 @@ met and $A$'s isn't.
 A similarity, not a scaling: $DA$ is symmetric too, but has other eigenvalues, and QMR on it
 didn't converge on the guide (a residual of 0.24 after 100 000 iterations). Which matrices are
 symmetrizable was measured on a strip, 14 × 12 × 10 cells (`symmetrizable` in
-src/fdfd/three/tests.rs): the curl-curl operator with plain or stretched PMLs, to 7e-15; not
+src/cases/fdfd/three/tests.rs): the curl-curl operator with plain or stretched PMLs, to 7e-15; not
 Shin and Fan's operator (mismatches of order 1), on which ILU(0) and the multigrid work, nor a
 Bloch side's phases. So the preconditioned solvers keep the general QMR and GMRES.
 
@@ -854,7 +854,7 @@ dominant need 3 to 5 synchronous sweeps (their Section 4.2, Table 3). **Its tria
 by k Jacobi sweeps each (Anzt, Chow and Dongarra, Euro-Par 2015, LNCS 9233, 650,
 doi:10.1007/978-3-662-48096-0_50: the truncated Neumann series of the factor, all rows at once,
 the same bits on any number of threads, and on the transposed factors exactly its transpose, so
-QMR stays consistent), on the guide to 1e-8, 20 threads (`ilu_sweeps` in src/fdfd/three/tests.rs):
+QMR stays consistent), on the guide to 1e-8, 20 threads (`ilu_sweeps` in src/cases/fdfd/three/tests.rs):
 
 | Triangular solves | Exact | 1 sweep | 2 | 3 | 4 | 6 | 8 |
 |---|---|---|---|---|---|---|---|

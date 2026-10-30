@@ -50,6 +50,7 @@ pub(crate) mod ferroelectric;
 pub(crate) mod litao3_dndt;
 mod models;
 pub(crate) mod phase_change;
+#[path = "../../cases/material/catalogue/phase_change_checks.rs"]
 pub(crate) mod phase_change_checks;
 pub(crate) mod phase_change_thermal;
 mod references;

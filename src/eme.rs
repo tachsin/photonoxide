@@ -66,6 +66,7 @@ use crate::mode::Polarization;
 use crate::units::{Length, Wavelength};
 use crate::{Error, Result};
 
+#[path = "cases/eme/checks.rs"]
 pub(crate) mod checks;
 mod modes;
 mod scattering;
@@ -341,4 +342,5 @@ impl Eme {
 }
 
 #[cfg(test)]
+#[path = "cases/eme/tests.rs"]
 mod tests;

@@ -727,4 +727,5 @@ pub(crate) fn cases() -> Vec<Case> {
 }
 
 #[cfg(test)]
+#[path = "fill_checks/tests.rs"]
 mod tests;

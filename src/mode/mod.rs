@@ -32,6 +32,7 @@ pub mod region;
 pub mod slab;
 pub mod slab_fd;
 pub mod thermo;
+#[path = "../cases/mode/thermo_checks.rs"]
 pub(crate) mod thermo_checks;
 pub mod vector;
 

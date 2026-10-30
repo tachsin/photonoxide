@@ -1023,15 +1023,18 @@ impl Field2d {
 }
 
 mod adjoint;
+#[path = "../cases/fdfd/checks.rs"]
 pub(crate) mod checks;
+#[path = "../cases/fdfd/crystal_checks.rs"]
 pub(crate) mod crystal_checks;
 #[cfg(test)]
+#[path = "../cases/fdfd/crystal_tests.rs"]
 mod crystal_tests;
 pub(crate) mod direct;
 mod fill;
+#[path = "../cases/fdfd/fill_checks.rs"]
 pub(crate) mod fill_checks;
 mod ports;
-pub(crate) mod slab_plane;
 #[cfg(test)]
 mod tests;
 mod three;

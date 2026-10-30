@@ -73,6 +73,8 @@ pub mod fdtd;
 pub mod generator;
 pub mod geometry;
 pub mod job;
+#[cfg(test)]
+mod layering;
 mod lstsq;
 pub mod material;
 pub mod mode;

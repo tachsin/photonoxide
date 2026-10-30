@@ -24,6 +24,8 @@
 # when that area runs, without running further. A file that other areas use more narrowly than
 # its own area is in theirs too: fdtd's media fit their poles with src/lstsq.rs, the least
 # squares compact's fits use too, and its kernel's rates are timed with the triad in src/traffic.rs.
+# The checks and tests that reach above their module sit in src/cases/<module>/ (docs/architecture.md)
+# and belong to the area of the module they came from, so each area lists src/cases/<module>/* too.
 #
 # A file in no area is shared and runs everything (the library's root, units, geometry, expr,
 # error (and the netlist errors in it), stop (run::Stop), verdict (the validation types), parallel, portable, stack (and src/stack/, its etches' validation cases and its boxes' fill),
@@ -51,7 +53,7 @@ area() {
 }
 
 area material \
-  "src/material/*" \
+  "src/material/* src/cases/material/*" \
   "" \
   "material::" "material/" \
   "silicon_index silica_index group_index directional_coupler mzi_dwivedi"
@@ -60,7 +62,7 @@ area material \
 # kernels, the bytes they move. (The iterative backend and the Krylov solvers, which fdfd
 # stops and measures, are fdfd's.)
 area sparse \
-  "src/sparse.rs src/sparse/* src/backend.rs src/backend/auto.rs src/backend/dense.rs src/dense.rs src/traffic.rs" \
+  "src/sparse.rs src/sparse/* src/cases/sparse/* src/backend.rs src/backend/auto.rs src/backend/dense.rs src/dense.rs src/traffic.rs" \
   "" \
   "sparse:: backend:: traffic::" "" "" \
   "bench"
@@ -68,7 +70,7 @@ area sparse \
 # the mode solvers, and the eigensolvers under them (their contour integrals factorize with sparse);
 # with the method study on multilayers (tests/method_study.rs, whose small study runs here)
 area mode \
-  "src/mode/* src/eigen.rs src/eigen/* tests/method_study.rs" \
+  "src/mode/* src/cases/mode/* src/eigen.rs src/eigen/* src/cases/eigen/* tests/method_study.rs" \
   "sparse convergence" \
   "mode:: eigen:: a_small_study_" "mode/" \
   "slab_soi slab_yariv_yeh bend_loss effective_index_method group_index leaky_waves leaky_wire_benchmark marcatili multilayer_chilwell optimize_bragg hadley_corners strip_waveguide directional_coupler mzi_dwivedi"
@@ -76,20 +78,20 @@ area mode \
 # with the allocations counted in FDFD's iterations and FDTD's time steps (tests/no_allocation.rs,
 # its tests named fdfd:: and fdtd::, which runs with every test, as tests/method_study.rs does)
 area fdfd \
-  "src/fdfd/* src/backend/iterative.rs src/backend/krylov.rs src/backend/krylov/* tests/no_allocation.rs" \
+  "src/fdfd/* src/cases/fdfd/* src/backend/iterative.rs src/backend/krylov.rs src/backend/krylov/* tests/no_allocation.rs" \
   "mode sparse" \
   "fdfd:: backend::iterative:: backend::krylov::" "fdfd/ fdfd3d/" \
   "bump_oskooi cpml_roden_gedney lorentz_okoniewski pml_oskooi subpixel_holes tfsf_square_cylinder"
 
 # eigenmode expansion (#432): slab stacks' modes and their S-matrices; its taper case runs 2D FDFD
 area eme \
-  "src/eme.rs src/eme/* src/validation/eme.rs" \
+  "src/eme.rs src/eme/* src/cases/eme/* src/validation/eme.rs" \
   "mode fdfd" \
   "eme::" "eme/" ""
 
 # with the GPU's report (tests/gpu_report.rs, docs/validation-gpu.md, run by hand)
 area fdtd \
-  "src/fdtd.rs src/fdtd/* src/validation/* tests/gpu_report.rs src/lstsq.rs src/traffic.rs" \
+  "src/fdtd.rs src/fdtd/* src/cases/fdtd/* src/validation/* tests/gpu_report.rs src/lstsq.rs src/traffic.rs" \
   "mode material fdfd" \
   "fdtd::" "fdtd/" \
   "bump_oskooi cpml_roden_gedney l3_akahane lorentz_okoniewski pml_oskooi subpixel_holes tfsf_square_cylinder"
@@ -98,30 +100,30 @@ area fdtd \
 # core and the thermal and electro modules on it; it cuts stacks (shared) and factorizes with
 # sparse's multifrontal solver. Its job kind (src/job/statics.rs) is the job area's.
 area statics \
-  "src/statics.rs src/statics/* src/thermal.rs src/electro.rs" \
+  "src/statics.rs src/statics/* src/cases/statics/* src/thermal.rs src/electro.rs" \
   "sparse material" \
   "statics:: thermal:: electro::" "static/" ""
 
 # a change of temperature in a full-vector mode, by first-order perturbation and by re-solve
 # (src/mode/thermo.rs, in the mode area too); its cases take the catalogue's dn/dT and a heat
 # solve's field
-area thermo   "src/mode/thermo.rs src/mode/thermo_checks.rs"   "mode material statics"   "mode::thermo" "thermo/" ""
+area thermo   "src/mode/thermo.rs src/mode/thermo_checks.rs src/cases/mode/thermo_checks.rs"   "mode material statics"   "mode::thermo" "thermo/" ""
 
 # the Pockels effect in a full-vector mode (src/mode/pockels.rs, in the mode area too): the
 # catalogue's electro-optic tensor turned into the guide's frame, the static solver's field, the
 # perturbation (thermo's) and Vpi L; its cases read the catalogue's lithium niobate
-area pockels  "src/mode/pockels.rs src/mode/pockels/*"   "mode material statics thermo"   "mode::pockels" "pockels/" ""
+area pockels  "src/mode/pockels.rs src/mode/pockels/* src/cases/mode/pockels/*"   "mode material statics thermo"   "mode::pockels" "pockels/" ""
 
 # travelling-wave electrodes (src/electro/*): a line's quasi-TEM index, impedance and losses from
 # the static solver's capacitances and charge, its full-wave RF mode on a Yee lattice of the same
 # cross-section (eigen's shift-and-invert), and a modulator's electro-optic response; its
 # cases take lithium niobate's static permittivity from the pockels cases
-area line     "src/electro/*"   "statics material mode pockels"   "electro::line electro::full_wave" "line/" ""
+area line     "src/electro/* src/cases/electro/*"   "statics material mode pockels"   "electro::line electro::full_wave" "line/" ""
 
 # the thermo-optic phase shifter (src/thermal/*): a heat solve's rise in a guide's mode, by its
 # perturbation's weights, into P_pi, the time constant and the crosstalk between neighbours; and
 # the dynamic thermal compact models fitted to its step responses (src/thermal/rc*)
-area shifter  "src/thermal/* src/shifter.rs"   "mode material statics thermo"   "thermal::shifter thermal::rc thermal::correction" "shifter/ thermal-rc/ correction/" ""
+area shifter  "src/thermal/* src/cases/thermal/* src/shifter.rs"   "mode material statics thermo"   "thermal::shifter thermal::rc thermal::correction" "shifter/ thermal-rc/ correction/" ""
 
 # jobs, their runs and replay, and farming them out; the job files in jobs/ are read by the
 # library's tests and validation cases, by the studio's and by the Python package's; a job's
@@ -163,7 +165,7 @@ area generator \
 # a component sampled from an fdfd job's S-parameters runs the job; a heated circuit's phases
 # come from the shifter's thermal compact models (src/circuit/heated*)
 area circuit \
-  "src/circuit/*" \
+  "src/circuit/* src/cases/circuit/*" \
   "material mode job shifter" \
   "circuit::" "circuit/ components/" \
   "circuit_fit circuit_ring_critical circuit_splitter optimize_ring_flat optimize_mzi_lattice optimize_ring_pareto optimize_mesh ring_q_factor directional_coupler mzi_dwivedi"
@@ -173,13 +175,13 @@ area circuit \
 # the thermo-optic phase shifters on the static solver and the shifter's chain (src/thermal);
 # the TFLN modulator on the Pockels cross-section and the travelling-wave line (src/electro)
 area device \
-  "src/device.rs src/device/*" \
+  "src/device.rs src/device/* src/cases/device/*" \
   "material mode circuit generator fdfd job compact statics shifter pockels line" \
   "device::" "device/" \
   "strip_waveguide directional_coupler mzi_dwivedi ring_q_factor bend_loss rib_hadley mmi_soldano y_junction_zhang thermo_jacques thermo_harris pcm_delaney tfln_zhang"
 
 area compact \
-  "src/compact/* src/lstsq.rs" \
+  "src/compact/* src/cases/compact/* src/lstsq.rs" \
   "circuit job" \
   "compact::" "compact/" "compact_mzi_ye"
 
@@ -189,6 +191,14 @@ area facade \
   "src/facade.rs src/facade/* docs/features.md" \
   "material mode job circuit compact device" \
   "facade::" "" ""
+
+# the layering test (src/layering.rs; the layers are in docs/architecture.md): it reads every
+# file under src/, so any change to the source runs it, whatever area the change is in (below,
+# where files are matched), and it makes no file shared
+area layering \
+  "src/layering.rs docs/architecture.md" \
+  "" \
+  "layering::" "" ""
 
 # the benchmark problems, every solver's
 area bench \
@@ -305,6 +315,7 @@ else
         name=${f#examples/}; direct_examples+=" ${name%.rs}"; touch_area studio; continue ;;
     esac
     found=false
+    case "$f" in src/*) touch_area layering ;; esac
     for a in "${areas[@]}"; do
       if matches "$f" "${files[$a]}"; then touch_area "$a"; found=true; fi
     done

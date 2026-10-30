@@ -37,6 +37,12 @@ leftovers (#543: the TFLN modulator as a device, the studio's views, GDS read in
   files; and `facade::conformance()`, calls with their results for the bindings' tests. A
   change elsewhere in the API that touches it is absorbed in it, in the same PR.
 
+The modules sit in layers that are to become crates (#508), and production code imports only
+downward: [docs/architecture.md](docs/architecture.md) has the layers, `src/layering.rs` the test
+that keeps them (a new module goes in its table). The checks and tests that reach above their
+module, such as a geometry check that builds an FDTD structure, are in `src/cases/<module>/`, the
+module's own path, and are declared by the module with `#[path]`.
+
 ## Commands
 
 The [justfile](justfile) has these as recipes (`just` lists them), the same on Linux, macOS and

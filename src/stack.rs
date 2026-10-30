@@ -822,6 +822,7 @@ impl Structure {
     }
 }
 
+#[path = "cases/stack/checks.rs"]
 pub(crate) mod checks;
 pub(crate) mod fill;
 
