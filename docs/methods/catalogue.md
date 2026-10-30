@@ -22,6 +22,10 @@ papers:
     doi: 10.1364/OME.1.000458
   - cite: "A. Bruner, D. Eger, M. B. Oron, P. Blau, M. Katz, S. Ruschin, Opt. Lett. 28, 194 (2003)"
     doi: 10.1364/OL.28.000194
+  - cite: "N. A. Barboza, R. S. Cudney, Appl. Phys. B 95, 453 (2009)"
+    doi: 10.1007/s00340-009-3434-y
+  - cite: "A. Bruner, D. Eger, M. B. Oron, P. Blau, M. Katz, S. Ruschin, Proc. SPIE 4628, 66 (2002)"
+    doi: 10.1117/12.460817
   - cite: "D. E. Zelmon, D. L. Small, D. Jundt, J. Opt. Soc. Am. B 14, 3319 (1997)"
     doi: 10.1364/JOSAB.14.003319
   - cite: "D. H. Jundt, Opt. Lett. 22, 1553 (1997)"
@@ -158,6 +162,9 @@ validation:
   - material/silicon-film-sondheimer-order
   - material/rf-krupka-table-1
   - material/rf-lamb-table-1
+  - material/litao3-barboza-thg-period
+  - material/litao3-barboza-tables
+  - material/litao3-bruner-slt-633
 ---
 
 `material::catalogue` lists materials with everything a design needs about them, each number
@@ -548,6 +555,8 @@ every value a tensor gives is an element its tag names.
 | LiNbO₃, 5% MgO | Gayer et al. 2008 | Eqs. (2)–(3), Table 1 of the 2010 erratum | $n_e$ 0.5–4 µm, 20–200 °C; $n_o$ 0.5–1.62 µm, 20–100 °C |
 | LiTaO₃ | Bond 1965 (our fit, default) | two-term Sellmeier for $n_o$ and $n_e$, fitted to Bond's Table IV (refractiveindex.info, CC0, checked against the paper) | 0.45–4.0 µm, room temperature, within 6.7e-4 of the table |
 | LiTaO₃ | Abedin & Ito 1996 | $n_{o,e}(\lambda, T)$, Eq. (1), Tables I and II | 0.4–4.0 µm, 25–300 °C (the temperature terms fitted at 468 and 644 nm) |
+| LiTaO₃ | Barboza & Cudney 2009 | $n_e(\lambda, T)$ only, Eq. (7), Table 2 (temperature terms in $\lambda_A$, $B$ and $C$) | 0.3–5 µm, 23–230 °C |
+| LiTaO₃ | Bruner et al. 2002 | $n_e(\lambda, T)$ only, Eq. (4), Table 1's congruent row (temperature terms $b$ and $c$ in the first pole) | 0.39–1.85 µm, 25–200 °C, standard deviation 0.001327 |
 | BaTiO₃ (thin film) | Abel et al. 2018, at 1550 nm | constant $n_o = ar n + \Delta n/2$, $n_e = ar n - \Delta n/2$; $ar n$ = 2.286, $\Delta n$ = 0.03 (Supplementary Note 6) | 1.50–1.60 µm |
 | BaTiO₃ (strained film on GdScO₃) | Suceava et al. 2025 | $n_o$ only: four Gaussian oscillators and two poles, Supporting Note S3, Table S1 (our evaluation, every 10 nm) | 0.5–1.6893 µm, room temperature |
 
@@ -702,6 +711,60 @@ congruent Table 1 is printed the right way round.
   nm they give $dn_o/dT = +8.0 \times 10^{-6}$ and $dn_e/dT = -2.7 \times 10^{-6}$ per K (25 to
   300 °C), where at 468 nm $n_e$ rises by 8e-5 per K. Bond's fit is the default at room
   temperature.
+
+  **The extraordinary index against temperature, two more models.** N. A. Barboza and R. S.
+  Cudney (Appl. Phys. B 95, 453 (2009)) measured $n_e$ of congruent wafers by minimum deviation
+  at seven wavelengths from 457.9 to 1064.2 nm ($\delta n/n \approx 5 \times 10^{-4}$), took the
+  idler's index from quasi-phase-matched parametric generation from 1.3 to 5 µm at 23 to
+  230 °C, and fitted $n_e^2 = 1 + A\lambda^2/(\lambda^2 - \lambda_A^2) + B\lambda^2/(\lambda^2 -
+  \lambda_B^2) + C\lambda^2$ with $\lambda_A$, $B$ and $C$ quadratic in $T$ (Table 2): stated for
+  0.3 to 5 µm and 23 to above 200 °C. A. Bruner et al. (Proc. SPIE 4628, 66 (2002)) fitted
+  $n_e^2 = A + (B + b)/(\lambda^2 - (C + c)^2) + E/(\lambda^2 - F^2) + D\lambda^2$, with $b$ and
+  $c$ in $(T + 273.15)^2$, to quasi-phase-matched SHG wavelengths (pumps 0.76 to 1.85 µm, 30 to
+  200 °C) and Bond's room-temperature indices: for the congruent crystal, 0.39 to 1.85 µm. Both
+  are the catalogue's models `barboza-cudney-2009` and `bruner-2002-congruent`. Neither gives
+  $n_o$, which stays coming, and both take $dn_e/dT$ from phase matching, which fixes the
+  dispersion's change better than the index's, so a direct infrared measurement of the undoped
+  crystal's $dn/dT$ stays coming too.
+
+  Barboza & Cudney's Table 2 puts the period for Luo et al.'s third harmonic of 1.342 µm at
+  85.6 °C at 14.7826 µm, their printed 14.78 (`material/litao3-barboza-thg-period`); at 23 °C it
+  lies 1.1e-4 relative above their Table 1 at the measured wavelengths, inside the indices'
+  5e-4 (`material/litao3-barboza-tables`). Bruner et al.'s equation for the stoichiometric
+  crystal, which shares the congruent row's form, gives 2.17697 at 633 nm and 25 °C, the
+  supplier's 2.177 their fit was held to (`material/litao3-bruner-slt-633`). Bruner et al. state
+  a standard deviation of 0.001327 without naming the crystal; their congruent $n_e$ lies 0.8e-3
+  to 3.5e-3 below Bond's table from 0.45 to 1.8 µm at 25 °C (rms 2.1e-3), as their remark that
+  "the actual curves of the refractive indices can shift up or down a little" allows (p. 72).
+  That isn't a case.
+
+  In their overlap the two models agree on the dispersion and differ in the index and much more
+  in its temperature dependence ($dn_e/dT$ from each model by `IndexModel::thermo_optic`):
+
+  | T | λ | $n_e$ Barboza | $n_e$ Bruner | Difference | $dn_e/dT$ Barboza (1/K) | $dn_e/dT$ Bruner (1/K) | Ratio |
+  |---|---|---|---|---|---|---|---|
+  | 25 °C | 0.5 µm | 2.21982 | 2.21924 | +0.00058 | 1.05e-4 | 1.04e-5 | 10 |
+  | 25 °C | 1.064 µm | 2.13948 | 2.13767 | +0.00181 | 8.64e-5 | 2.28e-6 | 38 |
+  | 25 °C | 1.55 µm | 2.12238 | 2.12045 | +0.00193 | 8.32e-5 | 1.07e-6 | 78 |
+  | 25 °C | 1.8 µm | 2.11544 | 2.11352 | +0.00192 | 8.21e-5 | 7.97e-7 | 103 |
+  | 50 °C | 1.064 µm | 2.14163 | 2.13773 | +0.00390 | 8.51e-5 | 2.47e-6 | 35 |
+  | 50 °C | 1.55 µm | 2.12444 | 2.12048 | +0.00396 | 8.19e-5 | 1.16e-6 | 71 |
+  | 100 °C | 0.5 µm | 2.22763 | 2.22012 | +0.00751 | 1.03e-4 | 1.31e-5 | 7.9 |
+  | 100 °C | 1.064 µm | 2.14582 | 2.13787 | +0.00796 | 8.27e-5 | 2.85e-6 | 29 |
+  | 100 °C | 1.55 µm | 2.12848 | 2.12054 | +0.00793 | 7.94e-5 | 1.34e-6 | 59 |
+  | 150 °C | 0.5 µm | 2.23277 | 2.22081 | +0.01196 | 1.02e-4 | 1.48e-5 | 6.9 |
+  | 150 °C | 1.064 µm | 2.14990 | 2.13802 | +0.01188 | 8.02e-5 | 3.23e-6 | 25 |
+  | 150 °C | 1.55 µm | 2.13238 | 2.12061 | +0.01177 | 7.68e-5 | 1.52e-6 | 50 |
+  | 150 °C | 1.8 µm | 2.12531 | 2.11364 | +0.01167 | 7.57e-5 | 1.13e-6 | 67 |
+
+  At 25 °C they are within 0.6e-3 to 1.9e-3 over 0.5 to 1.8 µm, the size of Bruner et al.'s
+  standard deviation; the difference is nearly the same at every wavelength, so the two
+  dispersions agree within 1.4e-3 from 0.5 to 1.8 µm. With temperature they part: Barboza &
+  Cudney's $dn_e/dT$ is near 8e-5 per K at every wavelength, Bruner et al.'s falls from 1e-5
+  to 1e-6, and by 150 °C the indices differ by 0.012. The doped crystals measured directly
+  (below) put $dn_e/dT$ in the infrared at 4e-5 to 5e-5 per K, between the two and nearer
+  Barboza & Cudney's. Which model to use for a temperature is a choice the catalogue leaves to
+  the design, with this table beside it.
 
   **Measured in the infrared, on doped crystals.** No paper in hand measures the undoped
   congruent crystal's dn/dT in the infrared, so that stays coming; two measure doped crystals,
@@ -931,7 +994,11 @@ read from the paper itself, which isn't in hand.
   (`material/litao3-abedin-refit`), Fig. 3's standard deviations within 4.4e-5
   (`material/litao3-abedin-points`) and its curves within 1.2e-4 (`material/litao3-abedin-curves`);
   Moutzouris et al.'s fit gives their 100 measured indices of the Mg-doped crystal back to
-  4.02e-4 on average, their ~0.0004 (`material/litao3-moutzouris-fit`).
+  4.02e-4 on average, their ~0.0004 (`material/litao3-moutzouris-fit`). Barboza & Cudney's
+  $n_e(\lambda, T)$ gives their 14.78 µm third-harmonic period at 85.6 °C (14.7826,
+  `material/litao3-barboza-thg-period`), and its Table 2 at 23 °C their Table 1 within 1.1e-4
+  relative (`material/litao3-barboza-tables`); Bruner et al.'s form with their SLT row gives the
+  supplier's 2.177 at 633 nm (2.17697, `material/litao3-bruner-slt-633`).
   Barium titanate: Abel
   et al.'s film index at 1550 nm within 0.026 of the other films' 2.26 and 2.29
   (`material/batio3-abel-films`).

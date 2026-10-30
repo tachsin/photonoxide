@@ -2150,6 +2150,8 @@ fn lithium_tantalate() -> Entry {
         index: vec![
             super::ferroelectric::litao3_model(),
             super::ferroelectric::litao3_abedin_model(),
+            super::litao3_ne::barboza_model(),
+            super::litao3_ne::bruner_model(),
         ],
         tensors: vec![
             casson_r(1.558, (6.92, 0.07), (27.4, 0.3)),
@@ -2172,6 +2174,8 @@ fn lithium_tantalate() -> Entry {
             "casson-2004",
             "dolev-2009",
             "moutzouris-2011",
+            "barboza-cudney-2009",
+            "bruner-2002",
         ]),
     }
 }

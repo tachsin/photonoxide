@@ -17,5 +17,6 @@
 
 pub(crate) mod checks;
 pub mod coupled;
+pub(crate) mod data_checks;
 pub mod pairs;
 pub mod phase;

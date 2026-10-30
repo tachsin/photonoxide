@@ -565,6 +565,20 @@ const PAPERS: &[(&str, &str, &str, &str, &str)] = &[
         "",
     ),
     (
+        "barboza-cudney-2009",
+        "N. A. Barboza, R. S. Cudney, Appl. Phys. B 95, 453 (2009)",
+        "Improved Sellmeier equation for congruently grown lithium tantalate",
+        "10.1007/s00340-009-3434-y",
+        "",
+    ),
+    (
+        "bruner-2002",
+        "A. Bruner, D. Eger, M. B. Oron, P. Blau, M. Katz, S. Ruschin, Proc. SPIE 4628, 66 (2002)",
+        "Refractive index dispersion measurements of congruent and stoichiometric LiTaO3",
+        "10.1117/12.460817",
+        "",
+    ),
+    (
         "lee-2001-linbo3",
         "M. Lee, Appl. Phys. Lett. 79, 1342 (2001)",
         "Dielectric constant and loss tangent in LiNbO3 crystals from 90 to 147 GHz",

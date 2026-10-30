@@ -48,6 +48,7 @@ pub(crate) mod conductivity_checks;
 mod entries;
 pub(crate) mod ferroelectric;
 pub(crate) mod litao3_dndt;
+pub(crate) mod litao3_ne;
 mod models;
 #[path = "../../cases/material/catalogue/opo_checks.rs"]
 pub(crate) mod opo_checks;
