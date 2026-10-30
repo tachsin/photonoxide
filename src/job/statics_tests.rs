@@ -350,6 +350,78 @@ fn a_turn_off_falls_as_the_turn_on_rises() {
 }
 
 #[test]
+fn a_transient_s_frames_are_its_temperature_on_the_way_and_its_times_mark_the_rise() {
+    let framed = TURN_ON.replace("duration_us = 30.0", "duration_us = 30.0\nframes = 6");
+    let ev = events("frames", &framed);
+    let frames: Vec<(f64, &crate::raster::Raster)> = ev
+        .iter()
+        .filter_map(|e| match e {
+            Event::StaticFrame {
+                time_us,
+                unit,
+                axes,
+                raster,
+            } => {
+                assert_eq!(
+                    (unit.as_str(), axes),
+                    ("K", &["y".to_owned(), "z".to_owned()])
+                );
+                Some((*time_us, raster))
+            }
+            _ => None,
+        })
+        .collect();
+    // the start and every 50 of the 300 steps of 0.1 us
+    let times: Vec<f64> = frames.iter().map(|f| f.0).collect();
+    assert_eq!(times.len(), 7);
+    for (k, t) in times.iter().enumerate() {
+        assert!((t - 5.0 * k as f64).abs() < 1e-9, "{times:?}");
+    }
+    // the last is the last field, to the bit, on the steady field's pixels; the start is the
+    // ambient, and the guide's probe warms frame by frame
+    let last = ev
+        .iter()
+        .find_map(|e| match e {
+            Event::StaticField { label, raster, .. } if label == "temperature at 30 us" => {
+                Some(raster)
+            }
+            _ => None,
+        })
+        .unwrap();
+    assert_eq!(frames[6].1, last);
+    assert!(frames[0].1.values.iter().all(|v| *v == 0.0));
+    let peak = |r: &crate::raster::Raster| r.values.iter().copied().fold(f32::MIN, f32::max);
+    assert!(frames.windows(2).all(|w| peak(w[1].1) > peak(w[0].1)));
+    // the times the studio marks: 10 % and 90 %, whose difference is the 10-90 % time, and the
+    // probe's mean crossing them there
+    let values = result(&ev).3;
+    let (a, b) = (
+        named(&values, "10 % time of guide"),
+        named(&values, "90 % time of guide"),
+    );
+    assert_eq!(b - a, named(&values, "10-90 % time of guide"));
+    let steady = named(&values, "mean over guide");
+    let s = steps(&ev);
+    let at = |t: f64| {
+        let k = s.iter().position(|p| p.0 >= t).unwrap();
+        let (p, q) = (s[k - 1], s[k]);
+        p.1 + (t - p.0) / (q.0 - p.0) * (q.1 - p.1)
+    };
+    // the record's own end is 30 us, short of the steady state: its share there
+    assert!((at(a * 1e6) / steady - 0.1).abs() < 1e-9, "{}", at(a * 1e6));
+    assert!((at(b * 1e6) / steady - 0.9).abs() < 1e-9, "{}", at(b * 1e6));
+    // without frames none are recorded; too many are refused
+    assert!(
+        !events("no-frames", TURN_ON)
+            .iter()
+            .any(|e| matches!(e, Event::StaticFrame { .. }))
+    );
+    let many = TURN_ON.replace("duration_us = 30.0", "duration_us = 30.0\nframes = 201");
+    let e = check(&Job::parse(&many).unwrap()).unwrap_err().to_string();
+    assert!(e.contains("1 to 200 pictures"), "{e}");
+}
+
+#[test]
 fn a_transient_gives_the_same_bits_on_one_thread_and_many() {
     let short = TURN_ON.replace("duration_us = 30.0", "duration_us = 3.0");
     let run = |threads: usize| {

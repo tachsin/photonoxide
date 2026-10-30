@@ -733,4 +733,17 @@ pub enum Event {
         /// The study and its verdict; its value is the run's grid's.
         check: crate::convergence::Convergence,
     },
+    /// A picture of a static job's temperature in time, recorded as the steps go when its
+    /// `[task.transient]` asks for `frames` (the start's first): on the pixels of its
+    /// [`Event::StaticField`]s, in its own unit.
+    StaticFrame {
+        /// The time, µs.
+        time_us: f64,
+        /// Its unit: `"K"`.
+        unit: String,
+        /// The axes: across the guide and up, `["y", "z"]`.
+        axes: [String; 2],
+        /// The picture.
+        raster: Raster,
+    },
 }

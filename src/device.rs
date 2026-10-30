@@ -109,7 +109,7 @@ pub use section::{Cells, Mesh, Scheme, Symmetry};
 pub use solve::FdfdGrid;
 pub use spec::{LayerSpec, MaterialSpec, PRESETS, Spec, StackSpec, fidelity};
 pub use tfln::{ElectrodeField, TflnModulator};
-pub use thermo::ThermoShifter;
+pub use thermo::{ThermoShifter, TurnOn};
 pub use waveguide::StripWaveguide;
 pub use ybranch::StripYBranch;
 
