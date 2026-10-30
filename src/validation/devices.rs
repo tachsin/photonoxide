@@ -27,6 +27,20 @@ const MMI_3D: Numerical = Stated(
     "the 3D grid study at 44, 31.4 and 22 nm, extrapolated at second order and spanning first order to the 4.0 the grids show (docs/methods/devices.md)",
 );
 
+/// The 3D MMI's best length's own error, relative: the length study's sweeps at 44 and 31.4 nm,
+/// spanning the 31.4 nm grid's best to the second-order extrapolation's, with the fits' spread.
+const MMI_BEST_LENGTH: Numerical = Stated(
+    1.5e-2,
+    "the 3D length study: sweeps at 44 and 31.4 nm, from the finer grid's best to the second-order extrapolation's (docs/methods/devices.md)",
+);
+
+/// The 3D MMI's most power's own error: the 31.4 nm sweep's, the 22 nm point's change at the
+/// same length and the fits' spread.
+const MMI_BEST_POWER: Numerical = Stated(
+    8e-4,
+    "the 3D length study: the 31.4 nm sweep, the 22 nm point and the fits' spread (docs/methods/devices.md)",
+);
+
 /// The 2D thermal models' grids at the three fabricated designs (device/thermo-2d-grid).
 const THERMO_GRID: Numerical = Stated(
     8.0e-4,
@@ -702,6 +716,26 @@ pub(crate) fn rules() -> Vec<(&'static str, Rule)> {
                 5e-2,
                 MMI_3D,
                 "2D FDFD's stated error against 3D: the difference measured and the 3D value's uncertainty, rounded up",
+            ),
+        ),
+        (
+            "device/mmi-best-length-3d",
+            Rule::new(
+                Relative,
+                Model,
+                7e-2,
+                MMI_BEST_LENGTH,
+                "the guided modes' stated error against 3D in their best length: the difference measured and the 3D length's uncertainty, rounded up",
+            ),
+        ),
+        (
+            "device/mmi-best-power-3d",
+            Rule::new(
+                Absolute,
+                Model,
+                6e-3,
+                MMI_BEST_POWER,
+                "the guided modes' stated error against 3D at their best lengths: the difference measured and the 3D value's uncertainty, rounded up",
             ),
         ),
         (
