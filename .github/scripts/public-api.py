@@ -55,9 +55,16 @@ def listing(workspace, path):
 
 
 def reexports(doc, internal):
-    """(path in the workspace crate, path here) for every `pub use` of a workspace crate's item."""
+    """The crate's re-exports, as (where the item is defined, where it is re-exported), and its
+    public modules and items, by path.
+
+    The re-exports are those of a workspace crate's item, and, in a workspace crate, those of
+    its own items out of a private module: another crate's signatures name such an item by
+    where it is defined (`photonoxide_core::units::length::Length`), and the crate's own
+    listing by where it is re-exported (`photonoxide_core::units::Length`)."""
     index, paths, crates = doc["index"], doc["paths"], doc["external_crates"]
-    found = []
+    found, local, modules = [], [], set()
+    items = {"::".join(p["path"]) for p in paths.values() if p["crate_id"] == 0 and p["kind"] != "module"}
     seen = set()
 
     def walk(module_id, here, depth):
@@ -67,6 +74,7 @@ def reexports(doc, internal):
         module = index.get(str(module_id))
         if module is None or "module" not in module["inner"]:
             return
+        modules.add(here)
         for child in module["inner"]["module"]["items"]:
             item = index.get(str(child))
             if item is None:
@@ -80,18 +88,21 @@ def reexports(doc, internal):
                 continue
             target = use["id"]
             at = here if use["is_glob"] else f"{here}::{use['name']}"
-            if str(target) in index:
-                # a re-export of this crate's own module: its items are reachable there too
-                walk(target, at, depth + 1)
-                continue
             source = paths.get(str(target))
+            if str(target) in index:
+                if "module" in index[str(target)]["inner"]:
+                    # a re-export of this crate's own module: its items are reachable there too
+                    walk(target, at, depth + 1)
+                elif source is not None and not use["is_glob"] and "::".join(source["path"]) != at:
+                    local.append(("::".join(source["path"]), at))
+                continue
             if source is None or source["crate_id"] == 0:
                 continue
             if crates.get(str(source["crate_id"]), {}).get("name") in internal:
                 found.append(("::".join(source["path"]), at))
 
     walk(doc["root"], index[str(doc["root"])]["name"], 0)
-    return found
+    return found, local, modules, items
 
 
 def main():
@@ -120,21 +131,61 @@ def main():
         sys.exit(f"no package {FACADE} in {workspace}")
     internal = {lib for name, lib in packages if name != FACADE}
 
-    lines, rules = [], []
+    lines, rules, aliases, modules, items = [], [], [], {}, {}
     for name, lib in packages:
         doc, path = rustdoc_json(workspace, nightly, name, lib, target_dir)
         lines += listing(workspace, path)
-        rules += reexports(doc, internal)
-    print(f"{len(packages)} crates, {len(rules)} re-exports from workspace crates", file=sys.stderr)
+        found, local, modules[lib], items[lib] = reexports(doc, internal)
+        rules += found
+        if lib in internal:
+            rules += local
+            aliases += local
+    print(f"{len(packages)} crates, {len(rules)} re-exports", file=sys.stderr)
 
-    def places(path, depth=0):
+    def private_module(path):
+        """The private module `path` goes through, if it does (`photonoxide_expr::parse` in
+        `photonoxide_expr::parse::Expr`), or None."""
+        segments = path.split("::")
+        crate = segments[0]
+        if crate not in internal:
+            return None
+        for k in range(2, len(segments)):
+            prefix = "::".join(segments[:k])
+            if prefix in items[crate]:
+                return None
+            if prefix not in modules[crate]:
+                return prefix
+        return None
+
+    known = {}
+
+    def reached(path, stack=()):
         """Every path the item at `path` is reachable at, through the re-exports."""
+        if path in known:
+            return known[path]
+        if path in stack or len(stack) > 16:
+            return set()
         out = set()
-        if depth < 16:
+        # an item a workspace crate re-exports out of a private module is also named by where
+        # it is defined, which is the path another crate's re-export of it records
+        names = {path} | {d + path[len(p):] for d, p in aliases
+                          if path == p or path.startswith(p + "::")}
+        for name in names:
+            hidden = private_module(name)
             for source, at in rules:
-                if path == source or path.startswith(source + "::"):
-                    out |= places(at + path[len(source):], depth + 1)
-        return out or {path}
+                if name == source or name.startswith(source + "::"):
+                    # through a private module, only a re-export of the item itself counts
+                    if hidden is not None and len(source) < len(hidden):
+                        continue
+                    out |= reached(at + name[len(source):], stack + (path,))
+        known[path] = out = out or {path}
+        return out
+
+    def places(path):
+        """The paths of `path` in photonoxide, or, for an item it doesn't re-export, its own."""
+        out = reached(path)
+        facade = {p for p in out if p == FACADE or p.startswith(FACADE + "::")}
+        return facade or out
 
     result = set()
     if internal:
