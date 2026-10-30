@@ -991,6 +991,18 @@ impl VectorMode {
         self.fields_sided(cs, false)
     }
 
+    /// As [`VectorMode::fields`], with ∂_x E_z and ∂_y E_z beside a change of material taken
+    /// from the neighbour of the same material, so E's normal component keeps its jump at the
+    /// interface: an integral over a material or a region ([`crate::mode::quantities`]) then
+    /// converges at second order in the grid, not first.
+    ///
+    /// # Errors
+    ///
+    /// As [`VectorMode::fields`].
+    pub fn fields_one_sided(&self, cs: &CrossSection) -> Result<crate::mode::fields::Fields> {
+        self.fields_sided(cs, true)
+    }
+
     /// As [`VectorMode::fields`]; with `sided`, ∂_x E_z and ∂_y E_z in a cell beside a change of
     /// material are taken one-sided, from the neighbour of the same material, so E's normal
     /// component keeps its jump at the interface (ε E_⊥ continuous) instead of a central
@@ -1091,7 +1103,14 @@ impl VectorMode {
                 ]);
             }
         }
-        Ok(crate::mode::fields::Fields { xc, yc, area, e, h })
+        Ok(crate::mode::fields::Fields {
+            xc,
+            yc,
+            area,
+            e,
+            h,
+            mirrors: cs.mirrors(),
+        })
     }
 
     /// How alike two modes' transverse magnetic fields are, from 0 to 1:
