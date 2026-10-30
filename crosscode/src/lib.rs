@@ -19,6 +19,8 @@
 //!   quasi-TEM line.
 //! - [`microstrip`]: a microstrip line in a box, for openEMS's FDTD and photonoxide's quasi-TEM
 //!   line.
+//! - [`zhang_line`]: Zhang et al.'s thin-film lithium niobate line with its whole stack, for
+//!   openEMS's FDTD and photonoxide's quasi-TEM line.
 //! - [`heater`]: the shared heat case, a heater in oxide over silicon, for Elmer and photonoxide.
 //! - [`heaters`]: two heaters side by side, the thermal crosstalk, for Elmer and photonoxide.
 //! - [`transient`]: a heater turned on, its guide's rise in time, for Elmer and photonoxide.
@@ -43,3 +45,4 @@ pub mod openems;
 pub mod report;
 pub mod tfln;
 pub mod transient;
+pub mod zhang_line;

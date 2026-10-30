@@ -8,16 +8,19 @@
 //! It skips, saying so, where openEMS isn't found. The runs log their progress to stderr and
 //! to `progress.log` in their folders under `crosscode/target/tmp/openems/`; a finished run of
 //! the same model is taken again. Where `PHOTONOXIDE_OPENEMS_ONLY` names some of the lines
-//! (`microstrip`, comma-separated), only those run, and the report is printed, not written.
+//! (`microstrip`, `zhang`, comma-separated), only those run, and the report is printed, not written.
 
 use std::fmt::Write as _;
 use std::path::Path;
 use std::time::Instant;
 
+use photonoxide::electro::Axis;
 use photonoxide_crosscode::cpw::{FREQUENCIES_GHZ, LENGTH, Measured, Mesh, measured};
 use photonoxide_crosscode::microstrip::Microstrip;
-use photonoxide_crosscode::openems::OpenEms;
+use photonoxide_crosscode::openems::Model;
+use photonoxide_crosscode::openems::{OpenEms, Run};
 use photonoxide_crosscode::report::{percent, signed_percent};
+use photonoxide_crosscode::zhang_line::{CLADDING, LN as ZHANG_LN, OXIDE, SILICON, ZhangLine};
 
 /// The microstrip's meshes' smallest cells, µm, each half the last: three meshes, the fewest
 /// an extrapolation takes.
@@ -25,6 +28,9 @@ const STRIP_SMALLEST: [f64; 3] = [2.0, 1.0, 0.5];
 /// Their growth and largest cell.
 const GROWTH: f64 = 1.1;
 const LARGEST: f64 = 10.0;
+/// Zhang et al.'s line's meshes, three as the microstrip's, and their largest cell.
+const ZHANG_SMALLEST: [f64; 3] = [2.0, 1.0, 0.5];
+const ZHANG_LARGEST: f64 = 25.0;
 /// The end criterion: the energy down by 70 dB, as the coplanar line's.
 const END: f64 = 1e-7;
 /// photonoxide's converged grid study: its smallest cells, growth and largest.
@@ -98,12 +104,41 @@ fn order(p: f64) -> String {
     }
 }
 
+/// How the run ended: nothing to say where its energy fell to the end criterion; where it
+/// settled instead ([OpenEms::with_settled_stop]), the level and how far the planes' first
+/// voltage had rung down by then (its last tenth's largest against its peak). It fails a run
+/// that did neither, or whose voltage hadn't rung down by 80 dB.
+fn stopped(run: &Run, label: &str) -> String {
+    if run.decayed {
+        return String::new();
+    }
+    let db = run.settled.unwrap_or_else(|| {
+        panic!("{label}: the energy neither fell to the end criterion nor settled")
+    });
+    let v = run.probe("v1").expect("openEMS's probe");
+    let peak = v.value.iter().fold(0.0f64, |m, x| m.max(x.abs()));
+    let tail = v.value[v.value.len() * 9 / 10..]
+        .iter()
+        .fold(0.0f64, |m, x| m.max(x.abs()));
+    let down = 20.0 * (tail / peak).log10();
+    assert!(
+        down < -80.0,
+        "{label}: its energy settled at {db:.1} dB, but the voltage is only {down:.0} dB down"
+    );
+    format!(
+        "; its energy settled at {db:.1} dB, the voltage {:.0} dB down",
+        -down
+    )
+}
+
 /// One mesh's runs.
 struct Row {
     smallest: f64,
     cells: usize,
     steps: u64,
     seconds: f64,
+    /// How the run ended, where its energy settled rather than fell.
+    stop: String,
     lines: Vec<Measured>,
     index: f64,
     ohm: f64,
@@ -113,37 +148,50 @@ struct Row {
 /// A check: what, openEMS's error against photonoxide converged, the tolerance.
 type Check = (String, f64, f64);
 
-fn microstrip(program: &OpenEms, folder: &Path, started: Instant) -> (String, Vec<Check>) {
-    let line = Microstrip::alumina_like();
+/// A line both codes solve: its name, its report's heading and description, its meshes, and
+/// its mesh lines, openEMS model and static line on them.
+struct Case<'a> {
+    key: &'static str,
+    name: &'static str,
+    heading: &'static str,
+    about: String,
+    smallest: &'a [f64],
+    largest: f64,
+    axes: &'a dyn Fn(&Mesh) -> (Axis, Axis),
+    model: &'a dyn Fn(&Axis, &Axis) -> Model,
+    statics: &'a dyn Fn(&Axis, &Axis) -> (f64, f64),
+    /// The closed form's row of the results' table, if it has one.
+    closed_form: Option<&'static str>,
+}
+
+fn study(program: &OpenEms, folder: &Path, started: Instant, case: &Case) -> (String, Vec<Check>) {
     let mut rows = Vec::new();
-    let total = STRIP_SMALLEST.len();
-    for (k, &smallest) in STRIP_SMALLEST.iter().enumerate() {
+    let total = case.smallest.len();
+    for (k, &smallest) in case.smallest.iter().enumerate() {
         let mesh = Mesh {
             smallest,
             growth: GROWTH,
-            largest: LARGEST,
+            largest: case.largest,
         };
-        let (y, z) = line.axes(&mesh).expect("a valid mesh");
-        let model = line.model(&y, &z, END);
+        let (y, z) = (case.axes)(&mesh);
+        let model = (case.model)(&y, &z);
         let elapsed = started.elapsed().as_secs_f64();
         eprintln!(
-            "[openems-lines] step {}/{total} ({:.0}%), {elapsed:.0} s elapsed: the microstrip, {smallest} µm, {} cells",
+            "[openems-lines] step {}/{total} ({:.0}%), {elapsed:.0} s elapsed: {}, {smallest} µm, {} cells",
             k + 1,
             100.0 * k as f64 / total as f64,
+            case.name,
             model.cells()
         );
-        let label = format!("microstrip {}/{total}, {smallest} µm", k + 1);
+        let label = format!("{} {}/{total}, {smallest} µm", case.key, k + 1);
         let run = program
             .run(
                 &model,
-                &folder.join(format!("microstrip-{smallest}")),
+                &folder.join(format!("{}-{smallest}", case.key)),
                 &label,
             )
             .expect("openEMS's run");
-        assert!(
-            run.decayed,
-            "{label}: the energy didn't fall to the end criterion"
-        );
+        let stop = stopped(&run, &label);
         let lines = measured(&run, &FREQUENCIES_GHZ).expect("openEMS's probes");
         let fit = |f: fn(&Measured) -> f64| {
             at_zero(
@@ -154,7 +202,7 @@ fn microstrip(program: &OpenEms, folder: &Path, started: Instant) -> (String, Ve
             )
         };
         let (index, ohm) = (fit(Measured::index), fit(Measured::ohm));
-        let ours = line.static_line(&y, &z).expect("the static solve");
+        let ours = (case.statics)(&y, &z);
         eprintln!(
             "  openEMS n {index:.6} Z {ohm:.4}; photonoxide on the same lines n {:.6} Z {:.4}",
             ours.0, ours.1
@@ -164,6 +212,7 @@ fn microstrip(program: &OpenEms, folder: &Path, started: Instant) -> (String, Ve
             cells: model.cells(),
             steps: run.steps,
             seconds: run.seconds,
+            stop,
             lines,
             index,
             ohm,
@@ -173,14 +222,12 @@ fn microstrip(program: &OpenEms, folder: &Path, started: Instant) -> (String, Ve
     let converged: Vec<(f64, f64)> = CONVERGED
         .iter()
         .map(|&smallest| {
-            let (y, z) = line
-                .axes(&Mesh {
-                    smallest,
-                    growth: CONVERGED_GROWTH,
-                    largest: CONVERGED_LARGEST,
-                })
-                .expect("a valid mesh");
-            line.static_line(&y, &z).expect("the static solve")
+            let (y, z) = (case.axes)(&Mesh {
+                smallest,
+                growth: CONVERGED_GROWTH,
+                largest: CONVERGED_LARGEST,
+            });
+            (case.statics)(&y, &z)
         })
         .collect();
     let column = |f: fn(&Row) -> f64| rows.iter().map(f).collect::<Vec<_>>();
@@ -194,29 +241,7 @@ fn microstrip(program: &OpenEms, folder: &Path, started: Instant) -> (String, Ve
     let last = &rows[rows.len() - 1];
 
     let mut out = String::new();
-    let _ = writeln!(
-        out,
-        "## A microstrip line in a box\n\n\
-         A perfectly conducting strip of zero thickness, 20 µm wide, on 20 µm of a substrate of \
-         ε = 10 (w/h = 1) over a ground plane, in a perfectly conducting box ±{r} µm across and \
-         {r} µm high above the strip, its walls at the ground's potential. openEMS runs a \
-         section {} mm long as the coplanar line's (25 µm cells along it, 8-cell PMLs at both \
-         ends), driven by a soft source of E between the strip and the ground (a Gaussian pulse \
-         of 5 to 55 GHz) until the energy is down by 70 dB; k and Z₀ at each frequency come from \
-         the voltage from the strip down to the ground at three planes 1025 µm apart and the \
-         current around the strip midway (a loop ±{} µm across and ±5 µm about the strip, clear \
-         of the ground), its quasi-static n and Z₀ the limits at 0 GHz of v(f) = v₀ + a f². \
-         photonoxide's quasi-TEM line is its static solver's on half the box: n = √(C/C₀), \
-         Z₀ = 1/(c√(CC₀)). Across the line both take the same mesh lines, cells from the \
-         smallest at the strip's edge and in its plane growing by {GROWTH} to {LARGEST} µm; \
-         three meshes, the fewest an extrapolation takes, to keep openEMS's runs to about an \
-         hour.\n\n\
-         The closed form, Hammerstad and Jensen's (1980), will stand beside both codes: pending \
-         the paper.\n",
-        LENGTH / 1000.0,
-        2.0 * line.half_width,
-        r = line.reach
-    );
+    let _ = writeln!(out, "## {}\n\n{}\n", case.heading, case.about);
     let _ = writeln!(
         out,
         "| | n | Error | Z₀, Ω | Error |\n|---|---:|---:|---:|---:|\n\
@@ -224,8 +249,7 @@ fn microstrip(program: &OpenEms, folder: &Path, started: Instant) -> (String, Ve
          | openEMS, extrapolated from its three meshes | {} | {} | {} | {} |\n\
          | photonoxide on the same lines, extrapolated | {} | {} | {} | {} |\n\
          | openEMS on its finest mesh ({} µm) | {} | {} | {} | {} |\n\
-         | photonoxide on the same mesh | {} | {} | {} | {} |\n\
-         | Hammerstad and Jensen (1980), closed form | pending the paper | | pending the paper | |\n",
+         | photonoxide on the same mesh | {} | {} | {} | {} |\n{}",
         sig(ref_n, 6),
         sig(ref_z, 4),
         sig(oe_n, 6),
@@ -244,7 +268,9 @@ fn microstrip(program: &OpenEms, folder: &Path, started: Instant) -> (String, Ve
         sig(last.ours.0, 6),
         percent(last.ours.0, ref_n),
         sig(last.ours.1, 4),
-        percent(last.ours.1, ref_z)
+        percent(last.ours.1, ref_z),
+        case.closed_form
+            .map_or(String::new(), |row| format!("{row}\n"))
     );
     let _ = writeln!(
         out,
@@ -254,11 +280,12 @@ fn microstrip(program: &OpenEms, folder: &Path, started: Instant) -> (String, Ve
     for r in &rows {
         let _ = writeln!(
             out,
-            "| {} µm | {} | {} ({:.0} min) | {} | {} | {}, {} | {}, {} | {}, {} | {}, {} |",
+            "| {} µm | {} | {} ({:.0} min{}) | {} | {} | {}, {} | {}, {} | {}, {} | {}, {} |",
             r.smallest,
             r.cells,
             r.steps,
             r.seconds / 60.0,
+            r.stop,
             r.lines
                 .iter()
                 .map(|m| sig(m.index(), 5))
@@ -311,14 +338,31 @@ fn microstrip(program: &OpenEms, folder: &Path, started: Instant) -> (String, Ve
         sig(cv_z, 4),
         order(cv_zp)
     );
+    let weak: Vec<String> = [
+        ("openEMS's n", oe_np),
+        ("openEMS's Z₀", oe_zp),
+        ("photonoxide's n on the same lines", px_np),
+        ("photonoxide's Z₀ on the same lines", px_zp),
+    ]
+    .iter()
+    .filter(|(_, p)| *p < 0.5)
+    .map(|(what, p)| format!("{what} (order {p:.2})"))
+    .collect();
+    if !weak.is_empty() {
+        let _ = writeln!(
+            out,
+            "An extrapolation of order below 0.5 says little: its three meshes' differences barely shrink, and the finest mesh is the better guide. Here: {}.\n",
+            weak.join(", ")
+        );
+    }
     let checks = vec![
         (
-            "the microstrip: n".to_owned(),
+            format!("{}: n", case.name),
             (oe_n - ref_n) / ref_n,
             INDEX_TOLERANCE,
         ),
         (
-            "the microstrip: Z₀".to_owned(),
+            format!("{}: Z₀", case.name),
             (oe_z - ref_z) / ref_z,
             IMPEDANCE_TOLERANCE,
         ),
@@ -330,7 +374,7 @@ fn microstrip(program: &OpenEms, folder: &Path, started: Instant) -> (String, Ve
 #[ignore = "runs openEMS, where it is installed: hours"]
 fn openems_agrees_on_more_lines() {
     let program = match OpenEms::find() {
-        Ok(p) => p.with_threads(threads()),
+        Ok(p) => p.with_threads(threads()).with_settled_stop(),
         Err(e) => {
             println!("skipped: {e}");
             return;
@@ -338,13 +382,71 @@ fn openems_agrees_on_more_lines() {
     };
     let folder = Path::new(env!("CARGO_TARGET_TMPDIR")).join("openems");
     let started = Instant::now();
-    let all = ["microstrip"];
+    let all = ["microstrip", "zhang"];
     let mut sections = String::new();
     let mut checks: Vec<Check> = Vec::new();
-    if runs("microstrip") {
-        let (s, c) = microstrip(&program, &folder, started);
-        sections.push_str(&s);
-        checks.extend(c);
+    let strip = Microstrip::alumina_like();
+    let zhang = ZhangLine::zhang();
+    let cases = [
+        Case {
+            key: "microstrip",
+            name: "the microstrip",
+            heading: "A microstrip line in a box",
+            about: format!(
+                "A perfectly conducting strip of zero thickness, {} µm wide, on {} µm of a substrate of ε = {} (w/h = 1) over a ground plane, in a perfectly conducting box ±{r} µm across and {r} µm high above the strip, its walls at the ground's potential. openEMS runs a section {} mm long as the coplanar line's (25 µm cells along it, 8-cell PMLs at both ends), driven by a soft source of E between the strip and the ground (a Gaussian pulse of 5 to 55 GHz) until the energy is down by 70 dB; k and Z₀ at each frequency come from the voltage from the strip down to the ground at three planes 1025 µm apart and the current around the strip midway (a loop ±{} µm across and ±5 µm about the strip, clear of the ground), its quasi-static n and Z₀ the limits at 0 GHz of v(f) = v₀ + a f². photonoxide's quasi-TEM line is its static solver's on half the box: n = √(C/C₀), Z₀ = 1/(c√(CC₀)). Across the line both take the same mesh lines, cells from the smallest at the strip's edge and in its plane growing by {GROWTH} to {LARGEST} µm; three meshes, the fewest an extrapolation takes.\n\nThe closed form, Hammerstad and Jensen's (1980), will stand beside both codes: pending the paper.",
+                2.0 * strip.half_width,
+                strip.height,
+                strip.permittivity,
+                LENGTH / 1000.0,
+                2.0 * strip.half_width,
+                r = strip.reach
+            ),
+            smallest: &STRIP_SMALLEST,
+            largest: LARGEST,
+            axes: &|m| strip.axes(m).expect("a valid mesh"),
+            model: &|y, z| strip.model(y, z, END),
+            statics: &|y, z| strip.static_line(y, z).expect("the static solve"),
+            closed_form: Some(
+                "| Hammerstad and Jensen (1980), closed form | pending the paper | | pending the paper | |",
+            ),
+        },
+        Case {
+            key: "zhang",
+            name: "Zhang et al.'s line",
+            heading: "Zhang et al.'s thin-film lithium niobate line, its full stack",
+            about: format!(
+                "Zhang et al.'s line (Photon. Res. 10, 2380 (2022), Section 2) with everything around it: a ground–signal–ground line, the signal {} µm wide, gaps of {} µm, grounds {} µm wide (not given), the electrodes {} µm thick (800 nm of copper under 30 nm of gold, perfect conductors here), on an x-cut film {} µm thick etched {} µm to a rib {} µm wide in each gap (its sidewalls upright, so that the mesh lines follow them), on {} µm of thermal oxide (ε {OXIDE}) over {} µm of silicon (ε {SILICON}), under {} µm of PECVD oxide (ε {CLADDING}, the paper's) and air, in a perfectly conducting box as wide as the line (±{r} µm), the grounds running to its sides so that they are its potential and no static charge is left on them, its floor under the silicon and its lid {lid} µm above the film. The film's clamped static permittivity is anisotropic: {} across (the crystal's c axis), {} up and along the line, photonoxide's a diagonal tensor and openEMS's a diagonal material. openEMS runs a section {} mm long as the coplanar line's, driven across both gaps, the voltage across one gap at the ribs' top and the current around the signal (a loop through the gaps' middles, from 1 µm down in the buried oxide to 3 µm up in the air); its n and Z₀ at 0 GHz as above. photonoxide's quasi-TEM line is its static solver's on half the box. Both take the same mesh lines, cells from the smallest at the electrodes' and the ribs' edges and at every layer, growing by {GROWTH} to {} µm (the largest cells 25 µm, the line's own cell along it, a sixty-fourth of the shortest wavelength in the silicon, to keep openEMS's three runs to a few hours); the thin layers set openEMS's time step on every mesh.",
+                2.0 * zhang.signal,
+                zhang.gap,
+                zhang.ground,
+                zhang.metal,
+                zhang.film,
+                zhang.film - zhang.slab,
+                zhang.rib,
+                zhang.buried,
+                zhang.silicon,
+                zhang.clad,
+                ZHANG_LN[0],
+                ZHANG_LN[1],
+                LENGTH / 1000.0,
+                ZHANG_LARGEST,
+                r = zhang.reach(),
+                lid = zhang.lid
+            ),
+            smallest: &ZHANG_SMALLEST,
+            largest: ZHANG_LARGEST,
+            axes: &|m| zhang.axes(m).expect("a valid mesh"),
+            model: &|y, z| zhang.model(y, z, END),
+            statics: &|y, z| zhang.static_line(y, z).expect("the static solve"),
+            closed_form: None,
+        },
+    ];
+    for case in &cases {
+        if runs(case.key) {
+            let (s, c) = study(&program, &folder, started, case);
+            sections.push_str(&s);
+            checks.extend(c);
+        }
     }
     eprintln!(
         "[openems-lines] done in {:.0} s",

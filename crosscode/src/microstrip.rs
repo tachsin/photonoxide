@@ -145,7 +145,8 @@ impl Microstrip {
             end_energy,
             materials: vec![Material {
                 name: "substrate".into(),
-                epsilon: self.permittivity,
+                epsilon: [self.permittivity; 3],
+                kappa: 0.0,
                 boxes: vec![Cuboid {
                     from: [0.0, -r, -h],
                     to: [LENGTH, r, 0.0],
