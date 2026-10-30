@@ -202,7 +202,19 @@ in a drawer opened from the status bar.
     of the index that field makes for light polarized across, −½ n_e³ r₃₃ E_x in the crystal
     (each optical cell's Δε_xx / 2n), with the same outlines, and its overlap with the mode: the
     share of Δn_eff it carries (the rest is r₁₃ on the ordinary index and r₅₁), and Δn_eff, whose
-    λ / (4 |Δn_eff|) is the Vπ·L shown. The tabs:
+    λ / (4 |Δn_eff|) is the Vπ·L shown. Its **RF line at f** view is the travelling-wave line's
+    own field at a frequency (`TflnModulator::line_field`): the full-wave RF mode of the line's
+    cross-section (its substrate a half-space, the metal a lossy medium, graded from 20 nm) at 1
+    V on the signal, as |E|, as |E_x| (the field across, which the TE mode meets), or as its |E|
+    less its |E| at 1 GHz (where the field has gone); or the quasi-TEM line's static field, which
+    that mode is at 1 GHz within the grid's error. All on one window from a gap past the gap's
+    edges and down into the silicon, in the quasi-TEM field's colours, the optical mode's outline
+    over them. The frequency is a slider on a log scale (1, 2 and 5 a decade from 1 GHz to the 2D
+    response's top), one full-wave solve a frequency (and one at 1 GHz), kept once made; beside
+    the picture the mode's index, Z₀, loss and its metal, dielectric and radiated parts, and the
+    device's own `n_rf`, `Z0` and `alpha_rf` figures at that frequency (its quasi-TEM line's).
+    No overlap of the RF field with the optical mode is computed: the response takes the static
+    field's and the quasi-TEM line's γ and Z₀. The tabs:
     - **Design** (open first): the geometry, each parameter a field that takes a number in its
       unit or an expression (`w/2.5`, `450 nm`), with its slider and range, what it uses and
       what uses it, and its error in place with a caret under the column; named parameters can

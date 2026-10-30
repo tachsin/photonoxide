@@ -340,7 +340,11 @@ cell outside it); the complex power P = ½∫(E × H*)·ẑ dA outside the layer
 law on the lattice; Z₀ = 2P/|I|², conjugated into e^(jωt) (for a TEM line V/I); γZ₀ = R + jωL and
 γ/Z₀ = G + jωC; and the loss split by where the power goes, ½∫ωε₀ε''|E|² dA in the metal and in
 the dielectrics over 2 Re P, each cell's share to its own medium, the rest of the eigenvalue's α
-radiated into the open sides.
+radiated into the open sides. `FullWave::field` gives the mode's E too, at each cell's centre of
+the static problem's grid (E_x the mean of the cell's bottom and top edges', E_y of its sides',
+E_z of its corners'), scaled to 1 V by the voltage V = 2P/I* whose V/I is Z₀: at low frequency
+its transverse part is the static field at 1 V (the TFLN modulator's line at 1 GHz within 1.4%
+root mean square, inside the static field's own grid error of 2.8%; `device::tfln`'s unit test).
 
 **The checks.**
 

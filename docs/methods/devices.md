@@ -921,6 +921,14 @@ bends and the Y-branches aren't in it.
   mode, `electro::full_wave`, moves Zhang et al.'s 3 dB bandwidths from 92 and 33 GHz to 84 and
   31). A cross-section is solved once for a sweep of the voltage or the frequency.
   `TflnModulator::with_refinement(r)` divides the grids by r, as the validation does.
+  `TflnModulator::line_field` gives the line's own field at a frequency from 1 to 500 GHz, for
+  the studio's view: the full-wave RF mode of the line's cross-section (graded from 20 nm, the
+  silicon a half-space below 200 µm of perfectly matched layer, as jobs/tfln-line.yaml) at 1 V,
+  its voltage V = 2P/I* so that Z₀ = V/I, beside the quasi-TEM line's static field on the same
+  grid, the mode's index, Z₀ and loss, and the device's `n_rf`, `Z0` and `alpha_rf` figures there.
+  At 1 GHz the mode's |E| is the static field's within 1.4% root mean square at the defaults,
+  inside the static field's own grid error (2.8%, against twice as fine): a unit test. It isn't
+  a figure: the response stays the quasi-TEM line's.
 - **Measured:** a measured device's file (`device::Measurement`), at its design's values and at
   DC only (a file gives $V_\pi L$ and bandwidths, not the response at each frequency): Zhang et
   al.'s 5.8 and 10.8 mm modulators (`src/device/measured/zhang-2022-*.toml`: 2.3 V·cm at DC and

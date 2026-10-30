@@ -280,6 +280,8 @@ export const api = {
   rasterContours: (raster: Raster, levels: number[]) => invoke<Isoline[]>("raster_contours", { raster, levels }),
   /** A TFLN modulator's static field at 1 V and its mode on the cross-section, by its 2D model: the same solves as its Vπ·L. */
   deviceElectrodeField: (spec: DeviceSpec) => invoke<ElectrodeField>("device_electrode_field", { spec }),
+  /** A TFLN modulator's RF line at `frequencyGhz` (1 to 500) by its 2D model: the full-wave mode's field beside the quasi-TEM line's. */
+  deviceLineField: (spec: DeviceSpec, frequencyGhz: number) => invoke<LineField>("device_line_field", { spec, frequencyGhz }),
   /** A TFLN modulator's figures (Vπ·L, V_π, the bandwidths) with one parameter at each of `values`, at the analytic or 2D model. */
   deviceVpiLSweep: (spec: DeviceSpec, fidelity: string, parameter: string, values: number[]) =>
     invoke<VpiSweep>("device_vpi_l_sweep", { spec, fidelity, parameter, values }),
@@ -684,6 +686,34 @@ export interface ElectrodeField {
   vpi_l: number;
   n_eff: number;
   grid: string;
+}
+/** A TFLN modulator's RF line at one frequency by its 2D model: the full-wave mode's field at 1 V beside the quasi-TEM line's (studio/src-tauri/src/devices/modulator.rs, photonoxide's TflnModulator::line_field). */
+export interface LineField {
+  /** The frequency, GHz, and the highest the view offers (the 2D model's response's top). */
+  frequency_ghz: number;
+  top_ghz: number;
+  /** |E| and |E_x| of the full-wave mode at 1 V, and |E| of the quasi-TEM (static) line at 1 V, V/m, on the same pixels: x across from the rib's centre (the ground left, the signal right), y up from the film's bottom, µm. */
+  field: Raster;
+  across: Raster;
+  quasi_static: Raster;
+  /** The full-wave mode's |E| less its |E| at 1 GHz, V/m, on the same pixels: where the field has gone as f rose. */
+  change: Raster;
+  /** The rib's and the electrodes' outlines, closed; the layers' interfaces (y, µm). */
+  shapes: Line[];
+  interfaces: number[];
+  /** The full-wave mode: RF index, Z₀ (Ω, real and imaginary), loss and its metal, dielectric and radiated parts (dB/cm), its grid. */
+  index: number;
+  impedance: [number, number];
+  loss: number;
+  conductor: number;
+  dielectric: number;
+  radiated: number;
+  grid: string;
+  /** The device's figures n_rf, Z0 and alpha_rf at the frequency (its 2D model's quasi-TEM line), and their grid. */
+  n_rf: number;
+  z0: number;
+  alpha_rf: number;
+  line_grid: string;
 }
 /** A modulator's figures at one value of the parameter swept (null where the model gives none). */
 export interface VpiPoint {
