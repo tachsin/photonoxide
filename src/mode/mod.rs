@@ -12,6 +12,8 @@
 //! - [`marcatili`]: Marcatili's approximation for rectangular guides.
 //! - [`multilayer`]: the bound modes and leaky waves of any planar stack, exactly, by
 //!   transfer matrices.
+//! - [`quantities`]: a full-vector mode's effective area and nonlinear coefficient, its
+//!   confinement in a region, and the orthogonality and normalization of a set of modes.
 //! - [`region`]: every mode in a region of the complex effective-index plane, with no count
 //!   and no guess, by contour integrals.
 //! - [`roughness`]: the loss from rough sidewalls, by the volume-current method, on a slab's
@@ -30,6 +32,8 @@ pub mod hadley;
 pub mod marcatili;
 pub mod multilayer;
 pub mod pockels;
+pub mod quantities;
+pub(crate) mod quantities_checks;
 pub mod region;
 pub mod roughness;
 pub(crate) mod roughness_checks;
