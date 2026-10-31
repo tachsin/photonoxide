@@ -87,6 +87,8 @@ pub struct Planned {
 const DAY: &str = "2026-10-09";
 /// The day the Libraries workflow checked cuDSS 1.0, oneMKL 2026.2 and macOS 27 (#555).
 const RECHECKED: &str = "2026-10-27";
+/// The day the Libraries workflow ran oneMKL 2026.2's PARDISO and dense kernels' tests.
+const MKL_TESTED: &str = "2026-10-31";
 const UBUNTU: &str = "ubuntu-24.04";
 const UBUNTU_22: &str = "ubuntu-22.04";
 const WINDOWS: &str = "windows-2025-vs2026";
@@ -210,16 +212,16 @@ pub const GUIDES: &[Guide] = &[
                     Checked {
                         system: "linux",
                         image: UBUNTU,
-                        date: RECHECKED,
+                        date: MKL_TESTED,
                         installed: "mkl 2026.2.0",
-                        found: "oneMKL 2026.2, and the pardiso backend after its smoke test",
+                        found: "oneMKL 2026.2, and the pardiso and photonoxide-mkl backends after their smoke tests and their tests",
                     },
                     Checked {
                         system: "windows",
                         image: WINDOWS,
-                        date: RECHECKED,
+                        date: MKL_TESTED,
                         installed: "mkl 2026.2.0",
-                        found: "oneMKL 2026.2, and the pardiso backend after its smoke test",
+                        found: "oneMKL 2026.2, and the pardiso and photonoxide-mkl backends after their smoke tests and their tests",
                     },
                 ],
             },
@@ -514,7 +516,7 @@ pub const GUIDES: &[Guide] = &[
     },
     Guide {
         library: "MUMPS",
-        about: "A multifrontal sparse direct solver (Amestoy, Duff, L'Excellent, Koster 2001; Amestoy, Buttari, L'Excellent, Mary 2019), its sequential build, and its block low-rank factorization (Amestoy et al. 2015) as a backend of its own, lossy to a tolerance and refined. MUMPS asks that work using it cite it. photonoxide knows the structure of releases 5.4.1 to 5.9.1 and refuses others; no package manager had 5.9 yet on 2026-10-11, and 5.9.1 is checked built from mumps-solver.org's source. From 5.9, MUMPS isn't used while MUMPS_CONFIG_FILE is set: its file's settings would replace photonoxide's.",
+        about: "A multifrontal sparse direct solver (Amestoy, Duff, L'Excellent, Koster 2001; Amestoy, Buttari, L'Excellent, Mary 2019), its sequential build, and its block low-rank factorization (Amestoy et al. 2015) as a backend of its own, lossy to a tolerance and refined. MUMPS asks that work using it cite it. photonoxide knows the structure of releases 5.4.1 to 5.9.1 and refuses others; no package manager had 5.9 yet on 2026-10-31 (conda-forge's mumps-seq was 5.8.2), and 5.9.1 is checked built from mumps-solver.org's source on Ubuntu 24.04 every week. From 5.9, MUMPS isn't used while MUMPS_CONFIG_FILE is set: its file's settings would replace photonoxide's.",
         provides: &["direct"],
         backends: &["mumps", "mumps-blr"],
         needs: &[],
