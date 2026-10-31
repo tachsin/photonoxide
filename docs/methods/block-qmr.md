@@ -137,8 +137,11 @@ null vectors) is sequential.
   to 6.2e-15, in the general and the symmetric form (`fdfd3d/block-qmr-dependent`).
 - **Convergence**: a closed guide's S-matrix (a strip stepping from 300 to 400 nm wide in a box of
   oxide, 20 × 12 × 10 cells of 50 nm, 4 ports) against the direct solver's falls with the
-  tolerance, 1.2e-5, 1.7e-7, 2.3e-9 and 1.9e-11 at 1e-4, 1e-6, 1e-8 and 1e-10: a slope of 0.97
-  (`fdfd3d/block-qmr-convergence`). The iterations against the single solves' summed: 0.44 of
+  tolerance, 1.1e-5, 1.6e-7, 3.7e-9 and 1.1e-11 at 1e-4, 1e-6, 1e-8 and 1e-10 on Linux: a slope
+  of 1.00 (`fdfd3d/block-qmr-convergence`). Each system's rounding takes the iterations along a
+  path of its own (2412, 2222 and 2467 to 1e-10 on Linux, Windows and macOS), and the error left
+  is 0.08 to 0.42 times the tolerance on each, so the slope is 0.98 on Windows and 0.93 on macOS:
+  the report shows its departure from 1 rounded up to one decimal, 0.1 on all three. The iterations against the single solves' summed: 0.44 of
   them with ILU(0) on the coupler's 8 ports, 0.93 on the curl-curl operator without a
   preconditioner (`fdfd3d/block-qmr-iterations`).
 - **Published**: Freund and Malhotra's Example 7.1, a convection–diffusion equation on the unit

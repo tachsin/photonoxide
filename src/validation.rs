@@ -1315,9 +1315,9 @@ pub fn cases() -> Vec<Case> {
         },
         Case {
             id: "fdfd3d/block-qmr-convergence",
-            title: r"Convergence in the tolerance: a closed guide's S-matrix by block QMR (a silicon strip stepping from 300 to 400 nm wide in a box of oxide, $20 \times 12 \times 10$ cells of 50 nm, two modes at each of two ports) against the direct solver's, at relative residuals of 1e-4 and 1e-10: the error's decades per decade of the tolerance, to one decimal, its departure from 1 (shown; iteration counts vary between platforms)",
+            title: r"Convergence in the tolerance: a closed guide's S-matrix by block QMR (a silicon strip stepping from 300 to 400 nm wide in a box of oxide, $20 \times 12 \times 10$ cells of 50 nm, two modes at each of two ports) against the direct solver's, at relative residuals of 1e-4 and 1e-10: the error's decades per decade of the tolerance, its departure from 1 rounded up to one decimal (shown; iteration counts vary between platforms)",
             tier: Tier::Analytic,
-            source: r"the block's fields hold each system to its own residual, so their error, and S's, falls with the tolerance: as $\kappa(A)$ times it, a slope of 1; measured 1.2e-5, 1.7e-7, 2.3e-9 and 1.9e-11 at 1e-4, 1e-6, 1e-8 and 1e-10; the slope from 1e-4 to 1e-10 0.98 (1.00 on Linux)",
+            source: r"the block's fields hold each system to its own residual, so their error, and S's, falls with the tolerance: as $\kappa(A)$ times it, a slope of 1; measured 1.1e-5, 1.6e-7, 3.7e-9 and 1.1e-11 at 1e-4, 1e-6, 1e-8 and 1e-10 on Linux (3.1e-5, 1.2e-7, 8.3e-10 and 4.2e-11 on Windows; 9.8e-6, 9.7e-8, 2.0e-9 and 2.4e-11 on macOS), 0.08 to 0.42 times the tolerance on each system; the slope from 1e-4 to 1e-10 1.00 on Linux, 0.98 on Windows and 0.93 on macOS",
             run: fdfd3d_block_qmr_convergence,
         },
         Case {
@@ -3671,11 +3671,15 @@ fn fdfd3d_block_qmr_dependent() -> Outcome {
 
 fn fdfd3d_block_qmr_convergence() -> Outcome {
     let errors = crate::fdfd::block_checks3d::against_direct(&[1e-4, 1e-10]);
-    // the slope to one decimal, and its departure from 1: the slope differs between systems in
-    // its second decimal (0.98 on Windows, 1.00 on Linux), as the iterations near 1e-10 run on
-    // rounding that the systems' maths libraries make differently
-    let slope = ((errors[0] / errors[1]).log10() / 6.0 * 10.0).round() / 10.0;
-    let departure = (slope - 1.0).abs();
+    // the slope's departure from 1, rounded up to one decimal: each system's rounding takes the
+    // Lanczos recurrences along a path of its own (2412 block iterations to 1e-10 on Linux, 2222
+    // on Windows, 2467 on macOS, every column's true residual under the tolerance on each), and
+    // the error the field is left with is 0.08 to 0.42 times the tolerance at each of 1e-4 to
+    // 1e-10 on the three systems (#641): the slope is 1 within log10(5)/6 = 0.12 on any of
+    // them, 1.00 on Linux, 0.98 on Windows and 0.93 on macOS, which one decimal rounded to the
+    // nearest would show as two departures
+    let slope = (errors[0] / errors[1]).log10() / 6.0;
+    let departure = ((slope - 1.0).abs() * 10.0).ceil() / 10.0;
     Outcome {
         measured: departure,
         expected: 0.0,
