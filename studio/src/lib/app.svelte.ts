@@ -1,6 +1,6 @@
 // The window's shared state: settings, the page shown, toasts, and the run being followed.
 
-import { api, type AppState, type Info, type JobFormat, type Settings } from "./api";
+import { api, type AppState, type FabDesign, type Info, type JobFormat, type Settings } from "./api";
 import type { ChipEvent, CompactFit, CompactPlan, ChipPoint, ChipStudy, DeviceModel, DevicePoint, DeviceStudy, Evaluation, Event, FdtdFrame, FdtdProgress, FdtdResonances, FdtdSpectrum, Field, Front, Mode, ModeField, ModeLoss, Optimization, Optimum, Permittivity, Scene, ScenePort, Shape, SolveError, Solver, SParameters, StaticField, StaticFrame, StaticResult, StaticStep, Sweep, SweepField, SweepMode, SweepPermittivity, SweepPoint } from "./events";
 import { template, type Kind } from "./job";
 import type { Looks } from "./layers";
@@ -8,7 +8,7 @@ import type { NonlinearResult } from "./nonlinear";
 import { themeName } from "./themes";
 
 /**
- * Every page: the rail's five, the System group's three and Settings (lib/pages.ts), and the run
+ * Every page: the rail's six, the System group's three and Settings (lib/pages.ts), and the run
  * view, reached from what it shows (a run, Home's Continue, `photonoxide run` and `view`). A job
  * of any kind opens in the Custom device, on the Components page (`openCustom`).
  */
@@ -21,7 +21,7 @@ export interface OpenJob {
   name: string;
 }
 
-export type Page = "home" | "components" | "chip" | "academy" | "materials" | "validation" | "libraries" | "benchmarks" | "settings" | "viewer";
+export type Page = "home" | "components" | "chip" | "fabrication" | "academy" | "materials" | "validation" | "libraries" | "benchmarks" | "settings" | "viewer";
 
 export const app = $state({
   ready: false,
@@ -52,6 +52,8 @@ export const app = $state({
   lesson: null as string | null,
   /** The component the Components page shows, by its library id ("custom" for the Custom device); null for the first. */
   component: null as string | null,
+  /** A design for the Fabrication page to open, set by whoever sends the user there (a component's Fabrication tab, Ctrl+K). */
+  fabricate: null as { design: FabDesign; label: string } | null,
   /** Bumped when the workspace's files change, so lists reload. */
   workspaceVersion: 0,
 });
@@ -72,6 +74,12 @@ export function openCustom(text: string, path: string | null = null) {
   app.jobOpen = { text, path };
   app.component = CUSTOM;
   go("components");
+}
+
+/** Shows `design` (named `label`) on the Fabrication page. */
+export function fabricate(design: FabDesign, label: string) {
+  app.fabricate = { design, label };
+  go("fabrication");
 }
 
 /** Opens a new job of `kind`, its template, in the Custom device. */

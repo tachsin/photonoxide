@@ -291,6 +291,8 @@ export const api = {
   /** A design evaluated as the form shows it: its fields, values, ports and scene. */
   deviceGeometry: (spec: DeviceSpec) => invoke<DeviceGeometry>("device_geometry", { spec }),
   deviceFabrication: (spec: DeviceSpec) => invoke<DeviceFabrication>("device_fabrication", { spec }),
+  /** The Fabrication page's design: its flow from the bare wafer, its frames in 2D and 3D, what the rules find. */
+  fabricationPage: (design: FabDesign, prefer: string[], avoid: string[]) => invoke<FabricationPage>("fabrication_page", { design, prefer, avoid }),
   /** A design's figures at a fidelity, each with its fidelity and grid. */
   deviceDerived: (spec: DeviceSpec, fidelity: string) => invoke<DeviceDerived>("device_derived", { spec, fidelity }),
   deviceSpectrum: (spec: DeviceSpec, fidelity: string, sweep: Sweep) => invoke<DeviceSpectrum>("device_spectrum", { spec, fidelity, sweep }),
@@ -973,6 +975,53 @@ export interface DeviceFabrication {
   flow: FlowRecord;
   stages: { scene: Scene; etched: SceneEtched[] }[];
   assessment: FlowAssessment;
+  /** The platform the design is made on (photonoxide::fabrication::Platform). */
+  platform: string | null;
+  /** The wafer at each moment the flow is played, from the bare wafer to the design. */
+  frames: FlowFrame[];
+}
+
+/** The wafer at one moment of a flow (photonoxide::job::FlowFrame). */
+export interface FlowFrame {
+  /** The step it belongs to, from 0. */
+  step: number;
+  /** The step's operation ("wafer", "deposit", "etch", …), or a lithography's "coat", "expose", "develop". */
+  phase: string;
+  label: string;
+  layer: string | null;
+  scene: Scene;
+  etched: SceneEtched[];
+  note: string | null;
+}
+
+/** The design the Fabrication page shows: a device's as its page has it, or a job file's. */
+export type FabDesign = { kind: "device"; spec: DeviceSpec } | { kind: "job"; text: string; format: JobFormat; path: string | null };
+
+/** A solid of the Fabrication page's 3D view (studio/src-tauri's fabrication::SolidOut). */
+export interface FabSolid {
+  layer: string;
+  film: string;
+  /** A whole-window film, a drawn shape, or a film around the shapes drawn see-through over them. */
+  role: "slab" | "shape" | "fill";
+  clear: boolean;
+  /** µm about the page's centre, three a vertex. */
+  positions: number[];
+  indices: number[];
+  z_um: [number, number];
+}
+
+/** Everything the Fabrication page shows of a design (studio/src-tauri's fabrication::FabricationPage). */
+export interface FabricationPage {
+  view: DeviceFabrication;
+  platform: { id: string; name: string } | null;
+  /** Each film's colour, #rrggbb, in 2D and 3D alike. */
+  colours: Record<string, string>;
+  solids: FabSolid[];
+  /** The solids each frame shows, by index. */
+  frame_solids: number[][];
+  centre: [number, number];
+  triangles: number;
+  thinned: string | null;
 }
 
 export interface DeviceGeometry {

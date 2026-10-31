@@ -7,9 +7,13 @@
   // number's source (on hover), and what isn't certain; then the flow's warnings, what no source
   // in hand states, the round trip (the flow run on the library's geometry against the design)
   // and the references. A suggested flow from published processes, not a foundry's process.
+  // "In 3D, from the bare wafer" opens the design on the Fabrication page.
+  import { Factory } from "@lucide/svelte";
   import { api, type DeviceFabrication, type DeviceSpec } from "../../lib/api";
+  import { fabricate } from "../../lib/app.svelte";
   import { plain } from "../../lib/deviceview";
-  import type { FlowCapability, FlowSource, Stated } from "../../lib/events";
+  import type { FlowSource } from "../../lib/events";
+  import { cited, num, quantity, RULE, STEP, value, VERDICT } from "../../lib/flow";
   import ProcessAnimation from "./ProcessAnimation.svelte";
 
   let { spec, designKey, normal, at }: { spec: DeviceSpec; designKey: unknown; normal: "x" | "y"; at: number } = $props();
@@ -88,70 +92,25 @@
     return shown.flow.glossary.filter((g) => text.includes(g.term.toLowerCase()));
   });
 
-  const UNIT: Record<string, string> = { nm: " nm", um: " µm", degree: "°", celsius: " °C", ratio: ":1", number: "", percent: " %" };
-  /** A number to four significant digits, without trailing zeros. */
-  const num = (v: number) => String(Number(v.toPrecision(4)));
-  function value(v: Stated): string {
-    switch (v.kind) {
-      case "range":
-        return v.low === v.high ? `${num(v.low)}${UNIT[v.unit]}` : `${num(v.low)} to ${num(v.high)}${UNIT[v.unit]}`;
-      case "at_most":
-        return `at most ${num(v.value)}${UNIT[v.unit]}`;
-      case "at_least":
-        return `at least ${num(v.value)}${UNIT[v.unit]}`;
-      default:
-        return "not specified";
-    }
-  }
-  function source(s: FlowSource): string {
-    const r = shown?.flow.references.find((x: { key: string }) => x.key === s.reference);
-    return r ? `${r.citation}, ${s.location}${r.doi ? `, doi:${r.doi}` : r.isbn ? `, ISBN ${r.isbn}` : ""}` : `${s.reference}, ${s.location}`;
-  }
-  function quantity(c: FlowCapability): string {
-    const names: Record<string, string> = {
-      min_feature: "minimum feature",
-      overlay: "overlay",
-      sidewall: "sidewall angle",
-      uniformity: "uniformity",
-      roughness: "roughness",
-      temperature: "temperature",
-      thickness: "thickness",
-    };
-    return c.quantity.kind === "selectivity" ? `selectivity over ${c.quantity.over ?? ""}` : (names[c.quantity.kind] ?? c.quantity.kind);
-  }
+  /** A source, cited from the flow's references. */
+  const source = (s: FlowSource) => cited(shown?.flow.references ?? [], s);
   /** The picked step's processes ranked, the chosen first (photonoxide::fabrication::assess). */
   const ranked = $derived(shown?.assessment.ranking.find((r) => r.step === picked)?.ranked ?? []);
   /** The rules' checks of the picked step. */
   const stepChecks = $derived(shown?.assessment.checks.filter((c) => c.step === picked) ?? []);
   /** The optics of the picked step's lithography, when it is a projection one. */
   const optics = $derived(step ? (shown?.assessment.optics.find((o) => o.process === step.process) ?? null) : null);
-  const VERDICT: Record<string, string> = { within: "within", warning: "warning", not_specified: "not specified" };
-  const RULE: Record<string, string> = {
-    resolution: "resolution",
-    aspect_ratio: "aspect ratio",
-    sidewall: "walls",
-    selectivity: "selectivity",
-    thermal: "thermal budget",
-    overlay: "registration",
-    planarization: "planarization",
-    thickness: "thickness",
-  };
   /** A dimension's value or bound in its unit. */
   const dim = (v: number, unit: string) => (unit === "degree" ? `${num(v)}°` : `${num(v)} nm`);
   /** A contribution's source, cited. */
   const cite = (s: FlowSource | null) => (s ? source(s) : "No source in hand states it");
-  const STEP: Record<string, string> = {
-    wafer: "wafer",
-    deposition: "deposition",
-    lithography: "lithography",
-    pattern_transfer: "pattern transfer",
-    planarization: "planarization",
-    anneal: "anneal",
-  };
 </script>
 
 <div class="space-y-3 text-xs">
-  <p class="faint">A suggested flow from published processes, not a foundry's process: each step's reason, what else could do it, and every number's source (hover it).</p>
+  <div class="flex flex-wrap items-start gap-2">
+    <p class="min-w-0 flex-1 faint">A suggested flow from published processes, not a foundry's process: each step's reason, what else could do it, and every number's source (hover it).</p>
+    <button class="btn btn-xs gap-1" onclick={() => fabricate({ kind: "device", spec: $state.snapshot(spec) as DeviceSpec }, `${spec.kind[0].toUpperCase()}${spec.kind.slice(1)}, as on its page`)} title="This design on the Fabrication page: the flow from the bare wafer, in 2D and 3D"><Factory size={13} /> In 3D, from the bare wafer</button>
+  </div>
   {#if problem}
     <p role="alert" class="text-warning selectable">{plain(problem)}</p>
   {:else if !shown}

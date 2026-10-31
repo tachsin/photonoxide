@@ -19,6 +19,7 @@
   import Benchmarks from "./pages/Benchmarks.svelte";
   import ChipPage from "./pages/Chip.svelte";
   import Components from "./pages/Components.svelte";
+  import Fabrication from "./pages/Fabrication.svelte";
   import Home from "./pages/Home.svelte";
   import Libraries from "./pages/Libraries.svelte";
   import Materials from "./pages/Materials.svelte";
@@ -69,6 +70,8 @@
         <Libraries />
       {:else if app.page === "benchmarks"}
         <Benchmarks />
+      {:else if app.page === "fabrication"}
+        <Fabrication />
       {:else if app.page === "academy"}
         <Academy />
       {:else if app.page === "settings"}
