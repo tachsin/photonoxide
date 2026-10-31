@@ -6,8 +6,14 @@ order: 30
 papers:
   - cite: "M. M. Fejer, G. A. Magel, D. H. Jundt, R. L. Byer, IEEE J. Quantum Electron. 28, 2631 (1992) (Eqs. (2), (19)–(25), (30), (41)–(44), (A1.1)–(A1.9); Table I)"
     doi: 10.1109/3.161322
-  - cite: "R. W. Boyd, Nonlinear Optics, 4th ed., Academic Press (2020) (Eqs. (2.2.11), (2.3.8); Table 2.3.2)"
+  - cite: "R. W. Boyd, Nonlinear Optics, 4th ed., Academic Press (2020) (Eqs. (1.4.25), (1.4.28), (2.2.11), (2.3.8); Sec. 1.4.2; Table 2.3.2)"
     doi: 10.1016/C2015-0-05510-1
+  - cite: "R. C. Miller, Appl. Phys. Lett. 5, 17 (1964) (Eq. (4), Miller's rule)"
+    doi: 10.1063/1.1754022
+  - cite: "I. Shoji, T. Kondo, A. Kitamoto, M. Shirane, R. Ito, J. Opt. Soc. Am. B 14, 2268 (1997) (Tables 10 and 12)"
+    doi: 10.1364/JOSAB.14.002268
+  - cite: "S. Afshar V., T. M. Monro, Opt. Express 17, 2298 (2009) (Eq. 42, γ)"
+    doi: 10.1364/OE.17.002298
   - cite: "G. J. Edwards, M. Lawrence, Opt. Quantum Electron. 16, 373 (1984) (Eq. 1, Table I)"
     doi: 10.1007/BF00620081
   - cite: "D. H. Jundt, M. M. Fejer, R. L. Byer, IEEE J. Quantum Electron. 26, 135 (1990) (Table III)"
@@ -39,6 +45,11 @@ validation:
   - nonlinear/coupled-manley-rowe
   - nonlinear/coupled-rk4-order
   - nonlinear/pairs-gaussian-purity
+  - nonlinear/miller-linbo3-d33
+  - nonlinear/miller-linbo3-d31
+  - nonlinear/miller-linbo3-mgo-d33
+  - nonlinear/miller-linbo3-mgo-d31
+  - nonlinear/kerr-gamma-gaussian
 ---
 
 A second- or third-order process converts light efficiently only when its waves stay in step:
@@ -300,6 +311,56 @@ process, the pump held and the idler tuned, its grating first order. With Zelmon
 idler of a 1.064 µm pump at a 30 µm period is 3.354 µm (their Fig. 3: 3.35); with Jundt's n_e(T)
 at 250 °C and a 25.5 µm period, expanded by his Eq. (3), it is 4.755 µm (his Fig. 1: 4.755). Both
 are the numbers these cases gave before they were moved onto phase matching.
+
+## Miller's rule
+
+The catalogue's d coefficients are measured at a few fundamentals. `nonlinear::miller` carries one
+to another wavelength by Miller's rule. R. C. Miller (1964, Eq. (4)) wrote
+d_ijk = χ_ii(ω₃) χ_jj(ω₁) χ_kk(ω₂) δ_ijk, with χ = n² − 1 the linear susceptibility of the index
+each wave's polarization sees. He found δ nearly the same in every crystal he tabulated: "always
+within a factor of two of the average value", and for one coefficient among crystals of one
+symmetry class "all equal to within ±50 %" (p. 17). Boyd (Sec. 1.4.2, Eqs. (1.4.25) and (1.4.28),
+pp. 26–27) derives the rule from the anharmonic oscillator, whose χ⁽²⁾ is exactly such a product
+with a constant δ.
+
+With δ held, d at new frequencies is d at the measured ones times the ratio of the products
+(`miller_scale`); `miller_shg` does it for second-harmonic generation, from a d at one fundamental
+to another, with the harmonic's index and the two fundamental fields' indices as materials. For
+LiNbO₃'s d₃₃ all three are n_e; for d₃₁, n_e at the harmonic and n_o at the fundamental. The rule
+is a nonresonant model: every wave below the band edge.
+
+The catalogue has Shoji et al.'s d₃₃ and d₃₁ of congruent and 5 % MgO-doped LiNbO₃ at three
+fundamentals (Table 10). Carried from 1.064 µm with the entries' default indices (Zelmon et al.),
+they come out like this:
+
+| Crystal | d | 1.064 µm, measured | 1.313 µm: Miller, measured | Deviation | 0.852 µm: Miller, measured | Deviation |
+|---|---|---|---|---|---|---|
+| LiNbO₃ | d₃₃ | 25.2 pm/V | 23.58, 19.5 | +20.9 % | 28.12, 25.7 | +9.4 % |
+| LiNbO₃ | d₃₁ | 4.6 | 4.29, 3.2 | +34.2 % | 5.15, 4.8 | +7.3 % |
+| MgO:LiNbO₃ | d₃₃ | 25.0 | 23.43, 20.3 | +15.4 % | 27.84, 28.4 | −2.0 % |
+| MgO:LiNbO₃ | d₃₁ | 4.4 | 4.11, 3.4 | +20.9 % | 4.92, 4.9 | +0.4 % |
+
+Toward the blue (0.852 µm) the rule follows the measurements to 0.4 to 9 %; toward the infrared
+(1.313 µm) the measured d falls faster than the susceptibilities, and the rule lands 15 to 34 %
+above. Shoji et al.'s own Miller's Δ₃₃ (Table 12: 3.92, 4.73 and 4.34 × 10⁻¹³ m/V at 1.313,
+1.064 and 0.852 µm, which `material/linbo3-shoji-miller` reproduces) shows the same: δ is not
+constant across this crystal's spectrum to better than about 20 %. The cases
+(`nonlinear/miller-*`) take Miller's stated ±50 % as the model's accuracy and show the deviation;
+nothing is fitted. GaAs's d₁₄ is measured at 1.533 and 1.064 µm, but the second harmonic of
+1.064 µm, 532 nm, lies above GaAs's band edge and outside its index models, so the rule isn't
+applied there.
+
+## The Kerr coefficient in a guide
+
+The catalogue has n₂ and two-photon absorption with their papers (`catalogue::kerr`, the
+[catalogue's write-up](catalogue.md#kerr-coefficients-and-two-photon-absorption)). A guide's
+nonlinear coefficient is γ = 2π n₂ / (λ A_eff) (Afshar & Monro, Eq. 42 with n₂ uniform), from
+the mode's effective area: `Fields::kerr_coefficient` takes a catalogue value,
+`Fields::nonlinear_coefficient` a number in m²/W, and `mode::quantities::nonlinear_coefficient`
+the closed form with any area. For a Gaussian mode of area π µm² and silicon nitride's n₂
+(2.4 × 10⁻¹⁵ cm²/W at 1548 nm), γ is 0.310 /(W·m), the closed form to round-off
+(`nonlinear/kerr-gamma-gaussian`). A value holds at its own wavelength: silicon's n₂ changes
+fourfold from 850 to 2200 nm, and nothing here moves it.
 
 ## Limits
 

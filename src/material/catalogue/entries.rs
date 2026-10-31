@@ -265,7 +265,12 @@ fn silicon_nitride() -> Entry {
         ),
         constants: vec![],
         missing: vec![],
-        references: references(&["luke-2015", "arbabi-goddard-2013", "elshaari-2016"]),
+        references: references(&[
+            "luke-2015",
+            "arbabi-goddard-2013",
+            "elshaari-2016",
+            "ikeda-2008",
+        ]),
     }
 }
 
@@ -357,7 +362,7 @@ fn silicon() -> Entry {
         tensors: centrosymmetric("m-3m", "the diamond structure has a centre of inversion: the bulk χ⁽²⁾ and r vanish in the electric-dipole approximation (the symmetry tag has what remains: surfaces, strain gradients, a static field)"),
         constants: vec![],
         missing: vec![],
-        references: references(&["li-1980", "frey-2006", "komma-2012"]),
+        references: references(&["li-1980", "frey-2006", "komma-2012", "bristow-2007"]),
     }
 }
 
@@ -631,6 +636,8 @@ fn gaas() -> Entry {
         missing: vec![],
         references: references(&[
             "skauli-2003",
+            "vurgaftman-2001",
+            "aitchison-1997",
             "gehrsitz-2000",
             "berseth-1992",
             "sugie-tada-1976",
@@ -709,6 +716,8 @@ fn algaas() -> Entry {
         missing: coming::missing("algaas"),
         references: references(&[
             "glick-1988",
+            "vurgaftman-2001",
+            "aitchison-1997",
             "gehrsitz-2000",
             "papatryfonos-2021",
             "afromowitz-1974",
@@ -1068,6 +1077,8 @@ fn lithium_niobate() -> Entry {
         references: references(&[
             "zelmon-1997",
             "jundt-1997",
+            "leidinger-2015",
+            "aitchison-1997",
             "edwards-lawrence-1984",
             "shoji-1997",
             "miller-1971",
@@ -1075,6 +1086,7 @@ fn lithium_niobate() -> Entry {
             "choy-byer-1976",
             "jazbinsek-zgonik-2002",
             "chelladurai-2025",
+            "desalvo-1996",
         ]),
     }
 }
@@ -1344,6 +1356,8 @@ fn ingap() -> Entry {
         missing: coming::missing("ingap"),
         references: references(&[
             "tanaka-1986",
+            "vurgaftman-2001",
+            "aitchison-1997",
             "ferrini-2002",
             "schubert-1995",
             "ueno-1997",
@@ -1490,7 +1504,13 @@ fn inp() -> Entry {
             },
         ],
         missing: coming::missing("inp"),
-        references: references(&["pettit-turner-1965", "suzuki-tada-1984", "lee-fan-1974"]),
+        references: references(&[
+            "pettit-turner-1965",
+            "suzuki-tada-1984",
+            "lee-fan-1974",
+            "vurgaftman-2001",
+            "aitchison-1997",
+        ]),
     }
 }
 
@@ -1611,10 +1631,13 @@ fn aln() -> Entry {
         missing: vec![],
         references: references(&[
             "rigler-2015",
+            "vurgaftman-2001",
+            "aitchison-1997",
             "pastrnak-roskovcova-1966",
             "majkic-2017",
             "graupner-1992",
             "shoji-1997",
+            "jung-2013",
         ]),
     }
 }
@@ -1795,7 +1818,12 @@ fn algan() -> Entry {
         ],
         constants: vec![],
         missing: coming::missing("algan"),
-        references: references(&["rigler-2013", "sanford-2005"]),
+        references: references(&[
+            "rigler-2013",
+            "sanford-2005",
+            "vurgaftman-2001",
+            "aitchison-1997",
+        ]),
     }
 }
 
@@ -2150,6 +2178,8 @@ fn lithium_tantalate() -> Entry {
         index: vec![
             super::ferroelectric::litao3_model(),
             super::ferroelectric::litao3_abedin_model(),
+            super::litao3_ne::barboza_model(),
+            super::litao3_ne::bruner_model(),
         ],
         tensors: vec![
             casson_r(1.558, (6.92, 0.07), (27.4, 0.3)),
@@ -2168,10 +2198,13 @@ fn lithium_tantalate() -> Entry {
         missing: coming::missing("litao3"),
         references: references(&[
             "bond-1965",
+            "aitchison-1997",
             "abedin-ito-1996",
             "casson-2004",
             "dolev-2009",
             "moutzouris-2011",
+            "barboza-cudney-2009",
+            "bruner-2002",
         ]),
     }
 }
