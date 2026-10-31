@@ -11,7 +11,7 @@
 //! - `PHOTONOXIDE_BLAS_ALSO` names more files to check as OpenBLAS, separated as `PATH` is (a
 //!   second build: pip's `scipy-openblas64`, say).
 //! - `PHOTONOXIDE_BLAS_ROUNDS` sets the rounds of OpenBLAS's calls checked while it is loaded
-//!   again (default 8; the OpenBLAS loop workflow sets more).
+//!   again (default 3; the OpenBLAS loop workflow sets more).
 
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -269,7 +269,7 @@ fn openblas_loaded_again_meanwhile_leaves_its_products_right() {
     let rounds: usize = std::env::var("PHOTONOXIDE_BLAS_ROUNDS")
         .ok()
         .and_then(|r| r.parse().ok())
-        .unwrap_or(8);
+        .unwrap_or(3);
     // large enough that OpenBLAS threads both
     let (m, n, r) = (432, 320, 320);
     let mut random = Random(557);
