@@ -1045,6 +1045,12 @@ print(f"δT = {p.setup['temperature_acceptance_k']['estimate']:.1f} K")  # 25.8
 print(p.response.shape)                                     # (21, 201): temperatures by wavelengths
 ```
 
+The studio's Materials page has the same job as a form under **Nonlinear processes**, in its
+list: the process, the waveguide, the poling, the pump and the map; the setup, the phase-matching
+map, the efficiency along the length and the joint spectrum drawn from the job's events; and every
+material's transparency window as a band over wavelength, the process's wavelengths marked on
+top. A run of the job opens on the same charts in the run view.
+
 What a job can't set yet: a ridge's materials at the task's temperature (they are taken at their
 stack's conditions, so its map can't be against temperature), a type-II SHG (one index for both
 fundamental photons), a depleted FWM with its losses, and a cavity around the guide.

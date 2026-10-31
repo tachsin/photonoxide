@@ -11,8 +11,8 @@ sweeps, GDS read into jobs. Two published results aren't reproduced yet and stay
 bandwidths (#418) and He 2019's Vπ·L (#420), with the other gaps against papers in #595. 0.6.1,
 nonlinear integrated optics, is under way on main: phase matching and the coupled-amplitude
 equations (#621), the nonlinear data (#629), the same from a waveguide's modes (#630), and the
-NLSE, four-wave mixing and the Lugiato–Lefever equation (#632); its studio pages and the
-published results it doesn't reproduce yet are left (#595). 0.6.3's eigenmode expansion and mode
+NLSE, four-wave mixing and the Lugiato–Lefever equation (#632), and its job kind and studio view
+(#637); the published results it doesn't reproduce yet are left (#595). 0.6.3's eigenmode expansion and mode
 tools are under way (#432), and the fabrication engine of 0.10 (#622) has its flows and rules on
 main (F1 to F4), with F6 and F7 in progress. The library stays one crate: its modules sit in layers that a test keeps (#508). The
 library's modules, each with a write-up in `docs/methods/`:
@@ -41,7 +41,7 @@ library's modules, each with a write-up in `docs/methods/`:
 - `nonlinear`: phase matching (`phase`), the coupled-amplitude equations (`coupled`), photon
   pairs (`pairs`), Miller's rule (`miller`), all of them in waveguides from the modes (`guide`),
   the nonlinear Schrödinger equation (`pulse`), four-wave mixing (`fwm`) and the Lugiato–Lefever
-  equation (`resonator`);
+  equation (`resonator`); a job's `kind = "nonlinear"`, which the studio's Materials page edits;
 - `thermal`, `electro`: the static solver on a cross-section (heat conduction, electrostatics,
   current continuity and its Joule heat) on graded grids, over a core inside the crate
   (`statics`) both re-export; a job's `kind = "static"`;
