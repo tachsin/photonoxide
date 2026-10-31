@@ -599,6 +599,8 @@ pub enum Boundary {
     Pmc,
     /// A perfectly matched layer of this many cells (6 to 20; 8 is openEMS's usual).
     Pml(u32),
+    /// Mur's first-order absorbing condition, for a wave meeting the side head on.
+    Mur,
 }
 
 impl Boundary {
@@ -607,6 +609,7 @@ impl Boundary {
             Boundary::Pec => "PEC".into(),
             Boundary::Pmc => "PMC".into(),
             Boundary::Pml(n) => format!("PML_{n}"),
+            Boundary::Mur => "MUR".into(),
         }
     }
 }
