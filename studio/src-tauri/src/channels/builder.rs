@@ -2,8 +2,13 @@
 //! prerequisites checked against what that source asks for, then `pnpm install
 //! --frozen-lockfile` and `pnpm tauri build` (always the Tauri CLI, never plain cargo) with the
 //! updater's artifacts off (a local build has no signing key) and only the bundle the update
-//! needs. It runs on a thread of its own, its log kept line by line for the window to poll,
-//! and stops when cancelled or at its hard timeout.
+//! needs. On Windows, a source that has `studio/setup` then gets photonoxide's own setup built
+//! around the program Tauri built (`cargo build -p photonoxide-setup`, as the release workflow
+//! does), and that setup, not Tauri's NSIS one, is the build's installer; a commit from before
+//! the crate keeps NSIS's. A setup built here is not code-signed (the releases' are, in CI), so
+//! Windows may show an unknown-publisher warning when it runs. The build runs on a thread of
+//! its own, its log kept line by line for the window to poll, and stops when cancelled or at
+//! its hard timeout.
 //!
 //! The source goes to one folder, `source/`, emptied before each commit is unpacked there, and
 //! Cargo's target folder, `target/`, is kept: the next build compiles only what changed. The
@@ -437,21 +442,53 @@ fn is_artifact(bundle: &str, name: &str) -> bool {
     }
 }
 
-/// The bundle the build made: the newest of its kind made since `since`.
-fn find_artifact(target: &Path, profile: &str, bundle: &str, since: SystemTime) -> Option<PathBuf> {
-    let dir = target
-        .join(profile)
-        .join("bundle")
-        .join(bundle_folder(bundle));
+/// photonoxide's own Windows setup crate, and the file it builds to in the profile's folder.
+const OWN_SETUP_CRATE: &str = "photonoxide-setup";
+const OWN_SETUP_FILE: &str = "photonoxide-setup.exe";
+
+/// Whether the build also makes photonoxide's own setup: the bundle is NSIS's (Windows) and the
+/// source has the setup crate. A commit from before `studio/setup` keeps NSIS's setup.
+fn builds_own_setup(bundle: &str, source: &Path) -> bool {
+    bundle == "nsis"
+        && source
+            .join("studio")
+            .join("setup")
+            .join("Cargo.toml")
+            .is_file()
+}
+
+/// The newest file in `dir` that `wanted` accepts and that was made since `since`.
+fn newest_since(dir: &Path, since: SystemTime, wanted: impl Fn(&str) -> bool) -> Option<PathBuf> {
     let since = since.checked_sub(Duration::from_secs(5)).unwrap_or(since);
     std::fs::read_dir(dir)
         .ok()?
         .flatten()
-        .filter(|e| is_artifact(bundle, &e.file_name().to_string_lossy()))
+        .filter(|e| wanted(&e.file_name().to_string_lossy()))
         .filter_map(|e| Some((e.metadata().ok()?.modified().ok()?, e.path())))
         .filter(|(t, _)| *t >= since)
         .max()
         .map(|(_, p)| p)
+}
+
+/// What the build made to install: photonoxide's own setup, in the profile's folder, when
+/// `own_setup` (Cargo has just built it or found it up to date with the program it carries,
+/// so its age says nothing); otherwise the newest bundle of its kind made since `since`.
+fn find_artifact(
+    target: &Path,
+    profile: &str,
+    bundle: &str,
+    own_setup: bool,
+    since: SystemTime,
+) -> Option<PathBuf> {
+    if own_setup {
+        let setup = target.join(profile).join(OWN_SETUP_FILE);
+        return setup.is_file().then_some(setup);
+    }
+    let dir = target
+        .join(profile)
+        .join("bundle")
+        .join(bundle_folder(bundle));
+    newest_since(&dir, since, |name| is_artifact(bundle, name))
 }
 
 /// Unpacks GitHub's tarball of `sha` into `to`, without its one top folder
@@ -938,6 +975,19 @@ fn build(
     };
     run(&install, shared, cancel, deadline, plan.timeout)?;
 
+    let own_setup = builds_own_setup(&plan.bundle, &source);
+    if plan.bundle == "nsis" {
+        lock(shared).say(
+            if own_setup {
+                "studio/setup is in this source: the installer will be photonoxide's own setup, \
+             built around the program Tauri builds (not code-signed: Windows may name no \
+             publisher)"
+            } else {
+                "no studio/setup in this source: the installer will be Tauri's NSIS setup"
+            }
+            .into(),
+        );
+    }
     say(
         "frontend",
         format!(
@@ -971,13 +1021,25 @@ fn build(
     run(&tauri, shared, cancel, deadline, plan.timeout)?;
 
     let profile = plan.options.profile();
-    let made = find_artifact(&dirs.target(), profile, &plan.bundle, begun).ok_or_else(|| {
-        format!(
-            "the build finished, but made no {} bundle in {}",
-            plan.bundle,
-            dirs.target().join(profile).join("bundle").display()
-        )
-    })?;
+    if own_setup {
+        build_own_setup(plan, dirs, &source, &env, shared, cancel, deadline)?;
+    }
+    let made = find_artifact(&dirs.target(), profile, &plan.bundle, own_setup, begun).ok_or_else(
+        || {
+            if own_setup {
+                format!(
+                    "the build finished, but made no {OWN_SETUP_FILE} in {}",
+                    dirs.target().join(profile).display()
+                )
+            } else {
+                format!(
+                    "the build finished, but made no {} bundle in {}",
+                    plan.bundle,
+                    dirs.target().join(profile).join("bundle").display()
+                )
+            }
+        },
+    )?;
     // each commit's build in a folder of its own: the build waiting until now stays whole (and
     // installable) until this one's is in place and `ready.json` names it
     let millis = SystemTime::now()
@@ -1014,6 +1076,56 @@ fn build(
         let _ = write_json(&dirs.last_build(), &compiled);
     }
     Ok(ready)
+}
+
+/// Builds photonoxide's own setup (`studio/setup`) around the program Tauri has just built,
+/// for the same profile, as the release workflow does: `PHOTONOXIDE_SETUP_PAYLOAD` names the
+/// program, which the setup's build script compresses into it.
+fn build_own_setup(
+    plan: &Plan,
+    dirs: &Dirs,
+    source: &Path,
+    env: &[(OsString, OsString)],
+    shared: &Arc<Mutex<Shared>>,
+    cancel: &AtomicBool,
+    deadline: Instant,
+) -> Result<(), String> {
+    let profile = plan.options.profile();
+    lock(shared).phase(
+        "bundle",
+        format!("Building photonoxide's own setup: cargo build -p {OWN_SETUP_CRATE}"),
+    );
+    let payload = dirs.target().join(profile).join("photonoxide.exe");
+    if !payload.is_file() {
+        return Err(format!(
+            "the Tauri build made no {} for the setup to carry",
+            payload.display()
+        ));
+    }
+    let cargo = prereqs::Probe::find(
+        &prereqs::System::with_dirs(std::env::split_paths(&plan.path).collect()),
+        "cargo",
+    )
+    .ok_or("cargo isn't found")?;
+    let env: Vec<(OsString, OsString)> = env
+        .iter()
+        .cloned()
+        .chain([("PHOTONOXIDE_SETUP_PAYLOAD".into(), payload.into_os_string())])
+        .collect();
+    let step = Step {
+        what: "cargo build -p photonoxide-setup",
+        program: &cargo,
+        args: vec![
+            "build".into(),
+            "-p".into(),
+            OWN_SETUP_CRATE.into(),
+            "--profile".into(),
+            profile.into(),
+        ],
+        cwd: source,
+        env: &env,
+    };
+    run(&step, shared, cancel, deadline, plan.timeout)
 }
 
 /// Removes what [`Dirs::ready`] holds but `keep`: older builds' folders, and files an earlier
@@ -1079,9 +1191,15 @@ mod tests {
 
     /// A tarball as GitHub makes them: one folder, `photonoxide-<sha>`, holding the source.
     fn tarball(top: &str) -> Vec<u8> {
+        tarball_of(top, false)
+    }
+
+    /// The same, with `studio/setup`'s manifest when `with_setup`: a commit that has
+    /// photonoxide's own setup.
+    fn tarball_of(top: &str, with_setup: bool) -> Vec<u8> {
         let gz = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::fast());
         let mut tar = tar::Builder::new(gz);
-        let files = [
+        let mut files = vec![
             (
                 "Cargo.toml",
                 "[package]\nname = \"photonoxide\"\nversion = \"0.5.0\"\nrust-version = \"1.95\"\n",
@@ -1093,6 +1211,12 @@ mod tests {
             ),
             ("src/lib.rs", "//! photonoxide\n"),
         ];
+        if with_setup {
+            files.push((
+                "studio/setup/Cargo.toml",
+                "[package]\nname = \"photonoxide-setup\"\n",
+            ));
+        }
         for (path, text) in files {
             let mut header = tar::Header::new_gnu();
             header.set_size(text.len() as u64);
@@ -1116,7 +1240,48 @@ mod tests {
     /// A pnpm that installs nothing and, asked to `tauri build`, prints a few of the Tauri
     /// CLI's lines and makes the bundle; or fails, or never ends, as `mode` says.
     fn fake_pnpm(dir: &Path, mode: &str) -> PathBuf {
-        let (folder, file) = fake_bundle();
+        fake_pnpm_making(dir, mode, fake_bundle())
+    }
+
+    /// A fake cargo, in a folder of its own that goes first on PATH: asked to build, it prints
+    /// what it was given (the arguments, the payload, the folder it runs in), checks that the
+    /// payload exists, makes the setup in the release folder, or fails as `mode` says.
+    fn fake_cargo(dir: &Path, mode: &str) -> OsString {
+        let bin = dir.join("fake-cargo-bin");
+        std::fs::create_dir_all(&bin).unwrap();
+        if cfg!(windows) {
+            let mut s = String::from(
+                "@echo off\r\necho fake cargo %*\r\necho payload=%PHOTONOXIDE_SETUP_PAYLOAD%\r\necho cwd=%CD%\r\nif not exist \"%PHOTONOXIDE_SETUP_PAYLOAD%\" exit /b 4\r\n",
+            );
+            if mode == "fail" {
+                s.push_str("echo error: the setup broke\r\nexit /b 5\r\n");
+            }
+            s.push_str("echo    Compiling photonoxide-setup v0.5.0\r\necho     Finished `release` profile\r\necho setup> \"%CARGO_TARGET_DIR%\\release\\photonoxide-setup.exe\"\r\nexit /b 0\r\n");
+            std::fs::write(bin.join("cargo.cmd"), s).unwrap();
+        } else {
+            let mut s = String::from(
+                "#!/bin/sh\necho \"fake cargo $*\"\necho \"payload=$PHOTONOXIDE_SETUP_PAYLOAD\"\necho \"cwd=$PWD\"\n[ -f \"$PHOTONOXIDE_SETUP_PAYLOAD\" ] || exit 4\n",
+            );
+            if mode == "fail" {
+                s.push_str("echo 'error: the setup broke'\nexit 5\n");
+            }
+            s.push_str("echo '   Compiling photonoxide-setup v0.5.0'\necho '    Finished `release` profile'\necho setup > \"$CARGO_TARGET_DIR/release/photonoxide-setup.exe\"\n");
+            let path = bin.join("cargo");
+            std::fs::write(&path, s).unwrap();
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::PermissionsExt;
+                std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o755)).unwrap();
+            }
+        }
+        std::env::join_paths(std::iter::once(bin).chain(std::env::split_paths(
+            &std::env::var_os("PATH").unwrap_or_default(),
+        )))
+        .unwrap()
+    }
+
+    /// [`fake_pnpm`], making the bundle `(folder, file)` (and the program, as Tauri does).
+    fn fake_pnpm_making(dir: &Path, mode: &str, (folder, file): (&str, &str)) -> PathBuf {
         if cfg!(windows) {
             let path = dir.join("pnpm.cmd");
             let mut s = String::from(
@@ -1128,7 +1293,7 @@ mod tests {
                 _ => {}
             }
             s.push_str(&format!(
-                "echo     Running beforeBuildCommand `pnpm build`\r\necho nightly version %PHOTONOXIDE_NIGHTLY_VERSION%\r\necho    Compiling serde v1.0.228\r\necho    Compiling photonoxide v0.5.0\r\necho     Finished `release` profile\r\nmkdir \"%CARGO_TARGET_DIR%\\release\\bundle\\{folder}\" 2>nul\r\necho fake> \"%CARGO_TARGET_DIR%\\release\\bundle\\{folder}\\{file}\"\r\nexit /b 0\r\n"
+                "echo     Running beforeBuildCommand `pnpm build`\r\necho nightly version %PHOTONOXIDE_NIGHTLY_VERSION%\r\necho    Compiling serde v1.0.228\r\necho    Compiling photonoxide v0.5.0\r\necho     Finished `release` profile\r\nmkdir \"%CARGO_TARGET_DIR%\\release\\bundle\\{folder}\" 2>nul\r\necho fake> \"%CARGO_TARGET_DIR%\\release\\bundle\\{folder}\\{file}\"\r\necho program> \"%CARGO_TARGET_DIR%\\release\\photonoxide.exe\"\r\nexit /b 0\r\n"
             ));
             std::fs::write(&path, s).unwrap();
             path
@@ -1142,7 +1307,7 @@ mod tests {
                 _ => {}
             }
             s.push_str(&format!(
-                "echo '    Running beforeBuildCommand `pnpm build`'\necho \"nightly version $PHOTONOXIDE_NIGHTLY_VERSION\"\necho '   Compiling serde v1.0.228'\necho '   Compiling photonoxide v0.5.0'\necho '    Finished `release` profile'\nmkdir -p \"$CARGO_TARGET_DIR/release/bundle/{folder}\"\necho fake > \"$CARGO_TARGET_DIR/release/bundle/{folder}/{file}\"\n"
+                "echo '    Running beforeBuildCommand `pnpm build`'\necho \"nightly version $PHOTONOXIDE_NIGHTLY_VERSION\"\necho '   Compiling serde v1.0.228'\necho '   Compiling photonoxide v0.5.0'\necho '    Finished `release` profile'\nmkdir -p \"$CARGO_TARGET_DIR/release/bundle/{folder}\"\necho fake > \"$CARGO_TARGET_DIR/release/bundle/{folder}/{file}\"\necho program > \"$CARGO_TARGET_DIR/release/photonoxide.exe\"\n"
             ));
             std::fs::write(&path, s).unwrap();
             #[cfg(unix)]
@@ -1208,6 +1373,164 @@ mod tests {
             dirs,
             dir,
         )
+    }
+
+    /// An NSIS build on any system: the fake pnpm makes Tauri's NSIS setup and the program, the
+    /// source has `studio/setup` when `with_setup`, and the fake cargo (its `cargo_mode`) is
+    /// first on PATH. Returns the finished build's progress and log.
+    fn nsis_build(name: &str, with_setup: bool, cargo_mode: &str) -> (Progress, Vec<String>, Dirs) {
+        let dir = temp(name);
+        let dirs = Dirs {
+            root: dir.join("nightly"),
+        };
+        let web = Canned::default();
+        web.answer(
+            &github::tarball(HEAD),
+            200,
+            &[],
+            &tarball_of(&format!("photonoxide-{HEAD}"), with_setup),
+        );
+        let pnpm = fake_pnpm_making(&dir, "ok", ("nsis", "photonoxide_0.5.0_x64-setup.exe"));
+        let mut plan = plan(Duration::from_secs(600));
+        plan.bundle = "nsis".into();
+        plan.path = fake_cargo(&dir, cargo_mode);
+        let build = Build::start(
+            plan,
+            dirs.clone(),
+            Arc::new(web),
+            Box::new(move |_| Ok(pnpm.clone())),
+        );
+        let mut log = Vec::new();
+        let p = follow(&build, &mut |l| log.push(l.to_owned()));
+        (p, log, dirs)
+    }
+
+    #[test]
+    fn a_source_with_the_setup_crate_installs_with_photonoxide_s_own_setup() {
+        let (p, log, dirs) = nsis_build("build-own-setup", true, "ok");
+        let all = log.join("\n");
+        assert_eq!(p.phase, "done", "{:?}\n{all}", p.error);
+        let ready = p.ready.unwrap();
+        // the artifact is the setup cargo built, not Tauri's NSIS one, and it is an NSIS-style
+        // installer to the rest of the program (the same bundle, the same flags)
+        assert_eq!(ready.bundle, "nsis");
+        assert_eq!(
+            ready.artifact.file_name().unwrap().to_string_lossy(),
+            OWN_SETUP_FILE
+        );
+        assert!(ready.artifact.starts_with(dirs.ready()));
+        assert_eq!(
+            std::fs::read_to_string(&ready.artifact).unwrap().trim(),
+            "setup"
+        );
+        // cargo built the setup crate for the profile, in the source's workspace, carrying the
+        // program Tauri built
+        assert!(
+            log.iter()
+                .any(|l| l == "fake cargo build -p photonoxide-setup --profile release"),
+            "{all}"
+        );
+        let payload = dirs.target().join("release").join("photonoxide.exe");
+        assert!(
+            log.contains(&format!("payload={}", payload.display())),
+            "{all}"
+        );
+        assert!(
+            log.iter()
+                .any(|l| l.starts_with("cwd=") && l.ends_with("source")),
+            "{all}"
+        );
+        // after the Tauri step, and Tauri's own setup was not the one kept
+        let at = |needle: &str| log.iter().position(|l| l.contains(needle)).unwrap();
+        assert!(at("fake pnpm tauri build") < at("fake cargo build"));
+        assert!(
+            !dirs
+                .ready()
+                .join("photonoxide_0.5.0_x64-setup.exe")
+                .exists()
+        );
+        assert!(
+            all.contains("the installer will be photonoxide's own setup"),
+            "{all}"
+        );
+        // its crates count with the build's
+        assert_eq!(p.compiled, 3);
+    }
+
+    #[test]
+    fn a_source_without_the_setup_crate_keeps_tauri_s_nsis_setup() {
+        let (p, log, _) = nsis_build("build-nsis-fallback", false, "ok");
+        let all = log.join("\n");
+        assert_eq!(p.phase, "done", "{:?}\n{all}", p.error);
+        let ready = p.ready.unwrap();
+        assert_eq!(
+            ready.artifact.file_name().unwrap().to_string_lossy(),
+            "photonoxide_0.5.0_x64-setup.exe"
+        );
+        assert!(!all.contains("fake cargo"), "{all}");
+        assert!(
+            all.contains("the installer will be Tauri's NSIS setup"),
+            "{all}"
+        );
+    }
+
+    #[test]
+    fn a_failing_setup_build_fails_the_build_and_says_which_step() {
+        let (p, log, dirs) = nsis_build("build-own-setup-fail", true, "fail");
+        assert_eq!(p.phase, "failed");
+        assert!(
+            p.error
+                .unwrap()
+                .starts_with("cargo build -p photonoxide-setup failed")
+        );
+        assert!(log.iter().any(|l| l == "error: the setup broke"));
+        // nothing is offered, not even Tauri's setup
+        assert!(p.ready.is_none() && !dirs.ready_file().exists());
+    }
+
+    #[test]
+    fn the_artifact_is_the_own_setup_or_the_bundle_by_what_was_built() {
+        let dir = temp("artifact");
+        let target = dir.join("target");
+        let profile = target.join("release");
+        let nsis = profile.join("bundle").join("nsis");
+        std::fs::create_dir_all(&nsis).unwrap();
+        std::fs::write(nsis.join("photonoxide_0.5.0_x64-setup.exe"), "tauri").unwrap();
+        let begun = SystemTime::now();
+        // only Tauri's setup was made: the bundle's
+        let found = find_artifact(&target, "release", "nsis", false, begun).unwrap();
+        assert_eq!(found, nsis.join("photonoxide_0.5.0_x64-setup.exe"));
+        // the own setup is asked for and cargo made none: nothing, rather than Tauri's setup
+        assert_eq!(find_artifact(&target, "release", "nsis", true, begun), None);
+        // both are there: each is found by what the build was
+        std::fs::write(profile.join("photonoxide-setup.exe"), "own").unwrap();
+        let own = find_artifact(&target, "release", "nsis", true, begun).unwrap();
+        assert_eq!(own, profile.join("photonoxide-setup.exe"));
+        assert_eq!(
+            find_artifact(&target, "release", "nsis", false, begun),
+            Some(nsis.join("photonoxide_0.5.0_x64-setup.exe"))
+        );
+        // another profile's folder is not this one's
+        assert_eq!(find_artifact(&target, "fastest", "nsis", true, begun), None);
+        // a setup Cargo found up to date is the one: an old file is no reason to refuse it
+        let later = begun + Duration::from_secs(3600);
+        assert!(find_artifact(&target, "release", "nsis", true, later).is_some());
+        assert_eq!(
+            find_artifact(&target, "release", "nsis", false, later),
+            None
+        );
+
+        // the setup is built only for NSIS's bundle, from a source that has the crate
+        let source = dir.join("source");
+        assert!(!builds_own_setup("nsis", &source));
+        std::fs::create_dir_all(source.join("studio").join("setup")).unwrap();
+        assert!(!builds_own_setup("nsis", &source));
+        std::fs::write(source.join("studio").join("setup").join("Cargo.toml"), "").unwrap();
+        assert!(builds_own_setup("nsis", &source));
+        for other in ["app", "appimage", "deb", "rpm"] {
+            assert!(!builds_own_setup(other, &source));
+        }
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

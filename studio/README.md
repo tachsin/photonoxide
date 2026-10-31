@@ -641,6 +641,15 @@ checkout of main says the version of the release main follows, with its commit:
   config sets the nightly's version, keeps this copy's name and identifier, and sets
   `createUpdaterArtifacts: false`, since a local build has no signing key.
 
+  On Windows, a source that has `studio/setup` then gets photonoxide's own setup built around
+  the program Tauri made (`cargo build -p photonoxide-setup --profile <the build's>` with
+  `PHOTONOXIDE_SETUP_PAYLOAD` naming that program, as the release workflow does), and that
+  setup is the installer, the same one the releases carry; a commit from before the crate keeps
+  Tauri's NSIS setup. The build log says which. A setup built here is **not code-signed**: the
+  releases' are signed in CI with Certum's certificate, and a local build has no such key, so
+  Windows may show an unknown-publisher warning (SmartScreen) when it runs. Nothing is signed
+  here, and the warning is about the missing signature, not about the build.
+
   The build runs in the background, its log streamed into the window. It can be cancelled, and
   it stops by itself after two hours.
 
@@ -678,9 +687,12 @@ checkout of main says the version of the release main follows, with its commit:
 - **The install:** the build being replaced is kept first, in a folder of its own for each
   install. A watchdog runs from that copy (`photonoxide nightly watch`) and takes it from there:
   - Windows: the studio exits, and the watchdog waits for its process to end (up to a
-    minute). It then runs the build's NSIS installer as the stable updater does, passive and
-    as an update (`/P /UPDATE`), into the studio's own folder (`/D=`), and waits for it (up to
-    ten minutes).
+    minute). It then runs the build's setup (photonoxide's own, or NSIS's for a commit from
+    before it) with the flags the stable updater gives, passive and as an update
+    (`/P /UPDATE`), into the studio's own folder (`/D=`, unquoted, as NSIS reads it; the own
+    setup takes what follows it as the folder, so one with spaces is whole), and waits for it
+    (up to ten minutes). It doesn't pass `/R`: the own setup starts the program again only on
+    `/R`, and here the watchdog opens the new build itself, once it has checked it.
   - macOS: the `.app` is replaced (copied beside it, then renamed into place).
   - Linux: an AppImage is swapped in the same way. A `.deb` or `.rpm` install gets its
     package built, to install with your package manager, or with `pkexec` after you confirm.
@@ -742,6 +754,9 @@ it builds unsigned.
   - Tauri signs the program inside the setup as it builds it, and the workflow signs the setup.
   - Windows SmartScreen still warns about a new publisher until downloads build its reputation.
     Signing every release with the same certificate lets that reputation carry over.
+  - A nightly built from inside the studio (Settings › Updates) is not signed: the same setup,
+    built locally without the certificate, so Windows may show an unknown-publisher warning
+    when its install runs.
 - **macOS:** a Developer ID Application certificate, with notarization by an App Store Connect
   key. Secrets:
   - `APPLE_CERTIFICATE` (the `.p12`, base64) and `APPLE_CERTIFICATE_PASSWORD`;

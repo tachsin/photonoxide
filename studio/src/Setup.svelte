@@ -73,7 +73,7 @@
         if (payload.ok) {
           phase = "done";
           done = 1;
-          // an update starts the program again by itself, a moment after it's done
+          // started with /R (Tauri's updater), it starts the program again by itself, a moment after it's done
           if (passive) setTimeout(() => finish(info?.starts_again ?? false), 1200);
         } else {
           phase = "failed";
