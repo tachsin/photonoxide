@@ -202,9 +202,15 @@ codebase-report:
 codebase-report-crates:
     CODEBASE_REPORT_BLOAT=1 bash .github/codebase-report.sh
 
-# run the full suite after every merge and rebase, and the lints before every push
+# run the full suite after every merge and rebase, and the lints before every push (an agent's
+# worktree under .claude/worktrees/ skips the suite and builds the lints in <main checkout>/target/audit)
 hooks:
     git config core.hooksPath .github/hooks
+
+# check the hooks tell an agent's worktree from the main checkout, on a throwaway repository
+# (nothing builds; needs bash)
+test-hooks:
+    bash .github/scripts/test-hooks.sh
 
 # remove the build output
 clean:

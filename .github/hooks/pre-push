@@ -2,9 +2,10 @@
 # Before a push: the lints CI's Lint job runs (.github/lints.sh: fmt, clippy, docs), on the commit
 # being pushed, so a red Lint is caught here and not minutes later on CI. A lint that already
 # passed on this commit (here or in .github/full-suite.sh) isn't run again. Only when the push
-# changes Rust code or the manifests; `git push --no-verify` skips it.
+# changes Rust code or the manifests; `git push --no-verify` skips it (agents don't).
 # Enabled by `git config core.hooksPath .github/hooks`.
 set -uo pipefail
+HOOKS_DIR=$(cd "$(dirname "$0")" && pwd)
 cd "$(git rev-parse --show-toplevel)" || exit 1
 zero=0000000000000000000000000000000000000000
 
@@ -33,6 +34,24 @@ if ! git diff --quiet HEAD --; then
   echo "pre-push: tracked files differ from the commit being pushed, so the lints wouldn't check it."
   echo "Commit or stash them first (or push with --no-verify)."
   exit 1
+fi
+
+# In an agent's worktree (a linked worktree under .claude/worktrees/, see agent-worktree.sh) the
+# lints still run, but build into the shared <main checkout>/target/audit, never a target/ of the
+# worktree's own (1 to 30 GB each); a CARGO_TARGET_DIR you set is kept, and holds the stamps.
+# shellcheck source=agent-worktree.sh
+source "$HOOKS_DIR/agent-worktree.sh"
+if agent_worktree; then
+  if [ -z "${CARGO_TARGET_DIR:-}" ]; then
+    CARGO_TARGET_DIR=$(agent_target_dir) || {
+      echo "pre-push: no shared target folder found for this agent worktree; not pushed"
+      exit 1
+    }
+    export CARGO_TARGET_DIR
+  fi
+  LINT_STAMPS_DIR=$(agent_stamps_dir)
+  export LINT_STAMPS_DIR
+  echo "pre-push: agent worktree, building in $CARGO_TARGET_DIR"
 fi
 
 # shellcheck source=../lints.sh
