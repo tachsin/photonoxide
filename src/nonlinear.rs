@@ -22,6 +22,10 @@
 //!   effective area and the catalogue's n₂; solitons and self-phase modulation (Agrawal 2019).
 //! - [`fwm`]: four-wave mixing with one pump, its parametric gain and conversion with the
 //!   mismatch from the guide's dispersion, closed form and along the guide, depleted.
+//! - [`resonator`]: Kerr microresonators by the Lugiato–Lefever equation: the homogeneous
+//!   steady states and their bistability, modulation instability, and dissipative Kerr
+//!   solitons, a ring's equation from its waveguide (Lugiato and Lefever 1987, Coen et al.
+//!   2012, Herr et al. 2013).
 //! - [`miller`]: Miller's rule, a d coefficient carried from the wavelength it was measured at
 //!   to another through the three waves' linear susceptibilities (Miller 1964).
 //!
@@ -42,3 +46,4 @@ pub mod miller;
 pub mod pairs;
 pub mod phase;
 pub mod pulse;
+pub mod resonator;

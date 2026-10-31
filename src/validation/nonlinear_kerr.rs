@@ -1,12 +1,15 @@
 //! The rules (#544) of the cases of third-order processes (0.6.1,
-//! [`crate::nonlinear::kerr_checks`]): the nonlinear Schrödinger equation and four-wave mixing. The closed forms hold to each scheme's own error, the
-//! tolerance that error on half the steps (or the coarser grid) rounded up; the orders to 0.1.
+//! [`crate::nonlinear::kerr_checks`]): the nonlinear Schrödinger equation, four-wave mixing
+//! and the Lugiato–Lefever equation. The closed forms hold to each scheme's own error, the
+//! tolerance that error on half the steps (or the coarser grid) rounded up; the orders to 0.1;
+//! Coen et al.'s soliton to half a unit of its one printed digit.
 
 use super::{Basis::*, Measure::*, Numerical::*, Rule};
 
 pub(crate) fn rules() -> Vec<(&'static str, Rule)> {
     let mut rules = pulse_rules();
     rules.extend(fwm_rules());
+    rules.extend(lle_rules());
     rules
 }
 
@@ -138,6 +141,45 @@ fn fwm_rules() -> Vec<(&'static str, Rule)> {
                 Relative,
                 1e-11,
                 "on 201 points a side the grid's error is below the SVD's round-off: 1.0e-13, and 5.0e-14 on 301 (on 101 it is 2.7e-8), as for the down-converted pairs",
+            ),
+        ),
+    ]
+}
+
+/// The Lugiato–Lefever equation.
+fn lle_rules() -> Vec<(&'static str, Rule)> {
+    let homogeneous = "the upper state's error on 6400 steps, 2.22e-5, rounded up: the split-step's steady state is second order in the step (upper 3.6e-4, 8.9e-5, 2.2e-5, 5.6e-6 and lower 6.1e-5, 1.5e-5, 3.8e-6, 9.5e-7 on 1600 to 12 800)";
+    vec![
+        (
+            "nonlinear/lle-homogeneous-lower",
+            grid(Relative, 3e-5, homogeneous),
+        ),
+        (
+            "nonlinear/lle-homogeneous-upper",
+            grid(Relative, 3e-5, homogeneous),
+        ),
+        (
+            "nonlinear/lle-instability-rate",
+            grid(
+                Relative,
+                6e-6,
+                "the error on 3200 steps, 5.32e-6, rounded up: second order (8.5e-5, 2.1e-5, 5.3e-6 and 1.4e-6 on 800 to 6400)",
+            ),
+        ),
+        (
+            "nonlinear/lle-split-step-order",
+            order(
+                "second order within 0.1: the halvings from 800 steps give 2.00, 2.00 and 1.96 on the growth rate",
+            ),
+        ),
+        (
+            "nonlinear/lle-coen-2012-duration",
+            Rule::new(
+                Absolute,
+                Reference,
+                50.0,
+                Noted,
+                "half a unit of the one significant digit of the printed '∼400 fs': the paper states no other uncertainty for the soliton its Fig. 2(a)'s inset shows",
             ),
         ),
     ]

@@ -378,14 +378,14 @@ Second- and third-order processes in waveguides and resonators: SHG, SFG, DFG, p
 - [ ] **Coupled-mode equations in waveguides**, the overlaps from the mode solver's full-vector fields: the d tensor's give the normalized efficiency in %/W/cm², and χ⁽³⁾'s give γ in 1/(W·m) (Lin, Painter & Agrawal 2007). The processes:
   - SHG, SFG and DFG: undepleted (the sinc²) and depleted (Armstrong et al. 1962, Manley–Rowe), with propagation loss;
   - optical parametric amplification and oscillation;
-  - FWM, SPM and XPM, and parametric gain (Foster et al. 2006), with two-photon and free-carrier absorption in silicon (Lin 2007).
+  - FWM, SPM and XPM, and parametric gain (Foster et al. 2006), with two-photon and free-carrier absorption in silicon (Lin 2007). *(SPM, FWM and parametric gain done: pulses by the NLSE in `nonlinear::pulse`, β₂, β₃, β₄ from the modes and γ from the effective area, with Raman and self-steepening; four-wave mixing in `nonlinear::fwm`, closed form and depleted along the guide. XPM between separate pulses, two-photon and free-carrier absorption, and Foster et al.'s guide, whose letter doesn't give it whole, are not in yet. See [the write-up](docs/methods/nonlinear.md#pulses-along-a-kerr-guide).)*
 - [ ] **Photon pairs by SPDC and SFWM:**
-  - the joint spectral amplitude from the phase matching and the pump's spectrum;
+  - the joint spectral amplitude from the phase matching and the pump's spectrum; *(SPDC and, with one pump, SFWM: `pairs::joint_spectrum`)*
   - its purity by Schmidt decomposition (Grice & Walmsley 1997);
   - brightness per mW of pump, and heralding efficiency.
 - [ ] **Resonators:**
   - resonantly enhanced SHG and FWM in rings, the enhancement from the 0.4 ring components;
-  - Kerr combs by the Lugiato–Lefever equation by split-step, fed by the mode solver's dispersion (Lugiato & Lefever 1987; Chembo & Menyuk 2013; Herr et al. 2013 for dissipative solitons).
+  - Kerr combs by the Lugiato–Lefever equation by split-step, fed by the mode solver's dispersion (Lugiato & Lefever 1987; Chembo & Menyuk 2013; Herr et al. 2013 for dissipative solitons). *(done in `nonlinear::resonator`: the homogeneous states and their bistability, modulation instability, the approximate soliton and its existence limit, a ring's equation from its waveguide's β_k and γ (Coen et al. 2012), Coen et al.'s soliton reproduced to its printed digit; Herr et al.'s and Pfeiffer et al.'s solitons aren't given whole, see [the write-up](docs/methods/nonlinear.md#kerr-microresonators))*
 - [ ] **Studio:**
   - nonlinear jobs: the process, the waveguide, the poling and the pump;
   - the phase-matching map: Δk against wavelength and width or temperature;
@@ -397,7 +397,7 @@ Second- and third-order processes in waveguides and resonators: SHG, SFG, DFG, p
     - undepleted SHG's sinc² and its L² scaling;
     - Manley–Rowe photon conservation;
     - depleted SHG's tanh² (Armstrong et al. 1962);
-    - the Lugiato–Lefever soliton;
+    - the Lugiato–Lefever soliton; *(the steady states, the instability's growth and the split-step's order are cases; the approximate soliton is compared in the write-up, with no paper giving it an accuracy)*
   - **published, each an example:**
     - Fejer 1992's QPM tolerances;
     - Wang et al. 2018's thin-film PPLN SHG (efficiency, poling period, bandwidth);
@@ -406,7 +406,7 @@ Second- and third-order processes in waveguides and resonators: SHG, SFG, DFG, p
     - Foster et al. 2006's silicon parametric gain;
     - Zhao et al. 2020's thin-film LN photon pairs (the joint spectrum and brightness);
     - Coen 2012's octave comb, against pyLLE (Moille 2019);
-  - **convergence:** overlaps and efficiencies with the mode solver's grid, and the split-step at its order;
+  - **convergence:** overlaps and efficiencies with the mode solver's grid, and the split-step at its order; *(both split-steps' second order is a case, the NLSE's and the Lugiato–Lefever equation's)*
   - **cross-check:** χ⁽²⁾ and χ⁽³⁾ in FDTD (0.15) against the coupled-mode results on a short device.
 
 ### 0.6.2: Quantum light and linear-optical statistics

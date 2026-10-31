@@ -1,6 +1,6 @@
 //! The validation cases of third-order processes: the nonlinear Schrödinger equation
 //! ([`super::pulse`]), four-wave mixing ([`super::fwm`]) and the Lugiato–Lefever equation
-//! ([`super::resonator`]), against closed forms.
+//! ([`super::resonator`]), against closed forms and Coen et al.'s fully specified resonator.
 
 use std::f64::consts::PI;
 
@@ -15,8 +15,9 @@ use crate::nonlinear::pulse::{
     C_M_PER_PS, Dispersion, Guide, Pulse, Raman, angular_frequency, dispersion_length, loss_per_m,
     second_order_soliton, soliton_period, soliton_power, spm_peak_phase, spm_rms_broadening,
 };
+use crate::nonlinear::resonator::{Resonator, Ring, peak_width};
 use crate::units::Wavelength;
-use crate::validation::{Case, Outcome, Tier};
+use crate::validation::{Case, Outcome, Tier, note_numerical};
 
 fn relative(measured: f64, expected: f64, tolerance: f64) -> Outcome {
     Outcome {
@@ -493,10 +494,148 @@ fn sfwm_purity_case() -> Outcome {
 
 const SFWM_TOLERANCE: f64 = 1e-11;
 
+// ---------------------------------------------------------------------------------------------
+// The Lugiato–Lefever equation
+// ---------------------------------------------------------------------------------------------
+
+/// The bistable resonator of the homogeneous cases: ζ₀ = 3, f² = 4, between the turning
+/// points' drives (f² from 2.91 to 5.09), so three homogeneous states.
+const LLE_DETUNING: f64 = 3.0;
+const LLE_DRIVE: f64 = 2.0;
+
+/// The homogeneous state the split-step settles on from ψ = 0 (`upper` false) or from 1.2
+/// times the upper state's field, over τ = 40 on `steps` steps: (its power, the cubic's root
+/// it should be, the lowest or the highest).
+pub(crate) fn lle_homogeneous(upper: bool, steps: usize) -> (f64, f64) {
+    let run = || -> crate::Result<(f64, f64)> {
+        let r = Resonator::quadratic(LLE_DETUNING, LLE_DRIVE, 0.02, 4)?;
+        let roots = r.homogeneous();
+        let target = if upper {
+            roots[roots.len() - 1]
+        } else {
+            roots[0]
+        };
+        let start = if upper {
+            r.homogeneous_field(target) * 1.2
+        } else {
+            c64::new(0.0, 0.0)
+        };
+        let end = r.evolve(&[start; 4], 40.0, steps)?;
+        Ok((end[0].norm_sqr(), target))
+    };
+    run().unwrap_or((f64::NAN, f64::NAN))
+}
+
+const LLE_STEPS: usize = 12_800;
+
+fn lle_homogeneous_case(upper: bool) -> Outcome {
+    let (ours, root) = lle_homogeneous(upper, LLE_STEPS);
+    relative(ours, root, LLE_HOMOGENEOUS_TOLERANCE)
+}
+
+fn lle_lower() -> Outcome {
+    lle_homogeneous_case(false)
+}
+
+fn lle_upper() -> Outcome {
+    lle_homogeneous_case(true)
+}
+
+const LLE_HOMOGENEOUS_TOLERANCE: f64 = 3e-5;
+
+/// The growth of a perturbation of the homogeneous state X = 1.5 at ζ₀ = 1 in the modes ±5,
+/// d₂ = 0.05 (64 modes), measured between τ = 10 and 20 on `steps` steps each: (ours, the
+/// larger root of Lugiato and Lefever's λ² + 2λ + ζ = 0 with their Eq. (4)).
+pub(crate) fn lle_instability(steps: usize) -> (f64, f64) {
+    let (z, x, n, mode) = (1.0, 1.5, 64usize, 5i64);
+    let run = || -> crate::Result<(f64, f64)> {
+        let r = Resonator::quadratic(z, crate::nonlinear::resonator::drive_for(z, x), 0.05, n)?;
+        let psi_s = r.homogeneous_field(x);
+        let start: Vec<c64> = (0..n)
+            .map(|j| psi_s + 1e-9 * (2.0 * PI * mode as f64 * j as f64 / n as f64).cos())
+            .collect();
+        let a = r.evolve(&start, 10.0, steps)?;
+        let b = r.evolve(&a, 10.0, steps)?;
+        let amplitude = |v: &[c64]| {
+            let m: c64 = v.iter().sum::<c64>() / n as f64;
+            v.iter().map(|x| (x - m).norm_sqr()).sum::<f64>().sqrt()
+        };
+        Ok((
+            (amplitude(&b) / amplitude(&a)).ln() / 10.0,
+            r.instability_rate(x, mode),
+        ))
+    };
+    run().unwrap_or((f64::NAN, f64::NAN))
+}
+
+const LLE_RATE_STEPS: usize = 6400;
+
+fn lle_instability_case() -> Outcome {
+    let (ours, closed) = lle_instability(LLE_RATE_STEPS);
+    relative(ours, closed, LLE_RATE_TOLERANCE)
+}
+
+const LLE_RATE_TOLERANCE: f64 = 6e-6;
+
+/// The Lugiato–Lefever split-step's order from the growth rate's errors on 800 and 1600 steps,
+/// to two decimals.
+fn lle_order() -> Outcome {
+    let e = |n| {
+        let (a, b) = lle_instability(n);
+        (a / b - 1.0).abs()
+    };
+    let order = (e(800) / e(1600)).log2();
+    let shown = (order * 100.0).round() / 100.0;
+    absolute(shown, 2.0, 0.1)
+}
+
+/// Coen et al.'s resonator of Fig. 2 (Opt. Lett. 38, 37, p. 38): a critically coupled MgF₂ disc,
+/// FSR 18.2 GHz, γ = 0.032 /(W·km), β₂ = −13 ps²/km, α = θ = 1.75 × 10⁻⁵, P_in = 55.6 mW,
+/// L = 11.9 mm, δ₀ = 0.0012.
+pub(crate) fn coen_2012_ring() -> crate::Result<Ring> {
+    Ok(Ring {
+        length: 0.0119,
+        roundtrip: 1e12 / 18.2e9,
+        loss: 1.75e-5,
+        coupling: 1.75e-5,
+        detuning: 0.0012,
+        gamma: 0.032e-3,
+        dispersion: Dispersion::new(1.55, &[-13e-3])?,
+        pump: 0.0556,
+    })
+}
+
+/// Its single soliton, settled from the approximate one on 512 modes with steps of `step`:
+/// (its FWHM in fs, its peak power inside in W).
+pub(crate) fn coen_2012_soliton(step: f64) -> (f64, f64) {
+    let run = || -> crate::Result<(f64, f64)> {
+        let ring = coen_2012_ring()?;
+        let r = ring.resonator(512)?;
+        let s = r
+            .soliton(ring.d2())
+            .ok_or_else(|| crate::Error::invalid("soliton", "none at this detuning and drive"))?;
+        let (end, _) = r.settle(&r.soliton_field(&s), step, 0.5, 1e-10, 200.0)?;
+        let peak = end.iter().map(|v| v.norm_sqr()).fold(0.0, f64::max);
+        Ok((
+            ring.time_of(peak_width(&end)?) * 1e3,
+            peak * ring.power_scale(),
+        ))
+    };
+    run().unwrap_or((f64::NAN, f64::NAN))
+}
+
+fn coen_2012_case() -> Outcome {
+    let (ours, _) = coen_2012_soliton(4e-4);
+    let (fine, _) = coen_2012_soliton(2e-4);
+    note_numerical((fine - ours).abs() * 4.0 / 3.0);
+    absolute(ours, 400.0, 50.0)
+}
+
 /// The cases.
 pub(crate) fn cases() -> Vec<Case> {
     let mut cases = pulse_cases();
     cases.extend(fwm_cases());
+    cases.extend(lle_cases());
     cases
 }
 
@@ -604,6 +743,46 @@ fn fwm_cases() -> Vec<Case> {
             tier: Tier::Analytic,
             source: r"the purity of the two-dimensional Gaussian $\exp(-\frac{1}{2}z^\mathsf{T}Mz)$, $P = (1 - c^2/ab)^{1/2}$; the two pump photons' spectrum the pump's convolved with itself",
             run: sfwm_purity_case,
+        },
+    ]
+}
+
+fn lle_cases() -> Vec<Case> {
+    vec![
+        Case {
+            id: "nonlinear/lle-homogeneous-lower",
+            title: r"The Lugiato–Lefever equation by split-step, bistable at $\zeta_0 = 3$, $f^2 = 4$: from $\psi = 0$ it settles on the lower homogeneous state (12 800 steps over $\tau = 40$; $\lvert\psi\rvert^2$ shown)",
+            tier: Tier::Analytic,
+            source: r"L. A. Lugiato, R. Lefever, Phys. Rev. Lett. 58, 2209 (1987), doi:10.1103/PhysRevLett.58.2209, Eq. (2): $E_I^2 = \lvert E_s\rvert^2(1 + (\lvert E_s\rvert^2 - \theta)^2)$, its lowest root",
+            run: lle_lower,
+        },
+        Case {
+            id: "nonlinear/lle-homogeneous-upper",
+            title: r"The same, from 1.2 times the upper state's field: it settles on the upper state ($\lvert\psi\rvert^2$ shown)",
+            tier: Tier::Analytic,
+            source: r"Lugiato and Lefever (1987), doi:10.1103/PhysRevLett.58.2209, Eq. (2), its highest root; S shaped for $\theta \gt \sqrt{3}$",
+            run: lle_upper,
+        },
+        Case {
+            id: "nonlinear/lle-instability-rate",
+            title: r"The growth rate of a perturbation of the homogeneous state $\lvert\psi\rvert^2 = 1.5$ at $\zeta_0 = 1$ in the modes $\pm 5$ ($d_2 = 0.05$, 64 modes), measured between $\tau = 10$ and 20 (6400 steps each; rate shown)",
+            tier: Tier::Analytic,
+            source: r"Lugiato and Lefever (1987), doi:10.1103/PhysRevLett.58.2209, Eq. (4): $\lambda^2 + 2\lambda + \zeta = 0$, $\zeta = 1 + (X - \theta)(3X - \theta) + a(a - 2(2X - \theta))$",
+            run: lle_instability_case,
+        },
+        Case {
+            id: "nonlinear/lle-split-step-order",
+            title: r"The Lugiato–Lefever split-step's order, from the growth rate's errors on 800 and 1600 steps (order shown)",
+            tier: Tier::Analytic,
+            source: r"Strang splitting with each part solved exactly: second order",
+            run: lle_order,
+        },
+        Case {
+            id: "nonlinear/lle-coen-2012-duration",
+            title: r"Coen et al.'s MgF₂ resonator (FSR 18.2 GHz, $\gamma = 0.032$ /(W·km), $\beta_2 = -13$ ps²/km, $\alpha = \theta = 1.75\times10^{-5}$, $P_\mathrm{in} = 55.6$ mW, $L = 11.9$ mm, $\delta_0 = 0.0012$): its single soliton settled by split-step on 512 modes, the FWHM against their '∼400 fs' (fs shown)",
+            tier: Tier::Published,
+            source: r"S. Coen, H. G. Randle, T. Sylvestre, M. Erkintalo, Opt. Lett. 38, 37 (2012), doi:10.1364/OL.38.000037, Fig. 2 and p. 38, '∼400 fs', read as one significant digit (±50 fs)",
+            run: coen_2012_case,
         },
     ]
 }

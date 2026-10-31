@@ -51,6 +51,34 @@ fn tables() {
         let (a, b) = sfwm_purity(n);
         println!("sfwm {n}: {a} vs {b} ({:.2e})", a / b - 1.0);
     }
+    for steps in [1600, 3200, 6400, 12_800] {
+        let (a, b) = lle_homogeneous(false, steps);
+        let (c, d) = lle_homogeneous(true, steps);
+        println!(
+            "lle {steps}: lower {a} vs {b} ({:.2e}), upper {c} vs {d} ({:.2e})",
+            a / b - 1.0,
+            c / d - 1.0
+        );
+    }
+    for steps in [800, 1600, 3200, 6400] {
+        let (a, b) = lle_instability(steps);
+        println!("instability {steps}: {a} vs {b} ({:.2e})", a / b - 1.0);
+    }
+    for step in [8e-4, 4e-4, 2e-4] {
+        let (w, p) = coen_2012_soliton(step);
+        println!("coen {step}: fwhm {w} fs, peak {p} W");
+    }
+    let ring = coen_2012_ring().unwrap();
+    let r = ring.resonator(512).unwrap();
+    let s = r.soliton(ring.d2()).unwrap();
+    let p = c64::new(s.cos_phase, (1.0 - s.cos_phase.powi(2)).sqrt());
+    println!(
+        "coen approximation: fwhm {} fs, peak {} W, d2 {}, f {}",
+        ring.time_of(s.width) * 2.0 * (2f64.sqrt()).acosh() * 1e3,
+        (s.background + p * s.amplitude).norm_sqr() * ring.power_scale(),
+        ring.d2(),
+        ring.normalized_drive()
+    );
 }
 
 /// A silicon nitride strip in silica from its modes: β₂, β₃ and β₄ at 1.55 µm with their
@@ -149,10 +177,52 @@ fn silicon_nitride_strip_by_differences() {
     );
 }
 
+/// The approximate soliton against the settled one at f = 3, d₂ = 0.004 on 512 lines, followed
+/// up in ζ₀ from 8 until it decays: the write-up's table.
 #[test]
-fn the_split_step_is_second_order() {
+#[ignore = "prints the soliton's existence table"]
+fn soliton_existence() {
+    use crate::nonlinear::resonator::max_detuning;
+    let (f, d2, n) = (3.0, 0.004, 512);
+    let mut r = Resonator::quadratic(8.0, f, d2, n).unwrap();
+    let mut psi = r.soliton_field(&r.soliton(d2).unwrap());
+    println!("pi^2 f^2/8 = {}", max_detuning(f));
+    let mut z = 8.0;
+    while z < 13.0 {
+        r = r.with_detuning(z);
+        let Ok((end, _)) = r.settle(&psi, 2e-3, 1.0, 1e-9, 400.0) else {
+            println!("{z}: doesn't settle");
+            break;
+        };
+        psi = end;
+        let peak = psi.iter().map(|v| v.norm_sqr()).fold(0.0, f64::max);
+        let lower = r.homogeneous()[0];
+        if peak < 3.0 * lower.max(1.0) {
+            println!("{z}: decayed to {peak}");
+            break;
+        }
+        let fwhm = peak_width(&psi).unwrap();
+        let approx = r.soliton(d2);
+        let approx_peak = approx.map(|s| {
+            let p = c64::new(s.cos_phase, (1.0 - s.cos_phase.powi(2)).sqrt());
+            (s.background + p * s.amplitude).norm_sqr()
+        });
+        println!(
+            "{z}: peak {peak:.4} (approx {approx_peak:?}), fwhm {fwhm:.6} (approx {:?})",
+            approx.map(|s| s.width * 2.0 * (2f64.sqrt()).acosh())
+        );
+        z += 0.25;
+    }
+}
+
+#[test]
+fn the_split_steps_are_second_order() {
     let a = second_order(1000) / second_order(2000);
     assert!((a.log2() - 2.0).abs() < 0.1, "{a}");
+    let (x, y) = lle_instability(800);
+    let (u, v) = lle_instability(1600);
+    let b = (x / y - 1.0).abs() / (u / v - 1.0).abs();
+    assert!((b.log2() - 2.0).abs() < 0.1, "{b}");
 }
 
 #[test]

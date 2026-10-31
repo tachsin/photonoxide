@@ -1,7 +1,7 @@
 ---
 title: "Phase matching"
 module: nonlinear::phase
-summary: "The wave-vector mismatch of any three- or four-wave process from any index (a catalogue model with its temperature, a material, or a mode's effective indices given as data); quasi-phase matching, its period, order and duty cycle; birefringent phase matching of types 0, I and II, noncritical or angle tuned; the undepleted response sinc²(ΔkL/2); the acceptance bandwidths in wavelength, temperature and angle, checked against Fejer et al.'s Table I; and the coupled-amplitude equations of SHG, sum- and difference-frequency generation, depleted and lossy, against Armstrong et al.'s closed forms; and all of it in waveguides, from the mode solver's effective indices and full-vector fields with the d tensor turned into the guide's frame, against a plane wave, a slab's exact fields and Zhao et al.'s poling period. Third-order processes from the same modes: pulses by the nonlinear Schrödinger equation (β₂, β₃, β₄ from the modes, γ from the effective area, solitons and self-phase modulation against Agrawal's closed forms), and four-wave mixing's parametric gain and photon pairs."
+summary: "The wave-vector mismatch of any three- or four-wave process from any index (a catalogue model with its temperature, a material, or a mode's effective indices given as data); quasi-phase matching, its period, order and duty cycle; birefringent phase matching of types 0, I and II, noncritical or angle tuned; the undepleted response sinc²(ΔkL/2); the acceptance bandwidths in wavelength, temperature and angle, checked against Fejer et al.'s Table I; and the coupled-amplitude equations of SHG, sum- and difference-frequency generation, depleted and lossy, against Armstrong et al.'s closed forms; and all of it in waveguides, from the mode solver's effective indices and full-vector fields with the d tensor turned into the guide's frame, against a plane wave, a slab's exact fields and Zhao et al.'s poling period. Third-order processes from the same modes: pulses by the nonlinear Schrödinger equation (β₂, β₃, β₄ from the modes, γ from the effective area, solitons and self-phase modulation against Agrawal's closed forms), four-wave mixing's parametric gain and photon pairs, and Kerr microresonators by the Lugiato–Lefever equation, against Lugiato and Lefever's steady states and instability and Coen et al.'s soliton."
 order: 30
 papers:
   - cite: "M. M. Fejer, G. A. Magel, D. H. Jundt, R. L. Byer, IEEE J. Quantum Electron. 28, 2631 (1992) (Eqs. (2), (19)–(25), (30), (41)–(44), (A1.1)–(A1.9); Table I)"
@@ -32,6 +32,16 @@ papers:
     doi: 10.1002/lpor.201800149
   - cite: "G. P. Agrawal, Nonlinear Fiber Optics, 6th ed., Academic Press (2019) (Eqs. (2.3.23)–(2.3.46), (2.4.1)–(2.4.13), (3.1.5), (4.1.4)–(4.1.16), (5.2.3)–(5.2.24), (10.1.8), (10.2.1)–(10.2.26), (10.3.6), (10.4.5)–(10.4.12))"
     doi: 10.1016/C2018-0-01168-8
+  - cite: "L. A. Lugiato, R. Lefever, Phys. Rev. Lett. 58, 2209 (1987) (Eqs. (1), (2), (4)–(6))"
+    doi: 10.1103/PhysRevLett.58.2209
+  - cite: "S. Coen, H. G. Randle, T. Sylvestre, M. Erkintalo, Opt. Lett. 38, 37 (2012) (Eq. (3); Fig. 2)"
+    doi: 10.1364/OL.38.000037
+  - cite: "T. Herr et al., Nat. Photonics 8, 145 (2013) (Eqs. (1)–(2); Methods)"
+    doi: 10.1038/nphoton.2013.343
+  - cite: "T. J. Kippenberg, A. L. Gaeta, M. Lipson, M. L. Gorodetsky, Science 361, eaan8083 (2018) (Eqs. (1)–(3))"
+    doi: 10.1126/science.aan8083
+  - cite: "M. H. P. Pfeiffer et al., Optica 3, 20 (2016) (pp. 23–24, the soliton's width)"
+    doi: 10.1364/OPTICA.3.000020
 validation:
   - nonlinear/sinc2-half-maximum
   - nonlinear/sinc2-length-squared
@@ -80,6 +90,11 @@ validation:
   - nonlinear/fwm-invariants
   - nonlinear/fwm-nlse-gain
   - nonlinear/fwm-sfwm-purity
+  - nonlinear/lle-homogeneous-lower
+  - nonlinear/lle-homogeneous-upper
+  - nonlinear/lle-instability-rate
+  - nonlinear/lle-split-step-order
+  - nonlinear/lle-coen-2012-duration
 ---
 
 A second- or third-order process converts light efficiently only when its waves stay in step:
@@ -100,7 +115,8 @@ The third-order processes take the same modes. `photonoxide::nonlinear::pulse` f
 along a Kerr guide by the nonlinear Schrödinger equation, its β₂, β₃, β₄ from the modes' index
 over wavelength and its γ from their effective area ([Pulses along a Kerr guide](#pulses-along-a-kerr-guide)).
 `photonoxide::nonlinear::fwm` gives four-wave mixing's gain and conversion
-([Four-wave mixing](#four-wave-mixing)).
+([Four-wave mixing](#four-wave-mixing)), and `photonoxide::nonlinear::resonator` Kerr
+microresonators by the Lugiato–Lefever equation ([Kerr microresonators](#kerr-microresonators)).
 
 ## Conventions
 
@@ -850,6 +866,134 @@ Foster et al. measured parametric gain in silicon guides 300 × 550 nm (Nature 4
 reproduction would need what the letter doesn't fully give: the cladding above the guide, the n₂
 it assumes (it cites (4–9) × 10⁻¹⁴ cm²/W), and the two-photon and free-carrier absorption its
 measured gain includes, which this module doesn't model yet. It is not a case.
+
+## Kerr microresonators
+
+`nonlinear::resonator` integrates the Lugiato–Lefever equation (LLE), the mean-field equation of a
+driven, damped Kerr cavity (L. A. Lugiato and R. Lefever, Phys. Rev. Lett. 58, 2209 (1987)), as it
+describes a microresonator's comb (T. J. Kippenberg et al., Science 361, eaan8083 (2018); S. Coen
+et al., Opt. Lett. 38, 37 (2012)).
+
+### Conventions
+
+- **The equation**, dimensionless: ∂ψ/∂τ = −(1 + iζ₀)ψ + i|ψ|²ψ + i ½∂²ψ/∂θ² + f. This is
+  Kippenberg et al.'s Eq. (3) and Lugiato and Lefever's Eq. (1) with E = ψ, E_I = f, θ_LL = ζ₀,
+  η = +1 and a = ½. τ = κt/2 is time in units of twice the photon lifetime; ζ₀ = 2Δ/κ the pump's
+  detuning from the cold resonance in half linewidths, positive with the pump redder; f the drive;
+  |ψ|² the power whose Kerr shift is half a linewidth.
+- **Modes.** ψ is sampled at n points around the ring, each spectral component a comb line μ
+  (μ > 0 bluer). Dispersion is each line's own detuning: dψ_μ/dτ = −(1 + i(ζ₀ + δ_μ))ψ_μ +
+  i[|ψ|²ψ]_μ + fδ_{μ0}, with δ_μ = 2D_int(μ)/κ, D_int(μ) = D₂μ²/2 + D₃μ³/6 + … the resonances'
+  departure from an equidistant comb (Kippenberg et al.'s Eq. (1)). With D₂ alone δ_μ = d₂μ²,
+  d₂ = D₂/κ.
+- **A ring from its waveguide** (`Ring`) is Coen et al.'s Eq. (3): round trip L and t_R, loss
+  α = α_i + θ/2 per round trip, coupling θ, detuning δ₀, the waveguide's γ and β_k, pump P_in. Then
+  ζ₀ = δ₀/α, f² = θγLP_in/α³, the power scale α/(γL), and δ_μ = −(L/α)Σβ_kΩ_μ^k/k!, Ω_μ = 2πμ/t_R:
+  the guide's `Dispersion` from its modes goes straight in.
+- **Split-step.** Strang splitting, each part exact: the linear one (loss, detuning, dispersion and
+  the drive) in each mode, ψ_μ ↦ e^{L_μh}ψ_μ plus f(e^{L₀h} − 1)/L₀ in mode 0, and the Kerr one,
+  ψ ↦ ψe^{i|ψ|²h}. Second order, its steady states too. The largest δ_μh must stay below π; above it
+  the scheme's own instability grows the outermost lines.
+
+### Steady states and bistability
+
+A uniform ψ is stationary where f² = X(1 + (X − ζ₀)²), X = |ψ|² (Lugiato and Lefever's Eq. (2)),
+ψ = f/(1 + i(ζ₀ − X)). Above ζ₀ = √3 the response is S shaped: between the turning points
+X = (2ζ₀ ∓ (ζ₀² − 3)^½)/3 three states share one drive, and the middle one is unstable. At ζ₀ = 3
+and f² = 4 the roots are 2 − √2, 2 and 2 + √2; the split-step settles on the lowest from ψ = 0 and
+on the highest from 1.2 times its field:
+
+| Steps over τ = 40 | Lower, 0.5857864 | Upper, 3.4142136 |
+|---|---|---|
+| 1600 | 6.1e-5 | 3.6e-4 |
+| 3200 | 1.5e-5 | 8.9e-5 |
+| 6400 | 3.8e-6 | 2.2e-5 |
+| 12 800 | 9.5e-7 | 5.6e-6 |
+
+Relative errors of the settled power: the steady state of the splitting is second order in the
+step (`nonlinear/lle-homogeneous-lower`, `-upper`, on 12 800).
+
+### Modulation instability
+
+A small perturbation of a uniform state in the lines ±μ grows as e^{λτ}, λ the larger root of
+λ² + 2λ + ζ = 0 with ζ = 1 + (X − ζ₀)(3X − ζ₀) + δ_μ(δ_μ − 2(2X − ζ₀)) (Lugiato and Lefever's
+Eq. (4), their a(n) our δ_μ). It is unstable for X > 1 between δ_μ = 2X − ζ₀ ∓ (X² − 1)^½ (their
+Eqs. (5)–(6)): where a comb starts. At ζ₀ = 1, X = 1.5, d₂ = 0.05 and μ = 5, λ = 0.2990381;
+measured between τ = 10 and 20 the split-step gives it to 8.5e-5, 2.1e-5, 5.3e-6 and 1.4e-6 on 800
+to 6400 steps each, second order (`nonlinear/lle-instability-rate`, `nonlinear/lle-split-step-order`).
+
+### Dissipative Kerr solitons
+
+Herr et al. (Nat. Photonics 8, 145 (2013), Eq. (1)) write the soliton as a sech of width
+(2(ω₀ − ω_p)/D₂)^{−½} in the angle around the ring on a CW background. Its amplitude follows from
+the same equation without loss and drive: i∂ψ/∂τ + ½ψ_θθ + |ψ|²ψ = ζ₀ψ has the stationary
+soliton (2ζ₀)^½ sech((2ζ₀)^½θ), Agrawal's Eq. (5.2.15) with η² = 2ζ₀. `Resonator::soliton` puts it
+on the lower uniform state, B sech(φ/W) e^{iφ₀}, B = (2ζ₀)^½, W = (d₂/ζ₀)^½. Its phase is ours: the
+drive must make up the soliton's loss of energy, 2∫|ψ|² = 2Re∫fψ* over the pulse to first order,
+which gives cos φ₀ = (8ζ₀)^½/(πf). That has a root only up to ζ₀ = π²f²/8 (`max_detuning`), the
+approximation's limit of the soliton's existence.
+
+The approximation against the soliton the split-step settles on, f = 3, d₂ = 0.004, 512 lines,
+followed up in ζ₀ from 8 (`peak_width` takes the FWHM of |ψ|² from the field's band-limited
+interpolation):
+
+| ζ₀ | Peak \|ψ\|², settled | Peak, the approximation | FWHM (rad), settled | FWHM, the approximation |
+|---|---|---|---|---|
+| 8 | 17.41 | 14.88 | 0.03693 | 0.03942 |
+| 9 | 19.09 | 17.17 | 0.03548 | 0.03716 |
+| 10 | 20.74 | 19.50 | 0.03423 | 0.03525 |
+| 11 | 22.17 | 22.06 | 0.03336 | 0.03361 |
+| 11.25 | decays to the CW state | none | | |
+
+π²f²/8 = 11.10: the settled soliton lasts to ζ₀ = 11 and is gone at 11.25. Inside, the
+approximation's peak lies 0.5 to 14.5 % below the settled one and its width 0.8 to 6.7 % above: at
+f = 3 the drive and the loss aren't small beside the soliton. With Coen et al.'s stronger drive
+below (f = 8.31) the width agrees to 0.7 %. None of this is a case: no paper in hand gives the
+approximation an accuracy to check it to.
+
+### Coen et al.'s resonator
+
+Coen et al. (Opt. Lett. 38, 37 (2012), Fig. 2 and p. 38) give a resonator whole: a critically
+coupled MgF₂ disc, FSR 18.2 GHz, γ = 0.032 /(W·km), β₂ = −13 ps²/km, α = θ = 1.75 × 10⁻⁵,
+P_in = 55.6 mW, L = 11.9 mm, δ₀ = 0.0012, and describe its comb's pulse as "a ∼400 fs duration
+pulse with a peak power of 100 mW atop a weak cw background". In our units ζ₀ = 68.57, f = 8.315,
+d₂ = 0.0578, and its loaded Q, ωt_R/2α, is 1.91 × 10⁹ against the caption's 1.90 × 10⁹. The
+soliton settled from the approximate one on 512 lines:
+
+| Step | FWHM (fs) | Peak power inside (W) | Out through the coupler, θ × peak (W) |
+|---|---|---|---|
+| 8 × 10⁻⁴ | 444.337 | 6365.8 | 0.1114 |
+| 4 × 10⁻⁴ | 444.356 | 6361.0 | 0.1113 |
+| 2 × 10⁻⁴ | 444.361 | 6359.8 | 0.1113 |
+| the approximation | 447.54 | 6247.1 | |
+| Coen et al. | ∼400 | 100 mW | |
+
+On 1024 lines (at 10⁻⁴, to keep δ_μh below π) the FWHM moves by less than 0.01 fs. Our 444.4 fs is
+within half a unit of the paper's one significant digit, ±50 fs (`nonlinear/lle-coen-2012-duration`);
+read to two digits, 400 would not hold. The paper's 100 mW is the pulse's peak "intracavity" power,
+but no soliton of this guide is that weak: a 400 fs soliton of β₂ = −13 ps²/km and γ = 0.032 /(W·km)
+needs |β₂|/(γT₀²) ≈ 7.9 kW. Our peak inside is 6.36 kW, and what leaves through the coupler, θ
+times it, is 0.111 W. The paper doesn't say which it plotted, so the power is not a case; it is
+listed with the gaps against papers.
+
+### Papers whose resonators aren't given whole: not reproduced
+
+- **Herr et al. 2013** (Nat. Photonics 8, 145, Methods): an MgF₂ resonator, FSR 35.2 GHz,
+  κ/2π ≈ 450 kHz, Q ≈ 4 × 10⁸, β₂ ≈ −9.39 ps²/km, D₂/2π ≈ 16 kHz, γ ≈ 4.1 × 10⁻⁴ /(W·m),
+  finesse "≈ 78 × 10⁴", and a single soliton of 200 fs. The coupled pump is given as a typical
+  5–30 mW, and the soliton's detuning not at all, so its width can't be computed. Their Eq. (2),
+  Δt_min ≈ 2(−β₂/(γFP_in))^½, is the approximation's shortest width: at critical coupling ours,
+  `Ring::minimum_soliton_width`, is 2 acosh(√2)(2/π)^½·(|β₂|/(γFP_in))^½ = 1.989(…)^½. Their
+  FSR over κ/2π is 7.8 × 10⁴, not the printed 78 × 10⁴: with 7.8 × 10⁴ and 30 mW the formula gives
+  198 fs, with the printed finesse and 5 mW, 153 fs.
+- **Pfeiffer et al. 2016** (Optica 3, 20, p. 24): a soliton width of 51.3 fs from P = 3.28 W,
+  F = 638, γ = 1.41 /(W·m) and β₂ = 1.95 fs²/m by the same formula. With β₂ as printed the
+  formula gives 0.0514 fs; 51.3 fs needs 1.94 × 10⁻²⁴ s²/m (1.94 fs²/µm), and this resonator's D₂
+  isn't printed, so the number can't be checked.
+- **Luke et al. 2013** (Opt. Express 21, 22829) is about thick nitride films and their Q, with no
+  comb or soliton to compare.
+- **Coen et al.'s octave comb** (their Fig. 3) gives its dispersion as a plotted curve
+  (Fig. 3(b)), not as numbers.
 
 ## Limits
 
