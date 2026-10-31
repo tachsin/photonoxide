@@ -399,6 +399,21 @@ in a drawer opened from the status bar.
   wavelength and inputs for the temperature and composition where a model has them; each
   model's equation and coefficients as its paper prints them; the crystal and its d and r
   tensors as matrices; and every paper a click away.
+  - **Nonlinear processes**, at the top of its list: a `"nonlinear"` job as a form (the process,
+    SHG, SFG, DFG, OPA, SPDC or FWM; the waveguide, a catalogue crystal, effective indices given
+    as tables, or a ridge whose modes are solved; the poling, its period given or designed; the
+    pump and the signal; the map's axes), with a few starting points. **Compute** runs it in
+    place and draws its setup (the waves and their indices, Δk₀ and the coherence length, the
+    grating, η and where it comes from, the acceptance bandwidths, notes such as a wave outside
+    its material's window), the phase-matching map (sinc²(ΔkL/2) or Δk against the tuned wave's
+    wavelength and the temperature or the ridge's width), the efficiency along the length, and
+    the pairs' joint spectral amplitude with their purity; **Run as a job** keeps its record and
+    its files (`nonlinear.json`, `phase_map.csv`, `efficiency.csv`, `pair_spectrum.csv`)
+    in the runs drawer, the run view drawing the same charts. Below, every material's
+    transparency window as a band over wavelength (the band and multiphonon edges with their
+    sources, faint where no paper in hand gives one, two-photon absorption below twice the band
+    edge's wavelength, the range of the index data), at a temperature and the alloys'
+    compositions, the process's wavelengths marked on top.
 - **Validation** (in System), in two tabs:
   - **Cases:** the release's report, searchable, its math rendered, and the same report run on
     this machine.
@@ -798,7 +813,8 @@ node scripts/record-gifs.mjs --only hero,academy  # some: hero, device, material
     job, circuit and run has its home in them.
   - `examples.rs`: the examples and jobs built in.
   - `settings.rs`: the settings and the workspace.
-  - `materials.rs`: the Materials page's commands.
+  - `materials.rs`: the Materials page's commands; `nonlinear.rs` its nonlinear view's (a
+    `"nonlinear"` job computed in place, and every material's transparency window).
   - `circuits.rs`: the Components and Chip pages' commands, and chip files; `circuits/chip.rs`
     an instance's device design and the chip's jobs (the library's chip of a chip file, the
     Study and Optimize panels' jobs, a chip's job opened on the page); `circuits/library.rs`

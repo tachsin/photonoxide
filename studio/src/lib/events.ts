@@ -753,8 +753,87 @@ export interface StaticFrame {
   raster: Raster;
 }
 
+/** A wave of a nonlinear process (photonoxide::job::NonlinearWave). */
+export interface NonlinearWave {
+  /** "fundamental", "harmonic", "pump", "signal", "idler", "first", "second" or "sum". */
+  role: string;
+  wavelength_um: number;
+  /** Its (effective) index at the operating point. */
+  index: number;
+  /** A ridge mode's group index. */
+  group_index: number | null;
+  /** A ridge mode's family ("te", "tm") or a crystal's axis. */
+  polarization: string | null;
+  /** Its power in, mW, if it is an input. */
+  power_mw: number | null;
+}
+
+/** An acceptance bandwidth: Fejer et al.'s linear estimate, and the width found numerically. */
+export interface Accepted {
+  estimate: number;
+  numerical: number | null;
+}
+
+/** A nonlinear job's process as set up (photonoxide::job::NonlinearSetup). */
+export interface NonlinearSetup {
+  process: "shg" | "sfg" | "dfg" | "opa" | "spdc" | "fwm";
+  waveguide: "crystal" | "n_eff" | "ridge";
+  about: string;
+  waves: NonlinearWave[];
+  /** The tuned wave's role: the map's wavelength axis is its. */
+  tuned: string;
+  length_mm: number;
+  temperature_c: number;
+  /** Δk₀ without the grating, rad/µm. */
+  mismatch_per_um: number;
+  coherence_length_um: number;
+  grating: { period_um: number; order: number; duty: number; fourier_coefficient: number; designed: boolean } | null;
+  /** Δk with the grating, rad/µm. */
+  residual_per_um: number;
+  response: number;
+  efficiency_percent_per_w_cm2: number | null;
+  overlap_percent_per_w_cm2: number | null;
+  efficiency_from: string;
+  gamma_per_w_m: number | null;
+  wavelength_acceptance_nm: Accepted | null;
+  temperature_acceptance_k: Accepted | null;
+  matched_um: number | null;
+  notes: string[];
+}
+
+/** A nonlinear job's phase-matching map (photonoxide::job::PhaseMap): rows across, columns in wavelength. */
+export interface PhaseMap {
+  tuned: string;
+  wavelengths_um: number[];
+  across: "width_um" | "temperature_c" | null;
+  across_values: number[];
+  mismatch_per_um: (number | null)[];
+  response: (number | null)[];
+}
+
+/** What a nonlinear process gives along its length (photonoxide::job::EfficiencyCurve). */
+export interface EfficiencyCurve {
+  lengths_mm: number[];
+  series: { label: string; unit: string; values: (number | null)[] }[];
+}
+
+/** Photon pairs' joint spectral amplitude (photonoxide::job::PairSpectrum): |f| row by row, a row per signal wavelength. */
+export interface PairSpectrum {
+  signal_um: number[];
+  idler_um: number[];
+  amplitude: number[];
+  purity: number;
+  schmidt_number: number;
+  pump_bandwidth_nm: number;
+  matching: string;
+}
+
 export type Event =
   | { type: "started"; job: string; kind: string }
+  | { type: "nonlinear_setup"; setup: NonlinearSetup }
+  | { type: "phase_map"; map: PhaseMap }
+  | { type: "nonlinear_efficiency"; curve: EfficiencyCurve }
+  | { type: "pair_spectrum"; spectrum: PairSpectrum }
   | ChipEvent
   | ChipStudy
   | ChipPoint

@@ -274,6 +274,11 @@ export const api = {
     invoke<MaterialCurve[]>("material_curves", { id, modelId, temperature, composition, points }),
   materialAt: (id: string, modelId: string, temperature: number | null, composition: number | null, wavelength: number) =>
     invoke<MaterialPoint[]>("material_at", { id, modelId, temperature, composition, wavelength }),
+  /** A "nonlinear" job computed in place: the events its run records (nonlinear.rs). */
+  nonlinearCompute: (text: string, format: JobFormat = formatOfText(text)) => invoke<Event[]>("nonlinear_compute", { text, format }),
+  /** Every catalogue material's transparency window at a temperature (K), AlGaAs and AlGaN at their Al fractions. */
+  transparencyWindows: (temperatureK: number | null, algaasX: number | null, alganX: number | null) =>
+    invoke<TransparencyWindow[]>("transparency_windows", { temperatureK, algaasX, alganX }),
   componentLibrary: () => invoke<KindInfo[]>("component_library"),
   componentSpectrum: (part: Part, values: number[], sweep: Sweep) => invoke<SpectrumData>("component_spectrum", { part, values, sweep }),
   measuredComponent: (path: string, convention: TimeConvention) => invoke<KindInfo>("measured_component", { path, convention }),
@@ -401,7 +406,28 @@ export const KINDS: Record<string, { label: string; about: string }> = {
   fdtd: { label: "FDTD", about: "a structure stepped in time by FDTD, in 2D or 3D: the field live, spectra and resonances" },
   static: { label: "Static", about: "a cross-section's heat, electrostatics or current by the static solver: its field and its numbers" },
   device: { label: "Device", about: "a device's design, its own model at a fidelity (its figures and S-parameters), a study of it, or its optimization" },
+  nonlinear: { label: "Nonlinear", about: "a second- or third-order process in a crystal or a guide: its phase matching, its efficiency along the length and its photon pairs" },
 };
+
+/** One edge of a transparency window (photonoxide::material::catalogue::Edge): its wavelength, or why there is none. */
+export interface TransparencyEdge {
+  wavelength: number | null;
+  how: string;
+  source: Source | null;
+}
+
+/** A material's transparency window (nonlinear.rs's Window). */
+export interface TransparencyWindow {
+  id: string;
+  name: string;
+  formula: string;
+  category: string;
+  composition: number | null;
+  band_edge: TransparencyEdge;
+  two_photon: TransparencyEdge;
+  multiphonon: TransparencyEdge;
+  index_range: [number, number];
+}
 
 // The materials catalogue (photonoxide::material::catalogue), as the program serializes it.
 

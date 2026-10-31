@@ -9,6 +9,7 @@
   import "katex/dist/katex.min.css";
 
   import MathText from "../components/MathText.svelte";
+  import NonlinearView from "../components/nonlinear/NonlinearView.svelte";
   import Plot from "../components/Plot.svelte";
   import Tip from "../components/Tip.svelte";
   import UnitChip from "../components/UnitChip.svelte";
@@ -25,7 +26,7 @@
     type Tensor,
   } from "../lib/api";
   import type { Series } from "../lib/plot";
-  import { loadMaterials, materials } from "../lib/materials.svelte";
+  import { loadMaterials, materials, NONLINEAR } from "../lib/materials.svelte";
   import { len, lenUnit, shown as inUnit, stored } from "../lib/units";
 
   let modelId = $state<string | null>(null);
@@ -234,7 +235,9 @@
 <div class="h-full">
   <!-- the material -->
   <div class="h-full min-h-0 overflow-y-auto">
-    {#if entry}
+    {#if materials.chosen === NONLINEAR}
+      <NonlinearView />
+    {:else if entry}
       <div class="glow border-b border-base-content/8 px-4 py-5 sm:px-8 sm:py-6">
         <div class="flex items-start gap-4">
           <div class="hidden size-12 shrink-0 place-items-center rounded-2xl bg-primary/12 text-primary sm:grid"><Atom size={24} /></div>

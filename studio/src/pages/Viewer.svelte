@@ -59,13 +59,13 @@
     }
   });
 
-  // an FDTD run opens on its field in time, which the 2D view plays, and a static run on its field; a device's model on its
+  // an FDTD run opens on its field in time, which the 2D view plays, a static run on its field and a nonlinear one on its charts; a device's model on its
   // S-parameters and figures, an optimization on its convergence. Inside a device's page the view
   // stays on the device, in 3D: the page's panel has the plots.
   let shownFdtd = -1;
   $effect(() => {
     const g = run.info?.generation ?? -1;
-    if (!embedded && (run.job?.kind === "fdtd" || run.job?.kind === "static" || run.device || run.optimization) && g !== shownFdtd) {
+    if (!embedded && (run.job?.kind === "fdtd" || run.job?.kind === "static" || run.job?.kind === "nonlinear" || run.device || run.optimization) && g !== shownFdtd) {
       shownFdtd = g;
       view = "2d";
     }
@@ -289,7 +289,7 @@
         <!-- how far the sweep is -->
         <div class="absolute bottom-0 left-0 h-0.5 bg-primary transition-[width] duration-300" style="width: {(100 * points) / Math.max(axis.total, 1)}%" role="progressbar" aria-valuenow={points} aria-valuemin={0} aria-valuemax={axis.total} aria-label="The sweep's points solved"></div>
       {/if}
-      {#if run.job && run.job.kind !== "structure" && run.job.kind !== "static" && (run.job.kind !== "device" || run.device)}
+      {#if run.job && run.job.kind !== "structure" && run.job.kind !== "static" && run.job.kind !== "nonlinear" && (run.job.kind !== "device" || run.device)}
         <button class="btn btn-ghost btn-sm shrink-0 gap-1.5 {narrow ? 'btn-square' : ''}" aria-label="Solver" onclick={() => (solving = true)} title="The solver this run uses, its grid, each solve's numerical error, and the method's equations and papers">
           <Cpu size={14} />{#if !narrow} Solver{/if}
         </button>

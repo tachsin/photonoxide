@@ -4,6 +4,7 @@ import { api, type AppState, type Info, type JobFormat, type Settings } from "./
 import type { ChipEvent, CompactFit, CompactPlan, ChipPoint, ChipStudy, DeviceModel, DevicePoint, DeviceStudy, Evaluation, Event, FdtdFrame, FdtdProgress, FdtdResonances, FdtdSpectrum, Field, Front, Mode, ModeField, ModeLoss, Optimization, Optimum, Permittivity, Scene, ScenePort, Shape, SolveError, Solver, SParameters, StaticField, StaticFrame, StaticResult, StaticStep, Sweep, SweepField, SweepMode, SweepPermittivity, SweepPoint } from "./events";
 import { template, type Kind } from "./job";
 import type { Looks } from "./layers";
+import type { NonlinearResult } from "./nonlinear";
 import { themeName } from "./themes";
 
 /**
@@ -255,6 +256,8 @@ export const run = $state({
   staticSteps: [] as StaticStep[],
   /** A static job's pictures of its temperature in time, as recorded when its transient asks for frames. */
   staticFrames: [] as StaticFrame[],
+  /** A nonlinear job's setup, phase-matching map, efficiency along the length and pairs. */
+  nonlinear: { setup: null, map: null, efficiency: null, pairs: null } as NonlinearResult,
   /** The FDTD frame shown, or null to follow the latest. */
   frame: null as number | null,
   finished: null as { stopped: string | null; seconds: number } | null,
@@ -458,6 +461,18 @@ function take(e: Event) {
     case "static_frame":
       run.staticFrames.push(e);
       break;
+    case "nonlinear_setup":
+      run.nonlinear.setup = e.setup;
+      break;
+    case "phase_map":
+      run.nonlinear.map = e.map;
+      break;
+    case "nonlinear_efficiency":
+      run.nonlinear.efficiency = e.curve;
+      break;
+    case "pair_spectrum":
+      run.nonlinear.pairs = e.spectrum;
+      break;
     case "finished":
       run.finished = { stopped: e.stopped, seconds: e.seconds };
       // a sweep followed to its end settles on the field the job asks for (its field_um: a
@@ -520,6 +535,7 @@ function reset(info: Info) {
     staticResult: null,
     staticSteps: [],
     staticFrames: [],
+    nonlinear: { setup: null, map: null, efficiency: null, pairs: null },
     frame: null,
     finished: null,
     problem: null,

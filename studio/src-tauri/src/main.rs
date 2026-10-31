@@ -24,6 +24,7 @@ mod materials;
 mod media;
 #[cfg(test)]
 mod navigation;
+mod nonlinear;
 mod optimize;
 mod runner;
 mod settings;
