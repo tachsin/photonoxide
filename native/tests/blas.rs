@@ -18,13 +18,13 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use num_complex::Complex64 as c64;
-use rayon::prelude::*;
 use photonoxide::backend::dense::{Block, BlockMut, DenseKernels, Faer, Product, with_kernels};
 use photonoxide::backend::{self, Choice, DirectSolver, Form, Matrix};
 use photonoxide::bench::catalogue::entry;
 use photonoxide::bench::export;
 use photonoxide_native::blas::{Integers, Provider, Style, Want};
 use photonoxide_native::{Blas, blas, offer, smoke_test};
+use rayon::prelude::*;
 
 /// The libraries found, those required among them.
 fn libraries() -> Vec<Arc<Blas>> {
