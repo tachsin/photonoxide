@@ -1,0 +1,23 @@
+Setup
+  resonator: Coen et al.'s MgF2 disc, critically coupled (their Fig. 2)
+  round trip: 11.9 mm, FSR 18.2 GHz
+  loss and coupling: alpha = theta = 1.75e-5
+  waveguide: gamma 0.032 /(W km), beta2 -13 ps^2/km
+  pump: 55.6 mW, detuning 0.0012 rad per round trip
+  normalized: zeta0 68.5714, f 8.3147, d2 5.7800e-2
+  wavelength: 1.55 µm
+  grid: 512 modes; split-step of 0.0004 and 0.0002 in normalized time
+  solver: the Lugiato-Lefever equation by split-step from the approximate soliton, settled to 1e-10 of the peak per unit time
+  tolerance: 50 fs: half a unit of the one digit of '~400 fs'
+  materials:
+    MgF2: not in the model: the paper's gamma, beta2 and losses are the whole resonator
+
+Coen et al. 2012's single soliton (Fig. 2) by the Lugiato-Lefever equation
+
+  FWHM 444.4 fs on the coarser step, 444.4 fs on the finer; peak inside 6.36 kW
+  our own error, the two steps' difference: 0.00 fs
+
+  soliton FWHM (fs)                    444.400000   paper 400        ± 5e1       ok
+
+  The paper's '~400 fs' is read as one significant digit; 444 fs passes only so (#595).
+all 1 within tolerance of the paper

@@ -1,0 +1,66 @@
+Setup
+  crystal: congruent LiNbO3, Edwards and Lawrence's n_o(T) and n_e(T); lithium-rich, Jundt et al.'s, for dT at 0.86 um (footnote f)
+  device: 1 mm, first-order QPM at a 50 % duty cycle, 25 °C
+  thermal expansion: Jundt's along the grating, 1.54e-5 /K and 5.3e-9 /K^2
+  processes: SHG of 0.86, 1.064 and 2.12 um: d31 (o + o -> e), d33 (e + e -> e), d22 (o + o -> o)
+  solver: the mismatch from the indices; Fejer's linear estimate Eq. (25), the noncritical Eq. (41), Eq. (A1.9), or the half-maximum points found numerically
+  tolerance: half a unit of each value's last printed digit
+  materials:
+    LiNbO3: Edwards & Lawrence 1984: edwards-lawrence-1984
+    LiNbO3, lithium-rich: Jundt, Fejer & Byer 1990: jundt-1990
+
+Fejer et al. 1992's Table I, the QPM rows, from the indices it was computed with
+
+  0.86 um d31 l_c (um)                   4.255490   paper 4.26       ± 5e-3      ok
+  0.86 um d33 l_c (um)                   1.667960   paper 1.67       ± 5e-3      ok
+  0.86 um d22 l_c (um)                   1.423180   paper 1.42       ± 5e-3      ok
+  1.064 um d33 l_c (um)                  3.401240   paper 3.4        ± 5e-3      ok
+  1.064 um d22 l_c (um)                  2.923210   paper 2.92       ± 5e-3      ok
+  2.12 um d31 l_c (um)                  14.417300   paper 14.4       ± 5e-2      ok
+  2.12 um d22 l_c (um)                  13.442800   paper 13.4       ± 5e-2      ok
+  0.86 um d31 dlambda (nm)               0.892178   paper 0.89       ± 5e-3      ok
+  0.86 um d33 dlambda (nm)               0.715429   paper 0.72       ± 5e-3      ok
+  0.86 um d22 dlambda (nm)               0.601958   paper 0.6        ± 5e-3      ok
+  1.064 um d31 dlambda (nm)              3.111400   paper 3.11       ± 5e-3      ok
+  1.064 um d33 dlambda (nm)              2.035970   paper 2.04       ± 5e-3      ok
+  1.064 um d22 dlambda (nm)              1.738520   paper 1.74       ± 5e-3      ok
+  2.12 um d33 dlambda (nm)              61.574000   paper 62         ± 5e-1      ok
+  2.12 um d22 dlambda (nm)              54.654500   paper 55         ± 5e-1      ok
+  0.86 um d31 dT (K)                     5.963430   paper 6          ± 5e-2      ok
+  0.86 um d33 dT (K)                    13.716600   paper 13.7       ± 5e-2      ok
+  1.064 um d31 dT (K)                    9.446750   paper 9.4        ± 5e-2      ok
+  1.064 um d33 dT (K)                   25.770400   paper 25.8       ± 5e-2      ok
+  1.064 um d22 dT (K)                   64.155800   paper 64         ± 5e-1      ok
+  2.12 um d31 dT (K)                    27.534300   paper 27.5       ± 5e-2      ok
+  2.12 um d33 dT (K)                   192.680000   paper 193        ± 5e-1      ok
+  2.12 um d22 dT (K)                   379.141000   paper 379        ± 5e-1      ok
+  0.86 um d31 dtheta c (mrad)          175.605000   paper 176        ± 5e-1      ok
+  0.86 um d33 dtheta c (mrad)          111.907000   paper 112        ± 5e-1      ok
+  0.86 um d22 dtheta c (mrad)          103.750000   paper 104        ± 5e-1      ok
+  1.064 um d31 dtheta c (mrad)         958.749000   paper 959        ± 5e-1      ok
+  1.064 um d31 dtheta c (mrad), numerical   916.056000   paper 916        ± 5e-1 ok
+  1.064 um d33 dtheta c (mrad)         158.049000   paper 158        ± 5e-1      ok
+  1.064 um d22 dtheta c (mrad)         146.839000   paper 147        ± 5e-1      ok
+  2.12 um d31 dtheta c (mrad)          316.961000   paper 317        ± 5e-1      ok
+  2.12 um d33 dtheta c (mrad)          337.178000   paper 337        ± 5e-1      ok
+  2.12 um d22 dtheta c (mrad)          311.422000   paper 311        ± 5e-1      ok
+  0.86 um d31 dtheta d (mrad)           79.388600   paper 79         ± 5e-1      ok
+  0.86 um d33 dtheta d (mrad)          102.833000   paper 103        ± 5e-1      ok
+  0.86 um d22 dtheta d (mrad)          103.750000   paper 104        ± 5e-1      ok
+  1.064 um d33 dtheta d (mrad)         145.694000   paper 146        ± 5e-1      ok
+  1.064 um d22 dtheta d (mrad)         146.839000   paper 147        ± 5e-1      ok
+  2.12 um d31 dtheta d (mrad), numerical   182.867000   paper 183        ± 5e-1  ok
+  2.12 um d33 dtheta d (mrad)          306.200000   paper 306        ± 5e-1      ok
+  2.12 um d22 dtheta d (mrad)          311.422000   paper 311        ± 5e-1      ok
+
+  Not reproduced to half a digit, so not checked (docs/methods/nonlinear.md):
+  1.064 um d31 l_c (um)                   129.581   paper 129
+  2.12 um d33 l_c (um)                     15.792   paper 15.6
+  2.12 um d31 dlambda (nm)                 40.811   paper 40
+  0.86 um d22 dT (K)                       17.348   paper 17.4
+  2.12 um d33 dT (K), numerical           outside   paper 203
+  2.12 um d22 dT (K), numerical           outside   paper 455
+  1.064 um d31 dtheta d (mrad)            102.450   paper 103
+  2.12 um d31 dtheta d (mrad)             176.755   paper 139
+
+all 41 within tolerance of the paper

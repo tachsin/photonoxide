@@ -392,50 +392,291 @@ impl Guide {
         steps: usize,
         snapshots: usize,
     ) -> Result<Vec<Pulse>> {
-        if !(length.is_finite() && length >= 0.0)
-            || steps == 0
-            || snapshots == 0
-            || !steps.is_multiple_of(snapshots)
-            || !(self.gamma.is_finite() && self.loss.is_finite())
+        evolve(self, None, pulse, length, steps, snapshots)
+    }
+
+    /// The same guide with two-photon absorption, and the free carriers it makes if
+    /// `absorption` has them (Lin, Painter and Agrawal 2007).
+    pub fn with_two_photon(self, absorption: TwoPhoton) -> AbsorbingGuide {
+        AbsorbingGuide {
+            guide: self,
+            absorption,
+        }
+    }
+}
+
+/// The split-step of [`Guide::evolution`], with two-photon absorption and free carriers if
+/// `absorption` is given.
+fn evolve(
+    guide: &Guide,
+    absorption: Option<&TwoPhoton>,
+    pulse: &Pulse,
+    length: f64,
+    steps: usize,
+    snapshots: usize,
+) -> Result<Vec<Pulse>> {
+    if !(length.is_finite() && length >= 0.0)
+        || steps == 0
+        || snapshots == 0
+        || !steps.is_multiple_of(snapshots)
+        || !(guide.gamma.is_finite() && guide.loss.is_finite())
+    {
+        return Err(Error::invalid(
+            "propagation",
+            format!(
+                "needs a finite length ≥ 0, finite γ and loss, and steps a multiple of the snapshots, got {length} m, {steps} steps, {snapshots} snapshots"
+            ),
+        ));
+    }
+    if let Some(t) = absorption {
+        t.check()?;
+    }
+    let n = pulse.field.len();
+    let fft = Fft::new(n)?;
+    let h = length / steps as f64;
+    let omegas = pulse.frequencies();
+    let linear = |dz: f64| -> Vec<c64> {
+        omegas
+            .iter()
+            .map(|&w| c64::new(-0.5 * guide.loss * dz, guide.dispersion.phase(w) * dz).exp())
+            .collect()
+    };
+    let (half, full) = (linear(0.5 * h), linear(h));
+    let nonlinear = Nonlinear::new(guide, absorption, pulse.step, &omegas, &fft);
+    let mut a = pulse.field.clone();
+    let mut out = Vec::with_capacity(snapshots);
+    let per = steps / snapshots;
+    apply_linear(&fft, &mut a, &half);
+    for s in 0..steps {
+        nonlinear.step(&mut a, h);
+        let last = (s + 1) % per == 0;
+        apply_linear(&fft, &mut a, if last { &half } else { &full });
+        if last {
+            out.push(Pulse {
+                step: pulse.step,
+                field: a.clone(),
+            });
+            if s + 1 < steps {
+                apply_linear(&fft, &mut a, &half);
+            }
+        }
+    }
+    Ok(out)
+}
+
+// ---------------------------------------------------------------------------------------------
+// Two-photon and free-carrier absorption
+// ---------------------------------------------------------------------------------------------
+
+/// The reduced Planck constant, J·s.
+pub(crate) const HBAR: f64 = 1.054_571_817e-34;
+
+/// The free carriers that two-photon absorption makes, and what they do to the guide's mode
+/// (Lin, Painter and Agrawal 2007, Eqs. (20), (33), (36) and (48)): they absorb, α_f = σ_a N,
+/// and lower the index, n_f = σ_n N, each felt by the mode times n₀/n, the material's index
+/// over the mode's; they recombine, diffuse and drift away with one effective lifetime τ₀.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct FreeCarriers {
+    /// σ_a, m²: the carriers' absorption per carrier.
+    pub absorption: f64,
+    /// σ_n, m³: their index change per carrier (negative: the index falls).
+    pub index: f64,
+    /// τ₀, ps: the effective lifetime; `f64::INFINITY` for carriers that stay over the window.
+    pub lifetime: f64,
+    /// n₀/n: the material's index over the mode's effective index (Lin Eq. (33)).
+    pub index_ratio: f64,
+}
+
+impl FreeCarriers {
+    /// Silicon's at `wavelength_um` (Lin Eq. (20)): σ_a = 1.45 × 10⁻²¹ m² and σ_n =
+    /// −5.3 × 10⁻²⁷ m³ at 1.55 µm, each scaled by (λ/1.55 µm)² (∝ 1/ω², the Drude model's,
+    /// Eqs. (16)–(17)); σ_n takes the holes' share as five times the electrons', which Lin et al.
+    /// take for densities from 10¹⁶ to 10¹⁷ cm⁻³. `lifetime_ps` is τ₀ and `index_ratio` n₀/n.
+    pub fn silicon(wavelength_um: f64, lifetime_ps: f64, index_ratio: f64) -> FreeCarriers {
+        let scale = (wavelength_um / 1.55).powi(2);
+        FreeCarriers {
+            absorption: 1.45e-21 * scale,
+            index: -5.3e-27 * scale,
+            lifetime: lifetime_ps,
+            index_ratio,
+        }
+    }
+}
+
+/// Two-photon absorption in a guide, and optionally the free carriers it makes (Lin, Painter
+/// and Agrawal 2007, Eqs. (40) and (47)–(49)).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct TwoPhoton {
+    /// β_T, m/W: the material's two-photon absorption coefficient (dI/dz = −β_T I²; the
+    /// catalogue's [`crate::material::catalogue::KerrQuantity::TwoPhotonAbsorption`]).
+    pub coefficient: f64,
+    /// ā, m²: the mode's effective area, which turns β_T into the guide's β_T/ā, 1/(W·m)
+    /// (Lin Eq. (40)); a mode's [`crate::mode::fields::Fields`] give it.
+    pub area: f64,
+    /// The free carriers, or none.
+    pub carriers: Option<FreeCarriers>,
+}
+
+impl TwoPhoton {
+    fn check(&self) -> Result<()> {
+        let carriers_ok = self.carriers.is_none_or(|c| {
+            c.absorption.is_finite()
+                && c.absorption >= 0.0
+                && c.index.is_finite()
+                && c.lifetime > 0.0
+                && !c.lifetime.is_nan()
+                && c.index_ratio.is_finite()
+                && c.index_ratio > 0.0
+        });
+        if !(self.coefficient.is_finite()
+            && self.coefficient >= 0.0
+            && self.area.is_finite()
+            && self.area > 0.0
+            && carriers_ok)
         {
             return Err(Error::invalid(
-                "propagation",
+                "two-photon absorption",
                 format!(
-                    "needs a finite length ≥ 0, finite γ and loss, and steps a multiple of the snapshots, got {length} m, {steps} steps, {snapshots} snapshots"
+                    "needs β_T ≥ 0, a positive area, and carriers with σ_a ≥ 0, a finite σ_n, a positive lifetime and n₀/n, got β_T {} m/W, area {} m²",
+                    self.coefficient, self.area
                 ),
             ));
         }
-        let n = pulse.field.len();
-        let fft = Fft::new(n)?;
-        let h = length / steps as f64;
-        let omegas = pulse.frequencies();
-        let linear = |dz: f64| -> Vec<c64> {
-            omegas
-                .iter()
-                .map(|&w| c64::new(-0.5 * self.loss * dz, self.dispersion.phase(w) * dz).exp())
-                .collect()
+        Ok(())
+    }
+
+    /// β_T/(2ā), 1/(W·m): the amplitude's two-photon loss rate per watt.
+    fn rate(&self) -> f64 {
+        0.5 * self.coefficient / self.area
+    }
+}
+
+/// A Kerr guide with two-photon absorption, and the free carriers it makes: the NLSE of
+/// [`Guide`] with Lin et al.'s Eq. (37) terms,
+/// ∂A/∂z = … + iγ|A|²A − (β_T/2ā)|A|²A + (n₀/n)(ik₀σ_n − σ_a/2) N A, and the carriers along the
+/// pulse,
+/// ∂N/∂T = β_T|A|⁴/(2ħω₀ā²) − N/τ₀ (Eqs. (36) and (48)), from none at the window's start: the
+/// window must start before the pulse, as Lin's Eq. (49) starts at −∞, and a train's carriers
+/// left from earlier pulses aren't held.
+#[derive(Clone, Debug, PartialEq)]
+pub struct AbsorbingGuide {
+    /// The guide: its dispersion, γ, linear loss, and self-steepening and Raman if any.
+    pub guide: Guide,
+    /// The two-photon absorption and its carriers.
+    pub absorption: TwoPhoton,
+}
+
+impl AbsorbingGuide {
+    /// The pulse after `length` m on `steps` split steps. With two-photon absorption alone (no
+    /// carriers, Raman or self-steepening) the nonlinear step is exact (Lin Eqs. (60)–(61) over
+    /// the step); otherwise it is RK4, the carriers taken again at each stage.
+    ///
+    /// # Errors
+    ///
+    /// As [`Guide::propagate`], and [`Error::InvalidValue`] for absorption that isn't
+    /// [`TwoPhoton`]'s.
+    pub fn propagate(&self, pulse: &Pulse, length: f64, steps: usize) -> Result<Pulse> {
+        Ok(self
+            .evolution(pulse, length, steps, 1)?
+            .pop()
+            .unwrap_or_else(|| pulse.clone()))
+    }
+
+    /// The pulse at `snapshots` points equally spaced to `length`, as [`Guide::evolution`].
+    ///
+    /// # Errors
+    ///
+    /// As [`AbsorbingGuide::propagate`] and [`Guide::evolution`].
+    pub fn evolution(
+        &self,
+        pulse: &Pulse,
+        length: f64,
+        steps: usize,
+        snapshots: usize,
+    ) -> Result<Vec<Pulse>> {
+        evolve(
+            &self.guide,
+            Some(&self.absorption),
+            pulse,
+            length,
+            steps,
+            snapshots,
+        )
+    }
+
+    /// The carrier density N(T_j) (m⁻³) the pulse leaves along itself (Lin Eq. (49)), zero
+    /// without carriers.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::InvalidValue`] for absorption that isn't [`TwoPhoton`]'s.
+    pub fn carriers(&self, pulse: &Pulse) -> Result<Vec<f64>> {
+        self.absorption.check()?;
+        let power = pulse.power();
+        Ok(
+            match CarrierModel::new(&self.absorption, &self.guide, pulse.step) {
+                Some(m) => m.density(&power),
+                None => vec![0.0; power.len()],
+            },
+        )
+    }
+}
+
+/// The carriers as the nonlinear step uses them.
+struct CarrierModel {
+    /// β_T/(2ħω₀ā²) × 10⁻¹², 1/(m³·ps·W²): the generation per |A|⁴.
+    generation: f64,
+    /// τ₀, ps.
+    lifetime: f64,
+    /// δT, ps.
+    step: f64,
+    /// (n₀/n)σ_a/2, m²: the amplitude's absorption per carrier.
+    absorption: f64,
+    /// (n₀/n)k₀σ_n, m²: the phase per carrier.
+    phase: f64,
+}
+
+impl CarrierModel {
+    fn new(t: &TwoPhoton, guide: &Guide, step: f64) -> Option<CarrierModel> {
+        let c = t.carriers?;
+        let w0 = guide.dispersion.omega() * 1e12; // rad/s
+        let k0 = TAU / (guide.dispersion.wavelength() * 1e-6);
+        Some(CarrierModel {
+            generation: t.coefficient / (2.0 * HBAR * w0 * t.area * t.area) * 1e-12,
+            lifetime: c.lifetime,
+            step,
+            absorption: 0.5 * c.index_ratio * c.absorption,
+            phase: c.index_ratio * k0 * c.index,
+        })
+    }
+
+    /// N(T_j) from the powers |A(T_j)|², by the exact solution of ∂N/∂T = G − N/τ₀ with the
+    /// generation G linear between samples (the trapezoidal rule without recombination).
+    fn density(&self, power: &[f64]) -> Vec<f64> {
+        let d = self.step;
+        let w = d / self.lifetime;
+        let decay = (-w).exp();
+        // ∫₀^δ e^{−(δ−s)/τ} ds and ∫₀^δ e^{−(δ−s)/τ} s ds / δ
+        let (flat, ramp) = if w < 1e-3 {
+            (
+                d * (1.0 - w / 2.0 + w * w / 6.0 - w * w * w / 24.0),
+                d * (0.5 - w / 6.0 + w * w / 24.0 - w * w * w / 120.0),
+            )
+        } else {
+            let one = -(-w).exp_m1();
+            (self.lifetime * one, self.lifetime * (1.0 - one / w))
         };
-        let (half, full) = (linear(0.5 * h), linear(h));
-        let nonlinear = Nonlinear::new(self, &omegas, &fft);
-        let mut a = pulse.field.clone();
-        let mut out = Vec::with_capacity(snapshots);
-        let per = steps / snapshots;
-        apply_linear(&fft, &mut a, &half);
-        for s in 0..steps {
-            nonlinear.step(&mut a, h);
-            let last = (s + 1) % per == 0;
-            apply_linear(&fft, &mut a, if last { &half } else { &full });
-            if last {
-                out.push(Pulse {
-                    step: pulse.step,
-                    field: a.clone(),
-                });
-                if s + 1 < steps {
-                    apply_linear(&fft, &mut a, &half);
-                }
-            }
+        let mut n = Vec::with_capacity(power.len());
+        let mut value = 0.0;
+        let mut g_prev = self.generation * power.first().map_or(0.0, |p| p * p);
+        n.push(0.0);
+        for p in power.iter().skip(1) {
+            let g = self.generation * p * p;
+            value = decay * value + g_prev * flat + (g - g_prev) * ramp;
+            n.push(value);
+            g_prev = g;
         }
-        Ok(out)
+        n
     }
 }
 
@@ -449,7 +690,8 @@ fn apply_linear(fft: &Fft, a: &mut [c64], factor: &[c64]) {
     fft.forward(a);
 }
 
-/// The nonlinear step: exact for the Kerr term alone, RK4 otherwise.
+/// The nonlinear step: exact for the Kerr term alone, with two-photon absorption or without,
+/// RK4 otherwise.
 struct Nonlinear<'a> {
     gamma: f64,
     fft: &'a Fft,
@@ -457,10 +699,20 @@ struct Nonlinear<'a> {
     shock: Option<Vec<f64>>,
     /// f_R and h̃_R(Ω), with Raman
     raman: Option<(f64, Vec<c64>)>,
+    /// β_T/(2ā), 1/(W·m): 0 without two-photon absorption
+    tpa: f64,
+    /// the free carriers, if any
+    carriers: Option<CarrierModel>,
 }
 
 impl<'a> Nonlinear<'a> {
-    fn new(guide: &Guide, omegas: &[f64], fft: &'a Fft) -> Nonlinear<'a> {
+    fn new(
+        guide: &Guide,
+        absorption: Option<&TwoPhoton>,
+        step: f64,
+        omegas: &[f64],
+        fft: &'a Fft,
+    ) -> Nonlinear<'a> {
         let w0 = guide.dispersion.omega();
         Nonlinear {
             gamma: guide.gamma,
@@ -471,13 +723,25 @@ impl<'a> Nonlinear<'a> {
             raman: guide
                 .raman
                 .map(|r| (r.fraction, omegas.iter().map(|&w| r.response(w)).collect())),
+            tpa: absorption.map_or(0.0, TwoPhoton::rate),
+            carriers: absorption.and_then(|t| CarrierModel::new(t, guide, step)),
         }
     }
 
     fn step(&self, a: &mut [c64], h: f64) {
-        if self.shock.is_none() && self.raman.is_none() {
-            for v in a.iter_mut() {
-                *v *= c64::new(0.0, self.gamma * v.norm_sqr() * h).exp();
+        if self.shock.is_none() && self.raman.is_none() && self.carriers.is_none() {
+            if self.tpa == 0.0 {
+                for v in a.iter_mut() {
+                    *v *= c64::new(0.0, self.gamma * v.norm_sqr() * h).exp();
+                }
+            } else {
+                // dA/dz = (iγ − b)|A|²A: |A|² → P/(1 + 2bPh), the phase γ/(2b)·ln(1 + 2bPh)
+                // (Lin Eqs. (60)–(61) without the linear loss)
+                let b = self.tpa;
+                for v in a.iter_mut() {
+                    let x = (2.0 * b * v.norm_sqr() * h).ln_1p();
+                    *v *= c64::new(-0.5 * x, self.gamma / (2.0 * b) * x).exp();
+                }
             }
             return;
         }
@@ -494,11 +758,13 @@ impl<'a> Nonlinear<'a> {
         }
     }
 
-    /// N(A) = iγ (1 + (i/ω₀)∂_T)[A ((1 − f_R)|A|² + f_R h_R ⊗ |A|²)].
+    /// N(A) = iγ (1 + (i/ω₀)∂_T)[A ((1 − f_R)|A|² + f_R h_R ⊗ |A|²)] − (β_T/2ā)|A|²A plus
+    /// (n₀/n)(ik₀σ_n − σ_a/2)N A: two-photon absorption and the carriers outside the
+    /// self-steepening operator, as Lin et al.'s Eq. (47) has them.
     fn rate(&self, a: &[c64]) -> Vec<c64> {
         let intensity: Vec<f64> = a.iter().map(|v| v.norm_sqr()).collect();
         let response: Vec<f64> = match &self.raman {
-            None => intensity,
+            None => intensity.clone(),
             Some((fr, h)) => {
                 let mut s: Vec<c64> = intensity.iter().map(|&p| c64::new(p, 0.0)).collect();
                 self.fft.inverse(&mut s);
@@ -522,7 +788,19 @@ impl<'a> Nonlinear<'a> {
             self.fft.forward(&mut b);
         }
         let i_gamma = c64::new(0.0, self.gamma);
-        b.iter().map(|v| v * i_gamma).collect()
+        let mut rate: Vec<c64> = b.iter().map(|v| v * i_gamma).collect();
+        if self.tpa != 0.0 {
+            for ((r, v), p) in rate.iter_mut().zip(a).zip(&intensity) {
+                *r -= v * (self.tpa * p);
+            }
+        }
+        if let Some(c) = &self.carriers {
+            let n = c.density(&intensity);
+            for ((r, v), nj) in rate.iter_mut().zip(a).zip(&n) {
+                *r += v * c64::new(-c.absorption * nj, c.phase * nj);
+            }
+        }
+        rate
     }
 }
 
@@ -709,6 +987,46 @@ pub fn spm_peak_phase(gamma: f64, peak: f64, loss: f64, length: f64) -> f64 {
 /// Δω_rms/Δω₀ = (1 + (4/(3√3)) φ_max²)^½ (Eq. (4.1.16)).
 pub fn spm_rms_broadening(phi_max: f64) -> f64 {
     (1.0 + 4.0 / (3.0 * 3f64.sqrt()) * phi_max * phi_max).sqrt()
+}
+
+/// The power after `length` m of a guide with two-photon absorption and linear loss, without
+/// dispersion or carriers: P = P₀e^{−αL}/(1 + β_T P₀ L_eff/ā) (Lin, Painter and Agrawal 2007,
+/// Eq. (60)), W; β_T in m/W, ā in m², α in 1/m.
+pub fn two_photon_power(peak: f64, coefficient: f64, area: f64, loss: f64, length: f64) -> f64 {
+    peak * (-loss * length).exp()
+        / (1.0 + coefficient * peak * effective_length(loss, length) / area)
+}
+
+/// The Kerr phase over the same guide, Φ = (γā/β_T) ln(1 + β_T P₀ L_eff/ā) (Lin Eq. (61)),
+/// rad; γP₀L_eff without two-photon absorption.
+pub fn two_photon_phase(
+    gamma: f64,
+    peak: f64,
+    coefficient: f64,
+    area: f64,
+    loss: f64,
+    length: f64,
+) -> f64 {
+    let l = effective_length(loss, length);
+    if coefficient == 0.0 {
+        return gamma * peak * l;
+    }
+    gamma * area / coefficient * (coefficient * peak * l / area).ln_1p()
+}
+
+/// The carrier density a Gaussian pulse |A|² = P₀e^{−T²/T₀²} leaves behind it without
+/// recombination, N_m = √π β_T P₀² T₀/(2√2 ħω₀ā²) (Lin Eq. (51)), m⁻³: `t0` in ps, the
+/// wavelength in µm.
+pub fn gaussian_carriers(
+    coefficient: f64,
+    area: f64,
+    peak: f64,
+    t0: f64,
+    wavelength_um: f64,
+) -> f64 {
+    let w0 = angular_frequency(wavelength_um) * 1e12;
+    PI.sqrt() * coefficient * peak * peak * t0 * 1e-12
+        / (2.0 * std::f64::consts::SQRT_2 * HBAR * w0 * area * area)
 }
 
 /// The second-order soliton in normalized units (ξ = z/L_D, τ = T/T₀, u = N U, Eq. (5.2.5)):

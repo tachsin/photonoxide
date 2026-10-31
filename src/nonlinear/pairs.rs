@@ -17,6 +17,10 @@
 //! - **The Schmidt decomposition** is the singular value decomposition of f sampled on a grid,
 //!   times the cell: f = Σ_k √λ_k u_k(ν_s) v_k(ν_i), Σλ_k = 1. The purity is P = Σλ_k², the
 //!   Schmidt number K = 1/P; a separable state has P = 1.
+//! - **Filters** multiply the amplitude by their amplitude transmissions t_s(ν_s) t_i(ν_i), from
+//!   any component's S-matrix ([`crate::circuit::transmission`]); the **heralding efficiency** of each photon is
+//!   the share of its partner's counts it comes with ([`Heralding`]): its spectral part, which
+//!   the detectors' efficiencies and the paths' losses multiply.
 //!
 //! W. P. Grice, I. A. Walmsley, Phys. Rev. A 56, 1627 (1997), doi:10.1103/PhysRevA.56.1627.
 
@@ -206,6 +210,117 @@ impl JointSpectrum {
 /// P = √(1 − c²/(ab)), from Tr ρ² of the reduced state in closed form.
 pub fn gaussian_purity(a: f64, b: f64, c: f64) -> f64 {
     (1.0 - c * c / (a * b)).sqrt()
+}
+
+// ---------------------------------------------------------------------------------------------
+// Filters and heralding
+// ---------------------------------------------------------------------------------------------
+
+/// A pair source's heralding efficiencies through its filters: of the pairs whose idler passed
+/// its filter, the share whose signal passed its own, and the other way round,
+///
+/// η_s = Σ|f|²|t_s|²|t_i|² / Σ|f|²|t_i|², η_i = Σ|f|²|t_s|²|t_i|² / Σ|f|²|t_s|²,
+///
+/// the efficiency's spectral part (a detector's efficiency and the paths' loss multiply it), as
+/// the photons' joint spectrum sets it: a filter narrower than the photon's own marginal
+/// spectrum cuts pairs whose partner was counted.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Heralding {
+    /// η_s: the signal's, heralded by the idler.
+    pub signal: f64,
+    /// η_i: the idler's, heralded by the signal.
+    pub idler: f64,
+}
+
+impl JointSpectrum {
+    /// Refuses filters that aren't one finite amplitude per frequency of the grid.
+    fn check_filters(&self, signal: &[c64], idler: &[c64]) -> Result<()> {
+        let finite = |t: &[c64]| t.iter().all(|v| v.re.is_finite() && v.im.is_finite());
+        if signal.len() != self.signal.len()
+            || idler.len() != self.idler.len()
+            || !finite(signal)
+            || !finite(idler)
+        {
+            return Err(Error::invalid(
+                "joint spectrum",
+                format!(
+                    "a filter takes one finite amplitude per frequency: {} for the signal and {} for the idler, got {} and {}",
+                    self.signal.len(),
+                    self.idler.len(),
+                    signal.len(),
+                    idler.len()
+                ),
+            ));
+        }
+        Ok(())
+    }
+
+    /// The amplitude after filters: f(ν_s, ν_i) t_s(ν_s) t_i(ν_i), `signal` and `idler` the
+    /// filters' amplitude transmissions at the grid's frequencies ([`JointSpectrum::signal`],
+    /// [`JointSpectrum::idler`]), e.g. from a component's S-matrix by [`crate::circuit::transmission`]. Its
+    /// [`JointSpectrum::schmidt`] is the filtered pairs' purity.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::InvalidValue`] unless each filter has one finite amplitude per frequency.
+    pub fn filtered(&self, signal: &[c64], idler: &[c64]) -> Result<JointSpectrum> {
+        self.check_filters(signal, idler)?;
+        let ni = self.idler.len();
+        Ok(JointSpectrum {
+            signal: self.signal.clone(),
+            idler: self.idler.clone(),
+            amplitude: self
+                .amplitude
+                .iter()
+                .enumerate()
+                .map(|(k, f)| f * signal[k / ni] * idler[k % ni])
+                .collect(),
+        })
+    }
+
+    /// The heralding efficiencies through filters of amplitude transmissions `signal` and
+    /// `idler` at the grid's frequencies ([`Heralding`]).
+    ///
+    /// # Errors
+    ///
+    /// As [`JointSpectrum::filtered`], and [`Error::InvalidValue`] when no pair passes a filter.
+    pub fn heralding(&self, signal: &[c64], idler: &[c64]) -> Result<Heralding> {
+        self.check_filters(signal, idler)?;
+        let ni = self.idler.len();
+        let (mut both, mut by_idler, mut by_signal) = (0.0, 0.0, 0.0);
+        for (k, f) in self.amplitude.iter().enumerate() {
+            let p = f.norm_sqr();
+            let (ts, ti) = (signal[k / ni].norm_sqr(), idler[k % ni].norm_sqr());
+            both += p * ts * ti;
+            by_idler += p * ti;
+            by_signal += p * ts;
+        }
+        if !(by_idler > 0.0 && by_signal > 0.0) {
+            return Err(Error::invalid(
+                "joint spectrum",
+                "no pair passes one of the filters",
+            ));
+        }
+        Ok(Heralding {
+            signal: both / by_idler,
+            idler: both / by_signal,
+        })
+    }
+}
+
+/// The heralding efficiencies of a two-dimensional Gaussian |f|² = exp(−zᵀMz),
+/// M = [[a, c], [c, b]] (z the detunings from the filters' centres), through Gaussian filters
+/// |t_s|² = exp(−ν_s²/w_s²) and |t_i|² = exp(−ν_i²/w_i²): each sum a Gaussian integral,
+/// π/√det, so η_s = √(det(M + D_i)/det(M + D_s + D_i)), D_s = diag(1/w_s², 0),
+/// D_i = diag(0, 1/w_i²), and η_i likewise.
+pub fn gaussian_heralding(a: f64, b: f64, c: f64, widths: [f64; 2]) -> Heralding {
+    let (ds, di) = (1.0 / (widths[0] * widths[0]), 1.0 / (widths[1] * widths[1]));
+    let det = |x: f64, y: f64| x * y - c * c;
+    let both = det(a + ds, b + di);
+    Heralding {
+        signal: (det(a, b + di) / both).sqrt(),
+        idler: (det(a + ds, b) / both).sqrt(),
+    }
 }
 
 #[cfg(test)]

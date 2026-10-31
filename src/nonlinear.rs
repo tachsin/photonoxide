@@ -19,13 +19,20 @@
 //!   into the guide's frame (the normalized efficiency in %/(W·cm²)), and the pairs' rate.
 //! - [`pulse`]: pulses along a Kerr guide, the nonlinear Schrödinger equation by split-step
 //!   Fourier: β₂, β₃, β₄, … from the guide's effective index over wavelength, γ from its
-//!   effective area and the catalogue's n₂; solitons and self-phase modulation (Agrawal 2019).
+//!   effective area and the catalogue's n₂; solitons and self-phase modulation (Agrawal 2019);
+//!   two-photon and free-carrier absorption in silicon (Lin, Painter and Agrawal 2007).
+//! - [`xpm`]: cross-phase modulation between two pulses at different wavelengths, their
+//!   walk-off included (Agrawal 2019, Section 7.4).
 //! - [`fwm`]: four-wave mixing with one pump, its parametric gain and conversion with the
 //!   mismatch from the guide's dispersion, closed form and along the guide, depleted.
 //! - [`resonator`]: Kerr microresonators by the Lugiato–Lefever equation: the homogeneous
 //!   steady states and their bistability, modulation instability, and dissipative Kerr
 //!   solitons, a ring's equation from its waveguide (Lugiato and Lefever 1987, Coen et al.
 //!   2012, Herr et al. 2013).
+//! - [`cavity`]: second-harmonic generation and four-wave mixing enhanced in a ring resonant at
+//!   their waves, the enhancement from the ring components (Helt et al. 2010).
+//! - [`opo`]: optical parametric oscillators, singly or doubly resonant: their threshold and
+//!   steady state (Boyd 2008).
 //! - [`miller`]: Miller's rule, a d coefficient carried from the wavelength it was measured at
 //!   to another through the three waves' linear susceptibilities (Miller 1964).
 //!
@@ -34,6 +41,9 @@
 //!
 //! The write-up is `docs/methods/nonlinear.md`.
 
+pub(crate) mod absorption_checks;
+pub mod cavity;
+pub(crate) mod cavity_checks;
 pub(crate) mod checks;
 pub mod coupled;
 pub(crate) mod data_checks;
@@ -43,7 +53,9 @@ pub mod guide;
 pub(crate) mod guide_checks;
 pub(crate) mod kerr_checks;
 pub mod miller;
+pub mod opo;
 pub mod pairs;
 pub mod phase;
 pub mod pulse;
 pub mod resonator;
+pub mod xpm;

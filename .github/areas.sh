@@ -99,9 +99,9 @@ area sweep \
 # the catalogue's indices; the catalogue's PPLN OPO cases (src/cases/material/catalogue/opo_checks.rs)
 # find their idler through it
 area nonlinear \
-  "src/nonlinear.rs src/nonlinear/* src/cases/nonlinear/* src/validation/nonlinear.rs src/validation/nonlinear_guides.rs src/validation/nonlinear_kerr.rs" \
+  "src/nonlinear.rs src/nonlinear/* src/cases/nonlinear/* src/validation/nonlinear.rs src/validation/nonlinear_guides.rs src/validation/nonlinear_kerr.rs src/validation/nonlinear_cavities.rs" \
   "material mode" \
-  "nonlinear::" "nonlinear/ material/linbo3-zelmon-opo material/linbo3-jundt-opo" ""
+  "nonlinear::" "nonlinear/ material/linbo3-zelmon-opo material/linbo3-jundt-opo" "qpm_fejer ppln_wang pairs_zhao soliton_coen comb_pu"
 
 # with the GPU's report (tests/gpu_report.rs, docs/validation-gpu.md, run by hand)
 area fdtd \
