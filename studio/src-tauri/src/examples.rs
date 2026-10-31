@@ -520,6 +520,10 @@ pub fn jobs() -> Vec<JobExample> {
             "wire-805nm-corners.yaml",
             include_str!("../../../jobs/wire-805nm-corners.yaml"),
         ),
+        (
+            "strip-flow.yaml",
+            include_str!("../../../jobs/strip-flow.yaml"),
+        ),
     ]
     .into_iter()
     .map(|(file, text)| JobExample {

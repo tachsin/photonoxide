@@ -26,6 +26,7 @@ use crate::{Error, Result};
 
 /// A parameter of the design, at its value.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct FlowParameter {
     /// Its name, e.g. `"width"`.
     pub name: String,
@@ -37,6 +38,7 @@ pub struct FlowParameter {
 
 /// Where the cross-sections are cut, and the window they show.
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct FlowCut {
     /// The plane x = `x_um` the wafer is cut on, µm: the middle of the design's shapes in x.
     pub x_um: f64,
@@ -48,6 +50,7 @@ pub struct FlowCut {
 
 /// A layer of the wafer after a step, as a cross-section shows it from the top down.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct StackRow {
     /// The layer's name, as the design's stack has it; `"cladding"` above everything and
     /// `"substrate"` below.
