@@ -134,7 +134,9 @@
 //! The 6 µm designs, the same way: the efficiencies are 0.45 to 0.79 points above the data
 //! file's with the waist at FID, 60.61 % against 59.82 % (58), 50.65 against 50.2 (42), 48.39
 //! against 47.8 (39) and 46.85 against 46.1 (37); with the waist on the film, from 1.37 below to
-//! 0.36 above. The bandwidths are again wider, by 1.6 to 3.6 nm (2 to 4 %). With the searches'
+//! 0.36 above. The bandwidths are again wider, by 1.6 to 3.6 nm (2 to 4 %). Our grid's error with
+//! the waist at FID is within 0.08 points for 58, 42 and 37; for 39 the three grids give
+//! 0.74 points and 1.5 nm. With the searches'
 //! model on 10 × 5 nm, the paper's designs 42 and 39 couple 49.26 % at 100 nm (48.78 % on
 //! 20 × 10 nm), within 3 points of the main text's 47 %; so the 7.2 points our 6 µm front misses
 //! by are also our search's, with its 11 grooves for the paper's 13. That 49.26 % is above the
