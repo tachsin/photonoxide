@@ -234,6 +234,14 @@ fn every_frame_of_every_device_is_closed_and_holds_its_outlines_volume_and_the_d
         .filter_map(|(kind, job)| {
             let view = job::fabrication_of_job(&job, &[], &[]).ok()?;
             every_frame(&kind, &job, &view);
+            // and the page draws every vertex: no device at its defaults comes near the cap
+            let page = page_of(view);
+            assert!(page.thinned.is_none(), "{kind}: {:?}", page.thinned);
+            assert!(
+                page.triangles <= TRIANGLES / 4,
+                "{kind}: {} triangles",
+                page.triangles
+            );
             Some(kind)
         })
         .collect();
