@@ -55,7 +55,7 @@ pub use assess::{
 };
 pub use execute::{Made, RoundTrip, execute, round_trip, stages};
 pub use flow::{Alternative, Depth, Flow, FlowRecord, Laid, Operation, Step, StepRecord, Tone};
-pub use generate::{Choices, Thermal, generate, thermal};
+pub use generate::{Choices, Thermal, generate, platform, thermal};
 pub use glossary::{Term, glossary};
 pub use library::{
     Budget, LIBRARY_VERSION, Mask, Platform, Process, Purpose, StepType, Stop, Use, budget,

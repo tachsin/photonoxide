@@ -229,3 +229,71 @@ fn the_fabrication_view_has_the_wafer_after_every_step() {
     assert!(shapes.is_empty());
     assert!(cladding.eps < 1.0 + 1e-12, "{cladding:?}");
 }
+
+/// A scene's layers' names, bottom to top.
+fn layer_names(e: &Event) -> Vec<String> {
+    match e {
+        Event::Scene { layers, .. } => layers.iter().map(|l| l.name.clone()).collect(),
+        _ => panic!("a scene"),
+    }
+}
+
+#[test]
+fn the_frames_play_the_flow_from_the_bare_wafer_to_the_design() {
+    for text in [TFLN, HEATER] {
+        let job = Job::parse(text).unwrap();
+        let view = fabrication_of_job(&job, &[], &[]).unwrap();
+        let steps = &view.flow.steps;
+        let patterns = steps.iter().filter(|s| s.operation == "pattern").count();
+        assert!(patterns > 0, "{text}");
+        // a frame a step, three a lithography: coated, written, developed
+        assert_eq!(view.frames.len(), steps.len() + 2 * patterns, "{text}");
+        assert!(view.frames.windows(2).all(|w| w[0].step <= w[1].step));
+        assert_eq!(view.frames[0].phase, "wafer");
+        assert_eq!(view.frames[0].step, 0);
+        // the last frame is the design as the last stage has it, the resist gone
+        let (last, stage) = (view.frames.last().unwrap(), view.stages.last().unwrap());
+        assert_eq!(layer_names(&last.scene), layer_names(&stage.scene));
+        assert_eq!(last.etched, stage.etched);
+        assert!(
+            !layer_names(&last.scene)
+                .iter()
+                .any(|l| l.starts_with("resist"))
+        );
+        // while the resist is on the wafer, it is a layer on its top, named for its film
+        for f in view.frames.iter().filter(|f| f.phase == "develop") {
+            let Event::Scene { layers, .. } = &f.scene else {
+                panic!("a scene")
+            };
+            let top = layers.last().unwrap();
+            assert_eq!(top.name, "resist", "{}", f.label);
+            assert!(
+                top.material.material.ends_with("resist")
+                    || top.background.material.ends_with("resist"),
+                "{top:?}"
+            );
+        }
+        for f in view.frames.iter().filter(|f| f.phase == "coat") {
+            assert_eq!(f.layer.as_deref(), Some("resist"));
+            assert!(f.label.starts_with("spin the "), "{}", f.label);
+        }
+    }
+    let tfln = fabrication_of_job(&Job::parse(TFLN).unwrap(), &[], &[]).unwrap();
+    assert_eq!(tfln.platform, Some(crate::fabrication::Platform::Lnoi));
+}
+
+#[test]
+fn a_structure_job_has_its_flow_and_a_job_without_a_design_says_why_not() {
+    let text = "name = \"strip\"\n\n[task]\nkind = \"structure\"\nstack = \"soi_220\"\n\
+                wavelength_um = 1.55\nlayer = \"Si\"\nx_um = [-2.0, 2.0]\ny_um = [-1.0, 1.0]\n\
+                step_nm = 20.0\n\n[[task.rect]]\nlayer = \"Si\"\ncenter_um = [0.0, 0.0]\n\
+                size_um = [4.0, 0.5]\n";
+    let view = fabrication_of_job(&Job::parse(text).unwrap(), &[], &[]).unwrap();
+    assert!(view.flow.round_trip.unwrap().exact());
+    assert_eq!(view.platform, Some(crate::fabrication::Platform::Soi));
+    let modes = "name = \"m\"\n\n[task]\nkind = \"modes\"\n";
+    let e = fabrication_of_job(&Job::parse(modes).unwrap(), &[], &[])
+        .unwrap_err()
+        .to_string();
+    assert!(e.contains("no [device] table"), "{e}");
+}
