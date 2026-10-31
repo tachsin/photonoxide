@@ -1,0 +1,17 @@
+Setup
+  device: Wang et al.'s x-cut thin-film PPLN, 600 nm film, ridge about 1.4 um wide, poled at 4.1 um over 4 mm, duty cycle 39 % ± 3 %
+  process: SHG of 1550 nm, type 0 (TE, the extraordinary index)
+  solver: Fejer et al.'s Eq. (22) for the duty cycle; the bulk crystal's group indices from Chebyshev interpolants of n_e over 0.7-0.85 and 1.4-1.7 um
+  tolerance: 3.6 points on the cut (the duty cycle's ±3 %); 50 fs/mm (half the digit of '~300')
+  materials:
+    LiNbO3: Zelmon et al. 1997: zelmon-1997, at 25 °C
+
+Wang et al. 2018's thin-film PPLN, what the paper prints without the etch depth
+
+  the duty cycle's cut of d_eff: 5.91 % at 39 %, 9.52 % at 36 %, 3.14 % at 42 %
+  d_eff cut at 39 % (%)                  5.912000   paper 7          ± 3.6e0     ok
+  bulk group indices (n_e): 2.1823 at 1550 nm, 2.2728 at 775 nm: 301.9 fs/mm
+  bulk GVM 1550/775 nm (fs/mm)         301.900000   paper 300        ± 5e1       ok
+
+  Not reproduced: the calculated 4500 %/(W cm^2) and the 4.1 um period, which need the ridge's etch depth (#595).
+all 2 within tolerance of the paper

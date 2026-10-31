@@ -1,0 +1,28 @@
+Setup
+  (layers from the top down: the bottom one, the substrate, is the first laid down)
+  layers:
+    cladding       half-space   air, n 1
+    film           300 nm       5 mol% MgO:LiNbO3, x-cut, the guide along y, the catalogue's default (Zelmon et al.), extraordinary across
+    BOX            1.8 µm       SiO2, the catalogue's default
+    substrate      half-space   Si, left out: the window stops 1.5 µm under the film
+  shapes:
+    on film: a ridge 1.24 µm wide etched 50 nm, 75° sidewalls, centred at x = 0
+  length: 5 mm poled
+  waves: TE0 at 1.50-1.65 µm and 0.75-0.825 µm, each from Chebyshev interpolants of n_eff to 1e-10
+  grid: 20 and 10 nm cells on the half window x ≥ 0 behind a mirror wall
+  solver: the full-vector mode solver; the period lambda_p/(n_p - n_s), the matched wavelength by bisection, the effective area from S_z, the joint spectrum by sinc(Delta k L/2)
+  tolerance: 0.05 µm on the period, 0.038 µm on the matched wavelength, 0.05 µm² on the areas
+
+Zhao et al. 2020's PPLN pair source, from the guide's modes
+
+  20 nm cells: period 2.8172 µm, matched at 2.8 µm 1.5566 µm, areas 1.079 and 0.397 µm², signal FWHM 55.9 nm
+  10 nm cells: period 2.8150 µm, matched at 2.8 µm 1.5583 µm, areas 1.077 and 0.397 µm², signal FWHM 55.9 nm
+  a pump narrower than this ties the pairs in frequency: entangled, their purity low
+
+  period (µm)                            2.815000   paper 2.8        ± 5e-2      ok
+  matched at 2.8 µm (µm)                 1.558300   paper 1.57       ± 3.8e-2    ok
+  A_eff at 1570 nm (µm²)                 1.077000   paper 1.1        ± 5e-2      ok
+  A_eff at 785 nm (µm²)                  0.397000   paper 0.4        ± 5e-2      ok
+
+  our own error, 20 against 10 nm: 2.2e-3 µm, 1.7e-3 µm, 1.5e-3 and 5.1e-4 µm², 0.0 nm
+all 4 within tolerance of the paper

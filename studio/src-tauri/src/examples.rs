@@ -90,6 +90,11 @@ examples!(
     thermo_harris: "../../../examples/thermo_harris.rs",
     pcm_delaney: "../../../examples/pcm_delaney.rs",
     tfln_zhang: "../../../examples/tfln_zhang.rs",
+    qpm_fejer: "../../../examples/qpm_fejer.rs",
+    ppln_wang: "../../../examples/ppln_wang.rs",
+    pairs_zhao: "../../../examples/pairs_zhao.rs",
+    soliton_coen: "../../../examples/soliton_coen.rs",
+    comb_pu: "../../../examples/comb_pu.rs",
 );
 
 /// An example's `main` returns an exit code, or a result holding one.
@@ -249,6 +254,14 @@ fn title(name: &str) -> (&'static str, &'static str) {
             "A thin-film lithium niobate modulator, as a device",
             "Zhang et al. 2022",
         ),
+        "qpm_fejer" => ("Quasi-phase matching's tolerances", "Fejer et al. 1992"),
+        "ppln_wang" => (
+            "Thin-film PPLN's duty cycle and walk-off",
+            "Wang et al. 2018",
+        ),
+        "pairs_zhao" => ("A thin-film PPLN pair source's modes", "Zhao et al. 2020"),
+        "soliton_coen" => ("A Kerr soliton in a MgF2 resonator", "Coen et al. 2012"),
+        "comb_pu" => ("An AlGaAs ring's comb threshold", "Pu et al. 2016"),
         _ => ("", ""),
     }
 }
@@ -296,6 +309,9 @@ fn seconds(name: &str) -> f64 {
         "thermo_harris" => 10.0,
         "pcm_delaney" => 30.0,
         "tfln_zhang" => 60.0,
+        "qpm_fejer" | "ppln_wang" | "comb_pu" => 1.0,
+        "soliton_coen" => 60.0,
+        "pairs_zhao" => 120.0,
         "rib_hadley" => 30.0,
         "crossing_liu_poon" => 30.0,
         "coupler_liu_poon" => 100.0,

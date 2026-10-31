@@ -1,0 +1,19 @@
+Setup
+  resonator: Pu et al.'s AlGaAs-on-insulator ring, 25 µm across: round trip 78.53982 µm, FSR 995 GHz
+  waveguide: 320 × 630 nm, gamma 660 /(W m) (the paper's)
+  quality factors: loaded 100000; coupling from 200000 (critical) to 1000000 (under-coupled)
+  wavelength: 1.59 µm
+  solver: the mean-field (Lugiato-Lefever) equation's homogeneous state and its instability: f^2 = 1 at zeta0 = 1
+  tolerance: the measured threshold within the band from critical to under-coupling, as the paper's Fig. 4(d)
+  materials:
+    Al0.17Ga0.83As: not in the model: the paper's gamma and Q are the whole resonator
+
+Pu et al. 2016's comb threshold, 995 GHz ring, by the mean-field equation
+
+  the homogeneous state at zeta0 = 1: unstable at f = 0.999: false; at f = 1.001: true
+  threshold in the bus: 0.684 mW critically coupled, 3.419 mW under-coupled (Q_C = 10 Q_L)
+  Pu et al.'s formula gives 0.779 to 3.896 mW: 1.54 n^2/n_g^2 = 1.1395 times ours (n_g = 3.8363)
+
+  instability onset at f = 1                    1   paper 1                      ok
+  band's middle (mW)                     2.051000   measured 3.100000   ± 1.367e0 ok
+all 2 within tolerance of the paper
