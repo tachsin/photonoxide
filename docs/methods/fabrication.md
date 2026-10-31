@@ -589,7 +589,6 @@ Layers are listed from the top down, the substrate last, as a cross-section is d
   - the narrowest line of Si at its floor, 500 nm: made to ± 62 nm from what the sources state (at worst ± 66.34 nm); not specified: the etch's linewidth change
   - BOX beside Si's shapes, 2000 nm: made to ± 1.467 nm (at worst ± 1.467 nm)
 - **After it, from the top down:** cladding: air, above everything; Si: Si, air where etched, 0.22 µm; BOX: SiO2, 2 µm; substrate: Si, below everything.
-- **Cross-section:** [flow-03.svg](flow-03.svg)
 
 ## The accuracy of each dimension
 
@@ -604,4 +603,5 @@ Layers are listed from the top down, the substrate last, as a cross-section is d
 
 Each line of the excerpt is a line of the traveller the job's run writes, in its order (the job's
 tests check it, and that the printed lines are the calls' own). The step's reason, its other
-capabilities, the alternatives and the rules' checks are in the file between those lines.
+capabilities, the alternatives, the rules' checks and the link to its cross-section,
+`flow-03.svg`, are in the file between those lines.
