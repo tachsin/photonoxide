@@ -10,11 +10,15 @@
 //!   the exported systems.
 //! - `PHOTONOXIDE_BLAS_ALSO` names more files to check as OpenBLAS, separated as `PATH` is (a
 //!   second build: pip's `scipy-openblas64`, say).
+//! - `PHOTONOXIDE_BLAS_ROUNDS` sets the rounds of OpenBLAS's calls checked while it is loaded
+//!   again (default 8; the OpenBLAS loop workflow sets more).
 
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use num_complex::Complex64 as c64;
+use rayon::prelude::*;
 use photonoxide::backend::dense::{Block, BlockMut, DenseKernels, Faer, Product, with_kernels};
 use photonoxide::backend::{self, Choice, DirectSolver, Form, Matrix};
 use photonoxide::bench::catalogue::entry;
@@ -246,6 +250,114 @@ fn the_kernels_are_faers_to_round_off() {
             what.name
         );
     }
+}
+
+/// OpenBLAS loaded again on another thread while photonoxide's calls into it run, threaded on
+/// this thread and on one thread each side by side on rayon's: every product faer's to
+/// round-off (#557). A load calls OpenBLAS (its probes, and its count of threads set to one),
+/// and OpenBLAS built with OpenMP frees its threads' buffers when the count drops, those a
+/// threaded call is using among them.
+#[test]
+fn openblas_loaded_again_meanwhile_leaves_its_products_right() {
+    let library = match Blas::openblas() {
+        Ok(library) => library,
+        Err(why) => {
+            println!("skipped: OpenBLAS isn't here: {why}");
+            return;
+        }
+    };
+    let rounds: usize = std::env::var("PHOTONOXIDE_BLAS_ROUNDS")
+        .ok()
+        .and_then(|r| r.parse().ok())
+        .unwrap_or(8);
+    // large enough that OpenBLAS threads both
+    let (m, n, r) = (432, 320, 320);
+    let mut random = Random(557);
+    let (a, b, c0) = (
+        random.matrix(m, r),
+        random.matrix(r, n),
+        random.matrix(m, n),
+    );
+    let (lower_a, lower_b, lower_c0) = (
+        random.matrix(n, r),
+        random.matrix(n, r),
+        random.matrix(n, n),
+    );
+    let alpha = c64::new(-0.7, 0.3);
+    let lower = Product {
+        transposed: true,
+        lower: true,
+    };
+    let multiply = |kernels: &dyn DenseKernels, threaded: bool| -> (Vec<c64>, Vec<c64>) {
+        let (mut c, mut l) = (c0.clone(), lower_c0.clone());
+        kernels.multiply(
+            BlockMut::of(&mut c, m, n),
+            Block::of(&a, m, r),
+            Block::of(&b, r, n),
+            Product::default(),
+            alpha,
+            threaded,
+        );
+        kernels.multiply(
+            BlockMut::of(&mut l, n, n),
+            Block::of(&lower_a, n, r),
+            Block::of(&lower_b, n, r),
+            lower,
+            alpha,
+            threaded,
+        );
+        // the lower triangle only
+        let l = (0..n)
+            .flat_map(|j| (j..n).map(move |i| i + j * n))
+            .map(|e| l[e])
+            .collect();
+        (c, l)
+    };
+    let (want, want_lower) = multiply(&Faer, true);
+    let check = |threaded: bool| -> Option<String> {
+        let (c, l) = multiply(&library, threaded);
+        let (d, dl) = (relative(&c, &want), relative(&l, &want_lower));
+        (!(d < 1e-12 && dl < 1e-12)).then(|| format!("{d:.1e} and {dl:.1e} (lower)"))
+    };
+    let done = AtomicBool::new(false);
+    let (wrong, calls, loads) = std::thread::scope(|s| {
+        let loader = s.spawn(|| {
+            let mut loads = 0usize;
+            while !done.load(Ordering::Relaxed) {
+                Blas::openblas().unwrap();
+                loads += 1;
+            }
+            loads
+        });
+        let (mut wrong, mut calls) = (Vec::new(), 0usize);
+        for round in 0..rounds {
+            for _ in 0..4 {
+                calls += 1;
+                if let Some(d) = check(true) {
+                    wrong.push(format!("round {round}, threaded: {d}"));
+                }
+            }
+            let side_by_side: Vec<Option<String>> = (0..2 * rayon::current_num_threads())
+                .into_par_iter()
+                .map(|_| check(false))
+                .collect();
+            calls += side_by_side.len();
+            wrong.extend(
+                side_by_side
+                    .into_iter()
+                    .flatten()
+                    .map(|d| format!("round {round}, on one thread: {d}")),
+            );
+        }
+        done.store(true, Ordering::Relaxed);
+        (wrong, calls, loader.join().unwrap())
+    });
+    println!(
+        "OpenBLAS {}: {calls} products of {rounds} rounds, {loads} loads meanwhile, {} wrong",
+        library.kernels().version,
+        wrong.len()
+    );
+    assert!(wrong.is_empty(), "{}", wrong.join("; "));
 }
 
 /// Every interface a library has, each found by its own names and its integers measured, and

@@ -1,0 +1,131 @@
+name: OpenBLAS loop
+
+# photonoxide's BLAS tests with OpenBLAS required, again and again, on each kind of build: an
+# intermittent wrong answer (#557, conda-forge's OpenMP build on macOS) shows as a count of
+# failed runs out of many. Each job prints the packages' build strings and what OpenBLAS says
+# of itself (its configuration, OpenMP or pthreads, its count of threads) first. By hand only.
+on:
+  workflow_dispatch:
+    inputs:
+      stress:
+        description: Runs of the test that loads OpenBLAS again while its calls run
+        default: '20'
+      rounds:
+        description: Rounds of calls in each of those runs (PHOTONOXIDE_BLAS_ROUNDS)
+        default: '50'
+      whole:
+        description: Runs of the whole BLAS test binary
+        default: '10'
+  push:
+    branches: ['openblas-557-loop*']
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  STRESS: ${{ inputs.stress || '20' }}
+  ROUNDS: ${{ inputs.rounds || '50' }}
+  WHOLE: ${{ inputs.whole || '10' }}
+
+jobs:
+  loop:
+    name: ${{ matrix.name }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # OpenMP builds: conda-forge's on macOS (where #557 failed) and on Linux, an older
+          # one, and Ubuntu's (0.3.26)
+          - { name: 'conda-forge openblas, OpenMP (macos-latest)', os: macos-latest, conda: openblas }
+          - { name: 'conda-forge libopenblas 0.3.30, OpenMP (macos-latest)', os: macos-latest, conda: 'libopenblas=0.3.30=openmp*' }
+          - { name: 'conda-forge libopenblas, OpenMP (ubuntu-latest)', os: ubuntu-latest, conda: 'libopenblas=*=openmp*' }
+          - { name: apt libopenblas0-openmp (ubuntu-24.04), os: ubuntu-24.04, apt: libopenblas-openmp-dev }
+          # pthreads builds, for contrast
+          - { name: 'conda-forge openblas, pthreads (ubuntu-latest)', os: ubuntu-latest, conda: 'libopenblas=*=pthreads*' }
+          - { name: conda-forge openblas (windows-latest), os: windows-latest, conda: openblas }
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash -el {0}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: conda-incubator/setup-miniconda@v4
+        if: matrix.conda != '' && runner.os != 'Windows'
+        with:
+          miniforge-version: latest
+          activate-environment: libraries
+      - uses: mamba-org/setup-micromamba@v2
+        if: matrix.conda != '' && runner.os == 'Windows'
+        with:
+          environment-name: libraries
+          create-args: ${{ matrix.conda }}
+          condarc: |
+            channels:
+              - conda-forge
+          init-shell: bash
+      - name: Install
+        run: |
+          if [ -n "${{ matrix.apt }}" ]; then
+            sudo apt-get update -q
+            sudo DEBIAN_FRONTEND=noninteractive apt-get install -y ${{ matrix.apt }}
+            dpkg -l | grep -i -E "openblas|libgomp" || true
+            update-alternatives --display libopenblas.so.0-x86_64-linux-gnu || true
+          elif [ "$RUNNER_OS" = Windows ]; then
+            micromamba list | grep -i -E "openblas|openmp|blas" || true
+          else
+            conda install -y -c conda-forge "${{ matrix.conda }}"
+            conda list | grep -i -E "openblas|openmp|blas" || true
+          fi
+          nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo "$NUMBER_OF_PROCESSORS"
+      - name: What OpenBLAS says of itself
+        run: |
+          cat > "$RUNNER_TEMP/says.py" <<'EOF'
+          import ctypes, sys
+          l = ctypes.CDLL(sys.argv[1])
+          l.openblas_get_config.restype = ctypes.c_char_p
+          print(sys.argv[1])
+          print("  config:", l.openblas_get_config().decode())
+          print("  parallel (0 sequential, 1 pthreads, 2 OpenMP):", l.openblas_get_parallel())
+          print("  threads:", l.openblas_get_num_threads())
+          EOF
+          python=$(command -v python3 || command -v python)
+          for f in "$CONDA_PREFIX/lib/libopenblas.dylib" "$CONDA_PREFIX/lib/libopenblas.so" \
+                   "$CONDA_PREFIX/Library/bin/openblas.dll" "$CONDA_PREFIX/Library/bin/libopenblas.dll" \
+                   /usr/lib/x86_64-linux-gnu/libopenblas.so.0; do
+            if [ -f "$f" ]; then "$python" "$RUNNER_TEMP/says.py" "$f" || true; break; fi
+          done
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: What photonoxide finds
+        run: cargo run -p photonoxide-native --example libraries | grep -A5 -E '^OpenBLAS'
+      - name: Build the tests
+        run: cargo test -p photonoxide-native --release --test blas --no-run
+      - name: The test that loads OpenBLAS again, ${{ env.STRESS }} runs of ${{ env.ROUNDS }} rounds
+        run: |
+          failed=0
+          start=$(date +%s)
+          for k in $(seq 1 "$STRESS"); do
+            if PHOTONOXIDE_REQUIRE_BLAS=openblas PHOTONOXIDE_BLAS_ROUNDS="$ROUNDS" cargo test -q \
+                -p photonoxide-native --release --test blas openblas_loaded_again -- --nocapture \
+                > run.txt 2>&1; then :; else failed=$((failed + 1)); cat run.txt; fi
+            grep -E '^OpenBLAS .* wrong' run.txt || true
+            now=$(date +%s)
+            echo "step $k/$STRESS ($((100 * k / STRESS))%), $failed failed, $((now - start)) s, ETA $(((now - start) * (STRESS - k) / k)) s"
+          done
+          echo "the test that loads OpenBLAS again: $failed of $STRESS runs failed" | tee -a "$GITHUB_STEP_SUMMARY"
+          echo "$failed" > stress-failed.txt
+      - name: The whole BLAS test binary, ${{ env.WHOLE }} runs
+        if: always()
+        run: |
+          failed=0
+          start=$(date +%s)
+          for k in $(seq 1 "$WHOLE"); do
+            if PHOTONOXIDE_REQUIRE_BLAS=openblas cargo test -q -p photonoxide-native --release \
+                --test blas > run.txt 2>&1; then :; else failed=$((failed + 1)); cat run.txt; fi
+            now=$(date +%s)
+            echo "step $k/$WHOLE ($((100 * k / WHOLE))%), $failed failed, $((now - start)) s, ETA $(((now - start) * (WHOLE - k) / k)) s"
+          done
+          echo "the whole binary: $failed of $WHOLE runs failed" | tee -a "$GITHUB_STEP_SUMMARY"
+          stress=$(cat stress-failed.txt 2>/dev/null || echo 0)
+          [ "$failed" = 0 ] && [ "$stress" = 0 ]
