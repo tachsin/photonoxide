@@ -2,7 +2,8 @@
 # The lints CI's Lint job runs, shared by .github/full-suite.sh and the pre-push hook, so that
 # neither runs a lint the other already passed on the same code.
 #
-# A lint that passes is stamped in target/lint-stamps/, keyed by the commit's tree and the Rust
+# A lint that passes is stamped in target/lint-stamps/ (LINT_STAMPS_DIR, when set: the pre-push hook
+# sets it in an agent worktree, to the shared target), keyed by the commit's tree and the Rust
 # toolchain, and only when the tracked files are exactly the commit (nothing modified or staged):
 # a run on uncommitted changes neither reads nor writes stamps. `cargo clean` removes the stamps.
 #
@@ -28,7 +29,7 @@ lint_key() {
   echo "$tree-$toolchain"
 }
 
-lint_file() { echo "target/lint-stamps/$1/$(echo "$2" | tr -c 'A-Za-z0-9\n' '-')"; }
+lint_file() { echo "${LINT_STAMPS_DIR:-target/lint-stamps}/$1/$(echo "$2" | tr -c 'A-Za-z0-9\n' '-')"; }
 
 # Whether the lint named $2 already passed for key $1.
 lint_passed() { [ -n "$1" ] && [ -f "$(lint_file "$1" "$2")" ]; }

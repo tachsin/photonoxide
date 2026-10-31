@@ -50,9 +50,11 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # libraries photonoxide has a backend for: found, and the backend offered
-          - { os: ubuntu-latest, package: mkl, found: '^oneMKL 20[0-9]+\.[0-9]+: .*\(from the conda environment\)', backend: '^backend photonoxide-mkl \(direct\): .* available', test: blas, require: 'PHOTONOXIDE_REQUIRE_BLAS=mkl' }
-          - { os: windows-latest, package: mkl, found: '^oneMKL 20[0-9]+\.[0-9]+: .*\(from the conda environment\)', backend: '^backend photonoxide-mkl \(direct\): .* available', test: blas, require: 'PHOTONOXIDE_REQUIRE_BLAS=mkl' }
+          # libraries photonoxide has a backend for: found, and the backend offered. Unpinned, a
+          # package installs conda-forge's newest build; mkl's is 2026.1.0, as conda-forge
+          # marked 2026.2.0 broken (mkl=2026.2 "does not exist", 2026-10-31)
+          - { os: ubuntu-latest, package: mkl, found: '^oneMKL 20[0-9]+\.[0-9]+: .*\(from the conda environment\)', backend: '^backend photonoxide-mkl \(direct\): .* available', test: blas --test pardiso, require: 'PHOTONOXIDE_REQUIRE_BLAS=mkl' }
+          - { os: windows-latest, package: mkl, found: '^oneMKL 20[0-9]+\.[0-9]+: .*\(from the conda environment\)', backend: '^backend photonoxide-mkl \(direct\): .* available', test: blas --test pardiso, require: 'PHOTONOXIDE_REQUIRE_BLAS=mkl' }
           # cuDSS 1.0 (libcudss.so.1, cudss64_1.dll); photonoxide-native finds 0.x too
           - { os: ubuntu-latest, package: libcudss=1.0, found: '^cuDSS 1\.[0-9.]+: .*\(from the conda environment\)' }
           - { os: windows-latest, package: libcudss=1.0, found: '^cuDSS 1\.[0-9.]+: .*\(from the conda environment\)' }
@@ -133,8 +135,10 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { os: ubuntu-latest, package: mkl, found: '^oneMKL 20[0-9]+\.[0-9]+: ', backend: '^backend pardiso \(direct\): .* available' }
-          - { os: windows-latest, package: mkl, found: '^oneMKL 20[0-9]+\.[0-9]+: ', backend: '^backend pardiso \(direct\): .* available' }
+          # unpinned, the newest release (mkl 2026.2.0 on 2026-10-31), its PARDISO's tests and its
+          # dense kernels' run
+          - { os: ubuntu-latest, package: mkl, found: '^oneMKL 20[0-9]+\.[0-9]+: ', backend: '^backend pardiso \(direct\): .* available', test: blas --test pardiso, require: 'PHOTONOXIDE_REQUIRE_BLAS=mkl' }
+          - { os: windows-latest, package: mkl, found: '^oneMKL 20[0-9]+\.[0-9]+: ', backend: '^backend pardiso \(direct\): .* available', test: blas --test pardiso, require: 'PHOTONOXIDE_REQUIRE_BLAS=mkl' }
           - { os: ubuntu-latest, package: nvidia-cuda-runtime nvidia-cusparse, found: '^cuSPARSE [0-9.]+: .*\(from a Python wheel\)' }
           - { os: windows-latest, package: nvidia-cuda-runtime nvidia-cusparse, found: '^cuSPARSE [0-9.]+: .*\(from a Python wheel\)' }
           - { os: ubuntu-latest, package: 'nvidia-cudss-cu13==1.0.*', found: '^cuDSS 1\.[0-9.]+: .*\(from a Python wheel\)' }

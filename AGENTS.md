@@ -109,6 +109,13 @@ issue "Weekly run failed". Run the full suite here after every merge or rebase
 The same hooks run CI's Lint steps (`.github/lints.sh`: fmt, the clippies, docs) before every push
 that changes Rust code or a manifest, on the commit being pushed, and refuse the push when one
 fails. A lint that passed on a commit, in the hook or the full suite, isn't run again on it.
+**An agent's worktree** (a linked worktree under `.claude/worktrees/`; `.github/hooks/agent-worktree.sh`
+tells it from the main checkout by both) does not run the suite after a merge or rebase (the hook
+prints one line and stops: an hour of cargo and a `target/` of 1 to 30 GB per worktree), and its
+pre-push lints build in the shared `<main checkout>/target/audit` (computed from the common git
+dir; a `CARGO_TARGET_DIR` you set wins) and stamp there, never in a `target/` of the worktree's own.
+The lints themselves still run: do not push with `--no-verify`. `just test-hooks` checks the
+detection on a throwaway repository.
 
 The Python package ([docs/python.md](docs/python.md)) wraps `photonoxide::facade` only. A change to
 the façade's functions or results changes `python/` (the native module, the Python functions

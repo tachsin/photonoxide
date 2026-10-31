@@ -59,4 +59,12 @@ MFD 6 µm: T_BOX 2 µm, FIO 3.7 µm, etch 120 nm, 11 grooves
   20 × 10 nm (680 × 362 cells): the designs either side of 100 nm, 40.00 % at 98.7 nm (1.4918–1.5905 µm) and 39.09 % at 103.8 nm (1.4844–1.5882 µm)
   MFD 6 µm: CE at 100 nm, grids         39.770000   on 2 grids, error 7.0e-1 ≤ 1e0 ok
   MFD 6 µm: CE at 100 nm, 2D (%): 39.77, paper 47: -7.23 points, beyond 3; a gap, reported and not checked
-all 2 within tolerance of the paper
+
+The paper's own designs (its supplement's data files), re-solved by the searches' model (the beam's waist on the film). The efficiency at 100 nm between two of them, against the main text's, within 3 points, for the 4 µm front: the 6 µm one's moves by 1.8 points between these two grids and needs `--supplement`'s finer one, which also compares each design with its printed efficiency and bandwidth.
+
+MFD 4 µm: T_BOX 2.1 µm, FIO 2.6 µm, etch 140 nm, 8 grooves, FID 1.28 µm (the data file's common data); the data file's front at 100 nm, between structures 49 (54 % at 99.2 nm) and 48 (53.1 % at 103.8 nm): 53.84 %, the main text's 53 %
+  structure 52: paper 55.1 % at 93 nm; ours 53.46 % at 98.7 nm (1.5013–1.6000 µm) on 20 × 10 nm, 53.59 % at 98.9 nm on 40 × 20 nm
+  structure 49: paper 54 % at 99.2 nm; ours 53.42 % at 104.4 nm (1.5068–1.6112 µm) on 20 × 10 nm, 53.31 % at 103.1 nm on 40 × 20 nm
+  MFD 4 µm: their CE at 100 nm, grids    53.450000   on 2 grids, error 6.0e-2 ≤ 1e0 ok
+  MFD 4 µm: their CE at 100 nm, 2D (%)    53.450000   paper 53         ± 3e0     ok
+all 4 within tolerance of the paper
