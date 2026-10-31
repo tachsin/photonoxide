@@ -3,7 +3,7 @@
 import { invoke } from "@tauri-apps/api/core";
 
 import type { Academy, ChartData } from "./academy.svelte";
-import type { Event, FlowRecord, Raster, Scene, SceneEtched, ScenePort, Shape } from "./events";
+import type { Event, FlowAssessment, FlowRecord, Raster, Scene, SceneEtched, ScenePort, Shape } from "./events";
 import type { Crystal, Section } from "./frames";
 import type { JobModel } from "./job";
 import type { Drawing, Medium } from "./jobedit";
@@ -946,6 +946,7 @@ export interface DevicePort {
 export interface DeviceFabrication {
   flow: FlowRecord;
   stages: { scene: Scene; etched: SceneEtched[] }[];
+  assessment: FlowAssessment;
 }
 
 export interface DeviceGeometry {

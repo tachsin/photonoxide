@@ -1589,7 +1589,8 @@ fn rank(flow: &Flow, k: usize, narrowest: Option<f64>) -> Result<Vec<Ranked>> {
                 r.cost = "another route".into();
             }
         }
-        if step.step == StepType::Lithography && refused {
+        // the generator's own reason, why it isn't the choice
+        if !r.worse.contains(&alt.why_not) {
             r.worse.push(alt.why_not.clone());
         }
         rest.push((score, r));

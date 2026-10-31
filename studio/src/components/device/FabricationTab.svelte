@@ -88,7 +88,7 @@
     return shown.flow.glossary.filter((g) => text.includes(g.term.toLowerCase()));
   });
 
-  const UNIT: Record<string, string> = { nm: " nm", um: " µm", degree: "°", celsius: " °C", ratio: ":1" };
+  const UNIT: Record<string, string> = { nm: " nm", um: " µm", degree: "°", celsius: " °C", ratio: ":1", number: "", percent: " %" };
   /** A number to four significant digits, without trailing zeros. */
   const num = (v: number) => String(Number(v.toPrecision(4)));
   function value(v: Stated): string {
@@ -119,6 +119,27 @@
     };
     return c.quantity.kind === "selectivity" ? `selectivity over ${c.quantity.over ?? ""}` : (names[c.quantity.kind] ?? c.quantity.kind);
   }
+  /** The picked step's processes ranked, the chosen first (photonoxide::fabrication::assess). */
+  const ranked = $derived(shown?.assessment.ranking.find((r) => r.step === picked)?.ranked ?? []);
+  /** The rules' checks of the picked step. */
+  const stepChecks = $derived(shown?.assessment.checks.filter((c) => c.step === picked) ?? []);
+  /** The optics of the picked step's lithography, when it is a projection one. */
+  const optics = $derived(step ? (shown?.assessment.optics.find((o) => o.process === step.process) ?? null) : null);
+  const VERDICT: Record<string, string> = { within: "within", warning: "warning", not_specified: "not specified" };
+  const RULE: Record<string, string> = {
+    resolution: "resolution",
+    aspect_ratio: "aspect ratio",
+    sidewall: "walls",
+    selectivity: "selectivity",
+    thermal: "thermal budget",
+    overlay: "registration",
+    planarization: "planarization",
+    thickness: "thickness",
+  };
+  /** A dimension's value or bound in its unit. */
+  const dim = (v: number, unit: string) => (unit === "degree" ? `${num(v)}°` : `${num(v)} nm`);
+  /** A contribution's source, cited. */
+  const cite = (s: FlowSource | null) => (s ? source(s) : "No source in hand states it");
   const STEP: Record<string, string> = {
     wafer: "wafer",
     deposition: "deposition",
@@ -204,12 +225,49 @@
             </ul>
           </div>
         {/if}
-        {#if step.alternatives.length}
+        {#if optics}
+          <p class="selectable">
+            <span class="font-medium">Its optics.</span>
+            <span class="num">{num(optics.wavelength_nm)}</span> nm light, numerical aperture <span class="num">{num(optics.na[0])}</span> to
+            <span class="num">{num(optics.na[1])}</span>: by the Rayleigh criterion W = k₁λ/NA it prints lines down to
+            <span class="num">{num(optics.typical_nm)}</span> nm as a matter of course (k₁ 0.4) and <span class="num">{num(optics.limit_nm)}</span> nm at the limit
+            (k₁ 0.25).
+          </p>
+        {/if}
+        {#if ranked.length}
+          <div>
+            <div class="font-medium">The processes that could do it, best first</div>
+            <ol class="ml-4 list-decimal space-y-1" aria-label="Alternatives, ranked">
+              {#each ranked as r (r.process)}
+                <li class={r.feasible ? "" : "faint"}>
+                  <span class="font-medium">{r.name}</span>{#if r.chosen}<span class="badge badge-primary badge-xs ml-1">chosen</span>{:else if !r.feasible}<span class="badge badge-ghost badge-xs ml-1">can't</span>{/if}
+                  {#if !r.chosen}<span class="faint"> · {r.cost}</span>{/if}
+                  {#if r.better.length || r.worse.length}
+                    <ul class="ml-3">
+                      {#each r.better as b, i (i)}<li class="selectable"><span class="text-success" aria-label="better">+</span> {b}</li>{/each}
+                      {#each r.worse as w, i (i)}<li class="selectable"><span class="text-warning" aria-label="worse">−</span> {w}</li>{/each}
+                    </ul>
+                  {/if}
+                </li>
+              {/each}
+            </ol>
+          </div>
+        {:else if step.alternatives.length}
           <div>
             <div class="font-medium">What else could do it</div>
             <ul class="ml-4 list-disc">
               {#each step.alternatives as a, i (i)}
                 <li><span class="font-medium">{a.name}:</span> {a.why_not}</li>
+              {/each}
+            </ul>
+          </div>
+        {/if}
+        {#if stepChecks.length}
+          <div>
+            <div class="font-medium">What the rules check here</div>
+            <ul class="ml-4 list-disc">
+              {#each stepChecks as c, i (i)}
+                <li class="selectable"><span class={c.verdict === "within" ? "" : "text-warning"}>{RULE[c.rule] ?? c.rule}, {VERDICT[c.verdict] ?? c.verdict}:</span> {c.text}</li>
               {/each}
             </ul>
           </div>
@@ -225,6 +283,38 @@
       </section>
     {/if}
 
+    {#if shown.assessment.accuracy.length}
+      <section aria-label="How accurately each dimension is made">
+        <div class="font-medium">How accurately each dimension is made</div>
+        <p class="faint">Hover a row for its contributions and their sources. {shown.assessment.combination}</p>
+        <table class="table table-xs mt-1">
+          <thead>
+            <tr><th>Dimension</th><th class="text-right">Design</th><th class="text-right">Made to</th><th class="text-right">At worst</th></tr>
+          </thead>
+          <tbody>
+            {#each shown.assessment.accuracy as d, i (i)}
+              <tr title={d.contributions.map((c) => `${c.what}: ${c.bound === null ? "not specified" : "± " + dim(c.bound, d.unit)} (${c.conditions}; ${cite(c.source)})`).join("\n")}>
+                <td>{d.what}</td>
+                <td class="num whitespace-nowrap text-right">{dim(d.nominal, d.unit)}</td>
+                <td class="num whitespace-nowrap text-right {d.complete ? '' : 'text-warning'}">{d.combined === null ? "not specified" : `± ${dim(d.combined, d.unit)}${d.complete ? "" : " +?"}`}</td>
+                <td class="num whitespace-nowrap text-right">{d.worst === null ? "" : `± ${dim(d.worst, d.unit)}`}</td>
+              </tr>
+            {/each}
+          </tbody>
+        </table>
+        <p class="faint mt-1">“+?”: a contribution no source in hand states is left out, so the true spread is larger.</p>
+      </section>
+    {/if}
+    {#if shown.assessment.checks.some((c) => c.verdict !== "within")}
+      <div>
+        <div class="font-medium">What the rules flag</div>
+        <ul class="ml-4 list-disc">
+          {#each shown.assessment.checks.filter((c) => c.verdict !== "within") as c, i (i)}
+            <li class="selectable"><span class="text-warning">{RULE[c.rule] ?? c.rule}, {VERDICT[c.verdict] ?? c.verdict}:</span> {c.text}</li>
+          {/each}
+        </ul>
+      </div>
+    {/if}
     {#if shown.flow.warnings.length}
       <div role="status">
         <div class="font-medium text-warning">Warnings</div>

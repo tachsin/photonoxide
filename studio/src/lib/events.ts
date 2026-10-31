@@ -66,7 +66,7 @@ export type Stated =
   | { kind: "at_least"; value: number; unit: FlowUnit; source: FlowSource }
   | { kind: "not_specified"; coming: string | null };
 
-export type FlowUnit = "nm" | "um" | "degree" | "celsius" | "ratio";
+export type FlowUnit = "nm" | "um" | "degree" | "celsius" | "ratio" | "number" | "percent";
 
 /** One thing a process can achieve, with its source (photonoxide::fabrication::Capability). */
 export interface FlowCapability {
@@ -113,7 +113,67 @@ export interface FlowReference {
   open_access: string;
 }
 
-/** A design's process flow (photonoxide::fabrication::FlowRecord). */
+/** A rule's check on a design and its flow (photonoxide::fabrication::Check). */
+export interface FlowCheck {
+  rule: "resolution" | "aspect_ratio" | "sidewall" | "selectivity" | "thermal" | "overlay" | "planarization" | "thickness";
+  layer: string | null;
+  step: number | null;
+  verdict: "within" | "warning" | "not_specified";
+  text: string;
+}
+
+/** A process that could do a step, ranked against the chosen one (photonoxide::fabrication::Ranked). */
+export interface FlowRanked {
+  process: string;
+  name: string;
+  chosen: boolean;
+  feasible: boolean;
+  better: string[];
+  worse: string[];
+  cost: string;
+}
+
+/** One contribution to a dimension's uncertainty (photonoxide::fabrication::Contribution). */
+export interface FlowContribution {
+  what: string;
+  bound: number | null;
+  source: FlowSource | null;
+  conditions: string;
+}
+
+/** A fabricated dimension and how accurately it is made (photonoxide::fabrication::Dimension). */
+export interface FlowDimension {
+  what: string;
+  layer: string;
+  kind: "thickness" | "width" | "floor_width" | "depth" | "sidewall" | "placement";
+  nominal: number;
+  unit: FlowUnit;
+  contributions: FlowContribution[];
+  combined: number | null;
+  worst: number | null;
+  complete: boolean;
+  text: string;
+}
+
+/** A projection lithography's optics and what they print (photonoxide::fabrication::rayleigh::Optics). */
+export interface FlowOptics {
+  process: string;
+  wavelength_nm: number;
+  na: [number, number];
+  limit_nm: number;
+  typical_nm: number;
+  comfortable_nm: number;
+  sources: FlowSource[];
+}
+
+/** What the fabrication rules find in a design and its flow (photonoxide::fabrication::Assessment). */
+export interface FlowAssessment {
+  checks: FlowCheck[];
+  ranking: { step: number; ranked: FlowRanked[] }[];
+  accuracy: FlowDimension[];
+  combination: string;
+  optics: FlowOptics[];
+}/** A design's process flow (photonoxide::fabrication::FlowRecord). */
 export interface FlowRecord {
   library: string;
   steps: FlowStep[];
@@ -736,7 +796,8 @@ export type Event =
   | StaticFrame
   | { type: "finished"; stopped: string | null; seconds: number }
   | { type: "failed"; error: string; seconds: number }
-  | { type: "flow"; flow: FlowRecord };
+  | { type: "flow"; flow: FlowRecord }
+  | { type: "flow_assessment"; assessment: FlowAssessment };
 
 export function modeKind(m: Mode): string {
   return m.te_fraction > 0.5 ? "TE-like" : "TM-like";
