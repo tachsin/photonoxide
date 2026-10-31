@@ -78,6 +78,12 @@ export const CATEGORIES = [
     groups: [{ title: null, slugs: ["circuits", "components", "devices", "compact", "sweep"] }],
   },
   {
+    id: "fabrication",
+    title: "Fabrication",
+    blurb: "How a design would be made: the steps in order from published processes, why each one and what else could do it, what each process can achieve with its source, and the flow executed on the library's own geometry to give the design back.",
+    groups: [{ title: null, slugs: ["fabrication"] }],
+  },
+  {
     id: "foundations",
     title: "Foundations",
     blurb: "Not solvers: the units and signs, shapes, stacks and their etches, expressions and material data every method above is built on.",

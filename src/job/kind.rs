@@ -18,6 +18,7 @@ use super::check::task_error;
 use super::chip::ChipStudyKind;
 use super::device::SpectrumKind;
 use super::event::Event;
+use super::fabrication::FabricationKind;
 use super::fdfd::FdfdKind;
 use super::fdtd::FdtdKind;
 use super::fit::FitKind;
@@ -105,13 +106,14 @@ static SOLVER: [&dyn TaskKind; 6] = [
 ];
 
 /// The kinds of a task beside a `[device]`, in the order the schema lists them.
-static DEVICE: [&dyn TaskKind; 6] = [
+static DEVICE: [&dyn TaskKind; 7] = [
     &SpectrumKind,
     &StudyKind("sweep"),
     &StudyKind("corners"),
     &FitKind,
     &DeviceOptimizeKind,
     &FdtdKind,
+    &FabricationKind,
 ];
 
 /// The kinds of a task beside a `[circuit]`, in the order the schema lists them.

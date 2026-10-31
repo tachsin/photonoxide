@@ -2,13 +2,14 @@
   // Validation's Published results tab: every example of examples/, each reproducing a paper's
   // numbers, with its paper and DOIs, its tolerance, what the release recorded, and a run on
   // this machine that checks every line against the paper as it prints.
-  import { BookMarked, CircleCheck, CircleX, ExternalLink, FileCode, Play, Search, Square, SquarePen, Timer } from "@lucide/svelte";
+  import { BookMarked, CircleCheck, CircleX, ExternalLink, Factory, FileCode, Play, Search, Square, SquarePen, Timer } from "@lucide/svelte";
   import { openUrl } from "../lib/open";
   import { tick } from "svelte";
 
   import { api, duration, type Example } from "../lib/api";
   import { app, openCustom, toast } from "../lib/app.svelte";
   import { catalog, jobExample, loadCatalog } from "../lib/catalog.svelte";
+  import { devices, loadDevices, openDevice } from "../lib/device.svelte";
   import { startTask, stopTask, tasks } from "../lib/tasks.svelte";
   import Tip from "./Tip.svelte";
 
@@ -37,6 +38,9 @@
     }),
   );
   const current = $derived(examples.find((e) => e.name === (chosen ?? examples[0]?.name)));
+  // the library device whose design an example computes, if one: its Fabricate opens that device's Fabrication tab
+  loadDevices();
+  const designed = $derived(current ? devices.list.find((d) => d.examples.includes(current.name)) : undefined);
   const task = $derived(current ? tasks[`example:${current.name}`] : undefined);
   const lines = $derived(view === "live" && task ? task.lines : (current?.recorded.trimEnd().split("\n") ?? []));
 
@@ -116,6 +120,9 @@
             <button class="btn btn-outline gap-2" onclick={() => stopTask(`example:${current.name}`)}><Square size={15} /> Stop</button>
           {:else}
             <button class="btn btn-primary gap-2" onclick={() => runExample(current)}><Play size={16} /> Run on this machine</button>
+          {/if}
+          {#if designed}
+            <button class="btn btn-outline gap-2" onclick={() => openDevice(designed.id, "fabrication")} title="How the {designed.kind} this example computes could be made: its process flow, animated step by step, on its page's Fabrication tab"><Factory size={16} /> Fabricate</button>
           {/if}
         </div>
 

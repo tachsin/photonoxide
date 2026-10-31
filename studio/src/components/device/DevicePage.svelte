@@ -18,7 +18,7 @@
   //
   // At the analytic fidelity everything follows every change, 60 ms after it; a 2D or 3D model
   // is a solve, started by a button and run in the background. Every number names its model.
-  import { BookOpen, BookOpenCheck, CircleCheck, CirclePlus, Cpu, ExternalLink, FileDown, Play, Save } from "@lucide/svelte";
+  import { BookOpen, BookOpenCheck, CircleCheck, CirclePlus, Cpu, ExternalLink, Factory, FileDown, Play, Save } from "@lucide/svelte";
   import { ask } from "@tauri-apps/plugin-dialog";
   import { openUrl } from "../../lib/open";
   import katex from "katex";
@@ -34,7 +34,7 @@
   import Viewer from "../../pages/Viewer.svelte";
   import SolvedView from "./SolvedView.svelte";
   import { FIDELITY_ABOUT, plain } from "../../lib/deviceview";
-  import type { Scene } from "../../lib/events";
+  import type { Scene, SceneEtched } from "../../lib/events";
   import { len, shown as inUnit, stored, unitText } from "../../lib/units";
   import Glyph from "../Glyph.svelte";
   import SpectrumPlot from "../SpectrumPlot.svelte";
@@ -49,6 +49,7 @@
   import OptimizeTab from "./OptimizeTab.svelte";
   import StudyTab from "./StudyTab.svelte";
   import ElectrodeFieldView from "./ElectrodeFieldView.svelte";
+  import FabricationTab from "./FabricationTab.svelte";
   import { MODULATOR } from "./ModulatorSweeps.svelte";
   import TemperatureView from "./TemperatureView.svelte";
   import TopView from "./TopView.svelte";
@@ -86,7 +87,7 @@
   // ---- the form and the geometry: every change, at once (a millisecond) ----
   let view = $state<DeviceGeometry | null>(null);
   /** What the views draw: the design's structure, or while a field is wrong, the last one that held together. */
-  let drawn = $state<{ scene: Scene; ports: DevicePort[] } | null>(null);
+  let drawn = $state<{ scene: Scene; ports: DevicePort[]; etched?: SceneEtched[] } | null>(null);
   let wantedView: DeviceSpec | null = null;
   let viewing = false;
   async function pumpView() {
@@ -99,7 +100,7 @@
         const v = await api.deviceGeometry(s);
         if (!wantedView) {
           view = v;
-          if (v.scene) drawn = { scene: v.scene, ports: v.ports };
+          if (v.scene) drawn = { scene: v.scene, ports: v.ports, etched: v.etched };
         }
       } catch (e) {
         if (!wantedView) toast(String(e), "error");
@@ -114,7 +115,7 @@
   });
   // ---- an optimization's design as it changes: shown in place of the design on the Optimize tab ----
   const preview = $derived(draft.tab === "optimize" ? (optimizePreview[info.id] ?? null) : null);
-  let previewDrawn = $state<{ index: number; scene: Scene; ports: DevicePort[] } | null>(null);
+  let previewDrawn = $state<{ index: number; scene: Scene; ports: DevicePort[]; etched?: SceneEtched[] } | null>(null);
   $effect(() => {
     const p = preview;
     if (!p) {
@@ -124,12 +125,17 @@
     api
       .deviceGeometry(p.spec)
       .then((v) => {
-        if (v.scene && preview === p) previewDrawn = { index: p.index, scene: v.scene, ports: v.ports };
+        if (v.scene && preview === p) previewDrawn = { index: p.index, scene: v.scene, ports: v.ports, etched: v.etched };
       })
       .catch(() => {});
   });
   /** What the view draws: the optimization's design while the Optimize tab shows one, the design otherwise. */
   const shownDrawn = $derived(previewDrawn ?? drawn);
+  // the tab shown in sight in the tab bar, however it was chosen (Fabricate picks the last one)
+  $effect(() => {
+    void draft.tab;
+    requestAnimationFrame(() => document.querySelector('[role="tablist"] .tab-active')?.scrollIntoView({ block: "nearest", inline: "nearest" }));
+  });
 
   const values = $derived<Record<string, number>>(view?.values ? Object.fromEntries(info.parameters.map((p, i) => [p.name, view!.values![i]])) : {});
   const thickness = $derived(values.thickness ?? null);
@@ -469,6 +475,7 @@
           }}
           title="Run the design as a job, as the Simulate tab sets it: by its {fidelity} model unless it says otherwise"><Play size={15} /> Run</button
         >
+        <button class="btn btn-sm gap-1.5" onclick={() => (draft.tab = "fabrication")} title="How this design could be made: the steps from published processes, each with its reason and sources (the Fabrication tab)"><Factory size={15} /> Fabricate</button>
         <button class="btn btn-sm gap-1.5" onclick={startSave} title="Save the design as a job file in the workspace's jobs/ (Ctrl+S)"><Save size={15} /> Save</button>
         <button class="btn btn-primary btn-sm gap-1.5" onclick={place} title="Add this design to the chip being edited, at its {fidelity} model: the instance carries the design and its fidelity"><CirclePlus size={15} /> Place on the chip</button>
       </div>
@@ -509,7 +516,7 @@
               <div class="mb-1 text-xs faint">From above: drag the cut</div>
               <TopView scene={shownDrawn.scene} ports={shownDrawn.ports} bind:normal bind:at={() => cutAt ?? 0, (v) => (cutAt = v)} height={Math.max(80, Math.round(0.36 * viewHeight))} />
               <div class="mt-2 mb-1 text-xs faint">The cross-section at {normal} = <span class="num">{len(cutAt ?? 0, 3)} {unitText()}</span></div>
-              <CutView scene={shownDrawn.scene} {normal} at={cutAt ?? 0} height={Math.max(100, Math.round(0.64 * viewHeight) - 64)} />
+              <CutView scene={shownDrawn.scene} etched={shownDrawn.etched} {normal} at={cutAt ?? 0} height={Math.max(100, Math.round(0.64 * viewHeight) - 64)} />
             {:else if shape === "heat"}
               <TemperatureView spec={draft.spec} height={Math.max(160, viewHeight - 24)} />
             {:else if shape === "field"}
@@ -551,8 +558,8 @@
     </section>
 
     <aside class="flex min-h-0 min-w-0 flex-col">
-      <div role="tablist" class="tabs tabs-border tabs-sm shrink-0 flex-nowrap overflow-x-auto border-b border-base-content/8 px-3">
-        {#each [["design", "Design"], ["overview", "Overview"], ["model", "Model"], ["simulate", "Simulate"], ["study", "Study"], ["optimize", "Optimize"]] as const as [t, label] (t)}
+      <div role="tablist" class="tabs tabs-border tabs-sm shrink-0 flex-wrap border-b border-base-content/8 px-3">
+        {#each [["design", "Design"], ["overview", "Overview"], ["model", "Model"], ["simulate", "Simulate"], ["study", "Study"], ["optimize", "Optimize"], ["fabrication", "Fabrication"]] as const as [t, label] (t)}
           <button role="tab" class="tab {draft.tab === t ? 'tab-active' : ''}" onclick={() => (draft.tab = t)}>{label}</button>
         {/each}
       </div>
@@ -726,6 +733,8 @@
           <SimulateTab {info} {draft} {designKey} {values} onshow={() => (mainView = "run")} />
         {:else if draft.tab === "study"}
           <StudyTab {info} {draft} {designKey} {values} fields={view?.fields ?? []} />
+        {:else if draft.tab === "fabrication"}
+          <FabricationTab spec={draft.spec} {designKey} {normal} at={cutAt ?? 0} />
         {:else}
           <OptimizeTab {info} {draft} {designKey} {values} fields={view?.fields ?? []} />
         {/if}

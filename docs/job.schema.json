@@ -3892,6 +3892,35 @@
       "description": "An expression of numbers with units and the task's parameters (docs/methods/expressions.md), e.g. \"500 nm\", \"w/2 + gap\", \"10 deg\".",
       "type": "string"
     },
+    "FabricationTask": {
+      "additionalProperties": false,
+      "description": "A `\"fabrication\"` task: the process flow of the `[device]`'s design.",
+      "properties": {
+        "avoid": {
+          "default": [],
+          "description": "The ids of processes not to use.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "prefer": {
+          "default": [],
+          "description": "The ids of processes to prefer where several qualify, e.g. `\"ebl-hsq\"`.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "type": "object"
+    },
     "FdfdTask": {
       "additionalProperties": false,
       "allOf": [
@@ -10621,6 +10650,21 @@
                 }
               },
               {
+                "if": {
+                  "properties": {
+                    "kind": {
+                      "const": "fabrication"
+                    }
+                  },
+                  "required": [
+                    "kind"
+                  ]
+                },
+                "then": {
+                  "$ref": "#/$defs/FabricationTask"
+                }
+              },
+              {
                 "anyOf": [
                   {
                     "maxProperties": 0
@@ -10642,7 +10686,8 @@
                   "corners",
                   "fit",
                   "optimize",
-                  "fdtd"
+                  "fdtd",
+                  "fabrication"
                 ]
               }
             },

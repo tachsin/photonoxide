@@ -42,6 +42,9 @@
 //! - [`farm`]: the same across processes, on this machine or others over TCP: a sweep's points
 //!   or whole jobs (a population, corners) sent to workers and gathered by index.
 //! - [`facade`]: a small, stable façade of plain types, which the Python package wraps.
+//! - [`fabrication`]: how a design would be made: a process flow from published processes, each
+//!   step with its reason, alternatives and cited capabilities, executed on the library's own
+//!   geometry to give the design back.
 //!
 //! **Released milestone by milestone;** until 1.0 the API can change between them.
 //! Thermo-optic and electro-optic devices, inverse design, layout and PDKs are planned, not here yet:
@@ -70,6 +73,7 @@ pub mod error;
 mod etch;
 pub mod export;
 pub mod expr;
+pub mod fabrication;
 pub mod facade;
 pub mod farm;
 pub mod fdfd;

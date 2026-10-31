@@ -488,6 +488,9 @@ mod device;
 mod device_tests;
 mod event;
 mod execute;
+mod fabrication;
+#[cfg(test)]
+mod fabrication_tests;
 mod fdfd;
 mod fdtd;
 mod fit;
@@ -549,6 +552,7 @@ pub use chip::{
 pub use device::{Compute, DeviceFigure, fdfd_size, from_device};
 pub use event::Event;
 pub use execute::{conclude, execute, farms, preview};
+pub use fabrication::{FabricationView, Stage, fabrication_of};
 pub use fdfd::{FdfdSParameters, fdfd_s_parameters};
 pub use fdtd::{FoundResonance, SpectrumSeries};
 pub use fit::fit_from_device;
@@ -556,7 +560,9 @@ pub use optimize::{
     Aim, Bound, Evaluation, GradientCheck, Keep, Optimization, Problem, Recorder, Schedule,
     Variable, design_of, optimize_from_chip, optimize_from_device, optimizes,
 };
-pub use scene::{SceneLayer, SceneMedium, ScenePort, SceneShape, preview_ports};
+pub use scene::{
+    SceneEtched, SceneLayer, SceneMedium, ScenePort, SceneShape, preview_ports, scene_etched,
+};
 pub use schema::{SCHEMA_URL, schema, schema_text};
 pub use statics::StaticValue;
 pub use study::{Corner, Study, SweepAxis, study_from_device};

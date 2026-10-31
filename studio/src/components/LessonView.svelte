@@ -4,7 +4,7 @@
   // lesson's Markdown with KaTeX; its charts, examples, validation cases and timeline are blocks.
   import "katex/dist/katex.min.css";
 
-  import { BookOpen, Boxes, ChevronDown, ChevronRight, CircleCheck, CircleX, CircuitBoard, Clock, Eye, ListOrdered, Play, ShieldCheck, SquarePen, TableOfContents } from "@lucide/svelte";
+  import { BookOpen, Boxes, ChevronDown, ChevronRight, CircleCheck, CircleX, CircuitBoard, Clock, Eye, Factory, ListOrdered, Play, ShieldCheck, SquarePen, TableOfContents } from "@lucide/svelte";
   import { openUrl } from "../lib/open";
 
   import { academy, DEPTHS, numbered, type ChartSpec, type DiagramSpec, type Depth, type Lesson, type LessonSection } from "../lib/academy.svelte";
@@ -125,6 +125,7 @@
   const actions = $derived([
     { label: "Run the example", icon: Play, primary: true, items: lesson.examples.map((e) => ({ label: exampleTitle(e), run: () => runExample(e) })) },
     { label: "Open the device", icon: Boxes, primary: false, items: taught.map((d) => ({ label: deviceName(d.kind), run: () => openDevice(d.id) })) },
+    { label: "Fabricate", icon: Factory, primary: false, items: taught.map((d) => ({ label: `How ${deviceName(d.kind).replace(/^The /, "the ")} is made`, run: () => openDevice(d.id, "fabrication") })) },
     { label: "Open in the Custom device", icon: SquarePen, primary: false, items: lesson.jobs.map((j) => ({ label: jobExample(j)?.name ?? j, run: () => openJob(j) })) },
     { label: "Open on the chip", icon: CircuitBoard, primary: false, items: lesson.circuits.map((c) => ({ label: circuits.find((x) => x.file === c)?.chip.name ?? c, run: () => openCircuit(c) })) },
     { label: "The methods", icon: BookOpen, primary: false, items: methodDocs.map((d) => ({ label: d.title, run: () => ondoc(d) })) },
@@ -325,7 +326,8 @@
                 {:else if b.kind === "device"}
                   {@const d = deviceOf(b.device)}
                   {#if d}
-                    <button class="panel my-6 flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-base-content/3" onclick={() => openDevice(d.id)}>
+                    <div class="my-6 flex items-stretch gap-2">
+                    <button class="panel flex min-w-0 flex-1 items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-base-content/3" onclick={() => openDevice(d.id)}>
                       <span class="grid size-8 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary"><Boxes size={16} /></span>
                       <span class="min-w-0 flex-1">
                         <span class="block text-sm font-semibold">{deviceName(d.kind)}</span>
@@ -334,6 +336,8 @@
                       </span>
                       <span class="flex shrink-0 items-center gap-1 text-xs font-medium text-primary">Open the device <ChevronRight size={14} /></span>
                     </button>
+                    <button class="panel flex shrink-0 flex-col items-center justify-center gap-1 px-3 text-xs font-medium text-primary transition-colors hover:bg-base-content/3" onclick={() => openDevice(d.id, "fabrication")} title="How this device could be made: its process flow, animated step by step, on its page's Fabrication tab"><Factory size={16} /> Fabricate</button>
+                    </div>
                   {/if}
                 {:else if b.kind === "timeline"}
                   <PaperTimeline papers={lesson.papers} />
