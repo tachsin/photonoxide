@@ -124,10 +124,31 @@ impl FourWave {
     ///
     /// [`Error::InvalidValue`] for a length that isn't finite and non-negative or no steps.
     pub fn propagate(&self, start: Waves, length: f64, steps: usize) -> Result<Waves> {
-        if !(length.is_finite() && length >= 0.0) || steps == 0 {
+        self.propagate_with_loss(start, length, steps, [0.0; 3])
+    }
+
+    /// The same with each wave's power loss, `loss` = [α_p, α_s, α_i] in 1/m: each equation
+    /// gains its −α_jA_j/2 ([`super::pulse::loss_per_m`] converts dB/cm).
+    ///
+    /// # Errors
+    ///
+    /// As [`FourWave::propagate`], and [`Error::InvalidValue`] for a loss that isn't finite.
+    pub fn propagate_with_loss(
+        &self,
+        start: Waves,
+        length: f64,
+        steps: usize,
+        loss: [f64; 3],
+    ) -> Result<Waves> {
+        if !(length.is_finite() && length >= 0.0)
+            || steps == 0
+            || loss.iter().any(|a| !a.is_finite())
+        {
             return Err(Error::invalid(
                 "four-wave mixing",
-                format!("needs a finite length ≥ 0 and steps, got {length} m, {steps}"),
+                format!(
+                    "needs a finite length ≥ 0, steps and finite losses, got {length} m, {steps}"
+                ),
             ));
         }
         let h = length / steps as f64;
@@ -136,13 +157,21 @@ impl FourWave {
             signal: a.signal + k.signal * s,
             idler: a.idler + k.idler * s,
         };
+        let rate = |z: f64, w: &Waves| {
+            let r = self.rate(z, w);
+            Waves {
+                pump: r.pump - 0.5 * loss[0] * w.pump,
+                signal: r.signal - 0.5 * loss[1] * w.signal,
+                idler: r.idler - 0.5 * loss[2] * w.idler,
+            }
+        };
         let mut w = start;
         for n in 0..steps {
             let z = n as f64 * h;
-            let k1 = self.rate(z, &w);
-            let k2 = self.rate(z + 0.5 * h, &add(&w, &k1, 0.5 * h));
-            let k3 = self.rate(z + 0.5 * h, &add(&w, &k2, 0.5 * h));
-            let k4 = self.rate(z + h, &add(&w, &k3, h));
+            let k1 = rate(z, &w);
+            let k2 = rate(z + 0.5 * h, &add(&w, &k1, 0.5 * h));
+            let k3 = rate(z + 0.5 * h, &add(&w, &k2, 0.5 * h));
+            let k4 = rate(z + h, &add(&w, &k3, h));
             w = Waves {
                 pump: w.pump + (k1.pump + 2.0 * k2.pump + 2.0 * k3.pump + k4.pump) * (h / 6.0),
                 signal: w.signal

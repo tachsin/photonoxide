@@ -64,6 +64,7 @@ pub fn rules() -> Vec<(&'static str, Rule)> {
     rules.extend(fabrication_rules::rules());
     rules.extend(nonlinear_guides::rules());
     rules.extend(nonlinear_kerr::rules());
+    rules.extend(nonlinear_cavities::rules());
     rules
 }
 
@@ -2271,6 +2272,10 @@ pub fn cases() -> Vec<Case> {
     cases.extend(crate::nonlinear::guide_checks::cases());
     // and third-order processes: the NLSE, four-wave mixing and the Lugiato-Lefever equation
     cases.extend(crate::nonlinear::kerr_checks::cases());
+    // and silicon's two-photon and free-carrier absorption, and cross-phase modulation
+    cases.extend(crate::nonlinear::absorption_checks::cases());
+    // and resonant processes: SHG and FWM in rings, heralding through filters, OPOs
+    cases.extend(crate::nonlinear::cavity_checks::cases());
     cases
 }
 
@@ -5297,6 +5302,7 @@ mod modes;
 mod modulator;
 mod modulator_error;
 mod nonlinear;
+mod nonlinear_cavities;
 mod nonlinear_data;
 mod nonlinear_guides;
 mod nonlinear_kerr;

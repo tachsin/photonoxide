@@ -65,3 +65,28 @@ fn the_coupled_equations_give_the_closed_form_and_keep_their_invariants() {
     assert!(end.pump.norm_sqr() < 0.9);
     assert!(fw.propagate(start, -1.0, 10).is_err());
 }
+
+#[test]
+fn each_wave_loses_its_own_power() {
+    let fw = FourWave {
+        gamma: 0.0,
+        mismatch: 0.0,
+    };
+    let one = c64::new(1.0, 0.0);
+    let start = Waves {
+        pump: one,
+        signal: one,
+        idler: one,
+    };
+    let end = fw
+        .propagate_with_loss(start, 2.0, 200, [0.1, 0.2, 0.3])
+        .unwrap();
+    for (a, alpha) in [(end.pump, 0.1), (end.signal, 0.2), (end.idler, 0.3)] {
+        let p: f64 = a.norm_sqr();
+        assert!((p - (-alpha * 2.0f64).exp()).abs() < 1e-12, "{p}");
+    }
+    assert!(
+        fw.propagate_with_loss(start, 1.0, 1, [f64::NAN, 0.0, 0.0])
+            .is_err()
+    );
+}

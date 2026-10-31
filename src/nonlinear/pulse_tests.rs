@@ -186,3 +186,59 @@ fn raman_shifts_a_soliton_red() {
     // the energy too, to the RK4 step's error
     assert!((end.energy() / start.energy() - 1.0).abs() < 1e-6);
 }
+
+#[test]
+fn two_photon_absorption_alone_is_exact() {
+    // β_T = 5e-12 m/W over 0.3 µm², 1 cm, no linear loss: one step is Lin's Eqs. (60)–(61)
+    let tpa = TwoPhoton {
+        coefficient: 5e-12,
+        area: 0.3e-12,
+        carriers: None,
+    };
+    let g = Guide::new(Dispersion::new(1.55, &[0.0]).unwrap(), 30.0, 0.0).with_two_photon(tpa);
+    let start = Pulse::gaussian(20.0, 1.0, 256, 32.0).unwrap();
+    let end = g.propagate(&start, 0.01, 1).unwrap();
+    let j = 128;
+    let p = two_photon_power(20.0, 5e-12, 0.3e-12, 0.0, 0.01);
+    let phi = two_photon_phase(30.0, 20.0, 5e-12, 0.3e-12, 0.0, 0.01);
+    assert!((end.field[j].norm_sqr() / p - 1.0).abs() < 1e-13);
+    assert!(((end.field[j] / start.field[j]).arg() - phi).abs() < 1e-13);
+    assert!(two_photon_phase(100.0, 20.0, 0.0, 0.3e-12, 0.0, 0.01) == 20.0);
+}
+
+#[test]
+fn the_carriers_rise_through_the_pulse_and_decay_after_it() {
+    let tpa = TwoPhoton {
+        coefficient: 5e-12,
+        area: 0.3e-12,
+        carriers: Some(FreeCarriers::silicon(1.55, f64::INFINITY, 1.0)),
+    };
+    let g = Guide::new(Dispersion::new(1.55, &[0.0]).unwrap(), 0.0, 0.0).with_two_photon(tpa);
+    let start = Pulse::gaussian(10.0, 1.0, 1024, 64.0).unwrap();
+    let n = g.carriers(&start).unwrap();
+    let total = gaussian_carriers(5e-12, 0.3e-12, 10.0, 1.0, 1.55);
+    assert!(
+        (n[1023] / total - 1.0).abs() < 1e-12,
+        "{} {}",
+        n[1023],
+        total
+    );
+    assert!(n.windows(2).all(|w| w[1] >= w[0]));
+    // with a 2 ps lifetime they fall back after the pulse
+    let short = TwoPhoton {
+        carriers: Some(FreeCarriers::silicon(1.55, 2.0, 1.0)),
+        ..tpa
+    };
+    let n = Guide::new(Dispersion::new(1.55, &[0.0]).unwrap(), 0.0, 0.0)
+        .with_two_photon(short)
+        .carriers(&start)
+        .unwrap();
+    assert!(n[1023] < 1e-5 * total);
+    let bad = TwoPhoton { area: 0.0, ..tpa };
+    assert!(
+        Guide::new(Dispersion::new(1.55, &[0.0]).unwrap(), 0.0, 0.0)
+            .with_two_photon(bad)
+            .carriers(&start)
+            .is_err()
+    );
+}
