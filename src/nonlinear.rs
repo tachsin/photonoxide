@@ -10,7 +10,8 @@
 //! - [`coupled`]: the coupled-amplitude equations of SHG, sum- and difference-frequency
 //!   generation and parametric amplification along a guide, depleted or not, with loss
 //!   (Armstrong et al. 1962).
-//! - [`pairs`]: photon pairs by spontaneous parametric down-conversion: the joint spectral
+//! - [`pairs`]: photon pairs by spontaneous parametric down-conversion and spontaneous four-wave
+//!   mixing: the joint spectral
 //!   amplitude and its Schmidt decomposition, the pairs' purity (Grice and Walmsley 1997).
 //! - [`guide`]: all of it in a waveguide, from its modes: the mismatch, the poling period and
 //!   the group indices from the mode solver's effective indices over wavelength, and the coupling
@@ -19,6 +20,8 @@
 //! - [`pulse`]: pulses along a Kerr guide, the nonlinear Schrödinger equation by split-step
 //!   Fourier: β₂, β₃, β₄, … from the guide's effective index over wavelength, γ from its
 //!   effective area and the catalogue's n₂; solitons and self-phase modulation (Agrawal 2019).
+//! - [`fwm`]: four-wave mixing with one pump, its parametric gain and conversion with the
+//!   mismatch from the guide's dispersion, closed form and along the guide, depleted.
 //! - [`miller`]: Miller's rule, a d coefficient carried from the wavelength it was measured at
 //!   to another through the three waves' linear susceptibilities (Miller 1964).
 //!
@@ -31,6 +34,7 @@ pub(crate) mod checks;
 pub mod coupled;
 pub(crate) mod data_checks;
 mod fft;
+pub mod fwm;
 pub mod guide;
 pub(crate) mod guide_checks;
 pub(crate) mod kerr_checks;

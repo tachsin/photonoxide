@@ -1,7 +1,7 @@
 ---
 title: "Phase matching"
 module: nonlinear::phase
-summary: "The wave-vector mismatch of any three- or four-wave process from any index (a catalogue model with its temperature, a material, or a mode's effective indices given as data); quasi-phase matching, its period, order and duty cycle; birefringent phase matching of types 0, I and II, noncritical or angle tuned; the undepleted response sinc²(ΔkL/2); the acceptance bandwidths in wavelength, temperature and angle, checked against Fejer et al.'s Table I; and the coupled-amplitude equations of SHG, sum- and difference-frequency generation, depleted and lossy, against Armstrong et al.'s closed forms; and all of it in waveguides, from the mode solver's effective indices and full-vector fields with the d tensor turned into the guide's frame, against a plane wave, a slab's exact fields and Zhao et al.'s poling period. Third-order processes from the same modes: pulses by the nonlinear Schrödinger equation (β₂, β₃, β₄ from the modes, γ from the effective area, solitons and self-phase modulation against Agrawal's closed forms)."
+summary: "The wave-vector mismatch of any three- or four-wave process from any index (a catalogue model with its temperature, a material, or a mode's effective indices given as data); quasi-phase matching, its period, order and duty cycle; birefringent phase matching of types 0, I and II, noncritical or angle tuned; the undepleted response sinc²(ΔkL/2); the acceptance bandwidths in wavelength, temperature and angle, checked against Fejer et al.'s Table I; and the coupled-amplitude equations of SHG, sum- and difference-frequency generation, depleted and lossy, against Armstrong et al.'s closed forms; and all of it in waveguides, from the mode solver's effective indices and full-vector fields with the d tensor turned into the guide's frame, against a plane wave, a slab's exact fields and Zhao et al.'s poling period. Third-order processes from the same modes: pulses by the nonlinear Schrödinger equation (β₂, β₃, β₄ from the modes, γ from the effective area, solitons and self-phase modulation against Agrawal's closed forms), and four-wave mixing's parametric gain and photon pairs."
 order: 30
 papers:
   - cite: "M. M. Fejer, G. A. Magel, D. H. Jundt, R. L. Byer, IEEE J. Quantum Electron. 28, 2631 (1992) (Eqs. (2), (19)–(25), (30), (41)–(44), (A1.1)–(A1.9); Table I)"
@@ -75,6 +75,11 @@ validation:
   - nonlinear/nlse-spm-phase
   - nonlinear/nlse-spm-broadening
   - nonlinear/nlse-photon-number
+  - nonlinear/fwm-gain-matched
+  - nonlinear/fwm-gain-mismatched
+  - nonlinear/fwm-invariants
+  - nonlinear/fwm-nlse-gain
+  - nonlinear/fwm-sfwm-purity
 ---
 
 A second- or third-order process converts light efficiently only when its waves stay in step:
@@ -94,6 +99,8 @@ and the crystal's d tensor turned into the guide's frame ([In waveguides](#in-wa
 The third-order processes take the same modes. `photonoxide::nonlinear::pulse` follows pulses
 along a Kerr guide by the nonlinear Schrödinger equation, its β₂, β₃, β₄ from the modes' index
 over wavelength and its γ from their effective area ([Pulses along a Kerr guide](#pulses-along-a-kerr-guide)).
+`photonoxide::nonlinear::fwm` gives four-wave mixing's gain and conversion
+([Four-wave mixing](#four-wave-mixing)).
 
 ## Conventions
 
@@ -771,6 +778,78 @@ Agrawal's Eq. (2.3.45) gives the Raman response's first moment as T_R = f_Rτ₁
 1.92 fs for silica; the integral ∫T h_R(T) dT of his Eq. (2.3.39) is 2τ₁²τ₂/(τ₁² + τ₂²), which
 gives 1.46 fs. Both are near the "about 2 fs" the text gives. Only h_R's transform enters the
 propagation, so the difference touches nothing here; `Raman::first_moment` is the integral.
+
+## Four-wave mixing
+
+`nonlinear::fwm` gives four-wave mixing with one pump, 2ω_p = ω_s + ω_i, signal and idler at
+ω_p ± Ω (Agrawal, Chapter 10).
+
+### Conventions
+
+- **The linear mismatch** is Δk = β_s + β_i − 2β_p (Eq. (10.1.8)), the sign `phase` uses for four
+  waves. From a guide's dispersion, `Dispersion::four_wave_mismatch` gives
+  Δk = 2Σ_m β_{2m}Ω^{2m}/(2m)! (Eq. (10.4.12)), β₂Ω² + β₄Ω⁴/12 to fourth order (Eq. (10.3.6)).
+  Foster et al. (Nature 441, 960 (2006)) write Δk_L = 2k_p − k_s − k_i, the opposite sign; their
+  gain, (γPΔk_L − (Δk_L/2)²)^½, is the one below.
+- **The effective mismatch** κ = Δk + 2γP (Eq. (10.2.21)) holds the pump's self- and
+  cross-phase modulation; the parametric gain is g = ((γP)² − (κ/2)²)^½ (Eq. (10.2.19), r = 1),
+  largest, γP, at κ = 0.
+- **Gain and conversion** with no idler in: P_s(L)/P_s(0) = 1 + (γP sinh(gL)/g)²
+  (Eq. (10.4.7)) and P_i(L)/P_s(0) = (γP sinh(gL)/g)² (Eq. (10.4.6)). Where |κ/2| > γP, g is
+  imaginary and sinh(gL)/g is sin(|g|L)/|g|: the signal oscillates, and far from phase matching
+  the gain is 1 + (γPL)² sinc²(κL/2) (Eq. (10.4.8)).
+- **Along the guide** (`FourWave`), the coupled equations of the three waves, Eqs. (10.2.1)–(10.2.4)
+  with one pump, all overlaps 1/A_eff and one γ: depleted, with every self- and cross-phase term.
+  They conserve the total power and P_s − P_i (p. 422), which the classical fourth-order
+  Runge–Kutta method keeps to its own error.
+
+### The closed forms
+
+A 1 W pump, γ = 1 /(W·m) and 2 m, the signal from 10⁻¹² W:
+
+| Steps | Gain at κ = 0 (14.154116) | Gain at Δk = 1 /m (1.4951794) | Invariants, a 0.1 W signal |
+|---|---|---|---|
+| 100 | 4.7e-7 | 9.1e-9 | 1.0e-7 |
+| 200 | 3.0e-8 | 5.3e-10 | 6.4e-9 |
+| 400 | 1.9e-9 | 3.3e-11 | 4.0e-10 |
+| 800 | 1.4e-10 | 3.4e-12 | 2.5e-11 |
+
+Relative errors, falling as the step's fourth power; the cases take 800 steps
+(`nonlinear/fwm-gain-matched`, `-mismatched`, `-invariants`). The undepleted closed form's own
+error, the signal's 10⁻¹² of the pump's power, is far below these.
+
+### From the NLSE
+
+One envelope holds the pump and its sidebands (Eq. (10.2.26)), so the NLSE gives the same gain. A
+1 W CW pump and a signal at the gain's peak, Ω = (2γP/|β₂|)^½ = 6.32 rad/ps (p. 423), with
+β₂ = −0.05 ps²/m over 2 m, against Eq. (10.4.7) with Δk = β₂Ω² from the dispersion: 14.154107
+against 14.154116, 6.4e-7, on 2000 split steps (1.0e-5, 2.6e-6, 6.4e-7 and 1.6e-7 on 500 to 4000;
+`nonlinear/fwm-nlse-gain`).
+
+### Photon pairs by spontaneous four-wave mixing
+
+`pairs::joint_spectrum` takes a four-wave process with one pump (`Process::four_wave` with the
+pump twice). Each pump photon is taken at (ν_s + ν_i)/2 in the phase matching, and the pump's
+spectrum is that of two photons, the pump's amplitude convolved with itself (`Pump::two_photon`): a
+Gaussian whose intensity is √2 times as wide. With indices linear in the wavelength the mismatch
+k_s + k_i − 2k_p((ν_s + ν_i)/2) is linear in the frequencies, and the joint amplitude is a
+two-dimensional Gaussian whose purity is known in closed form ([photon pairs](#photon-pairs)). A
+1.55 µm pump into 1.50 µm and its idler over 1 cm, group indices 2.05, 1.96 and 2.00, a pump 0.24
+nm wide:
+
+| Points a side (±0.025 /µm) | Purity | Relative error |
+|---|---|---|
+| 101 | 0.9464046366 | 2.7e-8 |
+| 201 | 0.9464046109 | 1.0e-13 |
+| 301 | 0.9464046109 | 5.0e-14 |
+| closed form | 0.9464046109 | |
+
+### Foster et al.'s silicon guide: not reproduced
+
+Foster et al. measured parametric gain in silicon guides 300 × 550 nm (Nature 441, 960 (2006)). A
+reproduction would need what the letter doesn't fully give: the cladding above the guide, the n₂
+it assumes (it cites (4–9) × 10⁻¹⁴ cm²/W), and the two-photon and free-carrier absorption its
+measured gain includes, which this module doesn't model yet. It is not a case.
 
 ## Limits
 

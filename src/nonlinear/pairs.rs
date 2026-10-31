@@ -1,5 +1,6 @@
-//! Photon pairs by spontaneous parametric down-conversion: the joint spectral amplitude of a
-//! signal and an idler, and its Schmidt decomposition (the pairs' spectral purity).
+//! Photon pairs by spontaneous parametric down-conversion and spontaneous four-wave mixing:
+//! the joint spectral amplitude of a signal and an idler, and its Schmidt decomposition (the
+//! pairs' spectral purity).
 //!
 //! # Conventions
 //!
@@ -68,15 +69,35 @@ pub struct JointSpectrum {
     pub amplitude: Vec<c64>,
 }
 
-/// The joint spectral amplitude of `device`, a difference-frequency process whose waves are
-/// (signal, idler, pump) as [`super::phase::Process::difference_frequency`] orders them, pumped
-/// by `pump`: on an `n` × `n` grid of signal and idler frequencies `half` (1/µm) either side of
-/// the device's own, at the device's operating point.
+impl Pump {
+    /// The spectrum of two photons drawn from this pump, as spontaneous four-wave mixing takes
+    /// them: the pump's amplitude convolved with itself, α ⊗ α, a Gaussian centred on 2ν₀ whose
+    /// intensity has the FWHM √2 Δν (the convolution doubles the amplitude's variance).
+    pub fn two_photon(&self) -> Pump {
+        Pump {
+            center: 2.0 * self.center,
+            bandwidth: std::f64::consts::SQRT_2 * self.bandwidth,
+        }
+    }
+}
+
+/// The joint spectral amplitude of `device`, pumped by `pump`: on an `n` × `n` grid of signal
+/// and idler frequencies `half` (1/µm) either side of the device's own, at the device's
+/// operating point. The device is either
+///
+/// - a difference-frequency process, spontaneous down-conversion, whose waves are (signal,
+///   idler, pump) as [`super::phase::Process::difference_frequency`] orders them, `pump` the
+///   pump's spectrum; or
+/// - a four-wave process with one pump, spontaneous four-wave mixing 2ω_p = ω_s + ω_i, whose
+///   waves are (pump, pump, signal, idler) as [`super::phase::Process::four_wave`] orders them,
+///   both pumps at one wavelength. Each pump photon is taken at (ν_s + ν_i)/2 in the phase
+///   matching, and `pump` is then the two photons' spectrum, [`Pump::two_photon`] of the
+///   pump's.
 ///
 /// # Errors
 ///
-/// [`Error::InvalidValue`] for a process of other than three waves, fewer than two points, a
-/// half width that isn't positive, and the errors of the waves' indices.
+/// [`Error::InvalidValue`] for any other process, fewer than two points, a half width that
+/// isn't positive, and the errors of the waves' indices.
 pub fn joint_spectrum(
     device: &Device,
     pump: Pump,
@@ -85,12 +106,15 @@ pub fn joint_spectrum(
     n: usize,
 ) -> Result<JointSpectrum> {
     let waves = device.process().waves();
-    if waves.len() != 3 {
+    let four = waves.len() == 4;
+    let degenerate = four && waves[0].wavelength.to_um() == waves[1].wavelength.to_um();
+    if !(waves.len() == 3 || degenerate) {
         return Err(Error::invalid(
             "joint spectrum",
-            "needs a three-wave process: signal, idler, pump",
+            "needs a three-wave process (signal, idler, pump) or a four-wave one with one pump (pump, pump, signal, idler)",
         ));
     }
+    let (si, ii) = if four { (2, 3) } else { (0, 1) };
     if n < 2 || !(half.is_finite() && half > 0.0) {
         return Err(Error::invalid(
             "joint spectrum",
@@ -102,14 +126,19 @@ pub fn joint_spectrum(
             .map(|k| nu0 - half + 2.0 * half * k as f64 / (n - 1) as f64)
             .collect()
     };
-    let signal = grid(1.0 / waves[0].wavelength.to_um());
-    let idler = grid(1.0 / waves[1].wavelength.to_um());
+    let signal = grid(1.0 / waves[si].wavelength.to_um());
+    let idler = grid(1.0 / waves[ii].wavelength.to_um());
     let state = *device.state();
     let gamma = gaussian_gamma();
     let mut amplitude = Vec::with_capacity(n * n);
     for &s in &signal {
         for &i in &idler {
-            let x = device.phase_at_frequencies(&[s, i, s + i], &state)?;
+            let x = if four {
+                let p = 0.5 * (s + i);
+                device.phase_at_frequencies(&[p, p, s, i], &state)?
+            } else {
+                device.phase_at_frequencies(&[s, i, s + i], &state)?
+            };
             let m = match matching {
                 Matching::Sinc => {
                     if x.abs() < 1e-4 {

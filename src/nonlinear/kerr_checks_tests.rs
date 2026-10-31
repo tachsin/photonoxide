@@ -33,6 +33,24 @@ fn tables() {
         let (n, e) = photon_number(steps);
         println!("photons {steps}: drift {n:.2e} energy {e:.4}");
     }
+    for steps in [100, 200, 400, 800, 1600] {
+        let (a, b) = fwm_gain(-2.0, steps);
+        let (c, d) = fwm_gain(1.0, steps);
+        println!(
+            "fwm {steps}: matched {a} vs {b} ({:.2e}), mismatched {c} vs {d} ({:.2e}), invariants {:.2e}",
+            a / b - 1.0,
+            c / d - 1.0,
+            fwm_invariants(steps)
+        );
+    }
+    for steps in [500, 1000, 2000, 4000] {
+        let (a, b) = fwm_nlse(steps);
+        println!("fwm nlse {steps}: {a} vs {b} ({:.2e})", a / b - 1.0);
+    }
+    for n in [101, 201, 301] {
+        let (a, b) = sfwm_purity(n);
+        println!("sfwm {n}: {a} vs {b} ({:.2e})", a / b - 1.0);
+    }
 }
 
 /// A silicon nitride strip in silica from its modes: β₂, β₃ and β₄ at 1.55 µm with their

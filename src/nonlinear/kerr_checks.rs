@@ -7,6 +7,10 @@ use std::f64::consts::PI;
 use num_complex::Complex64 as c64;
 
 use crate::material::{Model, silica};
+use crate::nonlinear::checks::linear_index;
+use crate::nonlinear::fwm::{FourWave, Waves, signal_gain};
+use crate::nonlinear::pairs::{Matching, Pump, gaussian_gamma, gaussian_purity, joint_spectrum};
+use crate::nonlinear::phase::{Device, Process, State, Wave};
 use crate::nonlinear::pulse::{
     C_M_PER_PS, Dispersion, Guide, Pulse, Raman, angular_frequency, dispersion_length, loss_per_m,
     second_order_soliton, soliton_period, soliton_power, spm_peak_phase, spm_rms_broadening,
@@ -337,9 +341,163 @@ fn photon_number_case() -> Outcome {
 
 const PHOTON_TOLERANCE: f64 = 2e-9;
 
+// ---------------------------------------------------------------------------------------------
+// Four-wave mixing
+// ---------------------------------------------------------------------------------------------
+
+/// The four-wave cases' pump: 1 W, γ = 1 /(W·m), 2 m.
+const FWM_PUMP: f64 = 1.0;
+const FWM_LENGTH: f64 = 2.0;
+
+/// The signal's gain along the coupled equations, depleted and with every phase term, from
+/// 10⁻¹² W against the 1 W pump with no idler, on `steps` RK4 steps: (ours, Agrawal's Eq.
+/// (10.4.7)) at the linear mismatch `mismatch` (rad/m).
+pub(crate) fn fwm_gain(mismatch: f64, steps: usize) -> (f64, f64) {
+    let fw = FourWave {
+        gamma: 1.0,
+        mismatch,
+    };
+    let start = Waves {
+        pump: c64::new(FWM_PUMP.sqrt(), 0.0),
+        signal: c64::new(1e-6, 0.0),
+        idler: c64::new(0.0, 0.0),
+    };
+    let ours = fw
+        .propagate(start, FWM_LENGTH, steps)
+        .map(|w| w.signal.norm_sqr() / start.signal.norm_sqr())
+        .unwrap_or(f64::NAN);
+    (ours, signal_gain(1.0, FWM_PUMP, mismatch, FWM_LENGTH))
+}
+
+const FWM_STEPS: usize = 800;
+
+fn fwm_matched_case() -> Outcome {
+    // κ = Δk + 2γP = 0
+    let (ours, closed) = fwm_gain(-2.0, FWM_STEPS);
+    relative(ours, closed, FWM_MATCHED_TOLERANCE)
+}
+
+fn fwm_mismatched_case() -> Outcome {
+    // κ/2 = 1.5 > γP = 1: the gain is imaginary, the signal oscillates
+    let (ours, closed) = fwm_gain(1.0, FWM_STEPS);
+    relative(ours, closed, FWM_MISMATCHED_TOLERANCE)
+}
+
+const FWM_MATCHED_TOLERANCE: f64 = 2e-9;
+const FWM_MISMATCHED_TOLERANCE: f64 = 4e-11;
+
+/// Depleted four-wave mixing, a 0.1 W signal against the 1 W pump, κ = 0, on `steps` steps:
+/// the larger drift of |A_p|² + |A_s|² + |A_i|² and of |A_s|² − |A_i|², over the power in.
+pub(crate) fn fwm_invariants(steps: usize) -> f64 {
+    let fw = FourWave {
+        gamma: 1.0,
+        mismatch: -2.0,
+    };
+    let start = Waves {
+        pump: c64::new(1.0, 0.0),
+        signal: c64::new(0.1f64.sqrt(), 0.0),
+        idler: c64::new(0.0, 0.0),
+    };
+    let Ok(end) = fw.propagate(start, FWM_LENGTH, steps) else {
+        return f64::NAN;
+    };
+    let total = (end.power() - start.power()).abs();
+    let flux = (end.signal.norm_sqr() - end.idler.norm_sqr() - start.signal.norm_sqr()).abs();
+    total.max(flux) / start.power()
+}
+
+fn fwm_invariants_case() -> Outcome {
+    absolute(fwm_invariants(FWM_STEPS), 0.0, FWM_INVARIANT_TOLERANCE)
+}
+
+const FWM_INVARIANT_TOLERANCE: f64 = 5e-10;
+
+/// The same gain from the NLSE: a 1 W CW pump and a weak signal at the gain's peak,
+/// Ω = (2γP/|β₂|)^½, in one envelope (Agrawal Eq. (10.2.26)), on `steps` split steps (128
+/// points across a window of ten of Ω's periods): (the signal's gain, Eq. (10.4.7) with
+/// Δk = β₂Ω² from the dispersion).
+pub(crate) fn fwm_nlse(steps: usize) -> (f64, f64) {
+    let omega = (2.0 * FWM_PUMP / BETA2.abs()).sqrt();
+    let window = 10.0 * 2.0 * PI / omega;
+    let points = 128;
+    let run = || -> crate::Result<(f64, f64)> {
+        let d = Dispersion::new(1.55, &[BETA2])?;
+        let mismatch = d.four_wave_mismatch(omega);
+        let guide = Guide::new(d, 1.0, 0.0);
+        let a = 1e-6;
+        let start = Pulse::sampled(points, window, |t| {
+            c64::new(FWM_PUMP.sqrt(), 0.0) + c64::new(0.0, -omega * t).exp() * a
+        })?;
+        let end = guide.propagate(&start, FWM_LENGTH, steps)?;
+        // the signal's bin: Ω = 10·2π/window
+        let bin = |p: &Pulse| p.spectrum()[10].norm_sqr();
+        Ok((
+            bin(&end) / bin(&start),
+            signal_gain(1.0, FWM_PUMP, mismatch, FWM_LENGTH),
+        ))
+    };
+    run().unwrap_or((f64::NAN, f64::NAN))
+}
+
+const FWM_NLSE_STEPS: usize = 2000;
+
+fn fwm_nlse_case() -> Outcome {
+    let (ours, closed) = fwm_nlse(FWM_NLSE_STEPS);
+    relative(ours, closed, FWM_NLSE_TOLERANCE)
+}
+
+const FWM_NLSE_TOLERANCE: f64 = 3e-6;
+
+/// Spontaneous four-wave mixing of a 1.55 µm pump into 1.50 µm and its idler over 1 cm,
+/// the signal's, idler's and pump's group indices 2.05, 1.96 and 2.00, a Gaussian pump 1e-3
+/// /µm wide (0.24 nm) and Gaussian phase matching: (our purity on an `n` × `n` grid ±0.025 /µm,
+/// the closed form). With linear indices Δk = k_s + k_i − 2k_p((ν_s + ν_i)/2) is linear in the
+/// frequencies, so the joint amplitude is exactly a two-dimensional Gaussian.
+pub(crate) fn sfwm_purity(n: usize) -> (f64, f64) {
+    let length = 10_000.0;
+    let (gs, gi, gp) = (2.05, 1.96, 2.00);
+    let (lp, ls) = (1.55, 1.50);
+    let (nup, nus) = (1.0 / lp, 1.0 / ls);
+    let nui = 2.0 * nup - nus;
+    // the phase matched at the centre: (g_s − g_p)ν_s + (g_i − g_p)ν_i + b_s + b_i − 2b_p = 0
+    let (bp, bs) = (-0.10, -0.08);
+    let bi = 2.0 * bp - bs - (gs - gp) * nus - (gi - gp) * nui;
+    let run = || -> crate::Result<f64> {
+        let pump = Wave::new(Wavelength::um(lp)?, linear_index(gp, bp)?);
+        let process = Process::four_wave(
+            pump.clone(),
+            pump,
+            Wave::new(Wavelength::um(ls)?, linear_index(gs, bs)?),
+            linear_index(gi, bi)?,
+        )?;
+        let device = Device::new(process, length, State::default())?;
+        let pump = Pump {
+            center: nup,
+            bandwidth: 1e-3,
+        };
+        let jsa = joint_spectrum(&device, pump.two_photon(), Matching::Gaussian, 0.025, n)?;
+        Ok(jsa.schmidt()?.purity())
+    };
+    // ln f = −2 ln 2 (δs + δi)²/(√2Δν)² − γ (πL)² (A δs + B δi)², A = g_s − g_p, B = g_i − g_p
+    let p = std::f64::consts::LN_2 / 1e-6;
+    let g = gaussian_gamma() * (PI * length).powi(2);
+    let (a, b) = (gs - gp, gi - gp);
+    let closed = gaussian_purity(p + g * a * a, p + g * b * b, p + g * a * b);
+    (run().unwrap_or(f64::NAN), closed)
+}
+
+fn sfwm_purity_case() -> Outcome {
+    let (ours, closed) = sfwm_purity(201);
+    relative(ours, closed, SFWM_TOLERANCE)
+}
+
+const SFWM_TOLERANCE: f64 = 1e-11;
+
 /// The cases.
 pub(crate) fn cases() -> Vec<Case> {
-    pulse_cases()
+    let mut cases = pulse_cases();
+    cases.extend(fwm_cases());
+    cases
 }
 
 fn pulse_cases() -> Vec<Case> {
@@ -406,6 +564,46 @@ fn pulse_cases() -> Vec<Case> {
             tier: Tier::Analytic,
             source: r"Agrawal (2019), doi:10.1016/C2018-0-01168-8, Eq. (2.3.36) and p. 43: without loss it conserves the number of photons, not the energy",
             run: photon_number_case,
+        },
+    ]
+}
+
+fn fwm_cases() -> Vec<Case> {
+    vec![
+        Case {
+            id: "nonlinear/fwm-gain-matched",
+            title: r"Four-wave mixing with one pump along the coupled equations, depleted and with every phase term (RK4, 800 steps): a 1 W pump, $\gamma = 1$ /(W·m), 2 m, at $\kappa = \Delta k + 2\gamma P = 0$, the signal's gain from $10^{-12}$ W (shown)",
+            tier: Tier::Analytic,
+            source: r"Agrawal (2019), doi:10.1016/C2018-0-01168-8, Eqs. (10.2.19), (10.2.21) and (10.4.7): $G = 1 + (\gamma P/g)^2\sinh^2 gL$, here $1 + \sinh^2 2$",
+            run: fwm_matched_case,
+        },
+        Case {
+            id: "nonlinear/fwm-gain-mismatched",
+            title: r"The same at $\Delta k = 1$ /m, where $\lvert\kappa/2\rvert \gt \gamma P$ and $g$ is imaginary: the signal oscillates (gain shown)",
+            tier: Tier::Analytic,
+            source: r"Agrawal (2019), Eq. (10.4.7) continued, $\sinh(gL)/g \to \sin(\lvert g\rvert L)/\lvert g\rvert$; its limit Eq. (10.4.8)",
+            run: fwm_mismatched_case,
+        },
+        Case {
+            id: "nonlinear/fwm-invariants",
+            title: r"Depleted four-wave mixing, a 0.1 W signal against the 1 W pump: the larger drift of the total power and of $P_s - P_i$ over the power in (shown)",
+            tier: Tier::Analytic,
+            source: r"Agrawal (2019), Eqs. (10.2.1)–(10.2.4) with one pump and one $\gamma$: both are conserved (p. 422, $d(P_3 - P_4)/dz = 0$)",
+            run: fwm_invariants_case,
+        },
+        Case {
+            id: "nonlinear/fwm-nlse-gain",
+            title: r"The same gain from the NLSE: a 1 W CW pump and a weak signal at the gain's peak $\Omega = (2\gamma P/\lvert\beta_2\rvert)^{1/2}$ in one envelope ($\beta_2 = -0.05$ ps²/m, 2 m, 2000 split steps), against the closed form with $\Delta k = \beta_2\Omega^2$ from the dispersion (gain shown)",
+            tier: Tier::Analytic,
+            source: r"Agrawal (2019), Eqs. (10.2.26), (10.4.7) and (10.4.12)",
+            run: fwm_nlse_case,
+        },
+        Case {
+            id: "nonlinear/fwm-sfwm-purity",
+            title: r"Photon pairs by spontaneous four-wave mixing: a 1.55 µm pump into 1.50 µm and its idler over 1 cm, group indices 2.05, 1.96 and 2.00, a Gaussian pump 0.24 nm wide and Gaussian phase matching; the joint spectrum's purity on 201 × 201 points (shown)",
+            tier: Tier::Analytic,
+            source: r"the purity of the two-dimensional Gaussian $\exp(-\frac{1}{2}z^\mathsf{T}Mz)$, $P = (1 - c^2/ab)^{1/2}$; the two pump photons' spectrum the pump's convolved with itself",
+            run: sfwm_purity_case,
         },
     ]
 }

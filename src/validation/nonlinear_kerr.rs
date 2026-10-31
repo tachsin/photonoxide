@@ -1,12 +1,13 @@
 //! The rules (#544) of the cases of third-order processes (0.6.1,
-//! [`crate::nonlinear::kerr_checks`]): the nonlinear Schrödinger equation. The closed forms
-//! hold to each scheme's own error, the tolerance that error on half the steps (or the coarser
-//! grid) rounded up; the order to 0.1.
+//! [`crate::nonlinear::kerr_checks`]): the nonlinear Schrödinger equation and four-wave mixing. The closed forms hold to each scheme's own error, the
+//! tolerance that error on half the steps (or the coarser grid) rounded up; the orders to 0.1.
 
 use super::{Basis::*, Measure::*, Numerical::*, Rule};
 
 pub(crate) fn rules() -> Vec<(&'static str, Rule)> {
-    pulse_rules()
+    let mut rules = pulse_rules();
+    rules.extend(fwm_rules());
+    rules
 }
 
 fn grid(measure: super::Measure, tolerance: f64, why: &'static str) -> Rule {
@@ -92,6 +93,52 @@ fn pulse_rules() -> Vec<(&'static str, Rule)> {
                 "the drift on 1000 steps, 1.36e-9, rounded up: the RK4 nonlinear step's (2.0e-8, 1.4e-9, 8.7e-11 and 5.8e-12 on 500 to 4000)",
             )
             .varying(),
+        ),
+    ]
+}
+
+/// Four-wave mixing.
+fn fwm_rules() -> Vec<(&'static str, Rule)> {
+    vec![
+        (
+            "nonlinear/fwm-gain-matched",
+            grid(
+                Relative,
+                2e-9,
+                "the error on 400 steps, 1.89e-9, rounded up: RK4's, fourth order (4.7e-7, 3.0e-8, 1.9e-9, 1.4e-10 on 100 to 800); the undepleted closed form's own error is the signal's 1e-12 of the pump's power",
+            ),
+        ),
+        (
+            "nonlinear/fwm-gain-mismatched",
+            grid(
+                Relative,
+                4e-11,
+                "the error on 400 steps, 3.3e-11, rounded up: RK4's (9.1e-9, 5.3e-10, 3.3e-11, 3.4e-12 on 100 to 800)",
+            ),
+        ),
+        (
+            "nonlinear/fwm-invariants",
+            grid(
+                Absolute,
+                5e-10,
+                "the drift on 400 steps, 4.0e-10, rounded up: the invariants are exact for the equations, RK4 keeps them to its own error (1.0e-7, 6.4e-9, 4.0e-10, 2.5e-11 on 100 to 800)",
+            ),
+        ),
+        (
+            "nonlinear/fwm-nlse-gain",
+            grid(
+                Relative,
+                3e-6,
+                "the error on 1000 steps, 2.57e-6, rounded up: the split-step's, second order (1.0e-5, 2.6e-6, 6.4e-7, 1.6e-7 on 500 to 4000)",
+            ),
+        ),
+        (
+            "nonlinear/fwm-sfwm-purity",
+            grid(
+                Relative,
+                1e-11,
+                "on 201 points a side the grid's error is below the SVD's round-off: 1.0e-13, and 5.0e-14 on 301 (on 101 it is 2.7e-8), as for the down-converted pairs",
+            ),
         ),
     ]
 }
