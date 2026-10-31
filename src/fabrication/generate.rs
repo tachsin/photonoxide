@@ -1561,11 +1561,14 @@ fn deposit(
             p.temperature().map_or(f64::INFINITY, |(t, _)| t)
         }
     };
+    // the platform's papers' choice, like a lithography's, comes before conformality
+    let unused = |p: &Process| p.used(state.platform, purpose).is_none();
     allowed.sort_by(|(a, ua), (b, ub)| {
         (!choices.prefer.contains(&a.id))
             .cmp(&!choices.prefer.contains(&b.id))
             .then(ua.cmp(ub))
             .then(heat(a, *ua).total_cmp(&heat(b, *ub)))
+            .then(unused(a).cmp(&unused(b)))
             .then((!(filling && conformal(a))).cmp(&!(filling && conformal(b))))
     });
     for (p, unshown) in allowed.iter().skip(1) {

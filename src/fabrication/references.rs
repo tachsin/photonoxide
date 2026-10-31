@@ -193,6 +193,22 @@ const ROWS: &[Row] = &[
         "https://onlinelibrary.wiley.com/doi/pdfdirect/10.1002/adfm.202002447",
     ),
     (
+        "xiong-2012",
+        "C. Xiong, W. H. P. Pernice, H. X. Tang, Nano Lett. 12, 3562 (2012)",
+        "Low-Loss, Silicon Integrated, Aluminum Nitride Photonic Circuits and Their Use for Electro-Optic Signal Processing",
+        "10.1021/nl3011885",
+        "",
+        "",
+    ),
+    (
+        "jung-2013",
+        "H. Jung, C. Xiong, K. Y. Fong, X. Zhang, H. X. Tang, Opt. Lett. 38, 2810 (2013)",
+        "Optical frequency comb generation from aluminum nitride microring resonator",
+        "10.1364/OL.38.002810",
+        "",
+        "https://arxiv.org/abs/1307.6761",
+    ),
+    (
         "friedrich-2000",
         "I. Friedrich, V. Weidenhof, W. Njoroge, P. Franz, M. Wuttig, J. Appl. Phys. 87, 4130 (2000)",
         "Structural transformations of Ge2Sb2Te5 films studied by electrical resistance measurements",

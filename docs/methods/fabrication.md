@@ -247,6 +247,33 @@ contains their steps in order. They opened the cells' windows with an industrial
 whose wavelength the paper doesn't give, so the flow's lithography for the cells stays the
 contact lithography of their 2020 paper.
 
+### Aluminium nitride (a 1 µm guide in 650 nm of AlN)
+
+Aluminium nitride is sputtered, like titanium nitride, at a low temperature. The catalogue's AlN
+is uniaxial, which a library device's layer can't take yet, so its flows are made for the
+library's devices drawn in AlN (their nitride layer's film made aluminium nitride); the studio's
+device pages can't show one yet.
+
+| Layer | Film | Thickness | Drawn |
+|---|---|---|---|
+| cladding | SiO₂ | above everything | |
+| AlN | AlN, SiO₂ where etched | 0.65 µm | a strip 1 µm wide, vertical walls |
+| BOX | SiO₂ | 2 µm | |
+| substrate | Si | | |
+
+| # | Step | Process | What it does, and why |
+|---|---|---|---|
+| 1 | wafer | A bare silicon wafer | As Xiong et al. 2012 started. |
+| 2 | deposition | Thermal oxidation | 2 µm of oxide grown from the wafer, as Xiong et al.'s and Jung et al.'s. |
+| 3 | deposition | Reactive sputtering of AlN | 650 nm from aluminium targets in argon and nitrogen, the wafer at or below 350 °C, the stress tailored to about ±75 MPa; its top surface 1.5 nm rms (Xiong et al.). |
+| 4 | lithography | Electron beam in HSQ | Resist kept on the strip, as Xiong et al. wrote theirs. Their etch removes the film about twice as fast as HSQ, so the 500 nm of HSQ lasts the 650 nm etch. |
+| 5 | pattern transfer | ICP etch in Cl₂/BCl₃/Ar | Through the film at about 200 nm/min (Xiong et al.). No source states its selectivity over the oxide, so it is timed; its walls are slanted (Jung et al.), at an angle not given. |
+| 6 | pattern transfer | Resist removal | |
+| 7 | deposition | PECVD oxide | The cladding, as Xiong et al.'s modulators (0.8 µm) and Jung et al.'s rings (3.5 µm). The rules put the platform's papers' choice before conformality, so it comes before LPCVD oxide, which AlN would also survive (Jung et al. annealed their chip at 1000 °C for 30 hours). |
+
+The library's other etch of aluminium nitride is KOH, which dissolves it easily (Franssila,
+p. 135).
+
 ## The process library
 
 Each process is data: its name, what it does in plain words, the films it acts on, and its
@@ -341,7 +368,8 @@ each feature. Rules, not search: the same design always gives the same flow.
   there. Thermal oxidation can't lay a film over others: it grows from silicon, by consuming it,
   so it grows only the first oxide on a bare silicon wafer. Among the processes left, one every
   film is shown to survive comes first; when a film's survival isn't shown, the coolest; a process
-  whose temperature no source states shows no film surviving it.
+  whose temperature no source states shows no film surviving it. Then the one the platform's
+  papers used, then, filling etched openings, a conformal one.
   A film over an etched step with a patterned layer to come above it is deposited thicker by the
   step and polished flat.
 - **What isn't drawn.** A heater's contacts are listed as a step, not drawn.

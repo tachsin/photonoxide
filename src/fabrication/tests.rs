@@ -155,6 +155,7 @@ fn every_source_resolves_and_every_reference_is_used() {
         "Si3N4",
         "Sb2S3",
         "Ge2Sb2Te5",
+        "AlN",
     ] {
         let b = budget(film);
         used.extend(

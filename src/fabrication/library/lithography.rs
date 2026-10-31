@@ -199,6 +199,7 @@ pub(super) fn processes() -> Vec<Process> {
             "zhang-2022",
             "Section 3.A (PDF p. 4)",
         ),
+        used(Platform::Aln, Purpose::Guide, "xiong-2012", "PDF p. 3"),
     ];
 
     let mut pmma = new_process(

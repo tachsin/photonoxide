@@ -22,6 +22,41 @@ fn phase_change_cells_are_sputtered_lifted_off_and_capped_cool() {
 }
 
 #[test]
+fn aluminium_nitride_is_sputtered_etched_in_chlorine_and_clad_as_its_papers_did() {
+    assert_eq!(aln_reported_missing(), Vec::<&str>::new());
+    let design = aln_design("waveguide", &[("width", "1")]).unwrap();
+    let flow = generate(&design, &Choices::default()).unwrap();
+    assert_eq!(
+        ids(&flow),
+        [
+            "si-wafer",
+            "thermal-oxidation",
+            "sputtering-aln",
+            "ebl-hsq",
+            "icp-aln-chlorine",
+            "resist-strip",
+            "pecvd-oxide"
+        ]
+    );
+    // HSQ at Xiong et al.'s 2:1 lasts the 650 nm etch; no source states a stop on the oxide
+    assert!(
+        flow.warnings.iter().all(|w| !w.contains("hard mask")),
+        "{:?}",
+        flow.warnings
+    );
+    assert!(matches!(
+        flow.steps[4].operation,
+        Operation::Etch {
+            depth: Depth::Timed(_),
+            ..
+        }
+    ));
+    // the sputtering stays at or below 350 °C, and AlN is shown to survive the cladding's
+    assert!(budget("AlN").survives.low() == Some(1000.0));
+    assert!(round_trip(&flow, &design).unwrap().exact());
+}
+
+#[test]
 fn library_devices_on_nitride_round_trip_at_their_defaults() {
     for kind in [
         "waveguide",

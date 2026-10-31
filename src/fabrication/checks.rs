@@ -173,6 +173,7 @@ pub(crate) fn source_faults() -> Vec<String> {
         "Si3N4",
         "Sb2S3",
         "Ge2Sb2Te5",
+        "AlN",
     ] {
         let b = budget(film);
         for v in [&b.survives, &b.limit] {

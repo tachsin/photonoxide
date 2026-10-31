@@ -368,6 +368,12 @@ pub fn budget(film: &str) -> Budget {
             "patterned stoichiometric nitride guides were annealed at 1200 °C in nitrogen for 3 \
              hours",
         ),
+        "AlN" => (
+            deg(1000.0, "jung-2013", "PDF p. 2"),
+            Stated::not_specified(),
+            "aluminium nitride rings under their oxide cladding were annealed in oxygen at 1000 °C \
+             for 30 hours",
+        ),
         "TiN" => (
             deg(600.0, "kearney-2018", "abstract (p. 78)"),
             Stated::not_specified(),

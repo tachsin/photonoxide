@@ -175,6 +175,7 @@ fn silicon() -> Process {
             "pfeiffer-2016",
             "PDF p. 2",
         ),
+        used(Platform::Aln, Purpose::Guide, "xiong-2012", "PDF p. 2"),
     ];
     p
 }

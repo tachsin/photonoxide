@@ -51,6 +51,8 @@ pub(super) fn processes() -> Vec<Process> {
             "pfeiffer-2016",
             "PDF p. 2",
         ),
+        used(Platform::Aln, Purpose::Under, "xiong-2012", "PDF p. 2"),
+        used(Platform::Aln, Purpose::Under, "jung-2013", "PDF pp. 1–2"),
     ];
 
     let mut pecvd = new_process(
@@ -122,7 +124,31 @@ pub(super) fn processes() -> Vec<Process> {
             "krasnokutska-2018",
             "PDF p. 4",
         ),
+        used(Platform::Aln, Purpose::Cladding, "xiong-2012", "PDF p. 4"),
+        used(Platform::Aln, Purpose::Cladding, "jung-2013", "PDF p. 2"),
     ];
+    pecvd.capabilities.extend([
+        cap(
+            Quantity::Thickness,
+            Stated::value(
+                0.8,
+                Unit::Um,
+                src("xiong-2012", "Fig. 2 caption (PDF p. 3)"),
+            ),
+            "the cladding over aluminium nitride modulators",
+        ),
+        cap(
+            Quantity::Thickness,
+            Stated::value(3.5, Unit::Um, src("jung-2013", "PDF p. 2")),
+            "the cladding over aluminium nitride rings",
+        ),
+    ]);
+    pecvd.facts.push(fact(
+        "The PECVD cladding over aluminium nitride rings was annealed in oxygen at 1000 °C for 30 \
+         hours to improve the oxide, which tripled the rings' quality factor.",
+        "jung-2013",
+        "PDF p. 2",
+    ));
 
     let mut evaporation = new_process(
         "evaporation",
@@ -221,7 +247,68 @@ pub(super) fn processes() -> Vec<Process> {
         pecvd_nitride(),
         sputtered_pcm(),
         sputtered_oxide(),
+        sputtered_aln(),
     ]
+}
+
+/// Aluminium nitride by reactive sputtering, the AlN platform's guide film.
+fn sputtered_aln() -> Process {
+    let mut p = new_process(
+        "sputtering-aln",
+        StepType::Deposition,
+        "Aluminium nitride by reactive sputtering",
+        "Aluminium targets are sputtered in a plasma of argon and nitrogen, and aluminium nitride \
+         lands on the wafer as a film of columnar grains, their crystal axis upright. The wafer \
+         isn't heated beyond what the plasma brings.",
+        &["AlN"],
+    );
+    p.capabilities = vec![
+        cap(
+            Quantity::Temperature,
+            Stated::AtMost {
+                value: 350.0,
+                unit: Unit::Celsius,
+                source: src("xiong-2012", "PDF p. 2"),
+            },
+            "the wafer's equilibrium temperature while sputtering, with no external heating",
+        ),
+        cap(
+            Quantity::Thickness,
+            Stated::value(650.0, Unit::Nm, src("xiong-2012", "PDF p. 3")),
+            "guides for 1550 nm",
+        ),
+        cap(
+            Quantity::Thickness,
+            Stated::value(330.0, Unit::Nm, src("xiong-2012", "PDF p. 5")),
+            "rings for 766 to 780 nm",
+        ),
+        cap(
+            Quantity::Roughness,
+            Stated::value(1.5, Unit::Nm, src("xiong-2012", "PDF p. 3")),
+            "rms, the film's top surface, on smooth thermal oxide",
+        ),
+    ];
+    p.facts = vec![
+        fact(
+            "Physical vapour deposition is used for compounds such as TiN, ZnO and AlN.",
+            "franssila-2010",
+            "p. 49",
+        ),
+        fact(
+            "AlN was sputtered from pure aluminium targets in argon and nitrogen by a dual-cathode \
+             magnetron, without external heating, its stress tailored to about ±75 MPa by the RF \
+             bias.",
+            "xiong-2012",
+            "PDF p. 2",
+        ),
+    ];
+    p.used_for = vec![used(
+        Platform::Aln,
+        Purpose::Guide,
+        "xiong-2012",
+        "PDF p. 2",
+    )];
+    p
 }
 
 /// Phase-change films by sputtering, as the cells' papers deposit them.

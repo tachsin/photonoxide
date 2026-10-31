@@ -515,7 +515,65 @@ pub(super) fn processes() -> Vec<Process> {
     let mut all = vec![hbr, cl2, bosch, argon, sf6, cf4, chf3, lift, tin, strip];
     all.extend(by_material());
     all.extend(nitride());
+    all.push(aln());
     all
+}
+
+/// Aluminium nitride's guides etched in a chlorine plasma, as the AlN papers etched them.
+fn aln() -> Process {
+    let mut p = new_process(
+        "icp-aln-chlorine",
+        StepType::PatternTransfer,
+        "Aluminium nitride by ICP reactive-ion etching in Cl₂/BCl₃/Ar",
+        "A dense chlorine plasma etches the aluminium nitride where the HSQ resist leaves it \
+         bare; the resist wears away half as fast as the film.",
+        &["AlN"],
+    );
+    p.capabilities = vec![
+        cap(
+            over("hsq"),
+            Stated::value(2.0, Unit::Ratio, src("xiong-2012", "PDF p. 3")),
+            "stated as \"about 2:1\"",
+        ),
+        cap(
+            Quantity::Sidewall,
+            Stated::not_specified(),
+            "aluminium nitride in Cl₂/BCl₃/Ar: the guides' walls are slanted by the dry etch \
+             (jung-2013, PDF p. 1), at an angle not given",
+        ),
+        cap(
+            over("SiO2"),
+            Stated::not_specified(),
+            "on the thermal oxide below",
+        ),
+    ];
+    p.masks = vec![mask(
+        "hsq",
+        Stated::not_specified(),
+        Stated::value(2.0, Unit::Ratio, src("xiong-2012", "PDF p. 3")),
+        Stated::value(650.0, Unit::Nm, src("xiong-2012", "PDF p. 3")),
+    )];
+    p.facts = vec![
+        fact(
+            "Cl₂, BCl₃ and Ar at 25, 9 and 6 sccm, 70 W of RF bias, 360 W of ICP power and 5 \
+             mTorr etch aluminium nitride at about 200 nm/min.",
+            "xiong-2012",
+            "PDF p. 3",
+        ),
+        fact(
+            "Aluminium nitride resists many plasmas but is easily wet etched by KOH, even by dilute \
+             NaOH developer.",
+            "franssila-2010",
+            "Section 11.7.2 (p. 135)",
+        ),
+    ];
+    p.used_for = vec![used(
+        Platform::Aln,
+        Purpose::Guide,
+        "xiong-2012",
+        "PDF p. 3",
+    )];
+    p
 }
 
 /// The nitride platform's own steps: its guides' etch, the crack stops a thick film needs, and

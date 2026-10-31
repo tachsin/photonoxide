@@ -29,5 +29,10 @@ pub(crate) fn rules() -> Vec<(&'static str, Rule)> {
             "fabrication/pcm-reported-flows",
             exact("a sequence is contained or not: no reported step may be missing"),
         ),
+        ("fabrication/aln-round-trip", round_trip()),
+        (
+            "fabrication/aln-reported-flows",
+            exact("a sequence is contained or not: no reported step may be missing"),
+        ),
     ]
 }

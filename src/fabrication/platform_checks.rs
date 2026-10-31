@@ -414,6 +414,173 @@ fn pcm_reported_flows() -> Outcome {
     exact(pcm_reported_missing().len())
 }
 
+/// Aluminium nitride, as a design's isotropic film: the catalogue's ordinary index (the guides'
+/// in-plane field), under the film's name. The catalogue's AlN is uniaxial, which a device's layer
+/// can't take; the fabrication engine reads only the film.
+pub(crate) fn aln_material() -> Option<crate::material::Material> {
+    let entry = crate::material::catalogue::entry("aln")?;
+    let [o, _, _] = entry.principal(None, Default::default()).ok()?;
+    let (shortest, longest) = o.range();
+    crate::material::Material::new(
+        "AlN",
+        o.model().clone(),
+        shortest,
+        longest,
+        o.provenance().clone(),
+    )
+    .ok()
+}
+
+/// A design on the nitride stack with its nitride layer made aluminium nitride, every shape and
+/// etch as drawn.
+pub(crate) fn on_aln(design: &Physical) -> Option<Physical> {
+    use crate::stack::{Layer, LayerStack, Structure};
+    let s = design.structure();
+    let aln = aln_material()?;
+    let rename = |n: &str| {
+        if n == "SiN" {
+            "AlN".to_string()
+        } else {
+            n.to_string()
+        }
+    };
+    let layers = s
+        .stack()
+        .layers()
+        .iter()
+        .map(|l| Layer {
+            name: rename(&l.name),
+            material: if l.name == "SiN" {
+                aln.clone()
+            } else {
+                l.material.clone()
+            },
+            ..l.clone()
+        })
+        .collect();
+    let stack = LayerStack::new(
+        s.stack().substrate().clone(),
+        layers,
+        s.stack().cladding().clone(),
+    )
+    .ok()?;
+    let mut out = Structure::new(stack);
+    for l in s.stack().layers() {
+        for (shape, e) in s.shapes(&l.name).iter().zip(s.etches(&l.name)) {
+            out.draw_etched(&rename(&l.name), shape.clone(), *e).ok()?;
+        }
+    }
+    Some(Physical::of(out))
+}
+
+/// The round trip over every library device on the nitride stack, its film made 650 nm of
+/// aluminium nitride (Xiong et al.'s film), at its defaults and each parameter's range ends:
+/// (made, refused, why, differing).
+pub(crate) fn aln_round_trips() -> (usize, usize, Vec<String>, usize) {
+    let (mut made, mut refused, mut why, mut differing) = (0, 0, Vec::new(), 0);
+    for kind in crate::device::library()
+        .iter()
+        .map(|d| d.kind().to_string())
+    {
+        if NITRIDE_SKIP.contains(&kind.as_str()) {
+            continue;
+        }
+        let Some((device, _)) = built(&kind, nitride(2.0), &[("thickness", "0.65")]) else {
+            continue;
+        };
+        for values in library_designs(device.as_ref()) {
+            let Some(design) = device.physical(&values).ok().and_then(|d| on_aln(&d)) else {
+                continue;
+            };
+            match generate(&design, &Choices::default()) {
+                Err(e) => {
+                    refused += 1;
+                    if !why
+                        .iter()
+                        .any(|w: &String| w.starts_with(&format!("{kind}:")))
+                    {
+                        why.push(format!("{kind}: {e}"));
+                    }
+                }
+                Ok(flow) => {
+                    made += 1;
+                    match round_trip(&flow, &design) {
+                        Ok(t) if t.structure_equal && t.films_equal => differing += t.differing,
+                        Ok(t) => differing += t.points.max(1),
+                        Err(_) => differing += 1,
+                    }
+                }
+            }
+        }
+    }
+    (made, refused, why, differing)
+}
+
+fn aln_round_trip() -> Outcome {
+    exact(aln_round_trips().3)
+}
+
+/// An aluminium nitride design: the library device `kind` on 2 µm of oxide, its film 650 nm of
+/// AlN, its parameters `values`.
+pub(crate) fn aln_design(kind: &str, values: &[(&str, &str)]) -> Option<Physical> {
+    let mut all = vec![("thickness", "0.65")];
+    all.extend_from_slice(values);
+    built(kind, nitride(2.0), &all).and_then(|(_, d)| on_aln(&d))
+}
+
+/// The flows papers report for their own AlN devices: Xiong et al.'s 1 µm guides in 650 nm of
+/// sputtered AlN on 2 µm of thermal oxide (no cladding stated for them) and Jung et al.'s rings
+/// 3.5 µm wide under PECVD oxide.
+pub(crate) fn aln_reported() -> Vec<(&'static str, Option<Physical>, &'static [&'static str])> {
+    vec![
+        (
+            "xiong-2012",
+            aln_design("waveguide", &[("width", "1")]),
+            &[
+                "si-wafer",
+                "thermal-oxidation",
+                "sputtering-aln",
+                "ebl-hsq",
+                "icp-aln-chlorine",
+                "resist-strip",
+            ],
+        ),
+        (
+            "jung-2013",
+            aln_design("all-pass ring", &[("width", "3.5"), ("radius", "50")]),
+            &[
+                "si-wafer",
+                "thermal-oxidation",
+                "sputtering-aln",
+                "icp-aln-chlorine",
+                "resist-strip",
+                "pecvd-oxide",
+            ],
+        ),
+    ]
+}
+
+/// The reported AlN sequences the generated flows don't contain, in order, or whose design isn't
+/// given back exactly.
+pub(crate) fn aln_reported_missing() -> Vec<&'static str> {
+    let mut missing = Vec::new();
+    for (paper, design, sequence) in aln_reported() {
+        let ok = design.is_some_and(|d| {
+            generate(&d, &Choices::default()).is_ok_and(|f| {
+                contains(&f, sequence) && round_trip(&f, &d).is_ok_and(|t| t.exact())
+            })
+        });
+        if !ok {
+            missing.push(paper);
+        }
+    }
+    missing
+}
+
+fn aln_reported_flows() -> Outcome {
+    exact(aln_reported_missing().len())
+}
+
 pub(crate) fn cases() -> Vec<Case> {
     vec![
         Case {
@@ -457,6 +624,20 @@ pub(crate) fn cases() -> Vec<Case> {
             tier: Tier::Published,
             source: "M. Delaney et al., Sci. Adv. 7, eabg3500 (2021), doi:10.1126/sciadv.abg3500, Materials and Methods (PDF p. 6)",
             run: pcm_reported_flows,
+        },
+        Case {
+            id: "fabrication/aln-round-trip",
+            title: "Every library device drawn in 650 nm of aluminium nitride on 2 µm of grown oxide (all but the lithium niobate modulator) whose design the rules make gives back its structure and films to the bit through its generated flow, the film sputtered and etched in chlorine: at its defaults and each parameter's range ends in turn (differing points shown)",
+            tier: Tier::Analytic,
+            source: "an exact identity: the flow's operations draw the design's own shapes, etches and films",
+            run: aln_round_trip,
+        },
+        Case {
+            id: "fabrication/aln-reported-flows",
+            title: "The generated aluminium nitride flows contain, in order, the steps papers report for their own devices, and give the designs back to the bit: Xiong et al.'s guides (grown oxide, sputtered AlN, HSQ, a Cl₂/BCl₃/Ar etch) and Jung et al.'s rings under PECVD oxide (sequences missing shown)",
+            tier: Tier::Published,
+            source: "C. Xiong, W. H. P. Pernice, H. X. Tang, Nano Lett. 12, 3562 (2012), doi:10.1021/nl3011885, PDF pp. 2–4; H. Jung et al., Opt. Lett. 38, 2810 (2013), doi:10.1364/OL.38.002810, PDF pp. 1–2",
+            run: aln_reported_flows,
         },
     ]
 }
