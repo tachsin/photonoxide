@@ -3,8 +3,9 @@
 //! photonoxide's setup (studio/setup) unpacks this program and runs it as `photonoxide setup`;
 //! `photonoxide uninstall` is what Apps & Features runs. Both take NSIS's flags, as Tauri's
 //! updater and the nightly channel give them to a setup: `/P` shows only the progress, `/S`
-//! nothing, `/UPDATE` and `/R` start the program again when it's done (with the arguments after
-//! `/ARGS`), and `/D=<folder>` installs there. Without `/P` or `/S` the window asks first: the
+//! nothing, `/UPDATE` marks an update, `/R` starts the program again when it's done (with the
+//! arguments after `/ARGS`), and `/D=<folder>`, which takes the rest of the command line as NSIS's
+//! does (a folder with spaces needs no quotes), installs there. Without `/P` or `/S` the window asks first: the
 //! folder, a shortcut on the Desktop, and for an uninstall, whether the settings and benchmark
 //! records go too.
 //!
@@ -70,14 +71,19 @@ pub struct Options {
 }
 
 impl Options {
-    /// Whether the program starts again by itself when the install is done.
+    /// Whether the program starts again by itself when the install is done: on `/R`, as in
+    /// NSIS's setup, where `/UPDATE` only says it is an update. The nightly channel's watchdog
+    /// runs the setup as `/P /UPDATE` and opens the program itself once it has checked it, so a
+    /// setup that started it too would open it twice.
     fn starts_again(&self) -> bool {
-        self.update || self.restart
+        self.restart
     }
 }
 
 /// Reads the flags; case doesn't matter, as in NSIS, and a flag it doesn't know is passed over,
-/// as NSIS does, so a later updater's flag doesn't stop an update.
+/// as NSIS does, so a later updater's flag doesn't stop an update. `/D=` ends the line, as in
+/// NSIS: what follows it is the rest of the folder, which an unquoted path with spaces was split
+/// into by Windows (the nightly channel gives the folder that way, for NSIS).
 pub fn parse(args: &[String]) -> Result<Options, String> {
     let mut options = Options::default();
     let mut args = args.iter();
@@ -94,7 +100,12 @@ pub fn parse(args: &[String]) -> Result<Options, String> {
             }
             "--DELETE-DATA" => options.delete_data = true,
             _ if upper.starts_with("/D=") => {
-                let dir = &arg[3..];
+                let mut dir = arg[3..].to_owned();
+                for rest in args.by_ref() {
+                    dir.push(' ');
+                    dir.push_str(rest);
+                }
+                let dir = dir.trim();
                 if dir.is_empty() {
                     return Err("/D= needs a folder".into());
                 }
@@ -900,7 +911,25 @@ mod tests {
             o.dir,
             Some(PathBuf::from(r"C:\Users\me\My Apps\photonoxide"))
         );
-        assert!(o.update && !o.restart);
+        // an update alone doesn't start the program again: the watchdog does, once it has
+        // checked the build
+        assert!(o.update && !o.restart && !o.starts_again());
+        // the nightly channel gives the folder unquoted, as NSIS reads it, so Windows splits a
+        // folder with spaces into several arguments: they are one folder again
+        let o = parse(&args(&[
+            "/P",
+            "/UPDATE",
+            r"/D=C:\Users\Ada",
+            r"Lovelace\AppData\Local\photonoxide",
+        ]))
+        .unwrap();
+        assert_eq!(
+            o.dir,
+            Some(PathBuf::from(
+                r"C:\Users\Ada Lovelace\AppData\Local\photonoxide"
+            ))
+        );
+        assert!(parse(&args(&["/D=", "  "])).is_err());
         let o = parse(&args(&["/S", "--from", "setup.exe"])).unwrap();
         assert_eq!(o.show, Show::Nothing);
         assert_eq!(o.from, Some(PathBuf::from("setup.exe")));

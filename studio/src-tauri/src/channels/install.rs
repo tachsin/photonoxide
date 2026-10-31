@@ -6,7 +6,8 @@
 //! install in `handover.json`, writing each step to `install.log`:
 //!
 //! - **Windows:** the watchdog waits for this program to exit (its process, up to
-//!   [`EXIT_WITHIN`] seconds), then runs the build's NSIS per-user installer as Tauri's updater
+//!   [`EXIT_WITHIN`] seconds), then runs the build's per-user setup (photonoxide's own, or
+//!   NSIS's for a commit from before it, which take the same flags) as Tauri's updater
 //!   does, passive and as an update (`/P /UPDATE`), into this copy's folder (`/D=`), and waits
 //!   for it (up to [`INSTALL_WITHIN`] seconds). It then asks the program installed what it is
 //!   (`--version`), and opens it only when it is the new build. Otherwise the install failed:
