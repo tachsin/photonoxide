@@ -12,6 +12,7 @@
   import Plot from "./Plot.svelte";
   import RasterView from "./RasterView.svelte";
   import StaticFields from "./StaticFields.svelte";
+  import NonlinearResults from "./nonlinear/NonlinearResults.svelte";
   import TemperatureInTime from "./TemperatureInTime.svelte";
   import UnitChip from "./UnitChip.svelte";
   import OptimizeResults from "./device/OptimizeResults.svelte";
@@ -125,7 +126,7 @@
 </script>
 
 <div class="mx-auto max-w-6xl space-y-6 p-6">
-  {#if !run.pictures.length && !run.modes.length && !run.sweep && !run.fields.length && !run.sparams.length && !run.frames.length && !Object.keys(run.spectra).length && !run.device && !run.study && !run.optimization && !run.statics.length && !run.staticResult && !run.staticSteps.length}
+  {#if !run.pictures.length && !run.modes.length && !run.sweep && !run.fields.length && !run.sparams.length && !run.frames.length && !Object.keys(run.spectra).length && !run.device && !run.study && !run.optimization && !run.statics.length && !run.staticResult && !run.staticSteps.length && !run.nonlinear.setup}
     <div class="grid h-64 place-items-center text-sm faint">
       {run.finished ? "This run recorded nothing to plot." : "Waiting for the first results…"}
     </div>
@@ -149,6 +150,13 @@
   {/if}
 
   <FdtdSpectra />
+
+  {#if run.nonlinear.setup}
+    <section class="panel space-y-4 p-5">
+      <h3 class="font-semibold">Nonlinear process</h3>
+      <NonlinearResults result={run.nonlinear} />
+    </section>
+  {/if}
 
   {#if run.staticSteps.length}
     <!-- a static job's transient: each probe's mean temperature as the steps go -->

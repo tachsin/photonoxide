@@ -1,7 +1,7 @@
 ---
 title: "Fabrication: the process flow of a design"
 module: fabrication
-summary: "How a design would be made, read from its own layers and shapes: the steps in order from published processes, each with its reason in plain words and the alternatives with why they weren't chosen, every capability a range with the paper and the place in it, or 'not specified'. Rules read each layer with the films below and above it: a single-crystal film is a bought wafer, an etch stops on the film below where a source says it does and is timed otherwise, the lithography is the first whose cited minimum feature reaches the layer's narrowest line and gap (measured with the geometry kernel's offsets) and whose resist a source shows lasting the etch, an evaporated metal is lifted off and a sputtered one etched, a film over an etched step is polished flat before a patterned layer goes on it, and no step may pass a film's cited thermal limit. The rule engine reads each projection lithography's resolution by the Rayleigh criterion with its cited wavelength, numerical aperture and k₁, ends an etch on the film below by a cited etch stop or selectivity with the over-etch's loss, warns of RIE lag and of walls no cited etch makes, prefers a conformal film to fill etched openings and a cooler one over a film whose budget is not shown, checks each layer's registration against the tool's cited overlay, ranks each step's alternatives by what they gain and cost, and gives the accuracy of each fabricated dimension, its contributions combined as the root of the sum of their squares. Each step's geometry operation runs on the library's own structure, and the flow gives back the design to the bit: 15 of the library's 18 devices at their defaults and each parameter's ends, with zero differing points."
+summary: "How a design would be made, read from its own layers and shapes: the steps in order from published processes, each with its reason in plain words and the alternatives with why they weren't chosen, every capability a range with the paper and the place in it, or 'not specified'. Rules read each layer with the films below and above it: a single-crystal film is a bought wafer, an etch stops on the film below where a source says it does and is timed otherwise, the lithography is the first whose cited minimum feature reaches the layer's narrowest line and gap (measured with the geometry kernel's offsets) and whose resist a source shows lasting the etch, an evaporated metal is lifted off and a sputtered one etched, a film over an etched step is polished flat before a patterned layer goes on it, and no step may pass a film's cited thermal limit. The rule engine reads each projection lithography's resolution by the Rayleigh criterion with its cited wavelength, numerical aperture and k₁, ends an etch on the film below by a cited etch stop or selectivity with the over-etch's loss, warns of RIE lag and of walls no cited etch makes, prefers a conformal film to fill etched openings and a cooler one over a film whose budget is not shown, checks each layer's registration against the tool's cited overlay, ranks each step's alternatives by what they gain and cost, and gives the accuracy of each fabricated dimension, its contributions combined as the root of the sum of their squares. Beyond silicon and lithium niobate on insulator, it makes silicon nitride (deposited and etched after crack stops, or by the photonic Damascene process when thicker), phase-change cells (sputtered, lifted off and capped below their crystallization temperature), sputtered aluminium nitride and GaAs grown by epitaxy, whose etch no source in hand gives and the flow says so. Each step's geometry operation runs on the library's own structure, and the flow gives back the design to the bit: all 18 of the library's devices at their defaults and each parameter's ends, and the library's devices on the nitride, AlN and GaAs stacks, with zero differing points."
 order: 27
 papers:
   - cite: "M. Bruel, Electron. Lett. 31, 1201 (1995) (Smart Cut: Step 3, p. 1201; the film's spread, p. 1202)"
@@ -30,6 +30,24 @@ papers:
     doi: 10.1002/9781119990413
   - cite: "C. Mack, Fundamental Principles of Optical Lithography, Wiley (2007) (p. 22: numerical apertures; Eq. 2.83: the smallest half-pitch)"
     doi: 10.1002/9780470723876
+  - cite: "J. F. Bauters et al., Opt. Express 19, 3163 (2011) (LPCVD nitride's surface and its anneal above 1100 °C, PDF pp. 3–4)"
+    doi: 10.1364/OE.19.003163
+  - cite: "K. Luke, A. Dutt, C. B. Poitras, M. Lipson, Opt. Express 21, 22829 (2013) (thick nitride: its cracks, crack-stop trenches, the etch, the 1200 °C anneal and the cladding, PDF pp. 2–4)"
+    doi: 10.1364/OE.21.022829
+  - cite: "M. H. P. Pfeiffer et al., Optica 3, 20 (2016) (the photonic Damascene process, PDF pp. 2–3)"
+    doi: 10.1364/OPTICA.3.000020
+  - cite: "C. Ríos et al., Nat. Photonics 9, 725 (2015) (GST cells on nitride guides, sputtered and lifted off; Methods, PDF p. 9)"
+    doi: 10.1038/nphoton.2015.182
+  - cite: "M. Delaney, I. Zeimpekis, D. Lawson, D. W. Hewak, O. L. Muskens, Adv. Funct. Mater. 30, 2002447 (2020) (Sb₂S₃ and Sb₂Se₃ sputtered, lifted off and capped; PDF pp. 7 and 9)"
+    doi: 10.1002/adfm.202002447
+  - cite: "M. Delaney et al., Sci. Adv. 7, eabg3500 (2021) (Sb₂Se₃ cells on 220 nm SOI; Materials and Methods, PDF p. 6)"
+    doi: 10.1126/sciadv.abg3500
+  - cite: "C. Xiong, W. H. P. Pernice, H. X. Tang, Nano Lett. 12, 3562 (2012) (sputtered aluminium nitride, its etch and cladding, PDF pp. 2–5)"
+    doi: 10.1021/nl3011885
+  - cite: "H. Jung, C. Xiong, K. Y. Fong, X. Zhang, H. X. Tang, Opt. Lett. 38, 2810 (2013) (AlN rings' cladding and its 1000 °C anneal, PDF pp. 1–2)"
+    doi: 10.1364/OL.38.002810
+  - cite: "C. P. Dietrich, A. Fiore, M. G. Thompson, M. Kamp, S. Höfling, Laser Photonics Rev. 10, 870 (2016) (GaAs epitaxy and ridge guides, PDF pp. 2 and 12)"
+    doi: 10.1002/lpor.201500321
 validation:
   - fabrication/round-trip-waveguide
   - fabrication/round-trip-tfln
@@ -46,6 +64,16 @@ validation:
   - fabrication/rule-choices
   - fabrication/accuracy-combined
   - fabrication/round-trip-library
+  - fabrication/nitride-round-trip
+  - fabrication/nitride-rules
+  - fabrication/nitride-reported-flows
+  - fabrication/pcm-round-trip
+  - fabrication/pcm-rules
+  - fabrication/pcm-reported-flows
+  - fabrication/aln-round-trip
+  - fabrication/aln-reported-flows
+  - fabrication/gaas-round-trip
+  - fabrication/gaas-rules
 ---
 
 # Fabrication: the process flow of a design
@@ -103,7 +131,7 @@ Layers are listed from the top down, the substrate last, as a cross-section is d
 | 2 | lithography | 193 nm projection | Resist kept on the strip. Its narrowest line, 0.5 µm, is above the 150 nm the source printed linearly; the SOI papers in hand used it. At NA 0.93 the line asks for k₁ = 2.4, far above the typical 0.4. |
 | 3 | pattern transfer | ICP etch in HBr/O₂ | Through the 0.22 µm of Si, stopping on the oxide below, which it etches far more slowly: the over-etch takes at most 1.5 nm of it. |
 | 4 | pattern transfer | Resist removal | |
-| 5 | deposition | LPCVD oxide | Fills the etched regions and is the cladding. Conformal (100 % step coverage), where PECVD's is 25–50 %; at 500–900 °C, below what Si and SiO₂ are shown to survive (above 1000 °C). |
+| 5 | deposition | LPCVD oxide | Fills the etched regions and is the cladding. Conformal (100 % step coverage), where PECVD's is 25–50 %; at 500–900 °C, below what Si and SiO₂ are shown to survive (1300 °C). |
 
 **Warning the flow gives:** the design's vertical walls are outside the cited 82° of both
 silicon etches (Selvaraja et al.'s "8°" from the vertical, Bojko et al.'s 82°). The design's own
@@ -167,13 +195,143 @@ Sputtered TiN is etched, not lifted off: lift-off relies on evaporation's poor s
 which "effectively prevents the use of sputtering" (Campbell, Section 11.9). Lift-off is listed
 as the alternative, with Ríos et al.'s 10 nm sputtered film lifted off.
 
+## More platforms
+
+The same rules make designs on four further platforms. Each round-trips to the bit, like the
+first three.
+
+### Silicon nitride (a library device on the `nitride` stack, here `waveguide` at its defaults)
+
+Silicon nitride isn't a crystal bought with its wafer: it is deposited. So the flow starts
+from a bare silicon wafer, grows the oxide under the guides from it, and deposits the nitride
+over that.
+
+| Layer | Film | Thickness | Drawn |
+|---|---|---|---|
+| cladding | SiO₂ | above everything | |
+| SiN | Si₃N₄, SiO₂ where etched | 0.22 µm | a strip 0.5 µm wide, vertical walls |
+| BOX | SiO₂ | 2 µm | |
+| substrate | Si | | |
+
+| # | Step | Process | What it does, and why |
+|---|---|---|---|
+| 1 | wafer | A bare silicon wafer | The nitride papers start from oxidized silicon wafers (Luke et al. 2013; Pfeiffer et al. 2016). |
+| 2 | deposition | Thermal oxidation | The 2 µm of oxide grown from the wafer's silicon. Deal and Grove's law with their 1100 °C steam constants gives about 8.3 hours. |
+| 3 | deposition | LPCVD | 0.22 µm of nitride, at up to 900 °C, which silicon and its oxide are shown to survive (oxidized at up to 1300 °C). Bauters et al. 2011 and Pfeiffer et al. 2016 used LPCVD nitride; PECVD nitride is the alternative, with lower stress and more absorption (Luke et al., PDF p. 2). |
+| 4 | lithography | Electron beam in ma-N | Resist kept on the strip, as Luke et al. and Ríos et al. wrote their guides; ma-N's narrowest feature in hand is a 300 nm gap (Ríos et al., Fig. 3). |
+| 5 | pattern transfer | Etch in CHF₃/O₂ | Through the nitride, as Luke et al. etched theirs. No source states a selectivity over the oxide below, so the etch is timed. |
+| 6 | pattern transfer | Resist removal | |
+| 7 | anneal | Nitride anneal | 1200 °C in nitrogen for 3 hours, after the resist is stripped (Luke et al.); Bauters et al.'s guides were annealed above 1100 °C. It drives hydrogen out of the film and changes no shape. |
+| 8 | deposition | LPCVD oxide | Fills the etched regions and is the cladding: Luke et al.'s high-temperature oxide (800 °C), conformal. |
+
+**Thicker films.** Stoichiometric nitride is under high tensile stress and cracks when thick: films
+over 400 nm "crack catastrophically" (Luke et al., PDF p. 2). Two answers are in hand, and the
+rules choose between them by the film's thickness:
+
+- **Up to 910 nm, crack stops and an etch.** Above 400 nm the flow adds Luke et al.'s crack-stop
+  trenches, scribed into the oxide around the devices before the nitride goes on, which stop the
+  cracks that start at the wafer's edge. Luke et al. etched 910 nm guides this way. The trenches
+  are listed as a step; the design doesn't draw them.
+- **Above 910 nm, the photonic Damascene process** (Pfeiffer et al. 2016). The guides' shapes are
+  etched into the oxide first, as trenches; the nitride is deposited into them in one run, and
+  the excess is polished away, so the nitride itself is never etched. A dense pattern etched
+  around the guides relieves the film's stress. Pfeiffer et al. made 1.2 µm films with a yield
+  above 95 % and guides up to 1.35 µm thick. The flow grows the oxide as thick as the oxide below
+  the guides and the guides together, etches the trenches (a timed etch), deposits the nitride as
+  thick as the trenches are deep, polishes it back to the oxide, anneals, and clads. The guides'
+  walls are the trenches' walls, so the process makes guides etched through with vertical walls;
+  a design with sloped walls or a slab stays with the etch, with a warning.
+
+Either way, `prefer: [damascene-preform]` asks for the Damascene process and `avoid` refuses it.
+A reflow of the preform, which later Damascene work adds to smooth the trenches' walls, is not
+described by a source in hand, so it isn't offered.
+
+### Phase-change cells (`Sb2Se3 phase-change phase shifter`, at its defaults)
+
+A phase-change cell is a thin patch of a material that switches between an amorphous and a
+crystalline state, laid on a guide. The three shifters (GST, Sb₂S₃, Sb₂Se₃) are made the same
+way; only the film changes.
+
+| Layer | Film | Thickness | Drawn |
+|---|---|---|---|
+| cladding | SiO₂ | above everything | |
+| PCM | Sb₂Se₃, SiO₂ elsewhere | 0.025 µm | a patch on the guide, 0.5 µm wide |
+| Si | Si, SiO₂ where etched | 0.22 µm | a strip 0.5 µm wide |
+| BOX | SiO₂ | 2 µm | |
+| substrate | Si | | |
+
+| # | Step | Process | What it does, and why |
+|---|---|---|---|
+| 1–4 | | as the strip waveguide's 1–4 | |
+| 5 | lithography | UV photolithography | Resist opened where the cell goes, as Delaney et al. 2020 made their patches (contact UV lithography and lift-off). |
+| 6 | deposition | RF sputtering of the film | 25 nm of Sb₂Se₃, over the resist and into its opening. Sputtering also covers walls, which lift-off usually avoids, but films this thin are lifted off: 22 to 25 nm in Delaney et al. 2020 and 2021, 10 nm of GST in Ríos et al. 2015. |
+| 7 | pattern transfer | Lift-off | Dissolving the resist leaves the cell. The library has no etch of a phase-change film. |
+| 8 | deposition | RF sputtering of oxide | Fills around the guide and the cell and caps them. An amorphous film crystallizes when held above its crystallization temperature (Sb₂Se₃ 200 °C and Sb₂S₃ 270 °C, Delaney et al. 2020; GST 150 °C, Friedrich et al. 2000), so PECVD (to 350 °C) and LPCVD (to 900 °C) are refused. Sputtering needs no furnace; its temperature isn't stated by the sources, and the flow says so, while Delaney et al.'s films, capped this way, were amorphous as deposited. |
+
+Delaney et al. 2021 capped their Sb₂Se₃ cells with 200 nm of ZnS:SiO₂, and Ríos et al. their GST
+with 10 nm of indium tin oxide; the design draws an oxide cladding, so the flow caps with the
+oxide. The flow of Delaney et al. 2021's own cells (23 nm of Sb₂Se₃ on a 220 nm rib etched 120 nm)
+contains their steps in order. They opened the cells' windows with an industrial deep-UV scanner
+whose wavelength the paper doesn't give, so the flow's lithography for the cells stays the
+contact lithography of their 2020 paper.
+
+### Aluminium nitride (a 1 µm guide in 650 nm of AlN)
+
+Aluminium nitride is sputtered, like titanium nitride, at a low temperature. The catalogue's AlN
+is uniaxial, which a library device's layer can't take yet, so its flows are made for the
+library's devices drawn in AlN (their nitride layer's film made aluminium nitride); the studio's
+device pages can't show one yet.
+
+| Layer | Film | Thickness | Drawn |
+|---|---|---|---|
+| cladding | SiO₂ | above everything | |
+| AlN | AlN, SiO₂ where etched | 0.65 µm | a strip 1 µm wide, vertical walls |
+| BOX | SiO₂ | 2 µm | |
+| substrate | Si | | |
+
+| # | Step | Process | What it does, and why |
+|---|---|---|---|
+| 1 | wafer | A bare silicon wafer | As Xiong et al. 2012 started. |
+| 2 | deposition | Thermal oxidation | 2 µm of oxide grown from the wafer, as Xiong et al.'s and Jung et al.'s. |
+| 3 | deposition | Reactive sputtering of AlN | 650 nm from aluminium targets in argon and nitrogen, the wafer at or below 350 °C, the stress tailored to about ±75 MPa; its top surface 1.5 nm rms (Xiong et al.). |
+| 4 | lithography | Electron beam in HSQ | Resist kept on the strip, as Xiong et al. wrote theirs. Their etch removes the film about twice as fast as HSQ, so the 500 nm of HSQ lasts the 650 nm etch. |
+| 5 | pattern transfer | ICP etch in Cl₂/BCl₃/Ar | Through the film at about 200 nm/min (Xiong et al.). No source states its selectivity over the oxide, so it is timed; its walls are slanted (Jung et al.), at an angle not given. |
+| 6 | pattern transfer | Resist removal | |
+| 7 | deposition | PECVD oxide | The cladding, as Xiong et al.'s modulators (0.8 µm) and Jung et al.'s rings (3.5 µm). The rules put the platform's papers' choice before conformality, so it comes before LPCVD oxide, which AlN would also survive (Jung et al. annealed their chip at 1000 °C for 30 hours). |
+
+The library's other etch of aluminium nitride is KOH, which dissolves it easily (Franssila,
+p. 135).
+
+### Gallium arsenide (`waveguide` on GaAs over AlGaAs, a ridge 2.5 µm wide)
+
+Gallium arsenide and aluminium gallium arsenide are single crystals grown on a GaAs wafer, so,
+like silicon on insulator, they come with the wafer.
+
+| Layer | Film | Thickness | Drawn |
+|---|---|---|---|
+| cladding | SiO₂ | above everything | |
+| GaAs | GaAs, SiO₂ where etched | 1 µm | a strip 2.5 µm wide |
+| AlGaAs | Al₀.₃Ga₀.₇As | 2 µm | |
+| substrate | GaAs | | |
+
+| # | Step | Process | What it does, and why |
+|---|---|---|---|
+| 1 | wafer | Layers grown by epitaxy | GaAs on AlGaAs, grown with monolayer precision by MBE or MOVPE (Dietrich et al. 2016, Section 2). |
+| 2 | lithography | UV photolithography | Resist kept on the ridge; the library's order, since no GaAs paper in hand names a lithography. |
+| 3 | pattern transfer | Etch of GaAs in chlorine | **The guides' etch is not specified:** Dietrich et al. name none. The library's GaAs etch by its chemistry stands in (chlorine, whose GaAs compounds are volatile: Campbell, Table 11.3; Franssila, p. 134); its rate, walls, depth control and selectivity over AlGaAs are not stated, so the etch is timed and the flow lists them as not specified. |
+| 4 | pattern transfer | Resist removal | |
+| 5 | deposition | PECVD oxide | The cladding. No source in hand gives GaAs's or AlGaAs's thermal budget, so the coolest deposition that states its temperature is chosen (to 350 °C), and the flow says the budget is not specified. |
+
+Dietrich et al.'s ridges are 2 to 4 µm wide and high (PDF p. 12). A GaAs etch process, with its
+chemistry, walls and depth control, is the source this platform waits for.
+
 ## The process library
 
 Each process is data: its name, what it does in plain words, the films it acts on, and its
 capabilities, each a range with its source and the place in it, or "not specified". A number
 can't be written without its source (the type `Stated` has no other way). Only numbers read in
-the papers and books are in it. The library's version, 2, is recorded with every flow; it has 36
-processes citing 24 sources.
+the papers and books are in it. The library's version, 3, is recorded with every flow; it has 48
+processes citing 32 sources.
 
 | Process | Capability | Value | Source |
 |---|---|---|---|
@@ -223,9 +381,27 @@ processes citing 24 sources.
 | PECVD oxide | step coverage | 25 to 50 % | Franssila 2010, p. 57 |
 | Wet etch of AlN in KOH | its walls, its selectivity | not specified (the source states that KOH etches it) | Franssila 2010, p. 135 |
 | Dry etch of TiN, lift-off, contact metal | the numbers the rules would use | not specified | |
+| Thermal oxidation | thickness | 0.03 to 2 µm (the range the law was fitted over) | Deal & Grove 1965, abstract |
+| LPCVD nitride | temperature | about 770 °C | Pfeiffer et al. 2016, PDF p. 2 |
+| | surface roughness | below 0.4 nm | Bauters et al. 2011, PDF p. 3 |
+| | thickness | at most 910 nm etched, with crack stops; at most 1.35 µm by the Damascene process | Luke et al. 2013, PDF p. 3; Pfeiffer et al. 2016, PDF p. 3 |
+| LPCVD oxide (HTO) | temperature | 800 °C | Luke et al. 2013, PDF p. 4 |
+| Nitride anneal | temperature | 1200 °C for 3 hours in nitrogen; above 1100 °C | Luke et al. 2013, PDF p. 3; Bauters et al. 2011, PDF p. 4 |
+| Electron beam, ma-N | narrowest feature in hand | 300 nm (a ring's gap); 680 nm | Ríos et al. 2015, Fig. 3; Luke et al. 2013, PDF p. 4 |
+| Nitride etch in CHF₃/O₂ | a depth etched under ma-N | 910 nm; 330 nm | Luke et al. 2013, PDF p. 3; Ríos et al. 2015, Methods |
+| Damascene preform, CMP of nitride, crack-stop trenches | their walls, selectivity and flatness | not specified (the sources describe the steps) | Pfeiffer et al. 2016, PDF pp. 2–3; Luke et al. 2013, PDF p. 3 |
+| Sputtered phase-change film | thickness | 23 nm; 22 nm; 10 nm (GST) | Delaney et al. 2021, PDF p. 6; Delaney et al. 2020, PDF p. 7; Ríos et al. 2015, Methods |
+| | temperature | not specified ("low-temperature RF sputtering") | Delaney et al. 2021, PDF p. 6 |
+| Sputtered oxide | thickness; temperature | 200 nm (a ZnS:SiO₂ cap); not specified | Delaney et al. 2021, PDF p. 6 |
+| Sputtered AlN | temperature | at most 350 °C | Xiong et al. 2012, PDF p. 2 |
+| | thickness; surface roughness | 650 nm (330 nm for the visible); 1.5 nm rms | Xiong et al. 2012, PDF pp. 3 and 5 |
+| AlN etch in Cl₂/BCl₃/Ar | selectivity over HSQ | about 2:1 | Xiong et al. 2012, PDF p. 3 |
+| PECVD oxide | thickness over AlN | 0.8 µm; 3.5 µm | Xiong et al. 2012, Fig. 2; Jung et al. 2013, PDF p. 2 |
+| GaAs epitaxy | the layers' thickness | not specified ("monolayer precision") | Dietrich et al. 2016, Section 2 |
 
-The thermal budgets the rules check: Si and SiO₂ survive above 1000 °C (Bruel), LiNbO₃ 450 °C
-(Poberaj et al.), TiN 600 °C (Kearney et al.); aluminium on silicon is limited by the eutectic
+The thermal budgets the rules check: Si and SiO₂ survive 1300 °C (silicon is oxidized at up to
+1300 °C, Deal & Grove's range), LiNbO₃ 450 °C (Poberaj et al.), TiN 600 °C (Kearney et al.),
+Si₃N₄ 1200 °C (Luke et al.'s anneal), AlN 1000 °C (Jung et al.'s anneal); aluminium on silicon is limited by the eutectic
 at 577 °C (Campbell, Fig. 15.24) and an amorphous phase-change film by its crystallization
 temperature, from the material catalogue (Sb₂Se₃: 200 °C, Delaney et al. 2020).
 
@@ -235,7 +411,12 @@ The generator reads the design layer by layer, from the bottom, with the films b
 each feature. Rules, not search: the same design always gives the same flow.
 
 - **The wafer.** Everything up to the first single-crystal film (silicon or lithium niobate)
-  is bought as a bonded wafer.
+  is bought as a bonded wafer. A design whose guides are a deposited film (silicon nitride,
+  aluminium nitride) on oxide over silicon starts from a bare silicon wafer.
+- **Guides of a deposited film.** The film is deposited over the wafer, then patterned and
+  etched as a bought film is, then annealed when the platform's papers anneal it. A nitride film
+  thicker than 400 nm gets crack stops first; one thicker than any its sources etched (910 nm),
+  with vertical walls etched through, is made by the photonic Damascene process instead.
 - **The etch.** The one the platform's papers used, else the library's first. A full etch stops
   on the film below when a source says it does; otherwise, and for every partial etch, it is
   timed, and its depth is uncertain by the etch's cited depth variation, or "not specified". The
@@ -252,7 +433,11 @@ each feature. Rules, not search: the same design always gives the same flow.
 - **Metals.** A metal deposited in straight lines (evaporated) is lifted off; one that isn't
   (sputtered) is deposited over everything and etched.
 - **Depositions.** The film's first process that breaks no cited thermal limit of a film already
-  there. Thermal oxidation can't lay a film over others: it grows from silicon, by consuming it.
+  there. Thermal oxidation can't lay a film over others: it grows from silicon, by consuming it,
+  so it grows only the first oxide on a bare silicon wafer. Among the processes left, one every
+  film is shown to survive comes first; when a film's survival isn't shown, the coolest; a process
+  whose temperature no source states shows no film surviving it. Then the one the platform's
+  papers used, then, filling etched openings, a conformal one.
   A film over an etched step with a patterned layer to come above it is deposited thicker by the
   step and polished flat.
 - **What isn't drawn.** A heater's contacts are listed as a step, not drawn.
@@ -419,16 +604,29 @@ modes are solved without them. The flow deposits the real film; put back, the st
 | `fabrication/min-features-above-limit` | every cited minimum feature of a projection lithography asks for k₁ ≥ 0.25 at its highest NA | 0 below | exact |
 | `fabrication/rule-choices` | the Rayleigh classes, a stop by selectivity, LPCVD and PECVD by thermal budget and conformality, RIE lag, registration | 0 wrong | exact |
 | `fabrication/accuracy-combined` | the heater's polished oxide: √(30² + 22²) nm | 37.2022 nm | round-off, 1e-12 relative |
-| `fabrication/round-trip-library` | every library device the rules make, at its defaults and each parameter's ends (160 designs of 15 devices) | 0 differing points | exact |
+| `fabrication/round-trip-library` | every library device the rules make, at its defaults and each parameter's ends (196 designs of 18 devices) | 0 differing points | exact |
+| `fabrication/nitride-round-trip` | every library device on the nitride stack at its defaults and its thickness's ends (17 devices, 41 designs) | 0 differing points | exact |
+| `fabrication/nitride-rules` | 220 nm etched without crack stops, 910 nm after them, 1.2 µm by the Damascene process, sloped 1.2 µm etched with a warning, every film annealed before its cladding | 0 wrong | exact |
+| `fabrication/nitride-reported-flows` | the flows contain Luke et al.'s, Pfeiffer et al.'s and Ríos et al.'s sequences, and give the designs back | 0 missing | exact |
+| `fabrication/pcm-round-trip` | the three phase-change shifters (36 designs) | 0 differing points | exact |
+| `fabrication/pcm-rules` | the film sputtered and lifted off, the cap sputtered, PECVD and LPCVD refused above the crystallization temperature, the cap's temperature flagged | 0 wrong | exact |
+| `fabrication/pcm-reported-flows` | the flow contains Delaney et al. 2021's sequence and gives the design back | 0 missing | exact |
+| `fabrication/aln-round-trip` | every library device drawn in AlN but the phase-change shifters, at its defaults (11 designs) | 0 differing points | exact |
+| `fabrication/aln-reported-flows` | the flows contain Xiong et al.'s and Jung et al.'s sequences and give the designs back | 0 missing | exact |
+| `fabrication/gaas-round-trip` | every library device on GaAs over AlGaAs, at its defaults (14 designs) | 0 differing points | exact |
+| `fabrication/gaas-rules` | the layers grown with the wafer, the etch said to be not specified and timed, the coolest cladding, the design given back | 0 wrong | exact |
 
 One row of Franssila's Table 10.1 is left out of its case: at 248 nm, NA 0.65 and k₁ 0.5, k₁λ/NA
 is 0.191 µm where the table prints 0.18 µm, 0.011 µm off, more than the printing's rounding
 allows; the table says nothing that would explain it.
 
-The rules refuse 40 of the 200 designs the library round trip tries, each with its reason: the
-three phase-change shifters' 36 (no process in hand deposits a phase-change film; the platforms
-of F6), and 4 with a guide of zero length, which draw no shape (a straight waveguide's, a rib's
-and a coupler's length of 0, a bend's angle of 0).
+The rules make 196 of the 200 designs the library round trip tries, all 18 devices among them.
+The 4 they refuse, each with its reason, have a guide of zero length, which draws no shape (a
+straight waveguide's, a rib's and a coupler's length of 0, a bend's angle of 0). On the nitride,
+AlN and GaAs stacks the round trips run each device at its defaults (and nitride at its
+thickness's ends, from etched films to the Damascene process), which none refuses; at every
+parameter's ends, as for the library, they make 146, 110 and 141 designs and refuse the same 4
+(and, in AlN, the phase-change shifters, whose cells no source in hand puts on AlN).
 
 The round trip proves that a flow makes the design's layers and shapes, no more and no less. The
 capabilities' sources and the rules' cases are what speak for the steps themselves.
@@ -450,15 +648,24 @@ These are listed in every flow that meets them, and wait for a source:
 - the walls of the oxide, nitride, aluminium, GaAs and AlN etches, and of argon milling of
   metals;
 - the depth variation of every timed etch but argon milling of lithium niobate (the read-out
-  uses a textbook's example, 5 %, in its place, and says so).
+  uses a textbook's example, 5 %, in its place, and says so);
+- the GaAs guides' etch: its process, chemistry, walls and depth control (Dietrich et al. name
+  none), and GaAs's and AlGaAs's thermal budgets;
+- the temperature of sputtering a phase-change film or an oxide cap, and so whether the cap
+  keeps the film amorphous by the numbers (Delaney et al.'s capped films were amorphous as
+  deposited);
+- the nitride and AlN etches' selectivity over the oxide below and their walls (Jung et al. show
+  slanted AlN walls without an angle), the Damascene preform's walls and the nitride polish's
+  flatness, and ma-N's resolution (the narrowest features in hand are what the papers made).
 
 ## In the studio
 
 A component's page has a **Fabrication** tab, opened by the **Fabricate** button beside Run. It
 shows the flow for the design as it stands, read-only: the steps in order, and the wafer's
 cross-section at the design view's cut, animated step by step (`fabrication::stages`, air where
-nothing is yet): a deposition revealed from below as the film grows, an etch, a lift-off, a
-polish or the resist's removal from above as material goes, a lithography faded in; play, pause,
+nothing is yet, and air over a bare wafer): a deposition, an evaporation or a sputtered film
+revealed from below as the film grows, an etch, a lift-off, a polish or the resist's removal from
+above as material goes, a lithography or an anneal faded in; play, pause,
 step back and forward, a speed, and no motion under `prefers-reduced-motion`. Each medium is named
 by the film that is there, so the heater reads TiN and the electrodes Cu/Au, drawn in a metal's
 colour, though the optical model draws them as oxide; a table lists the layers from the top down,

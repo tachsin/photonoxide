@@ -95,9 +95,18 @@ class Setup:
             self.named.add(name)
             self.materials.append(f"{name}: {what}")
 
-    def catalogue(self, material: str, wavelength_um: float, model: str | None = None) -> str:
+    def catalogue(
+        self,
+        material: str,
+        wavelength_um: float,
+        model: str | None = None,
+        axis: str | None = None,
+        temperature_k: float | None = None,
+    ) -> str:
         """A material of the catalogue: its model, its range, its source and its index at
-        ``wavelength_um``, all from :func:`photonoxide.materials`. Returns the material's name."""
+        ``wavelength_um`` (on ``axis``, a crystal's ``"ordinary"`` or ``"extraordinary"``, and at
+        ``temperature_k`` for a model with a temperature, its own by default), all from
+        :func:`photonoxide.materials`. Returns the material's name."""
         entry = next(m for m in phox.materials() if m.id == material)
         chosen = next(
             m for m in entry.models if (m.id == model if model is not None else m.default)
@@ -105,13 +114,21 @@ class Setup:
         if entry.name not in self.named:
             self.named.add(entry.name)
             lo, hi = chosen.range_um
-            at = phox.refractive_index(material, wavelength_um=wavelength_um, model=chosen.id)
+            at = phox.refractive_index(
+                material,
+                wavelength_um=wavelength_um,
+                model=chosen.id,
+                axis=axis,
+                temperature_k=temperature_k,
+            )
             text = f"{entry.name}: {chosen.name}; valid {number(lo)} to {number(hi)} µm"
-            if chosen.temperature_k is not None:
+            if temperature_k is not None:
+                text += f", at {number(temperature_k)} K"
+            elif chosen.temperature_k is not None:
                 text += f", at {number(chosen.temperature_k)} K"
             text += f"\n      source: {chosen.sources[0]}"
             text += f"\n      accuracy: {chosen.accuracy}"
-            text += f"\n      n {at.real:.6f} at {number(wavelength_um)} µm"
+            text += f"\n      {axis + ' ' if axis else ''}n {at.real:.6f} at {number(wavelength_um)} µm"
             self.materials.append(text)
         return entry.name
 

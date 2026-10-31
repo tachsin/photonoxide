@@ -79,7 +79,9 @@ pub enum Operation {
         /// Where the resist stays.
         tone: Tone,
     },
-    /// The layer `layer` etched where the resist leaves it bare.
+    /// The layer `layer` etched where the resist leaves it bare: around the shapes the resist is
+    /// kept on, or the shapes themselves where it is opened (a preform's trenches, which the
+    /// next deposition fills with the shapes' film).
     Etch {
         /// The layer.
         layer: String,
@@ -88,7 +90,9 @@ pub enum Operation {
         /// The walls' angle from the plane, radians.
         sidewall: f64,
     },
-    /// A film evaporated over the resist and into its openings.
+    /// A film put down over the resist and into its openings, for a lift-off: evaporated, or
+    /// sputtered when its sources lift a thin sputtered film off (its process isn't directional;
+    /// the record names it `"sputter"`).
     Evaporate {
         /// The film.
         film: Film,
@@ -103,7 +107,8 @@ pub enum Operation {
     },
     /// The resist removed.
     Strip,
-    /// Something the design doesn't draw, listed and not executed: e.g. a heater's contacts.
+    /// Something the design doesn't draw, listed and not executed: e.g. a heater's contacts, or
+    /// an anneal, which changes no shape.
     Undrawn {
         /// What, in plain words.
         what: String,
@@ -115,6 +120,9 @@ impl Operation {
     pub fn describe(&self) -> String {
         let um = |l: Length| format!("{} µm", number(l.to_um()));
         match self {
+            Operation::Wafer { layers, substrate } if layers.is_empty() => {
+                format!("the wafer: bare {}", substrate.name)
+            }
             Operation::Wafer { layers, .. } => format!(
                 "the wafer: {}",
                 layers
@@ -255,7 +263,7 @@ pub struct StepRecord {
     /// What it does, plainly.
     pub plain: String,
     /// The operation's kind: `"wafer"`, `"deposit"`, `"planarize"`, `"pattern"`, `"etch"`,
-    /// `"evaporate"`, `"lift_off"`, `"strip"` or `"undrawn"`.
+    /// `"evaporate"`, `"sputter"`, `"lift_off"`, `"strip"`, `"anneal"` or `"undrawn"`.
     pub operation: String,
     /// The operation, in a short phrase.
     pub does: String,
@@ -414,10 +422,25 @@ impl Step {
             Operation::Evaporate { film, thickness } => {
                 r.film = Some(film.name.clone());
                 r.thickness_um = Some(thickness.to_um());
+                if self.sputtered() {
+                    r.operation = "sputter".into();
+                    r.does = format!("sputter {} µm of {}", number(thickness.to_um()), film.name);
+                }
             }
             Operation::LiftOff { layer } => r.layer = Some(layer.clone()),
+            Operation::Undrawn { what } if self.step == StepType::Anneal => {
+                r.operation = "anneal".into();
+                r.does = format!("{what}: no shape changes");
+            }
             Operation::Strip | Operation::Undrawn { .. } => {}
         }
         r
+    }
+
+    /// Whether it puts a film onto opened resist by sputtering, not evaporation: its process
+    /// doesn't come down in straight lines.
+    pub(crate) fn sputtered(&self) -> bool {
+        matches!(self.operation, Operation::Evaporate { .. })
+            && super::library::process(&self.process).is_some_and(|p| !p.directional)
     }
 }

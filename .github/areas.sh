@@ -99,9 +99,9 @@ area sweep \
 # the catalogue's indices; the catalogue's PPLN OPO cases (src/cases/material/catalogue/opo_checks.rs)
 # find their idler through it
 area nonlinear \
-  "src/nonlinear.rs src/nonlinear/* src/cases/nonlinear/* src/validation/nonlinear.rs src/validation/nonlinear_guides.rs src/validation/nonlinear_kerr.rs" \
+  "src/nonlinear.rs src/nonlinear/* src/cases/nonlinear/* src/validation/nonlinear.rs src/validation/nonlinear_guides.rs src/validation/nonlinear_kerr.rs src/validation/nonlinear_cavities.rs" \
   "material mode" \
-  "nonlinear::" "nonlinear/ material/linbo3-zelmon-opo material/linbo3-jundt-opo" ""
+  "nonlinear::" "nonlinear/ material/linbo3-zelmon-opo material/linbo3-jundt-opo" "qpm_fejer ppln_wang pairs_zhao soliton_coen comb_pu"
 
 # with the GPU's report (tests/gpu_report.rs, docs/validation-gpu.md, run by hand)
 area fdtd \
@@ -151,7 +151,7 @@ area shifter  "src/thermal/* src/cases/thermal/* src/shifter.rs"   "mode materia
 # holds the jobs as TOML, as they were before they were YAML, which the tests read and compare
 area job \
   "src/job/* src/run.rs src/run/* src/farm.rs src/farm/* jobs/* tests/jobs-toml/* docs/job.schema.json docs/results.schema.json" \
-  "material mode sparse fdfd fdtd circuit device generator statics shifter line export convergence fabrication" \
+  "material mode sparse fdfd fdtd circuit device generator statics shifter line export convergence fabrication nonlinear" \
   "job:: run:: farm::" "job/ generator/job- device/study- device/compact- optimize/ chip/" "optimize_chip_rings"
 
 # grid convergence, the gate a reported number passes (its grid study, by Richardson
@@ -205,7 +205,7 @@ area compact \
 # stack's geometry; its cases run the library devices' flows (the device area's), and its job kind
 # (src/job/fabrication.rs) is the job area's
 area fabrication \
-  "src/fabrication/* src/validation/fabrication.rs src/validation/fabrication_rules.rs" \
+  "src/fabrication/* src/validation/fabrication.rs src/validation/fabrication_rules.rs src/validation/fabrication_platforms.rs" \
   "material device" \
   "fabrication::" "fabrication/" ""
 

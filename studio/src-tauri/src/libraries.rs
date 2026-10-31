@@ -1266,9 +1266,9 @@ pub fn markdown() -> String {
          is published: PyPI's and anaconda.org's APIs for the wheels and conda-forge's \
          packages, NVIDIA's redistributables' manifests for CUDA and cuDSS, the GitHub releases \
          of SuperLU and OpenBLAS, MUMPS's download page, and, for Accelerate, the macOS of \
-         GitHub's runner images. It sets each beside the version checked above and the \
-         releases photonoxide-native accepts, with a link to the release's notes, and keeps \
-         that table in one issue, [{title}](https://github.com/tachsin/photonoxide/issues?q=is%3Aissue+in%3Atitle+%22{query}%22), \
+         GitHub's runner images. It sets the newest release of each \
+         library beside the version we use (the one checked above), in bold when it is newer, \
+         and keeps that table in one issue, [{title}](https://github.com/tachsin/photonoxide/issues?q=is%3Aissue+in%3Atitle+%22{query}%22), \
          commenting there when a release appears.\n\n\
          A new release isn't supported until it has been checked:\n",
         title = releases::ISSUE_TITLE,

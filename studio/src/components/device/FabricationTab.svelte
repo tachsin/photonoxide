@@ -146,6 +146,7 @@
     lithography: "lithography",
     pattern_transfer: "pattern transfer",
     planarization: "planarization",
+    anneal: "anneal",
   };
 </script>
 

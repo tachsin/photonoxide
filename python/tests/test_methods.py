@@ -22,6 +22,7 @@ PAGES = {
     "export": None,
     "fabrication": None,
     "fdfd-ports": None,
+    "nonlinear": None,
     "slab": None,
     "stacks": None,
     "vector": None,

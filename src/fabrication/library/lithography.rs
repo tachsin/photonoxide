@@ -1,5 +1,5 @@
-//! Lithographies: UV photolithography, 193 nm projection, electron-beam lithography in HSQ and
-//! in PMMA, and nanoimprint.
+//! Lithographies: UV photolithography, the projection lithographies, electron-beam lithography
+//! in HSQ, PMMA and ma-N, and nanoimprint.
 
 use super::{Platform, Process, Purpose, StepType, cap, fact, new_process, src, used};
 use crate::fabrication::stated::{Quantity, Stated, Unit};
@@ -199,6 +199,7 @@ pub(super) fn processes() -> Vec<Process> {
             "zhang-2022",
             "Section 3.A (PDF p. 4)",
         ),
+        used(Platform::Aln, Purpose::Guide, "xiong-2012", "PDF p. 3"),
     ];
 
     let mut pmma = new_process(
@@ -233,6 +234,19 @@ pub(super) fn processes() -> Vec<Process> {
             "Methods (PDF p. 9)",
         ),
     ];
+
+    pmma.used_for = vec![used(
+        Platform::Nitride,
+        Purpose::Cell,
+        "rios-2015",
+        "Methods (PDF p. 9)",
+    )];
+    uv.used_for.push(used(
+        Platform::Soi,
+        Purpose::Cell,
+        "delaney-2020",
+        "PDF p. 7",
+    ));
 
     let mut imprint = new_process(
         "nanoimprint",
@@ -270,7 +284,62 @@ pub(super) fn processes() -> Vec<Process> {
         krf(),
         immersion(),
         euv(),
+        man(),
     ]
+}
+
+/// Electron-beam lithography in ma-N, the negative resist the nitride papers wrote their guides
+/// in.
+fn man() -> Process {
+    let mut p = new_process(
+        "ebl-man",
+        StepType::Lithography,
+        "Electron-beam lithography in ma-N (a negative resist)",
+        "A focused electron beam writes the pattern into the resist with no mask. ma-N is a \
+         negative resist: it stays where the beam wrote and masks the etch.",
+        &[],
+    );
+    p.resist = Some("ma-n".into());
+    p.capabilities = vec![
+        cap(
+            Quantity::MinFeature,
+            Stated::value(
+                300.0,
+                Unit::Nm,
+                src("rios-2015", "Fig. 3 caption (PDF p. 5)"),
+            ),
+            "the narrowest feature a source in hand made in it, not its limit: rings 300 nm from \
+             their guide, in ma-N 2403 (Methods, PDF p. 9)",
+        ),
+        cap(
+            Quantity::MinFeature,
+            Stated::value(680.0, Unit::Nm, src("luke-2013", "PDF p. 4")),
+            "a ring's 680 nm coupling gap, in ma-N 2405",
+        ),
+    ];
+    p.facts = vec![
+        fact(
+            "Guides were written at 50 kV in ma-N 2403, its roughness reduced by a soft reflow \
+             after the exposure.",
+            "rios-2015",
+            "Methods (PDF p. 9)",
+        ),
+        fact(
+            "Guides were written in ma-N 2405, baked for 5 minutes at 115 °C after the exposure.",
+            "luke-2013",
+            "PDF p. 3",
+        ),
+    ];
+    p.used_for = vec![
+        used(Platform::Nitride, Purpose::Guide, "luke-2013", "PDF p. 3"),
+        used(
+            Platform::Nitride,
+            Purpose::Guide,
+            "rios-2015",
+            "Methods (PDF p. 9)",
+        ),
+    ];
+    p
 }
 
 /// i-line (365 nm) projection lithography.

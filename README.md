@@ -31,7 +31,8 @@ It is released milestone by milestone ([changelog](CHANGELOG.md), [roadmap](ROAD
 
 - **Materials:** [dispersion models](docs/methods/materials.md) with their source, validity range
   and temperature; a [catalogue](docs/methods/catalogue.md) of Si, SiO₂, SiN, LiNbO₃, GaAs,
-  AlGaAs, InGaP, InP and AlN, with χ⁽²⁾ and Pockels tensors.
+  AlGaAs, InGaP, InP and AlN, with χ⁽²⁾ and Pockels tensors, transparency windows, and
+  the Kerr coefficients of Si, SiN, LiNbO₃ and AlN.
 - **Geometry for any device:** [shapes](docs/methods/geometry.md) kept exact, from paths with
   Euler bends to regions defined by [expressions](docs/methods/expressions.md);
   [booleans and offsets](docs/methods/booleans.md), [arrays and lattices](docs/methods/arrays.md),
@@ -60,6 +61,13 @@ It is released milestone by milestone ([changelog](CHANGELOG.md), [roadmap](ROAD
   waveguides, bend, directional coupler, rings, MMIs, Y-branch and MZIs, each with its models
   from a closed form to 3D and their errors; computed at a fidelity, swept over one or two
   parameters and taken through a process's corners, as jobs.
+- **Nonlinear optics:** [phase matching](docs/methods/nonlinear.md), quasi-phase matching and
+  the acceptance bandwidths; second-harmonic, sum- and difference-frequency generation and
+  photon pairs, from a waveguide's own modes; pulses by the nonlinear Schrödinger equation,
+  four-wave mixing, and Kerr combs by the Lugiato–Lefever equation.
+- **Fabrication flows:** [how a design would be made](docs/methods/fabrication.md), each step
+  with its reason, its alternatives and what its process can achieve, with the paper that says
+  so, and how accurately each dimension comes out; shown step by step in the studio.
 - **External solvers, optional:** oneMKL's PARDISO, MUMPS, SuperLU, Apple Accelerate, NVIDIA
   cuDSS and Krylov solvers on NVIDIA GPUs, and any BLAS and LAPACK as the dense kernels of
   photonoxide's own solver, loaded at run time when installed and checked against
@@ -314,7 +322,7 @@ or the committed report isn't the one the code writes. CI checks every example's
 | 0.5.3 QMR without the matrix | QMR without its matrix where the matrix wouldn't fit, MUMPS 5.9 | ✅ released |
 | 0.5.4 Geometry and devices | Geometry for any device; the device library on pages of its own, with its models, runs, sweeps, corners and optimization; compact models; the chip built from devices; devices in Python | ✅ released |
 | 0.6.0 Thermal and electro-optic, and writing jobs | Heat, steady and transient; thermo-optic phase shifters as devices; Pockels modulation; travelling-wave electrodes, quasi-TEM and full-wave; phase-change materials; the job editor, YAML first, every example as a job, exports of modes and fields (0.5.5's, released here) | ✅ released |
-| 0.6.1 Nonlinear integrated optics | 0.6's leftovers, on main: the TFLN modulator and the phase-change phase shifter as devices, the studio's temperature and field views and its Vπ·L and bandwidth sweeps, GDS read into jobs; two published results not yet reproduced, Zhang 2022's bandwidths and He 2019's Vπ·L ([#595](https://github.com/tachsin/photonoxide/issues/595)). Then transparency windows, phase matching, SHG, SFG, DFG, SPDC and FWM in waveguides, Kerr combs | 🚧 next |
+| 0.6.1 Nonlinear integrated optics | On main: 0.6's leftovers (the TFLN modulator and the phase-change phase shifter as devices, the studio's temperature and field views and its Vπ·L and bandwidth sweeps, GDS read into jobs); phase matching with QPM and the acceptance bandwidths, the coupled-amplitude equations, SPDC's joint spectrum and purity, all from a waveguide's modes too; n₂ and two-photon absorption, Miller's rule, transparency windows where a paper gives them; the NLSE, four-wave mixing and Kerr combs by the Lugiato–Lefever equation. Left: the studio's nonlinear pages, focused beams, resonant enhancement in rings, and published results not yet reproduced, among them Zhang 2022's bandwidths, He 2019's Vπ·L and Zhao 2020's pair brightness ([#595](https://github.com/tachsin/photonoxide/issues/595)) | 🚧 in progress |
 | 0.6.2 Quantum light | Linear-optical statistics, photon-pair sources, Gaussian states, loss budgets of quantum circuits | planned |
 | 0.6.3 Eigenmode expansion and the mode solver's tools | On main: 2D eigenmode expansion, convergence to a tolerance, adaptive sweeps, effective area and confinement, sidewall-roughness loss. Left: 3D eigenmode expansion, beam and fibre coupling | 🚧 in progress |
 | 0.7 Inverse design | Topology and shape optimization with fabrication constraints | planned |

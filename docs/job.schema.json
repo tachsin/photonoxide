@@ -796,6 +796,36 @@
       ],
       "type": "object"
     },
+    "CrystalSpec": {
+      "additionalProperties": false,
+      "description": "`[task.waveguide.crystal]`: a catalogue crystal's index model.",
+      "properties": {
+        "axes": {
+          "description": "Each wave's axis, `\"isotropic\"`, `\"ordinary\"`, `\"extraordinary\"`, `\"x\"`, `\"y\"` or `\"z\"`: one per wave, or one for all.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "composition": {
+          "description": "The composition (an alloy's fraction).",
+          "type": "number"
+        },
+        "id": {
+          "description": "The catalogue's id, e.g. `\"linbo3\"`.",
+          "type": "string"
+        },
+        "model": {
+          "description": "The index model's id; the entry's default when not given.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "axes"
+      ],
+      "type": "object"
+    },
     "Device": {
       "additionalProperties": false,
       "allOf": [
@@ -3538,6 +3568,68 @@
       ],
       "type": "object"
     },
+    "EffectiveSpec": {
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "not": {
+            "required": [
+              "wavelengths",
+              "wavelengths_um"
+            ]
+          }
+        },
+        {
+          "anyOf": [
+            {
+              "required": [
+                "wavelengths_um"
+              ]
+            },
+            {
+              "required": [
+                "wavelengths"
+              ]
+            }
+          ]
+        }
+      ],
+      "description": "`[[task.waveguide.n_eff]]`: a mode's effective indices over wavelength.",
+      "properties": {
+        "n_eff": {
+          "description": "n_eff at each.",
+          "items": {
+            "type": "number"
+          },
+          "type": "array"
+        },
+        "wavelengths": {
+          "description": "The wavelengths, µm, increasing. With its unit in the value, in place of wavelengths_um: a length with its unit, e.g. \"1.55 um\".",
+          "items": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "$ref": "#/$defs/Expression"
+              }
+            ]
+          },
+          "type": "array"
+        },
+        "wavelengths_um": {
+          "description": "The wavelengths, µm, increasing.",
+          "items": {
+            "type": "number"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "n_eff"
+      ],
+      "type": "object"
+    },
     "ElectroOpticConvergence": {
       "additionalProperties": false,
       "description": "`electro_optic.convergence`.",
@@ -5416,6 +5508,128 @@
       ],
       "type": "object"
     },
+    "Losses": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "items": {
+            "type": "number"
+          },
+          "type": "array"
+        }
+      ],
+      "description": "One loss for every wave, or one per wave."
+    },
+    "MapSpec": {
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "not": {
+            "required": [
+              "wavelength",
+              "wavelength_um"
+            ]
+          }
+        },
+        {
+          "anyOf": [
+            {
+              "required": [
+                "wavelength_um"
+              ]
+            },
+            {
+              "required": [
+                "wavelength"
+              ]
+            }
+          ]
+        },
+        {
+          "not": {
+            "required": [
+              "width",
+              "width_um"
+            ]
+          }
+        }
+      ],
+      "description": "`[task.map]`: the phase-matching map's axes.",
+      "properties": {
+        "across_points": {
+          "description": "The other axis's points (21 temperatures, 5 widths).",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "points": {
+          "description": "Their points (201).",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "temperature_c": {
+          "description": "The temperatures, °C, from and to: the map's other axis.",
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
+        "wavelength": {
+          "description": "The tuned wave's wavelengths, µm: from and to. With its unit in the value, in place of wavelength_um: a length with its unit, e.g. \"1.55 um\".",
+          "items": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "$ref": "#/$defs/Expression"
+              }
+            ]
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
+        "wavelength_um": {
+          "description": "The tuned wave's wavelengths, µm: from and to.",
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
+        "width": {
+          "description": "A ridge's widths, µm, from and to: the map's other axis, each width's modes solved. With its unit in the value, in place of width_um: a length with its unit, e.g. \"1.55 um\".",
+          "items": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "$ref": "#/$defs/Expression"
+              }
+            ]
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
+        "width_um": {
+          "description": "A ridge's widths, µm, from and to: the map's other axis, each width's modes solved.",
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
     "ModesTask": {
       "additionalProperties": false,
       "allOf": [
@@ -5798,6 +6012,65 @@
       ],
       "type": "object"
     },
+    "NonlinearTask": {
+      "additionalProperties": false,
+      "description": "A `\"nonlinear\"` task: a process, its waveguide, its grating and its pump.",
+      "properties": {
+        "kind": {
+          "description": "`\"nonlinear\"`.",
+          "type": "string"
+        },
+        "length_mm": {
+          "description": "The device's length, mm.",
+          "type": "number"
+        },
+        "map": {
+          "$ref": "#/$defs/MapSpec",
+          "description": "The phase-matching map: against the tuned wave's wavelength, and the width or the temperature."
+        },
+        "pairs": {
+          "$ref": "#/$defs/PairsSpec",
+          "description": "SPDC's and FWM's joint spectrum."
+        },
+        "points": {
+          "description": "The points along the length the efficiency is given at (101 by default).",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "poling": {
+          "$ref": "#/$defs/PolingSpec",
+          "description": "The grating that quasi-phase-matches a second-order process; none for birefringent or modal phase matching."
+        },
+        "process": {
+          "description": "`\"shg\"`, `\"sfg\"`, `\"dfg\"`, `\"opa\"`, `\"spdc\"` or `\"fwm\"`.",
+          "type": "string"
+        },
+        "pump": {
+          "$ref": "#/$defs/PumpSpec",
+          "description": "The pump: SHG's fundamental, SFG's first input, the others' pump."
+        },
+        "signal": {
+          "$ref": "#/$defs/SignalSpec",
+          "description": "The signal: SFG's second input, the signal of DFG, OPA, SPDC (twice the pump's wavelength by default: degenerate pairs) and FWM."
+        },
+        "temperature_c": {
+          "description": "The operating temperature, °C (25 by default).",
+          "type": "number"
+        },
+        "waveguide": {
+          "$ref": "#/$defs/WaveguideSpec",
+          "description": "The waveguide (or crystal) the waves travel in."
+        }
+      },
+      "required": [
+        "kind",
+        "process",
+        "waveguide",
+        "pump",
+        "length_mm"
+      ],
+      "type": "object"
+    },
     "OptimizeTask": {
       "additionalProperties": false,
       "allOf": [
@@ -5991,6 +6264,47 @@
         "kind",
         "method"
       ],
+      "type": "object"
+    },
+    "PairsSpec": {
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "not": {
+            "required": [
+              "span",
+              "span_nm"
+            ]
+          }
+        }
+      ],
+      "description": "`[task.pairs]`: the joint spectrum's grid.",
+      "properties": {
+        "matching": {
+          "description": "The phase matching, `\"sinc\"` (the device's own, the default) or `\"gaussian\"`.",
+          "type": "string"
+        },
+        "points": {
+          "description": "The points a side (101).",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "span": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "The signal's span, nm, centred on it: three wavelength acceptances by default. With its unit in the value, in place of span_nm: a length with its unit, e.g. \"20 nm\"."
+        },
+        "span_nm": {
+          "description": "The signal's span, nm, centred on it: three wavelength acceptances by default.",
+          "type": "number"
+        }
+      },
       "type": "object"
     },
     "PathSpec": {
@@ -6282,6 +6596,47 @@
       },
       "type": "object"
     },
+    "PolingSpec": {
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "not": {
+            "required": [
+              "period",
+              "period_um"
+            ]
+          }
+        }
+      ],
+      "description": "`[task.poling]`: a periodically poled grating.",
+      "properties": {
+        "duty": {
+          "description": "The duty cycle, inside (0, 1) (0.5).",
+          "type": "number"
+        },
+        "order": {
+          "description": "The quasi-phase-matching order (1).",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "period": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "The period, µm; designed to cancel the mismatch at the operating point when not given. With its unit in the value, in place of period_um: a length with its unit, e.g. \"1.55 um\"."
+        },
+        "period_um": {
+          "description": "The period, µm; designed to cancel the mismatch at the operating point when not given.",
+          "type": "number"
+        }
+      },
+      "type": "object"
+    },
     "PortSpec": {
       "additionalProperties": false,
       "allOf": [
@@ -6395,6 +6750,79 @@
           "maxItems": 2,
           "minItems": 2,
           "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "PumpSpec": {
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "not": {
+            "required": [
+              "bandwidth",
+              "bandwidth_nm"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "wavelength",
+              "wavelength_um"
+            ]
+          }
+        },
+        {
+          "anyOf": [
+            {
+              "required": [
+                "wavelength_um"
+              ]
+            },
+            {
+              "required": [
+                "wavelength"
+              ]
+            }
+          ]
+        }
+      ],
+      "description": "`[task.pump]`.",
+      "properties": {
+        "bandwidth": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "The FWHM of a pulsed pump's spectrum, nm, for a joint spectrum (0.1 by default). With its unit in the value, in place of bandwidth_nm: a length with its unit, e.g. \"20 nm\"."
+        },
+        "bandwidth_nm": {
+          "description": "The FWHM of a pulsed pump's spectrum, nm, for a joint spectrum (0.1 by default).",
+          "type": "number"
+        },
+        "power_mw": {
+          "description": "The power, mW (100 by default).",
+          "type": "number"
+        },
+        "wavelength": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "The vacuum wavelength, µm. With its unit in the value, in place of wavelength_um: a length with its unit, e.g. \"1.55 um\"."
+        },
+        "wavelength_um": {
+          "description": "The vacuum wavelength, µm.",
+          "type": "number"
         }
       },
       "type": "object"
@@ -6597,6 +7025,176 @@
       "required": [
         "length_mm",
         "group_index"
+      ],
+      "type": "object"
+    },
+    "RidgeSpec": {
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "not": {
+            "required": [
+              "etch",
+              "etch_um"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "sidewall",
+              "sidewall_deg"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "step",
+              "step_nm"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "width",
+              "width_um"
+            ]
+          }
+        },
+        {
+          "anyOf": [
+            {
+              "required": [
+                "width_um"
+              ]
+            },
+            {
+              "required": [
+                "width"
+              ]
+            }
+          ]
+        }
+      ],
+      "description": "`[task.waveguide.ridge]`: a film of a stack etched to a ridge.",
+      "properties": {
+        "along": {
+          "description": "The chip's axis the guide runs along, `\"x\"` (the default) or `\"y\"`.",
+          "type": "string"
+        },
+        "d_pm_per_v": {
+          "description": "The film's d tensor in its crystal's axes, pm/V (rows 1 to 3, columns 11, 22, 33, 23, 13, 12), in place of the catalogue's: for a film whose catalogue entry has none, or leaves an element out.",
+          "items": {
+            "items": {
+              "type": "number"
+            },
+            "maxItems": 6,
+            "minItems": 6,
+            "type": "array"
+          },
+          "maxItems": 3,
+          "minItems": 3,
+          "type": "array"
+        },
+        "etch": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "The etch's depth, µm: the film's thickness (a strip) by default. With its unit in the value, in place of etch_um: a length with its unit, e.g. \"1.55 um\"."
+        },
+        "etch_um": {
+          "description": "The etch's depth, µm: the film's thickness (a strip) by default.",
+          "type": "number"
+        },
+        "families": {
+          "default": [],
+          "description": "Each wave's mode family, `\"te\"` or `\"tm\"`: one per wave, or one for all (TE by default).",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "kleinman": {
+          "description": "Whether Kleinman's symmetry may complete the film's d tensor where its source leaves an element out (d₁₅ = d₃₁ in 3m, say): set it only where the symmetry holds, the waves far from the crystal's resonances (false).",
+          "type": "boolean"
+        },
+        "layer": {
+          "description": "The layer etched: the film. It must be the top layer; the medium below it is the layer under it (or the substrate), the one above and beside the ridge its background, which must be the stack's cladding.",
+          "type": "string"
+        },
+        "mirror": {
+          "description": "Whether to solve half the window behind a mirror wall (false): only for a symmetric ridge whose crystal's axes lie along the cross-section's.",
+          "type": "boolean"
+        },
+        "modes": {
+          "description": "How many of the highest modes the fundamental of a family is picked from (4).",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "sidewall": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "The sidewalls' angle from the plane, degrees (90 by default). With its unit in the value, in place of sidewall_deg: an angle with its unit, e.g. \"90 deg\"."
+        },
+        "sidewall_deg": {
+          "description": "The sidewalls' angle from the plane, degrees (90 by default).",
+          "type": "number"
+        },
+        "stack": {
+          "$ref": "#/$defs/Layers",
+          "description": "The stack, as a `[task.stack]` table: a substrate, a cladding and layers."
+        },
+        "step": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "The grid's finest spacing, nm (20 by default). With its unit in the value, in place of step_nm: a length with its unit, e.g. \"20 nm\"."
+        },
+        "step_nm": {
+          "description": "The grid's finest spacing, nm (20 by default).",
+          "type": "number"
+        },
+        "tolerance": {
+          "description": "The tolerance of each mode's index interpolant, in n_eff (1e-8).",
+          "type": "number"
+        },
+        "width": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "The ridge's top width, µm. With its unit in the value, in place of width_um: a length with its unit, e.g. \"1.55 um\"."
+        },
+        "width_um": {
+          "description": "The ridge's top width, µm.",
+          "type": "number"
+        }
+      },
+      "required": [
+        "stack",
+        "layer"
       ],
       "type": "object"
     },
@@ -8916,6 +9514,42 @@
         }
       ]
     },
+    "SignalSpec": {
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "not": {
+            "required": [
+              "wavelength",
+              "wavelength_um"
+            ]
+          }
+        }
+      ],
+      "description": "`[task.signal]`.",
+      "properties": {
+        "power_mw": {
+          "description": "The power in, mW (1 by default).",
+          "type": "number"
+        },
+        "wavelength": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "The vacuum wavelength, µm. With its unit in the value, in place of wavelength_um: a length with its unit, e.g. \"1.55 um\"."
+        },
+        "wavelength_um": {
+          "description": "The vacuum wavelength, µm.",
+          "type": "number"
+        }
+      },
+      "type": "object"
+    },
     "SolverFile": {
       "additionalProperties": false,
       "description": "The job file's `[solver]` table.",
@@ -10424,6 +11058,44 @@
       },
       "type": "object"
     },
+    "WaveguideSpec": {
+      "additionalProperties": false,
+      "description": "`[task.waveguide]`: where the waves' indices come from, and the guide's coefficients.",
+      "properties": {
+        "crystal": {
+          "$ref": "#/$defs/CrystalSpec",
+          "description": "Plane waves in a catalogue crystal."
+        },
+        "efficiency_percent_per_w_cm2": {
+          "description": "The device's normalized efficiency η, %/(W·cm²), its grating's Fourier coefficient in it: a second-order process's undepleted P₃ = η P₁P₂L² sinc²(ΔkL/2). A ridge's comes from its modes' overlap when this isn't given.",
+          "type": "number"
+        },
+        "expansion": {
+          "description": "The thermal expansion of the length and the grating: `\"none\"` (the default) or `\"linbo3-jundt-1997\"`.",
+          "type": "string"
+        },
+        "gamma_per_w_m": {
+          "description": "FWM's nonlinear coefficient γ, 1/(W·m).",
+          "type": "number"
+        },
+        "loss_db_per_cm": {
+          "$ref": "#/$defs/Losses",
+          "description": "The propagation loss, dB/cm: one for every wave, or one per wave."
+        },
+        "n_eff": {
+          "description": "Effective indices given as data: one table for every wave, or one per wave.",
+          "items": {
+            "$ref": "#/$defs/EffectiveSpec"
+          },
+          "type": "array"
+        },
+        "ridge": {
+          "$ref": "#/$defs/RidgeSpec",
+          "description": "A ridge etched into a film, its modes solved."
+        }
+      },
+      "type": "object"
+    },
     "WavelengthSweep": {
       "additionalProperties": false,
       "properties": {
@@ -10806,6 +11478,21 @@
                 "then": {
                   "$ref": "#/$defs/CrosstalkTask"
                 }
+              },
+              {
+                "if": {
+                  "properties": {
+                    "kind": {
+                      "const": "nonlinear"
+                    }
+                  },
+                  "required": [
+                    "kind"
+                  ]
+                },
+                "then": {
+                  "$ref": "#/$defs/NonlinearTask"
+                }
               }
             ],
             "properties": {
@@ -10817,7 +11504,8 @@
                   "fdfd",
                   "fdtd",
                   "static",
-                  "optimize"
+                  "optimize",
+                  "nonlinear"
                 ]
               }
             },

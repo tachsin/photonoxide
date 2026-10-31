@@ -124,12 +124,27 @@ struct State {
     present: Vec<String>,
     /// Layers etched open, by index, with the step height (µm) their etch left.
     open: Vec<(usize, f64)>,
+    /// A layer etched open as a preform for its own film (the Damascene process): the next
+    /// deposition fills it with the film its shapes are drawn with.
+    preform: Option<usize>,
+    /// Whether the wafer is bare silicon still, nothing grown or deposited on it.
+    bare: bool,
     steps: Vec<Step>,
     warnings: Vec<String>,
     not_specified: Vec<String>,
 }
 
 impl State {
+    /// What the cladding is for: the cap of phase-change cells when there are some, the
+    /// cladding over the guides otherwise.
+    fn cladding(&self) -> Purpose {
+        if self.present.iter().any(|f| super::library::phase_change(f)) {
+            Purpose::Cell
+        } else {
+            Purpose::Cladding
+        }
+    }
+
     fn push(&mut self, step: Step) {
         for c in &step.capabilities {
             if !c.value.is_stated() {
@@ -231,6 +246,77 @@ fn must(id: &str) -> Result<&'static Process> {
     process(id).ok_or_else(|| invalid(format!("the library has no process {id}")))
 }
 
+/// Whether `film` is a single-crystal film, which comes with its wafer and is never deposited.
+fn crystalline(film: &str) -> bool {
+    matches!(film, "Si" | "LiNbO3" | "GaAs")
+}
+
+/// Whether `film` is a guide film the library deposits on a bare wafer: silicon nitride or
+/// aluminium nitride.
+pub(crate) fn guide_film(film: &str) -> bool {
+    matches!(film, "Si3N4" | "SiN" | "AlN")
+}
+
+/// The layers bought with the design's wafer (up to its single-crystal film, none for a bare
+/// wafer) and the design's platform; `None` for a design no platform of the library makes.
+fn wafer_of(design: &Physical) -> Option<(usize, Platform)> {
+    let films = design.layers();
+    if let Some(w) = films.iter().position(|(d, _)| crystalline(&d.name)) {
+        let platform = match films[w].0.name.as_str() {
+            "Si" => Platform::Soi,
+            "LiNbO3" => Platform::Lnoi,
+            _ => Platform::Gaas,
+        };
+        return Some((w + 1, platform));
+    }
+    if design.substrate().name != "Si" {
+        return None;
+    }
+    let guide = films.iter().find(|(d, _)| guide_film(&d.name))?;
+    let platform = if guide.0.name == "AlN" {
+        Platform::Aln
+    } else {
+        Platform::Nitride
+    };
+    Some((0, platform))
+}
+
+/// The thickest nitride a source etched into guides after depositing it, nm: Luke et al.'s 910
+/// nm, with crack stops around the devices. A thicker film is made by the Damascene process.
+fn subtractive_limit() -> Option<(f64, Capability)> {
+    let lpcvd = process("lpcvd")?;
+    lpcvd
+        .capabilities_of(&Quantity::Thickness)
+        .find(|c| c.value.source().is_some_and(|s| s.reference == "luke-2013"))
+        .and_then(|c| c.value.high().map(|v| (v, c.clone())))
+}
+
+/// Whether layer `g`, a nitride guide layer on a bare wafer, is made by the photonic Damascene
+/// process: preferred, or thicker than any nitride a source etched into guides; and only if every
+/// shape is etched through with vertical walls over oxide (the preform is a trench in the oxide,
+/// filled and polished: its walls are the guide's, and it leaves no slab).
+fn damascene(design: &Physical, g: usize, choices: &Choices) -> Option<usize> {
+    let s = design.structure();
+    let layer = &s.stack().layers()[g];
+    let (drawn, background) = &design.layers()[g];
+    if !matches!(drawn.name.as_str(), "Si3N4" | "SiN")
+        || background.name != "SiO2"
+        || g == 0
+        || design.layers()[g - 1].0.name != "SiO2"
+        || choices.avoid.iter().any(|a| a == "damascene-preform")
+    {
+        return None;
+    }
+    let vertical = s
+        .etches(&layer.name)
+        .iter()
+        .all(|e| e.is_full() && (e.sidewall - std::f64::consts::FRAC_PI_2).abs() < 1e-12);
+    let thick = subtractive_limit()
+        .is_some_and(|(limit, _)| layer.thickness.to_um() * 1000.0 > limit + 1e-9);
+    let preferred = choices.prefer.iter().any(|p| p == "damascene-preform");
+    (vertical && (thick || preferred)).then_some(g)
+}
+
 /// The flow that makes `design`, as `choices` ask.
 ///
 /// # Errors
@@ -269,58 +355,73 @@ pub fn generate(design: &Physical, choices: &Choices) -> Result<Flow> {
             )));
         }
     }
-    // the wafer: up to the first single-crystal film
-    let w = films
-        .iter()
-        .position(|(d, _)| d.name == "Si" || d.name == "LiNbO3")
-        .ok_or_else(|| {
-            invalid(
-                "the design has no single-crystal film (silicon or lithium niobate) to start \
-                 from: the library's platforms are silicon on insulator and lithium niobate on \
-                 insulator"
-                    .into(),
-            )
-        })?;
-    let platform = if films[w].0.name == "Si" {
-        Platform::Soi
-    } else {
-        Platform::Lnoi
+    // the wafer: up to the first single-crystal film, or a bare wafer under a deposited guide film
+    let handle = design.substrate().name.as_str();
+    let Some((w, platform)) = wafer_of(design) else {
+        return Err(invalid(format!(
+            "the design has no single-crystal film (silicon, lithium niobate or gallium \
+             arsenide) to start from, and no guide film the library deposits on a bare {handle} \
+             wafer (silicon nitride or aluminium nitride on oxide over silicon)"
+        )));
     };
-    let wanted: Vec<&str> = films[..=w].iter().map(|(d, _)| d.name.as_str()).collect();
+    let wanted: Vec<&str> = films[..w].iter().map(|(d, _)| d.name.as_str()).collect();
     let wafer = library()
         .iter()
-        .find(|p| p.step == StepType::Wafer && p.films == wanted)
-        .filter(|_| design.substrate().name == "Si")
+        .find(|p| {
+            p.step == StepType::Wafer
+                && p.films == wanted
+                && super::library::handle(p) == Some(handle)
+        })
         .ok_or_else(|| {
             invalid(format!(
-                "no wafer in the library has {} on a silicon handle",
-                wanted.join(" under ")
+                "no wafer in the library has {} on a {handle} handle",
+                if wanted.is_empty() {
+                    "nothing".to_string()
+                } else {
+                    wanted.join(" under ")
+                }
             ))
         })?;
     for (i, l) in layers[..w].iter().enumerate() {
-        if !s.shapes(&l.name).is_empty() || films[i].0.name != films[i].1.name {
+        let crystal = i + 1 == w && wafer.films.last().is_some_and(|f| crystalline(f));
+        if !crystal && (!s.shapes(&l.name).is_empty() || films[i].0.name != films[i].1.name) {
             return Err(invalid(format!(
                 "{} lies under the wafer's film and is patterned, which a bought wafer isn't",
                 l.name
             )));
         }
     }
-    if s.shapes(&layers[w].name).is_empty() && films[w].0.name != films[w].1.name {
+    // the guide film: the wafer's own, or the first patterned layer on a bare wafer
+    let guide = if w > 0 {
+        Some(w - 1)
+    } else {
+        (0..layers.len()).find(|&i| guide_film(&films[i].0.name))
+    };
+    if let Some(g) = guide
+        && s.shapes(&layers[g].name).is_empty()
+        && films[g].0.name != films[g].1.name
+    {
         return Err(invalid(format!(
             "{} draws no shapes, its {} all {} (a guide of zero length draws none): the design \
              has nothing of the film to make",
-            layers[w].name, films[w].0.name, films[w].1.name
+            layers[g].name, films[g].0.name, films[g].1.name
         )));
     }
+    let damascene = match guide {
+        Some(g) if w == 0 => damascene(design, g, choices),
+        _ => None,
+    };
     let mut state = State {
         platform,
         present: vec![design.substrate().name.clone()],
         open: Vec::new(),
+        preform: None,
+        bare: w == 0,
         steps: Vec::new(),
         warnings: Vec::new(),
         not_specified: Vec::new(),
     };
-    let laid: Vec<(Laid, Film)> = layers[..=w]
+    let laid: Vec<(Laid, Film)> = layers[..w]
         .iter()
         .zip(films)
         .map(|(l, (d, _))| {
@@ -333,29 +434,44 @@ pub fn generate(design: &Physical, choices: &Choices) -> Result<Flow> {
             )
         })
         .collect();
-    let film = &films[w].0.name;
-    let reason = format!(
-        "A single-crystal film of {film} on an insulator is bought as a bonded wafer: it can't be \
-         deposited. The design's {} layer ({}) is the wafer's film, on {} of {} ({}).",
-        layers[w].name,
-        um(layers[w].thickness.to_um()),
-        layers[..w]
-            .iter()
-            .map(|l| um(l.thickness.to_um()))
-            .collect::<Vec<_>>()
-            .join(" and "),
-        layers[..w]
-            .iter()
-            .zip(films)
-            .map(|(_, (d, _))| d.name.as_str())
-            .collect::<Vec<_>>()
-            .join(" and "),
-        layers[..w]
-            .iter()
-            .map(|l| l.name.as_str())
-            .collect::<Vec<_>>()
-            .join(", ")
-    );
+    let reason = if w == 0 {
+        format!(
+            "The guides' film, {}, is deposited, so the flow starts from a bare {handle} wafer, \
+             as the {} papers in hand did; everything above it is grown or deposited.",
+            guide.map_or("not one the library knows", |g| films[g].0.name.as_str()),
+            platform.name()
+        )
+    } else {
+        let film = &films[w - 1].0.name;
+        let below = &layers[..w - 1];
+        let how = if super::library::handle(wafer) == Some("Si") {
+            "on an insulator is bought as a bonded wafer"
+        } else {
+            "is grown by epitaxy on the wafer it is bought on"
+        };
+        format!(
+            "A single-crystal film of {film} {how}: it can't be deposited. The design's {} layer \
+             ({}) is the wafer's film, on {} of {} ({}).",
+            layers[w - 1].name,
+            um(layers[w - 1].thickness.to_um()),
+            below
+                .iter()
+                .map(|l| um(l.thickness.to_um()))
+                .collect::<Vec<_>>()
+                .join(" and "),
+            below
+                .iter()
+                .zip(films)
+                .map(|(_, (d, _))| d.name.as_str())
+                .collect::<Vec<_>>()
+                .join(" and "),
+            below
+                .iter()
+                .map(|l| l.name.as_str())
+                .collect::<Vec<_>>()
+                .join(", ")
+        )
+    };
     state.push(step_of(
         wafer,
         Operation::Wafer {
@@ -364,15 +480,15 @@ pub fn generate(design: &Physical, choices: &Choices) -> Result<Flow> {
         },
         reason,
     ));
-    for (d, _) in &films[..=w] {
+    for (d, _) in &films[..w] {
         if !state.present.contains(&d.name) {
             state.present.push(d.name.clone());
         }
     }
-    if !s.shapes(&layers[w].name).is_empty() {
-        etch_layer(design, w, choices, &mut state)?;
+    if w > 0 && !s.shapes(&layers[w - 1].name).is_empty() {
+        etch_layer(design, w - 1, choices, &mut state)?;
     }
-    let mut i = w + 1;
+    let mut i = w;
     let mut clad = false;
     while i < layers.len() {
         let (drawn, background) = &films[i];
@@ -396,13 +512,26 @@ pub fn generate(design: &Physical, choices: &Choices) -> Result<Flow> {
                     layers[i].name, drawn.name, background.name
                 )));
             }
-            let laid = layers[i..=j]
+            // the Damascene preform is etched into this oxide: it is grown that much thicker
+            let into = damascene.filter(|&g| g == j + 1 && films[g].1 == *drawn);
+            let laid = layers[i..=into.unwrap_or(j)]
                 .iter()
                 .map(|l| Laid {
                     name: l.name.clone(),
                     thickness: l.thickness,
                 })
                 .collect();
+            let purpose = if with_cladding {
+                state.cladding()
+            } else if !state
+                .steps
+                .iter()
+                .any(|s| s.step == StepType::PatternTransfer)
+            {
+                Purpose::Under
+            } else {
+                Purpose::Guide
+            };
             deposit(
                 design,
                 choices,
@@ -410,13 +539,20 @@ pub fn generate(design: &Physical, choices: &Choices) -> Result<Flow> {
                 laid,
                 with_cladding,
                 patterned_above,
+                purpose,
                 &mut state,
             )?;
             clad = with_cladding;
             i = j + 1;
             continue;
         }
-        metal_layer(design, i, choices, &mut state)?;
+        if damascene == Some(i) {
+            damascene_layer(design, i, choices, &mut state)?;
+        } else if guide_film(&drawn.name) && w == 0 {
+            guide_layer(design, i, choices, &mut state)?;
+        } else {
+            metal_layer(design, i, choices, &mut state)?;
+        }
         i += 1;
     }
     if !clad {
@@ -427,6 +563,7 @@ pub fn generate(design: &Physical, choices: &Choices) -> Result<Flow> {
             Vec::new(),
             true,
             false,
+            state.cladding(),
             &mut state,
         )?;
     }
@@ -984,6 +1121,36 @@ fn etch_layer(design: &Physical, i: usize, choices: &Choices, state: &mut State)
                 " The papers in hand etched {film} guides with it ({}, {}).",
                 u.source.reference, u.source.location
             ));
+        } else if !etching
+            .iter()
+            .any(|p| p.used(state.platform, Purpose::Guide).is_some())
+        {
+            // no paper on the platform names its guides' etch: the process is not specified
+            let papers: Vec<String> = library()
+                .iter()
+                .filter(|p| p.step == StepType::Wafer)
+                .filter_map(|p| p.used(state.platform, Purpose::Guide))
+                .map(|u| u.source.reference.clone())
+                .collect();
+            reason.push_str(&format!(
+                " The etch of the {film} guides is not specified: the {} papers in hand ({}) \
+                 name none. The library's etch of {film} by its chemistry stands in, as the \
+                 textbooks give it; its rate, walls, depth control and selectivity over the \
+                 film below are what the sources don't state.",
+                state.platform.name(),
+                if papers.is_empty() {
+                    "none".to_string()
+                } else {
+                    papers.join(", ")
+                }
+            ));
+            state.note(format!(
+                "{}: the etch of the {film} guides (the {} papers in hand name none; {} stands \
+                 in)",
+                layer.name,
+                state.platform.name(),
+                chosen.name
+            ));
         }
         match sidewall_off(chosen, deg) {
             Some(0.0) => reason.push_str(&format!(
@@ -1086,9 +1253,266 @@ fn etch_layer(design: &Physical, i: usize, choices: &Choices, state: &mut State)
     Ok(())
 }
 
+/// A guide film deposited over the wafer and etched into the design's guides (layer `i`): crack
+/// stops first for a nitride film thicker than its sources deposit without them, then the
+/// deposition, the etch, and the anneal the platform's papers give the film.
+fn guide_layer(design: &Physical, i: usize, choices: &Choices, state: &mut State) -> Result<()> {
+    let s = design.structure();
+    let layer = &s.stack().layers()[i];
+    let (drawn, _) = &design.layers()[i];
+    let t_nm = layer.thickness.to_um() * 1000.0;
+    if !state.open.is_empty() {
+        return Err(invalid(format!(
+            "{} is deposited over everything while a layer below is still etched open",
+            layer.name
+        )));
+    }
+    if let Some(lpcvd) = process("lpcvd")
+        && matches!(drawn.name.as_str(), "Si3N4" | "SiN")
+    {
+        // the thickness above which a source says nitride cracks without crack stops
+        let cracks = lpcvd
+            .facts
+            .iter()
+            .find(|f| f.source.reference == "luke-2013" && f.text.contains("400 nm"));
+        if let (Some(f), Some(stops)) = (cracks, process("crack-stop-trenches"))
+            && t_nm > 400.0
+            && !choices.avoid.contains(&stops.id)
+        {
+            let mut step = step_of(
+                stops,
+                Operation::Undrawn {
+                    what: "crack-stop trenches around the device area".into(),
+                },
+                format!(
+                    "The design's {} of nitride is above the 400 nm over which, its source says, \
+                     \"{}\" ({}, {}): trenches around the devices stop the cracks that start at \
+                     the wafer's edge. The design doesn't draw them, so the step is listed and \
+                     not drawn.",
+                    um(t_nm / 1000.0),
+                    f.text,
+                    f.source.reference,
+                    f.source.location
+                ),
+            );
+            if let Some((limit, c)) = subtractive_limit()
+                && t_nm > limit
+            {
+                state.warn(format!(
+                    "{}: {} of nitride is thicker than any its sources etched into guides ({}); \
+                     the photonic Damascene process makes thicker guides when their walls are \
+                     vertical and etched through",
+                    layer.name,
+                    um(t_nm / 1000.0),
+                    cited(&c)
+                ));
+            }
+            step.alternatives.push(Alternative {
+                process: "damascene-preform".into(),
+                name: "The photonic Damascene process".into(),
+                why_not: if s.etches(&layer.name).iter().all(|e| {
+                    e.is_full() && (e.sidewall - std::f64::consts::FRAC_PI_2).abs() < 1e-12
+                }) {
+                    format!(
+                        "it makes nitride guides up to 1.35 µm thick without cracks \
+                         (pfeiffer-2016, PDF p. 3); the design's {} is within what its sources \
+                         etched after crack stops, so the etch is kept (prefer \
+                         damascene-preform to choose it)",
+                        um(t_nm / 1000.0)
+                    )
+                } else {
+                    "its guides are the oxide preform's trenches filled and polished: they \
+                     can't have the design's sloped walls or partial etch"
+                        .into()
+                },
+            });
+            state.push(step);
+        }
+    }
+    deposit(
+        design,
+        choices,
+        drawn,
+        vec![Laid {
+            name: layer.name.clone(),
+            thickness: layer.thickness,
+        }],
+        false,
+        false,
+        Purpose::Guide,
+        state,
+    )?;
+    etch_layer(design, i, choices, state)?;
+    anneal(&drawn.name, choices, state);
+    Ok(())
+}
+
+/// The anneal the platform's papers give `film` after it is patterned, if one is in the library
+/// and not avoided: refused, with a warning, when it passes a film's cited limit.
+fn anneal(film: &str, choices: &Choices, state: &mut State) {
+    let Some(p) = library().iter().find(|p| {
+        p.step == StepType::Anneal
+            && p.acts_on(film)
+            && p.used(state.platform, Purpose::Guide).is_some()
+            && !choices.avoid.contains(&p.id)
+    }) else {
+        return;
+    };
+    let (violations, shown) = state.thermal(p, true);
+    if !violations.is_empty() {
+        state.warn(format!("{} is left out: {}", p.name, violations.join("; ")));
+        return;
+    }
+    let u = p.used(state.platform, Purpose::Guide).expect("checked");
+    let mut step =
+        step_of(
+            p,
+            // an anneal changes no shape: listed, and nothing drawn
+            Operation::Undrawn {
+                what: format!("the {film} annealed"),
+            },
+            format!(
+                "The {} papers in hand anneal their {film} after it is patterned ({}, {}): {}{}",
+                state.platform.name(),
+                u.source.reference,
+                u.source.location,
+                p.temperature().map_or(
+                    "its temperature is not specified".into(),
+                    |(t, c)| format!("at {} °C ({})", number(t), cited(c))
+                ),
+                if shown.is_empty() {
+                    ".".to_string()
+                } else {
+                    format!(
+                        ", which the films already there are shown to survive: {}.",
+                        shown.join(", ")
+                    )
+                }
+            ),
+        );
+    step.uncertainties
+        .push("the anneal changes no shape: the film's index and stress, not its outline".into());
+    state.push(step);
+}
+
+/// A nitride guide layer `i` made by the photonic Damascene process: the guides' trenches etched
+/// into the oxide grown for them, the nitride deposited into them in one run, the excess polished
+/// off, then the anneal.
+fn damascene_layer(
+    design: &Physical,
+    i: usize,
+    choices: &Choices,
+    state: &mut State,
+) -> Result<()> {
+    let s = design.structure();
+    let layer = &s.stack().layers()[i];
+    let (drawn, _) = &design.layers()[i];
+    let t = layer.thickness.to_um();
+    let shapes = s.shapes(&layer.name);
+    let preform = must("damascene-preform")?;
+    let f = features(shapes)?;
+    let (litho, litho_alts, resist_t, litho_reason) = lithography(
+        f,
+        Purpose::Guide,
+        Some((preform, t)),
+        choices,
+        state,
+        &layer.name,
+    )?;
+    let mut pattern = step_of(
+        litho,
+        Operation::Pattern {
+            resist: litho.resist.clone().unwrap_or_default(),
+            thickness: resist_t,
+            mask: shapes.to_vec(),
+            tone: Tone::Open,
+        },
+        format!(
+            "The resist is opened over the {} guide shape{} of {}: the guides are etched into \
+             the oxide as trenches, to be filled with {}. {litho_reason}",
+            shapes.len(),
+            if shapes.len() == 1 { "" } else { "s" },
+            layer.name,
+            drawn.name
+        ),
+    );
+    pattern.alternatives = litho_alts;
+    state.push(pattern);
+    let why = if choices.prefer.iter().any(|p| p == &preform.id) {
+        "it is preferred".to_string()
+    } else {
+        match subtractive_limit() {
+            Some((_, c)) => format!(
+                "the design's {} of nitride is thicker than any its sources etched into guides \
+                 ({}), and its walls are vertical and etched through",
+                um(t),
+                cited(&c)
+            ),
+            None => "the design's nitride is thick".into(),
+        }
+    };
+    let mut etch = step_of(
+        preform,
+        Operation::Etch {
+            layer: layer.name.clone(),
+            depth: Depth::Timed(layer.thickness),
+            sidewall: std::f64::consts::FRAC_PI_2,
+        },
+        format!(
+            "The photonic Damascene process, because {why}: the guides' trenches are etched {} \
+             into the oxide, a timed etch (the oxide below is the same film, so nothing stops \
+             it). The nitride is never etched, so its walls are the trenches' (pfeiffer-2016, \
+             PDF pp. 2–3).",
+            um(t)
+        ),
+    );
+    etch.uncertainties.push(format!(
+        "the trenches' timed depth of {}, and so the guides' height: its uncertainty is not \
+         specified by the sources in hand",
+        um(t)
+    ));
+    etch.uncertainties.push(
+        "the dense stress-release pattern etched into the oxide with the guides (5 µm squares, \
+         10 µm clear of each guide; pfeiffer-2016, PDF p. 3) isn't drawn by the design"
+            .into(),
+    );
+    etch.alternatives.push(Alternative {
+        process: "icp-si3n4-chf3".into(),
+        name: "The nitride deposited and etched".into(),
+        why_not: format!(
+            "{} of nitride, deposited and etched, cracks under its own stress (luke-2013, PDF p. \
+             2; pfeiffer-2016, PDF p. 3)",
+            um(t)
+        ),
+    });
+    state.push(etch);
+    state.push(step_of(
+        must("resist-strip")?,
+        Operation::Strip,
+        "The resist has done its work as the preform's mask and is removed before the nitride \
+         goes on."
+            .into(),
+    ));
+    state.open.push((i, t));
+    state.preform = Some(i);
+    deposit(
+        design,
+        choices,
+        drawn,
+        Vec::new(),
+        false,
+        true,
+        Purpose::Guide,
+        state,
+    )?;
+    anneal(&drawn.name, choices, state);
+    Ok(())
+}
+
 /// A whole film `film` deposited: it fills the layers etched open, then lies in `laid` (and is
 /// the cladding with `cladding`); polished flat first when it goes over an etched step and a
 /// patterned layer comes above it.
+#[allow(clippy::too_many_arguments)]
 fn deposit(
     design: &Physical,
     choices: &Choices,
@@ -1096,23 +1520,25 @@ fn deposit(
     laid: Vec<Laid>,
     cladding: bool,
     patterned_above: bool,
+    purpose: Purpose,
     state: &mut State,
 ) -> Result<()> {
     let layers = design.structure().stack().layers();
     for (j, _) in &state.open {
-        let bg = &design.layers()[*j].1;
-        if bg != film {
+        // a preform is filled with the film its shapes are drawn with, any other opening with
+        // its layer's background
+        let want = if state.preform == Some(*j) {
+            &design.layers()[*j].0
+        } else {
+            &design.layers()[*j].1
+        };
+        if want != film {
             return Err(invalid(format!(
                 "{} is filled with {} where it was etched, but the next film deposited is {}",
-                layers[*j].name, bg.name, film.name
+                layers[*j].name, want.name, film.name
             )));
         }
     }
-    let purpose = if cladding {
-        Purpose::Cladding
-    } else {
-        Purpose::Guide
-    };
     let candidates = ordered(
         StepType::Deposition,
         Some(&film.name),
@@ -1122,8 +1548,11 @@ fn deposit(
     );
     let mut alternatives = Vec::new();
     let mut allowed: Vec<(&Process, usize)> = Vec::new();
+    // thermal oxidation grows from the bare wafer's silicon, which it consumes: its heat is
+    // checked against nothing else, as nothing else is there
+    let grows = state.bare && design.substrate().name == "Si";
     for p in &candidates {
-        if p.id == "thermal-oxidation" {
+        if p.id == "thermal-oxidation" && !grows {
             alternatives.push(Alternative {
                 process: p.id.clone(),
                 name: p.name.clone(),
@@ -1133,7 +1562,11 @@ fn deposit(
             });
             continue;
         }
-        let check = thermal(p, &state.present);
+        let check = if p.id == "thermal-oxidation" {
+            Thermal::default()
+        } else {
+            thermal(p, &state.present)
+        };
         if !check.violations.is_empty() {
             alternatives.push(Alternative {
                 process: p.id.clone(),
@@ -1142,29 +1575,50 @@ fn deposit(
             });
             continue;
         }
-        allowed.push((p, check.unspecified.len()));
+        // a process whose temperature no source states shows no film surviving it
+        let unshown = if p.temperature().is_none() && p.id != "thermal-oxidation" {
+            state.present.len()
+        } else {
+            check.unspecified.len()
+        };
+        allowed.push((p, unshown));
     }
-    // the preferred first; then the fewest films not shown to survive it; then, filling etched
-    // regions, a conformal film; ties in the platform's and the library's order
+    // the preferred first; then the fewest films not shown to survive it, and among those that
+    // leave a film's survival unshown the coolest; then, filling etched regions, a conformal film;
+    // ties in the platform's and the library's order
     let filling = !state.open.is_empty();
-    allowed.sort_by_key(|(p, unshown)| {
-        (
-            !choices.prefer.contains(&p.id),
-            *unshown,
-            !(filling && conformal(p)),
-        )
+    let heat = |p: &Process, unshown: usize| {
+        if unshown == 0 {
+            0.0
+        } else {
+            p.temperature().map_or(f64::INFINITY, |(t, _)| t)
+        }
+    };
+    // the platform's papers' choice, like a lithography's, comes before conformality
+    let unused = |p: &Process| p.used(state.platform, purpose).is_none();
+    allowed.sort_by(|(a, ua), (b, ub)| {
+        (!choices.prefer.contains(&a.id))
+            .cmp(&!choices.prefer.contains(&b.id))
+            .then(ua.cmp(ub))
+            .then(heat(a, *ua).total_cmp(&heat(b, *ub)))
+            .then(unused(a).cmp(&unused(b)))
+            .then((!(filling && conformal(a))).cmp(&!(filling && conformal(b))))
     });
     for (p, unshown) in allowed.iter().skip(1) {
         let (c, c_unshown) = allowed[0];
-        let why_not = if *unshown > c_unshown {
+        let why_not = if *unshown > c_unshown || heat(p, *unshown) > heat(c, c_unshown) {
             format!(
-                "it reaches {} °C, which no source in hand shows every film already there \
-                 surviving; {} stays at {} °C",
+                "{}, which no source in hand shows every film already there surviving; {} {}",
                 p.temperature()
-                    .map_or("an unstated".into(), |(t, _)| number(t)),
+                    .map_or("its temperature is not stated".into(), |(t, _)| {
+                        format!("it reaches {} °C", number(t))
+                    }),
                 c.name,
                 c.temperature()
-                    .map_or("an unstated".into(), |(t, _)| number(t))
+                    .map_or("has no stated temperature".into(), |(t, _)| format!(
+                        "stays at {} °C",
+                        number(t)
+                    ))
             )
         } else if filling && conformal(c) && !conformal(p) {
             format!(
@@ -1202,7 +1656,24 @@ fn deposit(
             }
         ))
     })?;
-    let (_, shown) = state.thermal(chosen, true);
+    let grown = chosen.id == "thermal-oxidation";
+    let (_, shown) = if grown {
+        (Vec::new(), Vec::new())
+    } else {
+        state.thermal(chosen, true)
+    };
+    if chosen.temperature().is_none() {
+        for f in state.present.clone() {
+            let limit = budget(&f).limit;
+            if limit.is_stated() {
+                state.note(format!(
+                    "{}: whether {f} stays below its limit of {limit} (the temperature of the \
+                     deposition is not stated by the sources in hand)",
+                    chosen.name
+                ));
+            }
+        }
+    }
     let step = state.open.iter().map(|(_, h)| *h).fold(0.0f64, f64::max);
     let polish = step > 0.0 && patterned_above;
     let filled: Vec<String> = state
@@ -1233,7 +1704,9 @@ fn deposit(
             film.name
         ));
     }
-    if let Some((t, c)) = chosen.temperature() {
+    if grown {
+        reason.push_str(&grown_reason(chosen, &laid, state.platform));
+    } else if let Some((t, c)) = chosen.temperature() {
         reason.push_str(&format!(
             "It stays at or below {} °C ({}), which the films already there are shown to \
              survive: {}.",
@@ -1244,6 +1717,38 @@ fn deposit(
             } else {
                 shown.join(", ")
             }
+        ));
+    } else {
+        reason.push_str("Its temperature is not stated by the sources in hand");
+        if alternatives.is_empty() {
+            reason.push('.');
+        } else {
+            reason.push_str(&format!(
+                "; every other deposition of {} the library has is refused here or shown no \
+                 safer (see the alternatives).",
+                film.name
+            ));
+        }
+        if let Some(f) = chosen.facts.iter().find(|f| f.text.contains("amorphous")) {
+            reason.push_str(&format!(
+                " {} ({}, {})",
+                f.text, f.source.reference, f.source.location
+            ));
+        }
+    }
+    if let Some(u) = chosen.used(state.platform, purpose)
+        && (purpose == Purpose::Cell
+            || (state.platform != Platform::Soi && state.platform != Platform::Lnoi))
+    {
+        reason.push_str(&format!(
+            " The {} papers in hand used it for this ({}, {}).",
+            if purpose == Purpose::Cell {
+                "phase-change"
+            } else {
+                state.platform.name()
+            },
+            u.source.reference,
+            u.source.location
         ));
     }
     if chosen
@@ -1283,19 +1788,43 @@ fn deposit(
     }
     state.push(dep);
     if polish {
-        let cmp = must("cmp-oxide")?;
-        let mut p = step_of(
-            cmp,
-            Operation::Planarize {
-                removed: Length::um(step),
-            },
+        let cmp = library()
+            .iter()
+            .find(|p| {
+                p.step == StepType::Planarization
+                    && p.acts_on(&film.name)
+                    && !choices.avoid.contains(&p.id)
+            })
+            .ok_or_else(|| {
+                invalid(format!(
+                    "no polish in the library takes {} flat, which the step below needs",
+                    film.name
+                ))
+            })?;
+        let why = if state.preform.is_some() {
+            format!(
+                "The {} lies over the oxide around the trenches too, {} thick: the polish takes it \
+                 off down to the oxide, leaving the {} only in the trenches, the guides, with a \
+                 flat top.",
+                film.name,
+                um(step),
+                film.name
+            )
+        } else {
             format!(
                 "The {} deposited over the etched step follows it, and a patterned layer comes \
                  next: lithography and the layer above need a flat surface, so the excess {} is \
                  polished off.",
                 film.name,
                 um(step)
-            ),
+            )
+        };
+        let mut p = step_of(
+            cmp,
+            Operation::Planarize {
+                removed: Length::um(step),
+            },
+            why,
         );
         let flatness: Vec<String> = cmp
             .capabilities_of(&Quantity::Uniformity)
@@ -1308,10 +1837,53 @@ fn deposit(
         state.push(p);
     }
     state.open.clear();
+    state.preform = None;
+    state.bare = false;
     if !state.present.contains(&film.name) {
         state.present.push(film.name.clone());
     }
     Ok(())
+}
+
+/// Why thermal oxidation grows the oxide under the guides: from the bare wafer's silicon, with
+/// the time Deal and Grove's law gives in steam at 1100 °C, and whether the thickness is within
+/// the range their law was fitted over.
+fn grown_reason(p: &Process, laid: &[Laid], platform: Platform) -> String {
+    let x: f64 = laid.iter().map(|l| l.thickness.to_um()).sum();
+    let mut s = format!(
+        "The oxide is grown from the bare wafer's silicon, which it consumes, in a furnace at \
+         700 to 1300 °C (deal-grove-1965, abstract (PDF p. 2)); nothing else is on the wafer to \
+         heat. {}",
+        p.used(platform, Purpose::Under)
+            .map_or(String::new(), |u| format!(
+                "The {} papers in hand start from thermally oxidized wafers ({}, {}). ",
+                platform.name(),
+                u.source.reference,
+                u.source.location
+            ))
+    );
+    if let Some((a, b, tau)) = super::oxidation::constants(super::oxidation::Ambient::Wet, 1100.0) {
+        s.push_str(&format!(
+            "In steam at 1100 °C, Deal and Grove's law with their constants (A = {} µm, B = {} \
+             µm²/h; Table I) grows {} in about {} hours",
+            number(a),
+            number(b),
+            um(x),
+            number(super::oxidation::hours(a, b, tau, x))
+        ));
+    }
+    match p
+        .capabilities_of(&Quantity::Thickness)
+        .find_map(|c| c.value.high().map(|h| (h, c)))
+    {
+        Some((h, c)) if x > h + 1e-12 => s.push_str(&format!(
+            ", beyond the {} their law was fitted to ({}): the time is carried past their data.",
+            um(h),
+            cited(c)
+        )),
+        _ => s.push('.'),
+    }
+    s
 }
 
 /// A patterned layer above the wafer's film: a metal, lifted off when it is evaporated, etched
@@ -1329,11 +1901,17 @@ fn metal_layer(design: &Physical, i: usize, choices: &Choices, state: &mut State
             layer.name
         )));
     }
+    // a phase-change film is a cell on the guides; anything else drawn above them, a metal
+    let purpose = if super::library::phase_change(&film) {
+        Purpose::Cell
+    } else {
+        Purpose::Metal
+    };
     let deposition = ordered(
         StepType::Deposition,
         Some(&film),
         state.platform,
-        Purpose::Metal,
+        purpose,
         choices,
     );
     let source = deposition.first().copied().ok_or_else(|| {
@@ -1349,10 +1927,14 @@ fn metal_layer(design: &Physical, i: usize, choices: &Choices, state: &mut State
         .first()
         .map(|f| format!("{} ({}, {})", f.text, f.source.reference, f.source.location))
         .unwrap_or_default();
-    if source.directional && !choices.avoid.contains(&lift.id) {
-        // lift-off: the resist opened, the metal evaporated, the resist dissolved
+    // a film comes down in straight lines (evaporated) or its sources lifted it off as it is
+    let lifted = lift
+        .used(state.platform, purpose)
+        .filter(|_| lift.acts_on(&film));
+    if (source.directional || lifted.is_some()) && !choices.avoid.contains(&lift.id) {
+        // lift-off: the resist opened, the film deposited, the resist dissolved
         let (litho, alts, t, litho_reason) =
-            lithography(f, Purpose::Metal, None, choices, state, &layer.name)?;
+            lithography(f, purpose, None, choices, state, &layer.name)?;
         let mut pattern = step_of(
             litho,
             Operation::Pattern {
@@ -1368,29 +1950,103 @@ fn metal_layer(design: &Physical, i: usize, choices: &Choices, state: &mut State
         );
         pattern.alternatives = alts;
         state.push(pattern);
-        if !state.open.is_empty() {
+        // the shapes sit on the film's top where the layer below keeps its full height there
+        let on_top = |shape: &crate::geometry::Shape| {
+            let b = shape.bounds();
+            let (x0, x1, y0, y1) = (
+                b.min.x.to_um(),
+                b.max.x.to_um(),
+                b.min.y.to_um(),
+                b.max.y.to_um(),
+            );
+            let (dx, dy) = (1e-6 * (x1 - x0), 1e-6 * (y1 - y0));
+            state.open.iter().all(|(j, _)| {
+                let below = &s.stack().layers()[*j];
+                [
+                    (x0 + dx, y0 + dy),
+                    (x1 - dx, y0 + dy),
+                    (x0 + dx, y1 - dy),
+                    (x1 - dx, y1 - dy),
+                ]
+                .iter()
+                .all(|&(x, y)| {
+                    s.kept(&below.name, crate::geometry::Point::um(x, y))
+                        .is_some_and(|k| (k.to_um() - below.thickness.to_um()).abs() < 1e-12)
+                })
+            })
+        };
+        if !state.open.is_empty() && !(purpose == Purpose::Cell && shapes.iter().all(on_top)) {
             state.push_note_flat(&layer.name);
         }
         let (violations, _) = state.thermal(source, true);
         if !violations.is_empty() {
             state.warn(format!("{}: {}", source.name, violations.join("; ")));
         }
-        let mut ev = step_of(
-            source,
-            Operation::Evaporate {
-                film: drawn.clone(),
-                thickness: layer.thickness,
-            },
-            format!(
-                "{film} is evaporated, {} thick: it comes down in straight lines, onto the \
-                 resist and into its openings, which is what lift-off needs.",
-                um(layer.thickness.to_um())
-            ),
-        );
-        if let Some(u) = source.used(state.platform, Purpose::Metal) {
+        let mut ev = if source.directional {
+            step_of(
+                source,
+                Operation::Evaporate {
+                    film: drawn.clone(),
+                    thickness: layer.thickness,
+                },
+                format!(
+                    "{film} is evaporated, {} thick: it comes down in straight lines, onto the \
+                     resist and into its openings, which is what lift-off needs.",
+                    um(layer.thickness.to_um())
+                ),
+            )
+        } else {
+            // the same operation as an evaporation: the film onto the opened resist; the record
+            // names it a sputtering, its process not being directional
+            step_of(
+                source,
+                Operation::Evaporate {
+                    film: drawn.clone(),
+                    thickness: layer.thickness,
+                },
+                format!(
+                    "{film} is sputtered, {} thick, over the resist and into its openings. \
+                     Sputtering covers walls too, which lift-off doesn't like, but a film this \
+                     thin has been lifted off as it is ({}, {}).",
+                    um(layer.thickness.to_um()),
+                    lifted.map_or("", |u| u.source.reference.as_str()),
+                    lifted.map_or("", |u| u.source.location.as_str())
+                ),
+            )
+        };
+        if let Some(u) = source.used(state.platform, purpose) {
             ev.reason.push_str(&format!(
-                " The papers in hand made such electrodes this way ({}, {}).",
-                u.source.reference, u.source.location
+                " The papers in hand made such {} this way ({}, {}).",
+                if purpose == Purpose::Cell {
+                    "cells"
+                } else {
+                    "electrodes"
+                },
+                u.source.reference,
+                u.source.location
+            ));
+        }
+        // a sputtered film thicker than any its sources lifted off
+        let thickest = source
+            .capabilities_of(&Quantity::Thickness)
+            .filter(|c| c.value.unit() == Some(Unit::Nm))
+            .filter_map(|c| c.value.high().map(|v| (v, c)))
+            .fold(
+                None,
+                |best: Option<(f64, &Capability)>, (v, c)| match best {
+                    Some((b, _)) if b >= v => best,
+                    _ => Some((v, c)),
+                },
+            );
+        if !source.directional
+            && let Some((v, c)) = thickest
+            && layer.thickness.to_um() * 1000.0 > v + 1e-9
+        {
+            ev.uncertainties.push(format!(
+                "the design's {} is thicker than any film its sources sputtered and lifted off \
+                 (at most {}): whether it lifts off as cleanly is not specified",
+                um(layer.thickness.to_um()),
+                cited(c)
             ));
         }
         state.push(ev);
@@ -1401,12 +2057,31 @@ fn metal_layer(design: &Physical, i: usize, choices: &Choices, state: &mut State
             },
             format!(
                 "Dissolving the resist takes away the {film} on it; the {film} in the openings is \
-                 the design's {}. {campbell}",
-                layer.name
+                 the design's {}. {}",
+                layer.name,
+                if source.directional {
+                    campbell.clone()
+                } else {
+                    // the cells' own sources, which lifted off a sputtered film
+                    lift.facts
+                        .iter()
+                        .filter(|f| {
+                            f.source.reference != "campbell-2008"
+                                && lifted.is_some_and(|u| u.platform == state.platform)
+                        })
+                        .map(|f| {
+                            format!("{} ({}, {})", f.text, f.source.reference, f.source.location)
+                        })
+                        .collect::<Vec<_>>()
+                        .join(" ")
+                }
             ),
         );
-        off.uncertainties
-            .push("the resist-to-metal thickness ratio lift-off needs is not specified".into());
+        off.uncertainties.push(if source.directional {
+            "the resist-to-metal thickness ratio lift-off needs is not specified".into()
+        } else {
+            format!("the resist-to-{film} thickness ratio lift-off needs is not specified")
+        });
         let etchers: Vec<&Process> = library()
             .iter()
             .filter(|p| p.step == StepType::PatternTransfer && p.id != lift.id && p.acts_on(&film))

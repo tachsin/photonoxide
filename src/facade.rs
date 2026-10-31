@@ -27,7 +27,9 @@
 //! - a design's process flow ([`crate::fabrication`]), what the rules find in it and its export
 //!   as JSON, a Markdown traveller and an SVG of each step's cross-section,
 //!   [`device_fabrication`], its job, [`device_fabrication_job`], and its files,
-//!   [`export_fabrication`].
+//!   [`export_fabrication`];
+//! - a `"nonlinear"` job's process, what its run records computed without a folder (its setup,
+//!   phase-matching map, efficiency along the length and pairs), [`nonlinear`].
 //!
 //! Its conventions:
 //!
@@ -51,6 +53,7 @@ mod circuit;
 mod conformance;
 mod device;
 mod fabrication;
+mod nonlinear;
 #[cfg(test)]
 mod tests;
 
@@ -79,6 +82,7 @@ pub use device::{
 pub use fabrication::{
     DeviceFabrication, device_fabrication, device_fabrication_job, export_fabrication,
 };
+pub use nonlinear::{NonlinearProcess, nonlinear};
 
 /// A material of the catalogue ([`crate::material::catalogue`]), with its index models.
 #[derive(Clone, Debug, PartialEq)]

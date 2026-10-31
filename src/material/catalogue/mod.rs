@@ -82,7 +82,7 @@ pub(crate) mod transparency;
 
 pub use coming::Coming;
 pub use conductivity::{Conductivity, ConductivityModel, conductivities, conductivity};
-pub(crate) use entries::lithium_rich_jundt_1990;
+pub use entries::lithium_rich_jundt_1990;
 pub use kerr::{
     Kerr, KerrQuantity, Obtained, beta_from_cm_per_gw, beta_to_cm_per_gw, kerr, n2_from_cm2_per_w,
     n2_from_esu, n2_to_cm2_per_w, n2_to_esu,

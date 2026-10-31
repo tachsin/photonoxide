@@ -290,6 +290,54 @@ impl AllPassRing {
         )
     }
 
+    /// The round trip's field factor a e^{iφ} at λ: e^{iγL} with the guide's complex
+    /// propagation constant γ (its loss included), times the fixed loss per round trip.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::InvalidValue`] for `values` as in [`AllPassRing::fwhm`].
+    pub fn round_trip(&self, wavelength: Wavelength, values: &[f64]) -> Result<c64> {
+        check_values(values, 2)?;
+        let i = c64::new(0.0, 1.0);
+        Ok((i * self.guide.propagation(wavelength) * values[0]).exp()
+            * 10f64.powf(-self.round_trip_loss / 20.0))
+    }
+
+    /// The field in the ring just past the coupler for a unit field in the bus,
+    /// F = ik/(1 − r a e^{iφ}): its square |F|² the power's build-up, (1 − r²)/(1 − ra)² on
+    /// resonance. Helt et al.'s field-enhancement factor with the loss (L. G. Helt, Z. Yang,
+    /// M. Liscidini, J. E. Sipe, Opt. Lett. 35, 3006 (2010), doi:10.1364/OL.35.003006, after
+    /// Eq. (5)), in the coupler's convention: through r, across ik.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::InvalidValue`] for `values` as in [`AllPassRing::fwhm`], or if F isn't finite.
+    pub fn field_enhancement(&self, wavelength: Wavelength, values: &[f64]) -> Result<c64> {
+        let round = self.round_trip(wavelength, values)?;
+        let r = (1.0 - values[1]).sqrt();
+        let f = c64::new(0.0, values[1].sqrt()) / (1.0 - r * round);
+        finite("the field enhancement", f.norm())?;
+        Ok(f)
+    }
+
+    /// The wave at λ in this ring as the resonant nonlinear processes take it
+    /// ([`crate::nonlinear::cavity`]): its enhancement, round trip and length.
+    ///
+    /// # Errors
+    ///
+    /// As [`AllPassRing::field_enhancement`].
+    pub fn ring_wave(
+        &self,
+        wavelength: Wavelength,
+        values: &[f64],
+    ) -> Result<crate::nonlinear::cavity::RingWave> {
+        crate::nonlinear::cavity::RingWave::all_pass(
+            values.get(1).copied().unwrap_or(f64::NAN),
+            self.round_trip(wavelength, values)?,
+            values[0],
+        )
+    }
+
     /// The through power off resonance, T_t = (r + a)²/(1 + ra)², and on it, R_min =
     /// (r − a)²/(1 − ra)² (Bogaerts Eqs. 11 and 12); their ratio is the extinction.
     ///

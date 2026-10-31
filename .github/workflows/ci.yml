@@ -126,8 +126,9 @@ jobs:
           # exactly one job, and together they check the whole report. Measured on CI's runners
           # (0.5.2, #321 and #328): fdtd's adjoints 4.7 min, its smoothing 4.8, its comparisons
           # with fdfd 2.5, the rest of fdtd 4.4, fdfd3d 6.3, the rest 3.5 (mode 2.5); the release
-          # build about 2 minutes more each.
-          groups="fdtd/adjoint fdtd/smoothing fdtd/fdfd fdtd/ fdfd3d/"
+          # build about 2 minutes more each. The fabrication engine's round trips (#622) took 6.4
+          # minutes for the library's alone on CI's runner (#635), so its cases run on their own.
+          groups="fdtd/adjoint fdtd/smoothing fdtd/fdfd fdtd/ fdfd3d/ fabrication/"
           rest=""
           if [ -n "$cases" ]; then
             done=""

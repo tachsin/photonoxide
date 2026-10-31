@@ -62,8 +62,10 @@ pub fn rules() -> Vec<(&'static str, Rule)> {
     rules.extend(nonlinear_data::transparency_rules());
     rules.extend(fabrication::rules());
     rules.extend(fabrication_rules::rules());
+    rules.extend(fabrication_platforms::rules());
     rules.extend(nonlinear_guides::rules());
     rules.extend(nonlinear_kerr::rules());
+    rules.extend(nonlinear_cavities::rules());
     rules
 }
 
@@ -2267,10 +2269,16 @@ pub fn cases() -> Vec<Case> {
     // the rules' choices
     cases.extend(crate::fabrication::checks::cases());
     cases.extend(crate::fabrication::rule_checks::cases());
+    // and its further platforms: silicon nitride, phase-change cells, aluminium nitride, GaAs
+    cases.extend(crate::fabrication::platform_checks::cases());
     // and in waveguides, from their modes: modal phase matching, the overlaps' coupling, SPDC
     cases.extend(crate::nonlinear::guide_checks::cases());
     // and third-order processes: the NLSE, four-wave mixing and the Lugiato-Lefever equation
     cases.extend(crate::nonlinear::kerr_checks::cases());
+    // and silicon's two-photon and free-carrier absorption, and cross-phase modulation
+    cases.extend(crate::nonlinear::absorption_checks::cases());
+    // and resonant processes: SHG and FWM in rings, heralding through filters, OPOs
+    cases.extend(crate::nonlinear::cavity_checks::cases());
     cases
 }
 
@@ -5284,6 +5292,7 @@ mod convergence;
 mod devices;
 mod eme;
 mod fabrication;
+mod fabrication_platforms;
 mod fabrication_rules;
 mod fdfd;
 mod fdtd;
@@ -5297,6 +5306,7 @@ mod modes;
 mod modulator;
 mod modulator_error;
 mod nonlinear;
+mod nonlinear_cavities;
 mod nonlinear_data;
 mod nonlinear_guides;
 mod nonlinear_kerr;

@@ -36,6 +36,9 @@ struct Building {
     background: Option<Film>,
     shapes: Vec<Shape>,
     etches: Vec<Etch>,
+    /// Whether its shapes are trenches etched out of its film (a preform), which the next
+    /// deposition fills: that film becomes the shapes' and the layer's own its background.
+    preform: bool,
 }
 
 fn invalid(message: String) -> Error {
@@ -102,6 +105,7 @@ fn run(steps: &[super::flow::Step], partial: bool) -> Result<Made> {
                         background: None,
                         shapes: Vec::new(),
                         etches: Vec::new(),
+                        preform: false,
                     });
                 }
             }
@@ -116,7 +120,13 @@ fn run(steps: &[super::flow::Step], partial: bool) -> Result<Made> {
                 }
                 for l in &mut layers {
                     if !l.shapes.is_empty() && l.background.is_none() {
-                        l.background = Some(film.clone());
+                        if l.preform {
+                            // the trenches take the film; the layer's own film is around them
+                            l.background = Some(std::mem::replace(&mut l.film, film.clone()));
+                            l.preform = false;
+                        } else {
+                            l.background = Some(film.clone());
+                        }
                     }
                 }
                 for l in laid {
@@ -127,6 +137,7 @@ fn run(steps: &[super::flow::Step], partial: bool) -> Result<Made> {
                         background: None,
                         shapes: Vec::new(),
                         etches: Vec::new(),
+                        preform: false,
                     });
                 }
                 if *clad {
@@ -153,17 +164,34 @@ fn run(steps: &[super::flow::Step], partial: bool) -> Result<Made> {
                 depth,
                 sidewall,
             } => {
-                let Some((mask, Tone::Keep)) = &resist else {
-                    return Err(at("an etch with no resist kept on the shapes"));
+                let Some((mask, tone)) = &resist else {
+                    return Err(at("an etch with no resist on the wafer"));
                 };
                 let top = layers
                     .last_mut()
                     .filter(|l| &l.name == layer)
                     .ok_or_else(|| at(&format!("{layer} isn't the top layer")))?;
+                // a timed etch through the whole layer leaves no slab: it is etched through
                 let etch = match depth {
-                    Depth::ToStop => Etch::FULL.with_sidewall(*sidewall),
-                    Depth::Timed(d) => Etch::partial(*d).with_sidewall(*sidewall),
+                    Depth::Timed(d) if *d < top.thickness => {
+                        Etch::partial(*d).with_sidewall(*sidewall)
+                    }
+                    _ => Etch::FULL.with_sidewall(*sidewall),
                 };
+                match tone {
+                    Tone::Keep => {}
+                    // the resist opened on the shapes: they are etched out of the layer, a
+                    // preform the next deposition fills, through the layer only
+                    Tone::Open if top.shapes.is_empty() && etch.depth.is_none() => {
+                        top.preform = true;
+                    }
+                    Tone::Open => {
+                        return Err(at(
+                            "an etch through opened resist that isn't a preform through a fresh \
+                             layer",
+                        ));
+                    }
+                }
                 for s in mask {
                     top.shapes.push(s.clone());
                     top.etches.push(etch);
@@ -171,7 +199,7 @@ fn run(steps: &[super::flow::Step], partial: bool) -> Result<Made> {
             }
             Operation::Evaporate { film, thickness } => {
                 if !matches!(resist, Some((_, Tone::Open))) {
-                    return Err(at("an evaporation for lift-off with no opened resist"));
+                    return Err(at("a film for lift-off with no opened resist"));
                 }
                 evaporated = Some((film.clone(), *thickness));
             }
@@ -189,6 +217,7 @@ fn run(steps: &[super::flow::Step], partial: bool) -> Result<Made> {
                     background: None,
                     shapes: mask,
                     etches: vec![Etch::FULL; n],
+                    preform: false,
                 });
             }
             Operation::Strip => {
@@ -210,13 +239,27 @@ fn run(steps: &[super::flow::Step], partial: bool) -> Result<Made> {
             "the flow ends with resist on the wafer or a deposition not polished".into(),
         ));
     }
+    // a bare wafer, before anything is grown on it: air over it, drawn as a layer
+    if partial && layers.is_empty() {
+        layers.push(Building {
+            name: "air".into(),
+            thickness: Length::um(1.0),
+            film: air(),
+            background: None,
+            shapes: Vec::new(),
+            etches: Vec::new(),
+            preform: false,
+        });
+    }
     let mut stack_layers = Vec::with_capacity(layers.len());
     let mut names = Vec::with_capacity(layers.len());
     for l in &layers {
-        let background = match (&l.background, l.shapes.is_empty()) {
-            (Some(b), _) => b.clone(),
-            (None, true) => l.film.clone(),
-            (None, false) if partial => air(),
+        let (film, background) = match (&l.background, l.shapes.is_empty()) {
+            (Some(b), _) => (l.film.clone(), b.clone()),
+            (None, true) => (l.film.clone(), l.film.clone()),
+            // a preform not yet filled: air in its trenches, its film around them
+            (None, false) if partial && l.preform => (air(), l.film.clone()),
+            (None, false) if partial => (l.film.clone(), air()),
             (None, false) => {
                 return Err(invalid(format!(
                     "{} is etched open and nothing fills it",
@@ -224,11 +267,11 @@ fn run(steps: &[super::flow::Step], partial: bool) -> Result<Made> {
                 )));
             }
         };
-        names.push((l.film.name.clone(), background.name.clone()));
+        names.push((film.name.clone(), background.name.clone()));
         stack_layers.push(Layer {
             name: l.name.clone(),
             thickness: l.thickness,
-            material: l.film.optical.clone(),
+            material: film.optical,
             background: background.optical,
         });
     }

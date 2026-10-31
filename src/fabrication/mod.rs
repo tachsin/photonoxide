@@ -43,6 +43,9 @@ pub mod rules;
 mod stated;
 
 pub(crate) mod checks;
+pub(crate) mod platform_checks;
+#[cfg(test)]
+mod platform_tests;
 pub(crate) mod rule_checks;
 #[cfg(test)]
 mod tests;

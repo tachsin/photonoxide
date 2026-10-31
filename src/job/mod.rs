@@ -451,6 +451,12 @@
 //!   its shapes, each medium's coefficient given by name; recorded as the field, the grid and
 //!   the numbers ([`Event::StaticField`], [`Event::StaticResult`]). See `statics.rs` for its
 //!   tables and an example.
+//! - `"nonlinear"`: a second- or third-order process (SHG, SFG, DFG, OPA, SPDC or FWM) in a
+//!   crystal, a guide whose effective indices are given, or a ridge whose modes it solves
+//!   ([`crate::nonlinear`]); recorded as its setup, its phase-matching map, its efficiency
+//!   along the length and its pairs' joint spectrum ([`Event::NonlinearSetup`],
+//!   [`Event::PhaseMap`], [`Event::NonlinearEfficiency`], [`Event::PairSpectrum`]), and written
+//!   beside the record as `nonlinear.json` and CSV tables. See `nonlinear.rs`.
 
 use crate::Result;
 use crate::run::{Run, Stop};
@@ -507,6 +513,9 @@ mod line;
 #[cfg(test)]
 mod line_tests;
 mod modes;
+mod nonlinear;
+#[cfg(test)]
+mod nonlinear_tests;
 pub mod optimize;
 mod optimize_checks;
 mod params;
@@ -556,6 +565,10 @@ pub use fabrication::{FabricationView, Stage, fabrication_of, from_fabrication};
 pub use fdfd::{FdfdSParameters, fdfd_s_parameters};
 pub use fdtd::{FoundResonance, SpectrumSeries};
 pub use fit::fit_from_device;
+pub use nonlinear::{
+    Accepted, EfficiencyCurve, EfficiencySeries, NonlinearSetup, NonlinearWave, PairSpectrum,
+    PhaseMap, PoledGrating,
+};
 pub use optimize::{
     Aim, Bound, Evaluation, GradientCheck, Keep, Optimization, Problem, Recorder, Schedule,
     Variable, design_of, optimize_from_chip, optimize_from_device, optimizes,

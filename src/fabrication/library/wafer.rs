@@ -1,5 +1,6 @@
 //! Wafers bought with their first layers: silicon on insulator and lithium niobate on
-//! insulator. A single-crystal film on an insulator is bonded and split, never deposited.
+//! insulator, whose single-crystal film is bonded and split, never deposited; and the bare
+//! silicon wafer the deposited platforms start from.
 
 use super::{Platform, Process, Purpose, StepType, cap, fact, new_process, src, used};
 use crate::fabrication::stated::{Quantity, Stated, Unit};
@@ -137,5 +138,80 @@ pub(super) fn processes() -> Vec<Process> {
             "Section 3.A (PDF p. 4)",
         ),
     ];
-    vec![soi, lnoi]
+    vec![soi, lnoi, silicon(), gaas()]
+}
+
+/// A GaAs wafer with its guide layers grown on it by epitaxy.
+fn gaas() -> Process {
+    let mut p = new_process(
+        "gaas-epitaxy",
+        StepType::Wafer,
+        "Gallium arsenide layers grown by epitaxy on a GaAs wafer",
+        "The guide's layers are grown on a gallium arsenide wafer one atomic layer at a time, by \
+         molecular beam epitaxy (MBE) or metal-organic vapour phase epitaxy (MOVPE): aluminium \
+         gallium arsenide below, a lower index, and gallium arsenide above it, the guide. They \
+         are single crystals continuing the wafer's, so they are grown, never deposited.",
+        &["AlGaAs", "GaAs"],
+    );
+    p.capabilities = vec![cap(
+        Quantity::Uniformity,
+        Stated::not_specified(),
+        "the layers' thickness: stated only as grown \"with monolayer precision\"",
+    )];
+    p.facts = vec![
+        fact(
+            "GaAs structures are grown monolithically with monolayer precision by MBE or MOVPE.",
+            "dietrich-2016",
+            "Section 2 (PDF p. 2)",
+        ),
+        fact(
+            "GaAs/AlGaAs ridge waveguides 2 to 4 µm wide and high made directional couplers with \
+             2.5 to 3.5 dB/cm of propagation loss.",
+            "dietrich-2016",
+            "Section 5 (PDF p. 12)",
+        ),
+    ];
+    p.used_for = vec![used(
+        Platform::Gaas,
+        Purpose::Guide,
+        "dietrich-2016",
+        "Section 5 (PDF p. 12)",
+    )];
+    p
+}
+
+/// A bare silicon wafer, the start of the platforms whose guide film is deposited.
+fn silicon() -> Process {
+    let mut p = new_process(
+        "si-wafer",
+        StepType::Wafer,
+        "A bare silicon wafer",
+        "A polished wafer of single-crystal silicon with nothing on it. The oxide under the guides \
+         is grown from it, and the guides' film deposited over that.",
+        &[],
+    );
+    p.facts = vec![
+        fact(
+            "The nitride ring resonators were made on a thermally oxidized 4-inch silicon wafer.",
+            "luke-2013",
+            "PDF p. 3",
+        ),
+        fact(
+            "The photonic Damascene process etches its preforms into the wet thermal oxide of the \
+             substrate.",
+            "pfeiffer-2016",
+            "PDF p. 2",
+        ),
+    ];
+    p.used_for = vec![
+        used(Platform::Nitride, Purpose::Guide, "luke-2013", "PDF p. 3"),
+        used(
+            Platform::Nitride,
+            Purpose::Guide,
+            "pfeiffer-2016",
+            "PDF p. 2",
+        ),
+        used(Platform::Aln, Purpose::Guide, "xiong-2012", "PDF p. 2"),
+    ];
+    p
 }

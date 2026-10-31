@@ -146,7 +146,17 @@ fn every_source_resolves_and_every_reference_is_used() {
         .iter()
         .flat_map(|p| p.references.clone())
         .collect();
-    for film in ["Si", "LiNbO3", "TiN", "Al", "Sb₂Se₃"] {
+    for film in [
+        "Si",
+        "LiNbO3",
+        "TiN",
+        "Al",
+        "Sb₂Se₃",
+        "Si3N4",
+        "Sb2S3",
+        "Ge2Sb2Te5",
+        "AlN",
+    ] {
         let b = budget(film);
         used.extend(
             [&b.survives, &b.limit]
@@ -272,9 +282,18 @@ fn a_flow_that_doesnt_hold_together_is_refused() {
 
 #[test]
 fn a_design_without_a_crystalline_film_is_refused_with_why() {
-    let mut s = crate::stack::Structure::new(
-        crate::stack::LayerStack::nitride(Length::nm(300.0), Length::um(3.0)).unwrap(),
-    );
+    // nitride on oxide over silicon starts from a bare wafer; over a glass substrate, nothing does
+    let nitride = crate::stack::LayerStack::nitride(Length::nm(300.0), Length::um(3.0)).unwrap();
+    let mut s = crate::stack::Structure::new(nitride.clone());
+    s.draw("SiN", rect(5.0, 0.0, 10.0, 1.0)).unwrap();
+    assert!(generate(&Physical::of(s), &Choices::default()).is_ok());
+    let glass = crate::stack::LayerStack::new(
+        crate::material::silica(),
+        nitride.layers().to_vec(),
+        crate::material::silica(),
+    )
+    .unwrap();
+    let mut s = crate::stack::Structure::new(glass);
     s.draw("SiN", rect(5.0, 0.0, 10.0, 1.0)).unwrap();
     let e = generate(&Physical::of(s), &Choices::default())
         .unwrap_err()

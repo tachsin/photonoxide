@@ -41,6 +41,7 @@ on:
       - "docs/methods/fabrication.md"
       - "docs/methods/fdfd-ports.md"
       - "docs/methods/fields.md"
+      - "docs/methods/nonlinear.md"
       - "docs/methods/slab.md"
       - "docs/methods/stacks.md"
       - "docs/methods/vector.md"

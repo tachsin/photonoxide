@@ -23,6 +23,7 @@ use super::fdfd::FdfdKind;
 use super::fdtd::FdtdKind;
 use super::fit::FitKind;
 use super::modes::ModesKind;
+use super::nonlinear::NonlinearKind;
 use super::optimize::crosstalk::CrosstalkKind;
 use super::optimize::{ChipOptimizeKind, DeviceOptimizeKind};
 use super::statics::StaticKind;
@@ -96,13 +97,14 @@ pub(super) trait TaskKind: Sync {
 pub(super) const EM_FIELDS: &[&str] = &["Ex", "Ey", "Ez", "Hx", "Hy", "Hz"];
 
 /// The kinds of a task alone, in the order the schema lists them.
-static SOLVER: [&dyn TaskKind; 6] = [
+static SOLVER: [&dyn TaskKind; 7] = [
     &StructureKind,
     &ModesKind,
     &FdfdKind,
     &FdtdKind,
     &StaticKind,
     &CrosstalkKind,
+    &NonlinearKind,
 ];
 
 /// The kinds of a task beside a `[device]`, in the order the schema lists them.

@@ -745,6 +745,34 @@ fn device_job(
     py.detach(|| facade::device_job(&d, name, format)).fail(py)
 }
 
+/// A `"nonlinear"` job's process ([`facade::nonlinear`]): a dict of its setup's, map's,
+/// efficiency's and pairs' JSON text, `None` for a part the run doesn't record.
+#[pyfunction]
+#[pyo3(signature = (path, text, format, timeout_s))]
+fn nonlinear<'py>(
+    py: Python<'py>,
+    path: Option<PathBuf>,
+    text: Option<String>,
+    format: &str,
+    timeout_s: Option<f64>,
+) -> PyResult<Bound<'py, PyDict>> {
+    let job = job_source(path, text, format)?;
+    let stop = stop_after(timeout_s)?;
+    let p = interruptible(py, &stop, || facade::nonlinear(&job, &stop))?
+        .fail(py)?
+        .ok_or_else(|| {
+            PyTimeoutError::new_err(format!(
+                "the nonlinear job stopped at its timeout, {} s",
+                timeout_s.unwrap_or(f64::NAN)
+            ))
+        })?;
+    let out = PyDict::new(py);
+    out.set_item("setup", p.setup)?;
+    out.set_item("phase_map", p.phase_map)?;
+    out.set_item("efficiency", p.efficiency)?;
+    out.set_item("pair_spectrum", p.pair_spectrum)?;
+    Ok(out)
+}
 /// A design's process flow ([`facade::device_fabrication`]): a dict of the flow's and the
 /// assessment's JSON text, the export's JSON and Markdown, and each step's SVG.
 #[pyfunction]
@@ -851,6 +879,7 @@ fn _photonoxide(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(device_fabrication, module)?)?;
     module.add_function(wrap_pyfunction!(device_fabrication_job, module)?)?;
     module.add_function(wrap_pyfunction!(export_fabrication, module)?)?;
+    module.add_function(wrap_pyfunction!(nonlinear, module)?)?;
     module.add_function(wrap_pyfunction!(_conformance, module)?)?;
     Ok(())
 }

@@ -103,6 +103,7 @@ It prints `TE0: n_eff = 2.8475` and `TM0: n_eff = 2.0531`, as the Rust example d
 | `device_spectrum(kind, values=, fidelity=, stack=, wavelength_um=, timeout_s=)`, `device_derived(kind, ...)` | a design's S-parameters and figures at a fidelity, each with its model's grid | [`device`](methods/devices.md) |
 | `device_geometry(kind, values=, stack=)`, `device_job(kind, ..., format=)` | a design's stack, polygons and ports; the job that computes it | [`device`](methods/devices.md) |
 | `device_fabrication(kind, values=, stack=, prefer=, avoid=)`, `device_fabrication_job(kind, ..., format=)`, `export_fabrication(kind, out_dir=, ...)` | a design's process flow: each step with its reason, alternatives and sources, the rules' checks and the accuracy of each dimension; the job that gives it; its export as JSON, a Markdown traveller and an SVG of each step's cross-section | [`fabrication`](methods/fabrication.md) |
+| `nonlinear(job, timeout_s=)` | a `"nonlinear"` job's process (SHG, SFG, DFG, OPA, SPDC or FWM in a crystal, a guide of given effective indices or a ridge whose modes it solves) as its run records it: the setup, the phase-matching map, the efficiency along the length and the pairs' joint spectrum | [`nonlinear`](methods/nonlinear.md#as-a-job) |
 
 Each function's docstring has the details, and the
 [API reference](https://tachsin.gr/projects/photonoxide/docs/python/reference) has them all, generated from the
@@ -226,8 +227,8 @@ library as a Rust program would. Both steps are tested:
   (`circuit/ring-fsr-bogaerts`, 9.08149 nm), an MZI against its transfer matrices, silicon
   against Li's table;
 - [`python/examples`](../python/examples) has Python versions of a few of the Rust examples
-  (silicon's index, the book's slab and strip, a ring's free spectral range, and a ring
-  through a Touchstone file), each printing its setup first (the layers, the shapes, the
+  (silicon's index, the book's slab and strip, a ring's free spectral range, a ring
+  through a Touchstone file, and Fejer et al.'s PPLN as a nonlinear job), each printing its setup first (the layers, the shapes, the
   materials, the grid, the solver and the tolerance) and then its numbers beside its paper's,
   as the Rust ones do; each prints exactly what is recorded in `python/examples/output`, and
   those with a Rust twin print what it prints after its setup block, line for line
@@ -237,8 +238,8 @@ library as a Rust program would. Both steps are tested:
   [stacks](methods/stacks.md), [circuits](methods/circuits.md), [Touchstone
   files](methods/compact.md#touchstone-files), [devices](methods/devices.md), [an FDFD job's
   ports](methods/fdfd-ports.md#in-the-studio), [full-vector modes](methods/vector.md) with
-  their [fields](methods/fields.md), [a run's exports](methods/export.md) and [a design's
-  process flow](methods/fabrication.md#in-python). Their Python blocks run in the package's
+  their [fields](methods/fields.md), [a run's exports](methods/export.md), [a design's
+  process flow](methods/fabrication.md#in-python) and [a nonlinear process](methods/nonlinear.md#as-a-job). Their Python blocks run in the package's
   tests (`python/tests/test_methods.py`);
 - a process flow through Python is the one a `"fabrication"` job's run records, to the bit, for
   the strip waveguide, the lithium niobate modulator, the TiN heater and a rib, and its export

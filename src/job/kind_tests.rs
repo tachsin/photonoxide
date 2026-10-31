@@ -18,6 +18,7 @@ fn with_unknown_field(holder: Holder, name: &str) -> Job {
         (Holder::Solver, "fdtd") => "mmi-fdtd.yaml",
         (Holder::Solver, "static") => "pcm-switching.yaml",
         (Holder::Solver, "optimize") => "crosstalk-correction.yaml",
+        (Holder::Solver, "nonlinear") => "ppln-shg.yaml",
         (Holder::Solver, other) => panic!("no built-in job for the kind {other}"),
     };
     let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("jobs");
@@ -75,6 +76,9 @@ fn refusal(holder: Holder, name: &str) -> String {
             .to_owned(),
         (Holder::Solver, "optimize") => "`kind`, `method`, `seed`, `evaluations`, \
             `population`, `learning_rate`, `crosstalk`"
+            .to_owned(),
+        (Holder::Solver, "nonlinear") => "`kind`, `process`, `waveguide`, `pump`, `signal`, \
+            `poling`, `length_mm`, `temperature_c`, `map`, `pairs`, `points`"
             .to_owned(),
         (Holder::Device, "spectrum") => format!("`kind`, {GRIDS}, `export`"),
         (Holder::Device, "sweep" | "corners") => {

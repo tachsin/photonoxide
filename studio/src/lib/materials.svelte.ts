@@ -11,6 +11,9 @@ export const materials = $state({
   chosen: null as string | null,
 });
 
+/** What the page shows in place of a material: the nonlinear processes' view (components/nonlinear). */
+export const NONLINEAR = "#nonlinear";
+
 let loading: Promise<void> | null = null;
 
 /** Reads the catalogue, once. */

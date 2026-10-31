@@ -163,7 +163,18 @@ pub(crate) fn source_faults() -> Vec<String> {
     for t in super::glossary() {
         check(&format!("the glossary's {}", t.term), &t.source);
     }
-    for film in ["Si", "SiO2", "LiNbO3", "TiN", "Al", "Sb₂Se₃"] {
+    for film in [
+        "Si",
+        "SiO2",
+        "LiNbO3",
+        "TiN",
+        "Al",
+        "Sb₂Se₃",
+        "Si3N4",
+        "Sb2S3",
+        "Ge2Sb2Te5",
+        "AlN",
+    ] {
         let b = budget(film);
         for v in [&b.survives, &b.limit] {
             if let Some(s) = v.source() {

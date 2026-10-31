@@ -1421,7 +1421,14 @@ s.run(2000); // the fields there and back, the probes and transforms with them
 **Determinism** (principle 9, decided 2026-10-08): no atomics, fixed workgroup sizes, every value
 written by one invocation and every sum taken by one in step order, so a GPU run repeats bit for
 bit on the same device and driver: fields, probes and transforms, f32 and f64, fused and in two
-passes (`a_run_on_the_gpu_repeats_bit_for_bit`). WGSL lets a compiler fuse and reorder
+passes (`a_run_on_the_gpu_repeats_bit_for_bit`, and 200 runs of each by hand before a release,
+`a_run_on_the_gpu_repeats_bit_for_bit_many_times`). The kernels don't divide: the CPML's
+derivatives multiply by 1/Δ, computed on the CPU. Dividing by Δ in the kernel, an RTX 4060 in f64
+(Vulkan, driver 616.56) gave one of two results from run to run, each the same bits whenever it
+came: the 3D problem's ψ of H̃ after two steps differed by 1 to 4 units in the last place in
+about one value in thirteen, and its fields after 300 steps in 989 and 1171 of 1200 runs (fused
+and in two passes). Multiplying, no run of
+1200 differs, in either precision. WGSL lets a compiler fuse and reorder
 arithmetic, so the GPU isn't the CPU's bits; it agrees with the CPU to tolerances measured by how
 rounding grows (`src/fdtd/gpu/tests.rs`):
 

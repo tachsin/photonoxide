@@ -869,7 +869,7 @@ fn edwards_lawrence_model() -> IndexModel {
 /// Lithium-rich LiNbO₃ (vapor transport equilibrated, about 49.9 mol% Li₂O) from Jundt, Fejer and
 /// Byer 1990: not congruent, so in no entry; Fejer et al. 1992 take its temperature dependence for
 /// their Table I's δT at 0.86 µm (footnote f), and so does that case.
-pub(crate) fn lithium_rich_jundt_1990() -> IndexModel {
+pub fn lithium_rich_jundt_1990() -> IndexModel {
     IndexModel {
         id: "jundt-1990".into(),
         name: "Jundt, Fejer & Byer 1990".into(),

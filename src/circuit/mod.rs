@@ -614,3 +614,37 @@ impl Spectrum {
         self.matrices.iter().map(|m| m[(q, p)]).collect()
     }
 }
+
+/// A component's amplitude transmission from port `from` to port `to` at its parameters'
+/// `values`, at each of `wavelengths`: S_to,from(λ), its whole response, insertion loss and all.
+/// A filter's response for a photon pair's joint spectrum, say
+/// ([`crate::nonlinear::pairs::JointSpectrum::heralding`]), whose grids are frequencies ν = 1/λ.
+///
+/// # Errors
+///
+/// [`Error::InvalidValue`] for a port the component doesn't have, and the component's own errors.
+pub fn transmission(
+    component: &dyn Component,
+    from: &str,
+    to: &str,
+    values: &[f64],
+    wavelengths: &[Wavelength],
+) -> Result<Vec<c64>> {
+    let port = |name: &str| {
+        component
+            .ports()
+            .iter()
+            .position(|p| p.name == name)
+            .ok_or_else(|| {
+                Error::invalid(
+                    "transmission",
+                    format!("the {} has no port \"{name}\"", component.kind()),
+                )
+            })
+    };
+    let (p, q) = (port(from)?, port(to)?);
+    wavelengths
+        .iter()
+        .map(|&w| Ok(component.s_matrix(w, values)?[(q, p)]))
+        .collect()
+}

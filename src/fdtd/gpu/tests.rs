@@ -106,6 +106,34 @@ fn a_run_on_the_gpu_repeats_bit_for_bit() {
     }
 }
 
+/// The repeat above many times over, `GPU_REPEATS` runs of each (200 by default), in f32 and
+/// f64: a run that differs once in many shows here, not in one repeat. In f64 the CPML's
+/// derivatives, divided by Δ in the kernels, gave one of two results from run to run (the 3D
+/// problem differed in most of 1200 runs); they multiply by 1/Δ now, and no run differs. By
+/// hand, on a computer with a GPU:
+/// `cargo test --release --features gpu --lib repeats_bit_for_bit_many_times -- --ignored`.
+#[test]
+#[ignore = "many runs on a GPU: by hand, before a release"]
+fn a_run_on_the_gpu_repeats_bit_for_bit_many_times() {
+    let runs = std::env::var("GPU_REPEATS")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(200usize);
+    for precision in [Precision::Single, Precision::Double] {
+        let Some(gpu) = for_tests(precision) else {
+            continue;
+        };
+        for two_d in [false, true] {
+            let s = busy(two_d);
+            for fused in [true, false] {
+                let differ = (0..runs).filter(|_| !repeats(&s, &gpu, 300, fused)).count();
+                println!("{precision:?}, 2D {two_d}, fused {fused}: {differ} of {runs} differ");
+                assert_eq!(differ, 0, "{precision:?}, 2D {two_d}, fused {fused}");
+            }
+        }
+    }
+}
+
 fn field_bits(s: &Simulation) -> Vec<u64> {
     Axis::ALL
         .iter()

@@ -1,6 +1,7 @@
-//! Planarization: chemical-mechanical polishing of oxide.
+//! Planarization: chemical-mechanical polishing of oxide, and of nitride in the photonic
+//! Damascene process.
 
-use super::{Process, StepType, cap, fact, new_process, src};
+use super::{Platform, Process, Purpose, StepType, cap, fact, new_process, src, used};
 use crate::fabrication::stated::{Quantity, Stated, Unit};
 
 pub(super) fn processes() -> Vec<Process> {
@@ -40,5 +41,38 @@ pub(super) fn processes() -> Vec<Process> {
         "krishnan-2009",
         "PDF p. 6 (p. 183)",
     )];
-    vec![cmp]
+    let mut nitride = new_process(
+        "cmp-nitride",
+        StepType::Planarization,
+        "Chemical-mechanical polishing (CMP) of nitride",
+        "The nitride deposited over the oxide preform is polished away down to the oxide, \
+         leaving nitride only in the preform's trenches: the guides, their top surface flat.",
+        &["Si3N4", "SiN"],
+    );
+    nitride.capabilities = vec![cap(
+        Quantity::Uniformity,
+        Stated::not_specified(),
+        "the nitride left over the oxide, and the guides' height, after polishing",
+    )];
+    nitride.facts = vec![
+        fact(
+            "The excess nitride is removed by chemical-mechanical polishing, leaving a polished \
+             surface that exposes only the guides' tops.",
+            "pfeiffer-2016",
+            "PDF pp. 2–3",
+        ),
+        fact(
+            "The dense pattern around the guides prevents cracks during the polish too; nitride \
+             the polish leaves behind can still crack later.",
+            "pfeiffer-2016",
+            "PDF p. 3",
+        ),
+    ];
+    nitride.used_for = vec![used(
+        Platform::Nitride,
+        Purpose::Guide,
+        "pfeiffer-2016",
+        "PDF pp. 2–3",
+    )];
+    vec![cmp, nitride]
 }

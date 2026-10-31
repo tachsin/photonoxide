@@ -22,7 +22,9 @@
 //!
 //! **Determinism.** No atomics, no reductions across invocations, fixed workgroup sizes: every
 //! value is computed by one invocation in a fixed order, so a run repeats bit for bit on the same
-//! device and driver. WGSL lets a compiler fuse and reorder arithmetic (§15.7), so the GPU's
+//! device and driver. The kernels don't divide either: in f64 a division by Δ in the CPML's
+//! derivatives gave one of two results from run to run on an RTX 4060, so they multiply by 1/Δ,
+//! computed on the CPU. WGSL lets a compiler fuse and reorder arithmetic (§15.7), so the GPU's
 //! fields aren't the CPU's bits: they agree to a tolerance stated per quantity (see the method's
 //! write-up, docs/methods/fdtd.md).
 //!
