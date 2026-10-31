@@ -62,6 +62,7 @@ pub fn rules() -> Vec<(&'static str, Rule)> {
     rules.extend(nonlinear_data::transparency_rules());
     rules.extend(fabrication::rules());
     rules.extend(fabrication_rules::rules());
+    rules.extend(nonlinear_guides::rules());
     rules
 }
 
@@ -2265,6 +2266,8 @@ pub fn cases() -> Vec<Case> {
     // the rules' choices
     cases.extend(crate::fabrication::checks::cases());
     cases.extend(crate::fabrication::rule_checks::cases());
+    // and in waveguides, from their modes: modal phase matching, the overlaps' coupling, SPDC
+    cases.extend(crate::nonlinear::guide_checks::cases());
     cases
 }
 
@@ -5292,6 +5295,7 @@ mod modulator;
 mod modulator_error;
 mod nonlinear;
 mod nonlinear_data;
+mod nonlinear_guides;
 mod pcm;
 mod pcm_conformal;
 mod roughness;
