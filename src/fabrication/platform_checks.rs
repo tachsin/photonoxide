@@ -581,6 +581,110 @@ fn aln_reported_flows() -> Outcome {
     exact(aln_reported_missing().len())
 }
 
+/// GaAs on 2 µm of Al₀.₃Ga₀.₇As (the catalogue's default composition) on a GaAs wafer, under an
+/// oxide cladding: Dietrich et al.'s GaAs/AlGaAs guides, the guide layer the device's core.
+pub(crate) fn gaas() -> StackSpec {
+    use crate::device::{LayerSpec, MaterialSpec};
+    StackSpec::Layers {
+        substrate: MaterialSpec::id("gaas"),
+        layers: vec![
+            LayerSpec {
+                name: "AlGaAs".into(),
+                thickness_um: 2.0,
+                material: MaterialSpec::id("algaas"),
+                background: MaterialSpec::id("algaas"),
+            },
+            LayerSpec {
+                name: "GaAs".into(),
+                thickness_um: 1.0,
+                material: MaterialSpec::id("gaas"),
+                background: MaterialSpec::id("sio2"),
+            },
+        ],
+        cladding: MaterialSpec::id("sio2"),
+        core: "GaAs".into(),
+    }
+}
+
+/// The library's devices on the GaAs stack: all but the lithium niobate modulator and the
+/// phase-change shifters, which have stacks of their own.
+pub(crate) const GAAS_SKIP: [&str; 4] = [
+    "TFLN Mach-Zehnder modulator",
+    "GST phase-change phase shifter",
+    "Sb2S3 phase-change phase shifter",
+    "Sb2Se3 phase-change phase shifter",
+];
+
+fn gaas_round_trip() -> Outcome {
+    exact(platform_round_trips(&gaas(), &GAAS_SKIP).3)
+}
+
+/// The GaAs rules' choices with the sources' answers, on a Dietrich et al. ridge (2.5 µm wide,
+/// 2 µm high) and the stack's directional coupler; each wrong answer counted. The guide layers
+/// come grown with the wafer (Dietrich et al.: MBE or MOVPE), nothing deposited under them; the
+/// guides' etch is said to be not specified (Dietrich et al. name none) and is timed, nothing
+/// stopping it on the AlGaAs; the cladding is the coolest deposition, as no source gives GaAs's
+/// budget, and the flow says so; and the design comes back to the bit.
+pub(crate) fn gaas_rules_wrong() -> Vec<String> {
+    let mut wrong = Vec::new();
+    for (kind, values) in [
+        ("waveguide", vec![("width", "2.5"), ("thickness", "2")]),
+        ("directional coupler", vec![]),
+    ] {
+        let Some((_, design)) = built(kind, gaas(), &values) else {
+            wrong.push(format!("{kind}: doesn't draw"));
+            continue;
+        };
+        let Ok(flow) = generate(&design, &Choices::default()) else {
+            wrong.push(format!("{kind}: refused"));
+            continue;
+        };
+        let ids = ids(&flow);
+        if ids.first().map(String::as_str) != Some("gaas-epitaxy")
+            || ids
+                .iter()
+                .filter(|p| p.as_str() != "pecvd-oxide")
+                .any(|p| super::process(p).is_some_and(|q| q.step == super::StepType::Deposition))
+        {
+            wrong.push(format!("{kind}: {ids:?}"));
+        }
+        if !flow
+            .not_specified
+            .iter()
+            .any(|n| n.contains("the etch of the GaAs guides"))
+        {
+            wrong.push(format!("{kind}: the etch not said to be not specified"));
+        }
+        if !flow.steps.iter().any(|s| {
+            matches!(
+                s.operation,
+                Operation::Etch {
+                    depth: super::Depth::Timed(_),
+                    ..
+                }
+            )
+        }) {
+            wrong.push(format!("{kind}: the etch isn't timed"));
+        }
+        if ids.last().map(String::as_str) != Some("pecvd-oxide")
+            || !flow
+                .not_specified
+                .iter()
+                .any(|n| n.contains("GaAs survives") || n.contains("whether GaAs"))
+        {
+            wrong.push(format!("{kind}: the cladding {:?}", ids.last()));
+        }
+        if !round_trip(&flow, &design).is_ok_and(|t| t.exact()) {
+            wrong.push(format!("{kind}: not given back"));
+        }
+    }
+    wrong
+}
+
+fn gaas_rules() -> Outcome {
+    exact(gaas_rules_wrong().len())
+}
+
 pub(crate) fn cases() -> Vec<Case> {
     vec![
         Case {
@@ -638,6 +742,20 @@ pub(crate) fn cases() -> Vec<Case> {
             tier: Tier::Published,
             source: "C. Xiong, W. H. P. Pernice, H. X. Tang, Nano Lett. 12, 3562 (2012), doi:10.1021/nl3011885, PDF pp. 2–4; H. Jung et al., Opt. Lett. 38, 2810 (2013), doi:10.1364/OL.38.002810, PDF pp. 1–2",
             run: aln_reported_flows,
+        },
+        Case {
+            id: "fabrication/gaas-round-trip",
+            title: "Every library device built on GaAs over 2 µm of AlGaAs on a GaAs wafer, under oxide (all but the lithium niobate modulator and the phase-change shifters), whose design the rules make gives back its structure and films to the bit through its generated flow: at its defaults and each parameter's range ends in turn (differing points shown)",
+            tier: Tier::Analytic,
+            source: "an exact identity: the flow's operations draw the design's own shapes, etches and films",
+            run: gaas_round_trip,
+        },
+        Case {
+            id: "fabrication/gaas-rules",
+            title: "The GaAs rules' choices on a 2.5 µm by 2 µm ridge and a directional coupler: the guide layers grown with the wafer, the guides' etch said to be not specified and timed, the cladding the coolest deposition with GaAs's budget flagged as not specified, the design given back to the bit (wrong answers shown)",
+            tier: Tier::Published,
+            source: "C. P. Dietrich et al., Laser Photonics Rev. 10, 870 (2016), doi:10.1002/lpor.201500321, Section 2 (PDF p. 2) and PDF p. 12: epitaxy by MBE or MOVPE, ridges 2–4 µm wide and high, no etch process given",
+            run: gaas_rules,
         },
     ]
 }

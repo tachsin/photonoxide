@@ -274,6 +274,29 @@ device pages can't show one yet.
 The library's other etch of aluminium nitride is KOH, which dissolves it easily (Franssila,
 p. 135).
 
+### Gallium arsenide (`waveguide` on GaAs over AlGaAs, a ridge 2.5 µm wide)
+
+Gallium arsenide and aluminium gallium arsenide are single crystals grown on a GaAs wafer, so,
+like silicon on insulator, they come with the wafer.
+
+| Layer | Film | Thickness | Drawn |
+|---|---|---|---|
+| cladding | SiO₂ | above everything | |
+| GaAs | GaAs, SiO₂ where etched | 1 µm | a strip 2.5 µm wide |
+| AlGaAs | Al₀.₃Ga₀.₇As | 2 µm | |
+| substrate | GaAs | | |
+
+| # | Step | Process | What it does, and why |
+|---|---|---|---|
+| 1 | wafer | Layers grown by epitaxy | GaAs on AlGaAs, grown with monolayer precision by MBE or MOVPE (Dietrich et al. 2016, Section 2). |
+| 2 | lithography | UV photolithography | Resist kept on the ridge; the library's order, since no GaAs paper in hand names a lithography. |
+| 3 | pattern transfer | Etch of GaAs in chlorine | **The guides' etch is not specified:** Dietrich et al. name none. The library's GaAs etch by its chemistry stands in (chlorine, whose GaAs compounds are volatile: Campbell, Table 11.3; Franssila, p. 134); its rate, walls, depth control and selectivity over AlGaAs are not stated, so the etch is timed and the flow lists them as not specified. |
+| 4 | pattern transfer | Resist removal | |
+| 5 | deposition | PECVD oxide | The cladding. No source in hand gives GaAs's or AlGaAs's thermal budget, so the coolest deposition that states its temperature is chosen (to 350 °C), and the flow says the budget is not specified. |
+
+Dietrich et al.'s ridges are 2 to 4 µm wide and high (PDF p. 12). A GaAs etch process, with its
+chemistry, walls and depth control, is the source this platform waits for.
+
 ## The process library
 
 Each process is data: its name, what it does in plain words, the films it acts on, and its

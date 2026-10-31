@@ -1119,6 +1119,36 @@ fn etch_layer(design: &Physical, i: usize, choices: &Choices, state: &mut State)
                 " The papers in hand etched {film} guides with it ({}, {}).",
                 u.source.reference, u.source.location
             ));
+        } else if !etching
+            .iter()
+            .any(|p| p.used(state.platform, Purpose::Guide).is_some())
+        {
+            // no paper on the platform names its guides' etch: the process is not specified
+            let papers: Vec<String> = library()
+                .iter()
+                .filter(|p| p.step == StepType::Wafer)
+                .filter_map(|p| p.used(state.platform, Purpose::Guide))
+                .map(|u| u.source.reference.clone())
+                .collect();
+            reason.push_str(&format!(
+                " The etch of the {film} guides is not specified: the {} papers in hand ({}) \
+                 name none. The library's etch of {film} by its chemistry stands in, as the \
+                 textbooks give it; its rate, walls, depth control and selectivity over the \
+                 film below are what the sources don't state.",
+                state.platform.name(),
+                if papers.is_empty() {
+                    "none".to_string()
+                } else {
+                    papers.join(", ")
+                }
+            ));
+            state.note(format!(
+                "{}: the etch of the {film} guides (the {} papers in hand name none; {} stands \
+                 in)",
+                layer.name,
+                state.platform.name(),
+                chosen.name
+            ));
         }
         match sidewall_off(chosen, deg) {
             Some(0.0) => reason.push_str(&format!(

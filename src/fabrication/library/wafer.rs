@@ -140,7 +140,47 @@ pub(super) fn processes() -> Vec<Process> {
     ];
     soi.handle = Some("Si".into());
     lnoi.handle = Some("Si".into());
-    vec![soi, lnoi, silicon()]
+    vec![soi, lnoi, silicon(), gaas()]
+}
+
+/// A GaAs wafer with its guide layers grown on it by epitaxy.
+fn gaas() -> Process {
+    let mut p = new_process(
+        "gaas-epitaxy",
+        StepType::Wafer,
+        "Gallium arsenide layers grown by epitaxy on a GaAs wafer",
+        "The guide's layers are grown on a gallium arsenide wafer one atomic layer at a time, by \
+         molecular beam epitaxy (MBE) or metal-organic vapour phase epitaxy (MOVPE): aluminium \
+         gallium arsenide below, a lower index, and gallium arsenide above it, the guide. They \
+         are single crystals continuing the wafer's, so they are grown, never deposited.",
+        &["AlGaAs", "GaAs"],
+    );
+    p.handle = Some("GaAs".into());
+    p.capabilities = vec![cap(
+        Quantity::Uniformity,
+        Stated::not_specified(),
+        "the layers' thickness: stated only as grown \"with monolayer precision\"",
+    )];
+    p.facts = vec![
+        fact(
+            "GaAs structures are grown monolithically with monolayer precision by MBE or MOVPE.",
+            "dietrich-2016",
+            "Section 2 (PDF p. 2)",
+        ),
+        fact(
+            "GaAs/AlGaAs ridge waveguides 2 to 4 µm wide and high made directional couplers with \
+             2.5 to 3.5 dB/cm of propagation loss.",
+            "dietrich-2016",
+            "Section 5 (PDF p. 12)",
+        ),
+    ];
+    p.used_for = vec![used(
+        Platform::Gaas,
+        Purpose::Guide,
+        "dietrich-2016",
+        "Section 5 (PDF p. 12)",
+    )];
+    p
 }
 
 /// A bare silicon wafer, the start of the platforms whose guide film is deposited.

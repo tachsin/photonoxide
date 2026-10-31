@@ -209,6 +209,14 @@ const ROWS: &[Row] = &[
         "https://arxiv.org/abs/1307.6761",
     ),
     (
+        "dietrich-2016",
+        "C. P. Dietrich, A. Fiore, M. G. Thompson, M. Kamp, S. Höfling, Laser Photonics Rev. 10, 870 (2016)",
+        "GaAs integrated quantum photonics: Towards compact and multi-functional quantum photonic integrated circuits",
+        "10.1002/lpor.201500321",
+        "",
+        "",
+    ),
+    (
         "friedrich-2000",
         "I. Friedrich, V. Weidenhof, W. Njoroge, P. Franz, M. Wuttig, J. Appl. Phys. 87, 4130 (2000)",
         "Structural transformations of Ge2Sb2Te5 films studied by electrical resistance measurements",

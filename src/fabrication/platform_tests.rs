@@ -57,6 +57,20 @@ fn aluminium_nitride_is_sputtered_etched_in_chlorine_and_clad_as_its_papers_did(
 }
 
 #[test]
+fn gaas_comes_grown_and_its_etch_is_not_specified() {
+    assert_eq!(gaas_rules_wrong(), Vec::<String>::new());
+    let (_, design) = built("waveguide", gaas(), &[("width", "2.5")]).unwrap();
+    let flow = generate(&design, &Choices::default()).unwrap();
+    let etch = flow
+        .steps
+        .iter()
+        .find(|s| s.process == "rie-gaas-chlorine")
+        .unwrap();
+    assert!(etch.reason.contains("is not specified"), "{}", etch.reason);
+    assert!(etch.reason.contains("dietrich-2016"), "{}", etch.reason);
+}
+
+#[test]
 fn library_devices_on_nitride_round_trip_at_their_defaults() {
     for kind in [
         "waveguide",
