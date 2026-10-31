@@ -611,7 +611,9 @@ fn group_index_case() -> Outcome {
 
 /// The cases: modal phase matching, the overlaps, and the pairs' group index.
 pub(crate) fn cases() -> Vec<Case> {
-    modal_cases()
+    let mut cases = modal_cases();
+    cases.extend(overlap_cases());
+    cases
 }
 
 /// Modal phase matching: the plane-wave limit and Zhao et al.'s guide.

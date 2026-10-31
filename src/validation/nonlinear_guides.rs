@@ -7,7 +7,9 @@
 use super::{Basis::*, Measure::*, Numerical::*, Rule};
 
 pub(crate) fn rules() -> Vec<(&'static str, Rule)> {
-    modal_rules()
+    let mut rules = modal_rules();
+    rules.extend(overlap_rules());
+    rules
 }
 
 /// Modal phase matching: the plane-wave limit and Zhao et al.'s guide.
