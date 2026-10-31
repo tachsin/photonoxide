@@ -8,7 +8,7 @@
 //! It skips, saying so, where openEMS isn't found. The runs log their progress to stderr and
 //! to `progress.log` in their folders under `crosscode/target/tmp/openems/`; a finished run of
 //! the same model is taken again. Where `PHOTONOXIDE_OPENEMS_ONLY` names some of the lines
-//! (`microstrip`, `zhang`, `lossy`, comma-separated), only those run, and the report is printed, not written.
+//! (`microstrip`, `zhang`, `lossy`, `rails`, comma-separated), only those run, and the report is printed, not written.
 
 use std::fmt::Write as _;
 use std::path::Path;
@@ -24,7 +24,13 @@ use photonoxide_crosscode::microstrip::Microstrip;
 use photonoxide_crosscode::openems::Model;
 use photonoxide_crosscode::openems::{OpenEms, Run};
 use photonoxide_crosscode::report::{percent, signed_percent};
-use photonoxide_crosscode::zhang_line::{CLADDING, LN as ZHANG_LN, OXIDE, SILICON, ZhangLine};
+use photonoxide_crosscode::t_rails::{
+    Extent, LEAD_CELLS, LEAD_STEP, LENGTH as RAILS_LENGTH, OXIDE, PERIODS as RAILS_PERIODS, QUARTZ,
+    SPACING as RAILS_SPACING, TRails, measured as rails_measured,
+};
+use photonoxide_crosscode::zhang_line::{
+    CLADDING, LN as ZHANG_LN, OXIDE as ZHANG_OXIDE, SILICON, ZhangLine,
+};
 
 /// The microstrip's meshes' smallest cells, µm, each half the last: three meshes, the fewest
 /// an extrapolation takes.
@@ -50,13 +56,17 @@ const INDEX_TOLERANCE: f64 = 5e-3;
 const IMPEDANCE_TOLERANCE: f64 = 5e-3;
 
 /// The lossy line's meshes: the smallest cell at the copper's faces two skin depths at 300 GHz
-/// (0.12 µm), then one, then half; growing by [`GROWTH`] to 5 µm.
-const LOSSY_SMALLEST: [f64; 3] = [0.24, 0.12, 0.06];
+/// (0.12 µm), then one, a half and a quarter; growing by [`GROWTH`] to 5 µm. The extrapolation
+/// takes the last three: on the coarsest the skin is two cells deep, and the loss's error isn't
+/// yet in its asymptotic range.
+const LOSSY_SMALLEST: [f64; 4] = [0.24, 0.12, 0.06, 0.03];
 const LOSSY_LARGEST: f64 = 5.0;
-/// The lossy line's end criterion: the energy down by 60 dB. Past it the copper line's energy
-/// falls by about 2 dB in every 50 000 steps (on the coarsest mesh), and 70 dB would take the
-/// finest about six hours; its planes' voltages have rung down by more than 90 dB by then.
-const LOSSY_END: f64 = 1e-6;
+/// The lossy line's end criterion: the energy down by 55 dB. Its last dB come slowly (from 50
+/// to 60 dB takes the coarsest mesh as many steps as the first 50), and 60 dB would take the
+/// finest more than six hours. The planes' voltages have rung down by more than 90 dB by then
+/// (the study checks 80), and on the coarsest mesh the signals cut there give the loss within
+/// 0.06 % of the 60 dB run's, n and Re Z₀ within 0.005 %.
+const LOSSY_END: f64 = 3.162_277_660_168_379_5e-6;
 /// photonoxide's full-wave converged study on the lossy line.
 const LOSSY_CONVERGED: [f64; 3] = [0.03, 0.015, 0.0075];
 const LOSSY_CONVERGED_GROWTH: f64 = 1.05;
@@ -66,6 +76,16 @@ const LOSSY_CONVERGED_LARGEST: f64 = 1.0;
 /// lossy line, the loss converging more slowly than the index as the current crowds into the
 /// copper's skin and corners.
 const LOSS_TOLERANCE: f64 = 2e-2;
+
+/// The T-rail line's meshes across and in height, as the microstrip's (2, 1 and 0.5 µm), the
+/// cells growing by 1.2 to 25 µm; along the line, from twice the smallest at the rails' ends
+/// and the stems' edges, growing by 1.3 to 5 µm. A fourth, 0.25 µm, is left: 11.8 million cells
+/// for the half, its time step 0.26 fs, some 370 000 steps to settle, more than six hours here
+/// with other work sharing the computer.
+const RAILS_SMALLEST: [f64; 3] = [2.0, 1.0, 0.5];
+const RAILS_GROWTH: f64 = 1.2;
+const RAILS_ALONG_GROWTH: f64 = 1.3;
+const RAILS_ALONG_LARGEST: f64 = 5.0;
 
 const REPORT: &str = concat!(
     env!("CARGO_MANIFEST_DIR"),
@@ -539,14 +559,17 @@ fn lossy(program: &OpenEms, folder: &Path, started: Instant) -> (String, Vec<Che
          even mode) against openEMS with the copper a conductor (its Kappa) whose skin the mesh \
          resolves. openEMS runs a section 1.2 mm long in 10 µm cells (25 to the guided \
          wavelength at 300 GHz), 8-cell PMLs at both ends, driven across both gaps by a Gaussian \
-         pulse of 25 to 325 GHz until the energy is down by 60 dB (its slow last tens of dB would \
-         take hours more on the finest mesh; the planes' voltages have rung down by more than \
-         80 dB by then, which the study checks); the voltage across a gap at \
+         pulse of 25 to 325 GHz until the energy is down by 55 dB (its slow last dB would take \
+         hours more on the finest mesh; the planes' voltages have rung down by more than 80 dB \
+         by then, which the study checks, and on the coarsest mesh the signals cut there give \
+         the loss within 0.06 % of a run to 60 dB); the voltage across a gap at \
          three planes 150 µm apart (a quarter of the guided wavelength at 300 GHz, so that the \
          three-plane wavenumber's principal value is the right one) and the current around the \
          signal midway give k = β + iα and Z₀. Both take the same mesh lines across, the \
-         smallest cells at the copper's faces two skin depths (at 300 GHz), one and a half, \
-         growing by {GROWTH} to {LOSSY_LARGEST} µm; photonoxide converged graded from {} µm by \
+         smallest cells at the copper's faces two skin depths (at 300 GHz), one, a half and a \
+         quarter, growing by {GROWTH} to {LOSSY_LARGEST} µm, and the extrapolation takes the \
+         three finest (on the coarsest the skin is two cells deep, and the loss's error isn't \
+         yet in its asymptotic range); photonoxide converged graded from {} µm by \
          {LOSSY_CONVERGED_GROWTH} to {LOSSY_CONVERGED_LARGEST} µm. The index βc/ω, Re Z₀ and the \
          attenuation α at {} GHz.\n\n",
         line.metal,
@@ -606,9 +629,26 @@ fn lossy(program: &OpenEms, folder: &Path, started: Instant) -> (String, Vec<Che
             ((a - b) / a).abs()
         })
         .fold(0.0f64, f64::max);
+    let worst_loss = checks
+        .iter()
+        .filter(|(what, ..)| what.ends_with("dB/cm"))
+        .fold(0.0f64, |m, (_, e, _)| m.max(e.abs()));
+    let verdict = if worst_loss <= LOSS_TOLERANCE {
+        format!(
+            "extrapolated from the three finest meshes, openEMS's loss meets photonoxide's converged loss within {:.2} % at every frequency (tolerance {:.0} %)",
+            100.0 * worst_loss,
+            100.0 * LOSS_TOLERANCE
+        )
+    } else {
+        format!(
+            "extrapolated from the three finest meshes, openEMS's loss is still {:.2} % from photonoxide's converged loss at its worst (tolerance {:.0} %)",
+            100.0 * worst_loss,
+            100.0 * LOSS_TOLERANCE
+        )
+    };
     let _ = writeln!(
         out,
-        "\nOn every mesh openEMS and photonoxide agree within {:.2} % on every figure (the last column, for the finest): mesh by mesh the two codes give the same line. The loss, though, still moves by up to {:.1} % between the two finest meshes, the copper's skin only a few cells deep, and where its three meshes' differences don't shrink steadily (an order far from the others', or none) their extrapolation can't stand for the converged loss. What would settle it is a finer openEMS mesh, its smallest cells 0.03 µm (a quarter of the skin depth at 300 GHz; about five hours on 4 threads).",
+        "\nOn every mesh openEMS and photonoxide agree within {:.2} % on every figure (the last column, for the finest): mesh by mesh the two codes give the same line. The loss converges more slowly than n and Re Z₀, the current crowding into the copper's skin, a few cells deep: it moves by up to {:.1} % between the two finest meshes. With a quarter of the skin depth at 300 GHz as the finest cell, {verdict}.",
         100.0 * same_worst,
         100.0 * moving
     );
@@ -651,6 +691,302 @@ fn lossy(program: &OpenEms, folder: &Path, started: Instant) -> (String, Vec<Che
     (out, checks)
 }
 
+/// openEMS's n and Z₀ (Ω) at 0 GHz from a T-rail run of `extent` on the mesh lines `across`:
+/// the limits of v(f) = v₀ + a f² over [`FREQUENCIES_GHZ`], and each frequency's figures.
+fn rails_figures(run: &Run, extent: Extent, across: &Axis) -> (f64, f64, Vec<Measured>) {
+    let lines = rails_measured(run, &FREQUENCIES_GHZ, extent, across).expect("openEMS's probes");
+    let fit = |f: fn(&Measured) -> f64| {
+        at_zero(
+            &lines
+                .iter()
+                .map(|m| (m.frequency_ghz, f(m)))
+                .collect::<Vec<_>>(),
+        )
+    };
+    (fit(Measured::index), fit(Measured::ohm), lines)
+}
+
+/// Kharel et al.'s T-rail electrodes: openEMS's 3D FDTD on the half line beside a magnetic wall
+/// (checked against the whole line on the coarsest mesh) against photonoxide's periodic line.
+fn rails(program: &OpenEms, folder: &Path, started: Instant) -> (String, Vec<Check>) {
+    let line = TRails::kharel_d();
+    let axes = |smallest: f64, growth: f64, largest: f64| {
+        line.axes(
+            &Mesh {
+                smallest,
+                growth,
+                largest,
+            },
+            &Mesh {
+                smallest: 2.0 * smallest,
+                growth: RAILS_ALONG_GROWTH,
+                largest: RAILS_ALONG_LARGEST,
+            },
+        )
+        .expect("a valid mesh")
+    };
+    let total = RAILS_SMALLEST.len() + 1;
+    let mut step = 0;
+    let mut run_one = |smallest: f64, extent: Extent| {
+        let (y, z, x) = axes(smallest, RAILS_GROWTH, ZHANG_LARGEST);
+        let model = line.model(&y, &z, &x, END, extent);
+        step += 1;
+        let which = match extent {
+            Extent::Whole => "whole",
+            Extent::Half => "half",
+        };
+        eprintln!(
+            "[openems-lines] step {step}/{total} ({:.0}%), {:.0} s elapsed: the T-rail line, its {which}, {smallest} µm, {} cells",
+            100.0 * (step - 1) as f64 / total as f64,
+            started.elapsed().as_secs_f64(),
+            model.cells()
+        );
+        let label = format!("rails {step}/{total}, {which}, {smallest} µm");
+        let run = program
+            .run(
+                &model,
+                &folder.join(format!("rails-{which}-{smallest}")),
+                &label,
+            )
+            .expect("openEMS's run");
+        let stop = stopped(&run, &label, false);
+        let (n, ohm, lines) = rails_figures(&run, extent, &y);
+        eprintln!("  openEMS n {n:.6} Z {ohm:.4}");
+        (model.cells(), run, stop, n, ohm, lines, (y, z))
+    };
+    // the magnetic wall against the whole line, on the coarsest mesh
+    let whole = run_one(RAILS_SMALLEST[0], Extent::Whole);
+    let mut rows = Vec::new();
+    for &smallest in &RAILS_SMALLEST {
+        let (cells, run, stop, n, ohm, lines, (y, z)) = run_one(smallest, Extent::Half);
+        let ours = line.bloch(&y, &z).expect("the static solves");
+        eprintln!(
+            "  photonoxide on the same lines n {:.6} Z {:.4}",
+            ours.0, ours.1
+        );
+        rows.push(Row {
+            smallest,
+            cells,
+            steps: run.steps,
+            seconds: run.seconds,
+            stop,
+            lines,
+            index: n,
+            ohm,
+            ours,
+        });
+    }
+    eprintln!("[openems-lines] the T-rail line, photonoxide converged");
+    let converged: Vec<(f64, f64)> = CONVERGED
+        .iter()
+        .map(|&smallest| {
+            let (y, z, _) = axes(smallest, CONVERGED_GROWTH, CONVERGED_LARGEST);
+            let c = line.bloch(&y, &z).expect("the static solves");
+            eprintln!("  photonoxide, {smallest} µm: n {:.6} Z {:.4}", c.0, c.1);
+            c
+        })
+        .collect();
+    let column = |f: fn(&Row) -> f64| rows.iter().map(f).collect::<Vec<_>>();
+    let (oe_n, oe_np) = extrapolated(&column(|r| r.index));
+    let (oe_z, oe_zp) = extrapolated(&column(|r| r.ohm));
+    let (px_n, px_np) = extrapolated(&column(|r| r.ours.0));
+    let (px_z, px_zp) = extrapolated(&column(|r| r.ours.1));
+    let (cv_n, cv_np) = extrapolated(&converged.iter().map(|c| c.0).collect::<Vec<_>>());
+    let (cv_z, cv_zp) = extrapolated(&converged.iter().map(|c| c.1).collect::<Vec<_>>());
+    let (ref_n, ref_z) = converged[converged.len() - 1];
+    let bound = {
+        let (y, z, _) = axes(
+            CONVERGED[CONVERGED.len() - 1],
+            CONVERGED_GROWTH,
+            CONVERGED_LARGEST,
+        );
+        line.loaded_bound(&y, &z).expect("the static solves")
+    };
+    let last = &rows[rows.len() - 1];
+    let first = &rows[0];
+    let same_worst = rows
+        .iter()
+        .flat_map(|r| [(r.index, r.ours.0), (r.ohm, r.ours.1)])
+        .fold(0.0f64, |m, (a, b)| m.max(((a - b) / b).abs()));
+
+    let mut out = String::new();
+    let _ = writeln!(
+        out,
+        "## Kharel et al.'s T-rail electrodes\n\n\
+         Kharel et al.'s segmented electrodes on thin-film lithium niobate on quartz (Optica 8, 357 (2021), Table 1's row d and Fig. 1; the erratum, Optica 8, 1218 (2021), corrects only Fig. 4(a)): a signal {} µm wide, the rails' gap g = {} µm, each rail s = {} µm wide across, h = {} µm from its channel electrode, r = {} µm long, c = {} µm between rails along the line, each joined to its channel by a stem t = {} µm wide in its middle; the channels {} µm apart, the grounds {} µm wide (not given). The electrodes {} µm thick (gold, perfect conductors here), on a {} µm x-cut film etched to a slab of {} µm and a rib {} µm wide in the rails' gap (upright sidewalls), on {} µm of oxide (ε {OXIDE}) over {} µm of quartz (ε {QUARTZ}), under {} µm of oxide over the slab and air, in a perfectly conducting box as wide as the line (±{} µm), its lid {} µm above the film; the film's permittivity {} across and {} up and along, as Zhang et al.'s line's.\n\n\
+         photonoxide's line is its model of these electrodes (the validation cases line/kharel-2021-segmented-*): a period of half the channel line's c, the line loaded by the rails r long (Shin et al. 2005, Eq. 7: the capacitance of the section through the rails, the channel line's inductance) and the other half, each section from its static solver on half the box, the stems left out, and the Bloch wave of the period's ABCD matrix (`electro::line::Periodic`) at 1 GHz, where it is the static line's. openEMS solves the electrodes as drawn, rails, stems and all, in 3D: a section {} mm long ({} periods), its mesh the same in every period, and at both ends a lead of the channel line alone ({} µm in {LEAD_STEP} µm cells) ended by Mur's absorbing condition (the pulse leaves a static field on the line, under which openEMS's PMLs at the ends grew unstable, the energy rising without end some 70 to 90 ps in), driven across the channels' gap at the middle of a gap between rails by a Gaussian pulse of 10 to 110 GHz, until the energy has settled or fallen by 70 dB; the voltage across the gap at the rib's top at three planes {} µm apart at the middles of gaps between rails (six periods, so that the Bloch wave is the same at each and midway), the current around the signal and its rails midway (the mean of the dual mesh's planes either side), give k and the Bloch Z₀ at 10 to 50 GHz, and n and Z₀ the limits at 0 GHz of v(f) = v₀ + a f². It solves half the line, beside a magnetic wall through the signal's middle (the even mode's symmetry), the current loops starting at the first two dual lines beside the wall and the current between the wall and the first added in proportion; on the coarsest mesh the whole line checks it. Across and in height both codes take the same mesh lines, from the smallest at every edge and layer growing by {RAILS_GROWTH} to {ZHANG_LARGEST} µm; along the line openEMS's cells start at twice the smallest at the rails' ends and the stems' edges and grow by {RAILS_ALONG_GROWTH} to {RAILS_ALONG_LARGEST} µm.\n",
+        2.0 * line.signal,
+        line.g,
+        line.s,
+        line.h,
+        line.r,
+        line.c,
+        line.t,
+        line.channel_gap(),
+        line.ground,
+        line.metal,
+        line.film,
+        line.slab,
+        line.rib,
+        line.buried,
+        line.quartz,
+        line.clad,
+        line.reach(),
+        line.lid,
+        ZHANG_LN[0],
+        ZHANG_LN[1],
+        RAILS_LENGTH / 1000.0,
+        RAILS_PERIODS,
+        LEAD_STEP * LEAD_CELLS as f64,
+        RAILS_SPACING,
+    );
+    let _ = writeln!(
+        out,
+        "| | n | Error | Z₀, Ω | Error |\n|---|---:|---:|---:|---:|\n\
+         | photonoxide, converged (the reference) | {} | — | {} | — |\n\
+         | openEMS, extrapolated from its three meshes | {} | {} | {} | {} |\n\
+         | photonoxide on the same lines, extrapolated | {} | {} | {} | {} |\n\
+         | openEMS on its finest mesh ({} µm) | {} | {} | {} | {} |\n\
+         | photonoxide on the same mesh | {} | {} | {} | {} |\n\
+         | photonoxide, converged, every gap between rails loaded as the rails (the 2D sections' bound) | {} | {} | {} | {} |\n\
+         | openEMS, the whole line, coarsest mesh ({} µm) | {} | {} | {} | {} |\n\
+         | openEMS, its half beside the magnetic wall, the same mesh | {} | {} | {} | {} |\n",
+        sig(ref_n, 6),
+        sig(ref_z, 4),
+        sig(oe_n, 6),
+        percent(oe_n, ref_n),
+        sig(oe_z, 4),
+        percent(oe_z, ref_z),
+        sig(px_n, 6),
+        percent(px_n, ref_n),
+        sig(px_z, 4),
+        percent(px_z, ref_z),
+        last.smallest,
+        sig(last.index, 6),
+        percent(last.index, ref_n),
+        sig(last.ohm, 4),
+        percent(last.ohm, ref_z),
+        sig(last.ours.0, 6),
+        percent(last.ours.0, ref_n),
+        sig(last.ours.1, 4),
+        percent(last.ours.1, ref_z),
+        sig(bound.0, 6),
+        percent(bound.0, ref_n),
+        sig(bound.1, 4),
+        percent(bound.1, ref_z),
+        first.smallest,
+        sig(whole.3, 6),
+        percent(whole.3, ref_n),
+        sig(whole.4, 4),
+        percent(whole.4, ref_z),
+        sig(first.index, 6),
+        percent(first.index, ref_n),
+        sig(first.ohm, 4),
+        percent(first.ohm, ref_z),
+    );
+    let _ = writeln!(
+        out,
+        "The half beside its magnetic wall is {} on n and {} on Z₀ from the whole line on the coarsest mesh, a difference of the order of its first cell that the finer meshes shrink. Mesh by mesh openEMS and photonoxide differ by up to {:.1} % ({} on n and {} on Z₀ on the finest mesh), openEMS's n falling and photonoxide's rising as the cells shrink. Their extrapolations don't meet: openEMS's n and Z₀ give the line a capacitance {} and an inductance {} against photonoxide's converged period (C = n/(cZ₀), L = nZ₀/c). openEMS solves the electrodes in 3D; photonoxide's 2D sections leave out the rails' ends fringing across the gaps between them (which the bound above, every gap loaded as the rails, holds at most: there n {} and Z₀ {}) and the current that charges the rails through the stems, as Shin et al.'s model does.\n",
+        percent(first.index, whole.3),
+        percent(first.ohm, whole.4),
+        100.0 * same_worst,
+        percent(last.index, last.ours.0),
+        percent(last.ohm, last.ours.1),
+        percent(oe_n / oe_z, ref_n / ref_z),
+        percent(oe_n * oe_z, ref_n * ref_z),
+        percent(bound.0, ref_n),
+        percent(bound.1, ref_z),
+    );
+    let _ = writeln!(
+        out,
+        "| Smallest cell | openEMS's cells (the half) | Steps (its run) | n at {} GHz | Z₀ at the same, Ω | openEMS at 0 GHz: n, Z₀ | Error: n, Z₀ | photonoxide, the same lines: n, Z₀ | Error: n, Z₀ |\n|---:|---:|---:|---|---|---|---|---|---|",
+        FREQUENCIES_GHZ.map(|f| format!("{f:.0}")).join(", ")
+    );
+    for r in &rows {
+        let _ = writeln!(
+            out,
+            "| {} µm | {} | {} ({:.0} min{}) | {} | {} | {}, {} | {}, {} | {}, {} | {}, {} |",
+            r.smallest,
+            r.cells,
+            r.steps,
+            r.seconds / 60.0,
+            r.stop,
+            r.lines
+                .iter()
+                .map(|m| sig(m.index(), 5))
+                .collect::<Vec<_>>()
+                .join(", "),
+            r.lines
+                .iter()
+                .map(|m| sig(m.ohm(), 3))
+                .collect::<Vec<_>>()
+                .join(", "),
+            sig(r.index, 5),
+            sig(r.ohm, 3),
+            percent(r.index, ref_n),
+            percent(r.ohm, ref_z),
+            sig(r.ours.0, 5),
+            sig(r.ours.1, 3),
+            percent(r.ours.0, ref_n),
+            percent(r.ours.1, ref_z)
+        );
+    }
+    let _ = writeln!(
+        out,
+        "\nThe whole line on the coarsest mesh: {} cells, {} steps ({:.0} min{}).\n",
+        whole.0,
+        whole.1.steps,
+        whole.1.seconds / 60.0,
+        whole.2
+    );
+    let _ = writeln!(
+        out,
+        "| | n | Z₀, Ω | From |\n|---|---:|---:|---|\n\
+         | openEMS, extrapolated | {} | {} | its three meshes; n {}, Z₀ {} |\n\
+         | photonoxide on the same lines, extrapolated | {} | {} | the same; n {}, Z₀ {} |\n\
+         | photonoxide, converged | {} | {} | graded from {} µm by {CONVERGED_GROWTH} to {CONVERGED_LARGEST} µm (from {} µm: n {}, Z₀ {}; extrapolated n {}, {}, Z₀ {}, {}) |\n",
+        sig(oe_n, 5),
+        sig(oe_z, 3),
+        order(oe_np),
+        order(oe_zp),
+        sig(px_n, 5),
+        sig(px_z, 3),
+        order(px_np),
+        order(px_zp),
+        sig(ref_n, 5),
+        sig(ref_z, 3),
+        CONVERGED[CONVERGED.len() - 1],
+        CONVERGED.map(|s| s.to_string()).join(", "),
+        converged
+            .iter()
+            .map(|c| sig(c.0, 6))
+            .collect::<Vec<_>>()
+            .join(", "),
+        converged
+            .iter()
+            .map(|c| sig(c.1, 4))
+            .collect::<Vec<_>>()
+            .join(", "),
+        sig(cv_n, 6),
+        order(cv_np),
+        sig(cv_z, 4),
+        order(cv_zp)
+    );
+    let checks = vec![
+        (
+            "the T-rail line: n".to_owned(),
+            (oe_n - ref_n) / ref_n,
+            INDEX_TOLERANCE,
+        ),
+        (
+            "the T-rail line: Z₀".to_owned(),
+            (oe_z - ref_z) / ref_z,
+            IMPEDANCE_TOLERANCE,
+        ),
+    ];
+    (out, checks)
+}
+
 #[test]
 #[ignore = "runs openEMS, where it is installed: hours"]
 fn openems_agrees_on_more_lines() {
@@ -663,7 +999,7 @@ fn openems_agrees_on_more_lines() {
     };
     let folder = Path::new(env!("CARGO_TARGET_TMPDIR")).join("openems");
     let started = Instant::now();
-    let all = ["microstrip", "zhang", "lossy"];
+    let all = ["microstrip", "zhang", "lossy", "rails"];
     let mut sections = String::new();
     let mut checks: Vec<Check> = Vec::new();
     let strip = Microstrip::alumina_like();
@@ -694,7 +1030,7 @@ fn openems_agrees_on_more_lines() {
             name: "Zhang et al.'s line",
             heading: "Zhang et al.'s thin-film lithium niobate line, its full stack",
             about: format!(
-                "Zhang et al.'s line (Photon. Res. 10, 2380 (2022), Section 2) with everything around it: a ground–signal–ground line, the signal {} µm wide, gaps of {} µm, grounds {} µm wide (not given), the electrodes {} µm thick (800 nm of copper under 30 nm of gold, perfect conductors here), on an x-cut film {} µm thick etched {} µm to a rib {} µm wide in each gap (its sidewalls upright, so that the mesh lines follow them), on {} µm of thermal oxide (ε {OXIDE}) over {} µm of silicon (ε {SILICON}), under {} µm of PECVD oxide (ε {CLADDING}, the paper's) and air, in a perfectly conducting box as wide as the line (±{r} µm), the grounds running to its sides so that they are its potential and no static charge is left on them, its floor under the silicon and its lid {lid} µm above the film. The film's clamped static permittivity is anisotropic: {} across (the crystal's c axis), {} up and along the line, photonoxide's a diagonal tensor and openEMS's a diagonal material. openEMS runs a section {} mm long as the coplanar line's, driven across both gaps, the voltage across one gap at the ribs' top and the current around the signal (a loop through the gaps' middles, from 1 µm down in the buried oxide to 3 µm up in the air); its n and Z₀ at 0 GHz as above. photonoxide's quasi-TEM line is its static solver's on half the box. Both take the same mesh lines, cells from the smallest at the electrodes' and the ribs' edges and at every layer, growing by {GROWTH} to {} µm (the largest cells 25 µm, the line's own cell along it, a sixty-fourth of the shortest wavelength in the silicon, to keep openEMS's three runs to a few hours); the thin layers set openEMS's time step on every mesh.",
+                "Zhang et al.'s line (Photon. Res. 10, 2380 (2022), Section 2) with everything around it: a ground–signal–ground line, the signal {} µm wide, gaps of {} µm, grounds {} µm wide (not given), the electrodes {} µm thick (800 nm of copper under 30 nm of gold, perfect conductors here), on an x-cut film {} µm thick etched {} µm to a rib {} µm wide in each gap (its sidewalls upright, so that the mesh lines follow them), on {} µm of thermal oxide (ε {ZHANG_OXIDE}) over {} µm of silicon (ε {SILICON}), under {} µm of PECVD oxide (ε {CLADDING}, the paper's) and air, in a perfectly conducting box as wide as the line (±{r} µm), the grounds running to its sides so that they are its potential and no static charge is left on them, its floor under the silicon and its lid {lid} µm above the film. The film's clamped static permittivity is anisotropic: {} across (the crystal's c axis), {} up and along the line, photonoxide's a diagonal tensor and openEMS's a diagonal material. openEMS runs a section {} mm long as the coplanar line's, driven across both gaps, the voltage across one gap at the ribs' top and the current around the signal (a loop through the gaps' middles, from 1 µm down in the buried oxide to 3 µm up in the air); its n and Z₀ at 0 GHz as above. photonoxide's quasi-TEM line is its static solver's on half the box. Both take the same mesh lines, cells from the smallest at the electrodes' and the ribs' edges and at every layer, growing by {GROWTH} to {} µm (the largest cells 25 µm, the line's own cell along it, a sixty-fourth of the shortest wavelength in the silicon, to keep openEMS's three runs to a few hours); the thin layers set openEMS's time step on every mesh.",
                 2.0 * zhang.signal,
                 zhang.gap,
                 zhang.ground,
@@ -729,6 +1065,11 @@ fn openems_agrees_on_more_lines() {
     }
     if runs("lossy") {
         let (s, c) = lossy(&program, &folder, started);
+        sections.push_str(&s);
+        checks.extend(c);
+    }
+    if runs("rails") {
+        let (s, c) = rails(&program, &folder, started);
         sections.push_str(&s);
         checks.extend(c);
     }
