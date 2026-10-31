@@ -1,14 +1,15 @@
-//! Each external library's newest release, beside the version its guide was checked with and
-//! the releases photonoxide-native accepts: `photonoxide libraries --releases`.
+//! Each external library's newest release, beside the version we use (the one its guide was
+//! checked with): `photonoxide libraries --releases`.
 //!
 //! The Releases workflow (`.github/workflows/releases.yml`) runs it every Monday and keeps its
-//! table in one GitHub issue, "New releases of external libraries", commenting there when a
-//! release appears. A release is read where its publisher puts it: anaconda.org's API for
+//! table in one GitHub issue, "New releases of external libraries", with a line for each
+//! library, commenting there when a release appears. A release is read where its publisher puts it: anaconda.org's API for
 //! conda-forge, PyPI's JSON API, NVIDIA's redistributables' manifests, the projects' GitHub
 //! releases, MUMPS's download page, and the readmes of GitHub's macOS runner images for
 //! Accelerate, which is part of macOS (Apple's own feed of macOS releases is signed by a
 //! certificate authority of Apple's that ordinary clients don't trust). A source that can't
-//! be read is said so in the table, and the run fails after writing it.
+//! be read is left out of the newest (a library with none left says so), and the run fails after
+//! writing the issue.
 
 use std::cmp::Ordering;
 use std::collections::BTreeMap;
@@ -33,7 +34,7 @@ pub const ACCELERATE_CHECKED: &str = "27.0.1";
 /// and conda-forge's and Ubuntu's packages come later.
 pub const MUMPS_CHECKED: &str = "5.9.1";
 
-/// What to do with a new release, in the issue and in docs/libraries.md.
+/// What to do with a new release, in docs/libraries.md.
 pub const STEPS: &str = "\
 1. **Read its release notes** for what photonoxide calls: MUMPS's `ZMUMPS_STRUC_C` and \
 SuperLU's options change between releases, and NVIDIA's, oneMKL's and OpenBLAS's file names \
@@ -84,22 +85,6 @@ impl Origin {
             Origin::Nvidia { name, .. } => format!("NVIDIA's {name} redistributables"),
             Origin::Mumps => "mumps-solver.org".into(),
             Origin::MacosRunners => "GitHub's macOS runners".into(),
-        }
-    }
-
-    /// The page a reader can look at.
-    pub fn page(&self) -> String {
-        match self {
-            Origin::Conda(p) => format!("https://anaconda.org/conda-forge/{p}"),
-            Origin::PyPi(p) => format!("https://pypi.org/project/{p}/"),
-            Origin::GitHub(repo) => format!("https://github.com/{repo}/releases"),
-            Origin::Nvidia { product, .. } => {
-                format!("https://developer.download.nvidia.com/compute/{product}/redist/")
-            }
-            Origin::Mumps => MUMPS_PAGE.into(),
-            Origin::MacosRunners => {
-                "https://github.com/actions/runner-images/tree/main/images/macos".into()
-            }
         }
     }
 }
@@ -716,15 +701,6 @@ impl Row {
         format!("{} | {}", self.source.library, self.source.origin.name())
     }
 
-    /// Whether the newest release is newer than the one checked.
-    pub fn newer(&self) -> bool {
-        match (&self.newest, &self.checked) {
-            (Ok(r), Some(c)) => compare(&r.version, c).is_gt(),
-            (Ok(_), None) => true,
-            _ => false,
-        }
-    }
-
     /// Whether photonoxide-native accepts the newest release.
     pub fn accepted(&self) -> Option<bool> {
         let r = self.newest.as_ref().ok()?;
@@ -792,7 +768,55 @@ pub fn news<'a>(rows: &'a [Row], previous: Option<&BTreeMap<String, String>>) ->
         .collect()
 }
 
-/// The issue's body: the record of the newest versions, the table, and what to do.
+/// One library's line in the issue: the version we use and the newest release.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Line {
+    pub library: &'static str,
+    /// The highest version the guides were checked with, over the library's sources.
+    pub uses: Option<String>,
+    /// The highest newest release over the library's sources; none when none could be read.
+    pub newest: Option<String>,
+}
+
+impl Line {
+    /// Whether the newest release is newer than the one we use.
+    pub fn newer(&self) -> bool {
+        match (&self.newest, &self.uses) {
+            (Some(n), Some(u)) => compare(n, u).is_gt(),
+            (Some(_), None) => true,
+            _ => false,
+        }
+    }
+}
+
+/// The highest of some versions.
+fn highest<'a>(versions: impl Iterator<Item = &'a String>) -> Option<String> {
+    versions.max_by(|a, b| compare(a, b)).cloned()
+}
+
+/// One line for each library, in the order its first source appears.
+pub fn lines(rows: &[Row]) -> Vec<Line> {
+    let mut libraries: Vec<&'static str> = Vec::new();
+    for r in rows {
+        if !libraries.contains(&r.source.library) {
+            libraries.push(r.source.library);
+        }
+    }
+    libraries
+        .into_iter()
+        .map(|library| {
+            let of = || rows.iter().filter(move |r| r.source.library == library);
+            Line {
+                library,
+                uses: highest(of().filter_map(|r| r.checked.as_ref())),
+                newest: highest(of().filter_map(|r| r.newest.as_ref().ok().map(|n| &n.version))),
+            }
+        })
+        .collect()
+}
+
+/// The issue's body: the record of the newest versions, and one line for each library with the
+/// version we use and the newest release, in bold when it is newer.
 pub fn body(rows: &[Row], previous: Option<&BTreeMap<String, String>>, today: &str) -> String {
     // a source that couldn't be read keeps what it had, so its return isn't news
     let kept: Vec<(String, String)> = rows
@@ -808,82 +832,34 @@ pub fn body(rows: &[Row], previous: Option<&BTreeMap<String, String>>, today: &s
     let mut out = record(kept.iter().map(|(k, v)| (k.clone(), v.as_str())));
     let _ = writeln!(
         out,
-        "The newest release of each external library photonoxide can use, read on {today}, \
-         beside the version its install guide was last checked with on a clean machine \
-         ([docs/libraries.md](https://github.com/tachsin/photonoxide/blob/main/docs/libraries.md)) \
-         and the releases photonoxide-native accepts. The Releases workflow \
-         (`.github/workflows/releases.yml`) rewrites this every Monday with \
-         `photonoxide libraries --releases`, and comments here when a release appears; it \
-         closes nothing.\n"
+        "Read on {today}. Bold: a newer release than the one we use.
+"
     );
     out.push_str(
-        "| Library | Where | Checked | Newest | Released | Notes | photonoxide-native accepts |\n\
-         |---|---|---|---|---|---|---|\n",
+        "| Library | We use | Newest |
+|---|---|---|
+",
     );
-    for r in rows {
-        let checked = r.checked.clone().unwrap_or_else(|| "—".into());
-        let (newest, date) = match &r.newest {
-            Ok(n) => {
-                let label = n
-                    .label
-                    .as_ref()
-                    .map(|l| format!(" ({l})"))
-                    .unwrap_or_default();
-                let v = if r.newer() {
-                    format!("**{}**, newer{label}", n.version)
-                } else {
-                    format!("{}{label}", n.version)
-                };
-                (v, n.date.clone())
-            }
-            Err(_) => ("couldn't be read".into(), "—".into()),
+    for line in lines(rows) {
+        let name = if line.library == "Accelerate" {
+            "Accelerate (macOS)"
+        } else {
+            line.library
         };
-        let notes = r
-            .notes()
-            .map_or_else(|| "—".into(), |(name, url)| format!("[{name}]({url})"));
-        let accepts = match (r.accepted(), &r.range) {
-            (Some(true), Some(range)) => format!("yes: {}", range.describe()),
-            (Some(false), Some(range)) => format!("**no**: {}", range.describe()),
-            (_, Some(range)) => range.describe(),
-            (_, None) => "—".into(),
+        let uses = line.uses.clone().unwrap_or_else(|| "—".into());
+        let newest = match &line.newest {
+            Some(n) if line.newer() => format!("**{n}**"),
+            Some(n) => n.clone(),
+            None => "couldn't be read".into(),
         };
         let _ = writeln!(
             out,
-            "| {} | [{}]({}) | {} | {} | {} | {} | {} |",
-            cell(r.source.library),
-            cell(&r.source.origin.name()),
-            r.source.origin.page(),
-            cell(&checked),
-            cell(&newest),
-            cell(&date),
-            notes,
-            cell(&accepts)
+            "| {} | {} | {} |",
+            cell(name),
+            cell(&uses),
+            cell(&newest)
         );
     }
-    out.push('\n');
-    let newer: Vec<String> = rows.iter().filter(|r| r.newer()).map(Row::named).collect();
-    if newer.is_empty() {
-        out.push_str("Nothing is newer than the guides were checked with.\n\n");
-    } else {
-        let _ = writeln!(
-            out,
-            "**Newer than the guides were checked with:** {}.\n",
-            newer.join("; ")
-        );
-    }
-    let failed: Vec<String> = rows
-        .iter()
-        .filter_map(|r| r.newest.as_ref().err().map(|e| format!("{}: {e}", r.key())))
-        .collect();
-    if !failed.is_empty() {
-        out.push_str("**Couldn't be read:**\n\n");
-        for f in failed {
-            let _ = writeln!(out, "- {}", cell(&f));
-        }
-        out.push('\n');
-    }
-    out.push_str("## When a release is new\n\n");
-    out.push_str(STEPS);
     out
 }
 
@@ -1230,16 +1206,16 @@ mod tests {
         assert_eq!(asked.iter().filter(|u| *u == manifest).count(), 1);
         let row = |key: &str| rows.iter().find(|r| r.key() == key).unwrap();
         let mumps = row("MUMPS | mumps-solver.org");
-        assert!(mumps.newer() && mumps.accepted() == Some(false));
+        assert!(mumps.accepted() == Some(false));
         let cuda = row("CUDA runtime | NVIDIA's CUDA redistributables");
-        assert!(cuda.newer() && cuda.accepted() == Some(true));
+        assert!(cuda.accepted() == Some(true));
         let macos = row("Accelerate | GitHub's macOS runners");
         let release = macos.newest.as_ref().unwrap();
         assert_eq!(release.version, "27.0.1");
         assert_eq!(release.label.as_deref(), Some("image xcode-27-arm64"));
-        assert!(!macos.newer() && macos.accepted() == Some(true));
+        assert!(macos.accepted() == Some(true));
         let mkl = row("oneMKL | PyPI mkl");
-        assert!(!mkl.newer() && mkl.accepted() == Some(true));
+        assert!(mkl.accepted() == Some(true));
         let superlu = row("SuperLU | GitHub xiaoyeli/superlu");
         assert!(superlu.newest.as_ref().unwrap_err().contains("HTTP 503"));
 
@@ -1249,11 +1225,85 @@ mod tests {
         let record = recorded(&first).unwrap();
         assert_eq!(record["MUMPS | mumps-solver.org"], "5.10.0");
         assert!(!record.contains_key("SuperLU | GitHub xiaoyeli/superlu"));
-        assert!(first.contains("| MUMPS | [mumps-solver.org](https://mumps-solver.org/index.php?page=dwnld) | 5.9.1 | **5.10.0**, newer | 2026-09 | [MUMPS's changelog](https://mumps-solver.org/index.php?page=dwnld#cl) | **no**: 5.4.1 to 5.9.1, the releases whose structure it knows |"), "{first}");
-        assert!(first.contains("| oneMKL | [PyPI mkl](https://pypi.org/project/mkl/) | 2026.2.0 | 2026.1.0 | 2026-07-01 |"));
-        assert!(first.contains("**Couldn't be read:**\n\n- SuperLU \\| GitHub xiaoyeli/superlu: "));
-        assert!(first.contains("MUMPS 5.10.0 (mumps-solver.org, 2026-09)"));
-        assert!(first.contains("## When a release is new"));
+        // the issue is one line for each library, and nothing else
+        assert!(first.starts_with(
+            "<!-- newest releases
+"
+        ));
+        let table = first
+            .split(
+                "-->
+",
+            )
+            .nth(1)
+            .unwrap();
+        let mut shown = table.lines();
+        assert_eq!(
+            shown.next(),
+            Some("Read on 2026-10-12. Bold: a newer release than the one we use.")
+        );
+        assert_eq!(shown.next(), Some(""));
+        assert_eq!(shown.next(), Some("| Library | We use | Newest |"));
+        assert_eq!(shown.next(), Some("|---|---|---|"));
+        let libraries: Vec<&str> = shown.map(|l| l.split(" | ").next().unwrap()).collect();
+        assert_eq!(
+            libraries,
+            [
+                "| oneMKL",
+                "| CUDA runtime",
+                "| cuSPARSE",
+                "| cuDSS",
+                "| MUMPS",
+                "| SuperLU",
+                "| OpenBLAS",
+                "| Accelerate (macOS)",
+                "| HDF5",
+                "| Zstandard"
+            ]
+        );
+        // the version we use, and the highest newest over the library's sources, in bold when newer
+        assert!(
+            first.contains(
+                "
+| MUMPS | 5.9.1 | **5.10.0** |
+"
+            ),
+            "{first}"
+        );
+        assert!(
+            first.contains(
+                "
+| Accelerate (macOS) | 27.0.1 | 27.0.1 |
+"
+            ),
+            "{first}"
+        );
+        // a release older than the one we use is not bold, and a source out of reach leaves the rest
+        assert!(
+            first.contains(
+                "
+| oneMKL | 2026.2.0 | 2026.1.0 |
+"
+            ),
+            "{first}"
+        );
+        assert!(
+            first.contains(
+                "
+| SuperLU | "
+            ),
+            "{first}"
+        );
+        // none of the old layout is left
+        for gone in [
+            "Couldn't be read",
+            "When a release is new",
+            "photonoxide-native accepts",
+            "Newer than the guides",
+            "Released",
+        ] {
+            assert!(!first.contains(gone), "{gone}: {first}");
+        }
 
         // a week on, with a record of an older MUMPS and SuperLU's last version: MUMPS's is
         // news, and SuperLU's version is kept while its source is out of reach
