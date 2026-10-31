@@ -12,11 +12,22 @@ from __future__ import annotations
 
 import photonoxide as phox
 from _checks import Checks, display
+from _setup import Setup, number
+
+# (wavelength in µm, Li's printed index)
+TABLE = ((1.30, 3.5016), (1.55, 3.4757), (2.00, 3.4510), (5.00, 3.4195), (10.0, 3.4150))
+TOLERANCE = 5e-5
+
+setup = Setup()
+setup.item("wavelengths", ", ".join(number(um) for um, _ in TABLE) + " µm")
+setup.item("grid", "none: the material's model, evaluated")
+setup.item("tolerance", f"{number(TOLERANCE)} absolute (Li prints 4 decimals)")
+setup.catalogue("si", 1.55)
+setup.print()
 
 print("Si (Li 1980, Table 1, 293 K), no grid")
 checks = Checks()
-# (wavelength in µm, Li's printed index)
-for um, printed in ((1.30, 3.5016), (1.55, 3.4757), (2.00, 3.4510), (5.00, 3.4195), (10.0, 3.4150)):
+for um, printed in TABLE:
     n = phox.refractive_index("si", wavelength_um=um).real
-    checks.compare(f"n at {display(um)} µm", float(n), printed, 5e-5)
+    checks.compare(f"n at {display(um)} µm", float(n), printed, TOLERANCE)
 checks.finish()

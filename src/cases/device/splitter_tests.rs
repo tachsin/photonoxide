@@ -402,7 +402,8 @@ fn a_3d_solve_is_direct_up_to_its_size_and_iterative_above() {
 ///     device::splitter_tests::survey_3d -- --ignored --nocapture
 /// ```
 ///
-/// `DEV` as [`super::splitter_checks::splitter_3d`]; `GRID` in-plane:vertical steps (µm); `ROUTE` `auto` (the device's
+/// `DEV` as [`super::splitter_checks::splitter_3d`], `LENGTH` its length instead (µm, the MMI's
+/// length sweep); `GRID` in-plane:vertical steps (µm); `ROUTE` `auto` (the device's
 /// own), `direct`, `stretched` (the direct solver in the iterative route's PMLs), `galerkin` or
 /// `rediscretized` (the iterative route with those coarse operators), `RES` its residual; and
 /// `2d`, the 2D models of the same design (guided modes, and 2D FDFD on `GRID`'s in-plane steps,
@@ -415,6 +416,13 @@ fn survey_3d() {
     let var = |k: &str, d: &str| std::env::var(k).unwrap_or_else(|_| d.to_owned());
     let which = var("DEV", "mmi");
     let (device, v) = super::splitter_checks::splitter_3d(&which);
+    let v = match std::env::var("LENGTH") {
+        Ok(l) => v
+            .with(device.as_ref(), "length", l.parse().unwrap())
+            .unwrap(),
+        Err(_) => v,
+    };
+    let which = format!("{which} L {:.4}", v.at("length"));
     let route = var("ROUTE", "auto");
     let log = |line: &str| {
         println!("{line}");
@@ -520,6 +528,118 @@ fn survey_3d() {
         })
         .collect();
     log(&format!("  S = [{}]", rows.join("; ")));
+}
+
+/// The 2 µm MMI's section, the even modes its symmetric input excites, in 2D (the effective
+/// index method's plane: the film's TE slab index between the oxide, its lateral TM modes) and
+/// in 3D (Hadley's equations on the strip's quarter, cells fitted at `STEPS` µm): each mode's
+/// index and the length $\pi/(\beta_0 - \beta_2)$ where modes 0 and 2 are in phase again, the
+/// 1 × 2 image's in the quadratic approximation, and how far mode 4 is from it in phase. By hand:
+///
+/// ```sh
+/// cargo test --release --lib device::splitter_tests::survey_mmi_modes -- --ignored --nocapture
+/// ```
+#[test]
+#[ignore = "a survey, not a check"]
+fn survey_mmi_modes() {
+    use super::guide::{Profile, Strip};
+    use super::section::{Mesh, Scheme};
+    use crate::mode::Polarization;
+    use crate::mode::slab::Slab;
+    use crate::units::Length;
+    let lam = um(1.55);
+    let k = lam.wavenumber();
+    let (width, thickness) = (2.0, 0.22);
+    let report = |label: &str, n: &[f64]| {
+        let image = std::f64::consts::PI / (k * (n[0] - n[1]));
+        // mode 4's phase against modes 0 and 2's at that length, in units of π: 0 (mod 2) when
+        // the quadratic law holds (β0 − β4 = 3(β0 − β2))
+        let slip = n
+            .get(2)
+            .map(|n4| k * (n[0] - n4) * image / std::f64::consts::PI);
+        println!(
+            "{label}: even modes {n:.6?}; pi/(b0-b2) {image:.4} um; mode 4's phase there {slip:?} pi"
+        );
+    };
+    let soi = Strip::soi();
+    let (below, core, above, _) = super::section::indices(&soi.stack, &soi.core, lam).unwrap();
+    let film = Slab::new(below, core, above, Length::um(thickness)).unwrap();
+    let ns = film.modes(Polarization::Te, lam)[0].effective_index();
+    let lateral = Slab::new(below, ns, below, Length::um(width)).unwrap();
+    let all: Vec<f64> = lateral
+        .modes(Polarization::Tm, lam)
+        .iter()
+        .map(|m| m.effective_index())
+        .collect();
+    println!("2D plane: film's TE index {ns:.6}; lateral TM modes {all:.6?}");
+    let even: Vec<f64> = all.iter().step_by(2).copied().collect();
+    report("2D, effective index method", &even);
+    let steps = std::env::var("STEPS").unwrap_or_else(|_| "0.02,0.01".to_owned());
+    let mut three = Vec::new();
+    for step in steps.split(',') {
+        let h: f64 = step.parse().unwrap();
+        let strip = Strip {
+            mesh: Mesh::fitted(h, 1.0, Scheme::Hadley),
+            ..Strip::soi()
+        };
+        let cs = strip
+            .cross_section_of(width, thickness, Profile::STRIP, lam)
+            .unwrap();
+        let t = Instant::now();
+        let n: Vec<f64> = crate::mode::hadley::modes(&cs, lam, 4, None)
+            .unwrap()
+            .iter()
+            .map(|m| m.effective_index().re)
+            .collect();
+        report(&format!("3D, Hadley, {h} um ({:.1?})", t.elapsed()), &n);
+        three = n;
+    }
+    // the guided-mode analysis on the plane, its modes' couplings the plane's, but the even
+    // modes travelling with the 3D indices; one below the oxide's isn't guided in 3D, left out
+    let (_, v) = super::splitter_checks::splitter_3d("mmi");
+    let (guided, values) = StripMmi::one_by_two().guided(&v).unwrap();
+    let indices: Vec<Option<f64>> = (0..all.len())
+        .map(|m| {
+            if m % 2 == 1 {
+                // odd: the centred input doesn't excite them
+                Some(all[m])
+            } else {
+                three.get(m / 2).copied().filter(|&n| n > below)
+            }
+        })
+        .collect();
+    let power = |l: f64, with: &[Option<f64>]| {
+        let s = guided.s_matrix_with(lam, &[l, values[1]], with).unwrap();
+        s.power(1, 0)
+    };
+    for (label, with) in [
+        ("2D", &[][..]),
+        ("2D, the 3D even modes' indices", &indices),
+    ] {
+        // the best length by a scan at 1 nm, then golden section
+        let ls: Vec<f64> = (0..=600).map(|i| 3.1 + 1e-3 * f64::from(i)).collect();
+        let i = (0..ls.len())
+            .max_by(|&a, &b| power(ls[a], with).total_cmp(&power(ls[b], with)))
+            .unwrap();
+        let (mut a, mut b) = (ls[i.saturating_sub(1)], ls[(i + 1).min(600)]);
+        let r = 0.5 * (5f64.sqrt() - 1.0);
+        while b - a > 1e-8 {
+            let (x, y) = (b - r * (b - a), a + r * (b - a));
+            if power(x, with) > power(y, with) {
+                b = y;
+            } else {
+                a = x;
+            }
+        }
+        let l = 0.5 * (a + b);
+        let p = power(l, with);
+        println!(
+            "guided modes, {label}: P {:.6} at {:.4} um; best {p:.6} at {l:.4} um, {:.4} dB",
+            power(v.at("length"), with),
+            v.at("length"),
+            -10.0 * (2.0 * p).log10()
+        );
+    }
 }
 
 /// A strip with its guides led out of its ends, through the devices' FDFD with each cell

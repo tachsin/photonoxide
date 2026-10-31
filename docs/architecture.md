@@ -15,7 +15,7 @@ from any other layer. The rows are in dependency order: a layer imports only fro
 | Layer | Modules | May import from |
 |---|---|---|
 | core | `units`, `expr`, `portable`, `parallel`, `traffic`, `convergence`, `lstsq`, and the error, stop and verdict types (`error`, `stop`, `verdict`) | (nothing) |
-| geometry | `geometry`, `material`, `stack`, `averaging`, `raster`, `etch` | core |
+| geometry | `geometry`, `material`, `stack`, `averaging`, `raster`, `etch`, `fabrication` | core |
 | linalg | `dense`, `sparse`, `backend` (with the Krylov solvers), `eigen` | core |
 | mode | `mode`, `eme`, `sweep`, `nonlinear` | core, geometry, linalg |
 | statics | `statics`, `thermal`, `electro` | core, geometry, linalg |

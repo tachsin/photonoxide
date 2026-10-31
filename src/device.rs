@@ -186,6 +186,45 @@ pub trait Device: fmt::Debug + Send + Sync {
     fn constraints(&self) -> Vec<Constraint> {
         objective::constraints_of(self.kind())
     }
+
+    /// The design as it is made ([`crate::fabrication::Physical`]): its structure at `values`,
+    /// with the film physically in each place where the optical structure draws another. The
+    /// library's devices name theirs by kind (the thin-film lithium niobate modulator's
+    /// electrodes, the metal heater's titanium nitride, each drawn with the oxide's optics);
+    /// another device's films are its materials.
+    ///
+    /// # Errors
+    ///
+    /// [`Device::geometry`]'s.
+    fn physical(&self, values: &Values) -> Result<crate::fabrication::Physical> {
+        physical_of(self.kind(), self.geometry(values)?.structure)
+    }
+}
+
+/// The physical design of a library device of `kind` drawn as `structure`: its stand-ins
+/// replaced by the films there, each with its source.
+fn physical_of(kind: &str, structure: Structure) -> Result<crate::fabrication::Physical> {
+    use crate::fabrication::{Physical, Source};
+    let design = Physical::of(structure);
+    let has = |layer: &str| design.structure().stack().layer(layer).is_some();
+    match kind {
+        "TFLN Mach-Zehnder modulator" if has("metal") => design.with_stand_in(
+            "metal",
+            "Cu/Au",
+            "the electrodes are drawn with the oxide's optics, since the mode is solved \
+             without the metal; the modulator the defaults reproduce has 800 nm of copper under \
+             30 nm of gold",
+            Source::new("zhang-2022", "Section 3.A (PDF p. 4)"),
+        ),
+        "thermo-optic phase shifter" if has("TiN") => design.with_stand_in(
+            "TiN",
+            "TiN",
+            "the heater is drawn with the oxide's optics, since the mode is solved without it; \
+             it is titanium nitride",
+            Source::new("jacques-2019", "abstract (p. 10456)"),
+        ),
+        _ => Ok(design),
+    }
 }
 
 /// A device's component at a fidelity and its values: the component, the values of its own

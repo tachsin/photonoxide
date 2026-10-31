@@ -43,6 +43,87 @@ export interface Scene {
   shapes: Shape[];
 }
 
+/** A shape of an etched layer with its etch (photonoxide::job::SceneEtched): the scene draws
+ *  such a layer in bands, a staircase; a cross-section draws the shape exactly from this. */
+export interface SceneEtched {
+  layer: string;
+  z_um: [number, number];
+  outline: [number, number][];
+  depth_um: number;
+  sidewall_deg: number;
+}
+
+/** Where a value comes from: a reference's key and the place in it (photonoxide::fabrication::Source). */
+export interface FlowSource {
+  reference: string;
+  location: string;
+}
+
+/** A stated value, or not specified (photonoxide::fabrication::Stated). */
+export type Stated =
+  | { kind: "range"; low: number; high: number; unit: FlowUnit; source: FlowSource }
+  | { kind: "at_most"; value: number; unit: FlowUnit; source: FlowSource }
+  | { kind: "at_least"; value: number; unit: FlowUnit; source: FlowSource }
+  | { kind: "not_specified"; coming: string | null };
+
+export type FlowUnit = "nm" | "um" | "degree" | "celsius" | "ratio";
+
+/** One thing a process can achieve, with its source (photonoxide::fabrication::Capability). */
+export interface FlowCapability {
+  quantity: { kind: string; over?: string };
+  value: Stated;
+  conditions: string;
+}
+
+/** A source's statement without a number. */
+export interface FlowFact {
+  text: string;
+  source: FlowSource;
+}
+
+/** One step of a design's process flow (photonoxide::fabrication::StepRecord). */
+export interface FlowStep {
+  process: string;
+  name: string;
+  step: "wafer" | "deposition" | "lithography" | "pattern_transfer" | "planarization";
+  plain: string;
+  operation: string;
+  does: string;
+  layer: string | null;
+  film: string | null;
+  thickness_um: number | null;
+  depth_um: number | null;
+  timed: boolean;
+  sidewall_deg: number | null;
+  tone: "keep" | "open" | null;
+  reason: string;
+  alternatives: { process: string; name: string; why_not: string }[];
+  capabilities: FlowCapability[];
+  facts: FlowFact[];
+  uncertainties: string[];
+}
+
+/** A reference the flow cites. */
+export interface FlowReference {
+  key: string;
+  citation: string;
+  title: string;
+  doi: string;
+  isbn: string;
+  open_access: string;
+}
+
+/** A design's process flow (photonoxide::fabrication::FlowRecord). */
+export interface FlowRecord {
+  library: string;
+  steps: FlowStep[];
+  warnings: string[];
+  not_specified: string[];
+  round_trip: { structure_equal: boolean; films_equal: boolean; points: number; differing: number } | null;
+  references: FlowReference[];
+  /** The words the narration uses, each with its plain definition and source. */
+  glossary: { term: string; definition: string; source: FlowSource }[];
+}
 /** A named port of a job's component: where its guide ends (photonoxide::job::ScenePort). */
 export interface ScenePort {
   /** component.port, e.g. "ring.through". */
@@ -654,7 +735,8 @@ export type Event =
   | StaticStep
   | StaticFrame
   | { type: "finished"; stopped: string | null; seconds: number }
-  | { type: "failed"; error: string; seconds: number };
+  | { type: "failed"; error: string; seconds: number }
+  | { type: "flow"; flow: FlowRecord };
 
 export function modeKind(m: Mode): string {
   return m.te_fraction > 0.5 ? "TE-like" : "TM-like";

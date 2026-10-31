@@ -27,6 +27,9 @@ on:
       - "src/facade.rs"
       - "src/facade/**"
       - "docs/python.md"
+      # the Rust twins whose output python/tests/test_examples.py compares
+      - "examples/output/silicon_index.txt"
+      - "examples/output/slab_soi.txt"
       # the design page, whose Python calls python/tests/test_methods.py runs too
       - "docs/design.md"
       # the write-ups whose Python calls python/tests/test_methods.py runs

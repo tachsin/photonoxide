@@ -22,6 +22,24 @@ papers:
     doi: 10.1364/OME.1.000458
   - cite: "A. Bruner, D. Eger, M. B. Oron, P. Blau, M. Katz, S. Ruschin, Opt. Lett. 28, 194 (2003)"
     doi: 10.1364/OL.28.000194
+  - cite: "N. A. Barboza, R. S. Cudney, Appl. Phys. B 95, 453 (2009)"
+    doi: 10.1007/s00340-009-3434-y
+  - cite: "A. Bruner, D. Eger, M. B. Oron, P. Blau, M. Katz, S. Ruschin, Proc. SPIE 4628, 66 (2002)"
+    doi: 10.1117/12.460817
+  - cite: "A. D. Bristow, N. Rotenberg, H. M. van Driel, Appl. Phys. Lett. 90, 191104 (2007)"
+    doi: 10.1063/1.2737359
+  - cite: "K. Ikeda, R. E. Saperstein, N. Alic, Y. Fainman, Opt. Express 16, 12987 (2008)"
+    doi: 10.1364/OE.16.012987
+  - cite: "R. DeSalvo, A. A. Said, D. J. Hagan, E. W. Van Stryland, M. Sheik-Bahae, IEEE J. Quantum Electron. 32, 1324 (1996)"
+    doi: 10.1109/3.511545
+  - cite: "H. Jung, C. Xiong, K. Y. Fong, X. Zhang, H. X. Tang, Opt. Lett. 38, 2810 (2013)"
+    doi: 10.1364/OL.38.002810
+  - cite: "I. Vurgaftman, J. R. Meyer, L. R. Ram-Mohan, J. Appl. Phys. 89, 5815 (2001)"
+    doi: 10.1063/1.1368156
+  - cite: "M. Leidinger, S. Fieberg, N. Waasem, F. Kühnemann, K. Buse, I. Breunig, Opt. Express 23, 21690 (2015)"
+    doi: 10.1364/OE.23.021690
+  - cite: "J. S. Aitchison, D. C. Hutchings, J. U. Kang, G. I. Stegeman, A. Villeneuve, IEEE J. Quantum Electron. 33, 341 (1997)"
+    doi: 10.1109/3.556002
   - cite: "D. E. Zelmon, D. L. Small, D. Jundt, J. Opt. Soc. Am. B 14, 3319 (1997)"
     doi: 10.1364/JOSAB.14.003319
   - cite: "D. H. Jundt, Opt. Lett. 22, 1553 (1997)"
@@ -158,6 +176,13 @@ validation:
   - material/silicon-film-sondheimer-order
   - material/rf-krupka-table-1
   - material/rf-lamb-table-1
+  - material/litao3-barboza-thg-period
+  - material/litao3-barboza-tables
+  - material/litao3-bruner-slt-633
+  - material/kerr-desalvo-esu
+  - material/kerr-units-round-trip
+  - material/kerr-bristow-readings
+  - material/transparency-gaas-gap
 ---
 
 `material::catalogue` lists materials with everything a design needs about them, each number
@@ -479,6 +504,111 @@ should be chosen, not an average.
   = 1.11); their Fig. 2(b) shows it as D's, and so it is taken. E, annealed after exposure to
   air, has a TCR of 6.9e-4 per K and a resistivity 13 % higher, not printed.
 
+## Kerr coefficients and two-photon absorption
+
+`catalogue::kerr` (and `Entry::kerr`) has the third-order data of four entries: the Kerr
+coefficient $n_2$ ($n = n_0 + n_2 I$, in m²/W) and the degenerate two-photon absorption
+coefficient $\beta$ ($dI/dz = -\beta I^2$, in m/W). Each value keeps the paper's printed form, its
+wavelength, its uncertainty as the paper states it (none where it states none), the sample, and
+how it was obtained: printed, read from a figure, or derived through a model.
+
+| Entry | Quantity | λ | Printed | Ours (SI) | How | Source |
+|---|---|---|---|---|---|---|
+| Si | $\beta$ | 1220 nm | 2.1 ± 0.4 cm/GW | (2.1 ± 0.4) × 10⁻¹¹ m/W | z-scan, printed | Bristow et al. 2007, p. 191104-2 |
+| Si | $n_2$ | 1220 nm | (4.7 ± 2.0) × 10⁻⁵ cm²/GW | (4.7 ± 2.0) × 10⁻¹⁸ m²/W | z-scan, printed | Bristow et al. 2007, p. 191104-2 |
+| Si | $n_2$ | 1800 nm | 1.2 × 10⁻¹³ cm²/W, the peak | 1.2 × 10⁻¹⁷ m²/W, no uncertainty printed | z-scan, printed | Bristow et al. 2007, abstract |
+| Si | $\beta$ | 1550 nm | read from Fig. 2: 0.79 ± 0.39 cm/GW | (7.9 ± 3.9) × 10⁻¹² m/W | read from the figure, to 0.0023 cm/GW | Bristow et al. 2007, Fig. 2 |
+| Si | $n_2$ | 1550 nm | read from Fig. 3: (4.8 ± 2.0) × 10⁻¹⁴ cm²/W | (4.8 ± 2.0) × 10⁻¹⁸ m²/W | read from the figure, to 0.013 × 10⁻¹⁴ cm²/W | Bristow et al. 2007, Fig. 3 |
+| Si₃N₄ (PECVD SiN) | $n_2$ | 1548 nm | 2.4 × 10⁻¹⁵ cm²/W | 2.4 × 10⁻¹⁹ m²/W, no uncertainty given | ring pump–probe at 1 GHz, printed | Ikeda et al. 2008, p. 12993 |
+| LiNbO₃ (e) | $n_2$ | 1064 nm | (48 ± 7) × 10⁻¹⁴ esu | (9.15 ± 1.33) × 10⁻²⁰ m²/W | z-scan, printed; $n_0$ = 2.2 | DeSalvo et al. 1996, Tables I–II |
+| LiNbO₃ (e) | $n_2$ | 532 nm | (440 ± 70) × 10⁻¹⁴ esu | (8.27 ± 1.32) × 10⁻¹⁹ m²/W | z-scan, printed; $n_0$ = 2.23 | DeSalvo et al. 1996, Tables I–II |
+| LiNbO₃ (e) | $\beta$ | 532 nm | 0.38 ± 0.08 cm/GW | (3.8 ± 0.8) × 10⁻¹² m/W | z-scan, printed | DeSalvo et al. 1996, Table I |
+| AlN | $n_2$ | near 1550 nm | (2.3 ± 1.5) × 10⁻¹⁵ cm²/W | (2.3 ± 1.5) × 10⁻¹⁹ m²/W | derived from a comb threshold | Jung et al. 2013, Eq. (1), p. 2812 |
+
+- **Silicon** (Bristow, Rotenberg & van Driel): a 125 µm intrinsic (001) wafer at 300 K, z-scan
+  with 200 fs pulses from 850 to 2200 nm. The text prints $\beta$ and $n_2$ at 1220 nm and
+  $n_2$'s peak at 1800 nm; $\beta$'s maximum, 2 ± 0.5 cm/GW in "a broad peak near the indirect
+  gap" (abstract), has no single wavelength and isn't kept. At 1550 nm the paper prints no number, so the values are read
+  off Figs. 2 and 3: the PDF's bitmaps, each marker's centre and error bar against the axes'
+  ticks. The same reading at 1220 nm gives 2.08 ± 0.39 cm/GW and (4.71 ± 1.99) × 10⁻¹⁴ cm²/W
+  against the printed 2.1 ± 0.4 and 4.7 ± 2.0 (`material/kerr-bristow-readings`). $\beta$ tends
+  to zero beyond 2200 nm, half the indirect gap (1.12 eV).
+- **Silicon nitride** (Ikeda et al.): plasma-deposited SiN (film index about 1.99) in PECVD oxide,
+  from the shift of a ring's resonance under a pump modulated at 1 GHz, too fast for the
+  thermal response: $\Delta n = 1.2 \times 10^{-6}$ at 2.6 W in the ring. It isn't the entry's
+  stoichiometric LPCVD film, and the paper gives no uncertainty.
+- **Lithium niobate** (DeSalvo et al.): x-cut congruent LiNbO₃, the light along the optic axis
+  (extraordinary), z-scan with 30 ps pulses. $n_2$ is printed in esu for $n = n_0 +
+  n_2\langle E^2\rangle$; `n2_from_esu` converts it, $n_2(\mathrm{m^2/W}) = 40\pi\,
+  n_2(\mathrm{esu})/(c\,n_0)$ with $c$ in m/s and the paper's $n_0$ (Table II). The uncertainty is
+  Table I's; the paper puts the overall experimental uncertainty at about ±20 %. The conversion
+  gives the paper's two printed examples for BaF₂ both ways within half their last digit
+  (`material/kerr-desalvo-esu`). At 1064 nm the photon is below half the gap (3.9 eV), so there
+  is no $\beta$ there.
+- **Aluminium nitride** (Jung et al.): not measured directly but derived from the comb threshold
+  of a microring (about 210 mW) through Kippenberg et al.'s threshold formula, with a simulated
+  effective area (1.34 µm²) and index (1.96), the measured Q₀ (800,000), coupling ($K$ = 0.3),
+  mismatch (3 ± 1.5 GHz) and a correction factor between 1 and 2: the TE-like mode in the (001)
+  plane. Its ±1.5 is the paper's.
+
+The units: `n2_from_cm2_per_w`, `n2_to_cm2_per_w`, `beta_from_cm_per_gw`, `beta_to_cm_per_gw`,
+`n2_from_esu` and `n2_to_esu`; every value goes there and back to round-off
+(`material/kerr-units-round-trip`). A guide's γ from one of these values is in
+[nonlinear](nonlinear.md#the-kerr-coefficient-in-a-guide). Silicon's $n_2$ changes fourfold over
+its measured band, so a value is for its own wavelength.
+
+## Transparency windows
+
+`catalogue::transparency` (and `Entry::transparency`) gives a material's window at a temperature
+(300 K when none is given) and, for an alloy, a composition: the band edge, where two-photon
+absorption sets in, the multiphonon edge, and the range the default index model covers (the
+Models table above). Each edge has its paper, or says it is not specified:
+
+| Entry | Band edge | Two-photon absorption below | Multiphonon edge | Source |
+|---|---|---|---|---|
+| Si | 1.107 µm (indirect, 1.12 eV) | 2.2 µm, as printed (E_gi/2) | not specified | Bristow et al. 2007, pp. 191104-1 and -2 |
+| GaAs | 0.8716 µm (Γ, 1.4225 eV) | 1.743 µm | not specified | Vurgaftman et al. 2001, Table I |
+| AlₓGa₁₋ₓAs, x = 0.2 | 0.7221 µm (Γ, 1.7170 eV) | 1.444 µm | not specified | Tables I, II and XII |
+| AlₓGa₁₋ₓAs, x = 0.4 | 0.6328 µm (Γ, 1.9594 eV) | 1.266 µm | not specified | Tables I, II and XII |
+| InP | 0.9164 µm (Γ, 1.3529 eV) | 1.833 µm | not specified | Table VI |
+| In₀.₄₉Ga₀.₅₁P | 0.6468 µm (Γ, 1.9168 eV, disordered) | 1.294 µm | not specified | Tables IV, VI and XV |
+| AlN | 0.2020 µm (6.138 eV) | 0.404 µm | not specified | Table X |
+| AlₓGa₁₋ₓN, x = 0.1 | 0.3430 µm (3.615 eV) | 0.686 µm | not specified | Tables X and XXX |
+| AlₓGa₁₋ₓN, x = 0.3 | 0.3072 µm (4.036 eV) | 0.614 µm | not specified | Tables X and XXX |
+| LiNbO₃ | about 0.32 µm | about 0.64 µm | about 3.0 µm | Leidinger et al. 2015, p. 21692 |
+| LiTaO₃ | 0.28 µm, as stated | 0.56 µm | 5.5 µm, as stated | Barboza & Cudney 2009, p. 453 |
+| SiO₂, Si₃N₄, MgO:LiNbO₃, BaTiO₃ | not specified | not specified | not specified | no paper in hand |
+
+- **III–V band gaps** are I. Vurgaftman, J. R. Meyer and L. R. Ram-Mohan's (J. Appl. Phys. 89,
+  5815 (2001)): the Varshni form $E_g(T) = E_g(0) - \alpha T^2/(T + \beta)$ (Eq. (2.13)) with each
+  binary's Γ, X and L parameters and the alloys' bowing, $E_g(x) = (1 - x)E_g(A) + xE_g(B) -
+  x(1 - x)C$; AlGaAs's Γ bowing is Aspnes et al.'s $C = -0.127 + 1.310x$ eV, which the paper
+  recommends. The edge is the lowest of the three gaps. GaAs's at 300 K, 1.4225 eV, lies in the
+  range of reported values Table I prints for 300 K, 1.420 to 1.435 eV
+  (`material/transparency-gaas-gap`). AlGaAs turns indirect between x = 0.40 and 0.45: the L
+  gap falls below Γ at x = 0.410 and X at 0.435 (300 K). The paper's text puts the Γ–X
+  crossover at x = 0.39 at 300 K and 0.38 at low temperature (p. 5838), where its tables give
+  0.435 and 0.417 here: a difference not explained yet, so not a case. InGaP's gap is the
+  disordered alloy's; CuPt ordering lowers it (Schubert et al.'s films, 1.85 ± 0.02 eV, are on
+  the entry's coming list). For InGaP with Al, and for AlGaN without a composition, the edge
+  is not specified.
+- **Silicon:** the indirect gap, 1.12 eV, as Bristow et al. write it; its absorption is weak up
+  to the direct gap. Two-photon absorption "tends to zero for λ > 2200 nm, corresponding to a
+  photon energy of E_gi/2" (2214 nm by 1.12 eV).
+- **Two-photon absorption** sets in where the photon energy passes half the gap, below twice the
+  band edge's wavelength: detuned below the half band gap "the detrimental effects of two-photon
+  absorption can be ignored" (J. S. Aitchison et al., IEEE J. Quantum Electron. 33, 341 (1997),
+  p. 342, for AlGaAs), though three-photon absorption then matters.
+- **Lithium niobate:** "the band edge at around 320 nm and the multiphonon absorption in the IR,
+  starting at around 3000 nm" (M. Leidinger et al., Opt. Express 23, 21690 (2015), p. 21692), on
+  an undoped congruent crystal; the multiphonon absorption "starts to dominate" at around
+  3300 nm, after the OH⁻ band at 2870 nm, and the measured window runs from 320 to 6000 nm.
+  DeSalvo et al.'s gap, 3.9 eV, is 0.318 µm.
+- **Lithium tantalate:** the range Barboza & Cudney state in their introduction, 0.28 to 5.5 µm,
+  a statement and not their measurement.
+- **Not specified:** the multiphonon edges of Si, Si₃N₄, GaAs, AlGaAs, InP, InGaP, AlN and AlGaN,
+  and every edge of SiO₂, Si₃N₄, MgO:LiNbO₃ and BaTiO₃: no paper in hand gives them.
+
 ## Tags
 
 The point group is written in both notations, Hermann–Mauguin with overbars and Schoenflies:
@@ -548,6 +678,8 @@ every value a tensor gives is an element its tag names.
 | LiNbO₃, 5% MgO | Gayer et al. 2008 | Eqs. (2)–(3), Table 1 of the 2010 erratum | $n_e$ 0.5–4 µm, 20–200 °C; $n_o$ 0.5–1.62 µm, 20–100 °C |
 | LiTaO₃ | Bond 1965 (our fit, default) | two-term Sellmeier for $n_o$ and $n_e$, fitted to Bond's Table IV (refractiveindex.info, CC0, checked against the paper) | 0.45–4.0 µm, room temperature, within 6.7e-4 of the table |
 | LiTaO₃ | Abedin & Ito 1996 | $n_{o,e}(\lambda, T)$, Eq. (1), Tables I and II | 0.4–4.0 µm, 25–300 °C (the temperature terms fitted at 468 and 644 nm) |
+| LiTaO₃ | Barboza & Cudney 2009 | $n_e(\lambda, T)$ only, Eq. (7), Table 2 (temperature terms in $\lambda_A$, $B$ and $C$) | 0.3–5 µm, 23–230 °C |
+| LiTaO₃ | Bruner et al. 2002 | $n_e(\lambda, T)$ only, Eq. (4), Table 1's congruent row (temperature terms $b$ and $c$ in the first pole) | 0.39–1.85 µm, 25–200 °C, standard deviation 0.001327 |
 | BaTiO₃ (thin film) | Abel et al. 2018, at 1550 nm | constant $n_o = ar n + \Delta n/2$, $n_e = ar n - \Delta n/2$; $ar n$ = 2.286, $\Delta n$ = 0.03 (Supplementary Note 6) | 1.50–1.60 µm |
 | BaTiO₃ (strained film on GdScO₃) | Suceava et al. 2025 | $n_o$ only: four Gaussian oscillators and two poles, Supporting Note S3, Table S1 (our evaluation, every 10 nm) | 0.5–1.6893 µm, room temperature |
 
@@ -702,6 +834,60 @@ congruent Table 1 is printed the right way round.
   nm they give $dn_o/dT = +8.0 \times 10^{-6}$ and $dn_e/dT = -2.7 \times 10^{-6}$ per K (25 to
   300 °C), where at 468 nm $n_e$ rises by 8e-5 per K. Bond's fit is the default at room
   temperature.
+
+  **The extraordinary index against temperature, two more models.** N. A. Barboza and R. S.
+  Cudney (Appl. Phys. B 95, 453 (2009)) measured $n_e$ of congruent wafers by minimum deviation
+  at seven wavelengths from 457.9 to 1064.2 nm ($\delta n/n \approx 5 \times 10^{-4}$), took the
+  idler's index from quasi-phase-matched parametric generation from 1.3 to 5 µm at 23 to
+  230 °C, and fitted $n_e^2 = 1 + A\lambda^2/(\lambda^2 - \lambda_A^2) + B\lambda^2/(\lambda^2 -
+  \lambda_B^2) + C\lambda^2$ with $\lambda_A$, $B$ and $C$ quadratic in $T$ (Table 2): stated for
+  0.3 to 5 µm and 23 to above 200 °C. A. Bruner et al. (Proc. SPIE 4628, 66 (2002)) fitted
+  $n_e^2 = A + (B + b)/(\lambda^2 - (C + c)^2) + E/(\lambda^2 - F^2) + D\lambda^2$, with $b$ and
+  $c$ in $(T + 273.15)^2$, to quasi-phase-matched SHG wavelengths (pumps 0.76 to 1.85 µm, 30 to
+  200 °C) and Bond's room-temperature indices: for the congruent crystal, 0.39 to 1.85 µm. Both
+  are the catalogue's models `barboza-cudney-2009` and `bruner-2002-congruent`. Neither gives
+  $n_o$, which stays coming, and both take $dn_e/dT$ from phase matching, which fixes the
+  dispersion's change better than the index's, so a direct infrared measurement of the undoped
+  crystal's $dn/dT$ stays coming too.
+
+  Barboza & Cudney's Table 2 puts the period for Luo et al.'s third harmonic of 1.342 µm at
+  85.6 °C at 14.7826 µm, their printed 14.78 (`material/litao3-barboza-thg-period`); at 23 °C it
+  lies 1.1e-4 relative above their Table 1 at the measured wavelengths, inside the indices'
+  5e-4 (`material/litao3-barboza-tables`). Bruner et al.'s equation for the stoichiometric
+  crystal, which shares the congruent row's form, gives 2.17697 at 633 nm and 25 °C, the
+  supplier's 2.177 their fit was held to (`material/litao3-bruner-slt-633`). Bruner et al. state
+  a standard deviation of 0.001327 without naming the crystal; their congruent $n_e$ lies 0.8e-3
+  to 3.5e-3 below Bond's table from 0.45 to 1.8 µm at 25 °C (rms 2.1e-3), as their remark that
+  "the actual curves of the refractive indices can shift up or down a little" allows (p. 72).
+  That isn't a case.
+
+  In their overlap the two models agree on the dispersion and differ in the index and much more
+  in its temperature dependence ($dn_e/dT$ from each model by `IndexModel::thermo_optic`):
+
+  | T | λ | $n_e$ Barboza | $n_e$ Bruner | Difference | $dn_e/dT$ Barboza (1/K) | $dn_e/dT$ Bruner (1/K) | Ratio |
+  |---|---|---|---|---|---|---|---|
+  | 25 °C | 0.5 µm | 2.21982 | 2.21924 | +0.00058 | 1.05e-4 | 1.04e-5 | 10 |
+  | 25 °C | 1.064 µm | 2.13948 | 2.13767 | +0.00181 | 8.64e-5 | 2.28e-6 | 38 |
+  | 25 °C | 1.55 µm | 2.12238 | 2.12045 | +0.00193 | 8.32e-5 | 1.07e-6 | 78 |
+  | 25 °C | 1.8 µm | 2.11544 | 2.11352 | +0.00192 | 8.21e-5 | 7.97e-7 | 103 |
+  | 50 °C | 1.064 µm | 2.14163 | 2.13773 | +0.00390 | 8.51e-5 | 2.47e-6 | 35 |
+  | 50 °C | 1.55 µm | 2.12444 | 2.12048 | +0.00396 | 8.19e-5 | 1.16e-6 | 71 |
+  | 100 °C | 0.5 µm | 2.22763 | 2.22012 | +0.00751 | 1.03e-4 | 1.31e-5 | 7.9 |
+  | 100 °C | 1.064 µm | 2.14582 | 2.13787 | +0.00796 | 8.27e-5 | 2.85e-6 | 29 |
+  | 100 °C | 1.55 µm | 2.12848 | 2.12054 | +0.00793 | 7.94e-5 | 1.34e-6 | 59 |
+  | 150 °C | 0.5 µm | 2.23277 | 2.22081 | +0.01196 | 1.02e-4 | 1.48e-5 | 6.9 |
+  | 150 °C | 1.064 µm | 2.14990 | 2.13802 | +0.01188 | 8.02e-5 | 3.23e-6 | 25 |
+  | 150 °C | 1.55 µm | 2.13238 | 2.12061 | +0.01177 | 7.68e-5 | 1.52e-6 | 50 |
+  | 150 °C | 1.8 µm | 2.12531 | 2.11364 | +0.01167 | 7.57e-5 | 1.13e-6 | 67 |
+
+  At 25 °C they are within 0.6e-3 to 1.9e-3 over 0.5 to 1.8 µm, the size of Bruner et al.'s
+  standard deviation; the difference is nearly the same at every wavelength, so the two
+  dispersions agree within 1.4e-3 from 0.5 to 1.8 µm. With temperature they part: Barboza &
+  Cudney's $dn_e/dT$ is near 8e-5 per K at every wavelength, Bruner et al.'s falls from 1e-5
+  to 1e-6, and by 150 °C the indices differ by 0.012. The doped crystals measured directly
+  (below) put $dn_e/dT$ in the infrared at 4e-5 to 5e-5 per K, between the two and nearer
+  Barboza & Cudney's. Which model to use for a temperature is a choice the catalogue leaves to
+  the design, with this table beside it.
 
   **Measured in the infrared, on doped crystals.** No paper in hand measures the undoped
   congruent crystal's dn/dT in the infrared, so that stays coming; two measure doped crystals,
@@ -922,6 +1108,14 @@ read from the paper itself, which isn't in hand.
   0.5 °C lower here (176.4 °C printed, 175.9 here, at 2.159 µm): the pump's wavelength is given only
   as 488 nm, and with the vacuum 488.12 nm the difference falls to 0.1 °C. Not yet a case.
 - Shoji's $d_{33}$ with Zelmon's $n_e$ gives his Miller's $\Delta_{33}$ (Table 12) to 0.5%.
+  Miller's rule carries the catalogue's $d_{33}$ and $d_{31}$ of LiNbO₃ and MgO:LiNbO₃ from
+  1.064 µm to 0.852 µm within 9.4 % of Shoji's measurements there, and to 1.313 µm 15 to 34 %
+  above them, inside Miller's ±50 % ([nonlinear](nonlinear.md#millers-rule)).
+- Kerr data: DeSalvo et al.'s esu conversion both ways on their two BaF₂ examples, within half
+  their last digit; every value to its printed unit and back to round-off; Bristow et al.'s
+  figures read at 1220 nm give the printed values within half their last digit.
+- Transparency: GaAs's band edge at 300 K from Vurgaftman et al.'s Varshni parameters, 1.4225 eV,
+  inside the 1.420 to 1.435 eV their Table I gives at 300 K.
 - Gayer's 5% MgO indices against Zelmon's Table 2 (columns exchanged) at 21 °C: within 4.4e-4.
   The paper reports 3.1e-4 for $n_e$ and 2.2e-4 for $n_o$; we find 3.3e-4 and 4.4e-4.
 - Lithium tantalate: our fits within 6.7e-4 of Bond's 22 rows (`material/litao3-bond-fit`) and
@@ -931,7 +1125,11 @@ read from the paper itself, which isn't in hand.
   (`material/litao3-abedin-refit`), Fig. 3's standard deviations within 4.4e-5
   (`material/litao3-abedin-points`) and its curves within 1.2e-4 (`material/litao3-abedin-curves`);
   Moutzouris et al.'s fit gives their 100 measured indices of the Mg-doped crystal back to
-  4.02e-4 on average, their ~0.0004 (`material/litao3-moutzouris-fit`).
+  4.02e-4 on average, their ~0.0004 (`material/litao3-moutzouris-fit`). Barboza & Cudney's
+  $n_e(\lambda, T)$ gives their 14.78 µm third-harmonic period at 85.6 °C (14.7826,
+  `material/litao3-barboza-thg-period`), and its Table 2 at 23 °C their Table 1 within 1.1e-4
+  relative (`material/litao3-barboza-tables`); Bruner et al.'s form with their SLT row gives the
+  supplier's 2.177 at 633 nm (2.17697, `material/litao3-bruner-slt-633`).
   Barium titanate: Abel
   et al.'s film index at 1550 nm within 0.026 of the other films' 2.26 and 2.29
   (`material/batio3-abel-films`).

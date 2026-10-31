@@ -88,6 +88,7 @@ fn refusal(holder: Holder, name: &str) -> String {
             "`kind`, `method`, `seed`, `evaluations`, `population`, `learning_rate`, `reduce`, \
              {GRIDS}, `continuation`, `variable`, `objective`, `constraint`, `corner`, `export`"
         ),
+        (Holder::Device, "fabrication") => "`kind`, `prefer`, `avoid`".to_owned(),
         (Holder::Chip, "spectrum" | "sweep" | "corners") => {
             "`kind`, `from_um`, `to_um`, `points`, `axis`, `corner`, `export`".to_owned()
         }

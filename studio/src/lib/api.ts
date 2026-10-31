@@ -3,7 +3,7 @@
 import { invoke } from "@tauri-apps/api/core";
 
 import type { Academy, ChartData } from "./academy.svelte";
-import type { Event, Raster, Scene, ScenePort, Shape } from "./events";
+import type { Event, FlowRecord, Raster, Scene, SceneEtched, ScenePort, Shape } from "./events";
 import type { Crystal, Section } from "./frames";
 import type { JobModel } from "./job";
 import type { Drawing, Medium } from "./jobedit";
@@ -285,6 +285,7 @@ export const api = {
   deviceLibrary: () => invoke<DeviceInfo[]>("device_library"),
   /** A design evaluated as the form shows it: its fields, values, ports and scene. */
   deviceGeometry: (spec: DeviceSpec) => invoke<DeviceGeometry>("device_geometry", { spec }),
+  deviceFabrication: (spec: DeviceSpec) => invoke<DeviceFabrication>("device_fabrication", { spec }),
   /** A design's figures at a fidelity, each with its fidelity and grid. */
   deviceDerived: (spec: DeviceSpec, fidelity: string) => invoke<DeviceDerived>("device_derived", { spec, fidelity }),
   deviceSpectrum: (spec: DeviceSpec, fidelity: string, sweep: Sweep) => invoke<DeviceSpectrum>("device_spectrum", { spec, fidelity, sweep }),
@@ -941,6 +942,12 @@ export interface DevicePort {
   layer: string;
 }
 
+/** A design's process flow and the wafer after each step (photonoxide::job::FabricationView). */
+export interface DeviceFabrication {
+  flow: FlowRecord;
+  stages: { scene: Scene; etched: SceneEtched[] }[];
+}
+
 export interface DeviceGeometry {
   fields: DeviceField[];
   values: number[] | null;
@@ -948,6 +955,8 @@ export interface DeviceGeometry {
   stack_problem: string | null;
   ports: DevicePort[];
   scene: Scene | null;
+  /** The etched layers' shapes with their etches, which the cross-section draws exactly in place of the scene's bands. */
+  etched: SceneEtched[];
   /** The parameters outside where the fidelity's stated error holds. */
   outside: string[];
 }

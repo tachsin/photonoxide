@@ -36,6 +36,7 @@
 
 use num_complex::Complex64 as c64;
 
+use crate::material::catalogue::Kerr;
 use crate::mode::fields::Fields;
 use crate::mode::vector::{Boundary, CrossSection, Permittivity, VectorMode};
 use crate::units::Wavelength;
@@ -91,8 +92,25 @@ impl Fields {
     /// in m²/W, uniform, and [`Fields::effective_area`]'s A_eff: Afshar and Monro's Eq. 42 with
     /// their field-weighted n̄₂ taken as n₂.
     pub fn nonlinear_coefficient(&self, wavelength: Wavelength, n2: f64) -> f64 {
-        // k in 1/µm, A in µm²: k n₂ / A in 1/(W µm) is 1e6 times that in 1/(W m)
-        wavelength.wavenumber() * n2 / self.effective_area() * 1e18
+        nonlinear_coefficient(wavelength, n2, self.effective_area())
+    }
+
+    /// γ for one of the catalogue's Kerr coefficients ([`crate::material::catalogue::kerr`]):
+    /// [`Fields::nonlinear_coefficient`] with its n₂. The value holds at its own wavelength,
+    /// `kerr.wavelength`; n₂ is dispersive (silicon's changes fourfold from 850 to 2200 nm) and
+    /// nothing here moves it to `wavelength`.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::InvalidValue`] for a two-photon absorption coefficient.
+    pub fn kerr_coefficient(&self, wavelength: Wavelength, kerr: &Kerr) -> Result<f64> {
+        let n2 = kerr.n2().ok_or_else(|| {
+            Error::invalid(
+                "kerr",
+                "a two-photon absorption coefficient isn't an n₂".to_owned(),
+            )
+        })?;
+        Ok(self.nonlinear_coefficient(wavelength, n2))
     }
 
     /// The same fields scaled to carry unit power, ½ Re ∫ (E × H*)·ẑ dA = 1 over the part
@@ -221,6 +239,15 @@ impl VectorMode {
         };
         Ok(part / (copies * total))
     }
+}
+
+/// The nonlinear coefficient γ = 2π n₂ / (λ A_eff), in 1/(W m), for a nonlinear index `n2` in
+/// m²/W and an effective area `area` in µm²: the closed form [`Fields::nonlinear_coefficient`]
+/// takes with its own area.
+pub fn nonlinear_coefficient(wavelength: Wavelength, n2: f64, area: f64) -> f64 {
+    // k in 1/µm, n₂ in m²/W (1e12 µm²/W), A in µm²: k n₂ / A is 1e12 times that in 1/(W µm),
+    // which is 1e6 times that in 1/(W m)
+    wavelength.wavenumber() * n2 / area * 1e18
 }
 
 /// Which product [`orthogonality`] takes between two modes.

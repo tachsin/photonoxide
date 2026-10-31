@@ -530,6 +530,9 @@ pub struct GeometryView {
     stack_problem: Option<String>,
     ports: Vec<PortView>,
     scene: Option<Event>,
+    /// The etched layers' shapes with their depth and sidewall, which the cross-section draws
+    /// exactly in place of the scene's bands.
+    etched: Vec<job::SceneEtched>,
     /// Values outside the fidelity's validity ranges.
     outside: Vec<String>,
 }
@@ -591,6 +594,7 @@ pub fn geometry(spec_in: &SpecIn) -> GeometryView {
         stack_problem: None,
         ports: Vec::new(),
         scene: None,
+        etched: Vec::new(),
         outside: Vec::new(),
     };
     let spec = match spec_in.spec() {
@@ -728,6 +732,7 @@ pub fn geometry(spec_in: &SpecIn) -> GeometryView {
                     layer: p.layer.clone(),
                 })
                 .collect();
+            view.etched = job::scene_etched(&g.structure);
         }
         Err(e) => view.problem = Some(text(e)),
     }
@@ -788,6 +793,15 @@ fn words(text: &str) -> impl Iterator<Item = &str> {
                 .next()
                 .is_some_and(|c| c.is_alphabetic() || c == '_')
         })
+}
+
+/// A design's process flow from published processes and the wafer after each of its steps
+/// (`photonoxide::fabrication`, #622), for the Fabrication tab: read-only, the flow the rules
+/// give, with its reasons, alternatives, sources and round trip.
+#[tauri::command]
+pub fn device_fabrication(spec: SpecIn) -> Result<job::FabricationView, String> {
+    let spec = spec.spec()?;
+    job::fabrication_of(&spec, &[], &[]).map_err(text)
 }
 
 /// The form's fields, the design's values, ports and scene.
