@@ -4,8 +4,8 @@
   import { CornerDownLeft, Search } from "@lucide/svelte";
   import { tick } from "svelte";
 
-  import { api, type Catalog, type CircuitExample, type CircuitItem, type Home, type KindInfo } from "../lib/api";
-  import { app, CUSTOM, go, newCustom, openCustom, showPublished, startRun, updateSettings, type Page } from "../lib/app.svelte";
+  import { api, formatOf, formatOfText, type Catalog, type CircuitExample, type CircuitItem, type Home, type KindInfo } from "../lib/api";
+  import { app, CUSTOM, fabricate, go, newCustom, openCustom, showPublished, startRun, updateSettings, type Page } from "../lib/app.svelte";
   import { PAGES, RAIL, SYSTEM } from "../lib/pages";
   import { addInstance, importTouchstone, library, loadLibrary, openChipFile, openChipText, partKey, saveChip, showChip, simulate } from "../lib/chip.svelte";
   import { openDesign, openDeviceText, openRunItem } from "../lib/device.svelte";
@@ -49,6 +49,11 @@
 
   function openJob(path: string) {
     api.readJob(path).then((text) => openCustom(text, path));
+  }
+
+  /** The job file at `path` on the Fabrication page. */
+  function fabricateFile(path: string, name: string) {
+    api.readJob(path).then((text) => fabricate({ kind: "job", text, format: formatOf(path), path }, name));
   }
 
   /** A template: a device's on its page, any other in the Custom device. */
@@ -102,6 +107,15 @@
       // a device's design reopens on its page; any other job in the Custom device
       if (j.kind === "device") all.push({ group: "Your designs", label: j.name, detail: j.about || "a device's design", run: () => openDesign(j.path) });
       else all.push({ group: "Your jobs", label: j.name, detail: j.about || j.kind, run: () => openJob(j.path) });
+    }
+    // the Fabrication page, on a template or a design of the workspace that draws a device or a structure
+    for (const j of catalog?.jobs ?? []) {
+      if (/(^|\n)\s*(device:|\[device\])/.test(j.text) || j.kind === "structure") {
+        all.push({ group: "Fabricate", label: j.name, detail: `how it is made, from the bare wafer: ${j.about}`, run: () => fabricate({ kind: "job", text: j.text, format: formatOfText(j.text), path: null }, j.name) });
+      }
+    }
+    for (const j of home?.jobs ?? []) {
+      if (j.kind === "device") all.push({ group: "Fabricate", label: j.name, detail: "your design, how it is made from the bare wafer", run: () => fabricateFile(j.path, j.name) });
     }
     // every run, by its job's name or its own; an empty search shows only pages and actions
     for (const r of home?.runs ?? []) {

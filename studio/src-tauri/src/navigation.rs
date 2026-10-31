@@ -1,8 +1,9 @@
 //! The window's pages, and that nothing reachable became unreachable when the rail went from
-//! fourteen pages to five (#339) and the job builder went into the Custom device (#342). The rail
-//! holds Home, Components, Chip, Academy and Materials, with Validation, Libraries and Benchmarks
-//! folded into its System group beside Settings. The run view is reached from what it shows.
-//! Every example, job, circuit and run has a home:
+//! fourteen pages to five (#339) and the job builder went into the Custom device (#342), and since
+//! Fabrication joined them (#622). The rail holds Home, Components, Chip, Fabrication, Academy
+//! and Materials, with Validation, Libraries and Benchmarks folded into its System group beside
+//! Settings. The run view is reached from what it shows. Every example, job, circuit and run has
+//! a home:
 //!
 //! - every published result of `examples/` is on Validation's Published results tab, and in
 //!   Ctrl+K;
@@ -13,7 +14,10 @@
 //! - a run started with `photonoxide run` opens the run view, and is pinned in the runs drawer
 //!   while it goes; every run is in the drawer, a device's opening on its page (a study on its
 //!   Study tab), and overlays of runs (once the Compare page, then the drawer's) are a device's
-//!   Study tab's Compare, or the Custom device's for runs without a device (#344).
+//!   Study tab's Compare, or the Custom device's for runs without a device (#344);
+//! - every device of the library, every template with a `[device]` or a structure task, the
+//!   design open on a component's page and any such job file opens on the Fabrication page, a
+//!   component's Fabrication tab leading there too.
 //!
 //! The window is Svelte, so these read its sources beside the program's own lists.
 
@@ -77,16 +81,47 @@ fn holds(file: &str, what: &str, why: &str) {
 }
 
 #[test]
-fn the_rail_holds_five_pages_and_the_system_group() {
+fn the_rail_holds_six_pages_and_the_system_group() {
     assert_eq!(
         array("RAIL"),
-        ["home", "components", "chip", "academy", "materials"]
+        [
+            "home",
+            "components",
+            "chip",
+            "fabrication",
+            "academy",
+            "materials"
+        ]
     );
     assert_eq!(array("SYSTEM"), ["validation", "libraries", "benchmarks"]);
     let rail = "components/NavRail.svelte";
     holds(rail, "{#each RAIL as page (page)}", "the rail's pages");
     holds(rail, "{#each SYSTEM as page (page)}", "the System group");
     holds(rail, r#"{@render item("settings")}"#, "Settings");
+}
+
+#[test]
+fn the_fabrication_page_opens_any_design_and_a_component_leads_there() {
+    let page = "pages/Fabrication.svelte";
+    holds(
+        page,
+        "for (const d of devices.list)",
+        "every device of the library",
+    );
+    holds(page, "catalog.data?.jobs", "the templates");
+    holds(page, "api.readJob(path)", "a job file");
+    holds(
+        page,
+        "deviceOf(app.component)",
+        "the design open on its page",
+    );
+    holds(page, "<FabCut", "the 2D view");
+    holds(page, "<Fab3D", "the 3D view");
+    holds(
+        "components/device/FabricationTab.svelte",
+        "fabricate({ kind: \"device\"",
+        "a component's Fabrication tab leads to the page",
+    );
 }
 
 #[test]

@@ -257,6 +257,14 @@ pub(crate) fn guide_film(film: &str) -> bool {
     matches!(film, "Si3N4" | "SiN" | "AlN")
 }
 
+/// The platform the library makes `design` on: the one its single-crystal film (silicon,
+/// lithium niobate, gallium arsenide) or, on a bare silicon wafer, its deposited guide film
+/// (silicon nitride, aluminium nitride) sets; `None` for a design no platform of the library
+/// makes. A design has one platform: its films decide it.
+pub fn platform(design: &Physical) -> Option<Platform> {
+    wafer_of(design).map(|(_, p)| p)
+}
+
 /// The layers bought with the design's wafer (up to its single-crystal film, none for a bare
 /// wafer) and the design's platform; `None` for a design no platform of the library makes.
 fn wafer_of(design: &Physical) -> Option<(usize, Platform)> {

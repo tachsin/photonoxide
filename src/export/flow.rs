@@ -279,8 +279,16 @@ const WIDTH: f64 = 960.0;
 /// The samples across the cut a patterned layer's profile is read at.
 const SAMPLES: usize = 2001;
 
-/// A film's colour in the cross-sections.
-fn colour(film: &str) -> &'static str {
+/// A film's colour in the cross-sections, as `#rrggbb`: the exported SVGs' and the studio's
+/// Fabrication page's, in 2D and 3D alike. A resist (a film named `… resist` or `photoresist`)
+/// is magenta, and a light pink where a pattern is written into it (`…, written`).
+pub fn film_colour(film: &str) -> &'static str {
+    if film.ends_with(", written") {
+        return "#f2bde8";
+    }
+    if film.ends_with("resist") {
+        return "#c45ab3";
+    }
     match film {
         "air" => "#ffffff",
         "Si" => "#7f8fa6",
@@ -362,7 +370,7 @@ impl Section<'_> {
             out,
             r#"<rect x="{PLOT_X:.3}" y="{top:.3}" width="{PLOT_W:.3}" height="{:.3}" fill="{}"/>"#,
             (bottom - top).max(0.0),
-            colour(film)
+            film_colour(film)
         );
     }
 
@@ -468,7 +476,7 @@ impl Section<'_> {
                 let _ = writeln!(
                     out,
                     r#"<polygon points="{points}" fill="{}"/>"#,
-                    colour(drawn)
+                    film_colour(drawn)
                 );
             }
             tops.push(top);
@@ -537,7 +545,7 @@ impl Section<'_> {
                 out,
                 r##"<rect x="{LEGEND_X}" y="{:.3}" width="14" height="14" fill="{}" stroke="#333333" stroke-width="0.5"/>"##,
                 y - 12.0,
-                colour(&row.film)
+                film_colour(&row.film)
             );
             if let Some(e) = &row.elsewhere {
                 let _ = writeln!(
@@ -545,7 +553,7 @@ impl Section<'_> {
                     r##"<rect x="{}" y="{:.3}" width="14" height="14" fill="{}" stroke="#333333" stroke-width="0.5"/>"##,
                     LEGEND_X + 16.0,
                     y - 12.0,
-                    colour(e)
+                    film_colour(e)
                 );
             }
             let _ = writeln!(
