@@ -121,36 +121,79 @@ jobs:
           # entry NAME OS CASES EXAMPLES: a job of the release build, its validation cases and examples
           entry() { entries+=("$(jq -nc --arg name "$1" --arg os "$2" --arg cases "$3" --arg examples "$4" '$ARGS.named')"); }
 
-          # The validation cases, the slowest groups each on a runner of their own: a group's
-          # prefix, then those of the earlier groups inside it left out. Every case runs in
-          # exactly one job, and together they check the whole report. Measured on CI's runners
-          # (0.5.2, #321 and #328): fdtd's adjoints 4.7 min, its smoothing 4.8, its comparisons
-          # with fdfd 2.5, the rest of fdtd 4.4, fdfd3d 6.3, the rest 3.5 (mode 2.5); the release
+          # The validation cases, the slowest groups each on a runner of their own: a group is a
+          # name and its prefixes, and the prefixes of the earlier groups inside it are left out.
+          # Every case runs in exactly one job, and together they check the whole report.
+          # Measured on CI's runners (0.5.2, #321 and #328): fdtd's adjoints 4.7 min, its smoothing
+          # 4.8, its comparisons with fdfd 2.5, the rest of fdtd 4.4, fdfd3d 6.3; the release
           # build about 2 minutes more each. The fabrication engine's round trips (#622) took 6.4
           # minutes for the library's alone on CI's runner (#635), so its cases run on their own.
-          groups="fdtd/adjoint fdtd/smoothing fdtd/fdfd fdtd/ fdfd3d/ fabrication/"
+          # What was left took 31 minutes of cases on the release pull request of 31 October 2026
+          # (49.5 minutes in all on a cold cache, #644's), with the device/ cases 16 of them
+          # (pcm 4, thermo 3, compact 2, threads 1.4), shifter/ 4, line/ 3, mode/ 2, nonlinear/ 1.3,
+          # pockels/ 1 and the small areas 4.5; so the devices, and shifter/ with line/, have
+          # runners of their own as well, and the rest is mode/, nonlinear/, pockels/ and the
+          # small areas.
+          gnames=() gprefixes=()
+          group() { gnames+=("$1"); gprefixes+=("$2"); }
+          group "fdtd/adjoint" "fdtd/adjoint"
+          group "fdtd/smoothing" "fdtd/smoothing"
+          group "fdtd/fdfd" "fdtd/fdfd"
+          group "fdtd/" "fdtd/"
+          group "fdfd3d/" "fdfd3d/"
+          group "fabrication/" "fabrication/"
+          group "device/ (pcm, thermo, threads)" "device/pcm device/thermo device/threads"
+          group "device/ (the rest)" "device/"
+          group "shifter/ and line/" "shifter/ line/"
           rest=""
           if [ -n "$cases" ]; then
-            done=""
-            for g in $groups; do
-              take=false
-              if [ "$cases" = "*" ]; then
-                take=true
-              else
-                for c in $cases; do case "$g" in "$c"*) take=true ;; esac; done
-              fi
-              [ "$take" = true ] || continue
-              these="$g"
-              for d in $done; do case "$d" in "$g"*) these+=" -$d" ;; esac; done
-              entry "$g" ubuntu-latest "$these" ""
-              done+=" $g"
+            for i in "${!gnames[@]}"; do
+              # the group's prefixes that the changed areas reach: a prefix inside an area's
+              # (fdtd/adjoint in fdtd/), or an area inside the prefix
+              mine=""
+              for p in ${gprefixes[$i]}; do
+                take=false
+                if [ "$cases" = "*" ]; then
+                  take=true
+                else
+                  for c in $cases; do
+                    case "$p" in "$c"*) take=true ;; esac
+                    case "$c" in "$p"*) take=true ;; esac
+                  done
+                fi
+                [ "$take" = true ] && mine+=" $p"
+              done
+              [ -n "$mine" ] || continue
+              these="${mine# }"
+              for ((j = 0; j < i; j++)); do
+                for q in ${gprefixes[$j]}; do
+                  for p in $mine; do
+                    case "$q" in "$p"*) these+=" -$q" ;; esac
+                  done
+                done
+              done
+              entry "${gnames[$i]}" ubuntu-latest "$these" ""
             done
-            rest=""
             if [ "$cases" = "*" ]; then
-              for g in $groups; do rest+=" -$g"; done
+              for i in "${!gnames[@]}"; do
+                for p in ${gprefixes[$i]}; do rest+=" -$p"; done
+              done
             else
+              # an area that no prefix of a group covers, less the prefixes inside it
               for c in $cases; do
-                case " $groups " in *" $c "*) ;; *) rest+=" $c" ;; esac
+                covered=false
+                for i in "${!gnames[@]}"; do
+                  for p in ${gprefixes[$i]}; do
+                    case "$c" in "$p"*) covered=true ;; esac
+                  done
+                done
+                [ "$covered" = true ] && continue
+                rest+=" $c"
+                for i in "${!gnames[@]}"; do
+                  for p in ${gprefixes[$i]}; do
+                    case "$p" in "$c"*) rest+=" -$p" ;; esac
+                  done
+                done
               done
             fi
           fi
