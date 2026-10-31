@@ -115,7 +115,8 @@
 //! 9.4 points our front misses it by are our search's, with its 150 nm etch.
 //!
 //! `--supplement` (2026-10-31, on 8 threads of a machine shared with other work: about 1 h for
-//! the 4 µm designs), on 10 × 5 nm with the waist at FID: the 4 µm efficiencies are within 0.10
+//! the 4 µm designs and 2 h 15 min for the 6 µm ones), on 10 × 5 nm with the waist at FID: the
+//! 4 µm efficiencies are within 0.10
 //! to 0.52 points of the data file's, 55.29 % against 55.1 % (52), 53.90 against 54.0 (49), 53.23
 //! against 53.1 (48), 51.17 against 50.9 (45), 57.73 against 57.36 (56) and 46.72 against 46.2
 //! (35): the first three within the paper's spread of 0.24 points, the others just beyond it.
@@ -129,6 +130,15 @@
 //! (0.08 points) for 49, 48 and 45 with the waist at FID; for the others the three grids give an
 //! estimate up to 0.4 points, or none where the changes don't shrink, so the efficiencies agree
 //! to about half a point, not yet to the paper's own 0.24.
+//!
+//! The 6 µm designs, the same way: the efficiencies are 0.45 to 0.79 points above the data
+//! file's with the waist at FID, 60.61 % against 59.82 % (58), 50.65 against 50.2 (42), 48.39
+//! against 47.8 (39) and 46.85 against 46.1 (37); with the waist on the film, from 1.37 below to
+//! 0.36 above. The bandwidths are again wider, by 1.6 to 3.6 nm (2 to 4 %). With the searches'
+//! model on 10 × 5 nm, the paper's designs 42 and 39 couple 49.26 % at 100 nm (48.78 % on
+//! 20 × 10 nm), within 3 points of the main text's 47 %; so the 7.2 points our 6 µm front misses
+//! by are also our search's, with its 11 grooves for the paper's 13. That 49.26 % is above the
+//! data file's own 47.36 % because our bandwidths are wider: the same front, moved to the right.
 //!
 //! ```sh
 //! cargo run --release --example optimize_grating_pareto                  # the recorded designs
