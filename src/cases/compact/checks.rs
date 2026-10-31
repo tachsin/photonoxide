@@ -772,14 +772,14 @@ pub(crate) fn cases() -> Vec<Case> {
             id: "compact/param-ring-shift",
             title: r"A parametric model of the ring over $n_\text{eff}$ at 1.55 µm from 2.39 to 2.41, which shifts its resonances by 0.8 of a free spectral range (13 samples, 16 basis poles, degree 6): largest $\lvert\Delta S\rvert$ at the 12 values halfway between samples (shown)",
             tier: Tier::Analytic,
-            source: "Bogaerts et al. (2011), Eq. 1; 1.9e-7 here; the 16 shared poles alone fit the samples only to 1.3, Triverio et al.'s piecewise-linear model fails between them (below), and fitting each sample alone and interpolating its poles missed by 0.2 to 0.8, measured while choosing the method",
+            source: "Bogaerts et al. (2011), Eq. 1; 1.9e-7 here on Linux and Windows, 1.7e-7 on macOS (a fit's residual, set by each system's rounding); the 16 shared poles alone fit the samples only to 1.3, Triverio et al.'s piecewise-linear model fails between them (below), and fitting each sample alone and interpolating its poles missed by 0.2 to 0.8, measured while choosing the method",
             run: param_ring_shift,
         },
         Case {
             id: "compact/param-ring-stable",
             title: r"The same model made stable at 21 values (poles in the right half plane flipped, residues identified again over 801 wavelengths): largest $\lvert\Delta S\rvert$ against Eq. 1 (shown)",
             tier: Tier::Analytic,
-            source: "Bogaerts et al. (2011), Eq. 1; 1.2e-7 here; the flip is Gustavsen and Semlyen's (1999), Section 2; the polynomial model's own poles aren't constrained, and some fall in the right half plane, out of the band",
+            source: "Bogaerts et al. (2011), Eq. 1; 1.2e-7 here on Linux and Windows, 1.1e-7 on macOS; the flip is Gustavsen and Semlyen's (1999), Section 2; the polynomial model's own poles aren't constrained, and some fall in the right half plane, out of the band",
             run: param_ring_stable,
         },
         Case {
