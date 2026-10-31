@@ -23,6 +23,8 @@
 //!   conductor and photonoxide's full-wave RF mode.
 //! - [`zhang_line`]: Zhang et al.'s thin-film lithium niobate line with its whole stack, for
 //!   openEMS's FDTD and photonoxide's quasi-TEM line.
+//! - [`t_rails`]: Kharel et al.'s segmented (T-rail) electrodes, for openEMS's FDTD on the
+//!   electrodes as drawn and photonoxide's periodic line from 2D sections.
 //! - [`heater`]: the shared heat case, a heater in oxide over silicon, for Elmer and photonoxide.
 //! - [`heaters`]: two heaters side by side, the thermal crosstalk, for Elmer and photonoxide.
 //! - [`transient`]: a heater turned on, its guide's rise in time, for Elmer and photonoxide.
@@ -46,6 +48,7 @@ pub mod lossy_line;
 pub mod microstrip;
 pub mod openems;
 pub mod report;
+pub mod t_rails;
 pub mod tfln;
 pub mod transient;
 pub mod zhang_line;

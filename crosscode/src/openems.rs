@@ -170,6 +170,7 @@ impl OpenEms {
         let mut settled: Option<f64> = None;
         let mut levels: Vec<f64> = Vec::new();
         let mut timestep = f64::NAN;
+        let mut memory_at = 0.0;
         for line in BufReader::new(stdout).lines() {
             let line = line.map_err(io)?;
             let _ = writeln!(output, "{line}");
@@ -183,7 +184,12 @@ impl OpenEms {
                 tracker.pulse = Some(n);
             }
             if let Some(p) = progress_line(&line) {
-                let message = tracker.report(label, &p, start.elapsed().as_secs_f64());
+                let elapsed = start.elapsed().as_secs_f64();
+                if elapsed >= memory_at {
+                    tracker.memory = memory_mb(child.id());
+                    memory_at = elapsed + MEMORY_EVERY;
+                }
+                let message = tracker.report(label, &p, elapsed);
                 eprintln!("{message}");
                 let _ = writeln!(progress, "{message}");
                 if self.settle && tracker.pulse.is_some_and(|n| 2 * p.step > 3 * n) && p.db < -10.0
@@ -425,17 +431,57 @@ const PULSES: f64 = 1.25;
 /// The energy's fall is measured over the last this many seconds.
 const WINDOW: f64 = 60.0;
 
+/// How often the program's memory is read, s of wall time.
+const MEMORY_EVERY: f64 = 30.0;
+
+/// The memory (working set, MB) of the process `pid`, where the system says: `tasklist` on
+/// Windows, `/proc` elsewhere.
+fn memory_mb(pid: u32) -> Option<f64> {
+    #[cfg(windows)]
+    {
+        let out = Command::new("tasklist")
+            .args(["/FI", &format!("PID eq {pid}"), "/FO", "CSV", "/NH"])
+            .stdin(Stdio::null())
+            .stderr(Stdio::null())
+            .output()
+            .ok()?;
+        // "openEMS.exe","1234","Console","1","1,234,567 K"
+        let text = String::from_utf8_lossy(&out.stdout);
+        let field = text.trim().rsplit("\",\"").next()?;
+        let kb: f64 = field
+            .chars()
+            .filter(char::is_ascii_digit)
+            .collect::<String>()
+            .parse()
+            .ok()?;
+        Some(kb / 1024.0)
+    }
+    #[cfg(not(windows))]
+    {
+        let status = fs::read_to_string(format!("/proc/{pid}/status")).ok()?;
+        let kb: f64 = status
+            .lines()
+            .find_map(|l| l.strip_prefix("VmRSS:"))?
+            .split_whitespace()
+            .next()?
+            .parse()
+            .ok()?;
+        Some(kb / 1024.0)
+    }
+}
+
 /// What the log says of a run so far: the step against those it should take (`PULSES` times
 /// the pulse's, once openEMS has said how long it is; the most allowed before), the energy
-/// against the end criterion, and an estimate of the time left: from how fast the energy has
-/// fallen over the last minute once the pulse has passed (10 dB below its peak), from the
-/// steps' rate until then.
+/// against the end criterion, the time elapsed and an estimate of the time left (from how fast
+/// the energy has fallen over the last minute once the pulse has passed, 10 dB below its peak;
+/// from the steps' rate until then), and the program's memory.
 struct Tracker {
     most: u64,
     target: f64,
     pulse: Option<u64>,
     last_step: u64,
     falling: Vec<(f64, f64)>,
+    memory: Option<f64>,
 }
 
 impl Tracker {
@@ -446,6 +492,7 @@ impl Tracker {
             pulse: None,
             last_step: 0,
             falling: Vec::new(),
+            memory: None,
         }
     }
 
@@ -486,8 +533,12 @@ impl Tracker {
         };
         format!(
             "[{label}] step {}/{expected} ({share:.1} %), energy {:.1} of {:.0} dB, {elapsed:.0} \
-             s elapsed, {left}",
-            p.step, p.db, self.target
+             s elapsed, {left}{}",
+            p.step,
+            p.db,
+            self.target,
+            self.memory
+                .map_or(String::new(), |mb| format!(", memory {mb:.0} MB"))
         )
     }
 }
@@ -548,6 +599,8 @@ pub enum Boundary {
     Pmc,
     /// A perfectly matched layer of this many cells (6 to 20; 8 is openEMS's usual).
     Pml(u32),
+    /// Mur's first-order absorbing condition, for a wave meeting the side head on.
+    Mur,
 }
 
 impl Boundary {
@@ -556,6 +609,7 @@ impl Boundary {
             Boundary::Pec => "PEC".into(),
             Boundary::Pmc => "PMC".into(),
             Boundary::Pml(n) => format!("PML_{n}"),
+            Boundary::Mur => "MUR".into(),
         }
     }
 }
