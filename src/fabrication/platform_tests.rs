@@ -8,6 +8,20 @@ fn nitride_flows_follow_their_sources_and_give_their_designs_back() {
 }
 
 #[test]
+fn phase_change_cells_are_sputtered_lifted_off_and_capped_cool() {
+    assert_eq!(pcm_rules_wrong(), Vec::<String>::new());
+    assert_eq!(pcm_reported_missing(), Vec::<&str>::new());
+    // the film is the catalogue's, so its budget is the catalogue's crystallization temperature
+    for (film, limit) in [("Sb2Se3", 200.0), ("Sb2S3", 270.0), ("Ge2Sb2Te5", 150.0)] {
+        let b = budget(film);
+        assert!(
+            b.limit.high().is_some_and(|t| (t - limit).abs() < 0.5),
+            "{film}: {b:?}"
+        );
+    }
+}
+
+#[test]
 fn library_devices_on_nitride_round_trip_at_their_defaults() {
     for kind in [
         "waveguide",

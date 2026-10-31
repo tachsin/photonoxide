@@ -1216,19 +1216,24 @@ pub fn assess(design: &Physical, flow: &Flow) -> Result<Assessment> {
                     a.accuracy.push(d.close());
                 }
             }
-            Operation::Evaporate { film, thickness } => {
+            Operation::Evaporate { film, thickness } | Operation::Sputter { film, thickness } => {
                 if !present.contains(&film.name) {
                     present.push(film.name.clone());
                 }
+                let how = if matches!(step.operation, Operation::Sputter { .. }) {
+                    ("sputtered", "sputtering")
+                } else {
+                    ("evaporated", "evaporation")
+                };
                 let mut d = Dimension::new(
-                    format!("the evaporated {}'s thickness", film.name),
+                    format!("the {} {}'s thickness", how.0, film.name),
                     &film.name,
                     Kind::Thickness,
                     thickness.to_um() * 1000.0,
                     Unit::Nm,
                 );
                 d.add(
-                    "the evaporation's thickness spread",
+                    &format!("the {}'s thickness spread", how.1),
                     None,
                     None,
                     format!("no source in hand states it for {}", p.name),

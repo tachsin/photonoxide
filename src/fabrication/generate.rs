@@ -135,6 +135,16 @@ struct State {
 }
 
 impl State {
+    /// What the cladding is for: the cap of phase-change cells when there are some, the
+    /// cladding over the guides otherwise.
+    fn cladding(&self) -> Purpose {
+        if self.present.iter().any(|f| super::library::phase_change(f)) {
+            Purpose::Cell
+        } else {
+            Purpose::Cladding
+        }
+    }
+
     fn push(&mut self, step: Step) {
         for c in &step.capabilities {
             if !c.value.is_stated() {
@@ -510,7 +520,7 @@ pub fn generate(design: &Physical, choices: &Choices) -> Result<Flow> {
                 })
                 .collect();
             let purpose = if with_cladding {
-                Purpose::Cladding
+                state.cladding()
             } else if !state
                 .steps
                 .iter()
@@ -551,7 +561,7 @@ pub fn generate(design: &Physical, choices: &Choices) -> Result<Flow> {
             Vec::new(),
             true,
             false,
-            Purpose::Cladding,
+            state.cladding(),
             &mut state,
         )?;
     }
@@ -1691,12 +1701,16 @@ fn deposit(
         }
     }
     if let Some(u) = chosen.used(state.platform, purpose)
-        && state.platform != Platform::Soi
-        && state.platform != Platform::Lnoi
+        && (purpose == Purpose::Cell
+            || (state.platform != Platform::Soi && state.platform != Platform::Lnoi))
     {
         reason.push_str(&format!(
             " The {} papers in hand used it for this ({}, {}).",
-            state.platform.name(),
+            if purpose == Purpose::Cell {
+                "phase-change"
+            } else {
+                state.platform.name()
+            },
             u.source.reference,
             u.source.location
         ));
@@ -1851,11 +1865,17 @@ fn metal_layer(design: &Physical, i: usize, choices: &Choices, state: &mut State
             layer.name
         )));
     }
+    // a phase-change film is a cell on the guides; anything else drawn above them, a metal
+    let purpose = if super::library::phase_change(&film) {
+        Purpose::Cell
+    } else {
+        Purpose::Metal
+    };
     let deposition = ordered(
         StepType::Deposition,
         Some(&film),
         state.platform,
-        Purpose::Metal,
+        purpose,
         choices,
     );
     let source = deposition.first().copied().ok_or_else(|| {
@@ -1871,10 +1891,14 @@ fn metal_layer(design: &Physical, i: usize, choices: &Choices, state: &mut State
         .first()
         .map(|f| format!("{} ({}, {})", f.text, f.source.reference, f.source.location))
         .unwrap_or_default();
-    if source.directional && !choices.avoid.contains(&lift.id) {
-        // lift-off: the resist opened, the metal evaporated, the resist dissolved
+    // a film comes down in straight lines (evaporated) or its sources lifted it off as it is
+    let lifted = lift
+        .used(state.platform, purpose)
+        .filter(|_| lift.acts_on(&film));
+    if (source.directional || lifted.is_some()) && !choices.avoid.contains(&lift.id) {
+        // lift-off: the resist opened, the film deposited, the resist dissolved
         let (litho, alts, t, litho_reason) =
-            lithography(f, Purpose::Metal, None, choices, state, &layer.name)?;
+            lithography(f, purpose, None, choices, state, &layer.name)?;
         let mut pattern = step_of(
             litho,
             Operation::Pattern {
@@ -1890,29 +1914,101 @@ fn metal_layer(design: &Physical, i: usize, choices: &Choices, state: &mut State
         );
         pattern.alternatives = alts;
         state.push(pattern);
-        if !state.open.is_empty() {
+        // the shapes sit on the film's top where the layer below keeps its full height there
+        let on_top = |shape: &crate::geometry::Shape| {
+            let b = shape.bounds();
+            let (x0, x1, y0, y1) = (
+                b.min.x.to_um(),
+                b.max.x.to_um(),
+                b.min.y.to_um(),
+                b.max.y.to_um(),
+            );
+            let (dx, dy) = (1e-6 * (x1 - x0), 1e-6 * (y1 - y0));
+            state.open.iter().all(|(j, _)| {
+                let below = &s.stack().layers()[*j];
+                [
+                    (x0 + dx, y0 + dy),
+                    (x1 - dx, y0 + dy),
+                    (x0 + dx, y1 - dy),
+                    (x1 - dx, y1 - dy),
+                ]
+                .iter()
+                .all(|&(x, y)| {
+                    s.kept(&below.name, crate::geometry::Point::um(x, y))
+                        .is_some_and(|k| (k.to_um() - below.thickness.to_um()).abs() < 1e-12)
+                })
+            })
+        };
+        if !state.open.is_empty() && !(purpose == Purpose::Cell && shapes.iter().all(on_top)) {
             state.push_note_flat(&layer.name);
         }
         let (violations, _) = state.thermal(source, true);
         if !violations.is_empty() {
             state.warn(format!("{}: {}", source.name, violations.join("; ")));
         }
-        let mut ev = step_of(
-            source,
-            Operation::Evaporate {
-                film: drawn.clone(),
-                thickness: layer.thickness,
-            },
-            format!(
-                "{film} is evaporated, {} thick: it comes down in straight lines, onto the \
-                 resist and into its openings, which is what lift-off needs.",
-                um(layer.thickness.to_um())
-            ),
-        );
-        if let Some(u) = source.used(state.platform, Purpose::Metal) {
+        let mut ev = if source.directional {
+            step_of(
+                source,
+                Operation::Evaporate {
+                    film: drawn.clone(),
+                    thickness: layer.thickness,
+                },
+                format!(
+                    "{film} is evaporated, {} thick: it comes down in straight lines, onto the \
+                     resist and into its openings, which is what lift-off needs.",
+                    um(layer.thickness.to_um())
+                ),
+            )
+        } else {
+            step_of(
+                source,
+                Operation::Sputter {
+                    film: drawn.clone(),
+                    thickness: layer.thickness,
+                },
+                format!(
+                    "{film} is sputtered, {} thick, over the resist and into its openings. \
+                     Sputtering covers walls too, which lift-off doesn't like, but a film this \
+                     thin has been lifted off as it is ({}, {}).",
+                    um(layer.thickness.to_um()),
+                    lifted.map_or("", |u| u.source.reference.as_str()),
+                    lifted.map_or("", |u| u.source.location.as_str())
+                ),
+            )
+        };
+        if let Some(u) = source.used(state.platform, purpose) {
             ev.reason.push_str(&format!(
-                " The papers in hand made such electrodes this way ({}, {}).",
-                u.source.reference, u.source.location
+                " The papers in hand made such {} this way ({}, {}).",
+                if purpose == Purpose::Cell {
+                    "cells"
+                } else {
+                    "electrodes"
+                },
+                u.source.reference,
+                u.source.location
+            ));
+        }
+        // a sputtered film thicker than any its sources lifted off
+        let thickest = source
+            .capabilities_of(&Quantity::Thickness)
+            .filter(|c| c.value.unit() == Some(Unit::Nm))
+            .filter_map(|c| c.value.high().map(|v| (v, c)))
+            .fold(
+                None,
+                |best: Option<(f64, &Capability)>, (v, c)| match best {
+                    Some((b, _)) if b >= v => best,
+                    _ => Some((v, c)),
+                },
+            );
+        if !source.directional
+            && let Some((v, c)) = thickest
+            && layer.thickness.to_um() * 1000.0 > v + 1e-9
+        {
+            ev.uncertainties.push(format!(
+                "the design's {} is thicker than any film its sources sputtered and lifted off \
+                 (at most {}): whether it lifts off as cleanly is not specified",
+                um(layer.thickness.to_um()),
+                cited(c)
             ));
         }
         state.push(ev);
@@ -1923,12 +2019,31 @@ fn metal_layer(design: &Physical, i: usize, choices: &Choices, state: &mut State
             },
             format!(
                 "Dissolving the resist takes away the {film} on it; the {film} in the openings is \
-                 the design's {}. {campbell}",
-                layer.name
+                 the design's {}. {}",
+                layer.name,
+                if source.directional {
+                    campbell.clone()
+                } else {
+                    // the cells' own sources, which lifted off a sputtered film
+                    lift.facts
+                        .iter()
+                        .filter(|f| {
+                            f.source.reference != "campbell-2008"
+                                && lifted.is_some_and(|u| u.platform == state.platform)
+                        })
+                        .map(|f| {
+                            format!("{} ({}, {})", f.text, f.source.reference, f.source.location)
+                        })
+                        .collect::<Vec<_>>()
+                        .join(" ")
+                }
             ),
         );
-        off.uncertainties
-            .push("the resist-to-metal thickness ratio lift-off needs is not specified".into());
+        off.uncertainties.push(if source.directional {
+            "the resist-to-metal thickness ratio lift-off needs is not specified".into()
+        } else {
+            format!("the resist-to-{film} thickness ratio lift-off needs is not specified")
+        });
         let etchers: Vec<&Process> = library()
             .iter()
             .filter(|p| p.step == StepType::PatternTransfer && p.id != lift.id && p.acts_on(&film))

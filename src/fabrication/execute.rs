@@ -197,9 +197,9 @@ fn run(steps: &[super::flow::Step], partial: bool) -> Result<Made> {
                     top.etches.push(etch);
                 }
             }
-            Operation::Evaporate { film, thickness } => {
+            Operation::Evaporate { film, thickness } | Operation::Sputter { film, thickness } => {
                 if !matches!(resist, Some((_, Tone::Open))) {
-                    return Err(at("an evaporation for lift-off with no opened resist"));
+                    return Err(at("a film for lift-off with no opened resist"));
                 }
                 evaporated = Some((film.clone(), *thickness));
             }

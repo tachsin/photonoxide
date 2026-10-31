@@ -97,6 +97,14 @@ pub enum Operation {
         /// Its thickness.
         thickness: Length,
     },
+    /// A film sputtered over the resist and into its openings: a thin film its sources lift off
+    /// although it doesn't come down in straight lines.
+    Sputter {
+        /// The film.
+        film: Film,
+        /// Its thickness.
+        thickness: Length,
+    },
     /// The resist dissolved, taking the film on it: what landed in the openings is the layer
     /// `layer`.
     LiftOff {
@@ -183,6 +191,9 @@ impl Operation {
             Operation::Evaporate { film, thickness } => {
                 format!("evaporate {} of {}", um(*thickness), film.name)
             }
+            Operation::Sputter { film, thickness } => {
+                format!("sputter {} of {}", um(*thickness), film.name)
+            }
             Operation::LiftOff { layer } => format!("lift off: {layer} left in the openings"),
             Operation::Strip => "remove the resist".into(),
             Operation::Anneal { what } => format!("{what}: no shape changes"),
@@ -199,6 +210,7 @@ impl Operation {
             Operation::Pattern { .. } => "pattern",
             Operation::Etch { .. } => "etch",
             Operation::Evaporate { .. } => "evaporate",
+            Operation::Sputter { .. } => "sputter",
             Operation::LiftOff { .. } => "lift_off",
             Operation::Strip => "strip",
             Operation::Anneal { .. } => "anneal",
@@ -423,7 +435,7 @@ impl Step {
                     }
                 }
             }
-            Operation::Evaporate { film, thickness } => {
+            Operation::Evaporate { film, thickness } | Operation::Sputter { film, thickness } => {
                 r.film = Some(film.name.clone());
                 r.thickness_um = Some(thickness.to_um());
             }

@@ -219,7 +219,123 @@ pub(super) fn processes() -> Vec<Process> {
         lpcvd(),
         lpcvd_low(),
         pecvd_nitride(),
+        sputtered_pcm(),
+        sputtered_oxide(),
     ]
+}
+
+/// Phase-change films by sputtering, as the cells' papers deposit them.
+fn sputtered_pcm() -> Process {
+    let mut p = new_process(
+        "sputtering-pcm",
+        StepType::Deposition,
+        "Phase-change film by RF sputtering",
+        "Argon ions knock atoms off a target of the phase-change alloy in a radio-frequency \
+         plasma, and they land on the wafer as a thin amorphous film, a few tens of nanometres \
+         thick.",
+        &["Ge2Sb2Te5", "Sb2S3", "Sb2Se3"],
+    );
+    p.capabilities = vec![
+        cap(
+            Quantity::Temperature,
+            Stated::not_specified(),
+            "stated only as \"low-temperature RF sputtering\" (delaney-2021, PDF p. 6)",
+        ),
+        cap(
+            Quantity::Thickness,
+            Stated::value(23.0, Unit::Nm, src("delaney-2021", "PDF p. 6")),
+            "Sb₂Se₃ cells on 220 nm SOI",
+        ),
+        cap(
+            Quantity::Thickness,
+            Stated::value(22.0, Unit::Nm, src("delaney-2020", "PDF p. 7")),
+            "Sb₂S₃ and Sb₂Se₃ patches on SOI ribs",
+        ),
+        cap(
+            Quantity::Thickness,
+            Stated::value(10.0, Unit::Nm, src("rios-2015", "Methods (PDF p. 9)")),
+            "Ge₂Sb₂Te₅ cells on nitride guides, capped with 10 nm of ITO",
+        ),
+    ];
+    p.facts = vec![
+        fact(
+            "Sb₂S₃ and Sb₂Se₃ were deposited by RF magnetron sputtering in argon from 3-inch \
+             targets, and were amorphous as deposited.",
+            "delaney-2020",
+            "PDF p. 9",
+        ),
+        fact(
+            "Without a cap, sulfur and selenium leave the film's surface; the cap keeps them in \
+             and the film from oxidizing.",
+            "delaney-2020",
+            "PDF p. 9",
+        ),
+    ];
+    p.used_for = vec![
+        used(Platform::Soi, Purpose::Cell, "delaney-2021", "PDF p. 6"),
+        used(Platform::Soi, Purpose::Cell, "delaney-2020", "PDF p. 7"),
+        used(
+            Platform::Nitride,
+            Purpose::Cell,
+            "rios-2015",
+            "Methods (PDF p. 9)",
+        ),
+    ];
+    p
+}
+
+/// Oxide by RF sputtering: the cap over phase-change cells, which a furnace or a plasma
+/// deposition above the film's crystallization temperature would change.
+fn sputtered_oxide() -> Process {
+    let mut p = new_process(
+        "sputtering-oxide",
+        StepType::Deposition,
+        "Oxide by RF sputtering",
+        "A radio-frequency plasma sputters an oxide target, or a metal one in oxygen, and the \
+         oxide lands on the wafer. No furnace is needed, so it can cap a film that a hot step \
+         would change.",
+        &["SiO2"],
+    );
+    p.capabilities = vec![
+        cap(
+            Quantity::Temperature,
+            Stated::not_specified(),
+            "the wafer's temperature during sputtering",
+        ),
+        cap(
+            Quantity::Thickness,
+            Stated::value(200.0, Unit::Nm, src("delaney-2021", "PDF p. 6")),
+            "a ZnS:SiO₂ cap over Sb₂Se₃ cells",
+        ),
+    ];
+    p.facts = vec![
+        fact(
+            "Sputtering a film that doesn't conduct needs a radio-frequency field, to keep the \
+             target from charging; with oxygen added, a metal target gives an oxide (reactive \
+             sputtering).",
+            "franssila-2010",
+            "Section 5.2.2 (p. 50)",
+        ),
+        fact(
+            "Phase-change films capped with 200 nm of ZnS:SiO₂ (20 %:80 %) by RF sputtering were \
+             amorphous as deposited.",
+            "delaney-2020",
+            "PDF p. 9",
+        ),
+        fact(
+            "After the resist was removed, the whole chip was capped with 200 nm of ZnS:SiO₂ by \
+             RF sputtering.",
+            "delaney-2021",
+            "PDF p. 6",
+        ),
+    ];
+    p.used_for = vec![used(
+        Platform::Soi,
+        Purpose::Cell,
+        "delaney-2021",
+        "PDF p. 6",
+    )];
+    p
 }
 
 /// Medium-temperature LPCVD of oxide and nitride: conformal, hot.

@@ -234,6 +234,19 @@ pub(super) fn processes() -> Vec<Process> {
         ),
     ];
 
+    pmma.used_for = vec![used(
+        Platform::Nitride,
+        Purpose::Cell,
+        "rios-2015",
+        "Methods (PDF p. 9)",
+    )];
+    uv.used_for.push(used(
+        Platform::Soi,
+        Purpose::Cell,
+        "delaney-2020",
+        "PDF p. 7",
+    ));
+
     let mut imprint = new_process(
         "nanoimprint",
         StepType::Lithography,

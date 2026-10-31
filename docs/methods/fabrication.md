@@ -218,6 +218,35 @@ Either way, `prefer: [damascene-preform]` asks for the Damascene process and `av
 A reflow of the preform, which later Damascene work adds to smooth the trenches' walls, is not
 described by a source in hand, so it isn't offered.
 
+### Phase-change cells (`Sb2Se3 phase-change phase shifter`, at its defaults)
+
+A phase-change cell is a thin patch of a material that switches between an amorphous and a
+crystalline state, laid on a guide. The three shifters (GST, Sb₂S₃, Sb₂Se₃) are made the same
+way; only the film changes.
+
+| Layer | Film | Thickness | Drawn |
+|---|---|---|---|
+| cladding | SiO₂ | above everything | |
+| PCM | Sb₂Se₃, SiO₂ elsewhere | 0.025 µm | a patch on the guide, 0.5 µm wide |
+| Si | Si, SiO₂ where etched | 0.22 µm | a strip 0.5 µm wide |
+| BOX | SiO₂ | 2 µm | |
+| substrate | Si | | |
+
+| # | Step | Process | What it does, and why |
+|---|---|---|---|
+| 1–4 | | as the strip waveguide's 1–4 | |
+| 5 | lithography | UV photolithography | Resist opened where the cell goes, as Delaney et al. 2020 made their patches (contact UV lithography and lift-off). |
+| 6 | deposition | RF sputtering of the film | 25 nm of Sb₂Se₃, over the resist and into its opening. Sputtering also covers walls, which lift-off usually avoids, but films this thin are lifted off: 22 to 25 nm in Delaney et al. 2020 and 2021, 10 nm of GST in Ríos et al. 2015. |
+| 7 | pattern transfer | Lift-off | Dissolving the resist leaves the cell. The library has no etch of a phase-change film. |
+| 8 | deposition | RF sputtering of oxide | Fills around the guide and the cell and caps them. An amorphous film crystallizes when held above its crystallization temperature (Sb₂Se₃ 200 °C and Sb₂S₃ 270 °C, Delaney et al. 2020; GST 150 °C, Friedrich et al. 2000), so PECVD (to 350 °C) and LPCVD (to 900 °C) are refused. Sputtering needs no furnace; its temperature isn't stated by the sources, and the flow says so, while Delaney et al.'s films, capped this way, were amorphous as deposited. |
+
+Delaney et al. 2021 capped their Sb₂Se₃ cells with 200 nm of ZnS:SiO₂, and Ríos et al. their GST
+with 10 nm of indium tin oxide; the design draws an oxide cladding, so the flow caps with the
+oxide. The flow of Delaney et al. 2021's own cells (23 nm of Sb₂Se₃ on a 220 nm rib etched 120 nm)
+contains their steps in order. They opened the cells' windows with an industrial deep-UV scanner
+whose wavelength the paper doesn't give, so the flow's lithography for the cells stays the
+contact lithography of their 2020 paper.
+
 ## The process library
 
 Each process is data: its name, what it does in plain words, the films it acts on, and its

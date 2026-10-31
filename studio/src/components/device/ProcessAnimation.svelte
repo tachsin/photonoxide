@@ -75,7 +75,7 @@
     const kind = steps[picked]?.operation;
     const hidden = `${((1 - t) * 100).toFixed(2)}%`;
     if (t >= 1 || picked === 0) return "";
-    if (kind === "deposit" || kind === "evaporate") return `clip-path: inset(${hidden} 0 0 0)`;
+    if (kind === "deposit" || kind === "evaporate" || kind === "sputter") return `clip-path: inset(${hidden} 0 0 0)`;
     if (kind === "etch" || kind === "lift_off" || kind === "strip" || kind === "planarize") return `clip-path: inset(0 0 ${hidden} 0)`;
     return `opacity: ${t.toFixed(3)}`;
   });

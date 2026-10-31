@@ -30,7 +30,9 @@ impl Film {
 }
 
 /// The film a material of the catalogue is: silicon, silica, lithium niobate (any of its axes'
-/// or cuts' materials), or the material's own name.
+/// or cuts' materials), aluminium gallium arsenide (any composition), a phase-change film in
+/// either state or a mix of them (its formula: the film is deposited amorphous), or the
+/// material's own name.
 pub fn film_name(material: &str) -> String {
     let lower = material.to_lowercase();
     if lower.contains("linbo3") || lower.contains("linbo₃") || lower.starts_with("ln") {
@@ -39,6 +41,12 @@ pub fn film_name(material: &str) -> String {
         "SiO2".into()
     } else if lower == "si" || lower.starts_with("si (") || lower.starts_with("si ") {
         "Si".into()
+    } else if lower.starts_with("al") && lower.contains("ga") && lower.ends_with("as") {
+        "AlGaAs".into()
+    } else if let Some((formula, state)) = material.split_once(" (")
+        && (state == "amorphous)" || state == "crystalline)" || state.ends_with("% crystalline)"))
+    {
+        formula.into()
     } else {
         material.into()
     }

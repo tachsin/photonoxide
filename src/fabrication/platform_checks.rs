@@ -289,6 +289,131 @@ fn nitride_reported_flows() -> Outcome {
     exact(nitride_reported_missing().len())
 }
 
+/// The library's three phase-change shifters.
+pub(crate) const PCM: [&str; 3] = [
+    "GST phase-change phase shifter",
+    "Sb2S3 phase-change phase shifter",
+    "Sb2Se3 phase-change phase shifter",
+];
+
+/// The round trip over the three phase-change shifters on their own stack (220 nm SOI), at their
+/// defaults and each parameter's range ends: (made, refused, why, differing).
+pub(crate) fn pcm_round_trips() -> (usize, usize, Vec<String>, usize) {
+    let others: Vec<String> = crate::device::library()
+        .iter()
+        .map(|d| d.kind().to_string())
+        .filter(|k| !PCM.contains(&k.as_str()))
+        .collect();
+    let skip: Vec<&str> = others.iter().map(String::as_str).collect();
+    platform_round_trips(&StackSpec::default(), &skip)
+}
+
+fn pcm_round_trip() -> Outcome {
+    exact(pcm_round_trips().3)
+}
+
+/// The phase-change rules' choices with the sources' answers, at each shifter's defaults; each
+/// wrong answer counted. The film is sputtered and lifted off (Delaney et al. 2020; Ríos et al.
+/// 2015), never etched; the cap is sputtered, as Delaney et al.'s; PECVD and LPCVD oxide, which
+/// pass the film's crystallization temperature in the material catalogue (Sb₂Se₃ 200 °C and
+/// Sb₂S₃ 270 °C, Delaney et al. 2020; GST 150 °C, Friedrich et al. 2000), are refused; and the
+/// flow says the cap's temperature isn't stated.
+pub(crate) fn pcm_rules_wrong() -> Vec<String> {
+    let mut wrong = Vec::new();
+    for kind in PCM {
+        let Some((_, design)) = built(kind, StackSpec::default(), &[]) else {
+            wrong.push(format!("{kind}: doesn't draw"));
+            continue;
+        };
+        let Ok(flow) = generate(&design, &Choices::default()) else {
+            wrong.push(format!("{kind}: refused"));
+            continue;
+        };
+        let ids = ids(&flow);
+        if !contains(&flow, &["sputtering-pcm", "lift-off", "sputtering-oxide"]) {
+            wrong.push(format!("{kind}: {ids:?}"));
+        }
+        if !flow
+            .steps
+            .iter()
+            .any(|s| matches!(s.operation, Operation::Sputter { .. }))
+        {
+            wrong.push(format!("{kind}: the film isn't sputtered onto the resist"));
+        }
+        let cap = flow.steps.last();
+        for refused in ["pecvd-oxide", "lpcvd"] {
+            let shown = cap.is_some_and(|s| {
+                s.alternatives
+                    .iter()
+                    .any(|a| a.process == refused && a.why_not.contains("limit"))
+            });
+            if !shown {
+                wrong.push(format!(
+                    "{kind}: {refused} not refused for the film's limit"
+                ));
+            }
+        }
+        if !flow
+            .not_specified
+            .iter()
+            .any(|n| n.contains("Oxide by RF sputtering") && n.contains("limit"))
+        {
+            wrong.push(format!("{kind}: the cap's temperature not flagged"));
+        }
+        if !round_trip(&flow, &design).is_ok_and(|t| t.exact()) {
+            wrong.push(format!("{kind}: not given back"));
+        }
+    }
+    wrong
+}
+
+fn pcm_rules() -> Outcome {
+    exact(pcm_rules_wrong().len())
+}
+
+/// Delaney et al. 2021's Sb₂Se₃ cells, 23 nm thick on a 220 nm SOI rib etched 120 nm: the
+/// sequence they report (the rib etched, windows opened in resist, the film sputtered, the resist
+/// removed, the chip capped by sputtering) contained in order, and the design given back.
+pub(crate) fn pcm_reported_missing() -> Vec<&'static str> {
+    let mut missing = Vec::new();
+    let design = built(
+        "Sb2Se3 phase-change phase shifter",
+        StackSpec::default(),
+        &[
+            ("thickness", "0.22"),
+            ("slab", "0.1"),
+            ("film_thickness", "0.023"),
+        ],
+    )
+    .map(|(_, p)| p);
+    let sequence = [
+        "soi-smart-cut",
+        "resist-strip",
+        "sputtering-pcm",
+        "lift-off",
+        "sputtering-oxide",
+    ];
+    match design.and_then(|d| generate(&d, &Choices::default()).ok().map(|f| (f, d))) {
+        Some((flow, d)) => {
+            let timed = flow.steps.iter().any(|s| {
+                matches!(s.operation, Operation::Etch { depth: super::Depth::Timed(t), .. } if (t.to_um() - 0.12).abs() < 1e-12)
+            });
+            if !timed
+                || !contains(&flow, &sequence)
+                || !round_trip(&flow, &d).is_ok_and(|t| t.exact())
+            {
+                missing.push("delaney-2021");
+            }
+        }
+        None => missing.push("delaney-2021"),
+    }
+    missing
+}
+
+fn pcm_reported_flows() -> Outcome {
+    exact(pcm_reported_missing().len())
+}
+
 pub(crate) fn cases() -> Vec<Case> {
     vec![
         Case {
@@ -311,6 +436,27 @@ pub(crate) fn cases() -> Vec<Case> {
             tier: Tier::Published,
             source: "Luke et al. 2013, doi:10.1364/OE.21.022829, PDF pp. 3–4; Pfeiffer et al. 2016, doi:10.1364/OPTICA.3.000020, PDF pp. 2–3; C. Ríos et al., Nat. Photonics 9, 725 (2015), doi:10.1038/nphoton.2015.182, Methods (PDF p. 9)",
             run: nitride_reported_flows,
+        },
+        Case {
+            id: "fabrication/pcm-round-trip",
+            title: "The three phase-change shifters (GST, Sb₂S₃, Sb₂Se₃) give back their structure and films to the bit through their generated flows, the cells sputtered, lifted off and capped: at their defaults and each parameter's range ends in turn (differing points shown)",
+            tier: Tier::Analytic,
+            source: "an exact identity: the flow's operations draw the design's own shapes, etches and films",
+            run: pcm_round_trip,
+        },
+        Case {
+            id: "fabrication/pcm-rules",
+            title: "The phase-change rules' choices with the sources' answers, for each shifter at its defaults: the film sputtered and lifted off, never etched; the cap sputtered; PECVD and LPCVD oxide refused above the film's crystallization temperature; the cap's unstated temperature flagged (wrong answers shown)",
+            tier: Tier::Published,
+            source: "M. Delaney et al., Adv. Funct. Mater. 30, 2002447 (2020), doi:10.1002/adfm.202002447, PDF pp. 5, 7 and 9; C. Ríos et al., Nat. Photonics 9, 725 (2015), doi:10.1038/nphoton.2015.182, Methods (PDF p. 9); the material catalogue's crystallization temperatures (Delaney et al. 2020; I. Friedrich et al., J. Appl. Phys. 87, 4130 (2000), doi:10.1063/1.373041, for GST)",
+            run: pcm_rules,
+        },
+        Case {
+            id: "fabrication/pcm-reported-flows",
+            title: "The generated flow of Delaney et al.'s 23 nm Sb₂Se₃ cells on a 220 nm SOI rib etched 120 nm contains, in order, the steps they report (the rib etched, the film sputtered into windows opened in resist, the resist removed, the chip capped by sputtering), and gives the design back to the bit (sequences missing shown)",
+            tier: Tier::Published,
+            source: "M. Delaney et al., Sci. Adv. 7, eabg3500 (2021), doi:10.1126/sciadv.abg3500, Materials and Methods (PDF p. 6)",
+            run: pcm_reported_flows,
         },
     ]
 }

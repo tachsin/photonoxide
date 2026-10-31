@@ -425,7 +425,7 @@ pub(super) fn processes() -> Vec<Process> {
         "The resist is patterned first, with openings where the metal should be. The metal is \
          evaporated over everything; dissolving the resist then takes away the metal on it, \
          leaving the metal that landed in the openings. Nothing is etched.",
-        &["Cu/Au", "Au", "Cr", "Ti/Au"],
+        &["Cu/Au", "Au", "Cr", "Ti/Au", "Ge2Sb2Te5", "Sb2S3", "Sb2Se3"],
     );
     lift.capabilities = vec![cap(
         Quantity::MinFeature,
@@ -447,12 +447,27 @@ pub(super) fn processes() -> Vec<Process> {
             "Methods (PDF p. 9)",
         ),
     ];
-    lift.used_for = vec![used(
-        Platform::Lnoi,
-        Purpose::Metal,
-        "zhang-2022",
-        "Section 3.A (PDF p. 4)",
-    )];
+    lift.facts.push(fact(
+        "Patches of Sb₂S₃ and Sb₂Se₃ 22 nm thick were made on SOI ribs by contact UV \
+         photolithography and lift-off.",
+        "delaney-2020",
+        "PDF p. 7",
+    ));
+    lift.used_for = vec![
+        used(
+            Platform::Lnoi,
+            Purpose::Metal,
+            "zhang-2022",
+            "Section 3.A (PDF p. 4)",
+        ),
+        used(Platform::Soi, Purpose::Cell, "delaney-2020", "PDF p. 7"),
+        used(
+            Platform::Nitride,
+            Purpose::Cell,
+            "rios-2015",
+            "Methods (PDF p. 9)",
+        ),
+    ];
 
     let mut tin = new_process(
         "dry-etch-tin",

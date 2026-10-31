@@ -322,6 +322,24 @@ pub struct Budget {
     pub conditions: String,
 }
 
+/// A formula with its subscript digits written as plain ones: "Sb₂Se₃" is "Sb2Se3".
+fn ascii(formula: &str) -> String {
+    formula
+        .chars()
+        .map(|c| match c {
+            '₀'..='₉' => char::from(b'0' + (c as u32 - '₀' as u32) as u8),
+            _ => c,
+        })
+        .collect()
+}
+
+/// Whether `film` is a phase-change film of the material catalogue.
+pub(crate) fn phase_change(film: &str) -> bool {
+    crate::material::catalogue::phase_changes()
+        .iter()
+        .any(|p| p.formula == film || ascii(&p.formula) == film)
+}
+
 /// The thermal budget of `film`: what its sources say, or not specified.
 pub fn budget(film: &str) -> Budget {
     let deg = |v: f64, reference: &str, location: &str| {
@@ -367,7 +385,9 @@ pub fn budget(film: &str) -> Budget {
         other => {
             let pcm = crate::material::catalogue::phase_changes()
                 .into_iter()
-                .find(|p| p.formula == other || p.id == other.to_lowercase());
+                .find(|p| {
+                    p.formula == other || ascii(&p.formula) == other || p.id == other.to_lowercase()
+                });
             match pcm.and_then(|p| p.crystallization) {
                 Some(c) => (
                     Stated::not_specified(),
