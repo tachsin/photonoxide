@@ -79,9 +79,10 @@ for lint in "${LINTS[@]}"; do
     lint_stamp "$key" "$name"
   fi
 done
-step "tests" cargo test --all-features
-step "tests, one thread" env RAYON_NUM_THREADS=1 cargo test --all-features
-step "tests, native" cargo test -p photonoxide-native
+# photonoxide-native's tests with the library's: on its own (`cargo test -p photonoxide-native`)
+# Cargo picks other features for the shared dependencies, and so built the library once more
+step "tests" cargo test --all-features -p photonoxide -p photonoxide-native
+step "tests, one thread" env RAYON_NUM_THREADS=1 cargo test --all-features -p photonoxide -p photonoxide-native
 if command -v pnpm > /dev/null; then
   step "studio" studio
 else

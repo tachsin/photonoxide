@@ -87,17 +87,39 @@ zip = { version = "4", default-features = false, features = ["deflate"] }
 # stays fast. Unoptimized, a test that solves in earnest took 20 to 30 times as long, over a
 # minute on CI's runners. Debug assertions and overflow checks stay on; users' builds are
 # unaffected.
-[profile.dev.package."*"]
-opt-level = 3
-
-[profile.dev.package.photonoxide]
-opt-level = 3
-
+#
 # Debug and test builds keep file and line numbers for panics and backtraces, not the full debug
 # info: with everything optimized it took longer to compile and link than it gave back (#507).
 # CI sets CARGO_PROFILE_DEV_DEBUG=0. A debugger that needs variables: `debug = true` here, locally.
 [profile.dev]
+opt-level = 3
 debug = "line-tables-only"
+
+# What runs only while building, the build scripts and the procedural macros (serde's derive, syn
+# and the rest), stays unoptimized, as release builds have it: optimized, they took longer to
+# compile than they gave back in running. Clean builds took less CPU time this way, `cargo build`
+# 14% less, `cargo test --no-run` 13% and the program (`cargo build -p photonoxide-studio`) 33%,
+# and a rebuild after an edit to the library no longer. The level is set for the whole profile,
+# not as `[profile.dev.package."*"]`, which ranks above build-override and so optimized these too.
+[profile.dev.build-override]
+opt-level = 0
+
+# the workspace's other crates build quickly unoptimized and do little numerical work of their
+# own, as before
+[profile.dev.package.photonoxide-studio]
+opt-level = 0
+
+[profile.dev.package.photonoxide-native]
+opt-level = 0
+
+[profile.dev.package.photonoxide-native-testlib]
+opt-level = 0
+
+[profile.dev.package.photonoxide-python]
+opt-level = 0
+
+[profile.dev.package.photonoxide-setup]
+opt-level = 0
 
 # What the Python wheels are built with (`--profile dist`, `just build-dist`): link-time
 # optimization across crates and one codegen unit, for faster code at the cost of a slower build.

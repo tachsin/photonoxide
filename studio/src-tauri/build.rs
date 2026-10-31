@@ -53,9 +53,17 @@ fn build_info() {
             let date = commit
                 .as_ref()
                 .and_then(|_| git(&["log", "-1", "--format=%cs"]));
+            // without optional locks: a plain `git status` may refresh and rewrite the index,
+            // which is newer than this run, so Cargo ran the script and built the program again
+            // on the next build with nothing changed
             let dirty = commit.is_some()
-                && git(&["status", "--porcelain", "--untracked-files=no"])
-                    .is_some_and(|s| !s.is_empty());
+                && git(&[
+                    "--no-optional-locks",
+                    "status",
+                    "--porcelain",
+                    "--untracked-files=no",
+                ])
+                .is_some_and(|s| !s.is_empty());
             (commit, date, dirty)
         }
     };
