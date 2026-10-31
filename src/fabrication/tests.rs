@@ -47,7 +47,7 @@ fn the_flows_have_their_steps_in_order() {
             "duv-193",
             "icp-si-hbr",
             "resist-strip",
-            "pecvd-oxide"
+            "lpcvd"
         ]
     );
     assert_eq!(
@@ -70,7 +70,7 @@ fn the_flows_have_their_steps_in_order() {
             "duv-193",
             "icp-si-hbr",
             "resist-strip",
-            "pecvd-oxide",
+            "lpcvd",
             "cmp-oxide",
             "sputtering-tin",
             "uv-photolithography",
@@ -266,7 +266,7 @@ fn a_flow_that_doesnt_hold_together_is_refused() {
     assert!(execute(&flow).is_err());
     let (mut flow, _) = default_flow(0);
     // without the cladding, the etched silicon is never filled
-    flow.steps.retain(|s| s.process != "pecvd-oxide");
+    flow.steps.retain(|s| s.process != "lpcvd");
     assert!(execute(&flow).is_err());
 }
 
@@ -296,4 +296,72 @@ fn the_stand_ins_are_the_physical_films() {
         *design.structure(),
         tfln.geometry(&Values::defaults(tfln)).unwrap().structure
     );
+}
+
+#[test]
+fn the_rule_engine_answers_its_textbook_cases() {
+    use super::rule_checks::*;
+    assert!(
+        franssila_misfits().iter().all(|m| *m <= 1.0),
+        "{:?}",
+        franssila_misfits()
+    );
+    let (tau, x) = campbell_example();
+    // Campbell prints τ as 0.295 h where (0.1² + 0.5·0.1)/0.203 is 0.2956: cut, not rounded
+    assert!(
+        (tau - 0.2956).abs() <= 0.00005 && (x - 0.48).abs() <= 0.005,
+        "{tau} {x}"
+    );
+    assert_eq!(below_limit(), Vec::<String>::new());
+    assert_eq!(rule_choices_wrong(), Vec::<&str>::new());
+    let (got, want) = combined_gap().unwrap();
+    assert!(((got - want) / want).abs() <= 1e-12, "{got} {want}");
+}
+
+#[test]
+fn every_dimension_of_the_three_designs_has_its_read_out() {
+    for k in 0..3 {
+        let (flow, design) = default_flow(k);
+        let a = assess(&design, &flow).unwrap();
+        assert!(!a.accuracy.is_empty() && !a.checks.is_empty() && !a.ranking.is_empty());
+        for d in &a.accuracy {
+            assert!(!d.text.is_empty() && !d.contributions.is_empty(), "{d:?}");
+            // a stated bound has a source; a missing one says why
+            for c in &d.contributions {
+                assert_eq!(c.bound.is_some(), c.source.is_some(), "{c:?}");
+            }
+        }
+        // the chosen process ranks first in every ranking
+        for r in &a.ranking {
+            assert!(r.ranked[0].chosen && r.ranked.iter().filter(|x| x.chosen).count() == 1);
+        }
+        // the assessment goes through JSON and back unchanged
+        let text = serde_json::to_string(&a).unwrap();
+        assert_eq!(serde_json::from_str::<Assessment>(&text).unwrap(), a);
+    }
+    // the strip's 220 nm film, from the SOI wafer's 8 nm spread (Bruel 1995)
+    let (flow, design) = default_flow(0);
+    let a = assess(&design, &flow).unwrap();
+    let film = a
+        .accuracy
+        .iter()
+        .find(|d| d.kind == Kind::Thickness && d.layer == "Si")
+        .unwrap();
+    assert_eq!(film.combined, Some(8.0));
+}
+
+#[test]
+fn deal_and_groves_law_carries_between_rows_and_bounds_its_thickness() {
+    use oxidation::{Ambient, grow, rates};
+    // at a printed row the constants are the printed ones
+    let r = rates(Ambient::Dry, 1000.0).unwrap();
+    assert!(!r.carried && r.a == 0.165 && r.b == 0.0117 && r.tau == 0.37);
+    // between rows they are carried by the Arrhenius law: B rises with temperature
+    let mid = rates(Ambient::Dry, 1050.0).unwrap();
+    assert!(mid.carried && mid.b > 0.0117 && mid.b < 0.027, "{mid:?}");
+    assert!(rates(Ambient::Wet, 900.0).is_none());
+    // the thickness grows with time and carries a bound from the constants' precision
+    let (x1, b1) = grow(Ambient::Wet, 1100.0, 1.0, None).unwrap();
+    let (x2, _) = grow(Ambient::Wet, 1100.0, 2.0, None).unwrap();
+    assert!(x2 > x1 && b1 > 0.0 && b1 < x1, "{x1} {b1} {x2}");
 }

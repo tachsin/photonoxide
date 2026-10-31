@@ -205,7 +205,7 @@ area compact \
 # stack's geometry; its cases run the library devices' flows (the device area's), and its job kind
 # (src/job/fabrication.rs) is the job area's
 area fabrication \
-  "src/fabrication/* src/validation/fabrication.rs" \
+  "src/fabrication/* src/validation/fabrication.rs src/validation/fabrication_rules.rs" \
   "material device" \
   "fabrication::" "fabrication/" ""
 

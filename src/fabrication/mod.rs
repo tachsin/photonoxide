@@ -28,6 +28,7 @@
 //! and not a sign-off. docs/methods/fabrication.md describes the engine, its rules and its
 //! sources; a job runs it as a `fabrication` task beside a `[device]`.
 
+mod assess;
 mod execute;
 mod flow;
 mod generate;
@@ -36,13 +37,19 @@ mod library;
 pub mod measure;
 pub mod oxidation;
 mod physical;
+pub mod rayleigh;
 mod references;
+pub mod rules;
 mod stated;
 
 pub(crate) mod checks;
+pub(crate) mod rule_checks;
 #[cfg(test)]
 mod tests;
 
+pub use assess::{
+    Assessment, Check, Contribution, Dimension, Kind, Ranked, Ranking, Rule, Verdict, assess,
+};
 pub use execute::{Made, RoundTrip, execute, round_trip, stages};
 pub use flow::{Alternative, Depth, Flow, FlowRecord, Laid, Operation, Step, StepRecord, Tone};
 pub use generate::{Choices, Thermal, generate, thermal};

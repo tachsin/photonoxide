@@ -29,7 +29,9 @@ use super::scene::{SceneEtched, scene, scene_etched};
 use super::{Event, task_error};
 use crate::Result;
 use crate::device::Spec;
-use crate::fabrication::{Choices, FlowRecord, Physical, fabricate, generate, round_trip, stages};
+use crate::fabrication::{
+    Assessment, Choices, FlowRecord, Physical, assess, fabricate, generate, round_trip, stages,
+};
 use crate::run::{Job, Run, Stop};
 use crate::units::Wavelength;
 
@@ -47,8 +49,9 @@ pub(super) struct FabricationTask {
     avoid: Vec<String>,
 }
 
-/// The flow of `job`'s design, as its task asks, with its round trip.
-fn flow_of(job: &Job) -> Result<FlowRecord> {
+/// The flow of `job`'s design, as its task asks, with its round trip, and what the rules find
+/// in it.
+fn flow_of(job: &Job) -> Result<(FlowRecord, Assessment)> {
     let task: FabricationTask = job
         .task()
         .clone()
@@ -61,7 +64,9 @@ fn flow_of(job: &Job) -> Result<FlowRecord> {
     choices.check().map_err(|e| task_error(e.to_string()))?;
     let (device, design) = spec_of(job)?.build()?;
     let physical = device.physical(design.values())?;
-    fabricate(&physical, &choices).map_err(|e| task_error(e.to_string()))
+    let record = fabricate(&physical, &choices).map_err(|e| task_error(e.to_string()))?;
+    let flow = generate(&physical, &choices)?;
+    Ok((record, assess(&physical, &flow)?))
 }
 
 /// The `"fabrication"` kind beside a `[device]`: the design's process flow.
@@ -88,9 +93,12 @@ impl TaskKind for FabricationKind {
     fn execute(&self, job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
         computed(job, run, stop, |job, run, _, scene| {
             run.record(&scene)?;
-            let flow = flow_of(job)?;
+            let (flow, assessment) = flow_of(job)?;
             run.record(&Event::Flow {
                 flow: Box::new(flow),
+            })?;
+            run.record(&Event::FlowAssessment {
+                assessment: Box::new(assessment),
             })
         })
     }
@@ -113,6 +121,9 @@ pub struct FabricationView {
     pub flow: FlowRecord,
     /// The wafer after each step, in order.
     pub stages: Vec<Stage>,
+    /// What the rules find: each rule's check, each step's alternatives ranked, and the
+    /// accuracy of each fabricated dimension.
+    pub assessment: Assessment,
 }
 
 /// The wafer after a step: its scene ([`Event::Scene`], air where nothing is yet), and how each
@@ -179,6 +190,7 @@ pub fn fabrication_of(spec: &Spec, prefer: &[String], avoid: &[String]) -> Resul
     Ok(FabricationView {
         flow: flow.record(Some(trip)),
         stages,
+        assessment: assess(&physical, &flow)?,
     })
 }
 
