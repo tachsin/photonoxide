@@ -1,7 +1,7 @@
 ---
 title: "Phase matching"
 module: nonlinear::phase
-summary: "The wave-vector mismatch of any three- or four-wave process from any index (a catalogue model with its temperature, a material, or a mode's effective indices given as data); quasi-phase matching, its period, order and duty cycle; birefringent phase matching of types 0, I and II, noncritical or angle tuned; the undepleted response sinc²(ΔkL/2); the acceptance bandwidths in wavelength, temperature and angle, checked against Fejer et al.'s Table I; and the coupled-amplitude equations of SHG, sum- and difference-frequency generation, depleted and lossy, against Armstrong et al.'s closed forms."
+summary: "The wave-vector mismatch of any three- or four-wave process from any index (a catalogue model with its temperature, a material, or a mode's effective indices given as data); quasi-phase matching, its period, order and duty cycle; birefringent phase matching of types 0, I and II, noncritical or angle tuned; the undepleted response sinc²(ΔkL/2); the acceptance bandwidths in wavelength, temperature and angle, checked against Fejer et al.'s Table I; and the coupled-amplitude equations of SHG, sum- and difference-frequency generation, depleted and lossy, against Armstrong et al.'s closed forms; and all of it in waveguides, from the mode solver's effective indices and full-vector fields with the d tensor turned into the guide's frame, against a plane wave, a slab's exact fields and Zhao et al.'s poling period."
 order: 30
 papers:
   - cite: "M. M. Fejer, G. A. Magel, D. H. Jundt, R. L. Byer, IEEE J. Quantum Electron. 28, 2631 (1992) (Eqs. (2), (19)–(25), (30), (41)–(44), (A1.1)–(A1.9); Table I)"
@@ -24,8 +24,12 @@ papers:
     doi: 10.1103/PhysRev.127.1918
   - cite: "W. P. Grice, I. A. Walmsley, Phys. Rev. A 56, 1627 (1997) (Eqs. (7)–(12), the joint spectral amplitude)"
     doi: 10.1103/PhysRevA.56.1627
-  - cite: "C. Wang et al., Optica 5, 1438 (2018) (the duty cycle, p. 1439)"
+  - cite: "C. Wang et al., Optica 5, 1438 (2018) (the duty cycle, p. 1439; Eq. (1), the normalized efficiency)"
     doi: 10.1364/OPTICA.5.001438
+  - cite: "J. Zhao, C. Ma, M. Rüsing, S. Mookherjea, Phys. Rev. Lett. 124, 163603 (2020) (p. 1 and Fig. 1(c), the guide and its period; p. 3, the duty cycle, the poling depth and the brightness)"
+    doi: 10.1103/PhysRevLett.124.163603
+  - cite: "L. Chang et al., Laser Photonics Rev. 12, 1800149 (2018) (Sec. 2, the strip and its phase matching; Sec. 4, the tuning)"
+    doi: 10.1002/lpor.201800149
 validation:
   - nonlinear/sinc2-half-maximum
   - nonlinear/sinc2-length-squared
@@ -50,6 +54,16 @@ validation:
   - nonlinear/miller-linbo3-mgo-d33
   - nonlinear/miller-linbo3-mgo-d31
   - nonlinear/kerr-gamma-gaussian
+  - nonlinear/guide-bulk-limit
+  - nonlinear/guide-zhao-period
+  - nonlinear/guide-zhao-wavelength
+  - nonlinear/guide-zhao-area-signal
+  - nonlinear/guide-zhao-area-pump
+  - nonlinear/guide-plane-wave
+  - nonlinear/guide-slab-overlap
+  - nonlinear/guide-slab-order
+  - nonlinear/guide-slab-coupled
+  - nonlinear/guide-group-index
 ---
 
 A second- or third-order process converts light efficiently only when its waves stay in step:
@@ -61,8 +75,10 @@ detunings it accepts, in wavelength, temperature and angle.
 
 `photonoxide::nonlinear::coupled` follows the waves along the guide when the process does deplete:
 the coupled-amplitude equations of second-harmonic, sum- and difference-frequency generation, with
-loss. `photonoxide::nonlinear::pairs` gives photon pairs' joint spectra and their purity. The
-efficiencies from a mode solver's overlaps come next, on the same conventions.
+loss. `photonoxide::nonlinear::pairs` gives photon pairs' joint spectra and their purity.
+`photonoxide::nonlinear::guide` puts all of them in a waveguide: the mismatch and the poling
+period from the mode solver's effective indices, and the coupling κ from its full-vector fields
+and the crystal's d tensor turned into the guide's frame ([In waveguides](#in-waveguides)).
 
 ## Conventions
 
@@ -300,10 +316,9 @@ From 201 points the grid's error is below the decomposition's round-off.
 Grice and Walmsley's Eq. (8) writes the phase matching as sin(ΔkL)/(ΔkL), and its Eq. (11) and
 cw bandwidth Δν_cw = 2.78/|k′_o − k′_e|L follow it. The integral of their Eq. (6) over the
 crystal, −L/2 to L/2, gives sin(ΔkL/2)/(ΔkL/2), as Fejer et al.'s Eq. (19) does, and so a
-bandwidth twice as wide, 5.57/|k′_o − k′_e|L. We use the integral's form. Zhao et al.'s thin-film
-source (2020) is next: their paper gives the guide (300 nm of x-cut 5 % MgO:LN, 50 nm etch, 1.24
-µm wide, 5 mm poled at 2.8 µm), so its modes can be solved; that is the modal phase matching still
-to come.
+bandwidth twice as wide, 5.57/|k′_o − k′_e|L. We use the integral's form. A waveguide's joint
+spectrum takes its modes' indices ([photon pairs from a guide](#photon-pairs-from-a-guide)).
+
 ## Optical parametric oscillators
 
 The catalogue's PPLN OPO cases find their idler through this module: a difference-frequency
@@ -362,12 +377,243 @@ the closed form with any area. For a Gaussian mode of area π µm² and silicon 
 (`nonlinear/kerr-gamma-gaussian`). A value holds at its own wavelength: silicon's n₂ changes
 fourfold from 850 to 2200 nm, and nothing here moves it.
 
+## In waveguides
+
+`nonlinear::guide` takes a process into a waveguide: its waves are the guide's modes, from the
+full-vector mode solver, and its coupling is their overlap through the crystal's d tensor.
+
+### Conventions
+
+Those above, and:
+
+- **The guide's frame** is the cross-section's: x across, y up, z along. A crystal is put on the
+  chip by its cut and the guide runs along the chip's x or y, as for the Pockels effect
+  ([electro-optic](electro-optic.md)): the permittivity and the d tensor are turned by both
+  (`SecondOrder::rotated`, `SecondOrder::in_section`, d'_abc = Σ M_ai M_bj M_ck d_ijk). An x-cut
+  film along the crystal's y has c across, so its TE modes meet d₃₃; a z-cut film has c up, and
+  its TM modes do.
+- **A mode's index over wavelength** (`ModeIndex`) is the fundamental mode of one family (TE-like
+  or TM-like, by the share of H in H_y) solved at Chebyshev points across a range, 5, 9, 17, … of
+  them, until the interpolants on the last two sets differ by less than a tolerance in n_eff. Each
+  wavelength's cross-section is built from the materials there (`Ridge`), so the materials'
+  dispersion is in it. The group index n_g = n_eff − λ dn_eff/dλ and the group-velocity
+  dispersion β₂ = (λ³/2πc²) d²n_eff/dλ² come from the interpolant's own derivatives, and as an
+  `Index` it is what every process above takes: Δk, the period, the bandwidths and the joint
+  spectrum then come from the modes.
+- **Fields per √W.** Each mode's fields are scaled to carry 1 W, ½ Re ∫ (E × H*)·ẑ dA = 1 W, so a
+  wave of amplitude A (√W, as `nonlinear::coupled` has it) has the field A ê(x, y) e^{i(βz − ωt)},
+  ê in V/m per √W.
+- **The polarization** of these fields (the real field their real part), with d = χ⁽²⁾/2, is
+  P(2ω) = ε₀ Σ d_ijk E_j E_k for SHG and P(ω₃) = 2ε₀ Σ d_ijk E₁ⱼ E₂ₖ for a sum (Boyd's Eqs.
+  (2.7.8)–(2.7.9), whose amplitudes are half these).
+- **The coupling.** A mode of 1 W driven by a polarization grows as
+  dA/dz = (iω/4) ∫ ê*·P dA e^{−iβz}: the first-order perturbation the thermo-optic and Pockels
+  changes use, with P = ε₀ Δε E. With the overlap O = ∫ Σ ê₃ᵢ* d_ijk ê₁ⱼ ê₂ₖ dA over the crystal,
+  the sum's coupling is κ = (ω₃ε₀/2)|O| (`sum_frequency_coupling`) and SHG's κ = (ωε₀/2)|O|, ω the
+  fundamental's (`second_harmonic_coupling`), half the sum's of two equal waves. These are the κ
+  of `ThreeWave` and `SecondHarmonic`, and η = κ² is the normalized efficiency, in %/(W·cm²) by
+  `percent_per_watt_cm2`. A grating multiplies κ by its Fourier coefficient G_m.
+- **The plane-wave limit.** Fields uniform over an area A give η = 2ω²d²/(ε₀c³n_ω²n_2ω A): Boyd's
+  Eq. (2.7.11) with his I = 2nε₀c|A|² (Eq. (2.2.16)) over the area, and C. Wang et al.'s Eq. (1)
+  (Optica 5, 1438 (2018)) for uniform modes, A_2ω/A_ω² = 1/A: the convention of their %/(W·cm²).
+- **Photon pairs.** Down-conversion ω_p → ω_s + ω_i is difference-frequency generation of the same
+  κ seeded by the vacuum, one photon per mode, an idler of hν_i per unit bandwidth. From the
+  three-wave equations, undepleted, the signal's rate per unit of its frequency is
+  dR/dν_s = κ²(ν_sν_i/ν_p²) P_p L² sinc²(ΔkL/2) pairs per second per hertz
+  (`pair_rate_density`); at degeneracy κ is twice SHG's, so this is η P_p L².
+
+The overlap takes the fields at the cells' centres with E's normal component kept discontinuous at
+each interface (the one-sided fields). A window halved by a mirror wall adds each mode's image with
+its components' parities (an electric wall keeps E's normal component even, a magnetic one its
+tangential ones), so a half cross-section, which halves the solve, gives the whole one's κ.
+
+### In code
+
+```rust
+use photonoxide::material::catalogue::{Conditions, entry};
+use photonoxide::material::{CrystalAxis, Orientation, vacuum};
+use photonoxide::mode::pockels::Along;
+use photonoxide::nonlinear::guide::{Family, Grid, ModeIndex, Ridge};
+use photonoxide::nonlinear::phase::{self, Device, Grating, Process, State};
+use photonoxide::units::Wavelength;
+
+// Zhao et al.'s guide: 300 nm of x-cut MgO:LN etched 50 nm, 1.24 µm wide, 75° sidewalls
+let x_cut = Orientation::cut(CrystalAxis::X, Some(CrystalAxis::Z))?;
+let silica = entry("sio2").unwrap().default_model().unwrap()
+    .materials(Conditions::default())?.remove(0);
+let ridge = Ridge {
+    film: 0.3, etch: 0.05, width: 1.24, angle: 75.0,
+    core: entry("linbo3-mgo").unwrap().oriented(None, Conditions::default(), x_cut)?,
+    substrate: silica, cladding: vacuum(), along: Along::Y,
+};
+let grid = Grid::new(0.01).halved(); // 10 nm cells, x ≥ 0 behind a mirror wall
+let fundamental = ModeIndex::of_ridge(&ridge, &grid, Family::Te, 4, (1.50, 1.65), 1e-10)?;
+let harmonic = ModeIndex::of_ridge(&ridge, &grid, Family::Te, 4, (0.75, 0.825), 1e-10)?;
+let (f, h) = (fundamental.index()?, harmonic.index()?);
+let shg = Process::second_harmonic(Wavelength::um(1.57)?, f.clone(), f, h);
+println!("period {:.3} µm", phase::period(shg.mismatch(&State::default())?, 1)?); // 2.815
+let device = Device::new(shg, 5000.0, State::default())?
+    .with_grating(Grating::new(2.8, 1, 0.5)?);
+println!("matched at {:.4} µm", device.phase_matching_wavelength(1.51, 1.64)?); // 1.5583
+```
+
+`ModeField::new` scales a solved mode's fields to 1 W; `second_harmonic_coupling` and
+`sum_frequency_coupling` give κ from three of them, the d tensor in the guide's frame and each
+cell's share of the crystal (`Ridge::film_share`, which can keep only a poled depth). κ goes
+straight into `SecondHarmonic` or `ThreeWave` with the modes' Δk and losses.
+
+### The mismatch from the modes
+
+Where the mode is a plane wave, its Δk must be the crystal's. The case `nonlinear/guide-bulk-limit`
+fills a 0.2 µm square window with x-cut lithium niobate between walls that hold a uniform field
+along c (electric walls normal to it, magnetic ones along it): a uniform field is then the scheme's
+exact mode, and n_eff the crystal's n_e. SHG of 1.064 µm from these modes, interpolated over
+1.04–1.09 and 0.52–0.545 µm, has the bulk Δk of `Uniaxial` to 3.9e-15 relative, against a tolerance
+of 3e-9 (the interpolants' 1e-10 in n_eff through Δk's difference of indices).
+
+Why Chebyshev points and not the adaptive sweep of `photonoxide::sweep`: its AAA fit was tried
+first. On a slab's 2.5 nm cells the rational fits put spurious poles in the samples' last digits,
+and the estimate stalled at 1e-6 after 60 samples. The polynomials settle to 1e-10 in n_eff, their
+derivatives with them: 17 Chebyshev points across 0.15 µm for each of Zhao et al.'s modes below.
+
+### Zhao et al.'s guide
+
+Zhao et al. (Phys. Rev. Lett. 124, 163603 (2020), p. 1 and Fig. 1(c)) give their guide whole: 300
+nm of x-cut 5 mol% MgO-doped lithium niobate on 1.8 µm of silica over silicon, etched 50 nm to a
+ridge 1.24 µm wide with 75° sidewalls, air above, the guide along the crystal's y (p. 3), 5 mm
+poled. They poled it at "the calculated QPM period, Λ = 2.8 µm, to match the refractive indices of
+the lowest-order TE-polarized waveguide modes at 1570 and 785 nm" (p. 1). They don't name an index
+model; ours is the catalogue's default, Zelmon et al.'s (21 °C). The silicon is left out: the
+window stops 1.5 µm under the film.
+
+| Cells | n_eff TE₀, 1.57 µm | n_eff TE₀, 0.785 µm | Period (µm) | A_eff, 1.57 µm (µm²) | A_eff, 0.785 µm |
+|---|---|---|---|---|---|
+| 20 nm | 1.693544 | 1.972185 | 2.8172 | 1.0788 | 0.3970 |
+| 10 nm | 1.694002 | 1.972865 | 2.8150 | 1.0772 | 0.3975 |
+| 5 nm | 1.694073 | 1.973020 | 2.8142 | 1.0768 | 0.3975 |
+| Zhao et al. | | | 2.8 | 1.1 | 0.4 |
+
+The grid study puts the 5 nm period's error at 5.2e-4 µm, and the paper's 2.8 holds 2.75 to 2.85
+(`nonlinear/guide-zhao-period`). Poled at 2.8 µm, the guide phase-matches SHG of 1.5583 µm on 10 nm
+cells (1.5600 on 20 nm; `nonlinear/guide-zhao-wavelength`), 11.7 nm short of their 1570: across
+the period's half digit, 2.75 to 2.85 µm, the matched wavelength moves by ±38.9 nm. The guide's
+group indices are 2.1306 at 1.57 µm and 2.3308 at 0.785 µm, and its β₂ at 1.57 µm is 1220 fs²/mm
+(10 nm cells).
+
+Their modes' effective areas, 1.1 µm² at 1570 nm and 0.4 µm² at 785 nm (p. 1), are the guide's too
+(`nonlinear/guide-zhao-area-signal`, `-pump`). The paper doesn't define its area; the table's is
+Afshar and Monro's Eq. 41, from S_z, which converges on these grids. Their Eq. 44, from |E_t|⁴,
+takes the ridge's corners twice and drifts with the grid (1.110, 1.107 and 1.103 µm² at 1.57 µm;
+0.400, 0.401 and 0.401 at 0.785 µm), and rounds to the paper's numbers just the same.
+
+### Chang et al.'s GaAs strip: not reproduced
+
+Chang et al. (Laser Photonics Rev. 12, 1800149 (2018), Sec. 2) phase-match SHG of 2 µm in a GaAs
+strip in silica by its modes alone: TE₀₀ at 2 µm and TM₀₀ at 1 µm have one index when 150 nm of
+GaAs is 1.5 µm wide. Their supporting information, with the geometry in full, isn't at hand; the
+main text gives the thickness and the width, the silica on every side (p. 2), a 5 nm SiN bonding
+layer whose index it doesn't give, and nothing on the sidewalls. Taken vertical, without the SiN,
+with Skauli et al.'s indices (the catalogue's default), on 10 nm cells:
+
+| Width | n_eff TE₀₀, 2 µm | n_eff TM₀₀, 1 µm | Difference |
+|---|---|---|---|
+| 1.5 µm | 2.11630 | 2.16303 | −0.0467 |
+| 2.0 µm | 2.15526 | 2.17221 | −0.0170 |
+| 2.6 µm | 2.17629 | 2.17725 | −0.0010 |
+
+The indices meet at a width of 2.655 µm (2.694 on 20 nm cells), not 1.5; Gehrsitz et al.'s indices
+(the catalogue's other GaAs model) give 2.681. The width moves the match slowly, so the gap reads
+better in wavelength: 1.5 µm wide, our strip phase-matches near 2.066 µm, 66 nm (3.3 %) above
+their 2 µm. Its sensitivities agree with theirs: the matched wavelength moves by 10.4 nm per nm of
+thickness and −0.127 nm per nm of width, where the paper has 11 nm and 1 nm per 10 nm (Sec. 4).
+At 10.4 nm per nm, 66 nm is what 6.3 nm less GaAs would take away. It isn't a case: an open
+gap, with what would settle it (the supporting information's cross-section and the SiN's index) in
+the list of gaps against papers.
+
+### The overlap and the efficiency
+
+Two closed forms check κ. In the plane-wave window above, z-cut so the uniform field lies along c
+(d₃₃ = 25.2 pm/V, Shoji et al.'s at 1.064 µm), η from the overlap is the plane-wave
+2ω²d²/(ε₀c³n_ω²n_2ω A) to 6.7e-16 (`nonlinear/guide-plane-wave`): the fields' scale to 1 W, ε₀, the
+factor ½ and the units hold to round-off. A 400 nm slab of lithium niobate (n_e, c along its
+plane) in silica, uniform between walls, has exact TE fields, cos inside and exponentials outside
+(`mode::slab`): η from them, integrated by a midpoint rule whose cells end on the interfaces,
+against η from the full-vector fields (`nonlinear/guide-slab-overlap`, `nonlinear/guide-slab-order`).
+η of a slab falls as its window's height H, so the table has η·H, the efficiency of 1 µm of it:
+
+| Cells | η·H, %/(W·cm²)·µm | Relative error |
+|---|---|---|
+| 10 nm | 41655.66 | 2.8e-5 |
+| 5 nm | 41654.79 | 7.1e-6 |
+| 2.5 nm | 41654.57 | 1.8e-6 |
+| exact fields | 41654.49 | |
+
+The errors fall at order 1.96, and the grid study's estimate of the 2.5 nm error, 1.8e-6, is the
+error itself.
+
+### Zhao et al.'s efficiency and brightness: not reproduced
+
+The same guide's κ from its TE₀ modes, with Zhao et al.'s own d₃₃ = 27 pm/V (p. 1) alone, gives:
+
+| Cells | η, 50 % duty, poled through | η, 55.2 % duty, poled 245 nm | B, poled through | B, 55.2 %, 245 nm |
+|---|---|---|---|---|
+| 20 nm | 4158.9 %/(W·cm²) | 2974.7 | 1.040 × 10⁷ | 7.437 × 10⁶ |
+| 10 nm | 4162.5 | 2981.6 | 1.041 × 10⁷ | 7.454 × 10⁶ |
+| 5 nm | 4163.5 | 2984.5 | 1.041 × 10⁷ | 7.461 × 10⁶ |
+| Zhao et al. | | | 4.6 × 10⁵ | |
+
+B is the pairs' brightness in pairs/(s·GHz·mW) over 5 mm, η P_p L² per hertz (above). The second
+and fourth columns take the paper's measured duty cycle, 55.2 % ± 3.0 %, and its poling depth,
+"closer to 245 nm" (p. 3), read as the film poled from its top down to 245 nm: our reading, which
+the paper doesn't spell out. Their brightness, 4.6 × 10⁵ pairs/(s·GHz·mW) (45 MHz/mW of on-chip
+pairs over a 100 GHz filter, p. 3), is 22.6 times below ours for an ideal grating and 16.2 times
+below with their duty cycle and depth. The paper doesn't print a calculated efficiency, so the gap
+can't be put on the overlap or on the measurement; it isn't a case, and it is listed with the
+other gaps against papers. Nor does the paper give the "normalized mode-overlap integral" of 78 %
+(p. 1) a definition, so it isn't compared.
+
+### SHG along a guide
+
+κ and the modes' Δk go straight into the coupled equations. `nonlinear/guide-slab-coupled` takes
+the slab's κ (5 nm cells) and its mismatch from its modes, against a grating 0.1 % longer than the
+one that cancels it, with 3 and 6 dB/cm of loss over 4 mm: the harmonic's power by RK4 is the
+undepleted lossy closed form to 4.5e-12 on 1000 steps, the error falling as the step's fourth power
+(1.2e-9, 7.2e-11, 4.5e-12 and 2.8e-13 on 250 to 2000 steps). The power in is 1 aW so that the
+undepleted closed form holds: the slab's window is 20 nm tall, and its η is large.
+
+### Photon pairs from a guide
+
+A guide's joint spectrum is `nonlinear::pairs`'s, its `Device` built from the modes' indices: the
+pump's and the signal's and idler's `ModeIndex::index`, and the grating. The phase matching then
+follows each wave's own group index and dispersion, which come from the interpolant's derivatives.
+`nonlinear/guide-group-index` checks them where an exact value exists: a 400 nm slab of index 2.2
+in 1.45, without material dispersion, whose TE₀ group index is ⟨ε⟩/n_eff from its exact field
+(Hellmann–Feynman on the TE equation):
+
+| Cells | n_g at 1.55 µm | Relative error |
+|---|---|---|
+| 10 nm | 2.223324 | 6.5e-5 |
+| 5 nm | 2.223433 | 1.6e-5 |
+| 2.5 nm | 2.223460 | 4.0e-6 |
+| exact | 2.223469 | |
+
+Zhao et al.'s guide, pumped at 0.785 µm and poled for degeneracy at 1.57 µm, gives pairs whose
+signal spans 55.9 nm at half maximum over its 5 mm (1.5425 to 1.5985 µm, 10 nm cells): a broad
+spectrum, since at degeneracy Δk changes only at second order (its β₂, above). The paper prints no
+bandwidth, purity or Schmidt number to compare with, and its main text doesn't give the pump's
+spectrum. A pump much narrower than this, a continuous laser say, ties ν_s + ν_i to ν_p: the pairs
+are then entangled in frequency, and their purity, as `JointSpectrum::schmidt` gives it, falls
+toward 0 as the pump narrows.
+
 ## Limits
 
 - Uniaxial crystals; a biaxial one (KTP, LBO) only along its principal axes, with an `Index` per
   polarization: no biaxial index surface yet.
 - The tilt geometry has the grating along the reference axis (Fejer's κ = 0) and the inputs
   collinear.
-- Plane waves: focused beams (Boyd and Kleinman) are not in yet, nor the waveguide overlaps that
-  give κ from the mode solver's fields. Wang et al.'s 4500 %/(W·cm²) needs their ridge's etch depth
-  and sidewall, which the paper doesn't print; it is used here as a value of η only.
+- Focused bulk beams (Boyd and Kleinman) are not in yet.
+- In a guide, the crystal must have a principal axis along it (the full-vector solver's
+  condition), and a mode is followed by its family and index, not through a crossing with another
+  mode of its family. Wang et al.'s 4500 %/(W·cm²) (Optica 5, 1438) needs their ridge's etch depth
+  and sidewall, which the paper doesn't print: it is not reproduced, and stands here as a value of
+  η only.
