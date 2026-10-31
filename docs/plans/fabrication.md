@@ -425,7 +425,10 @@ none has a tolerance chosen by hand.
   the picture that also jumps to a step.
 - **Reduced motion.** With `prefers-reduced-motion`, steps change without tweening.
 - **2D first, in SVG.** A 3D animation on the 3D view (`Device3D.svelte`, `view3d.ts`) is F8 and
-  optional ([Section 9](#9-risks)).
+  optional ([Section 9](#9-risks)). *(Asked for and done: the rail's Fabrication page plays the
+  flow from the bare wafer in 2D and 3D on one timeline, the resist drawn, from frames the
+  library gives (`job::FlowFrame`); its own 3D view (`lib/fab3d.ts`), whose solids the program
+  builds and tests. See [fabrication](../methods/fabrication.md), "The Fabrication page".)*
 
 **Narration.**
 
@@ -692,6 +695,8 @@ These are for me to decide. Each has a recommendation; none is decided yet.
 - **The cost of animation.** 3D animation of conformal films and sloped etches is costly to build
   and to keep.
   - *Mitigation:* 2D SVG first, reusing `CutView`'s drawing. 3D is F8 and only on request.
+    *(Requested; built on the same frames as the 2D, with films flat on the planar model rather
+    than conformal, and each solid's closure and volume tested.)*
 - **A library that grows stale.** New lithography generations and platforms appear every year.
   - *Mitigation:* each process carries its sources' years, and the IRDS edition it follows is
     named. A source's newer edition is a reading task, like any paper's.

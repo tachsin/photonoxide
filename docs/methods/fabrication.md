@@ -686,6 +686,44 @@ sloped walls a staircase; the design view's cross-section and the flow's stages 
 shapes exactly instead, a trapezoid from its top face down to its etch's floor
 (`job::scene_etched`), over the bands' slab.
 
+### The Fabrication page
+
+The rail's **Fabrication** page shows the same flow from the bare wafer, for the design open on a
+component's page (the tab's **In 3D, from the bare wafer** leads there), any device of the
+library at its defaults, a template, or a job file whose `[device]` or `structure` task draws the
+design (`job::fabrication_of_job`, every material of a structure task the film there). It names
+the design's platform (`fabrication::platform`: one a design, set by its films), lists the steps
+with each one's reason, parameters, every number's citation or "not specified" and the rules'
+checks, and remakes the flow with an alternative a step ranks (**Use instead**, a preference the
+library's choices take).
+
+The wafer is played as frames (`job::FlowFrame`): a frame a step, the executor's stage after it,
+and three a lithography, the resist spun on, the pattern written into it and the resist
+developed. The stages leave the resist out, as it changes no layer of the design; the frames draw
+it as a layer on the wafer's top from its lithography to the etch or lift-off that uses it and
+the strip that removes it, with silica's optics (a resist's index is between 1.4 and 1.5 at
+1.55 µm) and its own name and colour. An evaporation for a lift-off draws its film on the resist
+and in its openings. A resist whose thickness no source in hand states is drawn 0.3 µm thick, and
+its frames say so. The resist lies flat on the wafer's top, as the planar model has every layer:
+over an etched layer it is drawn above the ridges, not down in the trenches. The last frame is
+the last stage, the structure the round trip checks.
+
+Each frame is drawn twice from the same scene: as a cross-section at a cut, and as solids in 3D
+(studio/src-tauri's `fabrication`). A layer with nothing drawn on it is a box over the window; a
+drawn shape is a prism of its outline through the layer, holes and all; an etched shape runs from
+its top face down to its etch's floor, its outline mitred out by depth / tan(sidewall) at the
+floor, on the slab a partial etch leaves. A film around the shapes (an oxide filling an etched
+layer, the cladding) is a box drawn see-through over them: the solids overlap there and are not a
+partition of the wafer, but each is closed (every edge shared by two of its triangles, in
+opposite directions) and faces out. The tests check that on every frame of every device of the
+library with a flow (18 of them), that each layer's shapes hold the volume their outlines give
+(area times height, or the prismatoid's $\frac{h}{6}\thinspace(A_\mathrm{floor} + 4A_\mathrm{middle} + A_\mathrm{top})$
+for sloped walls, whose faces are planes) to a relative 10⁻⁹ (round-off), and that the last
+frame's outlines have the design's shapes' areas within their perimeter times the distance
+measured between outline and shape (a circle is a 64-gon). Each film has one colour in both views
+and in the exported cross-sections (`export::flow::film_colour`). A frame keeps to 200,000
+triangles in 3D; past that, every k-th vertex of its outlines is kept, and the page says so.
+
 ## As a job
 
 A `fabrication` task beside a `[device]` gives the device's flow. The strip waveguide's, as
