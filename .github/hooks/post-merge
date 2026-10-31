@@ -2,6 +2,15 @@
 # After a merge (a pull too): the full suite in the background, its output in
 # target/full-suite.log; not a second one while one runs. Enabled by
 # `git config core.hooksPath .github/hooks` (.github/full-suite.sh).
+# Not in an agent's worktree (a linked worktree under .claude/worktrees/, see agent-worktree.sh):
+# the suite is an hour of cargo and would build a target/ of its own there (1 to 30 GB), so the
+# hook does nothing; run the suite by hand from the main checkout when you want it.
+# shellcheck source=agent-worktree.sh
+source "$(dirname "$0")/agent-worktree.sh"
+if agent_worktree; then
+  echo "post-merge: the full suite is skipped in an agent worktree (it would build a target/ of its own here); run it from the main checkout"
+  exit 0
+fi
 root=$(git rev-parse --show-toplevel)
 mkdir -p "$root/target"
 pid=$(cat "$root/target/full-suite.pid" 2>/dev/null)

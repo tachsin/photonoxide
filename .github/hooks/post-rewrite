@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # After a rebase (not an amend): the full suite in the background, its output in
-# target/full-suite.log. Enabled by `git config core.hooksPath .github/hooks` (.github/full-suite.sh).
+# target/full-suite.log (skipped in an agent's worktree, as in post-merge). Enabled by
+# `git config core.hooksPath .github/hooks` (.github/full-suite.sh).
 [ "$1" = rebase ] || exit 0
-exec "$(git rev-parse --show-toplevel)/.github/hooks/post-merge"
+exec "$(dirname "$0")/post-merge"
