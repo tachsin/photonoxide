@@ -9,6 +9,7 @@ use super::{Basis::*, Measure::*, Numerical::*, Rule};
 pub(crate) fn rules() -> Vec<(&'static str, Rule)> {
     let mut rules = modal_rules();
     rules.extend(overlap_rules());
+    rules.extend(pair_rules());
     rules
 }
 

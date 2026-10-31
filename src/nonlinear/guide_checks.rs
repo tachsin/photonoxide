@@ -613,6 +613,7 @@ fn group_index_case() -> Outcome {
 pub(crate) fn cases() -> Vec<Case> {
     let mut cases = modal_cases();
     cases.extend(overlap_cases());
+    cases.extend(pair_cases());
     cases
 }
 
