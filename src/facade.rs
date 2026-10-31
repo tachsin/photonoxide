@@ -23,7 +23,11 @@
 //!   S-parameters, figures, geometry and job, [`device_spectrum`] (and
 //!   [`device_spectrum_until`], which a [`Stop`] stops), [`device_derived`],
 //!   [`device_geometry`], [`device_job`], the numbers a component's page in the studio shows for
-//!   the same design.
+//!   the same design;
+//! - a design's process flow ([`crate::fabrication`]), what the rules find in it and its export
+//!   as JSON, a Markdown traveller and an SVG of each step's cross-section,
+//!   [`device_fabrication`], its job, [`device_fabrication_job`], and its files,
+//!   [`export_fabrication`].
 //!
 //! Its conventions:
 //!
@@ -46,6 +50,7 @@
 mod circuit;
 mod conformance;
 mod device;
+mod fabrication;
 #[cfg(test)]
 mod tests;
 
@@ -70,6 +75,9 @@ pub use device::{
     DevicePolygon, DevicePort, DeviceSpectrum, GeometryLayer, StackInfo, StackLayer, StatedError,
     ValidityRange, device_derived, device_geometry, device_job, device_spectrum,
     device_spectrum_until, devices, stacks,
+};
+pub use fabrication::{
+    DeviceFabrication, device_fabrication, device_fabrication_job, export_fabrication,
 };
 
 /// A material of the catalogue ([`crate::material::catalogue`]), with its index models.

@@ -38,6 +38,7 @@ on:
       - "docs/methods/compact.md"
       - "docs/methods/devices.md"
       - "docs/methods/export.md"
+      - "docs/methods/fabrication.md"
       - "docs/methods/fdfd-ports.md"
       - "docs/methods/fields.md"
       - "docs/methods/slab.md"

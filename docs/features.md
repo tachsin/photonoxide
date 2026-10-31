@@ -88,6 +88,8 @@ same designs give the same numbers in Rust and Python.
 | A design's figures (n_eff, n_g, the cross-over length, FSR, Q, a bend's loss), each with its fidelity and grid | ✅ | ✅ `device_derived` | [devices](methods/devices.md) |
 | A design's geometry: its stack, the polygons on each layer with their etch, its ports | ✅ | ✅ `device_geometry` | [devices](methods/devices.md) |
 | The job that computes a design, as the Simulate tab writes it | ✅ | ✅ `device_job`, run by `run_job` | [devices](methods/devices.md) |
+| A design's process flow: its steps with their reasons, alternatives and sources, the rules' checks and the accuracy of each dimension, as a `"fabrication"` job records them | ✅ | ✅ `device_fabrication`, its job `device_fabrication_job` | [fabrication](methods/fabrication.md) |
+| A flow's export: JSON, a Markdown process traveller and an SVG of each step's cross-section, which a `"fabrication"` run writes into its folder | ✅ `export::flow` | ✅ `export_fabrication`, and `device_fabrication`'s texts | [fabrication](methods/fabrication.md) |
 | Sweeps, corners and optimization of a device | ✅ | ◐ a job (`run_job`) | [devices](methods/devices.md), [optimization](methods/optimization.md) |
 
 ## Jobs, runs and backends

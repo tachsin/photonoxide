@@ -1,0 +1,14 @@
+# How a 500 x 220 nm silicon strip on 220 nm SOI (the waveguide device at its defaults) would be
+# made: the steps in order, each with its reason, its alternatives and its sources, and how
+# accurately each dimension is made. The run's folder gets flow.json, flow.md (a process
+# traveller) and flow-01.svg, ... (the wafer's cross-section after each step).
+#   photonoxide run jobs/strip-flow.yaml
+name: strip-flow
+
+device:
+  kind: waveguide
+
+task:
+  kind: fabrication
+  # prefer: [ebl-hsq]     # process ids to prefer where several qualify
+  # avoid: [icp-si-cl2]   # process ids not to use

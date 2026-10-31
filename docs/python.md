@@ -14,6 +14,7 @@ change between milestones without the package following every change ([the plan]
 - [Units, arrays and errors](#units-arrays-and-errors)
 - [What it does](#what-it-does)
 - [Devices](#devices)
+- [Process flows](#process-flows)
 - [The same numbers as Rust](#the-same-numbers-as-rust)
 - [Other languages](#other-languages)
 - [Versions and releases](#versions-and-releases)
@@ -101,6 +102,7 @@ It prints `TE0: n_eff = 2.8475` and `TM0: n_eff = 2.0531`, as the Rust example d
 | `stacks()` | the catalogue's stacks, which the device functions take by name as `stack=`: each one's layers of the catalogue's materials and its core layer | [`device::PRESETS`](methods/devices.md) |
 | `device_spectrum(kind, values=, fidelity=, stack=, wavelength_um=, timeout_s=)`, `device_derived(kind, ...)` | a design's S-parameters and figures at a fidelity, each with its model's grid | [`device`](methods/devices.md) |
 | `device_geometry(kind, values=, stack=)`, `device_job(kind, ..., format=)` | a design's stack, polygons and ports; the job that computes it | [`device`](methods/devices.md) |
+| `device_fabrication(kind, values=, stack=, prefer=, avoid=)`, `device_fabrication_job(kind, ..., format=)`, `export_fabrication(kind, out_dir=, ...)` | a design's process flow: each step with its reason, alternatives and sources, the rules' checks and the accuracy of each dimension; the job that gives it; its export as JSON, a Markdown traveller and an SVG of each step's cross-section | [`fabrication`](methods/fabrication.md) |
 
 Each function's docstring has the details, and the
 [API reference](https://tachsin.gr/projects/photonoxide/docs/python/reference) has them all, generated from the
@@ -173,6 +175,41 @@ A circuit's instances can be devices too: in `circuit_spectrum`'s netlist, an in
 instance) holds it, `{"device": {"kind": "all-pass ring", "parameters": {"radius": 5.0}}}`,
 and is built at its fidelity as `device_spectrum` builds it.
 
+## Process flows
+
+`device_fabrication` says how a design would be made ([fabrication](methods/fabrication.md)):
+the steps in order from published processes, each with its reason, the alternatives and why
+they weren't chosen, every capability it relies on with the paper and the place in it, the
+rules' checks, and how accurately each dimension is made. The flow and the assessment are plain
+Python data (dicts and lists, lengths in µm and nm as their keys say), read from photonoxide's
+own JSON, so every number is the one a `"fabrication"` job's run records for the same design,
+to the bit. `prefer=` and `avoid=` take process ids:
+
+```python
+import photonoxide as phox
+
+strip = phox.device_fabrication("waveguide", prefer=["ebl-hsq"])   # electron-beam lithography
+print([step["process"] for step in strip.steps])
+heater = phox.device_fabrication("thermo-optic phase shifter")     # Jacques et al.'s TiN heater
+gap = next(d for d in heater.accuracy if d["layer"] == "gap")      # the oxide under the heater
+print(gap["text"])
+```
+
+It prints `['soi-smart-cut', 'ebl-hsq', 'icp-si-hbr', 'resist-strip', 'lpcvd']` and
+`gap's thickness, 2000 nm: made to ± 37.2 nm from what the sources state (at worst ± 52 nm);
+not specified: the deposition's thickness spread`: the polish's 30 nm of flatness and its 10 %
+of the 0.22 µm it removes, √(30² + 22²) nm, with the deposition's own spread not stated by any
+source in hand.
+
+The same result carries the flow's export: `json` (the flow's data, its keys in a fixed order),
+`markdown` (a process traveller: each step, what it does and why, the tool and the cited
+capability with its source, the dimensions it sets and how accurately; the layers from the top
+down, the substrate last) and `svgs` (each step's cross-section, a standalone SVG).
+`export_fabrication(kind, out_dir=...)` writes them as `flow.json`, `flow.md` and `flow-01.svg`,
+..., as a `"fabrication"` job's run writes them into its folder; `device_fabrication_job` gives
+that job, which `run_job` runs. [The fabrication write-up](methods/fabrication.md#in-python) has
+the strip waveguide's job, call and traveller.
+
 ## The same numbers as Rust
 
 The package computes nothing itself: each function calls the façade, and the façade calls the
@@ -200,8 +237,12 @@ library as a Rust program would. Both steps are tested:
   [stacks](methods/stacks.md), [circuits](methods/circuits.md), [Touchstone
   files](methods/compact.md#touchstone-files), [devices](methods/devices.md), [an FDFD job's
   ports](methods/fdfd-ports.md#in-the-studio), [full-vector modes](methods/vector.md) with
-  their [fields](methods/fields.md), and [a run's exports](methods/export.md). Their Python blocks run in the package's tests
-  (`python/tests/test_methods.py`).
+  their [fields](methods/fields.md), [a run's exports](methods/export.md) and [a design's
+  process flow](methods/fabrication.md#in-python). Their Python blocks run in the package's
+  tests (`python/tests/test_methods.py`);
+- a process flow through Python is the one a `"fabrication"` job's run records, to the bit, for
+  the strip waveguide, the lithium niobate modulator, the TiN heater and a rib, and its export
+  reads back to the same flow (`python/tests/test_fabrication.py`).
 
 The bits are the same for the same build on the same machine; another CPU or another build of
 photonoxide can differ in the last bits, as it can in Rust.

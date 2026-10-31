@@ -92,6 +92,10 @@ def call(case: dict[str, Any]) -> Any:
         # its result is each file's text, by its name
         paths = phox.export_run(**args)
         return {p.name: p.read_text(encoding="utf-8") for p in paths}
+    if function == "export_fabrication":
+        # its result is each file's text, by its name
+        paths = phox.export_fabrication(**args)
+        return {p.name: p.read_text(encoding="utf-8") for p in paths}
     if function == "export_fields":
         # its result is each file's size and CRC-32, by its name
         paths = phox.export_fields(**args)

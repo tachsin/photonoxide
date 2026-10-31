@@ -390,7 +390,7 @@ def test_the_python_page_runs(capsys: pytest.CaptureFixture[str]) -> None:
     # docs/python.md's Python blocks, in order; the first is the README's first example
     page = (ROOT / "docs" / "python.md").read_text(encoding="utf-8")
     blocks = re.findall(r"```python\n(.*?)```", page, re.DOTALL)
-    assert len(blocks) == 3
+    assert len(blocks) == 4
     for block in blocks:
         exec(compile(block, "docs/python.md", "exec"), {})
     out = capsys.readouterr().out.splitlines()
@@ -402,6 +402,12 @@ def test_the_python_page_runs(capsys: pytest.CaptureFixture[str]) -> None:
     assert out[3] == "gap 0.15 um: L_x 23.4 um, across 0.385 at 1.55 um"
     assert out[6] == "gap 0.30 um: L_x 89.5 um, across 0.030 at 1.55 um"
     assert out[7].startswith("analytic | a fit to the full-vector solver")
+    # the process flows, as the page says they print
+    assert out[8] == "['soi-smart-cut', 'ebl-hsq', 'icp-si-hbr', 'resist-strip', 'lpcvd']"
+    assert out[9] == (
+        "gap's thickness, 2000 nm: made to ± 37.2 nm from what the sources state (at worst ± 52 "
+        "nm); not specified: the deposition's thickness spread"
+    )
 
 
 # --- devices --------------------------------------------------------------------------------

@@ -8,6 +8,11 @@
 //! the design, which must give it back to the bit. A flow is data, fully set by the design and
 //! the library, so its record replays bit for bit.
 //!
+//! The run also writes the flow's export into its folder ([`crate::export::flow`]): `flow.json`
+//! (the flow and the assessment as the record holds them, with the wafer's layers after each
+//! step), `flow.md` (a process traveller) and `flow-01.svg`, ... (the cross-section after each
+//! step).
+//!
 //! ```yaml
 //! name: tfln-flow
 //!
@@ -29,6 +34,7 @@ use super::scene::{SceneEtched, scene, scene_etched};
 use super::{Event, task_error};
 use crate::Result;
 use crate::device::Spec;
+use crate::export::flow::FlowExport;
 use crate::fabrication::{
     Assessment, Choices, FlowRecord, Physical, assess, fabricate, generate, round_trip, stages,
 };
@@ -49,9 +55,8 @@ pub(super) struct FabricationTask {
     avoid: Vec<String>,
 }
 
-/// The flow of `job`'s design, as its task asks, with its round trip, and what the rules find
-/// in it.
-fn flow_of(job: &Job) -> Result<(FlowRecord, Assessment)> {
+/// What `job`'s task prefers and avoids, checked against the library.
+fn choices_of(job: &Job) -> Result<Choices> {
     let task: FabricationTask = job
         .task()
         .clone()
@@ -62,6 +67,13 @@ fn flow_of(job: &Job) -> Result<(FlowRecord, Assessment)> {
         avoid: task.avoid,
     };
     choices.check().map_err(|e| task_error(e.to_string()))?;
+    Ok(choices)
+}
+
+/// The flow of `job`'s design, as its task asks, with its round trip, and what the rules find
+/// in it.
+fn flow_of(job: &Job) -> Result<(FlowRecord, Assessment)> {
+    let choices = choices_of(job)?;
     let (device, design) = spec_of(job)?.build()?;
     let physical = device.physical(design.values())?;
     let record = fabricate(&physical, &choices).map_err(|e| task_error(e.to_string()))?;
@@ -99,7 +111,12 @@ impl TaskKind for FabricationKind {
             })?;
             run.record(&Event::FlowAssessment {
                 assessment: Box::new(assessment),
-            })
+            })?;
+            // the flow's JSON, traveller and cross-sections, beside the record
+            if !run.dir().as_os_str().is_empty() {
+                FlowExport::of_design(&spec_of(job)?, &choices_of(job)?)?.write(run.dir())?;
+            }
+            Ok(())
         })
     }
 
@@ -110,6 +127,44 @@ impl TaskKind for FabricationKind {
     fn exports(&self, _: &Job) -> (&'static str, &'static [&'static str]) {
         ("a fabrication", &[])
     }
+}
+
+/// The job that gives `spec`'s design's process flow, named `name`: a `[device]` table holding
+/// the design and a `[task]` of kind `"fabrication"`, preferring and avoiding processes by id
+/// (each list written only when it isn't empty). It is checked by [`super::check`]; its run
+/// records the flow [`FlowExport::of_design`] gives, to the bit, and writes its export.
+///
+/// # Errors
+///
+/// [`crate::Error::InvalidValue`] for a name that isn't a job's, a design [`Spec::build`]
+/// refuses, and the errors of [`super::check`] for the job it makes (a process the library
+/// hasn't, one both preferred and avoided, a preference that makes no step).
+pub fn from_fabrication(
+    name: &str,
+    spec: &Spec,
+    prefer: &[String],
+    avoid: &[String],
+) -> Result<Job> {
+    use toml::{Table, Value};
+    spec.build()?;
+    let list =
+        |ids: &[String]| Value::Array(ids.iter().map(|s| Value::String(s.clone())).collect());
+    let mut task = Table::new();
+    task.insert("kind".into(), "fabrication".into());
+    if !prefer.is_empty() {
+        task.insert("prefer".into(), list(prefer));
+    }
+    if !avoid.is_empty() {
+        task.insert("avoid".into(), list(avoid));
+    }
+    let mut file = Table::new();
+    file.insert("name".into(), name.into());
+    file.insert("device".into(), Value::Table(spec.to_table()));
+    file.insert("task".into(), Value::Table(task));
+    let text = toml::to_string(&file).map_err(|e| task_error(e.to_string()))?;
+    let job = Job::parse(&text)?;
+    super::check(&job)?;
+    Ok(job)
 }
 
 /// A design's flow and the wafer after each of its steps, as the studio's Fabrication tab shows

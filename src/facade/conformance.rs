@@ -7,10 +7,11 @@ use serde_json::{Value, json};
 use super::{
     CrossSection, DeviceDesign, DeviceFigure, DeviceGeometry, DeviceInfo, DeviceSpectrum,
     IndexModelInfo, IndexOptions, JobSource, MaterialInfo, SParameters, SlabMode, Spectrum,
-    StackInfo, Stop, VectorMode, check_job, circuit_spectrum, device_derived, device_geometry,
-    device_job, device_spectrum, device_spectrum_until, devices, estimate_fields, export_fields,
-    export_run, fdfd_s_parameters, group_index, materials, read_touchstone, refractive_index,
-    run_job, run_tables, slab_modes, stacks, vector_modes, write_touchstone,
+    StackInfo, Stop, VectorMode, check_job, circuit_spectrum, device_derived, device_fabrication,
+    device_fabrication_job, device_geometry, device_job, device_spectrum, device_spectrum_until,
+    devices, estimate_fields, export_fabrication, export_fields, export_run, fdfd_s_parameters,
+    group_index, materials, read_touchstone, refractive_index, run_job, run_tables, slab_modes,
+    stacks, vector_modes, write_touchstone,
 };
 use crate::Complex64 as c64;
 use crate::{Error, Result};
@@ -871,5 +872,111 @@ pub fn conformance(scratch: &Path) -> Result<Vec<Case>> {
         })?,
         &[],
     ));
+    fabrication_cases(scratch, &mut cases)?;
     Ok(cases)
+}
+
+/// JSON text read back as a value.
+fn parsed(text: &str) -> Result<Value> {
+    serde_json::from_str(text).map_err(|e| Error::Parse {
+        what: "JSON".into(),
+        reason: e.to_string(),
+    })
+}
+
+/// The process flows': a design's flow and its export, its job, and its files.
+fn fabrication_cases(scratch: &Path, cases: &mut Vec<Case>) -> Result<()> {
+    let ids = |v: &[&str]| v.iter().map(|&s| s.to_owned()).collect::<Vec<_>>();
+    for (name, kind, values, prefer) in [
+        ("waveguide", "waveguide", &[][..], &[][..]),
+        (
+            "tfln-pmma",
+            "TFLN Mach-Zehnder modulator",
+            &[][..],
+            &["ebl-pmma"][..],
+        ),
+        ("heater", "thermo-optic phase shifter", &[][..], &[][..]),
+        (
+            "rib-narrow",
+            "rib waveguide",
+            &[("width", 0.45)][..],
+            &[][..],
+        ),
+    ] {
+        let (d, args) = design(kind, values, None);
+        let f = device_fabrication(&d, &ids(prefer), &[])?;
+        let args = if prefer.is_empty() {
+            args
+        } else {
+            with(args, &[("prefer", json!(prefer))])
+        };
+        cases.push(case(
+            &format!("device_fabrication/{name}"),
+            "device_fabrication",
+            &args,
+            &json!({
+                "flow": parsed(&f.flow)?,
+                "assessment": parsed(&f.assessment)?,
+                "json": f.json,
+                "markdown": f.markdown,
+                "svgs": f.svgs,
+            }),
+            &[],
+        ));
+    }
+    let (d, args) = design("waveguide", &[("width", 0.45)], None);
+    let avoid = ids(&["ebl-hsq"]);
+    cases.push(case(
+        "device_fabrication_job/waveguide-yaml",
+        "device_fabrication_job",
+        &with(
+            args.clone(),
+            &[
+                ("name", json!("strip-flow")),
+                ("format", json!("yaml")),
+                ("avoid", json!(avoid)),
+            ],
+        ),
+        &Value::String(device_fabrication_job(
+            &d,
+            "strip-flow",
+            "yaml",
+            &[],
+            &avoid,
+        )?),
+        &[],
+    ));
+    // without a format, the job as data: the object its JSON is
+    cases.push(case(
+        "device_fabrication_job/waveguide",
+        "device_fabrication_job",
+        &with(args.clone(), &[("name", json!("strip-flow"))]),
+        &parsed(&device_fabrication_job(&d, "strip-flow", "json", &[], &[])?)?,
+        &[],
+    ));
+    // the files, each one's text by its name
+    let out = scratch.join("fabrication-by-binding");
+    let written = export_fabrication(&d, &[], &[], &scratch.join("fabrication"))?;
+    let files: serde_json::Map<String, Value> = written
+        .iter()
+        .map(|p| {
+            let text = std::fs::read_to_string(p).map_err(|e| Error::Io {
+                path: p.display().to_string(),
+                reason: e.to_string(),
+            })?;
+            let name = p
+                .file_name()
+                .map(|n| n.to_string_lossy().into_owned())
+                .unwrap_or_default();
+            Ok((name, Value::String(text)))
+        })
+        .collect::<Result<_>>()?;
+    cases.push(case(
+        "export_fabrication/waveguide",
+        "export_fabrication",
+        &with(args, &[("out_dir", json!(out.display().to_string()))]),
+        &Value::Object(files),
+        &[],
+    ));
+    Ok(())
 }

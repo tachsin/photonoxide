@@ -12,6 +12,8 @@
 //! - **Fields** ([`Npz`]): the complex fields on their grid, as NumPy's `.npz`, only when the
 //!   job's `[task.export]` asks: a mode's E and H ([`write_mode_npz`]), FDFD's field along z,
 //!   FDTD's field monitors' transforms of E and H, a static job's temperature and potential.
+//! - **A process flow** ([`flow`]): a `"fabrication"` job's flow as JSON, a process traveller in
+//!   Markdown and each step's cross-section as an SVG, written into its run's folder.
 //!
 //! **The `.npz`.** NumPy's own format: a ZIP (written from PKWARE's *APPNOTE*) of `.npy` arrays
 //! (NEP 1), deflated at a selectable level, store (level 0) to smallest (9). Beside the arrays,
@@ -27,6 +29,7 @@
 //! array bytes against the solver's own values, to the bit.
 
 pub mod codec;
+pub mod flow;
 pub(crate) mod npy;
 mod rewrite;
 pub mod tables;
