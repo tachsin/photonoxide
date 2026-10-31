@@ -89,8 +89,12 @@ fn factorization(m: &Measurement) -> f64 {
 /// The catalogue's entries solved by cuDSS, as L D Lᵀ where the entry's system is symmetric
 /// (`cudss-ldlt`) and as LU (`cudss-lu`), each checked by the entry's own accuracy check, with
 /// the factors' entries, cuDSS's estimate of its peak on the GPU, and the analysis and
-/// factorization's seconds; photonoxide's own beside them.
+/// factorization's seconds; photonoxide's own beside them. One test at a time: each registers
+/// `cudss-ldlt` and `cudss-lu` with reports of its own, and two at once (`--include-ignored`)
+/// replaced each other's and read the other's reports.
 fn against_photonoxide(ids: &[&str]) {
+    static ONE_AT_A_TIME: Mutex<()> = Mutex::new(());
+    let _turn = ONE_AT_A_TIME.lock().unwrap_or_else(|e| e.into_inner());
     let Some(cudss) = cudss() else { return };
     assert!(offer(cudss.clone()).unwrap());
     let reports = Arc::new(Mutex::new(Vec::new()));

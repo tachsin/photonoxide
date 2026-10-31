@@ -23,10 +23,15 @@ use crate::watch::{Fetch, Report, cell, compare, day, is_new, numbers, record};
 /// The issue the workflow keeps up to date.
 pub const ISSUE_TITLE: &str = "New releases of external libraries";
 
-/// The macOS of the newest image the Libraries workflow runs Accelerate's tests on
-/// (`xcode-27`, GitHub's macOS 27 preview, in `.github/workflows/libraries.yml`): Accelerate has
-/// no install to check.
-pub const ACCELERATE_CHECKED: &str = "27";
+/// The macOS of the newest image the Libraries workflow runs Accelerate's tests on, as its
+/// `sw_vers` gives it (`xcode-27`, GitHub's macOS 27 preview, image xcode-27-arm64, in
+/// `.github/workflows/libraries.yml`): Accelerate has no install to check.
+pub const ACCELERATE_CHECKED: &str = "27.0.1";
+
+/// The newest MUMPS the Libraries workflow builds from mumps-solver.org's source and runs its
+/// backends' tests on (its `mumps-source` job): MUMPS's own releases have no package to check,
+/// and conda-forge's and Ubuntu's packages come later.
+pub const MUMPS_CHECKED: &str = "5.9.1";
 
 /// What to do with a new release, in the issue and in docs/libraries.md.
 pub const STEPS: &str = "\
@@ -108,7 +113,8 @@ pub enum Baseline {
         manager: Option<&'static str>,
         packages: &'static [&'static str],
     },
-    /// A version given here, for a library with nothing to install.
+    /// A version given here, for a library with nothing to install or a release checked built
+    /// from its source.
     Stated(&'static str),
 }
 
@@ -253,7 +259,7 @@ pub const SOURCES: &[Source] = &[
     Source {
         library: "MUMPS",
         origin: Origin::Mumps,
-        baseline: any(&["mumps-seq", "libmumps-seq-dev"]),
+        baseline: Baseline::Stated(MUMPS_CHECKED),
         notes: MUMPS_NOTES,
     },
     Source {
@@ -458,16 +464,19 @@ pub struct Release {
     pub notes: Option<String>,
 }
 
-/// anaconda.org's package: the newest version on the main label, and its first upload.
+/// anaconda.org's package: the newest version on the main label and not marked broken, and its
+/// first upload.
 fn conda(package: &Value) -> Result<Release, String> {
     let files = package["files"]
         .as_array()
         .ok_or("anaconda.org's answer has no files")?;
     let mut first: BTreeMap<String, String> = BTreeMap::new();
     for f in files {
+        // a build conda-forge marked broken keeps its main label on anaconda.org, and conda
+        // doesn't install it (mkl 2026.2.0, 2026-10-22)
         let main = f["labels"]
             .as_array()
-            .is_some_and(|l| l.iter().any(|l| l == "main"));
+            .is_some_and(|l| l.iter().any(|l| l == "main") && !l.iter().any(|l| l == "broken"));
         let (Some(v), Some(t)) = (f["version"].as_str(), f["upload_time"].as_str()) else {
             continue;
         };
@@ -1008,8 +1017,9 @@ mod tests {
         };
         assert_eq!(of("oneMKL", "conda-forge mkl").as_deref(), Some("2026.1.0"));
         assert_eq!(of("oneMKL", "PyPI mkl").as_deref(), Some("2026.2.0"));
-        // the newest of conda-forge's and Ubuntu's
-        assert_eq!(of("MUMPS", "mumps-solver.org").as_deref(), Some("5.8.2"));
+        // MUMPS's own release, built from its source; conda-forge's package, its own
+        assert_eq!(of("MUMPS", "mumps-solver.org").as_deref(), Some("5.9.1"));
+        assert_eq!(of("MUMPS", "conda-forge mumps-seq").as_deref(), Some("5.8.2"));
         assert_eq!(
             of("SuperLU", "GitHub xiaoyeli/superlu").as_deref(),
             Some("7.0.1")
@@ -1028,7 +1038,7 @@ mod tests {
         );
         assert_eq!(
             of("Accelerate", "GitHub's macOS runners").as_deref(),
-            Some("27")
+            Some("27.0.1")
         );
         // every guided source has a checked version, and every key is distinct
         let mut keys = std::collections::HashSet::new();
@@ -1049,19 +1059,40 @@ mod tests {
             "/../../.github/workflows/libraries.yml"
         );
         let workflow = std::fs::read_to_string(path).unwrap();
-        // a macOS image by its own name, or a preview by its Xcode's
+        // a macOS image by its own name, or a preview by its Xcode's, both by the major release
+        let major = ACCELERATE_CHECKED.split('.').next().unwrap();
         assert!(
-            workflow.contains(&format!("os: macos-{ACCELERATE_CHECKED}"))
-                || workflow.contains(&format!("os: xcode-{ACCELERATE_CHECKED}")),
+            workflow.contains(&format!("os: macos-{major},"))
+                || workflow.contains(&format!("os: xcode-{major},")),
             "libraries.yml runs Accelerate on another macOS than {ACCELERATE_CHECKED}"
         );
+    }
+
+    #[test]
+    fn mumps_is_checked_built_from_the_source_the_libraries_workflow_builds() {
+        let path = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../.github/workflows/libraries.yml"
+        );
+        let workflow = std::fs::read_to_string(path).unwrap();
+        let versions = workflow
+            .lines()
+            .find_map(|l| l.trim().strip_prefix("version: ["))
+            .expect("libraries.yml has no MUMPS versions to build");
+        assert!(
+            versions.contains(&format!("'{MUMPS_CHECKED}'")),
+            "libraries.yml doesn't build MUMPS {MUMPS_CHECKED}: {versions}"
+        );
+        // and photonoxide-native knows its structure
+        assert!(mumps::releases().any(|r| r == MUMPS_CHECKED));
     }
 
     const CONDA: &str = r#"{"name":"mumps-seq","latest_version":"5.8.2","files":[
         {"version":"5.8.1","upload_time":"2026-01-02 10:00:00.000000+00:00","labels":["main"]},
         {"version":"5.8.2","upload_time":"2026-09-21 19:27:39.958000+00:00","labels":["main"]},
         {"version":"5.8.2","upload_time":"2026-09-20 08:00:00.000000+00:00","labels":["main"]},
-        {"version":"5.9.0","upload_time":"2026-10-01 08:00:00.000000+00:00","labels":["broken"]}]}"#;
+        {"version":"5.9.0","upload_time":"2026-10-01 08:00:00.000000+00:00","labels":["broken"]},
+        {"version":"5.9.1","upload_time":"2026-10-02 08:00:00.000000+00:00","labels":["main","broken"]}]}"#;
 
     const PYPI: &str = r#"{"info":{"version":"2026.1.0"},"releases":{
         "2026.0.0":[{"upload_time_iso_8601":"2026-03-01T00:00:00.000Z"}],
@@ -1084,7 +1115,7 @@ mod tests {
     #[test]
     fn each_source_reads_its_answer() {
         let conda = conda(&serde_json::from_str(CONDA).unwrap()).unwrap();
-        // the main label alone, and the first upload of the newest
+        // the main label alone, never a build marked broken, and the first upload of the newest
         assert_eq!(
             (conda.version.as_str(), conda.date.as_str()),
             ("5.8.2", "2026-09-20")
@@ -1203,7 +1234,7 @@ mod tests {
         let release = macos.newest.as_ref().unwrap();
         assert_eq!(release.version, "27.0.1");
         assert_eq!(release.label.as_deref(), Some("image xcode-27-arm64"));
-        assert!(macos.newer() && macos.accepted() == Some(true));
+        assert!(!macos.newer() && macos.accepted() == Some(true));
         let mkl = row("oneMKL | PyPI mkl");
         assert!(!mkl.newer() && mkl.accepted() == Some(true));
         let superlu = row("SuperLU | GitHub xiaoyeli/superlu");
@@ -1215,7 +1246,7 @@ mod tests {
         let record = recorded(&first).unwrap();
         assert_eq!(record["MUMPS | mumps-solver.org"], "5.10.0");
         assert!(!record.contains_key("SuperLU | GitHub xiaoyeli/superlu"));
-        assert!(first.contains("| MUMPS | [mumps-solver.org](https://mumps-solver.org/index.php?page=dwnld) | 5.8.2 | **5.10.0**, newer | 2026-09 | [MUMPS's changelog](https://mumps-solver.org/index.php?page=dwnld#cl) | **no**: 5.4.1 to 5.9.1, the releases whose structure it knows |"), "{first}");
+        assert!(first.contains("| MUMPS | [mumps-solver.org](https://mumps-solver.org/index.php?page=dwnld) | 5.9.1 | **5.10.0**, newer | 2026-09 | [MUMPS's changelog](https://mumps-solver.org/index.php?page=dwnld#cl) | **no**: 5.4.1 to 5.9.1, the releases whose structure it knows |"), "{first}");
         assert!(first.contains("| oneMKL | [PyPI mkl](https://pypi.org/project/mkl/) | 2026.2.0 | 2026.1.0 | 2026-07-01 |"));
         assert!(first.contains("**Couldn't be read:**\n\n- SuperLU \\| GitHub xiaoyeli/superlu: "));
         assert!(first.contains("MUMPS 5.10.0 (mumps-solver.org, 2026-09)"));
