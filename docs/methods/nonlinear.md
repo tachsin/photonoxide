@@ -292,6 +292,8 @@ Eq. (A1.9) is first order in the birefringence. The full curvature of Δk in the
 147.1 and 309.2 mrad where (A1.9) gives 79.4, 102.8, 102.5, 145.7 and 306.2. The numerical widths
 are within 0.5 % of the full curvature's.
 
+The example `qpm_fejer` prints the whole table beside the paper's, checking the 41 values and listing the other eight.
+
 ## The coupled-amplitude equations
 
 `nonlinear::coupled` integrates the amplitudes A_j (√W, |A_j|² the power) of a second-order
@@ -357,6 +359,31 @@ crystal, −L/2 to L/2, gives sin(ΔkL/2)/(ΔkL/2), as Fejer et al.'s Eq. (19) d
 bandwidth twice as wide, 5.57/|k′_o − k′_e|L. We use the integral's form. A waveguide's joint
 spectrum takes its modes' indices ([photon pairs from a guide](#photon-pairs-from-a-guide)).
 
+### Filters and heralding
+
+A pair source's photons go through filters before they are counted. `JointSpectrum::filtered`
+multiplies the amplitude by the filters' amplitude transmissions, t_s(ν_s)t_i(ν_i), on the
+spectrum's own grids; any component's response gives them, `circuit::transmission(component,
+from, to, values, wavelengths)` reading S_to,from from its S-matrix (a ring's drop port, say, with
+its insertion loss), at λ = 1/ν. The filtered amplitude's `schmidt` is the filtered pairs' purity.
+`JointSpectrum::heralding` gives each photon's heralding efficiency, the share of its partner's
+counts it comes with:
+
+η_s = Σ|f|²|t_s|²|t_i|² / Σ|f|²|t_i|², η_i = Σ|f|²|t_s|²|t_i|² / Σ|f|²|t_s|²,
+
+its spectral part: a detector's efficiency and the paths' losses multiply it. A filter narrower
+than a photon's marginal spectrum raises the purity and costs its partner's heralding.
+
+For a Gaussian |f|² = e^{−zᵀMz} through Gaussian filters |t|² = e^{−ν²/w²} each sum is a Gaussian
+integral, π/√det, so η_s = (det(M + D_i)/det(M + D_s + D_i))^½ with D_s = diag(1/w_s², 0) and
+D_i = diag(0, 1/w_i²) (`gaussian_heralding`), and the filtered purity is the Gaussian's,
+(1 − c²/(a′b′))^½ with the filters' 1/w² added to M's diagonal. The cases take
+M = [[1, −0.9], [−0.9, 1]] × 10⁶ µm², pairs 10⁻³ /µm wide and anticorrelated, through filters
+0.8 and 1.2 × 10⁻³ /µm wide, on 201 points a side 10⁻² /µm either way: the signal's η_s is
+0.5004078, and the filters raise the purity from 0.436 to 0.9019150 (`nonlinear/pairs-heralding-gaussian`,
+`nonlinear/pairs-filtered-purity`). The window has to hold the pairs' tails along their
+correlation: 6 × 10⁻³ /µm either way cut them at 7.7 × 10⁻¹⁰ of η_s.
+
 ## Optical parametric oscillators
 
 The catalogue's PPLN OPO cases find their idler through this module: a difference-frequency
@@ -364,6 +391,43 @@ process, the pump held and the idler tuned, its grating first order. With Zelmon
 idler of a 1.064 µm pump at a 30 µm period is 3.354 µm (their Fig. 3: 3.35); with Jundt's n_e(T)
 at 250 °C and a 25.5 µm period, expanded by his Eq. (3), it is 4.755 µm (his Fig. 1: 4.755). Both
 are the numbers these cases gave before they were moved onto phase matching.
+
+`nonlinear::opo` puts the guide in a cavity. `Oscillator` holds a `ThreeWave` (1 the signal, 2 the
+idler, 3 the pump), its length, and the cavity's `Feedback` for the signal and, if doubly
+resonant, the idler: the share R of the power at the guide's end returned to its start, with a
+round-trip phase φ from resonance, A_j(0) ← √R_j e^{iφ_j}A_j(L), and the share T ≤ 1 − R that
+leaves as output. The pump goes through once.
+
+- **Threshold** (`Oscillator::threshold`): the pump power where the undepleted round trip first
+  returns (A₁, A₂*) as large as they started, its 2 × 2 matrix's spectral radius 1. The matrix is
+  the guide's transfer, taken from the coupled equations with seeds 10⁻⁹ of the pump's amplitude,
+  times the feedback; bisection finds the power to 10⁻¹³. Phase matched, lossless and on
+  resonance this is Boyd's Eq. (2.9.8) (R. W. Boyd, *Nonlinear Optics*, 3rd ed., Academic Press
+  (2008)), cosh gL = 1 + l₁l₂/(2 − l₁ − l₂), l_j = 1 − √R_j, with g² = κ²ν₁ν₂P/ν₃²; singly
+  resonant (l₂ = 1) it is cosh gL = 1/√R₁. A 1.5 µm signal and 3.0 µm idler from 1.0 µm,
+  κ = 10⁻⁴ /(√W·µm), 1 cm: doubly resonant (√R₁ = 0.95, √R₂ = 0.9) at 24.31338 mW, within the
+  bisection's 10⁻¹³ of Eq. (2.9.8) on every step count; singly (√R₁ = 0.9) at 982.0113 mW, the
+  error RK4's (1.3e-10, 7.9e-12, 4.9e-13 and 6.5e-14 on 50 to 400 steps;
+  `nonlinear/opo-threshold-doubly`, `-singly`). Boyd's low-loss limits, g²L² = l₁l₂ and 2l₁
+  (Eqs. (2.9.9)–(2.9.10)), follow from it.
+- **Steady state** (`Oscillator::steady_state`): the round trips run with the depleted coupled
+  equations from a weak signal until the signal's power at the guide's end changes by less than a
+  tolerance. In it each signal photon gained per pass leaves through the coupler, and by the
+  Manley–Rowe relations each is a pump photon lost: the singly resonant oscillator above
+  (R₁ = 0.9) at twice threshold balances them to 8.1e-10, 5.0e-11 and 2.3e-12 on 100 to 400 steps a
+  pass (`nonlinear/opo-steady-photons`, on 200).
+- **The uniform-signal limit**: where the signal loses little per round trip it is nearly the same
+  all along the guide. Holding A₁ fixed, the pump goes as cos gz and the idler as sin gz, so the
+  pump's depletion is sin²gL and the signal's gain per pass is ∝ sin²gL/g², which at threshold is
+  its L². Above threshold, at N = P/P_th, x = gL solves x²/sin²x = N and the depletion is
+  D = sin²x (`uniform_depletion`): 0.9682 at N = 2, all of the pump at N = π²/4, and less beyond
+  as the pump comes back. The steady state approaches it at first order in the loss: at N = 2 the
+  gap is 1.56e-3, 7.75e-4, 3.86e-4 and 1.93e-4 for 4, 2, 1 and 0.5 % lost per round trip
+  (`nonlinear/opo-uniform-limit-order`).
+
+A ring resonant at its pump too (a triply resonant oscillator, or a Kerr comb, whose threshold the
+mean-field equation gives: [Pu et al.'s ring](#pu-et-als-algaas-ring-the-comb-threshold)) is
+`Feedback` on the pump, not in yet.
 
 ## Miller's rule
 
@@ -543,6 +607,8 @@ Their modes' effective areas, 1.1 µm² at 1570 nm and 0.4 µm² at 785 nm (p. 1
 Afshar and Monro's Eq. 41, from S_z, which converges on these grids. Their Eq. 44, from |E_t|⁴,
 takes the ridge's corners twice and drifts with the grid (1.110, 1.107 and 1.103 µm² at 1.57 µm;
 0.400, 0.401 and 0.401 at 0.785 µm), and rounds to the paper's numbers just the same.
+
+The example `pairs_zhao` computes the period, the matched wavelength and the two areas on 20 and 10 nm cells, and the pairs' signal spectrum pumped at 785 nm.
 
 ### Chang et al.'s GaAs strip: not reproduced
 
@@ -795,6 +861,72 @@ Agrawal's Eq. (2.3.45) gives the Raman response's first moment as T_R = f_Rτ₁
 gives 1.46 fs. Both are near the "about 2 fs" the text gives. Only h_R's transform enters the
 propagation, so the difference touches nothing here; `Raman::first_moment` is the integral.
 
+### Two-photon and free-carrier absorption
+
+In silicon below its half band gap, and in other semiconductors there, two photons can be absorbed
+together, and the carriers they free absorb more and lower the index. `Guide::with_two_photon`
+gives an `AbsorbingGuide`, the NLSE with Lin, Painter and Agrawal's terms (Q. Lin, O. J. Painter,
+G. P. Agrawal, Opt. Express 15, 16604 (2007), Eqs. (37), (40) and (47)–(49)):
+
+∂A/∂z = … + iγ|A|²A − (β_T/2ā)|A|²A + (n₀/n)(ik₀σ_n − σ_a/2)N A,
+∂N/∂T = β_T|A|⁴/(2ħω₀ā²) − N/τ₀.
+
+`TwoPhoton` holds β_T (m/W, the catalogue's two-photon coefficient), the mode's effective area ā,
+and the `FreeCarriers` if any: their absorption σ_a and index change σ_n per carrier, their
+effective lifetime τ₀ (recombination, diffusion and drift together, Eq. (36)), and n₀/n, the
+material's index over the mode's, by which the mode feels them more (Eq. (33)).
+`FreeCarriers::silicon` takes Lin et al.'s Eq. (20) at 1.55 µm, σ_a = 1.45 × 10⁻²¹ m² and
+σ_n = −5.3 × 10⁻²⁷ m³, each scaled by (λ/1.55 µm)², the holes' share of σ_n five times the
+electrons' as they take it for 10¹⁶ to 10¹⁷ cm⁻³. The carriers are integrated along the pulse
+from none at the window's start, the generation linear between samples and the decay exact (the
+trapezoidal rule without recombination); a train's carriers left from earlier pulses are not
+held. Two-photon absorption alone keeps the nonlinear step exact, |A|² → P/(1 + 2bPh) and the
+phase (γ/2b) ln(1 + 2bPh), b = β_T/2ā; with the carriers (or Raman or self-steepening) it is RK4,
+the carriers taken again at each stage. The terms sit outside the self-steepening operator, as
+Lin et al.'s Eq. (47) has them.
+
+| Case | Ours | Closed form | Error | Order |
+|---|---|---|---|---|
+| 20 W Gaussian (T₀ = 1 ps) over 2 cm at 2 dB/cm, β_T = 0.5 cm/GW, ā = 0.3 µm²: the peak's power (Eq. (60)) | 1.48641 W | P₀e^{−αL}/(1 + β_TP₀L_eff/ā) | 1.8e-7 on 400 steps | 2.00 |
+| Its Kerr phase, γ = 20 /(W·m) (Eq. (61)) | 2.01401 rad | (γā/β_T) ln(1 + β_TP₀L_eff/ā) | 1.1e-7 | 2.00 |
+| The carriers behind a 10 W Gaussian, no recombination (Eq. (51)) | 2.71652 × 10²² m⁻³ | √π β_TP₀²T₀/(2√2ħω₀ā²) | round-off | |
+| 0.5 W continuous over 5 cm, τ₀ = 100 ps: the power | 0.292306 W | below | 1.7e-8 on 100 steps | 4 |
+| Its phase, the Kerr's and the carriers' | −1.46557 rad | below | 2.2e-7 | 4 |
+
+The power's and the phase's errors are the loss's midpoint rule in the split-step (2.9e-6, 7.2e-7,
+1.8e-7 and 4.5e-8 on 100 to 800 steps for the power), the nonlinear step being exact; the
+continuous wave's are RK4's (4.4e-6, 2.8e-7, 1.7e-8 and 1.1e-9 on 25 to 200).
+
+With the carriers steady, N = cP², c = β_Tτ₀/(2ħω₀ā²), a continuous wave loses power as
+dP/dz = −aP² − κP³, a = β_T/ā, κ = (n₀/n)σ_a c, whose solution is
+z(P) = 1/(aP) − 1/(aP₀) + (κ/a²) ln[P(a + κP₀)/(P₀(a + κP))]; its phase, γ∫P dz + (n₀/n)k₀σ_n c∫P² dz,
+is (γ/a) ln[P₀(a + κP)/(P(a + κP₀))] + ((n₀/n)k₀σ_n c/κ) ln[(a + κP₀)/(a + κP)]. The window of the
+continuous cases is 4096 ps on 1024 points, 41 lifetimes, so the carriers at its end are steady to
+e⁻⁴⁰; without dispersion each sample evolves on its own, and the error is RK4's alone
+(`nonlinear/nlse-tpa-power`, `-phase`, `-order`, `nonlinear/nlse-carriers-gaussian`,
+`nonlinear/nlse-fca-cw-power`, `-phase`). Over 5 cm at 0.5 W two-photon absorption alone would
+lose 1.51 dB (P₀/(1 + aP₀L) = 0.3529 W); the carriers add 0.82 dB, and turn the phase negative:
+their index change outweighs the Kerr's.
+
+### Cross-phase modulation between two pulses
+
+Two pulses at different wavelengths share the guide's nonlinearity. `xpm::TwoPulses` holds each
+one's `Guide` (its dispersion about its own carrier, its γ and loss), the walk-off d = 1/v_g2 −
+1/v_g1 (ps/m) and the cross-phase factor c (2 for co-polarized pulses), and integrates Agrawal's
+Eqs. (7.4.1)–(7.4.2) with each pulse's loss and higher orders: ∂A₁/∂z = D₁A₁ + iγ₁(|A₁|² +
+c|A₂|²)A₁, and A₂'s with d∂A₂/∂T on its left, in the first pulse's frame. The overlaps of
+Eq. (7.1.10) are taken as one area, as Eqs. (7.1.11)–(7.1.13) take them, and the four-wave terms
+between the pulses aren't carried. The split-step is the NLSE's: the second pulse's linear step
+carries e^{idΩh}, which moves it to later T by dh, and the Kerr step is exact.
+
+Without dispersion the pulses keep their shapes and their phases are Eqs. (7.4.5)–(7.4.7); for
+two Gaussians of one width, φ₁ = γ₁L[P₁e^{−τ²} + (cP₂/2)(√π/δ)(erf(τ − τ_d) − erf(τ − τ_d − δ))],
+δ = dL/T₀ (Eq. (7.4.9), `xpm::gaussian_phase`). On Agrawal's Fig. 7.2 (γ₁P₁L = 40,
+P₂/P₁ = 0.5, γ₂/γ₁ = 1.2, δ = 5) the largest |A₁(L)/A₁(0) − e^{iφ₁}| over |T| ≤ 3T₀ is 2.9e-5,
+7.1e-6, 1.8e-6 and 1.3e-6 on 500 to 4000 steps (1024 points across 64 ps): second order to 2000
+steps, then near a floor of about 1e-6 we haven't traced (`nonlinear/xpm-walk-off-phase`, on
+2000, and `nonlinear/xpm-split-step-order`).
+
 ## Four-wave mixing
 
 `nonlinear::fwm` gives four-wave mixing with one pump, 2ω_p = ω_s + ω_i, signal and idler at
@@ -865,7 +997,47 @@ nm wide:
 Foster et al. measured parametric gain in silicon guides 300 × 550 nm (Nature 441, 960 (2006)). A
 reproduction would need what the letter doesn't fully give: the cladding above the guide, the n₂
 it assumes (it cites (4–9) × 10⁻¹⁴ cm²/W), and the two-photon and free-carrier absorption its
-measured gain includes, which this module doesn't model yet. It is not a case.
+measured gain includes: the NLSE has those now ([two-photon and free-carrier
+absorption](#two-photon-and-free-carrier-absorption)), but not the letter's β_T, carrier lifetime
+or pulses' rate. It is not a case.
+
+## Resonant enhancement in rings
+
+`nonlinear::cavity` gives SHG and four-wave mixing in a ring resonant at their waves, from the
+0.4 ring components: `AllPassRing::ring_wave(wavelength, values)` gives a wave's `RingWave`, its
+round trip a e^{iφ} (the guide's loss and the fixed loss per round trip) and the field just past
+the coupler for a unit field in the bus, F = ik/(1 − r a e^{iφ}): Helt et al.'s field-enhancement
+factor (L. G. Helt, Z. Yang, M. Liscidini, J. E. Sipe, Opt. Lett. 35, 3006 (2010), after Eq. (5)),
+with the loss, in the coupler's convention (through r, across ik). Each wave has its own ring:
+a harmonic's coupling isn't the fundamental's. Every loss of the round trip is spread along it,
+α = −2 ln a/L.
+
+One pass generates the new wave as the undepleted coupled equations do, each driving field
+decaying from its value past the coupler; the generated field G at the pass's end builds up over
+the round trips and leaves through the coupler as F e^{iφ}G, so P_out = |F|²|G|²:
+
+- **SHG** (`cavity::second_harmonic`): P_2ω = |F_2ω|²κ²|F_ω|⁴P_ω²|e^{−α₂L/2}(e^{xL} − 1)/x|²,
+  x = −α₁ + α₂/2 − iΔk, the lossy undepleted closed form with |F_ω|²P_ω inside.
+- **Four-wave mixing** (`cavity::four_wave`): P_i/P_s = |F_i|²|F_s|²|F_p|⁴γ²P_p²|I|²,
+  I = e^{−α_iL/2}(e^{xL} − 1)/x, x = −(2α_p + α_s − α_i)/2 − iΔk; lossless and on resonance it is
+  Helt et al.'s Eq. (5), (γP_pL)²|F_s|²|F_i|²|F_p|⁴.
+
+Waves all on resonance have ΔkL a whole number of turns, and only ΔkL = 0 converts: the azimuthal
+orders must add up. The closed forms hold while the generated waves don't deplete the pump and the
+pump's own Kerr phase doesn't detune the ring.
+
+Two cases run the ring itself, round trip by round trip, with the depleted coupled equations
+(`SecondHarmonic`, and `FourWave::propagate_with_loss`, which carries each wave's loss) and the
+coupler, until the output changes by less than 10⁻¹⁴, and compare it with the closed forms
+(1 nW in, so the depletion and the pump's Kerr phase are far below the errors):
+
+| Case | Error on 5, 10, 20 and 40 RK4 steps a pass |
+|---|---|
+| SHG: the fundamental's ring on resonance near 1.55 µm (100 µm, coupling 0.05, 3 dB/cm), the harmonic's (n_eff 2.25, n_g 2.4, coupling 0.08) off its resonance as its indices put it, κ = 10⁻⁴ /(√W·µm), Δk = 0.002 rad/µm | 1.8e-9, 1.0e-10, 1.0e-12, 7.7e-12 |
+| FWM: one ring at the pump's resonance and the two either side, γ = 100 /(W·m), Δk = 0 | 4.4e-13, 4.0e-13, 2.9e-13, 1.3e-13 |
+
+RK4's error falls to a floor near 10⁻¹¹ for SHG and 10⁻¹³ for FWM, where the iteration stops
+(`nonlinear/ring-shg-enhancement`, `nonlinear/ring-fwm-enhancement`, on 20 steps).
 
 ## Kerr microresonators
 
@@ -976,6 +1148,31 @@ needs |β₂|/(γT₀²) ≈ 7.9 kW. Our peak inside is 6.36 kW, and what leaves
 times it, is 0.111 W. The paper doesn't say which it plotted, so the power is not a case; it is
 listed with the gaps against papers.
 
+### Pu et al.'s AlGaAs ring: the comb threshold
+
+Pu et al. (M. Pu, L. Ottaviano, E. Semenova, K. Yvind, Optica 3, 823 (2016)) measured the threshold
+of parametric oscillation, where a comb begins, in AlGaAs-on-insulator rings: 3.1 mW in the bus
+for a ring 25 µm across with an FSR of 995 GHz and a loaded Q of about 10⁵ (Fig. 4), its guide
+320 × 630 nm with γ ∼ 660 /(W·m) (p. 823), the comb and the Q measured near 1590 nm. Their own
+estimate is a band, from critical coupling (Q_C = 2Q_L) to under-coupling (Q_C = 10Q_L), and the
+measurements lie in it (Fig. 4(d)).
+
+The mean-field equation gives the threshold directly: the homogeneous state turns unstable at
+|ψ|² = 1 ([modulation instability](#modulation-instability)), which the drive reaches first at
+ζ₀ = 1 with f² = 1, so P_th = α³/(θγL) in the bus, α = ω₀t_R/(2Q_L) the field's loss per round
+trip and θ = ω₀t_R/Q_C the coupler's power transmission. The example `comb_pu` takes the paper's
+numbers into `Ring` and gives 0.684 mW critically coupled and 3.419 mW under-coupled; the measured
+3.1 mW lies in the band, as in the paper's figure. The library's instability rate confirms the
+onset: at ζ₀ = 1 the homogeneous state is stable at f = 0.999 and unstable at 1.001.
+
+Pu et al.'s formula (their Ref. [29]), 1.54(π/2)(Q_C/2Q_L)n²LA_eff/(n₂λQ_L²), is 1.54n²/n_g² =
+1.1395 times ours: a factor 1.54 the mean-field equation's minimum doesn't have, and the
+material's index n = 3.3 where the round trip takes the group index, n_g = c/(FSR·L) = 3.8363. Its
+band, 0.779 to 3.896 mW, also holds 3.1 mW. Where the 1.54 comes from is in their Ref. [29], not in
+hand, so the difference between the two bands is listed with the gaps against papers. γ from our
+own modes needs the n₂ of Al₀.₁₇Ga₀.₈₃As, which the catalogue doesn't have yet (the paper prints
+2.6 × 10⁻¹⁷ m²/W, Table 1).
+
 ### Papers whose resonators aren't given whole: not reproduced
 
 - **Herr et al. 2013** (Nat. Photonics 8, 145, Methods): an MgF₂ resonator, FSR 35.2 GHz,
@@ -1002,6 +1199,12 @@ listed with the gaps against papers.
 - The tilt geometry has the grating along the reference axis (Fejer's κ = 0) and the inputs
   collinear.
 - Focused bulk beams (Boyd and Kleinman) are not in yet.
+- Cross-phase modulation is between two pulses, Kerr only: no Raman, self-steepening or two-photon
+  absorption between them. Free carriers start at none at each window's start: a pulse train's
+  left-over carriers aren't held.
+- Resonant enhancement is for all-pass rings, each wave's own, and undepleted; an add-drop ring's
+  second coupler, a ring resonant at its pump for an oscillator, and a ring's photon pairs (0.6.2)
+  are not in yet.
 - In a guide, the crystal must have a principal axis along it (the full-vector solver's
   condition), and a mode is followed by its family and index, not through a crossing with another
   mode of its family. Wang et al.'s 4500 %/(W·cm²) (Optica 5, 1438) needs their ridge's etch depth
