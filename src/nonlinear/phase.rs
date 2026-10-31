@@ -994,6 +994,22 @@ impl Device {
         self.phase_at(nu, state)
     }
 
+    /// The phase ΔkL/2 at `state` with the quoted wave's wavelength at `lam` (µm), the process
+    /// tuned as it says (the others following or held): a point of a phase-matching map.
+    ///
+    /// # Errors
+    ///
+    /// Those of [`Process::mismatch`] at the tuned frequencies: a wavelength outside an index's
+    /// range, say.
+    pub fn phase_tuned(&self, lam: f64, state: &State) -> Result<f64> {
+        self.phase_at(&self.process.frequencies(lam), state)
+    }
+
+    /// The thermal expansion of the length and the grating.
+    pub fn expansion(&self) -> Expansion {
+        self.expansion
+    }
+
     fn phase_at(&self, nu: &[f64], state: &State) -> Result<f64> {
         let s = 1.0 + self.expansion.strain(state.temperature);
         let k = self.grating.map_or(0.0, |g| g.wavevector() / s);

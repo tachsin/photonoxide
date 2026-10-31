@@ -34,6 +34,7 @@ A stopped run's folder holds what was done before it stopped.
 | `*.csv` | the run's tables, written when it ends: n_eff, S-parameters, spectra, a study's points, an optimization's history, a static job's numbers ([export](methods/export.md)) |
 | `*.npz` | the fields, as NumPy's arrays, when the job's `[task.export]` asks for them ([export](methods/export.md)) |
 | `flow.json`, `flow.md`, `flow-01.svg`, ... | a `fabrication` job's process flow: its data as JSON, a process traveller in Markdown, and the wafer's cross-section after each step ([fabrication](methods/fabrication.md#as-a-job)) |
+| `nonlinear.json`, `phase_map.csv`, `efficiency.csv`, `pair_spectrum.csv` | a `nonlinear` job's process: its setup, its phase-matching map, its efficiency along the length and its pairs' joint spectrum, as its events hold them ([phase matching](methods/nonlinear.md#as-a-job)) |
 
 ## `results.json`
 

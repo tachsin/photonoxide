@@ -995,6 +995,60 @@ listed with the gaps against papers.
 - **Coen et al.'s octave comb** (their Fig. 3) gives its dispersion as a plotted curve
   (Fig. 3(b)), not as numbers.
 
+## As a job
+
+A task of kind `"nonlinear"` sets all of this up from a job file
+([`jobs/ppln-shg.yaml`](../../jobs/ppln-shg.yaml)): the process (`"shg"`, `"sfg"`, `"dfg"`,
+`"opa"`, `"spdc"` or `"fwm"`), the waveguide its waves travel in, the grating that poles it, and the
+pump and the signal. The waveguide is one of three:
+
+- `crystal`: plane waves in a catalogue crystal, each wave's index one axis of an index model
+  (`Index::model`), rebuilt at the task's temperature;
+- `n_eff`: a guide's effective indices given as data, one table for every wave or one per wave
+  (`Index::effective`);
+- `ridge`: a film of a `[task.stack]`-like table etched to a ridge, each wave's index its
+  fundamental mode of a family over the wavelengths the run needs (`ModeIndex::of_ridge`: the
+  operating point, the map's ends and the joint spectrum's corners, each wave's range at least
+  1 % wide), and a second-order process's η from the modes' overlap through the film's catalogue d
+  tensor turned onto the chip ([the overlap](#the-overlap-and-the-efficiency)). The tensor is the
+  catalogue's as measured (its label says at which wavelength), not carried by Miller's rule.
+
+The waves are taken in each process's order: SHG's fundamental (the pump) and harmonic; SFG's
+first input, second input and sum; DFG's, OPA's and SPDC's pump, signal and idler (the signal
+twice the pump's wavelength by default for SPDC); FWM's pump, signal and idler. A grating without
+a period is designed to cancel Δk₀ at the operating point, its period at the expansion's
+reference temperature (`Grating::for_mismatch` of Δk₀(1 + ε(T))); with a period, its wave vector
+points along Δk₀.
+
+The run records four events after its start, and writes their contents beside its record as
+`nonlinear.json`, `phase_map.csv`, `efficiency.csv` and `pair_spectrum.csv`:
+
+| Event | What it holds |
+|---|---|
+| `nonlinear_setup` | the waves with their wavelengths, indices (a ridge's group indices too) and input powers; Δk₀ and the coherence length; the grating; Δk and sinc²(ΔkL/2) at the operating point; η and where it comes from; the acceptance bandwidths in the tuned wave's wavelength and in temperature (Fejer et al.'s estimate and the width between the half maxima); the phase-matched wavelength inside the map; notes, among them each wave outside the material's [transparency window](catalogue.md#transparency-windows) |
+| `phase_map` | Δk and sinc²(ΔkL/2) against the tuned wave's wavelength (SHG's fundamental, every other process's signal, the pump held: `Device::phase_tuned`), row by row against the temperature (a crystal) or the ridge's width, each width's modes solved |
+| `nonlinear_efficiency` | against the length: the generated power by the coupled-amplitude equations (RK4, 2000 steps over the length, the losses in) beside the undepleted closed form; OPA's signal gain; SPDC's spectral brightness at the signal's centre, η P_p L² per hertz at degeneracy (`pair_rate_density`); FWM's signal gain and idler conversion, in closed form with the pump undepleted |
+| `pair_spectrum` | SPDC's and FWM's joint spectral amplitude, its purity and Schmidt number (`pairs::joint_spectrum`) |
+
+The job's numbers are the library's own calls: for Fejer et al.'s first row (SHG of 1.064 µm over
+1 mm of congruent LiNbO₃, d₃₃, poled for it at 25 °C) the run's coherence length, period and
+bandwidths are those of `Device::quasi_phase_matched` to the bit, which a unit test checks:
+3.40 µm, 6.802 µm, 2.04 nm and 25.8 K, Table I's numbers to half their last digit. From Python:
+
+```python
+import photonoxide as phox
+
+p = phox.nonlinear("jobs/ppln-shg.yaml")
+print(f"l_c = {p.setup['coherence_length_um']:.2f} µm")   # 3.40
+print(f"Λ = {p.setup['grating']['period_um']:.3f} µm")     # 6.802
+print(f"δT = {p.setup['temperature_acceptance_k']['estimate']:.1f} K")  # 25.8
+print(p.response.shape)                                     # (21, 201): temperatures by wavelengths
+```
+
+What a job can't set yet: a ridge's materials at the task's temperature (they are taken at their
+stack's conditions, so its map can't be against temperature), a type-II SHG (one index for both
+fundamental photons), a depleted FWM with its losses, and a cavity around the guide.
+
 ## Limits
 
 - Uniaxial crystals; a biaxial one (KTP, LBO) only along its principal axes, with an `Index` per

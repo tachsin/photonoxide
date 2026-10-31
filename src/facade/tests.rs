@@ -652,6 +652,7 @@ fn facade_functions() -> Vec<&'static str> {
         include_str!("conformance.rs"),
         include_str!("device.rs"),
         include_str!("fabrication.rs"),
+        include_str!("nonlinear.rs"),
     ];
     let mut names: Vec<&str> = sources
         .iter()
@@ -670,7 +671,7 @@ fn every_facade_function_is_in_the_feature_table() {
     // so to the Python package) goes in its table, by name
     let table = include_str!("../../docs/features.md");
     let functions = facade_functions();
-    assert_eq!(functions.len(), 25, "{functions:?}");
+    assert_eq!(functions.len(), 26, "{functions:?}");
     for f in functions {
         assert!(
             table.contains(&format!("`{f}`")),

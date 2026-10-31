@@ -151,7 +151,7 @@ area shifter  "src/thermal/* src/cases/thermal/* src/shifter.rs"   "mode materia
 # holds the jobs as TOML, as they were before they were YAML, which the tests read and compare
 area job \
   "src/job/* src/run.rs src/run/* src/farm.rs src/farm/* jobs/* tests/jobs-toml/* docs/job.schema.json docs/results.schema.json" \
-  "material mode sparse fdfd fdtd circuit device generator statics shifter line export convergence fabrication" \
+  "material mode sparse fdfd fdtd circuit device generator statics shifter line export convergence fabrication nonlinear" \
   "job:: run:: farm::" "job/ generator/job- device/study- device/compact- optimize/ chip/" "optimize_chip_rings"
 
 # grid convergence, the gate a reported number passes (its grid study, by Richardson

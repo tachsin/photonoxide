@@ -100,6 +100,8 @@ __all__ = [
     "device_fabrication",
     "device_fabrication_job",
     "export_fabrication",
+    "Nonlinear",
+    "nonlinear",
 ]
 
 core_version: str = _native.core_version
@@ -1308,3 +1310,97 @@ def export_fabrication(
         kind, _values(values), stack, _ids(prefer), _ids(avoid), os.fspath(out_dir)
     )
     return [Path(p) for p in paths]
+
+# --- a nonlinear process --------------------------------------------------------------------
+
+
+def _grid(values: list[float | None], rows: int, columns: int) -> np.ndarray:
+    return np.array(
+        [np.nan if v is None else v for v in values], dtype=np.float64
+    ).reshape(rows, columns)
+
+
+@dataclass(frozen=True)
+class Nonlinear:
+    """A ``"nonlinear"`` job's process, as its run records it (:func:`nonlinear`).
+
+    Each part is plain Python data read from photonoxide's own JSON, so every number is the one
+    the run records, to the bit; a part the run doesn't record is ``None``. The properties give
+    the arrays as NumPy's, NaN where the record has no number."""
+
+    setup: dict[str, Any]
+    """The setup: ``process``, ``waveguide`` (``"crystal"``, ``"n_eff"`` or ``"ridge"``),
+    ``about``, ``waves`` (each with its ``role``, ``wavelength_um``, ``index``, ``group_index``,
+    ``polarization`` and ``power_mw``), ``tuned`` (the wave the map's axis and the wavelength
+    acceptance are in), ``length_mm``, ``temperature_c``, ``mismatch_per_um`` (Δk₀ without the
+    grating, rad/µm), ``coherence_length_um``, ``grating`` (``period_um``, ``order``, ``duty``,
+    ``fourier_coefficient``, ``designed``), ``residual_per_um`` and ``response`` at the
+    operating point, ``efficiency_percent_per_w_cm2`` with ``efficiency_from`` (and a ridge's
+    ``overlap_percent_per_w_cm2``), ``gamma_per_w_m``, ``wavelength_acceptance_nm`` and
+    ``temperature_acceptance_k`` (each an ``estimate``, Fejer et al.'s, and a ``numerical``
+    width), ``matched_um`` and ``notes``."""
+    phase_map: dict[str, Any] | None
+    """The phase-matching map: ``wavelengths_um`` of the ``tuned`` wave, ``across``
+    (``"temperature_c"``, ``"width_um"`` or ``None``) with its ``across_values``, and
+    ``mismatch_per_um`` and ``response`` row by row (a row per value across)."""
+    efficiency: dict[str, Any] | None
+    """The process along its length: ``lengths_mm`` and ``series``, each with its ``label``,
+    ``unit`` and ``values``."""
+    pair_spectrum: dict[str, Any] | None
+    """SPDC's and FWM's pairs: ``signal_um``, ``idler_um``, ``amplitude`` (|f| row by row, a row
+    per signal wavelength, its peak 1), ``purity``, ``schmidt_number``, ``pump_bandwidth_nm`` and
+    ``matching``."""
+
+    @property
+    def response(self) -> np.ndarray | None:
+        """The map's sinc²(ΔkL/2), ``(rows, wavelengths)``: a row per value across, one row
+        when the map has no other axis."""
+        if self.phase_map is None:
+            return None
+        n = len(self.phase_map["wavelengths_um"])
+        return _grid(self.phase_map["response"], len(self.phase_map["response"]) // n, n)
+
+    @property
+    def amplitude(self) -> np.ndarray | None:
+        """The joint spectral amplitude |f|, ``(signals, idlers)``."""
+        if self.pair_spectrum is None:
+            return None
+        p = self.pair_spectrum
+        return _grid(p["amplitude"], len(p["signal_um"]), len(p["idler_um"]))
+
+    def curve(self, label: str) -> np.ndarray:
+        """The efficiency's series whose label starts with ``label`` (``"harmonic (depleted"``,
+        say), against :attr:`efficiency`'s ``lengths_mm``."""
+        for s in (self.efficiency or {}).get("series", []):
+            if s["label"].startswith(label):
+                return np.array([np.nan if v is None else v for v in s["values"]], dtype=np.float64)
+        raise KeyError(label)
+
+
+def nonlinear(job: Job, *, timeout_s: float | None = 3600.0) -> Nonlinear:
+    """What a ``"nonlinear"`` job's run records (a second- or third-order process in a crystal, a
+    guide of given effective indices or a ridge whose modes it solves), computed without a
+    folder: its setup, its phase-matching map, its efficiency along the length and its pairs.
+    :func:`run_job` runs the same job into a folder, beside the files it writes there
+    (``nonlinear.json``, ``phase_map.csv``, ``efficiency.csv``, ``pair_spectrum.csv``). Fejer et
+    al.'s first row, SHG of 1.064 µm over 1 mm of congruent LiNbO₃, poled for it:
+
+    >>> p = phox.nonlinear({"name": "ppln", "task": {
+    ...     "kind": "nonlinear", "process": "shg", "length_mm": 1.0,
+    ...     "waveguide": {"crystal": {"id": "linbo3", "model": "edwards-lawrence-1984",
+    ...                               "axes": ["extraordinary"]},
+    ...                   "expansion": "linbo3-jundt-1997"},
+    ...     "poling": {"order": 1}, "pump": {"wavelength_um": 1.064}}})
+    >>> round(p.setup["coherence_length_um"], 2), round(p.setup["grating"]["period_um"], 3)
+    (3.4, 6.802)
+    >>> round(p.setup["temperature_acceptance_k"]["estimate"], 1)
+    25.8
+    """
+    path, text = _job(job)
+    p = _native.nonlinear(path, text, "json", None if timeout_s is None else float(timeout_s))
+    return Nonlinear(
+        setup=json.loads(p["setup"]),
+        phase_map=None if p["phase_map"] is None else json.loads(p["phase_map"]),
+        efficiency=None if p["efficiency"] is None else json.loads(p["efficiency"]),
+        pair_spectrum=None if p["pair_spectrum"] is None else json.loads(p["pair_spectrum"]),
+    )

@@ -760,4 +760,27 @@ pub enum Event {
         /// The assessment.
         assessment: Box<crate::fabrication::Assessment>,
     },
+    /// A `"nonlinear"` job's process as set up: its waves, the mismatch and the grating, the
+    /// efficiency and the acceptance bandwidths ([`super::NonlinearSetup`]).
+    NonlinearSetup {
+        /// The setup.
+        setup: Box<super::NonlinearSetup>,
+    },
+    /// A `"nonlinear"` job's phase-matching map: Δk and sinc²(ΔkL/2) against the tuned wave's
+    /// wavelength and a width or a temperature ([`super::PhaseMap`]).
+    PhaseMap {
+        /// The map.
+        map: Box<super::PhaseMap>,
+    },
+    /// What a `"nonlinear"` job's process gives along its length ([`super::EfficiencyCurve`]).
+    NonlinearEfficiency {
+        /// The curves.
+        curve: Box<super::EfficiencyCurve>,
+    },
+    /// A `"nonlinear"` job's photon pairs: their joint spectral amplitude, purity and Schmidt
+    /// number ([`super::PairSpectrum`]).
+    PairSpectrum {
+        /// The spectrum.
+        spectrum: Box<super::PairSpectrum>,
+    },
 }

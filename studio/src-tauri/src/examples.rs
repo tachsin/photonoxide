@@ -475,6 +475,7 @@ pub fn jobs() -> Vec<JobExample> {
             "crosstalk-correction.yaml",
             include_str!("../../../jobs/crosstalk-correction.yaml"),
         ),
+        ("ppln-shg.yaml", include_str!("../../../jobs/ppln-shg.yaml")),
         (
             "ring-pareto.yaml",
             include_str!("../../../jobs/ring-pareto.yaml"),

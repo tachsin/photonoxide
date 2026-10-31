@@ -1,0 +1,21 @@
+Setup
+  wavelength: 1.064 µm
+  process: second-harmonic generation, every wave extraordinary (d₃₃, type 0)
+  length: 1 mm, plane waves in the bulk crystal
+  temperature: 25 °C
+  poling: first order, 50 % duty, the period designed to cancel Δk₀ at the pump
+  expansion: Jundt 1997's, along the grating and the length
+  grid: none: the indices from their model, the bandwidths by Fejer et al.'s Eq. (25)
+  tolerance: half the last printed digit of Table I
+  materials:
+    Lithium niobate (congruent): Edwards & Lawrence 1984; valid 0.4 to 4.5 µm, at 298.15 K
+      source: G. J. Edwards, M. Lawrence, Opt. Quantum Electron. 16, 373 (1984), doi:10.1007/BF00620081, Eq. 1 and Table I
+      accuracy: the A's fit Nelson and Mikulyak's 30 room-temperature points (0.4–3.1 µm, quoted to ±2e-4) with a standard deviation of 1.3e-4; the B's fit Smith et al.'s temperature data at 0.63299 and 3.3922 µm, 0–500 °C, with a standard deviation of 1.8e-4 for both indices; phase-matching temperatures of type-I difference-frequency mixing to 2.2–3.2 µm about 3 °C from the measured (Table II)
+      extraordinary n 2.156029 at 1.064 µm
+
+Fejer et al. 1992, Table I, d33 QPM SHG of 1.064 um in congruent LiNbO3, 1 mm
+  designed period 6.8025 um (2 l_c)
+  coherence length (um)                  3.401244   paper 3.4        ± 5e-3      ok
+  wavelength acceptance (nm)             2.035966   paper 2.04       ± 5e-3      ok
+  temperature acceptance (K)            25.770377   paper 25.8       ± 5e-2      ok
+all 3 within tolerance of the paper

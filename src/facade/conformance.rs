@@ -10,8 +10,8 @@ use super::{
     StackInfo, Stop, VectorMode, check_job, circuit_spectrum, device_derived, device_fabrication,
     device_fabrication_job, device_geometry, device_job, device_spectrum, device_spectrum_until,
     devices, estimate_fields, export_fabrication, export_fields, export_run, fdfd_s_parameters,
-    group_index, materials, read_touchstone, refractive_index, run_job, run_tables, slab_modes,
-    stacks, vector_modes, write_touchstone,
+    group_index, materials, nonlinear, read_touchstone, refractive_index, run_job, run_tables,
+    slab_modes, stacks, vector_modes, write_touchstone,
 };
 use crate::Complex64 as c64;
 use crate::{Error, Result};
@@ -873,6 +873,7 @@ pub fn conformance(scratch: &Path) -> Result<Vec<Case>> {
         &[],
     ));
     fabrication_cases(scratch, &mut cases)?;
+    nonlinear_cases(&mut cases)?;
     Ok(cases)
 }
 
@@ -978,5 +979,56 @@ fn fabrication_cases(scratch: &Path, cases: &mut Vec<Case>) -> Result<()> {
         &Value::Object(files),
         &[],
     ));
+    Ok(())
+}
+
+/// A nonlinear process's: Fejer et al.'s PPLN row, its setup, map and efficiency; and degenerate
+/// pairs from given effective indices, their joint spectrum.
+fn nonlinear_cases(cases: &mut Vec<Case>) -> Result<()> {
+    let ppln = json!({
+        "name": "ppln-shg",
+        "task": {
+            "kind": "nonlinear", "process": "shg", "length_mm": 1.0, "temperature_c": 25.0,
+            "waveguide": {
+                "crystal": {"id": "linbo3", "model": "edwards-lawrence-1984", "axes": ["extraordinary"]},
+                "efficiency_percent_per_w_cm2": 100.0, "expansion": "linbo3-jundt-1997"
+            },
+            "poling": {"order": 1, "duty": 0.5},
+            "pump": {"wavelength_um": 1.064, "power_mw": 100.0},
+            "map": {"wavelength_um": [1.06, 1.068], "points": 21, "temperature_c": [15.0, 35.0], "across_points": 3},
+            "points": 11
+        }
+    });
+    let spdc = json!({
+        "name": "spdc",
+        "task": {
+            "kind": "nonlinear", "process": "spdc", "length_mm": 5.0,
+            "waveguide": {
+                "n_eff": [{"wavelengths_um": [0.5, 3.5], "n_eff": [2.3, 2.1]}],
+                "efficiency_percent_per_w_cm2": 100.0
+            },
+            "poling": {},
+            "pump": {"wavelength_um": 0.775, "power_mw": 1.0, "bandwidth_nm": 0.5},
+            "pairs": {"points": 21},
+            "points": 11
+        }
+    });
+    let opt = |s: &Option<String>| s.as_deref().map(parsed).transpose();
+    for (name, data) in [("ppln", ppln), ("spdc", spdc)] {
+        let p = nonlinear(&job(&data), &Stop::new(None))?
+            .ok_or_else(|| Error::invalid("nonlinear", "the case's run stopped before its end"))?;
+        cases.push(case(
+            &format!("nonlinear/{name}"),
+            "nonlinear",
+            &json!({"job": data}),
+            &json!({
+                "setup": parsed(&p.setup)?,
+                "phase_map": opt(&p.phase_map)?,
+                "efficiency": opt(&p.efficiency)?,
+                "pair_spectrum": opt(&p.pair_spectrum)?,
+            }),
+            &[],
+        ));
+    }
     Ok(())
 }
