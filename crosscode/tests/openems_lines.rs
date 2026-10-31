@@ -50,13 +50,17 @@ const INDEX_TOLERANCE: f64 = 5e-3;
 const IMPEDANCE_TOLERANCE: f64 = 5e-3;
 
 /// The lossy line's meshes: the smallest cell at the copper's faces two skin depths at 300 GHz
-/// (0.12 µm), then one, then half; growing by [`GROWTH`] to 5 µm.
-const LOSSY_SMALLEST: [f64; 3] = [0.24, 0.12, 0.06];
+/// (0.12 µm), then one, a half and a quarter; growing by [`GROWTH`] to 5 µm. The extrapolation
+/// takes the last three: on the coarsest the skin is two cells deep, and the loss's error isn't
+/// yet in its asymptotic range.
+const LOSSY_SMALLEST: [f64; 4] = [0.24, 0.12, 0.06, 0.03];
 const LOSSY_LARGEST: f64 = 5.0;
-/// The lossy line's end criterion: the energy down by 60 dB. Past it the copper line's energy
-/// falls by about 2 dB in every 50 000 steps (on the coarsest mesh), and 70 dB would take the
-/// finest about six hours; its planes' voltages have rung down by more than 90 dB by then.
-const LOSSY_END: f64 = 1e-6;
+/// The lossy line's end criterion: the energy down by 55 dB. Its last dB come slowly (from 50
+/// to 60 dB takes the coarsest mesh as many steps as the first 50), and 60 dB would take the
+/// finest more than six hours. The planes' voltages have rung down by more than 90 dB by then
+/// (the study checks 80), and on the coarsest mesh the signals cut there give the loss within
+/// 0.06 % of the 60 dB run's, n and Re Z₀ within 0.005 %.
+const LOSSY_END: f64 = 3.162_277_660_168_379_5e-6;
 /// photonoxide's full-wave converged study on the lossy line.
 const LOSSY_CONVERGED: [f64; 3] = [0.03, 0.015, 0.0075];
 const LOSSY_CONVERGED_GROWTH: f64 = 1.05;
@@ -539,14 +543,17 @@ fn lossy(program: &OpenEms, folder: &Path, started: Instant) -> (String, Vec<Che
          even mode) against openEMS with the copper a conductor (its Kappa) whose skin the mesh \
          resolves. openEMS runs a section 1.2 mm long in 10 µm cells (25 to the guided \
          wavelength at 300 GHz), 8-cell PMLs at both ends, driven across both gaps by a Gaussian \
-         pulse of 25 to 325 GHz until the energy is down by 60 dB (its slow last tens of dB would \
-         take hours more on the finest mesh; the planes' voltages have rung down by more than \
-         80 dB by then, which the study checks); the voltage across a gap at \
+         pulse of 25 to 325 GHz until the energy is down by 55 dB (its slow last dB would take \
+         hours more on the finest mesh; the planes' voltages have rung down by more than 80 dB \
+         by then, which the study checks, and on the coarsest mesh the signals cut there give \
+         the loss within 0.06 % of a run to 60 dB); the voltage across a gap at \
          three planes 150 µm apart (a quarter of the guided wavelength at 300 GHz, so that the \
          three-plane wavenumber's principal value is the right one) and the current around the \
          signal midway give k = β + iα and Z₀. Both take the same mesh lines across, the \
-         smallest cells at the copper's faces two skin depths (at 300 GHz), one and a half, \
-         growing by {GROWTH} to {LOSSY_LARGEST} µm; photonoxide converged graded from {} µm by \
+         smallest cells at the copper's faces two skin depths (at 300 GHz), one, a half and a \
+         quarter, growing by {GROWTH} to {LOSSY_LARGEST} µm, and the extrapolation takes the \
+         three finest (on the coarsest the skin is two cells deep, and the loss's error isn't \
+         yet in its asymptotic range); photonoxide converged graded from {} µm by \
          {LOSSY_CONVERGED_GROWTH} to {LOSSY_CONVERGED_LARGEST} µm. The index βc/ω, Re Z₀ and the \
          attenuation α at {} GHz.\n\n",
         line.metal,
@@ -606,9 +613,26 @@ fn lossy(program: &OpenEms, folder: &Path, started: Instant) -> (String, Vec<Che
             ((a - b) / a).abs()
         })
         .fold(0.0f64, f64::max);
+    let worst_loss = checks
+        .iter()
+        .filter(|(what, ..)| what.ends_with("dB/cm"))
+        .fold(0.0f64, |m, (_, e, _)| m.max(e.abs()));
+    let verdict = if worst_loss <= LOSS_TOLERANCE {
+        format!(
+            "extrapolated from the three finest meshes, openEMS's loss meets photonoxide's converged loss within {:.2} % at every frequency (tolerance {:.0} %)",
+            100.0 * worst_loss,
+            100.0 * LOSS_TOLERANCE
+        )
+    } else {
+        format!(
+            "extrapolated from the three finest meshes, openEMS's loss is still {:.2} % from photonoxide's converged loss at its worst (tolerance {:.0} %)",
+            100.0 * worst_loss,
+            100.0 * LOSS_TOLERANCE
+        )
+    };
     let _ = writeln!(
         out,
-        "\nOn every mesh openEMS and photonoxide agree within {:.2} % on every figure (the last column, for the finest): mesh by mesh the two codes give the same line. The loss, though, still moves by up to {:.1} % between the two finest meshes, the copper's skin only a few cells deep, and where its three meshes' differences don't shrink steadily (an order far from the others', or none) their extrapolation can't stand for the converged loss. What would settle it is a finer openEMS mesh, its smallest cells 0.03 µm (a quarter of the skin depth at 300 GHz; about five hours on 4 threads).",
+        "\nOn every mesh openEMS and photonoxide agree within {:.2} % on every figure (the last column, for the finest): mesh by mesh the two codes give the same line. The loss converges more slowly than n and Re Z₀, the current crowding into the copper's skin, a few cells deep: it moves by up to {:.1} % between the two finest meshes. With a quarter of the skin depth at 300 GHz as the finest cell, {verdict}.",
         100.0 * same_worst,
         100.0 * moving
     );
