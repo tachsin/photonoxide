@@ -214,7 +214,7 @@ fn gpu_cases() -> Vec<GpuCase> {
             id: "gpu/repeat-f32",
             title: "In f32, two runs of the 3D and 2D problems, 300 steps, fused and in two passes: values that differ (fields, probes, transforms)",
             tier: Tier::Analytic,
-            source: "no atomics, fixed workgroups, every sum by one invocation in step order: the same bits on the same device and driver",
+            source: "no atomics, no division, fixed workgroups, every sum by one invocation in step order: the same bits on the same device and driver",
             precision: Precision::Single,
             run: |gpu| repeat_all(gpu),
             rule: Rule::new(

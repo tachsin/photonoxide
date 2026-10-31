@@ -4,7 +4,8 @@
 //
 // Every value is written by one invocation, and every sum is taken by one invocation in a fixed
 // order: no atomics, no reductions across invocations, so a run repeats bit for bit on the same
-// device and driver.
+// device and driver. Nothing divides: in f64 a division gave one of two results from run to run on
+// an RTX 4060, so the CPML's derivatives multiply by 1/Δ from the host.
 //
 // The curl updates march along z, a plane at a time (P. Micikevicius, GPGPU-2, 79 (2009),
 // doi:10.1145/1513895.1513905): a workgroup of 32 x 8 invocations owns a tile of 32 x 8 values in
@@ -51,7 +52,8 @@ struct Step {
 // E's coefficients: E ← ca E + cb (∇ × H̃)
 @group(0) @binding(3) var<storage, read> ca: array<real>;
 @group(0) @binding(4) var<storage, read> cb: array<real>;
-// Δt, Δx, Δy, Δz, then κ/Δ along x, y and z for E's differences, then for H̃'s
+// Δt, 1/Δx, 1/Δy, 1/Δz (the CPML's derivatives multiply by them: no division in the kernels),
+// then κ/Δ along x, y and z for E's differences, then for H̃'s
 @group(0) @binding(5) var<storage, read> reals: array<real>;
 // the CPML's ψ, slab after slab, and their recursions' b and a
 @group(0) @binding(6) var<storage, read_write> psi: array<real>;
@@ -198,9 +200,9 @@ fn update_h(
     let k1 = min(k0 + params.run.x, n.z);
     let inside = i < n.x && j < n.y;
     let dt = reals[0];
-    let hx = reals[1];
-    let hy = reals[2];
-    let hz = reals[3];
+    let inv_x = reals[1];
+    let inv_y = reals[2];
+    let inv_z = reals[3];
     var fx = real(0.0);
     var fy = real(0.0);
     if (inside) {
@@ -251,22 +253,22 @@ fn update_h(
                 // each component's slabs in the order of the axes; the sign that of the
                 // derivative in the curl
                 if (sy) {
-                    vx = vx - dt * convolve(1u, 0u, 1u, at, (ez_y - ez) / hy);
+                    vx = vx - dt * convolve(1u, 0u, 1u, at, (ez_y - ez) * inv_y);
                 }
                 if (sz) {
-                    vx = vx - dt * -convolve(1u, 0u, 2u, at, (ey_next - ey) / hz);
+                    vx = vx - dt * -convolve(1u, 0u, 2u, at, (ey_next - ey) * inv_z);
                 }
                 if (sx) {
-                    vy = vy - dt * -convolve(1u, 1u, 0u, at, (ez_x - ez) / hx);
+                    vy = vy - dt * -convolve(1u, 1u, 0u, at, (ez_x - ez) * inv_x);
                 }
                 if (sz) {
-                    vy = vy - dt * convolve(1u, 1u, 2u, at, (ex_next - ex) / hz);
+                    vy = vy - dt * convolve(1u, 1u, 2u, at, (ex_next - ex) * inv_z);
                 }
                 if (sx) {
-                    vz = vz - dt * convolve(1u, 2u, 0u, at, (ey_x - ey) / hx);
+                    vz = vz - dt * convolve(1u, 2u, 0u, at, (ey_x - ey) * inv_x);
                 }
                 if (sy) {
-                    vz = vz - dt * -convolve(1u, 2u, 1u, at, (ex_y - ex) / hy);
+                    vz = vz - dt * -convolve(1u, 2u, 1u, at, (ex_y - ex) * inv_y);
                 }
             }
             h[r] = vx;
@@ -295,9 +297,9 @@ fn update_e(
     let k0 = wid.z * params.run.x;
     let k1 = min(k0 + params.run.x, n.z);
     let inside = i < n.x && j < n.y;
-    let hx = reals[1];
-    let hy = reals[2];
-    let hz = reals[3];
+    let inv_x = reals[1];
+    let inv_y = reals[2];
+    let inv_z = reals[3];
     var fx = real(0.0);
     var fy = real(0.0);
     if (inside) {
@@ -349,22 +351,22 @@ fn update_e(
             let sz = in_slab(at, 2u);
             if (sx || sy || sz) {
                 if (sy) {
-                    vx = vx + cbx * convolve(0u, 0u, 1u, at, (vhz - hz_y) / hy);
+                    vx = vx + cbx * convolve(0u, 0u, 1u, at, (vhz - hz_y) * inv_y);
                 }
                 if (sz) {
-                    vx = vx + cbx * -convolve(0u, 0u, 2u, at, (vhy - hy_before) / hz);
+                    vx = vx + cbx * -convolve(0u, 0u, 2u, at, (vhy - hy_before) * inv_z);
                 }
                 if (sx) {
-                    vy = vy + cby * -convolve(0u, 1u, 0u, at, (vhz - hz_x) / hx);
+                    vy = vy + cby * -convolve(0u, 1u, 0u, at, (vhz - hz_x) * inv_x);
                 }
                 if (sz) {
-                    vy = vy + cby * convolve(0u, 1u, 2u, at, (vhx - hx_before) / hz);
+                    vy = vy + cby * convolve(0u, 1u, 2u, at, (vhx - hx_before) * inv_z);
                 }
                 if (sx) {
-                    vz = vz + cbz * convolve(0u, 2u, 0u, at, (vhy - hy_x) / hx);
+                    vz = vz + cbz * convolve(0u, 2u, 0u, at, (vhy - hy_x) * inv_x);
                 }
                 if (sy) {
-                    vz = vz + cbz * -convolve(0u, 2u, 1u, at, (vhx - hx_y) / hy);
+                    vz = vz + cbz * -convolve(0u, 2u, 1u, at, (vhx - hx_y) * inv_y);
                 }
             }
             e[r] = vx;
@@ -442,26 +444,26 @@ fn h_at(at: vec3<u32>, own: vec3<real>, x: vec2<real>, y: vec2<real>, z: vec2<re
     let sy = in_slab(at, 1u);
     let sz = in_slab(at, 2u);
     if (sx || sy || sz) {
-        let hx = reals[1];
-        let hy = reals[2];
-        let hz = reals[3];
+        let inv_x = reals[1];
+        let inv_y = reals[2];
+        let inv_z = reals[3];
         if (sy) {
-            vx = vx - dt * convolve_into(1u, 0u, 1u, at, (y.y - ez) / hy, write);
+            vx = vx - dt * convolve_into(1u, 0u, 1u, at, (y.y - ez) * inv_y, write);
         }
         if (sz) {
-            vx = vx - dt * -convolve_into(1u, 0u, 2u, at, (z.y - ey) / hz, write);
+            vx = vx - dt * -convolve_into(1u, 0u, 2u, at, (z.y - ey) * inv_z, write);
         }
         if (sx) {
-            vy = vy - dt * -convolve_into(1u, 1u, 0u, at, (x.y - ez) / hx, write);
+            vy = vy - dt * -convolve_into(1u, 1u, 0u, at, (x.y - ez) * inv_x, write);
         }
         if (sz) {
-            vy = vy - dt * convolve_into(1u, 1u, 2u, at, (z.x - ex) / hz, write);
+            vy = vy - dt * convolve_into(1u, 1u, 2u, at, (z.x - ex) * inv_z, write);
         }
         if (sx) {
-            vz = vz - dt * convolve_into(1u, 2u, 0u, at, (x.x - ey) / hx, write);
+            vz = vz - dt * convolve_into(1u, 2u, 0u, at, (x.x - ey) * inv_x, write);
         }
         if (sy) {
-            vz = vz - dt * -convolve_into(1u, 2u, 1u, at, (y.x - ex) / hy, write);
+            vz = vz - dt * -convolve_into(1u, 2u, 1u, at, (y.x - ex) * inv_y, write);
         }
     }
     return vec3<real>(vx, vy, vz);
@@ -582,26 +584,26 @@ fn update_fused(
             let sy = in_slab(at, 1u);
             let sz = in_slab(at, 2u);
             if (sx || sy || sz) {
-                let hx = reals[1];
-                let hy = reals[2];
-                let hz = reals[3];
+                let inv_x = reals[1];
+                let inv_y = reals[2];
+                let inv_z = reals[3];
                 if (sy) {
-                    vx = vx + cbx * convolve_into(0u, 0u, 1u, at, (vhz - hz_y) / hy, true);
+                    vx = vx + cbx * convolve_into(0u, 0u, 1u, at, (vhz - hz_y) * inv_y, true);
                 }
                 if (sz) {
-                    vx = vx + cbx * -convolve_into(0u, 0u, 2u, at, (vhy - before.y) / hz, true);
+                    vx = vx + cbx * -convolve_into(0u, 0u, 2u, at, (vhy - before.y) * inv_z, true);
                 }
                 if (sx) {
-                    vy = vy + cby * -convolve_into(0u, 1u, 0u, at, (vhz - hz_x) / hx, true);
+                    vy = vy + cby * -convolve_into(0u, 1u, 0u, at, (vhz - hz_x) * inv_x, true);
                 }
                 if (sz) {
-                    vy = vy + cby * convolve_into(0u, 1u, 2u, at, (vhx - before.x) / hz, true);
+                    vy = vy + cby * convolve_into(0u, 1u, 2u, at, (vhx - before.x) * inv_z, true);
                 }
                 if (sx) {
-                    vz = vz + cbz * convolve_into(0u, 2u, 0u, at, (vhy - hy_x) / hx, true);
+                    vz = vz + cbz * convolve_into(0u, 2u, 0u, at, (vhy - hy_x) * inv_x, true);
                 }
                 if (sy) {
-                    vz = vz + cbz * -convolve_into(0u, 2u, 1u, at, (vhx - hx_y) / hy, true);
+                    vz = vz + cbz * -convolve_into(0u, 2u, 1u, at, (vhx - hx_y) * inv_y, true);
                 }
             }
             e_next[r] = vx;
