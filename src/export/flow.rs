@@ -652,8 +652,10 @@ impl FlowFile {
                     .find(|&k| self.new_layers(k).contains(&d.layer.as_str()))
                     .or_else(|| {
                         (0..steps.len()).find(|&k| {
-                            matches!(steps[k].operation.as_str(), "evaporate" | "deposit")
-                                && steps[k].film.as_deref() == Some(d.layer.as_str())
+                            matches!(
+                                steps[k].operation.as_str(),
+                                "evaporate" | "sputter" | "deposit"
+                            ) && steps[k].film.as_deref() == Some(d.layer.as_str())
                         })
                     });
                 let stopped = (0..steps.len()).find(|&k| {
