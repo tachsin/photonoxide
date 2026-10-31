@@ -157,6 +157,9 @@ pub(crate) fn source_faults() -> Vec<String> {
             check(&format!("{} use", p.id), &u.source);
         }
     }
+    for s in super::rules::sources() {
+        check("the rules", &s);
+    }
     for t in super::glossary() {
         check(&format!("the glossary's {}", t.term), &t.source);
     }

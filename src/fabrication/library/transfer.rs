@@ -43,6 +43,17 @@ pub(super) fn processes() -> Vec<Process> {
             Stated::not_specified(),
             "HBr/O₂ on the buried oxide",
         ),
+        cap(
+            over("SiO2"),
+            Stated::range(
+                30.0,
+                300.0,
+                Unit::Ratio,
+                src("franssila-2010", "Section 11.7.2 (p. 135)"),
+            ),
+            "polysilicon gate etching over oxide (the text's poly etch is Cl₂/HBr, its \
+             over-etch HBr/He/O₂): 30:1 under a resist mask, up to 300:1 under an oxide hard mask",
+        ),
     ];
     hbr.stops_on = vec![Stop {
         film: "SiO2".into(),
@@ -75,6 +86,12 @@ pub(super) fn processes() -> Vec<Process> {
             "donnelly-kornblit-2013",
             "PDF p. 25",
         ),
+        fact(
+            "Without the resist's carbon the silicon-to-oxide selectivity rises: an oxide hard \
+             mask gives up to 300:1 where a resist mask gives 30:1.",
+            "franssila-2010",
+            "Section 11.7.2 (p. 135)",
+        ),
     ];
     hbr.used_for = vec![used(
         Platform::Soi,
@@ -91,16 +108,57 @@ pub(super) fn processes() -> Vec<Process> {
          while chlorine reacts with the silicon.",
         &["Si"],
     );
-    cl2.capabilities = vec![cap(
-        Quantity::Sidewall,
-        Stated::value(82.0, Unit::Degree, src("bojko-2011", "PDF p. 3")),
-        "reasonably smooth sidewalls with a slope of 82°, with an HSQ mask",
-    )];
-    cl2.masks = vec![mask(
-        "hsq",
-        Stated::not_specified(),
-        Stated::not_specified(),
-        Stated::value(220.0, Unit::Nm, src("bojko-2011", "PDF p. 2")),
+    cl2.capabilities = vec![
+        cap(
+            Quantity::Sidewall,
+            Stated::value(82.0, Unit::Degree, src("bojko-2011", "PDF p. 3")),
+            "reasonably smooth sidewalls with a slope of 82°, with an HSQ mask",
+        ),
+        cap(
+            over("SiO2"),
+            Stated::value(
+                200.0,
+                Unit::Ratio,
+                src("campbell-2008", "Section 11.8 (p. 310)"),
+            ),
+            "silicon over oxide in a high-density chlorine plasma at low power (Kanai et al., as \
+             the text reports)",
+        ),
+        cap(
+            over("photoresist"),
+            Stated::range(
+                3.0,
+                5.0,
+                Unit::Ratio,
+                src("franssila-2010", "Section 11.7.1 (p. 134)"),
+            ),
+            "typical of chlorine plasmas",
+        ),
+    ];
+    cl2.masks = vec![
+        mask(
+            "hsq",
+            Stated::not_specified(),
+            Stated::not_specified(),
+            Stated::value(220.0, Unit::Nm, src("bojko-2011", "PDF p. 2")),
+        ),
+        mask(
+            "photoresist",
+            Stated::not_specified(),
+            Stated::range(
+                3.0,
+                5.0,
+                Unit::Ratio,
+                src("franssila-2010", "Section 11.7.1 (p. 134)"),
+            ),
+            Stated::not_specified(),
+        ),
+    ];
+    cl2.facts = vec![fact(
+        "Chlorine etches use metals such as chromium or nickel as hard masks, which the ions \
+         still erode a little: what they knock off can land back and mask the floor in spots.",
+        "franssila-2010",
+        "Section 11.7.2 (p. 135)",
     )];
     cl2.used_for = vec![used(
         Platform::Soi,
@@ -151,11 +209,29 @@ pub(super) fn processes() -> Vec<Process> {
         ),
         Stated::not_specified(),
     )];
-    bosch.facts = vec![fact(
-        "The alternating etch and deposition steps leave scallops on the walls.",
-        "donnelly-kornblit-2013",
-        "Fig. 42 (PDF p. 34)",
-    )];
+    bosch.capabilities.push(cap(
+        Quantity::AspectRatio,
+        Stated::range(
+            10.0,
+            40.0,
+            Unit::Ratio,
+            src("franssila-2010", "Section 18.3 (p. 208)"),
+        ),
+        "10:1 easily, 40:1 with effort (100:1 reported in special cases)",
+    ));
+    bosch.facts = vec![
+        fact(
+            "The alternating etch and deposition steps leave scallops on the walls.",
+            "donnelly-kornblit-2013",
+            "Fig. 42 (PDF p. 34)",
+        ),
+        fact(
+            "Deep etches outlast any resist: silicon dioxide and aluminium are among the hard \
+             masks used.",
+            "franssila-2010",
+            "Section 11.7.2 (p. 135)",
+        ),
+    ];
 
     let mut argon = new_process(
         "ar-milling-ln",
@@ -392,6 +468,12 @@ pub(super) fn processes() -> Vec<Process> {
         ),
         cap(over("SiO2"), Stated::not_specified(), "on the oxide below"),
     ];
+    tin.facts = vec![fact(
+        "Titanium is etched in fluorine- or chlorine-based plasmas (its products TiF₄ and \
+         TiCl₄); the table names titanium, not its nitride.",
+        "madou-2018",
+        "Vol. II, Table 3.13 (p. 194)",
+    )];
 
     let mut strip = new_process(
         "resist-strip",
@@ -414,5 +496,280 @@ pub(super) fn processes() -> Vec<Process> {
             "Methods (PDF p. 9)",
         ),
     ];
-    vec![hbr, cl2, bosch, argon, sf6, cf4, chf3, lift, tin, strip]
+    let mut all = vec![hbr, cl2, bosch, argon, sf6, cf4, chf3, lift, tin, strip];
+    all.extend(by_material());
+    all
+}
+
+/// The etches of the other films a design may draw, by their chemistry: oxide and nitride in
+/// fluorocarbons, aluminium and gallium arsenide in chlorine, aluminium nitride in KOH, and argon
+/// ion milling for what no chemistry suits.
+fn by_material() -> Vec<Process> {
+    let fluorine_resist = || {
+        cap(
+            over("photoresist"),
+            Stated::range(
+                5.0,
+                10.0,
+                Unit::Ratio,
+                src("franssila-2010", "Section 11.7.1 (p. 134)"),
+            ),
+            "typical of fluorine plasmas",
+        )
+    };
+    let chlorine_resist = || {
+        cap(
+            over("photoresist"),
+            Stated::range(
+                3.0,
+                5.0,
+                Unit::Ratio,
+                src("franssila-2010", "Section 11.7.1 (p. 134)"),
+            ),
+            "typical of chlorine plasmas",
+        )
+    };
+    let resist_mask = |sel: Stated| {
+        mask(
+            "photoresist",
+            Stated::not_specified(),
+            sel,
+            Stated::not_specified(),
+        )
+    };
+
+    let mut oxide = new_process(
+        "rie-sio2-fluorocarbon",
+        StepType::PatternTransfer,
+        "Silicon oxide by reactive-ion etching in fluorocarbons",
+        "A plasma of a fluorocarbon gas (CF₄, CHF₃, C₂F₆) etches the oxide where the resist \
+         leaves it bare; the carbon left on silicon slows the etch there, so silicon below etches \
+         far more slowly.",
+        &["SiO2"],
+    );
+    oxide.capabilities = vec![
+        cap(
+            over("photoresist"),
+            Stated::value(
+                10.0,
+                Unit::Ratio,
+                src("madou-2018", "Vol. II, Table 3.14 (p. 194)"),
+            ),
+            "SiO₂ over AZ-1350 resist in CF₄/H₂",
+        ),
+        fluorine_resist(),
+        cap(
+            over("Si"),
+            Stated::value(
+                30.0,
+                Unit::Ratio,
+                src("madou-2018", "Vol. II, Table 3.14 (p. 194)"),
+            ),
+            "SiO₂ over a silicon underlayer in CF₃Cl",
+        ),
+        cap(
+            Quantity::Sidewall,
+            Stated::not_specified(),
+            "oxide in fluorocarbons",
+        ),
+    ];
+    oxide.masks = vec![resist_mask(Stated::range(
+        5.0,
+        10.0,
+        Unit::Ratio,
+        src("franssila-2010", "Section 11.7.1 (p. 134)"),
+    ))];
+    oxide.facts = vec![fact(
+        "Typical oxide etch chemistries are CF₄/H₂, C₂F₆, C₃F₈ and CHF₃/O₂.",
+        "campbell-2008",
+        "Table 11.3 (p. 292)",
+    )];
+
+    let mut nitride = new_process(
+        "rie-si3n4-fluorocarbon",
+        StepType::PatternTransfer,
+        "Silicon nitride by reactive-ion etching in fluorine",
+        "A fluorine plasma turns the nitride into volatile SiF₄ and NF₃ where the resist leaves it \
+         bare.",
+        &["Si3N4", "SiN"],
+    );
+    nitride.capabilities = vec![
+        cap(
+            over("photoresist"),
+            Stated::value(
+                10.0,
+                Unit::Ratio,
+                src("madou-2018", "Vol. II, Table 3.14 (p. 194)"),
+            ),
+            "Si₃N₄ over AZ-2400 resist in CF₄",
+        ),
+        fluorine_resist(),
+        cap(
+            over("SiO2"),
+            Stated::value(
+                50.0,
+                Unit::Ratio,
+                src("madou-2018", "Vol. II, Table 3.14 (p. 194)"),
+            ),
+            "Si₃N₄ over an oxide underlayer in NF₃",
+        ),
+        cap(
+            Quantity::Sidewall,
+            Stated::not_specified(),
+            "nitride in fluorine",
+        ),
+    ];
+    nitride.masks = vec![resist_mask(Stated::range(
+        5.0,
+        10.0,
+        Unit::Ratio,
+        src("franssila-2010", "Section 11.7.1 (p. 134)"),
+    ))];
+    nitride.facts = vec![
+        fact(
+            "Typical nitride etch chemistries are CF₄/O₂/H₂, C₂F₆, C₃F₈ and CHF₃.",
+            "campbell-2008",
+            "Table 11.3 (p. 292)",
+        ),
+        fact(
+            "Silicon nitride is etched by fluorine, producing SiF₄ and NF₃.",
+            "franssila-2010",
+            "Section 11.5.1 (p. 133)",
+        ),
+    ];
+
+    let mut aluminium = new_process(
+        "rie-al-chlorine",
+        StepType::PatternTransfer,
+        "Aluminium by reactive-ion etching in chlorine",
+        "Chlorine turns aluminium into volatile AlCl₃; ions first break through the few \
+         nanometres of native oxide on its surface.",
+        &["Al"],
+    );
+    aluminium.capabilities = vec![
+        chlorine_resist(),
+        cap(
+            Quantity::Sidewall,
+            Stated::not_specified(),
+            "aluminium in chlorine",
+        ),
+    ];
+    aluminium.masks = vec![resist_mask(Stated::range(
+        3.0,
+        5.0,
+        Unit::Ratio,
+        src("franssila-2010", "Section 11.7.1 (p. 134)"),
+    ))];
+    aluminium.facts = vec![
+        fact(
+            "Typical aluminium etch chemistries are BCl₃, BCl₃/Cl₂, CCl₄/Cl₂/BCl₃ and SiCl₄/Cl₂.",
+            "campbell-2008",
+            "Table 11.3 (p. 292)",
+        ),
+        fact(
+            "Aluminium's fluoride is not volatile, so fluorine can't etch it; its chloride is.",
+            "franssila-2010",
+            "Section 11.5.2 (p. 134)",
+        ),
+    ];
+
+    let mut gaas = new_process(
+        "rie-gaas-chlorine",
+        StepType::PatternTransfer,
+        "Gallium arsenide by reactive-ion etching in chlorine",
+        "Chlorine-based plasmas turn gallium and arsenic into volatile chlorides where the resist \
+         leaves the film bare.",
+        &["GaAs"],
+    );
+    gaas.capabilities = vec![
+        chlorine_resist(),
+        cap(
+            Quantity::Sidewall,
+            Stated::not_specified(),
+            "GaAs in chlorine",
+        ),
+    ];
+    gaas.facts = vec![
+        fact(
+            "Typical GaAs etch chemistries are BCl₃/Ar, Cl₂/O₂/H₂, CCl₂F₂/O₂/Ar/He, H₂, CH₄/H₂ \
+             and CClH₃/H₂.",
+            "campbell-2008",
+            "Table 11.3 (p. 292)",
+        ),
+        fact(
+            "Gallium fluoride is involatile but its chlorides are volatile, so GaAs and GaN are \
+             etched in chlorine.",
+            "franssila-2010",
+            "Section 11.5.2 (p. 134)",
+        ),
+    ];
+
+    let mut aln = new_process(
+        "wet-koh-aln",
+        StepType::PatternTransfer,
+        "Aluminium nitride by wet etching in KOH",
+        "The wafer is dipped in a potassium hydroxide solution, which dissolves aluminium nitride \
+         where the mask leaves it bare.",
+        &["AlN"],
+    );
+    aln.capabilities = vec![cap(
+        Quantity::Sidewall,
+        Stated::not_specified(),
+        "aluminium nitride in KOH",
+    )];
+    aln.facts = vec![fact(
+        "Aluminium nitride resists many plasmas but is easily wet etched by KOH, even by dilute \
+         NaOH developer.",
+        "franssila-2010",
+        "Section 11.7.2 (p. 135)",
+    )];
+
+    let mut milling = new_process(
+        "ion-milling",
+        StepType::PatternTransfer,
+        "Argon ion milling",
+        "A beam of argon ions knocks atoms off whatever it strikes: it etches every material, \
+         the mask too, slowly and without chemistry; the wafer can be tilted to cut inclined \
+         walls.",
+        &["Au", "Cu/Au", "Ti/Au", "Cr", "Al"],
+    );
+    milling.capabilities = vec![
+        cap(
+            over("photoresist"),
+            Stated::range(
+                1.0,
+                5.0,
+                Unit::Ratio,
+                src("franssila-2010", "Section 11.11 (p. 138)"),
+            ),
+            "metals mill at 20–100 nm/min, resist at about 20 nm/min",
+        ),
+        cap(
+            Quantity::Sidewall,
+            Stated::not_specified(),
+            "metals milled by argon",
+        ),
+    ];
+    milling.masks = vec![resist_mask(Stated::range(
+        1.0,
+        5.0,
+        Unit::Ratio,
+        src("franssila-2010", "Section 11.11 (p. 138)"),
+    ))];
+    milling.facts = vec![
+        fact(
+            "Typical argon milling rates are about 20 nm/min for Si, SiO₂, SiC, Si₃N₄ and resist \
+             and 20–100 nm/min for metals: much slower than plasma etching, and no mask is \
+             spared.",
+            "franssila-2010",
+            "Section 11.11 (p. 138)",
+        ),
+        fact(
+            "Lift-off is popular as an alternative to ion milling for materials that are \
+             difficult to etch.",
+            "campbell-2008",
+            "Section 11.9 (p. 310)",
+        ),
+    ];
+    vec![oxide, nitride, aluminium, gaas, aln, milling]
 }

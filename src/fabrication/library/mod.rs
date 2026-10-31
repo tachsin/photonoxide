@@ -17,7 +17,7 @@ mod wafer;
 
 /// The library's version, which a run's record names: it changes whenever a process, a
 /// capability or a rule changes, so that an older run says which library it used.
-pub const LIBRARY_VERSION: &str = "1";
+pub const LIBRARY_VERSION: &str = "2";
 
 /// What kind of step a process is.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]

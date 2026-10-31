@@ -208,6 +208,22 @@ const ROWS: &[Row] = &[
         "978-0-19-532017-6",
         "",
     ),
+    (
+        "franssila-2010",
+        "S. Franssila, Introduction to Microfabrication, 2nd edition, Wiley (2010)",
+        "Introduction to Microfabrication",
+        "10.1002/9781119990413",
+        "978-0-470-74983-8",
+        "",
+    ),
+    (
+        "mack-2007",
+        "C. Mack, Fundamental Principles of Optical Lithography: The Science of Microfabrication, Wiley (2007)",
+        "Fundamental Principles of Optical Lithography",
+        "10.1002/9780470723876",
+        "978-0-470-01893-4",
+        "",
+    ),
 ];
 
 /// Every reference the library cites, in the order above.
