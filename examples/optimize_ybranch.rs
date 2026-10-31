@@ -464,11 +464,68 @@ pub fn main() -> photonoxide::Result<ExitCode> {
             .with_averaging(Averaging::Diagonal)
             .with_samples(1),
     );
+    let model = Model::new(&device)?;
+    let wavelength = Wavelength::um(WAVELENGTH)?;
+    let mut setup = common::Setup::new();
+    setup.device(&device, &values(&device, &TABLE)?, wavelength);
+    setup.item(
+        "variables",
+        &format!(
+            "w2 to w12, each {} to {} µm; w1 {} and w13 {} µm fixed, the taper's stated ends (the drawing above has Table 1's)",
+            common::number(BOUNDS.0),
+            common::number(BOUNDS.1),
+            common::number(TABLE[0]),
+            common::number(TABLE[12])
+        ),
+    );
+    setup.wavelength(wavelength);
+    setup.item(
+        "the swarm's 2D plane",
+        &format!(
+            "the effective index method's: the 220 nm slab's TE index, {}, in the silicon and the oxide's, {}, outside; H along z",
+            common::n(model.core.sqrt()),
+            common::n(model.clad.sqrt())
+        ),
+    );
+    setup.item(
+        "the swarm's grid",
+        &format!(
+            "{} × {} cells of {}, PMLs {PML} cells, {} of oxide around the drawing",
+            model.grid.nx,
+            model.grid.ny,
+            common::length(STEP),
+            common::length(MARGIN)
+        ),
+    );
+    setup.item(
+        "the device's 2D grid",
+        &format!(
+            "{} cells, each from the shapes' fill (the diagonal)",
+            common::length(STEP)
+        ),
+    );
+    setup.item(
+        "the 3D grids (--full)",
+        "cubic cells of 44, 31.4 and 22 nm, stretched PMLs of 8, 11 and 16 cells, 400 nm of oxide around, GMRES with the multigrid to a relative residual of 1e-9",
+    );
+    setup.item(
+        "solver",
+        &format!(
+            "genoxide's PSO: {SWARM} particles from random positions, seed 1, {EVALUATIONS} evaluations, inertia 0.7298, accelerations 1.49618"
+        ),
+    );
+    setup.item(
+        "tolerance",
+        &format!(
+            "the 2D loss below Zhang et al.'s 0.2 dB; the 3D loss within {TOLERANCE} dB of {} dB (#244)",
+            ZHANG_3D.0
+        ),
+    );
+    setup.print();
     println!(
         "Zhang et al.'s Y-branch on 220 nm SOI, its 2 µm taper's widths w2–w12 optimized by genoxide's PSO at {WAVELENGTH} µm, as in the paper; arms {} µm long to ports {} µm apart",
         ARMS.0, ARMS.1
     );
-    let model = Model::new(&device)?;
     let table = model.power(&TABLE)?;
     let (u, l, grid) = device_power(&device, &TABLE, Fidelity::TwoD)?;
     println!(
