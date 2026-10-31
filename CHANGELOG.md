@@ -6,6 +6,115 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.6.1](https://github.com/tachsin/photonoxide/compare/v0.6.0...v0.6.1) - 2026-10-31
+
+### <!-- 0 -->Added
+
+- *(validation)* every tolerance from a rule, its measure, basis and our own error beside it; the static cases first ([#556](https://github.com/tachsin/photonoxide/pull/556))
+- *(native)* cuDSS 1.0 found and loaded beside 0.x, its double precision emulated and its memory hybrid ([#555](https://github.com/tachsin/photonoxide/pull/555))
+- *(validation)* the material, units, stack, averaging and generator cases' rules; our own error in the rule's measure (part of #544) ([#558](https://github.com/tachsin/photonoxide/pull/558))
+- *(validation)* the mode, thermo and Pockels cases' rules; the group index and Marcatili's guide refined until their own error can judge them (part of #544) ([#560](https://github.com/tachsin/photonoxide/pull/560))
+- *(studio)* photonoxide's own Windows setup, smaller than NSIS's, and the installers' look ([#562](https://github.com/tachsin/photonoxide/pull/562))
+- *(validation)* the geometry cases' rules (part of #544) ([#565](https://github.com/tachsin/photonoxide/pull/565))
+- *(validation)* the FDFD and FDFD 3D cases' rules ([#566](https://github.com/tachsin/photonoxide/pull/566))
+- *(validation)* the FDTD cases' rules ([#567](https://github.com/tachsin/photonoxide/pull/567))
+- *(studio)* one-click library installs, Express and Advanced setup, and builds tuned to this CPU (part of #564) ([#569](https://github.com/tachsin/photonoxide/pull/569))
+- *(validation)* the device, component, compact, circuit and job cases' rules (part of #544) ([#570](https://github.com/tachsin/photonoxide/pull/570))
+- *(validation)* the line cases' rules, and every case must have one (part of #544) ([#571](https://github.com/tachsin/photonoxide/pull/571))
+- *(validation)* the GPU report's rules, its tolerances from f32's and f64's unit round-off (part of #544) ([#572](https://github.com/tachsin/photonoxide/pull/572))
+- *(device)* the phase-change phase shifter (part of #543) ([#577](https://github.com/tachsin/photonoxide/pull/577))
+- *(validation)* the Valdez 2023 modulator, and why He 2019's is not yet a case (part of #543) ([#576](https://github.com/tachsin/photonoxide/pull/576))
+- *(device)* the thin-film lithium niobate Mach-Zehnder modulator (part of #543)
+- *(material)* TiN films' electrical resistivity (part of #543)
+- *(eme)* eigenmode expansion for slab stacks, with its validation (part of #432)
+- *(material)* a TiN film's thermal conductivity (part of #543)
+- *(geometry)* a GDS file's layers read into a structure job (part of #543)
+- *(material)* amorphous Sb2S3's density (part of #543)
+- *(material)* a barium titanate film's dispersion (part of #543)
+- *(studio)* the temperature and electrode-field views (part of #543)
+- *(material)* microwave permittivities and loss tangents (part of #543) ([#578](https://github.com/tachsin/photonoxide/pull/578))
+- *(material)* lithium tantalate's thermo-optic coefficients measured in the infrared (part of #543) ([#580](https://github.com/tachsin/photonoxide/pull/580))
+- *(studio)* the modulator's electrode-field view and the Vπ·L and bandwidth sweeps (part of #543) ([#594](https://github.com/tachsin/photonoxide/pull/594))
+- *(mode)* effective area, confinement and the orthogonality check (part of #432) ([#599](https://github.com/tachsin/photonoxide/pull/599))
+- *(convergence)* the mode solver, FDFD and EME driven to a stated tolerance, with each grid recorded (part of #432) ([#603](https://github.com/tachsin/photonoxide/pull/603))
+- *(sweep)* adaptive sweeps with AAA, an error estimate and crossings followed by overlap (part of #432) ([#600](https://github.com/tachsin/photonoxide/pull/600))
+- *(studio)* the Pockels Δn over the mode, the bandwidth against the cladding and a stated error for the analytic bandwidth (part of #421) ([#608](https://github.com/tachsin/photonoxide/pull/608))
+- *(device)* sidewall roughness loss from the volume-current method (part of #432) ([#601](https://github.com/tachsin/photonoxide/pull/601))
+- *(studio)* the transient temperature view and sweeps saved as a study job (part of #421) ([#609](https://github.com/tachsin/photonoxide/pull/609))
+- *(studio)* the RF line's own field on the modulator page (part of #421) ([#611](https://github.com/tachsin/photonoxide/pull/611))
+- *(device)* the phase-change film conformal over the rib and the slab, and the TM mode (part of #420) ([#610](https://github.com/tachsin/photonoxide/pull/610))
+- *(examples)* the self-configuring mesh of Pérez-López 2020 and the ring-loaded MZI filter of Wang 2022, optimized as in the papers (part of #244) ([#617](https://github.com/tachsin/photonoxide/pull/617))
+- *(fdfd)* the MMI and the Y-branch in full 3D, the iterative solver built from a structure, and the 2D models' errors stated (part of #377) ([#618](https://github.com/tachsin/photonoxide/pull/618))
+- *(crosscode)* more cross-code pairs for Elmer and openEMS (part of #536) ([#613](https://github.com/tachsin/photonoxide/pull/613))
+- *(nonlinear)* phase matching, QPM and the acceptance bandwidths, the first part of 0.6.1 (part of the roadmap's 0.6.1) ([#621](https://github.com/tachsin/photonoxide/pull/621))
+- *(device)* the MMI in full 3D against its length: where the 2D image length is off (part of #377) ([#626](https://github.com/tachsin/photonoxide/pull/626))
+- *(python)* the Python examples print their setup first and record their output, checked in the Python job (part of #291) ([#627](https://github.com/tachsin/photonoxide/pull/627))
+- *(material)* undoped LiTaO3's temperature-dependent index, the Kerr coefficients of Si, SiN, LiNbO3 and AlN, and Miller's rule (the data lane of 0.6.1) ([#629](https://github.com/tachsin/photonoxide/pull/629))
+- *(fabrication)* the process flow of a design, suggested, checked and shown (part of #622) ([#628](https://github.com/tachsin/photonoxide/pull/628))
+- *(nonlinear)* phase matching, overlaps and SPDC in waveguides, from their modes (the waveguide part of 0.6.1) ([#630](https://github.com/tachsin/photonoxide/pull/630))
+- *(examples)* the apodized grating coupler Pareto front (Passoni 2017) and the Y-branch by PSO (Zhang 2013), as in the papers (part of #244) ([#624](https://github.com/tachsin/photonoxide/pull/624))
+- *(fabrication)* the rule engine: resolution, selectivity, thermal budget, overlay and the accuracy of each dimension (F4 of #622) ([#631](https://github.com/tachsin/photonoxide/pull/631))
+- *(nonlinear)* the nonlinear Schrödinger equation, four-wave mixing and the Lugiato–Lefever equation from a waveguide's modes (χ(3) of 0.6.1) ([#632](https://github.com/tachsin/photonoxide/pull/632))
+- *(fabrication)* the flows in Python and their export to JSON, Markdown and SVG (F7 of #622) ([#633](https://github.com/tachsin/photonoxide/pull/633))
+- *(nonlinear)* XPM, two-photon and free-carrier absorption, heralding, resonant rings, parametric oscillators and the published examples (0.6.1) ([#636](https://github.com/tachsin/photonoxide/pull/636))
+- *(fabrication)* flows for silicon nitride, phase-change cells, AlN and GaAs (F6 of #622) ([#635](https://github.com/tachsin/photonoxide/pull/635))
+- *(studio)* nonlinear jobs and the studio's nonlinear view (the Studio and job-format parts of 0.6.1) ([#637](https://github.com/tachsin/photonoxide/pull/637))
+- *(libraries)* the releases issue is one line per library, the version we use and the newest ([#639](https://github.com/tachsin/photonoxide/pull/639))
+- *(studio)* the Components list's groups fold away, as the rail's System group does ([#547](https://github.com/tachsin/photonoxide/pull/547))
+- *(studio)* a material's header in order, and the page whole in a narrow window ([#548](https://github.com/tachsin/photonoxide/pull/548))
+- *(studio)* the Components, Chip and Academy lists in the rail, under their pages ([#549](https://github.com/tachsin/photonoxide/pull/549))
+- *(studio)* the Materials list in the rail, under its page ([#550](https://github.com/tachsin/photonoxide/pull/550))
+- *(studio)* the version compact at the status bar's right, commits' local times, and Check in the nightly dialog ([#552](https://github.com/tachsin/photonoxide/pull/552))
+- *(studio)* Home for work, the mark in the rail, and what is running at its foot ([#551](https://github.com/tachsin/photonoxide/pull/551))
+- *(studio)* a welcome on the first start that asks for the channel, in place of the tour ([#563](https://github.com/tachsin/photonoxide/pull/563))
+- *(studio)* the CPU's cores, P and E cores, caches and NUMA nodes on the first-start advice (part of #564) ([#575](https://github.com/tachsin/photonoxide/pull/575))
+- *(studio)* the library suggestions ranked by this machine's own benchmark records (part of #564) ([#616](https://github.com/tachsin/photonoxide/pull/616))
+
+### <!-- 1 -->Fixed
+
+- *(device)* the doped shifter's analytic model described as it computes, not as a fin ([#553](https://github.com/tachsin/photonoxide/pull/553))
+- *(studio)* a copy that isn't installed installs the nightly or the release, instead of refusing ([#568](https://github.com/tachsin/photonoxide/pull/568))
+- the sweep module is placed in the mode layer of the layering test and of docs/architecture.md ([#607](https://github.com/tachsin/photonoxide/pull/607))
+- *(gpu)* the kernels multiply by 1/Δ rather than divide, so an f64 run repeats bit for bit; the GPU report passes ([#638](https://github.com/tachsin/photonoxide/pull/638))
+- *(native)* OpenBLAS built with OpenMP held to one thread on every calling thread ([#559](https://github.com/tachsin/photonoxide/pull/559))
+- *(academy)* the chart test's Bragg number from its closed form, and the leaky lesson's Tamir & Oliner wording (part of #543) ([#574](https://github.com/tachsin/photonoxide/pull/574))
+
+### <!-- 3 -->Changed
+
+- *(job)* job/mod.rs split by what it does, a pure move (part of #509) ([#590](https://github.com/tachsin/photonoxide/pull/590))
+- richardson, triad, least_squares and Etch move down, removing four dependency cycles, pure moves (part of #508) ([#591](https://github.com/tachsin/photonoxide/pull/591))
+- the Krylov solvers and the dense kernels move below fdfd and sparse, a pure move (part of #508) ([#592](https://github.com/tachsin/photonoxide/pull/592))
+- the thermo-optic phase shifter moves up to its own module, removing the thermal/shifter dependency cycle, a pure move (part of #508) ([#593](https://github.com/tachsin/photonoxide/pull/593))
+- *(job)* job kinds as one trait and one registry (part of #509) ([#596](https://github.com/tachsin/photonoxide/pull/596))
+- *(circuit)* the sampled and measured components stop importing job, run and validation (part of #508) ([#597](https://github.com/tachsin/photonoxide/pull/597))
+- the error type, the verdict types and Stop move down, pure moves (part of #508) ([#598](https://github.com/tachsin/photonoxide/pull/598))
+- checks that reach above their layer move up, the architecture page and a layering test (part of #508) ([#602](https://github.com/tachsin/photonoxide/pull/602))
+
+### <!-- 4 -->Documentation
+
+- *(eme)* name the module in the crate's list (part of #432)
+- the citations of Oser 2020, Konno 2024 and Khan 2024 checked against the papers (part of #543)
+- *(validation)* the report written again with the nine PRs merged
+- the 0.6 close-out: ROADMAP, README and AGENTS state what is done and what is open (part of #411) ([#614](https://github.com/tachsin/photonoxide/pull/614))
+- *(python)* the API reference on the site, every public item documented, and a test that keeps it so (part of #291) ([#615](https://github.com/tachsin/photonoxide/pull/615))
+- photonoxide stays one crate: the crate-split plans and the Public API job are removed (part of #508) ([#619](https://github.com/tachsin/photonoxide/pull/619))
+- *(device)* He 2019's push-pull Vπ·L: which electro-optic coefficient the measurement probes (part of #420) ([#620](https://github.com/tachsin/photonoxide/pull/620))
+- a plan for a fabrication engine: the process flow of a design, suggested and animated (roadmap entry) ([#623](https://github.com/tachsin/photonoxide/pull/623))
+- *(examples)* every example prints its setup first, a design page, and the job file in the README ([#625](https://github.com/tachsin/photonoxide/pull/625))
+- the roadmap states the 0.6.1 nonlinear optics that has landed and what is left ([#634](https://github.com/tachsin/photonoxide/pull/634))
+
+### <!-- 5 -->Project setup
+
+- merge main into mat-tin-resistivity
+- Merge origin/main into device-tfln-mzm: the phase-change shifters beside the modulator
+- merge #583 into merge-train
+- merge #585 into merge-train
+- merge #586 into merge-train
+- merge #582 into merge-train
+- merge #584 into merge-train
+- merge #588 into merge-train
+- merge #579 into merge-train
+
 ## [0.6.0](https://github.com/tachsin/photonoxide/compare/v0.5.4...v0.6.0) - 2026-10-26
 
 ### <!-- 0 -->Added
