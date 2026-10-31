@@ -150,8 +150,6 @@ pub struct Process {
     /// The films it deposits, etches or lifts off (none for a lithography); a wafer's films
     /// bottom to top over its handle.
     pub films: Vec<String>,
-    /// A wafer's handle: the film under its layers, e.g. `"Si"`; `None` for every other step.
-    pub handle: Option<String>,
     /// A lithography's resist: its id.
     pub resist: Option<String>,
     /// Whether a deposition comes down in straight lines (evaporation), which lift-off needs.
@@ -241,7 +239,6 @@ pub(super) fn new_process(
         name: name.into(),
         plain: plain.into(),
         films: films.iter().map(|f| (*f).into()).collect(),
-        handle: None,
         resist: None,
         directional: false,
         capabilities: Vec::new(),
@@ -301,6 +298,16 @@ pub fn library() -> &'static [Process] {
         all.extend(anneal::processes());
         all.into_iter().map(Process::referenced).collect()
     })
+}
+
+/// A wafer's handle: the film under its layers ("GaAs" for the epitaxial GaAs wafer, "Si"
+/// for the others); None for every other step.
+pub(crate) fn handle(p: &Process) -> Option<&'static str> {
+    match (p.step, p.id.as_str()) {
+        (StepType::Wafer, "gaas-epitaxy") => Some("GaAs"),
+        (StepType::Wafer, _) => Some("Si"),
+        _ => None,
+    }
 }
 
 /// The process with this id.

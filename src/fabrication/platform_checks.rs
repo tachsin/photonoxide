@@ -333,11 +333,7 @@ pub(crate) fn pcm_rules_wrong() -> Vec<String> {
         if !contains(&flow, &["sputtering-pcm", "lift-off", "sputtering-oxide"]) {
             wrong.push(format!("{kind}: {ids:?}"));
         }
-        if !flow
-            .steps
-            .iter()
-            .any(|s| matches!(s.operation, Operation::Sputter { .. }))
-        {
+        if !flow.steps.iter().any(super::Step::sputtered) {
             wrong.push(format!("{kind}: the film isn't sputtered onto the resist"));
         }
         let cap = flow.steps.last();

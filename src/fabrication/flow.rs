@@ -90,16 +90,10 @@ pub enum Operation {
         /// The walls' angle from the plane, radians.
         sidewall: f64,
     },
-    /// A film evaporated over the resist and into its openings.
+    /// A film put down over the resist and into its openings, for a lift-off: evaporated, or
+    /// sputtered when its sources lift a thin sputtered film off (its process isn't directional;
+    /// the record names it `"sputter"`).
     Evaporate {
-        /// The film.
-        film: Film,
-        /// Its thickness.
-        thickness: Length,
-    },
-    /// A film sputtered over the resist and into its openings: a thin film its sources lift off
-    /// although it doesn't come down in straight lines.
-    Sputter {
         /// The film.
         film: Film,
         /// Its thickness.
@@ -113,12 +107,8 @@ pub enum Operation {
     },
     /// The resist removed.
     Strip,
-    /// The wafer heated to change a film already there; no shape changes.
-    Anneal {
-        /// What is annealed, in plain words.
-        what: String,
-    },
-    /// Something the design doesn't draw, listed and not executed: e.g. a heater's contacts.
+    /// Something the design doesn't draw, listed and not executed: e.g. a heater's contacts, or
+    /// an anneal, which changes no shape.
     Undrawn {
         /// What, in plain words.
         what: String,
@@ -191,12 +181,8 @@ impl Operation {
             Operation::Evaporate { film, thickness } => {
                 format!("evaporate {} of {}", um(*thickness), film.name)
             }
-            Operation::Sputter { film, thickness } => {
-                format!("sputter {} of {}", um(*thickness), film.name)
-            }
             Operation::LiftOff { layer } => format!("lift off: {layer} left in the openings"),
             Operation::Strip => "remove the resist".into(),
-            Operation::Anneal { what } => format!("{what}: no shape changes"),
             Operation::Undrawn { what } => format!("not drawn by the design: {what}"),
         }
     }
@@ -210,10 +196,8 @@ impl Operation {
             Operation::Pattern { .. } => "pattern",
             Operation::Etch { .. } => "etch",
             Operation::Evaporate { .. } => "evaporate",
-            Operation::Sputter { .. } => "sputter",
             Operation::LiftOff { .. } => "lift_off",
             Operation::Strip => "strip",
-            Operation::Anneal { .. } => "anneal",
             Operation::Undrawn { .. } => "undrawn",
         }
     }
@@ -435,13 +419,28 @@ impl Step {
                     }
                 }
             }
-            Operation::Evaporate { film, thickness } | Operation::Sputter { film, thickness } => {
+            Operation::Evaporate { film, thickness } => {
                 r.film = Some(film.name.clone());
                 r.thickness_um = Some(thickness.to_um());
+                if self.sputtered() {
+                    r.operation = "sputter".into();
+                    r.does = format!("sputter {} µm of {}", number(thickness.to_um()), film.name);
+                }
             }
             Operation::LiftOff { layer } => r.layer = Some(layer.clone()),
-            Operation::Strip | Operation::Anneal { .. } | Operation::Undrawn { .. } => {}
+            Operation::Undrawn { what } if self.step == StepType::Anneal => {
+                r.operation = "anneal".into();
+                r.does = format!("{what}: no shape changes");
+            }
+            Operation::Strip | Operation::Undrawn { .. } => {}
         }
         r
+    }
+
+    /// Whether it puts a film onto opened resist by sputtering, not evaporation: its process
+    /// doesn't come down in straight lines.
+    pub(crate) fn sputtered(&self) -> bool {
+        matches!(self.operation, Operation::Evaporate { .. })
+            && super::library::process(&self.process).is_some_and(|p| !p.directional)
     }
 }

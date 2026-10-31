@@ -368,7 +368,9 @@ pub fn generate(design: &Physical, choices: &Choices) -> Result<Flow> {
     let wafer = library()
         .iter()
         .find(|p| {
-            p.step == StepType::Wafer && p.films == wanted && p.handle.as_deref() == Some(handle)
+            p.step == StepType::Wafer
+                && p.films == wanted
+                && super::library::handle(p) == Some(handle)
         })
         .ok_or_else(|| {
             invalid(format!(
@@ -442,7 +444,7 @@ pub fn generate(design: &Physical, choices: &Choices) -> Result<Flow> {
     } else {
         let film = &films[w - 1].0.name;
         let below = &layers[..w - 1];
-        let how = if wafer.handle.as_deref() == Some("Si") {
+        let how = if super::library::handle(wafer) == Some("Si") {
             "on an insulator is bought as a bonded wafer"
         } else {
             "is grown by epitaxy on the wafer it is bought on"
@@ -1365,7 +1367,8 @@ fn anneal(film: &str, choices: &Choices, state: &mut State) {
     let mut step =
         step_of(
             p,
-            Operation::Anneal {
+            // an anneal changes no shape: listed, and nothing drawn
+            Operation::Undrawn {
                 what: format!("the {film} annealed"),
             },
             format!(
@@ -1993,9 +1996,11 @@ fn metal_layer(design: &Physical, i: usize, choices: &Choices, state: &mut State
                 ),
             )
         } else {
+            // the same operation as an evaporation: the film onto the opened resist; the record
+            // names it a sputtering, its process not being directional
             step_of(
                 source,
-                Operation::Sputter {
+                Operation::Evaporate {
                     film: drawn.clone(),
                     thickness: layer.thickness,
                 },

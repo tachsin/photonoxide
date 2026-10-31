@@ -197,7 +197,7 @@ fn run(steps: &[super::flow::Step], partial: bool) -> Result<Made> {
                     top.etches.push(etch);
                 }
             }
-            Operation::Evaporate { film, thickness } | Operation::Sputter { film, thickness } => {
+            Operation::Evaporate { film, thickness } => {
                 if !matches!(resist, Some((_, Tone::Open))) {
                     return Err(at("a film for lift-off with no opened resist"));
                 }
@@ -225,7 +225,7 @@ fn run(steps: &[super::flow::Step], partial: bool) -> Result<Made> {
                     return Err(at("no resist to remove"));
                 }
             }
-            Operation::Anneal { .. } | Operation::Undrawn { .. } => {}
+            Operation::Undrawn { .. } => {}
         }
     }
     let substrate = substrate.ok_or_else(|| invalid("the flow has no wafer".into()))?;

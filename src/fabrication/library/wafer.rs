@@ -138,8 +138,6 @@ pub(super) fn processes() -> Vec<Process> {
             "Section 3.A (PDF p. 4)",
         ),
     ];
-    soi.handle = Some("Si".into());
-    lnoi.handle = Some("Si".into());
     vec![soi, lnoi, silicon(), gaas()]
 }
 
@@ -155,7 +153,6 @@ fn gaas() -> Process {
          are single crystals continuing the wafer's, so they are grown, never deposited.",
         &["AlGaAs", "GaAs"],
     );
-    p.handle = Some("GaAs".into());
     p.capabilities = vec![cap(
         Quantity::Uniformity,
         Stated::not_specified(),
@@ -193,7 +190,6 @@ fn silicon() -> Process {
          is grown from it, and the guides' film deposited over that.",
         &[],
     );
-    p.handle = Some("Si".into());
     p.facts = vec![
         fact(
             "The nitride ring resonators were made on a thermally oxidized 4-inch silicon wafer.",

@@ -1216,11 +1216,11 @@ pub fn assess(design: &Physical, flow: &Flow) -> Result<Assessment> {
                     a.accuracy.push(d.close());
                 }
             }
-            Operation::Evaporate { film, thickness } | Operation::Sputter { film, thickness } => {
+            Operation::Evaporate { film, thickness } => {
                 if !present.contains(&film.name) {
                     present.push(film.name.clone());
                 }
-                let how = if matches!(step.operation, Operation::Sputter { .. }) {
+                let how = if step.sputtered() {
                     ("sputtered", "sputtering")
                 } else {
                     ("evaporated", "evaporation")
