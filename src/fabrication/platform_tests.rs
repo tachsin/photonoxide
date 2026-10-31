@@ -68,6 +68,16 @@ fn gaas_comes_grown_and_its_etch_is_not_specified() {
         .unwrap();
     assert!(etch.reason.contains("is not specified"), "{}", etch.reason);
     assert!(etch.reason.contains("dietrich-2016"), "{}", etch.reason);
+    assert_eq!(
+        ids(&flow),
+        [
+            "gaas-epitaxy",
+            "uv-photolithography",
+            "rie-gaas-chlorine",
+            "resist-strip",
+            "pecvd-oxide"
+        ]
+    );
 }
 
 #[test]

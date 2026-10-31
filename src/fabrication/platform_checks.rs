@@ -482,7 +482,7 @@ pub(crate) fn aln_round_trips() -> (usize, usize, Vec<String>, usize) {
         .iter()
         .map(|d| d.kind().to_string())
     {
-        if NITRIDE_SKIP.contains(&kind.as_str()) {
+        if GAAS_SKIP.contains(&kind.as_str()) {
             continue;
         }
         let Some((device, _)) = built(&kind, nitride(2.0), &[("thickness", "0.65")]) else {
@@ -731,7 +731,7 @@ pub(crate) fn cases() -> Vec<Case> {
         },
         Case {
             id: "fabrication/aln-round-trip",
-            title: "Every library device drawn in 650 nm of aluminium nitride on 2 µm of grown oxide (all but the lithium niobate modulator) whose design the rules make gives back its structure and films to the bit through its generated flow, the film sputtered and etched in chlorine: at its defaults and each parameter's range ends in turn (differing points shown)",
+            title: "Every library device drawn in 650 nm of aluminium nitride on 2 µm of grown oxide (all but the lithium niobate modulator and the phase-change shifters, whose cells no source in hand puts on AlN) whose design the rules make gives back its structure and films to the bit through its generated flow, the film sputtered and etched in chlorine: at its defaults and each parameter's range ends in turn (differing points shown)",
             tier: Tier::Analytic,
             source: "an exact identity: the flow's operations draw the design's own shapes, etches and films",
             run: aln_round_trip,
