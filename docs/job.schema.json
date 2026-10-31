@@ -5559,7 +5559,7 @@
       "description": "`[task.map]`: the phase-matching map's axes.",
       "properties": {
         "across_points": {
-          "description": "The other axis's points (21 temperatures, 5 widths).",
+          "description": "The other axis's points (21 temperatures; 5 widths, or 5 temperatures of a ridge, each one's modes solved).",
           "minimum": 0,
           "type": "integer"
         },
@@ -6054,7 +6054,7 @@
           "description": "The signal: SFG's second input, the signal of DFG, OPA, SPDC (twice the pump's wavelength by default: degenerate pairs) and FWM."
         },
         "temperature_c": {
-          "description": "The operating temperature, °C (25 by default).",
+          "description": "The operating temperature, °C (25 by default): a crystal's indices and a ridge's catalogue media are taken at it.",
           "type": "number"
         },
         "waveguide": {
@@ -7085,7 +7085,7 @@
           "type": "string"
         },
         "d_pm_per_v": {
-          "description": "The film's d tensor in its crystal's axes, pm/V (rows 1 to 3, columns 11, 22, 33, 23, 13, 12), in place of the catalogue's: for a film whose catalogue entry has none, or leaves an element out.",
+          "description": "The film's d tensor in its crystal's axes, pm/V (rows 1 to 3, columns 11, 22, 33, 23, 13, 12), in place of the catalogue's: for a film whose catalogue entry has none, or leaves an element out. It is taken at the job's wavelengths as it is; the catalogue's are carried there by Miller's rule from where they were measured.",
           "items": {
             "items": {
               "type": "number"

@@ -76,6 +76,8 @@ validation:
   - nonlinear/guide-slab-order
   - nonlinear/guide-slab-coupled
   - nonlinear/guide-group-index
+  - job/nonlinear-ridge-zhao-period
+  - job/nonlinear-ridge-zhao-efficiency
   - nonlinear/nlse-dispersion-silica-beta2
   - nonlinear/nlse-dispersion-silica-beta4
   - nonlinear/nlse-fundamental-soliton
@@ -588,17 +590,25 @@ the lowest-order TE-polarized waveguide modes at 1570 and 785 nm" (p. 1). They d
 model; ours is the catalogue's default, Zelmon et al.'s (21 °C). The silicon is left out: the
 window stops 1.5 µm under the film.
 
-| Cells | n_eff TE₀, 1.57 µm | n_eff TE₀, 0.785 µm | Period (µm) | A_eff, 1.57 µm (µm²) | A_eff, 0.785 µm |
-|---|---|---|---|---|---|
-| 20 nm | 1.693544 | 1.972185 | 2.8172 | 1.0788 | 0.3970 |
-| 10 nm | 1.694002 | 1.972865 | 2.8150 | 1.0772 | 0.3975 |
-| 5 nm | 1.694073 | 1.973020 | 2.8142 | 1.0768 | 0.3975 |
-| Zhao et al. | | | 2.8 | 1.1 | 0.4 |
+| Cells | n_eff TE₀, 1.57 µm | n_eff TE₀, 0.785 µm | Period (µm) | Matched at 2.8 µm (µm) | A_eff, 1.57 µm (µm²) | A_eff, 0.785 µm |
+|---|---|---|---|---|---|---|
+| 20 nm | 1.693544 | 1.972185 | 2.8172 | 1.5566 | 1.0788 | 0.3969 |
+| 10 nm | 1.694002 | 1.972865 | 2.8150 | 1.5583 | 1.0772 | 0.3974 |
+| 5 nm | 1.694073 | 1.973020 | 2.8142 | 1.5590 | 1.0768 | 0.3974 |
+| Zhao et al. | | | 2.8 | 1.57 | 1.1 | 0.4 |
 
 The grid study puts the 5 nm period's error at 5.2e-4 µm, and the paper's 2.8 holds 2.75 to 2.85
 (`nonlinear/guide-zhao-period`). Poled at 2.8 µm, the guide phase-matches SHG of 1.5583 µm on 10 nm
-cells (1.5600 on 20 nm; `nonlinear/guide-zhao-wavelength`), 11.7 nm short of their 1570: across
-the period's half digit, 2.75 to 2.85 µm, the matched wavelength moves by ±38.9 nm. The guide's
+cells (`nonlinear/guide-zhao-wavelength`), 11.7 nm short of their 1570: across the period's half
+digit, 2.75 to 2.85 µm, the matched wavelength moves by ±38.9 nm. The matched wavelength rises as
+the cells shrink, as the period falls: 1.5566, 1.5583 and 1.5590 µm on 20, 10 and 5 nm cells, an
+observed order of 1.4 (the ridge's sloped walls are staircased; the period's is 1.5), toward a
+Richardson limit of 1.5594 µm, so the grids' own error is 1.1e-3 µm on 10 nm cells, below the
+case's tolerance of 0.038 µm by a factor of 35. The case runs 20 and 10 nm cells and shows their
+difference, 1.7e-3 µm, as its own error; the 10 nm value lies below the converged one, not above.
+The interpolants' tolerance doesn't enter: on 20 nm cells, tolerances of 1e-6, 1e-8, 1e-10 and
+1e-12 in n_eff (9 to 17 Chebyshev points) all give 1.556617 µm, and the whole window without the
+mirror wall 1.556618 (`guide_tests::zhao_matched_numbers`). The guide's
 group indices are 2.1306 at 1.57 µm and 2.3308 at 0.785 µm, and its β₂ at 1.57 µm is 1220 fs²/mm
 (10 nm cells).
 
@@ -606,7 +616,7 @@ Their modes' effective areas, 1.1 µm² at 1570 nm and 0.4 µm² at 785 nm (p. 1
 (`nonlinear/guide-zhao-area-signal`, `-pump`). The paper doesn't define its area; the table's is
 Afshar and Monro's Eq. 41, from S_z, which converges on these grids. Their Eq. 44, from |E_t|⁴,
 takes the ridge's corners twice and drifts with the grid (1.110, 1.107 and 1.103 µm² at 1.57 µm;
-0.400, 0.401 and 0.401 at 0.785 µm), and rounds to the paper's numbers just the same.
+0.400, 0.400 and 0.401 at 0.785 µm), and rounds to the paper's numbers just the same.
 
 The example `pairs_zhao` computes the period, the matched wavelength and the two areas on 20 and 10 nm cells, and the pairs' signal spectrum pumped at 785 nm.
 
@@ -661,10 +671,14 @@ The same guide's κ from its TE₀ modes, with Zhao et al.'s own d₃₃ = 27 pm
 
 | Cells | η, 50 % duty, poled through | η, 55.2 % duty, poled 245 nm | B, poled through | B, 55.2 %, 245 nm |
 |---|---|---|---|---|
-| 20 nm | 4158.9 %/(W·cm²) | 2974.7 | 1.040 × 10⁷ | 7.437 × 10⁶ |
-| 10 nm | 4162.5 | 2981.6 | 1.041 × 10⁷ | 7.454 × 10⁶ |
-| 5 nm | 4163.5 | 2984.5 | 1.041 × 10⁷ | 7.461 × 10⁶ |
+| 20 nm | 4160.1 %/(W·cm²) | 2975.6 | 1.040 × 10⁷ | 7.439 × 10⁶ |
+| 10 nm | 4163.7 | 2982.4 | 1.041 × 10⁷ | 7.456 × 10⁶ |
+| 5 nm | 4164.7 | 2985.4 | 1.041 × 10⁷ | 7.464 × 10⁶ |
 | Zhao et al. | | | 4.6 × 10⁵ | |
+
+Each mode's fields are scaled to 1 W on its own cross-section, the permittivities at its own
+wavelength, which enter the longitudinal field; the table had the harmonic's on the fundamental's
+before #595, 0.03 % low (4158.9 on 20 nm cells).
 
 B is the pairs' brightness in pairs/(s·GHz·mW) over 5 mm, η P_p L² per hertz (above). The second
 and fourth columns take the paper's measured duty cycle, 55.2 % ± 3.0 %, and its poling depth,
@@ -1206,9 +1220,44 @@ pump and the signal. The waveguide is one of three:
 - `ridge`: a film of a `[task.stack]`-like table etched to a ridge, each wave's index its
   fundamental mode of a family over the wavelengths the run needs (`ModeIndex::of_ridge`: the
   operating point, the map's ends and the joint spectrum's corners, each wave's range at least
-  1 % wide), and a second-order process's η from the modes' overlap through the film's catalogue d
-  tensor turned onto the chip ([the overlap](#the-overlap-and-the-efficiency)). The tensor is the
-  catalogue's as measured (its label says at which wavelength), not carried by Miller's rule.
+  1 % wide), and a second-order process's η from the modes' overlap through the film's d tensor
+  turned onto the chip ([the overlap](#the-overlap-and-the-efficiency)), each mode's fields on its
+  own cross-section, the permittivities at its own wavelength.
+
+A ridge's catalogue media (the film, the layer under it, the substrate and the cladding) are
+read at the task's `temperature_c`, 25 °C by default, as a crystal's indices are: a medium whose
+table gives its own `temperature` keeps it, and the run's notes say which. Where the media's index
+models depend on temperature (Edwards & Lawrence's congruent LiNbO₃, which has both indices;
+Malitson's silica, moved by Leviton & Frey's change), the designed period and the phase map
+follow it; Zelmon et al.'s indices, the catalogue's default for both lithium niobates, are
+measured at 21 °C only, and don't move. A map across `temperature_c` solves the ridge's modes
+again at each temperature, as a map across `width_um` does at each width: 5 rows by default, at
+most 21. A ridge has no temperature acceptance yet (the modes' Δk would have to be solved at
+neighbouring temperatures): the map shows it.
+
+The film's d tensor is the catalogue's measurement nearest the job's wavelengths, carried to them
+by [Miller's rule](#millers-rule): nearest by its fundamental against twice the generated wave's
+wavelength (the job's own fundamental for SHG). Each element d_il (its axes i, j, k) takes the
+ratio of χ_ii(ω₃) χ_jj(ω₁) χ_kk(ω₂) at the job's waves to the same product at the measurement's
+(the harmonic and twice the fundamental), each χ = n² − 1 from the film's principal indices at
+the task's temperature (`miller_tensor_ratios`); where j ≠ k and the two driving waves differ,
+Voigt notation's one value for d_ijk and d_ikj takes the mean of the two orderings. An element the
+nearest measurement doesn't give comes from the next nearest that does, carried from its own
+wavelength, and then, where the task sets `kleinman = true`, from Kleinman's symmetry at the job's
+wavelengths. The record's `efficiency_from` says which measurement was carried and its largest
+element's ratio. For congruent LiNbO₃ at 1.55 µm that is Shoji et al.'s 1.313 µm tensor, its
+d₂₂ from Miller et al. 1971's at 1.064 µm. The rule is as good as δ is constant: carried from
+1.064 to 1.313 µm, d₃₃ lands 21 % above Shoji et al.'s measurement (the table above), so the
+nearest measurement is taken, never the first. A task's `d_pm_per_v` replaces the catalogue's and
+is taken at the job's wavelengths as it is.
+
+5 mol% MgO:LiNbO₃'s tensor in the catalogue is Shoji et al.'s d₃₃ and d₃₁ at 0.852, 1.064 and
+1.313 µm (Table 10). The paper leaves d₂₂ out at every wavelength (its blank spaces are elements
+that "either have not been measured or could not be measured", Sec. 3.H), and no other source in the
+catalogue measures it for the doped crystal; Kleinman's symmetry can't give it, since d₂₂ = d_yyy
+has no other permutation. The job doesn't borrow congruent LiNbO₃'s d₂₂ or set it to zero: a
+MgO:LN ridge's η from the catalogue stops with a note naming the missing element (d₁₆ = d₂₁ =
+−d₂₂, the first it meets) and asks for `d_pm_per_v`, as the Zhao et al. job below gives it.
 
 The waves are taken in each process's order: SHG's fundamental (the pump) and harmonic; SFG's
 first input, second input and sum; DFG's, OPA's and SPDC's pump, signal and idler (the signal
@@ -1223,7 +1272,7 @@ The run records four events after its start, and writes their contents beside it
 | Event | What it holds |
 |---|---|
 | `nonlinear_setup` | the waves with their wavelengths, indices (a ridge's group indices too) and input powers; Δk₀ and the coherence length; the grating; Δk and sinc²(ΔkL/2) at the operating point; η and where it comes from; the acceptance bandwidths in the tuned wave's wavelength and in temperature (Fejer et al.'s estimate and the width between the half maxima); the phase-matched wavelength inside the map; notes, among them each wave outside the material's [transparency window](catalogue.md#transparency-windows) |
-| `phase_map` | Δk and sinc²(ΔkL/2) against the tuned wave's wavelength (SHG's fundamental, every other process's signal, the pump held: `Device::phase_tuned`), row by row against the temperature (a crystal) or the ridge's width, each width's modes solved |
+| `phase_map` | Δk and sinc²(ΔkL/2) against the tuned wave's wavelength (SHG's fundamental, every other process's signal, the pump held: `Device::phase_tuned`), row by row against the temperature or the ridge's width, a ridge's modes solved at each temperature or width |
 | `nonlinear_efficiency` | against the length: the generated power by the coupled-amplitude equations (RK4, 2000 steps over the length, the losses in) beside the undepleted closed form; OPA's signal gain; SPDC's spectral brightness at the signal's centre, η P_p L² per hertz at degeneracy (`pair_rate_density`); FWM's signal gain and idler conversion, in closed form with the pump undepleted |
 | `pair_spectrum` | SPDC's and FWM's joint spectral amplitude, its purity and Schmidt number (`pairs::joint_spectrum`) |
 
@@ -1248,9 +1297,19 @@ map, the efficiency along the length and the joint spectrum drawn from the job's
 material's transparency window as a band over wavelength, the process's wavelengths marked on
 top. A run of the job opens on the same charts in the run view.
 
-What a job can't set yet: a ridge's materials at the task's temperature (they are taken at their
-stack's conditions, so its map can't be against temperature), a type-II SHG (one index for both
-fundamental photons), a depleted FWM with its losses, and a cavity around the guide.
+Two cases run Zhao et al.'s guide ([above](#zhao-et-als-guide)) through a job, on the job's
+default 20 nm cells behind a mirror wall, at 20 °C (Malitson's own temperature, where the
+library's cases read silica), with their d₃₃ = 27 pm/V in `d_pm_per_v`.
+`job/nonlinear-ridge-zhao-period` takes the period the job designs, 2.8172 µm, against their 2.8
+µm to half its last digit; the 20 nm cells' own error, 3.5e-3 µm, is the distance to the limit of
+`nonlinear/guide-zhao-period`'s grid study. `job/nonlinear-ridge-zhao-efficiency` takes the job's
+η, 4160.1 %/(W·cm²), against the library's overlap of the same guide on the same cells, the tensor
+turned onto the chip by hand: one sum reached by two paths, so the tolerance is round-off,
+1e-8 relative. The η's own grid error is the table's: 4160.1, 4163.7 and 4164.7 on 20, 10 and 5
+nm cells.
+
+What a job can't set yet: a type-II SHG (one index for both fundamental photons), a depleted FWM
+with its losses, a ridge's temperature acceptance, and a cavity around the guide.
 
 ## Limits
 
