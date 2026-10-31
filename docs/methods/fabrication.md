@@ -277,7 +277,12 @@ shows the flow for the design as it stands, read-only: the steps in order, and t
 cross-section at the design view's cut, animated step by step (`fabrication::stages`, air where
 nothing is yet): a deposition revealed from below as the film grows, an etch, a lift-off, a
 polish or the resist's removal from above as material goes, a lithography faded in; play, pause,
-step back and forward, a speed, and no motion under `prefers-reduced-motion`. For the step shown:
+step back and forward, a speed, and no motion under `prefers-reduced-motion`. Each medium is named
+by the film that is there, so the heater reads TiN and the electrodes Cu/Au, drawn in a metal's
+colour, though the optical model draws them as oxide; a table lists the layers from the top down,
+the substrate last. The **Fabricate** button also stands beside each published result that
+computes a library device (Validation's Published results) and beside each device a lesson
+shows. For the step shown:
 what the process does, why it was chosen, what else could do it, what it can achieve with each
 number's source on hover, and what isn't certain, with the glossary's definitions of the words
 it uses, each following a textbook's or paper's section (`fabrication::glossary`); then the

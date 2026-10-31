@@ -30,7 +30,7 @@
         .deviceFabrication(s)
         .then((f) => {
           if (!current) return;
-          shown = f;
+          shown = airy(f);
           problem = "";
           if (picked >= f.flow.steps.length) picked = 0;
         })
@@ -47,7 +47,40 @@
     };
   });
 
+  /** The stages with the vacuum where nothing is yet named "air", as the narration calls it. */
+  function airy(f: DeviceFabrication): DeviceFabrication {
+    const air = <T extends { material: string }>(m: T): T => (m.material.toLowerCase() === "vacuum" ? { ...m, material: "air" } : m);
+    return {
+      ...f,
+      stages: f.stages.map((s) => ({
+        ...s,
+        scene: { ...s.scene, cladding: air(s.scene.cladding), substrate: air(s.scene.substrate), layers: s.scene.layers.map((l) => ({ ...l, material: air(l.material), background: air(l.background) })) },
+      })),
+    };
+  }
+
   const step = $derived(shown?.flow.steps[picked] ?? null);
+  /** The wafer's layers after the step shown, from the top down, the substrate last: the scene's bands of an etched layer joined. */
+  const stack = $derived.by(() => {
+    const scene = shown?.stages[picked]?.scene;
+    if (!scene) return [];
+    const air = (m: string) => m;
+    const rows: { name: string; film: string; around: string; um: number | null }[] = [];
+    const z: [number, number][] = [];
+    for (const l of scene.layers) {
+      const base = l.name.replace(/ \d+$/, "");
+      const k = rows.findIndex((r) => r.name === base && base !== l.name);
+      if (k >= 0) z[k] = [Math.min(z[k][0], l.z_um[0]), Math.max(z[k][1], l.z_um[1])];
+      else {
+        rows.push({ name: l.name, film: air(l.material.material), around: air(l.background.material), um: null });
+        z.push([l.z_um[0], l.z_um[1]]);
+      }
+    }
+    rows.forEach((r, k) => (r.um = z[k][1] - z[k][0]));
+    const top = air(scene.cladding.material);
+    const bottom = air(scene.substrate.material);
+    return [{ name: "above", film: top, around: top, um: null }, ...rows.reverse(), { name: "substrate", film: bottom, around: bottom, um: null }];
+  });
   /** The glossary's words the step's narration uses. */
   const words = $derived.by(() => {
     if (!shown || !step) return [];
@@ -121,6 +154,20 @@
         <div>
           <div class="mb-1 faint">The wafer as this step leaves it, at the design view's cut ({normal} = <span class="num">{num(at)}</span> µm)</div>
           <ProcessAnimation stages={shown.stages} steps={shown.flow.steps} bind:picked {normal} {at} />
+        </div>
+        <div>
+          <div class="faint">The layers, from the top down, the substrate last (a job's stack lists them from the bottom up):</div>
+          <table class="table table-xs mt-1">
+            <tbody>
+              {#each stack as r, i (i)}
+                <tr>
+                  <td class="font-medium">{r.name}</td>
+                  <td>{r.film}{r.around !== r.film ? ` in ${r.around}` : ""}</td>
+                  <td class="num text-right">{r.um === null ? "" : `${num(r.um)} µm`}</td>
+                </tr>
+              {/each}
+            </tbody>
+          </table>
         </div>
         <p class="selectable"><span class="font-medium">What it does.</span> {step.plain}</p>
         <p class="selectable"><span class="font-medium">Here.</span> {step.does}.</p>

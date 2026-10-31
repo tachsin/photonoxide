@@ -131,6 +131,11 @@
   });
   /** What the view draws: the optimization's design while the Optimize tab shows one, the design otherwise. */
   const shownDrawn = $derived(previewDrawn ?? drawn);
+  // the tab shown in sight in the tab bar, however it was chosen (Fabricate picks the last one)
+  $effect(() => {
+    void draft.tab;
+    requestAnimationFrame(() => document.querySelector('[role="tablist"] .tab-active')?.scrollIntoView({ block: "nearest", inline: "nearest" }));
+  });
 
   const values = $derived<Record<string, number>>(view?.values ? Object.fromEntries(info.parameters.map((p, i) => [p.name, view!.values![i]])) : {});
   const thickness = $derived(values.thickness ?? null);
@@ -553,7 +558,7 @@
     </section>
 
     <aside class="flex min-h-0 min-w-0 flex-col">
-      <div role="tablist" class="tabs tabs-border tabs-sm shrink-0 flex-nowrap overflow-x-auto border-b border-base-content/8 px-3">
+      <div role="tablist" class="tabs tabs-border tabs-sm shrink-0 flex-wrap border-b border-base-content/8 px-3">
         {#each [["design", "Design"], ["overview", "Overview"], ["model", "Model"], ["simulate", "Simulate"], ["study", "Study"], ["optimize", "Optimize"], ["fabrication", "Fabrication"]] as const as [t, label] (t)}
           <button role="tab" class="tab {draft.tab === t ? 'tab-active' : ''}" onclick={() => (draft.tab = t)}>{label}</button>
         {/each}

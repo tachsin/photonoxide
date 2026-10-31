@@ -127,8 +127,8 @@ pub struct Stage {
 }
 
 /// The flow of `spec`'s design, preferring and avoiding processes by id, and the wafer after
-/// each step, over the design's shapes with 1 µm around them, from 1 µm below its first
-/// single-crystal film (or its first layer) to 1 µm above its top, at 1.55 µm.
+/// each step, over the design's shapes with 1 µm around them, from 0.5 µm into the substrate to 1
+/// µm above its top, at 1.55 µm.
 ///
 /// # Errors
 ///
@@ -157,28 +157,21 @@ pub fn fabrication_of(spec: &Spec, prefer: &[String], avoid: &[String]) -> Resul
     if !x[0].is_finite() {
         (x, y) = ([0.0, 0.0], [0.0, 0.0]);
     }
-    let films = physical.layers();
-    let first = films
-        .iter()
-        .position(|(d, _)| d.name == "Si" || d.name == "LiNbO3")
-        .unwrap_or(0);
-    let bottom: f64 = s.stack().layers()[..first]
-        .iter()
-        .map(|l| l.thickness.to_um())
-        .sum();
-    let z = [bottom - 1.0, s.stack().thickness().to_um() + 1.0];
+    let z = [-0.5, s.stack().thickness().to_um() + 1.0];
     let wavelength = Wavelength::um(1.55)?;
     let stages = stages(&flow)?
         .iter()
         .map(|made| {
+            let mut drawn = scene(
+                &made.structure,
+                [x[0] - 1.0, x[1] + 1.0],
+                [y[0] - 1.0, y[1] + 1.0],
+                z,
+                wavelength,
+            )?;
+            named(&mut drawn, made);
             Ok(Stage {
-                scene: scene(
-                    &made.structure,
-                    [x[0] - 1.0, x[1] + 1.0],
-                    [y[0] - 1.0, y[1] + 1.0],
-                    z,
-                    wavelength,
-                )?,
+                scene: drawn,
                 etched: scene_etched(&made.structure),
             })
         })
@@ -187,4 +180,46 @@ pub fn fabrication_of(spec: &Spec, prefer: &[String], avoid: &[String]) -> Resul
         flow: flow.record(Some(trip)),
         stages,
     })
+}
+
+/// A stage's scene with each medium named by the film that is there (the heater's TiN, not the
+/// oxide the optical model draws in its place; air where nothing is yet), its permittivities the
+/// optical ones. An etched layer's bands (`name 2`, `name 3`, …) take their layer's films.
+fn named(scene: &mut Event, made: &crate::fabrication::Made) {
+    let Event::Scene {
+        substrate,
+        cladding,
+        layers,
+        ..
+    } = scene
+    else {
+        return;
+    };
+    substrate.material.clone_from(&made.substrate);
+    cladding.material.clone_from(&made.cladding);
+    let names: Vec<&str> = made
+        .structure
+        .stack()
+        .layers()
+        .iter()
+        .map(|l| l.name.as_str())
+        .collect();
+    for l in layers {
+        let base = match l.name.rsplit_once(' ') {
+            Some((b, n)) if n.parse::<usize>().is_ok() && names.contains(&b) => b,
+            _ => l.name.as_str(),
+        };
+        if let Some(k) = names.iter().position(|n| *n == base) {
+            let (drawn, background) = &made.layers[k];
+            let slab = !made.structure.is_plain(base)
+                && l.material.material == l.background.material
+                && drawn != background;
+            l.material.material.clone_from(drawn);
+            l.background.material = if slab {
+                drawn.clone()
+            } else {
+                background.clone()
+            };
+        }
+    }
 }

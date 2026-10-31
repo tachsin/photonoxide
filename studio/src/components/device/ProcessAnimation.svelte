@@ -14,12 +14,16 @@
     picked = $bindable(0),
     normal,
     at,
-    height = 190,
+    height = 230,
   }: { stages: { scene: Scene; etched: SceneEtched[] }[]; steps: FlowStep[]; picked?: number; normal: "x" | "y"; at: number; height?: number } = $props();
 
   /** One step's time at speed 1, ms; and the pause after it while playing. */
   const DURATION = 1600;
   const PAUSE = 500;
+  /** How far the height may be stretched: a wafer's films are far thinner than its width; the picture says by how much. */
+  const STRETCH = 60;
+  /** The metals, drawn in their own colour: the optical model draws them with the oxide's optics. */
+  const METALS: Record<string, string> = { TiN: "fill-warning/70 stroke-warning", "Cu/Au": "fill-warning/70 stroke-warning" };
   const reduced = typeof window !== "undefined" && !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
 
   let playing = $state(false);
@@ -81,11 +85,11 @@
   <div class="relative">
     {#if picked > 0 && t < 1}
       <div class="absolute inset-0" aria-hidden="true">
-        <CutView scene={stages[picked - 1].scene} etched={stages[picked - 1].etched} {normal} {at} {height} />
+        <CutView scene={stages[picked - 1].scene} etched={stages[picked - 1].etched} {normal} {at} {height} quiet maxStretch={STRETCH} fills={METALS} />
       </div>
     {/if}
     <div class="relative" style={reveal}>
-      <CutView scene={stages[picked].scene} etched={stages[picked].etched} {normal} {at} {height} />
+      <CutView scene={stages[picked].scene} etched={stages[picked].etched} {normal} {at} {height} quiet maxStretch={STRETCH} fills={METALS} />
     </div>
   </div>
   <div class="mt-1 flex flex-wrap items-center gap-1" role="group" aria-label="The animation">
