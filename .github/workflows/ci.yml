@@ -131,9 +131,11 @@ jobs:
           # What was left took 31 minutes of cases on the release pull request of 31 October 2026
           # (49.5 minutes in all on a cold cache, #644's), with the device/ cases 16 of them
           # (pcm 4, thermo 3, compact 2, threads 1.4), shifter/ 4, line/ 3, mode/ 2, nonlinear/ 1.3,
-          # pockels/ 1 and the small areas 4.5; so the devices, and shifter/ with line/, have
-          # runners of their own as well, and the rest is mode/, nonlinear/, pockels/ and the
-          # small areas.
+          # pockels/ 1 and the small areas 4.5. So the devices and the areas after them are split
+          # in four (about 10 minutes of cases each, and 2 more with the release build): device/'s
+          # pcm, thermo, threads and
+          # compact; the rest of device/ with mode/; shifter/ with line/; and the rest, nonlinear/,
+          # pockels/ and the small areas.
           gnames=() gprefixes=()
           group() { gnames+=("$1"); gprefixes+=("$2"); }
           group "fdtd/adjoint" "fdtd/adjoint"
@@ -142,8 +144,8 @@ jobs:
           group "fdtd/" "fdtd/"
           group "fdfd3d/" "fdfd3d/"
           group "fabrication/" "fabrication/"
-          group "device/ (pcm, thermo, threads)" "device/pcm device/thermo device/threads"
-          group "device/ (the rest)" "device/"
+          group "device/ (pcm, thermo, threads, compact)" "device/pcm device/thermo device/threads device/compact"
+          group "device/ (the rest) and mode/" "device/ mode/"
           group "shifter/ and line/" "shifter/ line/"
           rest=""
           if [ -n "$cases" ]; then
