@@ -1,8 +1,8 @@
-// The pages: the five on the rail, the System group folded at its foot, and the run view, reached
+// The pages: the six on the rail, the System group folded at its foot, and the run view, reached
 // from a run. A job opens in the Custom device, on the Components page.
 // The rail, the top bar and Ctrl+K all read them from here.
 
-import { Atom, Boxes, CircuitBoard, Gauge, GraduationCap, House, Package, Settings, ShieldCheck, View } from "@lucide/svelte";
+import { Atom, Boxes, CircuitBoard, Factory, Gauge, GraduationCap, House, Package, Settings, ShieldCheck, View } from "@lucide/svelte";
 
 import type { Page } from "./app.svelte";
 
@@ -20,6 +20,7 @@ export const PAGES: Record<Page, PageInfo> = {
   home: { label: "Home", icon: House, hint: "Start from a template, or pick up where you left off", about: "Start something, or pick up where you left off" },
   components: { label: "Components", icon: Boxes, hint: "The parts of a chip: ports, parameters, models and spectra", about: "The parts a chip is built from: ports, parameters, models and spectra" },
   chip: { label: "Chip", icon: CircuitBoard, hint: "Place components, wire them into a circuit, simulate it", about: "Place components, wire them port to port, and simulate the circuit" },
+  fabrication: { label: "Fabrication", icon: Factory, hint: "How a design is made, step by step from the bare wafer, in 2D and 3D", about: "A design's process flow from the bare wafer: each step's reason, numbers and sources, played in cross-section and in 3D" },
   academy: { label: "Academy", icon: GraduationCap, hint: "Lessons: the physics, its history, and charts the library computes live", about: "How devices work and how the ideas came about, with charts computed by the library as you move them" },
   materials: { label: "Materials", icon: Atom, hint: "Indices, crystals and tensors, each from its paper", about: "Refractive indices, crystals and tensors, each from its paper" },
   validation: { label: "Validation", icon: ShieldCheck, hint: "Every solver against theory and papers, and the published results reproduced", about: "Each solver against exact solutions, and the published results reproduced" },
@@ -30,7 +31,7 @@ export const PAGES: Record<Page, PageInfo> = {
 };
 
 /** The rail: where work happens. */
-export const RAIL: Page[] = ["home", "components", "chip", "academy", "materials"];
+export const RAIL: Page[] = ["home", "components", "chip", "fabrication", "academy", "materials"];
 
 /** The System group, folded at the rail's foot beside Settings: the evidence and the machine. */
 export const SYSTEM: Page[] = ["validation", "libraries", "benchmarks"];

@@ -1,5 +1,5 @@
 <script lang="ts">
-  // The navigation rail: the five pages where work happens, and at its foot the System group
+  // The navigation rail: the six pages where work happens, and at its foot the System group
   // (Validation, Libraries, Benchmarks), folded, beside Settings. It folds to its icons and back
   // with one animation of its width: the icons stay where they are and the labels are clipped
   // and faded, so nothing in it moves. At its very foot, what is running (RailActivity). Folded, an item says what it is in a hint beside it.

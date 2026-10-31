@@ -40,8 +40,8 @@ only on a network you trust. See [docs/farming.md](../docs/farming.md).
 
 ## The studio
 
-The rail on the left holds five pages, the places where work happens: **Home**,
-**Components**, **Chip**, **Academy** and **Materials**. At its foot, the **System** group
+The rail on the left holds six pages, the places where work happens: **Home**,
+**Components**, **Chip**, **Fabrication**, **Academy** and **Materials**. At its foot, the **System** group
 (Validation, Libraries and Benchmarks) folds away beside **Settings**; it opens by itself when one
 of its pages is shown. Under **Components**, **Chip**, **Academy** and **Materials**, while that page is
 shown, its list opens in the rail, in a card of its own: the components, the parts and circuits,
@@ -390,6 +390,37 @@ in a drawer opened from the status bar.
     Escape lets go.
   - **New from…** starts an empty chip or one of the built-in circuits (`circuits/` in the
     repository): an MZI from parts, an all-pass and an add-drop ring, a 1×4 splitter.
+- **Fabrication:** how a design is made, from the bare wafer, step by step
+  (`photonoxide::fabrication`, docs/methods/fabrication.md). A suggested flow from published
+  processes, not a foundry's process.
+  - **The design:** it opens on the design open on a component's page (a component's
+    **Fabrication** tab leads here with **In 3D, from the bare wafer**), and the picker offers
+    every device of the library at its defaults, the templates with a `[device]` or a structure
+    task, and **Open a job file…** for any such file. The page names the platform the design is
+    made on: one for each design, set by its films.
+  - **The steps,** from the bare wafer, each with its step type and what it does; a lithography
+    shows its three phases (spin the resist on, write the pattern, develop), and a badge counts
+    what the rules flag. The step shown has its reason, what the process does, its parameters
+    (layer, film, thickness, depth and whether it is timed, sidewall, the resist's tone), what
+    it can achieve with each number's citation or "not specified", what the rules check, what
+    isn't certain, and the processes that could do it ranked: **Use instead** remakes the flow
+    with another, and **The rules' choice again** goes back.
+  - **2D and 3D:** the wafer's cross-section at a cut (x or y, at a position chosen) and the chip
+    in 3D, alone or side by side, each film in one colour in both (the exported cross-sections'
+    colours). The resist is drawn while it is on the wafer. The step's work is animated: a film
+    grows from below, material etched, lifted off, developed or polished goes from above, a
+    pattern written fades in; in 3D the layer being processed and what the step made are lit
+    and outlined, the cut is drawn as a plane, and a drag turns the chip and the wheel zooms.
+    Its height is stretched (films a tenth of a micron thick on a chip tens of microns wide),
+    and says by how much; **True scale** draws it as it is. A frame keeps to 200,000 triangles:
+    past that, the outlines are thinned in 3D, and the page says so.
+  - **One timeline** for both: play and pause (Space), a step back or forward (← and →), back
+    to the bare wafer (Home), a scrubber and the speed; the step shown is lit in the list. With
+    reduced motion the frames change without moving.
+  - **The layers now,** from the top down, the substrate last (the first made), each in its
+    colour with its thickness; and the round trip at the top: the flow run on photonoxide's own
+    geometry gives the design back, to the bit, on every point compared, or the page says how
+    many differ.
 - **Academy:** lessons on how devices work and how the ideas came about, each read as deep as
   you like (intuition, theory, research), with diagrams, charts the library computes as you
   move them, the published results it reproduces (each runnable in place), the validation cases
@@ -458,7 +489,9 @@ Help is built in:
   changes it later);
 - tips on each page, each closable;
 - tooltips on the controls;
-- **Ctrl+K** (⌘K) to jump to any page, template, published result, job, circuit or run.
+- **Ctrl+K** (⌘K) to jump to any page, template, published result, job, circuit or run, and
+  to see how a template or one of your designs is made (its group **Fabricate**, which opens
+  it on the Fabrication page).
 
 **The workspace** is the folder with `jobs/`, `runs/` and `circuits/`:
 1. the one chosen in the settings;

@@ -29,6 +29,8 @@ use schemars::{JsonSchema, SchemaGenerator};
 use serde::{Deserialize, Serialize};
 
 use super::device::{computed, spec_of};
+use super::fabrication_frames::frames;
+pub use super::fabrication_frames::{FlowFrame, UNSTATED_RESIST_UM};
 use super::kind::TaskKind;
 use super::scene::{SceneEtched, scene, scene_etched};
 use super::{Event, task_error};
@@ -36,7 +38,8 @@ use crate::Result;
 use crate::device::Spec;
 use crate::export::flow::FlowExport;
 use crate::fabrication::{
-    Assessment, Choices, FlowRecord, Physical, assess, fabricate, generate, round_trip, stages,
+    Assessment, Choices, FlowRecord, Physical, Platform, assess, fabricate, generate, platform,
+    round_trip, stages,
 };
 use crate::run::{Job, Run, Stop};
 use crate::units::Wavelength;
@@ -167,8 +170,8 @@ pub fn from_fabrication(
     Ok(job)
 }
 
-/// A design's flow and the wafer after each of its steps, as the studio's Fabrication tab shows
-/// them.
+/// A design's flow and the wafer after each of its steps, as the studio shows them: its
+/// Fabrication page and a component's Fabrication tab.
 #[derive(Clone, Debug, PartialEq, Serialize)]
 #[non_exhaustive]
 pub struct FabricationView {
@@ -179,6 +182,12 @@ pub struct FabricationView {
     /// What the rules find: each rule's check, each step's alternatives ranked, and the
     /// accuracy of each fabricated dimension.
     pub assessment: Assessment,
+    /// The platform the design is made on ([`crate::fabrication::platform`]).
+    pub platform: Option<Platform>,
+    /// The wafer at each moment the flow is played, from the bare wafer to the design: a frame
+    /// for each step, three for a lithography, the resist drawn while it is on the wafer
+    /// ([`FlowFrame`]). The last is the last stage's.
+    pub frames: Vec<FlowFrame>,
 }
 
 /// The wafer after a step: its scene ([`Event::Scene`], air where nothing is yet), and how each
@@ -200,14 +209,56 @@ pub struct Stage {
 ///
 /// [`crate::fabrication::generate`]'s, and the design's.
 pub fn fabrication_of(spec: &Spec, prefer: &[String], avoid: &[String]) -> Result<FabricationView> {
+    let (device, design) = spec.build()?;
+    let physical: Physical = device.physical(design.values())?;
+    fabrication_view(&physical, prefer, avoid)
+}
+
+/// The flow of a job's design, as [`fabrication_of`] gives a design's: its `[device]`'s, or for a
+/// job of kind `"structure"` its structure's, every material the film there
+/// ([`Physical::of`]).
+///
+/// # Errors
+///
+/// [`crate::Error::InvalidValue`] for a job with neither, and [`fabrication_of`]'s.
+pub fn fabrication_of_job(
+    job: &Job,
+    prefer: &[String],
+    avoid: &[String],
+) -> Result<FabricationView> {
+    if job.device().is_some() {
+        return fabrication_of(&spec_of(job)?, prefer, avoid);
+    }
+    let kind = job.task().get("kind").and_then(|k| k.as_str());
+    if kind != Some("structure") {
+        return Err(task_error(format!(
+            "the job draws no design the fabrication engine reads: it has no [device] table, and \
+             its task is {} where a \"structure\" task's layers and shapes would do",
+            kind.map_or_else(|| "missing".to_owned(), |k| format!("\"{k}\""))
+        )));
+    }
+    let task: super::structure::StructureTask = super::params::task(job)?;
+    task.validate()?;
+    fabrication_view(&Physical::of(task.structure()?), prefer, avoid)
+}
+
+/// The flow of `physical`, as [`fabrication_of`] gives a design's.
+///
+/// # Errors
+///
+/// [`fabrication_of`]'s.
+pub fn fabrication_view(
+    physical: &Physical,
+    prefer: &[String],
+    avoid: &[String],
+) -> Result<FabricationView> {
     let choices = Choices {
         prefer: prefer.to_vec(),
         avoid: avoid.to_vec(),
     };
-    let (device, design) = spec.build()?;
-    let physical: Physical = device.physical(design.values())?;
-    let flow = generate(&physical, &choices)?;
-    let trip = round_trip(&flow, &physical)?;
+    choices.check()?;
+    let flow = generate(physical, &choices)?;
+    let trip = round_trip(&flow, physical)?;
     let s = physical.structure();
     let (mut x, mut y) = (
         [f64::INFINITY, f64::NEG_INFINITY],
@@ -223,18 +274,15 @@ pub fn fabrication_of(spec: &Spec, prefer: &[String], avoid: &[String]) -> Resul
     if !x[0].is_finite() {
         (x, y) = ([0.0, 0.0], [0.0, 0.0]);
     }
-    let z = [-0.5, s.stack().thickness().to_um() + 1.0];
+    let (x, y) = ([x[0] - 1.0, x[1] + 1.0], [y[0] - 1.0, y[1] + 1.0]);
+    let top = s.stack().thickness().to_um();
+    let z = [-0.5, top + 1.0];
     let wavelength = Wavelength::um(1.55)?;
-    let stages = stages(&flow)?
+    let made = stages(&flow)?;
+    let stages = made
         .iter()
         .map(|made| {
-            let mut drawn = scene(
-                &made.structure,
-                [x[0] - 1.0, x[1] + 1.0],
-                [y[0] - 1.0, y[1] + 1.0],
-                z,
-                wavelength,
-            )?;
+            let mut drawn = scene(&made.structure, x, y, z, wavelength)?;
             named(&mut drawn, made);
             Ok(Stage {
                 scene: drawn,
@@ -245,14 +293,16 @@ pub fn fabrication_of(spec: &Spec, prefer: &[String], avoid: &[String]) -> Resul
     Ok(FabricationView {
         flow: flow.record(Some(trip)),
         stages,
-        assessment: assess(&physical, &flow)?,
+        assessment: assess(physical, &flow)?,
+        platform: platform(physical),
+        frames: frames(&flow, &made, x, y, z[0], top, wavelength)?,
     })
 }
 
 /// A stage's scene with each medium named by the film that is there (the heater's TiN, not the
 /// oxide the optical model draws in its place; air where nothing is yet), its permittivities the
 /// optical ones. An etched layer's bands (`name 2`, `name 3`, …) take their layer's films.
-fn named(scene: &mut Event, made: &crate::fabrication::Made) {
+pub(super) fn named(scene: &mut Event, made: &crate::fabrication::Made) {
     let Event::Scene {
         substrate,
         cladding,

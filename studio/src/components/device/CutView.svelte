@@ -13,7 +13,7 @@
   // out, in place of the bands' staircase the scene draws them in (their slab stays the bands')
   // `quiet` leaves out "the cut meets no shape here", for a wafer with nothing drawn on it yet
   // `maxStretch` bounds how far the height may be stretched (8× by default); `names` false leaves
-  // out the layers' names (a picture drawn under another)
+  // out the layers' names and the margin they take (a narrow picture, whose legend names them)
   let {
     scene,
     etched = [],
@@ -24,13 +24,22 @@
     maxStretch = 8,
     names = true,
     fills = {},
-  }: { scene: Scene; etched?: SceneEtched[]; normal: "x" | "y"; at: number; height?: number; quiet?: boolean; maxStretch?: number; names?: boolean; fills?: Record<string, string> } = $props();
+    colours = {},
+  }: { scene: Scene; etched?: SceneEtched[]; normal: "x" | "y"; at: number; height?: number; quiet?: boolean; maxStretch?: number; names?: boolean; fills?: Record<string, string>; colours?: Record<string, string> } = $props();
+  // `colours`, a film's colour by its name (the Fabrication page's, its 3D view's too), paints a
+  // medium in place of the classes by permittivity; air stays unpainted
   /** A medium's fill: one `fills` names for its material (a metal the optical model draws as oxide), else by its permittivity. */
-  const fill = (m: { material: string; eps: number }) => fills[m.material] ?? fillOf(m.eps);
+  const fill = (m: { material: string; eps: number }) => (paint(m) ? "" : (fills[m.material] ?? fillOf(m.eps)));
+  /** A medium's paint from `colours`, as a style, or "" without one: the clear films (ε below 3, an oxide, a resist) lighter, a metal not, though drawn with an oxide's optics. */
+  function paint(m: { material: string; eps: number }): string {
+    const c = m.material === "air" ? undefined : colours[m.material];
+    const clear = m.eps < 3 && !/^(TiN|Cu\/Au|Au|Cu|Al|Ti|Pt|Cr|NiCr|W)$/.test(m.material);
+    return c ? `fill: ${c}; fill-opacity: ${clear ? 0.35 : 0.95}; stroke: ${c}` : "";
+  }
 
   let width = $state(400);
   // the layers' names go at the right, beyond the window
-  const pad = { left: 44, right: 118, top: 10, bottom: 30 };
+  const pad = $derived({ left: 44, right: names ? 118 : 12, top: 10, bottom: 30 });
   const pieces = $derived(cut(scene, normal, at));
   /** Across the cut: around the shapes it meets with 1 µm to spare, or the whole window when it meets none. */
   const across = $derived.by((): [number, number] => {
@@ -87,24 +96,24 @@
     <defs><clipPath id={clip}><rect x={X(across[0])} y={Z(z[1])} width={w} height={h} /></clipPath></defs>
     <g clip-path="url(#{clip})">
       <!-- the substrate, the layers' backgrounds, the cladding -->
-      <rect x={X(across[0])} width={w} {...band(z[0] - 1e3, 0)} class={fill(scene.substrate) ?? "fill-none"} stroke-width="0" />
+      <rect x={X(across[0])} width={w} {...band(z[0] - 1e3, 0)} class={fill(scene.substrate) ?? "fill-none"} style={paint(scene.substrate)} stroke-width="0" />
       {#each scene.layers as l (l.name)}
-        <rect x={X(across[0])} width={w} {...band(l.z_um[0], l.z_um[1])} class={fill(l.background) ?? "fill-none"} stroke-width="0" />
+        <rect x={X(across[0])} width={w} {...band(l.z_um[0], l.z_um[1])} class={fill(l.background) ?? "fill-none"} style={paint(l.background)} stroke-width="0" />
         <line x1={X(across[0])} x2={X(across[1])} y1={Z(l.z_um[0])} y2={Z(l.z_um[0])} class="stroke-base-content/25" stroke-dasharray="3 3" />
       {/each}
-      <rect x={X(across[0])} width={w} {...band(top, z[1] + 1e3)} class={fill(scene.cladding) ?? "fill-none"} stroke-width="0" />
+      <rect x={X(across[0])} width={w} {...band(top, z[1] + 1e3)} class={fill(scene.cladding) ?? "fill-none"} style={paint(scene.cladding)} stroke-width="0" />
       <line x1={X(across[0])} x2={X(across[1])} y1={Z(top)} y2={Z(top)} class="stroke-base-content/25" stroke-dasharray="3 3" />
       <!-- the shapes the cut meets -->
       {#each pieces as p, k (k)}
         {@const l = scene.layers.find((x) => x.name === p.layer)}
         {#if l && !banded(l.name)}
-          <rect x={X(p.from)} width={(p.to - p.from) * scale} {...band(l.z_um[0], l.z_um[1])} class={fill(l.material) ?? "fill-none"} stroke-width="1" />
+          <rect x={X(p.from)} width={(p.to - p.from) * scale} {...band(l.z_um[0], l.z_um[1])} class={fill(l.material) ?? "fill-none"} style={paint(l.material)} stroke-width="1" />
         {/if}
       {/each}
       {#each exact as p, k (k)}
         {@const l = scene.layers.find((x) => x.name === p.layer)}
         {#if l}
-          <polygon points={trapezoid(p.from, p.to, p.e.z_um[0], p.e.z_um[1], p.e)} class={fill(l.material) ?? "fill-none"} stroke-width="1" />
+          <polygon points={trapezoid(p.from, p.to, p.e.z_um[0], p.e.z_um[1], p.e)} class={fill(l.material) ?? "fill-none"} style={paint(l.material)} stroke-width="1" />
         {/if}
       {/each}
     </g>
