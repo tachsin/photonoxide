@@ -1,5 +1,6 @@
 //! Wafers bought with their first layers: silicon on insulator and lithium niobate on
-//! insulator. A single-crystal film on an insulator is bonded and split, never deposited.
+//! insulator, whose single-crystal film is bonded and split, never deposited; and the bare
+//! silicon wafer the deposited platforms start from.
 
 use super::{Platform, Process, Purpose, StepType, cap, fact, new_process, src, used};
 use crate::fabrication::stated::{Quantity, Stated, Unit};
@@ -137,5 +138,43 @@ pub(super) fn processes() -> Vec<Process> {
             "Section 3.A (PDF p. 4)",
         ),
     ];
-    vec![soi, lnoi]
+    soi.handle = Some("Si".into());
+    lnoi.handle = Some("Si".into());
+    vec![soi, lnoi, silicon()]
+}
+
+/// A bare silicon wafer, the start of the platforms whose guide film is deposited.
+fn silicon() -> Process {
+    let mut p = new_process(
+        "si-wafer",
+        StepType::Wafer,
+        "A bare silicon wafer",
+        "A polished wafer of single-crystal silicon with nothing on it. The oxide under the guides \
+         is grown from it, and the guides' film deposited over that.",
+        &[],
+    );
+    p.handle = Some("Si".into());
+    p.facts = vec![
+        fact(
+            "The nitride ring resonators were made on a thermally oxidized 4-inch silicon wafer.",
+            "luke-2013",
+            "PDF p. 3",
+        ),
+        fact(
+            "The photonic Damascene process etches its preforms into the wet thermal oxide of the \
+             substrate.",
+            "pfeiffer-2016",
+            "PDF p. 2",
+        ),
+    ];
+    p.used_for = vec![
+        used(Platform::Nitride, Purpose::Guide, "luke-2013", "PDF p. 3"),
+        used(
+            Platform::Nitride,
+            Purpose::Guide,
+            "pfeiffer-2016",
+            "PDF p. 2",
+        ),
+    ];
+    p
 }

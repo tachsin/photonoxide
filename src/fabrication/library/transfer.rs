@@ -1,5 +1,6 @@
 //! Pattern transfer: silicon's and lithium niobate's etches, titanium nitride's, lift-off and the
-//! resist's removal.
+//! resist's removal; the other films' etches by chemistry; and the nitride platform's etch, crack
+//! stops and Damascene preform.
 
 use super::{Mask, Platform, Process, Purpose, StepType, Stop, cap, fact, new_process, src, used};
 use crate::fabrication::stated::{Quantity, Stated, Unit};
@@ -498,7 +499,152 @@ pub(super) fn processes() -> Vec<Process> {
     ];
     let mut all = vec![hbr, cl2, bosch, argon, sf6, cf4, chf3, lift, tin, strip];
     all.extend(by_material());
+    all.extend(nitride());
     all
+}
+
+/// The nitride platform's own steps: its guides' etch, the crack stops a thick film needs, and
+/// the photonic Damascene process's preform.
+fn nitride() -> Vec<Process> {
+    let mut etch = new_process(
+        "icp-si3n4-chf3",
+        StepType::PatternTransfer,
+        "Silicon nitride by reactive-ion etching in CHF₃/O₂",
+        "A plasma of fluoroform and oxygen etches the nitride where the resist leaves it bare; \
+         the nitride papers in hand etched their guides this way, through the film or part of \
+         the way.",
+        &["Si3N4", "SiN"],
+    );
+    etch.capabilities = vec![
+        cap(
+            Quantity::Sidewall,
+            Stated::not_specified(),
+            "nitride in CHF₃/O₂",
+        ),
+        cap(over("SiO2"), Stated::not_specified(), "on the oxide below"),
+    ];
+    etch.masks = vec![
+        mask(
+            "ma-n",
+            Stated::not_specified(),
+            Stated::not_specified(),
+            Stated::value(910.0, Unit::Nm, src("luke-2013", "PDF p. 3")),
+        ),
+        mask(
+            "ma-n",
+            Stated::not_specified(),
+            Stated::not_specified(),
+            Stated::value(330.0, Unit::Nm, src("rios-2015", "Methods (PDF p. 9)")),
+        ),
+    ];
+    etch.facts = vec![
+        fact(
+            "Guides 910 nm thick were etched in an inductively coupled plasma in CHF₃/O₂ under \
+             ma-N 2405 resist.",
+            "luke-2013",
+            "PDF p. 3",
+        ),
+        fact(
+            "Guides were etched 165 nm into 335 nm of nitride (330 nm for the rings) in CHF₃/O₂, \
+             and the resist removed in an oxygen plasma.",
+            "rios-2015",
+            "Methods (PDF p. 9)",
+        ),
+        fact(
+            "The etch that defines thick nitride guides often has limited anisotropy and an \
+             etch rate that depends on the aspect ratio: a gap designed 200 nm wide came out \
+             450 nm.",
+            "pfeiffer-2016",
+            "PDF p. 2",
+        ),
+    ];
+    etch.used_for = vec![
+        used(Platform::Nitride, Purpose::Guide, "luke-2013", "PDF p. 3"),
+        used(
+            Platform::Nitride,
+            Purpose::Guide,
+            "rios-2015",
+            "Methods (PDF p. 9)",
+        ),
+    ];
+
+    let mut stops = new_process(
+        "crack-stop-trenches",
+        StepType::PatternTransfer,
+        "Crack-stop trenches",
+        "Lines scribed into the oxide around the area the devices go in, before a thick nitride \
+         film is deposited. A crack that starts at the wafer's edge stops at them, so the area \
+         inside stays whole.",
+        &[],
+    );
+    stops.facts = vec![fact(
+        "Two to five parallel lines lightly scribed with a diamond into the oxide of a thermally \
+         oxidized wafer, around a 5 cm by 5 cm area, before 910 nm of nitride was deposited; \
+         lithography and etching would also make them.",
+        "luke-2013",
+        "PDF p. 3",
+    )];
+    stops.used_for = vec![used(
+        Platform::Nitride,
+        Purpose::Guide,
+        "luke-2013",
+        "PDF p. 3",
+    )];
+
+    let mut preform = new_process(
+        "damascene-preform",
+        StepType::PatternTransfer,
+        "The oxide preform of the photonic Damascene process",
+        "The guides' shape is etched into the oxide first, as trenches; the nitride is then \
+         deposited into them and the excess polished away, so the nitride itself is never \
+         etched. A dense pattern etched around the guides relieves the nitride's stress, so \
+         thick films don't crack.",
+        &["SiO2"],
+    );
+    preform.capabilities = vec![
+        cap(
+            Quantity::Sidewall,
+            Stated::not_specified(),
+            "the preform's walls; the guides came out with nearly vertical sidewalls",
+        ),
+        cap(
+            Quantity::Selectivity {
+                over: "a-Si".into(),
+            },
+            Stated::not_specified(),
+            "the amorphous silicon hard mask: the source states a 10:1 selectivity between \
+             the hard mask and the thermal oxide without saying which etches faster",
+        ),
+    ];
+    preform.facts = vec![
+        fact(
+            "The guides are written by electron-beam lithography and dry etched into an \
+             amorphous silicon hard mask; a dense stress-release pattern is added to the same \
+             mask by photolithography, and both are etched into the wet thermal oxide.",
+            "pfeiffer-2016",
+            "PDF p. 2",
+        ),
+        fact(
+            "The stress-release pattern is a checkerboard of 5 µm by 5 µm rectangles over the \
+             wafer, leaving 10 µm free on each side of the guides.",
+            "pfeiffer-2016",
+            "PDF p. 3",
+        ),
+        fact(
+            "Guides 1.5 µm wide and 0.85 µm high came out with nearly vertical sidewalls and a \
+             flat top, and a coupling gap below 200 nm (an aspect ratio better than 4:1) filled \
+             without voids.",
+            "pfeiffer-2016",
+            "PDF p. 3",
+        ),
+    ];
+    preform.used_for = vec![used(
+        Platform::Nitride,
+        Purpose::Guide,
+        "pfeiffer-2016",
+        "PDF p. 2",
+    )];
+    vec![etch, stops, preform]
 }
 
 /// The etches of the other films a design may draw, by their chemistry: oxide and nitride in

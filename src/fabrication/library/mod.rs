@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 
 use super::stated::{Capability, Fact, Quantity, Source, Stated, Unit};
 
+mod anneal;
 mod deposition;
 mod lithography;
 mod planarization;
@@ -17,7 +18,7 @@ mod wafer;
 
 /// The library's version, which a run's record names: it changes whenever a process, a
 /// capability or a rule changes, so that an older run says which library it used.
-pub const LIBRARY_VERSION: &str = "2";
+pub const LIBRARY_VERSION: &str = "3";
 
 /// What kind of step a process is.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -34,6 +35,9 @@ pub enum StepType {
     PatternTransfer,
     /// The surface polished flat.
     Planarization,
+    /// The wafer heated to change a film already on it: to densify it, drive out hydrogen or
+    /// relieve its stress. It changes no shape.
+    Anneal,
 }
 
 impl StepType {
@@ -45,6 +49,7 @@ impl StepType {
             StepType::Lithography => "lithography",
             StepType::PatternTransfer => "pattern transfer",
             StepType::Planarization => "planarization",
+            StepType::Anneal => "anneal",
         }
     }
 }
@@ -58,6 +63,25 @@ pub enum Platform {
     Soi,
     /// Lithium niobate on insulator.
     Lnoi,
+    /// Silicon nitride deposited on thermal oxide over silicon.
+    Nitride,
+    /// Aluminium nitride sputtered on thermal oxide over silicon.
+    Aln,
+    /// Gallium arsenide grown by epitaxy on aluminium gallium arsenide, on a GaAs wafer.
+    Gaas,
+}
+
+impl Platform {
+    /// Its name, as the narration writes it.
+    pub fn name(self) -> &'static str {
+        match self {
+            Platform::Soi => "silicon on insulator",
+            Platform::Lnoi => "lithium niobate on insulator",
+            Platform::Nitride => "silicon nitride",
+            Platform::Aln => "aluminium nitride",
+            Platform::Gaas => "gallium arsenide",
+        }
+    }
 }
 
 /// What a process was used for in a source's device.
@@ -71,6 +95,10 @@ pub enum Purpose {
     Metal,
     /// The cladding over the guides.
     Cladding,
+    /// The oxide under the guides, on a bare wafer.
+    Under,
+    /// Phase-change cells on the guides.
+    Cell,
 }
 
 /// A source's device that used a process, on a platform, for a purpose.
@@ -122,6 +150,8 @@ pub struct Process {
     /// The films it deposits, etches or lifts off (none for a lithography); a wafer's films
     /// bottom to top over its handle.
     pub films: Vec<String>,
+    /// A wafer's handle: the film under its layers, e.g. `"Si"`; `None` for every other step.
+    pub handle: Option<String>,
     /// A lithography's resist: its id.
     pub resist: Option<String>,
     /// Whether a deposition comes down in straight lines (evaporation), which lift-off needs.
@@ -211,6 +241,7 @@ pub(super) fn new_process(
         name: name.into(),
         plain: plain.into(),
         films: films.iter().map(|f| (*f).into()).collect(),
+        handle: None,
         resist: None,
         directional: false,
         capabilities: Vec::new(),
@@ -267,6 +298,7 @@ pub fn library() -> &'static [Process] {
         all.extend(lithography::processes());
         all.extend(transfer::processes());
         all.extend(planarization::processes());
+        all.extend(anneal::processes());
         all.into_iter().map(Process::referenced).collect()
     })
 }
@@ -297,18 +329,26 @@ pub fn budget(film: &str) -> Budget {
     };
     let (survives, limit, conditions) = match film {
         "Si" | "SiO2" => (
-            Stated::AtLeast {
-                value: 1000.0,
-                unit: Unit::Celsius,
-                source: src("bruel-1995", "Step 3 (p. 1201)"),
-            },
+            Stated::value(
+                1300.0,
+                Unit::Celsius,
+                src("deal-grove-1965", "abstract (PDF p. 2)"),
+            ),
             Stated::not_specified(),
-            "an SOI wafer's film and buried oxide are heated above 1000 °C to strengthen the bond",
+            "silicon is oxidized, and its oxide grows, at up to 1300 °C; an SOI wafer's film and \
+             buried oxide are heated above 1000 °C to strengthen the bond (bruel-1995, Step 3, p. \
+             1201)",
         ),
         "LiNbO3" => (
             deg(450.0, "poberaj-2012", "PDF p. 4"),
             Stated::not_specified(),
             "the split lithium niobate film is annealed at 450 °C for 8 hours",
+        ),
+        "Si3N4" | "SiN" => (
+            deg(1200.0, "luke-2013", "PDF p. 3"),
+            Stated::not_specified(),
+            "patterned stoichiometric nitride guides were annealed at 1200 °C in nitrogen for 3 \
+             hours",
         ),
         "TiN" => (
             deg(600.0, "kearney-2018", "abstract (p. 78)"),

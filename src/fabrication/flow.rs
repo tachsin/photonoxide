@@ -79,7 +79,9 @@ pub enum Operation {
         /// Where the resist stays.
         tone: Tone,
     },
-    /// The layer `layer` etched where the resist leaves it bare.
+    /// The layer `layer` etched where the resist leaves it bare: around the shapes the resist is
+    /// kept on, or the shapes themselves where it is opened (a preform's trenches, which the
+    /// next deposition fills with the shapes' film).
     Etch {
         /// The layer.
         layer: String,
@@ -103,6 +105,11 @@ pub enum Operation {
     },
     /// The resist removed.
     Strip,
+    /// The wafer heated to change a film already there; no shape changes.
+    Anneal {
+        /// What is annealed, in plain words.
+        what: String,
+    },
     /// Something the design doesn't draw, listed and not executed: e.g. a heater's contacts.
     Undrawn {
         /// What, in plain words.
@@ -115,6 +122,9 @@ impl Operation {
     pub fn describe(&self) -> String {
         let um = |l: Length| format!("{} µm", number(l.to_um()));
         match self {
+            Operation::Wafer { layers, substrate } if layers.is_empty() => {
+                format!("the wafer: bare {}", substrate.name)
+            }
             Operation::Wafer { layers, .. } => format!(
                 "the wafer: {}",
                 layers
@@ -175,6 +185,7 @@ impl Operation {
             }
             Operation::LiftOff { layer } => format!("lift off: {layer} left in the openings"),
             Operation::Strip => "remove the resist".into(),
+            Operation::Anneal { what } => format!("{what}: no shape changes"),
             Operation::Undrawn { what } => format!("not drawn by the design: {what}"),
         }
     }
@@ -190,6 +201,7 @@ impl Operation {
             Operation::Evaporate { .. } => "evaporate",
             Operation::LiftOff { .. } => "lift_off",
             Operation::Strip => "strip",
+            Operation::Anneal { .. } => "anneal",
             Operation::Undrawn { .. } => "undrawn",
         }
     }
@@ -255,7 +267,7 @@ pub struct StepRecord {
     /// What it does, plainly.
     pub plain: String,
     /// The operation's kind: `"wafer"`, `"deposit"`, `"planarize"`, `"pattern"`, `"etch"`,
-    /// `"evaporate"`, `"lift_off"`, `"strip"` or `"undrawn"`.
+    /// `"evaporate"`, `"sputter"`, `"lift_off"`, `"strip"`, `"anneal"` or `"undrawn"`.
     pub operation: String,
     /// The operation, in a short phrase.
     pub does: String,
@@ -416,7 +428,7 @@ impl Step {
                 r.thickness_um = Some(thickness.to_um());
             }
             Operation::LiftOff { layer } => r.layer = Some(layer.clone()),
-            Operation::Strip | Operation::Undrawn { .. } => {}
+            Operation::Strip | Operation::Anneal { .. } | Operation::Undrawn { .. } => {}
         }
         r
     }

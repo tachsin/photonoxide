@@ -14,23 +14,44 @@ pub(super) fn processes() -> Vec<Process> {
          and uses it up.",
         &["SiO2"],
     );
-    thermal.capabilities = vec![cap(
-        Quantity::Temperature,
-        Stated::range(
-            700.0,
-            1300.0,
-            Unit::Celsius,
-            src("deal-grove-1965", "abstract (PDF p. 2)"),
+    thermal.capabilities = vec![
+        cap(
+            Quantity::Temperature,
+            Stated::range(
+                700.0,
+                1300.0,
+                Unit::Celsius,
+                src("deal-grove-1965", "abstract (PDF p. 2)"),
+            ),
+            "the range Deal and Grove's law was fitted over (0.1 to 1.0 atm, 300 to 20 000 Å of \
+             oxide)",
         ),
-        "the range Deal and Grove's law was fitted over (0.1 to 1.0 atm, 300 to 20 000 Å of \
-         oxide)",
-    )];
+        cap(
+            Quantity::Thickness,
+            Stated::range(
+                0.03,
+                2.0,
+                Unit::Um,
+                src("deal-grove-1965", "abstract (PDF p. 2)"),
+            ),
+            "the oxide thicknesses Deal and Grove's law was fitted over, 300 to 20 000 Å",
+        ),
+    ];
     thermal.facts = vec![fact(
         "The oxidant diffuses through the oxide and reacts with the silicon at the oxide–silicon \
          interface, so the oxide grows only where there is silicon, and consumes it.",
         "deal-grove-1965",
         "Section 2 (PDF p. 4)",
     )];
+    thermal.used_for = vec![
+        used(Platform::Nitride, Purpose::Under, "luke-2013", "PDF p. 3"),
+        used(
+            Platform::Nitride,
+            Purpose::Under,
+            "pfeiffer-2016",
+            "PDF p. 2",
+        ),
+    ];
 
     let mut pecvd = new_process(
         "pecvd-oxide",
@@ -252,12 +273,94 @@ fn lpcvd() -> Process {
             "stoichiometric nitride: its high tensile stress cracks films thicker than about \
              2000 Å",
         ),
+        cap(
+            Quantity::Temperature,
+            Stated::value(770.0, Unit::Celsius, src("pfeiffer-2016", "PDF p. 2")),
+            "stoichiometric nitride, stated as about 770 °C",
+        ),
+        cap(
+            Quantity::Temperature,
+            Stated::value(800.0, Unit::Celsius, src("luke-2013", "PDF p. 4")),
+            "high-temperature oxide (HTO), 250 nm over nitride guides",
+        ),
+        cap(
+            Quantity::Roughness,
+            Stated::AtMost {
+                value: 0.4,
+                unit: Unit::Nm,
+                source: src("bauters-2011", "PDF p. 3"),
+            },
+            "the surface of LPCVD nitride films",
+        ),
+        cap(
+            Quantity::Thickness,
+            Stated::AtMost {
+                value: 910.0,
+                unit: Unit::Nm,
+                source: src("luke-2013", "PDF p. 3"),
+            },
+            "nitride etched into guides, deposited in two steps of 400 and 510 nm, with \
+             crack-stop trenches around the devices",
+        ),
+        cap(
+            Quantity::Thickness,
+            Stated::AtMost {
+                value: 1350.0,
+                unit: Unit::Nm,
+                source: src("pfeiffer-2016", "PDF p. 3"),
+            },
+            "nitride filling an oxide preform (the photonic Damascene process): its record guide \
+             thickness",
+        ),
     ];
-    p.facts = vec![fact(
-        "Medium-temperature LPCVD is conformal and its films excellent, with few particles.",
-        "madou-2018",
-        "Vol. II, Table 7.19 (p. 452)",
-    )];
+    p.facts = vec![
+        fact(
+            "Medium-temperature LPCVD is conformal and its films excellent, with few particles.",
+            "madou-2018",
+            "Vol. II, Table 7.19 (p. 452)",
+        ),
+        fact(
+            "Nitride's high film stress keeps films thicker than 400 nm from being deposited: they \
+             crack catastrophically; with high-temperature deposition and anneal, films thicker \
+             than 750 nm remain challenging.",
+            "luke-2013",
+            "PDF p. 2",
+        ),
+        fact(
+            "Two to five parallel trenches scribed into the oxide around the device area before \
+             the nitride is deposited stop the cracks that start at the wafer's edge.",
+            "luke-2013",
+            "PDF p. 3",
+        ),
+        fact(
+            "Crack formation has often limited LPCVD nitride to at most 250 nm; over an oxide \
+             densely prestructured around the guides, 1.2 µm films deposited in one run gave a \
+             yield above 95 %, with no cracks while the film exceeds the preform's depth by at most \
+             100 nm.",
+            "pfeiffer-2016",
+            "PDF p. 3",
+        ),
+    ];
+    p.used_for = vec![
+        used(
+            Platform::Nitride,
+            Purpose::Guide,
+            "bauters-2011",
+            "PDF p. 3",
+        ),
+        used(
+            Platform::Nitride,
+            Purpose::Guide,
+            "pfeiffer-2016",
+            "PDF p. 2",
+        ),
+        used(
+            Platform::Nitride,
+            Purpose::Cladding,
+            "luke-2013",
+            "PDF p. 4",
+        ),
+    ];
     p
 }
 
@@ -309,10 +412,25 @@ fn pecvd_nitride() -> Process {
         ),
         "plasma-assisted CVD of SiN, SiO₂ and SiON",
     )];
-    p.facts = vec![fact(
-        "PECVD's step coverage is poor, its films poor and its particles many, against LPCVD's.",
-        "madou-2018",
-        "Vol. II, Table 7.19 (p. 452)",
-    )];
+    p.facts = vec![
+        fact(
+            "PECVD's step coverage is poor, its films poor and its particles many, against \
+             LPCVD's.",
+            "madou-2018",
+            "Vol. II, Table 7.19 (p. 452)",
+        ),
+        fact(
+            "PECVD gives nitride films of lower stress, which can be thicker, but their hydrogen \
+             and oxygen bonds absorb more light than LPCVD nitride.",
+            "luke-2013",
+            "PDF p. 2",
+        ),
+        fact(
+            "PECVD deposits nitride without cracks, but high-Q resonators were made only in \
+             stoichiometric LPCVD nitride.",
+            "pfeiffer-2016",
+            "PDF p. 2",
+        ),
+    ];
     p
 }

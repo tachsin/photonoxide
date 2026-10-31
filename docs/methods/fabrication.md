@@ -103,7 +103,7 @@ Layers are listed from the top down, the substrate last, as a cross-section is d
 | 2 | lithography | 193 nm projection | Resist kept on the strip. Its narrowest line, 0.5 µm, is above the 150 nm the source printed linearly; the SOI papers in hand used it. At NA 0.93 the line asks for k₁ = 2.4, far above the typical 0.4. |
 | 3 | pattern transfer | ICP etch in HBr/O₂ | Through the 0.22 µm of Si, stopping on the oxide below, which it etches far more slowly: the over-etch takes at most 1.5 nm of it. |
 | 4 | pattern transfer | Resist removal | |
-| 5 | deposition | LPCVD oxide | Fills the etched regions and is the cladding. Conformal (100 % step coverage), where PECVD's is 25–50 %; at 500–900 °C, below what Si and SiO₂ are shown to survive (above 1000 °C). |
+| 5 | deposition | LPCVD oxide | Fills the etched regions and is the cladding. Conformal (100 % step coverage), where PECVD's is 25–50 %; at 500–900 °C, below what Si and SiO₂ are shown to survive (1300 °C). |
 
 **Warning the flow gives:** the design's vertical walls are outside the cited 82° of both
 silicon etches (Selvaraja et al.'s "8°" from the vertical, Bojko et al.'s 82°). The design's own
@@ -167,6 +167,57 @@ Sputtered TiN is etched, not lifted off: lift-off relies on evaporation's poor s
 which "effectively prevents the use of sputtering" (Campbell, Section 11.9). Lift-off is listed
 as the alternative, with Ríos et al.'s 10 nm sputtered film lifted off.
 
+## More platforms
+
+The same rules make designs on four further platforms. Each round-trips to the bit, like the
+first three.
+
+### Silicon nitride (a library device on the `nitride` stack, here `waveguide` at its defaults)
+
+Silicon nitride isn't a crystal bought with its wafer: it is deposited. So the flow starts
+from a bare silicon wafer, grows the oxide under the guides from it, and deposits the nitride
+over that.
+
+| Layer | Film | Thickness | Drawn |
+|---|---|---|---|
+| cladding | SiO₂ | above everything | |
+| SiN | Si₃N₄, SiO₂ where etched | 0.22 µm | a strip 0.5 µm wide, vertical walls |
+| BOX | SiO₂ | 2 µm | |
+| substrate | Si | | |
+
+| # | Step | Process | What it does, and why |
+|---|---|---|---|
+| 1 | wafer | A bare silicon wafer | The nitride papers start from oxidized silicon wafers (Luke et al. 2013; Pfeiffer et al. 2016). |
+| 2 | deposition | Thermal oxidation | The 2 µm of oxide grown from the wafer's silicon. Deal and Grove's law with their 1100 °C steam constants gives about 8.3 hours. |
+| 3 | deposition | LPCVD | 0.22 µm of nitride, at up to 900 °C, which silicon and its oxide are shown to survive (oxidized at up to 1300 °C). Bauters et al. 2011 and Pfeiffer et al. 2016 used LPCVD nitride; PECVD nitride is the alternative, with lower stress and more absorption (Luke et al., PDF p. 2). |
+| 4 | lithography | Electron beam in ma-N | Resist kept on the strip, as Luke et al. and Ríos et al. wrote their guides; ma-N's narrowest feature in hand is a 300 nm gap (Ríos et al., Fig. 3). |
+| 5 | pattern transfer | Etch in CHF₃/O₂ | Through the nitride, as Luke et al. etched theirs. No source states a selectivity over the oxide below, so the etch is timed. |
+| 6 | pattern transfer | Resist removal | |
+| 7 | anneal | Nitride anneal | 1200 °C in nitrogen for 3 hours, after the resist is stripped (Luke et al.); Bauters et al.'s guides were annealed above 1100 °C. It drives hydrogen out of the film and changes no shape. |
+| 8 | deposition | LPCVD oxide | Fills the etched regions and is the cladding: Luke et al.'s high-temperature oxide (800 °C), conformal. |
+
+**Thicker films.** Stoichiometric nitride is under high tensile stress and cracks when thick: films
+over 400 nm "crack catastrophically" (Luke et al., PDF p. 2). Two answers are in hand, and the
+rules choose between them by the film's thickness:
+
+- **Up to 910 nm, crack stops and an etch.** Above 400 nm the flow adds Luke et al.'s crack-stop
+  trenches, scribed into the oxide around the devices before the nitride goes on, which stop the
+  cracks that start at the wafer's edge. Luke et al. etched 910 nm guides this way. The trenches
+  are listed as a step; the design doesn't draw them.
+- **Above 910 nm, the photonic Damascene process** (Pfeiffer et al. 2016). The guides' shapes are
+  etched into the oxide first, as trenches; the nitride is deposited into them in one run, and
+  the excess is polished away, so the nitride itself is never etched. A dense pattern etched
+  around the guides relieves the film's stress. Pfeiffer et al. made 1.2 µm films with a yield
+  above 95 % and guides up to 1.35 µm thick. The flow grows the oxide as thick as the oxide below
+  the guides and the guides together, etches the trenches (a timed etch), deposits the nitride as
+  thick as the trenches are deep, polishes it back to the oxide, anneals, and clads. The guides'
+  walls are the trenches' walls, so the process makes guides etched through with vertical walls;
+  a design with sloped walls or a slab stays with the etch, with a warning.
+
+Either way, `prefer: [damascene-preform]` asks for the Damascene process and `avoid` refuses it.
+A reflow of the preform, which later Damascene work adds to smooth the trenches' walls, is not
+described by a source in hand, so it isn't offered.
+
 ## The process library
 
 Each process is data: its name, what it does in plain words, the films it acts on, and its
@@ -224,8 +275,9 @@ processes citing 24 sources.
 | Wet etch of AlN in KOH | its walls, its selectivity | not specified (the source states that KOH etches it) | Franssila 2010, p. 135 |
 | Dry etch of TiN, lift-off, contact metal | the numbers the rules would use | not specified | |
 
-The thermal budgets the rules check: Si and SiO₂ survive above 1000 °C (Bruel), LiNbO₃ 450 °C
-(Poberaj et al.), TiN 600 °C (Kearney et al.); aluminium on silicon is limited by the eutectic
+The thermal budgets the rules check: Si and SiO₂ survive 1300 °C (silicon is oxidized at up to
+1300 °C, Deal & Grove's range), LiNbO₃ 450 °C (Poberaj et al.), TiN 600 °C (Kearney et al.),
+Si₃N₄ 1200 °C (Luke et al.'s anneal); aluminium on silicon is limited by the eutectic
 at 577 °C (Campbell, Fig. 15.24) and an amorphous phase-change film by its crystallization
 temperature, from the material catalogue (Sb₂Se₃: 200 °C, Delaney et al. 2020).
 
@@ -235,7 +287,12 @@ The generator reads the design layer by layer, from the bottom, with the films b
 each feature. Rules, not search: the same design always gives the same flow.
 
 - **The wafer.** Everything up to the first single-crystal film (silicon or lithium niobate)
-  is bought as a bonded wafer.
+  is bought as a bonded wafer. A design whose guides are a deposited film (silicon nitride,
+  aluminium nitride) on oxide over silicon starts from a bare silicon wafer.
+- **Guides of a deposited film.** The film is deposited over the wafer, then patterned and
+  etched as a bought film is, then annealed when the platform's papers anneal it. A nitride film
+  thicker than 400 nm gets crack stops first; one thicker than any its sources etched (910 nm),
+  with vertical walls etched through, is made by the photonic Damascene process instead.
 - **The etch.** The one the platform's papers used, else the library's first. A full etch stops
   on the film below when a source says it does; otherwise, and for every partial etch, it is
   timed, and its depth is uncertain by the etch's cited depth variation, or "not specified". The
@@ -252,7 +309,10 @@ each feature. Rules, not search: the same design always gives the same flow.
 - **Metals.** A metal deposited in straight lines (evaporated) is lifted off; one that isn't
   (sputtered) is deposited over everything and etched.
 - **Depositions.** The film's first process that breaks no cited thermal limit of a film already
-  there. Thermal oxidation can't lay a film over others: it grows from silicon, by consuming it.
+  there. Thermal oxidation can't lay a film over others: it grows from silicon, by consuming it,
+  so it grows only the first oxide on a bare silicon wafer. Among the processes left, one every
+  film is shown to survive comes first; when a film's survival isn't shown, the coolest; a process
+  whose temperature no source states shows no film surviving it.
   A film over an etched step with a patterned layer to come above it is deposited thicker by the
   step and polished flat.
 - **What isn't drawn.** A heater's contacts are listed as a step, not drawn.
