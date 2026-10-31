@@ -12,17 +12,28 @@ pub(super) fn processes() -> Vec<Process> {
          high points are polished away first, and the surface is left flat.",
         &["SiO2"],
     );
-    cmp.capabilities = vec![cap(
-        Quantity::Uniformity,
-        Stated::range(
-            20.0,
-            30.0,
-            Unit::Nm,
-            src("krishnan-2009", "PDF p. 6 (p. 183)"),
-        ),
-        "the nonplanarity left after polishing shallow-trench-isolation oxide, for most designs \
+    cmp.capabilities = vec![
+        cap(
+            Quantity::Uniformity,
+            Stated::range(
+                20.0,
+                30.0,
+                Unit::Nm,
+                src("krishnan-2009", "PDF p. 6 (p. 183)"),
+            ),
+            "the nonplanarity left after polishing shallow-trench-isolation oxide, for most designs \
          (stated as 200–300 Å)",
-    )];
+        ),
+        cap(
+            Quantity::Uniformity,
+            Stated::value(
+                10.0,
+                Unit::Percent,
+                src("franssila-2010", "Table 16.1 (p. 182)"),
+            ),
+            "the polish's uniformity across the wafer, of the thickness it removes",
+        ),
+    ];
     cmp.facts = vec![fact(
         "A stop layer's high selectivity on a blanket wafer is not realized on a patterned one \
          where the stop layer covers only a small fraction of the area.",

@@ -80,7 +80,7 @@ export const CATEGORIES = [
   {
     id: "fabrication",
     title: "Fabrication",
-    blurb: "How a design would be made: the steps in order from published processes, why each one and what else could do it, what each process can achieve with its source, and the flow executed on the library's own geometry to give the design back.",
+    blurb: "How a design would be made: the steps in order from published processes, why each one and what else could do it, what each process can achieve with its source, the rules' checks of resolution, selectivity, thermal budget and registration, how accurately each dimension is made, and the flow executed on the library's own geometry to give the design back.",
     groups: [{ title: null, slugs: ["fabrication"] }],
   },
   {

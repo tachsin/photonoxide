@@ -1,0 +1,62 @@
+Setup
+  (layers from the top down: the bottom one, the substrate, is the first laid down)
+  MFD 4 µm (Fig. 6):
+    layers:
+      top oxide      half-space   oxide, n 1.440000
+      film           220 nm       silicon, n 3.470000; its grooves 150 nm deep, filled with the top oxide
+      BOX            2.1 µm       oxide, n 1.440000
+      substrate      half-space   silicon, n 3.470000
+    shapes:
+      on film: 8 grooves from x = 0, their widths 60 nm to 450 nm and the teeth between them 60 nm to 500 nm (the variables); the waveguide unetched for x < 0, the film unetched after the last groove
+    fibre: a Gaussian beam, MFD 4 µm (its waist 2 µm), in the top oxide at 10° from the normal, its axis 2.6 µm from the first groove (FIO), its waist on the film's top
+    window: x from -2.047102 µm to 7.812898 µm, y from -2.82 µm to 900 nm (the film's top at y = 0), PMLs inside it, 400 nm and 300 nm thick
+    grid: 493 × 372 cells of 20 nm × 10 nm, each cell's ε its area's mean; the check's coarse grid twice the cells
+  MFD 6 µm (Fig. 6):
+    layers:
+      top oxide      half-space   oxide, n 1.440000
+      film           220 nm       silicon, n 3.470000; its grooves 120 nm deep, filled with the top oxide
+      BOX            2 µm         oxide, n 1.440000
+      substrate      half-space   silicon, n 3.470000
+    shapes:
+      on film: 11 grooves from x = 0, their widths 60 nm to 450 nm and the teeth between them 60 nm to 500 nm (the variables); the waveguide unetched for x < 0, the film unetched after the last groove
+    fibre: a Gaussian beam, MFD 6 µm (its waist 3 µm), in the top oxide at 10° from the normal, its axis 3.7 µm from the first groove (FIO), its waist on the film's top
+    window: x from -2.947102 µm to 10.6529 µm, y from -2.72 µm to 900 nm (the film's top at y = 0), PMLs inside it, 400 nm and 300 nm thick
+    grid: 680 × 362 cells of 20 nm × 10 nm, each cell's ε its area's mean; the check's coarse grid twice the cells
+  both:
+    wavelengths: 7 in the search, 31 for the front, from 1.4 to 1.7 µm; the band must hold 1.55 µm
+    the efficiency: by reciprocity: the waveguide's TE0 launched into the grating, its field projected on the beam on a line 300 nm above the film
+    solver: 2D FDFD, E along z, photonoxide's direct solver; genoxide's PSO (20 particles, 30 moves) on a linear chirp, then NSGA-II (population 20, 80 generations) with --full
+    tolerance: 3 percentage points on the efficiency at 100 nm (#244); the grid's error within a third of it
+  materials:
+    silicon, oxide: constant indices, Fig. 1's caption: 3.47 and 1.44
+
+Passoni et al. 2017's apodized grating couplers (Fig. 6): 220 nm SOI, n = 3.47 and 1.44, TE, a 10° fibre; 2D FDFD (labelled 2D), the efficiency by reciprocity, the 1-dB band from 31 wavelengths, 1.4 to 1.7 µm
+
+MFD 4 µm: T_BOX 2.1 µm, FIO 2.6 µm, etch 150 nm, 8 grooves
+  the front --full found (NSGA-II, population 20, 80 generations; CE %, 1-dB bandwidth nm):
+    47.19  81.3   46.92  84.9   46.68  85.4   46.19  88.5   45.58  90.8   45.20  92.9
+    44.77  94.4   44.71  96.0   44.61  96.1   44.50  96.2   44.30  98.1   43.66  99.8
+    43.31 103.2   43.25 103.5   43.15 103.8   42.81 103.8   42.61 104.6   42.33 107.0
+    42.27 109.1   42.04 110.3   40.90 116.1   39.04 117.3   38.76 117.8   38.24 123.3
+    38.13 123.6   37.80 123.8   37.73 124.0   36.61 126.9   36.60 127.5   36.51 127.7
+    36.26 128.4   34.92 132.8   34.82 133.4   32.47 136.0   31.76 137.1   31.67 137.2
+    31.44 138.0   26.38 140.5   26.05 140.7   25.50 143.8   24.97 147.3   24.53 149.6
+    24.52 149.8   20.98 149.8   19.93 160.8
+  40 × 20 nm (247 × 186 cells): the designs either side of 100 nm, 43.64 % at 98.0 nm (1.5040–1.6020 µm) and 43.49 % at 102.0 nm (1.4988–1.6008 µm)
+  20 × 10 nm (493 × 372 cells): the designs either side of 100 nm, 43.66 % at 99.8 nm (1.4958–1.5956 µm) and 43.31 % at 103.2 nm (1.4910–1.5942 µm)
+  MFD 4 µm: CE at 100 nm, grids         43.640000   on 2 grids, error 7.0e-2 ≤ 1e0 ok
+  MFD 4 µm: CE at 100 nm, 2D (%): 43.64, paper 53: -9.36 points, beyond 3; a gap, reported and not checked
+
+MFD 6 µm: T_BOX 2 µm, FIO 3.7 µm, etch 120 nm, 11 grooves
+  the front --full found (NSGA-II, population 20, 80 generations; CE %, 1-dB bandwidth nm):
+    52.93  69.6   52.83  69.8   52.80  69.8   52.49  70.8   52.33  71.7   51.83  72.8
+    51.54  74.9   50.14  76.6   49.99  77.0   49.87  77.0   48.32  77.6   48.31  78.1
+    47.95  78.8   47.92  80.3   47.87  80.6   47.76  80.7   47.58  82.0   46.38  82.2
+    44.51  88.0   43.80  93.0   41.72  93.5   41.69  96.6   40.00  98.7   39.09 103.8
+    38.63 106.5   28.58 107.8   28.36 108.2   28.05 123.7   27.39 126.2   26.11 131.6
+    25.39 137.8
+  40 × 20 nm (340 × 181 cells): the designs either side of 100 nm, 39.88 % at 95.1 nm (1.5028–1.5978 µm) and 39.08 % at 100.0 nm (1.4954–1.5954 µm)
+  20 × 10 nm (680 × 362 cells): the designs either side of 100 nm, 40.00 % at 98.7 nm (1.4918–1.5905 µm) and 39.09 % at 103.8 nm (1.4844–1.5882 µm)
+  MFD 6 µm: CE at 100 nm, grids         39.770000   on 2 grids, error 7.0e-1 ≤ 1e0 ok
+  MFD 6 µm: CE at 100 nm, 2D (%): 39.77, paper 47: -7.23 points, beyond 3; a gap, reported and not checked
+all 2 within tolerance of the paper

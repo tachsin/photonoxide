@@ -61,6 +61,7 @@ pub fn rules() -> Vec<(&'static str, Rule)> {
     rules.extend(nonlinear_data::rules());
     rules.extend(nonlinear_data::transparency_rules());
     rules.extend(fabrication::rules());
+    rules.extend(fabrication_rules::rules());
     rules.extend(nonlinear_guides::rules());
     rules.extend(nonlinear_kerr::rules());
     rules
@@ -2265,6 +2266,7 @@ pub fn cases() -> Vec<Case> {
     // and the fabrication engine: the round trip of the first designs, the library's sources and
     // the rules' choices
     cases.extend(crate::fabrication::checks::cases());
+    cases.extend(crate::fabrication::rule_checks::cases());
     // and in waveguides, from their modes: modal phase matching, the overlaps' coupling, SPDC
     cases.extend(crate::nonlinear::guide_checks::cases());
     // and third-order processes: the NLSE, four-wave mixing and the Lugiato-Lefever equation
@@ -5282,6 +5284,7 @@ mod convergence;
 mod devices;
 mod eme;
 mod fabrication;
+mod fabrication_rules;
 mod fdfd;
 mod fdtd;
 mod geometry;

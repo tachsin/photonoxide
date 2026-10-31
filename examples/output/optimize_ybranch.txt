@@ -1,0 +1,47 @@
+Setup
+  (layers from the top down: the bottom one, the substrate, is the first laid down)
+  layers:
+    cladding       half-space   SiO2, n 1.444024
+    Si             220 nm       Si, n 3.475700 in its shapes; SiO2, n 1.444024 elsewhere
+    BOX            2 µm         SiO2, n 1.444024
+    substrate      half-space   Si, n 3.475700
+  shapes:
+    on Si: shape, within (0, -0.7035691) µm to (2, 0.7035691) µm: 2 µm along x by 1.407138 µm along y
+    on Si: shape, within (2, 0.1) µm to (5, 1) µm: 3 µm along x by 900 nm along y
+    on Si: shape, within (2, -1) µm to (5, -0.1) µm: 3 µm along x by 900 nm along y
+  Y-branch: width 0.5 µm, length 2 µm, w1 0.5 µm, w2 0.5 µm, w3 0.6 µm, w4 0.7 µm, w5 0.9 µm, w6 1.26 µm, w7 1.4 µm, w8 1.4 µm, w9 1.4 µm, w10 1.4 µm, w11 1.31 µm, w12 1.2 µm, w13 1.2 µm, arm_length 3 µm, separation 1.5 µm, thickness 0.22 µm, slab 0 µm, sidewall 90 °, excess_loss 0 dB, wavelength 1.55 µm, span 0.1 µm
+  variables: w2 to w12, each 0.5 to 1.6 µm; w1 0.5 and w13 1.2 µm fixed, the taper's stated ends (the drawing above has Table 1's)
+  wavelength: 1.55 µm
+  the swarm's 2D plane: the effective index method's: the 220 nm slab's TE index, n 2.847488, in the silicon and the oxide's, n 1.444024, outside; H along z
+  the swarm's grid: 374 × 224 cells of 20 nm, PMLs 12 cells, 1 µm of oxide around the drawing
+  the device's 2D grid: 20 nm cells, each from the shapes' fill (the diagonal)
+  the 3D grids (--full): cubic cells of 44, 31.4 and 22 nm, stretched PMLs of 8, 11 and 16 cells, 400 nm of oxide around, GMRES with the multigrid to a relative residual of 1e-9
+  solver: genoxide's PSO: 30 particles from random positions, seed 1, 1500 evaluations, inertia 0.7298, accelerations 1.49618
+  tolerance: the 2D loss below Zhang et al.'s 0.2 dB; the 3D loss within 0.05 dB of 0.13 dB (#244)
+  materials:
+    SiO2: Sellmeier, n² = A + Σ Bλ²/(λ² − C²), A = 1, B = 0.6961663, 0.4079426, 0.8974794, C = 0.0684043, 0.1162414, 9.896161 µm; valid 0.21 to 3.71 µm
+      source: I. H. Malitson, J. Opt. Soc. Am. 55, 1205 (1965), doi:10.1364/JOSA.55.001205, at 293.15 K
+      fused silica, Eq. (1), checked against the paper; fit residual 10.5e-6 on average; thermal and deposited oxides differ slightly
+      n 1.444024 at 1.55 µm
+    Si: a table of 35 wavelengths, 1.2 to 14 µm, between them natural cubic splines; valid 1.2 to 14 µm
+      source: H. H. Li, J. Phys. Chem. Ref. Data 9, 561 (1980), doi:10.1063/1.555624, at 293 K
+      crystalline silicon; Table 1, 293 K, checked against the paper; uncertainty ±2e-3 (Li)
+      n 3.475700 at 1.55 µm
+
+Zhang et al.'s Y-branch on 220 nm SOI, its 2 µm taper's widths w2–w12 optimized by genoxide's PSO at 1.55 µm, as in the paper; arms 3 µm long to ports 1.5 µm apart
+  the swarm's 2D model, 374 × 224 cells of 20 nm, PMLs 12 cells: Table 1's widths, 0.465515 and 0.465515 into the arms, 0.3104 dB
+  the device's 2D model (2D FDFD by the effective index method, 292 × 226 cells of 20.0 nm, cells averaged by "diagonal", PMLs 12 cells): Table 1's widths, 0.467984 into each arm, 0.2874 dB
+  PSO, 30 particles, seed 1: 1500 evaluations; its best, 0.497111 into the upper arm in the swarm's model
+  the widths w1–w13 (µm): 0.5000, 1.1832, 1.4668, 0.9511, 1.6000, 1.3899, 1.5374, 1.4749, 1.4149, 1.4602, 1.3066, 1.3296, 1.2000
+  the device's 2D model: 0.496783 into each arm, 0.0280 dB
+  insertion loss, 2D, 20 nm (dB)         0.028035   paper below 0.2              ok
+3D FDFD of the swarm's design, TE-like, at 1.55 µm:
+  what --full found (recorded):
+  44.0 nm cells: 0.468725 into each arm, 0.2805 dB
+  31.4 nm cells: 0.473111 into each arm, 0.2401 dB
+  22.0 nm cells: 0.475224 into each arm, 0.2207 dB
+  the grids' order 2.3
+  extrapolated: 0.4773 ± 0.0029 into each arm, 0.202 ± 0.027 dB (Zhang et al.'s 3D FDTD: 0.13 dB, 48.5 % into each arm)
+  Table 1's design in 3D on the same grids (docs/methods/devices.md): 0.168 ± 0.003 dB, +0.038 dB from Zhang et al.'s, a gap listed in #595
+  insertion loss, 3D: 0.202 dB against 0.13 dB, +0.072 dB, beyond 0.05: a gap, reported and not checked
+all 1 within tolerance of the paper

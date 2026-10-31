@@ -26,7 +26,9 @@ use super::flow::{Alternative, Depth, Flow, Laid, Operation, Step, Tone};
 use super::library::{Platform, Process, Purpose, StepType, budget, library, process};
 use super::measure::{Features, features};
 use super::physical::{Film, Physical};
-use super::stated::{Capability, Quantity, Stated, number};
+use super::rayleigh::{Optics, Reach};
+use super::rules::{k1_limit, over_etch};
+use super::stated::{Capability, Quantity, Stated, Unit, number};
 
 /// What the user asks of the choice: processes to prefer where several qualify, and processes
 /// not to use.
@@ -75,6 +77,25 @@ fn um(v: f64) -> String {
 /// The first stated value of `p`'s capabilities of `q`, with the capability.
 fn first<'a>(p: &'a Process, q: &'a Quantity) -> Option<&'a Capability> {
     p.capabilities_of(q).find(|c| c.value.is_stated())
+}
+
+/// `p`'s first stated step coverage.
+pub(crate) fn coverage(p: &Process) -> Option<&Capability> {
+    first(p, &Quantity::StepCoverage)
+}
+
+/// Whether a source states `p` conformal: a step coverage of 100 %.
+pub(crate) fn conformal(p: &Process) -> bool {
+    coverage(p).is_some_and(|c| {
+        c.value.unit() == Some(Unit::Percent) && c.value.low().is_some_and(|v| v >= 100.0)
+    })
+}
+
+/// `p`'s first stated selectivity over `film`.
+pub(crate) fn selectivity_over<'a>(p: &'a Process, film: &str) -> Option<&'a Capability> {
+    p.capabilities.iter().find(|c| {
+        matches!(&c.quantity, Quantity::Selectivity { over } if over == film) && c.value.is_stated()
+    })
 }
 
 /// A capability as the narration cites it: value, conditions and source.
@@ -230,6 +251,24 @@ pub fn generate(design: &Physical, choices: &Choices) -> Result<Flow> {
     let stack = s.stack();
     let layers = stack.layers();
     let films = design.layers();
+    // a shape without area (a guide of zero length) is nothing a mask can carry
+    for l in layers {
+        if let Some(shape) = s.shapes(&l.name).iter().find(|shape| {
+            let b = shape.bounds();
+            b.max.x.to_um() - b.min.x.to_um() <= 0.0 || b.max.y.to_um() - b.min.y.to_um() <= 0.0
+        }) {
+            let b = shape.bounds();
+            return Err(invalid(format!(
+                "{} draws a shape without area (from ({}, {}) to ({}, {}) µm): a mask can't \
+                 carry it",
+                l.name,
+                number(b.min.x.to_um()),
+                number(b.min.y.to_um()),
+                number(b.max.x.to_um()),
+                number(b.max.y.to_um())
+            )));
+        }
+    }
     // the wafer: up to the first single-crystal film
     let w = films
         .iter()
@@ -265,6 +304,13 @@ pub fn generate(design: &Physical, choices: &Choices) -> Result<Flow> {
                 l.name
             )));
         }
+    }
+    if s.shapes(&layers[w].name).is_empty() && films[w].0.name != films[w].1.name {
+        return Err(invalid(format!(
+            "{} draws no shapes, its {} all {} (a guide of zero length draws none): the design \
+             has nothing of the film to make",
+            layers[w].name, films[w].0.name, films[w].1.name
+        )));
     }
     let mut state = State {
         platform,
@@ -507,7 +553,8 @@ fn lasts(l: &Process, etch: &Process, depth: f64) -> (Lasts, String, Option<Leng
     let thickness = own
         .map(|t| t * thickness_scale(l))
         .or_else(|| m.thickness.high().map(|t| unit_um(&m.thickness, t)));
-    if let (Some(sel), Some(t)) = (m.selectivity.high(), thickness) {
+    // the selectivity's lower end: a range's worst case
+    if let (Some(sel), Some(t)) = (m.selectivity.low().or(m.selectivity.high()), thickness) {
         let reach = sel * t;
         let src = m.selectivity.source().map_or(String::new(), |s| {
             format!("{}, {}", s.reference, s.location)
@@ -530,11 +577,12 @@ fn lasts(l: &Process, etch: &Process, depth: f64) -> (Lasts, String, Option<Leng
                 Lasts::No,
                 format!(
                     "its {resist}, {} thick, etched at a selectivity of {} ({src}), lasts only \
-                     {} of the {} etch",
+                     {} of the {} etch: the etch needs {} of it, or a hard mask",
                     um(t),
                     m.selectivity,
                     um(reach),
-                    um(depth)
+                    um(depth),
+                    um(depth / sel)
                 ),
                 Some(Length::um(t)),
             )
@@ -614,6 +662,23 @@ fn lithography(
     let mut fits: Vec<(&'static Process, Lasts, String, Option<Length>)> = Vec::new();
     let mut alternatives = Vec::new();
     for l in &all {
+        if let Some(o) = Optics::of(l)
+            && o.reach(smallest * 1000.0) == Reach::Beyond
+        {
+            alternatives.push(Alternative {
+                process: l.id.clone(),
+                name: l.name.clone(),
+                why_not: format!(
+                    "the layer's narrowest feature, {}, asks it for k₁ = {} at its highest cited \
+                     NA, {}: below the theoretical limit of {} (campbell-2008, Eq. 7.18, p. 183)",
+                    um(smallest),
+                    number(o.k1(smallest * 1000.0)),
+                    number(o.na[1]),
+                    k1_limit()
+                ),
+            });
+            continue;
+        }
         match resolves(l) {
             Some((r, _)) if r <= smallest + 1e-12 => {
                 let (ok, why, t) = match etch {
@@ -644,9 +709,26 @@ fn lithography(
             }),
         }
     }
+    let typical =
+        |l: &Process| Optics::of(l).is_none_or(|o| o.reach(smallest * 1000.0) == Reach::Typical);
     let pick = fits
         .iter()
         .position(|(l, ok, _, _)| choices.prefer.contains(&l.id) && *ok != Lasts::No)
+        .or_else(|| {
+            // the platform's papers' choice, its resist shown to last or not shown not to
+            fits.iter().position(|(l, ok, _, _)| {
+                l.used(state.platform, purpose).is_some() && *ok == Lasts::Yes && typical(l)
+            })
+        })
+        .or_else(|| {
+            fits.iter().position(|(l, ok, _, _)| {
+                l.used(state.platform, purpose).is_some() && *ok != Lasts::No && typical(l)
+            })
+        })
+        .or_else(|| {
+            fits.iter()
+                .position(|(l, ok, _, _)| *ok == Lasts::Yes && typical(l))
+        })
         .or_else(|| fits.iter().position(|(_, ok, _, _)| *ok == Lasts::Yes))
         .or(if fits.is_empty() { None } else { Some(0) })
         .ok_or_else(|| {
@@ -709,6 +791,31 @@ fn lithography(
             cited(c)
         ));
     }
+    if let Some(o) = Optics::of(chosen) {
+        let k1 = o.k1(smallest * 1000.0);
+        reason.push_str(&format!(
+            " By the Rayleigh criterion, W = k₁λ/NA (campbell-2008, Eq. 7.18, p. 183), the \
+             feature asks for k₁ = {} at its highest cited NA, {}, at {} nm: {}.",
+            number(k1),
+            number(o.na[1]),
+            number(o.wavelength_nm),
+            match o.reach(smallest * 1000.0) {
+                Reach::Typical => "within the typical 0.4 to 0.8",
+                Reach::Enhanced => "below the typical 0.4, above the limit of 0.25",
+                Reach::Beyond => "below the limit of 0.25",
+            }
+        ));
+        if o.reach(smallest * 1000.0) == Reach::Enhanced {
+            state.warn(format!(
+                "{layer}: its narrowest feature, {}, asks {} for k₁ = {}, below the typical \
+                 0.4 to 0.8 (campbell-2008, Eq. 7.18, p. 183): it prints only with resolution \
+                 enhancement such as tilted illumination (mack-2007, Eq. 2.83, p. 58)",
+                um(smallest),
+                chosen.name,
+                number(k1)
+            ));
+        }
+    }
     if let Some(u) = chosen.used(state.platform, purpose) {
         reason.push_str(&format!(
             " The papers in hand used it for this ({}, {}).",
@@ -754,7 +861,18 @@ fn etch_layer(design: &Physical, i: usize, choices: &Choices, state: &mut State)
             Purpose::Guide,
             choices,
         );
-        let etching: Vec<&Process> = etching.into_iter().filter(|p| p.id != "lift-off").collect();
+        let mut etching: Vec<&Process> =
+            etching.into_iter().filter(|p| p.id != "lift-off").collect();
+        // an etch whose cited walls include the design's comes before the platform's choice
+        etching.sort_by_key(|p| {
+            if choices.prefer.contains(&p.id) {
+                0
+            } else if sidewall_off(p, deg) == Some(0.0) {
+                1
+            } else {
+                2
+            }
+        });
         let chosen = *etching
             .first()
             .ok_or_else(|| invalid(format!("no process in the library etches {film}")))?;
@@ -787,7 +905,42 @@ fn etch_layer(design: &Physical, i: usize, choices: &Choices, state: &mut State)
         state.push(pattern);
         // depth: a stop or a timed etch
         let stop = chosen.stops_on.iter().find(|st| st.film == below);
+        let by_selectivity = selectivity_over(chosen, &below);
         let (depth, depth_reason) = match (e.depth, stop) {
+            (None, None) if by_selectivity.is_some() => {
+                let c = by_selectivity.expect("checked");
+                let s = c.value.low().or(c.value.high()).unwrap_or(1.0);
+                let oe = over_etch();
+                let loss = oe.high().unwrap_or(0.0) / 100.0 * thickness / s;
+                let below_t = if i == 0 {
+                    None
+                } else {
+                    Some(layers[i - 1].thickness.to_um())
+                };
+                if below_t.is_some_and(|t| loss >= t) {
+                    state.warn(format!(
+                        "{}: the over-etch that clears the {film} ({oe} of its etch; \
+                         franssila-2010, pp. 138–139) at a selectivity of {} over {below} would \
+                         remove {} of it, as much as the layer below is thick",
+                        layer.name,
+                        c.value,
+                        um(loss)
+                    ));
+                }
+                (
+                    Depth::ToStop,
+                    format!(
+                        "The etch goes through the {} of {film} and is ended on the {below} \
+                         below, which it etches at least {} times more slowly ({}): run {oe} \
+                         longer to clear the film everywhere (franssila-2010, pp. 138–139), it \
+                         takes at most {} off the {below}.",
+                        um(thickness),
+                        number(s),
+                        cited(c),
+                        um(loss)
+                    ),
+                )
+            }
             (None, Some(st)) => (
                 Depth::ToStop,
                 format!(
@@ -968,7 +1121,7 @@ fn deposit(
         choices,
     );
     let mut alternatives = Vec::new();
-    let mut chosen: Option<&Process> = None;
+    let mut allowed: Vec<(&Process, usize)> = Vec::new();
     for p in &candidates {
         if p.id == "thermal-oxidation" {
             alternatives.push(Alternative {
@@ -980,25 +1133,57 @@ fn deposit(
             });
             continue;
         }
-        let (violations, _) = state.thermal(p, false);
-        if !violations.is_empty() {
+        let check = thermal(p, &state.present);
+        if !check.violations.is_empty() {
             alternatives.push(Alternative {
                 process: p.id.clone(),
                 name: p.name.clone(),
-                why_not: violations.join("; "),
+                why_not: check.violations.join("; "),
             });
             continue;
         }
-        if chosen.is_none() {
-            chosen = Some(p);
-        } else if let Some(c) = chosen {
-            alternatives.push(Alternative {
-                process: p.id.clone(),
-                name: p.name.clone(),
-                why_not: later(p, c, state.platform, purpose),
-            });
-        }
+        allowed.push((p, check.unspecified.len()));
     }
+    // the preferred first; then the fewest films not shown to survive it; then, filling etched
+    // regions, a conformal film; ties in the platform's and the library's order
+    let filling = !state.open.is_empty();
+    allowed.sort_by_key(|(p, unshown)| {
+        (
+            !choices.prefer.contains(&p.id),
+            *unshown,
+            !(filling && conformal(p)),
+        )
+    });
+    for (p, unshown) in allowed.iter().skip(1) {
+        let (c, c_unshown) = allowed[0];
+        let why_not = if *unshown > c_unshown {
+            format!(
+                "it reaches {} °C, which no source in hand shows every film already there \
+                 surviving; {} stays at {} °C",
+                p.temperature()
+                    .map_or("an unstated".into(), |(t, _)| number(t)),
+                c.name,
+                c.temperature()
+                    .map_or("an unstated".into(), |(t, _)| number(t))
+            )
+        } else if filling && conformal(c) && !conformal(p) {
+            format!(
+                "its step coverage is {} where {} is conformal ({}): filling the etched \
+                 openings, the conformal film follows their walls and floors evenly",
+                coverage(p).map_or("not specified".into(), cited),
+                c.name,
+                coverage(c).map_or(String::new(), cited)
+            )
+        } else {
+            later(p, c, state.platform, purpose)
+        };
+        alternatives.push(Alternative {
+            process: p.id.clone(),
+            name: p.name.clone(),
+            why_not,
+        });
+    }
+    let chosen = allowed.first().map(|(p, _)| *p);
     let chosen = chosen.ok_or_else(|| {
         invalid(format!(
             "no process in the library deposits {} here{}",

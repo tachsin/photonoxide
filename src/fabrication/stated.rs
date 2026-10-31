@@ -40,6 +40,10 @@ pub enum Unit {
     Celsius,
     /// A ratio, n:1.
     Ratio,
+    /// A pure number, e.g. a numerical aperture.
+    Number,
+    /// Per cent.
+    Percent,
 }
 
 impl Unit {
@@ -51,6 +55,8 @@ impl Unit {
             Unit::Degree => "°",
             Unit::Celsius => "°C",
             Unit::Ratio => ":1",
+            Unit::Number => "",
+            Unit::Percent => " %",
         }
     }
 }
@@ -181,7 +187,10 @@ pub(crate) fn number(v: f64) -> String {
 impl fmt::Display for Stated {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let unit = |u: Unit| {
-            if u == Unit::Ratio || u == Unit::Degree || u == Unit::Celsius {
+            if matches!(
+                u,
+                Unit::Ratio | Unit::Degree | Unit::Celsius | Unit::Number | Unit::Percent
+            ) {
                 u.symbol().to_string()
             } else {
                 format!(" {}", u.symbol())
@@ -229,6 +238,15 @@ pub enum Quantity {
     Temperature,
     /// A film's thickness, as the sources made it.
     Thickness,
+    /// A projection lithography's exposure wavelength.
+    Wavelength,
+    /// A projection lithography's numerical aperture.
+    NumericalAperture,
+    /// A deposition's step coverage: the film's thickness on a step's wall over its thickness on
+    /// the flat (Franssila, Eq. 5.18a); 100 % is conformal.
+    StepCoverage,
+    /// The deepest etch over the narrowest opening that an etch reaches.
+    AspectRatio,
 }
 
 impl Quantity {
@@ -243,6 +261,10 @@ impl Quantity {
             Quantity::Roughness => "roughness".into(),
             Quantity::Temperature => "temperature".into(),
             Quantity::Thickness => "thickness".into(),
+            Quantity::Wavelength => "wavelength".into(),
+            Quantity::NumericalAperture => "numerical aperture".into(),
+            Quantity::StepCoverage => "step coverage".into(),
+            Quantity::AspectRatio => "aspect ratio".into(),
         }
     }
 }

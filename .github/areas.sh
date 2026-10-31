@@ -81,7 +81,7 @@ area fdfd \
   "src/fdfd/* src/cases/fdfd/* src/backend/iterative.rs src/backend/krylov.rs src/backend/krylov/* tests/no_allocation.rs" \
   "mode sparse" \
   "fdfd:: backend::iterative:: backend::krylov::" "fdfd/ fdfd3d/" \
-  "bump_oskooi cpml_roden_gedney lorentz_okoniewski pml_oskooi subpixel_holes tfsf_square_cylinder"
+  "bump_oskooi cpml_roden_gedney lorentz_okoniewski pml_oskooi subpixel_holes tfsf_square_cylinder optimize_grating_pareto"
 
 # eigenmode expansion (#432): slab stacks' modes and their S-matrices; its taper case runs 2D FDFD
 area eme \
@@ -194,7 +194,7 @@ area device \
   "src/device.rs src/device/* src/cases/device/*" \
   "material mode circuit generator fdfd job compact statics shifter pockels line" \
   "device::" "device/" \
-  "strip_waveguide directional_coupler mzi_dwivedi ring_q_factor bend_loss rib_hadley mmi_soldano y_junction_zhang thermo_jacques thermo_harris pcm_delaney tfln_zhang"
+  "strip_waveguide directional_coupler mzi_dwivedi ring_q_factor bend_loss rib_hadley mmi_soldano y_junction_zhang optimize_ybranch thermo_jacques thermo_harris pcm_delaney tfln_zhang"
 
 area compact \
   "src/compact/* src/cases/compact/* src/lstsq.rs" \
@@ -205,7 +205,7 @@ area compact \
 # stack's geometry; its cases run the library devices' flows (the device area's), and its job kind
 # (src/job/fabrication.rs) is the job area's
 area fabrication \
-  "src/fabrication/* src/validation/fabrication.rs" \
+  "src/fabrication/* src/validation/fabrication.rs src/validation/fabrication_rules.rs" \
   "material device" \
   "fabrication::" "fabrication/" ""
 

@@ -753,4 +753,11 @@ pub enum Event {
         /// The flow.
         flow: Box<crate::fabrication::FlowRecord>,
     },
+    /// What the fabrication rules find in a design and its flow ([`crate::fabrication::assess`]):
+    /// each rule's check, each step's alternatives ranked, and the accuracy of each fabricated
+    /// dimension.
+    FlowAssessment {
+        /// The assessment.
+        assessment: Box<crate::fabrication::Assessment>,
+    },
 }

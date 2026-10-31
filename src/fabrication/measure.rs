@@ -5,7 +5,8 @@
 //! region is shrunk by w/2; a gap g wide closes when it is grown by g/2. So the narrowest line is
 //! twice the least shrinking that changes the region's pieces or holes, and the narrowest gap
 //! twice the least growing that does; both are found by bisection and given to
-//! [`RESOLUTION`]. A short stub that vanishes without changing the pieces or holes is not seen.
+//! [`RESOLUTION`]. A short stub that vanishes without changing the pieces or holes is not seen,
+//! nor a line or a gap narrower than 2 nm (a seam of the drawing).
 
 use serde::{Deserialize, Serialize};
 
@@ -41,6 +42,23 @@ impl Features {
     }
 }
 
+/// How closely curves are flattened, µm (0.01 nm, [`RESOLUTION`]): a straight
+/// edge is kept exactly, and a curved line's width is measured to within it. Flattening finer
+/// multiplies a ring's vertices, and the time of each offset, without changing what a
+/// lithography can resolve.
+const FLATTENING: f64 = RESOLUTION;
+
+/// The half-width below which a line or a gap is a seam of the drawing, not a feature, µm (1 nm,
+/// the kernel's default tolerance): lines and gaps narrower than 2 nm aren't seen.
+const SEAM: f64 = 1e-3;
+
+/// The tolerance curves are flattened with.
+fn flattening() -> Tolerance {
+    Tolerance::unsnapped(Length::um(FLATTENING)).unwrap_or_default()
+}
+
+/// The tolerance the booleans and offsets work to: a tenth of the bisection's step, so a
+/// straight edge lands where it is drawn.
 fn tolerance() -> Tolerance {
     Tolerance::unsnapped(Length::um(STEP / 10.0)).unwrap_or_default()
 }
@@ -76,14 +94,14 @@ pub fn features(shapes: &[Shape]) -> Result<Features> {
     let t = tolerance();
     let mut joined: Option<Polygons> = None;
     for s in shapes {
-        let p = s.polygons(t);
+        let p = s.polygons(flattening());
         joined = Some(match joined {
             None => p.boolean(&p, Operation::Union, t),
             Some(j) => j.boolean(&p, Operation::Union, t),
         });
     }
     let joined = joined.ok_or_else(|| Error::invalid("fabrication", "no shapes to measure"))?;
-    let start = topology(&joined);
+
     let (mut x0, mut x1, mut y0, mut y1) = (f64::MAX, f64::MIN, f64::MAX, f64::MIN);
     for c in &joined.contours {
         for p in &c.outer {
@@ -95,11 +113,14 @@ pub fn features(shapes: &[Shape]) -> Result<Features> {
     }
     let span = (x1 - x0).max(y1 - y0);
     let offset = |d: f64| joined.offset(Length::um(d), Join::Square, t);
-    let shrunk = |d: f64| -> Result<bool> { Ok(topology(&offset(-d)?) != start) };
-    let half_line = bisect(0.0, span, shrunk)?;
-    let grown = |d: f64| -> Result<bool> { Ok(topology(&offset(d)?) != start) };
+    // the topology a seam's width away: pieces that meet within it (a bend's flattened end
+    // against a straight guide) are one, and a sliver that thin is none
+    let (thin, touching) = (topology(&offset(-SEAM)?), topology(&offset(SEAM)?));
+    let shrunk = |d: f64| -> Result<bool> { Ok(topology(&offset(-d)?) != thin) };
+    let half_line = bisect(SEAM, span.max(SEAM), shrunk)?;
+    let grown = |d: f64| -> Result<bool> { Ok(topology(&offset(d)?) != touching) };
     let gap = if grown(span)? {
-        Some(rounded(2.0 * bisect(0.0, span, grown)?))
+        Some(rounded(2.0 * bisect(SEAM, span, grown)?))
     } else {
         None
     };
