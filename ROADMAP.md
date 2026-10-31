@@ -349,7 +349,7 @@ The first active devices. One solver for static problems on the waveguide's cros
 
 ### 0.6.1: Nonlinear integrated optics
 
-Second- and third-order processes in waveguides and resonators: SHG, SFG, DFG, parametric amplification, SPDC, FWM and Kerr combs. They run on the crystals the catalogue already describes (LiNbO₃ bulk and thin film, MgO:LiNbO₃, GaAs, AlGaAs, AlN, AlGaN, InGaP) and on Si and SiN, each with an example that reproduces a published device.
+Second- and third-order processes in waveguides and resonators: SHG, SFG, DFG, parametric amplification, SPDC, FWM and Kerr combs. They run on the crystals the catalogue already describes (LiNbO₃ bulk and thin film, MgO:LiNbO₃, GaAs, AlGaAs, AlN, AlGaN, InGaP) and on Si and SiN, each with an example that reproduces a published device. *(In progress, on main: phase matching and the coupled-amplitude equations (#621), the nonlinear data (#629), phase matching, overlaps and pairs from a waveguide's modes (#630), and the NLSE, four-wave mixing and the Lugiato–Lefever equation (#632). Left: focused bulk beams, XPM and silicon's two-photon and free-carrier absorption, resonant enhancement in rings, heralding efficiency, the multiphonon edges no paper in hand gives, the studio, and the published results below that aren't reproduced yet (Wang 2018's efficiency, Chang 2018's phase matching, Zhao 2020's brightness), all listed in #595.)*
 
 - [ ] **Carried from 0.6 and 0.5.5** (#543), first. All done but two published results we can't yet reproduce or explain, which keep #418 and #420 open; they and the other gaps against papers are listed in #595:
   - the thin-film lithium niobate Mach–Zehnder modulator as a device, at analytic, 2D and measured fidelity (#420), with He 2019's and Valdez 2023's modulators as cases; *(the modulator done (#579) and Valdez 2023's case (#576); He 2019's Vπ·L not reproduced, 2.87 V·cm against 2.2 and 2.5, so not a case: open (#595))*
@@ -357,56 +357,56 @@ Second- and third-order processes in waveguides and resonators: SHG, SFG, DFG, p
   - the studio's temperature and electrode-field views on the cross-section, and the Vπ·L and bandwidth sweeps (#421); *(done: #588, #594, #608, #609, #611)*
   - masks in: a GDS file's layers read into a structure job, read only; *(done (#584): `geometry::Gds` and a job's `"gds"` shape)*
   - validation tolerances by one rule (#544), in 0.6.x: every case's measure (relative, or absolute where the expected value is zero or the reference's uncertainty is absolute), its tolerance from a stated basis (round-off, the grid study, the reference's uncertainty or printed digits, the model's stated accuracy, the scheme's order), and our own numerical error shown beside it. *(done: #556, #558, #560, #565 to #567 and #570 to #572, every case with its rule in [the report](docs/validation.md))*
-- [ ] **Transparency windows** for every catalogue material, with their sources:
+- [ ] **Transparency windows** for every catalogue material, with their sources: *(The library's part, as far as the papers in hand allow (#629): `catalogue::transparency`, each window at a temperature and, for an alloy, a composition, every edge with its source or "not specified"; the III–V gaps by Vurgaftman 2001 (GaAs's 1.4225 eV at 300 K, inside his 1.420–1.435 eV), silicon's by Bristow 2007, LiNbO₃'s band and multiphonon edges by Leidinger 2015, LiTaO₃'s 0.28–5.5 µm by Barboza & Cudney 2009. Left: the multiphonon edges of Si, SiN, GaAs, AlGaAs, InP, InGaP, AlN and AlGaN, and every edge of SiO₂, SiN, MgO:LiNbO₃ and BaTiO₃, which no paper in hand gives (#595); the studio's chart.)*
   - the band-gap edge, against composition for the III–V alloys (Vurgaftman 2001);
   - the multiphonon edge (Leidinger 2015 for LiNbO₃);
   - the range the material's index data covers;
   - where two-photon absorption sets in, below twice the band-gap wavelength (Aitchison 1997 for AlGaAs at the half band gap).
 
   The studio's Materials page shows them as bands over wavelength, every crystal together. A process's wavelengths (pump, signal, idler, harmonic) are marked on top, so which material can carry a process is visible at a glance.
-- [ ] **Nonlinear coefficients:**
-  - d tensors on Shoji 1997's scale (in), dispersed by Miller's rule (Miller 1964);
-  - χ⁽³⁾ and n₂, with their sources;
-  - temperature-dependent indices for phase matching (Gayer 2008 for MgO:LiNbO₃, Skauli 2003 for GaAs, Gehrsitz 2000 for AlGaAs).
-- [ ] **Phase matching:** *(All but focused beams done in `nonlinear::phase`: Δk of any process from a catalogue model, a material or a mode's n_eff as data; QPM's period, order and duty cycle; types 0, I and II, angle and temperature tuned; sinc² and the acceptance bandwidths, linear, noncritical and numerical. Fejer 1992's Table I reproduced from Edwards & Lawrence's indices, now in the catalogue, to half its last digit for 41 of its 49 QPM values; the rest are listed in [the write-up](docs/methods/nonlinear.md#fejer-et-als-table-i). See [phase matching](docs/methods/nonlinear.md).)*
+- [x] **Nonlinear coefficients:**
+  - d tensors on Shoji 1997's scale (in), dispersed by Miller's rule (Miller 1964); *(`nonlinear::miller` (#629): Shoji's d₃₃ and d₃₁ of LiNbO₃ and MgO:LiNbO₃ carried from 1.064 µm come within 0.4–9.4 % of the measured ones at 0.852 µm and 15–34 % above at 1.313 µm, inside Miller's stated ±50 % (#595); not for GaAs, whose harmonic of 1.064 µm lies above its band edge)*
+  - χ⁽³⁾ and n₂, with their sources; *(`catalogue::kerr` (#629): n₂ and two-photon absorption of Si (Bristow 2007; at 1550 nm read from its figures), PECVD SiN (Ikeda 2008), LiNbO₃ (DeSalvo 1996) and AlN (Jung 2013), each with its page and stated uncertainty, and a guide's γ from its effective area (#599). The III–V crystals' n₂ isn't in yet.)*
+  - temperature-dependent indices for phase matching (Gayer 2008 for MgO:LiNbO₃, Skauli 2003 for GaAs, Gehrsitz 2000 for AlGaAs). *(In the catalogue, with Edwards & Lawrence 1984's n_o(T) and n_e(T) of LiNbO₃ (#621) and two models of undoped LiTaO₃'s n_e(λ, T), Barboza & Cudney 2009 and Bruner 2002 (#629); undoped LiTaO₃'s n_o(T) is still to come.)*
+- [ ] **Phase matching:** *(All but focused beams done, in `nonlinear::phase` (#621) and `nonlinear::guide` (#630): Δk of any process from a catalogue model, a material or a mode's n_eff; QPM's period, order and duty cycle; types 0, I and II, angle and temperature tuned; sinc² and the acceptance bandwidths, linear, noncritical and numerical. Fejer 1992's Table I reproduced from Edwards & Lawrence's indices, now in the catalogue, to half its last digit for 41 of its 49 QPM values; the rest are listed in [the write-up](docs/methods/nonlinear.md#fejer-et-als-table-i) and #595. Modal phase matching from the full-vector solver's n_eff over wavelength, with its group index and β₂, on a rib or strip of any crystal and cut: Zhao 2020's guide poled at 2.8142 µm against their 2.8 µm, and matched at 1.5583 µm against their 1570 nm. Chang 2018's GaAs strip isn't reproduced (its indices meet at 2.655 µm wide, not 1.5 µm; #595). See [phase matching](docs/methods/nonlinear.md).)*
   - Δk for any three- or four-wave process;
   - birefringent (types 0, I and II);
   - quasi-phase matching by periodic poling or orientation patterning: the poling period, its duty-cycle errors, and Fejer 1992's tuning and tolerances;
   - modal phase matching in waveguides, from the mode solver's effective indices;
   - acceptance bandwidths in wavelength, temperature and angle;
   - focused bulk beams (Boyd & Kleinman 1968).
-- [ ] **Coupled-mode equations in waveguides**, the overlaps from the mode solver's full-vector fields: the d tensor's give the normalized efficiency in %/W/cm², and χ⁽³⁾'s give γ in 1/(W·m) (Lin, Painter & Agrawal 2007). The processes:
-  - SHG, SFG and DFG: undepleted (the sinc²) and depleted (Armstrong et al. 1962, Manley–Rowe), with propagation loss;
-  - optical parametric amplification and oscillation;
-  - FWM, SPM and XPM, and parametric gain (Foster et al. 2006), with two-photon and free-carrier absorption in silicon (Lin 2007). *(SPM, FWM and parametric gain done: pulses by the NLSE in `nonlinear::pulse`, β₂, β₃, β₄ from the modes and γ from the effective area, with Raman and self-steepening; four-wave mixing in `nonlinear::fwm`, closed form and depleted along the guide. XPM between separate pulses, two-photon and free-carrier absorption, and Foster et al.'s guide, whose letter doesn't give it whole, are not in yet. See [the write-up](docs/methods/nonlinear.md#pulses-along-a-kerr-guide).)*
+- [ ] **Coupled-mode equations in waveguides**, the overlaps from the mode solver's full-vector fields: the d tensor's give the normalized efficiency in %/W/cm², and χ⁽³⁾'s give γ in 1/(W·m) (Lin, Painter & Agrawal 2007). *(The overlaps done (#630): κ from the full-vector fields scaled to 1 W and the d tensor turned into the guide's frame, η = κ² in %/(W·cm²), against a plane wave's closed form to 6.7e-16 and a slab's exact fields at second order; γ from the effective area and the catalogue's n₂ (#599, #629). Wang 2018's 4500 %/(W·cm²) isn't a case: the paper doesn't print the ridge's etch depth (#595).)* The processes:
+  - SHG, SFG and DFG: undepleted (the sinc²) and depleted (Armstrong et al. 1962, Manley–Rowe), with propagation loss; *(done (#621, #630): `nonlinear::coupled` by RK4, against the sinc², the lossy closed form, Armstrong et al.'s tanh² and sech, the Manley–Rowe fluxes to round-off, at fourth order; driven by a guide's κ, Δk and loss)*
+  - optical parametric amplification and oscillation; *(amplification done (#621), against the cosh² of parametric gain; of oscillation, only an OPO's idler found by phase matching (the PPLN cases), no cavity yet)*
+  - FWM, SPM and XPM, and parametric gain (Foster et al. 2006), with two-photon and free-carrier absorption in silicon (Lin 2007). *(SPM, FWM and parametric gain done (#632): pulses by the NLSE in `nonlinear::pulse`, β₂, β₃, β₄ from the modes and γ from the effective area, with Raman and self-steepening; four-wave mixing in `nonlinear::fwm`, closed form and depleted along the guide. XPM between separate pulses, two-photon and free-carrier absorption, and Foster et al.'s guide, whose letter doesn't give it whole, are not in yet. See [the write-up](docs/methods/nonlinear.md#pulses-along-a-kerr-guide).)*
 - [ ] **Photon pairs by SPDC and SFWM:**
-  - the joint spectral amplitude from the phase matching and the pump's spectrum; *(SPDC and, with one pump, SFWM: `pairs::joint_spectrum`)*
-  - its purity by Schmidt decomposition (Grice & Walmsley 1997);
-  - brightness per mW of pump, and heralding efficiency.
+  - the joint spectral amplitude from the phase matching and the pump's spectrum; *(SPDC (#621) and, with one pump, SFWM (#632): `pairs::joint_spectrum`; from a guide's modes too (#630), Zhao 2020's degenerate pairs 55.9 nm wide over 5 mm, which the paper doesn't print to compare)*
+  - its purity by Schmidt decomposition (Grice & Walmsley 1997); *(done (#621): the SVD of the sampled amplitude, a Gaussian source's purity to its closed form, 3.4e-13; SFWM's to 1.0e-13 (#632))*
+  - brightness per mW of pump, and heralding efficiency. *(Brightness from a guide's overlap (#630), but Zhao 2020's isn't reproduced: ours, 7.46 × 10⁶ to 1.04 × 10⁷ pairs/(s·GHz·mW), is 16 to 22 times their 4.6 × 10⁵, unexplained (#595). Heralding efficiency isn't in yet.)*
 - [ ] **Resonators:**
-  - resonantly enhanced SHG and FWM in rings, the enhancement from the 0.4 ring components;
-  - Kerr combs by the Lugiato–Lefever equation by split-step, fed by the mode solver's dispersion (Lugiato & Lefever 1987; Chembo & Menyuk 2013; Herr et al. 2013 for dissipative solitons). *(done in `nonlinear::resonator`: the homogeneous states and their bistability, modulation instability, the approximate soliton and its existence limit, a ring's equation from its waveguide's β_k and γ (Coen et al. 2012), Coen et al.'s soliton reproduced to its printed digit; Herr et al.'s and Pfeiffer et al.'s solitons aren't given whole, see [the write-up](docs/methods/nonlinear.md#kerr-microresonators))*
-- [ ] **Studio:**
+  - resonantly enhanced SHG and FWM in rings, the enhancement from the 0.4 ring components; *(not in yet)*
+  - Kerr combs by the Lugiato–Lefever equation by split-step, fed by the mode solver's dispersion (Lugiato & Lefever 1987; Chembo & Menyuk 2013; Herr et al. 2013 for dissipative solitons). *(done in `nonlinear::resonator` (#632): the homogeneous states and their bistability, modulation instability, the approximate soliton and its existence limit, a ring's equation from its waveguide's β_k and γ (Coen et al. 2012), Coen et al.'s soliton at 444.4 fs against their '∼400 fs', read as one significant digit (#595); Herr et al.'s and Pfeiffer et al.'s solitons aren't given whole, see [the write-up](docs/methods/nonlinear.md#kerr-microresonators))*
+- [ ] **Studio:** *(none of it yet: the nonlinear work has no studio page)*
   - nonlinear jobs: the process, the waveguide, the poling and the pump;
   - the phase-matching map: Δk against wavelength and width or temperature;
   - efficiency against length;
   - the joint spectral amplitude;
   - the transparency chart.
 - [ ] **Validation:**
-  - **analytic:**
+  - **analytic:** *(the first three are cases (#621), with the coupled equations' fourth order; the NLSE's solitons and self-phase modulation, and four-wave mixing's gain and invariants too (#632))*
     - undepleted SHG's sinc² and its L² scaling;
     - Manley–Rowe photon conservation;
     - depleted SHG's tanh² (Armstrong et al. 1962);
     - the Lugiato–Lefever soliton; *(the steady states, the instability's growth and the split-step's order are cases; the approximate soliton is compared in the write-up, with no paper giving it an accuracy)*
-  - **published, each an example:**
-    - Fejer 1992's QPM tolerances;
-    - Wang et al. 2018's thin-film PPLN SHG (efficiency, poling period, bandwidth);
-    - Chang et al. 2018's GaAs-on-insulator SHG;
+  - **published, each an example:** *(the gaps against these papers are listed in #595)*
+    - Fejer 1992's QPM tolerances; *(41 of 49 values to half their last digit (#621))*
+    - Wang et al. 2018's thin-film PPLN SHG (efficiency, poling period, bandwidth); *(the duty cycle's cut of d_eff, 5.91 % against their 7 % (#621); the efficiency waits for the etch depth, which the paper doesn't print)*
+    - Chang et al. 2018's GaAs-on-insulator SHG; *(not reproduced: the modal phase matching's width, above (#630))*
     - Pu et al. 2016's AlGaAs-on-insulator comb threshold;
-    - Foster et al. 2006's silicon parametric gain;
-    - Zhao et al. 2020's thin-film LN photon pairs (the joint spectrum and brightness);
-    - Coen 2012's octave comb, against pyLLE (Moille 2019);
-  - **convergence:** overlaps and efficiencies with the mode solver's grid, and the split-step at its order; *(both split-steps' second order is a case, the NLSE's and the Lugiato–Lefever equation's)*
+    - Foster et al. 2006's silicon parametric gain; *(not a case: the letter doesn't give the guide whole (#632))*
+    - Zhao et al. 2020's thin-film LN photon pairs (the joint spectrum and brightness); *(the period, the wavelength and the two effective areas are cases (#630); the brightness isn't reproduced, 16 to 22 times theirs)*
+    - Coen 2012's octave comb, against pyLLE (Moille 2019); *(not a case: its dispersion is given only as a curve; Coen 2012's Fig. 2 soliton is, above (#632))*
+  - **convergence:** overlaps and efficiencies with the mode solver's grid, and the split-step at its order; *(the slab's overlap at second order, 1.96 (#630); both split-steps' second order is a case, the NLSE's and the Lugiato–Lefever equation's (#632))*
   - **cross-check:** χ⁽²⁾ and χ⁽³⁾ in FDTD (0.15) against the coupled-mode results on a short device.
 
 ### 0.6.2: Quantum light and linear-optical statistics
@@ -552,14 +552,14 @@ What a designer needs to take a design to a process of their choice. photonoxide
   - connectivity: every port connected and no open waveguide ends.
 - [ ] **Design record** next to the layout: simulated spectra, process corners, the grid each number came from, and what to measure.
 - [ ] **Measurements in:** import measured spectra the user has and compare them with the prediction.
-- [ ] **A fabrication engine** ([docs/plans/fabrication.md](docs/plans/fabrication.md), #622): for any design, the process flow that would make it, each step with its reason, its alternatives and what it can achieve, animated in cross-section for someone new to fabrication. Every capability in its process library is a range with its paper, or "not specified"; its rules read the layers below and above each feature, its size and aspect ratio, and the thermal budgets of what is already on the wafer; executing a flow gives back the design's structure to the bit. Decision support and teaching, not a foundry sign-off. The first slice (F1 to F3, with F5) needs only 0.5.4's devices and may land before this milestone (the plan's decision 3).
-  - [ ] F1: the first flows, as data: the process library's types and the entries an SOI strip, the TFLN modulator and the TiN heater need, `Device::physical`, the executor, a `fabrication` task kind, and the round trip.
-  - [ ] F2: the Fabrication tab, read-only, opened by Fabricate on a component's page and in the run view; scene shapes with their etch, so cross-sections draw ribs and sloped walls.
-  - [ ] F3: the animated cross-section, its narration and glossary, and the profile checked against the structure.
-  - [ ] F4: the rules in full: features and gaps measured, lithography by cited resolution, masks by selectivity, etch stops or timed etches with their uncertainty, thermal-budget ordering, overlay and planarization, checked on textbook cases and on flows papers report.
-  - [ ] F5: the Academy's `::fabrication` directive and lesson "How a chip is made", and Fabricate beside the examples.
-  - [ ] F6: more platforms, one at a time: LPCVD silicon nitride, phase-change cells, aluminium nitride, gallium arsenide.
-  - [ ] F7: the flow in the façade, and exported as JSON, CSV and a printable report.
+- [ ] **A fabrication engine** ([docs/plans/fabrication.md](docs/plans/fabrication.md), #622): for any design, the process flow that would make it, each step with its reason, its alternatives and what it can achieve, animated in cross-section for someone new to fabrication. Every capability in its process library is a range with its paper, or "not specified"; its rules read the layers below and above each feature, its size and aspect ratio, and the thermal budgets of what is already on the wafer; executing a flow gives back the design's structure to the bit. Decision support and teaching, not a foundry sign-off. The first slice (F1 to F3, with F5) needs only 0.5.4's devices and may land before this milestone (the plan's decision 3). *(F1 to F4 on main (#628, #631), F5 in part; F6 and F7 in progress. See [fabrication](docs/methods/fabrication.md).)*
+  - [x] F1: the first flows, as data: the process library's types and the entries an SOI strip, the TFLN modulator and the TiN heater need, `Device::physical`, the executor, a `fabrication` task kind, and the round trip. *(Done (#628): `photonoxide::fabrication`, every capability a cited range or "not specified"; the three designs' flows of 5, 8 and 12 steps, each executed back to its design with 0 differing points; the `fabrication` task kind, replayed bit for bit and the same on 1 and 4 threads.)*
+  - [ ] F2: the Fabrication tab, read-only, opened by Fabricate on a component's page and in the run view; scene shapes with their etch, so cross-sections draw ribs and sloped walls. *(Done but the run view (#628): the tab, opened by Fabricate beside Run on a component's page, the wafer after each step, and an etched layer's shapes drawn with their depth and sidewall.)*
+  - [x] F3: the animated cross-section, its narration and glossary, and the profile checked against the structure. *(Done (#628): each step revealed over the wafer before it, with play, pause, stepping and no motion under reduced motion; the narration in plain words, and a glossary of 16 words, each from a textbook's or paper's section. The cross-sections are the executor's own stages, the last of them the structure the round trip checks.)*
+  - [x] F4: the rules in full: features and gaps measured, lithography by cited resolution, masks by selectivity, etch stops or timed etches with their uncertainty, thermal-budget ordering, overlay and planarization, checked on textbook cases and on flows papers report. *(Done (#631): resolution by the Rayleigh criterion, pattern transfer by material, etch stops by selectivity, aspect ratio, walls, thermal ordering, planarization, film thickness and registration, Deal and Grove as a process model, 36 processes from 24 sources; how accurately each dimension is made, with each contribution's source. Franssila's Table 10.1 and Campbell's Example 4.1 as cases, and the round trip over 160 designs of 15 devices with 0 differing points. The three phase-change shifters wait for a deposition source (F6); the rest of what no source in hand states is in #595.)*
+  - [ ] F5: the Academy's `::fabrication` directive and lesson "How a chip is made", and Fabricate beside the examples. *(Fabricate beside the published results and each lesson's devices done (#628); the directive and the lesson not yet.)*
+  - [ ] F6: more platforms, one at a time: LPCVD silicon nitride, phase-change cells, aluminium nitride, gallium arsenide. *(In progress.)*
+  - [ ] F7: the flow in the façade, and exported as JSON, CSV and a printable report. *(In progress.)*
   - [ ] F8, later: 3D animation, implants once doped regions are drawn (0.8), a user's PDK as a source of capabilities (0.9), and a flow's uncertainties as 0.11's corners.
 - [ ] **Studio:** the export view (floorplan, DRC markers, checklist).
 - [ ] **Validation:**
