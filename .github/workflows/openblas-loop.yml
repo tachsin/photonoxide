@@ -16,8 +16,6 @@ on:
       whole:
         description: Runs of the whole BLAS test binary
         default: '10'
-  push:
-    branches: ['openblas-557-loop*']
 
 permissions:
   contents: read
