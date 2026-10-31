@@ -60,6 +60,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - *(fabrication)* flows for silicon nitride, phase-change cells, AlN and GaAs (F6 of #622) ([#635](https://github.com/tachsin/photonoxide/pull/635))
 - *(studio)* nonlinear jobs and the studio's nonlinear view (the Studio and job-format parts of 0.6.1) ([#637](https://github.com/tachsin/photonoxide/pull/637))
 - *(libraries)* the releases issue is one line per library, the version we use and the newest ([#639](https://github.com/tachsin/photonoxide/pull/639))
+- *(studio)* the Components list's groups fold away, as the rail's System group does ([#547](https://github.com/tachsin/photonoxide/pull/547))
+- *(studio)* a material's header in order, and the page whole in a narrow window ([#548](https://github.com/tachsin/photonoxide/pull/548))
+- *(studio)* the Components, Chip and Academy lists in the rail, under their pages ([#549](https://github.com/tachsin/photonoxide/pull/549))
+- *(studio)* the Materials list in the rail, under its page ([#550](https://github.com/tachsin/photonoxide/pull/550))
+- *(studio)* the version compact at the status bar's right, commits' local times, and Check in the nightly dialog ([#552](https://github.com/tachsin/photonoxide/pull/552))
+- *(studio)* Home for work, the mark in the rail, and what is running at its foot ([#551](https://github.com/tachsin/photonoxide/pull/551))
+- *(studio)* a welcome on the first start that asks for the channel, in place of the tour ([#563](https://github.com/tachsin/photonoxide/pull/563))
+- *(studio)* the CPU's cores, P and E cores, caches and NUMA nodes on the first-start advice (part of #564) ([#575](https://github.com/tachsin/photonoxide/pull/575))
+- *(studio)* the library suggestions ranked by this machine's own benchmark records (part of #564) ([#616](https://github.com/tachsin/photonoxide/pull/616))
 
 ### <!-- 1 -->Fixed
 
@@ -68,6 +77,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - the sweep module is placed in the mode layer of the layering test and of docs/architecture.md ([#607](https://github.com/tachsin/photonoxide/pull/607))
 - *(gpu)* the kernels multiply by 1/Δ rather than divide, so an f64 run repeats bit for bit; the GPU report passes ([#638](https://github.com/tachsin/photonoxide/pull/638))
 - *(validation)* the Systems workflow's report in four shards, and three rows that read the same on every system ([#641](https://github.com/tachsin/photonoxide/pull/641)) ([#644](https://github.com/tachsin/photonoxide/pull/644))
+- *(native)* OpenBLAS built with OpenMP held to one thread on every calling thread ([#559](https://github.com/tachsin/photonoxide/pull/559))
+- *(academy)* the chart test's Bragg number from its closed form, and the leaky lesson's Tamir & Oliner wording (part of #543) ([#574](https://github.com/tachsin/photonoxide/pull/574))
 
 ### <!-- 3 -->Changed
 
