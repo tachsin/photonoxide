@@ -3,10 +3,24 @@ name: Systems
 # What CI leaves to Linux, run on Windows and macOS (Apple silicon) every Monday (the Weekly
 # workflow, when code changed that week) and by hand: the 3D devices and the validation report,
 # each against its committed output, which Linux writes. The system's maths library mustn't show
-# in either (issue #280). Each takes 5 to 30 minutes; the outputs are kept as artifacts.
+# in either (issue #280). The outputs are kept as artifacts.
+#
+# The validation report runs in four shards, each a set of case prefixes (as the release pull
+# request's CI does, tests/validation_report.rs): each checks its rows against
+# docs/validation.md, and the report's head and its list of cases whole, so the four together
+# check the whole report. Run whole in one job, its cases took 71 minutes on macOS and more
+# than 81 on Windows (cancelled at the 90-minute limit) in the Weekly run of 31 October 2026,
+# where Windows had taken 47 and 62 minutes on 19 and 26 October; by area on macOS: device/ 19
+# minutes, fdtd/ 17, fdfd3d/, mode/ and shifter/ 17 together, the rest 17. Each shard and each
+# 3D device takes 5 to 40 minutes with its release build; the limit leaves three times that.
 on:
   workflow_call:
   workflow_dispatch:
+    inputs:
+      only:
+        description: "Run only the shards whose name starts with this (validation: the report's four); empty runs every shard"
+        required: false
+        default: ""
 
 env:
   CARGO_TERM_COLOR: always
@@ -19,32 +33,48 @@ jobs:
       matrix:
         os: [windows-latest, macos-latest]
         shard:
-          - validation
+          - validation device/
+          - validation fdtd/
+          - validation fdfd3d/ mode/ shifter/
+          - validation -device/ -fdtd/ -fdfd3d/ -mode/ -shifter/
           - splitter_rotator_liu_poon
           - mode_converter_liu_poon
           - mmi_liu_poon
           - coupler_liu_poon
           - crossing_liu_poon ring_liu_poon
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 90
+    timeout-minutes: 120
     defaults:
       run:
         shell: bash
     env:
       SHARD: ${{ matrix.shard }}
+      ONLY: ${{ inputs.only }}
     steps:
-      - uses: actions/checkout@v7
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
+      - id: chosen
+        run: |
+          case "$SHARD" in "$ONLY"*) echo "run=true" ;; *) echo "run=false" ;; esac >> "$GITHUB_OUTPUT"
+      - if: steps.chosen.outputs.run == 'true'
+        uses: actions/checkout@v7
+      - if: steps.chosen.outputs.run == 'true'
+        uses: dtolnay/rust-toolchain@stable
+      - if: steps.chosen.outputs.run == 'true'
+        uses: Swatinem/rust-cache@v2
       - name: Against the committed outputs
+        if: steps.chosen.outputs.run == 'true'
         run: |
           out="$RUNNER_TEMP/out"
           mkdir -p "$out"
-          if [ "$SHARD" = validation ]; then
-            PHOTONOXIDE_VALIDATION_OUT="$out/validation.md" \
-              cargo test --release --test validation_report -- --ignored
-            exit 0
-          fi
+          case "$SHARD" in
+            validation\ *)
+              # the shard's rows, each against docs/validation.md; with --nocapture each case's
+              # time is printed as it finishes
+              PHOTONOXIDE_VALIDATION_CASES="${SHARD#validation }" \
+                PHOTONOXIDE_VALIDATION_OUT="$out/validation-rows.md" \
+                cargo test --release --test validation_report -- --ignored --nocapture
+              exit 0
+              ;;
+          esac
           status=0
           for name in $SHARD; do
             echo "::group::$name"
@@ -53,7 +83,7 @@ jobs:
             echo "::endgroup::"
           done
           exit $status
-      - if: always()
+      - if: always() && steps.chosen.outputs.run == 'true'
         uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.os }}-${{ strategy.job-index }}

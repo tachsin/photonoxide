@@ -1191,7 +1191,8 @@ pub(crate) fn rules() -> Vec<(&'static str, Rule)> {
                 5e-6,
                 Measured,
                 "the polynomial's own error between its samples",
-            ),
+            )
+            .varying(),
         ),
         (
             "compact/param-ring-stable",
@@ -1201,7 +1202,8 @@ pub(crate) fn rules() -> Vec<(&'static str, Rule)> {
                 5e-6,
                 Measured,
                 "as compact/param-ring-shift, its poles flipped",
-            ),
+            )
+            .varying(),
         ),
         (
             "compact/param-ring-derivatives",

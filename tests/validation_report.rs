@@ -2,7 +2,8 @@
 //! Slow in a debug build: CI runs it in release (`cargo test --release --test validation_report
 //! -- --ignored`). After a change, rewrite the report with `photonoxide validate --write
 //! docs/validation.md`. With `PHOTONOXIDE_VALIDATION_OUT` set, it writes the report it made
-//! there too, so that a run on another system can be compared (the Systems workflow).
+//! there too (only the rows it made, when it runs some of the cases), so that a run on another
+//! system can be compared (the Systems workflow).
 //!
 //! With `PHOTONOXIDE_VALIDATION_CASES` set to id prefixes separated by spaces (`circuit/
 //! components/`), only the cases whose id starts with one of them run, and only their rows are
@@ -105,6 +106,7 @@ fn some_cases(committed: &str, prefixes: &[&str]) {
 
     let mut failed = Vec::new();
     let mut out_of_date = Vec::new();
+    let mut made = String::new();
     let mut ran = 0;
     for (case, (_, line)) in all.iter().zip(&committed_rows) {
         if !selected(case.id) {
@@ -118,8 +120,12 @@ fn some_cases(committed: &str, prefixes: &[&str]) {
         if row.trim_end() != *line {
             out_of_date.push(format!("committed: {line}\nnow:       {row}"));
         }
+        made.push_str(&row);
     }
     eprintln!("{ran} of {} cases, those {prefixes:?} select", all.len());
+    if let Some(out) = std::env::var_os("PHOTONOXIDE_VALIDATION_OUT") {
+        std::fs::write(out, &made).expect("the rows are written");
+    }
     assert!(
         failed.is_empty(),
         "some validation cases failed:\n{}",
