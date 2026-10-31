@@ -85,21 +85,48 @@ export class FabView3D {
     this.draw();
   }
 
-  /** Builds every solid of `page` once; frames then only show and hide them. */
-  setPage(page: FabricationPage, stretch: number | null) {
-    this.clearSolids();
-    this.page = page;
-    let [lo, hi] = [Infinity, -Infinity];
-    let span = 0;
+  /** The solids' extent: half the plan's span along x and y, µm, and the bottom and top. */
+  private extent(page: FabricationPage): { x: number; y: number; lo: number; hi: number } {
+    let [x, y, lo, hi] = [0, 0, Infinity, -Infinity];
     for (const s of page.solids) {
       lo = Math.min(lo, s.z_um[0]);
       hi = Math.max(hi, s.z_um[1]);
-      for (let i = 0; i < s.positions.length; i += 3) span = Math.max(span, Math.abs(s.positions[i]), Math.abs(s.positions[i + 1]));
+      for (let i = 0; i < s.positions.length; i += 3) {
+        x = Math.max(x, Math.abs(s.positions[i]));
+        y = Math.max(y, Math.abs(s.positions[i + 1]));
+      }
     }
+    return { x, y, lo, hi };
+  }
+
+  /**
+   * What the camera looks at: the whole plan, or for a long design (a modulator millimetres long
+   * and tens of microns wide) a stretch of it four times its width around the cut, so the guides
+   * show; half its size, µm, and its centre along x and y.
+   */
+  private focus(page: FabricationPage): { half: number; at: [number, number] } {
+    const e = this.extent(page);
+    const [long, short] = [Math.max(e.x, e.y), Math.min(e.x, e.y)];
+    if (long <= 4 * short || !this.cutAt) return { half: long, at: [0, 0] };
+    const half = Math.max(4 * short, (e.hi - e.lo) * 2);
+    const [normal, u] = this.cutAt;
+    const along = (normal === "x") === e.x >= e.y ? Math.max(-long + half, Math.min(long - half, u)) : 0;
+    return { half, at: e.x >= e.y ? [along, 0] : [0, along] };
+  }
+
+  /** The cut the camera centres on for a long design: its axis and where, about the page's centre. */
+  private cutAt: ["x" | "y", number] | null = null;
+
+  /** Builds every solid of `page` once; frames then only show and hide them. `cut`, the 2D view's, centres a long design's view. */
+  setPage(page: FabricationPage, stretch: number | null, cut: { normal: "x" | "y"; at: number } | null = null) {
+    this.clearSolids();
+    this.page = page;
+    this.cutAt = cut ? [cut.normal, cut.at - (cut.normal === "x" ? page.centre[0] : page.centre[1])] : null;
+    const e = this.extent(page);
     // films a tenth of a micron thick on a chip tens of microns wide: the height stretched until
-    // the stack is a quarter of the plan's size, at most 50 times, unless a stretch is asked for
-    const height = Math.max(hi - lo, 1e-6);
-    this.stretch = stretch ?? Math.min(50, Math.max(1, (0.5 * span) / height));
+    // the stack is a quarter of the part in view, at most 50 times, unless a stretch is asked for
+    const height = Math.max(e.hi - e.lo, 1e-6);
+    this.stretch = stretch ?? Math.min(50, Math.max(1, (0.5 * this.focus(page).half) / height));
     this.group.scale.set(1, 1, this.stretch);
     for (const s of page.solids) {
       const g = new THREE.BufferGeometry();
@@ -125,32 +152,30 @@ export class FabView3D {
       this.group.add(mesh);
       this.drawn.push({ mesh, material, edges: null, clear: s.clear, z: s.z_um });
     }
-    this.frameView(span, lo, hi);
+    this.frameView();
   }
 
-  /** The camera looking at the whole wafer from the front, above and to the left. */
-  private frameView(span: number, lo: number, hi: number) {
-    const z = ((lo + hi) / 2) * this.stretch;
-    const size = Math.max(span * 2, (hi - lo) * this.stretch, 1e-3);
-    this.controls.target.set(0, 0, z);
-    const d = size * 1.9;
-    this.camera.position.set(-0.55 * d, -0.95 * d, z + 0.75 * d);
+  /** The camera looking at the wafer (or a long design's stretch around the cut) from the front, above and to the left. */
+  private frameView() {
+    if (!this.page) return;
+    const e = this.extent(this.page);
+    const f = this.focus(this.page);
+    const z = ((e.lo + e.hi) / 2) * this.stretch;
+    const size = Math.max(f.half * 2, (e.hi - e.lo) * this.stretch, 1e-3);
+    this.controls.target.set(f.at[0], f.at[1], z);
+    const d = size * 1.25;
+    this.camera.position.set(f.at[0] - 0.55 * d, f.at[1] - 0.95 * d, z + 0.75 * d);
     this.camera.near = size / 1000;
-    this.camera.far = size * 100;
+    this.camera.far = size * 1000;
     this.camera.updateProjectionMatrix();
     this.controls.update();
   }
 
-  /** The view from the front, above and to the left, again. */
-  resetView() {
+  /** The view from the front, above and to the left, again (around the cut, for a long design). */
+  resetView(cut: { normal: "x" | "y"; at: number } | null = null) {
     if (!this.page) return;
-    let [lo, hi, span] = [Infinity, -Infinity, 0];
-    for (const s of this.page.solids) {
-      lo = Math.min(lo, s.z_um[0]);
-      hi = Math.max(hi, s.z_um[1]);
-      for (let i = 0; i < s.positions.length; i += 3) span = Math.max(span, Math.abs(s.positions[i]), Math.abs(s.positions[i + 1]));
-    }
-    this.frameView(span, lo, hi);
+    if (cut) this.cutAt = [cut.normal, cut.at - (cut.normal === "x" ? this.page.centre[0] : this.page.centre[1])];
+    this.frameView();
     this.draw();
   }
 

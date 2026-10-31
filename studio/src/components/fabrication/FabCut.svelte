@@ -21,6 +21,8 @@
   /** How far the height may be stretched: a wafer's films are far thinner than its width; the picture says by how much. */
   const STRETCH = 60;
 
+  let width = $state(600);
+  const names = $derived(width >= 440);
   const now = $derived(frames[frame]);
   const before = $derived(frame > 0 ? frames[frame - 1] : null);
   const reveal = $derived.by(() => {
@@ -33,14 +35,15 @@
   });
 </script>
 
-<div class="relative">
+<!-- narrow, the layers' names give way to the picture: the page's legend names them -->
+<div class="relative" bind:clientWidth={width}>
   {#if before && t < 1}
     <div class="absolute inset-0" aria-hidden="true">
-      <CutView scene={before.scene} etched={before.etched} {normal} {at} {height} quiet maxStretch={STRETCH} {colours} />
+      <CutView scene={before.scene} etched={before.etched} {normal} {at} {height} quiet maxStretch={STRETCH} {colours} {names} />
     </div>
   {/if}
   <!-- on the card's own colour, so where the step took material away the frame before doesn't show through -->
   <div class="relative bg-base-100" style={reveal}>
-    <CutView scene={now.scene} etched={now.etched} {normal} {at} {height} quiet maxStretch={STRETCH} {colours} />
+    <CutView scene={now.scene} etched={now.etched} {normal} {at} {height} quiet maxStretch={STRETCH} {colours} {names} />
   </div>
 </div>

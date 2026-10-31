@@ -13,7 +13,7 @@
   // out, in place of the bands' staircase the scene draws them in (their slab stays the bands')
   // `quiet` leaves out "the cut meets no shape here", for a wafer with nothing drawn on it yet
   // `maxStretch` bounds how far the height may be stretched (8× by default); `names` false leaves
-  // out the layers' names (a picture drawn under another)
+  // out the layers' names and the margin they take (a narrow picture, whose legend names them)
   let {
     scene,
     etched = [],
@@ -30,15 +30,16 @@
   // medium in place of the classes by permittivity; air stays unpainted
   /** A medium's fill: one `fills` names for its material (a metal the optical model draws as oxide), else by its permittivity. */
   const fill = (m: { material: string; eps: number }) => (paint(m) ? "" : (fills[m.material] ?? fillOf(m.eps)));
-  /** A medium's paint from `colours`, as a style, or "" without one: the oxides (ε below 3) lighter. */
+  /** A medium's paint from `colours`, as a style, or "" without one: the clear films (ε below 3, an oxide, a resist) lighter, a metal not, though drawn with an oxide's optics. */
   function paint(m: { material: string; eps: number }): string {
     const c = m.material === "air" ? undefined : colours[m.material];
-    return c ? `fill: ${c}; fill-opacity: ${m.eps < 3 ? 0.55 : 0.9}; stroke: ${c}` : "";
+    const clear = m.eps < 3 && !/^(TiN|Cu\/Au|Au|Cu|Al|Ti|Pt|Cr|NiCr|W)$/.test(m.material);
+    return c ? `fill: ${c}; fill-opacity: ${clear ? 0.35 : 0.95}; stroke: ${c}` : "";
   }
 
   let width = $state(400);
   // the layers' names go at the right, beyond the window
-  const pad = { left: 44, right: 118, top: 10, bottom: 30 };
+  const pad = $derived({ left: 44, right: names ? 118 : 12, top: 10, bottom: 30 });
   const pieces = $derived(cut(scene, normal, at));
   /** Across the cut: around the shapes it meets with 1 µm to spare, or the whole window when it meets none. */
   const across = $derived.by((): [number, number] => {

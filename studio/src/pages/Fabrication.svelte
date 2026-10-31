@@ -101,7 +101,7 @@
         if (!live) return;
         page = got;
         problem = "";
-        untrack(() => restart(got));
+        untrack(() => restart(got, c.id));
       })
       .catch((e) => {
         if (live) problem = String(e);
@@ -151,13 +151,17 @@
     clearTimeout(wait);
   }
 
-  /** Back to the bare wafer, still. */
-  function restart(p: FabricationPage) {
+  /** The design whose flow is shown, by its choice's id: another design's cut starts at its middle. */
+  let shownDesign = "";
+
+  /** Back to the bare wafer, still; the cut at the middle of a design newly shown (a flow remade with another process keeps it). */
+  function restart(p: FabricationPage, design: string) {
     halt();
     playing = false;
     frame = 0;
     t = 1;
-    if (cutAt === null || !inWindow(p)) centreCut(p);
+    if (design !== shownDesign || cutAt === null || !inWindow(p)) centreCut(p);
+    shownDesign = design;
   }
 
   /** Shows frame `k`, its step doing its work from the frame before. */
@@ -278,6 +282,15 @@
     if (!page) return [];
     return page.view.flow.steps.map((s, k) => ({ s, k, frames: frames.map((f, i) => ({ f, i })).filter((x) => x.f.step === k) }));
   });
+  /** The step list: where it scrolls on its own (a wide window), the step shown is kept in sight. */
+  let list: HTMLElement | undefined = $state();
+  $effect(() => {
+    void stepNow;
+    const el = list?.querySelector<HTMLElement>('[aria-current="step"]');
+    if (!list || !el || list.scrollHeight <= list.clientHeight) return;
+    if (el.offsetTop < list.scrollTop) list.scrollTop = el.offsetTop - 8;
+    else if (el.offsetTop + el.offsetHeight > list.scrollTop + list.clientHeight) list.scrollTop = el.offsetTop + el.offsetHeight - list.clientHeight + 8;
+  });
   const checksOf = (k: number) => page?.view.assessment.checks.filter((c) => c.step === k) ?? [];
   const flagged = (k: number) => checksOf(k).filter((c) => c.verdict !== "within").length;
   const ranked = $derived(page?.view.assessment.ranking.find((r) => r.step === stepNow)?.ranked ?? []);
@@ -320,7 +333,8 @@
     const out: [string, string][] = [["process", `${r.name} (${r.process})`]];
     if (r.layer) out.push(["layer", r.layer]);
     if (r.film) out.push(["film", r.film]);
-    if (r.thickness_um !== null) out.push(["thickness", `${num(r.thickness_um)} µm`]);
+    // (a cladding has none: it is above everything)
+    if (r.thickness_um) out.push(["thickness", `${num(r.thickness_um)} µm`]);
     if (r.depth_um !== null) out.push(["depth", `${num(r.depth_um)} µm${r.timed ? ", timed" : ", to the film below"}`]);
     if (r.sidewall_deg !== null) out.push(["sidewall", `${num(r.sidewall_deg)}° from the plane`]);
     if (r.tone) out.push(["resist", r.tone === "keep" ? "kept on the shapes (an etch mask)" : "opened over the shapes (a stencil)"]);
@@ -330,13 +344,13 @@
 
 <svelte:window onkeydown={keys} />
 
-<div class="h-full overflow-y-auto">
+<div class="h-full overflow-x-hidden overflow-y-auto">
   <div class="mx-auto max-w-[1500px] space-y-3 p-3 sm:p-4">
     <!-- the design and what it is made on -->
     <div class="flex flex-wrap items-center gap-2">
-      <label class="flex min-w-0 flex-1 items-center gap-2 sm:flex-none">
+      <label class="flex w-full min-w-0 items-center gap-2 sm:w-auto">
         <span class="shrink-0 text-sm font-medium">Design</span>
-        <select class="select select-sm min-w-0 flex-1 sm:w-80" value={chosenId} onchange={(e) => pick((e.currentTarget as HTMLSelectElement).value)} aria-label="The design to fabricate">
+        <select class="select select-sm w-auto min-w-0 flex-1 sm:w-80 sm:flex-none" value={chosenId} onchange={(e) => pick((e.currentTarget as HTMLSelectElement).value)} aria-label="The design to fabricate">
           {#each groups as g (g)}
             <optgroup label={g}>
               {#each choices.filter((c) => c.group === g) as c (c.id)}
@@ -372,7 +386,7 @@
     {:else}
       <div class="grid gap-3 lg:grid-cols-[minmax(240px,320px)_minmax(0,1fr)]">
         <!-- the steps, from the bare wafer -->
-        <section class="order-2 rounded-box border border-base-content/10 bg-base-100 p-2 lg:order-1 lg:max-h-[calc(100vh-150px)] lg:overflow-y-auto" aria-label="The steps">
+        <section bind:this={list} class="relative order-2 rounded-box border border-base-content/10 bg-base-100 p-2 lg:order-1 lg:max-h-[calc(100vh-150px)] lg:overflow-y-auto" aria-label="The steps">
           <div class="px-1 pb-1 text-xs font-medium faint">{page.view.flow.steps.length} steps, from the bare wafer</div>
           <ol class="space-y-0.5">
             {#each steps as st (st.k)}
@@ -408,15 +422,15 @@
                 <button class="btn join-item btn-xs {mode === '3d' ? 'btn-active' : ''}" onclick={() => setMode("3d")} aria-pressed={mode === "3d"}>3D</button>
                 <button class="btn join-item btn-xs gap-1 {mode === 'both' ? 'btn-active' : ''}" onclick={() => setMode("both")} aria-pressed={mode === "both"} title="Side by side"><Columns2 size={12} /> Both</button>
               </div>
-              <label class="flex items-center gap-1 text-xs faint">
+              <label class="flex min-w-0 flex-wrap items-center gap-1 text-xs faint">
                 cut at
                 <select class="select select-xs w-14" bind:value={normal} onchange={() => page && centreCut(page)} aria-label="The cut's axis">
                   <option value="x">x</option>
                   <option value="y">y</option>
                 </select>
                 =
-                <input type="range" class="range range-xs w-28" min={win[0]} max={win[1]} step={(win[1] - win[0]) / 400 || 0.01} value={cutAt ?? 0} oninput={(e) => (cutAt = Number((e.currentTarget as HTMLInputElement).value))} aria-label="Where the cross-section is cut" />
-                <span class="num w-14">{num(cutAt ?? 0)} µm</span>
+                <input type="range" class="range range-xs w-24 min-w-0 sm:w-36" min={win[0]} max={win[1]} step={(win[1] - win[0]) / 400 || 0.01} value={cutAt ?? 0} oninput={(e) => (cutAt = Number((e.currentTarget as HTMLInputElement).value))} aria-label="Where the cross-section is cut" />
+                <span class="num whitespace-nowrap">{num(cutAt ?? 0)} µm</span>
               </label>
             </div>
             <div class="grid gap-2 {mode === 'both' ? 'xl:grid-cols-2' : ''}">
