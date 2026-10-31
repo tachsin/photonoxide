@@ -474,12 +474,6 @@ fn zhao_wavelength_case() -> Outcome {
 /// rounded down.
 pub(crate) const ZHAO_WAVELENGTH_TOLERANCE: f64 = 0.038;
 
-/// The half span of the matched fundamental between periods of 2.75 and 2.85 µm, µm.
-pub(crate) fn zhao_wavelength_span() -> f64 {
-    let (f, s) = zhao_indices(0.01);
-    0.5 * (matched_wavelength(&f, &s, 2.85) - matched_wavelength(&f, &s, 2.75)).abs()
-}
-
 // ---------------------------------------------------------------------------------------------
 // A waveguide's SHG through the coupled equations
 // ---------------------------------------------------------------------------------------------

@@ -283,6 +283,14 @@ fn zhao_numbers() {
         );
     }
     let (fi, si) = checks::zhao_indices(0.01);
+    // the matched fundamental's shift across the period's half digit, 2.75 to 2.85 µm
+    let span = 0.5
+        * (checks::matched_wavelength(&fi, &si, 2.85) - checks::matched_wavelength(&fi, &si, 2.75))
+            .abs();
+    eprintln!(
+        "the matched fundamental moves by ±{:.4} µm from 2.75 to 2.85 µm",
+        span
+    );
     let process = Process::difference_frequency(
         Wave::new(Wavelength::um(0.785).unwrap(), si.index().unwrap()),
         Wave::new(Wavelength::um(1.57).unwrap(), fi.index().unwrap()),
