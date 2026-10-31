@@ -16,10 +16,12 @@
 //!
 //! **The fibre** is a Gaussian beam whose mode field diameter (MFD) is the diameter at which its
 //! field falls to 1/e (p. 2), so its waist is MFD/2. Fig. 1 measures the fibre offset from the
-//! grating's start to the fibre's axis. Its waist is put on the film's top, its axis FIO from the
-//! first groove, tilted 10° in the top oxide so that its light runs into the waveguide (the
-//! fibre's height, FID in Fig. 1, isn't given for these fronts). The beam is exact in 2D: a sum
-//! of 161 plane waves of its Gaussian angular spectrum.
+//! grating's start to the fibre's axis. For the searches its waist is put on the film's top, its
+//! axis FIO from the first groove, tilted 10° in the top oxide so that its light runs into the
+//! waveguide. The fibre's height, FID in Fig. 1, is 1.28 µm (the supplement's Supp. Tab. I and
+//! data files); the supplement's designs below are solved with the waist on the film and with it
+//! FID above, its axis through x = FIO there. The beam is exact in 2D: a sum of 161 plane waves of
+//! its Gaussian angular spectrum.
 //!
 //! **The coupling efficiency** is found by reciprocity: the waveguide's TE0 mode is launched into
 //! the grating and the field it sends up is projected on the fibre's beam travelling the other
@@ -27,11 +29,12 @@
 //! η = |¼ ∫ (E H̃_b* + E_b* H̃) dx|² / (P_b P_in), P_b the beam's flux through the line and P_in
 //! the mode's power, H̃ = ∂_y E_z / (i k₀) on the grid's faces.
 //!
-//! **The grating** (p. 4): "we vary the width and position of each grating element". The paper
-//! leaves the number of grooves to its supplement, which isn't in our papers folder; it says the
-//! footprint is "slightly larger than MFD" (p. 2). Here a grating of N grooves, N = 8 for the
-//! 4 µm fibre and 11 for the 6 µm one, the first groove's start at 0; the variables are the N
-//! grooves' widths (60 to 450 nm) and the N − 1 teeth between them (60 to 500 nm).
+//! **The grating** (p. 4): "we vary the width and position of each grating element"; the
+//! footprint is "slightly larger than MFD" (p. 2). The searches, set up before the supplement was
+//! read, use a grating of N grooves, N = 8 for the 4 µm fibre and 11 for the 6 µm one, the first
+//! groove's start at 0; the variables are the N grooves' widths (60 to 450 nm) and the N − 1
+//! teeth between them (60 to 500 nm). The supplement's data files have 8 grooves over 5 µm for
+//! the 4 µm fibre and 13 over 8 µm for the 6 µm one.
 //!
 //! **The search, as in the paper** (p. 4). First, "the linearly chirped structure with the best
 //! CE ... found by a dedicated Single-Objective PSO": genoxide's PSO (20 particles, 30 moves) on
@@ -75,15 +78,62 @@
 //! figure. At 100 nm ours
 //! couple 43.64 % (4 µm) and 39.77 % (6 µm), against the paper's 53 % and 47 %: 9.4 and 7.2
 //! points below, beyond the 3 asked. Reported, not checked, and listed for #595; the grids agree
-//! to 0.07 and 0.7 points, so the gap isn't the grid. What differs from the paper: the search
-//! (NSGA-II for its multi-objective PSO, and 1620 structures for its 2 × 10⁴), the number of
-//! grooves (its supplement's, which we haven't read), where the fibre's waist sits, and how the
-//! band is placed. Our 6 µm front also sits above our 4 µm one at the narrow end, which Fig. 6's
-//! don't.
+//! to 0.07 and 0.7 points, so the gap isn't the grid. What differs from the paper's search:
+//! NSGA-II for its multi-objective PSO, 1620 structures for its 2 × 10⁴, 11 grooves for its 13
+//! (6 µm), an etch of 150 nm for the 140 nm of its 4 µm structures, and how the band is placed.
+//! Our 6 µm front also sits above our 4 µm one at the narrow end, which Fig. 6's don't.
+//!
+//! **The paper's own designs** (its supplementary material, Sec. VI and the data files
+//! supp_MFD_4.txt and supp_MFD_6.txt): each front's common data (MFD, n, the film, etch, FIO,
+//! FID, T_BOX, mean period, footprint) and, for every structure on it, numbered by increasing
+//! efficiency, its efficiency, 1-dB bandwidth and each groove's position and width, the
+//! positions from the centre of the first groove of the linear chirp the search started from
+//! (taken here as the grooves' centres), the fibre's offset from the same point. The files' 4 µm
+//! etch is 140 nm, as Supp. Fig. 4(a) marks it; Fig. 6's table prints 150. Their own fronts at
+//! 100 nm, between the designs either side, are 53.84 % (4 µm, structures 49 and 48) and
+//! 47.36 % (6 µm, 39 and 37): the main text's 53 % and 47 %.
+//!
+//! The plain run re-solves two of the 4 µm designs, 52 and 49, with the searches' model, and
+//! checks the efficiency at 100 nm between them against the main text's 53 %, within #244's
+//! 3 points, its grid within a third of that: the question is whether the gap above is the
+//! search or the model. The 6 µm pair is left to `--supplement`: on 40 × 20 and 20 × 10 nm its
+//! efficiency at 100 nm moves by 1.8 points (the bandwidths by up to 4 nm), beyond the 1 point a
+//! check needs, and a finer grid costs too much for CI.
+//!
+//! `--supplement` re-solves ten of the designs (the best of each front, those near 100 nm and
+//! the four of Supp. Fig. 7) on three grids, 40 × 20, 20 × 10 and 10 × 5 nm, with the beam's
+//! waist on the film and FID above it, and compares each design's efficiency and bandwidth with
+//! the paper's. The tolerance is the paper's own spread on its 2D numbers: Supp. Fig. 7 solves
+//! four of the 4 µm designs again in 2D, and those differ from the data file's by up to
+//! 0.24 points in efficiency (structure 56) and 1.32 % in bandwidth (structure 45). (The file's
+//! bandwidths come in steps of about 1.5 nm, its spectra's resolution.) Our grid's error, from
+//! the three grids, must be within a third of that.
+//!
+//! **What the paper's designs gave.** The plain run's check holds: the paper's 4 µm designs 52
+//! and 49 couple 53.45 % at 100 nm, against the main text's 53 % (the grids agree to
+//! 0.06 points). Our model reproduces Fig. 6's 4 µm number from the paper's own designs, so the
+//! 9.4 points our front misses it by are our search's, with its 150 nm etch.
+//!
+//! `--supplement` (2026-10-31, on 8 threads of a machine shared with other work: about 1 h for
+//! the 4 µm designs), on 10 × 5 nm with the waist at FID: the 4 µm efficiencies are within 0.10
+//! to 0.52 points of the data file's, 55.29 % against 55.1 % (52), 53.90 against 54.0 (49), 53.23
+//! against 53.1 (48), 51.17 against 50.9 (45), 57.73 against 57.36 (56) and 46.72 against 46.2
+//! (35): the first three within the paper's spread of 0.24 points, the others just beyond it.
+//! With the waist on the film they are 0.40 to 1.74 points below the paper's, so the fibre's distance matters
+//! at the half-point level. The bandwidths are wider than the paper's for every design, by 3.3 to
+//! 4.7 nm (3 to 5 %; 4.8 to 6.1 nm with the waist on the film), beyond the spread of 1.32 % and
+//! far beyond our grid's error (at most 0.4 nm): a gap we don't explain, reported and not checked.
+//! Where the fibre's offset is measured (at its facet here), the grooves' positions taken as their
+//! centres, and the paper's FDTD mesh and spectra (its bandwidths come in steps of about 1.5 nm)
+//! are the candidates. Our grid's error on the efficiency is within a third of the spread
+//! (0.08 points) for 49, 48 and 45 with the waist at FID; for the others the three grids give an
+//! estimate up to 0.4 points, or none where the changes don't shrink, so the efficiencies agree
+//! to about half a point, not yet to the paper's own 0.24.
 //!
 //! ```sh
-//! cargo run --release --example optimize_grating_pareto             # the recorded designs
-//! cargo run --release --example optimize_grating_pareto -- --full   # the searches
+//! cargo run --release --example optimize_grating_pareto                  # the recorded designs
+//! cargo run --release --example optimize_grating_pareto -- --full        # the searches
+//! cargo run --release --example optimize_grating_pareto -- --supplement  # the paper's designs
 //! ```
 
 mod common;
@@ -141,7 +191,8 @@ const TARGET: f64 = 100.0;
 const TOLERANCE: f64 = 3.0;
 
 /// One of Fig. 6's fronts: the table's mode field diameter, BOX, fibre offset and etch, µm,
-/// with the paper's efficiency at 100 nm (p. 4) and our number of grooves.
+/// with the paper's efficiency at 100 nm (p. 4), the number of grooves, the farthest the
+/// grating reaches from x = 0, µm, and the height of the beam's waist above the film, µm.
 #[derive(Clone, Copy)]
 struct Setup {
     mfd: f64,
@@ -150,6 +201,13 @@ struct Setup {
     etch: f64,
     paper: f64,
     grooves: usize,
+    reach: f64,
+    waist: f64,
+}
+
+/// The farthest a search's grating of `n` grooves can reach, µm.
+const fn reach(n: usize) -> f64 {
+    n as f64 * GROOVE.1 + (n - 1) as f64 * TOOTH.1
 }
 
 const SETUPS: [Setup; 2] = [
@@ -160,6 +218,8 @@ const SETUPS: [Setup; 2] = [
         etch: 0.150,
         paper: 53.0,
         grooves: 8,
+        reach: reach(8),
+        waist: 0.0,
     },
     Setup {
         mfd: 6.0,
@@ -168,6 +228,8 @@ const SETUPS: [Setup; 2] = [
         etch: 0.120,
         paper: 47.0,
         grooves: 11,
+        reach: reach(11),
+        waist: 0.0,
     },
 ];
 
@@ -350,6 +412,285 @@ const RECORDED: [Recorded; 2] = [
     },
 ];
 
+/// One of the paper's own designs, from its supplement's data files: its number on its front,
+/// the efficiency (%) and 1-dB bandwidth (nm) printed for it, and each groove's centre and
+/// width, nm, the centres from the centre of the first groove of the front's linear chirp.
+struct Structure {
+    number: u32,
+    ce: f64,
+    bandwidth: f64,
+    grooves: &'static [(f64, f64)],
+}
+
+impl Structure {
+    /// The grooves' starts and widths, µm.
+    fn cut(&self) -> Vec<(f64, f64)> {
+        self.grooves
+            .iter()
+            .map(|&(c, w)| ((c - w / 2.0) / 1000.0, w / 1000.0))
+            .collect()
+    }
+}
+
+/// One of the supplement's fronts: its data file's common data (mode field diameter, BOX,
+/// fibre offset, etch and fibre distance, µm), the main text's efficiency at 100 nm, the
+/// structures re-solved and, of them, the numbers of the two either side of 100 nm on the
+/// paper's front and of the two either side of it on ours (the plain run's, where its two grids
+/// can judge it).
+struct Front {
+    mfd: f64,
+    t_box: f64,
+    fio: f64,
+    etch: f64,
+    fid: f64,
+    paper: f64,
+    structures: &'static [Structure],
+    bracket: [u32; 2],
+    plain: Option<[u32; 2]>,
+}
+
+impl Front {
+    /// The setup of its structures, the beam's waist `waist` above the film.
+    fn setup(&self, waist: f64) -> Setup {
+        let reach = self
+            .structures
+            .iter()
+            .flat_map(|s| s.cut())
+            .map(|(a, w)| a + w)
+            .fold(0.0, f64::max);
+        Setup {
+            mfd: self.mfd,
+            t_box: self.t_box,
+            fio: self.fio,
+            etch: self.etch,
+            paper: self.paper,
+            grooves: self.structures[0].grooves.len(),
+            reach,
+            waist,
+        }
+    }
+
+    fn structure(&self, number: u32) -> &Structure {
+        self.structures
+            .iter()
+            .find(|s| s.number == number)
+            .expect("a structure re-solved")
+    }
+}
+
+/// The supplement's fronts for the mode field diameters of 4 and 6 µm (supp_MFD_4.txt and
+/// supp_MFD_6.txt): the best design of each and those near 100 nm, with, for 4 µm, the four of
+/// Supp. Fig. 7. The data files' etch for 4 µm is 140 nm, as Supp. Fig. 4(a) marks it, where
+/// Fig. 6's table prints 150.
+const FRONTS: [Front; 2] = [
+    Front {
+        mfd: 4.0,
+        t_box: 2.1,
+        fio: 2.60,
+        etch: 0.140,
+        fid: 1.28,
+        paper: 53.0,
+        structures: &[
+            Structure {
+                number: 56,
+                ce: 57.36,
+                bandwidth: 85.9,
+                grooves: &[
+                    (0.0, 55.2),
+                    (683.4, 121.9),
+                    (1363.5, 185.6),
+                    (2057.4, 239.3),
+                    (2753.5, 240.5),
+                    (3415.8, 265.9),
+                    (4098.8, 239.5),
+                    (4791.7, 253.8),
+                ],
+            },
+            Structure {
+                number: 52,
+                ce: 55.1,
+                bandwidth: 93.0,
+                grooves: &[
+                    (4.2, 50.0),
+                    (679.6, 153.7),
+                    (1409.9, 281.2),
+                    (2088.0, 264.9),
+                    (2784.5, 303.0),
+                    (3476.6, 272.1),
+                    (4151.0, 289.1),
+                    (4857.2, 227.4),
+                ],
+            },
+            Structure {
+                number: 49,
+                ce: 54.0,
+                bandwidth: 99.2,
+                grooves: &[
+                    (-6.9, 62.6),
+                    (680.2, 85.2),
+                    (1384.2, 269.1),
+                    (2118.7, 277.4),
+                    (2797.0, 297.9),
+                    (3490.6, 331.4),
+                    (4179.4, 217.2),
+                    (4882.9, 274.7),
+                ],
+            },
+            Structure {
+                number: 48,
+                ce: 53.1,
+                bandwidth: 103.8,
+                grooves: &[
+                    (19.6, 56.0),
+                    (697.9, 107.9),
+                    (1413.0, 232.0),
+                    (2113.3, 253.9),
+                    (2796.7, 296.2),
+                    (3499.1, 322.7),
+                    (4167.6, 266.8),
+                    (4873.7, 168.8),
+                ],
+            },
+            Structure {
+                number: 45,
+                ce: 50.9,
+                bandwidth: 105.4,
+                grooves: &[
+                    (13.9, 73.0),
+                    (688.6, 108.8),
+                    (1414.4, 246.0),
+                    (2102.4, 266.0),
+                    (2791.3, 290.5),
+                    (3500.6, 319.9),
+                    (4190.2, 263.5),
+                    (4903.2, 130.1),
+                ],
+            },
+            Structure {
+                number: 35,
+                ce: 46.2,
+                bandwidth: 120.9,
+                grooves: &[
+                    (10.7, 72.3),
+                    (689.3, 122.3),
+                    (1434.3, 262.7),
+                    (2113.8, 265.7),
+                    (2789.2, 214.4),
+                    (3480.8, 304.2),
+                    (4134.3, 304.8),
+                    (4872.2, 55.2),
+                ],
+            },
+        ],
+        bracket: [49, 48],
+        plain: Some([52, 49]),
+    },
+    Front {
+        mfd: 6.0,
+        t_box: 2.0,
+        fio: 3.70,
+        etch: 0.120,
+        fid: 1.28,
+        paper: 47.0,
+        structures: &[
+            Structure {
+                number: 58,
+                ce: 59.82,
+                bandwidth: 67.5,
+                grooves: &[
+                    (19.6, 51.8),
+                    (681.2, 78.9),
+                    (1329.7, 145.8),
+                    (1990.9, 154.2),
+                    (2662.1, 193.3),
+                    (3297.8, 210.2),
+                    (3974.8, 220.6),
+                    (4645.4, 284.0),
+                    (5273.7, 247.7),
+                    (5961.9, 253.7),
+                    (6620.4, 278.3),
+                    (7286.2, 266.6),
+                    (7951.5, 303.1),
+                ],
+            },
+            Structure {
+                number: 42,
+                ce: 50.2,
+                bandwidth: 96.1,
+                grooves: &[
+                    (35.4, 54.4),
+                    (668.6, 66.3),
+                    (1331.7, 106.0),
+                    (1984.6, 180.5),
+                    (2656.1, 279.1),
+                    (3298.2, 337.2),
+                    (3976.9, 350.9),
+                    (4641.4, 278.7),
+                    (5298.0, 235.3),
+                    (5975.4, 355.0),
+                    (6670.7, 317.3),
+                    (7416.5, 222.2),
+                    (7980.7, 227.6),
+                ],
+            },
+            Structure {
+                number: 39,
+                ce: 47.8,
+                bandwidth: 99.2,
+                grooves: &[
+                    (13.5, 70.7),
+                    (638.3, 67.7),
+                    (1303.8, 126.9),
+                    (1984.7, 177.8),
+                    (2645.2, 274.2),
+                    (3271.0, 320.4),
+                    (3967.6, 379.5),
+                    (4638.8, 345.6),
+                    (5285.3, 244.1),
+                    (5978.4, 313.9),
+                    (6639.6, 330.5),
+                    (7432.4, 180.6),
+                    (7969.1, 267.2),
+                ],
+            },
+            Structure {
+                number: 37,
+                ce: 46.1,
+                bandwidth: 102.3,
+                grooves: &[
+                    (45.8, 59.7),
+                    (652.8, 59.5),
+                    (1338.5, 207.9),
+                    (1994.7, 211.6),
+                    (2666.9, 261.0),
+                    (3288.7, 311.1),
+                    (3961.2, 386.5),
+                    (4628.7, 365.1),
+                    (5291.3, 215.4),
+                    (5980.0, 439.7),
+                    (6651.6, 310.8),
+                    (7446.0, 262.8),
+                    (8001.1, 234.6),
+                ],
+            },
+        ],
+        bracket: [39, 37],
+        // on 40 × 20 nm and 20 × 10 nm, the efficiency at 100 nm between 42 and 37 moves by
+        // 1.8 points, beyond the third of 3 a check needs: the 6 µm front is `--supplement`'s
+        plain: None,
+    },
+];
+
+/// Supp. Fig. 7's table: four of the 4 µm front's structures solved again in 2D by the paper
+/// (number, efficiency %, 1-dB bandwidth nm), beside the data file's values for the same
+/// structures. Their differences are the paper's own spread on its 2D numbers.
+const RERUN: [(u32, f64, f64); 4] = [
+    (56, 57.12, 87.01),
+    (52, 54.95, 93.58),
+    (45, 50.70, 106.79),
+    (35, 46.07, 121.11),
+];
+
 /// The grooves' starts and widths of a design given as its widths and teeth.
 fn grooves(genome: &[f64], n: usize) -> Vec<(f64, f64)> {
     let mut out = Vec::with_capacity(n);
@@ -418,11 +759,10 @@ struct Model {
 fn window(setup: Setup, (dx, dy): (f64, f64)) -> (Grid, usize, usize, f64) {
     let w0 = setup.mfd / 2.0;
     let (s, c) = math::sin_cos(ANGLE * PI / 180.0);
-    let tilt = s / c * LINE;
-    let n = setup.grooves as f64;
-    let longest = n * GROOVE.1 + (n - 1.0) * TOOTH.1;
+    // where the beam's axis crosses the line, from where it crosses the waist's height
+    let tilt = s / c * (LINE - setup.waist);
     let left = (setup.fio - REACH * w0 + tilt).min(-1.0) - 0.3;
-    let right = (setup.fio + REACH * w0 + tilt).max(longest + 0.3);
+    let right = (setup.fio + REACH * w0 + tilt).max(setup.reach + 0.3);
     let px = (PML.0 / dx).round() as usize;
     let py = (PML.1 / dy).round() as usize;
     let y_box = -FILM - setup.t_box;
@@ -462,7 +802,7 @@ impl Model {
                 grid,
                 Polarization::Ez,
                 Wavelength::um(CENTRE)?,
-                &cells(grid, setup, y_box, &start),
+                &cells(grid, setup, y_box, &grooves(&start, setup.grooves)),
                 boundaries,
                 &Choice::Photonoxide,
             )?,
@@ -471,13 +811,18 @@ impl Model {
 
     /// ε per cell of `genome`.
     fn cells(&self, genome: &[f64]) -> Vec<c64> {
-        cells(self.grid, self.setup, self.y_box, genome)
+        cells(
+            self.grid,
+            self.setup,
+            self.y_box,
+            &grooves(genome, self.setup.grooves),
+        )
     }
 }
 
-/// ε per cell of `genome` on `g`, E along z: each cell's mean over its area.
-fn cells(g: Grid, s: Setup, y_box: f64, genome: &[f64]) -> Vec<c64> {
-    let cut = grooves(genome, s.grooves);
+/// ε per cell on `g` of the grooves `cut` (their starts and widths, µm), E along z: each cell's
+/// mean over its area.
+fn cells(g: Grid, s: Setup, y_box: f64, cut: &[(f64, f64)]) -> Vec<c64> {
     let (si, ox) = (N_SI * N_SI, N_OX * N_OX);
     let mut eps = Vec::with_capacity(g.nx * g.ny);
     for j in 0..g.ny {
@@ -500,7 +845,8 @@ fn cells(g: Grid, s: Setup, y_box: f64, genome: &[f64]) -> Vec<c64> {
 
 impl Model {
     /// The fibre's beam at `wavelength`, going up and towards +x at 10° in the oxide: the sum of
-    /// its Gaussian angular spectrum about its axis, its waist on the film's top at x = FIO.
+    /// its Gaussian angular spectrum about its axis, its waist at x = FIO, the setup's `waist`
+    /// above the film's top (on it for the searches).
     fn beam(&self, wavelength: f64) -> Beam {
         let g = self.grid;
         let w0 = self.setup.mfd / 2.0;
@@ -516,7 +862,7 @@ impl Model {
             })
             .collect();
         let row = |j: usize| -> Vec<c64> {
-            let y = g.y(j);
+            let y = g.y(j) - self.setup.waist;
             (0..g.nx)
                 .map(|i| {
                     let x = g.x(i) - self.setup.fio;
@@ -566,7 +912,13 @@ impl Model {
     /// thread.
     fn spectra(&self, genomes: &[Vec<f64>], beams: &[Beam]) -> Vec<Vec<f64>> {
         let eps: Vec<Vec<c64>> = genomes.par_iter().map(|g| self.cells(g)).collect();
-        let jobs: Vec<(usize, usize)> = (0..genomes.len())
+        self.spectra_of(&eps, beams)
+    }
+
+    /// The efficiencies of the designs with cells `eps` at `beams`' wavelengths, every solve on
+    /// its own thread.
+    fn spectra_of(&self, eps: &[Vec<c64>], beams: &[Beam]) -> Vec<Vec<f64>> {
+        let jobs: Vec<(usize, usize)> = (0..eps.len())
             .flat_map(|d| (0..beams.len()).map(move |k| (d, k)))
             .collect();
         let ce: Vec<f64> = jobs
@@ -926,6 +1278,260 @@ fn check(
     Ok(())
 }
 
+/// The paper's own spread on its 2D numbers, from [`RERUN`] against the data file: the largest
+/// difference in efficiency (percentage points) and in bandwidth (relative to the file's).
+fn spread() -> (f64, f64) {
+    let front = &FRONTS[0];
+    RERUN.iter().fold((0.0, 0.0), |(dc, dw), &(n, ce, bw)| {
+        let s = front.structure(n);
+        (
+            f64::max(dc, (s.ce - ce).abs()),
+            f64::max(dw, (s.bandwidth - bw).abs() / s.bandwidth),
+        )
+    })
+}
+
+/// The bands of `structures` on `model`'s grid.
+fn structure_bands(model: &Model, structures: &[&Structure]) -> Vec<Band> {
+    let lambda = wavelengths(FRONT_WAVELENGTHS);
+    let beams = model.beams(&lambda);
+    let eps: Vec<Vec<c64>> = structures
+        .par_iter()
+        .map(|s| cells(model.grid, model.setup, model.y_box, &s.cut()))
+        .collect();
+    model
+        .spectra_of(&eps, &beams)
+        .iter()
+        .map(|ce| band(&lambda, ce))
+        .collect()
+}
+
+/// A number to the digits that hold on every system: the efficiency in % to 0.01, the
+/// bandwidth in nm to 0.1.
+fn held(x: f64, digits: i32) -> f64 {
+    let scale = 10f64.powi(digits);
+    (x * scale).round() / scale
+}
+
+/// The grids of `--supplement`'s comparison, coarsest first: twice the paper's vertical mesh,
+/// the paper's (the searches' grid) and half of it.
+const GRIDS: [(f64, f64); 3] = [
+    (2.0 * STEP.0, 2.0 * STEP.1),
+    STEP,
+    (STEP.0 / 2.0, STEP.1 / 2.0),
+];
+
+/// A front's common data and its own efficiency at 100 nm, between the two designs either side.
+fn header(front: &Front) {
+    let (s0, s1) = (
+        front.structure(front.bracket[0]),
+        front.structure(front.bracket[1]),
+    );
+    println!(
+        "\nMFD {} µm: T_BOX {} µm, FIO {} µm, etch {} nm, {} grooves, FID {} µm (the data file's common data); the data file's front at {TARGET} nm, between structures {} ({} % at {} nm) and {} ({} % at {} nm): {:.2} %, the main text's {} %",
+        front.mfd,
+        front.t_box,
+        front.fio,
+        1000.0 * front.etch,
+        front.structures[0].grooves.len(),
+        front.fid,
+        s0.number,
+        s0.ce,
+        s0.bandwidth,
+        s1.number,
+        s1.ce,
+        s1.bandwidth,
+        s0.ce + (s1.ce - s0.ce) * (TARGET - s0.bandwidth) / (s1.bandwidth - s0.bandwidth),
+        front.paper
+    );
+}
+
+/// The paper's own front at 100 nm, as the searches' model solves it: two of the supplement's
+/// designs, either side of 100 nm on our grid, re-solved on the paper's grid and one twice as
+/// coarse; the efficiency between them at 100 nm checked against the main text's, as our own
+/// front's is.
+fn published(checks: &mut common::Checks) -> photonoxide::Result<()> {
+    println!(
+        "\nThe paper's own designs (its supplement's data files), re-solved by the searches' model (the beam's waist on the film). The efficiency at {TARGET} nm between two of them, against the main text's, within {TOLERANCE} points, for the 4 µm front: the 6 µm one's moves by 1.8 points between these two grids and needs `--supplement`'s finer one, which also compares each design with its printed efficiency and bandwidth."
+    );
+    for front in &FRONTS {
+        let Some(plain) = front.plain else {
+            continue;
+        };
+        header(front);
+        let pair = [front.structure(plain[0]), front.structure(plain[1])];
+        let setup = front.setup(0.0);
+        let started = Instant::now();
+        let mut bands = Vec::with_capacity(2);
+        for (k, step) in [GRIDS[0], GRIDS[1]].into_iter().enumerate() {
+            bands.push(structure_bands(&Model::new(setup, step)?, &pair));
+            eprintln!(
+                "MFD {} um, the paper's designs: grid {} of 2, {} in",
+                front.mfd,
+                k + 1,
+                minutes(started.elapsed().as_secs_f64())
+            );
+        }
+        let (bc, bf) = ([bands[0][0], bands[0][1]], [bands[1][0], bands[1][1]]);
+        for (k, s) in pair.iter().enumerate() {
+            println!(
+                "  structure {}: paper {} % at {} nm; ours {:.2} % at {:.1} nm ({:.4}–{:.4} µm) on 20 × 10 nm, {:.2} % at {:.1} nm on 40 × 20 nm",
+                s.number,
+                s.ce,
+                s.bandwidth,
+                100.0 * bf[k].peak,
+                bf[k].width_nm(),
+                bf[k].low,
+                bf[k].high,
+                100.0 * bc[k].peak,
+                bc[k].width_nm()
+            );
+        }
+        if !(bf[0].width_nm() <= TARGET && TARGET <= bf[1].width_nm()) {
+            println!("  the two don't hold {TARGET} nm between them on our grid: not checked");
+            continue;
+        }
+        let ef = held(between(&bf), 2);
+        let study = Study::new("efficiency at 100 nm (%)")
+            .on(GRIDS[0].1, held(between(&bc), 2))?
+            .on(GRIDS[1].1, ef)?
+            .check(TOLERANCE / 3.0)?;
+        checks.converged(
+            &format!("MFD {} µm: their CE at 100 nm, grids", front.mfd),
+            &study,
+        );
+        let what = format!("MFD {} µm: their CE at 100 nm, 2D (%)", front.mfd);
+        if (ef - front.paper).abs() <= TOLERANCE {
+            checks.compare(&what, ef, front.paper, TOLERANCE);
+        } else {
+            println!(
+                "  {what}: {ef:.2}, paper {}: {:+.2} points, beyond {TOLERANCE}; a gap, reported and not checked",
+                front.paper,
+                ef - front.paper
+            );
+        }
+    }
+    Ok(())
+}
+
+/// `--supplement`: every design of [`FRONTS`] on the three [`GRIDS`], with the beam's waist on
+/// the film and at the fibre's distance above it, each compared with the efficiency and
+/// bandwidth the paper prints for it, within the paper's own spread ([`spread`]); our grid's
+/// error, from the three grids, within a third of it.
+fn supplement(checks: &mut common::Checks) -> photonoxide::Result<()> {
+    let (ce_tol, bw_tol) = spread();
+    println!(
+        "\nThe paper's own designs (its supplement's data files), each against what the paper prints for it. The tolerance is the paper's own spread on its 2D numbers: Supp. Fig. 7 solves four of the 4 µm front's structures again, and they differ from the data file's by up to {ce_tol:.2} points in efficiency and {:.2} % in bandwidth; our grid's error must be within a third of that.",
+        100.0 * bw_tol
+    );
+    for (f, front) in FRONTS.iter().enumerate() {
+        header(front);
+        let structures: Vec<&Structure> = front.structures.iter().collect();
+        let waists = [
+            ("the waist on the film", 0.0),
+            ("the waist at FID", front.fid),
+        ];
+        // one design at a time, its wavelengths in parallel, for a progress line after each
+        let total = waists.len() * GRIDS.len() * structures.len();
+        let started = Instant::now();
+        let mut done = 0;
+        let mut bands = Vec::with_capacity(waists.len() * GRIDS.len());
+        for &(name, waist) in &waists {
+            for step in GRIDS {
+                let model = Model::new(front.setup(waist), step)?;
+                let mut grid = Vec::with_capacity(structures.len());
+                for s in &structures {
+                    grid.extend(structure_bands(&model, &[*s]));
+                    done += 1;
+                    let elapsed = started.elapsed().as_secs_f64();
+                    eprintln!(
+                        "MFD {} um, the paper's designs: {done} of {total} ({:.0} %; structure {}, {name}, {:.0} x {:.0} nm), {} in",
+                        front.mfd,
+                        100.0 * done as f64 / total as f64,
+                        s.number,
+                        1000.0 * step.0,
+                        1000.0 * step.1,
+                        minutes(elapsed)
+                    );
+                }
+                bands.push(grid);
+            }
+        }
+        for (k, s) in structures.iter().enumerate() {
+            let rerun = RERUN
+                .iter()
+                .find(|r| f == 0 && r.0 == s.number)
+                .map_or_else(String::new, |r| {
+                    format!("; Supp. Fig. 7 {} % at {} nm", r.1, r.2)
+                });
+            println!(
+                "  structure {}: paper {} % at {} nm{rerun}",
+                s.number, s.ce, s.bandwidth
+            );
+            let band_tol = bw_tol * s.bandwidth;
+            for (w, &(name, _)) in waists.iter().enumerate() {
+                let b: Vec<Band> = (0..GRIDS.len())
+                    .map(|g| bands[w * GRIDS.len() + g][k])
+                    .collect();
+                let values: Vec<String> = b
+                    .iter()
+                    .zip(GRIDS)
+                    .map(|(b, (dx, dy))| {
+                        format!(
+                            "{:.2} % at {:.1} nm on {:.0} × {:.0} nm",
+                            100.0 * b.peak,
+                            b.width_nm(),
+                            1000.0 * dx,
+                            1000.0 * dy
+                        )
+                    })
+                    .collect();
+                println!("    {name}: {}", values.join(", "));
+                let mut ce = Study::new("efficiency (%)");
+                let mut bw = Study::new("1-dB bandwidth (nm)");
+                for (b, (_, dy)) in b.iter().zip(GRIDS) {
+                    ce = ce.on(dy, held(100.0 * b.peak, 2))?;
+                    bw = bw.on(dy, held(b.width_nm(), 1))?;
+                }
+                let label = format!("MFD {} µm, {}, {name}", front.mfd, s.number);
+                checks.converged(&format!("{label}: CE, grids"), &ce.check(ce_tol / 3.0)?);
+                checks.converged(
+                    &format!("{label}: bandwidth, grids"),
+                    &bw.check(band_tol / 3.0)?,
+                );
+                let last = b[GRIDS.len() - 1];
+                for (what, ours, paper, tol, unit) in [
+                    (
+                        "CE, 2D (%)",
+                        held(100.0 * last.peak, 2),
+                        s.ce,
+                        ce_tol,
+                        "points",
+                    ),
+                    (
+                        "bandwidth, 2D (nm)",
+                        held(last.width_nm(), 1),
+                        s.bandwidth,
+                        band_tol,
+                        "nm",
+                    ),
+                ] {
+                    let what = format!("{label}: {what}");
+                    if (ours - paper).abs() <= tol {
+                        checks.compare(&what, ours, paper, held(tol, 2));
+                    } else {
+                        println!(
+                            "  {what}: {ours:.2}, paper {paper}: {:+.2} {unit}, beyond {tol:.2}; a gap, reported and not checked",
+                            ours - paper
+                        );
+                    }
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
 fn full(checks: &mut common::Checks) -> photonoxide::Result<()> {
     let path =
         std::env::var("GRATING_LOG").unwrap_or_else(|_| "optimize_grating_pareto.log".into());
@@ -1112,8 +1718,13 @@ pub fn main() -> photonoxide::Result<ExitCode> {
         "Passoni et al. 2017's apodized grating couplers (Fig. 6): 220 nm SOI, n = 3.47 and 1.44, TE, a 10° fibre; 2D FDFD (labelled 2D), the efficiency by reciprocity, the 1-dB band from {FRONT_WAVELENGTHS} wavelengths, {} to {} µm",
         WINDOW.0, WINDOW.1
     );
+    if std::env::args().any(|a| a == "--supplement") {
+        supplement(&mut checks)?;
+        return Ok(checks.finish());
+    }
     if std::env::args().any(|a| a == "--full") {
         full(&mut checks)?;
+        published(&mut checks)?;
         return Ok(checks.finish());
     }
     for (setup, recorded) in SETUPS.iter().zip(&RECORDED) {
@@ -1138,5 +1749,6 @@ pub fn main() -> photonoxide::Result<ExitCode> {
         }
         check(&mut checks, *setup, &recorded.designs)?;
     }
+    published(&mut checks)?;
     Ok(checks.finish())
 }
