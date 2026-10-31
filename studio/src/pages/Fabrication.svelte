@@ -213,7 +213,8 @@
     if (app.page !== "fabrication" || app.palette || !page) return;
     const el = e.target as HTMLElement | null;
     if (el && (el.tagName === "INPUT" || el.tagName === "SELECT" || el.tagName === "TEXTAREA" || el.isContentEditable)) return;
-    if (e.key === " ") {
+    // Space on a button presses the button
+    if (e.key === " " && el?.tagName !== "BUTTON" && el?.tagName !== "A") {
       e.preventDefault();
       toggle();
     } else if (e.key === "ArrowRight") {
