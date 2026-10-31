@@ -605,15 +605,15 @@ modes are solved without them. The flow deposits the real film; put back, the st
 | `fabrication/rule-choices` | the Rayleigh classes, a stop by selectivity, LPCVD and PECVD by thermal budget and conformality, RIE lag, registration | 0 wrong | exact |
 | `fabrication/accuracy-combined` | the heater's polished oxide: √(30² + 22²) nm | 37.2022 nm | round-off, 1e-12 relative |
 | `fabrication/round-trip-library` | every library device the rules make, at its defaults and each parameter's ends (196 designs of 18 devices) | 0 differing points | exact |
-| `fabrication/nitride-round-trip` | every library device on the nitride stack (17 devices, 146 designs) | 0 differing points | exact |
+| `fabrication/nitride-round-trip` | every library device on the nitride stack at its defaults and its thickness's ends (17 devices, 41 designs) | 0 differing points | exact |
 | `fabrication/nitride-rules` | 220 nm etched without crack stops, 910 nm after them, 1.2 µm by the Damascene process, sloped 1.2 µm etched with a warning, every film annealed before its cladding | 0 wrong | exact |
 | `fabrication/nitride-reported-flows` | the flows contain Luke et al.'s, Pfeiffer et al.'s and Ríos et al.'s sequences, and give the designs back | 0 missing | exact |
 | `fabrication/pcm-round-trip` | the three phase-change shifters (36 designs) | 0 differing points | exact |
 | `fabrication/pcm-rules` | the film sputtered and lifted off, the cap sputtered, PECVD and LPCVD refused above the crystallization temperature, the cap's temperature flagged | 0 wrong | exact |
 | `fabrication/pcm-reported-flows` | the flow contains Delaney et al. 2021's sequence and gives the design back | 0 missing | exact |
-| `fabrication/aln-round-trip` | every library device drawn in AlN but the phase-change shifters (14 devices, 110 designs) | 0 differing points | exact |
+| `fabrication/aln-round-trip` | every library device drawn in AlN but the phase-change shifters, at its defaults (11 designs) | 0 differing points | exact |
 | `fabrication/aln-reported-flows` | the flows contain Xiong et al.'s and Jung et al.'s sequences and give the designs back | 0 missing | exact |
-| `fabrication/gaas-round-trip` | every library device on GaAs over AlGaAs (14 devices, 141 designs) | 0 differing points | exact |
+| `fabrication/gaas-round-trip` | every library device on GaAs over AlGaAs, at its defaults (14 designs) | 0 differing points | exact |
 | `fabrication/gaas-rules` | the layers grown with the wafer, the etch said to be not specified and timed, the coolest cladding, the design given back | 0 wrong | exact |
 
 One row of Franssila's Table 10.1 is left out of its case: at 248 nm, NA 0.65 and k₁ 0.5, k₁λ/NA
@@ -622,8 +622,11 @@ allows; the table says nothing that would explain it.
 
 The rules make 196 of the 200 designs the library round trip tries, all 18 devices among them.
 The 4 they refuse, each with its reason, have a guide of zero length, which draws no shape (a
-straight waveguide's, a rib's and a coupler's length of 0, a bend's angle of 0); the same 4 are
-refused on the nitride, AlN and GaAs stacks.
+straight waveguide's, a rib's and a coupler's length of 0, a bend's angle of 0). On the nitride,
+AlN and GaAs stacks the round trips run each device at its defaults (and nitride at its
+thickness's ends, from etched films to the Damascene process), which none refuses; at every
+parameter's ends, as for the library, they make 146, 110 and 141 designs and refuse the same 4
+(and, in AlN, the phase-change shifters, whose cells no source in hand puts on AlN).
 
 The round trip proves that a flow makes the design's layers and shapes, no more and no less. The
 capabilities' sources and the rules' cases are what speak for the steps themselves.

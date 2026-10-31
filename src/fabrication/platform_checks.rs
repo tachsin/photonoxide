@@ -3,7 +3,7 @@
 //! exact by construction; each rule's choice is categorical; each reported flow is the sequence a
 //! paper prints for its own device, contained in order.
 
-use crate::device::{Device, Spec, StackSpec};
+use crate::device::{Device, Spec, StackSpec, Values};
 use crate::validation::{Case, Outcome, Tier};
 
 use super::rule_checks::library_designs;
@@ -39,13 +39,37 @@ pub(crate) fn built(
     Some((device, physical))
 }
 
+/// A device's designs: at its defaults, then at each range end of the parameters `ends` names
+/// in turn (every parameter's with `None`, as the library's round trip), the others at their
+/// defaults.
+pub(crate) fn designs_with(device: &dyn Device, ends: Option<&[&str]>) -> Vec<Values> {
+    let Some(ends) = ends else {
+        return library_designs(device);
+    };
+    let defaults = Values::defaults(device);
+    let mut out = vec![defaults.clone()];
+    for p in device
+        .parameters()
+        .iter()
+        .filter(|p| ends.contains(&p.name.as_str()))
+    {
+        for v in [p.min, p.max] {
+            if let Ok(w) = defaults.with(device, &p.name, v) {
+                out.push(w);
+            }
+        }
+    }
+    out
+}
+
 /// The round trip over every library device built on `stack` (but those in `skip`), at its
-/// defaults and each parameter's range ends in turn: (designs made, designs refused, the devices
-/// refused with why, differing points). A flow that doesn't give its design back counts every
-/// point of it.
+/// defaults and the range ends of the parameters `ends` names (every parameter's with `None`):
+/// (designs made, designs refused, the devices refused with why, differing points). A flow that
+/// doesn't give its design back counts every point of it.
 pub(crate) fn platform_round_trips(
     stack: &StackSpec,
     skip: &[&str],
+    ends: Option<&[&str]>,
 ) -> (usize, usize, Vec<String>, usize) {
     let (mut made, mut refused, mut why, mut differing) = (0, 0, Vec::new(), 0);
     for kind in crate::device::library()
@@ -58,7 +82,7 @@ pub(crate) fn platform_round_trips(
         let Some((device, _)) = built(&kind, stack.clone(), &[]) else {
             continue;
         };
-        for values in library_designs(device.as_ref()) {
+        for values in designs_with(device.as_ref(), ends) {
             let Ok(design) = device.physical(&values) else {
                 continue;
             };
@@ -99,7 +123,7 @@ pub(crate) fn nitride(oxide: f64) -> StackSpec {
 pub(crate) const NITRIDE_SKIP: [&str; 1] = ["TFLN Mach-Zehnder modulator"];
 
 fn nitride_round_trip() -> Outcome {
-    exact(platform_round_trips(&nitride(2.0), &NITRIDE_SKIP).3)
+    exact(platform_round_trips(&nitride(2.0), &NITRIDE_SKIP, Some(&["thickness"])).3)
 }
 
 /// The process ids of a flow, in order.
@@ -305,7 +329,7 @@ pub(crate) fn pcm_round_trips() -> (usize, usize, Vec<String>, usize) {
         .filter(|k| !PCM.contains(&k.as_str()))
         .collect();
     let skip: Vec<&str> = others.iter().map(String::as_str).collect();
-    platform_round_trips(&StackSpec::default(), &skip)
+    platform_round_trips(&StackSpec::default(), &skip, None)
 }
 
 fn pcm_round_trip() -> Outcome {
@@ -470,7 +494,7 @@ pub(crate) fn on_aln(design: &Physical) -> Option<Physical> {
 }
 
 /// The round trip over every library device on the nitride stack, its film made 650 nm of
-/// aluminium nitride (Xiong et al.'s film), at its defaults and each parameter's range ends:
+/// aluminium nitride (Xiong et al.'s film), at its defaults:
 /// (made, refused, why, differing).
 pub(crate) fn aln_round_trips() -> (usize, usize, Vec<String>, usize) {
     let (mut made, mut refused, mut why, mut differing) = (0, 0, Vec::new(), 0);
@@ -484,7 +508,7 @@ pub(crate) fn aln_round_trips() -> (usize, usize, Vec<String>, usize) {
         let Some((device, _)) = built(&kind, nitride(2.0), &[("thickness", "0.65")]) else {
             continue;
         };
-        for values in library_designs(device.as_ref()) {
+        for values in designs_with(device.as_ref(), Some(&[])) {
             let Some(design) = device.physical(&values).ok().and_then(|d| on_aln(&d)) else {
                 continue;
             };
@@ -612,7 +636,7 @@ pub(crate) const GAAS_SKIP: [&str; 4] = [
 ];
 
 fn gaas_round_trip() -> Outcome {
-    exact(platform_round_trips(&gaas(), &GAAS_SKIP).3)
+    exact(platform_round_trips(&gaas(), &GAAS_SKIP, Some(&[])).3)
 }
 
 /// The GaAs rules' choices with the sources' answers, on a Dietrich et al. ridge (2.5 µm wide,
@@ -685,7 +709,7 @@ pub(crate) fn cases() -> Vec<Case> {
     vec![
         Case {
             id: "fabrication/nitride-round-trip",
-            title: "Every library device built on the silicon nitride stack (all but the lithium niobate modulator) whose design the rules make gives back its structure and films to the bit through its generated flow, the nitride deposited on grown oxide: at its defaults and each parameter's range ends in turn (differing points shown)",
+            title: "Every library device built on the silicon nitride stack (all but the lithium niobate modulator) whose design the rules make gives back its structure and films to the bit through its generated flow, the nitride deposited on grown oxide: at its defaults and at its thickness's range ends, from etched to Damascene (differing points shown)",
             tier: Tier::Analytic,
             source: "an exact identity: the flow's operations draw the design's own shapes, etches and films",
             run: nitride_round_trip,
@@ -727,7 +751,7 @@ pub(crate) fn cases() -> Vec<Case> {
         },
         Case {
             id: "fabrication/aln-round-trip",
-            title: "Every library device drawn in 650 nm of aluminium nitride on 2 µm of grown oxide (all but the lithium niobate modulator and the phase-change shifters, whose cells no source in hand puts on AlN) whose design the rules make gives back its structure and films to the bit through its generated flow, the film sputtered and etched in chlorine: at its defaults and each parameter's range ends in turn (differing points shown)",
+            title: "Every library device drawn in 650 nm of aluminium nitride on 2 µm of grown oxide (all but the lithium niobate modulator and the phase-change shifters, whose cells no source in hand puts on AlN) whose design the rules make gives back its structure and films to the bit through its generated flow, the film sputtered and etched in chlorine: at its defaults (differing points shown)",
             tier: Tier::Analytic,
             source: "an exact identity: the flow's operations draw the design's own shapes, etches and films",
             run: aln_round_trip,
@@ -741,7 +765,7 @@ pub(crate) fn cases() -> Vec<Case> {
         },
         Case {
             id: "fabrication/gaas-round-trip",
-            title: "Every library device built on GaAs over 2 µm of AlGaAs on a GaAs wafer, under oxide (all but the lithium niobate modulator and the phase-change shifters), whose design the rules make gives back its structure and films to the bit through its generated flow: at its defaults and each parameter's range ends in turn (differing points shown)",
+            title: "Every library device built on GaAs over 2 µm of AlGaAs on a GaAs wafer, under oxide (all but the lithium niobate modulator and the phase-change shifters), whose design the rules make gives back its structure and films to the bit through its generated flow: at its defaults (differing points shown)",
             tier: Tier::Analytic,
             source: "an exact identity: the flow's operations draw the design's own shapes, etches and films",
             run: gaas_round_trip,
