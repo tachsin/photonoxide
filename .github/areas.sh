@@ -99,7 +99,7 @@ area sweep \
 # the catalogue's indices; the catalogue's PPLN OPO cases (src/cases/material/catalogue/opo_checks.rs)
 # find their idler through it
 area nonlinear \
-  "src/nonlinear.rs src/nonlinear/* src/cases/nonlinear/* src/validation/nonlinear.rs src/validation/nonlinear_guides.rs" \
+  "src/nonlinear.rs src/nonlinear/* src/cases/nonlinear/* src/validation/nonlinear.rs src/validation/nonlinear_guides.rs src/validation/nonlinear_kerr.rs" \
   "material mode" \
   "nonlinear::" "nonlinear/ material/linbo3-zelmon-opo material/linbo3-jundt-opo" ""
 

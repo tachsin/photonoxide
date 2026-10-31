@@ -16,6 +16,9 @@
 //!   the group indices from the mode solver's effective indices over wavelength, and the coupling
 //!   κ of the coupled equations from the full-vector fields and the crystal's d tensor turned
 //!   into the guide's frame (the normalized efficiency in %/(W·cm²)), and the pairs' rate.
+//! - [`pulse`]: pulses along a Kerr guide, the nonlinear Schrödinger equation by split-step
+//!   Fourier: β₂, β₃, β₄, … from the guide's effective index over wavelength, γ from its
+//!   effective area and the catalogue's n₂; solitons and self-phase modulation (Agrawal 2019).
 //! - [`miller`]: Miller's rule, a d coefficient carried from the wavelength it was measured at
 //!   to another through the three waves' linear susceptibilities (Miller 1964).
 //!
@@ -27,8 +30,11 @@
 pub(crate) mod checks;
 pub mod coupled;
 pub(crate) mod data_checks;
+mod fft;
 pub mod guide;
 pub(crate) mod guide_checks;
+pub(crate) mod kerr_checks;
 pub mod miller;
 pub mod pairs;
 pub mod phase;
+pub mod pulse;
