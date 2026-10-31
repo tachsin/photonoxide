@@ -75,8 +75,8 @@ Intel's oneAPI Math Kernel Library, through its single library mkl_rt: PARDISO, 
 
   The wheel puts mkl_rt beside Python (Library\bin on Windows, lib elsewhere), where photonoxide looks: the Python on PATH, or the active virtual environment's.
 
-  - Checked on Linux (ubuntu-24.04), 2026-10-27: installed mkl 2026.2.0; found oneMKL 2026.2, and the pardiso backend after its smoke test.
-  - Checked on Windows (windows-2025-vs2026), 2026-10-27: installed mkl 2026.2.0; found oneMKL 2026.2, and the pardiso backend after its smoke test.
+  - Checked on Linux (ubuntu-24.04), 2026-10-31: installed mkl 2026.2.0; found oneMKL 2026.2, and the pardiso and photonoxide-mkl backends after their smoke tests and their tests.
+  - Checked on Windows (windows-2025-vs2026), 2026-10-31: installed mkl 2026.2.0; found oneMKL 2026.2, and the pardiso and photonoxide-mkl backends after their smoke tests and their tests.
 
 - **apt** (Linux):
 
@@ -242,7 +242,7 @@ A supernodal sparse LU with partial pivoting (Demmel, Eisenstat, Gilbert, Li, Li
 
 ### MUMPS
 
-A multifrontal sparse direct solver (Amestoy, Duff, L'Excellent, Koster 2001; Amestoy, Buttari, L'Excellent, Mary 2019), its sequential build, and its block low-rank factorization (Amestoy et al. 2015) as a backend of its own, lossy to a tolerance and refined. MUMPS asks that work using it cite it. photonoxide knows the structure of releases 5.4.1 to 5.9.1 and refuses others; no package manager had 5.9 yet on 2026-10-11, and 5.9.1 is checked built from mumps-solver.org's source. From 5.9, MUMPS isn't used while MUMPS_CONFIG_FILE is set: its file's settings would replace photonoxide's.
+A multifrontal sparse direct solver (Amestoy, Duff, L'Excellent, Koster 2001; Amestoy, Buttari, L'Excellent, Mary 2019), its sequential build, and its block low-rank factorization (Amestoy et al. 2015) as a backend of its own, lossy to a tolerance and refined. MUMPS asks that work using it cite it. photonoxide knows the structure of releases 5.4.1 to 5.9.1 and refuses others; no package manager had 5.9 yet on 2026-10-31 (conda-forge's mumps-seq was 5.8.2), and 5.9.1 is checked built from mumps-solver.org's source on Ubuntu 24.04 every week. From 5.9, MUMPS isn't used while MUMPS_CONFIG_FILE is set: its file's settings would replace photonoxide's.
 
 - **Licence:** [CeCILL-C](https://cecill.info/licences/Licence_CeCILL-C_V1-en.html). You accept it by installing.
 - **The vendor's download:** <https://mumps-solver.org/>

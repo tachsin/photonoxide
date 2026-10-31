@@ -1019,7 +1019,10 @@ mod tests {
         assert_eq!(of("oneMKL", "PyPI mkl").as_deref(), Some("2026.2.0"));
         // MUMPS's own release, built from its source; conda-forge's package, its own
         assert_eq!(of("MUMPS", "mumps-solver.org").as_deref(), Some("5.9.1"));
-        assert_eq!(of("MUMPS", "conda-forge mumps-seq").as_deref(), Some("5.8.2"));
+        assert_eq!(
+            of("MUMPS", "conda-forge mumps-seq").as_deref(),
+            Some("5.8.2")
+        );
         assert_eq!(
             of("SuperLU", "GitHub xiaoyeli/superlu").as_deref(),
             Some("7.0.1")
