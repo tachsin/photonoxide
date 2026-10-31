@@ -326,6 +326,9 @@ fn openblas_loaded_again_meanwhile_leaves_its_products_right() {
             while !done.load(Ordering::Relaxed) {
                 Blas::openblas().unwrap();
                 loads += 1;
+                // a load holds every call off: a pause lets them run between loads (and the
+                // other tests' calls, side by side with this one)
+                std::thread::sleep(std::time::Duration::from_millis(3));
             }
             loads
         });
