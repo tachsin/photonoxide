@@ -12,6 +12,10 @@
 //!   (Armstrong et al. 1962).
 //! - [`pairs`]: photon pairs by spontaneous parametric down-conversion: the joint spectral
 //!   amplitude and its Schmidt decomposition, the pairs' purity (Grice and Walmsley 1997).
+//! - [`guide`]: all of it in a waveguide, from its modes: the mismatch, the poling period and
+//!   the group indices from the mode solver's effective indices over wavelength, and the coupling
+//!   κ of the coupled equations from the full-vector fields and the crystal's d tensor turned
+//!   into the guide's frame (the normalized efficiency in %/(W·cm²)), and the pairs' rate.
 //! - [`miller`]: Miller's rule, a d coefficient carried from the wavelength it was measured at
 //!   to another through the three waves' linear susceptibilities (Miller 1964).
 //!
@@ -23,6 +27,8 @@
 pub(crate) mod checks;
 pub mod coupled;
 pub(crate) mod data_checks;
+pub mod guide;
+pub(crate) mod guide_checks;
 pub mod miller;
 pub mod pairs;
 pub mod phase;

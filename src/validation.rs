@@ -60,6 +60,7 @@ pub fn rules() -> Vec<(&'static str, Rule)> {
     rules.extend(nonlinear::rules());
     rules.extend(nonlinear_data::rules());
     rules.extend(nonlinear_data::transparency_rules());
+    rules.extend(nonlinear_guides::rules());
     rules
 }
 
@@ -2259,6 +2260,8 @@ pub fn cases() -> Vec<Case> {
     cases.extend(crate::nonlinear::checks::cases());
     // and its data: LiTaO₃'s n_e(λ, T), the Kerr data, Miller's rule, a band edge
     cases.extend(crate::nonlinear::data_checks::cases());
+    // and in waveguides, from their modes: modal phase matching, the overlaps' coupling, SPDC
+    cases.extend(crate::nonlinear::guide_checks::cases());
     cases
 }
 
@@ -5284,6 +5287,7 @@ mod modulator;
 mod modulator_error;
 mod nonlinear;
 mod nonlinear_data;
+mod nonlinear_guides;
 mod pcm;
 mod pcm_conformal;
 mod roughness;
