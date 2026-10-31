@@ -745,6 +745,67 @@ fn device_job(
     py.detach(|| facade::device_job(&d, name, format)).fail(py)
 }
 
+/// A design's process flow ([`facade::device_fabrication`]): a dict of the flow's and the
+/// assessment's JSON text, the export's JSON and Markdown, and each step's SVG.
+#[pyfunction]
+#[pyo3(signature = (kind, values, stack, prefer, avoid))]
+fn device_fabrication<'py>(
+    py: Python<'py>,
+    kind: &str,
+    values: Vec<(String, f64)>,
+    stack: Option<String>,
+    prefer: Vec<String>,
+    avoid: Vec<String>,
+) -> PyResult<Bound<'py, PyDict>> {
+    let d = design(kind, values, None, stack, None);
+    let f = py
+        .detach(|| facade::device_fabrication(&d, &prefer, &avoid))
+        .fail(py)?;
+    let out = PyDict::new(py);
+    out.set_item("flow", f.flow)?;
+    out.set_item("assessment", f.assessment)?;
+    out.set_item("json", f.json)?;
+    out.set_item("markdown", f.markdown)?;
+    out.set_item("svgs", f.svgs)?;
+    Ok(out)
+}
+
+/// The job file that gives a design's process flow, as text in a format.
+#[pyfunction]
+#[pyo3(signature = (kind, values, stack, name, format, prefer, avoid))]
+#[allow(clippy::too_many_arguments)] // the design's fields, one for one, and the job's
+fn device_fabrication_job(
+    py: Python<'_>,
+    kind: &str,
+    values: Vec<(String, f64)>,
+    stack: Option<String>,
+    name: &str,
+    format: &str,
+    prefer: Vec<String>,
+    avoid: Vec<String>,
+) -> PyResult<String> {
+    let d = design(kind, values, None, stack, None);
+    py.detach(|| facade::device_fabrication_job(&d, name, format, &prefer, &avoid))
+        .fail(py)
+}
+
+/// Writes a design's process flow into a folder: the files written.
+#[pyfunction]
+#[pyo3(signature = (kind, values, stack, prefer, avoid, out_dir))]
+fn export_fabrication(
+    py: Python<'_>,
+    kind: &str,
+    values: Vec<(String, f64)>,
+    stack: Option<String>,
+    prefer: Vec<String>,
+    avoid: Vec<String>,
+    out_dir: PathBuf,
+) -> PyResult<Vec<PathBuf>> {
+    let d = design(kind, values, None, stack, None);
+    py.detach(|| facade::export_fabrication(&d, &prefer, &avoid, &out_dir))
+        .fail(py)
+}
+
 /// The façade's conformance cases ([`facade::conformance`]), computed here: dicts of the case's
 /// name, function, arguments and result (JSON text each) and the members to ignore.
 #[pyfunction]
@@ -787,6 +848,9 @@ fn _photonoxide(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(device_derived, module)?)?;
     module.add_function(wrap_pyfunction!(device_geometry, module)?)?;
     module.add_function(wrap_pyfunction!(device_job, module)?)?;
+    module.add_function(wrap_pyfunction!(device_fabrication, module)?)?;
+    module.add_function(wrap_pyfunction!(device_fabrication_job, module)?)?;
+    module.add_function(wrap_pyfunction!(export_fabrication, module)?)?;
     module.add_function(wrap_pyfunction!(_conformance, module)?)?;
     Ok(())
 }

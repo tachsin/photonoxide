@@ -2250,9 +2250,9 @@ fn the_repositorys_jobs_pass_the_check() {
     assert!(e.to_string().contains("port"), "{e}");
 }
 
-/// The job files the README and the design page show, their ```yaml blocks: each passes the
-/// check, as the repository's jobs do, and each is one of jobs/ as written, so that the
-/// `photonoxide run jobs/<file>.yaml` beside it runs what the page shows.
+/// The job files the README, the design page and the fabrication write-up show, their ```yaml
+/// blocks: each passes the check, as the repository's jobs do, and each is one of jobs/ as
+/// written, so that the `photonoxide run jobs/<file>.yaml` beside it runs what the page shows.
 #[test]
 fn the_readme_and_design_pages_jobs_are_jobs_that_pass_the_check() {
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
@@ -2265,7 +2265,7 @@ fn the_readme_and_design_pages_jobs_are_jobs_that_pass_the_check() {
         .map(|path| text(&path))
         .collect();
     let mut count = 0;
-    for page in ["README.md", "docs/design.md"] {
+    for page in ["README.md", "docs/design.md", "docs/methods/fabrication.md"] {
         let page_text = text(&root.join(page));
         let mut lines = page_text.lines();
         while lines.any(|l| l == "```yaml") {

@@ -96,6 +96,10 @@ __all__ = [
     "device_derived",
     "device_geometry",
     "device_job",
+    "Fabrication",
+    "device_fabrication",
+    "device_fabrication_job",
+    "export_fabrication",
 ]
 
 core_version: str = _native.core_version
@@ -1148,3 +1152,159 @@ def device_job(
             _native.device_job(kind, _values(values), fidelity, stack, _path(compact), job_name, "json")
         )
     return _native.device_job(kind, _values(values), fidelity, stack, _path(compact), job_name, format)
+
+
+# --- a design's process flow ----------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class Fabrication:
+    """A design's process flow, as a ``"fabrication"`` job's run records it, and its export.
+
+    ``flow`` and ``assessment`` are plain Python data (dicts, lists, strings, floats in their
+    units: ``thickness_um``, ``depth_um``, ``sidewall_deg``), read from photonoxide's own JSON,
+    so every number is the one the run records, to the bit. The texts are the files the run
+    writes into its folder: ``flow.json``, ``flow.md`` and ``flow-01.svg``, ..."""
+
+    flow: dict[str, Any]
+    """The flow, as the run's ``flow`` event: ``library`` (the process library's version),
+    ``steps`` in order (each with its ``process`` id and ``name``, its ``step`` type, ``plain``
+    (what the process does), ``operation`` and ``does`` (what it does to the wafer), the
+    ``layer``, ``film``, ``thickness_um``, ``depth_um`` and ``timed``, ``sidewall_deg`` and
+    ``tone`` it sets, its ``reason``, its ``alternatives`` (``process``, ``name``, ``why_not``),
+    the ``capabilities`` it relies on (each a ``quantity``, a ``value`` with its ``low``,
+    ``high``, ``unit`` and ``source``, or ``{"kind": "not_specified"}``, and its ``conditions``),
+    ``facts`` and ``uncertainties``), ``warnings``, ``not_specified``, ``round_trip`` (whether
+    the executed flow gives the design back, and on how many of the points compared it
+    differs), ``references`` (each with its ``citation``, ``title``, ``doi`` or ``isbn``) and
+    ``glossary``."""
+    assessment: dict[str, Any]
+    """What the rules find, as the run's ``flow_assessment`` event: ``checks`` (each with its
+    ``rule``, ``layer``, ``step`` from 0, ``verdict`` and ``text``), ``ranking`` (each step's
+    processes, best first), ``accuracy`` (see :attr:`accuracy`), ``combination`` (how the
+    contributions are combined, with its sources) and ``optics`` (each projection lithography's
+    wavelength, numerical apertures and the lines it prints)."""
+    json: str
+    """The export's JSON, as the run's ``flow.json``: the ``device`` and its ``parameters``, the
+    ``cut``, the ``flow``, the ``assessment`` and the ``stacks`` (the wafer's layers after each
+    step, from the top down), its keys in a fixed order."""
+    markdown: str
+    """The process traveller, as the run's ``flow.md``: the design and its layers from the top
+    down, the substrate last; each step with what it does, why, the process, the cited
+    capabilities with their sources, the alternatives, the rules' checks, the dimensions it makes
+    and how accurately, and the wafer after it; the accuracy of every dimension, the warnings,
+    what is not specified, the round trip and the references."""
+    svgs: list[str]
+    """Each step's cross-section, a standalone SVG, as the run's ``flow-01.svg``, ...: the wafer
+    after the step, cut across y at the middle of the design in x, its layers listed from the
+    top down beside it."""
+
+    @property
+    def steps(self) -> list[dict[str, Any]]:
+        """The flow's steps, in order: ``flow["steps"]``."""
+        return self.flow["steps"]
+
+    @property
+    def accuracy(self) -> list[dict[str, Any]]:
+        """How accurately each fabricated dimension is made: ``assessment["accuracy"]``, each
+        with ``what`` it is, its ``layer`` and ``kind``, its design value ``nominal`` in its
+        ``unit`` (``"nm"`` or ``"degree"``), its ``contributions`` (each a ``bound`` ± in that
+        unit, or ``None`` when not specified, with its ``source``), their root sum of squares
+        ``combined`` and their sum ``worst``, whether it is ``complete``, and its ``text``."""
+        return self.assessment["accuracy"]
+
+
+def _ids(ids: Sequence[str]) -> list[str]:
+    if isinstance(ids, str):
+        raise TypeError("prefer and avoid are lists of process ids, not one string")
+    return [str(i) for i in ids]
+
+
+def device_fabrication(
+    kind: str,
+    *,
+    values: Mapping[str, float] | None = None,
+    stack: str | None = None,
+    prefer: Sequence[str] = (),
+    avoid: Sequence[str] = (),
+) -> Fabrication:
+    """The process flow of a device's design (see :func:`device_spectrum` for ``kind``,
+    ``values`` and ``stack``): the steps that would make it from published processes, in order,
+    each with why it was chosen, what else could do it, the capabilities it relies on with their
+    sources, and how accurately each dimension is made, preferring the processes ``prefer``
+    names by id where several qualify and never using those ``avoid`` names. The same as a
+    ``"fabrication"`` job's run records for the same design, to the bit
+    (:func:`device_fabrication_job`), with the files it writes:
+
+    >>> strip = phox.device_fabrication("waveguide")
+    >>> [step["process"] for step in strip.steps]
+    ['soi-smart-cut', 'duv-193', 'icp-si-hbr', 'resist-strip', 'lpcvd']
+    >>> strip.steps[2]["does"], strip.flow["round_trip"]["differing"]
+    ('etch Si through, to the film below at 90°', 0)
+    >>> [(d["what"], d["nominal"], d["unit"], d["combined"]) for d in strip.accuracy][1]
+    ('the narrowest line of Si', 500.0, 'nm', 4.5)
+    """
+    f = _native.device_fabrication(kind, _values(values), stack, _ids(prefer), _ids(avoid))
+    return Fabrication(
+        flow=json.loads(f["flow"]),
+        assessment=json.loads(f["assessment"]),
+        json=f["json"],
+        markdown=f["markdown"],
+        svgs=list(f["svgs"]),
+    )
+
+
+def device_fabrication_job(
+    kind: str,
+    *,
+    values: Mapping[str, float] | None = None,
+    stack: str | None = None,
+    prefer: Sequence[str] = (),
+    avoid: Sequence[str] = (),
+    name: str | None = None,
+    format: str | None = None,
+) -> Any:
+    """The job that gives a design's process flow (see :func:`device_fabrication`): a
+    ``device`` table holding the design and a ``"fabrication"`` task with ``prefer`` and
+    ``avoid``, named ``name`` (the kind's and ``-flow``, by default). Without a ``format``, the
+    job as data, a dict, which :func:`run_job` takes; with ``format`` (``"yaml"``, ``"toml"`` or
+    ``"json"``), the job file's text. Its run records what :func:`device_fabrication` gives and
+    writes ``flow.json``, ``flow.md`` and ``flow-01.svg``, ... into its folder:
+
+    >>> job = phox.device_fabrication_job("waveguide", prefer=["ebl-hsq"])
+    >>> job["name"], job["task"]
+    ('waveguide-flow', {'kind': 'fabrication', 'prefer': ['ebl-hsq']})
+    >>> run = phox.run_job(job, runs_dir="runs")
+    >>> sorted(p.name for p in run.dir.glob("flow*"))[:3]
+    ['flow-01.svg', 'flow-02.svg', 'flow-03.svg']
+    """
+    job_name = name if name is not None else str(kind).lower().replace(" ", "-") + "-flow"
+    text = _native.device_fabrication_job(
+        kind, _values(values), stack, job_name, "json" if format is None else format,
+        _ids(prefer), _ids(avoid),
+    )
+    return json.loads(text) if format is None else text
+
+
+def export_fabrication(
+    kind: str,
+    *,
+    out_dir: str | os.PathLike[str],
+    values: Mapping[str, float] | None = None,
+    stack: str | None = None,
+    prefer: Sequence[str] = (),
+    avoid: Sequence[str] = (),
+) -> list[Path]:
+    """Writes a design's process flow (see :func:`device_fabrication`) into ``out_dir``, made if
+    it isn't there, as a ``"fabrication"`` job's run writes it into its folder: ``flow.json``
+    (the flow's data, which reads back to the same flow), ``flow.md`` (the process traveller) and
+    each step's cross-section, ``flow-01.svg``, ...; returns the files written, in that order:
+
+    >>> files = phox.export_fabrication("thermo-optic phase shifter", out_dir="heater")
+    >>> [file.name for file in files][:3], len(files)
+    (['flow.json', 'flow.md', 'flow-01.svg'], 14)
+    """
+    paths = _native.export_fabrication(
+        kind, _values(values), stack, _ids(prefer), _ids(avoid), os.fspath(out_dir)
+    )
+    return [Path(p) for p in paths]

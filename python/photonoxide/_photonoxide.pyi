@@ -105,6 +105,30 @@ def device_job(
     name: str,
     format: str,
 ) -> str: ...
+def device_fabrication(
+    kind: str,
+    values: list[tuple[str, float]],
+    stack: str | None,
+    prefer: list[str],
+    avoid: list[str],
+) -> dict[str, Any]: ...
+def device_fabrication_job(
+    kind: str,
+    values: list[tuple[str, float]],
+    stack: str | None,
+    name: str,
+    format: str,
+    prefer: list[str],
+    avoid: list[str],
+) -> str: ...
+def export_fabrication(
+    kind: str,
+    values: list[tuple[str, float]],
+    stack: str | None,
+    prefer: list[str],
+    avoid: list[str],
+    out_dir: str | PathLike[str],
+) -> list[str]: ...
 def run_tables(run_dir: str | PathLike[str]) -> dict[str, dict[str, Any]]: ...
 def export_run(
     run_dir: str | PathLike[str],

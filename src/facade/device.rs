@@ -127,7 +127,7 @@ impl DeviceDesign {
 
     /// The design as a job's `[device]` table holds it: each value written as the shortest
     /// decimal that reads back to it, so the design's values are these to the bit.
-    fn spec(&self) -> Result<Spec> {
+    pub(super) fn spec(&self) -> Result<Spec> {
         let mut spec = Spec::new(&self.kind);
         let template = spec.device()?;
         let names: Vec<&str> = template

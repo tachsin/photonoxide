@@ -20,6 +20,7 @@ PAGES = {
     "compact": "circuits",
     "devices": None,
     "export": None,
+    "fabrication": None,
     "fdfd-ports": None,
     "slab": None,
     "stacks": None,

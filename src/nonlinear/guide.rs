@@ -684,6 +684,23 @@ impl ModeIndex {
         self.estimate
     }
 
+    /// The interpolant on half the points (the samples at the even j), the one whose difference
+    /// from this one is [`ModeIndex::estimate`]: what a quantity taken from the interpolant moves
+    /// by between the two is an estimate of the coarser one's error in it, so a bound on this
+    /// one's. `None` below 5 points.
+    pub fn coarse(&self) -> Option<ModeIndex> {
+        if self.samples.len() < 5 {
+            return None;
+        }
+        let samples: Vec<f64> = self.samples.iter().step_by(2).copied().collect();
+        Some(ModeIndex {
+            range: self.range,
+            coefficients: chebyshev_coefficients(&samples),
+            samples,
+            estimate: f64::INFINITY,
+        })
+    }
+
     /// x ∈ [−1, 1] of a wavelength (µm).
     fn x(&self, lam: f64) -> f64 {
         let (a, b) = self.range;
@@ -737,7 +754,7 @@ impl ModeIndex {
 
 /// The Chebyshev coefficients c_k of the polynomial through `f` at x_j = cos(jπ/n), j = 0 … n:
 /// p(x) = Σ c_k T_k(x).
-fn chebyshev_coefficients(f: &[f64]) -> Vec<f64> {
+pub(crate) fn chebyshev_coefficients(f: &[f64]) -> Vec<f64> {
     let n = f.len() - 1;
     let nf = n as f64;
     (0..=n)
@@ -754,7 +771,7 @@ fn chebyshev_coefficients(f: &[f64]) -> Vec<f64> {
 }
 
 /// Σ c_k T_k(x) by Clenshaw's recurrence.
-fn clenshaw(c: &[f64], x: f64) -> f64 {
+pub(crate) fn clenshaw(c: &[f64], x: f64) -> f64 {
     let (mut b1, mut b2) = (0.0, 0.0);
     for &ck in c.iter().skip(1).rev() {
         let b = 2.0 * x * b1 - b2 + ck;
@@ -765,7 +782,7 @@ fn clenshaw(c: &[f64], x: f64) -> f64 {
 }
 
 /// The Chebyshev coefficients of the derivative: c'_{k−1} = c'_{k+1} + 2k c_k, c'_0 halved.
-fn chebyshev_derivative(c: &[f64]) -> Vec<f64> {
+pub(crate) fn chebyshev_derivative(c: &[f64]) -> Vec<f64> {
     let n = c.len();
     if n < 2 {
         return vec![0.0];

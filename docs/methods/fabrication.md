@@ -685,18 +685,127 @@ shapes exactly instead, a trapezoid from its top face down to its etch's floor
 
 ## As a job
 
+A `fabrication` task beside a `[device]` gives the device's flow. The strip waveguide's, as
+`jobs/strip-flow.yaml` has it:
+
 ```yaml
+# How a 500 x 220 nm silicon strip on 220 nm SOI (the waveguide device at its defaults) would be
+# made: the steps in order, each with its reason, its alternatives and its sources, and how
+# accurately each dimension is made. The run's folder gets flow.json, flow.md (a process
+# traveller) and flow-01.svg, ... (the wafer's cross-section after each step).
+#   photonoxide run jobs/strip-flow.yaml
+name: strip-flow
+
 device:
-  kind: TFLN Mach-Zehnder modulator
+  kind: waveguide
 
 task:
   kind: fabrication
-  prefer: [ebl-hsq]   # process ids to prefer where several qualify
-  avoid: [bosch-si]   # process ids not to use
+  # prefer: [ebl-hsq]     # process ids to prefer where several qualify
+  # avoid: [icp-si-cl2]   # process ids not to use
 ```
 
 `job::check` refuses a process the library hasn't, one both preferred and avoided, and a
-preference that makes no step of the design. The run records the design's scene, the flow
+preference that makes no step of the design (`prefer: [icp-si-hbr]` for the lithium niobate
+modulator, whose film no silicon etch touches). The run records the design's scene, the flow
 (`Event::Flow`), with the library's version and the round trip, and what the rules find in it
-(`Event::FlowAssessment`: the checks, the ranked alternatives and the accuracy of each dimension). A flow is set by the design and
-the library alone, so the record replays bit for bit, the same on any number of threads.
+(`Event::FlowAssessment`: the checks, the ranked alternatives and the accuracy of each
+dimension). A flow is set by the design and the library alone, so the record replays bit for
+bit, the same on any number of threads.
+
+**The run's folder** also holds the flow's export (`export::flow`), written from the same data:
+
+- `flow.json`: the device and its parameters, the cut, the flow and the assessment exactly as the
+  record holds them, and the wafer's layers after each step from the top down; its keys keep
+  their order, and each number is the shortest decimal that reads back to the same bits, so the
+  file read back (`FlowFile::read`) is the same flow;
+- `flow.md`: a process traveller, readable on its own: the design and its layers, then for each
+  step what it does, why, the process, every capability it relies on with the paper and the place
+  in it, the alternatives, the rules' checks, the dimensions it sets and how accurately, and the
+  wafer after it; then the accuracy of every dimension, the warnings, what is not specified, the
+  round trip and the references with their DOIs;
+- `flow-01.svg`, `flow-02.svg`, ...: the wafer's cross-section after each step, cut across y at
+  the middle of the design in x (as the design view's cut starts), each etch's floor and walls
+  drawn exactly, every film in its colour, and beside it the layers from the top down, the
+  substrate last, with their films and thicknesses. The resist isn't drawn; the caption says
+  when it is on the wafer.
+
+## In Python
+
+`device_fabrication` gives the same flow for a design, to the bit, as plain Python data, with
+the export's texts; `device_fabrication_job` writes the job, and `export_fabrication` the
+files ([docs/python.md](../python.md#process-flows)):
+
+```python
+import photonoxide as phox
+
+strip = phox.device_fabrication("waveguide")      # the waveguide device at its defaults
+for k, step in enumerate(strip.steps, 1):
+    print(f"{k}. {step['name']} ({step['process']}): {step['does']}")
+for dimension in strip.accuracy:
+    print(dimension["text"])
+
+files = phox.export_fabrication("waveguide", out_dir="strip-flow")  # flow.json, flow.md, ...
+run = phox.run_job("jobs/strip-flow.yaml")                          # the job above
+assert (run.dir / "flow.md").read_text(encoding="utf-8") == strip.markdown
+flow = next(e for e in run.events if e["type"] == "flow")["flow"]
+assert flow == strip.flow                                           # the record's, to the bit
+```
+
+It prints the five steps and the five dimensions:
+
+```text
+1. Silicon on insulator, by implantation and splitting (Smart Cut) (soi-smart-cut): the wafer: 0.22 µm Si (Si) on 2 µm SiO2 (BOX)
+2. 193 nm (ArF) projection lithography (duv-193): photoresist kept on 1 shape
+3. Silicon by ICP reactive-ion etching in HBr/O₂ (icp-si-hbr): etch Si through, to the film below at 90°
+4. Resist removal (resist-strip): remove the resist
+5. Oxide or nitride by low-pressure chemical vapour deposition (LPCVD) (lpcvd): deposit SiO2: the cladding
+the Si film's thickness, 220 nm: made to ± 8 nm (at worst ± 8 nm)
+the narrowest line of Si, 500 nm: made to ± 4.5 nm from what the sources state (at worst ± 4.5 nm); not specified: the etch's linewidth change
+the walls of Si, 90°: made to ± 8° (at worst ± 8°)
+the narrowest line of Si at its floor, 500 nm: made to ± 62 nm from what the sources state (at worst ± 66.34 nm); not specified: the etch's linewidth change
+BOX beside Si's shapes, 2000 nm: made to ± 1.467 nm (at worst ± 1.467 nm)
+```
+
+The traveller, `flow.md`, from its start, its third step and its table of dimensions:
+
+```markdown
+# Process traveller: waveguide
+
+Layers are listed from the top down, the substrate last, as a cross-section is drawn.
+
+| Layer | Film | Thickness (µm) |
+|---|---|---|
+| cladding | SiO2 | above everything |
+| Si | Si, SiO2 where etched | 0.22 |
+| BOX | SiO2 | 2 |
+| substrate | Si | below everything |
+
+### Step 3 of 5: Silicon by ICP reactive-ion etching in HBr/O₂
+
+- **What:** etch Si through, to the film below at 90°.
+- **Process:** Silicon by ICP reactive-ion etching in HBr/O₂ (`icp-si-hbr`, pattern transfer): Inductively coupled plasma reactive-ion etching: ions from a dense plasma strike the wafer straight down while bromine reacts with the silicon, so the etch goes down rather than sideways. The oxide below etches far more slowly, so it stops the etch.
+- **Cited capabilities:**
+  - sidewall angle: 82° (stated as a sloped sidewall of 8° (from the vertical), left by the passivating HBr/O₂ main etch). Source: S. K. Selvaraja, P. Jaenen, W. Bogaerts, D. Van Thourhout, P. Dumon, R. Baets, J. Lightwave Technol. 27, 4076 (2009), Section IV (p. 4081).
+- **Expected result:**
+  - the narrowest line of Si, 500 nm: made to ± 4.5 nm from what the sources state (at worst ± 4.5 nm); not specified: the etch's linewidth change
+  - the walls of Si, 90°: made to ± 8° (at worst ± 8°)
+  - the narrowest line of Si at its floor, 500 nm: made to ± 62 nm from what the sources state (at worst ± 66.34 nm); not specified: the etch's linewidth change
+  - BOX beside Si's shapes, 2000 nm: made to ± 1.467 nm (at worst ± 1.467 nm)
+- **After it, from the top down:** cladding: air, above everything; Si: Si, air where etched, 0.22 µm; BOX: SiO2, 2 µm; substrate: Si, below everything.
+
+## The accuracy of each dimension
+
+| Dimension | Layer | Design value | Made to ± | At worst ± | Not specified |
+|---|---|---|---|---|---|
+| the Si film's thickness | Si | 220 nm | 8 nm | 8 nm | none |
+| the narrowest line of Si | Si | 500 nm | 4.5 nm | 4.5 nm | the etch's linewidth change |
+| the walls of Si | Si | 90° | 8° | 8° | none |
+| the narrowest line of Si at its floor | Si | 500 nm | 62 nm | 66.34 nm | the etch's linewidth change |
+| BOX beside Si's shapes | BOX | 2000 nm | 1.467 nm | 1.467 nm | none |
+```
+
+Each line of the excerpt is a line of the traveller the job's run writes, in its order (the job's
+tests check it, and that the printed lines are the calls' own). The step's reason, its other
+capabilities, the alternatives, the rules' checks and the link to its cross-section,
+`flow-03.svg`, are in the file between those lines.

@@ -651,6 +651,7 @@ fn facade_functions() -> Vec<&'static str> {
         include_str!("circuit.rs"),
         include_str!("conformance.rs"),
         include_str!("device.rs"),
+        include_str!("fabrication.rs"),
     ];
     let mut names: Vec<&str> = sources
         .iter()
@@ -669,7 +670,7 @@ fn every_facade_function_is_in_the_feature_table() {
     // so to the Python package) goes in its table, by name
     let table = include_str!("../../docs/features.md");
     let functions = facade_functions();
-    assert_eq!(functions.len(), 22, "{functions:?}");
+    assert_eq!(functions.len(), 25, "{functions:?}");
     for f in functions {
         assert!(
             table.contains(&format!("`{f}`")),
@@ -861,6 +862,100 @@ fn a_device_job_runs_to_its_spectrum() {
         }
     }
     assert!(device_job(&d, "ring", "ini").is_err());
+}
+
+/// A fabrication job's run, from [`device_fabrication_job`]: its `flow` and `flow_assessment`
+/// events, and its folder.
+fn fabrication_run(
+    d: &DeviceDesign,
+    scratch: &Scratch,
+) -> (serde_json::Value, serde_json::Value, PathBuf) {
+    let text = device_fabrication_job(d, "flow", "yaml", &[], &[]).unwrap();
+    let run = run_job(
+        &JobSource::Text {
+            text,
+            format: "yaml".into(),
+        },
+        &scratch.0,
+        &Stop::new(None),
+    )
+    .unwrap();
+    let events: Vec<serde_json::Value> = run
+        .events
+        .iter()
+        .map(|e| serde_json::from_str(e).unwrap())
+        .collect();
+    let of = |t: &str| {
+        events
+            .iter()
+            .find(|e| e["type"] == t)
+            .unwrap_or_else(|| panic!("a {t} event"))
+            .clone()
+    };
+    (
+        of("flow")["flow"].clone(),
+        of("flow_assessment")["assessment"].clone(),
+        run.dir,
+    )
+}
+
+#[test]
+fn a_device_fabrication_is_its_jobs_record_to_the_bit() {
+    let scratch = Scratch::new();
+    for kind in [
+        "waveguide",
+        "TFLN Mach-Zehnder modulator",
+        "thermo-optic phase shifter",
+        "rib waveguide",
+    ] {
+        let d = design(kind, &[]);
+        let f = device_fabrication(&d, &[], &[]).unwrap();
+        let (flow, assessment, dir) = fabrication_run(&d, &scratch);
+        let ours: serde_json::Value = serde_json::from_str(&f.flow).unwrap();
+        assert_eq!(ours, flow, "{kind}");
+        let ours: serde_json::Value = serde_json::from_str(&f.assessment).unwrap();
+        assert_eq!(ours, assessment, "{kind}");
+        // the record's numbers, to the bit: the façade's text is the record's own
+        let record = std::fs::read_to_string(dir.join("events.jsonl")).unwrap();
+        assert!(record.contains(&f.flow), "{kind}");
+        assert!(record.contains(&f.assessment), "{kind}");
+        // and the run's files are the façade's
+        assert_eq!(
+            std::fs::read_to_string(dir.join("flow.json")).unwrap(),
+            f.json
+        );
+        assert_eq!(
+            std::fs::read_to_string(dir.join("flow.md")).unwrap(),
+            f.markdown
+        );
+        assert_eq!(
+            std::fs::read_to_string(dir.join("flow-01.svg")).unwrap(),
+            f.svgs[0]
+        );
+        let written = export_fabrication(&d, &[], &[], &scratch.0.join(kind)).unwrap();
+        assert_eq!(written.len(), 2 + f.svgs.len());
+    }
+}
+
+#[test]
+fn a_device_fabrication_names_what_is_wrong() {
+    let d = design("waveguide", &[]);
+    let refused = |prefer: &[&str], avoid: &[&str], says: &str| {
+        let ids = |v: &[&str]| v.iter().map(|&s| s.to_owned()).collect::<Vec<_>>();
+        let e = device_fabrication(&d, &ids(prefer), &ids(avoid)).unwrap_err();
+        assert!(e.to_string().contains(says), "{e}");
+        let e = device_fabrication_job(&d, "flow", "yaml", &ids(prefer), &ids(avoid)).unwrap_err();
+        assert!(e.to_string().contains(says), "{e}");
+    };
+    refused(&["laser-writing"], &[], "laser-writing");
+    refused(&["ebl-hsq"], &["ebl-hsq"], "both preferred and avoided");
+    assert!(device_fabrication(&design("waveguide", &[("girth", 1.0)]), &[], &[]).is_err());
+    assert!(device_fabrication_job(&d, "flow", "ini", &[], &[]).is_err());
+    let yaml = device_fabrication_job(&d, "strip-flow", "yaml", &["ebl-hsq".into()], &[]).unwrap();
+    assert!(
+        yaml.contains("kind: fabrication") && yaml.contains("ebl-hsq"),
+        "{yaml}"
+    );
 }
 
 #[test]

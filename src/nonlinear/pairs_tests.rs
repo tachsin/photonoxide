@@ -53,6 +53,53 @@ fn the_sampled_gaussian_meets_its_closed_form() {
 }
 
 #[test]
+fn two_pump_photons_have_the_self_convolved_spectrum() {
+    let p = Pump {
+        center: 0.6,
+        bandwidth: 0.002,
+    };
+    let two = p.two_photon();
+    // α ⊗ α at ν, by the trapezoidal rule, against the two-photon Gaussian (its peak scaled)
+    let conv = |nu: f64| {
+        let h = 1e-5;
+        (-2000..=2000)
+            .map(|k| {
+                let x = 0.6 + k as f64 * h;
+                p.amplitude(x) * p.amplitude(nu - x) * h
+            })
+            .sum::<f64>()
+    };
+    let peak = conv(1.2);
+    for d in [0.0005, 0.001, 0.002] {
+        assert!(
+            (conv(1.2 + d) / peak - two.amplitude(1.2 + d)).abs() < 1e-9,
+            "{d}"
+        );
+    }
+}
+
+#[test]
+fn spontaneous_four_wave_mixing_takes_one_pump() {
+    let (ours, closed) = crate::nonlinear::kerr_checks::sfwm_purity(201);
+    assert!(closed > 0.5 && closed < 0.99, "{closed}");
+    assert!((ours / closed - 1.0).abs() < 1e-10, "{ours} {closed}");
+    // two pumps of different wavelengths aren't a single pump's pairs
+    let index = || crate::nonlinear::checks::linear_index(2.0, 0.0).unwrap();
+    let wave = |l: f64| super::super::phase::Wave::new(Wavelength::um(l).unwrap(), index());
+    let process =
+        super::super::phase::Process::four_wave(wave(1.54), wave(1.56), wave(1.50), index())
+            .unwrap();
+    let device = Device::new(process, 1000.0, super::super::phase::State::default()).unwrap();
+    let pump = Pump {
+        center: 0.645,
+        bandwidth: 1e-3,
+    };
+    assert!(joint_spectrum(&device, pump, Matching::Gaussian, 0.01, 11).is_err());
+}
+
+use crate::units::Wavelength;
+
+#[test]
 #[ignore]
 fn explore_pairs_grid() {
     for n in [101, 201, 301, 401] {

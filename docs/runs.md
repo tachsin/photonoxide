@@ -33,6 +33,7 @@ A stopped run's folder holds what was done before it stopped.
 | `*.f64`, `*.c128` | `results.json`'s large arrays, as raw numbers |
 | `*.csv` | the run's tables, written when it ends: n_eff, S-parameters, spectra, a study's points, an optimization's history, a static job's numbers ([export](methods/export.md)) |
 | `*.npz` | the fields, as NumPy's arrays, when the job's `[task.export]` asks for them ([export](methods/export.md)) |
+| `flow.json`, `flow.md`, `flow-01.svg`, ... | a `fabrication` job's process flow: its data as JSON, a process traveller in Markdown, and the wafer's cross-section after each step ([fabrication](methods/fabrication.md#as-a-job)) |
 
 ## `results.json`
 

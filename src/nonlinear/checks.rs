@@ -535,7 +535,7 @@ fn coupled_order_case() -> Outcome {
 }
 /// A linear index n = a + bλ: its group index is a, and k = 2π(aν + b) is linear in ν, so the
 /// mismatch of a process of three such waves is linear in their frequencies.
-fn linear_index(a: f64, b: f64) -> crate::Result<Index> {
+pub(crate) fn linear_index(a: f64, b: f64) -> crate::Result<Index> {
     let w: Vec<f64> = (0..=27).map(|k| 0.3 + 0.1 * f64::from(k)).collect();
     let n = w.iter().map(|l| a + b * l).collect();
     Index::effective(w, n)
