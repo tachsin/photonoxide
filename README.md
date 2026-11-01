@@ -11,28 +11,48 @@
 [![Validation](https://img.shields.io/badge/validation-report-ce422b)](docs/validation.md)
 [![Examples](https://img.shields.io/badge/examples-checked_against_papers-ce422b)](examples/README.md)
 
-**Light meets Rust: photonics design and simulation for everyone, as a desktop studio, a Rust library and a Python package.**
+**Light meets Rust: an open reference for photonic design, and the software that runs it.**
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/tachsin/photonoxide/main/assets/studio/hero.gif" alt="The photonoxide studio: a silicon strip's first mode travelling along it in 3D as the camera orbits; a ring resonator's transmission spectrum building up point by point, then the ring lit at resonance in 3D; a Mach-Zehnder interferometer wired on the chip and its spectrum appearing" width="100%">
 </p>
 <p align="center"><sub>The studio: a strip's mode travelling in 3D; a ring's spectrum by 2D FDFD building up live (sped up) and the ring lit at resonance; an MZI wired on the chip and simulated.</sub></p>
 
-photonoxide is a photonics library for Rust and a desktop studio to use it with. It solves
-waveguide modes, FDFD and FDTD in 2D and 3D, and circuits of components, with adjoint gradients
-throughout. Every method is checked against an analytic solution or a published result, in a
+photonoxide is an open reference for photonic design and the software that puts it to use. Its
+methods pages derive each solver from the papers it implements; its Academy, written lesson by
+lesson, teaches devices and numerical methods at three depths with charts the library computes;
+its fabrication flows show step by step how a design would be made, every stated process
+capability with its source. A Rust library, a Python package and a desktop studio run the same
+methods, each checked against an analytic solution or a published result in a
 [validation report](docs/validation.md) that CI keeps current.
 
 It is released milestone by milestone ([changelog](CHANGELOG.md), [roadmap](ROADMAP.md)); until
 1.0 the API can change between milestones. The methods, examples and report are also at
 [tachsin.gr/projects/photonoxide](https://tachsin.gr/projects/photonoxide).
 
-## What it does
+## What it holds
+
+- **[Methods](docs/README.md#methods):** 52 write-ups in 9 topics, from waveguide modes to
+  fabrication, each setting out its method, its limits and the papers it implements; their
+  front matter cites 238 distinct sources by DOI.
+- **[Academy](academy/README.md):** lessons on devices and numerical methods at three depths,
+  each opening on a drawing of its device, with charts the library computes live; 8 written,
+  and 12 more laid out section by section, read on GitHub or in the studio.
+- **[Fabrication](docs/methods/fabrication.md):** the process flow that would make a design, each
+  step with its reason, its alternatives and what its process can achieve, as its source states
+  it; 54 processes on 5 platforms, every flow executed back to its design and shown step by step
+  in the studio. New platforms and exports are in progress.
+- **[The library, the Python package and the studio](#install):** the code that runs a design,
+  with 55 examples that each reproduce a paper, 34 job files ready to run, and 806 validation
+  cases that check it.
+
+## What it computes
 
 - **Materials:** [dispersion models](docs/methods/materials.md) with their source, validity range
-  and temperature; a [catalogue](docs/methods/catalogue.md) of Si, SiO₂, SiN, LiNbO₃, GaAs,
-  AlGaAs, InGaP, InP and AlN, with χ⁽²⁾ and Pockels tensors, transparency windows, and
-  the Kerr coefficients of Si, SiN, LiNbO₃ and AlN.
+  and temperature; a [catalogue](docs/methods/catalogue.md) of Si, SiO₂, SiN, GaAs, AlGaAs,
+  InGaP, InP, AlN, AlGaN, LiNbO₃ and MgO:LiNbO₃, BaTiO₃ and LiTaO₃, and the phase-change
+  Sb₂Se₃, Sb₂S₃ and Ge₂Sb₂Te₅ in both states, with χ⁽²⁾ and Pockels tensors, transparency
+  windows, and the Kerr coefficients of Si, SiN, LiNbO₃ and AlN.
 - **Geometry for any device:** [shapes](docs/methods/geometry.md) kept exact, from paths with
   Euler bends to regions defined by [expressions](docs/methods/expressions.md);
   [booleans and offsets](docs/methods/booleans.md), [arrays and lattices](docs/methods/arrays.md),
@@ -49,8 +69,8 @@ It is released milestone by milestone ([changelog](CHANGELOG.md), [roadmap](ROAD
   [mode ports and S-parameters](docs/methods/fdfd-ports.md) and
   [adjoint gradients](docs/methods/fdfd-adjoint.md); photonoxide's own direct and iterative
   solvers, on every core ([baselines](docs/baselines.md)); sweeps sped up by
-  [recycling](docs/methods/recycling.md), and farmed to worker processes here or on other
-  machines ([farming](docs/farming.md)).
+  [recycling](docs/methods/recycling.md), and farmed to worker processes on one computer or
+  several ([farming](docs/farming.md)).
 - **FDTD:** [2D and 3D](docs/methods/fdtd.md) with CPMLs, subpixel smoothing, mode sources,
   monitors, dispersive media and [adjoint gradients](docs/methods/fdtd-adjoint.md); a CPU kernel
   blocked in space and time, and an optional GPU one (wgpu).
@@ -71,8 +91,8 @@ It is released milestone by milestone ([changelog](CHANGELOG.md), [roadmap](ROAD
 - **External solvers, optional:** oneMKL's PARDISO, MUMPS, SuperLU, Apple Accelerate, NVIDIA
   cuDSS and Krylov solvers on NVIDIA GPUs, and any BLAS and LAPACK as the dense kernels of
   photonoxide's own solver, loaded at run time when installed and checked against
-  photonoxide's own, which `auto` leaves only for one measured faster here at the same accuracy
-  ([backends](docs/methods/backends.md), [install guides](docs/libraries.md)).
+  photonoxide's own, which `auto` leaves only for one measured faster on the computer that runs
+  it, at the same accuracy ([backends](docs/methods/backends.md), [install guides](docs/libraries.md)).
 
   [![Intel oneMKL: PARDISO, BLAS](https://img.shields.io/badge/Intel_oneMKL-PARDISO%2C_BLAS-555)](docs/libraries.md#onemkl)
   [![MUMPS: direct](https://img.shields.io/badge/MUMPS-direct-555)](docs/libraries.md#mumps)
@@ -96,7 +116,7 @@ click and checked against its paper; each component on its own page, its design 
 side by side, its runs, sweeps and corners; the Custom device for any other structure; runs played live or
 replayed (modes, fields, spectra, FDTD as the field propagates); the Academy's lessons with live
 charts; the materials catalogue; chips; the validation report; and the external
-solvers this machine has. The same program runs a job from the command line
+solvers installed. The same program runs a job from the command line
 (`photonoxide run job.yaml`, `--headless` for batches). [studio/README.md](studio/README.md) has
 every page and command.
 
@@ -306,9 +326,11 @@ that have them.
 ## Validation
 
 Nothing is merged without an analytic test, a reproduction of a published result and a
-convergence test; adjoint gradients are checked against finite differences. Each case in the
-[report](docs/validation.md) states its source, tolerance and grid, and CI fails when a case fails
-or the committed report isn't the one the code writes. CI checks every example's output too.
+convergence test; adjoint gradients are checked against finite differences. The
+[report](docs/validation.md) has 806 cases: 526 against closed forms, 271 against published
+results and 9 against another code on a shared problem. Each states its source, tolerance and
+grid. CI fails when a case fails or the committed report isn't the one the code writes. CI
+checks every example's output too.
 
 ## Status
 
@@ -321,7 +343,7 @@ or the committed report isn't the one the code writes. CI checks every example's
 | 0.5.2 Many solves at once | Ports as a block, recycling across sweeps, more contour-integral mode solvers, farming across processes | ✅ released |
 | 0.5.3 QMR without the matrix | QMR without its matrix where the matrix wouldn't fit, MUMPS 5.9 | ✅ released |
 | 0.5.4 Geometry and devices | Geometry for any device; the device library on pages of its own, with its models, runs, sweeps, corners and optimization; compact models; the chip built from devices; devices in Python | ✅ released |
-| 0.6.0 Thermal and electro-optic, and writing jobs | Heat, steady and transient; thermo-optic phase shifters as devices; Pockels modulation; travelling-wave electrodes, quasi-TEM and full-wave; phase-change materials; the job editor, YAML first, every example as a job, exports of modes and fields (0.5.5's, released here) | ✅ released |
+| 0.6.0 Thermal and electro-optic, and writing jobs | Heat, steady and transient; thermo-optic phase shifters as devices; Pockels modulation; travelling-wave electrodes, quasi-TEM and full-wave; phase-change materials; the job editor, YAML first, every example as a job, exports of modes and fields (0.5.5's, released with 0.6.0) | ✅ released |
 | 0.6.1 Nonlinear integrated optics | 0.6's leftovers (the TFLN modulator and the phase-change phase shifter as devices, the studio's temperature and field views and its Vπ·L and bandwidth sweeps, GDS read into jobs); phase matching with QPM and the acceptance bandwidths, the coupled-amplitude equations, SPDC's joint spectrum, purity and heralding, all from a waveguide's modes too; n₂, two-photon and free-carrier absorption, Miller's rule, transparency windows where a paper gives them; the NLSE with cross-phase modulation, four-wave mixing, Kerr combs by the Lugiato–Lefever equation; resonant SHG and FWM in rings and OPO cavities; nonlinear jobs, a Python example and the studio's nonlinear view; the fabrication engine's process flows for the library's platforms. Left: focused beams, and published results not yet reproduced, among them Zhang 2022's bandwidths, He 2019's Vπ·L and Zhao 2020's pair brightness ([#595](https://github.com/tachsin/photonoxide/issues/595)) | ✅ released |
 | 0.6.2 Quantum light | Linear-optical statistics, photon-pair sources, Gaussian states, loss budgets of quantum circuits | planned |
 | 0.6.3 Eigenmode expansion and the mode solver's tools | On main: 2D eigenmode expansion, convergence to a tolerance, adaptive sweeps, effective area and confinement, sidewall-roughness loss. Left: 3D eigenmode expansion, beam and fibre coupling | 🚧 in progress |
@@ -334,6 +356,8 @@ or the committed report isn't the one the code writes. CI checks every example's
 ## Principles
 
 - **Validated:** every number from a checked method, with its grid.
+- **Cited:** every methods page and every written lesson names the papers it rests on, and every
+  stated process capability its source, by DOI where the source has one.
 - **Pure Rust:** libraries you install yourself are optional backends, loaded at run time and
   never required ([the plan](docs/plans/backends.md)).
 - **Reproducible:** the same bits on any number of threads; every run replays.
@@ -341,9 +365,12 @@ or the committed report isn't the one the code writes. CI checks every example's
 
 ## Contributing
 
-Ideas, use cases and validation cases are as welcome as code: open an
-[issue](https://github.com/tachsin/photonoxide/issues). [CONTRIBUTING.md](CONTRIBUTING.md) says
-what a pull request needs.
+Contributions other than code are as welcome as code: a methods page improved, a section of an
+Academy lesson written, a paper suggested, a correction, a validation case.
+[CONTRIBUTING.md](CONTRIBUTING.md) says what a pull request needs. Questions and ideas go to
+[Discussions](https://github.com/tachsin/photonoxide/discussions); reports and proposals go to
+the [issue forms](https://github.com/tachsin/photonoxide/issues/new/choose). Everyone taking part
+follows the [code of conduct](CODE_OF_CONDUCT.md).
 
 ## License
 

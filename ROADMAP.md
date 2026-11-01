@@ -2,7 +2,7 @@
 
 ## Vision
 
-The photonics toolkit for Rust: simulation, inverse design and layout in one library, with a studio to watch every run live.
+An open reference for photonic design, and the software that runs it: methods, an Academy and fabrication flows, with simulation, inverse design and layout in one Rust library, a Python package and a studio to watch every run live.
 
 ### Success criteria for 1.0
 

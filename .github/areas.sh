@@ -246,10 +246,10 @@ area python \
 # the studio builds the whole library, photonoxide-native and every example in, runs jobs and
 # circuits, and reads the methods' write-ups, the examples' table and outputs, the changelog, the
 # Academy's lessons and the milestones they name, the validation report and the libraries' page;
-# its tests check the project site's static copy against the roadmap, and its methods' categories
-# against docs/methods
+# its tests check the project site's static copy against the roadmap, its methods' categories
+# against docs/methods, and the README's counts against the files and the fabrication library
 area studio \
-  "studio/* academy/* docs/methods/* docs/libraries.md examples/README.md CHANGELOG.md ROADMAP.md jobs/* tests/jobs-toml/* circuits/* site/lib/projects/photonoxide/meta.js site/lib/projects/photonoxide/methods.js" \
+  "studio/* academy/* docs/methods/* docs/libraries.md examples/README.md CHANGELOG.md ROADMAP.md README.md docs/README.md jobs/* tests/jobs-toml/* circuits/* site/lib/projects/photonoxide/meta.js site/lib/projects/photonoxide/methods.js" \
   "material sparse mode fdfd fdtd job circuit device generator compact facade bench native" \
   "" "" ""
 
