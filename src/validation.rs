@@ -2273,6 +2273,8 @@ pub fn cases() -> Vec<Case> {
     cases.extend(crate::fabrication::platform_checks::cases());
     // and in waveguides, from their modes: modal phase matching, the overlaps' coupling, SPDC
     cases.extend(crate::nonlinear::guide_checks::cases());
+    // and through a nonlinear job's ridge, Zhao et al.'s guide
+    cases.extend(crate::job::nonlinear_cases());
     // and third-order processes: the NLSE, four-wave mixing and the Lugiato-Lefever equation
     cases.extend(crate::nonlinear::kerr_checks::cases());
     // and silicon's two-photon and free-carrier absorption, and cross-phase modulation

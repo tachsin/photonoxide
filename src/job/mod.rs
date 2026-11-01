@@ -515,6 +515,7 @@ mod line;
 mod line_tests;
 mod modes;
 mod nonlinear;
+mod nonlinear_checks;
 #[cfg(test)]
 mod nonlinear_tests;
 pub mod optimize;
@@ -613,6 +614,11 @@ pub(crate) fn study_cases() -> Vec<crate::validation::Case> {
 /// The validation cases of modes jobs' leaky modes, with a PML (`[task.pml]`).
 pub(crate) fn leaky_cases() -> Vec<crate::validation::Case> {
     leaky_checks::cases()
+}
+
+/// The validation cases of nonlinear jobs' ridges: Zhao et al.'s guide through a job.
+pub(crate) fn nonlinear_cases() -> Vec<crate::validation::Case> {
+    nonlinear_checks::cases()
 }
 
 /// The memory a sweep's points in flight may take in all, by their estimate: what bounds them

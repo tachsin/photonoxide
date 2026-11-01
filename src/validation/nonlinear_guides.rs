@@ -10,7 +10,37 @@ pub(crate) fn rules() -> Vec<(&'static str, Rule)> {
     let mut rules = modal_rules();
     rules.extend(overlap_rules());
     rules.extend(pair_rules());
+    rules.extend(job_rules());
     rules
+}
+
+/// Zhao et al.'s guide through a nonlinear job's ridge (#595).
+fn job_rules() -> Vec<(&'static str, Rule)> {
+    vec![
+        (
+            "job/nonlinear-ridge-zhao-period",
+            Rule::new(
+                Absolute,
+                Reference,
+                0.05,
+                Stated(
+                    3.5e-3,
+                    "the 20 nm cells' error in the period: 2.8172 µm against the limit of nonlinear/guide-zhao-period's grid study on 20, 10 and 5 nm (2.8142, its error 5.2e-4)",
+                ),
+                "half a unit of the last digit of the printed 2.8 µm: the paper states no other uncertainty",
+            ),
+        ),
+        (
+            "job/nonlinear-ridge-zhao-efficiency",
+            Rule::new(
+                Relative,
+                RoundOff,
+                1e-8,
+                Exact,
+                "one overlap on the same cells by two paths, the job's and the library's: the same sums, so round-off",
+            ),
+        ),
+    ]
 }
 
 /// Modal phase matching: the plane-wave limit and Zhao et al.'s guide.

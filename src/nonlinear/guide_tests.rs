@@ -141,9 +141,9 @@ fn half_a_guide_behind_its_wall_couples_as_the_whole() {
     .in_section(Along::Y);
     let kappa = |grid: Grid| {
         let (cs, f) = checks::te0_mode(&r, &grid, 1.57);
-        let (_, h) = checks::te0_mode(&r, &grid, 0.785);
+        let (cs_h, h) = checks::te0_mode(&r, &grid, 0.785);
         let ef = ModeField::new(&f, &cs, Wavelength::um(1.57).unwrap()).unwrap();
-        let eh = ModeField::new(&h, &cs, Wavelength::um(0.785).unwrap()).unwrap();
+        let eh = ModeField::new(&h, &cs_h, Wavelength::um(0.785).unwrap()).unwrap();
         let share = r.film_share(&cs, |_, _| true);
         let shg = second_harmonic_coupling(&eh, &ef, &d, &share).unwrap();
         let sfg = sum_frequency_coupling(&eh, &ef, &ef, &d, &share).unwrap();
@@ -257,9 +257,10 @@ fn zhao_numbers() {
     for h in [0.02, 0.01, 0.005] {
         let grid = Grid::new(h).halved();
         let (cs, f) = checks::te0_mode(&r, &grid, 1.57);
-        let (_, s) = checks::te0_mode(&r, &grid, 0.785);
+        // each mode's fields on its own cross-section, the permittivities at its wavelength
+        let (cs_s, s) = checks::te0_mode(&r, &grid, 0.785);
         let ef = ModeField::new(&f, &cs, Wavelength::um(1.57).unwrap()).unwrap();
-        let es = ModeField::new(&s, &cs, Wavelength::um(0.785).unwrap()).unwrap();
+        let es = ModeField::new(&s, &cs_s, Wavelength::um(0.785).unwrap()).unwrap();
         let full = r.film_share(&cs, |_, _| true);
         // poled from the top down to 245 nm (p. 3), our reading of their poling depth
         let poled = r.film_share(&cs, |_, y| y >= 0.3 - 0.245);
@@ -269,7 +270,7 @@ fn zhao_numbers() {
         // η P L² per hertz, per GHz and mW, over 5 mm
         let b = |k: f64| k * k * 1e-3 * 5000.0f64.powi(2) * 1e9;
         let ff = f.fields_one_sided(&cs).unwrap();
-        let fs = s.fields_one_sided(&cs).unwrap();
+        let fs = s.fields_one_sided(&cs_s).unwrap();
         eprintln!(
             "h {h}: η {:.1} %/(W cm²) at 50 %, {:.1} at 55.2 % poled 245 nm; B {:.3e}, {:.3e} pairs/(s GHz mW); A_eff Eq. 41 {:.4} {:.4}, Eq. 44 {:.4} {:.4}",
             percent_per_watt_cm2(k * g50),
@@ -311,6 +312,51 @@ fn zhao_numbers() {
         si.points()
     );
 }
+
+#[test]
+#[ignore = "prints the wavelength Zhao et al.'s 2.8 µm phase-matches on 20, 10 and 5 nm cells, and on 20 nm at other interpolation tolerances"]
+fn zhao_matched_numbers() {
+    let r = checks::zhao_ridge(None);
+    let at = |h: f64, tolerance: f64, mirror: bool| {
+        let grid = if mirror {
+            Grid::new(h).halved()
+        } else {
+            Grid::new(h)
+        };
+        let sweep =
+            |range| ModeIndex::of_ridge(&r, &grid, Family::Te, 4, range, tolerance).unwrap();
+        let (f, s) = (sweep((1.50, 1.65)), sweep((0.75, 0.825)));
+        (
+            checks::matched_wavelength(&f, &s, 2.8),
+            f.points(),
+            s.points(),
+        )
+    };
+    for tolerance in [1e-6, 1e-8, 1e-10, 1e-12] {
+        let (lam, nf, ns) = at(0.02, tolerance, true);
+        eprintln!("20 nm, tolerance {tolerance:e}: matched {lam:.6} µm ({nf} and {ns} points)");
+    }
+    let (lam, ..) = at(0.02, 1e-10, false);
+    eprintln!("20 nm, the whole window: matched {lam:.6} µm");
+    let values: Vec<(f64, f64)> = [0.02, 0.01, 0.005]
+        .iter()
+        .map(|&h| {
+            let (lam, ..) = at(h, 1e-10, true);
+            eprintln!("{} nm: matched {lam:.6} µm", h * 1e3);
+            (h, lam)
+        })
+        .collect();
+    let mut study = crate::convergence::Study::new("matched");
+    for &(h, v) in &values {
+        study = study.on(h, v).unwrap();
+    }
+    let c = study.check(1.0).unwrap();
+    eprintln!(
+        "grid study: {:.6} µm, its error {:?}, order {:?}, limit {:?}",
+        c.value, c.error, c.order, c.limit
+    );
+}
+
 #[test]
 #[ignore = "prints the slab cases' grids and RK4's steps"]
 fn slab_numbers() {

@@ -226,7 +226,7 @@ fn slab_vector() -> Outcome {
 }
 
 /// The same perturbation on the TM slab at 20, 10 and 5 nm: the error's order (the two pairs'
-/// mean; 2.19 and 2.34, the next term still showing).
+/// mean; 2.07 and 2.23, the next term still showing).
 fn slab_vector_order() -> Outcome {
     let exact = slab_dndt(Polarization::Tm);
     let e = [0.02, 0.01, 0.005]

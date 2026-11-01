@@ -37,12 +37,16 @@
 //!   on one thread). OpenBLAS's LU runs on one thread always: its threaded `zgetrf` keeps
 //!   arrays sized by its build's largest thread count on the stack at each level of its
 //!   recursion, and overflowed a 2 MiB thread's stack (pip's and Ubuntu's builds, on Linux).
-//!   OpenBLAS built with OpenMP (`openblas_get_parallel` 2: conda-forge's on macOS) takes each
-//!   call's count from its calling thread's OpenMP count, all of the cores where the thread
-//!   never set it, and makes it the process's: rayon's threads then made threaded calls side
-//!   by side, and one factorization in a run came out wrong (#557). Each thread's own count is
-//!   set to one before its first call (`openblas_set_num_threads` sets the calling thread's in
-//!   that build).
+//!   Loading OpenBLAS calls it too (the probes of its interface, its count set to one), so a
+//!   load runs while no call does, as a threaded call does. In a build with OpenMP
+//!   (`openblas_get_parallel` 2: conda-forge's on macOS) a count set lower frees the buffers
+//!   of the threads above it, which a threaded call running meanwhile was using: loaded again
+//!   by another test while a factorization threaded, OpenBLAS 0.3.34 factorized wrong (#557).
+//!   That build also takes a call's count from the calling thread's OpenMP count, all of the
+//!   cores where the thread never set it, and makes it the process's (0.3.33 and before; 0.3.34
+//!   keeps a count set by `openblas_set_num_threads`): each thread's OpenMP count is set to one
+//!   before its first call, by the OpenMP runtime's `omp_set_num_threads`, and to rayon's
+//!   around a threaded call.
 //!   Without an OpenMP runtime, AOCL-BLAS is held to one thread by
 //!   `bli_thread_set_num_threads`; Accelerate has no control photonoxide sets, and is left to
 //!   itself.
@@ -1206,15 +1210,23 @@ type SetIntOnly = unsafe extern "C" fn(c_int);
 type GetInt = unsafe extern "C" fn() -> c_int;
 
 /// The calls into OpenBLAS: shared by the calls on one thread, OpenBLAS's count being one
-/// between them; held alone by a threaded call, which sets the process's count around itself.
-/// The fronts factorized side by side on rayon's threads then never see another's count. (Every
-/// OpenBLAS loaded shares it; it is only a lock.)
+/// between them; held alone by a threaded call, which sets the process's count around itself,
+/// and by a load, which calls OpenBLAS and sets its count to one. The fronts factorized side by
+/// side on rayon's threads then never see another's count. (Every OpenBLAS loaded shares it;
+/// it is only a lock.)
 static OPENBLAS_CALLS: std::sync::RwLock<()> = std::sync::RwLock::new(());
 
 thread_local! {
     /// Whether this thread's OpenMP count is one, for OpenBLAS built with OpenMP: set before
     /// its first call, and left at one by a threaded call when it ends.
     static OPENMP_ONE: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+/// [`OPENBLAS_CALLS`] held alone: by a threaded call, or a load.
+fn openblas_alone() -> std::sync::RwLockWriteGuard<'static, ()> {
+    OPENBLAS_CALLS
+        .write()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
 }
 
 /// How a call's threads are set.
@@ -1226,8 +1238,11 @@ enum Threading {
     /// call made while no other runs ([`OPENBLAS_CALLS`]); one thread otherwise.
     OpenBlas(SetIntOnly),
     /// The same for OpenBLAS built with OpenMP, which takes a call's count from its calling
-    /// thread's OpenMP count: each thread's is set to one before its first call.
-    OpenBlasOpenMp(SetIntOnly),
+    /// thread's OpenMP count (0.3.33 and before): each thread's is set to one before its first
+    /// call, and to the call's around a threaded call, by the OpenMP runtime's
+    /// `omp_set_num_threads` if found, or else by `openblas_set_num_threads` (which sets the
+    /// calling thread's too, up to 0.3.21).
+    OpenBlasOpenMp(SetIntOnly, Option<SetIntOnly>),
     /// The OpenMP runtime's `omp_set_num_threads` on the calling thread, and
     /// `omp_get_max_threads` to restore.
     OpenMp(SetIntOnly, GetInt),
@@ -1348,6 +1363,9 @@ impl Blas {
     ) -> (Option<Discovery>, Result<Blas, String>) {
         match provider {
             Provider::OpenBlas => {
+                // a load calls OpenBLAS (its probes, its count set to one), which in a build
+                // with OpenMP frees the buffers a threaded call running meanwhile uses (#557)
+                let _alone = openblas_alone();
                 let (d, found) = find(&OPENBLAS, setting, provider, want);
                 (Some(d), found.map(|(l, f)| openblas(l, f)))
             }
@@ -1469,11 +1487,9 @@ impl Blas {
                 mkl.set_threads_here(usize::try_from(before).unwrap_or(0));
                 result
             }
-            Threading::OpenBlas(set) | Threading::OpenBlasOpenMp(set) if threads > 1 => {
+            Threading::OpenBlas(set) if threads > 1 => {
                 // the count is the process's: no other call into OpenBLAS runs meanwhile
-                let _alone = OPENBLAS_CALLS
-                    .write()
-                    .unwrap_or_else(std::sync::PoisonError::into_inner);
+                let _alone = openblas_alone();
                 // SAFETY: `void openblas_set_num_threads(int)`: a positive count, and back to
                 // one, which every other call takes
                 unsafe { set(count) };
@@ -1482,15 +1498,41 @@ impl Blas {
                 unsafe { set(1) };
                 result
             }
-            Threading::OpenBlasOpenMp(set) => {
+            Threading::OpenBlasOpenMp(set, omp) if threads > 1 => {
+                let _alone = openblas_alone();
+                // SAFETY: `void openblas_set_num_threads(int)` and OpenMP's
+                // `void omp_set_num_threads(int)` (this thread's count): a positive count, and
+                // back to one, which every other call takes
+                unsafe {
+                    set(count);
+                    if let Some(omp) = omp {
+                        omp(count);
+                    }
+                }
+                let result = call();
+                // SAFETY: as above
+                unsafe {
+                    set(1);
+                    if let Some(omp) = omp {
+                        omp(1);
+                    }
+                }
+                result
+            }
+            Threading::OpenBlasOpenMp(set, omp) => {
                 let _shared = OPENBLAS_CALLS
                     .read()
                     .unwrap_or_else(std::sync::PoisonError::into_inner);
                 OPENMP_ONE.with(|one| {
                     if !one.get() {
-                        // SAFETY: `void openblas_set_num_threads(int)`, one: in an OpenMP
-                        // build, this thread's OpenMP count, which its calls take
-                        unsafe { set(1) };
+                        match omp {
+                            // SAFETY: OpenMP's `void omp_set_num_threads(int)`, one: this
+                            // thread's count, which its calls into OpenBLAS take
+                            Some(omp) => unsafe { omp(1) },
+                            // SAFETY: `void openblas_set_num_threads(int)`, one, which sets this
+                            // thread's OpenMP count too in the builds where it is found alone
+                            None => unsafe { set(1) },
+                        }
                         one.set(true);
                     }
                 });
@@ -1629,24 +1671,38 @@ fn openblas(library: Library, found: Detected) -> Blas {
     let parallel = unsafe { first::<GetInt>(&library, &names("openblas_get_parallel")) }
         // SAFETY: as above, no arguments
         .map(|f| unsafe { f() });
+    // the OpenMP runtime a build with OpenMP threads on, whose count per thread its calls take
+    let runtime = if parallel == Some(2) {
+        openmp(&library)
+    } else {
+        None
+    };
+    let mut libraries = vec![library];
     let (threading, threads) = match global {
         Some(set) => {
             // one thread but for a threaded call, which sets it around itself
             // SAFETY: as above: any positive count
             unsafe { set(1) };
-            (
-                if parallel == Some(2) {
-                    Threading::OpenBlasOpenMp(set)
-                } else {
-                    Threading::OpenBlas(set)
-                },
-                Threads::Library(
-                    "OpenBLAS's own, on rayon's thread count (RAYON_NUM_THREADS) by \
-                     openblas_set_num_threads, the process's count, around each threaded call, \
-                     which runs while no other call into OpenBLAS does"
-                        .into(),
+            let how = "OpenBLAS's own, on rayon's thread count (RAYON_NUM_THREADS) by \
+                       openblas_set_num_threads, the process's count, around each threaded \
+                       call, which runs while no other call into OpenBLAS does";
+            match (parallel, runtime) {
+                (Some(2), Some((omp, _, runtime))) => {
+                    libraries.extend(runtime);
+                    (
+                        Threading::OpenBlasOpenMp(set, Some(omp)),
+                        Threads::Library(format!(
+                            "{how}; built with OpenMP: each calling thread's OpenMP count one, \
+                             and rayon's around a threaded call, by omp_set_num_threads"
+                        )),
+                    )
+                }
+                (Some(2), None) => (
+                    Threading::OpenBlasOpenMp(set, None),
+                    Threads::Library(format!("{how}; built with OpenMP")),
                 ),
-            )
+                _ => (Threading::OpenBlas(set), Threads::Library(how.into())),
+            }
         }
         None => (Threading::Fixed, Threads::One),
     };
@@ -1668,8 +1724,8 @@ fn openblas(library: Library, found: Detected) -> Blas {
         triangular,
         threaded_lu: false,
         threading,
-        files: vec![library.path().to_path_buf()],
-        _libraries: vec![library],
+        files: vec![libraries[0].path().to_path_buf()],
+        _libraries: libraries,
     }
 }
 
