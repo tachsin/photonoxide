@@ -1,0 +1,27 @@
+name: Paper suggestion
+description: A paper or book whose results photonoxide should reproduce or cite.
+labels: ["documentation"]
+body:
+  - type: input
+    id: ref
+    attributes:
+      label: Reference
+      description: Authors, title, journal or publisher, year, and the DOI.
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: What it gives us
+      description: The numbers, tables or figures a page, an example or a validation case could check against.
+    validations:
+      required: true
+  - type: dropdown
+    id: access
+    attributes:
+      label: Can people read it
+      options:
+        - Open access
+        - Behind a paywall
+        - A book
+        - Not sure

@@ -1,0 +1,11 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Ask a question or share an idea
+    url: https://github.com/tachsin/photonoxide/discussions
+    about: Questions, ideas and what you built with photonoxide belong in Discussions.
+  - name: Report a security problem
+    url: https://github.com/tachsin/photonoxide/security/advisories/new
+    about: Report it privately here; please do not open a public issue.
+  - name: Read the methods
+    url: https://github.com/tachsin/photonoxide/tree/main/docs/methods
+    about: Every method with its paper, its validation and its limits.

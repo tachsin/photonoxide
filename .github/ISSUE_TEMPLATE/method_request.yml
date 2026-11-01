@@ -1,0 +1,30 @@
+name: Method or process request
+description: A method, device, material or fabrication process you would like photonoxide to cover.
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What would you like to see
+      description: The method, device, material or process, and what you would use it for.
+    validations:
+      required: true
+  - type: textarea
+    id: papers
+    attributes:
+      label: Papers or references
+      description: The papers or books that define it, with DOIs if you have them. A result we could reproduce is the best starting point.
+    validations:
+      required: true
+  - type: textarea
+    id: check
+    attributes:
+      label: How we would know it is right
+      description: A closed form, a published number or a measurement it should reproduce.
+  - type: checkboxes
+    id: help
+    attributes:
+      label: Can you help
+      options:
+        - label: I can write or review the page, the lesson or the code for it.
+        - label: I can provide a paper, data or a measurement.
