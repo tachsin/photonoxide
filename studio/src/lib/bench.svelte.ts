@@ -2,7 +2,10 @@
 // runner.rs), kept here so a run survives leaving the page.
 
 import { api } from "./api";
+import { bytes } from "./hardware";
 import { SERIES } from "./plot";
+
+export { bytes };
 
 export interface Machine {
   cpu: string;
@@ -199,13 +202,6 @@ export function sci(n: number): string {
   const m = n / 10 ** e;
   const sup = String(e).replace(/\d/g, (d) => "⁰¹²³⁴⁵⁶⁷⁸⁹"[Number(d)]);
   return `${m.toFixed(1)}·10${sup}`;
-}
-
-export function bytes(b: number | null | undefined): string {
-  if (b === null || b === undefined || !Number.isFinite(b)) return "—";
-  if (b >= 2 ** 30) return `${(b / 2 ** 30).toFixed(1)} GiB`;
-  if (b >= 2 ** 20) return `${(b / 2 ** 20).toFixed(0)} MiB`;
-  return `${(b / 2 ** 10).toFixed(0)} KiB`;
 }
 
 export function seconds(s: number | null | undefined): string {

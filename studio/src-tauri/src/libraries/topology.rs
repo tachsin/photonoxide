@@ -285,14 +285,14 @@ fn raw_here() -> Raw {
             sysctl("hw.physicalcpu").unwrap_or(0) as usize,
         )),
     }
+    // each kind of core's caches too: on Apple silicon `hw.l2cachesize` can be one cluster's
+    // while the performance cores' is larger, and the largest of a level is kept
     let mut caches = Vec::new();
-    for (level, name) in [
-        (1, "hw.l1dcachesize"),
-        (2, "hw.l2cachesize"),
-        (3, "hw.l3cachesize"),
-    ] {
-        if let Some(bytes) = sysctl(name).filter(|b| *b > 0) {
-            caches.push((level, false, bytes));
+    for (level, name) in [(1, "l1dcachesize"), (2, "l2cachesize"), (3, "l3cachesize")] {
+        for prefix in ["hw", "hw.perflevel0", "hw.perflevel1"] {
+            if let Some(bytes) = sysctl(&format!("{prefix}.{name}")).filter(|b| *b > 0) {
+                caches.push((level, false, bytes));
+            }
         }
     }
     Raw {
@@ -306,6 +306,25 @@ fn raw_here() -> Raw {
 #[cfg(not(any(windows, target_os = "linux", target_os = "macos")))]
 fn raw_here() -> Raw {
     Raw::default()
+}
+
+/// A line of what a test read on the machine it runs on, written past the test harness's
+/// capture so a passing run shows it too; on GitHub Actions also a notice on the run's summary.
+#[cfg(test)]
+pub(super) fn report(title: &str, line: &str) {
+    use std::io::Write;
+    let mut out = std::io::stdout().lock();
+    let _ = writeln!(out, "{title}: {line}");
+    if std::env::var_os("GITHUB_ACTIONS").is_some() {
+        // a notice's title ends at a comma or colon, and its message at a line's end
+        let _ = writeln!(
+            out,
+            "::notice title={title} on {} {}::{}",
+            std::env::consts::OS,
+            std::env::consts::ARCH,
+            line.replace('%', "%25").replace('\n', " ")
+        );
+    }
 }
 
 #[cfg(test)]
@@ -430,10 +449,137 @@ mod tests {
         );
     }
 
+    /// What the tests' machine says of itself without the reader: its logical CPUs, its physical
+    /// cores counted another way where there is one, and its P- and E-cores where the system
+    /// lists them apart.
+    struct Independent {
+        logical: Option<usize>,
+        cores: Option<usize>,
+        split: Option<(usize, usize)>,
+        /// Whether the system lists NUMA nodes at all.
+        lists_nodes: bool,
+    }
+
+    /// Linux: the online CPUs, and one core per distinct set of a CPU's threads
+    /// (`core_cpus_list`, `thread_siblings_list` on older kernels) rather than by its package
+    /// and core numbers as the reader counts them.
+    #[cfg(target_os = "linux")]
+    fn independent() -> Independent {
+        use std::fs::read_to_string;
+        let online = read_to_string("/sys/devices/system/cpu/online")
+            .map(|t| parse_list(&t))
+            .unwrap_or_default();
+        let threads: std::collections::BTreeSet<Vec<usize>> = online
+            .iter()
+            .filter_map(|n| {
+                let topology = format!("/sys/devices/system/cpu/cpu{n}/topology");
+                read_to_string(format!("{topology}/core_cpus_list"))
+                    .or_else(|_| read_to_string(format!("{topology}/thread_siblings_list")))
+                    .ok()
+            })
+            .map(|t| parse_list(&t))
+            .collect();
+        Independent {
+            logical: (!online.is_empty()).then_some(online.len()),
+            cores: (!threads.is_empty()).then_some(threads.len()),
+            split: None,
+            lists_nodes: std::path::Path::new("/sys/devices/system/node").is_dir(),
+        }
+    }
+
+    /// macOS: `hw.logicalcpu`, `hw.physicalcpu`, and each performance level's cores where there
+    /// are two (Apple silicon).
+    #[cfg(target_os = "macos")]
+    fn independent() -> Independent {
+        let sysctl = |name: &str| -> Option<usize> {
+            let out = std::process::Command::new("sysctl")
+                .args(["-n", name])
+                .output()
+                .ok()
+                .filter(|o| o.status.success())?;
+            String::from_utf8_lossy(&out.stdout).trim().parse().ok()
+        };
+        let split = match sysctl("hw.nperflevels") {
+            Some(2) => sysctl("hw.perflevel0.physicalcpu").zip(sysctl("hw.perflevel1.physicalcpu")),
+            _ => None,
+        };
+        Independent {
+            logical: sysctl("hw.logicalcpu"),
+            cores: sysctl("hw.physicalcpu"),
+            split,
+            lists_nodes: true,
+        }
+    }
+
+    /// Windows: the reader is the only source; the threads the program may use are a floor
+    /// only where they aren't limited.
+    #[cfg(not(any(target_os = "linux", target_os = "macos")))]
+    fn independent() -> Independent {
+        Independent {
+            logical: None,
+            cores: None,
+            split: None,
+            lists_nodes: cfg!(windows),
+        }
+    }
+
     #[test]
-    fn this_machine_has_cores() {
+    fn this_machine_s_cores_caches_and_nodes_are_sane() {
+        // the real reader on the machine the tests run on: CI's Linux, macOS and Windows
+        // runners, where each system's own reader runs (#595: the Linux and macOS readers had
+        // been tested only on parsed text)
         let t = here();
-        assert!(t.cores >= 1 || cfg!(not(any(windows, target_os = "linux", target_os = "macos"))));
-        assert!(t.performance_cores + t.efficiency_cores <= t.cores);
+        let i = independent();
+        report(
+            "CPU topology",
+            &format!(
+                "{t:?}; read another way: {:?} logical, {:?} cores, P and E {:?}",
+                i.logical, i.cores, i.split
+            ),
+        );
+        if cfg!(not(any(windows, target_os = "linux", target_os = "macos"))) {
+            assert_eq!(t, Topology::default());
+            return;
+        }
+        assert!(t.cores >= 1, "{t:?}");
+        if let Some(logical) = i.logical {
+            assert!(
+                t.cores <= logical,
+                "{} cores, {logical} logical CPUs",
+                t.cores
+            );
+        }
+        if let Some(cores) = i.cores {
+            assert_eq!(t.cores, cores, "cores counted another way");
+        }
+        // P- and E-cores: both or neither, and together every core
+        let hybrid = t.performance_cores > 0;
+        assert_eq!(hybrid, t.efficiency_cores > 0, "{t:?}");
+        if hybrid {
+            assert_eq!(t.performance_cores + t.efficiency_cores, t.cores, "{t:?}");
+        }
+        if let Some(split) = i.split {
+            // two performance levels of a real Mac's cores, or one in a VM that lists two
+            let alike = split.0 == 0 || split.1 == 0;
+            let expected = if alike { (0, 0) } else { split };
+            assert_eq!((t.performance_cores, t.efficiency_cores), expected);
+        }
+        // caches: an L1 data cache of 8 KiB to 1 MiB, and each level no smaller than the last
+        if cfg!(any(target_os = "linux", target_os = "macos")) {
+            assert!(t.l1d.is_some() && t.l2.is_some(), "{t:?}");
+        }
+        if let Some(l1d) = t.l1d {
+            assert!((8 << 10..=1 << 20).contains(&l1d), "{t:?}");
+        }
+        for (smaller, larger) in [(t.l1d, t.l2), (t.l2, t.l3)] {
+            if let (Some(a), Some(b)) = (smaller, larger) {
+                assert!(b >= a, "{t:?}");
+            }
+        }
+        // NUMA nodes: at least one where the system lists them, never more than the cores
+        if i.lists_nodes {
+            assert!(t.numa_nodes >= 1, "{t:?}");
+        }
+        assert!(t.numa_nodes <= t.cores, "{t:?}");
     }
 }

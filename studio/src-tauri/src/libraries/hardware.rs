@@ -279,9 +279,64 @@ mod tests {
     }
 
     #[test]
-    fn this_machine_is_described() {
+    fn this_machine_is_described_and_advised() {
+        // the first start's Advanced step on the machine the tests run on: what it reads of the
+        // hardware, what the web view gets, and the libraries it suggests
         let h = here();
+        let s = suggest(&h);
+        let t = &h.cpu.topology;
+        super::super::topology::report(
+            "First-start advice",
+            &format!(
+                "{} {}: {} ({}), {} threads, {} cores ({} P + {} E), L1d {:?}, L2 {:?}, L3 {:?}, {} NUMA nodes, {}; suggests {}",
+                h.os,
+                h.arch,
+                h.cpu.brand,
+                h.cpu.vendor,
+                h.cpu.threads,
+                t.cores,
+                t.performance_cores,
+                t.efficiency_cores,
+                t.l1d,
+                t.l2,
+                t.l3,
+                t.numa_nodes,
+                h.cpu.features.join(" "),
+                names(&s).join(", ")
+            ),
+        );
         assert!(h.cpu.threads >= 1);
         assert_eq!(h.os, std::env::consts::OS);
+        assert!(!h.cpu.vendor.trim().is_empty(), "{:?}", h.cpu);
+        if cfg!(any(windows, target_os = "linux", target_os = "macos")) {
+            assert!(!h.cpu.brand.trim().is_empty(), "{:?}", h.cpu);
+        }
+        // the web view's CPU line reads these (Welcome.svelte, src/lib/machine.ts)
+        let json = serde_json::to_value(&h).expect("serializable");
+        for key in [
+            "cores",
+            "performance_cores",
+            "efficiency_cores",
+            "l1d",
+            "l2",
+            "l3",
+            "numa_nodes",
+        ] {
+            assert!(json["cpu"]["topology"].get(key).is_some(), "{key}: {json}");
+        }
+        // the vendor's libraries first, MUMPS last, each with a reason
+        let names = names(&s);
+        assert_eq!(names.last(), Some(&"MUMPS"), "{names:?}");
+        let first = match (h.os, h.cpu.vendor.as_str()) {
+            ("macos", _) => Some("Accelerate"),
+            (_, "GenuineIntel") => Some("oneMKL"),
+            (_, "AuthenticAMD") => Some("AMD AOCL"),
+            _ if h.arch == "aarch64" => Some("Arm Performance Libraries"),
+            _ => None,
+        };
+        if let Some(first) = first {
+            assert_eq!(names[0], first, "{names:?}");
+        }
+        assert!(s.iter().all(|s| !s.why.trim().is_empty()));
     }
 }
