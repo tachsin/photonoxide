@@ -1,7 +1,8 @@
 //! The project site's static copy against the repository: the milestones meta.js falls back on
 //! are ROADMAP.md's headings and every highlight names a milestone the roadmap has, so its status
 //! (read from the roadmap) can't go stale; and every method write-up (docs/methods) is in one of
-//! methods.js's categories, and its algorithm index points only at write-ups that exist.
+//! methods.js's categories, and its algorithm index points only at write-ups that exist; and
+//! every method write-up is linked from docs/README.md, the documentation's index.
 
 use std::path::Path;
 
@@ -132,6 +133,18 @@ fn every_method_is_in_one_category_of_the_site() {
         assert!(
             slugs.contains(name),
             "CATEGORIES in site/lib/projects/photonoxide/methods.js names {name:?}, which docs/methods doesn't have"
+        );
+    }
+}
+
+#[test]
+fn every_method_is_in_the_documentation_index() {
+    let index = read("docs/README.md");
+    for slug in method_slugs() {
+        assert!(
+            index.contains(&format!("](methods/{slug}.md)")),
+            "docs/methods/{slug}.md isn't linked from docs/README.md: add it, with a one-line \
+             description, under its topic"
         );
     }
 }
