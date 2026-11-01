@@ -24,6 +24,7 @@ use super::{
     Built, Device, EXACT, Figure, Geometry, Method, Range, Stated, Values, figure, method,
     parameter,
 };
+use crate::material::catalogue::TIN_FILM_SOURCE;
 
 /// Which heater a [`ThermoShifter`] has.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -103,6 +104,14 @@ fn conductivity(id: &str, model: &str, thickness: Option<f64>) -> Result<f64> {
 /// the guide, the catalogue's silicon films (Ju & Goodson) and silica (Powell), Jacques et al.'s
 /// heat capacities and Harris et al.'s sheet resistances and dn/dT (1.86e-4/K); so the core must
 /// be silicon.
+///
+/// The metal heater can be driven by a `voltage` (V) instead of a power: its power is then V²/R,
+/// the strip's resistance R = ρL/(wt) over its `length`, `heater_width` and `heater_thickness`,
+/// ρ the catalogue's TiN film at that thickness (Tsai et al.'s Eq. (3) for their collimated
+/// films sputtered at 500 °C, 45.3 µΩ·cm at 100 nm; [`ThermoShifter::resistance`]). Give a power
+/// or a voltage, not both. Its figures add the resistance `R_heater` (Ω) and, under a voltage,
+/// the power `P_V` (mW); every heater's analytic and 2D figures add the rise its guide's mode
+/// feels at the power, `dT` (K: s over dn_eff/dT, times the power per length).
 ///
 /// - **Analytic:** closed forms (docs/methods/devices.md): the cross-section thermally all
 ///   oxide between the isothermal substrate and an insulated top, the heaters sheets at their
@@ -234,6 +243,15 @@ impl ThermoShifter {
             parameter("wavelength", "µm", 1.55, 1.5, 1.6),
             parameter("span", "µm", 0.1, 0.004, 0.1),
         ]);
+        if heater == Heater::Metal {
+            // the TiN heater driven by a voltage instead, after its power
+            let at = parameters
+                .iter()
+                .position(|p| p.name == "power")
+                .expect("a heater has a power")
+                + 1;
+            parameters.insert(at, parameter("voltage", "V", 0.0, 0.0, 50.0));
+        }
         let kind = kind_of(heater);
         let measurements: Vec<Measurement> = MEASURED
             .iter()
@@ -320,6 +338,59 @@ impl ThermoShifter {
     #[cfg(test)]
     pub(super) fn fin(&self, values: &Values, spreading: f64) -> Result<Fin> {
         self.cross_section(values)?.fin(spreading)
+    }
+
+    /// The metal heater's resistance at `values`, Ω, and its film's resistivity, µΩ·cm: R = ρ
+    /// L/(w t), the TiN strip `length` long, `heater_width` wide and `heater_thickness` thick,
+    /// ρ the catalogue's film at that thickness
+    /// ([`crate::material::catalogue::tin_film_resistivity`]: Tsai et al.'s Eq. (3)).
+    ///
+    /// # Errors
+    ///
+    /// [`Error::InvalidValue`] for values that aren't this device's, or a heater that isn't a
+    /// metal one (the doped heaters' resistance isn't modelled).
+    pub fn resistance(&self, values: &Values) -> Result<(f64, f64)> {
+        values.check(self)?;
+        if self.heater != Heater::Metal {
+            return Err(Error::invalid(
+                "device",
+                format!(
+                    "a {}'s resistance isn't modelled: only the metal (TiN) heater's",
+                    self.kind()
+                ),
+            ));
+        }
+        let t = values.at("heater_thickness");
+        let rho = crate::material::catalogue::tin_film_resistivity(t * 1e3);
+        // µΩ·cm to Ω·m, the lengths µm to m
+        let r = rho * 1e-8 * values.at("length") / (values.at("heater_width") * t * 1e-6);
+        Ok((r, rho))
+    }
+
+    /// The heater's power at `values`, mW: `power`, or a metal heater's V²/R at its `voltage`
+    /// ([`ThermoShifter::resistance`]), with the resistance (Ω) and its film's resistivity
+    /// (µΩ·cm) for a metal heater.
+    fn drive(&self, values: &Values) -> Result<(f64, Option<(f64, f64)>)> {
+        let power = values.at("power");
+        if self.heater != Heater::Metal {
+            return Ok((power, None));
+        }
+        let film = self.resistance(values)?;
+        let volts = values.at("voltage");
+        if volts > 0.0 && power > 0.0 {
+            return Err(Error::invalid(
+                "device",
+                format!(
+                    "a heater is driven by a power or by a voltage, not both: power = {power} mW \
+                     and voltage = {volts} V"
+                ),
+            ));
+        }
+        if volts > 0.0 {
+            Ok((volts * volts / film.0 * 1e3, Some(film)))
+        } else {
+            Ok((power, Some(film)))
+        }
     }
 
     /// The cross-section's numbers at `values`.
@@ -447,7 +518,7 @@ impl ThermoShifter {
             .find(|g| g.symbol == "P_pi")
             .map(|g| (g.value, g.grid.clone()))
             .ok_or_else(|| Error::invalid("device", "the model gives no P_pi"))?;
-        let power = values.at("power");
+        let (power, film) = self.drive(values)?;
         figures.push(figure(
             "phase at the power",
             "phi",
@@ -456,6 +527,53 @@ impl ThermoShifter {
             f,
             &p_pi.1,
         ));
+        // the rise the guide's mode feels at the power: s over dn_eff/dT, per W/m of the heater
+        let slope = |symbol: &str| {
+            figures
+                .iter()
+                .find(|g| g.symbol == symbol)
+                .map(|g| (g.value, g.grid.clone()))
+        };
+        if let (Some((s, grid)), Some((dn_dt, _))) = (slope("s"), slope("dneff_dT")) {
+            let per_metre = power * 1e-3 / (values.at("length") * 1e-6);
+            figures.push(figure(
+                "temperature rise the guide's mode feels at the power",
+                "dT",
+                s / dn_dt * per_metre,
+                "K",
+                f,
+                &grid,
+            ));
+        }
+        let volts = if film.is_some() {
+            values.at("voltage")
+        } else {
+            0.0
+        };
+        if let Some((r, rho)) = film {
+            let source = format!(
+                "exact: no grid; R = ρL/(wt), ρ = {rho:.4} µΩ·cm at {:.4} nm, {TIN_FILM_SOURCE}",
+                values.at("heater_thickness") * 1e3
+            );
+            figures.push(figure(
+                "heater's resistance",
+                "R_heater",
+                r,
+                "Ω",
+                f,
+                &source,
+            ));
+            if volts > 0.0 {
+                figures.push(figure(
+                    "power at the voltage, V²/R",
+                    "P_V",
+                    power,
+                    "mW",
+                    f,
+                    &source,
+                ));
+            }
+        }
         let measured_loss = figures.iter().any(|g| g.symbol == "IL");
         if !measured_loss {
             figures.push(figure(
@@ -467,10 +585,17 @@ impl ThermoShifter {
                 EXACT,
             ));
         }
+        let driven = match film {
+            Some((r, _)) if volts > 0.0 => format!(
+                ", P = V²/R = {power:.4} mW at {volts} V, R = {r:.4} Ohm from the TiN film's \
+                 resistivity"
+            ),
+            _ => String::new(),
+        };
         let provenance = Provenance {
             fidelity: f,
             source: format!(
-                "the phase π P/P_π, P_π = {:.4} mW at {lambda} um by {} ({})",
+                "the phase π P/P_π, P_π = {:.4} mW at {lambda} um by {} ({}){driven}",
                 p_pi.0, m.name, p_pi.1
             ),
             error: None,
@@ -1405,7 +1530,14 @@ impl Device for ThermoShifter {
         };
         let p_pi = value("P_pi");
         // the loss over the length, or the measured device's insertion loss, which neither moves
-        let (phase, loss) = (PI * values.at("power") / p_pi, value("IL"));
+        let (power, film) = self.drive(values)?;
+        let (phase, loss) = (PI * power / p_pi, value("IL"));
+        // a metal heater's voltage: dP/dV = 2V/R (mW/V); a drive moves only while the other is 0
+        let volts = film.map_or(0.0, |_| values.at("voltage"));
+        let by_power = (volts == 0.0).then(|| vec![PI / p_pi, 0.0]);
+        let by_voltage = film.and_then(|(r, _)| {
+            (values.at("power") == 0.0).then(|| vec![PI / p_pi * 2.0 * volts / r * 1e3, 0.0])
+        });
         let (by_loss, by_length) = if measured_loss {
             (0.0, 0.0)
         } else {
@@ -1415,7 +1547,8 @@ impl Device for ThermoShifter {
             .parameters
             .iter()
             .map(|p| match p.name.as_str() {
-                "power" => Some(vec![PI / p_pi, 0.0]),
+                "power" => by_power.clone(),
+                "voltage" => by_voltage.clone(),
                 "loss" => Some(vec![0.0, by_loss]),
                 "length" => Some(vec![0.0, by_length]),
                 _ => None,

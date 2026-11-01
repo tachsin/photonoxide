@@ -1731,5 +1731,25 @@ pub(crate) fn rules() -> Vec<(&'static str, Rule)> {
                 "the same computation, to the bit",
             ),
         ),
+        (
+            "device/thermo-tin-resistance",
+            Rule::new(
+                Relative,
+                RoundOff,
+                1e-12,
+                Exact,
+                "R = ρL/(wt) with Tsai et al.'s Eq. (3) computed two ways: round-off",
+            ),
+        ),
+        (
+            "device/thermo-voltage-drive",
+            Rule::new(
+                Relative,
+                RoundOff,
+                1e-12,
+                Exact,
+                "V²/R, the rise and the phase it gives computed two ways, and the same power given: round-off",
+            ),
+        ),
     ]
 }

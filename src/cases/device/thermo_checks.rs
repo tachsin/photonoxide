@@ -2,7 +2,8 @@
 //! lower fidelity against the next one up over its stated range, Jacques et al.'s and Harris et
 //! al.'s published heaters through the devices (the phase's own cases, `shifter/jacques-*` and
 //! `shifter/harris-*`, reproduced through them), the 2D models against the measured devices,
-//! the 2D grid's convergence, and every fidelity run as a job to the bit.
+//! the 2D grid's convergence, every fidelity run as a job to the bit, and the TiN heater's
+//! resistance and its voltage drive against the hand's.
 
 use std::sync::OnceLock;
 
@@ -348,6 +349,60 @@ fn jobs() -> f64 {
     differ as f64
 }
 
+/// The TiN heater's resistance by hand at its thickness `t` (µm), 320 µm long and 7.5 µm wide
+/// (the metal device's defaults): Tsai et al.'s Eq. (3), ρ = ρ₀(1 + 0.375 l₀/d) + ρ_grain with
+/// their ρ₀ = 23 µΩ·cm (p. 4467) and Table IV's last row (ρ_grain 14 µΩ·cm, l₀ 96 nm), and R =
+/// ρL/(wt), Ω.
+fn tin_resistance(t: f64) -> f64 {
+    let rho = 23.0 * (1.0 + 0.375 * 96.0 / (t * 1e3)) + 14.0;
+    rho * 1e-8 * 320e-6 / (7.5e-6 * t * 1e-6)
+}
+
+/// The metal device's `R_heater` at 100 and 50 nm of TiN against [`tin_resistance`]: the larger
+/// relative error.
+fn resistance_against_hand() -> f64 {
+    let d = ThermoShifter::metal();
+    [0.1, 0.05]
+        .iter()
+        .map(|&t| {
+            let v = values(&d, &[("heater_thickness", t)]);
+            let r = figure(&d, &v, Fidelity::Analytic, "R_heater");
+            (r / tin_resistance(t) - 1.0).abs()
+        })
+        .fold(0.0, f64::max)
+}
+
+/// The metal device driven by 2.4 V (analytic): its power `P_V`, the rise its mode feels `dT`
+/// and its phase (the figure and the component's value) against P = V²/R by hand
+/// ([`tin_resistance`]), the rise s/(dn_eff/dT) P/L and the phase π P/P_π (s, dn_eff/dT and P_π
+/// the device's own), and against the same device given that power: the largest relative error.
+fn voltage_against_hand() -> f64 {
+    let d = ThermoShifter::metal();
+    let volts = 2.4;
+    let driven = d
+        .component(&values(&d, &[("voltage", volts)]), Fidelity::Analytic)
+        .expect(OK);
+    let at = |s: &str| driven.figure(s).expect(OK).value;
+    let watts = volts * volts / tin_resistance(0.1);
+    let rise = at("s") / at("dneff_dT") * watts / 320e-6;
+    let phase = std::f64::consts::PI * watts * 1e3 / at("P_pi");
+    let powered = d
+        .component(&values(&d, &[("power", watts * 1e3)]), Fidelity::Analytic)
+        .expect(OK);
+    let by_power = |s: &str| powered.figure(s).expect(OK).value;
+    let error = |a: f64, b: f64| (a / b - 1.0).abs();
+    [
+        error(at("P_V"), watts * 1e3),
+        error(at("dT"), rise),
+        error(at("phi"), phase),
+        error(driven.values[0], phase),
+        error(by_power("dT"), rise),
+        error(by_power("phi"), phase),
+    ]
+    .into_iter()
+    .fold(0.0, f64::max)
+}
+
 /// The cases.
 pub(crate) fn cases() -> Vec<Case> {
     vec![
@@ -468,6 +523,20 @@ pub(crate) fn cases() -> Vec<Case> {
             tier: Tier::Analytic,
             source: "the same computation: a spectrum job records what the device's component gives at its design's fidelity, to the bit",
             run: || outcome(jobs(), 0.0, 0.0),
+        },
+        Case {
+            id: "device/thermo-tin-resistance",
+            title: r"Thermo-optic phase shifter, the TiN heater's resistance: the metal device's $R$ (320 µm long, 7.5 µm wide) with 100 and 50 nm of TiN, from the catalogue's film resistivity at that thickness, against $R = \rho L/(wt)$ by hand with Tsai et al.'s Eq. (3), $\rho = \rho_0(1 + 0.375\thinspace l_0/d) + \rho_\mathrm{grain}$ (193.2 and 457.0 Ω): the larger relative error (shown)",
+            tier: Tier::Analytic,
+            source: r"W. Tsai et al., J. Appl. Phys. 73, 4462 (1993), doi:10.1063/1.352785: Eq. (3), $\rho_0$ = 23 µΩ·cm (p. 4467), Table IV's collimated films sputtered at 500 °C with −100 V of bias, $\rho_\mathrm{grain}$ = 14 µΩ·cm and $l_0$ = 96 nm",
+            run: || outcome(resistance_against_hand(), 0.0, 1e-12),
+        },
+        Case {
+            id: "device/thermo-voltage-drive",
+            title: r"Thermo-optic phase shifter driven by a voltage: the metal device at 2.4 V (analytic), its power, the temperature rise its guide's mode feels and its phase against $P = V^2/R$ with the hand's $R$, the rise $(s/(dn_\mathrm{eff}/dT))\thinspace P/L$ and $\varphi = \pi P/P_\pi$ from the device's own $s$, $dn_\mathrm{eff}/dT$ and $P_\pi$, and against the device given that power: the largest relative error (shown)",
+            tier: Tier::Analytic,
+            source: r"Joule's law, $P = V^2/R$; the index change per power $s$ is the rise per power times $dn_\mathrm{eff}/dT$, $\Delta n_\mathrm{eff} = s P/L$",
+            run: || outcome(voltage_against_hand(), 0.0, 1e-12),
         },
     ]
 }

@@ -511,6 +511,7 @@ mod leaky_checks;
 #[cfg(test)]
 mod leaky_tests;
 mod line;
+mod line_checks;
 #[cfg(test)]
 mod line_tests;
 mod modes;
@@ -614,6 +615,11 @@ pub(crate) fn study_cases() -> Vec<crate::validation::Case> {
 /// The validation cases of modes jobs' leaky modes, with a PML (`[task.pml]`).
 pub(crate) fn leaky_cases() -> Vec<crate::validation::Case> {
     leaky_checks::cases()
+}
+
+/// The validation cases of static jobs' lines: the catalogue's loss tangents through a job.
+pub(crate) fn line_cases() -> Vec<crate::validation::Case> {
+    line_checks::cases()
 }
 
 /// The validation cases of nonlinear jobs' ridges: Zhao et al.'s guide through a job.

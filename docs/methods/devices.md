@@ -874,16 +874,43 @@ oxide 1.38 W/(m·K), the substrate 148, the strip 90, the slab 55, N++ 25, TiN 2
 dn/dT 1.8e-4/K, the oxide's neglected, as theirs), the third's as above; so the core must be
 silicon: a nitride core is refused.
 
+**The metal heater driven by a voltage.** The TiN heater also takes `voltage` (V): its power is
+then $P = V^2/R$, the strip's resistance $R = \rho L/(wt)$ over its `length` $L$,
+`heater_width` $w$ and `heater_thickness` $t$ (`ThermoShifter::resistance`). $\rho$ is the
+catalogue's TiN film at that thickness (`catalogue::tin_film_resistivity`): W. Tsai et al.'s
+Eq. (3), J. Appl. Phys. 73, 4462 (1993), doi:10.1063/1.352785,
+$\rho = \rho_0(1 + 0.375\thinspace l_0/t) + \rho_\mathrm{grain}$, with the single crystal's
+$\rho_0$ = 23 µΩ·cm (p. 4467) and their Table IV's row for the lowest-resistivity films
+(reactively sputtered, collimated, the substrate at 500 °C, −100 V of bias): $\rho_\mathrm{grain}$
+= 14 µΩ·cm and $l_0$ = 96 nm. The surfaces scatter the electrons, so a thinner film resists
+more: 45.3 µΩ·cm at 100 nm, 55.4 at 45 nm and 53.6 at 50 nm. Their films were 45 to 100 nm
+thick; outside that the equation is carried on (towards $\rho_0 + \rho_\mathrm{grain}$ = 37
+µΩ·cm for a thick film). Jacques et al. don't give their TiN's resistivity or thickness, and
+TiN's resistivity depends on how it was made far more than on its thickness (45 to 350 µΩ·cm
+in Tsai et al.'s Table II, 70 and 78 µΩ·cm for Kearney et al.'s films), so $R$ is that of a
+film made as Tsai et al.'s best: at the defaults (320 × 7.5 µm, 100 nm) 193.2 Ω, and $P_\pi$
+of 29.9 mW (analytic) is 2.40 V. The temperature coefficient (Tsai et al.'s Table III, 1.4e-3/K
+for these films, 5 to 280 K) is left out: $R$ is the film's at room temperature. A power and a
+voltage together are refused. The voltage's derivative is exact,
+$\partial P/\partial V = 2V/R$; under a voltage the power has none, and the other way round.
+The device's $R$ at 100 and 50 nm of TiN (193.2 and 457.0 Ω) is Eq. (3) and $\rho L/(wt)$ by
+hand, and at 2.4 V its power, the rise its mode feels and its phase are the hand's from $V^2/R$
+and the device's own $s$, $dn_\mathrm{eff}/dT$ and $P_\pi$, and the same device's given that
+power, all to round-off (`device/thermo-tin-resistance`, `device/thermo-voltage-drive`).
+
 Its **component** is the phase the heater adds and the guide's loss: ports `o1` and `o2`,
 parameters `phase` (rad) and `loss` (dB), $S_{21} = S_{12} = 10^{-\mathrm{IL}/20}\, e^{i\varphi\lambda_0/\lambda}$
 with $\varphi = \pi P/P_\pi$ (Jacques et al.'s Eqs. 4 and 5) and IL the loss over the length,
 or at the measured fidelity the measured device's insertion loss where it gives one (Harris et
 al.'s 0.23 dB).
 The unheated guide's own propagation is a waveguide's: a circuit puts one beside it. Its
-derivatives in the power, the loss and the length are exact. The figures, each with its
+derivatives in the power (or the metal heater's voltage), the loss and the length are exact. The figures, each with its
 fidelity and grid: `P_pi` (mW), `tau` (the phase's 1/e time turned on, µs), `f_3dB` (kHz), `X`
 (the crosstalk on a neighbour at the pitch: the share of the guide's phase it takes), `s`
-($\partial n_\mathrm{eff}/\partial P'$, m/W), `dneff_dT`, `n_eff`, `phi` and `IL`. $P_\pi$ is
+($\partial n_\mathrm{eff}/\partial P'$, m/W), `dneff_dT`, `n_eff`, `phi`, `dT` (the
+temperature rise the guide's mode feels at the power, $(s/(dn_\mathrm{eff}/dT))\thinspace P/L$,
+K; at the analytic and 2D fidelities) and `IL`, and the metal heater's `R_heater` (Ω, with
+the film's resistivity and its source in its grid) and, under a voltage, `P_V` (mW). $P_\pi$ is
 a 2D number, a straight section's of any length (the length cancels: Jacques et al.'s Section
 2.1): a device's bends, leads and ends aren't in it.
 

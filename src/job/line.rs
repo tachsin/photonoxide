@@ -10,7 +10,15 @@
 //! `thickness_um` (by default the signal rectangle's height) give the conductor loss by Holloway
 //! and Kuester's method, its edges `square` (the default) or `bevelled` (45°); `loss_tangent`
 //! gives each medium's tan δ by its name (`Si`, `SiO2`, a crystal's, a region's), for the
-//! dielectric loss. The run records the capacitances, the effective permittivity, the
+//! dielectric loss. With `catalogue_loss_tangents: true` each medium `loss_tangent` doesn't name
+//! takes the catalogue's measured tan δ ([`crate::material::catalogue::rf_dielectrics`]: fused
+//! silica, quartz, sapphire, silicon, lithium niobate) found by its name (`SiO2`, `Si`, `Al2O3`,
+//! `quartz`, a crystal's `LiNbO₃ (x-cut, …)` by the formula before its orientation): the value
+//! measured nearest the geometric middle of `frequencies_ghz` in log frequency (a band holding
+//! it is at it), and of several there the largest (a range's top, the larger axis), one value
+//! for every frequency; a medium the catalogue hasn't stays lossless, and a tangent the table
+//! gives is kept. The run then records each medium's tangent and where it came from (the
+//! sample, the frequency it was measured at, the paper). The run records the capacitances, the effective permittivity, the
 //! quasi-static index and impedance, each medium's share of the electric energy and the line's
 //! loss tangent, and at each of `frequencies_ghz` the RF index, Z₀ and the losses (dB/cm), the
 //! conductor loss by Wheeler's incremental-inductance rule beside it where the metal is at
@@ -96,6 +104,15 @@ pub(super) struct LineSpec {
     /// Each medium's loss tangent, by name.
     #[serde(default)]
     loss_tangent: BTreeMap<String, f64>,
+    /// Whether each medium `loss_tangent` doesn't name takes the catalogue's measured loss
+    /// tangent (`rf_dielectrics`), the one measured nearest the frequencies' geometric middle;
+    /// a medium the catalogue hasn't stays lossless.
+    #[serde(default)]
+    catalogue_loss_tangents: bool,
+    /// Where each medium's loss tangent came from, with `catalogue_loss_tangents`: what
+    /// [`check`] found, the run's notes.
+    #[serde(skip)]
+    notes: Notes,
     /// The frequencies, GHz.
     frequencies_ghz: Vec<f64>,
     /// A segmented (T-rail) electrode: its rails, their length and the period.
@@ -326,14 +343,113 @@ impl LineSpec {
     }
 }
 
+/// The catalogue's loss tangent for the medium `medium` at `at_ghz`, and where it comes from: the
+/// RF dielectric ([`crate::material::catalogue::rf_dielectric`]) the medium names, by its id or
+/// formula, or a crystal's medium by the formula before its orientation (`"LiNbO₃ (x-cut, …)"`);
+/// of its values the one measured nearest `at_ghz` in log frequency (a band holding it is at
+/// it), and of several there the largest tan δ (a range's top, the larger axis). `None` when
+/// the catalogue hasn't the medium.
+pub(super) fn catalogue_tangent(medium: &str, at_ghz: f64) -> Option<(f64, String)> {
+    use crate::material::catalogue::{Axis, RfValue, rf_dielectric};
+    let material = rf_dielectric(medium).or_else(|| {
+        medium
+            .split_once(" (")
+            .and_then(|(formula, _)| rf_dielectric(formula))
+    })?;
+    let distance = |v: &RfValue| {
+        let (f0, f1) = v.frequency_ghz;
+        if at_ghz < f0 {
+            (f0 / at_ghz).ln()
+        } else if at_ghz > f1 {
+            (at_ghz / f1).ln()
+        } else {
+            0.0
+        }
+    };
+    let nearest = material
+        .values
+        .iter()
+        .map(distance)
+        .fold(f64::INFINITY, f64::min);
+    let v = material
+        .values
+        .iter()
+        .filter(|v| distance(v) <= nearest + 1e-12)
+        .max_by(|a, b| a.loss_tangent.1.total_cmp(&b.loss_tangent.1))?;
+    let (f0, f1) = v.frequency_ghz;
+    let band = if f0 == f1 {
+        format!("{f0} GHz")
+    } else {
+        format!("{f0} to {f1} GHz")
+    };
+    let axis = match v.axis {
+        Some(Axis::Ordinary) => ", the field across the optic axis",
+        Some(Axis::Extraordinary) => ", the field along the optic axis",
+        _ => "",
+    };
+    let range = if v.loss_tangent.0 < v.loss_tangent.1 {
+        format!(
+            ", the top of {:.3e} to {:.3e}",
+            v.loss_tangent.0, v.loss_tangent.1
+        )
+    } else {
+        String::new()
+    };
+    Some((
+        v.loss_tangent.1,
+        format!(
+            "the catalogue's {}: {}, measured at {band}{axis}{range}; {}, {}; taken at {at_ghz:.4} \
+             GHz, the frequencies' geometric middle",
+            material.name, v.sample, v.source.reference, v.source.location
+        ),
+    ))
+}
+
+/// Each medium's loss tangent and where it came from, as the run's notes record them.
+type Notes = Vec<(String, f64, String)>;
+
+/// `given` with each of `media` it doesn't name given the catalogue's loss tangent at the
+/// geometric middle of `frequencies_ghz` ([`catalogue_tangent`]), and each medium's tangent
+/// and where it came from: given, the catalogue's, or none (lossless).
+fn with_catalogue(
+    given: &BTreeMap<String, f64>,
+    media: &[String],
+    frequencies_ghz: &[f64],
+) -> (BTreeMap<String, f64>, Notes) {
+    let (lo, hi) = frequencies_ghz
+        .iter()
+        .fold((f64::INFINITY, 0.0f64), |(lo, hi), &f| {
+            (lo.min(f), hi.max(f))
+        });
+    let at = (lo * hi).sqrt();
+    let mut tangents = given.clone();
+    let mut notes = Vec::new();
+    for m in media {
+        if let Some(&t) = given.get(m) {
+            notes.push((m.clone(), t, "given".to_owned()));
+        } else if let Some((t, from)) = catalogue_tangent(m, at) {
+            tangents.insert(m.clone(), t);
+            notes.push((m.clone(), t, from));
+        } else {
+            notes.push((
+                m.clone(),
+                0.0,
+                "none given, and the catalogue has none: lossless".to_owned(),
+            ));
+        }
+    }
+    (tangents, notes)
+}
+
 /// Checks the table against the job's conductors (how many), their heights (µm) and the
-/// section's media: the metal it gives.
+/// section's media: the table as the run takes it (with `catalogue_loss_tangents`, each medium's
+/// tangent and where it came from filled in) and the metal it gives.
 pub(super) fn check(
     spec: &LineSpec,
     conductors: usize,
     heights: &[f64],
     media: &[String],
-) -> Result<Metal> {
+) -> Result<(LineSpec, Metal)> {
     if spec.signal == 0 || spec.signal > conductors {
         return Err(err(format!(
             "signal = {}: one of the {conductors} [[task.conductor]] rectangles, counted from 1",
@@ -434,9 +550,15 @@ pub(super) fn check(
         .thickness_um
         .unwrap_or_else(|| heights.get(spec.signal - 1).copied().unwrap_or(0.0));
     let edge = spec.edge()?;
-    Metal::new(spec.conductivity_s_per_m, thickness)
+    let metal = Metal::new(spec.conductivity_s_per_m, thickness)
         .map(|m| m.with_edge(edge))
-        .map_err(|e| err(e.to_string()))
+        .map_err(|e| err(e.to_string()))?;
+    let mut taken = spec.clone();
+    if spec.catalogue_loss_tangents {
+        (taken.loss_tangent, taken.notes) =
+            with_catalogue(&spec.loss_tangent, media, &spec.frequencies_ghz);
+    }
+    Ok((taken, metal))
 }
 
 /// The line the table makes of `problem`: the conductors' quasi-TEM line, and a segmented
@@ -547,6 +669,10 @@ pub(super) fn run(
         ),
         value("line: quasi-TEM up to".into(), QUASI_TEM_GHZ, "GHz"),
     ];
+    // where each medium's loss tangent came from, with the catalogue's
+    for (m, t, from) in &spec.notes {
+        values.push(value(format!("line: loss tangent of {m} ({from})"), *t, ""));
+    }
     for (m, q) in line.shares() {
         values.push(value(format!("line: {m}'s share of the energy"), *q, ""));
     }

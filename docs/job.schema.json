@@ -2451,6 +2451,17 @@
                     ],
                     "description": "thickness µm: 0.22 by default, from 0.1 to 1."
                   },
+                  "voltage": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "voltage V: 0 by default, from 0 to 50."
+                  },
                   "wavelength": {
                     "anyOf": [
                       {
@@ -5436,6 +5447,11 @@
       ],
       "description": "`line`: see the module's docs.",
       "properties": {
+        "catalogue_loss_tangents": {
+          "default": false,
+          "description": "Whether each medium `loss_tangent` doesn't name takes the catalogue's measured loss tangent (`rf_dielectrics`), the one measured nearest the frequencies' geometric middle; a medium the catalogue hasn't stays lossless.",
+          "type": "boolean"
+        },
         "conductivity_s_per_m": {
           "description": "The metal's conductivity, S/m.",
           "type": "number"
