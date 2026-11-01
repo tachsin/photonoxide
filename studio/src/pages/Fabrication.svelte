@@ -9,11 +9,10 @@
   // the resist developed. The first frame is the bare wafer; the last is the design, and the
   // round trip (the flow run on the library's geometry against the design) says it is to the bit.
   import { open } from "@tauri-apps/plugin-dialog";
-  import { CircleCheck, Columns2, FileUp, Pause, Play, SkipBack, SkipForward, Square, TriangleAlert } from "@lucide/svelte";
+  import { CircleCheck, FileUp, TriangleAlert } from "@lucide/svelte";
   import { onMount, untrack } from "svelte";
 
-  import Fab3D from "../components/fabrication/Fab3D.svelte";
-  import FabCut from "../components/fabrication/FabCut.svelte";
+  import FabPlayer from "../components/fabrication/FabPlayer.svelte";
   import { api, formatOf, formatOfText, type FabDesign, type FabricationPage } from "../lib/api";
   import { app, CUSTOM } from "../lib/app.svelte";
   import { catalog, loadCatalog } from "../lib/catalog.svelte";
@@ -100,8 +99,8 @@
       .then((got) => {
         if (!live) return;
         page = got;
+        shownDesign = c.id;
         problem = "";
-        untrack(() => restart(got, c.id));
       })
       .catch((e) => {
         if (live) problem = String(e);
@@ -131,147 +130,13 @@
     }
   }
 
-  // ---- the timeline, shared by the 2D and 3D views ----
+  // ---- the frame shown: the player's (FabPlayer: the 2D and 3D views and their timeline) ----
 
-  /** A frame's time at speed 1, ms, and the pause after it while playing. */
-  const DURATION = 1500;
-  const PAUSE = 450;
-  const reduced = typeof window !== "undefined" && !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+  /** The design whose flow is shown, by its choice's id. */
+  let shownDesign = $state("");
   let frame = $state(0);
-  /** How far the frame shown has done its step's work, 0 to 1. */
-  let t = $state(1);
-  let playing = $state(false);
-  let speed = $state(1);
-  let raf = 0;
-  let wait: ReturnType<typeof setTimeout> | undefined;
+  let player: FabPlayer | undefined = $state();
   const frames = $derived(page?.view.frames ?? []);
-
-  function halt() {
-    cancelAnimationFrame(raf);
-    clearTimeout(wait);
-  }
-
-  /** The design whose flow is shown, by its choice's id: another design's cut starts at its middle. */
-  let shownDesign = "";
-
-  /** Back to the bare wafer, still; the cut at the middle of a design newly shown (a flow remade with another process keeps it). */
-  function restart(p: FabricationPage, design: string) {
-    halt();
-    playing = false;
-    frame = 0;
-    t = 1;
-    if (design !== shownDesign || cutAt === null || !inWindow(p)) centreCut(p);
-    shownDesign = design;
-  }
-
-  /** Shows frame `k`, its step doing its work from the frame before. */
-  function show(k: number) {
-    halt();
-    frame = Math.max(0, Math.min(frames.length - 1, k));
-    if (reduced || frame === 0) {
-      t = 1;
-      if (playing) wait = setTimeout(next, (reduced ? PAUSE * 2 : PAUSE) / speed);
-      return;
-    }
-    t = 0;
-    const start = performance.now();
-    const tick = (now: number) => {
-      t = Math.min(1, ((now - start) * speed) / DURATION);
-      if (t < 1) raf = requestAnimationFrame(tick);
-      else if (playing) wait = setTimeout(next, PAUSE / speed);
-    };
-    raf = requestAnimationFrame(tick);
-  }
-
-  function next() {
-    if (frame + 1 < frames.length) show(frame + 1);
-    else playing = false;
-  }
-
-  function toggle() {
-    playing = !playing;
-    if (!playing) return halt();
-    show(frame + 1 < frames.length ? frame + (t >= 1 ? 1 : 0) : 0);
-  }
-
-  function step(by: number) {
-    playing = false;
-    show(frame + by);
-  }
-
-  /** The scrubber: the frame, still, its work done. */
-  function scrub(k: number) {
-    halt();
-    playing = false;
-    frame = k;
-    t = 1;
-  }
-
-  $effect(() => halt);
-
-  function keys(e: KeyboardEvent) {
-    if (app.page !== "fabrication" || app.palette || !page) return;
-    const el = e.target as HTMLElement | null;
-    if (el && (el.tagName === "INPUT" || el.tagName === "SELECT" || el.tagName === "TEXTAREA" || el.isContentEditable)) return;
-    // Space on a button presses the button
-    if (e.key === " " && el?.tagName !== "BUTTON" && el?.tagName !== "A") {
-      e.preventDefault();
-      toggle();
-    } else if (e.key === "ArrowRight") {
-      e.preventDefault();
-      step(1);
-    } else if (e.key === "ArrowLeft") {
-      e.preventDefault();
-      step(-1);
-    } else if (e.key === "Home") {
-      e.preventDefault();
-      scrub(0);
-    } else if (e.key === "End") {
-      e.preventDefault();
-      scrub(frames.length - 1);
-    }
-  }
-
-  // ---- the views ----
-
-  type Mode = "2d" | "3d" | "both";
-  let mode = $state<Mode>(stored("fabrication-view") ?? "both");
-  function stored(key: string): Mode | null {
-    try {
-      const v = localStorage.getItem(key);
-      return v === "2d" || v === "3d" || v === "both" ? v : null;
-    } catch {
-      return null;
-    }
-  }
-  function setMode(m: Mode) {
-    mode = m;
-    try {
-      localStorage.setItem("fabrication-view", m);
-    } catch {
-      // storage blocked: the page just forgets
-    }
-  }
-
-  /** The cut the 2D view shows and the 3D view marks: x = at (a cross-section across y) or y = at. */
-  let normal = $state<"x" | "y">("x");
-  let cutAt = $state<number | null>(null);
-  const win = $derived.by((): [number, number] => {
-    const s = frames[0]?.scene;
-    return s ? (normal === "x" ? s.x_um : s.y_um) : [0, 1];
-  });
-  function inWindow(p: FabricationPage): boolean {
-    const s = p.view.frames[0]?.scene;
-    if (!s || cutAt === null) return false;
-    const w = normal === "x" ? s.x_um : s.y_um;
-    return cutAt >= w[0] && cutAt <= w[1];
-  }
-  function centreCut(p: FabricationPage) {
-    const s = p.view.frames[0]?.scene;
-    if (!s) return;
-    const w = normal === "x" ? s.x_um : s.y_um;
-    cutAt = (w[0] + w[1]) / 2;
-  }
 
   // ---- the step shown ----
 
@@ -317,7 +182,12 @@
       }
     }
     rows.forEach((r, k) => (r.um = z[k][1] - z[k][0]));
-    const out = [...rows.reverse(), { name: "substrate", film: scene.substrate.material, around: scene.substrate.material, um: null }];
+    // the films over the topography (the resist, a conformal film), on top: each once, by its layer and film
+    const over: typeof rows = [];
+    for (const f of shownFrame?.films ?? []) {
+      if (!over.some((r) => r.name === f.layer && r.film === f.film)) over.push({ name: f.layer, film: f.film, around: f.film, um: null });
+    }
+    const out = [...over, ...rows.reverse(), { name: "substrate", film: scene.substrate.material, around: scene.substrate.material, um: null }];
     if (scene.cladding.material !== "air") out.unshift({ name: "cladding", film: scene.cladding.material, around: scene.cladding.material, um: null });
     return out;
   });
@@ -342,8 +212,6 @@
     return out;
   });
 </script>
-
-<svelte:window onkeydown={keys} />
 
 <div class="h-full overflow-x-hidden overflow-y-auto">
   <div class="mx-auto max-w-[1500px] space-y-3 p-3 sm:p-4">
@@ -394,7 +262,7 @@
               {@const on = st.k === stepNow}
               {@const flags = flagged(st.k)}
               <li>
-                <button class="flex w-full items-start gap-2 rounded-lg px-2 py-1.5 text-left text-xs transition-colors {on ? 'bg-primary/12 text-primary' : 'hover:bg-base-content/5'}" onclick={() => { playing = false; show(st.frames[0]?.i ?? 0); }} aria-current={on ? "step" : undefined}>
+                <button class="flex w-full items-start gap-2 rounded-lg px-2 py-1.5 text-left text-xs transition-colors {on ? 'bg-primary/12 text-primary' : 'hover:bg-base-content/5'}" onclick={() => player?.jump(st.frames[0]?.i ?? 0)} aria-current={on ? "step" : undefined}>
                   <span class="num w-5 shrink-0 text-right faint">{st.k + 1}</span>
                   <span class="min-w-0 flex-1">
                     <span class="block font-medium">{st.s.name}</span>
@@ -405,7 +273,7 @@
                 {#if st.frames.length > 1}
                   <div class="ml-9 flex flex-wrap gap-1 pb-1">
                     {#each st.frames as x (x.i)}
-                      <button class="btn btn-xs {x.i === frame ? 'btn-primary' : 'btn-ghost'}" onclick={() => { playing = false; show(x.i); }} title={x.f.label}>{PHASE[x.f.phase] ?? x.f.phase}</button>
+                      <button class="btn btn-xs {x.i === frame ? 'btn-primary' : 'btn-ghost'}" onclick={() => player?.jump(x.i)} title={x.f.label}>{PHASE[x.f.phase] ?? x.f.phase}</button>
                     {/each}
                   </div>
                 {/if}
@@ -416,62 +284,7 @@
 
         <div class="order-1 min-w-0 space-y-3 lg:order-2">
           <!-- the views and the timeline -->
-          <section class="rounded-box border border-base-content/10 bg-base-100 p-2 sm:p-3" aria-label="The wafer at this step">
-            <div class="mb-2 flex flex-wrap items-center gap-2">
-              <div class="join" role="group" aria-label="The views">
-                <button class="btn join-item btn-xs {mode === '2d' ? 'btn-active' : ''}" onclick={() => setMode("2d")} aria-pressed={mode === "2d"}>2D</button>
-                <button class="btn join-item btn-xs {mode === '3d' ? 'btn-active' : ''}" onclick={() => setMode("3d")} aria-pressed={mode === "3d"}>3D</button>
-                <button class="btn join-item btn-xs gap-1 {mode === 'both' ? 'btn-active' : ''}" onclick={() => setMode("both")} aria-pressed={mode === "both"} title="Side by side"><Columns2 size={12} /> Both</button>
-              </div>
-              <label class="flex min-w-0 flex-wrap items-center gap-1 text-xs faint">
-                cut at
-                <select class="select select-xs w-14" bind:value={normal} onchange={() => page && centreCut(page)} aria-label="The cut's axis">
-                  <option value="x">x</option>
-                  <option value="y">y</option>
-                </select>
-                =
-                <input type="range" class="range range-xs w-24 min-w-0 sm:w-36" min={win[0]} max={win[1]} step={(win[1] - win[0]) / 400 || 0.01} value={cutAt ?? 0} oninput={(e) => (cutAt = Number((e.currentTarget as HTMLInputElement).value))} aria-label="Where the cross-section is cut" />
-                <span class="num whitespace-nowrap">{num(cutAt ?? 0)} µm</span>
-              </label>
-            </div>
-            <div class="grid gap-2 {mode === 'both' ? 'xl:grid-cols-2' : ''}">
-              {#if mode !== "3d" && shownFrame}
-                <div class="min-w-0" aria-label="The cross-section">
-                  <FabCut {frames} {frame} {t} {normal} at={cutAt ?? 0} colours={page.colours} height={300} />
-                </div>
-              {/if}
-              {#if mode !== "2d"}
-                <div class="min-w-0 rounded-box bg-base-200/60">
-                  <Fab3D {page} {frame} {t} {normal} at={cutAt ?? 0} height={mode === "3d" ? 420 : 300} />
-                </div>
-              {/if}
-            </div>
-            <!-- one timeline for both -->
-            <div class="mt-2 flex flex-wrap items-center gap-1" role="group" aria-label="The timeline">
-              <button class="btn btn-ghost btn-sm btn-square" disabled={frame === 0} onclick={() => step(-1)} title="The step before (←)" aria-label="The step before"><SkipBack size={15} /></button>
-              <button class="btn btn-primary btn-sm btn-square" onclick={toggle} title={playing ? "Pause (Space)" : "Play from here (Space)"} aria-label={playing ? "Pause" : "Play"}>
-                {#if playing}<Pause size={15} />{:else}<Play size={15} />{/if}
-              </button>
-              <button class="btn btn-ghost btn-sm btn-square" disabled={frame + 1 >= frames.length} onclick={() => step(1)} title="The next step (→)" aria-label="The next step"><SkipForward size={15} /></button>
-              <button class="btn btn-ghost btn-sm btn-square" onclick={() => scrub(0)} title="Back to the bare wafer (Home)" aria-label="Back to the bare wafer"><Square size={13} /></button>
-              <input type="range" class="range range-primary range-xs min-w-32 flex-1" min="0" max={Math.max(0, frames.length - 1)} step="1" value={frame} oninput={(e) => scrub(Number((e.currentTarget as HTMLInputElement).value))} aria-label="The moment shown" />
-              <span class="num w-14 text-right text-xs faint">{frame + 1} / {frames.length}</span>
-              <label class="flex items-center gap-1 text-xs faint">
-                speed
-                <select class="select select-xs w-16" bind:value={speed} aria-label="Speed">
-                  <option value={0.5}>0.5×</option>
-                  <option value={1}>1×</option>
-                  <option value={2}>2×</option>
-                  <option value={4}>4×</option>
-                </select>
-              </label>
-            </div>
-            {#if shownFrame}
-              <p class="mt-1 text-sm"><span class="font-medium">Step {stepNow + 1}{shownFrame.phase in PHASE ? `, ${PHASE[shownFrame.phase]}` : ""}:</span> {shownFrame.label}</p>
-              {#if shownFrame.note}<p class="text-xs text-warning">{shownFrame.note}</p>{/if}
-            {/if}
-            {#if page.thinned}<p class="mt-1 text-xs faint">{page.thinned}</p>{/if}
-          </section>
+          <FabPlayer bind:this={player} bind:frame {page} design={shownDesign} active={app.page === "fabrication"} />
 
           <div class="grid gap-3 xl:grid-cols-[minmax(0,1fr)_minmax(220px,300px)]">
             <!-- the step shown: why, what, its numbers and their sources, what the rules flag -->

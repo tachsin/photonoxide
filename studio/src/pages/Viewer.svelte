@@ -1,13 +1,14 @@
 <script lang="ts">
   // The viewer: the run the window follows, in 3D (its layers as solids, the field painted on
   // its plane) or 2D (pictures and plots), with its details at the side.
-  import { Box, ChartLine, ChevronLeft, ChevronRight, CirclePause, Cpu, Download, FolderOpen, Info, Layers, Pause, Play, RotateCcw, Square, Waves } from "@lucide/svelte";
+  import { Box, ChartLine, ChevronLeft, ChevronRight, CirclePause, Cpu, Download, Factory, FolderOpen, Info, Layers, Pause, Play, RotateCcw, Square, Waves } from "@lucide/svelte";
   import { revealItemInDir } from "@tauri-apps/plugin-opener";
   import { onMount } from "svelte";
 
   import LayerDialog from "../components/LayerDialog.svelte";
   import RunPlots from "../components/RunPlots.svelte";
   import ExportDialog from "../components/ExportDialog.svelte";
+  import RunFabrication from "../components/fabrication/RunFabrication.svelte";
   import SolverDialog from "../components/SolverDialog.svelte";
   import Tip from "../components/Tip.svelte";
   import UnitChip from "../components/UnitChip.svelte";
@@ -32,7 +33,14 @@
   /** Whether this viewer is the one on screen. */
   const onPage = $derived(embedded ? active : app.page === "viewer");
 
-  let view = $state<"3d" | "2d">(app.state?.settings.view ?? "3d");
+  let view = $state<"3d" | "2d" | "fab">(app.state?.settings.view ?? "3d");
+  /** Whether the run's job draws a design (a device, or a structure task's layers and shapes), which its Fabrication tab shows made from the bare wafer. */
+  const design = $derived(!embedded && !!run.info?.dir && (["structure", "device", "fabrication"].includes(run.job?.kind ?? "") || !!run.device));
+  /** Whether the Fabrication tab was opened for this run: it is worked out then, and kept while the run is shown. */
+  let fabSeen = $state(false);
+  $effect(() => {
+    if (view === "fab") fabSeen = true;
+  });
   /** The page's width, and whether it is too narrow for the bar's full text and a 300 px side panel (a 960 px window is): as the Custom device judges it. */
   let width = $state(0);
   const narrow = $derived(width > 0 && width < 1060);
@@ -55,6 +63,7 @@
     if (g !== generation) {
       generation = g;
       view = app.state?.settings.view ?? "3d";
+      fabSeen = false;
       three?.clear();
     }
   });
@@ -297,6 +306,9 @@
       <div class="join shrink-0" role="tablist" aria-label="view">
         <button class="btn join-item btn-sm gap-1.5 {view === '3d' ? 'btn-primary btn-soft' : ''}" onclick={() => (view = "3d")} title="The structure as solids, with the field painted on it">{#if !narrow}<Box size={14} />{/if} 3D</button>
         <button class="btn join-item btn-sm gap-1.5 {view === '2d' ? 'btn-primary btn-soft' : ''}" onclick={() => (view = "2d")} title="Pictures and plots">{#if !narrow}<ChartLine size={14} />{/if} 2D</button>
+        {#if design}
+          <button class="btn join-item btn-sm gap-1.5 {view === 'fab' ? 'btn-primary btn-soft' : ''}" onclick={() => (view = "fab")} title="How the run's design would be made, from the bare wafer, step by step in 2D and 3D">{#if !narrow}<Factory size={14} />{/if} Fabrication</button>
+        {/if}
       </div>
     </div>
 
@@ -341,6 +353,11 @@
     <div class="min-h-0 flex-1 overflow-y-auto" class:hidden={view !== "2d"}>
       <RunPlots />
     </div>
+    {#if design && fabSeen && run.info?.dir}
+      <div class="min-h-0 flex-1 overflow-y-auto" class:hidden={view !== "fab"}>
+        <RunFabrication dir={run.info.dir} name={run.job?.job ?? ""} active={onPage && view === "fab"} />
+      </div>
+    {/if}
   </section>
 
   <aside class="min-h-0 space-y-5 overflow-x-hidden overflow-y-auto border-l border-base-content/8 bg-base-100/40 p-4">
