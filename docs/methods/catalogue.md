@@ -283,8 +283,10 @@ media a job gives no value ([static](static.md#as-a-job)).
 millimetre-wave frequencies (`Entry::rf_dielectric`, or `catalogue::rf_dielectric("SiO2")` by id
 or formula; crystalline quartz is `"quartz"`), each value with its sample, field direction,
 frequency, temperature and paper. They are what a travelling-wave electrode's dielectric loss
-weighs ([travelling-wave electrodes](travelling-wave.md#dielectric-loss)); a line job still names
-each medium's loss tangent itself, since the values depend on the sample.
+weighs ([travelling-wave electrodes](travelling-wave.md#dielectric-loss)). A line job takes them
+with `catalogue_loss_tangents`, each medium's value measured nearest its frequencies, the
+sample and paper recorded beside it; a tangent the job names is kept, since the values depend on
+the sample.
 
 | Material | Sample | f (GHz) | $\varepsilon'$ | $\tan\delta$ | Source |
 |---|---|---|---|---|---|
@@ -470,7 +472,9 @@ resistivity("TiN")`), what a heater's resistance, and so its voltage for a power
 value is films made one way, with their thickness, the temperature coefficient of resistance
 (TCR) where given, and the paper; `ResistivityValue::conductivity` gives it in S/m. A film's
 resistivity depends on how it was made far more than on its material, so a heater's own film
-should be chosen, not an average.
+should be chosen, not an average. The metal thermo-optic heater takes Tsai et al.'s lowest films
+by their Eq. (3) at its own thickness (`catalogue::tin_film_resistivity`: 45.3 µΩ·cm at 100 nm)
+for its resistance and a voltage drive ([devices](devices.md#thermo-optic-phase-shifters)).
 
 | TiN film | Thickness | ρ at room temperature (µΩ·cm) | TCR (per K) | Source |
 |---|---|---|---|---|

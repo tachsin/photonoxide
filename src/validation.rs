@@ -2232,6 +2232,8 @@ pub fn cases() -> Vec<Case> {
     cases.extend(crate::mode::pockels::bto::cases());
     // and the travelling-wave electrodes: quasi-TEM lines, their losses and the EO response
     cases.extend(crate::electro::line_checks::cases());
+    // and a static job's line with the catalogue's loss tangents
+    cases.extend(crate::job::line_cases());
     // and their full-wave RF mode, the metal a lossy medium
     cases.extend(crate::electro::full_wave_checks::cases());
     // and its coplanar lines: Heinrich's R and L, Frankel et al.'s radiation into the substrate

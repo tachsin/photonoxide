@@ -127,8 +127,30 @@ two dielectrics in series between plates divide the energy as their elastances d
 (`line/filling-plates`, 1e-14). The loss tangents are the job's, by medium, and each case says
 where its come from. The catalogue lists measured ones with their samples and frequencies
 (`catalogue::rf_dielectrics()`: lithium niobate, silicon, fused silica, quartz and sapphire;
-[the catalogue](catalogue.md#microwave-permittivities-and-loss-tangents)), to choose a job's
-from: a loss tangent depends on the sample, a silicon handle's on its resistivity.
+[the catalogue](catalogue.md#microwave-permittivities-and-loss-tangents)): a loss tangent
+depends on the sample, a silicon handle's on its resistivity.
+
+A job can take them from the catalogue (`catalogue_loss_tangents`, [below](#as-a-job)). A
+medium is found by its name: `SiO2` (fused silica), `Si`, `Al2O3` (sapphire), `quartz`, or a
+crystal's medium by the formula before its orientation (`LiNbO₃ (x-cut, …)`). Of its values the
+job takes the one measured nearest the geometric middle $f_m = \sqrt{f_\mathrm{min} f_\mathrm{max}}$
+of its frequencies, nearest in $\lvert\ln(f/f_m)\rvert$, a band that holds $f_m$ counting as at
+it; of several there, the largest $\tan\delta$ (a range's top, the larger of a crystal's two
+axes), so the loss is the catalogue's upper one for samples of that kind at that frequency.
+One value serves every frequency of the job. That is the scalar model's limit: a crystal's
+tangent along and across its axis differ (lithium niobate's means by 17%), lithium niobate's rises
+about as $f^{0.25}$ (Lee), and silicon's, a conduction loss, falls as $1/f$, so its
+$\alpha_d$ is flat in frequency where the model's grows. A tangent the job gives is kept; a
+medium the catalogue hasn't (a deposited oxide, a polymer, air) stays lossless. The run records
+each medium's tangent and where it came from: given, or the catalogue's sample, the frequency it
+was measured at and its paper, and $f_m$.
+
+On two dielectrics in series between plates (0.5 µm of silicon under 0.3 µm of oxide, 50 and
+100 GHz, $f_m$ = 70.7 GHz), the job takes fused silica's 1.0e-4 (Harvey's Spectrosil, 2 to 300
+GHz, in Lamb's Table I) and silicon's 1.9e-3 (Afsar and Button's at 100 GHz, the nearest), and
+its dielectric loss at 100 GHz is the closed form's
+$\alpha_d = \pi f n \sum_i q_i\tan\delta_i/c$ with $n$ and the $q_i$ of capacitors in series,
+to round-off (`line/job-catalogue-tangents`, within 1e-12).
 
 ## Conductor loss
 
@@ -590,7 +612,9 @@ curves ripple with the photodiode's response, so one frequency doesn't make a ca
 An `"electrostatic"` static job's `line` table (`job::line`): `signal` (its conductor, counted
 from 1), `mirrored`, the metal's `conductivity_s_per_m` (its thickness the signal rectangle's
 height unless `thickness_um` says), `edge` (`square` or `bevelled`), `loss_tangent` by medium,
-`frequencies_ghz`, and `response` (`length_mm`, `group_index`, `source_ohm` and `load_ohm`, 50 Ω
+`catalogue_loss_tangents: true` for the catalogue's where `loss_tangent` names none (see
+[dielectric loss](#dielectric-loss); each medium's tangent and where it came from are then
+recorded as `line: loss tangent of …` entries), `frequencies_ghz`, and `response` (`length_mm`, `group_index`, `source_ohm` and `load_ohm`, 50 Ω
 by default, `reference_ghz`, 1 GHz by default) for the response and its 3 and 6 dB bandwidths;
 `convergence: { tolerance: 0.01 }` checks the quasi-static index and impedance and the loss at the
 highest frequency on grids twice and four times as coarse. jobs/tfln-line.yaml is Zhang et al.'s

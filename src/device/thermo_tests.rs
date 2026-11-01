@@ -89,6 +89,64 @@ fn the_phase_follows_the_power_and_its_derivative_is_exact() {
 }
 
 #[test]
+fn the_tin_heater_is_driven_by_a_voltage_through_its_films_resistance() {
+    let d = ThermoShifter::metal();
+    // 45.28 µΩ·cm at 100 nm: 193.2 Ω over 320 × 7.5 µm
+    let (r, rho) = d.resistance(&Values::defaults(&d)).unwrap();
+    assert!((rho - 45.28).abs() < 1e-12, "{rho}");
+    assert!(
+        (r - 45.28e-8 * 320e-6 / (7.5e-6 * 0.1e-6)).abs() < 1e-9,
+        "{r}"
+    );
+    let b = d
+        .component(&Values::defaults(&d), Fidelity::Analytic)
+        .unwrap();
+    let figure = b.figure("R_heater").unwrap();
+    assert_eq!(figure.value, r);
+    assert!(figure.grid.contains("Tsai") && figure.grid.contains("100 nm"));
+    assert!(b.figure("P_V").is_none());
+    // the dT figure is 0 with no power
+    assert_eq!(b.figure("dT").unwrap().value, 0.0);
+    // a voltage's power, and its derivative against a difference
+    let lambda = Wavelength::um(1.55).unwrap();
+    let at = |v: f64| {
+        let values = Values::new(&d, &[("voltage", v)]).unwrap();
+        d.component(&values, Fidelity::Analytic).unwrap()
+    };
+    let b = at(2.0);
+    assert!((b.figure("P_V").unwrap().value - 4.0 / r * 1e3).abs() < 1e-12);
+    let k = d
+        .parameters()
+        .iter()
+        .position(|p| p.name == "voltage")
+        .unwrap();
+    let ds = b.component.derivatives(lambda, &b.values).unwrap().unwrap();
+    let dv = b.derivatives[k].as_ref().unwrap();
+    let exact = ds[0][(1, 0)] * dv[0] + ds[1][(1, 0)] * dv[1];
+    let h = 1e-5;
+    let s = |v: f64| at(v).s_matrix(lambda).unwrap()[(1, 0)];
+    let numeric = (s(2.0 + h) - s(2.0 - h)) / (2.0 * h);
+    assert!(
+        (exact - numeric).norm() < 1e-8 * exact.norm(),
+        "{exact} {numeric}"
+    );
+    // power's derivative is none under a voltage
+    let p = d
+        .parameters()
+        .iter()
+        .position(|p| p.name == "power")
+        .unwrap();
+    assert!(b.derivatives[p].is_none());
+    // a power and a voltage both is refused, and the doped heaters have no voltage
+    let both = Values::new(&d, &[("voltage", 2.0), ("power", 5.0)]).unwrap();
+    let e = d.component(&both, Fidelity::Analytic).unwrap_err();
+    assert!(e.to_string().contains("not both"), "{e}");
+    let doped = ThermoShifter::doped();
+    assert!(!doped.parameters().iter().any(|p| p.name == "voltage"));
+    assert!(doped.resistance(&Values::defaults(&doped)).is_err());
+}
+
+#[test]
 fn the_measured_fidelity_is_its_designs_only() {
     let d = ThermoShifter::doped();
     let measured = d
