@@ -77,6 +77,18 @@ name_of() { (source "$repo/.github/hooks/agent-worktree.sh" && agent_worktree_na
 check "a Windows path names its worktree" "$(name_of 'C:\Users\x\repo\.claude\worktrees\Agent-A01\')" agent-a01
 check "a nested worktree folder keeps its whole path in the name" "$(name_of /r/.claude/worktrees/group/agent-1)" group_agent-1
 
+# --- the `pwd -P` branch of the path handling, taken on Linux and macOS (Git Bash has `pwd -W`
+# and never takes it): the main checkout reached through a symlink still has its real path
+if (pwd -W > /dev/null 2>&1); then
+  echo "skipped  the pwd -P branch (this shell has pwd -W)"
+else
+  ln -s "$main" "$tmp/link"
+  check "a symlinked folder resolves to its real path" "$(abs "$tmp/link")" "$main_abs"
+  check "an agent worktree reached through a symlink gets the real target folder" \
+    "$(target_of "$tmp/link/.claude/worktrees/agent-1")" "$main_abs/target/agents/agent-1"
+  check "an agent worktree reached through a symlink is still detected" "$(detect "$tmp/link/.claude/worktrees/agent-1")" agent
+fi
+
 # --- touch-sources.sh: an agent worktree's sources are made newer than the shared target's builds
 ref="$tmp/ref"
 touch -d 2010-01-01 "$ref"
