@@ -14,7 +14,7 @@ papers:
     doi: 10.1364/JOSAB.14.002268
   - cite: "S. Afshar V., T. M. Monro, Opt. Express 17, 2298 (2009) (Eq. 42, γ)"
     doi: 10.1364/OE.17.002298
-  - cite: "G. J. Edwards, M. Lawrence, Opt. Quantum Electron. 16, 373 (1984) (Eq. 1, Table I)"
+  - cite: "G. J. Edwards, M. Lawrence, Opt. Quantum Electron. 16, 373 (1984) (Eq. 1, Tables I and II)"
     doi: 10.1007/BF00620081
   - cite: "D. H. Jundt, M. M. Fejer, R. L. Byer, IEEE J. Quantum Electron. 26, 135 (1990) (Table III)"
     doi: 10.1109/3.44926
@@ -50,6 +50,7 @@ validation:
   - nonlinear/fejer-table-1-temperature
   - nonlinear/fejer-table-1-tilt-about-z
   - nonlinear/fejer-table-1-tilt-toward-z
+  - nonlinear/edwards-lawrence-table-2
   - nonlinear/wang-2018-duty-cycle
   - material/linbo3-zelmon-opo
   - material/linbo3-jundt-opo
@@ -295,6 +296,46 @@ Eq. (A1.9) is first order in the birefringence. The full curvature of Δk in the
 are within 0.5 % of the full curvature's.
 
 The example `qpm_fejer` prints the whole table beside the paper's, checking the 41 values and listing the other eight.
+
+## Edwards and Lawrence's Table II
+
+Edwards and Lawrence checked their Eq. 1 against difference-frequency mixing in a 50 mm congruent
+crystal: the argon-ion laser's 488 nm line (extraordinary) and a dye laser tuned from 565 to
+640 nm (ordinary) make an ordinary infrared wave, type I and noncritical (across the optic axis),
+phase matched by temperature alone. Their Table II prints ten infrared wavelengths, the measured
+temperatures and the ones Eq. 1 gives. The case `nonlinear/edwards-lawrence-table-2` checks the
+calculated column with the catalogue's `edwards-lawrence-1984` model, whose 14 coefficients are
+Table I's as printed.
+
+Eq. 1 takes vacuum wavelengths, but the paper doesn't say which wavelengths Table II prints, and
+names the pump only as "the 488 nm line". Read as vacuum wavelengths with a 488.000 nm pump, every
+row comes out 0.22 to 0.47 °C below the printed one. With the line at its own wavelength,
+487.986 nm in air (488.122 nm in vacuum), the rows are 0.05 to 0.16 °C low; with the printed
+infrared wavelengths also taken in air, both brought to vacuum by ×1.00027, every row is within
+0.07 °C. Fitted freely, the scale of the infrared wavelengths that best matches the table is
+1.000242, close to the index of air (1.00027): Table II prints air wavelengths. The index of air
+changes by less than 1e-5 from 0.49 to 3.2 µm, which moves no row by more than 0.013 °C.
+
+Each row's budget is half a unit of the printed temperature's last digit, 0.05 °C, plus what half
+a unit of the printed wavelength's (0.0005 µm) moves our temperature by; the case's error is the
+largest difference in those budgets, 0.39 (at 3.049 µm).
+
+| λ (µm, printed) | Measured (°C) | Calculated (°C) | Ours, in air (°C) | Ours − printed | Budget (°C) | Ours, vacuum and 488.000 nm (°C) |
+|---|---|---|---|---|---|---|
+| 2.159 | 180.0 | 176.4 | 176.39 | −0.01 | 0.189 | 175.93 |
+| 2.249 | 200.0 | 200.1 | 200.16 | +0.06 | 0.176 | 199.73 |
+| 2.337 | 220.0 | 221.3 | 221.34 | +0.04 | 0.165 | 220.94 |
+| 2.432 | 240.0 | 242.2 | 242.23 | +0.03 | 0.155 | 241.85 |
+| 2.541 | 260.0 | 264.0 | 264.01 | +0.01 | 0.145 | 263.67 |
+| 2.643 | 280.0 | 282.6 | 282.56 | −0.04 | 0.137 | 282.24 |
+| 2.771 | 300.0 | 303.7 | 303.67 | −0.03 | 0.128 | 303.37 |
+| 2.901 | 320.0 | 323.0 | 322.96 | −0.04 | 0.120 | 322.67 |
+| 3.049 | 340.0 | 342.6 | 342.64 | +0.04 | 0.113 | 342.38 |
+| 3.235 | 360.0 | 364.5 | 364.47 | −0.03 | 0.105 | 364.23 |
+
+The measured temperatures differ from Eq. 1's by up to 4.5 °C, the "systematic difference of
+about 3 °C" the paper puts down to the uncertainties of the data the equation was fitted to
+(1 °C is about 1e-4 in n_e at 488 nm, and the fit's standard deviation is 1.8e-4).
 
 ## The coupled-amplitude equations
 

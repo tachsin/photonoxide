@@ -1,7 +1,8 @@
 //! The rules (#544) of phase matching's cases (0.6.1, [`crate::nonlinear::phase`]): two exact
 //! identities, Fejer et al.'s Table I to half a unit of each value's last printed digit (each
-//! case's error is the largest over its rows, in those halves, so its tolerance is 1), and Wang
-//! et al.'s duty cycle to its stated uncertainty.
+//! case's error is the largest over its rows, in those halves, so its tolerance is 1), Edwards
+//! and Lawrence's Table II to each row's printed digits (in the same way), and Wang et al.'s
+//! duty cycle to its stated uncertainty.
 
 use super::{Basis::*, Measure::*, Numerical::*, Rule};
 
@@ -38,6 +39,16 @@ pub(crate) fn rules() -> Vec<(&'static str, Rule)> {
         ("nonlinear/fejer-table-1-temperature", table(Noted)),
         ("nonlinear/fejer-table-1-tilt-about-z", table(Noted)),
         ("nonlinear/fejer-table-1-tilt-toward-z", table(Noted)),
+        (
+            "nonlinear/edwards-lawrence-table-2",
+            Rule::new(
+                Absolute,
+                Reference,
+                1.0,
+                Exact,
+                "each row's budget, the error measured in budgets: half a unit of the printed temperature's last digit (0.05 °C) plus half the change in our temperature over ± half a unit of the printed wavelength's (0.0005 µm); the paper states no other uncertainty, and Table II is its own Eq. 1's; our temperatures are roots by bisection, to round-off",
+            ),
+        ),
         (
             "nonlinear/wang-2018-duty-cycle",
             Rule::new(

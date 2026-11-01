@@ -1,8 +1,10 @@
 //! The validation cases of phase matching ([`crate::nonlinear::phase`]): the half-maximum point
 //! of sinc² and the L² growth at phase matching; Fejer et al.'s Table I (coherence lengths and
 //! the acceptance bandwidths of SHG in 1 mm of LiNbO₃) from the indices it was computed with;
-//! and the effective coefficient Wang et al.'s duty cycle leaves.
+//! Edwards and Lawrence's own phase-matching temperatures (their Table II); and the effective
+//! coefficient Wang et al.'s duty cycle leaves.
 
+use crate::material::catalogue::checks::AIR;
 use crate::material::catalogue::{self, Axis};
 use crate::nonlinear::coupled::{
     SecondHarmonic, ThreeWave, coupling_from_efficiency, loss_from_db_per_cm, undepleted_lossy_shg,
@@ -10,7 +12,7 @@ use crate::nonlinear::coupled::{
 use crate::nonlinear::pairs::{Matching, Pump, gaussian_gamma, gaussian_purity, joint_spectrum};
 use crate::nonlinear::phase::{
     Device, Expansion, HALF_MAXIMUM, Index, Plane, Polarization, Process, State, Type, Uniaxial,
-    Variable, Wave, effective_d, first_order_tilt, sinc2, undepleted,
+    Variable, Wave, effective_d, first_order_tilt, phase_matching_temperature, sinc2, undepleted,
 };
 use crate::units::Wavelength;
 use crate::verdict::{Case, Outcome, Tier, note_numerical};
@@ -282,6 +284,77 @@ fn table_1_about_z() -> Outcome {
 
 fn table_1_toward_z() -> Outcome {
     table_1_column(TowardZ)
+}
+
+/// Edwards and Lawrence's Table II: each infrared wavelength (µm, read as printed: in air) and
+/// the phase-matching temperature their Eq. 1 gives it (°C, the "calculated" column), for
+/// type-I, noncritical difference-frequency mixing of an argon-ion laser's 488 nm line and a dye
+/// laser in congruent LiNbO₃.
+pub(crate) const EDWARDS_TABLE_2: [(f64, f64); 10] = [
+    (2.159, 176.4),
+    (2.249, 200.1),
+    (2.337, 221.3),
+    (2.432, 242.2),
+    (2.541, 264.0),
+    (2.643, 282.6),
+    (2.771, 303.7),
+    (2.901, 323.0),
+    (3.049, 342.6),
+    (3.235, 364.5),
+];
+
+/// The argon-ion laser's "488 nm line" in standard air, µm: Ar II's 487.986 nm (the NIST Atomic
+/// Spectra Database).
+pub(crate) const ARGON_488_AIR: f64 = 0.487986;
+
+/// Half a unit of Table II's last printed digit: of the wavelength (µm) and of the temperature
+/// (°C).
+const TABLE_2_HALF: (f64, f64) = (0.0005, 0.05);
+
+/// The temperature (°C) at which Edwards and Lawrence's congruent indices phase-match the
+/// mixing of `pump` with the dye laser into `idler` (both vacuum wavelengths in µm, which Eq. 1
+/// takes): type I, the pump extraordinary and the dye laser and the idler ordinary, across the
+/// optic axis; searched from 100 to 450 °C, inside Eq. 1's 0 to 500 °C.
+pub(crate) fn edwards_table_2_temperature(pump: f64, idler: f64) -> crate::Result<f64> {
+    let (o, e) = indices(false)?;
+    let dye = 1.0 / (1.0 / pump - 1.0 / idler);
+    let state = State::default();
+    let process = Uniaxial::new(o, e).difference_frequency(
+        Wavelength::um(pump)?,
+        Wavelength::um(dye)?,
+        Type::I,
+        &state,
+    )?;
+    Ok(phase_matching_temperature(&process, &state, 373.15, 723.15)? - 273.15)
+}
+
+/// Table II's row of the idler `idler_air` (µm, in air) as we compute it: the argon line and
+/// the idler brought to vacuum with [`AIR`].
+pub(crate) fn edwards_table_2_row(idler_air: f64) -> crate::Result<f64> {
+    edwards_table_2_temperature(ARGON_488_AIR * AIR, idler_air * AIR)
+}
+
+/// Edwards and Lawrence's Table II against our temperatures: the largest difference over the
+/// ten rows, each in units of its own budget, half a unit of the printed temperature's digit
+/// plus what half a unit of the printed wavelength's moves our temperature by.
+fn edwards_table_2() -> Outcome {
+    let run = || -> crate::Result<f64> {
+        let (dl, dt) = TABLE_2_HALF;
+        let mut worst = 0.0_f64;
+        for (lam, printed) in EDWARDS_TABLE_2 {
+            let t = edwards_table_2_row(lam)?;
+            let spread = (edwards_table_2_row(lam + dl)? - edwards_table_2_row(lam - dl)?).abs();
+            worst = worst.max((t - printed).abs() / (dt + spread / 2.0));
+        }
+        Ok(worst)
+    };
+    let worst = run().unwrap_or(f64::NAN);
+    Outcome {
+        measured: worst,
+        expected: 0.0,
+        tolerance: 1.0,
+        error: worst,
+    }
 }
 
 /// sinc²(1.39156…) against ½: the half-maximum point is a root to round-off.
@@ -637,6 +710,13 @@ pub(crate) fn cases() -> Vec<Case> {
             tier: Tier::Published,
             source: FEJER,
             run: table_1_toward_z,
+        },
+        Case {
+            id: "nonlinear/edwards-lawrence-table-2",
+            title: r"Edwards and Lawrence's Table II, the phase-matching temperatures their Eq. 1 gives type-I, noncritical difference-frequency mixing of the argon-ion laser's 488 nm line (pump extraordinary) with a dye laser (ordinary) into ten infrared wavelengths from 2.159 to 3.235 µm (ordinary) in congruent LiNbO₃: the line, 487.986 nm, and the printed wavelengths taken in air and brought to vacuum (×1.00027) (the largest difference shown, in units of each row's budget)",
+            tier: Tier::Published,
+            source: r"G. J. Edwards, M. Lawrence, Opt. Quantum Electron. 16, 373 (1984), doi:10.1007/BF00620081, Eq. 1, Tables I and II (the calculated column); the argon line in air from the NIST Atomic Spectra Database (Ar II). Each row to half a unit of its temperature's last digit plus what half a unit of its wavelength's moves our temperature by (0.105 to 0.189 °C); read as vacuum wavelengths with a 488.000 nm pump, the rows come out 0.22 to 0.47 °C lower",
+            run: edwards_table_2,
         },
         Case {
             id: "nonlinear/wang-2018-duty-cycle",
