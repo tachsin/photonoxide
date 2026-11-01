@@ -2,7 +2,7 @@
 //! XML with the layers from the top down, and its traveller holds every step and every source.
 
 use super::*;
-use crate::fabrication::fabricate;
+use crate::fabrication::{fabricate, generate};
 
 /// The three first designs, at their defaults, and a rib waveguide, a timed partial etch.
 const DESIGNS: [&str; 4] = [

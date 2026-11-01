@@ -85,7 +85,16 @@ export interface FlowFact {
 export interface FlowStep {
   process: string;
   name: string;
-  step: "wafer" | "deposition" | "lithography" | "pattern_transfer" | "planarization" | "anneal";
+  step:
+    | "wafer"
+    | "deposition"
+    | "lithography"
+    | "pattern_transfer"
+    | "planarization"
+    | "anneal"
+    | "implant"
+    | "bond"
+    | "split";
   plain: string;
   operation: string;
   does: string;

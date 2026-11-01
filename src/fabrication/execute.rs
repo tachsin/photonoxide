@@ -4,7 +4,9 @@
 //! The exact model is a [`Structure`]: the wafer's layers, a deposition's layers on top (filling
 //! every region etched open so far, which sets those layers' background), an etch's shapes drawn
 //! on its layer with its depth and sidewall, a lift-off's shapes drawn on the layer it makes. A
-//! polish leaves the planar model as it is, since it is flat by construction.
+//! polish leaves the planar model as it is, since it is flat by construction: it takes off what
+//! was deposited beyond the layers for it, all of it or (a Smart Cut film's touch-up,
+//! [`super::Start::SmartCut`]) part, a later step taking the rest.
 
 use serde::{Deserialize, Serialize};
 
@@ -146,12 +148,16 @@ fn run(steps: &[super::flow::Step], partial: bool) -> Result<Made> {
                 extra = *more;
             }
             Operation::Planarize { removed } => {
-                if *removed != extra {
+                // all of what was deposited for it; or part, the rest left for a later step (a
+                // Smart Cut film's excess: the touch-up polish takes part, the sacrificial oxide
+                // the rest)
+                let part = *removed > Length::ZERO && *removed < extra;
+                if *removed != extra && !part {
                     return Err(at(&format!(
                         "the polish takes off {removed} where {extra} was deposited for it"
                     )));
                 }
-                extra = Length::ZERO;
+                extra -= *removed;
             }
             Operation::Pattern { mask, tone, .. } => {
                 if resist.is_some() {

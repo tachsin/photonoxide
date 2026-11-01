@@ -776,7 +776,7 @@ fn nonlinear<'py>(
 /// A design's process flow ([`facade::device_fabrication`]): a dict of the flow's and the
 /// assessment's JSON text, the export's JSON and Markdown, and each step's SVG.
 #[pyfunction]
-#[pyo3(signature = (kind, values, stack, prefer, avoid))]
+#[pyo3(signature = (kind, values, stack, prefer, avoid, start = "bought"))]
 fn device_fabrication<'py>(
     py: Python<'py>,
     kind: &str,
@@ -784,10 +784,11 @@ fn device_fabrication<'py>(
     stack: Option<String>,
     prefer: Vec<String>,
     avoid: Vec<String>,
+    start: &str,
 ) -> PyResult<Bound<'py, PyDict>> {
     let d = design(kind, values, None, stack, None);
     let f = py
-        .detach(|| facade::device_fabrication(&d, &prefer, &avoid))
+        .detach(|| facade::device_fabrication_from(&d, &prefer, &avoid, start))
         .fail(py)?;
     let out = PyDict::new(py);
     out.set_item("flow", f.flow)?;
@@ -800,7 +801,7 @@ fn device_fabrication<'py>(
 
 /// The job file that gives a design's process flow, as text in a format.
 #[pyfunction]
-#[pyo3(signature = (kind, values, stack, name, format, prefer, avoid))]
+#[pyo3(signature = (kind, values, stack, name, format, prefer, avoid, start = "bought"))]
 #[allow(clippy::too_many_arguments)] // the design's fields, one for one, and the job's
 fn device_fabrication_job(
     py: Python<'_>,
@@ -811,15 +812,17 @@ fn device_fabrication_job(
     format: &str,
     prefer: Vec<String>,
     avoid: Vec<String>,
+    start: &str,
 ) -> PyResult<String> {
     let d = design(kind, values, None, stack, None);
-    py.detach(|| facade::device_fabrication_job(&d, name, format, &prefer, &avoid))
+    py.detach(|| facade::device_fabrication_job_from(&d, name, format, &prefer, &avoid, start))
         .fail(py)
 }
 
 /// Writes a design's process flow into a folder: the files written.
 #[pyfunction]
-#[pyo3(signature = (kind, values, stack, prefer, avoid, out_dir))]
+#[pyo3(signature = (kind, values, stack, prefer, avoid, out_dir, start = "bought"))]
+#[allow(clippy::too_many_arguments)] // the design's fields, one for one, and the export's
 fn export_fabrication(
     py: Python<'_>,
     kind: &str,
@@ -828,9 +831,10 @@ fn export_fabrication(
     prefer: Vec<String>,
     avoid: Vec<String>,
     out_dir: PathBuf,
+    start: &str,
 ) -> PyResult<Vec<PathBuf>> {
     let d = design(kind, values, None, stack, None);
-    py.detach(|| facade::export_fabrication(&d, &prefer, &avoid, &out_dir))
+    py.detach(|| facade::export_fabrication_from(&d, &prefer, &avoid, &out_dir, start))
         .fail(py)
 }
 

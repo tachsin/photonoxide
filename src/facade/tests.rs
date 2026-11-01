@@ -603,8 +603,8 @@ fn the_conformance_cases_are_computed_and_name_their_calls() {
             // reached through another binding function's argument: a case passes it
             Some(&(_, binding, argument)) => assert!(
                 cases.iter().any(|c| c.function == binding
-                    && serde_json::from_str::<serde_json::Value>(&c.args).unwrap()[argument]
-                        .is_number()),
+                    && !serde_json::from_str::<serde_json::Value>(&c.args).unwrap()[argument]
+                        .is_null()),
                 "no case calls {binding} with {argument}, which calls {f}"
             ),
             None => assert!(functions.contains(f), "no case calls {f}"),
@@ -639,9 +639,18 @@ fn the_conformance_cases_are_computed_and_name_their_calls() {
 
 /// The façade's functions the bindings reach through another's argument, not by a function of
 /// their own: (the façade's function, the bindings' function, its argument).
-/// [`device_spectrum_until`] is `device_spectrum` with a `timeout_s`, the [`Stop`]'s deadline.
-pub(super) const THROUGH: [(&str, &str, &str); 1] =
-    [("device_spectrum_until", "device_spectrum", "timeout_s")];
+/// [`device_spectrum_until`] is `device_spectrum` with a `timeout_s`, the [`Stop`]'s deadline;
+/// the fabrication functions' `_from` forms are theirs with a `start`.
+pub(super) const THROUGH: [(&str, &str, &str); 4] = [
+    ("device_spectrum_until", "device_spectrum", "timeout_s"),
+    ("device_fabrication_from", "device_fabrication", "start"),
+    (
+        "device_fabrication_job_from",
+        "device_fabrication_job",
+        "start",
+    ),
+    ("export_fabrication_from", "export_fabrication", "start"),
+];
 
 /// The façade's functions, read from its source: every `pub fn` at the start of a line (not a
 /// method), but `conformance`, which lists calls of the others.
@@ -671,7 +680,7 @@ fn every_facade_function_is_in_the_feature_table() {
     // so to the Python package) goes in its table, by name
     let table = include_str!("../../docs/features.md");
     let functions = facade_functions();
-    assert_eq!(functions.len(), 26, "{functions:?}");
+    assert_eq!(functions.len(), 29, "{functions:?}");
     for f in functions {
         assert!(
             table.contains(&format!("`{f}`")),

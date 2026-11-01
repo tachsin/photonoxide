@@ -175,6 +175,58 @@ fn a_fabrication_job_made_from_a_design_is_one_that_runs() {
 }
 
 #[test]
+fn a_fabrication_job_starts_from_bare_silicon_only_when_its_task_says_so() {
+    let here = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+    let made = Job::load(&here.join("jobs/strip-flow-smart-cut.yaml")).unwrap();
+    check(&made).unwrap();
+    let text = made.to_text(crate::run::Format::Toml).unwrap();
+    let (_, events) = lines_on(&text, 1, "smart-cut");
+    let flow = events
+        .iter()
+        .find_map(|e| match e {
+            Event::Flow { flow } => Some(flow),
+            _ => None,
+        })
+        .expect("a flow");
+    assert_eq!(flow.steps.len(), 13);
+    assert_eq!(flow.steps[0].process, "si-wafer");
+    assert_eq!(flow.steps[2].operation, "implant");
+    assert!(flow.round_trip.expect("its round trip").exact());
+    // the job a design makes writes `start` only when it isn't the bought wafer
+    let spec = crate::device::Spec::new("waveguide");
+    let bought = from_fabrication("strip-flow", &spec, &[], &[]).unwrap();
+    let same = from_fabrication_from(
+        "strip-flow",
+        &spec,
+        &[],
+        &[],
+        crate::fabrication::Start::Bought,
+    )
+    .unwrap();
+    assert_eq!(
+        bought.to_text(crate::run::Format::Yaml).unwrap(),
+        same.to_text(crate::run::Format::Yaml).unwrap()
+    );
+    let smart = from_fabrication_from(
+        "strip-flow",
+        &spec,
+        &[],
+        &[],
+        crate::fabrication::Start::SmartCut,
+    )
+    .unwrap();
+    assert!(
+        smart
+            .to_text(crate::run::Format::Yaml)
+            .unwrap()
+            .contains("start: smart_cut")
+    );
+    // a lithium niobate film isn't made by Smart Cut
+    let e = check(&Job::parse(&format!("{TFLN}start = \"smart_cut\"\n")).unwrap()).unwrap_err();
+    assert!(e.to_string().contains("silicon on insulator"), "{e}");
+}
+
+#[test]
 fn a_fabrication_record_replays_and_repeats_on_any_threads() {
     let (one, events) = lines_on(TFLN, 1, "threads");
     let (four, _) = lines_on(TFLN, 4, "threads");

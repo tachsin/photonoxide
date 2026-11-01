@@ -1,0 +1,12 @@
+# The same 500 x 220 nm silicon strip as jobs/strip-flow.yaml, made from bare silicon wafers: the
+# SOI wafer is made first by Smart Cut (the donor oxidized, implanted with hydrogen, bonded to a
+# handle, split, annealed, polished and thinned to 220 nm), then the strip's own steps.
+#   photonoxide run jobs/strip-flow-smart-cut.yaml
+name: strip-flow-smart-cut
+
+device:
+  kind: waveguide
+
+task:
+  kind: fabrication
+  start: smart_cut      # "bought" (the default) starts from the SOI wafer as bought

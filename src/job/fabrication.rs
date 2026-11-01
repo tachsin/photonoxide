@@ -24,6 +24,10 @@
 //!   prefer: [ebl-hsq]     # process ids to prefer where several qualify
 //!   avoid: [bosch-si]     # process ids not to use
 //! ```
+//!
+//! An SOI design's flow starts from its wafer as bought; `start: smart_cut` starts it from bare
+//! silicon instead, with the Smart Cut steps that make the SOI wafer first
+//! ([`crate::fabrication::Start`]).
 
 use schemars::{JsonSchema, SchemaGenerator};
 use serde::{Deserialize, Serialize};
@@ -41,8 +45,8 @@ use crate::Result;
 use crate::device::Spec;
 use crate::export::flow::FlowExport;
 use crate::fabrication::{
-    Assessment, Choices, FlowRecord, Physical, Platform, assess, fabricate, generate, platform,
-    round_trip, stages,
+    Assessment, Choices, FlowRecord, Physical, Platform, Start, assess, fabricate_from, generate,
+    generate_from, platform, round_trip, stages,
 };
 use crate::run::{Job, Run, Stop};
 use crate::units::Wavelength;
@@ -59,10 +63,36 @@ pub(super) struct FabricationTask {
     /// The ids of processes not to use.
     #[serde(default)]
     avoid: Vec<String>,
+    /// Where the flow starts: `"bought"`, from the wafer as bought (the default); or, for
+    /// silicon on insulator, `"smart_cut"`, from bare silicon wafers, with the Smart Cut steps
+    /// that make the SOI wafer first.
+    #[serde(default)]
+    start: StartKey,
 }
 
-/// What `job`'s task prefers and avoids, checked against the library.
-fn choices_of(job: &Job) -> Result<Choices> {
+/// Where a fabrication flow starts, as a job writes it.
+#[derive(Clone, Copy, Debug, Default, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+enum StartKey {
+    /// From the wafer as bought.
+    #[default]
+    Bought,
+    /// For silicon on insulator, from bare silicon wafers by Smart Cut.
+    SmartCut,
+}
+
+impl From<StartKey> for Start {
+    fn from(key: StartKey) -> Start {
+        match key {
+            StartKey::Bought => Start::Bought,
+            StartKey::SmartCut => Start::SmartCut,
+        }
+    }
+}
+
+/// What `job`'s task prefers and avoids, checked against the library, and where its flow
+/// starts.
+fn choices_of(job: &Job) -> Result<(Choices, Start)> {
     let task: FabricationTask = job
         .task()
         .clone()
@@ -73,17 +103,18 @@ fn choices_of(job: &Job) -> Result<Choices> {
         avoid: task.avoid,
     };
     choices.check().map_err(|e| task_error(e.to_string()))?;
-    Ok(choices)
+    Ok((choices, task.start.into()))
 }
 
 /// The flow of `job`'s design, as its task asks, with its round trip, and what the rules find
 /// in it.
 fn flow_of(job: &Job) -> Result<(FlowRecord, Assessment)> {
-    let choices = choices_of(job)?;
+    let (choices, start) = choices_of(job)?;
     let (device, design) = spec_of(job)?.build()?;
     let physical = device.physical(design.values())?;
-    let record = fabricate(&physical, &choices).map_err(|e| task_error(e.to_string()))?;
-    let flow = generate(&physical, &choices)?;
+    let record =
+        fabricate_from(&physical, &choices, start).map_err(|e| task_error(e.to_string()))?;
+    let flow = generate_from(&physical, &choices, start)?;
     Ok((record, assess(&physical, &flow)?))
 }
 
@@ -120,7 +151,8 @@ impl TaskKind for FabricationKind {
             })?;
             // the flow's JSON, traveller and cross-sections, beside the record
             if !run.dir().as_os_str().is_empty() {
-                FlowExport::of_design(&spec_of(job)?, &choices_of(job)?)?.write(run.dir())?;
+                let (choices, start) = choices_of(job)?;
+                FlowExport::of_design_from(&spec_of(job)?, &choices, start)?.write(run.dir())?;
             }
             Ok(())
         })
@@ -151,6 +183,24 @@ pub fn from_fabrication(
     prefer: &[String],
     avoid: &[String],
 ) -> Result<Job> {
+    from_fabrication_from(name, spec, prefer, avoid, Start::Bought)
+}
+
+/// The job [`from_fabrication`] makes, its flow starting from `start`: written as the task's
+/// `start` when it isn't the bought wafer, the default. Its run records the flow
+/// [`FlowExport::of_design_from`] gives.
+///
+/// # Errors
+///
+/// [`from_fabrication`]'s, and a start the design's wafer can't be made from (a Smart Cut start
+/// for a design that isn't silicon on insulator).
+pub fn from_fabrication_from(
+    name: &str,
+    spec: &Spec,
+    prefer: &[String],
+    avoid: &[String],
+    start: Start,
+) -> Result<Job> {
     use toml::{Table, Value};
     spec.build()?;
     let list =
@@ -162,6 +212,9 @@ pub fn from_fabrication(
     }
     if !avoid.is_empty() {
         task.insert("avoid".into(), list(avoid));
+    }
+    if start != Start::Bought {
+        task.insert("start".into(), start.name().into());
     }
     let mut file = Table::new();
     file.insert("name".into(), name.into());

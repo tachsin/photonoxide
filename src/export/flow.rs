@@ -18,8 +18,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::device::Spec;
 use crate::fabrication::{
-    Assessment, Choices, Dimension, FlowRecord, Kind, Made, Source, StepRecord, Unit, Verdict,
-    assess, generate, round_trip, stages,
+    Assessment, Choices, Dimension, FlowRecord, Kind, Made, Source, Start, StepRecord, Unit,
+    Verdict, assess, generate_from, round_trip, stages,
 };
 use crate::geometry::Point;
 use crate::{Error, Result};
@@ -165,13 +165,24 @@ impl FlowExport {
     /// # Errors
     ///
     /// The design's ([`Spec::build`], [`crate::device::Device::physical`]), a process
-    /// `choices` names that the library hasn't, and [`generate`]'s and [`round_trip`]'s.
+    /// `choices` names that the library hasn't, and [`crate::fabrication::generate`]'s and
+    /// [`round_trip`]'s.
     pub fn of_design(spec: &Spec, choices: &Choices) -> Result<FlowExport> {
+        FlowExport::of_design_from(spec, choices, Start::Bought)
+    }
+
+    /// The export [`FlowExport::of_design`] gives, the flow starting from `start`
+    /// ([`generate_from`]): for an SOI design, from bare silicon with the Smart Cut steps.
+    ///
+    /// # Errors
+    ///
+    /// [`FlowExport::of_design`]'s, and [`generate_from`]'s.
+    pub fn of_design_from(spec: &Spec, choices: &Choices, start: Start) -> Result<FlowExport> {
         choices.check()?;
         let (device, design) = spec.build()?;
         let values = design.values();
         let physical = device.physical(values)?;
-        let flow = generate(&physical, choices)?;
+        let flow = generate_from(&physical, choices, start)?;
         let trip = round_trip(&flow, &physical)?;
         let assessment = assess(&physical, &flow)?;
         let made = stages(&flow)?;

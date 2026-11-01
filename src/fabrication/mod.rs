@@ -23,6 +23,11 @@
 //!   makes the design.
 //! - **Thermal oxidation** ([`oxidation`]): Deal and Grove's linear-parabolic law with their
 //!   printed constants.
+//! - **Where a flow starts** ([`Start`]): from its wafer as bought, the default; or, opted into
+//!   for silicon on insulator, from bare silicon, with the Smart Cut steps that make the SOI
+//!   wafer ([`smart_cut`]: the donor's oxide, the hydrogen implant from the proton ranges of
+//!   ICRU Report 49, the bond, the split, the anneal, the polish and the thinning) in place of
+//!   the bought wafer ([`generate_from`]).
 //!
 //! A flow is one sound way to make a design from published processes, not a foundry's process
 //! and not a sign-off. docs/methods/fabrication.md describes the engine, its rules and its
@@ -40,6 +45,8 @@ mod physical;
 pub mod rayleigh;
 mod references;
 pub mod rules;
+pub mod smart_cut;
+mod start;
 mod stated;
 
 pub(crate) mod checks;
@@ -47,6 +54,9 @@ pub(crate) mod platform_checks;
 #[cfg(test)]
 mod platform_tests;
 pub(crate) mod rule_checks;
+pub(crate) mod smart_cut_checks;
+#[cfg(test)]
+mod smart_cut_tests;
 #[cfg(test)]
 mod tests;
 
@@ -64,6 +74,7 @@ pub use library::{
 pub use measure::{Features, features};
 pub use physical::{Film, Physical, StandIn, film_name};
 pub use references::{Reference, reference, references};
+pub use start::{Start, generate_from};
 pub use stated::{Capability, Fact, Quantity, Source, Stated, Unit};
 
 /// A flow for `design` as `choices` ask, and its round trip: what a run records.
@@ -72,7 +83,20 @@ pub use stated::{Capability, Fact, Quantity, Source, Stated, Unit};
 ///
 /// [`generate`]'s and [`round_trip`]'s.
 pub fn fabricate(design: &Physical, choices: &Choices) -> crate::Result<FlowRecord> {
-    let flow = generate(design, choices)?;
+    fabricate_from(design, choices, Start::Bought)
+}
+
+/// A flow for `design` as `choices` ask, from `start`, and its round trip: what a run records.
+///
+/// # Errors
+///
+/// [`generate_from`]'s and [`round_trip`]'s.
+pub fn fabricate_from(
+    design: &Physical,
+    choices: &Choices,
+    start: Start,
+) -> crate::Result<FlowRecord> {
+    let flow = generate_from(design, choices, start)?;
     let trip = round_trip(&flow, design)?;
     Ok(flow.record(Some(trip)))
 }
