@@ -65,7 +65,7 @@ photonoxide follows [Semantic Versioning](https://semver.org/). Before 1.0, Carg
 
 The minimum Rust follows the dependencies: when a dependency's current release needs a newer Rust, `rust-version` and the CI's MSRV job are raised with it (`build!: …`).
 
-Dependabot's weekly pull request brings our dependencies' minor and patch updates. Their major versions are left out of it: the Releases workflow (`.github/workflows/releases.yml`, every Monday) lists them in the issue "Major updates available" (`photonoxide dependencies`), with each one's release notes, to adopt on purpose in a pull request of its own. The same workflow keeps the external libraries' new releases in the issue "New releases of external libraries" ([docs/libraries.md](docs/libraries.md#new-releases)).
+Dependabot's weekly pull request brings our dependencies' minor and patch updates. Their major versions are left out of it: the Releases workflow (`.github/workflows/releases.yml`, every Monday) lists them in the issue "Major updates available" (`photonoxide dependencies`), with each one's release notes, to adopt on purpose in a pull request of its own. The same workflow keeps every library's newest release in the issue "New releases of all libraries" ([docs/libraries.md](docs/libraries.md#new-releases)): the external libraries photonoxide-native loads, and our own crates, studio pnpm packages and Python requirements beside the versions our lockfiles have. It is the one table that lists them all, beside Dependabot's pull requests, not in place of them.
 
 ## Releases
 
