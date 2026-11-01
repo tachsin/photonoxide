@@ -43,6 +43,8 @@ jobs:
           - { name: 'conda-forge openblas, pthreads (ubuntu-latest)', os: ubuntu-latest, conda: 'libopenblas=*=pthreads*' }
           - { name: conda-forge openblas (windows-latest), os: windows-latest, conda: openblas }
     runs-on: ${{ matrix.os }}
+    # 10 to 29 minutes with the default inputs; larger inputs take longer, up to this
+    timeout-minutes: 120
     defaults:
       run:
         shell: bash -el {0}
@@ -65,7 +67,14 @@ jobs:
       - name: Install
         run: |
           if [ -n "${{ matrix.apt }}" ]; then
-            sudo apt-get update -q
+            # an Ubuntu mirror can stall apt-get update for over an hour: each try stops after 3
+            # minutes, and the third failure fails the step
+            for try in 1 2 3; do
+              sudo timeout 180 apt-get update -q && break
+              [ "$try" -lt 3 ] || exit 1
+              echo "apt-get update: try $try of 3 failed or ran past 3 minutes; again in 15 s"
+              sleep 15
+            done
             sudo DEBIAN_FRONTEND=noninteractive apt-get install -y ${{ matrix.apt }}
             dpkg -l | grep -i -E "openblas|libgomp" || true
             update-alternatives --display libopenblas.so.0-x86_64-linux-gnu || true

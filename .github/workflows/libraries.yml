@@ -76,6 +76,9 @@ jobs:
           - { os: windows-latest, package: hdf5, found: '^HDF5 [12]\.[0-9.]+: .*\(from the conda environment\)', test: hdf5, require: 'PHOTONOXIDE_REQUIRE_HDF5=1' }
           - { os: macos-latest, package: hdf5, found: '^HDF5 [12]\.[0-9.]+: .*\(from the conda environment\)', test: hdf5, require: 'PHOTONOXIDE_REQUIRE_HDF5=1' }
     runs-on: ${{ matrix.os }}
+    # each limit is two to three times the job's longest of the runs from 2026-10-26 to 11-01
+    # (here 19 minutes), so a stalled install or mirror fails the row instead of holding it for hours
+    timeout-minutes: 45
     defaults:
       run:
         shell: bash -el {0}
@@ -147,6 +150,7 @@ jobs:
           - { os: windows-latest, package: scipy-openblas32, found: '^OpenBLAS [0-9.]+: .*\(from a Python wheel\)', backend: '^backend photonoxide-openblas \(direct\): .* available', test: blas, require: 'PHOTONOXIDE_REQUIRE_BLAS=openblas' }
           - { os: macos-latest, package: scipy-openblas32, found: '^OpenBLAS [0-9.]+: .*\(from a Python wheel\)', backend: '^backend photonoxide-openblas \(direct\): .* available', test: blas, require: 'PHOTONOXIDE_REQUIRE_BLAS=openblas' }
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 45 # the longest of recent runs: 18 minutes
     defaults:
       run:
         shell: bash
@@ -192,11 +196,20 @@ jobs:
           - { package: libsuperlu-dev, found: '^SuperLU [567][0-9.]*: /usr/lib/', backend: '^backend superlu \(direct\): .* available', test: superlu, require: 'PHOTONOXIDE_REQUIRE_SUPERLU=1' }
           - { package: libopenblas-dev, found: '^OpenBLAS [0-9.]+: /usr/lib/', backend: '^backend photonoxide-openblas \(direct\): .* available', test: blas, require: 'PHOTONOXIDE_REQUIRE_BLAS=openblas' }
     runs-on: ${{ matrix.os }}
+    # 3 to 10 minutes in 83 runs; one stalled in apt-get update for 82 (2026-10-31)
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
       - name: Install
         run: |
-          sudo apt-get update
+          # an Ubuntu mirror can stall apt-get update for over an hour: each try stops after 3
+          # minutes, and the third failure fails the step
+          for try in 1 2 3; do
+            sudo timeout 180 apt-get update && break
+            [ "$try" -lt 3 ] || exit 1
+            echo "apt-get update: try $try of 3 failed or ran past 3 minutes; again in 15 s"
+            sleep 15
+          done
           time sudo DEBIAN_FRONTEND=noninteractive apt-get install -y ${{ matrix.package }}
           dpkg -l | grep -i -E "mkl|mumps|superlu|openblas" || true
       - name: Where it landed
@@ -231,11 +244,18 @@ jobs:
       matrix:
         version: ['5.9.1']
     runs-on: ubuntu-24.04
+    timeout-minutes: 30 # 9 to 11 minutes in recent runs
     steps:
       - uses: actions/checkout@v7
       - name: Install the compilers and the BLAS
         run: |
-          sudo apt-get update
+          # bounded as in the apt rows: three tries of at most 3 minutes
+          for try in 1 2 3; do
+            sudo timeout 180 apt-get update && break
+            [ "$try" -lt 3 ] || exit 1
+            echo "apt-get update: try $try of 3 failed or ran past 3 minutes; again in 15 s"
+            sleep 15
+          done
           sudo DEBIAN_FRONTEND=noninteractive apt-get install -y gfortran libblas-dev liblapack-dev
       - uses: actions/cache@v6
         id: built
@@ -283,6 +303,7 @@ jobs:
           # macOS 27, GitHub's public preview (actions/runner-images#14404): its label is the image's
           - { os: xcode-27, require: 'PHOTONOXIDE_REQUIRE_ACCELERATE=symmetric' }
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 75 # the longest of recent runs: 38 minutes (macos-15-intel)
     steps:
       - uses: actions/checkout@v7
       - run: sw_vers
@@ -307,6 +328,7 @@ jobs:
     # and Arm's download server refuses GitHub's runners, "Access Denied", 2026-10-15.)
     name: Arm PL brew (macos-latest)
     runs-on: macos-latest
+    timeout-minutes: 45 # the longest of recent runs: 19 minutes
     defaults:
       run:
         shell: bash
@@ -333,6 +355,7 @@ jobs:
   winget:
     name: winget's index (windows-latest)
     runs-on: windows-latest
+    timeout-minutes: 10 # under a minute in recent runs
     steps:
       # the installers are several gigabytes and ask for elevation: only that the index still
       # has the packages the guides name, at which version

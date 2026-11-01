@@ -452,6 +452,7 @@ jobs:
       matrix:
         os: ${{ fromJSON(needs.changes.outputs.studio) }}
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 60 # 9 to 21 minutes in recent runs
     env:
       TAURI_APT_PACKAGES: libwebkit2gtk-4.1-dev libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
     defaults:
@@ -468,7 +469,14 @@ jobs:
       - id: ubuntu
         if: runner.os == 'Linux'
         run: |
-          sudo apt-get update
+          # an Ubuntu mirror can stall apt-get update for over an hour: each try stops after 3
+          # minutes, and the third failure fails the step
+          for try in 1 2 3; do
+            sudo timeout 180 apt-get update && break
+            [ "$try" -lt 3 ] || exit 1
+            echo "apt-get update: try $try of 3 failed or ran past 3 minutes; again in 15 s"
+            sleep 15
+          done
           echo "release=$(lsb_release -rs)" >> "$GITHUB_OUTPUT"
       - if: runner.os == 'Linux'
         uses: awalsh128/cache-apt-pkgs-action@v1
