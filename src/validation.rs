@@ -1044,14 +1044,14 @@ pub fn cases() -> Vec<Case> {
             id: "fdfd/step-reflection-te",
             title: "The same step's reflection of the 220 nm slab's TE mode, $E$ along $z$, on grids of 10, 5 and 2.5 nm (the finest's shown)",
             tier: Tier::Analytic,
-            source: r"Fresnel's formula on the two modes' effective indices, $((n_1 - n_2)/(n_1 + n_2))^2 = 1.16738 \times 10^{-3}$ for 2.84498 and 3.04626 at 2.5 nm: the TE modal impedance is the effective index; an approximation, 0.50 % above the step's reflection here, 0.53 % in the grids' limit (at 10 nm the two met to 0.07 %, by the grid's error)",
+            source: r"Fresnel's formula on the two modes' effective indices, $((n_1 - n_2)/(n_1 + n_2))^2 = 1.16738 \times 10^{-3}$ for 2.84498 and 3.04626 at 2.5 nm: the TE modal impedance is the effective index; an approximation, 0.50 % above the step's reflection here, 0.53 % in the grids' limit and 0.54 % ($6.2 \times 10^{-6}$) by the eigenmode expansion of the bare step on the exact slabs' effective indices, 200 modes and a PML, within $5 \times 10^{-8}$ of 160 modes' (at 10 nm the two met to 0.07 %, by the grid's error)",
             run: fdfd_step_reflection_te,
         },
         Case {
             id: "fdfd/adjoint-gradient-ez",
-            title: r"2D FDFD, $E$ along $z$: the adjoint gradient of the power a silicon slab with a bump beside it delivers into its right port's mode, against fourth-order central finite differences ($\delta = 10^{-3}$) on a cell each in the bump, the core and the oxide (largest relative difference shown)",
+            title: r"2D FDFD, $E$ along $z$: the adjoint gradient of the power a silicon slab with a bump beside it delivers into its right port's mode, against fourth-order central finite differences ($\delta = 4 \times 10^{-3}$) on a cell each in the bump, the core and the oxide (largest relative difference shown)",
             tier: Tier::Analytic,
-            source: r"the adjoint variable method, G. Veronis, R. W. Dutton, S. Fan, Opt. Lett. 29, 2288 (2004), doi:10.1364/OL.29.002288, Eqs. 2-4: $\nabla F = -2\operatorname{Re}(\lambda^T \mathrm{d}A\thinspace u)$, $A^T\lambda = \mathrm{d}F/\mathrm{d}u$; the differences resolve the derivative $g$ to $\frac{18}{12}\thinspace \epsilon P/(\delta g)$, the powers' precision $\epsilon$ (twice the solve's relative residual, rounded up to a power of ten) through the formula's weights, their truncation far below it; an error within that on every probe is shown as it, the error at most it, since below it the error is round-off whose digits are each platform's",
+            source: r"the adjoint variable method, G. Veronis, R. W. Dutton, S. Fan, Opt. Lett. 29, 2288 (2004), doi:10.1364/OL.29.002288, Eqs. 2-4: $\nabla F = -2\operatorname{Re}(\lambda^T \mathrm{d}A\thinspace u)$, $A^T\lambda = \mathrm{d}F/\mathrm{d}u$; the differences resolve the derivative $g$ to $\frac{18}{12}\thinspace \epsilon P/(\delta g)$, the powers' precision $\epsilon$ (twice the solve's relative residual, rounded up to a power of ten) through the formula's weights; their truncation, measured $2.4 \times 10^{-3}\thinspace \delta^4$ where it shows, meets it at $\delta = 3 \times 10^{-2}$ and is $4 \times 10^{-5}$ of it at this $\delta$; an error within that on every probe is shown as it, the error at most it, since below it the error is round-off whose digits are each platform's",
             run: fdfd_adjoint_ez,
         },
         Case {
@@ -1247,7 +1247,7 @@ pub fn cases() -> Vec<Case> {
             id: "fdfd3d/qmr-plateau",
             title: r"Shin and Fan's vacuum square (their Fig. 1: $50 \times 50$ cells of 2 nm, periodic, uniform along $z$, an $x$-polarized dipole at its centre, 1.55 µm), QMR on the curl-curl operator ($s = 0$): the relative residual where it stagnates, at iteration 20 (shown)",
             tier: Tier::Published,
-            source: "W. Shin, S. Fan, Opt. Express 21, 22578 (2013), doi:10.1364/OE.21.022578, Section 3 and Fig. 3: the residual's part in the near-null eigenspace, 0.707, holds the residual there initially (GMRES; QMR is GMRES for this real symmetric matrix)",
+            source: r"W. Shin, S. Fan, Opt. Express 21, 22578 (2013), doi:10.1364/OE.21.022578, Section 3 and Fig. 3: the residual's part in the near-null eigenspace, 0.707, holds the residual there initially (GMRES; QMR is GMRES for this real symmetric matrix); on the $N \times N$ square that part is the gradients' and the constant field's, $\sqrt{(N^2 + 1)/2N^2} = 0.70725$ for $N = 50$; measured 0.708633 at iteration 20, where the residual is stationary, and 0.708739 to 0.708461 over iterations 14 to 25, where it moves by under $10^{-4}$ an iteration (the spread noted)",
             run: fdfd3d_qmr_plateau,
         },
         Case {
@@ -1429,7 +1429,7 @@ pub fn cases() -> Vec<Case> {
             id: "fdfd3d/recycle-parks-table",
             title: r"Parks et al.'s Section 4.4 rebuilt: $u_{xx} + u_{yy} = 0$ on the unit square by central differences, $h = 1/41$ (1600 unknowns), $u = 0$ on two sides and 1 on the others, GCRO-DR(25, 10) from zero to 1e-10; the cosines of the principal angles between the space it recycles and the invariant subspace of the 10 eigenvalues of smallest magnitude: five at 1 and five at 0, the largest departure (shown)",
             tier: Tier::Published,
-            source: r"M. L. Parks et al., SIAM J. Sci. Comput. 28, 1651 (2006), doi:10.1137/040607277, Table 4.3, $c = 0$: 1, 1, 1, 1, 0.99999999999703, then 5.9e-9, 3.8e-11, 3e-14, 0, 0 (the right-hand side has no part on four antisymmetric eigenvectors and on $\sin 2\pi x \sin 2\pi y$, so a Krylov space can't hold them); measured 1 to 7.2e-8, then 1.1e-8 and below",
+            source: r"M. L. Parks et al., SIAM J. Sci. Comput. 28, 1651 (2006), doi:10.1137/040607277, Table 4.3, $c = 0$: 1, 1, 1, 1, 0.99999999999703, then 5.9e-9, 3.8e-11, 3e-14, 0, 0 (the right-hand side has no part on four antisymmetric eigenvectors and on $\sin 2\pi x \sin 2\pi y$, so a Krylov space can't hold them); measured 1 to 7.2e-8 (1.6e-12 for the fourth), then 1.1e-8 and below; with the right-hand side scaled by 3, 1/3, 7, 0.1, π, 1000/7 and 1.1, the same spaces in exact arithmetic but other roundings, the departure from 1 moves by 2.6e-14 (its spread noted, to a power of ten) and those from 0 lie between 1.1e-8 and 2.2e-8: the first is the recycled space's own approximation of the invariant subspace, the second the rounding",
             run: fdfd3d_recycle_parks_table,
         },
         Case {
@@ -3540,14 +3540,41 @@ fn fdtd_smoothing_crystal_order() -> Outcome {
     }
 }
 
+/// The plateau of a QMR history (relative residuals, iteration 1 first): its level at iteration
+/// 20, where it is stationary, and its spread over the stretch around it where each iteration
+/// moves it by under 1e-4, a digit finer than Shin and Fan's three, with that stretch's first and
+/// last iterations.
+pub(crate) fn qmr_plateau_of(history: &[f64]) -> (f64, f64, (usize, usize)) {
+    let at = 19;
+    let flat = |k: usize| (history[k] - history[k - 1]).abs() < 1e-4;
+    let mut from = at;
+    while from > 1 && flat(from) {
+        from -= 1;
+    }
+    let mut to = at;
+    while to + 1 < history.len() && flat(to + 1) {
+        to += 1;
+    }
+    let stretch = &history[from + 1..=to];
+    let (lo, hi) = stretch
+        .iter()
+        .fold((f64::INFINITY, 0.0f64), |(l, u), &r| (l.min(r), u.max(r)));
+    (history[at], hi - lo, (from + 2, to + 1))
+}
+
+/// Shin and Fan's plateau at iteration 20, its spread over the flat stretch noted
+/// (`shin_and_fans_plateau_study`): 0.708633, 2.8e-4 over iterations 14 to 25. The residual
+/// isn't level from 5 to 40: it falls from 0.7139 at 5 to the plateau and, past 25, through
+/// 0.707 to 0.6999 at 40, a spread of 1.4e-2.
 fn fdfd3d_qmr_plateau() -> Outcome {
     let how = crate::fdfd::checks3d::shin_fan_square(0.0, 1e-6);
-    let measured = how.history[19];
+    let (measured, spread, _) = qmr_plateau_of(&how.history);
+    note_numerical(spread);
     Outcome {
         measured,
         expected: 0.707,
-        // their 0.707 is the residual's projection on the eigenvalue nearest zero, an
-        // approximate floor; measured 0.709 from iteration 5 to 40
+        // their 0.707 is the residual's share in the near-null eigenspace, 0.70725 exactly
+        // here; the rest of the residual holds the plateau above it, by 1.4e-3
         tolerance: 5e-3,
         error: (measured - 0.707).abs(),
     }
@@ -3918,23 +3945,24 @@ fn fdfd3d_multigrid_stencil_smoothing_factors() -> Outcome {
     }
 }
 
+/// Parks et al.'s Table 4.3 rebuilt, the run repeated with its right-hand side scaled seven ways
+/// (the same spaces in exact arithmetic, other roundings; `parks_table_rounding_study`): the
+/// largest departure unscaled shown, and its spread over the eight noted, rounded up to a power
+/// of ten as its digits are each platform's. Measured: 7.156718e-8 from 1 under all eight, to
+/// 2.6e-14, so the recycled space's own approximation of the invariant subspace; from 0, 1.1e-8
+/// to 2.2e-8, the rounding's.
 fn fdfd3d_recycle_parks_table() -> Outcome {
-    let cosines = crate::fdfd::krylov::recycle_example::table_cosines();
-    let departure = if cosines.len() == 10 {
-        let ones = cosines[..5]
-            .iter()
-            .map(|c| (1.0 - c).abs())
-            .fold(0.0, f64::max);
-        let zeros = cosines[5..].iter().fold(0.0f64, |m, c| m.max(c.abs()));
-        ones.max(zeros)
-    } else {
-        f64::NAN
-    };
+    let runs = crate::fdfd::krylov::recycle_example::table_departures();
+    let shown: Vec<f64> = runs.iter().map(|&(ones, zeros)| ones.max(zeros)).collect();
+    let departure = shown[0];
+    let (lo, hi) = shown
+        .iter()
+        .fold((f64::INFINITY, 0.0f64), |(l, u), &d| (l.min(d), u.max(d)));
+    note_numerical(10f64.powf((hi - lo).max(f64::MIN_POSITIVE).log10().ceil()));
     Outcome {
         measured: departure,
         expected: 0.0,
-        // their fifth cosine is 1 − 3e-12 and their sixth 5.9e-9: shown as within 1e-6, as
-        // these digits are the rounding of the run
+        // their fifth cosine is 1 − 3e-12 and their sixth 5.9e-9; ours 1 − 7.2e-8 and 1.1e-8
         tolerance: 1e-6,
         error: departure,
     }
@@ -4195,8 +4223,10 @@ fn fdfd_reciprocity() -> Outcome {
 /// The step's TE reflection against Fresnel's formula on its two modes' effective indices, on
 /// grids of 10, 5 and 2.5 nm, the finest's shown, the error of their difference noted from the
 /// three: second order (−7.9e-7, −4.9e-6 and −5.9e-6), Richardson's estimate 3.4e-7 at the
-/// finest. At 10 nm alone the grid's error, 5.4e-6, was as large as the formula's own (6.2e-6),
-/// and the two met to 0.07 % by chance.
+/// finest. At 10 nm alone the grid's error, 5.4e-6, was as large as the formula's own (6.2e-6,
+/// by the eigenmode expansion of the bare step: `the_steps_fresnel_error_study`, 6.632e-6,
+/// 6.086e-6, 6.198e-6 and 6.248e-6 with 80, 120, 160 and 200 modes), and the two met to 0.07 %
+/// by chance.
 fn fdfd_step_reflection_te() -> Outcome {
     let runs = [0.01, 0.005, 0.0025].map(|h| {
         let (s, n1, n2) = crate::fdfd::checks::step_on(crate::fdfd::Polarization::Ez, h);
@@ -4221,12 +4251,24 @@ fn fdfd_step_reflection_te() -> Outcome {
     }
 }
 
-/// The adjoint's derivative against fourth-order differences at δ = 1e-3, on three probes. Where
+/// The adjoint's derivative against fourth-order differences at δ = 4e-3, on three probes. Where
 /// every probe's error is within what the differences resolve there, the case reports that
 /// resolution, the largest, as the error (at most it): below it the error is the differences'
-/// round-off, whose digits are each platform's (5.3e-8 and 1.9e-7 here).
+/// round-off, whose digits are each platform's (3.2e-8 and 2.1e-9 here). The resolution is also
+/// noted as the case's own numerical error, so it must stay under a third of the tolerance.
+///
+/// Why δ = 4e-3 (`the_adjoint_checks_step_study`, δ from 2.5e-4 to 6.4e-2): the round-off bound
+/// falls as 1/δ, the largest 6.6e-10/δ with E along z and 8.4e-10/δ with H; the truncation rises
+/// as δ⁴ and shows on one probe only, H along z in the oxide (2.3e-9 at δ = 3.2e-2 and 4.0e-8 at
+/// 6.4e-2, a ratio of 17.5 for 2⁴), 2.4e-3 δ⁴ against that probe's bound of 5.9e-11/δ: the two
+/// meet at δ = 3e-2, their sum least at 2.3e-2. Their ratio goes as δ⁵, so at 4e-3, under a
+/// seventh of the meeting step, the truncation (6e-13) is 4e-5 of that probe's bound (1.5e-8);
+/// on the other probes it stays under their round-off even at 6.4e-2, and the four decades keep
+/// the case clear of their δ⁴ coefficients, which the study only bounds. The bound the case shows
+/// is then the error's, and a quarter of δ = 1e-3's: 1.6e-7 and 2.1e-7, against 6.6e-7 and
+/// 8.4e-7, which weren't under a third of the tolerance.
 fn fdfd_adjoint(polarization: crate::fdfd::Polarization) -> Outcome {
-    let probes = crate::fdfd::checks::gradient_probes(polarization, 1e-3);
+    let probes = crate::fdfd::checks::gradient_probes(polarization, 4e-3);
     let errors: Vec<(f64, f64)> = probes
         .iter()
         .map(|p| {
@@ -4234,8 +4276,10 @@ fn fdfd_adjoint(polarization: crate::fdfd::Polarization) -> Outcome {
             (error, p.resolution())
         })
         .collect();
+    let resolution = errors.iter().map(|&(_, r)| r).fold(0.0, f64::max);
+    note_numerical(resolution);
     let error = if errors.iter().all(|(e, r)| e <= r) {
-        errors.iter().map(|&(_, r)| r).fold(0.0, f64::max)
+        resolution
     } else {
         errors.iter().map(|&(e, _)| e).fold(0.0, f64::max)
     };

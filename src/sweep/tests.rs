@@ -153,6 +153,51 @@ fn the_estimate_bounds_the_error_on_a_few_test_functions() {
     }
 }
 
+/// A smooth dispersion, 2 + 0.3 sin 1.5x + 0.1x², with noise of relative size `eta`: each
+/// sample's own, from its point's bits, so a sweep's samples don't depend on their order.
+fn noisy(x: f64, eta: f64) -> c64 {
+    let bits = x
+        .to_bits()
+        .wrapping_mul(6_364_136_223_846_793_005)
+        .wrapping_add(1_442_695_040_888_963_407);
+    let unit = (bits >> 11) as f64 / (1u64 << 53) as f64 * 2.0 - 1.0;
+    re((2.0 + 0.3 * (1.5 * x).sin() + 0.1 * x * x) * (1.0 + eta * unit))
+}
+
+#[test]
+#[ignore = "the sweep's floor on noisy samples (src/sweep.rs, What it can't see): in release, prints"]
+fn the_sweeps_floor_on_noisy_samples_study() {
+    // the noiseless function reaches 1e-10 in 28 samples; with noise above AAA's own 1e-13 the
+    // estimate stops far above the noise and grows past it
+    for eta in [0.0, 1e-12, 1e-10, 1e-8, 1e-6, 1e-4] {
+        let mut line = Vec::new();
+        let mut converged = Vec::new();
+        for tolerance in [1e-2, 1e-3, 1e-4, 1e-6, 1e-8, 1e-10] {
+            let sweep = Sweep::run(
+                |x| Ok(noisy(x, eta)),
+                -1.0,
+                1.0,
+                &Options::new(tolerance).with_max_samples(60),
+            )
+            .unwrap();
+            let least = sweep.history.iter().copied().fold(f64::INFINITY, f64::min);
+            line.push(format!(
+                "{tolerance:.0e}: {} in {} (least {least:.0e})",
+                if sweep.converged { "yes" } else { "no" },
+                sweep.calls()
+            ));
+            converged.push(sweep.converged);
+        }
+        eprintln!("noise {eta:.0e}: {}", line.join(", "));
+        if eta == 0.0 {
+            assert!(converged.iter().all(|&c| c));
+        } else {
+            // the estimate stops at 7e-6, 1e-4, 9e-3, 6e-5 and 3e-3: 30 to 7e6 times the noise
+            assert!(!converged[5], "noise {eta:e}");
+        }
+    }
+}
+
 #[test]
 fn a_zero_function_is_converged_at_once() {
     let sweep = Sweep::run(|_| Ok(re(0.0)), 0.0, 1.0, &Options::default()).unwrap();

@@ -157,6 +157,19 @@ fn the_closed_form_cases_hold() {
     }
 }
 
+#[test]
+#[ignore = "Fresnel's formula on the bare step, by the expansion (fdfd/step-reflection-te's model): in release, prints"]
+fn the_steps_fresnel_error_study() {
+    for modes in [40, 80, 120, 160, 200] {
+        let (r, fresnel) = checks::step_against_fresnel(modes);
+        eprintln!(
+            "{modes} modes: R {r:.6e}, Fresnel {fresnel:.6e}, its error {:.3e} ({:.3} %)",
+            fresnel - r,
+            100.0 * (fresnel - r) / r
+        );
+    }
+}
+
 /// The report's rows of the eigenmode-expansion cases, to paste into docs/validation.md.
 #[test]
 #[ignore = "runs the taper cases with FDFD: for the report"]

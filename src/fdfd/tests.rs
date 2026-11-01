@@ -324,8 +324,40 @@ fn windowed_ports_see_one_guide_each() {
 fn the_adjoint_gradient_is_the_finite_differences() {
     for polarization in [Polarization::Ez, Polarization::Hz] {
         let error = gradient_check(polarization);
-        // 1.4e-7 and 8e-8: the finite differences' own round-off, about 1e-10 / δ
+        // 3.2e-8 and 2.1e-9 at δ = 4e-3: the finite differences' own round-off
+        // (the_adjoint_checks_step_study)
         assert!(error < 1e-6, "{polarization:?}: {error}");
+    }
+}
+
+#[test]
+#[ignore = "the step study behind fdfd/adjoint-gradient-ez and -hz's δ = 4e-3: prints, in release"]
+fn the_adjoint_checks_step_study() {
+    // each probe's error against the differences and what they resolve, δ from 2.5e-4 to 6.4e-2:
+    // the round-off falls as 1/δ, the truncation rises as δ⁴
+    let deltas = [2.5e-4, 5e-4, 1e-3, 2e-3, 4e-3, 8e-3, 1.6e-2, 3.2e-2, 6.4e-2];
+    let start = std::time::Instant::now();
+    let total = 2 * deltas.len();
+    let mut k = 0;
+    for polarization in [Polarization::Ez, Polarization::Hz] {
+        for &delta in &deltas {
+            let probes = gradient_probes(polarization, delta);
+            k += 1;
+            let line: Vec<String> = probes
+                .iter()
+                .map(|p| {
+                    let error = (p.gradient - p.differences()).abs() / p.gradient.abs();
+                    format!("{error:.2e} (resolves {:.2e})", p.resolution())
+                })
+                .collect();
+            let elapsed = start.elapsed().as_secs_f64();
+            eprintln!(
+                "{k}/{total} {:.0} % {elapsed:.0} s, ETA {:.0} s  {polarization:?} δ = {delta:.1e}: {}",
+                100.0 * k as f64 / total as f64,
+                elapsed / k as f64 * (total - k) as f64,
+                line.join(", ")
+            );
+        }
     }
 }
 

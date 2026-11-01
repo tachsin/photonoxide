@@ -155,6 +155,10 @@ the same one.
   between the recycled space and the invariant subspace of the 10 eigenvalues of smallest
   magnitude are 1, 1, 1, 1, 0.99999999999703, then 5.9e-9, 3.8e-11, 3e-14, 0 and 0; here 1 to
   7.2e-8, then 1.1e-8, 8.7e-10, 2.0e-11, 1.0e-12 and 1.1e-14 (`fdfd3d/recycle-parks-table`).
+  Run again with the right-hand side scaled by 3, 1/3, 7, 0.1, π, 1000/7 and 1.1 (the same
+  spaces in exact arithmetic, other roundings), the departure from 1, 7.156718e-8, moves by
+  2.6e-14, and the sixth cosine lies between 1.1e-8 and 2.2e-8: the first is the recycled space's
+  own approximation of the invariant subspace, the rest of the departures from 0 the rounding.
   Five, because the right-hand side has no part on the four antisymmetric eigenvectors among
   the ten, $\sin p\pi x \sin q\pi y - \sin q\pi x \sin p\pi y$, nor on $\sin 2\pi x \sin 2\pi y$ (its
   sums over the boundary's rows vanish for even $p$ and $q$), so no Krylov space holds them. Their

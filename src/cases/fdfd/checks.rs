@@ -304,10 +304,10 @@ pub(crate) fn port_mode_index(polarization: Polarization, h: f64) -> (f64, f64) 
 /// The adjoint gradient of the power a straight silicon slab (220 nm of 3.476 in 1.444, with a
 /// bump of permittivity 6 beside it, 0.2 × 0.2 µm) delivers into its right port's mode, from its
 /// left port's, against fourth-order central finite differences of the same power on a cell each in the bump,
-/// the core and the oxide: the largest relative difference.
+/// the core and the oxide, δ = 4e-3 as the validation cases: the largest relative difference.
 #[cfg(test)]
 pub(crate) fn gradient_check(polarization: Polarization) -> f64 {
-    gradient_probes(polarization, 1e-3)
+    gradient_probes(polarization, 4e-3)
         .iter()
         .map(|p| (p.gradient - p.differences()).abs() / p.gradient.abs().max(1e-12))
         .fold(0.0, f64::max)
@@ -335,8 +335,9 @@ impl Probe {
     /// precision u carried through the formula's weights, (1 + 8 + 8 + 1)/12 · u · P / (δ |g|).
     /// u is the solve's: a power is the field squared, so twice its relative residual, rounded
     /// up to a power of ten (the residual's own digits are each platform's maths library's).
-    /// The differences' truncation, δ⁴ P⁽⁵⁾/30, is far below it: under 5e-9 at δ = 4e-3, where
-    /// the round-off is a quarter of δ = 1e-3's.
+    /// The differences' truncation, δ⁴ P⁽⁵⁾/30, is far below it at δ = 4e-3: measured 2.4e-3 δ⁴
+    /// on the one probe where it shows (`the_adjoint_checks_step_study`), 6e-13 there, 4e-5 of
+    /// that probe's resolution; the round-off is a quarter of δ = 1e-3's.
     pub(crate) fn resolution(&self) -> f64 {
         let u = 10f64.powf((2.0 * self.residual).log10().ceil());
         18.0 / 12.0 * u * self.power.abs() / (self.delta * self.gradient.abs())

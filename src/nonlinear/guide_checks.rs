@@ -534,6 +534,17 @@ pub(crate) fn slab_group_index(h: f64) -> f64 {
     index.group_index(1.55)
 }
 
+/// The same slab's TE₀ effective index at `l` µm on cells of `h`, from the full-vector solver.
+#[cfg(test)]
+pub(crate) fn slab_index(h: f64, l: f64) -> f64 {
+    let (core, clad) = (constant(2.2), constant(1.45));
+    let cs = slab_cs(l, h, &core, &clad);
+    fundamental(&cs, um(l), Family::Tm, 2)
+        .expect(OK)
+        .effective_index()
+        .re
+}
+
 /// The same slab's exact group index: without material dispersion, n_g = ⟨ε⟩/n_eff with ⟨ε⟩ the
 /// mean permittivity weighted by the exact field's square (Hellmann–Feynman on the TE equation,
 /// as [`crate::mode::dispersion`]'s case), by a midpoint rule of 402 000 points over ±2.01 µm (the interfaces on\n/// their cells' edges).

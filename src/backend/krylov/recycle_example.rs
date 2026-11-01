@@ -157,14 +157,56 @@ pub(crate) fn twice(c: f64) -> (usize, usize, usize, Space) {
     (first, second, full, left)
 }
 
-/// Their Table 4.3 for c = 0: the cosines of the principal angles between the space GCRO-DR(25,
-/// 10) recycles after its first run and the invariant subspace of the 10 eigenvalues of smallest
-/// magnitude, largest first. For c = 0 the matrix is the 5-point Laplacian, whose eigenvectors
-/// are sin(pπ i h) sin(qπ j h) with eigenvalues −4 sin²(pπh/2) − 4 sin²(qπh/2): the 10 smallest
-/// are (p, q) = (1, 1), (1, 2), (2, 1), (2, 2), (1, 3), (3, 1), (2, 3), (3, 2), (1, 4), (4, 1),
-/// and (3, 3) the 11th.
+/// [`table_cosines_scaled`] unscaled: their Table 4.3 for c = 0.
+#[cfg(test)]
 pub(crate) fn table_cosines() -> Vec<f64> {
-    let (_, _, _, space) = twice(0.0);
+    table_cosines_scaled(1.0)
+}
+
+/// The right-hand side's scalings of [`table_departures`]: none, and seven that round
+/// differently.
+pub(crate) const SCALES: [f64; 8] = [
+    1.0,
+    3.0,
+    1.0 / 3.0,
+    7.0,
+    0.1,
+    std::f64::consts::PI,
+    1e3 / 7.0,
+    1.1,
+];
+
+/// The largest departure of [`table_cosines_scaled`]'s five cosines from 1 and of its other
+/// five from 0, under each of [`SCALES`]: (from 1, from 0) for each.
+pub(crate) fn table_departures() -> Vec<(f64, f64)> {
+    SCALES
+        .iter()
+        .map(|&s| {
+            let c = table_cosines_scaled(s);
+            if c.len() != 10 {
+                return (f64::NAN, f64::NAN);
+            }
+            let ones = c[..5].iter().map(|c| (1.0 - c).abs()).fold(0.0, f64::max);
+            let zeros = c[5..].iter().fold(0.0f64, |m, c| m.max(c.abs()));
+            (ones, zeros)
+        })
+        .collect()
+}
+
+/// Their Table 4.3 for c = 0, with the right-hand side times `scale` (the same spaces in exact
+/// arithmetic, as the stopping test is relative; other roundings in floating point): the cosines
+/// of the principal angles between the space GCRO-DR(25, 10) recycles after its first run and
+/// the invariant subspace of the 10 eigenvalues of smallest magnitude, largest first. For c = 0
+/// the matrix is the 5-point Laplacian, whose eigenvectors are sin(pπ i h) sin(qπ j h) with
+/// eigenvalues −4 sin²(pπh/2) − 4 sin²(qπh/2): the 10 smallest are (p, q) = (1, 1), (1, 2),
+/// (2, 1), (2, 2), (1, 3), (3, 1), (2, 3), (3, 2), (1, 4), (4, 1), and (3, 3) the 11th.
+pub(crate) fn table_cosines_scaled(scale: f64) -> Vec<f64> {
+    let (a, b) = convection_diffusion(0.0);
+    let b: Vec<c64> = b.iter().map(|v| v * scale).collect();
+    let mut space = Space::default();
+    if gcro_dr(&a, &Identity, &b, stopping(), 25, 10, &mut space, 0).is_err() {
+        return Vec::new();
+    }
     let h = 1.0 / (P + 1) as f64;
     let pi = std::f64::consts::PI;
     let modes = [
