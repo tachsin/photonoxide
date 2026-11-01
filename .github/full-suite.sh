@@ -22,7 +22,7 @@
 # the hooks don't start this script, and the lints build in the worktree's own
 # <main checkout>/target/agents/<name> (.github/hooks/agent-worktree.sh).
 set -uo pipefail
-cd "$(dirname "$0")/.."
+cd "$(dirname "$0")/.." || exit 1
 
 fast=false
 [ "${1:-}" = --fast ] && fast=true
@@ -45,6 +45,7 @@ step() {
 }
 skip() { results+=("$(printf '%6s  skipped %s (%s)' - "$1" "$2")"); }
 
+# shellcheck disable=SC2317 # run through step, as "$@"
 examples() {
   local status=0 example name out
   out=$(mktemp -d)
@@ -58,9 +59,10 @@ examples() {
     fi
   done
   rm -rf "$out"
-  return $status
+  return "$status"
 }
 
+# shellcheck disable=SC2317 # run through step, as "$@"
 studio() {
   (cd studio && pnpm install --frozen-lockfile && pnpm build) &&
     cargo fmt -p photonoxide-studio -p photonoxide-setup --check &&

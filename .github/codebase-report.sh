@@ -183,6 +183,7 @@ echo
 echo "#### The installers"
 echo
 # the latest two releases' installers, by their names less photonoxide-VERSION-
+# shellcheck disable=SC2016 # the $t in the jq program's single quotes is jq's variable, not the shell's
 if command -v gh >/dev/null &&
   g_rel=$(gh api "repos/$repo/releases?per_page=10" --jq '[.[] | select(.draft | not) | select(.prerelease | not)][0:2][] | .tag_name as $t | .assets[] | [$t, .name, (.size | tostring)] | join("\t")' 2>/dev/null) &&
   [ -n "$g_rel" ]; then
@@ -214,6 +215,7 @@ if [ "${CODEBASE_REPORT_BLOAT:-}" = 1 ] && command -v cargo-bloat >/dev/null; th
     --crates -n 20 --message-format json >"$tmp/bloat.json" 2>"$tmp/bloat.err"; then
     # {"file-size":F,"text-section-size":T,"crates":[{"name":N,"size":S},...]}, a key and its
     # value to a line: "key":number or "name":"crate"
+    # shellcheck disable=SC2020 # each of the five characters is given its own newline: tr pads a shorter set differently on BSD and GNU
     tr '{},[]' '\n\n\n\n\n' <"$tmp/bloat.json" | awk -F'"' "$LIB"'
       { v = substr($3, 2) + 0 }
       $2 == "file-size" { F = v } $2 == "text-section-size" { T = v }
@@ -333,6 +335,7 @@ echo "Parts the program could fetch when wanted, with the bytes they build in (u
 echo
 echo "| Part | Built in | Files |"
 echo "|---|--:|--:|"
+# shellcheck disable=SC2016 # the backticks in the single quotes are Markdown's, not command substitutions
 {
   IFS=$'\t' read -r b c < <(inc '^academy/')
   printf 'A\tthe Academy'"'"'s lessons (`academy/`); its studio code is %s more source\t%d\t%d\n' \

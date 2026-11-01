@@ -265,6 +265,12 @@ jobs:
       - uses: actions/checkout@v7
       # every relative link in the Markdown points at something that exists
       - run: bash .github/scripts/check-links.sh
+      # the git hooks and the scripts they call, on throwaway repositories (nothing builds); this is
+      # the Linux run of the path handling (`pwd -P`), which Git Bash on Windows never takes
+      - run: bash .github/scripts/test-hooks.sh
+      # shellcheck, which GitHub's ubuntu runners ship, over the hooks and the scripts; -x follows
+      # the `source` lines, found from the folder of the file that has them
+      - run: shellcheck -x -P SCRIPTDIR .github/hooks/* .github/scripts/*.sh .github/*.sh
 
   lint:
     name: Lint
