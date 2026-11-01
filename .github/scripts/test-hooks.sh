@@ -74,6 +74,7 @@ check "two agent worktrees never share a target" "$([ "$(target_of "$agent")" !=
 check "a subfolder of an agent worktree has the worktree's target" "$(target_of "$agent/sub")" "$main_abs/target/agents/agent-1"
 check "the main checkout has no agent target" "$(target_of "$main" > /dev/null && echo some || echo none)" none
 name_of() { (source "$repo/.github/hooks/agent-worktree.sh" && agent_worktree_name "$1"); }
+# shellcheck disable=SC1003 # the path ends in a backslash, as a Windows folder path may
 check "a Windows path names its worktree" "$(name_of 'C:\Users\x\repo\.claude\worktrees\Agent-A01\')" agent-a01
 check "a nested worktree folder keeps its whole path in the name" "$(name_of /r/.claude/worktrees/group/agent-1)" group_agent-1
 
@@ -134,14 +135,14 @@ rm -rf "$main/.claude/worktrees/agent-deleted"
 for t in agent-1 agent-2 agent-gone agent-deleted; do mkdir -p "$main/target/agents/$t/debug"; done
 out=$(cd "$agent" && bash "$repo/.github/scripts/prune-agent-targets.sh" --dry-run)
 check "prune --dry-run lists the targets without a worktree" "$(echo "$out" | grep -c 'would remove')" 2
-check "prune --dry-run removes nothing" "$(ls "$main/target/agents" | wc -l | tr -d ' ')" 4
+check "prune --dry-run removes nothing" "$(find "$main/target/agents" -mindepth 1 -maxdepth 1 | wc -l | tr -d ' ')" 4
 git -C "$main" merge -q --no-edit topic > /dev/null 2>&1
 for _ in 1 2 3 4 5 6 7 8 9 10; do
   [ -s "$main/target/full-suite.log" ] && grep -q 'removed from' "$main/target/prune-agent-targets.log" 2> /dev/null && break
   sleep 1
 done
 check "post-merge in the main checkout still starts the suite" "$(cat "$main/target/full-suite.log" 2> /dev/null)" "stub full suite"
-check "post-merge in the main checkout prunes the targets of gone worktrees" "$(ls "$main/target/agents" | tr '\n' ' ')" "agent-1 agent-2 "
+check "post-merge in the main checkout prunes the targets of gone worktrees" "$(find "$main/target/agents" -mindepth 1 -maxdepth 1 -exec basename {} \; | sort | tr '\n' ' ')" "agent-1 agent-2 "
 
 # --- pre-push: the lints run in all three, and build where expected
 push() { # push DIR BRANCH: the hook's output

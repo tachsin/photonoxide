@@ -37,6 +37,7 @@ agent_worktree() {
   # the main checkout: its git dir is the common one
   [ "$gitdir" != "$common" ] || return 1
   # lower case, forward slashes: C:\Users\..\.claude\worktrees\x and c:/users/../.claude/worktrees/x
+  # shellcheck disable=SC1003 # the backslash is a character of tr's set, not an escaped quote
   top=$(printf '%s' "$top" | tr 'A-Z\\' 'a-z/')
   case "$top/" in
     */.claude/worktrees/*) return 0 ;;
@@ -46,9 +47,11 @@ agent_worktree() {
 
 # The name of an agent worktree's folder: its path below `.claude/worktrees/`, lower case, with
 # `/` as `_` (agent-a01 for .claude/worktrees/agent-a01). Takes a path, or the checkout's top.
+# shellcheck disable=SC2120 # the path is optional; callers in this file use the default
 agent_worktree_name() {
   local top
   top=${1:-$(git rev-parse --show-toplevel 2> /dev/null)} || return 1
+  # shellcheck disable=SC1003 # the backslash is a character of tr's set, not an escaped quote
   top=$(printf '%s' "$top" | tr 'A-Z\\' 'a-z/')
   top=${top%/}
   case "$top/" in
@@ -75,6 +78,7 @@ agent_targets_root() {
 agent_target_dir() {
   local root name
   root=$(agent_targets_root) || return 1
+  # shellcheck disable=SC2119 # no path: the checkout's own top-level folder
   name=$(agent_worktree_name) || return 1
   echo "$root/$name"
 }

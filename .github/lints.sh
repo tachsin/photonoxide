@@ -10,6 +10,7 @@
 # Sourced, not run: it defines `lint_key`, `lint_passed`, `lint_stamp` and `LINTS`.
 
 # The steps, in order: a name, then the command (run with eval from the repository's root).
+# shellcheck disable=SC2034 # read by the scripts that source this file
 LINTS=(
   "fmt|cargo fmt --all --check"
   "clippy|cargo clippy --all-targets --all-features -- -D warnings"
