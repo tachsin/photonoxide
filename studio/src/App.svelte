@@ -14,7 +14,8 @@
   import UpdateDialog from "./components/UpdateDialog.svelte";
   import { app, boot } from "./lib/app.svelte";
   import { nightlyBoot } from "./lib/nightly.svelte";
-  import { checkForUpdate } from "./lib/updater.svelte";
+  import { startSchedule } from "./lib/schedule";
+  import { checkForUpdate, updater } from "./lib/updater.svelte";
   import Academy from "./pages/Academy.svelte";
   import Benchmarks from "./pages/Benchmarks.svelte";
   import ChipPage from "./pages/Chip.svelte";
@@ -28,17 +29,39 @@
   import Viewer from "./pages/Viewer.svelte";
 
   onMount(() => {
+    let stop = () => {};
+    let gone = false;
     boot().then(() => {
       // a nightly build confirms it started, and a build running or waiting shows
       nightlyBoot();
-      // a moment after the window opens, so the first paint isn't held up
-      if (app.state?.settings.check_updates) setTimeout(() => checkForUpdate(true), 2500);
+      if (gone) return;
+      // updates: at once (neither call waits for the other, nor holds up the window), when the
+      // window comes back 15 minutes or more after the last check, and every hour; each only
+      // while the setting is on
+      stop = startSchedule({
+        enabled: () => !!app.state?.settings.check_updates,
+        checkedAt: () => updater.checkedAt,
+        check: (why) => void checkForUpdate(true, why),
+        now: Date.now,
+        every: (run, ms) => {
+          const t = setInterval(run, ms);
+          return () => clearInterval(t);
+        },
+        onFocus: (run) => {
+          const shown = () => document.visibilityState === "visible" && run();
+          window.addEventListener("focus", run);
+          document.addEventListener("visibilitychange", shown);
+          return () => {
+            window.removeEventListener("focus", run);
+            document.removeEventListener("visibilitychange", shown);
+          };
+        },
+      });
     });
-    // and every hour while the window stays open, as long as the setting is on
-    const hourly = setInterval(() => {
-      if (app.state?.settings.check_updates) checkForUpdate(true);
-    }, 3_600_000);
-    return () => clearInterval(hourly);
+    return () => {
+      gone = true;
+      stop();
+    };
   });
 
   function keys(e: KeyboardEvent) {

@@ -136,8 +136,8 @@ pub fn decide(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::channels::github::Checker;
     use crate::channels::github::tests::Canned;
+    use crate::channels::github::{Asked, Checker};
     use std::path::PathBuf;
 
     /// main's history, oldest first, as in the real case: 2a704d6 (a nightly's), 6a581ad (the
@@ -197,7 +197,7 @@ mod tests {
         }
         let others: Vec<&str> = waiting.map(|(w, _)| w).into_iter().collect();
         Checker::default()
-            .check_with(&web, Some(built), "0.5.2", &others, 1000, false)
+            .check_with(&web, Some(built), "0.5.2", &others, 1000, Asked::User)
             .unwrap()
             .unwrap()
     }
@@ -247,7 +247,7 @@ mod tests {
         web.answer(HEAD_URL, 200, &[], MID.as_bytes());
         web.answer(&url(OLD, MID), 200, &[], &compare(20));
         let last = Checker::default()
-            .check_with(&web, Some(MID), "0.5.2", &[OLD], 0, false)
+            .check_with(&web, Some(MID), "0.5.2", &[OLD], 0, Asked::User)
             .unwrap()
             .unwrap();
         let o = decide(Some(MID), Some(&last), Some(&ready(OLD)), None);
@@ -280,7 +280,7 @@ mod tests {
         let web = Canned::default();
         web.answer(HEAD_URL, 200, &[], MID.as_bytes());
         let last = Checker::default()
-            .check(&web, Some(MID), "0.5.2", 0, false)
+            .check(&web, Some(MID), "0.5.2", 0, Asked::User)
             .unwrap()
             .unwrap();
         let o = decide(Some(MID), Some(&last), None, None);
@@ -338,11 +338,11 @@ mod tests {
         web.answer(&url(MID, NEW), 200, &[], &compare(2));
         let mut checker = Checker::default();
         checker
-            .check_with(&web, Some(RELEASE), "0.5.2", &[MID], 0, false)
+            .check_with(&web, Some(RELEASE), "0.5.2", &[MID], 0, Asked::User)
             .unwrap();
         assert_eq!(web.asked(), 3);
         let again = checker
-            .check_with(&web, Some(RELEASE), "0.5.2", &[MID], 3600, true)
+            .check_with(&web, Some(RELEASE), "0.5.2", &[MID], 3600, Asked::Schedule)
             .unwrap()
             .unwrap();
         assert_eq!(web.asked(), 4, "only the head, answered 304");
@@ -353,7 +353,7 @@ mod tests {
         web.answer(&url(RELEASE, NEW), 200, &[], &compare(5));
         web.answer(&url(MID, NEW), 404, &[], b"{}");
         let last = Checker::default()
-            .check_with(&web, Some(RELEASE), "0.5.2", &[MID], 0, false)
+            .check_with(&web, Some(RELEASE), "0.5.2", &[MID], 0, Asked::User)
             .unwrap()
             .unwrap();
         let s = last.since(MID).unwrap();

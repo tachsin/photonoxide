@@ -17,7 +17,8 @@ pub struct Settings {
     pub theme: String,
     /// The workspace, if chosen; see [`workspace`].
     pub workspace: Option<String>,
-    /// Look for a new release when the window opens, and every hour while it stays open.
+    /// Look for an update as soon as the window opens, when it comes back after 15 minutes or
+    /// more, and every hour while it stays open (`studio/src/lib/schedule.ts`).
     pub check_updates: bool,
     /// The release channel: `"stable"`, the signed releases, or `"nightly"`, main's latest
     /// commit, built here (`channels.rs`). Anything else is taken as `"stable"`.

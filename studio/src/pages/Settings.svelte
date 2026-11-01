@@ -9,6 +9,7 @@
   import { MORE_THEMES } from "../lib/themes";
   import { lengthUnit } from "../lib/units";
   import { available, buildRelease, building, clearCache, commits, nightly, rollBack } from "../lib/nightly.svelte";
+  import { describe } from "../lib/schedule";
   import { checkForUpdate, switchChannel, updater } from "../lib/updater.svelte";
 
   const s = $derived(app.state!.settings);
@@ -26,6 +27,9 @@
   const nightlyOn = $derived(s.channel === "nightly");
   /** Going back to the previous build, waiting for the user's confirmation. */
   let confirmingBack = $state(false);
+  /** How the last update check ended, quiet or not: "Last checked 14:02: up to date". */
+  const lastLine = $derived(describe(updater.last, Date.now(), s.check_updates));
+  const lastTone = $derived(updater.last?.outcome === "error" ? "text-warning" : updater.last?.outcome === "found" ? "text-info" : "faint");
 
   async function chooseWorkspace() {
     const dir = await open({ title: "Choose the workspace folder", directory: true, defaultPath: app.state?.workspace });
@@ -219,12 +223,23 @@
         <span>
           <span class="block text-sm font-medium">{nightlyOn ? "Look at main for new commits" : "Look for new releases"}</span>
           <span class="block text-xs faint">
-            {#if nightlyOn}When photonoxide opens, and every hour while it stays open, it asks GitHub for main's latest commit. When main moved, a button at the top lists the new commits and offers to build them here; nothing is built or installed without your click.
-            {:else}When photonoxide opens, and every hour while it stays open. When one is out, an Update button appears at the top; one click downloads, installs and restarts. Releases are signed, and the signature is checked before installing.{/if}
+            {#if nightlyOn}As soon as photonoxide opens, when its window comes back after 15 minutes or more, and every hour while it stays open, it asks GitHub for main's latest commit. When main moved, a button at the top lists the new commits and offers to build them here; nothing is built or installed without your click.
+            {:else}As soon as photonoxide opens, when its window comes back after 15 minutes or more, and every hour while it stays open. When one is out, an Update button appears at the top; one click downloads, installs and restarts. Releases are signed, and the signature is checked before installing.{/if}
           </span>
         </span>
-        <input type="checkbox" class="toggle toggle-primary" checked={s.check_updates} onchange={() => updateSettings((x) => (x.check_updates = !x.check_updates))} />
+        <input
+          type="checkbox"
+          class="toggle toggle-primary"
+          checked={s.check_updates}
+          onchange={async () => {
+            await updateSettings((x) => (x.check_updates = !x.check_updates));
+            // turned on: look now, rather than at the next hour
+            if (app.state?.settings.check_updates) checkForUpdate(true);
+          }}
+        />
       </label>
+      <!-- outside the label, so selecting the reason doesn't flip the switch -->
+      <p class="selectable mt-1.5 text-xs {lastTone}" aria-live="polite">{lastLine}</p>
       {#if nightlyOn}
         <div class="mt-4 flex flex-wrap items-center gap-3">
           <button class="btn btn-sm gap-1.5" onclick={() => checkForUpdate(false)} disabled={nightly.checking}>
@@ -329,6 +344,7 @@
           {/if}
         </dd>
         <dt class="faint">Channel</dt><dd>{build.channel === "nightly" ? "Nightly, built here from main" : "Stable"}</dd>
+        <dt class="faint">Updates</dt><dd class="selectable {lastTone}">{lastLine}</dd>
         <dt class="faint">Platform</dt><dd class="num">{app.state?.platform}</dd>
         <dt class="faint">License</dt><dd>MIT or Apache-2.0</dd>
       </dl>

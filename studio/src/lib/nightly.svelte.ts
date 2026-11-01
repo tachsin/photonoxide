@@ -158,6 +158,11 @@ export interface Note {
 export interface Status {
   build: BuildInfo;
   last: Nightly | null;
+  /** When GitHub was last asked (seconds since 1970; 0: never), and why that failed. */
+  tried_at: number;
+  error: string | null;
+  /** Why the next automatic check won't ask GitHub, if it won't: its limit, or a backoff after a failure. */
+  held: string | null;
   progress: BuildProgress | null;
   ready: Ready | null;
   offer: Offer;
@@ -174,7 +179,8 @@ export type Outcome = { kind: "restart" } | { kind: "package"; command: string; 
 const call = {
   status: () => invoke<Status>("nightly_status"),
   started: () => invoke<Note | null>("nightly_started"),
-  check: (quiet: boolean) => invoke<Nightly | null>("nightly_check", { quiet }),
+  /** null: held back (GitHub's limit, or a backoff); the status's `held` says why. */
+  check: (asked: "user" | "opening" | "schedule") => invoke<Nightly | null>("nightly_check", { asked }),
   prerequisites: () => invoke<Prerequisites>("nightly_prerequisites"),
   installTool: (id: string) => invoke<string>("nightly_install_tool", { id }),
   build: (commit: string, tuned: boolean) => invoke<Status>("nightly_build", { commit, tuned }),
@@ -282,36 +288,45 @@ export async function nightlyBoot() {
 /** The head last announced, so the hourly check doesn't announce it again. */
 let announced = "";
 
-/** Looks at main's head; `quiet` (on opening, hourly) says nothing unless main moved. */
-export async function checkNightly(quiet: boolean) {
-  if (nightly.checking) return;
+/**
+ * Looks at main's head; `quiet` (the schedule's checks) toasts nothing unless main moved.
+ * `asked` tells the program who asks: a backoff after a failure holds only the schedule's
+ * hourly and window-back checks, never the one when the window opens or the user's. Returns how
+ * it ended, for Settings; null when a check was already under way.
+ */
+export async function checkNightly(quiet: boolean, asked: "user" | "opening" | "schedule"): Promise<{ outcome: "current" | "found" | "error"; detail: string } | null> {
+  if (nightly.checking) return null;
   nightly.checking = true;
   nightly.error = "";
   try {
-    const found = await call.check(quiet);
+    const found = await call.check(asked);
     await refresh();
-    if (!found) return;
+    // held: GitHub's limit, or a backoff after a failure; the program says which
+    if (!found) return { outcome: "error", detail: nightly.status?.held ?? "the check was held back" };
     const o = offer();
     const see = { label: "See them", run: () => (nightly.dialog = true) };
     if (o?.kind === "build") {
-      if (quiet && announced === found.head) return;
+      // a build whose commit GitHub doesn't know (a local one) can't count what main has since
+      const text = found.placed ? `main has ${commits(found.new_commits)} new since this build` : `main is at ${found.head.slice(0, 7)}; this build's commit isn't on GitHub, so what's new since it can't be counted`;
+      if (!quiet || announced !== found.head) toast(`${text}.`, "info", see, 12000);
       announced = found.head;
-      toast(`main has ${commits(found.new_commits)} new since this build.`, "info", see, 12000);
-    } else if (o?.kind === "revalidate" || (o?.kind === "building" && o.behind)) {
-      if (quiet && announced === found.head) return;
-      announced = found.head;
+      return { outcome: "found", detail: text };
+    }
+    if (o?.kind === "revalidate" || (o?.kind === "building" && o.behind)) {
       const what = o.kind === "building" ? "the build running" : "the build waiting";
       const n = o.behind === null ? "commits" : commits(o.behind);
-      toast(`main has moved past ${what}: ${n} it hasn't.`, "info", see, 12000);
-    } else if (!quiet) {
-      toast(
-        o?.kind === "install" ? "The build waiting is main's latest commit." : found.status === "current" ? "This build is main's latest commit." : "main has nothing this build hasn't.",
-        "success",
-      );
+      const text = `main has moved past ${what}: ${n} it hasn't`;
+      if (!quiet || announced !== found.head) toast(`${text}.`, "info", see, 12000);
+      announced = found.head;
+      return { outcome: "found", detail: text };
     }
+    const text = o?.kind === "install" ? "The build waiting is main's latest commit" : found.status === "current" ? "This build is main's latest commit" : "main has nothing this build hasn't";
+    if (!quiet) toast(`${text}.`, "success");
+    return { outcome: "current", detail: text.replace(/^Th/, "th") };
   } catch (e) {
     nightly.error = String(e);
     if (!quiet) toast(`Couldn't look at main on GitHub: ${e}`, "error");
+    return { outcome: "error", detail: String(e) };
   } finally {
     nightly.checking = false;
   }
