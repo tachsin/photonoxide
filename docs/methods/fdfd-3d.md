@@ -622,10 +622,19 @@ The matrix is then real symmetric, and QMR is, in exact arithmetic, the GMRES th
 
 | | s = 0 | s = −1 | s = +1 |
 |---|---|---|---|
-| ours: stagnates at | 0.709 (iterations 5–40) | no stagnation | no stagnation |
+| ours: stagnates at | 0.708633 at iteration 20 (0.708739 to 0.708461 over 14–25) | no stagnation | no stagnation |
 | theirs (text, Fig. 3) | 0.707 | | |
+| the residual's exact share in the null space | 0.707248 | | |
 | ours: iterations to 1e-6 | 114 | 79 | 801 |
 | theirs (read off Fig. 3, ±5) | 114 | 77 | not reached in 500; about 5e-5 at 400, ours 4.4e-5 |
+
+With s = 0 the residual stagnates at the source's share in the null space of the curl-curl
+operator, the gradients and the constant field, whose eigenvalue $-k^2$ is tiny beside the rest:
+on the $N \times N$ square it is $\sqrt{(N^2 + 1)/2N^2}$, 0.707248 for N = 50, which their 0.707
+gives to its three digits. The rest of the residual holds the plateau 1.4e-3 above it. The
+residual moves by under 1e-4 an iteration from 14 to 25 (`fdfd3d/qmr-plateau` notes that
+stretch's spread, 2.8e-4); it falls to it from 0.7139 at iteration 5 and, past 25, goes on down
+through 0.707 to 0.6999 at 40 as the iteration resolves that eigenvalue.
 
 **In 3D: faster by its own residual, not to the same field.** Shin and Fan's Fig. 9 shows
 s = −1 converging 1.3–2.5× faster than s = 0 on three 3D problems, among them a silicon guide in

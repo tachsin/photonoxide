@@ -57,7 +57,8 @@ wrong it is between them. A sweep needs the error between samples, so it makes i
 - The estimate is twice the largest difference between the fit to all samples, $r$, and either
   half's, $r_h$. The difference is taken on a grid across the range (1001 points by default) and
   at the real part of every pole of the three fits inside the range, where a fit's spike would
-  be. Its floor is $10^{-13}$ of the largest sample, AAA's own tolerance.
+  be. Its floor is $10^{-13}$ of the largest sample, AAA's own tolerance, for samples smooth to
+  their last digits; samples that aren't raise it far more than their roughness (below).
 - The next sample goes where the difference is largest. A pole's real part can be sampled, and
   that removes a spurious pole: a fit has no pole at a support point.
 
@@ -111,6 +112,31 @@ by 11 %.
 
 A grid that resolves the response is the condition of the estimate. 1001 points is the default,
 and `Options::with_points` changes it.
+
+**The floor on samples that aren't smooth to their last digits.** The fits pass through the
+samples to AAA's $10^{-13}$, roughness and all, and the two halves' fits part where the
+roughness shows. The estimate then stops far above the roughness and grows, and more samples
+don't bring it down: the sweep ends at `Options::max_samples` with `converged` false, its
+`history` showing the turn. We swept $2 + 0.3 \sin 1.5x + 0.1x^2$ over $[-1, 1]$ with a relative
+noise of its own on each sample, at six tolerances, 60 samples at most:
+
+| Noise | Least estimate | Its ratio to the noise | Tolerances reached |
+|---|---|---|---|
+| none | 3e-11 | | all, $10^{-10}$ in 28 samples |
+| 1e-12 | 7e-6 | 7e6 | $10^{-2}$ to $10^{-4}$ |
+| 1e-10 | 1e-4 | 1e6 | $10^{-2}$, $10^{-3}$ |
+| 1e-8 | 9e-3 | 9e5 | $10^{-2}$ |
+| 1e-6 | 6e-5 | 60 | $10^{-2}$ to $10^{-4}$ |
+| 1e-4 | 3e-3 | 30 | $10^{-2}$ |
+
+The floor is 30 to 7e6 times the noise, and not in its order. A solver's samples show it too. A
+slab's effective index (0.4 µm of 2.2 in 1.45, from the full-vector solver) over 1.50 to 1.60 µm
+is smooth to 5.5e-16 of itself on 10 nm cells and to 9e-15 (3.2e-14 at most) on 2.5 nm cells,
+by the level its Chebyshev coefficients settle to. The sweep reaches 2.5e-11 on the first in 12
+samples; on the second it stops at 6.2e-9 and grows past it when asked for $10^{-10}$. On another
+slab's fine grids it stopped near 1e-6, which is why the nonlinear guides' effective index is
+interpolated at Chebyshev points instead ([nonlinear.md](nonlinear.md)). A sweep's tolerance must
+sit above its floor, which the samples' roughness doesn't predict.
 
 ## Against a uniform grid
 
@@ -187,8 +213,9 @@ that no smooth fit follows.
 
 - The variable is any real one: a wavelength in µm, a frequency. Values may be complex (an
   S-parameter), and the tolerance is relative to the largest value sampled.
-- The solver's own noise sets a floor. A sweep can't reach a tolerance below the scatter of the
-  solver's values: it then stops at `Options::max_samples`, with `converged` false.
+- The solver's own noise sets a floor, far above the scatter of the solver's values (30 to 7e6
+  times it, measured above). A sweep asked for less stops at `Options::max_samples`, with
+  `converged` false.
 - Mode following uses the full-vector solver's modes on a fixed grid. Two modes of the same
   symmetry that anticross are followed through their anticrossing only as the overlaps allow:
   where they mix, the branch takes the more alike.

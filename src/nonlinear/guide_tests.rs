@@ -375,6 +375,51 @@ fn slab_numbers() {
 }
 
 #[test]
+#[ignore = "the adaptive sweep's floor on the slab's solver data (src/sweep.rs, What it can't see): in release, prints"]
+fn the_sweep_on_the_slabs_solver_data_study() {
+    // on 10 nm cells the sweep reaches 1e-10; on 2.5 nm cells, whose samples are as smooth (to
+    // 1e-14 or so), its estimate stops near 6e-9 and grows when asked for less
+    use crate::sweep::{Options, Sweep};
+    for (h, reaches) in [(0.01, [true, true]), (0.0025, [true, false])] {
+        // the samples' noise: the tail of the Chebyshev coefficients on 65 points
+        let samples: Vec<f64> = (0..=64)
+            .map(|j| {
+                let x = (std::f64::consts::PI * f64::from(j) / 64.0).cos();
+                checks::slab_index(h, 1.55 + 0.05 * x)
+            })
+            .collect();
+        let c = chebyshev_coefficients(&samples);
+        let mut tail: Vec<f64> = c[40..].iter().map(|v| v.abs() / samples[0]).collect();
+        tail.sort_by(f64::total_cmp);
+        eprintln!(
+            "h {h}: Chebyshev coefficients 40 to 64, relative: median {:.1e}, largest {:.1e}",
+            tail[tail.len() / 2],
+            tail[tail.len() - 1]
+        );
+        assert!(tail[tail.len() - 1] < 1e-13, "{tail:?}");
+        for (tolerance, reached) in [1e-8, 1e-10].into_iter().zip(reaches) {
+            let t = std::time::Instant::now();
+            let sweep = Sweep::run(
+                |l| Ok(num_complex::Complex64::new(checks::slab_index(h, l), 0.0)),
+                1.50,
+                1.60,
+                &Options::new(tolerance).with_max_samples(60),
+            )
+            .unwrap();
+            let least = sweep.history.iter().copied().fold(f64::INFINITY, f64::min);
+            eprintln!(
+                "  tolerance {tolerance:.0e}: converged {}, {} samples, estimate {:.1e}, least {least:.1e} ({:.0} s)",
+                sweep.converged,
+                sweep.calls(),
+                sweep.relative_error(),
+                t.elapsed().as_secs_f64()
+            );
+            assert_eq!(sweep.converged, reached, "h {h}, {tolerance:e}");
+        }
+    }
+}
+
+#[test]
 #[ignore = "writes the guide cases' rows of the validation report to $PHOTONOXIDE_GUIDE_ROWS"]
 fn the_guide_cases_rows() {
     let mut rows = String::new();

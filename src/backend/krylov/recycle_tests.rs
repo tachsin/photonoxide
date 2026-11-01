@@ -112,6 +112,27 @@ fn parks_section_4_4() {
 }
 
 #[test]
+#[ignore = "the rounding study of fdfd3d/recycle-parks-table: prints"]
+fn parks_table_rounding_study() {
+    let scales = example::SCALES;
+    for (s, (ones, zeros)) in scales.iter().zip(example::table_departures()) {
+        eprintln!("scale {s:.6}: from 1 {ones:.9e}, from 0 {zeros:.3e}");
+    }
+    for (k, &scale) in scales.iter().enumerate() {
+        let c = example::table_cosines_scaled(scale);
+        let ones: Vec<String> = c[..5].iter().map(|c| format!("{:.2e}", 1.0 - c)).collect();
+        let zeros: Vec<String> = c[5..].iter().map(|c| format!("{c:.2e}")).collect();
+        eprintln!(
+            "{}/{} scale {scale:.6}: 1 − cos {} | cos {}",
+            k + 1,
+            scales.len(),
+            ones.join(" "),
+            zeros.join(" ")
+        );
+    }
+}
+
+#[test]
 fn an_exact_invariant_subspace_recycled_converges_as_the_deflated_problem() {
     let (worst, recycled, reference, whole) = example::deflated_against_gmres();
     eprintln!("{worst:e} {recycled} {reference} {whole}");
