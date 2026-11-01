@@ -17,7 +17,7 @@ This page is written by `photonoxide libraries --write docs/libraries.md` from t
 | [SuperLU](#superlu) | `superlu` | see below | conda-forge ✓, apt ✓ | conda-forge ✓ |
 | [MUMPS](#mumps) | `mumps`, `mumps-blr` | conda-forge ✓ | conda-forge ✓, apt ✓ | conda-forge ✓ |
 | [Accelerate](#accelerate) | `accelerate`, `photonoxide-accelerate` | see below | see below | see below |
-| [OpenBLAS](#openblas) | `photonoxide-openblas` | conda-forge ✓, pip | conda-forge ✓, conda-forge, apt ✓, pip | conda-forge ✓, conda-forge, pip |
+| [OpenBLAS](#openblas) | `photonoxide-openblas` | conda-forge ✓, pip | conda-forge ✓, conda-forge ✓, apt ✓, apt ✓, pip | conda-forge ✓, conda-forge, pip |
 | [AMD AOCL](#amd-aocl) | `photonoxide-aocl` | see below | see below | see below |
 | [Arm Performance Libraries](#arm-performance-libraries) | `photonoxide-armpl` | winget | see below | brew |
 | [HDF5](#hdf5) | — | conda-forge | conda-forge ✓, apt ✓ | conda-forge ✓, brew |
@@ -311,7 +311,7 @@ An open BLAS and LAPACK: the dense kernels of photonoxide's own solver's fronts,
 
   OpenBLAS built with OpenMP in place of its own threads, which some machines run faster: Benchmarks compares the two here. photonoxide holds each of its threads' OpenMP count at one, so its own parallel loops and OpenBLAS's don't multiply (#557).
 
-  Not run on a clean machine.
+  - Checked on Linux (ubuntu-24.04), 2026-11-01: installed libopenblas 0.3.34; found OpenBLAS 0.3.34, linked to libgomp, and the photonoxide-openblas backend after its smoke test and its tests.
 
 - **apt** (Linux):
 
@@ -323,6 +323,17 @@ An open BLAS and LAPACK: the dense kernels of photonoxide's own solver's fronts,
 
   - Checked on Linux (ubuntu-24.04), 2026-10-09: installed libopenblas-dev 0.3.26; found OpenBLAS 0.3.26, and the photonoxide-openblas backend after its smoke test and its tests, on one thread.
   - Checked on Linux (ubuntu-22.04), 2026-10-09: installed libopenblas-dev 0.3.20; found OpenBLAS 0.3.20, and the photonoxide-openblas backend after its smoke test and its tests, on one thread.
+
+- **apt** (Linux):
+
+  ```sh
+  sudo apt-get install libopenblas0-openmp
+  ```
+
+  Debian's and Ubuntu's OpenBLAS built with OpenMP, the same versions as libopenblas-dev's (0.3.26 on Ubuntu 24.04, 0.3.20 on 22.04) and with the same limit before 0.3.27. It installs as one of the alternatives for libopenblas.so.0; if libopenblas0-pthread is installed too, choose the OpenMP one with sudo update-alternatives --config libopenblas.so.0-x86_64-linux-gnu.
+
+  - Checked on Linux (ubuntu-24.04), 2026-11-01: installed libopenblas0-openmp 0.3.26; found OpenBLAS 0.3.26, linked to libgomp, and the photonoxide-openblas backend after its smoke test and its tests.
+  - Checked on Linux (ubuntu-22.04), 2026-11-01: installed libopenblas0-openmp 0.3.20; found OpenBLAS 0.3.20, linked to libgomp, and the photonoxide-openblas backend after its smoke test and its tests.
 
 - **pip** (Windows, Linux, macOS):
 

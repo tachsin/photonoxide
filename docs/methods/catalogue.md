@@ -684,7 +684,7 @@ every value a tensor gives is an element its tag names.
 | LiTaO₃ | Abedin & Ito 1996 | $n_{o,e}(\lambda, T)$, Eq. (1), Tables I and II | 0.4–4.0 µm, 25–300 °C (the temperature terms fitted at 468 and 644 nm) |
 | LiTaO₃ | Barboza & Cudney 2009 | $n_e(\lambda, T)$ only, Eq. (7), Table 2 (temperature terms in $\lambda_A$, $B$ and $C$) | 0.3–5 µm, 23–230 °C |
 | LiTaO₃ | Bruner et al. 2002 | $n_e(\lambda, T)$ only, Eq. (4), Table 1's congruent row (temperature terms $b$ and $c$ in the first pole) | 0.39–1.85 µm, 25–200 °C, standard deviation 0.001327 |
-| BaTiO₃ (thin film) | Abel et al. 2018, at 1550 nm | constant $n_o = ar n + \Delta n/2$, $n_e = ar n - \Delta n/2$; $ar n$ = 2.286, $\Delta n$ = 0.03 (Supplementary Note 6) | 1.50–1.60 µm |
+| BaTiO₃ (thin film) | Abel et al. 2018, at 1550 nm | constant $n_o = \bar n + \Delta n/2$, $n_e = \bar n - \Delta n/2$; $\bar n$ = 2.286, $\Delta n$ = 0.03 (Supplementary Note 6) | 1.50–1.60 µm |
 | BaTiO₃ (strained film on GdScO₃) | Suceava et al. 2025 | $n_o$ only: four Gaussian oscillators and two poles, Supporting Note S3, Table S1 (our evaluation, every 10 nm) | 0.5–1.6893 µm, room temperature |
 
 Two models are new forms in `Model`: `Model::Pikhtin` (Skauli's Eq. (12), photon energies in eV)

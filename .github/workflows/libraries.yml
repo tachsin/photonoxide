@@ -68,6 +68,8 @@ jobs:
           - { os: ubuntu-latest, package: openblas, found: '^OpenBLAS [0-9.]+: .*\(from the conda environment\)', backend: '^backend photonoxide-openblas \(direct\): .* available', test: blas, require: 'PHOTONOXIDE_REQUIRE_BLAS=openblas' }
           - { os: windows-latest, package: openblas, found: '^OpenBLAS [0-9.]+: .*\(from the conda environment\)', backend: '^backend photonoxide-openblas \(direct\): .* available', test: blas, require: 'PHOTONOXIDE_REQUIRE_BLAS=openblas' }
           - { os: macos-latest, package: openblas, found: '^OpenBLAS [0-9.]+: .*\(from the conda environment\)', backend: '^backend photonoxide-openblas \(direct\): .* available', test: blas, require: 'PHOTONOXIDE_REQUIRE_BLAS=openblas' }
+          # OpenBLAS built with OpenMP in place of its own threads: its OpenMP runtime is checked in the build found
+          - { os: ubuntu-latest, package: 'libopenblas=*=*openmp*', openmp: 'yes', found: '^OpenBLAS [0-9.]+: .*\(from the conda environment\)', backend: '^backend photonoxide-openblas \(direct\): .* available', test: blas, require: 'PHOTONOXIDE_REQUIRE_BLAS=openblas' }
           # the exported files' compressor
           - { os: ubuntu-latest, package: zstd, found: '^Zstandard 1\.[0-9.]+: .*\(from the conda environment\)', test: zstd, require: 'PHOTONOXIDE_REQUIRE_ZSTD=1' }
           - { os: windows-latest, package: zstd, found: '^Zstandard 1\.[0-9.]+: .*\(from the conda environment\)', test: zstd, require: 'PHOTONOXIDE_REQUIRE_ZSTD=1' }
@@ -125,6 +127,13 @@ jobs:
       - name: photonoxide finds it
         if: matrix.found != ''
         run: grep -E '${{ matrix.found }}' found.txt
+      - name: The file it found threads on OpenMP
+        if: matrix.openmp != ''
+        run: |
+          file=$(sed -nE 's/^OpenBLAS [0-9.]+: ([^ ]+).*/\1/p' found.txt | head -1)
+          echo "found: $file"
+          ldd "$file" | tee needed.txt
+          grep -E 'lib(gomp|omp)' needed.txt
       - name: Its backend is offered
         if: matrix.backend != ''
         run: grep -E '${{ matrix.backend }}' found.txt
@@ -187,7 +196,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-24.04, ubuntu-22.04]
-        package: [libmkl-rt, libmumps-seq-dev, libsuperlu-dev, libopenblas-dev, libzstd1, libhdf5-dev]
+        package: [libmkl-rt, libmumps-seq-dev, libsuperlu-dev, libopenblas-dev, libopenblas0-openmp, libzstd1, libhdf5-dev]
         include:
           - { package: libhdf5-dev, found: '^HDF5 1\.[0-9.]+: /usr/lib/', test: hdf5, require: 'PHOTONOXIDE_REQUIRE_HDF5=1' }
           - { package: libzstd1, found: '^Zstandard 1\.[0-9.]+: /(usr/)?lib/', test: zstd, require: 'PHOTONOXIDE_REQUIRE_ZSTD=1' }
@@ -195,6 +204,7 @@ jobs:
           - { package: libmumps-seq-dev, found: '^MUMPS 5\.[0-9.]+: /usr/lib/', backend: '^backend mumps \(direct\): .* available', test: mumps, require: 'PHOTONOXIDE_REQUIRE_MUMPS=1' }
           - { package: libsuperlu-dev, found: '^SuperLU [567][0-9.]*: /usr/lib/', backend: '^backend superlu \(direct\): .* available', test: superlu, require: 'PHOTONOXIDE_REQUIRE_SUPERLU=1' }
           - { package: libopenblas-dev, found: '^OpenBLAS [0-9.]+: /usr/lib/', backend: '^backend photonoxide-openblas \(direct\): .* available', test: blas, require: 'PHOTONOXIDE_REQUIRE_BLAS=openblas' }
+          - { package: libopenblas0-openmp, openmp: 'yes', file: 'openblas-openmp/', found: '^OpenBLAS [0-9.]+: /usr/lib/', backend: '^backend photonoxide-openblas \(direct\): .* available', test: blas, require: 'PHOTONOXIDE_REQUIRE_BLAS=openblas' }
     runs-on: ${{ matrix.os }}
     # 3 to 10 minutes in 83 runs; one stalled in apt-get update for 82 (2026-10-31)
     timeout-minutes: 30
@@ -227,6 +237,13 @@ jobs:
       - name: photonoxide finds it
         if: matrix.found != ''
         run: grep -E '${{ matrix.found }}' found.txt
+      - name: The file it found threads on OpenMP
+        if: matrix.openmp != ''
+        run: |
+          file=$(sed -nE 's/^OpenBLAS [0-9.]+: ([^ ]+).*/\1/p' found.txt | head -1)
+          echo "found: $file"
+          ldd "$file" | tee needed.txt
+          grep -E 'lib(gomp|omp)' needed.txt
       - name: Its backend is offered
         if: matrix.backend != ''
         run: grep -E '${{ matrix.backend }}' found.txt
