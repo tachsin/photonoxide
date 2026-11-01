@@ -20,10 +20,51 @@ use crate::{Error, Result};
 ///
 /// A crossing is followed when the candidates include the mode followed: as many as there are
 /// modes within the change of its effective index between neighbouring samples.
+///
+/// # Anticrossings
+///
+/// Two modes of the same symmetry don't cross: they couple and anticross, and through the
+/// anticrossing each one's field turns into the other's. There the branch may follow either
+/// one, and says nothing. A step much shorter than the anticrossing is wide finds the same
+/// mode's field turning a little, and stays on the mode by index (*along* the anticrossing,
+/// the field changing character); a step that jumps it finds the other mode's field still like
+/// the one it left, and changes mode (*across* the gap, the field keeping its character). A
+/// step that lands inside it finds both about equally alike and takes either. So which mode is
+/// followed depends on where the samples fall: other step sizes, another order, another
+/// tolerance can follow another. A sweep whose samples follow both fits a jump of the gap's
+/// size and spends its samples there.
+///
+/// [`Branch::steps`] and [`Branch::least_margin`] show it: each step's overlap with the mode
+/// followed from and the largest overlap of any other candidate. Away from an anticrossing the
+/// first is near 1 and the second near 0; a step from outside two modes' anticrossing to its
+/// middle finds both near 1/√2 ≈ 0.71. A step with a small [`BranchStep::margin`] chose between
+/// two modes: sample more finely there (or follow both modes and say which one is meant).
+/// `docs/methods/sweep.md` (Anticrossings) gives a measured case.
 pub struct Branch<F> {
     cross_section: F,
     candidates: usize,
     found: Vec<(f64, VectorMode)>,
+    steps: Vec<(f64, BranchStep)>,
+}
+
+/// How [`Branch`] chose its mode at one wavelength: the overlaps ([`VectorMode::overlap`], 0 to
+/// 1) of the candidates with the mode followed from.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct BranchStep {
+    /// The wavelength (µm) of the mode followed from: the nearest found before.
+    pub from: f64,
+    /// The overlap of the mode chosen, the largest.
+    pub overlap: f64,
+    /// The largest overlap of the other candidates; `None` when there was no other.
+    pub runner_up: Option<f64>,
+}
+
+impl BranchStep {
+    /// [`BranchStep::overlap`] less [`BranchStep::runner_up`] (taken as 0 when there is none):
+    /// near 1 for a clear choice, near 0 where two modes were equally alike.
+    pub fn margin(&self) -> f64 {
+        self.overlap - self.runner_up.unwrap_or(0.0)
+    }
 }
 
 impl<F> Branch<F>
@@ -58,6 +99,7 @@ where
             cross_section,
             candidates,
             found: vec![(start.to_um(), first)],
+            steps: Vec::new(),
         })
     }
 
@@ -75,11 +117,11 @@ where
             return Ok(f.1.clone());
         }
         // the nearest wavelength found: the one either side of where this one goes
-        let reference = [i.wrapping_sub(1), i]
+        let (from, reference) = [i.wrapping_sub(1), i]
             .iter()
             .filter_map(|&j| self.found.get(j))
             .min_by(|a, b| (a.0 - um).abs().total_cmp(&(b.0 - um).abs()))
-            .map(|f| &f.1)
+            .map(|f| (f.0, &f.1))
             .ok_or_else(|| Error::invalid("branch", "no mode found yet"))?;
         let found = vector::modes(
             &(self.cross_section)(wavelength)?,
@@ -87,19 +129,43 @@ where
             self.candidates,
             Some(reference.effective_index().re),
         )?;
-        let mut best: Option<(f64, VectorMode)> = None;
+        let mut scored = Vec::with_capacity(found.len());
         for mode in found {
             let o = reference.overlap(&mode).ok_or_else(|| {
                 Error::invalid("branch", "the grid must be the same at every wavelength")
             })?;
-            if best.as_ref().is_none_or(|(b, _)| o > *b) {
-                best = Some((o, mode));
+            scored.push((o, mode));
+        }
+        if scored.is_empty() {
+            return Err(Error::invalid("branch", "the solver returned no mode"));
+        }
+        // the first of the largest, as before the steps were kept
+        let mut best = 0;
+        for k in 1..scored.len() {
+            if scored[k].0 > scored[best].0 {
+                best = k;
             }
         }
-        let next = best
-            .ok_or_else(|| Error::invalid("branch", "the solver returned no mode"))?
-            .1;
+        let runner_up = scored
+            .iter()
+            .enumerate()
+            .filter(|&(k, _)| k != best)
+            .map(|(_, s)| s.0)
+            .reduce(f64::max);
+        let (overlap, next) = scored.swap_remove(best);
         self.found.insert(i, (um, next.clone()));
+        let s = self.steps.partition_point(|s| s.0 < um);
+        self.steps.insert(
+            s,
+            (
+                um,
+                BranchStep {
+                    from,
+                    overlap,
+                    runner_up,
+                },
+            ),
+        );
         Ok(next)
     }
 
@@ -115,5 +181,20 @@ where
     /// The wavelengths (µm) and modes found so far, in order of wavelength.
     pub fn found(&self) -> &[(f64, VectorMode)] {
         &self.found
+    }
+
+    /// How each mode after the first was chosen, with its wavelength (µm), in order of
+    /// wavelength: where to look for an anticrossing (see [`Branch`]).
+    pub fn steps(&self) -> &[(f64, BranchStep)] {
+        &self.steps
+    }
+
+    /// The BranchStep chosen with the least [`BranchStep::margin`], with its wavelength (µm); `None` before
+    /// the first BranchStep. A margin well below 1 is a choice between two modes.
+    pub fn least_margin(&self) -> Option<(f64, BranchStep)> {
+        self.steps
+            .iter()
+            .copied()
+            .min_by(|a, b| a.1.margin().total_cmp(&b.1.margin()))
     }
 }

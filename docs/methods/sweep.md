@@ -209,6 +209,72 @@ The TE1-like and TM0-like modes are told apart by their polarization for the che
 overlap. Sorted by index, the second mode would jump from TE1 to TM0 at the crossing, a kink
 that no smooth fit follows.
 
+### Anticrossings
+
+Two modes of the same symmetry don't cross. They couple and anticross: their indices come
+close and part again, and through the anticrossing each mode's field turns into the other's.
+Overlap has no single right answer there, and `Branch` may follow either mode without saying
+so. A step much shorter than the anticrossing is wide finds the same mode's field turned only
+a little, so the branch stays on the mode by index while its field changes character. A step
+that jumps the whole anticrossing finds the other mode's field still like the one it left, so
+the branch changes mode and keeps the field's character. A step that lands inside it finds
+both modes about equally alike and takes either. So the mode followed depends on where the
+samples fall.
+
+The same strip shows it once its cladding differs above and below. It stays on oxide (1.444),
+and a cladding of 1.40 is put above and beside it. The two sides now differ a little, so its
+TE1-like and TM0-like modes couple weakly and anticross over a narrow range. Their indices
+come closest, 0.0094 apart, at 1.4325 µm (scanned from 1.40 to 1.47 µm in 2.5 nm steps). At
+1.7 µm the second mode by index is TM-like (n_eff 1.55273, TE fraction 0.01) and the third is
+TE-like (1.45801, TE fraction 0.76). The branch starts on the TE1-like mode at 1.3 µm (TE
+fraction 0.92) with 3 candidates, and is stepped to 1.7 µm, or swept there at 1e-8. The margin
+of a step is its overlap with the mode it was followed from, less the largest overlap of the
+other candidates (`BranchStep::margin`).
+
+| How the branch was sampled | Mode at 1.7 µm | Least margin (overlap against the next) | at (µm) |
+|---|---|---|---|
+| steps of 2.5 nm | second by index, TM-like | 0.926 (0.998 against 0.072) | 1.4350 |
+| steps of 50 nm | third by index, TE-like | 0.108 (0.761 against 0.653) | 1.4500 |
+| steps of 100 nm | third by index, TE-like | 0.492 (0.902 against 0.411) | 1.5000 |
+| steps of 150 nm | second by index, TM-like | 0.109 (0.755 against 0.646) | 1.4333 |
+| adaptive sweep, 1e-8 | both: 39 samples past 1.482 µm TE-like, 26 TM-like | 0.469 (0.903 against 0.435) | 1.4304 |
+
+The 2.5 nm steps stay on the mode by index; the 50 and 100 nm steps cross the gap onto the
+other. The 150 nm steps go back to the mode by index, which is not a trend in the step size.
+Their first step lands at 1.4333 µm, 0.8 nm from the narrowest gap, where the two fields are
+about equal mixtures; the choice there was 0.755 against 0.646, and it fell on the mode by
+index. The 100 nm steps cross with a margin of 0.492: their step from 1.40 to 1.50 µm passes
+over the whole anticrossing and lands outside it, where one mode is still clearly more alike.
+Its overlap, 0.902, is still well below the 0.998 of every 2.5 nm step.
+
+The adaptive sweep followed both modes: past 1.482 µm, 39 of its samples are on the TE-like
+mode and 26 on the TM-like one, so it was fitting a curve that jumps between two modes 0.03
+(at 1.5 µm) to 0.095 (at 1.7 µm) apart in n_eff. After 86 modes found (against 36 solves for
+the whole sweep with air above, below), the eigensolver did not converge for 3 modes at
+1.4905 µm and the sweep stopped with that error. That failure comes from the solver and is not
+explained yet.
+
+With air above the strip instead, the two sides differ a lot and the anticrossing is broad:
+the TE fraction of the mode followed falls from 0.86 at 1.3 µm to 0.17 at 1.7 µm. Every step
+size from 2.5 to 150 nm, and the sweep at 1e-8 (converged in 36 solves), end on the second
+mode by index (n_eff 1.42861), with least margins of 0.49 to 0.93.
+
+The rule, then: at each step the branch takes the candidate most like the mode at the nearest
+wavelength sampled. Through an anticrossing wider than its steps it follows the mode by index,
+its field changing character. Through one narrower than its steps it keeps the field's
+character and changes mode. Inside one, it can take either. To see whether this happened, look
+at `Branch::least_margin()` (or every step in `Branch::steps()`) after a sweep. Steps of
+2.5 nm kept every margin at 0.926 or above, even through the narrow anticrossing. A margin well
+below that, or an overlap well below 1, marks a step that changed the field a lot or chose
+between two modes. Sample more finely around that wavelength and check that the mode found
+there stays the same. A sweep that follows both modes shows it too: it places many of its
+samples around one wavelength and needs far more solves.
+
+The numbers in this section are printed by
+`cargo test --release --lib sweep::tests::a_branch_at_an_anticrossing_study -- --ignored --nocapture`;
+`sweep::tests::a_branch_shows_an_anticrossing_in_its_margins` checks the 50 nm step's margin
+on every run.
+
 ## Scope
 
 - The variable is any real one: a wavelength in µm, a frequency. Values may be complex (an
@@ -216,9 +282,10 @@ that no smooth fit follows.
 - The solver's own noise sets a floor, far above the scatter of the solver's values (30 to 7e6
   times it, measured above). A sweep asked for less stops at `Options::max_samples`, with
   `converged` false.
-- Mode following uses the full-vector solver's modes on a fixed grid. Two modes of the same
-  symmetry that anticross are followed through their anticrossing only as the overlaps allow:
-  where they mix, the branch takes the more alike.
-- Not yet here: sweeps inside the jobs, an S-matrix's entries sharing one set of samples, and
+- Mode following uses the full-vector solver's modes on a fixed grid. At an anticrossing of two
+  modes of the same symmetry, the branch may follow either mode, depending on where the samples
+  fall (Anticrossings, above). It says so only through its margins: it doesn't refine by itself
+  or let a user choose which mode to follow.
+- Not yet in photonoxide: sweeps inside the jobs, an S-matrix's entries sharing one set of samples, and
   FDFD's and eigenmode expansion's S-parameters over wavelength. These can already be swept with
   `Sweep::run` on a closure.

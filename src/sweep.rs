@@ -76,7 +76,9 @@
 //! among the solver's candidates, whose fields overlap most with the mode found at the nearest
 //! wavelength sampled so far ([`crate::mode::vector::VectorMode::overlap`], as
 //! [`crate::mode::dispersion::track`] does along a list of wavelengths), so the fitted branch
-//! is the same mode through a crossing, not the n-th by index.
+//! is the same mode through a crossing, not the n-th by index. Through an anticrossing of two
+//! modes of one symmetry it may follow either, depending on where the samples fall; its
+//! [`Branch::steps`] show where it had to choose ([`Branch`], Anticrossings).
 
 mod aaa;
 mod branch;
@@ -85,7 +87,7 @@ pub(crate) mod checks;
 mod tests;
 
 pub use aaa::{DEFAULT_TOLERANCE, Rational};
-pub use branch::Branch;
+pub use branch::{Branch, BranchStep};
 
 use num_complex::Complex64 as c64;
 

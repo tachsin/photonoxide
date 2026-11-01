@@ -224,3 +224,202 @@ fn a_sweep_of_a_ring_needs_far_fewer_solves_than_a_uniform_cubic_grid() {
     let aaa = checks::uniform_calls(&ring, (-1.0, 1.0), 1e-4, checks::Uniform::Aaa, 400).unwrap();
     assert!(aaa < sweep.calls(), "{aaa}");
 }
+
+fn um(l: f64) -> crate::units::Wavelength {
+    crate::units::Wavelength::um(l).unwrap()
+}
+
+/// `sweep/mode-crossing`'s strip on oxide (1.444) with `top` above and beside it: unless `top`
+/// is 1.444 the strip is no longer symmetric above and below, its TE1-like and TM0-like modes
+/// couple, and they anticross (docs/methods/sweep.md, Anticrossings).
+fn clad_strip(top: f64) -> crate::Result<crate::mode::vector::CrossSection> {
+    use crate::mode::vector::{CrossSection, Permittivity};
+    CrossSection::uniform((-1.2, 1.2, 120), (-0.8, 0.8, 80), move |x, y| {
+        let n: f64 = if x.abs() < 0.3 && y.abs() < 0.11 {
+            3.473
+        } else if y < -0.11 {
+            1.444
+        } else {
+            top
+        };
+        Permittivity::isotropic(re(n * n))
+    })
+}
+
+/// The effective index of the strip's second TE-like mode (TE1) at `l` µm, among its four
+/// highest, told apart by polarization.
+fn te1_near(top: f64, l: f64) -> f64 {
+    let modes = crate::mode::vector::modes(&clad_strip(top).unwrap(), um(l), 4, None).unwrap();
+    let te1 = modes
+        .iter()
+        .filter(|m| m.te_fraction() > 0.5)
+        .nth(1)
+        .unwrap();
+    te1.effective_index().re
+}
+
+#[test]
+fn a_branch_records_how_it_chose_each_mode() {
+    // the symmetric strip of sweep/mode-crossing: TE1 and TM0 cross without coupling, so every
+    // step is a clear choice
+    let mut branch = Branch::new(checks::crossing_strip, um(1.3), Some(2.08), 3).unwrap();
+    assert!(branch.steps().is_empty() && branch.least_margin().is_none());
+    for l in [1.6, 1.4, 1.5] {
+        branch.mode(um(l)).unwrap();
+    }
+    // found before: no new step
+    branch.mode(um(1.4)).unwrap();
+    let steps = branch.steps();
+    let at: Vec<f64> = steps.iter().map(|s| s.0).collect();
+    assert_eq!(at, [1.4, 1.5, 1.6]);
+    // 1.6 from 1.3, the only one found then; 1.4 from 1.3, nearer than 1.6; 1.5 from 1.4 or 1.6
+    assert_eq!(steps[2].1.from, 1.3);
+    assert_eq!(steps[0].1.from, 1.3);
+    assert!(steps[1].1.from == 1.4 || steps[1].1.from == 1.6);
+    for (l, s) in steps {
+        assert!(s.overlap > 0.9 && s.margin() > 0.8, "{l}: {s:?}");
+        assert!(
+            s.margin() <= s.overlap && s.runner_up.is_some(),
+            "{l}: {s:?}"
+        );
+    }
+    let one = BranchStep {
+        from: 1.3,
+        overlap: 0.9,
+        runner_up: None,
+    };
+    assert_eq!(one.margin(), 0.9);
+}
+
+#[test]
+fn a_branch_shows_an_anticrossing_in_its_margins() {
+    // with 1.40 above the strip, TE1 and TM0 anticross near 1.44 µm (docs/methods/sweep.md):
+    // a step of 50 nm into it finds two modes almost equally alike (0.761 and 0.653, measured),
+    // a step of 2.5 nm before it one clear choice (0.999 or more, measured)
+    let near = te1_near(1.4, 1.35);
+    let mut coarse = Branch::new(|_| clad_strip(1.4), um(1.35), Some(near), 3).unwrap();
+    coarse.mode(um(1.4)).unwrap();
+    coarse.mode(um(1.45)).unwrap();
+    let (l, s) = coarse.least_margin().unwrap();
+    assert!(l == 1.45 && s.from == 1.4, "{l}: {s:?}");
+    assert!(s.margin() < 0.2 && s.overlap < 0.8, "{s:?}");
+    let mut fine = Branch::new(|_| clad_strip(1.4), um(1.35), Some(near), 3).unwrap();
+    fine.mode(um(1.3525)).unwrap();
+    let (_, s) = fine.least_margin().unwrap();
+    assert!(s.margin() > 0.9, "{s:?}");
+}
+
+#[test]
+#[ignore = "a branch at an anticrossing (docs/methods/sweep.md, Anticrossings): in release, prints"]
+fn a_branch_at_an_anticrossing_study() {
+    use crate::mode::vector::{self, VectorMode};
+    let show = |m: &VectorMode| {
+        format!(
+            "n_eff {:.5}, TE fraction {:.2}",
+            m.effective_index().re,
+            m.te_fraction()
+        )
+    };
+    let (a, b) = (1.3, 1.7);
+    for top in [1.4, 1.0] {
+        // the anticrossing's narrowest gap between the second and third modes by index
+        let gap = (0..=28)
+            .map(|k| {
+                let l = 1.40 + 0.0025 * f64::from(k);
+                let modes = vector::modes(&clad_strip(top).unwrap(), um(l), 3, None).unwrap();
+                (
+                    modes[1].effective_index().re - modes[2].effective_index().re,
+                    l,
+                )
+            })
+            .min_by(|x, y| x.0.total_cmp(&y.0))
+            .unwrap();
+        let end = vector::modes(&clad_strip(top).unwrap(), um(b), 3, None).unwrap();
+        eprintln!(
+            "top {top}: least gap {:.4} at {:.4} µm (of 1.40 to 1.47); at {b} µm the second mode by index {}, the third {}",
+            gap.0,
+            gap.1,
+            show(&end[1]),
+            show(&end[2])
+        );
+        let near = te1_near(top, a);
+        for step in [0.0025, 0.05, 0.1, 0.15] {
+            let mut branch = Branch::new(|_| clad_strip(top), um(a), Some(near), 3).unwrap();
+            let n = ((b - a) / step).round() as u32;
+            for k in 1..=n {
+                branch
+                    .mode(um(a + (b - a) * f64::from(k) / f64::from(n)))
+                    .unwrap();
+            }
+            let (l, s) = branch.least_margin().unwrap();
+            eprintln!(
+                "  steps of {step} µm: at {b} µm {}; least margin {:.3} at {l:.4} from {:.4} ({:.3} against {:.3})",
+                show(&branch.found().last().unwrap().1),
+                s.margin(),
+                s.from,
+                s.overlap,
+                s.runner_up.unwrap_or(0.0)
+            );
+        }
+        let tolerance = 1e-8;
+        {
+            let mut branch = Branch::new(|_| clad_strip(top), um(a), Some(near), 3).unwrap();
+            let mut failed = None;
+            let sweep = Sweep::run(
+                |l| {
+                    let n = branch.effective_index(um(l));
+                    if n.is_err() {
+                        failed = Some(l);
+                    }
+                    Ok(re(n?.re))
+                },
+                a,
+                b,
+                &Options::new(tolerance),
+            );
+            let (l, s) = branch.least_margin().unwrap();
+            let last = branch
+                .found()
+                .iter()
+                .find(|f| f.0 == b)
+                .map_or("none".to_string(), |f| show(&f.1));
+            let near_gap = branch
+                .found()
+                .iter()
+                .filter(|f| (f.0 - gap.1).abs() < 0.025)
+                .count();
+            // past the anticrossing, the mode followed: TE-like (across) or TM-like (along)
+            let past: Vec<f64> = branch
+                .found()
+                .iter()
+                .filter(|f| f.0 > gap.1 + 0.05)
+                .map(|f| f.1.te_fraction())
+                .collect();
+            let te_like = past.iter().filter(|&&t| t > 0.5).count();
+            eprintln!(
+                "  past {:.3} µm: {te_like} samples TE-like, {} TM-like",
+                gap.1 + 0.05,
+                past.len() - te_like
+            );
+            match sweep {
+                Ok(sweep) => eprintln!(
+                    "  sweep at {tolerance:e}: converged {} in {} solves, estimate {:.1e}; {near_gap} of them within 25 nm of the gap",
+                    sweep.converged,
+                    sweep.calls(),
+                    sweep.relative_error()
+                ),
+                Err(e) => eprintln!(
+                    "  sweep at {tolerance:e}: failed at {failed:?} µm after {} solves: {e}",
+                    branch.found().len()
+                ),
+            }
+            eprintln!(
+                "    at {b} µm {last}; least margin {:.3} at {l:.4} from {:.4} ({:.3} against {:.3})",
+                s.margin(),
+                s.from,
+                s.overlap,
+                s.runner_up.unwrap_or(0.0)
+            );
+        }
+    }
+}
