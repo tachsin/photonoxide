@@ -128,7 +128,11 @@ fn the_fabrication_page_opens_any_design_and_a_component_leads_there() {
     );
     // a run of a design (a device, a structure task) has a Fabrication tab, the same player on
     // the run's design, leading to the page
-    holds("pages/Viewer.svelte", "<RunFabrication", "a run's Fabrication tab");
+    holds(
+        "pages/Viewer.svelte",
+        "<RunFabrication",
+        "a run's Fabrication tab",
+    );
     let tab = "components/fabrication/RunFabrication.svelte";
     holds(tab, "<FabPlayer", "the same views and timeline");
     holds(tab, "kind: \"run\", dir", "the run's own design");
