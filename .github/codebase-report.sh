@@ -183,8 +183,8 @@ echo
 echo "#### The installers"
 echo
 # the latest two releases' installers, by their names less photonoxide-VERSION-
+# shellcheck disable=SC2016 # the $t in the jq program's single quotes is jq's variable, not the shell's
 if command -v gh >/dev/null &&
-  # shellcheck disable=SC2016 # the $t in the single quotes is jq's variable, not the shell's
   g_rel=$(gh api "repos/$repo/releases?per_page=10" --jq '[.[] | select(.draft | not) | select(.prerelease | not)][0:2][] | .tag_name as $t | .assets[] | [$t, .name, (.size | tostring)] | join("\t")' 2>/dev/null) &&
   [ -n "$g_rel" ]; then
   awk -F'\t' "$LIB"'
