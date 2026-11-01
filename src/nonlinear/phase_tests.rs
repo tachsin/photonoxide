@@ -264,6 +264,24 @@ fn noncritical_temperature_tuning_finds_the_crossing() {
 }
 
 #[test]
+fn edwards_and_lawrences_table_2_takes_its_wavelengths_in_air() {
+    use crate::nonlinear::checks::{
+        EDWARDS_TABLE_2, edwards_table_2_row, edwards_table_2_temperature,
+    };
+    // read as vacuum wavelengths with a 488.000 nm pump, every row comes out 0.2 to 0.5 °C low
+    // (#595): 175.93 °C at 2.159 µm where the table prints 176.4
+    for (lam, printed) in EDWARDS_TABLE_2 {
+        let low = printed - edwards_table_2_temperature(0.488, lam).unwrap();
+        assert!((0.2..0.5).contains(&low), "{lam}: {low}");
+    }
+    // the argon line (487.986 nm) and the idlers in air, brought to vacuum: within 0.07 °C
+    for (lam, printed) in EDWARDS_TABLE_2 {
+        let t = edwards_table_2_row(lam).unwrap();
+        assert!((t - printed).abs() < 0.07, "{lam}: {t}");
+    }
+}
+
+#[test]
 fn temperature_acceptance_of_a_linear_drift_is_its_linear_estimate() {
     // n₂ − n₁ = 0.1 + 4e-5 (T − 300): Δk is linear in T, so the numerical width is the linear one
     let p = Process::second_harmonic(

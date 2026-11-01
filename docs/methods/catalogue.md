@@ -1108,9 +1108,11 @@ read from the paper itself, which isn't in hand.
 - Edwards & Lawrence's congruent $n_o(\lambda, T)$ and $n_e(\lambda, T)$ reproduce Fejer et al.'s
   Table I, which was computed with them: 41 of its quasi-phase-matched values to half their last
   digit ([nonlinear](nonlinear.md#fejer-et-als-table-i)). Their own Table II, the phase-matching
-  temperatures of type-I mixing of 488 nm to 2.16–3.24 µm that Eq. 1 gives, comes out 0.2 to
-  0.5 °C lower here (176.4 °C printed, 175.9 here, at 2.159 µm): the pump's wavelength is given only
-  as 488 nm, and with the vacuum 488.12 nm the difference falls to 0.1 °C. Not yet a case.
+  temperatures that Eq. 1 gives type-I mixing of the argon laser's 488 nm line to 2.159–3.235 µm,
+  is reproduced within 0.07 °C (176.39 °C at 2.159 µm, 176.4 printed) once its wavelengths are
+  read as wavelengths in air (the line 487.986 nm) and brought to vacuum, which Eq. 1 takes; read
+  as vacuum wavelengths with a 488.000 nm pump, it comes out 0.22 to 0.47 °C low
+  ([nonlinear](nonlinear.md#edwards-and-lawrences-table-ii)).
 - Shoji's $d_{33}$ with Zelmon's $n_e$ gives his Miller's $\Delta_{33}$ (Table 12) to 0.5%.
   Miller's rule carries the catalogue's $d_{33}$ and $d_{31}$ of LiNbO₃ and MgO:LiNbO₃ from
   1.064 µm to 0.852 µm within 9.4 % of Shoji's measurements there, and to 1.313 µm 15 to 34 %
