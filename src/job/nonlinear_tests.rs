@@ -1,6 +1,7 @@
 //! The `"nonlinear"` kind: each process set up as the library sets it up, its map, its
 //! efficiency against the closed forms, its pairs, its files, and what it refuses.
 
+use super::nonlinear_checks::{library_efficiency, zhao_job};
 use super::{Event, check, execute};
 use crate::material::catalogue::Axis;
 use crate::nonlinear::coupled::coupling_from_efficiency;
@@ -306,28 +307,68 @@ fn a_run_with_a_folder_writes_its_numbers_beside_its_record() {
 
 #[test]
 fn a_ridges_modes_set_up_its_process() {
-    // Zhao et al.'s guide (Phys. Rev. Lett. 124, 163603 (2020)) on 40 nm cells, behind a mirror
-    let e = events(
+    // Zhao et al.'s guide (Phys. Rev. Lett. 124, 163603 (2020)) on 40 nm cells, behind a mirror,
+    // with their own d33 alone; the validation cases job/nonlinear-ridge-zhao-* run it on 20 nm
+    let e = events(&zhao_job(40.0));
+    let s = setup_of(&e);
+    assert_eq!(s.waveguide, "ridge");
+    // the period the job designs from its interpolants (to 1e-8 in n_eff) is the library's from
+    // the modes solved at 0.785 and 1.57 µm on the same cells
+    let g = s.grating.as_ref().unwrap();
+    let library = crate::nonlinear::guide_checks::zhao_period_on(0.04);
+    assert!(
+        (g.period_um / library - 1.0).abs() < 1e-6,
+        "{} {library}",
+        g.period_um
+    );
+    assert!(s.waves[0].group_index.unwrap() > s.waves[0].index);
+    // η from the overlap through their d33, the grating's 2/π in it, is the library's overlap of
+    // the same cells
+    let overlap = s
+        .overlap_percent_per_w_cm2
+        .unwrap_or_else(|| panic!("{:?}", s.notes));
+    let eta = s.efficiency_percent_per_w_cm2.unwrap();
+    let gm = 2.0 / std::f64::consts::PI;
+    assert!((eta / (overlap * gm * gm) - 1.0).abs() < 1e-12);
+    let library = library_efficiency(0.04);
+    assert!((eta / library - 1.0).abs() < 1e-8, "{eta} {library}");
+    assert!(
+        s.efficiency_from.contains("as it is"),
+        "{}",
+        s.efficiency_from
+    );
+    assert!(
+        s.notes
+            .iter()
+            .any(|n| n.contains("task's temperature, 20 °C")),
+        "{:?}",
+        s.notes
+    );
+}
+
+/// A strip of congruent x-cut lithium niobate 0.6 µm thick and 1.5 µm wide on silica, its
+/// media at `celsius` (`model` the film's index model), poled for SHG of 1.55 µm, on 50 nm
+/// cells behind a mirror; `extra` added to the ridge's table.
+fn ln_strip(celsius: f64, model: &str, extra: &str, map: &str) -> String {
+    format!(
         r#"
-name = "zhao-shg"
+name = "ln-strip"
 
 [task]
 kind = "nonlinear"
 process = "shg"
-length_mm = 5.0
+length_mm = 1.0
+temperature_c = {celsius:?}
 
 [task.waveguide.ridge]
 layer = "LN"
-width_um = 1.24
-etch_um = 0.05
-sidewall_deg = 75.0
+width_um = 1.5
 along = "y"
-step_nm = 40.0
+step_nm = 50.0
 families = ["te"]
 tolerance = 1e-7
 mirror = true
-# their own d33, 27 pm/V (p. 1), alone: the catalogue's MgO:LN tensor leaves d22 out
-d_pm_per_v = [[0.0, 0.0, 0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 27.0, 0.0, 0.0, 0.0]]
+{extra}
 
 [task.waveguide.ridge.stack]
 substrate = "sio2"
@@ -335,38 +376,136 @@ cladding = 1.0
 
 [[task.waveguide.ridge.stack.layer]]
 name = "LN"
-thickness_um = 0.3
-material = { id = "linbo3-mgo", orientation = { cut = "x", along_x = "z" } }
+thickness_um = 0.6
+material = {{ id = "linbo3", model = "{model}", orientation = {{ cut = "x", along_x = "z" }} }}
 background = 1.0
 
 [task.poling]
 
 [task.pump]
-wavelength_um = 1.57
+wavelength_um = 1.55
 power_mw = 10.0
-"#,
-    );
-    let s = setup_of(&e);
-    assert_eq!(s.waveguide, "ridge");
-    // their period, 2.8 µm, to its printed digit on these coarse cells (2.8142 on 5 nm ones)
-    let g = s.grating.as_ref().unwrap();
-    assert!((g.period_um - 2.8).abs() < 0.05, "{}", g.period_um);
-    // the TE₀ modes' indices and group indices, from the interpolants
+{map}
+"#
+    )
+}
+
+#[test]
+fn a_ridges_media_follow_the_tasks_temperature() {
+    // Edwards & Lawrence's congruent indices move with the temperature: the period designed at
+    // 25 and at 75 °C differs, where before #595 the ridge's media held their stack's conditions
+    let period = |celsius: f64| {
+        let e = events(&ln_strip(celsius, "edwards-lawrence-1984", "", ""));
+        let s = setup_of(&e);
+        assert!(
+            s.notes
+                .iter()
+                .any(|n| n.contains(&format!("task's temperature, {celsius} °C"))),
+            "{:?}",
+            s.notes
+        );
+        s.grating.as_ref().unwrap().period_um
+    };
+    let (cold, warm) = (period(25.0), period(75.0));
+    assert!((warm - cold).abs() > 1e-3, "{cold} {warm}");
+    // a map across temperature solves the modes at each: its rows differ
+    let e = events(&ln_strip(
+        25.0,
+        "edwards-lawrence-1984",
+        "",
+        "[task.map]\nwavelength_um = [1.54, 1.56]\npoints = 5\ntemperature_c = [25.0, 75.0]\nacross_points = 2\n",
+    ));
+    let map = e
+        .iter()
+        .find_map(|x| match x {
+            Event::PhaseMap { map } => Some(&**map),
+            _ => None,
+        })
+        .unwrap();
+    assert_eq!(map.across_values, vec![25.0, 75.0]);
+    let (first, second) = map.mismatch_per_um.split_at(5);
     assert!(
-        s.waves[0].index > 1.65 && s.waves[0].index < 1.75,
-        "{}",
-        s.waves[0].index
+        first
+            .iter()
+            .zip(second)
+            .all(|(a, b)| (a.unwrap() - b.unwrap()).abs() > 1e-4),
+        "{first:?} {second:?}"
     );
-    assert!(s.waves[0].group_index.unwrap() > s.waves[0].index);
-    // η from the overlap through their d33, the grating's 2/π in the device's (4158.9 %/(W·cm²) on
-    // 20 nm cells, docs/methods/nonlinear.md)
-    let overlap = s
-        .overlap_percent_per_w_cm2
-        .unwrap_or_else(|| panic!("{:?}", s.notes));
-    let eta = s.efficiency_percent_per_w_cm2.unwrap();
-    assert!(eta > 3500.0 && eta < 5000.0, "{eta}");
-    let gm = 2.0 / std::f64::consts::PI;
-    assert!((eta / (overlap * gm * gm) - 1.0).abs() < 1e-12);
+}
+
+#[test]
+fn a_ridges_d_tensor_is_carried_by_millers_rule_from_the_nearest_measurement() {
+    use crate::material::catalogue::{Conditions, entry};
+    use crate::nonlinear::miller::{miller_tensor_ratios, principal_susceptibilities};
+    // congruent LN's d33 at 1.55 µm from Shoji et al.'s 1.313 µm measurement, its d22 from
+    // Miller et al.'s at 1.064 µm, d15 = d31 by Kleinman's symmetry
+    let e = events(&ln_strip(
+        25.0,
+        "zelmon-1997-congruent",
+        "kleinman = true",
+        "",
+    ));
+    let s = setup_of(&e);
+    assert!(
+        s.efficiency_from.contains("carried from 1.313 µm") && s.efficiency_from.contains("d33 × "),
+        "{}",
+        s.efficiency_from
+    );
+    assert!(s.notes.iter().any(|n| n.contains("Miller's rule holds")));
+    // the same η from d_pm_per_v holding the tensor carried by hand
+    let film = entry("linbo3")
+        .unwrap()
+        .oriented(
+            Some("zelmon-1997-congruent"),
+            Conditions {
+                temperature: Some(298.15),
+                composition: None,
+            },
+            crate::material::Orientation::cut(
+                crate::material::CrystalAxis::X,
+                Some(crate::material::CrystalAxis::Z),
+            )
+            .unwrap(),
+        )
+        .unwrap();
+    let chi = |l: f64| principal_susceptibilities(&film, Wavelength::um(l).unwrap()).unwrap();
+    let target = [chi(0.775), chi(1.55), chi(1.55)];
+    let ratios = |lam: f64| miller_tensor_ratios([chi(lam / 2.0), chi(lam), chi(lam)], target);
+    let (r1313, r1064) = (ratios(1.313), ratios(1.064));
+    let (d33, d31, d22) = (19.5 * r1313[2][2], 3.2 * r1313[2][0], 1.9 * r1064[1][1]);
+    let d15 = d31; // Kleinman's symmetry at the job's wavelengths
+    let d = format!(
+        "d_pm_per_v = [[0.0, 0.0, 0.0, 0.0, {d15:?}, {:?}], [{:?}, {d22:?}, 0.0, {d15:?}, 0.0, 0.0], [{d31:?}, {d31:?}, {d33:?}, 0.0, 0.0, 0.0]]",
+        -d22, -d22
+    );
+    let by_hand = setup_of(&events(&ln_strip(25.0, "zelmon-1997-congruent", &d, "")))
+        .efficiency_percent_per_w_cm2
+        .unwrap();
+    let carried = s.efficiency_percent_per_w_cm2.unwrap();
+    assert!(
+        (carried / by_hand - 1.0).abs() < 1e-10,
+        "{carried} {by_hand}"
+    );
+}
+
+#[test]
+fn a_mgo_ridge_without_d22_says_what_to_give() {
+    // Shoji et al. measure MgO:LN's d33 and d31 only, and Kleinman's symmetry gives no d22 (nor
+    // d16 = d21 = −d22, which the message names, the first of them it meets)
+    let text = zhao_job(40.0).replace(
+        "d_pm_per_v = [[0.0, 0.0, 0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 27.0, 0.0, 0.0, 0.0]]",
+        "kleinman = true",
+    );
+    let e = events(&text);
+    let s = setup_of(&e);
+    assert!(s.efficiency_percent_per_w_cm2.is_none());
+    assert!(
+        s.notes
+            .iter()
+            .any(|n| n.contains("nor does Kleinman's symmetry: give d_pm_per_v")),
+        "{:?}",
+        s.notes
+    );
 }
 
 #[test]

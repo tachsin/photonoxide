@@ -10,10 +10,13 @@
 //! - **effective indices given as data** (`[[task.waveguide.n_eff]]`): one table of n_eff over
 //!   wavelength for every wave, or one per wave in the process's order;
 //! - **a ridge** (`[task.waveguide.ridge]`): a film of a `[task.stack]`-like table etched to a
-//!   ridge, each wave's index its fundamental mode of a family by the full-vector solver over the
+//!   ridge, its catalogue media at the task's temperature (a medium that gives its own keeps
+//!   it), each wave's index its fundamental mode of a family by the full-vector solver over the
 //!   wavelengths the task needs ([`crate::nonlinear::guide::ModeIndex`]), and the coupling of a
 //!   second-order process from the modes' overlap through the crystal's d tensor turned onto the
-//!   chip ([`crate::nonlinear::guide`]).
+//!   chip ([`crate::nonlinear::guide`]): the catalogue's measurement nearest the job's
+//!   wavelengths, carried to them by Miller's rule ([`crate::nonlinear::miller`]), or the one
+//!   the task gives, as it is.
 //!
 //! The waves, in each process's order: SHG's fundamental (the pump) and harmonic; SFG's first
 //! input (the pump), its second (the signal) and their sum; DFG's, OPA's and SPDC's pump, signal
@@ -30,7 +33,8 @@
 //!   ([`crate::material::catalogue::transparency`]);
 //! - [`Event::PhaseMap`]: Δk and sinc²(ΔkL/2) against the tuned wave's wavelength (SHG's
 //!   fundamental, every other process's signal, the pump held) and, with `width_um` or
-//!   `temperature_c` in `[task.map]`, the ridge's width or the temperature;
+//!   `temperature_c` in `[task.map]`, the ridge's width or the temperature (a ridge's modes
+//!   solved again at each);
 //! - [`Event::NonlinearEfficiency`]: the generated power against the length, depleted by the
 //!   coupled-amplitude equations with the losses ([`crate::nonlinear::coupled`]) beside the
 //!   undepleted closed form; for OPA the signal's gain, for SPDC the pairs' spectral brightness,
@@ -77,7 +81,7 @@ use serde::{Deserialize, Serialize};
 use super::execute::solver_run;
 use super::kind::TaskKind;
 use super::{Event, task_error};
-use crate::material::catalogue::{self, Axis, Conditions, TensorKind};
+use crate::material::catalogue::{self, Axis, Cell, Conditions, Tensor, TensorKind};
 use crate::material::{Material, Orientation};
 use crate::mode::pockels::Along;
 use crate::nonlinear::coupled::{
@@ -88,6 +92,7 @@ use crate::nonlinear::guide::{
     Family, Grid, ModeField, ModeIndex, Ridge, SecondOrder, fundamental, pair_rate_density,
     percent_per_watt_cm2, second_harmonic_coupling, sum_frequency_coupling,
 };
+use crate::nonlinear::miller::{miller_tensor_ratios, principal_susceptibilities};
 use crate::nonlinear::pairs::{self, Matching, Pump};
 use crate::nonlinear::phase::{
     Device, Expansion, Grating, Index, Process, State, Variable, Wave, sinc2,
@@ -121,7 +126,8 @@ pub(super) struct NonlinearTask {
     poling: Option<PolingSpec>,
     /// The device's length, mm.
     length_mm: f64,
-    /// The operating temperature, °C (25 by default).
+    /// The operating temperature, °C (25 by default): a crystal's indices and a ridge's
+    /// catalogue media are taken at it.
     temperature_c: Option<f64>,
     /// The phase-matching map: against the tuned wave's wavelength, and the width or the
     /// temperature.
@@ -217,7 +223,8 @@ struct RidgeSpec {
     kleinman: Option<bool>,
     /// The film's d tensor in its crystal's axes, pm/V (rows 1 to 3, columns 11, 22, 33, 23, 13,
     /// 12), in place of the catalogue's: for a film whose catalogue entry has none, or leaves an
-    /// element out.
+    /// element out. It is taken at the job's wavelengths as it is; the catalogue's are carried
+    /// there by Miller's rule from where they were measured.
     d_pm_per_v: Option<[[f64; 6]; 3]>,
 }
 
@@ -275,7 +282,8 @@ struct MapSpec {
     temperature_c: Option<[f64; 2]>,
     /// A ridge's widths, µm, from and to: the map's other axis, each width's modes solved.
     width_um: Option<[f64; 2]>,
-    /// The other axis's points (21 temperatures, 5 widths).
+    /// The other axis's points (21 temperatures; 5 widths, or 5 temperatures of a ridge, each
+    /// one's modes solved).
     across_points: Option<usize>,
 }
 
@@ -564,9 +572,15 @@ impl Kind {
 // The guide
 // -------------------------------------------------------------------------------------------
 
-/// A ridge as a task gives it, its stack read.
+/// A ridge as a task gives it, its stack read at a temperature.
 #[derive(Clone, Debug)]
 struct RidgeGuide {
+    /// The task's ridge, to read again at another temperature.
+    spec: RidgeSpec,
+    /// The waves of the process.
+    waves: usize,
+    /// The stack's media that give their own temperature, which the task's doesn't move.
+    held: Vec<String>,
     ridge: Ridge,
     grid: Grid,
     families: Vec<Family>,
@@ -668,10 +682,58 @@ fn catalogued(
     })
 }
 
+/// The stack `stack` with each catalogue medium that doesn't give its own temperature taken at
+/// `kelvin`, and those that do, said as "sio2 at its own 300 K".
+fn at_temperature(stack: &toml::Table, kelvin: f64) -> (toml::Table, Vec<String>) {
+    let mut held: Vec<String> = Vec::new();
+    let mut set = |v: &mut toml::Value| match v {
+        toml::Value::String(id) => {
+            let mut t = toml::Table::new();
+            t.insert("id".into(), toml::Value::String(id.clone()));
+            t.insert("temperature".into(), toml::Value::Float(kelvin));
+            *v = toml::Value::Table(t);
+        }
+        toml::Value::Table(t) if t.contains_key("id") => match t.get("temperature") {
+            Some(own) => {
+                let id = t.get("id").and_then(toml::Value::as_str).unwrap_or("?");
+                let said = format!("{id} at its own {own} K");
+                if !held.contains(&said) {
+                    held.push(said);
+                }
+            }
+            None => {
+                t.insert("temperature".into(), toml::Value::Float(kelvin));
+            }
+        },
+        _ => {}
+    };
+    let mut s = stack.clone();
+    for key in ["substrate", "cladding"] {
+        if let Some(v) = s.get_mut(key) {
+            set(v);
+        }
+    }
+    if let Some(toml::Value::Array(layers)) = s.get_mut("layer") {
+        for l in layers.iter_mut() {
+            if let toml::Value::Table(t) = l {
+                for key in ["material", "background"] {
+                    if let Some(v) = t.get_mut(key) {
+                        set(v);
+                    }
+                }
+            }
+        }
+    }
+    (s, held)
+}
+
 impl RidgeGuide {
-    fn of(spec: &RidgeSpec, waves: usize) -> Result<RidgeGuide> {
+    /// The task's ridge, its catalogue media at `kelvin` where they don't give their own
+    /// temperature.
+    fn of(spec: &RidgeSpec, waves: usize, kelvin: f64) -> Result<RidgeGuide> {
         let at = "[task.waveguide.ridge]";
-        let stack = crate::device::spec::task_stack(&spec.stack).map_err(|e| match e {
+        let (table, held) = at_temperature(&spec.stack, kelvin);
+        let stack = crate::device::spec::task_stack(&table).map_err(|e| match e {
             Error::InvalidValue { reason, .. } => task_error(format!("{at} stack: {reason}")),
             Error::Parse { reason, .. } => task_error(format!("{at} stack: {reason}")),
             other => other,
@@ -762,8 +824,7 @@ impl RidgeGuide {
                 "{at} tolerance must be positive, not {tolerance}"
             )));
         }
-        let film_value = spec
-            .stack
+        let film_value = table
             .get("layer")
             .and_then(toml::Value::as_array)
             .and_then(|a| a.get(k))
@@ -773,6 +834,9 @@ impl RidgeGuide {
             None => None,
         };
         Ok(RidgeGuide {
+            spec: spec.clone(),
+            waves,
+            held,
             ridge,
             grid,
             families,
@@ -786,6 +850,11 @@ impl RidgeGuide {
                 .transpose()
                 .map_err(|e| task_error(format!("{at} d_pm_per_v: {e}")))?,
         })
+    }
+
+    /// The same ridge, its media at `kelvin` (those that give their own temperature held).
+    fn at_kelvin(&self, kelvin: f64) -> Result<RidgeGuide> {
+        RidgeGuide::of(&self.spec, self.waves, kelvin)
     }
 
     fn at_width(&self, width: f64) -> Ridge {
@@ -1110,7 +1179,9 @@ impl Setup {
                         .collect::<Result<_>>()?,
                 )
             }
-            (None, None, Some(r)) => Guide::Ridge(Box::new(RidgeGuide::of(r, roles)?)),
+            (None, None, Some(r)) => {
+                Guide::Ridge(Box::new(RidgeGuide::of(r, roles, state.temperature)?))
+            }
             _ => {
                 return Err(task_error(
                     "[task.waveguide] needs one of crystal, n_eff or ridge",
@@ -1147,7 +1218,16 @@ impl Setup {
                                 "[task.map] temperature_c must be increasing, not [{t0}, {t1}]"
                             )));
                         }
-                        let n = count(m.across_points, 21, 2..=201, "[task.map] across_points")?;
+                        let n = if let Guide::Ridge(r) = &guide {
+                            // each temperature's modes solved, as each width's are; the media
+                            // read at the map's ends here, where their models' ranges are checked
+                            for t in [t0, t1] {
+                                r.at_kelvin(State::celsius(t).temperature)?;
+                            }
+                            count(m.across_points, 5, 2..=21, "[task.map] across_points")?
+                        } else {
+                            count(m.across_points, 21, 2..=201, "[task.map] across_points")?
+                        };
                         Across::Temperature(linspace(t0, t1, n))
                     }
                     (None, Some([w0, w1])) => {
@@ -1450,6 +1530,14 @@ fn compute(job: &Job, stop: &Stop) -> Result<Computed> {
         match ridge_overlap(&setup, r) {
             Ok((eta, how)) => {
                 overlap = Some(eta);
+                if how.contains("Miller's rule") {
+                    notes.push(
+                        "Miller's rule holds δ = d/(χ₃χ₁χ₂) fixed, which measured crystals \
+                         follow only roughly: lithium niobate's δ₃₃ is 3.92, 4.73 and 4.34 × \
+                         10⁻¹³ m/V at 1.313, 1.064 and 0.852 µm (Shoji et al. 1997, Table 12)"
+                            .to_owned(),
+                    );
+                }
                 (Some(eta * gm * gm), how)
             }
             Err(e) => {
@@ -1470,12 +1558,16 @@ fn compute(job: &Job, stop: &Stop) -> Result<Computed> {
     if kind == Kind::Fwm && setup.gamma.is_none() {
         notes.push("no gain: give gamma_per_w_m".to_owned());
     }
-    if let Guide::Ridge(_) = &setup.guide {
-        notes.push(
-            "the ridge's materials are taken at their stack's conditions: the task's \
-             temperature moves only the grating's expansion"
-                .to_owned(),
-        );
+    if let Guide::Ridge(r) = &setup.guide {
+        notes.push(format!(
+            "the ridge's catalogue media are taken at the task's temperature, {} °C{}",
+            ((state.temperature - 273.15) * 1e9).round() / 1e9,
+            if r.held.is_empty() {
+                String::new()
+            } else {
+                format!(", except {}", r.held.join(", "))
+            }
+        ));
     }
 
     // the waves
@@ -1627,7 +1719,8 @@ fn ridge_overlap(setup: &Setup, r: &RidgeGuide) -> Result<(f64, String)> {
         let kappa = coupling(setup, r, &d.in_section(r.ridge.along))?;
         return Ok((
             percent_per_watt_cm2(kappa),
-            "the modes' overlap through the d tensor the task gives, turned onto the chip"
+            "the modes' overlap through the d tensor the task gives, taken at the job's \
+             wavelengths as it is, turned onto the chip"
                 .to_owned(),
         ));
     }
@@ -1638,23 +1731,33 @@ fn ridge_overlap(setup: &Setup, r: &RidgeGuide) -> Result<(f64, String)> {
     };
     let entry = catalogue::entry(id)
         .ok_or_else(|| task_error(format!("no material \"{id}\" in the catalogue")))?;
-    let tensors: Vec<_> = entry
+    let tensors: Vec<&Tensor> = entry
         .tensors
         .iter()
         .filter(|t| t.kind == TensorKind::SecondOrder)
         .collect();
-    let (tensor, rest) = tensors
+    if tensors.is_empty() {
+        return Err(task_error(format!(
+            "{} has no d tensor in the catalogue",
+            entry.name
+        )));
+    }
+    let carried = carried_tensors(setup, r, &tensors)?;
+    let (first, rest) = carried
         .split_first()
-        .ok_or_else(|| task_error(format!("{} has no d tensor in the catalogue", entry.name)))?;
-    // the first tensor, its unknown elements from the others, and by Kleinman's symmetry if the
-    // task says it holds
-    let mut d = SecondOrder::completed(tensor, rest, r.kleinman).map_err(|e| {
+        .ok_or_else(|| task_error("no d tensor to carry"))?;
+    let rest: Vec<&Tensor> = rest.iter().map(|c| &c.tensor).collect();
+    // the nearest measurement, its unknown elements from the others (each carried from its own
+    // wavelength), and by Kleinman's symmetry if the task says it holds
+    let mut d = SecondOrder::completed(&first.tensor, &rest, r.kleinman).map_err(|e| {
+        let by_kleinman = !r.kleinman && SecondOrder::completed(&first.tensor, &rest, true).is_ok();
         task_error(format!(
             "{e}{}",
-            if r.kleinman {
-                ""
-            } else {
+            if by_kleinman {
                 " (set kleinman = true where Kleinman's symmetry holds, or give d_pm_per_v)"
+            } else {
+                " (no measurement in the catalogue gives it, nor does Kleinman's symmetry: give \
+                 d_pm_per_v)"
             }
         ))
     })?;
@@ -1662,13 +1765,111 @@ fn ridge_overlap(setup: &Setup, r: &RidgeGuide) -> Result<(f64, String)> {
         d = d.rotated(o);
     }
     let kappa = coupling(setup, r, &d.in_section(r.ridge.along))?;
-    Ok((
-        percent_per_watt_cm2(kappa),
-        format!(
-            "the modes' overlap through {}'s d tensor ({}), as the catalogue gives it, turned onto the chip",
-            entry.name, tensor.label
+    let how = match &first.from {
+        Some((lam, (element, ratio))) => format!(
+            "the modes' overlap through {}'s d tensor ({}), carried from {lam} µm to the job's \
+             wavelengths by Miller's rule ({element} × {ratio:.4}), turned onto the chip",
+            entry.name, first.tensor.label
         ),
-    ))
+        None => format!(
+            "the modes' overlap through {}'s d tensor ({}), as the catalogue gives it (it states \
+             no wavelength to carry it from), turned onto the chip",
+            entry.name, first.tensor.label
+        ),
+    };
+    Ok((percent_per_watt_cm2(kappa), how))
+}
+
+/// A catalogue d tensor carried to the job's wavelengths.
+struct Carried {
+    tensor: Tensor,
+    /// The fundamental it was measured at (µm), and its largest element's name and ratio;
+    /// `None` for a tensor that states no wavelength, taken as it is.
+    from: Option<(f64, (String, f64))>,
+}
+
+/// The job's three waves' wavelengths (µm) as Miller's rule takes them: the generated (the
+/// highest frequency, ω₃ = ω₁ + ω₂), then the two driving waves.
+fn miller_waves(setup: &Setup) -> [f64; 3] {
+    let w = &setup.waves;
+    match setup.kind {
+        Kind::Shg => [w[1], w[0], w[0]],
+        Kind::Sfg => [w[2], w[0], w[1]],
+        // the pump is the sum of the signal and the idler
+        _ => [w[0], w[1], w[2]],
+    }
+}
+
+/// The film's d tensors, each carried by Miller's rule ([`crate::nonlinear::miller`]) from the
+/// fundamental it was measured at (second-harmonic generation: χ at half that wavelength and
+/// twice at it) to the job's three waves, the χ of each the film's principal indices at the
+/// task's temperature; nearest first, by the measured fundamental's distance from twice the
+/// generated wave's wavelength (the job's own fundamental for SHG). A tensor whose wavelengths
+/// lie outside the film's index model is left out; one that states no wavelength comes last,
+/// as it is.
+fn carried_tensors(setup: &Setup, r: &RidgeGuide, tensors: &[&Tensor]) -> Result<Vec<Carried>> {
+    let core = &r.ridge.core;
+    let chi =
+        |lam: f64| -> Result<[f64; 3]> { principal_susceptibilities(core, Wavelength::um(lam)?) };
+    let [l3, l1, l2] = miller_waves(setup);
+    let target = [chi(l3)?, chi(l1)?, chi(l2)?];
+    let reference = 2.0 * l3;
+    let mut carried: Vec<(f64, Carried)> = Vec::new();
+    let mut outside = None;
+    for &t in tensors {
+        let Some(lam) = t.wavelength else {
+            carried.push((
+                f64::INFINITY,
+                Carried {
+                    tensor: t.clone(),
+                    from: None,
+                },
+            ));
+            continue;
+        };
+        let measured = match (chi(0.5 * lam), chi(lam)) {
+            (Ok(h), Ok(f)) => [h, f, f],
+            (Err(e), _) | (_, Err(e)) => {
+                outside.get_or_insert(e);
+                continue;
+            }
+        };
+        let ratios = miller_tensor_ratios(measured, target);
+        let mut tensor = t.clone();
+        let mut largest: Option<(String, f64, f64)> = None;
+        for (i, row) in tensor.cells.iter_mut().enumerate() {
+            for (l, cell) in row.iter_mut().enumerate() {
+                if let Cell::Value { value, uncertainty } = cell {
+                    if largest.as_ref().is_none_or(|(_, v, _)| value.abs() > *v) {
+                        largest = Some((format!("d{}{}", i + 1, l + 1), value.abs(), ratios[i][l]));
+                    }
+                    *value *= ratios[i][l];
+                    if let Some(u) = uncertainty {
+                        *u *= ratios[i][l];
+                    }
+                }
+            }
+        }
+        carried.push((
+            (lam - reference).abs(),
+            Carried {
+                tensor,
+                from: Some((
+                    lam,
+                    largest.map_or(("d".to_owned(), 1.0), |(n, _, r)| (n, r)),
+                )),
+            },
+        ));
+    }
+    if carried.is_empty() {
+        return Err(task_error(format!(
+            "Miller's rule can't carry the film's d tensors to the job's wavelengths: {}; give \
+             d_pm_per_v",
+            outside.map_or_else(String::new, |e| e.to_string())
+        )));
+    }
+    carried.sort_by(|a, b| a.0.total_cmp(&b.0));
+    Ok(carried.into_iter().map(|(_, c)| c).collect())
 }
 
 /// The coupling κ of the process from the ridge's modes at the operating point, through d
@@ -2018,15 +2219,36 @@ fn phase_map(
             response.extend(b);
             (None, Vec::new())
         }
-        Across::Temperature(ts) => {
-            for &t in ts {
-                let state = State::celsius(t);
-                let (a, b) = row(device, &state);
-                mismatch.extend(a);
-                response.extend(b);
+        Across::Temperature(ts) => match &setup.guide {
+            // a ridge's modes solved again at each temperature, its media read there
+            Guide::Ridge(r) => {
+                let ranges = setup.ranges(setup.pair_half(None))?;
+                let mut done = Vec::new();
+                for &t in ts {
+                    if stop.reason().is_some() {
+                        break;
+                    }
+                    let state = State::celsius(t);
+                    let at = r.at_kelvin(state.temperature)?;
+                    let (indices, _) = at.indices(&at.ridge, &ranges)?;
+                    let device = device_of(setup, &indices, grating)?;
+                    let (a, b) = row(&device, &state);
+                    mismatch.extend(a);
+                    response.extend(b);
+                    done.push(t);
+                }
+                (Some("temperature_c".to_owned()), done)
             }
-            (Some("temperature_c".to_owned()), ts.clone())
-        }
+            _ => {
+                for &t in ts {
+                    let state = State::celsius(t);
+                    let (a, b) = row(device, &state);
+                    mismatch.extend(a);
+                    response.extend(b);
+                }
+                (Some("temperature_c".to_owned()), ts.clone())
+            }
+        },
         Across::Width(ws) => {
             let ranges = setup.ranges(setup.pair_half(None))?;
             let mut done = Vec::new();
