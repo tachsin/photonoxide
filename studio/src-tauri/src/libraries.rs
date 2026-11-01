@@ -89,6 +89,8 @@ const DAY: &str = "2026-10-09";
 const RECHECKED: &str = "2026-10-27";
 /// The day the Libraries workflow ran oneMKL 2026.2's PARDISO and dense kernels' tests.
 const MKL_TESTED: &str = "2026-10-31";
+/// The day the Libraries workflow first ran OpenBLAS built with OpenMP (#595).
+const OPENMP_DAY: &str = "2026-11-01";
 const UBUNTU: &str = "ubuntu-24.04";
 const UBUNTU_22: &str = "ubuntu-22.04";
 const WINDOWS: &str = "windows-2025-vs2026";
@@ -653,7 +655,13 @@ pub const GUIDES: &[Guide] = &[
                 command: "conda install -c conda-forge libopenblas=*=*openmp*",
                 systems: &["linux", "macos"],
                 note: "OpenBLAS built with OpenMP in place of its own threads, which some machines run faster: Benchmarks compares the two here. photonoxide holds each of its threads' OpenMP count at one, so its own parallel loops and OpenBLAS's don't multiply (#557).",
-                checked: &[],
+                checked: &[Checked {
+                    system: "linux",
+                    image: UBUNTU,
+                    date: OPENMP_DAY,
+                    installed: "libopenblas 0.3.34",
+                    found: "OpenBLAS 0.3.34, linked to libgomp, and the photonoxide-openblas backend after its smoke test and its tests",
+                }],
             },
             Install {
                 id: "apt",
@@ -675,6 +683,29 @@ pub const GUIDES: &[Guide] = &[
                         date: DAY,
                         installed: "libopenblas-dev 0.3.20",
                         found: "OpenBLAS 0.3.20, and the photonoxide-openblas backend after its smoke test and its tests, on one thread",
+                    },
+                ],
+            },
+            Install {
+                id: "apt-openmp",
+                manager: "apt",
+                command: "sudo apt-get install libopenblas0-openmp",
+                systems: &["linux"],
+                note: "Debian's and Ubuntu's OpenBLAS built with OpenMP, the same versions as libopenblas-dev's (0.3.26 on Ubuntu 24.04, 0.3.20 on 22.04) and with the same limit before 0.3.27. It installs as one of the alternatives for libopenblas.so.0; if libopenblas0-pthread is installed too, choose the OpenMP one with sudo update-alternatives --config libopenblas.so.0-x86_64-linux-gnu.",
+                checked: &[
+                    Checked {
+                        system: "linux",
+                        image: UBUNTU,
+                        date: OPENMP_DAY,
+                        installed: "libopenblas0-openmp 0.3.26",
+                        found: "OpenBLAS 0.3.26, linked to libgomp, and the photonoxide-openblas backend after its smoke test and its tests",
+                    },
+                    Checked {
+                        system: "linux",
+                        image: UBUNTU_22,
+                        date: OPENMP_DAY,
+                        installed: "libopenblas0-openmp 0.3.20",
+                        found: "OpenBLAS 0.3.20, linked to libgomp, and the photonoxide-openblas backend after its smoke test and its tests",
                     },
                 ],
             },
