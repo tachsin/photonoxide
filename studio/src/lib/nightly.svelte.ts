@@ -306,7 +306,8 @@ export async function checkNightly(quiet: boolean, asked: "user" | "opening" | "
     const o = offer();
     const see = { label: "See them", run: () => (nightly.dialog = true) };
     if (o?.kind === "build") {
-      const text = `main has ${commits(found.new_commits)} new since this build`;
+      // a build whose commit GitHub doesn't know (a local one) can't count what main has since
+      const text = found.placed ? `main has ${commits(found.new_commits)} new since this build` : `main is at ${found.head.slice(0, 7)}; this build's commit isn't on GitHub, so what's new since it can't be counted`;
       if (!quiet || announced !== found.head) toast(`${text}.`, "info", see, 12000);
       announced = found.head;
       return { outcome: "found", detail: text };
