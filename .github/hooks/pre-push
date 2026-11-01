@@ -39,6 +39,7 @@ fi
 # In an agent's worktree (a linked worktree under .claude/worktrees/, see agent-worktree.sh) the
 # lints still run, but build into the shared <main checkout>/target/audit, never a target/ of the
 # worktree's own (1 to 30 GB each); a CARGO_TARGET_DIR you set is kept, and holds the stamps.
+# The sources are touched first (.github/scripts/touch-sources.sh), see there why.
 # shellcheck source=agent-worktree.sh
 source "$HOOKS_DIR/agent-worktree.sh"
 if agent_worktree; then
@@ -52,6 +53,9 @@ if agent_worktree; then
   LINT_STAMPS_DIR=$(agent_stamps_dir)
   export LINT_STAMPS_DIR
   echo "pre-push: agent worktree, building in $CARGO_TARGET_DIR"
+  # cargo judges freshness by mtime and the shared target holds other worktrees' builds: make the
+  # sources newer than any of them, so the lints never run on a build of another checkout's files
+  bash "$HOOKS_DIR/../scripts/touch-sources.sh" || echo "pre-push: touch-sources failed; the lints go on"
 fi
 
 # shellcheck source=../lints.sh
