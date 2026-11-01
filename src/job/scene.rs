@@ -271,7 +271,7 @@ fn separate(shape: &Shape) -> Option<&[crate::geometry::Element]> {
 /// they don't meet; or for a boolean, offset, rounding (which may fall apart into several
 /// polygons), and an array whose elements meet, one for each of its polygons within 1 nm,
 /// holes joined as a ring's are.
-fn outlines(shape: &Shape) -> Vec<Vec<[f64; 2]>> {
+pub(super) fn outlines(shape: &Shape) -> Vec<Vec<[f64; 2]>> {
     if let Some(elements) = separate(shape) {
         return elements.iter().flat_map(|e| outlines(&e.shape)).collect();
     }

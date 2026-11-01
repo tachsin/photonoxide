@@ -256,6 +256,77 @@ fn a_line_table_is_refused_where_it_cant_be_one() {
 }
 
 #[test]
+fn the_catalogue_gives_the_tangents_the_table_doesnt() {
+    let text = super::line_checks::PLATES.replace(
+        "    catalogue_loss_tangents: true\n",
+        "    catalogue_loss_tangents: true\n    loss_tangent: { SiO2: 0.006 }\n",
+    );
+    assert!(text.contains("SiO2: 0.006"));
+    let v = values(&run_job("catalogue", &text));
+    let tangent = |m: &str| {
+        v.iter()
+            .find(|x| x.name.starts_with(&format!("line: loss tangent of {m} (")))
+            .unwrap_or_else(|| panic!("no {m} in {v:?}"))
+            .clone()
+    };
+    // the table's own is kept
+    let oxide = tangent("SiO2");
+    assert_eq!(oxide.value, 0.006);
+    assert!(oxide.name.ends_with("(given)"), "{}", oxide.name);
+    // silicon's the catalogue's nearest 70.7 GHz: Lamb's Table I at 100 GHz
+    let si = tangent("Si");
+    assert!((si.value - 19e-4).abs() < 1e-15, "{}", si.value);
+    for part in ["Silicon", "100 GHz", "lamb-1996", "Table I", "70.7107 GHz"] {
+        assert!(si.name.contains(part), "{part}: {}", si.name);
+    }
+    // the air above, which the catalogue hasn't, stays lossless
+    let air = tangent("n = 1");
+    assert_eq!(air.value, 0.0);
+    assert!(air.name.contains("lossless"), "{}", air.name);
+    // the line's tangent weighs them by their shares
+    let (q_ox, q_si) = (
+        named(&v, "line: SiO2's share"),
+        named(&v, "line: Si's share"),
+    );
+    let tan = named(&v, "line: loss tangent (the media's");
+    assert!((tan - (q_ox * 0.006 + q_si * 19e-4)).abs() < 1e-15, "{tan}");
+    // without it nothing is taken: the given tangent alone, and no notes
+    let plain = values(&run_job(
+        "no-catalogue",
+        &text.replace(
+            "catalogue_loss_tangents: true",
+            "catalogue_loss_tangents: false",
+        ),
+    ));
+    assert!(
+        !plain
+            .iter()
+            .any(|x| x.name.starts_with("line: loss tangent of"))
+    );
+    let tan = named(&plain, "line: loss tangent (the media's");
+    assert!((tan - q_ox * 0.006).abs() < 1e-15, "{tan}");
+}
+
+#[test]
+fn a_crystal_is_found_by_its_formula_and_a_band_holds_its_frequency() {
+    // lithium niobate as the tensor stack names it, at 120 GHz inside Lee's 91 to 147 GHz: the
+    // larger axis's top, the field along the optic axis
+    let (t, from) =
+        super::line::catalogue_tangent("LiNbO₃ (x-cut, its y along the chip's x)", 120.0).unwrap();
+    assert!((t - 7.971e-3).abs() < 1e-12, "{t}");
+    assert!(
+        from.contains("along the optic axis") && from.contains("lee-2001-linbo3"),
+        "{from}"
+    );
+    // fused silica at 150 GHz: Parshin's three grades and Harvey's band, the largest (QU's top)
+    let (t, from) = super::line::catalogue_tangent("SiO2", 150.0).unwrap();
+    assert!((t - 15e-4).abs() < 1e-15, "{t}");
+    assert!(from.contains("grade QU"), "{from}");
+    // a region the catalogue hasn't
+    assert!(super::line::catalogue_tangent("PECVD", 50.0).is_none());
+}
+
+#[test]
 fn a_full_wave_table_is_refused_on_a_segmented_line() {
     let job = Job::parse_as(
         &segmented_text(|t| {

@@ -22,7 +22,7 @@ use photonoxide::run::{Format, Job};
 use serde::{Deserialize, Serialize};
 
 use crate::devices::{SpecIn, text};
-use mesh::{Detail, Role, Solid, rings_of, solids};
+use mesh::{Detail, Role, Solid, film_solids, rings_of, solids};
 
 /// The most triangles a frame's 3D view is drawn with.
 pub const TRIANGLES: usize = 200_000;
@@ -42,6 +42,27 @@ pub enum DesignIn {
         #[serde(default)]
         path: Option<String>,
     },
+    /// A run's: the job its folder keeps (`job.yaml`, `job.toml` or `job.json`, as it was given).
+    Run {
+        dir: String,
+    },
+}
+
+/// The job a run's folder keeps, and its format.
+fn run_job(dir: &str) -> Result<Job, String> {
+    let dir = std::path::Path::new(dir);
+    for name in ["job.yaml", "job.toml", "job.json"] {
+        let path = dir.join(name);
+        if let (Ok(text), Some(format)) = (std::fs::read_to_string(&path), Format::from_path(&path))
+        {
+            return Job::parse_as(&text.replace("\r\n", "\n"), format)
+                .map_err(crate::devices::text);
+        }
+    }
+    Err(format!(
+        "{} keeps no job file (job.yaml, job.toml or job.json)",
+        dir.display()
+    ))
 }
 
 /// A solid as the page draws it: its layer, film, permittivity, what it is, whether it is drawn
@@ -118,6 +139,9 @@ fn view_of(
             }
             job::fabrication_of_job(&job, prefer, avoid).map_err(text)
         }
+        DesignIn::Run { dir } => {
+            job::fabrication_of_job(&run_job(dir)?, prefer, avoid).map_err(text)
+        }
     }
 }
 
@@ -134,7 +158,7 @@ pub fn page_of(view: FabricationView) -> FabricationPage {
         .frames
         .iter()
         .map(|f| {
-            let rings = rings_of(&f.scene, &f.etched);
+            let rings = rings_of(&f.scene, &f.etched, &f.films);
             estimate(rings.len(), rings.iter().map(mesh::Rings::vertices).sum())
         })
         .max()
@@ -153,7 +177,8 @@ pub fn page_of(view: FabricationView) -> FabricationPage {
     let mut triangles = 0;
     for f in &view.frames {
         let mut ids = Vec::new();
-        let drawn = solids(&f.scene, &f.etched, detail);
+        let mut drawn = solids(&f.scene, &f.etched, detail);
+        drawn.extend(film_solids(&f.films, detail));
         triangles = triangles.max(drawn.iter().map(|s| s.mesh.triangles.len()).sum::<usize>());
         for s in drawn {
             colours

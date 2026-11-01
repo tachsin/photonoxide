@@ -113,6 +113,27 @@ pub(crate) fn tsai_eq_3(rho_grain: f64, l0: f64, d: f64) -> f64 {
     TSAI_RHO_0 * (1.0 + 0.375 * l0 / d) + rho_grain
 }
 
+/// The thickness range of Tsai et al.'s films, nm (Table II): where their Eq. (3) is checked.
+pub const TIN_FILM_NM: (f64, f64) = (45.0, 100.0);
+
+/// The resistivity of a TiN film `thickness_nm` thick, µΩ·cm: Tsai et al.'s lowest-resistivity
+/// films (reactively sputtered, collimated, the substrate at 500 °C, −100 V of rf bias), by their
+/// Eq. (3), ρ = ρ₀(1 + 0.375 l₀/d) + ρ_grain, with Table IV's row for them (ρ_grain 14 µΩ·cm, l₀
+/// 96 nm) and the single crystal's ρ₀ = 23 µΩ·cm: 45.3 µΩ·cm at 100 nm, 55.4 at 45. The films
+/// were 45 to 100 nm thick ([`TIN_FILM_NM`]); outside that the equation is carried on (thinner
+/// films' surfaces scatter more, thicker ones tend to ρ₀ + ρ_grain = 37 µΩ·cm). A thermo-optic
+/// heater's resistance takes it ([`crate::device::ThermoShifter`]).
+pub fn tin_film_resistivity(thickness_nm: f64) -> f64 {
+    let (_, rho_grain, l0) = TSAI_TABLE_IV[3];
+    tsai_eq_3(rho_grain, l0, thickness_nm)
+}
+
+/// Where [`tin_film_resistivity`] comes from, as a heater's notes state it.
+pub const TIN_FILM_SOURCE: &str = "TiN's resistivity by Tsai et al.'s Eq. (3) with their Table IV's \
+     row for the collimated films sputtered at 500 °C with −100 V of bias, ρ = 23(1 + 0.375 × \
+     96 nm/d) + 14 µΩ·cm at the film's thickness d (their films 45 to 100 nm, carried on outside \
+     it): W. Tsai et al., J. Appl. Phys. 73, 4462 (1993), doi:10.1063/1.352785";
+
 /// The lowest-resistivity films (collimated, 500 °C, −100 V): Eq. (3) with Table IV's last row
 /// at 100 nm, the thickest of Table II's films, against the 45 µΩ·cm of the abstract and Table
 /// II's lower end (µΩ·cm shown).
@@ -238,6 +259,9 @@ mod tests {
         // the unbiased ones: 67.8 and 60.2 µΩ·cm, below Table II's 65 at 100 nm
         assert!((tsai_eq_3(31.0, 72.0, 45.0) - 67.8).abs() < 1e-9);
         assert!((tsai_eq_3(31.0, 72.0, 100.0) - 60.21).abs() < 1e-9);
+        // the heater's film: the same row, by thickness
+        assert!((tin_film_resistivity(100.0) - 45.28).abs() < 1e-9);
+        assert!((tin_film_resistivity(45.0) - 55.4).abs() < 1e-9);
         // the case, and its thin end inside Table II's 45 to 60
         assert!(tsai_lowest().passed());
         assert!(tsai_eq_3(14.0, 96.0, 45.0) <= TSAI_TABLE_II[5].3.1);

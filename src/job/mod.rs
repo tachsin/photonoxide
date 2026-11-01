@@ -495,6 +495,7 @@ mod device_tests;
 mod event;
 mod execute;
 mod fabrication;
+mod fabrication_films;
 mod fabrication_frames;
 #[cfg(test)]
 mod fabrication_tests;
@@ -511,6 +512,7 @@ mod leaky_checks;
 #[cfg(test)]
 mod leaky_tests;
 mod line;
+mod line_checks;
 #[cfg(test)]
 mod line_tests;
 mod modes;
@@ -564,8 +566,8 @@ pub use device::{Compute, DeviceFigure, fdfd_size, from_device};
 pub use event::Event;
 pub use execute::{conclude, execute, farms, preview};
 pub use fabrication::{
-    FabricationView, FlowFrame, Stage, UNSTATED_RESIST_UM, fabrication_of, fabrication_of_job,
-    fabrication_view, from_fabrication,
+    FabricationView, FlowFrame, FrameFilm, IMPRINT_RESIDUE, Stage, UNSTATED_COVERAGE,
+    UNSTATED_RESIST_UM, fabrication_of, fabrication_of_job, fabrication_view, from_fabrication,
 };
 pub use fdfd::{FdfdSParameters, fdfd_s_parameters};
 pub use fdtd::{FoundResonance, SpectrumSeries};
@@ -614,6 +616,11 @@ pub(crate) fn study_cases() -> Vec<crate::validation::Case> {
 /// The validation cases of modes jobs' leaky modes, with a PML (`[task.pml]`).
 pub(crate) fn leaky_cases() -> Vec<crate::validation::Case> {
     leaky_checks::cases()
+}
+
+/// The validation cases of static jobs' lines: the catalogue's loss tangents through a job.
+pub(crate) fn line_cases() -> Vec<crate::validation::Case> {
+    line_checks::cases()
 }
 
 /// The validation cases of nonlinear jobs' ridges: Zhao et al.'s guide through a job.

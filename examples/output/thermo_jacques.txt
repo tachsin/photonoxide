@@ -21,7 +21,7 @@ Setup
     shapes:
       on TiN: rectangle centred at (160, 0) µm, 320 µm along x by 7.5 µm along y
       on Si: rectangle centred at (160, 0) µm, 320 µm along x by 500 nm along y
-    thermo-optic phase shifter: width 0.5 µm, thickness 0.22 µm, heater_width 7.5 µm, heater_thickness 0.1 µm, height 2 µm, cover 1 µm, length 320 µm, pitch 5 µm, power 0 mW, loss 0 dB/cm, wavelength 1.55 µm, span 0.1 µm
+    thermo-optic phase shifter: width 0.5 µm, thickness 0.22 µm, heater_width 7.5 µm, heater_thickness 0.1 µm, height 2 µm, cover 1 µm, length 320 µm, pitch 5 µm, power 0 mW, voltage 0 V, loss 0 dB/cm, wavelength 1.55 µm, span 0.1 µm
   both:
     wavelength: 1.55 µm
     grid: the 2D model's own grids, and grids twice as fine (the gate); the analytic model's closed forms

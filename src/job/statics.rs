@@ -1078,9 +1078,12 @@ fn setup_scaled(job: &Job, scale: f64, fine_nm: Option<f64>) -> Result<Setup> {
                     .iter()
                     .map(|c| c.z_um[1] - c.z_um[0])
                     .collect();
-                let metal =
-                    super::line::check(spec, task.conductor.len(), &heights, section.media())?;
-                setup.line = Some((spec.clone(), metal));
+                setup.line = Some(super::line::check(
+                    spec,
+                    task.conductor.len(),
+                    &heights,
+                    section.media(),
+                )?);
             }
             setup.electrostatic = Some(e);
         }

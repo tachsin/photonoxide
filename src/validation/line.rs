@@ -540,5 +540,16 @@ pub(crate) fn rules() -> Vec<(&'static str, Rule)> {
                 "the two finest graded grids' study, at least first order: the gate, 0.5%",
             ),
         ),
+        // ---- a static job's line ----
+        (
+            "line/job-catalogue-tangents",
+            Rule::new(
+                Relative,
+                RoundOff,
+                1e-12,
+                Exact,
+                "capacitors in series, the interfaces on the grid's lines, as line/filling-plates: round-off",
+            ),
+        ),
     ]
 }

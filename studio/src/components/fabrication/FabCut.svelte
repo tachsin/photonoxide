@@ -1,11 +1,12 @@
 <script lang="ts">
-  // The Fabrication page's 2D view: the wafer's cross-section at the frame shown, drawn over the
+  // The Fabrication views' 2D view: the wafer's cross-section at the frame shown, drawn over the
   // frame before it and revealed as the step does its work, `t` from 0 to 1: a film put down from
   // below, as it grows; material etched, lifted off, polished or developed away from above, as it
-  // goes; anything else (a pattern written, an anneal) faded in. Each film in its colour, the 3D
-  // view's.
+  // goes; anything else (a pattern written, an anneal) faded in (lib/fabanim.ts). Each film in its
+  // colour, the 3D view's; the films over the topography (the resist, a conformal film) drawn
+  // between the layers' backgrounds and their shapes.
   import type { FlowFrame } from "../../lib/api";
-  import { motion } from "../../lib/fab3d";
+  import { reveal as revealOf } from "../../lib/fabanim";
   import CutView from "../device/CutView.svelte";
 
   let {
@@ -25,25 +26,18 @@
   const names = $derived(width >= 440);
   const now = $derived(frames[frame]);
   const before = $derived(frame > 0 ? frames[frame - 1] : null);
-  const reveal = $derived.by(() => {
-    if (!before || t >= 1) return "";
-    const hidden = `${((1 - t) * 100).toFixed(2)}%`;
-    const how = motion(now.phase);
-    if (how === "grow") return `clip-path: inset(${hidden} 0 0 0)`;
-    if (how === "remove") return `clip-path: inset(0 0 ${hidden} 0)`;
-    return `opacity: ${t.toFixed(3)}`;
-  });
+  const reveal = $derived(revealOf(now.phase, t, !!before));
 </script>
 
 <!-- narrow, the layers' names give way to the picture: the page's legend names them -->
 <div class="relative" bind:clientWidth={width}>
   {#if before && t < 1}
     <div class="absolute inset-0" aria-hidden="true">
-      <CutView scene={before.scene} etched={before.etched} {normal} {at} {height} quiet maxStretch={STRETCH} {colours} {names} />
+      <CutView scene={before.scene} etched={before.etched} films={before.films} {normal} {at} {height} quiet maxStretch={STRETCH} {colours} {names} />
     </div>
   {/if}
   <!-- on the card's own colour, so where the step took material away the frame before doesn't show through -->
   <div class="relative bg-base-100" style={reveal}>
-    <CutView scene={now.scene} etched={now.etched} {normal} {at} {height} quiet maxStretch={STRETCH} {colours} {names} />
+    <CutView scene={now.scene} etched={now.etched} films={now.films} {normal} {at} {height} quiet maxStretch={STRETCH} {colours} {names} />
   </div>
 </div>
