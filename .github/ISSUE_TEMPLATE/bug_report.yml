@@ -1,0 +1,47 @@
+name: Bug report
+description: Something gives a wrong result, fails, or behaves differently from its documentation.
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what you got. A wrong number is a bug too; say which paper or closed form it disagrees with.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: How to reproduce it
+      description: The smallest job file, script or example that shows it. Paste it as text.
+      render: yaml
+    validations:
+      required: true
+  - type: dropdown
+    id: where
+    attributes:
+      label: Where did you run it
+      options:
+        - The studio
+        - The command line (photonoxide run)
+        - The Rust library
+        - The Python package
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: The photonoxide version (the studio's About page, or `photonoxide --version`).
+    validations:
+      required: true
+  - type: input
+    id: system
+    attributes:
+      label: Operating system and hardware
+      description: For example Windows 11, 16 cores, or macOS on Apple silicon; add the GPU if one is involved.
+  - type: textarea
+    id: output
+    attributes:
+      label: Output or error message
+      render: text
