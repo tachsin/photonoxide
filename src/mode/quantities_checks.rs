@@ -154,6 +154,97 @@ pub(crate) fn slab_orthogonality(h: f64) -> (f64, f64) {
         .map_or((f64::NAN, f64::NAN), |o| (o.off_diagonal(), o.diagonal()))
 }
 
+/// A strip symmetric about x = 0 and y = 0, 480 × 200 nm of 3.473 in 1.444, on a uniform grid of
+/// spacing `h` over ±1 µm × ±0.7 µm: the whole window, or its part from x = 0 behind the wall
+/// `west` and from y = 0 behind the wall `south` ([`Boundary::Zero`] for an axis left whole).
+fn symmetric_strip(h: f64, west: Boundary, south: Boundary) -> CrossSection {
+    let from = |wall: Boundary, half: f64| if wall == Boundary::Zero { -half } else { 0.0 };
+    let (x0, y0) = (from(west, 1.0), from(south, 0.7));
+    let cells = |a: f64, b: f64| ((b - a) / h).round() as usize;
+    CrossSection::uniform(
+        (x0, 1.0, cells(x0, 1.0)),
+        (y0, 0.7, cells(y0, 0.7)),
+        |x, y| {
+            let n: f64 = if x.abs() < 0.24 && y.abs() < 0.1 {
+                CORE
+            } else {
+                CLAD
+            };
+            Permittivity::isotropic(c64::new(n * n, 0.0))
+        },
+    )
+    .and_then(|cs| {
+        cs.with_boundaries(Boundaries {
+            west,
+            south,
+            ..Boundaries::default()
+        })
+    })
+    .expect("a valid strip")
+}
+
+/// What a mode's fields give beside its index: its effective area (Eq. 41, with the mirror
+/// images of a folded window), its confinement in the silicon, and its index change for a
+/// change of 0.01 in the silicon's permittivity by first-order perturbation.
+fn field_quantities(cs: &CrossSection, mode: &VectorMode) -> [f64; 3] {
+    let si = Permittivity::isotropic(c64::new(CORE * CORE, 0.0));
+    let delta: Vec<Permittivity> = cs
+        .cells()
+        .iter()
+        .map(|&e| {
+            let d = if e == si { 0.01 } else { 0.0 };
+            Permittivity::isotropic(c64::new(d, 0.0))
+        })
+        .collect();
+    [
+        mode.fields_one_sided(cs)
+            .map_or(f64::NAN, |f| f.effective_area()),
+        mode.confinement(cs, &Region::Material(si))
+            .unwrap_or(f64::NAN),
+        crate::mode::thermo::index_change(mode, cs, &delta).map_or(f64::NAN, |d| d.re),
+    ]
+}
+
+/// The largest relative difference between the symmetric strip's quantities from its whole
+/// window and from each fold of it at spacing `h` (half behind a wall at x = 0, half behind a
+/// wall at y = 0, and the quarter behind both), over its TE-like mode (an electric wall at
+/// x = 0, a magnetic one at y = 0) and its TM-like one (the opposite), and over the effective
+/// area, the confinement and the index change of [`field_quantities`]. A fold is the same
+/// discrete problem as the whole window, so the difference is the eigensolver's round-off;
+/// E_z beside a wall must take its parity across it for that (odd across an electric wall, even
+/// across a magnetic one), or ∂E_z there is one-sided and E's transverse part is off in the
+/// cells along the wall.
+pub(crate) fn fold_difference(h: f64) -> f64 {
+    fold_differences(h)
+        .iter()
+        .flat_map(|(_, _, _, d)| *d)
+        .fold(0.0, f64::max)
+}
+
+/// [`fold_difference`] by mode and fold: whether the mode is the TE-like one, the walls at
+/// x = 0 and y = 0, and each quantity's relative difference.
+fn fold_differences(h: f64) -> Vec<(bool, Boundary, Boundary, [f64; 3])> {
+    use Boundary::{ElectricWall, MagneticWall, Zero};
+    let full = symmetric_strip(h, Zero, Zero);
+    let both = vector::modes(&full, lam(), 2, None).expect("the solver converges");
+    let mut out = Vec::new();
+    for (te, mode, across_x, across_y) in [
+        (true, &both[0], ElectricWall, MagneticWall),
+        (false, &both[1], MagneticWall, ElectricWall),
+    ] {
+        let whole = field_quantities(&full, mode);
+        let n = mode.effective_index().re;
+        for (west, south) in [(across_x, Zero), (Zero, across_y), (across_x, across_y)] {
+            let cs = symmetric_strip(h, west, south);
+            let folded = vector::modes(&cs, lam(), 1, Some(n)).expect("the solver converges");
+            let part = field_quantities(&cs, &folded[0]);
+            let d = [0, 1, 2].map(|k| (part[k] / whole[k] - 1.0).abs());
+            out.push((te, west, south, d));
+        }
+    }
+    out
+}
+
 /// The observed order of `error` over spacings 10, 5 and 2.5 nm: the mean of the two halvings'.
 fn order(error: impl Fn(f64) -> f64) -> f64 {
     let e: Vec<f64> = [0.01, 0.005, 0.0025].into_iter().map(error).collect();
@@ -278,6 +369,21 @@ pub(crate) fn cases() -> Vec<Case> {
             source: r"second order: the cells' averages of the nodal field",
             run: || orders(order(|h| slab_orthogonality(h).0)),
         },
+        Case {
+            id: "mode/fields-folded-strip",
+            title: r"A strip symmetric about both axes (480 × 200 nm, 3.473 in 1.444, 1.55 µm, 10 nm cells over ±1 × ±0.7 µm), its TE-like and TM-like modes on the whole window and on its halves and quarter behind mirror walls (electric and magnetic, at x = 0 and at y = 0): the largest relative difference in the effective area, the confinement in the silicon and the first-order index change for $\Delta\varepsilon$ = 0.01 in the silicon (shown)",
+            tier: Tier::Analytic,
+            source: r"0: a fold is the same discrete problem as the whole window, its walls the mirror images of the field; $E_z$ beside a wall takes its parity across it (odd across an electric wall, even across a magnetic one), so $\partial E_z$ there is the whole window's central difference",
+            run: || {
+                let e = significant(fold_difference(0.01), 1);
+                Outcome {
+                    measured: e,
+                    expected: 0.0,
+                    tolerance: 1e-10,
+                    error: e,
+                }
+            },
+        },
     ]
 }
 
@@ -294,6 +400,20 @@ mod tests {
             (closed - multilayer).abs() < 1e-12,
             "{closed} vs {multilayer}"
         );
+    }
+
+    #[test]
+    #[ignore = "a grid study, run by hand (cargo test --release -- --ignored --nocapture)"]
+    fn folds_by_grid() {
+        // the effective area, confinement and index change: whole window against each fold
+        for h in [0.02, 0.01, 0.005] {
+            for (te, west, south, d) in fold_differences(h) {
+                println!(
+                    "folds h {h} te {te} west {west:?} south {south:?}: {:.3e} {:.3e} {:.3e}",
+                    d[0], d[1], d[2]
+                );
+            }
+        }
     }
 
     #[test]

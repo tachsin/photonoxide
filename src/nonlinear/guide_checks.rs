@@ -171,10 +171,10 @@ pub(crate) fn bulk_limit() -> f64 {
 pub(crate) fn plane_wave() -> f64 {
     let lam = 1.064;
     let (cs, f) = filled_mode(CrystalAxis::Z, lam);
-    let (_, h) = filled_mode(CrystalAxis::Z, lam / 2.0);
+    let (cs_h, h) = filled_mode(CrystalAxis::Z, lam / 2.0);
     let (ef, eh) = (
         ModeField::new(&f, &cs, um(lam)).expect(OK),
-        ModeField::new(&h, &cs, um(lam / 2.0)).expect(OK),
+        ModeField::new(&h, &cs_h, um(lam / 2.0)).expect(OK),
     );
     let d = z_cut_d33(25.2);
     let share = vec![1.0; cs.cells().len()];
@@ -399,7 +399,7 @@ fn zhao_period_case() -> Outcome {
 /// window), µm²: Afshar and Monro's Eq. 41, from S_z
 /// ([`crate::mode::fields::Fields::effective_area`]). The paper doesn't define its "modal
 /// effective area"; Eq. 41's converges on these grids, where the standard Eq. 44, from |E_t|⁴,
-/// takes the ridge's corners twice (1.110, 1.107 and 1.103 µm² at 1.57 µm; 0.400, 0.401 and 0.401
+/// takes the ridge's corners twice (1.110, 1.107 and 1.103 µm² at 1.57 µm; 0.400, 0.400 and 0.401
 /// at 0.785 µm): both round to the paper's.
 pub(crate) fn zhao_area_on(lam: f64, h: f64) -> f64 {
     let (r, g) = (zhao_ridge(None), Grid::new(h).halved());

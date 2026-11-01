@@ -220,6 +220,14 @@ fn parity(boundary: Boundary, normal: Component, component: Component) -> Option
     }
 }
 
+/// The sign E_z takes across a wall: E_z is tangential to every wall, so it is odd across an
+/// electric wall (zero on it) and even across a magnetic one. `None` for [`Boundary::Zero`].
+/// The same as E_z = (i/kε_zz)(∂_x H_y − ∂_y H_x) gives from H's parities: across a wall normal
+/// to x, ∂_x H_y and ∂_y H_x take the parity opposite to H_y's, which is H_x's.
+fn ez_parity(boundary: Boundary) -> Option<f64> {
+    parity(boundary, Component::X, Component::X)
+}
+
 /// A rectilinear grid over the cross-section, the permittivity of each of its cells, and what
 /// lies at its edges.
 #[derive(Clone, Debug, PartialEq)]
@@ -1060,34 +1068,62 @@ impl VectorMode {
                 area.push(dx * dy);
             }
         }
-        // ∂x E_z, ∂y E_z at the cells' centres from their neighbours (one-sided at the edges)
+        // ∂x E_z, ∂y E_z at the cells' centres from their neighbours. Beyond a wall the
+        // neighbour is the cell's own mirror image, E_z taken with its parity across the wall
+        // (E_z is tangential to every wall: odd across an electric one, even across a magnetic
+        // one), so the difference beside a wall is the central one the whole window would take;
+        // beyond a zero edge or a PML, there is none and the difference is one-sided.
+        let walls = cs.boundaries();
         let d = |a: usize, b: usize, along_x: bool| -> c64 {
-            let (len, centres, idx) = if along_x { (cx, &xc, a) } else { (cy, &yc, b) };
-            if len < 2 {
-                return c64::new(0.0, 0.0);
-            }
-            let (mut lo, mut hi) = (idx.saturating_sub(1), (idx + 1).min(len - 1));
-            if sided {
-                let cell = |m: usize| {
-                    if along_x {
-                        cs.cell(m as isize, b as isize)
-                    } else {
-                        cs.cell(a as isize, m as isize)
-                    }
-                };
-                let (below, above) = (cell(lo) == cell(idx), cell(hi) == cell(idx));
-                if below && !above {
-                    hi = idx;
-                } else if above && !below {
-                    lo = idx;
-                }
-            }
-            let (vlo, vhi) = if along_x {
-                (ez[lo * cy + b], ez[hi * cy + b])
+            let (len, centres, nodes, idx) = if along_x {
+                (cx, &xc, &self.x, a)
             } else {
-                (ez[a * cy + lo], ez[a * cy + hi])
+                (cy, &yc, &self.y, b)
             };
-            (vhi - vlo) / (centres[hi] - centres[lo])
+            let (low_wall, high_wall) = if along_x {
+                (walls.west, walls.east)
+            } else {
+                (walls.south, walls.north)
+            };
+            let value = |m: usize| {
+                if along_x {
+                    ez[m * cy + b]
+                } else {
+                    ez[a * cy + m]
+                }
+            };
+            let cell = |m: usize| {
+                if along_x {
+                    cs.cell(m as isize, b as isize)
+                } else {
+                    cs.cell(a as isize, m as isize)
+                }
+            };
+            // a neighbour: its centre, its E_z, and whether it is the cell's own material
+            let own = cell(idx);
+            let inside = |m: usize| (centres[m], value(m), cell(m) == own);
+            let image =
+                |parity: f64, node: f64| (2.0 * node - centres[idx], parity * value(idx), true);
+            let below = if idx > 0 {
+                Some(inside(idx - 1))
+            } else {
+                ez_parity(low_wall).map(|s| image(s, nodes[0]))
+            };
+            let above = if idx + 1 < len {
+                Some(inside(idx + 1))
+            } else {
+                ez_parity(high_wall).map(|s| image(s, nodes[len]))
+            };
+            let here = (centres[idx], value(idx), true);
+            let (lo, hi) = match (below, above) {
+                (None, None) => return c64::new(0.0, 0.0),
+                (Some(lo), None) => (lo, here),
+                (None, Some(hi)) => (here, hi),
+                (Some(lo), Some(hi)) if sided && lo.2 && !hi.2 => (lo, here),
+                (Some(lo), Some(hi)) if sided && hi.2 && !lo.2 => (here, hi),
+                (Some(lo), Some(hi)) => (lo, hi),
+            };
+            (hi.1 - lo.1) / (hi.0 - lo.0)
         };
         let kb = self.k / beta;
         let mut e = Vec::with_capacity(cx * cy);
@@ -2043,6 +2079,75 @@ mod tests {
         ] {
             let got = modes(&cs, lam, 1, None).unwrap()[0].effective_index();
             assert!((got - want).norm() < 1e-10, "{got} vs {want}");
+        }
+    }
+
+    #[test]
+    fn a_folded_windows_e_is_the_whole_windows_beside_the_wall() {
+        // the strip above on its half x ≥ 0 and its half y ≥ 0: E in every cell, the cells along
+        // the wall too, is the whole window's, E_z taken with its parity beyond the wall (odd
+        // across an electric wall, even across a magnetic one), so ∂E_z there is the central
+        // difference the whole window takes, not a one-sided one
+        use Boundary::{ElectricWall, MagneticWall, Zero};
+        let lam = Wavelength::um(1.55).unwrap();
+        let eps = |x: f64, y: f64| core(x.abs() < 0.24 && y.abs() < 0.1);
+        let full = CrossSection::uniform((-1.0, 1.0, 100), (-0.7, 0.7, 70), eps).unwrap();
+        let half = |west, south| {
+            let (x0, nx) = if west == Zero { (-1.0, 100) } else { (0.0, 50) };
+            let (y0, ny) = if south == Zero { (-0.7, 70) } else { (0.0, 35) };
+            CrossSection::uniform((x0, 1.0, nx), (y0, 0.7, ny), eps)
+                .unwrap()
+                .with_boundaries(Boundaries {
+                    west,
+                    south,
+                    ..Default::default()
+                })
+                .unwrap()
+        };
+        let both = modes(&full, lam, 2, None).unwrap();
+        for (sided, mode, walls) in [
+            (false, 0, [(ElectricWall, Zero), (Zero, MagneticWall)]),
+            (true, 0, [(ElectricWall, Zero), (Zero, MagneticWall)]),
+            (false, 1, [(MagneticWall, Zero), (Zero, ElectricWall)]),
+            (true, 1, [(MagneticWall, Zero), (Zero, ElectricWall)]),
+        ] {
+            let whole = both[mode].fields_sided(&full, sided).unwrap();
+            for (west, south) in walls {
+                let cs = half(west, south);
+                let n = both[mode].effective_index().re;
+                let part = modes(&cs, lam, 1, Some(n)).unwrap()[0]
+                    .fields_sided(&cs, sided)
+                    .unwrap();
+                let (di, dj) = (100 - part.x().len(), 70 - part.y().len());
+                // the two solves' fields differ by a constant factor: take it out
+                let (mut ab, mut bb) = (c64::new(0.0, 0.0), 0.0);
+                let pairs = |i: usize, j: usize| (whole.e(i + di, j + dj), part.e(i, j));
+                for i in 0..part.x().len() {
+                    for j in 0..part.y().len() {
+                        let (a, b) = pairs(i, j);
+                        for k in 0..3 {
+                            ab += a[k] * b[k].conj();
+                            bb += b[k].norm_sqr();
+                        }
+                    }
+                }
+                let c = ab / bb;
+                let (mut worst, mut largest) = (0.0f64, 0.0f64);
+                for i in 0..part.x().len() {
+                    for j in 0..part.y().len() {
+                        let (a, b) = pairs(i, j);
+                        for k in 0..3 {
+                            worst = worst.max((a[k] - c * b[k]).norm());
+                            largest = largest.max(a[k].norm());
+                        }
+                    }
+                }
+                assert!(
+                    worst < 1e-8 * largest,
+                    "mode {mode}, {west:?}/{south:?}, sided {sided}: {:e}",
+                    worst / largest
+                );
+            }
         }
     }
 

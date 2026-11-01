@@ -33,7 +33,7 @@ pub(crate) fn rules() -> Vec<(&'static str, Rule)> {
                 Order,
                 0.1,
                 Measured,
-                "the corners' 2τ − 1 = 0.54, within 0.1: the observed order falls from 0.66 (20, 10 and 5 nm) to 0.61 (10, 5 and 2.5 nm) towards it",
+                "the corners' 2τ − 1 = 0.54, within 0.1: the observed order falls from 0.69 (20, 10 and 5 nm) to 0.62 (10, 5 and 2.5 nm) towards it",
             ),
         ),
     ]

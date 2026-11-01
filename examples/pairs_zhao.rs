@@ -17,6 +17,12 @@
 //! its main text doesn't give the pump's spectrum). Its brightness, 16 to 22 times the paper's,
 //! isn't reproduced (#595).
 //!
+//! The matched wavelength converges from below as the cells shrink, at an order of 1.4: 1.5566,
+//! 1.5583 and 1.5590 µm on 20, 10 and 5 nm cells, toward 1.5594 µm, so the difference printed
+//! below, 1.7e-3 µm, bounds the 10 nm value's own error, 1.1e-3 µm. The interpolants' tolerance
+//! doesn't move it: 1e-6 to 1e-12 in n_eff all give 1.556617 µm on 20 nm cells
+//! (docs/methods/nonlinear.md, "Zhao et al.'s guide").
+//!
 //! The tolerances: half a unit of the last printed digit (0.05 µm, 0.05 µm²), and for the
 //! wavelength what that half digit of the period moves it by (0.038 µm).
 //!
