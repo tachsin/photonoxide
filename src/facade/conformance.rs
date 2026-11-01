@@ -8,8 +8,9 @@ use super::{
     CrossSection, DeviceDesign, DeviceFigure, DeviceGeometry, DeviceInfo, DeviceSpectrum,
     IndexModelInfo, IndexOptions, JobSource, MaterialInfo, SParameters, SlabMode, Spectrum,
     StackInfo, Stop, VectorMode, check_job, circuit_spectrum, device_derived, device_fabrication,
-    device_fabrication_job, device_geometry, device_job, device_spectrum, device_spectrum_until,
-    devices, estimate_fields, export_fabrication, export_fields, export_run, fdfd_s_parameters,
+    device_fabrication_from, device_fabrication_job, device_fabrication_job_from, device_geometry,
+    device_job, device_spectrum, device_spectrum_until, devices, estimate_fields,
+    export_fabrication, export_fabrication_from, export_fields, export_run, fdfd_s_parameters,
     group_index, materials, nonlinear, read_touchstone, refractive_index, run_job, run_tables,
     slab_modes, stacks, vector_modes, write_touchstone,
 };
@@ -925,6 +926,22 @@ fn fabrication_cases(scratch: &Path, cases: &mut Vec<Case>) -> Result<()> {
             &[],
         ));
     }
+    // the strip from bare silicon: the Smart Cut steps in place of the bought wafer
+    let (d, args) = design("waveguide", &[], None);
+    let f = device_fabrication_from(&d, &[], &[], "smart_cut")?;
+    cases.push(case(
+        "device_fabrication/waveguide-smart-cut",
+        "device_fabrication",
+        &with(args, &[("start", json!("smart_cut"))]),
+        &json!({
+            "flow": parsed(&f.flow)?,
+            "assessment": parsed(&f.assessment)?,
+            "json": f.json,
+            "markdown": f.markdown,
+            "svgs": f.svgs,
+        }),
+        &[],
+    ));
     let (d, args) = design("waveguide", &[("width", 0.45)], None);
     let avoid = ids(&["ebl-hsq"]);
     cases.push(case(
@@ -955,28 +972,73 @@ fn fabrication_cases(scratch: &Path, cases: &mut Vec<Case>) -> Result<()> {
         &parsed(&device_fabrication_job(&d, "strip-flow", "json", &[], &[])?)?,
         &[],
     ));
+    // and from bare silicon: the task's start written
+    cases.push(case(
+        "device_fabrication_job/waveguide-smart-cut",
+        "device_fabrication_job",
+        &with(
+            args.clone(),
+            &[("name", json!("strip-flow")), ("start", json!("smart_cut"))],
+        ),
+        &parsed(&device_fabrication_job_from(
+            &d,
+            "strip-flow",
+            "json",
+            &[],
+            &[],
+            "smart_cut",
+        )?)?,
+        &[],
+    ));
     // the files, each one's text by its name
+    let files = |written: Vec<std::path::PathBuf>| -> Result<Value> {
+        let files: serde_json::Map<String, Value> = written
+            .iter()
+            .map(|p| {
+                let text = std::fs::read_to_string(p).map_err(|e| Error::Io {
+                    path: p.display().to_string(),
+                    reason: e.to_string(),
+                })?;
+                let name = p
+                    .file_name()
+                    .map(|n| n.to_string_lossy().into_owned())
+                    .unwrap_or_default();
+                Ok((name, Value::String(text)))
+            })
+            .collect::<Result<_>>()?;
+        Ok(Value::Object(files))
+    };
     let out = scratch.join("fabrication-by-binding");
     let written = export_fabrication(&d, &[], &[], &scratch.join("fabrication"))?;
-    let files: serde_json::Map<String, Value> = written
-        .iter()
-        .map(|p| {
-            let text = std::fs::read_to_string(p).map_err(|e| Error::Io {
-                path: p.display().to_string(),
-                reason: e.to_string(),
-            })?;
-            let name = p
-                .file_name()
-                .map(|n| n.to_string_lossy().into_owned())
-                .unwrap_or_default();
-            Ok((name, Value::String(text)))
-        })
-        .collect::<Result<_>>()?;
     cases.push(case(
         "export_fabrication/waveguide",
         "export_fabrication",
-        &with(args, &[("out_dir", json!(out.display().to_string()))]),
-        &Value::Object(files),
+        &with(
+            args.clone(),
+            &[("out_dir", json!(out.display().to_string()))],
+        ),
+        &files(written)?,
+        &[],
+    ));
+    let out = scratch.join("fabrication-smart-cut-by-binding");
+    let written = export_fabrication_from(
+        &d,
+        &[],
+        &[],
+        &scratch.join("fabrication-smart-cut"),
+        "smart_cut",
+    )?;
+    cases.push(case(
+        "export_fabrication/waveguide-smart-cut",
+        "export_fabrication",
+        &with(
+            args,
+            &[
+                ("out_dir", json!(out.display().to_string())),
+                ("start", json!("smart_cut")),
+            ],
+        ),
+        &files(written)?,
         &[],
     ));
     Ok(())

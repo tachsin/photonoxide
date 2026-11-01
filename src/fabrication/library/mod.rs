@@ -13,12 +13,13 @@ mod anneal;
 mod deposition;
 mod lithography;
 mod planarization;
+mod soi;
 mod transfer;
 mod wafer;
 
 /// The library's version, which a run's record names: it changes whenever a process, a
 /// capability or a rule changes, so that an older run says which library it used.
-pub const LIBRARY_VERSION: &str = "3";
+pub const LIBRARY_VERSION: &str = "4";
 
 /// What kind of step a process is.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -38,6 +39,13 @@ pub enum StepType {
     /// The wafer heated to change a film already on it: to densify it, drive out hydrogen or
     /// relieve its stress. It changes no shape.
     Anneal,
+    /// Ions shot into the wafer, coming to rest at a depth their energy sets: the hydrogen that
+    /// later splits a Smart Cut donor. It changes no shape.
+    Implant,
+    /// One wafer bonded face down onto another.
+    Bond,
+    /// A bonded wafer split along an implanted plane, leaving a thin film on the other.
+    Split,
 }
 
 impl StepType {
@@ -50,6 +58,9 @@ impl StepType {
             StepType::PatternTransfer => "pattern transfer",
             StepType::Planarization => "planarization",
             StepType::Anneal => "anneal",
+            StepType::Implant => "implantation",
+            StepType::Bond => "bonding",
+            StepType::Split => "splitting",
         }
     }
 }
@@ -296,8 +307,16 @@ pub fn library() -> &'static [Process] {
         all.extend(transfer::processes());
         all.extend(planarization::processes());
         all.extend(anneal::processes());
+        all.extend(soi::processes());
         all.into_iter().map(Process::referenced).collect()
     })
+}
+
+/// Whether `p` is one of the Smart Cut route's own steps, which make an SOI wafer when a flow
+/// starts from bare silicon ([`super::Start::SmartCut`]): the generator never chooses them, nor
+/// offers them as alternatives, for a design's own layers.
+pub(crate) fn route_only(p: &Process) -> bool {
+    soi::IDS.contains(&p.id.as_str())
 }
 
 /// A wafer's handle: the film under its layers ("GaAs" for the epitaxial GaAs wafer, "Si"

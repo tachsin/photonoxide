@@ -629,7 +629,7 @@ fn ordered(
     let mut all: Vec<&'static Process> = library()
         .iter()
         .filter(|p| p.step == step && film.is_none_or(|f| p.acts_on(f)))
-        .filter(|p| !choices.avoid.contains(&p.id))
+        .filter(|p| !choices.avoid.contains(&p.id) && !super::library::route_only(p))
         .collect();
     let rank = |p: &Process| {
         if choices.prefer.contains(&p.id) {
@@ -1802,6 +1802,7 @@ fn deposit(
                 p.step == StepType::Planarization
                     && p.acts_on(&film.name)
                     && !choices.avoid.contains(&p.id)
+                    && !super::library::route_only(p)
             })
             .ok_or_else(|| {
                 invalid(format!(
@@ -2092,7 +2093,12 @@ fn metal_layer(design: &Physical, i: usize, choices: &Choices, state: &mut State
         });
         let etchers: Vec<&Process> = library()
             .iter()
-            .filter(|p| p.step == StepType::PatternTransfer && p.id != lift.id && p.acts_on(&film))
+            .filter(|p| {
+                p.step == StepType::PatternTransfer
+                    && p.id != lift.id
+                    && p.acts_on(&film)
+                    && !super::library::route_only(p)
+            })
             .collect();
         state.open.push((i, layer.thickness.to_um()));
         off.alternatives.push(Alternative {

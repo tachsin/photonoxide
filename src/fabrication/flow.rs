@@ -263,7 +263,9 @@ pub struct StepRecord {
     /// What it does, plainly.
     pub plain: String,
     /// The operation's kind: `"wafer"`, `"deposit"`, `"planarize"`, `"pattern"`, `"etch"`,
-    /// `"evaporate"`, `"sputter"`, `"lift_off"`, `"strip"`, `"anneal"` or `"undrawn"`.
+    /// `"evaporate"`, `"sputter"`, `"lift_off"`, `"strip"`, `"anneal"` or `"undrawn"`; and on a
+    /// flow that makes its SOI wafer by Smart Cut, `"implant"`, `"bond"`, `"split"`, `"oxidize"`
+    /// and `"wet_etch"`.
     pub operation: String,
     /// The operation, in a short phrase.
     pub does: String,
@@ -392,6 +394,25 @@ impl Step {
                 r.layer = layers.first().map(|l| l.name.clone());
                 let t: f64 = layers.iter().map(|l| l.thickness.to_um()).sum();
                 r.thickness_um = Some(t + extra.to_um());
+                if self.step == StepType::Bond {
+                    r.operation = "bond".into();
+                    r.does = format!(
+                        "bond the donor, oxide down, onto a bare silicon handle: its {} µm of {} \
+                         above the implanted plane is the film",
+                        number(t + extra.to_um()),
+                        film.name
+                    );
+                }
+            }
+            Operation::Planarize { removed }
+                if self.step == StepType::Deposition && self.process == "thermal-oxidation" =>
+            {
+                r.operation = "oxidize".into();
+                r.thickness_um = Some(removed.to_um());
+                r.does = format!(
+                    "grow a sacrificial oxide from the film, consuming {} µm of its silicon",
+                    number(removed.to_um())
+                );
             }
             Operation::Planarize { removed } => r.thickness_um = Some(removed.to_um()),
             Operation::Pattern {
@@ -431,6 +452,19 @@ impl Step {
             Operation::Undrawn { what } if self.step == StepType::Anneal => {
                 r.operation = "anneal".into();
                 r.does = format!("{what}: no shape changes");
+            }
+            // the Smart Cut route's steps that change no drawn shape
+            Operation::Undrawn { what }
+                if super::library::process(&self.process)
+                    .is_some_and(super::library::route_only) =>
+            {
+                r.operation = match self.step {
+                    StepType::Implant => "implant",
+                    StepType::Split => "split",
+                    _ => "wet_etch",
+                }
+                .into();
+                r.does = what.clone();
             }
             Operation::Strip | Operation::Undrawn { .. } => {}
         }

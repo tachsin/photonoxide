@@ -566,7 +566,7 @@ pub use event::Event;
 pub use execute::{conclude, execute, farms, preview};
 pub use fabrication::{
     FabricationView, FlowFrame, Stage, UNSTATED_RESIST_UM, fabrication_of, fabrication_of_job,
-    fabrication_view, from_fabrication,
+    fabrication_view, from_fabrication, from_fabrication_from,
 };
 pub use fdfd::{FdfdSParameters, fdfd_s_parameters};
 pub use fdtd::{FoundResonance, SpectrumSeries};

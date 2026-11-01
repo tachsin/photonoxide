@@ -102,7 +102,7 @@ It prints `TE0: n_eff = 2.8475` and `TM0: n_eff = 2.0531`, as the Rust example d
 | `stacks()` | the catalogue's stacks, which the device functions take by name as `stack=`: each one's layers of the catalogue's materials and its core layer | [`device::PRESETS`](methods/devices.md) |
 | `device_spectrum(kind, values=, fidelity=, stack=, wavelength_um=, timeout_s=)`, `device_derived(kind, ...)` | a design's S-parameters and figures at a fidelity, each with its model's grid | [`device`](methods/devices.md) |
 | `device_geometry(kind, values=, stack=)`, `device_job(kind, ..., format=)` | a design's stack, polygons and ports; the job that computes it | [`device`](methods/devices.md) |
-| `device_fabrication(kind, values=, stack=, prefer=, avoid=)`, `device_fabrication_job(kind, ..., format=)`, `export_fabrication(kind, out_dir=, ...)` | a design's process flow: each step with its reason, alternatives and sources, the rules' checks and the accuracy of each dimension; the job that gives it; its export as JSON, a Markdown traveller and an SVG of each step's cross-section | [`fabrication`](methods/fabrication.md) |
+| `device_fabrication(kind, values=, stack=, prefer=, avoid=, start=)`, `device_fabrication_job(kind, ..., format=)`, `export_fabrication(kind, out_dir=, ...)` | a design's process flow: each step with its reason, alternatives and sources, the rules' checks and the accuracy of each dimension; the job that gives it; its export as JSON, a Markdown traveller and an SVG of each step's cross-section | [`fabrication`](methods/fabrication.md) |
 | `nonlinear(job, timeout_s=)` | a `"nonlinear"` job's process (SHG, SFG, DFG, OPA, SPDC or FWM in a crystal, a guide of given effective indices or a ridge whose modes it solves) as its run records it: the setup, the phase-matching map, the efficiency along the length and the pairs' joint spectrum | [`nonlinear`](methods/nonlinear.md#as-a-job) |
 
 Each function's docstring has the details, and the
@@ -201,6 +201,15 @@ It prints `['soi-smart-cut', 'ebl-hsq', 'icp-si-hbr', 'resist-strip', 'lpcvd']` 
 not specified: the deposition's thickness spread`: the polish's 30 nm of flatness and its 10 %
 of the 0.22 µm it removes, √(30² + 22²) nm, with the deposition's own spread not stated by any
 source in hand.
+
+A flow starts from the wafer as bought, `start="bought"`. For silicon on insulator,
+`start="smart_cut"` starts it from bare silicon wafers instead, with the Smart Cut steps that
+make the SOI wafer first ([fabrication](methods/fabrication.md#making-the-soi-wafer-smart-cut)):
+`phox.device_fabrication("waveguide", start="smart_cut")` has 13 steps, from `si-wafer`,
+`thermal-oxidation` (the buried oxide grown on the donor), `h-implant` (318.7 keV for 220 nm
+on 2 µm), `direct-bonding`, `smart-cut-split`, `anneal-bond`, `cmp-si`, `thermal-oxidation` (a
+sacrificial oxide) and `hf-oxide-strip` to the strip's own four. `device_fabrication_job` and
+`export_fabrication` take `start=` too.
 
 The same result carries the flow's export: `json` (the flow's data, its keys in a fixed order),
 `markdown` (a process traveller: each step, what it does and why, the tool and the cited

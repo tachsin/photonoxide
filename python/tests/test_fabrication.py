@@ -123,6 +123,32 @@ def test_the_traveller_has_every_step_and_every_source() -> None:
         assert "Layers are listed from the top down, the substrate last" in md
 
 
+def test_a_flow_starts_from_bare_silicon_only_when_asked() -> None:
+    bought = phox.device_fabrication("waveguide")
+    assert bought.steps == phox.device_fabrication("waveguide", start="bought").steps
+    made = phox.device_fabrication("waveguide", start="smart_cut")
+    assert [s["process"] for s in made.steps][:9] == [
+        "si-wafer",
+        "thermal-oxidation",
+        "h-implant",
+        "direct-bonding",
+        "smart-cut-split",
+        "anneal-bond",
+        "cmp-si",
+        "thermal-oxidation",
+        "hf-oxide-strip",
+    ]
+    assert made.steps[9:] == bought.steps[1:]
+    assert made.flow["round_trip"]["differing"] == 0
+    job = phox.device_fabrication_job("waveguide", start="smart_cut")
+    assert job["task"]["start"] == "smart_cut"
+    assert "start" not in phox.device_fabrication_job("waveguide")["task"]
+    with pytest.raises(ValueError, match="silicon on insulator"):
+        phox.device_fabrication("TFLN Mach-Zehnder modulator", start="smart_cut")
+    with pytest.raises(ValueError, match="smart_cut"):
+        phox.device_fabrication("waveguide", start="smart-cut")
+
+
 def test_a_flow_names_what_is_wrong() -> None:
     with pytest.raises(ValueError, match="laser-writing"):
         phox.device_fabrication("waveguide", prefer=["laser-writing"])

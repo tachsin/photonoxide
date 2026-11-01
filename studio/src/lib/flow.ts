@@ -63,6 +63,9 @@ export const STEP: Record<string, string> = {
   pattern_transfer: "pattern transfer",
   planarization: "planarization",
   anneal: "anneal",
+  implant: "implantation",
+  bond: "bonding",
+  split: "splitting",
 };
 
 /** A frame's phase, in a word or two: what the step does to the wafer. */
@@ -79,5 +82,10 @@ export const PHASE: Record<string, string> = {
   lift_off: "lift off",
   strip: "strip",
   anneal: "anneal",
+  implant: "implant",
+  bond: "bond",
+  split: "split",
+  oxidize: "oxidize",
+  wet_etch: "wet etch",
   undrawn: "not drawn",
 };

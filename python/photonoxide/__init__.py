@@ -1229,6 +1229,7 @@ def device_fabrication(
     stack: str | None = None,
     prefer: Sequence[str] = (),
     avoid: Sequence[str] = (),
+    start: str = "bought",
 ) -> Fabrication:
     """The process flow of a device's design (see :func:`device_spectrum` for ``kind``,
     ``values`` and ``stack``): the steps that would make it from published processes, in order,
@@ -1245,8 +1246,19 @@ def device_fabrication(
     ('etch Si through, to the film below at 90°', 0)
     >>> [(d["what"], d["nominal"], d["unit"], d["combined"]) for d in strip.accuracy][1]
     ('the narrowest line of Si', 500.0, 'nm', 4.5)
+
+    The flow starts from the wafer as bought (``start="bought"``). For silicon on insulator,
+    ``start="smart_cut"`` starts it from bare silicon wafers instead, with the Smart Cut steps
+    that make the SOI wafer first: the donor's oxide, the hydrogen implant, the bond, the split,
+    the anneal, the touch-up polish and the thinning:
+
+    >>> made = phox.device_fabrication("waveguide", start="smart_cut")
+    >>> [step["process"] for step in made.steps][:4]
+    ['si-wafer', 'thermal-oxidation', 'h-implant', 'direct-bonding']
     """
-    f = _native.device_fabrication(kind, _values(values), stack, _ids(prefer), _ids(avoid))
+    f = _native.device_fabrication(
+        kind, _values(values), stack, _ids(prefer), _ids(avoid), str(start)
+    )
     return Fabrication(
         flow=json.loads(f["flow"]),
         assessment=json.loads(f["assessment"]),
@@ -1265,10 +1277,12 @@ def device_fabrication_job(
     avoid: Sequence[str] = (),
     name: str | None = None,
     format: str | None = None,
+    start: str = "bought",
 ) -> Any:
     """The job that gives a design's process flow (see :func:`device_fabrication`): a
-    ``device`` table holding the design and a ``"fabrication"`` task with ``prefer`` and
-    ``avoid``, named ``name`` (the kind's and ``-flow``, by default). Without a ``format``, the
+    ``device`` table holding the design and a ``"fabrication"`` task with ``prefer``, ``avoid``
+    and, when it isn't ``"bought"``, ``start``, named ``name`` (the kind's and ``-flow``, by
+    default). Without a ``format``, the
     job as data, a dict, which :func:`run_job` takes; with ``format`` (``"yaml"``, ``"toml"`` or
     ``"json"``), the job file's text. Its run records what :func:`device_fabrication` gives and
     writes ``flow.json``, ``flow.md`` and ``flow-01.svg``, ... into its folder:
@@ -1283,7 +1297,7 @@ def device_fabrication_job(
     job_name = name if name is not None else str(kind).lower().replace(" ", "-") + "-flow"
     text = _native.device_fabrication_job(
         kind, _values(values), stack, job_name, "json" if format is None else format,
-        _ids(prefer), _ids(avoid),
+        _ids(prefer), _ids(avoid), str(start),
     )
     return json.loads(text) if format is None else text
 
@@ -1296,9 +1310,11 @@ def export_fabrication(
     stack: str | None = None,
     prefer: Sequence[str] = (),
     avoid: Sequence[str] = (),
+    start: str = "bought",
 ) -> list[Path]:
-    """Writes a design's process flow (see :func:`device_fabrication`) into ``out_dir``, made if
-    it isn't there, as a ``"fabrication"`` job's run writes it into its folder: ``flow.json``
+    """Writes a design's process flow (see :func:`device_fabrication`, and ``start`` there) into
+    ``out_dir``, made if it isn't there, as a ``"fabrication"`` job's run writes it into its
+    folder: ``flow.json``
     (the flow's data, which reads back to the same flow), ``flow.md`` (the process traveller) and
     each step's cross-section, ``flow-01.svg``, ...; returns the files written, in that order:
 
@@ -1307,7 +1323,7 @@ def export_fabrication(
     (['flow.json', 'flow.md', 'flow-01.svg'], 14)
     """
     paths = _native.export_fabrication(
-        kind, _values(values), stack, _ids(prefer), _ids(avoid), os.fspath(out_dir)
+        kind, _values(values), stack, _ids(prefer), _ids(avoid), os.fspath(out_dir), str(start)
     )
     return [Path(p) for p in paths]
 

@@ -546,6 +546,31 @@ review, M a few days, L a week or more.
 | **F7: The façade and export** | S | `facade::device_fabrication` for Python and the program's other languages; the flow as JSON and CSV, and a printable report. | F4 |
 | **F8: Later, each when asked for** | L | The 3D animation; implant and diffusion steps once doped regions are drawn (0.8); a user's PDK (0.9) as a source of foundry capabilities; a flow's stated uncertainties as 0.11's process corners. | 0.8, 0.9, 0.11 |
 
+### 6.1 Making the SOI wafer (S1 to S3)
+
+*Added 2026-11-01, decided: opt-in.*
+
+- **What.** Every silicon flow starts from a bought SOI wafer, its film and buried oxide as
+  bought. A flow may now start from bare silicon instead, with the steps that make the SOI wafer
+  in place of the bought one. It is opt-in: a job's task says `start: smart_cut`, Python's
+  `device_fabrication(..., start="smart_cut")`. Without it, every job, example and test gives the
+  flow it gave before.
+- **Why.** The library could name Smart Cut and cite Bruel 1995, but no step behind the name was
+  modelled. A newcomer asking where the film comes from should see each step, with its physics
+  and its sources, as the rest of the flow does.
+- **Phases.**
+
+| Phase | Size | What it delivers |
+|---|---|---|
+| **S1: Smart Cut** | M | `fabrication::smart_cut`: the donor's oxide by Deal and Grove's law; the hydrogen implant's energy from the proton ranges of ICRU Report 49, as NIST's PSTAR tabulates them (the oxide crossed by its CSDA range, the peak at silicon's projected range), its straggle by Campbell's Eq. 5.19; the bond, the split, the bond's anneal and the touch-up polish from Bruel 1995; the thinning by a sacrificial oxide, 44 % of it consumed silicon (Campbell), stripped in HF. A library record for each step, with its sources. `Start` and `generate_from`, the job's `start`, and Python's `start=`. Validation: the proton ranges against Bruel's ∼8 nm/keV; the route alone gives `LayerStack::soi`'s stack for 15 films and oxides, to the bit; the SOI designs' round trip from bare silicon. |
+| **S2: The studio's start** | S | The Fabrication page's and tab's choice of start, so the animation can begin from the bare donor. |
+| **S3: SIMOX** | M | Separation by implanted oxygen as a second route: a high-dose oxygen implant and a long anneal above 1300 °C (Campbell, Section 5.7, pp. 128–129); a route of its own, with its cases, once its sources are read. |
+
+- **What is later.** The oxide grown on the handle as well as the donor; the lithium niobate
+  film's ion slicing (Levy et al. 1998; Poberaj et al. 2012) as a second made wafer; the polish
+  and the sacrificial oxide's amounts from a source instead of the route's rule (one straggle
+  each, see [fabrication](../methods/fabrication.md), "Making the SOI wafer").
+
 **The first slice, F1 to F3,** is the one asked for: a read-only flow, shown and animated, for
 three designs.
 
@@ -593,6 +618,7 @@ fabrication engine". Open copies are noted only where one was seen.
 - Y. Chen, "Nanofabrication by electron beam lithography and its applications: A review", Microelectron. Eng. 135, 57 (2015). [10.1016/j.mee.2015.02.042](https://doi.org/10.1016/j.mee.2015.02.042)
 - V. M. Donnelly, A. Kornblit, "Plasma etching: Yesterday, today, and tomorrow", J. Vac. Sci. Technol. A 31, 050825 (2013). [10.1116/1.4819316](https://doi.org/10.1116/1.4819316)
 - M. Krishnan, J. W. Nalaskowski, L. M. Cook, "Chemical Mechanical Planarization: Slurry Chemistry, Materials, and Mechanisms", Chem. Rev. 110, 178 (2009). [10.1021/cr900170z](https://doi.org/10.1021/cr900170z)
+- S. Seltzer, "Stopping-Powers and Range Tables for Electrons, Protons, and Helium Ions", NIST Standard Reference Database 124 (1993): PSTAR, the proton ranges of ICRU Report 49. [10.18434/T4NC7P](https://doi.org/10.18434/T4NC7P) (a DataCite DOI, checked there on 2026-11-01; the folder keeps the silicon and silicon dioxide tables as read). For S1.
 
 **Silicon photonics**
 

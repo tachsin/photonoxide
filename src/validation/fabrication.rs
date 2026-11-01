@@ -1,7 +1,8 @@
 //! The rules (#544) of the fabrication engine's cases (#622): the round trip of the three first
 //! designs, exact by construction; every capability's source; Deal and Grove's printed tables,
-//! to their own rounding; and the rules' choices on cases with textbook or published answers,
-//! which are categorical.
+//! to their own rounding; the rules' choices on cases with textbook or published answers,
+//! which are categorical; and the Smart Cut start: the proton ranges against Bruel's ∼8 nm/keV,
+//! to its printed digit, and its stacks and round trip, exact by construction.
 
 use super::{Basis::*, Measure::*, Numerical::*, Rule};
 
@@ -55,6 +56,28 @@ pub(crate) fn rules() -> Vec<(&'static str, Rule)> {
         (
             "fabrication/reported-flows",
             exact("a sequence is contained or not: no reported sequence may be missing"),
+        ),
+        (
+            "fabrication/smart-cut-range-bruel",
+            Rule::new(
+                Relative,
+                Reference,
+                0.0625,
+                Exact,
+                "half a unit of the last printed digit of Bruel's ∼8 nm/keV, 0.5 over 8; the ranges are PSTAR's printed values, read on its printed rows",
+            ),
+        ),
+        (
+            "fabrication/smart-cut-stack",
+            exact(
+                "an exact identity: the route's steps take off, to the bit, what the split film has beyond the design's, so no pair may differ",
+            ),
+        ),
+        (
+            "fabrication/smart-cut-round-trip",
+            exact(
+                "an exact identity: the executed flow draws the design's own shapes and etches, so the structures are equal to the bit and no point may differ",
+            ),
         ),
     ]
 }

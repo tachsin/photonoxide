@@ -80,7 +80,8 @@ pub use device::{
     device_spectrum_until, devices, stacks,
 };
 pub use fabrication::{
-    DeviceFabrication, device_fabrication, device_fabrication_job, export_fabrication,
+    DeviceFabrication, device_fabrication, device_fabrication_from, device_fabrication_job,
+    device_fabrication_job_from, export_fabrication, export_fabrication_from,
 };
 pub use nonlinear::{NonlinearProcess, nonlinear};
 

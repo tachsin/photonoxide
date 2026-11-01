@@ -4017,6 +4017,10 @@
             "type": "string"
           },
           "type": "array"
+        },
+        "start": {
+          "$ref": "#/$defs/StartKey",
+          "description": "Where the flow starts: `\"bought\"`, from the wafer as bought (the default); or, for silicon on insulator, `\"smart_cut\"`, from bare silicon wafers, with the Smart Cut steps that make the SOI wafer first."
         }
       },
       "required": [
@@ -9818,6 +9822,21 @@
         }
       ],
       "description": "A task's `stack`: a preset's name, or a `[task.stack]` table of layers."
+    },
+    "StartKey": {
+      "description": "Where a fabrication flow starts, as a job writes it.",
+      "oneOf": [
+        {
+          "const": "bought",
+          "description": "From the wafer as bought.",
+          "type": "string"
+        },
+        {
+          "const": "smart_cut",
+          "description": "For silicon on insulator, from bare silicon wafers by Smart Cut.",
+          "type": "string"
+        }
+      ]
     },
     "StaticBoundaries": {
       "additionalProperties": false,

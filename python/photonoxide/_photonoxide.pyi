@@ -117,6 +117,7 @@ def device_fabrication(
     stack: str | None,
     prefer: list[str],
     avoid: list[str],
+    start: str = "bought",
 ) -> dict[str, Any]: ...
 def device_fabrication_job(
     kind: str,
@@ -126,6 +127,7 @@ def device_fabrication_job(
     format: str,
     prefer: list[str],
     avoid: list[str],
+    start: str = "bought",
 ) -> str: ...
 def export_fabrication(
     kind: str,
@@ -134,6 +136,7 @@ def export_fabrication(
     prefer: list[str],
     avoid: list[str],
     out_dir: str | PathLike[str],
+    start: str = "bought",
 ) -> list[str]: ...
 def run_tables(run_dir: str | PathLike[str]) -> dict[str, dict[str, Any]]: ...
 def export_run(

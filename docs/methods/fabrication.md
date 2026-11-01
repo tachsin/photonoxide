@@ -4,8 +4,10 @@ module: fabrication
 summary: "How a design would be made, read from its own layers and shapes: the steps in order from published processes, each with its reason in plain words and the alternatives with why they weren't chosen, every capability a range with the paper and the place in it, or 'not specified'. Rules read each layer with the films below and above it: a single-crystal film is a bought wafer, an etch stops on the film below where a source says it does and is timed otherwise, the lithography is the first whose cited minimum feature reaches the layer's narrowest line and gap (measured with the geometry kernel's offsets) and whose resist a source shows lasting the etch, an evaporated metal is lifted off and a sputtered one etched, a film over an etched step is polished flat before a patterned layer goes on it, and no step may pass a film's cited thermal limit. The rule engine reads each projection lithography's resolution by the Rayleigh criterion with its cited wavelength, numerical aperture and k₁, ends an etch on the film below by a cited etch stop or selectivity with the over-etch's loss, warns of RIE lag and of walls no cited etch makes, prefers a conformal film to fill etched openings and a cooler one over a film whose budget is not shown, checks each layer's registration against the tool's cited overlay, ranks each step's alternatives by what they gain and cost, and gives the accuracy of each fabricated dimension, its contributions combined as the root of the sum of their squares. Beyond silicon and lithium niobate on insulator, it makes silicon nitride (deposited and etched after crack stops, or by the photonic Damascene process when thicker), phase-change cells (sputtered, lifted off and capped below their crystallization temperature), sputtered aluminium nitride and GaAs grown by epitaxy, whose etch no source in hand gives and the flow says so. Each step's geometry operation runs on the library's own structure, and the flow gives back the design to the bit: all 18 of the library's devices at their defaults and each parameter's ends, and the library's devices on the nitride, AlN and GaAs stacks, with zero differing points."
 order: 27
 papers:
-  - cite: "M. Bruel, Electron. Lett. 31, 1201 (1995) (Smart Cut: Step 3, p. 1201; the film's spread, p. 1202)"
+  - cite: "M. Bruel, Electron. Lett. 31, 1201 (1995) (Smart Cut: its four steps, Fig. 1; the film's spread and ∼8 nm/keV, p. 1202)"
     doi: 10.1049/el:19950805
+  - cite: "S. Seltzer, NIST Standard Reference Database 124 (1993) (PSTAR: protons' CSDA and projected ranges in silicon and silicon dioxide, from ICRU Report 49)"
+    doi: 10.18434/T4NC7P
   - cite: "S. K. Selvaraja, P. Jaenen, W. Bogaerts, D. Van Thourhout, P. Dumon, R. Baets, J. Lightwave Technol. 27, 4076 (2009) (193 nm lithography and the HBr/O₂ etch, Sections II–IV)"
     doi: 10.1109/JLT.2009.2022282
   - cite: "R. J. Bojko, J. Li, L. He, T. Baehr-Jones, M. Hochberg, Y. Aida, J. Vac. Sci. Technol. B 29, 06F309 (2011) (electron-beam lithography in HSQ and the Cl₂ etch)"
@@ -74,6 +76,9 @@ validation:
   - fabrication/aln-reported-flows
   - fabrication/gaas-round-trip
   - fabrication/gaas-rules
+  - fabrication/smart-cut-range-bruel
+  - fabrication/smart-cut-stack
+  - fabrication/smart-cut-round-trip
 ---
 
 # Fabrication: the process flow of a design
@@ -571,13 +576,82 @@ two hours of steam at 920 °C over 1000 Å of oxide, gives 0.48 µm in the book 
 (0.1² + 0.5 × 0.1)/0.203 = 0.2956 h: the book cuts the digit rather than rounding it, so the τ is
 not a case of its own.
 
+## Making the SOI wafer: Smart Cut
+
+An SOI design's flow starts from the wafer as bought: its silicon film on its buried oxide over
+a silicon handle. It can start from bare silicon instead, opted into as the flow's start
+(`Start::SmartCut`; a job's `start: smart_cut`; Python's `start="smart_cut"`). The steps that
+make the SOI wafer then take the bought wafer's place, and the rest of the flow is unchanged.
+Without the option, a flow is exactly what it was.
+
+The steps are Bruel's (1995, Fig. 1), each a process in the library with its sources:
+
+| Step | Process | What it does | Its numbers, and where they come from |
+|---|---|---|---|
+| 1 | `si-wafer` | the donor, a bare silicon wafer | |
+| 2 | `thermal-oxidation` | the donor oxidized to the buried oxide's thickness | the time by Deal and Grove's law, wet oxygen at 1100 °C (Table I); 44 % of the oxide's thickness is consumed silicon (Campbell, p. 74) |
+| 3 | `h-implant` | hydrogen implanted through the oxide | the energy that puts the peak at the split film's depth below the oxide: the oxide crossed by its CSDA range, the peak at silicon's projected range (PSTAR, from ICRU Report 49); the straggle by Campbell's Eq. 5.19; a dose of 2×10¹⁶ to 1×10¹⁷ cm⁻², which sets no depth (Bruel) |
+| 4 | `direct-bonding` | the donor bonded, oxide down, onto a bare handle at room temperature | Bruel, step 2 |
+| 5 | `smart-cut-split` | split along the implanted plane at 400–600 °C | Bruel, step 3; the film's spread after splitting below 4 nm |
+| 6 | `anneal-bond` | the bond strengthened above 1000 °C | Bruel, step 3 |
+| 7 | `cmp-si` | the micro-rough split surface polished | Bruel, step 4; the spread after polishing close to 8 nm |
+| 8 | `thermal-oxidation` | a sacrificial oxide grown from the film, thinning it to the design's | Deal and Grove, and Campbell's 44 % |
+| 9 | `hf-oxide-strip` | the sacrificial oxide stripped in 6:1 HF | about 1200 Å/min, oxide over silicon better than 100:1 (Campbell, p. 285) |
+
+**The implant.** A proton loses energy crossing the oxide, so the energy it enters the silicon
+with is the one whose CSDA range in the oxide is its own less the oxide's mass thickness (its path
+through the oxide taken as straight). It comes to rest around silicon's projected range at that
+energy. Both ranges are PSTAR's printed values between 10 keV and 1 MeV, read linearly in the
+logarithms of energy and range between printed rows. The energy is found by bisection.
+
+**How much is taken off after the split.** No source in hand states how much the touch-up
+polish or the sacrificial oxide removes. The flow uses a rule and says so in each step's
+uncertainties and in the flow's list of what isn't specified. The implanted profile is to first
+order a Gaussian of width ΔRp about its peak (Campbell, Eq. 5.14), so 95 % of the hydrogen lies
+within two straggles of it. The damaged silicon is taken as the near half of that, two
+straggles below the split surface. The polish takes the first straggle and the sacrificial oxide
+the second. The split film is therefore the design's film and two straggles, s = f + 2k(o + s)
+with k = (2/3)·√28/29 = 0.1216, since the straggle grows with the peak's whole depth below the
+surface, oxide and film together. The bond lays the design's film with the two straggles as its
+excess, as a deposition lays a cladding with the excess its polish takes off. The polish takes
+one straggle off the excess and the sacrificial oxide the other, so the executed steps give the
+design's thickness to the bit.
+
+The route for some films and oxides:
+
+| Film on buried oxide | Split film | Straggle ΔRp | Energy | Entering the silicon | Donor's oxidation | Sacrificial oxide | Its strip |
+|---|---|---|---|---|---|---|---|
+| 0.22 µm on 2 µm (`soi_220`) | 0.934 µm | 0.357 µm | 318.7 keV | 110.7 keV | 8.27 h | 0.811 µm, 1.46 h | 6.8 min |
+| 0.3 µm on 2 µm | 1.040 µm | 0.370 µm | 327.4 keV | 123.0 keV | 8.27 h | 0.840 µm, 1.57 h | 7.0 min |
+| 0.1 µm on 1 µm | 0.454 µm | 0.177 µm | 170.1 keV | 49.9 keV | 2.18 h | 0.402 µm, 0.40 h | 3.3 min |
+| 1 µm on 3 µm | 2.286 µm | 0.643 µm | 486.2 keV | 242.6 keV | 18.3 h | 1.461 µm, 4.50 h | 12.2 min |
+
+The energies are high because the protons cross the whole buried oxide first: 2 µm of oxide
+takes about 208 of the 318.7 keV. Bruel's implant goes through a capping oxide that becomes the
+buried oxide, as these do; a thinner oxide on the donor and more on the handle would lower the
+energy, which is a later phase's choice. The straggle is large for the same reason: Campbell's
+estimate grows with the whole depth, oxide included, and it is an estimate from the masses
+alone, not a table's.
+
+**Against Bruel.** Bruel found the film's thickness set by the energy alone, at about 8 nm per
+keV in silicon. Silicon's projected range is proportional to the energy only where its slope
+equals its ratio, at the least of Rp/E, which lies on PSTAR's printed row at 100 keV:
+842.1 nm over 100 keV, 8.42 nm/keV. That is 5.3 % above Bruel's 8, within half a unit of his
+last digit (6.25 %; `fabrication/smart-cut-range-bruel`). Away from 100 keV the ratio rises, to
+12.5 nm/keV at 10 keV and 9.0 at 200 keV, so a film's thickness is close to proportional to the
+energy only over the middle of the table.
+
 ## Executing a flow, and the round trip
 
 Every step has a geometry operation, and the executor runs them on the library's own
 `Structure`: the wafer's layers; a deposition's layers on top, filling every region etched open
 so far (that sets each etched layer's background); an etch drawing the mask's shapes on its
-layer with its depth and sidewall; a lift-off drawing the openings on the layer it makes. The
-result is compared with the design: the structures by `PartialEq`, the films layer by layer, and
+layer with its depth and sidewall; a lift-off drawing the openings on the layer it makes; a
+polish taking off the excess deposited for it, all of it, or part (the Smart Cut route's
+touch-up, its sacrificial oxide consuming the rest). The implant, the split, the anneals and the
+oxide strip change no drawn shape: the planar model draws the bonded film at the design's
+thickness from the bond on, its excess and the sacrificial oxide not drawn, as a cladding's
+excess before its polish isn't. The result is compared with the design: the structures by `PartialEq`, the films layer by layer, and
 the material and film at the points of a 48 × 48 grid over the shapes through every layer.
 
 Where the optical structure draws one material in place of another, `Device::physical` names
@@ -615,6 +689,9 @@ modes are solved without them. The flow deposits the real film; put back, the st
 | `fabrication/aln-reported-flows` | the flows contain Xiong et al.'s and Jung et al.'s sequences and give the designs back | 0 missing | exact |
 | `fabrication/gaas-round-trip` | every library device on GaAs over AlGaAs, at its defaults (14 designs) | 0 differing points | exact |
 | `fabrication/gaas-rules` | the layers grown with the wafer, the etch said to be not specified and timed, the coolest cladding, the design given back | 0 wrong | exact |
+| `fabrication/smart-cut-range-bruel` | silicon's projected range over the energy where it is proportional to it (its least, at 100 keV), against Bruel's ∼8 nm/keV | 8.42 nm/keV against 8 | reference, ± 6.25 % |
+| `fabrication/smart-cut-stack` | the Smart Cut route alone gives `LayerStack::soi`'s substrate and layers, thicknesses to the bit, for films of 0.1, 0.22, 0.3, 0.5 and 1 µm on 1, 2 and 3 µm of oxide (15 pairs) | 0 differing | exact |
+| `fabrication/smart-cut-round-trip` | the strip's and the heater's flows from bare silicon give them back, at their defaults and corners (74 designs) | 0 differing points | exact |
 
 One row of Franssila's Table 10.1 is left out of its case: at 248 nm, NA 0.65 and k₁ 0.5, k₁λ/NA
 is 0.191 µm where the table prints 0.18 µm, 0.011 µm off, more than the printing's rounding
@@ -656,7 +733,10 @@ These are listed in every flow that meets them, and wait for a source:
   deposited);
 - the nitride and AlN etches' selectivity over the oxide below and their walls (Jung et al. show
   slanted AlN walls without an angle), the Damascene preform's walls and the nitride polish's
-  flatness, and ma-N's resolution (the narrowest features in hand are what the papers made).
+  flatness, and ma-N's resolution (the narrowest features in hand are what the papers made);
+- for a flow that makes its SOI wafer by Smart Cut, how much the touch-up polish and the
+  sacrificial oxide take off (the flow takes one straggle each), and the implant's straggle from
+  a table rather than Campbell's estimate from the masses.
 
 ## In the studio
 
@@ -754,6 +834,29 @@ modulator, whose film no silicon etch touches). The run records the design's sce
 dimension). A flow is set by the design and the library alone, so the record replays bit for
 bit, the same on any number of threads.
 
+**Starting from bare silicon.** The task's `start` is `bought` unless it says otherwise. For an
+SOI design, `start: smart_cut` makes the SOI wafer first ([Making the SOI wafer: Smart
+Cut](#making-the-soi-wafer-smart-cut)), as `jobs/strip-flow-smart-cut.yaml` has it:
+
+```yaml
+# The same 500 x 220 nm silicon strip as jobs/strip-flow.yaml, made from bare silicon wafers: the
+# SOI wafer is made first by Smart Cut (the donor oxidized, implanted with hydrogen, bonded to a
+# handle, split, annealed, polished and thinned to 220 nm), then the strip's own steps.
+#   photonoxide run jobs/strip-flow-smart-cut.yaml
+name: strip-flow-smart-cut
+
+device:
+  kind: waveguide
+
+task:
+  kind: fabrication
+  start: smart_cut      # "bought" (the default) starts from the SOI wafer as bought
+```
+
+Its flow has 13 steps: the route's nine, then the strip's four after its wafer. `job::check`
+refuses `start: smart_cut` for a design whose wafer isn't silicon on insulator (the lithium
+niobate modulator's, a nitride or GaAs design's), and a task that avoids a step the route needs.
+
 **The run's folder** also holds the flow's export (`export::flow`), written from the same data:
 
 - `flow.json`: the device and its parameters, the cut, the flow and the assessment exactly as the
@@ -775,7 +878,8 @@ bit, the same on any number of threads.
 
 `device_fabrication` gives the same flow for a design, to the bit, as plain Python data, with
 the export's texts; `device_fabrication_job` writes the job, and `export_fabrication` the
-files ([docs/python.md](../python.md#process-flows)):
+files ([docs/python.md](../python.md#process-flows)). Each takes `start="smart_cut"` to make an
+SOI design's wafer from bare silicon; `start="bought"` is the default:
 
 ```python
 import photonoxide as phox

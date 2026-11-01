@@ -1,6 +1,7 @@
 //! The papers and books the process library cites, each by the key its PDF is kept under in the
 //! papers folder, with its DOI (checked on Crossref) or, for a book Crossref doesn't hold, its
-//! ISBN as printed in the copy read.
+//! ISBN as printed in the copy read. NIST's PSTAR tables are a database, whose DOI DataCite
+//! registers: the folder keeps the tables as read.
 
 use serde::{Deserialize, Serialize};
 
@@ -287,6 +288,14 @@ const ROWS: &[Row] = &[
         "10.1002/9780470723876",
         "978-0-470-01893-4",
         "",
+    ),
+    (
+        "pstar-1993",
+        "S. Seltzer, NIST Standard Reference Database 124 (1993): PSTAR, protons' stopping powers and ranges from ICRU Report 49",
+        "Stopping-Powers and Range Tables for Electrons, Protons, and Helium Ions",
+        "10.18434/T4NC7P",
+        "",
+        "https://physics.nist.gov/PhysRefData/Star/Text/PSTAR.html",
     ),
 ];
 
