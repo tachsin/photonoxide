@@ -82,6 +82,9 @@ jobs:
             bundles: app,dmg
             target: universal-apple-darwin
     runs-on: ${{ matrix.os }}
+    # Linux took 5 and 6 minutes in the last run; the macOS universal and the signed Windows
+    # builds are slower, so the limit is wide: it only stops a stalled install
+    timeout-minutes: 90
     env:
       TAG: ${{ inputs.tag }}
       CERTUM_EMAIL: ${{ secrets.CERTUM_EMAIL }}
@@ -97,7 +100,14 @@ jobs:
       - name: Tauri's Linux dependencies
         if: runner.os == 'Linux'
         run: |
-          sudo apt-get update
+          # an Ubuntu mirror can stall apt-get update for over an hour: each try stops after 3
+          # minutes, and the third failure fails the step
+          for try in 1 2 3; do
+            sudo timeout 180 apt-get update && break
+            [ "$try" -lt 3 ] || exit 1
+            echo "apt-get update: try $try of 3 failed or ran past 3 minutes; again in 15 s"
+            sleep 15
+          done
           sudo apt-get install -y libwebkit2gtk-4.1-dev libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev patchelf rpm
       - uses: pnpm/action-setup@v6
         with:

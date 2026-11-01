@@ -54,7 +54,14 @@ jobs:
       # stands in for its web view's build
       - name: Tauri's prerequisites
         run: |
-          sudo apt-get update
+          # an Ubuntu mirror can stall apt-get update for over an hour: each try stops after 3
+          # minutes, and the third failure fails the step
+          for try in 1 2 3; do
+            sudo timeout 180 apt-get update && break
+            [ "$try" -lt 3 ] || exit 1
+            echo "apt-get update: try $try of 3 failed or ran past 3 minutes; again in 15 s"
+            sleep 15
+          done
           sudo apt-get install -y libwebkit2gtk-4.1-dev libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
           mkdir -p studio/dist
           echo '<!doctype html><title>photonoxide</title>' > studio/dist/index.html
