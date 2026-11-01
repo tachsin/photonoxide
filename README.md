@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/tachsin/photonoxide/main/assets/brand/banner.svg" alt="photonoxide: validated photonics for Rust" width="100%">
+  <img src="https://raw.githubusercontent.com/tachsin/photonoxide/main/assets/brand/banner.svg" alt="photonoxide: light meets Rust" width="100%">
 </p>
 
 [![Crates.io](https://img.shields.io/crates/v/photonoxide.svg)](https://crates.io/crates/photonoxide)
@@ -11,7 +11,7 @@
 [![Validation](https://img.shields.io/badge/validation-report-ce422b)](docs/validation.md)
 [![Examples](https://img.shields.io/badge/examples-checked_against_papers-ce422b)](examples/README.md)
 
-**Photonics for Rust: validated, and visible while it runs.**
+**Light meets Rust: photonics design and simulation for everyone, as a desktop studio, a Rust library and a Python package.**
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/tachsin/photonoxide/main/assets/studio/hero.gif" alt="The photonoxide studio: a silicon strip's first mode travelling along it in 3D as the camera orbits; a ring resonator's transmission spectrum building up point by point, then the ring lit at resonance in 3D; a Mach-Zehnder interferometer wired on the chip and its spectrum appearing" width="100%">

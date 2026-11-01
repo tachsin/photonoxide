@@ -210,7 +210,7 @@ export default async function PhotonoxidePage() {
         </h1>
         <p className="proj-rise-1 mx-auto mt-5 max-w-2xl text-balance text-base-content/80 text-lg sm:text-xl">
           {/* from the highlights' milestones, so it moves with the roadmap */}
-          Photonics for Rust: {heroDone} today{heroComing ? `; ${heroComing} to come` : ""}. With a studio to
+          Light meets Rust: {heroDone} today{heroComing ? `; ${heroComing} to come` : ""}. With a studio to
           build jobs and chips and watch every run live.
         </p>
         <p className="proj-rise-1 mx-auto mt-3 max-w-xl text-balance text-base-content/60 text-sm">

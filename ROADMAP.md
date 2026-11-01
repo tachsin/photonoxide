@@ -2,7 +2,7 @@
 
 ## Vision
 
-The validated photonics toolkit for Rust: simulation, inverse design and layout in one library, with a studio to watch every run live.
+The photonics toolkit for Rust: simulation, inverse design and layout in one library, with a studio to watch every run live.
 
 ### Success criteria for 1.0
 
@@ -347,9 +347,9 @@ The first active devices. One solver for static problems on the waveguide's cros
   - barium titanate: Eltes 2019 (0.2 V·cm) and Deng 2026 (0.7 V·cm); *(Done from the papers' own coefficients (#496): Eltes et al.'s Vπ·L from their r_eff, n, Γ and gap (`pockels/bto-eltes`), and Deng et al.'s r_c along ⟨110⟩ from the rotated tensor (`pockels/bto-deng`). Left: a cross-section's Vπ·L for their devices.)*
   - the open codes Elmer and openEMS, run as external programs, once their licences are checked. *(Done (#422: #523, #524): openEMS against the quasi-TEM line, Z₀ within 0.2 % and n within 4e-5; Elmer against the static solver, a coplanar line and a heater within 5e-4; local only, never in CI ([docs/cross-code.md](docs/cross-code.md)). More problems: #536.)*
 
-### 0.6.1: Nonlinear integrated optics
+### 0.6.1: Nonlinear integrated optics ✅
 
-Second- and third-order processes in waveguides and resonators: SHG, SFG, DFG, parametric amplification, SPDC, FWM and Kerr combs. They run on the crystals the catalogue already describes (LiNbO₃ bulk and thin film, MgO:LiNbO₃, GaAs, AlGaAs, AlN, AlGaN, InGaP) and on Si and SiN, each with an example that reproduces a published device. *(In progress, on main: phase matching and the coupled-amplitude equations (#621), the nonlinear data (#629), phase matching, overlaps and pairs from a waveguide's modes (#630), the NLSE, four-wave mixing and the Lugiato–Lefever equation (#632), XPM, silicon's two-photon and free-carrier absorption, heralding through filters, resonant SHG and FWM in rings and parametric oscillators, with an example for each published device that can be reproduced (#636), and the job kind and the studio's nonlinear view (#637). Left: focused bulk beams, the multiphonon edges no paper in hand gives, and the published results below that aren't reproduced yet (Wang 2018's efficiency, Chang 2018's phase matching, Zhao 2020's brightness, Foster 2006's gain), all listed in #595.)*
+Second- and third-order processes in waveguides and resonators: SHG, SFG, DFG, parametric amplification, SPDC, FWM and Kerr combs. They run on the crystals the catalogue already describes (LiNbO₃ bulk and thin film, MgO:LiNbO₃, GaAs, AlGaAs, AlN, AlGaN, InGaP) and on Si and SiN, each with an example that reproduces a published device. *(Released as 0.6.1. Done: phase matching and the coupled-amplitude equations (#621), the nonlinear data (#629), phase matching, overlaps and pairs from a waveguide's modes (#630), the NLSE, four-wave mixing and the Lugiato–Lefever equation (#632), XPM, silicon's two-photon and free-carrier absorption, heralding through filters, resonant SHG and FWM in rings and parametric oscillators, with an example for each published device that can be reproduced (#636), and the job kind and the studio's nonlinear view (#637). Left, carried on from 0.6.1: focused bulk beams, the multiphonon edges no paper in hand gives, and the published results below that aren't reproduced yet (Wang 2018's efficiency, Chang 2018's phase matching, Zhao 2020's brightness, Foster 2006's gain), all listed in #595.)*
 
 - [ ] **Carried from 0.6 and 0.5.5** (#543), first. All done but two published results we can't yet reproduce or explain, which keep #418 and #420 open; they and the other gaps against papers are listed in #595:
   - the thin-film lithium niobate Mach–Zehnder modulator as a device, at analytic, 2D and measured fidelity (#420), with He 2019's and Valdez 2023's modulators as cases; *(the modulator done (#579) and Valdez 2023's case (#576); He 2019's Vπ·L not reproduced, 2.87 V·cm against 2.2 and 2.5, so not a case: open (#595))*

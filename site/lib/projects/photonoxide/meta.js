@@ -20,7 +20,7 @@ export const PHOTONOXIDE_COMMIT = site.commit;
 export const PHOTONOXIDE_PATH = "/projects/photonoxide";
 export const PHOTONOXIDE_OG_IMAGE = "/projects/photonoxide/opengraph-image";
 
-export const PHOTONOXIDE_TAGLINE = "Photonics for Rust: validated, visible while it runs";
+export const PHOTONOXIDE_TAGLINE = "Light meets Rust: photonics design and simulation for everyone";
 
 /** The project's pages, under PHOTONOXIDE_PATH. */
 export const METHODS_PATH = "/projects/photonoxide/methods";
@@ -247,7 +247,7 @@ export const FALLBACK_MILESTONES = [
   "0.5.4: Geometry and devices ✅",
   "0.5.5: Writing jobs and taking results away ✅",
   "0.6: Thermal and electro-optic devices ✅",
-  "0.6.1: Nonlinear integrated optics",
+  "0.6.1: Nonlinear integrated optics ✅",
   "0.6.2: Quantum light and linear-optical statistics",
   "0.6.3: Eigenmode expansion and the mode solver's tools",
   "0.7: Inverse design",
