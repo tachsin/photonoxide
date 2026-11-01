@@ -603,11 +603,20 @@ simulates; a port meant to absorb what reaches it is wired to a terminator.
 
 ## Updates
 
-An installed copy updates itself. It looks for a newer release when it opens and every hour
-while it stays open (Settings turns this off; **Check now** looks at once). When one is out, the
-studio says so, and **Update and restart** downloads it, checks its signature against the release
-key, installs it and restarts. Only installed copies update: builds from source can't update
-themselves, and say so.
+An installed copy updates itself. When one is out, the studio says so, and **Update and
+restart** downloads it, checks its signature against the release key, installs it and restarts.
+Only installed copies update: builds from source can't update themselves, and say so.
+
+- **When it looks:** as soon as the window opens (without holding it up), when the window comes
+  back (focused, or shown again) 15 minutes or more after the last check, and every hour while
+  it stays open (`src/lib/schedule.ts`). Settings › Updates turns this off; **Check now** looks
+  at once. These checks are quiet: a toast only when something is found.
+- **What it found:** every check, quiet or not, leaves a line under the switch in Settings ›
+  Updates, in Settings › About, and in the hint of the version at the bottom right: *Last
+  checked 14:02: up to date*, *photonoxide 0.6.2 is out*, or *could not check* with the reason
+  (no network, GitHub's limit, the backoff below). A failed quiet check shows its reason there,
+  never as a toast. The window's console logs each check too (`[updates] open check (stable):
+  current`).
 
 - **The manifest:** the release workflow writes `latest.json` on every release, and the
   programs read it from `releases/latest`. It carries each update's signature, so the release
@@ -648,11 +657,15 @@ each release) and `tauri.conf.json` sets none, so Tauri takes the crate's. A bui
 checkout of main says the version of the release main follows, with its commit:
 `0.5.3 (abc1234)`.
 
-- **The check:** when the studio opens and every hour, as on Stable. It asks GitHub's API for
-  main's head, as its SHA alone and with the ETag of the last answer: an unchanged main answers
-  304, which doesn't count against the 60 requests an hour GitHub allows without signing in.
-  When main moved, the compare API lists the new commits' titles. A failed check waits an hour
-  before the next, doubling up to a day, and a rate limit waits for GitHub's reset time.
+- **The check:** when the studio opens, when its window comes back, and every hour, as on
+  Stable. It asks GitHub's API for main's head, as its SHA alone and with the ETag of the last
+  answer: an unchanged main answers 304, which doesn't count against the 60 requests an hour
+  GitHub allows without signing in. When main moved, the compare API lists the new commits'
+  titles. After a failure the hourly and window-back checks wait an hour, doubling up to a day
+  (one due within five minutes of the wait's end goes ahead, so the hourly timer doesn't miss it
+  by seconds). The check when the window opens and **Check now** don't wait, so a failure in an
+  earlier session never leaves a new one unchecked. A rate limit holds every check until
+  GitHub's reset time. Settings shows why a check was held.
 - **The prerequisites:** checked before building, each with what's missing and the command that
   installs it:
   - rustc and cargo, at least the `rust-version` of main's `Cargo.toml`;
@@ -888,5 +901,7 @@ node scripts/record-gifs.mjs --only hero,academy  # some: hero, device, material
     maps).
   - `lib/`: the shared state, the pages and the rail (`pages.ts`), the program's commands, the
     job model, the 3D view (three.js), the devices' drafts and solves (`device.svelte.ts`), and
-    the updater.
+    the updater and its schedule (`schedule.ts`).
+- `tests/`: the window's unit tests, run by `pnpm test` (Node's own test runner, which reads
+  TypeScript as it is).
 - `scripts/record-gifs.mjs`: records the README's GIFs (above).

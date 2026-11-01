@@ -4,8 +4,9 @@
 //! Unauthenticated, so GitHub allows 60 requests an hour from an address. The head is asked
 //! for as its SHA alone, with the ETag of the last answer: an unchanged main answers 304, which
 //! doesn't count against the limit. The compare API, which lists the new commits, is asked only
-//! when the head moved. A failure backs off, doubling from an hour up to a day, and a rate
-//! limit waits for GitHub's reset time.
+//! when the head moved. A failure backs off the hourly check, doubling from an hour up to a day,
+//! and a rate limit waits for GitHub's reset time. The check when the window opens, and one the
+//! user asks for, don't wait for a backoff; only GitHub's limit holds them ([`Asked`]).
 
 use std::io::{Read, Write};
 use std::path::Path;
@@ -228,17 +229,38 @@ pub struct Checker {
     /// The ETag of the last answer for main's head, and that head.
     pub etag: Option<String>,
     pub head: Option<String>,
-    /// Failures in a row, and no quiet check before `retry_after` (seconds since 1970).
+    /// Failures in a row, and no scheduled check before `retry_after` (seconds since 1970).
     pub failures: u32,
     pub retry_after: u64,
     /// GitHub's rate limit is reached: no check before this.
     pub limited_until: u64,
     /// The last result.
     pub last: Option<Nightly>,
+    /// When GitHub was last asked (seconds since 1970), and why that failed, if it did.
+    pub tried_at: u64,
+    pub error: Option<String>,
+}
+
+/// Who asks for a check, which decides what holds it back.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Asked {
+    /// The user (Check now): only GitHub's limit holds it, and says so as an error.
+    User,
+    /// The window opening: only GitHub's limit holds it, quietly; a backoff doesn't, so a
+    /// failure in an earlier session doesn't leave a new one unchecked.
+    Opening,
+    /// The hourly check, and the one when the window comes back: a backoff holds it too.
+    Schedule,
 }
 
 /// The longest a failing check waits before the next.
 const MAX_BACKOFF: u64 = 86_400;
+
+/// A scheduled check this close to the backoff's end goes ahead: the hourly timer and an
+/// hour's backoff start a few seconds apart, and the timer would otherwise come just short of
+/// it each time and skip a whole hour.
+const EARLY: u64 = 300;
 
 /// The wait after the `failures`-th failure in a row: an hour, doubling, up to a day.
 pub fn backoff(failures: u32) -> u64 {
@@ -265,8 +287,8 @@ fn clock(unix: u64) -> String {
 impl Checker {
     /// Looks at main's head and lists the commits this build hasn't. `built` is this build's
     /// commit, `version` its version (whose tag is the base when the commit is unknown), `now`
-    /// seconds since 1970. A `quiet` check (on opening, hourly) is skipped while backing off
-    /// (`Ok(None)`); one the user asked for goes ahead, unless GitHub's limit is reached.
+    /// seconds since 1970. A check [`Checker::held`] back is skipped (`Ok(None)`), or for the
+    /// user an error that says why.
     #[cfg(test)]
     pub fn check(
         &mut self,
@@ -274,9 +296,31 @@ impl Checker {
         built: Option<&str>,
         version: &str,
         now: u64,
-        quiet: bool,
+        asked: Asked,
     ) -> Result<Option<Nightly>, String> {
-        self.check_with(http, built, version, &[], now, quiet)
+        self.check_with(http, built, version, &[], now, asked)
+    }
+
+    /// Why a check `asked` so at `now` doesn't ask GitHub: its rate limit, for anyone, or the
+    /// backoff after a failure, for a scheduled check; `None` when it goes ahead.
+    pub fn held(&self, now: u64, asked: Asked) -> Option<String> {
+        if now < self.limited_until {
+            return Some(format!(
+                "GitHub's limit of 60 requests an hour without signing in is reached here; \
+                 photonoxide looks again after {}",
+                clock(self.limited_until)
+            ));
+        }
+        if asked == Asked::Schedule && now + EARLY < self.retry_after {
+            let why = self.error.as_deref().unwrap_or("the last check failed");
+            return Some(format!(
+                "{why}; after {} failure{} in a row the next automatic check is after {}",
+                self.failures,
+                if self.failures == 1 { "" } else { "s" },
+                clock(self.retry_after)
+            ));
+        }
+        None
     }
 
     /// [`Checker::check`], and how each of `others` (the commits of the build waiting and of
@@ -289,22 +333,16 @@ impl Checker {
         version: &str,
         others: &[&str],
         now: u64,
-        quiet: bool,
+        asked: Asked,
     ) -> Result<Option<Nightly>, String> {
-        if now < self.limited_until {
-            return if quiet {
-                Ok(None)
+        if let Some(why) = self.held(now, asked) {
+            return if asked == Asked::User {
+                Err(why)
             } else {
-                Err(format!(
-                    "GitHub's limit of 60 requests an hour without signing in is reached here; \
-                     photonoxide looks again after {}",
-                    clock(self.limited_until)
-                ))
+                Ok(None)
             };
         }
-        if quiet && now < self.retry_after {
-            return Ok(None);
-        }
+        self.tried_at = now;
         let looked = self.look(http, built, version, now).and_then(|mut found| {
             found.others = self.others(http, &found, others, now)?;
             Ok(found)
@@ -313,19 +351,20 @@ impl Checker {
             Ok(found) => {
                 self.failures = 0;
                 self.retry_after = 0;
+                self.error = None;
                 self.last = Some(found.clone());
                 Ok(Some(found))
             }
             Err(Failure::Limited { until, why }) => {
                 self.limited_until = until;
-                Err(format!(
-                    "{why}; photonoxide looks again after {}",
-                    clock(until)
-                ))
+                let why = format!("{why}; photonoxide looks again after {}", clock(until));
+                self.error = Some(why.clone());
+                Err(why)
             }
             Err(Failure::Other(why)) => {
                 self.failures += 1;
                 self.retry_after = now + backoff(self.failures);
+                self.error = Some(why.clone());
                 Err(why)
             }
         }
@@ -789,7 +828,7 @@ pub(crate) mod tests {
         let mut checker = Checker::default();
         assert_eq!(serde_json::from_str::<Checker>("{}").unwrap(), checker);
         let found = checker
-            .check(&web, Some(BUILT), "0.5.0", 1000, true)
+            .check(&web, Some(BUILT), "0.5.0", 1000, Asked::Schedule)
             .unwrap()
             .unwrap();
         assert_eq!(found.status, "available");
@@ -809,7 +848,7 @@ pub(crate) mod tests {
         // an hour later main hasn't moved: GitHub answers 304 to the ETag, and the list is
         // the one already made, with no compare
         let again = checker
-            .check(&web, Some(BUILT), "0.5.0", 4600, true)
+            .check(&web, Some(BUILT), "0.5.0", 4600, Asked::Schedule)
             .unwrap()
             .unwrap();
         assert_eq!(web.asked(), 3);
@@ -825,7 +864,7 @@ pub(crate) mod tests {
         web.answer(HEAD_URL, 200, &[], HEAD.as_bytes());
         let mut checker = Checker::default();
         let found = checker
-            .check(&web, Some(HEAD), "0.5.0", 0, false)
+            .check(&web, Some(HEAD), "0.5.0", 0, Asked::User)
             .unwrap()
             .unwrap();
         assert_eq!((found.status.as_str(), web.asked()), ("current", 1));
@@ -843,7 +882,7 @@ pub(crate) mod tests {
             compare_json("behind", 0).as_bytes(),
         );
         let found = Checker::default()
-            .check(&web, Some(BUILT), "0.5.0", 0, false)
+            .check(&web, Some(BUILT), "0.5.0", 0, Asked::User)
             .unwrap()
             .unwrap();
         assert_eq!(found.status, "ahead");
@@ -852,7 +891,7 @@ pub(crate) mod tests {
         web.answer(HEAD_URL, 200, &[], HEAD.as_bytes());
         web.answer(&compare_url(BUILT), 404, &[], b"{}");
         let found = Checker::default()
-            .check(&web, Some(BUILT), "0.5.0", 0, false)
+            .check(&web, Some(BUILT), "0.5.0", 0, Asked::User)
             .unwrap()
             .unwrap();
         assert_eq!(found.status, "available");
@@ -867,7 +906,7 @@ pub(crate) mod tests {
             compare_json("ahead", 300).as_bytes(),
         );
         let found = Checker::default()
-            .check(&web, None, "0.5.0", 0, false)
+            .check(&web, None, "0.5.0", 0, Asked::User)
             .unwrap()
             .unwrap();
         assert_eq!(found.new_commits, 300);
@@ -880,23 +919,43 @@ pub(crate) mod tests {
         web.answer(HEAD_URL, 502, &[], b"bad gateway");
         let mut checker = Checker::default();
         let e = checker
-            .check(&web, Some(BUILT), "0.5.0", 1000, true)
+            .check(&web, Some(BUILT), "0.5.0", 1000, Asked::Schedule)
             .unwrap_err();
         assert!(e.contains("502"), "{e}");
         assert_eq!((checker.failures, checker.retry_after), (1, 4600));
-        // the hourly check comes before the backoff ends: skipped, without asking GitHub
         assert_eq!(
-            checker.check(&web, Some(BUILT), "0.5.0", 2000, true),
+            (checker.tried_at, checker.error.as_deref()),
+            (1000, Some(e.as_str()))
+        );
+        // a check when the window comes back, before the backoff ends: skipped, without
+        // asking GitHub, and the reason is there for the window to show
+        assert_eq!(
+            checker.check(&web, Some(BUILT), "0.5.0", 2000, Asked::Schedule),
             Ok(None)
         );
         assert_eq!(web.asked(), 1);
+        let why = checker.held(2000, Asked::Schedule).unwrap();
+        assert!(why.contains("502") && why.contains("01:16 UTC"), "{why}");
+        // the hourly timer, started a few seconds before the failed check, comes just short of
+        // the backoff's end: it goes ahead instead of skipping a whole hour
+        assert_eq!(checker.held(4600 - 5, Asked::Schedule), None);
         // the user asks: it goes ahead, fails again, and the wait doubles
         assert!(
             checker
-                .check(&web, Some(BUILT), "0.5.0", 2000, false)
+                .check(&web, Some(BUILT), "0.5.0", 2000, Asked::User)
                 .is_err()
         );
         assert_eq!((checker.failures, checker.retry_after), (2, 2000 + 7200));
+        assert_eq!(web.asked(), 2);
+        // the window opens again (a restart) while the backoff holds: it asks GitHub all the
+        // same, so a failure in an earlier session never leaves a new one unchecked
+        assert_eq!(checker.held(3000, Asked::Opening), None);
+        assert!(
+            checker
+                .check(&web, Some(BUILT), "0.5.0", 3000, Asked::Opening)
+                .is_err()
+        );
+        assert_eq!(web.asked(), 3);
         // a rate limit: nobody asks before GitHub's reset, not even the user
         let web = Canned::default();
         web.answer(
@@ -910,23 +969,39 @@ pub(crate) mod tests {
         );
         let mut checker = Checker::default();
         let e = checker
-            .check(&web, None, "0.5.0", 10_000, false)
+            .check(&web, None, "0.5.0", 10_000, Asked::User)
             .unwrap_err();
         assert!(e.contains("60 requests") && e.contains("13:53 UTC"), "{e}");
         assert_eq!(checker.limited_until, 50_000);
-        assert!(checker.check(&web, None, "0.5.0", 20_000, false).is_err());
-        assert_eq!(checker.check(&web, None, "0.5.0", 20_000, true), Ok(None));
+        assert!(
+            checker
+                .check(&web, None, "0.5.0", 20_000, Asked::User)
+                .is_err()
+        );
+        for asked in [Asked::Opening, Asked::Schedule] {
+            assert_eq!(checker.check(&web, None, "0.5.0", 20_000, asked), Ok(None));
+            assert!(checker.held(20_000, asked).unwrap().contains("13:53 UTC"));
+        }
         assert_eq!(web.asked(), 1);
-        // a success clears the backoff
+        // a success clears the backoff and the error
         let web = Canned::default();
         web.answer(HEAD_URL, 200, &[], HEAD.as_bytes());
         let mut checker = Checker {
             failures: 3,
             retry_after: 99,
+            error: Some("GitHub answered 502 for main's head".into()),
             ..Checker::default()
         };
-        checker.check(&web, Some(HEAD), "0.5.0", 100, true).unwrap();
+        checker
+            .check(&web, Some(HEAD), "0.5.0", 100, Asked::Schedule)
+            .unwrap();
         assert_eq!((checker.failures, checker.retry_after), (0, 0));
+        assert_eq!((checker.tried_at, checker.error), (100, None));
+        // the window's argument reads as the window sends it
+        assert_eq!(
+            serde_json::from_str::<Asked>("\"opening\"").unwrap(),
+            Asked::Opening
+        );
     }
 
     #[test]
@@ -934,7 +1009,7 @@ pub(crate) mod tests {
         let web = Canned::default();
         web.answer(HEAD_URL, 200, &[], b"<html>a captive portal</html>");
         let e = Checker::default()
-            .check(&web, None, "0.5.0", 0, false)
+            .check(&web, None, "0.5.0", 0, Asked::User)
             .unwrap_err();
         assert!(e.contains("isn't a commit"), "{e}");
     }

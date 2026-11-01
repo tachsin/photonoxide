@@ -8,6 +8,7 @@ import { check, type Update } from "@tauri-apps/plugin-updater";
 
 import { app, toast, updateSettings } from "./app.svelte";
 import { checkNightly, onNightly, refresh } from "./nightly.svelte";
+import type { LastCheck, Outcome, Why } from "./schedule";
 
 export const updater = $state({
   status: "idle" as "idle" | "checking" | "none" | "publishing" | "available" | "downloading" | "installing" | "error",
@@ -17,9 +18,19 @@ export const updater = $state({
   downloaded: 0,
   total: 0,
   error: "",
+  /** When the last check ended (ms since 1970; 0: none yet), on either channel: the throttle of the check when the window comes back. */
   checkedAt: 0,
+  /** How it ended, for Settings: a quiet check is never invisible. */
+  last: null as LastCheck | null,
   dialog: false,
 });
+
+/** Notes how a check ended, for Settings and the throttle, and in the window's log. */
+function record(outcome: Outcome, detail: string, asked: Why | "user") {
+  updater.checkedAt = Date.now();
+  updater.last = { at: updater.checkedAt, outcome, detail };
+  console.info(`[updates] ${asked} check (${onNightly() ? "nightly" : "stable"}): ${outcome}${detail ? `, ${detail}` : ""}`);
+}
 
 let found: Update | null = null;
 /**
@@ -61,10 +72,11 @@ async function publishing(): Promise<string | null> {
 let soon: ReturnType<typeof setTimeout> | undefined;
 
 /** A release is on its way: say so, once, and look again in a few minutes until it is ready. */
-function onTheWay(version: string, quiet: boolean) {
+function onTheWay(version: string, quiet: boolean, asked: Why | "user") {
   const first = updater.status !== "publishing" || updater.version !== version;
   updater.status = "publishing";
   updater.version = version;
+  record("found", `photonoxide ${version} is being published`, asked);
   if (first || !quiet) {
     toast(`photonoxide ${version} is being published: it will be ready to install in a few minutes.`, "info", undefined, 9000);
   }
@@ -91,11 +103,17 @@ export async function switchChannel(channel: "stable" | "nightly") {
 
 /**
  * Looks for an update on the channel the settings choose: a newer release on Stable, main's new
- * commits on Nightly. `quiet` says nothing unless one is found.
+ * commits on Nightly. `quiet` (the schedule's checks, `why`) toasts nothing unless one is found;
+ * how every check ended, quiet or not, is in `updater.last`.
  */
-export async function checkForUpdate(quiet: boolean) {
-  if (onNightly()) return checkNightly(quiet);
-  if (!app.state?.updatable) return checkRelease(quiet);
+export async function checkForUpdate(quiet: boolean, why: Why = "hourly") {
+  const asked = quiet ? why : "user";
+  if (onNightly()) {
+    const ended = await checkNightly(quiet, asked === "open" ? "opening" : asked === "user" ? "user" : "schedule");
+    if (ended) record(ended.outcome, ended.detail, asked);
+    return;
+  }
+  if (!app.state?.updatable) return checkRelease(quiet, asked);
   if (updater.status === "checking" || updater.status === "downloading" || updater.status === "installing") return;
   // a release already found stays offered; the hourly check doesn't announce it again
   if (quiet && updater.status === "available") return;
@@ -103,18 +121,19 @@ export async function checkForUpdate(quiet: boolean) {
   updater.error = "";
   try {
     found = await check();
-    updater.checkedAt = Date.now();
     if (found) {
       updater.status = "available";
       updater.version = found.version;
       updater.notes = found.body ?? "";
       updater.date = found.date ?? "";
+      record("found", `photonoxide ${found.version} is out`, asked);
       toast(`photonoxide ${found.version} is out.`, "info", { label: "See what's new", run: () => (updater.dialog = true) }, 12000);
     } else {
       const coming = await publishing();
-      if (coming) onTheWay(coming, quiet);
+      if (coming) onTheWay(coming, quiet, asked);
       else {
         updater.status = "none";
+        record("current", "", asked);
         if (!quiet) toast(`You have the latest photonoxide, ${app.state.version}.`, "success");
       }
     }
@@ -123,11 +142,12 @@ export async function checkForUpdate(quiet: boolean) {
     // "latest" before their manifest was attached), or no network
     const coming = await publishing();
     if (coming) {
-      onTheWay(coming, quiet);
+      onTheWay(coming, quiet, asked);
       return;
     }
     updater.status = "error";
     updater.error = String(e);
+    record("error", String(e), asked);
     if (!quiet) toast(`Couldn't reach the update server; check the connection and try again in a few minutes. (${e})`, "error");
   }
 }
@@ -136,31 +156,33 @@ export async function checkForUpdate(quiet: boolean) {
  * For a copy that isn't installed: the latest release for this system, offered when it's later
  * than this build. Installing it puts it where a first install goes, and it updates itself after.
  */
-async function checkRelease(quiet: boolean) {
+async function checkRelease(quiet: boolean, asked: Why | "user") {
   if (updater.status === "checking" || updater.status === "downloading" || updater.status === "installing") return;
   if (quiet && updater.status === "available") return;
   updater.status = "checking";
   updater.error = "";
   try {
     firstInstall = await invoke<typeof firstInstall>("release_check");
-    updater.checkedAt = Date.now();
     if (firstInstall?.newer) {
       updater.status = "available";
       updater.version = firstInstall.version;
       updater.notes = firstInstall.notes;
       updater.date = firstInstall.date;
+      record("found", `photonoxide ${firstInstall.version} is out`, asked);
       toast(`photonoxide ${firstInstall.version} is out.`, "info", { label: "See what's new", run: () => (updater.dialog = true) }, 12000);
     } else {
       const coming = await publishing();
-      if (coming) onTheWay(coming, quiet);
+      if (coming) onTheWay(coming, quiet, asked);
       else {
         updater.status = "none";
+        record("current", "", asked);
         if (!quiet) toast(`You have the latest photonoxide, ${app.state?.version}.`, "success");
       }
     }
   } catch (e) {
     updater.status = "error";
     updater.error = String(e);
+    record("error", String(e), asked);
     if (!quiet) toast(`Couldn't reach the update server; check the connection and try again in a few minutes. (${e})`, "error");
   }
 }
