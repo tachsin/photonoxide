@@ -25,9 +25,9 @@ const PAPER: &str = "#f6ede5";
 /// The taglines on the cards.
 const MUTED: &str = "#d8c3ae";
 
-const TAGLINE: &str = "Photonics for Rust: validated and visible while it runs";
+const TAGLINE: &str = "Light meets Rust. Studio, library, Python.";
 /// The banners' title, for screen readers.
-const TITLE: &str = "photonoxide: validated photonics for Rust";
+const TITLE: &str = "photonoxide: light meets Rust";
 const DETAILS: &str = "mode solvers · FDFD · FDTD · inverse design · layout · a live studio";
 
 /// A number for an SVG: at most two decimals, no trailing zeros.
