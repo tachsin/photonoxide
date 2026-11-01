@@ -33,6 +33,7 @@ pub enum Polarity {
 /// A lithography's resist polarity as the library records it: the polarity its description
 /// gives, and the source that states it, if one in hand does.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct ResistPolarity {
     /// The polarity.
     pub polarity: Polarity,
@@ -173,15 +174,6 @@ pub struct Process {
     pub films: Vec<String>,
     /// A lithography's resist: its id.
     pub resist: Option<String>,
-    /// A lithography's resist polarity, where the library names it: none for a resist it doesn't
-    /// name (a photoresist, whose polarity is the product's), for a lithography that exposes
-    /// nothing and for every other step.
-    #[serde(default)]
-    pub polarity: Option<ResistPolarity>,
-    /// Whether a lithography presses a mould into the resist instead of exposing it
-    /// (nanoimprint).
-    #[serde(default)]
-    pub imprints: bool,
     /// Whether a deposition comes down in straight lines (evaporation), which lift-off needs.
     pub directional: bool,
     /// What it can achieve.
@@ -214,6 +206,20 @@ impl Process {
         self.used_for
             .iter()
             .find(|u| u.platform == platform && u.purpose == purpose)
+    }
+
+    /// A lithography's resist polarity, where the library names it (HSQ and ma-N negative, PMMA
+    /// positive, none of them yet with a source read for it): none for a resist it doesn't name
+    /// (a photoresist, whose polarity is the product's), for a lithography that exposes nothing
+    /// and for every other step.
+    pub fn polarity(&self) -> Option<ResistPolarity> {
+        lithography::polarity(&self.id)
+    }
+
+    /// Whether a lithography presses a mould into the resist instead of exposing it
+    /// (nanoimprint).
+    pub fn imprints(&self) -> bool {
+        lithography::imprints(&self.id)
     }
 
     /// Whether it acts on `film`.
@@ -270,8 +276,6 @@ pub(super) fn new_process(
         plain: plain.into(),
         films: films.iter().map(|f| (*f).into()).collect(),
         resist: None,
-        polarity: None,
-        imprints: false,
         directional: false,
         capabilities: Vec::new(),
         facts: Vec::new(),
@@ -312,8 +316,8 @@ impl Process {
         for u in &self.used_for {
             add(&u.source);
         }
-        if let Some(s) = self.polarity.as_ref().and_then(|p| p.source.as_ref()) {
-            add(s);
+        if let Some(s) = self.polarity().and_then(|p| p.source) {
+            add(&s);
         }
         self.references = keys;
         self

@@ -500,7 +500,7 @@ pub(super) fn frames(
                 // no layer)
                 let under = before.unwrap_or(made);
                 let litho = process(&step.process);
-                let polarity = litho.and_then(|p| p.polarity.clone());
+                let polarity = litho.and_then(crate::fabrication::Process::polarity);
                 let shapes = union(mask);
                 let all: Area = window.clone();
                 let r = Resist {
@@ -510,7 +510,7 @@ pub(super) fn frames(
                     tone: *tone,
                     polarity: polarity.as_ref().map_or(Polarity::Positive, |p| p.polarity),
                     named: polarity.is_some(),
-                    imprint: litho.is_some_and(|p| p.imprints),
+                    imprint: litho.is_some_and(crate::fabrication::Process::imprints),
                     beam: step.process.starts_with("ebl"),
                     top: top_of(under),
                     open: open_layers(under),

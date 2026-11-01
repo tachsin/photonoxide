@@ -7,13 +7,27 @@ use super::{
 };
 use crate::fabrication::stated::{Quantity, Stated, Unit};
 
-/// The polarity the process's description names for its resist, with no source in hand read for
-/// it: the frames draw it and say that no source states it.
-fn named(polarity: Polarity) -> Option<ResistPolarity> {
-    Some(ResistPolarity {
-        polarity,
-        source: None,
-    })
+/// The polarity the library records for the resist of the lithography `id`: the one its
+/// description names (HSQ and ma-N negative, PMMA positive), with no source in hand read for it
+/// yet, so the frames draw it and say that no source states it; none for a photoresist, whose
+/// polarity is the product's, and for nanoimprint, which exposes nothing.
+pub(super) fn polarity(id: &str) -> Option<ResistPolarity> {
+    let named = |polarity| {
+        Some(ResistPolarity {
+            polarity,
+            source: None,
+        })
+    };
+    match id {
+        "ebl-hsq" | "ebl-man" => named(Polarity::Negative),
+        "ebl-pmma" => named(Polarity::Positive),
+        _ => None,
+    }
+}
+
+/// Whether the lithography `id` presses a mould into the resist rather than exposing it.
+pub(super) fn imprints(id: &str) -> bool {
+    id == "nanoimprint"
 }
 
 pub(super) fn processes() -> Vec<Process> {
@@ -176,7 +190,6 @@ pub(super) fn processes() -> Vec<Process> {
         &[],
     );
     hsq.resist = Some("hsq".into());
-    hsq.polarity = named(Polarity::Negative);
     hsq.capabilities = vec![
         cap(
             Quantity::MinFeature,
@@ -225,7 +238,6 @@ pub(super) fn processes() -> Vec<Process> {
         &[],
     );
     pmma.resist = Some("pmma".into());
-    pmma.polarity = named(Polarity::Positive);
     pmma.capabilities = vec![cap(
         Quantity::MinFeature,
         Stated::AtMost {
@@ -271,8 +283,6 @@ pub(super) fn processes() -> Vec<Process> {
         &[],
     );
     imprint.resist = Some("pmma".into());
-    // pressed, not exposed: the resist's polarity plays no part
-    imprint.imprints = true;
     imprint.capabilities = vec![cap(
         Quantity::MinFeature,
         Stated::value(25.0, Unit::Nm, src("chou-1996", "abstract (p. 85)")),
@@ -316,7 +326,6 @@ fn man() -> Process {
         &[],
     );
     p.resist = Some("ma-n".into());
-    p.polarity = named(Polarity::Negative);
     p.capabilities = vec![
         cap(
             Quantity::MinFeature,
