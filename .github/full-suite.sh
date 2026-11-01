@@ -19,8 +19,8 @@
 # They write its output to target/full-suite.log; `git config --unset core.hooksPath` turns them off.
 # The same hooks run the lints (.github/lints.sh) before every push; a lint that passed on a
 # commit, there or here, is not run again on it. In an agent's worktree (under .claude/worktrees/)
-# the hooks don't start this script, and the lints build in <main checkout>/target/audit
-# (.github/hooks/agent-worktree.sh).
+# the hooks don't start this script, and the lints build in the worktree's own
+# <main checkout>/target/agents/<name> (.github/hooks/agent-worktree.sh).
 set -uo pipefail
 cd "$(dirname "$0")/.."
 

@@ -52,11 +52,13 @@ main_abs=$(abs "$main")
 # --- the layouts
 mkdir -p "$main/.claude/worktrees"
 git -C "$main" worktree add -q "$main/.claude/worktrees/agent-1" -b agent-1
+git -C "$main" worktree add -q "$main/.claude/worktrees/Agent-2" -b agent-2
 git -C "$main" worktree add -q "$tmp/elsewhere" -b elsewhere
 git clone -q "$tmp/remote.git" "$tmp/clone" 2> /dev/null
 mkdir -p "$tmp/holder/.claude/worktrees"
 git clone -q "$main" "$tmp/holder/.claude/worktrees/plain"
 agent="$main/.claude/worktrees/agent-1"
+agent2="$main/.claude/worktrees/Agent-2"
 
 detect() { (cd "$1" && source "$repo/.github/hooks/agent-worktree.sh" && if agent_worktree; then echo agent; else echo normal; fi); }
 check "main checkout is not an agent worktree" "$(detect "$main")" normal
@@ -64,8 +66,16 @@ check "linked worktree under .claude/worktrees is an agent worktree" "$(detect "
 check "a subfolder of an agent worktree is one too" "$(mkdir -p "$agent/sub" && detect "$agent/sub")" agent
 check "linked worktree elsewhere is not" "$(detect "$tmp/elsewhere")" normal
 check "plain clone inside .claude/worktrees is not" "$(detect "$tmp/holder/.claude/worktrees/plain")" normal
-check "the shared target comes from the common git dir" \
-  "$(cd "$agent" && source "$repo/.github/hooks/agent-worktree.sh" && agent_target_dir)" "$main_abs/target/audit"
+target_of() { (cd "$1" && source "$repo/.github/hooks/agent-worktree.sh" && agent_target_dir); }
+check "an agent worktree's target is its own, under the main checkout's target/agents" \
+  "$(target_of "$agent")" "$main_abs/target/agents/agent-1"
+check "a second agent worktree gets another target (lower case)" "$(target_of "$agent2")" "$main_abs/target/agents/agent-2"
+check "two agent worktrees never share a target" "$([ "$(target_of "$agent")" != "$(target_of "$agent2")" ] && echo different || echo same)" different
+check "a subfolder of an agent worktree has the worktree's target" "$(target_of "$agent/sub")" "$main_abs/target/agents/agent-1"
+check "the main checkout has no agent target" "$(target_of "$main" > /dev/null && echo some || echo none)" none
+name_of() { (source "$repo/.github/hooks/agent-worktree.sh" && agent_worktree_name "$1"); }
+check "a Windows path names its worktree" "$(name_of 'C:\Users\x\repo\.claude\worktrees\Agent-A01\')" agent-a01
+check "a nested worktree folder keeps its whole path in the name" "$(name_of /r/.claude/worktrees/group/agent-1)" group_agent-1
 
 # --- touch-sources.sh: an agent worktree's sources are made newer than the shared target's builds
 ref="$tmp/ref"
@@ -103,12 +113,23 @@ echo e > "$main/e.txt"
 git -C "$main" add e.txt
 git -C "$main" commit -q -m e
 git -C "$main" checkout -q main
+# agent targets: one whose worktree is gone, one whose folder was deleted without
+# `git worktree remove`, and the two live ones
+git -C "$main" worktree add -q "$main/.claude/worktrees/agent-gone" -b agent-gone
+git -C "$main" worktree remove "$main/.claude/worktrees/agent-gone"
+git -C "$main" worktree add -q "$main/.claude/worktrees/agent-deleted" -b agent-deleted
+rm -rf "$main/.claude/worktrees/agent-deleted"
+for t in agent-1 agent-2 agent-gone agent-deleted; do mkdir -p "$main/target/agents/$t/debug"; done
+out=$(cd "$agent" && bash "$repo/.github/scripts/prune-agent-targets.sh" --dry-run)
+check "prune --dry-run lists the targets without a worktree" "$(echo "$out" | grep -c 'would remove')" 2
+check "prune --dry-run removes nothing" "$(ls "$main/target/agents" | wc -l | tr -d ' ')" 4
 git -C "$main" merge -q --no-edit topic > /dev/null 2>&1
 for _ in 1 2 3 4 5 6 7 8 9 10; do
-  [ -s "$main/target/full-suite.log" ] && break
+  [ -s "$main/target/full-suite.log" ] && grep -q 'removed from' "$main/target/prune-agent-targets.log" 2> /dev/null && break
   sleep 1
 done
 check "post-merge in the main checkout still starts the suite" "$(cat "$main/target/full-suite.log" 2> /dev/null)" "stub full suite"
+check "post-merge in the main checkout prunes the targets of gone worktrees" "$(ls "$main/target/agents" | tr '\n' ' ')" "agent-1 agent-2 "
 
 # --- pre-push: the lints run in all three, and build where expected
 push() { # push DIR BRANCH: the hook's output
@@ -119,11 +140,15 @@ push() { # push DIR BRANCH: the hook's output
 }
 age "$agent"
 out=$(push "$agent" push-agent)
-check "pre-push in an agent worktree touches the sources before the lints" "$(fresh "$agent")" touched
-check "pre-push in an agent worktree runs the lints in the shared target" "$(echo "$out" | grep -c "TARGET=$main_abs/target/audit\$")" 1
-check "pre-push in an agent worktree stamps in the shared target" \
-  "$(find "$main_abs/target/audit/lint-stamps" -type f 2> /dev/null | wc -l | tr -d ' ')" 1
-check "pre-push in an agent worktree makes no target/ of its own" "$([ -e "$agent/target" ] && echo target || echo none)" none
+check "pre-push in an agent worktree touches no sources (its target is its own)" "$(fresh "$agent")" stale
+check "pre-push in an agent worktree runs the lints in its own target" "$(echo "$out" | grep -c "TARGET=$main_abs/target/agents/agent-1\$")" 1
+check "pre-push in an agent worktree stamps in its own target" \
+  "$(find "$main_abs/target/agents/agent-1/lint-stamps" -type f 2> /dev/null | wc -l | tr -d ' ')" 1
+check "pre-push in an agent worktree makes no target/ inside the worktree" "$([ -e "$agent/target" ] && echo target || echo none)" none
+out=$(push "$agent2" push-agent-2)
+check "pre-push in a second agent worktree runs the lints in its other target" "$(echo "$out" | grep -c "TARGET=$main_abs/target/agents/agent-2\$")" 1
+check "the two agent worktrees' stamps stay apart" \
+  "$(find "$main_abs/target/agents/agent-1/lint-stamps" "$main_abs/target/agents/agent-2/lint-stamps" -type f 2> /dev/null | wc -l | tr -d ' ')" 2
 mine=$(abs "$tmp")/mine
 out=$(CARGO_TARGET_DIR="$mine" push "$agent" push-agent-env)
 check "pre-push keeps a CARGO_TARGET_DIR that is set" "$(echo "$out" | grep -c "TARGET=$mine\$")" 1
