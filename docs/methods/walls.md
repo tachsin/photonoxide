@@ -11,6 +11,7 @@ validation:
   - mode/hadley-box-high
   - mode/hadley-corner-low
   - mode/hadley-corner-high
+  - mode/fields-folded-strip
 examples:
   - hadley_corners
   - group_index
@@ -39,10 +40,18 @@ zero on it, so it drops out of the unknowns. Spacings and cells continue mirrore
 cell with off-diagonal permittivity is an error: a mirror changes the sign of $\varepsilon_{xy}$, so the
 structure isn't symmetric about the wall.
 
+The fields derived from H ([fields](fields.md)) fold the same way. $E_z$ is tangential to every
+wall: odd across an electric wall, even across a magnetic one, the parity H's components give it
+through $E_z \propto \partial_x H_y - \partial_y H_x$. The derivative of $E_z$ in the cell beside a
+wall takes the cell's mirror image, with that sign, as its neighbour, so it is the whole window's
+central difference and the transverse E there is the whole window's.
+
 ## Validation
 
 - **Folding is exact:** a strip on the full window, on half and on a quarter gives the same
-  TE-like and TM-like modes, to 1e-10. It is one discrete problem.
+  TE-like and TM-like modes, to 1e-10. It is one discrete problem. Their fields agree cell by
+  cell, the cells along the walls too, and the effective area, confinement and first-order index
+  change from them to 2e-13 (`mode/fields-folded-strip`).
 - A slab between two walls is exactly the [slab](slab.md): with interfaces normal to x and to y
   the errors agree to 1e-12, at second order.
 - Hadley's four corner problems are quarter domains with these walls; each is within 1e-4 of his

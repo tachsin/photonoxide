@@ -362,8 +362,8 @@ Three things differ from the paper as printed, each checked:
   of the grid from 10 to 1.25 nm. Those rows take the
   singularity's integral, fitted to the next row; and the mode comes from Hadley's equations,
   whose fields beside a corner converge. The silicon guide's loss then converges at the order the
-  corners leave, $2\tau - 1$ = 0.54: 0.3873, 0.4039, 0.4144 and 0.4213 (dB/cm)/nm² on 20, 10, 5
-  and 2.5 nm, orders 0.66 and 0.61, Richardson's limit 0.434, 3 % above the 2.5 nm value
+  corners leave, $2\tau - 1$ = 0.54: 0.3869, 0.4039, 0.4144 and 0.4213 (dB/cm)/nm² on 20, 10, 5
+  and 2.5 nm, orders 0.69 and 0.62, Richardson's limit 0.434, 3 % above the 2.5 nm value
   (`roughness/silicon-grid-order`). The device solves on its own mesh, 10 nm by default, where
   this guide's loss is 7 % below its limit: refine the mesh for a figure closer than that.
 
