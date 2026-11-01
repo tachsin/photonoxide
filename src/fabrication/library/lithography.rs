@@ -1,8 +1,20 @@
 //! Lithographies: UV photolithography, the projection lithographies, electron-beam lithography
 //! in HSQ, PMMA and ma-N, and nanoimprint.
 
-use super::{Platform, Process, Purpose, StepType, cap, fact, new_process, src, used};
+use super::{
+    Platform, Polarity, Process, Purpose, ResistPolarity, StepType, cap, fact, new_process, src,
+    used,
+};
 use crate::fabrication::stated::{Quantity, Stated, Unit};
+
+/// The polarity the process's description names for its resist, with no source in hand read for
+/// it: the frames draw it and say that no source states it.
+fn named(polarity: Polarity) -> Option<ResistPolarity> {
+    Some(ResistPolarity {
+        polarity,
+        source: None,
+    })
+}
 
 pub(super) fn processes() -> Vec<Process> {
     let mut uv = new_process(
@@ -164,6 +176,7 @@ pub(super) fn processes() -> Vec<Process> {
         &[],
     );
     hsq.resist = Some("hsq".into());
+    hsq.polarity = named(Polarity::Negative);
     hsq.capabilities = vec![
         cap(
             Quantity::MinFeature,
@@ -212,6 +225,7 @@ pub(super) fn processes() -> Vec<Process> {
         &[],
     );
     pmma.resist = Some("pmma".into());
+    pmma.polarity = named(Polarity::Positive);
     pmma.capabilities = vec![cap(
         Quantity::MinFeature,
         Stated::AtMost {
@@ -257,6 +271,8 @@ pub(super) fn processes() -> Vec<Process> {
         &[],
     );
     imprint.resist = Some("pmma".into());
+    // pressed, not exposed: the resist's polarity plays no part
+    imprint.imprints = true;
     imprint.capabilities = vec![cap(
         Quantity::MinFeature,
         Stated::value(25.0, Unit::Nm, src("chou-1996", "abstract (p. 85)")),
@@ -300,6 +316,7 @@ fn man() -> Process {
         &[],
     );
     p.resist = Some("ma-n".into());
+    p.polarity = named(Polarity::Negative);
     p.capabilities = vec![
         cap(
             Quantity::MinFeature,

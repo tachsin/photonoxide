@@ -15,7 +15,7 @@
 //! Each solid is watertight and its triangles face out. The coordinates are µm, z up from the
 //! stack's bottom.
 
-use photonoxide::job::{Event, SceneEtched, SceneLayer};
+use photonoxide::job::{Event, FrameFilm, SceneEtched, SceneLayer};
 
 use super::triangulate::{P2, triangulate, twice_area};
 
@@ -26,14 +26,16 @@ pub struct Mesh {
     pub triangles: Vec<[u32; 3]>,
 }
 
-/// What a solid is: a whole-window film (a layer, a slab, the substrate), a drawn shape, or a
-/// film around the shapes (a background, the cladding), drawn see-through over them.
+/// What a solid is: a whole-window film (a layer, a slab, the substrate), a drawn shape, a film
+/// around the shapes (a background, the cladding), drawn see-through over them, or a piece of a
+/// film over the topography (photonoxide::job::FrameFilm: the resist, a conformal film).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, serde::Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Role {
     Slab,
     Shape,
     Fill,
+    Film,
 }
 
 /// A piece of the wafer: its layer ("substrate", a layer's name, "cladding"), its film, the
@@ -180,6 +182,55 @@ impl Rings {
             outer: mitre(&self.outer, d),
             holes: self.holes.iter().map(|h| mitre(h, d)).collect(),
         }
+    }
+
+    /// A film piece's outlines at its bottom and top, ring by ring with the same vertices in
+    /// turn (photonoxide::job::FrameFilm): split as [`Rings::of`] splits a walk but not cleaned,
+    /// so the two keep their correspondence; turned so the outer ring runs counterclockwise.
+    /// `None` when they don't correspond or have no area.
+    pub fn pair(bottom: &[[f64; 2]], top: &[[f64; 2]]) -> Option<(Rings, Rings)> {
+        let split = |walk: &[[f64; 2]]| -> Vec<Vec<P2>> {
+            let mut rings = Vec::new();
+            let mut rest = walk;
+            while !rest.is_empty() {
+                let first = rest[0];
+                let end = rest
+                    .iter()
+                    .skip(1)
+                    .position(|p| *p == first)
+                    .map_or(rest.len(), |k| k + 1);
+                rings.push(rest[..end].to_vec());
+                rest = if end < rest.len() {
+                    &rest[end + 1..]
+                } else {
+                    &[]
+                };
+            }
+            rings
+        };
+        let (mut b, mut t) = (split(bottom), split(top));
+        if b.is_empty()
+            || b.len() != t.len()
+            || b.iter()
+                .zip(&t)
+                .any(|(x, y)| x.len() != y.len() || x.len() < 3)
+        {
+            return None;
+        }
+        let area = twice_area(&t[0]);
+        if area == 0.0 {
+            return None;
+        }
+        if area < 0.0 {
+            for r in b.iter_mut().chain(t.iter_mut()) {
+                r.reverse();
+            }
+        }
+        let rings = |mut v: Vec<Vec<P2>>| {
+            let outer = v.remove(0);
+            Rings { outer, holes: v }
+        };
+        Some((rings(b), rings(t)))
     }
 
     /// The rectangle x × y.
@@ -330,11 +381,16 @@ pub struct Detail {
     pub thin: usize,
 }
 
-/// The rings of every shape a frame draws, for counting its vertices before drawing it.
-pub fn rings_of(scene: &Event, etched: &[SceneEtched]) -> Vec<Rings> {
+/// The rings of every shape and film piece a frame draws, for counting its vertices before
+/// drawing it (a film piece's once, as a shape's: a loft's walls and caps are a prism's).
+pub fn rings_of(scene: &Event, etched: &[SceneEtched], films: &[FrameFilm]) -> Vec<Rings> {
     let Event::Scene { shapes, .. } = scene else {
         return Vec::new();
     };
+    let pieces = films
+        .iter()
+        .filter_map(|f| Rings::pair(&f.bottom, &f.top))
+        .map(|(_, t)| t);
     let banded = |l: &str| {
         etched
             .iter()
@@ -346,6 +402,30 @@ pub fn rings_of(scene: &Event, etched: &[SceneEtched]) -> Vec<Rings> {
         .map(|s| s.outline.as_slice())
         .chain(etched.iter().map(|e| e.outline.as_slice()))
         .filter_map(Rings::of)
+        .chain(pieces)
+        .collect()
+}
+
+/// The solids of a frame's film pieces: each a loft from its bottom outline to its top.
+pub fn film_solids(films: &[FrameFilm], detail: Detail) -> Vec<Solid> {
+    films
+        .iter()
+        .filter(|f| f.film != "air" && f.z_um[1] - f.z_um[0] > 1e-12)
+        .filter_map(|f| {
+            let (b, t) = Rings::pair(&f.bottom, &f.top)?;
+            Some(Solid {
+                layer: f.layer.clone(),
+                film: f.film.clone(),
+                eps: f.eps,
+                role: Role::Film,
+                mesh: loft(
+                    &b.thinned(detail.thin),
+                    f.z_um[0],
+                    &t.thinned(detail.thin),
+                    f.z_um[1],
+                ),
+            })
+        })
         .collect()
 }
 

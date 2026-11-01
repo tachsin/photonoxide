@@ -495,6 +495,7 @@ mod device_tests;
 mod event;
 mod execute;
 mod fabrication;
+mod fabrication_films;
 mod fabrication_frames;
 #[cfg(test)]
 mod fabrication_tests;
@@ -563,8 +564,8 @@ pub use device::{Compute, DeviceFigure, fdfd_size, from_device};
 pub use event::Event;
 pub use execute::{conclude, execute, farms, preview};
 pub use fabrication::{
-    FabricationView, FlowFrame, Stage, UNSTATED_RESIST_UM, fabrication_of, fabrication_of_job,
-    fabrication_view, from_fabrication,
+    FabricationView, FlowFrame, FrameFilm, IMPRINT_RESIDUE, Stage, UNSTATED_COVERAGE,
+    UNSTATED_RESIST_UM, fabrication_of, fabrication_of_job, fabrication_view, from_fabrication,
 };
 pub use fdfd::{FdfdSParameters, fdfd_s_parameters};
 pub use fdtd::{FoundResonance, SpectrumSeries};

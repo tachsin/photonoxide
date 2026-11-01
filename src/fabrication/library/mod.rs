@@ -18,7 +18,28 @@ mod wafer;
 
 /// The library's version, which a run's record names: it changes whenever a process, a
 /// capability or a rule changes, so that an older run says which library it used.
-pub const LIBRARY_VERSION: &str = "3";
+pub const LIBRARY_VERSION: &str = "4";
+
+/// Which part of a resist its developer washes away.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Polarity {
+    /// The exposed part: the light or the beam opens the resist where it falls.
+    Positive,
+    /// The part not exposed: the resist stays where the light or the beam fell.
+    Negative,
+}
+
+/// A lithography's resist polarity as the library records it: the polarity its description
+/// gives, and the source that states it, if one in hand does.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct ResistPolarity {
+    /// The polarity.
+    pub polarity: Polarity,
+    /// The source that states it, with the place in it; none where the library's description of
+    /// the resist names it but no source in hand has been read for it.
+    pub source: Option<Source>,
+}
 
 /// What kind of step a process is.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -152,6 +173,15 @@ pub struct Process {
     pub films: Vec<String>,
     /// A lithography's resist: its id.
     pub resist: Option<String>,
+    /// A lithography's resist polarity, where the library names it: none for a resist it doesn't
+    /// name (a photoresist, whose polarity is the product's), for a lithography that exposes
+    /// nothing and for every other step.
+    #[serde(default)]
+    pub polarity: Option<ResistPolarity>,
+    /// Whether a lithography presses a mould into the resist instead of exposing it
+    /// (nanoimprint).
+    #[serde(default)]
+    pub imprints: bool,
     /// Whether a deposition comes down in straight lines (evaporation), which lift-off needs.
     pub directional: bool,
     /// What it can achieve.
@@ -240,6 +270,8 @@ pub(super) fn new_process(
         plain: plain.into(),
         films: films.iter().map(|f| (*f).into()).collect(),
         resist: None,
+        polarity: None,
+        imprints: false,
         directional: false,
         capabilities: Vec::new(),
         facts: Vec::new(),
@@ -279,6 +311,9 @@ impl Process {
         }
         for u in &self.used_for {
             add(&u.source);
+        }
+        if let Some(s) = self.polarity.as_ref().and_then(|p| p.source.as_ref()) {
+            add(s);
         }
         self.references = keys;
         self
