@@ -61,7 +61,7 @@ Nothing ships without a green release PR and weekly run. A large change can ask 
 
 ## Versioning
 
-photonoxide follows [Semantic Versioning](https://semver.org/). Before 1.0, Cargo's rules for `0.x` apply: a breaking change to the public API, or different results for the same input, is a minor release (0.1.x → 0.2.0); new functionality and fixes are patch releases.
+photonoxide follows [Semantic Versioning](https://semver.org/). Before 1.0, Cargo's rules for `0.x` apply: a breaking change to the public API, or a deliberate change of a model or a default that changes results (a different method for the same job), is a minor release (0.1.x → 0.2.0); new functionality and fixes are patch releases. A fix that corrects a wrong result is a fix even when numbers move: the old numbers were errors, not a promise, and the PR title (`fix:`) and the changelog say which results changed.
 
 The minimum Rust follows the dependencies: when a dependency's current release needs a newer Rust, `rust-version` and the CI's MSRV job are raised with it (`build!: …`).
 
