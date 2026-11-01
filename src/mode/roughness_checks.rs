@@ -167,7 +167,7 @@ pub(crate) fn cases() -> Vec<Case> {
             id: "roughness/silicon-grid-order",
             title: r"Sidewall-roughness loss by Barwicz and Haus's 3D analysis of their silicon guide (200 × 400 nm, 3.50 in 1.45, 1.55 µm, TE-like, $L_c$ = 50 nm), its mode by Hadley's equations on 10, 5 and 2.5 nm grids, 0.4039, 0.4144 and 0.4213 (dB/cm)/nm² (Richardson's limit 0.434): the order of convergence of the changes (shown)",
             tier: Tier::Analytic,
-            source: r"$2\tau - 1$ = 0.54, the order of the singular part the corners' rows hold, $\lvert E \rvert^2 \propto r^{2\tau - 2}$ at a right-angled dielectric corner (J. Meixner, doi:10.1109/TAP.1972.1140243): $\tau$ = 0.770 for 3.50 in 1.45; the order falls from 0.66 (20, 10 and 5 nm) towards it",
+            source: r"$2\tau - 1$ = 0.54, the order of the singular part the corners' rows hold, $\lvert E \rvert^2 \propto r^{2\tau - 2}$ at a right-angled dielectric corner (J. Meixner, doi:10.1109/TAP.1972.1140243): $\tau$ = 0.770 for 3.50 in 1.45; the order falls from 0.69 (20, 10 and 5 nm) towards it",
             run: || {
                 let s = silicon_study();
                 let v = &s.values;

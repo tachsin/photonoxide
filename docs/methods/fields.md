@@ -24,6 +24,7 @@ validation:
   - mode/confinement-slab-order
   - mode/orthogonality-slab
   - mode/orthogonality-slab-order
+  - mode/fields-folded-strip
   - thermo/slab-first-order
   - thermo/slab-vector
   - thermo/slab-vector-order
@@ -114,9 +115,23 @@ converges at first order only (3.9e-2, 1.8e-2, 9.0e-3 relative at 20, 10 and 5 n
 confinement add the mirror image, so half a slab behind a wall gives the whole slab's numbers. A
 window closed by walls at both ends of an axis is taken as it is: a slab uniform between two walls
 has the effective width times the window's height as its area. A box straddling a wall counts
-with its image. Next to a wall, $\partial_x E_z$ is taken one-sided, at first order, so a TM slab's
-area from half the window is 8e-4 off the whole window's at 10 nm (a TE slab, with no $E_z$,
-agrees to round-off).
+with its image. Next to a wall, the derivative of $E_z$ across it takes the cell's mirror image as
+its neighbour: $E_z$ is tangential to every wall, so beyond it $E_z$ is the image's value with its
+parity, odd across an electric wall (zero on it) and even across a magnetic one. For a wall at
+$x_0$ and the cell beside it, centred at $x_0 + h/2$,
+
+$$
+\partial_x E_z \approx \frac{E_z^{(1)} - s\thinspace E_z^{(0)}}{x^{(1)} - (2x_0 - x^{(0)})},
+$$
+
+with $s = -1$ for an electric wall and $s = 1$ for a magnetic one: the central difference the
+whole window takes there. A folded window is then the whole window's discrete problem in its
+fields too, not only in its index. For a 480 × 200 nm strip (case `mode/fields-folded-strip`),
+the effective area, the confinement and the first-order index change from its halves and its
+quarter agree with the whole window's to 2e-13 at 20, 10 and 5 nm. A one-sided difference beside
+the wall would leave them off by up to 7.4e-3, 9.1e-4 and 1.1e-4 (the TM-like mode's confinement
+behind an electric wall at y = 0, where its $E_z$ is odd): falling at third order, below the
+grid's own second-order error, but not the whole window's numbers.
 
 **Orthogonality.** The conjugated product is the one `coupling` takes: power orthogonality,
 between a lossless guide's modes. The unconjugated $\int (\mathbf E_a \times \mathbf H_b)\cdot\hat z\thinspace dA$
@@ -140,32 +155,32 @@ with its numbers.
 
 ## A change of permittivity: perturbation and re-solve
 
-A change $\Deltaarepsilon$ of the cells' relative permittivity, inside each cell so that no
-boundary moves, shifts a mode's frequency at fixed $eta$ by
-$\Delta\omega/\omega = -	frac12 \int \mathbf E^*\cdot\Deltaarepsilon\cdot\mathbf E	hinspace dA / \int arepsilon|\mathbf E|^2 dA$
+A change $\Delta\varepsilon$ of the cells' relative permittivity, inside each cell so that no
+boundary moves, shifts a mode's frequency at fixed $\beta$ by
+$\Delta\omega/\omega = -\tfrac12 \int \mathbf E^*\cdot\Delta\varepsilon\cdot\mathbf E\thinspace dA / \int \varepsilon|\mathbf E|^2 dA$
 to first order (Johnson et al. 2002, before their moving boundaries). At fixed $\omega$ that is
-a shift of $eta$ of $\Delta\omega$ over the group velocity, the energy's,
-$v_g = 	frac12\operatorname{Re}\int(\mathbf E	imes\mathbf H^*)\cdot\hat z	hinspace dA ig/ 	frac12arepsilon_0\intarepsilon|\mathbf E|^2 dA$;
+a shift of $\beta$ of $\Delta\omega$ over the group velocity, the energy's,
+$v_g = \tfrac12\operatorname{Re}\int(\mathbf E\times\mathbf H^*)\cdot\hat z\thinspace dA \big/ \tfrac12\varepsilon_0\int\varepsilon|\mathbf E|^2 dA$;
 with E in units of $Z_0$ times H's,
 
 $$
-\Delta n_\mathrm{eff} = rac{\int \mathbf E^*\cdot\Deltaarepsilon\cdot\mathbf E	hinspace dA}{2\operatorname{Re}\int (\mathbf E	imes\mathbf H^*)\cdot\hat z	hinspace dA}.
+\Delta n_\mathrm{eff} = \frac{\int \mathbf E^*\cdot\Delta\varepsilon\cdot\mathbf E\thinspace dA}{2\operatorname{Re}\int (\mathbf E\times\mathbf H^*)\cdot\hat z\thinspace dA}.
 $$
 
 `mode::thermo::index_change` takes it from the fields above, but for one thing: beside a change
 of material, $\partial_x E_z$ and $\partial_y E_z$ come from the neighbour of the same material
-(one-sided), so E's normal component keeps its jump at the interface ($arepsilon E_\perp$
+(one-sided), so E's normal component keeps its jump at the interface ($\varepsilon E_\perp$
 continuous). A central difference across the interface spreads the jump over the two cells
-beside it and leaves the overlap first order in the grid; one-sided, it is second order (2.19 and
-2.34 on a TM slab, whose E crosses its interfaces). `index_change_resolved` solves the perturbed
+beside it and leaves the overlap first order in the grid; one-sided, it is second order (2.07 and
+2.23 on a TM slab, whose E crosses its interfaces). `index_change_resolved` solves the perturbed
 cross-section (`CrossSection::perturbed`) instead, near the first-order estimate; the two differ
-at second order in $\Deltaarepsilon$ and by the field's own error.
+at second order in $\Delta\varepsilon$ and by the field's own error.
 
 **Temperature.** `permittivity_change(cold, warm, step, rise)` takes the cross-section at a
 temperature and the same one `step` K warmer, each with its materials at that temperature (the
 catalogue's silicon and silica take one, [materials](materials.md#temperature)), and gives each
-cell $\Deltaarepsilon = (arepsilon_\mathrm{warm} - arepsilon_\mathrm{cold})/\mathrm{step}
-	imes \Delta T(x, y)$, the rise at its centre: a uniform one, or a heat solve's field
+cell $\Delta\varepsilon = (\varepsilon_\mathrm{warm} - \varepsilon_\mathrm{cold})/\mathrm{step}
+\times \Delta T(x, y)$, the rise at its centre: a uniform one, or a heat solve's field
 (`thermal::Heat::solve`, [static](static.md)), read at each cell with `Field::at`. To first order
 in $\Delta T$, as the perturbation is.
 
@@ -189,7 +204,7 @@ let check = index_change_resolved(&mode, &cs, &delta, wavelength)?;   // a re-so
 - **A change of temperature, first order** (`thermo/`): a 220 nm silicon slab in silica (TE₀,
   1.55 µm) warmed from 293 K, its first-order change in closed form against the slab solved
   again: the difference falls as $\Delta T^2$ (order 2.03 from 10, 20 and 40 K). The full-vector
-  perturbation on the same slab at 5 nm, TE₀ and TM₀, within 3.2e-4 of the exact
+  perturbation on the same slab at 5 nm, TE₀ and TM₀, within 2.9e-4 of the exact
   $dn_\mathrm{eff}/dT$ (1.814e-4 and 1.425e-4 per K), converging at second order.
 - **A wire:** 470 × 211 nm, $dn_\mathrm{eff}/dT$ by perturbation on a 5 nm grid is 0.36% above
   re-solves by [Hadley's equations](hadley.md) (1.9563e-4 per K at 10 nm, within 2e-6 relative of
