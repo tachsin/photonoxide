@@ -985,24 +985,37 @@ export interface DeviceFabrication {
 export interface FlowFrame {
   /** The step it belongs to, from 0. */
   step: number;
-  /** The step's operation ("wafer", "deposit", "etch", …), or a lithography's "coat", "expose", "develop". */
+  /** The step's operation ("wafer", "deposit", "etch", …), or a lithography's "coat", "expose" ("imprint" for nanoimprint), "develop" ("residue"). */
   phase: string;
   label: string;
   layer: string | null;
   scene: Scene;
   etched: SceneEtched[];
+  /** The films over the planar layers: the resist, a film deposited over an etched step, a film evaporated onto a stencil. */
+  films: FrameFilm[];
   note: string | null;
 }
 
+/** A piece of a film over the wafer's topography (photonoxide::job::FrameFilm): the solid between two outlines of the same vertices in turn. */
+export interface FrameFilm {
+  layer: string;
+  film: string;
+  eps: number;
+  z_um: [number, number];
+  /** The outline at the bottom, as a scene shape's (holes joined to it). */
+  bottom: [number, number][];
+  top: [number, number][];
+}
+
 /** The design the Fabrication page shows: a device's as its page has it, or a job file's. */
-export type FabDesign = { kind: "device"; spec: DeviceSpec } | { kind: "job"; text: string; format: JobFormat; path: string | null };
+export type FabDesign = { kind: "device"; spec: DeviceSpec } | { kind: "job"; text: string; format: JobFormat; path: string | null } | { kind: "run"; dir: string };
 
 /** A solid of the Fabrication page's 3D view (studio/src-tauri's fabrication::SolidOut). */
 export interface FabSolid {
   layer: string;
   film: string;
-  /** A whole-window film, a drawn shape, or a film around the shapes drawn see-through over them. */
-  role: "slab" | "shape" | "fill";
+  /** A whole-window film, a drawn shape, a film around the shapes drawn see-through over them, or a piece of a film over the topography. */
+  role: "slab" | "shape" | "fill" | "film";
   clear: boolean;
   /** µm about the page's centre, three a vertex. */
   positions: number[];

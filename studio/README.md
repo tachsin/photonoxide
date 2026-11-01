@@ -146,6 +146,11 @@ in a drawer opened from the status bar.
     resonances come in a table with their Q. The side panel has the time, the steps, the field
     left against the stopping rule, the speed and the frames' share of the run's time; the 3D
     view paints the frame shown on its plane.
+  - **Fabrication** (beside 3D and 2D, for a run of a design: a device's job, or a structure
+    task's layers and shapes): how the run's design would be made, from the bare wafer, with
+    the Fabrication page's own 2D and 3D views and timeline (the same component), the step shown
+    with its reason, and **On the Fabrication page** for the steps' sources, the rules' checks,
+    the alternatives and any other design. The design is the job the run's folder keeps.
   - **Solver** (the bar's button, or the solver's name in the side panel): how the run was
     solved. The solver, its grid and its unknowns as the run recorded them; each solve's
     numerical error (a mode's eigen-residual, an FDFD field's linear residual, an S-matrix's
@@ -400,14 +405,21 @@ in a drawer opened from the status bar.
     made on: one for each design, set by its films.
   - **The steps,** from the bare wafer, each with its step type and what it does; a lithography
     shows its three phases (spin the resist on, write the pattern, develop), and a badge counts
-    what the rules flag. The step shown has its reason, what the process does, its parameters
+    what the rules flag (nanoimprint's: spin the resist on, press the mould in, clear the thin
+    layer left in its recesses). The step shown has its reason, what the process does, its parameters
     (layer, film, thickness, depth and whether it is timed, sidewall, the resist's tone), what
     it can achieve with each number's citation or "not specified", what the rules check, what
     isn't certain, and the processes that could do it ranked: **Use instead** remakes the flow
     with another, and **The rules' choice again** goes back.
   - **2D and 3D:** the wafer's cross-section at a cut (x or y, at a position chosen) and the chip
     in 3D, alone or side by side, each film in one colour in both (the exported cross-sections'
-    colours). The resist is drawn while it is on the wafer. The step's work is animated: a film
+    colours). The resist is drawn while it is on the wafer: spun over etched layers, it fills
+    their trenches and its top is flat. The exposure shows the part the light or the beam
+    falls on, which a positive resist loses and a negative one keeps (the library names HSQ's
+    and ma-N's polarity as negative and PMMA's as positive; a photoresist's is drawn positive,
+    and the frame says so). A film deposited over an etched step follows it, its thickness on
+    the walls set by the process's step coverage (fully conformal where no source states one,
+    and the frame says so), until a polish leaves it flat. The step's work is animated: a film
     grows from below, material etched, lifted off, developed or polished goes from above, a
     pattern written fades in; in 3D the layer being processed and what the step made are lit
     and outlined, the cut is drawn as a plane, and a drag turns the chip and the wheel zooms.
@@ -418,7 +430,7 @@ in a drawer opened from the status bar.
     to the bare wafer (Home), a scrubber and the speed; the step shown is lit in the list. With
     reduced motion the frames change without moving.
   - **The layers now,** from the top down, the substrate last (the first made), each in its
-    colour with its thickness; and the round trip at the top: the flow run on photonoxide's own
+    colour with its thickness, and the films over them (the resist, a conformal film) first; and the round trip at the top: the flow run on photonoxide's own
     geometry gives the design back, to the bit, on every point compared, or the page says how
     many differ.
 - **Academy:** lessons on how devices work and how the ideas came about, each read as deep as

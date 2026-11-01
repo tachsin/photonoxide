@@ -3,6 +3,7 @@
   // shapes cut across and its background around them, and the cladding, true to scale (a wide
   // cut, across a ring and its buses, has its height stretched and says by how much), from
   // 1 µm below the core to 1 µm above it.
+  import type { FrameFilm } from "../../lib/api";
   import { cut, fillOf, tick } from "../../lib/deviceview";
   import type { Scene, SceneEtched } from "../../lib/events";
   import { ticks } from "../../lib/plot";
@@ -14,9 +15,13 @@
   // `quiet` leaves out "the cut meets no shape here", for a wafer with nothing drawn on it yet
   // `maxStretch` bounds how far the height may be stretched (8× by default); `names` false leaves
   // out the layers' names and the margin they take (a narrow picture, whose legend names them)
+  // `films`, the films a flow's frame draws over its planar layers (photonoxide::job::FrameFilm:
+  // the resist, a film conformal over an etched step), each piece cut across from its bottom
+  // outline to its top, drawn over the layers' backgrounds and under their shapes
   let {
     scene,
     etched = [],
+    films = [],
     normal,
     at,
     height = 300,
@@ -25,7 +30,7 @@
     names = true,
     fills = {},
     colours = {},
-  }: { scene: Scene; etched?: SceneEtched[]; normal: "x" | "y"; at: number; height?: number; quiet?: boolean; maxStretch?: number; names?: boolean; fills?: Record<string, string>; colours?: Record<string, string> } = $props();
+  }: { scene: Scene; etched?: SceneEtched[]; films?: FrameFilm[]; normal: "x" | "y"; at: number; height?: number; quiet?: boolean; maxStretch?: number; names?: boolean; fills?: Record<string, string>; colours?: Record<string, string> } = $props();
   // `colours`, a film's colour by its name (the Fabrication page's, its 3D view's too), paints a
   // medium in place of the classes by permittivity; air stays unpainted
   /** A medium's fill: one `fills` names for its material (a metal the optical model draws as oxide), else by its permittivity. */
@@ -44,9 +49,11 @@
   /** Across the cut: around the shapes it meets with 1 µm to spare, or the whole window when it meets none. */
   const across = $derived.by((): [number, number] => {
     const win = normal === "x" ? scene.y_um : scene.x_um;
-    if (!pieces.length) return win;
-    const lo = Math.min(...pieces.map((p) => p.from)) - 1;
-    const hi = Math.max(...pieces.map((p) => p.to)) + 1;
+    // and the ends of the films' pieces inside the window (a conformal film reaching out past the shapes)
+    const ends = films.flatMap((f) => cut({ ...scene, shapes: [{ layer: "", outline: f.top }, { layer: "", outline: f.bottom }] }, normal, at).flatMap((p) => [p.from, p.to])).filter((u) => u > win[0] + 1e-6 && u < win[1] - 1e-6);
+    if (!pieces.length && !ends.length) return win;
+    const lo = Math.min(...pieces.map((p) => p.from), ...ends) - 1;
+    const hi = Math.max(...pieces.map((p) => p.to), ...ends) + 1;
     return [Math.max(win[0], lo), Math.min(win[1], hi)];
   });
   const z = $derived(scene.z_um);
@@ -82,6 +89,49 @@
   const banded = (name: string) => etchedLayers.has(name) || etchedLayers.has(name.replace(/ \d+$/, ""));
   /** The exact shapes the cut meets, each with its etch. */
   const exact = $derived(cut({ ...scene, shapes: etched.map((e) => ({ layer: e.layer, outline: e.outline })) }, normal, at).map((p) => ({ ...p, e: etched[p.shape] })));
+  /** The intervals the cut meets of one outline. */
+  const crossing = (outline: [number, number][]) => cut({ ...scene, shapes: [{ layer: "", outline }] }, normal, at);
+  /** Each film piece the cut meets, as SVG polygons: an interval at its bottom joined to the same interval at its top (the top's outline is the bottom's moved in or out), or, where the two don't match up, the top's intervals over its height. */
+  const filmCuts = $derived.by(() => {
+    const out: { points: string; film: string; eps: number }[] = [];
+    for (const f of films) {
+      const [b, t] = [crossing(f.bottom), crossing(f.top)];
+      const [z0, z1] = f.z_um;
+      const pairs = b.length === t.length ? b.map((p, k) => [p, t[k]] as const) : t.map((p) => [p, p] as const);
+      for (const [lo, hi] of pairs) {
+        const pts = [[lo.from, z0], [hi.from, z1], [hi.to, z1], [lo.to, z0]];
+        out.push({ points: pts.map(([u, v]) => `${X(u)},${Z(v)}`).join(" "), film: f.film, eps: f.eps });
+      }
+    }
+    return out;
+  });
+  /** The films' names at the right, each layer's where it rises above the planar layers' top. */
+  const filmLabels = $derived.by(() => {
+    const out: { layer: string; films: string[]; z_um: [number, number] }[] = [];
+    for (const f of films) {
+      const o = out.find((x) => x.layer === f.layer);
+      if (o) {
+        o.z_um = [Math.min(o.z_um[0], f.z_um[0]), Math.max(o.z_um[1], f.z_um[1])];
+        if (!o.films.includes(f.film)) o.films.push(f.film);
+      } else out.push({ layer: f.layer, films: [f.film], z_um: [f.z_um[0], f.z_um[1]] });
+    }
+    return out.filter((o) => o.z_um[1] > top + 1e-9).map((o) => ({ ...o, z_um: [Math.max(top, o.z_um[0]), o.z_um[1]] as [number, number] }));
+  });
+  /** A layer whose shapes are air (trenches not yet filled): its background is drawn around them only, so the trenches show. */
+  const around = (l: Scene["layers"][number]) => {
+    if (l.material.eps >= 1.05 || l.material.material !== "air") return null;
+    const hit = pieces.filter((p) => p.layer === l.name).sort((p, q) => p.from - q.from);
+    if (!hit.length) return null;
+    const out: [number, number][] = [];
+    let from = across[0];
+    for (const p of hit) {
+      if (p.from > from) out.push([from, Math.min(p.from, across[1])]);
+      from = Math.max(from, p.to);
+    }
+    if (from < across[1]) out.push([from, across[1]]);
+    return out;
+  };
+
   /** A cut piece etched by `e` on its layer `[z0, z1]`: its trapezoid's corners, as SVG points. */
   function trapezoid(from: number, to: number, z0: number, z1: number, e: SceneEtched): string {
     const depth = Math.min(e.depth_um, z1 - z0);
@@ -98,11 +148,23 @@
       <!-- the substrate, the layers' backgrounds, the cladding -->
       <rect x={X(across[0])} width={w} {...band(z[0] - 1e3, 0)} class={fill(scene.substrate) ?? "fill-none"} style={paint(scene.substrate)} stroke-width="0" />
       {#each scene.layers as l (l.name)}
-        <rect x={X(across[0])} width={w} {...band(l.z_um[0], l.z_um[1])} class={fill(l.background) ?? "fill-none"} style={paint(l.background)} stroke-width="0" />
+        {@const gaps = around(l)}
+        {#if gaps}
+          {#each gaps as [a, b], k (k)}
+            <rect x={X(a)} width={Math.max(0, (b - a) * scale)} {...band(l.z_um[0], l.z_um[1])} class={fill(l.background) ?? "fill-none"} style={paint(l.background)} stroke-width="0" />
+          {/each}
+        {:else}
+          <rect x={X(across[0])} width={w} {...band(l.z_um[0], l.z_um[1])} class={fill(l.background) ?? "fill-none"} style={paint(l.background)} stroke-width="0" />
+        {/if}
         <line x1={X(across[0])} x2={X(across[1])} y1={Z(l.z_um[0])} y2={Z(l.z_um[0])} class="stroke-base-content/25" stroke-dasharray="3 3" />
       {/each}
       <rect x={X(across[0])} width={w} {...band(top, z[1] + 1e3)} class={fill(scene.cladding) ?? "fill-none"} style={paint(scene.cladding)} stroke-width="0" />
       <line x1={X(across[0])} x2={X(across[1])} y1={Z(top)} y2={Z(top)} class="stroke-base-content/25" stroke-dasharray="3 3" />
+      <!-- the films over the topography, under the shapes they cover -->
+      {#each filmCuts as c, k (k)}
+        {@const m = { material: c.film, eps: c.eps }}
+        <polygon points={c.points} class={fill(m) ?? "fill-none"} style={paint(m)} stroke-width="0.75" />
+      {/each}
       <!-- the shapes the cut meets -->
       {#each pieces as p, k (k)}
         {@const l = scene.layers.find((x) => x.name === p.layer)}
@@ -122,6 +184,11 @@
     {#each names ? labels : [] as l (l.name)}
       {#if l.z_um[1] > z[0] && l.z_um[0] < z[1]}
         <text x={X(across[1]) + 6} y={(Z(Math.min(z[1], l.z_um[1])) + Z(Math.max(z[0], l.z_um[0]))) / 2} dominant-baseline="central" class="fill-base-content/60 text-[10px]">{l.name}: {l.material}{l.background !== l.material ? ` in ${l.background}` : ""}</text>
+      {/if}
+    {/each}
+    {#each names ? filmLabels : [] as l (l.layer)}
+      {#if l.z_um[0] < z[1]}
+        <text x={X(across[1]) + 6} y={(Z(Math.min(z[1], l.z_um[1])) + Z(l.z_um[0])) / 2} dominant-baseline="central" class="fill-base-content/60 text-[10px]">{l.layer}: {l.films.join(", ")}</text>
       {/if}
     {/each}
     {#if names}

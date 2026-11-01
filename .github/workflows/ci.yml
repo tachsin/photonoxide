@@ -502,7 +502,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       # type-checks the web view and builds it
       - run: pnpm build
-      # the window's unit tests (studio/tests): Node's own runner, which reads TypeScript as it is
+      # the Fabrication views' animation, its plain functions, by Node's own test runner
       - run: pnpm test
       # and the Windows setup that carries it (studio/setup), built without its payload
       - run: cargo fmt -p photonoxide-studio -p photonoxide-setup --check

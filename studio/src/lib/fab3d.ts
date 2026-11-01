@@ -5,22 +5,14 @@
 // animates it: a film put down grows from below (the new solids clipped by a plane that rises),
 // material taken away goes from above (the solids that leave clipped by a plane that falls), and
 // anything else fades from the frame before to the frame after. The solids of the layer being
-// processed, and those the step made, are lit and outlined.
+// processed, and those the step made, are lit and outlined. What is shown, clipped, faded and lit
+// at a moment is lib/fabanim.ts's, tested on its own.
 
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 
 import type { FabricationPage } from "./api";
-
-/** How a phase does its work: grows from below, goes from above, or fades. */
-export function motion(phase: string): "grow" | "remove" | "fade" {
-  if (["deposit", "evaporate", "sputter", "coat", "oxidize"].includes(phase)) return "grow";
-  if (["etch", "lift_off", "strip", "planarize", "develop"].includes(phase)) return "remove";
-  return "fade";
-}
-
-/** The opacity of a see-through solid (an oxide, a fill, a resist). */
-const CLEAR = 0.3;
+import { change, CLEAR, looks, planes, span } from "./fabanim";
 /** The amber of a lit solid's outline: the cut's, which reads on both backdrops. */
 const LIT = "#e0a43a";
 
@@ -214,44 +206,17 @@ export class FabView3D {
   show(frame: number, t: number, phase: string, layer: string | null) {
     const page = this.page;
     if (!page) return;
-    const now = new Set(page.frame_solids[frame] ?? []);
-    const before = new Set(frame > 0 ? page.frame_solids[frame - 1] : []);
-    const going = t < 1 && frame > 0;
-    const how = motion(phase);
-    const coming = [...now].filter((i) => !before.has(i));
-    const leaving = [...before].filter((i) => !now.has(i));
-    const span = (ids: number[]): [number, number] => {
-      let [lo, hi] = [Infinity, -Infinity];
-      for (const i of ids) {
-        lo = Math.min(lo, this.drawn[i].z[0]);
-        hi = Math.max(hi, this.drawn[i].z[1]);
-      }
-      return [lo, hi];
-    };
-    const [cl, ch] = span(coming);
-    const [ll, lh] = span(leaving);
-    this.rising.constant = (cl + t * (ch - cl)) * this.stretch;
-    this.falling.constant = (lh - t * (lh - ll)) * this.stretch;
-    const comingSet = new Set(coming);
+    const now = page.frame_solids[frame] ?? [];
+    const before = frame > 0 ? (page.frame_solids[frame - 1] ?? []) : [];
+    const { coming, leaving } = change(now, before);
+    const z = (i: number) => this.drawn[i].z;
+    const at = planes(span(coming, z), span(leaving, z), t, this.stretch);
+    this.rising.constant = at.rising;
+    this.falling.constant = at.falling;
+    const shown = looks({ frame, t, phase, layer, now, before, solids: page.solids.map((s) => ({ clear: s.clear, layer: s.layer })) });
     this.drawn.forEach((d, i) => {
-      const inNow = now.has(i);
-      const inBefore = before.has(i);
-      let visible = inNow;
-      let clip: THREE.Plane[] | null = null;
-      let opacity = d.clear ? CLEAR : 1;
-      if (going && inNow && !inBefore) {
-        if (how === "grow") clip = [this.rising];
-        else if (how === "fade") opacity *= t;
-      }
-      if (going && inBefore && !inNow) {
-        if (how === "remove") {
-          visible = true;
-          clip = [this.falling];
-        } else if (how === "fade") {
-          visible = true;
-          opacity *= 1 - t;
-        }
-      }
+      const { visible, opacity, lit } = shown[i];
+      const clip = shown[i].clip === "rising" ? [this.rising] : shown[i].clip === "falling" ? [this.falling] : null;
       d.mesh.visible = visible;
       if ((d.material.clippingPlanes?.length ?? 0) !== (clip?.length ?? 0)) {
         d.material.clippingPlanes = clip;
@@ -265,7 +230,6 @@ export class FabView3D {
       }
       d.material.opacity = opacity;
       // the layer being processed, and what the step made, lit and outlined
-      const lit = visible && inNow && (comingSet.has(i) || (layer !== null && page.solids[i].layer === layer));
       d.material.emissive.set(lit ? page.colours[page.solids[i].film] ?? "#ffffff" : "#000000");
       d.material.emissiveIntensity = lit ? 0.35 : 0;
       if (lit && !d.edges) {

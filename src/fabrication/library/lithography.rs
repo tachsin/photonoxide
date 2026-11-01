@@ -1,8 +1,34 @@
 //! Lithographies: UV photolithography, the projection lithographies, electron-beam lithography
 //! in HSQ, PMMA and ma-N, and nanoimprint.
 
-use super::{Platform, Process, Purpose, StepType, cap, fact, new_process, src, used};
+use super::{
+    Platform, Polarity, Process, Purpose, ResistPolarity, StepType, cap, fact, new_process, src,
+    used,
+};
 use crate::fabrication::stated::{Quantity, Stated, Unit};
+
+/// The polarity the library records for the resist of the lithography `id`: the one its
+/// description names (HSQ and ma-N negative, PMMA positive), with no source in hand read for it
+/// yet, so the frames draw it and say that no source states it; none for a photoresist, whose
+/// polarity is the product's, and for nanoimprint, which exposes nothing.
+pub(super) fn polarity(id: &str) -> Option<ResistPolarity> {
+    let named = |polarity| {
+        Some(ResistPolarity {
+            polarity,
+            source: None,
+        })
+    };
+    match id {
+        "ebl-hsq" | "ebl-man" => named(Polarity::Negative),
+        "ebl-pmma" => named(Polarity::Positive),
+        _ => None,
+    }
+}
+
+/// Whether the lithography `id` presses a mould into the resist rather than exposing it.
+pub(super) fn imprints(id: &str) -> bool {
+    id == "nanoimprint"
+}
 
 pub(super) fn processes() -> Vec<Process> {
     let mut uv = new_process(
