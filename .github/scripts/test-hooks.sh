@@ -40,6 +40,7 @@ LINTS=('show|echo "TARGET=${CARGO_TARGET_DIR:-unset}"')
 EOF
 printf 'target/\n.claude/\n' > "$main/.gitignore"
 echo 'fn main() {}' > "$main/a.rs"
+echo '// a file whose mtime the tests age' > "$main/old.rs"
 git -C "$main" add -A
 git -C "$main" commit -q -m base
 git -C "$main" branch topic
@@ -65,6 +66,24 @@ check "linked worktree elsewhere is not" "$(detect "$tmp/elsewhere")" normal
 check "plain clone inside .claude/worktrees is not" "$(detect "$tmp/holder/.claude/worktrees/plain")" normal
 check "the shared target comes from the common git dir" \
   "$(cd "$agent" && source "$repo/.github/hooks/agent-worktree.sh" && agent_target_dir)" "$main_abs/target/audit"
+
+# --- touch-sources.sh: an agent worktree's sources are made newer than the shared target's builds
+ref="$tmp/ref"
+touch -d 2010-01-01 "$ref"
+age() { touch -d 2001-01-01 "$1/old.rs"; } # older than $ref
+fresh() { if [ "$1/old.rs" -nt "$ref" ]; then echo touched; else echo stale; fi; }
+age "$agent"
+out=$(cd "$agent" && bash "$repo/.github/scripts/touch-sources.sh")
+check "touch-sources touches a stale source in an agent worktree" "$(fresh "$agent")" touched
+check "touch-sources prints one line" "$(echo "$out" | wc -l | tr -d ' ')" 1
+age "$main"
+bash -c "cd '$main' && bash '$repo/.github/scripts/touch-sources.sh'" > /dev/null
+check "touch-sources leaves the main checkout alone" "$(fresh "$main")" stale
+age "$tmp/elsewhere"
+bash -c "cd '$tmp/elsewhere' && bash '$repo/.github/scripts/touch-sources.sh'" > /dev/null
+check "touch-sources leaves a normal linked worktree alone" "$(fresh "$tmp/elsewhere")" stale
+bash -c "cd '$main' && bash '$repo/.github/scripts/touch-sources.sh' --force" > /dev/null
+check "touch-sources --force touches the main checkout" "$(fresh "$main")" touched
 
 # --- post-merge: a real merge in each checkout
 echo b > "$main/b.txt"
@@ -98,7 +117,9 @@ push() { # push DIR BRANCH: the hook's output
   git -C "$1" commit -q -m "rust $2"
   git -C "$1" push -q origin "HEAD:refs/heads/$2" 2>&1
 }
+age "$agent"
 out=$(push "$agent" push-agent)
+check "pre-push in an agent worktree touches the sources before the lints" "$(fresh "$agent")" touched
 check "pre-push in an agent worktree runs the lints in the shared target" "$(echo "$out" | grep -c "TARGET=$main_abs/target/audit\$")" 1
 check "pre-push in an agent worktree stamps in the shared target" \
   "$(find "$main_abs/target/audit/lint-stamps" -type f 2> /dev/null | wc -l | tr -d ' ')" 1
@@ -107,11 +128,15 @@ mine=$(abs "$tmp")/mine
 out=$(CARGO_TARGET_DIR="$mine" push "$agent" push-agent-env)
 check "pre-push keeps a CARGO_TARGET_DIR that is set" "$(echo "$out" | grep -c "TARGET=$mine\$")" 1
 check "pre-push stamps in that CARGO_TARGET_DIR" "$(find "$mine/lint-stamps" -type f 2> /dev/null | wc -l | tr -d ' ')" 1
+age "$main"
 out=$(push "$main" push-main)
+check "pre-push in the main checkout touches no sources" "$(fresh "$main")" stale
 check "pre-push in the main checkout leaves the target alone" "$(echo "$out" | grep -c 'TARGET=unset$')" 1
 check "pre-push in the main checkout stamps in its own target/" \
   "$(find "$main/target/lint-stamps" -type f 2> /dev/null | wc -l | tr -d ' ')" 1
+age "$tmp/elsewhere"
 out=$(push "$tmp/elsewhere" push-elsewhere)
+check "pre-push in a normal linked worktree touches no sources" "$(fresh "$tmp/elsewhere")" stale
 check "pre-push in a normal linked worktree leaves the target alone" "$(echo "$out" | grep -c 'TARGET=unset$')" 1
 
 echo
