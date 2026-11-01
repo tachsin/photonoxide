@@ -58,8 +58,8 @@ pub use flow::{Alternative, Depth, Flow, FlowRecord, Laid, Operation, Step, Step
 pub use generate::{Choices, Thermal, generate, platform, thermal};
 pub use glossary::{Term, glossary};
 pub use library::{
-    Budget, LIBRARY_VERSION, Mask, Platform, Process, Purpose, StepType, Stop, Use, budget,
-    library, process,
+    Budget, LIBRARY_VERSION, Mask, Platform, Polarity, Process, Purpose, ResistPolarity, StepType,
+    Stop, Use, budget, library, process,
 };
 pub use measure::{Features, features};
 pub use physical::{Film, Physical, StandIn, film_name};

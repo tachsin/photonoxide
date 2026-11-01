@@ -17,7 +17,8 @@
 //!   Study tab's Compare, or the Custom device's for runs without a device (#344);
 //! - every device of the library, every template with a `[device]` or a structure task, the
 //!   design open on a component's page and any such job file opens on the Fabrication page, a
-//!   component's Fabrication tab leading there too.
+//!   component's Fabrication tab leading there too; a run of a design has a Fabrication tab of
+//!   its own in the run view, which leads there as well.
 //!
 //! The window is Svelte, so these read its sources beside the program's own lists.
 
@@ -115,13 +116,27 @@ fn the_fabrication_page_opens_any_design_and_a_component_leads_there() {
         "deviceOf(app.component)",
         "the design open on its page",
     );
-    holds(page, "<FabCut", "the 2D view");
-    holds(page, "<Fab3D", "the 3D view");
+    // the 2D and 3D views and their timeline, one component the page and a run's tab share
+    holds(page, "<FabPlayer", "the views and the timeline");
+    let player = "components/fabrication/FabPlayer.svelte";
+    holds(player, "<FabCut", "the 2D view");
+    holds(player, "<Fab3D", "the 3D view");
     holds(
         "components/device/FabricationTab.svelte",
         "fabricate({ kind: \"device\"",
         "a component's Fabrication tab leads to the page",
     );
+    // a run of a design (a device, a structure task) has a Fabrication tab, the same player on
+    // the run's design, leading to the page
+    holds(
+        "pages/Viewer.svelte",
+        "<RunFabrication",
+        "a run's Fabrication tab",
+    );
+    let tab = "components/fabrication/RunFabrication.svelte";
+    holds(tab, "<FabPlayer", "the same views and timeline");
+    holds(tab, "kind: \"run\", dir", "the run's own design");
+    holds(tab, "fabricate({ kind: \"run\"", "the way to the page");
 }
 
 #[test]
