@@ -5,6 +5,8 @@
 # Not in an agent's worktree (a linked worktree under .claude/worktrees/, see agent-worktree.sh):
 # the suite is an hour of cargo and would build a target/ of its own there (1 to 30 GB), so the
 # hook does nothing; run the suite by hand from the main checkout when you want it.
+# In the main checkout it also removes the build folders of agent worktrees that are gone
+# (.github/scripts/prune-agent-targets.sh).
 # shellcheck source=agent-worktree.sh
 source "$(dirname "$0")/agent-worktree.sh"
 if agent_worktree; then
@@ -13,6 +15,11 @@ if agent_worktree; then
 fi
 root=$(git rev-parse --show-toplevel)
 mkdir -p "$root/target"
+# the build folders of agent worktrees that are gone (target/agents/<name>, see agent-worktree.sh),
+# removed in the background, the list in target/prune-agent-targets.log
+if [ -d "$(agent_targets_root)" ]; then
+  nohup bash "$(dirname "$0")/../scripts/prune-agent-targets.sh" > "$root/target/prune-agent-targets.log" 2>&1 &
+fi
 pid=$(cat "$root/target/full-suite.pid" 2>/dev/null)
 if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
   echo "the full suite is still running ($root/target/full-suite.log)"

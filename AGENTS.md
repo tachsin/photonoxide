@@ -112,16 +112,22 @@ fails. A lint that passed on a commit, in the hook or the full suite, isn't run 
 **An agent's worktree** (a linked worktree under `.claude/worktrees/`; `.github/hooks/agent-worktree.sh`
 tells it from the main checkout by both) does not run the suite after a merge or rebase (the hook
 prints one line and stops: an hour of cargo and a `target/` of 1 to 30 GB per worktree), and its
-pre-push lints build in the shared `<main checkout>/target/audit` (computed from the common git
-dir; a `CARGO_TARGET_DIR` you set wins) and stamp there, never in a `target/` of the worktree's own.
-The lints themselves still run: do not push with `--no-verify`. `just test-hooks` checks the
-detection on a throwaway repository. Cargo records source paths relative to each checkout and judges
-freshness by file mtime, so a worktree whose files are older than another worktree's last build in
-the shared target can silently reuse that build (stale results, or another worktree's). Before
-building by hand into the shared target, run `.github/scripts/touch-sources.sh`: it touches the
-tracked build inputs (`*.rs`, `*.toml`, `Cargo.lock`, `*.wgsl` and the data files `include_str!`
-reads), prints one line, and does nothing outside an agent worktree unless given `--force`. The
-pre-push hook runs it before the lints.
+pre-push lints build in that worktree's own `<main checkout>/target/agents/<name>` (`<name>` is the
+worktree's folder under `.claude/worktrees/`, lower case; computed from the common git dir; a
+`CARGO_TARGET_DIR` you set wins) and stamp there, never in a `target/` inside the worktree.
+The lints themselves still run: do not push with `--no-verify`. Build by hand into the same folder
+(`source .github/hooks/agent-worktree.sh && export CARGO_TARGET_DIR=$(agent_target_dir)`), never
+into one another worktree uses: cargo records source paths relative to each checkout, so the crate
+gets the same artifact hash in every worktree, and two worktrees building into one folder overwrite
+each other's test binaries and can take each other's builds for up to date (a pass could be another
+tree's result). A folder holds one tree's build (6 GB for the lints and the debug test binaries,
+measured 2026-11-01, built cold in about 7 minutes; more with release builds);
+`cargo clean` with that `CARGO_TARGET_DIR` empties it when you are done, and the main checkout's
+post-merge removes the folders of worktrees that are gone (`just prune-agent-targets`).
+`just test-hooks` checks the detection and the folders on a throwaway repository.
+`.github/scripts/touch-sources.sh` (it touches the tracked build inputs so they are newer than any
+build in a target folder) is for a target folder you share between checkouts by hand; the hooks no
+longer run it.
 
 The Python package ([docs/python.md](docs/python.md)) wraps `photonoxide::facade` only. A change to
 the façade's functions or results changes `python/` (the native module, the Python functions

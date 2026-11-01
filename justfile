@@ -203,9 +203,15 @@ codebase-report-crates:
     CODEBASE_REPORT_BLOAT=1 bash .github/codebase-report.sh
 
 # run the full suite after every merge and rebase, and the lints before every push (an agent's
-# worktree under .claude/worktrees/ skips the suite and builds the lints in <main checkout>/target/audit)
+# worktree under .claude/worktrees/ skips the suite and builds the lints in a target folder of its own,
+# <main checkout>/target/agents/<name>)
 hooks:
     git config core.hooksPath .github/hooks
+
+# remove the agent worktrees' target folders (target/agents/<name>) whose worktree is gone; the main
+# checkout's post-merge hook does it too (`--dry-run` only lists them)
+prune-agent-targets *args:
+    bash .github/scripts/prune-agent-targets.sh {{args}}
 
 # check the hooks tell an agent's worktree from the main checkout, on a throwaway repository
 # (nothing builds; needs bash)

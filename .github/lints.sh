@@ -3,7 +3,7 @@
 # neither runs a lint the other already passed on the same code.
 #
 # A lint that passes is stamped in target/lint-stamps/ (LINT_STAMPS_DIR, when set: the pre-push hook
-# sets it in an agent worktree, to the shared target), keyed by the commit's tree and the Rust
+# sets it in an agent worktree, to that worktree's own target folder), keyed by the commit's tree and the Rust
 # toolchain, and only when the tracked files are exactly the commit (nothing modified or staged):
 # a run on uncommitted changes neither reads nor writes stamps. `cargo clean` removes the stamps.
 #

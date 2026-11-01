@@ -1,13 +1,15 @@
 #!/usr/bin/env bash
 # Touches the tracked files cargo builds from (their modification time becomes now), so a build in
-# an agent's worktree is never taken for fresh from another worktree's earlier build.
+# a target folder another checkout built into is never taken for fresh from that earlier build.
 #
-# Every agent worktree builds into the one shared <main checkout>/target/audit. Cargo keys its
-# fingerprints by source paths relative to the checkout and judges freshness by file mtime, so
-# worktree B can reuse worktree A's build when B's files are older than A's last build there; the
-# results are then stale, or another worktree's. Touching the sources first makes them newer than
-# any build already in the target, so cargo recompiles the crate (the dependencies, which sit
-# outside the checkout, stay built).
+# Cargo keys its fingerprints by source paths relative to the checkout and judges freshness by
+# file mtime, so checkout B can reuse checkout A's build in a shared target folder when B's files
+# are older than A's last build there; the results are then stale, or A's. Touching the sources
+# first makes them newer than any build already in the target, so cargo recompiles the crate (the
+# dependencies, which sit outside the checkout, stay built). It fixes freshness only, not two
+# builds at once: agent worktrees therefore build into a folder of their own (target/agents/<name>,
+# .github/hooks/agent-worktree.sh) and the hooks no longer run this; it stays for a target folder
+# you share between checkouts by hand.
 #
 #   .github/scripts/touch-sources.sh            in an agent worktree: touch; elsewhere: nothing
 #   .github/scripts/touch-sources.sh --force    touch in any checkout
