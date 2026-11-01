@@ -1,12 +1,13 @@
 <script lang="ts">
   // The status bar: the runs drawer, the workspace, the run being followed, and at the right the
-  // version, compact (the platform and the build's commit in its hint).
+  // version, compact (the platform, the build's commit and the last update check in its hint).
   import { FolderOpen, History } from "@lucide/svelte";
   import { revealItemInDir } from "@tauri-apps/plugin-opener";
 
   import { duration } from "../lib/api";
   import { app, go, run } from "../lib/app.svelte";
   import { building, nightly } from "../lib/nightly.svelte";
+  import { describe } from "../lib/schedule";
   import { updater } from "../lib/updater.svelte";
 
   let now = $state(performance.now());
@@ -56,5 +57,5 @@
       building main @ {nightly.progress.commit.slice(0, 7)} · {nightly.progress.doing} · {duration(nightly.progress.seconds)}
     </button>
   {/if}
-  <span class="num shrink-0" title="photonoxide {app.state?.build.label ?? app.state?.version} on {app.state?.platform}{app.state?.build.commit ? `, built from ${app.state.build.commit}${app.state.build.dirty ? ' with changes not committed' : ''}` : ''}">v{app.state?.build.label ?? app.state?.version}</span>
+  <span class="num shrink-0" title="photonoxide {app.state?.build.label ?? app.state?.version} on {app.state?.platform}{app.state?.build.commit ? `, built from ${app.state.build.commit}${app.state.build.dirty ? ' with changes not committed' : ''}` : ''}. {describe(updater.last, Date.now(), app.state?.settings.check_updates ?? false)}">v{app.state?.build.label ?? app.state?.version}</span>
 </footer>

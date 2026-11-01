@@ -1,8 +1,8 @@
 //! # photonoxide
 //!
-//! Validated photonics for Rust: materials with provenance, mode solvers, 2D and 3D FDFD with
-//! S-parameters and adjoints, components and circuits, and compact models, with a studio to
-//! watch every run live. Every method is checked against an analytic solution or a published
+//! Light meets Rust: photonics design and simulation. Materials with provenance, mode solvers,
+//! 2D and 3D FDFD with S-parameters and adjoints, components and circuits, and compact models,
+//! with a studio to watch every run live. Every method is checked against an analytic solution or a published
 //! result ([`validation`]).
 //!
 //! - [`material`]: dispersion models with their source, validity range and temperature, and a

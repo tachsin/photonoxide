@@ -400,7 +400,7 @@ fn notes_of(repo: Option<&str>, fallback: String) -> String {
 }
 
 /// A crate's path in the sparse index.
-fn index_path(name: &str) -> String {
+pub(crate) fn index_path(name: &str) -> String {
     let n = name.to_lowercase();
     match n.len() {
         1 => format!("1/{n}"),
@@ -411,7 +411,7 @@ fn index_path(name: &str) -> String {
 }
 
 /// The newest stable version in a crate's sparse index file, yanked ones left out.
-fn index_newest(lines: &str) -> Option<String> {
+pub(crate) fn index_newest(lines: &str) -> Option<String> {
     lines
         .lines()
         .filter_map(|l| serde_json::from_str::<Value>(l).ok())

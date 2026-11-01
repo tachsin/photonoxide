@@ -1,19 +1,31 @@
-//! Each external library's newest release, beside the version we use (the one its guide was
-//! checked with): `photonoxide libraries --releases`.
+//! Every library's newest release, beside the version we use: `photonoxide libraries
+//! --releases`, run from the repository's root.
 //!
 //! The Releases workflow (`.github/workflows/releases.yml`) runs it every Monday and keeps its
-//! table in one GitHub issue, "New releases of external libraries", with a line for each
-//! library, commenting there when a release appears. A release is read where its publisher puts it: anaconda.org's API for
-//! conda-forge, PyPI's JSON API, NVIDIA's redistributables' manifests, the projects' GitHub
-//! releases, MUMPS's download page, and the readmes of GitHub's macOS runner images for
-//! Accelerate, which is part of macOS (Apple's own feed of macOS releases is signed by a
-//! certificate authority of Apple's that ordinary clients don't trust). A source that can't
-//! be read is left out of the newest (a library with none left says so), and the run fails after
+//! table in one GitHub issue, "New releases of all libraries", in four groups:
+//!
+//! - **Native libraries:** the external libraries photonoxide-native loads, at the version its
+//!   guide was checked with, with a comment in the issue when a release appears. A release is
+//!   read where its publisher puts it: anaconda.org's API for conda-forge, PyPI's JSON API,
+//!   NVIDIA's redistributables' manifests, the projects' GitHub releases, MUMPS's download page,
+//!   and the readmes of GitHub's macOS runner images for Accelerate, which is part of macOS
+//!   (Apple's own feed of macOS releases is signed by a certificate authority of Apple's that
+//!   ordinary clients don't trust). A source that can't be read is left out of the newest (a
+//!   library with none left says so).
+//! - **Rust crates, studio pnpm packages and Python requirements:** our direct dependencies, at
+//!   the versions our lockfiles have, against their registries ([`packages`]). Their new
+//!   releases change the table without a comment: Dependabot's weekly pull request brings them.
+//!
+//! Whatever couldn't be read keeps the version the issue last recorded, and the run fails after
 //! writing the issue.
+//!
+//! The issue was "New releases of external libraries" before it listed our own dependencies:
+//! `.github/scripts/keep-issue.sh --formerly` renames it, so it keeps its number and history.
 
 use std::cmp::Ordering;
 use std::collections::BTreeMap;
 use std::fmt::Write as _;
+use std::path::Path;
 
 use photonoxide_native::{mumps, nvidia, superlu};
 use serde_json::Value;
@@ -21,8 +33,12 @@ use serde_json::Value;
 use super::GUIDES;
 use crate::watch::{Fetch, Report, cell, compare, day, is_new, numbers, record};
 
+pub mod packages;
+
+use packages::Group;
+
 /// The issue the workflow keeps up to date.
-pub const ISSUE_TITLE: &str = "New releases of external libraries";
+pub const ISSUE_TITLE: &str = "New releases of all libraries";
 
 /// The macOS of the newest image the Libraries workflow runs Accelerate's tests on, as its
 /// `sw_vers` gives it (`xcode-27`, GitHub's macOS 27 preview, image xcode-27-arm64, in
@@ -816,10 +832,16 @@ pub fn lines(rows: &[Row]) -> Vec<Line> {
 }
 
 /// The issue's body: the record of the newest versions, and one line for each library with the
-/// version we use and the newest release, in bold when it is newer.
-pub fn body(rows: &[Row], previous: Option<&BTreeMap<String, String>>, today: &str) -> String {
+/// version we use and the newest release, in bold when it is newer: the native libraries, then
+/// our own dependencies by their registries.
+pub fn body(
+    rows: &[Row],
+    packages: &[packages::Row],
+    previous: Option<&BTreeMap<String, String>>,
+    today: &str,
+) -> String {
     // a source that couldn't be read keeps what it had, so its return isn't news
-    let kept: Vec<(String, String)> = rows
+    let mut kept: Vec<(String, String)> = rows
         .iter()
         .filter_map(|r| {
             let v = match &r.newest {
@@ -829,14 +851,39 @@ pub fn body(rows: &[Row], previous: Option<&BTreeMap<String, String>>, today: &s
             v.map(|v| (r.key(), v))
         })
         .collect();
+    kept.extend(packages::kept(packages, previous));
     let mut out = record(kept.iter().map(|(k, v)| (k.clone(), v.as_str())));
+    let count = |g: Group| packages.iter().filter(|r| r.package.group == g).count();
     let _ = writeln!(
         out,
-        "Read on {today}. Bold: a newer release than the one we use.
-"
+        "Every library photonoxide uses, beside its newest release, read on {today}: the {} \
+         native libraries photonoxide-native loads, at the version its install guide was \
+         checked with ([docs/libraries.md](https://github.com/tachsin/photonoxide/blob/main/docs/libraries.md#new-releases)), and our direct \
+         dependencies: {} Rust crates (every workspace member's, dev and build ones too, at \
+         Cargo.lock's versions, against crates.io's index), {} studio pnpm packages \
+         (studio/package.json's, at pnpm-lock.yaml's versions, against the npm registry) and {} \
+         Python requirements (python/pyproject.toml's, as written, against PyPI). Their own \
+         dependencies aren't listed.
+
+**Bold:** a newer release than the one we use; for a Python requirement, a release it \
+doesn't take. A pre-release is never bold.
+
+This is the one table that lists every library. It complements Dependabot and doesn't \
+replace it: Dependabot's weekly pull request still brings the crates', npm packages', Python \
+requirements' and GitHub Actions' minor and patch updates, and the issue \"Major updates \
+available\" lists the major versions it leaves out. The Releases workflow \
+(`.github/workflows/releases.yml`) rewrites this every Monday with `photonoxide libraries \
+--releases`, and comments here when a native library has a new release.
+",
+        lines(rows).len(),
+        count(Group::Crates),
+        count(Group::Pnpm),
+        count(Group::Python),
     );
     out.push_str(
-        "| Library | We use | Newest |
+        "### Native libraries
+
+| Library | We use | Newest |
 |---|---|---|
 ",
     );
@@ -859,6 +906,10 @@ pub fn body(rows: &[Row], previous: Option<&BTreeMap<String, String>>, today: &s
             cell(&uses),
             cell(&newest)
         );
+    }
+    out.push('\n');
+    for group in Group::ALL {
+        packages::table(&mut out, group, packages, previous, today);
     }
     out
 }
@@ -886,20 +937,37 @@ pub fn comment(new: &[&Row]) -> String {
     out
 }
 
-/// `photonoxide libraries --releases [--previous <file>] [--write <file>] [--news <file>]`:
-/// reads every source and writes the issue's body, and the comment on what is new since
-/// `--previous` (an earlier body). Fails, after writing, when a source couldn't be read.
+/// `photonoxide libraries --releases [--previous <file>] [--write <file>] [--news <file>]`,
+/// from the repository's root: reads every source and registry and writes the issue's body, and
+/// the comment on the native libraries' releases new since `--previous` (an earlier body).
+/// Fails, after writing, when something couldn't be read.
 pub fn run(args: &[String]) -> std::process::ExitCode {
+    let ours = match packages::packages(Path::new(".")) {
+        Ok(p) => p,
+        Err(e) => {
+            return crate::fail(format!(
+                "{e} (photonoxide libraries --releases runs from the repository's root)"
+            ));
+        }
+    };
     crate::watch::run(args, |fetch, previous, today| {
         let rows = rows(fetch);
+        let ours = packages::rows(fetch, ours);
         let new = news(&rows, previous);
+        let mut failures: Vec<String> = rows
+            .iter()
+            .filter_map(|r| r.newest.as_ref().err().map(|e| format!("{}: {e}", r.key())))
+            .collect();
+        failures.extend(ours.iter().filter_map(|r| {
+            r.newest
+                .as_ref()
+                .err()
+                .map(|e| format!("{}: {e}", r.package.key()))
+        }));
         Report {
-            body: body(&rows, previous, today),
+            body: body(&rows, &ours, previous, today),
             news: (!new.is_empty()).then(|| comment(&new)),
-            failures: rows
-                .iter()
-                .filter_map(|r| r.newest.as_ref().err().map(|e| format!("{}: {e}", r.key())))
-                .collect(),
+            failures,
         }
     })
 }
@@ -1220,29 +1288,33 @@ mod tests {
         assert!(superlu.newest.as_ref().unwrap_err().contains("HTTP 503"));
 
         // the first run records and doesn't comment
-        let first = body(&rows, None, "2026-10-12");
+        let first = body(&rows, &[], None, "2026-10-12");
         assert!(news(&rows, None).is_empty());
         let record = recorded(&first).unwrap();
         assert_eq!(record["MUMPS | mumps-solver.org"], "5.10.0");
         assert!(!record.contains_key("SuperLU | GitHub xiaoyeli/superlu"));
-        // the issue is one line for each library, and nothing else
+        // the issue says what it lists, then the native libraries' group, one line each
         assert!(first.starts_with(
             "<!-- newest releases
 "
         ));
-        let table = first
+        let after = first
             .split(
                 "-->
 ",
             )
             .nth(1)
             .unwrap();
-        let mut shown = table.lines();
-        assert_eq!(
-            shown.next(),
-            Some("Read on 2026-10-12. Bold: a newer release than the one we use.")
+        assert!(
+            after.starts_with(
+                "Every library photonoxide uses, beside its newest release, read on 2026-10-12: \
+                 the 10 native libraries"
+            ),
+            "{after}"
         );
-        assert_eq!(shown.next(), Some(""));
+        assert!(after.contains("complements Dependabot"), "{after}");
+        let table = after.split("### Native libraries\n\n").nth(1).unwrap();
+        let mut shown = table.lines().take_while(|l| !l.is_empty());
         assert_eq!(shown.next(), Some("| Library | We use | Newest |"));
         assert_eq!(shown.next(), Some("|---|---|---|"));
         let libraries: Vec<&str> = shown.map(|l| l.split(" | ").next().unwrap()).collect();
@@ -1317,7 +1389,7 @@ mod tests {
         );
         let c = comment(&new);
         assert!(c.contains("- MUMPS 5.10.0 (mumps-solver.org, 2026-09): [MUMPS's changelog](https://mumps-solver.org/index.php?page=dwnld#cl); photonoxide-native doesn't accept it yet (5.4.1 to 5.9.1"), "{c}");
-        let second = body(&rows, Some(&earlier), "2026-10-19");
+        let second = body(&rows, &[], Some(&earlier), "2026-10-19");
         assert_eq!(
             recorded(&second).unwrap()["SuperLU | GitHub xiaoyeli/superlu"],
             "7.0.1"
@@ -1325,5 +1397,124 @@ mod tests {
         // and the same week again is no news
         assert!(news(&rows, recorded(&second).as_ref()).is_empty());
         assert_eq!(recorded("an issue without a record"), None);
+    }
+
+    #[test]
+    fn our_own_packages_are_grouped_by_their_registries() {
+        use packages::{Package, Row as PackageRow};
+        let package = |group, name: &str, uses: &str| Package {
+            group,
+            name: name.into(),
+            uses: uses.into(),
+        };
+        let ours = vec![
+            package(Group::Crates, "serde", "1.0.200"),
+            package(Group::Crates, "toml", "1.0.3"),
+            package(Group::Crates, "tar", "0.4.44"),
+            package(Group::Pnpm, "svelte", "5.57.2"),
+            package(Group::Pnpm, "@tauri-apps/api", "2.12.4"),
+            package(Group::Pnpm, "vite", "8.3.5"),
+            package(Group::Python, "maturin", ">=1.15,<2"),
+            package(Group::Python, "numpy", ">=2.2.6"),
+            package(Group::Python, "pdoc", "==16.0.0"),
+        ];
+        // recorded answers of each registry; vite's is out of reach
+        let answer = |url: &str, body: &str| (url.to_owned(), 200, body.to_owned());
+        let http = Canned {
+            answers: vec![
+                answer(
+                    "https://index.crates.io/se/rd/serde",
+                    "{\"vers\":\"1.0.200\"}\n{\"vers\":\"1.0.229\"}\n{\"vers\":\"2.0.0-rc.1\"}",
+                ),
+                answer(
+                    "https://index.crates.io/to/ml/toml",
+                    "{\"vers\":\"1.0.3\"}\n{\"vers\":\"1.1.0\",\"yanked\":true}",
+                ),
+                answer("https://index.crates.io/3/t/tar", "{\"vers\":\"0.4.44\"}"),
+                answer(
+                    "https://registry.npmjs.org/svelte/latest",
+                    r#"{"name":"svelte","version":"5.60.0"}"#,
+                ),
+                answer(
+                    "https://registry.npmjs.org/@tauri-apps/api/latest",
+                    r#"{"version":"3.0.0-beta.1"}"#,
+                ),
+                answer(
+                    "https://pypi.org/pypi/maturin/json",
+                    r#"{"info":{"version":"2.0.1"},"releases":{}}"#,
+                ),
+                answer(
+                    "https://pypi.org/pypi/numpy/json",
+                    r#"{"info":{"version":"2.4.0"},"releases":{}}"#,
+                ),
+                answer(
+                    "https://pypi.org/pypi/pdoc/json",
+                    r#"{"info":{"version":"16.0.0"},"releases":{}}"#,
+                ),
+            ],
+            asked: std::sync::Mutex::new(Vec::new()),
+        };
+        let mut fetch = Fetch::new(&http, Some("token".into()));
+        let ours: Vec<PackageRow> = packages::rows(&mut fetch, ours);
+        assert!(ours[5].newest.as_ref().unwrap_err().contains("unreachable"));
+        // each package asked for once
+        assert_eq!(http.asked.lock().unwrap().len(), 9);
+
+        let mut earlier = BTreeMap::new();
+        earlier.insert("vite | npm".to_owned(), "8.4.0".to_owned());
+        let text = body(&[], &ours, Some(&earlier), "2026-11-02");
+        let record = recorded(&text).unwrap();
+        // the record keys a package by its registry, an unread one at its last version
+        assert_eq!(record["serde | crates.io"], "1.0.229");
+        assert_eq!(record["@tauri-apps/api | npm"], "3.0.0-beta.1");
+        assert_eq!(record["vite | npm"], "8.4.0");
+        assert_eq!(record["numpy | PyPI"], "2.4.0");
+        assert!(text.contains("3 Rust crates"), "{text}");
+        assert!(text.contains("3 studio pnpm packages"), "{text}");
+        assert!(text.contains("3 Python requirements"), "{text}");
+        // the groups in order, each its own table
+        let at = |h: &str| {
+            text.find(&format!("### {h}\n\n| Library | We use | Newest |\n"))
+                .unwrap()
+        };
+        assert!(at("Native libraries") < at("Rust crates"));
+        assert!(at("Rust crates") < at("Studio pnpm packages"));
+        assert!(at("Studio pnpm packages") < at("Python requirements"));
+        for line in [
+            // newer: bold; the same, a yanked release or a pre-release: not
+            "| serde | 1.0.200 | **1.0.229** |",
+            "| toml | 1.0.3 | 1.0.3 |",
+            "| tar | 0.4.44 | 0.4.44 |",
+            "| svelte | 5.57.2 | **5.60.0** |",
+            "| @tauri-apps/api | 2.12.4 | 3.0.0-beta.1 |",
+            // out of reach: the last version read, and said so under the table
+            "| vite | 8.3.5 | **8.4.0** (last read) |",
+            "`vite` couldn't be read on 2026-11-02, so the newest shown is the last one read.",
+            // a requirement that doesn't take the newest is bold; one that takes it isn't
+            "| maturin | `>=1.15,<2` | **2.0.1** |",
+            "| numpy | `>=2.2.6` | 2.4.0 |",
+            "| pdoc | `==16.0.0` | 16.0.0 |",
+        ] {
+            assert!(text.contains(&format!("{line}\n")), "{line}\n{text}");
+        }
+        // with no earlier record, an unread package says so
+        let fresh = body(&[], &ours, None, "2026-11-02");
+        assert!(fresh.contains("| vite | 8.3.5 | not read yet |"), "{fresh}");
+        assert!(!recorded(&fresh).unwrap().contains_key("vite | npm"));
+    }
+
+    #[test]
+    fn the_workflow_keeps_this_issue_and_renames_the_former_one() {
+        let path = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../.github/workflows/releases.yml"
+        );
+        let workflow = std::fs::read_to_string(path).unwrap();
+        // the issue's title before it listed our own dependencies, #312's
+        let step = format!(
+            "keep-issue.sh \"{ISSUE_TITLE}\" --formerly \"New releases of external libraries\" \
+             target/debug/photonoxide libraries --releases"
+        );
+        assert!(workflow.contains(&step), "releases.yml doesn't run {step}");
     }
 }

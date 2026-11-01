@@ -115,7 +115,13 @@ prints one line and stops: an hour of cargo and a `target/` of 1 to 30 GB per wo
 pre-push lints build in the shared `<main checkout>/target/audit` (computed from the common git
 dir; a `CARGO_TARGET_DIR` you set wins) and stamp there, never in a `target/` of the worktree's own.
 The lints themselves still run: do not push with `--no-verify`. `just test-hooks` checks the
-detection on a throwaway repository.
+detection on a throwaway repository. Cargo records source paths relative to each checkout and judges
+freshness by file mtime, so a worktree whose files are older than another worktree's last build in
+the shared target can silently reuse that build (stale results, or another worktree's). Before
+building by hand into the shared target, run `.github/scripts/touch-sources.sh`: it touches the
+tracked build inputs (`*.rs`, `*.toml`, `Cargo.lock`, `*.wgsl` and the data files `include_str!`
+reads), prints one line, and does nothing outside an agent worktree unless given `--force`. The
+pre-push hook runs it before the lints.
 
 The Python package ([docs/python.md](docs/python.md)) wraps `photonoxide::facade` only. A change to
 the façade's functions or results changes `python/` (the native module, the Python functions

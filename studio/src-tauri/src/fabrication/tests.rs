@@ -13,10 +13,10 @@
 //!   the areas differ by at most the perimeter times (δ + deviation), plus round-off.
 
 use photonoxide::geometry::{Point, Region};
-use photonoxide::job::{self, Event, FabricationView, SceneEtched};
+use photonoxide::job::{self, Event, FabricationView, FrameFilm, SceneEtched};
 use photonoxide::run::{Format, Job};
 
-use super::mesh::{Detail, Rings, Role, loft, solids};
+use super::mesh::{Detail, Rings, Role, film_solids, loft, solids};
 use super::triangulate::{triangulate, twice_area};
 use super::{DesignIn, TRIANGLES, fabrication_page, page_of};
 use crate::devices::{SpecIn, StackIn};
@@ -213,6 +213,29 @@ fn outlined_volume(scene: &Event, etched: &[SceneEtched], layer: &str) -> f64 {
         .sum()
 }
 
+/// What a film piece holds, µm³, from its outlines alone: a prismatoid's
+/// h/6 (A_bottom + 4 A_middle + A_top), its middle section its vertices' midpoints (its walls are
+/// planes: each edge of the top is its bottom edge moved parallel to itself).
+fn film_volume(f: &FrameFilm) -> f64 {
+    let (b, t) = Rings::pair(&f.bottom, &f.top).expect("outlines that correspond");
+    let mid = |x: &Vec<[f64; 2]>, y: &Vec<[f64; 2]>| -> Vec<[f64; 2]> {
+        x.iter()
+            .zip(y)
+            .map(|(p, q)| [(p[0] + q[0]) / 2.0, (p[1] + q[1]) / 2.0])
+            .collect()
+    };
+    let m = Rings {
+        outer: mid(&b.outer, &t.outer),
+        holes: b
+            .holes
+            .iter()
+            .zip(&t.holes)
+            .map(|(x, y)| mid(x, y))
+            .collect(),
+    };
+    (f.z_um[1] - f.z_um[0]) / 6.0 * (b.area() + 4.0 * m.area() + t.area())
+}
+
 /// The library's devices, each at its defaults on its own stack, as a job draws it.
 fn device_jobs() -> Vec<(String, Job)> {
     photonoxide::device::library()
@@ -286,6 +309,28 @@ fn every_frame(kind: &str, job: &Job, view: &FabricationView) {
                     s.layer
                 );
                 assert_ne!(s.film, "air");
+            }
+            // the films over the topography: each piece closed, facing out, and holding the
+            // volume its outlines give
+            let pieces = film_solids(&f.films, Detail { thin: 1 });
+            assert_eq!(pieces.len(), f.films.len(), "{kind}, frame {k}");
+            for (s, piece) in pieces.iter().zip(&f.films) {
+                assert!(
+                    s.mesh.watertight(),
+                    "{kind}, frame {k} ({}): {} {}",
+                    f.label,
+                    s.layer,
+                    s.film
+                );
+                let want = film_volume(piece);
+                assert!(want > 0.0, "{kind}, frame {k}: {} has no volume", s.film);
+                assert!(
+                    close(s.mesh.volume(), want, ROUND_OFF),
+                    "{kind}, frame {k} ({}), {}: {} µm³ drawn, {want} µm³ outlined",
+                    f.label,
+                    s.film,
+                    s.mesh.volume()
+                );
             }
             // the shapes of each layer hold what their outlines give
             let Event::Scene { layers, .. } = &f.scene else {
@@ -488,4 +533,79 @@ fn the_command_takes_a_device_a_job_and_a_structure_job() {
     };
     let e = fabrication_page(modes, Vec::new(), Vec::new()).unwrap_err();
     assert!(e.contains("no [device] table"), "{e}");
+    // a run's folder: the job it keeps, as it was given
+    let dir = std::env::temp_dir().join(format!("fab-run-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(
+        dir.join("job.toml"),
+        "name = \"t\"\n\n[device]\nkind = \"waveguide\"\n",
+    )
+    .unwrap();
+    let run = || DesignIn::Run {
+        dir: dir.to_string_lossy().into_owned(),
+    };
+    let page = fabrication_page(run(), Vec::new(), Vec::new()).unwrap();
+    assert!(page.view.flow.round_trip.unwrap().exact());
+    std::fs::remove_file(dir.join("job.toml")).unwrap();
+    let e = fabrication_page(run(), Vec::new(), Vec::new()).unwrap_err();
+    assert!(e.contains("keeps no job file"), "{e}");
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
+fn the_heaters_conformal_oxide_is_drawn_with_its_analytic_volume() {
+    // 2.22 µm of LPCVD oxide (100 % step coverage) over the 0.22 µm silicon strip: around the
+    // strip up to its top, over the window up to 2.22 µm, then the strip grown by 2.22 µm up to
+    // 2.22 µm over its top; the kernel puts every vertex on its 1 nm grid
+    let job =
+        Job::parse("name = \"h\"\n\n[device]\nkind = \"thermo-optic phase shifter\"\n").unwrap();
+    let view = job::fabrication_of_job(&job, &[], &[]).unwrap();
+    let f = view
+        .frames
+        .iter()
+        .find(|f| f.phase == "deposit" && f.layer.as_deref() == Some("gap"))
+        .unwrap();
+    let Event::Scene {
+        x_um,
+        y_um,
+        layers,
+        shapes,
+        ..
+    } = &f.scene
+    else {
+        panic!("a scene")
+    };
+    let si = layers.iter().find(|l| l.name == "Si").unwrap();
+    let h = si.z_um[1] - si.z_um[0];
+    let (t, n) = (2.22, 2.22);
+    let strip = Rings::of(&shapes.iter().find(|s| s.layer == "Si").unwrap().outline).unwrap();
+    let xs: Vec<f64> = strip.outer.iter().map(|p| p[0]).collect();
+    let ys: Vec<f64> = strip.outer.iter().map(|p| p[1]).collect();
+    let span = |v: &[f64]| {
+        v.iter().copied().fold(f64::MIN, f64::max) - v.iter().copied().fold(f64::MAX, f64::min)
+    };
+    let (sx, sy) = (span(&xs), span(&ys));
+    let window = (x_um[1] - x_um[0]) * (y_um[1] - y_um[0]);
+    let want = (window - sx * sy) * h + window * (t - h) + (sx + 2.0 * n) * (sy + 2.0 * n) * h;
+    let drawn = film_solids(&f.films, Detail { thin: 1 });
+    let got: f64 = drawn.iter().map(|s| s.mesh.volume()).sum();
+    // the grid: each piece's outline within half a step of its own, so its area within its
+    // perimeter times half a step
+    let grid: f64 = f
+        .films
+        .iter()
+        .map(|p| {
+            let (_, top) = Rings::pair(&p.bottom, &p.top).unwrap();
+            top.perimeter() * 0.5e-3 * (p.z_um[1] - p.z_um[0])
+        })
+        .sum();
+    assert!(
+        (got - want).abs() <= grid + ROUND_OFF * want,
+        "{got} µm³ drawn, {want} µm³ analytic (grid {grid})"
+    );
+    assert!(
+        drawn
+            .iter()
+            .all(|s| s.mesh.watertight() && s.role == Role::Film)
+    );
 }

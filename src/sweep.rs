@@ -53,6 +53,24 @@
 //!   the estimate held down to half-widths of 0.001; at 0.0003 the true error was 1.11 times it.
 //!   A grid that resolves the response (the default 1001 points) is the condition of the
 //!   estimate.
+//! - **The floor on samples that aren't smooth to their last digits.** The fits pass through
+//!   the samples to AAA's 1e-13, roughness and all, and the halves' fits part where the
+//!   roughness shows: the estimate stops, far above the roughness, and then grows, more samples
+//!   not bringing it down (the sweep ends unconverged at [`Options::max_samples`], its
+//!   [`Sweep::history`] showing the turn; #630 found spurious poles in the samples' last
+//!   digits). Measured (`the_sweeps_floor_on_noisy_samples_study`) on 2 + 0.3 sin 1.5x + 0.1x²
+//!   over [−1, 1], which reaches 1e-10 in 28 samples without noise: with a relative noise of
+//!   1e-12, 1e-10, 1e-8, 1e-6 and 1e-4 the estimate stopped at 7e-6, 1e-4, 9e-3, 6e-5 and 3e-3,
+//!   30 to 7e6 times the noise, and not in its order. On a solver's data
+//!   (`the_sweep_on_the_slabs_solver_data_study`): a slab's effective index (0.4 µm of 2.2 in
+//!   1.45) from the full-vector solver over 1.50 to 1.60 µm, whose Chebyshev coefficients level
+//!   off at 5.5e-16 of it on 10 nm cells and at 9e-15 (3.2e-14 at most) on 2.5 nm cells, reaches
+//!   2.5e-11 on the first and stops at 6.2e-9 on the second, growing past it when asked for
+//!   1e-10; in #630, on another slab's fine grids, it stopped near 1e-6. A sweep's tolerance
+//!   must sit above that floor, which the samples' roughness doesn't predict. For a quantity
+//!   that is analytic over the range but known only to a solver's last digits, a polynomial
+//!   interpolant at Chebyshev points keeps the round-off as round-off
+//!   ([`crate::nonlinear::guide::ModeIndex`]).
 //!
 //! A sweep of a mode follows one mode ([`Branch`]): each new wavelength's mode is the one,
 //! among the solver's candidates, whose fields overlap most with the mode found at the nearest
@@ -78,7 +96,9 @@ use crate::{Error, Result};
 #[non_exhaustive]
 pub struct Options {
     /// The error asked for, relative to the largest |value| sampled: the sweep stops when its
-    /// estimate is at most this. At least 1e-13, the estimate's floor.
+    /// estimate is at most this. At least 1e-13, the estimate's floor on samples smooth to
+    /// their last digits; samples that aren't raise the floor (the module's documentation:
+    /// 6.2e-9 on a slab's effective index on 2.5 nm cells).
     pub tolerance: f64,
     /// The grid across the range on which the estimate is taken and new samples are chosen,
     /// ends included: it must resolve the response. 1001 by default.
@@ -153,7 +173,8 @@ impl Options {
 }
 
 /// The estimate's floor, relative to the largest sample: AAA's own tolerance (the paper's
-/// default, p. A1498), below which the fits' differences are round-off.
+/// default, p. A1498), below which the fits' differences are round-off. It holds for samples
+/// smooth to their last digits; noisier ones raise it (the module's documentation).
 const FLOOR: f64 = DEFAULT_TOLERANCE;
 
 /// A response sampled adaptively and fitted by AAA, with its estimated error (the module's

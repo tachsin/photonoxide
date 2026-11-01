@@ -56,16 +56,24 @@ the matrix's sparsity, as each step of an optimization does.
 A straight silicon slab (220 nm, 3.476 in 1.444) with a 0.2 × 0.2 µm bump of permittivity 6 beside
 it, on a 20 nm grid, between two ports. The objective is the power delivered into the right port's
 mode from the left's. The adjoint gradient is compared with fourth-order central finite
-differences ($\delta = 10^{-3}$) on a cell in the bump, one in the core and one in the oxide:
+differences ($\delta = 4 \times 10^{-3}$) on a cell in the bump, one in the core and one in the
+oxide:
 
-| | largest relative difference |
-|---|---|
-| E along z | 1.4e-7 |
-| H along z | 8e-8 |
+| | largest relative difference | what the differences resolve |
+|---|---|---|
+| E along z | 3.2e-8 | 1.6e-7 |
+| H along z | 2.1e-9 | 2.1e-7 |
 
-That is the finite differences' own limit. Their round-off grows as about $10^{-10}/\delta$, and with
-$\delta = 10^{-5}$ and a second-order stencil the difference is 7e-6, all of it round-off. The
-adjoint gradient is exact to that.
+The differences resolve the derivative $g$ to $\frac{18}{12}\thinspace \epsilon P/(\delta g)$, the
+powers' precision $\epsilon$ through the formula's weights, which falls as $1/\delta$; their
+truncation rises as $\delta^4$. Measured from $\delta = 2.5 \times 10^{-4}$ to $6.4 \times 10^{-2}$,
+the truncation shows on one probe only, H along z in the oxide: 2.3e-9 at $3.2 \times 10^{-2}$ and
+4.0e-8 at $6.4 \times 10^{-2}$, a ratio of 17.5 for $2^4$, so $2.4 \times 10^{-3}\thinspace \delta^4$.
+It meets that probe's round-off bound, $5.9 \times 10^{-11}/\delta$, at $\delta = 3 \times 10^{-2}$.
+Their ratio goes as $\delta^5$, so at $4 \times 10^{-3}$ the truncation is 4e-5 of the bound, and on
+the other probes it stays under their round-off even at $6.4 \times 10^{-2}$. At $\delta = 10^{-3}$
+the bounds were four times larger, 6.6e-7 and 8.4e-7, against the cases' tolerance of 1e-6. The
+differences all lie within what they resolve, so the adjoint gradient is exact to that.
 
 ## In 3D
 

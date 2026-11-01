@@ -552,6 +552,44 @@ fn shin_and_fans_square_converges_as_their_fig_3_shows() {
 }
 
 #[test]
+#[ignore = "the plateau study of fdfd3d/qmr-plateau: prints"]
+fn shin_and_fans_plateau_study() {
+    let h = shin_fan_square(0.0, 1e-6).history;
+    for (k, r) in h.iter().enumerate().take(60) {
+        eprintln!("{:3} {r:.6}", k + 1);
+    }
+    let p = &h[4..40];
+    let (lo, hi) = p
+        .iter()
+        .fold((f64::INFINITY, 0.0f64), |(l, u), &r| (l.min(r), u.max(r)));
+    eprintln!(
+        "iterations 5 to 40: {lo:.6} to {hi:.6}, spread {:.2e}",
+        hi - lo
+    );
+    let (level, spread, (from, to)) = crate::validation::qmr_plateau_of(&h);
+    eprintln!("the flat stretch, iterations {from} to {to}: {level:.6}, spread {spread:.2e}");
+    // the source's share in the null space of the curl-curl operator on the periodic square,
+    // uniform along z: per wavevector the gradients' share of E_x, |s_x|²/(|s_x|² + |s_y|²),
+    // and all of it for the constant field, (N² + 1)/2 of N² in all
+    let n = 50;
+    let s = |k: usize| (std::f64::consts::PI * k as f64 / n as f64).sin().powi(2);
+    let share: f64 = (0..n)
+        .flat_map(|i| (0..n).map(move |j| (i, j)))
+        .map(|(i, j)| {
+            if i == 0 && j == 0 {
+                1.0
+            } else {
+                s(i) / (s(i) + s(j))
+            }
+        })
+        .sum::<f64>()
+        / (n * n) as f64;
+    let closed = ((n * n + 1) as f64 / (2 * n * n) as f64).sqrt();
+    eprintln!("the floor: {:.6} summed, {closed:.6} closed", share.sqrt());
+    assert!((share.sqrt() - closed).abs() < 1e-12);
+}
+
+#[test]
 #[ignore = "iteration counts, for the docs: cargo test --release fdfd::three::tests::iteration_counts -- --ignored --nocapture"]
 fn iteration_counts_with_and_without_shin_and_fans_operator() {
     // 40^3 cells of 10 nm (0.4 um across), 1.55 um, an x-polarized current near the centre;

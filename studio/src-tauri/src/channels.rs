@@ -27,7 +27,7 @@ use std::time::Duration;
 use serde::Serialize;
 
 use builder::{Build, Dirs, Identity, Plan, Progress, Ready, read_json, write_json};
-use github::{Checker, Http, Nightly, Web, short};
+use github::{Asked, Checker, Http, Nightly, Web, short};
 use install::{Note, Outcome, Previous, Running};
 use prereqs::{Needs, Probe, Report, System};
 
@@ -207,7 +207,7 @@ impl State {
     /// Looks at main's head, and places the build waiting and the one running against it and
     /// this build; see [`Checker::check_with`]. A build waiting that the check finds no newer
     /// than this one is set aside.
-    pub fn check(&self, quiet: bool) -> Result<Option<Nightly>, String> {
+    pub fn check(&self, asked: Asked) -> Result<Option<Nightly>, String> {
         let build = this_build();
         let waiting = self.waiting().map(|r| r.commit);
         let running = lock(&self.build)
@@ -226,7 +226,7 @@ impl State {
                 photonoxide::VERSION,
                 &others,
                 now(),
-                quiet,
+                asked,
             );
             let _ = write_json(&self.dirs.check_file(), &*checker);
             result
@@ -408,6 +408,12 @@ pub struct Status {
     pub build: BuildInfo,
     /// The last check's result.
     pub last: Option<Nightly>,
+    /// The last time GitHub was asked (seconds since 1970; 0: never), and why it failed.
+    pub tried_at: u64,
+    pub error: Option<String>,
+    /// Why the next automatic check won't ask GitHub, if it won't: its rate limit, or the
+    /// backoff after a failure ([`github::Checker::held`]).
+    pub held: Option<String>,
     /// A build running (its progress) or finished and waiting.
     pub progress: Option<Progress>,
     /// The build waiting, when it is offered.
@@ -429,9 +435,13 @@ fn status_of(state: &State) -> Status {
     let running = Running::here();
     let needed = running.bundle_needed();
     let offer = state.offer();
+    let checker = lock(&state.checker).clone();
     Status {
         build: this_build(),
-        last: lock(&state.checker).last.clone(),
+        held: checker.held(now(), Asked::Schedule),
+        tried_at: checker.tried_at,
+        error: checker.error,
+        last: checker.last,
         progress: state.progress(usize::MAX),
         ready: offer.ready.clone(),
         offer,
@@ -476,12 +486,15 @@ pub fn nightly_started(state: tauri::State<'_, State>) -> Option<Note> {
     install::take_note(&state.dirs)
 }
 
+/// Looks at main's head for the window: `asked` says who asks (`"user"`, `"opening"` or
+/// `"schedule"`), which decides what holds the check back ([`Asked`]). `Ok(None)`: held, and
+/// the status's `held` says why.
 #[tauri::command(async)]
 pub fn nightly_check(
     state: tauri::State<'_, State>,
-    quiet: bool,
+    asked: Asked,
 ) -> Result<Option<Nightly>, String> {
-    state.check(quiet)
+    state.check(asked)
 }
 
 #[tauri::command(async)]
@@ -720,7 +733,7 @@ pub fn run(args: &[String]) -> ExitCode {
                 build.label,
                 build.commit.as_deref().map_or("commit unknown", short)
             );
-            match state.check(false) {
+            match state.check(Asked::User) {
                 Ok(Some(n)) => {
                     println!(
                         "main: {} ({})",
@@ -806,7 +819,7 @@ pub fn run(args: &[String]) -> ExitCode {
             }
         }
         ["build", commit] => {
-            if let Err(e) = state.check(false) {
+            if let Err(e) = state.check(Asked::User) {
                 return fail(e);
             }
             if let Err(e) = state.start_build(commit) {
@@ -1128,7 +1141,7 @@ mod tests {
             ahead(40).as_bytes(),
         );
         state.http = Arc::new(web);
-        state.check(false).unwrap();
+        state.check(Asked::User).unwrap();
         // never offered, and set aside: main's head is offered instead
         assert!(state.ready().is_none());
         assert!(!state.dirs.ready_file().exists() && !artifact.exists());

@@ -240,6 +240,26 @@ pub(crate) fn stepped_eme(modes: usize) -> (c64, c64) {
     (s.s11[0][0], s.s21[0][0])
 }
 
+/// The bare step from the 220 nm slab to the 300 nm one by the expansion with `modes` even TE
+/// modes, and Fresnel's formula on the two slabs' exact effective indices: (|S₁₁|², Fresnel's).
+/// The model fdfd/step-reflection-te compares FDFD with, measured by another method.
+#[cfg(test)]
+pub(crate) fn step_against_fresnel(modes: usize) -> (f64, f64) {
+    let sections = [
+        Section::new(half(0.22, 1.5), Length::ZERO),
+        Section::new(half(0.30, 1.5), Length::ZERO),
+    ];
+    let s = half_te(modes).s_matrix(&sections).expect("the S-matrix");
+    let n = |t: f64| {
+        Slab::new(CLAD, CORE, CLAD, Length::um(t))
+            .expect("a slab")
+            .modes(Polarization::Te, lam())[0]
+            .effective_index()
+    };
+    let (n1, n2) = (n(0.22), n(0.30));
+    (s.s11[0][0].norm_sqr(), ((n1 - n2) / (n1 + n2)).powi(2))
+}
+
 /// The stepped taper's |S₁₁|² by 2D FDFD (E along z, the guides' fundamental port modes at 0.3
 /// and 1.7 µm, PMLs of 20 cells beyond ±1.5 µm) on an `h` grid.
 pub(crate) fn stepped_fdfd(h: f64) -> f64 {

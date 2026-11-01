@@ -4,10 +4,14 @@ name: Releases
 # .github/scripts/keep-issue.sh (created if missing, its body rewritten, a comment only when
 # something new appears, nothing closed):
 #
-# - "New releases of external libraries" (`photonoxide libraries --releases`): each external
-#   library's newest release where its publisher puts it (PyPI, anaconda.org, NVIDIA's
-#   redistributables, GitHub releases, MUMPS's page, the macOS of GitHub's runners), beside the
-#   version its install guide was checked with and the releases photonoxide-native accepts.
+# - "New releases of all libraries" (`photonoxide libraries --releases`): every library's newest
+#   release beside the version we use, grouped. The native libraries photonoxide-native loads,
+#   read where their publishers put them (PyPI, anaconda.org, NVIDIA's redistributables, GitHub
+#   releases, MUMPS's page, the macOS of GitHub's runners), beside the version each install guide
+#   was checked with; then our direct dependencies, at our lockfiles' versions, against their
+#   registries: the Rust crates (crates.io's index), the studio's pnpm packages (the npm
+#   registry) and the Python requirements (PyPI). It was "New releases of external libraries"
+#   until it listed our own dependencies: --formerly renames that issue, keeping its number.
 # - "Major updates available" (`photonoxide dependencies`): the major versions of our own
 #   crates, npm packages, Python requirements and GitHub Actions that our requirements don't
 #   take, which Dependabot's weekly pull request leaves out.
@@ -58,8 +62,8 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - id: build
         run: cargo build -p photonoxide-studio
-      - name: New releases of external libraries
-        run: bash .github/scripts/keep-issue.sh "New releases of external libraries" target/debug/photonoxide libraries --releases
+      - name: New releases of all libraries
+        run: bash .github/scripts/keep-issue.sh "New releases of all libraries" --formerly "New releases of external libraries" target/debug/photonoxide libraries --releases
       - name: Major updates available
         # even when a library's source couldn't be read
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}

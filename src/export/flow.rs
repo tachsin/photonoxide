@@ -292,9 +292,9 @@ const SAMPLES: usize = 2001;
 
 /// A film's colour in the cross-sections, as `#rrggbb`: the exported SVGs' and the studio's
 /// Fabrication page's, in 2D and 3D alike. A resist (a film named `… resist` or `photoresist`)
-/// is magenta, and a light pink where a pattern is written into it (`…, written`).
+/// is magenta, and a light pink where the light or the beam falls on it (`…, exposed`).
 pub fn film_colour(film: &str) -> &'static str {
-    if film.ends_with(", written") {
+    if film.ends_with(", exposed") {
         return "#f2bde8";
     }
     if film.ends_with("resist") {

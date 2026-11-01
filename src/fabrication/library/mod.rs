@@ -19,7 +19,29 @@ mod wafer;
 
 /// The library's version, which a run's record names: it changes whenever a process, a
 /// capability or a rule changes, so that an older run says which library it used.
-pub const LIBRARY_VERSION: &str = "4";
+pub const LIBRARY_VERSION: &str = "5";
+
+/// Which part of a resist its developer washes away.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Polarity {
+    /// The exposed part: the light or the beam opens the resist where it falls.
+    Positive,
+    /// The part not exposed: the resist stays where the light or the beam fell.
+    Negative,
+}
+
+/// A lithography's resist polarity as the library records it: the polarity its description
+/// gives, and the source that states it, if one in hand does.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[non_exhaustive]
+pub struct ResistPolarity {
+    /// The polarity.
+    pub polarity: Polarity,
+    /// The source that states it, with the place in it; none where the library's description of
+    /// the resist names it but no source in hand has been read for it.
+    pub source: Option<Source>,
+}
 
 /// What kind of step a process is.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -197,6 +219,20 @@ impl Process {
             .find(|u| u.platform == platform && u.purpose == purpose)
     }
 
+    /// A lithography's resist polarity, where the library names it (HSQ and ma-N negative, PMMA
+    /// positive, none of them yet with a source read for it): none for a resist it doesn't name
+    /// (a photoresist, whose polarity is the product's), for a lithography that exposes nothing
+    /// and for every other step.
+    pub fn polarity(&self) -> Option<ResistPolarity> {
+        lithography::polarity(&self.id)
+    }
+
+    /// Whether a lithography presses a mould into the resist instead of exposing it
+    /// (nanoimprint).
+    pub fn imprints(&self) -> bool {
+        lithography::imprints(&self.id)
+    }
+
     /// Whether it acts on `film`.
     pub fn acts_on(&self, film: &str) -> bool {
         self.films.iter().any(|f| f == film)
@@ -290,6 +326,9 @@ impl Process {
         }
         for u in &self.used_for {
             add(&u.source);
+        }
+        if let Some(s) = self.polarity().and_then(|p| p.source) {
+            add(&s);
         }
         self.references = keys;
         self

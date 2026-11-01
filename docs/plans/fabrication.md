@@ -175,7 +175,10 @@ The engine reads what every solver already reads.
 4. **Flat layers.** `LayerStack` is planar by construction. A cladding deposited over a strip
    is not flat unless it is planarized or thick enough, so the exact model can't hold that
    topography. The 2D profile ([Section 2.5](#25-executing-a-flow)) shows it. A rule (F4)
-   says when a flat layer drawn over a patterned one needs a planarization step.
+   says when a flat layer drawn over a patterned one needs a planarization step. *(The
+   Fabrication page's frames draw it: a film deposited over an etched step follows it, by the
+   process's step coverage, until a polish leaves it flat, and a resist spun over one fills its
+   trenches (`job::FrameFilm`); the planar stages, and so the round trip, are unchanged.)*
 
 ### 2.2 The process library
 
@@ -428,7 +431,11 @@ none has a tolerance chosen by hand.
   optional ([Section 9](#9-risks)). *(Asked for and done: the rail's Fabrication page plays the
   flow from the bare wafer in 2D and 3D on one timeline, the resist drawn, from frames the
   library gives (`job::FlowFrame`); its own 3D view (`lib/fab3d.ts`), whose solids the program
-  builds and tests. See [fabrication](../methods/fabrication.md), "The Fabrication page".)*
+  builds and tests. Then the films over the topography: the resist filling etched trenches, a
+  deposited film conformal by its step coverage, the exposure by the resist's polarity, and
+  nanoimprint pressed rather than exposed; the animation's plain functions (`lib/fabanim.ts`)
+  tested by Node's own runner. See [fabrication](../methods/fabrication.md), "The Fabrication
+  page".)*
 
 **Narration.**
 
@@ -457,7 +464,9 @@ none has a tolerance chosen by hand.
 - **In the run view** (`Viewer.svelte`), a run whose job has a `[device]` shows **Fabricate**,
   which opens the Fabrication tab of that design on its page. A run of a structure job without a
   device fabricates the structure itself, from the same `Structure` the run's scene was drawn
-  from (F4).
+  from (F4). *(Done as a tab of the run view's own: a run of a device's job or a structure task
+  has **Fabrication** beside 3D and 2D, the rail page's views and timeline on the design the
+  run's folder keeps, leading to the page for the rest.)*
 - **Export.** The flow as JSON and CSV, and a printable page with the steps, reasons and sources
   (F7).
 
@@ -721,8 +730,9 @@ These are for me to decide. Each has a recommendation; none is decided yet.
 - **The cost of animation.** 3D animation of conformal films and sloped etches is costly to build
   and to keep.
   - *Mitigation:* 2D SVG first, reusing `CutView`'s drawing. 3D is F8 and only on request.
-    *(Requested; built on the same frames as the 2D, with films flat on the planar model rather
-    than conformal, and each solid's closure and volume tested.)*
+    *(Requested; built on the same frames as the 2D, each solid's closure and volume tested;
+    the films conformal over etched steps since, each piece's volume tested against its outlines
+    and, on a step and a rib, against the analytic value.)*
 - **A library that grows stale.** New lithography generations and platforms appear every year.
   - *Mitigation:* each process carries its sources' years, and the IRDS edition it follows is
     named. A source's newer edition is a reading task, like any paper's.

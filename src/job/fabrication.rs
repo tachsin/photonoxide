@@ -33,8 +33,11 @@ use schemars::{JsonSchema, SchemaGenerator};
 use serde::{Deserialize, Serialize};
 
 use super::device::{computed, spec_of};
+pub use super::fabrication_films::FrameFilm;
 use super::fabrication_frames::frames;
-pub use super::fabrication_frames::{FlowFrame, UNSTATED_RESIST_UM};
+pub use super::fabrication_frames::{
+    FlowFrame, IMPRINT_RESIDUE, UNSTATED_COVERAGE, UNSTATED_RESIST_UM,
+};
 use super::kind::TaskKind;
 use super::scene::{SceneEtched, scene, scene_etched};
 use super::{Event, task_error};

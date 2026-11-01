@@ -775,18 +775,58 @@ design (`job::fabrication_of_job`, every material of a structure task the film t
 the design's platform (`fabrication::platform`: one a design, set by its films), lists the steps
 with each one's reason, parameters, every number's citation or "not specified" and the rules'
 checks, and remakes the flow with an alternative a step ranks (**Use instead**, a preference the
-library's choices take).
+library's choices take). A run of a design (a device's job, or a structure task's) has the same
+views and timeline in the run view's **Fabrication** tab, on the design the run's folder keeps,
+with **On the Fabrication page** leading here.
 
 The wafer is played as frames (`job::FlowFrame`): a frame a step, the executor's stage after it,
-and three a lithography, the resist spun on, the pattern written into it and the resist
-developed. The stages leave the resist out, as it changes no layer of the design; the frames draw
-it as a layer on the wafer's top from its lithography to the etch or lift-off that uses it and
-the strip that removes it, with silica's optics (a resist's index is between 1.4 and 1.5 at
-1.55 µm) and its own name and colour. An evaporation for a lift-off draws its film on the resist
-and in its openings. A resist whose thickness no source in hand states is drawn 0.3 µm thick, and
-its frames say so. The resist lies flat on the wafer's top, as the planar model has every layer:
-over an etched layer it is drawn above the ridges, not down in the trenches. The last frame is
-the last stage, the structure the round trip checks.
+and three a lithography, the resist spun on, the pattern exposed in it and the resist developed
+(for nanoimprint, which exposes nothing: the resist spun on, the mould pressed in, and the thin
+layer left in its recesses cleared). What the planar stages can't hold, each frame draws as films
+over them (`job::FrameFilm`), each piece the solid between an outline at its bottom and the same
+outline moved in or out at its top:
+
+- **The resist,** which the stages leave out as it changes no layer of the design, from its
+  lithography to the etch or lift-off that uses it and the strip that removes it, with silica's
+  optics (a resist's index is between 1.4 and 1.5 at 1.55 µm) and its own name and colour. Spun
+  on, it fills the regions etched open and its top is flat, its thickness over the highest top:
+  the frames' model of a spin-on film, not a source's, and its frames say so. Over a strip etched
+  through with vertical walls it is exactly the window less the strip; around sloped walls it is
+  drawn as the whole window over them, and the walls are drawn on top of it. A resist whose
+  thickness no source in hand states is drawn 0.3 µm thick (`UNSTATED_RESIST_UM`), and its
+  frames say so.
+- **The exposure:** the part the light or the beam falls on, by the resist's polarity. A
+  positive resist is exposed where the developer will take it away, a negative one where it
+  will stay, and the develop frame keeps what the step's tone says stays. The library records a
+  lithography's polarity (`Process::polarity`, `fabrication::Polarity`) with the source that
+  states it; none in hand does yet, so the polarities it has are those its descriptions name
+  (HSQ and ma-N negative, PMMA positive), drawn and said to be so, and a photoresist, whose
+  polarity is the product's, is drawn positive, the frames' default, its frame saying so.
+  Nanoimprint (`Process::imprints`) exposes nothing; the layer its mould leaves in the recesses,
+  which no source in hand states, is drawn a tenth of the resist's thickness (`IMPRINT_RESIDUE`).
+- **A film deposited over an etched step,** as a deposition of a layer over a strip or rib
+  etched before it (the heater's oxide over the silicon strip, before its polish): conformal,
+  it follows the surface with its thickness t on the flat (tops and floors) and n on the walls,
+  each measured normal to them, n = s·t with s the process's step coverage (Franssila's
+  Eq. 5.18a: the wall's thickness over the flat's). s is the library's stated value, the middle
+  of a stated range (PECVD's 25 to 50 % is drawn at 37.5 %), or, where no source states it,
+  1 (fully conformal, `UNSTATED_COVERAGE`), and the frame says which. The film's outer surface
+  is the surface offset by those thicknesses with its corners mitred, not rounded: over walls at
+  θ from the plane, the outline at height z is the ridge's top outline moved out by
+  $a(z) = (z_t - z)/\tan\theta + n/\sin\theta$, and by no less than nothing over the top. Over
+  vertical walls the pieces are the geometry kernel's booleans and offsets, exact, merging where
+  the films of two ridges meet; over sloped walls they are lofts of each ridge's outline drawn
+  over it. A cladding has no thickness in the design and is drawn as the stage draws it, filling
+  the window. The frame after the deposition is the stage again: flat after a polish, or flat as
+  the design draws it, which the frame says when no polish follows.
+- **A film evaporated for a lift-off,** on the resist and in its openings, at the top the design
+  draws its layer at. Where an opening lies over a region etched open, the design (planar) still
+  draws the layer on top, and so does the frame, saying that the film would land on the floor
+  there.
+
+The window of the frames grows to hold a conformal film reaching past the 1 µm it keeps around
+the shapes, with 0.5 µm to spare. The last frame is the last stage, the structure the round trip
+checks, with no films: executing the flow still gives the design back exactly.
 
 Each frame is drawn twice from the same scene: as a cross-section at a cut, and as solids in 3D
 (studio/src-tauri's `fabrication`). A layer with nothing drawn on it is a box over the window; a
@@ -795,8 +835,9 @@ its top face down to its etch's floor, its outline mitred out by depth / tan(sid
 floor, on the slab a partial etch leaves. A film around the shapes (an oxide filling an etched
 layer, the cladding) is a box drawn see-through over them: the solids overlap there and are not a
 partition of the wafer, but each is closed (every edge shared by two of its triangles, in
-opposite directions) and faces out. The tests check that on every frame of every device of the
-library with a flow (18 of them), that each layer's shapes hold the volume their outlines give
+opposite directions) and faces out. A film piece is a loft from its bottom outline to its top,
+see-through but for a metal. The tests check that on every frame of every device of the
+library with a flow (18 of them), that each film piece holds the volume its outlines give, that each layer's shapes hold the volume their outlines give
 (area times height, or the prismatoid's $\frac{h}{6}\thinspace(A_\mathrm{floor} + 4A_\mathrm{middle} + A_\mathrm{top})$
 for sloped walls, whose faces are planes) to a relative 10⁻⁹ (round-off), and that the last
 frame's outlines have the design's shapes' areas within their perimeter times the distance
