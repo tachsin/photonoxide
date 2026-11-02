@@ -551,8 +551,9 @@ struct Home {
     runs: Vec<RunItem>,
 }
 
-/// The jobs in the workspace's `jobs/` and its 200 newest runs.
-#[tauri::command]
+/// The jobs in the workspace's `jobs/` and its 200 newest runs. Off the window's thread: in a
+/// workspace in use reading them takes tens of milliseconds, which the window would wait.
+#[tauri::command(async)]
 fn home(state: tauri::State<'_, Studio>) -> Home {
     let root = state.workspace();
     Home {
@@ -619,6 +620,80 @@ fn about(text: &str) -> String {
         .join(" ")
 }
 
+/// How much of a record `first_and_last_lines` reads at a time, from each end.
+const LINES_CHUNK: usize = 16 * 1024;
+
+/// A text file's first and last lines, as `text.lines().next()` and `text.lines().last()` give
+/// them, reading from each end only as far as those lines go (`chunk` bytes at a time, doubling).
+/// A line that isn't UTF-8 is None.
+fn first_and_last_lines(path: &Path, chunk: usize) -> (Option<String>, Option<String>) {
+    let Ok(mut file) = File::open(path) else {
+        return (None, None);
+    };
+    let Ok(len) = file.metadata().map(|m| m.len()) else {
+        return (None, None);
+    };
+    // a line ended by "\r\n" loses its "\r", as `lines` drops it; a bare "\r" at the end stays
+    let line = |bytes: &[u8], ended: bool| {
+        let bytes = if ended {
+            bytes.strip_suffix(b"\r").unwrap_or(bytes)
+        } else {
+            bytes
+        };
+        String::from_utf8(bytes.to_vec()).ok()
+    };
+    // the first line: read until a line end shows, or the whole file
+    let mut head = Vec::new();
+    let mut want = chunk.max(1);
+    loop {
+        head.clear();
+        if file.seek(SeekFrom::Start(0)).is_err()
+            || (&mut file)
+                .take(want as u64)
+                .read_to_end(&mut head)
+                .is_err()
+        {
+            return (None, None);
+        }
+        if head.contains(&b'\n') || head.len() as u64 >= len {
+            break;
+        }
+        want *= 2;
+    }
+    if head.len() as u64 >= len {
+        // all of it read: split it as `lines` does
+        let Ok(text) = String::from_utf8(head) else {
+            return (None, None);
+        };
+        return (
+            text.lines().next().map(str::to_owned),
+            text.lines().last().map(str::to_owned),
+        );
+    }
+    let first = head
+        .iter()
+        .position(|&b| b == b'\n')
+        .and_then(|i| line(&head[..i], true));
+    // the last line: what follows the last line end but a final one, read back from the end
+    let mut want = chunk.max(1) as u64;
+    loop {
+        let start = len.saturating_sub(want);
+        let mut tail = Vec::new();
+        if file.seek(SeekFrom::Start(start)).is_err() || file.read_to_end(&mut tail).is_err() {
+            return (first, None);
+        }
+        let ended = tail.ends_with(b"\n");
+        let body = tail.strip_suffix(b"\n").unwrap_or(&tail);
+        if let Some(i) = body.iter().rposition(|&b| b == b'\n') {
+            return (first, line(&body[i + 1..], ended));
+        }
+        if start == 0 {
+            return (first, line(body, ended));
+        }
+        want *= 2;
+    }
+}
+
 fn runs_in(dir: &Path, most: usize) -> Vec<RunItem> {
     let mut dirs: Vec<PathBuf> = std::fs::read_dir(dir)
         .into_iter()
@@ -636,14 +711,16 @@ fn runs_in(dir: &Path, most: usize) -> Vec<RunItem> {
             let meta: Option<Meta> = std::fs::read_to_string(d.join("meta.json"))
                 .ok()
                 .and_then(|t| serde_json::from_str(&t).ok());
-            let text = std::fs::read_to_string(d.join("events.jsonl")).unwrap_or_default();
+            // the record's first line says what ran, its last whether it finished: only those
+            // are read, as a record grows to megabytes and the 200 newest are read each time
+            let (first, last) = first_and_last_lines(&d.join("events.jsonl"), LINES_CHUNK);
             let event =
                 |line: Option<&str>| line.and_then(|l| serde_json::from_str::<Event>(l).ok());
-            let kind = match event(text.lines().next()) {
+            let kind = match event(first.as_deref()) {
                 Some(Event::Started { kind, .. }) => kind,
                 _ => String::new(),
             };
-            let (finished, seconds, stopped) = match event(text.lines().last()) {
+            let (finished, seconds, stopped) = match event(last.as_deref()) {
                 Some(Event::Finished { stopped, seconds }) => (true, Some(seconds), stopped),
                 _ => (false, None, None),
             };
@@ -1574,5 +1651,45 @@ mod tests {
         assert!(!runs[0].finished && runs[1].finished);
         assert_eq!(runs_in(&root, 1).len(), 1);
         let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn first_and_last_lines_are_as_lines_gives_them() {
+        let dir = std::env::temp_dir().join(format!("photonoxide-lines-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let file = dir.join("events.jsonl");
+        let long = "x".repeat(50);
+        for text in [
+            String::new(),
+            "a".into(),
+            "a\n".into(),
+            "\n".into(),
+            "\n\n".into(),
+            "a\nb".into(),
+            "a\nb\n".into(),
+            "a\n\n".into(),
+            "a\r\nb\r\n".into(),
+            "a\r\nb\r".into(),
+            "first\nmiddle\nlast".into(),
+            format!("{long}\n{long}\n{long}"),
+            format!("{long}\r\n{long}\r\n"),
+            long.clone(),
+        ] {
+            std::fs::write(&file, &text).unwrap();
+            let want = (
+                text.lines().next().map(str::to_owned),
+                text.lines().last().map(str::to_owned),
+            );
+            // a chunk of 4 bytes makes both ends read in several steps
+            for chunk in [1, 4, 16, LINES_CHUNK] {
+                assert_eq!(
+                    first_and_last_lines(&file, chunk),
+                    want,
+                    "{text:?} read {chunk} bytes at a time"
+                );
+            }
+        }
+        assert_eq!(first_and_last_lines(&dir.join("none"), 4), (None, None));
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }
