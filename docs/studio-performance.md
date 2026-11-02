@@ -77,9 +77,34 @@ five launches each, workspace of 204 runs:
 A later listing of the same 34 jobs and 204 runs takes 10 ms where it took 80 (timed in the studio's
 own code on that workspace).
 
-**Still to do.** Showing the names with no wait at all, even for a click the moment the window
-shows, needs the list without that one solve: the waveguide's solved-mode variant listed at once
-and built when it is opened.
+**The list at once, the solve filled in after.** A click the moment the window showed still waited
+for `component_library`, and so for what was left of the solved-mode waveguide's solve. The library
+now lists that entry at once, marked pending, with what it is before it is built: its words, its
+kind, its ports' names, its symbol, its model's fidelity and whether it is reciprocal (a test
+checks these against the built component). The window then asks for it whole (`component_kind`),
+which waits for the build begun at launch rather than solving again, and fills the entry in.
+What needs more waits for it: placing it on a chip (its parameters' defaults come from the solve),
+its own page on Components and its parameters in the Chip page's inspector. The Chip page draws
+and wires it from the same symbol as before.
+
+Five fresh launches each, release builds of main and of the change, measured back to back; ms
+from the click to the list's names (the component's page shows with them), the median and the
+least and most in brackets:
+
+| First click on Components | before | after |
+| --- | ---: | ---: |
+| once the window has booted, empty workspace | 33.6 (27.5–42.3) | 29.9 (28.3–33.2) |
+| once the window has booted, 34 jobs and 204 runs | 30.3 (28.7–42.8) | 29.5 (28.5–29.8) |
+| as soon as the window shows, empty workspace | 613 (557–654) | 39.7 (34.0–276) |
+| as soon as the window shows, 34 jobs and 204 runs | 594 (539–639) | 62.9 (33.8–226) |
+
+The solved-mode entry is filled in 0.5–0.6 s after such a click (`component_kind` answered in
+507 ms, and 595 ms with 204 runs, the rest of the solve). The workspace was seeded again for these
+numbers, the same way: the 34 jobs and a run of each by this build, copied to 204 runs, 298 MB in
+all (two of the 34 runs stopped at a 3-minute limit). The slowest launch of each of the last two
+rows (276 and 226 ms) spent one long task of 229 and 184 ms in the window's own script, against
+50–65 ms in the other launches: the window was still starting when the click came. Other work
+shared the computer during these launches.
 
 The sections below measure switching in a running studio, repeated many times: they answer how
 fast the window switches once everything is loaded, which turned out not to be what was slow.
