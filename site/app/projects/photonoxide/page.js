@@ -10,6 +10,7 @@ import {
   Package,
   FlaskConical,
   Gem,
+  GraduationCap,
   Layers,
   MonitorPlay,
   Sparkles,
@@ -72,6 +73,8 @@ const HIGHLIGHT_ICONS = {
   studio: MonitorPlay,
   solves: Layers,
   rust: SiRust,
+  methods: BookOpen,
+  academy: GraduationCap,
 };
 
 // a highlight's status, its milestone's in the roadmap, as its tag shows it (done shows none)

@@ -4,10 +4,11 @@
 
 # photonoxide for Python
 
-[photonoxide](https://github.com/tachsin/photonoxide) is a photonics library in Rust whose every
-method is checked against an analytic solution or a published result, in a
+[photonoxide](https://github.com/tachsin/photonoxide) is an open reference for photonic design
+and the software that runs it, written in Rust, every method checked against an analytic
+solution or a published result in a
 [validation report](https://github.com/tachsin/photonoxide/blob/main/docs/validation.md). This
-package brings a part of it to Python:
+package brings a part of the library to Python:
 
 - the materials catalogue: indices with their source, validity range and conditions;
 - waveguide modes: the exact slab, and full-vector modes of a cross-section with their fields;
