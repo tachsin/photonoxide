@@ -1,5 +1,5 @@
 [build-system]
-requires = ["maturin>=1.15,<2"]
+requires = ["maturin>=1.16.0,<2"]
 build-backend = "maturin"
 
 [project]
@@ -38,7 +38,7 @@ Documentation = "https://github.com/tachsin/photonoxide/blob/main/docs/python.md
 Changelog = "https://github.com/tachsin/photonoxide/blob/main/CHANGELOG.md"
 
 [project.optional-dependencies]
-test = ["pytest>=9.1.1"]
+test = ["pytest>=9.2.0"]
 # the API reference's generator (docs/python.md, "Publishing"), pinned so the reference changes
 # only with the package
 docs = ["pdoc==16.0.0"]
