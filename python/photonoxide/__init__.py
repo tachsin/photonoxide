@@ -1,7 +1,7 @@
 """Photonics design and simulation for Python, written in Rust: materials with provenance, mode
 solvers, jobs and 2D FDFD S-parameters, circuits and Touchstone files, and devices that know
 their geometry, from
-`photonoxide <https://github.com/tachsin/photonoxide>`_.
+`photonoxide <https://github.com/tachsin/photonoxide>`_, an open reference for photonic design.
 
 220 nm of silicon in oxide at 1550 nm, each material with its published dispersion, and the
 slab's modes solved exactly:

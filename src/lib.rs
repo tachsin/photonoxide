@@ -1,9 +1,10 @@
 //! # photonoxide
 //!
-//! Light meets Rust: photonics design and simulation. Materials with provenance, mode solvers,
-//! 2D and 3D FDFD with S-parameters and adjoints, components and circuits, and compact models,
-//! with a studio to watch every run live. Every method is checked against an analytic solution or a published
-//! result ([`validation`]).
+//! Light meets Rust: an open reference for photonic design, and the software that runs it.
+//! Beside the methods pages and the Academy, the crate holds materials with provenance, mode
+//! solvers, 2D and 3D FDFD and FDTD with S-parameters and adjoints, components and circuits,
+//! compact models and fabrication flows, with a studio to watch every run live. Every method is
+//! checked against an analytic solution or a published result ([`validation`]).
 //!
 //! - [`material`]: dispersion models with their source, validity range and temperature, and a
 //!   catalogue of photonic materials, every number read from its paper.
@@ -47,7 +48,7 @@
 //!   geometry to give the design back.
 //!
 //! **Released milestone by milestone;** until 1.0 the API can change between them.
-//! Thermo-optic and electro-optic devices, inverse design, layout and PDKs are planned, not here yet:
+//! Inverse design, layout and PDKs are planned, not here yet:
 //! see the [roadmap](https://github.com/tachsin/photonoxide/blob/main/ROADMAP.md).
 
 #![forbid(unsafe_code)]
