@@ -60,8 +60,8 @@ KaTeX. A new lesson's file is added to
 Open a [paper suggestion](https://github.com/tachsin/photonoxide/issues/new?template=paper_suggestion.yml)
 with the reference and its DOI, what it gives (a table, a figure, a number to reproduce) and
 whether people can read it. Check the DOI on Crossref first
-(`https://api.crossref.org/works/<doi>`), and cite the year Crossref gives as published online,
-which can be earlier than the year of the issue the paper appears in. The papers themselves are
+(`https://api.crossref.org/works/<doi>`), and cite the earlier of the print year and the year Crossref gives as published online,
+which can be earlier than the year of the issue the paper appears in; a journal's archive put online decades later never replaces the print year. The papers themselves are
 kept outside the repository, since most can't be redistributed; a suggested paper is cited from a
 page, a lesson or a case once it has been read, and is then listed in the
 [references index](docs/references.md) as the next section describes.
