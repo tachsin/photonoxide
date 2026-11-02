@@ -7,8 +7,9 @@ drives the studio's own window over the Chrome DevTools Protocol, and from the t
 
 ## How it was measured
 
-- **The build:** a release build (`pnpm tauri build`) of commit 8821cbd, with its own identifier
-  (`gr.tachsin.photonoxide.perf`) so its settings are its own; 64.7 MB.
+- **The build:** a release build (`pnpm tauri build`) with its own identifier
+  (`gr.tachsin.photonoxide.perf`), so its settings are its own: commit 65410ee for the numbers
+  before any change, and each change's branch for its own.
 - **The computer that ran it:** Intel Core Ultra 7 265K (20 threads), 64 GB, NVIDIA GeForce RTX
   4060, Windows 11 (10.0.26300), WebView2 156.0.4314.58; the page 1440 x 900 CSS pixels at scale 1.
 - **The workspace:** a fresh one, seeded as one in use: the 34 job files of `jobs/` and 204 runs (34
@@ -16,9 +17,10 @@ drives the studio's own window over the Chrome DevTools Protocol, and from the t
   read the newest 200).
 - **Each switch** is a click on what a person would click. *Frame* is the time from the click to the
   first frame painted after it. *Settled* is the time to the page's last change, once it has been
-  quiet for 300 ms: its data loaded and drawn, and any animation that ends the switch (on the four
-  pages with a list in the menu, the list slides open in 220 ms). An element that changes in more
-  than six batches (a turning 3D view's axes, an editor's cursor) is moving, not settling.
+  quiet for 300 ms: its data loaded and drawn. An element that changes in more than six batches (a
+  turning 3D view's axes, an editor's cursor) is moving, not settling. The window is asked for
+  reduced motion, which the studio honours, so the menu's lists open at once and a switch settles
+  when its work is done, not when an animation ends.
 - **Repeats:** each ordered pair of the 10 pages 10 times (90 switches to each page); each ordered
   pair of a component's 7 tabs twice on each of three components (36 switches to each tab); each of
   five components opened 10 times from the list; the list scrolled 10 times. Times are medians, with
@@ -26,107 +28,127 @@ drives the studio's own window over the Chrome DevTools Protocol, and from the t
 
 ## Switching pages
 
-| To | frame (ms) | settled (ms) | main thread: script, style + layout (ms) | slowest command (ms) |
+| To | frame (ms) | settled (ms) | main thread: script, style + layout (ms) | slowest commands (ms) |
 | --- | ---: | ---: | ---: | ---: |
-| Home | 17.8 (14.1–28.6) | 143 (72–258) | 7.6, 16.0 | `home` 86, `circuits` 86 |
-| Components | 16.4 (12.5–26.8) | 255 (237–258) | 27.8, 35.5 | `home` 85 |
-| Chip | 14.2 (11.4–25.2) | 253 (224–258) | 8.5, 19.7 | `circuit_examples` 13 |
-| Fabrication | 7.9 (4.4–18.5) | 62 (46–259) | 19.0, 15.1 | `fabrication_page` 5 |
-| Academy | 44.2 (37.2–56.3) | 274 (258–280) | 55.4, 51.2 | `method_docs` 40 |
-| Materials | 19.3 (14.6–29.5) | 254 (241–261) | 10.9, 26.7 | `materials` 11 |
-| Validation | 7.1 (4.1–15.0) | 68 (49–333) | 43.0, 219 | `published_report` 7 |
-| Libraries | 24.0 (18.3–34.8) | 90 (60–259) | 8.9, 21.3 | `hardware_advice` 63 |
-| Benchmarks | 10.3 (6.4–22.3) | 183 (165–259) | 5.7, 17.5 | `bench_data` 7 |
-| Settings | 10.3 (6.7–22.0) | 23 (7–257) | 3.6, 12.8 | – |
+| Home | 15.7 (12.9–26.3) | 78 (69–91) | 6.1, 13.3 | `home` 66, `circuits` 66 |
+| Components | 12.7 (10.7–24.9) | 112 (101–126) | 20.2, 17.8 | `home` 66, `materials` 66 |
+| Chip | 12.2 (10.4–24.0) | 12 (10–24) | 5.6, 10.5 | `circuit_examples` 11 |
+| Fabrication | 6.4 (3.9–18.3) | 47 (40–58) | 12.5, 11.7 | `fabrication_page` 4 |
+| Academy | 39.1 (34.8–49.4) | 101 (95–114) | 49.2, 42.1 | `method_docs` 36 |
+| Materials | 15.6 (12.7–25.1) | 20 (16–30) | 6.4, 15.1 | `materials` 6 |
+| Validation | 5.6 (4.3–11.8) | 50 (44–58) | 39.2, 194 | `published_report` 8 |
+| Libraries | 21.2 (17.0–31.8) | 64 (58–71) | 7.5, 17.1 | `hardware_advice` 61 |
+| Benchmarks | 8.1 (5.9–19.6) | 167 (163–178) | 4.3, 12.5 | `bench_data` 6 |
+| Settings | 8.1 (5.5–20.2) | 8 (6–20) | 2.4, 8.8 | – |
 
-Every page paints its first frame within 45 ms (median); Academy is the slowest to build, at
-about 100 ms of script, style and layout. Validation's style and layout, 219 ms, mostly fall after
-its first frame, while its 811-line report renders.
+Every page paints its first frame within 40 ms (median); Academy is the slowest to build, at about
+90 ms of script, style and layout. Validation's style and layout, 194 ms, fall after its first frame,
+while its 811-line report renders. Two commands answering at the same moment (`home` and `circuits`,
+`home` and `materials`) are one waiting behind the other on the window's main thread.
 
 ## Switching a component's tabs
 
 The three components: the all-pass ring, the Mach–Zehnder modulator and the waveguide. The device's
 3D view sits beside the tabs, so a tab switch rebuilds only the panel.
 
-| To | frame (ms) | settled (ms) | main thread: script, style + layout (ms) |
-| --- | ---: | ---: | ---: |
-| Overview | 16.9 (14.3–23.1) | 17 (14–23) | 16.1, 7.9 |
-| Design | 18.8 (12.1–26.5) | 19 (12–27) | 13.7, 6.6 |
-| Model | 19.0 (11.0–23.5) | 212 (19–221) | 21.5, 10.2 |
-| Simulate | 17.2 (9.8–21.3) | 166 (16–177) | 16.4, 15.7 |
-| Study | 15.2 (7.0–21.4) | 211 (16–221) | 18.8, 9.9 |
-| Optimize | 17.6 (12.2–21.9) | 380 (21–393) | 29.3, 13.2 |
-| Fabrication | 12.2 (4.9–20.4) | 18 (5–329) | 23.6, 3.8 |
+| To | frame (ms) | settled (ms) | main thread: script, style + layout (ms) | slowest commands (ms) |
+| --- | ---: | ---: | ---: | ---: |
+| Overview | 15.6 (13.8–21.4) | 16 (14–23) | 12.3, 7.5 | `device_spectrum` 4 |
+| Design | 18.6 (9.8–24.2) | 19 (10–24) | 11.2, 6.1 | `device_job_read` 2 |
+| Model | 15.2 (10.4–23.2) | 211 (14–223) | 16.3, 8.7 | `method_docs` 73, `home` 70 |
+| Simulate | 12.7 (8.4–20.2) | 164 (12–174) | 12.6, 6.9 | `home` 64 |
+| Study | 14.6 (9.4–21.8) | 210 (16–221) | 15.1, 7.7 | `home` 64 |
+| Optimize | 14.4 (7.1–21.6) | 371 (15–388) | 20.0, 10.1 | `home` 60 |
+| Fabrication | 10.6 (5.1–18.7) | 14 (5–323) | 11.8, 1.8 | `device_fabrication` 5 |
 
-Model, Simulate, Study and Optimize settle last on a button that waits for the `home` command
-(60–70 ms each time it is called on these tabs) and the tab's own job command.
+Model, Simulate, Study and Optimize settle last on a button that waits for the `home` command and
+the tab's own job command. The low 10th percentiles are switches back to a tab whose data was
+already in.
 
 ## Opening a component from the list, and scrolling it
 
 | Opened | frame (ms) | settled (ms) | WebGL context made, and its time (ms) |
 | --- | ---: | ---: | ---: |
-| All-pass ring | 11.9 (9.7–38.0) | 81 (75–84) | 1, 19.7 |
-| Mach–Zehnder modulator | 49.5 (11.1–60.1) | 80 (76–89) | 1, 17.6 |
-| Waveguide | 41.5 (11.9–49.3) | 76 (72–82) | 1, 18.2 |
-| Coupler | 20.2 (17.6–24.1) | 89 (84–99) | 0 |
-| Custom device | 14.7 (12.4–16.8) | 346 (338–372) | 1, 20.3 |
+| All-pass ring | 41.3 (10.5–44.8) | 76 (72–80) | 1, 19 |
+| Mach–Zehnder modulator | 27.5 (8.2–51.9) | 80 (74–83) | 1, 18 |
+| Waveguide | 11.8 (9.9–41.9) | 77 (71–81) | 1, 18 |
+| Coupler | 18.9 (15.8–22.1) | 84 (81–87) | 0 |
+| Custom device | 13.1 (11.7–13.8) | 348 (333–361) | 1, 20 |
 
 Each device opened makes a new WebGL context for its 3D view: 2–11 ms to make it, 10–19 ms to
 compile its shaders.
 
 Scrolling the list with every group open (86 rows, 2564 px in a 300 px view), 40 wheel notches down
-and up: the median frame interval was 19.0 ms, against 18.8 ms with nothing moving, the slowest
-frame 23.2 ms, and no frame over 25 ms. The list costs nothing visible.
+and up: the median frame interval was 18.5 ms, against 18.2 ms with nothing moving, and the slowest
+frame 22.7 ms. The list costs nothing visible.
 
 ## WebGL contexts and memory over a session
 
-After the switches above (226 contexts made), and after a garbage collection:
+After all the switches above and a garbage collection, before any change:
 
-| | made | released by the studio | evicted by the browser | on the page | off the page, not released |
-| --- | ---: | ---: | ---: | ---: | ---: |
-| before | 226 | 134 | 76 | 1 | 15 |
-| after another round of pages | 231 | 139 | 76 | 0 | 16 |
+| | made | released by the studio | evicted by the browser | on the page | on the page, evicted | off the page, not released |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| after the page switches | 181 | 90 | 75 | 0 | 1 | 16 |
+| after three more rounds | 241 | 147 | 78 | 0 | 1 | 16 |
 
-The Fabrication page's 3D view lets go of its renderer without releasing its context, which then
-lives until its canvas is collected. Chromium keeps at most 16 live contexts and drops the oldest
-past that. A shorter run (each pair of pages twice) showed what it drops: after about 20 visits to
-Fabrication, the run view's own context, kept on the page while hidden, was lost and stayed lost.
+The Fabrication page's 3D view let go of its renderer without releasing its context, which then
+lived until its canvas was collected. Chromium keeps at most 16 live contexts and drops the oldest
+past that: here, the run view's own context, kept on the page while the run view is hidden, was lost
+and stayed lost, so its 3D would have shown nothing.
 
 Over 100 page switches, after a garbage collection each time, the JS heap grew 2.7 MB per 50
-switches (91.3, 94.0, 96.7 MB) and the DOM nodes kept alive by 9165 per 50 (239675 to 258005). A
+switches (91.1, 93.8, 96.5 MB) and the DOM nodes kept alive by 9165 per 50 (239679 to 258009). A
 heap snapshot after three visits to Fabrication found about 1000 of its nodes detached but still
 held, the shortest path to them through a dialog backdrop's click handler.
 
-At rest, the main thread is busy 0.2–2.6% of the time on every page except Components with a device
-open, 5.8–6.1%, while its 3D view turns.
+At rest, the main thread is busy 0.1–0.2% of the time on every page except Components with a device
+open, 3–8%, while its 3D view turns.
 
 ## Where the time goes
 
 The traced pass (the pages and tabs once more, with the browser's tracing on) splits each switch's
-main-thread time. Per page switch it is 6–23 ms of script, 8–24 ms of style, 1–9 ms of layout and
-1–12 ms of paint; the Components page adds 18–20 ms of waiting on the GPU while its 3D view's context
-is made. In the full run the median switch had no task over 50 ms.
+main-thread time. Per page switch it is 3–23 ms of script, 2.5–14.5 ms of style, 0.4–7.5 ms of
+layout and 0.7–6 ms of paint; the Components page adds 16 ms of waiting on the GPU while its 3D
+view's context is made. The median switch had no task over 50 ms.
 
 The time that is felt is waiting, not building:
 
 1. **The `home` command blocks the window's main thread.** It is synchronous: it runs on the thread
    that also runs the window, and reads each of the newest 200 runs' whole record to find its first
-   and last line. With 204 runs it took 86 ms (59–127 ms, at most 212 ms) per call; with an empty
-   workspace, 2–20 ms. It is called by Home, the components list and the Model, Simulate, Study and
-   Optimize tabs, and every other synchronous command waits behind it (on Home, `circuits` answers
-   when `home` does). Its time grows with the size of the runs' records.
-2. **Contexts are not released**, so the browser evicts them, the run view's among them.
-3. **Rebuilding a page** costs 10–100 ms of main-thread work, painted within one to three frames.
+   and last line. With 204 runs it took 60–73 ms per call; with an empty workspace, 2–20 ms. It is
+   called by Home, the components list and the Model, Simulate, Study and Optimize tabs, and every
+   other synchronous command waits behind it. Its time grows with the size of the runs' records.
+2. **Contexts were not released**, so the browser evicted them, the run view's among them.
+3. **Rebuilding a page** costs 10–90 ms of main-thread work, painted within one to three frames.
 
 ## The suspects
 
 | Suspect | Measured | Real? |
 | --- | --- | --- |
-| Pages and tabs rebuilt on every switch | first frame 7–44 ms for pages, 12–19 ms for tabs | Not a felt cost: rebuilding is within three frames; what follows is waiting for data |
-| A WebGL renderer made per view | 2–11 ms to make, 10–19 ms of shaders per device opened | The time is small; contexts not released are real: 76 evicted, the run view's among them |
-| The components list renders every entry | frames while scrolling 19.0 ms against 18.8 ms at rest | No |
-| Commands blocking the window | `home` 86 ms per call on six kinds of switch, others waiting behind it | Yes |
+| Pages and tabs rebuilt on every switch | first frame 6–39 ms for pages, 11–19 ms for tabs | Not a felt cost: rebuilding is within three frames; what follows is waiting for data |
+| A WebGL renderer made per view | 2–11 ms to make, 10–19 ms of shaders per device opened | The time is small; contexts not released were real: 78 evicted, the run view's among them |
+| The components list renders every entry | frames while scrolling 18.5 ms against 18.2 ms at rest | No |
+| Commands blocking the window | `home` 60–73 ms per call on six kinds of switch, others waiting behind it | Yes |
 | A debug build | the measured build is a release build | Not the cause here |
+
+## The changes, measured
+
+### Contexts released when a view closes
+
+The Fabrication page's 3D view forces its context's loss when it closes, and the run view (View3D)
+has a `destroy` that lets go of everything, the listener that kept a device page's run view alive
+included. The same switches, before and after:
+
+| | made | released by the studio | evicted by the browser | on the page | on the page, evicted | off the page, not released |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| before, after the page switches | 181 | 90 | 75 | 0 | 1 | 16 |
+| after, after the page switches | 181 | 180 | 0 | 1 | 0 | 0 |
+| before, after three more rounds | 241 | 147 | 78 | 0 | 1 | 16 |
+| after, after three more rounds | 241 | 240 | 0 | 1 | 0 | 0 |
+
+The run view keeps its context. Switch times did not change beyond the runs' own spread (each page's
+median first frame within 1.2 ms, settled within 5 ms); a shared renderer was not built, as it would
+save only the 2–11 ms of making a context.
 
 ## What this could not measure
 
@@ -142,10 +164,10 @@ The time that is felt is waiting, not building:
 
 | Phase | Planned | Why |
 | --- | --- | --- |
-| 2. Keep pages and tabs alive | No | Rebuilding costs 10–100 ms and paints within three frames |
-| 3. One shared renderer, contexts released | Contexts released; no shared renderer | Evictions are real; a shared renderer would save only the 2–11 ms of making a context |
+| 2. Keep pages and tabs alive | No | Rebuilding costs 10–90 ms and paints within three frames |
+| 3. One shared renderer, contexts released | Contexts released (done); no shared renderer | Evictions were real; a shared renderer would save only the 2–11 ms of making a context |
 | 4. Render only the visible rows of the list | No | Scrolling is as smooth as standing still |
-| 5. Heavy work off the window | `home` and `circuits` off the main thread, `home` reading less | `home` blocks the window for 60–210 ms per call |
+| 5. Heavy work off the window | `home` and `circuits` off the main thread, `home` reading less | `home` blocks the window for 60–73 ms per call |
 | 6. A test that fails on slowdowns | Proposed | See below |
 
 **Phase 6, proposed:** run `measure-switches.mjs --only pages,tabs,contexts --reps 3` against a
