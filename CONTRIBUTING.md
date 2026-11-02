@@ -1,6 +1,129 @@
 # Contributing to photonoxide
 
-photonoxide is pre-1.0: ideas, use cases and validation cases are as welcome as code. Open an issue first for anything larger than a small fix.
+photonoxide is pre-1.0: ideas, use cases and validation cases are as welcome as code. Open an issue first for anything larger than a small fix. The ways to contribute without writing code come first; the rules for every pull request follow.
+
+## Ways to contribute beyond code
+
+photonoxide is a reference as much as a library: its methods pages, its Academy, its fabrication
+flows and its validation report are written and checked like its code, and each is open to
+contributions.
+
+### A methods page
+
+Each method has a page, `docs/methods/<name>.md`: its derivation, its limits, the papers it
+implements and the validation cases that check it. Its front matter, in YAML between `---` lines,
+gives its title, the Rust module it documents, a one-sentence summary, its place in the reading
+order, its papers, its validation cases and its examples:
+
+```yaml
+---
+title: "Three-layer slab, exact"
+module: mode::slab
+summary: "The TE and TM modes of a core between two claddings, from their characteristic equations, to the last bit."
+order: 3
+papers:
+  - cite: "L. Chrostowski, M. Hochberg, Silicon Photonics Design, Cambridge University Press (2015), Listings 3.2–3.3"
+    doi: 10.1017/CBO9781316084168   # checked on Crossref; "" for a book that has none
+validation:
+  - mode/slab-te-book               # case ids, as docs/validation.md lists them
+examples:
+  - slab_soi                        # examples/<name>.rs
+---
+```
+
+The body is Markdown with TeX math, as GitHub sets it: `$…$` inline, and display math between
+lines holding only `$$`. A correction to a derivation, a missing reference or a clearer
+explanation is a pull request on that file. A new page is also listed in two places, each checked
+by `studio/src-tauri/tests/site.rs`: its name in one group of `CATEGORIES` in
+`site/lib/projects/photonoxide/methods.js`, and a line with its summary under the same topic in
+[docs/README.md](docs/README.md), the documentation's index. A new page, or a DOI no page cited
+before, changes a count in the README's "What it holds", which `studio/src-tauri/tests/readme.rs`
+checks and names. A page that a lesson names in its `methods` must be built into the program: a
+line in `method_docs!` in `studio/src-tauri/src/studio.rs`.
+
+### An Academy lesson
+
+[academy/README.md](academy/README.md) describes a lesson's file: its front matter, its sections
+at three depths, its blocks (a chart, an example's output, validation cases) and its checks. Every
+lesson still to be written is laid out section by section, each section a question with a
+`::coming` line and one paragraph saying what its answer will contain: writing one section, in
+place of its `::coming` line and paragraph, is a contribution of its own. A lesson uses our own
+words and figures; each equation names its source by DOI or is derived; each number comes from an
+example's output or the validation report.
+`cargo test -p photonoxide-studio academy::` runs the lesson checks that academy/README.md lists,
+and `pnpm install` then `pnpm build` in `studio/` renders every formula of every lesson with
+KaTeX. A new lesson's file is added to
+`lessons!` in `studio/src-tauri/src/academy.rs` and to the tables in academy/README.md.
+
+### A paper
+
+Open a [paper suggestion](https://github.com/tachsin/photonoxide/issues/new?template=paper_suggestion.yml)
+with the reference and its DOI, what it gives (a table, a figure, a number to reproduce) and
+whether people can read it. Check the DOI on Crossref first
+(`https://api.crossref.org/works/<doi>`), and cite the year Crossref gives as published online,
+which can be earlier than the year of the issue the paper appears in. The papers, and the list of
+them, are kept outside the repository, since most can't be redistributed; a suggested paper is
+added to the list, and cited from a page, a lesson or a case once it has been read.
+
+### A correction
+
+A wrong number, a misread table or a step of a derivation that doesn't hold: open a
+[bug report](https://github.com/tachsin/photonoxide/issues/new?template=bug_report.yml) naming the
+page, lesson or case, the value it gives, the value the source gives, and where in the source
+(table, figure, equation or page), or open the pull request that corrects it. A correction to the
+code that changes a result is a `fix:`, a patch release even when numbers move
+([Versioning](#versioning)); one to a page or a lesson alone is a `docs:` change.
+
+### A validation case
+
+A published number the library can compute is a validation case. A case (`Case`, in
+`src/verdict.rs`) has an id `<area>/<name>`, a one-sentence title, its tier (analytic, published
+or cross-code), its source with its DOI, and a function that runs it; `cases()` in
+`src/validation.rs` lists it, directly or through its area's checks module. Its rule goes in its
+area's table, `rules()` in `src/validation/<area>.rs`, as described
+[below](#validation-cases-and-their-tolerances); a case without a rule fails the tests. The report
+is then regenerated
+(`cargo run -p photonoxide-studio --release -- validate --write docs/validation.md`), the case's
+id added to the `validation` list of the methods page it checks,
+and the README's validation counts brought in line, as `studio/src-tauri/tests/readme.rs` names
+them. Without writing the case, a paper suggestion that names the number, its table or figure and
+its conditions (wavelength, geometry, materials) is as useful.
+
+### What a good contribution contains
+
+- a source for every claim: a DOI checked on Crossref, and the place in the paper;
+- every number with its grid, or marked exact; a 2D result never stated as a device's performance;
+- our own words and figures: papers are cited, never copied;
+- one topic per pull request, its title a conventional commit (`docs:` for pages and lessons);
+- commits and pull requests carry no attribution to AI tools.
+
+### How review works
+
+Every pull request has its title checked as a conventional commit and its commits and description
+checked for AI attribution. A pull request that changes only methods pages or Academy lessons
+runs, by the area map ([What CI runs](#what-ci-runs)):
+
+- **Docs:** every relative link in the Markdown leads to a file or folder that exists
+  (`.github/scripts/check-links.sh`; anchors aren't checked);
+- **Studio, on Linux:** `pnpm build`, which renders every lesson's math with KaTeX, and
+  `cargo test -p photonoxide-studio`, which checks each lesson as academy/README.md lists, that
+  every methods page is in one category of `CATEGORIES` and linked from docs/README.md, and the
+  README's counts;
+- **Lint** and **MSRV**, which build the workspace, as they do for every change that reaches an
+  area.
+
+No check reads a methods page's front matter or renders its math: review checks that its case
+ids, examples and DOIs exist and that its formulas render on GitHub. Review then reads each cited
+place in its source and compares each number with the code's output. Comments are made on the pull
+request; it is squash merged once CI is green and the sources agree.
+
+The issue forms label an issue `bug`, `enhancement` or `documentation`. The labels `method`,
+`academy`, `paper`, `fabrication`, `validation`, `studio` and `python` name the part of the
+project an issue or pull request concerns, and `good first issue` marks one suited to a first
+contribution. Questions before starting belong in
+[Discussions](https://github.com/tachsin/photonoxide/discussions); everyone taking part follows the
+[code of conduct](CODE_OF_CONDUCT.md), and a security problem is reported privately
+([SECURITY.md](SECURITY.md)).
 
 ## Pull requests
 
