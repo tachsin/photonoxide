@@ -1,6 +1,6 @@
 name: Method or process request
 description: A method, device, material or fabrication process you would like photonoxide to cover.
-labels: ["enhancement"]
+labels: ["enhancement", "method"]
 body:
   - type: textarea
     id: what

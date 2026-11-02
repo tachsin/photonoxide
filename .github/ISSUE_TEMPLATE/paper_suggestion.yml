@@ -1,6 +1,6 @@
 name: Paper suggestion
 description: A paper or book whose results photonoxide should reproduce or cite.
-labels: ["documentation"]
+labels: ["documentation", "paper"]
 body:
   - type: input
     id: ref
