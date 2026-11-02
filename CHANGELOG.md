@@ -6,6 +6,49 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.6.2](https://github.com/tachsin/photonoxide/compare/v0.6.1...v0.6.2) - 2026-11-02
+
+### <!-- 0 -->Added
+
+- *(libraries)* MUMPS 5.9.1, macOS 27.0.1, oneMKL 2026.2 and cuDSS 1.0 checked against photonoxide's solvers ([#312](https://github.com/tachsin/photonoxide/pull/312)) ([#647](https://github.com/tachsin/photonoxide/pull/647))
+- *(examples)* optimize_grating_pareto re-solves Passoni's own designs from the supplement ([#646](https://github.com/tachsin/photonoxide/pull/646))
+- *(crosscode)* the T-rail electrodes and a finer mesh for the lossy line, openEMS against photonoxide (part of the cross-code pairs) ([#645](https://github.com/tachsin/photonoxide/pull/645))
+- *(studio)* a Fabrication page on the rail, the flow from the bare wafer step by step in 2D and 3D ([#643](https://github.com/tachsin/photonoxide/pull/643))
+- *(line, device)* a line job takes the catalogue's loss tangents; the TiN heater's resistance from its film and a voltage drive (part of #595) ([#655](https://github.com/tachsin/photonoxide/pull/655))
+- *(studio)* a run's Fabrication tab, conformal films, the exposure by polarity and the animation tested (part of #622) ([#657](https://github.com/tachsin/photonoxide/pull/657))
+- *(libraries)* the release issue covers every library: crates, pnpm packages and Python requirements ([#312](https://github.com/tachsin/photonoxide/pull/312)) ([#663](https://github.com/tachsin/photonoxide/pull/663))
+- *(fabrication)* an SOI flow may start from bare silicon, its wafer made by Smart Cut (part of #622) ([#662](https://github.com/tachsin/photonoxide/pull/662))
+- *(validation)* Edwards and Lawrence's Table II as a case, its wavelengths read in air (part of #595) ([#666](https://github.com/tachsin/photonoxide/pull/666))
+- *(sweep)* a branch shows where it chose between two modes at an anticrossing (part of #595) ([#669](https://github.com/tachsin/photonoxide/pull/669))
+
+### <!-- 1 -->Fixed
+
+- *(hooks)* an agent's worktree skips the post-merge suite and lints in the shared target (<main checkout>/target/audit) ([#648](https://github.com/tachsin/photonoxide/pull/648))
+- *(nonlinear)* a ridge job's media at the task's temperature, its d tensor by Miller's rule, Zhao 2020's guide through a job as cases ([#652](https://github.com/tachsin/photonoxide/pull/652))
+- *(mode)* E_z takes its parity at a mirror wall, so a folded window's fields are the whole window's ([#654](https://github.com/tachsin/photonoxide/pull/654))
+- *(validation)* the ridge job's efficiency row reads 4160.12 since E_z's parity ([#654](https://github.com/tachsin/photonoxide/pull/654)) ([#658](https://github.com/tachsin/photonoxide/pull/658))
+- *(validation)* the adjoint checks at δ = 4e-3, measured spreads for qmr-plateau and recycle-parks-table, a measured basis for step-reflection-te, and the sweep's floor on rough samples (part of #595) ([#656](https://github.com/tachsin/photonoxide/pull/656))
+- *(hooks)* each agent worktree builds into a target folder of its own (part of #595) ([#665](https://github.com/tachsin/photonoxide/pull/665))
+- *(docs)* catalogue's backslashes restored, and the OpenMP builds of OpenBLAS checked weekly on Linux (part of #595) ([#673](https://github.com/tachsin/photonoxide/pull/673))
+- *(studio)* a nightly built in the studio installs with photonoxide's own setup, not Tauri's NSIS one ([#649](https://github.com/tachsin/photonoxide/pull/649))
+- *(native)* an OpenBLAS load runs alone, as a threaded call does; OpenMP builds held per thread by omp_set_num_threads (#557) ([#653](https://github.com/tachsin/photonoxide/pull/653))
+- *(studio)* the update check on opening goes ahead after a failed one, and every check shows how it ended ([#660](https://github.com/tachsin/photonoxide/pull/660))
+- *(ci)* bound apt-get update to three 3-minute tries and give the jobs time limits (part of #595) ([#664](https://github.com/tachsin/photonoxide/pull/664))
+
+### <!-- 2 -->Performance
+
+- *(studio)* measure page, tab and component switches in the studio's window (part of #676) ([#679](https://github.com/tachsin/photonoxide/pull/679))
+
+### <!-- 4 -->Documentation
+
+- *(brand)* light meets Rust, a new tagline, banners and descriptions ([#661](https://github.com/tachsin/photonoxide/pull/661))
+- *(contributing)* a fix that corrects a wrong result is a patch release even when numbers move ([#667](https://github.com/tachsin/photonoxide/pull/667))
+- *(community)* issue forms, a pull request template, a security policy and a code of conduct ([#672](https://github.com/tachsin/photonoxide/pull/672))
+- an index of the documentation, the front door to the methods, the Academy and the fabrication flows (part of #674) ([#675](https://github.com/tachsin/photonoxide/pull/675))
+- *(readme)* the aim, an open reference for photonic design, and the four parts on the first screen (part of #674) ([#677](https://github.com/tachsin/photonoxide/pull/677))
+- *(readme)* the job walkthrough, the build profiles and the solver badges moved, the status rows cut to one line (part of #674) ([#678](https://github.com/tachsin/photonoxide/pull/678))
+- *(contributing)* ways to contribute beyond code: a methods page, a lesson, a paper, a correction, a validation case (part of #674) ([#680](https://github.com/tachsin/photonoxide/pull/680))
+
 ## [0.6.1](https://github.com/tachsin/photonoxide/compare/v0.6.0...v0.6.1) - 2026-10-31
 
 ### <!-- 0 -->Added
