@@ -327,7 +327,7 @@ Each is a candidate example. The tolerance and grid of each are in
 
 | # | Paper | Device | Method | Objective | Published figure of merit | Model or grid | photonoxide needs |
 |---|---|---|---|---|---|---|---|
-| 1 | Bennet 2024 (code: Zenodo 10.5281/zenodo.10246032) | Bragg mirror, 20 layers (and 10), n 1.8/1.4 on n = 1.8, λ 600 nm, thicknesses in [0, 214.29 nm] | DE, QODE, QNDE, CMA, BFGS | 1 − R | quarter-wave stack 83/107 nm the best found (Fig. 7c); lowest costs about 0.015 and 0.165 *(from a plot, Fig. 6)* | transfer matrices, exact | `Multilayer::reflection` (has it); ∂R/∂d |
+| 1 | Bennet 2024 (code: Zenodo doi:10.5281/zenodo.10246032) | Bragg mirror, 20 layers (and 10), n 1.8/1.4 on n = 1.8, λ 600 nm, thicknesses in [0, 214.29 nm] | DE, QODE, QNDE, CMA, BFGS | 1 − R | quarter-wave stack 83/107 nm the best found (Fig. 7c); lowest costs about 0.015 and 0.165 *(from a plot, Fig. 6)* | transfer matrices, exact | `Multilayer::reflection` (has it); ∂R/∂d |
 | 2 | Little 1997 | maximally flat filters of 2 to 6 coupled rings | analytic synthesis | match 1/(1 + (Δω/ω_c)^{2N}) | inter-ring couplings μᵢ²/μ⁴ of Table I: 0.250; 0.125; 0.100/0.040; 0.0955/0.0295; 0.0915/0.0245/0.0179 | coupled-mode theory | the circuit solve (has it) |
 | 3 | Pai 2019; Clements 2016 | N-mode Clements mesh | Adam, Haar initialization (Eq. 9) | (1/2N)‖Û − U‖² | Haar initialization's mean sensitivity index (N + 1)/3; convergence *(from plots)* | matrix model | a mesh builder (0.8) |
 | 4 | Bogaerts 2011 | add-drop ring, lossy | (a multi-objective test) | drop at resonance against bandwidth | the analytic trade-off from Eqs. 5–8 | closed form | the circuit solve (has it) |

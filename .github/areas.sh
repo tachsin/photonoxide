@@ -276,6 +276,8 @@ ignored() {
   case "$1" in
     site/* | *.md) return 0 ;;
     .github/dependabot.yml | .github/ISSUE_TEMPLATE/* | .github/scripts/*) return 0 ;;
+    # the list of sources, which the Docs job's references check reads (docs/references.md)
+    docs/references.yaml) return 0 ;;
     # the full suite on your own machine, the hooks that start it, and the justfile's recipes
     .github/full-suite.sh | .github/hooks/* | justfile) return 0 ;;
     # the codebase report on the release PR, which its own workflow runs

@@ -8,7 +8,9 @@ made, every stated process capability with its source. The **software** pages de
 library, the Python package, the `photonoxide` program and the studio, which run the same
 methods. A page cites its sources by DOI, and what it states is checked by validation cases in
 [the validation report](validation.md): each case compares a result with an analytic solution, a
-published result or another code, within a tolerance that has a stated basis.
+published result or another code, within a tolerance that has a stated basis. The
+[references index](references.md) lists every source the project cites, with every place that
+cites it.
 
 ## Start
 
@@ -207,6 +209,11 @@ the studio and read on GitHub as ordinary Markdown.
 - [Validation report](validation.md): every case, with the value photonoxide gives, the
   reference, the tolerance and its basis. It is written by `photonoxide validate`, and CI fails
   when a case fails or the file is out of date.
+- [References](references.md): every paper, book and data set the project cites, by first
+  author, each with every place that cites it by file and line; [by citing
+  file](references-by-file.md), each page, lesson, example and source file with its sources.
+  Both are written by `photonoxide references` from [the list of sources](references.yaml), and
+  CI fails when they are out of date.
 - [Validation report: the GPU](validation-gpu.md): the GPU's cases, written before each release
   on a computer with a GPU.
 - [Cross-code comparison](cross-code.md): each solver against an established code that solves

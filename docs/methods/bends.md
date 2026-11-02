@@ -10,6 +10,7 @@ papers:
     doi: 10.1002/j.1538-7305.1971.tb02620.x
   - cite: "F. W. J. Olver et al., NIST Digital Library of Mathematical Functions, sections 10.17, 10.19, 10.41"
     doi: ""
+    ref: olver-2010
 validation:
   - mode/bend-slab-te
   - mode/bend-slab-te-loss

@@ -5,12 +5,14 @@ set -euo pipefail
 status=0
 while IFS= read -r -d '' file; do
   dir=$(dirname "$file")
-  # [text](target) and [text](target "title"); the target up to a space, ')' or '#'
+  # [text](target) and [text](target "title"); the target up to a space, ')', '?' or '#'
+  # (`?plain=1#L12` is a line of a Markdown file as GitHub shows its source)
   while IFS= read -r target; do
     case "$target" in
       ''|http://*|https://*|mailto:*|\#*) continue ;;
     esac
     path="${target%%#*}"
+    path="${path%%\?*}"
     [ -z "$path" ] && continue
     if [ "${path#/}" != "$path" ]; then
       resolved=".${path}"
