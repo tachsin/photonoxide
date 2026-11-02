@@ -33,6 +33,14 @@ export const PYTHON_REFERENCE_PATH = "/projects/photonoxide/docs/python/referenc
 export const LANGUAGES_DOCS_PATH = "/projects/photonoxide/docs/languages";
 export const CROSS_CODE_DOCS_PATH = "/projects/photonoxide/docs/cross-code";
 export const DESIGN_DOCS_PATH = "/projects/photonoxide/docs/design";
+export const DEPENDENCIES_PATH = "/projects/photonoxide/dependencies";
+
+/**
+ * The pages this folder adds to the sub-navigation after the app's registry's sections
+ * (`@/lib/projects/registry`), so a page of photonoxide's own needs no change in the app. One
+ * the registry already has isn't added twice.
+ */
+export const EXTRA_SECTIONS = [{ path: "/dependencies", title: "Dependencies" }];
 
 export const PHOTONOXIDE_DESCRIPTION =
   "photonoxide is photonics design and simulation software: a live desktop studio, a Rust library and Python bindings for materials, mode solvers, FDFD and FDTD on the CPU and GPU with adjoint gradients, circuits, active devices and nonlinear optics. Its methods pages derive each solver from the papers it implements, its Academy teaches devices and numerical methods with live charts, and its fabrication flows show how a design would be made, with cited process capabilities. Every method is validated against analytic solutions and published results. Inverse design and layout export are planned.";
@@ -56,6 +64,7 @@ export const PHOTONOXIDE_LINKS = {
   examplesDir: `https://github.com/${PHOTONOXIDE_REPO}/tree/${PHOTONOXIDE_BRANCH}/examples`,
   methodsDir: `https://github.com/${PHOTONOXIDE_REPO}/tree/${PHOTONOXIDE_BRANCH}/docs/methods`,
   report: `${BLOB}docs/validation.md`,
+  libraries: `${BLOB}docs/libraries.md`,
 };
 
 export const PHOTONOXIDE_KEYWORDS = [

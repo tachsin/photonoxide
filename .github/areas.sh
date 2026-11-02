@@ -249,7 +249,7 @@ area python \
 # its tests check the project site's static copy against the roadmap, its methods' categories
 # against docs/methods, and the README's counts against the files and the fabrication library
 area studio \
-  "studio/* academy/* docs/methods/* docs/libraries.md examples/README.md CHANGELOG.md ROADMAP.md README.md docs/README.md jobs/* tests/jobs-toml/* circuits/* site/lib/projects/photonoxide/meta.js site/lib/projects/photonoxide/methods.js" \
+  "studio/* academy/* docs/methods/* docs/libraries.md examples/README.md CHANGELOG.md ROADMAP.md README.md docs/README.md jobs/* tests/jobs-toml/* circuits/* site/lib/projects/photonoxide/meta.js site/lib/projects/photonoxide/methods.js site/lib/projects/photonoxide/dependencies/*" \
   "material sparse mode fdfd fdtd job circuit device generator compact facade bench native" \
   "" "" ""
 
@@ -275,7 +275,7 @@ ignored() {
   done
   case "$1" in
     site/* | *.md) return 0 ;;
-    .github/dependabot.yml | .github/ISSUE_TEMPLATE/* | .github/scripts/*) return 0 ;;
+    .github/ISSUE_TEMPLATE/* | .github/scripts/*) return 0 ;;
     # the list of sources, which the Docs job's references check reads (docs/references.md)
     docs/references.yaml) return 0 ;;
     # the full suite on your own machine, the hooks that start it, and the justfile's recipes

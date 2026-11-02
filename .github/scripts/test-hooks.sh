@@ -177,10 +177,6 @@ out=$(push "$tmp/elsewhere" push-elsewhere)
 check "pre-push in a normal linked worktree touches no sources" "$(fresh "$tmp/elsewhere")" stale
 check "pre-push in a normal linked worktree leaves the target alone" "$(echo "$out" | grep -c 'TARGET=unset$')" 1
 
-# --- keep-issue.sh, the Releases workflow's issue keeper, against a stand-in gh
-echo
-bash "$repo/.github/scripts/test-keep-issue.sh" || failures=$((failures + 1))
-
 echo
 if [ "$failures" -eq 0 ]; then echo "all hook checks passed"; else echo "$failures hook check(s) failed"; fi
 exit $((failures > 0))

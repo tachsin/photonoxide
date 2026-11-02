@@ -1,53 +1,20 @@
-//! Every library's newest release, beside the version we use: `photonoxide libraries
-//! --releases`, run from the repository's root.
+//! The version of each native library we use, and the releases photonoxide-native accepts:
+//! the table under "New releases" in docs/libraries.md.
 //!
-//! The Releases workflow (`.github/workflows/releases.yml`) runs it every Monday and keeps its
-//! table in one GitHub issue, "New releases of all libraries", the one place that lists every
-//! library and dependency check, in five groups and a section:
-//!
-//! - **Native libraries:** the external libraries photonoxide-native loads, at the version its
-//!   guide was checked with, with a comment in the issue when a release appears. A release is
-//!   read where its publisher puts it: anaconda.org's API for conda-forge, PyPI's JSON API,
-//!   NVIDIA's redistributables' manifests, the projects' GitHub releases, MUMPS's download page,
-//!   and the readmes of GitHub's macOS runner images for Accelerate, which is part of macOS
-//!   (Apple's own feed of macOS releases is signed by a certificate authority of Apple's that
-//!   ordinary clients don't trust). A source that can't be read is left out of the newest (a
-//!   library with none left says so).
-//! - **Rust crates, studio pnpm packages, Python requirements and GitHub Actions:** our direct
-//!   dependencies, at the versions our lockfiles and workflows have, against their registries
-//!   ([`packages`]). Their new releases change the table without a comment: Dependabot's weekly
-//!   pull request brings them, and the issue links that pull request at its top.
-//! - **Major updates:** the major versions of those dependencies that our requirements don't
-//!   take, which Dependabot leaves out, each with its release notes ([`crate::dependencies`]).
-//!
-//! Whatever couldn't be read keeps the version the issue last recorded, and the run fails after
-//! writing the issue.
-//!
-//! The issue was "New releases of external libraries" before it listed our own dependencies:
-//! `.github/scripts/keep-issue.sh --formerly` renames it, so it keeps its number and history.
-//! The issue "Major updates available" was merged into it: `--merged` closes that one.
+//! The Dependencies page on tachsin.gr (`site/lib/projects/photonoxide/dependencies/`) reads
+//! that table and sets each library's newest release beside it, read where its publisher puts
+//! it, so the version we use has one source: the guides' checks ([`GUIDES`]) and the two
+//! releases checked without an install ([`MUMPS_CHECKED`], [`ACCELERATE_CHECKED`]).
 
+#[cfg(test)]
 use std::cmp::Ordering;
-use std::collections::BTreeMap;
-use std::fmt::Write as _;
-use std::path::Path;
 
 use photonoxide_native::{mumps, nvidia, superlu};
-use serde_json::Value;
 
 use super::GUIDES;
-use crate::watch::{Fetch, Report, cell, compare, day, is_new, numbers, record};
-
-pub mod packages;
-
-use packages::Group;
-
-/// The environment variable the workflow sets to the open Dependabot dependency pull request's
-/// URL, empty when none is open.
-pub const DEPENDABOT_PR: &str = "DEPENDABOT_PR";
-
-/// The issue the workflow keeps up to date.
-pub const ISSUE_TITLE: &str = "New releases of all libraries";
+use crate::watch::compare;
+#[cfg(test)]
+use crate::watch::numbers;
 
 /// The macOS of the newest image the Libraries workflow runs Accelerate's tests on, as its
 /// `sw_vers` gives it (`xcode-27`, GitHub's macOS 27 preview, image xcode-27-arm64, in
@@ -75,46 +42,11 @@ NVIDIA's): the backend's tests (`cargo test -p photonoxide-native --release --te
 with `PHOTONOXIDE_REQUIRE_<LIBRARY>` set where the test has one) and the benchmark's problems \
 (`photonoxide bench --tier standard --backends <backend>`), whose answers are checked.
 5. **Then record it:** its `Checked` entries in `studio/src-tauri/src/libraries.rs`, and \
-`photonoxide libraries --write docs/libraries.md`. Only then do the guides call it checked.
+`photonoxide libraries --write docs/libraries.md`. Only then do the guides call it checked, \
+and the Dependencies page takes it as the version we use.
 ";
 
-/// Where a library's newest release is read.
-#[derive(Clone, Copy, Debug)]
-pub enum Origin {
-    /// A conda-forge package, from anaconda.org's API: the newest version on its main label.
-    Conda(&'static str),
-    /// A package on PyPI, from its JSON API: its newest release.
-    PyPi(&'static str),
-    /// A GitHub repository's latest release (`owner/name`).
-    GitHub(&'static str),
-    /// NVIDIA's redistributables: the newest manifest (`redistrib_<release>.json`) of a
-    /// product, and one component's version in it.
-    Nvidia {
-        product: &'static str,
-        component: &'static str,
-        name: &'static str,
-    },
-    /// MUMPS's download page, its table of releases.
-    Mumps,
-    /// The macOS of GitHub's runner images, from their readmes.
-    MacosRunners,
-}
-
-impl Origin {
-    /// A short name, which with the library's names the row.
-    pub fn name(&self) -> String {
-        match self {
-            Origin::Conda(p) => format!("conda-forge {p}"),
-            Origin::PyPi(p) => format!("PyPI {p}"),
-            Origin::GitHub(repo) => format!("GitHub {repo}"),
-            Origin::Nvidia { name, .. } => format!("NVIDIA's {name} redistributables"),
-            Origin::Mumps => "mumps-solver.org".into(),
-            Origin::MacosRunners => "GitHub's macOS runners".into(),
-        }
-    }
-}
-
-/// The version a source is compared with.
+/// Where a library's version we use comes from.
 #[derive(Clone, Copy, Debug)]
 pub enum Baseline {
     /// The newest version of these packages that the guide's checks installed: with one
@@ -127,47 +59,6 @@ pub enum Baseline {
     /// from its source.
     Stated(&'static str),
 }
-
-/// A release's notes.
-#[derive(Clone, Copy, Debug)]
-pub enum Notes {
-    /// One page for every release, and what to call it.
-    Page(&'static str, &'static str),
-    /// A GitHub repository's release of the version, by its tag `v<version>`.
-    GitHubTag(&'static str),
-}
-
-/// One place a library's newest release is read.
-#[derive(Clone, Copy, Debug)]
-pub struct Source {
-    /// The library, as its guide names it.
-    pub library: &'static str,
-    pub origin: Origin,
-    pub baseline: Baseline,
-    pub notes: Notes,
-}
-
-const INTEL_NOTES: Notes = Notes::Page(
-    "Intel's release notes",
-    "https://www.intel.com/content/www/us/en/developer/articles/release-notes/onemkl-release-notes.html",
-);
-const CUDA_NOTES: Notes = Notes::Page(
-    "the CUDA toolkit's release notes",
-    "https://docs.nvidia.com/cuda/cuda-toolkit-release-notes/index.html",
-);
-const CUDSS_NOTES: Notes = Notes::Page(
-    "cuDSS's release notes",
-    "https://docs.nvidia.com/cuda/cudss/release_notes.html",
-);
-const MUMPS_PAGE: &str = "https://mumps-solver.org/index.php?page=dwnld";
-const MUMPS_NOTES: Notes = Notes::Page(
-    "MUMPS's changelog",
-    "https://mumps-solver.org/index.php?page=dwnld#cl",
-);
-const MACOS_NOTES: Notes = Notes::Page(
-    "Apple's macOS release notes",
-    "https://developer.apple.com/documentation/macos-release-notes",
-);
 
 const fn guide(manager: &'static str, packages: &'static [&'static str]) -> Baseline {
     Baseline::Guide {
@@ -183,155 +74,31 @@ const fn any(packages: &'static [&'static str]) -> Baseline {
     }
 }
 
-/// Every place a release is read, the library's publisher first where it publishes one
-/// readably, then each package manager the guides install with (apt's packages are fixed for
-/// each Ubuntu release, and winget's index is checked by the Libraries workflow).
-pub const SOURCES: &[Source] = &[
-    // Intel publishes the PyPI wheel itself
-    Source {
-        library: "oneMKL",
-        origin: Origin::PyPi("mkl"),
-        baseline: guide("pip", &["mkl"]),
-        notes: INTEL_NOTES,
-    },
-    Source {
-        library: "oneMKL",
-        origin: Origin::Conda("mkl"),
-        baseline: guide("conda-forge", &["mkl"]),
-        notes: INTEL_NOTES,
-    },
-    Source {
-        library: "CUDA runtime",
-        origin: Origin::Nvidia {
-            product: "cuda",
-            component: "cuda_cudart",
-            name: "CUDA",
-        },
-        baseline: any(&["cuda-cudart", "nvidia-cuda-runtime"]),
-        notes: CUDA_NOTES,
-    },
-    Source {
-        library: "CUDA runtime",
-        origin: Origin::Conda("cuda-cudart"),
-        baseline: guide("conda-forge", &["cuda-cudart"]),
-        notes: CUDA_NOTES,
-    },
-    Source {
-        library: "CUDA runtime",
-        origin: Origin::PyPi("nvidia-cuda-runtime"),
-        baseline: guide("pip", &["nvidia-cuda-runtime"]),
-        notes: CUDA_NOTES,
-    },
-    Source {
-        library: "cuSPARSE",
-        origin: Origin::Nvidia {
-            product: "cuda",
-            component: "libcusparse",
-            name: "CUDA",
-        },
-        baseline: any(&["libcusparse", "nvidia-cusparse"]),
-        notes: CUDA_NOTES,
-    },
-    Source {
-        library: "cuSPARSE",
-        origin: Origin::Conda("libcusparse"),
-        baseline: guide("conda-forge", &["libcusparse"]),
-        notes: CUDA_NOTES,
-    },
-    Source {
-        library: "cuSPARSE",
-        origin: Origin::PyPi("nvidia-cusparse"),
-        baseline: guide("pip", &["nvidia-cusparse"]),
-        notes: CUDA_NOTES,
-    },
-    Source {
-        library: "cuDSS",
-        origin: Origin::Nvidia {
-            product: "cudss",
-            component: "libcudss",
-            name: "cuDSS",
-        },
-        baseline: any(&["libcudss", "nvidia-cudss-cu13"]),
-        notes: CUDSS_NOTES,
-    },
-    Source {
-        library: "cuDSS",
-        origin: Origin::Conda("libcudss"),
-        baseline: guide("conda-forge", &["libcudss"]),
-        notes: CUDSS_NOTES,
-    },
-    Source {
-        library: "cuDSS",
-        origin: Origin::PyPi("nvidia-cudss-cu13"),
-        baseline: guide("pip", &["nvidia-cudss-cu13"]),
-        notes: CUDSS_NOTES,
-    },
-    Source {
-        library: "MUMPS",
-        origin: Origin::Mumps,
-        baseline: Baseline::Stated(MUMPS_CHECKED),
-        notes: MUMPS_NOTES,
-    },
-    Source {
-        library: "MUMPS",
-        origin: Origin::Conda("mumps-seq"),
-        baseline: guide("conda-forge", &["mumps-seq"]),
-        notes: MUMPS_NOTES,
-    },
-    Source {
-        library: "SuperLU",
-        origin: Origin::GitHub("xiaoyeli/superlu"),
-        baseline: any(&["superlu", "libsuperlu-dev"]),
-        notes: Notes::GitHubTag("xiaoyeli/superlu"),
-    },
-    Source {
-        library: "SuperLU",
-        origin: Origin::Conda("superlu"),
-        baseline: guide("conda-forge", &["superlu"]),
-        notes: Notes::GitHubTag("xiaoyeli/superlu"),
-    },
-    Source {
-        library: "OpenBLAS",
-        origin: Origin::GitHub("OpenMathLib/OpenBLAS"),
-        baseline: any(&["openblas", "libopenblas-dev"]),
-        notes: Notes::GitHubTag("OpenMathLib/OpenBLAS"),
-    },
-    Source {
-        library: "OpenBLAS",
-        origin: Origin::Conda("openblas"),
-        baseline: guide("conda-forge", &["openblas"]),
-        notes: Notes::GitHubTag("OpenMathLib/OpenBLAS"),
-    },
-    Source {
-        library: "Accelerate",
-        origin: Origin::MacosRunners,
-        baseline: Baseline::Stated(ACCELERATE_CHECKED),
-        notes: MACOS_NOTES,
-    },
-    Source {
-        library: "HDF5",
-        origin: Origin::GitHub("HDFGroup/hdf5"),
-        baseline: any(&["hdf5", "libhdf5-dev"]),
-        notes: Notes::GitHubTag("HDFGroup/hdf5"),
-    },
-    Source {
-        library: "HDF5",
-        origin: Origin::Conda("hdf5"),
-        baseline: guide("conda-forge", &["hdf5"]),
-        notes: Notes::GitHubTag("HDFGroup/hdf5"),
-    },
-    Source {
-        library: "Zstandard",
-        origin: Origin::GitHub("facebook/zstd"),
-        baseline: any(&["zstd", "libzstd1"]),
-        notes: Notes::GitHubTag("facebook/zstd"),
-    },
-    Source {
-        library: "Zstandard",
-        origin: Origin::Conda("zstd"),
-        baseline: guide("conda-forge", &["zstd"]),
-        notes: Notes::GitHubTag("facebook/zstd"),
-    },
+/// Each native library, in the guides' order, and where the version we use comes from: the
+/// newest of these.
+pub const CHECKED: &[(&str, &[Baseline])] = &[
+    (
+        "oneMKL",
+        &[guide("pip", &["mkl"]), guide("conda-forge", &["mkl"])],
+    ),
+    (
+        "CUDA runtime",
+        &[any(&["cuda-cudart", "nvidia-cuda-runtime"])],
+    ),
+    ("cuSPARSE", &[any(&["libcusparse", "nvidia-cusparse"])]),
+    ("cuDSS", &[any(&["libcudss", "nvidia-cudss-cu13"])]),
+    (
+        "MUMPS",
+        &[
+            Baseline::Stated(MUMPS_CHECKED),
+            guide("conda-forge", &["mumps-seq"]),
+        ],
+    ),
+    ("SuperLU", &[any(&["superlu", "libsuperlu-dev"])]),
+    ("OpenBLAS", &[any(&["openblas", "libopenblas-dev"])]),
+    ("Accelerate", &[Baseline::Stated(ACCELERATE_CHECKED)]),
+    ("HDF5", &[any(&["hdf5", "libhdf5-dev"])]),
+    ("Zstandard", &[any(&["zstd", "libzstd1"])]),
 ];
 
 /// The releases photonoxide-native accepts of a library.
@@ -353,6 +120,8 @@ pub struct Range {
 }
 
 impl Range {
+    /// Whether it takes `version`: what the tests check the ranges by.
+    #[cfg(test)]
     pub fn contains(&self, version: &str) -> bool {
         match &self.accepts {
             Accepts::Releases(known) => {
@@ -437,14 +206,14 @@ pub fn range(library: &str) -> Option<Range> {
     })
 }
 
-/// The version a source is compared with: the newest its guide's checks installed, or the one
-/// stated.
-pub fn baseline(source: &Source) -> Option<String> {
-    let (manager, packages) = match source.baseline {
-        Baseline::Stated(v) => return Some(v.to_owned()),
+/// The version one baseline gives `library`: the newest its guide's checks installed, or the
+/// one stated.
+fn baseline(library: &str, b: &Baseline) -> Option<String> {
+    let (manager, packages) = match b {
+        Baseline::Stated(v) => return Some((*v).to_owned()),
         Baseline::Guide { manager, packages } => (manager, packages),
     };
-    let guide = GUIDES.iter().find(|g| g.library == source.library)?;
+    let guide = GUIDES.iter().find(|g| g.library == library)?;
     guide
         .installs
         .iter()
@@ -457,631 +226,39 @@ pub fn baseline(source: &Source) -> Option<String> {
         .map(str::to_owned)
 }
 
+/// The version we use of `library`: the newest of its baselines.
+pub fn uses(library: &str) -> Option<String> {
+    let (_, baselines) = CHECKED.iter().find(|(l, _)| *l == library)?;
+    baselines
+        .iter()
+        .filter_map(|b| baseline(library, b))
+        .max_by(|a, b| compare(a, b))
+}
+
 /// A check's `installed`, as packages and their versions: `mumps-seq 5.8.2, mkl 2026.1.0`.
 fn installed(text: &str) -> impl Iterator<Item = (&str, &str)> {
     text.split(", ").filter_map(|p| p.trim().split_once(' '))
 }
 
-/// A release as its source gives it.
-#[derive(Clone, Debug, PartialEq)]
-pub struct Release {
-    pub version: String,
-    /// As `2026-09-16`, or `2026-07` where only the month is given.
-    pub date: String,
-    /// Where it came from, when the source says: a CUDA release, a runner image.
-    pub label: Option<String>,
-    /// Its notes' page, when the source gives one.
-    pub notes: Option<String>,
-}
-
-/// anaconda.org's package: the newest version on the main label and not marked broken, and its
-/// first upload.
-fn conda(package: &Value) -> Result<Release, String> {
-    let files = package["files"]
-        .as_array()
-        .ok_or("anaconda.org's answer has no files")?;
-    let mut first: BTreeMap<String, String> = BTreeMap::new();
-    for f in files {
-        // a build conda-forge marked broken keeps its main label on anaconda.org, and conda
-        // doesn't install it (mkl 2026.2.0, 2026-10-22)
-        let main = f["labels"]
-            .as_array()
-            .is_some_and(|l| l.iter().any(|l| l == "main") && !l.iter().any(|l| l == "broken"));
-        let (Some(v), Some(t)) = (f["version"].as_str(), f["upload_time"].as_str()) else {
-            continue;
-        };
-        if !main {
-            continue;
-        }
-        let t = day(t).unwrap_or_default();
-        let e = first.entry(v.to_owned()).or_insert_with(|| t.clone());
-        if t < *e {
-            *e = t;
-        }
+/// docs/libraries.md's table: each library, the version we use and what photonoxide-native
+/// accepts. The Dependencies page reads it, by its heading and its columns.
+pub fn table() -> String {
+    let mut out =
+        String::from("| Library | We use | photonoxide-native accepts |\n|---|---|---|\n");
+    for (library, _) in CHECKED {
+        let uses = uses(library).unwrap_or_else(|| "—".into());
+        let accepts = range(library).map_or_else(|| "—".into(), |r| r.describe());
+        out.push_str(&format!(
+            "| {library} | {uses} | {} |\n",
+            accepts.replace('|', "\\|")
+        ));
     }
-    let (version, date) = first
-        .into_iter()
-        .max_by(|a, b| compare(&a.0, &b.0))
-        .ok_or("no version on conda-forge's main label")?;
-    Ok(Release {
-        version,
-        date,
-        label: None,
-        notes: None,
-    })
-}
-
-/// PyPI's project: its newest release, and the first upload of it.
-fn pypi(project: &Value) -> Result<Release, String> {
-    let version = project["info"]["version"]
-        .as_str()
-        .ok_or("PyPI's answer has no version")?;
-    let date = project["releases"][version]
-        .as_array()
-        .into_iter()
-        .flatten()
-        .filter_map(|f| f["upload_time_iso_8601"].as_str().and_then(day))
-        .min()
-        .unwrap_or_default();
-    Ok(Release {
-        version: version.to_owned(),
-        date,
-        label: None,
-        notes: None,
-    })
-}
-
-/// GitHub's latest release.
-fn github(release: &Value) -> Result<Release, String> {
-    let tag = release["tag_name"]
-        .as_str()
-        .ok_or("GitHub's answer has no tag")?;
-    Ok(Release {
-        version: tag.trim_start_matches(['v', 'V']).to_owned(),
-        date: release["published_at"]
-            .as_str()
-            .and_then(day)
-            .unwrap_or_default(),
-        label: None,
-        notes: release["html_url"].as_str().map(str::to_owned),
-    })
-}
-
-/// The newest manifest named in a directory's listing: `redistrib_13.4.2.json`.
-fn newest_manifest(listing: &str) -> Option<String> {
-    listing
-        .split("redistrib_")
-        .skip(1)
-        .filter_map(|rest| rest.split_once(".json").map(|(v, _)| v))
-        .filter(|v| !v.is_empty() && v.bytes().all(|b| b.is_ascii_digit() || b == b'.'))
-        .max_by(|a, b| compare(a, b))
-        .map(str::to_owned)
-}
-
-/// A component's version in an NVIDIA manifest, and the manifest's release.
-fn nvidia_release(manifest: &Value, component: &str, name: &str) -> Result<Release, String> {
-    let version = manifest[component]["version"]
-        .as_str()
-        .ok_or_else(|| format!("the manifest has no {component}"))?;
-    Ok(Release {
-        version: version.to_owned(),
-        date: manifest["release_date"]
-            .as_str()
-            .unwrap_or_default()
-            .to_owned(),
-        label: manifest["release_label"]
-            .as_str()
-            .map(|l| format!("{name} {l}")),
-        notes: None,
-    })
-}
-
-const MONTHS: [&str; 12] = [
-    "January",
-    "February",
-    "March",
-    "April",
-    "May",
-    "June",
-    "July",
-    "August",
-    "September",
-    "October",
-    "November",
-    "December",
-];
-
-/// `July 2026` as `2026-07`.
-fn month(text: &str) -> Option<String> {
-    let mut words = text.split_whitespace();
-    let m = words.next()?;
-    let year: u32 = words.next()?.parse().ok()?;
-    let n = MONTHS.iter().position(|x| x.eq_ignore_ascii_case(m))? + 1;
-    Some(format!("{year}-{n:02}"))
-}
-
-/// MUMPS's download page: its table's newest release (`<td>Release 5.9.1</td><td>: July
-/// 2026`).
-fn mumps_release(page: &str) -> Result<Release, String> {
-    page.split("Release ")
-        .skip(1)
-        .filter_map(|rest| {
-            let version = rest.split(['<', ' ', '\n']).next()?;
-            if numbers(version).len() != 3 {
-                return None;
-            }
-            // the date, after the colon in the next cell
-            let after = rest.split_once(':')?.1;
-            let date = month(after.split('<').next()?.trim())?;
-            Some((version.to_owned(), date))
-        })
-        .max_by(|a, b| compare(&a.0, &b.0))
-        .map(|(version, date)| Release {
-            version,
-            date,
-            label: None,
-            notes: None,
-        })
-        .ok_or_else(|| "MUMPS's page has no table of releases".to_owned())
-}
-
-/// A runner image's readme: its macOS (`- OS Version: macOS 27.0.1 (26A434)`) and the day it
-/// was built (`- Image Version: 20261006.0244.1`).
-fn runner_macos(readme: &str) -> Option<(String, String)> {
-    let line = |key: &str| {
-        readme
-            .lines()
-            .find_map(|l| l.trim().strip_prefix(key).map(str::trim))
-    };
-    let os = line("- OS Version:")?
-        .trim_start_matches("macOS")
-        .split_whitespace()
-        .next()?
-        .to_owned();
-    let image = line("- Image Version:")?;
-    let date = match image.get(..8) {
-        Some(d) if d.bytes().all(|b| b.is_ascii_digit()) => {
-            format!("{}-{}-{}", &d[..4], &d[4..6], &d[6..])
-        }
-        _ => String::new(),
-    };
-    Some((os, date))
-}
-
-const RUNNER_IMAGES: &str =
-    "https://api.github.com/repos/actions/runner-images/contents/images/macos";
-
-/// The newest release `source` reads.
-fn newest(fetch: &mut Fetch, source: &Source) -> Result<Release, String> {
-    match source.origin {
-        Origin::Conda(p) => {
-            conda(&fetch.json(&format!("https://api.anaconda.org/package/conda-forge/{p}"))?)
-        }
-        Origin::PyPi(p) => pypi(&fetch.json(&format!("https://pypi.org/pypi/{p}/json"))?),
-        Origin::GitHub(repo) => github(&fetch.json(&format!(
-            "https://api.github.com/repos/{repo}/releases/latest"
-        ))?),
-        Origin::Nvidia {
-            product,
-            component,
-            name,
-        } => {
-            let base = format!("https://developer.download.nvidia.com/compute/{product}/redist/");
-            let release = newest_manifest(&fetch.text(&base)?)
-                .ok_or_else(|| format!("{base}: no manifest listed"))?;
-            let manifest = fetch.json(&format!("{base}redistrib_{release}.json"))?;
-            nvidia_release(&manifest, component, name)
-        }
-        Origin::Mumps => mumps_release(&fetch.text(MUMPS_PAGE)?),
-        Origin::MacosRunners => {
-            let listing = fetch.json(RUNNER_IMAGES)?;
-            let mut best: Option<Release> = None;
-            for entry in listing
-                .as_array()
-                .ok_or("the images' listing isn't a list")?
-            {
-                let (Some(name), Some(url)) =
-                    (entry["name"].as_str(), entry["download_url"].as_str())
-                else {
-                    continue;
-                };
-                let Some(image) = name.strip_suffix("-Readme.md") else {
-                    continue;
-                };
-                let Some((os, date)) = runner_macos(&fetch.text(url)?) else {
-                    continue;
-                };
-                let newer = best.as_ref().is_none_or(|b| {
-                    compare(&os, &b.version)
-                        .then_with(|| date.cmp(&b.date))
-                        .is_gt()
-                });
-                if newer {
-                    best = Some(Release {
-                        version: os,
-                        date,
-                        label: Some(format!("image {image}")),
-                        notes: None,
-                    });
-                }
-            }
-            best.ok_or_else(|| "no macOS runner image's readme reads".to_owned())
-        }
-    }
-}
-
-/// One source's row: what it was checked with, what it has now, and what photonoxide-native
-/// accepts.
-#[derive(Clone, Debug)]
-pub struct Row {
-    pub source: &'static Source,
-    pub checked: Option<String>,
-    pub newest: Result<Release, String>,
-    pub range: Option<Range>,
-}
-
-impl Row {
-    /// The row's name, as the issue keeps it from one week to the next.
-    pub fn key(&self) -> String {
-        format!("{} | {}", self.source.library, self.source.origin.name())
-    }
-
-    /// Whether photonoxide-native accepts the newest release.
-    pub fn accepted(&self) -> Option<bool> {
-        let r = self.newest.as_ref().ok()?;
-        Some(self.range.as_ref()?.contains(&r.version))
-    }
-
-    fn notes(&self) -> Option<(String, String)> {
-        let r = self.newest.as_ref().ok()?;
-        Some(match self.source.notes {
-            Notes::Page(name, url) => (name.to_owned(), url.to_owned()),
-            Notes::GitHubTag(repo) => (
-                format!("v{}", r.version),
-                r.notes.clone().unwrap_or_else(|| {
-                    format!("https://github.com/{repo}/releases/tag/v{}", r.version)
-                }),
-            ),
-        })
-    }
-
-    /// The newest release in words: `MUMPS 5.9.1 (mumps-solver.org, 2026-07)`.
-    fn named(&self) -> String {
-        match &self.newest {
-            Ok(r) => format!(
-                "{} {}{} ({}, {})",
-                if self.source.library == "Accelerate" {
-                    "macOS"
-                } else {
-                    self.source.library
-                },
-                r.version,
-                r.label
-                    .as_ref()
-                    .map(|l| format!(", {l}"))
-                    .unwrap_or_default(),
-                self.source.origin.name(),
-                r.date
-            ),
-            Err(_) => self.key(),
-        }
-    }
-}
-
-/// Reads every source.
-pub fn rows(fetch: &mut Fetch) -> Vec<Row> {
-    SOURCES
-        .iter()
-        .map(|s| Row {
-            source: s,
-            checked: baseline(s),
-            newest: newest(fetch, s),
-            range: range(s.library),
-        })
-        .collect()
-}
-
-/// The rows whose newest release differs from what `previous` recorded: none when nothing
-/// was recorded, as on the issue's first run.
-pub fn news<'a>(rows: &'a [Row], previous: Option<&BTreeMap<String, String>>) -> Vec<&'a Row> {
-    rows.iter()
-        .filter(|r| {
-            r.newest
-                .as_ref()
-                .is_ok_and(|n| is_new(previous, &r.key(), &n.version))
-        })
-        .collect()
-}
-
-/// One library's line in the issue: the version we use and the newest release.
-#[derive(Clone, Debug, PartialEq)]
-pub struct Line {
-    pub library: &'static str,
-    /// The highest version the guides were checked with, over the library's sources.
-    pub uses: Option<String>,
-    /// The highest newest release over the library's sources; none when none could be read.
-    pub newest: Option<String>,
-}
-
-impl Line {
-    /// Whether the newest release is newer than the one we use.
-    pub fn newer(&self) -> bool {
-        match (&self.newest, &self.uses) {
-            (Some(n), Some(u)) => compare(n, u).is_gt(),
-            (Some(_), None) => true,
-            _ => false,
-        }
-    }
-}
-
-/// The highest of some versions.
-fn highest<'a>(versions: impl Iterator<Item = &'a String>) -> Option<String> {
-    versions.max_by(|a, b| compare(a, b)).cloned()
-}
-
-/// One line for each library, in the order its first source appears.
-pub fn lines(rows: &[Row]) -> Vec<Line> {
-    let mut libraries: Vec<&'static str> = Vec::new();
-    for r in rows {
-        if !libraries.contains(&r.source.library) {
-            libraries.push(r.source.library);
-        }
-    }
-    libraries
-        .into_iter()
-        .map(|library| {
-            let of = || rows.iter().filter(move |r| r.source.library == library);
-            Line {
-                library,
-                uses: highest(of().filter_map(|r| r.checked.as_ref())),
-                newest: highest(of().filter_map(|r| r.newest.as_ref().ok().map(|n| &n.version))),
-            }
-        })
-        .collect()
-}
-
-/// The line at the top of the issue about Dependabot's pull request: `url` is the open pull
-/// request that adopts the minor and patch updates, empty when none is open.
-fn dependabot_line(url: &str) -> String {
-    let url = url.trim();
-    if url.is_empty() {
-        return "Dependabot's pull request for the minor and patch updates: none open.\n".into();
-    }
-    let number = url.rsplit('/').next().unwrap_or(url);
-    format!("Dependabot's pull request for the minor and patch updates: [#{number}]({url}).\n")
-}
-
-/// The issue's body: the record of the newest versions, and one line for each library with the
-/// version we use and the newest release, in bold when it is newer: the native libraries, then
-/// our own dependencies by their registries, then the major versions they leave out
-/// (`majors`, [`crate::dependencies::section`]). `dependabot` is its open pull request's URL,
-/// empty when none is open, and `None` when it wasn't asked.
-pub fn body(
-    rows: &[Row],
-    packages: &[packages::Row],
-    majors: &str,
-    dependabot: Option<&str>,
-    previous: Option<&BTreeMap<String, String>>,
-    today: &str,
-) -> String {
-    // a source that couldn't be read keeps what it had, so its return isn't news
-    let mut kept: Vec<(String, String)> = rows
-        .iter()
-        .filter_map(|r| {
-            let v = match &r.newest {
-                Ok(n) => Some(n.version.clone()),
-                Err(_) => previous.and_then(|p| p.get(&r.key()).cloned()),
-            };
-            v.map(|v| (r.key(), v))
-        })
-        .collect();
-    kept.extend(packages::kept(packages, previous));
-    let mut out = record(kept.iter().map(|(k, v)| (k.clone(), v.as_str())));
-    let count = |g: Group| packages.iter().filter(|r| r.package.group == g).count();
-    let _ = writeln!(
-        out,
-        "Every library and dependency photonoxide checks, beside its newest release, read on \
-         {today}: the {} native libraries photonoxide-native loads, at the version its install \
-         guide was checked with ([docs/libraries.md](https://github.com/tachsin/photonoxide/blob/main/docs/libraries.md#new-releases)), \
-         and our direct dependencies: {} Rust crates (every workspace member's, dev and build \
-         ones too, at Cargo.lock's versions, against crates.io's index), {} studio pnpm \
-         packages (studio/package.json's, at pnpm-lock.yaml's versions, against the npm \
-         registry), {} Python requirements (python/pyproject.toml's, as written, against PyPI) \
-         and {} GitHub Actions (the workflows' tags, against their latest releases). Their own \
-         dependencies aren't listed.
-",
-        lines(rows).len(),
-        count(Group::Crates),
-        count(Group::Pnpm),
-        count(Group::Python),
-        count(Group::Actions),
-    );
-    if let Some(url) = dependabot {
-        let _ = writeln!(out, "{}", dependabot_line(url));
-    }
-    out.push_str(
-        "**Bold:** a newer release than the one we use; for a Python requirement, a release it \
-         doesn't take; for an action, a release past the numbers of its tag (`v7` takes every \
-         7.x.y). A pre-release is never bold.
-
-This is the one issue that lists every library and dependency check. Dependabot's weekly \
-pull request (`.github/dependabot.yml`) still adopts the crates', npm packages', Python \
-requirements' and GitHub Actions' minor and patch updates; the major versions it leaves out \
-are under Major updates below. The Releases workflow (`.github/workflows/releases.yml`) \
-rewrites this every Monday with `photonoxide libraries --releases`, and comments here when a \
-native library has a new release.
-
-",
-    );
-    out.push_str(
-        "### Native libraries
-
-| Library | We use | Newest |
-|---|---|---|
-",
-    );
-    for line in lines(rows) {
-        let name = if line.library == "Accelerate" {
-            "Accelerate (macOS)"
-        } else {
-            line.library
-        };
-        let uses = line.uses.clone().unwrap_or_else(|| "—".into());
-        let newest = match &line.newest {
-            Some(n) if line.newer() => format!("**{n}**"),
-            Some(n) => n.clone(),
-            None => "couldn't be read".into(),
-        };
-        let _ = writeln!(
-            out,
-            "| {} | {} | {} |",
-            cell(name),
-            cell(&uses),
-            cell(&newest)
-        );
-    }
-    out.push('\n');
-    for group in Group::ALL {
-        packages::table(&mut out, group, packages, previous, today);
-    }
-    out.push_str(majors);
     out
-}
-
-/// The comment for what appeared since the last run.
-pub fn comment(new: &[&Row]) -> String {
-    let mut out = String::from("New since the last check:\n\n");
-    for r in new {
-        let notes = r
-            .notes()
-            .map(|(name, url)| format!(": [{name}]({url})"))
-            .unwrap_or_default();
-        let accepted = match (r.accepted(), &r.range) {
-            (Some(false), Some(range)) => format!(
-                "; photonoxide-native doesn't accept it yet ({})",
-                range.describe()
-            ),
-            _ => String::new(),
-        };
-        let _ = writeln!(out, "- {}{notes}{accepted}", r.named());
-    }
-    out.push_str(
-        "\nThe issue's table is up to date, with what to do with a new release under it.\n",
-    );
-    out
-}
-
-/// `photonoxide libraries --releases [--previous <file>] [--write <file>] [--news <file>]`,
-/// from the repository's root: reads every source and registry and writes the issue's body, and
-/// the comment on the native libraries' releases new since `--previous` (an earlier body).
-/// `DEPENDABOT_PR` (the workflow sets it) is the URL of Dependabot's open pull request, empty
-/// when none is open. Fails, after writing, when something couldn't be read.
-pub fn run(args: &[String]) -> std::process::ExitCode {
-    let ours = match packages::packages(Path::new(".")) {
-        Ok(p) => p,
-        Err(e) => {
-            return crate::fail(format!(
-                "{e} (photonoxide libraries --releases runs from the repository's root)"
-            ));
-        }
-    };
-    let majors = match crate::dependencies::dependencies(Path::new(".")) {
-        Ok(d) => d,
-        Err(e) => {
-            return crate::fail(format!(
-                "{e} (photonoxide libraries --releases runs from the repository's root)"
-            ));
-        }
-    };
-    let dependabot = std::env::var(DEPENDABOT_PR).ok();
-    crate::watch::run(args, |fetch, previous, today| {
-        let rows = rows(fetch);
-        let ours = packages::rows(fetch, ours);
-        // every URL is read once: the registries answered for the groups answer here too
-        let majors = crate::dependencies::rows(fetch, majors);
-        let new = news(&rows, previous);
-        let mut failures: Vec<String> = rows
-            .iter()
-            .filter_map(|r| r.newest.as_ref().err().map(|e| format!("{}: {e}", r.key())))
-            .collect();
-        failures.extend(ours.iter().filter_map(|r| {
-            r.newest
-                .as_ref()
-                .err()
-                .map(|e| format!("{}: {e}", r.package.key()))
-        }));
-        // a dependency only the majors' reading failed on (its date, say) is another failure
-        let unread: std::collections::BTreeSet<String> = ours
-            .iter()
-            .filter(|r| r.newest.is_err())
-            .map(|r| r.package.dependency_key())
-            .collect();
-        failures.extend(
-            majors
-                .iter()
-                .filter(|r| !unread.contains(&r.dependency.key()))
-                .filter_map(|r| {
-                    r.newest
-                        .as_ref()
-                        .err()
-                        .map(|e| format!("{}: {e}", r.dependency.key()))
-                }),
-        );
-        Report {
-            body: body(
-                &rows,
-                &ours,
-                &crate::dependencies::section(&majors, &unread),
-                dependabot.as_deref(),
-                previous,
-                today,
-            ),
-            news: (!new.is_empty()).then(|| comment(&new)),
-            failures,
-        }
-    })
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::channels::github::{Http, Response};
-    use crate::watch::recorded;
-    use std::path::Path;
-
-    /// Answers from canned bodies by URL, and counts the requests.
-    struct Canned {
-        answers: Vec<(String, u16, String)>,
-        asked: std::sync::Mutex<Vec<String>>,
-    }
-
-    impl Http for Canned {
-        fn get(&self, url: &str, headers: &[(&str, &str)]) -> Result<Response, String> {
-            self.asked.lock().unwrap().push(url.to_owned());
-            if !url.starts_with("https://api.github.com/") {
-                assert!(headers.iter().all(|(k, _)| *k != "Authorization"), "{url}");
-            }
-            self.answers
-                .iter()
-                .find(|(u, _, _)| u == url)
-                .map(|(_, status, body)| Response {
-                    status: *status,
-                    headers: Vec::new(),
-                    body: body.clone().into_bytes(),
-                })
-                .ok_or_else(|| format!("{url}: unreachable"))
-        }
-
-        fn download(
-            &self,
-            _: &str,
-            _: &Path,
-            _: &mut dyn FnMut(u64, Option<u64>),
-            _: &dyn Fn() -> bool,
-        ) -> Result<(), String> {
-            unreachable!()
-        }
-    }
 
     #[test]
     fn the_ranges_are_photonoxide_natives() {
@@ -1109,64 +286,38 @@ mod tests {
         let accelerate = range("Accelerate").unwrap();
         assert!(accelerate.contains("27.0.1") && accelerate.contains("15.5"));
         assert!(!accelerate.contains("15.4") && !accelerate.contains("14.7.6"));
-        // every source's library has a range, and a guide
-        for s in SOURCES {
-            assert!(range(s.library).is_some(), "{}", s.library);
-            assert!(
-                GUIDES.iter().any(|g| g.library == s.library),
-                "{}",
-                s.library
-            );
+        // every library has a range, and a guide
+        for (library, _) in CHECKED {
+            assert!(range(library).is_some(), "{library}");
+            assert!(GUIDES.iter().any(|g| g.library == *library), "{library}");
         }
     }
 
     #[test]
-    fn the_checked_versions_are_the_guides() {
-        let of = |library: &str, origin: &str| {
-            let s = SOURCES
-                .iter()
-                .find(|s| s.library == library && s.origin.name() == origin)
-                .unwrap();
-            baseline(s)
-        };
-        assert_eq!(of("oneMKL", "conda-forge mkl").as_deref(), Some("2026.1.0"));
-        assert_eq!(of("oneMKL", "PyPI mkl").as_deref(), Some("2026.2.0"));
-        // MUMPS's own release, built from its source; conda-forge's package, its own
-        assert_eq!(of("MUMPS", "mumps-solver.org").as_deref(), Some("5.9.1"));
-        assert_eq!(
-            of("MUMPS", "conda-forge mumps-seq").as_deref(),
-            Some("5.8.2")
-        );
-        assert_eq!(
-            of("SuperLU", "GitHub xiaoyeli/superlu").as_deref(),
-            Some("7.0.1")
-        );
-        assert_eq!(
-            of("CUDA runtime", "NVIDIA's CUDA redistributables").as_deref(),
-            Some("13.4.92")
-        );
-        assert_eq!(
-            of("cuSPARSE", "PyPI nvidia-cusparse").as_deref(),
-            Some("12.8.6.72")
-        );
-        assert_eq!(
-            of("cuDSS", "NVIDIA's cuDSS redistributables").as_deref(),
-            Some("1.0.0.35")
-        );
-        assert_eq!(
-            of("Accelerate", "GitHub's macOS runners").as_deref(),
-            Some("27.0.1")
-        );
-        // every guided source has a checked version, and every key is distinct
-        let mut keys = std::collections::HashSet::new();
-        for s in SOURCES {
-            assert!(baseline(s).is_some(), "{} {}", s.library, s.origin.name());
-            assert!(keys.insert(format!("{} | {}", s.library, s.origin.name())));
+    fn the_versions_we_use_are_the_guides_checks() {
+        // the newest any of the library's checks installed, from pip or conda-forge
+        assert_eq!(uses("oneMKL").as_deref(), Some("2026.2.0"));
+        // MUMPS's own release, built from its source, over conda-forge's package
+        assert_eq!(uses("MUMPS").as_deref(), Some("5.9.1"));
+        assert_eq!(uses("SuperLU").as_deref(), Some("7.0.1"));
+        assert_eq!(uses("CUDA runtime").as_deref(), Some("13.4.92"));
+        assert_eq!(uses("cuDSS").as_deref(), Some("1.0.0.35"));
+        assert_eq!(uses("Accelerate").as_deref(), Some("27.0.1"));
+        // every library has one
+        for (library, _) in CHECKED {
+            assert!(uses(library).is_some(), "{library}");
         }
         assert_eq!(
             installed("mumps-seq 5.8.2, mkl 2026.1.0").collect::<Vec<_>>(),
             [("mumps-seq", "5.8.2"), ("mkl", "2026.1.0")]
         );
+        // the table the Dependencies page reads: a row per library, under its header
+        let table = table();
+        assert!(
+            table.starts_with("| Library | We use | photonoxide-native accepts |\n|---|---|---|\n")
+        );
+        assert!(table.contains("| MUMPS | 5.9.1 | 5.4.1 to 5.9.1, "));
+        assert_eq!(table.lines().count(), CHECKED.len() + 2);
     }
 
     #[test]
@@ -1202,449 +353,5 @@ mod tests {
         );
         // and photonoxide-native knows its structure
         assert!(mumps::releases().any(|r| r == MUMPS_CHECKED));
-    }
-
-    const CONDA: &str = r#"{"name":"mumps-seq","latest_version":"5.8.2","files":[
-        {"version":"5.8.1","upload_time":"2026-01-02 10:00:00.000000+00:00","labels":["main"]},
-        {"version":"5.8.2","upload_time":"2026-09-21 19:27:39.958000+00:00","labels":["main"]},
-        {"version":"5.8.2","upload_time":"2026-09-20 08:00:00.000000+00:00","labels":["main"]},
-        {"version":"5.9.0","upload_time":"2026-10-01 08:00:00.000000+00:00","labels":["broken"]},
-        {"version":"5.9.1","upload_time":"2026-10-02 08:00:00.000000+00:00","labels":["main","broken"]}]}"#;
-
-    const PYPI: &str = r#"{"info":{"version":"2026.1.0"},"releases":{
-        "2026.0.0":[{"upload_time_iso_8601":"2026-03-01T00:00:00.000Z"}],
-        "2026.1.0":[{"upload_time_iso_8601":"2026-07-02T15:11:10.123Z"},
-                    {"upload_time_iso_8601":"2026-07-01T15:11:10.123Z"}]}}"#;
-
-    // a release photonoxide-native doesn't know yet: 5.10.0, made up
-    const MUMPS_HTML: &str = "<p>Latest release (September 2026) :</p>\n<table summary=\"\">\n\
-        <tr><td>Release 5.10.0</td><td>: September 2026\n</td></tr>\n\
-        <tr><td>Release 5.9.1</td><td>: July 2026</td></tr>\n\
-        <tr><td>Release 5.9.0</td><td>: May 2026</td></tr>\n\
-        <tr><td>Release 5.8.2</td><td>: January 2026</td></tr>\n</table>";
-
-    const LISTING: &str = "<a href='redistrib_13.4.1.json'>redistrib_13.4.1.json</a>\n\
-        <a href='redistrib_13.10.0.json'>x</a><a href='redistrib_13.4.2.json'>x</a>";
-
-    const README: &str = "# macOS 27\n- OS Version: macOS 27.0.1 (26A434)\n\
-        - Kernel Version: Darwin 27.0.0\n- Image Version: 20261006.0244.1\n";
-
-    #[test]
-    fn each_source_reads_its_answer() {
-        let conda = conda(&serde_json::from_str(CONDA).unwrap()).unwrap();
-        // the main label alone, never a build marked broken, and the first upload of the newest
-        assert_eq!(
-            (conda.version.as_str(), conda.date.as_str()),
-            ("5.8.2", "2026-09-20")
-        );
-        let pypi = pypi(&serde_json::from_str(PYPI).unwrap()).unwrap();
-        assert_eq!(
-            (pypi.version.as_str(), pypi.date.as_str()),
-            ("2026.1.0", "2026-07-01")
-        );
-        let gh = github(
-            &serde_json::json!({"tag_name": "v0.3.34", "published_at": "2026-07-16T19:58:36Z",
-                "html_url": "https://github.com/OpenMathLib/OpenBLAS/releases/tag/v0.3.34"}),
-        )
-        .unwrap();
-        assert_eq!(
-            (gh.version.as_str(), gh.date.as_str()),
-            ("0.3.34", "2026-07-16")
-        );
-        assert_eq!(newest_manifest(LISTING).as_deref(), Some("13.10.0"));
-        assert_eq!(newest_manifest("nothing here"), None);
-        let manifest = serde_json::json!({"release_date": "2026-09-16", "release_label": "13.4.2",
-            "cuda_cudart": {"version": "13.4.92"}, "libcusparse": {"version": "12.8.6.72"}});
-        let cudart = nvidia_release(&manifest, "cuda_cudart", "CUDA").unwrap();
-        assert_eq!(cudart.version, "13.4.92");
-        assert_eq!(cudart.label.as_deref(), Some("CUDA 13.4.2"));
-        assert!(nvidia_release(&manifest, "libcudss", "CUDA").is_err());
-        let mumps = mumps_release(MUMPS_HTML).unwrap();
-        assert_eq!(
-            (mumps.version.as_str(), mumps.date.as_str()),
-            ("5.10.0", "2026-09")
-        );
-        assert!(mumps_release("<p>no table</p>").is_err());
-        assert_eq!(
-            runner_macos(README),
-            Some(("27.0.1".into(), "2026-10-06".into()))
-        );
-        assert_eq!(runner_macos("# nothing"), None);
-        assert_eq!(month("September 2025").as_deref(), Some("2025-09"));
-        assert_eq!(month("Sept 2025"), None);
-    }
-
-    fn canned() -> Canned {
-        let mut answers = Vec::new();
-        for s in SOURCES {
-            match s.origin {
-                Origin::Conda(p) => answers.push((
-                    format!("https://api.anaconda.org/package/conda-forge/{p}"),
-                    200,
-                    CONDA.replace("5.8.2", "1.0.0"),
-                )),
-                Origin::PyPi(p) => answers.push((
-                    format!("https://pypi.org/pypi/{p}/json"),
-                    200,
-                    PYPI.to_owned(),
-                )),
-                Origin::GitHub(repo) => answers.push((
-                    format!("https://api.github.com/repos/{repo}/releases/latest"),
-                    // SuperLU's is out of reach
-                    if repo.contains("superlu") { 503 } else { 200 },
-                    r#"{"tag_name":"v0.3.35","published_at":"2026-10-01T00:00:00Z"}"#.into(),
-                )),
-                Origin::Nvidia { product, .. } => {
-                    let base =
-                        format!("https://developer.download.nvidia.com/compute/{product}/redist/");
-                    answers.push((base.clone(), 200, LISTING.into()));
-                    answers.push((
-                        format!("{base}redistrib_13.10.0.json"),
-                        200,
-                        r#"{"release_date":"2026-10-01","release_label":"13.10.0",
-                            "cuda_cudart":{"version":"13.10.1"},"libcusparse":{"version":"12.9.0"},
-                            "libcudss":{"version":"0.9.0.1"}}"#
-                            .into(),
-                    ));
-                }
-                Origin::Mumps => answers.push((MUMPS_PAGE.into(), 200, MUMPS_HTML.into())),
-                Origin::MacosRunners => {
-                    answers.push((
-                        RUNNER_IMAGES.into(),
-                        200,
-                        r#"[{"name":"macos-26-arm64-Readme.md","download_url":"https://raw.example/26"},
-                            {"name":"xcode-27-arm64-Readme.md","download_url":"https://raw.example/27"},
-                            {"name":"scripts","download_url":null}]"#
-                            .into(),
-                    ));
-                    answers.push((
-                        "https://raw.example/26".into(),
-                        200,
-                        "- OS Version: macOS 26.6.2 (25G83)\n- Image Version: 20260907.0351.1\n"
-                            .into(),
-                    ));
-                    answers.push(("https://raw.example/27".into(), 200, README.into()));
-                }
-            }
-        }
-        Canned {
-            answers,
-            asked: std::sync::Mutex::new(Vec::new()),
-        }
-    }
-
-    #[test]
-    fn the_issue_says_what_is_newer_and_comments_on_what_is_new() {
-        let http = canned();
-        let rows = rows(&mut Fetch::new(&http, Some("token".into())));
-        // NVIDIA's manifest, read for the runtime and for cuSPARSE, was asked for once
-        let asked = http.asked.lock().unwrap().clone();
-        let manifest =
-            "https://developer.download.nvidia.com/compute/cuda/redist/redistrib_13.10.0.json";
-        assert_eq!(asked.iter().filter(|u| *u == manifest).count(), 1);
-        let row = |key: &str| rows.iter().find(|r| r.key() == key).unwrap();
-        let mumps = row("MUMPS | mumps-solver.org");
-        assert!(mumps.accepted() == Some(false));
-        let cuda = row("CUDA runtime | NVIDIA's CUDA redistributables");
-        assert!(cuda.accepted() == Some(true));
-        let macos = row("Accelerate | GitHub's macOS runners");
-        let release = macos.newest.as_ref().unwrap();
-        assert_eq!(release.version, "27.0.1");
-        assert_eq!(release.label.as_deref(), Some("image xcode-27-arm64"));
-        assert!(macos.accepted() == Some(true));
-        let mkl = row("oneMKL | PyPI mkl");
-        assert!(mkl.accepted() == Some(true));
-        let superlu = row("SuperLU | GitHub xiaoyeli/superlu");
-        assert!(superlu.newest.as_ref().unwrap_err().contains("HTTP 503"));
-
-        // the first run records and doesn't comment
-        let first = body(&rows, &[], "", None, None, "2026-10-12");
-        assert!(news(&rows, None).is_empty());
-        let record = recorded(&first).unwrap();
-        assert_eq!(record["MUMPS | mumps-solver.org"], "5.10.0");
-        assert!(!record.contains_key("SuperLU | GitHub xiaoyeli/superlu"));
-        // the issue says what it lists, then the native libraries' group, one line each
-        assert!(first.starts_with(
-            "<!-- newest releases
-"
-        ));
-        let after = first
-            .split(
-                "-->
-",
-            )
-            .nth(1)
-            .unwrap();
-        assert!(
-            after.starts_with(
-                "Every library and dependency photonoxide checks, beside its newest release, read \
-                 on 2026-10-12: the 10 native libraries"
-            ),
-            "{after}"
-        );
-        assert!(
-            after.contains("Dependabot's weekly pull request"),
-            "{after}"
-        );
-        let table = after.split("### Native libraries\n\n").nth(1).unwrap();
-        let mut shown = table.lines().take_while(|l| !l.is_empty());
-        assert_eq!(shown.next(), Some("| Library | We use | Newest |"));
-        assert_eq!(shown.next(), Some("|---|---|---|"));
-        let libraries: Vec<&str> = shown.map(|l| l.split(" | ").next().unwrap()).collect();
-        assert_eq!(
-            libraries,
-            [
-                "| oneMKL",
-                "| CUDA runtime",
-                "| cuSPARSE",
-                "| cuDSS",
-                "| MUMPS",
-                "| SuperLU",
-                "| OpenBLAS",
-                "| Accelerate (macOS)",
-                "| HDF5",
-                "| Zstandard"
-            ]
-        );
-        // the version we use, and the highest newest over the library's sources, in bold when newer
-        assert!(
-            first.contains(
-                "
-| MUMPS | 5.9.1 | **5.10.0** |
-"
-            ),
-            "{first}"
-        );
-        assert!(
-            first.contains(
-                "
-| Accelerate (macOS) | 27.0.1 | 27.0.1 |
-"
-            ),
-            "{first}"
-        );
-        // a release older than the one we use is not bold, and a source out of reach leaves the rest
-        assert!(
-            first.contains(
-                "
-| oneMKL | 2026.2.0 | 2026.1.0 |
-"
-            ),
-            "{first}"
-        );
-        assert!(
-            first.contains(
-                "
-| SuperLU | "
-            ),
-            "{first}"
-        );
-        // none of the old layout is left
-        for gone in [
-            "Couldn't be read",
-            "When a release is new",
-            "photonoxide-native accepts",
-            "Newer than the guides",
-            "Released",
-        ] {
-            assert!(!first.contains(gone), "{gone}: {first}");
-        }
-
-        // a week on, with a record of an older MUMPS and SuperLU's last version: MUMPS's is
-        // news, and SuperLU's version is kept while its source is out of reach
-        let mut earlier = record.clone();
-        earlier.insert("MUMPS | mumps-solver.org".into(), "5.9.1".into());
-        earlier.insert("SuperLU | GitHub xiaoyeli/superlu".into(), "7.0.1".into());
-        let new = news(&rows, Some(&earlier));
-        assert_eq!(
-            new.iter().map(|r| r.key()).collect::<Vec<_>>(),
-            ["MUMPS | mumps-solver.org"]
-        );
-        let c = comment(&new);
-        assert!(c.contains("- MUMPS 5.10.0 (mumps-solver.org, 2026-09): [MUMPS's changelog](https://mumps-solver.org/index.php?page=dwnld#cl); photonoxide-native doesn't accept it yet (5.4.1 to 5.9.1"), "{c}");
-        let second = body(&rows, &[], "", None, Some(&earlier), "2026-10-19");
-        assert_eq!(
-            recorded(&second).unwrap()["SuperLU | GitHub xiaoyeli/superlu"],
-            "7.0.1"
-        );
-        // and the same week again is no news
-        assert!(news(&rows, recorded(&second).as_ref()).is_empty());
-        assert_eq!(recorded("an issue without a record"), None);
-    }
-
-    #[test]
-    fn our_own_packages_are_grouped_by_their_registries() {
-        use packages::{Package, Row as PackageRow};
-        let package = |group, name: &str, uses: &str| Package {
-            group,
-            name: name.into(),
-            uses: uses.into(),
-        };
-        let ours = vec![
-            package(Group::Crates, "serde", "1.0.200"),
-            package(Group::Crates, "toml", "1.0.3"),
-            package(Group::Crates, "tar", "0.4.44"),
-            package(Group::Pnpm, "svelte", "5.57.2"),
-            package(Group::Pnpm, "@tauri-apps/api", "2.12.4"),
-            package(Group::Pnpm, "vite", "8.3.5"),
-            package(Group::Python, "maturin", ">=1.15,<2"),
-            package(Group::Python, "numpy", ">=2.2.6"),
-            package(Group::Python, "pdoc", "==16.0.0"),
-            package(Group::Actions, "actions/checkout", "v7"),
-            package(Group::Actions, "PyO3/maturin-action", "v1.51.0"),
-            package(Group::Actions, "taiki-e/install-action", "v2"),
-        ];
-        // recorded answers of each registry; vite's is out of reach
-        let answer = |url: &str, body: &str| (url.to_owned(), 200, body.to_owned());
-        let http = Canned {
-            answers: vec![
-                answer(
-                    "https://index.crates.io/se/rd/serde",
-                    "{\"vers\":\"1.0.200\"}\n{\"vers\":\"1.0.229\"}\n{\"vers\":\"2.0.0-rc.1\"}",
-                ),
-                answer(
-                    "https://index.crates.io/to/ml/toml",
-                    "{\"vers\":\"1.0.3\"}\n{\"vers\":\"1.1.0\",\"yanked\":true}",
-                ),
-                answer("https://index.crates.io/3/t/tar", "{\"vers\":\"0.4.44\"}"),
-                answer(
-                    "https://registry.npmjs.org/svelte/latest",
-                    r#"{"name":"svelte","version":"5.60.0"}"#,
-                ),
-                answer(
-                    "https://registry.npmjs.org/@tauri-apps/api/latest",
-                    r#"{"version":"3.0.0-beta.1"}"#,
-                ),
-                answer(
-                    "https://pypi.org/pypi/maturin/json",
-                    r#"{"info":{"version":"2.0.1"},"releases":{}}"#,
-                ),
-                answer(
-                    "https://pypi.org/pypi/numpy/json",
-                    r#"{"info":{"version":"2.4.0"},"releases":{}}"#,
-                ),
-                answer(
-                    "https://pypi.org/pypi/pdoc/json",
-                    r#"{"info":{"version":"16.0.0"},"releases":{}}"#,
-                ),
-                answer(
-                    "https://api.github.com/repos/actions/checkout/releases/latest",
-                    r#"{"tag_name":"v8.0.0","published_at":"2026-10-02T00:00:00Z","html_url":"https://github.com/actions/checkout/releases/tag/v8.0.0"}"#,
-                ),
-                answer(
-                    "https://api.github.com/repos/PyO3/maturin-action/releases/latest",
-                    r#"{"tag_name":"v1.51.1","html_url":"https://github.com/PyO3/maturin-action/releases/tag/v1.51.1"}"#,
-                ),
-                answer(
-                    "https://api.github.com/repos/taiki-e/install-action/releases/latest",
-                    r#"{"tag_name":"v2.88.1","html_url":"https://github.com/taiki-e/install-action/releases/tag/v2.88.1"}"#,
-                ),
-            ],
-            asked: std::sync::Mutex::new(Vec::new()),
-        };
-        let mut fetch = Fetch::new(&http, Some("token".into()));
-        let ours: Vec<PackageRow> = packages::rows(&mut fetch, ours);
-        assert!(ours[5].newest.as_ref().unwrap_err().contains("unreachable"));
-        // each package asked for once
-        assert_eq!(http.asked.lock().unwrap().len(), 12);
-
-        let mut earlier = BTreeMap::new();
-        earlier.insert("vite | npm".to_owned(), "8.4.0".to_owned());
-        let majors = "### Major updates\n\nthe majors\n";
-        let text = body(
-            &[],
-            &ours,
-            majors,
-            Some("https://github.com/tachsin/photonoxide/pull/683"),
-            Some(&earlier),
-            "2026-11-02",
-        );
-        let record = recorded(&text).unwrap();
-        // the record keys a package by its registry, an unread one at its last version
-        assert_eq!(record["serde | crates.io"], "1.0.229");
-        assert_eq!(record["@tauri-apps/api | npm"], "3.0.0-beta.1");
-        assert_eq!(record["vite | npm"], "8.4.0");
-        assert_eq!(record["numpy | PyPI"], "2.4.0");
-        assert!(text.contains("3 Rust crates"), "{text}");
-        assert!(text.contains("3 studio pnpm packages"), "{text}");
-        assert!(text.contains("3 Python requirements"), "{text}");
-        assert!(text.contains("3 GitHub Actions"), "{text}");
-        // Dependabot's open pull request is linked at the top, and the majors close the issue
-        assert!(
-            text.contains("minor and patch updates: [#683](https://github.com/tachsin/photonoxide/pull/683).\n"),
-            "{text}"
-        );
-        assert!(text.find("[#683]").unwrap() < text.find("### Native libraries").unwrap());
-        assert!(text.ends_with(majors), "{text}");
-        assert!(!text.contains("Major updates available"), "{text}");
-        assert_eq!(record["actions/checkout | GitHub"], "v8.0.0");
-        // the groups in order, each its own table
-        let at = |h: &str| {
-            text.find(&format!("### {h}\n\n| Library | We use | Newest |\n"))
-                .unwrap()
-        };
-        assert!(at("Native libraries") < at("Rust crates"));
-        assert!(at("Rust crates") < at("Studio pnpm packages"));
-        assert!(at("Studio pnpm packages") < at("Python requirements"));
-        assert!(at("Python requirements") < at("GitHub Actions"));
-        assert!(text.find("### GitHub Actions").unwrap() < text.find("### Major updates").unwrap());
-        for line in [
-            // newer: bold; the same, a yanked release or a pre-release: not
-            "| serde | 1.0.200 | **1.0.229** |",
-            "| toml | 1.0.3 | 1.0.3 |",
-            "| tar | 0.4.44 | 0.4.44 |",
-            "| svelte | 5.57.2 | **5.60.0** |",
-            "| @tauri-apps/api | 2.12.4 | 3.0.0-beta.1 |",
-            // out of reach: the last version read, and said so under the table
-            "| vite | 8.3.5 | **8.4.0** (last read) |",
-            "`vite` couldn't be read on 2026-11-02, so the newest shown is the last one read.",
-            // a requirement that doesn't take the newest is bold; one that takes it isn't
-            "| maturin | `>=1.15,<2` | **2.0.1** |",
-            "| numpy | `>=2.2.6` | 2.4.0 |",
-            "| pdoc | `==16.0.0` | 16.0.0 |",
-            // an action: a release past its tag's numbers is bold, one within them isn't
-            "| actions/checkout | v7 | **v8.0.0** |",
-            "| PyO3/maturin-action | v1.51.0 | **v1.51.1** |",
-            "| taiki-e/install-action | v2 | v2.88.1 |",
-        ] {
-            assert!(text.contains(&format!("{line}\n")), "{line}\n{text}");
-        }
-        // with no earlier record, an unread package says so
-        let fresh = body(&[], &ours, "", Some(""), None, "2026-11-02");
-        assert!(
-            fresh.contains("minor and patch updates: none open.\n"),
-            "{fresh}"
-        );
-        // and when it wasn't asked, the line is left out
-        assert!(
-            !body(&[], &ours, "", None, None, "2026-11-02").contains("Dependabot's pull request")
-        );
-        assert!(fresh.contains("| vite | 8.3.5 | not read yet |"), "{fresh}");
-        assert!(!recorded(&fresh).unwrap().contains_key("vite | npm"));
-    }
-
-    #[test]
-    fn the_workflow_keeps_this_issue_alone_and_closes_the_merged_one() {
-        let path = concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/../../.github/workflows/releases.yml"
-        );
-        let workflow = std::fs::read_to_string(path).unwrap();
-        // the issue's title before it listed our own dependencies, #312's, and the issue of the
-        // major updates, which this one took over (#313)
-        let step = format!(
-            "keep-issue.sh \"{ISSUE_TITLE}\" --formerly \"New releases of external libraries\" \
-             --merged \"Major updates available\" target/debug/photonoxide libraries --releases"
-        );
-        assert!(workflow.contains(&step), "releases.yml doesn't run {step}");
-        // one issue: no second run of keep-issue.sh, and Dependabot's pull request is looked up
-        assert_eq!(
-            workflow
-                .matches("bash .github/scripts/keep-issue.sh")
-                .count(),
-            1
-        );
-        assert!(!workflow.contains("photonoxide dependencies"));
-        assert!(workflow.contains(DEPENDABOT_PR) && workflow.contains("pull-requests: read"));
     }
 }

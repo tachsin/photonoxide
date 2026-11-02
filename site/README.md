@@ -21,9 +21,9 @@ the pinned commit instead.
 
 | Folder | In the app |
 | --- | --- |
-| `app/projects/photonoxide/` | the routes: the overview, `/docs` (getting started), `/docs/python`, `/docs/python/reference` (the Python API reference) and `/docs/languages` (the guides beside it), `/methods` and `/methods/[slug]`, `/examples` and `/examples/[slug]`, `/validation`, `/roadmap`, the sub-navigation layout and the Open Graph image |
-| `lib/projects/photonoxide/` | the data: static facts and copy (`meta.js`), and the repository's files read from GitHub at the latest release's tag (`github.js`): the methods, the examples, the validation report, the roadmap and the release's version, and Markdown with TeX math (`markdown.js`) |
-| `components/projects/photonoxide/` | the components only these pages use: `HeroLight`, the overview's light animation, and `ValidationRows`, the report's table |
+| `app/projects/photonoxide/` | the routes: the overview, `/docs` (getting started), `/docs/python`, `/docs/python/reference` (the Python API reference) and `/docs/languages` (the guides beside it), `/methods` and `/methods/[slug]`, `/examples` and `/examples/[slug]`, `/validation`, `/roadmap`, `/dependencies`, the sub-navigation layout (the registry's sections, then `EXTRA_SECTIONS` of `meta.js`: a page of ours the app's registry doesn't list yet) and the Open Graph image |
+| `lib/projects/photonoxide/` | the data: static facts and copy (`meta.js`), and the repository's files read from GitHub at the latest release's tag (`github.js`): the methods, the examples, the validation report, the roadmap and the release's version, and Markdown with TeX math (`markdown.js`); the Dependencies page's data (`dependencies/`, below) |
+| `components/projects/photonoxide/` | the components only these pages use: `HeroLight`, the overview's light animation, `ValidationRows`, the report's table, and the Dependencies page's `DependencyChangelog` and `NewSinceLastVisit` |
 
 What the pages read from the repository, at the latest release's tag (or the pinned commit):
 
@@ -42,6 +42,30 @@ What the pages read from the repository, at the latest release's tag (or the pin
 The Python API reference is the one page not read from a file of the repository. pdoc makes it from the docstrings and type stubs of the Linux wheel in every run of `python-wheels.yml` (the `python-reference` artifact), and the run that publishes a release attaches its pages to that GitHub release: one self-contained HTML file each (styles inline, no scripts, no search index), named `python-reference-<path with "/" as ".">`. The site reads them from the latest release, so a release's reference appears within a day; a release made before the reference was attached shows a page that says so. The reference is never committed.
 
 Links between method write-ups (`pml.md`), and to the three guides, become links between their pages; other relative links go to GitHub.
+
+## The Dependencies page
+
+`/dependencies` lists every library and dependency photonoxide uses, the version we use beside its newest release, in six groups: the native libraries photonoxide-native loads, the Rust crates, the studio's pnpm packages, the Python requirements, the GitHub Actions and the toolchain (Rust, pnpm, Node.js). It replaced the issue "New releases of all libraries", the Releases workflow that wrote it, and Dependabot (#699): no CI runs for it.
+
+Unlike the other pages it reads the repository at `main`, not at the latest release, so a merged bump shows within the hour:
+
+| File | What it gives |
+| --- | --- |
+| `Cargo.toml`, every workspace member's `Cargo.toml`, `Cargo.lock` | the crates we require with a version (the workspace's own left out) at Cargo.lock's versions, and `rust-version` |
+| `studio/package.json`, `studio/pnpm-lock.yaml` | the studio's packages at the lockfile's versions, and `packageManager`'s pnpm |
+| `python/pyproject.toml` | the Python requirements, as written |
+| `.github/workflows/*.yml` (listed by GitHub's API) | the actions' `uses:` tags, and `node-version` |
+| `docs/libraries.md`, its "New releases" table | each native library's version we use and what photonoxide-native accepts, which `photonoxide libraries --write` writes from the guides' checks |
+
+The newest releases come from crates.io's sparse index (its API once, for the repositories of the crates with a newer release), the npm registry, PyPI, GitHub's releases, anaconda.org (conda-forge), NVIDIA's redistributables, MUMPS's download page, the macOS of GitHub's runner images, Rust's stable channel manifest and nodejs.org's release index. Each place a native library is read is in `dependencies/registries.js` (`NATIVE_LIBRARIES`).
+
+- **Polite reads** (`dependencies/polite.js`): each URL at most once an hour, a few at a time, crates.io's API at most once a second, with the answer's ETag or Last-Modified sent back so an unchanged one is a short 304. The User-Agent names the page, no person. No token or secret: public data only, and GitHub's API is asked a few dozen times an hour at most, within its limit for a server without a token.
+- **Kept in the server's memory:** the parsed answers, served at once and refreshed behind the visit once an hour old. A registry that can't be read keeps its last answer, and the row says when it failed. A restart empties it: the first visit after one waits for every registry (`loading.js` shows meanwhile).
+- **Newer and major** (`dependencies/versions.js`): a pre-release is never newer; a Python requirement is behind when it doesn't take the newest release; an action's `v7` takes every 7.x.y; a major release is one our requirement doesn't take (a 0.x crate's new 0.y too), marked with its release notes.
+- **What changed:** every row with a newer release opens, behind a toggle, the notes of each release between ours and the newest, newest first (`dependencies/changelog.js`): from the repository's GitHub releases feed, or else its CHANGELOG. A release is marked breaking when its notes say so or it is a major one; a long note is cut with a link to the rest. The feed's HTML is rebuilt from a short list of elements, so no script, style or attribute of it reaches the page, and a CHANGELOG's Markdown goes through `renderMarkdown`, which escapes raw HTML. A publisher whose notes are only a web page (Intel's, NVIDIA's, MUMPS's, Apple's) gets its link. The notes stream in after the table, kept a day for the same versions.
+- **New since your last visit:** the browser keeps the newest versions it was shown (localStorage) and marks a row whose newest release changed since; the server keeps nothing.
+
+Its plain functions are checked by the studio's tests (`studio/tests/site-dependencies.test.ts`, `pnpm test` in `studio/`), on recorded answers and the repository's own files, with no network.
 
 Nothing else in `site/` is copied. Imports use the app's `@/` alias, which is the app's root.
 
