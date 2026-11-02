@@ -131,16 +131,17 @@ runs, by the area map ([What CI runs](#what-ci-runs)):
 - **Docs:** every relative link in the Markdown leads to a file or folder that exists
   (`.github/scripts/check-links.sh`; anchors aren't checked), and the references index is
   current, as [Citing a source](#citing-a-source) describes;
-- **Studio, on Linux:** `pnpm build`, which renders every lesson's math with KaTeX, and
+- **Studio, on Linux:** `pnpm build`, which renders every lesson's and methods page's math with KaTeX, and
   `cargo test -p photonoxide-studio`, which checks each lesson as academy/README.md lists, that
   every methods page is in one category of `CATEGORIES` and linked from docs/README.md, and the
   README's counts;
 - **Lint** and **MSRV**, which build the workspace, as they do for every change that reaches an
   area.
 
-No check reads a methods page's case ids or examples or renders its math (its DOIs are checked
-with the references index): review checks that they exist and that its formulas render on
-GitHub. Review then reads each cited
+CI reads a methods page's front matter (`studio/src-tauri/tests/methods.rs`: no unknown key, case
+ids and examples that exist, DOIs of the form Crossref writes; the references index checks the
+DOIs against its sources) and renders its formulas with KaTeX (`pnpm build`): review checks that
+a DOI names the paper cited and that the formulas render on GitHub. Review then reads each cited
 place in its source and compares each number with the code's output. Comments are made on the pull
 request; it is squash merged once CI is green and the sources agree.
 

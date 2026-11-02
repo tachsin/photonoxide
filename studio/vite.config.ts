@@ -9,32 +9,36 @@ import { defineConfig, type Plugin } from "vite";
 import { formulas } from "./src/lib/formulas.ts";
 
 /**
- * Every formula of every Academy lesson (academy/*.md) rendered by KaTeX as the window renders
- * it, failing the build on the first that doesn't: CI's `pnpm build` then refuses a lesson whose
- * math is broken. The lessons' other checks are the program's tests (src-tauri/src/academy.rs).
+ * Every formula of every Academy lesson (academy/*.md) and every method write-up
+ * (docs/methods/*.md) rendered by KaTeX as the window renders it, failing the build on the first
+ * that doesn't: CI's `pnpm build` then refuses a page whose math is broken. The pages' other
+ * checks are the program's tests (src-tauri/src/academy.rs; src-tauri/tests/methods.rs for a
+ * write-up's front matter).
  */
-function lessonMath(): Plugin {
+function pageMath(): Plugin {
   return {
-    name: "academy-math",
+    name: "page-math",
     buildStart() {
-      const dir = fileURLToPath(new URL("../academy/", import.meta.url));
       const errors: string[] = [];
       let count = 0;
-      for (const file of readdirSync(dir).filter((f) => f.endsWith(".md") && f !== "README.md")) {
-        const text = readFileSync(dir + file, "utf8").replaceAll("\r\n", "\n");
-        // the body: after the front matter, its line numbers kept
-        const end = text.startsWith("---\n") ? text.indexOf("\n---\n", 4) + 5 : 0;
-        const skipped = text.slice(0, end).split("\n").length - 1;
-        for (const f of formulas(text.slice(end))) {
-          count++;
-          try {
-            katex.renderToString(f.tex, { throwOnError: true, displayMode: f.display, strict: "error" });
-          } catch (e) {
-            errors.push(`academy/${file}:${f.line + skipped}: ${(e as Error).message}\n    ${f.tex}`);
+      for (const folder of ["academy", "docs/methods"]) {
+        const dir = fileURLToPath(new URL(`../${folder}/`, import.meta.url));
+        for (const file of readdirSync(dir).filter((f) => f.endsWith(".md") && f !== "README.md")) {
+          const text = readFileSync(dir + file, "utf8").replaceAll("\r\n", "\n");
+          // the body: after the front matter, its line numbers kept
+          const end = text.startsWith("---\n") ? text.indexOf("\n---\n", 4) + 5 : 0;
+          const skipped = text.slice(0, end).split("\n").length - 1;
+          for (const f of formulas(text.slice(end))) {
+            count++;
+            try {
+              katex.renderToString(f.tex, { throwOnError: true, displayMode: f.display, strict: "error" });
+            } catch (e) {
+              errors.push(`${folder}/${file}:${f.line + skipped}: ${(e as Error).message}\n    ${f.tex}`);
+            }
           }
         }
       }
-      if (errors.length) this.error(`${errors.length} of the lessons' ${count} formulas don't render:\n${errors.join("\n")}`);
+      if (errors.length) this.error(`${errors.length} of the pages' ${count} formulas don't render:\n${errors.join("\n")}`);
     },
   };
 }
@@ -59,7 +63,7 @@ function katexWoff2(): Plugin {
 
 // the studio's web view: served on a fixed port for `tauri dev`, built to dist/ for the app
 export default defineConfig({
-  plugins: [katexWoff2(), lessonMath(), tailwindcss(), svelte()],
+  plugins: [katexWoff2(), pageMath(), tailwindcss(), svelte()],
   clearScreen: false,
   server: { port: 1430, strictPort: true },
   build: {

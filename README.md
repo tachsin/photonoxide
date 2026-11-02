@@ -36,7 +36,7 @@ It is released milestone by milestone ([changelog](CHANGELOG.md), [roadmap](ROAD
 
 - **[Methods](docs/README.md#methods):** 52 write-ups in 9 topics, from waveguide modes to
   fabrication, each setting out its method, its limits and the papers it implements; their
-  front matter cites 238 distinct sources by DOI.
+  front matter cites 250 distinct sources by DOI.
 - **[Academy](academy/README.md):** lessons on devices and numerical methods at three depths,
   each opening on a drawing of its device, with charts the library computes live; 8 written,
   and 12 more laid out section by section, read on GitHub or in the studio.
