@@ -187,6 +187,12 @@ pub fn show(dir: Option<&Path>, live: Option<Live>) -> Result<(), String> {
             crate::circuits::delete_circuit
         ])
         .setup(move |app| {
+            // the component library built at once, off the window's thread, while the window
+            // loads: one of its entries solves a strip's modes in 3D (about a second), and the
+            // Components and Chip pages showed nothing until it was built
+            std::thread::spawn(|| {
+                let _ = crate::circuits::component_library();
+            });
             let paths = app.path();
             let settings_file = paths
                 .app_config_dir()

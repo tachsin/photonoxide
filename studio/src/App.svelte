@@ -13,6 +13,7 @@
   import NightlyDialog from "./components/NightlyDialog.svelte";
   import UpdateDialog from "./components/UpdateDialog.svelte";
   import { app, boot } from "./lib/app.svelte";
+  import { loadLibrary } from "./lib/chip.svelte";
   import { nightlyBoot } from "./lib/nightly.svelte";
   import { startSchedule } from "./lib/schedule";
   import { checkForUpdate, updater } from "./lib/updater.svelte";
@@ -32,6 +33,10 @@
     let stop = () => {};
     let gone = false;
     boot().then(() => {
+      // the component library fetched now (the program starts building it as it starts: it
+      // solves a strip's modes in 3D, about a second), so the first visit to Components or Chip
+      // finds it here
+      loadLibrary();
       // a nightly build confirms it started, and a build running or waiting shows
       nightlyBoot();
       if (gone) return;
