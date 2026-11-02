@@ -53,7 +53,12 @@
     three = new View3D(host, gizmo);
     three.setDark(app.dark);
     const t = setInterval(() => (now = performance.now()), 500);
-    return () => clearInterval(t);
+    return () => {
+      clearInterval(t);
+      // a device page's run view closes with its page: its context goes with it
+      three?.destroy();
+      three = null;
+    };
   });
 
   // a new run: back to the default view
