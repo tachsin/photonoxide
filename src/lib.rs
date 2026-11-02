@@ -1,10 +1,14 @@
 //! # photonoxide
 //!
-//! Light meets Rust: an open reference for photonic design, and the software that runs it.
-//! Beside the methods pages and the Academy, the crate holds materials with provenance, mode
-//! solvers, 2D and 3D FDFD and FDTD with S-parameters and adjoints, components and circuits,
-//! compact models and fabrication flows, with a studio to watch every run live. Every method is
-//! checked against an analytic solution or a published result ([`validation`]).
+//! Light meets Rust. Photonics design and simulation with a live desktop studio, a Rust library
+//! and Python bindings: mode solvers, FDFD, FDTD, inverse design, circuits and fabrication flows.
+//! Open to everyone.
+//!
+//! This crate is the Rust library: materials with provenance, mode solvers, 2D and 3D FDFD and
+//! FDTD with S-parameters and adjoint gradients, components and circuits, compact models and
+//! fabrication flows; inverse design is planned for 0.7. The methods pages derive each solver from
+//! the papers it implements, and every method is checked against an analytic solution or a
+//! published result ([`validation`]).
 //!
 //! - [`material`]: dispersion models with their source, validity range and temperature, and a
 //!   catalogue of photonic materials, every number read from its paper.

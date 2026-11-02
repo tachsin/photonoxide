@@ -2,7 +2,7 @@
 
 ## Vision
 
-An open reference for photonic design, and the software that runs it: methods, an Academy and fabrication flows, with simulation, inverse design and layout in one Rust library, a Python package and a studio to watch every run live.
+Photonics design and simulation software: simulation, inverse design and layout in one Rust library, with Python bindings and a desktop studio to watch every run live. Beside the code, the methods pages derive each solver from the papers it implements, the Academy teaches devices and numerical methods, and the fabrication flows show how a design would be made, each checked against an analytic or published result.
 
 ### Success criteria for 1.0
 
