@@ -9,10 +9,11 @@
 // at a moment is lib/fabanim.ts's, tested on its own.
 
 import * as THREE from "three";
-import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import type { OrbitControls } from "three/addons/controls/OrbitControls.js";
 
 import type { FabricationPage } from "./api";
 import { change, CLEAR, looks, planes, span } from "./fabanim";
+import { orbitControls, releaseShared } from "./view3d";
 /** The amber of a lit solid's outline: the cut's, which reads on both backdrops. */
 const LIT = "#e0a43a";
 
@@ -54,7 +55,7 @@ export class FabView3D {
     this.renderer.domElement.style.display = "block";
     this.renderer.domElement.style.touchAction = "none";
     this.camera.up.set(0, 0, 1);
-    this.controls = new OrbitControls(this.camera, this.renderer.domElement);
+    this.controls = orbitControls(this.camera, this.renderer.domElement);
     this.controls.enableDamping = false;
     this.controls.addEventListener("change", () => this.draw());
     this.scene.add(new THREE.AmbientLight("#ffffff", 1.1));
@@ -279,6 +280,7 @@ export class FabView3D {
     cancelAnimationFrame(this.frameId);
     this.resizer.disconnect();
     this.controls.dispose();
+    releaseShared(this.renderer, this.scene);
     this.clearSolids();
     this.setCut(null, 0);
     this.edgeMaterial.dispose();

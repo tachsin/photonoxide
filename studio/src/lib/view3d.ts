@@ -76,19 +76,75 @@ export function rings(outline: Point[]): { boundary: Point[]; holes: Point[][] }
   return { boundary: outline.slice(0, back), holes };
 }
 
-/** The edges' colours, for the theme. */
-const EDGE = new THREE.LineBasicMaterial({ color: "#d4d9e1", transparent: true, opacity: 0.7 });
-const FAINT_EDGE = new THREE.LineBasicMaterial({ color: "#8b95a5", transparent: true, opacity: 0.35 });
-/** A picked shape's edges: the cut's amber, which reads on both backdrops. */
-const PICKED_EDGE = new THREE.LineBasicMaterial({ color: "#e0a43a", linewidth: 2 });
+/**
+ * A view's edge materials, in the theme's colours. Each view has its own and lets go of them when
+ * it closes (`release`): a renderer listens for the disposal of every material it draws, so
+ * materials shared by every view and never disposed kept each closed view's renderer alive, and
+ * with its canvas every element of the page it was on.
+ */
+export class Edges {
+  readonly edge = edgeMaterial({ color: "#d4d9e1", transparent: true, opacity: 0.7 });
+  readonly faint = edgeMaterial({ color: "#8b95a5", transparent: true, opacity: 0.35 });
+  /** A picked shape's edges: the cut's amber, which reads on both backdrops. */
+  readonly picked = edgeMaterial({ color: "#e0a43a", linewidth: 2 });
+
+  colours(dark: boolean) {
+    this.edge.color.set(dark ? "#d4d9e1" : "#3c4656");
+    this.faint.color.set(dark ? "#8b95a5" : "#7a8494");
+  }
+
+  release() {
+    this.edge.dispose();
+    this.faint.dispose();
+    this.picked.dispose();
+  }
+}
+
+/** An edge material of a view's `Edges`, which `dispose` leaves to the view. */
+function edgeMaterial(parameters: THREE.LineBasicMaterialParameters): THREE.LineBasicMaterial {
+  const m = new THREE.LineBasicMaterial(parameters);
+  m.userData.edges = true;
+  return m;
+}
+
+/**
+ * Orbit controls on `canvas`, which a view disposes of when it closes. They listen for the Control
+ * key on the canvas's root (the document) and, when disposed, stop listening on the root the canvas
+ * has then; a closing page's canvas is already out of the document by that time (Svelte removes a
+ * component's elements before its teardown runs), so the listener stayed on the document and kept
+ * the view and its page alive. The canvas keeps the root it had when the controls were made.
+ */
+export function orbitControls(camera: THREE.Camera, canvas: HTMLCanvasElement): OrbitControls {
+  const root = canvas.getRootNode();
+  canvas.getRootNode = () => root;
+  return new OrbitControls(camera, canvas);
+}
+
+/** three.js's lookup table for its standard materials, once a view has found it: see `releaseShared`. */
+let sharedTable: THREE.Texture | null = null;
+
+/**
+ * Lets `renderer` go of the texture three.js shares between every renderer: the lookup table its
+ * standard materials read, made once and never disposed. Each renderer that drew a standard
+ * material listens for the table's disposal, and that listener kept every closed view's renderer
+ * alive, and with its canvas every element of the page it was on. Disposing the table lets every
+ * renderer go of it; one still open uploads it again (16 x 16) when it next draws. Called before
+ * the scene's materials are disposed: the table is found through them.
+ */
+export function releaseShared(renderer: THREE.WebGLRenderer, scene: THREE.Object3D) {
+  scene.traverse((o) => {
+    if (sharedTable || !(o instanceof THREE.Mesh)) return;
+    for (const m of [o.material].flat()) {
+      const { uniforms } = renderer.properties.get(m) as { uniforms?: Record<string, THREE.IUniform> };
+      const table = uniforms?.dfgLUT?.value;
+      if (table instanceof THREE.Texture) sharedTable = table;
+    }
+  });
+  sharedTable?.dispose();
+}
 
 /** What a solid of `structure` is, for a click on it: a shape of the scene (its index there) or a layer's slab (its name, "substrate" and "cladding" included). */
 export type Picked = { shape: number } | { layer: string };
-
-export function edgeColours(dark: boolean) {
-  EDGE.color.set(dark ? "#d4d9e1" : "#3c4656");
-  FAINT_EDGE.color.set(dark ? "#8b95a5" : "#7a8494");
-}
 
 /**
  * A medium's material. Solid ones (silicon, nitride) are drawn first and pushed a little back in
@@ -110,8 +166,9 @@ function solidMaterial(colour: string, solid: boolean, opacity: number): THREE.M
  * "cladding" included), each drawn with its look in `looks` if it has one: a layer's look
  * colours its shapes, or the layer itself when it has none (lib/layers.ts, `lookTarget`).
  * `x` and `y` replace the window's spans: a preview shows a modes job in front of its cut too.
+ * The edges are drawn with the view's `edges`.
  */
-export function structure(s: Scene, hidden: Set<string> = new Set(), looks: Looks = {}, x: [number, number] = s.x_um, y: [number, number] = s.y_um): THREE.Group {
+export function structure(s: Scene, edges: Edges, hidden: Set<string> = new Set(), looks: Looks = {}, x: [number, number] = s.x_um, y: [number, number] = s.y_um): THREE.Group {
   const group = new THREE.Group();
   const [x0, x1] = x;
   const [y0, y1] = y;
@@ -142,7 +199,7 @@ export function structure(s: Scene, hidden: Set<string> = new Set(), looks: Look
     if (b <= a || !(mediumLook(eps) || look?.colour)) return;
     const g = new THREE.BoxGeometry(x1 - x0, y1 - y0, b - a);
     g.translate((x0 + x1) / 2, (y0 + y1) / 2, (a + b) / 2);
-    add(g, eps, FAINT_EDGE, look, { layer: name });
+    add(g, eps, edges.faint, look, { layer: name });
   };
   const top = s.layers.length ? s.layers[s.layers.length - 1].z_um[1] : 0;
   if (!hidden.has("substrate")) slab("substrate", s.substrate.eps, -Infinity, 0, looks.substrate);
@@ -163,14 +220,14 @@ export function structure(s: Scene, hidden: Set<string> = new Set(), looks: Look
       }
       const g = new THREE.ExtrudeGeometry(outline, { depth: b - a, bevelEnabled: false, curveSegments: 1 });
       g.translate(0, 0, a);
-      add(g, layer.material.eps, EDGE, looks[layer.name], { shape: index });
+      add(g, layer.material.eps, edges.edge, looks[layer.name], { shape: index });
     }
   }
   if (!hidden.has("cladding")) slab("cladding", s.cladding.eps, top, Infinity, looks.cladding);
   // the window
   const frame = new THREE.BoxGeometry(x1 - x0, y1 - y0, z1 - z0);
   frame.translate((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2);
-  group.add(new THREE.LineSegments(new THREE.EdgesGeometry(frame), FAINT_EDGE));
+  group.add(new THREE.LineSegments(new THREE.EdgesGeometry(frame), edges.faint));
   frame.dispose();
   return group;
 }
@@ -246,13 +303,13 @@ export function portMarkers(s: Scene, ports: ScenePort[]): THREE.Group {
   return group;
 }
 
-/** Frees the geometries and materials of what `structure` built (the shared edge materials stay). */
+/** Frees the geometries and materials of what `structure` built (the view's edge materials stay: `Edges.release`). */
 export function dispose(group: THREE.Object3D) {
   group.traverse((o) => {
     if (o instanceof THREE.Mesh || o instanceof THREE.LineSegments) {
       o.geometry.dispose();
       const m = o.material as THREE.Material;
-      if (m !== EDGE && m !== FAINT_EDGE && m !== PICKED_EDGE) m.dispose();
+      if (!m.userData.edges) m.dispose();
     }
   });
 }
@@ -433,6 +490,7 @@ export class View3D {
   private controls: OrbitControls;
   private light = new THREE.DirectionalLight("#ffffff", 2.2);
   private structure = new THREE.Group();
+  private edges = new Edges();
   private field: THREE.Mesh | null = null;
   private fieldVisible = true;
   private fieldOpacity = 1;
@@ -462,7 +520,7 @@ export class View3D {
     this.scene.add(new THREE.HemisphereLight("#e4ecf7", "#2a2e35", 1.6));
     this.scene.add(this.light, this.light.target, this.structure);
     this.camera.up.set(0, 0, 1);
-    this.controls = new OrbitControls(this.camera, this.renderer.domElement);
+    this.controls = orbitControls(this.camera, this.renderer.domElement);
     this.controls.addEventListener("change", () => this.render());
     this.renderer.domElement.addEventListener("dblclick", () => this.frame());
     this.resizer.observe(container);
@@ -484,8 +542,10 @@ export class View3D {
     this.resizer.disconnect();
     document.removeEventListener("visibilitychange", this.wake);
     this.controls.dispose();
+    releaseShared(this.renderer, this.scene);
     this.clear();
     dispose(this.scene);
+    this.edges.release();
     this.renderer.dispose();
     this.renderer.forceContextLoss();
     this.renderer.domElement.remove();
@@ -550,7 +610,7 @@ export class View3D {
   /** The backdrop: `colour` (the theme's), else deep slate for a dark theme and a pale grey for a light one. */
   setDark(dark: boolean, colour?: string) {
     this.scene.background = new THREE.Color(colour ?? (dark ? "#0f1115" : "#eef1f5"));
-    edgeColours(dark);
+    this.edges.colours(dark);
     this.render();
   }
 
@@ -576,7 +636,7 @@ export class View3D {
    */
   setScene(s: Scene, hidden: Set<string>, looks: Looks = {}, front: "x" | "y" = "y") {
     this.clearStructure();
-    this.structure.add(structure(s, hidden, looks));
+    this.structure.add(structure(s, this.edges, hidden, looks));
     const box = new THREE.Box3(new THREE.Vector3(s.x_um[0], s.y_um[0], s.z_um[0]), new THREE.Vector3(s.x_um[1], s.y_um[1], s.z_um[1]));
     const reframe = !this.box || !this.box.equals(box) || front !== this.front;
     this.front = front;
@@ -842,6 +902,7 @@ export class Preview3D {
   private camera = new THREE.PerspectiveCamera(30, 1, 0.01, 1000);
   private light = new THREE.DirectionalLight("#ffffff", 2.2);
   private structure = new THREE.Group();
+  private edges = new Edges();
   private centre = new THREE.Vector3();
   private size = new THREE.Vector3(1, 1, 1);
   private distance = 1;
@@ -960,7 +1021,7 @@ export class Preview3D {
       const on = marked(p.shape);
       if (o instanceof THREE.LineSegments) {
         o.userData.edge ??= o.material;
-        o.material = on ? PICKED_EDGE : o.userData.edge;
+        o.material = on ? this.edges.picked : o.userData.edge;
       } else if (o instanceof THREE.Mesh && o.material instanceof THREE.MeshStandardMaterial) {
         o.material.emissive.set(on ? "#e0a43a" : "#000000");
         o.material.emissiveIntensity = on ? 0.45 : 1;
@@ -986,7 +1047,7 @@ export class Preview3D {
       cut === undefined || options.within ? w : [cut - (w[1] - w[0]), cut + (w[1] - w[0])];
     const x = normal === "x" ? about(s.x_um) : s.x_um;
     const y = normal === "y" ? about(s.y_um) : s.y_um;
-    this.structure.add(structure(s, new Set(), {}, x, y));
+    this.structure.add(structure(s, this.edges, new Set(), {}, x, y));
     if (cut !== undefined) this.structure.add(cutPlane(s, cut, normal));
     if (options.ports?.length) this.structure.add(portMarkers(s, options.ports));
     if (options.crystals?.length) this.structure.add(crystalTriads(s, x, y, options.crystals));
@@ -999,7 +1060,7 @@ export class Preview3D {
   }
 
   setDark(dark: boolean) {
-    edgeColours(dark);
+    this.edges.colours(dark);
     this.draw();
   }
 
@@ -1130,7 +1191,9 @@ export class Preview3D {
     this.observer.disconnect();
     this.resizer.disconnect();
     redraws.delete(this.redrawn);
+    if (this.renderer) releaseShared(this.renderer, this.scene);
     dispose(this.scene);
+    this.edges.release();
     if (this.renderer) {
       this.renderer.dispose();
       this.renderer.forceContextLoss();

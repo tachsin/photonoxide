@@ -178,7 +178,7 @@ and stayed lost, so its 3D would have shown nothing.
 Over 100 page switches, after a garbage collection each time, the JS heap grew 2.7 MB per 50
 switches (91.1, 93.8, 96.5 MB) and the DOM nodes kept alive by 9165 per 50 (239679 to 258009). A
 heap snapshot after three visits to Fabrication found about 1000 of its nodes detached but still
-held, the shortest path to them through a dialog backdrop's click handler.
+held. What held them, and the fix, are under *Nothing left behind when a page closes* below.
 
 At rest, the main thread is busy 0.1–0.2% of the time on every page except Components with a device
 open, 3–8%, while its 3D view turns.
@@ -229,6 +229,44 @@ The run view keeps its context. Switch times did not change beyond the runs' own
 median first frame within 1.2 ms, settled within 5 ms); a shared renderer was not built, as it would
 save only the 2–11 ms of making a context.
 
+### Nothing left behind when a page closes
+
+Every page switch left about 180 DOM nodes and two listeners alive for good. Heap snapshots taken
+after the switches, each detached node traced back to the root by its shortest path, showed three
+holders, each keeping a closed 3D view's renderer, and through its canvas every element of the
+page it was on:
+
+1. **The edge materials every 3D view shared.** A three.js renderer listens for the disposal of
+   each material it draws, and the shared edge materials were never disposed. Each view now has
+   its own and disposes of them when it closes.
+2. **three.js's lookup table for its standard materials,** a 16 x 16 texture it makes once and
+   shares between renderers: the same listener. A view that closes now disposes of it; a view still
+   open uploads it again when it next draws.
+3. **The orbit controls.** They listen for the Control key on the document and, when disposed, stop
+   listening on the canvas's root. Svelte removes a closing page's elements before its teardown
+   runs, so by then the canvas's root was no longer the document and the listener stayed. The
+   canvas now keeps the root it had when the controls were made.
+
+`measure-switches.mjs` now watches this (`--only heap`): 200 switches through every page in turn,
+and after each 50 and a garbage collection, on Home, the DOM nodes alive (on the page or not), the
+listeners and the JS heap, then the detached nodes the page's script still holds. Release builds of
+main and of the fix, after the round of the WebGL contexts table above, an empty workspace:
+
+| | before | after |
+| --- | ---: | ---: |
+| DOM nodes after 50 switches | 32125 | 6946 |
+| DOM nodes after 200 switches | 59620 | 6946 |
+| listeners after 50 and 200 switches | 487, 847 | 109, 109 |
+| JS heap after 50 and 200 switches (MB) | 24.7, 34.3 | 16.4, 17.6 |
+| gained per switch from switch 50 to 200: DOM nodes | 183.3 | 0.0 |
+| gained per switch from switch 50 to 200: listeners | 2.40 | 0.00 |
+| gained per switch from switch 50 to 200: JS heap (kB) | 63.7 | 8.1 |
+| detached nodes still held after the last switch | 23668 | 122 |
+
+After the fix the heap rose 1.0 MB from switch 50 to 100 and 0.2 MB over the last 100 switches. The
+122 detached nodes left are Svelte's templates, each kept once to copy a block's elements from;
+their number does not grow with the switches.
+
 ## What this could not measure
 
 - The workspace that felt slow. The seeded one has 204 runs whose records total 22 MB; `home`'s time
@@ -251,7 +289,8 @@ save only the 2–11 ms of making a context.
 
 **Phase 6, proposed:** run `measure-switches.mjs --only pages,tabs,contexts --reps 3` against a
 release build in a weekly job on Windows, and fail when a page's or tab's median first frame passes
-100 ms, a settled time passes twice this document's, or a context is evicted.
+100 ms, a settled time passes twice this document's, a context is evicted, or the DOM gains nodes
+over page switches.
 
 ## Running it again
 
@@ -261,6 +300,7 @@ pnpm tauri build --config '{"identifier":"gr.tachsin.photonoxide.perf"}'
 node scripts/measure-switches.mjs --seed <a workspace with jobs/ and runs/> --label after --compare ../target/perf/measure-before.json
 ```
 
-It writes `target/perf/measure-<label>.json`, a Markdown table beside it, and the traces
+`--only heap` runs only the check of what closed pages leave behind (`--heap-switches` sets how many
+switches, 200 by default). It writes `target/perf/measure-<label>.json`, a Markdown table beside it, and the traces
 (`trace-<label>-*.json.gz`, which Perfetto and the browser's DevTools open). The build's settings
 folder is written for the run and put back after it; an installed studio's is never touched.
