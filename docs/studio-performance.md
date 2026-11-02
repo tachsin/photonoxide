@@ -60,6 +60,23 @@ computes, every one off the main thread, the slowest the Mach–Zehnder interfer
 the Y-branch (443 ms). The Custom device's synchronous `job_media` and `job_drawing` take about
 58 ms each on the main thread.
 
+**`home` off the main thread, and read once.** `home`, which lists the workspace's jobs and newest
+200 runs, ran on the main thread and read each run's whole record and parsed each run's job: 60 ms
+on the first click with 204 runs, with `materials` and `device_geometry` waiting behind it. It now
+runs on a pool thread, reads only each record's first and last lines, and keeps what it read with
+each file's length and last change, so a later listing reads only what changed. The first click,
+five launches each, workspace of 204 runs:
+
+| | before | after |
+| --- | ---: | ---: |
+| `home` (ms) | 60.2, on the main thread | 20.3, on a pool thread |
+| `device_geometry`, which waited behind it (ms) | 43.5 | 3.9 |
+| the page's spectrum asked for (ms from the click) | 135 | 98 |
+| the list's names shown (ms from the click) | 28 | 31 |
+
+A later listing of the same 34 jobs and 204 runs takes 10 ms where it took 80 (timed in the studio's
+own code on that workspace).
+
 **Still to do.** Showing the names with no wait at all, even for a click the moment the window
 shows, needs the list without that one solve: the waveguide's solved-mode variant listed at once
 and built when it is opened.

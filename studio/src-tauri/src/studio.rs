@@ -7,11 +7,12 @@
 //! asks the run to stop. Started bare, it opens on its home page; jobs started from the window
 //! keep it open.
 
+use std::collections::{HashMap, HashSet};
 use std::fs::File;
 use std::io::{Read, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
-use std::sync::Mutex;
 use std::sync::mpsc::Receiver;
+use std::sync::{LazyLock, Mutex};
 use std::thread::JoinHandle;
 use std::time::Duration;
 
@@ -457,7 +458,7 @@ fn save_settings(
 }
 
 /// A job file in the workspace.
-#[derive(Serialize)]
+#[derive(Serialize, Clone)]
 struct JobItem {
     path: String,
     name: String,
@@ -472,7 +473,7 @@ struct JobItem {
 }
 
 /// A run in the workspace.
-#[derive(Serialize)]
+#[derive(Serialize, Clone)]
 struct RunItem {
     dir: String,
     name: String,
@@ -551,8 +552,9 @@ struct Home {
     runs: Vec<RunItem>,
 }
 
-/// The jobs in the workspace's `jobs/` and its 200 newest runs.
-#[tauri::command]
+/// The jobs in the workspace's `jobs/` and its 200 newest runs. Off the window's thread: in a
+/// workspace in use reading them takes tens of milliseconds, which the window would wait.
+#[tauri::command(async)]
 fn home(state: tauri::State<'_, Studio>) -> Home {
     let root = state.workspace();
     Home {
@@ -582,30 +584,46 @@ fn jobs_in(dir: &Path) -> Vec<JobItem> {
         .filter(|p| Format::from_path(p).is_some())
         .collect();
     paths.sort();
+    // a job file is parsed again only when it has changed since
+    let mut read = JOBS_READ.lock().unwrap_or_else(|e| e.into_inner());
+    let listed: HashSet<&PathBuf> = paths.iter().collect();
+    read.retain(|p, _| listed.contains(p));
+    let stamps: Vec<Stamp> = paths.iter().map(|p| stamp(p)).collect();
     paths
-        .into_iter()
-        .filter_map(|path| {
-            let job = Job::load(&path).ok()?;
-            let text = job.text();
-            let modified = std::fs::metadata(&path)
-                .and_then(|m| m.modified())
-                .ok()
-                .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
-                .map_or(0.0, |d| d.as_secs_f64());
-            Some(JobItem {
-                path: path.display().to_string(),
-                name: job.name().to_owned(),
-                kind: kind_of(&job),
-                about: about(text),
-                modified,
-                device: job
-                    .device()
-                    .and_then(|t| t.get("kind"))
-                    .and_then(toml::Value::as_str)
-                    .map(str::to_owned),
-            })
+        .iter()
+        .zip(stamps)
+        .filter_map(|(path, now)| match read.get(path) {
+            Some((then, item)) if *then == now && now.is_some() => item.clone(),
+            _ => {
+                let item = job_item(path);
+                read.insert(path.clone(), (now, item.clone()));
+                item
+            }
         })
         .collect()
+}
+
+/// A job file's line in the lists, or None when it doesn't load.
+fn job_item(path: &Path) -> Option<JobItem> {
+    let job = Job::load(path).ok()?;
+    let text = job.text();
+    let modified = std::fs::metadata(path)
+        .and_then(|m| m.modified())
+        .ok()
+        .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+        .map_or(0.0, |d| d.as_secs_f64());
+    Some(JobItem {
+        path: path.display().to_string(),
+        name: job.name().to_owned(),
+        kind: kind_of(&job),
+        about: about(text),
+        modified,
+        device: job
+            .device()
+            .and_then(|t| t.get("kind"))
+            .and_then(toml::Value::as_str)
+            .map(str::to_owned),
+    })
 }
 
 /// A job file's opening comment, as one paragraph, without its usage lines: TOML's and YAML's
@@ -617,6 +635,80 @@ fn about(text: &str) -> String {
         .take_while(|l| !l.is_empty() && !l.starts_with("photonoxide "))
         .collect::<Vec<_>>()
         .join(" ")
+}
+
+/// How much of a record `first_and_last_lines` reads at a time, from each end.
+const LINES_CHUNK: usize = 16 * 1024;
+
+/// A text file's first and last lines, as `text.lines().next()` and `text.lines().last()` give
+/// them, reading from each end only as far as those lines go (`chunk` bytes at a time, doubling).
+/// A line that isn't UTF-8 is None.
+fn first_and_last_lines(path: &Path, chunk: usize) -> (Option<String>, Option<String>) {
+    let Ok(mut file) = File::open(path) else {
+        return (None, None);
+    };
+    let Ok(len) = file.metadata().map(|m| m.len()) else {
+        return (None, None);
+    };
+    // a line ended by "\r\n" loses its "\r", as `lines` drops it; a bare "\r" at the end stays
+    let line = |bytes: &[u8], ended: bool| {
+        let bytes = if ended {
+            bytes.strip_suffix(b"\r").unwrap_or(bytes)
+        } else {
+            bytes
+        };
+        String::from_utf8(bytes.to_vec()).ok()
+    };
+    // the first line: read until a line end shows, or the whole file
+    let mut head = Vec::new();
+    let mut want = chunk.max(1);
+    loop {
+        head.clear();
+        if file.seek(SeekFrom::Start(0)).is_err()
+            || (&mut file)
+                .take(want as u64)
+                .read_to_end(&mut head)
+                .is_err()
+        {
+            return (None, None);
+        }
+        if head.contains(&b'\n') || head.len() as u64 >= len {
+            break;
+        }
+        want *= 2;
+    }
+    if head.len() as u64 >= len {
+        // all of it read: split it as `lines` does
+        let Ok(text) = String::from_utf8(head) else {
+            return (None, None);
+        };
+        return (
+            text.lines().next().map(str::to_owned),
+            text.lines().last().map(str::to_owned),
+        );
+    }
+    let first = head
+        .iter()
+        .position(|&b| b == b'\n')
+        .and_then(|i| line(&head[..i], true));
+    // the last line: what follows the last line end but a final one, read back from the end
+    let mut want = chunk.max(1) as u64;
+    loop {
+        let start = len.saturating_sub(want);
+        let mut tail = Vec::new();
+        if file.seek(SeekFrom::Start(start)).is_err() || file.read_to_end(&mut tail).is_err() {
+            return (first, None);
+        }
+        let ended = tail.ends_with(b"\n");
+        let body = tail.strip_suffix(b"\n").unwrap_or(&tail);
+        if let Some(i) = body.iter().rposition(|&b| b == b'\n') {
+            return (first, line(&body[i + 1..], ended));
+        }
+        if start == 0 {
+            return (first, line(body, ended));
+        }
+        want *= 2;
+    }
 }
 
 fn runs_in(dir: &Path, most: usize) -> Vec<RunItem> {
@@ -631,39 +723,83 @@ fn runs_in(dir: &Path, most: usize) -> Vec<RunItem> {
     dirs.sort();
     dirs.reverse();
     dirs.truncate(most);
-    dirs.into_iter()
+    // a run is read again only when its folder, its record or its meta has changed since
+    let mut read = RUNS_READ.lock().unwrap_or_else(|e| e.into_inner());
+    let listed: HashSet<&PathBuf> = dirs.iter().collect();
+    read.retain(|d, _| listed.contains(d));
+    let stamps: Vec<_> = dirs
+        .iter()
         .map(|d| {
-            let meta: Option<Meta> = std::fs::read_to_string(d.join("meta.json"))
-                .ok()
-                .and_then(|t| serde_json::from_str(&t).ok());
-            let text = std::fs::read_to_string(d.join("events.jsonl")).unwrap_or_default();
-            let event =
-                |line: Option<&str>| line.and_then(|l| serde_json::from_str::<Event>(l).ok());
-            let kind = match event(text.lines().next()) {
-                Some(Event::Started { kind, .. }) => kind,
-                _ => String::new(),
-            };
-            let (finished, seconds, stopped) = match event(text.lines().last()) {
-                Some(Event::Finished { stopped, seconds }) => (true, Some(seconds), stopped),
-                _ => (false, None, None),
-            };
-            let (device, fidelity, computes, study) = device_of(&d);
-            RunItem {
-                dir: d.display().to_string(),
-                name: name_of(&d),
-                job: meta.as_ref().map_or_else(String::new, |m| m.job.clone()),
-                kind,
-                started: meta.map_or_else(String::new, |m| m.started),
-                finished,
-                seconds,
-                stopped,
-                device,
-                fidelity,
-                computes,
-                study,
+            [
+                stamp(d),
+                stamp(&d.join("events.jsonl")),
+                stamp(&d.join("meta.json")),
+            ]
+        })
+        .collect();
+    dirs.iter()
+        .zip(stamps)
+        .map(|(d, now)| match read.get(d) {
+            Some((then, item)) if *then == now && now.iter().all(Option::is_some) => item.clone(),
+            _ => {
+                let item = run_item(d);
+                read.insert(d.clone(), (now, item.clone()));
+                item
             }
         })
         .collect()
+}
+
+/// A file's or a folder's length and last change: what was read from it holds while they do.
+type Stamp = Option<(u64, std::time::SystemTime)>;
+
+fn stamp(path: &Path) -> Stamp {
+    let m = std::fs::metadata(path).ok()?;
+    Some((m.len(), m.modified().ok()?))
+}
+
+/// What was read of each file or folder, by its path, with its stamps then.
+type ReadAt<S, T> = HashMap<PathBuf, (S, T)>;
+
+/// What `runs_in` read of each run, with the stamps of its folder, record and meta then: most
+/// runs never change, and reading the 200 newest each time (each one's job parsed) took the
+/// Home page and the components list about 50 ms.
+static RUNS_READ: LazyLock<Mutex<ReadAt<[Stamp; 3], RunItem>>> = LazyLock::new(Default::default);
+/// What `jobs_in` read of each job file, with the file's stamp then.
+static JOBS_READ: LazyLock<Mutex<ReadAt<Stamp, Option<JobItem>>>> = LazyLock::new(Default::default);
+
+/// A run's line in the lists: what ran, whether it finished, and the device it computes.
+fn run_item(d: &Path) -> RunItem {
+    let meta: Option<Meta> = std::fs::read_to_string(d.join("meta.json"))
+        .ok()
+        .and_then(|t| serde_json::from_str(&t).ok());
+    // the record's first line says what ran, its last whether it finished: only those are
+    // read, as a record grows to megabytes
+    let (first, last) = first_and_last_lines(&d.join("events.jsonl"), LINES_CHUNK);
+    let event = |line: Option<&str>| line.and_then(|l| serde_json::from_str::<Event>(l).ok());
+    let kind = match event(first.as_deref()) {
+        Some(Event::Started { kind, .. }) => kind,
+        _ => String::new(),
+    };
+    let (finished, seconds, stopped) = match event(last.as_deref()) {
+        Some(Event::Finished { stopped, seconds }) => (true, Some(seconds), stopped),
+        _ => (false, None, None),
+    };
+    let (device, fidelity, computes, study) = device_of(d);
+    RunItem {
+        dir: d.display().to_string(),
+        name: name_of(d),
+        job: meta.as_ref().map_or_else(String::new, |m| m.job.clone()),
+        kind,
+        started: meta.map_or_else(String::new, |m| m.started),
+        finished,
+        seconds,
+        stopped,
+        device,
+        fidelity,
+        computes,
+        study,
+    }
 }
 
 /// A built-in job, as the gallery shows it.
@@ -1574,5 +1710,79 @@ mod tests {
         assert!(!runs[0].finished && runs[1].finished);
         assert_eq!(runs_in(&root, 1).len(), 1);
         let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn a_run_or_a_job_that_changes_is_read_again() {
+        let root = std::env::temp_dir().join(format!("photonoxide-reread-{}", std::process::id()));
+        let run = root.join("runs").join("20261101-120000-a");
+        std::fs::create_dir_all(&run).unwrap();
+        std::fs::create_dir_all(root.join("jobs")).unwrap();
+        let record = run.join("events.jsonl");
+        std::fs::write(
+            &record,
+            "{\"type\":\"started\",\"job\":\"a\",\"kind\":\"modes\"}\n",
+        )
+        .unwrap();
+        let runs = runs_in(&root.join("runs"), 200);
+        assert!(!runs[0].finished);
+        assert_eq!(runs[0].kind, "modes");
+        // the run finishes: its record grows, and the list says so
+        let mut text = std::fs::read_to_string(&record).unwrap();
+        text.push_str("{\"type\":\"finished\",\"stopped\":null,\"seconds\":2.0}\n");
+        std::fs::write(&record, &text).unwrap();
+        let runs = runs_in(&root.join("runs"), 200);
+        assert!(runs[0].finished);
+        assert_eq!(runs[0].seconds, Some(2.0));
+        // a job renamed in its file is listed by its new name
+        let job = root.join("jobs").join("a.toml");
+        std::fs::write(&job, "name = \"first\"\n\n[task]\nkind = \"modes\"\n").unwrap();
+        assert_eq!(jobs_in(&root.join("jobs"))[0].name, "first");
+        std::fs::write(&job, "name = \"second\"\n\n[task]\nkind = \"modes\"\n").unwrap();
+        assert_eq!(jobs_in(&root.join("jobs"))[0].name, "second");
+        // and a job removed is no longer listed
+        std::fs::remove_file(&job).unwrap();
+        assert!(jobs_in(&root.join("jobs")).is_empty());
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn first_and_last_lines_are_as_lines_gives_them() {
+        let dir = std::env::temp_dir().join(format!("photonoxide-lines-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let file = dir.join("events.jsonl");
+        let long = "x".repeat(50);
+        for text in [
+            String::new(),
+            "a".into(),
+            "a\n".into(),
+            "\n".into(),
+            "\n\n".into(),
+            "a\nb".into(),
+            "a\nb\n".into(),
+            "a\n\n".into(),
+            "a\r\nb\r\n".into(),
+            "a\r\nb\r".into(),
+            "first\nmiddle\nlast".into(),
+            format!("{long}\n{long}\n{long}"),
+            format!("{long}\r\n{long}\r\n"),
+            long.clone(),
+        ] {
+            std::fs::write(&file, &text).unwrap();
+            let want = (
+                text.lines().next().map(str::to_owned),
+                text.lines().last().map(str::to_owned),
+            );
+            // a chunk of 4 bytes makes both ends read in several steps
+            for chunk in [1, 4, 16, LINES_CHUNK] {
+                assert_eq!(
+                    first_and_last_lines(&file, chunk),
+                    want,
+                    "{text:?} read {chunk} bytes at a time"
+                );
+            }
+        }
+        assert_eq!(first_and_last_lines(&dir.join("none"), 4), (None, None));
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }

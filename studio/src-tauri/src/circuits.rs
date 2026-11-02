@@ -1046,8 +1046,8 @@ fn circuits_dir(state: &Studio) -> PathBuf {
     state.workspace().join("circuits")
 }
 
-/// The chip files in the workspace's `circuits/`.
-#[tauri::command]
+/// The chip files in the workspace's `circuits/`, read off the window's thread.
+#[tauri::command(async)]
 pub fn circuits(state: tauri::State<'_, Studio>) -> Vec<CircuitItem> {
     circuits_in(&circuits_dir(&state))
 }
