@@ -1,4 +1,58 @@
-# Optimizing a device
+---
+title: "Optimizing a device"
+module: device::objective
+summary: "A device's parameters moved between bounds by one of genoxide's methods until an objective is as small, as large or as near its target as it gets, within constraints: the objectives and constraints each device declares, their derivatives and how they are checked, the optimize job and its record, a chip of devices, and a study of the methods on a Bragg mirror."
+order: 24
+papers:
+  - cite: "W. Bogaerts et al., Laser Photonics Rev. 6, 47 (published online 13 September 2011; the January 2012 issue) (the ring's critical coupling, Eqs. 2, 3, 5, 6, 12)"
+    doi: 10.1002/lpor.201100017
+  - cite: "W. R. Clements, P. C. Humphreys, B. J. Metcalf, W. S. Kolthammer, I. A. Walmsley, Optica 3, 1460 (2016) (the MZI's phase, Eq. 1)"
+    doi: 10.1364/OPTICA.3.001460
+  - cite: "B. E. Little, S. T. Chu, H. A. Haus, J. Foresi, J.-P. Laine, J. Lightwave Technol. 15, 998 (1997) (two rings' flat-top filter, Table I)"
+    doi: 10.1109/50.588673
+  - cite: "R. H. Byrd, P. Lu, J. Nocedal, C. Zhu, SIAM J. Sci. Comput. 16, 1190 (1995) (L-BFGS-B)"
+    doi: 10.1137/0916069
+  - cite: "D. P. Kingma, J. Ba, ICLR (2015), arXiv:1412.6980 (Adam)"
+    doi: ""
+  - cite: "K. Svanberg, Int. J. Numer. Methods Eng. 24, 359 (1987) (MMA)"
+    doi: 10.1002/nme.1620240207
+  - cite: "K. Svanberg, SIAM J. Optim. 12, 555 (2002) (GCMMA, the globally convergent form)"
+    doi: 10.1137/S1052623499362822
+  - cite: "J. A. Nelder, R. Mead, Comput. J. 7, 308 (1965)"
+    doi: 10.1093/comjnl/7.4.308
+  - cite: "N. Hansen, A. Ostermeier, Evol. Comput. 9, 159 (2001) (CMA-ES)"
+    doi: 10.1162/106365601750190398
+  - cite: "R. Storn, K. Price, J. Glob. Optim. 11, 341 (1997) (differential evolution)"
+    doi: 10.1023/A:1008202821328
+  - cite: "J. Kennedy, R. Eberhart, Proc. ICNN'95 4, 1942 (1995) (particle swarm)"
+    doi: 10.1109/ICNN.1995.488968
+  - cite: "K. Deb, A. Pratap, S. Agarwal, T. Meyarivan, IEEE Trans. Evol. Comput. 6, 182 (2002) (NSGA-II)"
+    doi: 10.1109/4235.996017
+  - cite: "N. Beume, B. Naujoks, M. Emmerich, Eur. J. Oper. Res. 181, 1653 (2007) (SMS-EMOA)"
+    doi: 10.1016/j.ejor.2006.08.008
+  - cite: "F. Wang, B. S. Lazarov, O. Sigmund, Struct. Multidiscip. Optim. 43, 767 (published online 2010; the 2011 issue) (continuation in a projection's sharpness)"
+    doi: 10.1007/s00158-010-0602-y
+  - cite: "P. Bennet, D. Langevin, C. Essoual, A. Khaireh-Walieh, O. Teytaud, P. Wiecha, A. Moreau, J. Opt. Soc. Am. B 41, A126 (2024) (the Bragg-mirror problem and the methods compared on it)"
+    doi: 10.1364/JOSAB.506389
+  - cite: "P. I. Schneider, X. Garcia Santiago, V. Soltwisch, M. Hammerschmidt, S. Burger, C. Rockstuhl, ACS Photonics 6, 2726 (2019) (a benchmark of optimizers on photonic problems)"
+    doi: 10.1021/acsphotonics.9b00706
+validation:
+  - optimize/derivatives
+  - optimize/coupler-3db
+  - optimize/threads
+  - optimize/hypervolume
+  - chip/mzi-closed-form
+  - chip/derivatives
+  - chip/adjoint
+  - chip/study-points
+  - chip/threads
+examples:
+  - optimize_chip_rings
+  - circuit_splitter
+  - circuit_ring_critical
+  - circuit_fit
+  - optimize_bragg
+---
 
 A device's page offers its optimization: the design's parameters moved between bounds by one of
 genoxide's methods until an objective is as small, as large or as near its target as it gets,
