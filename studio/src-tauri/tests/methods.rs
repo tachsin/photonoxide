@@ -42,6 +42,10 @@ struct Paper {
     /// `""`, or left out, for a source that has none (a standard, an arXiv paper).
     #[serde(default)]
     doi: String,
+    /// The key of a source with no DOI in docs/references.yaml (the references index checks it).
+    #[serde(default, rename = "ref")]
+    #[allow(dead_code)]
+    key: Option<String>,
 }
 
 /// The write-ups in docs/methods, by file name.

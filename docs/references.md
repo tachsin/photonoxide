@@ -2,7 +2,7 @@
 
 <!-- Written by `photonoxide references --write` (or `just references`) from docs/references.yaml and the citations in the repository: edit those, not this page. -->
 
-Every paper, book and data set photonoxide cites, with every place in the repository that cites it, by file and line. 555 sources, 551 with a DOI and 4 without, are cited at 2819 places in 372 files. The sources are listed by their first author; [references-by-file.md](references-by-file.md) lists each methods page, lesson, example and source file with the sources it cites, and the [validation report](validation.md) gives each case's source on its row. How to cite a source is in [CONTRIBUTING.md](../CONTRIBUTING.md#citing-a-source); the list of sources is [references.yaml](references.yaml).
+Every paper, book and data set photonoxide cites, with every place in the repository that cites it, by file and line. 555 sources, 551 with a DOI and 4 without, are cited at 2834 places in 372 files. The sources are listed by their first author; [references-by-file.md](references-by-file.md) lists each methods page, lesson, example and source file with the sources it cites, and the [validation report](validation.md) gives each case's source on its row. How to cite a source is in [CONTRIBUTING.md](../CONTRIBUTING.md#citing-a-source); the list of sources is [references.yaml](references.yaml).
 
 [A](#a) · [B](#b) · [C](#c) · [D](#d) · [E](#e) · [F](#f) · [G](#g) · [H](#h) · [I](#i) · [J](#j) · [K](#k) · [L](#l) · [M](#m) · [N](#n) · [O](#o) · [P](#p) · [Q](#q) · [R](#r) · [S](#s) · [T](#t) · [U](#u) · [V](#v) · [W](#w) · [X](#x) · [Y](#y) · [Z](#z)
 
@@ -332,7 +332,7 @@ N. Bell, M. Garland, "Implementing sparse matrix-vector multiplication on throug
 
 P. Bennet, D. Langevin, C. Essoual, A. Khaireh-Walieh, O. Teytaud, P. Wiecha, A. Moreau, "Illustrated tutorial on global optimization in nanophotonics", J. Opt. Soc. Am. B 41, A126 (2024). [doi:10.1364/JOSAB.506389](https://doi.org/10.1364/JOSAB.506389)
 
-- Methods pages: [optimization.md:286](methods/optimization.md?plain=1#L286)
+- Methods pages: [optimization.md:36](methods/optimization.md?plain=1#L36), [340](methods/optimization.md?plain=1#L340)
 - Validation cases: [`mode/multilayer-quarter-wave-stationary`](validation.md?plain=1#L116)
 - Examples: [README.md:50](../examples/README.md?plain=1#L50), [optimize_bragg.rs:7](../examples/optimize_bragg.rs#L7)
 - Code: [src/validation.rs:837](../src/validation.rs#L837), [tests/method_study.rs:5](../tests/method_study.rs#L5)
@@ -364,7 +364,7 @@ D. Bertaccini, F. Durastante, "Iterative Methods and Preconditioning for Large a
 
 N. Beume, B. Naujoks, M. Emmerich, "SMS-EMOA: Multiobjective selection based on dominated hypervolume", European Journal of Operational Research 181, 1653 (2007). [doi:10.1016/j.ejor.2006.08.008](https://doi.org/10.1016/j.ejor.2006.08.008)
 
-- Methods pages: [optimization.md:140](methods/optimization.md?plain=1#L140)
+- Methods pages: [optimization.md:32](methods/optimization.md?plain=1#L32), [194](methods/optimization.md?plain=1#L194)
 - Code: [src/job/optimize.rs:266](../src/job/optimize.rs#L266)
 
 #### Beyn 2012
@@ -433,7 +433,7 @@ W. Bogaerts, R. Baets, P. Dumon, V. Wiaux, S. Beckx, D. Taillaert, B. Luyssaert,
 
 W. Bogaerts, P. De Heyn, T. Van Vaerenbergh, K. De Vos, S. Kumar Selvaraja, T. Claes, P. Dumon, P. Bienstman, D. Van Thourhout, R. Baets, "Silicon microring resonators", Laser & Photonics Reviews 6, 47 (2011). [doi:10.1002/lpor.201100017](https://doi.org/10.1002/lpor.201100017)
 
-- Methods pages: [circuit-adjoint.md:14](methods/circuit-adjoint.md?plain=1#L14), [circuits.md:10](methods/circuits.md?plain=1#L10), [compact.md:16](methods/compact.md?plain=1#L16), [components.md:8](methods/components.md?plain=1#L8), [devices.md:10](methods/devices.md?plain=1#L10), [fdtd.md:1168](methods/fdtd.md?plain=1#L1168), [optimization.md:41](methods/optimization.md?plain=1#L41)
+- Methods pages: [circuit-adjoint.md:14](methods/circuit-adjoint.md?plain=1#L14), [circuits.md:10](methods/circuits.md?plain=1#L10), [compact.md:16](methods/compact.md?plain=1#L16), [components.md:8](methods/components.md?plain=1#L8), [devices.md:10](methods/devices.md?plain=1#L10), [fdtd.md:1168](methods/fdtd.md?plain=1#L1168), [optimization.md:8](methods/optimization.md?plain=1#L8), [95](methods/optimization.md?plain=1#L95)
 - Academy lessons: [mach-zehnder.md:88](../academy/mach-zehnder.md?plain=1#L88), [144](../academy/mach-zehnder.md?plain=1#L144), [ring-resonator.md:85](../academy/ring-resonator.md?plain=1#L85), [125](../academy/ring-resonator.md?plain=1#L125), [152](../academy/ring-resonator.md?plain=1#L152), [480](../academy/ring-resonator.md?plain=1#L480), [587](../academy/ring-resonator.md?plain=1#L587)
 - Validation cases: [`circuit/ring-all-pass-bogaerts`](validation.md?plain=1#L277), [`circuit/ring-add-drop-bogaerts`](validation.md?plain=1#L278), [`circuit/ring-fsr-bogaerts`](validation.md?plain=1#L279), [`components/ring-all-pass-bogaerts`](validation.md?plain=1#L289), [`components/ring-add-drop-bogaerts`](validation.md?plain=1#L290), [`components/ring-extremes-bogaerts`](validation.md?plain=1#L291), [`components/ring-linewidth-bogaerts`](validation.md?plain=1#L292), [`components/ring-fsr-fdfd`](validation.md?plain=1#L293), [`device/ring-closed-forms`](validation.md?plain=1#L310), [`device/ring-fsr`](validation.md?plain=1#L321), [`device/ring-q-bogaerts`](validation.md?plain=1#L326), [`device/compact-ring-closed-form`](validation.md?plain=1#L351), [`compact/vf-ring-allpass`](validation.md?plain=1#L381)
 - Examples: [README.md:48](../examples/README.md?plain=1#L48), [54](../examples/README.md?plain=1#L54), [61](../examples/README.md?plain=1#L61), [circuit_fit.rs:7](../examples/circuit_fit.rs#L7), [circuit_ring_critical.rs:5](../examples/circuit_ring_critical.rs#L5), [optimize_ring_pareto.rs:6](../examples/optimize_ring_pareto.rs#L6), [ring_liu_poon.rs:40](../examples/ring_liu_poon.rs#L40), [ring_q_factor.rs:5](../examples/ring_q_factor.rs#L5), [python/examples/README.md:29](../python/examples/README.md?plain=1#L29), [python/examples/_ring.py:3](../python/examples/_ring.py#L3), [python/examples/ring_fsr.py:5](../python/examples/ring_fsr.py#L5), [python/examples/touchstone_ring.py:5](../python/examples/touchstone_ring.py#L5)
@@ -555,7 +555,7 @@ J. R. Bunch, L. Kaufman, "Some stable methods for calculating inertia and solvin
 
 R. H. Byrd, P. Lu, J. Nocedal, C. Zhu, "A Limited Memory Algorithm for Bound Constrained Optimization", SIAM J. Sci. Comput. 16, 1190 (1995). [doi:10.1137/0916069](https://doi.org/10.1137/0916069)
 
-- Methods pages: [optimization.md:131](methods/optimization.md?plain=1#L131)
+- Methods pages: [optimization.md:14](methods/optimization.md?plain=1#L14), [185](methods/optimization.md?plain=1#L185)
 - Code: [src/job/optimize.rs:150](../src/job/optimize.rs#L150)
 
 ### C
@@ -742,7 +742,7 @@ L. Chrostowski, M. Hochberg, "Silicon Photonics Design: From Devices to Systems"
 
 W. R. Clements, P. C. Humphreys, B. J. Metcalf, W. S. Kolthammer, I. A. Walsmley, "Optimal design for universal multiport interferometers", Optica 3, 1460 (2016). [doi:10.1364/OPTICA.3.001460](https://doi.org/10.1364/OPTICA.3.001460), open access.
 
-- Methods pages: [circuit-adjoint.md:12](methods/circuit-adjoint.md?plain=1#L12)
+- Methods pages: [circuit-adjoint.md:12](methods/circuit-adjoint.md?plain=1#L12), [optimization.md:10](methods/optimization.md?plain=1#L10)
 - Academy lessons: [mach-zehnder.md:106](../academy/mach-zehnder.md?plain=1#L106), [370](../academy/mach-zehnder.md?plain=1#L370), [464](../academy/mach-zehnder.md?plain=1#L464)
 - Validation cases: [`circuit/adjoint-mesh`](validation.md?plain=1#L285)
 - Examples: [README.md:47](../examples/README.md?plain=1#L47), [56](../examples/README.md?plain=1#L56), [circuit_splitter.rs:6](../examples/circuit_splitter.rs#L6), [optimize_mesh.rs:7](../examples/optimize_mesh.rs#L7)
@@ -846,7 +846,7 @@ B. E. Deal, A. S. Grove, "General Relationship for the Thermal Oxidation of Sili
 
 K. Deb, A. Pratap, S. Agarwal, T. Meyarivan, "A fast and elitist multiobjective genetic algorithm: NSGA-II", IEEE Trans. Evol. Computat. 6, 182 (2002). [doi:10.1109/4235.996017](https://doi.org/10.1109/4235.996017)
 
-- Methods pages: [optimization.md:139](methods/optimization.md?plain=1#L139)
+- Methods pages: [optimization.md:30](methods/optimization.md?plain=1#L30), [193](methods/optimization.md?plain=1#L193)
 - Code: [src/job/optimize.rs:253](../src/job/optimize.rs#L253)
 - Other documents: [docs/plans/optimization.md:582](plans/optimization.md?plain=1#L582)
 
@@ -1509,7 +1509,7 @@ A. M. Hammond, A. Oskooi, S. G. Johnson, S. E. Ralph, "Photonic topology optimiz
 
 N. Hansen, A. Ostermeier, "Completely Derandomized Self-Adaptation in Evolution Strategies", Evolutionary Computation 9, 159 (2001). [doi:10.1162/106365601750190398](https://doi.org/10.1162/106365601750190398)
 
-- Methods pages: [optimization.md:136](methods/optimization.md?plain=1#L136)
+- Methods pages: [optimization.md:24](methods/optimization.md?plain=1#L24), [190](methods/optimization.md?plain=1#L190)
 - Code: [src/job/optimize.rs:214](../src/job/optimize.rs#L214)
 - Other documents: [docs/plans/optimization.md:577](plans/optimization.md?plain=1#L577)
 
@@ -1954,7 +1954,7 @@ B. Kearney, B. Jugdersuren, J. Culbertson, P. Desario, X. Liu, "Substrate and an
 
 J. Kennedy, R. Eberhart, "Particle swarm optimization", Proceedings of ICNN'95 - International Conference on Neural Networks (1995). [doi:10.1109/ICNN.1995.488968](https://doi.org/10.1109/ICNN.1995.488968)
 
-- Methods pages: [optimization.md:138](methods/optimization.md?plain=1#L138)
+- Methods pages: [optimization.md:28](methods/optimization.md?plain=1#L28), [192](methods/optimization.md?plain=1#L192)
 - Code: [src/job/optimize.rs:239](../src/job/optimize.rs#L239)
 - Other documents: [docs/plans/optimization.md:579](plans/optimization.md?plain=1#L579)
 
@@ -2239,7 +2239,7 @@ Q. Lin, O. J. Painter, G. P. Agrawal, "Nonlinear optical phenomena in silicon wa
 
 B. Little, S. Chu, H. Haus, J. Foresi, J.-P. Laine, "Microring resonator channel dropping filters", J. Lightwave Technol. 15, 998 (1997). [doi:10.1109/50.588673](https://doi.org/10.1109/50.588673)
 
-- Methods pages: [devices.md:12](methods/devices.md?plain=1#L12), [optimization.md:260](methods/optimization.md?plain=1#L260)
+- Methods pages: [devices.md:12](methods/devices.md?plain=1#L12), [optimization.md:12](methods/optimization.md?plain=1#L12), [314](methods/optimization.md?plain=1#L314)
 - Academy lessons: [README.md:61](../academy/README.md?plain=1#L61), [123](../academy/README.md?plain=1#L123), [ring-resonator.md:31](../academy/ring-resonator.md?plain=1#L31), [595](../academy/ring-resonator.md?plain=1#L595)
 - Examples: [README.md:51](../examples/README.md?plain=1#L51), [55](../examples/README.md?plain=1#L55), [optimize_chip_rings.rs:8](../examples/optimize_chip_rings.rs#L8), [optimize_ring_flat.rs:8](../examples/optimize_ring_flat.rs#L8)
 - Code: [src/device/ring.rs:289](../src/device/ring.rs#L289)
@@ -2650,7 +2650,7 @@ R. Nehra, R. Sekine, L. Ledezma, Q. Guo, R. M. Gray, A. Roy, A. Marandi, "Few-cy
 
 J. A. Nelder, R. Mead, "A Simplex Method for Function Minimization", The Computer Journal 7, 308 (1965). [doi:10.1093/comjnl/7.4.308](https://doi.org/10.1093/comjnl/7.4.308)
 
-- Methods pages: [optimization.md:135](methods/optimization.md?plain=1#L135)
+- Methods pages: [optimization.md:22](methods/optimization.md?plain=1#L22), [189](methods/optimization.md?plain=1#L189)
 - Code: [src/job/optimize.rs:201](../src/job/optimize.rs#L201)
 
 #### Njoroge et al. 2002
@@ -2793,7 +2793,7 @@ D. Patel, S. Ghosh, M. Chagnon, A. Samani, V. Veerasubramanian, M. Osman, D. V. 
 
 Pauline Bennet, "Ellawin/tuto\_global\_optimization\_photonics: v2", Zenodo (2023). [doi:10.5281/zenodo.10246032](https://doi.org/10.5281/zenodo.10246032)
 
-- Methods pages: [optimization.md:287](methods/optimization.md?plain=1#L287)
+- Methods pages: [optimization.md:341](methods/optimization.md?plain=1#L341)
 - Examples: [optimize_bragg.rs:9](../examples/optimize_bragg.rs#L9)
 - Code: [tests/method_study.rs:7](../tests/method_study.rs#L7)
 - Other documents: [docs/plans/optimization.md:330](plans/optimization.md?plain=1#L330)
@@ -3193,7 +3193,7 @@ O. Schenk, K. Gärtner, "Solving unsymmetric sparse systems of linear equations 
 
 P.-I. Schneider, X. Garcia Santiago, V. Soltwisch, M. Hammerschmidt, S. Burger, C. Rockstuhl, "Benchmarking Five Global Optimization Approaches for Nano-optical Shape Optimization and Parameter Reconstruction", ACS Photonics 6, 2726 (2019). [doi:10.1021/acsphotonics.9b00706](https://doi.org/10.1021/acsphotonics.9b00706)
 
-- Methods pages: [optimization.md:288](methods/optimization.md?plain=1#L288)
+- Methods pages: [optimization.md:38](methods/optimization.md?plain=1#L38), [342](methods/optimization.md?plain=1#L342)
 - Other documents: [docs/plans/optimization.md:612](plans/optimization.md?plain=1#L612)
 
 #### Schubert et al. 1995
@@ -3443,7 +3443,7 @@ C. C. Stolk, "A rapidly converging domain decomposition method for the Helmholtz
 
 R. Storn, K. Price, "Differential Evolution – A Simple and Efficient Heuristic for global Optimization over Continuous Spaces", Journal of Global Optimization 11, 341 (1997). [doi:10.1023/A:1008202821328](https://doi.org/10.1023/A:1008202821328)
 
-- Methods pages: [optimization.md:137](methods/optimization.md?plain=1#L137)
+- Methods pages: [optimization.md:26](methods/optimization.md?plain=1#L26), [191](methods/optimization.md?plain=1#L191)
 - Code: [src/job/optimize.rs:226](../src/job/optimize.rs#L226)
 - Other documents: [docs/plans/optimization.md:578](plans/optimization.md?plain=1#L578)
 
@@ -3494,7 +3494,7 @@ N. Suzuki, K. Tada, "Electrooptic Properties and Raman Scattering in InP", Jpn. 
 
 K. Svanberg, "The method of moving asymptotes—a new method for structural optimization", Numerical Meth Engineering 24, 359 (1987). [doi:10.1002/nme.1620240207](https://doi.org/10.1002/nme.1620240207)
 
-- Methods pages: [optimization.md:133](methods/optimization.md?plain=1#L133)
+- Methods pages: [optimization.md:18](methods/optimization.md?plain=1#L18), [187](methods/optimization.md?plain=1#L187)
 - Code: [src/job/optimize.rs:176](../src/job/optimize.rs#L176)
 - Other documents: [ROADMAP.md:773](../ROADMAP.md?plain=1#L773), [docs/plans/optimization.md:575](plans/optimization.md?plain=1#L575)
 
@@ -3502,7 +3502,7 @@ K. Svanberg, "The method of moving asymptotes—a new method for structural opti
 
 K. Svanberg, "A Class of Globally Convergent Optimization Methods Based on Conservative Convex Separable Approximations", SIAM J. Optim. 12, 555 (2002). [doi:10.1137/S1052623499362822](https://doi.org/10.1137/S1052623499362822)
 
-- Methods pages: [optimization.md:134](methods/optimization.md?plain=1#L134)
+- Methods pages: [optimization.md:20](methods/optimization.md?plain=1#L20), [188](methods/optimization.md?plain=1#L188)
 - Code: [src/job/optimize.rs:189](../src/job/optimize.rs#L189)
 - Other documents: [ROADMAP.md:774](../ROADMAP.md?plain=1#L774), [docs/plans/optimization.md:576](plans/optimization.md?plain=1#L576)
 
@@ -3774,7 +3774,7 @@ I. Vurgaftman, J. R. Meyer, L. R. Ram-Mohan, "Band parameters for III–V compou
 
 F. Wang, B. S. Lazarov, O. Sigmund, "On projection methods, convergence and robust formulations in topology optimization", Struct Multidisc Optim 43, 767 (2010). [doi:10.1007/s00158-010-0602-y](https://doi.org/10.1007/s00158-010-0602-y)
 
-- Methods pages: [optimization.md:165](methods/optimization.md?plain=1#L165)
+- Methods pages: [optimization.md:34](methods/optimization.md?plain=1#L34), [219](methods/optimization.md?plain=1#L219)
 - Other documents: [ROADMAP.md:761](../ROADMAP.md?plain=1#L761), [docs/plans/optimization.md:591](plans/optimization.md?plain=1#L591)
 
 #### Wang et al. 2011
