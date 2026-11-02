@@ -30,6 +30,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - *(validation)* the adjoint checks at δ = 4e-3, measured spreads for qmr-plateau and recycle-parks-table, a measured basis for step-reflection-te, and the sweep's floor on rough samples (part of #595) ([#656](https://github.com/tachsin/photonoxide/pull/656))
 - *(hooks)* each agent worktree builds into a target folder of its own (part of #595) ([#665](https://github.com/tachsin/photonoxide/pull/665))
 - *(docs)* catalogue's backslashes restored, and the OpenMP builds of OpenBLAS checked weekly on Linux (part of #595) ([#673](https://github.com/tachsin/photonoxide/pull/673))
+- *(studio)* a nightly built in the studio installs with photonoxide's own setup, not Tauri's NSIS one ([#649](https://github.com/tachsin/photonoxide/pull/649))
+- *(native)* an OpenBLAS load runs alone, as a threaded call does; OpenMP builds held per thread by omp_set_num_threads (#557) ([#653](https://github.com/tachsin/photonoxide/pull/653))
+- *(studio)* the update check on opening goes ahead after a failed one, and every check shows how it ended ([#660](https://github.com/tachsin/photonoxide/pull/660))
+- *(ci)* bound apt-get update to three 3-minute tries and give the jobs time limits (part of #595) ([#664](https://github.com/tachsin/photonoxide/pull/664))
 
 ### <!-- 2 -->Performance
 
