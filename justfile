@@ -78,6 +78,17 @@ validate-cases $PHOTONOXIDE_VALIDATION_CASES:
 validation-report:
     cargo run -p photonoxide-studio --release -- validate --write docs/validation.md
 
+# rewrite the references index (docs/references.md, docs/references-by-file.md) from
+# docs/references.yaml and the citations, without building the studio
+references:
+    rustc --edition 2024 -O --out-dir target/references .github/scripts/references.rs
+    target/references/references --write
+
+# add the entries of newly cited DOIs to docs/references.yaml, from Crossref (needs the network)
+references-crossref:
+    rustc --edition 2024 -O --out-dir target/references .github/scripts/references.rs
+    target/references/references --crossref
+
 # rewrite docs/job.schema.json, the job file's JSON Schema, from the code
 schema:
     cargo run -p photonoxide-studio --release -- schema --write docs/job.schema.json

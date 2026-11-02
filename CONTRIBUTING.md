@@ -61,9 +61,34 @@ Open a [paper suggestion](https://github.com/tachsin/photonoxide/issues/new?temp
 with the reference and its DOI, what it gives (a table, a figure, a number to reproduce) and
 whether people can read it. Check the DOI on Crossref first
 (`https://api.crossref.org/works/<doi>`), and cite the year Crossref gives as published online,
-which can be earlier than the year of the issue the paper appears in. The papers, and the list of
-them, are kept outside the repository, since most can't be redistributed; a suggested paper is
-added to the list, and cited from a page, a lesson or a case once it has been read.
+which can be earlier than the year of the issue the paper appears in. The papers themselves are
+kept outside the repository, since most can't be redistributed; a suggested paper is cited from a
+page, a lesson or a case once it has been read, and is then listed in the
+[references index](docs/references.md) as the next section describes.
+
+### Citing a source
+
+A source is cited by its DOI, written `doi:` and the DOI with no space, wherever the citation
+stands: in prose, `… Cambridge University Press (2015), doi:10.1017/CBO9781316084168`; in
+Markdown, also as the text of a link,
+`[doi:10.1017/CBO9781316084168](https://doi.org/10.1017/CBO9781316084168)`; in a Rust, Python or
+TOML comment, the same. A methods page or a lesson keeps the `doi:` lines of its front matter,
+and code that holds a DOI as data keeps it in a `doi` field or a string holding the DOI alone. A
+source without a DOI (a book printed before DOIs, a manual, an online library) has a key, its
+authors' family names and its year, and is cited as `ref:abramowitz-stegun-1964`; in front
+matter, a `ref:` line goes under its `doi: ""`.
+
+Every source cited has one entry in [docs/references.yaml](docs/references.yaml): its authors,
+title, venue, year and DOI or key. `just references-crossref` (or
+`photonoxide references --crossref`) adds the entries of newly cited DOIs from Crossref; an entry
+with a key, or a field Crossref doesn't give, is written by hand. The year is the one Crossref
+gives as published: the online year for a paper put online before its issue, the print year for
+a journal's archive put online later. `just references` (or `photonoxide references --write`)
+then rewrites [docs/references.md](docs/references.md), each source with every place that cites
+it by file and line, and [docs/references-by-file.md](docs/references-by-file.md), each citing
+file with its sources. CI's Docs job fails when either page is out of date (a citation added,
+removed, or moved to another line), when a cited source has no entry or an entry is cited
+nowhere, and when a DOI is malformed or written without `doi:` away from a link to it.
 
 ### A correction
 
@@ -104,7 +129,8 @@ checked for AI attribution. A pull request that changes only methods pages or Ac
 runs, by the area map ([What CI runs](#what-ci-runs)):
 
 - **Docs:** every relative link in the Markdown leads to a file or folder that exists
-  (`.github/scripts/check-links.sh`; anchors aren't checked);
+  (`.github/scripts/check-links.sh`; anchors aren't checked), and the references index is
+  current, as [Citing a source](#citing-a-source) describes;
 - **Studio, on Linux:** `pnpm build`, which renders every lesson's math with KaTeX, and
   `cargo test -p photonoxide-studio`, which checks each lesson as academy/README.md lists, that
   every methods page is in one category of `CATEGORIES` and linked from docs/README.md, and the
@@ -112,8 +138,9 @@ runs, by the area map ([What CI runs](#what-ci-runs)):
 - **Lint** and **MSRV**, which build the workspace, as they do for every change that reaches an
   area.
 
-No check reads a methods page's front matter or renders its math: review checks that its case
-ids, examples and DOIs exist and that its formulas render on GitHub. Review then reads each cited
+No check reads a methods page's case ids or examples or renders its math (its DOIs are checked
+with the references index): review checks that they exist and that its formulas render on
+GitHub. Review then reads each cited
 place in its source and compares each number with the code's output. Comments are made on the pull
 request; it is squash merged once CI is green and the sources agree.
 

@@ -6,6 +6,7 @@ order: 3
 papers:
   - cite: "A. Yariv, P. Yeh, Photonics: Optical Electronics in Modern Communications, 6th ed., Oxford University Press (2007), Section 3.2"
     doi: ""
+    ref: yariv-yeh-2007
   - cite: "L. Chrostowski, M. Hochberg, Silicon Photonics Design, Cambridge University Press (2015), Listings 3.2–3.3"
     doi: 10.1017/CBO9781316084168
 validation:

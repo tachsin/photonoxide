@@ -27,6 +27,7 @@ mod media;
 mod navigation;
 mod nonlinear;
 mod optimize;
+mod references;
 mod runner;
 mod settings;
 mod setup;
@@ -88,6 +89,11 @@ const USAGE: &str = "usage:
   photonoxide validate [--write <file> | --check <file>]
       run every validation case and print the report; --write saves it, --check fails
       unless <file> holds exactly this report
+  photonoxide references [--write <file> | --check <file> | --crossref [--all]]
+      the references index (docs/references.md): every source docs/references.yaml lists and
+      every place the repository cites it; --write saves it, --check fails unless <file> holds
+      exactly it; --crossref adds the entries of newly cited DOIs from Crossref (--all
+      compares every entry with Crossref)
   photonoxide bench [--all] [--threads <n,n,...>] [--write <file>] [--json <file>] [<id>...]
       time the benchmark problems and the slowest examples, each in its own process, and
       print the report (--all: the heavy ones too; <id>: only those whose id starts with it;
@@ -147,6 +153,7 @@ fn main() -> ExitCode {
         Some("export") => export(&args[1..]),
         Some("worker") => farm::worker(&args[1..]),
         Some("validate") => validate(&args[1..]),
+        Some("references") => references::run(&args[1..]),
         Some("example") => example(&args[1..]),
         Some("bench") => bench::run(&args[1..]),
         Some("libraries") => libraries::run(&args[1..]),

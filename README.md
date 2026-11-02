@@ -24,7 +24,9 @@ lesson, teaches devices and numerical methods at three depths with charts the li
 its fabrication flows show step by step how a design would be made, every stated process
 capability with its source. A Rust library, a Python package and a desktop studio run the same
 methods, each checked against an analytic solution or a published result in a
-[validation report](docs/validation.md) that CI keeps current.
+[validation report](docs/validation.md) that CI keeps current. Every paper and book the project
+cites is listed once in the [references index](docs/references.md), with every place that cites
+it.
 
 It is released milestone by milestone ([changelog](CHANGELOG.md), [roadmap](ROADMAP.md)); until
 1.0 the API can change between milestones. The methods, examples and report are also at

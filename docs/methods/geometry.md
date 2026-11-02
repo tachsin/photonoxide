@@ -20,12 +20,14 @@ papers:
     doi: 10.1364/OE.27.031394
   - cite: "M. Abramowitz, I. A. Stegun, Handbook of Mathematical Functions (1964), chapter 7 (the Fresnel integrals)"
     doi: ""
+    ref: abramowitz-stegun-1964
   - cite: "W. E. Lorensen, H. E. Cline, ACM SIGGRAPH Comput. Graph. 21, 163 (1987) (marching cubes; in two dimensions, the implicit region's zero set)"
     doi: 10.1145/37402.37422
   - cite: "Y. Zhang, S. Yang, A. E.-J. Lim, G.-Q. Lo, C. Galland, T. Baehr-Jones, M. Hochberg, Opt. Express 21, 1310 (2013) (the Y-junction's outline, drawn between two curves)"
     doi: 10.1364/OE.21.001310
   - cite: "Calma Company, GDSII Stream Format Manual, release 6.0 (1987) (the stream's records and its excess-64 numbers)"
     doi: ""
+    ref: calma-1987
 validation:
   - geometry/areas
   - geometry/polygons

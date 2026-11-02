@@ -8,6 +8,7 @@ papers:
     doi: 10.1145/355586.364791
   - cite: "F. W. J. Olver et al., NIST Digital Library of Mathematical Functions, sections 7.6 and 7.9 (the error function)"
     doi: ""
+    ref: olver-2010
   - cite: "C. de Boor, A Practical Guide to Splines, Springer (1978) (the not-a-knot spline)"
     doi: 10.1007/978-1-4612-6333-3
 validation: []
