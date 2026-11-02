@@ -158,14 +158,50 @@ fn oxide_stack() -> Result<LayerStack> {
 /// The strip's 3D model: a quarter of its cross-section (x, y ≥ 0, the strip's centre at the
 /// origin), 500 × 220 nm of Li's silicon in oxide of index 1.444, 1.05 × 0.75 µm on a 12.5 ×
 /// 10 nm grid, with an electric wall at x = 0 and a magnetic wall at y = 0 for the TE-like
-/// mode; its mode at five wavelengths 25 nm apart about 1.55 µm, by the standard scheme.
+/// mode; its mode at five wavelengths 25 nm apart about 1.55 µm, by the standard scheme. The
+/// solve takes about a second, once a launch.
 fn waveguide_modes() -> Built {
-    once!({
-        let device = StripWaveguide::on(oxide_stack().map_err(text)?, "Si")
-            .map_err(text)?
-            .with_mesh(Mesh::window(2.1, 1.5, 84, 75, Scheme::Standard));
-        component(&device, &Values::defaults(&device), Fidelity::ThreeD)
+    WAVEGUIDE_MODES
+        .get_or_init(|| -> Built {
+            let device = StripWaveguide::on(oxide_stack().map_err(text)?, "Si")
+                .map_err(text)?
+                .with_mesh(Mesh::window(2.1, 1.5, 84, 75, Scheme::Standard));
+            component(&device, &Values::defaults(&device), Fidelity::ThreeD)
+        })
+        .clone()
+}
+
+/// `waveguide-modes`'s component, in a cell of its own: the library tells from it whether that
+/// component is built yet (`pending`).
+static WAVEGUIDE_MODES: OnceLock<Built> = OnceLock::new();
+
+/// What a kind whose component takes long to build is before it is built: its kind, its ports'
+/// names, its model's fidelity and whether it is reciprocal, as the built component states them
+/// (a test checks they agree). Its parameters (a default can come from the solve), its ports'
+/// modes and its provenance's source, error and range are known only once it is built.
+#[derive(Clone, Copy, Debug)]
+pub struct Outline {
+    pub kind: &'static str,
+    pub ports: &'static [&'static str],
+    pub fidelity: Fidelity,
+    pub reciprocal: bool,
+}
+
+/// `entry`'s outline, when its component takes long to build: `waveguide-modes`, whose modes are
+/// solved; every other entry builds in milliseconds.
+pub fn outline(entry: &Entry) -> Option<Outline> {
+    (entry.id == "waveguide-modes").then_some(Outline {
+        kind: "waveguide",
+        ports: &["o1", "o2"],
+        fidelity: Fidelity::ThreeD,
+        reciprocal: true,
     })
+}
+
+/// `entry`'s outline while its component takes long to build and isn't built yet; `None` once
+/// it is, and for an entry that builds quickly.
+pub fn pending(entry: &Entry) -> Option<Outline> {
+    outline(entry).filter(|_| WAVEGUIDE_MODES.get().is_none())
 }
 
 fn bend() -> Built {

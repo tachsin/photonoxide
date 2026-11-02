@@ -26,7 +26,7 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use photonoxide::Error;
-use photonoxide::circuit::{Component, Fidelity, Netlist, NetlistError, Spectrum};
+use photonoxide::circuit::{Component, Fidelity, Netlist, NetlistError, Port, Spectrum};
 use photonoxide::compact::touchstone::{Convention, Precision, Touchstone};
 use photonoxide::units::Wavelength;
 use serde::{Deserialize, Serialize};
@@ -603,6 +603,9 @@ pub struct KindInfo {
     provenance: ProvenanceInfo,
     reciprocal: bool,
     symbol: Symbol,
+    /// Listed before its component is built (`component_library`): its ports carry no modes and
+    /// it has no parameters, nor a provenance beyond its fidelity, until `component_kind` gives it.
+    pending: bool,
 }
 
 #[derive(Serialize)]
@@ -710,6 +713,7 @@ fn describe(c: &dyn Component, glyph: library::Glyph) -> KindInfo {
         },
         reciprocal: c.reciprocal(),
         symbol: symbol(glyph, c.ports()),
+        pending: false,
     }
 }
 
@@ -781,10 +785,62 @@ fn compact_in(root: &Path, path: &Path) -> Result<KindInfo, String> {
     Ok(info)
 }
 
-/// Every kind of component in the library.
+/// Every kind of component in the library, at once: a kind whose component is still being built
+/// (`waveguide-modes`, its modes solved for about a second after launch) is listed by its outline,
+/// `pending`, and `component_kind` gives it whole.
 #[tauri::command(async)]
 pub fn component_library() -> Result<Vec<KindInfo>, String> {
+    library::entries()
+        .iter()
+        .map(|e| library::pending(e).map_or_else(|| info(e), |o| Ok(outlined(e, o))))
+        .collect()
+}
+
+/// The library's kind `id`, whole: its component built first, if it isn't, or waited for, if it
+/// is being built.
+#[tauri::command(async)]
+pub fn component_kind(id: String) -> Result<KindInfo, String> {
+    let entry = library::entry(&id).ok_or_else(|| format!("no component {id} in the library"))?;
+    info(&entry)
+}
+
+/// Every kind of component in the library, each built: the program builds them as it starts.
+pub(crate) fn kinds() -> Result<Vec<KindInfo>, String> {
     library::entries().iter().map(info).collect()
+}
+
+/// What the library lists for `entry` before its component is built: its words and its
+/// `outline`, its ports without their modes, no parameters, its provenance's fidelity alone.
+fn outlined(entry: &library::Entry, outline: library::Outline) -> KindInfo {
+    let ports: Vec<Port> = outline.ports.iter().map(|&p| Port::new(p)).collect();
+    KindInfo {
+        id: entry.id.into(),
+        title: entry.title.into(),
+        variant: entry.variant.into(),
+        category: entry.category.into(),
+        about: entry.about.into(),
+        equation: entry.equation.into(),
+        file: None,
+        convention: None,
+        kind: outline.kind.into(),
+        ports: ports
+            .iter()
+            .map(|p| PortInfo {
+                name: p.name.clone(),
+                mode: None,
+            })
+            .collect(),
+        parameters: Vec::new(),
+        provenance: ProvenanceInfo {
+            fidelity: fidelity(outline.fidelity),
+            source: String::new(),
+            error: None,
+            validity: None,
+        },
+        reciprocal: outline.reciprocal,
+        symbol: symbol(entry.glyph, &ports),
+        pending: true,
+    }
 }
 
 /// S-parameters over wavelength: `re[q][p][k]` and `im[q][p][k]` are S_qp at the k-th

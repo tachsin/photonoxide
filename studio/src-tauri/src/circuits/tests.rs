@@ -66,7 +66,7 @@ fn at(sim: &Simulation, out: &str, input: &str) -> Vec<c64> {
 
 #[test]
 fn every_kind_has_its_ports_on_its_symbol() {
-    let kinds = component_library().unwrap();
+    let kinds = kinds().unwrap();
     assert_eq!(kinds.len(), library::entries().len());
     let mut ids = HashSet::new();
     for k in &kinds {
@@ -104,8 +104,53 @@ fn every_kind_has_its_ports_on_its_symbol() {
 }
 
 #[test]
+fn a_kind_listed_before_it_is_built_is_what_it_is_once_built() {
+    let mut outlined_ = 0;
+    for e in library::entries() {
+        let Some(o) = library::outline(&e) else {
+            continue;
+        };
+        outlined_ += 1;
+        let listed = outlined(&e, o);
+        let whole = component_kind(e.id.into()).unwrap();
+        assert!(listed.pending && !whole.pending, "{}", e.id);
+        let words = |k: &KindInfo| {
+            [
+                &k.id,
+                &k.title,
+                &k.variant,
+                &k.category,
+                &k.about,
+                &k.equation,
+                &k.kind,
+            ]
+            .map(Clone::clone)
+        };
+        assert_eq!(words(&listed), words(&whole), "{}", e.id);
+        let names = |k: &KindInfo| k.ports.iter().map(|p| p.name.clone()).collect::<Vec<_>>();
+        assert_eq!(names(&listed), names(&whole), "{}", e.id);
+        assert_eq!(listed.symbol, whole.symbol, "{}", e.id);
+        assert_eq!(
+            listed.provenance.fidelity, whole.provenance.fidelity,
+            "{}",
+            e.id
+        );
+        assert_eq!(listed.reciprocal, whole.reciprocal, "{}", e.id);
+        // built now: the library lists it whole
+        assert!(library::pending(&e).is_none(), "{}", e.id);
+        let now = component_library().unwrap();
+        assert!(
+            !now.iter().find(|k| k.id == e.id).unwrap().pending,
+            "{}",
+            e.id
+        );
+    }
+    assert_eq!(outlined_, 1, "waveguide-modes alone takes long to build");
+}
+
+#[test]
 fn a_spectrum_has_every_element_at_every_wavelength() {
-    for k in component_library().unwrap() {
+    for k in kinds().unwrap() {
         // over the model's own range, if it has one
         let (from_um, to_um) = k.provenance.validity.unwrap_or((1.5, 1.6));
         // five points: the shape and passivity are checked point by point

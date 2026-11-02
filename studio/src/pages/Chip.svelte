@@ -820,6 +820,9 @@
 
         {#if inst.device}
           <InstanceDevice {inst} />
+        {:else if k.pending}
+          <p class="panel-title mt-5">Parameters</p>
+          <p class="mt-2 text-xs faint">Known once its modes are solved.</p>
         {:else}
         <p class="panel-title mt-5">Parameters</p>
         {#each k.parameters as p, i (p.name)}
