@@ -20,7 +20,7 @@ export const PHOTONOXIDE_COMMIT = site.commit;
 export const PHOTONOXIDE_PATH = "/projects/photonoxide";
 export const PHOTONOXIDE_OG_IMAGE = "/projects/photonoxide/opengraph-image";
 
-export const PHOTONOXIDE_TAGLINE = "Light meets Rust: photonics design and simulation for everyone";
+export const PHOTONOXIDE_TAGLINE = "Light meets Rust: an open reference for photonic design, and the software that runs it";
 
 /** The project's pages, under PHOTONOXIDE_PATH. */
 export const METHODS_PATH = "/projects/photonoxide/methods";
@@ -35,7 +35,7 @@ export const CROSS_CODE_DOCS_PATH = "/projects/photonoxide/docs/cross-code";
 export const DESIGN_DOCS_PATH = "/projects/photonoxide/docs/design";
 
 export const PHOTONOXIDE_DESCRIPTION =
-  "photonoxide is a photonics library for Rust: materials with provenance, mode solvers, 2D and 3D FDFD and FDTD on the CPU and GPU, components and circuits with their adjoint, and compact models, with a studio to build jobs and chips and watch every run live. Every method is validated against analytic solutions and published results. Active devices, inverse design and layout export are planned.";
+  "photonoxide is an open reference for photonic design and the software that runs it: methods pages that derive each solver from its papers, an Academy of lessons with live charts, and fabrication flows with cited process capabilities; a Rust library, a Python package and a desktop studio for materials, mode solvers, FDFD and FDTD on the CPU and GPU with adjoint gradients, circuits, active devices and nonlinear optics. Every method is validated against analytic solutions and published results. Inverse design and layout export are planned.";
 
 export const PHOTONOXIDE_LICENSE = "MIT OR Apache-2.0";
 
@@ -84,6 +84,16 @@ export const PHOTONOXIDE_KEYWORDS = [
  * name in the hero's line, which lists what is done and what is to come.
  */
 export const PHOTONOXIDE_HIGHLIGHTS = [
+  {
+    icon: "methods",
+    title: "Methods reference",
+    body: "A write-up for each method: its equations, the papers it implements, its limits and the validation that checks it.",
+  },
+  {
+    icon: "academy",
+    title: "Academy",
+    body: "Lessons on devices and numerical methods at three depths, each opening on a drawing of its device, with charts the library computes; read on GitHub or in the studio.",
+  },
   {
     icon: "modes",
     title: "Mode solvers",

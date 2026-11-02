@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "photonoxide"
-description = "Photonics design and simulation for Python, written in Rust: materials, waveguide modes, jobs, 2D FDFD S-parameters, circuits, devices"
+description = "Photonics design and simulation for Python, written in Rust: materials, waveguide modes, jobs, 2D FDFD S-parameters, circuits and devices, each checked against published results"
 readme = "README.md"
 license = "MIT OR Apache-2.0"
 license-files = ["licenses/LICENSE-MIT", "licenses/LICENSE-APACHE"]
