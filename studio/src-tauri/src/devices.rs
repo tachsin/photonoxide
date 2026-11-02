@@ -1694,4 +1694,6 @@ pub mod optimizing;
 pub use optimizing::OptimizeIn;
 
 #[cfg(test)]
+mod roundtrip;
+#[cfg(test)]
 mod tests;
