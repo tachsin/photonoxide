@@ -156,7 +156,7 @@ contribution. Questions before starting belong in
 
 ## Pull requests
 
-- **One change per PR, with tests, and with its validation.** A solver or device comes with an analytic test, a reproduction of a published result, and a convergence test; adjoint gradients are checked against finite differences. A change that adds or alters a validation case regenerates `docs/validation.md` (`cargo run -p photonoxide-studio --release -- validate --write docs/validation.md`).
+- **One issue per PR, with tests, and with its validation.** A PR is one issue's work, not one slice of it: the phases of an umbrella issue are commits of a single PR, opened when the work is done and checked locally, so CI runs once on the whole; small unrelated fixes are grouped into one PR. A solver or device comes with an analytic test, a reproduction of a published result, and a convergence test; adjoint gradients are checked against finite differences. A change that adds or alters a validation case regenerates `docs/validation.md` (`cargo run -p photonoxide-studio --release -- validate --write docs/validation.md`).
 - **Cite the paper.** Every method's docs name the paper it implements, by a DOI that was checked.
 - **The PR title is the changelog entry.** PRs are squash merged: the title becomes the commit message and the changelog line. Use [Conventional Commits](https://www.conventionalcommits.org/), with a short sentence as the subject:
 
