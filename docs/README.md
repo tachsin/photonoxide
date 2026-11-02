@@ -242,6 +242,8 @@ the studio and read on GitHub as ordinary Markdown.
 
 ## Contributing
 
-[CONTRIBUTING.md](../CONTRIBUTING.md) describes how to propose a change, how a validation case
-and its tolerance are written, and what CI runs. The [code of conduct](../CODE_OF_CONDUCT.md)
+[Ways to contribute beyond code](../CONTRIBUTING.md#ways-to-contribute-beyond-code) describes how
+to improve a methods page, write a section of an Academy lesson, suggest a paper, report a
+correction or add a validation case, and how review works. The rest of CONTRIBUTING.md describes
+what a pull request needs, how a validation case's tolerance is set, and what CI runs. The [code of conduct](../CODE_OF_CONDUCT.md)
 and the [security policy](../SECURITY.md) apply to every contribution.

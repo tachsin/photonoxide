@@ -272,7 +272,8 @@ checks every example's output too.
 
 Contributions other than code are as welcome as code: a methods page improved, a section of an
 Academy lesson written, a paper suggested, a correction, a validation case.
-[CONTRIBUTING.md](CONTRIBUTING.md) says what a pull request needs. Questions and ideas go to
+[CONTRIBUTING.md](CONTRIBUTING.md#ways-to-contribute-beyond-code) says how to make each, and what
+a pull request needs. Questions and ideas go to
 [Discussions](https://github.com/tachsin/photonoxide/discussions); reports and proposals go to
 the [issue forms](https://github.com/tachsin/photonoxide/issues/new/choose). Everyone taking part
 follows the [code of conduct](CODE_OF_CONDUCT.md).
