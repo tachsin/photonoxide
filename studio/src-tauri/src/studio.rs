@@ -7,11 +7,12 @@
 //! asks the run to stop. Started bare, it opens on its home page; jobs started from the window
 //! keep it open.
 
+use std::collections::{HashMap, HashSet};
 use std::fs::File;
 use std::io::{Read, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
-use std::sync::Mutex;
 use std::sync::mpsc::Receiver;
+use std::sync::{LazyLock, Mutex};
 use std::thread::JoinHandle;
 use std::time::Duration;
 
@@ -457,7 +458,7 @@ fn save_settings(
 }
 
 /// A job file in the workspace.
-#[derive(Serialize)]
+#[derive(Serialize, Clone)]
 struct JobItem {
     path: String,
     name: String,
@@ -472,7 +473,7 @@ struct JobItem {
 }
 
 /// A run in the workspace.
-#[derive(Serialize)]
+#[derive(Serialize, Clone)]
 struct RunItem {
     dir: String,
     name: String,
@@ -583,30 +584,46 @@ fn jobs_in(dir: &Path) -> Vec<JobItem> {
         .filter(|p| Format::from_path(p).is_some())
         .collect();
     paths.sort();
+    // a job file is parsed again only when it has changed since
+    let mut read = JOBS_READ.lock().unwrap_or_else(|e| e.into_inner());
+    let listed: HashSet<&PathBuf> = paths.iter().collect();
+    read.retain(|p, _| listed.contains(p));
+    let stamps: Vec<Stamp> = paths.iter().map(|p| stamp(p)).collect();
     paths
-        .into_iter()
-        .filter_map(|path| {
-            let job = Job::load(&path).ok()?;
-            let text = job.text();
-            let modified = std::fs::metadata(&path)
-                .and_then(|m| m.modified())
-                .ok()
-                .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
-                .map_or(0.0, |d| d.as_secs_f64());
-            Some(JobItem {
-                path: path.display().to_string(),
-                name: job.name().to_owned(),
-                kind: kind_of(&job),
-                about: about(text),
-                modified,
-                device: job
-                    .device()
-                    .and_then(|t| t.get("kind"))
-                    .and_then(toml::Value::as_str)
-                    .map(str::to_owned),
-            })
+        .iter()
+        .zip(stamps)
+        .filter_map(|(path, now)| match read.get(path) {
+            Some((then, item)) if *then == now && now.is_some() => item.clone(),
+            _ => {
+                let item = job_item(path);
+                read.insert(path.clone(), (now, item.clone()));
+                item
+            }
         })
         .collect()
+}
+
+/// A job file's line in the lists, or None when it doesn't load.
+fn job_item(path: &Path) -> Option<JobItem> {
+    let job = Job::load(path).ok()?;
+    let text = job.text();
+    let modified = std::fs::metadata(path)
+        .and_then(|m| m.modified())
+        .ok()
+        .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+        .map_or(0.0, |d| d.as_secs_f64());
+    Some(JobItem {
+        path: path.display().to_string(),
+        name: job.name().to_owned(),
+        kind: kind_of(&job),
+        about: about(text),
+        modified,
+        device: job
+            .device()
+            .and_then(|t| t.get("kind"))
+            .and_then(toml::Value::as_str)
+            .map(str::to_owned),
+    })
 }
 
 /// A job file's opening comment, as one paragraph, without its usage lines: TOML's and YAML's
@@ -706,41 +723,83 @@ fn runs_in(dir: &Path, most: usize) -> Vec<RunItem> {
     dirs.sort();
     dirs.reverse();
     dirs.truncate(most);
-    dirs.into_iter()
+    // a run is read again only when its folder, its record or its meta has changed since
+    let mut read = RUNS_READ.lock().unwrap_or_else(|e| e.into_inner());
+    let listed: HashSet<&PathBuf> = dirs.iter().collect();
+    read.retain(|d, _| listed.contains(d));
+    let stamps: Vec<_> = dirs
+        .iter()
         .map(|d| {
-            let meta: Option<Meta> = std::fs::read_to_string(d.join("meta.json"))
-                .ok()
-                .and_then(|t| serde_json::from_str(&t).ok());
-            // the record's first line says what ran, its last whether it finished: only those
-            // are read, as a record grows to megabytes and the 200 newest are read each time
-            let (first, last) = first_and_last_lines(&d.join("events.jsonl"), LINES_CHUNK);
-            let event =
-                |line: Option<&str>| line.and_then(|l| serde_json::from_str::<Event>(l).ok());
-            let kind = match event(first.as_deref()) {
-                Some(Event::Started { kind, .. }) => kind,
-                _ => String::new(),
-            };
-            let (finished, seconds, stopped) = match event(last.as_deref()) {
-                Some(Event::Finished { stopped, seconds }) => (true, Some(seconds), stopped),
-                _ => (false, None, None),
-            };
-            let (device, fidelity, computes, study) = device_of(&d);
-            RunItem {
-                dir: d.display().to_string(),
-                name: name_of(&d),
-                job: meta.as_ref().map_or_else(String::new, |m| m.job.clone()),
-                kind,
-                started: meta.map_or_else(String::new, |m| m.started),
-                finished,
-                seconds,
-                stopped,
-                device,
-                fidelity,
-                computes,
-                study,
+            [
+                stamp(d),
+                stamp(&d.join("events.jsonl")),
+                stamp(&d.join("meta.json")),
+            ]
+        })
+        .collect();
+    dirs.iter()
+        .zip(stamps)
+        .map(|(d, now)| match read.get(d) {
+            Some((then, item)) if *then == now && now.iter().all(Option::is_some) => item.clone(),
+            _ => {
+                let item = run_item(d);
+                read.insert(d.clone(), (now, item.clone()));
+                item
             }
         })
         .collect()
+}
+
+/// A file's or a folder's length and last change: what was read from it holds while they do.
+type Stamp = Option<(u64, std::time::SystemTime)>;
+
+fn stamp(path: &Path) -> Stamp {
+    let m = std::fs::metadata(path).ok()?;
+    Some((m.len(), m.modified().ok()?))
+}
+
+/// What was read of each file or folder, by its path, with its stamps then.
+type ReadAt<S, T> = HashMap<PathBuf, (S, T)>;
+
+/// What `runs_in` read of each run, with the stamps of its folder, record and meta then: most
+/// runs never change, and reading the 200 newest each time (each one's job parsed) took the
+/// Home page and the components list about 50 ms.
+static RUNS_READ: LazyLock<Mutex<ReadAt<[Stamp; 3], RunItem>>> = LazyLock::new(Default::default);
+/// What `jobs_in` read of each job file, with the file's stamp then.
+static JOBS_READ: LazyLock<Mutex<ReadAt<Stamp, Option<JobItem>>>> = LazyLock::new(Default::default);
+
+/// A run's line in the lists: what ran, whether it finished, and the device it computes.
+fn run_item(d: &Path) -> RunItem {
+    let meta: Option<Meta> = std::fs::read_to_string(d.join("meta.json"))
+        .ok()
+        .and_then(|t| serde_json::from_str(&t).ok());
+    // the record's first line says what ran, its last whether it finished: only those are
+    // read, as a record grows to megabytes
+    let (first, last) = first_and_last_lines(&d.join("events.jsonl"), LINES_CHUNK);
+    let event = |line: Option<&str>| line.and_then(|l| serde_json::from_str::<Event>(l).ok());
+    let kind = match event(first.as_deref()) {
+        Some(Event::Started { kind, .. }) => kind,
+        _ => String::new(),
+    };
+    let (finished, seconds, stopped) = match event(last.as_deref()) {
+        Some(Event::Finished { stopped, seconds }) => (true, Some(seconds), stopped),
+        _ => (false, None, None),
+    };
+    let (device, fidelity, computes, study) = device_of(d);
+    RunItem {
+        dir: d.display().to_string(),
+        name: name_of(d),
+        job: meta.as_ref().map_or_else(String::new, |m| m.job.clone()),
+        kind,
+        started: meta.map_or_else(String::new, |m| m.started),
+        finished,
+        seconds,
+        stopped,
+        device,
+        fidelity,
+        computes,
+        study,
+    }
 }
 
 /// A built-in job, as the gallery shows it.
@@ -1650,6 +1709,40 @@ mod tests {
         assert_eq!(names, ["20261002-120000-b", "20261001-120000-a"]);
         assert!(!runs[0].finished && runs[1].finished);
         assert_eq!(runs_in(&root, 1).len(), 1);
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn a_run_or_a_job_that_changes_is_read_again() {
+        let root = std::env::temp_dir().join(format!("photonoxide-reread-{}", std::process::id()));
+        let run = root.join("runs").join("20261101-120000-a");
+        std::fs::create_dir_all(&run).unwrap();
+        std::fs::create_dir_all(root.join("jobs")).unwrap();
+        let record = run.join("events.jsonl");
+        std::fs::write(
+            &record,
+            "{\"type\":\"started\",\"job\":\"a\",\"kind\":\"modes\"}\n",
+        )
+        .unwrap();
+        let runs = runs_in(&root.join("runs"), 200);
+        assert!(!runs[0].finished);
+        assert_eq!(runs[0].kind, "modes");
+        // the run finishes: its record grows, and the list says so
+        let mut text = std::fs::read_to_string(&record).unwrap();
+        text.push_str("{\"type\":\"finished\",\"stopped\":null,\"seconds\":2.0}\n");
+        std::fs::write(&record, &text).unwrap();
+        let runs = runs_in(&root.join("runs"), 200);
+        assert!(runs[0].finished);
+        assert_eq!(runs[0].seconds, Some(2.0));
+        // a job renamed in its file is listed by its new name
+        let job = root.join("jobs").join("a.toml");
+        std::fs::write(&job, "name = \"first\"\n\n[task]\nkind = \"modes\"\n").unwrap();
+        assert_eq!(jobs_in(&root.join("jobs"))[0].name, "first");
+        std::fs::write(&job, "name = \"second\"\n\n[task]\nkind = \"modes\"\n").unwrap();
+        assert_eq!(jobs_in(&root.join("jobs"))[0].name, "second");
+        // and a job removed is no longer listed
+        std::fs::remove_file(&job).unwrap();
+        assert!(jobs_in(&root.join("jobs")).is_empty());
         let _ = std::fs::remove_dir_all(&root);
     }
 
