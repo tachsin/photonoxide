@@ -177,7 +177,7 @@ jobs:
         with:
           name: wheels-linux-x86_64
           path: python/dist
-      - uses: astral-sh/setup-uv@v10.3.2
+      - uses: astral-sh/setup-uv@v10.3.3
       # pdoc's version is the package's `docs` extra (python/pyproject.toml); run outside python/,
       # so the package imported is the installed wheel
       - name: Generate
