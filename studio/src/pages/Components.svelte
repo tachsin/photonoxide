@@ -96,7 +96,7 @@
   }
 
   $effect(() => {
-    if (!kind || device) return;
+    if (!kind || device || kind.pending) return;
     const job = { part: partOf(kind), values: [...now], sweep: { ...sweep } };
     const bad = sweepProblem(job.sweep);
     if (bad) {
@@ -156,6 +156,14 @@
     <div class="min-h-0 flex-1 {custom || (kind && device) ? 'overflow-hidden' : 'overflow-x-hidden overflow-y-auto'}">
     {#if custom}
       <CustomDevice />
+    {:else if kind?.pending}
+      <!-- listed before it was built: its page once its modes are solved (kindReady) -->
+      <div class="grid h-full place-items-center">
+        <div class="flex flex-col items-center gap-3 text-sm muted">
+          <span class="loading loading-ring loading-lg text-primary"></span>
+          <span>{kind.title}, {kind.variant}: solving its modes</span>
+        </div>
+      </div>
     {:else if kind && device}
       {#key device.id}
         <DevicePage info={device} {kind} family={familyOf(kind)} onchoose={choose} />

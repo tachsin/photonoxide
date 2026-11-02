@@ -96,19 +96,48 @@ export async function finishImport(go: boolean) {
 
 let loading: Promise<void> | null = null;
 
-/** Loads the component library, once. */
+/** Loads the component library, once; a kind listed before it was built is filled in when it is. */
 export function loadLibrary(): Promise<void> {
   loading ??= api
     .componentLibrary()
     .then((k) => {
       library.kinds = k;
       library.loaded = true;
+      for (const p of k) if (p.pending) void kindReady(p.id);
     })
     .catch((e) => {
       library.problem = String(e);
       loading = null;
     });
   return loading;
+}
+
+const filling = new Map<string, Promise<KindInfo | undefined>>();
+
+/**
+ * The library's kind `id` whole: at once, unless it was listed before its component was built
+ * (`pending`); then once it is, the list's entry replaced. Whatever needs more than a kind's
+ * words, ports and symbol (its parameters, its provenance) waits for this.
+ */
+export function kindReady(id: string): Promise<KindInfo | undefined> {
+  const k = library.kinds.find((x) => x.id === id);
+  if (!k?.pending) return Promise.resolve(k);
+  let whole = filling.get(id);
+  if (!whole) {
+    whole = api
+      .componentKind(id)
+      .then((built) => {
+        library.kinds = library.kinds.map((x) => (x.id === id ? built : x));
+        return built;
+      })
+      .catch((e) => {
+        filling.delete(id);
+        toast(String(e), "error");
+        return undefined;
+      });
+    filling.set(id, whole);
+  }
+  return whole;
 }
 
 /** The part with key `key` (see `partKey`). */
@@ -470,6 +499,11 @@ export async function placeDesign(id: string, spec: DeviceSpec, job: string | nu
 export function addInstance(key: string, x?: number, y?: number, device?: DeviceRef) {
   const k = kindOf(key);
   if (!k) return;
+  // its parameters' defaults are known once it is built
+  if (k.pending) {
+    void kindReady(k.id).then((whole) => whole && addInstance(key, x, y, device));
+    return;
+  }
   const kind = k.id;
   change((chip) => {
     const name = freshName(chip, k.file ? (kind === COMPACT ? "compact" : "measured") : kind);

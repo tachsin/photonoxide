@@ -280,6 +280,7 @@ export const api = {
   transparencyWindows: (temperatureK: number | null, algaasX: number | null, alganX: number | null) =>
     invoke<TransparencyWindow[]>("transparency_windows", { temperatureK, algaasX, alganX }),
   componentLibrary: () => invoke<KindInfo[]>("component_library"),
+  componentKind: (id: string) => invoke<KindInfo>("component_kind", { id }),
   componentSpectrum: (part: Part, values: number[], sweep: Sweep) => invoke<SpectrumData>("component_spectrum", { part, values, sweep }),
   measuredComponent: (path: string, convention: TimeConvention) => invoke<KindInfo>("measured_component", { path, convention }),
   circuitCheck: (chip: Chip) => invoke<Problem[]>("circuit_check", { chip }),
@@ -604,6 +605,12 @@ export interface KindInfo {
   provenance: { fidelity: "analytic" | "compact" | "2D" | "3D" | "measured"; source: string; error: number | null; validity: [number, number] | null };
   reciprocal: boolean;
   symbol: Symbol;
+  /**
+   * Listed before its component is built (the solved-mode waveguide, about a second after
+   * launch): its ports carry no modes and it has no parameters, nor a provenance beyond its
+   * fidelity, until `kindReady` fills it in. Its symbol and ports' names are already its own.
+   */
+  pending: boolean;
 }
 
 export interface Sweep {
