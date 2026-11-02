@@ -1,6 +1,7 @@
 import { getExamples } from "./examples";
 import {
   CROSS_CODE_DOCS_PATH,
+  DEPENDENCIES_PATH,
   DESIGN_DOCS_PATH,
   EXAMPLES_PATH,
   LANGUAGES_DOCS_PATH,
@@ -11,7 +12,7 @@ import {
 import { getMethods } from "./methods";
 
 /**
- * The docs' guides beside getting started, and every method and example page,
+ * The docs' guides beside getting started, the Dependencies page, and every method and example page,
  * for the app's sitemap (the registry's `extraPaths`). The methods and examples
  * are left out when GitHub can't be reached.
  * @returns {Promise<string[]>}
@@ -24,6 +25,7 @@ export async function photonoxidePaths() {
     LANGUAGES_DOCS_PATH,
     CROSS_CODE_DOCS_PATH,
     DESIGN_DOCS_PATH,
+    DEPENDENCIES_PATH,
     ...methods.map((m) => `${METHODS_PATH}/${m.slug}`),
     ...examples.map((e) => `${EXAMPLES_PATH}/${e.slug}`),
   ];

@@ -492,7 +492,20 @@ AMD's sparse library, part of AOCL: iterative solvers on AMD processors. Its bac
 
 ## New releases
 
-Every Monday the Releases workflow (`.github/workflows/releases.yml`) runs `photonoxide libraries --releases`. It reads each library's newest release where it is published: PyPI's and anaconda.org's APIs for the wheels and conda-forge's packages, NVIDIA's redistributables' manifests for CUDA and cuDSS, the GitHub releases of SuperLU and OpenBLAS, MUMPS's download page, and, for Accelerate, the macOS of GitHub's runner images. It sets the newest release of each library beside the version we use (the one checked above), in bold when it is newer, and keeps that table in one issue, [New releases of all libraries](https://github.com/tachsin/photonoxide/issues?q=is%3Aissue+in%3Atitle+%22New+releases+of+all+libraries%22), commenting there when a release appears. The same issue lists our direct dependencies, so that one table has every library: the Rust crates, the studio's pnpm packages, the Python requirements and the GitHub Actions, at the versions our lockfiles and workflows have, against crates.io, the npm registry, PyPI and GitHub's releases. It links Dependabot's open pull request, which still brings their minor and patch updates, and lists the major versions Dependabot leaves out.
+The [Dependencies page](https://tachsin.gr/projects/photonoxide/dependencies) reads each library's newest release where it is published, at most once an hour: PyPI's and anaconda.org's APIs for the wheels and conda-forge's packages, NVIDIA's redistributables' manifests for CUDA and cuDSS, the GitHub releases of SuperLU, OpenBLAS, HDF5 and Zstandard, MUMPS's download page, and, for Accelerate, the macOS of GitHub's runner images. It sets it beside the version we use, the newest of those checked above, from this table, and marks it when it is newer, with what changed since. The same page lists our own dependencies, each beside its newest release: the Rust crates, the studio's pnpm packages, the Python requirements, the GitHub Actions and the toolchain.
+
+| Library | We use | photonoxide-native accepts |
+|---|---|---|
+| oneMKL | 2026.2.0 | 2020 and later, by mkl_rt.3, mkl_rt.2 and Debian's unversioned mkl_rt |
+| CUDA runtime | 13.4.92 | 12.x and 13.x, by its files' names |
+| cuSPARSE | 12.8.6.72 | 12.x, by its files' names |
+| cuDSS | 1.0.0.35 | 0.x and 1.x, by its files' names |
+| MUMPS | 5.9.1 | 5.4.1 to 5.9.1, the releases whose structure it knows |
+| SuperLU | 7.0.1 | 5 to 7, the releases whose drivers it calls |
+| OpenBLAS | 0.3.34 | 0.x, by libopenblas.so.0 and its likes |
+| Accelerate | 27.0.1 | 15.5 and later, macOS with complex LU (and L D Lᵀ from 26) |
+| HDF5 | 2.2.0 | 1.10 and later, from the release whose identifiers are 64-bit |
+| Zstandard | 1.5.7 | 1.4 and later, libzstd.so.1 and its likes, from the release whose levels run to 22 |
 
 A new release isn't supported until it has been checked:
 
@@ -500,7 +513,7 @@ A new release isn't supported until it has been checked:
 2. **Outside what photonoxide-native accepts,** it is refused until its support is added: the release's layout in `native/src/mumps.rs` (from its `zmumps_c.h`), its major release in `native/src/superlu.rs`, its file names in `native/src/nvidia.rs`.
 3. **Install it on clean machines:** the Libraries workflow on a branch (`gh workflow run libraries.yml --ref <branch>`) installs each method, asks photonoxide what it finds, and runs each backend's tests with its library required.
 4. **Check it against photonoxide's own solvers** on a machine that has it (and a GPU, for NVIDIA's): the backend's tests (`cargo test -p photonoxide-native --release --test <backend>`, with `PHOTONOXIDE_REQUIRE_<LIBRARY>` set where the test has one) and the benchmark's problems (`photonoxide bench --tier standard --backends <backend>`), whose answers are checked.
-5. **Then record it:** its `Checked` entries in `studio/src-tauri/src/libraries.rs`, and `photonoxide libraries --write docs/libraries.md`. Only then do the guides call it checked.
+5. **Then record it:** its `Checked` entries in `studio/src-tauri/src/libraries.rs`, and `photonoxide libraries --write docs/libraries.md`. Only then do the guides call it checked, and the Dependencies page takes it as the version we use.
 
 ## Traps
 

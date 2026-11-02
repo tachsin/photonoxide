@@ -13,8 +13,9 @@
 //!   Homebrew on macOS and apt (through pkexec, which asks for the password) on Linux, as their
 //!   vendors ship them. A pip command is shown to copy: each library it installs has a
 //!   conda-forge one too. Nothing is redistributed with photonoxide.
-//! - **New releases** ([`releases`]): each library's newest, against the version its guide
-//!   was checked with, read every week by the Releases workflow.
+//! - **New releases** ([`releases`]): the version of each library we use and what
+//!   photonoxide-native accepts, the table the Dependencies page on tachsin.gr sets each
+//!   library's newest release beside.
 
 use std::process::{Command, ExitCode, Stdio};
 use std::time::{Duration, Instant};
@@ -1345,26 +1346,20 @@ pub fn markdown() -> String {
         write_installs(&mut out, p.installs, p.unsupported);
     }
     out.push_str("## New releases\n\n");
-    let _ = writeln!(
-        out,
-        "Every Monday the Releases workflow (`.github/workflows/releases.yml`) runs \
-         `photonoxide libraries --releases`. It reads each library's newest release where it \
-         is published: PyPI's and anaconda.org's APIs for the wheels and conda-forge's \
-         packages, NVIDIA's redistributables' manifests for CUDA and cuDSS, the GitHub releases \
-         of SuperLU and OpenBLAS, MUMPS's download page, and, for Accelerate, the macOS of \
-         GitHub's runner images. It sets the newest release of each \
-         library beside the version we use (the one checked above), in bold when it is newer, \
-         and keeps that table in one issue, [{title}](https://github.com/tachsin/photonoxide/issues?q=is%3Aissue+in%3Atitle+%22{query}%22), \
-         commenting there when a release appears. The same issue lists our direct \
-         dependencies, so that one table has every library: the Rust crates, the studio's pnpm \
-         packages, the Python requirements and the GitHub Actions, at the versions our \
-         lockfiles and workflows have, against crates.io, the npm registry, PyPI and GitHub's \
-         releases. It links Dependabot's open pull request, which still brings their minor and \
-         patch updates, and lists the major versions Dependabot leaves out.\n\n\
-         A new release isn't supported until it has been checked:\n",
-        title = releases::ISSUE_TITLE,
-        query = releases::ISSUE_TITLE.replace(' ', "+"),
+    out.push_str(
+        "The [Dependencies page](https://tachsin.gr/projects/photonoxide/dependencies) reads each \
+         library's newest release where it is published, at most once an hour: PyPI's and \
+         anaconda.org's APIs for the wheels and conda-forge's packages, NVIDIA's \
+         redistributables' manifests for CUDA and cuDSS, the GitHub releases of SuperLU, \
+         OpenBLAS, HDF5 and Zstandard, MUMPS's download page, and, for Accelerate, the macOS of \
+         GitHub's runner images. It sets it beside the version we use, the newest of those \
+         checked above, from this table, and marks it when it is newer, with what changed since. \
+         The same page lists our own dependencies, each beside its newest release: the Rust \
+         crates, the studio's pnpm packages, the Python requirements, the GitHub Actions and the \
+         toolchain.\n\n",
     );
+    out.push_str(&releases::table());
+    out.push_str("\nA new release isn't supported until it has been checked:\n\n");
     out.push_str(releases::STEPS);
     out.push('\n');
     out.push_str("## Traps\n\n");
@@ -1392,13 +1387,10 @@ fn anchor(heading: &str) -> String {
         .collect()
 }
 
-/// `photonoxide libraries [--json | --write <file> | --releases ...]`: finds every library,
-/// registers their backends after their smoke tests, and prints what was found; or writes the
-/// install guides' page; or reads each library's newest release ([`releases::run`]).
+/// `photonoxide libraries [--json | --write <file>]`: finds every library, registers their
+/// backends after their smoke tests, and prints what was found; or writes the install guides'
+/// page.
 pub fn run(args: &[String]) -> ExitCode {
-    if args.first().is_some_and(|a| a == "--releases") {
-        return releases::run(&args[1..]);
-    }
     if let [flag, file] = args
         && flag == "--write"
     {

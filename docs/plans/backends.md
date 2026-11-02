@@ -165,8 +165,8 @@ algebraic one on a curl-curl operator, which photonoxide's geometric multigrid e
 2. The traits and the registry (#193, done). `photonoxide-native`'s machinery (#174).
 3. The libraries, in parallel (#175, #176, #177, #186, #187, #188, #189, #190), with the
    install guides (#184: [docs/libraries.md](../libraries.md), each method run on clean machines
-   by the Libraries workflow, and each library's new releases read every week by the Releases
-   workflow, which keeps them in one issue until they are checked:
+   by the Libraries workflow, and each library's new releases beside the version we use on the
+   Dependencies page of tachsin.gr until they are checked:
    [docs/libraries.md, New releases](../libraries.md#new-releases)).
 4. The catalogue (#179) and the runner (#180).
 5. The studio's Libraries (#181) and Benchmarks (#182) pages, and `auto` (#183).
