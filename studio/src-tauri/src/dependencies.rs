@@ -1,10 +1,10 @@
-//! The major versions of our own dependencies that our requirements don't take:
-//! `photonoxide dependencies`, run from the repository's root.
+//! The major versions of our own dependencies that our requirements don't take, for the
+//! releases issue ([`crate::libraries::releases`]).
 //!
 //! Dependabot's weekly pull request brings the minor and patch updates (`.github/dependabot.yml`)
-//! and leaves the major ones out, since they are what breaks a build. The Releases workflow runs
-//! this every Monday and keeps its table in one issue, "Major updates available", so that a
-//! major version is adopted on purpose, in a pull request of its own. "Major" is Dependabot's:
+//! and leaves the major ones out, since they are what breaks a build. The Releases workflow lists
+//! them in the "Major updates" section of the one issue, "New releases of all libraries", so that
+//! a major version is adopted on purpose, in a pull request of its own. "Major" is Dependabot's:
 //! the first number of the version, so a 0.x crate's breaking 0.y comes in its pull request.
 //!
 //! - **Rust crates:** every workspace member's dependencies with a version, at the version
@@ -16,13 +16,13 @@
 //! - **GitHub Actions:** every `uses: owner/name@v…` in the workflows, against the action's
 //!   latest release on GitHub.
 
-use std::collections::BTreeMap;
+use std::collections::BTreeSet;
 use std::fmt::Write as _;
 use std::path::Path;
 
 use serde_json::Value;
 
-use crate::watch::{Fetch, Report, cell, compare, day, numbers, record};
+use crate::watch::{Fetch, cell, compare, day, numbers};
 
 /// Where a dependency comes from.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -334,17 +334,8 @@ pub fn actions(workflow: &str, file: &str) -> Vec<Dependency> {
     out
 }
 
-/// Every dependency, from the repository at `root`.
-pub fn dependencies(root: &Path) -> Result<Vec<Dependency>, String> {
-    let mut all = crates(root)?;
-    let package = "studio/package.json";
-    let text =
-        std::fs::read_to_string(root.join(package)).map_err(|e| format!("{package}: {e}"))?;
-    all.extend(npm(&text, package)?);
-    let pyproject = "python/pyproject.toml";
-    let text =
-        std::fs::read_to_string(root.join(pyproject)).map_err(|e| format!("{pyproject}: {e}"))?;
-    all.extend(python(&text, pyproject)?);
+/// Every GitHub Action the workflows use, by name, once for each major version it is used at.
+pub fn workflow_actions(root: &Path) -> Result<Vec<Dependency>, String> {
     let dir = root.join(".github/workflows");
     let mut files: Vec<_> = std::fs::read_dir(&dir)
         .map_err(|e| format!("{}: {e}", dir.display()))?
@@ -363,7 +354,21 @@ pub fn dependencies(root: &Path) -> Result<Vec<Dependency>, String> {
             add(&mut acts, a);
         }
     }
-    all.extend(acts);
+    Ok(acts)
+}
+
+/// Every dependency, from the repository at `root`.
+pub fn dependencies(root: &Path) -> Result<Vec<Dependency>, String> {
+    let mut all = crates(root)?;
+    let package = "studio/package.json";
+    let text =
+        std::fs::read_to_string(root.join(package)).map_err(|e| format!("{package}: {e}"))?;
+    all.extend(npm(&text, package)?);
+    let pyproject = "python/pyproject.toml";
+    let text =
+        std::fs::read_to_string(root.join(pyproject)).map_err(|e| format!("{pyproject}: {e}"))?;
+    all.extend(python(&text, pyproject)?);
+    all.extend(workflow_actions(root)?);
     Ok(all)
 }
 
@@ -424,7 +429,7 @@ pub(crate) fn index_newest(lines: &str) -> Option<String> {
 
 /// The newest release of `d`; `beyond` tells whether it is a major version `d` doesn't take,
 /// for which the date and notes are read too.
-fn newest(fetch: &mut Fetch, d: &Dependency) -> Result<Newest, String> {
+pub(crate) fn newest(fetch: &mut Fetch, d: &Dependency) -> Result<Newest, String> {
     let beyond = |v: &str| d.takes.is_some_and(|t| major(v).is_some_and(|m| m > t));
     match d.kind {
         Kind::Crate => {
@@ -580,58 +585,16 @@ pub fn rows(fetch: &mut Fetch, dependencies: Vec<Dependency>) -> Vec<Row> {
         .collect()
 }
 
-/// The rows whose major version is new since the earlier record: listed now, at another major
-/// version than recorded. Nothing is new on the issue's first run.
-pub fn news<'a>(rows: &'a [Row], previous: Option<&BTreeMap<String, String>>) -> Vec<&'a Row> {
-    rows.iter()
-        .filter(|r| r.major())
-        .filter(|r| {
-            let (Some(p), Ok(n)) = (previous, &r.newest) else {
-                return false;
-            };
-            p.get(&r.dependency.key())
-                .is_some_and(|old| major(old) != major(&n.version))
-        })
-        .collect()
-}
-
-/// The issue's body.
-pub fn body(rows: &[Row], previous: Option<&BTreeMap<String, String>>, today: &str) -> String {
-    // a dependency that couldn't be read keeps what it had, so its return isn't news
-    // one line a dependency, however many major versions of it we require
-    let kept: BTreeMap<String, String> = rows
-        .iter()
-        .filter_map(|r| {
-            let key = r.dependency.key();
-            let v = match &r.newest {
-                Ok(n) => Some(n.version.clone()),
-                Err(_) => previous.and_then(|p| p.get(&key).cloned()),
-            };
-            v.map(|v| (key, v))
-        })
-        .collect();
-    let mut out = record(kept.iter().map(|(k, v)| (k.clone(), v.as_str())));
-    let count = |k: Kind| {
-        rows.iter()
-            .filter(|r| r.dependency.kind == k)
-            .map(|r| &r.dependency.name)
-            .collect::<std::collections::BTreeSet<_>>()
-            .len()
-    };
-    let _ = writeln!(
-        out,
-        "The major versions of our own dependencies that our requirements don't take, read on \
-         {today} from {} crates (Cargo.lock's versions, against crates.io), {} npm packages \
-         (studio/package.json, against the npm registry), {} Python requirements \
-         (python/pyproject.toml, against PyPI) and {} GitHub Actions (the workflows' tags, \
-         against their releases). Dependabot's weekly pull request brings the minor and patch \
-         updates and leaves these out. The Releases workflow (`.github/workflows/releases.yml`) \
-         rewrites this every Monday with `photonoxide dependencies`, and comments here when a \
-         major version appears; it closes nothing.\n",
-        count(Kind::Crate),
-        count(Kind::Npm),
-        count(Kind::Python),
-        count(Kind::Action)
+/// The "Major updates" section of the releases issue: a table of the major versions our
+/// requirements don't take, each with its date, release notes and the files that require it,
+/// and what adopting one needs. A dependency that couldn't be read is listed under it, unless
+/// its group's table says so already (`unread_above`, by key).
+pub fn section(rows: &[Row], unread_above: &BTreeSet<String>) -> String {
+    let mut out = String::from("### Major updates\n\n");
+    out.push_str(
+        "The major versions of our own dependencies that our requirements don't take. \
+         Dependabot's weekly pull request leaves them out, since they are what breaks a build; \
+         each is adopted on purpose, in a pull request of its own.\n\n",
     );
     let mut majors: Vec<&Row> = rows.iter().filter(|r| r.major()).collect();
     majors.sort_by_key(|r| (r.dependency.kind, r.dependency.name.clone()));
@@ -666,6 +629,7 @@ pub fn body(rows: &[Row], previous: Option<&BTreeMap<String, String>>, today: &s
     }
     let failed: Vec<String> = rows
         .iter()
+        .filter(|r| !unread_above.contains(&r.dependency.key()))
         .filter_map(|r| {
             r.newest
                 .as_ref()
@@ -681,75 +645,18 @@ pub fn body(rows: &[Row], previous: Option<&BTreeMap<String, String>>, today: &s
         out.push('\n');
     }
     out.push_str(
-        "## Adopting a major version\n\n\
-         In a pull request of its own: read its release notes, raise the requirement \
-         (Cargo.toml, studio/package.json, python/pyproject.toml, or the workflows' `uses:`), \
-         and fix what it breaks. When a crate's new release needs a newer Rust than \
-         `rust-version`, raise `rust-version` and the CI's MSRV job in the same pull request \
-         (AGENTS.md).\n",
+        "To adopt one: read its release notes, raise the requirement (Cargo.toml, \
+         studio/package.json, python/pyproject.toml, or the workflows' `uses:`), and fix what it \
+         breaks. When a crate's new release needs a newer Rust than `rust-version`, raise \
+         `rust-version` and the CI's MSRV job in the same pull request (AGENTS.md).\n\n",
     );
     out
-}
-
-/// The comment on the major versions that appeared.
-pub fn comment(new: &[&Row]) -> String {
-    let mut out = String::from("New major versions since the last check:\n\n");
-    for r in new {
-        let d = &r.dependency;
-        if let Ok(n) = &r.newest {
-            let _ = writeln!(
-                out,
-                "- {} {} {}{} (ours: {}): {}",
-                d.kind.name(),
-                d.name,
-                n.version,
-                n.date
-                    .as_ref()
-                    .map(|x| format!(", {x}"))
-                    .unwrap_or_default(),
-                d.ours,
-                n.notes
-            );
-        }
-    }
-    out
-}
-
-/// `photonoxide dependencies [--previous <file>] [--write <file>] [--news <file>]`, from the
-/// repository's root.
-pub fn run(args: &[String]) -> std::process::ExitCode {
-    let deps = match dependencies(Path::new(".")) {
-        Ok(d) => d,
-        Err(e) => {
-            return crate::fail(format!(
-                "{e} (photonoxide dependencies runs from the repository's root)"
-            ));
-        }
-    };
-    crate::watch::run(args, |fetch, previous, today| {
-        let rows = rows(fetch, deps);
-        let new = news(&rows, previous);
-        Report {
-            body: body(&rows, previous, today),
-            news: (!new.is_empty()).then(|| comment(&new)),
-            failures: rows
-                .iter()
-                .filter_map(|r| {
-                    r.newest
-                        .as_ref()
-                        .err()
-                        .map(|e| format!("{}: {e}", r.dependency.key()))
-                })
-                .collect(),
-        }
-    })
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::channels::github::{Http, Response};
-    use crate::watch::recorded;
 
     const ROOT: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../..");
 
@@ -864,7 +771,7 @@ mod tests {
     }
 
     #[test]
-    fn the_issue_lists_the_majors_and_comments_on_new_ones() {
+    fn the_section_lists_the_majors_and_what_could_not_be_read() {
         let dep = |kind, name: &str, ours: &str, takes| Dependency {
             kind,
             name: name.into(),
@@ -911,25 +818,21 @@ mod tests {
             majors,
             ["crate wgpu", "npm typescript", "Action actions/checkout"]
         );
-        let first = body(&rows, None, "2026-10-12");
-        assert!(news(&rows, None).is_empty());
+        let none = BTreeSet::new();
+        let first = section(&rows, &none);
+        assert!(first.starts_with("### Major updates\n\n"), "{first}");
         assert!(first.contains("| wgpu | crate | 30.0.1 | **31.0.0** | 2026-10-01 | [release notes](https://github.com/gfx-rs/wgpu/releases) | f |"), "{first}");
         assert!(first.contains("| typescript | npm | 5.9.3 | **7.0.2** | 2026-10-08 |"));
-        // numpy's requirement takes every major version
-        assert!(!first.contains("| numpy |"));
-        assert!(first.contains("- Action gone/away: "));
-        // a week on: typescript was at 6 then, checkout at 7; wgpu's 31 was known
-        let mut earlier = recorded(&first).unwrap();
-        earlier.insert("npm typescript".into(), "6.0.1".into());
-        earlier.insert("Action actions/checkout".into(), "v7.2.0".into());
-        let new = news(&rows, Some(&earlier));
-        let keys: Vec<String> = new.iter().map(|r| r.dependency.key()).collect();
-        assert_eq!(keys, ["npm typescript", "Action actions/checkout"]);
-        let c = comment(&new);
-        assert!(c.contains("- npm typescript 7.0.2, 2026-10-08 (ours: 5.9.3): https://github.com/microsoft/TypeScript/releases"), "{c}");
-        // the unread action keeps its recorded version
-        earlier.insert("Action gone/away".into(), "v1.0.0".into());
-        let second = body(&rows, Some(&earlier), "2026-10-19");
-        assert_eq!(recorded(&second).unwrap()["Action gone/away"], "v1.0.0");
+        assert!(first.contains("| actions/checkout | Action | v7 | **v8.0.0** | 2026-10-02 |"));
+        // numpy's requirement takes every major version, and serde's newest is a minor one
+        assert!(!first.contains("| numpy |") && !first.contains("| serde |"));
+        // what couldn't be read is listed, unless the group's table above says so already
+        assert!(first.contains("- Action gone/away: "), "{first}");
+        let above = BTreeSet::from([String::from("Action gone/away")]);
+        let second = section(&rows, &above);
+        assert!(!second.contains("gone/away") && !second.contains("Couldn't be read"));
+        // what adopting one needs
+        assert!(second.contains("To adopt one: read its release notes"));
+        assert!(!section(&[], &none).contains("| Package |"));
     }
 }

@@ -2,7 +2,8 @@
 //! --releases`, run from the repository's root.
 //!
 //! The Releases workflow (`.github/workflows/releases.yml`) runs it every Monday and keeps its
-//! table in one GitHub issue, "New releases of all libraries", in four groups:
+//! table in one GitHub issue, "New releases of all libraries", the one place that lists every
+//! library and dependency check, in five groups and a section:
 //!
 //! - **Native libraries:** the external libraries photonoxide-native loads, at the version its
 //!   guide was checked with, with a comment in the issue when a release appears. A release is
@@ -12,15 +13,19 @@
 //!   (Apple's own feed of macOS releases is signed by a certificate authority of Apple's that
 //!   ordinary clients don't trust). A source that can't be read is left out of the newest (a
 //!   library with none left says so).
-//! - **Rust crates, studio pnpm packages and Python requirements:** our direct dependencies, at
-//!   the versions our lockfiles have, against their registries ([`packages`]). Their new
-//!   releases change the table without a comment: Dependabot's weekly pull request brings them.
+//! - **Rust crates, studio pnpm packages, Python requirements and GitHub Actions:** our direct
+//!   dependencies, at the versions our lockfiles and workflows have, against their registries
+//!   ([`packages`]). Their new releases change the table without a comment: Dependabot's weekly
+//!   pull request brings them, and the issue links that pull request at its top.
+//! - **Major updates:** the major versions of those dependencies that our requirements don't
+//!   take, which Dependabot leaves out, each with its release notes ([`crate::dependencies`]).
 //!
 //! Whatever couldn't be read keeps the version the issue last recorded, and the run fails after
 //! writing the issue.
 //!
 //! The issue was "New releases of external libraries" before it listed our own dependencies:
 //! `.github/scripts/keep-issue.sh --formerly` renames it, so it keeps its number and history.
+//! The issue "Major updates available" was merged into it: `--merged` closes that one.
 
 use std::cmp::Ordering;
 use std::collections::BTreeMap;
@@ -36,6 +41,10 @@ use crate::watch::{Fetch, Report, cell, compare, day, is_new, numbers, record};
 pub mod packages;
 
 use packages::Group;
+
+/// The environment variable the workflow sets to the open Dependabot dependency pull request's
+/// URL, empty when none is open.
+pub const DEPENDABOT_PR: &str = "DEPENDABOT_PR";
 
 /// The issue the workflow keeps up to date.
 pub const ISSUE_TITLE: &str = "New releases of all libraries";
@@ -831,12 +840,27 @@ pub fn lines(rows: &[Row]) -> Vec<Line> {
         .collect()
 }
 
+/// The line at the top of the issue about Dependabot's pull request: `url` is the open pull
+/// request that adopts the minor and patch updates, empty when none is open.
+fn dependabot_line(url: &str) -> String {
+    let url = url.trim();
+    if url.is_empty() {
+        return "Dependabot's pull request for the minor and patch updates: none open.\n".into();
+    }
+    let number = url.rsplit('/').next().unwrap_or(url);
+    format!("Dependabot's pull request for the minor and patch updates: [#{number}]({url}).\n")
+}
+
 /// The issue's body: the record of the newest versions, and one line for each library with the
 /// version we use and the newest release, in bold when it is newer: the native libraries, then
-/// our own dependencies by their registries.
+/// our own dependencies by their registries, then the major versions they leave out
+/// (`majors`, [`crate::dependencies::section`]). `dependabot` is its open pull request's URL,
+/// empty when none is open, and `None` when it wasn't asked.
 pub fn body(
     rows: &[Row],
     packages: &[packages::Row],
+    majors: &str,
+    dependabot: Option<&str>,
     previous: Option<&BTreeMap<String, String>>,
     today: &str,
 ) -> String {
@@ -856,29 +880,38 @@ pub fn body(
     let count = |g: Group| packages.iter().filter(|r| r.package.group == g).count();
     let _ = writeln!(
         out,
-        "Every library photonoxide uses, beside its newest release, read on {today}: the {} \
-         native libraries photonoxide-native loads, at the version its install guide was \
-         checked with ([docs/libraries.md](https://github.com/tachsin/photonoxide/blob/main/docs/libraries.md#new-releases)), and our direct \
-         dependencies: {} Rust crates (every workspace member's, dev and build ones too, at \
-         Cargo.lock's versions, against crates.io's index), {} studio pnpm packages \
-         (studio/package.json's, at pnpm-lock.yaml's versions, against the npm registry) and {} \
-         Python requirements (python/pyproject.toml's, as written, against PyPI). Their own \
+        "Every library and dependency photonoxide checks, beside its newest release, read on \
+         {today}: the {} native libraries photonoxide-native loads, at the version its install \
+         guide was checked with ([docs/libraries.md](https://github.com/tachsin/photonoxide/blob/main/docs/libraries.md#new-releases)), \
+         and our direct dependencies: {} Rust crates (every workspace member's, dev and build \
+         ones too, at Cargo.lock's versions, against crates.io's index), {} studio pnpm \
+         packages (studio/package.json's, at pnpm-lock.yaml's versions, against the npm \
+         registry), {} Python requirements (python/pyproject.toml's, as written, against PyPI) \
+         and {} GitHub Actions (the workflows' tags, against their latest releases). Their own \
          dependencies aren't listed.
-
-**Bold:** a newer release than the one we use; for a Python requirement, a release it \
-doesn't take. A pre-release is never bold.
-
-This is the one table that lists every library. It complements Dependabot and doesn't \
-replace it: Dependabot's weekly pull request still brings the crates', npm packages', Python \
-requirements' and GitHub Actions' minor and patch updates, and the issue \"Major updates \
-available\" lists the major versions it leaves out. The Releases workflow \
-(`.github/workflows/releases.yml`) rewrites this every Monday with `photonoxide libraries \
---releases`, and comments here when a native library has a new release.
 ",
         lines(rows).len(),
         count(Group::Crates),
         count(Group::Pnpm),
         count(Group::Python),
+        count(Group::Actions),
+    );
+    if let Some(url) = dependabot {
+        let _ = writeln!(out, "{}", dependabot_line(url));
+    }
+    out.push_str(
+        "**Bold:** a newer release than the one we use; for a Python requirement, a release it \
+         doesn't take; for an action, a release past the numbers of its tag (`v7` takes every \
+         7.x.y). A pre-release is never bold.
+
+This is the one issue that lists every library and dependency check. Dependabot's weekly \
+pull request (`.github/dependabot.yml`) still adopts the crates', npm packages', Python \
+requirements' and GitHub Actions' minor and patch updates; the major versions it leaves out \
+are under Major updates below. The Releases workflow (`.github/workflows/releases.yml`) \
+rewrites this every Monday with `photonoxide libraries --releases`, and comments here when a \
+native library has a new release.
+
+",
     );
     out.push_str(
         "### Native libraries
@@ -911,6 +944,7 @@ available\" lists the major versions it leaves out. The Releases workflow \
     for group in Group::ALL {
         packages::table(&mut out, group, packages, previous, today);
     }
+    out.push_str(majors);
     out
 }
 
@@ -940,7 +974,8 @@ pub fn comment(new: &[&Row]) -> String {
 /// `photonoxide libraries --releases [--previous <file>] [--write <file>] [--news <file>]`,
 /// from the repository's root: reads every source and registry and writes the issue's body, and
 /// the comment on the native libraries' releases new since `--previous` (an earlier body).
-/// Fails, after writing, when something couldn't be read.
+/// `DEPENDABOT_PR` (the workflow sets it) is the URL of Dependabot's open pull request, empty
+/// when none is open. Fails, after writing, when something couldn't be read.
 pub fn run(args: &[String]) -> std::process::ExitCode {
     let ours = match packages::packages(Path::new(".")) {
         Ok(p) => p,
@@ -950,9 +985,20 @@ pub fn run(args: &[String]) -> std::process::ExitCode {
             ));
         }
     };
+    let majors = match crate::dependencies::dependencies(Path::new(".")) {
+        Ok(d) => d,
+        Err(e) => {
+            return crate::fail(format!(
+                "{e} (photonoxide libraries --releases runs from the repository's root)"
+            ));
+        }
+    };
+    let dependabot = std::env::var(DEPENDABOT_PR).ok();
     crate::watch::run(args, |fetch, previous, today| {
         let rows = rows(fetch);
         let ours = packages::rows(fetch, ours);
+        // every URL is read once: the registries answered for the groups answer here too
+        let majors = crate::dependencies::rows(fetch, majors);
         let new = news(&rows, previous);
         let mut failures: Vec<String> = rows
             .iter()
@@ -964,8 +1010,32 @@ pub fn run(args: &[String]) -> std::process::ExitCode {
                 .err()
                 .map(|e| format!("{}: {e}", r.package.key()))
         }));
+        // a dependency only the majors' reading failed on (its date, say) is another failure
+        let unread: std::collections::BTreeSet<String> = ours
+            .iter()
+            .filter(|r| r.newest.is_err())
+            .map(|r| r.package.dependency_key())
+            .collect();
+        failures.extend(
+            majors
+                .iter()
+                .filter(|r| !unread.contains(&r.dependency.key()))
+                .filter_map(|r| {
+                    r.newest
+                        .as_ref()
+                        .err()
+                        .map(|e| format!("{}: {e}", r.dependency.key()))
+                }),
+        );
         Report {
-            body: body(&rows, &ours, previous, today),
+            body: body(
+                &rows,
+                &ours,
+                &crate::dependencies::section(&majors, &unread),
+                dependabot.as_deref(),
+                previous,
+                today,
+            ),
             news: (!new.is_empty()).then(|| comment(&new)),
             failures,
         }
@@ -1288,7 +1358,7 @@ mod tests {
         assert!(superlu.newest.as_ref().unwrap_err().contains("HTTP 503"));
 
         // the first run records and doesn't comment
-        let first = body(&rows, &[], None, "2026-10-12");
+        let first = body(&rows, &[], "", None, None, "2026-10-12");
         assert!(news(&rows, None).is_empty());
         let record = recorded(&first).unwrap();
         assert_eq!(record["MUMPS | mumps-solver.org"], "5.10.0");
@@ -1307,12 +1377,15 @@ mod tests {
             .unwrap();
         assert!(
             after.starts_with(
-                "Every library photonoxide uses, beside its newest release, read on 2026-10-12: \
-                 the 10 native libraries"
+                "Every library and dependency photonoxide checks, beside its newest release, read \
+                 on 2026-10-12: the 10 native libraries"
             ),
             "{after}"
         );
-        assert!(after.contains("complements Dependabot"), "{after}");
+        assert!(
+            after.contains("Dependabot's weekly pull request"),
+            "{after}"
+        );
         let table = after.split("### Native libraries\n\n").nth(1).unwrap();
         let mut shown = table.lines().take_while(|l| !l.is_empty());
         assert_eq!(shown.next(), Some("| Library | We use | Newest |"));
@@ -1389,7 +1462,7 @@ mod tests {
         );
         let c = comment(&new);
         assert!(c.contains("- MUMPS 5.10.0 (mumps-solver.org, 2026-09): [MUMPS's changelog](https://mumps-solver.org/index.php?page=dwnld#cl); photonoxide-native doesn't accept it yet (5.4.1 to 5.9.1"), "{c}");
-        let second = body(&rows, &[], Some(&earlier), "2026-10-19");
+        let second = body(&rows, &[], "", None, Some(&earlier), "2026-10-19");
         assert_eq!(
             recorded(&second).unwrap()["SuperLU | GitHub xiaoyeli/superlu"],
             "7.0.1"
@@ -1417,6 +1490,9 @@ mod tests {
             package(Group::Python, "maturin", ">=1.15,<2"),
             package(Group::Python, "numpy", ">=2.2.6"),
             package(Group::Python, "pdoc", "==16.0.0"),
+            package(Group::Actions, "actions/checkout", "v7"),
+            package(Group::Actions, "PyO3/maturin-action", "v1.51.0"),
+            package(Group::Actions, "taiki-e/install-action", "v2"),
         ];
         // recorded answers of each registry; vite's is out of reach
         let answer = |url: &str, body: &str| (url.to_owned(), 200, body.to_owned());
@@ -1451,6 +1527,18 @@ mod tests {
                     "https://pypi.org/pypi/pdoc/json",
                     r#"{"info":{"version":"16.0.0"},"releases":{}}"#,
                 ),
+                answer(
+                    "https://api.github.com/repos/actions/checkout/releases/latest",
+                    r#"{"tag_name":"v8.0.0","published_at":"2026-10-02T00:00:00Z","html_url":"https://github.com/actions/checkout/releases/tag/v8.0.0"}"#,
+                ),
+                answer(
+                    "https://api.github.com/repos/PyO3/maturin-action/releases/latest",
+                    r#"{"tag_name":"v1.51.1","html_url":"https://github.com/PyO3/maturin-action/releases/tag/v1.51.1"}"#,
+                ),
+                answer(
+                    "https://api.github.com/repos/taiki-e/install-action/releases/latest",
+                    r#"{"tag_name":"v2.88.1","html_url":"https://github.com/taiki-e/install-action/releases/tag/v2.88.1"}"#,
+                ),
             ],
             asked: std::sync::Mutex::new(Vec::new()),
         };
@@ -1458,11 +1546,19 @@ mod tests {
         let ours: Vec<PackageRow> = packages::rows(&mut fetch, ours);
         assert!(ours[5].newest.as_ref().unwrap_err().contains("unreachable"));
         // each package asked for once
-        assert_eq!(http.asked.lock().unwrap().len(), 9);
+        assert_eq!(http.asked.lock().unwrap().len(), 12);
 
         let mut earlier = BTreeMap::new();
         earlier.insert("vite | npm".to_owned(), "8.4.0".to_owned());
-        let text = body(&[], &ours, Some(&earlier), "2026-11-02");
+        let majors = "### Major updates\n\nthe majors\n";
+        let text = body(
+            &[],
+            &ours,
+            majors,
+            Some("https://github.com/tachsin/photonoxide/pull/683"),
+            Some(&earlier),
+            "2026-11-02",
+        );
         let record = recorded(&text).unwrap();
         // the record keys a package by its registry, an unread one at its last version
         assert_eq!(record["serde | crates.io"], "1.0.229");
@@ -1472,6 +1568,16 @@ mod tests {
         assert!(text.contains("3 Rust crates"), "{text}");
         assert!(text.contains("3 studio pnpm packages"), "{text}");
         assert!(text.contains("3 Python requirements"), "{text}");
+        assert!(text.contains("3 GitHub Actions"), "{text}");
+        // Dependabot's open pull request is linked at the top, and the majors close the issue
+        assert!(
+            text.contains("minor and patch updates: [#683](https://github.com/tachsin/photonoxide/pull/683).\n"),
+            "{text}"
+        );
+        assert!(text.find("[#683]").unwrap() < text.find("### Native libraries").unwrap());
+        assert!(text.ends_with(majors), "{text}");
+        assert!(!text.contains("Major updates available"), "{text}");
+        assert_eq!(record["actions/checkout | GitHub"], "v8.0.0");
         // the groups in order, each its own table
         let at = |h: &str| {
             text.find(&format!("### {h}\n\n| Library | We use | Newest |\n"))
@@ -1480,6 +1586,8 @@ mod tests {
         assert!(at("Native libraries") < at("Rust crates"));
         assert!(at("Rust crates") < at("Studio pnpm packages"));
         assert!(at("Studio pnpm packages") < at("Python requirements"));
+        assert!(at("Python requirements") < at("GitHub Actions"));
+        assert!(text.find("### GitHub Actions").unwrap() < text.find("### Major updates").unwrap());
         for line in [
             // newer: bold; the same, a yanked release or a pre-release: not
             "| serde | 1.0.200 | **1.0.229** |",
@@ -1494,27 +1602,49 @@ mod tests {
             "| maturin | `>=1.15,<2` | **2.0.1** |",
             "| numpy | `>=2.2.6` | 2.4.0 |",
             "| pdoc | `==16.0.0` | 16.0.0 |",
+            // an action: a release past its tag's numbers is bold, one within them isn't
+            "| actions/checkout | v7 | **v8.0.0** |",
+            "| PyO3/maturin-action | v1.51.0 | **v1.51.1** |",
+            "| taiki-e/install-action | v2 | v2.88.1 |",
         ] {
             assert!(text.contains(&format!("{line}\n")), "{line}\n{text}");
         }
         // with no earlier record, an unread package says so
-        let fresh = body(&[], &ours, None, "2026-11-02");
+        let fresh = body(&[], &ours, "", Some(""), None, "2026-11-02");
+        assert!(
+            fresh.contains("minor and patch updates: none open.\n"),
+            "{fresh}"
+        );
+        // and when it wasn't asked, the line is left out
+        assert!(
+            !body(&[], &ours, "", None, None, "2026-11-02").contains("Dependabot's pull request")
+        );
         assert!(fresh.contains("| vite | 8.3.5 | not read yet |"), "{fresh}");
         assert!(!recorded(&fresh).unwrap().contains_key("vite | npm"));
     }
 
     #[test]
-    fn the_workflow_keeps_this_issue_and_renames_the_former_one() {
+    fn the_workflow_keeps_this_issue_alone_and_closes_the_merged_one() {
         let path = concat!(
             env!("CARGO_MANIFEST_DIR"),
             "/../../.github/workflows/releases.yml"
         );
         let workflow = std::fs::read_to_string(path).unwrap();
-        // the issue's title before it listed our own dependencies, #312's
+        // the issue's title before it listed our own dependencies, #312's, and the issue of the
+        // major updates, which this one took over (#313)
         let step = format!(
             "keep-issue.sh \"{ISSUE_TITLE}\" --formerly \"New releases of external libraries\" \
-             target/debug/photonoxide libraries --releases"
+             --merged \"Major updates available\" target/debug/photonoxide libraries --releases"
         );
         assert!(workflow.contains(&step), "releases.yml doesn't run {step}");
+        // one issue: no second run of keep-issue.sh, and Dependabot's pull request is looked up
+        assert_eq!(
+            workflow
+                .matches("bash .github/scripts/keep-issue.sh")
+                .count(),
+            1
+        );
+        assert!(!workflow.contains("photonoxide dependencies"));
+        assert!(workflow.contains(DEPENDABOT_PR) && workflow.contains("pull-requests: read"));
     }
 }
