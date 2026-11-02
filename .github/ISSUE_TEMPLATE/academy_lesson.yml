@@ -1,0 +1,36 @@
+name: Academy lesson or correction
+description: A correction to a lesson, a change that would help a reader, or a lesson you would like to see.
+labels: ["documentation", "academy"]
+body:
+  - type: input
+    id: lesson
+    attributes:
+      label: Lesson or topic
+      description: The lesson's file name in academy/ and its section, or the device or method a new lesson would teach.
+    validations:
+      required: true
+  - type: dropdown
+    id: kind
+    attributes:
+      label: What is it
+      options:
+        - A correction (a wrong number, formula or statement)
+        - A section that is unclear or missing a step
+        - A chart or drawing that could show more
+        - A new lesson
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What would you change
+      description: What the lesson says now, what it should say, and why. A correction is best with the paper or closed form it disagrees with.
+    validations:
+      required: true
+  - type: checkboxes
+    id: help
+    attributes:
+      label: Can you help
+      options:
+        - label: I can write or review the change.
+        - label: I can provide a paper, data or a measurement.

@@ -117,9 +117,10 @@ ids, examples and DOIs exist and that its formulas render on GitHub. Review then
 place in its source and compares each number with the code's output. Comments are made on the pull
 request; it is squash merged once CI is green and the sources agree.
 
-The issue forms label an issue `bug`, `enhancement` or `documentation`. The labels `method`,
-`academy`, `paper`, `fabrication`, `validation`, `studio` and `python` name the part of the
-project an issue or pull request concerns, and `good first issue` marks one suited to a first
+The issue forms label an issue `bug`, `enhancement` or `documentation`; the method request adds
+`method`, the paper suggestion `paper` and the Academy form `academy`. These labels and
+`fabrication`, `validation`, `studio` and `python` name the part of the project an issue or pull
+request concerns, and `good first issue` marks one suited to a first
 contribution. Questions before starting belong in
 [Discussions](https://github.com/tachsin/photonoxide/discussions); everyone taking part follows the
 [code of conduct](CODE_OF_CONDUCT.md), and a security problem is reported privately
