@@ -1049,7 +1049,7 @@ fn save_job(
 /// bit ([`Job::to_text`]). A TOML or YAML file's opening comment, its description and usage line,
 /// goes along to the other; JSON has no comments.
 #[tauri::command]
-fn convert_job(text: String, from: Format, to: Format) -> Result<String, String> {
+pub(crate) fn convert_job(text: String, from: Format, to: Format) -> Result<String, String> {
     if from == to {
         return Ok(text);
     }

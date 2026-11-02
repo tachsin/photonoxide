@@ -13,7 +13,8 @@
   // the text), whose values, media and crystal orientation are written back into the text
   // (drawn.rs finds which entry draws which shape, media.rs the stack's media; lib/jobedit.ts
   // the text's spans). Outside "As text", the form's changes and the sidebar's are one history.
-  // Each job opened has a tab of its own; beside the text, the design, the schema's Reference for
+  // Each job opened has a tab of its own. "As text" is the job editor every page shares
+  // (components/job/JobEditor.svelte): beside the text, the design, the schema's Reference for
   // the whole job, and its Problems (the library check's and the schema's), each a click from its place.
   import { Box, CircleAlert, CircleCheck, Code, Eye, LoaderCircle, Play, Plus, Save, Shapes, Trash2, X } from "@lucide/svelte";
   import { ask } from "@tauri-apps/plugin-dialog";
@@ -34,12 +35,10 @@
   import NumField from "../NumField.svelte";
   import OptField from "../OptField.svelte";
   import ScenePreview from "../ScenePreview.svelte";
-  import MethodDocDialog from "../MethodDocDialog.svelte";
-  import TomlEditor, { loadSchema } from "../TomlEditor.svelte";
+  import JobEditor from "../job/JobEditor.svelte";
   import EntryPanel from "./EntryPanel.svelte";
-  import JobReference from "./JobReference.svelte";
   import { drawerOf, entryAt, entrySpan, itemPaths, layerPath, samePath, type Drawing, type Medium, type Span } from "../../lib/jobedit";
-  import { entryOf, locate, schemaProblems, type Path, type Schema } from "../../lib/jobschema";
+  import type { Path } from "../../lib/jobschema";
 
   let model = $state<JobModel>(template("modes"));
   let text = $state("");
@@ -459,29 +458,10 @@
 
   const isSel = (kind: "rect" | "circle" | "ring" | "port", index: number) => selection?.kind === kind && selection.index === index;
   // ---- click-to-edit, beside the text and in the form's 3D and Top views ----
-  let editor = $state<TomlEditor>();
-  /** The method page a key's hover opened. */
-  let methodPage = $state<string | null>(null);
+  /** The job editor, in "As text": the text, its Reference and Problems (components/job/JobEditor.svelte). */
+  let editor = $state<JobEditor>();
   /** Beside the text: the design, the schema's docs for the whole job, or its problems. */
   let side = $state<"preview" | "reference" | "problems">("preview");
-  let schema = $state<Schema | null>(null);
-  loadSchema().then((s) => (schema = s));
-  /** Every problem of the text: the library check's (it stops at its first) and the schema's, each where it is. */
-  const problems = $derived.by(() => {
-    const out: { message: string; source: "check" | "schema"; from: number; to: number; line: number }[] = [];
-    const put = (message: string, source: "check" | "schema", at: { from: number; to: number } | null) => {
-      const from = at?.from ?? 0;
-      out.push({ message, source, from, to: at?.to ?? from, line: at ? text.slice(0, from).split("\n").length : 0 });
-    };
-    if (check && !check.ok && check.error) put(check.error, "check", locate(text, format, check.error));
-    if (schema && check?.model) for (const p of schemaProblems(schema, check.model)) put(p.message, "schema", entryOf(text, format, p.path));
-    return out;
-  });
-  /** Shows the key at `p` in the text. */
-  function jump(p: Path) {
-    const e = entryOf(text, format, p);
-    if (e) editor?.select(e);
-  }
   /** What each entry of the text draws, of its last valid version, and the stack's layers. */
   let drawing = $state<Drawing | null>(null);
   /** The media of the stack of the last valid version, with their indices and sources (media.rs). */
@@ -640,6 +620,26 @@
     </div>
   </div>
 
+  {#if right === "toml"}
+    <!-- the text on the left, the design it describes on the right: the job editor every page shares -->
+    <JobEditor
+      bind:this={editor}
+      bind:side
+      {text}
+      {format}
+      onchange={edited}
+      component="Custom device"
+      {check}
+      {checking}
+      layers={drawing?.layers ?? []}
+      oncursor={cursorAt}
+      toolbar={jobTabs}
+      preview={textDesign}
+      below={textSidebar}
+      previewbar={textDesignBar}
+      footer={viewBar}
+    />
+  {:else}
   <div class="grid min-h-0 flex-1 {stacked ? 'grid-rows-[minmax(13rem,1fr)_minmax(10rem,1fr)]' : 'grid-cols-[minmax(0,1fr)_minmax(24rem,38%)]'}">
     <!-- the view: always on screen -->
     <section class="flex min-h-0 min-w-0 flex-col border-base-content/8 {stacked ? 'border-b' : 'border-r'}">
@@ -647,60 +647,6 @@
     </section>
 
     <!-- the form, or the runs compared -->
-    {#if right === "toml"}
-    <!-- the text on the left, the design it describes on the right -->
-    <aside class="flex min-h-0 min-w-0 flex-col">
-      <div class="flex shrink-0 items-center gap-1 border-b border-base-content/8 px-3 py-1.5" role="tablist" aria-label="Beside the text">
-        {#each [["preview", "Preview"], ["reference", "Reference"], ["problems", "Problems"]] as const as [s, label] (s)}
-          <button role="tab" aria-selected={side === s} class="btn btn-ghost btn-xs gap-1.5 {side === s ? 'btn-active' : ''}" onclick={() => (side = s)}>
-            {label}
-            {#if s === "problems" && problems.length}<span class="badge badge-xs badge-error">{problems.length}</span>{/if}
-          </button>
-        {/each}
-      </div>
-      {#if side === "reference"}
-        <div class="min-h-0 flex-1 overflow-hidden"><JobReference {schema} model={check?.model ?? null} onjump={jump} /></div>
-      {:else if side === "problems"}
-        <div class="min-h-0 flex-1 overflow-y-auto px-3 py-2">
-          {#if checking && !check}
-            <p class="text-xs faint">Checking.</p>
-          {:else if !problems.length}
-            <p class="flex items-center gap-1.5 text-xs text-success"><CircleCheck size={13} /> No problems: the library's check passes, and the schema finds nothing.</p>
-          {:else}
-            <ul class="space-y-1.5">
-              {#each problems as p, k (k)}
-                <li>
-                  <button class="flex w-full items-start gap-2 rounded-lg px-2 py-1.5 text-left text-xs hover:bg-base-content/5" onclick={() => editor?.select(p)} title="Show it in the text">
-                    <CircleAlert size={13} class="mt-0.5 shrink-0 text-error" />
-                    <span class="min-w-0 flex-1 selectable">{p.message}</span>
-                    <span class="shrink-0 text-[10.5px] faint">{p.source === "check" ? "the check" : "the schema"}{p.line ? `, line ${p.line}` : ""}</span>
-                  </button>
-                </li>
-              {/each}
-            </ul>
-          {/if}
-        </div>
-      {:else}
-      <div class="min-h-0 flex-1 overflow-hidden" bind:clientHeight={designHeight}>
-        {@render picture(design, designHeight)}
-      </div>
-      {/if}
-      {#if picked}
-        <div class="flex max-h-[50%] min-h-0 shrink-0 flex-col border-t border-base-content/8">
-          {@render sidebar(picked)}
-        </div>
-      {/if}
-      {#if side === "preview"}
-      <div class="flex shrink-0 items-center gap-2 border-t border-base-content/8 px-3 py-2">
-        <div class="join" role="group" aria-label="What the design shows">
-          <button class="btn btn-xs join-item gap-1 {design === '3d' ? 'btn-primary btn-soft' : ''}" onclick={() => (design = "3d")} title="The structure as the run will draw it"><Box size={12} /> 3D</button>
-          <button class="btn btn-xs join-item gap-1 {design === 'preview' ? 'btn-primary btn-soft' : ''}" onclick={() => (design = "preview")} title="Seen from above"><Eye size={12} /> Top</button>
-        </div>
-        <span class="text-[11px] faint">{design === "3d" ? "as its run will draw it, from its last valid text" : "from above, as the text has it"}; click a structure to edit it</span>
-      </div>
-      {/if}
-    </aside>
-    {:else}
     <aside class="@container min-h-0 min-w-0 space-y-6 overflow-x-hidden overflow-y-auto px-5 py-4">
       <div class="join w-full" role="tablist" aria-label="The job, or its runs compared">
         <button role="tab" class="btn btn-sm join-item flex-1 {panel === 'job' ? 'btn-primary btn-soft' : ''}" onclick={() => (panel = "job")}>Job</button>
@@ -1146,8 +1092,8 @@
       {/if}
       {/if}
     </aside>
-    {/if}
   </div>
+  {/if}
 </div>
 
 {#snippet status()}
@@ -1254,9 +1200,38 @@
           </div>
         {/if}
       </div>
-    {:else}
-      <div class="flex h-full min-h-0 flex-col p-3">
-        <!-- the jobs open, one to a tab -->
+    {/if}
+  </div>
+  {@render viewBar()}
+{/snippet}
+
+<!-- in the job editor, beside the text: the design, the picked entry's sidebar, and what the design shows -->
+{#snippet textDesign()}
+  <div class="min-h-0 flex-1 overflow-hidden" bind:clientHeight={designHeight}>
+    {@render picture(design, designHeight)}
+  </div>
+{/snippet}
+
+{#snippet textSidebar()}
+  {#if picked}
+    <div class="flex max-h-[50%] min-h-0 shrink-0 flex-col border-t border-base-content/8">
+      {@render sidebar(picked)}
+    </div>
+  {/if}
+{/snippet}
+
+{#snippet textDesignBar()}
+  <div class="flex shrink-0 items-center gap-2 border-t border-base-content/8 px-3 py-2">
+    <div class="join" role="group" aria-label="What the design shows">
+      <button class="btn btn-xs join-item gap-1 {design === '3d' ? 'btn-primary btn-soft' : ''}" onclick={() => (design = "3d")} title="The structure as the run will draw it"><Box size={12} /> 3D</button>
+      <button class="btn btn-xs join-item gap-1 {design === 'preview' ? 'btn-primary btn-soft' : ''}" onclick={() => (design = "preview")} title="Seen from above"><Eye size={12} /> Top</button>
+    </div>
+    <span class="text-[11px] faint">{design === "3d" ? "as its run will draw it, from its last valid text" : "from above, as the text has it"}; click a structure to edit it</span>
+  </div>
+{/snippet}
+
+<!-- in the job editor, over the text: the jobs open, one to a tab, and the job's format -->
+{#snippet jobTabs()}
         <div class="mb-2 flex min-w-0 items-end gap-0.5 overflow-x-auto border-b border-base-content/8" role="tablist" aria-label="The jobs open">
           {#each tabs as t, i (i)}
             {@const name = (i === active ? model.name : t.name) || "untitled"}
@@ -1278,14 +1253,10 @@
           </div>
           {#if format === "json"}<span class="text-[11px] faint">JSON has no comments: the description isn't kept.</span>{/if}
         </div>
-        <div class="min-h-0 flex-1 overflow-hidden rounded-xl border border-base-content/8 bg-base-300/50 py-2">
-          <TomlEditor bind:this={editor} value={text} onchange={edited} oncursor={cursorAt} {format} assist model={check?.model} problem={check && !check.ok ? check.error : null} layers={drawing?.layers ?? []} onmethod={(f) => (methodPage = f)} />
-        </div>
-        <div class="mt-2 shrink-0">{@render problem()}</div>
-        <MethodDocDialog file={methodPage} onclose={() => (methodPage = null)} />
-      </div>
-    {/if}
-  </div>
+{/snippet}
+
+<!-- under the view, and under the text: what the view shows, and the frame its axes are named in -->
+{#snippet viewBar()}
   <div class="flex shrink-0 flex-wrap items-center gap-2 border-t border-base-content/8 px-3 py-2">
     <div class="join" role="group" aria-label="What the view shows">
       <button class="btn btn-xs join-item gap-1 {right === '3d' ? 'btn-primary btn-soft' : ''}" onclick={() => (right = "3d")} title="The structure as the run will draw it"><Box size={12} /> 3D</button>
