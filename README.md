@@ -93,16 +93,6 @@ It is released milestone by milestone ([changelog](CHANGELOG.md), [roadmap](ROAD
   photonoxide's own solver, loaded at run time when installed and checked against
   photonoxide's own, which `auto` leaves only for one measured faster on the computer that runs
   it, at the same accuracy ([backends](docs/methods/backends.md), [install guides](docs/libraries.md)).
-
-  [![Intel oneMKL: PARDISO, BLAS](https://img.shields.io/badge/Intel_oneMKL-PARDISO%2C_BLAS-555)](docs/libraries.md#onemkl)
-  [![MUMPS: direct](https://img.shields.io/badge/MUMPS-direct-555)](docs/libraries.md#mumps)
-  [![SuperLU: direct](https://img.shields.io/badge/SuperLU-direct-555)](docs/libraries.md#superlu)
-  [![NVIDIA cuDSS: direct on the GPU](https://img.shields.io/badge/NVIDIA_cuDSS-direct_on_the_GPU-555)](docs/libraries.md#cudss)
-  [![NVIDIA cuSPARSE: Krylov on the GPU](https://img.shields.io/badge/NVIDIA_cuSPARSE-Krylov_on_the_GPU-555)](docs/libraries.md#cusparse)
-  [![OpenBLAS: BLAS](https://img.shields.io/badge/OpenBLAS-BLAS-555)](docs/libraries.md#openblas)
-  [![Apple Accelerate: sparse, BLAS](https://img.shields.io/badge/Apple_Accelerate-sparse%2C_BLAS-555)](docs/libraries.md#accelerate)
-  [![AMD AOCL: BLAS](https://img.shields.io/badge/AMD_AOCL-BLAS-555)](docs/libraries.md#amd-aocl)
-  [![Arm Performance Libraries: BLAS](https://img.shields.io/badge/Arm_Performance_Libraries-BLAS-555)](docs/libraries.md#arm-performance-libraries)
 - **Jobs and runs:** YAML, TOML or JSON job files, checked before they run; every run is recorded
   and replays exactly.
 
@@ -207,77 +197,10 @@ tolerance.
 
 ## A design as a job file
 
-A job file holds a whole design, every dimension in it. This one is the leaky silicon wire of
-Bienstman et al. (Opt. Quantum Electron. 38, 731 (2006)): a 500 × 220 nm wire on 1 µm of oxide
-over a silicon substrate, whose light leaks through the oxide into the substrate.
-
-```yaml
-# Bienstman et al.'s leaky silicon wire: 500 x 220 nm of silicon (3.5) on 1 um of oxide (1.45)
-# over a silicon substrate, air above, at 1.55 um. Its light leaks through the oxide into the
-# substrate, whose index is above the mode's: a PML in the substrate absorbs it, and the mode is
-# leaky, its loss in dB/cm. Their consensus is 2.412372 + 2.9135e-8 i; on this 10 nm grid the job
-# gives 2.4187 + 2.757e-8 i, and on 5 nm 2.4164 + 2.805e-8 i (the core's corners converge slowly).
-#   photonoxide run jobs/leaky-wire.yaml
-name: leaky-wire
-timeout_minutes: 10
-
-task:
-  kind: modes
-  wavelength_um: 1.55
-  layer: Si
-  propagation: x           # the modes travel along x, cut at x = 0 (cut_x_um)
-  y_um: [-1.0, 1.0]        # the window across the guide
-  z_um: [-1.6, 2.0]        # 1.6 um of the substrate, its last 1 um the PML
-  step_nm: 10.0
-  modes: 2
-  modes_near: 2.4          # the count nearest this index: the substrate's own modes lie above it
-
-  stack:
-    substrate: 3.5         # fixed indices, the benchmark's
-    cladding: 1.0
-
-    layer:
-      - name: BOX
-        thickness_um: 1.0
-        material: 1.45
-        background: 1.45
-
-      - name: Si
-        thickness_um: 0.22
-        material: 3.5
-        background: 1.0
-
-  rect:
-    - layer: Si
-      center_um: [0.0, 0.0]
-      size_um: [10.0, 0.5]  # 500 nm wide, along x
-
-  pml:
-    thickness_um: [0.0, 0.0, 1.0, 0.0]  # across the guide low and high, below and above
-    strength: 3.0
-```
-
-```sh
-photonoxide run jobs/leaky-wire.yaml
-```
-
-Its layers, from the top down; the bottom one, the substrate, is the first laid down in
-fabrication. The file lists them the other way, bottom to top (`BOX`, then `Si`), the order
-they are laid down in.
-
-| Layer | Thickness | Material, and its index at 1.55 µm |
-|---|---|---|
-| cladding | above the stack | air, 1.0 |
-| Si | 220 nm (z = 1.0 to 1.22 µm) | silicon, 3.5, in the 500 nm wire centred at y = 0; air, 1.0, beside it |
-| BOX | 1 µm (z = 0 to 1.0 µm) | oxide, 1.45 |
-| substrate | below the stack | silicon, 3.5; its last 1 µm (z = −1.6 to −0.6 µm) the PML |
-
-The job solves the full-vector modes of the cross-section at x = 0 on a 10 nm grid over y from
-−1.0 to 1.0 µm and z from −1.6 to 2.0 µm, the two nearest n_eff = 2.4. It gives
-2.4187 + 2.757 × 10⁻⁸ i, against the benchmark's consensus 2.412372 + 2.9135 × 10⁻⁸ i; on a
-5 nm grid, 2.4164 + 2.805 × 10⁻⁸ i. [docs/design.md](docs/design.md) shows the designs people
-start from (a strip's modes, a ring's spectrum, a directional coupler) as job files beside the
-same calls in Python, each with its layers, materials, grid and solver.
+A job file holds a whole design, every dimension in it, and runs the same in the studio, on the
+command line and from Python. [docs/design.md](docs/design.md) walks through Bienstman et al.'s
+leaky silicon wire and the designs people start from: a strip's modes, a ring's spectrum and a
+directional coupler.
 
 ## Building from source
 
@@ -302,26 +225,8 @@ just python-test   # the Python package in python/.venv, and its tests
 just               # every recipe
 ```
 
-The workspace has three optimized profiles:
-
-| Profile | Settings | Used for |
-|---|---|---|
-| `release` | Cargo's defaults: `opt-level = 3`, LTO within each crate only, 16 codegen units | CI, the tests and examples, a plain `pnpm tauri build`, the nightly builds |
-| `dist` | `release`, with `lto = "thin"` and `codegen-units = 1` | the released program and the Python wheels; `just studio`, `just build-dist` |
-| `fastest` | `dist`, with `lto = "fat"` | `just build-fastest` |
-
-LTO across crates lets LLVM optimize photonoxide together with faer, which does its sparse LU,
-and one codegen unit lets it see each crate whole. Both make the build slower. For the fastest code
-on your own machine, also compile for its CPU:
-
-```sh
-just build-fastest
-# without just:  RUSTFLAGS="-C target-cpu=native" cargo build --profile fastest
-# in PowerShell: $env:RUSTFLAGS = "-C target-cpu=native"; cargo build --profile fastest
-```
-
-That build uses every instruction set the CPU has (AVX2, AVX-512, …), so it runs only on CPUs
-that have them.
+The optimized build profiles (`release`, `dist` and `fastest`) are described in
+[CONTRIBUTING.md](CONTRIBUTING.md#build-profiles).
 
 ## Validation
 
@@ -343,8 +248,8 @@ checks every example's output too.
 | 0.5.2 Many solves at once | Ports as a block, recycling across sweeps, more contour-integral mode solvers, farming across processes | ✅ released |
 | 0.5.3 QMR without the matrix | QMR without its matrix where the matrix wouldn't fit, MUMPS 5.9 | ✅ released |
 | 0.5.4 Geometry and devices | Geometry for any device; the device library on pages of its own, with its models, runs, sweeps, corners and optimization; compact models; the chip built from devices; devices in Python | ✅ released |
-| 0.6.0 Thermal and electro-optic, and writing jobs | Heat, steady and transient; thermo-optic phase shifters as devices; Pockels modulation; travelling-wave electrodes, quasi-TEM and full-wave; phase-change materials; the job editor, YAML first, every example as a job, exports of modes and fields (0.5.5's, released with 0.6.0) | ✅ released |
-| 0.6.1 Nonlinear integrated optics | 0.6's leftovers (the TFLN modulator and the phase-change phase shifter as devices, the studio's temperature and field views and its Vπ·L and bandwidth sweeps, GDS read into jobs); phase matching with QPM and the acceptance bandwidths, the coupled-amplitude equations, SPDC's joint spectrum, purity and heralding, all from a waveguide's modes too; n₂, two-photon and free-carrier absorption, Miller's rule, transparency windows where a paper gives them; the NLSE with cross-phase modulation, four-wave mixing, Kerr combs by the Lugiato–Lefever equation; resonant SHG and FWM in rings and OPO cavities; nonlinear jobs, a Python example and the studio's nonlinear view; the fabrication engine's process flows for the library's platforms. Left: focused beams, and published results not yet reproduced, among them Zhang 2022's bandwidths, He 2019's Vπ·L and Zhao 2020's pair brightness ([#595](https://github.com/tachsin/photonoxide/issues/595)) | ✅ released |
+| 0.6.0 Thermal and electro-optic, and writing jobs | Heat, thermo-optic and Pockels devices, travelling-wave electrodes, phase-change materials, the job editor | ✅ released |
+| 0.6.1 Nonlinear integrated optics | Phase matching and QPM, photon pairs, the NLSE, four-wave mixing and Kerr combs, fabrication flows; open gaps in [#595](https://github.com/tachsin/photonoxide/issues/595) | ✅ released |
 | 0.6.2 Quantum light | Linear-optical statistics, photon-pair sources, Gaussian states, loss budgets of quantum circuits | planned |
 | 0.6.3 Eigenmode expansion and the mode solver's tools | On main: 2D eigenmode expansion, convergence to a tolerance, adaptive sweeps, effective area and confinement, sidewall-roughness loss. Left: 3D eigenmode expansion, beam and fibre coupling | 🚧 in progress |
 | 0.7 Inverse design | Topology and shape optimization with fabrication constraints | planned |
