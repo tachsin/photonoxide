@@ -1,20 +1,25 @@
 name: Releases
 
-# Two issues kept up to date every Monday, each by a command of the photonoxide program and
-# .github/scripts/keep-issue.sh (created if missing, its body rewritten, a comment only when
-# something new appears, nothing closed):
+# One issue kept up to date every Monday, "New releases of all libraries": the one place that lists
+# every library and dependency check. `photonoxide libraries --releases` writes its body and
+# .github/scripts/keep-issue.sh keeps the issue (created if missing, its body rewritten, a
+# comment only when a native library has a new release, nothing closed):
 #
-# - "New releases of all libraries" (`photonoxide libraries --releases`): every library's newest
-#   release beside the version we use, grouped. The native libraries photonoxide-native loads,
-#   read where their publishers put them (PyPI, anaconda.org, NVIDIA's redistributables, GitHub
-#   releases, MUMPS's page, the macOS of GitHub's runners), beside the version each install guide
-#   was checked with; then our direct dependencies, at our lockfiles' versions, against their
-#   registries: the Rust crates (crates.io's index), the studio's pnpm packages (the npm
-#   registry) and the Python requirements (PyPI). It was "New releases of external libraries"
-#   until it listed our own dependencies: --formerly renames that issue, keeping its number.
-# - "Major updates available" (`photonoxide dependencies`): the major versions of our own
-#   crates, npm packages, Python requirements and GitHub Actions that our requirements don't
-#   take, which Dependabot's weekly pull request leaves out.
+# - every library's newest release beside the version we use, grouped. The native libraries
+#   photonoxide-native loads, read where their publishers put them (PyPI, anaconda.org, NVIDIA's
+#   redistributables, GitHub releases, MUMPS's page, the macOS of GitHub's runners), beside the
+#   version each install guide was checked with; then our direct dependencies, at our lockfiles'
+#   and workflows' versions, against their registries: the Rust crates (crates.io's index), the
+#   studio's pnpm packages (the npm registry), the Python requirements (PyPI) and the GitHub
+#   Actions (their latest releases).
+# - the major versions of those dependencies that our requirements don't take, which Dependabot
+#   leaves out, each with its release notes, under "Major updates".
+# - at the top, the open pull request in which Dependabot adopts the minor and patch updates
+#   (found with gh, in the first step; its URL reaches the command as DEPENDABOT_PR).
+#
+# The issue was "New releases of external libraries" until it listed our own dependencies:
+# --formerly renames that issue, keeping its number. "Major updates available" was a second issue
+# until it was merged into this one: --merged closes it, with a comment, if it is still open.
 #
 # Never on a pull request: another project's release isn't a change of ours.
 on:
@@ -23,12 +28,13 @@ on:
     - cron: '37 5 * * 1'
   workflow_dispatch:
 
-# reads the repository, and writes the two issues; no other token or secret
+# reads the repository and its pull requests, and writes the issue; no other token or secret
 permissions:
   contents: read
   issues: write
+  pull-requests: read
 
-# one run at a time, so two can't both create an issue
+# one run at a time, so two can't both create the issue
 concurrency:
   group: releases
   cancel-in-progress: false
@@ -38,7 +44,7 @@ env:
 
 jobs:
   releases:
-    name: New releases and major updates
+    name: New releases of all libraries
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:
@@ -69,9 +75,13 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - id: build
         run: cargo build -p photonoxide-studio
+      - name: Dependabot's open pull request
+        # the one that adopts the minor and patch updates (its title starts "chore(deps)"), or
+        # none: an empty URL
+        run: |
+          url=$(gh pr list --state open --author app/dependabot --limit 100 --json title,url \
+            --jq 'map(select(.title | startswith("chore(deps)"))) | .[0].url // ""')
+          echo "DEPENDABOT_PR=$url" >> "$GITHUB_ENV"
+          echo "Dependabot's open pull request: ${url:-none open}"
       - name: New releases of all libraries
-        run: bash .github/scripts/keep-issue.sh "New releases of all libraries" --formerly "New releases of external libraries" target/debug/photonoxide libraries --releases
-      - name: Major updates available
-        # even when a library's source couldn't be read
-        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
-        run: bash .github/scripts/keep-issue.sh "Major updates available" target/debug/photonoxide dependencies
+        run: bash .github/scripts/keep-issue.sh "New releases of all libraries" --formerly "New releases of external libraries" --merged "Major updates available" target/debug/photonoxide libraries --releases

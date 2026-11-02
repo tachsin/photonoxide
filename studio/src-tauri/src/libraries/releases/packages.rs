@@ -1,6 +1,6 @@
 //! Our own dependencies in the releases issue, beside the native libraries: the Rust crates,
-//! the studio's pnpm packages and the Python requirements, each at the version we use and its
-//! newest release on its registry.
+//! the studio's pnpm packages, the Python requirements and the GitHub Actions, each at the
+//! version we use and its newest release on its registry.
 //!
 //! Direct dependencies only, as their manifests require them; the transitive ones are Cargo's,
 //! pnpm's and pip's to resolve, and run to hundreds. Dev and build dependencies are listed too:
@@ -14,6 +14,9 @@
 //!   studio/pnpm-lock.yaml's version, against the npm registry's `latest` tag.
 //! - **Python requirements:** python/pyproject.toml's (the build system's, the project's and its
 //!   extras'), against PyPI. There is no lockfile, so the version we use is the requirement.
+//! - **GitHub Actions:** every `uses: owner/name@tag` in the workflows, at the tag used (a major
+//!   tag such as `v7` takes that major version's every release), against the action's latest
+//!   release on GitHub.
 //!
 //! The registries are read one package at a time, each URL once, with the program's
 //! User-Agent ([`crate::watch::run`]). A package that couldn't be read keeps the version the
@@ -32,10 +35,11 @@ pub enum Group {
     Crates,
     Pnpm,
     Python,
+    Actions,
 }
 
 impl Group {
-    pub const ALL: [Group; 3] = [Group::Crates, Group::Pnpm, Group::Python];
+    pub const ALL: [Group; 4] = [Group::Crates, Group::Pnpm, Group::Python, Group::Actions];
 
     /// The group's heading in the issue.
     pub fn heading(self) -> &'static str {
@@ -43,6 +47,7 @@ impl Group {
             Group::Crates => "Rust crates",
             Group::Pnpm => "Studio pnpm packages",
             Group::Python => "Python requirements",
+            Group::Actions => "GitHub Actions",
         }
     }
 
@@ -52,6 +57,7 @@ impl Group {
             Group::Crates => "crates.io",
             Group::Pnpm => "npm",
             Group::Python => "PyPI",
+            Group::Actions => "GitHub",
         }
     }
 }
@@ -62,7 +68,8 @@ pub struct Package {
     pub group: Group,
     /// Its name on its registry.
     pub name: String,
-    /// The version we use: Cargo.lock's or pnpm-lock.yaml's; a Python requirement's text.
+    /// The version we use: Cargo.lock's or pnpm-lock.yaml's; a Python requirement's text; a
+    /// workflow's tag.
     pub uses: String,
 }
 
@@ -70,6 +77,17 @@ impl Package {
     /// The row's name in the issue's record: `serde | crates.io`.
     pub fn key(&self) -> String {
         format!("{} | {}", self.name, self.group.registry())
+    }
+
+    /// The same dependency's key in [`crate::dependencies`]: `crate serde`.
+    pub fn dependency_key(&self) -> String {
+        let kind = match self.group {
+            Group::Crates => Kind::Crate,
+            Group::Pnpm => Kind::Npm,
+            Group::Python => Kind::Python,
+            Group::Actions => Kind::Action,
+        };
+        format!("{} {}", kind.name(), self.name)
     }
 }
 
@@ -179,6 +197,16 @@ pub fn packages(root: &Path) -> Result<Vec<Package>, String> {
             },
         );
     }
+    for d in dependencies::workflow_actions(root)? {
+        add(
+            &mut out,
+            Package {
+                group: Group::Actions,
+                name: d.name,
+                uses: d.ours,
+            },
+        );
+    }
     out.sort_by(|a, b| (a.group, &a.name).cmp(&(b.group, &b.name)));
     Ok(out)
 }
@@ -247,6 +275,16 @@ fn newest(fetch: &mut Fetch, p: &Package) -> Result<String, String> {
                 .map(str::to_owned)
                 .ok_or_else(|| format!("{url}: no version"))
         }
+        Group::Actions => {
+            let action = dependencies::Dependency {
+                kind: Kind::Action,
+                name: p.name.clone(),
+                ours: p.uses.clone(),
+                takes: None,
+                files: Vec::new(),
+            };
+            dependencies::newest(fetch, &action).map(|n| n.version)
+        }
     }
 }
 
@@ -269,13 +307,19 @@ pub fn rows(fetch: &mut Fetch, packages: Vec<Package>) -> Vec<Row> {
 }
 
 /// Whether `newest` is newer than what `p` uses: for a Python requirement, a release it doesn't
-/// take. A pre-release never is.
+/// take; for an action, a release past its tag's numbers (`v7` takes every `7.x.y`, `v7.0.1`
+/// only itself). A pre-release never is.
 pub fn newer(p: &Package, newest: &str) -> bool {
     if pre_release(newest) {
         return false;
     }
     match p.group {
         Group::Python => !allows(&p.uses, newest),
+        Group::Actions => {
+            let ours = numbers(&p.uses);
+            let theirs = numbers(newest);
+            theirs[..ours.len().min(theirs.len())] > ours[..]
+        }
         _ => compare(newest, &p.uses).is_gt(),
     }
 }

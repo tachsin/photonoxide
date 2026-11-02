@@ -1,7 +1,6 @@
-//! What the Releases workflow's two issues share: GETs, versions compared by their numbers, the
+//! What the Releases workflow's issue is made of: GETs, versions compared by their numbers, the
 //! record an issue keeps of the versions it last showed, and the command line that writes an
-//! issue's body and the comment on what is new (`photonoxide libraries --releases`,
-//! `photonoxide dependencies`).
+//! issue's body and the comment on what is new (`photonoxide libraries --releases`).
 
 use std::cmp::Ordering;
 use std::collections::{BTreeMap, HashMap};

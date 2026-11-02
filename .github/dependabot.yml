@@ -5,12 +5,12 @@
 # needs a newer Rust than `rust-version`, the MSRV job fails: raise `rust-version` and the MSRV
 # job in the same pull request (AGENTS.md).
 #
-# Major versions are left out of it (they are what breaks a build): the weekly Libraries
-# workflow lists them in one issue, "Major updates available", to adopt on purpose with the
-# changes they need.
-#
-# The external libraries users install (oneMKL, MUMPS, SuperLU, OpenBLAS, CUDA, cuDSS) are
-# checked by the Libraries workflow instead.
+# Major versions are left out of it (they are what breaks a build): the Releases workflow lists
+# them under "Major updates" in the issue "New releases of all libraries", to adopt on purpose
+# with the changes they need. That one issue is the single place for every library and
+# dependency check: it links this pull request at its top, lists the external libraries users
+# install (oneMKL, MUMPS, SuperLU, OpenBLAS, CUDA, cuDSS) and our own dependencies beside their
+# newest releases, and the Libraries workflow installs and tests those libraries.
 version: 2
 
 multi-ecosystem-groups:

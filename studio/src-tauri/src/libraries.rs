@@ -1357,9 +1357,10 @@ pub fn markdown() -> String {
          and keeps that table in one issue, [{title}](https://github.com/tachsin/photonoxide/issues?q=is%3Aissue+in%3Atitle+%22{query}%22), \
          commenting there when a release appears. The same issue lists our direct \
          dependencies, so that one table has every library: the Rust crates, the studio's pnpm \
-         packages and the Python requirements, at the versions our lockfiles have, against \
-         crates.io, the npm registry and PyPI. Dependabot's weekly pull request still brings \
-         their updates.\n\n\
+         packages, the Python requirements and the GitHub Actions, at the versions our \
+         lockfiles and workflows have, against crates.io, the npm registry, PyPI and GitHub's \
+         releases. It links Dependabot's open pull request, which still brings their minor and \
+         patch updates, and lists the major versions Dependabot leaves out.\n\n\
          A new release isn't supported until it has been checked:\n",
         title = releases::ISSUE_TITLE,
         query = releases::ISSUE_TITLE.replace(' ', "+"),
