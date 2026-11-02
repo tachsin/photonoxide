@@ -283,6 +283,9 @@ export class FabView3D {
     this.setCut(null, 0);
     this.edgeMaterial.dispose();
     this.renderer.dispose();
+    // released now: left to the garbage collector, contexts pile up past the browser's limit
+    // and it drops the oldest, the run view's among them
+    this.renderer.forceContextLoss();
     this.renderer.domElement.remove();
   }
 }

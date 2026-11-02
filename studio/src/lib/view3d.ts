@@ -465,9 +465,30 @@ export class View3D {
     this.controls = new OrbitControls(this.camera, this.renderer.domElement);
     this.controls.addEventListener("change", () => this.render());
     this.renderer.domElement.addEventListener("dblclick", () => this.frame());
-    new ResizeObserver(() => this.resize()).observe(container);
-    document.addEventListener("visibilitychange", () => this.animate());
+    this.resizer.observe(container);
+    document.addEventListener("visibilitychange", this.wake);
     this.resize();
+  }
+
+  private resizer = new ResizeObserver(() => this.resize());
+  private wake = () => this.animate();
+
+  /**
+   * Lets go of everything, the WebGL context included: a view on a page that closes (a device's
+   * run view) would otherwise keep its context until its canvas is collected, and the browser,
+   * past its limit of live contexts, drops the oldest, which can be a view still shown.
+   */
+  destroy() {
+    cancelAnimationFrame(this.frameId);
+    this.frameId = 0;
+    this.resizer.disconnect();
+    document.removeEventListener("visibilitychange", this.wake);
+    this.controls.dispose();
+    this.clear();
+    dispose(this.scene);
+    this.renderer.dispose();
+    this.renderer.forceContextLoss();
+    this.renderer.domElement.remove();
   }
 
   /** Shows a guided mode travelling along the guide, as a volume, or none. */
