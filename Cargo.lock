@@ -3615,7 +3615,7 @@ dependencies = [
 
 [[package]]
 name = "photonoxide"
-version = "0.6.1"
+version = "0.6.2"
 dependencies = [
  "boon",
  "crc32fast",
@@ -3639,7 +3639,7 @@ dependencies = [
 
 [[package]]
 name = "photonoxide-native"
-version = "0.6.1"
+version = "0.6.2"
 dependencies = [
  "libloading 0.9.0",
  "num-complex",
@@ -3649,14 +3649,14 @@ dependencies = [
 
 [[package]]
 name = "photonoxide-native-testlib"
-version = "0.6.1"
+version = "0.6.2"
 dependencies = [
  "num-complex",
 ]
 
 [[package]]
 name = "photonoxide-python"
-version = "0.6.1"
+version = "0.6.2"
 dependencies = [
  "numpy",
  "photonoxide",
@@ -3665,7 +3665,7 @@ dependencies = [
 
 [[package]]
 name = "photonoxide-setup"
-version = "0.6.1"
+version = "0.6.2"
 dependencies = [
  "lzma-rust2",
  "rfd",
@@ -3674,7 +3674,7 @@ dependencies = [
 
 [[package]]
 name = "photonoxide-studio"
-version = "0.6.1"
+version = "0.6.2"
 dependencies = [
  "base64 0.22.1",
  "dirs",
