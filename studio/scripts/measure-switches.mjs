@@ -535,6 +535,9 @@ async function launch() {
   await cdp.send("Page.addScriptToEvaluateOnNewDocument", { source: INSTRUMENT });
   await cdp.send("Emulation.setDeviceMetricsOverride", { width: VIEW_W, height: VIEW_H, deviceScaleFactor: 1, mobile: false });
   await cdp.send("Emulation.setFocusEmulationEnabled", { enabled: true });
+  // reduced motion, which the studio honours: the menu's lists and the panels open at once, so
+  // a switch settles when its work is done, not when an animation ends
+  await cdp.send("Emulation.setEmulatedMedia", { features: [{ name: "prefers-reduced-motion", value: "reduce" }] });
   await cdp.send("Page.reload");
   await sleep(500);
   await until(`return window.__perf && document.querySelector("nav button[aria-label='Home']");`, "the window", 60000);
