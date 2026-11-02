@@ -4,9 +4,11 @@
 
 # photonoxide for Python
 
-[photonoxide](https://github.com/tachsin/photonoxide) is an open reference for photonic design
-and the software that runs it, written in Rust, every method checked against an analytic
-solution or a published result in a
+[photonoxide](https://github.com/tachsin/photonoxide) is photonics design and simulation software
+written in Rust: a live desktop studio, a Rust library and these Python bindings. Its methods
+pages derive each solver from the papers it implements, its Academy teaches devices and numerical
+methods, and its fabrication flows show how a design would be made; every method is checked
+against an analytic solution or a published result in a
 [validation report](https://github.com/tachsin/photonoxide/blob/main/docs/validation.md). This
 package brings a part of the library to Python:
 

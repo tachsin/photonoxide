@@ -11,19 +11,23 @@
 [![Validation](https://img.shields.io/badge/validation-report-ce422b)](docs/validation.md)
 [![Examples](https://img.shields.io/badge/examples-checked_against_papers-ce422b)](examples/README.md)
 
-**Light meets Rust: an open reference for photonic design, and the software that runs it.**
+**Light meets Rust. Photonics design and simulation with a live desktop studio, a Rust library and Python bindings: mode solvers, FDFD, FDTD, inverse design, circuits and fabrication flows. Open to everyone.**
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/tachsin/photonoxide/main/assets/studio/hero.gif" alt="The photonoxide studio: a silicon strip's first mode travelling along it in 3D as the camera orbits; a ring resonator's transmission spectrum building up point by point, then the ring lit at resonance in 3D; a Mach-Zehnder interferometer wired on the chip and its spectrum appearing" width="100%">
 </p>
 <p align="center"><sub>The studio: a strip's mode travelling in 3D; a ring's spectrum by 2D FDFD building up live (sped up) and the ring lit at resonance; an MZI wired on the chip and simulated.</sub></p>
 
-photonoxide is an open reference for photonic design and the software that puts it to use. Its
-methods pages derive each solver from the papers it implements; its Academy, written lesson by
-lesson, teaches devices and numerical methods at three depths with charts the library computes;
-its fabrication flows show step by step how a design would be made, every stated process
-capability with its source. A Rust library, a Python package and a desktop studio run the same
-methods, each checked against an analytic solution or a published result in a
+photonoxide is software for designing and simulating photonic devices and circuits: a desktop
+studio that shows every run live, a Rust library and Python bindings, all running the same
+solvers. It computes materials, waveguide modes, fields and spectra by FDFD and FDTD on the CPU
+and GPU, components and circuits, and active and nonlinear devices, and it gives the fabrication
+flow that would make a design. Adjoint gradients and optimization examples work today; inverse
+design is planned for 0.7. The methods behind the code are written down: the methods pages
+derive each solver from the papers it implements; the Academy, written lesson by lesson, teaches
+devices and numerical methods at three depths with charts the library computes; the fabrication
+flows show step by step how a design would be made, every stated process capability with its
+source. Each method is checked against an analytic solution or a published result in a
 [validation report](docs/validation.md) that CI keeps current. Every paper and book the project
 cites is listed once in the [references index](docs/references.md), with every place that cites
 it.

@@ -1,8 +1,8 @@
 # photonoxide: notes for AI coding assistants
 
-photonoxide is released milestone by milestone: a library whose public API can change between milestones until 1.0, and
-the `photonoxide` program (the studio). Beside the code, the repository is an open reference for
-photonic design: the methods pages (`docs/methods/`), the Academy's lessons (`academy/`) and the
+photonoxide is photonics design and simulation software, released milestone by milestone: a Rust library whose public API can change between milestones until 1.0,
+Python bindings, and the `photonoxide` program (the studio). Beside the code, the repository writes
+down the methods behind it: the methods pages (`docs/methods/`), the Academy's lessons (`academy/`) and the
 fabrication flows, each held to the same rule of cited sources. [ROADMAP.md](ROADMAP.md) is the plan and the record of
 what is done; [CHANGELOG.md](CHANGELOG.md) has what each release changed. 0.1 to 0.6 and their
 patches are released, the latest 0.6.0 (thermal and electro-optic devices: heat, thermo-optic

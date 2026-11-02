@@ -1,7 +1,10 @@
 # Getting started
 
-photonoxide is an open reference for photonic design and the software that runs it: a Rust
-library, a Python package and a desktop studio. This page takes you from adding it to a project to
+photonoxide is photonics design and simulation software: a Rust library, Python bindings and a
+live desktop studio. Its methods pages derive each solver from the papers it implements, the
+Academy teaches devices and numerical methods, and the fabrication flows show how a design would
+be made; every method is checked against an analytic solution or a published result. This page
+takes you from adding it to a project to
 your first waveguide modes, materials and circuit, and says where everything else is.
 
 ## Add it

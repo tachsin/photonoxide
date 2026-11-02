@@ -1,7 +1,8 @@
 # photonoxide documentation
 
-photonoxide is an open reference for photonic design and the software that puts it to use. The
-documentation has four parts. The **methods** pages derive each solver from the papers it
+photonoxide is photonics design and simulation software: a live desktop studio, a Rust library
+and Python bindings that compute the modes, fields and spectra of photonic devices and circuits.
+The documentation has four parts. The **methods** pages derive each solver from the papers it
 implements. The **Academy** teaches devices and numerical methods at three depths, with charts
 that the library computes. The **fabrication** pages show step by step how a design would be
 made, every stated process capability with its source. The **software** pages describe the Rust

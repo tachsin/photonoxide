@@ -20,7 +20,7 @@ export const PHOTONOXIDE_COMMIT = site.commit;
 export const PHOTONOXIDE_PATH = "/projects/photonoxide";
 export const PHOTONOXIDE_OG_IMAGE = "/projects/photonoxide/opengraph-image";
 
-export const PHOTONOXIDE_TAGLINE = "Light meets Rust: an open reference for photonic design, and the software that runs it";
+export const PHOTONOXIDE_TAGLINE = "Light meets Rust. Photonics design and simulation with a live desktop studio, a Rust library and Python bindings";
 
 /** The project's pages, under PHOTONOXIDE_PATH. */
 export const METHODS_PATH = "/projects/photonoxide/methods";
@@ -35,7 +35,7 @@ export const CROSS_CODE_DOCS_PATH = "/projects/photonoxide/docs/cross-code";
 export const DESIGN_DOCS_PATH = "/projects/photonoxide/docs/design";
 
 export const PHOTONOXIDE_DESCRIPTION =
-  "photonoxide is an open reference for photonic design and the software that runs it: methods pages that derive each solver from its papers, an Academy of lessons with live charts, and fabrication flows with cited process capabilities; a Rust library, a Python package and a desktop studio for materials, mode solvers, FDFD and FDTD on the CPU and GPU with adjoint gradients, circuits, active devices and nonlinear optics. Every method is validated against analytic solutions and published results. Inverse design and layout export are planned.";
+  "photonoxide is photonics design and simulation software: a live desktop studio, a Rust library and Python bindings for materials, mode solvers, FDFD and FDTD on the CPU and GPU with adjoint gradients, circuits, active devices and nonlinear optics. Its methods pages derive each solver from the papers it implements, its Academy teaches devices and numerical methods with live charts, and its fabrication flows show how a design would be made, with cited process capabilities. Every method is validated against analytic solutions and published results. Inverse design and layout export are planned.";
 
 export const PHOTONOXIDE_LICENSE = "MIT OR Apache-2.0";
 
