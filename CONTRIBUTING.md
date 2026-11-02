@@ -23,6 +23,29 @@ photonoxide is pre-1.0: ideas, use cases and validation cases are as welcome as 
 - **Before pushing, run:** `just lint test` (rustfmt, clippy, the docs, the unit tests); or everything the release PR runs, `just suite` (`bash .github/full-suite.sh`). `just` lists every recipe.
 - **Git hooks (optional):** `just hooks` runs the full suite in the background after a merge or rebase, and the lints before every push. In a linked worktree under `.claude/worktrees/` (an AI agent's) the suite is skipped, and the lints build in a folder of that worktree's own, `<main checkout>/target/agents/<name>` (never shared: cargo gives the crate the same artifact hash in every checkout, so worktrees building into one folder overwrite each other's binaries). The main checkout's post-merge removes the folders of worktrees that are gone (`just prune-agent-targets` does it by hand). `just test-hooks` checks all of that on a throwaway repository.
 
+## Build profiles
+
+The workspace has three optimized profiles:
+
+| Profile | Settings | Used for |
+|---|---|---|
+| `release` | Cargo's defaults: `opt-level = 3`, LTO within each crate only, 16 codegen units | CI, the tests and examples, a plain `pnpm tauri build`, the nightly builds |
+| `dist` | `release`, with `lto = "thin"` and `codegen-units = 1` | the released program and the Python wheels; `just studio`, `just build-dist` |
+| `fastest` | `dist`, with `lto = "fat"` | `just build-fastest` |
+
+LTO across crates lets LLVM optimize photonoxide together with faer, which does its sparse LU,
+and one codegen unit lets it see each crate whole. Both make the build slower. For the fastest code
+on your own machine, also compile for its CPU:
+
+```sh
+just build-fastest
+# without just:  RUSTFLAGS="-C target-cpu=native" cargo build --profile fastest
+# in PowerShell: $env:RUSTFLAGS = "-C target-cpu=native"; cargo build --profile fastest
+```
+
+That build uses every instruction set the CPU has (AVX2, AVX-512, …), so it runs only on CPUs
+that have them.
+
 ## Validation cases and their tolerances
 
 Every validation case has a rule, kept beside its area's cases in `src/validation/` (#544): no tolerance is chosen by hand. A rule says three things, and the report shows them beside the result (the Error, Basis and Ours columns):

@@ -6,6 +6,16 @@ This page is written by `photonoxide libraries --write docs/libraries.md` from t
 
 **Checked** means the command was run on a clean machine, one of GitHub's runners, and photonoxide then found the library: the Libraries workflow (`.github/workflows/libraries.yml`) does that again every week and on every change to the guides, and fails when a method stops working. What it can't check is said with each method: the runners have no GPU, so NVIDIA's libraries are found and loaded there but their backends' smoke tests don't run; winget's installers are several gigabytes and ask for elevation, so only the index is checked for the packages; and there is no Intel Mac among the runners.
 
+[![Intel oneMKL: PARDISO, BLAS](https://img.shields.io/badge/Intel_oneMKL-PARDISO%2C_BLAS-555)](#onemkl)
+[![MUMPS: direct](https://img.shields.io/badge/MUMPS-direct-555)](#mumps)
+[![SuperLU: direct](https://img.shields.io/badge/SuperLU-direct-555)](#superlu)
+[![NVIDIA cuDSS: direct on the GPU](https://img.shields.io/badge/NVIDIA_cuDSS-direct_on_the_GPU-555)](#cudss)
+[![NVIDIA cuSPARSE: Krylov on the GPU](https://img.shields.io/badge/NVIDIA_cuSPARSE-Krylov_on_the_GPU-555)](#cusparse)
+[![OpenBLAS: BLAS](https://img.shields.io/badge/OpenBLAS-BLAS-555)](#openblas)
+[![Apple Accelerate: sparse, BLAS](https://img.shields.io/badge/Apple_Accelerate-sparse%2C_BLAS-555)](#accelerate)
+[![AMD AOCL: BLAS](https://img.shields.io/badge/AMD_AOCL-BLAS-555)](#amd-aocl)
+[![Arm Performance Libraries: BLAS](https://img.shields.io/badge/Arm_Performance_Libraries-BLAS-555)](#arm-performance-libraries)
+
 ## Which library installs where
 
 | Library | Backends | Windows | Linux | macOS |

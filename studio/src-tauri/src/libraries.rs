@@ -1192,6 +1192,55 @@ fn write_installs(out: &mut String, installs: &[Install], unsupported: &[(&str, 
     }
 }
 
+/// The badges under docs/libraries.md's introduction: a library, what its backends do, and its guide.
+const BADGES: [(&str, &str, &str); 9] = [
+    (
+        "Intel oneMKL: PARDISO, BLAS",
+        "https://img.shields.io/badge/Intel_oneMKL-PARDISO%2C_BLAS-555",
+        "#onemkl",
+    ),
+    (
+        "MUMPS: direct",
+        "https://img.shields.io/badge/MUMPS-direct-555",
+        "#mumps",
+    ),
+    (
+        "SuperLU: direct",
+        "https://img.shields.io/badge/SuperLU-direct-555",
+        "#superlu",
+    ),
+    (
+        "NVIDIA cuDSS: direct on the GPU",
+        "https://img.shields.io/badge/NVIDIA_cuDSS-direct_on_the_GPU-555",
+        "#cudss",
+    ),
+    (
+        "NVIDIA cuSPARSE: Krylov on the GPU",
+        "https://img.shields.io/badge/NVIDIA_cuSPARSE-Krylov_on_the_GPU-555",
+        "#cusparse",
+    ),
+    (
+        "OpenBLAS: BLAS",
+        "https://img.shields.io/badge/OpenBLAS-BLAS-555",
+        "#openblas",
+    ),
+    (
+        "Apple Accelerate: sparse, BLAS",
+        "https://img.shields.io/badge/Apple_Accelerate-sparse%2C_BLAS-555",
+        "#accelerate",
+    ),
+    (
+        "AMD AOCL: BLAS",
+        "https://img.shields.io/badge/AMD_AOCL-BLAS-555",
+        "#amd-aocl",
+    ),
+    (
+        "Arm Performance Libraries: BLAS",
+        "https://img.shields.io/badge/Arm_Performance_Libraries-BLAS-555",
+        "#arm-performance-libraries",
+    ),
+];
+
 /// docs/libraries.md: every library's install methods per system, and where each was checked.
 pub fn markdown() -> String {
     use std::fmt::Write as _;
@@ -1214,6 +1263,10 @@ pub fn markdown() -> String {
          and ask for elevation, so only the index is checked for the packages; and there is no \
          Intel Mac among the runners.\n\n",
     );
+    for (alt, badge, anchor) in BADGES {
+        let _ = writeln!(out, "[![{alt}]({badge})]({anchor})");
+    }
+    out.push('\n');
     out.push_str("## Which library installs where\n\n");
     out.push_str("| Library | Backends | Windows | Linux | macOS |\n|---|---|---|---|---|\n");
     for g in GUIDES.iter().filter(|g| !g.built_in) {
