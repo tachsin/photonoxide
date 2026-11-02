@@ -13,9 +13,11 @@
 # shellcheck disable=SC2034 # read by the scripts that source this file
 LINTS=(
   "fmt|cargo fmt --all --check"
-  "clippy|cargo clippy --all-targets --all-features -- -D warnings"
-  "clippy, native|cargo clippy -p photonoxide-native -p photonoxide-native-testlib --all-targets -- -D warnings"
-  "clippy, Python|cargo clippy -p photonoxide-python --all-targets -- -D warnings"
+  # CI's three clippy steps (the library with all its features, the native crates, the Python
+  # binding) as one command, so that the library is checked once: run separately, Cargo picks other
+  # features for the shared dependencies and checks them, and the library, again. The native crates
+  # and the binding have no features of their own, so --all-features changes nothing for them.
+  "clippy|cargo clippy -p photonoxide -p photonoxide-native -p photonoxide-native-testlib -p photonoxide-python --all-targets --all-features -- -D warnings"
   "docs|env RUSTDOCFLAGS=\"-D warnings\" cargo doc --no-deps --all-features"
   # every crate's manifest, for dependencies nothing uses; skipped, and said, without the tool
   "unused dependencies|if command -v cargo-machete > /dev/null; then cargo machete; else echo 'cargo-machete not installed (cargo install cargo-machete): skipped'; fi"

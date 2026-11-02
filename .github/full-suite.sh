@@ -48,6 +48,9 @@ skip() { results+=("$(printf '%6s  skipped %s (%s)' - "$1" "$2")"); }
 # shellcheck disable=SC2317 # run through step, as "$@"
 examples() {
   local status=0 example name out
+  # all of them at once, so they compile and link side by side (#507), as CI does; the loop below
+  # only runs each
+  cargo build --release --quiet --examples || return 1
   out=$(mktemp -d)
   for example in examples/*.rs; do
     name=$(basename "$example" .rs)
