@@ -32,7 +32,8 @@
 // Options: --exe <path> (default target/release/photonoxide.exe), --port <n> (9231),
 // --out <folder> (target/perf), --label <name> (the files' name: measure-<label>.json/.md),
 // --reps <n> (each ordered pair of pages, 10), --tab-reps <n> (each ordered pair of tabs, 2),
-// --open-reps <n> (each component opened, 10), --scroll-reps <n> (10), --only <names>
+// --open-reps <n> (each component opened, 10), --scroll-reps <n> (10), --heap-switches <n> (the
+// page switches the heap and the DOM are watched over, 200), --only <names>
 // (pages, tabs, open, scroll, contexts, heap, idle, trace), --components <titles> (comma-separated,
 // the tabs' and the opening's components), --compare <json> (an earlier run: a before/after table),
 // --size <w>x<h> (the page's size in CSS pixels, 1440x900), --seed <folder> (a workspace whose
@@ -64,6 +65,7 @@ const REPS = Number(opt("reps", "10"));
 const TAB_REPS = Number(opt("tab-reps", "2"));
 const OPEN_REPS = Number(opt("open-reps", "10"));
 const SCROLL_REPS = Number(opt("scroll-reps", "10"));
+const HEAP_SWITCHES = Number(opt("heap-switches", "200"));
 const ALL = ["pages", "tabs", "open", "scroll", "contexts", "heap", "idle", "trace"];
 const ONLY = new Set(opt("only", ALL.join(",")).split(","));
 const COMPARE = opt("compare", null);
@@ -712,25 +714,41 @@ async function measureContexts() {
   results.summary.contexts = { before, rounds, round: order.join(" → ") + `, opening ${COMPONENTS.join(", ")} on Components` };
 }
 
+/**
+ * The heap and the DOM over HEAP_SWITCHES page switches, through every page in turn: after each 50
+ * and a garbage collection, on Home, the JS heap, the DOM nodes alive (on the page or not) and the
+ * listeners. The first 50 build what the pages keep once made, so the growth per switch is counted
+ * after them: a page that leaves something behind when it closes shows as nodes gained per switch.
+ */
 async function measureHeap() {
-  stage("the heap over 50 + 50 page switches");
-  const order = ["Home", "Components", "Chip", "Fabrication", "Academy", "Materials", "Validation", "Libraries", "Benchmarks", "Settings"];
-  const take = async () => {
+  stage(`the heap and the DOM over ${HEAP_SWITCHES} page switches`);
+  const take = async (switches) => {
     await collect();
     const m = await metrics();
-    return { heapMB: m.JSHeapUsedSize / 1e6, nodes: m.Nodes, listeners: m.JSEventListeners, documents: m.Documents };
+    const c = await cdp.send("Memory.getDOMCounters");
+    return { switches, heapMB: m.JSHeapUsedSize / 1e6, nodes: c.nodes, listeners: c.jsEventListeners, documents: c.documents };
   };
   await goPage("Home");
-  const points = [await take()];
-  for (let half = 0; half < 2; half++) {
-    for (let k = 0; k < 50; k++) {
-      await goPage(order[k % order.length]);
-      progress("heap", half * 50 + k + 1, 100);
+  const points = [await take(0)];
+  for (let k = 0; k < HEAP_SWITCHES; k++) {
+    await goPage(PAGES[k % PAGES.length]);
+    progress("heap", k + 1, HEAP_SWITCHES);
+    if ((k + 1) % 50 === 0 || k + 1 === HEAP_SWITCHES) {
+      await goPage("Home");
+      points.push(await take(k + 1));
     }
-    await goPage("Home");
-    points.push(await take());
   }
-  results.summary.heap = { points, first50MB: points[1].heapMB - points[0].heapMB, second50MB: points[2].heapMB - points[1].heapMB };
+  // the detached nodes still held, asked for once, at the end: the DevTools session keeps every
+  // node it reports, so asking along the way would hold them itself
+  await cdp.send("DOM.enable");
+  const found = await cdp.send("DOM.getDetachedDomNodes").catch(() => null);
+  await cdp.send("DOM.disable");
+  const detached = found ? { trees: found.detachedNodes.length, held: found.detachedNodes.reduce((a, d) => a + d.retainedNodeIds.length, 0) } : null;
+  const from = points.find((p) => p.switches >= 50 && p.switches < HEAP_SWITCHES) ?? points[0];
+  const last = points.at(-1);
+  const span = last.switches - from.switches;
+  const perSwitch = span ? { nodes: (last.nodes - from.nodes) / span, listeners: (last.listeners - from.listeners) / span, heapKB: (1000 * (last.heapMB - from.heapMB)) / span } : null;
+  results.summary.heap = { points, from: from.switches, perSwitch, detached };
 }
 
 async function measureIdle() {
@@ -950,10 +968,17 @@ function report(before) {
     const keys = ["made", "released", "evicted", "onPage", "lostOnPage", "leftToGc"];
     lines.push(table(["", "made", "released by the studio", "evicted by the browser", "on the page", "on the page, evicted", "off the page, not released (one is the cards' shared context)"], [["before", ...keys.map((k) => c.before[k])], ...c.rounds.map((r, i) => [`after round ${i + 1}`, ...keys.map((k) => r[k])])]), "");
   }
-  if (S.heap) {
+  if (S.heap?.perSwitch) {
     const h = S.heap;
-    lines.push("## The heap over page switches", "", "After a garbage collection, on Home:", "");
-    lines.push(table(["", "JS heap (MB)", "DOM nodes", "listeners"], h.points.map((p, i) => [["at the start", "after 50 switches", "after 100 switches"][i], p.heapMB.toFixed(1), p.nodes, p.listeners])), "");
+    const g = h.perSwitch;
+    lines.push("## The heap and the DOM over page switches", "", `Through every page in turn; after a garbage collection, on Home. The DOM nodes are every node alive, on the page or not.`, "");
+    lines.push(table(["Switches", "JS heap (MB)", "DOM nodes", "listeners", "documents"], h.points.map((p) => [p.switches, p.heapMB.toFixed(1), p.nodes, p.listeners, p.documents])), "");
+    const grown = (x) => `${x.nodes.toFixed(1)} DOM nodes, ${x.listeners.toFixed(2)} listeners and ${x.heapKB.toFixed(1)} kB of heap`;
+    lines.push(`Per switch, from switch ${h.from} to ${h.points.at(-1).switches}: ${grown(g)}${g.nodes < 1 ? " (flat: nothing is left behind)" : " (pages leave nodes behind)"}.`);
+    const b = before?.summary?.heap?.perSwitch;
+    if (b) lines.push(`Before: ${grown(b)}.`);
+    if (h.detached) lines.push(`Detached nodes still held by the page's script after the last switch: ${h.detached.held}, in ${h.detached.trees} detached trees${before?.summary?.heap?.detached ? ` (before: ${before.summary.heap.detached.held}, in ${before.summary.heap.detached.trees})` : ""}.`);
+    lines.push("");
   }
   if (S.idle) {
     lines.push("## Each page at rest", "", "The renderer's main thread busy over 3 s with nothing done:", "");
