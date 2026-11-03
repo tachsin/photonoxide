@@ -880,6 +880,8 @@ export interface JobForm {
   study: StudyIn | null;
   /** An optimization, for a job that optimizes the design. */
   optimize: OptimizeIn | null;
+  /** A compact model's plan, for a job that fits one (the Model tab's). */
+  fit: FitIn | null;
 }
 
 /** An objective as a job gives it (photonoxide::job::Aim): a declared one's symbol, or an expression of the outputs. */

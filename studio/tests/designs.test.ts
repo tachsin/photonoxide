@@ -18,7 +18,7 @@ registerHooks({
     }
   },
 });
-const { builtInWith, inOrder, nameProblem, sameParameters } = await import("../src/lib/designs.ts");
+const { builtInWith, designNameOf, inOrder, nameProblem, sameParameters } = await import("../src/lib/designs.ts");
 const { sectionOf } = await import("../src/lib/jobsection.ts");
 
 // the directional coupler's own parameters, in its order
@@ -49,6 +49,22 @@ test("a built-in component's name is its own, in either case; a name is a job's"
   assert.equal(builtInWith(builtIn, "my-coupler"), undefined);
   assert.equal(nameProblem("my-coupler_2.v1"), "");
   assert.notEqual(nameProblem("my coupler"), "");
+});
+
+test("a tab's job, opened from its file, gives its design's name back", () => {
+  // the Simulate tab's run of "my-mmi" at each way it is computed, as SimulateTab names it
+  for (const how of ["analytic", "2D", "2D FDFD", "3D", "FDTD 2D", "FDTD 3D"]) {
+    const job = `my-mmi-${how.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`.replace(/-+$/, "");
+    assert.equal(designNameOf(job, how), "my-mmi", how);
+  }
+  // the Study, Optimize and Model tabs' jobs
+  assert.equal(designNameOf("my-ring-sweep-gap-width", "sweep-gap-width"), "my-ring");
+  assert.equal(designNameOf("my-ring-corners", "corners"), "my-ring");
+  assert.equal(designNameOf("my-mmi-optimize-imbalance", "optimize-imbalance"), "my-mmi");
+  assert.equal(designNameOf("my-ring-compact-gap", "compact-gap"), "my-ring");
+  // a job named otherwise keeps its name; a suffix alone is no design's name
+  assert.equal(designNameOf("ring-check", "2D"), "ring-check");
+  assert.equal(designNameOf("-2d", "2D"), "-2d");
 });
 
 test("each built-in component's file opens as its device section, every parameter in it", () => {

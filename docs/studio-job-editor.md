@@ -3,9 +3,10 @@
 Issue #668 asks for one job editor on every component's page: a component is a section of a YAML,
 TOML or JSON job file, and the page and the text always agree. This page says what each
 component's page holds, how the shared editor works, the Job tab every device's page has, the
-Design page that makes components, the built-in components' files in `jobs/components/`, and every
-component type's round trip from its page to the job's text and back, measured in all three
-formats.
+Simulate tab's text in the same editor (decision 2), the Design page that makes components, the
+built-in components' files in `jobs/components/`, and every component type's round trip from its
+page to the job's text and back, measured in all three formats, the Model tab's fitting jobs and a
+design that names a compact model's file among them.
 
 ## A component is a job file
 
@@ -49,7 +50,7 @@ each on its page:
 
 | Component type | Page | Tabs | The job is held as | Its text on the page |
 |---|---|---|---|---|
-| The 18 devices of `photonoxide::device`: waveguide, bend, directional coupler, all-pass ring, add-drop ring, rib waveguide, MMI 1x2, MMI 2x2, Y-branch, MZI, Y-branch MZI, the three thermo-optic phase shifters, the GST, Sb2S3 and Sb2Se3 phase shifters, the TFLN Mach-Zehnder modulator; and each of my own components, on its device's page | `components/device/DevicePage.svelte` | Design, Job, Overview, Model, Simulate, Study, Optimize, Fabrication | A form: the design (`Draft.spec`), its name and description, and how a run computes it (`Draft.compute`). The library writes the text; the page reads a text back (`devices.rs`, `devices/design.rs`). | **Job**: the design's file in the shared editor, and the Simulate tab's run. **Simulate**: editable, in the plain box. **Study**, **Optimize**: read only. |
+| The 18 devices of `photonoxide::device`: waveguide, bend, directional coupler, all-pass ring, add-drop ring, rib waveguide, MMI 1x2, MMI 2x2, Y-branch, MZI, Y-branch MZI, the three thermo-optic phase shifters, the GST, Sb2S3 and Sb2Se3 phase shifters, the TFLN Mach-Zehnder modulator; and each of my own components, on its device's page | `components/device/DevicePage.svelte` | Design, Job, Overview, Model, Simulate, Study, Optimize, Fabrication | A form: the design (`Draft.spec`), its name and description, and how a run computes it (`Draft.compute`). The library writes the text; the page reads a text back (`devices.rs`, `devices/design.rs`). | **Job**: the design's file and the Simulate tab's run, in the shared editor. **Simulate**: the run's whole job, in the shared editor. **Study**, **Optimize**: their jobs, in the shared editor, read only. **Model**: the fitting job runs from its form; a fitting job opened from a file fills the form. |
 | The Custom device | `components/custom/CustomDevice.svelte` | One page: the form beside the view (3D, Top, or As text) | Both: a form (`JobModel`, `studio/src-tauri/src/form.rs`) and the text. What the form can't show is kept as the file has it, and said so. | "As text": the shared editor. |
 | Every component's file | `components/design/DesignPage.svelte`, the Design page | One page: the files, and the file in the shared editor | The text: the file itself | The whole file. |
 | The 5 circuit models without a device (waveguide modes, phase shifter, coupler, MZI, terminator) and the measured models | An information page in `Components.svelte` | None | No job: a compact or measured model, placed on the chip. | None. |
@@ -68,9 +69,23 @@ and no job describes them.
 It takes the whole job's text, its format and the component it belongs to, and hears each edit. A
 page gives it what is its own: a bar over the text, its design beside the text, what goes under the
 design and a bar under the text. A page that gives no design gets the job in 3D as its run will
-draw it, from its last valid text. A page may give the library's refusals of what it asks for (a
-run the library won't write): they are listed in Problems, in the library's words. A built-in
-component's file is shown read only.
+draw it, from its last valid text; a page whose own view shows the design already (a device's
+Simulate, Study and Optimize tabs, beside the page's main view) leaves the preview out and keeps
+Problems and Reference. A page may give the library's refusals of what it asks for (a run the
+library won't write): they are listed in Problems, in the library's words. A text is shown read
+only where the page says so: a built-in component's file, and the Study and Optimize tabs' jobs,
+which their forms write.
+
+Where the editor is used:
+
+| Page or tab | What it shows | Edits |
+|---|---|---|
+| Custom device, "As text" | The whole job | Both ways with the form |
+| Design page | A component's whole file | Saved as one of mine; a built-in file is read only |
+| A device's **Job** tab, "The design" | The design file's `device` section | Both ways with the page |
+| A device's **Job** tab, "The run" | The run's `task` section: the same text as the Simulate tab's | Both ways with the Simulate tab's form |
+| A device's **Simulate** tab, "As text" | The run's whole job, as Run runs it and Save job writes it | Both ways with its form |
+| A device's **Study** and **Optimize** tabs, "As text" | The study's or the optimization's whole job, as Save job writes it | Read only: their forms write it |
 
 Given a `section`, a top-level key of the job (`device`, `task`), the editor shows that section
 alone and writes an edit back over that section only (`studio/src/lib/jobsection.ts`). The rest
@@ -94,7 +109,8 @@ the page's width with the design in 3D beside it:
   why; "Back to the page" drops it.
 - **The run**: the `task` section of the job the Simulate tab runs. An edit the Simulate tab's
   form can hold moves the form. When the library won't write the run the page asks for (an MMI at
-  3D, a modulator by 2D FDTD), its message is in Problems.
+  3D, a modulator by 2D FDTD), its message is in Problems, and the tab says there is no run's text:
+  it shows the design's file, read only.
 - **Open as a job** opens the design's file on the Design page: a built-in component's own file
   while the page is at its defaults, the text shown otherwise.
 
@@ -103,8 +119,33 @@ its order, then the others by name (`studio/src/lib/designs.ts`, `devices.rs` `i
 `[device.parameters]` is a table, which the library writes sorted). The TFLN modulator is on a
 stack of its own, which the library won't change: its Design tab offers no stack to edit.
 
-Whether the Job tab replaces the Simulate tab's plain box is #668's decision 2, after the tab has
-been used.
+The page has one format for its texts: the switch on the Job tab or the Simulate tab writes the
+design's and the run's texts in it, an edited text included.
+
+## The Simulate tab's text: decision 2
+
+#668's decision 2 asked whether the Job tab's editor replaces the Simulate tab's plain text box.
+I decided yes (2026-11-03): the Simulate tab's "As text" is the shared editor now
+(`components/device/SimulateTab.svelte`), with the schema's completions, the popover, the
+Reference and Problems, in the page's format with the format switch.
+
+It shows the **whole job**, not its `task` section. The run's job is the file Run runs and Save
+job writes, and the tab's own form writes into both of its sections: "How" sets the design's
+fidelity, in `device`, and the band, the grid and the time limit are in `task` and at the top.
+Showing a section would hide a part of what the form changes and of what runs. The Job tab is the
+place for sections: there "The design" is the `device` section and "The run" the `task` section.
+
+One text, not two: the run's text is the page's (`Draft.text` while edited, the form's job
+otherwise), and the Simulate tab and the Job tab's "The run" both show it and both edit it. An edit
+in one is in the other, and "Back to the form" or "Back to the page" drops it for both. The
+Simulate tab keeps the rest of what it did: Run, Save job (now in the text's format), the run's
+results beside the form, the library's refusal of a run above the buttons, an edit the form can't
+hold kept and said why (a key of its own, or a study's, an optimization's or a fit's job typed
+there), and an edit it can hold moving the form.
+
+The Study and Optimize tabs show their jobs in the same editor, read only: their forms write the
+jobs, and nothing reads an edited study's text back into the form yet, so an editable text there
+would be a second source.
 
 ## The Design page
 
@@ -142,6 +183,15 @@ The cases, for each device and each of the three formats:
 - **Study tab**: a sweep of a length of the design, and corners of it.
 - **Optimize tab**: the device's first objective, over one of its lengths. Read back into the
   form, the form writes the same job again.
+- **Model tab, its fitting jobs**: a compact model fitted on a grid of the parameter the tab
+  offers first (a coupler's or a ring's gap, else a length), 2 % either side of its default, at
+  the tab's defaults, from each model the device has (the MMIs' 2D by FDFD too); the same,
+  piecewise linear; and a Latin hypercube of two parameters with a time limit of its own. Read
+  back into the tab's form, the form writes the same job again.
+- **A design that names a compact model's file** (an all-pass ring's model over its gap, fitted
+  to its analytic model for the test): on the Design tab, naming the file a run left, and saved,
+  with the file copied beside the design and named from there; on the Simulate tab, by its own
+  band and by a band and time limit of its own.
 
 A case comes back **same**; or **filled in**, the same job with the form now showing what the
 library wrote out (the device's own band, FDTD's cells and PML, the default time limit); or
@@ -154,31 +204,49 @@ says why.
 | Simulate (18 devices) | 312 | 120 | 177 | 0 | 15 |
 | Study (18 devices) | 108 | 108 | 0 | 0 | 0 |
 | Optimize (18 devices) | 54 | 54 | 0 | 0 | 0 |
+| Model, its fitting jobs (18 devices) | 240 | 54 | 180 | 0 | 6 |
+| A design naming a compact model's file (Design and Simulate) | 12 | 9 | 3 | 0 | 0 |
 | Custom device (the 18 non-device jobs of `jobs/`) | 54 | 54 | 0 | 0 | 0 |
 
 By device, in the three formats together:
 
-| Device | Design: same / cases | Simulate: same + filled in / cases | Study: same / cases | Optimize: same / cases |
-|---|---:|---:|---:|---:|
-| waveguide | 15 / 15 | 15 / 15 | 6 / 6 | 3 / 3 |
-| bend | 18 / 18 | 21 / 21 | 6 / 6 | 3 / 3 |
-| directional coupler | 15 / 15 | 15 / 15 | 6 / 6 | 3 / 3 |
-| all-pass ring | 15 / 15 | 15 / 15 | 6 / 6 | 3 / 3 |
-| add-drop ring | 15 / 15 | 15 / 15 | 6 / 6 | 3 / 3 |
-| rib waveguide | 15 / 15 | 15 / 15 | 6 / 6 | 3 / 3 |
-| MMI 1x2 | 15 / 15 | 12 / 18 (6 refused) | 6 / 6 | 3 / 3 |
-| MMI 2x2 | 15 / 15 | 12 / 18 (6 refused) | 6 / 6 | 3 / 3 |
-| Y-branch | 18 / 18 | 21 / 21 | 6 / 6 | 3 / 3 |
-| MZI | 15 / 15 | 15 / 15 | 6 / 6 | 3 / 3 |
-| Y-branch MZI | 15 / 15 | 15 / 15 | 6 / 6 | 3 / 3 |
-| thermo-optic phase shifter | 18 / 18 | 21 / 21 | 6 / 6 | 3 / 3 |
-| doped thermo-optic phase shifter | 18 / 18 | 21 / 21 | 6 / 6 | 3 / 3 |
-| in-guide thermo-optic phase shifter | 18 / 18 | 21 / 21 | 6 / 6 | 3 / 3 |
-| GST phase-change phase shifter | 15 / 15 | 15 / 15 | 6 / 6 | 3 / 3 |
-| Sb2S3 phase-change phase shifter | 15 / 15 | 15 / 15 | 6 / 6 | 3 / 3 |
-| Sb2Se3 phase-change phase shifter | 15 / 15 | 15 / 15 | 6 / 6 | 3 / 3 |
-| TFLN Mach-Zehnder modulator | 15 / 15 | 18 / 21 (3 refused) | 6 / 6 | 3 / 3 |
-| **All 18** | **285 / 285** | **297 / 312 (15 refused)** | **108 / 108** | **54 / 54** |
+| Device | Design: same / cases | Simulate: same + filled in / cases | Study: same / cases | Optimize: same / cases | Model: same + filled in / cases |
+|---|---:|---:|---:|---:|---:|
+| waveguide | 15 / 15 | 15 / 15 | 6 / 6 | 3 / 3 | 12 / 12 |
+| bend | 18 / 18 | 21 / 21 | 6 / 6 | 3 / 3 | 15 / 15 |
+| directional coupler | 15 / 15 | 15 / 15 | 6 / 6 | 3 / 3 | 12 / 12 |
+| all-pass ring | 15 / 15 | 15 / 15 | 6 / 6 | 3 / 3 | 12 / 12 |
+| add-drop ring | 15 / 15 | 15 / 15 | 6 / 6 | 3 / 3 | 12 / 12 |
+| rib waveguide | 15 / 15 | 15 / 15 | 6 / 6 | 3 / 3 | 12 / 12 |
+| MMI 1x2 | 15 / 15 | 12 / 18 (6 refused) | 6 / 6 | 3 / 3 | 12 / 15 (3 refused) |
+| MMI 2x2 | 15 / 15 | 12 / 18 (6 refused) | 6 / 6 | 3 / 3 | 12 / 15 (3 refused) |
+| Y-branch | 18 / 18 | 21 / 21 | 6 / 6 | 3 / 3 | 15 / 15 |
+| MZI | 15 / 15 | 15 / 15 | 6 / 6 | 3 / 3 | 12 / 12 |
+| Y-branch MZI | 15 / 15 | 15 / 15 | 6 / 6 | 3 / 3 | 12 / 12 |
+| thermo-optic phase shifter | 18 / 18 | 21 / 21 | 6 / 6 | 3 / 3 | 15 / 15 |
+| doped thermo-optic phase shifter | 18 / 18 | 21 / 21 | 6 / 6 | 3 / 3 | 15 / 15 |
+| in-guide thermo-optic phase shifter | 18 / 18 | 21 / 21 | 6 / 6 | 3 / 3 | 15 / 15 |
+| GST phase-change phase shifter | 15 / 15 | 15 / 15 | 6 / 6 | 3 / 3 | 12 / 12 |
+| Sb2S3 phase-change phase shifter | 15 / 15 | 15 / 15 | 6 / 6 | 3 / 3 | 12 / 12 |
+| Sb2Se3 phase-change phase shifter | 15 / 15 | 15 / 15 | 6 / 6 | 3 / 3 | 12 / 12 |
+| TFLN Mach-Zehnder modulator | 15 / 15 | 18 / 21 (3 refused) | 6 / 6 | 3 / 3 | 15 / 15 |
+| **All 18** | **285 / 285** | **297 / 312 (15 refused)** | **108 / 108** | **54 / 54** | **234 / 240 (6 refused)** |
+
+**The Model tab's fitting jobs.** Before this, nothing read a fitting job back: opened from a file,
+it went to the Simulate tab as a text its form couldn't hold. The job form now reads a fit's plan
+(`FitIn::of` in `devices/compact.rs`, the `fit` of `read_job_form`), and a fitting job opened from a
+file fills the Model tab's form and opens on that tab. The 180 cases filled in are all the time
+limit: the tab leaves it to the library, which writes its 30 minutes, and the form then shows it.
+Two fields of the form are its own and not in any job, so a file can't give them back: a grid's
+job has no samples' count or seed (a Latin hypercube's), and a Latin hypercube's axes have no
+points (a grid's). Opening a file, the form keeps its own for them; neither changes the job.
+
+**A design that names a compact model's file** comes back the same on the Design tab, in all
+three formats, whether it names the file a run left (an absolute path) or was saved with the file
+copied beside it (`<name>.compact.json`, named from the design's folder and found from there when
+it is opened). On the Simulate tab it comes back the same with a band of its own; at the device's
+own band, the form is filled in with the band and the time limit the library wrote out, as for
+every device.
 
 The first phase found three losses, all on the Design tab (136 of its 288 cases), and the Custom
 device lost its description in 17 of its 18 JSON trips. Each is fixed:
@@ -193,6 +261,8 @@ The library refuses 15 Simulate cases, and the page shows each refusal as the li
 (on the Simulate tab, and in the Job tab's Problems when its run is shown): the MMIs at 3D (51.2
 and 67.4 million unknowns, over the 13 million a 3D solve takes, in 6 cases each: two computes in
 three formats) and the TFLN modulator by 2D FDTD (152,315 cells along x, over 10,000, in 3 cases).
+It refuses 6 fitting jobs for the same reason as the MMIs at 3D: a fit from their 3D model, whose
+solve is too large; the Model tab shows the message.
 
 **The Custom device.** Each of the 18 job files of `jobs/` that isn't a device's (the other 16 are
 devices' and open on their pages) is opened into the form, written by the form, converted to each
@@ -228,12 +298,36 @@ the rail needs those. What the round trip shows for the components:
 
 | Component | What the page holds that the job can't |
 |---|---|
-| Every device, from reading the code | The design's name, for a Simulate job: the job is named `<design>-<how it is computed>` (`SimulateTab.svelte`), and a job opened from text takes its job's name as the design's (`lib/device.svelte.ts`). Not measured. |
+| Every device | The design's name, in a job that computes it: the job has one name, and the tabs name it `<design>-<what it does>` (`my-mmi-2d`, `my-ring-sweep-gap`, `my-mmi-optimize-imbalance`, `my-ring-compact-gap`). A job opened from its file gives its design the name without that ending (`designNameOf` in `lib/designs.ts`, tested in `studio/tests/designs.test.ts`); before, the design took the job's whole name, and its next run was named `my-mmi-2d-2d`. A job named otherwise gives its design its own name. |
 
-## What I could not verify
+## Looked at in the window
 
-- The round trip of a design that names a **compact model's file** (`compact`): the case needs a
-  fitted model on disk, and isn't measured.
-- The **Model** tab's fitting jobs: their round trip isn't measured.
+Each view above was opened in a build of the studio, with an identifier, settings, WebView2
+profile and workspace of its own (never an installed studio's), driven over the DevTools protocol
+at 1440 × 900, and its screenshots looked at:
+
+- the coupler's Job tab (a gap edited in the text moved the Design tab and the 3D view), the TFLN
+  modulator's Design tab and the Design page (#703);
+- the MMI 1×2's Simulate tab: its form, "As text" in the shared editor with Problems and
+  Reference, an edit the form holds (the band's points typed as 51: the form showed 51 and wrote
+  the text again), an edit it can't (a key of its own: kept, Run disabled, the check's message
+  under the text and in Problems), the format switch to TOML, and the run at 3D, which the library
+  refuses: its message above the buttons, Run disabled;
+- the same edit on the Job tab's "The run", and at 3D its refusal in Problems;
+- the Study and Optimize tabs, and their jobs, read only in the shared editor;
+- a run of the directional coupler from its Simulate tab, its results on the device.
+
+What I saw and fixed: the text opened by "As text" was below the panel's fold (it scrolls into
+view now); a check's long message under the text left the narrow panel's editor two lines (it is
+capped, and the whole message is in Problems); the Job tab's "The run", with the run refused,
+said the job had "no task section in one piece" and let the design be edited as if it were the
+run (it says there is no run's text and shows the design's file read only); the Simulate tab saved
+an edited TOML or JSON text as YAML (it saves in the text's format); and a study's, an
+optimization's or a fit's job typed in the run's text was taken by the Simulate tab's form, its
+task dropped (it is kept as typed now, and the tab says why). From reading the code: a job opened
+from its file named its design after the whole job (above: it gives the design's name back now).
+
+## What is left
+
 - The page's state that is not in any job by design (the tab shown, the plots chosen): not
-  surveyed.
+  surveyed, and not part of a job.

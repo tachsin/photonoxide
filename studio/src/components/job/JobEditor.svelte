@@ -13,6 +13,8 @@
   // own; and it may give its own design beside the text (`preview`), what goes under it
   // (`below`, `previewbar`), a bar over the text (`toolbar`) and one under it (`footer`).
   // Without a `preview`, the design is the job in 3D as its run will draw it, of its last valid text.
+  // A page whose own view shows the design (a device's Simulate, Study and Optimize tabs, beside
+  // its main view) leaves the preview out (`sides`).
   import { Box, CircleAlert, CircleCheck } from "@lucide/svelte";
   import { untrack, type Snippet } from "svelte";
 
@@ -34,6 +36,7 @@
     checking = false,
     layers = [],
     side = $bindable("preview"),
+    sides = ["preview", "reference", "problems"],
     oncursor,
     readonly = false,
     refusals = [],
@@ -59,6 +62,8 @@
     layers?: string[];
     /** What is beside the text. */
     side?: "preview" | "reference" | "problems";
+    /** The tabs beside the text: a page whose own view shows the design already leaves out the preview. */
+    sides?: ("preview" | "reference" | "problems")[];
     /** The user put the cursor at this offset of the whole text. */
     oncursor?: (pos: number) => void;
     /** Shown to read, not to edit (a built-in component's file). */
@@ -165,7 +170,7 @@
   // ---- the design beside the text, when the owner gives none: the job in 3D, of its last valid text ----
   let drawn = $state("");
   $effect(() => {
-    if (preview || !current?.ok) return;
+    if (preview || !sides.includes("preview") || !current?.ok) return;
     // on each check that passes, not on each key
     const [t, f] = untrack(() => [text, format] as const);
     let live = true;
@@ -179,9 +184,12 @@
   let width = $state(0);
   const stacked = $derived(width > 0 && width < 1000);
   let height = $state(0);
+  /** The tab beside the text shown: the one asked for, if the page offers it. */
+  const beside = $derived(sides.includes(side) ? side : sides[0]);
+  const labels = { preview: "Preview", reference: "Reference", problems: "Problems" } as const;
 </script>
 
-<div class="grid min-h-0 flex-1 {stacked ? 'grid-rows-[minmax(13rem,1fr)_minmax(10rem,1fr)]' : 'grid-cols-[minmax(0,1fr)_minmax(24rem,38%)]'}" bind:clientWidth={width}>
+<div class="grid min-h-0 flex-1 {stacked ? 'grid-rows-[minmax(13rem,3fr)_minmax(10rem,2fr)]' : 'grid-cols-[minmax(0,1fr)_minmax(24rem,38%)]'}" bind:clientWidth={width}>
   <!-- the text -->
   <section class="flex min-h-0 min-w-0 flex-col border-base-content/8 {stacked ? 'border-b' : 'border-r'}">
     <div class="min-h-0 flex-1 overflow-hidden">
@@ -197,7 +205,8 @@
         </div>
         <div class="mt-2 shrink-0">
           {#if current && !current.ok && current.error}
-            <div class="rounded-lg border border-error/30 bg-error/8 px-3 py-2 text-xs text-error selectable">{current.error}</div>
+            <!-- at most a few lines, so the text keeps its room in a narrow panel: the whole message is in Problems too -->
+            <div class="max-h-20 overflow-y-auto rounded-lg border border-error/30 bg-error/8 px-3 py-2 text-xs whitespace-pre-wrap text-error selectable">{current.error}</div>
           {/if}
         </div>
         <MethodDocDialog file={methodPage} onclose={() => (methodPage = null)} />
@@ -209,16 +218,16 @@
   <!-- beside the text: the design it describes, the schema's Reference, its Problems -->
   <aside class="flex min-h-0 min-w-0 flex-col">
     <div class="flex shrink-0 items-center gap-1 border-b border-base-content/8 px-3 py-1.5" role="tablist" aria-label="Beside the text">
-      {#each [["preview", "Preview"], ["reference", "Reference"], ["problems", "Problems"]] as const as [s, label] (s)}
-        <button role="tab" aria-selected={side === s} class="btn btn-ghost btn-xs gap-1.5 {side === s ? 'btn-active' : ''}" onclick={() => (side = s)}>
-          {label}
+      {#each sides as s (s)}
+        <button role="tab" aria-selected={beside === s} class="btn btn-ghost btn-xs gap-1.5 {beside === s ? 'btn-active' : ''}" onclick={() => (side = s)}>
+          {labels[s]}
           {#if s === "problems" && problems.length}<span class="badge badge-xs badge-error">{problems.length}</span>{/if}
         </button>
       {/each}
     </div>
-    {#if side === "reference"}
+    {#if beside === "reference"}
       <div class="min-h-0 flex-1 overflow-hidden"><JobReference {schema} model={current?.model ?? null} onjump={jump} /></div>
-    {:else if side === "problems"}
+    {:else if beside === "problems"}
       <div class="min-h-0 flex-1 overflow-y-auto px-3 py-2">
         {#if busy && !current}
           <p class="text-xs faint">Checking.</p>
@@ -231,7 +240,7 @@
               <li>
                 <button class="flex w-full items-start gap-2 rounded-lg px-2 py-1.5 text-left text-xs hover:bg-base-content/5" onclick={() => select(p)} title={outside ? `In another section than ${section}` : "Show it in the text"}>
                   <CircleAlert size={13} class="mt-0.5 shrink-0 text-error" />
-                  <span class="min-w-0 flex-1 selectable">{p.message}</span>
+                  <span class="min-w-0 flex-1 break-words whitespace-pre-wrap selectable">{p.message}</span>
                   <span class="shrink-0 text-[10.5px] faint">{p.source === "check" ? "the check" : p.source === "schema" ? "the schema" : "the library, of the run asked for"}{p.line ? `, line ${p.line}` : ""}{outside ? ", outside this section" : ""}</span>
                 </button>
               </li>
@@ -256,6 +265,6 @@
       </div>
     {/if}
     {@render below?.()}
-    {#if side === "preview"}{@render previewbar?.()}{/if}
+    {#if beside === "preview"}{@render previewbar?.()}{/if}
   </aside>
 </div>

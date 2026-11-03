@@ -2,7 +2,8 @@
   // A device's Job tab (#668): the page as its job's text in the shared editor (JobEditor), the
   // text on the left with the schema's completions and the check's problems, the design in 3D
   // beside it. "The design" is the `device` section of the design's file, as Save writes it; "The
-  // run" is the `task` section of the job the Simulate tab runs. The page and the text agree both
+  // run" is the `task` section of the job the Simulate tab runs, the one text both tabs show and
+  // edit (`draft.text` while edited; #668 decision 2). The page and the text agree both
   // ways: an edit of the page writes the text again, and an edit of the text that the page can
   // hold moves the page. A text the page can't hold (one that doesn't read, a design of another
   // device) is kept as typed, and the tab says why. What the library refuses to write (a run too
@@ -14,7 +15,7 @@
   import { toast } from "../../lib/app.svelte";
   import { openBuiltIn, openInDesign } from "../../lib/designpage.svelte";
   import { FORMATS, inOrder, sameParameters } from "../../lib/designs";
-  import { dirty, rungOf, type Draft } from "../../lib/device.svelte";
+  import { dirty, notHeld, rungOf, switchFormat, unread, type Draft } from "../../lib/device.svelte";
   import type { Scene } from "../../lib/events";
   import JobEditor from "../job/JobEditor.svelte";
   import Device3D from "./Device3D.svelte";
@@ -97,7 +98,9 @@
   const runText = $derived(draft.text ?? (ran.key === runKey && !ran.refused ? ran.text : designText));
   const text = $derived(mode === "design" ? designText : runText);
   const textFormat = $derived<JobFormat>(mode === "run" && draft.text !== null ? formatOfText(draft.text) : format);
-  const refusals = $derived(mode === "run" && draft.text === null && ran.key === runKey && ran.refused ? [`The run the Simulate tab sets isn't written: ${ran.refused}`] : []);
+  /** The library won't write the run the Simulate tab sets: there is no run's text, and the design's file is shown to read. */
+  const refused = $derived(mode === "run" && draft.text === null && ran.key === runKey && !!ran.refused);
+  const refusals = $derived(refused ? [`The run the Simulate tab sets isn't written: ${ran.refused}`] : []);
 
   let timer: ReturnType<typeof setTimeout> | undefined;
   function edited(t: string) {
@@ -140,15 +143,15 @@
   }
 
   async function readRun(t: string) {
-    const form: JobForm = await api.deviceJobRead(t).catch((e) => ({ name: "", spec: null, compute: null, beyond: [], error: String(e), size: null, study: null, optimize: null }));
+    const form: JobForm = await api.deviceJobRead(t).catch(unread);
     if (draft.text !== t) return;
+    why = notHeld(form, info.kind);
     // the form holds all of it: the page follows, and writes the text again
-    if (!form.error && !form.beyond.length && form.spec && form.compute && form.spec.kind === info.kind && !form.study && !form.optimize) {
-      why = "";
+    if (!why && form.spec && form.compute) {
       draft.spec = form.spec;
       draft.compute = form.compute;
       draft.text = null;
-    } else why = form.error ?? (form.beyond.length ? `the Simulate tab's form can't hold ${form.beyond.join(", ")}: the run uses the text as it is` : "");
+    }
   }
 
   /** Back to the text the page writes. */
@@ -159,10 +162,8 @@
   }
 
   async function setFormat(f: JobFormat) {
-    if (f === format) return;
     try {
-      if (draft.jobText != null) draft.jobText = await api.convertJob(draft.jobText, format, f);
-      draft.jobFormat = f;
+      await switchFormat(draft, f);
     } catch (e) {
       toast(`It can't be written in ${f.toUpperCase()} as it is: ${e}`, "error");
     }
@@ -178,7 +179,7 @@
   const edits = $derived(mode === "design" ? draft.jobText != null : draft.text !== null);
 </script>
 
-<JobEditor {text} format={textFormat} onchange={edited} component="the {info.kind}" section={mode === "design" ? "device" : "task"} {refusals}>
+<JobEditor {text} format={textFormat} onchange={edited} component="the {info.kind}" section={mode === "design" ? "device" : refused ? null : "task"} readonly={refused} {refusals}>
   {#snippet toolbar()}
     <div class="mb-2 flex flex-wrap items-center gap-2">
       <div class="join" role="group" aria-label="The job shown">
@@ -190,11 +191,12 @@
           <button class="btn btn-xs join-item {format === f ? 'btn-active' : 'btn-ghost'}" aria-pressed={format === f} onclick={() => setFormat(f)}>{label}</button>
         {/each}
       </div>
-      <span class="text-[11px] faint">{edits ? "edited here" : "as the page writes it: type to edit, the page follows"}</span>
+      <span class="text-[11px] faint">{edits ? "edited here" : refused ? "no run: the library won't write it" : "as the page writes it: type to edit, the page follows"}</span>
       <span class="flex-1"></span>
       {#if edits}<button class="btn btn-ghost btn-xs gap-1" onclick={backToPage} title="Drop the edits the page can't hold: the page writes the text again"><RotateCcw size={12} /> Back to the page</button>{/if}
       <button class="btn btn-ghost btn-xs gap-1" onclick={openAsJob} title="Open the design's file on the Design page: a built-in component's own file at its defaults, to read and to save a copy of"><FileCode2 size={12} /> Open as a job</button>
     </div>
+    {#if refused}<p role="status" class="mb-2 rounded-lg border border-warning/30 bg-warning/8 px-3 py-1.5 text-xs">The library won't write the run the Simulate tab sets (its reason is in Problems), so there is no run's text: the design's file is shown, read only. Change how it runs on the Simulate tab.</p>{/if}
     {#if why}<p role="status" class="mb-2 rounded-lg border border-warning/30 bg-warning/8 px-3 py-1.5 text-xs selectable">The page can't take this text: {why}. It is kept as typed.</p>{/if}
   {/snippet}
   {#snippet preview()}

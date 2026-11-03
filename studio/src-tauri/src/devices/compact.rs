@@ -82,7 +82,69 @@ impl FitIn {
                 None => Interpolation::PiecewiseLinear,
             }))
     }
+
+    /// The plan a `"fit"` task holds, as the Model tab's form holds it (#668): what the job
+    /// doesn't say, the form's own (a grid's samples and seed, a Latin hypercube's points along
+    /// an axis), its defaults.
+    pub fn of(task: &toml::Table) -> Option<FitIn> {
+        if task.get("kind").and_then(toml::Value::as_str) != Some("fit") {
+            return None;
+        }
+        let num = |v: &toml::Value| v.as_float().or_else(|| v.as_integer().map(|i| i as f64));
+        let count = |key: &str| {
+            task.get(key)
+                .and_then(toml::Value::as_integer)
+                .and_then(|i| usize::try_from(i).ok())
+        };
+        let axes = task
+            .get("axis")?
+            .as_array()?
+            .iter()
+            .map(|a| {
+                let t = a.as_table()?;
+                Some(FitAxisIn {
+                    parameter: t.get("parameter")?.as_str()?.to_owned(),
+                    from: num(t.get("from")?)?,
+                    to: num(t.get("to")?)?,
+                    points: t
+                        .get("points")
+                        .and_then(toml::Value::as_integer)
+                        .and_then(|i| usize::try_from(i).ok())
+                        .unwrap_or(FORM_POINTS),
+                })
+            })
+            .collect::<Option<Vec<_>>>()?;
+        let sampling = task.get("sampling")?.as_str()?.to_owned();
+        let degree = match (
+            count("degree"),
+            task.get("interpolation").and_then(toml::Value::as_str),
+        ) {
+            (Some(d), None) => Some(d),
+            (None, Some("piecewise linear")) => None,
+            _ => return None,
+        };
+        Some(FitIn {
+            axes,
+            sampling,
+            count: count("count").unwrap_or(FORM_COUNT),
+            seed: task
+                .get("seed")
+                .and_then(toml::Value::as_integer)
+                .and_then(|i| u64::try_from(i).ok())
+                .unwrap_or(FORM_SEED),
+            held_out: count("held_out")?,
+            poles: count("poles")?,
+            degree,
+        })
+    }
 }
+
+/// The Model tab's own defaults for what a fit's job doesn't say (`fitOf`, lib/device.svelte.ts):
+/// a covered parameter's points (a Latin hypercube's axes have none), a Latin hypercube's
+/// samples and seed (a grid's job has neither).
+const FORM_POINTS: usize = 5;
+const FORM_COUNT: usize = 12;
+const FORM_SEED: u64 = 1;
 
 /// The text of the job that fits a compact model of `spec`'s device at its fidelity as `fit`
 /// says, each sample computed as `compute` says, named `name`, with an opening comment saying
