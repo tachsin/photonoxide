@@ -80,6 +80,7 @@ cargo run -p photonoxide-native --example libraries      # the external librarie
 cargo run -p photonoxide-native --release --example validate -- mumps   # the validation cases on a backend, beside photonoxide's own
 cargo test --release --features gpu --lib fdtd::gpu      # FDTD on the GPU against the CPU (skips without a GPU)
 cargo test --release --features gpu --test gpu_report -- --ignored   # docs/validation-gpu.md, before each release
+just perf                                              # the studio's switch and load times and leaks against studio/scripts/perf-limits.json, before each release (Windows, a release build; docs/studio-performance.md)
 cargo clippy -p photonoxide-python --all-targets -- -D warnings   # the Python package's Rust (not in the default members)
 just python-test                                       # the Python package: python/.venv by uv, maturin develop, pytest
 PHOTONOXIDE_VALIDATION_CASES="circuit/ components/" cargo test --release --test validation_report -- --ignored   # some cases' rows

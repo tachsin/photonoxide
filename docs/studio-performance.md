@@ -310,21 +310,107 @@ their number does not grow with the switches.
 | 3. One shared renderer, contexts released | Contexts released (done); no shared renderer | Evictions were real; a shared renderer would save only the 2–11 ms of making a context |
 | 4. Render only the visible rows of the list | No | Scrolling is as smooth as standing still |
 | 5. Heavy work off the window | `home` and `circuits` off the main thread, `home` reading less | `home` blocks the window for 60–73 ms per call |
-| 6. A test that fails on slowdowns | Proposed | See below |
+| 6. A test that fails on slowdowns | `just perf`, before a release, not in CI | A slowdown or a leak shows before a release, at no cost in Actions minutes |
 
-**Phase 6, proposed:** run `measure-switches.mjs --only pages,tabs,contexts --reps 3` against a
-release build in a weekly job on Windows, and fail when a page's or tab's median first frame passes
-100 ms, a settled time passes twice this document's, a context is evicted, or the DOM gains nodes
-over page switches.
+## A check before a release
+
+`just perf` (`studio/scripts/perf-check.mjs`) holds a release build to the limits in
+`studio/scripts/perf-limits.json` and exits non-zero with a table of the measures that are over
+theirs. It runs `measure-switches.mjs` (`--only pages,tabs,contexts,heap --reps 3`) and
+`measure-loads.mjs` (three launches of an empty workspace and three of the seeded one) as they are,
+reads the JSON they write and compares it with the limits; it has no measuring of its own. It runs
+on Windows with a release build and takes about six minutes (5.5 for the switches, 0.5 for the loads),
+after the seed is made.
+
+**What it checks, and where each limit comes from.** Every limit is a measure and its basis, and
+every number in the file is one of this document's tables:
+
+| Measure | Limit | Basis |
+| --- | --- | --- |
+| each page's and each tab's median first frame and settled time | twice the table's median, and at least 50 ms | *Switching pages* and *Switching a component's tabs*; 50 ms is three frames at 60 Hz, below which the spread of three repetitions is larger than the median |
+| the first click on Components, once the window has booted: the list's names shown and settled, in an empty workspace and in the seeded one | the same rule | *The change*, the "after" columns |
+| `home` and `device_geometry` in that click | twice the table's median, no floor; `home` must run on a pool thread | *`home` off the main thread*: 20.3 and 3.9 ms |
+| DOM nodes and listeners gained per switch, from switch 50 to 200 | 0.0 plus a tolerance of 1 node and 0.1 listener | *Nothing left behind when a page closes*: 0.0 and 0.00; one node a switch is 150 nodes over those switches |
+| detached nodes still held after 200 switches | twice 122 | the same table: Svelte's templates, kept once each |
+| WebGL contexts evicted by the browser, lost on the page, left to the garbage collector, after each of three rounds | none | *Contexts released when a view closes* |
+
+A first load or a settled time that doubles, a `home` that goes back to the window's main thread
+(60 ms against 20), a page that leaves a node behind per switch (183 before the fix) and an evicted
+context all fail it.
+
+**A first run,** on the build of the commit that added it, the computer described under *How it was
+measured*: all 53 measures within their limits. The ones that came closest, and the others that
+matter most:
+
+| Measure | Observed | Limit |
+| --- | ---: | ---: |
+| page Fabrication: settled (ms) | 50.3 | 94 |
+| page Academy: first frame, settled (ms) | 39.6, 102.7 | 78.2, 202 |
+| tab Optimize: settled (ms) | 374.4 | 742 |
+| first click on Components, empty workspace: names, settled (ms) | 26.5, 556.8 | 58, 1126 |
+| first click on Components, 204 runs: names, settled (ms) | 28.0, 558.7 | 68, 1170 |
+| `home` in that click (ms), on a pool thread | 18.2 | 40.6 |
+| DOM nodes and listeners gained per switch | 0, 0 | 1, 0.1 |
+| detached nodes still held after 200 switches | 43 | 244 |
+| WebGL contexts evicted, lost on the page, left to the garbage collector | 0, 0, 0 | 0, 0, 0 |
+
+Home settles in 28.9 ms and Components in 83.1 ms, against the 78 and 112 ms of the tables, which
+were measured before `home` left the main thread; their limits stay at the documented numbers
+until someone refreshes them (below). With one limit tightened (Academy's first frame to 10 ms,
+`home` to 5 ms, evictions to fewer than none) the same run exits with 1 and names the five measures:
+
+```
+perf-check: 5 of 53 measures are over their limits:
+
+Measure                                  Observed  Limit  Basis
+---------------------------------------  --------  -----  -------------------------
+page Academy: frame                      39.6 ms   20 ms  time: 10 documented × 2
+first click on Components, seeded: home  18.2 ms   10 ms  command: 5 documented × 2
+WebGL contexts after round 1: evicted    0         -1     documented: none
+WebGL contexts after round 2: evicted    0         -1     documented: none
+WebGL contexts after round 3: evicted    0         -1     documented: none
+```
+
+**The seed.** The studio's lists are as long as in use only with a workspace of use: the 34 jobs of
+`jobs/` and 204 runs (the 34 jobs run by the build, each run copied to six), about 300 MB. The first
+`just perf` makes it in `target/perf/seed`, running each job headless (a few minutes); later runs
+reuse it. Neither script touches an installed studio: they launch the build under its own
+identifier, `gr.tachsin.photonoxide.perf`, with a temporary workspace and WebView2 profile, and put
+that identifier's settings folder back as it was.
+
+**Building and running.**
+
+```sh
+cd studio && pnpm install && pnpm tauri build --no-bundle --config '{"identifier":"gr.tachsin.photonoxide.perf"}'
+just perf                         # the build in target/release; --limits <json> to hold it to other limits
+just perf --reuse                 # compare the last run's files again, without measuring
+```
+
+PowerShell strips the quotes of the JSON: write it to a file (`{"identifier":"gr.tachsin.photonoxide.perf"}`) and pass
+the file's path to `--config`, which takes either.
+
+**Why it is not in CI.** A job on every pull request would spend the Actions minutes of a Windows
+runner, a release build of the studio and the seed on numbers that move only when the window's code
+does, and the minutes were already too many. A weekly job would need the seed (about 300 MB, cached
+or made in the job) and a release build of the studio on a Windows runner, whose software-rendered
+WebGL and slower processor would need limits of their own, measured on it. So the check runs on the
+maintainer's computer before each release, as the GPU report does.
+
+**Refreshing the limits.** When the code gets faster, the limits stay where they are until they are
+changed on purpose: run `just perf` on the new build, put the new medians (`target/perf/measure-check.md`
+and `loads-check.md` hold the tables) into the tables above and into `perf-limits.json`, in the PR that
+made the code faster, and say so in it. A limit is never raised to let a slower build pass, only
+after the cause is understood and written here.
 
 ## Running it again
 
 ```sh
 cd studio
-pnpm tauri build --config '{"identifier":"gr.tachsin.photonoxide.perf"}'
+pnpm tauri build --no-bundle --config '{"identifier":"gr.tachsin.photonoxide.perf"}'
 node scripts/measure-switches.mjs --seed <a workspace with jobs/ and runs/> --label after --compare ../target/perf/measure-before.json
 ```
 
+`just perf` runs this and `measure-loads.mjs` against limits (*A check before a release*, above).
 `--only heap` runs only the check of what closed pages leave behind (`--heap-switches` sets how many
 switches, 200 by default). It writes `target/perf/measure-<label>.json`, a Markdown table beside it, and the traces
 (`trace-<label>-*.json.gz`, which Perfetto and the browser's DevTools open). The build's settings
