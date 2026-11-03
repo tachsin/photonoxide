@@ -1,0 +1,26 @@
+name: tfln-modulator
+description: "A Mach-Zehnder modulator on thin-film lithium niobate: a travelling-wave electrode drives its two arms in push and pull, its Vpi L from the field in the film and the mode, its bandwidth from the line's index, impedance and loss."
+device:
+  fidelity: analytic
+  kind: TFLN Mach-Zehnder modulator
+  parameters:
+    bias: "0.0"
+    buried: "2.0"
+    cladding: "0.6"
+    cladding_permittivity: "5.5"
+    conductivity: "58.0"
+    film: "0.6"
+    frequency: "0.0"
+    gap: "5.0"
+    ground: "100.0"
+    length: "5800.0"
+    load: "50.0"
+    loss: "0.0"
+    metal: "0.83"
+    sidewall: "70.0"
+    signal: "20.0"
+    slab: "0.3"
+    substrate_permittivity: "11.7"
+    voltage: "0.0"
+    width: "1.2"
+  stack: soi_220

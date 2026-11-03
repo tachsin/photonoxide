@@ -1,0 +1,14 @@
+name: bend
+description: "A circular bend of the strip: its mode's phase and loss along the arc, from the strip and the radius."
+device:
+  fidelity: analytic
+  kind: bend
+  parameters:
+    angle: "90.0"
+    loss: "2.7"
+    radius: "10.0"
+    span: "0.1"
+    thickness: "0.22"
+    wavelength: "1.55"
+    width: "0.5"
+  stack: soi_220

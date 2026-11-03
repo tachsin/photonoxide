@@ -921,7 +921,9 @@ mod tests {
     fn every_built_in_job_is_one_the_schema_takes() {
         let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("jobs");
         let mut count = 0;
-        for entry in std::fs::read_dir(&dir).unwrap() {
+        // and the built-in components' files, jobs/components/ (#668)
+        let components = std::fs::read_dir(dir.join("components")).unwrap();
+        for entry in std::fs::read_dir(&dir).unwrap().chain(components) {
             let path = entry.unwrap().path();
             let Some(format) = Format::from_path(&path) else {
                 continue;
