@@ -6,8 +6,8 @@
   import { openUrl } from "../lib/open";
   import { tick } from "svelte";
 
-  import { api, duration, type Example } from "../lib/api";
-  import { app, openCustom, toast } from "../lib/app.svelte";
+  import { api, duration, formatOfText, type Example } from "../lib/api";
+  import { app, fabricate, openCustom, toast } from "../lib/app.svelte";
   import { catalog, jobExample, loadCatalog } from "../lib/catalog.svelte";
   import { devices, loadDevices, openDevice } from "../lib/device.svelte";
   import { startTask, stopTask, tasks } from "../lib/tasks.svelte";
@@ -151,7 +151,11 @@
               <p class="text-sm leading-relaxed">{current.as_job}. Each job gives the example's numbers to the bit.</p>
               <div class="mt-2 flex flex-wrap gap-2">
                 {#each current.jobs as file (file)}
+                  {@const job = jobExample(file)}
                   <button class="btn btn-outline btn-sm gap-1.5" onclick={() => openJob(file)} title="Opens jobs/{file} in the job editor"><SquarePen size={14} /> Open as a job: {file}</button>
+                  {#if job?.fabricates}
+                    <button class="btn btn-ghost btn-sm gap-1.5" onclick={() => fabricate({ kind: "job", text: job.text, format: formatOfText(job.text), path: null }, job.name)} title="How the design jobs/{file} draws is made, from the bare wafer: its flow on the Fabrication page"><Factory size={14} /> Fabricate: {file}</button>
+                  {/if}
                 {/each}
               </div>
             {:else}

@@ -8,8 +8,8 @@
   import JobCard from "../components/JobCard.svelte";
   import Markdown from "../components/Markdown.svelte";
   import Tip from "../components/Tip.svelte";
-  import { ago, api, duration, KINDS, type CircuitItem, type Home } from "../lib/api";
-  import { app, go, newCustom, openCustom, run, showCases, showPublished, startRun, toast } from "../lib/app.svelte";
+  import { ago, api, duration, formatOfText, KINDS, type CircuitItem, type Home } from "../lib/api";
+  import { app, fabricate, go, newCustom, openCustom, run, showCases, showPublished, startRun, toast } from "../lib/app.svelte";
   import { catalog, loadCatalog } from "../lib/catalog.svelte";
   import { devices, loadDevices, openDesign, openDevice, openDeviceText, openRunItem } from "../lib/device.svelte";
   import { openChipFile, openChipText, showChip } from "../lib/chip.svelte";
@@ -194,6 +194,7 @@
                 // a device's job on its device's page, a chip's on the Chip, any other in the Custom device
                 if (!(await openChipText(j.text)) && !(await openDeviceText(j.text))) openCustom(j.text);
               }}
+              onfabricate={j.fabricates ? () => fabricate({ kind: "job", text: j.text, format: formatOfText(j.text), path: null }, j.name) : undefined}
             />
           {/if}
         {:else}

@@ -59,7 +59,8 @@ in a drawer opened from the status bar.
     opening where it belongs; and **Recent runs**.
   - **Start from a template:** the simulations of `jobs/`, built in, one a row, filtered by kind.
     **Run** plays it live in the run view; **Open** takes it to its device's page, the Chip or
-    the Custom device, to change it.
+    the Custom device, to change it; **Fabricate**, beside each template that draws a design (a
+    `[device]` or a structure task), shows how it is made on the Fabrication page.
   - At its foot, how many validation cases pass and published results are reproduced, the
     version, and what changed in it.
 - **What is running**, at the rail's foot: a ring that fills with the followed run's progress
@@ -436,7 +437,9 @@ in a drawer opened from the status bar.
 - **Academy:** lessons on how devices work and how the ideas came about, each read as deep as
   you like (intuition, theory, research), with diagrams, charts the library computes as you
   move them, the published results it reproduces (each runnable in place), the validation cases
-  behind it, and its jobs and circuits a click away.
+  behind it, its jobs and circuits a click away, and how its devices are made: a `::fabrication`
+  block plays a device's flow from the bare wafer, step by step with each step's words, as the
+  Fabrication page plays it (the lesson **How a chip is made** is built on them).
 - **Materials:** the catalogue (`photonoxide::material::catalogue`), by category and
   searchable. Each material's index models plotted over their range, with a read-out at a
   wavelength and inputs for the temperature and composition where a model has them; each
@@ -463,7 +466,9 @@ in a drawer opened from the status bar.
   - **Published results:** every example of `examples/`, each reproducing a paper's numbers:
     its paper and DOIs, its tolerance, what the release recorded, and **Run on this machine**,
     which runs it in a process of its own and checks every line against the paper as it prints.
-    The Academy's lessons embed the same examples, and a run started there shows here.
+    **Fabricate** shows how the device it computes is made, and, beside each of its jobs that
+    draws a design, how that design is made. The Academy's lessons embed the same examples, and a
+    run started there shows here.
 - **Libraries** (in System): the external libraries photonoxide can use (oneMKL, the CUDA runtime,
   cuSPARSE, cuDSS), as found on this machine by a process of its own: found or not, the file
   and where it was found, the version, what the library says (threads, GPUs), the backends

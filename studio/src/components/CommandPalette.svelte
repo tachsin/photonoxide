@@ -110,7 +110,7 @@
     }
     // the Fabrication page, on a template or a design of the workspace that draws a device or a structure
     for (const j of catalog?.jobs ?? []) {
-      if (/(^|\n)\s*(device:|\[device\])/.test(j.text) || j.kind === "structure") {
+      if (j.fabricates) {
         all.push({ group: "Fabricate", label: j.name, detail: `how it is made, from the bare wafer: ${j.about}`, run: () => fabricate({ kind: "job", text: j.text, format: formatOfText(j.text), path: null }, j.name) });
       }
     }
