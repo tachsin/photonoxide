@@ -270,7 +270,7 @@ pub fn proportional() -> (f64, f64) {
 
 /// The Smart Cut route to `film` µm of silicon on `oxide` µm of buried oxide: every number its
 /// steps need.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize)]
 #[non_exhaustive]
 pub struct Route {
     /// The buried oxide, µm: the donor's oxide.

@@ -293,9 +293,12 @@ export const api = {
   deviceLibrary: () => invoke<DeviceInfo[]>("device_library"),
   /** A design evaluated as the form shows it: its fields, values, ports and scene. */
   deviceGeometry: (spec: DeviceSpec) => invoke<DeviceGeometry>("device_geometry", { spec }),
-  deviceFabrication: (spec: DeviceSpec) => invoke<DeviceFabrication>("device_fabrication", { spec }),
-  /** The Fabrication page's design: its flow from the bare wafer, its frames in 2D and 3D, what the rules find. */
-  fabricationPage: (design: FabDesign, prefer: string[], avoid: string[]) => invoke<FabricationPage>("fabrication_page", { design, prefer, avoid }),
+  /** A design's flow from `start` (the wafer as bought by default; for SOI, bare silicon by Smart Cut). */
+  deviceFabrication: (spec: DeviceSpec, start: FabStart | null = null) => invoke<DeviceFabrication>("device_fabrication", { spec, start }),
+  /** The text of the job whose run gives a design's flow from `start`: `start: smart_cut` in its task when it isn't the bought wafer. */
+  fabricationJob: (spec: DeviceSpec, name: string, start: FabStart | null = null) => invoke<string>("fabrication_job", { spec, name, start }),
+  /** The Fabrication page's design: its flow from the bare wafer, its frames in 2D and 3D, what the rules find; from `start`, or as the design's job says when null. */
+  fabricationPage: (design: FabDesign, prefer: string[], avoid: string[], start: FabStart | null = null) => invoke<FabricationPage>("fabrication_page", { design, prefer, avoid, start }),
   /** A design's figures at a fidelity, each with its fidelity and grid. */
   deviceDerived: (spec: DeviceSpec, fidelity: string) => invoke<DeviceDerived>("device_derived", { spec, fidelity }),
   deviceSpectrum: (spec: DeviceSpec, fidelity: string, sweep: Sweep) => invoke<DeviceSpectrum>("device_spectrum", { spec, fidelity, sweep }),
@@ -1030,6 +1033,34 @@ export interface DeviceFabrication {
   platform: string | null;
   /** The wafer at each moment the flow is played, from the bare wafer to the design. */
   frames: FlowFrame[];
+  /** Where the flow starts (photonoxide::fabrication::Start). */
+  start: FabStart;
+  /** The starts the design can be made from: the bought wafer, and for SOI bare silicon by Smart Cut. */
+  starts: FabStart[];
+  /** The Smart Cut route to the design's film and buried oxide, when it is one of the starts (photonoxide::fabrication::smart_cut::Route). */
+  smart_cut: SmartCutRoute | null;
+}
+
+/** Where a flow starts: the wafer as bought, or for SOI bare silicon by Smart Cut. */
+export type FabStart = "bought" | "smart_cut";
+
+/** The Smart Cut route's numbers: thicknesses and depths in µm, the energy in keV, times in hours (the strip in minutes). */
+export interface SmartCutRoute {
+  oxide: number;
+  film: number;
+  oxide_hours: number;
+  oxide_consumed: number;
+  energy: number;
+  entering: number;
+  range: number;
+  straggle: number;
+  split: number;
+  excess: number;
+  polish: number;
+  consumed: number;
+  sacrificial: number;
+  sacrificial_hours: number;
+  strip_minutes: number;
 }
 
 /** The wafer at one moment of a flow (photonoxide::job::FlowFrame). */

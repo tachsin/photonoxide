@@ -91,29 +91,8 @@ fn made(design: &super::Physical, choices: &Choices) -> Result<Flow> {
         )));
     }
     // the generator chooses none of the route's own steps: their preferences are the route's
-    let base = Choices {
-        prefer: choices
-            .prefer
-            .iter()
-            .filter(|id| !own(id))
-            .cloned()
-            .collect(),
-        avoid: choices.avoid.clone(),
-    };
-    let flow = generate(design, &base)?;
-    let first = flow
-        .steps
-        .first()
-        .ok_or_else(|| invalid("the flow has no steps".into()))?;
-    let (Operation::Wafer { substrate, layers }, "soi-smart-cut") =
-        (&first.operation, first.process.as_str())
-    else {
-        return Err(invalid(format!(
-            "the Smart Cut start makes silicon on insulator; this design's flow starts from {}",
-            first.name
-        )));
-    };
-    let [(oxide, oxide_film), (film, silicon)] = layers.as_slice() else {
+    let flow = generate(design, &base(choices))?;
+    let (substrate, [(oxide, oxide_film), (film, silicon)]) = soi_wafer(&flow)? else {
         return Err(invalid(
             "the SOI wafer has a film and its buried oxide, no more".into(),
         ));
@@ -132,6 +111,64 @@ fn made(design: &super::Physical, choices: &Choices) -> Result<Flow> {
         warnings: flow.warnings,
         not_specified,
     })
+}
+
+/// The bought SOI wafer `flow` starts from: its substrate and its layers.
+///
+/// # Errors
+///
+/// [`Error::InvalidValue`] for a flow that starts from another wafer.
+fn soi_wafer(flow: &Flow) -> Result<(&Film, &[(Laid, Film)])> {
+    let first = flow
+        .steps
+        .first()
+        .ok_or_else(|| invalid("the flow has no steps".into()))?;
+    match (&first.operation, first.process.as_str()) {
+        (Operation::Wafer { substrate, layers }, "soi-smart-cut") => Ok((substrate, layers)),
+        _ => Err(invalid(format!(
+            "the Smart Cut start makes silicon on insulator; this design's flow starts from {}",
+            first.name
+        ))),
+    }
+}
+
+/// The starts `design` can be made from as `choices` ask: the wafer as bought, and Smart Cut
+/// when that wafer is silicon on insulator, a film on its buried oxide, which a proton energy
+/// of the range table reaches; with the Smart Cut route to it.
+///
+/// # Errors
+///
+/// [`generate`]'s.
+pub(crate) fn starts(
+    design: &super::Physical,
+    choices: &Choices,
+) -> Result<(Vec<Start>, Option<Route>)> {
+    let flow = generate(design, &base(choices))?;
+    let route = match soi_wafer(&flow) {
+        Ok((_, [(oxide, _), (film, _)])) => {
+            smart_cut::route(film.thickness.to_um(), oxide.thickness.to_um()).ok()
+        }
+        _ => None,
+    };
+    Ok(match route {
+        Some(r) => (vec![Start::Bought, Start::SmartCut], Some(r)),
+        None => (vec![Start::Bought], None),
+    })
+}
+
+/// `choices` for the generator under the route: the route's own steps are the route's, so a
+/// preference for one is dropped.
+fn base(choices: &Choices) -> Choices {
+    let own = |id: &String| process(id).is_some_and(route_only);
+    Choices {
+        prefer: choices
+            .prefer
+            .iter()
+            .filter(|id| !own(id))
+            .cloned()
+            .collect(),
+        avoid: choices.avoid.clone(),
+    }
 }
 
 fn must(id: &str) -> Result<&'static Process> {

@@ -580,9 +580,10 @@ not a case of its own.
 
 An SOI design's flow starts from the wafer as bought: its silicon film on its buried oxide over
 a silicon handle. It can start from bare silicon instead, opted into as the flow's start
-(`Start::SmartCut`; a job's `start: smart_cut`; Python's `start="smart_cut"`). The steps that
-make the SOI wafer then take the bought wafer's place, and the rest of the flow is unchanged.
-Without the option, a flow is exactly what it was.
+(`Start::SmartCut`; a job's `start: smart_cut`; Python's `start="smart_cut"`; in the studio,
+**Start from** on the Fabrication tab and page, see "In the studio"). The steps that make the SOI
+wafer then take the bought wafer's place, and the rest of the flow is unchanged. Without the
+option, a flow is exactly what it was.
 
 The steps are Bruel's (1995, Fig. 1), each a process in the library with its sources:
 
@@ -778,6 +779,25 @@ checks, and remakes the flow with an alternative a step ranks (**Use instead**, 
 library's choices take). A run of a design (a device's job, or a structure task's) has the same
 views and timeline in the run view's **Fabrication** tab, on the design the run's folder keeps,
 with **On the Fabrication page** leading here.
+
+**Where the flow starts.** For a design on silicon on insulator, the tab and the page offer
+**Start from: a bought SOI wafer | bare silicon (Smart Cut)** (`FabricationView::starts`: the
+bought wafer, and Smart Cut when that wafer is a film on its buried oxide that a proton energy of
+the range table reaches). The bought wafer is the default. With Smart Cut, the flow begins with
+the bare donor and the nine steps of "Making the SOI wafer" above. Each has its stage and frame,
+its narration and the glossary's words (Smart Cut, donor, handle, buried oxide, Deal and Grove,
+implant, projected range, straggle, bond, hydrofluoric acid). Under the choice, the tab and the
+page give the route's numbers for the design's film and buried oxide
+(`FabricationView::smart_cut`), which the design's stack sets: on a component's page, its Design
+tab. The animation draws the bond as the film laid on in one piece, faded in. It draws the
+sacrificial oxidation as the silicon it uses up, going from the film's top; the oxide itself
+isn't drawn. The implant, the split, the anneal and the strip change no drawn shape.
+
+The tab's **The job** shows the flow as a job, with `start: smart_cut` in its task when Smart
+Cut is chosen (`job::from_fabrication_from`), and **Run as a job** runs it. A job's own start,
+preferences and avoidances are the view's (`job::fabrication_of_job`). So a run's Fabrication
+tab, and the page opened on a run or a job file, show the flow as the job made it, and the
+choice there can show it from the other start.
 
 The wafer is played as frames (`job::FlowFrame`): a frame a step, the executor's stage after it,
 and three a lithography, the resist spun on, the pattern exposed in it and the resist developed

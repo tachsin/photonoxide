@@ -753,7 +753,7 @@
         {:else if draft.tab === "study"}
           <StudyTab {info} {draft} {designKey} {values} fields={view?.fields ?? []} />
         {:else if draft.tab === "fabrication"}
-          <FabricationTab spec={draft.spec} {designKey} {normal} at={cutAt ?? 0} />
+          <FabricationTab spec={draft.spec} {designKey} {normal} at={cutAt ?? 0} start={draft.fabStart ?? "bought"} onstart={(s) => (draft.fabStart = s)} />
         {:else}
           <OptimizeTab {info} {draft} {designKey} {values} fields={view?.fields ?? []} />
         {/if}

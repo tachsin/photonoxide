@@ -25,6 +25,80 @@ const TERMS: &[(&str, &str, &str, &str)] = &[
         "bruel-1995",
         "Fig. 1 (p. 1201)",
     ),
+    // the words of a flow that makes its SOI wafer by Smart Cut
+    (
+        "Smart Cut",
+        "Making a silicon-on-insulator wafer from two bare ones: hydrogen is implanted to one depth \
+         in the first, the donor, which is bonded to the second, the handle, and heated until it \
+         splits along the implanted plane, leaving a thin film of single-crystal silicon on the \
+         handle.",
+        "bruel-1995",
+        "Fig. 1 (PDF p. 1)",
+    ),
+    (
+        "donor",
+        "In Smart Cut, the wafer that gives the film: oxidized, implanted with hydrogen, bonded and \
+         split. What is left of it after the split is used again.",
+        "bruel-1995",
+        "Fig. 1, steps 1 and 3 (PDF p. 1)",
+    ),
+    (
+        "handle",
+        "The silicon wafer under the buried oxide, which carries the film and everything made on \
+         it. In Smart Cut, the second bare wafer, onto which the donor is bonded.",
+        "bruel-1995",
+        "Fig. 1, step 2 (PDF p. 1)",
+    ),
+    (
+        "buried oxide",
+        "The oxide between a silicon-on-insulator wafer's film and its handle. In Smart Cut it is \
+         the oxide grown on the donor, through which the hydrogen is implanted.",
+        "bruel-1995",
+        "Fig. 1, step 1 (PDF p. 1)",
+    ),
+    (
+        "Deal and Grove",
+        "Their law gives how a thermal oxide grows: in proportion to the time while it is thin, \
+         then as its square root, once the oxygen must diffuse through the oxide already grown. The \
+         oxide grows from the silicon, using up about 44 % of its own thickness of it.",
+        "campbell-2008",
+        "Sections 4.1–4.2 (pp. 74–78)",
+    ),
+    (
+        "implant",
+        "Ion implantation: ions accelerated to one energy and shot into the wafer. They slow down \
+         as they go and come to rest around one depth, which the energy sets.",
+        "campbell-2008",
+        "Section 5.3 (pp. 114–116)",
+    ),
+    (
+        "projected range",
+        "The average depth implanted ions come to rest at, measured straight down from the surface \
+         they entered.",
+        "campbell-2008",
+        "Section 5.3, Fig. 5.7 (p. 114)",
+    ),
+    (
+        "straggle",
+        "How widely the implanted ions' depths spread about the projected range: the width of \
+         their profile, which is to first order a Gaussian.",
+        "campbell-2008",
+        "Section 5.3, Eqs. 5.14 and 5.19 (pp. 115–116)",
+    ),
+    (
+        "bond",
+        "Two wafers with clean, flat faces laid together hold by themselves at room temperature \
+         (hydrophilic bonding); heating them above 1000 °C makes the bond strong.",
+        "bruel-1995",
+        "Fig. 1, steps 2 and 3 (PDF p. 1)",
+    ),
+    (
+        "hydrofluoric acid",
+        "An acid that dissolves silicon dioxide and hardly touches silicon: 6:1 HF etches thermal \
+         oxide at about 1200 Å a minute, commonly more than 100 times faster than silicon.",
+        "campbell-2008",
+        "Section 11.1 (p. 285)",
+    ),
     (
         "resist",
         "A light- or electron-sensitive film spread on the wafer. Lithography writes the pattern \

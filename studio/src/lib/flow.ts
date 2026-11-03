@@ -55,6 +55,12 @@ export const RULE: Record<string, string> = {
   thickness: "thickness",
 };
 
+/** Where a flow starts, in words (photonoxide::fabrication::Start). */
+export const START: Record<string, string> = {
+  bought: "a bought SOI wafer",
+  smart_cut: "bare silicon (Smart Cut)",
+};
+
 /** A step's type, in words. */
 export const STEP: Record<string, string> = {
   wafer: "wafer",

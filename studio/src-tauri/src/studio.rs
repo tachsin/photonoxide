@@ -137,6 +137,7 @@ pub fn show(dir: Option<&Path>, live: Option<Live>) -> Result<(), String> {
             crate::devices::device_library,
             crate::devices::device_geometry,
             crate::devices::device_fabrication,
+            crate::devices::fabrication_job,
             crate::fabrication::fabrication_page,
             crate::devices::device_derived,
             crate::devices::device_spectrum,

@@ -74,6 +74,7 @@ pub use library::{
 pub use measure::{Features, features};
 pub use physical::{Film, Physical, StandIn, film_name};
 pub use references::{Reference, reference, references};
+pub(crate) use start::starts;
 pub use start::{Start, generate_from};
 pub use stated::{Capability, Fact, Quantity, Source, Stated, Unit};
 

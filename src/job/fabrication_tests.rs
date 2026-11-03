@@ -338,6 +338,131 @@ fn the_frames_play_the_flow_from_the_bare_wafer_to_the_design() {
 }
 
 #[test]
+fn the_view_offers_the_smart_cut_start_for_silicon_on_insulator_only_and_plays_it() {
+    use crate::fabrication::Start;
+    let strip = crate::device::Spec::new("waveguide");
+    let bought = fabrication_of(&strip, &[], &[]).unwrap();
+    assert_eq!(bought.start, Start::Bought);
+    assert_eq!(bought.starts, [Start::Bought, Start::SmartCut]);
+    // the route to the design's film and buried oxide, whichever start is shown
+    let route = bought.smart_cut.expect("the Smart Cut route");
+    assert_eq!((route.film, route.oxide), (0.22, 2.0));
+    assert_eq!(
+        route,
+        crate::fabrication::smart_cut::route(0.22, 2.0).unwrap()
+    );
+    let tfln = fabrication_of_job(&Job::parse(TFLN).unwrap(), &[], &[]).unwrap();
+    assert_eq!(tfln.starts, [Start::Bought]);
+    assert!(tfln.smart_cut.is_none());
+    let tfln_spec = super::device::spec_of(&Job::parse(TFLN).unwrap()).unwrap();
+    let e = fabrication_of_from(&tfln_spec, &[], &[], Start::SmartCut).unwrap_err();
+    assert!(e.to_string().contains("silicon on insulator"), "{e}");
+
+    let made = fabrication_of_from(&strip, &[], &[], Start::SmartCut).unwrap();
+    assert_eq!(made.start, Start::SmartCut);
+    assert_eq!(made.starts, [Start::Bought, Start::SmartCut]);
+    assert_eq!(made.smart_cut, Some(route));
+    assert!(made.flow.round_trip.as_ref().unwrap().exact());
+    // the route's eight steps in place of the bought wafer, each with its stage and its frame
+    let (n, m) = (bought.flow.steps.len(), made.flow.steps.len());
+    assert_eq!(m, n + 8);
+    assert_eq!(made.stages.len(), m);
+    assert_eq!(made.frames.len(), bought.frames.len() + 8);
+    let phases: Vec<&str> = made.frames.iter().map(|f| f.phase.as_str()).collect();
+    for p in [
+        "wafer",
+        "deposit",
+        "implant",
+        "bond",
+        "split",
+        "anneal",
+        "planarize",
+        "oxidize",
+        "wet_etch",
+    ] {
+        assert!(phases[..9].contains(&p), "{p} in {phases:?}");
+    }
+    // the first frame is the bare donor: no layer on it yet
+    let Event::Scene {
+        layers, substrate, ..
+    } = &made.frames[0].scene
+    else {
+        panic!("a scene")
+    };
+    assert_eq!(substrate.material, "Si");
+    assert!(
+        layers.iter().all(|l| l.material.material == "air"),
+        "{layers:?}"
+    );
+    // the last is the design, as from the bought wafer
+    assert_eq!(
+        layer_names(&made.frames.last().unwrap().scene),
+        layer_names(&bought.frames.last().unwrap().scene)
+    );
+    // every word the route's narration uses is in the glossary, with its source
+    let words = [
+        "Smart Cut",
+        "donor",
+        "handle",
+        "buried oxide",
+        "Deal and Grove",
+        "implant",
+        "projected range",
+        "straggle",
+        "bond",
+        "hydrofluoric acid",
+    ];
+    for w in words {
+        let used = made.flow.steps.iter().any(|s| {
+            format!("{} {} {}", s.plain, s.does, s.reason)
+                .to_lowercase()
+                .contains(&w.to_lowercase())
+        });
+        assert!(used, "the route's narration uses {w}");
+        let term = made.flow.glossary.iter().find(|t| t.term == w).expect(w);
+        assert!(
+            made.flow
+                .references
+                .iter()
+                .any(|r| r.key == term.source.reference),
+            "{w}"
+        );
+    }
+}
+
+#[test]
+fn a_jobs_own_start_is_its_views_unless_the_page_asks_for_another() {
+    use crate::fabrication::Start;
+    let here = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+    let job = Job::load(&here.join("jobs/strip-flow-smart-cut.yaml")).unwrap();
+    let own = fabrication_of_job(&job, &[], &[]).unwrap();
+    assert_eq!(own.start, Start::SmartCut);
+    assert_eq!(own.flow.steps[2].operation, "implant");
+    let bought = fabrication_of_job_from(&job, &[], &[], Some(Start::Bought)).unwrap();
+    assert_eq!(bought.start, Start::Bought);
+    assert_eq!(bought.flow.steps.len() + 8, own.flow.steps.len());
+    // a job's own preferences are kept: the view is the run's flow
+    let text = format!("{TFLN}prefer = [\"ebl-hsq\"]\n");
+    let view = fabrication_of_job(&Job::parse(&text).unwrap(), &[], &[]).unwrap();
+    let (_, events) = lines_on(&text, 1, "own-choices");
+    let record = events
+        .iter()
+        .find_map(|e| match e {
+            Event::Flow { flow } => Some(flow),
+            _ => None,
+        })
+        .expect("a flow");
+    assert_eq!(
+        view.flow
+            .steps
+            .iter()
+            .map(|s| &s.process)
+            .collect::<Vec<_>>(),
+        record.steps.iter().map(|s| &s.process).collect::<Vec<_>>()
+    );
+}
+
+#[test]
 fn a_structure_job_has_its_flow_and_a_job_without_a_design_says_why_not() {
     let text = "name = \"strip\"\n\n[task]\nkind = \"structure\"\nstack = \"soi_220\"\n\
                 wavelength_um = 1.55\nlayer = \"Si\"\nx_um = [-2.0, 2.0]\ny_um = [-1.0, 1.0]\n\

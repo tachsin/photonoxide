@@ -3,14 +3,15 @@
   // the rail's Fabrication page plays it (FabPlayer: the same 2D and 3D views and timeline), with
   // the step shown in words and a way to the page itself, which has the full picker, the steps'
   // sources, the rules' checks and the alternatives. The design is the job the run's folder keeps
-  // (its [device], or a structure task's layers and shapes).
+  // (its [device], or a structure task's layers and shapes), its flow starting where the job's
+  // task says (`start: smart_cut`: from bare silicon, the SOI wafer made by Smart Cut).
   import { ArrowRight, CircleCheck, TriangleAlert } from "@lucide/svelte";
 
   import FabPlayer from "./FabPlayer.svelte";
   import { api, type FabricationPage } from "../../lib/api";
   import { fabricate } from "../../lib/app.svelte";
   import { plain } from "../../lib/deviceview";
-  import { STEP } from "../../lib/flow";
+  import { START, STEP } from "../../lib/flow";
 
   let { dir, name, active }: { dir: string; name: string; active: boolean } = $props();
 
@@ -46,6 +47,7 @@
   <div class="flex flex-wrap items-center gap-2">
     <h2 class="text-sm font-medium">How {name || "this run's design"} would be made</h2>
     {#if page?.platform}<span class="badge badge-ghost">Platform: {page.platform.name}</span>{/if}
+    {#if page && page.view.start !== "bought"}<span class="badge badge-ghost" title="The run's job starts its flow from {START[page.view.start] ?? page.view.start} (its task's start: {page.view.start})">From {START[page.view.start] ?? page.view.start}</span>{/if}
     {#if trip}
       <span class="badge gap-1 {exact ? 'badge-success badge-soft' : 'badge-warning'}" role="status" title="The flow run on photonoxide's own geometry, against the design, on {trip.points} points through every layer">
         {#if exact}<CircleCheck size={13} /> the last step is the design{:else}<TriangleAlert size={13} /> {trip.differing} of {trip.points} points differ{/if}

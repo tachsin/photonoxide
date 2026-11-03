@@ -45,7 +45,7 @@ use crate::Result;
 use crate::device::Spec;
 use crate::export::flow::FlowExport;
 use crate::fabrication::{
-    Assessment, Choices, FlowRecord, Physical, Platform, Start, assess, fabricate_from, generate,
+    Assessment, Choices, FlowRecord, Physical, Platform, Start, assess, fabricate_from,
     generate_from, platform, round_trip, stages,
 };
 use crate::run::{Job, Run, Stop};
@@ -244,6 +244,14 @@ pub struct FabricationView {
     /// for each step, three for a lithography, the resist drawn while it is on the wafer
     /// ([`FlowFrame`]). The last is the last stage's.
     pub frames: Vec<FlowFrame>,
+    /// Where the flow starts.
+    pub start: Start,
+    /// The starts the design can be made from: the wafer as bought, and for silicon on insulator
+    /// bare silicon by Smart Cut.
+    pub starts: Vec<Start>,
+    /// The Smart Cut route to the design's film and buried oxide, when it is one of the starts:
+    /// the numbers its steps use, whichever start is shown.
+    pub smart_cut: Option<crate::fabrication::smart_cut::Route>,
 }
 
 /// The wafer after a step: its scene ([`Event::Scene`], air where nothing is yet), and how each
@@ -265,14 +273,31 @@ pub struct Stage {
 ///
 /// [`crate::fabrication::generate`]'s, and the design's.
 pub fn fabrication_of(spec: &Spec, prefer: &[String], avoid: &[String]) -> Result<FabricationView> {
+    fabrication_of_from(spec, prefer, avoid, Start::Bought)
+}
+
+/// The flow of `spec`'s design from `start`, as [`fabrication_of`] gives it from the wafer as
+/// bought.
+///
+/// # Errors
+///
+/// [`fabrication_of`]'s, and [`generate_from`]'s for a start the design's wafer can't be made
+/// from.
+pub fn fabrication_of_from(
+    spec: &Spec,
+    prefer: &[String],
+    avoid: &[String],
+    start: Start,
+) -> Result<FabricationView> {
     let (device, design) = spec.build()?;
     let physical: Physical = device.physical(design.values())?;
-    fabrication_view(&physical, prefer, avoid)
+    fabrication_view_from(&physical, prefer, avoid, start)
 }
 
 /// The flow of a job's design, as [`fabrication_of`] gives a design's: its `[device]`'s, or for a
 /// job of kind `"structure"` its structure's, every material the film there
-/// ([`Physical::of`]).
+/// ([`Physical::of`]). A `"fabrication"` task's own preferences, avoidances and start are kept,
+/// so a run's flow is shown as it ran.
 ///
 /// # Errors
 ///
@@ -282,10 +307,53 @@ pub fn fabrication_of_job(
     prefer: &[String],
     avoid: &[String],
 ) -> Result<FabricationView> {
-    if job.device().is_some() {
-        return fabrication_of(&spec_of(job)?, prefer, avoid);
-    }
+    fabrication_of_job_from(job, prefer, avoid, None)
+}
+
+/// The flow of a job's design, as [`fabrication_of_job`] gives it, from `start`, or where the
+/// job's own task says to start when it is `None`. `prefer` is added to the task's preferences
+/// and taken out of what it avoids; `avoid` is added to what it avoids.
+///
+/// # Errors
+///
+/// [`fabrication_of_job`]'s, and [`generate_from`]'s for a start the design's wafer can't be
+/// made from.
+pub fn fabrication_of_job_from(
+    job: &Job,
+    prefer: &[String],
+    avoid: &[String],
+    start: Option<Start>,
+) -> Result<FabricationView> {
     let kind = job.task().get("kind").and_then(|k| k.as_str());
+    let (prefer, avoid, start) = if kind == Some("fabrication") {
+        let (own, own_start) = choices_of(job)?;
+        let mut p = own.prefer;
+        p.extend(
+            prefer
+                .iter()
+                .filter(|id| !p.contains(id))
+                .cloned()
+                .collect::<Vec<_>>(),
+        );
+        let mut a: Vec<String> = own
+            .avoid
+            .into_iter()
+            .filter(|id| !prefer.contains(id))
+            .collect();
+        a.extend(
+            avoid
+                .iter()
+                .filter(|id| !a.contains(id))
+                .cloned()
+                .collect::<Vec<_>>(),
+        );
+        (p, a, start.unwrap_or(own_start))
+    } else {
+        (prefer.to_vec(), avoid.to_vec(), start.unwrap_or_default())
+    };
+    if job.device().is_some() {
+        return fabrication_of_from(&spec_of(job)?, &prefer, &avoid, start);
+    }
     if kind != Some("structure") {
         return Err(task_error(format!(
             "the job draws no design the fabrication engine reads: it has no [device] table, and \
@@ -295,7 +363,7 @@ pub fn fabrication_of_job(
     }
     let task: super::structure::StructureTask = super::params::task(job)?;
     task.validate()?;
-    fabrication_view(&Physical::of(task.structure()?), prefer, avoid)
+    fabrication_view_from(&Physical::of(task.structure()?), &prefer, &avoid, start)
 }
 
 /// The flow of `physical`, as [`fabrication_of`] gives a design's.
@@ -308,12 +376,29 @@ pub fn fabrication_view(
     prefer: &[String],
     avoid: &[String],
 ) -> Result<FabricationView> {
+    fabrication_view_from(physical, prefer, avoid, Start::Bought)
+}
+
+/// The flow of `physical` from `start`, as [`fabrication_view`] gives it from the wafer as
+/// bought.
+///
+/// # Errors
+///
+/// [`fabrication_view`]'s, and [`generate_from`]'s for a start the design's wafer can't be made
+/// from.
+pub fn fabrication_view_from(
+    physical: &Physical,
+    prefer: &[String],
+    avoid: &[String],
+    start: Start,
+) -> Result<FabricationView> {
     let choices = Choices {
         prefer: prefer.to_vec(),
         avoid: avoid.to_vec(),
     };
     choices.check()?;
-    let flow = generate(physical, &choices)?;
+    let flow = generate_from(physical, &choices, start)?;
+    let (starts, smart_cut) = crate::fabrication::starts(physical, &choices)?;
     let trip = round_trip(&flow, physical)?;
     let s = physical.structure();
     let (mut x, mut y) = (
@@ -352,6 +437,9 @@ pub fn fabrication_view(
         assessment: assess(physical, &flow)?,
         platform: platform(physical),
         frames: frames(&flow, &made, x, y, z[0], top, wavelength)?,
+        start,
+        starts,
+        smart_cut,
     })
 }
 

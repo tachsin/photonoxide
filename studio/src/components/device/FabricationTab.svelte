@@ -7,31 +7,49 @@
   // number's source (on hover), and what isn't certain; then the flow's warnings, what no source
   // in hand states, the round trip (the flow run on the library's geometry against the design)
   // and the references. A suggested flow from published processes, not a foundry's process.
-  // "In 3D, from the bare wafer" opens the design on the Fabrication page.
-  import { Factory } from "@lucide/svelte";
-  import { api, type DeviceFabrication, type DeviceSpec } from "../../lib/api";
-  import { fabricate } from "../../lib/app.svelte";
+  // "In 3D, from the bare wafer" opens the design on the Fabrication page. For silicon on
+  // insulator, the flow can start from a bought SOI wafer (the default) or from bare silicon, the
+  // SOI wafer made first by Smart Cut; the job the tab writes says so (`start: smart_cut`), and
+  // "Run as a job" runs it, so the run replays the same flow.
+  import { Factory, Play } from "@lucide/svelte";
+  import { api, type DeviceFabrication, type DeviceSpec, type FabStart } from "../../lib/api";
+  import { fabricate, startRun } from "../../lib/app.svelte";
   import { plain } from "../../lib/deviceview";
   import type { FlowSource } from "../../lib/events";
-  import { cited, num, quantity, RULE, STEP, value, VERDICT } from "../../lib/flow";
+  import { cited, num, quantity, RULE, START, STEP, value, VERDICT } from "../../lib/flow";
+  import StartChoice from "../fabrication/StartChoice.svelte";
   import ProcessAnimation from "./ProcessAnimation.svelte";
 
-  let { spec, designKey, normal, at }: { spec: DeviceSpec; designKey: unknown; normal: "x" | "y"; at: number } = $props();
+  let {
+    spec,
+    designKey,
+    normal,
+    at,
+    start = "bought",
+    onstart,
+  }: { spec: DeviceSpec; designKey: unknown; normal: "x" | "y"; at: number; start?: FabStart; onstart?: (s: FabStart) => void } = $props();
 
   let shown = $state<DeviceFabrication | null>(null);
   let problem = $state("");
   let busy = $state(false);
   /** The step picked, from 0. */
   let picked = $state(0);
+  /** The job's text, shown when asked for. */
+  let jobText = $state<string | null>(null);
+
+  /** The job's name: the device's kind, as a file name, and how its flow starts. */
+  const jobName = $derived(`${spec.kind.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}-flow${start === "smart_cut" ? "-smart-cut" : ""}`);
 
   $effect(() => {
     void designKey;
     const s = $state.snapshot(spec) as DeviceSpec;
+    const from = start;
     let current = true;
     busy = true;
+    jobText = null;
     const timer = setTimeout(() => {
       api
-        .deviceFabrication(s)
+        .deviceFabrication(s, from)
         .then((f) => {
           if (!current) return;
           shown = airy(f);
@@ -104,13 +122,41 @@
   const dim = (v: number, unit: string) => (unit === "degree" ? `${num(v)}°` : `${num(v)} nm`);
   /** A contribution's source, cited. */
   const cite = (s: FlowSource | null) => (s ? source(s) : "No source in hand states it");
+
+  /** Where the flow starts: a new start puts the steps back at the first. */
+  function pickStart(s: FabStart) {
+    picked = 0;
+    onstart?.(s);
+  }
+
+  /** The job's text, from the library: `start: smart_cut` in its task when the flow makes its SOI wafer. */
+  async function job(): Promise<string> {
+    return (jobText = await api.fabricationJob($state.snapshot(spec) as DeviceSpec, jobName, start));
+  }
+
+  async function showJob(e: Event) {
+    if ((e.currentTarget as HTMLDetailsElement).open && jobText === null) {
+      try {
+        await job();
+      } catch (err) {
+        problem = String(err);
+      }
+    }
+  }
+
+  function runJob() {
+    startRun(async () => api.runText(await job(), "yaml"), `Running how the ${spec.kind} is made, from ${START[start]}`);
+  }
 </script>
 
 <div class="space-y-3 text-xs">
   <div class="flex flex-wrap items-start gap-2">
     <p class="min-w-0 flex-1 faint">A suggested flow from published processes, not a foundry's process: each step's reason, what else could do it, and every number's source (hover it).</p>
-    <button class="btn btn-xs gap-1" onclick={() => fabricate({ kind: "device", spec: $state.snapshot(spec) as DeviceSpec }, `${spec.kind[0].toUpperCase()}${spec.kind.slice(1)}, as on its page`)} title="This design on the Fabrication page: the flow from the bare wafer, in 2D and 3D"><Factory size={13} /> In 3D, from the bare wafer</button>
+    <button class="btn btn-xs gap-1" onclick={() => fabricate({ kind: "device", spec: $state.snapshot(spec) as DeviceSpec }, `${spec.kind[0].toUpperCase()}${spec.kind.slice(1)}, as on its page`, start)} title="This design on the Fabrication page: the flow from the bare wafer, in 2D and 3D"><Factory size={13} /> In 3D, from the bare wafer</button>
   </div>
+  {#if shown}
+    <StartChoice starts={shown.starts} start={shown.start} route={shown.smart_cut} onpick={pickStart} stack="its stack, on the Design tab" />
+  {/if}
   {#if problem}
     <p role="alert" class="text-warning selectable">{plain(problem)}</p>
   {:else if !shown}
@@ -303,6 +349,18 @@
         Process library {shown.flow.library}.
       </p>
     {/if}
+    <details ontoggle={showJob}>
+      <summary class="cursor-pointer font-medium">The job ({jobName}.yaml)</summary>
+      <div class="mt-1 space-y-1">
+        <p class="faint">The flow as a job: its run records the flow and writes its export (flow.json, the traveller and a cross-section a step){start === "smart_cut" ? "; its task's start: smart_cut makes the SOI wafer first" : ""}.</p>
+        {#if jobText !== null}
+          <pre class="selectable overflow-x-auto rounded-box bg-base-200 p-2 font-mono text-[11px]" aria-label="The job's text">{jobText}</pre>
+        {:else}
+          <div class="skeleton h-16 w-full"></div>
+        {/if}
+        <button class="btn btn-xs gap-1" onclick={runJob} title="Run this job: the flow recorded and exported in a run folder, as the job says"><Play size={13} /> Run as a job</button>
+      </div>
+    </details>
     <details>
       <summary class="cursor-pointer font-medium">References ({shown.flow.references.length})</summary>
       <ul class="ml-4 mt-1 list-disc">

@@ -2,10 +2,12 @@
   // A process flow animated on the cross-section (#622): the wafer after each step drawn over
   // the wafer before it and revealed as the step does its work: a deposition from below, as the
   // film grows; an etch, a lift-off, a polish or the resist's removal from above, as material
-  // goes; a lithography faded in. Play, pause, a step back or forward, and the speed; with
-  // prefers-reduced-motion, the steps change without moving.
+  // goes; a lithography faded in, as the Fabrication page's player does (fabanim's motion). Play,
+  // pause, a step back or forward, and the speed; with prefers-reduced-motion, the steps change
+  // without moving.
   import { Pause, Play, SkipBack, SkipForward } from "@lucide/svelte";
   import type { FlowStep, Scene, SceneEtched } from "../../lib/events";
+  import { motion } from "../../lib/fabanim";
   import CutView from "./CutView.svelte";
 
   let {
@@ -72,11 +74,11 @@
 
   /** How the step reveals the wafer after it: from below, from above, or fading in. */
   const reveal = $derived.by(() => {
-    const kind = steps[picked]?.operation;
+    const how = motion(steps[picked]?.operation ?? "");
     const hidden = `${((1 - t) * 100).toFixed(2)}%`;
     if (t >= 1 || picked === 0) return "";
-    if (kind === "deposit" || kind === "evaporate" || kind === "sputter") return `clip-path: inset(${hidden} 0 0 0)`;
-    if (kind === "etch" || kind === "lift_off" || kind === "strip" || kind === "planarize") return `clip-path: inset(0 0 ${hidden} 0)`;
+    if (how === "grow") return `clip-path: inset(${hidden} 0 0 0)`;
+    if (how === "remove") return `clip-path: inset(0 0 ${hidden} 0)`;
     return `opacity: ${t.toFixed(3)}`;
   });
 </script>

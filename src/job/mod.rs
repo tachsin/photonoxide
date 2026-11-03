@@ -567,7 +567,8 @@ pub use event::Event;
 pub use execute::{conclude, execute, farms, preview};
 pub use fabrication::{
     FabricationView, FlowFrame, FrameFilm, IMPRINT_RESIDUE, Stage, UNSTATED_COVERAGE,
-    UNSTATED_RESIST_UM, fabrication_of, fabrication_of_job, fabrication_view, from_fabrication,
+    UNSTATED_RESIST_UM, fabrication_of, fabrication_of_from, fabrication_of_job,
+    fabrication_of_job_from, fabrication_view, fabrication_view_from, from_fabrication,
     from_fabrication_from,
 };
 pub use fdfd::{FdfdSParameters, fdfd_s_parameters};
