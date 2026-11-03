@@ -9,6 +9,13 @@ import { projectsMetadata } from "@/lib/projects/metadata";
 import { getDependencies } from "@/lib/projects/photonoxide/dependencies/report";
 import { DEPENDENCIES_PATH, PHOTONOXIDE_LINKS, PHOTONOXIDE_OG_IMAGE, PHOTONOXIDE_PATH } from "@/lib/projects/photonoxide/meta";
 
+/**
+ * Rendered on every visit, never kept by Next (no full-route cache, no revalidate period):
+ * the only caches are the reader's, in lib/projects/photonoxide/dependencies/polite.js, which
+ * keeps our files five minutes and each registry's answer fifteen, and "Read" below says when.
+ */
+export const dynamic = "force-dynamic";
+
 const DESCRIPTION =
   "Every library and dependency photonoxide uses, the version we use beside its newest release: the native libraries its backends load, the Rust crates, the studio's pnpm packages, the Python requirements, the GitHub Actions and the toolchain.";
 
@@ -182,7 +189,7 @@ export default async function DependenciesPage() {
         <p className="proj-lead mt-4 text-lg">{DESCRIPTION}</p>
         <p className="proj-lead mt-3 text-sm">
           Our versions are read from the repository's <code>main</code> branch, and each newest release from its
-          registry, at most once an hour. A pre-release is never marked newer. A major release, one our requirement
+          registry, our files at most once in five minutes and a registry's answer once in fifteen. A pre-release is never marked newer. A major release, one our requirement
           doesn't take (for a 0.x crate or package, a new 0.y), is marked with its release notes, and every newer one
           lists what changed in between. A registry that can't be read keeps the last version read, and its row says
           when it failed. Direct dependencies only: theirs are Cargo's, pnpm's and pip's to resolve.
