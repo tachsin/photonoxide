@@ -8,12 +8,16 @@
   // both; one timeline plays them, a lithography as its resist spun on, the pattern written and
   // the resist developed. The first frame is the bare wafer; the last is the design, and the
   // round trip (the flow run on the library's geometry against the design) says it is to the bit.
+  // A design on silicon on insulator can start from a bought SOI wafer or from bare silicon, the
+  // SOI wafer made first by Smart Cut: as the design's job says (`start: smart_cut`), as the
+  // component's tab sent it, or as picked here.
   import { open } from "@tauri-apps/plugin-dialog";
   import { CircleCheck, FileUp, TriangleAlert } from "@lucide/svelte";
   import { onMount, untrack } from "svelte";
 
   import FabPlayer from "../components/fabrication/FabPlayer.svelte";
-  import { api, formatOf, formatOfText, type FabDesign, type FabricationPage } from "../lib/api";
+  import StartChoice from "../components/fabrication/StartChoice.svelte";
+  import { api, formatOf, formatOfText, type FabDesign, type FabricationPage, type FabStart } from "../lib/api";
   import { app, CUSTOM } from "../lib/app.svelte";
   import { catalog, loadCatalog } from "../lib/catalog.svelte";
   import { deviceOf, devices, drafts, loadDevices } from "../lib/device.svelte";
@@ -67,6 +71,8 @@
 
   /** Process ids to prefer where several qualify: the alternatives picked with "Use instead". */
   let prefer = $state<string[]>([]);
+  /** Where the flow starts, when picked (or sent with the design); null: as the design says. */
+  let start = $state<FabStart | null>(null);
   let page = $state<FabricationPage | null>(null);
   let problem = $state("");
   let busy = $state(false);
@@ -81,7 +87,10 @@
     void app.fabricate;
     untrack(() => {
       here = current();
-      if (here) chosenId = here.id;
+      if (here) {
+        chosenId = here.id;
+        start = here.id === "sent" ? (app.fabricate?.start ?? null) : null;
+      }
     });
   });
   $effect(() => {
@@ -91,11 +100,12 @@
   $effect(() => {
     const c = chosen;
     const p = [...prefer];
+    const from = start;
     if (!c) return;
     let live = true;
     busy = true;
     api
-      .fabricationPage($state.snapshot(c.design) as FabDesign, p, [])
+      .fabricationPage($state.snapshot(c.design) as FabDesign, p, [], from)
       .then((got) => {
         if (!live) return;
         page = got;
@@ -115,7 +125,14 @@
 
   function pick(id: string) {
     prefer = [];
+    start = null;
     chosenId = id;
+  }
+
+  /** A new start: the steps change, so the player goes back to the first frame. */
+  function pickStart(s: FabStart) {
+    start = s;
+    frame = 0;
   }
 
   async function openFile() {
@@ -161,6 +178,12 @@
   const flagged = (k: number) => checksOf(k).filter((c) => c.verdict !== "within").length;
   const ranked = $derived(page?.view.assessment.ranking.find((r) => r.step === stepNow)?.ranked ?? []);
   const source = (s: FlowSource) => cited(page?.view.flow.references ?? [], s);
+  /** The glossary's words the step's narration uses. */
+  const words = $derived.by(() => {
+    if (!page || !record) return [];
+    const text = `${record.plain} ${record.does} ${record.reason}`.toLowerCase();
+    return page.view.flow.glossary.filter((g) => text.includes(g.term.toLowerCase()));
+  });
   const trip = $derived(page?.view.flow.round_trip ?? null);
   const exact = $derived(!!trip && trip.structure_equal && trip.films_equal && trip.differing === 0);
 
@@ -246,6 +269,9 @@
       {/if}
     </div>
     <p class="text-xs faint">A suggested flow from published processes, not a foundry's process: it starts from the bare wafer, and each step says why it is there, what it does, and where every number comes from.</p>
+    {#if page}
+      <StartChoice starts={page.view.starts} start={page.view.start} route={page.view.smart_cut} onpick={pickStart} />
+    {/if}
 
     {#if problem}
       <p role="alert" class="rounded-box border border-warning/40 bg-warning/10 p-3 text-sm text-warning selectable">{plain(problem)}</p>
@@ -293,6 +319,16 @@
                 <h2 class="text-sm font-medium">{stepNow + 1}. {record.name}</h2>
                 <p class="selectable"><span class="font-medium">Why.</span> {record.reason}</p>
                 <p class="selectable"><span class="font-medium">What it does.</span> {record.plain}</p>
+                {#if words.length}
+                  <div>
+                    <div class="font-medium">The words</div>
+                    <dl class="ml-1 space-y-0.5">
+                      {#each words as g (g.term)}
+                        <div class="selectable"><dt class="inline font-medium">{g.term}:</dt> <dd class="inline">{g.definition} <span class="faint">({source(g.source)})</span></dd></div>
+                      {/each}
+                    </dl>
+                  </div>
+                {/if}
                 <table class="table table-xs">
                   <tbody>
                     {#each parameters as [k, v] (k)}

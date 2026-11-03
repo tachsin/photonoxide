@@ -290,6 +290,69 @@ fn the_traveller_has_every_step_every_source_and_every_dimension() {
 }
 
 #[test]
+fn a_smart_cut_traveller_has_the_routes_steps_and_credits_each_thickness_to_its_step() {
+    let spec = Spec::new("waveguide");
+    let e = FlowExport::of_design_from(
+        &spec,
+        &Choices::default(),
+        crate::fabrication::Start::SmartCut,
+    )
+    .expect("the strip from bare silicon");
+    let md = e.file.markdown();
+    let n = e.file.flow.steps.len();
+    let ops: Vec<&str> = e
+        .file
+        .flow
+        .steps
+        .iter()
+        .map(|s| s.operation.as_str())
+        .collect();
+    for op in [
+        "implant",
+        "bond",
+        "split",
+        "anneal",
+        "planarize",
+        "oxidize",
+        "wet_etch",
+    ] {
+        assert!(ops.contains(&op), "{op} in {ops:?}");
+    }
+    for (k, s) in e.file.flow.steps.iter().enumerate() {
+        assert!(md.contains(&format!("### Step {} of {n}: {}\n", k + 1, s.name)));
+        assert!(md.contains(&s.does), "step {k}'s operation");
+    }
+    // the layers the donor's oxidation and the bond lay down: the buried oxide and the film
+    let laid = |op: &str| {
+        let k = ops.iter().position(|o| *o == op).unwrap();
+        e.file
+            .new_layers(k)
+            .first()
+            .map(|l| (*l).to_owned())
+            .unwrap()
+    };
+    let (oxide, film) = (laid("deposit"), laid("bond"));
+    let owner = |layer: &str| {
+        let d = e
+            .file
+            .assessment
+            .accuracy
+            .iter()
+            .find(|d| d.kind == Kind::Thickness && d.layer == layer)
+            .unwrap_or_else(|| panic!("{layer}'s thickness"));
+        let k = e
+            .file
+            .owner(d)
+            .unwrap_or_else(|| panic!("no step sets {}", d.what));
+        ops[k]
+    };
+    // the film is thinned last by the sacrificial oxide, after the touch-up polish; the polish
+    // doesn't touch the buried oxide, which the film covers
+    assert_eq!(owner(&film), "oxidize");
+    assert_ne!(owner(&oxide), "planarize");
+}
+
+#[test]
 fn the_export_writes_its_files_into_a_folder() {
     let dir = std::env::temp_dir().join(format!("photonoxide-flow-export-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);

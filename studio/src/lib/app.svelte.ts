@@ -1,6 +1,6 @@
 // The window's shared state: settings, the page shown, toasts, and the run being followed.
 
-import { api, type AppState, type FabDesign, type Info, type JobFormat, type Settings } from "./api";
+import { api, type AppState, type FabDesign, type FabStart, type Info, type JobFormat, type Settings } from "./api";
 import type { ChipEvent, CompactFit, CompactPlan, ChipPoint, ChipStudy, DeviceModel, DevicePoint, DeviceStudy, Evaluation, Event, FdtdFrame, FdtdProgress, FdtdResonances, FdtdSpectrum, Field, Front, Mode, ModeField, ModeLoss, Optimization, Optimum, Permittivity, Scene, ScenePort, Shape, SolveError, Solver, SParameters, StaticField, StaticFrame, StaticResult, StaticStep, Sweep, SweepField, SweepMode, SweepPermittivity, SweepPoint } from "./events";
 import { template, type Kind } from "./job";
 import type { Looks } from "./layers";
@@ -52,8 +52,8 @@ export const app = $state({
   lesson: null as string | null,
   /** The component the Components page shows, by its library id ("custom" for the Custom device); null for the first. */
   component: null as string | null,
-  /** A design for the Fabrication page to open, set by whoever sends the user there (a component's Fabrication tab, Ctrl+K). */
-  fabricate: null as { design: FabDesign; label: string } | null,
+  /** A design for the Fabrication page to open, set by whoever sends the user there (a component's Fabrication tab, Ctrl+K), and where its flow starts (null: as the design says). */
+  fabricate: null as { design: FabDesign; label: string; start: FabStart | null } | null,
   /** Bumped when the workspace's files change, so lists reload. */
   workspaceVersion: 0,
 });
@@ -76,9 +76,9 @@ export function openCustom(text: string, path: string | null = null) {
   go("components");
 }
 
-/** Shows `design` (named `label`) on the Fabrication page. */
-export function fabricate(design: FabDesign, label: string) {
-  app.fabricate = { design, label };
+/** Shows `design` (named `label`) on the Fabrication page, its flow from `start` (null: as the design says). */
+export function fabricate(design: FabDesign, label: string, start: FabStart | null = null) {
+  app.fabricate = { design, label, start };
   go("fabrication");
 }
 

@@ -9,10 +9,12 @@ import { test } from "node:test";
 import { change, CLEAR, looks, motion, planes, playFrom, progress, reveal, span } from "../src/lib/fabanim.ts";
 
 test("each phase grows from below, goes from above or fades", () => {
-  for (const p of ["deposit", "evaporate", "sputter", "coat", "oxidize"]) assert.equal(motion(p), "grow", p);
-  for (const p of ["etch", "lift_off", "strip", "planarize", "develop", "residue", "imprint"]) assert.equal(motion(p), "remove", p);
-  // an exposure changes no shape: the written part fades in; so do an anneal and the bare wafer
-  for (const p of ["expose", "anneal", "wafer", "undrawn"]) assert.equal(motion(p), "fade", p);
+  for (const p of ["deposit", "evaporate", "sputter", "coat"]) assert.equal(motion(p), "grow", p);
+  // a sacrificial oxidation (Smart Cut) is drawn as the silicon it uses up, from the top
+  for (const p of ["etch", "lift_off", "strip", "planarize", "oxidize", "develop", "residue", "imprint"]) assert.equal(motion(p), "remove", p);
+  // an exposure changes no shape: the written part fades in; so do an anneal and the bare wafer,
+  // and the Smart Cut steps that change no drawn shape or lay a film on in one piece
+  for (const p of ["expose", "anneal", "wafer", "undrawn", "implant", "bond", "split", "wet_etch"]) assert.equal(motion(p), "fade", p);
 });
 
 test("a frame's progress runs from 0 to 1 with the speed, and stays there", () => {

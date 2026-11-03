@@ -23,6 +23,7 @@ use std::time::Instant;
 use photonoxide::circuit::{Fidelity, Spectrum};
 use photonoxide::device::{self, Built, Device, LayerSpec, MaterialSpec, Spec, StackSpec};
 use photonoxide::expr::{self, Dim, Expr};
+use photonoxide::fabrication::Start;
 use photonoxide::job::{self, Event};
 use photonoxide::run::{Format, Job};
 use serde::{Deserialize, Serialize};
@@ -842,11 +843,34 @@ fn words(text: &str) -> impl Iterator<Item = &str> {
 
 /// A design's process flow from published processes and the wafer after each of its steps
 /// (`photonoxide::fabrication`, #622), for the Fabrication tab: read-only, the flow the rules
-/// give, with its reasons, alternatives, sources and round trip.
+/// give, with its reasons, alternatives, sources and round trip; from the wafer as bought, or
+/// from `start` (for silicon on insulator, bare silicon by Smart Cut).
 #[tauri::command]
-pub fn device_fabrication(spec: SpecIn) -> Result<job::FabricationView, String> {
+pub fn device_fabrication(
+    spec: SpecIn,
+    start: Option<Start>,
+) -> Result<job::FabricationView, String> {
     let spec = spec.spec()?;
-    job::fabrication_of(&spec, &[], &[]).map_err(text)
+    job::fabrication_of_from(&spec, &[], &[], start.unwrap_or_default()).map_err(text)
+}
+
+/// The text of the job whose run gives `spec`'s flow from `start`, named `name`
+/// ([`job::from_fabrication_from`]): its task writes `start: smart_cut` when the flow makes its
+/// SOI wafer, so the run replays it. With an opening comment saying how to run it.
+#[tauri::command(async)]
+pub fn fabrication_job(spec: SpecIn, name: String, start: Option<Start>) -> Result<String, String> {
+    let s = spec.spec()?;
+    let start = start.unwrap_or_default();
+    let j = job::from_fabrication_from(&name, &s, &[], &[], start).map_err(text)?;
+    let from = match start {
+        Start::SmartCut => "from bare silicon, the SOI wafer made by Smart Cut",
+        _ => "from the wafer as bought",
+    };
+    let body = j.to_text(Format::Yaml).map_err(text)?;
+    Ok(format!(
+        "# How the {} is made, {from}.\n#   photonoxide run jobs/{name}.yaml\n{body}",
+        spec.kind
+    ))
 }
 
 /// The form's fields, the design's values, ports and scene.

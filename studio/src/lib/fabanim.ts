@@ -7,10 +7,15 @@
 /** How a phase does its work: a film grows from below, material goes from above, anything else fades. */
 export type Motion = "grow" | "remove" | "fade";
 
-/** How a phase does its work: grows from below, goes from above, or fades. */
+/**
+ * How a phase does its work: grows from below, goes from above, or fades. A sacrificial oxidation
+ * ("oxidize", on a flow that makes its SOI wafer by Smart Cut) is drawn as the silicon it uses up,
+ * going from the film's top; the oxide itself isn't drawn. The bond lays the donor's film on in
+ * one piece, so it fades in, as the implant and the split, which change no drawn shape, do.
+ */
 export function motion(phase: string): Motion {
-  if (["deposit", "evaporate", "sputter", "coat", "oxidize"].includes(phase)) return "grow";
-  if (["etch", "lift_off", "strip", "planarize", "develop", "residue", "imprint"].includes(phase)) return "remove";
+  if (["deposit", "evaporate", "sputter", "coat"].includes(phase)) return "grow";
+  if (["etch", "lift_off", "strip", "planarize", "oxidize", "develop", "residue", "imprint"].includes(phase)) return "remove";
   return "fade";
 }
 

@@ -16,7 +16,7 @@ mod triangulate;
 
 use std::collections::{BTreeMap, HashMap};
 
-use photonoxide::fabrication::Platform;
+use photonoxide::fabrication::{Platform, Start};
 use photonoxide::job::{self, FabricationView};
 use photonoxide::run::{Format, Job};
 use serde::{Deserialize, Serialize};
@@ -115,15 +115,19 @@ fn metal(film: &str) -> bool {
     )
 }
 
-/// The flow of `design`, preferring and avoiding processes by id.
+/// The flow of `design`, preferring and avoiding processes by id, from `start`: for a job, where
+/// its own task starts when `start` is `None` (a run's flow as it ran); for a design, from the
+/// wafer as bought.
 fn view_of(
     design: &DesignIn,
     prefer: &[String],
     avoid: &[String],
+    start: Option<Start>,
 ) -> Result<FabricationView, String> {
     match design {
         DesignIn::Device { spec } => {
-            job::fabrication_of(&spec.spec()?, prefer, avoid).map_err(text)
+            job::fabrication_of_from(&spec.spec()?, prefer, avoid, start.unwrap_or_default())
+                .map_err(text)
         }
         DesignIn::Job {
             text: t,
@@ -137,10 +141,10 @@ fn view_of(
             {
                 job = job.in_dir(dir);
             }
-            job::fabrication_of_job(&job, prefer, avoid).map_err(text)
+            job::fabrication_of_job_from(&job, prefer, avoid, start).map_err(text)
         }
         DesignIn::Run { dir } => {
-            job::fabrication_of_job(&run_job(dir)?, prefer, avoid).map_err(text)
+            job::fabrication_of_job_from(&run_job(dir)?, prefer, avoid, start).map_err(text)
         }
     }
 }
@@ -285,12 +289,14 @@ fn hash_of(s: &SolidOut) -> u64 {
 }
 
 /// The Fabrication page's design: its flow from the bare wafer, the wafer at each moment in 2D
-/// and 3D, and what the rules find, preferring and avoiding processes by id.
+/// and 3D, and what the rules find, preferring and avoiding processes by id; from `start` when
+/// it is given (for silicon on insulator, bare silicon by Smart Cut), else as the design says.
 #[tauri::command]
 pub fn fabrication_page(
     design: DesignIn,
     prefer: Vec<String>,
     avoid: Vec<String>,
+    start: Option<Start>,
 ) -> Result<FabricationPage, String> {
-    view_of(&design, &prefer, &avoid).map(page_of)
+    view_of(&design, &prefer, &avoid, start).map(page_of)
 }

@@ -2,7 +2,7 @@
 // it is being edited (its stack, its parameters' expressions, its fidelity), where it was saved,
 // and the solves started from it, which go on in the background while the page is left.
 
-import { api, formatOfText, type Aim, type Bound, type Compute, type DeviceDerived, type DeviceFigure, type DeviceInfo, type DeviceMethod, type DeviceSpec, type DeviceSpectrum, type JobForm, type JobFormat, type LayerSpec, type RunItem, type SavedDevice, type StackSpec, type StudyIn } from "./api";
+import { api, formatOfText, type Aim, type Bound, type Compute, type DeviceDerived, type DeviceFigure, type DeviceInfo, type DeviceMethod, type DeviceSpec, type DeviceSpectrum, type FabStart, type JobForm, type JobFormat, type LayerSpec, type RunItem, type SavedDevice, type StackSpec, type StudyIn } from "./api";
 import { app, go, startRun, startRunHere, toast } from "./app.svelte";
 import { designNameOf } from "./designs";
 
@@ -63,6 +63,8 @@ export interface Draft {
   jobText?: string | null;
   /** The format the page's job texts are shown in: the Job tab's and the Simulate tab's. */
   jobFormat?: JobFormat;
+  /** Where the Fabrication tab's flow starts: the bought wafer unless Smart Cut was chosen. */
+  fabStart?: FabStart;
 }
 
 export const drafts = $state<Record<string, Draft>>({});

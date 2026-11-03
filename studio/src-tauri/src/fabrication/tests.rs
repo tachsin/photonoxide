@@ -12,6 +12,7 @@
 //!   vertices and edge midpoints), and the shape's own polygons within their stated deviation, so
 //!   the areas differ by at most the perimeter times (δ + deviation), plus round-off.
 
+use photonoxide::fabrication::Start;
 use photonoxide::geometry::{Point, Region};
 use photonoxide::job::{self, Event, FabricationView, FrameFilm, SceneEtched};
 use photonoxide::run::{Format, Job};
@@ -502,7 +503,7 @@ fn the_command_takes_a_device_a_job_and_a_structure_job() {
             compact: None,
         }),
     };
-    let page = fabrication_page(device, Vec::new(), Vec::new()).unwrap();
+    let page = fabrication_page(device, Vec::new(), Vec::new(), None).unwrap();
     assert_eq!(page.view.frames[0].phase, "wafer");
     assert!(page.view.flow.round_trip.unwrap().exact());
     assert_eq!(page.platform.unwrap().name, "silicon on insulator");
@@ -514,7 +515,7 @@ fn the_command_takes_a_device_a_job_and_a_structure_job() {
         format: Format::Yaml,
         path: None,
     };
-    let page = fabrication_page(structure, Vec::new(), Vec::new()).unwrap();
+    let page = fabrication_page(structure, Vec::new(), Vec::new(), None).unwrap();
     assert!(page.view.flow.round_trip.unwrap().exact());
     // a preference the library hasn't is refused, saying which
     let tfln = || DesignIn::Job {
@@ -522,16 +523,16 @@ fn the_command_takes_a_device_a_job_and_a_structure_job() {
         format: Format::Toml,
         path: None,
     };
-    let e = fabrication_page(tfln(), vec!["laser-writing".into()], Vec::new()).unwrap_err();
+    let e = fabrication_page(tfln(), vec!["laser-writing".into()], Vec::new(), None).unwrap_err();
     assert!(e.contains("laser-writing"), "{e}");
-    let pmma = fabrication_page(tfln(), vec!["ebl-pmma".into()], Vec::new()).unwrap();
+    let pmma = fabrication_page(tfln(), vec!["ebl-pmma".into()], Vec::new(), None).unwrap();
     assert!(pmma.view.flow.steps.iter().any(|s| s.process == "ebl-pmma"));
     let modes = DesignIn::Job {
         text: "name = \"m\"\n\n[task]\nkind = \"modes\"\n".into(),
         format: Format::Toml,
         path: None,
     };
-    let e = fabrication_page(modes, Vec::new(), Vec::new()).unwrap_err();
+    let e = fabrication_page(modes, Vec::new(), Vec::new(), None).unwrap_err();
     assert!(e.contains("no [device] table"), "{e}");
     // a run's folder: the job it keeps, as it was given
     let dir = std::env::temp_dir().join(format!("fab-run-{}", std::process::id()));
@@ -544,11 +545,57 @@ fn the_command_takes_a_device_a_job_and_a_structure_job() {
     let run = || DesignIn::Run {
         dir: dir.to_string_lossy().into_owned(),
     };
-    let page = fabrication_page(run(), Vec::new(), Vec::new()).unwrap();
+    let page = fabrication_page(run(), Vec::new(), Vec::new(), None).unwrap();
     assert!(page.view.flow.round_trip.unwrap().exact());
     std::fs::remove_file(dir.join("job.toml")).unwrap();
-    let e = fabrication_page(run(), Vec::new(), Vec::new()).unwrap_err();
+    let e = fabrication_page(run(), Vec::new(), Vec::new(), None).unwrap_err();
     assert!(e.contains("keeps no job file"), "{e}");
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
+fn the_start_is_chosen_for_a_design_and_a_run_keeps_its_own() {
+    let spec = || SpecIn {
+        kind: "waveguide".into(),
+        fidelity: "analytic".into(),
+        stack: StackIn::Preset {
+            name: "soi_220".into(),
+            bottom_oxide_um: 2.0,
+        },
+        parameters: Vec::new(),
+        compact: None,
+    };
+    let device = || DesignIn::Device {
+        spec: Box::new(spec()),
+    };
+    let bought = fabrication_page(device(), Vec::new(), Vec::new(), None).unwrap();
+    assert_eq!(bought.view.start, Start::Bought);
+    assert_eq!(bought.view.starts, [Start::Bought, Start::SmartCut]);
+    let made = fabrication_page(device(), Vec::new(), Vec::new(), Some(Start::SmartCut)).unwrap();
+    assert_eq!(made.view.start, Start::SmartCut);
+    assert_eq!(made.view.flow.steps[0].process, "si-wafer");
+    assert!(made.view.flow.round_trip.unwrap().exact());
+    // every frame's solids are drawn, the route's too
+    assert_eq!(made.frame_solids.len(), made.view.frames.len());
+    // the tab's command, and the job it writes: its run replays the start
+    let tab = crate::devices::device_fabrication(spec(), Some(Start::SmartCut)).unwrap();
+    assert_eq!(tab.flow, made.view.flow);
+    let text = crate::devices::fabrication_job(spec(), "strip-flow".into(), Some(Start::SmartCut))
+        .unwrap();
+    assert!(text.contains("start: smart_cut"), "{text}");
+    assert!(text.contains("kind: fabrication"), "{text}");
+    let plain = crate::devices::fabrication_job(spec(), "strip-flow".into(), None).unwrap();
+    assert!(!plain.contains("start:"), "{plain}");
+    // a run's folder with that job: its flow is made by Smart Cut, as it ran
+    let dir = std::env::temp_dir().join(format!("fab-run-start-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(dir.join("job.yaml"), &text).unwrap();
+    let run = || DesignIn::Run {
+        dir: dir.to_string_lossy().into_owned(),
+    };
+    let page = fabrication_page(run(), Vec::new(), Vec::new(), None).unwrap();
+    assert_eq!(page.view.start, Start::SmartCut);
+    assert_eq!(page.view.flow, made.view.flow);
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
