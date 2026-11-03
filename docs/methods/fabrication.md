@@ -585,6 +585,12 @@ a silicon handle. It can start from bare silicon instead, opted into as the flow
 wafer then take the bought wafer's place, and the rest of the flow is unchanged. Without the
 option, a flow is exactly what it was.
 
+A second route, SIMOX (separation by implanted oxygen: a high-dose oxygen implant and an anneal
+above 1300 °C), is not modelled. Campbell gives its usual conditions (150 to 300 keV, about
+2×10¹⁸ cm⁻², at least 1300 °C for several hours; Section 5.7, pp. 128–129). No source in hand
+gives the buried oxide and the film an implant and anneal make, so there is no published result
+to check a model against. The sources it waits for are listed in the plan's section 6.1.
+
 The steps are Bruel's (1995, Fig. 1), each a process in the library with its sources:
 
 | Step | Process | What it does | Its numbers, and where they come from |
