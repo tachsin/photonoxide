@@ -1348,8 +1348,8 @@ pub fn markdown() -> String {
     out.push_str("## New releases\n\n");
     out.push_str(
         "The [Dependencies page](https://tachsin.gr/projects/photonoxide/dependencies) reads each \
-         library's newest release where it is published, at most once an hour: PyPI's and \
-         anaconda.org's APIs for the wheels and conda-forge's packages, NVIDIA's \
+         library's newest release where it is published, at most once in fifteen minutes: \
+         PyPI's and anaconda.org's APIs for the wheels and conda-forge's packages, NVIDIA's \
          redistributables' manifests for CUDA and cuDSS, the GitHub releases of SuperLU, \
          OpenBLAS, HDF5 and Zstandard, MUMPS's download page, and, for Accelerate, the macOS of \
          GitHub's runner images. It sets it beside the version we use, the newest of those \

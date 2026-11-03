@@ -492,7 +492,7 @@ AMD's sparse library, part of AOCL: iterative solvers on AMD processors. Its bac
 
 ## New releases
 
-The [Dependencies page](https://tachsin.gr/projects/photonoxide/dependencies) reads each library's newest release where it is published, at most once an hour: PyPI's and anaconda.org's APIs for the wheels and conda-forge's packages, NVIDIA's redistributables' manifests for CUDA and cuDSS, the GitHub releases of SuperLU, OpenBLAS, HDF5 and Zstandard, MUMPS's download page, and, for Accelerate, the macOS of GitHub's runner images. It sets it beside the version we use, the newest of those checked above, from this table, and marks it when it is newer, with what changed since. The same page lists our own dependencies, each beside its newest release: the Rust crates, the studio's pnpm packages, the Python requirements, the GitHub Actions and the toolchain.
+The [Dependencies page](https://tachsin.gr/projects/photonoxide/dependencies) reads each library's newest release where it is published, at most once in fifteen minutes: PyPI's and anaconda.org's APIs for the wheels and conda-forge's packages, NVIDIA's redistributables' manifests for CUDA and cuDSS, the GitHub releases of SuperLU, OpenBLAS, HDF5 and Zstandard, MUMPS's download page, and, for Accelerate, the macOS of GitHub's runner images. It sets it beside the version we use, the newest of those checked above, from this table, and marks it when it is newer, with what changed since. The same page lists our own dependencies, each beside its newest release: the Rust crates, the studio's pnpm packages, the Python requirements, the GitHub Actions and the toolchain.
 
 | Library | We use | photonoxide-native accepts |
 |---|---|---|

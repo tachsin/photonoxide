@@ -240,7 +240,7 @@ photonoxide follows [Semantic Versioning](https://semver.org/). Before 1.0, Carg
 
 The minimum Rust follows the dependencies: when a dependency's current release needs a newer Rust, `rust-version` and the CI's MSRV job are raised with it (`build!: …`).
 
-Every library and dependency photonoxide uses is on one page, [Dependencies](https://tachsin.gr/projects/photonoxide/dependencies), each beside its newest release: the external libraries photonoxide-native loads ([docs/libraries.md](docs/libraries.md#new-releases)), and our own Rust crates, studio pnpm packages, Python requirements, GitHub Actions and toolchain. It reads our files on `main` and the registries when it is opened, at most once an hour, marks a newer release and a major one, and shows what changed in between from each release's notes. No workflow or bot updates them: an update is adopted in a pull request, a major one on purpose and in a pull request of its own.
+Every library and dependency photonoxide uses is on one page, [Dependencies](https://tachsin.gr/projects/photonoxide/dependencies), each beside its newest release: the external libraries photonoxide-native loads ([docs/libraries.md](docs/libraries.md#new-releases)), and our own Rust crates, studio pnpm packages, Python requirements, GitHub Actions and toolchain. It reads our files on `main` when it is opened, at most once in five minutes, and the registries at most once in fifteen, so a release or a merged bump shows within minutes. It marks a newer release and a major one, and shows what changed in between from each release's notes. No workflow or bot updates them: an update is adopted in a pull request, a major one on purpose and in a pull request of its own.
 
 ## Releases
 

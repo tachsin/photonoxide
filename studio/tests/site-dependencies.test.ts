@@ -59,7 +59,7 @@ import {
   saysBreaking,
   tagVersion,
 } from "../../site/lib/projects/photonoxide/dependencies/changelog.js";
-import { createReader, HOUR } from "../../site/lib/projects/photonoxide/dependencies/polite.js";
+import { createReader, HOUR, OUR_FILES_TTL, REGISTRY_TTL } from "../../site/lib/projects/photonoxide/dependencies/polite.js";
 
 const repo = (path: string) => readFileSync(fileURLToPath(new URL(`../../${path}`, import.meta.url)), "utf8");
 
@@ -434,7 +434,7 @@ function recorded(answers: Record<string, () => { status: number; body?: string;
   return { fetch, asked };
 }
 
-test("the reader asks each URL once an hour, conditionally, and keeps the last answer through a failure", async () => {
+test("the reader asks each registry once in fifteen minutes, conditionally, and keeps the last answer through a failure", async () => {
   let clock = 1_000_000;
   let status = 200;
   const { fetch, asked } = recorded({
@@ -449,8 +449,8 @@ test("the reader asks each URL once an hour, conditionally, and keeps the last a
   assert.equal(asked[0].headers["User-Agent"], "test (+https://example.org)");
   assert.ok(!/@/.test(asked[0].headers["User-Agent"]), "no email in the User-Agent");
 
-  // within the hour: no request
-  clock += HOUR - 1;
+  // within its time: no request
+  clock += REGISTRY_TTL - 1;
   await reader.read("https://r.example/a", { parse });
   assert.equal(asked.length, 1);
 
@@ -463,10 +463,10 @@ test("the reader asks each URL once an hour, conditionally, and keeps the last a
   assert.deepEqual([again.value, again.readAt, again.error], [1, clock, null]);
 
   // a failure keeps the last answer and says so; it is tried again after ten minutes, not before
-  clock += HOUR;
+  clock += REGISTRY_TTL;
   status = 503;
   const failed = await reader.read("https://r.example/a", { parse });
-  assert.deepEqual([failed.value, failed.readAt, failed.failedAt, failed.error], [1, clock - HOUR, clock, "HTTP 503"]);
+  assert.deepEqual([failed.value, failed.readAt, failed.failedAt, failed.error], [1, clock - REGISTRY_TTL, clock, "HTTP 503"]);
   clock += 60_000;
   await reader.read("https://r.example/a", { parse });
   assert.equal(asked.length, 3);
@@ -490,7 +490,7 @@ test("a stale answer is served at once and refreshed behind it", async () => {
   const { fetch, asked } = recorded({ "https://r.example/b": () => ({ status: 200, body: String(v) }) });
   const reader = createReader({ fetch: fetch as unknown as typeof globalThis.fetch, now: () => clock, userAgent: "test" });
   assert.equal((await reader.read("https://r.example/b", { parse: Number })).value, 1);
-  clock += HOUR + 1;
+  clock += REGISTRY_TTL + 1;
   v = 2;
   assert.equal((await reader.read("https://r.example/b", { parse: Number })).value, 1);
   await reader.idle();
@@ -501,4 +501,60 @@ test("a stale answer is served at once and refreshed behind it", async () => {
   const memo = () => reader.memo("k", HOUR, async () => ++runs);
   assert.equal(await memo(), 1);
   assert.equal(await memo(), 1);
+});
+
+test("our own files are kept five minutes, the registries fifteen, and a release's notes longer", async () => {
+  assert.equal(OUR_FILES_TTL, 5 * 60_000);
+  assert.equal(REGISTRY_TTL, 15 * 60_000);
+  let clock = 0;
+  let version = 1;
+  const { fetch, asked } = recorded({
+    "https://raw.example/Cargo.lock": () => ({ status: 200, body: String(version) }),
+    "https://registry.example/latest": () => ({ status: 200, body: String(version) }),
+  });
+  const reader = createReader({ fetch: fetch as unknown as typeof globalThis.fetch, now: () => clock, userAgent: "test", background: false });
+  const ours = () => reader.read("https://raw.example/Cargo.lock", { ttl: OUR_FILES_TTL, parse: Number });
+  const registry = () => reader.read("https://registry.example/latest", { parse: Number });
+  const requests = (host: string) => asked.filter((a) => a.url.startsWith(host)).length;
+
+  assert.deepEqual([(await ours()).value, (await registry()).value], [1, 1]);
+  // a bump of ours is seen after five minutes; the registry's answer is still the kept one
+  version = 2;
+  clock += OUR_FILES_TTL - 1;
+  assert.equal((await ours()).value, 1);
+  clock += 1;
+  assert.deepEqual([(await ours()).value, (await registry()).value], [2, 1]);
+  assert.deepEqual([requests("https://raw.example"), requests("https://registry.example")], [2, 1]);
+  // another five minutes on, our files are asked again and the registry, read ten minutes ago, is not
+  clock += OUR_FILES_TTL;
+  assert.deepEqual([(await ours()).value, (await registry()).value], [2, 1]);
+  assert.deepEqual([requests("https://raw.example"), requests("https://registry.example")], [3, 1]);
+  // and the registry is asked once fifteen minutes have passed since its read
+  clock = REGISTRY_TTL;
+  assert.equal((await registry()).value, 2);
+  assert.equal(requests("https://registry.example"), 2);
+
+  // a failed read of one of our files is tried again after its own five minutes (a registry's after ten)
+  let up = false;
+  const flaky = recorded({ "https://raw.example/f": () => (up ? { status: 200, body: "7" } : { status: 503 }) });
+  const second = createReader({ fetch: flaky.fetch as unknown as typeof globalThis.fetch, now: () => clock, userAgent: "test", background: false });
+  const file = () => second.read("https://raw.example/f", { ttl: OUR_FILES_TTL, parse: Number });
+  const failed = await file();
+  assert.deepEqual([failed.value, failed.failedAt, failed.error], [undefined, clock, "HTTP 503"]);
+  clock += OUR_FILES_TTL - 1;
+  await file();
+  assert.equal(flaky.asked.length, 1);
+  clock += 1;
+  up = true;
+  assert.deepEqual([(await file()).value, (await file()).error], [7, null]);
+  assert.equal(flaky.asked.length, 2);
+
+  // a computed value (a release's notes) is kept by its own, longer time
+  let runs = 0;
+  const notes = () => reader.memo("changelog", HOUR * 24, async () => ++runs);
+  assert.equal(await notes(), 1);
+  clock += HOUR * 23;
+  assert.equal(await notes(), 1);
+  clock += HOUR * 2;
+  assert.equal(await notes(), 2);
 });

@@ -12,7 +12,7 @@ import {
   rustVersion,
   workspaceMembers,
 } from "./manifests.js";
-import { createReader, HOUR } from "./polite.js";
+import { createReader, HOUR, OUR_FILES_TTL } from "./polite.js";
 import {
   conda,
   crateRepositories,
@@ -38,7 +38,7 @@ import { highest, isMajor, isNewer } from "./versions.js";
 /**
  * The Dependencies page's data, server-side: every library and dependency photonoxide uses,
  * the version we use and the newest release, read from our files on GitHub (`main`) and from
- * the registries, at most once an hour (polite.js). No token or secret: public data only.
+ * the registries, our files at most once in five minutes and each registry once in fifteen (polite.js). No token or secret: public data only.
  *
  * - **Native libraries:** the versions docs/libraries.md says they were checked with, against
  *   each publisher's releases (registries.js).
@@ -68,7 +68,7 @@ const reader = (globalThis.__photonoxideDependencyReader ??= createReader({
 const RAW = `https://raw.githubusercontent.com/${PHOTONOXIDE_REPO}/${PHOTONOXIDE_BRANCH}/`;
 
 /** One of our files on main, as text. */
-const ours = (path) => reader.read(`${RAW}${path}`);
+const ours = (path) => reader.read(`${RAW}${path}`, { ttl: OUR_FILES_TTL });
 
 const json = (text) => {
   try {
@@ -129,6 +129,7 @@ async function ourFiles() {
     ours("docs/libraries.md"),
     reader.read(`https://api.github.com/repos/${PHOTONOXIDE_REPO}/contents/.github/workflows?ref=${PHOTONOXIDE_BRANCH}`, {
       headers: GITHUB_API,
+      ttl: OUR_FILES_TTL,
       parse: via((list) =>
         Array.isArray(list) ? list.map((f) => f?.name).filter((n) => /\.ya?ml$/.test(n ?? "")) : null,
       ),
