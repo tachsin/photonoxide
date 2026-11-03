@@ -2,7 +2,7 @@
 
 <!-- Written by `photonoxide references --write` (or `just references`) from docs/references.yaml and the citations in the repository: edit those, not this page. -->
 
-Every paper, book and data set photonoxide cites, with every place in the repository that cites it, by file and line. 555 sources, 551 with a DOI and 4 without, are cited at 2834 places in 372 files. The sources are listed by their first author; [references-by-file.md](references-by-file.md) lists each methods page, lesson, example and source file with the sources it cites, and the [validation report](validation.md) gives each case's source on its row. How to cite a source is in [CONTRIBUTING.md](../CONTRIBUTING.md#citing-a-source); the list of sources is [references.yaml](references.yaml).
+Every paper, book and data set photonoxide cites, with every place in the repository that cites it, by file and line. 555 sources, 551 with a DOI and 4 without, are cited at 2865 places in 373 files. The sources are listed by their first author; [references-by-file.md](references-by-file.md) lists each methods page, lesson, example and source file with the sources it cites, and the [validation report](validation.md) gives each case's source on its row. How to cite a source is in [CONTRIBUTING.md](../CONTRIBUTING.md#citing-a-source); the list of sources is [references.yaml](references.yaml).
 
 [A](#a) · [B](#b) · [C](#c) · [D](#d) · [E](#e) · [F](#f) · [G](#g) · [H](#h) · [I](#i) · [J](#j) · [K](#k) · [L](#l) · [M](#m) · [N](#n) · [O](#o) · [P](#p) · [Q](#q) · [R](#r) · [S](#s) · [T](#t) · [U](#u) · [V](#v) · [W](#w) · [X](#x) · [Y](#y) · [Z](#z)
 
@@ -426,7 +426,7 @@ W. Bogaerts, S. K. Selvaraja, "Compact Single-Mode Silicon Hybrid Rib/Strip Wave
 
 W. Bogaerts, R. Baets, P. Dumon, V. Wiaux, S. Beckx, D. Taillaert, B. Luyssaert, J. Van Campenhout, P. Bienstman, D. Van Thourhout, "Nanophotonic waveguides in silicon-on-insulator fabricated with CMOS technology", J. Lightwave Technol. 23, 401 (2005). [doi:10.1109/JLT.2004.834471](https://doi.org/10.1109/JLT.2004.834471)
 
-- Academy lessons: [strip-waveguide.md:100](../academy/strip-waveguide.md?plain=1#L100), [700](../academy/strip-waveguide.md?plain=1#L700)
+- Academy lessons: [how-a-chip-is-made.md:43](../academy/how-a-chip-is-made.md?plain=1#L43), [213](../academy/how-a-chip-is-made.md?plain=1#L213), [strip-waveguide.md:100](../academy/strip-waveguide.md?plain=1#L100), [700](../academy/strip-waveguide.md?plain=1#L700)
 - Other documents: [docs/plans/fabrication.md:635](plans/fabrication.md?plain=1#L635)
 
 #### Bogaerts et al. 2011
@@ -453,6 +453,7 @@ W. Bogaerts, D. Pérez, J. Capmany, D. A. B. Miller, J. Poon, D. Englund, F. Mor
 R. J. Bojko, J. Li, L. He, T. Baehr-Jones, M. Hochberg, Y. Aida, "Electron beam lithography writing strategies for low loss, high confinement silicon optical waveguides", Journal of Vacuum Science & Technology B, Nanotechnology and Microelectronics: Materials, Processing, Measurement, and Phenomena 29, 06F309 (2011). [doi:10.1116/1.3653266](https://doi.org/10.1116/1.3653266)
 
 - Methods pages: [fabrication.md:14](methods/fabrication.md?plain=1#L14)
+- Academy lessons: [how-a-chip-is-made.md:67](../academy/how-a-chip-is-made.md?plain=1#L67), [201](../academy/how-a-chip-is-made.md?plain=1#L201)
 - Code: [src/fabrication/references.rs:56](../src/fabrication/references.rs#L56)
 - Other documents: [docs/plans/fabrication.md:637](plans/fabrication.md?plain=1#L637)
 
@@ -520,6 +521,7 @@ D. E. Browne, T. Rudolph, "Resource-Efficient Linear Optical Quantum Computation
 M. Bruel, "Silicon on insulator material technology", Electron. Lett. 31, 1201 (1995). [doi:10.1049/el:19950805](https://doi.org/10.1049/el:19950805)
 
 - Methods pages: [fabrication.md:8](methods/fabrication.md?plain=1#L8)
+- Academy lessons: [how-a-chip-is-made.md:31](../academy/how-a-chip-is-made.md?plain=1#L31), [139](../academy/how-a-chip-is-made.md?plain=1#L139), [473](../academy/how-a-chip-is-made.md?plain=1#L473)
 - Validation cases: [`fabrication/smart-cut-range-bruel`](validation.md?plain=1#L765)
 - Code: [src/fabrication/references.rs:40](../src/fabrication/references.rs#L40), [src/fabrication/smart_cut.rs:3](../src/fabrication/smart_cut.rs#L3), [src/fabrication/smart_cut_checks.rs:124](../src/fabrication/smart_cut_checks.rs#L124)
 - Other documents: [docs/plans/fabrication.md:634](plans/fabrication.md?plain=1#L634)
@@ -642,6 +644,7 @@ Y. K. Chembo, C. R. Menyuk, "Spatiotemporal Lugiato-Lefever formalism for Kerr-c
 Y. Chen, "Nanofabrication by electron beam lithography and its applications: A review", Microelectronic Engineering 135, 57 (2015). [doi:10.1016/j.mee.2015.02.042](https://doi.org/10.1016/j.mee.2015.02.042)
 
 - Methods pages: [fabrication.md:16](methods/fabrication.md?plain=1#L16)
+- Academy lessons: [how-a-chip-is-made.md:79](../academy/how-a-chip-is-made.md?plain=1#L79), [200](../academy/how-a-chip-is-made.md?plain=1#L200)
 - Validation cases: [`fabrication/lithography-choice`](validation.md?plain=1#L746)
 - Code: [src/fabrication/checks.rs:447](../src/fabrication/checks.rs#L447), [src/fabrication/references.rs:64](../src/fabrication/references.rs#L64)
 - Other documents: [docs/plans/fabrication.md:627](plans/fabrication.md?plain=1#L627)
@@ -698,6 +701,7 @@ J. Chilwell, I. Hodgkinson, "Thin-films field-transfer matrix theory of planar m
 
 S. Y. Chou, P. R. Krauss, P. J. Renstrom, "Imprint Lithography with 25-Nanometer Resolution", Science 272, 85 (1996). [doi:10.1126/science.272.5258.85](https://doi.org/10.1126/science.272.5258.85)
 
+- Academy lessons: [how-a-chip-is-made.md:37](../academy/how-a-chip-is-made.md?plain=1#L37), [204](../academy/how-a-chip-is-made.md?plain=1#L204)
 - Code: [src/fabrication/references.rs:72](../src/fabrication/references.rs#L72)
 - Other documents: [docs/plans/fabrication.md:626](plans/fabrication.md?plain=1#L626)
 
@@ -838,6 +842,7 @@ C. de Boor, "A Practical Guide to Splines", Springer New York (1978). [doi:10.10
 B. E. Deal, A. S. Grove, "General Relationship for the Thermal Oxidation of Silicon", Journal of Applied Physics 36, 3770 (1965). [doi:10.1063/1.1713945](https://doi.org/10.1063/1.1713945)
 
 - Methods pages: [fabrication.md:26](methods/fabrication.md?plain=1#L26)
+- Academy lessons: [how-a-chip-is-made.md:25](../academy/how-a-chip-is-made.md?plain=1#L25), [340](../academy/how-a-chip-is-made.md?plain=1#L340)
 - Validation cases: [`fabrication/deal-grove-tables`](validation.md?plain=1#L744), [`fabrication/deal-grove-campbell`](validation.md?plain=1#L750)
 - Code: [src/fabrication/checks.rs:433](../src/fabrication/checks.rs#L433), [src/fabrication/oxidation.rs:3](../src/fabrication/oxidation.rs#L3), [src/fabrication/references.rs:96](../src/fabrication/references.rs#L96), [src/fabrication/rule_checks.rs:330](../src/fabrication/rule_checks.rs#L330)
 - Other documents: [docs/plans/fabrication.md:624](plans/fabrication.md?plain=1#L624)
@@ -1144,6 +1149,7 @@ P. A. Franken, A. E. Hill, C. W. Peters, G. Weinreich, "Generation of Optical Ha
 S. Franssila, "Introduction to Microfabrication", Wiley (2010). [doi:10.1002/9781119990413](https://doi.org/10.1002/9781119990413)
 
 - Methods pages: [fabrication.md:32](methods/fabrication.md?plain=1#L32)
+- Academy lessons: [how-a-chip-is-made.md:61](../academy/how-a-chip-is-made.md?plain=1#L61), [293](../academy/how-a-chip-is-made.md?plain=1#L293)
 - Validation cases: [`fabrication/rayleigh-franssila`](validation.md?plain=1#L749), [`fabrication/rule-choices`](validation.md?plain=1#L752)
 - Code: [src/fabrication/references.rs:280](../src/fabrication/references.rs#L280), [src/fabrication/rule_checks.rs:323](../src/fabrication/rule_checks.rs#L323), [344](../src/fabrication/rule_checks.rs#L344)
 - Other documents: [docs/plans/fabrication.md:619](plans/fabrication.md?plain=1#L619)
@@ -1933,6 +1939,7 @@ H. Kato, S. Adachi, H. Nakanishi, K. Ohtsuka, "Optical Properties of (AlxGa1-x)0
 F. Kaufmann, G. Finco, A. Maeder, R. Grange, "Redeposition‐free inductively‐coupled plasma etching of lithium niobate for integrated photonics", Nanophotonics 12, 1601 (2023). [doi:10.1515/nanoph-2022-0676](https://doi.org/10.1515/nanoph-2022-0676), open access.
 
 - Methods pages: [fabrication.md:20](methods/fabrication.md?plain=1#L20)
+- Academy lessons: [how-a-chip-is-made.md:109](../academy/how-a-chip-is-made.md?plain=1#L109), [280](../academy/how-a-chip-is-made.md?plain=1#L280)
 - Code: [src/fabrication/references.rs:144](../src/fabrication/references.rs#L144), [146](../src/fabrication/references.rs#L146)
 - Other documents: [docs/plans/fabrication.md:651](plans/fabrication.md?plain=1#L651)
 
@@ -1947,6 +1954,7 @@ M. Kawachi, "Silica waveguides on silicon and their application to integrated-op
 B. Kearney, B. Jugdersuren, J. Culbertson, P. Desario, X. Liu, "Substrate and annealing temperature dependent electrical resistivity of sputtered titanium nitride thin films", Thin Solid Films 661, 78 (2018). [doi:10.1016/j.tsf.2018.07.001](https://doi.org/10.1016/j.tsf.2018.07.001)
 
 - Methods pages: [catalogue.md:102](methods/catalogue.md?plain=1#L102)
+- Academy lessons: [how-a-chip-is-made.md:91](../academy/how-a-chip-is-made.md?plain=1#L91), [405](../academy/how-a-chip-is-made.md?plain=1#L405)
 - Validation cases: [`fabrication/thermal-order`](validation.md?plain=1#L747)
 - Code: [src/fabrication/checks.rs:454](../src/fabrication/checks.rs#L454), [src/fabrication/references.rs:176](../src/fabrication/references.rs#L176), [src/material/catalogue/references.rs:431](../src/material/catalogue/references.rs#L431), [src/material/catalogue/resistivity.rs:9](../src/material/catalogue/resistivity.rs#L9)
 
@@ -2090,6 +2098,7 @@ R. Kremer, K. Graf, M. Cardona, G. Devyatykh, A. Gusev, A. Gibin, A. Inyushkin, 
 M. Krishnan, J. W. Nalaskowski, L. M. Cook, "Chemical Mechanical Planarization: Slurry Chemistry, Materials, and Mechanisms", Chem. Rev. 110, 178 (2009). [doi:10.1021/cr900170z](https://doi.org/10.1021/cr900170z)
 
 - Methods pages: [fabrication.md:28](methods/fabrication.md?plain=1#L28)
+- Academy lessons: [how-a-chip-is-made.md:55](../academy/how-a-chip-is-made.md?plain=1#L55), [392](../academy/how-a-chip-is-made.md?plain=1#L392)
 - Validation cases: [`fabrication/accuracy-combined`](validation.md?plain=1#L753)
 - Code: [src/fabrication/references.rs:88](../src/fabrication/references.rs#L88), [src/fabrication/rule_checks.rs:351](../src/fabrication/rule_checks.rs#L351)
 - Other documents: [docs/plans/fabrication.md:629](plans/fabrication.md?plain=1#L629)
@@ -2378,6 +2387,7 @@ H. A. Macleod, "Thin-Film Optical Filters, Fifth Edition", CRC Press (2017). [do
 M. J. Madou, "Fundamentals of Microfabrication and Nanotechnology, Three-Volume Set", CRC Press (2018). [doi:10.1201/9781315274164](https://doi.org/10.1201/9781315274164)
 
 - Methods pages: [fabrication.md:30](methods/fabrication.md?plain=1#L30)
+- Academy lessons: [how-a-chip-is-made.md:97](../academy/how-a-chip-is-made.md?plain=1#L97), [325](../academy/how-a-chip-is-made.md?plain=1#L325)
 - Validation cases: [`fabrication/rule-choices`](validation.md?plain=1#L752)
 - Code: [src/fabrication/references.rs:264](../src/fabrication/references.rs#L264), [src/fabrication/rule_checks.rs:344](../src/fabrication/rule_checks.rs#L344)
 - Other documents: [docs/plans/fabrication.md:618](plans/fabrication.md?plain=1#L618)
@@ -2880,6 +2890,7 @@ S. Ploeg, H. Gunther, R. M. Camacho, "Simphony: An Open-Source Photonic Integrat
 G. Poberaj, H. Hu, W. Sohler, P. Günter, "Lithium niobate on insulator (LNOI) for micro‐photonic devices", Laser & Photonics Reviews 6, 488 (2012). [doi:10.1002/lpor.201100035](https://doi.org/10.1002/lpor.201100035)
 
 - Methods pages: [fabrication.md:18](methods/fabrication.md?plain=1#L18)
+- Academy lessons: [how-a-chip-is-made.md:73](../academy/how-a-chip-is-made.md?plain=1#L73), [153](../academy/how-a-chip-is-made.md?plain=1#L153)
 - Code: [src/fabrication/references.rs:112](../src/fabrication/references.rs#L112)
 - Other documents: [docs/plans/fabrication.md:645](plans/fabrication.md?plain=1#L645)
 
@@ -3234,6 +3245,7 @@ S. Seltzer, "Stopping-Powers and Range Tables for Electrons, Protons, and Helium
 S. Selvaraja, P. Jaenen, W. Bogaerts, D. Van Thourhout, P. Dumon, R. Baets, "Fabrication of Photonic Wire and Crystal Circuits in Silicon-on-Insulator Using 193-nm Optical Lithography", J. Lightwave Technol. 27, 4076 (2009). [doi:10.1109/JLT.2009.2022282](https://doi.org/10.1109/JLT.2009.2022282)
 
 - Methods pages: [fabrication.md:12](methods/fabrication.md?plain=1#L12)
+- Academy lessons: [how-a-chip-is-made.md:49](../academy/how-a-chip-is-made.md?plain=1#L49), [134](../academy/how-a-chip-is-made.md?plain=1#L134)
 - Validation cases: [`fabrication/etch-stop-or-timed`](validation.md?plain=1#L745), [`fabrication/lithography-choice`](validation.md?plain=1#L746), [`fabrication/reported-flows`](validation.md?plain=1#L748), [`fabrication/rule-choices`](validation.md?plain=1#L752)
 - Code: [src/fabrication/checks.rs:440](../src/fabrication/checks.rs#L440), [447](../src/fabrication/checks.rs#L447), [461](../src/fabrication/checks.rs#L461), [src/fabrication/references.rs:48](../src/fabrication/references.rs#L48), [src/fabrication/rule_checks.rs:344](../src/fabrication/rule_checks.rs#L344)
 - Other documents: [docs/plans/fabrication.md:636](plans/fabrication.md?plain=1#L636)
@@ -4022,6 +4034,7 @@ Y. Zhang, S. Yang, A. E.-J. Lim, G.-Q. Lo, C. Galland, T. Baehr-Jones, M. Hochbe
 M. Zhang, C. Wang, R. Cheng, A. Shams-Ansari, M. Lončar, "Monolithic ultra-high-Q lithium niobate microring resonator", Optica 4, 1536 (2017). [doi:10.1364/OPTICA.4.001536](https://doi.org/10.1364/OPTICA.4.001536)
 
 - Methods pages: [fabrication.md:24](methods/fabrication.md?plain=1#L24)
+- Academy lessons: [how-a-chip-is-made.md:85](../academy/how-a-chip-is-made.md?plain=1#L85), [380](../academy/how-a-chip-is-made.md?plain=1#L380)
 - Validation cases: [`fabrication/reported-flows`](validation.md?plain=1#L748)
 - Code: [src/fabrication/checks.rs:461](../src/fabrication/checks.rs#L461), [src/fabrication/references.rs:128](../src/fabrication/references.rs#L128), [130](../src/fabrication/references.rs#L130)
 - Other documents: [docs/plans/fabrication.md:647](plans/fabrication.md?plain=1#L647)
@@ -4031,6 +4044,7 @@ M. Zhang, C. Wang, R. Cheng, A. Shams-Ansari, M. Lončar, "Monolithic ultra-high
 Y. Zhang, L. Shao, J. Yang, Z. Chen, K. Zhang, K.-M. Shum, D. Zhu, C. H. Chan, M. Lončar, C. Wang, "Systematic investigation of millimeter-wave optic modulation performance in thin-film lithium niobate", Photon. Res. 10, 2380 (2022). [doi:10.1364/PRJ.468518](https://doi.org/10.1364/PRJ.468518)
 
 - Methods pages: [devices.md:50](methods/devices.md?plain=1#L50), [electro-optic.md:14](methods/electro-optic.md?plain=1#L14), [fabrication.md:22](methods/fabrication.md?plain=1#L22), [travelling-wave.md:16](methods/travelling-wave.md?plain=1#L16)
+- Academy lessons: [how-a-chip-is-made.md:103](../academy/how-a-chip-is-made.md?plain=1#L103), [373](../academy/how-a-chip-is-made.md?plain=1#L373)
 - Validation cases: [`pockels/zhang-2022`](validation.md?plain=1#L553), [`line/response-loss-3db`](validation.md?plain=1#L570), [`line/zhang-2022-index`](validation.md?plain=1#L575), [`line/zhang-2022-full-wave-index`](validation.md?plain=1#L600), [`device/tfln-zhang-vpil`](validation.md?plain=1#L688), [`device/tfln-measured`](validation.md?plain=1#L690), [`device/tfln-zhang-response`](validation.md?plain=1#L691), [`fabrication/reported-flows`](validation.md?plain=1#L748)
 - Examples: [README.md:83](../examples/README.md?plain=1#L83), [tfln_zhang.rs:7](../examples/tfln_zhang.rs#L7)
 - Code: [crosscode/src/tfln.rs:2](../crosscode/src/tfln.rs#L2), [crosscode/src/zhang_line.rs:2](../crosscode/src/zhang_line.rs#L2), [src/cases/device/tfln_checks.rs:326](../src/cases/device/tfln_checks.rs#L326), [340](../src/cases/device/tfln_checks.rs#L340), [347](../src/cases/device/tfln_checks.rs#L347), [src/cases/electro/line_checks.rs:986](../src/cases/electro/line_checks.rs#L986), [1021](../src/cases/electro/line_checks.rs#L1021), [src/cases/mode/pockels/checks.rs:1033](../src/cases/mode/pockels/checks.rs#L1033), [src/device/measured/zhang-2022-10.8mm.toml:5](../src/device/measured/zhang-2022-10.8mm.toml#L5), [src/device/measured/zhang-2022-5.8mm.toml:5](../src/device/measured/zhang-2022-5.8mm.toml#L5), [src/device/tfln.rs:1208](../src/device/tfln.rs#L1208), [src/electro/full_wave_checks.rs:309](../src/electro/full_wave_checks.rs#L309), [src/electro/line.rs:54](../src/electro/line.rs#L54), [src/fabrication/checks.rs:461](../src/fabrication/checks.rs#L461), [src/fabrication/references.rs:152](../src/fabrication/references.rs#L152), [154](../src/fabrication/references.rs#L154)
