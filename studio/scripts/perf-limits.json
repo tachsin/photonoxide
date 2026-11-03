@@ -1,0 +1,72 @@
+{
+  "about": "The limits studio/scripts/perf-check.mjs holds a release build to. Every number is a measure and its basis: a time is the median documented in docs/studio-performance.md, held to the rule named by its group; a growth per switch is held to an absolute tolerance. To change one, edit it with the new table from a run, in the PR that makes the code faster (docs/studio-performance.md, 'Refreshing the limits').",
+  "rules": {
+    "time": {
+      "basis": "twice the documented median, and at least 50 ms: three frames at 60 Hz, below which a switch is not felt as slow and the spread of a run of three repetitions is larger than the median",
+      "factor": 2,
+      "floorMs": 50
+    },
+    "command": {
+      "basis": "twice the documented median of a command's own run, no floor: a command that was moved off the window's main thread is held to its new time",
+      "factor": 2,
+      "floorMs": 0
+    },
+    "count": {
+      "basis": "twice the documented count, which a closed page may hold once and not grow",
+      "factor": 2,
+      "floor": 0
+    },
+    "growth": {
+      "basis": "nothing gained per page switch from switch 50 to 200 (documented: 0.0 DOM nodes, 0.00 listeners), within a tolerance of less than one node and a tenth of a listener per switch: a leak of one node per switch is 150 nodes over those switches, a listener a tenth as often is 15",
+      "tolerance": { "nodesPerSwitch": 1, "listenersPerSwitch": 0.1 }
+    }
+  },
+  "pages": {
+    "about": "Switching pages (docs/studio-performance.md, 'Switching pages'): documented medians in ms, the first frame and the settled time, in a workspace of 34 jobs and 204 runs.",
+    "rule": "time",
+    "Home": { "frame": 15.7, "settled": 78 },
+    "Components": { "frame": 12.7, "settled": 112 },
+    "Chip": { "frame": 12.2, "settled": 12 },
+    "Fabrication": { "frame": 6.4, "settled": 47 },
+    "Academy": { "frame": 39.1, "settled": 101 },
+    "Materials": { "frame": 15.6, "settled": 20 },
+    "Validation": { "frame": 5.6, "settled": 50 },
+    "Libraries": { "frame": 21.2, "settled": 64 },
+    "Benchmarks": { "frame": 8.1, "settled": 167 },
+    "Settings": { "frame": 8.1, "settled": 8 }
+  },
+  "tabs": {
+    "about": "Switching a component's tabs ('Switching a component's tabs'): documented medians in ms over the all-pass ring, the Mach–Zehnder modulator and the waveguide.",
+    "rule": "time",
+    "Overview": { "frame": 15.6, "settled": 16 },
+    "Design": { "frame": 18.6, "settled": 19 },
+    "Model": { "frame": 15.2, "settled": 211 },
+    "Simulate": { "frame": 12.7, "settled": 164 },
+    "Study": { "frame": 14.6, "settled": 210 },
+    "Optimize": { "frame": 14.4, "settled": 371 },
+    "Fabrication": { "frame": 10.6, "settled": 14 }
+  },
+  "loads": {
+    "about": "The first click on Components in a fresh launch, once the window has booted ('The change', the 'after' columns), in ms from the click: the list's names shown, and settled. 'empty' is an empty workspace, 'seeded' the one of 34 jobs and 204 runs.",
+    "rule": "time",
+    "empty": { "names": 29, "settled": 563 },
+    "seeded": { "names": 34, "settled": 585 }
+  },
+  "commands": {
+    "about": "The commands of the first click on Components in the seeded workspace ('home' off the main thread, and read once): the median of a command's own run, in ms, and where it runs.",
+    "rule": "command",
+    "home": { "ms": 20.3, "thread": "pool" },
+    "device_geometry": { "ms": 3.9 }
+  },
+  "heap": {
+    "about": "After 200 page switches, a garbage collection after each 50 ('Nothing left behind when a page closes'). Growth is per switch from switch 50 to 200; the detached nodes still held are Svelte's templates, kept once each.",
+    "growth": { "nodesPerSwitch": 0.0, "listenersPerSwitch": 0.0 },
+    "detachedHeld": { "rule": "count", "documented": 122 }
+  },
+  "contexts": {
+    "about": "WebGL contexts after each of three rounds of page switches and of opening components ('Contexts released when a view closes'): the browser evicts none, and none on the page is lost.",
+    "evicted": 0,
+    "lostOnPage": 0,
+    "leftToGc": 0
+  }
+}

@@ -166,6 +166,10 @@ studio-check: studio-install
 studio-lint: studio-install
     pnpm lint
 
+# before each release, on Windows: the studio's page and tab switches, first loads, WebGL contexts and leaks against studio/scripts/perf-limits.json (needs the release build: docs/studio-performance.md; not in CI)
+perf *args:
+    node studio/scripts/perf-check.mjs {{args}}
+
 # time the benchmark problems: just bench "1,20"
 bench threads="1":
     cargo run -p photonoxide-studio --release -- bench --threads {{threads}}
