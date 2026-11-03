@@ -387,7 +387,7 @@ P. Bienstman, R. Baets, "Optical modelling of photonic crystals and VCSELs using
 P. Bienstman, S. Selleri, L. Rosa, H. P. Uranus, W. C. L. Hopman, R. Costa, A. Melloni, L. C. Andreani, J. P. Hugonin, P. Lalanne, et al., "Modelling leaky photonic wires: A mode solver comparison", Opt Quant Electron 38, 731 (2007). [doi:10.1007/s11082-006-9025-9](https://doi.org/10.1007/s11082-006-9025-9)
 
 - Methods pages: [vector.md:14](methods/vector.md?plain=1#L14)
-- Academy lessons: [leaky-and-bent-guides.md:101](../academy/leaky-and-bent-guides.md?plain=1#L101), [566](../academy/leaky-and-bent-guides.md?plain=1#L566), [strip-waveguide.md:112](../academy/strip-waveguide.md?plain=1#L112), [562](../academy/strip-waveguide.md?plain=1#L562), [677](../academy/strip-waveguide.md?plain=1#L677)
+- Academy lessons: [leaky-and-bent-guides.md:101](../academy/leaky-and-bent-guides.md?plain=1#L101), [566](../academy/leaky-and-bent-guides.md?plain=1#L566), [strip-waveguide.md:112](../academy/strip-waveguide.md?plain=1#L112), [562](../academy/strip-waveguide.md?plain=1#L562), [691](../academy/strip-waveguide.md?plain=1#L691)
 - Validation cases: [`mode/leaky-wire-bienstman`](validation.md?plain=1#L125), [`mode/leaky-wire-bienstman-loss`](validation.md?plain=1#L126), [`job/leaky-wire-bienstman`](validation.md?plain=1#L481), [`job/leaky-wire-bienstman-loss`](validation.md?plain=1#L482)
 - Examples: [README.md:41](../examples/README.md?plain=1#L41), [leaky_wire_benchmark.rs:5](../examples/leaky_wire_benchmark.rs#L5)
 - Code: [src/job/leaky_checks.rs:57](../src/job/leaky_checks.rs#L57), [64](../src/job/leaky_checks.rs#L64), [src/validation.rs:900](../src/validation.rs#L900), [907](../src/validation.rs#L907)
@@ -426,7 +426,7 @@ W. Bogaerts, S. K. Selvaraja, "Compact Single-Mode Silicon Hybrid Rib/Strip Wave
 
 W. Bogaerts, R. Baets, P. Dumon, V. Wiaux, S. Beckx, D. Taillaert, B. Luyssaert, J. Van Campenhout, P. Bienstman, D. Van Thourhout, "Nanophotonic waveguides in silicon-on-insulator fabricated with CMOS technology", J. Lightwave Technol. 23, 401 (2005). [doi:10.1109/JLT.2004.834471](https://doi.org/10.1109/JLT.2004.834471)
 
-- Academy lessons: [strip-waveguide.md:100](../academy/strip-waveguide.md?plain=1#L100), [686](../academy/strip-waveguide.md?plain=1#L686)
+- Academy lessons: [strip-waveguide.md:100](../academy/strip-waveguide.md?plain=1#L100), [700](../academy/strip-waveguide.md?plain=1#L700)
 - Other documents: [docs/plans/fabrication.md:635](plans/fabrication.md?plain=1#L635)
 
 #### Bogaerts et al. 2011
@@ -445,7 +445,7 @@ W. Bogaerts, P. De Heyn, T. Van Vaerenbergh, K. De Vos, S. Kumar Selvaraja, T. C
 
 W. Bogaerts, D. Pérez, J. Capmany, D. A. B. Miller, J. Poon, D. Englund, F. Morichetti, A. Melloni, "Programmable photonic circuits", Nature 586, 207 (2020). [doi:10.1038/s41586-020-2764-0](https://doi.org/10.1038/s41586-020-2764-0)
 
-- Academy lessons: [mach-zehnder.md:118](../academy/mach-zehnder.md?plain=1#L118), [303](../academy/mach-zehnder.md?plain=1#L303), [379](../academy/mach-zehnder.md?plain=1#L379), [463](../academy/mach-zehnder.md?plain=1#L463)
+- Academy lessons: [mach-zehnder.md:118](../academy/mach-zehnder.md?plain=1#L118), [303](../academy/mach-zehnder.md?plain=1#L303), [379](../academy/mach-zehnder.md?plain=1#L379), [475](../academy/mach-zehnder.md?plain=1#L475)
 - Other documents: [docs/plans/optimization.md:631](plans/optimization.md?plain=1#L631)
 
 #### Bojko et al. 2011
@@ -479,7 +479,7 @@ N. Bootland, V. Dolean, P. Jolivet, P.-H. Tournier, "A comparison of coarse spac
 
 M. Born, E. Wolf, A. B. Bhatia, P. C. Clemmow, D. Gabor, A. R. Stokes, A. M. Taylor, P. A. Wayman, W. L. Wilcock, "Principles of Optics: Electromagnetic Theory of Propagation, Interference and Diffraction of Light", Cambridge University Press (1999). [doi:10.1017/CBO9781139644181](https://doi.org/10.1017/CBO9781139644181)
 
-- Academy lessons: [mach-zehnder.md:64](../academy/mach-zehnder.md?plain=1#L64), [352](../academy/mach-zehnder.md?plain=1#L352), [453](../academy/mach-zehnder.md?plain=1#L453)
+- Academy lessons: [mach-zehnder.md:64](../academy/mach-zehnder.md?plain=1#L64), [352](../academy/mach-zehnder.md?plain=1#L352), [465](../academy/mach-zehnder.md?plain=1#L465)
 
 #### Boyd 2020
 
@@ -732,7 +732,7 @@ R. E. Christiansen, O. Sigmund, "Inverse design in photonics by topology optimiz
 L. Chrostowski, M. Hochberg, "Silicon Photonics Design: From Devices to Systems", Cambridge University Press (2015). [doi:10.1017/CBO9781316084168](https://doi.org/10.1017/CBO9781316084168)
 
 - Methods pages: [components.md:12](methods/components.md?plain=1#L12), [devices.md:8](methods/devices.md?plain=1#L8), [dispersion.md:8](methods/dispersion.md?plain=1#L8), [eim.md:10](methods/eim.md?plain=1#L10), [slab.md:11](methods/slab.md?plain=1#L11), [vector.md:12](methods/vector.md?plain=1#L12)
-- Academy lessons: [directional-coupler.md:88](../academy/directional-coupler.md?plain=1#L88), [130](../academy/directional-coupler.md?plain=1#L130), [495](../academy/directional-coupler.md?plain=1#L495), [material-dispersion.md:68](../academy/material-dispersion.md?plain=1#L68), [349](../academy/material-dispersion.md?plain=1#L349), [slab-waveguide.md:84](../academy/slab-waveguide.md?plain=1#L84), [114](../academy/slab-waveguide.md?plain=1#L114), [583](../academy/slab-waveguide.md?plain=1#L583), [strip-waveguide.md:130](../academy/strip-waveguide.md?plain=1#L130), [160](../academy/strip-waveguide.md?plain=1#L160)
+- Academy lessons: [directional-coupler.md:88](../academy/directional-coupler.md?plain=1#L88), [130](../academy/directional-coupler.md?plain=1#L130), [507](../academy/directional-coupler.md?plain=1#L507), [material-dispersion.md:68](../academy/material-dispersion.md?plain=1#L68), [349](../academy/material-dispersion.md?plain=1#L349), [slab-waveguide.md:84](../academy/slab-waveguide.md?plain=1#L84), [114](../academy/slab-waveguide.md?plain=1#L114), [583](../academy/slab-waveguide.md?plain=1#L583), [strip-waveguide.md:130](../academy/strip-waveguide.md?plain=1#L130), [160](../academy/strip-waveguide.md?plain=1#L160)
 - Validation cases: [`mode/slab-te-book`](validation.md?plain=1#L99), [`mode/slab-tm-book`](validation.md?plain=1#L100), [`mode/strip-book`](validation.md?plain=1#L103), [`mode/strip-group-index-book`](validation.md?plain=1#L109), [`mode/eim-strip-book`](validation.md?plain=1#L120), [`components/directional-coupler-power`](validation.md?plain=1#L300), [`device/coupler-closed-forms`](validation.md?plain=1#L311), [`device/strip-chrostowski`](validation.md?plain=1#L324), [`device/coupler-chrostowski`](validation.md?plain=1#L325), [`device/study-coupler-chrostowski`](validation.md?plain=1#L349)
 - Examples: [README.md:36](../examples/README.md?plain=1#L36), [40](../examples/README.md?plain=1#L40), [60](../examples/README.md?plain=1#L60), [directional_coupler.rs:4](../examples/directional_coupler.rs#L4), [42](../examples/directional_coupler.rs#L42), [effective_index_method.rs:4](../examples/effective_index_method.rs#L4), [group_index.rs:4](../examples/group_index.rs#L4), [48](../examples/group_index.rs#L48), [slab_soi.rs:4](../examples/slab_soi.rs#L4), [strip_waveguide.rs:5](../examples/strip_waveguide.rs#L5), [62](../examples/strip_waveguide.rs#L62), [python/examples/README.md:27](../python/examples/README.md?plain=1#L27), [python/examples/output/strip_waveguide.txt:15](../python/examples/output/strip_waveguide.txt#L15), [16](../python/examples/output/strip_waveguide.txt#L16), [python/examples/slab_soi.py:5](../python/examples/slab_soi.py#L5), [python/examples/strip_waveguide.py:5](../python/examples/strip_waveguide.py#L5), [59](../python/examples/strip_waveguide.py#L59), [64](../python/examples/strip_waveguide.py#L64)
 - Code: [python/tests/test_api.py:29](../python/tests/test_api.py#L29), [src/circuit/components/coupler.rs:200](../src/circuit/components/coupler.rs#L200), [253](../src/circuit/components/coupler.rs#L253), [src/circuit/components/waveguide.rs:20](../src/circuit/components/waveguide.rs#L20), [327](../src/circuit/components/waveguide.rs#L327), [src/device/bend.rs:250](../src/device/bend.rs#L250), [src/device/checks.rs:75](../src/device/checks.rs#L75), [166](../src/device/checks.rs#L166), [173](../src/device/checks.rs#L173), [721](../src/device/checks.rs#L721), [src/device/fit.rs:12](../src/device/fit.rs#L12), [src/device/rib.rs:297](../src/device/rib.rs#L297), [src/device/tests.rs:353](../src/device/tests.rs#L353), [490](../src/device/tests.rs#L490), [src/device/waveguide.rs:22](../src/device/waveguide.rs#L22), [src/facade/device.rs:286](../src/facade/device.rs#L286), [src/job/study_checks.rs:43](../src/job/study_checks.rs#L43), [src/mode/dispersion.rs:5](../src/mode/dispersion.rs#L5), [src/mode/eim.rs:4](../src/mode/eim.rs#L4), [src/mode/slab.rs:13](../src/mode/slab.rs#L13), [src/stack.rs:134](../src/stack.rs#L134), [src/validation.rs:718](../src/validation.rs#L718), [725](../src/validation.rs#L725), [746](../src/validation.rs#L746), [788](../src/validation.rs#L788), [865](../src/validation.rs#L865), [2125](../src/validation.rs#L2125), [4722](../src/validation.rs#L4722), [studio/src-tauri/src/charts/coupler.rs:7](../studio/src-tauri/src/charts/coupler.rs#L7), [studio/src-tauri/src/charts/leaky.rs:36](../studio/src-tauri/src/charts/leaky.rs#L36), [studio/src-tauri/src/charts/slab.rs:8](../studio/src-tauri/src/charts/slab.rs#L8), [studio/src-tauri/src/circuits/library.rs:136](../studio/src-tauri/src/circuits/library.rs#L136), [studio/src-tauri/src/examples.rs:642](../studio/src-tauri/src/examples.rs#L642)
@@ -743,7 +743,7 @@ L. Chrostowski, M. Hochberg, "Silicon Photonics Design: From Devices to Systems"
 W. R. Clements, P. C. Humphreys, B. J. Metcalf, W. S. Kolthammer, I. A. Walsmley, "Optimal design for universal multiport interferometers", Optica 3, 1460 (2016). [doi:10.1364/OPTICA.3.001460](https://doi.org/10.1364/OPTICA.3.001460), open access.
 
 - Methods pages: [circuit-adjoint.md:12](methods/circuit-adjoint.md?plain=1#L12), [optimization.md:10](methods/optimization.md?plain=1#L10)
-- Academy lessons: [mach-zehnder.md:106](../academy/mach-zehnder.md?plain=1#L106), [370](../academy/mach-zehnder.md?plain=1#L370), [464](../academy/mach-zehnder.md?plain=1#L464)
+- Academy lessons: [mach-zehnder.md:106](../academy/mach-zehnder.md?plain=1#L106), [370](../academy/mach-zehnder.md?plain=1#L370), [476](../academy/mach-zehnder.md?plain=1#L476)
 - Validation cases: [`circuit/adjoint-mesh`](validation.md?plain=1#L285)
 - Examples: [README.md:47](../examples/README.md?plain=1#L47), [56](../examples/README.md?plain=1#L56), [circuit_splitter.rs:6](../examples/circuit_splitter.rs#L6), [optimize_mesh.rs:7](../examples/optimize_mesh.rs#L7)
 - Code: [src/circuit/adjoint/checks.rs:245](../src/circuit/adjoint/checks.rs#L245), [src/validation.rs:2020](../src/validation.rs#L2020), [tests/jobs-toml/chip-splitter.toml:1](../tests/jobs-toml/chip-splitter.toml#L1)
@@ -812,13 +812,13 @@ J. Crank, P. Nicolson, "A practical method for numerical evaluation of solutions
 
 D. Dai, J. E. Bowers, "Novel ultra-short and ultra-broadband polarization beam splitter based on a bent directional coupler", Opt. Express 19, 18614 (2011). [doi:10.1364/OE.19.018614](https://doi.org/10.1364/OE.19.018614)
 
-- Academy lessons: [directional-coupler.md:70](../academy/directional-coupler.md?plain=1#L70), [382](../academy/directional-coupler.md?plain=1#L382), [506](../academy/directional-coupler.md?plain=1#L506)
+- Academy lessons: [directional-coupler.md:70](../academy/directional-coupler.md?plain=1#L70), [382](../academy/directional-coupler.md?plain=1#L382), [518](../academy/directional-coupler.md?plain=1#L518)
 
 #### Dai et al. 2013
 
 D. Dai, J. Wang, Y. Shi, "Silicon mode (de)multiplexer enabling high capacity photonic networks-on-chip with a single-wavelength-carrier light", Opt. Lett. 38, 1422 (2013). [doi:10.1364/OL.38.001422](https://doi.org/10.1364/OL.38.001422)
 
-- Academy lessons: [directional-coupler.md:82](../academy/directional-coupler.md?plain=1#L82), [386](../academy/directional-coupler.md?plain=1#L386), [507](../academy/directional-coupler.md?plain=1#L507)
+- Academy lessons: [directional-coupler.md:82](../academy/directional-coupler.md?plain=1#L82), [386](../academy/directional-coupler.md?plain=1#L386), [519](../academy/directional-coupler.md?plain=1#L519)
 
 #### Daubechies 1988
 
@@ -974,14 +974,14 @@ I. S. Duff, J. K. Reid, "The Multifrontal Solution of Indefinite Sparse Symmetri
 
 P. Dumon, W. Bogaerts, V. Wiaux, J. Wouters, S. Beckx, J. Van Campenhout, D. Taillaert, B. Luyssaert, P. Bienstman, D. Van Thourhout, et al., "Low-Loss SOI Photonic Wires and Ring Resonators Fabricated With Deep UV Lithography", IEEE Photon. Technol. Lett. 16, 1328 (2004). [doi:10.1109/LPT.2004.826025](https://doi.org/10.1109/LPT.2004.826025)
 
-- Academy lessons: [strip-waveguide.md:94](../academy/strip-waveguide.md?plain=1#L94), [620](../academy/strip-waveguide.md?plain=1#L620), [685](../academy/strip-waveguide.md?plain=1#L685)
+- Academy lessons: [strip-waveguide.md:94](../academy/strip-waveguide.md?plain=1#L94), [620](../academy/strip-waveguide.md?plain=1#L620), [699](../academy/strip-waveguide.md?plain=1#L699)
 
 #### Dwivedi et al. 2015
 
 S. Dwivedi, A. Ruocco, M. Vanslembrouck, T. Spuesens, P. Bienstman, P. Dumon, T. Van Vaerenbergh, W. Bogaerts, "Experimental Extraction of Effective Refractive Index and Thermo-Optic Coefficients of Silicon-on-Insulator Waveguides Using Interferometers", J. Lightwave Technol. 33, 4471 (2015). [doi:10.1109/JLT.2015.2476603](https://doi.org/10.1109/JLT.2015.2476603)
 
 - Methods pages: [components.md:18](methods/components.md?plain=1#L18), [249](methods/components.md?plain=1#L249), [devices.md:26](methods/devices.md?plain=1#L26), [fields.md:14](methods/fields.md?plain=1#L14)
-- Academy lessons: [mach-zehnder.md:100](../academy/mach-zehnder.md?plain=1#L100), [198](../academy/mach-zehnder.md?plain=1#L198), [281](../academy/mach-zehnder.md?plain=1#L281), [317](../academy/mach-zehnder.md?plain=1#L317), [455](../academy/mach-zehnder.md?plain=1#L455), [strip-waveguide.md:136](../academy/strip-waveguide.md?plain=1#L136), [529](../academy/strip-waveguide.md?plain=1#L529), [697](../academy/strip-waveguide.md?plain=1#L697)
+- Academy lessons: [mach-zehnder.md:100](../academy/mach-zehnder.md?plain=1#L100), [198](../academy/mach-zehnder.md?plain=1#L198), [281](../academy/mach-zehnder.md?plain=1#L281), [317](../academy/mach-zehnder.md?plain=1#L317), [467](../academy/mach-zehnder.md?plain=1#L467), [strip-waveguide.md:136](../academy/strip-waveguide.md?plain=1#L136), [529](../academy/strip-waveguide.md?plain=1#L529), [711](../academy/strip-waveguide.md?plain=1#L711)
 - Validation cases: [`components/mzi-neff-dwivedi-470`](validation.md?plain=1#L303), [`components/mzi-ng-dwivedi-470`](validation.md?plain=1#L304), [`components/mzi-neff-dwivedi-602`](validation.md?plain=1#L305), [`components/mzi-ng-dwivedi-602`](validation.md?plain=1#L306), [`components/mzi-neff-dwivedi-805`](validation.md?plain=1#L307), [`components/mzi-ng-dwivedi-805`](validation.md?plain=1#L308), [`device/wire-ng-dwivedi`](validation.md?plain=1#L327), [`thermo/dwivedi-470`](validation.md?plain=1#L538), [`thermo/dwivedi-602`](validation.md?plain=1#L539), [`thermo/dwivedi-805`](validation.md?plain=1#L540)
 - Examples: [README.md:62](../examples/README.md?plain=1#L62), [mzi_dwivedi.rs:8](../examples/mzi_dwivedi.rs#L8)
 - Code: [src/cases/mode/thermo_checks.rs:366](../src/cases/mode/thermo_checks.rs#L366), [373](../src/cases/mode/thermo_checks.rs#L373), [380](../src/cases/mode/thermo_checks.rs#L380), [src/circuit/components/measured.rs:6](../src/circuit/components/measured.rs#L6), [src/device/checks.rs:187](../src/device/checks.rs#L187), [src/validation.rs:2146](../src/validation.rs#L2146), [2153](../src/validation.rs#L2153), [2160](../src/validation.rs#L2160), [2167](../src/validation.rs#L2167), [2174](../src/validation.rs#L2174), [2181](../src/validation.rs#L2181)
@@ -1062,7 +1062,7 @@ F. Ewert, P. van Loock, "3/4-Efficient Bell Measurement with Passive Linear Opti
 A. B. Fallahkhair, K. S. Li, T. E. Murphy, "Vector Finite Difference Modesolver for Anisotropic Dielectric Waveguides", J. Lightwave Technol. 26, 1423 (2008). [doi:10.1109/JLT.2008.923643](https://doi.org/10.1109/JLT.2008.923643)
 
 - Methods pages: [devices.md:14](methods/devices.md?plain=1#L14), [fields.md:8](methods/fields.md?plain=1#L8), [slab-fd.md:8](methods/slab-fd.md?plain=1#L8), [stacks.md:10](methods/stacks.md?plain=1#L10), [vector.md:8](methods/vector.md?plain=1#L8)
-- Academy lessons: [slab-waveguide.md:78](../academy/slab-waveguide.md?plain=1#L78), [520](../academy/slab-waveguide.md?plain=1#L520), [576](../academy/slab-waveguide.md?plain=1#L576), [strip-waveguide.md:118](../academy/strip-waveguide.md?plain=1#L118), [199](../academy/strip-waveguide.md?plain=1#L199), [628](../academy/strip-waveguide.md?plain=1#L628), [673](../academy/strip-waveguide.md?plain=1#L673), [706](../academy/strip-waveguide.md?plain=1#L706)
+- Academy lessons: [slab-waveguide.md:78](../academy/slab-waveguide.md?plain=1#L78), [520](../academy/slab-waveguide.md?plain=1#L520), [576](../academy/slab-waveguide.md?plain=1#L576), [strip-waveguide.md:118](../academy/strip-waveguide.md?plain=1#L118), [199](../academy/strip-waveguide.md?plain=1#L199), [628](../academy/strip-waveguide.md?plain=1#L628), [687](../academy/strip-waveguide.md?plain=1#L687), [720](../academy/strip-waveguide.md?plain=1#L720)
 - Validation cases: [`device/coupler-3d-order`](validation.md?plain=1#L320), [`job/leaky-film-grid-order`](validation.md?plain=1#L479)
 - Code: [src/circuit/components/waveguide.rs:367](../src/circuit/components/waveguide.rs#L367), [src/device/checks.rs:138](../src/device/checks.rs#L138), [src/device/fit.rs:11](../src/device/fit.rs#L11), [src/device/pcm.rs:1004](../src/device/pcm.rs#L1004), [src/device/tfln.rs:1260](../src/device/tfln.rs#L1260), [src/device/thermo.rs:772](../src/device/thermo.rs#L772), [src/device/waveguide.rs:33](../src/device/waveguide.rs#L33), [src/job/leaky_checks.rs:43](../src/job/leaky_checks.rs#L43), [src/mode/slab_fd.rs:16](../src/mode/slab_fd.rs#L16), [src/mode/vector.rs:5](../src/mode/vector.rs#L5)
 - Other documents: [ROADMAP.md:726](../ROADMAP.md?plain=1#L726)
@@ -1352,7 +1352,7 @@ P. Goel, C. Kauppinen, R. Raju, I. Tittonen, "Thermoelectric and electronic tran
 
 J. E. Goell, "A Circular-Harmonic Computer Analysis of Rectangular Dielectric Waveguides", Bell System Technical Journal 48, 2133 (1969). [doi:10.1002/j.1538-7305.1969.tb01168.x](https://doi.org/10.1002/j.1538-7305.1969.tb01168.x)
 
-- Academy lessons: [strip-waveguide.md:52](../academy/strip-waveguide.md?plain=1#L52), [365](../academy/strip-waveguide.md?plain=1#L365), [668](../academy/strip-waveguide.md?plain=1#L668)
+- Academy lessons: [strip-waveguide.md:52](../academy/strip-waveguide.md?plain=1#L52), [365](../academy/strip-waveguide.md?plain=1#L365), [682](../academy/strip-waveguide.md?plain=1#L682)
 
 #### Goldsmith and Salmon 1987
 
@@ -1453,7 +1453,7 @@ G. R. Hadley, "Wide-angle beam propagation using Padé approximant operators", O
 G. Hadley, "High-accuracy finite-difference equations for dielectric waveguide analysis I: uniform regions and dielectric interfaces", J. Lightwave Technol. 20, 1210 (2002). [doi:10.1109/JLT.2002.800361](https://doi.org/10.1109/JLT.2002.800361)
 
 - Methods pages: [devices.md:16](methods/devices.md?plain=1#L16), [hadley.md:8](methods/hadley.md?plain=1#L8)
-- Academy lessons: [strip-waveguide.md:76](../academy/strip-waveguide.md?plain=1#L76), [675](../academy/strip-waveguide.md?plain=1#L675)
+- Academy lessons: [strip-waveguide.md:76](../academy/strip-waveguide.md?plain=1#L76), [689](../academy/strip-waveguide.md?plain=1#L689)
 - Validation cases: [`mode/hadley-uniform-box`](validation.md?plain=1#L149)
 - Code: [src/device/fit.rs:9](../src/device/fit.rs#L9), [src/device/waveguide.rs:24](../src/device/waveguide.rs#L24), [35](../src/device/waveguide.rs#L35), [474](../src/device/waveguide.rs#L474), [src/mode/hadley.rs:5](../src/mode/hadley.rs#L5), [src/validation.rs:1068](../src/validation.rs#L1068)
 - Other documents: [ROADMAP.md:727](../ROADMAP.md?plain=1#L727)
@@ -1463,7 +1463,7 @@ G. Hadley, "High-accuracy finite-difference equations for dielectric waveguide a
 G. Hadley, "High-accuracy finite-difference equations for dielectric waveguide analysis II: dielectric corners", J. Lightwave Technol. 20, 1219 (2002). [doi:10.1109/JLT.2002.800371](https://doi.org/10.1109/JLT.2002.800371)
 
 - Methods pages: [devices.md:18](methods/devices.md?plain=1#L18), [fdfd-3d.md:28](methods/fdfd-3d.md?plain=1#L28), [hadley.md:10](methods/hadley.md?plain=1#L10), [stacks.md:8](methods/stacks.md?plain=1#L8), [vector.md:10](methods/vector.md?plain=1#L10), [walls.md:8](methods/walls.md?plain=1#L8)
-- Academy lessons: [strip-waveguide.md:82](../academy/strip-waveguide.md?plain=1#L82), [416](../academy/strip-waveguide.md?plain=1#L416), [605](../academy/strip-waveguide.md?plain=1#L605), [676](../academy/strip-waveguide.md?plain=1#L676), [705](../academy/strip-waveguide.md?plain=1#L705)
+- Academy lessons: [strip-waveguide.md:82](../academy/strip-waveguide.md?plain=1#L82), [416](../academy/strip-waveguide.md?plain=1#L416), [605](../academy/strip-waveguide.md?plain=1#L605), [690](../academy/strip-waveguide.md?plain=1#L690), [719](../academy/strip-waveguide.md?plain=1#L719)
 - Validation cases: [`mode/hadley-box-low`](validation.md?plain=1#L104), [`mode/hadley-box-high`](validation.md?plain=1#L105), [`mode/hadley-corner-low`](validation.md?plain=1#L106), [`mode/hadley-corner-high`](validation.md?plain=1#L107), [`mode/hadley-corners-box-low`](validation.md?plain=1#L154), [`fdfd3d/port-mode-strip`](validation.md?plain=1#L166), [`device/waveguide-fit-neff`](validation.md?plain=1#L313), [`device/waveguide-3d-order`](validation.md?plain=1#L315), [`device/rib-eim`](validation.md?plain=1#L333), [`device/rib-hadley`](validation.md?plain=1#L334), [`stack/rib-hadley-table`](validation.md?plain=1#L486)
 - Examples: [README.md:45](../examples/README.md?plain=1#L45), [76](../examples/README.md?plain=1#L76), [hadley_corners.rs:6](../examples/hadley_corners.rs#L6), [rib_hadley.rs:5](../examples/rib_hadley.rs#L5), [49](../examples/rib_hadley.rs#L49), [strip_waveguide.rs:16](../examples/strip_waveguide.rs#L16)
 - Code: [src/bench/catalogue.rs:776](../src/bench/catalogue.rs#L776), [src/cases/stack/checks.rs:449](../src/cases/stack/checks.rs#L449), [src/device/checks.rs:89](../src/device/checks.rs#L89), [103](../src/device/checks.rs#L103), [src/device/fit.rs:9](../src/device/fit.rs#L9), [src/device/splitter_checks.rs:89](../src/device/splitter_checks.rs#L89), [96](../src/device/splitter_checks.rs#L96), [385](../src/device/splitter_checks.rs#L385), [src/device/waveguide.rs:25](../src/device/waveguide.rs#L25), [36](../src/device/waveguide.rs#L36), [474](../src/device/waveguide.rs#L474), [src/mode/hadley.rs:7](../src/mode/hadley.rs#L7), [src/mode/vector.rs:16](../src/mode/vector.rs#L16), [1464](../src/mode/vector.rs#L1464), [src/validation.rs:753](../src/validation.rs#L753), [760](../src/validation.rs#L760), [767](../src/validation.rs#L767), [774](../src/validation.rs#L774), [1103](../src/validation.rs#L1103), [1187](../src/validation.rs#L1187)
@@ -1479,7 +1479,7 @@ E. Hairer, G. Wanner, "Solving Ordinary Differential Equations II", Springer Ber
 
 R. Halir, P. Cheben, J. M. Luque‐González, J. D. Sarmiento‐Merenguel, J. H. Schmid, G. Wangüemert‐Pérez, D. Xu, S. Wang, A. Ortega‐Moñux, Í. Molina‐Fernández, "Ultra‐broadband nanophotonic beamsplitter using an anisotropic sub‐wavelength metamaterial", Laser & Photonics Reviews 10, 1039 (2016). [doi:10.1002/lpor.201600213](https://doi.org/10.1002/lpor.201600213), open access.
 
-- Academy lessons: [directional-coupler.md:100](../academy/directional-coupler.md?plain=1#L100), [503](../academy/directional-coupler.md?plain=1#L503)
+- Academy lessons: [directional-coupler.md:100](../academy/directional-coupler.md?plain=1#L100), [515](../academy/directional-coupler.md?plain=1#L515)
 
 #### Hamerly et al. 2022
 
@@ -1653,7 +1653,7 @@ C. Y. Ho, R. W. Powell, P. E. Liley, "Thermal Conductivity of the Elements", Jou
 G. B. Hocker, W. K. Burns, "Mode dispersion in diffused channel waveguides by the effective index method", Appl. Opt. 16, 113 (1977). [doi:10.1364/AO.16.000113](https://doi.org/10.1364/AO.16.000113)
 
 - Methods pages: [devices.md:24](methods/devices.md?plain=1#L24), [eim.md:8](methods/eim.md?plain=1#L8)
-- Academy lessons: [strip-waveguide.md:58](../academy/strip-waveguide.md?plain=1#L58), [300](../academy/strip-waveguide.md?plain=1#L300), [670](../academy/strip-waveguide.md?plain=1#L670)
+- Academy lessons: [strip-waveguide.md:58](../academy/strip-waveguide.md?plain=1#L58), [300](../academy/strip-waveguide.md?plain=1#L300), [684](../academy/strip-waveguide.md?plain=1#L684)
 - Validation cases: [`mode/eim-strip-book`](validation.md?plain=1#L120), [`device/rib-eim`](validation.md?plain=1#L333), [`device/mmi-guided-3d`](validation.md?plain=1#L339), [`device/mmi-fdfd-3d`](validation.md?plain=1#L340), [`device/mmi-best-length-3d`](validation.md?plain=1#L341), [`device/y-branch-2d-3d`](validation.md?plain=1#L344), [`device/pcm-analytic-index`](validation.md?plain=1#L661)
 - Examples: [README.md:39](../examples/README.md?plain=1#L39)
 - Code: [src/cases/device/pcm_checks.rs:426](../src/cases/device/pcm_checks.rs#L426), [src/circuit/components/mmi.rs:45](../src/circuit/components/mmi.rs#L45), [src/device/mmi.rs:320](../src/device/mmi.rs#L320), [338](../src/device/mmi.rs#L338), [src/device/pcm.rs:980](../src/device/pcm.rs#L980), [src/device/rib.rs:226](../src/device/rib.rs#L226), [295](../src/device/rib.rs#L295), [src/device/splitter_checks.rs:89](../src/device/splitter_checks.rs#L89), [131](../src/device/splitter_checks.rs#L131), [138](../src/device/splitter_checks.rs#L138), [145](../src/device/splitter_checks.rs#L145), [166](../src/device/splitter_checks.rs#L166), [src/mode/eim.rs:6](../src/mode/eim.rs#L6), [src/validation.rs:865](../src/validation.rs#L865)
@@ -1785,7 +1785,7 @@ J. Jiang, M. Chen, J. A. Fan, "Deep neural networks for the evaluation and desig
 
 K. Jinguji, M. Kawachi, "Synthesis of coherent two-port lattice-form optical delay-line circuit", J. Lightwave Technol. 13, 73 (1995). [doi:10.1109/50.350643](https://doi.org/10.1109/50.350643)
 
-- Academy lessons: [mach-zehnder.md:58](../academy/mach-zehnder.md?plain=1#L58), [364](../academy/mach-zehnder.md?plain=1#L364), [461](../academy/mach-zehnder.md?plain=1#L461)
+- Academy lessons: [mach-zehnder.md:58](../academy/mach-zehnder.md?plain=1#L58), [364](../academy/mach-zehnder.md?plain=1#L364), [473](../academy/mach-zehnder.md?plain=1#L473)
 - Examples: [optimize_mzi_lattice.rs:10](../examples/optimize_mzi_lattice.rs#L10)
 - Other documents: [docs/plans/optimization.md:619](plans/optimization.md?plain=1#L619)
 
@@ -2168,7 +2168,7 @@ C. C. Lee, H. Y. Fan, "Second-harmonic generation in InSb, InP, and AlSb", Phys.
 
 K. K. Lee, D. R. Lim, L. C. Kimerling, J. Shin, F. Cerrina, "Fabrication of ultralow-loss Si/SiO\_2 waveguides by roughness reduction", Opt. Lett. 26, 1888 (2001). [doi:10.1364/OL.26.001888](https://doi.org/10.1364/OL.26.001888)
 
-- Academy lessons: [strip-waveguide.md:70](../academy/strip-waveguide.md?plain=1#L70), [617](../academy/strip-waveguide.md?plain=1#L617), [683](../academy/strip-waveguide.md?plain=1#L683)
+- Academy lessons: [strip-waveguide.md:70](../academy/strip-waveguide.md?plain=1#L70), [617](../academy/strip-waveguide.md?plain=1#L617), [697](../academy/strip-waveguide.md?plain=1#L697)
 - Other documents: [docs/plans/fabrication.md:638](plans/fabrication.md?plain=1#L638)
 
 #### Leidinger et al. 2015
@@ -2240,7 +2240,7 @@ Q. Lin, O. J. Painter, G. P. Agrawal, "Nonlinear optical phenomena in silicon wa
 B. Little, S. Chu, H. Haus, J. Foresi, J.-P. Laine, "Microring resonator channel dropping filters", J. Lightwave Technol. 15, 998 (1997). [doi:10.1109/50.588673](https://doi.org/10.1109/50.588673)
 
 - Methods pages: [devices.md:12](methods/devices.md?plain=1#L12), [optimization.md:12](methods/optimization.md?plain=1#L12), [314](methods/optimization.md?plain=1#L314)
-- Academy lessons: [README.md:61](../academy/README.md?plain=1#L61), [123](../academy/README.md?plain=1#L123), [ring-resonator.md:31](../academy/ring-resonator.md?plain=1#L31), [595](../academy/ring-resonator.md?plain=1#L595)
+- Academy lessons: [README.md:62](../academy/README.md?plain=1#L62), [124](../academy/README.md?plain=1#L124), [ring-resonator.md:31](../academy/ring-resonator.md?plain=1#L31), [595](../academy/ring-resonator.md?plain=1#L595)
 - Examples: [README.md:51](../examples/README.md?plain=1#L51), [55](../examples/README.md?plain=1#L55), [optimize_chip_rings.rs:8](../examples/optimize_chip_rings.rs#L8), [optimize_ring_flat.rs:8](../examples/optimize_ring_flat.rs#L8)
 - Code: [src/device/ring.rs:289](../src/device/ring.rs#L289)
 - Other documents: [docs/plans/optimization.md:620](plans/optimization.md?plain=1#L620)
@@ -2263,7 +2263,7 @@ V. Liu, S. Fan, "S4 : A free electromagnetic solver for layered periodic structu
 Z. Liu, J. K. S. Poon, "Comparison of Lumerical FDTD and Tidy3D for three-dimensional FDTD simulations of passive silicon photonic components", Opt. Continuum 4, 2427 (2025). [doi:10.1364/OPTCON.572107](https://doi.org/10.1364/OPTCON.572107)
 
 - Methods pages: [fdtd.md:52](methods/fdtd.md?plain=1#L52), [1067](methods/fdtd.md?plain=1#L1067)
-- Academy lessons: [directional-coupler.md:112](../academy/directional-coupler.md?plain=1#L112), [406](../academy/directional-coupler.md?plain=1#L406), [511](../academy/directional-coupler.md?plain=1#L511)
+- Academy lessons: [directional-coupler.md:112](../academy/directional-coupler.md?plain=1#L112), [406](../academy/directional-coupler.md?plain=1#L406), [523](../academy/directional-coupler.md?plain=1#L523)
 - Examples: [README.md:70](../examples/README.md?plain=1#L70), [coupler_liu_poon.rs:5](../examples/coupler_liu_poon.rs#L5), [crossing_liu_poon.rs:5](../examples/crossing_liu_poon.rs#L5), [mmi_liu_poon.rs:5](../examples/mmi_liu_poon.rs#L5), [mode_converter_liu_poon.rs:5](../examples/mode_converter_liu_poon.rs#L5), [pdk/mod.rs:7](../examples/pdk/mod.rs#L7), [ring_liu_poon.rs:5](../examples/ring_liu_poon.rs#L5), [splitter_rotator_liu_poon.rs:5](../examples/splitter_rotator_liu_poon.rs#L5)
 
 #### Liu et al. 2004
@@ -2309,7 +2309,7 @@ J. Lu, J. Vučković, "Nanophotonic computational design", Opt. Express 21, 1335
 
 Z. Lu, H. Yun, Y. Wang, Z. Chen, F. Zhang, N. A. F. Jaeger, L. Chrostowski, "Broadband silicon photonic directional coupler using asymmetric-waveguide based phase control", Opt. Express 23, 3795 (2015). [doi:10.1364/OE.23.003795](https://doi.org/10.1364/OE.23.003795)
 
-- Academy lessons: [directional-coupler.md:94](../academy/directional-coupler.md?plain=1#L94), [333](../academy/directional-coupler.md?plain=1#L333), [501](../academy/directional-coupler.md?plain=1#L501)
+- Academy lessons: [directional-coupler.md:94](../academy/directional-coupler.md?plain=1#L94), [333](../academy/directional-coupler.md?plain=1#L333), [513](../academy/directional-coupler.md?plain=1#L513)
 
 #### Lu et al. 2017
 
@@ -2462,7 +2462,7 @@ E. A. J. Marcatili, "Bends in Optical Dielectric Guides", Bell System Technical 
 E. A. J. Marcatili, "Dielectric Rectangular Waveguide and Directional Coupler for Integrated Optics", Bell System Technical Journal 48, 2071 (1969). [doi:10.1002/j.1538-7305.1969.tb01166.x](https://doi.org/10.1002/j.1538-7305.1969.tb01166.x)
 
 - Methods pages: [devices.md:38](methods/devices.md?plain=1#L38), [marcatili.md:8](methods/marcatili.md?plain=1#L8)
-- Academy lessons: [directional-coupler.md:28](../academy/directional-coupler.md?plain=1#L28), [274](../academy/directional-coupler.md?plain=1#L274), [515](../academy/directional-coupler.md?plain=1#L515), [strip-waveguide.md:46](../academy/strip-waveguide.md?plain=1#L46), [348](../academy/strip-waveguide.md?plain=1#L348), [667](../academy/strip-waveguide.md?plain=1#L667), [704](../academy/strip-waveguide.md?plain=1#L704)
+- Academy lessons: [directional-coupler.md:28](../academy/directional-coupler.md?plain=1#L28), [274](../academy/directional-coupler.md?plain=1#L274), [527](../academy/directional-coupler.md?plain=1#L527), [strip-waveguide.md:46](../academy/strip-waveguide.md?plain=1#L46), [348](../academy/strip-waveguide.md?plain=1#L348), [681](../academy/strip-waveguide.md?plain=1#L681), [718](../academy/strip-waveguide.md?plain=1#L718)
 - Validation cases: [`mode/marcatili-closed-form`](validation.md?plain=1#L128), [`mode/marcatili-vector`](validation.md?plain=1#L129), [`device/thermo-analytic-metal`](validation.md?plain=1#L644), [`device/thermo-analytic-in-guide`](validation.md?plain=1#L652)
 - Examples: [README.md:42](../examples/README.md?plain=1#L42), [marcatili.rs:5](../examples/marcatili.rs#L5)
 - Code: [src/cases/device/thermo_checks.rs:413](../src/cases/device/thermo_checks.rs#L413), [482](../src/cases/device/thermo_checks.rs#L482), [src/device/thermo.rs:716](../src/device/thermo.rs#L716), [src/mode/marcatili.rs:5](../src/mode/marcatili.rs#L5), [src/validation.rs:921](../src/validation.rs#L921), [928](../src/validation.rs#L928)
@@ -2553,7 +2553,7 @@ R. C. Miller, "OPTICAL SECOND HARMONIC GENERATION IN PIEZOELECTRIC CRYSTALS", Ap
 
 S. E. Miller, "Integrated Optics: An Introduction", Bell System Technical Journal 48, 2059 (1969). [doi:10.1002/j.1538-7305.1969.tb01165.x](https://doi.org/10.1002/j.1538-7305.1969.tb01165.x)
 
-- Academy lessons: [slab-waveguide.md:30](../academy/slab-waveguide.md?plain=1#L30), [562](../academy/slab-waveguide.md?plain=1#L562), [strip-waveguide.md:40](../academy/strip-waveguide.md?plain=1#L40), [666](../academy/strip-waveguide.md?plain=1#L666)
+- Academy lessons: [slab-waveguide.md:30](../academy/slab-waveguide.md?plain=1#L30), [562](../academy/slab-waveguide.md?plain=1#L562), [strip-waveguide.md:40](../academy/strip-waveguide.md?plain=1#L40), [680](../academy/strip-waveguide.md?plain=1#L680)
 
 #### Miller 2013
 
@@ -2847,7 +2847,7 @@ M. H. P. Pfeiffer, A. Kordts, V. Brasch, M. Zervas, M. Geiselmann, J. D. Jost, T
 
 J. R. Pierce, "Coupling of Modes of Propagation", Journal of Applied Physics 25, 179 (1954). [doi:10.1063/1.1721599](https://doi.org/10.1063/1.1721599)
 
-- Academy lessons: [directional-coupler.md:22](../academy/directional-coupler.md?plain=1#L22), [483](../academy/directional-coupler.md?plain=1#L483)
+- Academy lessons: [directional-coupler.md:22](../academy/directional-coupler.md?plain=1#L22), [495](../academy/directional-coupler.md?plain=1#L495)
 
 #### Piggott et al. 2015
 
@@ -2859,7 +2859,7 @@ A. Y. Piggott, J. Lu, K. G. Lagoudakis, J. Petykiewicz, T. M. Babinec, J. Vučko
 
 A. Y. Piggott, J. Petykiewicz, L. Su, J. Vučković, "Fabrication-constrained nanophotonic inverse design", Sci Rep 7, 1786 (2017). [doi:10.1038/s41598-017-01939-2](https://doi.org/10.1038/s41598-017-01939-2), open access.
 
-- Academy lessons: [directional-coupler.md:106](../academy/directional-coupler.md?plain=1#L106), [505](../academy/directional-coupler.md?plain=1#L505)
+- Academy lessons: [directional-coupler.md:106](../academy/directional-coupler.md?plain=1#L106), [517](../academy/directional-coupler.md?plain=1#L517)
 - Other documents: [docs/plans/optimization.md:594](plans/optimization.md?plain=1#L594)
 
 #### Piggott et al. 2020
@@ -3012,7 +3012,7 @@ D. V. Reddy, R. R. Nerem, S. W. Nam, R. P. Mirin, V. B. Verma, "Superconducting 
 
 G. T. Reed, G. Mashanovich, F. Y. Gardes, D. J. Thomson, "Silicon optical modulators", Nature Photon 4, 518 (2010). [doi:10.1038/nphoton.2010.179](https://doi.org/10.1038/nphoton.2010.179)
 
-- Academy lessons: [mach-zehnder.md:82](../academy/mach-zehnder.md?plain=1#L82), [299](../academy/mach-zehnder.md?plain=1#L299), [458](../academy/mach-zehnder.md?plain=1#L458)
+- Academy lessons: [mach-zehnder.md:82](../academy/mach-zehnder.md?plain=1#L82), [299](../academy/mach-zehnder.md?plain=1#L299), [470](../academy/mach-zehnder.md?plain=1#L470)
 
 #### Reps et al. 2010
 
@@ -3312,7 +3312,7 @@ G. H. Shortley, R. Weller, "The Numerical Solution of Laplace's Equation", Journ
 
 S. Y. Siew, B. Li, F. Gao, H. Y. Zheng, W. Zhang, P. Guo, S. W. Xie, A. Song, B. Dong, L. W. Luo, et al., "Review of Silicon Photonics Technology and Platform Development", J. Lightwave Technol. 39, 4374 (2021). [doi:10.1109/JLT.2021.3066203](https://doi.org/10.1109/JLT.2021.3066203), open access.
 
-- Academy lessons: [strip-waveguide.md:142](../academy/strip-waveguide.md?plain=1#L142), [696](../academy/strip-waveguide.md?plain=1#L696)
+- Academy lessons: [strip-waveguide.md:142](../academy/strip-waveguide.md?plain=1#L142), [710](../academy/strip-waveguide.md?plain=1#L710)
 - Other documents: [docs/plans/fabrication.md:640](plans/fabrication.md?plain=1#L640)
 
 #### Sigmund 2009
@@ -3379,7 +3379,7 @@ L. Soldano, E. Pennings, "Optical multi-mode interference devices based on self-
 
 S. Somekh, E. Garmire, A. Yariv, H. Garvin, R. Hunsperger, "Channel optical waveguide directional couplers", Applied Physics Letters 22, 46 (1973). [doi:10.1063/1.1654468](https://doi.org/10.1063/1.1654468)
 
-- Academy lessons: [directional-coupler.md:34](../academy/directional-coupler.md?plain=1#L34), [487](../academy/directional-coupler.md?plain=1#L487)
+- Academy lessons: [directional-coupler.md:34](../academy/directional-coupler.md?plain=1#L34), [499](../academy/directional-coupler.md?plain=1#L499)
 
 #### Sonneveld and van Gijzen 2008
 
@@ -3404,7 +3404,7 @@ R. Soref, B. Bennett, "Electrooptical effects in silicon", IEEE J. Quantum Elect
 
 R. Soref, J. Schmidtchen, K. Petermann, "Large single-mode rib waveguides in GeSi-Si and Si-on-SiO/sub 2/", IEEE J. Quantum Electron. 27, 1971 (1991). [doi:10.1109/3.83406](https://doi.org/10.1109/3.83406)
 
-- Academy lessons: [strip-waveguide.md:64](../academy/strip-waveguide.md?plain=1#L64), [599](../academy/strip-waveguide.md?plain=1#L599), [681](../academy/strip-waveguide.md?plain=1#L681)
+- Academy lessons: [strip-waveguide.md:64](../academy/strip-waveguide.md?plain=1#L64), [599](../academy/strip-waveguide.md?plain=1#L599), [695](../academy/strip-waveguide.md?plain=1#L695)
 
 #### Spillane et al. 2013
 
@@ -3623,7 +3623,7 @@ P. Tsuji, B. Engquist, L. Ying, "A sweeping preconditioner for time-harmonic Max
 
 A. C. Turner, C. Manolatou, B. S. Schmidt, M. Lipson, M. A. Foster, J. E. Sharping, A. L. Gaeta, "Tailored anomalous group-velocity dispersion in silicon channel waveguides", Opt. Express 14, 4357 (2006). [doi:10.1364/OE.14.004357](https://doi.org/10.1364/OE.14.004357)
 
-- Academy lessons: [strip-waveguide.md:106](../academy/strip-waveguide.md?plain=1#L106), [524](../academy/strip-waveguide.md?plain=1#L524), [689](../academy/strip-waveguide.md?plain=1#L689)
+- Academy lessons: [strip-waveguide.md:106](../academy/strip-waveguide.md?plain=1#L106), [524](../academy/strip-waveguide.md?plain=1#L524), [703](../academy/strip-waveguide.md?plain=1#L703)
 
 ### U
 
@@ -3749,7 +3749,7 @@ G. Veronis, R. W. Dutton, S. Fan, "Method for sensitivity analysis of photonic c
 
 Y. A. Vlasov, S. J. McNab, "Losses in single-mode silicon-on-insulator strip waveguides and bends", Opt. Express 12, 1622 (2004). [doi:10.1364/OPEX.12.001622](https://doi.org/10.1364/OPEX.12.001622)
 
-- Academy lessons: [leaky-and-bent-guides.md:95](../academy/leaky-and-bent-guides.md?plain=1#L95), [536](../academy/leaky-and-bent-guides.md?plain=1#L536), [574](../academy/leaky-and-bent-guides.md?plain=1#L574), [strip-waveguide.md:88](../academy/strip-waveguide.md?plain=1#L88), [619](../academy/strip-waveguide.md?plain=1#L619), [684](../academy/strip-waveguide.md?plain=1#L684)
+- Academy lessons: [leaky-and-bent-guides.md:95](../academy/leaky-and-bent-guides.md?plain=1#L95), [536](../academy/leaky-and-bent-guides.md?plain=1#L536), [574](../academy/leaky-and-bent-guides.md?plain=1#L574), [strip-waveguide.md:88](../academy/strip-waveguide.md?plain=1#L88), [619](../academy/strip-waveguide.md?plain=1#L619), [698](../academy/strip-waveguide.md?plain=1#L698)
 
 #### Vogelbacher et al. 2019
 
@@ -3797,7 +3797,7 @@ X. Wang, W. Shi, H. Yun, S. Grist, N. A. F. Jaeger, L. Chrostowski, "Narrow-band
 C. Wang, M. Zhang, X. Chen, M. Bertrand, A. Shams-Ansari, S. Chandrasekhar, P. Winzer, M. Lončar, "Integrated lithium niobate electro-optic modulators operating at CMOS-compatible voltages", Nature 562, 101 (2018). [doi:10.1038/s41586-018-0551-y](https://doi.org/10.1038/s41586-018-0551-y)
 
 - Methods pages: [electro-optic.md:180](methods/electro-optic.md?plain=1#L180)
-- Academy lessons: [mach-zehnder.md:112](../academy/mach-zehnder.md?plain=1#L112), [293](../academy/mach-zehnder.md?plain=1#L293), [375](../academy/mach-zehnder.md?plain=1#L375), [459](../academy/mach-zehnder.md?plain=1#L459)
+- Academy lessons: [mach-zehnder.md:112](../academy/mach-zehnder.md?plain=1#L112), [293](../academy/mach-zehnder.md?plain=1#L293), [375](../academy/mach-zehnder.md?plain=1#L375), [471](../academy/mach-zehnder.md?plain=1#L471)
 - Other documents: [docs/plans/fabrication.md:649](plans/fabrication.md?plain=1#L649)
 
 #### Wang et al. 2018b
@@ -3915,7 +3915,7 @@ S. Williams, A. Waterman, D. Patterson, "Roofline: an insightful visual performa
 
 E. Wooten, K. Kissa, A. Yi-Yan, E. Murphy, D. Lafaw, P. Hallemeier, D. Maack, D. Attanasio, D. Fritz, G. McBrien, et al., "A review of lithium niobate modulators for fiber-optic communications systems", IEEE J. Select. Topics Quantum Electron. 6, 69 (2000). [doi:10.1109/2944.826874](https://doi.org/10.1109/2944.826874)
 
-- Academy lessons: [mach-zehnder.md:70](../academy/mach-zehnder.md?plain=1#L70), [360](../academy/mach-zehnder.md?plain=1#L360), [457](../academy/mach-zehnder.md?plain=1#L457)
+- Academy lessons: [mach-zehnder.md:70](../academy/mach-zehnder.md?plain=1#L70), [360](../academy/mach-zehnder.md?plain=1#L360), [469](../academy/mach-zehnder.md?plain=1#L469)
 
 ### X
 
@@ -3946,7 +3946,7 @@ E. Yablonovitch, "Inhibited Spontaneous Emission in Solid-State Physics and Elec
 
 A. Yariv, "Coupled-mode theory for guided-wave optics", IEEE J. Quantum Electron. 9, 919 (1973). [doi:10.1109/JQE.1973.1077767](https://doi.org/10.1109/JQE.1973.1077767)
 
-- Academy lessons: [bragg-gratings.md:43](../academy/bragg-gratings.md?plain=1#L43), [239](../academy/bragg-gratings.md?plain=1#L239), [directional-coupler.md:40](../academy/directional-coupler.md?plain=1#L40), [155](../academy/directional-coupler.md?plain=1#L155), [514](../academy/directional-coupler.md?plain=1#L514)
+- Academy lessons: [bragg-gratings.md:43](../academy/bragg-gratings.md?plain=1#L43), [239](../academy/bragg-gratings.md?plain=1#L239), [directional-coupler.md:40](../academy/directional-coupler.md?plain=1#L40), [155](../academy/directional-coupler.md?plain=1#L155), [526](../academy/directional-coupler.md?plain=1#L526)
 
 #### Yariv 2000
 

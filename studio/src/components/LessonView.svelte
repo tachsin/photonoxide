@@ -18,6 +18,7 @@
   import LessonChart from "./LessonChart.svelte";
   import LessonDiagram from "./LessonDiagram.svelte";
   import LessonExample from "./LessonExample.svelte";
+  import LessonFabrication from "./LessonFabrication.svelte";
   import MathText from "./MathText.svelte";
   import PaperTimeline from "./PaperTimeline.svelte";
   import Tip from "./Tip.svelte";
@@ -339,6 +340,8 @@
                     <button class="panel flex shrink-0 flex-col items-center justify-center gap-1 px-3 text-xs font-medium text-primary transition-colors hover:bg-base-content/3" onclick={() => openDevice(d.id, "fabrication")} title="How this device could be made: its process flow, animated step by step, on its page's Fabrication tab"><Factory size={16} /> Fabricate</button>
                     </div>
                   {/if}
+                {:else if b.kind === "fabrication"}
+                  <LessonFabrication device={b.device} label={b.label} parameters={b.parameters} job={b.job} />
                 {:else if b.kind === "timeline"}
                   <PaperTimeline papers={lesson.papers} />
                 {:else if b.kind === "answer"}

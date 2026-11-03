@@ -26,7 +26,9 @@ export type LessonBlock =
   | { kind: "validation"; cases: string[] }
   | { kind: "timeline" }
   | { kind: "answer"; markdown: string }
-  | { kind: "device"; device: string };
+  | { kind: "device"; device: string }
+  /** How a library device is made: its flow played step by step, from `job` (TOML), as the Fabrication page plays it. */
+  | { kind: "fabrication"; device: string; label: string; parameters: Record<string, string>; job: string };
 
 /** A section still to be written: what it will answer, and the examples it will use. */
 export interface Coming {

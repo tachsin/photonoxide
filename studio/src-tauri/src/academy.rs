@@ -19,8 +19,9 @@ macro_rules! lessons {
 }
 
 // In the library's order, which is the order to read them in: materials, waveguides, couplers,
-// interferometers, rings, gratings and filters; then multimode devices, nanophotonics, the
-// numerical methods, and the active and quantum devices the roadmap brings.
+// interferometers, rings, gratings and filters, and how such a chip is made; then multimode
+// devices, nanophotonics, the numerical methods, and the active and quantum devices the roadmap
+// brings.
 lessons!(
     "material-dispersion.md",
     "slab-waveguide.md",
@@ -31,6 +32,7 @@ lessons!(
     "ring-resonator.md",
     "bragg-gratings.md",
     "grating-couplers.md",
+    "how-a-chip-is-made.md",
     "mmi.md",
     "crossings-and-converters.md",
     "photonic-crystals.md",
@@ -171,6 +173,18 @@ pub enum Block {
     Answer { markdown: String },
     /// `::device <id>`: a device this lesson teaches (crate::devices), to open on its page.
     Device { device: String },
+    /// `::fabrication <id>{key=value, ...}`: how a device of the library (crate::devices) is
+    /// made, its parameters as given and the rest at their defaults: the flow played step by step
+    /// on its cross-section with each step's words, as the Fabrication page plays it.
+    Fabrication {
+        device: String,
+        /// The device's kind, as a design names it (`kind` is the block's tag).
+        label: String,
+        /// The parameters set, as a job's `[device.parameters]` writes them.
+        parameters: BTreeMap<String, String>,
+        /// The design as a job (TOML), which the Fabrication page reads.
+        job: String,
+    },
 }
 
 /// A section still to be written (`::coming <example> ...` under its heading, then one
@@ -551,10 +565,64 @@ fn block(directive: &str) -> Result<Block, String> {
         "device" if !rest.is_empty() && !rest.contains(' ') => Ok(Block::Device {
             device: rest.to_owned(),
         }),
+        "fabrication" if !rest.is_empty() => fabrication_block(rest),
         _ => Err(format!(
-            "::{directive} isn't a block: ::diagram <id>, ::chart <id>{{...}}, ::example <name>, ::validation <id> ..., ::device <id>, ::timeline, ::coming <example> ..."
+            "::{directive} isn't a block: ::diagram <id>, ::chart <id>{{...}}, ::example <name>, ::validation <id> ..., ::device <id>, ::fabrication <id>{{...}}, ::timeline, ::coming <example> ..."
         )),
     }
+}
+
+/// `::fabrication <id>{key=value, ...}`, without `::fabrication `: a library device by its id,
+/// its parameters as a job writes them (in the parameter's own unit).
+fn fabrication_block(rest: &str) -> Result<Block, String> {
+    let (id, values) = match rest.split_once('{') {
+        Some((id, values)) => (
+            id.trim(),
+            values
+                .strip_suffix('}')
+                .ok_or_else(|| format!("::fabrication {rest}: no closing }}"))?,
+        ),
+        None => (rest, ""),
+    };
+    let kind = crate::devices::DEVICES
+        .iter()
+        .find(|d| d.1 == id)
+        .map(|d| d.0)
+        .ok_or_else(|| format!("::fabrication: no device {id:?} in the component library"))?;
+    let mut parameters = BTreeMap::new();
+    for pair in values.split(',').map(str::trim).filter(|p| !p.is_empty()) {
+        let (key, value) = pair
+            .split_once('=')
+            .map(|(k, v)| (k.trim(), v.trim()))
+            .filter(|(k, v)| !k.is_empty() && !v.is_empty())
+            .ok_or_else(|| format!("::fabrication {id}: {pair:?} isn't key=value"))?;
+        if !key.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
+            || value.contains(['"', '\\'])
+        {
+            return Err(format!(
+                "::fabrication {id}: {pair:?} isn't a parameter and a value"
+            ));
+        }
+        if parameters
+            .insert(key.to_owned(), value.to_owned())
+            .is_some()
+        {
+            return Err(format!("::fabrication {id}: {key} given twice"));
+        }
+    }
+    let mut job = format!("name = \"fabrication\"\n\n[device]\nkind = \"{kind}\"\n");
+    if !parameters.is_empty() {
+        job.push_str("\n[device.parameters]\n");
+        for (k, v) in &parameters {
+            job.push_str(&format!("{k} = \"{v}\"\n"));
+        }
+    }
+    Ok(Block::Fabrication {
+        device: id.to_owned(),
+        label: kind.to_owned(),
+        parameters,
+        job,
+    })
 }
 
 /// The published report's row for the case `id`.
@@ -878,6 +946,24 @@ mod tests {
                             l.id, entry.2
                         );
                     }
+                    // a flow it plays: made from the bare wafer, and giving the design back
+                    Block::Fabrication { device, job, .. } => {
+                        let parsed =
+                            photonoxide::run::Job::parse_as(job, photonoxide::run::Format::Toml)
+                                .unwrap_or_else(|e| {
+                                    panic!("{}: ::fabrication {device}: {e}", l.id)
+                                });
+                        let view = photonoxide::job::fabrication_of_job(&parsed, &[], &[])
+                            .unwrap_or_else(|e| panic!("{}: ::fabrication {device}: {e}", l.id));
+                        let trip = view.flow.round_trip.as_ref().unwrap_or_else(|| {
+                            panic!("{}: ::fabrication {device}: no round trip", l.id)
+                        });
+                        assert!(
+                            trip.exact(),
+                            "{}: ::fabrication {device}: the flow doesn't give the design back",
+                            l.id
+                        );
+                    }
                     _ => {}
                 }
             }
@@ -1047,7 +1133,29 @@ mod tests {
             }
         );
 
+        let with_flow = text.replace(
+            "::timeline\n",
+            "::timeline\n::fabrication waveguide{width=0.45, sidewall=82}\n",
+        );
+        assert_eq!(
+            parse("x.md", &with_flow).unwrap().sections[2].blocks[1],
+            Block::Fabrication {
+                device: "waveguide".to_owned(),
+                label: "waveguide".to_owned(),
+                parameters: [
+                    ("sidewall".to_owned(), "82".to_owned()),
+                    ("width".to_owned(), "0.45".to_owned())
+                ]
+                .into(),
+                job: "name = \"fabrication\"\n\n[device]\nkind = \"waveguide\"\n\n[device.parameters]\nsidewall = \"82\"\nwidth = \"0.45\"\n".to_owned(),
+            }
+        );
+
         let broken = |body: &str| parse("x.md", &text.replace("::timeline\n", body)).is_err();
+        assert!(broken("::fabrication no-such\n"), "not a library device");
+        assert!(broken("::fabrication waveguide{width}\n"));
+        assert!(broken("::fabrication waveguide{width=1, width=2}\n"));
+        assert!(broken("::fabrication waveguide{width=\"1\"}\n"));
         assert!(broken("::chart no-such{}\n"));
         assert!(
             broken("::diagram no-such\n"),

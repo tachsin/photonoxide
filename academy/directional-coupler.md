@@ -477,7 +477,19 @@ multimode-interference splitter does the same by self-imaging
 - **The whole device**: [3D FDTD](../docs/methods/fdtd.md), as `coupler_liu_poon` runs it.
 - **In circuits**: couplers in netlists, solved by [the circuit solve](../docs/methods/circuits.md).
 
-## 10. History and current research {research}
+## 10. How is a coupler made?
+
+As a strip is, in the same five steps: the two strips are the silicon film of an SOI wafer, kept
+under resist by 193 nm lithography and etched through to the buried oxide. The gap sets the
+lithography: 200 nm at 193 nm and NA 0.93 asks a $k_1$ of 0.96 of the lens, inside its typical
+range, where the 500 nm strips ask 2.41. The etch's 82° walls, against the drawn 90°, narrow the
+gap at its floor by $2 \times 220\ \text{nm} \times \cot 82^\circ = 61.84$ nm, and a narrow gap
+etches slower than open ground, so it needs the over-etch to clear
+([How a chip is made](how-a-chip-is-made.md), Sections 3 and 4):
+
+::fabrication directional-coupler
+
+## 11. History and current research {research}
 
 The coupling of modes was worked out for microwave tubes and filters:
 [Pierce (1954)](https://doi.org/10.1063/1.1721599) treated two coupled modes from linearity and

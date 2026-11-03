@@ -405,7 +405,19 @@ interferometer and for a 4 × 4 mesh of six:
 
 ::validation components/mzi-closed-form components/mzi-unitarity circuit/mzi-closed-form circuit/adjoint-mzi circuit/adjoint-mesh
 
-## 9. Try it
+## 9. How is it made?
+
+The library's interferometer of two directional couplers is one silicon layer: its arms, bends
+and couplers, twenty shapes, are the film of an SOI wafer kept under resist by 193 nm
+lithography and etched through to the buried oxide, then clad in LPCVD oxide, as a single strip
+is. The couplers' 200 nm gaps are its narrowest features and set the lithography: at 193 nm and
+NA 0.93 they ask $k_1 = 0.96$. A heater for $\varphi$ is a further metal layer above the oxide,
+made after a polish and kept below the metal's thermal budget ([How a chip is
+made](how-a-chip-is-made.md), Sections 7 and 8).
+
+::fabrication mzi-couplers
+
+## 10. Try it
 
 **Spacing.** In the first chart, double the path difference, then raise the group index. What
 narrows the fringes, and what only slides them?
@@ -448,7 +460,7 @@ At quadrature, $\pm\pi/2$ from a peak, where $\cos^2(\Delta\phi/2)$ is at half h
 A shift of π swaps the outputs.
 :::
 
-## 10. Further reading {research}
+## 11. Further reading {research}
 
 - [Born and Wolf](https://doi.org/10.1017/CBO9781139644181): two-beam interference and the
   classical interferometers.

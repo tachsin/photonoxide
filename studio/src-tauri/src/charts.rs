@@ -25,6 +25,7 @@ use photonoxide::units::{Length, Wavelength};
 use serde::Serialize;
 
 mod coupler;
+mod fabrication;
 mod leaky;
 mod material;
 mod slab;
@@ -945,6 +946,58 @@ pub fn specs() -> Vec<ChartSpec> {
                 ),
             ],
         },
+        ChartSpec {
+            id: "fab-oxidation",
+            title: "Thermal oxide grown on silicon, dry and wet",
+            about: "The oxide grown on bare silicon in dry and in wet oxygen against time, by Deal and Grove's linear-parabolic law with their printed rate constants: linear in time while it is thin, parabolic once the oxidant must diffuse through a thick oxide.",
+            computed_by: "fabrication::oxidation::rates and grow: Deal and Grove's Eq. 12 with their Tables I and II, carried between printed rows by the Arrhenius law with their activation energies",
+            params: vec![
+                param(
+                    "temperature",
+                    "Temperature (°C)",
+                    "",
+                    (920.0, 1200.0, 1000.0),
+                    5.0,
+                    false,
+                    "The furnace's temperature, °C, from the lowest wet row of Deal and Grove's tables (920 °C) to their highest (1200 °C).",
+                ),
+                param(
+                    "hours",
+                    "Time (h)",
+                    "",
+                    (0.1, 20.0, 4.0),
+                    0.1,
+                    true,
+                    "How long the wafer stays in the furnace, hours: the chart's time axis ends here.",
+                ),
+            ],
+        },
+        ChartSpec {
+            id: "fab-resolution",
+            title: "The smallest line a projection lithography prints",
+            about: "The Rayleigh criterion W = k₁λ/NA for each projection lithography of the process library, over the numerical apertures its sources cite, and the k₁ a feature asks of each at its highest NA.",
+            computed_by: "fabrication::rayleigh::Optics (each lithography's cited wavelength and numerical apertures), rayleigh::resolution, and fabrication::rules' k₁ (Campbell, p. 183)",
+            params: vec![
+                param(
+                    "k1",
+                    "$k_1$",
+                    "",
+                    (0.25, 0.8, 0.4),
+                    0.01,
+                    false,
+                    "The resist's and the process's factor: typically 0.8 down to 0.4, 0.25 at its theoretical limit.",
+                ),
+                param(
+                    "feature",
+                    "Feature",
+                    "nm",
+                    (10.0, 2000.0, 500.0),
+                    1.0,
+                    true,
+                    "The narrowest line or gap to print, nm: the k₁ it asks of each lithography is in the figures.",
+                ),
+            ],
+        },
     ]
 }
 
@@ -1236,6 +1289,8 @@ pub fn evaluate(id: &str, given: &BTreeMap<String, f64>) -> Result<ChartData, St
         "strip-models" => strip::models(at("thickness"), at("wavelength"), at("width")),
         "strip-corners" => strip::corners(at("width"), at("thickness")),
         "strip-group-index" => strip::group_index(at("thickness"), at("wavelength"), at("width")),
+        "fab-oxidation" => fabrication::oxidation(at("temperature"), at("hours")),
+        "fab-resolution" => fabrication::resolution(at("k1"), at("feature")),
         "leaky-field" => leaky::field(at("order") as usize),
         "leaky-substrate" => leaky::substrate(at("oxide"), at("wavelength")),
         "bend-loss" => leaky::bend_loss(

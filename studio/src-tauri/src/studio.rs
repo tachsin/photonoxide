@@ -1408,6 +1408,7 @@ method_docs!(
     "dispersion.md",
     "eigen.md",
     "eim.md",
+    "fabrication.md",
     "fdfd-3d.md",
     "fdfd-adjoint.md",
     "fdfd-ports.md",

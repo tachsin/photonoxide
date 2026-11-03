@@ -59,6 +59,21 @@ pub fn specs() -> Vec<DiagramSpec> {
             caption_3d: "",
         },
         DiagramSpec {
+            id: "process",
+            title: "A silicon strip made, step by step",
+            caption: "Five cross-sections of one wafer, left to right. 1: the SOI wafer as \
+                      bought, a single-crystal silicon film $t$ thick on a buried oxide $h$ thick \
+                      over a silicon handle. 2: resist spun on and exposed through a mask by light \
+                      of wavelength $\\lambda$ through a lens of numerical aperture NA; the mask's \
+                      bar shades the strip. 3: the developer washes away the exposed resist (a \
+                      positive resist), leaving a line $w$ wide. 4: the silicon etched where the \
+                      resist leaves it bare, the etch stopping on the oxide, which it attacks far \
+                      more slowly. 5: the resist stripped and oxide deposited over everything: a \
+                      strip $w$ by $t$ clad in oxide. Not to scale.",
+            job: None,
+            caption_3d: "",
+        },
+        DiagramSpec {
             id: "ring",
             title: "A ring resonator, seen from above",
             caption: "A ring of radius $R$ and waveguide width $w$, a gap $g$ from the bus. At the \
