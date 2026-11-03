@@ -660,7 +660,21 @@ analytic fit where it holds.
 
 ::device waveguide
 
-## 11. History and current research {research}
+## 11. How is a strip made?
+
+The strip is the silicon film of an SOI wafer, 220 nm on 2 µm of buried oxide, with everything
+beside it etched away: a resist is kept on the strip by 193 nm lithography, an HBr/O₂ etch goes
+through the film and stops on the oxide, so the strip's height is the film's, and LPCVD oxide
+fills around it and clads it. The etch leaves walls at 82°, not the drawn 90° (Section 9's
+`sidewall`), which widens the strip's floor by 61.84 nm. Each step, its reason and its sources,
+from the bare wafer:
+
+::fabrication waveguide
+
+[How a chip is made](how-a-chip-is-made.md) takes each step in turn: the wafer, the lithography
+and what limits it, the etch stop, the films, and what the flow checks.
+
+## 12. History and current research {research}
 
 The rectangular dielectric guide was solved twice in the same issue of the Bell System Technical
 Journal in 1969, the one in which [Miller](https://doi.org/10.1002/j.1538-7305.1969.tb01165.x)

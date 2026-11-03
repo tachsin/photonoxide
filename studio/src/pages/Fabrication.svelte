@@ -55,7 +55,7 @@
     if (opened) out.push(opened);
     for (const d of devices.list) out.push({ id: `lib:${d.id}`, group: "The library's devices, at their defaults", label: capital(d.kind), design: libraryDesign(d.kind) });
     for (const j of catalog.data?.jobs ?? []) {
-      if (/(^|\n)\s*(device:|\[device\])/.test(j.text) || j.kind === "structure") {
+      if (j.fabricates) {
         out.push({ id: `job:${j.file}`, group: "Templates", label: j.name, design: { kind: "job", text: j.text, format: formatOfText(j.text), path: null } });
       }
     }

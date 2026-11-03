@@ -17,6 +17,7 @@ moving a slider shows the physics the library computes, the code the
 | [The slab waveguide](slab-waveguide.md) | introductory | `slab` | `slab-fields`, `slab-bv`, `slab-neff`, `slab-confinement` |
 | [The strip waveguide and its cross-section](strip-waveguide.md) | intermediate | `strip` | `strip-fields`, `strip-neff`, `strip-models`, `strip-corners`, `strip-group-index` |
 | [Leaky and bent guides, and multilayers](leaky-and-bent-guides.md) | advanced | `leaky` | `leaky-field`, `leaky-substrate`, `bend-loss` |
+| [How a chip is made](how-a-chip-is-made.md) | introductory | `process` | `fab-resolution`, `fab-oxidation` |
 
 The whole curriculum is laid out: every lesson still to be written is here too, **coming soon**,
 with its numbered subsections, what each will answer and the examples each will use, so writing
@@ -137,6 +138,8 @@ or digit just outside), and display math between lines holding only `$$`.
 | `::example <name>` | an example: what it printed when this release was checked, and a button to run it here |
 | `::validation <id> <id> ...` | validation cases as the published report has them |
 | `::device <id>` | a device the lesson teaches, by its id in the component library (`waveguide`, `rib-waveguide`), to open on its page |
+| `::fabrication <id>` | how a device of the component library is made at its defaults: its flow from the bare wafer played frame by frame on its cross-section and in 3D, each step's words beneath, as the Fabrication page plays it |
+| `::fabrication <id>{key=value, key=value}` | the same with these parameters, each in its own unit as a job's `[device.parameters]` writes it: `::fabrication waveguide{width=0.45, sidewall=82}` |
 | `::timeline` | the front matter's papers by year, each linked by its DOI |
 
 A chart's values carry their units or none: `radius=10um`, `radius=10000nm`, `loss=2dB/cm`,
@@ -193,6 +196,7 @@ shows first.
 | `mzi` | a Mach–Zehnder interferometer from above: the splitter's $r_1$, $k_1$ and the combiner's $r_2$, $k_2$, arms of $L$ and $L + \Delta L$ (the longer drawn longer) with their fields $a_l e^{i\phi_l}$ and $a_u e^{i\phi_u}$, a phase shifter $\varphi$, the phase difference $\Delta\phi$, the input and the bar and cross outputs | `mzi-mmi.yaml` |
 | `slab` | a slab in section: the film $n_2$ of thickness $d$ between the cover $n_1$ and the substrate $n_3$, a ray zig-zagging along $z$ at $\theta \gt \theta_c = \arcsin(n_3/n_2)$ and a steeper one lost, and a guided mode's $E_y(x)$ across the slab, $\cos(hx - \phi_3)$ in the film and the tails $e^{px}$ and $e^{-q(x - d)}$ | `slab-soi.yaml` |
 | `strip` | a strip in section: the core $n_1$, $w$ wide and $t$ thick, in the cladding $n_2$ on a buried oxide $h$ thick over the substrate, $x$, $y$ and $z$; the TE-like mode's field with its main $E_x$, the four corners and Marcatili's four corner regions; and the effective index method's two slabs, across $t$ giving $N$ and across $w$ giving $n_\text{eff}$ | `strip-modes.yaml` |
+| `process` | five cross-sections of one wafer as a silicon strip is made: the SOI wafer, a film $t$ thick on a buried oxide $h$ thick over the handle; resist coated and exposed through a mask by light of wavelength $\lambda$ through a lens of numerical aperture NA; the resist developed, a line $w$ wide; the silicon etched down to the oxide, where it stops; the resist stripped and the strip clad in oxide | none |
 | `leaky` | a planar guide in section, the cover $n_c$, films $n_1 \ldots n_J$ and a substrate $n_s$ above $\operatorname{Re} n_\text{eff}$, the mode along $z$ shedding a plane wave into the substrate at $\theta$, weaker downstream, and its field $\lvert\psi(x)\rvert$ growing into the substrate as $e^{ik\alpha_s x}$; and a guide $n_1$ in $n_2$ bent at $R$ about $O$, its radial phase fronts, $e^{i\nu\varphi}$ with $\nu = kn_\text{eff}R$, and the radius $\rho_r = R\thinspace n_\text{eff}/n_2$ beyond which it radiates | none |
 
 Each diagram is an entry in `studio/src-tauri/src/diagrams.rs` (its title, its captions, and its
@@ -238,6 +242,8 @@ code; the window only draws what it returns, and asks again as a slider moves.
 | `leaky-field` | `order` $m$ (4) | `Multilayer::bound_modes` and `modes_in` on Chilwell and Hodgkinson's four-layer guide, `MultilayerMode::field`: $\lvert E_y\rvert$ and $\operatorname{Re} E_y$ of a TE bound mode ($m \le 3$) or leaky wave ($m \ge 4$) |
 | `leaky-substrate` | `oxide` $h$ µm (1), `wavelength` µm (1.55) | `Multilayer::mode_near` from `Slab::modes`: 220 nm of silicon under oxide on $h$ of oxide over silicon, at 57 thicknesses from 0.1 to 1.5 µm, TE and TM; the estimate $e^{-2\gamma h}$ |
 | `bend-loss` | `core` $n_1$ (1.6), `cladding` $n_2$ (1.5), `thickness` µm (1), `wavelength` µm (1), `radius` µm (40) | `SlabBend::fundamental` and `mode_near` at 41 radii from Marcuse's $U = 3$ to 30, E normal to and in the bend plane; `marcuse_loss`, `bend_loss_db` |
+| `fab-resolution` | `k1` $k_1$ (0.4), `feature` nm (500) | `fabrication::rayleigh::Optics` for each projection lithography of the process library, its cited wavelength and numerical apertures: $W = k_1\lambda/\mathrm{NA}$, and the $k_1$ the feature asks at the highest NA |
+| `fab-oxidation` | `temperature` °C (1000), `hours` h (4) | `fabrication::oxidation::rates` and `grow`: Deal and Grove's law with their Tables I and II, dry and wet, and its linear and parabolic limits |
 
 The ranges are in `charts.rs` (the coupler's in `charts/coupler.rs`), and the window's sliders keep
 to them. A chart may draw its y axis on a logarithmic scale (`y_log`), and give curves that belong
@@ -249,7 +255,8 @@ changes no geometry redraws at once. The strip's charts (`charts/strip.rs`) solv
 waveguide device's own cross-section, so a lesson and the device's page can't disagree: one to
 five seconds for a sweep, cached likewise, their width marker moving along the sweep's own widths.
 The leaky and bent guides' charts (`charts/leaky.rs`) are exact, transfer matrices and the
-bent slab's radial shooting, and take milliseconds.
+bent slab's radial shooting, and take milliseconds. The fabrication charts (`charts/fabrication.rs`)
+are closed forms evaluated with the process library's cited numbers: exact, with no grid.
 A chart may draw pictures of a field over a cross-section in place of curves (`maps`), side by
 side with one colour scale, as `strip-fields` does.
 
@@ -268,6 +275,8 @@ side with one colour scale, as `strip-fields` does.
   doesn't exist, or a block names one its front matter doesn't list;
 - opens a device (`::device`) that isn't in the component library, or whose page names another
   lesson as its own;
+- plays a flow (`::fabrication`) of a device that isn't in the component library, or one the
+  fabrication engine can't make, or whose last step isn't the design to the bit;
 - is written and has no diagram, or a chart before its first diagram, or a diagram whose 3D view is
   of a job its front matter doesn't list;
 - has a chart block with an unknown parameter or a value outside its range;

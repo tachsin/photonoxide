@@ -816,6 +816,14 @@ struct JobExample {
     kind: String,
     about: String,
     text: String,
+    /// Whether it draws a design the Fabrication page makes from the bare wafer: a `[device]`
+    /// table, or a structure task's layers and shapes.
+    fabricates: bool,
+}
+
+/// Whether `job` draws a design the fabrication engine reads (`job::fabrication_of_job`).
+pub(crate) fn fabricates(job: &Job) -> bool {
+    job.device().is_some() || job.task().get("kind").and_then(|k| k.as_str()) == Some("structure")
 }
 
 /// What ships inside the program: the examples and the job files.
@@ -837,6 +845,7 @@ pub(crate) fn catalog() -> Catalog {
                     name: job.name().to_owned(),
                     kind: kind_of(&job),
                     about: about(&j.text),
+                    fabricates: fabricates(&job),
                     file: j.file,
                     text: j.text,
                 })
@@ -1408,6 +1417,7 @@ method_docs!(
     "dispersion.md",
     "eigen.md",
     "eim.md",
+    "fabrication.md",
     "fdfd-3d.md",
     "fdfd-adjoint.md",
     "fdfd-ports.md",
@@ -1507,6 +1517,42 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
         dir
+    }
+
+    /// Every built-in job that offers Fabricate (Home's templates, Validation's published results,
+    /// the Fabrication page, Ctrl+K) has a flow that gives its design back, and the others,
+    /// a chip's job among them, offer none.
+    #[test]
+    fn the_jobs_that_offer_fabricate_have_a_flow() {
+        use rayon::prelude::*;
+        let jobs = catalog().jobs;
+        let offered: Vec<&JobExample> = jobs.iter().filter(|j| j.fabricates).collect();
+        offered.par_iter().for_each(|j| {
+            let job = parse_job(&j.text).unwrap();
+            let view = job::fabrication_of_job(&job, &[], &[])
+                .unwrap_or_else(|e| panic!("{}: Fabricate offered, but {e}", j.file));
+            assert!(
+                view.flow.round_trip.as_ref().is_some_and(|t| t.exact()),
+                "{}: its flow doesn't give its design back",
+                j.file
+            );
+        });
+        for j in jobs.iter().filter(|j| !j.fabricates) {
+            let job = parse_job(&j.text).unwrap();
+            assert!(
+                job::fabrication_of_job(&job, &[], &[]).is_err(),
+                "{}: it has a flow, so it should offer Fabricate",
+                j.file
+            );
+        }
+        let names: Vec<&str> = offered.iter().map(|j| j.file.as_str()).collect();
+        for file in ["strip-flow.yaml", "slab-soi.yaml", "bend-2um-2d.yaml"] {
+            assert!(
+                names.contains(&file),
+                "{file} doesn't offer Fabricate: {names:?}"
+            );
+        }
+        assert!(!names.contains(&"chip-ring-critical.yaml"), "{names:?}");
     }
 
     #[test]

@@ -110,6 +110,8 @@ export interface JobExample {
   kind: string;
   about: string;
   text: string;
+  /** Whether it draws a design the Fabrication page makes from the bare wafer (a [device] table or a structure task), so it offers Fabricate. */
+  fabricates: boolean;
 }
 
 export interface Catalog {
