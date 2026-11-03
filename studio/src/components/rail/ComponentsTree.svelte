@@ -3,13 +3,14 @@
   // jobs/, the library's components by category (each kind once, its models on its page), the
   // workspace's other jobs and the templates. A design reopens on its device's page; any other
   // job and every template opens in the Custom device.
-  import { Copy, FileCog, FileText, FileUp, Search, Shapes } from "@lucide/svelte";
+  import { Copy, FileCode2, FileCog, FileText, FileUp, Search, Shapes } from "@lucide/svelte";
   import { untrack } from "svelte";
 
   import { api, type JobItem, type KindInfo } from "../../lib/api";
   import { app, CUSTOM, go, openCustom, toast } from "../../lib/app.svelte";
   import { catalog, loadCatalog } from "../../lib/catalog.svelte";
   import { importTouchstone, library, loadLibrary, openChipText, partKey } from "../../lib/chip.svelte";
+  import { DESIGN } from "../../lib/designpage.svelte";
   import { devices, loadDevices, openDesign, openDeviceText } from "../../lib/device.svelte";
   import { groupOpen, setGroup } from "../../lib/rail.svelte";
   import Glyph from "../Glyph.svelte";
@@ -38,6 +39,7 @@
   const matches = (j: { name: string; about: string; kind: string }) => !q || `${j.name} ${j.about} ${j.kind}`.toLowerCase().includes(q);
 
   const custom = $derived(app.page === "components" && app.component === CUSTOM);
+  const designing = $derived(app.page === "components" && app.component === DESIGN);
   const everything = $derived([...library.kinds, ...library.measured]);
   const shown = $derived(everything.filter((k) => !q || `${k.title} ${k.id} ${k.kind} ${k.category} ${k.about} ${k.provenance.fidelity}`.toLowerCase().includes(q)));
   const categories = $derived([...new Set(everything.map((k) => k.category))]);
@@ -102,8 +104,15 @@
   </button>
 {/if}
 
+{#if !searching || "design component job file yaml toml json".includes(q)}
+  <button class="{ROW} {tone(designing)}" onclick={() => choose(DESIGN)} title="Every component as its job file: the built-in ones' files to read, and your own to design, name and save">
+    <span class="grid h-5 w-8 shrink-0 place-items-center text-primary"><FileCode2 size={15} /></span>
+    <span class="min-w-0 flex-1 truncate text-[13px] font-medium">Design</span>
+  </button>
+{/if}
+
 {#if myDesigns.length}
-  <TreeGroup key="components/designs" title="Your designs" count={myDesigns.length} {searching}>
+  <TreeGroup key="components/designs" title="Your components" count={myDesigns.length} {searching}>
     {#each myDesigns as d (d.path)}
       <button class="{ROW} {tone(false)}" onclick={() => openDesign(d.path)} title="{d.name}: {d.about || 'a saved design'} ({d.path})">
         <span class="grid h-5 w-8 shrink-0 place-items-center text-primary"><FileCog size={14} /></span>
