@@ -32,6 +32,18 @@ export function builtInWith<T extends { name: string }>(builtIn: T[], name: stri
   return builtIn.find((b) => b.name.toLowerCase() === n);
 }
 
+/**
+ * The design's name a tab's job was named for. A device page's tabs name a job `<design>-<what it
+ * does>`: the Simulate tab's by how it is computed (`-2d`, `-fdtd-2d`), the Study tab's by its
+ * sweep or corners (`-sweep-width`, `-corners`), the Optimize tab's by its objectives
+ * (`-optimize-imbalance`), the Model tab's fit by what it covers (`-compact-gap`). Opened from a
+ * file, the job gives its design the name without it; a job named otherwise keeps its own.
+ */
+export function designNameOf(job: string, what: string): string {
+  const tail = `-${what}`.toLowerCase().replace(/[^a-z0-9._-]+/g, "-").replace(/-+$/, "");
+  return tail.length > 1 && job.length > tail.length && job.toLowerCase().endsWith(tail) ? job.slice(0, job.length - tail.length) : job;
+}
+
 /** The formats a component's file is shown in, as the switch names them. */
 export const FORMATS: [JobFormat, string][] = [
   ["yaml", "YAML"],

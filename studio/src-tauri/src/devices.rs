@@ -1310,6 +1310,8 @@ pub struct JobForm {
     study: Option<StudyIn>,
     /// An optimization, for a job whose task optimizes the design.
     optimize: Option<OptimizeIn>,
+    /// A compact model's plan, for a job whose task fits one (the Model tab's).
+    fit: Option<compact::FitIn>,
 }
 
 /// Whether two values are the same, a number the same whether written as an integer or a float.
@@ -1339,6 +1341,7 @@ pub fn read_job_form(text: &str) -> JobForm {
         size: None,
         study: None,
         optimize: None,
+        fit: None,
     };
     let job = match crate::studio::parse_job(text) {
         Ok(j) => j,
@@ -1380,14 +1383,18 @@ pub fn read_job_form(text: &str) -> JobForm {
     form.size = job::fdfd_size(&job).ok().flatten();
     form.study = StudyIn::of(job.task());
     form.optimize = OptimizeIn::of(job.task());
+    form.fit = compact::FitIn::of(job.task());
     // what the form would write: any key of the task it writes otherwise is beyond it
     if let Some(compute) = &form.compute {
-        let again = match (&form.study, &form.optimize) {
-            (Some(study), _) => study.study().and_then(|s| {
+        let again = match (&form.study, &form.optimize, &form.fit) {
+            (Some(study), ..) => study.study().and_then(|s| {
                 job::study_from_device(job.name(), &spec, &compute.compute(), &s).map_err(text_of)
             }),
-            (None, Some(o)) => optimizing::optimize_job_of(job.name(), &spec, compute, o),
-            (None, None) => {
+            (None, Some(o), _) => optimizing::optimize_job_of(job.name(), &spec, compute, o),
+            (None, None, Some(fit)) => fit.plan().and_then(|plan| {
+                job::fit_from_device(job.name(), &spec, &compute.compute(), &plan).map_err(text_of)
+            }),
+            (None, None, None) => {
                 job::from_device(job.name(), &spec, &compute.compute()).map_err(text_of)
             }
         };

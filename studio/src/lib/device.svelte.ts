@@ -2,8 +2,9 @@
 // it is being edited (its stack, its parameters' expressions, its fidelity), where it was saved,
 // and the solves started from it, which go on in the background while the page is left.
 
-import { api, type Aim, type Bound, type Compute, type DeviceDerived, type DeviceFigure, type DeviceInfo, type DeviceMethod, type DeviceSpec, type DeviceSpectrum, type JobFormat, type LayerSpec, type RunItem, type SavedDevice, type StackSpec, type StudyIn } from "./api";
+import { api, formatOfText, type Aim, type Bound, type Compute, type DeviceDerived, type DeviceFigure, type DeviceInfo, type DeviceMethod, type DeviceSpec, type DeviceSpectrum, type JobForm, type JobFormat, type LayerSpec, type RunItem, type SavedDevice, type StackSpec, type StudyIn } from "./api";
 import { app, go, startRun, startRunHere, toast } from "./app.svelte";
+import { designNameOf } from "./designs";
 
 export const devices = $state({
   list: [] as DeviceInfo[],
@@ -60,11 +61,45 @@ export interface Draft {
    * a text that doesn't read): null while the page writes it.
    */
   jobText?: string | null;
-  /** The format the Job tab shows the design in. */
+  /** The format the page's job texts are shown in: the Job tab's and the Simulate tab's. */
   jobFormat?: JobFormat;
 }
 
 export const drafts = $state<Record<string, Draft>>({});
+
+/**
+ * Why the Simulate tab's form can't hold a run's text, read back as `form`, of device `kind`;
+ * "" when it holds all of it (the form then follows, and writes the text again).
+ */
+export function notHeld(form: JobForm, kind: string): string {
+  if (form.error) return form.error;
+  if (!form.spec || !form.compute) return "it isn't a run of a device";
+  if (form.spec.kind !== kind) return `it is a run of the ${form.spec.kind}: open it on its page`;
+  const task = form.study ? "a study" : form.optimize ? "an optimization" : form.fit ? "a compact model's fit" : "";
+  if (task) return `it is ${task}, not a run the Simulate tab's form sets: the run uses the text as it is`;
+  if (form.beyond.length) return `the Simulate tab's form can't hold ${form.beyond.join(", ")}: the run uses the text as it is`;
+  return "";
+}
+
+/** A run's text that isn't a job, read back. */
+export const unread = (e: unknown): JobForm => ({ name: "", spec: null, compute: null, beyond: [], error: String(e), size: null, study: null, optimize: null, fit: null });
+
+/**
+ * Shows the page's job texts in format `to`: the design's and the run's, as typed too, written in
+ * it (the same job, every float to the last bit). Throws, the format unchanged, for a text that
+ * doesn't read as a job.
+ */
+export async function switchFormat(draft: Draft, to: JobFormat): Promise<void> {
+  const from = draft.jobFormat ?? "yaml";
+  if (to === from) return;
+  const typed = draft.jobText ?? null;
+  const run = draft.text;
+  const [design, job] = await Promise.all([typed == null ? null : api.convertJob(typed, from, to), run === null ? null : api.convertJob(run, formatOfText(run), to)]);
+  // an edit made meanwhile is kept as it is
+  if (draft.jobText === typed && design !== null) draft.jobText = design;
+  if (draft.text === run && job !== null) draft.text = job;
+  draft.jobFormat = to;
+}
 
 /** The design of `d` at its defaults: on 220 nm SOI, at its cheapest model (analytic; 2D for the rib and the MMIs). */
 export function defaultSpec(d: DeviceInfo): DeviceSpec {
@@ -420,7 +455,7 @@ export async function openDeviceText(text: string): Promise<boolean> {
   return true;
 }
 
-/** Opens a design read from a file or a text on its device's page: on Design, or for a job that computes it on Simulate with its text, or that studies it on Study. */
+/** Opens a design read from a file or a text on its device's page: on Design, or for a job that computes it on Simulate with its text, that studies it on Study, optimizes it on Optimize, or fits its compact model on Model. */
 async function openSaved(s: Omit<SavedDevice, "path"> & { path: string | null }) {
   const d = devices.list.find((x) => x.kind === s.spec.kind);
   if (!d) throw new Error(`no device "${s.spec.kind}"`);
@@ -429,7 +464,13 @@ async function openSaved(s: Omit<SavedDevice, "path"> & { path: string | null })
     const form = await api.deviceJobRead(s.job);
     draft.tab = "simulate";
     draft.fromJob = true;
+    /** The design's name, from the job's: the tab named it `<design>-<what>` (an unnamed design's is the device's id). */
+    const named = (what: string) => {
+      const n = s.name ? designNameOf(s.name, what) : s.name;
+      return n === d.id ? null : n;
+    };
     if (form.study && form.compute && !form.error && !form.beyond.length) {
+      draft.name = named(form.study.kind === "sweep" ? `sweep-${form.study.axes.map((a) => a.parameter).join("-")}` : "corners");
       // a study: its sweep or corners on the Study tab, its grid the Simulate tab's
       const st = studyOf(d);
       st.mode = form.study.kind;
@@ -449,6 +490,7 @@ async function openSaved(s: Omit<SavedDevice, "path"> & { path: string | null })
       // an optimization: its problem and method on the Optimize tab, its grid the Simulate tab's
       const op = optimizeOf(d);
       const o = form.optimize;
+      draft.name = named(`optimize-${o.objectives.map((x) => x.name ?? "custom").join("-")}`);
       Object.assign(op, {
         rung: rungOf(s.spec.fidelity, form.compute.fdfd_2d),
         objectives: o.objectives,
@@ -469,7 +511,32 @@ async function openSaved(s: Omit<SavedDevice, "path"> & { path: string | null })
       openDevice(d.id);
       return;
     }
-    if (form.compute) draft.compute = form.compute;
+    if (form.fit && form.compute && !form.error && !form.beyond.length) {
+      // a compact model's fit: its plan on the Model tab, its source the design's model
+      const st = fitOf(d);
+      const f = form.fit;
+      draft.name = named(`compact-${f.axes.map((a) => a.parameter).join("-")}`);
+      Object.assign(st, {
+        rung: rungOf(s.spec.fidelity, form.compute.fdfd_2d),
+        axes: f.axes,
+        sampling: f.sampling,
+        held_out: f.held_out,
+        poles: f.poles,
+        degree: f.degree,
+        band: form.compute.band,
+        // a grid's job has no samples' count or seed: the form keeps its own
+        ...(f.sampling === "latin hypercube" ? { count: f.count, seed: f.seed } : {}),
+      });
+      draft.tab = "model";
+      draft.compute = { ...form.compute, band: null };
+      drafts[d.id] = draft;
+      openDevice(d.id);
+      return;
+    }
+    if (form.compute) {
+      draft.compute = form.compute;
+      draft.name = named(form.compute.fdtd ? `FDTD ${form.compute.fdtd}D` : rungOf(s.spec.fidelity, form.compute.fdfd_2d));
+    }
     // what the form can't hold stays in the text, which the run then uses as it is
     draft.text = form.beyond.length || form.error ? s.job : null;
   }

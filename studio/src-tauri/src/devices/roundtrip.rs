@@ -9,7 +9,10 @@
 //! or fails. The losses and failures are pinned in [`KNOWN`]: phase 2 of #668 fixes them, and
 //! this test fails on any change to the list, a new loss as much as one fixed (take it off then).
 //!
-//! `cargo test -p photonoxide-studio round_trip -- --nocapture` prints the table that
+//! A second test measures what #703 left out the same way: a design that names a compact model's
+//! file, and every device's fitting jobs on the Model tab.
+//!
+//! `cargo test -p photonoxide-studio round_trip -- --nocapture` prints the tables that
 //! docs/studio-job-editor.md shows.
 
 use photonoxide::device::{self, Device};
@@ -252,7 +255,13 @@ fn simulate_trip(spec: &SpecIn, compute: &ComputeIn, to: Format) -> Option<Outco
         Ok(_) => return Some(Outcome::Lost("written again, a different job".into())),
         Err(e) => return Some(Outcome::Lost(format!("not written again: {e}"))),
     }
-    Some(if got == compute {
+    Some(filled_in(compute, got))
+}
+
+/// The same job read back: [`Outcome::Same`], or what of how it is computed the form now shows
+/// that the page left to the library.
+fn filled_in(compute: &ComputeIn, got: &ComputeIn) -> Outcome {
+    if got == compute {
         Outcome::Same
     } else {
         let mut filled = Vec::new();
@@ -273,7 +282,7 @@ fn simulate_trip(spec: &SpecIn, compute: &ComputeIn, to: Format) -> Option<Outco
             }
         }
         Outcome::Filled(filled.join(", "))
-    })
+    }
 }
 
 /// The Study tab: a sweep and corners of a length of the design, read back into its form.
@@ -593,6 +602,369 @@ fn round_trip_of_every_devices_page_through_its_jobs_text_is_measured() {
         new.is_empty() && fixed.is_empty(),
         "the round trip changed: new losses {new:#?}; fixed, take them off KNOWN: {fixed:#?}"
     );
+}
+
+/// A ring's compact model over its gap, fitted to its analytic model as the Model tab fits one,
+/// written where a run leaves it.
+fn fitted_ring(to: &std::path::Path) {
+    use photonoxide::job::{Event, execute};
+    use photonoxide::run::{Job, Run, Stop};
+    let fit = compact::FitIn {
+        axes: vec![compact::FitAxisIn {
+            parameter: "gap".into(),
+            from: 0.15,
+            to: 0.25,
+            points: 5,
+        }],
+        sampling: "grid".into(),
+        count: 12,
+        seed: 1,
+        held_out: 4,
+        poles: 12,
+        degree: Some(2),
+    };
+    let compute = ComputeIn {
+        band: Some((1.54, 1.56, 41)),
+        ..ComputeIn::default()
+    };
+    let text =
+        compact::fit_text_of(&preset("all-pass ring", "analytic"), &compute, &fit, "fit").unwrap();
+    let job = Job::parse_as(&text, Format::Yaml).unwrap();
+    let mut run = Run::in_memory();
+    execute(&job, &mut run, &Stop::new(None)).unwrap();
+    let fitted = run
+        .lines()
+        .iter()
+        .find_map(|l| match serde_json::from_str::<Event>(l) {
+            Ok(Event::CompactFit { fitted }) => Some(*fitted),
+            _ => None,
+        })
+        .unwrap();
+    fitted.write(to).unwrap();
+}
+
+/// The Design tab's Save of a design that names a compact model's file: the file copied next to
+/// the design in `dir`, the design naming it there, read back and found from there.
+fn saved_beside_trip(spec: &SpecIn, dir: &std::path::Path, to: Format) -> Outcome {
+    let name = "my-ring";
+    let text = compact::kept_beside(spec, dir, name)
+        .and_then(|kept| saved_text_in(&kept, name, "", Some(dir)))
+        .and_then(|t| converted(&t, to));
+    let text = match text {
+        Ok(t) => t,
+        Err(e) => return Outcome::Lost(format!("not written: {e}")),
+    };
+    match read_text(&text) {
+        Err(e) => Outcome::Lost(format!("not read: {e}")),
+        Ok((got, ..)) => {
+            let got = compact::found_from(got, dir);
+            let file = dir.join(format!("{name}.compact.json"));
+            let want = SpecIn {
+                compact: Some(file.display().to_string()),
+                ..spec.clone()
+            };
+            spec_diff(&want, &got).map_or(Outcome::Same, Outcome::Lost)
+        }
+    }
+}
+
+/// A parameter's range as the Model tab first offers it (`around` in CompactModel.svelte): 2 %
+/// either side of its default, inside its range, to 6 significant figures, 5 points.
+fn around(p: &photonoxide::circuit::Parameter) -> compact::FitAxisIn {
+    let r6 = |v: f64| format!("{v:.5e}").parse::<f64>().unwrap();
+    let v = p.default;
+    let lo = p.min.max(if v == 0.0 { p.min } else { v * 0.98 });
+    let hi = p.max.min(if v == 0.0 {
+        p.max.min(p.min + 1.0)
+    } else {
+        v * 1.02
+    });
+    compact::FitAxisIn {
+        parameter: p.name.clone(),
+        from: r6(lo),
+        to: r6(if hi > lo { hi } else { lo + 1e-3 }),
+        points: 5,
+    }
+}
+
+/// The Model tab's fitting jobs of device `d`: on a grid of the parameter it offers first, at
+/// the form's defaults, from each model the device has, and piecewise linear; and on a Latin
+/// hypercube of two parameters, its own time limit. Each written as the tab writes it, converted to `to`, read
+/// back into the tab's form, which writes the same job again.
+fn fit_trips(d: &dyn Device, to: Format) -> Vec<(String, Outcome)> {
+    let kind = d.kind();
+    let coverable: Vec<&photonoxide::circuit::Parameter> = d
+        .parameters()
+        .iter()
+        .filter(|p| !["wavelength", "span"].contains(&p.name.as_str()))
+        .collect();
+    let Some(first) = coverable
+        .iter()
+        .find(|p| p.name == "gap")
+        .or_else(|| {
+            coverable
+                .iter()
+                .find(|p| p.unit == "µm" && p.name != "thickness")
+        })
+        .or(coverable.first())
+        .copied()
+    else {
+        return Vec::new();
+    };
+    let at = |name: &str, or: f64| {
+        d.parameters()
+            .iter()
+            .find(|p| p.name == name)
+            .map_or(or, |p| p.default)
+    };
+    let (wavelength, span) = (at("wavelength", 1.55), at("span", 0.1));
+    // the device's own band at 101 wavelengths, as the tab sends it
+    let band = Some((wavelength - span / 2.0, wavelength + span / 2.0, 101));
+    let grid = compact::FitIn {
+        axes: vec![around(first)],
+        sampling: "grid".into(),
+        count: 12,
+        seed: 1,
+        held_out: 6,
+        poles: 12,
+        degree: Some(2),
+    };
+    // each source the tab offers: every model but the compact one, the MMIs' 2D by FDFD too
+    let mut sources: Vec<(String, &str, bool)> = Vec::new();
+    for m in d.fidelities() {
+        let f = fidelity_name(m.fidelity);
+        if f != "compact" && !sources.iter().any(|(_, g, _)| *g == f) {
+            sources.push((format!("grid, from {f}"), f, false));
+        }
+    }
+    if fdfd_2d(kind).is_some() {
+        sources.push(("grid, from 2D FDFD".into(), "2D", true));
+    }
+    let mut cases: Vec<(String, SpecIn, ComputeIn, compact::FitIn)> = sources
+        .into_iter()
+        .map(|(case, f, fdfd)| {
+            let compute = ComputeIn {
+                band,
+                fdfd_2d: fdfd,
+                ..ComputeIn::default()
+            };
+            (case, preset(kind, f), compute, grid.clone())
+        })
+        .collect();
+    let second = coverable.iter().find(|p| p.name != first.name);
+    let lhs = compact::FitIn {
+        axes: std::iter::once(first)
+            .chain(second.copied())
+            .map(around)
+            .collect(),
+        sampling: "latin hypercube".into(),
+        count: 12,
+        seed: 7,
+        held_out: 4,
+        poles: 8,
+        degree: Some(1),
+    };
+    let cheapest = fidelity_name(d.fidelities()[0].fidelity);
+    // piecewise linear, which the library fits on a grid only
+    cases.push((
+        "grid, piecewise linear".into(),
+        preset(kind, cheapest),
+        ComputeIn {
+            band,
+            ..ComputeIn::default()
+        },
+        compact::FitIn {
+            degree: None,
+            ..grid.clone()
+        },
+    ));
+    cases.push((
+        "latin hypercube".into(),
+        preset(kind, cheapest),
+        ComputeIn {
+            band,
+            timeout_minutes: Some(45.0),
+            ..ComputeIn::default()
+        },
+        lhs,
+    ));
+    cases
+        .into_iter()
+        .map(|(case, spec, compute, fit)| {
+            let outcome = fit_trip(&spec, &compute, &fit, to);
+            (case, outcome)
+        })
+        .collect()
+}
+
+/// One fitting job: written, converted, read back into the Model tab's form, written again.
+fn fit_trip(spec: &SpecIn, compute: &ComputeIn, fit: &compact::FitIn, to: Format) -> Outcome {
+    let yaml = match compact::fit_text_of(spec, compute, fit, "page-fit") {
+        Ok(t) => t,
+        Err(e) => return Outcome::Refused(e),
+    };
+    let text = match converted(&yaml, to) {
+        Ok(t) => t,
+        Err(e) => return Outcome::Lost(format!("not converted: {e}")),
+    };
+    let form = read_job_form(&text);
+    let mut lost = Vec::new();
+    if let Some(e) = &form.error {
+        lost.push(format!("not read: {e}"));
+    }
+    if !form.beyond.is_empty() {
+        lost.push(format!("beyond the form: {}", form.beyond.join(", ")));
+    }
+    match &form.spec {
+        Some(got) => lost.extend(spec_diff(spec, got)),
+        None => lost.push("the design".into()),
+    }
+    if form.fit.as_ref() != Some(fit) {
+        lost.push(format!("the plan {:?}", form.fit));
+    }
+    let Some(got) = &form.compute else {
+        lost.push("how it is computed".into());
+        return Outcome::Lost(lost.join("; "));
+    };
+    if !lost.is_empty() {
+        return Outcome::Lost(lost.join("; "));
+    }
+    // read back, the form writes the same job
+    match compact::fit_text_of(spec, got, fit, "page-fit") {
+        Ok(again) if again == yaml => filled_in(compute, got),
+        Ok(_) => Outcome::Lost("written again, a different job".into()),
+        Err(e) => Outcome::Lost(format!("not written again: {e}")),
+    }
+}
+
+/// What #703 left unmeasured (#668): a design that names a compact model's file, on the Design
+/// tab (the file a run left, and the file Save keeps beside the design) and the Simulate tab;
+/// and every device's fitting jobs on the Model tab. The same cases and outcomes as the other
+/// tabs'; `cargo test -p photonoxide-studio round_trip -- --nocapture` prints the table that
+/// docs/studio-job-editor.md shows. Nothing may be lost.
+#[test]
+fn round_trip_of_a_compact_models_design_and_the_model_tabs_fitting_jobs_is_measured() {
+    let dir = std::env::temp_dir().join(format!(
+        "photonoxide-roundtrip-compact-{}",
+        std::process::id()
+    ));
+    let jobs = dir.join("jobs");
+    std::fs::create_dir_all(&jobs).unwrap();
+    let made = dir.join("compact.json");
+    fitted_ring(&made);
+    let ring = SpecIn {
+        fidelity: "compact".into(),
+        compact: Some(made.display().to_string()),
+        ..preset("all-pass ring", "analytic")
+    };
+
+    // (device, tab, case, format, outcome)
+    let mut rows: Vec<(String, &str, String, &str, Outcome)> = Vec::new();
+    let ring_kind = String::from("all-pass ring");
+    for (fmt, ext) in FORMATS {
+        let o = design_trip(&ring, fmt);
+        rows.push((
+            ring_kind.clone(),
+            "compact",
+            "design, a run's file".into(),
+            ext,
+            o,
+        ));
+        let o = saved_beside_trip(&ring, &jobs, fmt);
+        rows.push((
+            ring_kind.clone(),
+            "compact",
+            "design, saved beside it".into(),
+            ext,
+            o,
+        ));
+        for (case, compute) in [
+            ("simulate, its own band", ComputeIn::default()),
+            (
+                "simulate, band and timeout",
+                ComputeIn {
+                    band: Some((1.545, 1.555, 21)),
+                    timeout_minutes: Some(5.0),
+                    ..ComputeIn::default()
+                },
+            ),
+        ] {
+            let o = simulate_trip(&ring, &compute, fmt).unwrap();
+            rows.push((ring_kind.clone(), "compact", case.into(), ext, o));
+        }
+    }
+    for d in device::library() {
+        for (fmt, ext) in FORMATS {
+            for (case, o) in fit_trips(d.as_ref(), fmt) {
+                rows.push((d.kind().to_owned(), "fit", case, ext, o));
+            }
+        }
+    }
+    std::fs::remove_dir_all(&dir).unwrap();
+
+    println!("| Device | Tab | Cases | Same | Filled in | Lost | Refused |");
+    println!("|---|---|---:|---:|---:|---:|---:|");
+    let mut keys: Vec<(String, &str)> = Vec::new();
+    for (k, t, ..) in &rows {
+        if !keys.iter().any(|(a, b)| a == k && b == t) {
+            keys.push((k.clone(), t));
+        }
+    }
+    let count = |of: &[&Outcome], f: fn(&Outcome) -> bool| of.iter().filter(|o| f(o)).count();
+    let line = |label: String, of: &[&Outcome]| {
+        println!(
+            "| {label} | {} | {} | {} | {} | {} |",
+            of.len(),
+            count(of, |o| matches!(o, Outcome::Same)),
+            count(of, |o| matches!(o, Outcome::Filled(_))),
+            count(of, |o| matches!(o, Outcome::Lost(_))),
+            count(of, |o| matches!(o, Outcome::Refused(_))),
+        );
+    };
+    for (k, t) in &keys {
+        let of: Vec<&Outcome> = rows
+            .iter()
+            .filter(|r| &r.0 == k && &r.1 == t)
+            .map(|r| &r.4)
+            .collect();
+        line(format!("{k} | {t}"), &of);
+    }
+    println!();
+    println!("| Tab | Cases | Same | Filled in | Lost | Refused |");
+    println!("|---|---:|---:|---:|---:|---:|");
+    for tab in ["compact", "fit"] {
+        let of: Vec<&Outcome> = rows.iter().filter(|r| r.1 == tab).map(|r| &r.4).collect();
+        line(tab.into(), &of);
+    }
+    println!();
+    println!("Filled in, refused or lost, by case:");
+    let mut notes: Vec<String> = Vec::new();
+    for (k, t, c, _, o) in &rows {
+        let n = match o {
+            Outcome::Same => continue,
+            Outcome::Filled(w) => format!("- {t}: {c}: filled in: {w}"),
+            Outcome::Refused(w) => format!("- {k} | {t} | {c}: refused: {w}"),
+            Outcome::Lost(w) => format!("- {k} | {t} | {c}: LOST: {w}"),
+        };
+        if !notes.contains(&n) {
+            notes.push(n);
+        }
+    }
+    println!("{}", notes.join("\n"));
+    let lost: Vec<String> = rows
+        .iter()
+        .filter_map(|(k, t, c, f, o)| match o {
+            Outcome::Lost(w) => Some(format!("{k} | {t} | {c} | {f} | {w}")),
+            _ => None,
+        })
+        .collect();
+    assert!(lost.is_empty(), "lost in the round trip: {lost:#?}");
+    // every device has its fitting jobs measured, and the compact design all its cases
+    assert_eq!(
+        keys.iter().filter(|(_, t)| *t == "fit").count(),
+        device::library().len()
+    );
+    assert_eq!(rows.iter().filter(|r| r.1 == "compact").count(), 12);
 }
 
 /// The Custom device's page is the form of a job's text (form.rs): every job of `jobs/` that

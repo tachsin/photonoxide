@@ -25,6 +25,7 @@
   import type { Event } from "../../lib/events";
   import { designCurves, overlaidOf, recordOf, type StudyRecord } from "../../lib/study";
   import { shown as inUnit, stored, unitText } from "../../lib/units";
+  import JobEditor from "../job/JobEditor.svelte";
   import Overlay, { type OverlayItem } from "../Overlay.svelte";
   import UnitChip from "../UnitChip.svelte";
   import ModulatorSweeps, { MODULATOR } from "./ModulatorSweeps.svelte";
@@ -167,6 +168,9 @@
   const text = $derived(made.key === madeKey ? made.text : "");
   const problem = $derived(made.key === madeKey ? made.problem : "");
   let asText = $state(false);
+  // the text, opened, in view: the panel's form is above it
+  let box = $state<HTMLElement>();
+  $effect(() => box?.scrollIntoView({ block: "nearest" }));
   /** The time a solve at this fidelity took the last time, seconds. */
   const each = $derived(took[`${info.id} ${rung.fidelity}`]);
 
@@ -401,7 +405,14 @@
       <button class="btn btn-ghost btn-sm gap-1.5" disabled={!text} onclick={save} title="Save the job to the workspace's jobs/ as {jobName}.yaml: photonoxide run runs it, headless or farmed to workers"><Save size={14} /> Save job</button>
     </div>
     {#if asText && text}
-      <pre class="max-h-72 overflow-auto rounded-lg border border-base-content/10 bg-base-200/50 p-3 text-[11px] leading-snug selectable">{text}</pre>
+      <!-- the job as Save writes it, read only in the shared editor: its Reference and Problems; the form above is how it changes -->
+      <section class="flex h-[34rem] flex-col overflow-hidden rounded-xl border border-base-content/10" bind:this={box}>
+        <JobEditor {text} format="yaml" onchange={() => {}} component="the {info.kind}" readonly sides={["problems", "reference"]}>
+          {#snippet toolbar()}
+            <p class="mb-2 text-[11px] faint"><span class="font-medium num">jobs/{jobName}.yaml</span>, as the form above writes it: read only here.</p>
+          {/snippet}
+        </JobEditor>
+      </section>
       <p class="text-[11px] faint">Saved, <span class="num">photonoxide run jobs/{jobName}.yaml --workers 4</span> farms its points to four workers here (or <span class="num">--worker host:7878</span> to other machines): the same record, bit for bit.</p>
     {/if}
 

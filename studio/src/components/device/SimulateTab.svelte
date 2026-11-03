@@ -3,20 +3,23 @@
   // model at a fidelity (a closed form, its cross-section's modes, 2D FDFD labelled 2D, 3D FDFD)
   // or by FDTD of its drawn structure; checked by the library, recorded in runs/, replayable. The
   // run shows in place: on the device in the page's main view (its Run view), its spectra and
-  // plots here, with the past runs of this device. "As text" is the job file, editable: an edit
-  // the form can hold moves the form; one it can't says what and is kept, the run then using the
-  // text as it is.
+  // plots here, with the past runs of this device. "As text" is the whole job file in the shared
+  // job editor (#668: the schema's completions and hover docs, its Reference and Problems), in
+  // the page's format: an edit the form can hold moves the form; one it can't says why and is
+  // kept, the run then using the text as it is. The text is the page's one run text
+  // (`draft.text`), the one the Job tab's "The run" shows: an edit in either is the other's.
   import { Code, Eye, FileText, History, Play, RotateCcw, Save, Square, TriangleAlert } from "@lucide/svelte";
   import { ask } from "@tauri-apps/plugin-dialog";
 
-  import { ago, api, duration, formatOfText, type DeviceInfo, type DeviceSpec, type JobForm, type RunItem } from "../../lib/api";
+  import { ago, api, duration, formatOfText, type DeviceInfo, type DeviceSpec, type JobForm, type JobFormat, type RunItem } from "../../lib/api";
   import { app, run, startRunHere, toast } from "../../lib/app.svelte";
   import { sci } from "../../lib/bench.svelte";
-  import { keep, pending, rungOf, rungs, shownRun, type Draft } from "../../lib/device.svelte";
+  import { FORMATS } from "../../lib/designs";
+  import { keep, notHeld, pending, rungOf, rungs, shownRun, switchFormat, unread, type Draft } from "../../lib/device.svelte";
   import { plain } from "../../lib/deviceview";
   import { shown, stored } from "../../lib/units";
+  import JobEditor from "../job/JobEditor.svelte";
   import RunPlots from "../RunPlots.svelte";
-  import TomlEditor from "../TomlEditor.svelte";
   import UnitChip from "../UnitChip.svelte";
 
   let {
@@ -45,17 +48,20 @@
   const jobName = $derived(`${draft.name ?? info.id}-${how.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`.replace(/-+$/, ""));
 
   // ---- the job the form makes, and its size ----
+  /** The page's format for its job texts, the Job tab's too. */
+  const format = $derived<JobFormat>(draft.jobFormat ?? "yaml");
   let made = $state<{ key: string; text: string; problem: string; form: JobForm | null }>({ key: "", text: "", problem: "", form: null });
-  const madeKey = $derived(JSON.stringify([designKey, draft.compute, jobName]));
+  const madeKey = $derived(JSON.stringify([designKey, draft.compute, jobName, format]));
   $effect(() => {
     const k = madeKey;
     const spec = snapshot();
     const compute = $state.snapshot(draft.compute);
-    const name = jobName;
+    const [name, f] = [jobName, format];
     const timer = setTimeout(async () => {
       try {
-        const text = await api.deviceJob(spec, compute, name);
-        const form = await api.deviceJobRead(text);
+        const yaml = await api.deviceJob(spec, compute, name);
+        const form = await api.deviceJobRead(yaml);
+        const text = await api.convertJob(yaml, "yaml", f);
         if (k === madeKey) made = { key: k, text, problem: "", form };
       } catch (e) {
         if (k === madeKey) made = { key: k, text: "", problem: String(e), form: null };
@@ -69,20 +75,29 @@
   let typed = $state<JobForm | null>(null);
   let editTimer: ReturnType<typeof setTimeout> | undefined;
   function edited(t: string) {
+    // the editor hands back what it was given: not an edit
+    if (t === text) return;
     draft.text = t;
     clearTimeout(editTimer);
     editTimer = setTimeout(async () => {
-      const form = await api.deviceJobRead(t).catch((e) => ({ name: "", spec: null, compute: null, beyond: [], error: String(e), size: null, study: null, optimize: null }) as JobForm);
+      const form = await api.deviceJobRead(t).catch(unread);
       if (draft.text !== t) return;
       typed = form;
       // the form holds all of it: the form follows, and writes the text again
-      if (!form.error && !form.beyond.length && form.spec && form.compute && form.spec.kind === info.kind) {
+      if (!notHeld(form, info.kind) && form.spec && form.compute) {
         draft.spec = form.spec;
         draft.compute = form.compute;
         draft.text = null;
         typed = null;
       }
     }, 400);
+  }
+  async function setFormat(f: JobFormat) {
+    try {
+      await switchFormat(draft, f);
+    } catch (e) {
+      toast(`It can't be written in ${f.toUpperCase()} as it is: ${e}`, "error");
+    }
   }
   // a text opened from a file, read once
   $effect(() => {
@@ -96,10 +111,16 @@
   }
 
   const text = $derived(draft.text ?? (made.key === madeKey ? made.text : ""));
+  const textFormat = $derived<JobFormat>(draft.text !== null ? formatOfText(draft.text) : format);
   const problem = $derived(draft.text !== null ? (typed?.error ?? "") : made.key === madeKey ? made.problem : "");
   const otherDevice = $derived(draft.text !== null && !!typed?.spec && typed.spec.kind !== info.kind ? typed.spec.kind : null);
+  /** Why the form can't take the text as typed, when it can't (the problem and another device's said above the buttons). */
+  const why = $derived(draft.text !== null && typed && !typed.error && !otherDevice ? notHeld(typed, info.kind) : "");
   const size = $derived(draft.text !== null ? (typed?.size ?? null) : made.key === madeKey ? (made.form?.size ?? null) : null);
   let asText = $state(false);
+  // the text, opened, in view: the panel's form is above it
+  let box = $state<HTMLElement>();
+  $effect(() => box?.scrollIntoView({ block: "nearest" }));
 
   // ---- running it ----
   let runs = $state<RunItem[]>([]);
@@ -165,14 +186,16 @@
   }
 
   async function save() {
+    // in the format the text is written in: the page's, or the one it was typed in
+    const f = formatOfText(text);
     try {
       let path: string;
       try {
-        path = await api.saveJob(text, "yaml", false);
+        path = await api.saveJob(text, f, false);
       } catch (e) {
         if (!String(e).startsWith("exists:")) throw e;
-        if (!(await ask(`jobs/${jobName}.yaml exists. Replace it?`, { title: "Replace the job?", kind: "warning" }))) return;
-        path = await api.saveJob(text, "yaml", true);
+        if (!(await ask(`${String(e).slice("exists:".length).trim().split(/[\\/]/).slice(-2).join("/")} exists. Replace it?`, { title: "Replace the job?", kind: "warning" }))) return;
+        path = await api.saveJob(text, f, true);
       }
       app.workspaceVersion++;
       toast(`Saved ${path.split(/[\\/]/).pop()} to jobs/: photonoxide run runs it, and it reopens here`, "success");
@@ -310,28 +333,31 @@
 
   <div class="flex flex-wrap gap-2">
     <button class="btn btn-primary btn-sm gap-1.5" disabled={!text || !!problem || !!otherDevice} onclick={start} title="Run the job: checked by the library, recorded in runs/, shown here live"><Play size={14} /> Run {how}</button>
-    <button class="btn btn-sm gap-1.5 {asText ? 'btn-active' : ''}" onclick={() => (asText = !asText)} title="The job file, editable"><Code size={14} /> As text</button>
-    <button class="btn btn-ghost btn-sm gap-1.5" disabled={!text} onclick={save} title="Save the job to the workspace's jobs/ as {jobName}.yaml"><Save size={14} /> Save job</button>
+    <button class="btn btn-sm gap-1.5 {asText ? 'btn-active' : ''}" onclick={() => (asText = !asText)} title="The job file, editable, with the schema's completions, Reference and Problems"><Code size={14} /> As text</button>
+    <button class="btn btn-ghost btn-sm gap-1.5" disabled={!text} onclick={save} title="Save the job to the workspace's jobs/ as {jobName}.{textFormat}"><Save size={14} /> Save job</button>
   </div>
 
   {#if asText}
-    <section class="overflow-hidden rounded-xl border border-base-content/10">
-      <div class="flex flex-wrap items-center gap-2 border-b border-base-content/8 px-3 py-2">
-        <FileText size={14} class="faint" />
-        <span class="min-w-0 truncate text-sm font-medium">jobs/{jobName}.yaml</span>
-        <span class="text-[11px] faint">{draft.text === null ? "as the form writes it: type to edit" : "edited: the run uses this text"}</span>
-        <span class="flex-1"></span>
-        {#if draft.text !== null}<button class="btn btn-ghost btn-xs gap-1" onclick={backToForm} title="Drop the edits: the form writes the text again"><RotateCcw size={12} /> Back to the form</button>{/if}
-      </div>
-      {#if draft.text !== null && typed?.beyond.length}
-        <div role="status" class="border-b border-warning/30 bg-warning/8 px-3 py-2 text-xs">
-          The form can't hold <span class="font-medium num">{typed.beyond.join(", ")}</span>: the text is kept, and the run uses it as it is.
-        </div>
-      {/if}
+    <!-- the whole job, as Run runs it and Save writes it, in the shared editor; the design is in the page's view beside it -->
+    <section class="flex {text ? 'h-[36rem]' : ''} flex-col overflow-hidden rounded-xl border border-base-content/10" bind:this={box}>
       {#if text}
-        <div class="h-[24rem]">
-          <TomlEditor value={text} format={formatOfText(text)} onchange={edited} />
-        </div>
+        <JobEditor {text} format={textFormat} onchange={edited} component="the {info.kind}" sides={["problems", "reference"]} side="problems">
+          {#snippet toolbar()}
+            <div class="mb-2 flex flex-wrap items-center gap-2">
+              <FileText size={14} class="faint" />
+              <span class="min-w-0 truncate text-sm font-medium">jobs/{jobName}.{textFormat}</span>
+              <div class="join" role="group" aria-label="The format">
+                {#each FORMATS as [f, label] (f)}
+                  <button class="btn btn-xs join-item {textFormat === f ? 'btn-active' : 'btn-ghost'}" aria-pressed={textFormat === f} onclick={() => setFormat(f)}>{label}</button>
+                {/each}
+              </div>
+              <span class="flex-1"></span>
+              {#if draft.text !== null}<button class="btn btn-ghost btn-xs gap-1" onclick={backToForm} title="Drop the edits: the form writes the text again"><RotateCcw size={12} /> Back to the form</button>{/if}
+            </div>
+            <p class="mb-2 text-[11px] faint">{draft.text === null ? "As the form writes it: type to edit, and the form follows. The Job tab's \"The run\" is this text." : "Edited: the run uses this text."}</p>
+            {#if why}<p role="status" class="mb-2 rounded-lg border border-warning/30 bg-warning/8 px-3 py-1.5 text-xs selectable">The form can't take this text: {why}.</p>{/if}
+          {/snippet}
+        </JobEditor>
       {:else}
         <p class="px-3 py-6 text-center text-xs faint">{problem ? "No job: the form's settings make none (above)." : "Making the job…"}</p>
       {/if}
