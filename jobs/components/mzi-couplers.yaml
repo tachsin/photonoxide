@@ -1,0 +1,19 @@
+name: mzi-couplers
+description: >-
+  A Mach–Zehnder interferometer of two directional couplers and two strip arms,
+  solved as the netlist of its devices.
+device:
+  fidelity: analytic
+  kind: MZI
+  parameters:
+    coupler_length: "18.576115501358448"
+    gap: "0.2"
+    loss: "2.7"
+    lower: "100.0"
+    phase: "0.0"
+    span: "0.1"
+    thickness: "0.22"
+    upper: "150.0"
+    wavelength: "1.55"
+    width: "0.5"
+  stack: soi_220

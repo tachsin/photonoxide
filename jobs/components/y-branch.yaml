@@ -1,0 +1,30 @@
+name: y-branch
+description: "A Y-branch: a stem that widens along an outline of its own (a spline through its widths) and divides into two arms, splitting its power between them."
+device:
+  fidelity: analytic
+  kind: Y-branch
+  parameters:
+    arm_length: "5.0"
+    excess_loss: "0.0"
+    length: "2.0"
+    separation: "2.0"
+    sidewall: "90.0"
+    slab: "0.0"
+    span: "0.1"
+    thickness: "0.22"
+    w1: "0.5"
+    w10: "1.4"
+    w11: "1.31"
+    w12: "1.2"
+    w13: "1.2"
+    w2: "0.5"
+    w3: "0.6"
+    w4: "0.7"
+    w5: "0.9"
+    w6: "1.26"
+    w7: "1.4"
+    w8: "1.4"
+    w9: "1.4"
+    wavelength: "1.55"
+    width: "0.5"
+  stack: soi_220

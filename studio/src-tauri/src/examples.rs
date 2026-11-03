@@ -554,6 +554,46 @@ pub fn jobs() -> Vec<JobExample> {
     .collect()
 }
 
+/// The built-in components' job files, jobs/components/: each device of the library as its page
+/// builds it at its defaults (#668), in the library's order. They aren't templates: the Design
+/// page lists them, and each opens on its device's page.
+pub fn components() -> Vec<JobExample> {
+    macro_rules! components {
+        ($($id:literal),* $(,)?) => {
+            [$((
+                concat!("components/", $id, ".yaml"),
+                include_str!(concat!("../../../jobs/components/", $id, ".yaml")),
+            )),*]
+        };
+    }
+    components![
+        "waveguide",
+        "bend",
+        "directional-coupler",
+        "ring-all-pass",
+        "ring-add-drop",
+        "rib-waveguide",
+        "mmi-1x2",
+        "mmi-2x2",
+        "y-branch",
+        "mzi-couplers",
+        "mzi-y-branches",
+        "thermo-optic-shifter",
+        "doped-thermo-optic-shifter",
+        "in-guide-thermo-optic-shifter",
+        "gst-phase-shifter",
+        "sb2s3-phase-shifter",
+        "sb2se3-phase-shifter",
+        "tfln-modulator",
+    ]
+    .into_iter()
+    .map(|(file, text)| JobExample {
+        file: file.to_owned(),
+        text: text.replace("\r\n", "\n"),
+    })
+    .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -615,9 +655,29 @@ mod tests {
             names_in("../../jobs", "yaml"),
             "add the new job to jobs()"
         );
-        for j in jobs() {
+        // the built-in components' files too, each registered in components()
+        let mut built: Vec<String> = components().into_iter().map(|j| j.file).collect();
+        built.sort();
+        let mut files: Vec<String> = names_in("../../jobs/components", "yaml")
+            .into_iter()
+            .map(|f| format!("components/{f}"))
+            .collect();
+        files.sort();
+        assert_eq!(built, files, "add the new component's file to components()");
+        // nothing else in jobs/components/: no other format, no folder
+        let all = std::fs::read_dir(
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../jobs/components"),
+        )
+        .unwrap()
+        .count();
+        assert_eq!(
+            all,
+            files.len(),
+            "jobs/components/ holds the YAML files only"
+        );
+        for j in jobs().into_iter().chain(components()) {
             let job = crate::studio::parse_job(&j.text).unwrap();
-            photonoxide::job::check(&job).unwrap();
+            photonoxide::job::check(&job).unwrap_or_else(|e| panic!("{}: {e}", j.file));
         }
     }
 

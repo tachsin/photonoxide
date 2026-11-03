@@ -143,6 +143,10 @@ pub fn show(dir: Option<&Path>, live: Option<Live>) -> Result<(), String> {
             crate::devices::device_touchstone,
             crate::devices::save_device,
             crate::devices::read_device,
+            crate::devices::design::design_files,
+            crate::devices::design::design_text,
+            crate::devices::design::design_read,
+            crate::devices::design::save_component,
             crate::devices::device_job,
             crate::devices::device_study_job,
             crate::devices::compact::device_fidelities,
@@ -466,7 +470,7 @@ struct JobItem {
     name: String,
     /// The task's kind, e.g. `"modes"`; `"device"` for a device's design.
     kind: String,
-    /// The job file's opening comment.
+    /// What it is: its `description`, or an older file's opening comment.
     about: String,
     /// When it was last changed, seconds since 1970.
     modified: f64,
@@ -618,7 +622,7 @@ fn job_item(path: &Path) -> Option<JobItem> {
         path: path.display().to_string(),
         name: job.name().to_owned(),
         kind: kind_of(&job),
-        about: about(text),
+        about: job.description().map_or_else(|| about(text), str::to_owned),
         modified,
         device: job
             .device()

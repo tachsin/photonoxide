@@ -2236,7 +2236,9 @@ fn bad_tasks_are_errors() {
 fn the_repositorys_jobs_pass_the_check() {
     let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("jobs");
     let mut count = 0;
-    for entry in std::fs::read_dir(dir).unwrap() {
+    // and the built-in components' files, jobs/components/ (#668)
+    let components = std::fs::read_dir(dir.join("components")).unwrap();
+    for entry in std::fs::read_dir(&dir).unwrap().chain(components) {
         let path = entry.unwrap().path();
         if path.extension().is_some_and(|x| x == "yaml") {
             check(&Job::load(&path).unwrap()).unwrap_or_else(|e| panic!("{path:?}: {e}"));

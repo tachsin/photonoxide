@@ -1,0 +1,19 @@
+name: doped-thermo-optic-shifter
+description: "Doped silicon heaters in the slab beside a rib: the phase they add follows their power, P_π for a π shift, with its time constant, bandwidth and crosstalk on a neighbour."
+device:
+  fidelity: analytic
+  kind: doped thermo-optic phase shifter
+  parameters:
+    buffer: "0.8"
+    cladding: "3.32"
+    heater_width: "1.0"
+    length: "320.0"
+    loss: "0.0"
+    pitch: "5.0"
+    power: "0.0"
+    slab: "0.09"
+    span: "0.1"
+    thickness: "0.22"
+    wavelength: "1.55"
+    width: "0.5"
+  stack: soi_220

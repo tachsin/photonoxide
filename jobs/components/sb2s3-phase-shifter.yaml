@@ -1,0 +1,19 @@
+name: sb2s3-phase-shifter
+description: "A silicon guide with a cell of Sb₂S₃ on top: the effective index, phase and loss of its amorphous and crystalline states and those between, held without power."
+device:
+  fidelity: analytic
+  kind: Sb2S3 phase-change phase shifter
+  parameters:
+    coverage: "1.0"
+    crystallized: "0.0"
+    film_thickness: "0.025"
+    length: "10.0"
+    loss: "0.0"
+    slab: "0.0"
+    slab_film: "0.0"
+    thickness: "0.22"
+    tm: "0.0"
+    wall_film: "0.0"
+    wavelength: "1.55"
+    width: "0.5"
+  stack: soi_220

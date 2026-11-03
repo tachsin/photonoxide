@@ -1,0 +1,16 @@
+name: directional-coupler
+description: "Two strips side by side, a gap apart: the light crosses from one to the other and back along the coupled length."
+device:
+  fidelity: analytic
+  kind: directional coupler
+  parameters:
+    gap: "0.2"
+    length: "18.576115501358448"
+    loss: "2.7"
+    sidewall: "90.0"
+    slab: "0.0"
+    span: "0.1"
+    thickness: "0.22"
+    wavelength: "1.55"
+    width: "0.5"
+  stack: soi_220

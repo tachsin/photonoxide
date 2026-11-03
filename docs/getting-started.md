@@ -241,7 +241,12 @@ wavelength_um = 1.55
 }
 ```
 
-JSON has no comments, so a JSON job has no description. YAML is read as YAML 1.2: `no`, `yes`,
+JSON has no comments: a job says what it is in its `description` (`description: A strip's modes
+at 1.55 um.`), a key that is the same in every format, and the studio's format switch keeps a
+YAML or TOML file's opening comment when it writes the other of the two. A component, a design
+alone, is a job with a `device` table and no task: the built-in ones are the files of
+[`jobs/components/`](../jobs/components), and the studio's Design page makes your own
+([studio-job-editor.md](studio-job-editor.md)). YAML is read as YAML 1.2: `no`, `yes`,
 `on` and `off` are strings, as `1:30` is, and only `true` and `false` are booleans. A run keeps
 its job as it was given (`job.yaml`, `job.toml` or `job.json`).
 

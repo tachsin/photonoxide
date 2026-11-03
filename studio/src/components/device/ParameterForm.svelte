@@ -6,6 +6,7 @@
   import { ArrowRight, Plus, RotateCcw, X } from "@lucide/svelte";
 
   import type { DeviceField, DeviceInfo } from "../../lib/api";
+  import { inOrder } from "../../lib/designs";
   import { literal, literalAt, plain, showExpression, takeExpression, valueText } from "../../lib/deviceview";
   import { label } from "../../lib/plot";
   import { isMicrometres, showIn } from "../../lib/units";
@@ -32,25 +33,30 @@
   const deviceRows = $derived(rows.filter((f) => f.device));
   const named = $derived(rows.filter((f) => !f.device));
 
+  /** The parameters changed, kept in the one order a file gives back (the device's own, then the others by name): page, text and page again the same (#668). */
+  function put(next: [string, string][]) {
+    parameters = inOrder(info, next);
+  }
+
   function set(name: string, expression: string) {
     const k = parameters.findIndex(([n]) => n === name);
-    parameters = k >= 0 ? parameters.map((p, i) => (i === k ? [name, expression] : p)) : [...parameters, [name, expression]];
+    put(k >= 0 ? parameters.map((p, i) => (i === k ? [name, expression] : p)) : [...parameters, [name, expression]]);
   }
 
   function rename(from: string, to: string) {
     to = to.trim();
     if (!to || to === from || parameters.some(([n]) => n === to)) return;
-    parameters = parameters.map(([n, e]) => (n === from ? [to, e] : [n, e]));
+    put(parameters.map(([n, e]) => (n === from ? [to, e] : [n, e])));
   }
 
   function remove(name: string) {
-    parameters = parameters.filter(([n]) => n !== name);
+    put(parameters.filter(([n]) => n !== name));
   }
 
   function add() {
     let k = 1;
     while (rows.some((f) => f.name === `p${k}`)) k++;
-    parameters = [...parameters, [`p${k}`, "0"]];
+    put([...parameters, [`p${k}`, "0"]]);
   }
 
   const parameter = (name: string) => info.parameters.find((p) => p.name === name);

@@ -1,0 +1,21 @@
+name: in-guide-thermo-optic-shifter
+description: "A doped rib heated by a current across it: the phase the guide's own heat adds follows its power, P_π for a π shift, with its time constant, bandwidth and crosstalk on a neighbour."
+device:
+  fidelity: analytic
+  kind: in-guide thermo-optic phase shifter
+  parameters:
+    channel_start: "1.0"
+    cover: "10.0"
+    doped_width: "1.0"
+    fill: "0.3278688524590164"
+    length: "61.6"
+    loss: "0.0"
+    pitch: "5.0"
+    power: "0.0"
+    reach: "3.0"
+    slab: "0.09"
+    span: "0.1"
+    thickness: "0.22"
+    wavelength: "1.55"
+    width: "0.5"
+  stack: soi_220

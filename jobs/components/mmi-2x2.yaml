@@ -1,0 +1,17 @@
+name: mmi-2x2
+description: "A 2 × 2 multimode interference coupler: a wide section fed at ±W/6, whose modes beat into two images of each input at L_π/2, a 3 dB coupler."
+device:
+  fidelity: 2D
+  kind: MMI 2x2
+  parameters:
+    access_width: "1.5"
+    length: "44.7446697989845"
+    port_width: "1.5"
+    sidewall: "90.0"
+    slab: "0.0"
+    span: "0.1"
+    taper_length: "0.0"
+    thickness: "0.22"
+    wavelength: "1.55"
+    width: "6.0"
+  stack: soi_220

@@ -13,6 +13,7 @@
   import "katex/dist/katex.min.css";
 
   import CustomDevice from "../components/custom/CustomDevice.svelte";
+  import DesignPage from "../components/design/DesignPage.svelte";
   import DevicePage from "../components/device/DevicePage.svelte";
   import Glyph from "../components/Glyph.svelte";
   import MathText from "../components/MathText.svelte";
@@ -23,6 +24,7 @@
   import { app, CUSTOM, go } from "../lib/app.svelte";
   import { addInstance, exportTouchstone, library, loadLibrary, partKey, partOf } from "../lib/chip.svelte";
   import { sweepProblem, type Quantity } from "../lib/circuit";
+  import { DESIGN } from "../lib/designpage.svelte";
   import { deviceOf, loadDevices } from "../lib/device.svelte";
   import { label } from "../lib/plot";
   import { isMicrometres, len, showIn, shown as inUnit, storeIn, stored, unitOf } from "../lib/units";
@@ -32,6 +34,8 @@
 
   /** Whether the Components page shows the Custom device. */
   const custom = $derived(app.component === CUSTOM);
+  /** Whether it shows the Design page: every component as its job file (#668). */
+  const designing = $derived(app.component === DESIGN);
 
   let values = $state<Record<string, number[]>>({});
   let sweep = $state<Sweep>({ from_um: 1.5, to_um: 1.6, points: 501 });
@@ -153,9 +157,11 @@
 </script>
 
 <div class="flex h-full min-h-0 min-w-0 flex-col">
-    <div class="min-h-0 flex-1 {custom || (kind && device) ? 'overflow-hidden' : 'overflow-x-hidden overflow-y-auto'}">
+    <div class="min-h-0 flex-1 {custom || designing || (kind && device) ? 'overflow-hidden' : 'overflow-x-hidden overflow-y-auto'}">
     {#if custom}
       <CustomDevice />
+    {:else if designing}
+      <DesignPage />
     {:else if kind?.pending}
       <!-- listed before it was built: its page once its modes are solved (kindReady) -->
       <div class="grid h-full place-items-center">
