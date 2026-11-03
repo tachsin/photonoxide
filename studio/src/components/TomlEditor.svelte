@@ -57,7 +57,10 @@
     layers = [],
     oncursor,
     onmethod,
+    readonly = false,
   }: {
+    /** Shown to read, not to edit (a built-in component's file). */
+    readonly?: boolean;
     /** The stack's layers' names, offered for a `layer`. */
     layers?: string[];
     /** Opens a method's page (docs/methods/<file>), from a key's hover. */
@@ -80,6 +83,7 @@
   let schema: Schema | null = null;
   let materials: string[] = [];
   const language = new Compartment();
+  const locked = new Compartment();
   const modes = { toml, json, yaml };
   const languageOf = (f: JobFormat) => StreamLanguage.define(modes[f]);
 
@@ -316,6 +320,7 @@
         extensions: [
           basicSetup,
           language.of(languageOf(format)),
+          locked.of(EditorState.readOnly.of(readonly)),
           syntaxHighlighting(look),
           theme,
           EditorState.languageData.of(() => [{ autocomplete: complete }]),
@@ -342,6 +347,12 @@
   $effect(() => {
     const f = format;
     view?.dispatch({ effects: language.reconfigure(languageOf(f)) });
+  });
+
+  // read only, or editable again
+  $effect(() => {
+    const r = readonly;
+    view?.dispatch({ effects: locked.reconfigure(EditorState.readOnly.of(r)) });
   });
 
   // the form changed the text: show it, unless it is what the editor already holds

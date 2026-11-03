@@ -11563,6 +11563,10 @@
       "$ref": "#/$defs/Circuit",
       "description": "A chip of instances: the structure, which the task computes, studies or optimizes."
     },
+    "description": {
+      "description": "What the job is, in words: a design's description, kept the same in every format (a JSON file has no comments to hold it).",
+      "type": "string"
+    },
     "device": {
       "$ref": "#/$defs/Device",
       "description": "A device of the library: the structure, which the task computes, studies or optimizes."
@@ -11576,7 +11580,7 @@
       "description": "The solver backends the job asks for."
     },
     "task": {
-      "description": "What to compute, by its kind.",
+      "description": "What to compute, by its kind. A design alone (a `device` with no task) computes nothing, and is written without one.",
       "type": "object"
     },
     "timeout_minutes": {

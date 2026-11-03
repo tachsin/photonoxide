@@ -42,6 +42,10 @@ pub(crate) struct JobFile {
     _schema: Option<String>,
     /// The job's name: its runs' directories end in it.
     name: String,
+    /// What the job is, in words: a design's description, kept the same in every format (a
+    /// JSON file has no comments to hold it).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    description: Option<String>,
     /// The hard limit on the run, in minutes: it stops when the limit passes.
     #[serde(skip_serializing_if = "Option::is_none")]
     timeout_minutes: Option<f64>,
@@ -56,8 +60,9 @@ pub(crate) struct JobFile {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[schemars(with = "Option<crate::job::schema::Open>")]
     circuit: Option<toml::Table>,
-    /// What to compute, by its kind.
-    #[serde(default)]
+    /// What to compute, by its kind. A design alone (a `device` with no task) computes nothing,
+    /// and is written without one.
+    #[serde(default, skip_serializing_if = "toml::Table::is_empty")]
     #[schemars(with = "crate::job::schema::Open")]
     task: toml::Table,
 }
@@ -78,7 +83,7 @@ struct SolverFile {
 pub enum Format {
     /// TOML, the format of every built-in job.
     Toml,
-    /// JSON. It has no comments, so a JSON job has no description.
+    /// JSON. It has no comments: a JSON job says what it is in its `description`.
     Json,
     /// YAML 1.2: `no`, `on` and the other YAML 1.1 booleans are strings, as `1:30` is.
     Yaml,
@@ -114,6 +119,7 @@ impl Format {
 #[derive(Clone, Debug, PartialEq)]
 pub struct Job {
     name: String,
+    description: Option<String>,
     timeout_minutes: Option<f64>,
     timeout: Option<Duration>,
     solver: Option<SolverFile>,
@@ -132,6 +138,7 @@ impl Job {
     ///
     /// ```yaml
     /// name: strip-modes        # letters, digits, '-', '_' and '.'
+    /// description: A strip's modes.   # optional: what the job is, in every format
     /// timeout_minutes: 30      # optional: a hard limit on the run
     ///
     /// solver:                  # optional
@@ -220,6 +227,7 @@ impl Job {
         };
         Ok(Job {
             name: file.name,
+            description: file.description,
             timeout_minutes: file.timeout_minutes,
             timeout,
             solver: file.solver,
@@ -277,6 +285,11 @@ impl Job {
         &self.name
     }
 
+    /// What the job is, in words: its `description`, if it has one.
+    pub fn description(&self) -> Option<&str> {
+        self.description.as_deref()
+    }
+
     /// The hard limit on the run, if any.
     pub fn timeout(&self) -> Option<Duration> {
         self.timeout
@@ -325,6 +338,7 @@ impl Job {
         let file = JobFile {
             _schema: None,
             name: self.name.clone(),
+            description: self.description.clone(),
             timeout_minutes: self.timeout_minutes,
             solver: self.solver.clone(),
             device: self.device.clone(),
@@ -349,11 +363,12 @@ impl Job {
                     .map_err(|e| write(e.to_string()))?;
                 crate::job::short::yaml(&[
                     ("name", Some(file.name.into())),
+                    ("description", file.description.map(Into::into)),
                     ("timeout_minutes", file.timeout_minutes.map(Into::into)),
                     ("solver", solver),
                     ("device", file.device.map(Into::into)),
                     ("circuit", file.circuit.map(Into::into)),
-                    ("task", Some(file.task.into())),
+                    ("task", (!file.task.is_empty()).then(|| file.task.into())),
                 ])
                 .map_err(write)
             }
@@ -1075,7 +1090,9 @@ mod tests {
     fn every_built_in_job_is_the_same_job_in_json_and_yaml() {
         let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("jobs");
         let mut count = 0;
-        for entry in fs::read_dir(&dir).unwrap() {
+        // and the built-in components' files, jobs/components/ (#668)
+        let components = fs::read_dir(dir.join("components")).unwrap();
+        for entry in fs::read_dir(&dir).unwrap().chain(components) {
             let path = entry.unwrap().path();
             if Format::from_path(&path).is_none() {
                 continue;
@@ -1114,6 +1131,7 @@ mod tests {
         task.insert("whole".into(), toml::Value::Float(20.0));
         let job = Job {
             name: "floats".into(),
+            description: None,
             timeout_minutes: Some(0.1),
             timeout: Some(Duration::from_secs_f64(6.0)),
             solver: None,

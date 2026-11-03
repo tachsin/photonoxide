@@ -339,7 +339,11 @@ fn a_design_round_trips_through_the_form_and_the_file() {
         "A narrower coupler.\nIts gap follows w.",
     )
     .unwrap();
-    assert!(text.starts_with("# A narrower coupler.\n# Its gap follows w.\n"));
+    // the description a key, so that JSON keeps it too
+    assert!(
+        text.starts_with("name: narrow-coupler\ndescription: "),
+        "{text}"
+    );
     assert!(
         text.contains("device:") && text.contains("gap: w/2.5"),
         "{text}"
@@ -349,10 +353,20 @@ fn a_design_round_trips_through_the_form_and_the_file() {
     assert_eq!(about, "A narrower coupler.\nIts gap follows w.");
     assert_eq!(back.stack, edited.stack);
     assert_eq!(back.fidelity, edited.fidelity);
-    let mut sorted = form;
-    sorted.sort();
-    assert_eq!(back.parameters, sorted);
+    // the parameters in the page's order: the device's own in its order, the others by name
+    assert_eq!(back.parameters, in_order("directional coupler", &form));
     assert_eq!(geometry(&back).values, view.values);
+    // a file saved before the description was a key: its opening comment is the description
+    let old = format!(
+        "# A narrower coupler.\n# Its gap follows w.\n\n{}",
+        saved_text(&edited, "narrow-coupler", "").unwrap()
+    );
+    assert!(!old.contains("description"), "{old}");
+    assert_eq!(
+        read_text(&old).unwrap().2,
+        "A narrower coupler.\nIts gap follows w.",
+        "{old}"
+    );
     // a job that isn't a device's isn't read as one, and a bad design isn't saved
     assert!(read_text("name = \"x\"\n[task]\nkind = \"modes\"\n").is_err());
     assert!(saved_text(&design("waveguide", &[("width", "w")]), "x", "").is_err());

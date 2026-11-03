@@ -19,29 +19,12 @@ use super::*;
 /// Whether a loss, (device, tab, format, what was lost), falls under a rule.
 type Rule = fn(&str, &str, &str, &str) -> bool;
 
-/// The losses known, each a rule: phase 2 of #668 fixes them. Every part of every loss must fall
-/// under one, and every rule must still catch one.
-const KNOWN: &[(&str, Rule)] = &[
-    (
-        "JSON has no comments: a design's description, its opening comment, is lost",
-        |_, tab, format, what| tab == "design" && format == "json" && what == "the description",
-    ),
-    (
-        "the file writes [device.parameters] in alphabetical order (the library's TOML tables \
-         are sorted); the page shows them in the device's order again, so only the text's \
-         order differs",
-        |_, tab, _, what| tab == "design" && what == "parameters' order",
-    ),
-    (
-        "the TFLN modulator's page offers a stack of layers, which the library refuses: it is on \
-         its own stack",
-        |device, tab, _, what| {
-            device == "TFLN Mach-Zehnder modulator"
-                && tab == "design"
-                && what.starts_with("not written: invalid device: a TFLN Mach-Zehnder modulator is on its own stack")
-        },
-    ),
-];
+/// The losses known, each a rule. Every part of every loss must fall under one, and every rule
+/// must still catch one. Phase 2 of #668 fixed the three phase 1 found: a design's description
+/// is a key now (JSON has no comments), the page holds the parameters in the one order a file
+/// gives back ([`in_order`]), and the TFLN modulator's page offers no stack, as the library
+/// takes none.
+const KNOWN: &[(&str, Rule)] = &[];
 
 const FORMATS: [(Format, &str); 3] = [
     (Format::Yaml, "yaml"),
@@ -133,26 +116,33 @@ fn designs(d: &dyn Device) -> Vec<(&'static str, SpecIn)> {
             ..preset(kind, first)
         },
     ));
-    // a free parameter, named first, that a device parameter takes as its expression
+    // a free parameter, added first, that a device parameter takes as its expression: the page
+    // holds them in its order (the device's own first, then the others by name)
     if let Some(f) = view.fields.iter().find(|f| f.unit == "µm") {
         out.push((
             "expression",
             SpecIn {
-                parameters: vec![
-                    ("p".into(), f.expression.clone()),
-                    (f.name.clone(), "p".into()),
-                ],
+                parameters: in_order(
+                    kind,
+                    &[
+                        ("p".into(), f.expression.clone()),
+                        (f.name.clone(), "p".into()),
+                    ],
+                ),
                 ..preset(kind, first)
             },
         ));
     }
-    out.push((
-        "own stack",
-        SpecIn {
-            stack: layers(),
-            ..preset(kind, first)
-        },
-    ));
+    // a stack of its own, where the page offers one: not on a device whose stack is its own
+    if !own_stack(kind, d.fidelities()[0].fidelity) {
+        out.push((
+            "own stack",
+            SpecIn {
+                stack: layers(),
+                ..preset(kind, first)
+            },
+        ));
+    }
     out
 }
 
@@ -352,6 +342,86 @@ fn study_trip(spec: &SpecIn, d: &dyn Device, to: Format) -> Vec<(&'static str, O
     out
 }
 
+/// The Optimize tab: the device's first objective over one of its lengths, read back into its
+/// form; the form then writes the job again, which must be the same text.
+fn optimize_trip(spec: &SpecIn, d: &dyn Device, to: Format) -> Option<Outcome> {
+    let p = d
+        .parameters()
+        .iter()
+        .find(|p| p.unit == "µm" && !["wavelength", "span"].contains(&p.name.as_str()))?;
+    let (objectives, _) = optimizing::optimize_info(spec).ok()?.offers();
+    let first = serde_json::to_value(objectives.first()?).ok()?;
+    let aim = serde_json::from_value(serde_json::json!({ "name": first["symbol"] })).ok()?;
+    let optimize = OptimizeIn {
+        method: "lbfgsb".into(),
+        seed: 1,
+        evaluations: 20,
+        population: None,
+        learning_rate: None,
+        reduce: None,
+        variables: vec![photonoxide::job::Variable::new(
+            &p.name,
+            p.default * 0.9,
+            p.default * 1.1,
+        )],
+        objectives: vec![aim],
+        constraints: Vec::new(),
+    };
+    let compute = ComputeIn {
+        band: Some((1.55, 1.55, 1)),
+        timeout_minutes: Some(10.0),
+        ..ComputeIn::default()
+    };
+    let yaml = match optimizing::device_optimize_job(
+        spec.clone(),
+        compute.clone(),
+        optimize.clone(),
+        "page-optimize".into(),
+    ) {
+        Ok(t) => t,
+        Err(e) => return Some(Outcome::Refused(e)),
+    };
+    let text = match converted(&yaml, to) {
+        Ok(t) => t,
+        Err(e) => return Some(Outcome::Lost(format!("not converted: {e}"))),
+    };
+    let form = read_job_form(&text);
+    let mut lost = Vec::new();
+    if let Some(e) = &form.error {
+        lost.push(format!("not read: {e}"));
+    }
+    if !form.beyond.is_empty() {
+        lost.push(format!("beyond the form: {}", form.beyond.join(", ")));
+    }
+    match &form.spec {
+        Some(got) => lost.extend(spec_diff(spec, got)),
+        None => lost.push("the design".into()),
+    }
+    if form.optimize.as_ref() != Some(&optimize) {
+        lost.push(format!("optimization {:?}", form.optimize));
+    }
+    // read back, the form writes the same job, as the page holds it (OptimizeTab's grid and band)
+    if lost.is_empty()
+        && let (Some(got), Some(c)) = (&form.optimize, &form.compute)
+    {
+        match optimizing::device_optimize_job(
+            spec.clone(),
+            c.clone(),
+            got.clone(),
+            "page-optimize".into(),
+        ) {
+            Ok(again) if again == yaml => {}
+            Ok(_) => lost.push("written again, a different job".into()),
+            Err(e) => lost.push(format!("not written again: {e}")),
+        }
+    }
+    Some(if lost.is_empty() {
+        Outcome::Same
+    } else {
+        Outcome::Lost(lost.join("; "))
+    })
+}
+
 /// The Simulate tab's computes for device `d` at `spec`'s fidelity.
 fn computes(d: &dyn Device) -> Vec<(&'static str, ComputeIn)> {
     let mut out = vec![("own model", ComputeIn::default())];
@@ -424,6 +494,9 @@ fn round_trip_of_every_devices_page_through_its_jobs_text_is_measured() {
             for (case, o) in study_trip(&preset(&kind, first), d.as_ref(), fmt) {
                 rows.push((kind.clone(), "study", case.into(), ext, o));
             }
+            if let Some(o) = optimize_trip(&preset(&kind, first), d.as_ref(), fmt) {
+                rows.push((kind.clone(), "optimize", "first objective".into(), ext, o));
+            }
         }
     }
 
@@ -446,6 +519,22 @@ fn round_trip_of_every_devices_page_through_its_jobs_text_is_measured() {
         let count = |f: fn(&Outcome) -> bool| of.iter().filter(|o| f(o)).count();
         println!(
             "| {k} | {t} | {} | {} | {} | {} | {} |",
+            of.len(),
+            count(|o| matches!(o, Outcome::Same)),
+            count(|o| matches!(o, Outcome::Filled(_))),
+            count(|o| matches!(o, Outcome::Lost(_))),
+            count(|o| matches!(o, Outcome::Refused(_))),
+        );
+    }
+    println!();
+    // the totals, a row per tab, as docs/studio-job-editor.md shows them
+    println!("| Tab | Cases | Same | Filled in | Lost | Refused |");
+    println!("|---|---:|---:|---:|---:|---:|");
+    for tab in ["design", "simulate", "study", "optimize"] {
+        let of: Vec<&Outcome> = rows.iter().filter(|r| r.1 == tab).map(|r| &r.4).collect();
+        let count = |f: fn(&Outcome) -> bool| of.iter().filter(|o| f(o)).count();
+        println!(
+            "| {tab} | {} | {} | {} | {} | {} |",
             of.len(),
             count(|o| matches!(o, Outcome::Same)),
             count(|o| matches!(o, Outcome::Filled(_))),
@@ -586,17 +675,9 @@ fn round_trip_of_the_custom_devices_form_through_its_jobs_text_is_measured() {
         println!("- {l}");
     }
     assert!(opened > 0);
-    // the one loss known, phase 2's to fix: JSON has no comments, so the description goes
-    let new: Vec<&String> = lost
-        .iter()
-        .filter(|l| !l.ends_with("Json: lost: about"))
-        .collect();
+    // nothing lost in any format: the description is a key, which JSON keeps too (#668)
     assert!(
-        new.is_empty(),
-        "the Custom device's round trip changed: {new:#?}"
-    );
-    assert!(
-        !lost.is_empty(),
-        "JSON keeps the description now: take its rule off"
+        lost.is_empty(),
+        "the Custom device's round trip lost: {lost:#?}"
     );
 }

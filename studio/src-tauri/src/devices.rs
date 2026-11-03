@@ -180,6 +180,9 @@ pub struct DeviceInfo {
     /// Its 2D model by FDFD, where its 2D fidelity has a cheaper one in its place (an MMI's
     /// guided modes): a job's `model_2d = "fdfd"`.
     fdfd_2d: Option<MethodInfo>,
+    /// On a stack of its own that the library won't change (the TFLN modulator's): the page
+    /// offers no stack to edit, as the library takes none.
+    own_stack: bool,
 }
 
 #[derive(Serialize)]
@@ -254,6 +257,7 @@ pub fn device_library() -> Result<Vec<DeviceInfo>, String> {
                 lesson,
                 examples: examples.to_vec(),
                 fdfd_2d: fdfd_2d(d.kind()),
+                own_stack: own_stack(d.kind(), d.fidelities()[0].fidelity),
             })
         })
         .collect()
@@ -448,35 +452,76 @@ impl SpecIn {
             kind: spec.kind.clone(),
             fidelity: fidelity_name(spec.fidelity).to_owned(),
             stack,
-            parameters: spec.parameters.clone(),
+            parameters: in_order(&spec.kind, &spec.parameters),
             compact: spec.compact.clone(),
         }
     }
 }
 
-/// The text of the job file that holds `spec` under `name`, with `about` as its opening
-/// comment.
+/// The text of the job file that holds `spec` under `name`, with `about` as its `description`:
+/// a key, so that it is the same in YAML, TOML and JSON (#668).
 fn job_text(spec: &Spec, name: &str, about: &str) -> Result<String, String> {
     let mut file = toml::Table::new();
     file.insert("name".into(), toml::Value::String(name.to_owned()));
+    let about = about.trim();
+    if !about.is_empty() {
+        file.insert("description".into(), toml::Value::String(about.to_owned()));
+    }
     file.insert("device".into(), toml::Value::Table(spec.to_table()));
     // written in YAML, the job's every float to the last bit; a design computes nothing, and
-    // has no task
-    let body = Job::parse(&toml::to_string(&file).map_err(|e| e.to_string())?)
+    // is written with no task
+    Job::parse(&toml::to_string(&file).map_err(|e| e.to_string())?)
         .and_then(|j| j.to_text(Format::Yaml))
-        .map_err(|e| e.to_string())?
-        .replace("\ntask: {}\n", "\n");
-    let comment: String = about
-        .lines()
-        .map(str::trim)
-        .filter(|l| !l.is_empty())
-        .map(|l| format!("# {l}\n"))
-        .collect();
-    Ok(if comment.is_empty() {
-        body
-    } else {
-        format!("{comment}\n{body}")
-    })
+        .map_err(|e| e.to_string())
+}
+
+/// The parameters of a design of `kind` in the order the page holds them, the one order a file
+/// gives back: the device's own in the device's order, then the others by name (a file's
+/// `[device.parameters]` is a table, written sorted by name).
+pub fn in_order(kind: &str, parameters: &[(String, String)]) -> Vec<(String, String)> {
+    let own: Vec<String> = device::library()
+        .iter()
+        .find(|d| d.kind() == kind)
+        .map(|d| d.parameters().iter().map(|p| p.name.clone()).collect())
+        .unwrap_or_default();
+    let mut out = parameters.to_vec();
+    out.sort_by(|(a, _), (b, _)| {
+        let rank = |n: &String| own.iter().position(|o| o == n).unwrap_or(own.len());
+        rank(a).cmp(&rank(b)).then_with(|| a.cmp(b))
+    });
+    out
+}
+
+/// Whether a design of `kind` is on a stack of its own that the library won't change (the TFLN
+/// modulator's): the page then offers no stack to edit.
+fn own_stack(kind: &str, fidelity: Fidelity) -> bool {
+    let at = |stack: StackSpec| Spec {
+        kind: kind.to_owned(),
+        fidelity,
+        stack,
+        parameters: Vec::new(),
+        compact: None,
+    };
+    // what the page's stack editor makes of the default: its layers, written out
+    let material = |id: &str| MaterialSpec {
+        id: id.into(),
+        model: None,
+        temperature: None,
+        composition: None,
+    };
+    let layer = |name: &str, thickness_um: f64, id: &str| LayerSpec {
+        name: name.into(),
+        thickness_um,
+        material: material(id),
+        background: material("sio2"),
+    };
+    let other = StackSpec::Layers {
+        substrate: material("si"),
+        layers: vec![layer("BOX", 2.0, "sio2"), layer("Si", 0.22, "si")],
+        cladding: material("sio2"),
+        core: "Si".into(),
+    };
+    at(StackSpec::default()).build().is_ok() && at(other).build().is_err()
 }
 
 // ---- the form and the geometry ----
@@ -1324,7 +1369,7 @@ pub fn read_job_form(text: &str) -> JobForm {
     form.spec = Some(SpecIn::of(&spec));
     form.compute = ComputeIn::of(job.task(), timeout);
     for key in file.keys() {
-        if !["name", "timeout_minutes", "device", "task"].contains(&key.as_str()) {
+        if !["name", "description", "timeout_minutes", "device", "task"].contains(&key.as_str()) {
             form.beyond.push(key.clone());
         }
     }
@@ -1626,12 +1671,16 @@ pub fn read_text(text: &str) -> Result<(SpecIn, String, String), String> {
         .device()
         .ok_or_else(|| format!("{} isn't a device's design", job.name()))?;
     let spec = Spec::from_table(table).map_err(text_of)?;
-    let about = text
-        .lines()
-        .map_while(|l| l.strip_prefix('#'))
-        .map(str::trim)
-        .collect::<Vec<_>>()
-        .join("\n");
+    // its description, or in a file saved before there was one, its opening comment
+    let about = match job.description() {
+        Some(d) => d.to_owned(),
+        None => text
+            .lines()
+            .map_while(|l| l.strip_prefix('#'))
+            .map(str::trim)
+            .collect::<Vec<_>>()
+            .join("\n"),
+    };
     Ok((SpecIn::of(&spec), job.name().to_owned(), about))
 }
 
@@ -1646,6 +1695,12 @@ pub fn save_device(
     about: String,
     replace: bool,
 ) -> Result<String, String> {
+    // a built-in component's name is its own (#668)
+    if let Some(kind) = design::built_in_kind(&name) {
+        return Err(format!(
+            "\"{name}\" is the built-in {kind}'s name: give your design another"
+        ));
+    }
     // checked as it is, before anything is written
     saved_text(&spec, &name, &about)?;
     let dir = state.workspace().join("jobs");
@@ -1688,6 +1743,7 @@ pub fn read_device(path: String) -> Result<Saved, String> {
 }
 
 pub mod compact;
+pub mod design;
 pub mod fields;
 pub mod modulator;
 pub mod optimizing;

@@ -135,7 +135,7 @@ pub struct View {
 /// A job as the Custom device's form holds it (the window's `JobModel`, lib/job.ts).
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Form {
-    /// The opening comment: what the job is.
+    /// What the job is: its `description` (an older file's opening comment).
     pub about: String,
     pub name: String,
     pub timeout_minutes: Option<f64>,
@@ -619,7 +619,7 @@ impl Form {
         }
         let mut kept_file = Table::new();
         for (k, v) in &file {
-            if !["name", "timeout_minutes", "task"].contains(&k.as_str()) {
+            if !["name", "description", "timeout_minutes", "task"].contains(&k.as_str()) {
                 kept_file.insert(k.clone(), v.clone());
             }
         }
@@ -634,10 +634,11 @@ impl Form {
             toml::to_string(&kept_file).map_err(|e| e.to_string())?
         };
         Ok(Form {
-            about: if format == Format::Json {
-                String::new()
-            } else {
-                about_of(text)
+            // its description, or in an older file the opening comment
+            about: match job.description() {
+                Some(d) => d.to_owned(),
+                None if format == Format::Json => String::new(),
+                None => about_of(text),
             },
             name: job.name().to_owned(),
             timeout_minutes: number(file.get("timeout_minutes")),
@@ -709,11 +710,12 @@ impl Form {
             .unwrap_or_default();
         let has = |k: &str| kept_task.contains_key(k);
         let mut out: Vec<String> = Vec::new();
-        if !self.about.trim().is_empty() {
-            out.extend(comment(&self.about));
-        }
         out.push(format!("#   photonoxide run jobs/{}.toml", self.name));
         out.push(format!("name = {}", quoted(&self.name)));
+        // what it is, a key: the same in every format, JSON's too (#668)
+        if !self.about.trim().is_empty() {
+            out.push(format!("description = {}", quoted(self.about.trim())));
+        }
         if let Some(m) = self.timeout_minutes {
             out.push(format!("timeout_minutes = {}", float(m)));
         }
@@ -1042,23 +1044,6 @@ fn item_lines(it: &Item) -> Vec<String> {
     n(&mut l, "angle_deg", it.angle_deg);
     a(&mut l, "wavelengths_um", &it.wavelengths_um);
     l
-}
-
-/// `text` wrapped to 95 characters, as comment lines.
-fn comment(text: &str) -> Vec<String> {
-    let mut lines = Vec::new();
-    let mut line = String::from("#");
-    for word in text.split_whitespace() {
-        if line.len() + 1 + word.len() > 95 && line != "#" {
-            lines.push(std::mem::replace(&mut line, String::from("#")));
-        }
-        line.push(' ');
-        line.push_str(word);
-    }
-    if line != "#" {
-        lines.push(line);
-    }
-    lines
 }
 
 /// The task's kind, as its table names it.

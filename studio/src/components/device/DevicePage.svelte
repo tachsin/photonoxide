@@ -5,6 +5,8 @@
   // the device on it), with a panel of tabs beside it (under it in a narrow window):
   //
   // - Design: its geometry as parameters and expressions, its stack, its figures, live.
+  // - Job: the design as its job's text in the shared editor, the page and the text kept in step
+  //   both ways (JobTab), across the page's width.
   // - Overview: its S-parameters with their model and grid, its figures, the model with its
   //   equation, papers and stated error, its ports with their modes, its lesson, its symbol and
   //   the published results on it.
@@ -50,6 +52,7 @@
   import StudyTab from "./StudyTab.svelte";
   import ElectrodeFieldView from "./ElectrodeFieldView.svelte";
   import FabricationTab from "./FabricationTab.svelte";
+  import JobTab from "./JobTab.svelte";
   import { MODULATOR } from "./ModulatorSweeps.svelte";
   import TemperatureView from "./TemperatureView.svelte";
   import TopView from "./TopView.svelte";
@@ -421,6 +424,14 @@
   </section>
 {/snippet}
 
+{#snippet tabBar()}
+  <div role="tablist" class="tabs tabs-border tabs-sm shrink-0 flex-wrap border-b border-base-content/8 px-3">
+    {#each [["design", "Design"], ["job", "Job"], ["overview", "Overview"], ["model", "Model"], ["simulate", "Simulate"], ["study", "Study"], ["optimize", "Optimize"], ["fabrication", "Fabrication"]] as const as [t, label] (t)}
+      <button role="tab" class="tab {draft.tab === t ? 'tab-active' : ''}" onclick={() => (draft.tab = t)} title={t === "job" ? "The design as its job's text, beside its view: edit either, the other follows" : undefined}>{label}</button>
+    {/each}
+  </div>
+{/snippet}
+
 <div class="flex h-full min-h-0 flex-col">
   <!-- the header -->
   <div class="glow shrink-0 border-b border-base-content/8 px-6 {stacked ? 'py-2.5' : 'py-4'}">
@@ -494,6 +505,13 @@
     </div>
   {/if}
 
+  {#if draft.tab === "job"}
+    <!-- the Job tab: the text and the design beside it, across the page -->
+    <div class="flex min-h-0 flex-1 flex-col">
+      {@render tabBar()}
+      <JobTab {info} {draft} scene={drawn?.scene ?? null} fields={view?.fields ?? []} />
+    </div>
+  {:else}
   <!-- the view, always on screen, and the panel beside it (under it in a narrow window) -->
   <div class="grid min-h-0 flex-1 {stacked ? 'grid-rows-[minmax(13rem,1fr)_minmax(10rem,1fr)]' : 'grid-cols-[minmax(0,1fr)_minmax(24rem,36%)]'}" bind:clientWidth={bodyWidth}>
     <section class="flex min-h-0 min-w-0 flex-col border-base-content/8 {stacked ? 'border-b' : 'border-r'}">
@@ -558,11 +576,7 @@
     </section>
 
     <aside class="flex min-h-0 min-w-0 flex-col">
-      <div role="tablist" class="tabs tabs-border tabs-sm shrink-0 flex-wrap border-b border-base-content/8 px-3">
-        {#each [["design", "Design"], ["overview", "Overview"], ["model", "Model"], ["simulate", "Simulate"], ["study", "Study"], ["optimize", "Optimize"], ["fabrication", "Fabrication"]] as const as [t, label] (t)}
-          <button role="tab" class="tab {draft.tab === t ? 'tab-active' : ''}" onclick={() => (draft.tab = t)}>{label}</button>
-        {/each}
-      </div>
+      {@render tabBar()}
       <div class="min-h-0 flex-1 overflow-y-auto p-4">
         {#if draft.tab === "design"}
           <div class="space-y-4">
@@ -574,9 +588,14 @@
             </section>
             <section class="panel p-4">
               <h3 class="panel-title">Stack</h3>
-              <div class="mt-3 overflow-x-auto">
-                <StackEditor bind:stack={draft.spec.stack} core={thickness} scene={drawn?.scene ?? null} problem={view?.stack_problem ?? ""} />
-              </div>
+              {#if info.own_stack}
+                <!-- the library takes no other stack for it: the page offers none to edit -->
+                <p class="mt-2 text-sm muted">Its stack is its own, and its thicknesses are its parameters: the library takes no other stack for the {info.kind}.</p>
+              {:else}
+                <div class="mt-3 overflow-x-auto">
+                  <StackEditor bind:stack={draft.spec.stack} core={thickness} scene={drawn?.scene ?? null} problem={view?.stack_problem ?? ""} />
+                </div>
+              {/if}
             </section>
             <section class="panel p-4">
               <div class="flex flex-wrap items-center gap-2">
@@ -741,6 +760,7 @@
       </div>
     </aside>
   </div>
+  {/if}
 </div>
 
 <dialog class="modal" class:modal-open={!!saving}>
@@ -753,7 +773,7 @@
         <input class="input w-full num" bind:value={saving.name} spellcheck="false" />
       </label>
       <label class="mt-3 flex flex-col gap-1 text-sm">
-        <span class="muted">What it is (the file's opening comment)</span>
+        <span class="muted">What it is (the file's description)</span>
         <textarea class="textarea w-full" rows="2" bind:value={saving.about}></textarea>
       </label>
       {#if saving.problem}<p role="alert" class="mt-2 text-sm text-error selectable">{saving.problem}</p>{/if}

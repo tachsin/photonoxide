@@ -300,6 +300,14 @@ export const api = {
   deviceTouchstone: (spec: DeviceSpec, fidelity: string, sweep: Sweep, path: string) => invoke<void>("device_touchstone", { spec, fidelity, sweep, path }),
   saveDevice: (spec: DeviceSpec, name: string, about: string, replace: boolean) => invoke<string>("save_device", { spec, name, about, replace }),
   readDevice: (path: string) => invoke<SavedDevice>("read_device", { path }),
+  /** The built-in components' job files (jobs/components/) and the workspace's components. */
+  designFiles: () => invoke<DesignFiles>("design_files"),
+  /** A design as its job's text in a format: its name, description and design, as Save writes it. */
+  designText: (spec: DeviceSpec, name: string, about: string, format: JobFormat) => invoke<string>("design_text", { spec, name, about, format }),
+  /** A design's text read back: the design, what of the text isn't one, and the library's check. */
+  designRead: (text: string, format: JobFormat) => invoke<DesignRead>("design_read", { text, format }),
+  /** Saves a component's text as jobs/<its name>.<format> in the workspace; a built-in component's name is refused. */
+  saveComponent: (text: string, format: JobFormat, replace: boolean) => invoke<string>("save_component", { text, format, replace }),
   /** The job that computes a design as `compute` says (photonoxide::job::from_device), as its TOML. */
   deviceJob: (spec: DeviceSpec, compute: Compute, name: string) => invoke<string>("device_job", { spec, compute, name }),
   /** The job that studies a design (photonoxide::job::study_from_device), as its TOML. */
@@ -648,6 +656,38 @@ export interface DeviceInfo {
   examples: string[];
   /** Its 2D model by FDFD, where its 2D fidelity is a cheaper one by default (an MMI's guided modes). */
   fdfd_2d: DeviceMethod | null;
+  /** On a stack of its own the library won't change (the TFLN modulator's): no stack to edit. */
+  own_stack: boolean;
+}
+
+/** A component's job file, as the Design page lists it. */
+export interface DesignFile {
+  name: string;
+  /** The device it is a design of. */
+  kind: string;
+  about: string;
+  /** jobs/components/<name>.yaml for a built-in one; its path for one of the workspace. */
+  path: string;
+  /** One of the library's, read only: editing it saves a copy under another name. */
+  built_in: boolean;
+  format: JobFormat;
+  text: string;
+}
+
+export interface DesignFiles {
+  built_in: DesignFile[];
+  mine: DesignFile[];
+}
+
+/** A design's text read back. */
+export interface DesignRead {
+  name: string;
+  about: string;
+  spec: DeviceSpec | null;
+  /** What the text holds besides a design (a task, a timeout): a component is a design alone. */
+  beyond: string[];
+  /** Why the library refuses it, if it does. */
+  error: string | null;
 }
 
 /** How a job computes a design (photonoxide::job::Compute): its own model, or FDTD of its structure; each grid field null for the device's own. */

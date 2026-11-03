@@ -35,6 +35,8 @@
     layers = [],
     side = $bindable("preview"),
     oncursor,
+    readonly = false,
+    refusals = [],
     toolbar,
     preview,
     below,
@@ -59,6 +61,10 @@
     side?: "preview" | "reference" | "problems";
     /** The user put the cursor at this offset of the whole text. */
     oncursor?: (pos: number) => void;
+    /** Shown to read, not to edit (a built-in component's file). */
+    readonly?: boolean;
+    /** What the library refuses of what the page asks for (a job it won't write), in its words: listed in Problems. */
+    refusals?: string[];
     toolbar?: Snippet;
     preview?: Snippet;
     below?: Snippet;
@@ -138,13 +144,14 @@
 
   /** Every problem of the text: the library check's (it stops at its first) and the schema's, each where it is. */
   const problems = $derived.by(() => {
-    const out: { message: string; source: "check" | "schema"; from: number; to: number; line: number }[] = [];
-    const put = (message: string, source: "check" | "schema", at: { from: number; to: number } | null) => {
+    const out: { message: string; source: "check" | "schema" | "library"; from: number; to: number; line: number }[] = [];
+    const put = (message: string, source: "check" | "schema" | "library", at: { from: number; to: number } | null) => {
       const from = at?.from ?? 0;
       out.push({ message, source, from, to: at?.to ?? from, line: at ? text.slice(0, from).split("\n").length : 0 });
     };
     if (current && !current.ok && current.error) put(current.error, "check", locate(text, format, current.error));
     if (schema && current?.model) for (const p of schemaProblems(schema, current.model)) put(p.message, "schema", entryOf(text, format, p.path));
+    for (const r of refusals) put(r, "library", null);
     return out;
   });
   /** Shows the key at `p` in the text. */
@@ -186,7 +193,7 @@
           </p>
         {/if}
         <div class="min-h-0 flex-1 overflow-hidden rounded-xl border border-base-content/8 bg-base-300/50 py-2">
-          <TomlEditor bind:this={editor} value={shownText} onchange={edited} oncursor={(pos) => oncursor?.(sec ? outOfSection(sec, pos) : pos)} {format} assist model={current?.model} {problem} {layers} onmethod={(f) => (methodPage = f)} />
+          <TomlEditor bind:this={editor} value={shownText} onchange={edited} oncursor={(pos) => oncursor?.(sec ? outOfSection(sec, pos) : pos)} {format} assist model={current?.model} {problem} {layers} {readonly} onmethod={(f) => (methodPage = f)} />
         </div>
         <div class="mt-2 shrink-0">
           {#if current && !current.ok && current.error}
@@ -220,12 +227,12 @@
         {:else}
           <ul class="space-y-1.5">
             {#each problems as p, k (k)}
-              {@const outside = !!sec && !inEditor(p)}
+              {@const outside = !!sec && p.source !== "library" && !inEditor(p)}
               <li>
                 <button class="flex w-full items-start gap-2 rounded-lg px-2 py-1.5 text-left text-xs hover:bg-base-content/5" onclick={() => select(p)} title={outside ? `In another section than ${section}` : "Show it in the text"}>
                   <CircleAlert size={13} class="mt-0.5 shrink-0 text-error" />
                   <span class="min-w-0 flex-1 selectable">{p.message}</span>
-                  <span class="shrink-0 text-[10.5px] faint">{p.source === "check" ? "the check" : "the schema"}{p.line ? `, line ${p.line}` : ""}{outside ? ", outside this section" : ""}</span>
+                  <span class="shrink-0 text-[10.5px] faint">{p.source === "check" ? "the check" : p.source === "schema" ? "the schema" : "the library, of the run asked for"}{p.line ? `, line ${p.line}` : ""}{outside ? ", outside this section" : ""}</span>
                 </button>
               </li>
             {/each}

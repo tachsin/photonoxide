@@ -59,7 +59,16 @@ fn round_trip(name: &str, text: &str) -> Form {
             b.get(k)
         );
     }
-    assert_eq!(a.len(), b.len(), "{name}: {back}");
+    // an older file's opening comment comes back as its description, a key (#668)
+    let added = usize::from(!a.contains_key("description") && b.contains_key("description"));
+    if added == 1 {
+        assert_eq!(
+            b["description"].as_str(),
+            Some(form.about.as_str()),
+            "{name}"
+        );
+    }
+    assert_eq!(a.len() + added, b.len(), "{name}: {back}");
     let job = Job::parse(&back).unwrap();
     job::check(&job).unwrap_or_else(|e| panic!("{name}: {e}\n{back}"));
     // the same text back again: the form is a fixed point of its own text
@@ -268,7 +277,10 @@ port = "ring.through"
         "A ring by its generator, its port found by name."
     );
     let back = form.text().unwrap();
-    assert!(back.starts_with("# A ring by its generator"), "{back}");
+    assert!(
+        back.contains("\ndescription = \"A ring by its generator, its port found by name.\"\n"),
+        "{back}"
+    );
     let (a, b) = (Job::parse(text).unwrap(), Job::parse(&back).unwrap());
     assert!(
         same(

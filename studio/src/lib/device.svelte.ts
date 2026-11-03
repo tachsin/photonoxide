@@ -2,7 +2,7 @@
 // it is being edited (its stack, its parameters' expressions, its fidelity), where it was saved,
 // and the solves started from it, which go on in the background while the page is left.
 
-import { api, type Aim, type Bound, type Compute, type DeviceDerived, type DeviceFigure, type DeviceInfo, type DeviceMethod, type DeviceSpec, type DeviceSpectrum, type LayerSpec, type RunItem, type SavedDevice, type StackSpec, type StudyIn } from "./api";
+import { api, type Aim, type Bound, type Compute, type DeviceDerived, type DeviceFigure, type DeviceInfo, type DeviceMethod, type DeviceSpec, type DeviceSpectrum, type JobFormat, type LayerSpec, type RunItem, type SavedDevice, type StackSpec, type StudyIn } from "./api";
 import { app, go, startRun, startRunHere, toast } from "./app.svelte";
 
 export const devices = $state({
@@ -34,7 +34,7 @@ export function deviceOf(id: string | null | undefined): DeviceInfo | undefined 
 }
 
 /** A device page's tabs. */
-export type Tab = "overview" | "design" | "model" | "simulate" | "study" | "optimize" | "fabrication";
+export type Tab = "overview" | "design" | "job" | "model" | "simulate" | "study" | "optimize" | "fabrication";
 
 /** A device's page: its design as edited, its tab, and the file it was saved to or opened from. */
 export interface Draft {
@@ -55,6 +55,13 @@ export interface Draft {
   text: string | null;
   /** Opened from a job that computes the design (one with a task): saving the design alone over it asks first. */
   fromJob?: boolean;
+  /**
+   * The Job tab's text as typed, while it holds what the page can't (a design the library refuses,
+   * a text that doesn't read): null while the page writes it.
+   */
+  jobText?: string | null;
+  /** The format the Job tab shows the design in. */
+  jobFormat?: JobFormat;
 }
 
 export const drafts = $state<Record<string, Draft>>({});
