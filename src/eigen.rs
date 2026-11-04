@@ -260,7 +260,34 @@ pub(crate) fn krylov_schur(
     )
 }
 
+/// How a Krylov–Schur run ended: done (`None` if asked to stop), or stalled with the last
+/// growth's wanted Ritz values.
+enum Run {
+    Done(Option<(Vec<Pair>, Record)>),
+    Stalled { values: Vec<c64>, record: Record },
+}
+
+/// The restarts in a row after which a wanted pair the decomposition says has converged, and A
+/// says hasn't, is taken to be stuck: its residual with A not halved in all of them.
+const STALLS: usize = 10;
+
+/// How near the shift the nearest wanted value may lie, as a share of the farthest one's
+/// distance, before the shifted solves cost the farthest pairs more digits than they have.
+/// Moved to it, they cost at most three.
+const NEAR: f64 = 1e-3;
+
 /// [`krylov_schur`], its residuals measured as `scale` says.
+///
+/// A shift almost on an eigenvalue stalls it: the shifted solves magnify that one direction by
+/// 1/|λ₁ − σ|, and the rounding left in it after orthogonalization swamps the wanted pairs
+/// farthest from the shift, whose Ritz vectors then fail the residual with A in every restart
+/// while the decomposition says they've converged. (In a branch's sweep on
+/// sweep/mode-crossing's strip at 1.4905 µm, the shift was 2.5e-5 from one eigenvalue and 22
+/// from the third wanted, whose residual stayed at 1.8e-9 against 1e-9 for 200 restarts.) Then
+/// the shift is moved off the nearest value, to [`NEAR`] of the farthest wanted one's distance
+/// on the side it was, and the solve repeated for one pair more; the `count` nearest the given
+/// shift are kept. A stall with the shift not that near an eigenvalue, or a second one, is an
+/// error.
 #[allow(clippy::too_many_arguments)]
 fn schur_restarted(
     n: usize,
@@ -272,17 +299,84 @@ fn schur_restarted(
     stop: &dyn Fn() -> bool,
     scale: Scale,
 ) -> Result<Option<(Vec<Pair>, Record)>> {
+    let stalled = |values: &[c64], at: c64| {
+        Error::invalid(
+            "eigenproblem",
+            format!(
+                "{count} eigenpairs near {at} stalled: the Krylov decomposition holds them but \
+                 their residuals with the matrix stopped falling above {tolerance:e} (the wanted \
+                 values then: {values:?})"
+            ),
+        )
+    };
+    let (values, first) = match restarted(n, entries, shift, count, tolerance, space, stop, scale)?
+    {
+        Run::Done(done) => return Ok(done),
+        Run::Stalled { values, record } => (values, record),
+    };
+    let distance = |v: &c64| (v - shift).norm();
+    let far = values.iter().map(distance).fold(0.0, f64::max);
+    let Some(nearest) = values
+        .iter()
+        .min_by(|a, b| distance(a).total_cmp(&distance(b)))
+        .copied()
+    else {
+        return Err(stalled(&values, shift));
+    };
+    if distance(&nearest) >= NEAR * far || count >= n {
+        return Err(stalled(&values, shift));
+    }
+    let side = shift - nearest;
+    let side = if side.norm() > 0.0 {
+        side / side.norm()
+    } else {
+        c64::new(1.0, 0.0)
+    };
+    let moved = nearest + side * (NEAR * far);
+    match restarted(n, entries, moved, count + 1, tolerance, space, stop, scale)? {
+        Run::Done(None) => Ok(None),
+        Run::Done(Some((mut pairs, record))) => {
+            pairs.sort_by(|a, b| distance(&a.value).total_cmp(&distance(&b.value)));
+            pairs.truncate(count);
+            let mut both = first;
+            both.restarts += record.restarts + 1;
+            both.solves += record.solves;
+            both.held = both.held.max(record.held);
+            both.history.extend(record.history);
+            both.values.extend(record.values);
+            both.residuals.extend(record.residuals);
+            Ok(Some((pairs, both)))
+        }
+        Run::Stalled { values, .. } => Err(stalled(&values, moved)),
+    }
+}
+
+/// One Krylov–Schur run for [`schur_restarted`].
+#[allow(clippy::too_many_arguments)]
+fn restarted(
+    n: usize,
+    entries: &[(usize, usize, c64)],
+    shift: c64,
+    count: usize,
+    tolerance: f64,
+    space: Option<usize>,
+    stop: &dyn Fn() -> bool,
+    scale: Scale,
+) -> Result<Run> {
     let against = |value: c64| match scale {
         Scale::Unit => value.norm().max(1.0),
         Scale::Own => value.norm(),
     };
     let mut record = Record::default();
     if count == 0 || n == 0 {
-        return Ok(Some((Vec::new(), record)));
+        return Ok(Run::Done(Some((Vec::new(), record))));
     }
     if stop() {
-        return Ok(None);
+        return Ok(Run::Done(None));
     }
+    // the least residual with A of a pair the decomposition says has converged, and the
+    // restarts since it last halved
+    let (mut least, mut stalls) = (f64::INFINITY, 0);
     let count = count.min(n);
     let op = Shifted::new(n, entries, shift)?;
     let (m, keep) = match space {
@@ -302,7 +396,7 @@ fn schur_restarted(
         let mut steps = m;
         for j in k..m {
             if stop() {
-                return Ok(None);
+                return Ok(Run::Done(None));
             }
             let mut w = op.solve(&basis[j]);
             record.solves += 1;
@@ -381,6 +475,7 @@ fn schur_restarted(
         if worst <= 1.0 {
             // each wanted pair's true residual, with A itself
             let mut pairs = Vec::with_capacity(want);
+            let mut failing = None;
             for (value, y) in ritz {
                 let mut x = vec![c64::new(0.0, 0.0); n];
                 for (c, yc) in y.iter().enumerate() {
@@ -390,13 +485,29 @@ fn schur_restarted(
                 }
                 let xn = norm(&x);
                 x.iter_mut().for_each(|z| *z /= xn);
-                if scale == Scale::Unit && op.residual(value, &x) > tolerance * against(value) {
-                    break;
+                if scale == Scale::Unit {
+                    let r = op.residual(value, &x);
+                    if r > tolerance * against(value) {
+                        failing = Some(r / against(value));
+                        break;
+                    }
                 }
                 pairs.push(Pair { value, vector: x });
             }
             if pairs.len() == want {
-                return Ok(Some((pairs, record)));
+                return Ok(Run::Done(Some((pairs, record))));
+            }
+            // the decomposition says converged and A says not: stalled unless that residual falls
+            if let Some(r) = failing {
+                if r < 0.5 * least {
+                    (least, stalls) = (r, 0);
+                } else {
+                    stalls += 1;
+                    if stalls == STALLS {
+                        let values = ritz_values(&record);
+                        return Ok(Run::Stalled { values, record });
+                    }
+                }
             }
         }
         record.restarts += 1;
@@ -408,6 +519,11 @@ fn schur_restarted(
              space of {m}"
         ),
     ))
+}
+
+/// The last growth's wanted Ritz values.
+fn ritz_values(record: &Record) -> Vec<c64> {
+    record.values.last().cloned().unwrap_or_default()
 }
 
 /// A unit vector orthogonal to `basis`, to go on from an invariant subspace: a fixed one, the

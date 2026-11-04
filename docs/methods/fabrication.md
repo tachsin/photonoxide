@@ -685,7 +685,7 @@ modes are solved without them. The flow deposits the real film; put back, the st
 | `fabrication/min-features-above-limit` | every cited minimum feature of a projection lithography asks for k₁ ≥ 0.25 at its highest NA | 0 below | exact |
 | `fabrication/rule-choices` | the Rayleigh classes, a stop by selectivity, LPCVD and PECVD by thermal budget and conformality, RIE lag, registration | 0 wrong | exact |
 | `fabrication/accuracy-combined` | the heater's polished oxide: √(30² + 22²) nm | 37.2022 nm | round-off, 1e-12 relative |
-| `fabrication/round-trip-library` | every library device the rules make, at its defaults and each parameter's ends (196 designs of 18 devices) | 0 differing points | exact |
+| `fabrication/round-trip-library` | every library device at its defaults and each parameter's ends (200 designs of 18 devices): the rules make 196 and refuse only the 4 with nothing to make | 0 differing points, 0 other refusals | exact |
 | `fabrication/nitride-round-trip` | every library device on the nitride stack at its defaults and its thickness's ends (17 devices, 41 designs) | 0 differing points | exact |
 | `fabrication/nitride-rules` | 220 nm etched without crack stops, 910 nm after them, 1.2 µm by the Damascene process, sloped 1.2 µm etched with a warning, every film annealed before its cladding | 0 wrong | exact |
 | `fabrication/nitride-reported-flows` | the flows contain Luke et al.'s, Pfeiffer et al.'s and Ríos et al.'s sequences, and give the designs back | 0 missing | exact |
@@ -706,7 +706,10 @@ allows; the table says nothing that would explain it.
 
 The rules make 196 of the 200 designs the library round trip tries, all 18 devices among them.
 The 4 they refuse, each with its reason, have a guide of zero length, which draws no shape (a
-straight waveguide's, a rib's and a coupler's length of 0, a bend's angle of 0). On the nitride,
+straight waveguide's, a rib's and a coupler's length of 0, a bend's angle of 0). That refusal
+is right: such a design has nothing a mask can carry and nothing of the film to make. The case
+counts any design refused for another reason as a failure, so a refusal can't hide a flow the
+rules should make. On the nitride,
 AlN and GaAs stacks the round trips run each device at its defaults (and nitride at its
 thickness's ends, from etched films to the Damascene process), which none refuses; at every
 parameter's ends, as for the library, they make 146, 110 and 141 designs and refuse the same 4

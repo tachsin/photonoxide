@@ -299,6 +299,30 @@ pub(crate) fn cases() -> Vec<Case> {
 mod tests {
     use super::*;
 
+    /// The expansion's limit on the stepped taper's window (docs/methods/eme.md, Limits): 200
+    /// modes are followed, and asked for 250 or 400 it names the first mode of the uniform
+    /// window it can't follow, one of its 201st to 250th (the 230th, n_eff² −1027 + 151i, when
+    /// measured), whose n_eff² is resolved to a few 1e-3 only.
+    #[test]
+    fn the_expansion_names_the_first_mode_it_cant_follow() {
+        assert!(stepped_eme(200, 3).is_ok());
+        for modes in [250, 400] {
+            let message = stepped_eme(modes, 3).unwrap_err().to_string();
+            let lost: usize = message
+                .split("window's mode ")
+                .nth(1)
+                .and_then(|m| m.split(' ').next())
+                .and_then(|m| m.parse().ok())
+                .unwrap_or(0);
+            assert!(
+                (201..=250).contains(&lost)
+                    && message.contains(&format!("of {modes} (n_eff²"))
+                    && message.contains("ill-conditioned"),
+                "{message}"
+            );
+        }
+    }
+
     /// The slab driven to 1e-5: within it of the exact root, its estimate bounding the true
     /// error, every grid recorded, at the scheme's second order.
     #[test]

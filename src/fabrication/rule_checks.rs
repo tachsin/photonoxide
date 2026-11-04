@@ -276,42 +276,33 @@ pub(crate) fn library_designs(device: &dyn Device) -> Vec<Values> {
     out
 }
 
-/// The round trip over every library device the rules make: (designs made, designs refused, the
-/// devices refused with why, differing points).
-pub(crate) fn library_round_trips() -> (usize, usize, Vec<String>, usize) {
-    let (mut made, mut refused, mut why, mut differing) = (0, 0, Vec::new(), 0);
+/// Whether a refusal is the one a design without a shape to make gets: a guide of zero length
+/// (a straight guide's, a rib's or a coupler's length of 0, a bend's angle of 0) draws none, and
+/// a mask can't carry a shape without area.
+pub(crate) fn nothing_to_make(why: &str) -> bool {
+    why.contains("a guide of zero length draws none") || why.contains("draws a shape without area")
+}
+
+/// The differing points, and every design refused for anything but having nothing to make.
+fn round_trip_library() -> Outcome {
+    let (mut wrong, mut refused_otherwise) = (0, 0);
     for device in crate::device::library() {
         for values in library_designs(device.as_ref()) {
             let Ok(design) = device.physical(&values) else {
                 continue;
             };
             match generate(&design, &Choices::default()) {
-                Err(e) => {
-                    refused += 1;
-                    let w = format!("{}: {e}", device.kind());
-                    if !why
-                        .iter()
-                        .any(|x: &String| x.starts_with(&format!("{}:", device.kind())))
-                    {
-                        why.push(w);
-                    }
-                }
-                Ok(flow) => {
-                    made += 1;
-                    match round_trip(&flow, &design) {
-                        Ok(t) if t.structure_equal && t.films_equal => differing += t.differing,
-                        Ok(t) => differing += t.points.max(1),
-                        Err(_) => differing += 1,
-                    }
-                }
+                Err(e) if nothing_to_make(&e.to_string()) => {}
+                Err(_) => refused_otherwise += 1,
+                Ok(flow) => match round_trip(&flow, &design) {
+                    Ok(t) if t.structure_equal && t.films_equal => wrong += t.differing,
+                    Ok(t) => wrong += t.points.max(1),
+                    Err(_) => wrong += 1,
+                },
             }
         }
     }
-    (made, refused, why, differing)
-}
-
-fn round_trip_library() -> Outcome {
-    exact(library_round_trips().3)
+    exact(wrong + refused_otherwise)
 }
 
 pub(crate) fn cases() -> Vec<Case> {
@@ -353,7 +344,7 @@ pub(crate) fn cases() -> Vec<Case> {
         },
         Case {
             id: "fabrication/round-trip-library",
-            title: "Every library device whose design the rules make gives back its structure and films to the bit through its generated flow: at its defaults and each parameter's range ends in turn (differing points shown)",
+            title: "Every library device gives back its structure and films to the bit through its generated flow, at its defaults and each parameter's range ends in turn; the rules refuse only the designs with nothing to make, a guide of zero length (differing points and other refusals shown)",
             tier: Tier::Analytic,
             source: "an exact identity: the flow's operations draw the design's own shapes, etches and films",
             run: round_trip_library,
