@@ -55,6 +55,21 @@ $$
 
 So an answer the iteration only believes converged is never returned.
 
+**A shift almost on an eigenvalue.** The shifted solves magnify that eigenvalue's direction by
+$1/\lvert\lambda_1 - \sigma\rvert$. The rounding left in it after orthogonalization then
+swamps the wanted pairs farthest from the shift. Their Ritz vectors fail the true residual in
+every restart while the decomposition says they have converged, and more restarts change
+nothing. One branch's sweep on `sweep/mode-crossing`'s strip, with 1.40 above it, hit this at
+1.4905 µm. Its shift, the effective index found at the nearest wavelength, was $2.5 \times
+10^{-5}$ from one eigenvalue and 22 from the third wanted one. That pair's true residual stayed
+at $1.8 \times 10^{-9}$ against the tolerance of $10^{-9}$ for all 200 restarts. Such a stall,
+where a pair's true residual hasn't halved in 10 restarts in a row, is caught. If the nearest
+wanted value is within $10^{-3}$ of the farthest's distance from the shift, the shift is moved
+off it, on the side it was, to that $10^{-3}$, which costs the farthest pairs at most three
+digits. The solve is then repeated for one pair more, and the pairs nearest the given shift are
+kept. A stall with the shift not that near an eigenvalue, or a second stall, is an error that
+says so.
+
 **The sizes.** For c modes the space holds $m = \max(2c + 20, 40)$ vectors and a restart keeps
 $k = c + (m - c)/2$: the wanted and half the rest, so each growth takes $(m - c)/2$ steps. The
 space never holds more than m + 1 vectors of the grid's size however many restarts it takes.

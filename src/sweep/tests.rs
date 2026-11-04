@@ -310,6 +310,30 @@ fn a_branch_shows_an_anticrossing_in_its_margins() {
 }
 
 #[test]
+fn a_shift_almost_on_an_eigenvalue_is_moved_off_it() {
+    // the solve a branch's sweep stopped at (#669): with 1.40 above the strip, at 1.4904658 µm,
+    // the shift from the mode found nearest, 2.5e-5 from an eigenvalue; the third pair's
+    // residual stayed at 1.8e-9 against 1e-9 for 200 restarts. Now the three nearest the shift,
+    // nearest first, each within the solver's tolerance, the values the stall held
+    use crate::eigen::{Shifted, krylov_schur};
+    let cs = clad_strip(1.4).unwrap();
+    let (entries, _) = crate::mode::vector::eigenproblem(&cs, um(1.4904658302821023), None);
+    let n = cs.unknowns();
+    let shift = c64::new(53.73827469444786, 0.0);
+    let (pairs, record) = krylov_schur(n, &entries, shift, 3, 1e-9, None, &|| false)
+        .unwrap()
+        .unwrap();
+    let held = [53.73830001319977, 51.95092559199361, 31.29088405755595];
+    let a = Shifted::new(n, &entries, c64::new(0.0, 0.0)).unwrap();
+    for (p, h) in pairs.iter().zip(held) {
+        assert!((p.value.re - h).abs() <= 1e-9 * h, "{} {h}", p.value);
+        assert!(a.residual(p.value, &p.vector) <= 1e-9 * p.value.norm());
+    }
+    assert_eq!(pairs.len(), 3);
+    assert!(record.restarts < 60, "{}", record.restarts);
+}
+
+#[test]
 #[ignore = "a branch at an anticrossing (docs/methods/sweep.md, Anticrossings): in release, prints"]
 fn a_branch_at_an_anticrossing_study() {
     use crate::mode::vector::{self, VectorMode};

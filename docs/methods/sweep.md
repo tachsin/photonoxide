@@ -237,7 +237,7 @@ other candidates (`BranchStep::margin`).
 | steps of 50 nm | third by index, TE-like | 0.108 (0.761 against 0.653) | 1.4500 |
 | steps of 100 nm | third by index, TE-like | 0.492 (0.902 against 0.411) | 1.5000 |
 | steps of 150 nm | second by index, TM-like | 0.109 (0.755 against 0.646) | 1.4333 |
-| adaptive sweep, 1e-8 | both: 39 samples past 1.482 µm TE-like, 26 TM-like | 0.469 (0.903 against 0.435) | 1.4304 |
+| adaptive sweep, 1e-8 | both: 98 samples past 1.482 µm TE-like, 67 TM-like | 0.469 (0.903 against 0.435) | 1.4304 |
 
 The 2.5 nm steps stay on the mode by index; the 50 and 100 nm steps cross the gap onto the
 other. The 150 nm steps go back to the mode by index, which is not a trend in the step size.
@@ -247,12 +247,14 @@ index. The 100 nm steps cross with a margin of 0.492: their step from 1.40 to 1.
 over the whole anticrossing and lands outside it, where one mode is still clearly more alike.
 Its overlap, 0.902, is still well below the 0.998 of every 2.5 nm step.
 
-The adaptive sweep followed both modes: past 1.482 µm, 39 of its samples are on the TE-like
-mode and 26 on the TM-like one, so it was fitting a curve that jumps between two modes 0.03
-(at 1.5 µm) to 0.095 (at 1.7 µm) apart in n_eff. After 86 modes found (against 36 solves for
-the whole sweep with air above, below), the eigensolver did not converge for 3 modes at
-1.4905 µm and the sweep stopped with that error. That failure comes from the solver and is not
-explained yet.
+The adaptive sweep followed both modes: past 1.482 µm, 98 of its samples are on the TE-like
+mode and 67 on the TM-like one, so it was fitting a curve that jumps between two modes 0.03
+(at 1.5 µm) to 0.095 (at 1.7 µm) apart in n_eff. It doesn't converge: it ends at its 200
+solves (against 36 for the whole sweep with air above, below), its estimate 66 relative, and
+says so. It used to stop after 86 solves, at 1.4905 µm, because the eigensolver hadn't
+converged for 3 modes there. Its shift, the effective index found at the nearest wavelength,
+lay $2.5 \times 10^{-5}$ from an eigenvalue, which the solver now moves off
+([eigen.md](eigen.md), A shift almost on an eigenvalue).
 
 With air above the strip instead, the two sides differ a lot and the anticrossing is broad:
 the TE fraction of the mode followed falls from 0.86 at 1.3 µm to 0.17 at 1.7 µm. Every step
