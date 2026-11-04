@@ -67,9 +67,15 @@ jobs:
           - { os: macos-latest, package: superlu, found: '^SuperLU [567][0-9.]*: .*\(from the conda environment\)', backend: '^backend superlu \(direct\): .* available', test: superlu, require: 'PHOTONOXIDE_REQUIRE_SUPERLU=1' }
           - { os: ubuntu-latest, package: openblas, found: '^OpenBLAS [0-9.]+: .*\(from the conda environment\)', backend: '^backend photonoxide-openblas \(direct\): .* available', test: blas, require: 'PHOTONOXIDE_REQUIRE_BLAS=openblas' }
           - { os: windows-latest, package: openblas, found: '^OpenBLAS [0-9.]+: .*\(from the conda environment\)', backend: '^backend photonoxide-openblas \(direct\): .* available', test: blas, require: 'PHOTONOXIDE_REQUIRE_BLAS=openblas' }
-          - { os: macos-latest, package: openblas, found: '^OpenBLAS [0-9.]+: .*\(from the conda environment\)', backend: '^backend photonoxide-openblas \(direct\): .* available', test: blas, require: 'PHOTONOXIDE_REQUIRE_BLAS=openblas' }
+          - { os: macos-latest, package: openblas, found: '^OpenBLAS [0-9.]+: .*\(from the conda environment\)', backend: '^backend photonoxide-openblas \(direct\): .* available', oversubscribe: 'yes', test: blas, require: 'PHOTONOXIDE_REQUIRE_BLAS=openblas' }
           # OpenBLAS built with OpenMP in place of its own threads: its OpenMP runtime is checked in the build found
-          - { os: ubuntu-latest, package: 'libopenblas=*=*openmp*', openmp: 'yes', found: '^OpenBLAS [0-9.]+: .*\(from the conda environment\)', backend: '^backend photonoxide-openblas \(direct\): .* available', test: blas, require: 'PHOTONOXIDE_REQUIRE_BLAS=openblas' }
+          - { os: ubuntu-latest, package: 'libopenblas=*=*openmp*', openmp: 'yes', oversubscribe: 'yes', found: '^OpenBLAS [0-9.]+: .*\(from the conda environment\)', backend: '^backend photonoxide-openblas \(direct\): .* available', test: blas, require: 'PHOTONOXIDE_REQUIRE_BLAS=openblas' }
+          # MUMPS and SuperLU from the same environment link the same OpenBLAS and call it outside
+          # photonoxide's lock while its own threaded calls run (#595): every result stays right.
+          # Not on macOS: there the test made no progress in 300 s (no product, no MUMPS or
+          # SuperLU solve; run 41815624673), not yet explained, and #595 keeps the line
+          - { os: ubuntu-latest, package: 'libblas=*=*openblas libopenblas mumps-seq superlu', found: '^OpenBLAS [0-9.]+: .*\(from the conda environment\)', backend: '^backend photonoxide-openblas \(direct\): .* available', test: shared_openblas, require: 'PHOTONOXIDE_REQUIRE_BLAS=openblas PHOTONOXIDE_REQUIRE_MUMPS=1 PHOTONOXIDE_REQUIRE_SUPERLU=1' }
+          - { os: ubuntu-latest, package: 'libblas=*=*openblas libopenblas=*=*openmp* mumps-seq superlu', openmp: 'yes', found: '^OpenBLAS [0-9.]+: .*\(from the conda environment\)', backend: '^backend photonoxide-openblas \(direct\): .* available', test: shared_openblas, require: 'PHOTONOXIDE_REQUIRE_BLAS=openblas PHOTONOXIDE_REQUIRE_MUMPS=1 PHOTONOXIDE_REQUIRE_SUPERLU=1' }
           # the exported files' compressor
           - { os: ubuntu-latest, package: zstd, found: '^Zstandard 1\.[0-9.]+: .*\(from the conda environment\)', test: zstd, require: 'PHOTONOXIDE_REQUIRE_ZSTD=1' }
           - { os: windows-latest, package: zstd, found: '^Zstandard 1\.[0-9.]+: .*\(from the conda environment\)', test: zstd, require: 'PHOTONOXIDE_REQUIRE_ZSTD=1' }
@@ -140,6 +146,15 @@ jobs:
       - name: Its backend's tests, the library required
         if: matrix.test != ''
         run: env ${{ matrix.require }} cargo test -p photonoxide-native --release --test ${{ matrix.test }}
+      - name: Its threaded calls with RAYON_NUM_THREADS above the cores
+        # OpenBLAS's OpenMP team is sized to rayon's count; eight times the cores must not hang
+        # it (a busy-waiting level-3 call did, #595): the step stops after 15 minutes
+        if: matrix.oversubscribe != ''
+        timeout-minutes: 15
+        run: |
+          cores=$(getconf _NPROCESSORS_ONLN)
+          echo "cores: $cores, RAYON_NUM_THREADS: $((8 * cores))"
+          env ${{ matrix.require }} RAYON_NUM_THREADS=$((8 * cores)) cargo test -p photonoxide-native --release --test blas -- the_kernels_are_faers_to_round_off openblas_loaded_again_meanwhile_leaves_its_products_right photonoxides_solver_with_the_kernels_is_its_own_to_round_off
 
   pip:
     name: pip ${{ matrix.package }} (${{ matrix.os }})
@@ -204,7 +219,7 @@ jobs:
           - { package: libmumps-seq-dev, found: '^MUMPS 5\.[0-9.]+: /usr/lib/', backend: '^backend mumps \(direct\): .* available', test: mumps, require: 'PHOTONOXIDE_REQUIRE_MUMPS=1' }
           - { package: libsuperlu-dev, found: '^SuperLU [567][0-9.]*: /usr/lib/', backend: '^backend superlu \(direct\): .* available', test: superlu, require: 'PHOTONOXIDE_REQUIRE_SUPERLU=1' }
           - { package: libopenblas-dev, found: '^OpenBLAS [0-9.]+: /usr/lib/', backend: '^backend photonoxide-openblas \(direct\): .* available', test: blas, require: 'PHOTONOXIDE_REQUIRE_BLAS=openblas' }
-          - { package: libopenblas0-openmp, openmp: 'yes', file: 'openblas-openmp/', found: '^OpenBLAS [0-9.]+: /usr/lib/', backend: '^backend photonoxide-openblas \(direct\): .* available', test: blas, require: 'PHOTONOXIDE_REQUIRE_BLAS=openblas' }
+          - { package: libopenblas0-openmp, openmp: 'yes', oversubscribe: 'yes', file: 'openblas-openmp/', found: '^OpenBLAS [0-9.]+: /usr/lib/', backend: '^backend photonoxide-openblas \(direct\): .* available', test: blas, require: 'PHOTONOXIDE_REQUIRE_BLAS=openblas' }
     runs-on: ${{ matrix.os }}
     # 3 to 10 minutes in 83 runs; one stalled in apt-get update for 82 (2026-10-31)
     timeout-minutes: 30
@@ -250,6 +265,15 @@ jobs:
       - name: Its backend's tests, the library required
         if: matrix.test != ''
         run: env ${{ matrix.require }} cargo test -p photonoxide-native --release --test ${{ matrix.test }}
+      - name: Its threaded calls with RAYON_NUM_THREADS above the cores
+        # OpenBLAS's OpenMP team is sized to rayon's count; eight times the cores must not hang
+        # it (a busy-waiting level-3 call did, #595): the step stops after 15 minutes
+        if: matrix.oversubscribe != ''
+        timeout-minutes: 15
+        run: |
+          cores=$(getconf _NPROCESSORS_ONLN)
+          echo "cores: $cores, RAYON_NUM_THREADS: $((8 * cores))"
+          env ${{ matrix.require }} RAYON_NUM_THREADS=$((8 * cores)) cargo test -p photonoxide-native --release --test blas -- the_kernels_are_faers_to_round_off openblas_loaded_again_meanwhile_leaves_its_products_right photonoxides_solver_with_the_kernels_is_its_own_to_round_off
 
   mumps-source:
     # MUMPS releases no package manager ships yet, built from mumps-solver.org's source
