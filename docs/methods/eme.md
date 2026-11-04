@@ -148,6 +148,20 @@ What it does not do yet (#432):
 - **A PML's modes are ill-conditioned** (the operator is far from normal), more so the
   stronger the PML and the higher the mode. A thick PML of small strength keeps them tractable:
   4 µm of strength 0.1 with up to about 200 modes in a half-window 1.5 µm wide. Where a mode
-  can't be followed, `Eme::modes` returns an error rather than a wrong mode.
+  can't be followed, `Eme::modes` returns an error that names it rather than a wrong mode.
+  In that window (`eme/taper-fdfd`'s) the first mode lost is the uniform window's 230th, its
+  $n_\text{eff}^2$ near $-1027 + 151i$. Such a mode grows by about $e^{15}$ from each wall to
+  the PML's inner side, so the unconjugated $\int U^2\thinspace d\tilde x$ that normalizes it is
+  about $2 \times 10^{-11}$ of $\int \lvert U\rvert^2\thinspace dx$ (estimated from that growth).
+  The inverse ratio, about $5 \times 10^{10}$, is the eigenvalue's condition number: rounding
+  moves $n_\text{eff}^2$ by about $10^{-16}$ times that times $\lvert n_\text{eff}^2\rvert$, a few
+  $10^{-3}$. That is the scatter Newton's method returns (2 to 6 × 10⁻³, measured) on any form
+  of the walls' condition. A global system with each layer's own
+  exponentials was tried and resolves it no better. The following refuses a step whose
+  correction is above $2 \times 10^{-6}$ of $\lvert n_\text{eff}^2\rvert$, and the growth, and
+  with it the scatter, rises exponentially with the mode's order. So the stepped taper's
+  $\lvert S_{11}\rvert^2$ can't be driven to $10^{-4}$ relative, which would take about 400
+  modes (`convergence/eme-taper-fdfd` is driven to $2 \times 10^{-4}$). Higher precision for the
+  high modes, or a PML whose high modes don't grow across the window, would settle it.
 - **The multimode interference coupler** against Soldano and Pennings's self-imaging lengths is
   not a case yet.

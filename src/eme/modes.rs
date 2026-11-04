@@ -414,12 +414,6 @@ fn uniform(eme: &Eme, k: f64, layers: &[Layer], m: usize) -> (c64, Vec<c64>) {
 /// high modes, which the slice hardly moves, follow in a few steps; a guided mode rises out of
 /// the window's. An error if a mode is lost or two end as one.
 fn follow(eme: &Eme, k: f64, slice: &Slice) -> Result<Vec<c64>> {
-    let failed = || {
-        Error::invalid(
-            "eme modes",
-            "following the modes from a uniform window failed (fewer modes, or another PML)",
-        )
-    };
     let end = layers(eme, slice, 1.0);
     let (reference, start) = uniform(eme, k, &end, eme.modes);
     let path = |t: f64| -> Vec<Layer> {
@@ -430,19 +424,45 @@ fn follow(eme: &Eme, k: f64, slice: &Slice) -> Result<Vec<c64>> {
             })
             .collect()
     };
-    let nus: Vec<c64> = start
+    let followed: Vec<Option<c64>> = start
         .par_iter()
         .map(|&v| {
             // followed to 1e-6 (near two modes' meeting Newton's method slows and its noise
             // grows), then polished to round-off where it can be
             follow_one(eme, k, &path, v).map(|nu| newton(eme, k, &end, nu, 1e-12).unwrap_or(nu))
         })
-        .collect::<Option<_>>()
-        .ok_or_else(failed)?;
+        .collect();
+    if let Some(j) = followed.iter().position(Option::is_none) {
+        return Err(Error::invalid(
+            "eme modes",
+            format!(
+                "the uniform window's mode {} of {} (n_eff² {:.4} {:+.4}i there) couldn't be \
+                 followed to the slice's: a PML's high modes are ill-conditioned, their n_eff² \
+                 resolved more coarsely than the following needs (docs/methods/eme.md, Limits); \
+                 fewer modes, or a weaker PML",
+                j + 1,
+                eme.modes,
+                start[j].re,
+                start[j].im
+            ),
+        ));
+    }
+    let nus: Vec<c64> = followed.into_iter().flatten().collect();
     for (i, a) in nus.iter().enumerate() {
-        for b in &nus[..i] {
+        for (j, b) in nus[..i].iter().enumerate() {
             if (a - b).norm() <= 1e-8 * (1.0 + a.norm()) {
-                return Err(failed());
+                return Err(Error::invalid(
+                    "eme modes",
+                    format!(
+                        "the uniform window's modes {} and {} of {} ended as one, n_eff² {:.4} \
+                         {:+.4}i: fewer modes, or another PML",
+                        j + 1,
+                        i + 1,
+                        eme.modes,
+                        a.re,
+                        a.im
+                    ),
+                ));
             }
         }
     }
