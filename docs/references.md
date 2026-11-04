@@ -2,7 +2,7 @@
 
 <!-- Written by `photonoxide references --write` (or `just references`) from docs/references.yaml and the citations in the repository: edit those, not this page. -->
 
-Every paper, book and data set photonoxide cites, with every place in the repository that cites it, by file and line. 559 sources, 555 with a DOI and 4 without, are cited at 2887 places in 375 files. The sources are listed by their first author; [references-by-file.md](references-by-file.md) lists each methods page, lesson, example and source file with the sources it cites, and the [validation report](validation.md) gives each case's source on its row. How to cite a source is in [CONTRIBUTING.md](../CONTRIBUTING.md#citing-a-source); the list of sources is [references.yaml](references.yaml).
+Every paper, book and data set photonoxide cites, with every place in the repository that cites it, by file and line. 559 sources, 555 with a DOI and 4 without, are cited at 2892 places in 375 files. The sources are listed by their first author; [references-by-file.md](references-by-file.md) lists each methods page, lesson, example and source file with the sources it cites, and the [validation report](validation.md) gives each case's source on its row. How to cite a source is in [CONTRIBUTING.md](../CONTRIBUTING.md#citing-a-source); the list of sources is [references.yaml](references.yaml).
 
 [A](#a) · [B](#b) · [C](#c) · [D](#d) · [E](#e) · [F](#f) · [G](#g) · [H](#h) · [I](#i) · [J](#j) · [K](#k) · [L](#l) · [M](#m) · [N](#n) · [O](#o) · [P](#p) · [Q](#q) · [R](#r) · [S](#s) · [T](#t) · [U](#u) · [V](#v) · [W](#w) · [X](#x) · [Y](#y) · [Z](#z)
 
@@ -88,7 +88,7 @@ H. Aghaee Rad, T. Ainsworth, R. N. Alexander, B. Altieri, M. F. Askarani, R. Bab
 G. P. Agrawal, "Nonlinear Fiber Optics", Elsevier (2019). [doi:10.1016/C2018-0-01168-8](https://doi.org/10.1016/C2018-0-01168-8)
 
 - Methods pages: [nonlinear.md:34](methods/nonlinear.md?plain=1#L34)
-- Validation cases: [`nonlinear/nlse-fundamental-soliton`](validation.md?plain=1#L783), [`nonlinear/nlse-second-order-soliton`](validation.md?plain=1#L784), [`nonlinear/nlse-third-order-period`](validation.md?plain=1#L785), [`nonlinear/nlse-split-step-order`](validation.md?plain=1#L786), [`nonlinear/nlse-spm-phase`](validation.md?plain=1#L787), [`nonlinear/nlse-spm-broadening`](validation.md?plain=1#L788), [`nonlinear/nlse-photon-number`](validation.md?plain=1#L789), [`nonlinear/fwm-gain-matched`](validation.md?plain=1#L790), [`nonlinear/nlse-tpa-order`](validation.md?plain=1#L802), [`nonlinear/xpm-walk-off-phase`](validation.md?plain=1#L806)
+- Validation cases: [`nonlinear/nlse-fundamental-soliton`](validation.md?plain=1#L789), [`nonlinear/nlse-second-order-soliton`](validation.md?plain=1#L790), [`nonlinear/nlse-third-order-period`](validation.md?plain=1#L791), [`nonlinear/nlse-split-step-order`](validation.md?plain=1#L792), [`nonlinear/nlse-spm-phase`](validation.md?plain=1#L793), [`nonlinear/nlse-spm-broadening`](validation.md?plain=1#L794), [`nonlinear/nlse-photon-number`](validation.md?plain=1#L795), [`nonlinear/fwm-gain-matched`](validation.md?plain=1#L796), [`nonlinear/nlse-tpa-order`](validation.md?plain=1#L808), [`nonlinear/xpm-walk-off-phase`](validation.md?plain=1#L812)
 - Code: [src/nonlinear/absorption_checks.rs:280](../src/nonlinear/absorption_checks.rs#L280), [308](../src/nonlinear/absorption_checks.rs#L308), [src/nonlinear/fwm.rs:5](../src/nonlinear/fwm.rs#L5), [src/nonlinear/kerr_checks.rs:662](../src/nonlinear/kerr_checks.rs#L662), [669](../src/nonlinear/kerr_checks.rs#L669), [676](../src/nonlinear/kerr_checks.rs#L676), [683](../src/nonlinear/kerr_checks.rs#L683), [690](../src/nonlinear/kerr_checks.rs#L690), [697](../src/nonlinear/kerr_checks.rs#L697), [704](../src/nonlinear/kerr_checks.rs#L704), [716](../src/nonlinear/kerr_checks.rs#L716), [src/nonlinear/pulse.rs:4](../src/nonlinear/pulse.rs#L4), [src/nonlinear/xpm.rs:6](../src/nonlinear/xpm.rs#L6)
 - Other documents: [ROADMAP.md:863](../ROADMAP.md?plain=1#L863)
 
@@ -206,7 +206,7 @@ M. Arcari, I. Söllner, A. Javadi, S. Lindskov Hansen, S. Mahmoodian, J. Liu, H.
 J. A. Armstrong, N. Bloembergen, J. Ducuing, P. S. Pershan, "Interactions between Light Waves in a Nonlinear Dielectric", Phys. Rev. 127, 1918 (1962). [doi:10.1103/PhysRev.127.1918](https://doi.org/10.1103/PhysRev.127.1918)
 
 - Methods pages: [nonlinear.md:24](methods/nonlinear.md?plain=1#L24)
-- Validation cases: [`nonlinear/coupled-shg-tanh`](validation.md?plain=1#L723), [`nonlinear/opo-steady-photons`](validation.md?plain=1#L814)
+- Validation cases: [`nonlinear/coupled-shg-tanh`](validation.md?plain=1#L723), [`nonlinear/opo-steady-photons`](validation.md?plain=1#L820)
 - Code: [src/nonlinear/cavity_checks.rs:401](../src/nonlinear/cavity_checks.rs#L401), [src/nonlinear/checks.rs:746](../src/nonlinear/checks.rs#L746), [src/nonlinear/coupled.rs:31](../src/nonlinear/coupled.rs#L31)
 - Other documents: [ROADMAP.md:842](../ROADMAP.md?plain=1#L842)
 
@@ -617,6 +617,7 @@ D. Caughey, R. Thomas, "Carrier mobilities in silicon empirically related to dop
 G. K. Celler, S. Cristoloveanu, "Frontiers of silicon-on-insulator", J. Appl. Phys. 93, 4955 (2003). [doi:10.1063/1.1558223](https://doi.org/10.1063/1.1558223)
 
 - Methods pages: [fabrication.md:14](methods/fabrication.md?plain=1#L14)
+- Validation cases: [`fabrication/simox-oxide-celler-low-dose`](validation.md?plain=1#L769), [`fabrication/simox-oxide-celler-thin`](validation.md?plain=1#L770)
 - Code: [src/fabrication/references.rs:56](../src/fabrication/references.rs#L56), [src/fabrication/simox.rs:10](../src/fabrication/simox.rs#L10), [src/fabrication/simox_checks.rs:197](../src/fabrication/simox_checks.rs#L197), [204](../src/fabrication/simox_checks.rs#L204)
 - Other documents: [docs/plans/fabrication.md:638](plans/fabrication.md?plain=1#L638)
 
@@ -779,7 +780,7 @@ C. Coello, G. Pulido, M. Lechuga, "Handling multiple objectives with particle sw
 S. Coen, H. G. Randle, T. Sylvestre, M. Erkintalo, "Modeling of octave-spanning Kerr frequency combs using a generalized mean-field Lugiato–Lefever model", Opt. Lett. 38, 37 (2012). [doi:10.1364/OL.38.000037](https://doi.org/10.1364/OL.38.000037)
 
 - Methods pages: [nonlinear.md:38](methods/nonlinear.md?plain=1#L38)
-- Validation cases: [`nonlinear/lle-coen-2012-duration`](validation.md?plain=1#L799)
+- Validation cases: [`nonlinear/lle-coen-2012-duration`](validation.md?plain=1#L805)
 - Examples: [README.md:87](../examples/README.md?plain=1#L87), [soliton_coen.rs:5](../examples/soliton_coen.rs#L5)
 - Code: [src/nonlinear/kerr_checks.rs:784](../src/nonlinear/kerr_checks.rs#L784), [src/nonlinear/resonator.rs:7](../src/nonlinear/resonator.rs#L7)
 - Other documents: [ROADMAP.md:836](../ROADMAP.md?plain=1#L836)
@@ -1581,7 +1582,7 @@ W. Heinrich, "Quasi-TEM description of MMIC coplanar lines including conductor-l
 
 L. G. Helt, Z. Yang, M. Liscidini, J. E. Sipe, "Spontaneous four-wave mixing in microring resonators", Opt. Lett. 35, 3006 (2010). [doi:10.1364/OL.35.003006](https://doi.org/10.1364/OL.35.003006)
 
-- Validation cases: [`nonlinear/ring-shg-enhancement`](validation.md?plain=1#L808), [`nonlinear/ring-fwm-enhancement`](validation.md?plain=1#L809)
+- Validation cases: [`nonlinear/ring-shg-enhancement`](validation.md?plain=1#L814), [`nonlinear/ring-fwm-enhancement`](validation.md?plain=1#L815)
 - Code: [src/circuit/components/ring.rs:309](../src/circuit/components/ring.rs#L309), [src/nonlinear/cavity.rs:32](../src/nonlinear/cavity.rs#L32), [src/nonlinear/cavity_checks.rs:359](../src/nonlinear/cavity_checks.rs#L359), [366](../src/nonlinear/cavity_checks.rs#L366)
 - Other documents: [docs/plans/quantum.md:530](plans/quantum.md?plain=1#L530)
 
@@ -1590,6 +1591,7 @@ L. G. Helt, Z. Yang, M. Liscidini, J. E. Sipe, "Spontaneous four-wave mixing in 
 P. L. F. Hemment, E. Maydell-Ondrusz, K. G. Stevens, J. A. Kilner, J. Butcher, "Oxygen distributions in synthesized SiO2 layers formed by high dose O+ implantation into silicon", Vacuum 34, 203 (1984). [doi:10.1016/0042-207X(84)90128-3](https://doi.org/10.1016/0042-207X(84)90128-3)
 
 - Methods pages: [fabrication.md:18](methods/fabrication.md?plain=1#L18)
+- Validation cases: [`fabrication/simox-oxide-below-1300`](validation.md?plain=1#L772)
 - Code: [src/fabrication/references.rs:72](../src/fabrication/references.rs#L72), [src/fabrication/simox.rs:31](../src/fabrication/simox.rs#L31), [src/fabrication/simox_checks.rs:218](../src/fabrication/simox_checks.rs#L218)
 - Other documents: [docs/plans/fabrication.md:640](plans/fabrication.md?plain=1#L640)
 
@@ -1760,6 +1762,7 @@ K. Ikeda, R. E. Saperstein, N. Alic, Y. Fainman, "Thermal and Kerr nonlinear pro
 K. Izumi, M. Doken, H. Ariyoshi, "C.M.O.S. devices fabricated on buried SiO2 layers formed by oxygen implantation into silicon", Electron. Lett. 14, 593 (1978). [doi:10.1049/el:19780397](https://doi.org/10.1049/el:19780397)
 
 - Methods pages: [fabrication.md:12](methods/fabrication.md?plain=1#L12)
+- Validation cases: [`fabrication/simox-oxide-below-1300`](validation.md?plain=1#L772)
 - Code: [src/fabrication/references.rs:48](../src/fabrication/references.rs#L48), [src/fabrication/simox.rs:2](../src/fabrication/simox.rs#L2), [src/fabrication/simox_checks.rs:218](../src/fabrication/simox_checks.rs#L218)
 - Other documents: [docs/plans/fabrication.md:637](plans/fabrication.md?plain=1#L637)
 
@@ -2153,6 +2156,7 @@ C. M. Lalau-Keraly, S. Bhargava, O. D. Miller, E. Yablonovitch, "Adjoint shape o
 H. W. Lam, "SIMOX SOI for integrated circuit fabrication", IEEE Circuits Devices Mag. 3, 6 (1987). [doi:10.1109/MCD.1987.6323126](https://doi.org/10.1109/MCD.1987.6323126)
 
 - Methods pages: [fabrication.md:16](methods/fabrication.md?plain=1#L16)
+- Validation cases: [`fabrication/simox-oxide-lam`](validation.md?plain=1#L771)
 - Code: [src/fabrication/references.rs:64](../src/fabrication/references.rs#L64), [src/fabrication/simox.rs:22](../src/fabrication/simox.rs#L22), [src/fabrication/simox_checks.rs:211](../src/fabrication/simox_checks.rs#L211)
 - Other documents: [docs/plans/fabrication.md:639](plans/fabrication.md?plain=1#L639)
 
@@ -2273,7 +2277,7 @@ T. Liebig, A. Rennings, S. Held, D. Erni, "openEMS – a free and open source eq
 
 Q. Lin, O. J. Painter, G. P. Agrawal, "Nonlinear optical phenomena in silicon waveguides: modeling and applications", Opt. Express 15, 16604 (2007). [doi:10.1364/OE.15.016604](https://doi.org/10.1364/OE.15.016604)
 
-- Validation cases: [`nonlinear/nlse-tpa-power`](validation.md?plain=1#L800), [`nonlinear/nlse-tpa-phase`](validation.md?plain=1#L801), [`nonlinear/nlse-carriers-gaussian`](validation.md?plain=1#L803), [`nonlinear/nlse-fca-cw-power`](validation.md?plain=1#L804)
+- Validation cases: [`nonlinear/nlse-tpa-power`](validation.md?plain=1#L806), [`nonlinear/nlse-tpa-phase`](validation.md?plain=1#L807), [`nonlinear/nlse-carriers-gaussian`](validation.md?plain=1#L809), [`nonlinear/nlse-fca-cw-power`](validation.md?plain=1#L810)
 - Code: [src/nonlinear/absorption_checks.rs:266](../src/nonlinear/absorption_checks.rs#L266), [273](../src/nonlinear/absorption_checks.rs#L273), [287](../src/nonlinear/absorption_checks.rs#L287), [294](../src/nonlinear/absorption_checks.rs#L294)
 - Other documents: [ROADMAP.md:853](../ROADMAP.md?plain=1#L853)
 
@@ -2364,7 +2368,7 @@ Z. Lu, J. Jhoja, J. Klein, X. Wang, A. Liu, J. Flueckiger, J. Pond, L. Chrostows
 L. A. Lugiato, R. Lefever, "Spatial Dissipative Structures in Passive Optical Systems", Phys. Rev. Lett. 58, 2209 (1987). [doi:10.1103/PhysRevLett.58.2209](https://doi.org/10.1103/PhysRevLett.58.2209)
 
 - Methods pages: [nonlinear.md:36](methods/nonlinear.md?plain=1#L36)
-- Validation cases: [`nonlinear/lle-homogeneous-lower`](validation.md?plain=1#L795), [`nonlinear/lle-homogeneous-upper`](validation.md?plain=1#L796), [`nonlinear/lle-instability-rate`](validation.md?plain=1#L797)
+- Validation cases: [`nonlinear/lle-homogeneous-lower`](validation.md?plain=1#L801), [`nonlinear/lle-homogeneous-upper`](validation.md?plain=1#L802), [`nonlinear/lle-instability-rate`](validation.md?plain=1#L803)
 - Code: [src/nonlinear/kerr_checks.rs:756](../src/nonlinear/kerr_checks.rs#L756), [763](../src/nonlinear/kerr_checks.rs#L763), [770](../src/nonlinear/kerr_checks.rs#L770), [src/nonlinear/resonator.rs:4](../src/nonlinear/resonator.rs#L4)
 - Other documents: [ROADMAP.md:834](../ROADMAP.md?plain=1#L834)
 
@@ -4089,7 +4093,7 @@ Y. Zhang, L. Shao, J. Yang, Z. Chen, K. Zhang, K.-M. Shum, D. Zhu, C. H. Chan, M
 J. Zhao, C. Ma, M. Rüsing, S. Mookherjea, "High Quality Entangled Photon Pair Generation in Periodically Poled Thin-Film Lithium Niobate Waveguides", Phys. Rev. Lett. 124, 163603 (2020). [doi:10.1103/PhysRevLett.124.163603](https://doi.org/10.1103/PhysRevLett.124.163603), open access.
 
 - Methods pages: [nonlinear.md:30](methods/nonlinear.md?plain=1#L30)
-- Validation cases: [`nonlinear/guide-zhao-period`](validation.md?plain=1#L770), [`job/nonlinear-ridge-zhao-period`](validation.md?plain=1#L779)
+- Validation cases: [`nonlinear/guide-zhao-period`](validation.md?plain=1#L776), [`job/nonlinear-ridge-zhao-period`](validation.md?plain=1#L785)
 - Examples: [README.md:86](../examples/README.md?plain=1#L86), [pairs_zhao.rs:6](../examples/pairs_zhao.rs#L6)
 - Code: [src/job/nonlinear_checks.rs:149](../src/job/nonlinear_checks.rs#L149), [src/nonlinear/guide_checks.rs:639](../src/nonlinear/guide_checks.rs#L639)
 - Other documents: [ROADMAP.md:861](../ROADMAP.md?plain=1#L861), [docs/plans/quantum.md:481](plans/quantum.md?plain=1#L481)

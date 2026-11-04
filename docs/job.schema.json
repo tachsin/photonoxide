@@ -4020,7 +4020,7 @@
         },
         "start": {
           "$ref": "#/$defs/StartKey",
-          "description": "Where the flow starts: `\"bought\"`, from the wafer as bought (the default); or, for silicon on insulator, `\"smart_cut\"`, from bare silicon wafers, with the Smart Cut steps that make the SOI wafer first."
+          "description": "Where the flow starts: `\"bought\"`, from the wafer as bought (the default); or, for silicon on insulator, `\"smart_cut\"`, from bare silicon wafers, with the Smart Cut steps that make the SOI wafer first; or `\"simox\"`, from a bare silicon wafer implanted with oxygen and annealed."
         }
       },
       "required": [
@@ -9834,6 +9834,11 @@
         {
           "const": "smart_cut",
           "description": "For silicon on insulator, from bare silicon wafers by Smart Cut.",
+          "type": "string"
+        },
+        {
+          "const": "simox",
+          "description": "For silicon on insulator, from a bare silicon wafer by SIMOX.",
           "type": "string"
         }
       ]
