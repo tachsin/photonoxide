@@ -136,6 +136,15 @@ jobs:
           # pcm, thermo, threads and
           # compact; the rest of device/ with mode/; shifter/ with line/; and the rest, nonlinear/,
           # pockels/ and the small areas.
+          # Measured again on main's push of the 0.6.2 release (4 November 2026, run 41780269185;
+          # job minutes, the release build included): device/'s pcm, thermo, threads and compact
+          # 19.1 (its cases 6.2, 4.3, 1.4 and 3.7 minutes: 15.6, against the 10.4 above), shifter/
+          # and line/ 14.5, the rest of device/ with mode/ 13.1 (9.7 of cases), the rest 12.6 (8.1,
+          # with job/'s nonlinear-ridge-zhao cases among them), fdfd3d 12.3, fabrication 12.0, the
+          # fdtd groups 5.8 to 7.4. The examples are the longest jobs (Windows 40.0 minutes, Linux
+          # 31.3, macOS 29.4, against the limit of 60) with the Linux unit tests (39.6): they set
+          # the run's wall time, so no group is split until one passes them. The first to split
+          # would be device/'s pcm group, into pcm and the other three.
           gnames=() gprefixes=()
           group() { gnames+=("$1"); gprefixes+=("$2"); }
           group "fdtd/adjoint" "fdtd/adjoint"
