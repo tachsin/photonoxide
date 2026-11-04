@@ -474,7 +474,10 @@ A GDSII layer becomes a stack's layer by naming it: each `"gds"` shape reads one
 pair onto one layer of the job's stack, which gives it its material, thickness and etch, so a
 file's waveguide layer and its rib layer are two shapes, the second with an `etch`. The file is
 read when the job is checked, so a missing file, an unknown cell or an empty layer are named
-before anything runs.
+before anything runs. A relative `file` is found from the job file's folder. In the studio's
+editor, a job's text that isn't a saved file has no folder, so its relative files are found from
+the workspace's `jobs` folder, where Save puts the job: a relative path names the same file before
+and after saving. A problem with such a file names the path looked for and says so.
 
 `job::check` refuses what the library refuses, naming the table, its type and the field
 (`[[task.shape]] #2 (polar): its radius ... must be positive`), and a field another type takes.
