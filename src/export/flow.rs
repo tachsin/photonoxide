@@ -688,12 +688,19 @@ impl FlowFile {
                             .and_then(|i| rows.get(i + 1))
                             .is_some_and(|below| below.name == d.layer)
                 });
-                // a film laid over it (a deposit, or Smart Cut's bond of the donor's film) keeps
-                // the polish off it
-                let over = |j: usize| matches!(steps[j].operation.as_str(), "deposit" | "bond");
+                // a film laid over it (a deposit, Smart Cut's bond of the donor's film, or
+                // SIMOX's anneal, which draws the film it heals) keeps the polish off it
+                let over = |j: usize| {
+                    matches!(steps[j].operation.as_str(), "deposit" | "bond")
+                        || (matches!(steps[j].operation.as_str(), "implant" | "anneal")
+                            && steps[j].film.is_some())
+                };
                 let polished = made.and_then(|m| {
-                    let first = (m + 1..steps.len())
-                        .find(|&k| steps[k].operation == "planarize" && !(m + 1..k).any(over))?;
+                    // SIMOX's film is thinned by its sacrificial oxidation alone, with no polish
+                    let first = (m + 1..steps.len()).find(|&k| {
+                        matches!(steps[k].operation.as_str(), "planarize" | "oxidize")
+                            && !(m + 1..k).any(over)
+                    })?;
                     // Smart Cut's sacrificial oxidation right after the polish thins it last
                     Some(
                         (first + 1..steps.len())

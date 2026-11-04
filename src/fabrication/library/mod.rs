@@ -13,13 +13,14 @@ mod anneal;
 mod deposition;
 mod lithography;
 mod planarization;
+mod simox;
 mod soi;
 mod transfer;
 mod wafer;
 
 /// The library's version, which a run's record names: it changes whenever a process, a
 /// capability or a rule changes, so that an older run says which library it used.
-pub const LIBRARY_VERSION: &str = "5";
+pub const LIBRARY_VERSION: &str = "6";
 
 /// Which part of a resist its developer washes away.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -347,15 +348,17 @@ pub fn library() -> &'static [Process] {
         all.extend(planarization::processes());
         all.extend(anneal::processes());
         all.extend(soi::processes());
+        all.extend(simox::processes());
         all.into_iter().map(Process::referenced).collect()
     })
 }
 
-/// Whether `p` is one of the Smart Cut route's own steps, which make an SOI wafer when a flow
-/// starts from bare silicon ([`super::Start::SmartCut`]): the generator never chooses them, nor
+/// Whether `p` is one of the Smart Cut or SIMOX routes' own steps, which make an SOI wafer when
+/// a flow starts from bare silicon ([`super::Start::SmartCut`], [`super::Start::Simox`]): the
+/// generator never chooses them, nor
 /// offers them as alternatives, for a design's own layers.
 pub(crate) fn route_only(p: &Process) -> bool {
-    soi::IDS.contains(&p.id.as_str())
+    soi::IDS.contains(&p.id.as_str()) || simox::IDS.contains(&p.id.as_str())
 }
 
 /// A wafer's handle: the film under its layers ("GaAs" for the epitaxial GaAs wafer, "Si"

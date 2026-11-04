@@ -175,6 +175,31 @@ fn a_fabrication_job_made_from_a_design_is_one_that_runs() {
 }
 
 #[test]
+fn a_fabrication_job_makes_its_wafer_by_simox_when_its_task_says_so() {
+    let here = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+    let made = Job::load(&here.join("jobs/strip-flow-simox.yaml")).unwrap();
+    check(&made).unwrap();
+    let text = made.to_text(crate::run::Format::Toml).unwrap();
+    let (_, events) = lines_on(&text, 1, "simox");
+    let flow = events
+        .iter()
+        .find_map(|e| match e {
+            Event::Flow { flow } => Some(flow),
+            _ => None,
+        })
+        .expect("a flow");
+    // the route's five steps in place of the bought wafer, then the strip's own four
+    assert_eq!(flow.steps.len(), 9);
+    let ops: Vec<&str> = flow.steps[..5]
+        .iter()
+        .map(|s| s.operation.as_str())
+        .collect();
+    assert_eq!(ops, ["wafer", "implant", "anneal", "oxidize", "wet_etch"]);
+    assert_eq!(flow.steps[1].process, "o-implant");
+    assert!(flow.round_trip.expect("its round trip").exact());
+}
+
+#[test]
 fn a_fabrication_job_starts_from_bare_silicon_only_when_its_task_says_so() {
     let here = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
     let made = Job::load(&here.join("jobs/strip-flow-smart-cut.yaml")).unwrap();

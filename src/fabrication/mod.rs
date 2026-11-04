@@ -45,6 +45,7 @@ mod physical;
 pub mod rayleigh;
 mod references;
 pub mod rules;
+pub mod simox;
 pub mod smart_cut;
 mod start;
 mod stated;
@@ -54,6 +55,9 @@ pub(crate) mod platform_checks;
 #[cfg(test)]
 mod platform_tests;
 pub(crate) mod rule_checks;
+pub(crate) mod simox_checks;
+#[cfg(test)]
+mod simox_tests;
 pub(crate) mod smart_cut_checks;
 #[cfg(test)]
 mod smart_cut_tests;

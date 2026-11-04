@@ -149,6 +149,18 @@ def test_a_flow_starts_from_bare_silicon_only_when_asked() -> None:
         phox.device_fabrication("waveguide", start="smart-cut")
 
 
+def test_simox_names_what_its_published_conditions_dont_make() -> None:
+    # the strip's 0.22 µm on 2 µm: SIMOX's oxides are 0.27 to 0.5 µm
+    with pytest.raises(ValueError, match="buried oxide"):
+        phox.device_fabrication("waveguide", start="simox")
+    # the job is checked as it is made, so it is refused too (jobs/strip-flow-simox.yaml is one
+    # SIMOX makes)
+    with pytest.raises(ValueError, match="buried oxide"):
+        phox.device_fabrication_job("waveguide", start="simox")
+    with pytest.raises(ValueError, match="simox"):
+        phox.device_fabrication("waveguide", start="SIMOX")
+
+
 def test_a_flow_names_what_is_wrong() -> None:
     with pytest.raises(ValueError, match="laser-writing"):
         phox.device_fabrication("waveguide", prefer=["laser-writing"])

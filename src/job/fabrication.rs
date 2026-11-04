@@ -25,8 +25,9 @@
 //!   avoid: [bosch-si]     # process ids not to use
 //! ```
 //!
-//! An SOI design's flow starts from its wafer as bought; `start: smart_cut` starts it from bare
-//! silicon instead, with the Smart Cut steps that make the SOI wafer first
+//! An SOI design's flow starts from its wafer as bought; `start: smart_cut` or `start: simox`
+//! starts it from bare silicon instead, with the Smart Cut or SIMOX steps that make the SOI wafer
+//! first
 //! ([`crate::fabrication::Start`]).
 
 use schemars::{JsonSchema, SchemaGenerator};
@@ -65,7 +66,8 @@ pub(super) struct FabricationTask {
     avoid: Vec<String>,
     /// Where the flow starts: `"bought"`, from the wafer as bought (the default); or, for
     /// silicon on insulator, `"smart_cut"`, from bare silicon wafers, with the Smart Cut steps
-    /// that make the SOI wafer first.
+    /// that make the SOI wafer first; or `"simox"`, from a bare silicon wafer implanted with
+    /// oxygen and annealed.
     #[serde(default)]
     start: StartKey,
 }
@@ -79,6 +81,8 @@ enum StartKey {
     Bought,
     /// For silicon on insulator, from bare silicon wafers by Smart Cut.
     SmartCut,
+    /// For silicon on insulator, from a bare silicon wafer by SIMOX.
+    Simox,
 }
 
 impl From<StartKey> for Start {
@@ -86,6 +90,7 @@ impl From<StartKey> for Start {
         match key {
             StartKey::Bought => Start::Bought,
             StartKey::SmartCut => Start::SmartCut,
+            StartKey::Simox => Start::Simox,
         }
     }
 }
@@ -247,11 +252,16 @@ pub struct FabricationView {
     /// Where the flow starts.
     pub start: Start,
     /// The starts the design can be made from: the wafer as bought, and for silicon on insulator
-    /// bare silicon by Smart Cut.
+    /// bare silicon by Smart Cut and by SIMOX, where their routes make its film and oxide.
     pub starts: Vec<Start>,
     /// The Smart Cut route to the design's film and buried oxide, when it is one of the starts:
     /// the numbers its steps use, whichever start is shown.
     pub smart_cut: Option<crate::fabrication::smart_cut::Route>,
+    /// The SIMOX route to the design's film and buried oxide, when it is one of the starts.
+    pub simox: Option<crate::fabrication::simox::Route>,
+    /// Why SIMOX can't make the design's wafer, for silicon on insulator it can't: the film or
+    /// the buried oxide beyond what its published conditions make.
+    pub simox_refused: Option<String>,
 }
 
 /// The wafer after a step: its scene ([`Event::Scene`], air where nothing is yet), and how each
@@ -398,7 +408,7 @@ pub fn fabrication_view_from(
     };
     choices.check()?;
     let flow = generate_from(physical, &choices, start)?;
-    let (starts, smart_cut) = crate::fabrication::starts(physical, &choices)?;
+    let found = crate::fabrication::starts(physical, &choices)?;
     let trip = round_trip(&flow, physical)?;
     let s = physical.structure();
     let (mut x, mut y) = (
@@ -438,8 +448,10 @@ pub fn fabrication_view_from(
         platform: platform(physical),
         frames: frames(&flow, &made, x, y, z[0], top, wavelength)?,
         start,
-        starts,
-        smart_cut,
+        starts: found.starts,
+        smart_cut: found.smart_cut,
+        simox: found.simox,
+        simox_refused: found.simox_refused,
     })
 }
 

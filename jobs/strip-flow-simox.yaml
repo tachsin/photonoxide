@@ -1,0 +1,17 @@
+# A 500 nm wide silicon strip 150 nm thick on 0.4 µm of buried oxide, made from one bare silicon
+# wafer: the SOI wafer is made first by SIMOX (oxygen implanted at 200 keV into the wafer held at
+# 600 °C, annealed 4 h at 1350 °C, the film thinned by a sacrificial oxide), then the strip's own
+# steps. SIMOX's published conditions make films up to 0.2 µm on 0.273 to 0.5 µm of oxide, so
+# the strip is thinner than the 220 nm one of jobs/strip-flow.yaml.
+#   photonoxide run jobs/strip-flow-simox.yaml
+name: strip-flow-simox
+
+device:
+  kind: waveguide
+  stack: { preset: soi, bottom_oxide_um: 0.4 }
+  parameters:
+    thickness: 150 nm
+
+task:
+  kind: fabrication
+  start: simox          # "bought" (the default) starts from the SOI wafer as bought

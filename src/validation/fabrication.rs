@@ -5,6 +5,7 @@
 //! to its printed digit, and its stacks and round trip, exact by construction.
 
 use super::{Basis::*, Measure::*, Numerical::*, Rule};
+use crate::fabrication::simox_checks::{CELLER_LOW, CELLER_THIN, allowance};
 
 pub(crate) fn rules() -> Vec<(&'static str, Rule)> {
     let exact = |why: &'static str| Rule::new(Absolute, RoundOff, 0.0, Exact, why);
@@ -75,6 +76,52 @@ pub(crate) fn rules() -> Vec<(&'static str, Rule)> {
         ),
         (
             "fabrication/smart-cut-round-trip",
+            exact(
+                "an exact identity: the executed flow draws the design's own shapes and etches, so the structures are equal to the bit and no point may differ",
+            ),
+        ),
+        (
+            "fabrication/simox-oxide-celler-low-dose",
+            Rule::new(
+                Relative,
+                Reference,
+                allowance(&CELLER_LOW),
+                Exact,
+                "half a unit of the last printed digit of the dose, 4×10¹⁷ cm⁻² (12.5 %), carried through the balance, and of the thickness, 100 nm (0.5 nm)",
+            ),
+        ),
+        (
+            "fabrication/simox-oxide-celler-thin",
+            Rule::new(
+                Relative,
+                Reference,
+                allowance(&CELLER_THIN),
+                Exact,
+                "half a unit of the last printed digit of the dose, 2×10¹⁷ cm⁻² (25 %), carried through the balance, and of the thickness, 56 nm (0.5 nm)",
+            ),
+        ),
+        (
+            "fabrication/simox-oxide-lam",
+            Rule::new(
+                Absolute,
+                Reference,
+                0.05,
+                Exact,
+                "half a unit of the last printed digit of Lam's 0.5 µm; his doses' ends widened by half a unit of theirs",
+            ),
+        ),
+        (
+            "fabrication/simox-oxide-below-1300",
+            exact("a bound holds or not: no oxide may hold more oxygen than was implanted"),
+        ),
+        (
+            "fabrication/simox-stack",
+            exact(
+                "an exact identity: the sacrificial oxide takes off, to the bit, what the annealed film has beyond the design's, so no pair may differ",
+            ),
+        ),
+        (
+            "fabrication/simox-round-trip",
             exact(
                 "an exact identity: the executed flow draws the design's own shapes and etches, so the structures are equal to the bit and no point may differ",
             ),

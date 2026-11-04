@@ -1,6 +1,7 @@
 //! Where a flow starts: from its wafer as bought, every flow's start unless asked otherwise; or,
-//! for silicon on insulator, from bare silicon, with the Smart Cut steps that make the SOI wafer
-//! ([`super::smart_cut`]) in place of the bought wafer. The rest of the flow is the same.
+//! for silicon on insulator, from bare silicon, with the Smart Cut or SIMOX steps that make the
+//! SOI wafer ([`super::smart_cut`], [`super::simox`]) in place of the bought wafer. The rest of
+//! the flow is the same.
 
 use serde::{Deserialize, Serialize};
 
@@ -11,6 +12,7 @@ use super::flow::{Flow, Laid, Operation, Step};
 use super::generate::{Choices, generate};
 use super::library::{Process, process, route_only};
 use super::physical::Film;
+use super::simox;
 use super::smart_cut::{self, Route};
 use super::stated::number;
 
@@ -27,14 +29,20 @@ pub enum Start {
     /// hydrogen, bonded to a handle, split, annealed, polished and thinned to the design's film,
     /// before the steps on the bought wafer.
     SmartCut,
+    /// For silicon on insulator, from one bare silicon wafer: oxygen implanted into it hot and
+    /// annealed above 1300 °C into a buried oxide under a film of its silicon, which a
+    /// sacrificial oxide thins to the design's, before the steps on the bought wafer
+    /// ([`super::simox`]).
+    Simox,
 }
 
 impl Start {
-    /// Its name, as a job writes it: `"bought"` or `"smart_cut"`.
+    /// Its name, as a job writes it: `"bought"`, `"smart_cut"` or `"simox"`.
     pub fn name(self) -> &'static str {
         match self {
             Start::Bought => "bought",
             Start::SmartCut => "smart_cut",
+            Start::Simox => "simox",
         }
     }
 
@@ -44,12 +52,12 @@ impl Start {
     ///
     /// [`Error::InvalidValue`] for any other name.
     pub fn parse(text: &str) -> Result<Start> {
-        [Start::Bought, Start::SmartCut]
+        [Start::Bought, Start::SmartCut, Start::Simox]
             .into_iter()
             .find(|s| s.name() == text)
             .ok_or_else(|| {
                 invalid(format!(
-                    "a flow starts \"bought\" or \"smart_cut\", not {text:?}"
+                    "a flow starts \"bought\", \"smart_cut\" or \"simox\", not {text:?}"
                 ))
             })
     }
@@ -63,6 +71,13 @@ fn invalid(message: String) -> Error {
 /// its own.
 const NEEDED: [&str; 2] = ["si-wafer", "thermal-oxidation"];
 
+/// The processes the SIMOX route uses beside its own: the library's bare wafer, and the
+/// thermal oxidation and its strip that thin the film.
+const SIMOX_NEEDED: [&str; 3] = ["si-wafer", "thermal-oxidation", "hf-oxide-strip"];
+
+/// The SIMOX route's own processes.
+const SIMOX_OWN: [&str; 2] = ["o-implant", "simox-anneal"];
+
 /// The flow that makes `design`, as `choices` ask, from `start`: [`generate`]'s for
 /// [`Start::Bought`]; for [`Start::SmartCut`], the same with the Smart Cut route in place of the
 /// bought SOI wafer.
@@ -74,20 +89,28 @@ const NEEDED: [&str; 2] = ["si-wafer", "thermal-oxidation"];
 pub fn generate_from(design: &super::Physical, choices: &Choices, start: Start) -> Result<Flow> {
     match start {
         Start::Bought => generate(design, choices),
-        Start::SmartCut => made(design, choices),
+        Start::SmartCut | Start::Simox => made(design, choices, start),
     }
 }
 
-fn made(design: &super::Physical, choices: &Choices) -> Result<Flow> {
+fn made(design: &super::Physical, choices: &Choices, start: Start) -> Result<Flow> {
     choices.check()?;
-    let own = |id: &String| process(id).is_some_and(route_only);
+    let (what, needed): (&str, &[&str]) = if start == Start::Simox {
+        ("SIMOX", &SIMOX_NEEDED)
+    } else {
+        ("Smart Cut", &NEEDED)
+    };
+    // each route needs its own steps, not the other's
+    let own = |id: &String| {
+        process(id).is_some_and(route_only) && SIMOX_OWN.contains(&id.as_str()) == (what == "SIMOX")
+    };
     if let Some(id) = choices
         .avoid
         .iter()
-        .find(|id| own(id) || NEEDED.contains(&id.as_str()))
+        .find(|id| own(id) || needed.contains(&id.as_str()))
     {
         return Err(invalid(format!(
-            "the Smart Cut start needs \"{id}\", which the choices avoid"
+            "the {what} start needs \"{id}\", which the choices avoid"
         )));
     }
     // the generator chooses none of the route's own steps: their preferences are the route's
@@ -97,14 +120,25 @@ fn made(design: &super::Physical, choices: &Choices) -> Result<Flow> {
             "the SOI wafer has a film and its buried oxide, no more".into(),
         ));
     };
-    let route = smart_cut::route(film.thickness.to_um(), oxide.thickness.to_um())?;
-    let mut steps = route_steps(&route, substrate, (oxide, oxide_film), (film, silicon))?;
+    let (f, o) = (film.thickness.to_um(), oxide.thickness.to_um());
+    let (mut steps, note) = if start == Start::Simox {
+        let route = simox::route(f, o)?;
+        (
+            simox_steps(&route, substrate, (oxide, oxide_film), (film, silicon))?,
+            "SIMOX: the film the anneal leaves over the oxide, for any dose of 1.2–2.2×10¹⁸ \
+             cm⁻² (the flow takes Celler and Cristoloveanu's about 200 nm at 200 keV; Lam gives \
+             100–300 nm over those doses), and so what the sacrificial oxide takes off",
+        )
+    } else {
+        let route = smart_cut::route(f, o)?;
+        (
+            route_steps(&route, substrate, (oxide, oxide_film), (film, silicon))?,
+            "Smart Cut: how much the touch-up polish and the sacrificial oxide take off (no \
+             source in hand states it; the flow takes one straggle each)",
+        )
+    };
     let mut not_specified = flow.not_specified;
-    not_specified.push(
-        "Smart Cut: how much the touch-up polish and the sacrificial oxide take off (no source in \
-         hand states it; the flow takes one straggle each)"
-            .into(),
-    );
+    not_specified.push(note.into());
     steps.extend(flow.steps.into_iter().skip(1));
     Ok(Flow {
         steps,
@@ -126,34 +160,57 @@ fn soi_wafer(flow: &Flow) -> Result<(&Film, &[(Laid, Film)])> {
     match (&first.operation, first.process.as_str()) {
         (Operation::Wafer { substrate, layers }, "soi-smart-cut") => Ok((substrate, layers)),
         _ => Err(invalid(format!(
-            "the Smart Cut start makes silicon on insulator; this design's flow starts from {}",
+            "a start from bare silicon makes silicon on insulator; this design's flow starts \
+             from {}",
             first.name
         ))),
     }
 }
 
-/// The starts `design` can be made from as `choices` ask: the wafer as bought, and Smart Cut
-/// when that wafer is silicon on insulator, a film on its buried oxide, which a proton energy
-/// of the range table reaches; with the Smart Cut route to it.
+/// The starts a design can be made from, with the routes to it.
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) struct Starts {
+    /// The starts: the wafer as bought, then those of the routes below that make its wafer.
+    pub starts: Vec<Start>,
+    /// The Smart Cut route, when it makes the wafer.
+    pub smart_cut: Option<Route>,
+    /// The SIMOX route, when it makes the wafer.
+    pub simox: Option<simox::Route>,
+    /// Why SIMOX doesn't make it, for silicon on insulator it doesn't: [`simox::route`]'s words.
+    pub simox_refused: Option<String>,
+}
+
+/// The starts `design` can be made from as `choices` ask: the wafer as bought; Smart Cut when
+/// that wafer is silicon on insulator, a film on its buried oxide, which a proton energy of the
+/// range table reaches; and SIMOX when its published conditions make that film and oxide
+/// ([`simox::route`]); with the routes to it.
 ///
 /// # Errors
 ///
 /// [`generate`]'s.
-pub(crate) fn starts(
-    design: &super::Physical,
-    choices: &Choices,
-) -> Result<(Vec<Start>, Option<Route>)> {
+pub(crate) fn starts(design: &super::Physical, choices: &Choices) -> Result<Starts> {
     let flow = generate(design, &base(choices))?;
-    let route = match soi_wafer(&flow) {
-        Ok((_, [(oxide, _), (film, _)])) => {
-            smart_cut::route(film.thickness.to_um(), oxide.thickness.to_um()).ok()
-        }
-        _ => None,
+    let mut s = Starts {
+        starts: vec![Start::Bought],
+        smart_cut: None,
+        simox: None,
+        simox_refused: None,
     };
-    Ok(match route {
-        Some(r) => (vec![Start::Bought, Start::SmartCut], Some(r)),
-        None => (vec![Start::Bought], None),
-    })
+    if let Ok((_, [(oxide, _), (film, _)])) = soi_wafer(&flow) {
+        let (f, o) = (film.thickness.to_um(), oxide.thickness.to_um());
+        s.smart_cut = smart_cut::route(f, o).ok();
+        if s.smart_cut.is_some() {
+            s.starts.push(Start::SmartCut);
+        }
+        match simox::route(f, o) {
+            Ok(r) => {
+                s.simox = Some(r);
+                s.starts.push(Start::Simox);
+            }
+            Err(e) => s.simox_refused = Some(e.to_string()),
+        }
+    }
+    Ok(s)
 }
 
 /// `choices` for the generator under the route: the route's own steps are the route's, so a
@@ -368,4 +425,157 @@ fn route_steps(
     Ok(vec![
         donor, oxidize, implant, bond, split, anneal, polish, thin, strip,
     ])
+}
+
+/// `v` as a power of ten, as the narration writes a dose: `1.76×10¹⁸`.
+fn power(v: f64) -> String {
+    const SUP: [char; 10] = ['⁰', '¹', '²', '³', '⁴', '⁵', '⁶', '⁷', '⁸', '⁹'];
+    let e = v.abs().log10().floor() as i32;
+    let digits: String = e
+        .unsigned_abs()
+        .to_string()
+        .chars()
+        .map(|c| SUP[c.to_digit(10).unwrap_or(0) as usize])
+        .collect();
+    let sign = if e < 0 { "⁻" } else { "" };
+    format!("{}×10{sign}{digits}", number(v / 10f64.powi(e)))
+}
+
+/// The SIMOX route's steps, from the bare wafer to the wafer as it would have been bought:
+/// `oxide` and `film` are the bought wafer's layers, over `substrate`. The drawing builds the
+/// wafer from the bottom, as every flow's does: the implant draws the buried oxide it makes, and
+/// the anneal the film it heals over it, with what the sacrificial oxide then takes off.
+fn simox_steps(
+    r: &simox::Route,
+    substrate: &Film,
+    oxide: (&Laid, &Film),
+    film: (&Laid, &Film),
+) -> Result<Vec<Step>> {
+    let (o, f) = (oxide.0.thickness.to_um(), film.0.thickness.to_um());
+    let (lo, hi) = simox::oxides();
+    let wafer = step_of(
+        "si-wafer",
+        Operation::Wafer {
+            substrate: substrate.clone(),
+            layers: Vec::new(),
+        },
+        "The flow makes its SOI wafer instead of buying it, as its start asks, by SIMOX, \
+         separation by implanted oxygen (izumi-1978): from one bare silicon wafer, whose own \
+         silicon becomes both the film and, below the buried oxide, the handle."
+            .into(),
+    )?;
+    let mut implant = step_of(
+        "o-implant",
+        Operation::Deposit {
+            film: oxide.1.clone(),
+            layers: vec![oxide.0.clone()],
+            cladding: false,
+            extra: Length::ZERO,
+        },
+        format!(
+            "Oxygen ions are implanted at {} keV to {} cm⁻², the wafer held at {} °C so its \
+             surface stays single-crystal (celler-cristoloveanu-2003, p. 4959; lam-1987, p. 6: \
+             150–200 keV, 1.2–2.2×10¹⁸ cm⁻², 400 °C or higher). The dose is the buried oxide's \
+             oxygen: {} of silicon dioxide holds the dose at 4.4×10²² oxygen atoms per cm³, \
+             twice silicon's 5×10²² atoms per cm³ (campbell-2008, p. 43) times the 44 % of its \
+             thickness an oxide consumes of silicon (p. 74). The oxide takes the place of {} of \
+             silicon and the surface rises by the other {}. The energy is the one whose film a \
+             source gives, about 0.2 µm at 200 keV (celler-cristoloveanu-2003, p. 4959); no \
+             range table is in hand, so the depth isn't computed. The drawing shows the buried \
+             oxide here, as an implant this heavy already makes one (hemment-1984, p. 204), and \
+             the silicon over it at the anneal, which heals it.",
+            number(r.energy),
+            power(r.dose),
+            number(r.implant_temperature),
+            um(o),
+            um(r.consumed),
+            um(r.swelling)
+        ),
+    )?;
+    implant.uncertainties = vec![
+        format!(
+            "the dose balance holds after an anneal above 1300 °C, where only the planar oxide \
+             remains (celler-cristoloveanu-2003, p. 4959); the route's oxides, {} to {}, are \
+             those of Lam's doses",
+            um(lo),
+            um(hi)
+        ),
+        "the depth of the oxide is not computed: no range table of oxygen in silicon is in hand"
+            .into(),
+    ];
+    let mut anneal = step_of(
+        "simox-anneal",
+        Operation::Deposit {
+            film: film.1.clone(),
+            layers: vec![film.0.clone()],
+            cladding: false,
+            extra: Length::um(r.thinned),
+        },
+        format!(
+            "The wafer is annealed at {} °C for {} hours under an oxide cap (campbell-2008, p. \
+             129: at least 1300 °C for several hours; celler-cristoloveanu-2003, pp. \
+             4959–4960: ∼1350 °C, 4 h). Above 1300 °C the oxide precipitates dissolve and only \
+             the planar buried oxide remains, and the damaged silicon over it heals into a \
+             single-crystal film, about {} thick at 200 keV (celler-cristoloveanu-2003, p. 4959; \
+             lam-1987, p. 6: 100–300 nm). The drawing shows the design's {} of it; the {} \
+             beyond, which a sacrificial oxide takes off, isn't drawn.",
+            number(r.anneal_temperature),
+            number(r.anneal_hours),
+            um(r.made),
+            um(f),
+            um(r.thinned)
+        ),
+    )?;
+    anneal.uncertainties = vec![
+        "the film as annealed is Celler and Cristoloveanu's about 200 nm at 200 keV for every \
+         dose of the route; Lam gives 100–300 nm over them"
+            .into(),
+    ];
+    let mut steps = vec![wafer, implant, anneal];
+    if r.thinned > 0.0 {
+        let mut thin = step_of(
+            "thermal-oxidation",
+            Operation::Planarize {
+                removed: Length::um(r.thinned),
+            },
+            format!(
+                "The film is thinned to the design's {} by a sacrificial oxide, as Izumi thinned \
+                 his (izumi-1978, p. 593: 600 Å grown and etched off took 300 Å of the surface): \
+                 {} grown in wet oxygen at 1100 °C, {} hours (deal-grove-1965, Table I), \
+                 consumes {} of the silicon (about 44 %: campbell-2008, p. 74). The oxide isn't \
+                 drawn; it comes off next.",
+                um(f),
+                um(r.sacrificial),
+                number(r.sacrificial_hours),
+                um(r.thinned)
+            ),
+        )?;
+        thin.uncertainties.push(
+            "what it takes off rests on the film as annealed, about 0.2 µm (100–300 nm: \
+             lam-1987, p. 6)"
+                .into(),
+        );
+        let strip = step_of(
+            "hf-oxide-strip",
+            Operation::Undrawn {
+                what: format!(
+                    "strip the {} sacrificial oxide in HF: {} of silicon on {} of buried oxide",
+                    um(r.sacrificial),
+                    um(f),
+                    um(o)
+                ),
+            },
+            format!(
+                "The sacrificial oxide is dissolved in 6:1 hydrofluoric acid, about {} minutes at \
+                 about 1200 Å/min, leaving the film (campbell-2008, Section 11.1, p. 285). The \
+                 wafer is now the one a flow would buy: {} of silicon on {} of oxide over a \
+                 silicon handle.",
+                number(r.strip_minutes),
+                um(f),
+                um(o)
+            ),
+        )?;
+        steps.extend([thin, strip]);
+    }
+    Ok(steps)
 }
