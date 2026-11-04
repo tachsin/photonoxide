@@ -561,8 +561,8 @@ review, M a few days, L a week or more.
 
 - **What.** Every silicon flow starts from a bought SOI wafer, its film and buried oxide as
   bought. A flow may now start from bare silicon instead, with the steps that make the SOI wafer
-  in place of the bought one. It is opt-in: a job's task says `start: smart_cut`, Python's
-  `device_fabrication(..., start="smart_cut")`. Without it, every job, example and test gives the
+  in place of the bought one. It is opt-in: a job's task says `start: smart_cut` or
+  `start: simox`, Python's `device_fabrication(..., start="smart_cut")`. Without it, every job, example and test gives the
   flow it gave before.
 - **Why.** The library could name Smart Cut and cite Bruel 1995, but no step behind the name was
   modelled. A newcomer asking where the film comes from should see each step, with its physics
@@ -573,12 +573,14 @@ review, M a few days, L a week or more.
 |---|---|---|
 | **S1: Smart Cut** | M | `fabrication::smart_cut`: the donor's oxide by Deal and Grove's law; the hydrogen implant's energy from the proton ranges of ICRU Report 49, as NIST's PSTAR tabulates them (the oxide crossed by its CSDA range, the peak at silicon's projected range), its straggle by Campbell's Eq. 5.19; the bond, the split, the bond's anneal and the touch-up polish from Bruel 1995; the thinning by a sacrificial oxide, 44 % of it consumed silicon (Campbell), stripped in HF. A library record for each step, with its sources. `Start` and `generate_from`, the job's `start`, and Python's `start=`. Validation: the proton ranges against Bruel's ∼8 nm/keV; the route alone gives `LayerStack::soi`'s stack for 15 films and oxides, to the bit; the SOI designs' round trip from bare silicon. |
 | **S2: The studio's start** | S | *Done.* The Fabrication tab's and page's choice of start for an SOI design, the bought wafer by default, so the animation can begin from the bare donor; the route's numbers for the design's film and buried oxide under it; the tab's job with `start: smart_cut`, and **Run as a job**; a run's or job's own start kept on the page and in the run view; the glossary's words for the route's steps; the sacrificial oxidation drawn as silicon going from the top; the traveller crediting the film's thickness to it. |
-| **S3: SIMOX** | M | *Waiting for sources.* Separation by implanted oxygen as a second route: a high-dose oxygen implant and a long anneal above 1300 °C (Campbell, Section 5.7, pp. 128–129). Campbell gives the usual conditions, not the buried oxide and film an implant and anneal make, so there is nothing published to check a model against. Wanted (with their DOIs on #622): Izumi et al. 1978, the first SIMOX; Celler and Cristoloveanu 2003, "Frontiers of silicon-on-insulator"; Lam 1987; Hemment et al. 1984, the implanted oxygen's distribution; and oxygen's ranges in silicon (Ziegler et al., SRIM 2010). |
+| **S3: SIMOX** | M | *Done.* Separation by implanted oxygen as the second route, `start: simox`: the oxygen implant into the hot wafer, the anneal above 1300 °C, and the film thinned by a sacrificial oxide (Izumi et al. 1978; Celler and Cristoloveanu 2003; Lam 1987; Campbell, Section 5.7). The buried oxide from the dose by a dose balance, 4.4×10²² oxygen atoms per cm³ of SiO₂ from Campbell's silicon density and 44 %. No range table of oxygen in silicon is in hand, so the film comes from the published points (200 keV, about 200 nm; 100–300 nm over 1.2–2.2×10¹⁸ cm⁻²) and the route refuses oxides outside 0.273–0.5 µm and films above 0.2 µm. Validation: Celler's 4×10¹⁷ and 2×10¹⁷ cm⁻² oxides and Lam's 0.5 µm within their printed digits; Izumi's and Hemment's oxides below 1300 °C (77 % and 68 % of the balance) kept as open gaps, the balance only their bound; the stack and round trip of 12 films and oxides, to the bit. The studio offers **bare silicon (SIMOX)** with its inputs beside their published ranges, disabled with the reason where it can't make the wafer. Still wanted: oxygen's ranges in silicon (Gibbons et al. 1975; Dearnaley et al. 1973; Ziegler, Biersack and Littmark 1985; ICRU Report 73), which would place the oxide by the energy. Dearnaley 1975 (a graph with points for boron and neon only) and Wang and Shi 1990 (a range method checked on heavy ions) give none for oxygen in silicon. |
 
 - **What is later.** The oxide grown on the handle as well as the donor; the lithium niobate
   film's ion slicing (Levy et al. 1998; Poberaj et al. 2012) as a second made wafer; the polish
   and the sacrificial oxide's amounts from a source instead of the route's rule (one straggle
-  each, see [fabrication](../methods/fabrication.md), "Making the SOI wafer").
+  each, see [fabrication](../methods/fabrication.md), "Making the SOI wafer"); SIMOX's oxide
+  placed by a range table, its film for each dose, epitaxy over its film for thicker ones, and
+  its oxide after anneals below 1300 °C.
 
 **The first slice, F1 to F3,** is the one asked for: a read-only flow, shown and animated, for
 three designs.
@@ -632,6 +634,10 @@ fabrication engine". Open copies are noted only where one was seen.
 **Silicon photonics**
 
 - M. Bruel, "Silicon on insulator material technology", Electron. Lett. 31, 1201 (1995). [10.1049/el:19950805](https://doi.org/10.1049/el:19950805)
+- K. Izumi, M. Doken, H. Ariyoshi, "C.M.O.S. devices fabricated on buried SiO₂ layers formed by oxygen implantation into silicon", Electron. Lett. 14, 593 (1978). [10.1049/el:19780397](https://doi.org/10.1049/el:19780397) (folder)
+- G. K. Celler, S. Cristoloveanu, "Frontiers of silicon-on-insulator", J. Appl. Phys. 93, 4955 (2003). [10.1063/1.1558223](https://doi.org/10.1063/1.1558223) (folder)
+- H. W. Lam, "SIMOX SOI for integrated circuit fabrication", IEEE Circuits Devices Mag. 3, 6 (1987). [10.1109/MCD.1987.6323126](https://doi.org/10.1109/MCD.1987.6323126) (folder)
+- P. L. F. Hemment, E. Maydell-Ondrusz, K. G. Stevens, J. A. Kilner, J. Butcher, "Oxygen distributions in synthesized SiO₂ layers formed by high dose O⁺ implantation into silicon", Vacuum 34, 203 (1984). [10.1016/0042-207X(84)90128-3](https://doi.org/10.1016/0042-207X(84)90128-3) (folder)
 - W. Bogaerts et al., "Nanophotonic waveguides in silicon-on-insulator fabricated with CMOS technology", J. Lightwave Technol. 23, 401 (2005). [10.1109/JLT.2004.834471](https://doi.org/10.1109/JLT.2004.834471) (folder)
 - S. K. Selvaraja, P. Jaenen, W. Bogaerts, D. Van Thourhout, P. Dumon, R. Baets, "Fabrication of Photonic Wire and Crystal Circuits in Silicon-on-Insulator Using 193-nm Optical Lithography", J. Lightwave Technol. 27, 4076 (2009). [10.1109/JLT.2009.2022282](https://doi.org/10.1109/JLT.2009.2022282)
 - R. J. Bojko, J. Li, L. He, T. Baehr-Jones, M. Hochberg, Y. Aida, "Electron beam lithography writing strategies for low loss, high confinement silicon optical waveguides", J. Vac. Sci. Technol. B 29, 06F309 (2011). [10.1116/1.3653266](https://doi.org/10.1116/1.3653266)

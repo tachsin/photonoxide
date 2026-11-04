@@ -208,8 +208,12 @@ make the SOI wafer first ([fabrication](methods/fabrication.md#making-the-soi-wa
 `phox.device_fabrication("waveguide", start="smart_cut")` has 13 steps, from `si-wafer`,
 `thermal-oxidation` (the buried oxide grown on the donor), `h-implant` (318.7 keV for 220 nm
 on 2 µm), `direct-bonding`, `smart-cut-split`, `anneal-bond`, `cmp-si`, `thermal-oxidation` (a
-sacrificial oxide) and `hf-oxide-strip` to the strip's own four. `device_fabrication_job` and
-`export_fabrication` take `start=` too.
+sacrificial oxide) and `hf-oxide-strip` to the strip's own four. `start="simox"` makes the SOI
+wafer from one bare wafer by SIMOX instead
+([fabrication](methods/fabrication.md#making-the-soi-wafer-simox)): an oxygen implant, an anneal
+above 1300 °C and a sacrificial oxide. Its published conditions make films up to 0.2 µm on
+0.273–0.5 µm of buried oxide, so it refuses the strip's 0.22 µm on 2 µm and says why.
+`device_fabrication_job` and `export_fabrication` take `start=` too.
 
 The same result carries the flow's export: `json` (the flow's data, its keys in a fixed order),
 `markdown` (a process traveller: each step, what it does and why, the tool and the cited
