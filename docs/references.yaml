@@ -801,6 +801,12 @@
   venue: "Journal of Vacuum Science & Technology A: Vacuum, Surfaces, and Films 31, 050825"
   year: 2013
 
+- doi: 10.1137/0733054
+  authors: "W. Dörfler"
+  title: "A Convergent Adaptive Algorithm for Poisson’s Equation"
+  venue: "SIAM J. Numer. Anal. 33, 1106"
+  year: 1996
+
 - doi: 10.1002/andp.19003060312
   authors: "P. Drude"
   title: "Zur Elektronentheorie der Metalle"
