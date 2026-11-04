@@ -459,6 +459,47 @@ fn a_shift_almost_on_an_eigenvalue_is_moved_off_it() {
 }
 
 #[test]
+fn a_refined_branch_follows_the_mode_by_index_through_an_anticrossing() {
+    // the same 50 nm step into the anticrossing, refined where the margin is below 0.5: the
+    // halves are clear choices, and the branch keeps the rank by index it started with, as
+    // steps of 2.5 nm do; unrefined, it changes rank
+    use crate::mode::vector;
+    let near = te1_near(1.4, 1.35);
+    let rank = |l: f64, n: f64| {
+        vector::modes(&clad_strip(1.4).unwrap(), um(l), 4, None)
+            .unwrap()
+            .iter()
+            .position(|m| (m.effective_index().re - n).abs() < 1e-9)
+            .unwrap()
+    };
+    let start = rank(1.35, near);
+    let mut refined = Branch::new(|_| clad_strip(1.4), um(1.35), Some(near), 3)
+        .unwrap()
+        .with_refinement(0.5, 5)
+        .unwrap();
+    refined.mode(um(1.4)).unwrap();
+    let m = refined.mode(um(1.45)).unwrap();
+    let (l, s) = refined.least_margin().unwrap();
+    eprintln!(
+        "refined: {} steps, least margin {:.3} ({:.3} against {:.3}) at {l}",
+        refined.steps().len(),
+        s.margin(),
+        s.overlap,
+        s.runner_up.unwrap_or(0.0)
+    );
+    assert!(s.margin() >= 0.5, "{l}: {s:?}");
+    assert!(refined.steps().len() > 2, "{}", refined.steps().len());
+    assert_eq!(rank(1.45, m.effective_index().re), start);
+    let mut coarse = Branch::new(|_| clad_strip(1.4), um(1.35), Some(near), 3).unwrap();
+    coarse.mode(um(1.4)).unwrap();
+    let c = coarse.mode(um(1.45)).unwrap();
+    assert_ne!(rank(1.45, c.effective_index().re), start);
+    // a margin is from 0 to 1
+    let b = Branch::new(|_| clad_strip(1.4), um(1.35), Some(near), 3).unwrap();
+    assert!(b.with_refinement(1.5, 1).is_err());
+}
+
+#[test]
 #[ignore = "a branch at an anticrossing (docs/methods/sweep.md, Anticrossings): in release, prints"]
 fn a_branch_at_an_anticrossing_study() {
     use crate::mode::vector::{self, VectorMode};

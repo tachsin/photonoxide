@@ -330,6 +330,18 @@ The numbers in this section are printed by
 `sweep::tests::a_branch_shows_an_anticrossing_in_its_margins` checks the 50 nm step's margin
 on every run.
 
+**Refining by itself.** `Branch::with_refinement(margin, halvings)` samples more finely on its
+own. A step whose margin is below `margin` is taken again in two halves: from the mode it was
+followed from to the midpoint, then on from there. Each half is refined the same way, at most
+`halvings` times over. Short enough steps stay on the mode by index, so a refined branch follows
+the mode *along* an anticrossing, its field changing character, wherever the samples fall.
+The modes found on the way are in `Branch::found` and their steps in `Branch::steps`. On the
+1.40 strip, the 50 nm steps from 1.35 to 1.45 µm with `with_refinement(0.5, 5)` become 4 steps
+where they were 2 (a close choice's own solve is then not kept). Their least margin rises from 0.108 to 0.631 (0.950 against 0.319, at 1.425 µm), and the
+mode at 1.45 µm keeps the rank by index it started with, as the 2.5 nm steps do. Unrefined,
+it changes rank (`sweep::tests::a_refined_branch_follows_the_mode_by_index_through_an_anticrossing`).
+Refinement is off by default, so a branch chooses as before unless asked.
+
 ## Scope
 
 - The variable is any real one: a wavelength in µm, a frequency. Values may be complex (an
@@ -341,8 +353,10 @@ on every run.
   Nakatsukasa et al. do; it samples at their real parts instead.
 - Mode following uses the full-vector solver's modes on a fixed grid. At an anticrossing of two
   modes of the same symmetry, the branch may follow either mode, depending on where the samples
-  fall (Anticrossings, above). It says so only through its margins: it doesn't refine by itself
-  or let a user choose which mode to follow.
+  fall (Anticrossings, above). Its margins show it, and `Branch::with_refinement` makes it
+  follow the mode by index. Following the mode by its character instead (the other mode, across
+  the gap) has no option yet: what "character" is to mean (the TE fraction, the overlap with the
+  first mode) is still to be decided.
 - Not yet in photonoxide: sweeps inside the jobs, an S-matrix's entries sharing one set of samples, and
   FDFD's and eigenmode expansion's S-parameters over wavelength. These can already be swept with
   `Sweep::run` on a closure.
