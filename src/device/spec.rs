@@ -863,7 +863,7 @@ fn task_layer(v: &Value, at: &str) -> Result<Layer> {
 /// A catalogue crystal's table may give its `orientation` ([`crate::material::Orientation`]:
 /// `"x-cut"`, a `cut` and `along_x`, or `euler_deg`): the medium is then the crystal turned onto
 /// the chip, its tensor in the chip's frame ([`Material::oriented`]).
-fn task_medium(v: &Value, at: &str) -> Result<Material> {
+pub(crate) fn task_medium(v: &Value, at: &str) -> Result<Material> {
     #[allow(clippy::cast_precision_loss)]
     let index = match v {
         Value::Float(x) => *x,

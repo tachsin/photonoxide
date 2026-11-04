@@ -17,6 +17,7 @@ use serde_json::Value;
 use super::check::task_error;
 use super::chip::ChipStudyKind;
 use super::device::SpectrumKind;
+use super::eme::EmeKind;
 use super::event::Event;
 use super::fabrication::FabricationKind;
 use super::fdfd::FdfdKind;
@@ -97,7 +98,7 @@ pub(super) trait TaskKind: Sync {
 pub(super) const EM_FIELDS: &[&str] = &["Ex", "Ey", "Ez", "Hx", "Hy", "Hz"];
 
 /// The kinds of a task alone, in the order the schema lists them.
-static SOLVER: [&dyn TaskKind; 7] = [
+static SOLVER: [&dyn TaskKind; 8] = [
     &StructureKind,
     &ModesKind,
     &FdfdKind,
@@ -105,6 +106,7 @@ static SOLVER: [&dyn TaskKind; 7] = [
     &StaticKind,
     &CrosstalkKind,
     &NonlinearKind,
+    &EmeKind,
 ];
 
 /// The kinds of a task beside a `[device]`, in the order the schema lists them.

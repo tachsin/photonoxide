@@ -1,0 +1,38 @@
+# A silicon slab (3.473 in oxide, 1.444, at 1.55 um) widening from 220 to 600 nm over 1 um,
+# by eigenmode expansion (docs/methods/eme.md; P. Bienstman, R. Baets, Opt. Quantum Electron. 33,
+# 327 (2001), doi:10.1023/A:1010882531238). The taper widens parabolically (its thickness squared
+# grows linearly), and its steps are placed where the response changes until the estimated
+# error of S's fundamental entries is below 1e-4; the modes are doubled from 20 until its
+# transmission changes by less than 1e-3 (1e-4 would take more modes than the mode finder holds
+# with this PML: docs/methods/eme.md, Limits). The slab is symmetric, so only its upper half is
+# solved (its even modes: the plane of symmetry a magnetic wall for TE), 1.5 um to a PML 4 um
+# thick of strength 0.1, the setting the expansion's validation cases found to absorb the light
+# the taper sends away. The run records the S-parameters between the guided even modes at the
+# two ends: TE0 of the 220 nm slab, TE0 and TE2 of the 600 nm one. It ends with 40 modes and 64
+# steps, |S21|^2 = 0.99808 between the fundamental modes.
+#   photonoxide run jobs/eme-taper.yaml
+name: eme-taper
+timeout_minutes: 10
+
+task:
+  kind: eme
+  wavelength_um: 1.55
+  polarization: te
+  modes: 20
+  symmetric: true              # the upper half, its even modes
+  window_um: 1.5               # the half's width, inside the PML
+  pml: { thickness_um: 4.0, strength: 0.1 }
+  cladding: 1.444
+  core: 3.473
+
+  section:
+    - { name: input, length_um: 0.0, core_um: 0.22 }
+    - { name: taper, length_um: 1.0, core_um: [0.22, 0.60], profile: parabolic, steps: 8 }
+    - { name: output, length_um: 0.0, core_um: 0.60 }
+
+  adaptive:
+    tolerance: 1.0e-4
+
+  convergence:
+    tolerance: 1.0e-3
+    quantity: transmission

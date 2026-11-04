@@ -493,6 +493,10 @@ pub fn jobs() -> Vec<JobExample> {
         ),
         ("ppln-shg.yaml", include_str!("../../../jobs/ppln-shg.yaml")),
         (
+            "eme-taper.yaml",
+            include_str!("../../../jobs/eme-taper.yaml"),
+        ),
+        (
             "ring-pareto.yaml",
             include_str!("../../../jobs/ring-pareto.yaml"),
         ),
