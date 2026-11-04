@@ -89,7 +89,7 @@ G. P. Agrawal, "Nonlinear Fiber Optics", Elsevier (2019). [doi:10.1016/C2018-0-0
 
 - Methods pages: [nonlinear.md:34](methods/nonlinear.md?plain=1#L34)
 - Validation cases: [`nonlinear/nlse-fundamental-soliton`](validation.md?plain=1#L782), [`nonlinear/nlse-second-order-soliton`](validation.md?plain=1#L783), [`nonlinear/nlse-third-order-period`](validation.md?plain=1#L784), [`nonlinear/nlse-split-step-order`](validation.md?plain=1#L785), [`nonlinear/nlse-spm-phase`](validation.md?plain=1#L786), [`nonlinear/nlse-spm-broadening`](validation.md?plain=1#L787), [`nonlinear/nlse-photon-number`](validation.md?plain=1#L788), [`nonlinear/fwm-gain-matched`](validation.md?plain=1#L789), [`nonlinear/nlse-tpa-order`](validation.md?plain=1#L801), [`nonlinear/xpm-walk-off-phase`](validation.md?plain=1#L805)
-- Code: [src/nonlinear/absorption_checks.rs:275](../src/nonlinear/absorption_checks.rs#L275), [303](../src/nonlinear/absorption_checks.rs#L303), [src/nonlinear/fwm.rs:5](../src/nonlinear/fwm.rs#L5), [src/nonlinear/kerr_checks.rs:662](../src/nonlinear/kerr_checks.rs#L662), [669](../src/nonlinear/kerr_checks.rs#L669), [676](../src/nonlinear/kerr_checks.rs#L676), [683](../src/nonlinear/kerr_checks.rs#L683), [690](../src/nonlinear/kerr_checks.rs#L690), [697](../src/nonlinear/kerr_checks.rs#L697), [704](../src/nonlinear/kerr_checks.rs#L704), [716](../src/nonlinear/kerr_checks.rs#L716), [src/nonlinear/pulse.rs:4](../src/nonlinear/pulse.rs#L4), [src/nonlinear/xpm.rs:6](../src/nonlinear/xpm.rs#L6)
+- Code: [src/nonlinear/absorption_checks.rs:280](../src/nonlinear/absorption_checks.rs#L280), [308](../src/nonlinear/absorption_checks.rs#L308), [src/nonlinear/fwm.rs:5](../src/nonlinear/fwm.rs#L5), [src/nonlinear/kerr_checks.rs:662](../src/nonlinear/kerr_checks.rs#L662), [669](../src/nonlinear/kerr_checks.rs#L669), [676](../src/nonlinear/kerr_checks.rs#L676), [683](../src/nonlinear/kerr_checks.rs#L683), [690](../src/nonlinear/kerr_checks.rs#L690), [697](../src/nonlinear/kerr_checks.rs#L697), [704](../src/nonlinear/kerr_checks.rs#L704), [716](../src/nonlinear/kerr_checks.rs#L716), [src/nonlinear/pulse.rs:4](../src/nonlinear/pulse.rs#L4), [src/nonlinear/xpm.rs:6](../src/nonlinear/xpm.rs#L6)
 - Other documents: [ROADMAP.md:863](../ROADMAP.md?plain=1#L863)
 
 #### Ahler et al. 2026a
@@ -844,7 +844,7 @@ B. E. Deal, A. S. Grove, "General Relationship for the Thermal Oxidation of Sili
 - Methods pages: [fabrication.md:26](methods/fabrication.md?plain=1#L26)
 - Academy lessons: [how-a-chip-is-made.md:25](../academy/how-a-chip-is-made.md?plain=1#L25), [340](../academy/how-a-chip-is-made.md?plain=1#L340)
 - Validation cases: [`fabrication/deal-grove-tables`](validation.md?plain=1#L744), [`fabrication/deal-grove-campbell`](validation.md?plain=1#L750)
-- Code: [src/fabrication/checks.rs:433](../src/fabrication/checks.rs#L433), [src/fabrication/oxidation.rs:3](../src/fabrication/oxidation.rs#L3), [src/fabrication/references.rs:96](../src/fabrication/references.rs#L96), [src/fabrication/rule_checks.rs:330](../src/fabrication/rule_checks.rs#L330)
+- Code: [src/fabrication/checks.rs:433](../src/fabrication/checks.rs#L433), [src/fabrication/oxidation.rs:3](../src/fabrication/oxidation.rs#L3), [src/fabrication/references.rs:96](../src/fabrication/references.rs#L96), [src/fabrication/rule_checks.rs:321](../src/fabrication/rule_checks.rs#L321)
 - Other documents: [docs/plans/fabrication.md:624](plans/fabrication.md?plain=1#L624)
 
 #### Deb et al. 2002
@@ -1151,7 +1151,7 @@ S. Franssila, "Introduction to Microfabrication", Wiley (2010). [doi:10.1002/978
 - Methods pages: [fabrication.md:32](methods/fabrication.md?plain=1#L32)
 - Academy lessons: [how-a-chip-is-made.md:61](../academy/how-a-chip-is-made.md?plain=1#L61), [293](../academy/how-a-chip-is-made.md?plain=1#L293)
 - Validation cases: [`fabrication/rayleigh-franssila`](validation.md?plain=1#L749), [`fabrication/rule-choices`](validation.md?plain=1#L752)
-- Code: [src/fabrication/references.rs:280](../src/fabrication/references.rs#L280), [src/fabrication/rule_checks.rs:323](../src/fabrication/rule_checks.rs#L323), [344](../src/fabrication/rule_checks.rs#L344)
+- Code: [src/fabrication/references.rs:280](../src/fabrication/references.rs#L280), [src/fabrication/rule_checks.rs:314](../src/fabrication/rule_checks.rs#L314), [335](../src/fabrication/rule_checks.rs#L335)
 - Other documents: [docs/plans/fabrication.md:619](plans/fabrication.md?plain=1#L619)
 
 #### Frantz et al. 2023
@@ -2100,7 +2100,7 @@ M. Krishnan, J. W. Nalaskowski, L. M. Cook, "Chemical Mechanical Planarization: 
 - Methods pages: [fabrication.md:28](methods/fabrication.md?plain=1#L28)
 - Academy lessons: [how-a-chip-is-made.md:55](../academy/how-a-chip-is-made.md?plain=1#L55), [392](../academy/how-a-chip-is-made.md?plain=1#L392)
 - Validation cases: [`fabrication/accuracy-combined`](validation.md?plain=1#L753)
-- Code: [src/fabrication/references.rs:88](../src/fabrication/references.rs#L88), [src/fabrication/rule_checks.rs:351](../src/fabrication/rule_checks.rs#L351)
+- Code: [src/fabrication/references.rs:88](../src/fabrication/references.rs#L88), [src/fabrication/rule_checks.rs:342](../src/fabrication/rule_checks.rs#L342)
 - Other documents: [docs/plans/fabrication.md:629](plans/fabrication.md?plain=1#L629)
 
 #### Krupka et al. 2006
@@ -2241,7 +2241,7 @@ T. Liebig, A. Rennings, S. Held, D. Erni, "openEMS – a free and open source eq
 Q. Lin, O. J. Painter, G. P. Agrawal, "Nonlinear optical phenomena in silicon waveguides: modeling and applications", Opt. Express 15, 16604 (2007). [doi:10.1364/OE.15.016604](https://doi.org/10.1364/OE.15.016604)
 
 - Validation cases: [`nonlinear/nlse-tpa-power`](validation.md?plain=1#L799), [`nonlinear/nlse-tpa-phase`](validation.md?plain=1#L800), [`nonlinear/nlse-carriers-gaussian`](validation.md?plain=1#L802), [`nonlinear/nlse-fca-cw-power`](validation.md?plain=1#L803)
-- Code: [src/nonlinear/absorption_checks.rs:261](../src/nonlinear/absorption_checks.rs#L261), [268](../src/nonlinear/absorption_checks.rs#L268), [282](../src/nonlinear/absorption_checks.rs#L282), [289](../src/nonlinear/absorption_checks.rs#L289)
+- Code: [src/nonlinear/absorption_checks.rs:266](../src/nonlinear/absorption_checks.rs#L266), [273](../src/nonlinear/absorption_checks.rs#L273), [287](../src/nonlinear/absorption_checks.rs#L287), [294](../src/nonlinear/absorption_checks.rs#L294)
 - Other documents: [ROADMAP.md:853](../ROADMAP.md?plain=1#L853)
 
 #### Little et al. 1997
@@ -2373,7 +2373,7 @@ C. Mack, "Fundamental Principles of Optical Lithography: The Science of Microfab
 
 - Methods pages: [fabrication.md:34](methods/fabrication.md?plain=1#L34)
 - Validation cases: [`fabrication/min-features-above-limit`](validation.md?plain=1#L751)
-- Code: [src/fabrication/references.rs:288](../src/fabrication/references.rs#L288), [src/fabrication/rule_checks.rs:337](../src/fabrication/rule_checks.rs#L337)
+- Code: [src/fabrication/references.rs:288](../src/fabrication/references.rs#L288), [src/fabrication/rule_checks.rs:328](../src/fabrication/rule_checks.rs#L328)
 - Other documents: [docs/plans/fabrication.md:620](plans/fabrication.md?plain=1#L620)
 
 #### Macleod 2017
@@ -2389,7 +2389,7 @@ M. J. Madou, "Fundamentals of Microfabrication and Nanotechnology, Three-Volume 
 - Methods pages: [fabrication.md:30](methods/fabrication.md?plain=1#L30)
 - Academy lessons: [how-a-chip-is-made.md:97](../academy/how-a-chip-is-made.md?plain=1#L97), [325](../academy/how-a-chip-is-made.md?plain=1#L325)
 - Validation cases: [`fabrication/rule-choices`](validation.md?plain=1#L752)
-- Code: [src/fabrication/references.rs:264](../src/fabrication/references.rs#L264), [src/fabrication/rule_checks.rs:344](../src/fabrication/rule_checks.rs#L344)
+- Code: [src/fabrication/references.rs:264](../src/fabrication/references.rs#L264), [src/fabrication/rule_checks.rs:335](../src/fabrication/rule_checks.rs#L335)
 - Other documents: [docs/plans/fabrication.md:618](plans/fabrication.md?plain=1#L618)
 
 #### Madsen et al. 2022
@@ -2768,7 +2768,7 @@ M. L. Parks, E. de Sturler, G. Mackey, D. D. Johnson, S. Maiti, "Recycling Krylo
 
 B. N. Parlett, "The Symmetric Eigenvalue Problem", Society for Industrial and Applied Mathematics (1998). [doi:10.1137/1.9781611971163](https://doi.org/10.1137/1.9781611971163)
 
-- Methods pages: [eigen.md:108](methods/eigen.md?plain=1#L108)
+- Methods pages: [eigen.md:123](methods/eigen.md?plain=1#L123)
 - Validation cases: [`mode/krylov-schur-convergence`](validation.md?plain=1#L474)
 - Code: [src/cases/eigen/checks.rs:353](../src/cases/eigen/checks.rs#L353)
 
@@ -3247,7 +3247,7 @@ S. Selvaraja, P. Jaenen, W. Bogaerts, D. Van Thourhout, P. Dumon, R. Baets, "Fab
 - Methods pages: [fabrication.md:12](methods/fabrication.md?plain=1#L12)
 - Academy lessons: [how-a-chip-is-made.md:49](../academy/how-a-chip-is-made.md?plain=1#L49), [134](../academy/how-a-chip-is-made.md?plain=1#L134)
 - Validation cases: [`fabrication/etch-stop-or-timed`](validation.md?plain=1#L745), [`fabrication/lithography-choice`](validation.md?plain=1#L746), [`fabrication/reported-flows`](validation.md?plain=1#L748), [`fabrication/rule-choices`](validation.md?plain=1#L752)
-- Code: [src/fabrication/checks.rs:440](../src/fabrication/checks.rs#L440), [447](../src/fabrication/checks.rs#L447), [461](../src/fabrication/checks.rs#L461), [src/fabrication/references.rs:48](../src/fabrication/references.rs#L48), [src/fabrication/rule_checks.rs:344](../src/fabrication/rule_checks.rs#L344)
+- Code: [src/fabrication/checks.rs:440](../src/fabrication/checks.rs#L440), [447](../src/fabrication/checks.rs#L447), [461](../src/fabrication/checks.rs#L461), [src/fabrication/references.rs:48](../src/fabrication/references.rs#L48), [src/fabrication/rule_checks.rs:335](../src/fabrication/rule_checks.rs#L335)
 - Other documents: [docs/plans/fabrication.md:636](plans/fabrication.md?plain=1#L636)
 
 #### Shahriari et al. 2016
