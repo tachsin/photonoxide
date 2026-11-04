@@ -45,7 +45,10 @@ fn events(job: &Job) -> Vec<Event> {
         .collect()
 }
 
-fn s_parameters(events: &[Event]) -> Vec<(Vec<String>, Vec<Vec<[f64; 2]>>)> {
+/// A run's S-parameters: its ports and S.
+type Ports = (Vec<String>, Vec<Vec<[f64; 2]>>);
+
+fn s_parameters(events: &[Event]) -> Vec<Ports> {
     events
         .iter()
         .filter_map(|e| match e {

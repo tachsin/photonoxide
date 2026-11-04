@@ -305,25 +305,24 @@ impl EmeTask {
                 ));
             }
         }
-        if let Some(p) = &self.pml {
-            if !(p.thickness_um.is_finite()
+        if let Some(p) = &self.pml
+            && !(p.thickness_um.is_finite()
                 && p.thickness_um > 0.0
                 && p.strength.is_finite()
                 && p.strength > 0.0)
-            {
-                return Err(task_error(format!(
-                    "[task.pml] needs a positive thickness_um and strength, got {} and {}",
-                    p.thickness_um, p.strength
-                )));
-            }
+        {
+            return Err(task_error(format!(
+                "[task.pml] needs a positive thickness_um and strength, got {} and {}",
+                p.thickness_um, p.strength
+            )));
         }
-        if let Some(a) = &self.adaptive {
-            if !(a.tolerance.is_finite() && a.tolerance > 0.0) {
-                return Err(task_error(format!(
-                    "[task.adaptive] tolerance must be above 0, got {}",
-                    a.tolerance
-                )));
-            }
+        if let Some(a) = &self.adaptive
+            && !(a.tolerance.is_finite() && a.tolerance > 0.0)
+        {
+            return Err(task_error(format!(
+                "[task.adaptive] tolerance must be above 0, got {}",
+                a.tolerance
+            )));
         }
         if let Some(c) = &self.convergence {
             if !(c.tolerance.is_finite() && c.tolerance > 0.0) {
@@ -549,8 +548,11 @@ impl Resolved {
     }
 }
 
-/// What `[task.convergence]` drives: its name and how it is read off S.
-fn quantity(name: Option<&str>) -> Result<(&'static str, fn(&Scattering) -> f64)> {
+/// A quantity `[task.convergence]` drives: its name and how it is read off S.
+type Quantity = (&'static str, fn(&Scattering) -> f64);
+
+/// What `[task.convergence]` drives.
+fn quantity(name: Option<&str>) -> Result<Quantity> {
     match name.unwrap_or("transmission") {
         "transmission" => Ok(("|S21|^2", |s| s.s21[0][0].norm_sqr())),
         "reflection" => Ok(("|S11|^2", |s| s.s11[0][0].norm_sqr())),
@@ -672,11 +674,11 @@ fn s_event(
     let mut ports = Vec::new();
     let mut indices = Vec::new();
     for (p, (n, list)) in [(n1, &s.first), (n2, &s.last)].into_iter().enumerate() {
-        for m in 0..n {
+        for (m, index) in list.iter().take(n).enumerate() {
             // a half's modes are the even ones: TE0, TE2, ...
             let order = if half { 2 * m } else { m };
             ports.push(format!("{} {pol}{order}", p + 1));
-            indices.push(list[m].re);
+            indices.push(index.re);
         }
     }
     let at = |q: usize, p: usize| -> c64 {
