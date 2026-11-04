@@ -69,6 +69,16 @@ pub(crate) fn rules() -> Vec<(&'static str, Rule)> {
             ),
         ),
         (
+            "mode/kerr-index-slab-tm",
+            Rule::new(
+                Relative,
+                Discretisation,
+                5e-4,
+                Measured,
+                "the 5 nm grid's error, 4.10e-4, rounded up: the 2.5 nm grid's is 9.7e-5, the halvings' orders 2.30, 2.15 and 2.08 from 20 nm, nearing second as the TM confinement's",
+            ),
+        ),
+        (
             "mode/orthogonality-slab",
             Rule::new(
                 Absolute,

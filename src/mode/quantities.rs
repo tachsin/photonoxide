@@ -15,7 +15,10 @@
 //!   ∇_t E_z = 0 (a TE slab, a weakly guiding fibre's limit) and differ by that term elsewhere.
 //! - **Nonlinear coefficient,** γ = k n₂ / A_eff = 2π n₂ / (λ A_eff), with n₂ given, uniform
 //!   ([`Fields::nonlinear_coefficient`]): the paper's Eq. 42 with its field-weighted n̄₂ taken as
-//!   the material's n₂.
+//!   the material's n₂. Their full-vector γ^V (Eq. 39) takes the field-weighted
+//!   n̄₂ = ∫ n² n₂ [2|E|⁴ + |E·E|²] dA / 3∫ |S_z|² dA in its place, n₂ varying across the
+//!   section and E_z lowering |E·E|² ([`Fields::field_weighted_n2`],
+//!   [`VectorMode::field_weighted_n2`], [`VectorMode::vector_nonlinear_coefficient`]).
 //! - **Confinement** in a region R, Γ = ∫_R Re S_z dA / ∫ Re S_z dA: the share of the power
 //!   that flows through R ([`VectorMode::confinement`]).
 //! - **Orthogonality and normalization** ([`orthogonality`]): ⟨a, b⟩ = ∫ (E_a × H_b*)·ẑ dA
@@ -113,6 +116,44 @@ impl Fields {
         Ok(self.nonlinear_coefficient(wavelength, n2))
     }
 
+    /// Afshar and Monro's field-weighted nonlinear index n̄₂, m²/W (their Eqs. 39 and 42):
+    ///
+    /// n̄₂ = ∫ n² n₂ [2 |E|⁴ + |E·E|²] dA / (3 ∫ |(E × H*)·ẑ|² dA),
+    ///
+    /// with `weight` the product n²(x, y) n₂(x, y) at each cell, in m²/W, in the fields' order
+    /// (cell (i, j) at i·ny + j). With H in Z₀'s units, as here, the paper's ε₀/μ₀ is 1. |E|⁴
+    /// is (E·E*)², and E·E the unconjugated square, so E_z, a quarter period out of phase with
+    /// E_t, lowers |E·E|² below |E|⁴ (a circularly polarized plane wave has E·E = 0 and
+    /// n̄₂ = 2n₂/3). A plane wave or any mode linearly polarized and transverse in a uniform
+    /// medium gives n₂ exactly. A cell averaged across an interface takes the area mean of
+    /// n² n₂ over the cell, which is what the integral sums there. The mirror images of a wall
+    /// add to the integrals above and below alike, so a half or a quarter window gives the whole
+    /// cross-section's n̄₂.
+    ///
+    /// The paper prints Eq. 42's n̄₂ with a leading k as well; with it n̄₂ wouldn't be an index
+    /// and γ = 2π n̄₂ / (λ A_eff) wouldn't be their Eq. 39, so it is left out here.
+    ///
+    /// `None` unless `weight` has one value per cell, or for fields that carry no power.
+    pub fn field_weighted_n2(&self, weight: &[f64]) -> Option<f64> {
+        if weight.len() != self.e.len() {
+            return None;
+        }
+        let (mut top, mut bottom) = (0.0, 0.0);
+        for (((e, s), a), w) in self
+            .e
+            .iter()
+            .zip(self.poynting())
+            .zip(&self.area)
+            .zip(weight)
+        {
+            let norm = e.iter().map(|c| c.norm_sqr()).sum::<f64>();
+            let square: c64 = e.iter().map(|c| c * c).sum();
+            top += w * (2.0 * norm * norm + square.norm_sqr()) * a;
+            bottom += s.norm_sqr() * a;
+        }
+        (bottom > 0.0).then(|| top / (3.0 * bottom))
+    }
+
     /// The same fields scaled to carry unit power, ½ Re ∫ (E × H*)·ẑ dA = 1 over the part
     /// solved (in units of Z₀ |H|² µm², as [`Fields::power`]).
     pub fn normalized(&self) -> Fields {
@@ -179,6 +220,58 @@ pub enum Region {
 }
 
 impl VectorMode {
+    /// Afshar and Monro's field-weighted nonlinear index n̄₂, m²/W
+    /// ([`Fields::field_weighted_n2`]), from the one-sided fields, with the n₂ that `n2` gives
+    /// each cell's permittivity and n² the real part of the mean of the cell's ε_xx, ε_yy and
+    /// ε_zz (the paper's n is a scalar; for an isotropic cell it is the cell's n² exactly). A
+    /// cell averaged across an interface gets what `n2` gives its averaged permittivity: to
+    /// weigh such cells by the area mean of n² n₂, pass the weights to
+    /// [`Fields::field_weighted_n2`] directly.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::InvalidValue`] unless `cs` is the cross-section the mode was found on, or for a
+    /// mode that carries no power.
+    pub fn field_weighted_n2(
+        &self,
+        cs: &CrossSection,
+        n2: impl Fn(&Permittivity) -> f64,
+    ) -> Result<f64> {
+        let f = self.fields_sided(cs, true)?;
+        let weight: Vec<f64> = cs
+            .cells()
+            .iter()
+            .map(|p| ((p.xx + p.yy + p.zz) / 3.0).re * n2(p))
+            .collect();
+        f.field_weighted_n2(&weight)
+            .ok_or_else(|| Error::invalid("mode", "the mode carries no power".to_owned()))
+    }
+
+    /// The full-vector nonlinear coefficient γ^V = 2π n̄₂ / (λ A_eff), 1/(W m): Afshar and
+    /// Monro's Eq. 39, with [`VectorMode::field_weighted_n2`]'s n̄₂ and Eq. 41's A_eff
+    /// ([`Fields::effective_area`]), both from the one-sided fields. Where n₂ is uniform and the
+    /// mode transverse it is [`Fields::nonlinear_coefficient`].
+    ///
+    /// n̄₂ takes |E|⁴, so it converges with the grid where the interfaces lie on the grid's
+    /// nodes (a slab's TM₀ at second order, `mode/kerr-index-slab-tm`). Where an interface is
+    /// oblique to the grid (a rod), each cell's E_z takes its own averaged permittivity and
+    /// E_t's ∂E_z/(iβ) term spikes as 1/h at the edge: n̄₂ grows as the cells shrink, as Eq. 44's
+    /// area falls at a strip's corners (docs/methods/fields.md).
+    ///
+    /// # Errors
+    ///
+    /// As [`VectorMode::field_weighted_n2`].
+    pub fn vector_nonlinear_coefficient(
+        &self,
+        cs: &CrossSection,
+        wavelength: Wavelength,
+        n2: impl Fn(&Permittivity) -> f64,
+    ) -> Result<f64> {
+        let n2 = self.field_weighted_n2(cs, n2)?;
+        let area = self.fields_sided(cs, true)?.effective_area();
+        Ok(nonlinear_coefficient(wavelength, n2, area))
+    }
+
     /// The share of the mode's power that flows through `region`, from 0 to 1:
     /// Γ = ∫_R Re (E × H*)·ẑ dA / ∫ Re (E × H*)·ẑ dA, over the whole cross-section (with a
     /// mirror wall, the window and its image).
@@ -371,6 +464,65 @@ mod tests {
         let gamma = f.nonlinear_coefficient(lam(), 1e-18);
         let exact = 2.0 / 1.55e-6 * 1e-18 / 1e-12;
         assert!((gamma / exact - 1.0).abs() < 1e-12, "{gamma} vs {exact}");
+    }
+
+    #[test]
+    fn a_uniform_media_transverse_mode_has_the_materials_n2() {
+        // E_x = g, H_y = n g in Z₀'s units: S_z = n g², so n̄₂ = n² n₂ 3 g⁴ / (3 n² g⁴) = n₂
+        let (n, n2) = (1.5, 2.6e-20);
+        for mirrors in [[None, None], [Some(-6.0), None], [Some(-6.0), Some(-6.0)]] {
+            let mut f = gaussian(1.0, 0.05, [-6.0, -6.0], [240, 240], mirrors);
+            for h in &mut f.h {
+                h[1] *= n;
+            }
+            let weight = vec![n * n * n2; f.e.len()];
+            let got = f.field_weighted_n2(&weight).unwrap();
+            assert!((got / n2 - 1.0).abs() < 1e-12, "{got} vs {n2}");
+        }
+        // circularly polarized, E = g (1, i)/√2 and H = ẑ × E n: E·E = 0, so n̄₂ = 2n₂/3
+        let mut f = gaussian(1.0, 0.05, [-6.0, -6.0], [240, 240], [None, None]);
+        let r = std::f64::consts::FRAC_1_SQRT_2;
+        for (e, h) in f.e.iter_mut().zip(&mut f.h) {
+            let g = e[0];
+            *e = [g * r, g * c64::new(0.0, r), c64::new(0.0, 0.0)];
+            *h = [-e[1] * n, e[0] * n, c64::new(0.0, 0.0)];
+        }
+        let weight = vec![n * n * n2; f.e.len()];
+        let got = f.field_weighted_n2(&weight).unwrap();
+        assert!((got / (2.0 * n2 / 3.0) - 1.0).abs() < 1e-12, "{got}");
+        // one weight a cell, and fields that carry power
+        assert!(f.field_weighted_n2(&weight[1..]).is_none());
+    }
+
+    #[test]
+    fn a_slabs_te_mode_weighs_n2_by_its_power_squared() {
+        // TE has E_y alone, so |E·E|² = |E|⁴, and H_x = −n_eff E_y makes S_z = n_eff |E_y|²: with
+        // n₂ in the core only, n̄₂ = n₂ ε_Si / n_eff² ∫_Si |E_y|⁴ / ∫ |E_y|⁴
+        let (cs, m) = slab(0.22, 0.01, Polarization::Te, 1, false);
+        let eps = 3.473 * 3.473;
+        let si = Permittivity::isotropic(c64::new(eps, 0.0));
+        let n2 = 5e-18;
+        let got = m[0]
+            .field_weighted_n2(&cs, |p| if *p == si { n2 } else { 0.0 })
+            .unwrap();
+        let f = m[0].fields_one_sided(&cs).unwrap();
+        let neff = m[0].effective_index().re;
+        let (mut core, mut all) = (0.0, 0.0);
+        for ((e, a), p) in f.e.iter().zip(&f.area).zip(cs.cells()) {
+            let e4 = e[1].norm_sqr().powi(2) * a;
+            all += e4;
+            if *p == si {
+                core += e4;
+            }
+        }
+        let expected = n2 * eps / (neff * neff) * core / all;
+        assert!((got / expected - 1.0).abs() < 1e-3, "{got} vs {expected}");
+        // and γ^V is 2π n̄₂/(λ A_eff)
+        let gv = m[0]
+            .vector_nonlinear_coefficient(&cs, lam(), |p| if *p == si { n2 } else { 0.0 })
+            .unwrap();
+        let closed = nonlinear_coefficient(lam(), got, f.effective_area());
+        assert!((gv / closed - 1.0).abs() < 1e-14, "{gv} vs {closed}");
     }
 
     #[test]
