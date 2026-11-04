@@ -36,10 +36,14 @@
       report = { passed: rows.filter((l) => l.slice(1, -1).split(" | ")[7]?.trim() === "pass").length, total: rows.length };
     })
     .catch(() => {});
-  api
-    .changelog()
-    .then((c) => (changelog = c))
-    .catch(() => {});
+  // the changelog (for What's new) once the window is idle: nothing above the fold needs it
+  const idle = window.requestIdleCallback ?? ((run: () => void) => setTimeout(run, 300));
+  idle(() => {
+    api
+      .changelog()
+      .then((c) => (changelog = c))
+      .catch(() => {});
+  });
   let notes = $state(false);
   const release = $derived(changelog ? latestRelease(changelog) : null);
 
