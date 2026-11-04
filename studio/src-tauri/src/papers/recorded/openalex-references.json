@@ -1,0 +1,345 @@
+{
+ "meta": {
+  "notice": "No API key, so this request shares one free daily budget ($0.10) with everyone on your network's IP address. Get a free key with its own $1/day at https://openalex.org/settings/api and add api_key=YOUR_KEY to your requests. An AI agent can get one for its user in one call: POST https://api.openalex.org/api-keys with {\"email\": \"<your user's email>\"}; we email them a link, and the key works once they click it. Docs for agents: https://help.openalex.org/llms.txt",
+  "count": 12,
+  "db_response_time_ms": 23,
+  "page": 1,
+  "per_page": 50,
+  "groups_count": null,
+  "x_query": {
+   "oql": "get works where DOI is (10.1049/el:19860171 or 10.1063/1.1661499 or 10.1063/1.324530 or 10.1063/1.97909 or 10.1103/PhysRev.69.37 or 10.1103/PhysRevLett.55.2137 or 10.1103/PhysRevLett.55.67 or 10.1109/EDL.1986.26476 or 10.1109/JLT.1986.1074751 or 10.1109/JQE.1976.1069214 or 10.1109/JQE.1985.1072605 or 10.1364/JOSA.72.000899)",
+   "x_new_oql": "get works where DOI is (10.1049/el:19860171 or 10.1063/1.1661499 or 10.1063/1.324530 or 10.1063/1.97909 or 10.1103/PhysRev.69.37 or 10.1103/PhysRevLett.55.2137 or 10.1103/PhysRevLett.55.67 or 10.1109/EDL.1986.26476 or 10.1109/JLT.1986.1074751 or 10.1109/JQE.1976.1069214 or 10.1109/JQE.1985.1072605 or 10.1364/JOSA.72.000899)",
+   "oqo": {
+    "get_rows": "works",
+    "filter_rows": [
+     {
+      "join": "or",
+      "filters": [
+       {
+        "column_id": "doi",
+        "value": "10.1049/el:19860171"
+       },
+       {
+        "column_id": "doi",
+        "value": "10.1063/1.1661499"
+       },
+       {
+        "column_id": "doi",
+        "value": "10.1063/1.324530"
+       },
+       {
+        "column_id": "doi",
+        "value": "10.1063/1.97909"
+       },
+       {
+        "column_id": "doi",
+        "value": "10.1103/PhysRev.69.37"
+       },
+       {
+        "column_id": "doi",
+        "value": "10.1103/PhysRevLett.55.2137"
+       },
+       {
+        "column_id": "doi",
+        "value": "10.1103/PhysRevLett.55.67"
+       },
+       {
+        "column_id": "doi",
+        "value": "10.1109/EDL.1986.26476"
+       },
+       {
+        "column_id": "doi",
+        "value": "10.1109/JLT.1986.1074751"
+       },
+       {
+        "column_id": "doi",
+        "value": "10.1109/JQE.1976.1069214"
+       },
+       {
+        "column_id": "doi",
+        "value": "10.1109/JQE.1985.1072605"
+       },
+       {
+        "column_id": "doi",
+        "value": "10.1364/JOSA.72.000899"
+       }
+      ]
+     }
+    ]
+   },
+   "url": "/works?filter=doi:10.1049%2Fel:19860171|10.1063%2F1.1661499|10.1063%2F1.324530|10.1063%2F1.97909|10.1103%2FPhysRev.69.37|10.1103%2FPhysRevLett.55.2137|10.1103%2FPhysRevLett.55.67|10.1109%2FEDL.1986.26476|10.1109%2FJLT.1986.1074751|10.1109%2FJQE.1976.1069214|10.1109%2FJQE.1985.1072605|10.1364%2FJOSA.72.000899&per_page=50",
+   "order": "most cited (age-adjusted) first",
+   "order_default": true
+  },
+  "cost_usd": 0.0001
+ },
+ "results": [
+  {
+   "id": "https://openalex.org/W1983718136",
+   "doi": "https://doi.org/10.1103/physrev.69.37",
+   "display_name": "Resonance Absorption by Nuclear Magnetic Moments in a Solid",
+   "publication_year": 1946,
+   "primary_location": {
+    "source": {
+     "display_name": "Physical Review"
+    }
+   },
+   "authorships": [
+    {
+     "author": {
+      "display_name": "Edward M. Purcell"
+     }
+    },
+    {
+     "author": {
+      "display_name": "H. C. Torrey"
+     }
+    }
+   ]
+  },
+  {
+   "id": "https://openalex.org/W2031868563",
+   "doi": "https://doi.org/10.1063/1.1661499",
+   "display_name": "Coupled-Wave Theory of Distributed Feedback Lasers",
+   "publication_year": 1972,
+   "primary_location": {
+    "source": {
+     "display_name": "Journal of Applied Physics"
+    }
+   },
+   "authorships": [
+    {
+     "author": {
+      "display_name": "H. Kogelnik"
+     }
+    },
+    {
+     "author": {
+      "display_name": "Charles V. Shank"
+     }
+    }
+   ]
+  },
+  {
+   "id": "https://openalex.org/W2137073862",
+   "doi": "https://doi.org/10.1364/josa.72.000899",
+   "display_name": "Statistical ray optics",
+   "publication_year": 1982,
+   "primary_location": {
+    "source": {
+     "display_name": "Journal of the Optical Society of America"
+    }
+   },
+   "authorships": [
+    {
+     "author": {
+      "display_name": "Eli Yablonovitch"
+     }
+    }
+   ]
+  },
+  {
+   "id": "https://openalex.org/W2080395605",
+   "doi": "https://doi.org/10.1103/physrevlett.55.2137",
+   "display_name": "Inhibited Spontaneous Emission by a Rydberg Atom",
+   "publication_year": 1985,
+   "primary_location": {
+    "source": {
+     "display_name": "Physical Review Letters"
+    }
+   },
+   "authorships": [
+    {
+     "author": {
+      "display_name": "Randall G. Hulet"
+     }
+    },
+    {
+     "author": {
+      "display_name": "Eric S. Hilfer"
+     }
+    }
+   ]
+  },
+  {
+   "id": "https://openalex.org/W2081213843",
+   "doi": "https://doi.org/10.1049/el:19860171",
+   "display_name": "Band-structure engineering for low-threshold high-efficiency semiconductor lasers",
+   "publication_year": 1986,
+   "primary_location": {
+    "source": {
+     "display_name": "Electronics Letters"
+    }
+   },
+   "authorships": [
+    {
+     "author": {
+      "display_name": "A.R. Adams"
+     }
+    }
+   ]
+  },
+  {
+   "id": "https://openalex.org/W1984521470",
+   "doi": "https://doi.org/10.1109/jlt.1986.1074751",
+   "display_name": "Reduction of lasing threshold current density by the lowering of valence band effective mass",
+   "publication_year": 1986,
+   "primary_location": {
+    "source": {
+     "display_name": "Journal of Lightwave Technology"
+    }
+   },
+   "authorships": [
+    {
+     "author": {
+      "display_name": "Eli Yablonovitch"
+     }
+    },
+    {
+     "author": {
+      "display_name": "E. O. Kane"
+     }
+    }
+   ]
+  },
+  {
+   "id": "https://openalex.org/W1965211145",
+   "doi": "https://doi.org/10.1063/1.324530",
+   "display_name": "Minority-carrier lifetimes and internal quantum efficiency of surface-free GaAs",
+   "publication_year": 1978,
+   "primary_location": {
+    "source": {
+     "display_name": "Journal of Applied Physics"
+    }
+   },
+   "authorships": [
+    {
+     "author": {
+      "display_name": "R. J. Nelson"
+     }
+    },
+    {
+     "author": {
+      "display_name": "R. G. Sobers"
+     }
+    }
+   ]
+  },
+  {
+   "id": "https://openalex.org/W1973692387",
+   "doi": "https://doi.org/10.1103/physrevlett.55.67",
+   "display_name": "Observation of inhibited spontaneous emission",
+   "publication_year": 1985,
+   "primary_location": {
+    "source": {
+     "display_name": "Physical Review Letters"
+    }
+   },
+   "authorships": [
+    {
+     "author": {
+      "display_name": "G. Gabrielse"
+     }
+    },
+    {
+     "author": {
+      "display_name": "HANS G. DEHMELT"
+     }
+    }
+   ]
+  },
+  {
+   "id": "https://openalex.org/W2096133586",
+   "doi": "https://doi.org/10.1109/jqe.1976.1069214",
+   "display_name": "Antisymmetric taper of distributed feedback lasers",
+   "publication_year": 1976,
+   "primary_location": {
+    "source": {
+     "display_name": "IEEE Journal of Quantum Electronics"
+    }
+   },
+   "authorships": [
+    {
+     "author": {
+      "display_name": "H. A. Haus"
+     }
+    },
+    {
+     "author": {
+      "display_name": "Charles V. Shank"
+     }
+    }
+   ]
+  },
+  {
+   "id": "https://openalex.org/W1987323564",
+   "doi": "https://doi.org/10.1109/edl.1986.26476",
+   "display_name": "27.5-percent silicon concentrator solar cells",
+   "publication_year": 1986,
+   "primary_location": {
+    "source": {
+     "display_name": "IEEE Electron Device Letters"
+    }
+   },
+   "authorships": [
+    {
+     "author": {
+      "display_name": "Ronald A. Sinton"
+     }
+    },
+    {
+     "author": {
+      "display_name": "Young Hoon Kwark"
+     }
+    }
+   ]
+  },
+  {
+   "id": "https://openalex.org/W1984690034",
+   "doi": "https://doi.org/10.1109/jqe.1985.1072605",
+   "display_name": "An optimized π/2 distributed feedback laser",
+   "publication_year": 1985,
+   "primary_location": {
+    "source": {
+     "display_name": "IEEE Journal of Quantum Electronics"
+    }
+   },
+   "authorships": [
+    {
+     "author": {
+      "display_name": "S. L. McCall"
+     }
+    },
+    {
+     "author": {
+      "display_name": "P. M. Platzman"
+     }
+    }
+   ]
+  },
+  {
+   "id": "https://openalex.org/W2027236573",
+   "doi": "https://doi.org/10.1063/1.97909",
+   "display_name": "Survey of defect-mediated recombination lifetimes in GaAs epilayers grown by different methods",
+   "publication_year": 1987,
+   "primary_location": {
+    "source": {
+     "display_name": "Applied Physics Letters"
+    }
+   },
+   "authorships": [
+    {
+     "author": {
+      "display_name": "Eli Yablonovitch"
+     }
+    },
+    {
+     "author": {
+      "display_name": "Rajaram J. Bhat"
+     }
+    }
+   ]
+  }
+ ],
+ "group_by": []
+}

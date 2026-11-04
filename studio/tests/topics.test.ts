@@ -22,6 +22,10 @@ test("jobs go by their name first, then their kind", () => {
   assert.equal(topicOf("mmi-fdfd.yaml", "fdfd"), "fdfd");
   assert.equal(topicOf("strip-modes.yaml", "modes"), "modes");
   assert.equal(topicOf("bragg-grating.yaml", "fdtd"), "fdtd");
+  assert.equal(topicOf("mmi-1x2-self-imaging.yaml", "device"), "fdfd");
+  assert.equal(topicOf("coupler-gap-sweep.yaml", "device"), "fdfd");
+  assert.equal(topicOf("wire-470nm-corners.yaml", "device"), "modes");
+  assert.equal(topicOf("crosstalk-correction.yaml", "optimize"), "optimization");
   // a kind nothing names is a mode problem, never lost
   assert.equal(topicOf("something.yaml", "unheard-of"), "modes");
 });

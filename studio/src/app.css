@@ -157,7 +157,7 @@
     @apply translate-x-0.5 text-primary;
   }
   .module-card {
-    @apply overflow-hidden rounded-2xl border border-base-content/8 bg-base-100 text-left transition duration-200;
+    @apply flex flex-col justify-start overflow-hidden rounded-2xl border border-base-content/8 bg-base-100 text-left transition duration-200;
   }
   .module-card:hover {
     @apply -translate-y-0.5 border-primary/35 shadow-xl shadow-primary/5;

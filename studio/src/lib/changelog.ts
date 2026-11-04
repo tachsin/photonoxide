@@ -30,7 +30,7 @@ export function latestRelease(changelog: string): Release | null {
         // the PR links at the end, then any link left as its text, then emphasis
         .replace(/(\s*\(\[#\d+\]\([^)]*\)\))+\s*$/, "")
         .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
-        .replace(/[*_`]/g, "")
+        .replace(/[*`]/g, "")
         .trim();
       return { scope: scope?.[1] ?? "", text };
     });

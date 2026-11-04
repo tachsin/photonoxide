@@ -109,7 +109,7 @@ function restoreSettings() {
   for (const [name, bytes] of backup.files) fs.writeFileSync(path.join(CONFIG, name), bytes);
 }
 
-const RECORDING_SETTINGS = { theme: "dark", workspace: null, check_updates: false, hints: false, welcomed: true, dismissed: [], view: "3d", length_unit: "um" };
+const RECORDING_SETTINGS = { theme: "dark", workspace: null, check_updates: false, hints: false, welcomed: true, dismissed: [], view: "3d", length_unit: "um", paper_feed: false };
 
 // ---- the run's own folders ----
 

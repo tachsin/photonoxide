@@ -1,0 +1,300 @@
+{
+ "status": "ok",
+ "message-type": "work",
+ "message-version": "1.0.0",
+ "message": {
+  "indexed": {
+   "date-parts": [
+    [
+     2026,
+     11,
+     4
+    ]
+   ],
+   "date-time": "2026-11-04T15:08:05Z",
+   "timestamp": 1793804885173,
+   "version": "4.6.1"
+  },
+  "reference-count": 13,
+  "publisher": "American Physical Society (APS)",
+  "issue": "20",
+  "license": [
+   {
+    "start": {
+     "date-parts": [
+      [
+       1987,
+       5,
+       18
+      ]
+     ],
+     "date-time": "1987-05-18T00:00:00Z",
+     "timestamp": 548294400000
+    },
+    "content-version": "vor",
+    "delay-in-days": 0,
+    "URL": "http://link.aps.org/licenses/aps-default-license"
+   }
+  ],
+  "content-domain": {
+   "domain": [],
+   "crossmark-restriction": false
+  },
+  "short-container-title": [
+   "Phys. Rev. Lett."
+  ],
+  "DOI": "10.1103/physrevlett.58.2059",
+  "type": "journal-article",
+  "created": {
+   "date-parts": [
+    [
+     2002,
+     7,
+     26
+    ]
+   ],
+   "date-time": "2002-07-26T21:14:56Z",
+   "timestamp": 1027718096000
+  },
+  "page": "2059-2062",
+  "source": "Crossref",
+  "is-referenced-by-count": 12748,
+  "title": [
+   "Inhibited Spontaneous Emission in Solid-State Physics and Electronics"
+  ],
+  "prefix": "10.1103",
+  "volume": "58",
+  "author": [
+   {
+    "given": "Eli",
+    "family": "Yablonovitch",
+    "sequence": "first",
+    "affiliation": [],
+    "role": [
+     {
+      "vocabulary": "crossref",
+      "role": "author"
+     }
+    ]
+   }
+  ],
+  "member": "16",
+  "published-online": {
+   "date-parts": [
+    [
+     1987,
+     5,
+     18
+    ]
+   ]
+  },
+  "reference": [
+   {
+    "key": "PhysRevLett.58.2059Cc1R1",
+    "doi-asserted-by": "crossref",
+    "first-page": "681",
+    "DOI": "10.1103/PhysRev.69.37",
+    "volume": "69",
+    "author": "E. M. Purcell",
+    "year": "1946",
+    "journal-title": "Phys. Rev."
+   },
+   {
+    "key": "PhysRevLett.58.2059Cc2R1",
+    "doi-asserted-by": "crossref",
+    "first-page": "2137",
+    "DOI": "10.1103/PhysRevLett.55.2137",
+    "volume": "55",
+    "author": "R. G. Hulet",
+    "year": "1985",
+    "journal-title": "Phys. Rev. Lett."
+   },
+   {
+    "key": "PhysRevLett.58.2059Cc3R1",
+    "doi-asserted-by": "crossref",
+    "first-page": "67",
+    "DOI": "10.1103/PhysRevLett.55.67",
+    "volume": "55",
+    "author": "G. Gabrielse",
+    "year": "1985",
+    "journal-title": "Phys. Rev. Lett."
+   },
+   {
+    "key": "PhysRevLett.58.2059Cc4R1",
+    "doi-asserted-by": "crossref",
+    "first-page": "6103",
+    "DOI": "10.1063/1.324530",
+    "volume": "49",
+    "author": "R. J. Nelson",
+    "year": "1978",
+    "journal-title": "J. Appl. Phys."
+   },
+   {
+    "key": "PhysRevLett.58.2059Cc5R1",
+    "doi-asserted-by": "crossref",
+    "first-page": "2328",
+    "DOI": "10.1063/1.1661499",
+    "volume": "43",
+    "author": "H. Kogelnik",
+    "year": "1972",
+    "journal-title": "J. Appl. Phys."
+   },
+   {
+    "key": "PhysRevLett.58.2059Cc6R1",
+    "doi-asserted-by": "crossref",
+    "first-page": "1197",
+    "DOI": "10.1063/1.97909",
+    "volume": "50",
+    "author": "E. Yablonovitch",
+    "year": "1987",
+    "journal-title": "Appl. Phys. Lett."
+   },
+   {
+    "key": "PhysRevLett.58.2059Cc7R1",
+    "doi-asserted-by": "crossref",
+    "first-page": "532",
+    "DOI": "10.1109/JQE.1976.1069214",
+    "volume": "12",
+    "author": "H. A. Haus",
+    "year": "1976",
+    "journal-title": "IEEE J. Quantum Electron"
+   },
+   {
+    "key": "PhysRevLett.58.2059Cc7R2",
+    "doi-asserted-by": "crossref",
+    "first-page": "1899",
+    "DOI": "10.1109/JQE.1985.1072605",
+    "volume": "21",
+    "author": "S. L. McCall",
+    "year": "1985",
+    "journal-title": "IEEE J. Quantum Electron"
+   },
+   {
+    "key": "PhysRevLett.58.2059Cc8R1",
+    "doi-asserted-by": "crossref",
+    "first-page": "504",
+    "DOI": "10.1109/JLT.1986.1074751",
+    "volume": "4",
+    "author": "E. Yablonovitch",
+    "year": "1986",
+    "journal-title": "J. Lightwave Technol."
+   },
+   {
+    "key": "PhysRevLett.58.2059Cc8R2",
+    "doi-asserted-by": "crossref",
+    "first-page": "249",
+    "DOI": "10.1049/el:19860171",
+    "volume": "22",
+    "author": "A. R. Adams",
+    "year": "1986",
+    "journal-title": "Electron. Lett."
+   },
+   {
+    "key": "PhysRevLett.58.2059Cc9R1",
+    "volume-title": "Optical Waves in Crystals",
+    "author": "A. Yariv",
+    "year": "1984"
+   },
+   {
+    "key": "PhysRevLett.58.2059Cc10R1",
+    "doi-asserted-by": "crossref",
+    "first-page": "899",
+    "DOI": "10.1364/JOSA.72.000899",
+    "volume": "72",
+    "author": "E. Yablonovitch",
+    "year": "1982",
+    "journal-title": "J. Opt. Soc. Am."
+   },
+   {
+    "key": "PhysRevLett.58.2059Cc11R1",
+    "doi-asserted-by": "crossref",
+    "first-page": "567",
+    "DOI": "10.1109/EDL.1986.26476",
+    "volume": "7",
+    "author": "R. A. Sinton",
+    "year": "1986",
+    "journal-title": "IEEE Electron Device Lett."
+   }
+  ],
+  "container-title": [
+   "Physical Review Letters"
+  ],
+  "original-title": [],
+  "language": "en",
+  "link": [
+   {
+    "URL": "http://link.aps.org/article/10.1103/PhysRevLett.58.2059",
+    "content-type": "unspecified",
+    "content-version": "vor",
+    "intended-application": "syndication"
+   },
+   {
+    "URL": "http://harvest.aps.org/v2/journals/articles/10.1103/PhysRevLett.58.2059/fulltext",
+    "content-type": "unspecified",
+    "content-version": "vor",
+    "intended-application": "similarity-checking"
+   }
+  ],
+  "deposited": {
+   "date-parts": [
+    [
+     2025,
+     1,
+     2
+    ]
+   ],
+   "date-time": "2025-01-02T21:57:30Z",
+   "timestamp": 1735855050000
+  },
+  "score": 1,
+  "resource": {
+   "primary": {
+    "URL": "https://link.aps.org/doi/10.1103/PhysRevLett.58.2059"
+   }
+  },
+  "subtitle": [],
+  "short-title": [],
+  "issued": {
+   "date-parts": [
+    [
+     1987,
+     5,
+     18
+    ]
+   ]
+  },
+  "references-count": 13,
+  "journal-issue": {
+   "issue": "20",
+   "published-print": {
+    "date-parts": [
+     [
+      1987,
+      5
+     ]
+    ]
+   }
+  },
+  "URL": "https://doi.org/10.1103/physrevlett.58.2059",
+  "relation": {},
+  "ISSN": [
+   "0031-9007"
+  ],
+  "issn-type": [
+   {
+    "value": "0031-9007",
+    "type": "print"
+   }
+  ],
+  "subject": [],
+  "published": {
+   "date-parts": [
+    [
+     1987,
+     5,
+     18
+    ]
+   ]
+  }
+ }
+}

@@ -15,7 +15,7 @@ Intro with a [link](https://example.org).
 
 ### <!-- 0 -->Added
 
-- *(studio)* a Fabrication page on the rail ([#643](https://github.com/tachsin/photonoxide/pull/643))
+- *(studio)* a Fabrication page on the rail for optimize_grating_pareto ([#643](https://github.com/tachsin/photonoxide/pull/643))
 - *(libraries)* MUMPS checked ([#312](https://x/312)) ([#647](https://x/647))
 - plain line with \`code\` and [a link](https://example.org)
 
@@ -29,7 +29,7 @@ test("the latest release, not Unreleased, its lines as plain text", () => {
   assert.equal(r.version, "0.6.2");
   assert.equal(r.date, "2026-11-04");
   assert.deepEqual(r.lines, [
-    { scope: "studio", text: "a Fabrication page on the rail" },
+    { scope: "studio", text: "a Fabrication page on the rail for optimize_grating_pareto" },
     { scope: "libraries", text: "MUMPS checked" },
     { scope: "", text: "plain line with code and a link" },
   ]);

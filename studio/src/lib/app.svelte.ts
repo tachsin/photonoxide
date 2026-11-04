@@ -21,7 +21,7 @@ export interface OpenJob {
   name: string;
 }
 
-export type Page = "home" | "components" | "chip" | "fabrication" | "academy" | "materials" | "validation" | "libraries" | "benchmarks" | "settings" | "viewer";
+export type Page = "home" | "components" | "chip" | "fabrication" | "academy" | "materials" | "papers" | "validation" | "libraries" | "benchmarks" | "settings" | "viewer";
 
 export const app = $state({
   ready: false,
@@ -626,7 +626,7 @@ export async function boot() {
     app.state = await api.appState();
   } catch {
     app.state = {
-      settings: { theme: "system", workspace: null, check_updates: false, channel: "stable", hints: true, welcomed: true, dismissed: [], view: "3d", length_unit: "um", tuned_builds: false },
+      settings: { theme: "system", workspace: null, check_updates: false, channel: "stable", hints: true, welcomed: true, dismissed: [], view: "3d", length_unit: "um", tuned_builds: false, paper_feed: false },
       workspace: "",
       version: "dev",
       platform: "browser",

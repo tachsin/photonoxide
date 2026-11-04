@@ -1,9 +1,26 @@
 use std::path::Path;
 use std::process::Command;
 
+#[path = "src/papers/ours.rs"]
+mod ours;
+
 fn main() {
     build_info();
+    references_index();
     tauri_build::build();
+}
+
+/// The DOIs photonoxide cites and where (src/papers/ours.rs), from docs/references.md, for a
+/// paper's page; empty when the index isn't there (a source tree without docs/).
+fn references_index() {
+    let here = std::env::var("CARGO_MANIFEST_DIR").unwrap_or_else(|_| ".".into());
+    let file = Path::new(&here).join("../../docs/references.md");
+    println!("cargo:rerun-if-changed={}", file.display());
+    let index = std::fs::read_to_string(&file)
+        .map(|md| ours::index(&md))
+        .unwrap_or_default();
+    let out = std::env::var("OUT_DIR").expect("cargo sets OUT_DIR");
+    std::fs::write(Path::new(&out).join("ours.tsv"), index).expect("OUT_DIR is writable");
 }
 
 /// What the program is built from, for Settings › About and the nightly channel

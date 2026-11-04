@@ -3,7 +3,7 @@
   // status), the modules as cards, every example by topic in an accordion, the recent work and
   // runs as a strip, and beside them the latest papers and what's new. Laid out by the page's
   // own width (container queries), so a narrow window stacks the columns.
-  import { ArrowRight, Atom, Boxes, ChevronDown, CircuitBoard, Factory, FileCog, FileText, FolderOpen, GraduationCap, Play, Plus, ShieldCheck, Sparkles } from "@lucide/svelte";
+  import { ArrowRight, Atom, Boxes, ChevronDown, CircuitBoard, Factory, FileCog, FileText, FolderOpen, GraduationCap, Newspaper, Play, Plus, ShieldCheck, Sparkles, Star } from "@lucide/svelte";
   import { open } from "@tauri-apps/plugin-dialog";
 
   import ExamplesAccordion from "../components/home/ExamplesAccordion.svelte";
@@ -11,7 +11,10 @@
   import RecentStrip, { type WorkItem } from "../components/home/RecentStrip.svelte";
   import Logo from "../components/Logo.svelte";
   import Markdown from "../components/Markdown.svelte";
+  import PaperFeed from "../components/papers/PaperFeed.svelte";
+  import ReadingList from "../components/papers/ReadingList.svelte";
   import Tip from "../components/Tip.svelte";
+  import { loadList, papers, showPapers } from "../lib/papers.svelte";
   import { api, duration, KINDS, type CircuitItem, type Home } from "../lib/api";
   import { app, go, newCustom, openCustom, run, showCases, showPublished, startRun, toast, type Page } from "../lib/app.svelte";
   import { catalog, loadCatalog } from "../lib/catalog.svelte";
@@ -47,6 +50,13 @@
     api.circuits().then((c) => (circuits = c)).catch(() => {});
   });
   loadCatalog();
+  // the reading list is the workspace's: read again when the workspace changes
+  let listFor = -1;
+  $effect(() => {
+    if (app.workspaceVersion === listFor) return;
+    void loadList(listFor !== -1);
+    listFor = app.workspaceVersion;
+  });
 
   async function openRunFolder() {
     const dir = await open({ title: "Open a run folder", directory: true, defaultPath: `${app.state?.workspace}/runs` });
@@ -93,7 +103,7 @@
   }
 
   let accordion: ExamplesAccordion | undefined = $state();
-  let openTopics = $state(new Set<Topic>(["modes"]));
+  let openTopics = $state(new Set<Topic>());
   const allOpen = $derived(openTopics.size === 7);
 
   const status = $derived(
@@ -136,7 +146,7 @@
           </div>
         </div>
 
-        <nav aria-label="Start" class="grid gap-3 @xl:grid-cols-3 @5xl:w-[25rem] @5xl:shrink-0 @5xl:grid-cols-1">
+        <nav aria-label="Start" class="grid gap-3 @4xl:grid-cols-3 @5xl:w-[25rem] @5xl:shrink-0 @5xl:grid-cols-1">
           <button class="hero-action group" onclick={() => go("components")}>
             <span class="hero-icon bg-primary/12 text-primary"><Boxes size={20} /></span>
             <span class="min-w-0 flex-1"><span class="block font-semibold">Open a component</span><span class="block truncate text-xs muted">Its design, model, spectra and layout</span></span>
@@ -163,7 +173,7 @@
             <span class="min-w-0 flex-1"><span class="block font-semibold">Open an example</span><span class="block truncate text-xs muted">{catalog.data ? `${catalog.data.jobs.length} jobs, ${catalog.data.examples.length} papers, by topic` : "Jobs and papers, by topic"}</span></span>
             <ArrowRight size={16} class="hero-arrow" />
           </button>
-          <div class="flex flex-wrap gap-1 @xl:col-span-3 @5xl:col-span-1">
+          <div class="flex flex-wrap gap-1 @4xl:col-span-3 @5xl:col-span-1">
             <button class="btn btn-ghost btn-sm gap-1.5 font-normal muted" onclick={() => showChip()}><Plus size={14} /> New chip</button>
             <button class="btn btn-ghost btn-sm gap-1.5 font-normal muted" onclick={openRunFolder}><FolderOpen size={14} /> Open a run…</button>
           </div>
@@ -226,7 +236,29 @@
         </section>
       </div>
 
-      <aside class="min-w-0 space-y-6 @6xl:sticky @6xl:top-6 @6xl:self-start" aria-label="News">
+      <aside class="min-w-0 space-y-6" aria-label="News">
+        <section class="panel rounded-2xl p-5" aria-labelledby="home-papers">
+          <div class="flex items-center gap-2">
+            <Newspaper size={17} class="text-primary" />
+            <h2 id="home-papers" class="text-[15px] font-semibold">Latest papers</h2>
+            <span class="flex-1"></span>
+            <button class="btn btn-ghost btn-xs gap-1 text-primary" onclick={() => showPapers("feed")}>All <ArrowRight size={12} /></button>
+          </div>
+          <div class="mt-2"><PaperFeed limit={10} compact /></div>
+        </section>
+
+        {#if papers.list.length}
+          <section class="panel rounded-2xl p-5" aria-labelledby="home-list">
+            <div class="flex items-center gap-2">
+              <Star size={16} class="text-warning" />
+              <h2 id="home-list" class="text-[15px] font-semibold">Reading list</h2>
+              <span class="flex-1"></span>
+              <button class="btn btn-ghost btn-xs gap-1 text-primary" onclick={() => showPapers("list")}>All {papers.list.length} <ArrowRight size={12} /></button>
+            </div>
+            <div class="mt-2"><ReadingList limit={4} /></div>
+          </section>
+        {/if}
+
         <section class="panel rounded-2xl p-5" aria-labelledby="home-new">
           <div class="flex items-baseline gap-2">
             <h2 id="home-new" class="text-[15px] font-semibold">What's new in photonoxide</h2>

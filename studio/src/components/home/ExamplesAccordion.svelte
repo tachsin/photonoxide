@@ -13,7 +13,7 @@
   import { openPaperLink } from "../../lib/papers.svelte";
   import { byTopic, doiOf, TOPICS, topicOf, type Topic } from "../../lib/topics";
 
-  let { jobs, examples, open = $bindable(new Set<Topic>(["modes"])) }: { jobs: JobExample[] | null; examples: Example[]; open?: Set<Topic> } = $props();
+  let { jobs, examples, open = $bindable(new Set<Topic>()) }: { jobs: JobExample[] | null; examples: Example[]; open?: Set<Topic> } = $props();
 
   const ICONS = { modes: Waves, fdfd: Layers, fdtd: Zap, circuits: CircuitBoard, nonlinear: Sparkles, fabrication: Factory, optimization: Sigma };
 
@@ -93,7 +93,7 @@
             {#each tj as j (j.file)}
               {@const paper = reproduces.get(j.file)}
               <li class="group/row flex items-center gap-3 rounded-xl px-3 py-2.5 transition-colors hover:bg-base-100">
-                <span class="badge badge-soft badge-sm w-[4.75rem] shrink-0 justify-center badge-primary" title={KINDS[j.kind]?.about}>{KINDS[j.kind]?.label ?? j.kind}</span>
+                <span class="badge badge-soft badge-sm w-[4.75rem] shrink-0 justify-center badge-primary" title={KINDS[j.kind]?.about}>{KINDS[j.kind]?.label ?? j.kind.charAt(0).toUpperCase() + j.kind.slice(1)}</span>
                 <span class="min-w-0 flex-1">
                   <span class="block truncate text-sm font-medium">{j.name}</span>
                   {#if paper}

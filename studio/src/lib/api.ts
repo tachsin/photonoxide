@@ -10,6 +10,7 @@ import type { Drawing, Medium } from "./jobedit";
 import type { BenchData, BenchRequest, CatalogueEntry, Planned } from "./bench.svelte";
 import type { LibraryReport } from "./libraries.svelte";
 import type { BuildInfo } from "./nightly.svelte";
+import type { Feed, PaperPage, PaperSummary, Starred } from "./paperText";
 
 export interface Settings {
   /** "system", "dark" or "light" (the studio's own themes), or a further theme's name (lib/themes.ts). */
@@ -26,6 +27,8 @@ export interface Settings {
   length_unit: string;
   /** The builds made here are tuned to this CPU (#564). */
   tuned_builds: boolean;
+  /** Home's paper feed checks the journals and arXiv by itself, every four hours while the window is open (papers.rs). */
+  paper_feed: boolean;
 }
 
 export interface AppState {
@@ -260,6 +263,15 @@ export const api = {
   taskOutput: (id: number, from: number) => invoke<Progress>("task_output", { id, from }),
   stopTask: (id: number) => invoke<void>("stop_task", { id }),
   changelog: () => invoke<string>("changelog"),
+  /** Home's paper feed from the cache, at once (papers.rs). */
+  papersFeed: () => invoke<Feed>("papers_feed"),
+  /** Asks the journals and arXiv for their newest papers; the feed after. */
+  papersRefresh: () => invoke<Feed>("papers_refresh"),
+  /** A paper's page by DOI or arXiv id: from the cache, else the sources. */
+  paperOpen: (id: string) => invoke<PaperPage>("paper_open", { id }),
+  papersSearch: (query: string) => invoke<PaperSummary[]>("papers_search", { query }),
+  readingList: () => invoke<Starred[]>("reading_list"),
+  readingListSave: (list: Starred[]) => invoke<void>("reading_list_save", { list }),
   publishedReport: () => invoke<string>("published_report"),
   /** The methods' write-ups (docs/methods), as the program was built with them. */
   methodDocs: () => invoke<{ file: string; text: string }[]>("method_docs"),

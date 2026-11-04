@@ -127,7 +127,7 @@ if (SEED) {
   if (!fs.existsSync(SEED)) fail(`no seed folder ${SEED}`);
   for (const d of ["jobs", "runs", "circuits"]) if (fs.existsSync(path.join(SEED, d))) fs.cpSync(path.join(SEED, d), path.join(WORKSPACE, d), { recursive: true });
 }
-const SETTINGS = { theme: "dark", workspace: null, check_updates: false, hints: false, welcomed: true, dismissed: [], view: "3d", length_unit: "um" };
+const SETTINGS = { theme: "dark", workspace: null, check_updates: false, hints: false, welcomed: true, dismissed: [], view: "3d", length_unit: "um", paper_feed: false };
 
 let child = null;
 function closeProgram() {

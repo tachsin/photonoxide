@@ -91,7 +91,7 @@ const configExisted = fs.existsSync(CONFIG);
 const configBackup = new Map();
 if (configExisted) for (const f of fs.readdirSync(CONFIG, { withFileTypes: true })) if (f.isFile()) configBackup.set(f.name, fs.readFileSync(path.join(CONFIG, f.name)));
 const TEMP = fs.mkdtempSync(path.join(os.tmpdir(), "photonoxide-loads-"));
-const SETTINGS = { theme: "dark", workspace: null, check_updates: false, hints: false, welcomed: true, dismissed: [], view: "3d", length_unit: "um" };
+const SETTINGS = { theme: "dark", workspace: null, check_updates: false, hints: false, welcomed: true, dismissed: [], view: "3d", length_unit: "um", paper_feed: false };
 
 let child = null;
 let cdp = null;

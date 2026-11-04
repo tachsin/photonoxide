@@ -26,6 +26,7 @@ mod media;
 mod navigation;
 mod nonlinear;
 mod optimize;
+mod papers;
 mod references;
 mod runner;
 mod settings;

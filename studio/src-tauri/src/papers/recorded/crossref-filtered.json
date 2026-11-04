@@ -1,0 +1,372 @@
+{
+ "status": "ok",
+ "message-type": "work-list",
+ "message-version": "1.0.0",
+ "message": {
+  "facets": {},
+  "total-results": 9868,
+  "items": [
+   {
+    "DOI": "10.1103/61sw-k3bc",
+    "title": [
+     "Any-light-particle searches with ALPSII: First science results"
+    ],
+    "author": [
+     {
+      "given": "Daniel C.",
+      "family": "Brotherton",
+      "sequence": "first",
+      "affiliation": [],
+      "role": [
+       {
+        "vocabulary": "crossref",
+        "role": "author"
+       }
+      ]
+     },
+     {
+      "given": "Zachary R.",
+      "family": "Bush",
+      "sequence": "additional",
+      "affiliation": [],
+      "role": [
+       {
+        "vocabulary": "crossref",
+        "role": "author"
+       }
+      ]
+     },
+     {
+      "given": "Sandy",
+      "family": "Croatto",
+      "sequence": "additional",
+      "affiliation": [],
+      "role": [
+       {
+        "vocabulary": "crossref",
+        "role": "author"
+       }
+      ]
+     },
+     {
+      "given": "Mauricio Jr.",
+      "family": "Diaz-Ortiz",
+      "sequence": "additional",
+      "affiliation": [],
+      "role": [
+       {
+        "vocabulary": "crossref",
+        "role": "author"
+       }
+      ]
+     }
+    ],
+    "container-title": [
+     "Physical Review Letters"
+    ],
+    "published": {
+     "date-parts": [
+      [
+       2026,
+       11,
+       2
+      ]
+     ]
+    },
+    "type": "journal-article"
+   },
+   {
+    "DOI": "10.1103/k67h-dvxp",
+    "title": [
+     "Phase-space shaping due to betatron cooling in wakefield accelerators and the onset of the ion-channel laser"
+    ],
+    "author": [
+     {
+      "given": "P. J.",
+      "family": "Bilbao",
+      "sequence": "first",
+      "affiliation": [],
+      "role": [
+       {
+        "vocabulary": "crossref",
+        "role": "author"
+       }
+      ]
+     },
+     {
+      "given": "T.",
+      "family": "Silva",
+      "sequence": "additional",
+      "affiliation": [],
+      "role": [
+       {
+        "vocabulary": "crossref",
+        "role": "author"
+       }
+      ]
+     },
+     {
+      "given": "L. O.",
+      "family": "Silva",
+      "sequence": "additional",
+      "affiliation": [],
+      "role": [
+       {
+        "vocabulary": "crossref",
+        "role": "author"
+       }
+      ]
+     }
+    ],
+    "container-title": [
+     "Physical Review Letters"
+    ],
+    "published": {
+     "date-parts": [
+      [
+       2026,
+       10,
+       30
+      ]
+     ]
+    },
+    "type": "journal-article"
+   },
+   {
+    "DOI": "10.1103/vkyn-sp78",
+    "title": [
+     "Search for heavy resonances decaying into four-lepton final states via light bosons in proton-proton collisions at\n                    <mml:math xmlns:mml=\"http://www.w3.org/1998/Math/MathML\" display=\"inline\">\n                      <mml:msqrt>\n                        <mml:mi>s</mml:mi>\n                      </mml:msqrt>\n                    </mml:math>\n                    = 13 TeV"
+    ],
+    "author": [
+     {
+      "given": "A.",
+      "family": "Hayrapetyan",
+      "sequence": "first",
+      "affiliation": [],
+      "role": [
+       {
+        "vocabulary": "crossref",
+        "role": "author"
+       }
+      ]
+     },
+     {
+      "given": "V.",
+      "family": "Makarenko",
+      "sequence": "additional",
+      "affiliation": [],
+      "role": [
+       {
+        "vocabulary": "crossref",
+        "role": "author"
+       }
+      ]
+     },
+     {
+      "given": "A.",
+      "family": "Tumasyan",
+      "sequence": "additional",
+      "affiliation": [],
+      "role": [
+       {
+        "vocabulary": "crossref",
+        "role": "author"
+       }
+      ]
+     },
+     {
+      "given": "W.",
+      "family": "Adam",
+      "sequence": "additional",
+      "affiliation": [],
+      "role": [
+       {
+        "vocabulary": "crossref",
+        "role": "author"
+       }
+      ]
+     }
+    ],
+    "container-title": [
+     "Physical Review Letters"
+    ],
+    "published": {
+     "date-parts": [
+      [
+       2026,
+       10,
+       28
+      ]
+     ]
+    },
+    "type": "journal-article"
+   },
+   {
+    "DOI": "10.1103/fpnh-n3m5",
+    "title": [
+     "Probing Extragalactic Ultralight Axion Dark Matter with Decade-Long Blazar Optical Polarimetry of 1ES\n                    <mml:math xmlns:mml=\"http://www.w3.org/1998/Math/MathML\" display=\"inline\">\n                      <mml:mrow>\n                        <mml:mn>1959</mml:mn>\n                        <mml:mi>+</mml:mi>\n                        <mml:mn>650</mml:mn>\n                      </mml:mrow>\n                    </mml:math>"
+    ],
+    "author": [
+     {
+      "ORCID": "https://orcid.org/0009-0005-2787-9152",
+      "authenticated-orcid": true,
+      "given": "Qiu-Ju",
+      "family": "Huang",
+      "sequence": "first",
+      "affiliation": [
+       {
+        "id": [
+         {
+          "id": "https://ror.org/02eb4t121",
+          "id-type": "ROR",
+          "asserted-by": "publisher"
+         }
+        ],
+        "name": "Purple Mountain Observatory"
+       },
+       {
+        "id": [
+         {
+          "id": "https://ror.org/04c4dkn09",
+          "id-type": "ROR",
+          "asserted-by": "publisher"
+         }
+        ],
+        "name": "University of Science and Technology of China"
+       }
+      ],
+      "role": [
+       {
+        "vocabulary": "crossref",
+        "role": "author"
+       }
+      ]
+     },
+     {
+      "ORCID": "https://orcid.org/0000-0003-3635-5375",
+      "authenticated-orcid": true,
+      "given": "Bao",
+      "family": "Wang",
+      "sequence": "additional",
+      "affiliation": [
+       {
+        "id": [
+         {
+          "id": "https://ror.org/02eb4t121",
+          "id-type": "ROR",
+          "asserted-by": "publisher"
+         }
+        ],
+        "name": "Purple Mountain Observatory"
+       },
+       {
+        "id": [
+         {
+          "id": "https://ror.org/04c4dkn09",
+          "id-type": "ROR",
+          "asserted-by": "publisher"
+         }
+        ],
+        "name": "University of Science and Technology of China"
+       }
+      ],
+      "role": [
+       {
+        "vocabulary": "crossref",
+        "role": "author"
+       }
+      ]
+     },
+     {
+      "ORCID": "https://orcid.org/0000-0003-0162-2488",
+      "authenticated-orcid": true,
+      "given": "Jun-Jie",
+      "family": "Wei",
+      "sequence": "additional",
+      "affiliation": [
+       {
+        "id": [
+         {
+          "id": "https://ror.org/02eb4t121",
+          "id-type": "ROR",
+          "asserted-by": "publisher"
+         }
+        ],
+        "name": "Purple Mountain Observatory"
+       },
+       {
+        "id": [
+         {
+          "id": "https://ror.org/04c4dkn09",
+          "id-type": "ROR",
+          "asserted-by": "publisher"
+         }
+        ],
+        "name": "University of Science and Technology of China"
+       }
+      ],
+      "role": [
+       {
+        "vocabulary": "crossref",
+        "role": "author"
+       }
+      ]
+     },
+     {
+      "ORCID": "https://orcid.org/0000-0002-6299-1263",
+      "authenticated-orcid": true,
+      "given": "Xue-Feng",
+      "family": "Wu",
+      "sequence": "additional",
+      "affiliation": [
+       {
+        "id": [
+         {
+          "id": "https://ror.org/02eb4t121",
+          "id-type": "ROR",
+          "asserted-by": "publisher"
+         }
+        ],
+        "name": "Purple Mountain Observatory"
+       },
+       {
+        "id": [
+         {
+          "id": "https://ror.org/04c4dkn09",
+          "id-type": "ROR",
+          "asserted-by": "publisher"
+         }
+        ],
+        "name": "University of Science and Technology of China"
+       }
+      ],
+      "role": [
+       {
+        "vocabulary": "crossref",
+        "role": "author"
+       }
+      ]
+     }
+    ],
+    "container-title": [
+     "Physical Review Letters"
+    ],
+    "published": {
+     "date-parts": [
+      [
+       2026,
+       10,
+       28
+      ]
+     ]
+    },
+    "type": "journal-article"
+   }
+  ],
+  "items-per-page": 4,
+  "query": {
+   "start-index": 0,
+   "search-terms": null
+  }
+ }
+}

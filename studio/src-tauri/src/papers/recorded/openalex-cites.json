@@ -1,0 +1,100 @@
+{
+ "meta": {
+  "notice": "No API key, so this request shares one free daily budget ($0.10) with everyone on your network's IP address. Get a free key with its own $1/day at https://openalex.org/settings/api and add api_key=YOUR_KEY to your requests. An AI agent can get one for its user in one call: POST https://api.openalex.org/api-keys with {\"email\": \"<your user's email>\"}; we email them a link, and the key works once they click it. Docs for agents: https://help.openalex.org/llms.txt",
+  "count": 14015,
+  "db_response_time_ms": 15,
+  "page": 1,
+  "per_page": 3,
+  "groups_count": null,
+  "x_query": {
+   "oql": "get works citing (W2075689277), newest first",
+   "x_new_oql": "get works citing (W2075689277), newest first",
+   "oqo": {
+    "get_rows": "works",
+    "filter_rows": [
+     {
+      "column_id": "referenced_works",
+      "value": "W2075689277"
+     }
+    ],
+    "sort_by": [
+     {
+      "column_id": "publication_date",
+      "direction": "desc"
+     }
+    ]
+   },
+   "url": "/works?filter=referenced_works:W2075689277&sort=publication_date:desc&per_page=3",
+   "order": "newest first",
+   "order_default": false
+  },
+  "cost_usd": 0.0001
+ },
+ "results": [
+  {
+   "id": "https://openalex.org/W7224862314",
+   "doi": "https://doi.org/10.1016/j.physleta.2026.132330",
+   "display_name": "Symmetry-activated dual-gyrotropic defect mode in a ferrite–semiconductor photonic hypercrystal",
+   "publication_date": "2026-10-31",
+   "primary_location": {
+    "source": {
+     "display_name": "Physics Letters A"
+    }
+   },
+   "authorships": [
+    {
+     "author": {
+      "display_name": "Illia V. Fedorin"
+     }
+    }
+   ]
+  },
+  {
+   "id": "https://openalex.org/W7224823195",
+   "doi": "https://doi.org/10.1016/b978-0-443-13447-0.00002-7",
+   "display_name": "Applications of topological photonics in laser systems",
+   "publication_date": "2026-10-30",
+   "primary_location": {
+    "source": {
+     "display_name": "Elsevier eBooks"
+    }
+   },
+   "authorships": [
+    {
+     "author": {
+      "display_name": "Boubacar Kanté"
+     }
+    },
+    {
+     "author": {
+      "display_name": "Matteo Seclì"
+     }
+    }
+   ]
+  },
+  {
+   "id": "https://openalex.org/W7224829466",
+   "doi": "https://doi.org/10.1016/b978-0-443-13447-0.00008-8",
+   "display_name": "Topological photonics in two dimensions: from photonic crystals to metasurfaces",
+   "publication_date": "2026-10-30",
+   "primary_location": {
+    "source": {
+     "display_name": "Elsevier eBooks"
+    }
+   },
+   "authorships": [
+    {
+     "author": {
+      "display_name": "Mengyao Li"
+     }
+    },
+    {
+     "author": {
+      "display_name": "Alexander B. Khanikaev"
+     }
+    }
+   ]
+  }
+ ],
+ "group_by": []
+}

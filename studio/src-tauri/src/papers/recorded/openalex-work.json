@@ -1,0 +1,367 @@
+{
+ "id": "https://openalex.org/W2075689277",
+ "doi": "https://doi.org/10.1103/physrevlett.58.2059",
+ "display_name": "Inhibited Spontaneous Emission in Solid-State Physics and Electronics",
+ "cited_by_count": 14097,
+ "open_access": {
+  "is_oa": true,
+  "oa_status": "bronze",
+  "oa_url": "http://link.aps.org/pdf/10.1103/PhysRevLett.58.2059",
+  "any_repository_has_fulltext": false
+ },
+ "abstract_inverted_index": {
+  "It": [
+   0
+  ],
+  "has": [
+   1,
+   77
+  ],
+  "been": [
+   2
+  ],
+  "recognized": [
+   3
+  ],
+  "for": [
+   4
+  ],
+  "some": [
+   5
+  ],
+  "time": [
+   6
+  ],
+  "that": [
+   7,
+   29
+  ],
+  "the": [
+   8,
+   22,
+   37,
+   40,
+   48,
+   60,
+   84
+  ],
+  "spontaneous": [
+   9,
+   52,
+   89
+  ],
+  "emission": [
+   10,
+   53,
+   90
+  ],
+  "by": [
+   11,
+   34
+  ],
+  "atoms": [
+   12
+  ],
+  "is": [
+   13,
+   44
+  ],
+  "not": [
+   14
+  ],
+  "necessarily": [
+   15
+  ],
+  "a": [
+   16,
+   55,
+   72
+  ],
+  "fixed": [
+   17
+  ],
+  "and": [
+   18,
+   26,
+   68
+  ],
+  "immutable": [
+   19
+  ],
+  "property": [
+   20
+  ],
+  "of": [
+   21,
+   36,
+   39,
+   62
+  ],
+  "coupling": [
+   23
+  ],
+  "between": [
+   24
+  ],
+  "matter": [
+   25
+  ],
+  "space,": [
+   27
+  ],
+  "but": [
+   28
+  ],
+  "it": [
+   30
+  ],
+  "can": [
+   31,
+   91
+  ],
+  "be": [
+   32,
+   92
+  ],
+  "controlled": [
+   33
+  ],
+  "modification": [
+   35
+  ],
+  "properties": [
+   38
+  ],
+  "radiation": [
+   41
+  ],
+  "field.": [
+   42
+  ],
+  "This": [
+   43
+  ],
+  "equally": [
+   45
+  ],
+  "true": [
+   46
+  ],
+  "in": [
+   47,
+   58
+  ],
+  "solid": [
+   49
+  ],
+  "state,": [
+   50
+  ],
+  "where": [
+   51
+  ],
+  "plays": [
+   54
+  ],
+  "fundamental": [
+   56
+  ],
+  "role": [
+   57
+  ],
+  "limiting": [
+   59
+  ],
+  "performance": [
+   61
+  ],
+  "semiconductor": [
+   63
+  ],
+  "lasers,": [
+   64
+  ],
+  "heterojunction": [
+   65
+  ],
+  "bipolar": [
+   66
+  ],
+  "transistors,": [
+   67
+  ],
+  "solar": [
+   69
+  ],
+  "cells.": [
+   70
+  ],
+  "If": [
+   71
+  ],
+  "three-dimensionally": [
+   73
+  ],
+  "periodic": [
+   74
+  ],
+  "dielectric": [
+   75
+  ],
+  "structure": [
+   76
+  ],
+  "an": [
+   78
+  ],
+  "electromagnetic": [
+   79
+  ],
+  "band": [
+   80,
+   86
+  ],
+  "gap": [
+   81
+  ],
+  "which": [
+   82
+  ],
+  "overlaps": [
+   83
+  ],
+  "electronic": [
+   85
+  ],
+  "edge,": [
+   87
+  ],
+  "then": [
+   88
+  ],
+  "rigorously": [
+   93
+  ],
+  "forbidden.": [
+   94
+  ]
+ },
+ "keywords": [
+  {
+   "id": "https://openalex.org/keywords/spontaneous-emission",
+   "display_name": "spontaneous emission",
+   "score": 0.6399999856948853
+  },
+  {
+   "id": "https://openalex.org/keywords/electromagnetic-band-gap-structures",
+   "display_name": "electromagnetic band gap",
+   "score": 0.6669999957084656
+  },
+  {
+   "id": "https://openalex.org/keywords/photonic-crystals",
+   "display_name": "photonic crystals",
+   "score": 0.7329999804496765
+  },
+  {
+   "id": "https://openalex.org/keywords/periodic-dielectric-structures",
+   "display_name": "periodic dielectric structures",
+   "score": 0.5879999995231628
+  },
+  {
+   "id": "https://openalex.org/keywords/semiconductor-lasers",
+   "display_name": "semiconductor lasers",
+   "score": 0.5699999928474426
+  },
+  {
+   "id": "https://openalex.org/keywords/heterojunction-bipolar-transistors",
+   "display_name": "heterojunction bipolar transistors",
+   "score": 0.9959999918937683
+  },
+  {
+   "id": "https://openalex.org/keywords/solar-cells",
+   "display_name": "solar cells",
+   "score": 0.996999979019165
+  }
+ ],
+ "primary_location": {
+  "id": "doi:10.1103/physrevlett.58.2059",
+  "doi": "https://doi.org/10.1103/physrevlett.58.2059",
+  "is_oa": true,
+  "landing_page_url": "https://doi.org/10.1103/physrevlett.58.2059",
+  "pdf_url": "http://link.aps.org/pdf/10.1103/PhysRevLett.58.2059",
+  "source": {
+   "id": "https://openalex.org/S24807848",
+   "display_name": "Physical Review Letters",
+   "issn_l": "0031-9007",
+   "issn": [
+    "0031-9007",
+    "1079-7114",
+    "1092-0145"
+   ],
+   "is_oa": false,
+   "is_in_doaj": false,
+   "is_core": true,
+   "listed_in": [
+    "anvur-scientific",
+    "cwts-core",
+    "dongbi-a",
+    "jufo-3",
+    "ki-jl-2",
+    "medline",
+    "norway-2",
+    "poland-200",
+    "russia-white-list-1",
+    "vabb-shw"
+   ],
+   "host_organization": "https://openalex.org/P4310320261",
+   "host_organization_name": "American Physical Society",
+   "host_organization_lineage": [
+    "https://openalex.org/P4310320261"
+   ],
+   "host_organization_lineage_names": [
+    "American Physical Society"
+   ],
+   "type": "journal"
+  },
+  "license": null,
+  "license_id": null,
+  "version": "publishedVersion",
+  "is_accepted": true,
+  "is_published": true,
+  "raw_source_name": "Physical Review Letters",
+  "raw_type": "journal-article"
+ },
+ "publication_date": "1987-05-18",
+ "authorships": [
+  {
+   "author_position": "first",
+   "author": {
+    "id": "https://openalex.org/A5017829753",
+    "display_name": "Eli Yablonovitch",
+    "orcid": "https://orcid.org/0000-0002-5724-3375",
+    "observed_orcids": [
+     "https://orcid.org/0000-0002-5724-3375"
+    ]
+   },
+   "is_corresponding": true,
+   "raw_author_name": "Eli Yablonovitch",
+   "raw_orcid": null
+  }
+ ],
+ "referenced_works": [
+  "https://openalex.org/W1965211145",
+  "https://openalex.org/W1973692387",
+  "https://openalex.org/W1983718136",
+  "https://openalex.org/W1984521470",
+  "https://openalex.org/W1984690034",
+  "https://openalex.org/W1987323564",
+  "https://openalex.org/W2027236573",
+  "https://openalex.org/W2031868563",
+  "https://openalex.org/W2080395605",
+  "https://openalex.org/W2081213843",
+  "https://openalex.org/W2096133586",
+  "https://openalex.org/W2137073862",
+  "https://openalex.org/W2157032767",
+  "https://openalex.org/W2727638711"
+ ]
+}

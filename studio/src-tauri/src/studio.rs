@@ -91,6 +91,13 @@ pub fn show(dir: Option<&Path>, live: Option<Live>) -> Result<(), String> {
             task_output,
             stop_task,
             changelog,
+            crate::papers::papers_feed,
+            crate::papers::papers_refresh,
+            crate::papers::paper_open,
+            crate::papers::paper_id,
+            crate::papers::papers_search,
+            crate::papers::reading_list,
+            crate::papers::reading_list_save,
             published_report,
             method_docs,
             preview_scene,
@@ -213,6 +220,14 @@ pub fn show(dir: Option<&Path>, live: Option<Live>) -> Result<(), String> {
             );
             crate::channels::at_start(&channels);
             app.manage(channels);
+            // the paper engine, its cache beside the nightly builds in the local data folder
+            let papers_dir = paths
+                .app_local_data_dir()
+                .unwrap_or_else(|_| started_in.join(".photonoxide"))
+                .join("papers");
+            app.manage(std::sync::Arc::new(crate::papers::Papers::on_the_web(
+                papers_dir,
+            )));
             let settings = Settings::load(&settings_file);
             let workspace = settings::workspace(&settings, &started_in, documents.as_deref());
             let mut started = Vec::new();

@@ -25,12 +25,15 @@
   import Home from "./pages/Home.svelte";
   import Libraries from "./pages/Libraries.svelte";
   import Materials from "./pages/Materials.svelte";
+  import Papers from "./pages/Papers.svelte";
+  import { startFeed } from "./lib/papers.svelte";
   import SettingsPage from "./pages/Settings.svelte";
   import Validation from "./pages/Validation.svelte";
   import Viewer from "./pages/Viewer.svelte";
 
   onMount(() => {
     let stop = () => {};
+    let stopFeed = () => {};
     let gone = false;
     boot().then(() => {
       // the component library fetched now (the program starts building it as it starts: it
@@ -40,6 +43,9 @@
       // a nightly build confirms it started, and a build running or waiting shows
       nightlyBoot();
       if (gone) return;
+      // the paper feed: its cache read now, and a check when one is due (silent, off the
+      // window's thread, never before the window has painted: boot has resolved by now)
+      stopFeed = startFeed();
       // updates: at once (neither call waits for the other, nor holds up the window), when the
       // window comes back 15 minutes or more after the last check, and every hour; each only
       // while the setting is on
@@ -66,6 +72,7 @@
     return () => {
       gone = true;
       stop();
+      stopFeed();
     };
   });
 
@@ -102,6 +109,8 @@
         <Fabrication />
       {:else if app.page === "academy"}
         <Academy />
+      {:else if app.page === "papers"}
+        <Papers />
       {:else if app.page === "settings"}
         <SettingsPage />
       {/if}

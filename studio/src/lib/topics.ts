@@ -33,6 +33,7 @@ const BY_KIND: Record<string, Topic> = {
   structure: "fabrication",
   circuit: "circuits",
   chip: "circuits",
+  optimize: "optimization",
 };
 
 /** Name rules, first match wins: an optimization is one whatever it solves, a chip is a circuit. */
@@ -45,10 +46,14 @@ const RULES: [RegExp, Topic][] = [
   [/fdfd|liu_poon|y_junction|soldano/i, "fdfd"],
 ];
 
-/** The topic of a job (by its file name and kind) or a published result (by its example's name, and the kinds of the jobs that compute it). */
+/** A device's job (its kind says only "device") by the device it draws: those seen from above with ports are FDFD's. */
+const DEVICES: [RegExp, Topic][] = [[/mmi|coupler|crossing|y-?branch|y-junction|splitter|ring/i, "fdfd"]];
+
+/** The topic of a job (by its file name and kind) or a published result (by its example's name). */
 export function topicOf(name: string, kind: string | null = null): Topic {
   for (const [re, topic] of RULES) if (re.test(name)) return topic;
   if (kind && BY_KIND[kind]) return BY_KIND[kind];
+  for (const [re, topic] of DEVICES) if (re.test(name)) return topic;
   return "modes";
 }
 
