@@ -14,8 +14,8 @@ bandwidths (#418) and He 2019's Vπ·L (#420), with the other gaps against paper
 nonlinear integrated optics, is under way on main: phase matching and the coupled-amplitude
 equations (#621), the nonlinear data (#629), the same from a waveguide's modes (#630), and the
 NLSE, four-wave mixing and the Lugiato–Lefever equation (#632), and its job kind and studio view
-(#637); the published results it doesn't reproduce yet are left (#595). 0.6.3's eigenmode expansion and mode
-tools are under way (#432), and the fabrication engine of 0.10 (#622) has its flows and rules on
+(#637); the published results it doesn't reproduce yet are left (#595). 0.6.2's eigenmode expansion and mode
+tools are released in part (#432; 3D eigenmode expansion and beam and fibre coupling are left), and the fabrication engine of 0.10 (#622) has its flows and rules on
 main (F1 to F4), with F6 and F7 in progress. The library stays one crate: its modules sit in layers that a test keeps (#508). The
 library's modules, each with a write-up in `docs/methods/`:
 

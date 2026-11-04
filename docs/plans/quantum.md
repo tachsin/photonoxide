@@ -436,7 +436,7 @@ today's components plus the visibility formula.
 
 ## 5. Decisions
 
-*Decided on 2026-10-09: the recommendations, for all of them. The milestone is 0.6.2 in ROADMAP.md, the Reck and Clements decompositions move there from 0.8, and 0.16's quantum line is gone.*
+*Decided on 2026-10-09: the recommendations, for all of them. The milestone is 0.6.2 in ROADMAP.md, the Reck and Clements decompositions move there from 0.8, and 0.16's quantum line is gone. Renumbered on 2026-11-04: the milestone is now 0.6.3, since the eigenmode expansion milestone was released as 0.6.2; the options below keep the numbers they were decided with.*
 
 1. **Where the work goes.** (a) A new 0.6.2 right after 0.6.1; (b) Q1 earlier, beside 0.5 or 0.6,
    and Q2 and Q3 after 0.6.1; (c) at 0.16 as now. *Recommended: (a).*

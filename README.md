@@ -256,8 +256,8 @@ checks every example's output too.
 | 0.5.4 Geometry and devices | Geometry for any device; the device library on pages of its own, with its models, runs, sweeps, corners and optimization; compact models; the chip built from devices; devices in Python | ✅ released |
 | 0.6.0 Thermal and electro-optic, and writing jobs | Heat, thermo-optic and Pockels devices, travelling-wave electrodes, phase-change materials, the job editor | ✅ released |
 | 0.6.1 Nonlinear integrated optics | Phase matching and QPM, photon pairs, the NLSE, four-wave mixing and Kerr combs, fabrication flows; open gaps in [#595](https://github.com/tachsin/photonoxide/issues/595) | ✅ released |
-| 0.6.2 Quantum light | Linear-optical statistics, photon-pair sources, Gaussian states, loss budgets of quantum circuits | planned |
-| 0.6.3 Eigenmode expansion and the mode solver's tools | On main: 2D eigenmode expansion, convergence to a tolerance, adaptive sweeps, effective area and confinement, sidewall-roughness loss. Left: 3D eigenmode expansion, beam and fibre coupling | 🚧 in progress |
+| 0.6.2 Eigenmode expansion and the mode solver's tools | On main: 2D eigenmode expansion, convergence to a tolerance, adaptive sweeps, effective area and confinement, sidewall-roughness loss. Left: 3D eigenmode expansion, beam and fibre coupling | ✅ released in part |
+| 0.6.3 Quantum light | Linear-optical statistics, photon-pair sources, Gaussian states, loss budgets of quantum circuits | planned |
 | 0.7 Inverse design | Topology and shape optimization with fabrication constraints | planned |
 | 0.7.1 – 0.16 | Distributed memory, carrier modulators, layout, RCWA and beam propagation, a device library, photonic crystals, plasmonics, nonlinear FDTD | planned |
 | 1.0 | A stable API | planned |
