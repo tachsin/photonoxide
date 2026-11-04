@@ -368,27 +368,35 @@ Three things differ from the paper as printed, each checked:
   this guide's loss is 7 % below its limit: refine the mesh for a figure closer than that.
 
 **Against Barwicz & Haus's Fig. 12** (loss over σ² in (dB/cm)/nm², λ = 1550 nm, $L_c$ = 50 nm,
-cores in SiO₂ of 1.45; read off the figure, its raster at 0.76 nm per pixel for silicon): our
-values with our Green's function, and with theirs as printed.
+cores in SiO₂ of 1.45): our values with our Green's function, and with theirs as printed.
 
-| Core | Height × width | Mode | Fig. 12, read | Ours | With the printed Green's function | Our grid |
-|---|---|---|---|---|---|---|
-| SiON (1.50) | 1.5 × 3.0 µm | TE-like | between the 6e-5 and 8e-5 lines, about 6.8e-5 | 6.58e-5 | 6.58e-5 | 25 nm |
-| SiON (1.50) | 1.5 × 3.0 µm | TM-like | on the 1.2e-4 line | 1.137e-4 | 1.142e-4 | 25 nm |
-| Si₃N₄ (2.00) | 0.4 × 0.8 µm | TE-like | between the 0.01 and 0.02 lines, about 0.017 | 0.01746 | 0.01726 | 5 nm |
-| Si₃N₄ (2.00) | 0.4 × 0.8 µm | TM-like | between the 0.01 and 0.02 lines | 0.01359 | 0.01333 | 5 nm |
-| Si (3.50) | 0.2 × 0.4 µm | TE-like | just above the 0.6 line, 0.62 to 0.65; the caption's "around 7 dB/cm" at σ² = 10 nm² | 0.421 | 0.586 | 2.5 nm |
-| Si (3.50) | 0.2 × 0.4 µm | TM-like | below the 0.1 line, about 0.09 | 0.0608 | 0.0866 | 2.5 nm |
+**How the figure is read.** Fig. 12 is a contour map in the paper's PDF, a grey raster of
+1540 × 1519 pixels, a pixel 5.1 nm across by 8.2 nm up in the SiON panels, 1.3 by 2.0 nm in the
+Si₃N₄ panels and 0.76 by 1.2 nm in the silicon panels, each axis placed by its tick marks to a
+pixel. At each core the contour lines either side are found where they cross the core's
+column and its row, and the value is interpolated between them by distance: up the column,
+along the row, and along the normal to the nearer line; the table gives the range of the three
+(for the silicon TM-like guide, between lines of 0.05 and 0.1, also with the interpolation
+taken in the logarithm). Where the lines are flat the three agree.
+
+| Core | Height × width | Mode | Lines either side, crossing the core's column at | Fig. 12, read | Ours | With the printed Green's function | Our grid |
+|---|---|---|---|---|---|---|---|
+| SiON (1.50) | 1.5 × 3.0 µm | TE-like | 6e-5 at 3.29 µm and 8e-5 at 2.68 µm along the core's row | 6.87e-5 to 6.97e-5 | 6.58e-5 (−4 to −6 %) | 6.58e-5 | 25 nm |
+| SiON (1.50) | 1.5 × 3.0 µm | TM-like | 1.2e-4 at 1.54 µm, 8e-5 at 1.06 µm | 1.16e-4 to 1.18e-4 | 1.137e-4 (−2 to −4 %) | 1.142e-4 (−2 to −3 %) | 25 nm |
+| Si₃N₄ (2.00) | 0.4 × 0.8 µm | TE-like | 0.02 at 0.442 µm, 0.01 at 0.302 µm | 0.0170 to 0.0172 | 0.01746 (+2 to +3 %) | 0.01726 (0 to +2 %) | 5 nm |
+| Si₃N₄ (2.00) | 0.4 × 0.8 µm | TM-like | 0.02 at 0.503 µm, 0.01 at 0.364 µm | 0.0120 to 0.0126 | 0.01359 (+8 to +13 %) | 0.01333 (+6 to +11 %) | 5 nm |
+| Si (3.50) | 0.2 × 0.4 µm | TE-like | 0.8 at 0.242 µm, 0.6 at 0.183 µm; the caption's "around 7 dB/cm" at σ² = 10 nm² | 0.66 to 0.71 | 0.421 (−36 to −41 %) | 0.586 (−11 to −17 %) | 2.5 nm |
+| Si (3.50) | 0.2 × 0.4 µm | TM-like | 0.1 at 0.215 µm, 0.05 at 0.186 µm | 0.070 to 0.075 | 0.0608 (−13 to −19 %) | 0.0866 (+15 to +24 %) | 2.5 nm |
 
 Every mode by Hadley's equations on the quarter of a uniform grid. Beside the low-contrast cores
-the two Green's functions agree to 1 %, and our values come within 3 to 7 % of the figure where
-it can be read closely (the SiON TM-like guide lies on a line: 5 % below it). Beside silicon
-they part by 40 %, and the printed one comes within 3 to 7 % of the figure for both modes, as
-it does for the others: their Fig. 11's ratio to the 2D theory, about 0.11 for silicon's TE-like
-mode, is 0.10 with it and 0.072 without. So the figure was most likely computed with the
-Green's function as printed, and the silicon guides' difference from ours is that. The rest, 3
-to 7 % on every core, is above the figure's reading uncertainty (about 1.5 % on a line) and
-isn't explained: Fig. 12 is not a validation case.
+the two Green's functions agree to 2 %, and our values differ from the figure by −6 to +13 %,
+the sign changing from core to core and between the modes: no factor common to every guide (a
+unit, the mode's normalization, the dB) closes it. Beside silicon the two part by 40 %, and the
+figure lies between them for the TM-like guide and above both for the TE-like one (whose
+caption, about 0.7, agrees with the reading); the grid's error (3 % for the TE-like guide, above)
+doesn't close it either. Their Fig. 11's ratio to the 2D theory, about 0.11 for silicon's
+TE-like mode, is 0.10 with the printed Green's function and 0.072 without (that figure not read
+in the way above). The differences are unexplained: Fig. 12 is not a validation case.
 
 ## Bend
 
