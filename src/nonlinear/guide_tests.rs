@@ -398,23 +398,40 @@ fn the_sweep_on_the_slabs_solver_data_study() {
         );
         assert!(tail[tail.len() - 1] < 1e-13, "{tail:?}");
         for (tolerance, reached) in [1e-8, 1e-10].into_iter().zip(reaches) {
-            let t = std::time::Instant::now();
-            let sweep = Sweep::run(
-                |l| Ok(num_complex::Complex64::new(checks::slab_index(h, l), 0.0)),
-                1.50,
-                1.60,
-                &Options::new(tolerance).with_max_samples(60),
-            )
-            .unwrap();
-            let least = sweep.history.iter().copied().fold(f64::INFINITY, f64::min);
-            eprintln!(
-                "  tolerance {tolerance:.0e}: converged {}, {} samples, estimate {:.1e}, least {least:.1e} ({:.0} s)",
-                sweep.converged,
-                sweep.calls(),
-                sweep.relative_error(),
-                t.elapsed().as_secs_f64()
-            );
-            assert_eq!(sweep.converged, reached, "h {h}, {tolerance:e}");
+            // the fits interpolating to 1e-13 throughout (stall 0, as before #595's rule), then
+            // with the stopping rule, which fits above the roughness once they stall
+            for stall in [0, 10] {
+                let t = std::time::Instant::now();
+                let sweep = Sweep::run(
+                    |l| Ok(num_complex::Complex64::new(checks::slab_index(h, l), 0.0)),
+                    1.50,
+                    1.60,
+                    &Options::new(tolerance)
+                        .with_max_samples(60)
+                        .with_stall(stall),
+                )
+                .unwrap();
+                let least = sweep.history.iter().copied().fold(f64::INFINITY, f64::min);
+                eprintln!(
+                    "  tolerance {tolerance:.0e}, stall {stall}: converged {}, stalled {}, {} samples, estimate {:.1e}, least {least:.1e}, roughness {:.1e} ({:.0} s)",
+                    sweep.converged,
+                    sweep.stalled,
+                    sweep.calls(),
+                    sweep.relative_error(),
+                    sweep.noise.unwrap_or(f64::NAN),
+                    t.elapsed().as_secs_f64()
+                );
+                if stall == 0 {
+                    assert_eq!(sweep.converged, reached, "h {h}, {tolerance:e}");
+                } else {
+                    // the roughness, 1.5e-13 on 2.5 nm cells, is far below the floor: no noise,
+                    // so the sweep runs on to its limit, and returns its least estimate's fit
+                    assert!(
+                        sweep.converged || sweep.relative_error() <= least,
+                        "h {h}, {tolerance:e}"
+                    );
+                }
+            }
         }
     }
 }
