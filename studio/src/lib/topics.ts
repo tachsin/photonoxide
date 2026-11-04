@@ -64,7 +64,7 @@ export function byTopic<T>(items: T[], topic: (item: T) => Topic): Map<Topic, T[
   return groups;
 }
 
-/** A DOI in a reference's links, if any: `https://doi.org/10.1364/OL.1.2` gives `10.1364/OL.1.2`. */
+/** The DOI in a reference's links, if any: a doi.org link or a `doi:` gives the DOI after it. */
 export function doiOf(links: string[]): string | null {
   for (const l of links) {
     const m = /(?:doi\.org\/|doi:)(10\.\d{4,9}\/\S+)/i.exec(l) ?? /^(10\.\d{4,9}\/\S+)$/.exec(l.trim());

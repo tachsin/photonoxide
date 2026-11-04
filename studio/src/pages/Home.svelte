@@ -21,7 +21,6 @@
   import { latestRelease } from "../lib/changelog";
   import { openDesign } from "../lib/device.svelte";
   import { openChipFile, showChip } from "../lib/chip.svelte";
-  import type { Kind } from "../lib/job";
   import type { Topic } from "../lib/topics";
   import { updater } from "../lib/updater.svelte";
 
@@ -161,7 +160,7 @@
             <ul class="dropdown-content menu z-30 mt-2 w-80 rounded-2xl border border-base-content/10 bg-base-100 p-2 shadow-2xl" role="menu">
               {#each ["modes", "fdfd", "fdtd", "structure"] as const as kind (kind)}
                 <li role="none">
-                  <button role="menuitem" onclick={() => newCustom(kind as Kind)} class="flex flex-col items-start gap-0.5 rounded-xl py-2">
+                  <button role="menuitem" onclick={() => newCustom(kind)} class="flex flex-col items-start gap-0.5 rounded-xl py-2">
                     <span class="font-medium">{KINDS[kind].label}</span><span class="text-xs faint">{KINDS[kind].about}</span>
                   </button>
                 </li>
