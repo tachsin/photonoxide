@@ -233,7 +233,7 @@ pub(crate) fn star(a: &Blocks, b: &Blocks) -> Blocks {
 }
 
 /// `s` followed by a length of guide whose modes advance by `p` (diag(e^(iβL))).
-fn then_propagate(s: &Blocks, p: &[c64]) -> Blocks {
+pub(super) fn then_propagate(s: &Blocks, p: &[c64]) -> Blocks {
     let n = p.len();
     Blocks {
         s11: s.s11.clone(),
@@ -243,7 +243,7 @@ fn then_propagate(s: &Blocks, p: &[c64]) -> Blocks {
     }
 }
 
-fn rows(m: &Mat<c64>) -> Vec<Vec<c64>> {
+pub(super) fn rows(m: &Mat<c64>) -> Vec<Vec<c64>> {
     (0..m.nrows())
         .map(|i| (0..m.ncols()).map(|j| m[(i, j)]).collect())
         .collect()
