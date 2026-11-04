@@ -9,7 +9,10 @@
 //! `PHOTONOXIDE_REQUIRE_BLAS` (`openblas`), `PHOTONOXIDE_REQUIRE_MUMPS` and
 //! `PHOTONOXIDE_REQUIRE_SUPERLU` set, as the Libraries workflow's rows that install the three
 //! together set them, not finding one is a failure. `PHOTONOXIDE_BLAS_ROUNDS` sets the rounds
-//! of products (default 10).
+//! of products (default 10); `PHOTONOXIDE_SHARED_CASE` (`all`, `mumps`, `superlu` or `foreign`,
+//! the two libraries without the products) picks the pieces that run, and
+//! `PHOTONOXIDE_SHARED_SECONDS` (default 300) ends a run that stalls, saying how far it got. On
+//! macOS with conda-forge's OpenMP OpenBLAS the whole test stalled (#595).
 
 use std::io::Write;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
@@ -244,6 +247,18 @@ fn openblas_called_by_mumps_and_superlu_meanwhile_leaves_every_result_right() {
 
     say(started, "the products' reference done; the threads start");
 
+    // which pieces run (a Libraries row says which, to tell what stalls a run): all of them,
+    // the products with MUMPS or SuperLU alone, or the two libraries without the products
+    let case = std::env::var("PHOTONOXIDE_SHARED_CASE").unwrap_or_else(|_| "all".into());
+    let (with_products, with_mumps, with_superlu) = match case.as_str() {
+        "all" => (true, true, true),
+        "mumps" => (true, true, false),
+        "superlu" => (true, false, true),
+        "foreign" => (false, true, true),
+        other => panic!("PHOTONOXIDE_SHARED_CASE {other}: all, mumps, superlu or foreign"),
+    };
+    say(started, &format!("case {case}"));
+
     let done = AtomicBool::new(false);
     let solve_until_done = |solver: &dyn DirectSolver, solves: &AtomicUsize| -> Vec<String> {
         let analysis = solver.analyse(&m).unwrap().unwrap();
@@ -266,45 +281,73 @@ fn openblas_called_by_mumps_and_superlu_meanwhile_leaves_every_result_right() {
         wrong
     };
     let (wrong_mumps, wrong_superlu, wrong_products, products) = std::thread::scope(|scope| {
-        let mumps_thread = scope.spawn(|| solve_until_done(&mumps, &MUMPS_SOLVES));
-        let superlu_thread = scope.spawn(|| solve_until_done(&superlu, &SUPERLU_SOLVES));
+        let mumps_thread =
+            with_mumps.then(|| scope.spawn(|| solve_until_done(&mumps, &MUMPS_SOLVES)));
+        let superlu_thread =
+            with_superlu.then(|| scope.spawn(|| solve_until_done(&superlu, &SUPERLU_SOLVES)));
         let (mut wrong, mut products) = (Vec::new(), 0usize);
-        for round in 0..rounds {
-            for _ in 0..4 {
-                products += 1;
-                if let Some(d) = check_product(true) {
-                    wrong.push(format!("round {round}, threaded: {d}"));
+        if with_products {
+            for round in 0..rounds {
+                for _ in 0..4 {
+                    products += 1;
+                    if let Some(d) = check_product(true) {
+                        wrong.push(format!("round {round}, threaded: {d}"));
+                    }
+                }
+                let side_by_side: Vec<Option<String>> = (0..2 * rayon::current_num_threads())
+                    .into_par_iter()
+                    .map(|_| check_product(false))
+                    .collect();
+                products += side_by_side.len();
+                wrong.extend(
+                    side_by_side
+                        .into_iter()
+                        .flatten()
+                        .map(|d| format!("round {round}, on one thread: {d}")),
+                );
+                ROUNDS_DONE.fetch_add(1, Ordering::Relaxed);
+                if round % 5 == 4 {
+                    say(
+                        started,
+                        &format!(
+                            "round {} of {rounds}; {} MUMPS and {} SuperLU solves",
+                            round + 1,
+                            MUMPS_SOLVES.load(Ordering::Relaxed),
+                            SUPERLU_SOLVES.load(Ordering::Relaxed)
+                        ),
+                    );
                 }
             }
-            let side_by_side: Vec<Option<String>> = (0..2 * rayon::current_num_threads())
-                .into_par_iter()
-                .map(|_| check_product(false))
-                .collect();
-            products += side_by_side.len();
-            wrong.extend(
-                side_by_side
-                    .into_iter()
-                    .flatten()
-                    .map(|d| format!("round {round}, on one thread: {d}")),
-            );
+        } else {
+            // the two libraries alone: until each has solved a few
+            while (with_mumps && MUMPS_SOLVES.load(Ordering::Relaxed) < 5)
+                || (with_superlu && SUPERLU_SOLVES.load(Ordering::Relaxed) < 5)
+            {
+                std::thread::sleep(Duration::from_millis(50));
+            }
         }
         done.store(true, Ordering::Relaxed);
         (
-            mumps_thread.join().unwrap(),
-            superlu_thread.join().unwrap(),
+            mumps_thread.map(|t| t.join().unwrap()).unwrap_or_default(),
+            superlu_thread
+                .map(|t| t.join().unwrap())
+                .unwrap_or_default(),
             wrong,
             products,
         )
     });
-    println!(
-        "OpenBLAS {}: {products} products of {rounds} rounds, {} MUMPS and {} SuperLU solves \
-         meanwhile; wrong: {} products, {} MUMPS, {} SuperLU",
-        openblas.kernels().version,
-        MUMPS_SOLVES.load(Ordering::Relaxed),
-        SUPERLU_SOLVES.load(Ordering::Relaxed),
-        wrong_products.len(),
-        wrong_mumps.len(),
-        wrong_superlu.len(),
+    say(started, "the threads are done");
+    say(
+        started,
+        &format!(
+            "OpenBLAS {}, case {case}: {products} products of {rounds} rounds, {} MUMPS and {}              SuperLU solves meanwhile; wrong: {} products, {} MUMPS, {} SuperLU",
+            openblas.kernels().version,
+            MUMPS_SOLVES.load(Ordering::Relaxed),
+            SUPERLU_SOLVES.load(Ordering::Relaxed),
+            wrong_products.len(),
+            wrong_mumps.len(),
+            wrong_superlu.len(),
+        ),
     );
     FINISHED.store(true, Ordering::Relaxed);
     assert!(
