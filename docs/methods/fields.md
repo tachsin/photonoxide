@@ -6,7 +6,7 @@ order: 12
 papers:
   - cite: "A. B. Fallahkhair, K. S. Li, T. E. Murphy, J. Lightwave Technol. 26, 1423 (2008) (the transverse H the fields start from)"
     doi: 10.1109/JLT.2008.923643
-  - cite: "S. Afshar V., T. M. Monro, Opt. Express 17, 2298 (2009) (the effective area from S_z, Eq. 41, and the standard one, Eq. 44)"
+  - cite: "S. Afshar V., T. M. Monro, Opt. Express 17, 2298 (2009) (the effective area from S_z, Eq. 41, the standard one, Eq. 44, and the field-weighted n̄₂ of Eqs. 39 and 42)"
     doi: 10.1364/OE.17.002298
   - cite: "S. G. Johnson, M. Ibanescu, M. A. Skorobogatiy, O. Weisberg, J. D. Joannopoulos, Y. Fink, Phys. Rev. E 65, 066611 (2002) (first-order perturbation, away from moving boundaries)"
     doi: 10.1103/PhysRevE.65.066611
@@ -22,6 +22,7 @@ validation:
   - mode/confinement-slab-te
   - mode/confinement-slab-tm
   - mode/confinement-slab-order
+  - mode/kerr-index-slab-tm
   - mode/orthogonality-slab
   - mode/orthogonality-slab-order
   - mode/fields-folded-strip
@@ -85,6 +86,8 @@ $S_z = (\mathbf E \times \mathbf H^*)\cdot\hat z$:
 | Effective area | `Fields::effective_area` | $A_\mathrm{eff} = \lvert\int S_z\thinspace dA\rvert^2 / \int \lvert S_z\rvert^2 dA$ (Afshar & Monro 2009, Eq. 41) |
 | Standard effective area | `Fields::effective_area_transverse` | $A_\mathrm{eff} = (\int \lvert\mathbf E_t\rvert^2 dA)^2 / \int \lvert\mathbf E_t\rvert^4 dA$ (their Eq. 44) |
 | Nonlinear coefficient | `Fields::nonlinear_coefficient` | $\gamma = 2\pi n_2 / (\lambda A_\mathrm{eff})$, $n_2$ given (their Eq. 42 with $\bar n_2 = n_2$) |
+| Field-weighted $\bar n_2$ | `VectorMode::field_weighted_n2`, `Fields::field_weighted_n2` | $\bar n_2 = \int n^2 n_2 [2\lvert\mathbf E\rvert^4 + \lvert\mathbf E\cdot\mathbf E\rvert^2] dA / 3\int \lvert S_z\rvert^2 dA$ (their Eqs. 39 and 42) |
+| Full-vector γ | `VectorMode::vector_nonlinear_coefficient` | $\gamma^V = 2\pi \bar n_2 / (\lambda A_\mathrm{eff})$ (their Eq. 39) |
 | Confinement | `VectorMode::confinement` | $\Gamma = \int_R \operatorname{Re} S_z\thinspace dA / \int \operatorname{Re} S_z\thinspace dA$, $R$ a material or a box |
 | Orthogonality | `orthogonality` | $O_{ab} = \langle a, b\rangle / (\operatorname{Re}\langle a, a\rangle \operatorname{Re}\langle b, b\rangle)^{1/2}$, or the unconjugated product |
 | Normalization | `Fields::normalized` | the fields scaled to $P = 1$ |
@@ -104,6 +107,48 @@ strip in silica at 1.55 µm (TE-like, fields from `fields_one_sided`):
 
 Eq. 41 settles to four digits while Eq. 44 keeps falling, so `effective_area` and γ take Eq. 41.
 The $n_2$ here is only an input to show the units: γ scales with it.
+
+**The field-weighted $\bar n_2$.** Where $n_2$ varies across the section, or $E_z$ is large,
+Afshar and Monro's full-vector γ (their Eq. 39) replaces $n_2$ with
+
+$$
+\bar n_2 = \frac{\int n^2 n_2 \left[2\lvert\mathbf E\rvert^4 + \lvert\mathbf E\cdot\mathbf E\rvert^2\right] dA}{3\int \lvert S_z\rvert^2 dA},
+$$
+
+with $\lvert\mathbf E\rvert^4 = (\mathbf E\cdot\mathbf E^*)^2$ and $\mathbf E\cdot\mathbf E$ the
+unconjugated square. With H in $Z_0$'s units their $\varepsilon_0/\mu_0$ is 1. Their Eq. 42 prints
+$\bar n_2$ with a leading $k$ as well; with it $\bar n_2$ wouldn't be an index in m²/W and
+$2\pi\bar n_2/(\lambda A_\mathrm{eff})$ wouldn't be their Eq. 39, so we leave it out. Three closed
+forms check it: a mode that is linearly polarized and transverse in a uniform medium gives
+$\bar n_2 = n_2$, a circularly polarized one ($\mathbf E\cdot\mathbf E = 0$) $2n_2/3$, and a TE
+slab with $n_2$ in its core gives $n_2\varepsilon_\text{core}/n_\text{eff}^2$ times the core's share
+of $\int\lvert E_y\rvert^4$. A TM slab has $E_z$ a quarter period out of phase with $E_x$, and
+the case `mode/kerr-index-slab-tm` compares its $\bar n_2$ with the exact slab's. For the 220 nm
+silicon slab of 3.473 in 1.444 at 1.55 µm, with $n_2$ in the silicon only, the exact value is
+0.851964 $n_2$:
+
+| Grid | $\bar n_2 / n_2$ | Relative error |
+|---|---|---|
+| 20 nm | 0.859584 | 8.9e-3 |
+| 10 nm | 0.853516 | 1.8e-3 |
+| 5 nm | 0.852313 | 4.1e-4 |
+| 2.5 nm | 0.852047 | 9.7e-5 |
+
+The error falls at second order, as the TM confinement's does. A cell averaged across an
+interface takes the area mean of $n^2 n_2$ over the cell: `Fields::field_weighted_n2` takes that
+product cell by cell, and `VectorMode::field_weighted_n2` takes $n_2$ for each cell's permittivity.
+
+**Where $\bar n_2$ doesn't converge.** $\lvert\mathbf E\rvert^4$ needs E right at every interface,
+and where an interface is oblique to the grid it isn't. Each cell's $E_z$ takes the cell's own
+averaged permittivity, so $E_z$ steps from cell to cell along a curved edge, and $E_t$'s
+$\partial E_z/(i\beta)$ term spikes as $1/h$. Afshar and Monro's silicon rod (3.45 in silica,
+1.45, at 800 nm, $D$ = 150 nm, the HE₁₁ mode on a quarter window) shows it. $\gamma^V/\gamma^F$, their
+$\bar n_2$ over Foster et al.'s $S_z^2$-weighted $n_2$, is 1.31, 1.66, 11.9 and 82 at 20, 10, 5
+and 2.5 nm. Eq. 44's area falls 30-fold over the same grids, while Eq. 41's moves by 12 %. Their
+Fig. 1c and its text give 1.4 for that ratio at that diameter, which needs E at a curved interface
+that converges. Neither the central differences of `fields` nor a staircased rod give it (1.45,
+1.86, 11.6 and 2.33, 5.50, 24.6 at 20, 10 and 5 nm). The study is
+`mode::quantities_checks::tests::afshar_and_monros_rod_study`.
 
 **Which fields.** The integrals take the fields at the cells' centres. From
 `VectorMode::fields_one_sided`, E's normal component keeps its jump at each interface and a

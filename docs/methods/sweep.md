@@ -136,7 +136,60 @@ by the level its Chebyshev coefficients settle to. The sweep reaches 2.5e-11 on 
 samples; on the second it stops at 6.2e-9 and grows past it when asked for $10^{-10}$. On another
 slab's fine grids it stopped near 1e-6, which is why the nonlinear guides' effective index is
 interpolated at Chebyshev points instead ([nonlinear.md](nonlinear.md)). A sweep's tolerance must
-sit above its floor, which the samples' roughness doesn't predict.
+sit above its floor, which the samples' roughness doesn't predict. (These runs are without the
+stopping rule below, `Options::with_stall(0)`.)
+
+**The stopping rule.** It is off by default, and `Options::with_stall(n)` turns it on (the runs
+below take 10). A sweep whose estimate has gone n samples, and at least half as many again as it
+had then, without falling below half its least, has stalled. From then on each step also measures the samples' roughness by cross-validation. For
+AAA tolerances from $10^{-13}$ to $10^{-1}$, two a decade, each interleaved half is fitted at the
+tolerance and evaluated at the other half's samples. The root mean square of those misses, over
+$\sqrt 2$ (each miss holds two samples' noise), is the roughness at that tolerance. Too large a
+tolerance misses the response, and too small a one follows the noise between the samples. The
+least is the samples' roughness (`Sweep::noise`). The noise counts as shown when two things hold:
+
+- the interpolating fits miss the held-out samples at least twice as much as the best ones;
+- the roughness is at most a tenth of those fits' estimate and of the least estimate so far, and
+  that least is at most 10 %.
+
+A response not yet resolved misses its own samples by about as much as its estimate, and is
+sampled on as before. Where the noise shows, the step takes the fits at that tolerance if their
+estimate is the smaller, with the estimate at least the roughness. A stall then stops the sweep
+(`Sweep::stalled`) with the fit of its least estimate. The same function and noise as above,
+asked for $10^{-12}$ with 200 samples at most, gave these (relative to the largest value; a
+uniform noise of $\pm\eta$ has a root mean square of about $0.5\eta$ of it):
+
+| Noise η | Samples | Roughness | Estimate | True error of the fit |
+|---|---|---|---|---|
+| 1e-12 | 82 | 1.05 η | 83 η | 9.8 η |
+| 1e-10 | 190 | 0.70 η | 8.1 η | 5.4 η |
+| 1e-8 | 96 | 0.98 η | 17 η | 4.4 η |
+| 1e-6 | 27 | 0.57 η | 58 η | 8.9 η |
+| 1e-4 | 42 | 0.85 η | 28 η | 12 η |
+
+Every sweep stopped before its limit, the roughness was within a factor of two of the noise's,
+and the estimate bounded the true error. Without the rule the estimate stopped at 30 to 7e6
+times the noise. Asked for a tolerance above the noise ($10^{-8}$ with η = 1e-10), the sweep
+converges with the fits above the noise in 35 samples, where the interpolating fits never reach
+it. The rule is off by default because it watches sweeps without noise too. A response not yet
+resolved can stall, and a fit through it can then look better above a tolerance. With the rule
+on, 2000 sweeps of the test functions (50 of each kind, at the four tolerances of
+`sweep/estimate-bounds-error`) ran as follows:
+
+- 737 were watched and 117 sampled differently;
+- none stopped;
+- the true error stayed at most 0.43 of the estimate
+  (`sweep::tests::the_stopping_rule_on_noiseless_sweeps_study`).
+
+Before the last condition (a least estimate of 10 % at most), one Fabry–Perot response stopped
+after 25 samples with its estimate at 40 % and its true error 64 times that. `sweep/estimate-bounds-error`
+runs without the rule, as sweeps do unless asked. On the slab's 2.5 nm samples asked for
+$10^{-10}$, the roughness is 1.5e-13, far below the estimate's 6.2e-9: that floor is not the
+samples' noise, so the sweep runs on to its 60 samples. It ends with an estimate of 6.2e-9,
+against 7.8 without the rule. The numbers are printed by
+`cargo test --release --lib sweep::tests::the_stopping_rule_on_noisy_samples_study -- --ignored --nocapture`,
+and `sweep::tests::a_sweep_of_noisy_samples_stops_at_their_noise` checks three of the rows on
+every run.
 
 ## Against a uniform grid
 
@@ -277,17 +330,33 @@ The numbers in this section are printed by
 `sweep::tests::a_branch_shows_an_anticrossing_in_its_margins` checks the 50 nm step's margin
 on every run.
 
+**Refining by itself.** `Branch::with_refinement(margin, halvings)` samples more finely on its
+own. A step whose margin is below `margin` is taken again in two halves: from the mode it was
+followed from to the midpoint, then on from there. Each half is refined the same way, at most
+`halvings` times over. Short enough steps stay on the mode by index, so a refined branch follows
+the mode *along* an anticrossing, its field changing character, wherever the samples fall.
+The modes found on the way are in `Branch::found` and their steps in `Branch::steps`. On the
+1.40 strip, the 50 nm steps from 1.35 to 1.45 µm with `with_refinement(0.5, 5)` become 4 steps
+where they were 2 (a close choice's own solve is then not kept). Their least margin rises from 0.108 to 0.631 (0.950 against 0.319, at 1.425 µm), and the
+mode at 1.45 µm keeps the rank by index it started with, as the 2.5 nm steps do. Unrefined,
+it changes rank (`sweep::tests::a_refined_branch_follows_the_mode_by_index_through_an_anticrossing`).
+Refinement is off by default, so a branch chooses as before unless asked.
+
 ## Scope
 
 - The variable is any real one: a wavelength in µm, a frequency. Values may be complex (an
   S-parameter), and the tolerance is relative to the largest value sampled.
-- The solver's own noise sets a floor, far above the scatter of the solver's values (30 to 7e6
-  times it, measured above). A sweep asked for less stops at `Options::max_samples`, with
-  `converged` false.
+- Noisy samples set a floor. With the stopping rule the sweep measures the noise, fits above it
+  and stops at it, its estimate 8 to 83 times the noise (measured above). A floor that isn't
+  the samples' noise, as on the slab's 2.5 nm samples, isn't noticed: the sweep runs to
+  `Options::max_samples` with `converged` false. It also doesn't clean up AAA's spurious poles as
+  Nakatsukasa et al. do; it samples at their real parts instead.
 - Mode following uses the full-vector solver's modes on a fixed grid. At an anticrossing of two
   modes of the same symmetry, the branch may follow either mode, depending on where the samples
-  fall (Anticrossings, above). It says so only through its margins: it doesn't refine by itself
-  or let a user choose which mode to follow.
+  fall (Anticrossings, above). Its margins show it, and `Branch::with_refinement` makes it
+  follow the mode by index. Following the mode by its character instead (the other mode, across
+  the gap) has no option yet: what "character" is to mean (the TE fraction, the overlap with the
+  first mode) is still to be decided.
 - Not yet in photonoxide: sweeps inside the jobs, an S-matrix's entries sharing one set of samples, and
   FDFD's and eigenmode expansion's S-parameters over wavelength. These can already be swept with
   `Sweep::run` on a closure.

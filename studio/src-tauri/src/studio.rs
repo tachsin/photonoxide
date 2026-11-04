@@ -918,8 +918,35 @@ fn run_job(
     start(&state, &window, job)
 }
 
+/// The folder the editor's unsaved text finds its relative files from: the workspace's `jobs`
+/// folder, where Save puts a job, so a relative path names the same file before and after the
+/// job is saved.
+fn unsaved_folder(state: &Studio) -> PathBuf {
+    state.workspace().join("jobs")
+}
+
+/// The job in the editor's `text`, the files it names by a relative path (a `"gds"` shape's
+/// `file`, a design's compact model) found from `folder`: text that isn't a saved file has no
+/// folder of its own, where a job file's are found from its folder (#584).
+pub(crate) fn unsaved_job(text: &str, format: Format, folder: &Path) -> photonoxide::Result<Job> {
+    Job::parse_as(text, format).map(|job| job.in_dir(folder))
+}
+
+/// `error`, and where an unsaved job's relative files are found, when it names a file looked
+/// for in `folder`: the editor's Problems say so beside the file.
+pub(crate) fn with_workspace_note(error: String, folder: &Path) -> String {
+    let shown = folder.display().to_string();
+    if shown.is_empty() || !error.contains(&shown) {
+        return error;
+    }
+    format!(
+        "{error}\n\nThe editor's text isn't a saved job file, so a relative file is found from \
+         the workspace's jobs folder, {shown}, where Save puts the job."
+    )
+}
+
 /// Runs the job in `text`, written in `format` (from the Custom device, or a built-in one), and shows
-/// it.
+/// it. Its relative files are found from the workspace's jobs folder ([`unsaved_folder`]).
 #[tauri::command]
 fn run_text(
     state: tauri::State<'_, Studio>,
@@ -927,7 +954,9 @@ fn run_text(
     text: String,
     format: Format,
 ) -> Result<Info, String> {
-    let job = Job::parse_as(&text, format).map_err(|e| e.to_string())?;
+    let workspace = unsaved_folder(&state);
+    let job = unsaved_job(&text, format, &workspace)
+        .map_err(|e| with_workspace_note(e.to_string(), &workspace))?;
     start(&state, &window, job)
 }
 
@@ -951,27 +980,32 @@ struct JobCheck {
 }
 
 #[tauri::command]
-fn check_job(text: String, format: Format) -> JobCheck {
+fn check_job(state: tauri::State<'_, Studio>, text: String, format: Format) -> JobCheck {
+    check_text(&text, format, &unsaved_folder(&state))
+}
+
+/// [`check_job`] with the workspace folder an unsaved job's relative files are found from.
+fn check_text(text: &str, format: Format, workspace: &Path) -> JobCheck {
     let model = match format {
-        Format::Toml => toml::from_str::<toml::Table>(&text)
+        Format::Toml => toml::from_str::<toml::Table>(text)
             .ok()
             .and_then(|t| serde_json::to_value(t).ok()),
-        Format::Json => serde_json::from_str::<serde_json::Value>(&text).ok(),
+        Format::Json => serde_json::from_str::<serde_json::Value>(text).ok(),
         Format::Yaml => serde_saphyr::from_str_with_options::<serde_json::Value>(
-            &text,
+            text,
             serde_saphyr::options! { strict_booleans: true },
         )
         .ok(),
     }
     .filter(serde_json::Value::is_object);
-    let error = Job::parse_as(&text, format)
+    let error = unsaved_job(text, format, workspace)
         .and_then(|job| {
             // a job that names an external backend is checked with the libraries registered
             crate::auto::prepare(&job);
             job::check(&job)
         })
         .err()
-        .map(|e| e.to_string());
+        .map(|e| with_workspace_note(e.to_string(), workspace));
     JobCheck {
         ok: error.is_none(),
         error,
@@ -1161,17 +1195,24 @@ fn save_text(path: String, text: String) -> Result<(), String> {
 
 /// The scene the job in `text` records first, for the studio to draw before it runs.
 #[tauri::command]
-fn preview_scene(text: String) -> Result<Event, String> {
-    let job = parse_job(&text).map_err(|e| e.to_string())?;
-    job::preview(&job).map_err(|e| e.to_string())
+fn preview_scene(state: tauri::State<'_, Studio>, text: String) -> Result<Event, String> {
+    let workspace = unsaved_folder(&state);
+    let note = |e: photonoxide::Error| with_workspace_note(e.to_string(), &workspace);
+    let job = unsaved_job(&text, job_format(&text), &workspace).map_err(note)?;
+    job::preview(&job).map_err(note)
 }
 
 /// The named ports of the job in `text`'s components (a device's ports, for a `[device]`), for
 /// the studio to mark on its scene.
 #[tauri::command]
-fn preview_ports(text: String) -> Result<Vec<job::ScenePort>, String> {
-    let job = parse_job(&text).map_err(|e| e.to_string())?;
-    job::preview_ports(&job).map_err(|e| e.to_string())
+fn preview_ports(
+    state: tauri::State<'_, Studio>,
+    text: String,
+) -> Result<Vec<job::ScenePort>, String> {
+    let workspace = unsaved_folder(&state);
+    let note = |e: photonoxide::Error| with_workspace_note(e.to_string(), &workspace);
+    let job = unsaved_job(&text, job_format(&text), &workspace).map_err(note)?;
+    job::preview_ports(&job).map_err(note)
 }
 
 /// A table a run can export ([`photonoxide::export::tables`]), for the Export dialog.
@@ -1716,12 +1757,60 @@ mod tests {
             .collect();
         assert_eq!(names, [("a", "modes"), ("b", "fdfd"), ("c", "structure")]);
         assert_eq!(jobs[2].about, "The third.");
-        let check = check_job(
-            std::fs::read_to_string(dir.join("c.yml")).unwrap(),
+        let check = check_text(
+            &std::fs::read_to_string(dir.join("c.yml")).unwrap(),
             Format::Yaml,
+            &dir,
         );
         assert_eq!(check.model.unwrap()["task"]["kind"], "structure");
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn the_editors_unsaved_text_finds_a_relative_gds_file_in_the_workspace() {
+        // a structure job with a "gds" shape whose file is relative: unsaved text has no folder,
+        // so it is looked for in the workspace, and the Problems say where (#584)
+        let workspace = scratch("unsaved-gds");
+        let job = |file: &str| {
+            format!(
+                "name = \"mask\"\n\n[task]\nkind = \"structure\"\nstack = \"soi_220\"\n\
+                 wavelength_um = 1.55\nlayer = \"Si\"\nx_um = [-4.0, 6.0]\ny_um = [-3.0, 3.0]\n\
+                 step_nm = 100.0\n\n[[task.shape]]\ntype = \"gds\"\nlayer = \"Si\"\n\
+                 file = \"{file}\"\ngds_layer = [1, 0]\n"
+            )
+        };
+        // missing: the message names the workspace's file and says how relative files are found
+        let missing = check_text(&job("chip.gds"), Format::Toml, &workspace);
+        let error = missing.error.expect("a missing file is a problem");
+        let folder = workspace.display().to_string();
+        assert!(
+            error.contains(&workspace.join("chip.gds").display().to_string()),
+            "{error}"
+        );
+        assert!(
+            error.contains(&format!("found from the workspace's jobs folder, {folder}")),
+            "{error}"
+        );
+        // there: read from the workspace (these bytes aren't GDSII, so it is the reader that
+        // refuses them, at the workspace's file)
+        std::fs::write(workspace.join("chip.gds"), b"not a stream file").unwrap();
+        let found = check_text(&job("chip.gds"), Format::Toml, &workspace);
+        let error = found.error.expect("bytes that aren't GDSII are a problem");
+        assert!(error.contains("HEADER"), "{error}");
+        // an absolute path is taken as it is, and an error that names no workspace file has no note
+        let elsewhere = scratch("unsaved-gds-elsewhere").join("chip.gds");
+        let absolute = check_text(
+            &job(&elsewhere.display().to_string().replace('\\', "/")),
+            Format::Toml,
+            &workspace,
+        );
+        let error = absolute.error.expect("a missing file is a problem");
+        assert!(
+            !error.contains("found from the workspace's jobs folder"),
+            "{error}"
+        );
+        assert_eq!(with_workspace_note("other".into(), &workspace), "other");
+        let _ = std::fs::remove_dir_all(&workspace);
     }
 
     #[test]

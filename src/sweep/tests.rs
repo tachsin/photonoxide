@@ -177,7 +177,8 @@ fn the_sweeps_floor_on_noisy_samples_study() {
                 |x| Ok(noisy(x, eta)),
                 -1.0,
                 1.0,
-                &Options::new(tolerance).with_max_samples(60),
+                // the fits interpolating to 1e-13 throughout, without the stopping rule
+                &Options::new(tolerance).with_max_samples(60).with_stall(0),
             )
             .unwrap();
             let least = sweep.history.iter().copied().fold(f64::INFINITY, f64::min);
@@ -194,6 +195,130 @@ fn the_sweeps_floor_on_noisy_samples_study() {
         } else {
             // the estimate stops at 7e-6, 1e-4, 9e-3, 6e-5 and 3e-3: 30 to 7e6 times the noise
             assert!(!converged[5], "noise {eta:e}");
+        }
+    }
+}
+
+/// What a sweep of [`noisy`] gives at `tolerance`: whether it stalled, its calls, its measured
+/// roughness, its estimate and its fit's true error against the noiseless function, each
+/// relative to the largest |value|.
+fn noisy_sweep(eta: f64, tolerance: f64, max_samples: usize) -> (Sweep, f64) {
+    let sweep = Sweep::run(
+        |x| Ok(noisy(x, eta)),
+        -1.0,
+        1.0,
+        &Options::new(tolerance)
+            .with_max_samples(max_samples)
+            .with_stall(10),
+    )
+    .unwrap();
+    let truth = (0..=2000)
+        .map(|k| -1.0 + 0.001 * f64::from(k))
+        .map(|x| (sweep.eval(x) - noisy(x, 0.0)).norm())
+        .fold(0.0, f64::max)
+        / sweep.scale;
+    (sweep, truth)
+}
+
+#[test]
+fn a_sweep_of_noisy_samples_stops_at_their_noise() {
+    // a relative noise η, uniform in ±η: its root mean square is η/√3 of each value, about
+    // 0.5 η of the largest; a tolerance of 1e-12 can't be met, and the sweep stops at the noise
+    // before its limit of 200 (measured: 190, 27 and 42 samples; the first one's estimate kept
+    // halving, slowly, to 8 η)
+    for eta in [1e-10, 1e-6, 1e-4] {
+        let (s, truth) = noisy_sweep(eta, 1e-12, 200);
+        let noise = s.noise.unwrap();
+        assert!(s.stalled && !s.converged, "{eta:e}");
+        assert!(s.calls() < 200, "{eta:e}: {}", s.calls());
+        assert!(
+            noise > 0.3 * eta && noise < 1.5 * eta,
+            "{eta:e}: roughness {noise:e}"
+        );
+        assert!(
+            truth <= s.relative_error() && s.relative_error() < 100.0 * eta,
+            "{eta:e}: true {truth:e}, estimate {:e}",
+            s.relative_error()
+        );
+    }
+    // a tolerance above the noise is met by the fits above it
+    let (s, truth) = noisy_sweep(1e-8, 1e-6, 200);
+    assert!(s.converged && s.noise.is_some() && truth <= s.relative_error());
+    // without noise the rule never acts
+    let (s, _) = noisy_sweep(0.0, 1e-12, 200);
+    assert!(s.converged && !s.stalled && s.noise.is_none());
+    // and without the rule the sweep runs to its limit
+    let s = Sweep::run(
+        |x| Ok(noisy(x, 1e-6)),
+        -1.0,
+        1.0,
+        &Options::new(1e-12).with_max_samples(60).with_stall(0),
+    )
+    .unwrap();
+    assert!(!s.stalled && s.calls() == 60);
+}
+
+#[test]
+#[ignore = "the stopping rule on the 800 noiseless sweeps of sweep/estimate-bounds-error: in release, prints"]
+fn the_stopping_rule_on_noiseless_sweeps_study() {
+    // each test function at each tolerance with the rule and without: how many sweeps it
+    // watches, how many it samples differently, how many it stops, and the largest ratio of
+    // the true error to the estimate with it
+    let functions = checks::test_functions(50);
+    let (mut watched, mut changed, mut stopped, mut worst) = (0, 0, 0, 0.0f64);
+    for (name, f) in &functions {
+        for &t in &checks::RATIO_TOLERANCES {
+            let run = |stall: usize| {
+                Sweep::run(|x| Ok(f(x)), -1.0, 1.0, &Options::new(t).with_stall(stall)).unwrap()
+            };
+            let (with, without) = (run(10), run(0));
+            if with.noise.is_none() {
+                continue;
+            }
+            watched += 1;
+            let truth = (0..=20000)
+                .map(|k| -1.0 + 2.0 * f64::from(k) / 20000.0)
+                .map(|x| (with.eval(x) - f(x)).norm())
+                .fold(0.0, f64::max)
+                / with.scale;
+            worst = worst.max(truth / with.relative_error());
+            let same = with.samples == without.samples && with.fit == without.fit;
+            changed += usize::from(!same);
+            stopped += usize::from(with.stalled);
+            if !same || with.stalled {
+                eprintln!(
+                    "{name} {t:e}: {} samples against {}, estimate {:.1e} against {:.1e}, true {truth:.1e}, stalled {}",
+                    with.calls(),
+                    without.calls(),
+                    with.relative_error(),
+                    without.relative_error(),
+                    with.stalled
+                );
+            }
+        }
+    }
+    eprintln!(
+        "{} sweeps: {watched} watched, {changed} sampled otherwise, {stopped} stopped; the largest true error over the estimate {worst:.2}",
+        functions.len() * checks::RATIO_TOLERANCES.len()
+    );
+}
+
+#[test]
+#[ignore = "the noise-aware stopping rule on noisy samples (src/sweep.rs): in release, prints"]
+fn the_stopping_rule_on_noisy_samples_study() {
+    for eta in [0.0, 1e-12, 1e-10, 1e-8, 1e-6, 1e-4] {
+        for tolerance in [1e-12, 1e-8, 1e-6, 1e-4] {
+            let (s, truth) = noisy_sweep(eta, tolerance, 200);
+            eprintln!(
+                "noise {eta:.0e} tol {tolerance:.0e}: converged {} stalled {} in {} noise {:.2e} \
+                 (ratio {:.2}) estimate {:.2e} true {truth:.2e}",
+                s.converged,
+                s.stalled,
+                s.calls(),
+                s.noise.unwrap_or(f64::NAN),
+                s.noise.unwrap_or(f64::NAN) / eta,
+                s.relative_error(),
+            );
         }
     }
 }
@@ -331,6 +456,47 @@ fn a_shift_almost_on_an_eigenvalue_is_moved_off_it() {
     }
     assert_eq!(pairs.len(), 3);
     assert!(record.restarts < 60, "{}", record.restarts);
+}
+
+#[test]
+fn a_refined_branch_follows_the_mode_by_index_through_an_anticrossing() {
+    // the same 50 nm step into the anticrossing, refined where the margin is below 0.5: the
+    // halves are clear choices, and the branch keeps the rank by index it started with, as
+    // steps of 2.5 nm do; unrefined, it changes rank
+    use crate::mode::vector;
+    let near = te1_near(1.4, 1.35);
+    let rank = |l: f64, n: f64| {
+        vector::modes(&clad_strip(1.4).unwrap(), um(l), 4, None)
+            .unwrap()
+            .iter()
+            .position(|m| (m.effective_index().re - n).abs() < 1e-9)
+            .unwrap()
+    };
+    let start = rank(1.35, near);
+    let mut refined = Branch::new(|_| clad_strip(1.4), um(1.35), Some(near), 3)
+        .unwrap()
+        .with_refinement(0.5, 5)
+        .unwrap();
+    refined.mode(um(1.4)).unwrap();
+    let m = refined.mode(um(1.45)).unwrap();
+    let (l, s) = refined.least_margin().unwrap();
+    eprintln!(
+        "refined: {} steps, least margin {:.3} ({:.3} against {:.3}) at {l}",
+        refined.steps().len(),
+        s.margin(),
+        s.overlap,
+        s.runner_up.unwrap_or(0.0)
+    );
+    assert!(s.margin() >= 0.5, "{l}: {s:?}");
+    assert!(refined.steps().len() > 2, "{}", refined.steps().len());
+    assert_eq!(rank(1.45, m.effective_index().re), start);
+    let mut coarse = Branch::new(|_| clad_strip(1.4), um(1.35), Some(near), 3).unwrap();
+    coarse.mode(um(1.4)).unwrap();
+    let c = coarse.mode(um(1.45)).unwrap();
+    assert_ne!(rank(1.45, c.effective_index().re), start);
+    // a margin is from 0 to 1
+    let b = Branch::new(|_| clad_strip(1.4), um(1.35), Some(near), 3).unwrap();
+    assert!(b.with_refinement(1.5, 1).is_err());
 }
 
 #[test]

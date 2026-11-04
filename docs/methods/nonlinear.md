@@ -12,7 +12,7 @@ papers:
     doi: 10.1063/1.1754022
   - cite: "I. Shoji, T. Kondo, A. Kitamoto, M. Shirane, R. Ito, J. Opt. Soc. Am. B 14, 2268 (1997) (Tables 10 and 12)"
     doi: 10.1364/JOSAB.14.002268
-  - cite: "S. Afshar V., T. M. Monro, Opt. Express 17, 2298 (2009) (Eq. 42, γ)"
+  - cite: "S. Afshar V., T. M. Monro, Opt. Express 17, 2298 (2009) (Eq. 42, γ; Eq. 39, γ^V and its field-weighted n̄₂)"
     doi: 10.1364/OE.17.002298
   - cite: "G. J. Edwards, M. Lawrence, Opt. Quantum Electron. 16, 373 (1984) (Eq. 1, Tables I and II)"
     doi: 10.1007/BF00620081
@@ -521,6 +521,12 @@ the closed form with any area. For a Gaussian mode of area π µm² and silicon 
 (2.4 × 10⁻¹⁵ cm²/W at 1548 nm), γ is 0.310 /(W·m), the closed form to round-off
 (`nonlinear/kerr-gamma-gaussian`). A value holds at its own wavelength: silicon's n₂ changes
 fourfold from 850 to 2200 nm, and nothing here moves it.
+
+Where n₂ differs between the core and the cladding, or the mode's E_z is large, their full-vector
+γ (Eq. 39) takes the field-weighted n̄₂ in place of n₂: `VectorMode::field_weighted_n2` and
+`VectorMode::vector_nonlinear_coefficient`, given n₂ for each cell's permittivity
+([Fields, power and coupling](fields.md#a-modes-quantities), which also says where n̄₂ converges
+with the grid and where it doesn't yet).
 
 ## In waveguides
 

@@ -70,7 +70,33 @@
 //!   must sit above that floor, which the samples' roughness doesn't predict. For a quantity
 //!   that is analytic over the range but known only to a solver's last digits, a polynomial
 //!   interpolant at Chebyshev points keeps the round-off as round-off
-//!   ([`crate::nonlinear::guide::ModeIndex`]).
+//!   ([`crate::nonlinear::guide::ModeIndex`]). (These studies run without the stopping rule
+//!   below, which is off by default.)
+//! - **The stopping rule** (off by default; [`Options::with_stall`]). Once the estimate has gone
+//!   [`Options::stall`] samples, and at least half as many again as the sweep had at the time,
+//!   without falling below half its least, each step also measures the samples' roughness: for
+//!   AAA tolerances from 1e-13 to 1e-1, two a decade, each interleaved half is fitted at the
+//!   tolerance and evaluated at the other half's samples, and the root mean square of those
+//!   misses, over √2, is the roughness at it. Too large a tolerance misses the response, too
+//!   small a one follows the noise between samples; the least is the samples' roughness
+//!   ([`Sweep::noise`]). The noise shows where the interpolating fits miss the held-out samples
+//!   at least twice as much as the best ones, and the roughness is at most a tenth of those
+//!   fits' estimate and of the least estimate so far, that least at most 10 %: a response not
+//!   yet resolved, whose fits miss its samples by about as much as its estimate, is sampled on as
+//!   before. Where the noise shows, the step's three fits are taken at that tolerance if their
+//!   estimate is the smaller, the estimate at least the roughness; and a stall stops the sweep
+//!   ([`Sweep::stalled`]) with the fit of its least estimate. On 2 + 0.3 sin 1.5x + 0.1x² with a
+//!   uniform relative noise of η (its root mean square about 0.5 η of the largest value), asked
+//!   for 1e-12, the sweeps stop before their limit of 200
+//!   (`the_stopping_rule_on_noisy_samples_study`; the table in `docs/methods/sweep.md`): the
+//!   roughness is 0.57 to 1.05 η and the estimate, 8 to 83 η, bounds the fit's true error in
+//!   every case, where the interpolating fits' estimate stopped at 30 to 7e6 η. Without noise it
+//!   stops none of 2000 sweeps of the test functions, but samples 117 of them otherwise, so it is
+//!   off unless asked (`the_stopping_rule_on_noiseless_sweeps_study`). On the slab's solver data
+//!   on 2.5 nm cells asked for 1e-10 the roughness is 1.5e-13, far below the estimate's 6.2e-9:
+//!   that floor is not the
+//!   samples' noise, and the sweep runs on to its limit, ending with an estimate of 6.2e-9
+//!   (7.8 without the rule).
 //!
 //! A sweep of a mode follows one mode ([`Branch`]): each new wavelength's mode is the one,
 //! among the solver's candidates, whose fields overlap most with the mode found at the nearest
@@ -111,6 +137,14 @@ pub struct Options {
     /// The most samples (solver calls) to take; a sweep that reaches it stops unconverged.
     /// 200 by default.
     pub max_samples: usize,
+    /// The stopping rule's patience: after this many samples (and at least half as many again
+    /// as the sweep had then) without its estimate falling below half its least, the sweep
+    /// measures its samples' roughness at every step, fits above it where it shows noise, and
+    /// stops when the estimate stalls again with noise shown ([`Sweep::stalled`], the module's
+    /// documentation). 0, the default, turns the rule off: the fits interpolate to 1e-13
+    /// throughout, up to `max_samples`. 10 is what the measured cases use; for samples a solver
+    /// gives with noise in their last digits.
+    pub stall: usize,
 }
 
 impl Default for Options {
@@ -120,6 +154,7 @@ impl Default for Options {
             points: 1001,
             initial: 5,
             max_samples: 200,
+            stall: 0,
         }
     }
 }
@@ -149,6 +184,12 @@ impl Options {
             max_samples,
             ..self
         }
+    }
+
+    /// With the stopping rule, after `stall` samples without progress ([`Options::stall`]; 0,
+    /// the default, for none).
+    pub fn with_stall(self, stall: usize) -> Options {
+        Options { stall, ..self }
     }
 
     fn check(&self) -> Result<()> {
@@ -200,6 +241,16 @@ pub struct Sweep {
     pub converged: bool,
     /// The relative estimate after each sample from the initial ones on: how it fell.
     pub history: Vec<f64>,
+    /// Whether the sweep stopped at its samples' noise ([`Options::stall`]): its estimate had
+    /// stopped falling with the noise shown, so more samples wouldn't have brought it to the
+    /// tolerance. The fit is then the one of its least estimate.
+    pub stalled: bool,
+    /// Once the estimate first stalled, the samples' roughness as last measured, relative to the
+    /// largest |value|: the root mean square by which each interleaved half's fit misses the
+    /// other half's samples, at the AAA tolerance where that is least, over √2 (each miss
+    /// holds two samples' noise). Where it showed noise the estimate is at least this, and a
+    /// tolerance below it can't be met. `None` for a sweep that never stalled.
+    pub noise: Option<f64>,
 }
 
 impl Sweep {
@@ -250,28 +301,83 @@ impl Sweep {
             sample(at(k, options.initial), &mut samples)?;
         }
         let mut history = Vec::new();
+        // once the estimate has stalled, the samples' roughness as last measured, and whether
+        // the fits above it showed noise (the stopping rule, the module's documentation)
+        let (mut watching, mut seen) = (false, false);
+        let mut noise: Option<f64> = None;
+        // the least estimate and its step, and the samples when the estimate last fell below
+        // half of what it had been
+        let mut least: Option<(f64, Step)> = None;
+        let mut progress = samples.len();
         loop {
-            let step = estimate(&samples, &grid, from, to)?;
-            let relative = if step.scale > 0.0 {
-                step.error / step.scale
-            } else {
-                0.0
-            };
+            let mut step = estimate(&samples, &grid, from, to, DEFAULT_TOLERANCE)?;
+            let mut shown = false;
+            if watching {
+                let (rough, gain, refit) = refit_above_roughness(&samples, &grid, from, to)?;
+                noise = Some(rough);
+                // noise: fits above the interpolating ones miss the held-out samples at most
+                // half as much, and by a tenth at most of their estimate and of the least
+                // estimate so far (a response not yet resolved misses them by about as much as
+                // its estimate); then those fits, where their estimate is the smaller
+                // and a sweep that hasn't come within 10 % of its response hasn't resolved it,
+                // whatever its fits miss
+                let least_so_far = least.as_ref().map_or(f64::INFINITY, |l| l.0);
+                shown = gain >= 2.0
+                    && least_so_far <= 0.1
+                    && 10.0 * rough <= relative_to(refit.error, refit.scale).min(least_so_far);
+                if shown && refit.error < step.error {
+                    step = refit;
+                }
+                seen |= shown;
+            }
+            let relative = relative_to(step.error, step.scale);
             history.push(relative);
+            if least.as_ref().is_none_or(|(l, _)| relative < 0.5 * *l) {
+                progress = samples.len();
+            }
+            if least.as_ref().is_none_or(|(l, _)| relative < *l) {
+                least = Some((relative, step.clone()));
+            }
             let converged = step.error <= options.tolerance * step.scale;
             let next = step.next.filter(|_| !converged);
+            let stuck = options.stall > 0
+                && next.is_some()
+                && samples.len() - progress >= options.stall.max(progress / 2);
+            if stuck && !watching {
+                // these samples taken again with the fits above their roughness
+                watching = true;
+                progress = samples.len();
+                history.pop();
+                continue;
+            }
+            // a stall stops the sweep where the fits showed noise; else a response not yet
+            // resolved, sampled on
+            let stalled = stuck && shown;
+            if stuck && !shown {
+                progress = samples.len();
+            }
             match next {
-                Some(x) if samples.len() < options.max_samples => sample(x, &mut samples)?,
+                Some(x) if samples.len() < options.max_samples && !stalled => {
+                    sample(x, &mut samples)?;
+                }
                 _ => {
+                    // once noise was shown, the least estimate's fit: the later ones are no
+                    // better
+                    let best = match least.take() {
+                        Some((_, l)) if seen => l,
+                        _ => step,
+                    };
                     return Ok(Sweep {
                         range: (from, to),
+                        converged: best.error <= options.tolerance * best.scale,
+                        fit: best.fit,
+                        error: best.error,
+                        scale: best.scale,
                         samples,
-                        fit: step.fit,
-                        error: step.error,
-                        scale: step.scale,
                         tolerance: options.tolerance,
-                        converged,
                         history,
+                        stalled,
+                        noise,
                     });
                 }
             }
@@ -298,8 +404,77 @@ impl Sweep {
     }
 }
 
+fn relative_to(error: f64, scale: f64) -> f64 {
+    if scale > 0.0 { error / scale } else { 0.0 }
+}
+
+/// The AAA tolerances a stalled sweep tries for its fits: 1e-13 to 1e-1, two a decade.
+fn tolerances() -> impl Iterator<Item = f64> {
+    (0..=24).map(|k| DEFAULT_TOLERANCE * 10f64.powf(f64::from(k) / 2.0))
+}
+
+/// The samples' roughness and the sweep's fit above it, for a sweep that has stalled: for each
+/// AAA tolerance of [`tolerances`], each interleaved half is fitted at it and evaluated at the
+/// other half's samples; the root mean square of those misses, over √2, is the roughness at
+/// that tolerance. At a tolerance too large the fits miss the response itself, at one too small
+/// they follow the noise between samples; the least is the samples' roughness (relative to the
+/// largest |value|). The sweep's fit and estimate are then taken again at that tolerance, the
+/// estimate at least the roughness.
+fn refit_above_roughness(
+    samples: &[(f64, c64)],
+    grid: &[f64],
+    from: f64,
+    to: f64,
+) -> Result<(f64, f64, Step)> {
+    let scale = samples.iter().map(|s| s.1.norm()).fold(0.0, f64::max);
+    let halves: [Vec<&(f64, c64)>; 2] = [
+        samples.iter().step_by(2).collect(),
+        samples.iter().skip(1).step_by(2).collect(),
+    ];
+    let mut best: Option<(f64, f64)> = None;
+    let mut interpolating = f64::INFINITY;
+    for tolerance in tolerances() {
+        let mut sq = 0.0;
+        for (k, fitted) in halves.iter().enumerate() {
+            let x: Vec<f64> = fitted.iter().map(|s| s.0).collect();
+            let f: Vec<c64> = fitted.iter().map(|s| s.1).collect();
+            let r = Rational::aaa(&x, &f, tolerance)?;
+            sq += halves[1 - k]
+                .iter()
+                .map(|s| (s.1 - r.eval(s.0)).norm_sqr())
+                .sum::<f64>();
+        }
+        let miss = (sq / samples.len() as f64).sqrt();
+        let miss = if miss.is_finite() {
+            miss
+        } else {
+            f64::INFINITY
+        };
+        if tolerance == DEFAULT_TOLERANCE {
+            interpolating = miss;
+        }
+        if best.is_none_or(|(_, b)| miss < b) {
+            best = Some((tolerance, miss));
+        }
+    }
+    let (tolerance, miss) = best.expect("a tolerance was tried");
+    let noise = relative_to(miss / std::f64::consts::SQRT_2, scale);
+    let gain = if miss > 0.0 {
+        interpolating / miss
+    } else {
+        1.0
+    };
+    let mut step = estimate(samples, grid, from, to, tolerance)?;
+    if gain >= 2.0 {
+        // noise shown: the fits pass through noisy samples, so their error is at least it
+        step.error = step.error.max(noise * scale);
+    }
+    Ok((noise, gain, step))
+}
+
 /// One step of a sweep: the fit to all samples, its estimated error, the largest |value|, and
 /// where the difference between the fits is largest among the points not yet sampled.
+#[derive(Clone)]
 struct Step {
     fit: Rational,
     error: f64,
@@ -307,13 +482,19 @@ struct Step {
     next: Option<f64>,
 }
 
-/// The fit to `samples`, and its error estimate over `grid` and the poles in [from, to] (the
-/// module's documentation).
-fn estimate(samples: &[(f64, c64)], grid: &[f64], from: f64, to: f64) -> Result<Step> {
+/// The fit to `samples` at the AAA `tolerance`, and its error estimate over `grid` and the
+/// poles in [from, to] (the module's documentation).
+fn estimate(
+    samples: &[(f64, c64)],
+    grid: &[f64],
+    from: f64,
+    to: f64,
+    tolerance: f64,
+) -> Result<Step> {
     let fit_of = |part: &[&(f64, c64)]| {
         let x: Vec<f64> = part.iter().map(|s| s.0).collect();
         let f: Vec<c64> = part.iter().map(|s| s.1).collect();
-        Rational::aaa(&x, &f, DEFAULT_TOLERANCE)
+        Rational::aaa(&x, &f, tolerance)
     };
     let all: Vec<&(f64, c64)> = samples.iter().collect();
     let fit = fit_of(&all)?;

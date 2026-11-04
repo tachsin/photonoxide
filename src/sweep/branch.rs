@@ -40,11 +40,19 @@ use crate::{Error, Result};
 /// middle finds both near 1/√2 ≈ 0.71. A step with a small [`BranchStep::margin`] chose between
 /// two modes: sample more finely there (or follow both modes and say which one is meant).
 /// `docs/methods/sweep.md` (Anticrossings) gives a measured case.
+///
+/// [`Branch::with_refinement`] samples more finely by itself: a step whose margin is below the
+/// one given is taken again in two halves, from the mode followed from to the midpoint and on,
+/// each half refined the same way, down to a given number of halvings. Steps short enough stay
+/// on the mode by index, so a refined branch follows the mode *along* an anticrossing, the
+/// field changing character, wherever the samples fall. The extra modes are among
+/// [`Branch::found`] and their steps among [`Branch::steps`].
 pub struct Branch<F> {
     cross_section: F,
     candidates: usize,
     found: Vec<(f64, VectorMode)>,
     steps: Vec<(f64, BranchStep)>,
+    refinement: Option<(f64, usize)>,
 }
 
 /// How [`Branch`] chose its mode at one wavelength: the overlaps ([`VectorMode::overlap`], 0 to
@@ -100,17 +108,48 @@ where
             candidates,
             found: vec![(start.to_um(), first)],
             steps: Vec::new(),
+            refinement: None,
+        })
+    }
+
+    /// The same branch refining its steps by itself ([`Branch`], Anticrossings): a step whose
+    /// [`BranchStep::margin`] is below `margin` is taken again in halves, at most `halvings`
+    /// times over (a step of 50 nm down to 50/2^`halvings` nm at the finest). With 0.5 and 5,
+    /// the 50 nm steps into the measured anticrossing of `docs/methods/sweep.md` (least margin
+    /// 0.108) become 4 steps with a least margin of 0.631, and the branch ends on the mode by
+    /// index, as steps of 2.5 nm do.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::InvalidValue`] for a margin outside 0 to 1.
+    pub fn with_refinement(self, margin: f64, halvings: usize) -> Result<Branch<F>> {
+        if !(0.0..=1.0).contains(&margin) {
+            return Err(Error::invalid(
+                "branch",
+                format!("a margin is from 0 to 1, got {margin}"),
+            ));
+        }
+        Ok(Branch {
+            refinement: Some((margin, halvings)),
+            ..self
         })
     }
 
     /// The branch's mode at `wavelength`: found before, or followed from the mode at the
-    /// nearest wavelength found.
+    /// nearest wavelength found (refined, with [`Branch::with_refinement`], where the choice
+    /// was close).
     ///
     /// # Errors
     ///
     /// [`Error::InvalidValue`] if the solver returns no mode or the grid changes between
     /// wavelengths; and the errors of the cross-section and of [`vector::modes`].
     pub fn mode(&mut self, wavelength: Wavelength) -> Result<VectorMode> {
+        let halvings = self.refinement.map_or(0, |r| r.1);
+        self.mode_refined(wavelength, halvings)
+    }
+
+    /// [`Branch::mode`], with at most `halvings` halvings of its step left.
+    fn mode_refined(&mut self, wavelength: Wavelength, halvings: usize) -> Result<VectorMode> {
         let um = wavelength.to_um();
         let i = self.found.partition_point(|f| f.0 < um);
         if let Some(f) = self.found.get(i).filter(|f| f.0 == um) {
@@ -153,6 +192,17 @@ where
             .map(|(_, s)| s.0)
             .reduce(f64::max);
         let (overlap, next) = scored.swap_remove(best);
+        let close = self
+            .refinement
+            .is_some_and(|(m, _)| overlap - runner_up.unwrap_or(0.0) < m);
+        if close && halvings > 0 {
+            // the step in halves: the midpoint from the mode followed from, then on from it
+            let mid = Wavelength::um(0.5 * (from + um))?;
+            if mid.to_um() != from && mid.to_um() != um {
+                self.mode_refined(mid, halvings - 1)?;
+                return self.mode_refined(wavelength, halvings - 1);
+            }
+        }
         self.found.insert(i, (um, next.clone()));
         let s = self.steps.partition_point(|s| s.0 < um);
         self.steps.insert(
