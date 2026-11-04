@@ -258,6 +258,10 @@ fn openblas_called_by_mumps_and_superlu_meanwhile_leaves_every_result_right() {
                 wrong.push(format!("{d:.1e}"));
             }
             solves.fetch_add(1, Ordering::Relaxed);
+            // OpenBLAS built with OpenMP, called from three threads on a runner of three or
+            // four cores, spins its teams against each other (a macOS run made no round of
+            // products in 300 s): the pause leaves the products the cores between solves
+            std::thread::sleep(Duration::from_millis(200));
         }
         wrong
     };
