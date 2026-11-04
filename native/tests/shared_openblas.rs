@@ -158,7 +158,7 @@ fn mapped_openblas() -> Vec<String> {
     let mut files: Vec<String> = maps
         .lines()
         .filter_map(|line| line.split_whitespace().nth(5))
-        .filter(|path| path.contains("openblas"))
+        .filter(|path| path.contains("/libopenblas"))
         .map(str::to_owned)
         .collect();
     files.sort();
