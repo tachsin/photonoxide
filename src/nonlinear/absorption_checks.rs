@@ -215,13 +215,18 @@ const CW_PHASE_TOLERANCE: f64 = 4e-6;
 /// dispersion: T₀ = 1 ps, L = 1 m, d = 5 ps/m, on 1024 points across 64 ps, `steps` steps. The
 /// largest |A₁(L)/A₁(0) − e^{iφ₁}| over |T| ≤ 3T₀, φ₁ Eq. (7.4.9).
 pub(crate) fn xpm_walk_off(steps: usize) -> f64 {
+    xpm_walk_off_on(steps, 1024, 64.0)
+}
+
+/// As [`xpm_walk_off`], on `points` across `window` ps.
+pub(crate) fn xpm_walk_off_on(steps: usize, points: usize, window: f64) -> f64 {
     let (p1, p2, t0, d, length) = (1.0, 0.5, 1.0, 5.0, 1.0);
     let run = || -> crate::Result<f64> {
         let first = Guide::new(Dispersion::new(1.55, &[0.0])?, 40.0, 0.0);
         let second = Guide::new(Dispersion::new(1.3, &[0.0])?, 48.0, 0.0);
         let pair = TwoPulses::new(first, second, d);
-        let a = Pulse::gaussian(p1, t0, 1024, 64.0)?;
-        let b = Pulse::gaussian(p2, t0, 1024, 64.0)?;
+        let a = Pulse::gaussian(p1, t0, points, window)?;
+        let b = Pulse::gaussian(p2, t0, points, window)?;
         let (end, _) = pair.propagate(&a, &b, length, steps)?;
         let times = a.times();
         let mut worst: f64 = 0.0;
@@ -343,6 +348,25 @@ mod tests {
         }
         for s in [500, 1000, 2000, 4000] {
             eprintln!("xpm {s}: {:.2e}", xpm_walk_off(s));
+        }
+    }
+
+    /// Where the cross-phase case's error stops falling, and why: run with `--ignored
+    /// --nocapture`. On the case's 1024 points across 64 ps it levels at 1.28e-6 from 8000
+    /// steps; on twice the window at the same time step it levels too (1.17e-6), and at half
+    /// the time step (2048 or 4096 points across 64 ps) it falls on at second order (4.5e-7,
+    /// 1.1e-7, 2.8e-8 on 4000, 8000, 16000): the floor is the time step's, not the split-step's,
+    /// the window's or the closed form's.
+    #[test]
+    #[ignore = "prints where the cross-phase case's error levels"]
+    fn cross_phase_floor() {
+        for (points, window) in [(1024, 64.0), (2048, 128.0), (2048, 64.0), (4096, 64.0)] {
+            for s in [2000, 4000, 8000, 16000] {
+                eprintln!(
+                    "xpm, {points} points across {window} ps, {s} steps: {:.3e}",
+                    xpm_walk_off_on(s, points, window)
+                );
+            }
         }
     }
 }

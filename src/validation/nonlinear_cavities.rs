@@ -76,7 +76,7 @@ fn absorption_rules() -> Vec<(&'static str, Rule)> {
             grid(
                 Absolute,
                 8e-6,
-                "the error on 1000 steps, 7.14e-6, rounded up: the walk-off between Kerr steps, second order (2.9e-5, 7.1e-6 and 1.8e-6 on 500 to 2000; 1.3e-6 on 4000, where another error of about 1e-6 is reached)",
+                "the error on 1000 steps, 7.14e-6, rounded up: the walk-off between Kerr steps, second order (2.9e-5, 7.1e-6 and 1.8e-6 on 500 to 2000; 1.3e-6 on 4000, where the time step's error of 1.28e-6 is reached: at half the step, 2048 points across 64 ps, the error falls on to 2.8e-8 on 16000)",
             ),
         ),
         (
