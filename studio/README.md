@@ -152,7 +152,8 @@ in a drawer opened from the status bar.
     the Fabrication page's own 2D and 3D views and timeline (the same component), the step shown
     with its reason, and **On the Fabrication page** for the steps' sources, the rules' checks,
     the alternatives and any other design. The design is the job the run's folder keeps, its
-    flow starting where the job's task says (from bare silicon for `start: smart_cut`).
+    flow starting where the job's task says (from bare silicon for `start: smart_cut` or
+    `start: simox`).
   - **Solver** (the bar's button, or the solver's name in the side panel): how the run was
     solved. The solver, its grid and its unknowns as the run recorded them; each solve's
     numerical error (a mode's eigen-residual, an FDFD field's linear residual, an S-matrix's
@@ -408,10 +409,14 @@ in a drawer opened from the status bar.
   - **Start from:** for a design on silicon on insulator, **a bought SOI wafer** (the default)
     or **bare silicon (Smart Cut)**: the SOI wafer made first, from the bare donor (oxidized,
     implanted with hydrogen, bonded to a handle, split, annealed, polished and thinned), each
-    step in the list, the animation and the narration like the others. Under the choice, the
-    route's numbers for the design's film and buried oxide. A job or a run whose task says
-    `start: smart_cut` opens with it. A component's **Fabrication** tab has the same choice,
-    and its **The job** shows the flow as a job (`start: smart_cut` in its task when chosen), with
+    step in the list, the animation and the narration like the others; or **bare silicon
+    (SIMOX)**: one bare wafer implanted with oxygen, annealed above 1300 °C and thinned, offered
+    for every SOI design and disabled, with the reason, where its published conditions don't make
+    the design's film and oxide (films up to 0.2 µm on 0.273–0.5 µm of oxide). Under the choice,
+    the route's numbers for the design's film and buried oxide, SIMOX's inputs beside their
+    published ranges. A job or a run whose task says `start: smart_cut` or `start: simox` opens
+    with it. A component's **Fabrication** tab has the same choice, and its **The job** shows the
+    flow as a job (its task's `start` when a route is chosen), with
     **Run as a job**.
   - **The steps,** from the bare wafer, each with its step type and what it does; a lithography
     shows its three phases (spin the resist on, write the pattern, develop), and a badge counts

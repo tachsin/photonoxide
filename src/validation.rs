@@ -2275,6 +2275,7 @@ pub fn cases() -> Vec<Case> {
     cases.extend(crate::fabrication::platform_checks::cases());
     // and silicon on insulator made by Smart Cut, when a flow starts from bare silicon
     cases.extend(crate::fabrication::smart_cut_checks::cases());
+    cases.extend(crate::fabrication::simox_checks::cases());
     // and in waveguides, from their modes: modal phase matching, the overlaps' coupling, SPDC
     cases.extend(crate::nonlinear::guide_checks::cases());
     // and through a nonlinear job's ridge, Zhao et al.'s guide

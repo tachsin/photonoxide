@@ -554,6 +554,64 @@ fn the_command_takes_a_device_a_job_and_a_structure_job() {
 }
 
 #[test]
+fn simox_is_offered_where_its_published_conditions_make_the_wafer() {
+    let spec = |oxide: f64, film: &str| SpecIn {
+        kind: "waveguide".into(),
+        fidelity: "analytic".into(),
+        stack: StackIn::Preset {
+            name: "soi".into(),
+            bottom_oxide_um: oxide,
+        },
+        parameters: vec![("thickness".into(), film.into())],
+        compact: None,
+    };
+    let device = |oxide: f64, film: &str| DesignIn::Device {
+        spec: Box::new(spec(oxide, film)),
+    };
+    // 0.15 µm on 0.4 µm: within the published conditions
+    let page = fabrication_page(device(0.4, "0.15"), Vec::new(), Vec::new(), None).unwrap();
+    assert_eq!(
+        page.view.starts,
+        [Start::Bought, Start::SmartCut, Start::Simox]
+    );
+    assert!(page.view.simox.is_some() && page.view.simox_refused.is_none());
+    let made = fabrication_page(
+        device(0.4, "0.15"),
+        Vec::new(),
+        Vec::new(),
+        Some(Start::Simox),
+    )
+    .unwrap();
+    assert_eq!(made.view.start, Start::Simox);
+    let processes: Vec<&str> = made.view.flow.steps[..5]
+        .iter()
+        .map(|s| s.process.as_str())
+        .collect();
+    assert_eq!(
+        processes,
+        [
+            "si-wafer",
+            "o-implant",
+            "simox-anneal",
+            "thermal-oxidation",
+            "hf-oxide-strip"
+        ]
+    );
+    assert!(made.view.flow.round_trip.unwrap().exact());
+    assert_eq!(made.frame_solids.len(), made.view.frames.len());
+    let text =
+        crate::devices::fabrication_job(spec(0.4, "0.15"), "strip-flow".into(), Some(Start::Simox))
+            .unwrap();
+    assert!(text.contains("start: simox"), "{text}");
+    assert!(text.contains("made by SIMOX"), "{text}");
+    // the library's strip, 0.22 µm on 2 µm: refused, with the reason
+    let page = fabrication_page(device(2.0, "0.22"), Vec::new(), Vec::new(), None).unwrap();
+    assert_eq!(page.view.starts, [Start::Bought, Start::SmartCut]);
+    let why = page.view.simox_refused.unwrap();
+    assert!(why.contains("buried oxide"), "{why}");
+}
+
+#[test]
 fn the_start_is_chosen_for_a_design_and_a_run_keeps_its_own() {
     let spec = || SpecIn {
         kind: "waveguide".into(),

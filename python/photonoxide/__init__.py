@@ -1257,6 +1257,11 @@ def device_fabrication(
     >>> made = phox.device_fabrication("waveguide", start="smart_cut")
     >>> [step["process"] for step in made.steps][:4]
     ['si-wafer', 'thermal-oxidation', 'h-implant', 'direct-bonding']
+
+    ``start="simox"`` makes it from one bare wafer by SIMOX instead: oxygen implanted into it
+    hot, a long anneal above 1300 °C, and a sacrificial oxide that thins the film. Its published
+    conditions make films up to 0.2 µm on 0.27 to 0.5 µm of buried oxide, so it refuses the
+    strip's 0.22 µm on 2 µm and says why.
     """
     f = _native.device_fabrication(
         kind, _values(values), stack, _ids(prefer), _ids(avoid), str(start)

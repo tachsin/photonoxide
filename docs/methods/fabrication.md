@@ -8,6 +8,14 @@ papers:
     doi: 10.1049/el:19950805
   - cite: "S. Seltzer, NIST Standard Reference Database 124 (1993) (PSTAR: protons' CSDA and projected ranges in silicon and silicon dioxide, from ICRU Report 49)"
     doi: 10.18434/T4NC7P
+  - cite: "K. Izumi, M. Doken, H. Ariyoshi, Electron. Lett. 14, 593 (1978) (SIMOX: 150 keV, 1.2×10¹⁸ cm⁻², 1150 °C for 2 h, a 2100 Å buried oxide; the surface thinned by a sacrificial oxide, epitaxy over it, p. 593)"
+    doi: 10.1049/el:19780397
+  - cite: "G. K. Celler, S. Cristoloveanu, J. Appl. Phys. 93, 4955 (2003) (SIMOX: 200 keV and ∼2×10¹⁸ cm⁻² for ∼200 nm of silicon, ∼600 °C implants, ∼1350 °C anneals, the precipitates below 1300 °C, p. 4959; the low-dose and 56 nm oxides and internal oxidation, p. 4960)"
+    doi: 10.1063/1.1558223
+  - cite: "H. W. Lam, IEEE Circuits Devices Mag. 3, 6 (1987) (SIMOX's implant, anneal and film, p. 6; its 0.5 µm buried oxide, p. 8)"
+    doi: 10.1109/MCD.1987.6323126
+  - cite: "P. L. F. Hemment, E. Maydell-Ondrusz, K. G. Stevens, J. A. Kilner, J. Butcher, Vacuum 34, 203 (1984) (200 keV, 1.8×10¹⁸ cm⁻²: the layers as implanted, p. 204, and after 1150 °C, p. 206; the oxide's thickness against the dose, Fig. 2)"
+    doi: 10.1016/0042-207X(84)90128-3
   - cite: "S. K. Selvaraja, P. Jaenen, W. Bogaerts, D. Van Thourhout, P. Dumon, R. Baets, J. Lightwave Technol. 27, 4076 (2009) (193 nm lithography and the HBr/O₂ etch, Sections II–IV)"
     doi: 10.1109/JLT.2009.2022282
   - cite: "R. J. Bojko, J. Li, L. He, T. Baehr-Jones, M. Hochberg, Y. Aida, J. Vac. Sci. Technol. B 29, 06F309 (2011) (electron-beam lithography in HSQ and the Cl₂ etch)"
@@ -79,6 +87,12 @@ validation:
   - fabrication/smart-cut-range-bruel
   - fabrication/smart-cut-stack
   - fabrication/smart-cut-round-trip
+  - fabrication/simox-oxide-celler-low-dose
+  - fabrication/simox-oxide-celler-thin
+  - fabrication/simox-oxide-lam
+  - fabrication/simox-oxide-below-1300
+  - fabrication/simox-stack
+  - fabrication/simox-round-trip
 ---
 
 # Fabrication: the process flow of a design
@@ -585,11 +599,9 @@ a silicon handle. It can start from bare silicon instead, opted into as the flow
 wafer then take the bought wafer's place, and the rest of the flow is unchanged. Without the
 option, a flow is exactly what it was.
 
-A second route, SIMOX (separation by implanted oxygen: a high-dose oxygen implant and an anneal
-above 1300 °C), is not modelled. Campbell gives its usual conditions (150 to 300 keV, about
-2×10¹⁸ cm⁻², at least 1300 °C for several hours; Section 5.7, pp. 128–129). No source in hand
-gives the buried oxide and the film an implant and anneal make, so there is no published result
-to check a model against. The sources it waits for are listed in the plan's section 6.1.
+A second route, SIMOX, makes the wafer from one bare wafer by an oxygen implant and an anneal
+([below](#making-the-soi-wafer-simox)). Its published conditions make thinner films and oxides
+than Smart Cut's route does.
 
 The steps are Bruel's (1995, Fig. 1), each a process in the library with its sources:
 
@@ -648,6 +660,100 @@ last digit (6.25 %; `fabrication/smart-cut-range-bruel`). Away from 100 keV the 
 12.5 nm/keV at 10 keV and 9.0 at 200 keV, so a film's thickness is close to proportional to the
 energy only over the middle of the table.
 
+## Making the SOI wafer: SIMOX
+
+SIMOX, separation by implanted oxygen, makes the SOI wafer from one bare wafer (Izumi, Doken and
+Ariyoshi 1978). Oxygen ions are implanted deep into the wafer, about 10¹⁸ per cm², while it is
+held hot. A long anneal close to silicon's melting point then gathers the oxygen into a buried
+oxide under a film of the wafer's own silicon. It is the second opt-in start, beside Smart Cut:
+`Start::Simox`, a job's `start: simox`, Python's `start="simox"`, and in the studio **bare
+silicon (SIMOX)** under **Start from**.
+
+| Step | Process | What it does | Its numbers, and where they come from |
+|---|---|---|---|
+| 1 | `si-wafer` | the bare wafer, whose silicon becomes the film and the handle | |
+| 2 | `o-implant` | oxygen implanted at 200 keV, the wafer held at 600 °C | the dose from the buried oxide by the dose balance (below); 200 keV, the one energy whose film a source gives (Celler and Cristoloveanu 2003, p. 4959); 600 °C, "typically close to 600 °C" (same page); Lam's 150–200 keV, 1.2–2.2×10¹⁸ cm⁻², 400 °C or higher (1987, p. 6) |
+| 3 | `simox-anneal` | 4 h at 1350 °C under an oxide cap: the planar buried oxide, and the film healed over it | Celler and Cristoloveanu, ∼1350 °C (p. 4959), 4 h (p. 4960); Campbell, at least 1300 °C for several hours (Section 5.7, p. 129) |
+| 4 | `thermal-oxidation` | a sacrificial oxide that thins the film to the design's | as Izumi thinned his (600 Å grown and stripped took 300 Å off, p. 593); Deal and Grove, wet oxygen at 1100 °C; Campbell's 44 % |
+| 5 | `hf-oxide-strip` | the sacrificial oxide stripped in 6:1 HF | Campbell, p. 285 |
+
+Steps 4 and 5 are left out when the design's film is the 0.2 µm the anneal leaves.
+
+**The buried oxide, from the dose.** After an anneal above 1300 °C, "only the planar buried
+oxide remains" (Celler and Cristoloveanu, p. 4959): every implanted oxygen atom is in it. Its
+thickness is then the dose over the oxygen atoms in a cubic centimetre of silicon dioxide. That
+number follows from two of Campbell's. Silicon has 5×10²² atoms per cm³ (p. 43), and growing an
+oxide consumes 44 % of its thickness in silicon (p. 74). Each SiO₂ molecule takes one silicon
+atom, so the oxide has 0.44 × 5×10²² = 2.2×10²² molecules per cm³ and twice that, 4.4×10²², oxygen
+atoms. The dose for an oxide of thickness d is d × 4.4×10²² cm⁻³. The oxide takes the place of
+44 % of its thickness in silicon, and the surface rises by the other 56 %.
+
+**Where the oxide forms, and the film over it.** The depth of the oxide would need the range of
+oxygen ions in silicon. No published range table is in hand (the wanted sources are listed in the
+plan, section 6.1). The route therefore doesn't compute it. It uses the one published pair of
+energy and film: at 200 keV, about 200 nm of silicon over the oxide, for about 2×10¹⁸ cm⁻²
+(Celler and Cristoloveanu, p. 4959). Lam gives 100–300 nm over doses of 1.2–2.2×10¹⁸ cm⁻²
+(p. 6). The route is calibrated on these published points, not predictive. It refuses what they
+don't cover and gives the reason:
+
+- a buried oxide outside 0.273–0.5 µm, the dose balance of Lam's doses, the doses whose film a
+  source gives;
+- a film thicker than the 0.2 µm the anneal leaves, which would need epitaxial silicon grown over
+  it (Izumi grew 3000 Å; Lam). The route doesn't model epitaxy.
+
+So the photonic standard, 0.22 µm on 2 µm, isn't made by SIMOX. The `soi` stack with a thinner
+film and oxide is, for example a strip 0.15 µm thick on 0.4 µm of buried oxide.
+
+| Film on buried oxide | Dose | Silicon the oxide replaces | Surface rise | Thinned by | Sacrificial oxide | Its strip |
+|---|---|---|---|---|---|---|
+| 0.15 µm on 0.4 µm | 1.76×10¹⁸ cm⁻² | 0.176 µm | 0.224 µm | 0.05 µm | 0.114 µm, 0.05 h | 0.95 min |
+| 0.1 µm on 0.3 µm | 1.32×10¹⁸ cm⁻² | 0.132 µm | 0.168 µm | 0.1 µm | 0.227 µm, 0.15 h | 1.9 min |
+| 0.05 µm on 0.5 µm | 2.2×10¹⁸ cm⁻² | 0.22 µm | 0.28 µm | 0.15 µm | 0.341 µm, 0.30 h | 2.8 min |
+| 0.2 µm on 0.3 µm | 1.32×10¹⁸ cm⁻² | 0.132 µm | 0.168 µm | nothing | none | none |
+
+**Against the published oxides.** Each comparison carries the printed digits of both numbers
+through the balance, as Deal and Grove's case does. Half a unit of the dose's last printed digit
+moves the oxide by the same fraction, and half a unit of the thickness's last digit is added.
+
+| Case | Ours | Published | Measure | Basis | Result |
+|---|---|---|---|---|---|
+| `fabrication/simox-oxide-celler-low-dose` | 90.9 nm at 4×10¹⁷ cm⁻² | about 100 nm (Celler and Cristoloveanu, p. 4960) | relative | the dose's digit (12.5 %) and the thickness's (0.5 nm): 11.9 % | 9.1 % off, passes |
+| `fabrication/simox-oxide-celler-thin` | 45.5 nm at 2×10¹⁷ cm⁻² | 56 nm after 4 h at 1350 °C (p. 4960) | relative | the dose's digit (25 %) and the thickness's: 21.2 % | 18.8 % off, passes |
+| `fabrication/simox-oxide-lam` | 0.261–0.511 µm over Lam's doses | 0.5 µm, no dose named (Lam, p. 8) | absolute | half a unit of 0.5 µm's digit: 0.05 µm | inside, passes |
+| `fabrication/simox-oxide-below-1300` | 272.7 and 409.1 nm | 210 nm after 1150 °C (Izumi, p. 593); 280 ± 14 nm as implanted (Hemment et al., p. 204) | count above the balance | a bound: none | 0 above, passes |
+
+**Two gaps, kept open.** Below a 1300 °C anneal the dose balance doesn't give the oxide, and the
+route refuses such anneals. Izumi's oxide after 1150 °C for 2 h is 210 nm, 77 % of the balance's
+272.7 nm. Hemment's as implanted is 280 ± 14 nm, 68 % of 409.1 nm. The model isn't fitted to
+them. The papers say where the rest of the oxygen is:
+
+- Not lost at the surface. Hemment measured the oxygen depleted near the surface at 5×10¹⁵ to
+  1×10¹⁶ cm⁻² (p. 206), under 1 % of the dose.
+- Not the oxide's density. Hemment's model fits the implanted oxide at 2.4×10²² molecules per
+  cm³ (p. 207), 9 % denser than the 2.2×10²² here. At that density the balance gives 375 nm, still
+  34 % above his 280 nm.
+- In the silicon around the oxide. Below about 1250 °C "a broad transition region consisting of a
+  high density of discrete oxide precipitates", up to 20 % oxygen, lies between the film and the
+  continuous oxide. Only above 1300 °C do the precipitates dissolve (Celler and Cristoloveanu,
+  p. 4959). Hemment's Fig. 2, as read from the figure, shows the same thing: as implanted, a
+  continuous oxide appears only above about 1.4×10¹⁸ cm⁻² at 200 keV, the dose below it held in
+  the profile's wings. Celler gives about 1.5×10¹⁸ (p. 4960).
+
+No paper in hand gives the oxygen in the precipitates as a number, so the explanation is
+qualitative. The case above checks only that neither oxide exceeds the balance.
+
+**One difference within its basis but not explained.** At the stated 2×10¹⁷ cm⁻² the balance gives
+45.5 nm against Celler's 56 nm, 19 % thinner. The case passes only because the dose is printed
+to one digit. A dose of 2.46×10¹⁷ would give 56 nm. Internal oxidation would thicken it: at
+about 1350 °C, oxygen diffusing in from the surface oxidizes the silicon at the buried oxide
+(Celler and Cristoloveanu, p. 4960, and Fig. 5, p. 4959). But the paper doesn't say this sample had it, and
+Fig. 5 is a drawing without numbers.
+
+**What it does not claim.** It does not compute the oxide's depth from the energy, or how the
+film depends on the dose (it takes 0.2 µm for every dose of the route). It has no oxide for anneals
+below 1300 °C, no straggle or profile, and no epitaxy over the film. It says nothing of the
+defect density, the threading dislocations or the silicon pipes through a thin oxide.
+
 ## Executing a flow, and the round trip
 
 Every step has a geometry operation, and the executor runs them on the library's own
@@ -699,6 +805,12 @@ modes are solved without them. The flow deposits the real film; put back, the st
 | `fabrication/smart-cut-range-bruel` | silicon's projected range over the energy where it is proportional to it (its least, at 100 keV), against Bruel's ∼8 nm/keV | 8.42 nm/keV against 8 | reference, ± 6.25 % |
 | `fabrication/smart-cut-stack` | the Smart Cut route alone gives `LayerStack::soi`'s substrate and layers, thicknesses to the bit, for films of 0.1, 0.22, 0.3, 0.5 and 1 µm on 1, 2 and 3 µm of oxide (15 pairs) | 0 differing | exact |
 | `fabrication/smart-cut-round-trip` | the strip's and the heater's flows from bare silicon give them back, at their defaults and corners (74 designs) | 0 differing points | exact |
+| `fabrication/simox-oxide-celler-low-dose` | the dose balance at 4×10¹⁷ cm⁻² against Celler and Cristoloveanu's about 100 nm | 90.9 nm against 100 | reference, ± 11.9 % |
+| `fabrication/simox-oxide-celler-thin` | the dose balance at 2×10¹⁷ cm⁻² against their 56 nm after 4 h at 1350 °C | 45.5 nm against 56 | reference, ± 21.2 % |
+| `fabrication/simox-oxide-lam` | Lam's 0.5 µm against the balance over his doses, 1.2–2.2×10¹⁸ cm⁻² | inside 0.261–0.511 µm | reference, ± 0.05 µm |
+| `fabrication/simox-oxide-below-1300` | Izumi's 210 nm (1150 °C) and Hemment's 280 nm (as implanted) never above the balance's 272.7 and 409.1 nm | 0 above | exact |
+| `fabrication/simox-stack` | the SIMOX route alone gives `LayerStack::soi`'s substrate and layers, thicknesses to the bit, for films of 0.05, 0.1, 0.15 and 0.2 µm on 0.3, 0.4 and 0.5 µm of oxide (12 pairs) | 0 differing | exact |
+| `fabrication/simox-round-trip` | a strip on each of those films and oxides, made from bare silicon by SIMOX, given back (12 designs) | 0 differing points | exact |
 
 One row of Franssila's Table 10.1 is left out of its case: at 248 nm, NA 0.65 and k₁ 0.5, k₁λ/NA
 is 0.191 µm where the table prints 0.18 µm, 0.011 µm off, more than the printing's rounding
@@ -746,7 +858,11 @@ These are listed in every flow that meets them, and wait for a source:
   flatness, and ma-N's resolution (the narrowest features in hand are what the papers made);
 - for a flow that makes its SOI wafer by Smart Cut, how much the touch-up polish and the
   sacrificial oxide take off (the flow takes one straggle each), and the implant's straggle from
-  a table rather than Campbell's estimate from the masses.
+  a table rather than Campbell's estimate from the masses;
+- for a flow that makes its SOI wafer by SIMOX, the film the anneal leaves for each dose (the
+  flow takes about 0.2 µm at 200 keV for every dose of 1.2–2.2×10¹⁸ cm⁻²), and so what the
+  sacrificial oxide takes off; the range of oxygen ions in silicon, without which the oxide's
+  depth isn't computed; and the oxide after an anneal below 1300 °C.
 
 ## In the studio
 
@@ -802,8 +918,20 @@ tab. The animation draws the bond as the film laid on in one piece, faded in. It
 sacrificial oxidation as the silicon it uses up, going from the film's top; the oxide itself
 isn't drawn. The implant, the split, the anneal and the strip change no drawn shape.
 
-The tab's **The job** shows the flow as a job, with `start: smart_cut` in its task when Smart
-Cut is chosen (`job::from_fabrication_from`), and **Run as a job** runs it. A job's own start,
+The third choice, **bare silicon (SIMOX)**, is shown for every SOI design. It is disabled where
+SIMOX's published conditions don't make the design's film and oxide, with the reason under the
+choice (`FabricationView::simox_refused`). The library's own SOI devices are on 2 µm of oxide, so
+it takes the `soi` stack with a thinner film and oxide, set on the Design tab. Chosen, the flow
+begins with the bare wafer and the five steps of "Making the SOI wafer: SIMOX" (three when the
+film is the 0.2 µm the anneal leaves). Under the choice are the route's inputs beside their
+published ranges (`FabricationView::simox`): 200 keV (150–200), the dose (1.2–2.2×10¹⁸ cm⁻²),
+the wafer at 600 °C (400–600), and the anneal of 4 h at 1350 °C (at least 1300). Then the film
+the anneal leaves (about 0.2 µm, 100–300 nm) and what the sacrificial oxide takes off. The
+animation fades in the buried oxide at the implant and the film at the anneal; the glossary adds
+SIMOX, dose, dose balance and oxide precipitates.
+
+The tab's **The job** shows the flow as a job, with `start: smart_cut` or `start: simox` in its
+task when a route is chosen (`job::from_fabrication_from`), and **Run as a job** runs it. A job's own start,
 preferences and avoidances are the view's (`job::fabrication_of_job`). So a run's Fabrication
 tab, and the page opened on a run or a job file, show the flow as the job made it, and the
 choice there can show it from the other start.

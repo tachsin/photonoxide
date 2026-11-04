@@ -92,6 +92,38 @@ const TERMS: &[(&str, &str, &str, &str)] = &[
         "bruel-1995",
         "Fig. 1, steps 2 and 3 (PDF p. 1)",
     ),
+    // the words of a flow that makes its SOI wafer by SIMOX
+    (
+        "SIMOX",
+        "Separation by implanted oxygen: making a silicon-on-insulator wafer from one bare wafer, \
+         by shooting oxygen ions deep into it while it is hot and annealing it until the oxygen \
+         forms a buried oxide under a film of the wafer's own silicon.",
+        "izumi-1978",
+        "p. 593",
+    ),
+    (
+        "dose",
+        "How many ions an implant puts into each square centimetre of the wafer. SIMOX needs about \
+         10¹⁸ oxygen ions per cm², a hundred times an ordinary implant's dose, since every oxygen \
+         atom of the buried oxide comes from it.",
+        "celler-cristoloveanu-2003",
+        "p. 4959",
+    ),
+    (
+        "dose balance",
+        "A buried oxide's thickness from its oxygen: the dose over the 4.4×10²² oxygen atoms a \
+         cubic centimetre of silicon dioxide holds. It holds once every implanted atom is in the \
+         oxide, after an anneal above 1300 °C.",
+        "campbell-2008",
+        "pp. 43 and 74",
+    ),
+    (
+        "oxide precipitates",
+        "Small grains of oxide in the silicon around a SIMOX oxide, holding part of the implanted \
+         oxygen. An anneal above 1300 °C dissolves them, and only the planar buried oxide remains.",
+        "celler-cristoloveanu-2003",
+        "p. 4959",
+    ),
     (
         "hydrofluoric acid",
         "An acid that dissolves silicon dioxide and hardly touches silicon: 6:1 HF etches thermal \

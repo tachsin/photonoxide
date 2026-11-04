@@ -77,8 +77,8 @@ pub fn device_fabrication(
 }
 
 /// The process flow [`device_fabrication`] gives, starting from `start`: `"bought"`, the wafer
-/// as bought (what [`device_fabrication`] does), or, for silicon on insulator, `"smart_cut"`,
-/// bare silicon wafers with the Smart Cut steps that make the SOI wafer first
+/// as bought (what [`device_fabrication`] does), or, for silicon on insulator, `"smart_cut"` or
+/// `"simox"`, bare silicon with the Smart Cut or SIMOX steps that make the SOI wafer first
 /// ([`crate::fabrication::Start`]).
 ///
 /// # Errors

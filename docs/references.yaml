@@ -1,6 +1,6 @@
 # The sources photonoxide cites: one entry per DOI, or per key for a source without one.
 # docs/references.md is written from this file and the citations in the repository
-# (`photonoxide references --write docs/references.md`, or `just references`);
+# (`photonoxide references --write`, or `just references`), with references-by-file.md;
 # `photonoxide references --crossref` adds the entries of newly cited DOIs from Crossref.
 # year: Crossref's year of publication, the earlier of online and print (a paper put
 # online before its issue: the online year). open: a copy anyone can read.
@@ -518,6 +518,12 @@
   title: "Carrier mobilities in silicon empirically related to doping and field"
   venue: "Proc. IEEE 55, 2192"
   year: 1967
+
+- doi: 10.1063/1.1558223
+  authors: "G. K. Celler, S. Cristoloveanu"
+  title: "Frontiers of silicon-on-insulator"
+  venue: "J. Appl. Phys. 93, 4955"
+  year: 2003
 
 - doi: 10.1007/s10973-014-4000-3
   authors: "E. Černošková, R. Todorov, Z. Černošek, J. Holubová, L. Beneš"
@@ -1294,6 +1300,12 @@
   venue: "Opt. Lett. 35, 3006"
   year: 2010
 
+- doi: 10.1016/0042-207X(84)90128-3
+  authors: "P. L. F. Hemment, E. Maydell-Ondrusz, K. G. Stevens, J. A. Kilner, J. Butcher"
+  title: "Oxygen distributions in synthesized SiO2 layers formed by high dose O+ implantation into silicon"
+  venue: "Vacuum 34, 203"
+  year: 1984
+
 - doi: 10.1016/S0168-9274(01)00115-5
   authors: "V. E. Henson, U. M. Yang"
   title: "BoomerAMG: A parallel algebraic multigrid solver and preconditioner"
@@ -1434,6 +1446,12 @@
   title: "Thermal and Kerr nonlinear properties of plasma-deposited silicon nitride/ silicon dioxide waveguides"
   venue: "Opt. Express 16, 12987"
   year: 2008
+
+- doi: 10.1049/el:19780397
+  authors: "K. Izumi, M. Doken, H. Ariyoshi"
+  title: "C.M.O.S. devices fabricated on buried SiO2 layers formed by oxygen implantation into silicon"
+  venue: "Electron. Lett. 14, 593"
+  year: 1978
 
 - doi: 10.1364/OE.27.010456
   authors: "M. Jacques, A. Samani, E. El-Fiky, D. Patel, Z. Xing, D. V. Plant"
@@ -1739,6 +1757,12 @@
   title: "Adjoint shape optimization applied to electromagnetic design"
   venue: "Opt. Express 21, 21693"
   year: 2013
+
+- doi: 10.1109/MCD.1987.6323126
+  authors: "H. W. Lam"
+  title: "SIMOX SOI for integrated circuit fabrication"
+  venue: "IEEE Circuits Devices Mag. 3, 6"
+  year: 1987
 
 - doi: 10.1007/BF02069487
   authors: "J. W. Lamb"

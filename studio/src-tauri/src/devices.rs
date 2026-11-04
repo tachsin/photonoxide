@@ -855,8 +855,9 @@ pub fn device_fabrication(
 }
 
 /// The text of the job whose run gives `spec`'s flow from `start`, named `name`
-/// ([`job::from_fabrication_from`]): its task writes `start: smart_cut` when the flow makes its
-/// SOI wafer, so the run replays it. With an opening comment saying how to run it.
+/// ([`job::from_fabrication_from`]): its task writes `start: smart_cut` or `start: simox` when
+/// the flow makes its SOI wafer, so the run replays it. With an opening comment saying how to
+/// run it.
 #[tauri::command(async)]
 pub fn fabrication_job(spec: SpecIn, name: String, start: Option<Start>) -> Result<String, String> {
     let s = spec.spec()?;
@@ -864,6 +865,7 @@ pub fn fabrication_job(spec: SpecIn, name: String, start: Option<Start>) -> Resu
     let j = job::from_fabrication_from(&name, &s, &[], &[], start).map_err(text)?;
     let from = match start {
         Start::SmartCut => "from bare silicon, the SOI wafer made by Smart Cut",
+        Start::Simox => "from bare silicon, the SOI wafer made by SIMOX",
         _ => "from the wafer as bought",
     };
     let body = j.to_text(Format::Yaml).map_err(text)?;

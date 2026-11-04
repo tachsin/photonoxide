@@ -394,6 +394,24 @@ impl Step {
                 r.layer = layers.first().map(|l| l.name.clone());
                 let t: f64 = layers.iter().map(|l| l.thickness.to_um()).sum();
                 r.thickness_um = Some(t + extra.to_um());
+                // SIMOX's implant draws the buried oxide it makes, and its anneal the film it
+                // heals over it: neither deposits anything
+                if self.step == StepType::Implant {
+                    r.operation = "implant".into();
+                    r.does = format!(
+                        "implant oxygen: {} µm of {} forms below the surface",
+                        number(t),
+                        film.name
+                    );
+                }
+                if self.step == StepType::Anneal {
+                    r.operation = "anneal".into();
+                    r.does = format!(
+                        "anneal: the {} µm of {} over the buried oxide heals into the film",
+                        number(t + extra.to_um()),
+                        film.name
+                    );
+                }
                 if self.step == StepType::Bond {
                     r.operation = "bond".into();
                     r.does = format!(

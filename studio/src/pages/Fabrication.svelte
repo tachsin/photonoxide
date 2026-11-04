@@ -9,7 +9,8 @@
   // the resist developed. The first frame is the bare wafer; the last is the design, and the
   // round trip (the flow run on the library's geometry against the design) says it is to the bit.
   // A design on silicon on insulator can start from a bought SOI wafer or from bare silicon, the
-  // SOI wafer made first by Smart Cut: as the design's job says (`start: smart_cut`), as the
+  // SOI wafer made first by Smart Cut or SIMOX: as the design's job says (`start: smart_cut`,
+  // `start: simox`), as the
   // component's tab sent it, or as picked here.
   import { open } from "@tauri-apps/plugin-dialog";
   import { CircleCheck, FileUp, TriangleAlert } from "@lucide/svelte";
@@ -270,7 +271,7 @@
     </div>
     <p class="text-xs faint">A suggested flow from published processes, not a foundry's process: it starts from the bare wafer, and each step says why it is there, what it does, and where every number comes from.</p>
     {#if page}
-      <StartChoice starts={page.view.starts} start={page.view.start} route={page.view.smart_cut} onpick={pickStart} />
+      <StartChoice starts={page.view.starts} start={page.view.start} route={page.view.smart_cut} simox={page.view.simox} refused={page.view.simox_refused} onpick={pickStart} />
     {/if}
 
     {#if problem}
