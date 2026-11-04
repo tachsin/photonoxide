@@ -302,6 +302,22 @@ fn a_design_without_a_crystalline_film_is_refused_with_why() {
 }
 
 #[test]
+fn a_design_with_nothing_to_make_is_refused_with_why() {
+    // a guide of zero length draws no shape: the silicon film all etched away, nothing a mask
+    // carries. The library's round trip refuses its four such designs, and only them
+    // (fabrication/round-trip-library)
+    let soi = crate::stack::LayerStack::soi(Length::nm(220.0), Length::um(2.0)).unwrap();
+    let empty = crate::stack::Structure::new(soi);
+    let e = generate(&Physical::of(empty), &Choices::default())
+        .unwrap_err()
+        .to_string();
+    assert!(super::rule_checks::nothing_to_make(&e), "{e}");
+    assert!(!super::rule_checks::nothing_to_make(
+        "the design has no single-crystal film"
+    ));
+}
+
+#[test]
 fn the_stand_ins_are_the_physical_films() {
     let all = designs();
     let tfln = all[1].0.as_ref();
