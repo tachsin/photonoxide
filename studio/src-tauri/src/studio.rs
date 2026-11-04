@@ -94,7 +94,6 @@ pub fn show(dir: Option<&Path>, live: Option<Live>) -> Result<(), String> {
             crate::papers::papers_feed,
             crate::papers::papers_refresh,
             crate::papers::paper_open,
-            crate::papers::paper_id,
             crate::papers::papers_search,
             crate::papers::reading_list,
             crate::papers::reading_list_save,

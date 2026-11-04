@@ -1090,12 +1090,6 @@ pub async fn paper_open(
     blocking(move || p.open(&id, now())).await?
 }
 
-/// What `text` names as a paper, `doi:...` or `arxiv:...`; null when it names none.
-#[tauri::command]
-pub fn paper_id(text: String) -> Option<String> {
-    parse::read_id(&text)
-}
-
 /// Searches the cached papers and the reading list.
 #[tauri::command]
 pub async fn papers_search(
