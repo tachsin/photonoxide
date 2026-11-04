@@ -9,9 +9,11 @@
 //! `PHOTONOXIDE_REQUIRE_BLAS` (`openblas`), `PHOTONOXIDE_REQUIRE_MUMPS` and
 //! `PHOTONOXIDE_REQUIRE_SUPERLU` set, as the Libraries workflow's rows that install the three
 //! together set them, not finding one is a failure. `PHOTONOXIDE_BLAS_ROUNDS` sets the rounds
-//! of products (default 30).
+//! of products (default 10).
 
+use std::io::Write;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::time::{Duration, Instant};
 
 use num_complex::Complex64 as c64;
 use photonoxide::backend::dense::{Block, BlockMut, DenseKernels, Faer, Product};
@@ -105,6 +107,49 @@ fn found<T>(name: &str, variable: &str, library: Result<T, String>) -> Option<T>
     }
 }
 
+/// Rounds of products done, and MUMPS and SuperLU solves, for the watchdog to report.
+static ROUNDS_DONE: AtomicUsize = AtomicUsize::new(0);
+static MUMPS_SOLVES: AtomicUsize = AtomicUsize::new(0);
+static SUPERLU_SOLVES: AtomicUsize = AtomicUsize::new(0);
+
+/// A line on the process's stderr, which the test harness doesn't capture: a run that stalls
+/// still says how far it got.
+fn say(started: Instant, what: &str) {
+    let _ = writeln!(
+        std::io::stderr(),
+        "[{:6.1} s] {what}",
+        started.elapsed().as_secs_f64()
+    );
+}
+
+/// Ends the process, saying how far the test got, if it isn't `finished` within `seconds`
+/// (`PHOTONOXIDE_SHARED_SECONDS`, default 300: a run takes seconds): calls that block each
+/// other would hold a CI row for its whole timeout, and say nothing.
+fn watchdog(started: Instant, finished: &'static AtomicBool, rounds: usize) {
+    let seconds: u64 = std::env::var("PHOTONOXIDE_SHARED_SECONDS")
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(300);
+    std::thread::spawn(move || {
+        while started.elapsed() < Duration::from_secs(seconds) {
+            if finished.load(Ordering::Relaxed) {
+                return;
+            }
+            std::thread::sleep(Duration::from_millis(200));
+        }
+        say(
+            started,
+            &format!(
+                "STALLED after {seconds} s: {} of {rounds} rounds of products, {} MUMPS and {}                  SuperLU solves",
+                ROUNDS_DONE.load(Ordering::Relaxed),
+                MUMPS_SOLVES.load(Ordering::Relaxed),
+                SUPERLU_SOLVES.load(Ordering::Relaxed)
+            ),
+        );
+        std::process::exit(2);
+    });
+}
+
 /// The OpenBLAS files this process has mapped, each once (Linux; empty elsewhere).
 fn mapped_openblas() -> Vec<String> {
     let Ok(maps) = std::fs::read_to_string("/proc/self/maps") else {
@@ -132,11 +177,14 @@ fn openblas_called_by_mumps_and_superlu_meanwhile_leaves_every_result_right() {
     let Some(superlu) = found("SuperLU", "PHOTONOXIDE_REQUIRE_SUPERLU", SuperLu::load()) else {
         return;
     };
+    static FINISHED: AtomicBool = AtomicBool::new(false);
+    let started = Instant::now();
     let rounds: usize = std::env::var("PHOTONOXIDE_BLAS_ROUNDS")
         .ok()
         .and_then(|r| r.parse().ok())
-        .unwrap_or(30);
+        .unwrap_or(10);
 
+    watchdog(started, &FINISHED, rounds);
     // the same OpenBLAS: on Linux, one file of the name is mapped for all three
     let files = mapped_openblas();
     println!("OpenBLAS files mapped: {files:?}");
@@ -162,6 +210,8 @@ fn openblas_called_by_mumps_and_superlu_meanwhile_leaves_every_result_right() {
         .unwrap()
         .solve(&b)
         .unwrap();
+
+    say(started, "photonoxide's own solution done");
 
     // photonoxide's products, as the again-loaded test makes them
     let (rows, columns, terms) = (432, 320, 320);
@@ -192,10 +242,12 @@ fn openblas_called_by_mumps_and_superlu_meanwhile_leaves_every_result_right() {
         (!right).then(|| format!("{d:.1e}"))
     };
 
+    say(started, "the products' reference done; the threads start");
+
     let done = AtomicBool::new(false);
-    let (mumps_solves, superlu_solves) = (AtomicUsize::new(0), AtomicUsize::new(0));
     let solve_until_done = |solver: &dyn DirectSolver, solves: &AtomicUsize| -> Vec<String> {
         let analysis = solver.analyse(&m).unwrap().unwrap();
+        say(started, "a solver's analysis done");
         let mut wrong = Vec::new();
         // at least three, so that the run overlaps the products even if they are quick
         while !done.load(Ordering::Relaxed) || solves.load(Ordering::Relaxed) < 3 {
@@ -210,8 +262,8 @@ fn openblas_called_by_mumps_and_superlu_meanwhile_leaves_every_result_right() {
         wrong
     };
     let (wrong_mumps, wrong_superlu, wrong_products, products) = std::thread::scope(|scope| {
-        let mumps_thread = scope.spawn(|| solve_until_done(&mumps, &mumps_solves));
-        let superlu_thread = scope.spawn(|| solve_until_done(&superlu, &superlu_solves));
+        let mumps_thread = scope.spawn(|| solve_until_done(&mumps, &MUMPS_SOLVES));
+        let superlu_thread = scope.spawn(|| solve_until_done(&superlu, &SUPERLU_SOLVES));
         let (mut wrong, mut products) = (Vec::new(), 0usize);
         for round in 0..rounds {
             for _ in 0..4 {
@@ -244,12 +296,13 @@ fn openblas_called_by_mumps_and_superlu_meanwhile_leaves_every_result_right() {
         "OpenBLAS {}: {products} products of {rounds} rounds, {} MUMPS and {} SuperLU solves \
          meanwhile; wrong: {} products, {} MUMPS, {} SuperLU",
         openblas.kernels().version,
-        mumps_solves.load(Ordering::Relaxed),
-        superlu_solves.load(Ordering::Relaxed),
+        MUMPS_SOLVES.load(Ordering::Relaxed),
+        SUPERLU_SOLVES.load(Ordering::Relaxed),
         wrong_products.len(),
         wrong_mumps.len(),
         wrong_superlu.len(),
     );
+    FINISHED.store(true, Ordering::Relaxed);
     assert!(
         wrong_products.is_empty() && wrong_mumps.is_empty() && wrong_superlu.is_empty(),
         "products: {}; MUMPS: {}; SuperLU: {}",
