@@ -110,7 +110,7 @@ Each methods page, lesson, example, job, document and source file that cites a s
 - [`optimize_ring_pareto.rs`](../examples/optimize_ring_pareto.rs): [Bogaerts et al. 2011](references.md#bogaerts-et-al-2011)
 - [`optimize_ybranch.rs`](../examples/optimize_ybranch.rs): [Lalau-Keraly et al. 2013](references.md#lalau-keraly-et-al-2013), [Zhang et al. 2013](references.md#zhang-et-al-2013)
 - [`pairs_zhao.rs`](../examples/pairs_zhao.rs): [Zhao et al. 2020](references.md#zhao-et-al-2020)
-- [`pcm_delaney.rs`](../examples/pcm_delaney.rs): [Delaney et al. 2020a](references.md#delaney-et-al-2020a)
+- [`pcm_delaney.rs`](../examples/pcm_delaney.rs): [Delaney et al. 2020a](references.md#delaney-et-al-2020a), [Delaney et al. 2021](references.md#delaney-et-al-2021)
 - [`pdk/mod.rs`](../examples/pdk/mod.rs): [Liu and Poon 2025](references.md#liu-and-poon-2025)
 - [`pml_oskooi.rs`](../examples/pml_oskooi.rs): [Oskooi et al. 2010](references.md#oskooi-et-al-2010)
 - [`ppln_wang.rs`](../examples/ppln_wang.rs): [Wang et al. 2018c](references.md#wang-et-al-2018c)

@@ -142,10 +142,27 @@
 //! by are also our search's, with its 11 grooves for the paper's 13. That 49.26 % is above the
 //! data file's own 47.36 % because our bandwidths are wider: the same front, moved to the right.
 //!
+//! **The bandwidths' gap, candidate by candidate** (2026-11-04, the ten designs on 20 × 10 nm with
+//! the waist at FID, where they are 0.9 to 4.7 % wider than the data file's, within 1.1 nm of
+//! 10 × 5 nm). The spectra's sampling: 61 wavelengths in place of 31 give every 4 µm bandwidth to
+//! the same 0.1 nm, so the spline isn't it. The definition: the paper's 1 dB from the maximum CE
+//! (p. 4) is ours. The indices: the paper's, constant, as here (Fig. 1's caption). The beam's
+//! profile: the paper's source is a broadband pulse from a tilted Gaussian beam in Lumerical FDTD
+//! (supplement, Sec. I), and a source whose profile is computed at the centre wavelength only keeps
+//! the wavevector along the film it has there, so its angle changes with the wavelength and the
+//! phase matching with it. `--beams` solves the designs with that beam too: the bandwidths fall by
+//! 4.2 to 5.0 % (4 µm), to 0.0, 0.3, 0.7, 1.7, 1.0 and 2.9 % below the data file's (56, 52, 49,
+//! 48, 45, 35), and by 5.7 to 8.4 % (6 µm), to 3.0 to 5.4 % below (58, 42, 39, 37), the
+//! efficiencies within 0.6 points of the other beam's. That is the gap's size but not its pattern:
+//! at 6 µm it overshoots, so the source's profile alone isn't the cause, and the supplement doesn't
+//! say how its source was computed. Still to try: where FIO is measured, the grooves' positions as
+//! their starts, and the FDTD monitor in the guide in place of the projection on the fibre's mode.
+//!
 //! ```sh
 //! cargo run --release --example optimize_grating_pareto                  # the recorded designs
 //! cargo run --release --example optimize_grating_pareto -- --full        # the searches
 //! cargo run --release --example optimize_grating_pareto -- --supplement  # the paper's designs
+//! cargo run --release --example optimize_grating_pareto -- --beams       # the two beams, 20 x 10 nm
 //! ```
 
 mod common;
@@ -204,7 +221,8 @@ const TOLERANCE: f64 = 3.0;
 
 /// One of Fig. 6's fronts: the table's mode field diameter, BOX, fibre offset and etch, µm,
 /// with the paper's efficiency at 100 nm (p. 4), the number of grooves, the farthest the
-/// grating reaches from x = 0, µm, and the height of the beam's waist above the film, µm.
+/// grating reaches from x = 0, µm, the height of the beam's waist above the film, µm, and whether
+/// the beam's profile is computed at 1.55 µm only (`--beams`).
 #[derive(Clone, Copy)]
 struct Setup {
     mfd: f64,
@@ -215,6 +233,7 @@ struct Setup {
     grooves: usize,
     reach: f64,
     waist: f64,
+    profile_at_centre: bool,
 }
 
 /// The farthest a search's grating of `n` grooves can reach, µm.
@@ -232,6 +251,7 @@ const SETUPS: [Setup; 2] = [
         grooves: 8,
         reach: reach(8),
         waist: 0.0,
+        profile_at_centre: false,
     },
     Setup {
         mfd: 6.0,
@@ -242,6 +262,7 @@ const SETUPS: [Setup; 2] = [
         grooves: 11,
         reach: reach(11),
         waist: 0.0,
+        profile_at_centre: false,
     },
 ];
 
@@ -479,6 +500,7 @@ impl Front {
             grooves: self.structures[0].grooves.len(),
             reach,
             waist,
+            profile_at_centre: false,
         }
     }
 
@@ -873,6 +895,10 @@ impl Model {
                 (q, math::exp(-q * q * w0 * w0 / 4.0), (k * k - q * q).sqrt())
             })
             .collect();
+        // the profile at the waist's height computed at CENTRE: each plane wave keeps its
+        // wavevector along the film, kx, and takes its own across it at this wavelength
+        let kc = 2.0 * PI / CENTRE * N_OX;
+        let at_centre = self.setup.profile_at_centre;
         let row = |j: usize| -> Vec<c64> {
             let y = g.y(j) - self.setup.waist;
             (0..g.nx)
@@ -881,7 +907,16 @@ impl Model {
                     let (along, across) = (x * st + y * ct, x * ct - y * st);
                     waves
                         .iter()
-                        .map(|&(q, a, kz)| a * cis(q * across + kz * along))
+                        .map(|&(q, a, kz)| {
+                            if at_centre {
+                                let kz0 = (kc * kc - q * q).sqrt();
+                                let kx = q * ct + kz0 * st;
+                                let ky = (k * k - kx * kx).max(0.0).sqrt();
+                                a * cis(kx * x + ky * y)
+                            } else {
+                                a * cis(q * across + kz * along)
+                            }
+                        })
                         .sum()
                 })
                 .collect()
@@ -1544,6 +1579,54 @@ fn supplement(checks: &mut common::Checks) -> photonoxide::Result<()> {
     Ok(())
 }
 
+/// `--beams`: every design of [`FRONTS`] on the searches' grid with the waist at FID, its beam at
+/// each wavelength its own and with its profile computed at 1.55 µm only (as a broadband source
+/// computed at its centre injects it): the efficiency and the 1-dB bandwidth of each against the
+/// data file's. Reported, not checked.
+fn beams() -> photonoxide::Result<()> {
+    println!(
+        "\nThe paper's own designs on {:.0} × {:.0} nm, the waist at FID: the beam computed at each wavelength, and its profile computed at {CENTRE} µm only (CE %, 1-dB bandwidth nm, the bandwidth's difference from the data file's)",
+        1000.0 * STEP.0,
+        1000.0 * STEP.1
+    );
+    let started = Instant::now();
+    for front in &FRONTS {
+        header(front);
+        let structures: Vec<&Structure> = front.structures.iter().collect();
+        let mut rows = Vec::with_capacity(2);
+        for at_centre in [false, true] {
+            let mut setup = front.setup(front.fid);
+            setup.profile_at_centre = at_centre;
+            rows.push(structure_bands(&Model::new(setup, STEP)?, &structures));
+            eprintln!(
+                "MFD {} um, --beams: {} of 2 beams, {} in",
+                front.mfd,
+                usize::from(at_centre) + 1,
+                minutes(started.elapsed().as_secs_f64())
+            );
+        }
+        for (k, s) in structures.iter().enumerate() {
+            let cell = |b: &Band| {
+                format!(
+                    "{:.2} % at {:.1} nm ({:+.1} %)",
+                    100.0 * b.peak,
+                    b.width_nm(),
+                    100.0 * (held(b.width_nm(), 1) - s.bandwidth) / s.bandwidth
+                )
+            };
+            println!(
+                "  structure {}: paper {} % at {} nm; each wavelength's beam {}; the profile at {CENTRE} µm {}",
+                s.number,
+                s.ce,
+                s.bandwidth,
+                cell(&rows[0][k]),
+                cell(&rows[1][k])
+            );
+        }
+    }
+    Ok(())
+}
+
 fn full(checks: &mut common::Checks) -> photonoxide::Result<()> {
     let path =
         std::env::var("GRATING_LOG").unwrap_or_else(|_| "optimize_grating_pareto.log".into());
@@ -1730,6 +1813,10 @@ pub fn main() -> photonoxide::Result<ExitCode> {
         "Passoni et al. 2017's apodized grating couplers (Fig. 6): 220 nm SOI, n = 3.47 and 1.44, TE, a 10° fibre; 2D FDFD (labelled 2D), the efficiency by reciprocity, the 1-dB band from {FRONT_WAVELENGTHS} wavelengths, {} to {} µm",
         WINDOW.0, WINDOW.1
     );
+    if std::env::args().any(|a| a == "--beams") {
+        beams()?;
+        return Ok(ExitCode::SUCCESS);
+    }
     if std::env::args().any(|a| a == "--supplement") {
         supplement(&mut checks)?;
         return Ok(checks.finish());

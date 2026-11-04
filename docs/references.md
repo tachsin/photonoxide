@@ -2,7 +2,7 @@
 
 <!-- Written by `photonoxide references --write` (or `just references`) from docs/references.yaml and the citations in the repository: edit those, not this page. -->
 
-Every paper, book and data set photonoxide cites, with every place in the repository that cites it, by file and line. 555 sources, 551 with a DOI and 4 without, are cited at 2865 places in 373 files. The sources are listed by their first author; [references-by-file.md](references-by-file.md) lists each methods page, lesson, example and source file with the sources it cites, and the [validation report](validation.md) gives each case's source on its row. How to cite a source is in [CONTRIBUTING.md](../CONTRIBUTING.md#citing-a-source); the list of sources is [references.yaml](references.yaml).
+Every paper, book and data set photonoxide cites, with every place in the repository that cites it, by file and line. 555 sources, 551 with a DOI and 4 without, are cited at 2866 places in 373 files. The sources are listed by their first author; [references-by-file.md](references-by-file.md) lists each methods page, lesson, example and source file with the sources it cites, and the [validation report](validation.md) gives each case's source on its row. How to cite a source is in [CONTRIBUTING.md](../CONTRIBUTING.md#citing-a-source); the list of sources is [references.yaml](references.yaml).
 
 [A](#a) · [B](#b) · [C](#c) · [D](#d) · [E](#e) · [F](#f) · [G](#g) · [H](#h) · [I](#i) · [J](#j) · [K](#k) · [L](#l) · [M](#m) · [N](#n) · [O](#o) · [P](#p) · [Q](#q) · [R](#r) · [S](#s) · [T](#t) · [U](#u) · [V](#v) · [W](#w) · [X](#x) · [Y](#y) · [Z](#z)
 
@@ -20,7 +20,7 @@ S. Aaronson, A. Arkhipov, "The Computational Complexity of Linear Optics", Theor
 
 J. Abate, P. P. Valkó, "Multi‐precision Laplace transform inversion", Numerical Meth Engineering 60, 979 (2004). [doi:10.1002/nme.995](https://doi.org/10.1002/nme.995)
 
-- Methods pages: [devices.md:42](methods/devices.md?plain=1#L42), [971](methods/devices.md?plain=1#L971)
+- Methods pages: [devices.md:42](methods/devices.md?plain=1#L42), [979](methods/devices.md?plain=1#L979)
 - Validation cases: [`device/thermo-analytic-time-in-guide`](validation.md?plain=1#L653)
 - Code: [src/cases/device/thermo_checks.rs:489](../src/cases/device/thermo_checks.rs#L489), [src/device/thermo.rs:785](../src/device/thermo.rs#L785), [src/device/thermo_closed.rs:522](../src/device/thermo_closed.rs#L522)
 
@@ -879,6 +879,7 @@ M. Delaney, I. Zeimpekis, H. Du, X. Yan, M. Banakar, D. J. Thomson, D. W. Hewak,
 
 - Methods pages: [fabrication.md:46](methods/fabrication.md?plain=1#L46)
 - Validation cases: [`fabrication/pcm-reported-flows`](validation.md?plain=1#L760)
+- Examples: [pcm_delaney.rs:25](../examples/pcm_delaney.rs#L25)
 - Code: [src/fabrication/platform_checks.rs:749](../src/fabrication/platform_checks.rs#L749), [src/fabrication/references.rs:232](../src/fabrication/references.rs#L232), [234](../src/fabrication/references.rs#L234)
 - Other documents: [docs/plans/fabrication.md:660](plans/fabrication.md?plain=1#L660)
 
@@ -2510,7 +2511,7 @@ G. Masetti, M. Severi, S. Solmi, "Modeling of carrier mobility against carrier c
 
 M. D. McKay, R. J. Beckman, W. J. Conover, "Comparison of Three Methods for Selecting Values of Input Variables in the Analysis of Output from a Computer Code", Technometrics 21, 239 (1979). [doi:10.1080/00401706.1979.10489755](https://doi.org/10.1080/00401706.1979.10489755)
 
-- Methods pages: [compact.md:332](methods/compact.md?plain=1#L332), [devices.md:1520](methods/devices.md?plain=1#L1520)
+- Methods pages: [compact.md:332](methods/compact.md?plain=1#L332), [devices.md:1528](methods/devices.md?plain=1#L1528)
 - Code: [src/device/compact.rs:54](../src/device/compact.rs#L54)
 
 #### McKinnon et al. 2009
@@ -3621,7 +3622,7 @@ P. Triverio, S. Grivet-Talocia, M. Nakhla, "A Parameterized Macromodeling Strate
 
 W. Tsai, M. Delfino, J. A. Fair, D. Hodul, "Temperature dependence of the electrical resistivity of reactively sputtered TiN films", Journal of Applied Physics 73, 4462 (1993). [doi:10.1063/1.352785](https://doi.org/10.1063/1.352785)
 
-- Methods pages: [catalogue.md:100](methods/catalogue.md?plain=1#L100), [devices.md:881](methods/devices.md?plain=1#L881)
+- Methods pages: [catalogue.md:100](methods/catalogue.md?plain=1#L100), [devices.md:889](methods/devices.md?plain=1#L889)
 - Validation cases: [`material/tin-tsai-eq-3`](validation.md?plain=1#L40), [`device/thermo-tin-resistance`](validation.md?plain=1#L659)
 - Code: [src/cases/device/thermo_checks.rs:531](../src/cases/device/thermo_checks.rs#L531), [src/material/catalogue/references.rs:424](../src/material/catalogue/references.rs#L424), [src/material/catalogue/resistivity.rs:7](../src/material/catalogue/resistivity.rs#L7), [135](../src/material/catalogue/resistivity.rs#L135), [src/validation.rs:305](../src/validation.rs#L305)
 

@@ -14,12 +14,32 @@
 //! the 2D full-vector solve, with the 2D model's cells gated against cells half the size. What the
 //! paper does compare is its figure of merit's formula, from its own numbers. Its Δn_eff is not
 //! compared: the paper and its supplement give neither the rib's etch depth, the patch's extent
-//! over the slab nor the polarization, and the device draws the film on the guide's top only. Nor
-//! are its losses, which are the cells' measured ones, far above the absorption of the fits (k
-//! below 1e-4 for Sb2Se3, none for Sb2S3); GST's 0.282 rad/dB is quoted there from another group's
-//! guide. The checks here are the figure of merit's formula against the paper's two numbers (the
-//! 5 % their rounding leaves), the 2D grid's gate (2 %) and the analytic model's stated 15 %
-//! against the 2D one.
+//! over the slab nor the polarization. Nor are its losses, which are the cells' measured ones, far
+//! above the absorption of the fits (k below 1e-4 for Sb2Se3, none for Sb2S3); GST's 0.282 rad/dB
+//! is quoted there from another group's guide. The checks here are the figure of merit's formula
+//! against the paper's two numbers (the 5 % their rounding leaves), the 2D grid's gate (2 %) and
+//! the analytic model's stated 15 % against the 2D one.
+//!
+//! **Why the Δn_eff isn't reproduced** (2D, TE unless said; Sb2Se3, Sb2S3; the paper's 0.0717
+//! and 0.0356, a ratio of 2.01). The same group's later paper (M. Delaney et al., Sci. Adv. 7,
+//! eabg3500 (2021), [doi:10.1126/sciadv.abg3500](https://doi.org/10.1126/sciadv.abg3500), p. 2
+//! and Materials and Methods) gives the platform: a 500 nm rib in 220 nm SOI etched 120 nm (a
+//! 100 nm slab), the indices 3.285 and 4.050 (the catalogue's, as the 2020 paper's Table 1), and
+//! quotes the same Δn_eff, 0.072, from the 2020 paper. Each candidate, one at a time: the strip
+//! here 0.0568, 0.0318 (ratio 1.79); that rib, the film on its top, 0.0430, 0.0235 (1.83); a
+//! 150 nm slab 0.0353, 0.0190; the TM-like mode on the strip 0.0817, 0.0561 (1.46) (the rib
+//! guides none); a film following the strip's walls, 25 nm, 0.0823, 0.0515 (1.60); on the rib,
+//! the film on the walls and over the slab 0.0743, 0.0459 (1.62), over the slab only 0.0613,
+//! 0.0371, on the walls only 0.0587, 0.0346; widths of 0.45 to 2 µm move them by under 0.005; a
+//! 30 nm film 0.0690, 0.0378 (1.83); the change of the group index in place of the effective
+//! index, 0.0452, 0.0021. No geometry gives both: the ratio is set by the indices, which are the
+//! paper's, and stays between 1.46 and 1.86. Their mode overlaps (supplement Table S1, amorphous
+//! and crystalline, against the silica-capped guide: Sb2S3 0.995, 0.987; Sb2Se3 0.978, 0.968; the
+//! main text's crystalline 0.989, 0.972) are nearest the rib with the film on its top (0.991,
+//! 0.979; 0.980, 0.948) and further from every other candidate (crystalline 0.87 to 0.97; the
+//! overlap |∫ E₁·E₂* dA|² / (∫ |E₁|² dA ∫ |E₂|² dA), the supplement's Sec. S3): their crystalline
+//! films barely move the mode where their Δn_eff is the larger. What would settle it is the
+//! simulation itself (its solver, indices and drawing), which neither paper gives.
 //!
 //! ```sh
 //! cargo run --release --example pcm_delaney
