@@ -1,0 +1,33 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<feed xmlns:opensearch="http://a9.com/-/spec/opensearch/1.1/" xmlns:arxiv="http://arxiv.org/schemas/atom" xmlns="http://www.w3.org/2005/Atom">
+  <id>https://arxiv.org/api/hJfTQA4TE07E9o4b7VF6VWBfWzY</id>
+  <title>arXiv Query: search_query=&amp;id_list=2305.01234&amp;start=0&amp;max_results=10</title>
+  <updated>2026-11-04T19:13:33Z</updated>
+  <link href="https://arxiv.org/api/query?search_query=&amp;start=0&amp;max_results=10&amp;id_list=2305.01234" type="application/atom+xml"/>
+  <opensearch:itemsPerPage>10</opensearch:itemsPerPage>
+  <opensearch:totalResults>1</opensearch:totalResults>
+  <opensearch:startIndex>0</opensearch:startIndex>
+  <entry>
+    <id>http://arxiv.org/abs/2305.01234v2</id>
+    <title>Generalized chiral instabilities, linking numbers, and non-invertible symmetries</title>
+    <updated>2023-07-12T06:58:29Z</updated>
+    <link href="https://arxiv.org/abs/2305.01234v2" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/2305.01234v2" rel="related" type="application/pdf" title="pdf"/>
+    <summary>We demonstrate a universal mechanism of a class of instabilities in infrared regions for massless Abelian $p$-form gauge theories with topological interactions, which we call generalized chiral instabilities. Such instabilities occur in the presence of initial electric fields for the $p$-form gauge fields. We show that the dynamically generated magnetic fields tend to decrease the initial electric fields and result in configurations with linking numbers, which can be characterized by non-invertible global symmetries. The so-called chiral plasma instability and instabilities of the axion electrodynamics and $(4+1)$-dimensional Maxwell-Chern-Simons theory in electric fields can be described by the generalized chiral instabilities in a unified manner. We also illustrate this mechanism in the $(2+1)$-dimensional Goldstone-Maxwell model in electric field.</summary>
+    <category term="hep-th" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cond-mat.mes-hall" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="hep-ph" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2023-05-02T07:18:51Z</published>
+    <arxiv:comment>38 pages, 9 figures; v2: references added, minor corrections, published version</arxiv:comment>
+    <arxiv:primary_category term="hep-th"/>
+    <arxiv:journal_ref>JHEP 07 (2023) 045</arxiv:journal_ref>
+    <author>
+      <name>Naoki Yamamoto</name>
+    </author>
+    <author>
+      <name>Ryo Yokokura</name>
+    </author>
+    <arxiv:doi>10.1007/JHEP07(2023)045</arxiv:doi>
+    <link rel="related" href="https://doi.org/10.1007/JHEP07(2023)045" title="doi"/>
+  </entry>
+</feed>

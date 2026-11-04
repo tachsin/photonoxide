@@ -37,16 +37,22 @@ pub const PAGE: &str = "docs/references.md";
 /// Each citing file with the sources it cites, written with [`PAGE`].
 pub const INDEX: &str = "docs/references-by-file.md";
 
-/// Files the scan skips: the index itself, and this generator, whose tests hold sample citations.
+/// Files the scan skips: the index itself, and this generator, whose tests hold sample citations;
+/// and the paper engine's tests (Rust and the window's), whose DOIs are samples of what a user
+/// pastes, not sources.
 const SKIP: &[&str] = &[
     DATA,
     PAGE,
     INDEX,
     "studio/src-tauri/src/references.rs",
     ".github/scripts/references.rs",
+    "studio/src-tauri/src/papers/tests.rs",
+    "studio/tests/papers.test.ts",
+    "studio/tests/topics.test.ts",
 ];
-/// Folders the scan skips: the examples' printed output, which repeats their sources.
-const SKIP_DIRS: &[&str] = &["examples/output/"];
+/// Folders the scan skips: the examples' printed output, which repeats their sources; and the
+/// paper engine's recorded answers, the journals' newest papers on the day they were recorded.
+const SKIP_DIRS: &[&str] = &["examples/output/", "studio/src-tauri/src/papers/recorded/"];
 
 /// What the Crossref requests say they are; no address of a person.
 const AGENT: &str = "photonoxide-references/1 (+https://github.com/tachsin/photonoxide)";

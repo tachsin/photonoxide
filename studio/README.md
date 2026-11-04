@@ -40,8 +40,8 @@ only on a network you trust. See [docs/farming.md](../docs/farming.md).
 
 ## The studio
 
-The rail on the left holds six pages, the places where work happens: **Home**,
-**Components**, **Chip**, **Fabrication**, **Academy** and **Materials**. At its foot, the **System** group
+The rail on the left holds seven pages, the places where work happens: **Home**,
+**Components**, **Chip**, **Fabrication**, **Academy**, **Materials** and **Papers**. At its foot, the **System** group
 (Validation, Libraries and Benchmarks) folds away beside **Settings**; it opens by itself when one
 of its pages is shown. Under **Components**, **Chip**, **Academy** and **Materials**, while that page is
 shown, its list opens in the rail, in a card of its own: the components, the parts and circuits,
@@ -53,16 +53,51 @@ on the rail, because it is reached from what it shows: the **run view** (a run, 
 `photonoxide run` and `photonoxide view`); the top bar's arrow leads back from it. **Runs** live
 in a drawer opened from the status bar.
 
-- **Home:** pick up where you left off, or start something.
-  - **New device**, **New chip**, **New job** and **Open a run…** in a row at the top.
-  - **Continue**, the run open; **Recent work**, your designs, chips and jobs, newest first, each
-    opening where it belongs; and **Recent runs**.
-  - **Start from a template:** the simulations of `jobs/`, built in, one a row, filtered by kind.
-    **Run** plays it live in the run view; **Open** takes it to its device's page, the Chip or
-    the Custom device, to change it; **Fabricate**, beside each template that draws a design (a
-    `[device]` or a structure task), shows how it is made on the Fabrication page.
-  - At its foot, how many validation cases pass and published results are reproduced, the
-    version, and what changed in it.
+- **Home:** the studio's front door.
+  - **A hero:** what the studio is, three ways in (**Open a component**, **Start a simulation**:
+    a new modes, FDFD, FDTD or structure job; **Open an example**), **New chip** and **Open a
+    run…**, and the live status: the version, an update when one is out, how many validation cases
+    pass and how many published results are reproduced.
+  - **Continue**, the run open.
+  - **Modules:** Components, Chip, Fabrication, Academy, Materials and Validation as cards, each
+    with a small picture and a line on what it is.
+  - **Examples:** every built-in job of `jobs/` and every published result of `examples/` in an
+    accordion of seven topics (modes, FDFD, FDTD, circuits, nonlinear, fabrication,
+    optimization). **Run** plays a job live in the run view; **Open** takes it to its device's
+    page, the Chip or the Custom device, to change it; **Fabricate**, beside each job that draws a
+    design, shows how it is made on the Fabrication page; a job that reproduces a paper names it.
+    A published result opens its paper's page (**Paper**) or its numbers on Validation (**Show**).
+    The headers are buttons: Up and Down move between them, Home and End to the first and last.
+  - **Recent:** your designs, chips and jobs, or your runs, as a strip of cards, newest first.
+  - Beside them, **Latest papers** (the feed, below), your **reading list**, and **What's new**
+    in the latest release, with the whole changelog a click away.
+- **Papers:** the newest papers of sixteen photonics journals and arXiv, and any paper read
+  inside the studio.
+  - **The feed:** each journal's newest papers by its ISSN through Crossref (Nature Photonics,
+    Optica, Light: Science & Applications, Laser & Photonics Reviews, ACS Photonics, Photonics
+    Research, APL Photonics, Optics Express, Optics Letters, Journal of Lightwave Technology; and
+    Nature, Science, Nature Communications, Physical Review Applied, Physical Review Letters and
+    Applied Physics Letters asked for their optics papers and kept to those that name a photonics
+    word), and arXiv's newest in physics.optics. The list is a data file,
+    `studio/src-tauri/src/papers/journals.json`. Filtered by topic: integrated photonics,
+    nonlinear, quantum, metasurfaces, lasers, modulators and fabrication, a paper in each topic
+    whose title or abstract holds one of its words (`TOPICS` in `studio/src-tauri/src/papers.rs`).
+  - **When it checks:** as soon as photonoxide opens and every four hours while it stays open
+    (half an hour after a check that failed), one request to each source, never while it is
+    closed; Settings › Papers turns it off and says when it last checked. The requests carry the
+    program's name, version and repository and nothing about you. Each answer is kept in the
+    studio's local data folder, so Home shows the last papers at once, and offline. A check runs
+    silently; after three failed checks in a row the feed says so in one line.
+  - **A paper's page:** its title, authors, journal, date and DOI; the abstract (Crossref's,
+    arXiv's for a preprint, else OpenAlex's); keywords; its free full text or arXiv PDF, opened in
+    the browser; where photonoxide cites it (methods pages, lessons, examples, jobs and
+    validation cases, from `docs/references.md`); the references it cites, each opening its own
+    page; and how many works cite it, the newest listed. A paper opened once opens again
+    offline.
+  - **Search** over the papers kept (the feed, the reading list and every paper opened); a DOI or
+    an arXiv id typed or pasted there, or in Ctrl+K, opens its page.
+  - **The reading list:** a star keeps a paper, with a note, in the workspace's
+    `papers/reading-list.json`, never uploaded; exported as BibTeX or CSV.
 - **What is running**, at the rail's foot: a ring that fills with the followed run's progress
   (its sweep's points, an FDTD run's time, a study's points, an optimization's evaluations), or
   spins where it can't say. A click shows each thing going (the run, with Open and Stop; a

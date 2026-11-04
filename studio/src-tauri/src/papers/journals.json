@@ -1,0 +1,21 @@
+{
+  "about": "The journals Home's paper feed reads, newest first, by ISSN through Crossref (api.crossref.org/journals/<issn>/works). Every ISSN was checked against https://api.crossref.org/journals/<issn> on 2026-11-04. 'filter': a journal that publishes far beyond photonics, asked for its optics papers (Crossref's query.bibliographic) and kept to those whose title or abstract names a photonics word (papers.rs, PHOTONICS). Edit this file to change the feed; a test checks its shape.",
+  "journals": [
+    { "name": "Nature Photonics", "short": "Nat. Photon.", "publisher": "Springer Nature", "issn": ["1749-4885", "1749-4893"], "filter": false },
+    { "name": "Optica", "short": "Optica", "publisher": "Optica", "issn": ["2334-2536"], "filter": false },
+    { "name": "Light: Science & Applications", "short": "Light Sci. Appl.", "publisher": "Springer Nature", "issn": ["2047-7538"], "filter": false },
+    { "name": "Laser & Photonics Reviews", "short": "Laser Photonics Rev.", "publisher": "Wiley", "issn": ["1863-8880", "1863-8899"], "filter": false },
+    { "name": "ACS Photonics", "short": "ACS Photonics", "publisher": "ACS", "issn": ["2330-4022"], "filter": false },
+    { "name": "Photonics Research", "short": "Photon. Res.", "publisher": "Optica", "issn": ["2327-9125"], "filter": false },
+    { "name": "APL Photonics", "short": "APL Photon.", "publisher": "AIP", "issn": ["2378-0967"], "filter": false },
+    { "name": "Optics Express", "short": "Opt. Express", "publisher": "Optica", "issn": ["1094-4087"], "filter": false },
+    { "name": "Optics Letters", "short": "Opt. Lett.", "publisher": "Optica", "issn": ["0146-9592", "1539-4794"], "filter": false },
+    { "name": "Journal of Lightwave Technology", "short": "J. Lightw. Technol.", "publisher": "IEEE", "issn": ["0733-8724", "1558-2213"], "filter": false },
+    { "name": "Nature", "short": "Nature", "publisher": "Springer Nature", "issn": ["0028-0836", "1476-4687"], "filter": true },
+    { "name": "Science", "short": "Science", "publisher": "AAAS", "issn": ["0036-8075", "1095-9203"], "filter": true },
+    { "name": "Nature Communications", "short": "Nat. Commun.", "publisher": "Springer Nature", "issn": ["2041-1723"], "filter": true },
+    { "name": "Physical Review Applied", "short": "Phys. Rev. Appl.", "publisher": "APS", "issn": ["2331-7019"], "filter": true },
+    { "name": "Physical Review Letters", "short": "Phys. Rev. Lett.", "publisher": "APS", "issn": ["0031-9007", "1079-7114"], "filter": true },
+    { "name": "Applied Physics Letters", "short": "Appl. Phys. Lett.", "publisher": "AIP", "issn": ["0003-6951", "1077-3118"], "filter": true }
+  ]
+}

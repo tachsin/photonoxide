@@ -1,0 +1,302 @@
+{
+ "status": "ok",
+ "message-type": "work-list",
+ "message-version": "1.0.0",
+ "message": {
+  "facets": {},
+  "total-results": 68201,
+  "items": [
+   {
+    "DOI": "10.1364/oe.618807",
+    "title": [
+     "Cascaded design for microstructured optical diffusers using a Gaussian scattering-kernel model"
+    ],
+    "author": [
+     {
+      "given": "Wei",
+      "family": "Wang",
+      "sequence": "first",
+      "affiliation": [
+       {
+        "id": [
+         {
+          "id": "https://ror.org/00a2xv884",
+          "id-type": "ROR",
+          "asserted-by": "publisher"
+         }
+        ]
+       }
+      ],
+      "role": [
+       {
+        "vocabulary": "crossref",
+        "role": "author"
+       }
+      ]
+     },
+     {
+      "given": "Bin",
+      "family": "Qiao",
+      "sequence": "additional",
+      "affiliation": [
+       {
+        "id": [
+         {
+          "id": "https://ror.org/00a2xv884",
+          "id-type": "ROR",
+          "asserted-by": "publisher"
+         }
+        ]
+       }
+      ],
+      "role": [
+       {
+        "vocabulary": "crossref",
+        "role": "author"
+       }
+      ]
+     },
+     {
+      "given": "Leling",
+      "family": "Jin",
+      "sequence": "additional",
+      "affiliation": [
+       {
+        "id": [
+         {
+          "id": "https://ror.org/00a2xv884",
+          "id-type": "ROR",
+          "asserted-by": "publisher"
+         }
+        ]
+       }
+      ],
+      "role": [
+       {
+        "vocabulary": "crossref",
+        "role": "author"
+       }
+      ]
+     },
+     {
+      "given": "Jia",
+      "family": "Li",
+      "sequence": "additional",
+      "affiliation": [
+       {
+        "name": "Wuxi Zhongwei Mask Electronics Co., Ltd.,"
+       }
+      ],
+      "role": [
+       {
+        "vocabulary": "crossref",
+        "role": "author"
+       }
+      ]
+     }
+    ],
+    "container-title": [
+     "Optics Express"
+    ],
+    "published": {
+     "date-parts": [
+      [
+       2026,
+       11,
+       4
+      ]
+     ]
+    },
+    "abstract": "<jats:p>\n                    A cascaded design method for surface-relief diffusers composed of concave ellipsoidal microstructures is presented. In this method, area-weighted Gaussian scattering kernels for broad parameter screening are combined with ray tracing for local refinement. In Stage I, a continuous surface is generated for each candidate parameter set. Local surface normals within the effective region of each microstructure are used to calculate output ray angles according to Snell’s law. Their mean and covariance define a two-dimensional Gaussian scattering kernel, while the effective-region area determines its weight. The superposition of all kernels is used for broad parameter search. In Stage II, the selected parameter region is refined by ray tracing. For a nearly circular 30\n                    <jats:sup>∘</jats:sup>\n                    target, a final horizontal FWHM of 29.92\n                    <jats:sup>∘</jats:sup>\n                    is obtained. For an anisotropic 30\n                    <jats:sup>∘</jats:sup>\n                    /20\n                    <jats:sup>∘</jats:sup>\n                    target, the final principal FWHMs are 30.01\n                    <jats:sup>∘</jats:sup>\n                    and 20.05\n                    <jats:sup>∘</jats:sup>\n                    . The same optimized surfaces are further evaluated for spatial coherence and polarization, with DoLP values of 0.9980 and 0.9991, respectively.\n                  </jats:p>",
+    "type": "journal-article"
+   },
+   {
+    "DOI": "10.1364/oe.613133",
+    "title": [
+     "Gouy-phase-mediated propagation evolution of the second harmonic of composite vortex beams"
+    ],
+    "author": [
+     {
+      "given": "Xin",
+      "family": "Yan",
+      "sequence": "first",
+      "affiliation": [],
+      "role": [
+       {
+        "vocabulary": "crossref",
+        "role": "author"
+       }
+      ]
+     },
+     {
+      "given": "Shirui",
+      "family": "Zhang",
+      "sequence": "additional",
+      "affiliation": [],
+      "role": [
+       {
+        "vocabulary": "crossref",
+        "role": "author"
+       }
+      ]
+     },
+     {
+      "given": "Minghao",
+      "family": "Guo",
+      "sequence": "additional",
+      "affiliation": [],
+      "role": [
+       {
+        "vocabulary": "crossref",
+        "role": "author"
+       }
+      ]
+     },
+     {
+      "given": "Zixuan",
+      "family": "Zhao",
+      "sequence": "additional",
+      "affiliation": [],
+      "role": [
+       {
+        "vocabulary": "crossref",
+        "role": "author"
+       }
+      ]
+     }
+    ],
+    "container-title": [
+     "Optics Express"
+    ],
+    "published": {
+     "date-parts": [
+      [
+       2026,
+       11,
+       4
+      ]
+     ]
+    },
+    "type": "journal-article"
+   },
+   {
+    "DOI": "10.1364/oe.615560",
+    "title": [
+     "Active tuning of asymmetric transmission and circular dichroism in chiral metamaterial"
+    ],
+    "author": [
+     {
+      "given": "Mingjie",
+      "family": "Wang",
+      "sequence": "first",
+      "affiliation": [
+       {
+        "id": [
+         {
+          "id": "https://ror.org/03x80pn82",
+          "id-type": "ROR",
+          "asserted-by": "publisher"
+         }
+        ]
+       }
+      ],
+      "role": [
+       {
+        "vocabulary": "crossref",
+        "role": "author"
+       }
+      ]
+     },
+     {
+      "given": "Tingnuo",
+      "family": "Pan",
+      "sequence": "additional",
+      "affiliation": [
+       {
+        "id": [
+         {
+          "id": "https://ror.org/03x80pn82",
+          "id-type": "ROR",
+          "asserted-by": "publisher"
+         }
+        ]
+       }
+      ],
+      "role": [
+       {
+        "vocabulary": "crossref",
+        "role": "author"
+       }
+      ]
+     },
+     {
+      "given": "Guohua",
+      "family": "Dong",
+      "sequence": "additional",
+      "affiliation": [
+       {
+        "id": [
+         {
+          "id": "https://ror.org/03x80pn82",
+          "id-type": "ROR",
+          "asserted-by": "publisher"
+         }
+        ]
+       },
+       {
+        "name": "Jiangsu Ocean University"
+       }
+      ],
+      "role": [
+       {
+        "vocabulary": "crossref",
+        "role": "author"
+       }
+      ]
+     },
+     {
+      "given": "Wanying",
+      "family": "Liu",
+      "sequence": "additional",
+      "affiliation": [
+       {
+        "id": [
+         {
+          "id": "https://ror.org/03x80pn82",
+          "id-type": "ROR",
+          "asserted-by": "publisher"
+         }
+        ]
+       }
+      ],
+      "role": [
+       {
+        "vocabulary": "crossref",
+        "role": "author"
+       }
+      ]
+     }
+    ],
+    "container-title": [
+     "Optics Express"
+    ],
+    "published": {
+     "date-parts": [
+      [
+       2026,
+       11,
+       4
+      ]
+     ]
+    },
+    "abstract": "<jats:p>\n                    Tunable chiral metamaterials have received considerable attention due to their potential implementation in chemical, biological and medical applications. However, high-performance switching chiral functionalities are still inaccessible. Here, we numerically demonstrate pronounced switching effects of multiple chiroptical responses in Ge\n                    <jats:sub>2</jats:sub>\n                    Sb\n                    <jats:sub>2</jats:sub>\n                    Te\n                    <jats:sub>5</jats:sub>\n                    (GST)-based twisted chiral metamaterial on chalcogenide glass substrate. The amorphous-to-crystalline transition of the GST layer enables a large frequency shift up to 26% in linear asymmetric transmission (LAT), circular dichroism and circular asymmetric transmission (CAT). Nearly 100% modulation depths are achieved in all the above three chiral switching phenomena. The maximum LAT parameter of the amorphous GST metamaterial reaches 0.6 at resonance frequency. The switching effects can be engineered to work in a broad frequency range by changing structural parameters. Especially, the twist angle leads to a rapid alteration from zero to the highest value of CAT response. This work paves a way towards the realization of GST-enabled dynamic multiple polarization control in the optical region.\n                  </jats:p>",
+    "type": "journal-article"
+   }
+  ],
+  "items-per-page": 3,
+  "query": {
+   "start-index": 0,
+   "search-terms": null
+  }
+ }
+}

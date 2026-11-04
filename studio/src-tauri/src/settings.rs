@@ -40,6 +40,9 @@ pub struct Settings {
     /// The builds made here (a nightly, or a release built at its tag) are tuned to this CPU:
     /// its instruction sets and fat LTO, the fastest code, for this machine alone (#564).
     pub tuned_builds: bool,
+    /// Home's paper feed checks the journals and arXiv for new papers by itself, every four
+    /// hours while the window is open (`papers.rs`). A paper opened by hand loads either way.
+    pub paper_feed: bool,
 }
 
 impl Default for Settings {
@@ -55,6 +58,7 @@ impl Default for Settings {
             view: "3d".into(),
             length_unit: "um".into(),
             tuned_builds: false,
+            paper_feed: true,
         }
     }
 }
@@ -110,7 +114,7 @@ mod tests {
         std::fs::write(&file, r#"{"theme":"dark","from_the_future":1}"#).unwrap();
         let old = Settings::load(&file);
         assert_eq!(old.theme, "dark");
-        assert!(old.check_updates && old.hints);
+        assert!(old.check_updates && old.hints && old.paper_feed);
         std::fs::write(&file, r#"{"theme":"nord"}"#).unwrap();
         assert_eq!(Settings::load(&file).theme, "nord");
         let _ = std::fs::remove_dir_all(&dir);

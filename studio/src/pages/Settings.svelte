@@ -1,6 +1,6 @@
 <script lang="ts">
   // Settings: appearance, the workspace, tips, updates, and what this copy is.
-  import { Check, ChevronDown, Download, ExternalLink, FolderOpen, GitBranch, Hammer, Lightbulb, Monitor, Moon, RefreshCw, RotateCcw, Search, Sun, Trash2, Undo2 } from "@lucide/svelte";
+  import { Check, ChevronDown, Download, ExternalLink, FolderOpen, GitBranch, Hammer, Lightbulb, Monitor, Moon, Newspaper, RefreshCw, RotateCcw, Search, Sun, Trash2, Undo2 } from "@lucide/svelte";
   import { open } from "@tauri-apps/plugin-dialog";
   import { revealItemInDir } from "@tauri-apps/plugin-opener";
   import { openUrl } from "../lib/open";
@@ -11,6 +11,21 @@
   import { available, buildRelease, building, clearCache, commits, nightly, rollBack } from "../lib/nightly.svelte";
   import { describe } from "../lib/schedule";
   import { checkForUpdate, switchChannel, updater } from "../lib/updater.svelte";
+  import { age } from "../lib/paperText";
+  import { loadFeed, papers, refreshFeed, setFeed, showPapers } from "../lib/papers.svelte";
+
+  loadFeed();
+  const feedState = $derived(papers.feed?.state);
+  /** When the feed last checked and how it went. */
+  const feedLine = $derived.by(() => {
+    const now = (void papers.refreshing, Date.now());
+    if (papers.refreshing) return "Checking now…";
+    if (!feedState?.checked_at) return s.paper_feed ? "Not checked yet." : "Checks are off; Check now looks once.";
+    const last = `Last checked ${age(feedState.checked_at, now)}`;
+    if (feedState.failures) return `${last}: no source answered (${feedState.error}). The feed shows the papers of ${feedState.updated_at ? age(feedState.updated_at, now) : "no check yet"}.`;
+    const missed = feedState.source_errors.length ? `; ${feedState.source_errors.length} source${feedState.source_errors.length === 1 ? "" : "s"} didn't answer (${feedState.source_errors[0]})` : "";
+    return `${last}: ${papers.feed?.papers.length ?? 0} papers${missed}.`;
+  });
 
   const s = $derived(app.state!.settings);
   let query = $state("");
@@ -328,6 +343,32 @@
           <button class="btn btn-sm gap-1.5" disabled={building()} onclick={buildRelease} title="Builds the latest release from its tag on this machine, then installs it as that release"><Hammer size={14} /> Build the latest release here{s.tuned_builds ? ", tuned" : ""}</button>
           <span class="text-xs faint">From its tag, with what building needs (Rust, Node, the platform's tools); installed as the release, on Stable. Benchmarks then measures it against the one you have.</span>
         </div>
+      </div>
+    </section>
+
+    <section class="panel p-6">
+      <h3 class="flex items-center gap-2 font-semibold"><Newspaper size={17} class="text-primary" /> Papers</h3>
+      <label class="mt-3 flex cursor-pointer items-center justify-between gap-4">
+        <span>
+          <span class="block text-sm font-medium">Check for new papers</span>
+          <span class="block text-xs faint">
+            Home's feed asks Crossref for the newest papers of {papers.feed?.sources.length ? papers.feed.sources.length - 1 : 16} photonics journals and arXiv for the newest of physics.optics: one request to each, as soon as photonoxide opens and every four hours while it stays open (half an hour after a check that failed), never while it is closed. The requests carry the program's name and version and nothing about you: no email, no name, no account. The answers are kept on this computer, so the feed shows the last ones offline. A paper you open yourself is fetched from Crossref, OpenAlex and arXiv whether this is on or off.
+          </span>
+        </span>
+        <input type="checkbox" class="toggle toggle-primary" checked={s.paper_feed} onchange={() => setFeed(!s.paper_feed)} />
+      </label>
+      <p class="mt-1.5 text-xs {feedState && feedState.failures ? 'text-warning' : 'faint'}" aria-live="polite">{feedLine}</p>
+      {#if papers.feed?.sources.length}
+        <details class="mt-3 text-xs">
+          <summary class="cursor-pointer muted">The {papers.feed.sources.length} sources</summary>
+          <p class="mt-1.5 leading-relaxed faint">{papers.feed.sources.join(" · ")}. Nature, Science, Nature Communications, Physical Review Applied, Physical Review Letters and Applied Physics Letters, which publish far beyond photonics, are asked for their optics papers and kept to those that name a photonics word.</p>
+        </details>
+      {/if}
+      <div class="mt-4 flex flex-wrap items-center gap-3">
+        <button class="btn btn-sm gap-1.5" onclick={() => refreshFeed(true)} disabled={papers.refreshing}>
+          <RefreshCw size={14} class={papers.refreshing ? "animate-spin" : ""} /> Check now
+        </button>
+        <button class="btn btn-ghost btn-sm" onclick={() => showPapers("feed")}>Open Papers</button>
       </div>
     </section>
 

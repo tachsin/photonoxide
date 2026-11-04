@@ -140,6 +140,32 @@
       radial-gradient(60rem 22rem at 10% -20%, color-mix(in oklch, var(--color-primary) 22%, transparent), transparent 70%),
       radial-gradient(40rem 18rem at 95% 0%, color-mix(in oklch, var(--color-secondary) 16%, transparent), transparent 70%);
   }
+  /* Home: the hero's three ways in, and the modules' cards */
+  .hero-action {
+    @apply flex items-center gap-3.5 rounded-2xl border border-base-content/10 bg-base-100/80 px-4 py-3.5 text-left backdrop-blur transition;
+  }
+  .hero-action:hover {
+    @apply -translate-y-px border-primary/40 shadow-lg shadow-primary/5;
+  }
+  .hero-icon {
+    @apply grid size-11 shrink-0 place-items-center rounded-xl;
+  }
+  .hero-arrow {
+    @apply shrink-0 text-base-content/35 transition;
+  }
+  .hero-action:hover .hero-arrow {
+    @apply translate-x-0.5 text-primary;
+  }
+  .module-card {
+    @apply flex flex-col justify-start overflow-hidden rounded-2xl border border-base-content/8 bg-base-100 text-left transition duration-200;
+  }
+  .module-card:hover {
+    @apply -translate-y-0.5 border-primary/35 shadow-xl shadow-primary/5;
+  }
+  .hero-action:focus-visible,
+  .module-card:focus-visible {
+    @apply outline-2 outline-offset-2 outline-primary;
+  }
 }
 
 /* thin scrollbars that follow the theme */

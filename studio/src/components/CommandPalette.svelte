@@ -11,6 +11,8 @@
   import { openDesign, openDeviceText, openRunItem } from "../lib/device.svelte";
   import type { Kind } from "../lib/job";
   import { checkForUpdate } from "../lib/updater.svelte";
+  import { paperIdOf, shortDate } from "../lib/paperText";
+  import { openPaper, papers, showPapers } from "../lib/papers.svelte";
 
   interface Item {
     group: string;
@@ -121,6 +123,16 @@
     for (const r of home?.runs ?? []) {
       all.push({ group: "Runs", label: r.job || r.name, detail: r.name, run: () => openRunItem(r) });
     }
+    // the papers: the feed's and the reading list's by title; a DOI or arXiv id pasted opens its page
+    all.push({ group: "Go to", label: "Reading list", detail: "the papers you starred, with your notes", run: () => showPapers("list") });
+    for (const p of papers.feed?.papers ?? []) {
+      all.push({ group: "Latest papers", label: p.title, detail: `${p.venue}, ${shortDate(p.date)}`, run: () => openPaper(p.id) });
+    }
+    for (const s of papers.list) {
+      all.push({ group: "Reading list", label: s.paper.title, detail: s.note || `${s.paper.venue}, ${shortDate(s.paper.date)}`, run: () => openPaper(s.paper.id) });
+    }
+    const paperId = paperIdOf(query);
+    if (paperId) return [{ group: "Papers", label: `Open ${paperId.startsWith("doi:") ? "the paper doi:" : "the preprint arXiv:"}${paperId.replace(/^\w+:/, "")}`, detail: "its abstract, references and who cites it", run: () => openPaper(paperId) }];
     const q = query.trim().toLowerCase();
     if (!q) return all.filter((i) => i.group === "Go to");
     const words = q.split(/\s+/);

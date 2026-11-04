@@ -82,7 +82,7 @@ fn holds(file: &str, what: &str, why: &str) {
 }
 
 #[test]
-fn the_rail_holds_six_pages_and_the_system_group() {
+fn the_rail_holds_seven_pages_and_the_system_group() {
     assert_eq!(
         array("RAIL"),
         [
@@ -91,7 +91,8 @@ fn the_rail_holds_six_pages_and_the_system_group() {
             "chip",
             "fabrication",
             "academy",
-            "materials"
+            "materials",
+            "papers"
         ]
     );
     assert_eq!(array("SYSTEM"), ["validation", "libraries", "benchmarks"]);
@@ -174,14 +175,15 @@ fn every_page_is_drawn_named_and_reachable() {
         r#"const pages: Page[] = [...RAIL, ...SYSTEM, "settings", "viewer"];"#,
         "Ctrl+K finds every page",
     );
-    // Home reaches the Custom device (New job, a template's Open) and the run view (Continue)
+    // Home reaches the Custom device (Start a simulation, an example's Open) and the run view
+    // (Continue)
     holds(
         "pages/Home.svelte",
         "newCustom(kind)",
         "a new job, in the Custom device",
     );
     holds(
-        "pages/Home.svelte",
+        "components/home/ExamplesAccordion.svelte",
         "openCustom(j.text)",
         "a template, in the Custom device",
     );
@@ -259,20 +261,26 @@ fn every_job_has_a_home() {
         .collect();
     listed.sort();
     assert_eq!(listed, files("jobs", "yaml"), "the catalog's jobs");
-    // each a template on Home, with Run and Open
-    let home = "pages/Home.svelte";
-    holds(home, "Start from a template", "the templates");
+    // each an example on Home, in its topic's group, with Run and Open
+    let home = "components/home/ExamplesAccordion.svelte";
     holds(
-        home,
-        "{#each catalog.data?.jobs ?? [] as j (j.file)}",
-        "every job",
+        "pages/Home.svelte",
+        "jobs={catalog.data?.jobs ?? null}",
+        "the examples",
     );
     holds(
         home,
-        "onrun={() => startRun(() => api.runText(j.text)",
+        "byTopic(jobs ?? [], (j) => topicOf(j.file, j.kind))",
+        "every job, in a topic",
+    );
+    holds(home, "{#each TOPICS as t, k (t.id)}", "every topic");
+    holds(home, "{#each tj as j (j.file)}", "every job of a topic");
+    holds(
+        home,
+        "onclick={() => startRun(() => api.runText(j.text)",
         "Run",
     );
-    holds(home, "onopen={async () => {", "Open");
+    holds(home, "onclick={() => openJob(j)}", "Open");
     holds(
         "components/JobCard.svelte",
         "<Play size={14} /> Run</button>",
@@ -322,7 +330,11 @@ fn every_job_opens_in_the_custom_device_or_on_its_devices_page() {
     holds(palette, "run: () => openJob(j.path)", "Ctrl+K: a job");
     holds(palette, "run: () => openText(j.text)", "Ctrl+K: a template");
     // a template that is a device's job (a study, say) opens on its device's page
-    for file in ["pages/Home.svelte", components, palette] {
+    for file in [
+        "components/home/ExamplesAccordion.svelte",
+        components,
+        palette,
+    ] {
         holds(file, "openDeviceText(", "a device's template, on its page");
         holds(file, "openChipText(", "a chip's template, on the Chip page");
     }
