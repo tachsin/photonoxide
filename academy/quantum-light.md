@@ -4,7 +4,7 @@ summary: "Single photons and squeezed light in linear-optical circuits: two-phot
 topic: Active and quantum photonics
 level: advanced
 status: coming
-milestone: "0.6.2"
+milestone: "0.6.3"
 prerequisites: [mach-zehnder, nonlinear-optics]
 circuits: [mzi.toml]
 ---

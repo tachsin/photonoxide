@@ -410,20 +410,9 @@ Second- and third-order processes in waveguides and resonators: SHG, SFG, DFG, p
   - **convergence:** overlaps and efficiencies with the mode solver's grid, and the split-step at its order; *(the slab's overlap at second order, 1.96 (#630); both split-steps' second order is a case, the NLSE's and the Lugiato–Lefever equation's (#632))*
   - **cross-check:** χ⁽²⁾ and χ⁽³⁾ in FDTD (0.15) against the coupled-mode results on a short device.
 
-### 0.6.2: Quantum light and linear-optical statistics
+### 0.6.2: Eigenmode expansion and the mode solver's tools ✅
 
-The plan, with its survey, sources and scope, is [docs/plans/quantum.md](docs/plans/quantum.md). photonoxide computes the statistics of real components' circuits exactly up to about 30 single photons, or Gaussian patterns of about 50; beyond that it exports transfer and covariance matrices to dedicated tools.
-
-- [ ] **Linear-optical statistics (Q1):** Fock inputs on any circuit's ports, its loss dilated to noise modes; permanents by Ryser's and Glynn's formulas, threaded and deterministic; partly distinguishable photons; an exact sampler (Clifford & Clifford 2018) with an explicit seed; Hong–Ou–Mandel dips with real spectra; Haar-random unitaries and the Reck and Clements decompositions (moved here from 0.8).
-- [ ] **Sources and Gaussian states (Q2):** from 0.6.1's joint spectral amplitude, the Schmidt purity, heralding efficiency through the filters' S-matrices, multi-pair probability; pair generation in rings; Gaussian states with hafnians and torontonians; squeezing from 0.6.1's parametric amplifiers.
-- [ ] **Real components in quantum circuits (Q3):** frequency-dependent S-matrices from every solver; loss budgets per path, photon and event; emitters' β and Purcell factors from FDTD; detectors' absorption from the mode solver and transfer matrices.
-- [ ] **Studio:** a quantum view on the Chip page (a circuit's unitary, input photons, output statistics), a pair-source designer, a Gaussian view, a loss-budget waterfall.
-- [ ] **Academy:** Hong–Ou–Mandel interference, programmable interferometers, photon pairs and purity, boson sampling and permanents, squeezed light, from KLM to fusion, GKP and cluster states.
-- [ ] **Validation:** each item analytic (HOM visibility, permanents of known matrices, squeezed-vacuum statistics), a published result (Peruzzo 2010, Paesani 2020, Vernon 2017, Vaidya 2020, Nehra 2022, Silverstone 2013, Arcari 2014, Pernice 2012) and a convergence test, as the plan details.
-
-### 0.6.3: Eigenmode expansion and the mode solver's tools
-
-Device-scale propagation without FDTD, and what a designer asks of a mode, each to a stated accuracy (#432).
+Device-scale propagation without FDTD, and what a designer asks of a mode, each to a stated accuracy (#432). *(Released in part in 0.6.2: 2D eigenmode expansion, convergence to a tolerance, adaptive sweeps, the effective area and confinement, and sidewall-roughness loss. Left: 3D eigenmode expansion, and the coupling to a beam or a fibre, as each item below says.)*
 
 - [ ] **Eigenmode expansion,** moved forward from 0.12, with PML (Bienstman 2001):
   - straights, tapers with their steps placed adaptively, bends and periodic sections, cascaded by S-matrices; sections from a device's geometry or a job's shapes, and from GDS once it is read;
@@ -436,6 +425,17 @@ Device-scale propagation without FDTD, and what a designer asks of a mode, each 
 - [x] **Adaptive sweeps:** wavelengths placed where the response changes, by AAA rational approximation with an error estimate (Nakatsukasa 2018); modes tracked across a sweep by their overlaps, so crossings and anticrossings are followed, not re-sorted by index. *(#600: `photonoxide::sweep`, AAA with an error estimate from two interleaved halves' fits, which bounded the true error in 800 sweeps (0.51 of it at worst); a slab's dispersion to 2.8e-15 from 20 solves, and a strip's TE1 through its crossing with TM0 to 2.4e-13. Left: sweeps inside jobs, one set of samples for all of an S-matrix's entries, and FDFD's and EME's S over wavelength wired to it.)*
 - [ ] **A mode's quantities:** the effective area for Kerr in high-index guides (Afshar & Monro 2009), the confinement in each region or shape, orthogonality and normalization between a run's modes, and the coupling to a Gaussian beam or a fibre's mode at an offset and an angle; the same beam as a source and monitor in FDFD and FDTD. *(In part (#599): `mode::quantities`, the effective area (Afshar & Monro's Eqs. 41 and 44), γ from a given n₂, the confinement in a material or a box, and the orthogonality and normalization of a run's modes, each against a slab's closed form at second order. Left: the coupling to a Gaussian beam or a fibre's mode, and that beam as a source and monitor in FDFD and FDTD.)*
 - [ ] **Sidewall-roughness loss** from the mode, where now the waveguide's is typed in: Payne & Lacey 1994's slab model as the analytic check, the volume-current method on the full-vector mode (Barwicz & Haus 2005) reproduced from its figures, the roughness's σ and correlation length in the job, with a convergence test. *(In part (#601): `mode::roughness`, the volume-current method on the slab and on the full-vector mode of a rectangular core, the strip waveguide's `roughness` and `correlation` in a job and its `alpha_rough`; Payne & Lacey's Eq. 10 to round-off, their Eq. 9's extra factor of 2 that Barwicz & Haus point out confirmed on our slab mode, and the convergence on Barwicz & Haus's silicon guide. Their Fig. 12 is not reproduced within reading uncertainty: a 3 to 7 % gap remains that we can't yet explain, so it is reported, not a case.)*
+
+### 0.6.3: Quantum light and linear-optical statistics
+
+The plan, with its survey, sources and scope, is [docs/plans/quantum.md](docs/plans/quantum.md). photonoxide computes the statistics of real components' circuits exactly up to about 30 single photons, or Gaussian patterns of about 50; beyond that it exports transfer and covariance matrices to dedicated tools.
+
+- [ ] **Linear-optical statistics (Q1):** Fock inputs on any circuit's ports, its loss dilated to noise modes; permanents by Ryser's and Glynn's formulas, threaded and deterministic; partly distinguishable photons; an exact sampler (Clifford & Clifford 2018) with an explicit seed; Hong–Ou–Mandel dips with real spectra; Haar-random unitaries and the Reck and Clements decompositions (moved here from 0.8).
+- [ ] **Sources and Gaussian states (Q2):** from 0.6.1's joint spectral amplitude, the Schmidt purity, heralding efficiency through the filters' S-matrices, multi-pair probability; pair generation in rings; Gaussian states with hafnians and torontonians; squeezing from 0.6.1's parametric amplifiers.
+- [ ] **Real components in quantum circuits (Q3):** frequency-dependent S-matrices from every solver; loss budgets per path, photon and event; emitters' β and Purcell factors from FDTD; detectors' absorption from the mode solver and transfer matrices.
+- [ ] **Studio:** a quantum view on the Chip page (a circuit's unitary, input photons, output statistics), a pair-source designer, a Gaussian view, a loss-budget waterfall.
+- [ ] **Academy:** Hong–Ou–Mandel interference, programmable interferometers, photon pairs and purity, boson sampling and permanents, squeezed light, from KLM to fusion, GKP and cluster states.
+- [ ] **Validation:** each item analytic (HOM visibility, permanents of known matrices, squeezed-vacuum statistics), a published result (Peruzzo 2010, Paesani 2020, Vernon 2017, Vaidya 2020, Nehra 2022, Silverstone 2013, Arcari 2014, Pernice 2012) and a convergence test, as the plan details.
 
 ### 0.7: Inverse design
 - [ ] **Quantum objectives** with gradients (purity, heralding, HOM visibility, a unitary's fidelity), from the circuit adjoint and the minors' permanents ([docs/plans/quantum.md](docs/plans/quantum.md), Q4).
@@ -495,7 +495,7 @@ Device-scale propagation without FDTD, and what a designer asks of a mode, each 
   - modulator large-signal models: the travelling-wave MZM, and rings by coupled-mode theory (Sacher & Poon 2008);
   - minimal driver and receiver models (photonoxide isn't a SPICE);
   - eye diagrams, extinction ratio and optical modulation amplitude.
-- [ ] **Programmable meshes:** Reck, Clements and hexagonal meshes (the Reck and Clements decompositions come in 0.6.2); self-configuration (Miller 2013; Hamerly 2022) and error correction (Bandyopadhyay 2021); calibration posed for genoxide.
+- [ ] **Programmable meshes:** Reck, Clements and hexagonal meshes (the Reck and Clements decompositions come in 0.6.3); self-configuration (Miller 2013; Hamerly 2022) and error correction (Bandyopadhyay 2021); calibration posed for genoxide.
 - [ ] **Components:** the silicon depletion modulator (MZM and ring), and mesh cells.
 - [ ] **Studio:** eye diagrams and time traces; mesh programming.
 - [ ] **Validation:**
@@ -577,7 +577,7 @@ What a designer needs to take a design to a process of their choice. photonoxide
 ### 0.12: Semi-analytic methods
 - [x] **Transfer matrix method:** thin films and Bragg stacks. *(Done in 0.3: `Multilayer::reflection`, Chilwell & Hodgkinson's Eqs. 13–16, against Fresnel and the quarter-wave mirror's closed form to 1e-12.)*
 - [ ] **RCWA:** the stable formulation (Moharam 1995) with Li's factorization rules (Li 1996); compared against S4 (Liu 2012).
-- [ ] **Eigenmode expansion,** with PML (Bienstman 2001). *(Moved forward to 0.6.3, #432.)*
+- [ ] **Eigenmode expansion,** with PML (Bienstman 2001). *(Moved forward to 0.6.2, #432.)*
 - [ ] **Beam propagation method:** wide-angle, Padé (Hadley 1992).
 - [ ] **Validation:** Bragg mirrors analytically, gratings against published results, and EME against FDTD on tapers.
 

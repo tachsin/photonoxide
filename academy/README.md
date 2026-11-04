@@ -36,7 +36,7 @@ it is filling them in. The library lists them in this order, the order to read t
 | [Inverse design](inverse-design.md), with 0.7 | Numerical methods | advanced | `circuit_splitter`, `circuit_ring_critical`, `circuit_fit` |
 | [Modulators and phase shifters](modulators.md), with 0.6 | Active and quantum photonics | intermediate | |
 | [Nonlinear integrated optics](nonlinear-optics.md), with 0.6.1 | Active and quantum photonics | advanced | |
-| [Quantum light on a chip](quantum-light.md), with 0.6.2 | Active and quantum photonics | advanced | |
+| [Quantum light on a chip](quantum-light.md), with 0.6.3 | Active and quantum photonics | advanced | |
 
 ## A lesson's file
 
