@@ -129,6 +129,28 @@ impl JsonSchema for Layers {
     }
 }
 
+/// A medium given by value: a refractive index, or a catalogue entry.
+pub(crate) struct Medium;
+
+impl JsonSchema for Medium {
+    fn schema_name() -> Cow<'static, str> {
+        "Medium".into()
+    }
+
+    fn json_schema(_: &mut SchemaGenerator) -> Schema {
+        json_schema!({
+            "description": "A medium: a fixed real refractive index of at least 1, the same at \
+                every wavelength, or an entry of the materials catalogue (docs/methods/catalogue.md) \
+                by its id, or as a table with its id and model.",
+            "anyOf": [
+                { "type": "number", "minimum": 1 },
+                { "type": "string" },
+                { "type": "object" }
+            ]
+        })
+    }
+}
+
 /// The job file's schema, as `docs/job.schema.json` holds it: the structs' keys, the resolver's
 /// forms, and the shorter forms beside the keys they stand for (the module `job::short`).
 ///

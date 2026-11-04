@@ -249,9 +249,11 @@ pub enum Event {
         /// The library module that solves, e.g. `"mode::vector"` or `"fdfd"`.
         module: String,
         /// The grid's cells along its two axes: across the guide and up for a modes job, x and
-        /// y for an fdfd job.
+        /// y for an fdfd job, the modes each section keeps and the tapers' first steps for an
+        /// eme job.
         cells: [usize; 2],
-        /// The grid's step as the job asks for it, µm.
+        /// The grid's step as the job asks for it, µm: for an eme job, its tapers' first step
+        /// (0 without a taper).
         step_um: f64,
         /// The unknowns of one solve.
         unknowns: usize,

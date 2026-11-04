@@ -604,8 +604,12 @@ impl Form {
             "sweep",
             "parameters",
         ];
+        // a kind the form has no fields for (an eme job's modes and polarization) keeps the
+        // keys only a modes, fdfd or fdtd job's fields write back, as they are
+        let theirs =
+            |k: &str| !KINDS.contains(&kind.as_str()) && ["modes", "polarization"].contains(&k);
         for k in task.keys() {
-            if !FIELDS.contains(&k.as_str()) {
+            if !FIELDS.contains(&k.as_str()) || theirs(k) {
                 kept_task.insert(k.clone(), task[k].clone());
             }
         }

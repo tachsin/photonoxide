@@ -57,8 +57,12 @@
 //! mode q for a real mode, and S's reflections are the tangential E's, as the FDFD ports'
 //! ([`crate::fdfd::PortMode`]): the conventions are the same, so the two compare directly.
 //!
+//! **A taper's steps** are equal ([`Section::sampled`]) or placed where the response changes
+//! until an estimated error is within a tolerance ([`Eme::adaptive`]). A job of `kind = "eme"`
+//! describes the sections in a file ([`crate::job`]).
+//!
 //! Not here yet: 3D cross-sections, sections drawn from a device's geometry or a job's shapes,
-//! adaptive steps along a taper, and S over wavelength (#432).
+//! and S over wavelength interpolated with a stated error (#432).
 
 use num_complex::Complex64 as c64;
 
@@ -66,11 +70,13 @@ use crate::mode::Polarization;
 use crate::units::{Length, Wavelength};
 use crate::{Error, Result};
 
+mod adaptive;
 #[path = "cases/eme/checks.rs"]
 pub(crate) mod checks;
 mod modes;
 mod scattering;
 
+pub use adaptive::{Adaptive, MAX_STEPS, Piece, Round, Taper};
 pub use modes::Mode;
 
 /// A wall at an edge of the window.

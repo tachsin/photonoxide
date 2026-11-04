@@ -18,7 +18,7 @@ pub struct Template {
 
 /// Every template, in the order `photonoxide new --list` gives them: the solvers' kinds, then a
 /// device's and a chip's.
-pub const TEMPLATES: [Template; 9] = [
+pub const TEMPLATES: [Template; 10] = [
     Template {
         name: "structure",
         about: "a design drawn and nothing solved: a ring beside its bus, as pictures",
@@ -43,6 +43,11 @@ pub const TEMPLATES: [Template; 9] = [
         name: "static",
         about: "a heater over a strip by the static solver: the temperature on the cross-section",
         text: include_str!("templates/static.yaml"),
+    },
+    Template {
+        name: "eme",
+        about: "a slab taper by eigenmode expansion: S between the guided modes at its two ends",
+        text: include_str!("templates/eme.yaml"),
     },
     Template {
         name: "device",

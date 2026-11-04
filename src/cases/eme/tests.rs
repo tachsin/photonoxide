@@ -199,3 +199,83 @@ fn the_transformer_and_bienstman_and_baetss_eq_3_agree_as_the_modes_grow() {
     );
     assert!((theirs - 1.16469e-3).abs() < 1e-8, "{theirs}");
 }
+
+/// A slab `t` µm thick in a closed window 3 µm wide.
+fn slab3(t: f64) -> Slice {
+    Slice::slab(re(3.473), Length::um(t), re(1.444), Length::um(3.0)).unwrap()
+}
+
+/// A slab widening from 220 to 600 nm over 1 µm as z⁸, in `slab3`'s window, from `steps` steps.
+fn sharp_taper(steps: usize) -> [Piece<'static>; 3] {
+    [
+        Piece::Section(Section::new(slab3(0.22), Length::ZERO)),
+        Piece::Taper(
+            Taper::new(Length::um(1.0), steps, |z| {
+                Ok(slab3(0.22 + 0.38 * z.to_um().powi(8)))
+            })
+            .unwrap(),
+        ),
+        Piece::Section(Section::new(slab3(0.60), Length::ZERO)),
+    ]
+}
+
+#[test]
+fn adaptive_steps_give_the_cascade_of_their_own_sections() {
+    let eme = Eme::new(Polarization::Te, lam(), 16).unwrap();
+    let a = eme.adaptive(&sharp_taper(2), 1e-3).unwrap();
+    assert!(a.error <= 1e-3 && a.rounds.len() > 1, "{:?}", a.rounds);
+    assert_eq!(a.rounds.last().unwrap().steps, a.edges[0].len() - 1);
+    // unequal steps: the split ones are where the taper's response changes
+    let lengths: Vec<f64> = a.edges[0].windows(2).map(|w| w[1] - w[0]).collect();
+    assert!(lengths.iter().any(|&l| l != lengths[0]), "{lengths:?}");
+    let mut sections = vec![Section::new(slab3(0.22), Length::ZERO)];
+    for w in a.edges[0].windows(2) {
+        let z = 0.5 * (w[0] + w[1]);
+        sections.push(Section::new(
+            slab3(0.22 + 0.38 * z.powi(8)),
+            Length::um(w[1] - w[0]),
+        ));
+    }
+    sections.push(Section::new(slab3(0.60), Length::ZERO));
+    let s = eme.s_matrix(&sections).unwrap();
+    for (x, y) in [
+        (s.s11[0][0], a.scattering.s11[0][0]),
+        (s.s21[0][0], a.scattering.s21[0][0]),
+        (s.s22[1][0], a.scattering.s22[1][0]),
+    ] {
+        assert!((x - y).norm() < 1e-13, "{x} vs {y}");
+    }
+}
+
+/// The numbers eme/taper-adaptive's source and the method page quote.
+#[test]
+#[ignore = "slow in a debug build: eme/taper-adaptive runs it in release"]
+fn the_sharp_tapers_numbers_are_the_ones_quoted() {
+    let (error, stated, steps, reference, uniform) = checks::sharp_taper();
+    eprintln!("{error:e} {stated:e} {steps} {reference:e} {uniform:e}");
+    assert_eq!(steps, 67);
+    for (got, quoted) in [
+        (error, 9.77e-5),
+        (stated, 8.95e-5),
+        (reference, 2.1e-6),
+        (uniform, 4.58e-4),
+    ] {
+        assert!(((got - quoted) / quoted).abs() < 6e-3, "{got} vs {quoted}");
+    }
+}
+
+#[test]
+fn adaptive_steps_refuse_a_taper_as_a_port_and_an_unreachable_tolerance() {
+    let eme = Eme::new(Polarization::Te, lam(), 8).unwrap();
+    let [a, b, c] = sharp_taper(2);
+    let err = eme.adaptive(&[b, a], 1e-3).unwrap_err().to_string();
+    assert!(err.contains("the ports"), "{err}");
+    let err = eme.adaptive(&[c], 0.0).unwrap_err().to_string();
+    assert!(err.contains("above 0"), "{err}");
+    // far below what the budget of steps reaches
+    let err = eme
+        .adaptive(&sharp_taper(2), 1e-15)
+        .unwrap_err()
+        .to_string();
+    assert!(err.contains("did not reach the tolerance"), "{err}");
+}

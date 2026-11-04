@@ -1,0 +1,21 @@
+# A silicon slab widening from 220 to 400 nm over 2 um in oxide, by eigenmode expansion: the
+# structure cut into sections along z, the field in each written as its modes, and S between the
+# guided modes at the two ends. 2D: the structure is uniform along y.
+name: new-eme
+timeout_minutes: 5
+
+task:
+  kind: eme
+  wavelength_um: 1.55
+  polarization: te             # E along y; or tm
+  modes: 20                    # the modes each section keeps
+  symmetric: true              # the upper half of a symmetric structure: its even modes
+  window_um: 1.5               # the half's width, inside the PML
+  pml: { thickness_um: 4.0, strength: 0.1 }
+  cladding: 1.444              # a refractive index, or a catalogue entry such as sio2
+  core: 3.473
+
+  section:                     # in order along z; the first and last are the ports
+    - { name: input, length_um: 0.0, core_um: 0.22 }
+    - { name: taper, length_um: 2.0, core_um: [0.22, 0.40], steps: 10 }
+    - { name: output, length_um: 0.0, core_um: 0.40 }

@@ -10,6 +10,8 @@ papers:
     doi: 10.1002/(SICI)1098-2760(19970820)15:6<363::AID-MOP8>3.0.CO;2-C
   - cite: "J. Chilwell, I. Hodgkinson, J. Opt. Soc. Am. A 1, 742 (1984) (the layers' transfer matrices)"
     doi: 10.1364/JOSAA.1.000742
+  - cite: "W. Dörfler, SIAM J. Numer. Anal. 33, 1106 (1996) (the bulk rule that marks the steps to split)"
+    doi: 10.1137/0733054
 validation:
   - eme/step-one-mode
   - eme/step-fresnel-te
@@ -19,6 +21,7 @@ validation:
   - eme/taper-steps-order
   - eme/taper-modes
   - eme/taper-fdfd
+  - eme/taper-adaptive
 ---
 
 Many devices are a waveguide whose cross-section changes along its length: a step, a taper, a
@@ -49,7 +52,9 @@ let reflected = s.s11[0][0].norm_sqr();             // fundamental mode back int
 ```
 
 `Section::sampled` cuts a cross-section that changes along z (a taper) into equal sections, each
-the cross-section at its middle.
+the cross-section at its middle. `Eme::adaptive` places a taper's steps where the response
+changes instead, and states the error it leaves ([adaptive steps](#adaptive-steps)); an `eme`
+job describes the sections in a file ([the job](#the-job)).
 
 ## The modes of a section
 
@@ -114,6 +119,94 @@ decaying exponentials and so stays stable with evanescent modes.
 is the share of power from mode p into mode q for a guided mode, and the reflections are the
 tangential E's. `s21[q][p]` is mode q leaving port 2 for mode p entering port 1.
 
+## Adaptive steps
+
+A taper is a staircase of uniform steps, each the cross-section at its middle: the midpoint
+rule, whose global error is second order in the step. A step $h$ long carries a local error
+$c\thinspace h^3$, so splitting it into two halves leaves $2c(h/2)^3 = c\thinspace h^3/4$ of it: the change
+$\Delta_i$ that splitting step $i$ makes to the structure's S is $-\tfrac34$ of that step's own
+error. `Eme::adaptive` tries every step's split against the rest of the structure held fixed
+(the cascades before and after each step are kept, so a try costs three overlaps and a few
+star products), and estimates the staircase's error as $\tfrac43 \lvert \sum_i \Delta_i \rvert$
+for each of the fundamental modes' entries $S_{11}$, $S_{21}$ and $S_{22}$: the steps' local
+errors add to first order, and the sum is Richardson's estimate for splitting every step. Until
+that estimate is within the tolerance, it splits the steps with the largest $\lvert \Delta_i
+\rvert$ that together hold half of $\sum_i \lvert \Delta_i \rvert$ (Dörfler's bulk rule). A split step's
+halves are at the quarter points its try already solved, so no mode is solved twice. A
+structure's ports are its first and last pieces, uniform sections.
+
+```rust
+use photonoxide::eme::{Eme, Piece, Section, Slice, Taper};
+use photonoxide::mode::Polarization;
+use photonoxide::units::{Length, Wavelength};
+use photonoxide::Complex64 as c64;
+
+let slab = |t: f64| Slice::slab(c64::new(3.473, 0.0), Length::um(t), c64::new(1.444, 0.0), Length::um(3.0));
+let eme = Eme::new(Polarization::Te, Wavelength::um(1.55)?, 30)?.with_pml(Length::um(4.0), 0.1)?;
+let taper = Taper::new(Length::um(1.0), 4, move |z| slab(0.22 + 0.38 * z.to_um().powi(8)))?;
+let out = eme.adaptive(&[
+    Piece::Section(Section::new(slab(0.22)?, Length::ZERO)),
+    Piece::Taper(taper),
+    Piece::Section(Section::new(slab(0.60)?, Length::ZERO)),
+], 1e-4)?;
+let (s, error, edges) = (&out.scattering, out.error, &out.edges[0]);  // S, its estimate, the steps
+```
+
+Measured on a slab widening from 220 to 600 nm over 1 µm (TE, half the slab, 40 even modes, a
+PML 4 µm thick), against Richardson's limit of 1280 and 2560 equal steps (its change from 2560
+steps at most 2.1e-6), the largest error of the three entries:
+
+| Profile | Tolerance | Adaptive steps | Stated error | True error | True error of as many equal steps |
+|---|---|---|---|---|---|
+| linear | 1e-4 | 44 | 4.98e-5 | 4.85e-5 | 2.20e-4 |
+| $z^2$ | 1e-4 | 74 | 8.99e-5 | 9.05e-5 | 3.56e-5 |
+| $z^8$ | 1e-3 | 20 | 5.91e-4 | 6.08e-4 | 3.33e-3 |
+| $z^8$ | 1e-4 | 67 | 8.95e-5 | 9.77e-5 | 4.58e-4 |
+| $z^8$ | 3e-5 | 144 | 2.50e-5 | 2.65e-5 | 1.52e-4 |
+
+The stated error is within 10 % of the true one in each, and at most 2.3 % above the
+tolerance's. Where the taper changes quickly in one part (the $z^8$ profile) the adaptive steps
+reach the tolerance with half the steps or fewer that equal ones need. On the $z^2$ profile equal
+steps happen to do better at the same count: their local errors partly cancel, which the
+estimate doesn't count on. The steps are placed to meet the stated tolerance with an error that
+is known, not to be the fewest possible.
+
+## The job
+
+A job of `kind = "eme"` describes the sections in its file (YAML, TOML or JSON, checked before it
+runs): each `[[task.section]]` a straight, a core `core_um` thick in the `cladding`, or its
+`layers` one by one, or a taper whose `core_um = [from, to]` changes linearly, parabolically
+(its square linear) or exponentially along `length_um`, in `steps` steps. Media are a refractive
+index or an entry of the [materials catalogue](catalogue.md). `[task.pml]` puts a PML inside
+both walls or the upper one; `symmetric = true` solves the upper half of a structure symmetric
+about its middle, its plane of symmetry the lower wall and a PML at the upper wall only (the
+way every case above is run: a full window with a PML at both walls holds pairs of modes so
+close that following them can merge two, which the solver refuses); `[task.adaptive]` places the tapers' steps where the response
+changes, to its tolerance; `[task.convergence]` doubles the modes (and the equal steps, by
+`convergence::ToTolerance::eme`) until the transmission or the reflection of the fundamental
+modes changes by less than its relative tolerance; `[task.sweep]` repeats it over the
+wavelength. The run records the S-parameters between the guided modes at the two ends, each
+convergence study, and the adaptive steps' estimate. `photonoxide new eme` writes one to start
+from; `jobs/eme-taper.yaml` is a parabolic taper with both.
+
+```yaml
+task:
+  kind: eme
+  wavelength_um: 1.55
+  modes: 20
+  symmetric: true          # the upper half, its even modes
+  window_um: 1.5           # the half's width
+  pml: { thickness_um: 4.0, strength: 0.1 }
+  cladding: 1.444
+  core: 3.473
+  section:
+    - { name: input, length_um: 0.0, core_um: 0.22 }
+    - { name: taper, length_um: 1.0, core_um: [0.22, 0.60], profile: parabolic, steps: 8 }
+    - { name: output, length_um: 0.0, core_um: 0.60 }
+  adaptive: { tolerance: 1.0e-4 }
+  convergence: { tolerance: 1.0e-3, quantity: transmission }
+```
+
 ## Validation
 
 Measured with the cases' own settings, at 1.55 µm, silicon (3.473) in oxide (1.444):
@@ -127,6 +220,7 @@ Measured with the cases' own settings, at 1.55 µm, silicon (3.473) in oxide (1.
 | `eme/taper-steps-order` | a slab widening linearly from 220 to 600 nm over 1 µm, 40, 80 and 160 sections | order 2.07 (2.18 from 10 to 40 sections) | second order, the midpoint rule's staircase | order, 2 within 0.1 |
 | `eme/taper-modes` | the same with 40, 80 and 160 modes, $\lvert S_{21} \rvert^2$ = 0.996513, 0.996506, 0.996525 | estimated error 1.9e-5 at 160 modes | the convergence gate's estimate | discretisation, 1e-4 |
 | `eme/taper-fdfd` | a 220 to 300 nm taper in four steps 0.1 µm long, TE, its reflection $\lvert S_{11} \rvert^2$ | 9.18190e-5 with 200 modes (own error 3.4e-5, the change from 160) | 2D FDFD on the same staircase: 9.19007, 9.18382 and 9.18225e-5 on 10, 5 and 2.5 nm grids, second order, limit 9.18173e-5 | discretisation, 2e-4 relative; 1.9e-5 |
+| `eme/taper-adaptive` | a slab widening from 220 to 600 nm over 1 µm as $z^8$, its steps placed adaptively to 1e-4, the largest error of $S_{11}$, $S_{21}$, $S_{22}$ | 9.77e-5 with 67 steps (stated 8.95e-5; 67 equal steps: 4.58e-4) | Richardson's limit of 1280 and 2560 equal steps (own error 2.1e-6) | discretisation, 1e-4 absolute, the tolerance driven to |
 
 The FDFD comparison is the most telling: the two methods share nothing but the structure, and
 agree to 1.9e-5 of a reflection of 9.2e-5. Its transmission agrees too: 0.999829 against
@@ -141,10 +235,17 @@ What it does not do yet (#432):
 
 - **2D only:** slab stacks. Cross-sections from the [full-vector solver](vector.md) for 3D
   guides are next.
-- **No job or façade yet:** it is a library module; sections don't yet come from a device's
-  geometry or a job's shapes, and the studio doesn't show it.
-- **Tapers are cut into equal steps;** adaptive steps, bends, periodic sections and S over
-  wavelength with an interpolation error are to come.
+- **Sections are described, not drawn:** a job gives straights and tapers of a core or of
+  layers; sections cut from a device's geometry or a job's drawn shapes, a façade function of
+  its own and a view of its own in the studio (which shows its scene and S-parameters as any
+  job's) are to come. The Python package runs it as any job, through `run_job`.
+- **Bends, periodic sections** and S over wavelength interpolated with a stated error (a
+  `[task.sweep]` solves each wavelength) are to come.
+- **No published taper or MMI yet:** no paper we have gives a taper's or an MMI's S by
+  eigenmode expansion with the numbers needed to repeat it (Bienstman and Baets's grating sends
+  its material data to another exercise; Soldano and Pennings's self-imaging gives closed forms,
+  not a device's indices). The taper is checked against FDFD and against itself in steps and
+  modes.
 - **A PML's modes are ill-conditioned** (the operator is far from normal), more so the
   stronger the PML and the higher the mode. A thick PML of small strength keeps them tractable:
   4 µm of strength 0.1 with up to about 200 modes in a half-window 1.5 µm wide. Where a mode
@@ -163,5 +264,14 @@ What it does not do yet (#432):
   $\lvert S_{11}\rvert^2$ can't be driven to $10^{-4}$ relative, which would take about 400
   modes (`convergence/eme-taper-fdfd` is driven to $2 \times 10^{-4}$). Higher precision for the
   high modes, or a PML whose high modes don't grow across the window, would settle it.
+  Decided (2026-11-04), not done: compensated (double-double) arithmetic would have to carry
+  the whole chain, the layers' transfer matrices, Newton's corrections and the normalizing
+  integral, since a condition number of $5 \times 10^{10}$ leaves no digits to spare at any
+  step; that is a rewrite of the mode finder with its own tests, not a change to it. The cheaper
+  way, a PML that the high modes don't grow across (a graded strength, so that each mode is
+  absorbed before it grows), changes the modes every case here is measured with. Both wait for
+  the 3D expansion ([the plan](../plans/eme-3d.md)), whose PML will be chosen with the same
+  measurement; until then, more than about 230 modes in that window is refused with an error
+  that names the mode, never returned wrong.
 - **The multimode interference coupler** against Soldano and Pennings's self-imaging lengths is
   not a case yet.

@@ -81,5 +81,15 @@ pub(crate) fn rules() -> Vec<(&'static str, Rule)> {
                 "FDFD's grid limit by Richardson (its estimate at 2.5 nm 5.7e-5) against the expansion, whose own error is its change from 160 to 200 modes: three times the larger, rounded up, 2e-4",
             ),
         ),
+        (
+            "eme/taper-adaptive",
+            Rule::new(
+                Absolute,
+                Discretisation,
+                1e-4,
+                Noted,
+                "the tolerance the adaptive steps are driven to, on S's fundamental entries (at most 1): their true error against the equal steps' Richardson limit, whose own error is its change from 2560 steps",
+            ),
+        ),
     ]
 }

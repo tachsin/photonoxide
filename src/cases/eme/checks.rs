@@ -2,7 +2,7 @@
 
 use num_complex::Complex64 as c64;
 
-use super::{Eme, Section, Slice, Wall};
+use super::{Eme, Piece, Section, Slice, Taper, Wall};
 use crate::mode::Polarization;
 use crate::mode::slab::Slab;
 use crate::units::{Length, Wavelength};
@@ -330,6 +330,50 @@ pub(crate) fn modes_estimate() -> f64 {
     c.error.unwrap_or(f64::INFINITY) / c.value
 }
 
+/// The tolerance [`sharp_taper`] drives the adaptive steps to.
+pub(crate) const SHARP_TOLERANCE: f64 = 1e-4;
+
+/// A taper that changes quickly near its end: a slab widening from 220 to 600 nm over 1 µm as
+/// the eighth power of z, between half-slabs of 220 and 600 nm (40 even modes, the PML of
+/// [`half_te`]). Its fundamental entries S₁₁, S₂₁ and S₂₂ with the steps placed adaptively from
+/// 4 to [`SHARP_TOLERANCE`], against the reference, Richardson's limit of 1280 and 2560 equal
+/// steps: (the largest true error, the stated error, the adaptive steps, the reference's own
+/// change from 2560 steps, the true error of as many equal steps).
+pub(crate) fn sharp_taper() -> (f64, f64, usize, f64, f64) {
+    let eme = half_te(40);
+    let profile = |z: Length| Ok(half(0.22 + 0.38 * z.to_um().powi(8), 1.5));
+    let entries = |s: &super::Scattering| [s.s11[0][0], s.s21[0][0], s.s22[0][0]];
+    let far = |a: [c64; 3], b: [c64; 3]| (0..3).map(|i| (a[i] - b[i]).norm()).fold(0.0, f64::max);
+    let ends = |sections: Vec<Section>| {
+        let mut all = vec![Section::new(half(0.22, 1.5), Length::ZERO)];
+        all.extend(sections);
+        all.push(Section::new(half(0.60, 1.5), Length::ZERO));
+        all
+    };
+    let uniform = |n: usize| {
+        let sections = ends(Section::sampled(Length::um(1.0), n, profile).expect("sections"));
+        entries(&eme.s_matrix(&sections).expect("the S-matrix"))
+    };
+    let (f1, f2) = (uniform(1280), uniform(2560));
+    let reference: [c64; 3] = std::array::from_fn(|i| f2[i] + (f2[i] - f1[i]) / 3.0);
+    let pieces = [
+        Piece::Section(Section::new(half(0.22, 1.5), Length::ZERO)),
+        Piece::Taper(Taper::new(Length::um(1.0), 4, profile).expect("a taper")),
+        Piece::Section(Section::new(half(0.60, 1.5), Length::ZERO)),
+    ];
+    let a = eme
+        .adaptive(&pieces, SHARP_TOLERANCE)
+        .expect("the adaptive steps");
+    let steps = a.edges[0].len() - 1;
+    (
+        far(entries(&a.scattering), reference),
+        a.error,
+        steps,
+        far(f2, reference),
+        far(uniform(steps), reference),
+    )
+}
+
 ///  to digits significant digits.
 fn significant(v: f64, digits: i32) -> f64 {
     if v == 0.0 || !v.is_finite() {
@@ -427,6 +471,17 @@ pub(crate) fn cases() -> Vec<Case> {
             tier: Tier::CrossCode,
             source: r"photonoxide's 2D FDFD on the same staircase (on the grid at 10, 5 and 2.5 nm), its ports' fundamental modes, Richardson's limit of the three: second order, 9.18173e-5",
             run: taper_fdfd,
+        },
+        Case {
+            id: "eme/taper-adaptive",
+            title: r"A taper that changes quickly near its end: a silicon slab widening from 220 to 600 nm over 1 µm as $z^8$ (TE, half the slab, 40 even modes, a PML 4 µm thick), its steps placed where the response changes from 4 until the estimated error of $S_{11}$, $S_{21}$ and $S_{22}$ is below 1e-4: its true error, the largest of the three's (shown)",
+            tier: Tier::Analytic,
+            source: r"the same staircase on 1280 and 2560 equal steps, Richardson's limit at second order (its change from 2560 steps 2.1e-6); the adaptive steps reach it with 67 steps (stated error 9.0e-5), where 67 equal steps leave 4.6e-4",
+            run: || {
+                let (error, _, _, reference, _) = sharp_taper();
+                crate::validation::note_numerical(significant(reference, 2));
+                zero(significant(error, 3), SHARP_TOLERANCE)
+            },
         },
     ]
 }

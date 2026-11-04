@@ -1,5 +1,19 @@
 {
   "$defs": {
+    "AdaptiveSpec": {
+      "additionalProperties": false,
+      "description": "A `[task.adaptive]`: the tapers' steps placed where the response changes.",
+      "properties": {
+        "tolerance": {
+          "description": "The tolerance on the fundamental modes' entries of S (absolute; they are at most 1).",
+          "type": "number"
+        }
+      },
+      "required": [
+        "tolerance"
+      ],
+      "type": "object"
+    },
     "Aim": {
       "additionalProperties": false,
       "description": "An objective as a task gives it: one the device declares, by its symbol, or an expression of its outputs, with what to do with it.",
@@ -605,6 +619,24 @@
         },
         "tolerance": {
           "description": "The tolerance on each Re n_eff's estimated error.",
+          "type": "number"
+        }
+      },
+      "required": [
+        "tolerance"
+      ],
+      "type": "object"
+    },
+    "ConvergenceSpec2": {
+      "additionalProperties": false,
+      "description": "A `[task.convergence]`: the number of modes (and the equal steps) driven to a tolerance.",
+      "properties": {
+        "quantity": {
+          "description": "`\"transmission\"` (the default), |S21|² between the fundamental modes, or `\"reflection\"`, |S11|².",
+          "type": "string"
+        },
+        "tolerance": {
+          "description": "The tolerance, relative to the quantity.",
           "type": "number"
         }
       },
@@ -3881,6 +3913,145 @@
       ],
       "type": "object"
     },
+    "EmeTask": {
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "not": {
+            "required": [
+              "wavelength",
+              "wavelength_um"
+            ]
+          }
+        },
+        {
+          "anyOf": [
+            {
+              "required": [
+                "wavelength_um"
+              ]
+            },
+            {
+              "required": [
+                "wavelength"
+              ]
+            }
+          ]
+        },
+        {
+          "not": {
+            "required": [
+              "window",
+              "window_um"
+            ]
+          }
+        },
+        {
+          "anyOf": [
+            {
+              "required": [
+                "window_um"
+              ]
+            },
+            {
+              "required": [
+                "window"
+              ]
+            }
+          ]
+        }
+      ],
+      "properties": {
+        "adaptive": {
+          "$ref": "#/$defs/AdaptiveSpec"
+        },
+        "cladding": {
+          "$ref": "#/$defs/Medium",
+          "description": "What surrounds the cores: a refractive index or a catalogue entry."
+        },
+        "convergence": {
+          "$ref": "#/$defs/ConvergenceSpec2"
+        },
+        "core": {
+          "$ref": "#/$defs/Medium",
+          "description": "The cores' medium, unless a section gives its own."
+        },
+        "kind": {
+          "type": "string"
+        },
+        "modes": {
+          "description": "The modes each section keeps.",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "pml": {
+          "$ref": "#/$defs/PmlSpec2"
+        },
+        "polarization": {
+          "description": "`\"te\"` (the default; E along y, the direction the structure is uniform in) or `\"tm\"`.",
+          "type": "string"
+        },
+        "section": {
+          "items": {
+            "$ref": "#/$defs/SectionSpec"
+          },
+          "type": "array"
+        },
+        "sweep": {
+          "$ref": "#/$defs/WavelengthSweep2"
+        },
+        "symmetric": {
+          "description": "The structure is symmetric about its middle and only its even modes are wanted: its upper half is solved, the plane of symmetry the lower wall (magnetic for TE, electric for TM) and a PML at the upper wall only, with half the modes for the same result. The cores are centred, `window_um` is the half's width, and layers are the half's.",
+          "type": "boolean"
+        },
+        "walls": {
+          "description": "The lower and upper walls, `\"electric\"` (the default) or `\"magnetic\"`.",
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
+        "wavelength": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "The vacuum wavelength, µm. With its unit in the value, in place of wavelength_um: a length with its unit, e.g. \"1.55 um\"."
+        },
+        "wavelength_um": {
+          "description": "The vacuum wavelength, µm.",
+          "type": "number"
+        },
+        "window": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "The window's width across, wall to wall inside any PML, µm (the upper half's, when `symmetric`). With its unit in the value, in place of window_um: a length with its unit, e.g. \"1.55 um\"."
+        },
+        "window_um": {
+          "description": "The window's width across, wall to wall inside any PML, µm (the upper half's, when `symmetric`).",
+          "type": "number"
+        }
+      },
+      "required": [
+        "kind",
+        "modes",
+        "cladding",
+        "section"
+      ],
+      "type": "object"
+    },
     "EtchSpec": {
       "additionalProperties": false,
       "allOf": [
@@ -5410,6 +5581,59 @@
       ],
       "type": "object"
     },
+    "LayerSpec": {
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "not": {
+            "required": [
+              "thickness",
+              "thickness_um"
+            ]
+          }
+        },
+        {
+          "anyOf": [
+            {
+              "required": [
+                "thickness_um"
+              ]
+            },
+            {
+              "required": [
+                "thickness"
+              ]
+            }
+          ]
+        }
+      ],
+      "description": "A layer of a section given layer by layer.",
+      "properties": {
+        "medium": {
+          "$ref": "#/$defs/Medium",
+          "description": "Its medium: a refractive index, or a catalogue entry."
+        },
+        "thickness": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "Its thickness, µm. With its unit in the value, in place of thickness_um: a length with its unit, e.g. \"1.55 um\"."
+        },
+        "thickness_um": {
+          "description": "Its thickness, µm.",
+          "type": "number"
+        }
+      },
+      "required": [
+        "medium"
+      ],
+      "type": "object"
+    },
     "Layers": {
       "description": "A stack of your own (docs/methods/stacks.md): a substrate, a cladding and layers of the materials catalogue's, bottom to top, each with its thickness (thickness_um, or thickness as an expression). In a modes or structure job a crystal's table may give its orientation (docs/methods/catalogue.md): \"x-cut\", \"y-cut\", \"z-cut\", { cut, along_x }, or { euler_deg = [phi, theta, psi] } (z-x-z, degrees).",
       "type": "object"
@@ -5649,6 +5873,21 @@
         }
       },
       "type": "object"
+    },
+    "Medium": {
+      "anyOf": [
+        {
+          "minimum": 1,
+          "type": "number"
+        },
+        {
+          "type": "string"
+        },
+        {
+          "type": "object"
+        }
+      ],
+      "description": "A medium: a fixed real refractive index of at least 1, the same at every wavelength, or an entry of the materials catalogue (docs/methods/catalogue.md) by its id, or as a table with its id and model."
     },
     "ModesTask": {
       "additionalProperties": false,
@@ -6616,6 +6855,63 @@
       },
       "type": "object"
     },
+    "PmlSpec2": {
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "not": {
+            "required": [
+              "thickness",
+              "thickness_um"
+            ]
+          }
+        },
+        {
+          "anyOf": [
+            {
+              "required": [
+                "thickness_um"
+              ]
+            },
+            {
+              "required": [
+                "thickness"
+              ]
+            }
+          ]
+        }
+      ],
+      "description": "A `[task.pml]`: a perfectly matched layer inside the walls.",
+      "properties": {
+        "sides": {
+          "description": "`\"both\"` walls (the default) or the `\"upper\"` one only, the lower being a plane of symmetry.",
+          "type": "string"
+        },
+        "strength": {
+          "description": "Its strength σ, the imaginary part of its thickness over the real part.",
+          "type": "number"
+        },
+        "thickness": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "Its thickness, µm. With its unit in the value, in place of thickness_um: a length with its unit, e.g. \"1.55 um\"."
+        },
+        "thickness_um": {
+          "description": "Its thickness, µm.",
+          "type": "number"
+        }
+      },
+      "required": [
+        "strength"
+      ],
+      "type": "object"
+    },
     "PolingSpec": {
       "additionalProperties": false,
       "allOf": [
@@ -7373,6 +7669,103 @@
       "required": [
         "layer"
       ],
+      "type": "object"
+    },
+    "SectionSpec": {
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "not": {
+            "required": [
+              "center",
+              "center_um"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "length",
+              "length_um"
+            ]
+          }
+        },
+        {
+          "anyOf": [
+            {
+              "required": [
+                "length_um"
+              ]
+            },
+            {
+              "required": [
+                "length"
+              ]
+            }
+          ]
+        }
+      ],
+      "description": "A `[[task.section]]`: a straight or a taper, in order along z.",
+      "properties": {
+        "center": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "The core's centre, µm from the window's middle: 0 by default. With its unit in the value, in place of center_um: a length with its unit, e.g. \"1.55 um\"."
+        },
+        "center_um": {
+          "description": "The core's centre, µm from the window's middle: 0 by default.",
+          "type": "number"
+        },
+        "core": {
+          "$ref": "#/$defs/Medium",
+          "description": "The core's medium: the task's `core` by default."
+        },
+        "core_um": {
+          "$ref": "#/$defs/Thickness",
+          "description": "The core's thickness across the window, µm: one number for a straight, `[from, to]` for a taper."
+        },
+        "layers": {
+          "description": "Instead of a core, a straight's layers from the lower wall, filling the window.",
+          "items": {
+            "$ref": "#/$defs/LayerSpec"
+          },
+          "type": "array"
+        },
+        "length": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "Its length along z, µm: 0 for a port's reference plane. With its unit in the value, in place of length_um: a length with its unit, e.g. \"1.55 um\"."
+        },
+        "length_um": {
+          "description": "Its length along z, µm: 0 for a port's reference plane.",
+          "type": "number"
+        },
+        "name": {
+          "description": "Its name, for the record: `\"section k\"` by default.",
+          "type": "string"
+        },
+        "profile": {
+          "description": "A taper's profile: `\"linear\"` (the default), `\"parabolic\"` (the thickness squared linear) or `\"exponential\"`.",
+          "type": "string"
+        },
+        "steps": {
+          "description": "A taper's steps: equal ones, or the first ones `[task.adaptive]` refines; 10 by default.",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
       "type": "object"
     },
     "SegmentSpec": {
@@ -10978,6 +11371,22 @@
       ],
       "type": "object"
     },
+    "Thickness": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        }
+      ],
+      "description": "A section's core thickness: one for a straight, [from, to] for a taper."
+    },
     "TransientSpec": {
       "additionalProperties": false,
       "description": "`[task.transient]`.",
@@ -11137,6 +11546,31 @@
       "type": "object"
     },
     "WavelengthSweep": {
+      "additionalProperties": false,
+      "properties": {
+        "from": {
+          "type": "number"
+        },
+        "parameter": {
+          "type": "string"
+        },
+        "points": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "to": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "parameter",
+        "from",
+        "to",
+        "points"
+      ],
+      "type": "object"
+    },
+    "WavelengthSweep2": {
       "additionalProperties": false,
       "properties": {
         "from": {
@@ -11533,6 +11967,21 @@
                 "then": {
                   "$ref": "#/$defs/NonlinearTask"
                 }
+              },
+              {
+                "if": {
+                  "properties": {
+                    "kind": {
+                      "const": "eme"
+                    }
+                  },
+                  "required": [
+                    "kind"
+                  ]
+                },
+                "then": {
+                  "$ref": "#/$defs/EmeTask"
+                }
               }
             ],
             "properties": {
@@ -11545,7 +11994,8 @@
                   "fdtd",
                   "static",
                   "optimize",
-                  "nonlinear"
+                  "nonlinear",
+                  "eme"
                 ]
               }
             },
