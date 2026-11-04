@@ -59,6 +59,7 @@ export const RULE: Record<string, string> = {
 export const START: Record<string, string> = {
   bought: "a bought SOI wafer",
   smart_cut: "bare silicon (Smart Cut)",
+  simox: "bare silicon (SIMOX)",
 };
 
 /** A step's type, in words. */

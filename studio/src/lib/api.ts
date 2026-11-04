@@ -293,9 +293,9 @@ export const api = {
   deviceLibrary: () => invoke<DeviceInfo[]>("device_library"),
   /** A design evaluated as the form shows it: its fields, values, ports and scene. */
   deviceGeometry: (spec: DeviceSpec) => invoke<DeviceGeometry>("device_geometry", { spec }),
-  /** A design's flow from `start` (the wafer as bought by default; for SOI, bare silicon by Smart Cut). */
+  /** A design's flow from `start` (the wafer as bought by default; for SOI, bare silicon by Smart Cut or SIMOX). */
   deviceFabrication: (spec: DeviceSpec, start: FabStart | null = null) => invoke<DeviceFabrication>("device_fabrication", { spec, start }),
-  /** The text of the job whose run gives a design's flow from `start`: `start: smart_cut` in its task when it isn't the bought wafer. */
+  /** The text of the job whose run gives a design's flow from `start`: `start: smart_cut` or `start: simox` in its task when it isn't the bought wafer. */
   fabricationJob: (spec: DeviceSpec, name: string, start: FabStart | null = null) => invoke<string>("fabrication_job", { spec, name, start }),
   /** The Fabrication page's design: its flow from the bare wafer, its frames in 2D and 3D, what the rules find; from `start`, or as the design's job says when null. */
   fabricationPage: (design: FabDesign, prefer: string[], avoid: string[], start: FabStart | null = null) => invoke<FabricationPage>("fabrication_page", { design, prefer, avoid, start }),
@@ -1035,14 +1035,18 @@ export interface DeviceFabrication {
   frames: FlowFrame[];
   /** Where the flow starts (photonoxide::fabrication::Start). */
   start: FabStart;
-  /** The starts the design can be made from: the bought wafer, and for SOI bare silicon by Smart Cut. */
+  /** The starts the design can be made from: the bought wafer, and for SOI bare silicon by Smart Cut and SIMOX where their routes make its film and oxide. */
   starts: FabStart[];
   /** The Smart Cut route to the design's film and buried oxide, when it is one of the starts (photonoxide::fabrication::smart_cut::Route). */
   smart_cut: SmartCutRoute | null;
+  /** The SIMOX route to the design's film and buried oxide, when it is one of the starts (photonoxide::fabrication::simox::Route). */
+  simox: SimoxRoute | null;
+  /** Why SIMOX can't make the design's wafer, for SOI it can't: its film or oxide beyond the published conditions. */
+  simox_refused: string | null;
 }
 
-/** Where a flow starts: the wafer as bought, or for SOI bare silicon by Smart Cut. */
-export type FabStart = "bought" | "smart_cut";
+/** Where a flow starts: the wafer as bought, or for SOI bare silicon by Smart Cut or SIMOX. */
+export type FabStart = "bought" | "smart_cut" | "simox";
 
 /** The Smart Cut route's numbers: thicknesses and depths in µm, the energy in keV, times in hours (the strip in minutes). */
 export interface SmartCutRoute {
@@ -1058,6 +1062,24 @@ export interface SmartCutRoute {
   excess: number;
   polish: number;
   consumed: number;
+  sacrificial: number;
+  sacrificial_hours: number;
+  strip_minutes: number;
+}
+
+/** The SIMOX route's numbers: thicknesses in µm, the dose in cm⁻², the energy in keV, temperatures in °C, times in hours (the strip in minutes). */
+export interface SimoxRoute {
+  oxide: number;
+  film: number;
+  dose: number;
+  energy: number;
+  implant_temperature: number;
+  anneal_temperature: number;
+  anneal_hours: number;
+  consumed: number;
+  swelling: number;
+  made: number;
+  thinned: number;
   sacrificial: number;
   sacrificial_hours: number;
   strip_minutes: number;

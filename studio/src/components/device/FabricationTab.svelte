@@ -9,7 +9,8 @@
   // and the references. A suggested flow from published processes, not a foundry's process.
   // "In 3D, from the bare wafer" opens the design on the Fabrication page. For silicon on
   // insulator, the flow can start from a bought SOI wafer (the default) or from bare silicon, the
-  // SOI wafer made first by Smart Cut; the job the tab writes says so (`start: smart_cut`), and
+  // SOI wafer made first by Smart Cut or SIMOX; the job the tab writes says so (`start: smart_cut`,
+  // `start: simox`), and
   // "Run as a job" runs it, so the run replays the same flow.
   import { Factory, Play } from "@lucide/svelte";
   import { api, type DeviceFabrication, type DeviceSpec, type FabStart } from "../../lib/api";
@@ -38,7 +39,7 @@
   let jobText = $state<string | null>(null);
 
   /** The job's name: the device's kind, as a file name, and how its flow starts. */
-  const jobName = $derived(`${spec.kind.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}-flow${start === "smart_cut" ? "-smart-cut" : ""}`);
+  const jobName = $derived(`${spec.kind.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}-flow${start === "smart_cut" ? "-smart-cut" : start === "simox" ? "-simox" : ""}`);
 
   $effect(() => {
     void designKey;
@@ -155,7 +156,7 @@
     <button class="btn btn-xs gap-1" onclick={() => fabricate({ kind: "device", spec: $state.snapshot(spec) as DeviceSpec }, `${spec.kind[0].toUpperCase()}${spec.kind.slice(1)}, as on its page`, start)} title="This design on the Fabrication page: the flow from the bare wafer, in 2D and 3D"><Factory size={13} /> In 3D, from the bare wafer</button>
   </div>
   {#if shown}
-    <StartChoice starts={shown.starts} start={shown.start} route={shown.smart_cut} onpick={pickStart} stack="its stack, on the Design tab" />
+    <StartChoice starts={shown.starts} start={shown.start} route={shown.smart_cut} simox={shown.simox} refused={shown.simox_refused} onpick={pickStart} stack="its stack, on the Design tab" />
   {/if}
   {#if problem}
     <p role="alert" class="text-warning selectable">{plain(problem)}</p>
@@ -352,7 +353,7 @@
     <details ontoggle={showJob}>
       <summary class="cursor-pointer font-medium">The job ({jobName}.yaml)</summary>
       <div class="mt-1 space-y-1">
-        <p class="faint">The flow as a job: its run records the flow and writes its export (flow.json, the traveller and a cross-section a step){start === "smart_cut" ? "; its task's start: smart_cut makes the SOI wafer first" : ""}.</p>
+        <p class="faint">The flow as a job: its run records the flow and writes its export (flow.json, the traveller and a cross-section a step){start !== "bought" ? `; its task's start: ${start} makes the SOI wafer first` : ""}.</p>
         {#if jobText !== null}
           <pre class="selectable overflow-x-auto rounded-box bg-base-200 p-2 font-mono text-[11px]" aria-label="The job's text">{jobText}</pre>
         {:else}
