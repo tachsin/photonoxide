@@ -1,19 +1,26 @@
 <script lang="ts">
-  // Home: pick up where you left off (the run going, your recent designs, chips and jobs, your
-  // recent runs), start something new, or run a template (every job of jobs/, built in). At its
-  // foot, what the build has checked and what's new.
-  import { ArrowRight, Boxes, ChevronDown, CircuitBoard, FileCog, FileText, FolderOpen, Plus, ShieldCheck } from "@lucide/svelte";
+  // Home, the studio's front door: a hero (what the studio is, three ways in, the build's live
+  // status), the modules as cards, every example by topic in an accordion, the recent work and
+  // runs as a strip, and beside them the latest papers and what's new. Laid out by the page's
+  // own width (container queries), so a narrow window stacks the columns.
+  import { ArrowRight, Atom, Boxes, ChevronDown, CircuitBoard, Factory, FileCog, FileText, FolderOpen, GraduationCap, Play, Plus, ShieldCheck, Sparkles } from "@lucide/svelte";
   import { open } from "@tauri-apps/plugin-dialog";
 
-  import JobCard from "../components/JobCard.svelte";
+  import ExamplesAccordion from "../components/home/ExamplesAccordion.svelte";
+  import ModuleArt, { type Art } from "../components/home/ModuleArt.svelte";
+  import RecentStrip, { type WorkItem } from "../components/home/RecentStrip.svelte";
+  import Logo from "../components/Logo.svelte";
   import Markdown from "../components/Markdown.svelte";
   import Tip from "../components/Tip.svelte";
-  import { ago, api, duration, formatOfText, KINDS, type CircuitItem, type Home } from "../lib/api";
-  import { app, fabricate, go, newCustom, openCustom, run, showCases, showPublished, startRun, toast } from "../lib/app.svelte";
+  import { api, duration, KINDS, type CircuitItem, type Home } from "../lib/api";
+  import { app, go, newCustom, openCustom, run, showCases, showPublished, startRun, toast, type Page } from "../lib/app.svelte";
   import { catalog, loadCatalog } from "../lib/catalog.svelte";
-  import { devices, loadDevices, openDesign, openDevice, openDeviceText, openRunItem } from "../lib/device.svelte";
-  import { openChipFile, openChipText, showChip } from "../lib/chip.svelte";
+  import { latestRelease } from "../lib/changelog";
+  import { openDesign } from "../lib/device.svelte";
+  import { openChipFile, showChip } from "../lib/chip.svelte";
   import type { Kind } from "../lib/job";
+  import type { Topic } from "../lib/topics";
+  import { updater } from "../lib/updater.svelte";
 
   let home = $state<Home | null>(null);
   let circuits = $state<CircuitItem[]>([]);
@@ -27,7 +34,12 @@
       report = { passed: rows.filter((l) => l.slice(1, -1).split(" | ")[7]?.trim() === "pass").length, total: rows.length };
     })
     .catch(() => {});
+  api
+    .changelog()
+    .then((c) => (changelog = c))
+    .catch(() => {});
   let notes = $state(false);
+  const release = $derived(changelog ? latestRelease(changelog) : null);
 
   $effect(() => {
     void app.workspaceVersion;
@@ -35,11 +47,6 @@
     api.circuits().then((c) => (circuits = c)).catch(() => {});
   });
   loadCatalog();
-  loadDevices();
-
-  function newJob(kind: Kind) {
-    newCustom(kind);
-  }
 
   async function openRunFolder() {
     const dir = await open({ title: "Open a run folder", directory: true, defaultPath: `${app.state?.workspace}/runs` });
@@ -54,13 +61,8 @@
     }
   }
 
-  async function whatsNew() {
-    changelog ||= await api.changelog().catch(() => "");
-    notes = true;
-  }
-
   /** What was worked on last: the designs, chips and jobs of the workspace, newest first, each opening where it belongs. */
-  const work = $derived(
+  const work: WorkItem[] = $derived(
     [
       ...(home?.jobs ?? []).map((j) => ({
         key: j.path,
@@ -73,153 +75,190 @@
       ...circuits.map((c) => ({ key: c.path, name: c.name, what: `chip, ${c.instances} part${c.instances === 1 ? "" : "s"}`, modified: c.modified, icon: CircuitBoard, open: () => openChipFile(c.path) })),
     ]
       .sort((a, b) => b.modified - a.modified)
-      .slice(0, 8),
+      .slice(0, 12),
   );
-  const recent = $derived(home?.runs.slice(0, 8) ?? []);
 
-  /** The templates' kinds, for the filter; and the one kept to, if any. */
-  const kinds = $derived([...new Set((catalog.data?.jobs ?? []).map((j) => j.kind))]);
-  let only = $state<string | null>(null);
+  const MODULES: { art: Art; page: Page; label: string; icon: typeof Boxes; line: string }[] = [
+    { art: "components", page: "components", label: "Components", icon: Boxes, line: "Rings, couplers, MMIs and modulators: their ports, models and spectra." },
+    { art: "chip", page: "chip", label: "Chip", icon: CircuitBoard, line: "Place components, wire them port to port and simulate the circuit." },
+    { art: "fabrication", page: "fabrication", label: "Fabrication", icon: Factory, line: "A design made from the bare wafer, step by step in 2D and 3D." },
+    { art: "academy", page: "academy", label: "Academy", icon: GraduationCap, line: "How devices work, with charts the library computes as you move them." },
+    { art: "materials", page: "materials", label: "Materials", icon: Atom, line: "Indices, crystals and tensors, each with its paper and its range." },
+    { art: "validation", page: "validation", label: "Validation", icon: ShieldCheck, line: "Every solver against exact solutions and the published results." },
+  ];
+
+  function openModule(page: Page) {
+    if (page === "validation") showCases();
+    else go(page);
+  }
+
+  let accordion: ExamplesAccordion | undefined = $state();
+  let openTopics = $state(new Set<Topic>(["modes"]));
+  const allOpen = $derived(openTopics.size === 7);
+
+  const status = $derived(
+    updater.status === "available"
+      ? { tone: "accent", text: `photonoxide ${updater.version} is out`, action: () => (updater.dialog = true) }
+      : updater.status === "checking"
+        ? { tone: "neutral", text: "Looking for updates…", action: null }
+        : updater.last?.outcome === "current"
+          ? { tone: "success", text: "Up to date", action: null }
+          : null,
+  );
 </script>
 
-<div class="h-full overflow-y-auto">
-  <div class="mx-auto max-w-6xl space-y-6 px-4 py-6 sm:px-8">
-    <!-- start something -->
-    <div class="flex flex-wrap items-center gap-2">
-      <div class="dropdown">
-        <div tabindex="0" role="button" class="btn btn-primary btn-sm gap-1.5"><Boxes size={15} /> New device <ChevronDown size={13} /></div>
-        <ul tabindex="-1" class="dropdown-content menu z-20 mt-1 max-h-80 w-72 flex-nowrap overflow-y-auto rounded-box border border-base-content/10 bg-base-100 p-2 shadow-xl">
-          {#each devices.list as d (d.id)}
-            <li>
-              <button onclick={() => openDevice(d.id, "design")} class="flex flex-col items-start gap-0.5">
-                <span class="font-medium first-letter:uppercase">{d.kind}</span><span class="line-clamp-1 text-xs faint">{d.about}</span>
-              </button>
-            </li>
-          {/each}
-        </ul>
-      </div>
-      <button class="btn btn-sm gap-1.5" onclick={() => showChip()} title="Place components on a chip and wire them into a circuit"><CircuitBoard size={15} /> New chip</button>
-      <div class="dropdown">
-        <div tabindex="0" role="button" class="btn btn-sm gap-1.5"><Plus size={15} /> New job <ChevronDown size={13} /></div>
-        <ul tabindex="-1" class="dropdown-content menu z-20 mt-1 w-72 rounded-box border border-base-content/10 bg-base-100 p-2 shadow-xl">
-          {#each ["modes", "fdfd", "fdtd", "structure"] as const as kind (kind)}
-            <li>
-              <button onclick={() => newJob(kind)} class="flex flex-col items-start gap-0.5">
-                <span class="font-medium">{KINDS[kind].label}</span><span class="text-xs faint">{KINDS[kind].about}</span>
-              </button>
-            </li>
-          {/each}
-        </ul>
-      </div>
-      <button class="btn btn-ghost btn-sm gap-1.5" onclick={openRunFolder}><FolderOpen size={15} /> Open a run…</button>
-    </div>
+<div class="@container h-full overflow-y-auto">
+  <div class="mx-auto max-w-[96rem] space-y-10 px-5 pt-6 pb-14 @3xl:px-10 @3xl:pt-8">
+    <!-- the hero: what the studio is, three ways in, and the build's status -->
+    <header class="glow relative overflow-hidden rounded-3xl border border-base-content/8 bg-base-100 px-6 py-7 @3xl:px-10 @3xl:py-10">
+      <div class="flex flex-col gap-8 @5xl:flex-row @5xl:items-center @5xl:gap-12">
+        <div class="min-w-0 flex-1">
+          <div class="flex items-center gap-3">
+            <Logo size={40} />
+            <span class="text-sm font-semibold tracking-wide text-base-content/70">photonoxide studio</span>
+          </div>
+          <h1 class="mt-5 max-w-2xl text-[1.85rem] leading-tight font-semibold tracking-tight text-balance @3xl:text-[2.45rem] @3xl:leading-[1.12]">Design, simulate and make photonic chips, every number checked.</h1>
+          <p class="mt-3 max-w-xl text-[15px] leading-relaxed text-pretty muted">Waveguide modes, FDFD and FDTD, circuits, nonlinear optics and fabrication flows in one window, each solver checked against exact solutions and published papers.</p>
+          <div class="mt-6 flex flex-wrap items-center gap-2 text-xs">
+            <span class="badge badge-ghost gap-1.5 border-base-content/10 font-mono" title="photonoxide {app.state?.build.label ?? app.state?.version} on {app.state?.platform}">v{app.state?.build.label ?? app.state?.version}</span>
+            {#if status}
+              {#if status.action}
+                <button class="badge badge-accent badge-soft gap-1.5 hover:brightness-110" onclick={status.action}><Sparkles size={12} />{status.text}</button>
+              {:else}
+                <span class="badge badge-soft gap-1.5 {status.tone === 'success' ? 'badge-success' : 'badge-neutral'}">{status.text}</span>
+              {/if}
+            {/if}
+            <button class="badge badge-ghost gap-1.5 border-base-content/10 hover:border-success/40" onclick={showCases} title="The validation report: every solver against exact solutions and papers">
+              <ShieldCheck size={12} class="text-success" />{report ? `${report.passed} of ${report.total} validation cases pass` : "validation cases"}
+            </button>
+            <button class="badge badge-ghost gap-1.5 border-base-content/10 hover:border-primary/40" onclick={() => showPublished()} title="The examples that reproduce published papers">{catalog.data?.examples.length ?? "–"} published results reproduced</button>
+            <span class="badge badge-ghost border-base-content/10">{app.state?.platform}</span>
+          </div>
+        </div>
 
-    <Tip id="home-start" title="New here?">
-      Run a template below: it plays live in the run view, and <strong>Open</strong> lets you change it and save your own. The rail's lists hold the components, the parts and circuits, the lessons and the materials; your runs are in the drawer at the bottom left, and <kbd class="kbd kbd-xs">Ctrl</kbd> <kbd class="kbd kbd-xs">K</kbd> finds anything.
-    </Tip>
+        <nav aria-label="Start" class="grid gap-3 @xl:grid-cols-3 @5xl:w-[25rem] @5xl:shrink-0 @5xl:grid-cols-1">
+          <button class="hero-action group" onclick={() => go("components")}>
+            <span class="hero-icon bg-primary/12 text-primary"><Boxes size={20} /></span>
+            <span class="min-w-0 flex-1"><span class="block font-semibold">Open a component</span><span class="block truncate text-xs muted">Its design, model, spectra and layout</span></span>
+            <ArrowRight size={16} class="hero-arrow" />
+          </button>
+          <div class="dropdown dropdown-end @5xl:dropdown-left">
+            <button class="hero-action group w-full" aria-haspopup="menu">
+              <span class="hero-icon bg-secondary/14 text-secondary"><Play size={20} /></span>
+              <span class="min-w-0 flex-1 text-left"><span class="block font-semibold">Start a simulation</span><span class="block truncate text-xs muted">Modes, FDFD, FDTD or a structure</span></span>
+              <ChevronDown size={16} class="hero-arrow" />
+            </button>
+            <ul class="dropdown-content menu z-30 mt-2 w-80 rounded-2xl border border-base-content/10 bg-base-100 p-2 shadow-2xl" role="menu">
+              {#each ["modes", "fdfd", "fdtd", "structure"] as const as kind (kind)}
+                <li role="none">
+                  <button role="menuitem" onclick={() => newCustom(kind as Kind)} class="flex flex-col items-start gap-0.5 rounded-xl py-2">
+                    <span class="font-medium">{KINDS[kind].label}</span><span class="text-xs faint">{KINDS[kind].about}</span>
+                  </button>
+                </li>
+              {/each}
+            </ul>
+          </div>
+          <button class="hero-action group" onclick={() => accordion?.focusFirst()}>
+            <span class="hero-icon bg-accent/16 text-accent"><Sparkles size={20} /></span>
+            <span class="min-w-0 flex-1"><span class="block font-semibold">Open an example</span><span class="block truncate text-xs muted">{catalog.data ? `${catalog.data.jobs.length} jobs, ${catalog.data.examples.length} papers, by topic` : "Jobs and papers, by topic"}</span></span>
+            <ArrowRight size={16} class="hero-arrow" />
+          </button>
+          <div class="flex flex-wrap gap-1 @xl:col-span-3 @5xl:col-span-1">
+            <button class="btn btn-ghost btn-sm gap-1.5 font-normal muted" onclick={() => showChip()}><Plus size={14} /> New chip</button>
+            <button class="btn btn-ghost btn-sm gap-1.5 font-normal muted" onclick={openRunFolder}><FolderOpen size={14} /> Open a run…</button>
+          </div>
+        </nav>
+      </div>
+    </header>
 
     <!-- pick up where you left off -->
     {#if run.info?.dir}
-      <button class="panel flex w-full items-center gap-3 p-4 text-left transition-colors hover:border-primary/30" onclick={() => go("viewer")}>
-        <span class="status {run.finished ? 'status-neutral' : 'status-success animate-pulse'}"></span>
+      <button class="panel flex w-full items-center gap-4 rounded-2xl px-5 py-4 text-left transition hover:border-primary/35" onclick={() => go("viewer")}>
+        <span class="status status-lg {run.finished ? 'status-neutral' : 'status-success animate-pulse'}"></span>
         <span class="min-w-0 flex-1">
           <span class="block truncate font-medium">{run.job?.job ?? run.info.name}</span>
           <span class="block truncate text-xs faint">{run.finished ? `finished in ${duration(run.finished.seconds)}` : "running now"} · {run.info.name}</span>
         </span>
-        <span class="flex items-center gap-1 text-sm text-primary">Continue <ArrowRight size={15} /></span>
+        <span class="flex items-center gap-1 text-sm font-medium text-primary">Continue <ArrowRight size={15} /></span>
       </button>
     {/if}
 
-    <div class="grid gap-6 lg:grid-cols-2">
-      <section>
-        <h3 class="panel-title mb-2">Recent work</h3>
-        <div class="panel divide-y divide-base-content/6">
-          {#each work as w (w.key)}
-            {@const Icon = w.icon}
-            <button class="flex w-full items-center gap-3 px-4 py-2.5 text-left hover:bg-base-content/3" onclick={w.open} title={w.key}>
-              <Icon size={15} class="shrink-0 text-primary" />
-              <span class="min-w-0 flex-1">
-                <span class="block truncate text-sm font-medium">{w.name}</span>
-                <span class="block truncate text-xs faint">{w.what}</span>
-              </span>
-              <span class="shrink-0 text-xs faint">{ago(w.modified)}</span>
-            </button>
-          {:else}
-            <p class="px-4 py-6 text-center text-sm faint">Nothing saved yet: a design, a chip or a job you save appears here.</p>
-          {/each}
-        </div>
-      </section>
-      <section>
-        <div class="mb-2 flex items-center">
-          <h3 class="panel-title">Recent runs</h3>
-          <span class="flex-1"></span>
-          <button class="btn btn-ghost btn-xs gap-1" onclick={() => (app.drawer = true)}>All runs <ArrowRight size={13} /></button>
-        </div>
-        <div class="panel divide-y divide-base-content/6">
-          {#each recent as r (r.dir)}
-            <button class="flex w-full items-center gap-3 px-4 py-2.5 text-left hover:bg-base-content/3" onclick={() => openRunItem(r)}>
-              <span class="status shrink-0 {r.finished ? (r.stopped ? 'status-warning' : 'status-success') : 'status-neutral'}"></span>
-              <span class="min-w-0 flex-1">
-                <span class="block truncate text-sm font-medium">{r.job || r.name}</span>
-                <span class="block truncate text-xs faint">{KINDS[r.kind]?.label ?? r.kind}{r.seconds !== null ? ` · ${duration(r.seconds)}` : ""}</span>
-              </span>
-              <span class="shrink-0 text-xs faint">{ago(r.started)}</span>
-            </button>
-          {:else}
-            <p class="px-4 py-6 text-center text-sm faint">No runs yet: run a template and it appears here.</p>
-          {/each}
-        </div>
-      </section>
-    </div>
+    <Tip id="home-start" title="New here?">
+      Open a topic under <strong>Examples</strong> and press <strong>Run</strong>: the job plays live in the run view, and <strong>Open</strong> lets you change it and save your own. The cards lead to each module; your runs are in the drawer at the bottom left, and <kbd class="kbd kbd-xs">Ctrl</kbd> <kbd class="kbd kbd-xs">K</kbd> finds anything.
+    </Tip>
 
-    <!-- the templates, compact: run one, or open it to change it -->
-    <section>
-      <div class="mb-2 flex flex-wrap items-center gap-2">
-        <h3 class="panel-title">Start from a template</h3>
-        <span class="flex-1"></span>
-        <button class="btn btn-xs {only === null ? 'btn-primary' : 'btn-ghost'}" onclick={() => (only = null)}>all</button>
-        {#each kinds as k (k)}
-          <button class="btn btn-xs {only === k ? 'btn-primary' : 'btn-ghost'}" onclick={() => (only = only === k ? null : k)} title={KINDS[k]?.about}>{KINDS[k]?.label ?? k}</button>
-        {/each}
+    <div class="grid gap-10 @6xl:grid-cols-[minmax(0,1fr)_23rem] @6xl:gap-8">
+      <div class="min-w-0 space-y-10">
+        <section aria-labelledby="home-modules">
+          <div class="mb-4">
+            <h2 id="home-modules" class="text-lg font-semibold tracking-tight">Modules</h2>
+            <p class="text-sm muted">Where the work happens.</p>
+          </div>
+          <div class="grid gap-4 @xl:grid-cols-2 @4xl:grid-cols-3">
+            {#each MODULES as m (m.page)}
+              {@const Icon = m.icon}
+              <button class="module-card group" onclick={() => openModule(m.page)}>
+                <span class="block h-28 border-b border-base-content/6 bg-linear-to-br from-primary/7 via-transparent to-secondary/7 px-6 py-3 transition-colors group-hover:from-primary/12"><ModuleArt art={m.art} /></span>
+                <span class="block px-5 pt-4 pb-5">
+                  <span class="flex items-center gap-2 text-[15px] font-semibold"><Icon size={16} class="text-primary" />{m.label}<ArrowRight size={15} class="ml-auto -translate-x-1 text-primary opacity-0 transition group-hover:translate-x-0 group-hover:opacity-100 group-focus-visible:opacity-100" /></span>
+                  <span class="mt-1.5 block text-sm leading-snug muted">{m.line}</span>
+                </span>
+              </button>
+            {/each}
+          </div>
+        </section>
+
+        <section aria-labelledby="home-examples">
+          <div class="mb-4 flex flex-wrap items-end gap-2">
+            <div>
+              <h2 id="home-examples" class="text-lg font-semibold tracking-tight">Examples</h2>
+              <p class="text-sm muted">Every built-in job and every published result reproduced, by topic.</p>
+            </div>
+            <span class="flex-1"></span>
+            <button class="btn btn-ghost btn-sm" onclick={() => (openTopics = allOpen ? new Set() : new Set(["modes", "fdfd", "fdtd", "circuits", "nonlinear", "fabrication", "optimization"]))}>{allOpen ? "Collapse all" : "Expand all"}</button>
+          </div>
+          <ExamplesAccordion bind:this={accordion} bind:open={openTopics} jobs={catalog.data?.jobs ?? null} examples={catalog.data?.examples ?? []} />
+        </section>
+
+        <section aria-labelledby="home-recent">
+          <h2 id="home-recent" class="mb-3 text-lg font-semibold tracking-tight">Recent</h2>
+          <RecentStrip {work} runs={home?.runs.slice(0, 12) ?? []} loading={home === null} />
+        </section>
       </div>
-      <div class="panel divide-y divide-base-content/6">
-        {#each catalog.data?.jobs ?? [] as j (j.file)}
-          {#if !only || j.kind === only}
-            <JobCard
-              name={j.name}
-              kind={j.kind}
-              about={j.about}
-              onrun={() => startRun(() => api.runText(j.text), `Running ${j.name}`)}
-              onopen={async () => {
-                // a device's job on its device's page, a chip's on the Chip, any other in the Custom device
-                if (!(await openChipText(j.text)) && !(await openDeviceText(j.text))) openCustom(j.text);
-              }}
-              onfabricate={j.fabricates ? () => fabricate({ kind: "job", text: j.text, format: formatOfText(j.text), path: null }, j.name) : undefined}
-            />
+
+      <aside class="min-w-0 space-y-6 @6xl:sticky @6xl:top-6 @6xl:self-start" aria-label="News">
+        <section class="panel rounded-2xl p-5" aria-labelledby="home-new">
+          <div class="flex items-baseline gap-2">
+            <h2 id="home-new" class="text-[15px] font-semibold">What's new in photonoxide</h2>
+          </div>
+          {#if release}
+            <p class="mt-0.5 text-xs faint">{release.version}{release.date ? ` · ${release.date}` : ""}</p>
+            <ul class="mt-3 space-y-2.5">
+              {#each release.lines.slice(0, 5) as l, k (k)}
+                <li class="flex gap-2 text-sm leading-snug">
+                  <span class="mt-[0.45rem] size-1.5 shrink-0 rounded-full bg-primary/60"></span>
+                  <span class="min-w-0"><span class="line-clamp-2">{#if l.scope}<span class="mr-1 font-medium text-base-content/80">{l.scope}:</span>{/if}<span class="muted">{l.text}</span></span></span>
+                </li>
+              {/each}
+            </ul>
+          {:else}
+            <div class="mt-3 space-y-2">{#each [0, 1, 2, 3] as k (k)}<div class="skeleton h-4"></div>{/each}</div>
           {/if}
-        {:else}
-          {#each [0, 1, 2] as k (k)}<div class="skeleton m-3 h-9"></div>{/each}
-        {/each}
-      </div>
-    </section>
-
-    <!-- what the build has checked, and what's new -->
-    <footer class="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-base-content/8 pt-4 text-xs faint">
-      <button class="flex items-center gap-1.5 hover:text-base-content" onclick={showCases} title="The validation report: every solver against exact solutions and papers">
-        <ShieldCheck size={13} class="text-success" />{report ? `${report.passed} of ${report.total} validation cases pass` : "validation cases"}
-      </button>
-      <button class="hover:text-base-content" onclick={() => showPublished()} title="The examples that reproduce published papers">{catalog.data?.examples.length ?? "–"} published results reproduced</button>
-      <span>photonoxide {app.state?.version} on {app.state?.platform}</span>
-      <button class="flex items-center gap-1 text-primary hover:underline" onclick={whatsNew}>What's new <ArrowRight size={12} /></button>
-    </footer>
+          <button class="btn btn-ghost btn-sm mt-3 -ml-3 gap-1 text-primary" onclick={() => (notes = true)}>The whole changelog <ArrowRight size={14} /></button>
+        </section>
+      </aside>
+    </div>
   </div>
 </div>
 
 <dialog class="modal" class:modal-open={notes}>
   <div class="modal-box max-w-3xl">
     <h3 class="text-lg font-semibold">What's new</h3>
-    <div class="mt-2 max-h-[65vh] overflow-y-auto pr-2"><Markdown text={changelog.replace(/^# Changelog[\s\S]*?(?=## \[)/, "")} /></div>
+    <div class="mt-2 max-h-[65vh] overflow-y-auto pr-2">
+      {#if notes}<Markdown text={changelog.replace(/^# Changelog[\s\S]*?(?=## \[)/, "")} />{/if}
+    </div>
     <div class="modal-action"><button class="btn" onclick={() => (notes = false)}>Close</button></div>
   </div>
   <form method="dialog" class="modal-backdrop"><button onclick={() => (notes = false)}>close</button></form>
 </dialog>
+
