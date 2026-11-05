@@ -40,7 +40,7 @@ mod waveguide;
 mod tests;
 
 pub use coupler::{Coupler, DirectionalCoupler, Supermodes};
-pub use mmi::{Mmi, MmiKind, Planar};
+pub use mmi::{Mmi, MmiKind, MmiModes, Planar};
 pub use mzi::{mzi, mzi_closed_form, mzi_y};
 pub use ring::{AddDropRing, AllPassRing};
 pub use sampled::Sampled;

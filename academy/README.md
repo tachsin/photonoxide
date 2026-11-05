@@ -19,6 +19,7 @@ moving a slider shows the physics the library computes, the code the
 | [The strip waveguide and its cross-section](strip-waveguide.md) | intermediate | `strip` | `strip-fields`, `strip-neff`, `strip-models`, `strip-corners`, `strip-group-index` |
 | [Leaky and bent guides, and multilayers](leaky-and-bent-guides.md) | advanced | `leaky` | `leaky-field`, `leaky-substrate`, `bend-loss` |
 | [How a chip is made](how-a-chip-is-made.md) | introductory | `process` | `fab-resolution`, `fab-oxidation` |
+| [Multimode interference couplers](mmi.md) | intermediate | `mmi` | `mmi-field`, `mmi-modes`, `mmi-length`, `mmi-spectrum`, `mmi-tolerance` |
 
 The whole curriculum is laid out: every lesson still to be written is here too, **coming soon**,
 with its numbered subsections, what each will answer and the examples each will use, so writing
@@ -26,7 +27,6 @@ it is filling them in. The library lists them in this order, the order to read t
 
 | Lesson coming soon | Topic | Level | Examples |
 |---|---|---|---|
-| [Multimode interference and self-imaging](mmi.md) | Multimode and polarization devices | intermediate | `mmi_liu_poon` |
 | [Crossings, mode converters and the polarization splitter-rotator](crossings-and-converters.md) | Multimode and polarization devices | advanced | `crossing_liu_poon`, `mode_converter_liu_poon`, `splitter_rotator_liu_poon` |
 | [Photonic crystals and band gaps](photonic-crystals.md) | Nanophotonics | advanced | `subpixel_holes` |
 | [Surface plasmons and Mie scattering](plasmonics.md) | Nanophotonics | advanced | `lorentz_okoniewski` |
@@ -199,6 +199,7 @@ shows first.
 | `strip` | a strip in section: the core $n_1$, $w$ wide and $t$ thick, in the cladding $n_2$ on a buried oxide $h$ thick over the substrate, $x$, $y$ and $z$; the TE-like mode's field with its main $E_x$, the four corners and Marcatili's four corner regions; and the effective index method's two slabs, across $t$ giving $N$ and across $w$ giving $n_\text{eff}$ | `strip-modes.yaml` |
 | `process` | five cross-sections of one wafer as a silicon strip is made: the SOI wafer, a film $t$ thick on a buried oxide $h$ thick over the handle; resist coated and exposed through a mask by light of wavelength $\lambda$ through a lens of numerical aperture NA; the resist developed, a line $w$ wide; the silicon etched down to the oxide, where it stops; the resist stripped and the strip clad in oxide | none |
 | `leaky` | a planar guide in section, the cover $n_c$, films $n_1 \ldots n_J$ and a substrate $n_s$ above $\operatorname{Re} n_\text{eff}$, the mode along $z$ shedding a plane wave into the substrate at $\theta$, weaker downstream, and its field $\lvert\psi(x)\rvert$ growing into the substrate as $e^{ik\alpha_s x}$; and a guide $n_1$ in $n_2$ bent at $R$ about $O$, its radial phase fronts, $e^{i\nu\varphi}$ with $\nu = kn_\text{eff}R$, and the radius $\rho_r = R\thinspace n_\text{eff}/n_2$ beyond which it radiates | none |
+| `mmi` | a 1 × 2 MMI from above: a section $W$ wide and $L = 3L_\pi/8$ long fed in its middle by a guide $w_a$ wide, the light inside it computed from Soldano and Pennings's sine-like modes and quadratic phases, the input's spot opening into two images at the far face, the outputs at $\pm W/4$, $z$ along it; beneath, the first four modes $\psi_0 \ldots \psi_3$ across $W$, $\beta_0 - \beta_\nu \approx \nu(\nu + 2)\pi/3L_\pi$ and $L_\pi \approx 4n_rW_e^2/3\lambda_0$ | `mmi-fdfd.yaml` |
 
 Each diagram is an entry in `studio/src-tauri/src/diagrams.rs` (its title, its captions, and its
 job if it has one) and an SVG drawn by a component in `studio/src/components/diagrams/`, named
@@ -250,6 +251,11 @@ code; the window only draws what it returns, and asks again as a slider moves.
 | `grating-apodization` | `mfd` µm (10.4), `angle` ° (10), `cap` α per µm (0.3) | Taillaert et al.'s $2\alpha = G^2/(1 - \int G^2)$, marched along $z$ with the power left and capped, and its overlap |
 | `grating-directionality` | `box` µm (2), `cladding` (1.444), `angle` ° (10), `etch` nm (70), `mirror` pairs (0) | `Multilayer::reflection` above and below a sheet at the grooves' mid-depth: the share sent up against the buried oxide's thickness |
 | `grating-band` | `mfd` µm (10.4), `angle` ° (10), `cladding` (1.444), `etch` nm (70), `fill` (0.5) | `Slab::modes` for the grating's index at each wavelength, the period phase matched at 1.55 µm; $e^{-q^2w^2/4}$ |
+| `mmi-field` | `width` µm (3), `offset` $y_\text{in}/W$ (0), `span` in $L_\pi$ (1) | `circuit::components::Mmi::analysis_at`, `MmiModes::field`: the light a 0.8 µm guide's input carries along a 220 nm silicon section, from above, by the guided modes of the effective index method's plane; the shares of the odd modes and of modes 2, 5, 8 |
+| `mmi-modes` | `width` µm (3), `wavelength` µm (1.55) | `Mmi::analysis`, `MmiModes::propagation_constants`: each mode's $(\beta_0 - \beta_\nu)3L_\pi/\pi$ against $\nu(\nu + 2)$; $L_\pi$ exact and by Soldano and Pennings's Eqs. 4 and 6 |
+| `mmi-length` | `kind` (1: 1 × 2, 2: 2 × 2), `width` µm (3), `access` µm (0.8) | `Mmi::analysis`, `MmiModes::s_matrix` at 401 lengths to $1.25L_\pi$: each output, and the excess loss, imbalance and phase difference at the first two-fold image and where the weaker output peaks |
+| `mmi-spectrum` | `kind` (1), `width` µm (3), `access` µm (0.8) | `Mmi::analysis` at 121 wavelengths from 1.40 to 1.70 µm (`material::silicon`, `material::silica`), cut at the best length at 1.55 µm; the band where excess loss and imbalance stay under 1 dB |
+| `mmi-tolerance` | `kind` (1), `width` µm (3), `access` µm (0.8), `thickness` nm (220) | `Mmi::analysis_at` with the guides' centres in place and every drawn width $\Delta w$ wider, −250 to 250 nm, cut at the best length on 220 nm; Soldano and Pennings's Eqs. 39 and 40 beside it |
 
 The ranges are in `charts.rs` (the coupler's in `charts/coupler.rs`), and the window's sliders keep
 to them. A chart may draw its y axis on a logarithmic scale (`y_log`), and give curves that belong
@@ -267,7 +273,8 @@ grating coupler's charts (`charts/grating.rs`) take tens of milliseconds to a se
 modes and transfer matrices, and overlap integrals summed on fine steps; each is a model of one
 factor of a coupler's efficiency, set in the lesson against a published number. The two overlap
 charts, `grating-overlap` and `grating-apodization`, are integrals the studio sums itself, with no
-library function behind them, and their captions say so.
+library function behind them, and their captions say so. The MMI's charts (`charts/mmi.rs`) are its 2D guided-mode model, exact slab modes and no grid,
+solved once for a width and wavelength so that a sweep of the length costs one solve.
 A chart may draw pictures of a field over a cross-section in place of curves (`maps`), side by
 side with one colour scale, as `strip-fields` does.
 

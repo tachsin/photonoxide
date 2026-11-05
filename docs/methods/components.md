@@ -173,6 +173,14 @@ middle (symmetric interference) and splits at $3L_\pi/8$ (Eq. 37, $N = 2$), its 
 $\pm W/4$; a 2 × 2 3 dB coupler is fed at $\pm W/6$ (paired interference) and splits at
 $L_\pi/2$ (Eq. 33), its outputs a quarter turn apart. Each `Mmi` starts at that length.
 
+`Mmi::analysis` computes the modes and the couplings $t_{p\nu}$ once for a width and wavelength,
+an `MmiModes`: its `s_matrix` at any length is the component's to the bit, so a sweep of the
+length costs one solve, and its `field` is the light the guided modes carry inside the section,
+$\sum_\nu t_{p\nu}\hat\psi_\nu(y)\thinspace e^{i\beta_\nu z}$, each mode scaled to unit power.
+`Mmi::analysis_at` places the access guides by hand: an input anywhere across the face, or
+guides held in place while the drawn width changes. The [MMI lesson](../../academy/mmi.md) draws
+both.
+
 Its ports state the device's polarization, as a waveguide's do: on 220 nm SOI the TE-like
 guide is TE in the film and TM across the ridge, so the lateral slab's TM modes make ports
 stated TE, which connect to a TE-like waveguide.

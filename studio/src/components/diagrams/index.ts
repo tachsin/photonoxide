@@ -9,6 +9,7 @@ import Coupler from "./Coupler.svelte";
 import Dispersion from "./Dispersion.svelte";
 import Grating from "./Grating.svelte";
 import Leaky from "./Leaky.svelte";
+import Mmi from "./Mmi.svelte";
 import Mzi from "./Mzi.svelte";
 import Process from "./Process.svelte";
 import Ring from "./Ring.svelte";
@@ -21,6 +22,7 @@ export const DRAWINGS: Record<string, Component> = {
   "dispersion": Dispersion,
   "grating": Grating,
   "leaky": Leaky,
+  "mmi": Mmi,
   "mzi": Mzi,
   "process": Process,
   "ring": Ring,

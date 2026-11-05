@@ -127,6 +127,7 @@ impl MmiKind {
 
 /// A guided mode of a symmetric slab centred at `centre` (µm, lateral), with what the overlaps
 /// need.
+#[derive(Clone, Debug)]
 struct Lateral {
     mode: SlabMode,
     /// Where the slab's core starts (its lower edge).
@@ -360,24 +361,168 @@ impl Component for Mmi {
     }
 }
 
+/// An MMI's guided-mode analysis at one wavelength and width, computed once: the multimode
+/// section's guided modes and each port's coupling into them (Soldano & Pennings 1995,
+/// doi:10.1109/50.372474, Eqs. 8–12, with the exact slab modes). From it the S-matrix at any
+/// length of the section, and the field the guided modes carry inside it, follow without
+/// solving again. [`Mmi::analysis`] makes one.
+#[derive(Clone, Debug)]
+pub struct MmiModes {
+    /// Whether each port is on the left face.
+    left: Vec<bool>,
+    modes: Vec<Lateral>,
+    /// [port][mode]: each port's power-normalized coupling into each mode.
+    couplings: Vec<Vec<f64>>,
+    /// Each mode's √(β ∫ w ψ² dy), which scales it to unit power.
+    norms: Vec<f64>,
+}
+
+impl MmiModes {
+    /// The section's guided modes' propagation constants β_ν, rad/µm, highest first.
+    pub fn propagation_constants(&self) -> Vec<f64> {
+        self.modes.iter().map(|m| m.beta).collect()
+    }
+
+    /// The power-normalized coupling of port `port` (in the S-matrix's order) into each of the
+    /// section's guided modes, c_ν: real, since every field here is real. Σ c_ν² is about the
+    /// share of the port's power the guided modes take, the rest radiated at the junction (the
+    /// junction's overlap leaves out its reflection, so the sum may pass 1 by about 1e-4).
+    ///
+    /// # Panics
+    ///
+    /// If `port` isn't one of its ports.
+    pub fn couplings(&self, port: usize) -> &[f64] {
+        &self.couplings[port]
+    }
+
+    /// The S-matrix with the section `length` µm long: Σ_ν c_pν e^{iβ_ν L} c_qν between ports
+    /// on opposite faces, 0 between ports on the same face (no reflection in this model), as
+    /// [`Component::s_matrix`] gives it.
+    pub fn s_matrix(&self, length: f64) -> SMatrix {
+        self.s_matrix_with(length, &[], 0.0)
+    }
+
+    fn s_matrix_with(&self, length: f64, indices: &[Option<f64>], k: f64) -> SMatrix {
+        let travel: Vec<c64> = self
+            .modes
+            .iter()
+            .enumerate()
+            .map(|(v, m)| match indices.get(v) {
+                None => crate::portable::exp_c(c64::new(0.0, m.beta * length)),
+                Some(Some(n)) => crate::portable::exp_c(c64::new(0.0, k * n * length)),
+                Some(None) => c64::new(0.0, 0.0),
+            })
+            .collect();
+        let (left, t) = (&self.left, &self.couplings);
+        SMatrix::from_fn(left.len(), |q, p| {
+            if left[q] == left[p] {
+                // the same face: no reflection in this model
+                return c64::new(0.0, 0.0);
+            }
+            (0..self.modes.len())
+                .map(|v| t[p][v] * travel[v] * t[q][v])
+                .sum()
+        })
+    }
+
+    /// The field the guided modes carry from port `port` at `z` µm into the section from that
+    /// port's face and `y` µm across it from its axis (the S-matrix's lateral axis):
+    /// Σ_ν c_ν ψ̂_ν(y) e^{iβ_ν z}, each mode ψ̂_ν scaled to unit power (β ∫ w ψ̂² dy = 1, w being
+    /// 1/n² for a lateral TM mode and 1 for TE). The lateral field is H normal to the plane for
+    /// a TE-like device (lateral TM), E for a TM-like one. Its square is the self-imaging
+    /// pattern: the input's power-weighted image wherever the modes' phases realign.
+    ///
+    /// # Panics
+    ///
+    /// If `port` isn't one of its ports.
+    pub fn field(&self, port: usize, y: f64, z: f64) -> c64 {
+        self.modes
+            .iter()
+            .zip(&self.couplings[port])
+            .zip(&self.norms)
+            .map(|((m, c), n)| {
+                c * m.field(y) / n * crate::portable::exp_c(c64::new(0.0, m.beta * z))
+            })
+            .sum()
+    }
+}
+
 impl Mmi {
-    /// Its S-matrix, the section's mode v travelling with the effective index `indices[v]`
-    /// instead of its own where that is `Some`, left out where `None`; the modes past the
-    /// slice's end as they are. With no indices, [`Component::s_matrix`].
-    pub(crate) fn s_matrix_with(
+    /// Its guided-mode analysis at `wavelength` for a section `width` µm wide: the section's
+    /// modes and each port's coupling into them, from which [`MmiModes::s_matrix`] gives the
+    /// S-matrix at any length, the same as [`Component::s_matrix`] to the bit, and
+    /// [`MmiModes::field`] the field inside.
+    ///
+    /// # Errors
+    ///
+    /// As [`Component::s_matrix`]: a width not above three access guides, a section that
+    /// guides fewer than two modes, the errors of its plane at `wavelength`.
+    pub fn analysis(&self, wavelength: Wavelength, width: f64) -> Result<MmiModes> {
+        let p = &self.parameters[1];
+        if !(width.is_finite() && width >= p.min && width <= p.max) {
+            return Err(Error::invalid(
+                "MMI",
+                format!("width {width} um is outside {} to {} um", p.min, p.max),
+            ));
+        }
+        self.modes_at(wavelength, width)
+    }
+
+    /// The same analysis with access guides of its access width centred at `guides` in place
+    /// of its ports: each a lateral position, µm from the section's axis, and whether it is on
+    /// the left face. The section's modes are the same; the ports are these guides, in this
+    /// order. An input anywhere across the section shows general interference, which its ports'
+    /// positions restrict; guides kept in place while the width changes show a fabrication
+    /// error.
+    ///
+    /// # Errors
+    ///
+    /// As [`Mmi::analysis`], and [`Error::InvalidValue`] for no guides, or a guide not wholly
+    /// on the section's face.
+    pub fn analysis_at(
         &self,
         wavelength: Wavelength,
-        values: &[f64],
-        indices: &[Option<f64>],
-    ) -> Result<SMatrix> {
-        super::check(self.kind(), &self.parameters, values)?;
-        let (length, width) = (values[0], values[1]);
+        width: f64,
+        guides: &[(f64, bool)],
+    ) -> Result<MmiModes> {
+        if !(width.is_finite() && width > 0.0) {
+            return Err(Error::invalid("MMI", format!("width {width} um")));
+        }
+        let half = (width - self.access) / 2.0;
+        if guides.is_empty()
+            || guides
+                .iter()
+                .any(|g| !g.0.is_finite() || g.0.abs() > half + 1e-12)
+        {
+            return Err(Error::invalid(
+                "MMI",
+                format!("each guide must be on the section's face, within {half} um of its axis"),
+            ));
+        }
+        self.modes_with(wavelength, width, guides)
+    }
+
+    fn modes_at(&self, wavelength: Wavelength, width: f64) -> Result<MmiModes> {
+        let guides: Vec<(f64, bool)> = self
+            .kind
+            .layout()
+            .iter()
+            .map(|&(f, left)| (f * width, left))
+            .collect();
+        self.modes_with(wavelength, width, &guides)
+    }
+
+    fn modes_with(
+        &self,
+        wavelength: Wavelength,
+        width: f64,
+        layout: &[(f64, bool)],
+    ) -> Result<MmiModes> {
         let (_, _, polarization) = self.planar.at(wavelength)?;
         let modes = lateral_modes(&self.planar, width, 0.0, wavelength)?;
-        let layout = self.kind.layout();
         let guides = layout
             .iter()
-            .map(|&(f, _)| self.access_mode(wavelength, f * width))
+            .map(|&(y, _)| self.access_mode(wavelength, y))
             .collect::<Result<Vec<_>>>()?;
         // the integrals' pieces: every interface, and far enough out for every field to die
         let decay = modes
@@ -408,26 +553,39 @@ impl Mmi {
                     .collect()
             })
             .collect();
-        let k = wavelength.wavenumber();
-        let travel: Vec<c64> = modes
+        // each mode's power, to scale its field to unit power
+        let norms = modes
             .iter()
-            .enumerate()
-            .map(|(v, m)| match indices.get(v) {
-                None => crate::portable::exp_c(c64::new(0.0, m.beta * length)),
-                Some(Some(n)) => crate::portable::exp_c(c64::new(0.0, k * n * length)),
-                Some(None) => c64::new(0.0, 0.0),
+            .map(|m| {
+                let w = |y: f64| m.weight(y, polarization);
+                let p: f64 = breaks
+                    .windows(2)
+                    .map(|b| simpson(|y| w(y) * m.field(y).powi(2), b[0], b[1], 200))
+                    .sum();
+                (m.beta * p).sqrt()
             })
             .collect();
-        let n = layout.len();
-        Ok(SMatrix::from_fn(n, |q, p| {
-            if layout[q].1 == layout[p].1 {
-                // the same face: no reflection in this model
-                return c64::new(0.0, 0.0);
-            }
-            (0..modes.len())
-                .map(|v| t[p][v] * travel[v] * t[q][v])
-                .sum()
-        }))
+        Ok(MmiModes {
+            left: layout.iter().map(|g| g.1).collect(),
+            modes,
+            couplings: t,
+            norms,
+        })
+    }
+
+    /// Its S-matrix, the section's mode v travelling with the effective index `indices[v]`
+    /// instead of its own where that is `Some`, left out where `None`; the modes past the
+    /// slice's end as they are. With no indices, [`Component::s_matrix`].
+    pub(crate) fn s_matrix_with(
+        &self,
+        wavelength: Wavelength,
+        values: &[f64],
+        indices: &[Option<f64>],
+    ) -> Result<SMatrix> {
+        super::check(self.kind(), &self.parameters, values)?;
+        let (length, width) = (values[0], values[1]);
+        let modes = self.modes_at(wavelength, width)?;
+        Ok(modes.s_matrix_with(length, indices, wavelength.wavenumber()))
     }
 
     /// A short description of the plane, for the provenance.
@@ -453,5 +611,80 @@ impl Mmi {
     /// The wavelength its default length was set at.
     pub fn design_wavelength(&self) -> Wavelength {
         self.wavelength
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn soi() -> Planar {
+        Planar::Film {
+            core: crate::material::silicon(),
+            cladding: crate::material::silica(),
+            thickness: Length::nm(220.0),
+            vertical: Polarization::Te,
+        }
+    }
+
+    /// The analysis computed once gives the component's S-matrix to the bit at every length,
+    /// and its field holds each mode with the coupling the S-matrix uses: projected on mode ν
+    /// (β_ν ∫ w ψ̂_ν F dy over the plane), the field at the input's face returns c_ν.
+    #[test]
+    fn the_analysis_is_the_s_matrix_and_its_field_holds_the_couplings() {
+        let l = Wavelength::um(1.55).unwrap();
+        for kind in [MmiKind::OneByTwo, MmiKind::TwoByTwo] {
+            let m = Mmi::new(kind, soi(), 3.0, 0.8, l).unwrap();
+            let a = m.analysis(l, 3.0).unwrap();
+            for length in [0.0, 4.2, 8.48, 11.3, 30.0] {
+                let s = m.s_matrix(l, &[length, 3.0]).unwrap();
+                let t = a.s_matrix(length);
+                for q in 0..s.size() {
+                    for p in 0..s.size() {
+                        assert_eq!(s[(q, p)], t[(q, p)], "{kind:?} at {length} um");
+                    }
+                }
+            }
+            let (_, _, polarization) = m.planar.at(l).unwrap();
+            let c = a.couplings(0);
+            // the input's power the guided modes take: most of it, not more than all
+            let kept: f64 = c.iter().map(|c| c * c).sum();
+            assert!(kept > 0.9 && kept < 1.0 + 1e-4, "{kind:?}: {kept}");
+            let (lo, hi) = (-6.0, 6.0);
+            for (v, mode) in a.modes.iter().enumerate() {
+                let f = |y: f64| {
+                    let w = mode.weight(y, polarization);
+                    mode.beta * w * mode.field(y) / a.norms[v] * a.field(0, y, 0.0).re
+                };
+                // pieces at the section's walls, where the weight steps
+                let back: f64 = [lo, -1.5, 1.5, hi]
+                    .windows(2)
+                    .map(|b| simpson(f, b[0], b[1], 4000))
+                    .sum();
+                assert!(
+                    (back - c[v]).abs() < 2e-5,
+                    "{kind:?}, mode {v}: {back} against {}",
+                    c[v]
+                );
+            }
+            // the field travels: |F| at the face is the input's, not an image's
+            assert!(a.field(0, 0.0, 1.0).norm() > 0.0);
+            assert!(a.propagation_constants().windows(2).all(|b| b[0] > b[1]));
+        }
+        let m = Mmi::new(MmiKind::OneByTwo, soi(), 3.0, 0.8, l).unwrap();
+        assert!(m.analysis(l, 1.0).is_err());
+        // guides placed by hand where its ports are give its S-matrix, to the bit
+        let own = m.analysis(l, 3.0).unwrap().s_matrix(8.5);
+        let placed = m
+            .analysis_at(l, 3.0, &[(0.0, true), (0.75, false), (-0.75, false)])
+            .unwrap()
+            .s_matrix(8.5);
+        for q in 0..3 {
+            for p in 0..3 {
+                assert_eq!(own[(q, p)], placed[(q, p)]);
+            }
+        }
+        assert!(m.analysis_at(l, 3.0, &[(1.2, true)]).is_err());
+        assert!(m.analysis_at(l, 3.0, &[]).is_err());
     }
 }
