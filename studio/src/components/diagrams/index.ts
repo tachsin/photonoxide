@@ -7,6 +7,7 @@ import type { Component } from "svelte";
 import Bragg from "./Bragg.svelte";
 import Coupler from "./Coupler.svelte";
 import Dispersion from "./Dispersion.svelte";
+import Grating from "./Grating.svelte";
 import Leaky from "./Leaky.svelte";
 import Mzi from "./Mzi.svelte";
 import Process from "./Process.svelte";
@@ -18,6 +19,7 @@ export const DRAWINGS: Record<string, Component> = {
   "bragg": Bragg,
   "coupler": Coupler,
   "dispersion": Dispersion,
+  "grating": Grating,
   "leaky": Leaky,
   "mzi": Mzi,
   "process": Process,

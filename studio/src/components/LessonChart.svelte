@@ -149,6 +149,6 @@
   {/if}
 
   <figcaption class="border-t border-base-content/8 px-4 py-2 text-[11px] leading-relaxed faint">
-    {data?.note ?? ""} Computed by <code class="font-mono">photonoxide::{spec.computed_by}</code>.
+    {data?.note ?? ""} Computed {#if spec.computed_by.includes("::")}by <code class="font-mono">photonoxide::{spec.computed_by}</code>{:else}in the studio: {spec.computed_by}{/if}.
   </figcaption>
 </figure>

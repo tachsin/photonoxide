@@ -556,6 +556,12 @@
   venue: "Microelectronic Engineering 135, 57"
   year: 2015
 
+- doi: 10.1109/LPT.2010.2051220
+  authors: "X. Chen, C. Li, C. K. Y. Fung, S. M. G. Lo, H. K. Tsang"
+  title: "Apodized Waveguide Grating Couplers for Efficient Coupling to Optical Fibers"
+  venue: "IEEE Photon. Technol. Lett. 22, 1156"
+  year: 2010
+
 - doi: 10.1364/JOSAB.506412
   authors: "M. Chen, R. E. Christiansen, J. A. Fan, G. Işiklar, J. Jiang, S. G. Johnson, W. Ma, O. D. Miller, A. Oskooi, M. F. Schubert, et al."
   title: "Validation and characterization of algorithms and software for photonics inverse design"
@@ -2056,6 +2062,12 @@
   venue: "Bell System Technical Journal 48, 2071"
   year: 1969
 
+- doi: 10.1364/PRJ.7.000201
+  authors: "R. Marchetti, C. Lacava, L. Carroll, K. Gradkowski, P. Minzioni"
+  title: "Coupling strategies for silicon photonics integrated chips [Invited]"
+  venue: "Photon. Res. 7, 201"
+  year: 2019
+
 - doi: 10.1002/j.1538-7305.1971.tb02620.x
   authors: "D. Marcuse"
   title: "Bending Losses of the Asymmetric Slab Waveguide"
@@ -2098,6 +2110,12 @@
   title: "The behavior of electromagnetic fields at edges"
   venue: "IEEE Trans. Antennas Propagat. 20, 442"
   year: 1972
+
+- doi: 10.1109/JSTQE.2010.2086049
+  authors: "A. Mekis, S. Gloeckner, G. Masini, A. Narasimha, T. Pinguet, S. Sahni, P. De Dobbelaere"
+  title: "A Grating-Coupler-Enabled CMOS Photonics Platform"
+  venue: "IEEE J. Select. Topics Quantum Electron. 17, 597"
+  year: 2011
 
 - doi: 10.1103/PhysRevLett.97.110501
   authors: "N. C. Menicucci, P. van Loock, M. Gu, C. Weedbrook, T. C. Ralph, M. A. Nielsen"
@@ -2947,6 +2965,18 @@
   venue: "IEEE Trans. Microwave Theory Techn. 23, 623"
   year: 1975
 
+- doi: 10.1109/JQE.2002.1017613
+  authors: "D. Taillaert, W. Bogaerts, P. Bienstman, T. F. Krauss, P. Van Daele, I. Moerman, S. Verstuyft, K. De Mesel, R. Baets"
+  title: "An out-of-plane grating coupler for efficient butt-coupling between compact planar waveguides and single-mode fibers"
+  venue: "IEEE J. Quantum Electron. 38, 949"
+  year: 2002
+
+- doi: 10.1143/JJAP.45.6071
+  authors: "D. Taillaert, F. Van Laere, M. Ayre, W. Bogaerts, D. Van Thourhout, P. Bienstman, R. Baets"
+  title: "Grating Couplers for Coupling between Optical Fibers and Nanophotonic Waveguides"
+  venue: "Jpn. J. Appl. Phys. 45, 6071"
+  year: 2006
+
 - doi: 10.1109/50.143072
   authors: "A. Takagi, K. Jinguji, M. Kawachi"
   title: "Wavelength characteristics of (2*2) optical channel-type directional couplers with symmetric or nonsymmetric coupling structures"
@@ -2970,6 +3000,12 @@
   title: "Guided complex waves. Part 2: Relation to radiation patterns"
   venue: "Proc. Inst. Electr. Eng. UK 110, 325"
   year: 1963
+
+- doi: 10.1007/BF00882729
+  authors: "T. Tamir, S. T. Peng"
+  title: "Analysis and design of grating couplers"
+  venue: "Appl. Phys. 14, 235"
+  year: 1977
 
 - doi: 10.1016/S0022-3093(97)00438-9
   authors: "C. Tan"
@@ -3360,6 +3396,12 @@
   title: "Performance tradeoff between lateral and interdigitated doping patterns for high speed carrier-depletion based silicon modulators"
   venue: "Opt. Express 20, 12926"
   year: 2012
+
+- doi: 10.1364/OE.22.001277
+  authors: "W. S. Zaoui, A. Kunze, W. Vogel, M. Berroth, J. Butschke, F. Letzkus, J. Burghartz"
+  title: "Bridging the gap between optical fibers and silicon photonic integrated circuits"
+  venue: "Opt. Express 22, 1277"
+  year: 2014
 
 - doi: 10.1364/JOSAB.14.003319
   authors: "D. E. Zelmon, D. L. Small, D. Jundt"
