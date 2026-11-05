@@ -14,6 +14,8 @@ papers:
     doi: 10.1137/0733054
   - cite: "K. S. Yee, IEEE Trans. Antennas Propag. 14, 302 (1966) (the grid of a 3D section's plane: E's components at the middle of the cells' edges)"
     doi: 10.1109/TAP.1966.1138693
+  - cite: "G. R. Hadley, J. Lightwave Technol. 20, 1219 (2002) (the corner problems' modal indices, Figs. 4–7)"
+    doi: 10.1109/JLT.2002.800371
 validation:
   - eme/step-one-mode
   - eme/step-fresnel-te
@@ -26,6 +28,8 @@ validation:
   - eme/taper-adaptive
   - eme/3d-orthonormal
   - eme/3d-ports
+  - eme/3d-hadley
+  - eme/3d-symmetry
   - eme/3d-fresnel
   - eme/3d-lossless-reciprocity
   - eme/3d-lossless-power
@@ -229,7 +233,7 @@ use photonoxide::eme::{Eme3d, Plane, PlaneGrid, Section3d};
 use photonoxide::units::{Length, Wavelength};
 use photonoxide::Complex64 as c64;
 
-let grid = PlaneGrid { nx: 24, ny: 16, dx: 0.05, dy: 0.05, x0: -0.6, y0: -0.4 };
+let grid = PlaneGrid::new(24, 16, (0.05, 0.05), (-0.6, -0.4));
 let strip = |w: f64| Plane::new(grid, move |x, y| {
     let core = x.abs() < 0.5 * w && y.abs() < 0.1;
     c64::new(if core { 3.473f64.powi(2) } else { 1.444f64.powi(2) }, 0.0)
@@ -270,6 +274,16 @@ interfaces and the cascade are then the 2D ones, unchanged. Modes of one $\beta$
 guide's pairs, a uniform medium's TE and TM of one order) are given the basis orthogonal in both
 that product and $\sum V E_i\cdot E_j$, so the basis doesn't depend on the eigensolver; a mode's
 sign is set by a weighted sum that no mirror of the window maps onto itself.
+
+**Mirror walls.** Each of the window's four walls is electric (the tangential E zero on it)
+or magnetic (`Walls`, `PlaneGrid::with_walls`). A magnetic wall is a plane of symmetry: the
+tangential E on it is an unknown, and beyond it the field is its mirror image, the tangential
+E even and the normal E and $H_z$ odd, so the differences across it double; each value on the
+wall is weighted by half in the product, which keeps $VC$ and $VCA$ symmetric. A guide
+symmetric about x = 0 and y = 0 is solved on a quarter of its window, for the modes of one
+symmetry: the TE-like fundamental (E mostly along x) has an electric wall at x = 0 and a
+magnetic one at y = 0. A quarter holds a quarter of the unknowns, and a dense solve costs a
+64th. A PML on a magnetic wall is refused: a plane of symmetry isn't open.
 
 **Which modes.** The N of largest $\operatorname{Re}\beta^2$. A plane of at most 1500 unknowns, or one
 asked for a third of its modes or more, is solved for every mode, densely; a larger one for the
@@ -318,6 +332,8 @@ Measured with the cases' own settings, at 1.55 µm, silicon (3.473) in oxide (1.
 | `eme/taper-adaptive` | a slab widening from 220 to 600 nm over 1 µm as $z^8$, its steps placed adaptively to 1e-4, the largest error of $S_{11}$, $S_{21}$, $S_{22}$ | 9.77e-5 with 67 steps (stated 8.95e-5; 67 equal steps: 4.58e-4) | Richardson's limit of 1280 and 2560 equal steps (own error 2.1e-6) | discretisation, 1e-4 absolute, the tolerance driven to |
 | `eme/3d-orthonormal` | a 500 × 220 nm strip, a window 2.4 × 1.6 µm on a 40 nm grid, a PML 0.4 µm thick of strength 1, 60 modes: $\lvert\langle E_i, H_j\rangle - \delta_{ij}\rvert$ | 4.9e-12 | 0: the scheme's Lorentz reciprocity | round-off, 1e-10 |
 | `eme/3d-ports` | a 400 × 200 nm strip in a box 1.2 × 0.8 µm on a 50 nm grid, its 6 propagating modes | $\beta^2$ within 1e-10 of the 3D FDFD ports' $\beta_d^2$ | the same transverse eigenproblem | round-off, 1e-10 |
+| `eme/3d-hadley` | Hadley's four corner problems (ε = 2.25 or 8 in air, the 1 × 1 µm quarter domain between electric and magnetic walls, λ = 1.5 µm) on 40, 80 and 160 cells a side, Richardson's limit at the observed order (1.9, 2.0, 1.7, 1.3) | within 4.7e-7 relative of each (on 160 cells: 4.8e-6, −5.8e-6, 2.8e-6, 9.3e-6 off) | Hadley's 1.27627404, 2.65679692, 1.387926425, 2.761465320 | discretisation, 1.2e-5 relative, three times the finest grid's own error (3.8e-6) |
+| `eme/3d-symmetry` | the strip taper of `eme/3d-taper-fdfd` on a quarter of its window, every mode, against the whole window with all 728 | $S_{21}$ within 2.0e-14, the fundamental's $\beta^2$ within 3.3e-14 | the mirror image | round-off, 1e-10 |
 | `eme/3d-fresnel` | a step between uniform media in a box 1.3 × 1.1 µm, all 236 modes | within 7.7e-12 of Fresnel's coefficient at each mode's discrete angle, TE and TM, no coupling | Fresnel's $r_s$ and $-r_p$ | round-off, 1e-10 |
 | `eme/3d-lossless-reciprocity`, `-power` | a strip 200 nm thick widening from 400 to 700 nm in two steps 0.1 µm long, a box 1.2 × 0.8 µm on a 50 nm grid, all 728 modes | $\lvert S - S^T\rvert$ 3.6e-15; $\lvert S_p^\dagger S_p - 1\rvert$ 2.9e-13 | Lorentz reciprocity, power conservation | round-off, 1e-10 |
 | `eme/3d-extruded-separable` | the 2D lossless stepped slab as 3D sections uniform in y, 4 cells across against 1 (10 nm grid, 30 modes) | every entry of S within 4.9e-12 | the same discrete eigenproblem | round-off, 1e-10 |
@@ -346,10 +362,9 @@ finish, so the steps stop at 0.1/7 µm.
 
 What it does not do yet (#432):
 
-- **3D sections are planes given by a function,** between perfectly conducting walls: no
-  mirror walls yet, so a symmetric guide is solved whole, at two to four times the cost of a
-  half or a quarter; no published number checks the plane's modes yet (Hadley's corner
-  problems, which print them, need those walls). The PML's thickness and grading against the
+- **3D sections are planes given by a function** on a uniform grid. At convex dielectric
+  corners the plane's modes converge more slowly than second order (1.3 on Hadley's fourth
+  problem), as standard finite differences do there. The PML's thickness and grading against the
   number of modes, which 2D settled at 4 µm of strength 0.1, is not measured in 3D yet. With
   fewer than every mode of the plane, power is conserved only to the truncation's error
   ([above](#sections-in-3d)).

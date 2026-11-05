@@ -31,15 +31,46 @@ use faer::linalg::evd::{self, ComputeEigenvectors};
 use faer::{Mat, Par};
 use num_complex::Complex64 as c64;
 
+use super::Wall;
 use crate::{Error, Result};
 
+/// The walls on a plane's four edges: perfect electric conductors (the tangential E zero on
+/// them) or perfect magnetic ones (the tangential H zero), each a plane of symmetry when the
+/// guide is mirror-symmetric about it, so that half or a quarter of the cross-section holds the
+/// modes of one symmetry.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct Walls {
+    /// At the smallest x.
+    pub west: Wall,
+    /// At the largest x.
+    pub east: Wall,
+    /// At the smallest y.
+    pub south: Wall,
+    /// At the largest y.
+    pub north: Wall,
+}
+
+impl Default for Walls {
+    /// Electric walls on all four edges.
+    fn default() -> Walls {
+        Walls {
+            west: Wall::Electric,
+            east: Wall::Electric,
+            south: Wall::Electric,
+            north: Wall::Electric,
+        }
+    }
+}
+
 /// A uniform grid over a cross-section: `nx` × `ny` cells of `dx` × `dy` µm, its lowest corner
-/// at (`x0`, `y0`), with perfectly conducting walls on its four edges.
+/// at (`x0`, `y0`), and its four `walls`.
 ///
 /// E_x of index (i, j) sits at (x0 + (i + ½) dx, y0 + j dy) and E_y of index (i, j) at
 /// (x0 + i dx, y0 + (j + ½) dy), Yee's places on a plane of nodes (as [`crate::fdfd::Grid3d`]
-/// places them); the values on the walls are zero, so the unknowns are E_x for 0 < j < ny and
-/// E_y for 0 < i < nx.
+/// places them). On an electric wall the tangential E is zero, so the unknowns are E_x for
+/// 0 < j < ny and E_y for 0 < i < nx between four of them; a magnetic wall's tangential E is
+/// an unknown too, and the field beyond it its mirror image (the tangential E even, the normal
+/// E and H_z odd), the values on it weighted by half in the product.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct PlaneGrid {
     /// Cells along x.
@@ -54,12 +85,87 @@ pub struct PlaneGrid {
     pub x0: f64,
     /// Its low y, µm.
     pub y0: f64,
+    /// Its walls.
+    pub walls: Walls,
 }
 
 impl PlaneGrid {
-    /// The number of unknowns: E_x and E_y off the walls.
+    /// `nx` × `ny` cells of `dx` × `dy` µm from (`x0`, `y0`), between electric walls.
+    pub fn new(nx: usize, ny: usize, (dx, dy): (f64, f64), (x0, y0): (f64, f64)) -> PlaneGrid {
+        PlaneGrid {
+            nx,
+            ny,
+            dx,
+            dy,
+            x0,
+            y0,
+            walls: Walls::default(),
+        }
+    }
+
+    /// The same grid with `walls`.
+    pub fn with_walls(self, walls: Walls) -> PlaneGrid {
+        PlaneGrid { walls, ..self }
+    }
+
+    /// The range of j where E_x is unknown, and of i where E_y is: inside the electric walls,
+    /// on the magnetic ones.
+    fn spans(&self) -> ((usize, usize), (usize, usize)) {
+        let magnetic = |w: Wall| w == Wall::Magnetic;
+        let w = self.walls;
+        let j = (
+            usize::from(!magnetic(w.south)),
+            if magnetic(w.north) {
+                self.ny
+            } else {
+                self.ny.saturating_sub(1)
+            },
+        );
+        let i = (
+            usize::from(!magnetic(w.west)),
+            if magnetic(w.east) {
+                self.nx
+            } else {
+                self.nx.saturating_sub(1)
+            },
+        );
+        (j, i)
+    }
+
+    /// The number of E_x unknowns: they come first.
+    pub(crate) fn ex_count(&self) -> usize {
+        let ((j0, j1), _) = self.spans();
+        if j1 < j0 { 0 } else { self.nx * (j1 + 1 - j0) }
+    }
+
+    /// The number of unknowns: E_x and E_y, but for those on electric walls.
     pub fn unknowns(&self) -> usize {
-        self.nx * self.ny.saturating_sub(1) + self.nx.saturating_sub(1) * self.ny
+        let (_, (i0, i1)) = self.spans();
+        let ey = if i1 < i0 { 0 } else { self.ny * (i1 + 1 - i0) };
+        self.ex_count() + ey
+    }
+
+    /// Whether node (i, j)'s E_z (and the potential the continuity equation gives) is free:
+    /// not on an electric wall.
+    pub(crate) fn node_free(&self, i: usize, j: usize) -> bool {
+        let w = self.walls;
+        let off = |at: usize, end: usize, low: Wall, high: Wall| {
+            (at > 0 || low == Wall::Magnetic) && (at < end || high == Wall::Magnetic)
+        };
+        i <= self.nx
+            && j <= self.ny
+            && off(i, self.nx, w.west, w.east)
+            && off(j, self.ny, w.south, w.north)
+    }
+
+    /// The share of E_x's (i, j) inside the window: ½ on a magnetic wall, else 1.
+    pub(crate) fn ex_share(&self, j: usize) -> f64 {
+        if j == 0 || j == self.ny { 0.5 } else { 1.0 }
+    }
+
+    /// The share of E_y's (i, j) inside the window.
+    pub(crate) fn ey_share(&self, i: usize) -> f64 {
+        if i == 0 || i == self.nx { 0.5 } else { 1.0 }
     }
 
     /// Node `i` along x, µm.
@@ -95,15 +201,17 @@ impl PlaneGrid {
         Ok(())
     }
 
-    /// E_x's unknown at (i, j), `None` on a wall.
+    /// E_x's unknown at (i, j), `None` on an electric wall or outside.
     pub(crate) fn ex(&self, i: usize, j: usize) -> Option<usize> {
-        (j > 0 && j < self.ny && i < self.nx).then(|| (j - 1) * self.nx + i)
+        let ((j0, j1), _) = self.spans();
+        (i < self.nx && j >= j0 && j <= j1).then(|| (j - j0) * self.nx + i)
     }
 
-    /// E_y's unknown at (i, j), `None` on a wall.
+    /// E_y's unknown at (i, j), `None` on an electric wall or outside.
     pub(crate) fn ey(&self, i: usize, j: usize) -> Option<usize> {
-        (i > 0 && i < self.nx && j < self.ny)
-            .then(|| self.nx * (self.ny - 1) + j * (self.nx - 1) + (i - 1))
+        let (_, (i0, i1)) = self.spans();
+        let width = (i1 + 1).saturating_sub(i0);
+        (j < self.ny && i >= i0 && i <= i1).then(|| self.ex_count() + j * width + (i - i0))
     }
 }
 
@@ -173,6 +281,18 @@ impl Plane {
     pub fn new(grid: PlaneGrid, eps: impl Fn(f64, f64) -> c64) -> Result<Plane> {
         grid.check()?;
         let (nx, ny, h) = (grid.nx, grid.ny, [grid.dx, grid.dy]);
+        // a cell on a wall reaches past it: there the structure is its mirror image
+        let reflect = |v: f64, low: f64, high: f64| {
+            if v < low {
+                2.0 * low - v
+            } else if v > high {
+                2.0 * high - v
+            } else {
+                v
+            }
+        };
+        let (x1, y1) = (grid.x(nx), grid.y(ny));
+        let eps = |x: f64, y: f64| eps(reflect(x, grid.x0, x1), reflect(y, grid.y0, y1));
         let ex = (0..=ny)
             .flat_map(|j| (0..nx).map(move |i| (i, j)))
             .map(|(i, j)| {
@@ -370,6 +490,20 @@ impl Stretch {
                 "the layers are thicker than the window",
             ));
         }
+        let w = grid.walls;
+        for (name, thickness, wall) in [
+            ("west", lx.0, w.west),
+            ("east", lx.1, w.east),
+            ("south", ly.0, w.south),
+            ("north", ly.1, w.north),
+        ] {
+            if thickness > 0.0 && wall == Wall::Magnetic {
+                return Err(Error::invalid(
+                    "eme pml",
+                    format!("the {name} wall is a plane of symmetry: a PML there would break it"),
+                ));
+            }
+        }
         Ok(Stretch {
             x_node: along(grid.nx, grid.dx, span_x, lx, false),
             x_half: along(grid.nx, grid.dx, span_x, lx, true),
@@ -382,17 +516,17 @@ impl Stretch {
     pub(crate) fn weights(&self, grid: &PlaneGrid) -> Vec<c64> {
         let area = grid.dx * grid.dy;
         let mut w = vec![c64::new(0.0, 0.0); grid.unknowns()];
-        for j in 1..grid.ny {
+        for j in 0..=grid.ny {
             for i in 0..grid.nx {
                 if let Some(r) = grid.ex(i, j) {
-                    w[r] = self.x_half[i] * self.y_node[j] * area;
+                    w[r] = self.x_half[i] * self.y_node[j] * area * grid.ex_share(j);
                 }
             }
         }
         for j in 0..grid.ny {
-            for i in 1..grid.nx {
+            for i in 0..=grid.nx {
                 if let Some(r) = grid.ey(i, j) {
-                    w[r] = self.x_node[i] * self.y_half[j] * area;
+                    w[r] = self.x_node[i] * self.y_half[j] * area * grid.ey_share(i);
                 }
             }
         }
@@ -435,43 +569,69 @@ pub(crate) fn operators(plane: &Plane, stretch: &Stretch, k: f64) -> (Rows, Rows
     let (nx, ny, dx, dy) = (g.nx, g.ny, g.dx, g.dy);
     let n = g.unknowns();
     let s = stretch;
-    // H_z of cell (i, j), (i + ½, j + ½): ∂_x E_y − ∂_y E_x, in the unknowns
-    let hz = |i: usize, j: usize| -> [(Option<usize>, c64); 4] {
-        let wx = 1.0 / (s.x_half[i] * dx);
-        let wy = 1.0 / (s.y_half[j] * dy);
-        [
+    // H_z of cell (i, j), (i + ½, j + ½): ∂_x E_y − ∂_y E_x, in the unknowns; a cell beyond a
+    // wall is the mirror image of the one inside it, H_z odd across a magnetic wall (only a
+    // magnetic wall's rows reach beyond it)
+    let hz = |i: isize, j: isize| -> Vec<(Option<usize>, c64)> {
+        let (mut sign, mut a, mut b) = (1.0, i, j);
+        if a < 0 || a >= nx as isize {
+            sign = -sign;
+            a = if a < 0 { 0 } else { nx as isize - 1 };
+        }
+        if b < 0 || b >= ny as isize {
+            sign = -sign;
+            b = if b < 0 { 0 } else { ny as isize - 1 };
+        }
+        let (i, j) = (a as usize, b as usize);
+        let wx = sign / (s.x_half[i] * dx);
+        let wy = sign / (s.y_half[j] * dy);
+        vec![
             (g.ey(i + 1, j), wx),
             (g.ey(i, j), -wx),
             (g.ex(i, j + 1), -wy),
             (g.ex(i, j), wy),
         ]
     };
-    // ε_z⁻¹ ∇_t · (ε E_t) at node (i, j), inside the walls
+    // ε_z⁻¹ ∇_t · (ε E_t) at node (i, j), off the electric walls; on a magnetic wall the normal
+    // E beyond it is minus its image, so its difference doubles
     let potential = |i: usize, j: usize| -> Vec<(Option<usize>, c64)> {
-        if i == 0 || i == nx || j == 0 || j == ny {
+        if !g.node_free(i, j) {
             return Vec::new();
         }
         let inverse = 1.0 / plane.eps_z(i, j);
         let wx = inverse / (s.x_node[i] * dx);
         let wy = inverse / (s.y_node[j] * dy);
-        vec![
-            (g.ex(i, j), wx * plane.eps_x(i, j)),
-            (g.ex(i - 1, j), -wx * plane.eps_x(i - 1, j)),
-            (g.ey(i, j), wy * plane.eps_y(i, j)),
-            (g.ey(i, j - 1), -wy * plane.eps_y(i, j - 1)),
-        ]
+        let mut out = Vec::with_capacity(4);
+        if i < nx {
+            let f = if i == 0 { 2.0 } else { 1.0 };
+            out.push((g.ex(i, j), f * wx * plane.eps_x(i, j)));
+        }
+        if i > 0 {
+            let f = if i == nx { 2.0 } else { 1.0 };
+            out.push((g.ex(i - 1, j), -f * wx * plane.eps_x(i - 1, j)));
+        }
+        if j < ny {
+            let f = if j == 0 { 2.0 } else { 1.0 };
+            out.push((g.ey(i, j), f * wy * plane.eps_y(i, j)));
+        }
+        if j > 0 {
+            let f = if j == ny { 2.0 } else { 1.0 };
+            out.push((g.ey(i, j - 1), -f * wy * plane.eps_y(i, j - 1)));
+        }
+        out
     };
     let k2 = k * k;
     let mut c: Rows = vec![Vec::new(); n];
     let mut d: Rows = vec![Vec::new(); n];
-    for j in 1..ny {
+    for j in 0..=ny {
         for i in 0..nx {
             let Some(r) = g.ex(i, j) else { continue };
             c[r].push((r, k2 * plane.eps_x(i, j)));
             // −(∇ × ẑH_z)_x = −∂_y H_z
             let w = 1.0 / (s.y_node[j] * dy);
-            add(&mut c[r], -w, &hz(i, j));
-            add(&mut c[r], w, &hz(i, j - 1));
+            let (a, b) = (i as isize, j as isize);
+            add(&mut c[r], -w, &hz(a, b));
+            add(&mut c[r], w, &hz(a, b - 1));
             // ∂_x of the potential
             let w = 1.0 / (s.x_half[i] * dx);
             add(&mut d[r], w, &potential(i + 1, j));
@@ -479,13 +639,14 @@ pub(crate) fn operators(plane: &Plane, stretch: &Stretch, k: f64) -> (Rows, Rows
         }
     }
     for j in 0..ny {
-        for i in 1..nx {
+        for i in 0..=nx {
             let Some(r) = g.ey(i, j) else { continue };
             c[r].push((r, k2 * plane.eps_y(i, j)));
             // −(∇ × ẑH_z)_y = ∂_x H_z
             let w = 1.0 / (s.x_node[i] * dx);
-            add(&mut c[r], w, &hz(i, j));
-            add(&mut c[r], -w, &hz(i - 1, j));
+            let (a, b) = (i as isize, j as isize);
+            add(&mut c[r], w, &hz(a, b));
+            add(&mut c[r], -w, &hz(a - 1, b));
             let w = 1.0 / (s.y_half[j] * dy);
             add(&mut d[r], w, &potential(i, j + 1));
             add(&mut d[r], -w, &potential(i, j));
@@ -556,7 +717,7 @@ impl Mode3d {
     /// The share of |E_t|² in E_x: near 1 for a TE-like mode (E mostly along x), near 0 for a
     /// TM-like one.
     pub fn te_fraction(&self) -> f64 {
-        let split = self.grid.nx * (self.grid.ny - 1);
+        let split = self.grid.ex_count();
         let x: f64 = self.e[..split].iter().map(|v| v.norm_sqr()).sum();
         let y: f64 = self.e[split..].iter().map(|v| v.norm_sqr()).sum();
         x / (x + y)
@@ -765,7 +926,7 @@ fn sign_weight(grid: &PlaneGrid, e: &[c64]) -> c64 {
     let (lx, ly) = (grid.nx as f64 * grid.dx, grid.ny as f64 * grid.dy);
     let w = |u: f64, v: f64| (0.3 * u / lx + 0.7 * v / ly).exp();
     let mut sum = c64::new(0.0, 0.0);
-    for j in 1..grid.ny {
+    for j in 0..=grid.ny {
         for i in 0..grid.nx {
             if let Some(r) = grid.ex(i, j) {
                 sum += e[r] * w((i as f64 + 0.5) * grid.dx, j as f64 * grid.dy);
@@ -773,7 +934,7 @@ fn sign_weight(grid: &PlaneGrid, e: &[c64]) -> c64 {
         }
     }
     for j in 0..grid.ny {
-        for i in 1..grid.nx {
+        for i in 0..=grid.nx {
             if let Some(r) = grid.ey(i, j) {
                 sum += 1.7 * e[r] * w(i as f64 * grid.dx, (j as f64 + 0.5) * grid.dy);
             }

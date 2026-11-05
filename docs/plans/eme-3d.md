@@ -18,9 +18,10 @@
 4. Left: sections from a device's geometry, and the MMIs.
 5. Left: the job's sections by their shapes.
 
-Also left from this phase: magnetic (mirror) walls on the plane, for symmetric halves and
-quarters at a half or a quarter of the cost and for Hadley's corner problems, whose printed
-modal indices would check the plane's modes against a published number; and the PML study of
+Then (2026-11-05): magnetic (mirror) walls on the plane, so a symmetric guide is solved on a
+half or a quarter (`eme/3d-symmetry`: a quarter against the whole window to 2.0e-14), and
+Hadley's corner problems as the published check of the plane's modes (`eme/3d-hadley`: the
+Richardson limits within 4.7e-7 of his printed indices). Left from this phase: the PML study of
 section 2 (thickness and grading against the number of modes).
 
 `photonoxide::eme` is 2D today: each section is a stack of layers across x, its modes found

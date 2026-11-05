@@ -2,7 +2,9 @@
 
 use num_complex::Complex64 as c64;
 
-use super::{Eme, Eme3d, Plane, PlaneGrid, Pml3d, Scattering, Section, Section3d, Slice};
+use super::{
+    Eme, Eme3d, Plane, PlaneGrid, Pml3d, Scattering, Section, Section3d, Slice, Wall, Walls,
+};
 use crate::units::{Length, Wavelength};
 use crate::validation::{Case, Outcome, Tier};
 
@@ -20,14 +22,12 @@ fn re(v: f64) -> c64 {
 
 /// A grid of `nx` × `ny` cells of `dx` × `dy` µm centred on the origin.
 pub(crate) fn centred(nx: usize, ny: usize, dx: f64, dy: f64) -> PlaneGrid {
-    PlaneGrid {
+    PlaneGrid::new(
         nx,
         ny,
-        dx,
-        dy,
-        x0: -0.5 * nx as f64 * dx,
-        y0: -0.5 * ny as f64 * dy,
-    }
+        (dx, dy),
+        (-0.5 * nx as f64 * dx, -0.5 * ny as f64 * dy),
+    )
 }
 
 /// A silicon strip `w` × `t` µm centred in oxide on `grid`.
@@ -71,14 +71,7 @@ pub(crate) fn strip_orthonormality() -> f64 {
 /// tangential E, β₂² = β₁² + k₀²(ε₂ − ε₁) from its own β₁ (the box's modes are the same
 /// fields in both media); and the rest of S₁₁ against 0. The largest difference.
 pub(crate) fn fresnel() -> f64 {
-    let grid = PlaneGrid {
-        nx: 13,
-        ny: 10,
-        dx: 0.1,
-        dy: 0.11,
-        x0: 0.0,
-        y0: 0.0,
-    };
+    let grid = PlaneGrid::new(13, 10, (0.1, 0.11), (0.0, 0.0));
     let (e1, e2) = (CLAD * CLAD, CORE * CORE);
     let uniform = |e: f64| Plane::new(grid, |_, _| re(e)).expect("a uniform plane");
     let n = grid.unknowns();
@@ -274,6 +267,108 @@ pub(crate) fn taper_fdfd(dz: f64, pml: f64, lead: f64) -> (f64, f64) {
     (s[0][0].norm_sqr(), s[1][0].norm_sqr())
 }
 
+/// The lossless strip taper of [`taper_eme`] on a quarter of its window, x ≥ 0 and y ≥ 0
+/// (12 × 8 cells), every mode of the quarter: an electric wall at x = 0 and a magnetic one at
+/// y = 0, the planes of symmetry of the TE-like fundamental (E_x even in both). Its S₂₁ of the
+/// fundamental against the whole window's (every one of its 728 modes): the difference, and the
+/// two fundamentals' β² apart, relative.
+pub(crate) fn quarter() -> (f64, f64) {
+    let grid = PlaneGrid::new(12, 8, (0.05, 0.05), (0.0, 0.0)).with_walls(Walls {
+        west: Wall::Electric,
+        east: Wall::Electric,
+        south: Wall::Magnetic,
+        north: Wall::Electric,
+    });
+    let n = grid.unknowns();
+    let eme = Eme3d::new(lam(), n).expect("modes");
+    let sections = [
+        Section3d::new(strip(grid, 0.4, 0.2), Length::ZERO),
+        Section3d::new(strip(grid, 0.5, 0.2), Length::um(0.1)),
+        Section3d::new(strip(grid, 0.6, 0.2), Length::um(0.1)),
+        Section3d::new(strip(grid, 0.7, 0.2), Length::ZERO),
+    ];
+    let quarter = eme.s_matrix(&sections).expect("the quarter's S");
+    let whole_grid = centred(24, 16, 0.05, 0.05);
+    let whole = Eme3d::new(lam(), whole_grid.unknowns())
+        .expect("modes")
+        .s_matrix(&[
+            Section3d::new(strip(whole_grid, 0.4, 0.2), Length::ZERO),
+            Section3d::new(strip(whole_grid, 0.5, 0.2), Length::um(0.1)),
+            Section3d::new(strip(whole_grid, 0.6, 0.2), Length::um(0.1)),
+            Section3d::new(strip(whole_grid, 0.7, 0.2), Length::ZERO),
+        ])
+        .expect("the whole window's S");
+    let b2 = |n: c64| n * n;
+    (
+        (quarter.s21[0][0] - whole.s21[0][0]).norm(),
+        (b2(quarter.first[0]) - b2(whole.first[0])).norm() / b2(whole.first[0]).norm(),
+    )
+}
+
+/// Hadley's corner problem `problem` (1 to 4) on the plane: the 1 × 1 µm quarter domain on an
+/// `n` × `n` grid, its walls the problem's (G. R. Hadley, J. Lightwave Technol. 20, 1219
+/// (2002), Figs. 4–7, as [`crate::mode::vector`]'s check sets them), λ = 1.5 µm: the
+/// fundamental's effective index, and Hadley's.
+pub(crate) fn hadley(problem: usize, n: usize) -> (f64, f64) {
+    use Wall::{Electric, Magnetic};
+    let (eps, boxed, expected) = match problem {
+        1 => (2.25, true, 1.276_274_04),
+        2 => (8.0, true, 2.656_796_92),
+        3 => (2.25, false, 1.387_926_425),
+        _ => (8.0, false, 2.761_465_320),
+    };
+    let walls = if boxed {
+        Walls {
+            west: Electric,
+            east: Electric,
+            south: Magnetic,
+            north: Magnetic,
+        }
+    } else {
+        Walls {
+            west: Electric,
+            east: Magnetic,
+            south: Magnetic,
+            north: Electric,
+        }
+    };
+    let h = 1.0 / n as f64;
+    let grid = PlaneGrid::new(n, n, (h, h), (0.0, 0.0)).with_walls(walls);
+    let plane = Plane::new(grid, |x, y| {
+        let inside = if boxed {
+            x < 0.5 && y < 0.5
+        } else {
+            !(x > 0.5 && y > 0.5)
+        };
+        re(if inside { eps } else { 1.0 })
+    })
+    .expect("Hadley's plane");
+    let lam = Wavelength::from_um_unchecked(1.5);
+    let modes = Eme3d::new(lam, 1)
+        .expect("a mode")
+        .modes(&plane)
+        .expect("the fundamental");
+    (modes[0].effective_index().re, expected)
+}
+
+/// Hadley's four problems on 40, 80 and 160 cells a side, Richardson's limit at each one's
+/// observed order: (the largest relative difference of a limit from Hadley's index, the
+/// largest relative error of the finest grid, its estimate (f₃ − f₂)/(r − 1), r the ratio of
+/// the two changes).
+pub(crate) fn hadley_limits() -> (f64, f64) {
+    let (mut worst, mut own): (f64, f64) = (0.0, 0.0);
+    for problem in 1..=4 {
+        let f = [40, 80, 160].map(|n| hadley(problem, n));
+        let expected = f[0].1;
+        let (d1, d2) = (f[1].0 - f[0].0, f[2].0 - f[1].0);
+        let estimate = d2 / (d1 / d2 - 1.0);
+        let limit = f[2].0 + estimate;
+        worst = worst.max(((limit - expected) / expected).abs());
+        own = own.max((estimate / expected).abs());
+    }
+    (worst, own)
+}
+
 /// The 400 × 200 nm strip's plane (24 × 16 cells of 50 nm, perfectly conducting walls): its
 /// first 6 modes' β² by the expansion against the 3D FDFD ports' β_d² on the same plane (a
 /// grid 50 nm along z, β_d = (2/Δz) sin(βΔz/2) from the port's β): the largest relative
@@ -373,14 +468,7 @@ pub(crate) fn z_limit(dz: &[f64], v: &[f64]) -> (f64, f64) {
 /// modes: its S.
 pub(crate) fn extruded(h: f64, ny: usize) -> Scattering {
     let nx = (3.0 / h).round() as usize;
-    let grid = PlaneGrid {
-        nx,
-        ny,
-        dx: h,
-        dy: h,
-        x0: -1.5,
-        y0: 0.0,
-    };
+    let grid = PlaneGrid::new(nx, ny, (h, h), (-1.5, 0.0));
     let slab = |t: f64| {
         Plane::new(grid, |x, _| {
             if x.abs() < 0.5 * t {
@@ -519,6 +607,24 @@ pub(crate) fn cases() -> Vec<Case> {
             tier: Tier::Analytic,
             source: r"the same transverse eigenproblem: the ports' operator with $\beta_d^2 = ((2/\Delta z)\sin(\beta\Delta z/2))^2$ in place of $\beta^2$, its $\nabla_t \varepsilon_z^{-1} \nabla_t \cdot \varepsilon$ term included",
             run: || zero(ports_agree(), 1e-10),
+        },
+        Case {
+            id: "eme/3d-hadley",
+            title: r"The modes of a 3D section against a published table: Hadley's four corner problems (a dielectric box or an impinged corner of ε = 2.25 or 8 in air, the 1 × 1 µm quarter domain between electric and magnetic walls, λ = 1.5 µm), the fundamental's index on 40, 80 and 160 cells a side, Richardson's limit at its observed order: the largest relative difference from Hadley's (shown)",
+            tier: Tier::Published,
+            source: r"G. R. Hadley, J. Lightwave Technol. 20, 1219 (2002), doi:10.1109/JLT.2002.800371, Figs. 4–7: 1.27627404, 2.65679692, 1.387926425 and 2.761465320; our observed orders 1.9, 2.0, 1.7 and 1.3 (convex corners slow it)",
+            run: || {
+                let (worst, own) = hadley_limits();
+                crate::validation::note_numerical(significant(own, 2));
+                zero(significant(worst, 2), 1.2e-5)
+            },
+        },
+        Case {
+            id: "eme/3d-symmetry",
+            title: r"Mirror walls: the 3D strip taper of eme/3d-taper-fdfd on a quarter of its window (an electric wall at x = 0, a magnetic one at y = 0, the TE-like fundamental's planes of symmetry), every mode of the quarter, against the whole window with every one of its 728 modes: $\lvert S_{21} \rvert$'s difference (shown)",
+            tier: Tier::Analytic,
+            source: r"the mirror image: with the field beyond a wall its image (tangential E even across a magnetic wall, odd across an electric one) the quarter's equations are the whole window's restricted to that symmetry, each value on a wall weighted by half",
+            run: || zero(quarter().0, 1e-10),
         },
         Case {
             id: "eme/3d-fresnel",

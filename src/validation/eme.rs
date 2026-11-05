@@ -112,6 +112,26 @@ pub(crate) fn rules() -> Vec<(&'static str, Rule)> {
             ),
         ),
         (
+            "eme/3d-hadley",
+            Rule::new(
+                Relative,
+                Discretisation,
+                1.2e-5,
+                Noted,
+                "Hadley's series to ±1e-8; our limit's error bounded by the finest grid's own estimate, at most 3.8e-6 relative (problem 4's convex corner): three times it, rounded up",
+            ),
+        ),
+        (
+            "eme/3d-symmetry",
+            Rule::new(
+                Absolute,
+                RoundOff,
+                1e-10,
+                Exact,
+                "the same equations restricted to a symmetry: round-off, 1e-10 as eme/3d-orthonormal",
+            ),
+        ),
+        (
             "eme/3d-fresnel",
             Rule::new(
                 Absolute,

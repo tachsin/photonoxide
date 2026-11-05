@@ -91,7 +91,7 @@ mod three_tests;
 
 pub use adaptive::{Adaptive, MAX_STEPS, Piece, Round, Taper};
 pub use modes::Mode;
-pub use plane::{Mode3d, Plane, PlaneGrid, Pml3d};
+pub use plane::{Mode3d, Plane, PlaneGrid, Pml3d, Walls};
 pub use three::{Eme3d, Section3d};
 
 /// A wall at an edge of the window.

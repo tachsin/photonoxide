@@ -26,10 +26,34 @@ fn small() -> (Plane, Pml3d) {
 #[test]
 fn the_operators_are_symmetric_in_the_stretches_weights() {
     let (plane, pml) = small();
+    symmetric(&plane, Some(&pml));
+    // magnetic walls on two sides, a corner between them, a PML on the electric ones
+    let walls = super::Walls {
+        west: super::Wall::Magnetic,
+        east: super::Wall::Electric,
+        south: super::Wall::Magnetic,
+        north: super::Wall::Electric,
+    };
+    let grid = centred(14, 10, 0.1, 0.1).with_walls(walls);
+    let pml = Pml3d::new(0.0, 0.3, 0.0, 0.2, 1.5).unwrap();
+    symmetric(&strip(grid, 0.5, 0.2), Some(&pml));
+    // a PML on a magnetic wall is refused
+    let bad = Pml3d::new(0.3, 0.0, 0.0, 0.0, 1.0).unwrap();
+    assert!(
+        Eme3d::new(lam(), 2)
+            .unwrap()
+            .with_pml(bad)
+            .modes(&strip(grid, 0.5, 0.2))
+            .is_err()
+    );
+}
+
+/// V C and V C A are symmetric for `plane` inside `pml`.
+fn symmetric(plane: &Plane, pml: Option<&Pml3d>) {
     let g = plane.grid();
-    let stretch = Stretch::new(&g, Some(&pml)).unwrap();
+    let stretch = Stretch::new(&g, pml).unwrap();
     let w = stretch.weights(&g);
-    let (c, d) = operators(&plane, &stretch, lam().wavenumber());
+    let (c, d) = operators(plane, &stretch, lam().wavenumber());
     let entry = |rows: &super::plane::Rows, r: usize, s: usize| {
         rows[r]
             .iter()
@@ -51,7 +75,16 @@ fn the_operators_are_symmetric_in_the_stretches_weights() {
             .collect::<Vec<_>>()
     };
     let apply = super::plane::apply;
-    for (a, b) in [(3, 40), (17, 151), (90, 200)] {
+    // pairs on the walls (the first and last unknowns), beside them, and inside
+    for (a, b) in [
+        (0, 1),
+        (0, 15),
+        (3, 40),
+        (17, 151),
+        (90, 200),
+        (5, n - 1),
+        (n - 1, n - 2),
+    ] {
         let (ua, ub) = (unit(a), unit(b));
         let a_ub: Vec<c64> = apply(&c, &ub)
             .iter()
@@ -197,14 +230,7 @@ fn with_every_mode_the_tangential_fields_are_continuous_at_a_step() {
 #[test]
 fn a_field_uniform_in_y_separates() {
     let s = |ny: usize| {
-        let grid = PlaneGrid {
-            nx: 60,
-            ny,
-            dx: 0.05,
-            dy: 0.05,
-            x0: -1.5,
-            y0: 0.0,
-        };
+        let grid = PlaneGrid::new(60, ny, (0.05, 0.05), (-1.5, 0.0));
         let slab = |t: f64| {
             Plane::new(grid, move |x, _| {
                 c64::new(if x.abs() < 0.5 * t { 12.06 } else { 2.085 }, 0.0)
