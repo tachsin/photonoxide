@@ -214,9 +214,21 @@ fn uniform_optimum(w: f64) -> (f64, f64, f64) {
 }
 
 /// The apodized grating with its scattering capped at `cap`: α(z) = G²/(2P) while that is below
-/// the cap (Taillaert et al.'s Eq. 2.1 written with the power left), the cap after it.
+/// the cap (Taillaert et al.'s Eq. 2.1 written with the power left), the cap from where it first
+/// reaches it.
 fn apodized(w: f64, c: f64, cap: f64, every: usize) -> (f64, Vec<[f64; 2]>) {
-    couple(w, c, |_, g2, p| (0.5 * g2 / p).min(cap), every)
+    // the rule rises along the grating; once at the cap it stays there, so the guide empties
+    let held = std::cell::Cell::new(0.0f64);
+    couple(
+        w,
+        c,
+        |_, g2, p| {
+            let a = (0.5 * g2 / p).max(held.get()).min(cap);
+            held.set(a);
+            a
+        },
+        every,
+    )
 }
 
 /// The fibre's footprint half-width on the surface, µm: the waist MFD/2 over cos θ.
@@ -306,7 +318,7 @@ pub fn specs() -> Vec<ChartSpec> {
             id: "grating-overlap",
             title: "How much of a fibre's mode an exponential beam catches",
             about: "A uniform grating leaks its light out as e^(−αz) from its start; the share of a fibre's Gaussian mode that field couples, against the leakage α, the fibre's axis placed where it couples most. The line marks the chart's α.",
-            computed_by: "the overlap integral on the surface, phase matched, summed on steps of w/400; Tamir and Peng 1977's Eq. 6a for comparison",
+            computed_by: "the overlap integral of e^(−αz) with the fibre's Gaussian on the surface, phase matched, summed on steps of w/400, with no library function behind it; Tamir and Peng 1977's Eq. 6a for comparison",
             params: vec![
                 mfd(10.4),
                 angle(),
@@ -325,7 +337,7 @@ pub fn specs() -> Vec<ChartSpec> {
             id: "grating-apodization",
             title: "Apodizing a grating to the fibre's Gaussian",
             about: "The scattering α(z) along an apodized grating that emits the fibre's Gaussian, 2α = G²/(1 − ∫G²), up to the strongest scattering the grating can give, and the uniform grating's best constant α for comparison.",
-            computed_by: "Taillaert et al. 2006's Eq. 2.1 with the power left marched along z, the overlap summed on steps of w/400",
+            computed_by: "Taillaert et al. 2006's Eq. 2.1, the power left marched along z and the overlap summed on steps of w/400, with no library function behind it",
             params: vec![
                 mfd(10.4),
                 angle(),

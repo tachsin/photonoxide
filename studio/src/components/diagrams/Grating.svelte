@@ -63,9 +63,11 @@
   <!-- the layers -->
   <rect x={left} y={upper} width={right - left} height={top - upper} class="fill-base-content/[0.03]" />
   <rect x={left} y={top} width={right - left} height={bottom - top} class="fill-primary/25 stroke-primary/70" stroke-width="1" />
+  <!-- the grooves: notches open to the cladding, the film's top edge erased over each -->
   {#each grooves as x (x)}
-    <rect x={x} y={top - 0.5} width={period / 2} height={floor - top + 0.5} class="fill-base-100" />
-    <rect x={x} y={top} width={period / 2} height={floor - top} class="fill-base-content/[0.03] stroke-primary/70" stroke-width="1" />
+    <rect x={x + 0.5} y={top - 1} width={period / 2 - 1} height={floor - top + 1} class="fill-base-100" />
+    <rect x={x + 0.5} y={top - 1} width={period / 2 - 1} height={floor - top + 1} class="fill-base-content/[0.03]" />
+    <path d="M{x},{top} L{x},{floor} L{x + period / 2},{floor} L{x + period / 2},{top}" fill="none" class="stroke-primary/70" stroke-width="1" />
   {/each}
   <rect x={left} y={bottom} width={right - left} height={sub - bottom} class="fill-base-content/[0.07]" />
   <rect x={left} y={sub} width={right - left} height={lower - sub} class="fill-primary/15" />

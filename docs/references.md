@@ -2,7 +2,7 @@
 
 <!-- Written by `photonoxide references --write` (or `just references`) from docs/references.yaml and the citations in the repository: edit those, not this page. -->
 
-Every paper, book and data set photonoxide cites, with every place in the repository that cites it, by file and line. 567 sources, 563 with a DOI and 4 without, are cited at 2933 places in 378 files. The sources are listed by their first author; [references-by-file.md](references-by-file.md) lists each methods page, lesson, example and source file with the sources it cites, and the [validation report](validation.md) gives each case's source on its row. How to cite a source is in [CONTRIBUTING.md](../CONTRIBUTING.md#citing-a-source); the list of sources is [references.yaml](references.yaml).
+Every paper, book and data set photonoxide cites, with every place in the repository that cites it, by file and line. 567 sources, 563 with a DOI and 4 without, are cited at 2936 places in 379 files. The sources are listed by their first author; [references-by-file.md](references-by-file.md) lists each methods page, lesson, example and source file with the sources it cites, and the [validation report](validation.md) gives each case's source on its row. How to cite a source is in [CONTRIBUTING.md](../CONTRIBUTING.md#citing-a-source); the list of sources is [references.yaml](references.yaml).
 
 [A](#a) · [B](#b) · [C](#c) · [D](#d) · [E](#e) · [F](#f) · [G](#g) · [H](#h) · [I](#i) · [J](#j) · [K](#k) · [L](#l) · [M](#m) · [N](#n) · [O](#o) · [P](#p) · [Q](#q) · [R](#r) · [S](#s) · [T](#t) · [U](#u) · [V](#v) · [W](#w) · [X](#x) · [Y](#y) · [Z](#z)
 
@@ -663,7 +663,7 @@ Y. Chen, "Nanofabrication by electron beam lithography and its applications: A r
 
 X. Chen, C. Li, C. K. Y. Fung, S. M. G. Lo, H. K. Tsang, "Apodized Waveguide Grating Couplers for Efficient Coupling to Optical Fibers", IEEE Photon. Technol. Lett. 22, 1156 (2010). [doi:10.1109/LPT.2010.2051220](https://doi.org/10.1109/LPT.2010.2051220)
 
-- Academy lessons: [grating-couplers.md:38](../academy/grating-couplers.md?plain=1#L38), [91](../academy/grating-couplers.md?plain=1#L91), [245](../academy/grating-couplers.md?plain=1#L245), [512](../academy/grating-couplers.md?plain=1#L512)
+- Academy lessons: [grating-couplers.md:41](../academy/grating-couplers.md?plain=1#L41), [94](../academy/grating-couplers.md?plain=1#L94), [248](../academy/grating-couplers.md?plain=1#L248), [524](../academy/grating-couplers.md?plain=1#L524)
 
 #### Chen et al. 2024
 
@@ -2533,7 +2533,7 @@ E. A. J. Marcatili, "Dielectric Rectangular Waveguide and Directional Coupler fo
 
 R. Marchetti, C. Lacava, L. Carroll, K. Gradkowski, P. Minzioni, "Coupling strategies for silicon photonics integrated chips \[Invited\]", Photon. Res. 7, 201 (2019). [doi:10.1364/PRJ.7.000201](https://doi.org/10.1364/PRJ.7.000201)
 
-- Academy lessons: [grating-couplers.md:68](../academy/grating-couplers.md?plain=1#L68), [95](../academy/grating-couplers.md?plain=1#L95), [523](../academy/grating-couplers.md?plain=1#L523), [530](../academy/grating-couplers.md?plain=1#L530)
+- Academy lessons: [grating-couplers.md:71](../academy/grating-couplers.md?plain=1#L71), [98](../academy/grating-couplers.md?plain=1#L98), [535](../academy/grating-couplers.md?plain=1#L535), [542](../academy/grating-couplers.md?plain=1#L542)
 
 #### Marcuse 1971
 
@@ -2588,7 +2588,7 @@ J. Meixner, "The behavior of electromagnetic fields at edges", IEEE Trans. Anten
 
 A. Mekis, S. Gloeckner, G. Masini, A. Narasimha, T. Pinguet, S. Sahni, P. De Dobbelaere, "A Grating-Coupler-Enabled CMOS Photonics Platform", IEEE J. Select. Topics Quantum Electron. 17, 597 (2011). [doi:10.1109/JSTQE.2010.2086049](https://doi.org/10.1109/JSTQE.2010.2086049)
 
-- Academy lessons: [grating-couplers.md:50](../academy/grating-couplers.md?plain=1#L50), [103](../academy/grating-couplers.md?plain=1#L103), [515](../academy/grating-couplers.md?plain=1#L515)
+- Academy lessons: [grating-couplers.md:53](../academy/grating-couplers.md?plain=1#L53), [106](../academy/grating-couplers.md?plain=1#L106), [527](../academy/grating-couplers.md?plain=1#L527)
 
 #### Menicucci et al. 2006
 
@@ -2839,8 +2839,9 @@ B. N. Parlett, "The Symmetric Eigenvalue Problem", Society for Industrial and Ap
 
 M. Passoni, D. Gerace, L. Carroll, L. C. Andreani, "Grating couplers in silicon-on-insulator: The role of photonic guided resonances on lineshape and bandwidth", Applied Physics Letters 110, 041107 (2017). [doi:10.1063/1.4974992](https://doi.org/10.1063/1.4974992)
 
-- Academy lessons: [grating-couplers.md:62](../academy/grating-couplers.md?plain=1#L62), [175](../academy/grating-couplers.md?plain=1#L175), [400](../academy/grating-couplers.md?plain=1#L400), [521](../academy/grating-couplers.md?plain=1#L521)
+- Academy lessons: [grating-couplers.md:65](../academy/grating-couplers.md?plain=1#L65), [178](../academy/grating-couplers.md?plain=1#L178), [412](../academy/grating-couplers.md?plain=1#L412), [533](../academy/grating-couplers.md?plain=1#L533)
 - Examples: [README.md:59](../examples/README.md?plain=1#L59), [optimize_grating_pareto.rs:7](../examples/optimize_grating_pareto.rs#L7)
+- Code: [studio/src-tauri/src/charts/grating.rs:9](../studio/src-tauri/src/charts/grating.rs#L9)
 - Other documents: [docs/plans/optimization.md:611](plans/optimization.md?plain=1#L611)
 
 #### Pastrňák and Roskovcová 1966
@@ -3596,13 +3597,14 @@ A. Taflove, M. Brodwin, "Numerical Solution of Steady-State Electromagnetic Scat
 
 D. Taillaert, W. Bogaerts, P. Bienstman, T. F. Krauss, P. Van Daele, I. Moerman, S. Verstuyft, K. De Mesel, R. Baets, "An out-of-plane grating coupler for efficient butt-coupling between compact planar waveguides and single-mode fibers", IEEE J. Quantum Electron. 38, 949 (2002). [doi:10.1109/JQE.2002.1017613](https://doi.org/10.1109/JQE.2002.1017613)
 
-- Academy lessons: [grating-couplers.md:26](../academy/grating-couplers.md?plain=1#L26), [509](../academy/grating-couplers.md?plain=1#L509)
+- Academy lessons: [grating-couplers.md:29](../academy/grating-couplers.md?plain=1#L29), [521](../academy/grating-couplers.md?plain=1#L521)
 
 #### Taillaert et al. 2006
 
 D. Taillaert, F. Van Laere, M. Ayre, W. Bogaerts, D. Van Thourhout, P. Bienstman, R. Baets, "Grating Couplers for Coupling between Optical Fibers and Nanophotonic Waveguides", Jpn. J. Appl. Phys. 45, 6071 (2006). [doi:10.1143/JJAP.45.6071](https://doi.org/10.1143/JJAP.45.6071)
 
-- Academy lessons: [grating-couplers.md:32](../academy/grating-couplers.md?plain=1#L32), [90](../academy/grating-couplers.md?plain=1#L90), [528](../academy/grating-couplers.md?plain=1#L528)
+- Academy lessons: [grating-couplers.md:35](../academy/grating-couplers.md?plain=1#L35), [93](../academy/grating-couplers.md?plain=1#L93), [540](../academy/grating-couplers.md?plain=1#L540)
+- Code: [studio/src-tauri/src/charts/grating.rs:16](../studio/src-tauri/src/charts/grating.rs#L16)
 
 #### Takagi et al. 1992
 
@@ -3620,7 +3622,7 @@ N. Takato, T. Kominato, A. Sugita, K. Jinguji, H. Toba, M. Kawachi, "Silica-base
 
 T. Tamir, A. Oliner, "Guided complex waves. Part 1: Fields at an interface", Proc. Inst. Electr. Eng. UK 110, 310 (1963). [doi:10.1049/piee.1963.0044](https://doi.org/10.1049/piee.1963.0044)
 
-- Academy lessons: [grating-couplers.md:14](../academy/grating-couplers.md?plain=1#L14), [504](../academy/grating-couplers.md?plain=1#L504), [leaky-and-bent-guides.md:35](../academy/leaky-and-bent-guides.md?plain=1#L35), [190](../academy/leaky-and-bent-guides.md?plain=1#L190), [548](../academy/leaky-and-bent-guides.md?plain=1#L548)
+- Academy lessons: [grating-couplers.md:17](../academy/grating-couplers.md?plain=1#L17), [516](../academy/grating-couplers.md?plain=1#L516), [leaky-and-bent-guides.md:35](../academy/leaky-and-bent-guides.md?plain=1#L35), [190](../academy/leaky-and-bent-guides.md?plain=1#L190), [548](../academy/leaky-and-bent-guides.md?plain=1#L548)
 
 #### Tamir and Oliner 1963b
 
@@ -3632,7 +3634,8 @@ T. Tamir, A. Oliner, "Guided complex waves. Part 2: Relation to radiation patter
 
 T. Tamir, S. T. Peng, "Analysis and design of grating couplers", Appl. Phys. 14, 235 (1977). [doi:10.1007/BF00882729](https://doi.org/10.1007/BF00882729)
 
-- Academy lessons: [grating-couplers.md:20](../academy/grating-couplers.md?plain=1#L20), [85](../academy/grating-couplers.md?plain=1#L85), [506](../academy/grating-couplers.md?plain=1#L506), [529](../academy/grating-couplers.md?plain=1#L529)
+- Academy lessons: [grating-couplers.md:23](../academy/grating-couplers.md?plain=1#L23), [88](../academy/grating-couplers.md?plain=1#L88), [518](../academy/grating-couplers.md?plain=1#L518), [541](../academy/grating-couplers.md?plain=1#L541)
+- Code: [studio/src-tauri/src/charts/grating.rs:14](../studio/src-tauri/src/charts/grating.rs#L14)
 
 #### Tan 1998
 
@@ -3822,7 +3825,7 @@ D. Vercruysse, N. V. Sapra, L. Su, R. Trivedi, J. Vučković, "Analytical level 
 
 D. Vermeulen, S. Selvaraja, P. Verheyen, G. Lepage, W. Bogaerts, P. Absil, D. Van Thourhout, G. Roelkens, "High-efficiency fiber-to-chip grating couplers realized using an advanced CMOS-compatible Silicon-On-Insulator platform", Opt. Express 18, 18278 (2010). [doi:10.1364/OE.18.018278](https://doi.org/10.1364/OE.18.018278)
 
-- Academy lessons: [grating-couplers.md:44](../academy/grating-couplers.md?plain=1#L44), [345](../academy/grating-couplers.md?plain=1#L345), [513](../academy/grating-couplers.md?plain=1#L513)
+- Academy lessons: [grating-couplers.md:47](../academy/grating-couplers.md?plain=1#L47), [357](../academy/grating-couplers.md?plain=1#L357), [525](../academy/grating-couplers.md?plain=1#L525)
 - Other documents: [ROADMAP.md:753](../ROADMAP.md?plain=1#L753)
 
 #### Vernon et al. 2017
@@ -4096,7 +4099,7 @@ H. Yu, M. Pantouvaki, J. Van Campenhout, D. Korn, K. Komorowska, P. Dumon, Y. Li
 
 W. S. Zaoui, A. Kunze, W. Vogel, M. Berroth, J. Butschke, F. Letzkus, J. Burghartz, "Bridging the gap between optical fibers and silicon photonic integrated circuits", Opt. Express 22, 1277 (2014). [doi:10.1364/OE.22.001277](https://doi.org/10.1364/OE.22.001277)
 
-- Academy lessons: [grating-couplers.md:56](../academy/grating-couplers.md?plain=1#L56), [277](../academy/grating-couplers.md?plain=1#L277), [514](../academy/grating-couplers.md?plain=1#L514)
+- Academy lessons: [grating-couplers.md:59](../academy/grating-couplers.md?plain=1#L59), [285](../academy/grating-couplers.md?plain=1#L285), [526](../academy/grating-couplers.md?plain=1#L526)
 
 #### Zelmon et al. 1997
 

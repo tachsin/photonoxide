@@ -265,7 +265,9 @@ bent slab's radial shooting, and take milliseconds. The fabrication charts (`cha
 are closed forms evaluated with the process library's cited numbers: exact, with no grid. The
 grating coupler's charts (`charts/grating.rs`) take tens of milliseconds to a second: exact slab
 modes and transfer matrices, and overlap integrals summed on fine steps; each is a model of one
-factor of a coupler's efficiency, set in the lesson against a published number.
+factor of a coupler's efficiency, set in the lesson against a published number. The two overlap
+charts, `grating-overlap` and `grating-apodization`, are integrals the studio sums itself, with no
+library function behind them, and their captions say so.
 A chart may draw pictures of a field over a cross-section in place of curves (`maps`), side by
 side with one colour scale, as `strip-fields` does.
 

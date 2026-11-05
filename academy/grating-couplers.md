@@ -7,6 +7,9 @@ minutes: 45
 prerequisites: [bragg-gratings, slab-waveguide]
 examples: [optimize_grating_pareto]
 methods: [fdfd.md, multilayer.md, slab.md]
+validation:
+  - mode/multilayer-fresnel
+  - mode/multilayer-bragg
 charts: [grating-angle, grating-overlap, grating-apodization, grating-directionality, grating-band]
 papers:
   - cite: "T. Tamir, A. A. Oliner, Proc. IEE 110, 310 (1963)"
@@ -249,8 +252,12 @@ grating 200 nm deep in 340 nm of silicon and measured 1.2 dB of loss per interfa
 
 The rule runs away at the end: as the guide empties, $\alpha$ must grow without bound. A real
 grating has a strongest scattering, its deepest or widest grooves, and the chart holds $\alpha$ at
-that cap once it is reached. With a cap of 0.3 per µm the overlap is 98.95 %; with no more than the
-uniform optimum's 0.13 it is still 88.13 %, against the uniform grating's 80.10 %. On the fibre's axis, where half the power is left, $\alpha$ is 0.151 per µm for a standard fibre at 10°.
+that cap from where it first reaches it, so the guide still empties. With a cap of 0.3 per µm
+the overlap is 99.67 %; with no more than the uniform optimum's 0.13 it is still 92.67 %, against
+the uniform grating's 80.10 %. On the fibre's axis, where half the power is left, $\alpha$ is
+0.151 per µm for a standard fibre at 10°. The chart leaves out the other limit, the weakest
+scattering a grating can give: the rule's first grooves scatter almost nothing, and Taillaert et
+al.'s optimized grating's narrowest groove is already 30 nm wide (Section 2.4).
 
 ### The rule {theory}
 
@@ -266,8 +273,9 @@ $$
 Taillaert et al.'s Eq. 2.1. The field sent up is then $\sqrt{2\alpha P} = G$, and the overlap is 1
 for a grating with neither a cap nor a start. Taillaert et al. note that the rule is exact only for
 a long grating with small $\alpha$ and use it as an optimization's starting point. The chart marches
-$P$ along $z$ on steps of $w/400$, $\alpha = \min(G^2/(2P), \alpha_\text{max})$, from 2.5 $w$
-before the fibre's axis, where the Gaussian's power has fallen to $e^{-12.5}$.
+$P$ along $z$ on steps of $w/400$, $\alpha = \min(G^2/(2P), \alpha_\text{max})$ and held at
+$\alpha_\text{max}$ once it gets there, from 2.5 $w$ before the fibre's axis, where the Gaussian's
+power has fallen to $e^{-12.5}$.
 
 ### What apodization has reached {research}
 
@@ -329,9 +337,13 @@ D = \frac{\lvert 1 + r_b\rvert^2(1 - \lvert r_t\rvert^2)}{\lvert 1 + r_b\rvert^2
 $$
 
 Both reflections come from `Multilayer::reflection`, the transfer matrices of
-[the multilayer](../docs/methods/multilayer.md), exact. The model leaves out that the grating
-itself reflects and that its scattering depends on the stack; it says where the light goes, not
-how strongly the grooves scatter it.
+[the multilayer](../docs/methods/multilayer.md), exact, and checked against Fresnel's equations at
+one interface and the quarter-wave stack's closed form:
+
+::validation mode/multilayer-fresnel mode/multilayer-bragg
+
+The model leaves out that the grating itself reflects and that its scattering depends on the
+stack; it says where the light goes, not how strongly the grooves scatter it.
 
 ### Sending more of it up {research}
 
