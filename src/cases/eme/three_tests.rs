@@ -232,7 +232,10 @@ fn a_field_uniform_in_y_separates() {
 #[test]
 fn the_z_limit_fit_is_exact_on_its_own_form() {
     let dz = [0.05, 0.04, 0.03, 0.02];
-    let v: Vec<f64> = dz.iter().map(|h: &f64| 0.7 - 3.0 * h * h + 40.0 * h.powi(4)).collect();
+    let v: Vec<f64> = dz
+        .iter()
+        .map(|h: &f64| 0.7 - 3.0 * h * h + 40.0 * h.powi(4))
+        .collect();
     let (limit, residual) = super::three_checks::z_limit(&dz, &v);
     assert!((limit - 0.7).abs() < 1e-12 && residual < 1e-12);
 }
