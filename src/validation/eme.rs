@@ -198,7 +198,7 @@ pub(crate) fn rules() -> Vec<(&'static str, Rule)> {
                 Discretisation,
                 4e-5,
                 Noted,
-                "three times FDFD's own error, the change its PML makes from 0.5 to 1 µm thick (1.1e-5 on |S21|^2), rounded up; the expansion with every mode is exact across the plane's equations, its own error its fit's residual",
+                "three times FDFD's own error, the change from PMLs 0.5 µm thick and leads 1 µm long to 1 and 1.5 µm (1.1e-5 on |S21|^2; the PML alone from 1 to 2 µm moves it 4.6e-7), rounded up; the expansion with every mode is exact across the plane's equations, its own error its fit's residual",
             ),
         ),
     ]

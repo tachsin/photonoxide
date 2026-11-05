@@ -48,6 +48,33 @@ fn the_operators_are_symmetric_in_the_stretches_weights() {
     );
 }
 
+/// The PML study the method page states: run by hand (`--ignored`), one line per setting.
+#[test]
+#[ignore = "a study for the method page"]
+fn pml_study() {
+    use super::three_checks::{open_taper, taper_fdfd};
+    for pml in [0.5, 1.0, 1.5, 2.0] {
+        let t = std::time::Instant::now();
+        let r = taper_fdfd(0.025, pml, 1.5);
+        println!(
+            "fdfd pml {pml} lead 1.5 dz 0.025: {r:?} in {:?}",
+            t.elapsed()
+        );
+    }
+    for thickness in [0.25, 0.5] {
+        for profile in [(0.5, 0.0), (1.0, 0.0), (3.0, 2.0), (6.0, 2.0)] {
+            for modes in [Some(60), Some(150), None] {
+                let t = std::time::Instant::now();
+                let (r, n) = open_taper(thickness, profile, modes);
+                println!(
+                    "eme pml {thickness} {profile:?} modes {n}: {r:?} in {:?}",
+                    t.elapsed()
+                );
+            }
+        }
+    }
+}
+
 /// V C and V C A are symmetric for `plane` inside `pml`.
 fn symmetric(plane: &Plane, pml: Option<&Pml3d>) {
     let g = plane.grid();

@@ -316,6 +316,39 @@ That is the truncation's error, not round-off, and it isn't monotone in the numb
 small reflection of the same taper converges the same way: $\lvert S_{11}\rvert^2$ = 2.60e-5,
 2.54e-6 and 1.866e-5 with 40, 200 and all 728 modes.
 
+### The PML in 3D
+
+Measured on the strip taper of `eme/3d-taper-fdfd` opened (in oxide, a quarter of a window
+0.8 × 0.6 µm inside a PML on its east and north walls, 50 nm grid; `pml_study` in the 3D tests
+repeats it): the fundamental's $\lvert S_{11}\rvert^2$ and $\lvert S_{21}\rvert^2$ by the PML
+and the modes kept, and the time for the four sections.
+
+| PML | Modes | $\lvert S_{11}\rvert^2$ | $\lvert S_{21}\rvert^2$ | Time |
+|---|---|---|---|---|
+| 0.25 µm, uniform σ = 0.5 | 60 / 150 / all 697 | 1.16e-6 / 1.39e-6 / 2.03e-5 | 0.98539 / 0.98765 / 0.98893 | 0.5 / 0.6 / 9.5 s |
+| 0.25 µm, uniform σ = 1 | 60 / 150 / all 697 | 1.64e-6 / 1.22e-6 / 2.02e-5 | 0.98610 / 0.98609 / 0.98880 | 0.6 / 0.8 / 9.4 s |
+| 0.25 µm, σ = 3 as (u/d)² | 60 / 150 / all 697 | 1.91e-6 / 1.85e-6 / 1.94e-5 | 0.97664 / 0.98471 / 0.98874 | 0.7 / 0.7 / 9.7 s |
+| 0.25 µm, σ = 6 as (u/d)² | 60 / 150 / all 697 | 1.04e-5 / 4.87e-6 / 1.93e-5 | 0.97609 / 0.98669 / 0.98896 | 0.6 / 0.8 / 9.6 s |
+| 0.5 µm, uniform σ = 0.5 | 60 / 150 / all 1122 | 5.07e-6 / 3.28e-6 / 1.95e-5 | 0.98438 / 0.98745 / 0.98889 | 2.6 / 2.5 / 67 s |
+| 0.5 µm, uniform σ = 1 | 60 / 150 / all 1122 | 7.94e-5 / 1.76e-6 / 2.01e-5 | 0.98628 / 0.98810 / 0.98891 | 2.7 / 2.8 / 66 s |
+
+With every mode the six PMLs agree on $\lvert S_{21}\rvert^2$ to 2.2e-4 (0.98874 to 0.98896) and
+on $\lvert S_{11}\rvert^2$ to 5 % (1.93e-5 to 2.03e-5): what is left is the PML's own reflection
+of the light the steps scatter, which these thicknesses don't remove. With 60 or 150 modes the
+transmission is 1e-3 to 1e-2 low and the reflection off by up to tenfold: an open guide's small
+reflection needs nearly every mode of the plane, so a 3D section is solved densely where it can
+be. Two settings fail outright: σ = 3 and 6 graded over 0.5 µm make the PML's own modes rise
+above the guide's in $\operatorname{Re}\beta^2$, so the first mode, which S's first entry takes,
+is not the guided one ($\lvert S_{21}\rvert^2$ = 0.0079 and 9e-8 there, with any number of
+modes). S is still the structure's; its fundamental is then found by its index, not by its
+place. Uniform layers of σ up to 1, as in 2D, keep the guided mode first in every case measured.
+
+FDFD's PMLs along z in the cross-check, at $\Delta z$ = 25 nm with leads 1.5 µm long: its
+$\lvert S_{21}\rvert^2$ moves by 1.9e-6, 3.8e-7 and 7.8e-8 as the PML goes from 0.5 to 1, 1.5
+and 2 µm (6.5, 8.0, 10.0 and 11.3 s), five times less for each half micrometre. The leads
+mattered more: 1 µm leads with a 0.5 µm PML left it 1.1e-5 lower, the guide's evanescent
+modes from the steps still reaching the PML.
+
 ## Validation
 
 Measured with the cases' own settings, at 1.55 µm, silicon (3.473) in oxide (1.444):
@@ -364,8 +397,9 @@ What it does not do yet (#432):
 
 - **3D sections are planes given by a function** on a uniform grid. At convex dielectric
   corners the plane's modes converge more slowly than second order (1.3 on Hadley's fourth
-  problem), as standard finite differences do there. The PML's thickness and grading against the
-  number of modes, which 2D settled at 4 µm of strength 0.1, is not measured in 3D yet. With
+  problem), as standard finite differences do there. A strong graded PML can put its own modes
+  first, ahead of the guided one ([the PML in 3D](#the-pml-in-3d)), and an open guide's small
+  reflection needs nearly every mode of the plane. With
   fewer than every mode of the plane, power is conserved only to the truncation's error
   ([above](#sections-in-3d)).
 - **Sections are described, not drawn:** a job gives straights and tapers of a core or of

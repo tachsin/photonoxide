@@ -369,6 +369,46 @@ pub(crate) fn hadley_limits() -> (f64, f64) {
     (worst, own)
 }
 
+/// The strip taper of [`taper_eme`] open: in oxide on a quarter of a window 0.8 µm wide and
+/// 0.6 µm tall inside its PML (`thickness` µm more at the east and north walls, `strength` σ
+/// graded as (u/d)^`order`), on a 50 nm grid, `modes` modes (all of the quarter's for
+/// `None`): (|S₁₁|², |S₂₁|²) of the fundamental, and the modes kept.
+pub(crate) fn open_taper(
+    thickness: f64,
+    (strength, order): (f64, f64),
+    modes: Option<usize>,
+) -> ((f64, f64), usize) {
+    let h = 0.05;
+    let cells = |l: f64| (l / h).round() as usize;
+    let grid = PlaneGrid::new(
+        cells(0.8 + thickness),
+        cells(0.6 + thickness),
+        (h, h),
+        (0.0, 0.0),
+    )
+    .with_walls(Walls {
+        west: Wall::Electric,
+        east: Wall::Electric,
+        south: Wall::Magnetic,
+        north: Wall::Electric,
+    });
+    let pml = Pml3d::new(0.0, thickness, 0.0, thickness, strength)
+        .and_then(|p| p.graded(order))
+        .expect("a PML");
+    let n = modes.unwrap_or_else(|| grid.unknowns());
+    let s = Eme3d::new(lam(), n)
+        .expect("modes")
+        .with_pml(pml)
+        .s_matrix(&[
+            Section3d::new(strip(grid, 0.4, 0.2), Length::ZERO),
+            Section3d::new(strip(grid, 0.5, 0.2), Length::um(0.1)),
+            Section3d::new(strip(grid, 0.6, 0.2), Length::um(0.1)),
+            Section3d::new(strip(grid, 0.7, 0.2), Length::ZERO),
+        ])
+        .expect("the S-matrix");
+    ((s.s11[0][0].norm_sqr(), s.s21[0][0].norm_sqr()), n)
+}
+
 /// The 400 × 200 nm strip's plane (24 × 16 cells of 50 nm, perfectly conducting walls): its
 /// first 6 modes' β² by the expansion against the 3D FDFD ports' β_d² on the same plane (a
 /// grid 50 nm along z, β_d = (2/Δz) sin(βΔz/2) from the port's β): the largest relative

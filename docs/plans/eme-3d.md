@@ -21,8 +21,11 @@
 Then (2026-11-05): magnetic (mirror) walls on the plane, so a symmetric guide is solved on a
 half or a quarter (`eme/3d-symmetry`: a quarter against the whole window to 2.0e-14), and
 Hadley's corner problems as the published check of the plane's modes (`eme/3d-hadley`: the
-Richardson limits within 4.7e-7 of his printed indices). Left from this phase: the PML study of
-section 2 (thickness and grading against the number of modes).
+Richardson limits within 4.7e-7 of his printed indices). And the PML study of section 2 (the
+method page's "The PML in 3D"): with every mode, six PMLs agree on an open taper's transmission
+to 2.2e-4 and its reflection to 5 %; with 60 or 150 modes the reflection is off up to tenfold;
+strong graded PMLs put their own modes first. 2D's 4 µm of strength 0.1 isn't needed: uniform
+layers of 0.25 to 0.5 µm with σ ≤ 1 keep the guided mode first.
 
 `photonoxide::eme` is 2D today: each section is a stack of layers across x, its modes found
 exactly by transfer matrices. A real taper, MMI or Y-branch is a cross-section in x and y that
