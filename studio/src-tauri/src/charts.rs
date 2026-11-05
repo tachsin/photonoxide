@@ -26,6 +26,7 @@ use serde::Serialize;
 
 mod coupler;
 mod fabrication;
+mod grating;
 mod leaky;
 mod material;
 mod slab;
@@ -999,6 +1000,9 @@ pub fn specs() -> Vec<ChartSpec> {
             ],
         },
     ]
+    .into_iter()
+    .chain(grating::specs())
+    .collect()
 }
 
 /// A strip chart's width, nm: `(min, max, default)`, and the slider's step.
@@ -1291,6 +1295,23 @@ pub fn evaluate(id: &str, given: &BTreeMap<String, f64>) -> Result<ChartData, St
         "strip-group-index" => strip::group_index(at("thickness"), at("wavelength"), at("width")),
         "fab-oxidation" => fabrication::oxidation(at("temperature"), at("hours")),
         "fab-resolution" => fabrication::resolution(at("k1"), at("feature")),
+        "grating-angle" => grating::angle(at("period"), at("etch"), at("fill"), at("cladding")),
+        "grating-overlap" => grating::overlap(at("mfd"), at("angle"), at("leakage")),
+        "grating-apodization" => grating::apodization(at("mfd"), at("angle"), at("cap")),
+        "grating-directionality" => grating::directionality(
+            at("box"),
+            at("cladding"),
+            at("angle"),
+            at("etch"),
+            at("mirror") as usize,
+        ),
+        "grating-band" => grating::band(
+            at("mfd"),
+            at("angle"),
+            at("cladding"),
+            at("etch"),
+            at("fill"),
+        ),
         "leaky-field" => leaky::field(at("order") as usize),
         "leaky-substrate" => leaky::substrate(at("oxide"), at("wavelength")),
         "bend-loss" => leaky::bend_loss(

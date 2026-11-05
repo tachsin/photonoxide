@@ -107,6 +107,24 @@ pub fn specs() -> Vec<DiagramSpec> {
                          a filter's so that they show. Drag to turn it.",
         },
         DiagramSpec {
+            id: "grating",
+            title: "A grating coupler, in section along its guide",
+            caption: "A silicon film $t$ thick, its grooves etched $e$ deep at a period \
+                      $\\Lambda$, on a buried oxide $h$ thick over the silicon substrate, under a \
+                      cladding of index $n_c$. The guided mode, of effective index \
+                      $n_\\text{eff}$, comes in from the left and leaks out as it crosses the \
+                      grating: upwards at $\\theta$ from the normal, where the first diffraction \
+                      order satisfies $n_c \\sin\\theta = n_\\text{eff} - \\lambda/\\Lambda$, \
+                      towards a fibre tilted at the same angle; downwards into the oxide, where \
+                      the substrate reflects it back up with $r_b$; and onwards through the \
+                      grating's end. Just above the grating, the power a uniform grating sends \
+                      up, $e^{-2\\alpha z}$, fading as the guide empties, against the fibre's \
+                      Gaussian $\\lvert G(z)\\rvert^2$, whose mode field diameter is $2w_0$. The \
+                      rays fade with it. Not to scale.",
+            job: None,
+            caption_3d: "",
+        },
+        DiagramSpec {
             id: "mzi",
             title: "A Mach–Zehnder interferometer, seen from above",
             caption: "Light enters the lower guide. The splitter, a coupler, keeps a share $r_1$ \
