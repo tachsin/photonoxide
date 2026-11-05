@@ -12,6 +12,7 @@ moving a slider shows the physics the library computes, the code the
 | [Silicon, silica and dispersion](material-dispersion.md) | introductory | `dispersion` | `material-oscillator`, `material-cauchy`, `material-index`, `material-gvd` |
 | [The ring resonator](ring-resonator.md) | introductory | `ring` | `ring-spectrum`, `ring-extinction`, `ring-coupling`, `ring-q-length`, `ring-identify` |
 | [Bragg gratings and mirrors](bragg-gratings.md) | intermediate | `bragg` | `bragg-reflectance`, `bragg-bandwidth` |
+| [Grating couplers](grating-couplers.md) | intermediate | `grating` | `grating-angle`, `grating-overlap`, `grating-apodization`, `grating-directionality`, `grating-band` |
 | [The Mach–Zehnder interferometer](mach-zehnder.md) | introductory | `mzi` | `mzi-spectrum`, `mzi-extinction` |
 | [The directional coupler and splitters](directional-coupler.md) | intermediate | `coupler` | `coupler-power`, `coupler-supermodes`, `coupler-gap`, `coupler-spectrum`, `coupler-mismatch` |
 | [The slab waveguide](slab-waveguide.md) | introductory | `slab` | `slab-fields`, `slab-bv`, `slab-neff`, `slab-confinement` |
@@ -25,7 +26,6 @@ it is filling them in. The library lists them in this order, the order to read t
 
 | Lesson coming soon | Topic | Level | Examples |
 |---|---|---|---|
-| [Grating couplers](grating-couplers.md) | Gratings and filters | intermediate | |
 | [Multimode interference and self-imaging](mmi.md) | Multimode and polarization devices | intermediate | `mmi_liu_poon` |
 | [Crossings, mode converters and the polarization splitter-rotator](crossings-and-converters.md) | Multimode and polarization devices | advanced | `crossing_liu_poon`, `mode_converter_liu_poon`, `splitter_rotator_liu_poon` |
 | [Photonic crystals and band gaps](photonic-crystals.md) | Nanophotonics | advanced | `subpixel_holes` |
@@ -193,6 +193,7 @@ shows first.
 | `ring` | a ring and its bus from above: $R$, $w$, $g$, the coupler's $r_1$ and $k_1$, the round trip's $a e^{i\phi}$, the fields $a_1$, $b_1$, $a_2$, $b_2$, the input and through ports, and a faint second bus with its $r_2$, $k_2$, drop and add | `ring-fdfd.yaml` |
 | `bragg` | a quarter-wave stack in section: $N$ pairs of $n_H$ and $n_L$, $d_H$, $d_L$ and $\Lambda$, the cover $n_0$ and substrate $n_s$, the incident, reflected ($r$) and transmitted ($t$) waves; and a waveguide grating from above, its period $\Lambda$ and length $L = N\Lambda$ | `bragg-grating.yaml` |
 | `coupler` | a directional coupler from above: two strips of width $w$ a gap $g$ apart over a length $L$, brought in and out by S-bends, $z$ along the coupled section, $P_\text{cross}(z) = \sin^2\kappa z$, $\kappa = \pi\Delta n/\lambda$ and $L_c = \lambda/2\Delta n$, the input and second input, the through ($\cos^2\kappa L$) and cross ($\sin^2\kappa L$) ports; beneath, the field across the pair of the even ($n_\text{even}$) and odd ($n_\text{odd}$) supermodes | `coupler-supermodes.yaml` |
+| `grating` | a grating coupler in section along its guide: a film $t$ thick with grooves $e$ deep at a period $\Lambda$, a buried oxide $h$ thick over the substrate, a cladding $n_c$; the guided mode ($n_\text{eff}$) in from the left, leaking up at $\theta$ towards a tilted fibre (MFD $2w_0$), down to the substrate and back ($r_b$), and through; $n_c \sin\theta = n_\text{eff} - \lambda/\Lambda$; above the grating, $e^{-2\alpha z}$ against the fibre's $\lvert G(z)\rvert^2$ | none |
 | `mzi` | a Mach–Zehnder interferometer from above: the splitter's $r_1$, $k_1$ and the combiner's $r_2$, $k_2$, arms of $L$ and $L + \Delta L$ (the longer drawn longer) with their fields $a_l e^{i\phi_l}$ and $a_u e^{i\phi_u}$, a phase shifter $\varphi$, the phase difference $\Delta\phi$, the input and the bar and cross outputs | `mzi-mmi.yaml` |
 | `slab` | a slab in section: the film $n_2$ of thickness $d$ between the cover $n_1$ and the substrate $n_3$, a ray zig-zagging along $z$ at $\theta \gt \theta_c = \arcsin(n_3/n_2)$ and a steeper one lost, and a guided mode's $E_y(x)$ across the slab, $\cos(hx - \phi_3)$ in the film and the tails $e^{px}$ and $e^{-q(x - d)}$ | `slab-soi.yaml` |
 | `strip` | a strip in section: the core $n_1$, $w$ wide and $t$ thick, in the cladding $n_2$ on a buried oxide $h$ thick over the substrate, $x$, $y$ and $z$; the TE-like mode's field with its main $E_x$, the four corners and Marcatili's four corner regions; and the effective index method's two slabs, across $t$ giving $N$ and across $w$ giving $n_\text{eff}$ | `strip-modes.yaml` |
@@ -244,6 +245,11 @@ code; the window only draws what it returns, and asks again as a slider moves.
 | `bend-loss` | `core` $n_1$ (1.6), `cladding` $n_2$ (1.5), `thickness` µm (1), `wavelength` µm (1), `radius` µm (40) | `SlabBend::fundamental` and `mode_near` at 41 radii from Marcuse's $U = 3$ to 30, E normal to and in the bend plane; `marcuse_loss`, `bend_loss_db` |
 | `fab-resolution` | `k1` $k_1$ (0.4), `feature` nm (500) | `fabrication::rayleigh::Optics` for each projection lithography of the process library, its cited wavelength and numerical apertures: $W = k_1\lambda/\mathrm{NA}$, and the $k_1$ the feature asks at the highest NA |
 | `fab-oxidation` | `temperature` °C (1000), `hours` h (4) | `fabrication::oxidation::rates` and `grow`: Deal and Grove's law with their Tables I and II, dry and wet, and its linear and parabolic limits |
+| `grating-angle` | `period` nm (630), `etch` nm (70), `fill` (0.5), `cladding` $n_c$ (1.444) | `Slab::modes`: TE₀ of 220 nm of silicon and of the grooves' thinner film on oxide, weighted by the fill; $n_c\sin\theta = n_\text{eff} - \lambda/\Lambda$ from 1.45 to 1.65 µm |
+| `grating-overlap` | `mfd` µm (10.4), `angle` ° (10), `leakage` α per µm (0.13) | the overlap of $e^{-\alpha z}$ with the fibre's Gaussian on the surface, its axis placed where it couples most, summed on steps of $w/400$; Tamir and Peng's 80 % |
+| `grating-apodization` | `mfd` µm (10.4), `angle` ° (10), `cap` α per µm (0.3) | Taillaert et al.'s $2\alpha = G^2/(1 - \int G^2)$, marched along $z$ with the power left and capped, and its overlap |
+| `grating-directionality` | `box` µm (2), `cladding` (1.444), `angle` ° (10), `etch` nm (70), `mirror` pairs (0) | `Multilayer::reflection` above and below a sheet at the grooves' mid-depth: the share sent up against the buried oxide's thickness |
+| `grating-band` | `mfd` µm (10.4), `angle` ° (10), `cladding` (1.444), `etch` nm (70), `fill` (0.5) | `Slab::modes` for the grating's index at each wavelength, the period phase matched at 1.55 µm; $e^{-q^2w^2/4}$ |
 
 The ranges are in `charts.rs` (the coupler's in `charts/coupler.rs`), and the window's sliders keep
 to them. A chart may draw its y axis on a logarithmic scale (`y_log`), and give curves that belong
@@ -256,7 +262,10 @@ waveguide device's own cross-section, so a lesson and the device's page can't di
 five seconds for a sweep, cached likewise, their width marker moving along the sweep's own widths.
 The leaky and bent guides' charts (`charts/leaky.rs`) are exact, transfer matrices and the
 bent slab's radial shooting, and take milliseconds. The fabrication charts (`charts/fabrication.rs`)
-are closed forms evaluated with the process library's cited numbers: exact, with no grid.
+are closed forms evaluated with the process library's cited numbers: exact, with no grid. The
+grating coupler's charts (`charts/grating.rs`) take tens of milliseconds to a second: exact slab
+modes and transfer matrices, and overlap integrals summed on fine steps; each is a model of one
+factor of a coupler's efficiency, set in the lesson against a published number.
 A chart may draw pictures of a field over a cross-section in place of curves (`maps`), side by
 side with one colour scale, as `strip-fields` does.
 
