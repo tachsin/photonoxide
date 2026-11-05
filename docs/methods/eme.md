@@ -412,7 +412,16 @@ What it does not do yet (#432):
   eigenmode expansion with the numbers needed to repeat it (Bienstman and Baets's grating sends
   its material data to another exercise; Soldano and Pennings's self-imaging gives closed forms,
   not a device's indices). The taper is checked against FDFD and against itself in steps and
-  modes.
+  modes. Read again for 3D (2026-11-05): Soldano and Pennings's Table II
+  ([doi:10.1109/50.372474](https://doi.org/10.1109/50.372474)) gives III-V MMIs by their
+  ridges' effective index, not a 3D stack; Halir et al.'s conventional 2×2 MMI
+  ([doi:10.1002/lpor.201600213](https://doi.org/10.1002/lpor.201600213), Table 1: 220 nm
+  silicon in oxide, 3.25 × 38.5 µm) prints its geometry but its beat length only from
+  approximations (27 and 28 µm at 1.5 µm) and its splitting only as a plot; Zhang et al.'s
+  tapered junction ([doi:10.1364/OE.21.001310](https://doi.org/10.1364/OE.21.001310), Table 1)
+  prints 0.13 dB by 3D FDTD but not its arms or indices. None gives a 3D device and a printed
+  response to repeat, so sections cut from a device's geometry (the MMIs first) wait for one,
+  or for a cross-check against 3D FDFD or FDTD on the device itself.
 - **A PML's modes are ill-conditioned** (the operator is far from normal), more so the
   stronger the PML and the higher the mode. A thick PML of small strength keeps them tractable:
   4 µm of strength 0.1 with up to about 200 modes in a half-window 1.5 µm wide. Where a mode

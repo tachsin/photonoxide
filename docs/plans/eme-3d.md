@@ -15,8 +15,14 @@
 3. Done: a strip taper against 3D FDFD on the same plane (see the method page for the numbers).
    Found: with fewer than every mode, power is conserved only to the truncation's error (the
    method page's table).
-4. Left: sections from a device's geometry, and the MMIs.
-5. Left: the job's sections by their shapes.
+4. Left, waiting for a check: sections from a device's geometry, and the MMIs. The papers in
+   hand were read again for a 3D device with a printed response (the method page's limits): none
+   gives one, so the MMI would rest on a cross-check against 3D FDFD on the device itself, whose
+   size (millions of unknowns) the next phase has to plan for. The cut itself belongs in the
+   device layer (`eme` can't import `device`), along the device's x, its cross-section (y, z).
+5. Left: the job's sections by their shapes (a `[task.plane]` making each section a strip on a
+   plane, the equal steps of a taper, `jobs/` example, schema), checked against `Eme3d` to the
+   bit.
 
 Then (2026-11-05): magnetic (mirror) walls on the plane, so a symmetric guide is solved on a
 half or a quarter (`eme/3d-symmetry`: a quarter against the whole window to 2.0e-14), and
