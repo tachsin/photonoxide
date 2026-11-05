@@ -95,7 +95,7 @@ pub fn specs() -> Vec<ChartSpec> {
                     "frequency",
                     "Frequency $\\omega a/2\\pi c$",
                     "",
-                    (0.01, 1.0, 0.2),
+                    (0.01, 1.0, 0.15),
                     0.0005,
                     false,
                     "The frequency, in units of c/a, at which to read the group index.",
@@ -739,64 +739,57 @@ pub fn bands_2d(crystal: &Crystal, n: usize) -> photonoxide::Result<Bands2d> {
     Ok(b)
 }
 
-/// The bands tracked from one k-point to the next: `count` bands, each predicted from its last
-/// two points, matched in order to the modes found; where fewer modes are found than bands (a
-/// degeneracy, which harmonic inversion returns once) the two bands predicted closest share one.
+/// The bands tracked from one k-point to the next: `count` bands, each expected near its last
+/// point, matched in order to the modes found, the sum of the distances least: a band may take
+/// the mode the band below it takes, since harmonic inversion returns a degenerate pair once,
+/// and modes may be left over.
 pub fn track(modes: &[Vec<f64>], count: usize) -> Vec<Vec<f64>> {
     let mut bands: Vec<Vec<f64>> = vec![Vec::new(); count];
     for found in modes {
+        let m = found.len();
+        if m == 0 {
+            for band in &mut bands {
+                band.push(f64::NAN);
+            }
+            continue;
+        }
         let predicted: Vec<f64> = bands
             .iter()
             .enumerate()
-            .map(|(b, v)| match v.len() {
-                0 => found.get(b).copied().unwrap_or(f64::INFINITY),
-                1 => v[0],
-                n => 2.0 * v[n - 1] - v[n - 2],
+            .map(|(b, v)| {
+                v.last()
+                    .copied()
+                    .filter(|f| f.is_finite())
+                    .unwrap_or_else(|| found.get(b).copied().unwrap_or(WINDOW))
             })
             .collect();
-        // bands to modes: merge the closest predictions while the modes are too few
-        let mut groups: Vec<Vec<usize>> = (0..count).map(|b| vec![b]).collect();
-        while groups.len() > found.len() && groups.len() > 1 {
-            let mean =
-                |g: &Vec<usize>| g.iter().map(|&b| predicted[b]).sum::<f64>() / g.len() as f64;
-            let (j, _) = (0..groups.len() - 1)
-                .map(|j| (j, mean(&groups[j + 1]) - mean(&groups[j])))
-                .fold((0, f64::INFINITY), |m, x| if x.1 < m.1 { x } else { m });
-            let next = groups.remove(j + 1);
-            groups[j].extend(next);
+        // cost[a][j]: bands 0..=a matched, band a to mode j, each band's mode at or above the
+        // one below's; from[a][j] the mode band a − 1 took
+        let mut cost = vec![vec![f64::INFINITY; m]; count];
+        let mut from = vec![vec![0; m]; count];
+        for j in 0..m {
+            cost[0][j] = (predicted[0] - found[j]).abs();
         }
-        // the groups in order to the modes in order, skipping modes to fit best: a monotone
-        // assignment by dynamic programming
-        let (g, m) = (groups.len(), found.len());
-        let mean: Vec<f64> = groups
-            .iter()
-            .map(|g| g.iter().map(|&b| predicted[b]).sum::<f64>() / g.len() as f64)
-            .collect();
-        let mut cost = vec![vec![f64::INFINITY; m + 1]; g + 1];
-        for c in cost[0].iter_mut() {
-            *c = 0.0;
-        }
-        for a in 1..=g {
-            for b in a..=m {
-                let take = cost[a - 1][b - 1] + (mean[a - 1] - found[b - 1]).abs();
-                cost[a][b] = take.min(cost[a][b - 1]);
+        for a in 1..count {
+            let (mut best, mut at) = (f64::INFINITY, 0);
+            for j in 0..m {
+                if cost[a - 1][j] < best {
+                    (best, at) = (cost[a - 1][j], j);
+                }
+                cost[a][j] = best + (predicted[a] - found[j]).abs();
+                from[a][j] = at;
             }
         }
-        let mut chosen = vec![0; g];
-        let (mut a, mut b) = (g, m);
-        while a > 0 {
-            if b > a && cost[a][b] == cost[a][b - 1] {
-                b -= 1;
-            } else {
-                chosen[a - 1] = b - 1;
-                a -= 1;
-                b -= 1;
-            }
+        let mut j = (0..m)
+            .min_by(|&x, &y| cost[count - 1][x].total_cmp(&cost[count - 1][y]))
+            .unwrap_or(0);
+        let mut chosen = vec![0; count];
+        for a in (0..count).rev() {
+            chosen[a] = j;
+            j = from[a][j];
         }
-        for (group, &mode) in groups.iter().zip(&chosen) {
-            for &band in group {
-                bands[band].push(found.get(mode).copied().unwrap_or(f64::NAN));
-            }
+        for (band, &mode) in bands.iter_mut().zip(&chosen) {
+            band.push(found[mode]);
         }
     }
     bands
@@ -877,8 +870,15 @@ pub fn bands(lattice: usize, kind: usize, eps: f64, radius: f64) -> photonoxide:
     let mut found = Vec::new();
     for (pol, name) in [(0, "TM"), (1, "TE")] {
         let modes: Vec<Vec<f64>> = b.modes.iter().map(|m| m[pol].clone()).collect();
-        // as many bands as start below the top at Γ
-        let count = modes[0].iter().filter(|&&f| f < TOP).count().max(1);
+        // as many bands as come below the top anywhere, and no more than every k-point has
+        // within the window
+        let below = modes
+            .iter()
+            .map(|m| m.iter().filter(|&&f| f < TOP).count())
+            .max()
+            .unwrap_or(1);
+        let within = modes.iter().map(Vec::len).min().unwrap_or(1);
+        let count = below.min(within).max(1);
         for (n, band) in track(&modes, count).into_iter().enumerate() {
             let points = b
                 .along
@@ -1094,6 +1094,20 @@ mod tests {
         eprintln!("complete gap {fine:.3} % at 32 cells, {finer:.3} % at 48, the book 18.6 %");
         close(finer, fine, 0.1);
         close(finer, 18.6, 0.05 + 0.31 + (finer - fine).abs());
+    }
+
+    /// At M the square lattice's second and third TM bands meet (0.5444 and 0.5480 one step
+    /// before, 0.5469 at M, returned once): both bands take it, and the fourth band the next
+    /// mode, though more modes than bands were found.
+    #[test]
+    fn a_degenerate_pair_is_shared_by_its_two_bands() {
+        let modes = vec![
+            vec![0.3213, 0.5444, 0.5480, 0.6949, 0.9127],
+            vec![0.3221, 0.5469, 0.6928, 0.9172, 0.9671],
+        ];
+        let bands = track(&modes, 4);
+        let at_m: Vec<f64> = bands.iter().map(|b| b[1]).collect();
+        assert_eq!(at_m, vec![0.3221, 0.5469, 0.5469, 0.6928]);
     }
 
     /// The triangular lattice's complete gap and TE gap from 16 to 64 cells a lattice constant:
