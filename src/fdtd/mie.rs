@@ -301,3 +301,46 @@ impl Sphere {
         })
     }
 }
+
+/// Gold in water at one of Mie's wavelengths, as he took it ([`Mie::gold_in_water`]).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct GoldInWater {
+    /// The vacuum wavelength, nm.
+    pub wavelength: f64,
+    /// The wavelength in water, nm: his λ′.
+    pub in_water: f64,
+    /// Gold's complex index relative to vacuum, n + iκ in photonoxide's convention: his m
+    /// conjugated.
+    pub index: c64,
+    /// The square of gold's index relative to water, m′², in photonoxide's convention: his m′²
+    /// conjugated.
+    pub permittivity: c64,
+}
+
+impl Mie {
+    /// The gold of Mie's colloidal solutions (his table on p. 417): at seven vacuum wavelengths
+    /// from 420 to 650 nm, the wavelength in water, gold's complex index and its square relative
+    /// to water, as he printed them (to two decimals), his values conjugated into photonoxide's
+    /// e^(−iωt). He took the index from a smooth curve through Hagen and Rubens's reflection
+    /// and absorption measurements (as he cites them, Ann. d. Phys. 8, pp. 1 and 432), raising
+    /// their reflectivity in the violet. His Table I's gold, which `fdtd/mie-table` checks, is
+    /// this table's m′².
+    pub fn gold_in_water() -> [GoldInWater; 7] {
+        let row =
+            |wavelength: f64, in_water: f64, index: (f64, f64), eps: (f64, f64)| GoldInWater {
+                wavelength,
+                in_water,
+                index: c64::new(index.0, index.1),
+                permittivity: c64::new(eps.0, eps.1),
+            };
+        [
+            row(420.0, 313.0, (1.70, 1.70), (0.00, 3.20)),
+            row(450.0, 336.0, (1.73, 1.72), (-0.017, 3.32)),
+            row(500.0, 374.0, (1.10, 2.02), (-1.60, 2.49)),
+            row(525.0, 393.0, (0.79, 2.23), (-2.45, 1.98)),
+            row(550.0, 412.0, (0.57, 2.45), (-3.20, 1.57)),
+            row(600.0, 450.0, (0.38, 2.96), (-4.84, 1.26)),
+            row(650.0, 487.0, (0.41, 3.54), (-6.97, 1.63)),
+        ]
+    }
+}

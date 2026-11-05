@@ -260,3 +260,29 @@ fn a_lossless_metal_absorbs_nothing() {
         assert!(mie.absorption().abs() < 1e-13 * mie.scattering(), "{x}");
     }
 }
+
+/// Mie's gold in water, as the library gives it, is his Table I's gold, conjugated, to the bit;
+/// and his index squared over water's, (λ/λ′)², is his m′² to the two decimals he printed.
+#[test]
+fn gold_in_water_is_mies_table() {
+    use super::mie_checks::table_one;
+    let gold = Mie::gold_in_water();
+    let columns: Vec<_> = table_one()
+        .into_iter()
+        .filter(|col| col.wavelength != 0)
+        .collect();
+    assert_eq!(columns.len(), gold.len());
+    for (g, col) in gold.iter().zip(&columns) {
+        assert_eq!(g.wavelength, f64::from(col.wavelength));
+        assert_eq!(g.permittivity, col.permittivity.unwrap().conj());
+        let water = g.wavelength / g.in_water;
+        let eps = g.index * g.index / (water * water);
+        assert!(
+            (eps - g.permittivity).norm() < 0.02 * g.permittivity.norm(),
+            "{}: {eps} against {}",
+            g.wavelength,
+            g.permittivity
+        );
+        assert!(g.index.im > 0.0 && g.permittivity.im > 0.0);
+    }
+}
