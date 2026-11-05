@@ -2,7 +2,7 @@
 
 <!-- Written by `photonoxide references --write` (or `just references`) from docs/references.yaml and the citations in the repository: edit those, not this page. -->
 
-Every paper, book and data set photonoxide cites, with every place in the repository that cites it, by file and line. 573 sources, 569 with a DOI and 4 without, are cited at 3206 places in 389 files. The sources are listed by their first author; [references-by-file.md](references-by-file.md) lists each methods page, lesson, example and source file with the sources it cites, and the [validation report](validation.md) gives each case's source on its row. How to cite a source is in [CONTRIBUTING.md](../CONTRIBUTING.md#citing-a-source); the list of sources is [references.yaml](references.yaml).
+Every paper, book and data set photonoxide cites, with every place in the repository that cites it, by file and line. 574 sources, 570 with a DOI and 4 without, are cited at 3226 places in 391 files. The sources are listed by their first author; [references-by-file.md](references-by-file.md) lists each methods page, lesson, example and source file with the sources it cites, and the [validation report](validation.md) gives each case's source on its row. How to cite a source is in [CONTRIBUTING.md](../CONTRIBUTING.md#citing-a-source); the list of sources is [references.yaml](references.yaml).
 
 [A](#a) · [B](#b) · [C](#c) · [D](#d) · [E](#e) · [F](#f) · [G](#g) · [H](#h) · [I](#i) · [J](#j) · [K](#k) · [L](#l) · [M](#m) · [N](#n) · [O](#o) · [P](#p) · [Q](#q) · [R](#r) · [S](#s) · [T](#t) · [U](#u) · [V](#v) · [W](#w) · [X](#x) · [Y](#y) · [Z](#z)
 
@@ -271,7 +271,7 @@ W. Asavanant, Y. Shiozawa, S. Yokoyama, B. Charoensombutamon, H. Emura, R. N. Al
 
 M. Bahadori, K. Bergman, M. Nikdast, S. Rumley, L. Y. Dai, N. Janosik, T. Van Vaerenbergh, A. Gazman, Q. Cheng, R. Polster, "Design Space Exploration of Microring Resonators in Silicon Photonic Interconnects: Impact of the Ring Curvature", J. Lightwave Technol. 36, 2767 (2018). [doi:10.1109/JLT.2018.2821359](https://doi.org/10.1109/JLT.2018.2821359)
 
-- Methods pages: [fdtd.md:1169](methods/fdtd.md?plain=1#L1169)
+- Methods pages: [fdtd.md:1170](methods/fdtd.md?plain=1#L1170)
 
 #### Bai and Demmel 1993
 
@@ -444,7 +444,7 @@ W. Bogaerts, R. Baets, P. Dumon, V. Wiaux, S. Beckx, D. Taillaert, B. Luyssaert,
 
 W. Bogaerts, P. De Heyn, T. Van Vaerenbergh, K. De Vos, S. Kumar Selvaraja, T. Claes, P. Dumon, P. Bienstman, D. Van Thourhout, R. Baets, "Silicon microring resonators", Laser & Photonics Reviews 6, 47 (2011). [doi:10.1002/lpor.201100017](https://doi.org/10.1002/lpor.201100017)
 
-- Methods pages: [circuit-adjoint.md:14](methods/circuit-adjoint.md?plain=1#L14), [circuits.md:10](methods/circuits.md?plain=1#L10), [compact.md:16](methods/compact.md?plain=1#L16), [components.md:8](methods/components.md?plain=1#L8), [devices.md:10](methods/devices.md?plain=1#L10), [fdtd.md:1168](methods/fdtd.md?plain=1#L1168), [optimization.md:8](methods/optimization.md?plain=1#L8), [95](methods/optimization.md?plain=1#L95)
+- Methods pages: [circuit-adjoint.md:14](methods/circuit-adjoint.md?plain=1#L14), [circuits.md:10](methods/circuits.md?plain=1#L10), [compact.md:16](methods/compact.md?plain=1#L16), [components.md:8](methods/components.md?plain=1#L8), [devices.md:10](methods/devices.md?plain=1#L10), [fdtd.md:1169](methods/fdtd.md?plain=1#L1169), [optimization.md:8](methods/optimization.md?plain=1#L8), [95](methods/optimization.md?plain=1#L95)
 - Academy lessons: [mach-zehnder.md:88](../academy/mach-zehnder.md?plain=1#L88), [144](../academy/mach-zehnder.md?plain=1#L144), [ring-resonator.md:85](../academy/ring-resonator.md?plain=1#L85), [125](../academy/ring-resonator.md?plain=1#L125), [152](../academy/ring-resonator.md?plain=1#L152), [480](../academy/ring-resonator.md?plain=1#L480), [587](../academy/ring-resonator.md?plain=1#L587)
 - Validation cases: [`circuit/ring-all-pass-bogaerts`](validation.md?plain=1#L277), [`circuit/ring-add-drop-bogaerts`](validation.md?plain=1#L278), [`circuit/ring-fsr-bogaerts`](validation.md?plain=1#L279), [`components/ring-all-pass-bogaerts`](validation.md?plain=1#L289), [`components/ring-add-drop-bogaerts`](validation.md?plain=1#L290), [`components/ring-extremes-bogaerts`](validation.md?plain=1#L291), [`components/ring-linewidth-bogaerts`](validation.md?plain=1#L292), [`components/ring-fsr-fdfd`](validation.md?plain=1#L293), [`device/ring-closed-forms`](validation.md?plain=1#L310), [`device/ring-fsr`](validation.md?plain=1#L321), [`device/ring-q-bogaerts`](validation.md?plain=1#L326), [`device/compact-ring-closed-form`](validation.md?plain=1#L351), [`compact/vf-ring-allpass`](validation.md?plain=1#L381)
 - Examples: [README.md:48](../examples/README.md?plain=1#L48), [54](../examples/README.md?plain=1#L54), [61](../examples/README.md?plain=1#L61), [circuit_fit.rs:7](../examples/circuit_fit.rs#L7), [circuit_ring_critical.rs:5](../examples/circuit_ring_critical.rs#L5), [optimize_ring_pareto.rs:6](../examples/optimize_ring_pareto.rs#L6), [ring_liu_poon.rs:40](../examples/ring_liu_poon.rs#L40), [ring_q_factor.rs:5](../examples/ring_q_factor.rs#L5), [python/examples/README.md:29](../python/examples/README.md?plain=1#L29), [python/examples/_ring.py:3](../python/examples/_ring.py#L3), [python/examples/ring_fsr.py:5](../python/examples/ring_fsr.py#L5), [python/examples/touchstone_ring.py:5](../python/examples/touchstone_ring.py#L5)
@@ -1000,7 +1000,7 @@ W. Dörfler, "A Convergent Adaptive Algorithm for Poisson’s Equation", SIAM J.
 
 P. Drude, "Zur Elektronentheorie der Metalle", Annalen der Physik 306, 566 (1900). [doi:10.1002/andp.19003060312](https://doi.org/10.1002/andp.19003060312)
 
-- Academy lessons: [material-dispersion.md:26](../academy/material-dispersion.md?plain=1#L26), [173](../academy/material-dispersion.md?plain=1#L173), [437](../academy/material-dispersion.md?plain=1#L437)
+- Academy lessons: [material-dispersion.md:26](../academy/material-dispersion.md?plain=1#L26), [173](../academy/material-dispersion.md?plain=1#L173), [437](../academy/material-dispersion.md?plain=1#L437), [plasmonics.md:22](../academy/plasmonics.md?plain=1#L22), [57](../academy/plasmonics.md?plain=1#L57), [110](../academy/plasmonics.md?plain=1#L110), [420](../academy/plasmonics.md?plain=1#L420), [504](../academy/plasmonics.md?plain=1#L504)
 
 #### Duff and Koster 2001
 
@@ -2367,7 +2367,7 @@ Q. Lin, O. J. Painter, G. P. Agrawal, "Nonlinear optical phenomena in silicon wa
 B. Little, S. Chu, H. Haus, J. Foresi, J.-P. Laine, "Microring resonator channel dropping filters", J. Lightwave Technol. 15, 998 (1997). [doi:10.1109/50.588673](https://doi.org/10.1109/50.588673)
 
 - Methods pages: [devices.md:12](methods/devices.md?plain=1#L12), [optimization.md:12](methods/optimization.md?plain=1#L12), [314](methods/optimization.md?plain=1#L314)
-- Academy lessons: [README.md:62](../academy/README.md?plain=1#L62), [124](../academy/README.md?plain=1#L124), [ring-resonator.md:31](../academy/ring-resonator.md?plain=1#L31), [595](../academy/ring-resonator.md?plain=1#L595)
+- Academy lessons: [README.md:62](../academy/README.md?plain=1#L62), [62](../academy/README.md?plain=1#L62), [62](../academy/README.md?plain=1#L62), [124](../academy/README.md?plain=1#L124), [124](../academy/README.md?plain=1#L124), [124](../academy/README.md?plain=1#L124), [ring-resonator.md:31](../academy/ring-resonator.md?plain=1#L31), [595](../academy/ring-resonator.md?plain=1#L595)
 - Examples: [README.md:51](../examples/README.md?plain=1#L51), [55](../examples/README.md?plain=1#L55), [optimize_chip_rings.rs:8](../examples/optimize_chip_rings.rs#L8), [optimize_ring_flat.rs:8](../examples/optimize_ring_flat.rs#L8)
 - Code: [src/device/ring.rs:289](../src/device/ring.rs#L289)
 - Other documents: [docs/plans/optimization.md:620](plans/optimization.md?plain=1#L620)
@@ -2389,7 +2389,7 @@ V. Liu, S. Fan, "S4 : A free electromagnetic solver for layered periodic structu
 
 Z. Liu, J. K. S. Poon, "Comparison of Lumerical FDTD and Tidy3D for three-dimensional FDTD simulations of passive silicon photonic components", Opt. Continuum 4, 2427 (2025). [doi:10.1364/OPTCON.572107](https://doi.org/10.1364/OPTCON.572107)
 
-- Methods pages: [fdtd.md:52](methods/fdtd.md?plain=1#L52), [1067](methods/fdtd.md?plain=1#L1067)
+- Methods pages: [fdtd.md:52](methods/fdtd.md?plain=1#L52), [1068](methods/fdtd.md?plain=1#L1068)
 - Academy lessons: [directional-coupler.md:112](../academy/directional-coupler.md?plain=1#L112), [406](../academy/directional-coupler.md?plain=1#L406), [523](../academy/directional-coupler.md?plain=1#L523), [mmi.md:41](../academy/mmi.md?plain=1#L41), [439](../academy/mmi.md?plain=1#L439), [495](../academy/mmi.md?plain=1#L495)
 - Examples: [README.md:70](../examples/README.md?plain=1#L70), [coupler_liu_poon.rs:5](../examples/coupler_liu_poon.rs#L5), [crossing_liu_poon.rs:5](../examples/crossing_liu_poon.rs#L5), [mmi_liu_poon.rs:5](../examples/mmi_liu_poon.rs#L5), [mode_converter_liu_poon.rs:5](../examples/mode_converter_liu_poon.rs#L5), [pdk/mod.rs:7](../examples/pdk/mod.rs#L7), [ring_liu_poon.rs:5](../examples/ring_liu_poon.rs#L5), [splitter_rotator_liu_poon.rs:5](../examples/splitter_rotator_liu_poon.rs#L5)
 
@@ -2678,8 +2678,9 @@ P. Micikevicius, "3D finite difference computation on GPUs using CUDA", Proceedi
 G. Mie, "Beiträge zur Optik trüber Medien, speziell kolloidaler Metallösungen", Annalen der Physik 330, 377 (1908). [doi:10.1002/andp.19083300302](https://doi.org/10.1002/andp.19083300302)
 
 - Methods pages: [fdtd.md:8](methods/fdtd.md?plain=1#L8), [933](methods/fdtd.md?plain=1#L933)
+- Academy lessons: [plasmonics.md:28](../academy/plasmonics.md?plain=1#L28), [59](../academy/plasmonics.md?plain=1#L59), [314](../academy/plasmonics.md?plain=1#L314), [506](../academy/plasmonics.md?plain=1#L506)
 - Validation cases: [`fdtd/mie-table`](validation.md?plain=1#L253), [`fdtd/mie-sphere`](validation.md?plain=1#L256)
-- Code: [src/fdtd.rs:58](../src/fdtd.rs#L58), [src/fdtd/mie.rs:2](../src/fdtd/mie.rs#L2), [src/validation.rs:1796](../src/validation.rs#L1796), [1817](../src/validation.rs#L1817)
+- Code: [src/fdtd.rs:58](../src/fdtd.rs#L58), [src/fdtd/mie.rs:2](../src/fdtd/mie.rs#L2), [src/validation.rs:1796](../src/validation.rs#L1796), [1817](../src/validation.rs#L1817), [studio/src-tauri/src/charts/plasmon.rs:880](../studio/src-tauri/src/charts/plasmon.rs#L880)
 - Other documents: [ROADMAP.md:740](../ROADMAP.md?plain=1#L740)
 
 #### Miller 1964
@@ -2833,6 +2834,7 @@ M. Ohashi, T. Kondo, R. Ito, S. Fukatsu, Y. Shiraki, K. Kumata, S. S. Kano, "Det
 M. Okoniewaki, M. Mrozowski, M. Stuchly, "Simple treatment of multi-term dispersion in FDTD", IEEE Microw. Guid. Wave Lett. 7, 121 (1997). [doi:10.1109/75.569723](https://doi.org/10.1109/75.569723)
 
 - Methods pages: [fdtd.md:24](methods/fdtd.md?plain=1#L24)
+- Academy lessons: [plasmonics.md:40](../academy/plasmonics.md?plain=1#L40), [478](../academy/plasmonics.md?plain=1#L478), [512](../academy/plasmonics.md?plain=1#L512)
 - Validation cases: [`fdtd/ade-fdfd`](validation.md?plain=1#L218)
 - Examples: [README.md:65](../examples/README.md?plain=1#L65), [lorentz_okoniewski.rs:6](../examples/lorentz_okoniewski.rs#L6)
 - Code: [src/fdtd.rs:37](../src/fdtd.rs#L37), [src/fdtd/media.rs:8](../src/fdtd/media.rs#L8), [src/validation.rs:1551](../src/validation.rs#L1551)
@@ -2862,7 +2864,7 @@ A. F. Oskooi, C. Kottke, S. G. Johnson, "Accurate finite-difference time-domain 
 
 A. F. Oskooi, D. Roundy, M. Ibanescu, P. Bermel, J. Joannopoulos, S. G. Johnson, "Meep: A flexible free-software package for electromagnetic simulations by the FDTD method", Computer Physics Communications 181, 687 (2010). [doi:10.1016/j.cpc.2009.11.008](https://doi.org/10.1016/j.cpc.2009.11.008)
 
-- Methods pages: [conventions.md:8](methods/conventions.md?plain=1#L8), [fdfd-ports.md:10](methods/fdfd-ports.md?plain=1#L10), [fdtd.md:40](methods/fdtd.md?plain=1#L40), [1045](methods/fdtd.md?plain=1#L1045)
+- Methods pages: [conventions.md:8](methods/conventions.md?plain=1#L8), [fdfd-ports.md:10](methods/fdfd-ports.md?plain=1#L10), [fdtd.md:40](methods/fdtd.md?plain=1#L40), [1046](methods/fdtd.md?plain=1#L1046)
 - Validation cases: [`fdtd/spectrum`](validation.md?plain=1#L209), [`fdtd/meep-pml-rates`](validation.md?plain=1#L259)
 - Examples: [README.md:67](../examples/README.md?plain=1#L67), [bump_oskooi.rs:6](../examples/bump_oskooi.rs#L6), [pml_oskooi.rs:6](../examples/pml_oskooi.rs#L6)
 - Code: [src/fdtd.rs:43](../src/fdtd.rs#L43), [src/fdtd/meep_checks.rs:2](../src/fdtd/meep_checks.rs#L2), [src/fdtd/sources.rs:9](../src/fdtd/sources.rs#L9), [src/units.rs:8](../src/units.rs#L8), [src/validation.rs:1488](../src/validation.rs#L1488), [1838](../src/validation.rs#L1838)
@@ -3233,6 +3235,12 @@ C. Ríos, M. Stegmaier, P. Hosseini, D. Wang, T. Scherer, C. D. Wright, H. Bhask
 - Validation cases: [`fabrication/nitride-reported-flows`](validation.md?plain=1#L777), [`fabrication/pcm-rules`](validation.md?plain=1#L779)
 - Code: [src/fabrication/platform_checks.rs:728](../src/fabrication/platform_checks.rs#L728), [742](../src/fabrication/platform_checks.rs#L742), [src/fabrication/references.rs:216](../src/fabrication/references.rs#L216)
 - Other documents: [docs/plans/fabrication.md:665](plans/fabrication.md?plain=1#L665)
+
+#### Ritchie 1957
+
+R. H. Ritchie, "Plasma Losses by Fast Electrons in Thin Films", Phys. Rev. 106, 874 (1957). [doi:10.1103/PhysRev.106.874](https://doi.org/10.1103/PhysRev.106.874)
+
+- Academy lessons: [plasmonics.md:34](../academy/plasmonics.md?plain=1#L34), [184](../academy/plasmonics.md?plain=1#L184), [509](../academy/plasmonics.md?plain=1#L509)
 
 #### Roache 1997
 

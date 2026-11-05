@@ -717,7 +717,7 @@ pub fn sphere(radius: f64, damping: f64, medium: f64) -> photonoxide::Result<Cha
     }
     let (w_peak, q_peak, width) = peak(&ext);
     let (w_quasi, _, width_quasi) = peak(&quasi);
-    let frohlich = 1.0 / (1.0 + 2.0 * eps_d).sqrt();
+    let resonance = 1.0 / (1.0 + 2.0 * eps_d).sqrt();
     let at_peak = ext.iter().position(|p| p[0] == w_peak).unwrap_or(0);
     let share = sca[at_peak][1] / ext[at_peak][1];
     let size = 2.0 * PI * medium * radius * w_peak;
@@ -749,8 +749,8 @@ pub fn sphere(radius: f64, damping: f64, medium: f64) -> photonoxide::Result<Cha
             &format!("quasi-static, full width {} ω_p", sig(width_quasi, 3)),
         ),
         figure(
-            "Fröhlich's $\\omega_F$",
-            frohlich,
+            "small sphere's resonance",
+            resonance,
             4,
             "ω_p",
             "$\\omega_p/\\sqrt{1 + 2\\varepsilon_d}$, where Re $\\varepsilon = -2\\varepsilon_d$ without loss",
@@ -776,10 +776,10 @@ pub fn sphere(radius: f64, damping: f64, medium: f64) -> photonoxide::Result<Cha
             curve("absorption", abs, false, 2),
             curve("quasi-static dipole", quasi, true, DIPOLE),
         ],
-        marker: Some(frohlich),
+        marker: Some(resonance),
         figures,
         note: format!(
-            "Exact, no grid: Mie's series for a sphere of radius {radius} λ_p, ε = 1 − ω_p²/(ω² + iγω) with γ = {damping} ω_p, in a medium of index {medium}, at 1601 frequencies. The dashed curve is the quasi-static dipole, computed in the studio; the line marks Fröhlich's frequency."
+            "Exact, no grid: Mie's series for a sphere of radius {radius} λ_p, ε = 1 − ω_p²/(ω² + iγω) with γ = {damping} ω_p, in a medium of index {medium}, at 1601 frequencies. The dashed curve is the quasi-static dipole, computed in the studio; the line marks where Re ε = −2ε_d without loss."
         ),
     })
 }
@@ -883,12 +883,24 @@ pub fn gold_chart(diameter: f64) -> photonoxide::Result<ChartData> {
             notes: String::new(),
         },
     )?;
+    // the free-electron metal is a formula: drawn every 5 nm, water's index λ/λ′ interpolated
+    // between Mie's wavelengths
+    let table = Mie::gold_in_water();
+    let water_at = |nm: f64| {
+        let k = table
+            .windows(2)
+            .position(|w| nm <= w[1].wavelength)
+            .unwrap_or(table.len() - 2);
+        let (a, b) = (table[k], table[k + 1]);
+        let (na, nb) = (a.wavelength / a.in_water, b.wavelength / b.in_water);
+        na + (nb - na) * (nm - a.wavelength) / (b.wavelength - a.wavelength)
+    };
     let mut drude_ext = Vec::new();
-    for g in Mie::gold_in_water() {
-        let water = g.wavelength / g.in_water;
-        let e = fitted.permittivity(Wavelength::nm(g.wavelength)?)? / (water * water);
-        let mie = Mie::new(PI * diameter / g.in_water, Some(refractive_index(e)))?;
-        drude_ext.push([g.wavelength, per_mm(mie.extinction(), diameter)]);
+    for nm in span(420.0, 650.0, 47) {
+        let water = water_at(nm);
+        let e = fitted.permittivity(Wavelength::nm(nm)?)? / (water * water);
+        let mie = Mie::new(PI * diameter * water / nm, Some(refractive_index(e)))?;
+        drude_ext.push([nm, per_mm(mie.extinction(), diameter)]);
     }
     // the fitted metal's dipole resonance in water: Re ε = −2 n_w², water's index from 650 nm
     let g650 = Mie::gold_in_water()[6];
@@ -1134,7 +1146,7 @@ mod tests {
         for n in [1.0, 1.33] {
             let small = sphere(0.002, 0.03, n).unwrap();
             let w = fig(&small, "extinction's peak");
-            close(w, fig(&small, "Fröhlich"), 0.01);
+            close(w, fig(&small, "small sphere"), 0.01);
             close(w, fig(&small, "the dipole's peak"), 2e-3);
         }
         let mut last = (f64::MAX, 0.0);

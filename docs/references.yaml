@@ -2625,6 +2625,12 @@
   venue: "Nature Photon 9, 725"
   year: 2015
 
+- doi: 10.1103/PhysRev.106.874
+  authors: "R. H. Ritchie"
+  title: "Plasma Losses by Fast Electrons in Thin Films"
+  venue: "Phys. Rev. 106, 874"
+  year: 1957
+
 - doi: 10.1146/annurev.fluid.29.1.123
   authors: "P. J. Roache"
   title: "QUANTIFICATION OF UNCERTAINTY IN COMPUTATIONAL FLUID DYNAMICS"
