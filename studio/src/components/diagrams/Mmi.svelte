@@ -68,7 +68,7 @@
   const [cw, ch] = [(x1 - x0) / NX + 0.4, width / NY + 0.4];
 
   /** A lateral mode's field across the section, drawn about a centre over a base line. */
-  const PANEL = { span: 70, base: 262, height: 18 };
+  const PANEL = { span: 70, base: 254, height: 17 };
   function mode(centre: number, v: number): string {
     let d = "";
     for (let k = 0; k <= 60; k++) {
@@ -115,16 +115,16 @@
   <!-- the ports -->
   <Wave x1={left + 4} y1={mid} x2={left + 46} y2={mid} amplitude={4} cycles={2} />
   <Label x={left} y={mid + 24} anchor="start" size={15} text="input" width={80} />
-  <Label x={right - 2} y={outputs[0] - 20} anchor="end" size={14} text={String.raw`output at $+W/4$`} width={120} />
-  <Label x={right - 2} y={outputs[1] + 20} anchor="end" size={14} text={String.raw`output at $-W/4$`} width={120} />
+  <Label x={x1 + 10} y={outputs[0] - 17} anchor="start" size={14} text="$+W/4$" width={70} />
+  <Label x={x1 + 10} y={outputs[1] + 17} anchor="start" size={14} text="$-W/4$" width={70} />
 
   <!-- the modes across the section -->
   {#each panels as p (p.v)}
-    <Label x={p.centre} y={222} size={13} text={`$\\psi_${p.v}$`} width={60} class="text-secondary" />
+    <Label x={p.centre} y={220} size={13} text={`$\\psi_${p.v}$`} width={60} class="text-secondary" />
     <line x1={p.centre - PANEL.span / 2} y1={PANEL.base} x2={p.centre + PANEL.span / 2} y2={PANEL.base} class="stroke-base-content/30" stroke-width="1" />
     <path d={mode(p.centre, p.v)} fill="none" class="stroke-secondary" stroke-width="2" stroke-linejoin="round" />
   {/each}
-  <Label x={58 + 84 * 1.5} y={290} size={13} text="across $W$, $\nu = 0, 1, 2, 3$" width={240} class="text-base-content/70" />
+  <Label x={58 + 84 * 1.5} y={288} size={13} text="across $W$, $\nu = 0, 1, 2, 3$" width={240} class="text-base-content/70" />
   <Label x={440} y={236} size={14} text={String.raw`$\beta_0 - \beta_\nu \approx \dfrac{\nu(\nu + 2)\pi}{3L_\pi}$`} width={170} />
   <Label x={440} y={276} size={14} text={String.raw`$L_\pi \approx \dfrac{4 n_r W_e^2}{3\lambda_0}$`} width={170} />
 </svg>

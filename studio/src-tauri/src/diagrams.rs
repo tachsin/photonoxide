@@ -174,7 +174,7 @@ pub fn specs() -> Vec<DiagramSpec> {
                       interference, shaded, spreads the input's single spot across the section \
                       and gathers it again. At $L = 3L_\\pi/8$, $L_\\pi$ the beat length of the \
                       two lowest modes, it forms two images of the input at $\\pm W/4$, where two \
-                      output guides each take half, in phase. The shading is computed from \
+                      output guides take equal shares, in phase. The shading is computed from \
                       Soldano and Pennings's sine-like modes and quadratic phases. Not to scale: \
                       the section is drawn short for its width.",
             job: Some("mmi-fdfd.yaml"),

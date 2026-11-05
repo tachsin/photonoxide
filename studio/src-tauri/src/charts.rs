@@ -1055,14 +1055,14 @@ pub fn specs() -> Vec<ChartSpec> {
         ChartSpec {
             id: "mmi-spectrum",
             title: "An MMI's outputs against the wavelength",
-            about: "The same MMI cut at its first two-fold image at 1.55 µm: the power into each output from 1.40 to 1.70 µm, the materials' and the film's dispersion included.",
+            about: "The same MMI cut at its best length at 1.55 µm, where its weaker output takes the most: the power into each output from 1.40 to 1.70 µm, the materials' and the film's dispersion included.",
             computed_by: "circuit::components::Mmi::analysis at 121 wavelengths (the plane's indices from material::silicon and material::silica at each) and MmiModes::s_matrix",
             params: vec![mmi_kind(), mmi_width((2.0, 12.0, 3.0)), mmi_access()],
         },
         ChartSpec {
             id: "mmi-tolerance",
             title: "An MMI's outputs against a width error",
-            about: "The same MMI, its length fixed at its image on 220 nm at 1.55 µm, when every drawn width comes out Δw wider or narrower, the guides' centres in place, and on a film of another thickness.",
+            about: "The same MMI, its length fixed at its best on 220 nm at 1.55 µm, when every drawn width comes out Δw wider or narrower, the guides' centres in place, and on a film of another thickness.",
             computed_by: "circuit::components::Mmi::analysis_at with the nominal guides' centres, MmiModes::s_matrix, at 101 width errors from −250 to 250 nm",
             params: vec![
                 mmi_kind(),

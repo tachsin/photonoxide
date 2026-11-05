@@ -119,7 +119,16 @@ fn split(a: &MmiModes, kind: MmiKind, length: f64) -> (f64, f64, f64) {
     let ((p, q), _) = outputs(kind);
     let s = a.s_matrix(length);
     let (sp, sq) = (s[(p, 0)], s[(q, 0)]);
-    (sp.norm_sqr(), sq.norm_sqr(), (sp / sq).arg().to_degrees())
+    (
+        sp.norm_sqr(),
+        sq.norm_sqr(),
+        tidy((sp / sq).arg().to_degrees()),
+    )
+}
+
+/// A number that is zero by symmetry, its round-off (below 1e-9) shown as the zero it is.
+fn tidy(x: f64) -> f64 {
+    if x.abs() < 1e-9 { 0.0 } else { x }
 }
 
 fn excess_db(pa: f64, pb: f64) -> f64 {
@@ -127,7 +136,7 @@ fn excess_db(pa: f64, pb: f64) -> f64 {
 }
 
 fn imbalance_db(pa: f64, pb: f64) -> f64 {
-    10.0 * (pa / pb).log10()
+    tidy(10.0 * (pa / pb).log10())
 }
 
 fn curve(label: &str, points: Vec<[f64; 2]>, dashed: bool, colour: usize) -> Curve {
@@ -165,38 +174,33 @@ pub fn field(width: f64, offset: f64, span: f64) -> photonoxide::Result<ChartDat
     let z1 = span * lpi;
     let margin = 0.4;
     let (y0, y1) = (-width / 2.0 - margin, width / 2.0 + margin);
+    // a long section is drawn in rows, each at most eight times as long as it is tall, so that
+    // its pictures stay tall enough to read at their true aspect
+    let rows = ((z1 / (y1 - y0)) / 8.0).ceil().max(1.0) as usize;
     let (nx, ny) = (600, 150);
-    let mut values = Vec::with_capacity(nx * ny);
-    for j in 0..ny {
-        let y = y0 + (y1 - y0) * (j as f64 + 0.5) / ny as f64;
-        for i in 0..nx {
-            let z = z1 * (i as f64 + 0.5) / nx as f64;
-            values.push(a.field(0, y, z).norm_sqr());
+    let mut pictures = Vec::with_capacity(rows);
+    for r in 0..rows {
+        let (za, zb) = (
+            z1 * r as f64 / rows as f64,
+            z1 * (r + 1) as f64 / rows as f64,
+        );
+        let mut values = Vec::with_capacity(nx * ny);
+        for j in 0..ny {
+            let y = y0 + (y1 - y0) * (j as f64 + 0.5) / ny as f64;
+            for i in 0..nx {
+                let z = za + (zb - za) * (i as f64 + 0.5) / nx as f64;
+                values.push(a.field(0, y, z).norm_sqr());
+            }
         }
+        pictures.push((za, zb, values));
     }
-    let top = values
+    // one colour scale for every row
+    let top = pictures
         .iter()
-        .copied()
+        .flat_map(|p| p.2.iter().copied())
         .fold(0.0, f64::max)
         .max(f64::MIN_POSITIVE);
-    let raster = Raster {
-        nx,
-        ny,
-        x0: 0.0,
-        x1: z1,
-        y0,
-        y1,
-        values: values
-            .iter()
-            .map(|v| ((v / top) * 1e3).round() as f32 / 1e3)
-            .collect(),
-    };
-    let (hw, l1) = (width / 2.0, z1);
-    let outline = vec![
-        vec![[0.0, -hw], [l1, -hw], [l1, hw], [0.0, hw], [0.0, -hw]],
-        // the input guide's edges at the face
-        vec![[0.0, y_in - ACCESS / 2.0], [0.0, y_in + ACCESS / 2.0]],
-    ];
+    let hw = width / 2.0;
     let c = a.couplings(0);
     let share = |pick: &dyn Fn(usize) -> bool| -> f64 {
         c.iter()
@@ -206,7 +210,9 @@ pub fn field(width: f64, offset: f64, span: f64) -> photonoxide::Result<ChartDat
             .sum()
     };
     let guided = share(&|_| true);
+    // a centred input's odd share is round-off: shown as the zero it is
     let odd = share(&|v| v % 2 == 1);
+    let odd = if odd < 1e-15 { 0.0 } else { odd };
     let third = share(&|v| v % 3 == 2);
     let mechanism = if odd < 1e-6 {
         "symmetric interference: single images at 3L_π/4, N-fold at 3L_π/4N"
@@ -216,14 +222,45 @@ pub fn field(width: f64, offset: f64, span: f64) -> photonoxide::Result<ChartDat
         "general interference: single images at 3L_π, two-fold at 3L_π/2"
     };
     Ok(ChartData {
-        maps: vec![FieldMap {
-            label: format!(
-                "$|\\psi(y, z)|^2$ from above, the input at $y = {}$ µm",
-                sig(y_in, 3)
-            ),
-            raster,
-            outline,
-        }],
+        maps: pictures
+            .into_iter()
+            .map(|(za, zb, values)| {
+                let mut outline = vec![vec![[za, -hw], [zb, -hw]], vec![[za, hw], [zb, hw]]];
+                if za == 0.0 {
+                    // the input face, and the input guide's edges on it
+                    outline.push(vec![[0.0, -hw], [0.0, hw]]);
+                    outline.push(vec![[0.0, y_in - ACCESS / 2.0], [0.0, y_in + ACCESS / 2.0]]);
+                }
+                FieldMap {
+                    label: if rows == 1 {
+                        format!(
+                            "$|\\psi(y, z)|^2$ from above, the input at $y = {}$ µm",
+                            sig(y_in, 3)
+                        )
+                    } else {
+                        format!(
+                            "$|\\psi(y, z)|^2$ from $z = {}$ to ${}$ µm, the input at $y = {}$ µm",
+                            sig(za, 3),
+                            sig(zb, 3),
+                            sig(y_in, 3)
+                        )
+                    },
+                    raster: Raster {
+                        nx,
+                        ny,
+                        x0: za,
+                        x1: zb,
+                        y0,
+                        y1,
+                        values: values
+                            .iter()
+                            .map(|v| ((v / top) * 1e3).round() as f32 / 1e3)
+                            .collect(),
+                    },
+                    outline,
+                }
+            })
+            .collect(),
         x_label: "along the section z".to_owned(),
         x_length: true,
         y_label: "across it y".to_owned(),
@@ -243,7 +280,7 @@ pub fn field(width: f64, offset: f64, span: f64) -> photonoxide::Result<ChartDat
             figure(
                 "Guided share $\\sum c_\\nu^2$",
                 guided,
-                3,
+                5,
                 "",
                 "the rest is radiated at the junction",
             ),
@@ -821,6 +858,16 @@ mod tests {
         let general = field(3.0, -0.3, 1.0).unwrap();
         assert!(general.note.contains("general"), "{}", general.note);
         assert!(field(3.0, 0.45, 1.0).is_err());
+        // a long section in rows that join end to end, on one colour scale
+        let long = field(2.5, -0.3, 3.2).unwrap();
+        assert_eq!(long.maps.len(), 2);
+        assert_eq!(long.maps[0].raster.x1, long.maps[1].raster.x0);
+        let brightest = long
+            .maps
+            .iter()
+            .flat_map(|m| m.raster.values.iter().copied())
+            .fold(0.0, f32::max);
+        assert_eq!(brightest, 1.0);
         // the beat length is the component's
         let m = mmi(MmiKind::OneByTwo, 3.0, 0.8, 220.0).unwrap();
         let lpi = m.beat_length(Wavelength::um(1.55).unwrap(), 3.0).unwrap();
@@ -881,64 +928,5 @@ mod tests {
         // a thinner film lowers n_r and shortens the image: the loss at Δw = 0 grows
         let thin = tolerance(1.0, 3.0, 0.8, 200.0).unwrap();
         assert!(fig(&thin, "Excess loss with none") > fig(&t, "Excess loss with none"));
-    }
-
-    #[test]
-    #[ignore]
-    fn print_figures_for_the_lesson() {
-        let show = |name: &str, d: &ChartData| {
-            println!("== {name}");
-            for f in &d.figures {
-                println!("  {} = {:?} {} ({})", f.label, f.value, f.unit, f.note);
-            }
-            println!("  note: {}", d.note);
-        };
-        show("field 3 0", &field(3.0, 0.0, 1.0).unwrap());
-        show("field 3 -1/6", &field(3.0, -1.0 / 6.0, 1.0).unwrap());
-        show("field 2.5 -0.3", &field(2.5, -0.3, 3.2).unwrap());
-        for (w, l) in [
-            (3.0, 1.55),
-            (3.25, 1.5),
-            (2.0, 1.55),
-            (6.0, 1.55),
-            (12.0, 1.55),
-            (20.0, 1.55),
-        ] {
-            show(&format!("modes {w} {l}"), &modes(w, l).unwrap());
-        }
-        for (k, w, a) in [
-            (1.0, 3.0, 0.8),
-            (2.0, 3.0, 0.8),
-            (1.0, 3.0, 0.5),
-            (1.0, 4.0, 1.2),
-            (2.0, 6.0, 1.5),
-            (1.0, 6.0, 1.5),
-            (1.0, 2.0, 0.5),
-        ] {
-            show(&format!("length {k} {w} {a}"), &length(k, w, a).unwrap());
-        }
-        for (k, w, a) in [
-            (1.0, 3.0, 0.8),
-            (2.0, 3.0, 0.8),
-            (1.0, 6.0, 1.5),
-            (2.0, 6.0, 1.5),
-        ] {
-            show(
-                &format!("spectrum {k} {w} {a}"),
-                &spectrum(k, w, a).unwrap(),
-            );
-        }
-        for (k, w, a, t) in [
-            (1.0, 3.0, 0.8, 220.0),
-            (2.0, 3.0, 0.8, 220.0),
-            (1.0, 6.0, 1.5, 220.0),
-            (1.0, 3.0, 0.8, 210.0),
-            (1.0, 3.0, 0.8, 230.0),
-        ] {
-            show(
-                &format!("tolerance {k} {w} {a} {t}"),
-                &tolerance(k, w, a, t).unwrap(),
-            );
-        }
     }
 }

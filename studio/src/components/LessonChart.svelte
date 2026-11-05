@@ -94,7 +94,7 @@
       </div>
       <div class="flex flex-wrap items-center gap-x-4 gap-y-1 py-1 text-[11px] faint">
         <span class="flex items-center gap-1.5">least <span class="inline-block h-2 w-24 rounded-sm border border-base-content/10" style="background: linear-gradient(to right, rgb(0,0,4), rgb(120,28,109), rgb(237,105,37), rgb(252,255,164))"></span> brightest</span>
-        <span>{data.x_label} from {len(data.maps[0].raster.x0, 2, true)} to {len(data.maps[0].raster.x1, 2, true)} {unitText()}; {data.y_label} from {len(data.maps[0].raster.y0, 2, true)} to {len(data.maps[0].raster.y1, 2, true)} {unitText()}</span>
+        <span>{data.x_label} from {len(data.maps[0].raster.x0, 2, true)} to {len(data.maps[data.maps.length - 1].raster.x1, 2, true)} {unitText()}; {data.y_label} from {len(data.maps[0].raster.y0, 2, true)} to {len(data.maps[0].raster.y1, 2, true)} {unitText()}</span>
       </div>
     {:else if data}
       <Plot
