@@ -61,8 +61,14 @@
 //! until an estimated error is within a tolerance ([`Eme::adaptive`]). A job of `kind = "eme"`
 //! describes the sections in a file ([`crate::job`]).
 //!
-//! Not here yet: 3D cross-sections, sections drawn from a device's geometry or a job's shapes,
-//! and S over wavelength interpolated with a stated error (#432).
+//! **In 3D** ([`Eme3d`]) each section's cross-section is a [`Plane`] of Yee's grid between
+//! perfectly conducting walls, with a PML inside them if asked ([`Pml3d`]); its modes are the
+//! transverse-E eigenproblem of the 3D FDFD's ports with β continuous along z, exactly
+//! orthogonal in the discrete unconjugated product, and the interfaces and cascade above apply
+//! unchanged (see the `plane` module's docs).
+//!
+//! Not here yet: sections drawn from a device's geometry or a job's shapes, mirror walls for
+//! symmetric halves in 3D, and S over wavelength interpolated with a stated error (#432).
 
 use num_complex::Complex64 as c64;
 
@@ -74,10 +80,19 @@ mod adaptive;
 #[path = "cases/eme/checks.rs"]
 pub(crate) mod checks;
 mod modes;
+mod plane;
 mod scattering;
+mod three;
+#[path = "cases/eme/three_checks.rs"]
+pub(crate) mod three_checks;
+#[cfg(test)]
+#[path = "cases/eme/three_tests.rs"]
+mod three_tests;
 
 pub use adaptive::{Adaptive, MAX_STEPS, Piece, Round, Taper};
 pub use modes::Mode;
+pub use plane::{Mode3d, Plane, PlaneGrid, Pml3d, Walls};
+pub use three::{Eme3d, Section3d};
 
 /// A wall at an edge of the window.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]

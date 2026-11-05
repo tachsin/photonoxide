@@ -1,6 +1,37 @@
 # Eigenmode expansion in 3D: a plan
 
-*A plan, 2026-11-04, for the next phase of #432. Not started.*
+*A plan, 2026-11-04, for the next phase of #432. Parts 1 to 3 done (2026-11-05); 4 and 5 left.*
+
+**Status by part (2026-11-05):**
+
+1. Done, with one change from the sketch below: the modes come from the transverse-E
+   eigenproblem on a plane of Yee's grid (the 3D FDFD ports' operator, β continuous along z),
+   not from `mode::vector`'s H-field scheme. On Yee's plane the unconjugated product is exactly
+   orthogonal between two modes (to 4.9e-12 with a PML, `eme/3d-orthonormal`), which keeps the
+   2D interfaces exact; and the 3D FDFD cross-check shares the cross-section's discretization.
+2. Done: a step between uniform media against Fresnel on all 236 modes of a box (7.7e-12), and
+   the extruded slab: separable to 4.9e-12, second order (2.00), its limit within 4.8e-10 of the
+   2D expansion's S₁₁.
+3. Done: a strip taper against 3D FDFD on the same plane (see the method page for the numbers).
+   Found: with fewer than every mode, power is conserved only to the truncation's error (the
+   method page's table).
+4. Left, waiting for a check: sections from a device's geometry, and the MMIs. The papers in
+   hand were read again for a 3D device with a printed response (the method page's limits): none
+   gives one, so the MMI would rest on a cross-check against 3D FDFD on the device itself, whose
+   size (millions of unknowns) the next phase has to plan for. The cut itself belongs in the
+   device layer (`eme` can't import `device`), along the device's x, its cross-section (y, z).
+5. Left: the job's sections by their shapes (a `[task.plane]` making each section a strip on a
+   plane, the equal steps of a taper, `jobs/` example, schema), checked against `Eme3d` to the
+   bit.
+
+Then (2026-11-05): magnetic (mirror) walls on the plane, so a symmetric guide is solved on a
+half or a quarter (`eme/3d-symmetry`: a quarter against the whole window to 2.0e-14), and
+Hadley's corner problems as the published check of the plane's modes (`eme/3d-hadley`: the
+Richardson limits within 4.7e-7 of his printed indices). And the PML study of section 2 (the
+method page's "The PML in 3D"): with every mode, six PMLs agree on an open taper's transmission
+to 2.2e-4 and its reflection to 5 %; with 60 or 150 modes the reflection is off up to tenfold;
+strong graded PMLs put their own modes first. 2D's 4 µm of strength 0.1 isn't needed: uniform
+layers of 0.25 to 0.5 µm with σ ≤ 1 keep the guided mode first.
 
 `photonoxide::eme` is 2D today: each section is a stack of layers across x, its modes found
 exactly by transfer matrices. A real taper, MMI or Y-branch is a cross-section in x and y that
