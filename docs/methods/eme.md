@@ -37,6 +37,13 @@ validation:
   - eme/3d-extruded-order
   - eme/3d-extruded-slab
   - eme/3d-taper-fdfd
+  - eme/3d-cut-extruded
+  - eme/3d-cut-taper-exact
+  - eme/3d-cut-taper-fdfd
+  - eme/3d-cut-mmi-fdfd
+  - eme/3d-cut-mmi-reflection
+  - eme/3d-cut-mmi-reciprocity
+  - eme/3d-cut-mmi-power
 ---
 
 Many devices are a waveguide whose cross-section changes along its length: a step, a taper, a
@@ -222,6 +229,36 @@ task:
   convergence: { tolerance: 1.0e-3, quantity: transmission }
 ```
 
+**In 3D,** `[task.plane]` makes each section a plane of Yee's grid ([below](#sections-in-3d)):
+`cells = [across, up]` of `step_um = [dx, dy]`, centred on the strips' axis, each section a
+strip `core_um` wide (a taper's `[from, to]`, in equal steps, each the strip at its middle) and
+`height_um` high in the `cladding`. `symmetry = "half"` keeps x ≥ 0 behind an electric wall (the
+TE-like modes, E_x even about it) and `"quarter"` keeps y ≥ 0 too behind a magnetic one;
+`[task.pml]` goes inside every other wall. `modes` above the plane's unknowns keeps them all.
+Beside a `[device]` the sections are cut from the device's geometry instead
+([a device's sections](#a-devices-sections)): `[task.plane]` then takes `step_um` (across the
+device's y and up its z), `margins_um = [beside, vertical]`, `along_um` (the longest step of a
+sloped run) and `symmetry = "half"`. A run's S-parameters are `Eme3d::s_matrix`'s on the same
+sections to the bit (the tests run both). `jobs/eme-taper-3d.yaml` is the strip taper of
+`eme/3d-taper-fdfd`, every mode, and `jobs/eme-mmi-3d.yaml` a 1 × 2 MMI cut from the device.
+Polarization, walls, `window_um`, `symmetric`, layers and `[task.adaptive]` are a 2D job's and
+are refused in 3D.
+
+```yaml
+task:
+  kind: eme
+  wavelength_um: 1.55
+  modes: 728                   # every mode of the plane
+  cladding: 1.444
+  core: 3.473
+  plane: { step_um: [0.05, 0.05], cells: [24, 16], height_um: 0.2 }
+  section:
+    - { name: input, length_um: 0.0, core_um: 0.4 }
+    - { name: step 1, length_um: 0.1, core_um: 0.5 }
+    - { name: step 2, length_um: 0.1, core_um: 0.6 }
+    - { name: output, length_um: 0.0, core_um: 0.7 }
+```
+
 ## Sections in 3D
 
 A real taper, MMI or Y-branch is a cross-section in x and y that changes along z. `Eme3d` takes
@@ -349,6 +386,94 @@ and 2 µm (6.5, 8.0, 10.0 and 11.3 s), five times less for each half micrometre.
 mattered more: 1 µm leads with a 0.5 µm PML left it 1.1e-5 lower, the guide's evanescent
 modes from the steps still reaching the PML.
 
+### A device's sections
+
+`device::Cut` cuts a device's geometry ([devices](devices.md)) into sections. The device runs along
+x, its ports facing ±x; each section's plane holds the device's y as the plane's x and its z as
+the plane's y, so the expansion's z is the device's x. The plane spans the core layer's shapes
+and `beside` µm of cladding, from `vertical` µm below the core layer to as far above it, its
+faces on nodes when the layer is a whole number of cells thick; `mirrored()` keeps y ≥ 0 behind
+an electric wall, for a device symmetric about its axis (the TE-like modes), and refuses one
+that isn't. Each value of E sees the structure averaged over its cell from 8 × 8 points, as 3D
+FDFD averages a cell of a structure uniform along x. The two ends are the ports' guides, led
+straight out, as sections of no length.
+
+```rust
+use photonoxide::device::{Cut, Device, StripMmi, Values};
+use photonoxide::eme::Eme3d;
+use photonoxide::units::Wavelength;
+
+let mmi = StripMmi::one_by_two();
+let geometry = mmi.geometry(&Values::new(&mmi, &[("width", 1.6), ("length", 2.4),
+    ("access_width", 0.5), ("port_width", 0.5)])?)?;
+let lam = Wavelength::um(1.55)?;
+let cut = Cut::new(0.05, 0.055, 0.1)?.with_margins(0.4, 0.33)?.mirrored().geometry(&geometry, lam)?;
+let s = Eme3d::new(lam, cut.grid.unknowns())?.s_matrix(&cut.sections)?;   // every mode
+let into_the_outputs = s.s21[0][0].norm_sqr();
+```
+
+**Where it cuts.** At every x where an outline turns (each vertex of every shape's polygons, on
+every layer). Between two of them, a cross-section whose outlines run along x is one section; a
+run of sloped outlines (a taper's sides, a curve's polygon) is cut into equal steps no longer
+than `along`, each the cross-section at its middle. Or, `exactly()`, at every x where a sloped
+outline crosses one of the points the cells are averaged from (8 a cell across, at odd
+sixteenths of it): between two such x the averaged plane doesn't change, so each section holds
+over its whole length and the cut has no step error. That is what a taper's steps converge to,
+and they don't converge to it smoothly: the averaged plane is itself a staircase, which midpoint
+steps sample. The linear taper of the cases below (400 to 800 nm over 1 µm) has 33 distinct
+planes, its wall crossing a sampling point every 31.25 nm along x; its $\lvert S_{21}\rvert^2$
+with every mode of the plane:
+
+| Steps | 8 | 16 | 32 | 64, 128, 256, 512 | cut exactly (33 sections) |
+|---|---|---|---|---|---|
+| $\lvert S_{21}\rvert^2$ | 0.99296041 | 0.99239955 | 0.99260912 | 0.99218344 | 0.99218344 |
+
+From 64 steps on, every step's edges hold the crossings (at odd sixty-fourths of a micrometre)
+and S doesn't change in any digit; 32 steps put each crossing at a step's middle. Equal planes
+side by side are one section and are solved once, so a fine cut costs its plane builds, not its
+eigensolves. The exact cut is exact for polygons with vertical walls; a curve is cut at its
+polygon's crossings (1 nm from the curve), and a sloped etch's walls lean out with z, which the
+crossings don't follow.
+
+**Against 3D FDFD of the same device.** The cross-check solves the device's own structure by
+3D FDFD on the same plane: the same cells across and up, the same averaging and the same walls
+(an electric one on the axis), the ports' guides led out through PMLs 1 µm thick, leads 1.5 µm
+long, the ports' fundamental modes 0.1 µm outside the device's ports; along x at 0.1 µm over 3
+to 7, and the limit at Δx → 0 fitted as `eme/3d-taper-fdfd`'s. The two share the cross-section's
+discretization exactly, so they differ only along x. Silicon (3.473) in oxide (1.444), 220 nm
+thick, at 1.55 µm, the half y ≥ 0, cells of 50 × 55 nm:
+
+| Device | Plane | Ours ($\lvert S_{21}\rvert^2$; $\lvert S_{11}\rvert^2$) | 3D FDFD's limit | Gap | FDFD's own error |
+|---|---|---|---|---|---|
+| Linear taper, 400 to 800 nm over 1 µm, cut exactly | 16 × 16 cells, 480 unknowns, every mode | 0.9921834; 1.2416e-4 | 0.9921745 (fit residual 3.8e-5); 9.28e-5 | 8.9e-6; not compared | 1.3e-4; 3.2e-5 (with or without its coarsest step) |
+| 1 × 2 MMI, 1.6 × 2.4 µm, 0.5 µm access guides | 24 × 16 cells, 728 unknowns, every mode | 0.9056087; 1.6111e-3 | 0.9056635 (8.9e-7); 1.61168e-3 (1.6e-7) | 5.5e-5; 5.4e-7 | 6.3e-5 (its PML from 1 to 2 µm); 4.5e-6 (its coarsest step) |
+
+The MMI's half $\lvert S_{21}\rvert^2$ is the power into its two outputs together: the half's
+port at the output is the two guides' even mode. With every mode its S is symmetric to 2.5e-13
+and its propagating block unitary to 1.3e-12. FDFD's own values along x:
+
+| Δx (nm) | 33.3 | 25 | 20 | 16.7 | 14.3 |
+|---|---|---|---|---|---|
+| Taper $\lvert S_{21}\rvert^2$ | 0.9923949 | 0.9924169 | 0.9923467 | 0.9923580 | 0.9922652 |
+| Taper $\lvert S_{11}\rvert^2$ | 6.55e-5 | 1.032e-4 | 1.102e-4 | 9.41e-5 | 1.097e-4 |
+| MMI $\lvert S_{21}\rvert^2$ | 0.8988133 | 0.9018723 | 0.9032539 | 0.9039972 | 0.9044433 |
+| MMI $\lvert S_{11}\rvert^2$ | 2.362e-3 | 1.982e-3 | 1.834e-3 | 1.760e-3 | 1.718e-3 |
+
+The MMI's FDFD values close on its limit at second order, its faces on nodes. The taper's don't:
+FDFD averages each cell from 8 points along x too, so a sloped wall's crossings fall at
+eighths of a cell and scatter its values by about 1e-4 about their trend, and its small
+reflection by 30 %. So the taper's reflection is reported here, not checked: ours is 1.2416e-4,
+FDFD's limit 9.28e-5 from these five steps and 1.245e-4 with 50 nm added. FDFD's PMLs and leads,
+at Δx = 25 nm: the MMI's $\lvert S_{21}\rvert^2$ is 0.9034558, 0.9018723 and 0.9018091 with PMLs
+and leads of 0.5 and 1, 1 and 1.5, and 2 and 1.5 µm; the light the MMI scatters needs the room.
+
+**Size.** The studio's 6 µm MMI, its first image about 33 µm long, would take a half plane of
+about 2200 unknowns on these cells and an FDFD solve of millions; the 1.6 µm one is what a test
+holds. One FDFD solve at Δx = 50 nm took 1.9 s for the taper (92 000 unknowns) and 4.3 s for the
+MMI (170 000), the five steps 40 s and 100 s together, the direct solver's memory peaking near
+3 GB; every mode of the MMI's three planes took 16 s, of the taper's 33 about a minute (six
+threads).
+
 ## Validation
 
 Measured with the cases' own settings, at 1.55 µm, silicon (3.473) in oxide (1.444):
@@ -373,6 +498,11 @@ Measured with the cases' own settings, at 1.55 µm, silicon (3.473) in oxide (1.
 | `eme/3d-extruded-order` | the same, 1 cell across, on 10, 5 and 2.5 nm grids | order 2.00 | Yee's second order | order, 2 within 0.1 |
 | `eme/3d-extruded-slab` | the same: Richardson's limit of $S_{11}$ | $-0.00863322 - 0.00413359i$, within 4.8e-10 of the 2D expansion's (relative 5e-8) | the 2D expansion on the exact slab modes, 30 modes | discretisation, 3e-4 relative, three times the finest grid's own error (9.3e-5) |
 | `eme/3d-taper-fdfd` | the lossless strip taper above, $\lvert S_{21}\rvert^2$, every one of its 728 modes | 0.996238 (and $\lvert S_{11}\rvert^2$ 1.866e-5) | 3D FDFD on the same plane at $\Delta z$ = 0.1 µm over 2 to 7, its limit by a fit of $v_0 + a\Delta z^2 + b\Delta z^4$: 0.996238, within 4e-7 (its $\lvert S_{11}\rvert^2$ 1.945e-5 at the finest step, approaching at second order) | discretisation, 4e-5 absolute, three times FDFD's PML error |
+| `eme/3d-cut-extruded` | the stepped slab of `eme/3d-extruded-separable` drawn as strips on a layer one 10 nm cell thick, cut where its outlines turn | every entry of S the hand-built sections' to round-off (under 1e-10) | the same planes | round-off, 1e-10 |
+| `eme/3d-cut-taper-exact` | a linear strip taper, 220 nm thick, 400 to 800 nm over 1 µm, the half y ≥ 0 on 50 × 55 nm cells, every one of 480 modes, cut exactly (33 sections) | every entry of S 64 midpoint steps' to round-off (under 1e-10) | the same 33 planes | round-off, 1e-10 |
+| `eme/3d-cut-taper-fdfd` | the same, $\lvert S_{21}\rvert^2$ | 0.9921834 | 3D FDFD of the device on the same plane at Δx = 0.1 µm over 3 to 7: 0.9921745 (fit residual 3.8e-5) | discretisation, 4e-4 absolute, three times FDFD's own error (its limit moves 1.3e-4 with its coarsest step) |
+| `eme/3d-cut-mmi-fdfd`, `-reflection` | a 1 × 2 strip MMI 1.6 × 2.4 µm, 0.5 µm access guides, the half y ≥ 0 on 50 × 55 nm cells, every one of 728 modes: $\lvert S_{21}\rvert^2$ (into both outputs) and $\lvert S_{11}\rvert^2$ | 0.9056087 and 1.6111e-3 | the same FDFD: 0.9056635 and 1.61168e-3 (residuals 8.9e-7, 1.6e-7) | discretisation, 2e-4 and 1.4e-5 absolute, three times FDFD's own error (its PML, 6.3e-5; its coarsest step, 4.5e-6) |
+| `eme/3d-cut-mmi-reciprocity`, `-power` | the same MMI | $\lvert S - S^T\rvert$ 2.5e-13; $\lvert S_p^\dagger S_p - 1\rvert$ 1.3e-12 | Lorentz reciprocity, power conservation | round-off, 1e-10 |
 
 The FDFD comparison is the most telling: the two methods share nothing but the structure, and
 agree to 1.9e-5 of a reflection of 9.2e-5. Its transmission agrees too: 0.999829 against
@@ -402,10 +532,18 @@ What it does not do yet (#432):
   reflection needs nearly every mode of the plane. With
   fewer than every mode of the plane, power is conserved only to the truncation's error
   ([above](#sections-in-3d)).
-- **Sections are described, not drawn:** a job gives straights and tapers of a core or of
-  layers; sections cut from a device's geometry or a job's drawn shapes, a façade function of
+- **Sections are described or cut from a device:** a job gives straights and tapers of a core
+  or of layers in 2D, or strips on a plane in 3D, or cuts a `[device]` into planes
+  ([a device's sections](#a-devices-sections)); a job's own drawn shapes, a façade function of
   its own and a view of its own in the studio (which shows its scene and S-parameters as any
-  job's) are to come. The Python package runs it as any job, through `run_job`.
+  job's, a device's job opening on the device's page) are to come. The Python package runs it as
+  any job, through `run_job`. A device is cut along x only, its ports facing ±x; a sloped etch's
+  walls, which lean with z, are cut in steps, not exactly; and the cut takes no bodies over the
+  stack.
+- **A device's size:** every mode of a plane is a dense solve, at most a few thousand unknowns
+  in reasonable time, and the 3D FDFD that checks it millions of unknowns for a device tens of
+  micrometres long. The cases check a 1.6 µm MMI and a 1 µm taper; the studio's 6 µm MMI is not
+  a case.
 - **Bends, periodic sections** and S over wavelength interpolated with a stated error (a
   `[task.sweep]` solves each wavelength) are to come.
 - **No published taper or MMI yet:** no paper we have gives a taper's or an MMI's S by
@@ -420,8 +558,8 @@ What it does not do yet (#432):
   approximations (27 and 28 µm at 1.5 µm) and its splitting only as a plot; Zhang et al.'s
   tapered junction ([doi:10.1364/OE.21.001310](https://doi.org/10.1364/OE.21.001310), Table 1)
   prints 0.13 dB by 3D FDTD but not its arms or indices. None gives a 3D device and a printed
-  response to repeat, so sections cut from a device's geometry (the MMIs first) wait for one,
-  or for a cross-check against 3D FDFD or FDTD on the device itself.
+  response to repeat, so a device's sections are checked against 3D FDFD of the same device on
+  the same plane ([above](#a-devices-sections)), not against a paper.
 - **A PML's modes are ill-conditioned** (the operator is far from normal), more so the
   stronger the PML and the higher the mode. A thick PML of small strength keeps them tractable:
   4 µm of strength 0.1 with up to about 200 modes in a half-window 1.5 µm wide. Where a mode
@@ -450,4 +588,5 @@ What it does not do yet (#432):
   measurement; until then, more than about 230 modes in that window is refused with an error
   that names the mode, never returned wrong.
 - **The multimode interference coupler** against Soldano and Pennings's self-imaging lengths is
-  not a case yet.
+  not a case: their closed forms are the guided-mode analysis the MMI device's 2D model already
+  is, not a 3D device's response; the 3D MMI is checked against 3D FDFD instead.

@@ -1,0 +1,32 @@
+# A 1 x 2 MMI cut into the sections of a 3D eigenmode expansion (docs/methods/eme.md, "A device's
+# sections"): the MMI device on 220 nm SOI, 1.6 um wide and 2.4 um long, its access guides
+# 0.5 um wide at the faces, at 1.55 um. The device's geometry is cut along x where its outlines
+# turn (the input guide, the body, the two outputs: three cross-sections), each a plane of Yee's
+# grid across y and z, 50 nm across and 55 nm up (220 nm in four cells), 0.4 um of oxide beside
+# the body and 0.33 um below and above. The MMI is mirror-symmetric about its axis, so only the
+# half y >= 0 is solved, an electric wall on the axis (the TE-like modes), with every one of the
+# plane's 728 modes. The run records the S-parameters between the guided modes at the two ends:
+# the half's |S21|^2 = 0.906973 is the power into the two outputs together, and a test checks
+# this job gives it. The same cut and expansion on silicon and oxide of constant index agree with
+# 3D FDFD of the device on the same plane within 5.5e-5 (the validation case eme/3d-cut-mmi-fdfd).
+#   photonoxide run jobs/eme-mmi-3d.yaml
+name: eme-mmi-3d
+timeout_minutes: 10
+
+device:
+  kind: MMI 1x2
+  fidelity: 3D
+  parameters:
+    width: "1.6"
+    length: "2.4"
+    access_width: "0.5"
+    port_width: "0.5"
+
+task:
+  kind: eme
+  wavelength_um: 1.55
+  modes: 728                   # every mode of the half plane
+  plane:
+    step_um: [0.05, 0.055]     # across (the device's y) and up (its z)
+    margins_um: [0.4, 0.33]    # oxide beside the body, and below and above the core
+    symmetry: half             # y >= 0, an electric wall on the axis

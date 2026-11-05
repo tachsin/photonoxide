@@ -110,7 +110,7 @@ static SOLVER: [&dyn TaskKind; 8] = [
 ];
 
 /// The kinds of a task beside a `[device]`, in the order the schema lists them.
-static DEVICE: [&dyn TaskKind; 7] = [
+static DEVICE: [&dyn TaskKind; 8] = [
     &SpectrumKind,
     &StudyKind("sweep"),
     &StudyKind("corners"),
@@ -118,6 +118,7 @@ static DEVICE: [&dyn TaskKind; 7] = [
     &DeviceOptimizeKind,
     &FdtdKind,
     &FabricationKind,
+    &EmeKind,
 ];
 
 /// The kinds of a task beside a `[circuit]`, in the order the schema lists them.

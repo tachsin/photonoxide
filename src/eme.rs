@@ -67,8 +67,10 @@
 //! orthogonal in the discrete unconjugated product, and the interfaces and cascade above apply
 //! unchanged (see the `plane` module's docs).
 //!
-//! Not here yet: sections drawn from a device's geometry or a job's shapes, mirror walls for
-//! symmetric halves in 3D, and S over wavelength interpolated with a stated error (#432).
+//! A device's geometry is cut into 3D sections in the device layer ([`crate::device::Cut`]);
+//! a job's `[task.plane]` gives them as strips or from a `[device]`. Not here yet: a job's own
+//! drawn shapes, bends and periodic sections, and S over wavelength interpolated with a stated
+//! error (#432).
 
 use num_complex::Complex64 as c64;
 

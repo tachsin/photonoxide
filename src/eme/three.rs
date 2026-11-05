@@ -27,6 +27,36 @@ impl Section3d {
     pub fn new(plane: Plane, length: Length) -> Section3d {
         Section3d { plane, length }
     }
+
+    /// A structure `length` long whose cross-section `plane_at(z)` changes along z (a taper),
+    /// cut into `steps` uniform sections of equal length, each the cross-section at its middle
+    /// (as [`super::Section::sampled`] in 2D).
+    ///
+    /// # Errors
+    ///
+    /// [`Error::InvalidValue`] for no steps or a length that isn't positive, and `plane_at`'s.
+    pub fn sampled(
+        length: Length,
+        steps: usize,
+        plane_at: impl Fn(Length) -> Result<Plane>,
+    ) -> Result<Vec<Section3d>> {
+        let l = length.to_um();
+        if steps == 0 || !(l.is_finite() && l > 0.0) {
+            return Err(Error::invalid(
+                "eme sections",
+                format!("needs a positive length and steps, got {l} um in {steps}"),
+            ));
+        }
+        let h = l / steps as f64;
+        (0..steps)
+            .map(|s| {
+                plane_at(Length::um((s as f64 + 0.5) * h)).map(|plane| Section3d {
+                    plane,
+                    length: Length::um(h),
+                })
+            })
+            .collect()
+    }
 }
 
 /// A 3D eigenmode expansion's settings: the wavelength, how many modes each section keeps, and
