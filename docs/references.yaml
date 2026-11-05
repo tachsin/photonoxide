@@ -1519,6 +1519,12 @@
   venue: "Electron. Lett. (UK) 26, 1326"
   year: 1990
 
+- doi: 10.2307/j.ctvcm4gz9
+  authors: "J. D. Joannopoulos, S. G. Johnson, J. N. Winn, R. D. Meade"
+  title: "Photonic Crystals: Molding the Flow of Light - Second Edition"
+  venue: "Princeton University Press"
+  year: 2008
+
 - doi: 10.1103/PhysRevLett.58.2486
   authors: "S. John"
   title: "Strong localization of photons in certain disordered dielectric superlattices"

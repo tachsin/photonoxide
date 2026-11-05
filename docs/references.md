@@ -2,7 +2,7 @@
 
 <!-- Written by `photonoxide references --write` (or `just references`) from docs/references.yaml and the citations in the repository: edit those, not this page. -->
 
-Every paper, book and data set photonoxide cites, with every place in the repository that cites it, by file and line. 567 sources, 563 with a DOI and 4 without, are cited at 2954 places in 383 files. The sources are listed by their first author; [references-by-file.md](references-by-file.md) lists each methods page, lesson, example and source file with the sources it cites, and the [validation report](validation.md) gives each case's source on its row. How to cite a source is in [CONTRIBUTING.md](../CONTRIBUTING.md#citing-a-source); the list of sources is [references.yaml](references.yaml).
+Every paper, book and data set photonoxide cites, with every place in the repository that cites it, by file and line. 568 sources, 564 with a DOI and 4 without, are cited at 2985 places in 384 files. The sources are listed by their first author; [references-by-file.md](references-by-file.md) lists each methods page, lesson, example and source file with the sources it cites, and the [validation report](validation.md) gives each case's source on its row. How to cite a source is in [CONTRIBUTING.md](../CONTRIBUTING.md#citing-a-source); the list of sources is [references.yaml](references.yaml).
 
 [A](#a) · [B](#b) · [C](#c) · [D](#d) · [E](#e) · [F](#f) · [G](#g) · [H](#h) · [I](#i) · [J](#j) · [K](#k) · [L](#l) · [M](#m) · [N](#n) · [O](#o) · [P](#p) · [Q](#q) · [R](#r) · [S](#s) · [T](#t) · [U](#u) · [V](#v) · [W](#w) · [X](#x) · [Y](#y) · [Z](#z)
 
@@ -124,6 +124,7 @@ J. Aitchison, D. Hutchings, J. Kang, G. Stegeman, A. Villeneuve, "The nonlinear 
 Y. Akahane, T. Asano, B.-S. Song, S. Noda, "High-Q photonic nanocavity in a two-dimensional photonic crystal", Nature 425, 944 (2003). [doi:10.1038/nature02063](https://doi.org/10.1038/nature02063)
 
 - Methods pages: [arrays.md:10](methods/arrays.md?plain=1#L10), [bodies.md:16](methods/bodies.md?plain=1#L16), [generators.md:16](methods/generators.md?plain=1#L16)
+- Academy lessons: [photonic-crystals.md:44](../academy/photonic-crystals.md?plain=1#L44), [372](../academy/photonic-crystals.md?plain=1#L372), [469](../academy/photonic-crystals.md?plain=1#L469), [486](../academy/photonic-crystals.md?plain=1#L486)
 - Validation cases: [`geometry/arrays/akahane-l3`](validation.md?plain=1#L436), [`geometry/bodies/akahane-l3`](validation.md?plain=1#L447)
 - Examples: [README.md:69](../examples/README.md?plain=1#L69), [l3_akahane.rs:5](../examples/l3_akahane.rs#L5)
 - Code: [src/cases/geometry/body_checks.rs:514](../src/cases/geometry/body_checks.rs#L514), [src/geometry/array_checks.rs:658](../src/geometry/array_checks.rs#L658)
@@ -199,6 +200,7 @@ A. Arbabi, L. L. Goddard, "Measurements of the refractive indices and thermo-opt
 
 M. Arcari, I. Söllner, A. Javadi, S. Lindskov Hansen, S. Mahmoodian, J. Liu, H. Thyrrestrup, E. H. Lee, J. D. Song, S. Stobbe, et al., "Near-Unity Coupling Efficiency of a Quantum Emitter to a Photonic Crystal Waveguide", Phys. Rev. Lett. 113, 093603 (2014). [doi:10.1103/PhysRevLett.113.093603](https://doi.org/10.1103/PhysRevLett.113.093603)
 
+- Academy lessons: [photonic-crystals.md:68](../academy/photonic-crystals.md?plain=1#L68), [351](../academy/photonic-crystals.md?plain=1#L351), [481](../academy/photonic-crystals.md?plain=1#L481)
 - Other documents: [docs/plans/quantum.md:535](plans/quantum.md?plain=1#L535)
 
 #### Armstrong et al. 1962
@@ -403,7 +405,7 @@ A. Björklund, B. Gupt, N. Quesada, "A Faster Hafnian Formula for Complex Matric
 
 F. Bloch, "�ber die Quantenmechanik der Elektronen in Kristallgittern", Z. Physik 52, 555 (1929). [doi:10.1007/BF01339455](https://doi.org/10.1007/BF01339455)
 
-- Academy lessons: [bragg-gratings.md:31](../academy/bragg-gratings.md?plain=1#L31), [209](../academy/bragg-gratings.md?plain=1#L209)
+- Academy lessons: [bragg-gratings.md:31](../academy/bragg-gratings.md?plain=1#L31), [209](../academy/bragg-gratings.md?plain=1#L209), [photonic-crystals.md:20](../academy/photonic-crystals.md?plain=1#L20), [125](../academy/photonic-crystals.md?plain=1#L125), [462](../academy/photonic-crystals.md?plain=1#L462)
 
 #### Blumenthal et al. 2018
 
@@ -1100,6 +1102,7 @@ A. B. Fallahkhair, K. S. Li, T. E. Murphy, "Vector Finite Difference Modesolver 
 A. Farjadpour, D. Roundy, A. Rodriguez, M. Ibanescu, P. Bermel, J. D. Joannopoulos, S. G. Johnson, G. W. Burr, "Improving accuracy by subpixel smoothing in the finite-difference time domain", Opt. Lett. 31, 2972 (2006). [doi:10.1364/OL.31.002972](https://doi.org/10.1364/OL.31.002972)
 
 - Methods pages: [averaging.md:8](methods/averaging.md?plain=1#L8), [bodies.md:8](methods/bodies.md?plain=1#L8), [fdtd.md:30](methods/fdtd.md?plain=1#L30), [stacks.md:12](methods/stacks.md?plain=1#L12), [static.md:14](methods/static.md?plain=1#L14)
+- Academy lessons: [photonic-crystals.md:50](../academy/photonic-crystals.md?plain=1#L50), [281](../academy/photonic-crystals.md?plain=1#L281), [472](../academy/photonic-crystals.md?plain=1#L472)
 - Validation cases: [`fdtd/smoothing-slab`](validation.md?plain=1#L227), [`fdtd/ring-order`](validation.md?plain=1#L262), [`device/mmi-2d-grid`](validation.md?plain=1#L337), [`averaging/film-integrals`](validation.md?plain=1#L490), [`fdfd/fill-slab-te-mean`](validation.md?plain=1#L493), [`fdfd/fill-crystal-te-tensor`](validation.md?plain=1#L500)
 - Examples: [README.md:66](../examples/README.md?plain=1#L66), [subpixel_holes.rs:6](../examples/subpixel_holes.rs#L6)
 - Code: [src/averaging.rs:15](../src/averaging.rs#L15), [src/averaging/checks.rs:150](../src/averaging/checks.rs#L150), [src/cases/fdfd/fill_checks.rs:3](../src/cases/fdfd/fill_checks.rs#L3), [535](../src/cases/fdfd/fill_checks.rs#L535), [626](../src/cases/fdfd/fill_checks.rs#L626), [src/device/splitter_checks.rs:117](../src/device/splitter_checks.rs#L117), [src/fdfd/fill.rs:4](../src/fdfd/fill.rs#L4), [src/fdfd/three/fill.rs:6](../src/fdfd/three/fill.rs#L6), [src/fdtd/smoothing.rs:5](../src/fdtd/smoothing.rs#L5), [src/stack.rs:414](../src/stack.rs#L414), [src/statics.rs:25](../src/statics.rs#L25), [src/validation.rs:1614](../src/validation.rs#L1614), [1859](../src/validation.rs#L1859)
@@ -1850,11 +1853,17 @@ K. Jinguji, N. Takato, A. Sugita, M. Kawachi, "Mach–Zehnder interferometer typ
 
 - Academy lessons: [directional-coupler.md:52](../academy/directional-coupler.md?plain=1#L52), [330](../academy/directional-coupler.md?plain=1#L330)
 
+#### Joannopoulos et al. 2008
+
+J. D. Joannopoulos, S. G. Johnson, J. N. Winn, R. D. Meade, "Photonic Crystals: Molding the Flow of Light - Second Edition", Princeton University Press (2008). [doi:10.2307/j.ctvcm4gz9](https://doi.org/10.2307/j.ctvcm4gz9)
+
+- Academy lessons: [photonic-crystals.md:56](../academy/photonic-crystals.md?plain=1#L56), [473](../academy/photonic-crystals.md?plain=1#L473), [484](../academy/photonic-crystals.md?plain=1#L484)
+
 #### John 1987
 
 S. John, "Strong localization of photons in certain disordered dielectric superlattices", Phys. Rev. Lett. 58, 2486 (1987). [doi:10.1103/PhysRevLett.58.2486](https://doi.org/10.1103/PhysRevLett.58.2486)
 
-- Academy lessons: [bragg-gratings.md:73](../academy/bragg-gratings.md?plain=1#L73), [410](../academy/bragg-gratings.md?plain=1#L410)
+- Academy lessons: [bragg-gratings.md:73](../academy/bragg-gratings.md?plain=1#L73), [410](../academy/bragg-gratings.md?plain=1#L410), [photonic-crystals.md:32](../academy/photonic-crystals.md?plain=1#L32), [118](../academy/photonic-crystals.md?plain=1#L118), [466](../academy/photonic-crystals.md?plain=1#L466)
 
 #### Johnson and Joannopoulos 2001
 
@@ -2495,6 +2504,7 @@ I. H. Malitson, "Interspecimen Comparison of the Refractive Index of Fused Silic
 V. A. Mandelshtam, H. S. Taylor, "Harmonic inversion of time signals and its applications", The Journal of Chemical Physics 107, 6756 (1997). [doi:10.1063/1.475324](https://doi.org/10.1063/1.475324)
 
 - Methods pages: [bodies.md:14](methods/bodies.md?plain=1#L14), [fdtd.md:22](methods/fdtd.md?plain=1#L22), [881](methods/fdtd.md?plain=1#L881)
+- Academy lessons: [photonic-crystals.md:38](../academy/photonic-crystals.md?plain=1#L38), [264](../academy/photonic-crystals.md?plain=1#L264), [471](../academy/photonic-crystals.md?plain=1#L471)
 - Validation cases: [`fdtd/harmonic-inversion`](validation.md?plain=1#L250)
 - Code: [src/fdtd.rs:51](../src/fdtd.rs#L51), [src/fdtd/harmonic.rs:3](../src/fdtd/harmonic.rs#L3), [src/validation.rs:1775](../src/validation.rs#L1775)
 - Other documents: [ROADMAP.md:722](../ROADMAP.md?plain=1#L722)
@@ -2650,12 +2660,14 @@ R. T. Mills, M. F. Adams, S. Balay, J. Brown, A. Dener, M. Knepley, S. E. Kruger
 
 M. Minkov, V. Savona, "Automated optimization of photonic crystal slab cavities", Sci Rep 4, 5124 (2014). [doi:10.1038/srep05124](https://doi.org/10.1038/srep05124), open access.
 
+- Academy lessons: [photonic-crystals.md:62](../academy/photonic-crystals.md?plain=1#L62), [366](../academy/photonic-crystals.md?plain=1#L366), [479](../academy/photonic-crystals.md?plain=1#L479)
 - Other documents: [docs/plans/optimization.md:608](plans/optimization.md?plain=1#L608)
 
 #### Minkov et al. 2020
 
 M. Minkov, I. A. D. Williamson, L. C. Andreani, D. Gerace, B. Lou, A. Y. Song, T. W. Hughes, S. Fan, "Inverse Design of Photonic Crystals through Automatic Differentiation", ACS Photonics 7, 1729 (2020). [doi:10.1021/acsphotonics.0c00327](https://doi.org/10.1021/acsphotonics.0c00327)
 
+- Academy lessons: [photonic-crystals.md:74](../academy/photonic-crystals.md?plain=1#L74), [401](../academy/photonic-crystals.md?plain=1#L401), [480](../academy/photonic-crystals.md?plain=1#L480)
 - Other documents: [docs/plans/optimization.md:596](plans/optimization.md?plain=1#L596)
 
 #### Moharam et al. 1995
@@ -4039,7 +4051,7 @@ Q. Xu, B. Schmidt, S. Pradhan, M. Lipson, "Micrometre-scale silicon electro-opti
 
 E. Yablonovitch, "Inhibited Spontaneous Emission in Solid-State Physics and Electronics", Phys. Rev. Lett. 58, 2059 (1987). [doi:10.1103/PhysRevLett.58.2059](https://doi.org/10.1103/PhysRevLett.58.2059)
 
-- Academy lessons: [bragg-gratings.md:67](../academy/bragg-gratings.md?plain=1#L67), [409](../academy/bragg-gratings.md?plain=1#L409)
+- Academy lessons: [bragg-gratings.md:67](../academy/bragg-gratings.md?plain=1#L67), [409](../academy/bragg-gratings.md?plain=1#L409), [photonic-crystals.md:26](../academy/photonic-crystals.md?plain=1#L26), [114](../academy/photonic-crystals.md?plain=1#L114), [465](../academy/photonic-crystals.md?plain=1#L465)
 
 #### Yariv 1973
 

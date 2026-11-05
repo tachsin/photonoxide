@@ -20,6 +20,7 @@ moving a slider shows the physics the library computes, the code the
 | [Leaky and bent guides, and multilayers](leaky-and-bent-guides.md) | advanced | `leaky` | `leaky-field`, `leaky-substrate`, `bend-loss` |
 | [How a chip is made](how-a-chip-is-made.md) | introductory | `process` | `fab-resolution`, `fab-oxidation` |
 | [Multimode interference couplers](mmi.md) | intermediate | `mmi` | `mmi-field`, `mmi-modes`, `mmi-length`, `mmi-spectrum`, `mmi-tolerance` |
+| [Photonic crystals and band gaps](photonic-crystals.md) | advanced | `crystal` | `crystal-stack`, `crystal-bands`, `crystal-group-index` |
 
 The whole curriculum is laid out: every lesson still to be written is here too, **coming soon**,
 with its numbered subsections, what each will answer and the examples each will use, so writing
@@ -28,7 +29,6 @@ it is filling them in. The library lists them in this order, the order to read t
 | Lesson coming soon | Topic | Level | Examples |
 |---|---|---|---|
 | [Crossings, mode converters and the polarization splitter-rotator](crossings-and-converters.md) | Multimode and polarization devices | advanced | `crossing_liu_poon`, `mode_converter_liu_poon`, `splitter_rotator_liu_poon` |
-| [Photonic crystals and band gaps](photonic-crystals.md) | Nanophotonics | advanced | `subpixel_holes` |
 | [Surface plasmons and Mie scattering](plasmonics.md) | Nanophotonics | advanced | `lorentz_okoniewski` |
 | [Metasurfaces and metalenses](metasurfaces.md) | Nanophotonics | advanced | |
 | [How FDTD works](how-fdtd-works.md) | Numerical methods | intermediate | `cpml_roden_gedney`, `pml_oskooi`, `tfsf_square_cylinder`, `subpixel_holes`, `bump_oskooi`, `lorentz_okoniewski` |
@@ -194,6 +194,7 @@ shows first.
 | `bragg` | a quarter-wave stack in section: $N$ pairs of $n_H$ and $n_L$, $d_H$, $d_L$ and $\Lambda$, the cover $n_0$ and substrate $n_s$, the incident, reflected ($r$) and transmitted ($t$) waves; and a waveguide grating from above, its period $\Lambda$ and length $L = N\Lambda$ | `bragg-grating.yaml` |
 | `coupler` | a directional coupler from above: two strips of width $w$ a gap $g$ apart over a length $L$, brought in and out by S-bends, $z$ along the coupled section, $P_\text{cross}(z) = \sin^2\kappa z$, $\kappa = \pi\Delta n/\lambda$ and $L_c = \lambda/2\Delta n$, the input and second input, the through ($\cos^2\kappa L$) and cross ($\sin^2\kappa L$) ports; beneath, the field across the pair of the even ($n_\text{even}$) and odd ($n_\text{odd}$) supermodes | `coupler-supermodes.yaml` |
 | `grating` | a grating coupler in section along its guide: a film $t$ thick with grooves $e$ deep at a period $\Lambda$, a buried oxide $h$ thick over the substrate, a cladding $n_c$; the guided mode ($n_\text{eff}$) in from the left, leaking up at $\theta$ towards a tilted fibre (MFD $2w_0$), down to the substrate and back ($r_b$), and through; $n_c \sin\theta = n_\text{eff} - \lambda/\Lambda$; above the grating, $e^{-2\alpha z}$ against the fibre's $\lvert G(z)\rvert^2$ | none |
+| `crystal` | a photonic-crystal slab from above: a triangular lattice of air holes of radius $r$ at a lattice constant $a$ in a film of permittivity $\varepsilon$, a missing row (the W1 waveguide) with light guided along it, three missing holes (the L3 cavity) with its end holes moved out by $s$; beside it the hexagonal Brillouin zone with $\Gamma$, M, K and the irreducible wedge | none |
 | `mzi` | a Mach–Zehnder interferometer from above: the splitter's $r_1$, $k_1$ and the combiner's $r_2$, $k_2$, arms of $L$ and $L + \Delta L$ (the longer drawn longer) with their fields $a_l e^{i\phi_l}$ and $a_u e^{i\phi_u}$, a phase shifter $\varphi$, the phase difference $\Delta\phi$, the input and the bar and cross outputs | `mzi-mmi.yaml` |
 | `slab` | a slab in section: the film $n_2$ of thickness $d$ between the cover $n_1$ and the substrate $n_3$, a ray zig-zagging along $z$ at $\theta \gt \theta_c = \arcsin(n_3/n_2)$ and a steeper one lost, and a guided mode's $E_y(x)$ across the slab, $\cos(hx - \phi_3)$ in the film and the tails $e^{px}$ and $e^{-q(x - d)}$ | `slab-soi.yaml` |
 | `strip` | a strip in section: the core $n_1$, $w$ wide and $t$ thick, in the cladding $n_2$ on a buried oxide $h$ thick over the substrate, $x$, $y$ and $z$; the TE-like mode's field with its main $E_x$, the four corners and Marcatili's four corner regions; and the effective index method's two slabs, across $t$ giving $N$ and across $w$ giving $n_\text{eff}$ | `strip-modes.yaml` |
@@ -256,6 +257,9 @@ code; the window only draws what it returns, and asks again as a slider moves.
 | `mmi-length` | `kind` (1: 1 × 2, 2: 2 × 2), `width` µm (3), `access` µm (0.8) | `Mmi::analysis`, `MmiModes::s_matrix` at 401 lengths to $1.25L_\pi$: each output, and the excess loss, imbalance and phase difference at the first two-fold image and where the weaker output peaks |
 | `mmi-spectrum` | `kind` (1), `width` µm (3), `access` µm (0.8) | `Mmi::analysis` at 121 wavelengths from 1.40 to 1.70 µm (`material::silicon`, `material::silica`), cut at the best length at 1.55 µm; the band where excess loss and imbalance stay under 1 dB |
 | `mmi-tolerance` | `kind` (1), `width` µm (3), `access` µm (0.8), `thickness` nm (220) | `Mmi::analysis_at` with the guides' centres in place and every drawn width $\Delta w$ wider, −250 to 250 nm, cut at the best length on 220 nm; Soldano and Pennings's Eqs. 39 and 40 beside it |
+| `crystal-stack` | `high` $\varepsilon_1$ (13), `low` $\varepsilon_2$ (1), `fill` $d_1/a$ (0.2) | `Multilayer::reflection`: one period's $t$, $\cos Ka = \operatorname{Re}(1/t)$ at 2000 frequencies to $\omega a/2\pi c = 1$, the band edges bisected; the quarter-wave stack's gap |
+| `crystal-group-index` | `high` $\varepsilon_1$ (13), `low` $\varepsilon_2$ (1), `fill` $d_1/a$ (0.2), `frequency` $\omega a/2\pi c$ (0.2) | `Multilayer::reflection` as above, $n_g = c\,dK/d\omega$ by a central difference of 10⁻⁶ of the frequency; $\sqrt{\langle\varepsilon\rangle}$ |
+| `crystal-bands` | `lattice` (1 square, 2 triangular), `kind` (1 rods, 2 holes), `eps` $\varepsilon$ (8.9), `radius` $r/a$ (0.2) | `fdtd::Simulation::smoothed` on one cell between Bloch-periodic sides, 2D, 24 cells a lattice constant, the subpixel average's diagonal; one complex run a k-point along the zone's edge, `fdtd::harmonic_inversion` on $E_z$ (TM) and $H_z$ (TE) probes; the triangular lattice on a rectangle of two sites, its folded bands cancelled by probes one lattice vector apart |
 
 The ranges are in `charts.rs` (the coupler's in `charts/coupler.rs`), and the window's sliders keep
 to them. A chart may draw its y axis on a logarithmic scale (`y_log`), and give curves that belong
@@ -275,6 +279,10 @@ factor of a coupler's efficiency, set in the lesson against a published number. 
 charts, `grating-overlap` and `grating-apodization`, are integrals the studio sums itself, with no
 library function behind them, and their captions say so. The MMI's charts (`charts/mmi.rs`) are its 2D guided-mode model, exact slab modes and no grid,
 solved once for a width and wavelength so that a sweep of the length costs one solve.
+The photonic crystal's charts (`charts/crystal.rs`) are of two kinds: the 1D crystal's, exact
+transfer matrices in milliseconds, and the 2D crystal's, FDTD runs between Bloch-periodic sides,
+one a k-point, about a second for a band diagram, cached by geometry; their gaps are checked against
+Joannopoulos et al.'s in unit tests.
 A chart may draw pictures of a field over a cross-section in place of curves (`maps`), side by
 side with one colour scale, as `strip-fields` does.
 
