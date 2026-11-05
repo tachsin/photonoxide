@@ -1,0 +1,31 @@
+# A 3D silicon strip taper by eigenmode expansion (docs/methods/eme.md, "In 3D"; P. Bienstman,
+# R. Baets, Opt. Quantum Electron. 33, 327 (2001), doi:10.1023/A:1010882531238): a strip 200 nm
+# high (3.473 in oxide, 1.444, at 1.55 um) widening from 400 to 700 nm in two steps 0.1 um long,
+# in a closed box 1.2 x 0.8 um between perfectly conducting walls, on cells of 50 nm. Each
+# section's cross-section is a plane of Yee's grid, and every one of the plane's 728 modes is
+# kept, guided, radiation and evanescent alike: the expansion is then the exact solution of the
+# equations discrete across the guide and continuous along it. The run records the S-parameters
+# between the guided modes at the two ends. |S21|^2 = 0.996238 between the fundamental modes,
+# within 4e-5 of 3D FDFD of the same structure on the same plane (the validation case
+# eme/3d-taper-fdfd), and a test checks this job gives it.
+#   photonoxide run jobs/eme-taper-3d.yaml
+name: eme-taper-3d
+timeout_minutes: 10
+
+task:
+  kind: eme
+  wavelength_um: 1.55
+  modes: 728                   # every mode of the plane
+  cladding: 1.444
+  core: 3.473
+
+  plane:
+    step_um: [0.05, 0.05]      # across and up
+    cells: [24, 16]            # 1.2 x 0.8 um, centred on the strips
+    height_um: 0.2
+
+  section:
+    - { name: input, length_um: 0.0, core_um: 0.4 }
+    - { name: step 1, length_um: 0.1, core_um: 0.5 }
+    - { name: step 2, length_um: 0.1, core_um: 0.6 }
+    - { name: output, length_um: 0.0, core_um: 0.7 }

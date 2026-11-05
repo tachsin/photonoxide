@@ -3945,20 +3945,6 @@
               "window_um"
             ]
           }
-        },
-        {
-          "anyOf": [
-            {
-              "required": [
-                "window_um"
-              ]
-            },
-            {
-              "required": [
-                "window"
-              ]
-            }
-          ]
         }
       ],
       "properties": {
@@ -3967,7 +3953,7 @@
         },
         "cladding": {
           "$ref": "#/$defs/Medium",
-          "description": "What surrounds the cores: a refractive index or a catalogue entry."
+          "description": "What surrounds the cores: a refractive index or a catalogue entry (a `[device]`'s stack has its own)."
         },
         "convergence": {
           "$ref": "#/$defs/ConvergenceSpec2"
@@ -3980,9 +3966,13 @@
           "type": "string"
         },
         "modes": {
-          "description": "The modes each section keeps.",
+          "description": "The modes each section keeps (in 3D at most the plane's unknowns: more keeps them all).",
           "minimum": 0,
           "type": "integer"
+        },
+        "plane": {
+          "$ref": "#/$defs/PlaneSpec",
+          "description": "The sections in 3D: each cross-section a plane of Yee's grid (`three`)."
         },
         "pml": {
           "$ref": "#/$defs/PmlSpec2"
@@ -3992,6 +3982,7 @@
           "type": "string"
         },
         "section": {
+          "description": "The sections in order along z (a `[device]`'s are cut from its geometry).",
           "items": {
             "$ref": "#/$defs/SectionSpec"
           },
@@ -4037,18 +4028,16 @@
               "$ref": "#/$defs/Expression"
             }
           ],
-          "description": "The window's width across, wall to wall inside any PML, µm (the upper half's, when `symmetric`). With its unit in the value, in place of window_um: a length with its unit, e.g. \"1.55 um\"."
+          "description": "The window's width across, wall to wall inside any PML, µm (the upper half's, when `symmetric`): a 2D job's. With its unit in the value, in place of window_um: a length with its unit, e.g. \"1.55 um\"."
         },
         "window_um": {
-          "description": "The window's width across, wall to wall inside any PML, µm (the upper half's, when `symmetric`).",
+          "description": "The window's width across, wall to wall inside any PML, µm (the upper half's, when `symmetric`): a 2D job's.",
           "type": "number"
         }
       },
       "required": [
         "kind",
-        "modes",
-        "cladding",
-        "section"
+        "modes"
       ],
       "type": "object"
     },
@@ -6791,6 +6780,155 @@
           "maxItems": 2,
           "minItems": 2,
           "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "PlaneSpec": {
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "not": {
+            "required": [
+              "along",
+              "along_um"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "height",
+              "height_um"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "margins",
+              "margins_um"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "step",
+              "step_um"
+            ]
+          }
+        },
+        {
+          "anyOf": [
+            {
+              "required": [
+                "step_um"
+              ]
+            },
+            {
+              "required": [
+                "step"
+              ]
+            }
+          ]
+        }
+      ],
+      "description": "A `[task.plane]`: the sections are 3D, each cross-section a plane of Yee's grid.",
+      "properties": {
+        "along": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "Beside a `[device]`: the longest step of a run of sloped outlines (a taper's sides, a curve), µm; 0.1 by default. With its unit in the value, in place of along_um: a length with its unit, e.g. \"1.55 um\"."
+        },
+        "along_um": {
+          "description": "Beside a `[device]`: the longest step of a run of sloped outlines (a taper's sides, a curve), µm; 0.1 by default.",
+          "type": "number"
+        },
+        "cells": {
+          "description": "A task alone: the cells across and up, the window centred on the strips' axis (from the planes of symmetry when `symmetry` asks).",
+          "items": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
+        "height": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "A task alone: the strips' height, µm, centred in the window. With its unit in the value, in place of height_um: a length with its unit, e.g. \"1.55 um\"."
+        },
+        "height_um": {
+          "description": "A task alone: the strips' height, µm, centred in the window.",
+          "type": "number"
+        },
+        "margins": {
+          "description": "Beside a `[device]`: the cladding kept beside its core's shapes and below and above its layer, µm; [0.5, 0.5] by default. With its unit in the value, in place of margins_um: a length with its unit, e.g. \"1.55 um\".",
+          "items": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "$ref": "#/$defs/Expression"
+              }
+            ]
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
+        "margins_um": {
+          "description": "Beside a `[device]`: the cladding kept beside its core's shapes and below and above its layer, µm; [0.5, 0.5] by default.",
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
+        "step": {
+          "description": "The cells' size across (x) and up (y), µm; beside a `[device]`, across its y and up its z (the device runs along x). With its unit in the value, in place of step_um: a length with its unit, e.g. \"1.55 um\".",
+          "items": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "$ref": "#/$defs/Expression"
+              }
+            ]
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
+        "step_um": {
+          "description": "The cells' size across (x) and up (y), µm; beside a `[device]`, across its y and up its z (the device runs along x).",
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
+        "symmetry": {
+          "description": "`\"none\"` (the default), `\"half\"` (x ≥ 0: an electric wall at x = 0, the modes whose E_x is even about it, the TE-like ones) or, for a task alone, `\"quarter\"` (x ≥ 0 and y ≥ 0: a magnetic wall at y = 0 too).",
+          "type": "string"
         }
       },
       "type": "object"
@@ -11811,6 +11949,21 @@
                 }
               },
               {
+                "if": {
+                  "properties": {
+                    "kind": {
+                      "const": "eme"
+                    }
+                  },
+                  "required": [
+                    "kind"
+                  ]
+                },
+                "then": {
+                  "$ref": "#/$defs/EmeTask"
+                }
+              },
+              {
                 "anyOf": [
                   {
                     "maxProperties": 0
@@ -11833,7 +11986,8 @@
                   "fit",
                   "optimize",
                   "fdtd",
-                  "fabrication"
+                  "fabrication",
+                  "eme"
                 ]
               }
             },

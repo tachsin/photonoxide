@@ -289,13 +289,14 @@ pub(super) fn task_kind(job: &Job) -> Result<Option<&'static dyn TaskKind>> {
             task_error(format!(
                 "a job with a [device] table computes it by a \"spectrum\" task (its own model), \
              studies it by a \"sweep\" or \"corners\" one, optimizes it by an \"optimize\" one, \
-             fits a compact model to it by a \"fit\" one, or steps it in time by an \"fdtd\" \
-             one, not \"{name}\": the device is the structure"
+             fits a compact model to it by a \"fit\" one, steps it in time by an \"fdtd\" one, \
+             or cuts it into sections of an eigenmode expansion by an \"eme\" one, not \
+             \"{name}\": the device is the structure"
             ))
         }),
         None => Err(task_error(
             "a device's task needs a kind: \"spectrum\", \"sweep\", \"corners\", \"optimize\", \
-             \"fit\" or \"fdtd\"",
+             \"fit\", \"fdtd\" or \"eme\"",
         )),
     }
 }

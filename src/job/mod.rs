@@ -501,6 +501,8 @@ mod device_tests;
 mod eme;
 #[cfg(test)]
 mod eme_tests;
+#[cfg(test)]
+mod eme_three_tests;
 mod event;
 mod execute;
 mod fabrication;

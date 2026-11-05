@@ -31,6 +31,8 @@ use crate::mode::Polarization;
 use crate::run::{Job, Run, Stop};
 use crate::units::{Length, Wavelength};
 
+mod three;
+
 /// A section's core thickness: one for a straight, [from, to] for a taper.
 #[derive(Clone, Copy, Debug, Deserialize, JsonSchema)]
 #[serde(untagged)]
@@ -126,11 +128,11 @@ pub(super) struct EmeTask {
     wavelength_um: f64,
     /// `"te"` (the default; E along y, the direction the structure is uniform in) or `"tm"`.
     polarization: Option<String>,
-    /// The modes each section keeps.
+    /// The modes each section keeps (in 3D at most the plane's unknowns: more keeps them all).
     modes: usize,
     /// The window's width across, wall to wall inside any PML, µm (the upper half's, when
-    /// `symmetric`).
-    window_um: f64,
+    /// `symmetric`): a 2D job's.
+    window_um: Option<f64>,
     /// The lower and upper walls, `"electric"` (the default) or `"magnetic"`.
     walls: Option<[String; 2]>,
     /// The structure is symmetric about its middle and only its even modes are wanted: its
@@ -139,13 +141,18 @@ pub(super) struct EmeTask {
     /// cores are centred, `window_um` is the half's width, and layers are the half's.
     symmetric: Option<bool>,
     pml: Option<PmlSpec>,
-    /// What surrounds the cores: a refractive index or a catalogue entry.
-    #[schemars(with = "crate::job::schema::Medium")]
-    cladding: toml::Value,
+    /// What surrounds the cores: a refractive index or a catalogue entry (a `[device]`'s
+    /// stack has its own).
+    #[schemars(with = "Option<crate::job::schema::Medium>")]
+    cladding: Option<toml::Value>,
     /// The cores' medium, unless a section gives its own.
     #[schemars(with = "Option<crate::job::schema::Medium>")]
     core: Option<toml::Value>,
+    /// The sections in order along z (a `[device]`'s are cut from its geometry).
+    #[serde(default)]
     section: Vec<SectionSpec>,
+    /// The sections in 3D: each cross-section a plane of Yee's grid ([`three`]).
+    plane: Option<three::PlaneSpec>,
     adaptive: Option<AdaptiveSpec>,
     convergence: Option<ConvergenceSpec>,
     sweep: Option<WavelengthSweep>,
@@ -206,6 +213,18 @@ impl Profile {
 }
 
 impl EmeTask {
+    /// A 2D job's window, wall to wall (checked by [`EmeTask::validate`]).
+    fn window(&self) -> f64 {
+        self.window_um.unwrap_or(f64::NAN)
+    }
+
+    /// The cladding, which a task alone must give.
+    fn cladding(&self) -> Result<&toml::Value> {
+        self.cladding
+            .as_ref()
+            .ok_or_else(|| task_error("an eme job needs a cladding: an index or a catalogue entry"))
+    }
+
     fn polarization(&self) -> Result<Polarization> {
         match self.polarization.as_deref().unwrap_or("te") {
             "te" | "TE" => Ok(Polarization::Te),
@@ -272,39 +291,38 @@ impl EmeTask {
         }
     }
 
-    /// What [`EmeTask::sections`] and the check both refuse before solving anything.
-    fn validate(&self) -> Result<()> {
+    /// What [`EmeTask::sections`] and the check both refuse before solving anything; `device`
+    /// when the job has a `[device]`, whose sections are cut from it.
+    fn validate(&self, device: bool) -> Result<()> {
         Wavelength::um(self.wavelength_um).map_err(|e| task_error(e.to_string()))?;
         if self.modes == 0 {
             return Err(task_error("modes must be at least 1"));
         }
-        if !(self.window_um.is_finite() && self.window_um > 0.0) {
+        if let Some(plane) = &self.plane {
+            self.validate_common()?;
+            return three::validate(self, plane, device);
+        }
+        if device {
+            return Err(task_error(
+                "an eme job beside a [device] cuts it into 3D sections: give [task.plane]",
+            ));
+        }
+        let window = self.window();
+        if !(window.is_finite() && window > 0.0) {
             return Err(task_error(format!(
                 "window_um must be a positive width, got {}",
                 self.window_um
+                    .map_or_else(|| "none".to_owned(), |w| w.to_string())
             )));
         }
-        self.polarization()?;
-        self.walls()?;
-        if self.symmetric() {
-            if self.walls.is_some() {
-                return Err(task_error(
-                    "a symmetric job's walls are its plane of symmetry and an electric wall: \
-                     leave walls out",
-                ));
-            }
-            if self.pml.as_ref().and_then(|p| p.sides.as_deref()) == Some("both") {
-                return Err(task_error(
-                    "a symmetric job's PML is at its upper wall only: leave sides out",
-                ));
-            }
-            if self.section.iter().any(|s| s.center_um.is_some()) {
-                return Err(task_error(
-                    "a symmetric job's cores are centred on its plane of symmetry: leave \
-                     center_um out",
-                ));
-            }
-        }
+        self.cladding()?;
+        self.validate_common()?;
+        self.validate_2d()
+    }
+
+    /// What 2D and 3D jobs both refuse: the PML's, the adaptive steps', the convergence's and the
+    /// sweep's settings.
+    fn validate_common(&self) -> Result<()> {
         if let Some(p) = &self.pml
             && !(p.thickness_um.is_finite()
                 && p.thickness_um > 0.0
@@ -345,6 +363,38 @@ impl EmeTask {
                 Wavelength::um(w).map_err(|e| task_error(e.to_string()))?;
             }
         }
+        Ok(())
+    }
+
+    /// What a 2D job refuses besides.
+    fn validate_2d(&self) -> Result<()> {
+        self.polarization()?;
+        self.walls()?;
+        if self.symmetric() {
+            if self.walls.is_some() {
+                return Err(task_error(
+                    "a symmetric job's walls are its plane of symmetry and an electric wall: \
+                     leave walls out",
+                ));
+            }
+            if self.pml.as_ref().and_then(|p| p.sides.as_deref()) == Some("both") {
+                return Err(task_error(
+                    "a symmetric job's PML is at its upper wall only: leave sides out",
+                ));
+            }
+            if self.section.iter().any(|s| s.center_um.is_some()) {
+                return Err(task_error(
+                    "a symmetric job's cores are centred on its plane of symmetry: leave \
+                     center_um out",
+                ));
+            }
+        }
+        self.validate_sections(self.window(), self.symmetric(), true)
+    }
+
+    /// The sections' own settings, their cores inside a window `window` µm wide (the half's
+    /// when `half`), their layers given one by one where `layers` (2D only).
+    fn validate_sections(&self, window: f64, half: bool, layers: bool) -> Result<()> {
         if self.section.len() < 2 {
             return Err(task_error(
                 "an eme job needs at least two [[task.section]]: its ports are the first and \
@@ -396,12 +446,11 @@ impl EmeTask {
                                 "{at}: a core's thickness must be positive, got {t} um"
                             )));
                         }
-                        let half = if self.symmetric() { 1.0 } else { 0.5 };
-                        if c.abs() + 0.5 * t >= half * self.window_um {
+                        let share = if half { 1.0 } else { 0.5 };
+                        if c.abs() + 0.5 * t >= share * window {
                             return Err(task_error(format!(
                                 "{at}: the core ({t} um about {c} um) must lie inside the window \
-                                 ({} um wide)",
-                                self.window_um
+                                 ({window} um wide)"
                             )));
                         }
                     }
@@ -410,6 +459,12 @@ impl EmeTask {
                             "{at}: a core needs a medium: core here or in [task]"
                         )));
                     }
+                }
+                (None, Some(_)) if !layers => {
+                    return Err(task_error(format!(
+                        "{at}: a 3D section is a strip, its width core_um: layers are a 2D \
+                         job's"
+                    )));
                 }
                 (None, Some(layers)) => {
                     if s.center_um.is_some() || s.core.is_some() {
@@ -421,12 +476,11 @@ impl EmeTask {
                     if layers
                         .iter()
                         .any(|l| !(l.thickness_um.is_finite() && l.thickness_um > 0.0))
-                        || (total - self.window_um).abs() > 1e-9 * self.window_um
+                        || (total - window).abs() > 1e-9 * window
                     {
                         return Err(task_error(format!(
                             "{at}: the layers' thicknesses must be positive and fill the window \
-                             ({} um), got {total} um",
-                            self.window_um
+                             ({window} um), got {total} um"
                         )));
                     }
                 }
@@ -444,7 +498,7 @@ impl EmeTask {
             m.refractive_index(lam)
                 .map_err(|e| task_error(format!("{at}: {e}")))
         };
-        let cladding = index(&self.cladding, "cladding")?;
+        let cladding = index(self.cladding()?, "cladding")?;
         self.section
             .iter()
             .enumerate()
@@ -575,7 +629,7 @@ fn solve(
     scale: usize,
 ) -> Result<Solved> {
     let eme = task.eme(wavelength, modes)?;
-    let w = task.window_um;
+    let w = task.window();
     if let Some(a) = &task.adaptive {
         let pieces = resolved
             .iter()
@@ -671,13 +725,25 @@ fn s_event(
         Polarization::Te => "TE",
         Polarization::Tm => "TM",
     };
+    // a half's modes are the even ones: TE0, TE2, ...
+    ports_event(s, wavelength, (n1, n2), |m| {
+        format!("{pol}{}", if half { 2 * m } else { m })
+    })
+}
+
+/// The S-parameters event of `s` between the first `n1` modes at its first end and `n2` at its
+/// last, the m-th named `name(m)` after its port's number.
+fn ports_event(
+    s: &Scattering,
+    wavelength: f64,
+    (n1, n2): (usize, usize),
+    name: impl Fn(usize) -> String,
+) -> Event {
     let mut ports = Vec::new();
     let mut indices = Vec::new();
     for (p, (n, list)) in [(n1, &s.first), (n2, &s.last)].into_iter().enumerate() {
         for (m, index) in list.iter().take(n).enumerate() {
-            // a half's modes are the even ones: TE0, TE2, ...
-            let order = if half { 2 * m } else { m };
-            ports.push(format!("{} {pol}{order}", p + 1));
+            ports.push(format!("{} {}", p + 1, name(m)));
             indices.push(index.re);
         }
     }
@@ -703,9 +769,14 @@ fn s_event(
 /// The scene: the cores (and layers other than the cladding) seen from above, z along x and the
 /// window across y, on one layer 1 µm thick.
 fn eme_scene(task: &EmeTask) -> Result<Event> {
+    scene_across(task, task.window(), task.symmetric())
+}
+
+/// [`eme_scene`] for a window `window` µm across, the half's when `half` (drawn whole).
+fn scene_across(task: &EmeTask, window: f64, half: bool) -> Result<Event> {
     let resolved = task.sections(task.wavelength_um)?;
     let lam = Wavelength::um(task.wavelength_um)?;
-    let cladding = crate::device::spec::task_medium(&task.cladding, "cladding")?;
+    let cladding = crate::device::spec::task_medium(task.cladding()?, "cladding")?;
     let eps = |n: c64| (n * n).re;
     let clad_n = cladding.refractive_index(lam)?;
     let medium = |name: &str, n: c64| SceneMedium {
@@ -713,12 +784,7 @@ fn eme_scene(task: &EmeTask) -> Result<Event> {
         eps: eps(n),
     };
     // a symmetric job's half drawn whole, mirrored about its plane of symmetry
-    let half = task.symmetric();
-    let w = if half {
-        2.0 * task.window_um
-    } else {
-        task.window_um
-    };
+    let w = if half { 2.0 * window } else { window };
     let mut shapes = Vec::new();
     let mut core_n = clad_n;
     let mut z = 0.0;
@@ -804,7 +870,10 @@ impl TaskKind for EmeKind {
 
     fn check(&self, job: &Job) -> Result<()> {
         let task: EmeTask = super::params::task(job)?;
-        task.validate()?;
+        task.validate(job.device().is_some())?;
+        if task.plane.is_some() {
+            return three::check(job, &task);
+        }
         for w in task.wavelengths() {
             task.sections(w)?;
             task.eme(Wavelength::um(w)?, task.modes)?;
@@ -813,12 +882,25 @@ impl TaskKind for EmeKind {
     }
 
     fn preview(&self, job: &Job) -> Result<Event> {
+        if job.device().is_some() {
+            // a device's design drawn as it is edited, as its other tasks draw it
+            return super::device_scene(job);
+        }
         super::check(job)?;
         let task: EmeTask = super::params::task(job)?;
-        eme_scene(&task)
+        match &task.plane {
+            Some(plane) => three::scene(&task, plane),
+            None => eme_scene(&task),
+        }
     }
 
     fn execute(&self, job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
+        if job.device().is_some() {
+            return super::device::computed(job, run, stop, |job, run, stop, scene| {
+                run.record(&scene)?;
+                eme(job, run, stop)
+            });
+        }
         solver_run(job, run, stop, self.name(), eme)
     }
 
@@ -833,7 +915,10 @@ impl TaskKind for EmeKind {
 
 fn eme(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
     let task: EmeTask = super::params::task(job)?;
-    task.validate()?;
+    task.validate(job.device().is_some())?;
+    if let Some(plane) = &task.plane {
+        return three::run(job, &task, plane, run, stop);
+    }
     run.record(&eme_scene(&task)?)?;
     let wavelengths = task.wavelengths();
     let first = task.sections(wavelengths[0])?;
@@ -848,7 +933,7 @@ fn eme(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
             "polarization".to_owned(),
             task.polarization.clone().unwrap_or_else(|| "te".into()),
         ],
-        ["window".to_owned(), format!("{} um", task.window_um)],
+        ["window".to_owned(), format!("{} um", task.window())],
         [
             "sections".to_owned(),
             first
@@ -900,7 +985,7 @@ fn eme(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
             points: s.points,
         })?;
     }
-    let w = task.window_um;
+    let w = task.window();
     for (point, &wl) in wavelengths.iter().enumerate() {
         if stop.reason().is_some() {
             return Ok(());

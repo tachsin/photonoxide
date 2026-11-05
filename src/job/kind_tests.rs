@@ -81,9 +81,9 @@ fn refusal(holder: Holder, name: &str) -> String {
         (Holder::Solver, "nonlinear") => "`kind`, `process`, `waveguide`, `pump`, `signal`, \
             `poling`, `length_mm`, `temperature_c`, `map`, `pairs`, `points`"
             .to_owned(),
-        (Holder::Solver, "eme") => "`kind`, `wavelength_um`, `polarization`, `modes`, \
-            `window_um`, `walls`, `symmetric`, `pml`, `cladding`, `core`, `section`, `adaptive`, \
-            `convergence`, `sweep`"
+        (Holder::Solver | Holder::Device, "eme") => "`kind`, `wavelength_um`, `polarization`, \
+            `modes`, `window_um`, `walls`, `symmetric`, `pml`, `cladding`, `core`, `section`, \
+            `plane`, `adaptive`, `convergence`, `sweep`"
             .to_owned(),
         (Holder::Device, "spectrum") => format!("`kind`, {GRIDS}, `export`"),
         (Holder::Device, "sweep" | "corners") => {
