@@ -222,6 +222,36 @@ task:
   convergence: { tolerance: 1.0e-3, quantity: transmission }
 ```
 
+**In 3D,** `[task.plane]` makes each section a plane of Yee's grid ([below](#sections-in-3d)):
+`cells = [across, up]` of `step_um = [dx, dy]`, centred on the strips' axis, each section a
+strip `core_um` wide (a taper's `[from, to]`, in equal steps, each the strip at its middle) and
+`height_um` high in the `cladding`. `symmetry = "half"` keeps x ≥ 0 behind an electric wall (the
+TE-like modes, E_x even about it) and `"quarter"` keeps y ≥ 0 too behind a magnetic one;
+`[task.pml]` goes inside every other wall. `modes` above the plane's unknowns keeps them all.
+Beside a `[device]` the sections are cut from the device's geometry instead
+([a device's sections](#a-devices-sections)): `[task.plane]` then takes `step_um` (across the
+device's y and up its z), `margins_um = [beside, vertical]`, `along_um` (the longest step of a
+sloped run) and `symmetry = "half"`. A run's S-parameters are `Eme3d::s_matrix`'s on the same
+sections to the bit (the tests run both). `jobs/eme-taper-3d.yaml` is the strip taper of
+`eme/3d-taper-fdfd`, every mode, and `jobs/eme-mmi-3d.yaml` a 1 × 2 MMI cut from the device.
+Polarization, walls, `window_um`, `symmetric`, layers and `[task.adaptive]` are a 2D job's and
+are refused in 3D.
+
+```yaml
+task:
+  kind: eme
+  wavelength_um: 1.55
+  modes: 728                   # every mode of the plane
+  cladding: 1.444
+  core: 3.473
+  plane: { step_um: [0.05, 0.05], cells: [24, 16], height_um: 0.2 }
+  section:
+    - { name: input, length_um: 0.0, core_um: 0.4 }
+    - { name: step 1, length_um: 0.1, core_um: 0.5 }
+    - { name: step 2, length_um: 0.1, core_um: 0.6 }
+    - { name: output, length_um: 0.0, core_um: 0.7 }
+```
+
 ## Sections in 3D
 
 A real taper, MMI or Y-branch is a cross-section in x and y that changes along z. `Eme3d` takes

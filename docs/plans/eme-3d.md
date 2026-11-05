@@ -1,6 +1,6 @@
 # Eigenmode expansion in 3D: a plan
 
-*A plan, 2026-11-04, for the next phase of #432. Parts 1 to 3 done (2026-11-05); 4 and 5 left.*
+*A plan, 2026-11-04, for the next phase of #432. Parts 1 to 5 done (2026-11-05).*
 
 **Status by part (2026-11-05):**
 
@@ -15,14 +15,19 @@
 3. Done: a strip taper against 3D FDFD on the same plane (see the method page for the numbers).
    Found: with fewer than every mode, power is conserved only to the truncation's error (the
    method page's table).
-4. Left, waiting for a check: sections from a device's geometry, and the MMIs. The papers in
-   hand were read again for a 3D device with a printed response (the method page's limits): none
-   gives one, so the MMI would rest on a cross-check against 3D FDFD on the device itself, whose
-   size (millions of unknowns) the next phase has to plan for. The cut itself belongs in the
-   device layer (`eme` can't import `device`), along the device's x, its cross-section (y, z).
-5. Left: the job's sections by their shapes (a `[task.plane]` making each section a strip on a
-   plane, the equal steps of a taper, `jobs/` example, schema), checked against `Eme3d` to the
-   bit.
+4. Done (2026-11-05), with a smaller MMI than the studio's: `device::Cut` cuts a device's
+   geometry along x where its outlines turn, a sloped run in equal steps or, exactly, at every x
+   where an outline crosses one of the cells' sampling points. Checked against 3D FDFD of the
+   same device on the same plane (a 1 × 2 MMI 1.6 µm wide and a linear taper, each on its half;
+   the method page's "A device's sections"), against reciprocity and power with every mode, and
+   against the extruded slab's hand-built sections. The studio's 6 µm MMI would take a plane of
+   about 2400 unknowns on these cells and an FDFD solve of millions; the 1.6 µm one is what fits
+   a test (FDFD 4 s, every mode 16 s). The self-imaging lengths against Soldano and Pennings's
+   closed forms are not a case: their forms are the guided-mode analysis, which the 2D model
+   already is, not a 3D device's response.
+5. Done (2026-11-05): `[task.plane]` in the eme job, its sections strips on a plane by their
+   shapes or cut from a `[device]`, a run's S equal to `Eme3d`'s to the bit;
+   `jobs/eme-taper-3d.yaml` and `jobs/eme-mmi-3d.yaml`.
 
 Then (2026-11-05): magnetic (mirror) walls on the plane, so a symmetric guide is solved on a
 half or a quarter (`eme/3d-symmetry`: a quarter against the whole window to 2.0e-14), and
