@@ -6,7 +6,7 @@ level: advanced
 minutes: 50
 prerequisites: [bragg-gratings]
 examples: [subpixel_holes, l3_akahane]
-methods: [fdtd.md, multilayer.md, arrays.md]
+methods: [fdtd.md, multilayer.md]
 validation:
   - mode/multilayer-bragg
   - fdtd/bloch-bands
@@ -378,7 +378,7 @@ envelope gentle: they measured $Q$ = 45,000 with $V$ = 7.0 × 10⁻¹⁴ cm³, a
 unshifted cavity's (p. 946, Fig. 4).
 
 [l3_akahane](../examples/l3_akahane.rs) solves their cavity in photonoxide's 3D FDTD, the slab and
-its holes as one body ([the arrays](../docs/methods/arrays.md)), and finds each mode's frequency and
+its holes as one body (`docs/methods/arrays.md`), and finds each mode's frequency and
 $Q$ by harmonic inversion. On 8 cells a lattice constant, the unshifted cavity's $Q$ is 5,574 and the
 shifted one's 56,156, a rise of 10.1 times against the measured tenfold; the wavelengths, 1.5941 and
 1.6042 µm, lie 1.4 % and 2.0 % above 1.5725 µm, the middle of the measured 1.565 to 1.58 µm:
@@ -446,7 +446,7 @@ percent of a radius, and each error moves something different:
   infinitely long along its rods or holes, and its bands are those of light in the plane only; a 2D
   gap is not a slab's, which has a light cone and leaks (Section 6).
 - **Slabs and cavities**: the `PhotonicCrystal` generator draws square and hexagonal lattices with an
-  L3, H1 or W1 defect ([the arrays](../docs/methods/arrays.md)), checked against Akahane et al.'s
+  L3, H1 or W1 defect (`docs/methods/arrays.md`), checked against Akahane et al.'s
   geometry; 3D FDTD solves them and harmonic inversion gives a cavity's frequency and Q
   (l3_akahane):
 
