@@ -107,7 +107,7 @@ pub(crate) fn overlaps(a: &[Mode], b: &[Mode]) -> Mat<c64> {
 }
 
 /// a b, on this thread: the same bits on any number of threads.
-fn product(a: &Mat<c64>, b: &Mat<c64>) -> Mat<c64> {
+pub(crate) fn product(a: &Mat<c64>, b: &Mat<c64>) -> Mat<c64> {
     let mut out = Mat::zeros(a.nrows(), b.ncols());
     matmul(
         out.as_mut(),

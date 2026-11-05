@@ -91,5 +91,95 @@ pub(crate) fn rules() -> Vec<(&'static str, Rule)> {
                 "the tolerance the adaptive steps are driven to, on S's fundamental entries (at most 1): their true error against the equal steps' Richardson limit, whose own error is its change from 2560 steps",
             ),
         ),
+        (
+            "eme/3d-orthonormal",
+            Rule::new(
+                Absolute,
+                RoundOff,
+                1e-10,
+                Exact,
+                "an exact discrete identity, held to the eigensolver's own tolerance on each pair's residual, 1e-10",
+            ),
+        ),
+        (
+            "eme/3d-ports",
+            Rule::new(
+                Relative,
+                RoundOff,
+                1e-10,
+                Exact,
+                "the same eigenproblem by two eigensolvers, each pair held to a residual of 1e-10",
+            ),
+        ),
+        (
+            "eme/3d-fresnel",
+            Rule::new(
+                Absolute,
+                RoundOff,
+                1e-10,
+                Exact,
+                "each mode meets only its own, with Fresnel's coefficient at its discrete angle exactly: round-off of a dense eigensolve of 236 unknowns whose β² reach 1e3 µm⁻², 1e-10 as eme/3d-orthonormal",
+            ),
+        ),
+        (
+            "eme/3d-lossless-reciprocity",
+            Rule::new(
+                Absolute,
+                RoundOff,
+                1e-10,
+                Exact,
+                "S symmetric for any number of modes, by construction: round-off over products of 728 × 728 matrices, 1e-10 as eme/3d-orthonormal",
+            ),
+        ),
+        (
+            "eme/3d-lossless-power",
+            Rule::new(
+                Absolute,
+                RoundOff,
+                1e-10,
+                Exact,
+                "with every mode the interfaces are exact: round-off, 1e-10 as eme/3d-orthonormal",
+            ),
+        ),
+        (
+            "eme/3d-extruded-separable",
+            Rule::new(
+                Absolute,
+                RoundOff,
+                1e-10,
+                Exact,
+                "the same discrete eigenproblem in both: round-off, 1e-10 as eme/3d-orthonormal",
+            ),
+        ),
+        (
+            "eme/3d-extruded-order",
+            Rule::new(
+                Absolute,
+                Order,
+                0.1,
+                Measured,
+                "Yee's second order, within 0.1 as eme/taper-steps-order",
+            ),
+        ),
+        (
+            "eme/3d-extruded-slab",
+            Rule::new(
+                Relative,
+                Discretisation,
+                3e-4,
+                Noted,
+                "three times the finest grid's own error by Richardson (9.3e-5 of |S11|), rounded up: that error bounds the limit's",
+            ),
+        ),
+        (
+            "eme/3d-taper-fdfd",
+            Rule::new(
+                Absolute,
+                Discretisation,
+                4e-5,
+                Noted,
+                "three times FDFD's own error, the change its PML makes from 0.5 to 1 µm thick (1.1e-5 on |S21|^2), rounded up; the expansion with every mode is exact across the plane's equations, its own error its fit's residual",
+            ),
+        ),
     ]
 }
