@@ -489,7 +489,11 @@ impl Mmi {
             return Err(Error::invalid("MMI", format!("width {width} um")));
         }
         let half = (width - self.access) / 2.0;
-        if guides.is_empty() || guides.iter().any(|g| !(g.0.abs() <= half + 1e-12)) {
+        if guides.is_empty()
+            || guides
+                .iter()
+                .any(|g| !g.0.is_finite() || g.0.abs() > half + 1e-12)
+        {
             return Err(Error::invalid(
                 "MMI",
                 format!("each guide must be on the section's face, within {half} um of its axis"),
