@@ -373,6 +373,7 @@ pub(crate) fn hadley_limits() -> (f64, f64) {
 /// 0.6 µm tall inside its PML (`thickness` µm more at the east and north walls, `strength` σ
 /// graded as (u/d)^`order`), on a 50 nm grid, `modes` modes (all of the quarter's for
 /// `None`): (|S₁₁|², |S₂₁|²) of the fundamental, and the modes kept.
+#[cfg(test)]
 pub(crate) fn open_taper(
     thickness: f64,
     (strength, order): (f64, f64),
