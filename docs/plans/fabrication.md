@@ -230,7 +230,7 @@ and the only other value says it is not specified.
   deposited, with its source, or "not specified".
 - The phase-change materials' budgets come from the catalogue's switching temperatures above.
 - Others come from the textbooks and papers in [Section 7](#7-sources). For example, metals
-  before high-temperature steps is the textbook ordering rule (Plummer, Deal & Griffin; Campbell).
+  before high-temperature steps is the textbook ordering rule (Plummer, Deal & Griffin, pp. 63, 388, 391 and 562; Campbell). Their "thermal budget" is the effective Dt product of a process, set mainly by its hottest steps; here a budget is the highest temperature a film may see.
 
 **Glossary.** Each term the narration uses (resist, mask, etch stop, selectivity, lift-off,
 conformal, overlay) has a plain definition of one or two sentences. Each definition cites the
@@ -387,7 +387,7 @@ none has a tolerance chosen by hand.
    - **Lithography choice.** Designs just inside and just outside each lithography's cited range
      must pick or refuse it. Exact: a choice is categorical.
    - **Thermal ordering.** The textbook ordering (metals after the high-temperature steps;
-     Plummer, Deal & Griffin; Campbell), and a phase-change cell refused before a step above its
+     Plummer, Deal & Griffin, pp. 63, 388, 391 and 562; Campbell), and a phase-change cell refused before a step above its
      cited switching temperature. Exact.
    - **Etch stop or timed.** A full silicon etch on oxide stops; a rib's partial etch is timed.
      Exact.
@@ -615,7 +615,7 @@ fabrication engine". Open copies are noted only where one was seen.
 
 **Textbooks**
 
-- J. D. Plummer, M. D. Deal, P. B. Griffin, *Silicon VLSI Technology*, Prentice Hall (2000). ISBN 9780130850379 (Open Library; not on Crossref).
+- J. D. Plummer, M. D. Deal, P. B. Griffin, *Silicon VLSI Technology: Fundamentals, Practice and Modeling*, 1st ed., Prentice Hall (2000). ISBN 9780130850379 (Open Library; not on Crossref).
 - S. A. Campbell, *Fabrication Engineering at the Micro- and Nanoscale*, Oxford University Press (2012). ISBN 9780199861224 (Open Library; not on Crossref).
 - M. J. Madou, *Fundamentals of Microfabrication and Nanotechnology*, three-volume set, CRC Press (2018). [10.1201/9781315274164](https://doi.org/10.1201/9781315274164)
 - S. Franssila, *Introduction to Microfabrication*, Wiley (2010). [10.1002/9781119990413](https://doi.org/10.1002/9781119990413)
