@@ -165,6 +165,25 @@ pub fn specs() -> Vec<DiagramSpec> {
                          supermodes as the gap goes from 100 to 400 nm. Drag to turn it.",
         },
         DiagramSpec {
+            id: "mmi",
+            title: "A 1 × 2 multimode interference splitter, seen from above",
+            caption: "A section $W$ wide and $L$ long, fed in the middle of its left face by a \
+                      guide $w_a$ wide. Its guided modes, the first four $\\psi_0 \\ldots \\psi_3$ \
+                      drawn beneath across $W$, travel along $z$ at their own propagation \
+                      constants $\\beta_\\nu$, which fall nearly as $\\nu(\\nu + 2)$; their \
+                      interference, shaded, spreads the input's single spot across the section \
+                      and gathers it again. At $L = 3L_\\pi/8$, $L_\\pi$ the beat length of the \
+                      two lowest modes, it forms two images of the input at $\\pm W/4$, where two \
+                      output guides each take half, in phase. The shading is computed from \
+                      Soldano and Pennings's sine-like modes and quadratic phases. Not to scale: \
+                      the section is drawn short for its width.",
+            job: Some("mmi-fdfd.yaml"),
+            caption_3d: "The 1 × 2 MMI of jobs/mmi-fdfd.yaml as photonoxide's geometry builds \
+                         it: a silicon section 3 µm wide, 8.55 µm long and 220 nm thick on \
+                         oxide, fed by a 500 nm guide and left by two at ±0.75 µm. Run, the job \
+                         solves it by 2D FDFD from 1.5 to 1.6 µm. Drag to turn it.",
+        },
+        DiagramSpec {
             id: "slab",
             title: "A slab waveguide, in section",
             caption: "A film of index $n_2$ and thickness $d$ lies between a cover of index $n_1$ \

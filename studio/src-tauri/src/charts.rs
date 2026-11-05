@@ -29,6 +29,7 @@ mod fabrication;
 mod grating;
 mod leaky;
 mod material;
+mod mmi;
 mod slab;
 mod strip;
 
@@ -999,10 +1000,128 @@ pub fn specs() -> Vec<ChartSpec> {
                 ),
             ],
         },
+        ChartSpec {
+            id: "mmi-field",
+            title: "Self-imaging inside a multimode section",
+            about: "A silicon section 220 nm thick seen from above, fed by a 0.8 µm guide: the light the guided modes carry along it, at 1.55 µm. Centred, the input excites only the even modes; at a sixth of the width off the axis, hardly modes 2, 5, 8; elsewhere, all of them, and the images form at the lengths each case sets.",
+            computed_by: "circuit::components::Mmi::analysis_at and MmiModes::field: Soldano and Pennings's guided-mode propagation analysis (Eqs. 8-12) with the exact slab modes of the plane by the effective index method",
+            params: vec![
+                mmi_width((2.5, 12.0, 3.0)),
+                param(
+                    "offset",
+                    "Input's centre $y_\\text{in}/W$",
+                    "",
+                    (-0.36, 0.36, 0.0),
+                    0.01,
+                    false,
+                    "Where the input guide meets the section, as a share of its width from the axis: 0 is centred, ±1/6 the 2 × 2's inputs.",
+                ),
+                param(
+                    "span",
+                    "Length drawn, in $L_\\pi$",
+                    "",
+                    (0.25, 3.5, 1.0),
+                    0.05,
+                    false,
+                    "How far along the section to draw, in beat lengths of its two lowest modes.",
+                ),
+            ],
+        },
+        ChartSpec {
+            id: "mmi-modes",
+            title: "The section's modes against the quadratic law",
+            about: "Each guided mode's phase lag behind the fundamental over 3L_π, against ν(ν + 2), the law Soldano and Pennings's self-imaging lengths assume. Where they part, an image blurs.",
+            computed_by: "circuit::components::Mmi::analysis: MmiModes::propagation_constants, the exact slab modes of the plane by the effective index method; Soldano and Pennings's Eqs. 4, 6 and 7",
+            params: vec![
+                mmi_width((1.5, 20.0, 3.0)),
+                param(
+                    "wavelength",
+                    "Wavelength $\\lambda$",
+                    "um",
+                    (1.3, 1.8, 1.55),
+                    0.01,
+                    false,
+                    "The free-space wavelength, µm.",
+                ),
+            ],
+        },
+        ChartSpec {
+            id: "mmi-length",
+            title: "An MMI's outputs against its length",
+            about: "A 1 × 2 MMI fed in its middle, or a 2 × 2 fed at a sixth of its width off the axis: the power into each output as the section lengthens, at 1.55 µm. The marker is the first two-fold image, 3L_π/8 or L_π/2.",
+            computed_by: "circuit::components::Mmi::analysis and MmiModes::s_matrix at 401 lengths, the same as Mmi::s_matrix to the bit",
+            params: vec![mmi_kind(), mmi_width((2.0, 12.0, 3.0)), mmi_access()],
+        },
+        ChartSpec {
+            id: "mmi-spectrum",
+            title: "An MMI's outputs against the wavelength",
+            about: "The same MMI cut at its first two-fold image at 1.55 µm: the power into each output from 1.40 to 1.70 µm, the materials' and the film's dispersion included.",
+            computed_by: "circuit::components::Mmi::analysis at 121 wavelengths (the plane's indices from material::silicon and material::silica at each) and MmiModes::s_matrix",
+            params: vec![mmi_kind(), mmi_width((2.0, 12.0, 3.0)), mmi_access()],
+        },
+        ChartSpec {
+            id: "mmi-tolerance",
+            title: "An MMI's outputs against a width error",
+            about: "The same MMI, its length fixed at its image on 220 nm at 1.55 µm, when every drawn width comes out Δw wider or narrower, the guides' centres in place, and on a film of another thickness.",
+            computed_by: "circuit::components::Mmi::analysis_at with the nominal guides' centres, MmiModes::s_matrix, at 101 width errors from −250 to 250 nm",
+            params: vec![
+                mmi_kind(),
+                mmi_width((2.0, 12.0, 3.0)),
+                mmi_access(),
+                param(
+                    "thickness",
+                    "Film thickness $t$",
+                    "nm",
+                    (200.0, 240.0, 220.0),
+                    1.0,
+                    false,
+                    "The silicon film's thickness, nm; the design is on 220 nm.",
+                ),
+            ],
+        },
     ]
     .into_iter()
     .chain(grating::specs())
     .collect()
+}
+
+/// An MMI chart's section width, µm: `(min, max, default)`.
+const fn mmi_width(range: (f64, f64, f64)) -> Param {
+    param(
+        "width",
+        "Section width $W$",
+        "um",
+        range,
+        0.05,
+        false,
+        "The multimode section's width, µm.",
+    )
+}
+
+/// An MMI chart's kind: 1 × 2 or 2 × 2.
+const fn mmi_kind() -> Param {
+    param(
+        "kind",
+        "Kind: 1 is the 1 × 2, 2 the 2 × 2",
+        "",
+        (1.0, 2.0, 1.0),
+        1.0,
+        false,
+        "1: a 1 × 2 splitter fed in its middle (symmetric interference); 2: a 2 × 2 coupler fed at −W/6 (paired interference).",
+    )
+}
+
+/// An MMI chart's access guides' width, µm.
+const fn mmi_access() -> Param {
+    param(
+        "access",
+        "Access guides' width $w_a$",
+        "um",
+        (0.3, 2.0, 0.8),
+        0.05,
+        false,
+        "The access guides' width where they meet the section, µm; under a third of the section's.",
+    )
 }
 
 /// A strip chart's width, nm: `(min, max, default)`, and the slider's step.
@@ -1293,6 +1412,11 @@ pub fn evaluate(id: &str, given: &BTreeMap<String, f64>) -> Result<ChartData, St
         "strip-models" => strip::models(at("thickness"), at("wavelength"), at("width")),
         "strip-corners" => strip::corners(at("width"), at("thickness")),
         "strip-group-index" => strip::group_index(at("thickness"), at("wavelength"), at("width")),
+        "mmi-field" => mmi::field(at("width"), at("offset"), at("span")),
+        "mmi-modes" => mmi::modes(at("width"), at("wavelength")),
+        "mmi-length" => mmi::length(at("kind"), at("width"), at("access")),
+        "mmi-spectrum" => mmi::spectrum(at("kind"), at("width"), at("access")),
+        "mmi-tolerance" => mmi::tolerance(at("kind"), at("width"), at("access"), at("thickness")),
         "fab-oxidation" => fabrication::oxidation(at("temperature"), at("hours")),
         "fab-resolution" => fabrication::resolution(at("k1"), at("feature")),
         "grating-angle" => grating::angle(at("period"), at("etch"), at("fill"), at("cladding")),

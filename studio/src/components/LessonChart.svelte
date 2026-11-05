@@ -58,6 +58,8 @@
   /** A value as the slider's readout shows it. */
   const shown = (p: ChartParam, v: number) => (p.step >= 1 ? String(Math.round(v)) : String(Number(v.toPrecision(4))));
 
+  /** Whether a picture is more than twice as long as it is tall, to be drawn the whole width. */
+  const wide = $derived((data?.maps ?? []).some((m) => m.raster.x1 - m.raster.x0 > 2 * (m.raster.y1 - m.raster.y0)));
   const series = $derived<Series[]>(
     (data?.series ?? []).map((s) => ({ label: s.label, points: s.points, dashed: s.dashed, colour: s.colour === null ? undefined : SERIES[s.colour % SERIES.length] })),
   );
@@ -80,7 +82,8 @@
     {#if data && data.maps.length}
       <!-- pictures of a field, side by side, sharing one colour scale -->
       <div class="@container">
-        <div class="mx-auto grid max-w-md gap-3 @xl:max-w-none @xl:grid-cols-3">
+        <!-- a long picture, as of a section seen from above, takes the whole width -->
+        <div class="mx-auto grid gap-3 {wide ? 'max-w-none' : 'max-w-md @xl:max-w-none @xl:grid-cols-3'}">
           {#each data.maps as m (m.label)}
             <div class="min-w-0">
               <p class="mb-1 text-xs leading-snug muted"><MathText text={m.label} /></p>
