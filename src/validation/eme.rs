@@ -188,7 +188,7 @@ pub(crate) fn rules() -> Vec<(&'static str, Rule)> {
                 Discretisation,
                 3e-4,
                 Noted,
-                "three times the finest grid's own error by Richardson (9.3e-5 of |S11|), rounded up: that error bounds the limit's",
+                "three times the finest grid's own error by Richardson (9.3e-5 of the modulus of S11), rounded up: that error bounds the limit's",
             ),
         ),
         (
@@ -198,7 +198,7 @@ pub(crate) fn rules() -> Vec<(&'static str, Rule)> {
                 Discretisation,
                 4e-5,
                 Noted,
-                "three times FDFD's own error, the change from PMLs 0.5 µm thick and leads 1 µm long to 1 and 1.5 µm (1.1e-5 on |S21|^2; the PML alone from 1 to 2 µm moves it 4.6e-7), rounded up; the expansion with every mode is exact across the plane's equations, its own error its fit's residual",
+                "three times FDFD's own error, the change from PMLs 0.5 µm thick and leads 1 µm long to 1 and 1.5 µm (1.1e-5 on the transmission; the PML alone from 1 to 2 µm moves it 4.6e-7), rounded up; the expansion with every mode is exact across the plane's equations, its own error its fit's residual",
             ),
         ),
         (
@@ -238,7 +238,7 @@ pub(crate) fn rules() -> Vec<(&'static str, Rule)> {
                 Discretisation,
                 2e-4,
                 Noted,
-                "three times FDFD's own error, rounded up: the PML from 1 to 2 µm moves its |S21|^2 6.3e-5 at 25 nm (its limit moves 3.3e-5 with its coarsest step in the fit or out); the expansion with every mode is exact on the plane's equations, and the MMI's three cross-sections have no step error",
+                "three times FDFD's own error, rounded up: the PML from 1 to 2 µm moves its transmission 6.3e-5 at 25 nm (its limit moves 3.3e-5 with its coarsest step in the fit or out); the expansion with every mode is exact on the plane's equations, and the MMI's three cross-sections have no step error",
             ),
         ),
         (

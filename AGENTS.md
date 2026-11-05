@@ -38,7 +38,8 @@ library's modules, each with a write-up in `docs/methods/`:
   the rib, the MMIs, the Y-branch and the MZIs; the thermo-optic and phase-change phase shifters
   and the TFLN Mach–Zehnder modulator;
 - `compact`: vector fitting, models over parameters, Touchstone files;
-- `eme`: eigenmode expansion, 2D for slab stacks; `sweep`: adaptive sweeps by AAA with an error
+- `eme`: eigenmode expansion, 2D for slab stacks and 3D on planes of Yee's grid (a device's
+  geometry cut into them by `device::Cut`); `sweep`: adaptive sweeps by AAA with an error
   estimate, modes followed by their overlaps;
 - `nonlinear`: phase matching (`phase`), the coupled-amplitude equations (`coupled`), photon
   pairs (`pairs`), Miller's rule (`miller`), all of them in waveguides from the modes (`guide`),
