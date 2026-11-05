@@ -442,6 +442,10 @@ pub const RESOLUTION: usize = 24;
 const TOP: f64 = 0.8;
 const WINDOW: f64 = 1.0;
 
+/// A path through the Brillouin zone: its k-points (2π/a), their distance along it, and its
+/// corners' names and distances.
+type Path = (Vec<[f64; 2]>, Vec<f64>, Vec<(&'static str, f64)>);
+
 /// A 2D crystal, a = 1 µm.
 #[derive(Clone, Copy, Debug)]
 pub struct Crystal {
@@ -489,7 +493,7 @@ impl Crystal {
                 for j in -1..=1 {
                     let centre = [site[0] + i as f64 * size[0], site[1] + j as f64 * size[1]];
                     let disk = Body::ellipse(centre, [self.radius; 2], 0.0)?;
-                    s = s.with(disk, body.clone());
+                    s = s.with(disk, body);
                 }
             }
         }
@@ -498,7 +502,7 @@ impl Crystal {
 
     /// The path along the edge of the irreducible Brillouin zone: its k-points (2π/a), their
     /// distance along the path, and the corners' names and distances.
-    fn path(&self) -> (Vec<[f64; 2]>, Vec<f64>, Vec<(&'static str, f64)>) {
+    fn path(&self) -> Path {
         let corners: Vec<(&'static str, [f64; 2])> = match self.lattice {
             Lattice::Square => vec![
                 ("Γ", [0.0, 0.0]),
