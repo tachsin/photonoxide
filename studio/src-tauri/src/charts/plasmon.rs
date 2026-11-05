@@ -975,7 +975,7 @@ pub fn gold_chart(diameter: f64) -> photonoxide::Result<ChartData> {
                 true,
                 GREY,
             ),
-            curve("Drude fit, extinction", drude_ext, true, DIPOLE),
+            curve("Drude fit, extinction", drude_ext, true, 5),
         ],
         marker: Some(l_peak),
         figures,

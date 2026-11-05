@@ -20,7 +20,7 @@
   const period = 92;
   const z0 = 46;
   /** The charges along the surface: + at the crests, − at the troughs. */
-  const charges = [0, 1, 2, 3, 4, 5].map((k) => ({ x: z0 + (k * period) / 2, sign: k % 2 ? "−" : "+" }));
+  const charges = [0, 1, 2, 3, 4].map((k) => ({ x: z0 + (k * period) / 2, sign: k % 2 ? "−" : "+" }));
   /** A field line from one charge to the next, looping above (into the dielectric) or below. */
   function loop(xa: number, xb: number, depth: number): string {
     return `M${xa},${surfY} C${xa},${surfY - depth} ${xb},${surfY - depth} ${xb},${surfY}`;
@@ -60,7 +60,7 @@
   <rect x={sx0} y={surfY} width={sx1 - sx0} height={metalBottom - surfY} class="fill-base-content/15" />
   <line x1={sx0} y1={surfY} x2={sx1} y2={surfY} class="stroke-base-content/60" stroke-width="1.4" />
   <Label x={sx0 + 6} y={64} anchor="start" size={14} text={String.raw`$\varepsilon_d > 0$`} width={100} />
-  <Label x={sx0 + 6} y={metalBottom - 16} anchor="start" size={14} text={String.raw`$\varepsilon_m < 0$`} width={100} />
+  <Label x={sx0 + 6} y={surfY + 36} anchor="start" size={14} text={String.raw`$\varepsilon_m < 0$`} width={100} />
   <!-- the field's lines, from + to − -->
   {#each loops as l, i (i)}
     <path d={l.d} fill="none" class={l.above ? "stroke-accent/70" : "stroke-accent/45"} stroke-width="1.3" />
@@ -70,9 +70,9 @@
     <Label x={c.x} y={surfY + 13} size={15} text={c.sign} width={20} class={c.sign === "+" ? "text-secondary" : "text-primary"} />
   {/each}
   <!-- along z -->
-  <Wave x1={sx0 + 20} y1={surfY + 66} x2={sx0 + 180} y2={surfY + 66} class="stroke-base-content/60 fill-base-content/60" />
+  <Wave x1={sx0 + 20} y1={surfY + 62} x2={sx0 + 180} y2={surfY + 62} class="stroke-base-content/60 fill-base-content/60" />
   <Label x={sx0 + 100} y={surfY + 84} size={14} text={String.raw`$e^{i(kz - \omega t)}e^{-z/2L}$`} width={200} />
-  <Label x={sx0 + 194} y={surfY + 66} anchor="start" size={14} text="$z$" width={20} />
+  <Label x={sx0 + 194} y={surfY + 62} anchor="start" size={14} text="$z$" width={20} />
   <!-- the field's size across the interface -->
   <line x1={profX - 4} y1={surfY - 126} x2={profX - 4} y2={surfY + 90} class="stroke-base-content/30" stroke-width="1" stroke-dasharray="3 3" />
   <path d={profile} fill="none" class="stroke-secondary" stroke-width="2" />
