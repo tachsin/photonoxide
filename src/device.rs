@@ -57,6 +57,12 @@ mod active;
 mod bend;
 pub mod compact;
 mod coupler;
+mod cut;
+#[path = "cases/device/cut_checks.rs"]
+pub(crate) mod cut_checks;
+#[cfg(test)]
+#[path = "cases/device/cut_tests.rs"]
+mod cut_tests;
 mod fit;
 mod guide;
 mod mmi;
@@ -99,6 +105,7 @@ pub use active::Measurement;
 pub use bend::StripBend;
 pub use compact::{FitAxis, FitPlan, Fitted, Sampling};
 pub use coupler::StripCoupler;
+pub use cut::{Cut, Sections};
 pub use mmi::{Model2d, StripMmi};
 pub use mzi::StripMzi;
 pub use objective::{Constraint, Goal, Limit, Objective, Reduce};

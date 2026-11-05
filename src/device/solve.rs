@@ -265,7 +265,7 @@ fn side(direction: f64) -> Result<Side> {
 
 /// `geometry`'s structure with each port's guide led straight out `length` µm, cut as the
 /// core's shapes are.
-fn led(geometry: &Geometry, core: &str, length: f64) -> Result<Structure> {
+pub(super) fn led(geometry: &Geometry, core: &str, length: f64) -> Result<Structure> {
     let mut s = geometry.structure.clone();
     let etch = s.etches(core).first().copied().unwrap_or(Etch::FULL);
     for p in &geometry.ports {

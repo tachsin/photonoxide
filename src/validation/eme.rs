@@ -201,5 +201,75 @@ pub(crate) fn rules() -> Vec<(&'static str, Rule)> {
                 "three times FDFD's own error, the change from PMLs 0.5 µm thick and leads 1 µm long to 1 and 1.5 µm (1.1e-5 on |S21|^2; the PML alone from 1 to 2 µm moves it 4.6e-7), rounded up; the expansion with every mode is exact across the plane's equations, its own error its fit's residual",
             ),
         ),
+        (
+            "eme/3d-cut-extruded",
+            Rule::new(
+                Absolute,
+                RoundOff,
+                1e-10,
+                Exact,
+                "the same planes, their lengths differences of the outlines' x: round-off, 1e-10 as eme/3d-orthonormal",
+            ),
+        ),
+        (
+            "eme/3d-cut-taper-exact",
+            Rule::new(
+                Absolute,
+                RoundOff,
+                1e-10,
+                Exact,
+                "the same 33 planes over the same lengths, the steps' merged: round-off, 1e-10 as eme/3d-orthonormal",
+            ),
+        ),
+        (
+            "eme/3d-cut-taper-fdfd",
+            Rule::new(
+                Absolute,
+                Discretisation,
+                4e-4,
+                Noted,
+                "three times FDFD's own error, rounded up: its limit moves 1.3e-4 with its coarsest step (0.05 µm) in the fit or out, its sub-cell sampling of the sloped wall along x scattering its values by about 1e-4 about their trend (the PML from 1 to 2 µm moves it 1.4e-5); the expansion cut exactly has no step error, its own error the fit's residual",
+            ),
+        ),
+        (
+            "eme/3d-cut-mmi-fdfd",
+            Rule::new(
+                Absolute,
+                Discretisation,
+                2e-4,
+                Noted,
+                "three times FDFD's own error, rounded up: the PML from 1 to 2 µm moves its |S21|^2 6.3e-5 at 25 nm (its limit moves 3.3e-5 with its coarsest step in the fit or out); the expansion with every mode is exact on the plane's equations, and the MMI's three cross-sections have no step error",
+            ),
+        ),
+        (
+            "eme/3d-cut-mmi-reflection",
+            Rule::new(
+                Absolute,
+                Discretisation,
+                1.4e-5,
+                Noted,
+                "three times FDFD's own error, rounded up: its limit moves 4.5e-6 with its coarsest step in the fit or out (the PML from 1 to 2 µm, 7.4e-7)",
+            ),
+        ),
+        (
+            "eme/3d-cut-mmi-reciprocity",
+            Rule::new(
+                Absolute,
+                RoundOff,
+                1e-10,
+                Exact,
+                "S symmetric for any number of modes, by construction: round-off over products of 728 × 728 matrices, 1e-10 as eme/3d-orthonormal",
+            ),
+        ),
+        (
+            "eme/3d-cut-mmi-power",
+            Rule::new(
+                Absolute,
+                RoundOff,
+                1e-10,
+                Exact,
+                "with every mode the interfaces are exact: round-off, 1e-10 as eme/3d-orthonormal",
+            ),
+        ),
     ]
 }
