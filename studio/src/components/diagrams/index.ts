@@ -6,6 +6,7 @@ import type { Component } from "svelte";
 
 import Bragg from "./Bragg.svelte";
 import Coupler from "./Coupler.svelte";
+import Crossing from "./Crossing.svelte";
 import Crystal from "./Crystal.svelte";
 import Dispersion from "./Dispersion.svelte";
 import Fdfd from "./Fdfd.svelte";
@@ -25,6 +26,7 @@ import Strip from "./Strip.svelte";
 export const DRAWINGS: Record<string, Component> = {
   "bragg": Bragg,
   "coupler": Coupler,
+  "crossing": Crossing,
   "crystal": Crystal,
   "dispersion": Dispersion,
   "fdfd": Fdfd,
