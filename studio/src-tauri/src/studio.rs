@@ -1518,6 +1518,7 @@ method_docs!(
     "nonlinear.md",
     "phase-shifter.md",
     "pml.md",
+    "quantum.md",
     "recycling.md",
     "slab-fd.md",
     "slab.md",

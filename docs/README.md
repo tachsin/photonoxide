@@ -157,6 +157,13 @@ The pages are grouped as the project site groups them.
 - [sweep](methods/sweep.md): a response over wavelength or frequency from as few solves as it
   needs, by adaptive sampling and AAA rational approximation.
 
+### Quantum photonics
+
+- [quantum](methods/quantum.md): photons through a circuit's S-matrix, its loss dilated to noise
+  modes: output probabilities by permanents (Ryser's and Glynn's formulas), partly
+  distinguishable photons, an exact boson sampler, Hong–Ou–Mandel dips through S(ω), and the
+  Reck and Clements meshes.
+
 ### Fabrication
 
 - [fabrication](methods/fabrication.md): how a design would be made, read from its layers and
