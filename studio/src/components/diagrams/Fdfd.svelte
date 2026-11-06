@@ -46,17 +46,17 @@
   <line x1={src} y1={mid - 34} x2={src} y2={mid + 34} class="stroke-accent" stroke-width="2" />
   <Label x={src} y={mid + 46} size={13} text="source $b$" width={90} />
   <line x1={mon} y1={mid - 34} x2={mon} y2={mid + 34} class="stroke-base-content/70" stroke-width="2" />
-  <Label x={mon} y={mid + 46} size={13} text={String.raw`monitor $a = c^\mathsf{T}x$`} width={120} />
+  <Label x={mon} y={mid + 46} size={13} text="monitor $a$" width={90} />
 
   <!-- the forward field from the source, the adjoint field back from the monitor -->
   <Wave x1={src + 6} y1={mid - 20} x2={dx0 - 6} y2={mid - 20} amplitude={3} cycles={3} class="stroke-accent fill-accent" />
   <Wave x1={dx1 + 6} y1={mid - 20} x2={mon - 6} y2={mid - 20} amplitude={3} cycles={3} class="stroke-accent fill-accent" />
   <Wave x1={mon - 6} y1={mid + 20} x2={dx1 + 6} y2={mid + 20} amplitude={3} cycles={3} class="stroke-secondary fill-secondary" />
   <Label x={100} y={mid - 34} size={13} text="$x$" width={30} class="text-accent" />
-  <Label x={254} y={mid + 34} size={13} text="$\lambda$" width={30} class="text-secondary" />
+  <Label x={240} y={mid + 34} size={13} text="$\lambda$" width={30} class="text-secondary" />
 
   <!-- the two systems and the gradient -->
-  <Label x={gx0} y={218} anchor="start" size={14} text={String.raw`forward: $A(\varepsilon)\,x = b$`} width={200} class="text-accent" />
+  <Label x={gx0} y={218} anchor="start" size={14} text={String.raw`forward: $A(\varepsilon)\,x = b$, measured $a = c^\mathsf{T}x$`} width={300} class="text-accent" />
   <Label x={gx0} y={244} anchor="start" size={14} text={String.raw`adjoint: $A^\mathsf{T}\lambda = \partial F/\partial x$`} width={220} class="text-secondary" />
   <Label x={gx0} y={278} anchor="start" size={15} text={String.raw`$\dfrac{dF}{d\varepsilon_k} = -2\operatorname{Re}\!\left(\lambda^\mathsf{T}\dfrac{\partial A}{\partial\varepsilon_k}x\right)$, every $k$ at once`} width={330} />
 

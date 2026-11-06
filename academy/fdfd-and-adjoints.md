@@ -509,9 +509,12 @@ backwards, and the gradient in a window of 3,000 cells:
 
 With $E$ along $z$ and the bump at $\varepsilon_b = 6$, the right port's mode receives 0.969498 of
 the power. The gradient is largest where both fields are strong: 4.618 × 10⁻⁴ per unit of a cell's
-relative permittivity, in the core beside the bump at (0.99, −0.07) µm. Where it is positive, more
-permittivity there raises the power into the right port's mode; where negative, it lowers it; along
-the core its sign alternates with the relative phase of the two fields. At the cell (1.0, 0.2) µm
+relative permittivity, in the core just below the bump at (0.99, −0.07) µm. Where it is positive
+(bright), more permittivity there raises the power into the right port's mode; where negative
+(dark), it lowers it. It gathers around the bump, where the light is scattered; along the core
+away from the bump it is near zero, because more permittivity in a cell of a uniform guide mainly
+delays the mode, which turns the phase of $a$ and leaves $|a|^2$ unchanged to first order. At the
+cell (1.0, 0.2) µm
 in the bump the adjoint gives −1.6785388 × 10⁻⁴; a fourth-order central difference there takes 4
 more solves and agrees to a relative 5.3 × 10⁻⁹. For all 3,000 cells of the window, central
 differences would take 6,000 solves. With $\varepsilon_b$ set to oxide's 2.085 there is no bump,
@@ -585,9 +588,10 @@ $\delta = 10^{-2}$, 1.8 × 10⁻⁹, and below that step the powers' round-off t
 difference grows as $1/\delta$, to 3.8 × 10⁻⁶ at 10⁻⁶. The powers' precision is set by the forward
 solve, solved to a relative residual of 3.9 × 10⁻¹⁵. The fourth-order difference's truncation is
 too small to show in this cell at any step drawn: its difference keeps falling as the step grows,
-to 3.2 × 10⁻¹² at $\delta$ = 0.32. Both stay under the dashed line, what the fourth-order formula
-can resolve from powers of that precision: the adjoint gradient is exact to all the differences
-can tell. Photonoxide's validation cases make that comparison on three cells, in the bump, the core
+to 3.2 × 10⁻¹² at $\delta$ = 0.32. The dashed line is what the fourth-order formula can resolve
+from powers of that precision: the fourth-order difference stays under it at every step, and the
+second-order difference until its truncation rises above it beyond $\delta = 10^{-2}$. Under the
+line, the adjoint gradient is exact to all the differences can tell. Photonoxide's validation cases make that comparison on three cells, in the bump, the core
 and the oxide, at $\delta = 4 \times 10^{-3}$: the largest relative difference is 3.2 × 10⁻⁸ with
 $E$ along $z$ and 2.1 × 10⁻⁹ with $H$ along $z$, each within the 1.6 × 10⁻⁷ and 2.1 × 10⁻⁷ the
 differences resolve. In 3D, eight values against fourth-order differences agree to 2.8 × 10⁻¹⁰ of
@@ -760,8 +764,9 @@ design of 10,240 cells, 17.3 s forward and 17.8 s adjoint
 written on. [George (1973)](https://doi.org/10.1137/0710032)'s nested dissection made the sparse
 factorization of a 2D grid cost $O(N^{3/2})$, and [Christ and Hartnagel (1987)](https://doi.org/10.1109/TMTT.1987.1133733)
 solved Maxwell's equations at one frequency in 3D as one sparse system, with mode amplitudes for
-the scattering matrix. Iterative solvers for such systems came with
-[Freund and Nachtigal (1991)](https://doi.org/10.1007/BF01385726)'s QMR; open boundaries with
+the scattering matrix, solved by biconjugate gradients;
+[Freund and Nachtigal (1991)](https://doi.org/10.1007/BF01385726)'s QMR is the iterative method
+photonoxide's 3D FDFD runs. Open boundaries came with
 [Chew and Weedon (1994)](https://doi.org/10.1002/mop.4650071304)'s stretched coordinates, which
 [Shin and Fan (2012)](https://doi.org/10.1016/j.jcp.2012.01.013) showed to keep the matrix well
 conditioned; one-way sources with [Rumpf (2012)](https://doi.org/10.2528/PIERB11092006).
