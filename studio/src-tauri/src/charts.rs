@@ -34,6 +34,7 @@ mod material;
 mod meta;
 mod mmi;
 mod modulator;
+mod nonlinear;
 mod slab;
 mod strip;
 
@@ -1090,6 +1091,7 @@ pub fn specs() -> Vec<ChartSpec> {
     .chain(meta::specs())
     .chain(fdfd::specs())
     .chain(modulator::specs())
+    .chain(nonlinear::specs())
     .collect()
 }
 
@@ -1485,6 +1487,31 @@ pub fn evaluate(id: &str, given: &BTreeMap<String, f64>) -> Result<ChartData, St
             at("length") * 1e-3,
         ),
         "pcm-shift" => modulator::pcm_shift(at("thickness"), at("width")),
+        "nl-miller" => nonlinear::miller(at("crystal"), at("from")),
+        "nl-coupled" => nonlinear::coupled(
+            at("process"),
+            at("efficiency"),
+            at("power"),
+            at("length") * 1e-3,
+            at("phase"),
+        ),
+        "nl-qpm" => nonlinear::qpm(at("order"), at("duty"), at("span")),
+        "nl-acceptance" => {
+            nonlinear::acceptance(at("fundamental"), at("length") * 1e-3, at("variable"))
+        }
+        "nl-ridge" => nonlinear::ridge(at("width"), at("etch"), at("fundamental")),
+        "nl-spm" => nonlinear::spm(at("phase")),
+        "nl-soliton" => nonlinear::soliton(at("order"), at("distance")),
+        "nl-fwm" => nonlinear::fwm_gain(
+            at("power"),
+            at("gamma"),
+            at("length"),
+            at("beta2"),
+            at("beta4"),
+        ),
+        "nl-lle-states" => nonlinear::lle_states(at("drive"), at("detuning")),
+        "nl-comb" => nonlinear::comb(at("detuning"), at("drive"), at("d2")),
+        "nl-jsa" => nonlinear::jsa(at("pump"), at("length") * 1e-3, at("idler"), at("matching")),
         "leaky-field" => leaky::field(at("order") as usize),
         "leaky-substrate" => leaky::substrate(at("oxide"), at("wavelength")),
         "bend-loss" => leaky::bend_loss(

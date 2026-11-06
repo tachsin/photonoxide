@@ -1487,6 +1487,7 @@ method_docs!(
     "materials.md",
     "multigrid-stencil.md",
     "multilayer.md",
+    "nonlinear.md",
     "phase-shifter.md",
     "pml.md",
     "recycling.md",
