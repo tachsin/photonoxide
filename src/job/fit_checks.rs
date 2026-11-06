@@ -426,14 +426,14 @@ pub(crate) fn cases() -> Vec<Case> {
             id: "device/compact-ring-closed-form",
             title: r"Devices' compact models: an all-pass ring's closed form fitted over its gap (0.15 to 0.25 µm, a grid of 7, 12 poles, a polynomial of degree 4, 41 wavelengths from 1.54 to 1.56 µm) as a job, then used as the design's compact fidelity: largest $\lvert\Delta S\rvert$ against the closed form at 4 gaps neither fitted nor held out, 201 wavelengths (shown)",
             tier: Tier::Analytic,
-            source: r"W. Bogaerts et al., Laser Photonics Rev. 6, 47 (published online 13 September 2011; the January 2012 issue), doi:10.1002/lpor.201100017, Eq. 1, through the ring device's analytic model; the model is P. Triverio et al.'s form, IEEE Trans. Adv. Packag. 32, 205 (2009), doi:10.1109/TADVP.2008.2007913, solved as C. K. Sanathanan and J. Koerner do, IEEE Trans. Autom. Control 8, 56 (1963), doi:10.1109/TAC.1963.1105517; 3.3e-7 here",
+            source: r"W. Bogaerts et al., Laser Photonics Rev. 6, 47 (published online 13 September 2011; the January 2012 issue), doi:10.1002/lpor.201100017, Eq. 1, through the ring device's analytic model; the model is P. Triverio et al.'s form, IEEE Trans. Adv. Packag. 32, 205 (2009), doi:10.1109/TADVP.2008.2007913, solved as C. K. Sanathanan and J. Koerner do, IEEE Trans. Autom. Control 8, 56 (1963), doi:10.1109/TAC.1963.1105517; 2.1e-7 to 3.6e-7 by system: the fit magnifies the last bits of the system's math library (2.1e-7 with glibc 2.39, 3.3e-7 with Windows', 3.6e-7 with glibc 2.43 on a processor with AVX-512)",
             run: ring_closed_form,
         },
         Case {
             id: "device/compact-ring-held-out",
             title: r"The same model's error at its 6 held-out samples (a Latin hypercube in the middle of its strata), the error its compact fidelity states (shown)",
             tier: Tier::Analytic,
-            source: "the closed form at gaps the fit didn't see; 2.9e-7 here, against 3.3e-7 between them (above)",
+            source: "the closed form at gaps the fit didn't see; 1.8e-7 to 3.2e-7 by system, against 2.1e-7 to 3.6e-7 between them (above)",
             run: ring_held_out,
         },
         Case {
