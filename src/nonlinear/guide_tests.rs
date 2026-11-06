@@ -424,8 +424,9 @@ fn the_sweep_on_the_slabs_solver_data_study() {
                 if stall == 0 {
                     assert_eq!(sweep.converged, reached, "h {h}, {tolerance:e}");
                 } else {
-                    // the roughness, 1.5e-13 on 2.5 nm cells, is far below the floor: no noise,
-                    // so the sweep runs on to its limit, and returns its least estimate's fit
+                    // the roughness, 1.0e-13 on 2.5 nm cells, is far below the floor, which isn't
+                    // the noise; a quarter of the steps show it, and the rule stops the sweep at
+                    // 49 samples with its least estimate's fit (6.2e-9, as at the limit of 60)
                     assert!(
                         sweep.converged || sweep.relative_error() <= least,
                         "h {h}, {tolerance:e}"

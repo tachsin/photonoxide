@@ -4,6 +4,7 @@ use num_complex::Complex64 as c64;
 use super::aaa::jacobi_for_tests;
 use super::checks;
 use super::*;
+use rayon::prelude::*;
 
 fn re(v: f64) -> c64 {
     c64::new(v, 0.0)
@@ -156,12 +157,29 @@ fn the_estimate_bounds_the_error_on_a_few_test_functions() {
 /// A smooth dispersion, 2 + 0.3 sin 1.5x + 0.1x², with noise of relative size `eta`: each
 /// sample's own, from its point's bits, so a sweep's samples don't depend on their order.
 fn noisy(x: f64, eta: f64) -> c64 {
-    let bits = x
-        .to_bits()
-        .wrapping_mul(6_364_136_223_846_793_005)
-        .wrapping_add(1_442_695_040_888_963_407);
+    noisy_seeded(x, eta, 0)
+}
+
+/// [`noisy`] with another realisation of its noise for each `seed` (0 is [`noisy`]'s own), each
+/// uniform in ±η: the point's bits and the seed's mixed by SplitMix64's output function.
+fn noisy_seeded(x: f64, eta: f64, seed: u64) -> c64 {
+    let bits = if seed == 0 {
+        x.to_bits()
+            .wrapping_mul(6_364_136_223_846_793_005)
+            .wrapping_add(1_442_695_040_888_963_407)
+    } else {
+        splitmix(x.to_bits() ^ splitmix(seed))
+    };
     let unit = (bits >> 11) as f64 / (1u64 << 53) as f64 * 2.0 - 1.0;
     re((2.0 + 0.3 * (1.5 * x).sin() + 0.1 * x * x) * (1.0 + eta * unit))
+}
+
+/// SplitMix64's output function (Steele, Lea and Flood, OOPSLA 2014): 64 bits mixed into 64.
+fn splitmix(z: u64) -> u64 {
+    let z = z.wrapping_add(0x9e37_79b9_7f4a_7c15);
+    let z = (z ^ (z >> 30)).wrapping_mul(0xbf58_476d_1ce4_e5b9);
+    let z = (z ^ (z >> 27)).wrapping_mul(0x94d0_49bb_1331_11eb);
+    z ^ (z >> 31)
 }
 
 #[test]
@@ -199,12 +217,36 @@ fn the_sweeps_floor_on_noisy_samples_study() {
     }
 }
 
-/// What a sweep of [`noisy`] gives at `tolerance`: whether it stalled, its calls, its measured
-/// roughness, its estimate and its fit's true error against the noiseless function, each
-/// relative to the largest |value|.
+/// One realisation of [`noisy`]'s noise: its seed ([`noisy_seeded`]), and every sample then
+/// multiplied by 1 + `ulps` ε, a change in its last bits as another system's `sin` or its
+/// rounding could make.
+#[derive(Clone, Copy, Debug)]
+struct Realisation {
+    seed: u64,
+    ulps: u32,
+}
+
+/// What a sweep of [`noisy`] gives at `tolerance`: the sweep, and its fit's true error against
+/// the noiseless function relative to the largest |value|.
 fn noisy_sweep(eta: f64, tolerance: f64, max_samples: usize) -> (Sweep, f64) {
+    noisy_sweep_of(
+        eta,
+        Realisation { seed: 0, ulps: 0 },
+        tolerance,
+        max_samples,
+    )
+}
+
+/// [`noisy_sweep`] of one realisation of the noise.
+fn noisy_sweep_of(
+    eta: f64,
+    noise: Realisation,
+    tolerance: f64,
+    max_samples: usize,
+) -> (Sweep, f64) {
+    let moved = 1.0 + f64::from(noise.ulps) * f64::EPSILON;
     let sweep = Sweep::run(
-        |x| Ok(noisy(x, eta)),
+        |x| Ok(noisy_seeded(x, eta, noise.seed) * moved),
         -1.0,
         1.0,
         &Options::new(tolerance)
@@ -220,27 +262,59 @@ fn noisy_sweep(eta: f64, tolerance: f64, max_samples: usize) -> (Sweep, f64) {
     (sweep, truth)
 }
 
+/// The noise levels of `the_stopping_rule_on_noisy_samples_study`'s ensemble.
+const NOISE_LEVELS: [f64; 9] = [1e-12, 1e-11, 1e-10, 1e-9, 1e-8, 1e-7, 1e-6, 1e-5, 1e-4];
+
+/// The levels `a_sweep_of_noisy_samples_stops_at_their_noise` sweeps.
+const UNIT_LEVELS: [f64; 3] = [1e-12, 1e-10, 1e-8];
+
 #[test]
 fn a_sweep_of_noisy_samples_stops_at_their_noise() {
     // a relative noise η, uniform in ±η: its root mean square is η/√3 of each value, about
     // 0.5 η of the largest; a tolerance of 1e-12 can't be met, and the sweep stops at the noise
-    // before its limit of 200 (measured: 190, 27 and 42 samples; the first one's estimate kept
-    // halving, slowly, to 8 η)
-    for eta in [1e-10, 1e-6, 1e-4] {
-        let (s, truth) = noisy_sweep(eta, 1e-12, 200);
-        let noise = s.noise.unwrap();
-        assert!(s.stalled && !s.converged, "{eta:e}");
-        assert!(s.calls() < 200, "{eta:e}: {}", s.calls());
+    // before its limit of 200, whatever the realisation. The promise is the ensemble's
+    // (the_stopping_rule_on_noisy_samples_study): at these levels 120 sweeps of 120
+    // stopped (30 seeds each, and seed 0 at 1e-10 moved by 0 to 29 ulps), each estimate at least
+    // its fit's true error. Here nine: seed 0, seed 0 moved by 4 ulps (on which the rule as #714
+    // left it, deciding at one step, ran to its limit at 1e-10) and seed 1, at each level.
+    // Measures and bases: the count of stops, at least 8 of 9 (with no miss in 120 the rate
+    // is at most 3 in 120 at 95 %, and two misses of nine then have a chance of 2 %); the
+    // median roughness over the stops, relative to η, within the ensemble's 5 % to 95 % points
+    // for one sweep at these levels, 0.54 to 41.47 (a median of eight or nine leaves them with
+    // a chance below 1e-4); and the estimate against the true error, every sweep
+    let realisations = [
+        Realisation { seed: 0, ulps: 0 },
+        Realisation { seed: 0, ulps: 4 },
+        Realisation { seed: 1, ulps: 0 },
+    ];
+    let cases: Vec<(f64, Realisation)> = UNIT_LEVELS
+        .into_iter()
+        .flat_map(|eta| realisations.map(|r| (eta, r)))
+        .collect();
+    let sweeps: Vec<(Sweep, f64)> = cases
+        .par_iter()
+        .map(|&(eta, r)| noisy_sweep_of(eta, r, 1e-12, 200))
+        .collect();
+    let mut rough = Vec::new();
+    for ((eta, r), (s, truth)) in cases.iter().zip(&sweeps) {
         assert!(
-            noise > 0.3 * eta && noise < 1.5 * eta,
-            "{eta:e}: roughness {noise:e}"
-        );
-        assert!(
-            truth <= s.relative_error() && s.relative_error() < 100.0 * eta,
-            "{eta:e}: true {truth:e}, estimate {:e}",
+            *truth <= s.relative_error(),
+            "{eta:e} {r:?}: true {truth:e}, estimate {:e}",
             s.relative_error()
         );
+        if s.stalled && s.calls() < 200 {
+            assert!(!s.converged, "{eta:e} {r:?}");
+            rough.push(s.noise.unwrap() / eta);
+        }
     }
+    let calls: Vec<usize> = sweeps.iter().map(|s| s.0.calls()).collect();
+    assert!(rough.len() >= 8, "{} of 9 stopped: {calls:?}", rough.len());
+    rough.sort_by(f64::total_cmp);
+    let median = rough[rough.len() / 2];
+    assert!(
+        (0.54..=41.47).contains(&median),
+        "the median roughness {median} η: {rough:?}"
+    );
     // a tolerance above the noise is met by the fits above it
     let (s, truth) = noisy_sweep(1e-8, 1e-6, 200);
     assert!(s.converged && s.noise.is_some() && truth <= s.relative_error());
@@ -306,21 +380,97 @@ fn the_stopping_rule_on_noiseless_sweeps_study() {
 #[test]
 #[ignore = "the noise-aware stopping rule on noisy samples (src/sweep.rs): in release, prints"]
 fn the_stopping_rule_on_noisy_samples_study() {
-    for eta in [0.0, 1e-12, 1e-10, 1e-8, 1e-6, 1e-4] {
-        for tolerance in [1e-12, 1e-8, 1e-6, 1e-4] {
-            let (s, truth) = noisy_sweep(eta, tolerance, 200);
+    // asked for 1e-12: 30 seeds at each of nine levels (the table in docs/methods/sweep.md), and
+    // seed 0 at 1e-10 with every sample moved by 0 to 29 ulps, as another system's last bits
+    let mut jobs: Vec<(f64, Realisation)> = NOISE_LEVELS
+        .into_iter()
+        .flat_map(|eta| (1..=30).map(move |seed| (eta, Realisation { seed, ulps: 0 })))
+        .collect();
+    jobs.extend((0..30).map(|ulps| (1e-10, Realisation { seed: 0, ulps })));
+    let started = std::time::Instant::now();
+    let done = std::sync::atomic::AtomicUsize::new(0);
+    let sweeps: Vec<(Sweep, f64)> = jobs
+        .par_iter()
+        .map(|&(eta, r)| {
+            let out = noisy_sweep_of(eta, r, 1e-12, 200);
+            let k = done.fetch_add(1, std::sync::atomic::Ordering::Relaxed) + 1;
+            let elapsed = started.elapsed().as_secs_f64();
             eprintln!(
-                "noise {eta:.0e} tol {tolerance:.0e}: converged {} stalled {} in {} noise {:.2e} \
-                 (ratio {:.2}) estimate {:.2e} true {truth:.2e}",
-                s.converged,
-                s.stalled,
-                s.calls(),
-                s.noise.unwrap_or(f64::NAN),
-                s.noise.unwrap_or(f64::NAN) / eta,
-                s.relative_error(),
+                "  {k}/{} ({:.0} %), {elapsed:.0} s, about {:.0} s to go",
+                jobs.len(),
+                100.0 * k as f64 / jobs.len() as f64,
+                elapsed / k as f64 * (jobs.len() - k) as f64
             );
-        }
+            out
+        })
+        .collect();
+    let family = |name: String, keep: &dyn Fn(f64, Realisation) -> bool| {
+        let rows: Vec<(f64, &Sweep, f64)> = jobs
+            .iter()
+            .zip(&sweeps)
+            .filter(|((eta, r), _)| keep(*eta, *r))
+            .map(|((eta, _), (s, truth))| (*eta, s, *truth))
+            .collect();
+        // the 5 %, 50 % and 95 % points of a quantity over the rows, and its largest
+        let spread = |v: &dyn Fn(&(f64, &Sweep, f64)) -> f64| {
+            let mut x: Vec<f64> = rows.iter().map(v).collect();
+            x.sort_by(f64::total_cmp);
+            let at = |q: f64| x[((x.len() - 1) as f64 * q).round() as usize];
+            (at(0.05), at(0.5), at(0.95), x[x.len() - 1])
+        };
+        let calls = spread(&|r| r.1.calls() as f64);
+        let rough = spread(&|r| r.1.noise.unwrap_or(f64::NAN) / r.0);
+        let estimate = spread(&|r| r.1.relative_error() / r.0);
+        let truth = spread(&|r| r.2 / r.0);
+        let bound = spread(&|r| r.2 / r.1.relative_error());
+        eprintln!(
+            "{name}: stopped {} of {}; 5 %, 50 %, 95 % and most: samples {:.0} {:.0} {:.0} {:.0}, roughness {:.2} {:.2} {:.2} {:.2} η, estimate {:.1} {:.1} {:.2e} {:.2e} η, true error {:.1} {:.1} {:.1} {:.1} η, true error over estimate at most {:.2}",
+            rows.iter()
+                .filter(|r| r.1.stalled && r.1.calls() < 200)
+                .count(),
+            rows.len(),
+            calls.0,
+            calls.1,
+            calls.2,
+            calls.3,
+            rough.0,
+            rough.1,
+            rough.2,
+            rough.3,
+            estimate.0,
+            estimate.1,
+            estimate.2,
+            estimate.3,
+            truth.0,
+            truth.1,
+            truth.2,
+            truth.3,
+            bound.3
+        );
+    };
+    for eta in NOISE_LEVELS {
+        family(format!("noise {eta:.0e}, 30 seeds"), &|e, r| {
+            e == eta && r.seed > 0
+        });
     }
+    family("all levels and seeds".into(), &|_, r| r.seed > 0);
+    // what a_sweep_of_noisy_samples_stops_at_their_noise's bands come from
+    family(
+        "noise 1e-12, 1e-10 and 1e-8, 30 seeds each, and seed 0 moved".into(),
+        &|e, _| UNIT_LEVELS.contains(&e),
+    );
+    family("noise 1e-10, seed 0, 0 to 29 ulps".into(), &|_, r| {
+        r.seed == 0
+    });
+    family("everything".into(), &|_, _| true);
+    // a tolerance above the noise, met by the fits above it
+    let (s, truth) = noisy_sweep(1e-10, 1e-8, 200);
+    eprintln!(
+        "noise 1e-10, seed 0, asked for 1e-8: converged {} in {} samples, estimate {:.1e}, true error {truth:.1e}",
+        s.converged,
+        s.calls(),
+        s.relative_error()
+    );
 }
 
 #[test]
