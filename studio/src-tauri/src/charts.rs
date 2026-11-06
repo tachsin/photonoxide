@@ -1476,13 +1476,15 @@ pub fn evaluate(id: &str, given: &BTreeMap<String, f64>) -> Result<ChartData, St
         "fdfd-gradient" => fdfd::gradient(at("polarization"), at("bump")),
         "fdfd-difference-step" => fdfd::difference_step(at("polarization"), at("probe")),
         "heater-power" => modulator::heater_power(at("kind"), at("strip")),
-        "mzm-transfer" => modulator::mzm_transfer(at("length"), at("bias"), at("frequency")),
+        "mzm-transfer" => {
+            modulator::mzm_transfer(at("length") * 1e-3, at("bias"), at("frequency"))
+        }
         "modulator-response" => modulator::modulator_response(
             at("mismatch"),
             at("loss"),
             at("dielectric"),
             at("impedance"),
-            at("length"),
+            at("length") * 1e-3,
         ),
         "pcm-shift" => modulator::pcm_shift(at("thickness"), at("width")),
         "leaky-field" => leaky::field(at("order") as usize),

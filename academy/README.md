@@ -23,6 +23,7 @@ moving a slider shows the physics the library computes, the code the
 | [Photonic crystals and band gaps](photonic-crystals.md) | advanced | `crystal` | `crystal-stack`, `crystal-bands`, `crystal-group-index` |
 | [Metasurfaces and metalenses](metasurfaces.md) | advanced | `metalens` | `meta-orders`, `meta-pillar`, `meta-focus`, `meta-axis`, `meta-bandwidth` |
 | [FDFD and adjoint gradients](fdfd-and-adjoints.md) | advanced | `fdfd` | `fdfd-convergence`, `fdfd-gradient`, `fdfd-difference-step` |
+| [Modulators and phase shifters](modulators.md) | intermediate | `modulator` | `heater-power`, `mzm-transfer`, `modulator-response`, `pcm-shift` |
 
 The whole curriculum is laid out: every lesson still to be written is here too, **coming soon**,
 with its numbered subsections, what each will answer and the examples each will use, so writing
@@ -34,7 +35,6 @@ it is filling them in. The library lists them in this order, the order to read t
 | [Surface plasmons and Mie scattering](plasmonics.md) | Nanophotonics | advanced | `lorentz_okoniewski` |
 | [How FDTD works](how-fdtd-works.md) | Numerical methods | intermediate | `cpml_roden_gedney`, `pml_oskooi`, `tfsf_square_cylinder`, `subpixel_holes`, `bump_oskooi`, `lorentz_okoniewski` |
 | [Inverse design](inverse-design.md), with 0.7 | Numerical methods | advanced | `circuit_splitter`, `circuit_ring_critical`, `circuit_fit` |
-| [Modulators and phase shifters](modulators.md), with 0.6 | Active and quantum photonics | intermediate | |
 | [Nonlinear integrated optics](nonlinear-optics.md), with 0.6.1 | Active and quantum photonics | advanced | |
 | [Quantum light on a chip](quantum-light.md), with 0.6.3 | Active and quantum photonics | advanced | |
 
@@ -203,6 +203,7 @@ shows first.
 | `metalens` | a metalens in section: pillars of height $H$ and widths $w$, one every period $p$, on a substrate, lit from below by a plane wave, their widths repeating zone by zone with the wrapped phase $\varphi(r) = -k(\sqrt{r^2 + f^2} - f)$; the wave converging on the focus a focal length $f$ above, the rim's ray at $\theta$, $\mathrm{NA} = \sin\theta$, the half-width $R$; beside it a nanofin from above, rotated by $\alpha$, whose converted light carries the phase $2\alpha$, and $\varphi$ against $r$ | none |
 | `fdfd` | a 2D FDFD problem: a grid closed by PMLs ($\partial_w \to s_w^{-1}\partial_w$), a guide through it, a source $b$, a monitor measuring $a = c^\mathsf{T}x$ and between them a design region of cells $\varepsilon_k$; the forward field $x$ of $A(\varepsilon)\,x = b$ travelling from the source and the adjoint field $\lambda$ of $A^\mathsf{T}\lambda = \partial F/\partial x$ travelling back from the monitor, and $dF/d\varepsilon_k = -2\operatorname{Re}(\lambda^\mathsf{T}\,\partial_kA\,x)$; beside it Yee's 2D grid for $E$ along $z$, $E_z$ at the centres and $H_x$, $H_y$ on the faces, and the five-point stencil | none |
 | `mmi` | a 1 × 2 MMI from above: a section $W$ wide and $L = 3L_\pi/8$ long fed in its middle by a guide $w_a$ wide, the light inside it computed from Soldano and Pennings's sine-like modes and quadratic phases, the input's spot opening into two images at the far face, the outputs at $\pm W/4$, $z$ along it; beneath, the first four modes $\psi_0 \ldots \psi_3$ across $W$, $\beta_0 - \beta_\nu \approx \nu(\nu + 2)\pi/3L_\pi$ and $L_\pi \approx 4n_rW_e^2/3\lambda_0$ | `mmi-fdfd.yaml` |
+| `modulator` | a push–pull Mach–Zehnder modulator from above: two arms in the gaps of a ground–signal–ground electrode $L$ long, the RF wave $n_m$ from $R_G$ into $R_L$ beside the light $n_o$, the field $\pm E$ opposite in the two gaps; beneath it in section, x-cut thin-film lithium niobate, two ribs in gaps $g$ wide, the $c$ axis across and $\Delta n_e = -\tfrac12 n_e^3 r_{33} E$; and a thermo-optic shifter in section, a heater $h$ above a strip dissipating $P'$, its heat spreading to the substrate at $T_0$, $\Delta n = (dn/dT)\,\Delta T$ | none |
 
 Each diagram is an entry in `studio/src-tauri/src/diagrams.rs` (its title, its captions, and its
 job if it has one) and an SVG drawn by a component in `studio/src/components/diagrams/`, named
@@ -270,6 +271,10 @@ code; the window only draws what it returns, and asks again as a slider moves.
 | `fdfd-gradient` | `polarization` (1), `bump` $\varepsilon_b$ (6) | `Solver2d::from_cells` on the slab and bump of `fdfd/adjoint-gradient-ez`, 20 nm cells, `mode_source` and `solve_system`: the forward field, the right port's mode launched backwards, and `mode_power_gradient` in a window of 3,000 cells; a fourth-order central difference at one cell by `reuse_cells` as the check |
 | `fdfd-difference-step` | `polarization` (1), `probe` (1 bump, 2 core, 3 oxide) | the same problem: `mode_power_gradient` at the cell against second- and fourth-order central differences of the power, 4 solves at each of 12 steps from 10⁻⁶ to 10⁻⁰·⁵; the round-off bound from `Solver2d::residual` |
 | `crystal-bands` | `lattice` (1 square, 2 triangular), `kind` (1 rods, 2 holes), `eps` $\varepsilon$ (8.9), `radius` $r/a$ (0.2) | `fdtd::Simulation::smoothed` on one cell between Bloch-periodic sides, 2D, 24 cells a lattice constant, the subpixel average's diagonal; one complex run a k-point along the zone's edge, `fdtd::harmonic_inversion` on $E_z$ (TM) and $H_z$ (TE) probes; the triangular lattice on a rectangle of two sites, its folded bands cancelled by probes one lattice vector apart |
+| `heater-power` | `kind` (1 TiN above a strip, 2 N++ in the slab), `strip` $w$ µm (0.5) | `device::ThermoShifter::metal` and `::doped` at the analytic fidelity (`Device::derived`), $P_\pi$, the 1/e time and $f_{3\,\mathrm{dB}}$ at 21 heights from 1 to 3 µm or 25 distances from 0.4 to 1.6 µm; $P_\pi\tau$ and $2\pi f_{3\,\mathrm{dB}}\tau$ |
+| `mzm-transfer` | `length` µm (5800), `bias` $\varphi_0/\pi$ (0.5), `frequency` GHz (0) | `device::TflnModulator` at the 2D fidelity: `Device::component`'s $\lvert S_{21}\rvert^2$ at 81 voltages over $\pm 2V_\pi$, at the frequency and at DC; $V_\pi L$, $\lvert m(f)\rvert$ and the slope at the bias |
+| `modulator-response` | `mismatch` $n_m - n_o$ (0.04), `loss` $a$ dB cm⁻¹ GHz⁻½ (0.42), `dielectric` $b$ dB cm⁻¹ GHz⁻¹ (0.025), `impedance` Ω (41.5), `length` µm (5800) | `electro::line::response` (Ghione's Eq. 6.31) between 50 Ω ends beside light of group index 2.26, from 1 to 300 GHz referred to 1 GHz, `falls_to` for the bandwidths; the limits $\lvert\sin U/U\rvert$ and $(1 - e^{-\alpha L})/(\alpha L)$ |
+| `pcm-shift` | `thickness` nm (25), `width` µm (0.5) | `device::PcmShifter::sb2se3`, `::sb2s3` and `::gst` at the analytic fidelity: $\Delta n_\mathrm{eff}$ amorphous to crystalline at 17 film thicknesses from 10 to 50 nm, on a logarithmic scale; the crystalline loss, $L_\pi$ and the figure of merit at the thickness |
 
 The ranges are in `charts.rs` (the coupler's in `charts/coupler.rs`), and the window's sliders keep
 to them. A chart may draw its y axis on a logarithmic scale (`y_log`), and give curves that belong
@@ -304,6 +309,12 @@ factorized once, with 4 more factorizations for its check; the step study's 48 f
 parallel. Their three unit tests, which compute all of them, take 3.1 s together on 6 threads; each chart is cached by its
 parameters, and checked against the exact slab's orders and against fourth-order differences to
 the validation cases' 10⁻⁶.
+The modulators' charts (`charts/modulator.rs`) call the library's active devices and the
+electrode's response: the heaters' and the phase-change cells' closed forms, exact and in
+milliseconds; the TFLN modulator's 2D cross-section, solved once, in seconds, and cached
+by the device, so its voltage, bias and frequency redraw at once; and Ghione's response, exact.
+Their unit tests check each curve against the device's own figures, the examples' printed numbers
+and the response's closed-form limits.
 A chart may draw pictures of a field over a cross-section in place of curves (`maps`), side by
 side with one colour scale, as `strip-fields` does.
 

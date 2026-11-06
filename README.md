@@ -42,8 +42,8 @@ It is released milestone by milestone ([changelog](CHANGELOG.md), [roadmap](ROAD
   fabrication, each setting out its method, its limits and the papers it implements; their
   front matter cites 255 distinct sources by DOI.
 - **[Academy](academy/README.md):** lessons on devices and numerical methods at three depths,
-  each opening on a drawing of its device, with charts the library computes live; 14 written,
-  and 7 more laid out section by section, read on GitHub or in the studio.
+  each opening on a drawing of its device, with charts the library computes live; 15 written,
+  and 6 more laid out section by section, read on GitHub or in the studio.
 - **[Fabrication](docs/methods/fabrication.md):** the process flow that would make a design, each
   step with its reason, its alternatives and what its process can achieve, as its source states
   it; 56 processes on 5 platforms, every flow executed back to its design and shown step by step
