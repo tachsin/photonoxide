@@ -21,6 +21,7 @@ moving a slider shows the physics the library computes, the code the
 | [How a chip is made](how-a-chip-is-made.md) | introductory | `process` | `fab-resolution`, `fab-oxidation` |
 | [Multimode interference couplers](mmi.md) | intermediate | `mmi` | `mmi-field`, `mmi-modes`, `mmi-length`, `mmi-spectrum`, `mmi-tolerance` |
 | [Photonic crystals and band gaps](photonic-crystals.md) | advanced | `crystal` | `crystal-stack`, `crystal-bands`, `crystal-group-index` |
+| [Metasurfaces and metalenses](metasurfaces.md) | advanced | `metalens` | `meta-orders`, `meta-pillar`, `meta-focus`, `meta-axis`, `meta-bandwidth` |
 
 The whole curriculum is laid out: every lesson still to be written is here too, **coming soon**,
 with its numbered subsections, what each will answer and the examples each will use, so writing
@@ -30,7 +31,6 @@ it is filling them in. The library lists them in this order, the order to read t
 |---|---|---|---|
 | [Crossings, mode converters and the polarization splitter-rotator](crossings-and-converters.md) | Multimode and polarization devices | advanced | `crossing_liu_poon`, `mode_converter_liu_poon`, `splitter_rotator_liu_poon` |
 | [Surface plasmons and Mie scattering](plasmonics.md) | Nanophotonics | advanced | `lorentz_okoniewski` |
-| [Metasurfaces and metalenses](metasurfaces.md) | Nanophotonics | advanced | |
 | [How FDTD works](how-fdtd-works.md) | Numerical methods | intermediate | `cpml_roden_gedney`, `pml_oskooi`, `tfsf_square_cylinder`, `subpixel_holes`, `bump_oskooi`, `lorentz_okoniewski` |
 | [FDFD and adjoint gradients](fdfd-and-adjoints.md) | Numerical methods | advanced | |
 | [Inverse design](inverse-design.md), with 0.7 | Numerical methods | advanced | `circuit_splitter`, `circuit_ring_critical`, `circuit_fit` |
@@ -200,6 +200,7 @@ shows first.
 | `strip` | a strip in section: the core $n_1$, $w$ wide and $t$ thick, in the cladding $n_2$ on a buried oxide $h$ thick over the substrate, $x$, $y$ and $z$; the TE-like mode's field with its main $E_x$, the four corners and Marcatili's four corner regions; and the effective index method's two slabs, across $t$ giving $N$ and across $w$ giving $n_\text{eff}$ | `strip-modes.yaml` |
 | `process` | five cross-sections of one wafer as a silicon strip is made: the SOI wafer, a film $t$ thick on a buried oxide $h$ thick over the handle; resist coated and exposed through a mask by light of wavelength $\lambda$ through a lens of numerical aperture NA; the resist developed, a line $w$ wide; the silicon etched down to the oxide, where it stops; the resist stripped and the strip clad in oxide | none |
 | `leaky` | a planar guide in section, the cover $n_c$, films $n_1 \ldots n_J$ and a substrate $n_s$ above $\operatorname{Re} n_\text{eff}$, the mode along $z$ shedding a plane wave into the substrate at $\theta$, weaker downstream, and its field $\lvert\psi(x)\rvert$ growing into the substrate as $e^{ik\alpha_s x}$; and a guide $n_1$ in $n_2$ bent at $R$ about $O$, its radial phase fronts, $e^{i\nu\varphi}$ with $\nu = kn_\text{eff}R$, and the radius $\rho_r = R\thinspace n_\text{eff}/n_2$ beyond which it radiates | none |
+| `metalens` | a metalens in section: pillars of height $H$ and widths $w$, one every period $p$, on a substrate, lit from below by a plane wave, their widths repeating zone by zone with the wrapped phase $\varphi(r) = -k(\sqrt{r^2 + f^2} - f)$; the wave converging on the focus a focal length $f$ above, the rim's ray at $\theta$, $\mathrm{NA} = \sin\theta$, the half-width $R$; beside it a nanofin from above, rotated by $\alpha$, whose converted light carries the phase $2\alpha$, and $\varphi$ against $r$ | none |
 | `mmi` | a 1 × 2 MMI from above: a section $W$ wide and $L = 3L_\pi/8$ long fed in its middle by a guide $w_a$ wide, the light inside it computed from Soldano and Pennings's sine-like modes and quadratic phases, the input's spot opening into two images at the far face, the outputs at $\pm W/4$, $z$ along it; beneath, the first four modes $\psi_0 \ldots \psi_3$ across $W$, $\beta_0 - \beta_\nu \approx \nu(\nu + 2)\pi/3L_\pi$ and $L_\pi \approx 4n_rW_e^2/3\lambda_0$ | `mmi-fdfd.yaml` |
 
 Each diagram is an entry in `studio/src-tauri/src/diagrams.rs` (its title, its captions, and its
@@ -257,6 +258,11 @@ code; the window only draws what it returns, and asks again as a slider moves.
 | `mmi-length` | `kind` (1: 1 × 2, 2: 2 × 2), `width` µm (3), `access` µm (0.8) | `Mmi::analysis`, `MmiModes::s_matrix` at 401 lengths to $1.25L_\pi$: each output, and the excess loss, imbalance and phase difference at the first two-fold image and where the weaker output peaks |
 | `mmi-spectrum` | `kind` (1), `width` µm (3), `access` µm (0.8) | `Mmi::analysis` at 121 wavelengths from 1.40 to 1.70 µm (`material::silicon`, `material::silica`), cut at the best length at 1.55 µm; the band where excess loss and imbalance stay under 1 dB |
 | `mmi-tolerance` | `kind` (1), `width` µm (3), `access` µm (0.8), `thickness` nm (220) | `Mmi::analysis_at` with the guides' centres in place and every drawn width $\Delta w$ wider, −250 to 250 nm, cut at the best length on 220 nm; Soldano and Pennings's Eqs. 39 and 40 beside it |
+| `meta-orders` | `wavelength` µm (0.6), `period` nm (375), `pillars` $N$ (4), `angle` ° (0), `n_in` (1), `n_out` (1) | the grating equation $n_t\sin\theta_m = n_i\sin\theta_i + m\lambda/\Gamma$, $\Gamma = Np$, and the $N$-step staircase's Fourier series, $\mathrm{sinc}^2(m/N)$ where $m - 1$ is a multiple of $N$ |
+| `meta-pillar` | `period` nm (600), `height` nm (1000), `wavelength` µm (1.55) | `fdtd::Simulation::new` on one period of silicon ridges on silica between periodic sides (`Edges::Bloch`, $k = 0$), 2D, 20 nm cells, a sheet of `Current` and `add_dft`, divided by the run with no ridge; `Slab::modes` for the waveguide picture $(n_\text{eff} - 1)k_0H$ |
+| `meta-focus` | `na` (0.6), `focal` µm (20), `period` nm (600), `levels` $N$ (8; 0 for every phase) | a cylindrical lens's hyperbolic phase held over each pillar's cell and rounded to $N$ levels, propagated by the 2D Rayleigh–Sommerfeld integral in its far-zone form on steps of λ/20, summed in the studio |
+| `meta-axis` | `na` (0.3), `focal` µm (150), `wavelength` µm (1.45) | the same lens designed at 1.55 µm, its wrapped phase scaled by λ₀/λ, the intensity along its axis; $f\lambda_0/\lambda$ |
+| `meta-bandwidth` | `na` (0.24), `focal` µm (200), `thickness` µm (0.8), `index` (3.674), `centre` µm (1.454) | Presutti and Monticone's Eqs. 10–12: the bounds for resonant meta-atoms, Tucker's for waveguides and Miller's for any structure, against NA |
 | `crystal-stack` | `high` $\varepsilon_1$ (13), `low` $\varepsilon_2$ (1), `fill` $d_1/a$ (0.2) | `Multilayer::reflection`: one period's $t$, $\cos Ka = \operatorname{Re}(1/t)$ at 2000 frequencies to $\omega a/2\pi c = 1$, the band edges bisected; the quarter-wave stack's gap |
 | `crystal-group-index` | `high` $\varepsilon_1$ (13), `low` $\varepsilon_2$ (1), `fill` $d_1/a$ (0.2), `frequency` $\omega a/2\pi c$ (0.15) | `Multilayer::reflection` as above, $n_g = c\,dK/d\omega$ by a central difference of 10⁻⁶ of the frequency; $\sqrt{\langle\varepsilon\rangle}$ |
 | `crystal-bands` | `lattice` (1 square, 2 triangular), `kind` (1 rods, 2 holes), `eps` $\varepsilon$ (8.9), `radius` $r/a$ (0.2) | `fdtd::Simulation::smoothed` on one cell between Bloch-periodic sides, 2D, 24 cells a lattice constant, the subpixel average's diagonal; one complex run a k-point along the zone's edge, `fdtd::harmonic_inversion` on $E_z$ (TM) and $H_z$ (TE) probes; the triangular lattice on a rectangle of two sites, its folded bands cancelled by probes one lattice vector apart |
@@ -283,6 +289,11 @@ The photonic crystal's charts (`charts/crystal.rs`) are of two kinds: the 1D cry
 transfer matrices in milliseconds, and the 2D crystal's, FDTD runs between Bloch-periodic sides,
 one a k-point, about a second for a band diagram, cached by geometry; their gaps are checked against
 Joannopoulos et al.'s in unit tests.
+The metasurface's charts (`charts/meta.rs`) are of three kinds: exact closed forms (the grating's
+orders and the bandwidth bounds) in milliseconds; scalar 2D propagation of a lens's phase, summed in
+the studio with no library function behind it, in tens of milliseconds; and the pillar's 2D FDTD
+unit cells, 31 runs between periodic sides in parallel, a few seconds, cached by geometry, checked
+in unit tests against the transfer matrices for a film and against a finer grid.
 A chart may draw pictures of a field over a cross-section in place of curves (`maps`), side by
 side with one colour scale, as `strip-fields` does.
 
