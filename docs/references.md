@@ -2,7 +2,7 @@
 
 <!-- Written by `photonoxide references --write` (or `just references`) from docs/references.yaml and the citations in the repository: edit those, not this page. -->
 
-Every paper, book and data set photonoxide cites, with every place in the repository that cites it, by file and line. 568 sources, 564 with a DOI and 4 without, are cited at 2985 places in 384 files. The sources are listed by their first author; [references-by-file.md](references-by-file.md) lists each methods page, lesson, example and source file with the sources it cites, and the [validation report](validation.md) gives each case's source on its row. How to cite a source is in [CONTRIBUTING.md](../CONTRIBUTING.md#citing-a-source); the list of sources is [references.yaml](references.yaml).
+Every paper, book and data set photonoxide cites, with every place in the repository that cites it, by file and line. 573 sources, 569 with a DOI and 4 without, are cited at 3010 places in 385 files. The sources are listed by their first author; [references-by-file.md](references-by-file.md) lists each methods page, lesson, example and source file with the sources it cites, and the [validation report](validation.md) gives each case's source on its row. How to cite a source is in [CONTRIBUTING.md](../CONTRIBUTING.md#citing-a-source); the list of sources is [references.yaml](references.yaml).
 
 [A](#a) · [B](#b) · [C](#c) · [D](#d) · [E](#e) · [F](#f) · [G](#g) · [H](#h) · [I](#i) · [J](#j) · [K](#k) · [L](#l) · [M](#m) · [N](#n) · [O](#o) · [P](#p) · [Q](#q) · [R](#r) · [S](#s) · [T](#t) · [U](#u) · [V](#v) · [W](#w) · [X](#x) · [Y](#y) · [Z](#z)
 
@@ -195,6 +195,12 @@ A. Arbabi, L. L. Goddard, "Measurements of the refractive indices and thermo-opt
 - Methods pages: [catalogue.md:16](methods/catalogue.md?plain=1#L16)
 - Validation cases: [`material/silicon-nitride-room`](validation.md?plain=1#L31), [`material/silicon-nitride-arbabi-table-2`](validation.md?plain=1#L32)
 - Code: [src/material/catalogue/references.rs:130](../src/material/catalogue/references.rs#L130), [src/material/catalogue/thermo.rs:16](../src/material/catalogue/thermo.rs#L16), [481](../src/material/catalogue/thermo.rs#L481), [485](../src/material/catalogue/thermo.rs#L485), [488](../src/material/catalogue/thermo.rs#L488), [src/validation.rs:242](../src/validation.rs#L242), [249](../src/validation.rs#L249)
+
+#### Arbabi et al. 2015
+
+A. Arbabi, Y. Horie, A. J. Ball, M. Bagheri, A. Faraon, "Subwavelength-thick lenses with high numerical apertures and large efficiency based on high-contrast transmitarrays", Nat Commun 6, 7069 (2015). [doi:10.1038/ncomms8069](https://doi.org/10.1038/ncomms8069)
+
+- Academy lessons: [metasurfaces.md:17](../academy/metasurfaces.md?plain=1#L17), [191](../academy/metasurfaces.md?plain=1#L191), [549](../academy/metasurfaces.md?plain=1#L549)
 
 #### Arcari et al. 2014
 
@@ -671,6 +677,7 @@ X. Chen, C. Li, C. K. Y. Fung, S. M. G. Lo, H. K. Tsang, "Apodized Waveguide Gra
 
 M. Chen, R. E. Christiansen, J. A. Fan, G. Işiklar, J. Jiang, S. G. Johnson, W. Ma, O. D. Miller, A. Oskooi, M. F. Schubert, et al., "Validation and characterization of algorithms and software for photonics inverse design", J. Opt. Soc. Am. B 41, A161 (2024). [doi:10.1364/JOSAB.506412](https://doi.org/10.1364/JOSAB.506412)
 
+- Academy lessons: [metasurfaces.md:59](../academy/metasurfaces.md?plain=1#L59), [501](../academy/metasurfaces.md?plain=1#L501), [559](../academy/metasurfaces.md?plain=1#L559)
 - Other documents: [ROADMAP.md:828](../ROADMAP.md?plain=1#L828), [docs/plans/optimization.md:601](plans/optimization.md?plain=1#L601)
 
 #### Cheng and Chrostowski 2021
@@ -1039,6 +1046,7 @@ I. Efthimiopoulos, J. Zhang, M. Kucway, C. Park, R. C. Ewing, Y. Wang, "Sb2Se3 u
 
 M. M. R. Elsawy, S. Lanteri, R. Duvigneau, G. Brière, M. S. Mohamed, P. Genevet, "Global optimization of metasurface designs using statistical learning methods", Sci Rep 9, 17918 (2019). [doi:10.1038/s41598-019-53878-9](https://doi.org/10.1038/s41598-019-53878-9), open access.
 
+- Academy lessons: [metasurfaces.md:41](../academy/metasurfaces.md?plain=1#L41), [148](../academy/metasurfaces.md?plain=1#L148), [558](../academy/metasurfaces.md?plain=1#L558)
 - Other documents: [docs/plans/optimization.md:613](plans/optimization.md?plain=1#L613)
 
 #### Elshaari et al. 2016
@@ -1763,6 +1771,7 @@ T. W. Hughes, I. A. D. Williamson, M. Minkov, S. Fan, "Forward-Mode Differentiat
 
 T. W. Hughes, M. Minkov, V. Liu, Z. Yu, S. Fan, "A perspective on the pathway toward full wave simulation of large area metalenses", Applied Physics Letters 119, 150502 (2021). [doi:10.1063/5.0071245](https://doi.org/10.1063/5.0071245), open access.
 
+- Academy lessons: [metasurfaces.md:53](../academy/metasurfaces.md?plain=1#L53), [478](../academy/metasurfaces.md?plain=1#L478), [561](../academy/metasurfaces.md?plain=1#L561)
 - Other documents: [docs/plans/performance.md:624](plans/performance.md?plain=1#L624)
 
 ### I
@@ -2059,6 +2068,12 @@ P. Kharel, C. Reimer, K. Luke, L. He, M. Zhang, "Breaking voltage–bandwidth li
 - Jobs and circuits: [jobs/tfln-segmented.yaml:2](../jobs/tfln-segmented.yaml#L2)
 - Other documents: [ROADMAP.md:783](../ROADMAP.md?plain=1#L783)
 
+#### Khorasaninejad et al. 2016
+
+M. Khorasaninejad, W. T. Chen, R. C. Devlin, J. Oh, A. Y. Zhu, F. Capasso, "Metalenses at visible wavelengths: Diffraction-limited focusing and subwavelength resolution imaging", Science 352, 1190 (2016). [doi:10.1126/science.aaf6644](https://doi.org/10.1126/science.aaf6644)
+
+- Academy lessons: [metasurfaces.md:23](../academy/metasurfaces.md?plain=1#L23), [83](../academy/metasurfaces.md?plain=1#L83), [550](../academy/metasurfaces.md?plain=1#L550)
+
 #### Killoran et al. 2019
 
 N. Killoran, J. Izaac, N. Quesada, V. Bergholm, M. Amy, C. Weedbrook, "Strawberry Fields: A Software Platform for Photonic Quantum Computing", Quantum 3, 129 (2019). [doi:10.22331/q-2019-03-11-129](https://doi.org/10.22331/q-2019-03-11-129), open access.
@@ -2163,6 +2178,12 @@ J. Krupka, J. Breeze, A. Centeno, N. Alford, T. Claussen, L. Jensen, "Measuremen
 - Code: [src/material/catalogue/references.rs:641](../src/material/catalogue/references.rs#L641), [src/material/catalogue/rf.rs:9](../src/material/catalogue/rf.rs#L9), [src/validation.rs:326](../src/validation.rs#L326)
 
 ### L
+
+#### Lalanne and Chavel 2017
+
+P. Lalanne, P. Chavel, "Metalenses at visible wavelengths: past, present, perspectives", Laser & Photonics Reviews 11, 1600295 (2017). [doi:10.1002/lpor.201600295](https://doi.org/10.1002/lpor.201600295)
+
+- Academy lessons: [metasurfaces.md:29](../academy/metasurfaces.md?plain=1#L29), [89](../academy/metasurfaces.md?plain=1#L89), [563](../academy/metasurfaces.md?plain=1#L563)
 
 #### Lalau-Keraly et al. 2013
 
@@ -3004,6 +3025,12 @@ R. W. Powell, C. Y. Ho, P. E. Liley, "Thermal conductivity of selected materials
 - Validation cases: [`material/conductivity-tables`](validation.md?plain=1#L33)
 - Code: [src/material/catalogue/conductivity.rs:13](../src/material/catalogue/conductivity.rs#L13), [src/material/catalogue/references.rs:459](../src/material/catalogue/references.rs#L459), [src/validation.rs:256](../src/validation.rs#L256)
 
+#### Presutti and Monticone 2020
+
+F. Presutti, F. Monticone, "Focusing on bandwidth: achromatic metalens limits", Optica 7, 624 (2020). [doi:10.1364/OPTICA.389404](https://doi.org/10.1364/OPTICA.389404)
+
+- Academy lessons: [metasurfaces.md:47](../academy/metasurfaces.md?plain=1#L47), [422](../academy/metasurfaces.md?plain=1#L422), [557](../academy/metasurfaces.md?plain=1#L557), [565](../academy/metasurfaces.md?plain=1#L565)
+
 #### Probst et al. 2024
 
 M. J. Probst, A. Khurana, J. B. Slaby, A. M. Hammond, S. E. Ralph, "Fabrication tolerant multi-layer integrated photonic topology optimization", Opt. Express 32, 31448 (2024). [doi:10.1364/OE.527442](https://doi.org/10.1364/OE.527442)
@@ -3396,6 +3423,12 @@ G. H. Shortley, R. Weller, "The Numerical Solution of Laplace's Equation", Journ
 - Methods pages: [static.md:10](methods/static.md?plain=1#L10)
 - Validation cases: [`static/coaxial`](validation.md?plain=1#L518)
 - Code: [src/cases/statics/checks.rs:878](../src/cases/statics/checks.rs#L878), [src/statics.rs:34](../src/statics.rs#L34)
+
+#### Shrestha et al. 2018
+
+S. Shrestha, A. C. Overvig, M. Lu, A. Stein, N. Yu, "Broadband achromatic dielectric metalenses", Light Sci Appl 7, 85 (2018). [doi:10.1038/s41377-018-0078-x](https://doi.org/10.1038/s41377-018-0078-x), open access.
+
+- Academy lessons: [metasurfaces.md:35](../academy/metasurfaces.md?plain=1#L35), [445](../academy/metasurfaces.md?plain=1#L445), [556](../academy/metasurfaces.md?plain=1#L556)
 
 #### Siew et al. 2021
 

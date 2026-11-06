@@ -163,6 +163,12 @@
   venue: "Opt. Lett. 38, 3878"
   year: 2013
 
+- doi: 10.1038/ncomms8069
+  authors: "A. Arbabi, Y. Horie, A. J. Ball, M. Bagheri, A. Faraon"
+  title: "Subwavelength-thick lenses with high numerical apertures and large efficiency based on high-contrast transmitarrays"
+  venue: "Nat Commun 6, 7069"
+  year: 2015
+
 - doi: 10.1103/PhysRevLett.113.093603
   authors: "M. Arcari, I. Söllner, A. Javadi, S. Lindskov Hansen, S. Mahmoodian, J. Liu, H. Thyrrestrup, E. H. Lee, J. D. Song, S. Stobbe, et al."
   title: "Near-Unity Coupling Efficiency of a Quantum Emitter to a Photonic Crystal Waveguide"
@@ -1684,6 +1690,12 @@
   venue: "Optica 8, 357"
   year: 2021
 
+- doi: 10.1126/science.aaf6644
+  authors: "M. Khorasaninejad, W. T. Chen, R. C. Devlin, J. Oh, A. Y. Zhu, F. Capasso"
+  title: "Metalenses at visible wavelengths: Diffraction-limited focusing and subwavelength resolution imaging"
+  venue: "Science 352, 1190"
+  year: 2016
+
 - doi: 10.22331/q-2019-03-11-129
   authors: "N. Killoran, J. Izaac, N. Quesada, V. Bergholm, M. Amy, C. Weedbrook"
   title: "Strawberry Fields: A Software Platform for Photonic Quantum Computing"
@@ -1769,6 +1781,12 @@
   title: "Measurements of Permittivity, Dielectric Loss Tangent, and Resistivity of Float-Zone Silicon at Microwave Frequencies"
   venue: "IEEE Trans. Microwave Theory Techn. 54, 3995"
   year: 2006
+
+- doi: 10.1002/lpor.201600295
+  authors: "P. Lalanne, P. Chavel"
+  title: "Metalenses at visible wavelengths: past, present, perspectives"
+  venue: "Laser & Photonics Reviews 11, 1600295"
+  year: 2017
 
 - doi: 10.1364/OE.21.021693
   authors: "C. M. Lalau-Keraly, S. Bhargava, O. D. Miller, E. Yablonovitch"
@@ -2461,6 +2479,12 @@
   venue: "National Bureau of Standards"
   year: 1966
 
+- doi: 10.1364/OPTICA.389404
+  authors: "F. Presutti, F. Monticone"
+  title: "Focusing on bandwidth: achromatic metalens limits"
+  venue: "Optica 7, 624"
+  year: 2020
+
 - doi: 10.1364/OE.527442
   authors: "M. J. Probst, A. Khurana, J. B. Slaby, A. M. Hammond, S. E. Ralph"
   title: "Fabrication tolerant multi-layer integrated photonic topology optimization"
@@ -2794,6 +2818,13 @@
   title: "The Numerical Solution of Laplace's Equation"
   venue: "Journal of Applied Physics 9, 334"
   year: 1938
+
+- doi: 10.1038/s41377-018-0078-x
+  authors: "S. Shrestha, A. C. Overvig, M. Lu, A. Stein, N. Yu"
+  title: "Broadband achromatic dielectric metalenses"
+  venue: "Light Sci Appl 7, 85"
+  year: 2018
+  open: https://doi.org/10.1038/s41377-018-0078-x
 
 - doi: 10.1109/JLT.2021.3066203
   authors: "S. Y. Siew, B. Li, F. Gao, H. Y. Zheng, W. Zhang, P. Guo, S. W. Xie, A. Song, B. Dong, L. W. Luo, et al."
