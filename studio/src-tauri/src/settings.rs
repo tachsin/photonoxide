@@ -43,6 +43,13 @@ pub struct Settings {
     /// Home's paper feed checks the journals and arXiv for new papers by itself, every four
     /// hours while the window is open (`papers.rs`). A paper opened by hand loads either way.
     pub paper_feed: bool,
+    /// The feed's sources turned off with Home's journal picker, each by its id (a journal's
+    /// first ISSN, or `arxiv`): the feed neither shows nor asks them. A journal added to
+    /// `papers/journals.json` later starts on.
+    pub paper_sources_off: Vec<String>,
+    /// The feed shows each arXiv preprint's first figure, read from arxiv.org's HTML version
+    /// of it (`papers/images.rs`). Off at first: it asks arxiv.org about every preprint shown.
+    pub paper_images: bool,
 }
 
 impl Default for Settings {
@@ -59,6 +66,8 @@ impl Default for Settings {
             length_unit: "um".into(),
             tuned_builds: false,
             paper_feed: true,
+            paper_sources_off: Vec::new(),
+            paper_images: false,
         }
     }
 }
@@ -115,6 +124,8 @@ mod tests {
         let old = Settings::load(&file);
         assert_eq!(old.theme, "dark");
         assert!(old.check_updates && old.hints && old.paper_feed);
+        // every source on and no images, until the user says otherwise
+        assert!(old.paper_sources_off.is_empty() && !old.paper_images);
         std::fs::write(&file, r#"{"theme":"nord"}"#).unwrap();
         assert_eq!(Settings::load(&file).theme, "nord");
         let _ = std::fs::remove_dir_all(&dir);

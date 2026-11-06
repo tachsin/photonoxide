@@ -17,7 +17,7 @@ const CITES: &str = include_str!("recorded/openalex-cites.json");
 const ARXIV_PAPER: &str = include_str!("recorded/arxiv-paper.xml");
 
 /// A recorded answer: its status and body, or the network failing.
-type Answer = Result<(u16, String), String>;
+type Answer = Result<(u16, Vec<u8>), String>;
 /// A request made: its URL and headers.
 type Asked = (String, Vec<(String, String)>);
 
@@ -58,7 +58,7 @@ impl Http for Canned {
         Ok(Response {
             status,
             headers: vec![("ETag".into(), "\"v1\"".into())],
-            body: body.into_bytes(),
+            body,
         })
     }
 
@@ -74,7 +74,7 @@ impl Http for Canned {
 }
 
 fn ok(body: &str) -> Answer {
-    Ok((200, body.to_owned()))
+    Ok((200, body.as_bytes().to_vec()))
 }
 
 /// A fresh cache folder, removed when dropped.
@@ -160,9 +160,9 @@ fn a_refresh_reads_every_source_keeps_it_and_the_feed_reads_back_offline() {
     let http = all_answer();
     let p = engine(&dir, http.clone());
     // nothing cached: an empty feed, and a check due
-    let empty = p.feed(NOW);
+    let empty = p.feed(NOW, &[]);
     assert!(empty.papers.is_empty() && empty.due);
-    let feed = p.refresh(NOW);
+    let feed = p.refresh(NOW, &[], false);
     assert_eq!(http.asked().len(), 17, "one request per source");
     assert_eq!(feed.state.failures, 0);
     assert_eq!(feed.state.updated_at, NOW);
@@ -204,13 +204,13 @@ fn a_refresh_reads_every_source_keeps_it_and_the_feed_reads_back_offline() {
     // offline: the same papers from the cache, the failure counted, a retry due in half an hour
     let none = Canned::new(vec![]);
     let offline = engine(&dir, none.clone());
-    let again = offline.refresh(NOW + 5 * 3600);
+    let again = offline.refresh(NOW + 5 * 3600, &[], false);
     assert_eq!(again.papers, feed.papers);
     assert_eq!(again.state.failures, 1);
     assert_eq!(again.state.updated_at, NOW);
     assert!(again.state.error.contains("no recording"));
-    assert!(!offline.feed(NOW + 5 * 3600 + 60).due);
-    assert!(offline.feed(NOW + 5 * 3600 + 31 * 60).due);
+    assert!(!offline.feed(NOW + 5 * 3600 + 60, &[]).due);
+    assert!(offline.feed(NOW + 5 * 3600 + 31 * 60, &[]).due);
     // and it stopped after two sources rather than waiting on all seventeen
     assert_eq!(none.asked().len(), 2);
 }
@@ -219,9 +219,9 @@ fn a_refresh_reads_every_source_keeps_it_and_the_feed_reads_back_offline() {
 fn a_validator_is_sent_back_and_an_unchanged_answer_keeps_the_cache() {
     let dir = Dir::new("conditional");
     let first = all_answer();
-    let feed = engine(&dir, first).refresh(NOW);
-    let unchanged = Canned::new(vec![("", Ok((304, String::new())))]);
-    let again = engine(&dir, unchanged.clone()).refresh(NOW + FRESH.as_secs());
+    let feed = engine(&dir, first).refresh(NOW, &[], false);
+    let unchanged = Canned::new(vec![("", Ok((304, Vec::new())))]);
+    let again = engine(&dir, unchanged.clone()).refresh(NOW + FRESH.as_secs(), &[], false);
     assert_eq!(again.papers, feed.papers);
     assert_eq!(again.state.failures, 0);
     assert_eq!(again.state.updated_at, NOW + FRESH.as_secs());
@@ -238,13 +238,13 @@ fn a_validator_is_sent_back_and_an_unchanged_answer_keeps_the_cache() {
 #[test]
 fn a_malformed_answer_is_one_sources_error_and_keeps_its_last_papers() {
     let dir = Dir::new("malformed");
-    let feed = engine(&dir, all_answer()).refresh(NOW);
+    let feed = engine(&dir, all_answer()).refresh(NOW, &[], false);
     let broken = Canned::new(vec![
         ("query.bibliographic", ok(FILTERED)),
         ("api.crossref.org/journals/", ok(JOURNAL)),
         ("export.arxiv.org", ok("<html>Service unavailable</html>")),
     ]);
-    let again = engine(&dir, broken).refresh(NOW + FRESH.as_secs());
+    let again = engine(&dir, broken).refresh(NOW + FRESH.as_secs(), &[], false);
     assert_eq!(again.state.failures, 0, "the journals answered");
     assert_eq!(again.state.source_errors.len(), 1);
     assert!(again.state.source_errors[0].starts_with("arXiv:"));
@@ -358,7 +358,7 @@ fn a_preprints_page_from_arxiv() {
 fn search_finds_every_word_in_titles_authors_and_abstracts() {
     let dir = Dir::new("search");
     let p = engine(&dir, all_answer());
-    let feed = p.refresh(NOW);
+    let feed = p.refresh(NOW, &[], false);
     let first = &feed.papers[0];
     let word = first
         .title
@@ -518,4 +518,281 @@ fn days_are_utc_dates() {
     assert_eq!(day(0), "1970-01-01");
     assert_eq!(day(NOW), "2026-11-04");
     assert_eq!(day(951_782_400), "2000-02-29");
+}
+
+// ---- the journal picker ----
+
+#[test]
+fn a_source_turned_off_is_neither_asked_nor_shown_and_turned_on_is_asked_alone() {
+    let dir = Dir::new("picker");
+    let http = all_answer();
+    let p = engine(&dir, http.clone());
+    let off = vec!["arxiv".to_owned(), "1749-4885".to_owned()];
+    let feed = p.refresh(NOW, &off, false);
+    // fifteen requests, none to arXiv or to Nature Photonics
+    assert_eq!(http.asked().len(), 15);
+    assert!(
+        http.asked()
+            .iter()
+            .all(|(u, _)| !u.contains("export.arxiv.org") && !u.contains("1749-4885"))
+    );
+    assert!(feed.papers.iter().all(|s| s.venue != "arXiv"));
+    assert!(!feed.papers.is_empty());
+    // the picker lists all seventeen, the two turned off as off
+    assert_eq!(feed.choices.len(), 17);
+    let offs: Vec<&str> = feed
+        .choices
+        .iter()
+        .filter(|c| !c.on)
+        .map(|c| c.id.as_str())
+        .collect();
+    assert_eq!(offs, ["1749-4885", "arxiv"]);
+    let arxiv = feed.choices.iter().find(|c| c.id == "arxiv").unwrap();
+    assert_eq!(arxiv.short, "arXiv");
+    assert_eq!(feed.missing, 0);
+    // both on again: shown at once from the cache (neither has one yet), and two missing
+    let on = p.feed(NOW + 60, &[]);
+    assert_eq!(on.missing, 2);
+    assert!(on.choices.iter().all(|c| c.on));
+    // asked alone: just those two, and the check's state as it was
+    let only = p.refresh(NOW + 60, &[], true);
+    assert_eq!(http.asked().len(), 17);
+    assert_eq!(only.missing, 0);
+    assert_eq!(only.state.checked_at, NOW);
+    assert_eq!(only.papers.iter().filter(|s| s.venue == "arXiv").count(), 2);
+    // nothing new to ask: nothing asked
+    p.refresh(NOW + 120, &[], true);
+    assert_eq!(http.asked().len(), 17);
+    // the papers of a source turned off stay kept, and come back when it is on
+    assert!(
+        p.feed(NOW + 180, &["arxiv".to_owned()])
+            .papers
+            .iter()
+            .all(|s| s.venue != "arXiv")
+    );
+    assert_eq!(
+        p.feed(NOW + 180, &[])
+            .papers
+            .iter()
+            .filter(|s| s.venue == "arXiv")
+            .count(),
+        2
+    );
+    // a search still looks through every source kept
+    let title = &only
+        .papers
+        .iter()
+        .find(|s| s.venue == "arXiv")
+        .unwrap()
+        .title;
+    assert!(!p.search(title, &[]).is_empty());
+}
+
+#[test]
+fn with_every_source_off_nothing_is_asked_and_nothing_fails() {
+    let dir = Dir::new("picker-none");
+    let http = all_answer();
+    let p = engine(&dir, http.clone());
+    let off: Vec<String> = sources().iter().map(|s| s.id().to_owned()).collect();
+    let feed = p.refresh(NOW, &off, false);
+    assert!(http.asked().is_empty());
+    assert!(feed.papers.is_empty());
+    assert_eq!(feed.state.failures, 0);
+    assert!(feed.choices.iter().all(|c| !c.on));
+    assert_eq!(feed.missing, 0);
+    // an id no source has turns nothing off
+    assert_eq!(chosen(&["0000-0000".to_owned()]).len(), 17);
+    // every id is a source's own, once
+    let mut ids: Vec<&str> = off.iter().map(String::as_str).collect();
+    ids.sort_unstable();
+    ids.dedup();
+    assert_eq!(ids.len(), 17);
+}
+
+// ---- the feed's images ----
+
+const ARXIV_HTML: &str = include_str!("recorded/arxiv-html.html");
+
+/// A PNG's first bytes and a little more: what the cache reads an image by.
+fn png(len: usize) -> Vec<u8> {
+    let mut b = b"\x89PNG\r\n\x1a\n".to_vec();
+    b.resize(len, 7);
+    b
+}
+
+#[test]
+fn a_preprints_first_figure_is_its_first_raster_image() {
+    // the recording's first figure is three SVG panels; the second's first panel is a PNG
+    assert_eq!(
+        images::first_figure(ARXIV_HTML).as_deref(),
+        Some("https://arxiv.org/html/2611.07038v1/4bandModelNoEPs_3D.png")
+    );
+    // a table is not a figure; a link elsewhere, a path up or an SVG is never fetched
+    let table = r#"<figure class="ltx_table"><img src="2611.1v1/t.png"></figure>"#;
+    assert_eq!(images::first_figure(table), None);
+    for src in [
+        "https://example.org/x.png",
+        "//example.org/x.png",
+        "2611.1v1/../../x.png",
+        "2611.1v1/x.svg",
+        "javascript:x.png",
+        "/static/x.png",
+    ] {
+        let html = format!(r#"<figure class="ltx_figure"><img src="{src}"></figure>"#);
+        assert_eq!(images::first_figure(&html), None, "{src}");
+    }
+    let html = r#"<figure class="ltx_figure"><img alt="x" src="/html/2611.1v2/x1.JPG"></figure>"#;
+    assert_eq!(
+        images::first_figure(html).as_deref(),
+        Some("https://arxiv.org/html/2611.1v2/x1.JPG")
+    );
+    // which ids have an HTML version to ask: arXiv's present form only
+    assert_eq!(images::preprint("arxiv:2611.07038"), Some("2611.07038"));
+    assert_eq!(images::preprint("arxiv:2611.0703v2"), Some("2611.0703v2"));
+    for id in [
+        "doi:10.1364/oe.1",
+        "arxiv:hep-th/9901001",
+        "arxiv:2611.07038/x",
+        "arxiv:2611.07",
+        "2611.07038",
+    ] {
+        assert_eq!(images::preprint(id), None, "{id}");
+    }
+    // an image is known by its bytes, never by its name
+    assert_eq!(images::sniff(&png(16)), Some(("png", "image/png")));
+    assert_eq!(
+        images::sniff(b"\xff\xd8\xff\xe0"),
+        Some(("jpg", "image/jpeg"))
+    );
+    assert_eq!(
+        images::sniff(b"RIFF\0\0\0\0WEBPVP8 "),
+        Some(("webp", "image/webp"))
+    );
+    assert_eq!(
+        images::sniff(b"<svg xmlns=\"http://www.w3.org/2000/svg\"/>"),
+        None
+    );
+}
+
+#[test]
+fn a_figure_is_asked_once_kept_and_served_by_its_name_only() {
+    let dir = Dir::new("images");
+    let http = Canned::new(vec![
+        ("arxiv.org/html/2611.07038v1/", Ok((206, png(2000)))),
+        (
+            "arxiv.org/html/2611.07038",
+            Ok((206, ARXIV_HTML.as_bytes().to_vec())),
+        ),
+        ("arxiv.org/html/2611.00001", Ok((404, Vec::new()))),
+    ]);
+    let p = engine(&dir, http.clone());
+    // a journal's paper: nothing asked
+    assert_eq!(p.image("doi:10.1364/oe.1", NOW), Ok(None));
+    assert!(http.asked().is_empty());
+    let name = p.image("arxiv:2611.07038", NOW).unwrap().unwrap();
+    assert_eq!(name, "arxiv-2611.07038.png");
+    let asked = http.asked();
+    assert_eq!(asked.len(), 2, "the page's head, then the figure");
+    assert_eq!(asked[0].0, "https://arxiv.org/html/2611.07038");
+    assert_eq!(
+        asked[0].1,
+        [(
+            "Range".to_owned(),
+            format!("bytes=0-{}", images::HTML_HEAD - 1)
+        )]
+    );
+    assert_eq!(
+        asked[1].1,
+        [("Range".to_owned(), format!("bytes=0-{}", images::MAX_IMAGE))]
+    );
+    // kept: asked again, nothing goes out
+    assert_eq!(
+        p.image("arxiv:2611.07038", NOW + 3600),
+        Ok(Some(name.clone()))
+    );
+    assert_eq!(http.asked().len(), 2);
+    let (bytes, mime) = p.images.read(&name).unwrap();
+    assert_eq!((bytes.len(), mime), (2000, "image/png"));
+    assert_eq!(p.images.kept(), (1, 2000));
+    // the scheme serves files of the folder by name, nothing else
+    for bad in [
+        "../feed.json",
+        "index.json",
+        ".index",
+        "",
+        "a/b.png",
+        "arxiv-x.png",
+    ] {
+        assert!(p.images.read(bad).is_none(), "{bad}");
+    }
+    // no HTML version yet: remembered for a day, then asked again
+    assert_eq!(p.image("arxiv:2611.00001", NOW), Ok(None));
+    assert_eq!(p.image("arxiv:2611.00001", NOW + 3600), Ok(None));
+    assert_eq!(http.asked().len(), 3);
+    p.image("arxiv:2611.00001", NOW + images::NO_HTML_AGAIN.as_secs())
+        .unwrap();
+    assert_eq!(http.asked().len(), 4);
+    // offline: an error, and nothing remembered
+    let offline = engine(&dir, Canned::new(vec![]));
+    assert!(offline.image("arxiv:2611.09999", NOW).is_err());
+    assert!(offline.image("arxiv:2611.09999", NOW).is_err());
+    // a figure is kept thirty days, then asked again
+    let later = NOW + images::KEEP.as_secs();
+    let again = Canned::new(vec![]);
+    assert!(
+        engine(&dir, again.clone())
+            .image("arxiv:2611.07038", later)
+            .is_err()
+    );
+    assert_eq!(again.asked().len(), 1);
+    // cleared: nothing kept
+    p.images.clear().unwrap();
+    assert_eq!(p.images.kept(), (0, 0));
+    assert!(p.images.read(&name).is_none());
+}
+
+#[test]
+fn a_figure_too_large_is_left_out_and_the_cache_keeps_to_its_cap() {
+    let dir = Dir::new("images-cap");
+    let http = Canned::new(vec![
+        (
+            "arxiv.org/html/2611.07038v1/",
+            Ok((206, png(images::MAX_IMAGE + 1))),
+        ),
+        (
+            "arxiv.org/html/2611.07038",
+            Ok((206, ARXIV_HTML.as_bytes().to_vec())),
+        ),
+        (
+            "arxiv.org/html/2611.11111",
+            Ok((200, b"<p>no figures</p>".to_vec())),
+        ),
+    ]);
+    let p = engine(&dir, http.clone());
+    assert_eq!(p.image("arxiv:2611.07038", NOW), Ok(None));
+    assert_eq!(p.images.kept(), (0, 0));
+    // remembered: not asked again
+    assert_eq!(p.image("arxiv:2611.07038", NOW + 60), Ok(None));
+    assert_eq!(p.image("arxiv:2611.11111", NOW), Ok(None));
+    assert_eq!(p.image("arxiv:2611.11111", NOW + 60), Ok(None));
+    assert_eq!(http.asked().len(), 3);
+    // over the cap, the oldest figures go first
+    let each = images::MAX_IMAGE;
+    let fits = (images::CAP / each as u64) as usize;
+    for k in 0..=fits {
+        let key = format!("arxiv-2611.{k:05}");
+        let kept = p.images.keep(&key, NOW + k as u64, Ok((&png(each), "png")));
+        assert!(kept.unwrap().is_some());
+    }
+    let (count, bytes) = p.images.kept();
+    assert_eq!(count, fits);
+    assert!(bytes <= images::CAP);
+    assert_eq!(
+        p.images.lookup("arxiv-2611.00000", NOW + 99),
+        images::Lookup::Unknown
+    );
+    assert!(matches!(
+        p.images.lookup(&format!("arxiv-2611.{fits:05}"), NOW + 99),
+        images::Lookup::Kept(_)
+    ));
 }
