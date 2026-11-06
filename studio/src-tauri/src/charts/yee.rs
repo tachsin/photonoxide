@@ -3,7 +3,7 @@
 //! reflection against its thickness for σ graded as (x/L)^m, from 1D runs of photonoxide's
 //! FDTD (`fdtd::Simulation` with `Edges::Pml`).
 
-use std::f64::consts::{PI, TAU};
+use std::f64::consts::PI;
 
 use num_complex::Complex64 as c64;
 use photonoxide::fdfd::{Axis, Edges, Grid3d};
@@ -416,6 +416,8 @@ pub fn evaluate(id: &str, at: impl Fn(&str) -> f64) -> Option<photonoxide::Resul
 
 #[cfg(test)]
 mod tests {
+    use std::f64::consts::TAU;
+
     use super::*;
 
     fn fig(data: &ChartData, label: &str) -> f64 {
