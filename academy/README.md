@@ -266,7 +266,7 @@ code; the window only draws what it returns, and asks again as a slider moves.
 | `meta-bandwidth` | `na` (0.24), `focal` µm (200), `thickness` µm (0.8), `index` (3.674), `centre` µm (1.454) | Presutti and Monticone's Eqs. 10–12: the bounds for resonant meta-atoms, Tucker's for waveguides and Miller's for any structure, against NA |
 | `crystal-stack` | `high` $\varepsilon_1$ (13), `low` $\varepsilon_2$ (1), `fill` $d_1/a$ (0.2) | `Multilayer::reflection`: one period's $t$, $\cos Ka = \operatorname{Re}(1/t)$ at 2000 frequencies to $\omega a/2\pi c = 1$, the band edges bisected; the quarter-wave stack's gap |
 | `crystal-group-index` | `high` $\varepsilon_1$ (13), `low` $\varepsilon_2$ (1), `fill` $d_1/a$ (0.2), `frequency` $\omega a/2\pi c$ (0.15) | `Multilayer::reflection` as above, $n_g = c\,dK/d\omega$ by a central difference of 10⁻⁶ of the frequency; $\sqrt{\langle\varepsilon\rangle}$ |
-| `fdfd-convergence` | `polarization` (1 E along z, 2 H along z), `thickness` nm (220) | `fdfd::Solver2d::port_modes` of a silicon slab (3.476 in 1.444) at 1.55 µm on grids of 4.4 to 128.4 cells across it, its faces 0.3 and 0.7 of a cell off the lines, each cell by 8 × 8 samples (`Solver2d::new`), its centre's material or its mean (`Solver2d::from_cells`); the error against `mode::slab::Slab::modes`, and each order between the two finest grids |
+| `fdfd-convergence` | `polarization` (1 E along z, 2 H along z), `thickness` nm (220) | `fdfd::Solver2d::port_modes` of a silicon slab (3.476 in 1.444) at 1.55 µm on 11 grids of 4.4 to 128.4 cells across it, its faces 0.3 and 0.7 of a cell off the lines, each cell by 8 × 8 samples (`Solver2d::new`), its centre's material or its mean (`Solver2d::from_cells`); the error against `mode::slab::Slab::modes`, and each order between the grids of 64.4 and 128.4 cells |
 | `fdfd-gradient` | `polarization` (1), `bump` $\varepsilon_b$ (6) | `Solver2d::from_cells` on the slab and bump of `fdfd/adjoint-gradient-ez`, 20 nm cells, `mode_source` and `solve_system`: the forward field, the right port's mode launched backwards, and `mode_power_gradient` in a window of 3,000 cells; a fourth-order central difference at one cell by `reuse_cells` as the check |
 | `fdfd-difference-step` | `polarization` (1), `probe` (1 bump, 2 core, 3 oxide) | the same problem: `mode_power_gradient` at the cell against second- and fourth-order central differences of the power, 4 solves at each of 12 steps from 10⁻⁶ to 10⁻⁰·⁵; the round-off bound from `Solver2d::residual` |
 | `crystal-bands` | `lattice` (1 square, 2 triangular), `kind` (1 rods, 2 holes), `eps` $\varepsilon$ (8.9), `radius` $r/a$ (0.2) | `fdtd::Simulation::smoothed` on one cell between Bloch-periodic sides, 2D, 24 cells a lattice constant, the subpixel average's diagonal; one complex run a k-point along the zone's edge, `fdtd::harmonic_inversion` on $E_z$ (TM) and $H_z$ (TE) probes; the triangular lattice on a rectangle of two sites, its folded bands cancelled by probes one lattice vector apart |
@@ -299,9 +299,9 @@ the studio with no library function behind it, in tens of milliseconds; and the 
 unit cells, 31 runs between periodic sides in parallel, a few seconds, cached by geometry, checked
 in unit tests against the transfer matrices for a film and against a finer grid.
 The FDFD lesson's charts (`charts/fdfd.rs`) are 2D FDFD solves on the problems of the validation
-cases: the port modes on 18 grids in parallel; the gradient's 26,600 unknowns factorized once,
-with 4 more factorizations for its check; the step study's 48 factorizations in parallel. Their
-three unit tests, which compute all of them, take 2.4 s together; each chart is cached by its
+cases: the port modes on 11 grids three ways, in parallel; the gradient's 26,600 unknowns
+factorized once, with 4 more factorizations for its check; the step study's 48 factorizations in
+parallel. Their three unit tests, which compute all of them, take 3.1 s together on 6 threads; each chart is cached by its
 parameters, and checked against the exact slab's orders and against fourth-order differences to
 the validation cases' 10⁻⁶.
 A chart may draw pictures of a field over a cross-section in place of curves (`maps`), side by

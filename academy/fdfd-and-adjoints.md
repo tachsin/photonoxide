@@ -261,7 +261,7 @@ $e^{-k_w\int\operatorname{Im}s_w}$, whatever the angle, so the layer's face refl
 the grading above, $\int_0^d\operatorname{Im}s_w\thinspace dl = -\ln R/2k_0$, and the round trip
 through the layer and back returns $R^{k_w/k_0}$ of the amplitude: $R$ at normal incidence in
 vacuum, and $R^{1.38}$, about 10⁻¹¹ for $R = 10^{-8}$, for a wave 17° off the normal in oxide,
-$k_w/k_0 = 1.444\cos 17° = 1.38$. On the grid the layer sends back more, and how much depends on
+$k_w/k_0 = 1.444\cos 17^\circ = 1.38$. On the grid the layer sends back more, and how much depends on
 its cells: 20 cells of 20 nm graded to $R = 10^{-8}$ return 2.5 × 10⁻⁶ of that wave's amplitude, 10
 cells of 10 nm 4.0 × 10⁻⁵ and 8 cells of 10 nm 9.8 × 10⁻⁵ ([FDFD in 3D](../docs/methods/fdfd-3d.md),
 "Preconditioning QMR"). The continuum's round trip is the same for all three; the difference is
@@ -334,8 +334,8 @@ cell, three ways:
 
 ::chart fdfd-convergence
 
-With $E$ along $z$ (TE), 220 nm thick, on grids from 50 to 1.7 nm, the orders measured between
-the two finest grids, 3.4 and 1.7 nm:
+With $E$ along $z$ (TE), 220 nm thick, on 11 grids from 50 to 1.7 nm, each order measured
+between the grids of 3.4 and 1.7 nm:
 
 - **Staircasing**, each cell its centre's material, moves each face by a share of a cell: order
   1.03, first order, an error of 3.5 × 10⁻³ in $n_\text{eff}$ on the finest grid.
@@ -351,9 +351,10 @@ The exact index, 2.84778, is the slab's transfer-matrix mode, with no grid.
 
 With $H$ along $z$ (TM) the slab's $E_y$ crosses the interface. Its normal $D_y = \varepsilon E_y$ is
 continuous there and $E_y$ jumps, so the average that is exact across a layer is the harmonic mean,
-$\langle\varepsilon^{-1}\rangle^{-1}$, and the plain mean is the wrong one: set the chart to 2 and
-all three curves fall at first order, 1.01 for the samples and staircasing and 1.06 for the mean. Photonoxide's averaging from the fill takes the harmonic
-mean across the interface and the mean along it, and keeps the second order: 1.88 for this TM slab
+$\langle\varepsilon^{-1}\rangle^{-1}$, and the plain mean is the wrong one: set the chart's field
+to 2 and all three curves fall at first order, 1.01 for the samples and for staircasing and 1.06
+for the mean. Photonoxide's averaging from the fill takes the harmonic mean across the interface
+and the mean along it, and keeps the second order: 1.88 for this TM slab
 ([averaging from the fill](../docs/methods/averaging.md)). The cases:
 
 ::validation fdfd/fill-slab-te-mean fdfd/fill-slab-te-point fdfd/fill-slab-tm-diagonal
@@ -391,7 +392,7 @@ in 2D. Photonoxide's direct solver is its own multifrontal factorization on that
 Measured on one machine (an Intel Core Ultra 7 265K), as the method pages report them, not as a
 promise for another:
 
-| Problem | Unknowns | Solver | Time | Memory |
+| Problem | Unknowns | Solver | Time: the factorization, or the iterative solve | Memory |
 |---|---|---|---|---|
 | 2D, 440 × 340 cells | 150,000 | $LDL^\mathsf{T}$, 1 thread | analysis 0.18 s, factorization 0.27 s, each source about 80 ms | |
 | 3D strip, 24³ cells of 40 nm | 41,472 | $LDL^\mathsf{T}$, 1 thread | 0.85 s | 11.0 M factor entries, 0.84 GB |
@@ -445,8 +446,8 @@ One structure is solved many times: once per port for an S-matrix, again for an 
   back-substitution.
 - **Block QMR** solves all ports at once in one block Krylov space
   ([block QMR](../docs/methods/block-qmr.md)). With ILU(0), on a coupler's 4 or 8 ports at 40 nm
-  (149,184 unknowns), it takes 0.69 of the time of one solve per port; without a preconditioner it is 2.8 to 5.3 times slower,
-  and with the multigrid 2.2 times. It is opt-in.
+  (149,184 unknowns), it takes 0.69 of the time of one solve per port; without a preconditioner it
+  is 2.8 to 5.3 times slower, and with the multigrid 2.2 times. It is opt-in.
 - **Recycling** starts each solve from the combination of the earlier solutions with the least
   residual ([recycling](../docs/methods/recycling.md)). A coupler's S-matrix at 16 wavelengths,
   1.500 to 1.575 µm on 50 nm cells (96,768 unknowns), by GMRES and the multigrid: 1,419 iterations
@@ -476,9 +477,10 @@ evaluations, its 11 inner widths free:
 
 Its swarm's design loses 0.028 dB in 2D, a 2D estimate by the effective index method. In 3D FDFD,
 extrapolated from three grids, the same design loses 0.202 ± 0.027 dB. **Zhang et al.'s 0.13 dB is
-not reproduced**: ours is 0.07 dB higher, beyond the example's 0.05 dB, and their Table 1 design on
-the same grids gives 0.168 ± 0.003 dB, so part of the gap is between the two 3D computations, not
-the designs; the example reports it as a gap.
+not reproduced**: ours is 0.07 dB higher, beyond the example's 0.05 dB. Their own Table 1 design,
+on the same 3D grids, loses 0.168 ± 0.003 dB in photonoxide against their 0.13 dB, so 0.04 dB of
+the gap lies between their 3D FDTD and our 3D FDFD of one design, not between the designs; the
+example reports both as gaps.
 
 [Lalau-Keraly et al. (2013)](https://doi.org/10.1364/OE.21.021693) took the same junction with the
 adjoint gradient and level sets, in 2D and then 3D FDTD: 51 iterations of steepest descent, 102
@@ -598,7 +600,7 @@ the largest gradient, and the iterative solvers' adjoints agree with the direct 
 
 An FDTD run's transforms at a frequency obey a frequency-domain system exactly, at the leapfrog's
 frequency $\tilde\omega = (2/\Delta t)\sin(\omega\Delta t/2)$, and its transpose is another run with
-the sources rescaled at the PMLs ([FDTD adjoint gradients](../docs/methods/fdtd-adjoint.md)). In a
+the sources rescaled in its CPMLs ([FDTD adjoint gradients](../docs/methods/fdtd-adjoint.md)). In a
 closed lossy box, where no PML differs between the two, FDTD's adjoint gradient at 144 values of
 $\mathbf E$ equals FDFD's to 7.5 × 10⁻¹⁴; and Lalau-Keraly et al.'s backward mode (their Eq. 8) is
 the adjoint field there to 5.5 × 10⁻¹³:
@@ -647,11 +649,13 @@ $$
 \bar{\tilde\rho} = \frac{\tanh\beta\eta + \tanh\beta(\tilde\rho - \eta)}{\tanh\beta\eta + \tanh\beta(1 - \eta)}
 $$
 
-(Eq. 9, p. 770), the threshold $\eta$ and the sharpness $\beta$ raised in stages, from a nearly
-linear map to a nearly binary one ([Christiansen and Sigmund, 2021](https://doi.org/10.1364/JOSAB.406048)).
-Thresholds above and below 0.5 give eroded and dilated designs; optimizing all three at once makes
-a design robust to over- and under-etching, as Christiansen and Sigmund do for a demultiplexer with
-±8 nm of erosion and dilation (p. 505). [Hammond et al. (2021)](https://doi.org/10.1364/OE.431188)
+(Eq. 9, p. 770), $\eta$ the threshold and $\beta$ the sharpness. $\beta$ is raised in stages, a
+continuation from a nearly linear map to a nearly binary one, so the design can form before it is
+forced to 0 or 1 ([Christiansen and Sigmund, 2021](https://doi.org/10.1364/JOSAB.406048)).
+Thresholds above and below 0.5 give eroded and dilated designs, and Wang et al.'s robust
+formulation optimizes the eroded, intermediate and dilated designs at once, so the result
+tolerates over- and under-etching; Christiansen and Sigmund design a demultiplexer so for ±8 nm of
+erosion and dilation (p. 505). [Hammond et al. (2021)](https://doi.org/10.1364/OE.431188)
 add a foundry's rules inside the optimization: minimum linewidth, spacing, curvature, area and
 enclosed area (Fig. 1, p. 23917), for three broadband devices under nine foundries' rule sets.
 
@@ -690,8 +694,9 @@ differences' own limit:
 ::validation circuit/adjoint-mzi circuit/adjoint-mesh circuit/adjoint-differences
 
 [Hughes et al. (2018)](https://doi.org/10.1364/OPTICA.5.000864) applied the adjoint variable method
-to a mesh of interferometers and found it to be backpropagation, the gradient measurable on the
-chip itself from the forward and adjoint fields' intensities (p. 864).
+to a mesh of interferometers and found in it "the photonic analogue of the backpropagation
+algorithm", its gradient obtained exactly "by performing intensity measurements within the device"
+(p. 864).
 
 genoxide's optimizers take these gradients. [circuit_splitter](../examples/circuit_splitter.rs)
 sets an MZI's arm phase for 30 % of the power in its bar port, exact with no grid: L-BFGS-B takes 8
@@ -716,8 +721,9 @@ leapfrog's frequency (Section 9). Which is cheaper depends on what is asked:
   adjoint by back-substitution. FDTD needs a run per source and one more for the adjoint.
 - **A band.** FDTD: one pulse gives every frequency in its band from one run. FDFD solves each
   wavelength, sharing what it can (Section 6).
-- **High Q.** FDTD must run until a resonator's energy has decayed, about $Q$ optical periods, or
-  fit the decay by harmonic inversion ([photonic crystals](photonic-crystals.md)). FDFD solves the
+- **High Q.** A resonator's energy falls as $e^{-\omega t/Q}$, by a factor $e$ every $Q/2\pi$
+  periods, and FDTD must run until it has decayed, or fit the decay by harmonic inversion
+  ([photonic crystals](photonic-crystals.md)). FDFD solves the
   steady state at once, but needs wavelengths a fraction of a linewidth $\lambda/Q$ apart to find a
   resonance.
 - **Dispersive materials.** FDFD's matrix holds $\varepsilon(\omega)$ at its own frequency, from any
