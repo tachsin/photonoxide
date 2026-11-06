@@ -26,6 +26,7 @@ moving a slider shows the physics the library computes, the code the
 | [Modulators and phase shifters](modulators.md) | intermediate | `modulator` | `heater-power`, `mzm-transfer`, `modulator-response`, `pcm-shift` |
 | [Nonlinear integrated optics](nonlinear-optics.md) | advanced | `nonlinear` | `nl-miller`, `nl-coupled`, `nl-acceptance`, `nl-qpm`, `nl-ridge`, `nl-spm`, `nl-soliton`, `nl-fwm`, `nl-lle-states`, `nl-comb`, `nl-jsa` |
 | [Surface plasmons and Mie scattering](plasmonics.md) | advanced | `plasmon` | `plasmon-drude`, `plasmon-dispersion`, `plasmon-length`, `mie-efficiency`, `mie-plasmon`, `mie-gold` |
+| [Crossings, mode converters and the polarization splitter-rotator](crossings-and-converters.md) | advanced | `crossing` | `crossing-field`, `crossing-width`, `mmi-field`, `taper-length`, `converter-match`, `converter-coupler`, `rotator-hybrid`, `spot-size` |
 
 The whole curriculum is laid out: every lesson still to be written is here too, **coming soon**,
 with its numbered subsections, what each will answer and the examples each will use, so writing
@@ -33,7 +34,6 @@ it is filling them in. The library lists them in this order, the order to read t
 
 | Lesson coming soon | Topic | Level | Examples |
 |---|---|---|---|
-| [Crossings, mode converters and the polarization splitter-rotator](crossings-and-converters.md) | Multimode and polarization devices | advanced | `crossing_liu_poon`, `mode_converter_liu_poon`, `splitter_rotator_liu_poon` |
 | [How FDTD works](how-fdtd-works.md) | Numerical methods | intermediate | `cpml_roden_gedney`, `pml_oskooi`, `tfsf_square_cylinder`, `subpixel_holes`, `bump_oskooi`, `lorentz_okoniewski` |
 | [Inverse design](inverse-design.md), with 0.7 | Numerical methods | advanced | `circuit_splitter`, `circuit_ring_critical`, `circuit_fit` |
 | [Quantum light on a chip](quantum-light.md), with 0.6.3 | Active and quantum photonics | advanced | |
@@ -206,6 +206,7 @@ shows first.
 | `nonlinear` | a periodically poled thin-film lithium niobate guide from above: domains of $+d$ and $-d$ a period $\Lambda$ apart over $L$, the fundamental $\omega$ in, $\omega$ and $2\omega$ out, $\Delta k = k_{2\omega} - 2k_\omega - 2\pi/\Lambda = 0$; beneath it the x-cut ridge in section, a film $t$ thick etched $e$ deep to $w$ wide on silica, the $c$ axis across, the fundamental's mode and the harmonic's smaller one, and $\kappa$ as their overlap through $d$; and a Kerr ring from above, $\gamma = 2\pi n_2/(\lambda A_\text{eff})$, a pump $\omega_p$ in its bus and the comb out, lines $D_1/2\pi$ apart, $\omega_s$ and $\omega_i$ either side, $2\omega_p = \omega_s + \omega_i$ | none |
 | `modulator` | a push–pull Mach–Zehnder modulator from above: two arms in the gaps of a ground–signal–ground electrode $L$ long, the RF wave $n_m$ from $R_G$ into $R_L$ beside the light $n_o$, the field opposite in the two gaps; beneath it in section, x-cut thin-film lithium niobate, two ribs in gaps $g$ wide, the $c$ axis across and $\Delta n_e = -\tfrac12 n_e^3 r_{33} E$; and a thermo-optic shifter in section, a heater $h$ above a strip dissipating $P'$, its heat spreading to the substrate at $T_0$, $\Delta n = (dn/dT)\,\Delta T$ | none |
 | `plasmon` | at the left, a flat interface between a dielectric $\varepsilon_d \gt 0$ and a metal $\varepsilon_m \lt 0$, a wave of surface charge travelling along $z$ as $e^{i(kz - \omega t)}e^{-z/2L}$, its field's lines looping from $+$ to $-$, and its size $\lvert E\rvert$ across the interface falling over $\delta_d$ into the dielectric and the shorter $\delta_m$ into the metal; at the right, a sphere of radius $\rho$ and permittivity $\varepsilon$ in $\varepsilon_d$, its electrons pushed by the field $E_0$ of a plane wave, its dipole $p$, the light it scatters, and its resonance at $\varepsilon = -2\varepsilon_d$ | none |
+| `crossing` | a waveguide crossing from above, two guides $w$ wide widened to $W$ over tapers $L_t$ long either side of the centre over two dashed ellipses of thinner slab, TE₀ in, the through port and the side ports' crosstalk; an asymmetric coupler, a guide $w_a$ wide a gap $g$ from one $W$ wide over $L$, the narrow guide's TE₀ in and the wide guide's TE₁ out, $n_{\mathrm{eff},0}(w_a) = n_{\mathrm{eff},1}(W)$; and a splitter-rotator from above, its guide widened from $w_1$ to $w_2$ over $L$ under silicon nitride, TM₀ in turning into TE₁ and passed to the upper guide as TE₀, beside its cross-section, silicon on silica under Si₃N₄ ($n = 2.0$) | none |
 
 Each diagram is an entry in `studio/src-tauri/src/diagrams.rs` (its title, its captions, and its
 job if it has one) and an SVG drawn by a component in `studio/src/components/diagrams/`, named
@@ -294,6 +295,13 @@ code; the window only draws what it returns, and asks again as a slider moves.
 | `mie-efficiency` | `index` $n$ (1.5), `kappa` κ (0), `up_to` α (30) | `fdtd::Mie::new`, `extinction`, `scattering`, `absorption` at 800 size parameters; Rayleigh's limit |
 | `mie-plasmon` | `radius` ρ/λ_p (0.02), `damping` γ/ω_p (0.03), `medium` $n_d$ (1) | `fdtd::Sphere::cross_sections` with `Model::Drude`'s permittivity at 1601 frequencies; the quasi-static dipole, computed in the studio |
 | `mie-gold` | `diameter` nm (20) | `Mie::gold_in_water` (Mie's table on p. 417) and `Mie::new` at his seven wavelengths: the extinction, absorption and scattering of 1 mm of a solution of 1 mm³ of gold per litre, against his table on p. 438; a Drude metal through his gold at 650 nm |
+| `crossing-field` | `kind` (1 plain, 2 arms widened, 3 with gdsfactory's ellipses; 3), `width` µm (1.2), `taper` µm (3.4) | `fdfd::Solver2d` (H along z, 25 nm cells) on the plane of the effective index method: `port_modes`, `mode_source`, `solve_system`, `Field2d::mode_amplitudes` and `flux_y`; $\lvert H_z\rvert$ as a picture; `eme::Eme::s_matrix` on the same crossing as the cross-check |
+| `crossing-width` | `taper` µm (3.4), `width` µm (1.2) | `eme::Eme::s_matrix` (TM in the plane, 40 modes, a half window of 2 µm inside a PML 4 µm thick, steps of at most 0.1 µm broken at every kink) at 16 widths, without and with the ellipses; the Gaussian beam's $[1 + (W/2z_R)^2]^{-1/2}$, $w_0$ fitted to `Slab::modes` |
+| `taper-length` | `to` µm (3), `length` µm (10) | `eme::Eme::s_matrix` of linear, parabolic and exponential tapers from 500 nm (40 modes, steps of at most 0.25 µm) at 15 lengths from 0.5 to 40 µm; the abrupt junction's overlap and the coupled local modes' $\lvert C_{20}\rvert/(\beta_0 - \beta_2)$ from `Slab::modes` |
+| `converter-match` | `polarization` (1 TE, 2 TM; 1), `access` nm (500), `wavelength` µm (1.55) | `mode::vector::modes` on each family's quarter of a 220 nm strip (10 nm cells graded to 100 nm) at 23 widths from 0.3 to 2.5 µm; each phase-matched width bisected to 2 nm |
+| `converter-coupler` | `width` µm (1.0), `gap` nm (150) | `mode::vector::modes` on the half $y \ge 0$ of a 500 nm strip and a wider one, and of each alone on one grid; `Fields::cross` and `coupling` for the overlaps; coupled-mode theory's $\kappa^2/(\kappa^2 + \delta^2)\sin^2 Sz$ |
+| `rotator-hybrid` | `cover` (1 silica, 2 silicon nitride; 2), `show` (1 indices, 2 TE fractions; 1), `width` µm (0.75) | `mode::vector::modes` on the half $x \ge 0$ under a magnetic wall (each family's quarter under silica) at 26 widths from 0.5 to 1.0 µm, `VectorMode::te_fraction`; the two-mode equations through gdsfactory's 690 to 830 nm taper by fourth-order Runge–Kutta |
+| `spot-size` | `tip` nm (180), `polarization` (1 TE, 2 TM; 1) | `mode::vector::modes` on the tip's quarter with 5 µm of silica beyond it, `VectorMode::fields`; a Gaussian beam's overlap, $w_0 = \lambda/(\pi\,\mathrm{NA})$, at 36 apertures from 0.1 to 0.8 |
 
 The ranges are in `charts.rs` (the coupler's in `charts/coupler.rs`), and the window's sliders keep
 to them. A chart may draw its y axis on a logarithmic scale (`y_log`), and give curves that belong
@@ -347,6 +355,16 @@ job's η, the soliton's table) or a closed form.
 The plasmonics charts (`charts/plasmon.rs`) are exact: the Drude permittivity, the transfer
 matrix's surface plasmon, and Mie's series, in milliseconds; the metal is a model with its plasma
 frequency at 1 c/µm, so frequencies are in units of ω_p and lengths of λ_p = 2πc/ω_p.
+The crossings lesson's charts are of two kinds. Its crossing and taper charts
+(`charts/crossing.rs`) work on the plane of the effective index method: 2D FDFD of a whole
+crossing, two to four seconds, and eigenmode expansion, a few tenths of a second a crossing, sweeps
+of 32 crossings or 45 tapers in parallel in about five seconds, each cached by its parameters;
+their tests check the expansion against FDFD's Richardson limit, a crossing's two side arms against
+each other and the Gaussian estimate against its closed form. Its converter charts
+(`charts/converter.rs`) solve full-vector modes on the quarters and halves each symmetry allows,
+10 nm cells graded to 100 nm, a second or two a sweep in parallel; their tests check a phase-matched
+coupler's complete transfer, the hybrids' crossing under a symmetric cladding, the two-mode
+equations' closed form and the tip against Chrostowski and Hochberg's index.
 A chart may draw pictures of a field over a cross-section in place of curves (`maps`), side by
 side with one colour scale, as `strip-fields` does.
 

@@ -1474,6 +1474,7 @@ method_docs!(
     "eigen.md",
     "eim.md",
     "electro-optic.md",
+    "eme.md",
     "fabrication.md",
     "fdfd-3d.md",
     "fdfd-adjoint.md",

@@ -24,7 +24,9 @@ use photonoxide::mode::multilayer::Multilayer;
 use photonoxide::units::{Length, Wavelength};
 use serde::Serialize;
 
+mod converter;
 mod coupler;
+mod crossing;
 mod crystal;
 mod fabrication;
 mod fdfd;
@@ -1094,6 +1096,8 @@ pub fn specs() -> Vec<ChartSpec> {
     .chain(modulator::specs())
     .chain(nonlinear::specs())
     .chain(plasmon::specs())
+    .chain(crossing::specs())
+    .chain(converter::specs())
     .collect()
 }
 
@@ -1489,6 +1493,15 @@ pub fn evaluate(id: &str, given: &BTreeMap<String, f64>) -> Result<ChartData, St
             at("length") * 1e-3,
         ),
         "pcm-shift" => modulator::pcm_shift(at("thickness"), at("width")),
+        "crossing-field" => crossing::field(at("kind"), at("width"), at("taper")),
+        "crossing-width" => crossing::width_chart(at("taper"), at("width")),
+        "taper-length" => crossing::taper_chart(at("to"), at("length")),
+        "converter-match" => {
+            converter::match_chart(at("polarization"), at("access") * 1e-3, at("wavelength"))
+        }
+        "converter-coupler" => converter::coupler_chart(at("width"), at("gap") * 1e-3),
+        "rotator-hybrid" => converter::hybrid_chart(at("cover"), at("show"), at("width")),
+        "spot-size" => converter::spot_chart(at("tip") * 1e-3, at("polarization")),
         "nl-miller" => nonlinear::miller(at("crystal"), at("from")),
         "nl-coupled" => nonlinear::coupled(
             at("process"),

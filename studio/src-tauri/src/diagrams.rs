@@ -254,6 +254,26 @@ pub fn specs() -> Vec<DiagramSpec> {
                          solves it by 2D FDFD from 1.5 to 1.6 µm. Drag to turn it.",
         },
         DiagramSpec {
+            id: "crossing",
+            title: "A crossing, an asymmetric coupler and a splitter-rotator, from above",
+            caption: "Above at the left, a waveguide crossing from above: two guides $w$ wide, \
+                      each widened to $W$ over a taper $L_t$ long on either side of the centre, \
+                      so the beam that crosses the open centre is wider and spreads less; under \
+                      them, dashed, two ellipses of a thinner slab that keep guiding it there. \
+                      TE₀ enters at the left and leaves at the right; what the side arms take is \
+                      crosstalk. Above at the right, an asymmetric directional coupler: a guide \
+                      $w_a$ wide a gap $g$ from one $W$ wide over a length $L$. Where the narrow \
+                      guide's TE₀ has the index of the wide guide's TE₁, its single lobe crosses \
+                      over as TE₁'s two lobes of opposite sign. Below, a polarization \
+                      splitter-rotator from above: its guide widened from $w_1$ to $w_2$ over $L$ \
+                      under silicon nitride, where TM₀ turns into TE₁, then a coupler that passes \
+                      TE₁ to the upper guide as TE₀; beside it, the guide in section, silicon on \
+                      silica under nitride, which is not mirror-symmetric up and down. Not to \
+                      scale.",
+            job: None,
+            caption_3d: "",
+        },
+        DiagramSpec {
             id: "modulator",
             title: "A Mach–Zehnder modulator and a heater, from above and in section",
             caption: "Above, a push–pull Mach–Zehnder modulator seen from above: light of group \
