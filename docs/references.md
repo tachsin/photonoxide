@@ -14,7 +14,7 @@ Every paper, book and data set photonoxide cites, with every place in the reposi
 
 S. Aaronson, A. Arkhipov, "The Computational Complexity of Linear Optics", Theory of Comput. 9, 143 (2013). [doi:10.4086/toc.2013.v009a004](https://doi.org/10.4086/toc.2013.v009a004)
 
-- Methods pages: [quantum.md:8](methods/quantum.md?plain=1#L8), [104](methods/quantum.md?plain=1#L104)
+- Methods pages: [quantum.md:8](methods/quantum.md?plain=1#L8), [98](methods/quantum.md?plain=1#L98)
 - Code: [src/quantum.rs:11](../src/quantum.rs#L11), [src/quantum/fock.rs:127](../src/quantum/fock.rs#L127)
 - Other documents: [docs/plans/quantum.md:495](plans/quantum.md?plain=1#L495)
 
@@ -417,7 +417,7 @@ A. Björklund, B. Gupt, N. Quesada, "A Faster Hafnian Formula for Complex Matric
 
 D. Blackman, S. Vigna, "Scrambled Linear Pseudorandom Number Generators", ACM Trans. Math. Softw. 47, 36 (2021). [doi:10.1145/3460772](https://doi.org/10.1145/3460772)
 
-- Methods pages: [quantum.md:29](methods/quantum.md?plain=1#L29), [190](methods/quantum.md?plain=1#L190)
+- Methods pages: [quantum.md:29](methods/quantum.md?plain=1#L29), [184](methods/quantum.md?plain=1#L184)
 - Code: [src/quantum/rng.rs:2](../src/quantum/rng.rs#L2)
 
 #### Bloch 1929
@@ -790,7 +790,7 @@ L. Chrostowski, M. Hochberg, "Silicon Photonics Design: From Devices to Systems"
 
 W. R. Clements, P. C. Humphreys, B. J. Metcalf, W. S. Kolthammer, I. A. Walsmley, "Optimal design for universal multiport interferometers", Optica 3, 1460 (2016). [doi:10.1364/OPTICA.3.001460](https://doi.org/10.1364/OPTICA.3.001460), open access.
 
-- Methods pages: [circuit-adjoint.md:12](methods/circuit-adjoint.md?plain=1#L12), [optimization.md:10](methods/optimization.md?plain=1#L10), [quantum.md:22](methods/quantum.md?plain=1#L22), [207](methods/quantum.md?plain=1#L207)
+- Methods pages: [circuit-adjoint.md:12](methods/circuit-adjoint.md?plain=1#L12), [optimization.md:10](methods/optimization.md?plain=1#L10), [quantum.md:22](methods/quantum.md?plain=1#L22), [201](methods/quantum.md?plain=1#L201)
 - Academy lessons: [mach-zehnder.md:106](../academy/mach-zehnder.md?plain=1#L106), [370](../academy/mach-zehnder.md?plain=1#L370), [476](../academy/mach-zehnder.md?plain=1#L476)
 - Validation cases: [`circuit/adjoint-mesh`](validation.md?plain=1#L285), [`quantum/mesh-reconstruction`](validation.md?plain=1#L862), [`quantum/mesh-depth`](validation.md?plain=1#L863), [`quantum/clements-fig3-size`](validation.md?plain=1#L864), [`quantum/clements-fig3-loss`](validation.md?plain=1#L865)
 - Examples: [README.md:47](../examples/README.md?plain=1#L47), [56](../examples/README.md?plain=1#L56), [circuit_splitter.rs:6](../examples/circuit_splitter.rs#L6), [optimize_mesh.rs:7](../examples/optimize_mesh.rs#L7)
@@ -802,7 +802,7 @@ W. R. Clements, P. C. Humphreys, B. J. Metcalf, W. S. Kolthammer, I. A. Walsmley
 
 P. Clifford, R. Clifford, "The Classical Complexity of Boson Sampling", Proceedings of the Twenty-Ninth Annual ACM-SIAM Symposium on Discrete Algorithms, Society for Industrial and Applied Mathematics (2018). [doi:10.1137/1.9781611975031.10](https://doi.org/10.1137/1.9781611975031.10)
 
-- Methods pages: [quantum.md:16](methods/quantum.md?plain=1#L16), [183](methods/quantum.md?plain=1#L183)
+- Methods pages: [quantum.md:16](methods/quantum.md?plain=1#L16), [177](methods/quantum.md?plain=1#L177)
 - Validation cases: [`quantum/sampler-convergence`](validation.md?plain=1#L868)
 - Code: [src/quantum/checks.rs:193](../src/quantum/checks.rs#L193), [src/quantum/permanent.rs:249](../src/quantum/permanent.rs#L249), [src/quantum/sampler.rs:2](../src/quantum/sampler.rs#L2)
 - Other documents: [docs/plans/quantum.md:499](plans/quantum.md?plain=1#L499)
@@ -1410,7 +1410,7 @@ M. Glick, F. K. Reinhart, D. Martin, "Linear electro-optic effect: Comparison of
 
 D. G. Glynn, "The permanent of a square matrix", European Journal of Combinatorics 31, 1887 (2010). [doi:10.1016/j.ejc.2010.01.010](https://doi.org/10.1016/j.ejc.2010.01.010)
 
-- Methods pages: [quantum.md:14](methods/quantum.md?plain=1#L14), [111](methods/quantum.md?plain=1#L111)
+- Methods pages: [quantum.md:14](methods/quantum.md?plain=1#L14), [105](methods/quantum.md?plain=1#L105)
 - Validation cases: [`quantum/permanent-formulas`](validation.md?plain=1#L851)
 - Code: [src/quantum/checks.rs:74](../src/quantum/checks.rs#L74), [src/quantum/permanent.rs:8](../src/quantum/permanent.rs#L8)
 - Other documents: [docs/plans/quantum.md:498](plans/quantum.md?plain=1#L498)
@@ -1773,7 +1773,7 @@ J. Holzgrafe, E. Puma, R. Cheng, H. Warner, A. Shams-Ansari, R. Shankar, M. Lon�
 
 C. K. Hong, Z. Y. Ou, L. Mandel, "Measurement of subpicosecond time intervals between two photons by interference", Phys. Rev. Lett. 59, 2044 (1987). [doi:10.1103/PhysRevLett.59.2044](https://doi.org/10.1103/PhysRevLett.59.2044)
 
-- Methods pages: [quantum.md:18](methods/quantum.md?plain=1#L18), [155](methods/quantum.md?plain=1#L155)
+- Methods pages: [quantum.md:18](methods/quantum.md?plain=1#L18), [149](methods/quantum.md?plain=1#L149)
 - Validation cases: [`quantum/hom-visibility`](validation.md?plain=1#L853), [`quantum/hom-balanced`](validation.md?plain=1#L854)
 - Code: [src/quantum/checks.rs:88](../src/quantum/checks.rs#L88), [95](../src/quantum/checks.rs#L95), [src/quantum/hom.rs:2](../src/quantum/hom.rs#L2)
 - Other documents: [docs/plans/quantum.md:485](plans/quantum.md?plain=1#L485)
@@ -2506,7 +2506,7 @@ K. Luke, Y. Okawachi, M. R. E. Lamont, A. L. Gaeta, M. Lipson, "Broadband mid-in
 
 P. Lundow, K. Markström, "Efficient computation of permanents, with applications to Boson sampling and random matrices", Journal of Computational Physics 455, 110990 (2022). [doi:10.1016/j.jcp.2022.110990](https://doi.org/10.1016/j.jcp.2022.110990), open access.
 
-- Methods pages: [quantum.md:12](methods/quantum.md?plain=1#L12), [108](methods/quantum.md?plain=1#L108)
+- Methods pages: [quantum.md:12](methods/quantum.md?plain=1#L12), [102](methods/quantum.md?plain=1#L102)
 - Validation cases: [`quantum/permanent-formulas`](validation.md?plain=1#L851)
 - Code: [src/quantum/checks.rs:74](../src/quantum/checks.rs#L74), [src/quantum/permanent.rs:5](../src/quantum/permanent.rs#L5)
 - Other documents: [docs/plans/quantum.md:497](plans/quantum.md?plain=1#L497)
@@ -2703,7 +2703,7 @@ N. C. Menicucci, P. van Loock, M. Gu, C. Weedbrook, T. C. Ralph, M. A. Nielsen, 
 
 F. Mezzadri, "How to generate random matrices from the classical compact groups", Notices Amer. Math. Soc. 54, 592 (2007)., open access.
 
-- Methods pages: [quantum.md:27](methods/quantum.md?plain=1#L27), [201](methods/quantum.md?plain=1#L201)
+- Methods pages: [quantum.md:27](methods/quantum.md?plain=1#L27), [195](methods/quantum.md?plain=1#L195)
 - Code: [src/quantum/mesh.rs:31](../src/quantum/mesh.rs#L31)
 
 #### Micikevicius 2009
@@ -3023,7 +3023,7 @@ W. Pernice, C. Schuck, O. Minaeva, M. Li, G. Goltsman, A. Sergienko, H. Tang, "H
 
 A. Peruzzo, M. Lobino, J. C. F. Matthews, N. Matsuda, A. Politi, K. Poulios, X.-Q. Zhou, Y. Lahini, N. Ismail, K. Wörhoff, et al., "Quantum Walks of Correlated Photons", Science 329, 1500 (2010). [doi:10.1126/science.1193515](https://doi.org/10.1126/science.1193515)
 
-- Methods pages: [quantum.md:24](methods/quantum.md?plain=1#L24), [222](methods/quantum.md?plain=1#L222)
+- Methods pages: [quantum.md:24](methods/quantum.md?plain=1#L24), [216](methods/quantum.md?plain=1#L216)
 - Validation cases: [`quantum/peruzzo-correlations`](validation.md?plain=1#L866), [`quantum/peruzzo-classical-bound`](validation.md?plain=1#L867)
 - Code: [src/quantum/checks.rs:179](../src/quantum/checks.rs#L179), [186](../src/quantum/checks.rs#L186), [src/quantum/walk.rs:2](../src/quantum/walk.rs#L2)
 - Other documents: [docs/plans/quantum.md:508](plans/quantum.md?plain=1#L508)
@@ -3211,7 +3211,7 @@ S. Raza, M. Hammood, N. A. F. Jaeger, L. Chrostowski, "Fabrication-aware inverse
 
 M. Reck, A. Zeilinger, H. J. Bernstein, P. Bertani, "Experimental realization of any discrete unitary operator", Phys. Rev. Lett. 73, 58 (1994). [doi:10.1103/PhysRevLett.73.58](https://doi.org/10.1103/PhysRevLett.73.58)
 
-- Methods pages: [quantum.md:20](methods/quantum.md?plain=1#L20), [206](methods/quantum.md?plain=1#L206)
+- Methods pages: [quantum.md:20](methods/quantum.md?plain=1#L20), [200](methods/quantum.md?plain=1#L200)
 - Academy lessons: [mach-zehnder.md:52](../academy/mach-zehnder.md?plain=1#L52), [368](../academy/mach-zehnder.md?plain=1#L368)
 - Validation cases: [`quantum/mesh-reconstruction`](validation.md?plain=1#L862)
 - Code: [src/quantum/checks.rs:151](../src/quantum/checks.rs#L151), [src/quantum/mesh.rs:3](../src/quantum/mesh.rs#L3)
@@ -3333,7 +3333,7 @@ R. C. Rumpf, "SIMPLE IMPLEMENTATION OF ARBITRARILY SHAPED TOTAL-FIELD/SCATTERED-
 
 H. Ryser, "Combinatorial Mathematics", American Mathematical Society (1963). [doi:10.5948/UPO9781614440147](https://doi.org/10.5948/UPO9781614440147)
 
-- Methods pages: [quantum.md:10](methods/quantum.md?plain=1#L10), [109](methods/quantum.md?plain=1#L109)
+- Methods pages: [quantum.md:10](methods/quantum.md?plain=1#L10), [103](methods/quantum.md?plain=1#L103)
 - Code: [src/quantum/permanent.rs:5](../src/quantum/permanent.rs#L5)
 - Other documents: [docs/plans/quantum.md:496](plans/quantum.md?plain=1#L496)
 
