@@ -24,6 +24,7 @@ moving a slider shows the physics the library computes, the code the
 | [Metasurfaces and metalenses](metasurfaces.md) | advanced | `metalens` | `meta-orders`, `meta-pillar`, `meta-focus`, `meta-axis`, `meta-bandwidth` |
 | [FDFD and adjoint gradients](fdfd-and-adjoints.md) | advanced | `fdfd` | `fdfd-convergence`, `fdfd-gradient`, `fdfd-difference-step` |
 | [Modulators and phase shifters](modulators.md) | intermediate | `modulator` | `heater-power`, `mzm-transfer`, `modulator-response`, `pcm-shift` |
+| [Nonlinear integrated optics](nonlinear-optics.md) | advanced | `nonlinear` | `nl-miller`, `nl-coupled`, `nl-acceptance`, `nl-qpm`, `nl-ridge`, `nl-spm`, `nl-soliton`, `nl-fwm`, `nl-lle-states`, `nl-comb`, `nl-jsa` |
 
 The whole curriculum is laid out: every lesson still to be written is here too, **coming soon**,
 with its numbered subsections, what each will answer and the examples each will use, so writing
@@ -35,7 +36,6 @@ it is filling them in. The library lists them in this order, the order to read t
 | [Surface plasmons and Mie scattering](plasmonics.md) | Nanophotonics | advanced | `lorentz_okoniewski` |
 | [How FDTD works](how-fdtd-works.md) | Numerical methods | intermediate | `cpml_roden_gedney`, `pml_oskooi`, `tfsf_square_cylinder`, `subpixel_holes`, `bump_oskooi`, `lorentz_okoniewski` |
 | [Inverse design](inverse-design.md), with 0.7 | Numerical methods | advanced | `circuit_splitter`, `circuit_ring_critical`, `circuit_fit` |
-| [Nonlinear integrated optics](nonlinear-optics.md), with 0.6.1 | Active and quantum photonics | advanced | |
 | [Quantum light on a chip](quantum-light.md), with 0.6.3 | Active and quantum photonics | advanced | |
 
 ## A lesson's file
@@ -203,6 +203,7 @@ shows first.
 | `metalens` | a metalens in section: pillars of height $H$ and widths $w$, one every period $p$, on a substrate, lit from below by a plane wave, their widths repeating zone by zone with the wrapped phase $\varphi(r) = -k(\sqrt{r^2 + f^2} - f)$; the wave converging on the focus a focal length $f$ above, the rim's ray at $\theta$, $\mathrm{NA} = \sin\theta$, the half-width $R$; beside it a nanofin from above, rotated by $\alpha$, whose converted light carries the phase $2\alpha$, and $\varphi$ against $r$ | none |
 | `fdfd` | a 2D FDFD problem: a grid closed by PMLs ($\partial_w \to s_w^{-1}\partial_w$), a guide through it, a source $b$, a monitor measuring $a = c^\mathsf{T}x$ and between them a design region of cells $\varepsilon_k$; the forward field $x$ of $A(\varepsilon)\,x = b$ travelling from the source and the adjoint field $\lambda$ of $A^\mathsf{T}\lambda = \partial F/\partial x$ travelling back from the monitor, and $dF/d\varepsilon_k = -2\operatorname{Re}(\lambda^\mathsf{T}\,\partial_kA\,x)$; beside it Yee's 2D grid for $E$ along $z$, $E_z$ at the centres and $H_x$, $H_y$ on the faces, and the five-point stencil | none |
 | `mmi` | a 1 × 2 MMI from above: a section $W$ wide and $L = 3L_\pi/8$ long fed in its middle by a guide $w_a$ wide, the light inside it computed from Soldano and Pennings's sine-like modes and quadratic phases, the input's spot opening into two images at the far face, the outputs at $\pm W/4$, $z$ along it; beneath, the first four modes $\psi_0 \ldots \psi_3$ across $W$, $\beta_0 - \beta_\nu \approx \nu(\nu + 2)\pi/3L_\pi$ and $L_\pi \approx 4n_rW_e^2/3\lambda_0$ | `mmi-fdfd.yaml` |
+| `nonlinear` | a periodically poled thin-film lithium niobate guide from above: domains of $+d$ and $-d$ a period $\Lambda$ apart over $L$, the fundamental $\omega$ in, $\omega$ and $2\omega$ out, $\Delta k = k_{2\omega} - 2k_\omega - 2\pi/\Lambda = 0$; beneath it the x-cut ridge in section, a film $t$ thick etched $e$ deep to $w$ wide on silica, the $c$ axis across, the fundamental's mode and the harmonic's smaller one, and $\kappa$ as their overlap through $d$; and a Kerr ring from above, $\gamma = 2\pi n_2/(\lambda A_\text{eff})$, a pump $\omega_p$ in its bus and the comb out, lines $D_1/2\pi$ apart, $\omega_s$ and $\omega_i$ either side, $2\omega_p = \omega_s + \omega_i$ | none |
 | `modulator` | a push–pull Mach–Zehnder modulator from above: two arms in the gaps of a ground–signal–ground electrode $L$ long, the RF wave $n_m$ from $R_G$ into $R_L$ beside the light $n_o$, the field opposite in the two gaps; beneath it in section, x-cut thin-film lithium niobate, two ribs in gaps $g$ wide, the $c$ axis across and $\Delta n_e = -\tfrac12 n_e^3 r_{33} E$; and a thermo-optic shifter in section, a heater $h$ above a strip dissipating $P'$, its heat spreading to the substrate at $T_0$, $\Delta n = (dn/dT)\,\Delta T$ | none |
 
 Each diagram is an entry in `studio/src-tauri/src/diagrams.rs` (its title, its captions, and its
@@ -275,7 +276,17 @@ code; the window only draws what it returns, and asks again as a slider moves.
 | `mzm-transfer` | `length` µm (5800), `bias` $\varphi_0/\pi$ (0.5), `frequency` GHz (0) | `device::TflnModulator` at the 2D fidelity: `Device::component`'s $\lvert S_{21}\rvert^2$ at 81 voltages over $\pm 2V_\pi$, at the frequency and at DC; $V_\pi L$, $\lvert m(f)\rvert$ and the slope at the bias |
 | `modulator-response` | `mismatch` $n_m - n_o$ (0.04), `loss` $a$ dB cm⁻¹ GHz⁻½ (0.42), `dielectric` $b$ dB cm⁻¹ GHz⁻¹ (0.025), `impedance` Ω (41.5), `length` µm (5800) | `electro::line::response` (Ghione's Eq. 6.31) between 50 Ω ends beside light of group index 2.26, from 1 to 300 GHz referred to 1 GHz, `falls_to` for the bandwidths; the limits $\lvert\sin U/U\rvert$ and $(1 - e^{-\alpha L})/(\alpha L)$ |
 | `pcm-shift` | `thickness` nm (25), `width` µm (0.5) | `device::PcmShifter::sb2se3`, `::sb2s3` and `::gst` at the analytic fidelity: $\Delta n_\mathrm{eff}$ amorphous to crystalline at 17 film thicknesses from 10 to 50 nm, on a logarithmic scale; the crystalline loss, $L_\pi$ and the figure of merit at the thickness |
-
+| `nl-miller` | `crystal` (1 congruent LiNbO₃, 2 MgO:LiNbO₃), `from` (1 0.852, 2 1.064, 3 1.313 µm) | `nonlinear::miller::miller_shg` on the catalogue's Shoji et al. tensors and the entries' default indices, against the fundamental from 0.82 to 2.2 µm; the measurements dashed |
+| `nl-coupled` | `process` (1 SHG, 2 parametric gain), `efficiency` η %/(W·cm²) (4500), `power` mW (100), `length` µm (4000), `phase` ΔkL/2 (0) | `nonlinear::coupled::SecondHarmonic` and `ThreeWave` by RK4 on 2000 steps over the length; `undepleted_lossy_shg`, $\tanh^2$ and $1 + (\Gamma/g)^2\sinh^2 gz$ beside them |
+| `nl-acceptance` | `fundamental` µm (1.064), `length` µm (1000), `variable` (1 wavelength, 2 temperature) | `nonlinear::phase::Uniaxial::catalogue` (Edwards and Lawrence's $n_e(T)$), `Device::quasi_phase_matched` with Jundt's expansion, `phase_tuned`, `response`, `acceptance` |
+| `nl-qpm` | `order` $m$ (1), `duty` $D$ (0.5), `span` in $l_c$ (12) | the domains' $\int d(z)e^{-i\Delta kz}dz$ in closed form, summed in the studio on steps of $l_c/40$; `fourier_coefficient` for $G_m$ |
+| `nl-ridge` | `width` µm (1.24), `etch` nm (50), `fundamental` µm (1.57) | `nonlinear::guide`: Zhao et al.'s x-cut MgO:LiNbO₃ ridge, `Ridge::cross_section` on 20 nm cells behind a mirror wall, `fundamental`, `ModeField`, `second_harmonic_coupling` with $d_{33}$ = 27 pm/V; $\lvert E_x\rvert$ of both TE₀ modes as pictures, the period, $A_\text{eff}$ and η |
+| `nl-spm` | `phase` $\varphi_\mathrm{max}$ (4.5π) | `nonlinear::pulse::Guide::propagate` on a Gaussian without dispersion, 1024 points across 64 T₀, `Pulse::spectrum`, `rms_bandwidth`; `spm_rms_broadening` |
+| `nl-soliton` | `order` $N$ (3), `distance` $z/z_0$ (0.5) | `Guide::propagate` on `Pulse::sech` (β₂ = −0.05 ps²/m, γ = 1 /(W·m), T₀ = 100 fs), 2000 split steps a soliton period, 1024 points across 50 T₀ |
+| `nl-fwm` | `power` W (1), `gamma` /(W·m) (1), `length` m (2), `beta2` ps²/m (−0.05), `beta4` 10⁻⁴ ps⁴/m (0) | `nonlinear::fwm::signal_gain`, `conversion`, `peak_detuning`; `Dispersion::four_wave_mismatch` |
+| `nl-lle-states` | `drive` $f^2$ (4), `detuning` $\zeta_0$ (3) | `nonlinear::resonator::homogeneous_powers` at 1201 detunings, `instability_rate` at each state |
+| `nl-comb` | `detuning` $\zeta_0$ (10), `drive` $f$ (3), `d2` (0.004) | `Resonator::quadratic`, `soliton`, `soliton_field` and `settle` on 512 lines, steps of 0.002, `peak_width`, `max_detuning`; the lines by a discrete Fourier transform |
+| `nl-jsa` | `pump` nm (0.6), `length` µm (10000), `idler` $g_i$ (2.25), `matching` (1 sinc, 2 Gaussian) | `nonlinear::pairs::joint_spectrum` and `schmidt` on 201 × 201 frequencies of a model guide (linear indices, $g_s$ 2.30, $g_p$ 2.40), `gaussian_purity`; the picture by `Device::phase_at_frequencies` on even wavelengths |
 The ranges are in `charts.rs` (the coupler's in `charts/coupler.rs`), and the window's sliders keep
 to them. A chart may draw its y axis on a logarithmic scale (`y_log`), and give curves that belong
 together one colour (`colour`, as the slab's charts give a TE and a TM mode of one order). The
@@ -315,6 +326,16 @@ milliseconds; the TFLN modulator's 2D cross-section, solved once, in seconds, an
 by the device, so its voltage, bias and frequency redraw at once; and Ghione's response, exact.
 Their unit tests check each curve against the device's own figures, the examples' printed numbers
 and the response's closed-form limits.
+The nonlinear lesson's charts (`charts/nonlinear.rs`) call the library's `nonlinear` module: closed
+forms and phase matching (Miller's rule, the acceptance, four-wave mixing's gain, the
+Lugiato–Lefever equation's uniform states), exact and in milliseconds; RK4 and split-step
+integrations (the coupled-wave equations, the NLSE, a settled cavity soliton on 512 lines), tens
+of milliseconds to a second, the soliton cached; a joint spectrum's singular values on 201 × 201
+points; and the thin-film ridge's two full-vector modes on 20 nm cells, about a second, cached by
+geometry. `nl-qpm` sums the harmonic over the domains in the studio, with no library function
+behind it, and its caption says so. Their unit tests, 0.9 s together on 6 threads, check each
+against the write-up's numbers (Fejer et al.'s Table I, Zhao et al.'s period and areas, the
+job's η, the soliton's table) or a closed form.
 A chart may draw pictures of a field over a cross-section in place of curves (`maps`), side by
 side with one colour scale, as `strip-fields` does.
 
