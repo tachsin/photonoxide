@@ -125,6 +125,21 @@ pub fn specs() -> Vec<DiagramSpec> {
             caption_3d: "",
         },
         DiagramSpec {
+            id: "crystal",
+            title: "A photonic-crystal slab, seen from above",
+            caption: "A triangular lattice of air holes of radius $r$, a lattice constant $a$ \
+                      apart, in a film of permittivity $\\varepsilon$. A row left out is the W1 \
+                      waveguide: light at a frequency in the crystal's gap travels along it and \
+                      nowhere else. Three holes left out in a line are the L3 cavity, its two end \
+                      holes moved outwards by $s$ (dashed: where they were). Beside it, the \
+                      lattice's Brillouin zone, a hexagon of wavevectors: $\\Gamma$ at its centre, \
+                      $k = 0$, M at the middle of an edge and K at a corner. Bands are drawn along \
+                      the edge of the shaded wedge, $\\Gamma$–M–K–$\\Gamma$, which by the lattice's \
+                      symmetry holds every distinct wavevector. Not to scale.",
+            job: None,
+            caption_3d: "",
+        },
+        DiagramSpec {
             id: "mzi",
             title: "A Mach–Zehnder interferometer, seen from above",
             caption: "Light enters the lower guide. The splitter, a coupler, keeps a share $r_1$ \

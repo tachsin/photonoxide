@@ -25,6 +25,7 @@ use photonoxide::units::{Length, Wavelength};
 use serde::Serialize;
 
 mod coupler;
+mod crystal;
 mod fabrication;
 mod grating;
 mod leaky;
@@ -1082,6 +1083,7 @@ pub fn specs() -> Vec<ChartSpec> {
     ]
     .into_iter()
     .chain(grating::specs())
+    .chain(crystal::specs())
     .collect()
 }
 
@@ -1419,6 +1421,16 @@ pub fn evaluate(id: &str, given: &BTreeMap<String, f64>) -> Result<ChartData, St
         "mmi-tolerance" => mmi::tolerance(at("kind"), at("width"), at("access"), at("thickness")),
         "fab-oxidation" => fabrication::oxidation(at("temperature"), at("hours")),
         "fab-resolution" => fabrication::resolution(at("k1"), at("feature")),
+        "crystal-stack" => crystal::stack(at("high"), at("low"), at("fill")),
+        "crystal-group-index" => {
+            crystal::group_index(at("high"), at("low"), at("fill"), at("frequency"))
+        }
+        "crystal-bands" => crystal::bands(
+            at("lattice") as usize,
+            at("kind") as usize,
+            at("eps"),
+            at("radius"),
+        ),
         "grating-angle" => grating::angle(at("period"), at("etch"), at("fill"), at("cladding")),
         "grating-overlap" => grating::overlap(at("mfd"), at("angle"), at("leakage")),
         "grating-apodization" => grating::apodization(at("mfd"), at("angle"), at("cap")),

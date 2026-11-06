@@ -45,7 +45,7 @@ step() {
 }
 skip() { results+=("$(printf '%6s  skipped %s (%s)' - "$1" "$2")"); }
 
-# shellcheck disable=SC2317 # run through step, as "$@"
+# shellcheck disable=SC2317,SC2329 # run through step, as "$@" (SC2329 in newer shellcheck)
 examples() {
   local status=0 example name out
   # all of them at once, so they compile and link side by side (#507), as CI does; the loop below
@@ -65,7 +65,7 @@ examples() {
   return "$status"
 }
 
-# shellcheck disable=SC2317 # run through step, as "$@"
+# shellcheck disable=SC2317,SC2329 # run through step, as "$@" (SC2329 in newer shellcheck)
 studio() {
   (cd studio && pnpm install --frozen-lockfile && pnpm build) &&
     cargo fmt -p photonoxide-studio -p photonoxide-setup --check &&
