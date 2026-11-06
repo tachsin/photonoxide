@@ -62,6 +62,26 @@ pub fn show(dir: Option<&Path>, live: Option<Live>) -> Result<(), String> {
         .plugin(tauri_plugin_process::init())
         // the window opens where it was left, at the size it had
         .plugin(tauri_plugin_window_state::Builder::default().build())
+        // the feed's figures, kept on disk (papers/images.rs): `paperimg:` serves a file of
+        // that folder by its name, and nothing else; the window asks for them by name
+        .register_uri_scheme_protocol("paperimg", |ctx, request| {
+            let name = request.uri().path().trim_start_matches('/');
+            let found = ctx
+                .app_handle()
+                .try_state::<std::sync::Arc<crate::papers::Papers>>()
+                .and_then(|p| p.images.read(name));
+            let response = match found {
+                Some((bytes, mime)) => tauri::http::Response::builder()
+                    .status(200)
+                    .header("Content-Type", mime)
+                    .header("Cache-Control", "max-age=86400")
+                    .body(bytes),
+                None => tauri::http::Response::builder()
+                    .status(404)
+                    .body(Vec::new()),
+            };
+            response.unwrap_or_else(|_| tauri::http::Response::new(Vec::new()))
+        })
         .invoke_handler(tauri::generate_handler![
             info,
             poll,
@@ -95,6 +115,9 @@ pub fn show(dir: Option<&Path>, live: Option<Live>) -> Result<(), String> {
             crate::papers::papers_refresh,
             crate::papers::paper_open,
             crate::papers::papers_search,
+            crate::papers::paper_image,
+            crate::papers::paper_images_kept,
+            crate::papers::paper_images_clear,
             crate::papers::reading_list,
             crate::papers::reading_list_save,
             published_report,
@@ -351,6 +374,10 @@ struct Started {
 impl Studio {
     pub(crate) fn workspace(&self) -> PathBuf {
         lock(&self.workspace).clone()
+    }
+
+    pub(crate) fn settings(&self) -> Settings {
+        lock(&self.settings).clone()
     }
 }
 

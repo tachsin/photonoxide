@@ -29,6 +29,10 @@ export interface Settings {
   tuned_builds: boolean;
   /** Home's paper feed checks the journals and arXiv by itself, every four hours while the window is open (papers.rs). */
   paper_feed: boolean;
+  /** The feed's sources turned off with Home's journal picker, by id (a journal's first ISSN, or "arxiv"). */
+  paper_sources_off: string[];
+  /** The feed shows each arXiv preprint's first figure, from arxiv.org (papers/images.rs); off at first. */
+  paper_images: boolean;
 }
 
 export interface AppState {
@@ -265,8 +269,13 @@ export const api = {
   changelog: () => invoke<string>("changelog"),
   /** Home's paper feed from the cache, at once (papers.rs). */
   papersFeed: () => invoke<Feed>("papers_feed"),
-  /** Asks the journals and arXiv for their newest papers; the feed after. */
-  papersRefresh: () => invoke<Feed>("papers_refresh"),
+  /** Asks the journals and arXiv the picker keeps on for their newest papers (`onlyNew`: those never asked); the feed after. */
+  papersRefresh: (onlyNew = false) => invoke<Feed>("papers_refresh", { onlyNew }),
+  /** A preprint's first figure for the feed: the name the paperimg: scheme serves it by, or null (Settings' images off, a journal's paper, or no figure). */
+  paperImage: (id: string) => invoke<string | null>("paper_image", { id }),
+  /** The figures kept on disk: how many, and their bytes. */
+  paperImagesKept: () => invoke<[number, number]>("paper_images_kept"),
+  paperImagesClear: () => invoke<void>("paper_images_clear"),
   /** A paper's page by DOI or arXiv id: from the cache, else the sources. */
   paperOpen: (id: string) => invoke<PaperPage>("paper_open", { id }),
   papersSearch: (query: string) => invoke<PaperSummary[]>("papers_search", { query }),

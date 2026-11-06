@@ -626,7 +626,7 @@ export async function boot() {
     app.state = await api.appState();
   } catch {
     app.state = {
-      settings: { theme: "system", workspace: null, check_updates: false, channel: "stable", hints: true, welcomed: true, dismissed: [], view: "3d", length_unit: "um", tuned_builds: false, paper_feed: false },
+      settings: { theme: "system", workspace: null, check_updates: false, channel: "stable", hints: true, welcomed: true, dismissed: [], view: "3d", length_unit: "um", tuned_builds: false, paper_feed: false, paper_sources_off: [], paper_images: false },
       workspace: "",
       version: "dev",
       platform: "browser",
