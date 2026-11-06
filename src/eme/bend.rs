@@ -68,16 +68,6 @@ impl Map {
         }
     }
 
-    /// The radius, µm.
-    pub(crate) fn radius(&self) -> f64 {
-        self.radius
-    }
-
-    /// The mapped u at the window's lower and upper edges, µm.
-    pub(crate) fn edges(&self) -> [f64; 2] {
-        self.u
-    }
-
     /// The lower PML's thickness in s.
     fn lower_s(&self) -> f64 {
         self.lower / self.jacobian[0]

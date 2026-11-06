@@ -4,10 +4,13 @@
 # straight guide, its index n e^(u/R) (M. Heiblum, J. H. Harris, IEEE J. Quantum Electron. 11,
 # 75 (1975), doi:10.1109/JQE.1975.1068563), in thin layers; the light it radiates leaves through
 # the PML at the outer (upper) wall. The core sits 0.75 um below the window's middle in every
-# section, so that the bend has 2.9 um of cladding outside it and 1.4 um inside. |S21|^2 between
-# the straights' fundamental modes holds the bend's radiation, about 0.19 dB at 1.55 um (the
-# validation case eme/bend-loss checks the bent mode's loss against the exact bent slab), and
-# the two joints' mismatch between the straight's mode and the bent one.
+# section, so that the bend has 2.9 um of cladding outside it and 1.4 um inside.
+# |S21|^2 between the straights' fundamental modes is 0.8991 at 1.55 um (0.46 dB): 0.19 dB of
+# it is the bend's radiation (the validation case eme/bend-loss checks the bent mode's loss
+# against the exact bent slab), the rest the two joints' mismatch between the straight's mode
+# and the bent one, which sits further out. From 1.5 to 1.6 um it goes from 0.27 to 0.75 dB.
+# A PML of strength 0.5 here loses two of the straights' TM modes on the way to them (the
+# method page's Limits); 0.25 doesn't.
 #   photonoxide run jobs/eme-bend.yaml
 name: eme-bend
 timeout_minutes: 10
@@ -16,9 +19,9 @@ task:
   kind: eme
   wavelength_um: 1.55
   polarization: tm
-  modes: 24
+  modes: 16
   window_um: 4.5
-  pml: { thickness_um: 2.0, strength: 0.5, sides: upper }
+  pml: { thickness_um: 2.0, strength: 0.25, sides: upper }
   cladding: 1.444
   core: 3.473
 

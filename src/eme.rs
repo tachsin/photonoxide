@@ -77,7 +77,15 @@
 //! **Periodic sections**: a period's Bloch modes ([`Eme::bloch`], [`Bloch`]) are the
 //! eigenvectors of its transfer matrix, found from its S-matrix without inverting it, and a
 //! structure with a period repeated N times ([`Eme::grating`]) takes the period's S-matrix to
-//! the N-th power by repeated squaring. Not here yet: a job's own drawn shapes and bends (#432).
+//! the N-th power by repeated squaring.
+//!
+//! **Bends**: a slice bent in the plane of the expansion ([`Slice::bent`], [`Section::bend`])
+//! is the straight guide of the conformal map u = R ln(ρ/R), its index n(u) e^(u/R) (M. Heiblum,
+//! J. H. Harris, IEEE J. Quantum Electron. 11, 75 (1975),
+//! [doi:10.1109/JQE.1975.1068563](https://doi.org/10.1109/JQE.1975.1068563)), cut into thin
+//! layers ([`Eme::with_bend_step`]), its PML the profile's analytic continuation, and its joints
+//! with other sections taken in the physical coordinate (the `bend` module's docs). Not here
+//! yet: a job's own drawn shapes, and bends in 3D (#432).
 
 use num_complex::Complex64 as c64;
 
@@ -174,7 +182,7 @@ impl Slice {
     /// The same slice bent at `radius` to the window's middle, in the plane of the expansion:
     /// positive with the bend's centre below the lower wall (the upper wall outside), negative
     /// with it above the upper one. Its modes are those of the conformal map's straight guide
-    /// (the module's docs, **Bends**).
+    /// (the module's docs, **Bends**), their effective indices along the arc at the radius.
     ///
     /// # Errors
     ///

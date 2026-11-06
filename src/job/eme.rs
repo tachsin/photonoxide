@@ -14,7 +14,9 @@
 //! the sweep's points from the interpolant ([`crate::eme::Spectrum`]) with its estimated error.
 //! `[task.period]` repeats some of the sections `count` times, the structure solved by repeated
 //! squaring of one period's S-matrix ([`crate::eme::Eme::grating`]), and records the period's
-//! Bloch modes ([`crate::eme::Bloch`]) at each wavelength it solves as a sweep point.
+//! Bloch modes ([`crate::eme::Bloch`]) at each wavelength it solves as a sweep point. A section
+//! with `radius_um` and `angle_deg` is a bend by the conformal map ([`crate::eme::Slice::bent`]),
+//! drawn turning in the scene.
 //!
 //! The run records its scene (the cores seen from above, z along x), the solver's settings,
 //! the S-parameters between the guided modes at the two ends (at each wavelength), and each
@@ -99,9 +101,10 @@ impl SectionSpec {
         self.radius_um.is_some() || self.angle_deg.is_some()
     }
 
-    /// Its length along z (along the arc at the radius for a bend), µm; NaN where it has none.
+    /// Its length along z (for a bend along the arc at the window's middle, where its modes'
+    /// propagation constants are taken), µm; NaN where it has none.
     fn length(&self) -> f64 {
-        match (self.radius_um, self.angle_deg) {
+        match (self.middle_radius(), self.angle_deg) {
             (Some(r), Some(a)) => r.abs() * a.to_radians(),
             _ => self.length_um.unwrap_or(f64::NAN),
         }

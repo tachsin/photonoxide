@@ -449,7 +449,7 @@ pub(crate) fn cases() -> Vec<Case> {
             id: "eme/bend-no-angle",
             title: r"A bend of no angle between two straights: the same slab at 2 and 3 µm, TE and TM, 24 modes, the straight-to-bend joint and back, its S between the straights' fundamental modes against the straight's ($\max(\lvert S_{21} - 1 \rvert, \lvert S_{11} \rvert)$ shown; with 6, 12, 16 and 24 modes at 2 µm TE: 3.2e-3, 2.5e-3, 1.3e-4, 3.5e-6)",
             tier: Tier::Analytic,
-            source: r"as the angle goes to 0 the bend leaves only its two joints, whose overlaps are inverse with every mode: what remains is the truncation of two bases (`eme/grating-squaring`'s method page: a zero-length section between two others is not the identity with finitely many modes), and it falls with the modes",
+            source: r"as the angle goes to 0 the bend leaves only its two joints, whose overlaps are inverse with every mode: what remains is the truncation of two bases (as a zero-length section between two others, the method page's periodic sections), and it falls with the modes, though not monotonically",
             run: || zero(no_angle_case(), 1e-4),
         },
         Case {
@@ -524,6 +524,9 @@ mod tests {
         let t = std::time::Instant::now();
         for pol in BOTH {
             eprintln!("orders {pol:?} {:?}", orders(pol, 2.0));
+            let want = exact_index(pol, 2.0);
+            let off = (index(pol, 2.0, STEP, 1.0, want) - want).norm();
+            eprintln!("{pol:?} at 2 um with the default step: {off:.2e} off");
         }
         eprintln!("order {} {:.1} s", order_case(), t.elapsed().as_secs_f64());
         let t = std::time::Instant::now();
