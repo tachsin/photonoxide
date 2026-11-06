@@ -56,6 +56,10 @@ pub struct SlabBend {
     layers: Vec<f64>,
     /// The Runge–Kutta steps' scale: 1, or less for a study of their own error.
     steps: f64,
+    /// How many decay lengths below the stack the inner solution starts: 12, so that the
+    /// solution decaying outwards, which its start's approximate ψ'/ψ adds, has died out by
+    /// e^(−24) at the stack (6 left n_eff about 5e-9 off, `eme/bend-index`).
+    depth: f64,
 }
 
 impl SlabBend {
@@ -66,6 +70,12 @@ impl SlabBend {
             steps: factor,
             ..self
         }
+    }
+
+    /// The same with the inner solution started `depth` decay lengths below the stack: for a
+    /// study of what its start leaves.
+    pub(crate) fn with_depth(self, depth: f64) -> SlabBend {
+        SlabBend { depth, ..self }
     }
 
     /// Films (index and thickness) starting at x = `start` from the reference radius `radius`,
@@ -126,6 +136,7 @@ impl SlabBend {
             interfaces,
             layers: films.iter().map(|&(n, _)| n).collect(),
             steps: 1.0,
+            depth: 12.0,
         })
     }
 
@@ -327,7 +338,7 @@ impl SlabBend {
         let kappa = |rho: f64| {
             (nu * nu / (rho * rho) - c64::new(k * k * self.inner * self.inner, 0.0)).sqrt()
         };
-        let start = (first - 6.0 / kappa(first).re.max(1e-3)).max(0.5 * first);
+        let start = (first - self.depth / kappa(first).re.max(1e-3)).max(0.5 * first);
         let inner = kappa(start) - 1.0 / (2.0 * start);
         // outside: the outgoing cylinder wave, H⁽¹⁾_ν(k n ρ), where Debye's expansions give it.
         // Its turning point is at k n ρ = Re ν, about n_eff / n times the radius: far out for a

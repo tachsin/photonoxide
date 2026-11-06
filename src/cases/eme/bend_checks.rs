@@ -71,25 +71,38 @@ pub(crate) fn exact(r: f64) -> SlabBend {
     .expect("a bent slab")
 }
 
+/// The exact bend's Runge–Kutta steps, as a share of [`SlabBend`]'s own: a quarter, its error
+/// estimated from half.
+pub(crate) const REFERENCE: f64 = 0.25;
+
 /// The exact fundamental mode's n_eff = ν/(kR) at the window's middle, its Runge–Kutta steps
-/// half [`SlabBend`]'s.
+/// [`REFERENCE`] times [`SlabBend`]'s.
 pub(crate) fn exact_index(polarization: Polarization, r: f64) -> c64 {
-    exact_with(polarization, r, 0.5)
+    exact_with(polarization, r, REFERENCE, 12.0)
 }
 
-/// [`exact_index`] with the Runge–Kutta steps `steps` times [`SlabBend`]'s.
-pub(crate) fn exact_with(polarization: Polarization, r: f64, steps: f64) -> c64 {
+/// The exact n_eff with the Runge–Kutta steps `steps` times [`SlabBend`]'s and its inner
+/// solution started `depth` decay lengths below the slab.
+pub(crate) fn exact_with(polarization: Polarization, r: f64, steps: f64, depth: f64) -> c64 {
     exact(r)
         .with_steps(steps)
+        .with_depth(depth)
         .fundamental(polarization, lam())
         .expect("the exact bend's mode")
 }
 
-/// [`exact_index`]'s own error: its Runge–Kutta steps' fourth order, |n(h) − n(h/2)|/15.
-pub(crate) fn exact_error(polarization: Polarization, r: f64) -> f64 {
-    (exact_with(polarization, r, 1.0) - exact_index(polarization, r)).norm() / 15.0
+/// [`exact_index`]'s own error, by components (|Δn|, |Δ Im n|): the larger of its Runge–Kutta
+/// steps', at fourth order |n(2h) − n(h)|/15, and its inner start's, the change when it starts
+/// twice as deep.
+pub(crate) fn exact_error(polarization: Polarization, r: f64) -> (f64, f64) {
+    let n = exact_index(polarization, r);
+    let steps = (exact_with(polarization, r, 2.0 * REFERENCE, 12.0) - n) / 15.0;
+    let deeper = exact_with(polarization, r, REFERENCE, 24.0) - n;
+    (
+        steps.norm().max(deeper.norm()),
+        steps.im.abs().max(deeper.im.abs()),
+    )
 }
-
 /// The expansion's settings: `modes` modes, a PML 2 µm thick of strength 0.5 at the upper wall
 /// (outside the bend), the thin layers at most `step` µm thick; a PML 1/`scale` as strong.
 pub(crate) fn settings(polarization: Polarization, modes: usize, step: f64, scale: f64) -> Eme {
@@ -125,18 +138,22 @@ pub(crate) fn limit(coarse: c64, fine: c64) -> c64 {
 }
 
 /// The fundamental n_eff at `r` µm: exact, Richardson's limit from [`STEP`] and half of it, and
-/// that limit's own error: the larger of its change from the limit of the next two halvings and
-/// from a PML twice as thick and half as strong.
-pub(crate) fn index_limit(polarization: Polarization, r: f64) -> (c64, c64, f64) {
+/// that limit's own error by components (|Δn|, |Δ Im n|): the larger of its change from the
+/// limit of the next two halvings and from a PML twice as strong, and the exact's own.
+pub(crate) fn index_limit(polarization: Polarization, r: f64) -> (c64, c64, (f64, f64)) {
     let want = exact_index(polarization, r);
     let n = |step: f64, scale: f64| index(polarization, r, step, scale, want);
     let (a, b, c) = (n(STEP, 1.0), n(0.5 * STEP, 1.0), n(0.25 * STEP, 1.0));
     let got = limit(a, b);
-    let finer = limit(b, c);
-    let pml = limit(n(STEP, 2.0), n(0.5 * STEP, 2.0));
-    (want, got, (got - finer).norm().max((got - pml).norm()))
+    let finer = limit(b, c) - got;
+    let pml = limit(n(STEP, 0.5), n(0.5 * STEP, 0.5)) - got;
+    let exact = exact_error(polarization, r);
+    let own = (
+        finer.norm().max(pml.norm()).max(exact.0),
+        finer.im.abs().max(pml.im.abs()).max(exact.1),
+    );
+    (want, got, own)
 }
-
 /// dB per 90° of a mode of effective index `n` at the radius `r` µm its index is taken at.
 pub(crate) fn db_per_quarter(n: c64, r: f64) -> f64 {
     let k = std::f64::consts::TAU / LAMBDA;
@@ -233,7 +250,7 @@ pub(crate) fn coupling(polarization: Polarization, r: f64, step: f64) -> c64 {
 /// The same coupling with the exact bend's field ([`SlabBend::field`], its Runge–Kutta steps
 /// `steps` times its own) and the straight slab's mode, integrated across the window.
 pub(crate) fn exact_coupling(polarization: Polarization, r: f64, steps: f64) -> c64 {
-    let want = exact_with(polarization, r, steps);
+    let want = exact_with(polarization, r, steps, 12.0);
     let straight_modes = settings(polarization, 6, STEP, 1.0)
         .modes(&straight(r))
         .expect("the straight's modes");
@@ -278,23 +295,22 @@ const BOTH: [Polarization; 2] = [Polarization::Te, Polarization::Tm];
 /// The index case's radii, µm.
 pub(crate) const RADII: [f64; 4] = [2.0, 5.0, 10.0, 20.0];
 
-/// The loss case's bends: those whose loss is above the arithmetic's reach (an Im n_eff of
-/// 1e-12 or more).
-pub(crate) const LOSSY: [(Polarization, f64); 5] = [
+/// The loss case's bends: those whose loss is above the arithmetic's reach, an Im n_eff of 1e-9
+/// or more (TE at 3 µm has 1.0e-13).
+pub(crate) const LOSSY: [(Polarization, f64); 4] = [
     (Polarization::Te, 2.0),
-    (Polarization::Te, 3.0),
     (Polarization::Tm, 2.0),
     (Polarization::Tm, 3.0),
     (Polarization::Tm, 5.0),
 ];
 
-/// The joint case's bends: those whose radiation, which the exact field's integral across the
-/// window leaves out, is under 1e-6 of their power per µm.
+/// The joint case's bends: those whose Im n_eff is under 1e-8, whose radiation, which the exact
+/// field's integral across the window leaves out, is negligible.
 pub(crate) const JOINTS: [(Polarization, f64); 4] = [
     (Polarization::Te, 2.0),
     (Polarization::Te, 3.0),
     (Polarization::Te, 5.0),
-    (Polarization::Tm, 5.0),
+    (Polarization::Tm, 10.0),
 ];
 
 /// The index case: the largest |Δn_eff| of Richardson's limit against the exact over both
@@ -305,7 +321,7 @@ pub(crate) fn index_case() -> (f64, f64) {
         for r in RADII {
             let (want, got, own) = index_limit(pol, r);
             worst.0 = worst.0.max((got - want).norm());
-            worst.1 = worst.1.max(own).max(exact_error(pol, r));
+            worst.1 = worst.1.max(own.0);
         }
     }
     worst
@@ -319,7 +335,7 @@ pub(crate) fn loss_case() -> (f64, f64) {
         let (want, got, own) = index_limit(pol, r);
         let im = want.im;
         worst.0 = worst.0.max((got.im / im - 1.0).abs());
-        worst.1 = worst.1.max(own / im).max(exact_error(pol, r) / im);
+        worst.1 = worst.1.max(own.1 / im);
     }
     worst
 }
@@ -360,7 +376,10 @@ pub(crate) fn joint_case() -> (f64, f64) {
     for (pol, r) in JOINTS {
         let c = [STEP, 0.5 * STEP, 0.25 * STEP].map(|s| coupling(pol, r, s));
         let (got, finer) = (limit(c[0], c[1]), limit(c[1], c[2]));
-        let (rough, want) = (exact_coupling(pol, r, 1.0), exact_coupling(pol, r, 0.5));
+        let (rough, want) = (
+            exact_coupling(pol, r, 2.0 * REFERENCE),
+            exact_coupling(pol, r, REFERENCE),
+        );
         worst.0 = worst.0.max((got - want).norm());
         worst.1 = worst
             .1
@@ -395,7 +414,7 @@ pub(crate) fn cases() -> Vec<Case> {
         },
         Case {
             id: "eme/bend-loss",
-            title: r"The same bends' radiation loss, $\operatorname{Im} n_\text{eff}$ (so the loss in dB per 90°) where it is above the arithmetic's reach: TE at 2 and 3 µm (3.1e-7 and 2.0e-11 dB per 90°), TM at 2, 3 and 5 µm (0.19, 0.017 and 8.0e-5 dB per 90°), Richardson's limit against the exact (largest relative error shown)",
+            title: r"The same bends' radiation loss, $\operatorname{Im} n_\text{eff}$ (so the loss in dB per 90°) where it is above the arithmetic's reach: TE at 2 µm (3.1e-7 dB per 90°), TM at 2, 3 and 5 µm (0.19, 0.017 and 8.0e-5 dB per 90°), Richardson's limit against the exact (largest relative error shown)",
             tier: Tier::Analytic,
             source: r"as `eme/bend-index`: the exact bent slab's $\operatorname{Im}\nu$, the light it radiates through the outgoing Hankel function; here through the PML, the mapped profile continued analytically into it",
             run: || {
@@ -435,9 +454,9 @@ pub(crate) fn cases() -> Vec<Case> {
         },
         Case {
             id: "eme/bend-joint",
-            title: r"The joint between a straight and a bend: the same slab, TE at 2, 3 and 5 µm and TM at 5 µm, the fundamental modes' coupling $\eta = \langle E_s, H_b \rangle \langle E_b, H_s \rangle / (\langle E_s, H_s \rangle \langle E_b, H_b \rangle)$ by the expansion's overlaps (the bend's mode at 10 and 5 nm layers, Richardson's limit) against the exact bent field's overlap with the straight slab's mode (largest $\lvert \Delta \eta \rvert$ shown; $1 - \eta$ is 2.8e-3 at 2 µm TE)",
+            title: r"The joint between a straight and a bend: the same slab, TE at 2, 3 and 5 µm and TM at 10 µm, the fundamental modes' coupling $\eta = \langle E_s, H_b \rangle \langle E_b, H_s \rangle / (\langle E_s, H_s \rangle \langle E_b, H_b \rangle)$ by the expansion's overlaps (the bend's mode at 10 and 5 nm layers, Richardson's limit) against the exact bent field's overlap with the straight slab's mode (largest $\lvert \Delta \eta \rvert$ shown; $1 - \eta$ is 2.8e-3 at 2 µm TE)",
             tier: Tier::Analytic,
-            source: r"`mode::bend`'s field $\psi(\rho)$ at its exact $\nu$, by the same radial integration (Runge–Kutta, its steps halved), its tangential H (TE) or E (TM) $n_\text{eff}(R/\rho)\psi$, against the straight slab's mode, both integrated across the window by Gauss–Legendre; the bends whose radiation is under 1e-6 of their power per µm, so that the window holds the mode",
+            source: r"`mode::bend`'s field $\psi(\rho)$ at its exact $\nu$, by the same radial integration (Runge–Kutta, its steps halved), its tangential H (TE) or E (TM) $n_\text{eff}(R/\rho)\psi$, against the straight slab's mode, both integrated across the window by Gauss–Legendre; the bends whose $\operatorname{Im} n_\text{eff}$ is under 1e-8, so that the window holds the mode (beyond it the exact field's integral leaves out what the expansion's PML takes)",
             run: || {
                 let (measured, own) = joint_case();
                 crate::verdict::note_numerical(own);
@@ -448,19 +467,56 @@ pub(crate) fn cases() -> Vec<Case> {
 }
 
 /// `eme/bend-index`'s tolerance: three times the largest own error, rounded up.
-pub(crate) const INDEX_TOLERANCE: f64 = 1e-7;
+pub(crate) const INDEX_TOLERANCE: f64 = 7e-10;
 /// `eme/bend-loss`'s tolerance, relative: three times the largest own error, rounded up.
-pub(crate) const LOSS_TOLERANCE: f64 = 1e-3;
+pub(crate) const LOSS_TOLERANCE: f64 = 9e-5;
 /// `eme/bend-joint`'s tolerance: three times the largest own error, rounded up.
-pub(crate) const JOINT_TOLERANCE: f64 = 1e-6;
+pub(crate) const JOINT_TOLERANCE: f64 = 4e-9;
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
+    fn a_bends_modes_are_orthonormal_with_one_living_in_its_pml() {
+        // at 2 µm TE with 1.5 µm inside, one of the first six modes lives at the PML's far end
+        // (n_eff² about 10.7 + 5.7i): it was stitched where one sweep had followed a decaying
+        // field, and was 0.4 off orthogonal to the others; now every pair is at round-off
+        let eme = settings(Polarization::Te, 6, STEP, 1.0);
+        let slice = Slice::new(&[
+            (c64::new(SIO2, 0.0), Length::um(1.5)),
+            (c64::new(SI, 0.0), Length::um(T)),
+            (c64::new(SIO2, 0.0), Length::um(2.5)),
+        ])
+        .and_then(|s| s.bent(Length::um(2.5)))
+        .expect("a bent slab");
+        let b = eme.modes(&slice).expect("the bend's modes");
+        let o = overlaps(&b, &b);
+        for i in 0..b.len() {
+            for j in 0..b.len() {
+                let want = if i == j { 1.0 } else { 0.0 };
+                assert!((o[(i, j)] - want).norm() < 1e-12, "{i} {j}: {}", o[(i, j)]);
+            }
+        }
+    }
+
+    #[test]
+    fn a_bend_is_refused_where_its_window_reaches_its_centre() {
+        let slab = straight(2.0);
+        assert!(slab.clone().bent(Length::um(1.0)).is_err());
+        assert!(slab.clone().bent(Length::um(f64::NAN)).is_err());
+        // the slice is allowed, but not with a PML inside the bend that reaches the centre
+        let half = 0.5 * slab.width().to_um();
+        let near = slab.bent(Length::um(half + 0.5)).expect("inside the radius");
+        let eme = Eme::new(Polarization::Te, lam(), 4)
+            .and_then(|e| e.with_pml(Length::um(1.0), 0.5))
+            .expect("an eme");
+        assert!(eme.modes(&near).is_err());
+    }
+
+    #[test]
     #[ignore = "prints the numbers"]
-    fn the_case_numbers() {
+    fn the_bend_study() {
         let t = std::time::Instant::now();
         eprintln!("index {:?} {:.1} s", index_case(), t.elapsed().as_secs_f64());
         let t = std::time::Instant::now();
@@ -488,122 +544,8 @@ mod tests {
             eprintln!("{pol:?} {r}: {n:.12} {:.4e} dB/90", db_per_quarter(n, middle(r)));
         }
         for (pol, r) in JOINTS {
-            eprintln!("{pol:?} {r}: 1 - eta {:.4e}", 1.0 - exact_coupling(pol, r, 0.5).norm());
-        }
-    }
-
-    #[test]
-    #[ignore = "prints the numbers"]
-    fn the_bend_case_study() {
-        for pol in [Polarization::Te, Polarization::Tm] {
-            for r in [2.0, 3.0, 5.0, 10.0, 20.0] {
-                let t = std::time::Instant::now();
-                let (want, got, own) = index_limit(pol, r);
-                let own_exact = exact_error(pol, r);
-                eprintln!("{pol:?} R {r}: the exact's own error {own_exact:.2e}");
-                eprintln!(
-                    "{pol:?} R {r}: exact {want:.12} limit {got:.12} err {:.2e} (re {:.2e} im {:.2e}) own {own:.2e}; loss {:.6e} dB/90 vs {:.6e} rel {:.2e}; {:.1} s",
-                    (got - want).norm(),
-                    got.re - want.re,
-                    got.im - want.im,
-                    db_per_quarter(got, middle(r)),
-                    db_per_quarter(want, middle(r)),
-                    got.im / want.im - 1.0,
-                    t.elapsed().as_secs_f64()
-                );
-            }
-            eprintln!("{pol:?} orders at 2: {:?}", orders(pol, 2.0));
-            eprintln!("{pol:?} orders at 5: {:?}", orders(pol, 5.0));
-        }
-    }
-
-    #[test]
-    #[ignore = "prints the numbers"]
-    fn the_robustness_study() {
-        for pol in [Polarization::Tm, Polarization::Te] {
-            for r in [2.0, 3.0, 5.0, 10.0, 20.0] {
-                for modes in [4, 6, 8, 12] {
-                    let mut failed = Vec::new();
-                    for f in [1.0, 0.5, 0.25, 0.125] {
-                        for scale in [1.0, 2.0] {
-                            let eme = settings(pol, modes, f * STEP, scale);
-                            if let Err(e) = eme.modes(&bent(r)) {
-                                failed.push(format!("{f}/{scale}: {e}"));
-                            }
-                        }
-                    }
-                    eprintln!("{pol:?} R {r} {modes} modes: {} failed {:?}", failed.len(), failed.first());
-                }
-            }
-        }
-    }
-
-    #[test]
-    #[ignore = "prints the numbers"]
-    fn the_orthogonality_study() {
-        let pol = if std::env::var("TM").is_ok() {
-            Polarization::Tm
-        } else {
-            Polarization::Te
-        };
-        let r: f64 = std::env::var("R").ok().and_then(|v| v.parse().ok()).unwrap_or(2.0);
-        let modes: usize = std::env::var("M").ok().and_then(|v| v.parse().ok()).unwrap_or(6);
-        let eme = settings(pol, modes, STEP, 1.0);
-        let b = match eme.modes(&bent(r)) {
-            Ok(b) => b,
-            Err(e) => {
-                eprintln!("{e}");
-                return;
-            }
-        };
-        let o = overlaps(&b, &b);
-        for i in 0..b.len() {
-            let row: Vec<String> = (0..b.len())
-                .map(|j| {
-                    let want = if i == j { 1.0 } else { 0.0 };
-                    format!("{:.1e}", (o[(i, j)] - want).norm())
-                })
-                .collect();
-            eprintln!("{i}: n {:.8} | {}", b[i].effective_index(), row.join(" "));
-        }
-        let xs: Vec<f64> = (0..=40).map(|j| j as f64 * 0.1).collect();
-        let psi = exact(r).field(pol, lam(), exact_index(pol, r), &xs);
-        eprintln!("exact field: {:?}", &psi[..8]);
-    }
-
-    #[test]
-    #[ignore = "prints the numbers"]
-    fn the_joint_study() {
-        for pol in [Polarization::Te, Polarization::Tm] {
-            for r in [2.0, 3.0, 5.0] {
-                for modes in [6, 12, 16, 24] {
-                    let t = std::time::Instant::now();
-                    let h = halves(pol, r, modes);
-                    let zero = turn(pol, r, &[0.0], modes);
-                    let _ = &zero;
-                    eprintln!(
-                        "{pol:?} R {r} {modes} modes: halves {h:.2e}; theta 0: |S21-1| {:.3e} |S11| {:.3e} |S21|^2 {:.9}; {:.1} s",
-                        (zero.s21[(0, 0)] - 1.0).norm(),
-                        zero.s11[(0, 0)].norm(),
-                        zero.s21[(0, 0)].norm_sqr(),
-                        t.elapsed().as_secs_f64()
-                    );
-                }
-                let c: Vec<c64> = [STEP, 0.5 * STEP, 0.25 * STEP]
-                    .iter()
-                    .map(|&s| coupling(pol, r, s))
-                    .collect();
-                let (l1, l2) = (limit(c[0], c[1]), limit(c[1], c[2]));
-                let (e1, e2) = (exact_coupling(pol, r, 1.0), exact_coupling(pol, r, 0.5));
-                eprintln!(
-                    "{pol:?} R {r}: coupling {:.10} limits {l1:.10} {l2:.10} exact {e2:.10} diffs {:.2e} {:.2e} own {:.2e} exact own {:.2e}",
-                    c[0],
-                    (l1 - e2).norm(),
-                    (l2 - e2).norm(),
-                    (l1 - l2).norm(),
-                    (e1 - e2).norm() / 15.0
-                );
-            }
+            let eta = exact_coupling(pol, r, REFERENCE);
+            eprintln!("{pol:?} {r}: 1 - eta {:.4e}", 1.0 - eta.norm());
         }
     }
 }
