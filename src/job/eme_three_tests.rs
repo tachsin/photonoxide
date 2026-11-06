@@ -301,3 +301,34 @@ fn check_refuses_what_a_3d_run_would() {
         "give [task.plane]",
     );
 }
+
+#[test]
+fn a_3d_job_interpolates_over_its_sweep() {
+    let job = STRIPS
+        .replace(
+            "cells = [24, 16]",
+            "cells = [12, 8]\nsymmetry = \"quarter\"",
+        )
+        .replace("modes = 40", "modes = 20")
+        + "\n[task.sweep]\nparameter = \"wavelength\"\nfrom = 1.5\nto = 1.6\npoints = 3\n\n\
+           [task.interpolate]\ntolerance = 1e-3\nmax_solves = 9\n";
+    let job = Job::parse(&job).unwrap();
+    check(&job).unwrap();
+    let events = events(&job);
+    assert_eq!(s_parameters(&events).len(), 3);
+    let measure = events
+        .iter()
+        .find_map(|e| match e {
+            Event::SolveError { measure, .. } => Some(measure.clone()),
+            _ => None,
+        })
+        .unwrap();
+    assert!(measure.contains("interpolated from"), "{measure}");
+    let solves: usize = measure
+        .split("interpolated from ")
+        .nth(1)
+        .and_then(|s| s.split(' ').next())
+        .and_then(|n| n.parse().ok())
+        .unwrap();
+    assert!((5..=9).contains(&solves), "{measure}");
+}

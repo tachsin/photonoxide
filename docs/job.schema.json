@@ -3962,6 +3962,10 @@
           "$ref": "#/$defs/Medium",
           "description": "The cores' medium, unless a section gives its own."
         },
+        "interpolate": {
+          "$ref": "#/$defs/InterpolateSpec",
+          "description": "S over the sweep's wavelengths interpolated from a few solves, with its error stated."
+        },
         "kind": {
           "type": "string"
         },
@@ -5234,6 +5238,25 @@
           "type": "integer"
         }
       },
+      "type": "object"
+    },
+    "InterpolateSpec": {
+      "additionalProperties": false,
+      "description": "A `[task.interpolate]`: S over `[task.sweep]`'s wavelengths from as few solves as a tolerance needs (`crate::eme::Spectrum`), the discretisation settled at `wavelength_um`.",
+      "properties": {
+        "max_solves": {
+          "description": "The most solves: 200 by default, at least 5.",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "tolerance": {
+          "description": "The tolerance on every entry of S between the ports' guided modes, relative to the largest |S_qp| solved (they are at most 1: about an absolute one); at least 1e-13.",
+          "type": "number"
+        }
+      },
+      "required": [
+        "tolerance"
+      ],
       "type": "object"
     },
     "ItemSpec": {

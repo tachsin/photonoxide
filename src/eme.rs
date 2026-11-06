@@ -68,9 +68,12 @@
 //! unchanged (see the `plane` module's docs).
 //!
 //! A device's geometry is cut into 3D sections in the device layer ([`crate::device::Cut`]);
-//! a job's `[task.plane]` gives them as strips or from a `[device]`. Not here yet: a job's own
-//! drawn shapes, bends and periodic sections, and S over wavelength interpolated with a stated
-//! error (#432).
+//! a job's `[task.plane]` gives them as strips or from a `[device]`.
+//!
+//! **S over wavelength** ([`Spectrum`]) comes from as few solves as a tolerance needs: every
+//! entry of S on one set of wavelengths, fitted together by set-valued AAA with one denominator
+//! ([`crate::sweep::SweepSet`]), each entry's error estimated. Not here yet: a job's own drawn
+//! shapes, bends and periodic sections (#432).
 
 use num_complex::Complex64 as c64;
 
@@ -84,6 +87,9 @@ pub(crate) mod checks;
 mod modes;
 mod plane;
 mod scattering;
+mod spectrum;
+#[path = "cases/eme/spectrum_checks.rs"]
+pub(crate) mod spectrum_checks;
 mod three;
 #[path = "cases/eme/three_checks.rs"]
 pub(crate) mod three_checks;
@@ -94,6 +100,8 @@ mod three_tests;
 pub use adaptive::{Adaptive, MAX_STEPS, Piece, Round, Taper};
 pub use modes::Mode;
 pub use plane::{Mode3d, Plane, PlaneGrid, Pml3d, Walls};
+pub use spectrum::Spectrum;
+pub(crate) use spectrum::entries;
 pub use three::{Eme3d, Section3d};
 
 /// A wall at an edge of the window.

@@ -806,3 +806,119 @@ fn a_branch_at_an_anticrossing_study() {
         }
     }
 }
+
+/// Three functions with the poles 0.3 ± 0.2i and −0.5 ± 0.1i and numerators of degree 3, 2 and
+/// 0: each is of type (3, 4), so their common denominator's set holds them exactly from m = 5.
+fn shared_poles(x: f64) -> Vec<c64> {
+    let x = c64::new(x, 0.0);
+    let d = ((x - 0.3).powi(2) + 0.04) * ((x + 0.5).powi(2) + 0.01);
+    vec![
+        (x.powi(3) - x / 2.0 + 0.2) / d,
+        (c64::new(0.0, 1.0) * x * x - 0.7 * x) / d,
+        c64::new(0.05, 0.0) / d,
+    ]
+}
+
+#[test]
+fn a_set_of_one_function_is_aaa() {
+    let x: Vec<f64> = (0..200).map(|k| -1.0 + 2.0 * k as f64 / 199.0).collect();
+    let f: Vec<c64> = x.iter().map(|&x| shared_poles(x)[0]).collect();
+    let one = Rational::aaa(&x, &f, DEFAULT_TOLERANCE).expect("AAA");
+    let rows: Vec<Vec<c64>> = f.iter().map(|&v| vec![v]).collect();
+    let set = RationalSet::aaa(&x, &rows, DEFAULT_TOLERANCE).expect("set-valued AAA");
+    assert_eq!(set.support(), one.support());
+    assert_eq!(set.weights(), one.weights());
+    for &t in &[-0.93, 0.0123, 0.71] {
+        assert_eq!(set.eval(t)[0], one.eval(t));
+    }
+}
+
+#[test]
+fn a_set_with_shared_poles_is_exact_and_finds_them() {
+    let x: Vec<f64> = (0..200).map(|k| -1.0 + 2.0 * k as f64 / 199.0).collect();
+    let f: Vec<Vec<c64>> = x.iter().map(|&x| shared_poles(x)).collect();
+    let set = RationalSet::aaa(&x, &f, DEFAULT_TOLERANCE).expect("set-valued AAA");
+    assert_eq!(set.functions(), 3);
+    assert!(set.len() <= 7, "{} support points", set.len());
+    let scale = f.iter().flatten().map(|v| v.norm()).fold(0.0, f64::max);
+    let worst = (0..=2000)
+        .map(|k| -1.0 + k as f64 / 1000.0)
+        .map(|t| {
+            let (r, e) = (set.eval(t), shared_poles(t));
+            (0..3).map(|k| (r[k] - e[k]).norm()).fold(0.0, f64::max)
+        })
+        .fold(0.0, f64::max);
+    assert!(worst <= 1e-10 * scale, "{worst:e} of {scale:e}");
+    for p in [c64::new(0.3, 0.2), c64::new(0.3, -0.2), c64::new(-0.5, 0.1)] {
+        let near = set
+            .poles()
+            .iter()
+            .map(|q| (q - p).norm())
+            .fold(f64::INFINITY, f64::min);
+        assert!(near <= 1e-8, "pole {p}: {near:e}");
+    }
+}
+
+#[test]
+fn equal_values_make_equal_functions() {
+    // a linear relation the samples keep, here f_0 = f_2, the fits keep everywhere: the
+    // reciprocity of an S-matrix's interpolant
+    let x: Vec<f64> = (0..60).map(|k| k as f64 / 59.0).collect();
+    let f: Vec<Vec<c64>> = x
+        .iter()
+        .map(|&t| {
+            let a = c64::new(1.0, 0.0) / c64::new(t - 0.4, 0.05);
+            vec![a, c64::new((3.0 * t).cos(), 0.0), a]
+        })
+        .collect();
+    let set = RationalSet::aaa(&x, &f, DEFAULT_TOLERANCE).expect("set-valued AAA");
+    for k in 0..=500 {
+        let r = set.eval(k as f64 / 500.0);
+        assert_eq!(r[0], r[2]);
+    }
+}
+
+#[test]
+fn a_set_sweep_bounds_each_responses_error() {
+    // two resonances and a slow phase, one set of samples
+    let f = |l: f64| -> Vec<c64> {
+        let i = c64::new(0.0, 1.0);
+        vec![
+            c64::new(0.01, 0.0) / c64::new(l - 1.53, 0.01),
+            0.3 * c64::new(0.004, 0.0) / c64::new(l - 1.571, 0.004),
+            (i * 40.0 * l).exp(),
+        ]
+    };
+    let sweep = SweepSet::run(|l| Ok(f(l)), 1.5, 1.6, &Options::new(1e-9)).expect("a sweep");
+    assert!(sweep.converged, "{:?}", sweep.history);
+    assert!(sweep.relative_error() <= 1e-9);
+    assert_eq!(sweep.errors.len(), 3);
+    for k in 0..3 {
+        let truth = (0..=4000)
+            .map(|j| 1.5 + 0.1 * j as f64 / 4000.0)
+            .map(|l| (sweep.eval(l)[k] - f(l)[k]).norm())
+            .fold(0.0, f64::max);
+        assert!(
+            truth <= sweep.errors[k],
+            "response {k}: {truth:e} > {:e}",
+            sweep.errors[k]
+        );
+    }
+}
+
+#[test]
+fn a_set_sweep_refuses_the_stopping_rule_and_changing_counts() {
+    let options = Options::new(1e-6).with_stall(10);
+    assert!(SweepSet::run(|_| Ok(vec![re(1.0)]), 0.0, 1.0, &options).is_err());
+    let mut n = 0;
+    let changing = SweepSet::run(
+        |_| {
+            n += 1;
+            Ok(vec![re(1.0); n])
+        },
+        0.0,
+        1.0,
+        &Options::new(1e-6),
+    );
+    assert!(changing.is_err());
+}

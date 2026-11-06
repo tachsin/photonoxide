@@ -246,3 +246,91 @@ fn check_refuses_what_the_run_would() {
     refused("core = 3.473", "core = \"unobtainium\"", "unobtainium");
     refused("modes = 12", "modes = 0", "modes must be at least 1");
 }
+
+/// [`TAPER`] as half the slab in a PML, swept over 1.5 to 1.6 µm at four wavelengths.
+fn swept_taper() -> String {
+    TAPER.replace("window_um = 3.0", "window_um = 1.5\nsymmetric = true")
+        + "\n[task.pml]\nthickness_um = 4.0\nstrength = 0.1\n\n[task.sweep]\n\
+           parameter = \"wavelength\"\nfrom = 1.5\nto = 1.6\npoints = 4\n"
+}
+
+#[test]
+fn an_interpolated_sweep_is_within_its_estimate_of_the_solves() {
+    let plain = s_parameters(&events(&Job::parse(&swept_taper()).unwrap()));
+    let job = swept_taper() + "\n[task.interpolate]\ntolerance = 1e-6\n";
+    let job = Job::parse(&job).unwrap();
+    check(&job).unwrap();
+    let events = events(&job);
+    let got = s_parameters(&events);
+    let (measure, estimate) = events
+        .iter()
+        .find_map(|e| match e {
+            Event::SolveError { measure, error, .. } => Some((measure.clone(), *error)),
+            _ => None,
+        })
+        .unwrap();
+    assert!(measure.contains("interpolated from"), "{measure}");
+    assert!(measure.contains("within its tolerance"), "{measure}");
+    assert!(estimate <= 1e-6, "{estimate:e}");
+    assert_eq!(got.len(), 4);
+    for ((ports, s), (theirs, t)) in got.iter().zip(&plain) {
+        assert_eq!(ports, theirs);
+        for (row, other) in s.iter().zip(t) {
+            for (a, b) in row.iter().zip(other) {
+                let d = (c64::new(a[0], a[1]) - c64::new(b[0], b[1])).norm();
+                assert!(d <= estimate, "{d:e} against {estimate:e}");
+            }
+        }
+    }
+}
+
+#[test]
+fn interpolation_needs_a_sweep_and_a_tolerance_above_the_floor() {
+    let alone = TAPER.to_owned() + "\n[task.interpolate]\ntolerance = 1e-6\n";
+    let err = check(&Job::parse(&alone).unwrap()).unwrap_err().to_string();
+    assert!(err.contains("give a [task.sweep]"), "{err}");
+    let tight = swept_taper() + "\n[task.interpolate]\ntolerance = 1e-14\n";
+    let err = check(&Job::parse(&tight).unwrap()).unwrap_err().to_string();
+    assert!(err.contains("at least 1e-13"), "{err}");
+    let few = swept_taper() + "\n[task.interpolate]\ntolerance = 1e-6\nmax_solves = 3\n";
+    let err = check(&Job::parse(&few).unwrap()).unwrap_err().to_string();
+    assert!(err.contains("at least 5"), "{err}");
+}
+
+/// `jobs/eme-mmi-sweep.yaml` is the multimode section of `eme/wavelength-mmi`: its interpolant
+/// is the case's to the bit, from the solves its comment quotes.
+#[test]
+#[ignore = "slow in a debug build: in release"]
+fn the_built_in_sweep_is_the_cases_interpolant() {
+    use crate::eme::spectrum_checks::{MMI_RANGE, mmi};
+    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("jobs");
+    let job = Job::load(&dir.join("eme-mmi-sweep.yaml")).unwrap();
+    let events = events(&job);
+    let got = s_parameters(&events);
+    assert_eq!(got.len(), 201);
+    let um = |l: f64| Wavelength::um(l).unwrap();
+    let spectrum = crate::eme::Spectrum::run(
+        |l| mmi(l.to_um()),
+        um(MMI_RANGE.0),
+        um(MMI_RANGE.1),
+        (1, 1),
+        &crate::sweep::Options::new(1e-6),
+    )
+    .unwrap();
+    let measure = events
+        .iter()
+        .find_map(|e| match e {
+            Event::SolveError { measure, .. } => Some(measure.clone()),
+            _ => None,
+        })
+        .unwrap();
+    assert!(
+        measure.contains(&format!("from {} solves", spectrum.solves())),
+        "{measure}"
+    );
+    eprintln!("{measure}: estimate {:e}", spectrum.error());
+    let (ports, s) = &got[100];
+    assert_eq!(ports, &["1 TE0", "2 TE0"]);
+    let r = spectrum.at(um(MMI_RANGE.0 + (MMI_RANGE.1 - MMI_RANGE.0) * 100.0 / 200.0));
+    assert_eq!(s[1][0], [r[1][0].re, r[1][0].im]);
+}

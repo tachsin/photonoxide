@@ -6,6 +6,8 @@ order: 20.5
 papers:
   - cite: "Y. Nakatsukasa, O. Sète, L. N. Trefethen, SIAM J. Sci. Comput. 40, A1494 (2018) (the AAA algorithm: Eqs. 2.5, 3.4–3.11, Fig. 4.1)"
     doi: 10.1137/16M1106122
+  - cite: "P. Lietaert, K. Meerbergen, J. Pérez, B. Vandereycken, IMA J. Numer. Anal. 42, 1087 (2021) (set-valued AAA: Section 2.2)"
+    doi: 10.1093/imanum/draa098
 validation:
   - sweep/aaa-rational
   - sweep/estimate-bounds-error
@@ -427,6 +429,38 @@ mode at 1.45 µm keeps the rank by index it started with, as the 2.5 nm steps do
 it changes rank (`sweep::tests::a_refined_branch_follows_the_mode_by_index_through_an_anticrossing`).
 Refinement is off by default, so a branch chooses as before unless asked.
 
+## Several responses on one set of samples
+
+An S-matrix has several entries, each a response over the same wavelengths, and each solve gives
+all of them. `SweepSet::run` samples them together: one set of samples, each a solve, placed
+where the worst response needs it.
+
+- **The fit** is set-valued AAA (P. Lietaert, K. Meerbergen, J. Pérez, B. Vandereycken, IMA J.
+  Numer. Anal. 42, 1087 (2021), [doi:10.1093/imanum/draa098](https://doi.org/10.1093/imanum/draa098),
+  their Section 2.2): the K responses share their support points and weights, so one
+  denominator, and each keeps its own values at the support points (`RationalSet`). The next
+  support point is where the largest of the K residuals is largest, and the weights minimize the
+  stacked Loewner matrices' ‖Aw‖, the sum of every response's squared linearized residuals.
+  Lietaert et al. scale each response by its own largest value first; here they keep their sizes,
+  so that the fit and its stopping test are at one scale for all of them, the tolerance's: a
+  reflection of 1e-6 scaled up to 1 would weigh as much as the transmission in choosing the
+  denominator, and its last digits' roughness with it. With one response it is AAA itself, to
+  the bit (`sweep::tests::a_set_of_one_function_is_aaa`).
+- **The estimate** is each response's as a single sweep's (twice the largest difference between
+  the fit to all samples and either interleaved half's, on the grid and at the real parts of the
+  three fits' poles), and the set's error the largest of them; the next sample is where the
+  largest difference over the responses is largest. The argument that it bounds the error holds
+  for each response as for one.
+- **What sharing keeps.** The fits are linear in the values at the support points, so a linear
+  relation that every sample keeps, such as S_qp = S_pq, the fits keep at every point to
+  round-off (`sweep::tests::equal_values_make_equal_functions`, and on eigenmode expansion's S,
+  `eme/wavelength-reciprocity`).
+- **Checked:** three functions with the same four poles (type (3, 4) each) are held exactly, to
+  1e-10 of the largest on 2001 points with at most 7 support points, the poles found to 1e-8;
+  two resonances and a phase over 1.5 to 1.6 sampled together to 1e-9, each response's true error
+  on 4001 points within its own estimate (`sweep::tests`). On eigenmode expansion's S, two
+  structures against a solve at every nanometre: [the method's page](eme.md#s-over-wavelength).
+
 ## Scope
 
 - The variable is any real one: a wavelength in µm, a frequency. Values may be complex (an
@@ -446,6 +480,8 @@ Refinement is off by default, so a branch chooses as before unless asked.
   follow the mode by index. Following the mode by its character instead (the other mode, across
   the gap) has no option yet: what "character" is to mean (the TE fraction, the overlap with the
   first mode) is still to be decided.
-- Not yet in photonoxide: sweeps inside the jobs, an S-matrix's entries sharing one set of samples, and
-  FDFD's and eigenmode expansion's S-parameters over wavelength. These can already be swept with
-  `Sweep::run` on a closure.
+- A set of responses ([above](#several-responses-on-one-set-of-samples)) sweeps without the
+  stopping rule on noisy samples.
+- Not yet in photonoxide: FDFD's S-parameters over wavelength from a sweep (eigenmode
+  expansion's are, `eme::Spectrum` and the `eme` job's `[task.interpolate]`). They can already be
+  swept with `SweepSet::run` on a closure.

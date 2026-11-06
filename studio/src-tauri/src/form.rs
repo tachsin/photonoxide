@@ -540,7 +540,10 @@ impl Form {
             Some(_) => None,
         };
         held("view", view.is_some());
+        // a kind the form doesn't know (an eme job's) keeps its sweep as it is: the form, which
+        // shows such a task as a structure, writes no sweep for one
         let sweep = match t("sweep") {
+            Some(_) if !KINDS.contains(&kind.as_str()) => None,
             None => Some(None),
             Some(Value::Table(s)) if only(s, &["parameter", "from", "to", "points", "rect"]) => {
                 (|| {

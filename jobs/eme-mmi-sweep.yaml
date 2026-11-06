@@ -1,0 +1,34 @@
+# A multimode section's S over wavelength from a few solves: eigenmode expansion (docs/methods/eme.md;
+# P. Bienstman, R. Baets, Opt. Quantum Electron. 33, 327 (2001), doi:10.1023/A:1010882531238) at the
+# wavelengths a set-valued AAA fit asks for (docs/methods/sweep.md; P. Lietaert, K. Meerbergen,
+# J. Perez, B. Vandereycken, IMA J. Numer. Anal. 42, 1087 (2021), doi:10.1093/imanum/draa098). A 400 nm
+# silicon slab (3.473 in oxide, 1.444, both without dispersion) runs into one 3 um wide and 20 um long
+# and out again. The slab is symmetric, so only its upper half is solved (its even modes: the plane of
+# symmetry a magnetic wall for TE), 2.5 um to a PML 4 um thick of strength 0.1. S between the guides'
+# TE0 is recorded at 201 wavelengths from 1.53 to 1.57 um, interpolated from the solves its tolerance
+# of 1e-6 needs, one set of wavelengths for all four entries: 117 solves, estimated error 3.1e-7
+# (the validation case eme/wavelength-mmi checks that estimate against all 201 solves).
+#   photonoxide run jobs/eme-mmi-sweep.yaml
+name: eme-mmi-sweep
+timeout_minutes: 10
+
+task:
+  kind: eme
+  wavelength_um: 1.55
+  polarization: te
+  modes: 40
+  symmetric: true              # the upper half, its even modes
+  window_um: 2.5               # the half's width, inside the PML
+  pml: { thickness_um: 4.0, strength: 0.1 }
+  cladding: 1.444
+  core: 3.473
+
+  section:
+    - { name: input, length_um: 0.0, core_um: 0.4 }
+    - { name: multimode, length_um: 20.0, core_um: 3.0 }
+    - { name: output, length_um: 0.0, core_um: 0.4 }
+
+  sweep: { parameter: wavelength, from: 1.53, to: 1.57, points: 201 }
+
+  interpolate:
+    tolerance: 1.0e-6

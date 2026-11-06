@@ -9,11 +9,11 @@ use num_complex::Complex64 as c64;
 use schemars::JsonSchema;
 use serde::Deserialize;
 
-use super::{EmeTask, Resolved, Shape, Solved, check_of, ports_event, quantity};
+use super::{EmeTask, Resolved, Shape, Solved, check_of, interpolated, ports_event, quantity};
 use crate::Result;
 use crate::convergence::{Refined, ToTolerance, Tolerance};
 use crate::device::Cut;
-use crate::eme::{Eme3d, Plane, PlaneGrid, Pml3d, Section3d, Wall, Walls};
+use crate::eme::{Eme3d, Plane, PlaneGrid, Pml3d, Scattering, Section3d, Wall, Walls};
 use crate::job::{Event, task_error};
 use crate::run::{Job, Run, Stop};
 use crate::units::{Length, Wavelength};
@@ -462,18 +462,37 @@ pub(super) fn run(
             points: s.points,
         })?;
     }
+    // the guided modes at each end at a wavelength
+    let ports = |wl: f64, s: &Scattering| -> Result<(usize, usize)> {
+        let (sections, _) = source.sections(task, wl, 1)?;
+        let ends = [&sections[0].plane, &sections[sections.len() - 1].plane]
+            .map(|p| lowest(p).max(0.0).sqrt());
+        Ok((guided(&s.first, ends[0]), guided(&s.last, ends[1])))
+    };
+    if task.interpolate.is_some() {
+        // the discretisation settled once, at the job's wavelength, and kept at every solve
+        let at = match &task.convergence {
+            None => (task.modes, 1),
+            Some(c) => converged(task, plane, &source, task.wavelength_um, c, base_steps, run)?.0,
+        };
+        return interpolated(
+            task,
+            run,
+            stop,
+            |wl| Ok(solve(task, plane, &source, wl, at)?.0),
+            ports,
+            |m| format!("m{m}"),
+        );
+    }
     for &wl in &wavelengths {
         if stop.reason().is_some() {
             return Ok(());
         }
         let (s, _, _) = match &task.convergence {
             None => solve(task, plane, &source, wl, (task.modes, 1))?,
-            Some(c) => converged(task, plane, &source, wl, c, base_steps, run)?,
+            Some(c) => converged(task, plane, &source, wl, c, base_steps, run)?.1,
         };
-        let (sections, _) = source.sections(task, wl, 1)?;
-        let ends = [&sections[0].plane, &sections[sections.len() - 1].plane]
-            .map(|p| lowest(p).max(0.0).sqrt());
-        let counts = (guided(&s.first, ends[0]), guided(&s.last, ends[1]));
+        let counts = ports(wl, &s)?;
         run.record(&ports_event(&s, wl, counts, |m| format!("m{m}")))?;
     }
     Ok(())
@@ -481,7 +500,7 @@ pub(super) fn run(
 
 /// A wavelength's solve driven by `[task.convergence]`: the modes doubled (and a task alone's
 /// tapers' steps with them) until the quantity changes by less than its tolerance, each study
-/// recorded.
+/// recorded; where it ended, (modes, the steps' scale), and the solve there.
 fn converged(
     task: &EmeTask,
     plane: &PlaneSpec,
@@ -490,7 +509,7 @@ fn converged(
     c: &super::ConvergenceSpec,
     base_steps: usize,
     run: &mut Run,
-) -> Result<Solved> {
+) -> Result<((usize, usize), Solved)> {
     let (name, read) = quantity(c.quantity.as_deref())?;
     let label = format!("{name} of the fundamental modes at {wl} um");
     let driver = ToTolerance::new(&label, Tolerance::Relative(c.tolerance))?;
@@ -522,8 +541,9 @@ fn converged(
             check: check_of(r),
         })?;
     }
-    match solved.into_iter().find(|(k, _)| *k == at) {
-        Some((_, s)) => Ok(s),
-        None => solve(task, plane, source, wl, at),
-    }
+    let s = match solved.into_iter().find(|(k, _)| *k == at) {
+        Some((_, s)) => s,
+        None => solve(task, plane, source, wl, at)?,
+    };
+    Ok((at, s))
 }
