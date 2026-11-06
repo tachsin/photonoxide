@@ -22,6 +22,7 @@ import Process from "./Process.svelte";
 import Ring from "./Ring.svelte";
 import Slab from "./Slab.svelte";
 import Strip from "./Strip.svelte";
+import Yee from "./Yee.svelte";
 
 export const DRAWINGS: Record<string, Component> = {
   "bragg": Bragg,
@@ -42,4 +43,5 @@ export const DRAWINGS: Record<string, Component> = {
   "ring": Ring,
   "slab": Slab,
   "strip": Strip,
+  "yee": Yee,
 };

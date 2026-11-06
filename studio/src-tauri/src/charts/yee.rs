@@ -459,7 +459,7 @@ mod tests {
     }
 
     /// A thicker PML reflects less, and from 16 to 32 cells its reflected power falls as
-    /// 1/L^(2m + 2), Oskooi and Johnson's rate for σ turned on as (x/L)^m: measured 4.13, 6.01
+    /// 1/L^(2m + 2), Oskooi et al.'s (2008) rate for σ turned on as (x/L)^m: measured 4.13, 6.01
     /// and 8.00, held to 0.2, the m = 1 curve still nearing its asymptote.
     #[test]
     fn a_thicker_pml_reflects_less() {

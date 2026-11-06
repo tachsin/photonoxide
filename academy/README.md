@@ -27,6 +27,7 @@ moving a slider shows the physics the library computes, the code the
 | [Nonlinear integrated optics](nonlinear-optics.md) | advanced | `nonlinear` | `nl-miller`, `nl-coupled`, `nl-acceptance`, `nl-qpm`, `nl-ridge`, `nl-spm`, `nl-soliton`, `nl-fwm`, `nl-lle-states`, `nl-comb`, `nl-jsa` |
 | [Surface plasmons and Mie scattering](plasmonics.md) | advanced | `plasmon` | `plasmon-drude`, `plasmon-dispersion`, `plasmon-length`, `mie-efficiency`, `mie-plasmon`, `mie-gold` |
 | [Crossings, mode converters and the polarization splitter-rotator](crossings-and-converters.md) | advanced | `crossing` | `crossing-field`, `crossing-width`, `mmi-field`, `taper-length`, `converter-match`, `converter-coupler`, `rotator-hybrid`, `spot-size` |
+| [How FDTD works](how-fdtd-works.md) | intermediate | `yee` | `fdtd-stability`, `fdtd-dispersion`, `fdtd-pml` |
 
 The whole curriculum is laid out: every lesson still to be written is here too, **coming soon**,
 with its numbered subsections, what each will answer and the examples each will use, so writing
@@ -34,7 +35,6 @@ it is filling them in. The library lists them in this order, the order to read t
 
 | Lesson coming soon | Topic | Level | Examples |
 |---|---|---|---|
-| [How FDTD works](how-fdtd-works.md) | Numerical methods | intermediate | `cpml_roden_gedney`, `pml_oskooi`, `tfsf_square_cylinder`, `subpixel_holes`, `bump_oskooi`, `lorentz_okoniewski` |
 | [Inverse design](inverse-design.md), with 0.7 | Numerical methods | advanced | `circuit_splitter`, `circuit_ring_critical`, `circuit_fit` |
 | [Quantum light on a chip](quantum-light.md), with 0.6.3 | Active and quantum photonics | advanced | |
 
@@ -207,6 +207,7 @@ shows first.
 | `modulator` | a push–pull Mach–Zehnder modulator from above: two arms in the gaps of a ground–signal–ground electrode $L$ long, the RF wave $n_m$ from $R_G$ into $R_L$ beside the light $n_o$, the field opposite in the two gaps; beneath it in section, x-cut thin-film lithium niobate, two ribs in gaps $g$ wide, the $c$ axis across and $\Delta n_e = -\tfrac12 n_e^3 r_{33} E$; and a thermo-optic shifter in section, a heater $h$ above a strip dissipating $P'$, its heat spreading to the substrate at $T_0$, $\Delta n = (dn/dT)\,\Delta T$ | none |
 | `plasmon` | at the left, a flat interface between a dielectric $\varepsilon_d \gt 0$ and a metal $\varepsilon_m \lt 0$, a wave of surface charge travelling along $z$ as $e^{i(kz - \omega t)}e^{-z/2L}$, its field's lines looping from $+$ to $-$, and its size $\lvert E\rvert$ across the interface falling over $\delta_d$ into the dielectric and the shorter $\delta_m$ into the metal; at the right, a sphere of radius $\rho$ and permittivity $\varepsilon$ in $\varepsilon_d$, its electrons pushed by the field $E_0$ of a plane wave, its dipole $p$, the light it scatters, and its resonance at $\varepsilon = -2\varepsilon_d$ | none |
 | `crossing` | a waveguide crossing from above, two guides $w$ wide widened to $W$ over tapers $L_t$ long either side of the centre over two dashed ellipses of thinner slab, TE₀ in, the through port and the side ports' crosstalk; an asymmetric coupler, a guide $w_a$ wide a gap $g$ from one $W$ wide over $L$, the narrow guide's TE₀ in and the wide guide's TE₁ out, $n_{\mathrm{eff},0}(w_a) = n_{\mathrm{eff},1}(W)$; and a splitter-rotator from above, its guide widened from $w_1$ to $w_2$ over $L$ under silicon nitride, TM₀ in turning into TE₁ and passed to the upper guide as TE₀, beside its cross-section, silicon on silica under Si₃N₄ ($n = 2.0$) | none |
+| `yee` | one cell of Yee's grid, $\Delta x$ by $\Delta y$ by $\Delta z$ in an oblique view, $E_x$, $E_y$, $E_z$ at the middles of its edges and $\tilde H_x$, $\tilde H_y$, $\tilde H_z$ at the centres of its faces; beside it the leapfrog in time, E at the steps $n - 1$, $n$, $n + 1$ and $\tilde H$ at the half steps, each from the other's curl, $\Delta t$, and $c\Delta t \le 1/\sqrt{\sum_i 1/\Delta_i^2}$ | none |
 
 Each diagram is an entry in `studio/src-tauri/src/diagrams.rs` (its title, its captions, and its
 job if it has one) and an SVG drawn by a component in `studio/src/components/diagrams/`, named
@@ -302,6 +303,9 @@ code; the window only draws what it returns, and asks again as a slider moves.
 | `converter-coupler` | `width` µm (1.0), `gap` nm (150) | `mode::vector::modes` on the half $y \ge 0$ of a 500 nm strip and a wider one, and of each alone on one grid; `Fields::cross` and `coupling` for the overlaps; coupled-mode theory's $\kappa^2/(\kappa^2 + \delta^2)\sin^2 Sz$ |
 | `rotator-hybrid` | `cover` (1 silica, 2 silicon nitride; 2), `show` (1 indices, 2 TE fractions; 1), `width` µm (0.75) | `mode::vector::modes` on the half $x \ge 0$ under a magnetic wall (each family's quarter under silica) at 26 widths from 0.5 to 1.0 µm, `VectorMode::te_fraction`; the two-mode equations through gdsfactory's 690 to 830 nm taper by fourth-order Runge–Kutta |
 | `spot-size` | `tip` nm (180), `polarization` (1 TE, 2 TM; 1) | `mode::vector::modes` on the tip's quarter with 5 µm of silica beyond it, `VectorMode::fields`; a Gaussian beam's overlap, $w_0 = \lambda/(\pi\,\mathrm{NA})$, at 36 apertures from 0.1 to 0.8 |
+| `fdtd-dispersion` | `courant` C (0.5), `dims` $d$ (2) | `fdtd::grid_wavenumber`, `fdtd::time_step`: the phase velocity's shortfall $1 - v/c$ at 1 c/µm against 4 to 60 cells a wavelength, along an axis and the diagonals, on cubic cells |
+| `fdtd-stability` | `step` $c\Delta t/\Delta$ (0.6) | `fdtd::grid_frequency`, `fdtd::time_step`: the growth a step of the grid's fastest wave, $k\Delta = \pi$ on every axis, on a line, a plane and in a volume |
+| `fdtd-pml` | `target` $-\log_{10}R$ (15), `cells` a wavelength (20) | 1D runs of `fdtd::Simulation` with `Edges::Pml`: a CPML's reflected power at 1 c/µm against its thickness, 2 to 40 cells, for σ graded as $(x/L)^m$, m = 1, 2, 3, against a 160-cell layer |
 
 The ranges are in `charts.rs` (the coupler's in `charts/coupler.rs`), and the window's sliders keep
 to them. A chart may draw its y axis on a logarithmic scale (`y_log`), and give curves that belong
@@ -365,6 +369,9 @@ each other and the Gaussian estimate against its closed form. Its converter char
 10 nm cells graded to 100 nm, a second or two a sweep in parallel; their tests check a phase-matched
 coupler's complete transfer, the hybrids' crossing under a symmetric cladding, the two-mode
 equations' closed form and the tip against Chrostowski and Hochberg's index.
+The FDTD charts (`charts/yee.rs`): `fdtd-dispersion` and `fdtd-stability` evaluate Taflove and
+Brodwin's relation, exact and in milliseconds; `fdtd-pml` runs 72 short 1D FDTD runs, under a
+second together.
 A chart may draw pictures of a field over a cross-section in place of curves (`maps`), side by
 side with one colour scale, as `strip-fields` does.
 

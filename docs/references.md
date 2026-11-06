@@ -2,7 +2,7 @@
 
 <!-- Written by `photonoxide references --write` (or `just references`) from docs/references.yaml and the citations in the repository: edit those, not this page. -->
 
-Every paper, book and data set photonoxide cites, with every place in the repository that cites it, by file and line. 575 sources, 571 with a DOI and 4 without, are cited at 3259 places in 396 files. The sources are listed by their first author; [references-by-file.md](references-by-file.md) lists each methods page, lesson, example and source file with the sources it cites, and the [validation report](validation.md) gives each case's source on its row. How to cite a source is in [CONTRIBUTING.md](../CONTRIBUTING.md#citing-a-source); the list of sources is [references.yaml](references.yaml).
+Every paper, book and data set photonoxide cites, with every place in the repository that cites it, by file and line. 576 sources, 572 with a DOI and 4 without, are cited at 3292 places in 397 files. The sources are listed by their first author; [references-by-file.md](references-by-file.md) lists each methods page, lesson, example and source file with the sources it cites, and the [validation report](validation.md) gives each case's source on its row. How to cite a source is in [CONTRIBUTING.md](../CONTRIBUTING.md#citing-a-source); the list of sources is [references.yaml](references.yaml).
 
 [A](#a) · [B](#b) · [C](#c) · [D](#d) · [E](#e) · [F](#f) · [G](#g) · [H](#h) · [I](#i) · [J](#j) · [K](#k) · [L](#l) · [M](#m) · [N](#n) · [O](#o) · [P](#p) · [Q](#q) · [R](#r) · [S](#s) · [T](#t) · [U](#u) · [V](#v) · [W](#w) · [X](#x) · [Y](#y) · [Z](#z)
 
@@ -271,7 +271,7 @@ W. Asavanant, Y. Shiozawa, S. Yokoyama, B. Charoensombutamon, H. Emura, R. N. Al
 
 M. Bahadori, K. Bergman, M. Nikdast, S. Rumley, L. Y. Dai, N. Janosik, T. Van Vaerenbergh, A. Gazman, Q. Cheng, R. Polster, "Design Space Exploration of Microring Resonators in Silicon Photonic Interconnects: Impact of the Ring Curvature", J. Lightwave Technol. 36, 2767 (2018). [doi:10.1109/JLT.2018.2821359](https://doi.org/10.1109/JLT.2018.2821359)
 
-- Methods pages: [fdtd.md:1170](methods/fdtd.md?plain=1#L1170)
+- Methods pages: [fdtd.md:1173](methods/fdtd.md?plain=1#L1173)
 
 #### Bai and Demmel 1993
 
@@ -353,6 +353,7 @@ P. Bennet, D. Langevin, C. Essoual, A. Khaireh-Walieh, O. Teytaud, P. Wiecha, A.
 J.-P. Berenger, "A perfectly matched layer for the absorption of electromagnetic waves", Journal of Computational Physics 114, 185 (1994). [doi:10.1006/jcph.1994.1159](https://doi.org/10.1006/jcph.1994.1159)
 
 - Methods pages: [fdtd.md:18](methods/fdtd.md?plain=1#L18)
+- Academy lessons: [how-fdtd-works.md:48](../academy/how-fdtd-works.md?plain=1#L48), [240](../academy/how-fdtd-works.md?plain=1#L240), [269](../academy/how-fdtd-works.md?plain=1#L269), [448](../academy/how-fdtd-works.md?plain=1#L448)
 - Code: [src/fdtd.rs:23](../src/fdtd.rs#L23)
 - Other documents: [ROADMAP.md:716](../ROADMAP.md?plain=1#L716)
 
@@ -445,7 +446,7 @@ W. Bogaerts, R. Baets, P. Dumon, V. Wiaux, S. Beckx, D. Taillaert, B. Luyssaert,
 
 W. Bogaerts, P. De Heyn, T. Van Vaerenbergh, K. De Vos, S. Kumar Selvaraja, T. Claes, P. Dumon, P. Bienstman, D. Van Thourhout, R. Baets, "Silicon microring resonators", Laser & Photonics Reviews 6, 47 (2011). [doi:10.1002/lpor.201100017](https://doi.org/10.1002/lpor.201100017)
 
-- Methods pages: [circuit-adjoint.md:14](methods/circuit-adjoint.md?plain=1#L14), [circuits.md:10](methods/circuits.md?plain=1#L10), [compact.md:16](methods/compact.md?plain=1#L16), [components.md:8](methods/components.md?plain=1#L8), [devices.md:10](methods/devices.md?plain=1#L10), [fdtd.md:1169](methods/fdtd.md?plain=1#L1169), [optimization.md:8](methods/optimization.md?plain=1#L8), [95](methods/optimization.md?plain=1#L95)
+- Methods pages: [circuit-adjoint.md:14](methods/circuit-adjoint.md?plain=1#L14), [circuits.md:10](methods/circuits.md?plain=1#L10), [compact.md:16](methods/compact.md?plain=1#L16), [components.md:8](methods/components.md?plain=1#L8), [devices.md:10](methods/devices.md?plain=1#L10), [fdtd.md:1172](methods/fdtd.md?plain=1#L1172), [optimization.md:8](methods/optimization.md?plain=1#L8), [95](methods/optimization.md?plain=1#L95)
 - Academy lessons: [mach-zehnder.md:88](../academy/mach-zehnder.md?plain=1#L88), [144](../academy/mach-zehnder.md?plain=1#L144), [ring-resonator.md:85](../academy/ring-resonator.md?plain=1#L85), [125](../academy/ring-resonator.md?plain=1#L125), [152](../academy/ring-resonator.md?plain=1#L152), [480](../academy/ring-resonator.md?plain=1#L480), [587](../academy/ring-resonator.md?plain=1#L587)
 - Validation cases: [`circuit/ring-all-pass-bogaerts`](validation.md?plain=1#L277), [`circuit/ring-add-drop-bogaerts`](validation.md?plain=1#L278), [`circuit/ring-fsr-bogaerts`](validation.md?plain=1#L279), [`components/ring-all-pass-bogaerts`](validation.md?plain=1#L289), [`components/ring-add-drop-bogaerts`](validation.md?plain=1#L290), [`components/ring-extremes-bogaerts`](validation.md?plain=1#L291), [`components/ring-linewidth-bogaerts`](validation.md?plain=1#L292), [`components/ring-fsr-fdfd`](validation.md?plain=1#L293), [`device/ring-closed-forms`](validation.md?plain=1#L310), [`device/ring-fsr`](validation.md?plain=1#L321), [`device/ring-q-bogaerts`](validation.md?plain=1#L326), [`device/compact-ring-closed-form`](validation.md?plain=1#L351), [`compact/vf-ring-allpass`](validation.md?plain=1#L381)
 - Examples: [README.md:48](../examples/README.md?plain=1#L48), [54](../examples/README.md?plain=1#L54), [61](../examples/README.md?plain=1#L61), [circuit_fit.rs:7](../examples/circuit_fit.rs#L7), [circuit_ring_critical.rs:5](../examples/circuit_ring_critical.rs#L5), [optimize_ring_pareto.rs:6](../examples/optimize_ring_pareto.rs#L6), [ring_liu_poon.rs:40](../examples/ring_liu_poon.rs#L40), [ring_q_factor.rs:5](../examples/ring_q_factor.rs#L5), [python/examples/README.md:29](../python/examples/README.md?plain=1#L29), [python/examples/_ring.py:3](../python/examples/_ring.py#L3), [python/examples/ring_fsr.py:5](../python/examples/ring_fsr.py#L5), [python/examples/touchstone_ring.py:5](../python/examples/touchstone_ring.py#L5)
@@ -1123,7 +1124,7 @@ A. B. Fallahkhair, K. S. Li, T. E. Murphy, "Vector Finite Difference Modesolver 
 A. Farjadpour, D. Roundy, A. Rodriguez, M. Ibanescu, P. Bermel, J. D. Joannopoulos, S. G. Johnson, G. W. Burr, "Improving accuracy by subpixel smoothing in the finite-difference time domain", Opt. Lett. 31, 2972 (2006). [doi:10.1364/OL.31.002972](https://doi.org/10.1364/OL.31.002972)
 
 - Methods pages: [averaging.md:8](methods/averaging.md?plain=1#L8), [bodies.md:8](methods/bodies.md?plain=1#L8), [fdtd.md:30](methods/fdtd.md?plain=1#L30), [stacks.md:12](methods/stacks.md?plain=1#L12), [static.md:14](methods/static.md?plain=1#L14)
-- Academy lessons: [photonic-crystals.md:50](../academy/photonic-crystals.md?plain=1#L50), [281](../academy/photonic-crystals.md?plain=1#L281), [472](../academy/photonic-crystals.md?plain=1#L472)
+- Academy lessons: [how-fdtd-works.md:72](../academy/how-fdtd-works.md?plain=1#L72), [366](../academy/how-fdtd-works.md?plain=1#L366), [454](../academy/how-fdtd-works.md?plain=1#L454), [photonic-crystals.md:50](../academy/photonic-crystals.md?plain=1#L50), [281](../academy/photonic-crystals.md?plain=1#L281), [472](../academy/photonic-crystals.md?plain=1#L472)
 - Validation cases: [`fdtd/smoothing-slab`](validation.md?plain=1#L227), [`fdtd/ring-order`](validation.md?plain=1#L262), [`device/mmi-2d-grid`](validation.md?plain=1#L337), [`averaging/film-integrals`](validation.md?plain=1#L490), [`fdfd/fill-slab-te-mean`](validation.md?plain=1#L493), [`fdfd/fill-crystal-te-tensor`](validation.md?plain=1#L500)
 - Examples: [README.md:66](../examples/README.md?plain=1#L66), [subpixel_holes.rs:6](../examples/subpixel_holes.rs#L6)
 - Code: [src/averaging.rs:15](../src/averaging.rs#L15), [src/averaging/checks.rs:150](../src/averaging/checks.rs#L150), [src/cases/fdfd/fill_checks.rs:3](../src/cases/fdfd/fill_checks.rs#L3), [535](../src/cases/fdfd/fill_checks.rs#L535), [626](../src/cases/fdfd/fill_checks.rs#L626), [src/device/splitter_checks.rs:117](../src/device/splitter_checks.rs#L117), [src/fdfd/fill.rs:4](../src/fdfd/fill.rs#L4), [src/fdfd/three/fill.rs:6](../src/fdfd/three/fill.rs#L6), [src/fdtd/smoothing.rs:5](../src/fdtd/smoothing.rs#L5), [src/stack.rs:414](../src/stack.rs#L414), [src/statics.rs:25](../src/statics.rs#L25), [src/validation.rs:1614](../src/validation.rs#L1614), [1859](../src/validation.rs#L1859)
@@ -1999,7 +2000,7 @@ J. Kalb, F. Spaepen, M. Wuttig, "Calorimetric measurements of phase transformati
 Kane Yee, "Numerical solution of initial boundary value problems involving maxwell's equations in isotropic media", IEEE Trans. Antennas Propagat. 14, 302 (1966). [doi:10.1109/TAP.1966.1138693](https://doi.org/10.1109/TAP.1966.1138693)
 
 - Methods pages: [averaging.md:10](methods/averaging.md?plain=1#L10), [eme.md:16](methods/eme.md?plain=1#L16), [fdfd-3d.md:10](methods/fdfd-3d.md?plain=1#L10), [fdfd.md:8](methods/fdfd.md?plain=1#L8), [fdtd.md:10](methods/fdtd.md?plain=1#L10), [travelling-wave.md:24](methods/travelling-wave.md?plain=1#L24)
-- Academy lessons: [fdfd-and-adjoints.md:43](../academy/fdfd-and-adjoints.md?plain=1#L43), [176](../academy/fdfd-and-adjoints.md?plain=1#L176), [763](../academy/fdfd-and-adjoints.md?plain=1#L763)
+- Academy lessons: [fdfd-and-adjoints.md:43](../academy/fdfd-and-adjoints.md?plain=1#L43), [176](../academy/fdfd-and-adjoints.md?plain=1#L176), [763](../academy/fdfd-and-adjoints.md?plain=1#L763), [how-fdtd-works.md:30](../academy/how-fdtd-works.md?plain=1#L30), [108](../academy/how-fdtd-works.md?plain=1#L108), [141](../academy/how-fdtd-works.md?plain=1#L141), [444](../academy/how-fdtd-works.md?plain=1#L444)
 - Validation cases: [`fdfd3d/two-d-agreement`](validation.md?plain=1#L163), [`fdtd/dispersion`](validation.md?plain=1#L203), [`fdtd/energy`](validation.md?plain=1#L204), [`line/full-wave-plates-order`](validation.md?plain=1#L594)
 - Code: [src/electro/full_wave.rs:7](../src/electro/full_wave.rs#L7), [src/electro/full_wave_checks.rs:264](../src/electro/full_wave_checks.rs#L264), [src/fdfd/mod.rs:6](../src/fdfd/mod.rs#L6), [src/fdfd/three.rs:6](../src/fdfd/three.rs#L6), [src/fdtd.rs:4](../src/fdtd.rs#L4), [src/validation.rs:1166](../src/validation.rs#L1166), [1446](../src/validation.rs#L1446), [1453](../src/validation.rs#L1453)
 - Other documents: [ROADMAP.md:715](../ROADMAP.md?plain=1#L715)
@@ -2400,7 +2401,7 @@ V. Liu, S. Fan, "S4 : A free electromagnetic solver for layered periodic structu
 
 Z. Liu, J. K. S. Poon, "Comparison of Lumerical FDTD and Tidy3D for three-dimensional FDTD simulations of passive silicon photonic components", Opt. Continuum 4, 2427 (2025). [doi:10.1364/OPTCON.572107](https://doi.org/10.1364/OPTCON.572107)
 
-- Methods pages: [fdtd.md:52](methods/fdtd.md?plain=1#L52), [1068](methods/fdtd.md?plain=1#L1068)
+- Methods pages: [fdtd.md:52](methods/fdtd.md?plain=1#L52), [1071](methods/fdtd.md?plain=1#L1071)
 - Academy lessons: [crossings-and-converters.md:60](../academy/crossings-and-converters.md?plain=1#L60), [85](../academy/crossings-and-converters.md?plain=1#L85), [563](../academy/crossings-and-converters.md?plain=1#L563), [directional-coupler.md:112](../academy/directional-coupler.md?plain=1#L112), [406](../academy/directional-coupler.md?plain=1#L406), [523](../academy/directional-coupler.md?plain=1#L523), [mmi.md:41](../academy/mmi.md?plain=1#L41), [439](../academy/mmi.md?plain=1#L439), [495](../academy/mmi.md?plain=1#L495)
 - Examples: [README.md:70](../examples/README.md?plain=1#L70), [coupler_liu_poon.rs:5](../examples/coupler_liu_poon.rs#L5), [crossing_liu_poon.rs:5](../examples/crossing_liu_poon.rs#L5), [mmi_liu_poon.rs:5](../examples/mmi_liu_poon.rs#L5), [mode_converter_liu_poon.rs:5](../examples/mode_converter_liu_poon.rs#L5), [pdk/mod.rs:7](../examples/pdk/mod.rs#L7), [ring_liu_poon.rs:5](../examples/ring_liu_poon.rs#L5), [splitter_rotator_liu_poon.rs:5](../examples/splitter_rotator_liu_poon.rs#L5)
 
@@ -2573,8 +2574,8 @@ I. H. Malitson, "Interspecimen Comparison of the Refractive Index of Fused Silic
 
 V. A. Mandelshtam, H. S. Taylor, "Harmonic inversion of time signals and its applications", The Journal of Chemical Physics 107, 6756 (1997). [doi:10.1063/1.475324](https://doi.org/10.1063/1.475324)
 
-- Methods pages: [bodies.md:14](methods/bodies.md?plain=1#L14), [fdtd.md:22](methods/fdtd.md?plain=1#L22), [881](methods/fdtd.md?plain=1#L881)
-- Academy lessons: [photonic-crystals.md:38](../academy/photonic-crystals.md?plain=1#L38), [264](../academy/photonic-crystals.md?plain=1#L264), [471](../academy/photonic-crystals.md?plain=1#L471)
+- Methods pages: [bodies.md:14](methods/bodies.md?plain=1#L14), [fdtd.md:22](methods/fdtd.md?plain=1#L22), [884](methods/fdtd.md?plain=1#L884)
+- Academy lessons: [how-fdtd-works.md:54](../academy/how-fdtd-works.md?plain=1#L54), [434](../academy/how-fdtd-works.md?plain=1#L434), [453](../academy/how-fdtd-works.md?plain=1#L453), [photonic-crystals.md:38](../academy/photonic-crystals.md?plain=1#L38), [264](../academy/photonic-crystals.md?plain=1#L264), [471](../academy/photonic-crystals.md?plain=1#L471)
 - Validation cases: [`fdtd/harmonic-inversion`](validation.md?plain=1#L250)
 - Code: [src/fdtd.rs:51](../src/fdtd.rs#L51), [src/fdtd/harmonic.rs:3](../src/fdtd/harmonic.rs#L3), [src/validation.rs:1775](../src/validation.rs#L1775)
 - Other documents: [ROADMAP.md:722](../ROADMAP.md?plain=1#L722)
@@ -2689,7 +2690,7 @@ P. Micikevicius, "3D finite difference computation on GPUs using CUDA", Proceedi
 
 G. Mie, "Beiträge zur Optik trüber Medien, speziell kolloidaler Metallösungen", Annalen der Physik 330, 377 (1908). [doi:10.1002/andp.19083300302](https://doi.org/10.1002/andp.19083300302)
 
-- Methods pages: [fdtd.md:8](methods/fdtd.md?plain=1#L8), [933](methods/fdtd.md?plain=1#L933)
+- Methods pages: [fdtd.md:8](methods/fdtd.md?plain=1#L8), [936](methods/fdtd.md?plain=1#L936)
 - Academy lessons: [plasmonics.md:28](../academy/plasmonics.md?plain=1#L28), [59](../academy/plasmonics.md?plain=1#L59), [314](../academy/plasmonics.md?plain=1#L314), [506](../academy/plasmonics.md?plain=1#L506)
 - Validation cases: [`fdtd/mie-table`](validation.md?plain=1#L253), [`fdtd/mie-sphere`](validation.md?plain=1#L256)
 - Code: [src/fdtd.rs:58](../src/fdtd.rs#L58), [src/fdtd/mie.rs:2](../src/fdtd/mie.rs#L2), [src/validation.rs:1796](../src/validation.rs#L1796), [1817](../src/validation.rs#L1817), [studio/src-tauri/src/charts/plasmon.rs:880](../studio/src-tauri/src/charts/plasmon.rs#L880)
@@ -2846,7 +2847,7 @@ M. Ohashi, T. Kondo, R. Ito, S. Fukatsu, Y. Shiraki, K. Kumata, S. S. Kano, "Det
 M. Okoniewaki, M. Mrozowski, M. Stuchly, "Simple treatment of multi-term dispersion in FDTD", IEEE Microw. Guid. Wave Lett. 7, 121 (1997). [doi:10.1109/75.569723](https://doi.org/10.1109/75.569723)
 
 - Methods pages: [fdtd.md:24](methods/fdtd.md?plain=1#L24)
-- Academy lessons: [plasmonics.md:40](../academy/plasmonics.md?plain=1#L40), [478](../academy/plasmonics.md?plain=1#L478), [512](../academy/plasmonics.md?plain=1#L512)
+- Academy lessons: [how-fdtd-works.md:60](../academy/how-fdtd-works.md?plain=1#L60), [401](../academy/how-fdtd-works.md?plain=1#L401), [451](../academy/how-fdtd-works.md?plain=1#L451), [plasmonics.md:40](../academy/plasmonics.md?plain=1#L40), [478](../academy/plasmonics.md?plain=1#L478), [512](../academy/plasmonics.md?plain=1#L512)
 - Validation cases: [`fdtd/ade-fdfd`](validation.md?plain=1#L218)
 - Examples: [README.md:65](../examples/README.md?plain=1#L65), [lorentz_okoniewski.rs:6](../examples/lorentz_okoniewski.rs#L6)
 - Code: [src/fdtd.rs:37](../src/fdtd.rs#L37), [src/fdtd/media.rs:8](../src/fdtd/media.rs#L8), [src/validation.rs:1551](../src/validation.rs#L1551)
@@ -2863,6 +2864,12 @@ D. Oser, D. Pérez-Galacho, X. Le Roux, S. Tanzilli, L. Vivien, L. Labonté, É.
 
 - Academy lessons: [bragg-gratings.md:103](../academy/bragg-gratings.md?plain=1#L103), [312](../academy/bragg-gratings.md?plain=1#L312)
 
+#### Oskooi et al. 2008
+
+A. F. Oskooi, L. Zhang, Y. Avniel, S. G. Johnson, "The failure of perfectly matched layers, and towards their redemption by adiabatic absorbers", Opt. Express 16, 11376 (2008). [doi:10.1364/OE.16.011376](https://doi.org/10.1364/OE.16.011376)
+
+- Academy lessons: [how-fdtd-works.md:78](../academy/how-fdtd-works.md?plain=1#L78), [286](../academy/how-fdtd-works.md?plain=1#L286), [312](../academy/how-fdtd-works.md?plain=1#L312), [455](../academy/how-fdtd-works.md?plain=1#L455)
+
 #### Oskooi et al. 2009
 
 A. F. Oskooi, C. Kottke, S. G. Johnson, "Accurate finite-difference time-domain simulation of anisotropic media by subpixel smoothing", Opt. Lett. 34, 2778 (2009). [doi:10.1364/OL.34.002778](https://doi.org/10.1364/OL.34.002778)
@@ -2876,7 +2883,8 @@ A. F. Oskooi, C. Kottke, S. G. Johnson, "Accurate finite-difference time-domain 
 
 A. F. Oskooi, D. Roundy, M. Ibanescu, P. Bermel, J. Joannopoulos, S. G. Johnson, "Meep: A flexible free-software package for electromagnetic simulations by the FDTD method", Computer Physics Communications 181, 687 (2010). [doi:10.1016/j.cpc.2009.11.008](https://doi.org/10.1016/j.cpc.2009.11.008)
 
-- Methods pages: [conventions.md:8](methods/conventions.md?plain=1#L8), [fdfd-ports.md:10](methods/fdfd-ports.md?plain=1#L10), [fdtd.md:40](methods/fdtd.md?plain=1#L40), [1046](methods/fdtd.md?plain=1#L1046)
+- Methods pages: [conventions.md:8](methods/conventions.md?plain=1#L8), [fdfd-ports.md:10](methods/fdfd-ports.md?plain=1#L10), [fdtd.md:40](methods/fdtd.md?plain=1#L40), [1049](methods/fdtd.md?plain=1#L1049)
+- Academy lessons: [how-fdtd-works.md:84](../academy/how-fdtd-works.md?plain=1#L84), [302](../academy/how-fdtd-works.md?plain=1#L302), [457](../academy/how-fdtd-works.md?plain=1#L457)
 - Validation cases: [`fdtd/spectrum`](validation.md?plain=1#L209), [`fdtd/meep-pml-rates`](validation.md?plain=1#L259)
 - Examples: [README.md:67](../examples/README.md?plain=1#L67), [bump_oskooi.rs:6](../examples/bump_oskooi.rs#L6), [pml_oskooi.rs:6](../examples/pml_oskooi.rs#L6)
 - Code: [src/fdtd.rs:43](../src/fdtd.rs#L43), [src/fdtd/meep_checks.rs:2](../src/fdtd/meep_checks.rs#L2), [src/fdtd/sources.rs:9](../src/fdtd/sources.rs#L9), [src/units.rs:8](../src/units.rs#L8), [src/validation.rs:1488](../src/validation.rs#L1488), [1838](../src/validation.rs#L1838)
@@ -3273,6 +3281,7 @@ D. Roberts, "Simplified characterization of uniaxial and biaxial nonlinear optic
 J. A. Roden, S. D. Gedney, "Convolution PML (CPML): An efficient FDTD implementation of the CFS-PML for arbitrary media", Microw. Opt. Technol. Lett. 27, 334 (2000). [doi:10.1002/1098-2760(20001205)27:5\<334::AID-MOP14\>3.0.CO;2-A](https://doi.org/10.1002/1098-2760(20001205)27:5%3C334::AID-MOP14%3E3.0.CO;2-A)
 
 - Methods pages: [fdtd-adjoint.md:14](methods/fdtd-adjoint.md?plain=1#L14), [fdtd.md:26](methods/fdtd.md?plain=1#L26)
+- Academy lessons: [how-fdtd-works.md:66](../academy/how-fdtd-works.md?plain=1#L66)
 - Examples: [README.md:63](../examples/README.md?plain=1#L63), [cpml_roden_gedney.rs:5](../examples/cpml_roden_gedney.rs#L5)
 - Code: [src/fdtd.rs:21](../src/fdtd.rs#L21), [src/validation/gpu.rs:248](../src/validation/gpu.rs#L248)
 - Other documents: [ROADMAP.md:717](../ROADMAP.md?plain=1#L717), [docs/validation-gpu.md:22](validation-gpu.md?plain=1#L22)
@@ -3707,8 +3716,9 @@ K. Svanberg, "A Class of Globally Convergent Optimization Methods Based on Conse
 A. Taflove, M. Brodwin, "Numerical Solution of Steady-State Electromagnetic Scattering Problems Using the Time-Dependent Maxwell's Equations", IEEE Trans. Microwave Theory Techn. 23, 623 (1975). [doi:10.1109/TMTT.1975.1128640](https://doi.org/10.1109/TMTT.1975.1128640)
 
 - Methods pages: [fdtd.md:14](methods/fdtd.md?plain=1#L14)
+- Academy lessons: [how-fdtd-works.md:36](../academy/how-fdtd-works.md?plain=1#L36), [175](../academy/how-fdtd-works.md?plain=1#L175), [193](../academy/how-fdtd-works.md?plain=1#L193), [445](../academy/how-fdtd-works.md?plain=1#L445)
 - Validation cases: [`fdtd/dispersion`](validation.md?plain=1#L203)
-- Code: [src/fdtd.rs:15](../src/fdtd.rs#L15), [src/validation.rs:1446](../src/validation.rs#L1446)
+- Code: [src/fdtd.rs:15](../src/fdtd.rs#L15), [128](../src/fdtd.rs#L128), [src/validation.rs:1446](../src/validation.rs#L1446)
 
 #### Taillaert et al. 2002
 
@@ -3874,6 +3884,7 @@ E. Ulsig, M. Madsen, E. Stanton, D. Reddy, A. Leger, S. Sørensen, I. Degli-Ered
 K. Umashankar, A. Taflove, "A Novel Method to Analyze Electromagnetic Scattering of Complex Objects", IEEE Trans. Electromagn. Compat. EMC-24, 397 (1982). [doi:10.1109/TEMC.1982.304054](https://doi.org/10.1109/TEMC.1982.304054)
 
 - Methods pages: [fdtd.md:16](methods/fdtd.md?plain=1#L16)
+- Academy lessons: [how-fdtd-works.md:42](../academy/how-fdtd-works.md?plain=1#L42), [326](../academy/how-fdtd-works.md?plain=1#L326), [446](../academy/how-fdtd-works.md?plain=1#L446)
 - Validation cases: [`fdtd/tfsf-leakage`](validation.md?plain=1#L210), [`fdtd/mode-source-fdfd`](validation.md?plain=1#L212)
 - Examples: [README.md:64](../examples/README.md?plain=1#L64), [tfsf_square_cylinder.rs:6](../examples/tfsf_square_cylinder.rs#L6)
 - Code: [src/fdtd.rs:45](../src/fdtd.rs#L45), [src/fdtd/sources.rs:11](../src/fdtd/sources.rs#L11), [src/validation.rs:1495](../src/validation.rs#L1495), [1509](../src/validation.rs#L1509)

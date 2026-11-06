@@ -2311,6 +2311,12 @@
   venue: "Opt. Lett. 45, 5784"
   year: 2020
 
+- doi: 10.1364/OE.16.011376
+  authors: "A. F. Oskooi, L. Zhang, Y. Avniel, S. G. Johnson"
+  title: "The failure of perfectly matched layers, and towards their redemption by adiabatic absorbers"
+  venue: "Opt. Express 16, 11376"
+  year: 2008
+
 - doi: 10.1364/OL.34.002778
   authors: "A. F. Oskooi, C. Kottke, S. G. Johnson"
   title: "Accurate finite-difference time-domain simulation of anisotropic media by subpixel smoothing"
