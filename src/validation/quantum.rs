@@ -63,7 +63,7 @@ pub(crate) fn rules() -> Vec<(&'static str, Rule)> {
         ),
         (
             "quantum/distinguishable-classical",
-            exact(1e-14, "sums of products of |U|²: round-off"),
+            exact(1e-14, "sums of products of squared moduli: round-off"),
         ),
         (
             "quantum/partly-distinguishable",
