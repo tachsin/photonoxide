@@ -76,14 +76,8 @@ $$
 
 The photons the loss takes leave through loss modes $\hat e = K \hat a + \dots$, with
 $K^\dagger K = I - S^\dagger S$. The transfer from the inputs to the outputs and the loss modes
-together,
-
-$$
-T = \begin{pmatrix} S \\ K \end{pmatrix},
-$$
-
-has orthonormal columns: it is an isometry, and the probabilities of every pattern over the
-ports and the loss modes sum to 1. `Transfer` builds $K$ and $L$ from the eigenvectors of
+together, $T$, the $n$ rows of $S$ above the rows of $K$, has orthonormal columns: it is
+an isometry, and the probabilities of every pattern over the ports and the loss modes sum to 1. `Transfer` builds $K$ and $L$ from the eigenvectors of
 $I - S^\dagger S$ and $I - S S^\dagger$ (Jacobi's method), one row or column per channel that
 loses power, each scaled by the square root of its eigenvalue; a lossless channel (eigenvalue
 below $10^{-13}$) gets none. A matrix with gain, an eigenvalue of $S^\dagger S$ above
@@ -131,8 +125,8 @@ $c_j$ with internal state $\lvert\psi_j\rangle$ gives, expanding each photon's c
 over an internal basis and summing the internal labels out at the detectors,
 
 $$
-P = \frac{1}{\prod_r m_r!\, \mathcal N} \sum_{\sigma \in S_n} \Big( \prod_j G_{\sigma(j), j} \Big)
-\operatorname{Per}\!\big( M \circ \overline{M_\sigma} \big),
+P = \frac{1}{\prod_r m_r!\thinspace \mathcal N} \sum_{\sigma \in S_n} \Big( \prod_j G_{\sigma(j), j} \Big)
+\operatorname{Per}\big( M \circ \overline{M_\sigma} \big),
 \qquad G_{ij} = \langle \psi_i \vert \psi_j \rangle ,
 $$
 
@@ -162,12 +156,12 @@ A = \varphi_1 e^{i\omega\tau} S_{o_1 i_1}, \quad B = \varphi_2 S_{o_2 i_2}, \qua
 C = \varphi_1 e^{i\omega\tau} S_{o_2 i_1}, \quad D = \varphi_2 S_{o_1 i_2},
 $$
 
-and the coincidence probability $\iint \lvert f \rvert^2 \, d\omega \, d\omega'$ separates into single
+and the coincidence probability $\iint \lvert f \rvert^2 \thinspace d\omega \thinspace d\omega'$ separates into single
 integrals,
 
 $$
 P(\tau) = \int \lvert A \rvert^2 \int \lvert B \rvert^2 + \int \lvert C \rvert^2 \int \lvert D \rvert^2
-+ 2 \operatorname{Re}\Big( \int A \bar D \, d\omega \int B \bar C \, d\omega \Big),
++ 2 \operatorname{Re}\Big( \int A \bar D \thinspace d\omega \int B \bar C \thinspace d\omega \Big),
 $$
 
 the last term the interference, which a long delay averages away. `hom_dip` evaluates each
@@ -183,7 +177,7 @@ the dip to $\tau = n_g L / c$, where the coincidences vanish (`quantum/hom-delay
 Clifford and Clifford's algorithm B (doi:10.1137/1.9781611975031.10) draws exact samples of the
 output pattern in $O(n 2^n + m n^2)$ for $n$ photons in $m$ modes. It puts the input photons'
 columns of $T$ in a random order $\alpha$ and draws the photons' output modes one at a time, the
-$k$-th with weights $\lvert \operatorname{Per} T[r_1, \dots, r_{k-1}, x;\, \alpha_1, \dots, \alpha_k] \rvert^2$
+$k$-th with weights $\lvert \operatorname{Per} T[r_1, \dots, r_{k-1}, x; \alpha_1, \dots, \alpha_k] \rvert^2$
 over the modes $x$. Each weight is a Laplace expansion along the last row, and the minors of all
 of them come from one pass of Glynn's formula with prefix and suffix products (their Lemma 3.2).
 `sample` takes an explicit seed; sample $i$ draws from its own stream of a xoshiro256**
@@ -284,7 +278,7 @@ Only Fig. 4D agrees (1%). No single $Cz$ from 2 to 6 matches all four panels, ei
 $\Gamma_{q,r}$ or with the $21 \times 21$ matrix normalized to 1, so their simulations' length or
 couplings differ from the uniform array the text gives, perhaps by the spreading regions'
 coupling, which the paper states only as an effective length (its fig. S1, in the supplement, is
-not read here). The gap is listed for #595; the panels' heights are not a case until it closes.
+not read here). The gap stays open, and the panels' heights are not a case until it closes.
 
 **Convergence.** The sampler's total variation distance to the exact distribution falls as
 $N^{-1/2}$: 3 photons in 5 modes, 1000 to 256 000 samples, eight seeds each, give an order of
