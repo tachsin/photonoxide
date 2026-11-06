@@ -74,11 +74,13 @@ pub(crate) struct Study {
     /// The largest |r_qp − r_pq| of the interpolant over the dense sweep.
     pub reciprocity: f64,
     /// The largest |S_qp − S_pq| of the solves over the dense sweep, for comparison.
+    #[allow(dead_code)] // the study test prints it
     pub solves_reciprocity: f64,
     /// The largest departure of a column's power, Σ_q |r_qp|², from the solves', over the bound
     /// the estimates give it, Σ_q (2|S_qp| + e_qp) e_qp.
     pub power: f64,
     /// The largest column power of the interpolant over the dense sweep (at most 1: passive).
+    #[allow(dead_code)] // the study test prints it
     pub largest_power: f64,
 }
 
