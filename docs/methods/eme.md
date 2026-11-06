@@ -18,6 +18,8 @@ papers:
     doi: 10.1109/JLT.2002.800371
   - cite: "P. Lietaert, K. Meerbergen, J. Pérez, B. Vandereycken, IMA J. Numer. Anal. 42, 1087 (2021) (set-valued AAA: rational functions sharing support points and weights, their Section 2.2)"
     doi: 10.1093/imanum/draa098
+  - cite: "P. Yeh, A. Yariv, C.-S. Hong, J. Opt. Soc. Am. 67, 423 (1977) (a period's Bloch waves from its transfer matrix, Eqs. (24)–(27))"
+    doi: 10.1364/JOSA.67.000423
 validation:
   - eme/step-one-mode
   - eme/step-fresnel-te
@@ -50,6 +52,10 @@ validation:
   - eme/wavelength-mmi
   - eme/wavelength-reciprocity
   - eme/wavelength-power
+  - eme/bloch-quarter-wave
+  - eme/bloch-quarter-wave-modes
+  - eme/bloch-band-edges
+  - eme/grating-squaring
 ---
 
 Many devices are a waveguide whose cross-section changes along its length: a step, a taper, a
@@ -573,6 +579,101 @@ multimode section above, 201 points over the C band from 117 solves.
   interpolate: { tolerance: 1.0e-6 }
 ```
 
+## Periodic sections
+
+A grating is one period repeated. Two things follow from the period's S-matrix taken between its
+first section's modes at its start and at the next period's start (`Eme::bloch` appends a
+zero-length copy of the first section to the period for that).
+
+**Its Bloch modes.** With $a_1 = (a_1^+, a_1^-)$ the amplitudes of those modes at the period's
+start and $a_2$ at the next one's, the S-matrix gives $a_2 = T a_1$ with
+
+$$T = \begin{pmatrix} S_{21} - S_{22} S_{12}^{-1} S_{11} & S_{22} S_{12}^{-1} \\ -S_{12}^{-1} S_{11} & S_{12}^{-1} \end{pmatrix},$$
+
+and a Bloch mode is an eigenvector of $T$ with the eigenvalue $\lambda = e^{iK\Lambda}$, $K$ its
+wavenumber and $\Lambda$ the period (Yeh, Yariv and Hong 1977, Eqs. (24)–(27), there for one
+mode). $S_{12}$ of an evanescent mode is exponentially small, so $T$ itself is ill-conditioned
+with many modes; the eigenvalues are taken instead from the pencil
+
+$$\begin{pmatrix} S_{21} & 0 \\ -S_{11} & 1 \end{pmatrix} x = \lambda \begin{pmatrix} 1 & -S_{22} \\ 0 & S_{12} \end{pmatrix} x,$$
+
+the same equations multiplied out, by QZ, which inverts nothing. In a reciprocal structure the
+eigenvalues come in pairs $\lambda$ and $1/\lambda$, a Bloch mode going either way. Each pair is
+one `Bloch` mode: $\cos K\Lambda = (\lambda + 1/\lambda)/2$, and $K/k_0$ from the one of the pair
+with $\lvert\lambda\rvert \le 1$, in the reduced zone (its real part between 0 and $\lambda_0/2\Lambda$,
+up to its sign, which is the direction; its imaginary part the decay along z). The $m$-th Bloch
+mode is the one most made of the section's $m$-th mode, of those left: the fundamental first. A
+Bloch mode that decays by $e^{-\operatorname{Im} K\Lambda}$ in one period has $\lambda$ to the
+eigenproblem's round-off, an absolute one, so its $K$ is good to about $\varepsilon\,e^{\operatorname{Im} K\Lambda}/\Lambda$:
+the guided, propagating and stop-band modes are at round-off, the strongly evanescent ones
+approximate.
+
+**N periods** (`Eme::grating`, `Eme3d::grating`): a structure's sections with some of them
+repeated `count` times in place. The period's S-matrix is taken to the power `count` − 1 by
+repeated squaring of the star product (about $2\log_2 N$ products instead of $N$), and starred
+with what comes before the period and with the last period and what follows it. The last period
+ends where the structure goes on, not at a zero-length copy of its first section: with finitely
+many modes, a zero-length section between two others adds an interface pair that is not the
+identity (S off by 4.4e-3 on the grating below, 100 periods with 20 modes).
+
+```rust
+use photonoxide::eme::{Eme, Section, Slice, Wall};
+use photonoxide::mode::Polarization;
+use photonoxide::units::{Length, Wavelength};
+use photonoxide::Complex64;
+
+// half of a silicon slab grating, 300 and 220 nm thick, 0.14 µm each, 20 even modes, a PML
+let half = |t: f64| {
+    Slice::new(&[
+        (Complex64::new(3.473, 0.0), Length::um(0.5 * t)),
+        (Complex64::new(1.444, 0.0), Length::um(1.5 - 0.5 * t)),
+    ])
+};
+let eme = Eme::new(Polarization::Te, Wavelength::um(1.55)?, 20)?
+    .with_walls(Wall::Magnetic, Wall::Electric)
+    .with_upper_pml(Length::um(4.0), 0.1)?;
+let sections = [
+    Section::new(half(0.22)?, Length::ZERO),        // port 1
+    Section::new(half(0.30)?, Length::um(0.14)),    // the period: sections 1 and 2
+    Section::new(half(0.22)?, Length::um(0.14)),
+    Section::new(half(0.22)?, Length::ZERO),        // port 2
+];
+let bloch = eme.bloch(&sections[1..3])?;            // the period's Bloch modes
+let fundamental = bloch.effective_indices[0];       // K/k0 in the reduced zone
+let s = eme.grating(&sections, 1..3, 100)?;         // 100 periods
+# let _ = (fundamental, s);
+# Ok::<(), photonoxide::Error>(())
+```
+
+Checked at round-off on a quarter-wave stack at 1.55 µm (silica, 1.444, and silicon nitride,
+2.0), each layer uniform across a window between magnetic walls, so that TE's modes are
+$\cos(m\pi x/W)$ in both layers with $n_\text{eff}^2 = n^2 - (m\lambda/2W)^2$ and each meets only
+its own at the interfaces:
+
+| Check | Ours | Closed form |
+|---|---|---|
+| $\cos K\Lambda$ of the one uniform mode at 61 wavelengths from 1 to 2.5 µm, the first stop band among them (`eme/bloch-quarter-wave`) | within 6.7e-16 | $\cos k_1 d_1 \cos k_2 d_2 - \tfrac12 (n_1/n_2 + n_2/n_1) \sin k_1 d_1 \sin k_2 d_2$ |
+| the same with 8 modes in a window 2 µm wide, propagating and evanescent, at 1.3, 1.55 and 1.8 µm (`eme/bloch-quarter-wave-modes`) | within 8.1e-15 of each mode's closed form, relative to $\lvert\cos K\Lambda\rvert$ where it is above 1 (up to 26) | the same with $\beta_i = k_0 n_{\text{eff},i}$ |
+| the first stop band's width, its edges by bisection on $\cos K\Lambda = -1$ (`eme/bloch-band-edges`) | 0.20645554758478 | $\Delta\omega/\omega_0 = (4/\pi)\arcsin((n_2 - n_1)/(n_2 + n_1))$ = 0.20645554758479, relative 2.0e-15 |
+| the slab grating above, 100 periods by squaring (11 star products) against its 200 sections in sequence (`eme/grating-squaring`) | every entry of S within 2.5e-14 | the same products in another order |
+
+**In a job,** `[task.period]` names the sections of one period, counted from 1 between the
+ports, and how many periods: the run solves the structure by repeated squaring, and records the
+period's Bloch modes at each wavelength it solves (at `wavelength_um` alone with
+`[task.interpolate]`) as a sweep point, the four least decaying by the order above, each K/k₀ as
+an effective index. 2D and 3D jobs (a task's strips) alike; a `[device]` is cut whole, with no
+period of its own, and the adaptive steps place a whole structure's, so a job with a period
+takes equal steps. `jobs/eme-grating.yaml` is the grating above, swept over its stop band.
+
+```yaml
+  section:
+    - { name: input, length_um: 0.0, core_um: 0.22 }
+    - { name: wide, length_um: 0.14, core_um: 0.30 }
+    - { name: narrow, length_um: 0.14, core_um: 0.22 }
+    - { name: output, length_um: 0.0, core_um: 0.22 }
+  period: { sections: [2, 3], count: 100 }
+```
+
 ## Validation
 
 Measured with the cases' own settings, at 1.55 µm, silicon (3.473) in oxide (1.444):
@@ -605,6 +706,9 @@ Measured with the cases' own settings, at 1.55 µm, silicon (3.473) in oxide (1.
 | `eme/wavelength-taper`, `-mmi` | S over a range (1.45 to 1.65 µm, the C band) from a few solves, every entry on one set of wavelengths, asked for 1e-6 ([S over wavelength](#s-over-wavelength)) | ratio of the true error to the estimate 7.5e-7 (taper, 32 solves) and 7.8e-6 (multimode section, 117 solves) | the same expansion at each of 201 wavelengths | discretisation, a ratio of the true error to the estimate of at most 1, measured |
 | `eme/wavelength-reciprocity` | the two interpolants on the 201 wavelengths | $\lvert r - r^T \rvert$ 1.8e-14 | the solves' own reciprocity, kept by a shared denominator | round-off, 1e-12 |
 | `eme/wavelength-power` | the same: each column's power against the solves' | under 1e-3 of the bound $\sum_q (2\lvert S_{qp}\rvert + e_{qp}) e_{qp}$ | the bound the entries' estimates give | discretisation, a ratio of at most 1, measured |
+| `eme/bloch-quarter-wave`, `-modes` | a quarter-wave stack (1.444 and 2.0 at 1.55 µm), $\cos K\Lambda$ of its Bloch modes ([periodic sections](#periodic-sections)): one mode at 61 wavelengths from 1 to 2.5 µm; 8 modes at 1.3, 1.55 and 1.8 µm | within 6.7e-16 and 8.1e-15 | the two layers' closed form, each mode its own | round-off, 1e-12 |
+| `eme/bloch-band-edges` | the same stack's first stop band, its edges by bisection on $\cos K\Lambda = -1$ | $\Delta\omega/\omega_0$ = 0.20645554758478, relative 2.0e-15 | $(4/\pi)\arcsin((n_2 - n_1)/(n_2 + n_1))$ | round-off, 1e-12 relative |
+| `eme/grating-squaring` | a silicon slab grating, 100 periods (20 modes, a PML), by repeated squaring | every entry of S within 2.5e-14 of the 200 sections in sequence | the same star products in another order | round-off, 1e-12 |
 
 The FDFD comparison is the most telling: the two methods share nothing but the structure, and
 agree to 1.9e-5 of a reflection of 9.2e-5. Its transmission agrees too: 0.999829 against
@@ -646,7 +750,18 @@ What it does not do yet (#432):
   in reasonable time, and the 3D FDFD that checks it millions of unknowns for a device tens of
   micrometres long. The cases check a 1.6 µm MMI and a 1 µm taper; the studio's 6 µm MMI is not
   a case.
-- **Bends and periodic sections** are to come ([the bends' plan](../plans/eme-bends.md)).
+- **Bends** are to come ([the bends' plan](../plans/eme-bends.md)).
+- **A grating's Bloch modes are the expansion's,** with its modes' truncation error: the
+  slab grating of [periodic sections](#periodic-sections) has a guided Bloch mode below the
+  light line at 1.55 µm, which should be lossless (no diffraction order radiates), but with 20
+  modes its $\operatorname{Im} K/k_0$ is 7.2e-5 and its $\operatorname{Re} K/k_0$ 2.60092, against
+  4.8e-6 and 2.60347 with 160 modes (10, 20, 40, 80, 160 modes: Re 2.60071, 2.60092, 2.60272,
+  2.60330, 2.60347; Im 2.5e-6, 7.2e-5, 2.0e-4, 6.8e-5, 4.8e-6; a PML 8 µm thick of strength
+  0.05 gives 3.3e-6 with 20 modes, 7.3e-5 with 40). The real part converges. The imaginary
+  part is not monotone in the modes, and why is not settled: it may be the power each interface
+  sends into the PML's modes that too few modes don't bring back in phase, but that is not
+  shown. It is not a closed-form check, so it is stated here rather than gated; a job drives its
+  modes with `[task.convergence]`.
 - **S over wavelength** is interpolated in the wavelength only: a structure's own parameters
   (a width, a length) are swept by solving each value. Its estimate holds where the fit has seen
   the response, and needs one discretisation for every solve and a PML window

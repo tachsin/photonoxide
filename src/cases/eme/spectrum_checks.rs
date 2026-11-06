@@ -205,7 +205,7 @@ pub(crate) fn cases() -> Vec<Case> {
         },
         Case {
             id: "eme/wavelength-power",
-            title: r"The two interpolants' power: the departure of each column's $\sum_q \lvert r_{qp} \rvert^2$ from the solves' over the 201 wavelengths, against the bound $\sum_q (2\lvert S_{qp} \rvert + e_{qp})\,e_{qp}$ that each entry's estimate $e_{qp}$ gives it (largest ratio of the two shown)",
+            title: r"The two interpolants' power: the departure of each column's $\sum_q \lvert r_{qp} \rvert^2$ from the solves' over the 201 wavelengths, against the bound $\sum_q (2\lvert S_{qp} \rvert + e_{qp}) \thinspace e_{qp}$ that each entry's estimate $e_{qp}$ gives it (largest ratio of the two shown)",
             tier: Tier::Analytic,
             source: r"power is quadratic in S, so the interpolant keeps it only to its error: with $\lvert r_{qp} - S_{qp} \rvert \le e_{qp}$, $\lvert \sum_q \lvert r_{qp} \rvert^2 - \lvert S_{qp} \rvert^2 \rvert \le \sum_q (2\lvert S_{qp} \rvert + e_{qp}) e_{qp}$",
             run: || zero(up2(taper_study().power.max(mmi_study().power)), 1.0),

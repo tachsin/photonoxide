@@ -460,9 +460,11 @@
 //! - `"eme"`: a 2D structure of sections along z, straights and tapers of a core in a cladding
 //!   or of layers given one by one, by eigenmode expansion ([`crate::eme`]), its tapers' steps
 //!   equal or placed where the response changes (`[task.adaptive]`) and its modes driven to a
-//!   tolerance (`[task.convergence]`); recorded as its scene, the S-parameters between the
-//!   guided modes at its two ends ([`Event::SParameters`], at each wavelength of a sweep) and
-//!   its convergence studies ([`Event::GridConvergence`]). See `eme.rs`.
+//!   tolerance (`[task.convergence]`), some of its sections repeated as a grating
+//!   (`[task.period]`); recorded as its scene, the S-parameters between the guided modes at its
+//!   two ends ([`Event::SParameters`], at each wavelength of a sweep), a period's Bloch modes
+//!   ([`Event::SweepPoint`]) and its convergence studies ([`Event::GridConvergence`]). See
+//!   `eme.rs`.
 
 use crate::Result;
 use crate::run::{Run, Stop};

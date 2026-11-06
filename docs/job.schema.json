@@ -3974,6 +3974,10 @@
           "minimum": 0,
           "type": "integer"
         },
+        "period": {
+          "$ref": "#/$defs/PeriodSpec",
+          "description": "Some sections repeated: a grating, solved by repeated squaring of one period's S-matrix, and its Bloch modes recorded."
+        },
         "plane": {
           "$ref": "#/$defs/PlaneSpec",
           "description": "The sections in 3D: each cross-section a plane of Yee's grid (`three`)."
@@ -6721,6 +6725,32 @@
       "required": [
         "layer",
         "segments"
+      ],
+      "type": "object"
+    },
+    "PeriodSpec": {
+      "additionalProperties": false,
+      "description": "A `[task.period]`: some of the sections, in order, repeated as a grating.",
+      "properties": {
+        "count": {
+          "description": "How many periods, at least 1.",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "sections": {
+          "description": "The first and the last of the sections that make one period, counted from 1 in the order of `[[task.section]]`; not the ports (the first and last sections).",
+          "items": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        }
+      },
+      "required": [
+        "sections",
+        "count"
       ],
       "type": "object"
     },

@@ -1,7 +1,8 @@
 //! The rules (#544) of eigenmode expansion's cases (#432): the one-mode step and the uniform
 //! media's step against closed forms, a lossless structure's reciprocity and power at round-off,
 //! and a stepped taper against 2D FDFD with the expansion's own convergence in its number of
-//! modes.
+//! modes; periodic sections' Bloch modes against the two-layer closed form and N periods by
+//! repeated squaring at round-off.
 
 use super::{Basis::*, Measure::*, Numerical::*, Rule};
 
@@ -134,6 +135,46 @@ pub(crate) fn rules() -> Vec<(&'static str, Rule)> {
                 "the bound the entries' estimates give a column's power: a ratio of at most 1 wherever they bound the entries' errors",
             )
             .varying(),
+        ),
+        (
+            "eme/bloch-quarter-wave",
+            Rule::new(
+                Absolute,
+                RoundOff,
+                1e-12,
+                Exact,
+                "an exact identity for one uniform mode a layer: round-off over a 2 × 2 eigenproblem and two Fresnel steps, 1e-12 as eme/step-fresnel-te",
+            ),
+        ),
+        (
+            "eme/bloch-quarter-wave-modes",
+            Rule::new(
+                Absolute,
+                RoundOff,
+                1e-12,
+                Exact,
+                "as eme/bloch-quarter-wave, each mode its own stack: round-off, relative to the magnitude of cos KΛ where it is above 1 (an evanescent mode's grows as its decay per period)",
+            ),
+        ),
+        (
+            "eme/bloch-band-edges",
+            Rule::new(
+                Relative,
+                RoundOff,
+                1e-12,
+                Exact,
+                "bisection to neighbouring floats on a function at round-off whose slope at the edges is about 1: round-off, 1e-12",
+            ),
+        ),
+        (
+            "eme/grating-squaring",
+            Rule::new(
+                Absolute,
+                RoundOff,
+                1e-12,
+                Exact,
+                "the same star products in another order: round-off, 1e-12 as eme/lossless-reciprocity",
+            ),
         ),
         (
             "eme/3d-orthonormal",

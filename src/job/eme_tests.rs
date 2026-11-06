@@ -334,3 +334,133 @@ fn the_built_in_sweep_is_the_cases_interpolant() {
     let r = spectrum.at(um(MMI_RANGE.0 + (MMI_RANGE.1 - MMI_RANGE.0) * 100.0 / 200.0));
     assert_eq!(s[1][0], [r[1][0].re, r[1][0].im]);
 }
+
+/// A slab grating: 0.3 µm of 300 nm slab and 0.2 µm of 220 nm, ten times, between two 220 nm
+/// ports, in [`TAPER`]'s window.
+fn grating() -> String {
+    TAPER
+        .replace(
+            "[[task.section]]\nlength_um = 0.4\ncore_um = [0.22, 0.30]\nsteps = 4\n",
+            "[[task.section]]\nlength_um = 0.3\ncore_um = 0.30\n\n[[task.section]]\n\
+             length_um = 0.2\ncore_um = 0.22\n",
+        )
+        .replace(
+            "length_um = 0.0\ncore_um = 0.30\n",
+            "length_um = 0.0\ncore_um = 0.22\n",
+        )
+        + "\n[task.period]\nsections = [2, 3]\ncount = 10\n"
+}
+
+#[test]
+fn a_period_is_the_librarys_grating_and_bloch_modes_to_the_bit() {
+    let job = Job::parse(&grating()).unwrap();
+    check(&job).unwrap();
+    let events = events(&job);
+    let got = s_parameters(&events);
+    assert_eq!(got.len(), 1);
+    let (ports, s) = &got[0];
+    assert_eq!(ports, &["1 TE0", "2 TE0"]);
+    let sections = [
+        Section::new(slab(0.22), Length::ZERO),
+        Section::new(slab(0.30), Length::um(0.3)),
+        Section::new(slab(0.22), Length::um(0.2)),
+        Section::new(slab(0.22), Length::ZERO),
+    ];
+    let eme = Eme::new(Polarization::Te, Wavelength::um(1.55).unwrap(), 12).unwrap();
+    let lib = eme.grating(&sections, 1..3, 10).unwrap();
+    assert_eq!([lib.s21[0][0].re, lib.s21[0][0].im], s[1][0]);
+    assert_eq!([lib.s11[0][0].re, lib.s11[0][0].im], s[0][0]);
+    let bloch = eme.bloch(&sections[1..3]).unwrap();
+    let point = events
+        .iter()
+        .find_map(|e| match e {
+            Event::SweepPoint {
+                effective_indices,
+                te_fractions,
+                ..
+            } => Some((effective_indices.clone(), te_fractions.clone())),
+            _ => None,
+        })
+        .unwrap();
+    assert_eq!(point.0.len(), 4);
+    assert_eq!(point.1, vec![1.0; 4]);
+    for (got, want) in point.0.iter().zip(&bloch.effective_indices) {
+        assert_eq!(*got, [want.re, want.im]);
+    }
+    // the scene draws every period
+    let shapes = events
+        .iter()
+        .find_map(|e| match e {
+            Event::Scene { shapes, .. } => Some(shapes.len()),
+            _ => None,
+        })
+        .unwrap();
+    assert_eq!(shapes, 20);
+}
+
+/// `jobs/eme-grating.yaml` gives the stop band its comment quotes.
+#[test]
+#[ignore = "81 wavelengths: in release"]
+fn the_built_in_grating_gives_the_numbers_its_comment_quotes() {
+    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("jobs");
+    let job = Job::load(&dir.join("eme-grating.yaml")).unwrap();
+    let events = events(&job);
+    let mut rows = Vec::new();
+    let mut bloch = Vec::new();
+    for e in &events {
+        match e {
+            Event::SParameters {
+                wavelength_um, s, ..
+            } => rows.push((
+                *wavelength_um,
+                s[1][0][0].powi(2) + s[1][0][1].powi(2),
+                s[0][0][0].powi(2) + s[0][0][1].powi(2),
+            )),
+            Event::SweepPoint {
+                effective_indices, ..
+            } => bloch.push(effective_indices[0]),
+            _ => {}
+        }
+    }
+    assert_eq!(rows.len(), 81);
+    assert_eq!(bloch.len(), 81);
+    // the stop band: where the fundamental Bloch mode decays, Im K/k0 above 0.01
+    let band: Vec<f64> = rows
+        .iter()
+        .zip(&bloch)
+        .filter(|(_, b)| b[1] > 0.01)
+        .map(|(r, _)| r.0)
+        .collect();
+    assert_eq!(band.len(), 24, "{band:?}");
+    assert!((band[0] - 1.6025).abs() < 1e-9 && (band[23] - 1.66).abs() < 1e-9);
+    let (l, _, r) = rows
+        .iter()
+        .copied()
+        .fold((0.0, 0.0, 0.0), |a, b| if b.2 > a.2 { b } else { a });
+    assert!(
+        (l - 1.6375).abs() < 1e-9 && (r - 0.998307).abs() < 5e-7,
+        "{l} {r}"
+    );
+    let decay = bloch.iter().map(|b| b[1]).fold(0.0, f64::max);
+    assert!((decay - 0.066627).abs() < 5e-7, "{decay}");
+}
+
+#[test]
+fn check_refuses_a_period_it_cannot_repeat() {
+    let refused = |text: String, says: &str| {
+        let err = check(&Job::parse(&text).unwrap()).unwrap_err().to_string();
+        assert!(err.contains(says), "{err}");
+    };
+    let g = grating();
+    for bad in ["[1, 3]", "[3, 2]", "[2, 4]"] {
+        refused(
+            g.replace("sections = [2, 3]", &format!("sections = {bad}")),
+            "between the ports",
+        );
+    }
+    refused(g.replace("count = 10", "count = 0"), "at least 1");
+    refused(
+        g.clone() + "\n[task.adaptive]\ntolerance = 1e-3\n",
+        "takes equal steps",
+    );
+}
