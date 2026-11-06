@@ -156,6 +156,23 @@ pub fn specs() -> Vec<DiagramSpec> {
             caption_3d: "",
         },
         DiagramSpec {
+            id: "fdfd",
+            title: "A frequency-domain problem and its adjoint",
+            caption: "A 2D grid closed by PMLs, where each derivative along $w$ is divided by \
+                      the stretch $s_w$; a guide through it, a source $b$ that launches its mode, \
+                      and a monitor that measures the mode's amplitude $a = c^\\mathsf{T}x$. \
+                      Between them a design region of cells $\\varepsilon_k$. The forward field \
+                      $x$ solves $A(\\varepsilon)\\,x = b$; the adjoint field $\\lambda$ solves \
+                      $A^\\mathsf{T}\\lambda = \\partial F/\\partial x$, a source at the monitor, \
+                      and travels back from it. Their product in each cell is the figure of \
+                      merit's derivative with respect to that cell's permittivity, every cell \
+                      from the same two solves. Beside it, Yee's grid for $E$ along $z$: $E_z$ at \
+                      the cells' centres, $H_x$ and $H_y$ on their faces, and the five values of \
+                      $E_z$ one row of $A$ couples. Not to scale.",
+            job: None,
+            caption_3d: "",
+        },
+        DiagramSpec {
             id: "mzi",
             title: "A Mach–Zehnder interferometer, seen from above",
             caption: "Light enters the lower guide. The splitter, a coupler, keeps a share $r_1$ \

@@ -27,6 +27,7 @@ use serde::Serialize;
 mod coupler;
 mod crystal;
 mod fabrication;
+mod fdfd;
 mod grating;
 mod leaky;
 mod material;
@@ -1086,6 +1087,7 @@ pub fn specs() -> Vec<ChartSpec> {
     .chain(grating::specs())
     .chain(crystal::specs())
     .chain(meta::specs())
+    .chain(fdfd::specs())
     .collect()
 }
 
@@ -1468,6 +1470,9 @@ pub fn evaluate(id: &str, given: &BTreeMap<String, f64>) -> Result<ChartData, St
             at("index"),
             at("centre"),
         ),
+        "fdfd-convergence" => fdfd::convergence(at("polarization"), at("thickness")),
+        "fdfd-gradient" => fdfd::gradient(at("polarization"), at("bump")),
+        "fdfd-difference-step" => fdfd::difference_step(at("polarization"), at("probe")),
         "leaky-field" => leaky::field(at("order") as usize),
         "leaky-substrate" => leaky::substrate(at("oxide"), at("wavelength")),
         "bend-loss" => leaky::bend_loss(
