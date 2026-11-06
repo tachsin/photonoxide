@@ -30,6 +30,7 @@ mod fabrication;
 mod grating;
 mod leaky;
 mod material;
+mod meta;
 mod mmi;
 mod slab;
 mod strip;
@@ -1084,6 +1085,7 @@ pub fn specs() -> Vec<ChartSpec> {
     .into_iter()
     .chain(grating::specs())
     .chain(crystal::specs())
+    .chain(meta::specs())
     .collect()
 }
 
@@ -1447,6 +1449,24 @@ pub fn evaluate(id: &str, given: &BTreeMap<String, f64>) -> Result<ChartData, St
             at("cladding"),
             at("etch"),
             at("fill"),
+        ),
+        "meta-orders" => meta::orders(
+            at("wavelength"),
+            at("period"),
+            at("pillars") as usize,
+            at("angle"),
+            at("n_in"),
+            at("n_out"),
+        ),
+        "meta-pillar" => meta::pillar(at("period"), at("height"), at("wavelength")),
+        "meta-focus" => meta::focus(at("na"), at("focal"), at("period"), at("levels") as usize),
+        "meta-axis" => meta::axis(at("na"), at("focal"), at("wavelength")),
+        "meta-bandwidth" => meta::bandwidth(
+            at("na"),
+            at("focal"),
+            at("thickness"),
+            at("index"),
+            at("centre"),
         ),
         "leaky-field" => leaky::field(at("order") as usize),
         "leaky-substrate" => leaky::substrate(at("oxide"), at("wavelength")),

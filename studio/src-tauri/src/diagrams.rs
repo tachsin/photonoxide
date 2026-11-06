@@ -140,6 +140,22 @@ pub fn specs() -> Vec<DiagramSpec> {
             caption_3d: "",
         },
         DiagramSpec {
+            id: "metalens",
+            title: "A metalens in section, and a nanofin from above",
+            caption: "Pillars of height $H$, one every period $p$, on a substrate, lit from below \
+                      by a plane wave. Each pillar's width $w$ sets the phase it gives the light, \
+                      and the lens needs $\\varphi(r) = -k(\\sqrt{r^2 + f^2} - f)$, wrapped into \
+                      $[0, 2\\pi)$: the widths repeat zone by zone, the zones narrowing towards \
+                      the rim (beside, $\\varphi$ against $r$). The light leaves as a wave \
+                      converging on the focus, a focal length $f$ above the lens; the ray from \
+                      the rim, a half-width $R$ from the axis, arrives at $\\theta$ from it, and \
+                      $\\mathrm{NA} = \\sin\\theta$. Beside it, a nanofin from above, rotated by \
+                      $\\alpha$: lit with one circular polarization, it sends part of the light \
+                      into the other with the phase $2\\alpha$, whatever its width. Not to scale.",
+            job: None,
+            caption_3d: "",
+        },
+        DiagramSpec {
             id: "mzi",
             title: "A Mach–Zehnder interferometer, seen from above",
             caption: "Light enters the lower guide. The splitter, a coupler, keeps a share $r_1$ \
