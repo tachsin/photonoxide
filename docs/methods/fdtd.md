@@ -972,7 +972,8 @@ less than 1e-17 of the sum.
 
 **Checked against Mie.** His Table I gives $\mathfrak{a}_1 = a_1/2\alpha^3$ for a perfectly
 conducting sphere and for gold spheres in water at seven wavelengths, from 420 to 650 nm, with
-gold's $m'^2$ in his table on p. 417. Of its 66 entries, 61 agree to within 0.016, his three
+gold's $m'^2$ in his table on p. 417 (`Mie::gold_in_water` gives that table: each wavelength in
+vacuum and in water, gold's index and $m'^2$, conjugated into photonoxide's convention). Of its 66 entries, 61 agree to within 0.016, his three
 digits by hand; the median difference is 3.0e-3 (`fdtd/mie-table`). The other five lie near gold's
 resonance, where his series in α² converge worst. They differ from his by 0.04 to 0.40, and the
 series agrees there with $a_1$ from the closed forms $\psi_1 = \sin z/z - \cos z$ and $\xi_1$ to

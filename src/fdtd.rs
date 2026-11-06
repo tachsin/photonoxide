@@ -1544,7 +1544,7 @@ pub use adjoint::{Design, Term, ValueGradient};
 pub use harmonic::{Resonance, harmonic_inversion};
 pub(crate) use kernel::{Blocking, Real, Yee};
 pub use media::{Dispersive, Fit, Pole};
-pub use mie::{CrossSections, Mie, Sphere};
+pub use mie::{CrossSections, GoldInWater, Mie, Sphere};
 pub(crate) use monitors::Growth;
 pub use monitors::{Dft, FluxPlane};
 pub use smoothing::{Average, Body, Coupling, Permittivity, Smoothing, Structure};

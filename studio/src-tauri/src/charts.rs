@@ -35,6 +35,7 @@ mod meta;
 mod mmi;
 mod modulator;
 mod nonlinear;
+mod plasmon;
 mod slab;
 mod strip;
 
@@ -1092,6 +1093,7 @@ pub fn specs() -> Vec<ChartSpec> {
     .chain(fdfd::specs())
     .chain(modulator::specs())
     .chain(nonlinear::specs())
+    .chain(plasmon::specs())
     .collect()
 }
 
@@ -1523,7 +1525,10 @@ pub fn evaluate(id: &str, given: &BTreeMap<String, f64>) -> Result<ChartData, St
             },
             at("radius"),
         ),
-        _ => return Err(format!("chart {id} has no function")),
+        _ => match plasmon::evaluate(id, at) {
+            Some(result) => result,
+            None => return Err(format!("chart {id} has no function")),
+        },
     };
     result.map_err(|e| format!("{id}: {e}"))
 }

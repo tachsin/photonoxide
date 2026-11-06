@@ -275,6 +275,27 @@ pub fn specs() -> Vec<DiagramSpec> {
             caption_3d: "",
         },
         DiagramSpec {
+            id: "plasmon",
+            title: "A surface plasmon, and a metal sphere's localized plasmon",
+            caption: "At the left, a flat interface between a dielectric of permittivity \
+                      $\\varepsilon_d > 0$ above and a metal of $\\varepsilon_m < 0$ below. A \
+                      wave of surface charge, $+$ and $-$, travels along $z$ as \
+                      $e^{i(kz - \\omega t)}$, and its amplitude falls as $e^{-z/2L}$, $L$ the \
+                      propagation length of its power. Its field's lines loop from each positive \
+                      charge to the next negative one, far into the dielectric and a little way \
+                      into the metal; at the right of the panel, the field's size $\\lvert E \
+                      \\rvert$ across the interface falls by $e$ over $\\delta_d$ into the \
+                      dielectric and over the shorter $\\delta_m$ into the metal. At the right, \
+                      a metal sphere of radius $\\rho$ and permittivity $\\varepsilon$ in a \
+                      dielectric $\\varepsilon_d$, much smaller than the wavelength, lit by a \
+                      plane wave whose field $E_0$ pushes its electrons to one side: the \
+                      charges left on its surface make a dipole $p$, which rings at the \
+                      frequency where $\\varepsilon = -2\\varepsilon_d$ and sends light out in \
+                      every direction. Not to scale.",
+            job: None,
+            caption_3d: "",
+        },
+        DiagramSpec {
             id: "slab",
             title: "A slab waveguide, in section",
             caption: "A film of index $n_2$ and thickness $d$ lies between a cover of index $n_1$ \
