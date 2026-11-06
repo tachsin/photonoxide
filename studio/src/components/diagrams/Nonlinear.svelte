@@ -68,7 +68,7 @@
   <Label x={xl + 6} y={(filmBot + silicaBot) / 2 + 8} anchor="start" size={12} text="silica" width={60} />
   <rect x={xl} y={slabTop} width={xr - xl} height={filmBot - slabTop} class="fill-secondary/25 stroke-secondary/60" stroke-width="1" />
   <path d={ridge} class="fill-secondary/25 stroke-secondary/60" stroke-width="1" />
-  <Label x={xr - 6} y={(slabTop + filmBot) / 2} anchor="end" size={11} text="LiNbO₃" width={60} class="text-secondary" />
+  <Label x={xl + 6} y={(slabTop + filmBot) / 2} anchor="start" size={11} text="LiNbO₃" width={60} class="text-secondary" />
   <ellipse {cx} cy={slabTop + 2} rx="74" ry="26" class="fill-error" fill-opacity="0.16" />
   <ellipse {cx} cy={slabTop + 1} rx="38" ry="13" class="fill-info" fill-opacity="0.3" />
   <Dim x1={cx - top} y1={ridgeTop - 12} x2={cx + top} y2={ridgeTop - 12} />
@@ -96,7 +96,7 @@
   <Label x={584} y={bus - 32} anchor="end" size={13} text="comb" width={50} />
   <line x1={rx - 9 * pitch - 8} y1={base} x2={rx + 9 * pitch + 8} y2={base} class="stroke-base-content/40" stroke-width="1" />
   {#each lines as k (k)}
-    <line x1={rx + k * pitch} y1={base} x2={rx + k * pitch} y2={base - height(k)} class={k === 0 ? "stroke-error" : k === 3 ? "stroke-info" : k === -3 ? "stroke-warning" : "stroke-accent"} stroke-width="3" />
+    <line x1={rx + k * pitch} y1={base} x2={rx + k * pitch} y2={base - height(k)} class={k === 0 ? "stroke-error" : k === 3 ? "stroke-info" : k === -3 ? "stroke-warning" : "stroke-base-content/35"} stroke-width="3" />
   {/each}
   <Label x={rx} y={base + 11} size={12} text="$\omega_p$" width={30} class="text-error" />
   <Label x={rx + 3 * pitch} y={base + 11} size={12} text="$\omega_s$" width={30} class="text-info" />

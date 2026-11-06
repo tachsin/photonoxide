@@ -291,7 +291,7 @@ pub fn specs() -> Vec<ChartSpec> {
         ChartSpec {
             id: "nl-ridge",
             title: "A thin-film lithium niobate ridge: its modes, period and efficiency",
-            about: "Zhao et al. 2020's x-cut ridge (300 nm of MgO:LiNbO₃ on silica, air above, 75° sidewalls, along the crystal's y), its TE₀ modes at a fundamental and at its second harmonic on 20 nm cells: |E_x| of each, the effective indices, the first-order poling period, the effective areas, and the SHG efficiency from the modes' overlap through d₃₃ = 27 pm/V, poled through at a 50 % duty cycle.",
+            about: "Zhao et al. 2020's x-cut ridge (300 nm of MgO:LiNbO₃ on silica, air above, 75° sidewalls, along the crystal's y), its TE₀ modes at a fundamental and at its second harmonic on 20 nm cells: |Eₓ| of each, the effective indices, the first-order poling period, the effective areas, and the SHG efficiency from the modes' overlap through d₃₃ = 27 pm/V, poled through at a 50 % duty cycle.",
             computed_by: "nonlinear::guide: Ridge::cross_section on 20 nm cells behind a mirror wall, fundamental (the full-vector mode solver), ModeField, SecondOrder turned onto the chip, second_harmonic_coupling and percent_per_watt_cm2; the areas by Afshar and Monro's Eq. 41 (Fields::effective_area)",
             params: vec![
                 param(
@@ -481,7 +481,7 @@ pub fn specs() -> Vec<ChartSpec> {
         ChartSpec {
             id: "nl-jsa",
             title: "Photon pairs' joint spectrum and purity",
-            about: "The joint spectral intensity |f(λ_s, λ_i)|² of degenerate down-conversion of 0.775 µm into 1.55 µm by a quasi-phase-matched guide whose waves have group indices 2.30 (signal), 2.40 (pump) and g_i (idler), pumped by a Gaussian pulse, and the pairs' Schmidt purity.",
+            about: "The joint spectral intensity |f(λₛ, λᵢ)|² of degenerate down-conversion of 0.775 µm into 1.55 µm by a quasi-phase-matched guide whose waves have group indices 2.30 (signal), 2.40 (pump) and gᵢ (idler), pumped by a Gaussian pulse, and the pairs' Schmidt purity.",
             computed_by: "nonlinear::pairs::joint_spectrum (Grice and Walmsley's f = α(ν_s + ν_i)Φ(ν_s, ν_i)) and JointSpectrum::schmidt on 201 × 201 frequencies, Device::phase_at_frequencies for the picture, gaussian_purity",
             params: vec![
                 param(
@@ -1126,8 +1126,8 @@ pub fn ridge(width: f64, etch_nm: f64, lam: f64) -> photonoxide::Result<ChartDat
     let r = ridge_modes(width, etch_nm * 1e-3, lam)?;
     let period = 0.5 * lam / (r.n_eff[1] - r.n_eff[0]);
     let names = [
-        format!("|E_x| of TE₀ at {} µm", sig(lam, 4)),
-        format!("|E_x| of TE₀ at {} µm", sig(0.5 * lam, 4)),
+        format!("|Eₓ| of TE₀ at {} µm", sig(lam, 4)),
+        format!("|Eₓ| of TE₀ at {} µm", sig(0.5 * lam, 4)),
     ];
     let maps = r
         .maps
@@ -1690,7 +1690,9 @@ pub fn jsa(
     // the picture, on even wavelengths: f from the device's phase and the pump's amplitude
     let state = *device.state();
     let nu0 = 0.5 / lp;
-    let (near, far) = (1.0 / (nu0 + reach), 1.0 / (nu0 - reach));
+    // the picture: half the purity's window, which holds the amplitude's tails
+    let shown = 0.5 * reach;
+    let (near, far) = (1.0 / (nu0 + shown), 1.0 / (nu0 - shown));
     let cells = 160;
     let mut values = vec![0.0f64; cells * cells];
     let pick = |x: f64| {
@@ -1752,7 +1754,7 @@ pub fn jsa(
             purity,
             6,
             "",
-            "Σλ_k², the Schmidt decomposition's",
+            "Σλₖ², the Schmidt decomposition's",
         ),
         figure("Schmidt number $K$", 1.0 / purity, 4, "", "1/P"),
     ];
@@ -1773,11 +1775,11 @@ pub fn jsa(
         "of its marginal spectrum, on the grid",
     ));
     Ok(ChartData {
-        x_label: "signal wavelength λ_s".to_owned(),
+        x_label: "signal wavelength λₛ".to_owned(),
         x_length: true,
-        y_label: "idler wavelength λ_i".to_owned(),
+        y_label: "idler wavelength λᵢ".to_owned(),
         maps: vec![FieldMap {
-            label: "|f(λ_s, λ_i)|², the joint spectral intensity".to_owned(),
+            label: "|f(λₛ, λᵢ)|², the joint spectral intensity".to_owned(),
             raster,
             outline: Vec::new(),
         }],
