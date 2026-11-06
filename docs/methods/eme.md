@@ -888,7 +888,7 @@ What it does not do yet (#432):
   A bend's loss in the job is that of its window: a mode radiating strongly puts power into the
   PML that a narrower window would cut (the window must also stay on one side of the bend's
   centre). The bend's mapped profile needs its own convergence beside the modes': the default
-  10 nm layers leave $n_\text{eff}$ off by STAIR_TE (TE) and STAIR_TM (TM) at 2 µm, which `[task.convergence]`
+  10 nm layers leave $n_\text{eff}$ off by 2.7e-6 (TE) and 2.1e-6 (TM) at 2 µm, which `[task.convergence]`
   does not drive.
 - **A grating's Bloch modes are the expansion's,** with its modes' truncation error: the
   slab grating of [periodic sections](#periodic-sections) has a guided Bloch mode below the
