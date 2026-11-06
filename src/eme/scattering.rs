@@ -6,12 +6,14 @@ use faer::{Accum, Mat, Par};
 use num_complex::Complex64 as c64;
 use rayon::prelude::*;
 
+use super::bend::Map;
 use super::modes::Mode;
 use super::{Eme, Scattering, Section};
+use crate::mode::Polarization;
 use crate::{Error, Result};
 
 /// The 20-point Gauss–Legendre rule's positive nodes and their weights.
-const GL20: [(f64, f64); 10] = [
+pub(crate) const GL20: [(f64, f64); 10] = [
     (0.076_526_521_133_497_33, 0.152_753_387_130_725_85),
     (0.227_785_851_141_645_08, 0.149_172_986_472_603_75),
     (0.373_706_088_715_419_56, 0.142_096_109_318_382_05),
@@ -28,10 +30,12 @@ const GL20: [(f64, f64); 10] = [
 /// degree 39, and e^(iωt) on a panel ωh = 10 wide is within 1e-17 of its Taylor polynomial.
 const PANEL_PHASE: f64 = 10.0;
 
-/// A quadrature point across the window: where, its weight along the complex coordinate
-/// (dx̃ = stretch dx), and the layer it is in in each of the two slices.
+/// A quadrature point across the window: where in each of the two slices' coordinates (the
+/// mapped one in a bent section), its weight along the complex coordinate (dx̃ = stretch dx,
+/// with a bend's factors at a joint), and the layer it is in in each of the two slices.
 pub(crate) struct Point {
-    pub(crate) x: f64,
+    pub(crate) x_a: f64,
+    pub(crate) x_b: f64,
     pub(crate) weight: c64,
     pub(crate) layer_a: usize,
     pub(crate) layer_b: usize,
@@ -40,12 +44,30 @@ pub(crate) struct Point {
 /// The points that integrate products of a mode of `a`'s slice and one of `b`'s across the
 /// window: 20-point Gauss–Legendre panels on each piece between the two slices' layer
 /// boundaries, as many as the fastest of the two modes' oscillation there needs.
+///
+/// Two slices of the same map (both straight, or both bent at one radius) are integrated in
+/// their common coordinate. Otherwise the coordinate is the joint's physical x, each bent
+/// mode's coordinate s(x) and the bend's factors in the weight: dx/ds = ρ/R, and 1/(dx/ds) on
+/// the field that came from a derivative along the arc (`a`'s E for TM, `b`'s H for TE), so
+/// that ∫ E × H dx is the physical one (the `bend` module's last point).
 pub(crate) fn points(a: &[&Mode], b: &[&Mode]) -> Vec<Point> {
     let (la, lb) = (&a[0].layers, &b[0].layers);
+    let (ma, mb) = (a[0].map, b[0].map);
+    let same = ma == mb;
+    // a coordinate of a slice's to the common one, and back
+    let to_x = |m: Option<Map>, s: f64| match m {
+        Some(m) if !same => m.to_x(s),
+        _ => s,
+    };
+    let to_s = |m: Option<Map>, x: f64| match m {
+        Some(m) if !same => (m.to_s(x), m.jacobian(x)),
+        _ => (x, 1.0),
+    };
     let mut edges: Vec<f64> = la
         .iter()
-        .chain(lb.iter())
-        .flat_map(|l| [l.x0, l.x0 + l.width])
+        .map(|l| (l, ma))
+        .chain(lb.iter().map(|l| (l, mb)))
+        .flat_map(|(l, m)| [to_x(m, l.x0), to_x(m, l.x0 + l.width)])
         .collect();
     edges.sort_by(f64::total_cmp);
     edges.dedup_by(|x, y| (*x - *y).abs() <= 1e-12 * y.abs().max(1.0));
@@ -54,6 +76,7 @@ pub(crate) fn points(a: &[&Mode], b: &[&Mode]) -> Vec<Point> {
     let find = |layers: &[super::modes::Layer], x: f64| {
         layers.iter().rposition(|l| l.x0 <= x).unwrap_or(0)
     };
+    let tm = a[0].polarization() == Polarization::Tm;
     let mut out = Vec::new();
     for w in edges.windows(2) {
         let (lo, hi) = (w[0], w[1]);
@@ -61,18 +84,24 @@ pub(crate) fn points(a: &[&Mode], b: &[&Mode]) -> Vec<Point> {
             continue;
         }
         let mid = 0.5 * (lo + hi);
-        let (ja, jb) = (find(la, mid), find(lb, mid));
+        let (ja, jb) = (find(la, to_s(ma, mid).0), find(lb, to_s(mb, mid).0));
         let stretch = la[ja].stretch;
-        let omega = (fastest(a, ja) + fastest(b, jb)) * stretch.norm();
+        // the oscillation along x: along s over dx/ds, at its smallest on the piece
+        let slow = |m: Option<Map>| to_s(m, lo).1.min(to_s(m, hi).1);
+        let omega = (fastest(a, ja) / slow(ma) + fastest(b, jb) / slow(mb)) * stretch.norm();
         let panels = ((omega * (hi - lo) / PANEL_PHASE).ceil() as usize).max(1);
         let h = (hi - lo) / panels as f64;
         for p in 0..panels {
             let centre = lo + (p as f64 + 0.5) * h;
             for &(node, weight) in &GL20 {
                 for x in [centre - 0.5 * h * node, centre + 0.5 * h * node] {
+                    let (x_a, ja_) = to_s(ma, x);
+                    let (x_b, jb_) = to_s(mb, x);
+                    let factor = if tm { 1.0 / ja_ } else { 1.0 / jb_ };
                     out.push(Point {
-                        x,
-                        weight: stretch * (0.5 * h * weight),
+                        x_a,
+                        x_b,
+                        weight: stretch * (0.5 * h * weight * factor),
                         layer_a: ja,
                         layer_b: jb,
                     });
@@ -93,13 +122,13 @@ pub(crate) fn overlaps(a: &[Mode], b: &[Mode]) -> Mat<c64> {
         .par_iter()
         .map(|m| {
             pts.iter()
-                .map(|q| q.weight * m.e_h(q.layer_a, q.x).0)
+                .map(|q| q.weight * m.e_h(q.layer_a, q.x_a).0)
                 .collect()
         })
         .collect();
     let h: Vec<Vec<c64>> = b
         .par_iter()
-        .map(|m| pts.iter().map(|q| m.e_h(q.layer_b, q.x).1).collect())
+        .map(|m| pts.iter().map(|q| m.e_h(q.layer_b, q.x_b).1).collect())
         .collect();
     let left = Mat::from_fn(a.len(), pts.len(), |i, q| e[i][q]);
     let right = Mat::from_fn(pts.len(), b.len(), |q, j| h[j][q]);

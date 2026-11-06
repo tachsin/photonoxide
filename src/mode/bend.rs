@@ -33,6 +33,16 @@ use super::Polarization;
 use crate::units::{Length, Wavelength};
 use crate::{Error, Result};
 
+/// Where a mode's inner and outgoing solutions start (radii, µm), with ψ'/ψ there, and where
+/// they meet.
+struct Ends {
+    start: f64,
+    inner: c64,
+    middle: f64,
+    outside: f64,
+    wave: c64,
+}
+
 /// A bent slab: layers between an inner and an outer cladding, at distances x from a reference
 /// radius R (ρ = R + x, positive x towards the outside of the bend).
 #[derive(Clone, Debug, PartialEq)]
@@ -44,9 +54,20 @@ pub struct SlabBend {
     /// interface j and j + 1, with index `layers[j]`.
     interfaces: Vec<f64>,
     layers: Vec<f64>,
+    /// The Runge–Kutta steps' scale: 1, or less for a study of their own error.
+    steps: f64,
 }
 
 impl SlabBend {
+    /// The same with the Runge–Kutta steps `factor` times as long: the integration's error
+    /// falls as their fourth power, which a study of the bend's own error halves them for.
+    pub(crate) fn with_steps(self, factor: f64) -> SlabBend {
+        SlabBend {
+            steps: factor,
+            ..self
+        }
+    }
+
     /// Films (index and thickness) starting at x = `start` from the reference radius `radius`,
     /// between the `inner` cladding (smaller radii) and the `outer` one. Lossless indices.
     ///
@@ -104,6 +125,7 @@ impl SlabBend {
             outer,
             interfaces,
             layers: films.iter().map(|&(n, _)| n).collect(),
+            steps: 1.0,
         })
     }
 
@@ -119,6 +141,31 @@ impl SlabBend {
         to: f64,
         ratio: c64,
     ) -> c64 {
+        let (psi, dpsi) = self.march(
+            polarization,
+            k,
+            nu,
+            from,
+            to,
+            (c64::new(1.0, 0.0), ratio),
+            true,
+        );
+        dpsi / psi
+    }
+
+    /// (ψ, ψ') at `to` from `start` at `from`, as [`SlabBend::integrate`] carries them; kept in
+    /// range by rescaling where `rescale`, else as they are.
+    #[allow(clippy::too_many_arguments)]
+    fn march(
+        &self,
+        polarization: Polarization,
+        k: f64,
+        nu: c64,
+        from: f64,
+        to: f64,
+        start: (c64, c64),
+        rescale: bool,
+    ) -> (c64, c64) {
         let r = self.radius;
         let outwards = to > from;
         // the interfaces' radii, and the medium the start is in: 0 for the inner cladding, j + 1
@@ -149,13 +196,14 @@ impl SlabBend {
             stops.reverse();
         }
         stops.push(to);
-        let (mut psi, mut dpsi) = (c64::new(1.0, 0.0), ratio);
+        let (mut psi, mut dpsi) = start;
         let mut rho = from;
         let mut n = index(medium);
         for stop in stops {
             let k2n2 = c64::new(k * k * n * n, 0.0);
             let span = stop - rho;
-            let steps = (span.abs() / (0.03 / (k * n)).min(0.01)).ceil().max(1.0) as usize;
+            let longest = self.steps * (0.03 / (k * n)).min(0.01);
+            let steps = (span.abs() / longest).ceil().max(1.0) as usize;
             let h = span / steps as f64;
             let f = |p: f64, y: c64, dy: c64| -> (c64, c64) {
                 (dy, -dy / p - (k2n2 - nu * nu / (p * p)) * y)
@@ -170,7 +218,7 @@ impl SlabBend {
                 rho += h;
                 // only ψ'/ψ matters: keep the numbers in range
                 let scale = psi.norm();
-                if !(1e-100..=1e100).contains(&scale) {
+                if rescale && !(1e-100..=1e100).contains(&scale) {
                     psi /= scale;
                     dpsi /= scale;
                 }
@@ -186,7 +234,7 @@ impl SlabBend {
                 n = next;
             }
         }
-        dpsi / psi
+        (psi, dpsi)
     }
 
     /// ψ'/ψ of the inner solution minus that of the outgoing one, at the middle of the stack:
@@ -196,6 +244,81 @@ impl SlabBend {
     /// expansion holds there; without it the wave is always taken beyond its turning point and
     /// the cladding integrated, which the tests compare the two by.
     fn mismatch(&self, polarization: Polarization, k: f64, nu: c64, at_the_edge: bool) -> c64 {
+        let ends = self.ends(polarization, k, nu, at_the_edge);
+        let inside = self.integrate(polarization, k, nu, ends.start, ends.middle, ends.inner);
+        let outside = self.integrate(polarization, k, nu, ends.outside, ends.middle, ends.wave);
+        inside - outside
+    }
+
+    /// The mode's field ψ (E_y for TE, H_y for TM) at `xs` (µm from the reference radius) for
+    /// its effective index `n_eff` at that radius ([`SlabBend::mode_near`]): the inner solution
+    /// below the stack's middle and the outgoing one above it, each integrated from where
+    /// [`SlabBend::mode_near`] starts it, and both 1 at the middle.
+    pub(crate) fn field(
+        &self,
+        polarization: Polarization,
+        wavelength: Wavelength,
+        n_eff: c64,
+        xs: &[f64],
+    ) -> Vec<c64> {
+        let k = wavelength.wavenumber();
+        let nu = n_eff * k * self.radius;
+        let ends = self.ends(polarization, k, nu, true);
+        // (ψ, ψ') carried from `from` through `rhos` in turn: ψ at each
+        let walk = |from: f64, start: (c64, c64), rhos: &[f64]| -> Vec<c64> {
+            let (mut at, mut state) = (from, start);
+            rhos.iter()
+                .map(|&rho| {
+                    state = self.march(polarization, k, nu, at, rho, state, false);
+                    at = rho;
+                    state.0
+                })
+                .collect()
+        };
+        let one = c64::new(1.0, 0.0);
+        let rhos: Vec<f64> = xs.iter().map(|&x| self.radius + x).collect();
+        // the inner solution grows outwards: started below the lowest point asked for, if that
+        // is below its own start, so that it is never integrated inwards
+        let lowest = rhos.iter().copied().fold(ends.start, f64::min);
+        let inner = if lowest < ends.start {
+            let kappa =
+                (nu * nu / (lowest * lowest) - c64::new(k * k * self.inner * self.inner, 0.0)).sqrt();
+            (lowest, (one, kappa - 1.0 / (2.0 * lowest)))
+        } else {
+            (ends.start, (one, ends.inner))
+        };
+        let outer = (one, ends.wave);
+        let mid_in = walk(inner.0, inner.1, &[ends.middle])[0];
+        let mid_out = walk(ends.outside, outer, &[ends.middle])[0];
+        let mut out = vec![c64::new(0.0, 0.0); xs.len()];
+        // below the middle from the inner start, outwards
+        let mut below: Vec<usize> = (0..xs.len()).filter(|&j| rhos[j] < ends.middle).collect();
+        below.sort_by(|&a, &b| rhos[a].total_cmp(&rhos[b]));
+        let at: Vec<f64> = below.iter().map(|&j| rhos[j]).collect();
+        for (j, v) in below.iter().zip(walk(inner.0, inner.1, &at)) {
+            out[*j] = v / mid_in;
+        }
+        // above it from the outgoing wave's start, inwards then outwards from it
+        let above: Vec<usize> = (0..xs.len()).filter(|&j| rhos[j] >= ends.middle).collect();
+        let (inwards, outwards): (Vec<usize>, Vec<usize>) =
+            above.iter().partition(|&&j| rhos[j] <= ends.outside);
+        for (set, falling) in [(inwards, true), (outwards, false)] {
+            let mut order = set;
+            order.sort_by(|&a, &b| rhos[a].total_cmp(&rhos[b]));
+            if falling {
+                order.reverse();
+            }
+            let at: Vec<f64> = order.iter().map(|&j| rhos[j]).collect();
+            for (j, v) in order.iter().zip(walk(ends.outside, outer, &at)) {
+                out[*j] = v / mid_out;
+            }
+        }
+        out
+    }
+
+    /// Where the inner and the outgoing solutions start and meet, and their ψ'/ψ at their
+    /// starts.
+    fn ends(&self, polarization: Polarization, k: f64, nu: c64, at_the_edge: bool) -> Ends {
         let r = self.radius;
         let first = r + self.interfaces[0];
         let last = r + self.interfaces[self.interfaces.len() - 1];
@@ -205,14 +328,7 @@ impl SlabBend {
             (nu * nu / (rho * rho) - c64::new(k * k * self.inner * self.inner, 0.0)).sqrt()
         };
         let start = (first - 6.0 / kappa(first).re.max(1e-3)).max(0.5 * first);
-        let inside = self.integrate(
-            polarization,
-            k,
-            nu,
-            start,
-            middle,
-            kappa(start) - 1.0 / (2.0 * start),
-        );
+        let inner = kappa(start) - 1.0 / (2.0 * start);
         // outside: the outgoing cylinder wave, H⁽¹⁾_ν(k n ρ), where Debye's expansions give it.
         // Its turning point is at k n ρ = Re ν, about n_eff / n times the radius: far out for a
         // gentle bend. Where the stack's edge is well before it, the wave is known there (it is
@@ -237,8 +353,13 @@ impl SlabBend {
             let film = self.layers[self.layers.len() - 1];
             wave *= (film * film) / (self.outer * self.outer);
         }
-        let outside = self.integrate(polarization, k, nu, rho_out, middle, wave);
-        inside - outside
+        Ends {
+            start,
+            inner,
+            middle,
+            outside: rho_out,
+            wave,
+        }
     }
 
     /// The fundamental mode of one polarization: from the straight guide's effective index at

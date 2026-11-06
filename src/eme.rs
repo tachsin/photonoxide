@@ -86,6 +86,9 @@ use crate::units::{Length, Wavelength};
 use crate::{Error, Result};
 
 mod adaptive;
+mod bend;
+#[path = "cases/eme/bend_checks.rs"]
+pub(crate) mod bend_checks;
 #[path = "cases/eme/checks.rs"]
 pub(crate) mod checks;
 mod modes;
@@ -126,6 +129,8 @@ pub enum Wall {
 #[derive(Clone, Debug, PartialEq)]
 pub struct Slice {
     layers: Vec<(c64, f64)>,
+    /// The bend's radius to the window's middle, µm, if the slice is bent.
+    radius: Option<f64>,
 }
 
 impl Slice {
@@ -160,7 +165,42 @@ impl Slice {
                 _ => out.push((n, d)),
             }
         }
-        Ok(Slice { layers: out })
+        Ok(Slice {
+            layers: out,
+            radius: None,
+        })
+    }
+
+    /// The same slice bent at `radius` to the window's middle, in the plane of the expansion:
+    /// positive with the bend's centre below the lower wall (the upper wall outside), negative
+    /// with it above the upper one. Its modes are those of the conformal map's straight guide
+    /// (the module's docs, **Bends**).
+    ///
+    /// # Errors
+    ///
+    /// [`Error::InvalidValue`] for a radius that isn't finite or is no larger than half the
+    /// window.
+    pub fn bent(self, radius: Length) -> Result<Slice> {
+        let r = radius.to_um();
+        let half = 0.5 * self.width().to_um();
+        if !(r.is_finite() && r.abs() > half) {
+            return Err(Error::invalid(
+                "eme slice",
+                format!(
+                    "a bend's radius must be finite and larger than half the window ({half} um), \
+                     got {r} um"
+                ),
+            ));
+        }
+        Ok(Slice {
+            radius: Some(r),
+            ..self
+        })
+    }
+
+    /// The bend's radius to the window's middle, if the slice is bent.
+    pub fn radius(&self) -> Option<Length> {
+        self.radius.map(Length::um)
     }
 
     /// A slab: `thickness` of `core` centred in `cladding`, the window `width` wide in all.
@@ -204,6 +244,27 @@ impl Section {
     /// A section of `slice`, `length` long.
     pub fn new(slice: Slice, length: Length) -> Section {
         Section { slice, length }
+    }
+
+    /// A bend of `angle` radians of `slice` at `radius` ([`Slice::bent`]): its length is the
+    /// arc's at the radius, |R|θ, along which its modes' propagation constants are taken.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::InvalidValue`] for an angle that isn't finite and at least 0, and
+    /// [`Slice::bent`]'s.
+    pub fn bend(slice: Slice, radius: Length, angle: f64) -> Result<Section> {
+        if !(angle.is_finite() && angle >= 0.0) {
+            return Err(Error::invalid(
+                "eme bend",
+                format!("the angle must be finite and at least 0, got {angle} rad"),
+            ));
+        }
+        let slice = slice.bent(radius)?;
+        Ok(Section {
+            slice,
+            length: Length::um(radius.to_um().abs() * angle),
+        })
     }
 
     /// A structure `length` long whose cross-section `slice_at(z)` changes along z (a taper),
@@ -257,7 +318,12 @@ pub struct Eme {
     modes: usize,
     walls: [Wall; 2],
     pml: Option<Pml>,
+    /// A bent section's thin layers' largest thickness in the mapped coordinate, µm.
+    bend_step: f64,
 }
+
+/// A bent section's thin layers' default largest thickness, µm ([`Eme::with_bend_step`]).
+pub const BEND_STEP: f64 = 0.01;
 
 /// A structure's S-matrix between the modes of its first section (port 1) and its last (port
 /// 2), at the structure's two ends: `s21[q][p]` is mode q's amplitude leaving port 2 for mode p
@@ -296,7 +362,33 @@ impl Eme {
             modes,
             walls: [Wall::Electric; 2],
             pml: None,
+            bend_step: BEND_STEP,
         })
+    }
+
+    /// The same with a bent section's mapped profile cut into thin layers at most `step` thick
+    /// ([`BEND_STEP`] by default): the staircase's error falls as the square of the step.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::InvalidValue`] for a step that isn't positive and finite.
+    pub fn with_bend_step(self, step: Length) -> Result<Eme> {
+        let h = step.to_um();
+        if !(h.is_finite() && h > 0.0) {
+            return Err(Error::invalid(
+                "eme bend",
+                format!("the thin layers' step must be positive, got {h} um"),
+            ));
+        }
+        Ok(Eme {
+            bend_step: h,
+            ..self
+        })
+    }
+
+    /// A bent section's thin layers' largest thickness in the mapped coordinate.
+    pub fn bend_step(&self) -> Length {
+        Length::um(self.bend_step)
     }
 
     /// The same with the lower and upper walls given.
