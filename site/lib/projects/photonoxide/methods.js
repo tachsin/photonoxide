@@ -78,6 +78,12 @@ export const CATEGORIES = [
     groups: [{ title: null, slugs: ["circuits", "components", "devices", "compact", "sweep"] }],
   },
   {
+    id: "quantum",
+    title: "Quantum photonics",
+    blurb: "Photons through a circuit: its S-matrix as the transformation of the ports' modes with its loss dilated, output probabilities by permanents for indistinguishable, distinguishable and partly distinguishable photons, an exact boson sampler, Hong–Ou–Mandel dips through the circuit's own S(ω), and the Reck and Clements meshes.",
+    groups: [{ title: null, slugs: ["quantum"] }],
+  },
+  {
     id: "fabrication",
     title: "Fabrication",
     blurb: "How a design would be made: the steps in order from published processes, why each one and what else could do it, what each process can achieve with its source, the rules' checks of resolution, selectivity, thermal budget and registration, how accurately each dimension is made, and the flow executed on the library's own geometry to give the design back.",

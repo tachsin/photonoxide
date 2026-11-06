@@ -186,6 +186,13 @@ area circuit \
   "circuit::" "circuit/ components/" \
   "circuit_fit circuit_ring_critical circuit_splitter optimize_ring_flat optimize_mzi_lattice optimize_ring_mzi optimize_ring_pareto optimize_mesh optimize_mesh_selfconfig ring_q_factor directional_coupler mzi_dwivedi"
 
+# the linear-optical statistics: photons through a circuit's S-matrix (its cases reach the coupler
+# device's supermodes for one convergence study)
+area quantum \
+  "src/quantum.rs src/quantum/* src/validation/quantum.rs" \
+  "circuit device" \
+  "quantum::" "quantum/" ""
+
 # the devices: components that know their geometry, built from the circuit's components on the
 # mode solvers' cross-sections and by FDFD of their own drawings (through the 2D jobs' plane);
 # the thermo-optic phase shifters on the static solver and the shifter's chain (src/thermal);

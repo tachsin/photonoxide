@@ -340,6 +340,12 @@
   venue: "ACM J. Exp. Algorithmics 24, 1"
   year: 2019
 
+- doi: 10.1145/3460772
+  authors: "D. Blackman, S. Vigna"
+  title: "Scrambled Linear Pseudorandom Number Generators"
+  venue: "ACM Trans. Math. Softw. 47, 36"
+  year: 2021
+
 - doi: 10.1007/BF01339455
   authors: "F. Bloch"
   title: "�ber die Quantenmechanik der Elektronen in Kristallgittern"
@@ -498,7 +504,7 @@
 - doi: 10.1145/3447544
   authors: "C. Campos, J. E. Roman"
   title: "NEP: A Module for the Parallel Solution of Nonlinear Eigenvalue Problems in SLEPc"
-  venue: "ACM Trans. Math. Softw. 47, 1"
+  venue: "ACM Trans. Math. Softw. 47, 36"
   year: 2021
 
 - doi: 10.1126/science.aab3642
@@ -2152,6 +2158,12 @@
   title: "Universal Quantum Computation with Continuous-Variable Cluster States"
   venue: "Phys. Rev. Lett. 97, 110501"
   year: 2006
+
+- key: mezzadri-2007
+  authors: "F. Mezzadri"
+  title: "How to generate random matrices from the classical compact groups"
+  venue: "Notices Amer. Math. Soc. 54, 592"
+  year: 2007
 
 - doi: 10.1145/1513895.1513905
   authors: "P. Micikevicius"
