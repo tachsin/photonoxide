@@ -5430,7 +5430,9 @@ pub fn header() -> String {
      case checks; reference for a published number, its stated uncertainty or half a unit of \
      its last printed digit; model for a published approximation, the accuracy its paper gives \
      it; order for a convergence test, the scheme's order within a margin. **Error** is the \
-     case's error in that measure, to two digits (or under 1 % of the tolerance). **Ours** is \
+     case's error in that measure, to two digits (or under 1 % of the tolerance); where a \
+     platform's last bits set its digits (an iterative fit's residual, say), it reads \
+     \"within it\" wherever the case passes, so the report is the same on every system. **Ours** is \
      our own numerical error beside it: exact (no grid to converge), what the case itself \
      measures, or a grid study's estimate, which must be under a third of the tolerance. A case \
      whose rule isn't written yet says so.\n\
@@ -5482,9 +5484,12 @@ fn error_cell(rule: &Rule, o: &Outcome) -> String {
     } else if rule.basis == Basis::RoundOff && v <= rule.tolerance {
         // its digits are the platform's math library's: the report reads the same everywhere
         "within round-off".into()
-    } else if rule.varies && v < rule.tolerance / 3.0 {
-        // its digits are the platform's: the bound reads the same everywhere
-        "under a third of it".into()
+    } else if rule.varies && v <= rule.tolerance {
+        // its digits are the platform's: one text wherever it passes, so that the report reads
+        // the same everywhere. A bound inside the tolerance (a third of it, as this was) is an
+        // edge a value crosses between systems: the ring's fit, 2.1e-7 to 3.6e-7 by system
+        // (device/compact-ring-closed-form), crossed a third on ubuntu-26.04
+        "within it (digits vary by system)".into()
     } else if v < 0.01 * rule.tolerance {
         "under 1 % of it".into()
     } else if rule.measure == Measure::Relative {
@@ -5941,22 +5946,25 @@ mod tests {
             "a fit",
         )
         .varying();
-        for v in [3.3e-7, 2.1e-7] {
+        // the same text anywhere within the tolerance: the ring's fit measured 2.1e-7 to 3.6e-7
+        // by system, across what was a third of it
+        for v in [2.1e-7, 3.3e-7, 3.6e-7, 1e-6] {
             let o = Outcome {
                 measured: v,
                 expected: 0.0,
                 tolerance: 1e-6,
                 error: v,
             };
-            assert_eq!(error_cell(&fit, &o), "under a third of it");
+            assert_eq!(error_cell(&fit, &o), "within it (digits vary by system)");
         }
-        let near = Outcome {
-            measured: 5e-7,
+        // and its digits once it fails
+        let over = Outcome {
+            measured: 1.2e-6,
             expected: 0.0,
             tolerance: 1e-6,
-            error: 5e-7,
+            error: 1.2e-6,
         };
-        assert_eq!(error_cell(&fit, &near), "5.0e-7");
+        assert_eq!(error_cell(&fit, &over), "1.2e-6");
         let rc = Rule::new(
             Measure::Relative,
             Basis::Discretisation,
