@@ -9,7 +9,10 @@ use num_complex::Complex64 as c64;
 use schemars::JsonSchema;
 use serde::Deserialize;
 
-use super::{EmeTask, Resolved, Shape, Solved, check_of, interpolated, ports_event, quantity};
+use super::{
+    EmeTask, Resolved, Shape, Solved, bloch_point, check_of, interpolated, period_range,
+    ports_event, quantity,
+};
 use crate::Result;
 use crate::convergence::{Refined, ToTolerance, Tolerance};
 use crate::device::Cut;
@@ -325,6 +328,28 @@ fn solve(
     (modes, scale): (usize, usize),
 ) -> Result<Solved> {
     let (sections, steps) = source.sections(task, wavelength, scale)?;
+    let eme = settings(task, plane, source, wavelength, modes)?;
+    // a task alone's strips only: a [device]'s sections have no [task.period]
+    let range = match task.period {
+        Some(_) => period_range(task, &task.sections(wavelength)?, scale),
+        None => None,
+    };
+    let s = match range {
+        Some((range, count)) => eme.grating(&sections, range, count)?,
+        None => eme.s_matrix(&sections)?,
+    };
+    Ok((s, None, steps))
+}
+
+/// The expansion's settings at `wavelength` µm with `modes` modes (at most the plane's
+/// unknowns).
+fn settings(
+    task: &EmeTask,
+    plane: &PlaneSpec,
+    source: &Source,
+    wavelength: f64,
+    modes: usize,
+) -> Result<Eme3d> {
     let mut eme = Eme3d::new(
         Wavelength::um(wavelength)?,
         modes.min(source.grid().unknowns()),
@@ -332,7 +357,28 @@ fn solve(
     if let Some(p) = pml(task, plane)? {
         eme = eme.with_pml(p);
     }
-    Ok((eme.s_matrix(&sections)?, None, steps))
+    Ok(eme)
+}
+
+/// The Bloch modes of a `[task.period]`'s period (a task alone's strips) at `wavelength` µm, as
+/// a 2D job's ([`super::bloch_event`]), their TE fractions not given (the modes are hybrid).
+fn bloch_event(
+    task: &EmeTask,
+    plane: &PlaneSpec,
+    source: &Source,
+    wavelength: f64,
+    (modes, scale): (usize, usize),
+) -> Result<Option<Event>> {
+    if task.period.is_none() {
+        return Ok(None);
+    }
+    let Some((range, _)) = period_range(task, &task.sections(wavelength)?, scale) else {
+        return Ok(None);
+    };
+    let (sections, _) = source.sections(task, wavelength, scale)?;
+    let eme = settings(task, plane, source, wavelength, modes)?;
+    let bloch = eme.bloch(&sections[range])?;
+    Ok(Some(bloch_point(&bloch, wavelength, None)))
 }
 
 /// What a 3D job's check refuses besides [`validate`]: the materials at each wavelength, the
@@ -438,6 +484,9 @@ pub(super) fn run(
             },
         ],
     ];
+    if let Some(d) = super::period_details(task) {
+        details.push(d);
+    }
     if let Some(p) = &task.pml {
         details.push([
             "PML".into(),
@@ -475,6 +524,9 @@ pub(super) fn run(
             None => (task.modes, 1),
             Some(c) => converged(task, plane, &source, task.wavelength_um, c, base_steps, run)?.0,
         };
+        if let Some(e) = bloch_event(task, plane, &source, task.wavelength_um, at)? {
+            run.record(&e)?;
+        }
         return interpolated(
             task,
             run,
@@ -488,12 +540,18 @@ pub(super) fn run(
         if stop.reason().is_some() {
             return Ok(());
         }
-        let (s, _, _) = match &task.convergence {
-            None => solve(task, plane, &source, wl, (task.modes, 1))?,
-            Some(c) => converged(task, plane, &source, wl, c, base_steps, run)?.1,
+        let (at, (s, _, _)) = match &task.convergence {
+            None => (
+                (task.modes, 1),
+                solve(task, plane, &source, wl, (task.modes, 1))?,
+            ),
+            Some(c) => converged(task, plane, &source, wl, c, base_steps, run)?,
         };
         let counts = ports(wl, &s)?;
         run.record(&ports_event(&s, wl, counts, |m| format!("m{m}")))?;
+        if let Some(e) = bloch_event(task, plane, &source, wl, at)? {
+            run.record(&e)?;
+        }
     }
     Ok(())
 }

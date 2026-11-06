@@ -126,6 +126,17 @@ struct InterpolateSpec {
     max_solves: Option<usize>,
 }
 
+/// A `[task.period]`: some of the sections, in order, repeated as a grating.
+#[derive(Clone, Copy, Debug, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+struct PeriodSpec {
+    /// The first and the last of the sections that make one period, counted from 1 in the
+    /// order of `[[task.section]]`; not the ports (the first and last sections).
+    sections: [usize; 2],
+    /// How many periods, at least 1.
+    count: usize,
+}
+
 #[derive(Clone, Debug, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 struct WavelengthSweep {
@@ -175,6 +186,9 @@ pub(super) struct EmeTask {
     sweep: Option<WavelengthSweep>,
     /// S over the sweep's wavelengths interpolated from a few solves, with its error stated.
     interpolate: Option<InterpolateSpec>,
+    /// Some sections repeated: a grating, solved by repeated squaring of one period's S-matrix,
+    /// and its Bloch modes recorded.
+    period: Option<PeriodSpec>,
 }
 
 /// A section resolved at a wavelength: its name, length, and how its cross-section is made.
@@ -380,6 +394,29 @@ impl EmeTask {
             check_sweep(s.from, s.to, s.points)?;
             for w in [s.from, s.to] {
                 Wavelength::um(w).map_err(|e| task_error(e.to_string()))?;
+            }
+        }
+        if let Some(p) = &self.period {
+            let [a, b] = p.sections;
+            let n = self.section.len();
+            if n == 0 {
+                return Err(task_error(
+                    "[task.period] repeats some of the [[task.section]]: a [device]'s sections                      are cut from its geometry",
+                ));
+            }
+            if !(a >= 2 && a <= b && b < n) {
+                return Err(task_error(format!(
+                    "[task.period] sections are the first and last of one period, counted from 1,                      between the ports (sections 2 to {}), got [{a}, {b}]",
+                    n.saturating_sub(1)
+                )));
+            }
+            if p.count == 0 {
+                return Err(task_error("[task.period] count must be at least 1"));
+            }
+            if self.adaptive.is_some() {
+                return Err(task_error(
+                    "[task.adaptive] places the steps of the whole structure: a job with a                      [task.period] takes equal steps",
+                ));
             }
         }
         if let Some(i) = &self.interpolate {
@@ -673,6 +710,17 @@ fn solve(
         let steps = out.edges.iter().map(|e| e.len() - 1).sum();
         return Ok((out.scattering, Some(out.error), steps));
     }
+    let (sections, steps) = sections_of(resolved, w, scale)?;
+    let s = match period_range(task, resolved, scale) {
+        Some((range, count)) => eme.grating(&sections, range, count)?,
+        None => eme.s_matrix(&sections)?,
+    };
+    Ok((s, None, steps))
+}
+
+/// The sections of `resolved` in a window `w` µm wide, each taper's equal steps times `scale`,
+/// and the tapers' steps; one period of a `[task.period]`.
+fn sections_of(resolved: &[Resolved], w: f64, scale: usize) -> Result<(Vec<Section>, usize)> {
     let mut sections = Vec::new();
     let mut steps = 0;
     for r in resolved {
@@ -687,7 +735,64 @@ fn solve(
             sections.push(Section::new(r.slice_at(0.0, w)?, Length::um(r.length)));
         }
     }
-    Ok((eme.s_matrix(&sections)?, None, steps))
+    Ok((sections, steps))
+}
+
+/// A `[task.period]`'s sections among those [`sections_of`] makes (each taper's steps times
+/// `scale`), and its count.
+fn period_range(
+    task: &EmeTask,
+    resolved: &[Resolved],
+    scale: usize,
+) -> Option<(std::ops::Range<usize>, usize)> {
+    let p = task.period?;
+    let [a, b] = p.sections;
+    let made = |r: &Resolved| if r.is_taper() { r.steps() * scale } else { 1 };
+    let start: usize = resolved.iter().take(a - 1).map(made).sum();
+    let end: usize = resolved.iter().take(b).map(made).sum();
+    Some((start..end, p.count))
+}
+
+/// The Bloch modes of a `[task.period]`'s period at `wavelength` µm with `modes` modes and its
+/// tapers' steps times `scale`, as a sweep point over the wavelength: the least decaying first,
+/// at most 4, each K/k₀ in the reduced zone (its real part at most λ/2Λ) with Im K/k₀ its decay.
+fn bloch_event(
+    task: &EmeTask,
+    resolved: &[Resolved],
+    wavelength: f64,
+    (modes, scale): (usize, usize),
+) -> Result<Option<Event>> {
+    let Some((range, _)) = period_range(task, resolved, scale) else {
+        return Ok(None);
+    };
+    let (sections, _) = sections_of(resolved, task.window(), scale)?;
+    let eme = task.eme(Wavelength::um(wavelength)?, modes)?;
+    let bloch = eme.bloch(&sections[range])?;
+    let te = match task.polarization()? {
+        Polarization::Te => 1.0,
+        Polarization::Tm => 0.0,
+    };
+    Ok(Some(bloch_point(&bloch, wavelength, Some(te))))
+}
+
+/// A period's Bloch modes as a sweep point over the wavelength (see [`bloch_event`]), with
+/// their TE fraction `te` where it is one for all (a 2D job's: 1 for TE, 0 for TM), none for a
+/// 3D job's hybrid modes.
+pub(super) fn bloch_point(bloch: &crate::eme::Bloch, wavelength: f64, te: Option<f64>) -> Event {
+    let indices: Vec<[f64; 2]> = bloch
+        .effective_indices
+        .iter()
+        .filter(|n| n.re.is_finite() && n.im.is_finite())
+        .take(4)
+        .map(|n| [n.re, n.im])
+        .collect();
+    Event::SweepPoint {
+        parameter: "wavelength".into(),
+        value: wavelength,
+        wavelength_um: wavelength,
+        te_fractions: te.map_or_else(Vec::new, |t| vec![t; indices.len()]),
+        effective_indices: indices,
+    }
 }
 
 /// The structure as [`Eme::adaptive`] takes it: its tapers from each one's steps times `scale`.
@@ -1000,6 +1105,37 @@ fn matrix_event(
     }
 }
 
+/// The solver's detail of a `[task.period]`.
+fn period_details(task: &EmeTask) -> Option<[String; 2]> {
+    let p = task.period?;
+    let [a, b] = p.sections;
+    let length: f64 = task.section[a - 1..b].iter().map(|s| s.length_um).sum();
+    Some([
+        "period".into(),
+        format!(
+            "sections {a} to {b} ({length} um) {} times, by repeated squaring of its S-matrix;              its Bloch modes recorded as a sweep point at each wavelength solved",
+            p.count
+        ),
+    ])
+}
+
+/// The order the sections come in along z: a `[task.period]`'s repeated in place.
+fn order(task: &EmeTask) -> Vec<usize> {
+    let n = task.section.len();
+    match task.period {
+        None => (0..n).collect(),
+        Some(p) => {
+            let [a, b] = p.sections;
+            let mut out: Vec<usize> = (0..a - 1).collect();
+            for _ in 0..p.count {
+                out.extend(a - 1..b);
+            }
+            out.extend(b..n);
+            out
+        }
+    }
+}
+
 /// The scene: the cores (and layers other than the cladding) seen from above, z along x and the
 /// window across y, on one layer 1 µm thick.
 fn eme_scene(task: &EmeTask) -> Result<Event> {
@@ -1022,7 +1158,7 @@ fn scene_across(task: &EmeTask, window: f64, half: bool) -> Result<Event> {
     let mut shapes = Vec::new();
     let mut core_n = clad_n;
     let mut z = 0.0;
-    for r in &resolved {
+    for r in order(task).into_iter().map(|k| &resolved[k]) {
         let l = r.length;
         match &r.shape {
             Shape::Layers(layers) => {
@@ -1200,6 +1336,9 @@ fn eme(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
             },
         ]);
     }
+    if let Some(d) = period_details(&task) {
+        details.push(d);
+    }
     if let Some(i) = &task.interpolate {
         details.push([
             "interpolation".into(),
@@ -1267,6 +1406,9 @@ fn eme(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
             }
             None => None,
         };
+        if let Some(e) = bloch_event(&task, &resolved, task.wavelength_um, at)? {
+            run.record(&e)?;
+        }
         let half = task.symmetric();
         return interpolated(
             &task,
@@ -1286,7 +1428,7 @@ fn eme(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
         }
         let resolved = task.sections(wl)?;
         let ends = ends_at(wl)?;
-        let (_, (s, error, steps)) = solve_at(&task, &resolved, wl, run)?;
+        let (at, (s, error, steps)) = solve_at(&task, &resolved, wl, run)?;
         if let Some(e) = error {
             run.record(&Event::SolveError {
                 point: task.sweep.as_ref().map(|_| point),
@@ -1306,6 +1448,9 @@ fn eme(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
             task.polarization()?,
             task.symmetric(),
         ))?;
+        if let Some(e) = bloch_event(&task, &resolved, wl, at)? {
+            run.record(&e)?;
+        }
     }
     Ok(())
 }

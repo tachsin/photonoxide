@@ -72,8 +72,12 @@
 //!
 //! **S over wavelength** ([`Spectrum`]) comes from as few solves as a tolerance needs: every
 //! entry of S on one set of wavelengths, fitted together by set-valued AAA with one denominator
-//! ([`crate::sweep::SweepSet`]), each entry's error estimated. Not here yet: a job's own drawn
-//! shapes, bends and periodic sections (#432).
+//! ([`crate::sweep::SweepSet`]), each entry's error estimated.
+//!
+//! **Periodic sections**: a period's Bloch modes ([`Eme::bloch`], [`Bloch`]) are the
+//! eigenvectors of its transfer matrix, found from its S-matrix without inverting it, and a
+//! structure with a period repeated N times ([`Eme::grating`]) takes the period's S-matrix to
+//! the N-th power by repeated squaring. Not here yet: a job's own drawn shapes and bends (#432).
 
 use num_complex::Complex64 as c64;
 
@@ -85,6 +89,9 @@ mod adaptive;
 #[path = "cases/eme/checks.rs"]
 pub(crate) mod checks;
 mod modes;
+#[path = "cases/eme/periodic_checks.rs"]
+pub(crate) mod periodic_checks;
+mod periodic;
 mod plane;
 mod scattering;
 mod spectrum;
@@ -99,6 +106,7 @@ mod three_tests;
 
 pub use adaptive::{Adaptive, MAX_STEPS, Piece, Round, Taper};
 pub use modes::Mode;
+pub use periodic::Bloch;
 pub use plane::{Mode3d, Plane, PlaneGrid, Pml3d, Walls};
 pub use spectrum::Spectrum;
 pub(crate) use spectrum::entries;

@@ -332,3 +332,45 @@ fn a_3d_job_interpolates_over_its_sweep() {
         .unwrap();
     assert!((5..=9).contains(&solves), "{measure}");
 }
+
+#[test]
+fn a_3d_period_is_the_librarys_grating_to_the_bit() {
+    let job = STRIPS
+        .replace(
+            "length_um = 0.3\ncore_um = [0.4, 0.7]\nsteps = 3\n",
+            "length_um = 0.2\ncore_um = 0.7\n\n[[task.section]]\nlength_um = 0.2\ncore_um = 0.4\n",
+        )
+        .replace("modes = 40", "modes = 12")
+        + "\n[task.period]\nsections = [2, 3]\ncount = 3\n";
+    let job = Job::parse(&job).unwrap();
+    check(&job).unwrap();
+    let events = events(&job);
+    let got = s_parameters(&events);
+    let (ports, s) = &got[0];
+    assert_eq!(ports[0], "1 m0");
+    let grid = centred(24, 16, 0.05, 0.05);
+    let sections = [
+        Section3d::new(strip(grid, 0.4, 0.2), Length::ZERO),
+        Section3d::new(strip(grid, 0.7, 0.2), Length::um(0.2)),
+        Section3d::new(strip(grid, 0.4, 0.2), Length::um(0.2)),
+        Section3d::new(strip(grid, 0.7, 0.2), Length::ZERO),
+    ];
+    let eme = Eme3d::new(lam(), 12).unwrap();
+    let lib = eme.grating(&sections, 1..3, 3).unwrap();
+    assert_eq!([lib.s11[0][0].re, lib.s11[0][0].im], s[0][0]);
+    let bloch = eme.bloch(&sections[1..3]).unwrap();
+    let point = events
+        .iter()
+        .find_map(|e| match e {
+            Event::SweepPoint {
+                effective_indices,
+                te_fractions,
+                ..
+            } => Some((effective_indices.clone(), te_fractions.clone())),
+            _ => None,
+        })
+        .unwrap();
+    assert!(point.1.is_empty());
+    let n = bloch.effective_indices[0];
+    assert_eq!(point.0[0], [n.re, n.im]);
+}

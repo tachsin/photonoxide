@@ -334,3 +334,86 @@ fn the_built_in_sweep_is_the_cases_interpolant() {
     let r = spectrum.at(um(MMI_RANGE.0 + (MMI_RANGE.1 - MMI_RANGE.0) * 100.0 / 200.0));
     assert_eq!(s[1][0], [r[1][0].re, r[1][0].im]);
 }
+
+/// A slab grating: 0.3 µm of 300 nm slab and 0.2 µm of 220 nm, ten times, between two 220 nm
+/// ports, in [`TAPER`]'s window.
+fn grating() -> String {
+    TAPER
+        .replace(
+            "[[task.section]]\nlength_um = 0.4\ncore_um = [0.22, 0.30]\nsteps = 4\n",
+            "[[task.section]]\nlength_um = 0.3\ncore_um = 0.30\n\n[[task.section]]\n\
+             length_um = 0.2\ncore_um = 0.22\n",
+        )
+        .replace(
+            "length_um = 0.0\ncore_um = 0.30\n",
+            "length_um = 0.0\ncore_um = 0.22\n",
+        )
+        + "\n[task.period]\nsections = [2, 3]\ncount = 10\n"
+}
+
+#[test]
+fn a_period_is_the_librarys_grating_and_bloch_modes_to_the_bit() {
+    let job = Job::parse(&grating()).unwrap();
+    check(&job).unwrap();
+    let events = events(&job);
+    let got = s_parameters(&events);
+    assert_eq!(got.len(), 1);
+    let (ports, s) = &got[0];
+    assert_eq!(ports, &["1 TE0", "2 TE0"]);
+    let sections = [
+        Section::new(slab(0.22), Length::ZERO),
+        Section::new(slab(0.30), Length::um(0.3)),
+        Section::new(slab(0.22), Length::um(0.2)),
+        Section::new(slab(0.22), Length::ZERO),
+    ];
+    let eme = Eme::new(Polarization::Te, Wavelength::um(1.55).unwrap(), 12).unwrap();
+    let lib = eme.grating(&sections, 1..3, 10).unwrap();
+    assert_eq!([lib.s21[0][0].re, lib.s21[0][0].im], s[1][0]);
+    assert_eq!([lib.s11[0][0].re, lib.s11[0][0].im], s[0][0]);
+    let bloch = eme.bloch(&sections[1..3]).unwrap();
+    let point = events
+        .iter()
+        .find_map(|e| match e {
+            Event::SweepPoint {
+                effective_indices,
+                te_fractions,
+                ..
+            } => Some((effective_indices.clone(), te_fractions.clone())),
+            _ => None,
+        })
+        .unwrap();
+    assert_eq!(point.0.len(), 4);
+    assert_eq!(point.1, vec![1.0; 4]);
+    for (got, want) in point.0.iter().zip(&bloch.effective_indices) {
+        assert_eq!(*got, [want.re, want.im]);
+    }
+    // the scene draws every period
+    let shapes = events
+        .iter()
+        .find_map(|e| match e {
+            Event::Scene { shapes, .. } => Some(shapes.len()),
+            _ => None,
+        })
+        .unwrap();
+    assert_eq!(shapes, 20);
+}
+
+#[test]
+fn check_refuses_a_period_it_cannot_repeat() {
+    let refused = |text: String, says: &str| {
+        let err = check(&Job::parse(&text).unwrap()).unwrap_err().to_string();
+        assert!(err.contains(says), "{err}");
+    };
+    let g = grating();
+    for bad in ["[1, 3]", "[3, 2]", "[2, 4]"] {
+        refused(
+            g.replace("sections = [2, 3]", &format!("sections = {bad}")),
+            "between the ports",
+        );
+    }
+    refused(g.replace("count = 10", "count = 0"), "at least 1");
+    refused(
+        g.clone() + "\n[task.adaptive]\ntolerance = 1e-3\n",
+        "takes equal steps",
+    );
+}

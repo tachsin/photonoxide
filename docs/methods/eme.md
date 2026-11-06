@@ -573,6 +573,101 @@ multimode section above, 201 points over the C band from 117 solves.
   interpolate: { tolerance: 1.0e-6 }
 ```
 
+## Periodic sections
+
+A grating is one period repeated. Two things follow from the period's S-matrix taken between its
+first section's modes at its start and at the next period's start (`Eme::bloch` appends a
+zero-length copy of the first section to the period for that).
+
+**Its Bloch modes.** With $a_1 = (a_1^+, a_1^-)$ the amplitudes of those modes at the period's
+start and $a_2$ at the next one's, the S-matrix gives $a_2 = T a_1$ with
+
+$$T = \begin{pmatrix} S_{21} - S_{22} S_{12}^{-1} S_{11} & S_{22} S_{12}^{-1} \\ -S_{12}^{-1} S_{11} & S_{12}^{-1} \end{pmatrix},$$
+
+and a Bloch mode is an eigenvector of $T$ with the eigenvalue $\lambda = e^{iK\Lambda}$, $K$ its
+wavenumber and $\Lambda$ the period (Yeh, Yariv and Hong 1977, Eqs. (24)–(27), there for one
+mode). $S_{12}$ of an evanescent mode is exponentially small, so $T$ itself is ill-conditioned
+with many modes; the eigenvalues are taken instead from the pencil
+
+$$\begin{pmatrix} S_{21} & 0 \\ -S_{11} & 1 \end{pmatrix} x = \lambda \begin{pmatrix} 1 & -S_{22} \\ 0 & S_{12} \end{pmatrix} x,$$
+
+the same equations multiplied out, by QZ, which inverts nothing. In a reciprocal structure the
+eigenvalues come in pairs $\lambda$ and $1/\lambda$, a Bloch mode going either way. Each pair is
+one `Bloch` mode: $\cos K\Lambda = (\lambda + 1/\lambda)/2$, and $K/k_0$ from the one of the pair
+with $\lvert\lambda\rvert \le 1$, in the reduced zone (its real part between 0 and $\lambda_0/2\Lambda$,
+up to its sign, which is the direction; its imaginary part the decay along z). The $m$-th Bloch
+mode is the one most made of the section's $m$-th mode, of those left: the fundamental first. A
+Bloch mode that decays by $e^{-\operatorname{Im} K\Lambda}$ in one period has $\lambda$ to the
+eigenproblem's round-off, an absolute one, so its $K$ is good to about $\varepsilon\,e^{\operatorname{Im} K\Lambda}/\Lambda$:
+the guided, propagating and stop-band modes are at round-off, the strongly evanescent ones
+approximate.
+
+**N periods** (`Eme::grating`, `Eme3d::grating`): a structure's sections with some of them
+repeated `count` times in place. The period's S-matrix is taken to the power `count` − 1 by
+repeated squaring of the star product (about $2\log_2 N$ products instead of $N$), and starred
+with what comes before the period and with the last period and what follows it. The last period
+ends where the structure goes on, not at a zero-length copy of its first section: with finitely
+many modes, a zero-length section between two others adds an interface pair that is not the
+identity (5e-3 on the grating below with 20 modes).
+
+```rust
+use photonoxide::eme::{Eme, Section, Slice, Wall};
+use photonoxide::mode::Polarization;
+use photonoxide::units::{Length, Wavelength};
+use photonoxide::Complex64;
+
+// half of a silicon slab grating, 300 and 220 nm thick, 0.14 µm each, 20 even modes, a PML
+let half = |t: f64| {
+    Slice::new(&[
+        (Complex64::new(3.473, 0.0), Length::um(0.5 * t)),
+        (Complex64::new(1.444, 0.0), Length::um(1.5 - 0.5 * t)),
+    ])
+};
+let eme = Eme::new(Polarization::Te, Wavelength::um(1.55)?, 20)?
+    .with_walls(Wall::Magnetic, Wall::Electric)
+    .with_upper_pml(Length::um(4.0), 0.1)?;
+let sections = [
+    Section::new(half(0.22)?, Length::ZERO),        // port 1
+    Section::new(half(0.30)?, Length::um(0.14)),    // the period: sections 1 and 2
+    Section::new(half(0.22)?, Length::um(0.14)),
+    Section::new(half(0.22)?, Length::ZERO),        // port 2
+];
+let bloch = eme.bloch(&sections[1..3])?;            // the period's Bloch modes
+let fundamental = bloch.effective_indices[0];       // K/k0 in the reduced zone
+let s = eme.grating(&sections, 1..3, 100)?;         // 100 periods
+# let _ = (fundamental, s);
+# Ok::<(), photonoxide::Error>(())
+```
+
+Checked at round-off on a quarter-wave stack at 1.55 µm (silica, 1.444, and silicon nitride,
+2.0), each layer uniform across a window between magnetic walls, so that TE's modes are
+$\cos(m\pi x/W)$ in both layers with $n_\text{eff}^2 = n^2 - (m\lambda/2W)^2$ and each meets only
+its own at the interfaces:
+
+| Check | Ours | Closed form |
+|---|---|---|
+| $\cos K\Lambda$ of the one uniform mode at 61 wavelengths from 1 to 2.5 µm, the first stop band among them (`eme/bloch-quarter-wave`) | within 6.7e-16 | $\cos k_1 d_1 \cos k_2 d_2 - \tfrac12 (n_1/n_2 + n_2/n_1) \sin k_1 d_1 \sin k_2 d_2$ |
+| the same with 8 modes in a window 2 µm wide, propagating and evanescent, at 1.3, 1.55 and 1.8 µm (`eme/bloch-quarter-wave-modes`) | within 8.1e-15 of each mode's closed form, relative to $\lvert\cos K\Lambda\rvert$ where it is above 1 (up to 26) | the same with $\beta_i = k_0 n_{\text{eff},i}$ |
+| the first stop band's width, its edges by bisection on $\cos K\Lambda = -1$ (`eme/bloch-band-edges`) | 0.20645554758478 | $\Delta\omega/\omega_0 = (4/\pi)\arcsin((n_2 - n_1)/(n_2 + n_1))$ = 0.20645554758479, relative 2.0e-15 |
+| the slab grating above, 100 periods by squaring (8 star products) against its 200 sections in sequence (`eme/grating-squaring`) | every entry of S within 2.5e-14 | the same products in another order |
+
+**In a job,** `[task.period]` names the sections of one period, counted from 1 between the
+ports, and how many periods: the run solves the structure by repeated squaring, and records the
+period's Bloch modes at each wavelength it solves (at `wavelength_um` alone with
+`[task.interpolate]`) as a sweep point, the four least decaying by the order above, each K/k₀ as
+an effective index. 2D and 3D jobs (a task's strips) alike; a `[device]` is cut whole, with no
+period of its own, and the adaptive steps place a whole structure's, so a job with a period
+takes equal steps. `jobs/eme-grating.yaml` is the grating above, swept over its stop band.
+
+```yaml
+  section:
+    - { name: input, length_um: 0.0, core_um: 0.22 }
+    - { name: wide, length_um: 0.14, core_um: 0.30 }
+    - { name: narrow, length_um: 0.14, core_um: 0.22 }
+    - { name: output, length_um: 0.0, core_um: 0.22 }
+  period: { sections: [2, 3], count: 100 }
+```
+
 ## Validation
 
 Measured with the cases' own settings, at 1.55 µm, silicon (3.473) in oxide (1.444):
