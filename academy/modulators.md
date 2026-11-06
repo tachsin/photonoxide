@@ -1,6 +1,6 @@
 ---
 title: "Modulators and phase shifters"
-summary: "Changing a waveguide's index with heat, with an electric field or with a phase change: thermo-optic heaters and their power and time constant, the Pockels effect and V_π·L in thin-film lithium niobate, push–pull Mach–Zehnder modulators, travelling-wave electrodes and their bandwidth, silicon's carrier modulators, and non-volatile phase-change cells, against the published devices photonoxide reproduces and the ones it doesn't."
+summary: "Changing a waveguide's index with heat, with an electric field or with a phase change: thermo-optic heaters and their power and time constant, the Pockels effect and Vπ·L in thin-film lithium niobate, push–pull Mach–Zehnder modulators, travelling-wave electrodes and their bandwidth, silicon's carrier modulators, and non-volatile phase-change cells, against the published devices photonoxide reproduces and the ones it doesn't."
 topic: Active and quantum photonics
 level: intermediate
 minutes: 55
@@ -197,7 +197,7 @@ et al. measured (10 nm grid):
 
 ::validation thermo/dwivedi-602
 
-### $P_\pi$ is independent of the length {theory}
+### Pπ is independent of the length {theory}
 
 A heater dissipating $P'$ per unit length along a straight section raises the temperature of the
 cross-section by $\Delta T(x, y) = P'\,\Delta T_1(x, y)$, $\Delta T_1$ the rise per W/m: steady
@@ -336,7 +336,7 @@ index $n_e$: 31.2 pm/V clamped in the bulk at 633 nm
 26.9 pm/V in thin films at 1550 nm, flat from 100 MHz to 330 GHz
 ([Chelladurai et al., 2025](https://doi.org/10.1038/s41563-025-02158-1)).
 
-### $\Delta n = -\tfrac12 n^3 r E$ {theory}
+### The index change, Δn = −½n³rE {theory}
 
 On a principal axis the impermeability is $1/n^2$. A field $E$ along $c$ changes it by
 $\Delta(1/n_e^2) = r_{33}E$. Since $d(1/n^2) = -2\,dn/n^3$, to first order
@@ -358,7 +358,7 @@ across it carries its TE mode, the field in the plane, along $c$, and electrodes
 put their field along $c$ too: $r_{33}$ for both. In z-cut the $c$ axis is normal to the film, and
 $r_{33}$ needs the TM mode and a vertical field. The thin-film devices of this lesson are x-cut.
 
-## 5. What does $V_\pi L$ measure, and why do papers quote it differently?
+## 5. What does Vπ·L measure, and why do papers quote it differently?
 
 The field the electrodes put across the guide isn't uniform, and the mode isn't all in the crystal.
 The guided mode's index moves by the overlap of the two, first-order perturbation:
@@ -389,8 +389,8 @@ Both are a straight section's at DC: 2D numbers, per unit length.
 
 Five things change a quoted $V_\pi L$ for the same device:
 
-1. **Push–pull or one arm**: a factor of 2.
-2. **The normalization.** The thin-film papers write
+- **Push–pull or one arm**: a factor of 2.
+- **The normalization.** The thin-film papers write
    $V_\pi L = \lambda g/(2n_e^3r_{33}\Gamma)$ in push–pull, $g$ the gap and $\Gamma$ the overlap of
    the field with $\lvert E\rvert^2$ normalized by $\int\lvert E\rvert^2$, not by the power. With
    the power, $\mathrm{Re}(E\times H^*)\cdot\hat z \approx n_\mathrm{eff}\lvert E\rvert^2$, the
@@ -398,13 +398,13 @@ Five things change a quoted $V_\pi L$ for the same device:
    below the papers' form on a thin-film rib ($n_\mathrm{eff}/n_e \approx 1.93/2.14$). On Wang et
    al.'s cross-section $\Gamma$ = 0.51, and the scaled form is within 0.8 % of the perturbation
    (10 nm grid).
-3. **The coefficient.** The bulk's 633 nm coefficients overstate the film's at 1550 nm: with them
+- **The coefficient.** The bulk's 633 nm coefficients overstate the film's at 1550 nm: with them
    Wang et al.'s and Zhang et al.'s cross-sections give 1.56 and 2.02 V·cm instead of 1.84 and 2.37.
-4. **The frequency.** Zhang et al. quote 2.3 V·cm at DC and 2.67 at 1 GHz, the line's impedance
+- **The frequency.** Zhang et al. quote 2.3 V·cm at DC and 2.67 at 1 GHz, the line's impedance
    between them. Below about 1 MHz a thin film's response relaxes, and between 1 and 20 kHz it can
    be enhanced, which can confound a $V_\pi$ measured slowly
    ([Holzgrafe et al., 2024](https://doi.org/10.1364/OE.507536)).
-5. **The length.** An electrode's ends and bends, which a cross-section doesn't hold.
+- **The length.** An electrode's ends and bends, which a cross-section doesn't hold.
 
 ::validation pockels/overlap-gamma
 
@@ -508,7 +508,8 @@ light's group index ([Wang et al., 2018](https://doi.org/10.1038/s41586-018-0551
 for Zhang et al.'s fit to their measured line: $0.42\sqrt f + 0.025f$ dB/cm (f in GHz), 41.5 Ω
 between 50 Ω ends, its index 0.04 above the light's 2.26, 5.8 mm long. It falls by 3 dB at
 127.7 GHz from 1 GHz; the walk-off alone would allow 571.5 GHz and the loss alone 214.8 GHz (exact:
-no grid).
+no grid). The line's early fall and its ripples are the 41.5 Ω line's reflections between its
+50 Ω ends.
 
 ::chart modulator-response
 
@@ -646,16 +647,16 @@ both. [pcm_delaney](../examples/pcm_delaney.rs) prints each cell by each fidelit
 
 Published devices, each with the figure its paper measured, and what photonoxide gives for it:
 
-| Technology | Device | Figure, measured | Speed, measured | Loss | Without power | photonoxide |
-|---|---|---|---|---|---|---|
-| thermo-optic, metal | TiN heater 7.5 µm wide, 320 µm (Jacques et al., 2019) | $P_\pi$ 29.2 mW | 1/e time 7.2 µs, 33 kHz | — | no | $P_\pi$ 33.36 mW, 11.34 µs (2D) |
-| thermo-optic, in the guide | doped rib, 61.6 µm (Harris et al., 2014) | $P_\pi$ 24.77 mW | 130 kHz | 0.23 dB | no | 26.37 mW, 109 kHz (2D, averaged section) |
-| Pockels, thin-film lithium niobate | 5 mm (Wang et al., Nature 2018) | 2.2 V·cm | 100 GHz | under 0.5 dB on chip | no | not a case: the gap isn't given |
-| Pockels, thin-film lithium niobate | 5.8 mm (Zhang et al., 2022) | 2.3 V·cm (DC) | 170 GHz | — | no | 2.372 V·cm, 91.7 GHz (2D) |
-| Pockels, hybrid on silicon | 3 mm (He et al., 2019) | 2.2 V·cm (100 kHz) | at least 70 GHz | 2.5 dB | no | 2.85 V·cm, not reproduced |
-| carrier depletion, silicon | p–n junction MZI (Reed et al., 2010, Table 1) | 6.5 V drive | 40 Gbit/s, 1 dB extinction | — | no | none: 0.8 |
-| phase change, Sb₂Se₃ | 25 nm on a rib (Delaney et al., 2020) | $\Delta n_\mathrm{eff}$ 0.0717 | — | 0.01 dB/µm | yes | 0.0568 on a strip (2D) |
-| phase change, GST | 10 nm on nitride (Ríos et al., 2015) | eight levels | switched from 13.4 pJ | — | yes | 25 nm on silicon: $\Delta n_\mathrm{eff}$ 0.817, 16.5 dB/µm (2D) |
+| Technology | Device (paper) | Measured | Speed | Loss | photonoxide |
+|---|---|---|---|---|---|
+| heater, TiN | 7.5 µm wide (Jacques et al., 2019) | $P_\pi$ 29.2 mW | 7.2 µs, 33 kHz | — | 33.36 mW, 11.34 µs (2D) |
+| heater in the guide | doped rib, 61.6 µm (Harris et al., 2014) | $P_\pi$ 24.77 mW | 130 kHz | 0.23 dB | 26.37 mW, 109 kHz (2D) |
+| Pockels, thin film | 5 mm (Wang et al., Nature 2018) | 2.2 V·cm | 100 GHz | under 0.5 dB | no case: gap not given |
+| Pockels, thin film | 5.8 mm (Zhang et al., 2022) | 2.3 V·cm, DC | 170 GHz | — | 2.372 V·cm, 91.7 GHz (2D) |
+| Pockels on silicon | 3 mm (He et al., 2019) | 2.2 V·cm, 100 kHz | ≥ 70 GHz | 2.5 dB | 2.85 V·cm: not reproduced |
+| carriers, depletion | p–n MZI (Reed et al., 2010) | 6.5 V drive | 40 Gbit/s | — | none yet (0.8) |
+| phase change, Sb₂Se₃ | 25 nm film (Delaney et al., 2020) | $\Delta n_\mathrm{eff}$ 0.0717 | — | 0.01 dB/µm | 0.0568 on a strip (2D) |
+| phase change, GST | 10 nm cell (Ríos et al., 2015) | eight levels | switched from 13.4 pJ | — | 25 nm: 0.817, 16.5 dB/µm (2D) |
 
 A heater's phase follows its power in microseconds and lasts only while it is powered, for tens
 of milliwatts whatever its length. A thin-film lithium niobate modulator takes millimetres and a

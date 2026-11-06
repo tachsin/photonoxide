@@ -239,7 +239,7 @@ pub fn specs() -> Vec<DiagramSpec> {
                       ground–signal–ground electrode $L$ long. A voltage $V(t)$ launched on the \
                       signal from a source of resistance $R_G$ travels along it as an RF wave of \
                       index $n_m$ and ends in a load $R_L$; at each instant its field across the \
-                      upper gap, $+E$, points opposite to the one across the lower, $-E$, so the \
+                      upper gap, arrowed, points opposite to the one across the lower, so the \
                       arms' indices move apart. Below at the left, the same in section, x-cut \
                       thin-film lithium niobate: a film etched to two ribs, each in a gap $g$ \
                       wide between the electrodes on the film's slab, on buried oxide over \

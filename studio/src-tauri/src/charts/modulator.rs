@@ -2,7 +2,7 @@
 //! devices or on the travelling-wave line's response:
 //!
 //! - **A heater's power and time constant** (`heater-power`): the thermo-optic phase shifters'
-//!   closed forms (`ThermoShifter`'s analytic fidelity, `device::thermo_closed`), P_π and the 1/e
+//!   closed forms (`ThermoShifter`'s analytic fidelity, `device::thermo_closed`), Pπ and the 1/e
 //!   time against the heater's height over a TiN heater's guide or the doped heaters' distance
 //!   from a rib, over the analytic model's validity range.
 //! - **A Mach–Zehnder modulator's transmission** (`mzm-transfer`): the TFLN Mach–Zehnder
@@ -68,7 +68,7 @@ pub fn specs() -> Vec<ChartSpec> {
     vec![
         ChartSpec {
             id: "heater-power",
-            title: "A heater's P_π and time constant",
+            title: "A heater's Pπ and time constant",
             about: "A thermo-optic phase shifter's power for a phase of π and the 1/e time of its phase turned on, against the heater's distance from the guide: a TiN heater 7.5 µm wide above a silicon strip, or two N++ strips in the slab beside a rib, at Jacques et al. 2019's designs otherwise, by the device's closed forms.",
             computed_by: "device::ThermoShifter::metal and ::doped at the analytic fidelity (Device::derived): the oxide as a slab between an isothermal substrate and an insulated top, its eigenfunction series in closed form, steady, at a frequency and in time; Marcatili's dn_eff/dT",
             params: vec![
@@ -95,8 +95,8 @@ pub fn specs() -> Vec<ChartSpec> {
         ChartSpec {
             id: "mzm-transfer",
             title: "A Mach–Zehnder modulator's transmission against its voltage",
-            about: "The thin-film lithium niobate Mach–Zehnder modulator at Zhang et al. 2022's cross-section, driven in push and pull: the power it transmits against the voltage on its electrode, at a bias and a drive frequency. Its V_π·L is the 2D model's at DC; at a frequency the electrode's response m(f) scales the voltage.",
-            computed_by: "device::TflnModulator at the 2D fidelity (Device::component and its S-matrix): the static solver's field and the full-vector mode's perturbation for V_π·L (mode::pockels), the quasi-TEM line (electro::line) and Ghione's Eq. 6.31 for m(f)",
+            about: "The thin-film lithium niobate Mach–Zehnder modulator at Zhang et al. 2022's cross-section, driven in push and pull: the power it transmits against the voltage on its electrode, at a bias and a drive frequency. Its Vπ·L is the 2D model's at DC; at a frequency the electrode's response m(f) scales the voltage.",
+            computed_by: "device::TflnModulator at the 2D fidelity (Device::component and its S-matrix): the static solver's field and the full-vector mode's perturbation for Vπ·L (mode::pockels), the quasi-TEM line (electro::line) and Ghione's Eq. 6.31 for m(f)",
             params: vec![
                 param(
                     "length",
@@ -209,7 +209,7 @@ pub fn specs() -> Vec<ChartSpec> {
     ]
 }
 
-/// P_π and the 1/e time of a TiN heater (`kind` 1) against its height over the strip, 1 to 3
+/// Pπ and the 1/e time of a TiN heater (`kind` 1) against its height over the strip, 1 to 3
 /// µm, or of doped heaters (`kind` 2) against their distance from the rib, 0.4 to 1.6 µm, the
 /// guide `strip` µm wide; the figures at Jacques et al.'s design (2 and 0.8 µm).
 pub fn heater_power(kind: f64, strip: f64) -> photonoxide::Result<ChartData> {
@@ -251,11 +251,11 @@ pub fn heater_power(kind: f64, strip: f64) -> photonoxide::Result<ChartData> {
         maps: Vec::new(),
         x_label: x_label.to_owned(),
         x_length: false,
-        y_label: "P_π (mW) and τ (µs)".to_owned(),
+        y_label: "Pπ (mW) and τ (µs)".to_owned(),
         y_log: false,
         y_range: Some([0.0, 1.1 * top]),
         series: vec![
-            curve("P_π (mW)", power, false, 0),
+            curve("Pπ (mW)", power, false, 0),
             curve("τ, the 1/e time (µs)", time, false, 1),
         ],
         marker: Some(design),
@@ -299,8 +299,8 @@ pub fn heater_power(kind: f64, strip: f64) -> photonoxide::Result<ChartData> {
         note: format!(
             "Exact, no grid: the device's closed forms at the analytic fidelity, {what} a \
              {} µm × 220 nm silicon guide on 2 µm of buried oxide, 320 µm long, Jacques et al.'s \
-             materials at 300 K, 1.55 µm. P_π is a straight section's, whatever its length (a 2D \
-             number). The analytic P_π is within 15 % of the 2D model's over this range.",
+             materials at 300 K, 1.55 µm. Pπ is a straight section's, whatever its length (a 2D \
+             number). The analytic Pπ is within 15 % of the 2D model's over this range.",
             sig(strip, 3)
         ),
     })
@@ -368,7 +368,7 @@ pub fn mzm_transfer(
         }
         series.push(curve("at DC", dc_points, true, 1));
     }
-    // the slope at the bias, dT/dV = −(π|m|/2V_π) sin(φ₀): the component's T = cos²(φ/2)
+    // the slope at the bias, dT/dV = −(π|m|/2Vπ) sin(φ₀): the component's T = cos²(φ/2)
     let slope = -(PI * m / (2.0 * vpi)) * (bias_pi * PI).sin();
     Ok(ChartData {
         maps: Vec::new(),
@@ -387,7 +387,7 @@ pub fn mzm_transfer(
                 "V·cm",
                 &format!("2D, DC: {grid}"),
             ),
-            figure("$V_\\pi$ at DC", vpi, 4, "V", "V_π·L over the length"),
+            figure("$V_\\pi$ at DC", vpi, 4, "V", "Vπ·L over the length"),
             figure(
                 "$\\lvert m(f)\\rvert$, the electrode's response",
                 m,
@@ -395,7 +395,7 @@ pub fn mzm_transfer(
                 "",
                 "from DC, by the 2D model's quasi-TEM line",
             ),
-            figure("$V_\\pi$ at the frequency", vpi / m, 4, "V", "V_π / |m(f)|"),
+            figure("$V_\\pi$ at the frequency", vpi / m, 4, "V", "Vπ / |m(f)|"),
             figure(
                 "$dT/dV$ at the bias",
                 slope,
@@ -406,9 +406,9 @@ pub fn mzm_transfer(
         ],
         note: format!(
             "2D: Zhang et al. 2022's cross-section (a 600 nm x-cut film etched 300 nm to ribs \
-             1.2 µm wide, 5 µm gaps beside a 20 µm signal, 0.83 µm of copper), V_π·L by the \
+             1.2 µm wide, 5 µm gaps beside a 20 µm signal, 0.83 µm of copper), Vπ·L by the \
              static solver's field and the full-vector mode's perturbation, at 1.55 µm, the \
-             thin film's r₃₃ = 26.9 pm/V; ideal Y-branches, no propagation loss. {grid}."
+             thin film's r₃₃ = 26.9 pm/V; ideal Y-branches, no propagation loss. Grids: {grid}."
         ),
     })
 }
@@ -622,7 +622,7 @@ mod tests {
 
     /// The curves are the device's analytic figures at every point, and at Jacques et al.'s
     /// designs they are what `thermo_jacques` prints: 29.851 mW and 11.15 µs (TiN), 27.607 mW
-    /// and 6.06 µs (N++). P_π and τ rise as the heater moves away from the guide.
+    /// and 6.06 µs (N++). Pπ and τ rise as the heater moves away from the guide.
     #[test]
     fn the_heaters_are_the_devices() {
         for (kind, device, key, p_pi, tau) in [
@@ -640,14 +640,14 @@ mod tests {
             }
             assert!(
                 power.windows(2).all(|w| w[1][1] > w[0][1]),
-                "{key}: P_π rises"
+                "{key}: Pπ rises"
             );
         }
     }
 
-    /// The transmission is cos²(φ/2) with φ = πV|m|/V_π + φ₀ (the component's), V_π·L the 2D
+    /// The transmission is cos²(φ/2) with φ = πV|m|/Vπ + φ₀ (the component's), Vπ·L the 2D
     /// model's 2.372 V·cm at Zhang et al.'s design (`tfln_zhang` prints it); quadrature at
-    /// φ₀ = π/2 transmits half; a frequency lowers |m| and widens the swing's V_π.
+    /// φ₀ = π/2 transmits half; a frequency lowers |m| and widens the swing's Vπ.
     #[test]
     fn the_modulator_transmits_cos_squared() {
         let data = mzm_transfer(5.8, 0.5, 0.0).unwrap();
