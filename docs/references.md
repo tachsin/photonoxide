@@ -2,7 +2,7 @@
 
 <!-- Written by `photonoxide references --write` (or `just references`) from docs/references.yaml and the citations in the repository: edit those, not this page. -->
 
-Every paper, book and data set photonoxide cites, with every place in the repository that cites it, by file and line. 574 sources, 570 with a DOI and 4 without, are cited at 3226 places in 391 files. The sources are listed by their first author; [references-by-file.md](references-by-file.md) lists each methods page, lesson, example and source file with the sources it cites, and the [validation report](validation.md) gives each case's source on its row. How to cite a source is in [CONTRIBUTING.md](../CONTRIBUTING.md#citing-a-source); the list of sources is [references.yaml](references.yaml).
+Every paper, book and data set photonoxide cites, with every place in the repository that cites it, by file and line. 574 sources, 570 with a DOI and 4 without, are cited at 3222 places in 391 files. The sources are listed by their first author; [references-by-file.md](references-by-file.md) lists each methods page, lesson, example and source file with the sources it cites, and the [validation report](validation.md) gives each case's source on its row. How to cite a source is in [CONTRIBUTING.md](../CONTRIBUTING.md#citing-a-source); the list of sources is [references.yaml](references.yaml).
 
 [A](#a) · [B](#b) · [C](#c) · [D](#d) · [E](#e) · [F](#f) · [G](#g) · [H](#h) · [I](#i) · [J](#j) · [K](#k) · [L](#l) · [M](#m) · [N](#n) · [O](#o) · [P](#p) · [Q](#q) · [R](#r) · [S](#s) · [T](#t) · [U](#u) · [V](#v) · [W](#w) · [X](#x) · [Y](#y) · [Z](#z)
 
@@ -2367,7 +2367,7 @@ Q. Lin, O. J. Painter, G. P. Agrawal, "Nonlinear optical phenomena in silicon wa
 B. Little, S. Chu, H. Haus, J. Foresi, J.-P. Laine, "Microring resonator channel dropping filters", J. Lightwave Technol. 15, 998 (1997). [doi:10.1109/50.588673](https://doi.org/10.1109/50.588673)
 
 - Methods pages: [devices.md:12](methods/devices.md?plain=1#L12), [optimization.md:12](methods/optimization.md?plain=1#L12), [314](methods/optimization.md?plain=1#L314)
-- Academy lessons: [README.md:62](../academy/README.md?plain=1#L62), [62](../academy/README.md?plain=1#L62), [62](../academy/README.md?plain=1#L62), [124](../academy/README.md?plain=1#L124), [124](../academy/README.md?plain=1#L124), [124](../academy/README.md?plain=1#L124), [ring-resonator.md:31](../academy/ring-resonator.md?plain=1#L31), [595](../academy/ring-resonator.md?plain=1#L595)
+- Academy lessons: [README.md:62](../academy/README.md?plain=1#L62), [124](../academy/README.md?plain=1#L124), [ring-resonator.md:31](../academy/ring-resonator.md?plain=1#L31), [595](../academy/ring-resonator.md?plain=1#L595)
 - Examples: [README.md:51](../examples/README.md?plain=1#L51), [55](../examples/README.md?plain=1#L55), [optimize_chip_rings.rs:8](../examples/optimize_chip_rings.rs#L8), [optimize_ring_flat.rs:8](../examples/optimize_ring_flat.rs#L8)
 - Code: [src/device/ring.rs:289](../src/device/ring.rs#L289)
 - Other documents: [docs/plans/optimization.md:620](plans/optimization.md?plain=1#L620)
