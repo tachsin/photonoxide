@@ -41,8 +41,8 @@
     return { line: `M${bx},${by} L${tx - 6 * ux},${ty - 6 * uy}`, head, tip: [tx, ty] as [number, number] };
   }
   const E = [
-    { a: arrow([0.5, 0, 0], [1, 0, 0], 46), label: "$E_x$", dx: 0, dy: 16 },
-    { a: arrow([0, 0.5, 0], [0, 1, 0], 40), label: "$E_y$", dx: -20, dy: 6 },
+    { a: arrow([0.5, 0, 0], [1, 0, 0], 46), label: "$E_x$", dx: -4, dy: 13 },
+    { a: arrow([0, 0.5, 0], [0, 1, 0], 40), label: "$E_y$", dx: -30, dy: -12 },
     { a: arrow([0, 0, 0.5], [0, 0, 1], 46), label: "$E_z$", dx: -22, dy: 0 },
   ];
   const Hs = [
@@ -80,8 +80,8 @@
     <path d={h.a.head} class="fill-secondary" />
     <Label x={h.a.tip[0] + h.dx} y={h.a.tip[1] + h.dy} size={14} text={h.label} width={40} class="text-secondary" />
   {/each}
-  <Dim x1={corners.a[0]} y1={corners.a[1] + 20} x2={corners.b[0]} y2={corners.b[1] + 20} />
-  <Label x={(corners.a[0] + corners.b[0]) / 2} y={corners.a[1] + 36} size={14} text={String.raw`$\Delta x$`} width={40} />
+  <Dim x1={corners.a[0]} y1={corners.a[1] + 30} x2={corners.b[0]} y2={corners.b[1] + 30} />
+  <Label x={(corners.a[0] + corners.b[0]) / 2} y={corners.a[1] + 46} size={14} text={String.raw`$\Delta x$`} width={40} />
   <Dim x1={corners.b[0] + 14} y1={corners.b[1]} x2={corners.c[0] + 14} y2={corners.c[1]} />
   <Label x={(corners.b[0] + corners.c[0]) / 2 + 34} y={(corners.b[1] + corners.c[1]) / 2 + 6} size={14} text={String.raw`$\Delta y$`} width={40} />
   <Dim x1={corners.a[0] - 16} y1={corners.a[1]} x2={corners.e[0] - 16} y2={corners.e[1]} />
@@ -90,7 +90,7 @@
   <!-- ===== the leapfrog ===== -->
   <Label x={tx0} y={22} anchor="start" size={14} text="the leapfrog in time" width={220} class="text-base-content/60" />
   <line x1={tx0} y1={axisY} x2={tx1} y2={axisY} class="stroke-base-content/50" stroke-width="1.2" />
-  <Label x={tx1} y={axisY + 18} anchor="end" size={14} text="$t$" width={20} />
+  <Label x={tx1} y={axisY - 14} anchor="end" size={14} text="$t$" width={20} />
   {#each [...eSteps, ...hSteps] as n (n)}
     <line x1={tAt(n)} y1={axisY - 4} x2={tAt(n)} y2={axisY + 4} class="stroke-base-content/50" stroke-width="1.2" />
     <Label x={tAt(n)} y={axisY + 20} size={12} text={names[n]} width={56} class="text-base-content/70" />
