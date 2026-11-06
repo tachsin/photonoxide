@@ -375,7 +375,7 @@ pub(crate) fn sharp_taper() -> (f64, f64, usize, f64, f64) {
 }
 
 ///  to digits significant digits.
-fn significant(v: f64, digits: i32) -> f64 {
+pub(crate) fn significant(v: f64, digits: i32) -> f64 {
     if v == 0.0 || !v.is_finite() {
         return v;
     }

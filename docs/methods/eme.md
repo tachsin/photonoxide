@@ -16,6 +16,8 @@ papers:
     doi: 10.1109/TAP.1966.1138693
   - cite: "G. R. Hadley, J. Lightwave Technol. 20, 1219 (2002) (the corner problems' modal indices, Figs. 4–7)"
     doi: 10.1109/JLT.2002.800371
+  - cite: "P. Lietaert, K. Meerbergen, J. Pérez, B. Vandereycken, IMA J. Numer. Anal. 42, 1087 (2021) (set-valued AAA: rational functions sharing support points and weights, their Section 2.2)"
+    doi: 10.1093/imanum/draa098
 validation:
   - eme/step-one-mode
   - eme/step-fresnel-te
@@ -44,6 +46,10 @@ validation:
   - eme/3d-cut-mmi-reflection
   - eme/3d-cut-mmi-reciprocity
   - eme/3d-cut-mmi-power
+  - eme/wavelength-taper
+  - eme/wavelength-mmi
+  - eme/wavelength-reciprocity
+  - eme/wavelength-power
 ---
 
 Many devices are a waveguide whose cross-section changes along its length: a step, a taper, a
@@ -474,6 +480,91 @@ MMI (170 000), the five steps 40 s and 100 s together, the direct solver's memor
 3 GB; every mode of the MMI's three planes took 16 s, of the taper's 33 about a minute (six
 threads).
 
+## S over wavelength
+
+`Spectrum::run` gives a structure's S between the first modes at its two ends as a function of
+wavelength from as few solves as a tolerance needs. Every entry of S is sampled at the same
+wavelengths, one solve each, and the entries are fitted together by set-valued AAA (Lietaert,
+Meerbergen, Pérez and Vandereycken 2021, their Section 2.2; [the sweeps' page](sweep.md#several-responses-on-one-set-of-samples)):
+rational functions that share their support points and weights, so one denominator. The next
+wavelength is where the worst entry's two interleaved halves disagree most, and the sweep stops
+when every entry's estimate (twice the largest difference between the fit to all solves and
+either half's, the estimate that `sweep/estimate-bounds-error` measured on 800 sweeps) is within
+the tolerance, relative to the largest |S_qp| solved. S's entries are at most 1, so it is about
+an absolute tolerance on S.
+
+```rust
+use photonoxide::eme::{Eme, Section, Slice, Spectrum, Wall};
+use photonoxide::mode::Polarization;
+use photonoxide::sweep::Options;
+use photonoxide::units::{Length, Wavelength};
+use photonoxide::Complex64;
+
+// half of a step from a 220 to a 300 nm slab and back, 20 even modes, a PML
+let half = |t: f64| {
+    Slice::new(&[
+        (Complex64::new(3.473, 0.0), Length::um(0.5 * t)),
+        (Complex64::new(1.444, 0.0), Length::um(1.5 - 0.5 * t)),
+    ])
+};
+let solve = |l: Wavelength| {
+    Eme::new(Polarization::Te, l, 20)?
+        .with_walls(Wall::Magnetic, Wall::Electric)
+        .with_upper_pml(Length::um(4.0), 0.1)?
+        .s_matrix(&[
+            Section::new(half(0.22)?, Length::ZERO),
+            Section::new(half(0.30)?, Length::um(0.5)),
+            Section::new(half(0.22)?, Length::ZERO),
+        ])
+};
+let s = Spectrum::run(solve, Wavelength::um(1.5)?, Wavelength::um(1.6)?, (1, 1), &Options::new(1e-8))?;
+assert!(s.converged() && s.error() <= 1e-8);
+let t = s.at(Wavelength::um(1.55)?)[1][0]; // S21 between the TE0 modes
+# let _ = t;
+# Ok::<(), photonoxide::Error>(())
+```
+
+- **What the shared denominator keeps.** A linear relation that every solve's S keeps, the
+  interpolant keeps everywhere: S = Sᵀ holds for the solves to round-off (Lorentz reciprocity,
+  `eme/lossless-reciprocity`), and so for the interpolant (`eme/wavelength-reciprocity`). Power
+  is quadratic in S: the interpolant keeps a column's Σ_q |S_qp|² to Σ_q (2|S_qp| + e_qp) e_qp,
+  e_qp each entry's estimate (`eme/wavelength-power`).
+- **One discretisation.** The solves must be the same discretisation at every wavelength (the
+  same modes and steps), so that S is one smooth function of it; a solve whose modes or steps
+  change with the wavelength makes S jump, and the estimate counts the jumps as error. A job
+  settles them once, at its `wavelength_um` (below).
+- **A PML, not a closed window.** In a closed window the box modes cross cutoff (β = 0) at
+  wavelengths inside the range, and S has a square-root branch point at each: a rational
+  function approaches it slowly. Measured on the step above in a closed window with 10 modes,
+  asked for 1e-8 from 1.5 to 1.6 µm, the estimate is 5.5e-3 after 20 solves, 1.3e-4 after 50 and
+1.7e-6 after 100, and 4.5e-7 at the limit of 200, far from converged. With the PML no mode has a real cutoff, and
+  the same step converges in STEP_SOLVES solves.
+
+On two structures, from 1.45 to 1.65 µm and asked for 1e-6, against the same expansion solved at
+every nanometre of the range (201 solves):
+
+| Structure | Entries | Solves | Estimate | True error on 201 wavelengths | Ratio | $\lvert r - r^T \rvert$ | Power ratio |
+|---|---|---|---|---|---|---|---|
+| the taper of `jobs/eme-taper.yaml` on 16 equal steps, 40 even modes | 9 (TE0 at 220 nm; TE0, TE2 at 600 nm) | TAPER_ROW |
+| a 400 nm slab into one 3 µm wide and 20 µm long and out, 40 even modes | 4 (TE0 at each end) | MMI_ROW |
+
+The solves saved: SAVED. The estimate is a bound only where the fit has seen the response (the
+sweeps' page, [What it can't see](sweep.md#the-error-estimate)): a resonance narrower than the
+grid of 1001 wavelengths the estimate is taken on would be missed.
+
+**In a job,** `[task.interpolate]` with a `tolerance` (and `max_solves`, 200 by default) makes the
+`eme` job's `[task.sweep]` an interpolation: the modes (driven by `[task.convergence]` when the
+job has one, by `convergence::ToTolerance` as at any wavelength) and the adaptive steps are
+settled once at `wavelength_um`, every solve keeps them, and the run records S at each of the
+sweep's points from the interpolant, between the modes guided at both ends of the range, then
+the estimate with the wavelengths solved. 2D and 3D jobs alike. `jobs/eme-mmi-sweep.yaml` is the
+multimode section above, 201 points from JOB_SOLVES solves.
+
+```yaml
+  sweep: { parameter: wavelength, from: 1.45, to: 1.65, points: 201 }
+  interpolate: { tolerance: 1.0e-6 }
+```
+
 ## Validation
 
 Measured with the cases' own settings, at 1.55 µm, silicon (3.473) in oxide (1.444):
@@ -503,6 +594,9 @@ Measured with the cases' own settings, at 1.55 µm, silicon (3.473) in oxide (1.
 | `eme/3d-cut-taper-fdfd` | the same, $\lvert S_{21}\rvert^2$ | 0.9921834 | 3D FDFD of the device on the same plane at Δx = 0.1 µm over 3 to 7: 0.9921745 (fit residual 3.8e-5) | discretisation, 4e-4 absolute, three times FDFD's own error (its limit moves 1.3e-4 with its coarsest step) |
 | `eme/3d-cut-mmi-fdfd`, `-reflection` | a 1 × 2 strip MMI 1.6 × 2.4 µm, 0.5 µm access guides, the half y ≥ 0 on 50 × 55 nm cells, every one of 728 modes: $\lvert S_{21}\rvert^2$ (into both outputs) and $\lvert S_{11}\rvert^2$ | 0.9056087 and 1.6111e-3 | the same FDFD: 0.9056635 and 1.61168e-3 (residuals 8.9e-7, 1.6e-7) | discretisation, 2e-4 and 1.4e-5 absolute, three times FDFD's own error (its PML, 6.3e-5; its coarsest step, 4.5e-6) |
 | `eme/3d-cut-mmi-reciprocity`, `-power` | the same MMI | $\lvert S - S^T\rvert$ 2.5e-13; $\lvert S_p^\dagger S_p - 1\rvert$ 1.3e-12 | Lorentz reciprocity, power conservation | round-off, 1e-10 |
+| `eme/wavelength-taper`, `-mmi` | S over 1.45 to 1.65 µm from a few solves, every entry on one set of wavelengths, asked for 1e-6 ([S over wavelength](#s-over-wavelength)) | VALIDATION_RATIOS | the same expansion at each of 201 wavelengths | discretisation, a ratio of the true error to the estimate of at most 1, measured |
+| `eme/wavelength-reciprocity` | the two interpolants on the 201 wavelengths | $\lvert r - r^T \rvert$ VALIDATION_RECIPROCITY | the solves' own reciprocity, kept by a shared denominator | round-off, 1e-12 |
+| `eme/wavelength-power` | the same: each column's power against the solves' | VALIDATION_POWER of the bound $\sum_q (2\lvert S_{qp}\rvert + e_{qp}) e_{qp}$ | the bound the entries' estimates give | discretisation, a ratio of at most 1, measured |
 
 The FDFD comparison is the most telling: the two methods share nothing but the structure, and
 agree to 1.9e-5 of a reflection of 9.2e-5. Its transmission agrees too: 0.999829 against
@@ -544,8 +638,11 @@ What it does not do yet (#432):
   in reasonable time, and the 3D FDFD that checks it millions of unknowns for a device tens of
   micrometres long. The cases check a 1.6 µm MMI and a 1 µm taper; the studio's 6 µm MMI is not
   a case.
-- **Bends, periodic sections** and S over wavelength interpolated with a stated error (a
-  `[task.sweep]` solves each wavelength) are to come.
+- **Bends and periodic sections** are to come ([the bends' plan](../plans/eme-bends.md)).
+- **S over wavelength** is interpolated in the wavelength only: a structure's own parameters
+  (a width, a length) are swept by solving each value. Its estimate holds where the fit has seen
+  the response, and needs one discretisation for every solve and a PML window
+  ([above](#s-over-wavelength)).
 - **No published taper or MMI yet:** no paper we have gives a taper's or an MMI's S by
   eigenmode expansion with the numbers needed to repeat it (Bienstman and Baets's grating sends
   its material data to another exercise; Soldano and Pennings's self-imaging gives closed forms,

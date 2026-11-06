@@ -176,46 +176,51 @@ impl Rational {
     /// is μ = 0. Poles more than 1e8 times that width from it are left out with the infinite
     /// ones. Any order.
     pub fn poles(&self) -> Vec<c64> {
-        let m = self.support.len();
-        if m < 2 {
-            return Vec::new();
-        }
-        let (lo, hi) = self
-            .support
-            .iter()
-            .fold((f64::INFINITY, f64::NEG_INFINITY), |(a, b), &z| {
-                (a.min(z), b.max(z))
-            });
-        let width = (hi - lo).max(f64::MIN_POSITIVE);
-        let s = c64::new(0.5 * (lo + hi), width);
-        let shifted = Mat::<c64>::from_fn(m + 1, m + 1, |i, j| match (i, j) {
-            (0, 0) => c64::new(0.0, 0.0),
-            (0, j) => self.weights[j - 1],
-            (_, 0) => c64::new(1.0, 0.0),
-            (i, j) if i == j => self.support[i - 1] - s,
-            _ => c64::new(0.0, 0.0),
-        });
-        let b = Mat::<c64>::from_fn(m + 1, m + 1, |i, j| {
-            if i == j && i > 0 {
-                c64::new(1.0, 0.0)
-            } else {
-                c64::new(0.0, 0.0)
-            }
-        });
-        let k = shifted.partial_piv_lu().solve(&b);
-        let Ok(mu) = k.eigenvalues() else {
-            return Vec::new();
-        };
-        mu.into_iter()
-            .filter(|mu| mu.norm() * width > 1e-8)
-            .map(|mu| s + 1.0 / mu)
-            .collect()
+        poles(&self.support, &self.weights)
     }
+}
+
+/// The poles of the barycentric form with `support` and `weights` ([`Rational::poles`]): they
+/// depend on neither the values nor how many functions share the denominator.
+pub(super) fn poles(support: &[f64], weights: &[c64]) -> Vec<c64> {
+    let m = support.len();
+    if m < 2 {
+        return Vec::new();
+    }
+    let (lo, hi) = support
+        .iter()
+        .fold((f64::INFINITY, f64::NEG_INFINITY), |(a, b), &z| {
+            (a.min(z), b.max(z))
+        });
+    let width = (hi - lo).max(f64::MIN_POSITIVE);
+    let s = c64::new(0.5 * (lo + hi), width);
+    let shifted = Mat::<c64>::from_fn(m + 1, m + 1, |i, j| match (i, j) {
+        (0, 0) => c64::new(0.0, 0.0),
+        (0, j) => weights[j - 1],
+        (_, 0) => c64::new(1.0, 0.0),
+        (i, j) if i == j => support[i - 1] - s,
+        _ => c64::new(0.0, 0.0),
+    });
+    let b = Mat::<c64>::from_fn(m + 1, m + 1, |i, j| {
+        if i == j && i > 0 {
+            c64::new(1.0, 0.0)
+        } else {
+            c64::new(0.0, 0.0)
+        }
+    });
+    let k = shifted.partial_piv_lu().solve(&b);
+    let Ok(mu) = k.eigenvalues() else {
+        return Vec::new();
+    };
+    mu.into_iter()
+        .filter(|mu| mu.norm() * width > 1e-8)
+        .map(|mu| s + 1.0 / mu)
+        .collect()
 }
 
 /// The right singular vector of `a` (rows ≥ columns) for its smallest singular value: faer's
 /// thin SVD, or, where that doesn't converge (it can, rarely: #398), one-sided Jacobi.
-fn smallest_right_singular_vector(a: &Mat<c64>) -> Vec<c64> {
+pub(super) fn smallest_right_singular_vector(a: &Mat<c64>) -> Vec<c64> {
     let n = a.ncols();
     if let Ok(svd) = a.thin_svd() {
         // faer keeps a complex matrix's singular values as complex numbers, real and ≥ 0

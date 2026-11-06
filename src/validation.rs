@@ -2256,6 +2256,8 @@ pub fn cases() -> Vec<Case> {
     // and in 3D: the modes of a cross-section, a step, the extruded slab and a taper against FDFD
     cases.extend(crate::eme::three_checks::cases());
     cases.extend(crate::device::cut_checks::cases());
+    // and S over wavelength from a few solves, one set of samples for every entry
+    cases.extend(crate::eme::spectrum_checks::cases());
     // and convergence to a tolerance: the mode solver, FDFD and the expansion driven to one
     cases.extend(crate::convergence::checks::cases());
     // and the thin-film lithium niobate Mach-Zehnder modulator as a device

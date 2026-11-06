@@ -92,6 +92,50 @@ pub(crate) fn rules() -> Vec<(&'static str, Rule)> {
             ),
         ),
         (
+            "eme/wavelength-taper",
+            Rule::new(
+                Absolute,
+                Discretisation,
+                1.0,
+                Measured,
+                "the estimate's claim, as sweep/estimate-bounds-error: the interpolant's true error at most its estimate, a ratio of at most 1; the case measures that ratio itself",
+            )
+            .varying(),
+        ),
+        (
+            "eme/wavelength-mmi",
+            Rule::new(
+                Absolute,
+                Discretisation,
+                1.0,
+                Measured,
+                "as eme/wavelength-taper",
+            )
+            .varying(),
+        ),
+        (
+            "eme/wavelength-reciprocity",
+            Rule::new(
+                Absolute,
+                RoundOff,
+                1e-12,
+                Exact,
+                "a linear relation every solve keeps, kept by entries that share a denominator: round-off, 1e-12 as eme/lossless-reciprocity",
+            )
+            .varying(),
+        ),
+        (
+            "eme/wavelength-power",
+            Rule::new(
+                Absolute,
+                Discretisation,
+                1.0,
+                Measured,
+                "the bound the entries' estimates give a column's power: a ratio of at most 1 wherever they bound the entries' errors",
+            )
+            .varying(),
+        ),
+        (
             "eme/3d-orthonormal",
             Rule::new(
                 Absolute,

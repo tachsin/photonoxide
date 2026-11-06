@@ -103,6 +103,13 @@
 //!   is not the samples' noise, the tolerance is far above what the roughness allows, and the
 //!   sweep runs on to its limit, ending with an estimate of 6.2e-9 (7.8 without the rule).
 //!
+//! Several responses that one solve gives together, such as an S-matrix's entries, are swept on
+//! one set of samples ([`SweepSet`]): set-valued AAA (P. Lietaert, K. Meerbergen, J. Pérez,
+//! B. Vandereycken, IMA J. Numer. Anal. 42, 1087 (2021),
+//! [doi:10.1093/imanum/draa098](https://doi.org/10.1093/imanum/draa098), Section 2.2) fits them
+//! with one denominator ([`RationalSet`]), each response's error is estimated as above, and the
+//! next sample goes where the worst one needs it.
+//!
 //! A sweep of a mode follows one mode ([`Branch`]): each new wavelength's mode is the one,
 //! among the solver's candidates, whose fields overlap most with the mode found at the nearest
 //! wavelength sampled so far ([`crate::mode::vector::VectorMode::overlap`], as
@@ -114,11 +121,13 @@
 mod aaa;
 mod branch;
 pub(crate) mod checks;
+mod set;
 #[cfg(test)]
 mod tests;
 
 pub use aaa::{DEFAULT_TOLERANCE, Rational};
 pub use branch::{Branch, BranchStep};
+pub use set::{RationalSet, SweepSet};
 
 use num_complex::Complex64 as c64;
 

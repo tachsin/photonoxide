@@ -49,7 +49,7 @@ It is released milestone by milestone ([changelog](CHANGELOG.md), [roadmap](ROAD
   it; 56 processes on 5 platforms, every flow executed back to its design and shown step by step
   in the studio. New platforms and exports are in progress.
 - **[The library, the Python package and the studio](#install):** the code that runs a design,
-  with 55 examples that each reproduce a paper, 38 job files ready to run, and 832 validation
+  with 55 examples that each reproduce a paper, 39 job files ready to run, and 836 validation
   cases that check it.
 
 ## What it computes
@@ -239,7 +239,7 @@ The optimized build profiles (`release`, `dist` and `fastest`) are described in
 
 Nothing is merged without an analytic test, a reproduction of a published result and a
 convergence test; adjoint gradients are checked against finite differences. The
-[report](docs/validation.md) has 832 cases: 543 against closed forms, 276 against published
+[report](docs/validation.md) has 836 cases: 547 against closed forms, 276 against published
 results and 13 against another code on a shared problem. Each states its source, tolerance and
 grid. CI fails when a case fails or the committed report isn't the one the code writes. CI
 checks every example's output too.

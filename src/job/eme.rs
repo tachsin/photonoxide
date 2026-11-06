@@ -9,7 +9,9 @@
 //! the first and last sections, straights. `[task.convergence]` drives the number of modes (and
 //! the equal steps) until the transmission or the reflection of the fundamental modes changes by
 //! less than its tolerance ([`crate::convergence::ToTolerance`]). A `[task.sweep]` over the
-//! wavelength repeats the whole at each point.
+//! wavelength repeats the whole at each point; with `[task.interpolate]` it solves only where
+//! its tolerance needs, the modes and steps settled once at `wavelength_um`, and records S at
+//! the sweep's points from the interpolant ([`crate::eme::Spectrum`]) with its estimated error.
 //!
 //! The run records its scene (the cores seen from above, z along x), the solver's settings,
 //! the S-parameters between the guided modes at the two ends (at each wavelength), and each
@@ -25,10 +27,13 @@ use super::scene::{SceneLayer, SceneMedium, SceneShape};
 use super::{Event, check_finite, check_sweep, task_error};
 use crate::Result;
 use crate::convergence::{Convergence, Refined, ToTolerance, Tolerance, Verdict};
-use crate::eme::{Eme, Piece, Scattering, Section, Slice, Taper, Wall};
+use crate::eme::{
+    Eme, Piece, Scattering, Section, Slice, Spectrum, Taper, Wall, entries as spectrum_entries,
+};
 use crate::material::Material;
 use crate::mode::Polarization;
 use crate::run::{Job, Run, Stop};
+use crate::sweep::Options;
 use crate::units::{Length, Wavelength};
 
 mod three;
@@ -109,6 +114,18 @@ struct ConvergenceSpec {
     quantity: Option<String>,
 }
 
+/// A `[task.interpolate]`: S over `[task.sweep]`'s wavelengths from as few solves as a
+/// tolerance needs ([`crate::eme::Spectrum`]), the discretisation settled at `wavelength_um`.
+#[derive(Clone, Copy, Debug, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+struct InterpolateSpec {
+    /// The tolerance on every entry of S between the ports' guided modes, relative to the
+    /// largest |S_qp| solved (they are at most 1: about an absolute one); at least 1e-13.
+    tolerance: f64,
+    /// The most solves: 200 by default, at least 5.
+    max_solves: Option<usize>,
+}
+
 #[derive(Clone, Debug, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 struct WavelengthSweep {
@@ -156,6 +173,8 @@ pub(super) struct EmeTask {
     adaptive: Option<AdaptiveSpec>,
     convergence: Option<ConvergenceSpec>,
     sweep: Option<WavelengthSweep>,
+    /// S over the sweep's wavelengths interpolated from a few solves, with its error stated.
+    interpolate: Option<InterpolateSpec>,
 }
 
 /// A section resolved at a wavelength: its name, length, and how its cross-section is made.
@@ -361,6 +380,25 @@ impl EmeTask {
             check_sweep(s.from, s.to, s.points)?;
             for w in [s.from, s.to] {
                 Wavelength::um(w).map_err(|e| task_error(e.to_string()))?;
+            }
+        }
+        if let Some(i) = &self.interpolate {
+            if self.sweep.is_none() {
+                return Err(task_error(
+                    "[task.interpolate] interpolates S over [task.sweep]'s wavelengths: give a \
+                     [task.sweep]",
+                ));
+            }
+            if !(i.tolerance.is_finite() && i.tolerance >= crate::sweep::DEFAULT_TOLERANCE) {
+                return Err(task_error(format!(
+                    "[task.interpolate] tolerance must be at least 1e-13, got {}",
+                    i.tolerance
+                )));
+            }
+            if i.max_solves.is_some_and(|n| n < 5) {
+                return Err(task_error(
+                    "[task.interpolate] max_solves must be at least 5, the solves it starts from",
+                ));
             }
         }
         Ok(())
@@ -631,26 +669,7 @@ fn solve(
     let eme = task.eme(wavelength, modes)?;
     let w = task.window();
     if let Some(a) = &task.adaptive {
-        let pieces = resolved
-            .iter()
-            .map(|r| {
-                if r.is_taper() {
-                    let r2 = r.clone();
-                    let l = r.length;
-                    Ok(Piece::Taper(Taper::new(
-                        Length::um(l),
-                        r.steps() * scale,
-                        move |z| r2.slice_at(z.to_um() / l, w),
-                    )?))
-                } else {
-                    Ok(Piece::Section(Section::new(
-                        r.slice_at(0.0, w)?,
-                        Length::um(r.length),
-                    )))
-                }
-            })
-            .collect::<Result<Vec<_>>>()?;
-        let out = eme.adaptive(&pieces, a.tolerance)?;
+        let out = eme.adaptive(&pieces(resolved, w, scale)?, a.tolerance)?;
         let steps = out.edges.iter().map(|e| e.len() - 1).sum();
         return Ok((out.scattering, Some(out.error), steps));
     }
@@ -669,6 +688,209 @@ fn solve(
         }
     }
     Ok((eme.s_matrix(&sections)?, None, steps))
+}
+
+/// The structure as [`Eme::adaptive`] takes it: its tapers from each one's steps times `scale`.
+fn pieces(resolved: &[Resolved], w: f64, scale: usize) -> Result<Vec<Piece<'static>>> {
+    resolved
+        .iter()
+        .map(|r| {
+            if r.is_taper() {
+                let r2 = r.clone();
+                let l = r.length;
+                Ok(Piece::Taper(Taper::new(
+                    Length::um(l),
+                    r.steps() * scale,
+                    move |z| r2.slice_at(z.to_um() / l, w),
+                )?))
+            } else {
+                Ok(Piece::Section(Section::new(
+                    r.slice_at(0.0, w)?,
+                    Length::um(r.length),
+                )))
+            }
+        })
+        .collect()
+}
+
+/// The S-matrix at `wavelength` µm with `modes` modes and the tapers' steps fixed: each
+/// taper's `edges` (µm from its start; each step the cross-section at its middle, as
+/// [`Eme::adaptive`] places them), or without them its steps times `scale`, equal.
+fn fixed(
+    task: &EmeTask,
+    wavelength: f64,
+    (modes, scale): (usize, usize),
+    edges: Option<&[Vec<f64>]>,
+) -> Result<Scattering> {
+    let resolved = task.sections(wavelength)?;
+    let lam = Wavelength::um(wavelength)?;
+    let Some(edges) = edges else {
+        let plain = EmeTask {
+            adaptive: None,
+            ..task.clone()
+        };
+        return Ok(solve(&plain, &resolved, lam, modes, scale)?.0);
+    };
+    let w = task.window();
+    let mut sections = Vec::new();
+    let mut taper = 0;
+    for r in &resolved {
+        if r.is_taper() {
+            for step in edges[taper].windows(2) {
+                let (a, b) = (step[0], step[1]);
+                sections.push(Section::new(
+                    r.slice_at(0.5 * (a + b) / r.length, w)?,
+                    Length::um(b - a),
+                ));
+            }
+            taper += 1;
+        } else {
+            sections.push(Section::new(r.slice_at(0.0, w)?, Length::um(r.length)));
+        }
+    }
+    task.eme(lam, modes)?.s_matrix(&sections)
+}
+
+/// A wavelength's solve, its modes (and a task's equal steps) driven by `[task.convergence]`
+/// when it has one, each study recorded: where it ended, (modes, the steps' scale), and the
+/// solve there.
+fn solve_at(
+    task: &EmeTask,
+    resolved: &[Resolved],
+    wl: f64,
+    run: &mut Run,
+) -> Result<((usize, usize), Solved)> {
+    let lam = Wavelength::um(wl)?;
+    let Some(c) = &task.convergence else {
+        return Ok(((task.modes, 1), solve(task, resolved, lam, task.modes, 1)?));
+    };
+    let tapers = resolved.iter().filter(|r| r.is_taper()).count();
+    let base_steps: usize = resolved
+        .iter()
+        .filter(|r| r.is_taper())
+        .map(Resolved::steps)
+        .sum();
+    let (name, read) = quantity(c.quantity.as_deref())?;
+    let label = format!("{name} of the fundamental modes at {wl} um");
+    let driver = ToTolerance::new(&label, Tolerance::Relative(c.tolerance))?;
+    // every solve, by its modes and its steps' scale
+    let mut solved: Vec<((usize, usize), Solved)> = Vec::new();
+    let (studies, at): (Vec<Refined>, (usize, usize)) = if tapers > 0 && task.adaptive.is_none() {
+        let r = driver.eme(task.modes, base_steps, |m, n| {
+            // n is the base steps doubled: each taper's own doubled alike
+            let s = solve(task, resolved, lam, m, n / base_steps)?;
+            let v = read(&s.0);
+            solved.push(((m, n / base_steps), s));
+            Ok(v)
+        })?;
+        let at = (r.modes, r.steps / base_steps);
+        (vec![r.mode_study, r.step_study, r.together], at)
+    } else {
+        let r = driver.counts(task.modes, |m| {
+            let s = solve(task, resolved, lam, m, 1)?;
+            let v = read(&s.0);
+            solved.push(((m, 1), s));
+            Ok(v)
+        })?;
+        let m = (1.0 / r.grids[r.grids.len() - 1]).round() as usize;
+        (vec![r], (m, 1))
+    };
+    for r in &studies {
+        run.record(&Event::GridConvergence {
+            label: r.quantity.clone(),
+            wavelength_um: wl,
+            check: check_of(r),
+        })?;
+    }
+    let s = match solved.into_iter().find(|(k, _)| *k == at) {
+        Some((_, s)) => s,
+        None => solve(task, resolved, lam, at.0, at.1)?,
+    };
+    Ok((at, s))
+}
+
+/// S over `[task.sweep]`'s wavelengths from as few solves as `[task.interpolate]`'s tolerance
+/// needs ([`Spectrum::run`]), `solve(λ)` the same discretisation at every wavelength and
+/// `ports(λ, S)` the guided modes at each end there: the entries between the modes guided at
+/// both ends of the range, each sweep point's S-parameters from the interpolant, and its
+/// estimated error with the wavelengths solved.
+pub(super) fn interpolated(
+    task: &EmeTask,
+    run: &mut Run,
+    stop: &Stop,
+    mut solve: impl FnMut(f64) -> Result<Scattering>,
+    ports: impl Fn(f64, &Scattering) -> Result<(usize, usize)>,
+    name: impl Fn(usize) -> String,
+) -> Result<()> {
+    let (Some(spec), Some(sweep)) = (&task.interpolate, &task.sweep) else {
+        return Err(task_error("[task.interpolate] needs a [task.sweep]"));
+    };
+    if stop.reason().is_some() {
+        return Ok(());
+    }
+    // the ports' guided modes at both ends of the range, those solves kept for the sweep's
+    let mut kept: Vec<(f64, Scattering)> = Vec::new();
+    let mut counts = (usize::MAX, usize::MAX);
+    for wl in [sweep.from, sweep.to] {
+        let s = solve(wl)?;
+        let (a, b) = ports(wl, &s)?;
+        counts = (counts.0.min(a), counts.1.min(b));
+        kept.push((wl, s));
+    }
+    let options = Options::new(spec.tolerance).with_max_samples(spec.max_solves.unwrap_or(200));
+    let spectrum = Spectrum::run(
+        |l| {
+            let l = l.to_um();
+            match kept.iter().position(|k| k.0 == l) {
+                Some(i) => Ok(kept.swap_remove(i).1),
+                None => solve(l),
+            }
+        },
+        Wavelength::um(sweep.from)?,
+        Wavelength::um(sweep.to)?,
+        counts,
+        &options,
+    )?;
+    for k in 0..sweep.points {
+        if stop.reason().is_some() {
+            return Ok(());
+        }
+        let wl = sweep.from + (sweep.to - sweep.from) * k as f64 / (sweep.points - 1) as f64;
+        let lam = Wavelength::um(wl)?;
+        run.record(&matrix_event(
+            &spectrum.at(lam),
+            &spectrum.effective_indices(lam),
+            wl,
+            counts,
+            &name,
+        ))?;
+    }
+    let solved: Vec<String> = spectrum
+        .wavelengths()
+        .iter()
+        .map(|l| format!("{l:.5}"))
+        .collect();
+    run.record(&Event::SolveError {
+        point: None,
+        value: task.wavelength_um,
+        measure: format!(
+            "S over {} to {} um interpolated from {} solves (set-valued AAA, one set of \
+             wavelengths for every entry), {} its tolerance {:e}: the estimated error of its \
+             worst entry; solved at {} um",
+            sweep.from,
+            sweep.to,
+            spectrum.solves(),
+            if spectrum.converged() {
+                "within"
+            } else {
+                "not within"
+            },
+            spec.tolerance,
+            solved.join(", ")
+        ),
+        error: spectrum.error(),
+    })?;
+    Ok(())
 }
 
 /// A study's record as a run's grid check.
@@ -739,29 +961,41 @@ fn ports_event(
     (n1, n2): (usize, usize),
     name: impl Fn(usize) -> String,
 ) -> Event {
+    let n = n1 + n2;
+    let entries = spectrum_entries(s, (n1, n2));
+    let matrix: Vec<Vec<c64>> = entries.chunks(n).map(<[c64]>::to_vec).collect();
+    let indices: Vec<c64> = s
+        .first
+        .iter()
+        .take(n1)
+        .chain(s.last.iter().take(n2))
+        .copied()
+        .collect();
+    matrix_event(&matrix, &indices, wavelength, (n1, n2), &name)
+}
+
+/// The S-parameters event of the S-matrix `s` between `n1` modes at its first end and `n2` at
+/// its last (rows and columns port 1's modes, then port 2's), their effective `indices` in the
+/// same order, the m-th named `name(m)` after its port's number.
+fn matrix_event(
+    s: &[Vec<c64>],
+    indices: &[c64],
+    wavelength: f64,
+    (n1, n2): (usize, usize),
+    name: &impl Fn(usize) -> String,
+) -> Event {
     let mut ports = Vec::new();
-    let mut indices = Vec::new();
-    for (p, (n, list)) in [(n1, &s.first), (n2, &s.last)].into_iter().enumerate() {
-        for (m, index) in list.iter().take(n).enumerate() {
+    for (p, n) in [n1, n2].into_iter().enumerate() {
+        for m in 0..n {
             ports.push(format!("{} {}", p + 1, name(m)));
-            indices.push(index.re);
         }
     }
-    let at = |q: usize, p: usize| -> c64 {
-        match (q < n1, p < n1) {
-            (true, true) => s.s11[q][p],
-            (true, false) => s.s12[q][p - n1],
-            (false, true) => s.s21[q - n1][p],
-            (false, false) => s.s22[q - n1][p - n1],
-        }
-    };
-    let n = n1 + n2;
     Event::SParameters {
         wavelength_um: wavelength,
         ports,
-        effective_indices: indices,
-        s: (0..n)
-            .map(|q| (0..n).map(|p| [at(q, p).re, at(q, p).im]).collect())
+        effective_indices: indices.iter().map(|n| n.re).collect(),
+        s: s.iter()
+            .map(|row| row.iter().map(|v| [v.re, v.im]).collect())
             .collect(),
     }
 }
@@ -966,6 +1200,16 @@ fn eme(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
             },
         ]);
     }
+    if let Some(i) = &task.interpolate {
+        details.push([
+            "interpolation".into(),
+            format!(
+                "S over the sweep from as few solves as {:e} needs, the modes and steps settled \
+                 at {} um",
+                i.tolerance, task.wavelength_um
+            ),
+        ]);
+    }
     run.record(&Event::Solver {
         module: "eme".into(),
         cells: [task.modes, base_steps.max(1)],
@@ -986,58 +1230,63 @@ fn eme(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
         })?;
     }
     let w = task.window();
+    let ends_at = |wl: f64| -> Result<(Slice, Slice)> {
+        let resolved = task.sections(wl)?;
+        Ok((
+            resolved[0].slice_at(0.0, w)?,
+            resolved[resolved.len() - 1].slice_at(0.0, w)?,
+        ))
+    };
+    let pol = match task.polarization()? {
+        Polarization::Te => "TE",
+        Polarization::Tm => "TM",
+    };
+    if task.interpolate.is_some() {
+        // the discretisation settled once, at the job's wavelength, and kept at every solve
+        let resolved = task.sections(task.wavelength_um)?;
+        let (at, (_, error, steps)) = solve_at(&task, &resolved, task.wavelength_um, run)?;
+        let edges = match &task.adaptive {
+            Some(a) => {
+                if let Some(e) = error {
+                    run.record(&Event::SolveError {
+                        point: None,
+                        value: task.wavelength_um,
+                        measure: format!(
+                            "the tapers' {steps} adaptive steps at {} um, kept at every \
+                             wavelength: the estimated error of S's fundamental entries",
+                            task.wavelength_um
+                        ),
+                        error: e,
+                    })?;
+                }
+                let eme = task.eme(Wavelength::um(task.wavelength_um)?, at.0)?;
+                Some(
+                    eme.adaptive(&pieces(&resolved, w, at.1)?, a.tolerance)?
+                        .edges,
+                )
+            }
+            None => None,
+        };
+        let half = task.symmetric();
+        return interpolated(
+            &task,
+            run,
+            stop,
+            |wl| fixed(&task, wl, at, edges.as_deref()),
+            |wl, s| {
+                let (first, last) = ends_at(wl)?;
+                Ok((guided(&s.first, &first, half), guided(&s.last, &last, half)))
+            },
+            |m| format!("{pol}{}", if half { 2 * m } else { m }),
+        );
+    }
     for (point, &wl) in wavelengths.iter().enumerate() {
         if stop.reason().is_some() {
             return Ok(());
         }
         let resolved = task.sections(wl)?;
-        let lam = Wavelength::um(wl)?;
-        let ends = (
-            resolved[0].slice_at(0.0, w)?,
-            resolved[resolved.len() - 1].slice_at(0.0, w)?,
-        );
-        let (s, error, steps) = match &task.convergence {
-            None => solve(&task, &resolved, lam, task.modes, 1)?,
-            Some(c) => {
-                let (name, read) = quantity(c.quantity.as_deref())?;
-                let label = format!("{name} of the fundamental modes at {wl} um");
-                let driver = ToTolerance::new(&label, Tolerance::Relative(c.tolerance))?;
-                // every solve, by its modes and its steps' scale
-                let mut solved: Vec<((usize, usize), Solved)> = Vec::new();
-                let (studies, at): (Vec<Refined>, (usize, usize)) =
-                    if tapers > 0 && task.adaptive.is_none() {
-                        let r = driver.eme(task.modes, base_steps, |m, n| {
-                            // n is the base steps doubled: each taper's own doubled alike
-                            let s = solve(&task, &resolved, lam, m, n / base_steps)?;
-                            let v = read(&s.0);
-                            solved.push(((m, n / base_steps), s));
-                            Ok(v)
-                        })?;
-                        let at = (r.modes, r.steps / base_steps);
-                        (vec![r.mode_study, r.step_study, r.together], at)
-                    } else {
-                        let r = driver.counts(task.modes, |m| {
-                            let s = solve(&task, &resolved, lam, m, 1)?;
-                            let v = read(&s.0);
-                            solved.push(((m, 1), s));
-                            Ok(v)
-                        })?;
-                        let m = (1.0 / r.grids[r.grids.len() - 1]).round() as usize;
-                        (vec![r], (m, 1))
-                    };
-                for r in &studies {
-                    run.record(&Event::GridConvergence {
-                        label: r.quantity.clone(),
-                        wavelength_um: wl,
-                        check: check_of(r),
-                    })?;
-                }
-                match solved.into_iter().find(|(k, _)| *k == at) {
-                    Some((_, s)) => s,
-                    None => solve(&task, &resolved, lam, at.0, at.1)?,
-                }
-            }
-        };
+        let ends = ends_at(wl)?;
+        let (_, (s, error, steps)) = solve_at(&task, &resolved, wl, run)?;
         if let Some(e) = error {
             run.record(&Event::SolveError {
                 point: task.sweep.as_ref().map(|_| point),
