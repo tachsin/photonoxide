@@ -173,6 +173,28 @@ pub fn specs() -> Vec<DiagramSpec> {
             caption_3d: "",
         },
         DiagramSpec {
+            id: "nonlinear",
+            title: "A poled lithium niobate guide, its ridge in section, and a Kerr ring",
+            caption: "Above, a periodically poled thin-film lithium niobate guide seen from \
+                      above: the film's nonlinear coefficient alternates between $+d$ and $-d$ \
+                      in domains one period $\\Lambda$ apart, over a length $L$. The fundamental \
+                      $\\omega$ enters at the left; the fundamental and its second harmonic \
+                      $2\\omega$ leave at the right. The harmonic grows along the whole length \
+                      when the grating's wave vector $2\\pi/\\Lambda$ makes up the mismatch \
+                      between the waves, $\\Delta k = 0$. Below at the left, the guide in \
+                      section: an x-cut film $t$ thick etched $e$ deep to a ridge $w$ wide, on \
+                      silica, air above; the crystal's $c$ axis lies across the guide, along the \
+                      TE modes' main field. The fundamental's mode and the harmonic's smaller \
+                      one share the ridge, and the coupling $\\kappa$ is their overlap through \
+                      the $d$ tensor. Below at the right, a ring of a Kerr material seen from \
+                      above, pumped at $\\omega_p$ through its bus: four-wave mixing \
+                      $2\\omega_p = \\omega_s + \\omega_i$ builds a comb of lines one free \
+                      spectral range $D_1/2\\pi$ apart, a signal $\\omega_s$ and an idler \
+                      $\\omega_i$ either side of the pump. Not to scale.",
+            job: None,
+            caption_3d: "",
+        },
+        DiagramSpec {
             id: "mzi",
             title: "A Mach–Zehnder interferometer, seen from above",
             caption: "Light enters the lower guide. The splitter, a coupler, keeps a share $r_1$ \

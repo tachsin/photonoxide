@@ -15,6 +15,7 @@ import Metalens from "./Metalens.svelte";
 import Mmi from "./Mmi.svelte";
 import Modulator from "./Modulator.svelte";
 import Mzi from "./Mzi.svelte";
+import Nonlinear from "./Nonlinear.svelte";
 import Process from "./Process.svelte";
 import Ring from "./Ring.svelte";
 import Slab from "./Slab.svelte";
@@ -32,6 +33,7 @@ export const DRAWINGS: Record<string, Component> = {
   "mmi": Mmi,
   "modulator": Modulator,
   "mzi": Mzi,
+  "nonlinear": Nonlinear,
   "process": Process,
   "ring": Ring,
   "slab": Slab,
