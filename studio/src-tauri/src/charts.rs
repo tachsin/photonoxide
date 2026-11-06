@@ -40,6 +40,7 @@ mod nonlinear;
 mod plasmon;
 mod slab;
 mod strip;
+mod yee;
 
 /// A chart's parameter: what a slider sets.
 #[derive(Serialize, Clone, Debug)]
@@ -1098,6 +1099,7 @@ pub fn specs() -> Vec<ChartSpec> {
     .chain(plasmon::specs())
     .chain(crossing::specs())
     .chain(converter::specs())
+    .chain(yee::specs())
     .collect()
 }
 
@@ -1538,7 +1540,7 @@ pub fn evaluate(id: &str, given: &BTreeMap<String, f64>) -> Result<ChartData, St
             },
             at("radius"),
         ),
-        _ => match plasmon::evaluate(id, at) {
+        _ => match plasmon::evaluate(id, at).or_else(|| yee::evaluate(id, at)) {
             Some(result) => result,
             None => return Err(format!("chart {id} has no function")),
         },

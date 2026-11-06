@@ -633,3 +633,85 @@ fn running_in_stretches_that_report_gives_the_same_bits() {
     assert_eq!(reports, plain.steps().div_ceil(50));
     assert_eq!(bits(&plain, p), bits(&split, q));
 }
+
+/// `grid_frequency` is the relation the scheme keeps: a plane wave started on a periodic grid
+/// turns by ωΔt a step, ω its value, to round-off; `time_step` is the run's step.
+#[test]
+fn grid_frequency_is_what_a_run_measures() {
+    for (m, courant) in [((3, 0), 0.9), ((2, 2), 0.9), ((1, 3), 0.5), ((4, 1), 1.0)] {
+        let (measured, _) = dispersion(m, courant);
+        let k = [
+            std::f64::consts::TAU * m.0 as f64 / (24.0 * 0.05),
+            std::f64::consts::TAU * m.1 as f64 / (18.0 * 0.04),
+            0.0,
+        ];
+        let dt = time_step(&[0.05, 0.04], courant);
+        let w = grid_frequency(k, [0.05, 0.04, 0.05], dt, 1.0);
+        assert_eq!(w.im, 0.0);
+        assert!(
+            (w.re * dt - measured).abs() < 1e-12 * measured,
+            "{m:?} at C = {courant}: {} against {measured}",
+            w.re * dt
+        );
+    }
+}
+
+/// `grid_wavenumber` inverts `grid_frequency` along any direction; in 1D at C = 1 the grid is
+/// exact (the "magic" step); otherwise the wave is slow by (kΔ)²(1 − C²)/24 in 1D to leading
+/// order; past the limit the fastest mode grows by (s + √(s² − 1))² a step.
+#[test]
+fn grid_wavenumber_inverts_the_relation() {
+    let f = Frequency::natural(1.0).unwrap();
+    let d = 0.05;
+    for (dir, courant) in [
+        ([1.0, 0.0, 0.0], 0.5),
+        ([1.0, 1.0, 0.0], 0.7),
+        ([1.0, 2.0, 3.0], 0.9),
+    ] {
+        let dims = dir.iter().filter(|u| **u != 0.0).count().max(2);
+        let dt = time_step(&vec![d; dims], courant);
+        let k = grid_wavenumber(f, dir, [d; 3], dt, 1.5).unwrap();
+        let norm = (dir[0] * dir[0] + dir[1] * dir[1] + dir[2] * dir[2]).sqrt();
+        let kv = dir.map(|u| k * u / norm);
+        let w = grid_frequency(kv, [d; 3], dt, 1.5);
+        assert!(
+            (w.re - f.angular()).abs() < 1e-12 * f.angular(),
+            "{w} against {}",
+            f.angular()
+        );
+        assert!(k > 1.5 * f.angular());
+    }
+    // 1D
+    for (cells_per_wavelength, courant) in [(10.0, 1.0), (20.0, 0.5), (40.0, 0.5)] {
+        let d = 1.0 / cells_per_wavelength;
+        let dt = time_step(&[d], courant);
+        let k = grid_wavenumber(f, [1.0, 0.0, 0.0], [d; 3], dt, 1.0).unwrap();
+        let w = f.angular();
+        let leading = (w * d).powi(2) * (1.0 - courant * courant) / 24.0;
+        if courant == 1.0 {
+            assert!((k / w - 1.0).abs() < 1e-14);
+        } else {
+            assert!(
+                ((k / w - 1.0) / leading - 1.0).abs() < 0.05,
+                "{} against {leading}",
+                k / w - 1.0
+            );
+        }
+    }
+    // past the limit: the grid's highest wave in 2D, kΔ = π along both axes
+    let dt = time_step(&[d, d], 1.0) * 1.1;
+    let w = grid_frequency(
+        [std::f64::consts::PI / d, std::f64::consts::PI / d, 0.0],
+        [d, d, d],
+        dt,
+        1.0,
+    );
+    let s: f64 = 1.1;
+    assert!(((w.im * dt).exp() - (s + (s * s - 1.0).sqrt()).powi(2)).abs() < 1e-12);
+    // in 2D at C = 1 a wave along an axis reaches sin(ωΔt/2) = Δt/Δ = 1/√2 at most; along the
+    // diagonal, 1
+    let dt = time_step(&[d, d], 1.0);
+    let high = Frequency::natural(2.0 / dt * 0.9_f64.asin() / std::f64::consts::TAU).unwrap();
+    assert!(grid_wavenumber(high, [1.0, 0.0, 0.0], [d; 3], dt, 1.0).is_none());
+    assert!(grid_wavenumber(high, [1.0, 1.0, 0.0], [d; 3], dt, 1.0).is_some());
+}
