@@ -404,12 +404,14 @@ impl EmeTask {
             let n = self.section.len();
             if n == 0 {
                 return Err(task_error(
-                    "[task.period] repeats some of the [[task.section]]: a [device]'s sections                      are cut from its geometry",
+                    "[task.period] repeats some of the [[task.section]]: a [device]'s sections \
+                     are cut from its geometry",
                 ));
             }
             if !(a >= 2 && a <= b && b < n) {
                 return Err(task_error(format!(
-                    "[task.period] sections are the first and last of one period, counted from 1,                      between the ports (sections 2 to {}), got [{a}, {b}]",
+                    "[task.period] sections are the first and last of one period, counted from 1, \
+                     between the ports (sections 2 to {}), got [{a}, {b}]",
                     n.saturating_sub(1)
                 )));
             }
@@ -418,7 +420,8 @@ impl EmeTask {
             }
             if self.adaptive.is_some() {
                 return Err(task_error(
-                    "[task.adaptive] places the steps of the whole structure: a job with a                      [task.period] takes equal steps",
+                    "[task.adaptive] places the steps of the whole structure: a job with a \
+                     [task.period] takes equal steps",
                 ));
             }
         }
@@ -1116,7 +1119,8 @@ fn period_details(task: &EmeTask) -> Option<[String; 2]> {
     Some([
         "period".into(),
         format!(
-            "sections {a} to {b} ({length} um) {} times, by repeated squaring of its S-matrix;              its Bloch modes recorded as a sweep point at each wavelength solved",
+            "sections {a} to {b} ({length} um) {} times, by repeated squaring of its S-matrix; \
+             its Bloch modes recorded as a sweep point at each wavelength solved",
             p.count
         ),
     ])

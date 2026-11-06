@@ -614,7 +614,7 @@ repeated squaring of the star product (about $2\log_2 N$ products instead of $N$
 with what comes before the period and with the last period and what follows it. The last period
 ends where the structure goes on, not at a zero-length copy of its first section: with finitely
 many modes, a zero-length section between two others adds an interface pair that is not the
-identity (5e-3 on the grating below with 20 modes).
+identity (S off by 4.4e-3 on the grating below, 100 periods with 20 modes).
 
 ```rust
 use photonoxide::eme::{Eme, Section, Slice, Wall};

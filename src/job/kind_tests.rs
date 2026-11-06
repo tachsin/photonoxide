@@ -83,7 +83,7 @@ fn refusal(holder: Holder, name: &str) -> String {
             .to_owned(),
         (Holder::Solver | Holder::Device, "eme") => "`kind`, `wavelength_um`, `polarization`, \
             `modes`, `window_um`, `walls`, `symmetric`, `pml`, `cladding`, `core`, `section`, \
-            `plane`, `adaptive`, `convergence`, `sweep`, `interpolate`"
+            `plane`, `adaptive`, `convergence`, `sweep`, `interpolate`, `period`"
             .to_owned(),
         (Holder::Device, "spectrum") => format!("`kind`, {GRIDS}, `export`"),
         (Holder::Device, "sweep" | "corners") => {

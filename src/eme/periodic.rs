@@ -137,13 +137,14 @@ impl Bloch {
         }
         // the m-th: of those left, the one with the largest share in the section's m-th mode
         let mut ordered = Vec::with_capacity(modes.len());
-        for m in 0..shares.first().map_or(0, Vec::len) {
+        let sections = shares.first().map_or(0, Vec::len);
+        while ordered.len() < sections && !modes.is_empty() {
+            let m = ordered.len();
             let share = |i: usize| shares[modes[i].2][m];
-            let best =
-                (0..modes.len()).max_by(|&i, &j| share(i).total_cmp(&share(j)).then(j.cmp(&i)));
-            if let Some(i) = best {
-                ordered.push(modes.remove(i));
-            }
+            let best = (0..modes.len())
+                .max_by(|&i, &j| share(i).total_cmp(&share(j)).then(j.cmp(&i)))
+                .unwrap_or(0);
+            ordered.push(modes.remove(best));
         }
         ordered.append(&mut modes);
         Bloch {
@@ -217,7 +218,8 @@ where
         return Err(Error::invalid(
             "eme grating",
             format!(
-                "needs a period among the {} sections and a count of at least 1, got sections                  {}..{} and {count}",
+                "needs a period among the {} sections and a count of at least 1, got sections \
+                 {}..{} and {count}",
                 sections.len(),
                 period.start,
                 period.end

@@ -153,7 +153,7 @@ pub(crate) fn rules() -> Vec<(&'static str, Rule)> {
                 RoundOff,
                 1e-12,
                 Exact,
-                "as eme/bloch-quarter-wave, each mode its own stack: round-off, relative to |cos KΛ| where it is above 1 (an evanescent mode's grows as its decay per period)",
+                "as eme/bloch-quarter-wave, each mode its own stack: round-off, relative to the magnitude of cos KΛ where it is above 1 (an evanescent mode's grows as its decay per period)",
             ),
         ),
         (

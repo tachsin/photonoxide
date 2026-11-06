@@ -268,6 +268,11 @@ mod tests {
             "eight modes: {:e}",
             stack_departure(&[1.3, 1.55, 1.8], 2.0, 8)
         );
+        // at 2 µm the nitride's fifth mode (m = 4) is at its cutoff, n_eff = 0
+        match stack_eme(2.0, 8).and_then(|e| e.bloch(&stack_period(2.0))) {
+            Ok(b) => eprintln!("at a cutoff: {:?}", b.cos),
+            Err(e) => eprintln!("at a cutoff: {e}"),
+        }
         for (count, l) in [(25usize, 1.55), (25, 1.45), (100, 1.55)] {
             let t = std::time::Instant::now();
             let (sq, seq) = grating_pair(l, count);
