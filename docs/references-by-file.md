@@ -367,6 +367,7 @@ Each methods page, lesson, example, job, document and source file that cites a s
 - [`studio/src-tauri/src/charts/grating.rs`](../studio/src-tauri/src/charts/grating.rs): [Passoni et al. 2017](references.md#passoni-et-al-2017), [Taillaert et al. 2006](references.md#taillaert-et-al-2006), [Tamir and Peng 1977](references.md#tamir-and-peng-1977)
 - [`studio/src-tauri/src/charts/leaky.rs`](../studio/src-tauri/src/charts/leaky.rs): [Chilwell and Hodgkinson 1984](references.md#chilwell-and-hodgkinson-1984), [Chrostowski and Hochberg 2015](references.md#chrostowski-and-hochberg-2015), [Marcuse 1971](references.md#marcuse-1971)
 - [`studio/src-tauri/src/charts/material.rs`](../studio/src-tauri/src/charts/material.rs): [Frey et al. 2006](references.md#frey-et-al-2006), [Li 1980](references.md#li-1980), [Malitson 1965](references.md#malitson-1965)
+- [`studio/src-tauri/src/charts/meta.rs`](../studio/src-tauri/src/charts/meta.rs): [Presutti and Monticone 2020](references.md#presutti-and-monticone-2020)
 - [`studio/src-tauri/src/charts/mmi.rs`](../studio/src-tauri/src/charts/mmi.rs): [Soldano and Pennings 1995](references.md#soldano-and-pennings-1995)
 - [`studio/src-tauri/src/charts/slab.rs`](../studio/src-tauri/src/charts/slab.rs): [Chrostowski and Hochberg 2015](references.md#chrostowski-and-hochberg-2015), [Kogelnik and Ramaswamy 1974](references.md#kogelnik-and-ramaswamy-1974)
 - [`studio/src-tauri/src/circuits/library.rs`](../studio/src-tauri/src/circuits/library.rs): [Chrostowski and Hochberg 2015](references.md#chrostowski-and-hochberg-2015)

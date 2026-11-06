@@ -2,7 +2,7 @@
 
 <!-- Written by `photonoxide references --write` (or `just references`) from docs/references.yaml and the citations in the repository: edit those, not this page. -->
 
-Every paper, book and data set photonoxide cites, with every place in the repository that cites it, by file and line. 573 sources, 569 with a DOI and 4 without, are cited at 3010 places in 385 files. The sources are listed by their first author; [references-by-file.md](references-by-file.md) lists each methods page, lesson, example and source file with the sources it cites, and the [validation report](validation.md) gives each case's source on its row. How to cite a source is in [CONTRIBUTING.md](../CONTRIBUTING.md#citing-a-source); the list of sources is [references.yaml](references.yaml).
+Every paper, book and data set photonoxide cites, with every place in the repository that cites it, by file and line. 573 sources, 569 with a DOI and 4 without, are cited at 3011 places in 386 files. The sources are listed by their first author; [references-by-file.md](references-by-file.md) lists each methods page, lesson, example and source file with the sources it cites, and the [validation report](validation.md) gives each case's source on its row. How to cite a source is in [CONTRIBUTING.md](../CONTRIBUTING.md#citing-a-source); the list of sources is [references.yaml](references.yaml).
 
 [A](#a) · [B](#b) · [C](#c) · [D](#d) · [E](#e) · [F](#f) · [G](#g) · [H](#h) · [I](#i) · [J](#j) · [K](#k) · [L](#l) · [M](#m) · [N](#n) · [O](#o) · [P](#p) · [Q](#q) · [R](#r) · [S](#s) · [T](#t) · [U](#u) · [V](#v) · [W](#w) · [X](#x) · [Y](#y) · [Z](#z)
 
@@ -3030,6 +3030,7 @@ R. W. Powell, C. Y. Ho, P. E. Liley, "Thermal conductivity of selected materials
 F. Presutti, F. Monticone, "Focusing on bandwidth: achromatic metalens limits", Optica 7, 624 (2020). [doi:10.1364/OPTICA.389404](https://doi.org/10.1364/OPTICA.389404)
 
 - Academy lessons: [metasurfaces.md:47](../academy/metasurfaces.md?plain=1#L47), [422](../academy/metasurfaces.md?plain=1#L422), [557](../academy/metasurfaces.md?plain=1#L557), [565](../academy/metasurfaces.md?plain=1#L565)
+- Code: [studio/src-tauri/src/charts/meta.rs:22](../studio/src-tauri/src/charts/meta.rs#L22)
 
 #### Probst et al. 2024
 
