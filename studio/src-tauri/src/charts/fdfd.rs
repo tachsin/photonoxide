@@ -145,7 +145,11 @@ pub enum Fill {
 }
 
 /// Cells across the slab, plus 0.4: its faces lie 0.3 and 0.7 of a cell off the grid's lines.
-pub const ACROSS: [usize; 6] = [4, 8, 16, 32, 64, 128];
+/// About √2 apart, so a doubling of the resolution is two steps along them.
+pub const ACROSS: [usize; 11] = [4, 6, 8, 11, 16, 23, 32, 45, 64, 91, 128];
+
+/// The grid the order is fitted from with the finest: half its cells, 64.
+const HALF: usize = 8;
 
 /// Cladding on each side of the slab in the solves, µm.
 const SIDE: f64 = 1.5;
@@ -250,12 +254,12 @@ pub fn errors(pol: Polarization, t: f64) -> photonoxide::Result<([Vec<f64>; 3], 
     Ok(value)
 }
 
-/// The order of convergence between the two finest grids: log₂ of the errors' ratio over log₂
-/// of the steps' ratio.
+/// The order of convergence between the finest grid and the one of half its cells: the log of
+/// the errors' ratio over the log of the steps' ratio.
 pub fn finest_order(errors: &[f64]) -> f64 {
     let k = ACROSS.len() - 1;
     let step = |n: usize| 1.0 / (n as f64 + 0.4);
-    (errors[k - 1] / errors[k]).ln() / (step(ACROSS[k - 1]) / step(ACROSS[k])).ln()
+    (errors[HALF] / errors[k]).ln() / (step(ACROSS[HALF]) / step(ACROSS[k])).ln()
 }
 
 pub fn convergence(code: f64, thickness_nm: f64) -> photonoxide::Result<ChartData> {
@@ -283,8 +287,8 @@ pub fn convergence(code: f64, thickness_nm: f64) -> photonoxide::Result<ChartDat
             3,
             "",
             &format!(
-                "between the two finest grids, {} and {} nm; error {} on the finest",
-                sig(1e3 * t / (ACROSS[ACROSS.len() - 2] as f64 + 0.4), 3),
+                "between grids of {} and {} nm; error {} on the finest",
+                sig(1e3 * t / (ACROSS[HALF] as f64 + 0.4), 3),
                 sig(1e3 * t / (ACROSS[ACROSS.len() - 1] as f64 + 0.4), 3),
                 sig(e[e.len() - 1], 2)
             ),
