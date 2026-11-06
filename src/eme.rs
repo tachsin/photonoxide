@@ -89,9 +89,9 @@ mod adaptive;
 #[path = "cases/eme/checks.rs"]
 pub(crate) mod checks;
 mod modes;
+mod periodic;
 #[path = "cases/eme/periodic_checks.rs"]
 pub(crate) mod periodic_checks;
-mod periodic;
 mod plane;
 mod scattering;
 mod spectrum;

@@ -398,6 +398,53 @@ fn a_period_is_the_librarys_grating_and_bloch_modes_to_the_bit() {
     assert_eq!(shapes, 20);
 }
 
+/// `jobs/eme-grating.yaml` gives the stop band its comment quotes.
+#[test]
+#[ignore = "81 wavelengths: in release"]
+fn the_built_in_grating_gives_the_numbers_its_comment_quotes() {
+    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("jobs");
+    let job = Job::load(&dir.join("eme-grating.yaml")).unwrap();
+    let events = events(&job);
+    let mut rows = Vec::new();
+    let mut bloch = Vec::new();
+    for e in &events {
+        match e {
+            Event::SParameters {
+                wavelength_um, s, ..
+            } => rows.push((
+                *wavelength_um,
+                s[1][0][0].powi(2) + s[1][0][1].powi(2),
+                s[0][0][0].powi(2) + s[0][0][1].powi(2),
+            )),
+            Event::SweepPoint {
+                effective_indices, ..
+            } => bloch.push(effective_indices[0]),
+            _ => {}
+        }
+    }
+    assert_eq!(rows.len(), 81);
+    assert_eq!(bloch.len(), 81);
+    // the stop band: where the fundamental Bloch mode decays, Im K/k0 above 0.01
+    let band: Vec<f64> = rows
+        .iter()
+        .zip(&bloch)
+        .filter(|(_, b)| b[1] > 0.01)
+        .map(|(r, _)| r.0)
+        .collect();
+    assert_eq!(band.len(), 24, "{band:?}");
+    assert!((band[0] - 1.6025).abs() < 1e-9 && (band[23] - 1.66).abs() < 1e-9);
+    let (l, _, r) = rows
+        .iter()
+        .copied()
+        .fold((0.0, 0.0, 0.0), |a, b| if b.2 > a.2 { b } else { a });
+    assert!(
+        (l - 1.6375).abs() < 1e-9 && (r - 0.998307).abs() < 5e-7,
+        "{l} {r}"
+    );
+    let decay = bloch.iter().map(|b| b[1]).fold(0.0, f64::max);
+    assert!((decay - 0.066627).abs() < 5e-7, "{decay}");
+}
+
 #[test]
 fn check_refuses_a_period_it_cannot_repeat() {
     let refused = |text: String, says: &str| {

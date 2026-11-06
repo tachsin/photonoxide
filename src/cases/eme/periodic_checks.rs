@@ -35,9 +35,8 @@ pub(crate) fn closed_form(b1: c64, d1: f64, b2: c64, d2: f64) -> c64 {
 /// uniform across it, so that between magnetic walls TE's m-th mode is cos(mπx/W) in both, with
 /// n_eff² = n² − (mλ/2W)², and each mode meets only its own at the interfaces.
 pub(crate) fn stack_period(width: f64) -> Vec<Section> {
-    let uniform = |n: f64| {
-        Slice::new(&[(c64::new(n, 0.0), Length::um(width))]).expect("a uniform slice")
-    };
+    let uniform =
+        |n: f64| Slice::new(&[(c64::new(n, 0.0), Length::um(width))]).expect("a uniform slice");
     vec![
         Section::new(uniform(N1), Length::um(quarter(N1))),
         Section::new(uniform(N2), Length::um(quarter(N2))),
@@ -46,8 +45,10 @@ pub(crate) fn stack_period(width: f64) -> Vec<Section> {
 
 /// The expansion's settings for the stack: TE between magnetic walls, `modes` modes.
 pub(crate) fn stack_eme(wavelength: f64, modes: usize) -> crate::Result<Eme> {
-    Ok(Eme::new(Polarization::Te, Wavelength::um(wavelength)?, modes)?
-        .with_walls(Wall::Magnetic, Wall::Magnetic))
+    Ok(
+        Eme::new(Polarization::Te, Wavelength::um(wavelength)?, modes)?
+            .with_walls(Wall::Magnetic, Wall::Magnetic),
+    )
 }
 
 /// The stack's Bloch modes' cos KΛ against the closed form at `wavelengths` (µm), in a window
@@ -138,7 +139,10 @@ pub(crate) fn grating_period() -> Vec<Section> {
 
 /// The slab grating of `count` periods between two 220 nm slabs at `wavelength` µm: by
 /// repeated squaring and in sequence.
-pub(crate) fn grating_pair(wavelength: f64, count: usize) -> (super::Scattering, super::Scattering) {
+pub(crate) fn grating_pair(
+    wavelength: f64,
+    count: usize,
+) -> (super::Scattering, super::Scattering) {
     let eme = grating_eme(wavelength).expect("the grating's settings");
     let port = Section::new(half(0.22, 1.5), Length::ZERO);
     let mut sections = vec![port.clone()];
@@ -155,11 +159,16 @@ pub(crate) fn grating_pair(wavelength: f64, count: usize) -> (super::Scattering,
 
 /// The largest |a_qp − b_qp| over the four blocks.
 pub(crate) fn departure(a: &super::Scattering, b: &super::Scattering) -> f64 {
-    [(&a.s11, &b.s11), (&a.s12, &b.s12), (&a.s21, &b.s21), (&a.s22, &b.s22)]
-        .iter()
-        .flat_map(|(x, y)| x.iter().zip(y.iter()))
-        .flat_map(|(r, q)| r.iter().zip(q.iter()).map(|(u, v)| (u - v).norm()))
-        .fold(0.0, f64::max)
+    [
+        (&a.s11, &b.s11),
+        (&a.s12, &b.s12),
+        (&a.s21, &b.s21),
+        (&a.s22, &b.s22),
+    ]
+    .iter()
+    .flat_map(|(x, y)| x.iter().zip(y.iter()))
+    .flat_map(|(r, q)| r.iter().zip(q.iter()).map(|(u, v)| (u - v).norm()))
+    .fold(0.0, f64::max)
 }
 
 /// The grating's periods in the squaring case: 100, 1100100 in binary, so that the squaring
@@ -180,25 +189,23 @@ pub(crate) fn cases() -> Vec<Case> {
     vec![
         Case {
             id: "eme/bloch-quarter-wave",
-            title: r"Bloch modes from one period's S-matrix: a quarter-wave stack at 1.55 µm (silica, 1.444, and silicon nitride, 2.0, each layer uniform across a window between magnetic walls, TE's one uniform mode), $\cos K\Lambda$ at 61 wavelengths from 1 to 2.5 µm, the first stop band (1.41 to 1.73 µm) among them: the largest departure from the closed form, $\lvert \Delta \cos K\Lambda 
-vert / \max(1, \lvert \cos K\Lambda 
-vert)$ (shown)",
+            title: r"Bloch modes from one period's S-matrix: a quarter-wave stack at 1.55 µm (silica, 1.444, and silicon nitride, 2.0, each layer uniform across a window between magnetic walls, TE's one uniform mode), $\cos K\Lambda$ at 61 wavelengths from 1 to 2.5 µm, the first stop band (1.41 to 1.73 µm) among them: the largest departure from the closed form, $\lvert \Delta \cos K\Lambda \rvert / \max(1, \lvert \cos K\Lambda \rvert)$ (shown)",
             tier: Tier::Analytic,
-            source: r"the two layers' transfer matrices' half-trace, $\cos K\Lambda = \cos k_1 d_1 \cos k_2 d_2 - 	frac12 (n_1/n_2 + n_2/n_1) \sin k_1 d_1 \sin k_2 d_2$ (P. Yeh, A. Yariv, C.-S. Hong, J. Opt. Soc. Am. 67, 423 (1977), doi:10.1364/JOSA.67.000423, Eq. (27)); the uniform mode's $n_	ext{eff}$ is the layer's index and the interface's S is Fresnel's exactly (`eme/step-fresnel-te`): round-off",
+            source: r"the two layers' transfer matrices' half-trace, $\cos K\Lambda = \cos k_1 d_1 \cos k_2 d_2 - \tfrac12 (n_1/n_2 + n_2/n_1) \sin k_1 d_1 \sin k_2 d_2$ (P. Yeh, A. Yariv, C.-S. Hong, J. Opt. Soc. Am. 67, 423 (1977), doi:10.1364/JOSA.67.000423, Eq. (27)); the uniform mode's $n_\text{eff}$ is the layer's index and the interface's S is Fresnel's exactly (`eme/step-fresnel-te`): round-off",
             run: || zero(stack_departure(&stack_wavelengths(), 1.0, 1), 1e-12),
         },
         Case {
             id: "eme/bloch-quarter-wave-modes",
-            title: r"The same stack in a window 2 µm wide with 8 modes, $\cos(m\pi x/W)$ in each layer with $n_	ext{eff}^2 = n^2 - (m\lambda/2W)^2$, propagating and evanescent, at 1.3, 1.55 and 1.8 µm: each mode's closed form against the nearest of the 8 Bloch modes, the largest departure as above (shown)",
+            title: r"The same stack in a window 2 µm wide with 8 modes, $\cos(m\pi x/W)$ in each layer with $n_\text{eff}^2 = n^2 - (m\lambda/2W)^2$, propagating and evanescent, at 1.3, 1.55 and 1.8 µm: each mode's closed form against the nearest of the 8 Bloch modes, the largest departure as above (shown)",
             tier: Tier::Analytic,
-            source: r"each mode meets only its own at the interfaces, so each is a two-layer stack of its own: the closed form above with $eta_i = k_0 n_{	ext{eff},i}$ in place of $k_0 n_i$ (TE's admittances); the eigenproblem of all 16 waves at once, which never inverts $S_{12}$: round-off",
+            source: r"each mode meets only its own at the interfaces, so each is a two-layer stack of its own: the closed form above with $\beta_i = k_0 n_{\text{eff},i}$ in place of $k_0 n_i$ (TE's admittances); the eigenproblem of all 16 waves at once, which never inverts $S_{12}$: round-off",
             run: || zero(stack_departure(&[1.3, 1.55, 1.8], 2.0, 8), 1e-12),
         },
         Case {
             id: "eme/bloch-band-edges",
             title: r"The same stack's first stop band: its edges by bisection on $\cos K\Lambda = -1$ from the expansion, to neighbouring floats in $\omega/\omega_0$, their distance $\Delta\omega/\omega_0$ (shown) against the quarter-wave stop band's width",
             tier: Tier::Analytic,
-            source: r"$\Delta\omega/\omega_0 = (4/\pi) rcsin((n_2 - n_1)/(n_2 + n_1))$, the closed form at quarter-wave thicknesses, where it reaches $-1$ at $\cos(	frac{\pi}{2}\omega/\omega_0) = \pm(n_2 - n_1)/(n_2 + n_1)$; the slope of $\cos K\Lambda$ there is about 1, so the edges are at round-off",
+            source: r"$\Delta\omega/\omega_0 = (4/\pi) \arcsin((n_2 - n_1)/(n_2 + n_1))$, the closed form at quarter-wave thicknesses, where it reaches $-1$ at $\cos(\tfrac{\pi}{2}\omega/\omega_0) = \pm(n_2 - n_1)/(n_2 + n_1)$; the slope of $\cos K\Lambda$ there is about 1, so the edges are at round-off",
             run: || {
                 let (lo, hi) = band_edges();
                 let expected = band_width();
@@ -212,8 +219,7 @@ vert)$ (shown)",
         },
         Case {
             id: "eme/grating-squaring",
-            title: r"100 periods by repeated squaring: a silicon slab grating (3.473 in 1.444; 300 and 220 nm thick, 0.14 µm each; TE, half of it, 20 even modes, a PML 4 µm thick) between two 220 nm slabs at 1.55 µm, its S-matrix from the period's S taken to the 100th power (8 star products) against the 200 sections in sequence (199 interfaces): the largest $\lvert \Delta S_{qp} 
-vert$ over the four blocks (shown)",
+            title: r"100 periods by repeated squaring: a silicon slab grating (3.473 in 1.444; 300 and 220 nm thick, 0.14 µm each; TE, half of it, 20 even modes, a PML 4 µm thick) between two 220 nm slabs at 1.55 µm, its S-matrix from the period's S taken to the 99th power by repeated squaring and joined to the last period and the ports (11 star products) against the 200 sections in sequence (199 interfaces): the largest $\lvert \Delta S_{qp} \rvert$ over the four blocks (shown)",
             tier: Tier::Analytic,
             source: r"the star product is associative, so the two orders of the same products agree but for round-off",
             run: || {
@@ -266,12 +272,37 @@ mod tests {
             let t = std::time::Instant::now();
             let (sq, seq) = grating_pair(l, count);
             let d = departure(&sq, &seq);
-            eprintln!("grating {count} at {l}: {d:e}, |S21|^2 {:.6}, {:.1} s", sq.s21[0][0].norm_sqr(), t.elapsed().as_secs_f64());
+            eprintln!(
+                "grating {count} at {l}: {d:e}, |S21|^2 {:.6}, {:.1} s",
+                sq.s21[0][0].norm_sqr(),
+                t.elapsed().as_secs_f64()
+            );
+        }
+        for modes in [10, 20, 40, 80, 160] {
+            for (thick, strength) in [(4.0, 0.1), (8.0, 0.05)] {
+                let e = Eme::new(Polarization::Te, Wavelength::um(1.55).expect("l"), modes)
+                    .expect("e")
+                    .with_walls(Wall::Magnetic, Wall::Electric)
+                    .with_upper_pml(Length::um(thick), strength)
+                    .expect("pml");
+                match e.bloch(&grating_period()) {
+                    Ok(b) => eprintln!(
+                        "{modes} modes, PML {thick} um of {strength}: fundamental {:.8} {:.3e}",
+                        b.effective_indices[0].re, b.effective_indices[0].im
+                    ),
+                    Err(err) => eprintln!("{modes} modes, PML {thick}/{strength}: {err}"),
+                }
+            }
         }
         for l in [1.45, 1.5, 1.55, 1.6, 1.65] {
             let e = grating_eme(l).expect("e");
             let b = e.bloch(&grating_period()).expect("b");
-            eprintln!("bloch at {l}: cos {:.4} n {:.5} | {:?}", b.cos[0], b.effective_indices[0], &b.effective_indices[1..4]);
+            eprintln!(
+                "bloch at {l}: cos {:.4} n {:.5} | {:?}",
+                b.cos[0],
+                b.effective_indices[0],
+                &b.effective_indices[1..4]
+            );
         }
         let (lo, hi) = band_edges();
         eprintln!(

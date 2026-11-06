@@ -1,12 +1,16 @@
 # A silicon slab Bragg grating by eigenmode expansion (docs/methods/eme.md): 100 periods of
 # 300 nm slab and 220 nm slab, 0.14 um each (3.473 in oxide, 1.444), between two 220 nm slabs,
 # swept from 1.5 to 1.7 um. The period's S-matrix is taken to the 100th power by repeated
-# squaring (8 star products instead of 199 interfaces in sequence; the validation case
+# squaring (11 star products instead of 199 interfaces in sequence; the validation case
 # eme/grating-squaring checks the two agree at round-off), and its Bloch modes, the
 # eigenvectors of its transfer matrix (P. Yeh, A. Yariv, C.-S. Hong, J. Opt. Soc. Am. 67, 423
 # (1977), doi:10.1364/JOSA.67.000423), are recorded at each wavelength as a sweep point: K/k0
 # in the reduced zone, its imaginary part the decay along the grating. The slab is symmetric,
 # so only its upper half is solved (its even modes), 1.5 um to a PML 4 um thick of strength 0.1.
+# The stop band runs from 1.6025 to 1.66 um (the fundamental Bloch mode's Im K/k0 above 0.01,
+# at most 0.0666 at 1.6325 um), the reflection |S11|^2 reaching 0.99831 at 1.6375 um. With 20
+# modes the guided Bloch mode's K at 1.55 um is 1e-3 from 160 modes' and its Im K/k0, which
+# should be 0 below the light line, is 7.2e-5 (4.8e-6 with 160): docs/methods/eme.md.
 #   photonoxide run jobs/eme-grating.yaml
 name: eme-grating
 timeout_minutes: 10

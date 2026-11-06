@@ -139,8 +139,8 @@ impl Bloch {
         let mut ordered = Vec::with_capacity(modes.len());
         for m in 0..shares.first().map_or(0, Vec::len) {
             let share = |i: usize| shares[modes[i].2][m];
-            let best = (0..modes.len())
-                .max_by(|&i, &j| share(i).total_cmp(&share(j)).then(j.cmp(&i)));
+            let best =
+                (0..modes.len()).max_by(|&i, &j| share(i).total_cmp(&share(j)).then(j.cmp(&i)));
             if let Some(i) = best {
                 ordered.push(modes.remove(i));
             }

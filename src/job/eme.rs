@@ -12,6 +12,9 @@
 //! wavelength repeats the whole at each point; with `[task.interpolate]` it solves only where
 //! its tolerance needs, the modes and steps settled once at `wavelength_um`, and records S at
 //! the sweep's points from the interpolant ([`crate::eme::Spectrum`]) with its estimated error.
+//! `[task.period]` repeats some of the sections `count` times, the structure solved by repeated
+//! squaring of one period's S-matrix ([`crate::eme::Eme::grating`]), and records the period's
+//! Bloch modes ([`crate::eme::Bloch`]) at each wavelength it solves as a sweep point.
 //!
 //! The run records its scene (the cores seen from above, z along x), the solver's settings,
 //! the S-parameters between the guided modes at the two ends (at each wavelength), and each

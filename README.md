@@ -49,7 +49,7 @@ It is released milestone by milestone ([changelog](CHANGELOG.md), [roadmap](ROAD
   it; 56 processes on 5 platforms, every flow executed back to its design and shown step by step
   in the studio. New platforms and exports are in progress.
 - **[The library, the Python package and the studio](#install):** the code that runs a design,
-  with 55 examples that each reproduce a paper, 39 job files ready to run, and 836 validation
+  with 55 examples that each reproduce a paper, 40 job files ready to run, and 840 validation
   cases that check it.
 
 ## What it computes
