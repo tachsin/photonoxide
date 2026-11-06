@@ -121,8 +121,8 @@ pub struct Rule {
     /// The tolerance's origin, in words: a paper's statement, a printed digit, a grid study.
     pub why: &'static str,
     /// The case's error is set by a platform's last bits (a fit, an iteration count, a
-    /// noise-level difference): the report shows it as a bound below a third of the tolerance,
-    /// so it reads the same on every system ([`Rule::varying`]).
+    /// noise-level difference): the report shows "within it" wherever it passes, so it reads
+    /// the same on every system ([`Rule::varying`]).
     pub varies: bool,
     /// The case computes in f32, so a round-off tolerance may be up to 2e-4 ([`Rule::in_f32`]).
     pub single: bool,
@@ -149,8 +149,11 @@ impl Rule {
     }
 
     /// The same rule for a case whose error a platform's last bits set: an iterative fit's
-    /// residual, say, which moves by half itself between systems. Its Error cell reads "under a
-    /// third of it" while the error is below a third of the tolerance, the value above.
+    /// residual, say, which moves by half itself between systems. Its Error cell reads "within it
+    /// (digits vary by system)" wherever the error is within the tolerance, and the value once it
+    /// fails: a bound inside the tolerance would be an edge a value crosses between systems (the
+    /// ring's fit, device/compact-ring-closed-form, read 2.1e-7 to 3.6e-7 by system, across a
+    /// third of its 1e-6).
     pub const fn varying(self) -> Rule {
         Rule {
             varies: true,

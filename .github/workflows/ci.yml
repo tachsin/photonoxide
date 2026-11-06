@@ -46,10 +46,14 @@ env:
   # the linking and the caches (#507). Panics still say where.
   CARGO_PROFILE_DEV_DEBUG: 0
 
+# The Linux jobs run on ubuntu-24.04, not ubuntu-latest: GitHub moved ubuntu-latest to 26.04 on
+# 2026-11-06, and a validation row's text changed with the image (device/compact-ring-closed-form).
+# The matrices keep the label ubuntu-latest, so the checks keep their names; runs-on maps it.
+# Back to ubuntu-latest once a run there writes the same docs/validation.md and examples' output.
 jobs:
   changes:
     name: What changed
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     outputs:
       tier: ${{ steps.classify.outputs.tier }}
       code: ${{ steps.classify.outputs.code }}
@@ -269,7 +273,7 @@ jobs:
 
   docs:
     name: Docs
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
       # every relative link in the Markdown points at something that exists
@@ -293,7 +297,7 @@ jobs:
     name: Lint
     needs: changes
     if: needs.changes.outputs.code == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
@@ -347,7 +351,7 @@ jobs:
       fail-fast: false
       matrix:
         os: ${{ fromJSON(needs.changes.outputs.systems) }}
-    runs-on: ${{ matrix.os }}
+    runs-on: ${{ matrix.os == 'ubuntu-latest' && 'ubuntu-24.04' || matrix.os }}
     env:
       TESTS: ${{ needs.changes.outputs.tests }}
     defaults:
@@ -409,7 +413,7 @@ jobs:
       fail-fast: false
       matrix:
         include: ${{ fromJSON(needs.changes.outputs.release) }}
-    runs-on: ${{ matrix.os }}
+    runs-on: ${{ matrix.os == 'ubuntu-latest' && 'ubuntu-24.04' || matrix.os }}
     timeout-minutes: 60
     defaults:
       run:
@@ -474,7 +478,7 @@ jobs:
       fail-fast: false
       matrix:
         os: ${{ fromJSON(needs.changes.outputs.studio) }}
-    runs-on: ${{ matrix.os }}
+    runs-on: ${{ matrix.os == 'ubuntu-latest' && 'ubuntu-24.04' || matrix.os }}
     timeout-minutes: 60 # 9 to 21 minutes in recent runs
     env:
       TAURI_APT_PACKAGES: libwebkit2gtk-4.1-dev libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
@@ -544,7 +548,7 @@ jobs:
     name: MSRV (1.95)
     needs: changes
     if: needs.changes.outputs.code == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@1.95
@@ -582,7 +586,7 @@ jobs:
     name: Semver
     needs: changes
     if: needs.changes.outputs.library == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
       pull-requests: read

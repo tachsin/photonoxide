@@ -424,8 +424,9 @@ fn the_sweep_on_the_slabs_solver_data_study() {
                 if stall == 0 {
                     assert_eq!(sweep.converged, reached, "h {h}, {tolerance:e}");
                 } else {
-                    // the roughness, 1.5e-13 on 2.5 nm cells, is far below the floor: no noise,
-                    // so the sweep runs on to its limit, and returns its least estimate's fit
+                    // the roughness, 1.0e-13 on 2.5 nm cells, is far below the floor, which isn't
+                    // the noise, and allows the tolerance: the sweep runs on to its limit, and
+                    // returns its least estimate's fit
                     assert!(
                         sweep.converged || sweep.relative_error() <= least,
                         "h {h}, {tolerance:e}"
