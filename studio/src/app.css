@@ -166,6 +166,13 @@
   .module-card:focus-visible {
     @apply outline-2 outline-offset-2 outline-primary;
   }
+  /* a feed row's journal initials, tinted by the journal's hue (--h) and mixed into the theme's
+     own colours, so they read on dark and light alike */
+  .paper-thumb {
+    background: color-mix(in oklch, oklch(68% 0.13 var(--h)) 16%, var(--color-base-100));
+    color: color-mix(in oklch, oklch(60% 0.15 var(--h)) 72%, var(--color-base-content));
+    box-shadow: inset 0 0 0 1px color-mix(in oklch, oklch(68% 0.13 var(--h)) 24%, transparent);
+  }
 }
 
 /* thin scrollbars that follow the theme */

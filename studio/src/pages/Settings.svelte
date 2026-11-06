@@ -11,10 +11,29 @@
   import { available, buildRelease, building, clearCache, commits, nightly, rollBack } from "../lib/nightly.svelte";
   import { describe } from "../lib/schedule";
   import { checkForUpdate, switchChannel, updater } from "../lib/updater.svelte";
+  import { api } from "../lib/api";
   import { age } from "../lib/paperText";
-  import { loadFeed, papers, refreshFeed, setFeed, showPapers } from "../lib/papers.svelte";
+  import { clearFigures, loadFeed, papers, refreshFeed, setFeed, setFigures, showPapers } from "../lib/papers.svelte";
 
   loadFeed();
+  /** The figures kept on disk: how many and their bytes. */
+  let kept = $state<[number, number] | null>(null);
+  const loadKept = () =>
+    api
+      .paperImagesKept()
+      .then((k) => (kept = k))
+      .catch(() => {});
+  loadKept();
+  async function removeFigures() {
+    try {
+      await clearFigures();
+    } catch (e) {
+      toast(`Couldn't remove the figures: ${e}`, "error");
+    }
+    await loadKept();
+  }
+  /** The sources the picker keeps on, of all. */
+  const chosen = $derived(papers.feed ? `${papers.feed.choices.filter((c) => c.on).length} of ${papers.feed.choices.length}` : null);
   const feedState = $derived(papers.feed?.state);
   /** When the feed last checked and how it went. */
   const feedLine = $derived.by(() => {
@@ -352,7 +371,7 @@
         <span>
           <span class="block text-sm font-medium">Check for new papers</span>
           <span class="block text-xs faint">
-            Home's feed asks Crossref for the newest papers of {papers.feed?.sources.length ? papers.feed.sources.length - 1 : 16} photonics journals and arXiv for the newest of physics.optics: one request to each, as soon as photonoxide opens and every four hours while it stays open (half an hour after a check that failed), never while it is closed. The requests carry the program's name and version and nothing about you: no email, no name, no account. The answers are kept on this computer, so the feed shows the last ones offline. A paper you open yourself is fetched from Crossref, OpenAlex and arXiv whether this is on or off.
+            Home's feed asks Crossref for the newest papers of {papers.feed?.sources.length ? papers.feed.sources.length - 1 : 16} photonics journals and arXiv for the newest of physics.optics, each only while it is chosen in the feed's picker{chosen ? ` (${chosen} now)` : ""}: one request to each, as soon as photonoxide opens and every four hours while it stays open (half an hour after a check that failed), never while it is closed. The requests carry the program's name and version and nothing about you: no email, no name, no account. The answers are kept on this computer, so the feed shows the last ones offline. A paper you open yourself is fetched from Crossref, OpenAlex and arXiv whether this is on or off.
           </span>
         </span>
         <input type="checkbox" class="toggle toggle-primary" checked={s.paper_feed} onchange={() => setFeed(!s.paper_feed)} />
@@ -370,6 +389,21 @@
         </button>
         <button class="btn btn-ghost btn-sm" onclick={() => showPapers("feed")}>Open Papers</button>
       </div>
+      <label class="mt-5 flex cursor-pointer items-center justify-between gap-4">
+        <span>
+          <span class="block text-sm font-medium">Images in the feed</span>
+          <span class="block text-xs faint">
+            Shows an arXiv preprint's first figure beside it in the feed. For each preprint on screen, photonoxide asks arxiv.org for the start of the preprint's HTML version (arxiv.org/html/…) and then for that figure: two requests, at least 15 seconds apart, as arxiv.org asks. They carry the program's name and version and nothing about you: no email, no name, no account; arxiv.org does learn which preprints your feed shows. No other server is contacted: Crossref, arXiv's listing and the journals offer no picture of a journal's paper that can be fetched within the publishers' terms, so a journal's paper keeps its journal's initials, drawn here. The figures are kept on this computer for 30 days, at most 32 MB, and a figure over 1.5 MB is left out. Off unless you turn it on.
+          </span>
+        </span>
+        <input type="checkbox" class="toggle toggle-primary" checked={s.paper_images} onchange={() => setFigures(!s.paper_images)} />
+      </label>
+      {#if kept && kept[0] > 0}
+        <div class="mt-2 flex flex-wrap items-center gap-3 text-xs">
+          <span class="faint">{kept[0]} figure{kept[0] === 1 ? "" : "s"} kept, {(kept[1] / 1048576).toFixed(1)} MB</span>
+          <button class="btn btn-ghost btn-xs gap-1" onclick={removeFigures}><Trash2 size={12} /> Remove them</button>
+        </div>
+      {/if}
     </section>
 
     <section class="panel p-6">

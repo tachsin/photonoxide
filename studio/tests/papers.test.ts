@@ -2,7 +2,57 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { age, paperIdOf, paperUrl, safeMath, shortAuthors, shortDate, toBibtex, toCsv, type Starred } from "../src/lib/paperText.ts";
+import { age, monogram, monogramHue, paperIdOf, paperUrl, pickerLabel, safeMath, shortAuthors, shortDate, toBibtex, toCsv, withAll, withSource, type Choice, type Starred } from "../src/lib/paperText.ts";
+
+/** The picker's sources: three journals and arXiv, all on. */
+const CHOICES: Choice[] = [
+  { id: "1749-4885", name: "Nature Photonics", short: "Nat. Photon.", publisher: "Springer Nature", on: true },
+  { id: "2334-2536", name: "Optica", short: "Optica", publisher: "Optica", on: true },
+  { id: "0031-9007", name: "Physical Review Letters", short: "Phys. Rev. Lett.", publisher: "APS", on: true },
+  { id: "arxiv", name: "arXiv, physics.optics", short: "arXiv", publisher: "Cornell University", on: true },
+];
+/** The choices with `off` turned off, as papers.rs lists them after the settings change. */
+const after = (off: string[]): Choice[] => CHOICES.map((c) => ({ ...c, on: !off.includes(c.id) }));
+
+test("the journal picker keeps the sources turned off, so a journal added later starts on", () => {
+  // one off, then on again: each id once, the rest kept
+  let off = withSource([], "arxiv", false);
+  assert.deepEqual(off, ["arxiv"]);
+  off = withSource(off, "2334-2536", false);
+  assert.deepEqual(off, ["arxiv", "2334-2536"]);
+  assert.deepEqual(withSource(off, "2334-2536", false), ["arxiv", "2334-2536"], "turned off twice, listed once");
+  off = withSource(off, "arxiv", true);
+  assert.deepEqual(off, ["2334-2536"]);
+  assert.deepEqual(withSource(off, "0000-0000", true), ["2334-2536"], "turning on what was on changes nothing");
+  // All and None
+  assert.deepEqual(withAll(CHOICES, true), []);
+  assert.deepEqual(withAll(CHOICES, false), ["1749-4885", "2334-2536", "0031-9007", "arxiv"]);
+  // what the button says
+  assert.equal(pickerLabel(CHOICES), "All sources");
+  assert.equal(pickerLabel(after(off)), "3 of 4");
+  assert.equal(pickerLabel(after(withAll(CHOICES, false))), "None");
+  // a journal the settings never named (added to journals.json later) is on
+  const later = [...after(["arxiv"]), { id: "2378-0967", name: "APL Photonics", short: "APL Photon.", publisher: "AIP", on: true }];
+  assert.equal(pickerLabel(later), "4 of 5");
+});
+
+test("a journal's initials and tint, the same on every start", () => {
+  assert.equal(monogram("Nat. Photon."), "NP");
+  assert.equal(monogram("Phys. Rev. Lett."), "PRL");
+  assert.equal(monogram("J. Lightw. Technol."), "JLT");
+  assert.equal(monogram("Laser Photonics Rev."), "LPR");
+  assert.equal(monogram("Optica"), "Op");
+  assert.equal(monogram("Nature"), "Na");
+  assert.equal(monogram("arXiv"), "aX");
+  assert.equal(monogram("Light: Science & Applications"), "LSA", "the small words and the punctuation skipped");
+  assert.equal(monogram(""), "?");
+  assert.equal(monogramHue("Optica"), monogramHue("Optica"));
+  assert.notEqual(monogramHue("Opt. Express"), monogramHue("Opt. Lett."));
+  for (const v of ["", "Nature", "Nat. Photon.", "arXiv"]) {
+    const h = monogramHue(v);
+    assert.ok(Number.isInteger(h) && h >= 0 && h < 360, `${v}: ${h}`);
+  }
+});
 
 test("a DOI or an arXiv id is read from what is pasted, as papers.rs reads it", () => {
   const cases: [string, string | null][] = [

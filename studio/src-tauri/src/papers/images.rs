@@ -1,8 +1,8 @@
 //! The feed's images: an arXiv preprint's first figure, read from arxiv.org's HTML version of
 //! the preprint. Asked only while Settings' "Images in the feed" is on, and only for the
 //! preprints the window shows; a journal's paper keeps its journal's initials, drawn by the
-//! window, since no open source gives a journal paper's figure (studio/README.md, "The paper
-//! feed's images", says what was looked at).
+//! window: Crossref and arXiv's listing carry no images, and the journals' pages either block
+//! programs or carry no picture of the paper (studio/README.md, Papers, "Images").
 //!
 //! **What is asked, and how:** for a preprint, the first 256 kB of `arxiv.org/html/<id>` (a
 //! `Range` request; the first figure comes well before that), then that figure, at most 1.5 MB

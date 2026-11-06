@@ -82,6 +82,20 @@ in a drawer opened from the status bar.
     `studio/src-tauri/src/papers/journals.json`. Filtered by topic: integrated photonics,
     nonlinear, quantum, metasurfaces, lasers, modulators and fabrication, a paper in each topic
     whose title or abstract holds one of its words (`TOPICS` in `studio/src-tauri/src/papers.rs`).
+  - **The journal picker:** the feed's button with the sources' count opens a box for each
+    journal and arXiv, with All and None. The choice is kept in the settings and applies at once:
+    the feed shows only the sources chosen, and only those are asked. A source turned on that was
+    never asked is asked on its own a moment later; a journal added to the data file later starts
+    on. With none chosen, the feed says so and offers to show all again.
+  - **Images:** each paper in the feed has its journal's initials on the journal's own tint, drawn
+    by the window. With Settings › Papers › Images in the feed on (it is off at first), an arXiv
+    preprint shows its first figure instead: for each preprint on screen, the studio asks
+    arxiv.org for the first 256 kB of the preprint's HTML version and then for its first PNG,
+    JPEG, GIF or WebP figure, at most 1.5 MB, the two requests at least 15 s apart, as arxiv.org's
+    robots.txt asks. Nothing else is contacted: Crossref and arXiv's listing carry no images, and
+    the journals' own pages either block programs or carry no picture of the paper. The figures
+    are kept in the studio's local data folder for 30 days, at most 32 MB, oldest first out;
+    Settings shows how much is kept and removes it.
   - **When it checks:** as soon as photonoxide opens and every four hours while it stays open
     (half an hour after a check that failed), one request to each source, never while it is
     closed; Settings › Papers turns it off and says when it last checked. The requests carry the
