@@ -2,7 +2,8 @@
 //! media's step against closed forms, a lossless structure's reciprocity and power at round-off,
 //! and a stepped taper against 2D FDFD with the expansion's own convergence in its number of
 //! modes; periodic sections' Bloch modes against the two-layer closed form and N periods by
-//! repeated squaring at round-off.
+//! repeated squaring at round-off; bends against the exact bent slab within our own error, two
+//! bends against one at round-off.
 
 use super::{Basis::*, Measure::*, Numerical::*, Rule};
 
@@ -354,6 +355,66 @@ pub(crate) fn rules() -> Vec<(&'static str, Rule)> {
                 1e-10,
                 Exact,
                 "with every mode the interfaces are exact: round-off, 1e-10 as eme/3d-orthonormal",
+            ),
+        ),
+        (
+            "eme/bend-index",
+            Rule::new(
+                Absolute,
+                Discretisation,
+                7e-10,
+                Noted,
+                "three times our own error, rounded up: the largest of Richardson's limit's change to the next halving's (2.2e-10, TM at 2 µm), its change with a PML twice as strong (2.2e-10) and the exact bend's own (its Runge–Kutta steps' and its inner start's, 1.9e-11)",
+            ),
+        ),
+        (
+            "eme/bend-loss",
+            Rule::new(
+                Absolute,
+                Discretisation,
+                9e-5,
+                Noted,
+                "three times our own error relative to the loss, rounded up: the largest, a PML twice as strong moving Im n_eff by 7.8e-12 of 2.9e-7 (TM at 5 µm), which is the error measured",
+            ),
+        ),
+        (
+            "eme/bend-order",
+            Rule::new(
+                Absolute,
+                Order,
+                0.1,
+                Measured,
+                "the midpoint staircase's second order, within 0.1 as eme/taper-steps-order",
+            ),
+        ),
+        (
+            "eme/bend-halves",
+            Rule::new(
+                Absolute,
+                RoundOff,
+                1e-12,
+                Exact,
+                "a joint between a section's own modes is the identity to round-off: 1e-12 as eme/grating-squaring",
+            ),
+        ),
+        (
+            "eme/bend-no-angle",
+            Rule::new(
+                Absolute,
+                Discretisation,
+                1e-4,
+                Measured,
+                "the truncation of two bases, which falls with the modes: the expansion's mode-count gate, 1e-4 as eme/taper-modes",
+            ),
+        ),
+        (
+            "eme/bend-joint",
+            Rule::new(
+                Absolute,
+                Discretisation,
+                4e-9,
+                Noted,
+                "three times our own error, rounded up: the exact field's Runge–Kutta steps' (1.3e-9 at 2 µm TE, from steps twice as long), above the staircase's limit's change to the next halving's (3.4e-12)",
             ),
         ),
     ]

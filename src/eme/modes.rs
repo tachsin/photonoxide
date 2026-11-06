@@ -5,15 +5,21 @@ use std::f64::consts::PI;
 use num_complex::Complex64 as c64;
 use rayon::prelude::*;
 
+use super::bend::Map;
 use super::{Eme, Slice, Wall};
 use crate::mode::Polarization;
 use crate::{Error, Result};
 
-/// A layer as the solver sees it: its permittivity n², where it starts and its real thickness
-/// (µm, from the lower wall's PML, if any), and its stretch: d̃/d, 1 + iσ in a PML, else 1.
+/// A layer as the solver sees it: its permittivity n² (in a bent section the map's, n²e^(2u/R)),
+/// the physical one that sets TM's weight, where it starts and its real thickness (µm, from the
+/// lower wall's PML, if any), and its stretch: d̃/d, 1 + iσ in a PML, else 1.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(crate) struct Layer {
     pub(crate) eps: c64,
+    pub(crate) phys: c64,
+    /// In a bent section the map's exponent 2ũ/R at the layer's middle (eps = phys e^bend),
+    /// else 0.
+    pub(crate) bend: c64,
     pub(crate) x0: f64,
     pub(crate) width: f64,
     pub(crate) stretch: c64,
@@ -23,6 +29,15 @@ impl Layer {
     /// The thickness along the complex coordinate.
     fn d(&self) -> c64 {
         self.stretch * self.width
+    }
+
+    /// The weight w in P = (w/k) dU/dx: 1 for TE, 1/n² for TM (the physical n², which a bend's
+    /// map leaves in place).
+    fn weight(&self, polarization: Polarization) -> c64 {
+        match polarization {
+            Polarization::Te => c64::new(1.0, 0.0),
+            Polarization::Tm => 1.0 / self.phys,
+        }
     }
 }
 
@@ -38,6 +53,8 @@ pub struct Mode {
     states: Vec<(c64, c64)>,
     /// The factor that normalizes U.
     scale: c64,
+    /// A bent section's map between its coordinate and the joint's.
+    pub(crate) map: Option<Map>,
 }
 
 /// sin z / z, its series near 0.
@@ -50,21 +67,13 @@ fn sinc(z: c64) -> c64 {
     }
 }
 
-/// The weight w in P = (w/k) dU/dx: 1 for TE, 1/n² for TM.
-fn weight(polarization: Polarization, eps: c64) -> c64 {
-    match polarization {
-        Polarization::Te => c64::new(1.0, 0.0),
-        Polarization::Tm => 1.0 / eps,
-    }
-}
-
 /// The layer's transfer of (U, P) from its lower side to its upper: [[cos Φ, sin Φ/γ],
 /// [−γ sin Φ, cos Φ]], each entry a function of α² = n² − ν alone (ν = n_eff²).
 fn transfer(polarization: Polarization, k: f64, layer: &Layer, nu: c64) -> [[c64; 2]; 2] {
     let a2 = layer.eps - nu;
     let d = layer.d();
     let phi = (k * k * a2 * d * d).sqrt();
-    let w = weight(polarization, layer.eps);
+    let w = layer.weight(polarization);
     let (c, s) = (phi.cos(), sinc(phi));
     [[c, k * d / w * s], [-w * a2 * k * d * s, c]]
 }
@@ -90,12 +99,17 @@ fn start(polarization: Polarization, wall: Wall) -> (c64, c64) {
 /// The slice's layers with the PML's added inside each wall, at continuation `t` of the PML's
 /// strength and the layers' loss (0: lossless and no PML; 1: as given).
 fn layers(eme: &Eme, slice: &Slice, t: f64) -> Vec<Layer> {
+    if let Some(r) = slice.radius {
+        return super::bend::layers(eme, slice, r, t);
+    }
     let mut out = Vec::new();
     let mut x = 0.0;
     let mut push = |n: c64, width: f64, stretch: c64, out: &mut Vec<Layer>| {
         let n = c64::new(n.re, t * n.im);
         out.push(Layer {
             eps: n * n,
+            phys: n * n,
+            bend: c64::new(0.0, 0.0),
             x0: x,
             width,
             stretch,
@@ -135,7 +149,7 @@ fn prufer(polarization: Polarization, k: f64, layers: &[Layer], lower: Wall, nu:
         let d = layer.width;
         let w = match polarization {
             Polarization::Te => 1.0,
-            Polarization::Tm => 1.0 / eps,
+            Polarization::Tm => 1.0 / layer.phys.re,
         };
         let a2 = eps - nu;
         if a2 > 0.0 {
@@ -305,7 +319,30 @@ fn residual(eme: &Eme, k: f64, layers: &[Layer], nu: c64, at: usize) -> (c64, f6
 /// guess, its derivative by central differences; until the step is at round-off, or stops
 /// falling below `noise` (relative).
 fn newton(eme: &Eme, k: f64, layers: &[Layer], guess: c64, noise: f64) -> Option<c64> {
-    let at = meeting(eme, k, layers, guess);
+    // where the sweeps meet best at the root, which may not be where they do at the guess: a
+    // mode that lives in a PML is a root of the Wronskian only where both sweeps have grown
+    let mut at = meeting(eme, k, layers, guess);
+    let mut nu = guess;
+    for _ in 0..4 {
+        nu = newton_at(eme, k, layers, nu, noise, at)?;
+        let here = meeting(eme, k, layers, nu);
+        if here == at {
+            return Some(nu);
+        }
+        at = here;
+    }
+    None
+}
+
+/// [`newton`] with the sweeps meeting at boundary `at`.
+fn newton_at(
+    eme: &Eme,
+    k: f64,
+    layers: &[Layer],
+    guess: c64,
+    noise: f64,
+    at: usize,
+) -> Option<c64> {
     let mut nu = guess;
     let mut last = f64::INFINITY;
     for _ in 0..60 {
@@ -415,31 +452,74 @@ fn uniform(eme: &Eme, k: f64, layers: &[Layer], m: usize) -> (c64, Vec<c64>) {
 /// the window's. An error if a mode is lost or two end as one.
 fn follow(eme: &Eme, k: f64, slice: &Slice) -> Result<Vec<c64>> {
     let end = layers(eme, slice, 1.0);
-    let (reference, start) = uniform(eme, k, &end, eme.modes);
+    if slice.radius.is_none() {
+        return follow_layers(eme, k, &end);
+    }
+    // a bend: its thin layers straight first (each of its physical permittivity), then bent,
+    // the map's exponent 2ũ/R growing from 0 to its own
+    let straight: Vec<Layer> = end
+        .iter()
+        .map(|l| Layer {
+            eps: l.phys,
+            bend: c64::new(0.0, 0.0),
+            ..*l
+        })
+        .collect();
     let path = |t: f64| -> Vec<Layer> {
         end.iter()
             .map(|l| Layer {
-                eps: reference + t * (l.eps - reference),
+                eps: l.phys * (t * l.bend).exp(),
                 ..*l
             })
             .collect()
     };
+    let bent = follow_layers(eme, k, &straight)
+        .and_then(|start| track(eme, k, &path, &end, &start, "the straight stack's"));
+    // where two of those meet on the way, from the uniform window straight to the bend's
+    bent.or_else(|first| follow_layers(eme, k, &end).map_err(|_| first))
+}
+
+/// [`follow`] on layers `end`, from the uniform window's modes.
+fn follow_layers(eme: &Eme, k: f64, end: &[Layer]) -> Result<Vec<c64>> {
+    let (reference, start) = uniform(eme, k, end, eme.modes);
+    let path = |t: f64| -> Vec<Layer> {
+        end.iter()
+            .map(|l| Layer {
+                eps: reference + t * (l.eps - reference),
+                phys: reference + t * (l.phys - reference),
+                ..*l
+            })
+            .collect()
+    };
+    track(eme, k, &path, end, &start, "the uniform window's")
+}
+
+/// Each of `start`'s eigenvalues followed along `path` to `end`'s, `from` naming where they
+/// start: an error if one is lost or two end as one; highest Re n_eff² first.
+fn track(
+    eme: &Eme,
+    k: f64,
+    path: &(dyn Fn(f64) -> Vec<Layer> + Sync),
+    end: &[Layer],
+    start: &[c64],
+    from: &str,
+) -> Result<Vec<c64>> {
     let followed: Vec<Option<c64>> = start
         .par_iter()
         .map(|&v| {
             // followed to 1e-6 (near two modes' meeting Newton's method slows and its noise
             // grows), then polished to round-off where it can be
-            follow_one(eme, k, &path, v).map(|nu| newton(eme, k, &end, nu, 1e-12).unwrap_or(nu))
+            follow_one(eme, k, path, v).map(|nu| newton(eme, k, end, nu, 1e-12).unwrap_or(nu))
         })
         .collect();
     if let Some(j) = followed.iter().position(Option::is_none) {
         return Err(Error::invalid(
             "eme modes",
             format!(
-                "the uniform window's mode {} of {} (n_eff² {:.4} {:+.4}i there) couldn't be \
-                 followed to the slice's: a PML's high modes are ill-conditioned, their n_eff² \
-                 resolved more coarsely than the following needs (docs/methods/eme.md, Limits); \
-                 fewer modes, or a weaker PML",
+                "{from} mode {} of {} (n_eff² {:.4} {:+.4}i there) couldn't be followed to the \
+                 slice's: a PML's high modes are ill-conditioned, their n_eff² resolved more \
+                 coarsely than the following needs (docs/methods/eme.md, Limits); fewer modes, \
+                 or a weaker PML",
                 j + 1,
                 eme.modes,
                 start[j].re,
@@ -454,8 +534,8 @@ fn follow(eme: &Eme, k: f64, slice: &Slice) -> Result<Vec<c64>> {
                 return Err(Error::invalid(
                     "eme modes",
                     format!(
-                        "the uniform window's modes {} and {} of {} ended as one, n_eff² {:.4} \
-                         {:+.4}i: fewer modes, or another PML",
+                        "{from} modes {} and {} of {} ended as one, n_eff² {:.4} {:+.4}i: fewer \
+                         modes, or another PML",
                         j + 1,
                         i + 1,
                         eme.modes,
@@ -475,6 +555,13 @@ fn follow(eme: &Eme, k: f64, slice: &Slice) -> Result<Vec<c64>> {
 /// The slice's first `eme.modes` modes.
 pub(super) fn solve(eme: &Eme, slice: &Slice) -> Result<Vec<Mode>> {
     let k = eme.wavelength.wavenumber();
+    let map = match slice.radius {
+        Some(r) => {
+            super::bend::check(eme, slice, r)?;
+            Some(super::bend::map(eme, slice, r))
+        }
+        None => None,
+    };
     let lossy = slice.layers.iter().any(|&(n, _)| n.im != 0.0);
     let nus = if eme.pml.is_some() || lossy {
         follow(eme, k, slice)?
@@ -488,13 +575,13 @@ pub(super) fn solve(eme: &Eme, slice: &Slice) -> Result<Vec<Mode>> {
     let layers = layers(eme, slice, 1.0);
     Ok(nus
         .par_iter()
-        .map(|&nu| Mode::new(eme, k, layers.clone(), nu))
+        .map(|&nu| Mode::new(eme, k, layers.clone(), nu, map))
         .collect())
 }
 impl Mode {
     /// The mode at ν: its states by sweeps from both walls, matched where both are large, and
     /// its normalization.
-    fn new(eme: &Eme, k: f64, layers: Vec<Layer>, nu: c64) -> Mode {
+    fn new(eme: &Eme, k: f64, layers: Vec<Layer>, nu: c64, map: Option<Map>) -> Mode {
         let pol = eme.polarization;
         let n = layers.len();
         let mut from_lower = vec![start(pol, eme.walls[0])];
@@ -513,7 +600,16 @@ impl Mode {
         let size = |s: &(c64, c64)| s.0.norm().max(s.1.norm());
         let top_lower = from_lower.iter().map(size).fold(0.0, f64::max);
         let top_upper = from_upper.iter().map(size).fold(0.0, f64::max);
+        // how far the two sweeps are from one field at each boundary: at round-off where both
+        // have followed the mode, but not where one has followed a field that decays against
+        // one that grows (a mode living in a PML, seen from the far wall)
+        let mismatch = |j: usize| {
+            let (l, r) = (from_lower[j], from_upper[j]);
+            (l.0 * r.1 - l.1 * r.0).norm() / (size(&l) * size(&r))
+        };
+        let best = (0..=n).map(mismatch).fold(f64::INFINITY, f64::min);
         let meet = (0..=n)
+            .filter(|&j| mismatch(j) <= (10.0 * best).max(1e-12))
             .max_by(|&a, &b| {
                 let both = |j: usize| {
                     (size(&from_lower[j]) / top_lower).min(size(&from_upper[j]) / top_upper)
@@ -545,14 +641,15 @@ impl Mode {
             layers,
             states,
             scale: c64::new(1.0, 0.0),
+            map,
         };
         // ⟨E, H⟩ = n_eff ∫ w U² dx̃ with w = 1 (TE) or 1/n² (TM)
         let points = super::scattering::points(&[&mode], &[&mode]);
         let integral: c64 = points
             .iter()
             .map(|q| {
-                let u = mode.u_at(q.layer_a, q.x);
-                q.weight * u * u * weight(pol, mode.layers[q.layer_a].eps)
+                let u = mode.u_at(q.layer_a, q.x_a);
+                q.weight * u * u * mode.layers[q.layer_a].weight(pol)
             })
             .sum();
         mode.scale = 1.0 / (effective_index * integral).sqrt();
@@ -564,35 +661,42 @@ impl Mode {
         self.polarization
     }
 
-    /// The effective index, n_eff = β/k: Im n_eff > 0 for a lossy or evanescent mode.
+    /// The effective index, n_eff = β/k: Im n_eff > 0 for a lossy or evanescent mode. In a bent
+    /// section β is the propagation constant along the arc at the bend's radius.
     pub fn effective_index(&self) -> c64 {
         self.effective_index
     }
 
     /// The window's width with its PMLs, µm.
     pub fn width(&self) -> f64 {
-        self.layers.iter().map(|l| l.width).sum()
+        let s: f64 = self.layers.iter().map(|l| l.width).sum();
+        self.map.map_or(s, |m| m.x_at(s))
     }
 
     /// The tangential fields at x (µm from the lower wall, PMLs included), normalized to
-    /// ⟨E, H⟩ = 1 in units of Z₀ for E: (E_y, H_x) for TE, (E_x, H_y) for TM.
+    /// ⟨E, H⟩ = 1 in units of Z₀ for E: (E_y, H_x) for TE, (E_x, H_y) for TM. In a bent section
+    /// x is along the radius from the lower wall, H_x and E_x the radial components.
     pub fn field(&self, x: f64) -> (c64, c64) {
-        let j = self.layers.iter().rposition(|l| l.x0 <= x).unwrap_or(0);
-        let u = self.scale * self.u_at(j, x);
+        let (s, jacobian) = self.map.map_or((x, 1.0), |m| (m.s_at(x), m.jacobian(x)));
+        let j = self.layers.iter().rposition(|l| l.x0 <= s).unwrap_or(0);
+        let (e, h) = self.e_h(j, s);
         match self.polarization {
-            Polarization::Te => (u, -self.effective_index * u),
-            Polarization::Tm => (self.effective_index * u / self.layers[j].eps, u),
+            Polarization::Te => (e, -h / jacobian),
+            Polarization::Tm => (e / jacobian, h),
         }
     }
 
     /// (e, h) at x in layer j such that ⟨E_a, H_b⟩ = ∫ e_a h_b dx̃: for TE e = U and
     /// h = n_eff U (−E_y H_x = n_eff E_y²); for TM e = n_eff U/n² and h = U (E_x H_y), both
-    /// normalized.
+    /// normalized. In a bent section x is the mapped coordinate and the fields the mapped ones.
     pub(crate) fn e_h(&self, j: usize, x: f64) -> (c64, c64) {
         let u = self.scale * self.u_at(j, x);
         match self.polarization {
             Polarization::Te => (u, self.effective_index * u),
-            Polarization::Tm => (self.effective_index * u / self.layers[j].eps, u),
+            Polarization::Tm => (
+                self.effective_index * u * self.layers[j].weight(Polarization::Tm),
+                u,
+            ),
         }
     }
 
@@ -613,7 +717,7 @@ impl Mode {
             alpha = -alpha;
         }
         let k = self.k;
-        let w = weight(self.polarization, layer.eps);
+        let w = layer.weight(self.polarization);
         let (u0, p0) = self.states[j];
         if (k * alpha * d).im <= 2.0 {
             let phi = k * alpha * t;

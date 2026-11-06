@@ -512,6 +512,7 @@ pub fn jobs() -> Vec<JobExample> {
             "eme-grating.yaml",
             include_str!("../../../jobs/eme-grating.yaml"),
         ),
+        ("eme-bend.yaml", include_str!("../../../jobs/eme-bend.yaml")),
         (
             "ring-pareto.yaml",
             include_str!("../../../jobs/ring-pareto.yaml"),

@@ -7868,6 +7868,14 @@
         {
           "not": {
             "required": [
+              "angle",
+              "angle_deg"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
               "center",
               "center_um"
             ]
@@ -7882,22 +7890,31 @@
           }
         },
         {
-          "anyOf": [
-            {
-              "required": [
-                "length_um"
-              ]
-            },
-            {
-              "required": [
-                "length"
-              ]
-            }
-          ]
+          "not": {
+            "required": [
+              "radius",
+              "radius_um"
+            ]
+          }
         }
       ],
-      "description": "A `[[task.section]]`: a straight or a taper, in order along z.",
+      "description": "A `[[task.section]]`: a straight, a taper or a bend, in order along z.",
       "properties": {
+        "angle": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "A bend's angle, degrees. With its unit in the value, in place of angle_deg: an angle with its unit, e.g. \"90 deg\"."
+        },
+        "angle_deg": {
+          "description": "A bend's angle, degrees.",
+          "type": "number"
+        },
         "center": {
           "anyOf": [
             {
@@ -7937,10 +7954,10 @@
               "$ref": "#/$defs/Expression"
             }
           ],
-          "description": "Its length along z, µm: 0 for a port's reference plane. With its unit in the value, in place of length_um: a length with its unit, e.g. \"1.55 um\"."
+          "description": "Its length along z, µm: 0 for a port's reference plane. A bend's is its arc, from `radius_um` and `angle_deg`. With its unit in the value, in place of length_um: a length with its unit, e.g. \"1.55 um\"."
         },
         "length_um": {
-          "description": "Its length along z, µm: 0 for a port's reference plane.",
+          "description": "Its length along z, µm: 0 for a port's reference plane. A bend's is its arc, from `radius_um` and `angle_deg`.",
           "type": "number"
         },
         "name": {
@@ -7950,6 +7967,21 @@
         "profile": {
           "description": "A taper's profile: `\"linear\"` (the default), `\"parabolic\"` (the thickness squared linear) or `\"exponential\"`.",
           "type": "string"
+        },
+        "radius": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "A bend's radius, µm, to the core's centre (to the window's middle for layers): positive turning towards the lower wall (the bend's centre beyond it), negative towards the upper. With `angle_deg` the section is a bend in the plane of the window, by the conformal map (`crate::eme::Slice::bent`). With its unit in the value, in place of radius_um: a length with its unit, e.g. \"1.55 um\"."
+        },
+        "radius_um": {
+          "description": "A bend's radius, µm, to the core's centre (to the window's middle for layers): positive turning towards the lower wall (the bend's centre beyond it), negative towards the upper. With `angle_deg` the section is a bend in the plane of the window, by the conformal map (`crate::eme::Slice::bent`).",
+          "type": "number"
         },
         "steps": {
           "description": "A taper's steps: equal ones, or the first ones `[task.adaptive]` refines; 10 by default.",

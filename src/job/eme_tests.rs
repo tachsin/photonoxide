@@ -464,3 +464,143 @@ fn check_refuses_a_period_it_cannot_repeat() {
         "takes equal steps",
     );
 }
+
+/// A TE slab, 220 nm, through a 90° bend at 2 µm to its centre between two straights, the core
+/// 0.75 µm below the window's middle.
+fn bend_job() -> String {
+    r#"
+name = "bend"
+timeout_minutes = 5
+
+[task]
+kind = "eme"
+wavelength_um = 1.55
+modes = 8
+window_um = 4.5
+cladding = 1.444
+core = 3.473
+
+[task.pml]
+thickness_um = 2.0
+strength = 0.5
+sides = "upper"
+
+[[task.section]]
+length_um = 0.0
+core_um = 0.22
+center_um = -0.75
+
+[[task.section]]
+radius_um = 2.0
+angle_deg = 90.0
+core_um = 0.22
+center_um = -0.75
+
+[[task.section]]
+length_um = 0.0
+core_um = 0.22
+center_um = -0.75
+"#
+    .to_owned()
+}
+
+#[test]
+fn a_bend_is_the_librarys_bend_to_the_bit() {
+    let job = Job::parse(&bend_job()).unwrap();
+    check(&job).unwrap();
+    let events = events(&job);
+    let got = s_parameters(&events);
+    let (ports, s) = &got[0];
+    assert_eq!(ports, &["1 TE0", "2 TE0"]);
+    let clad = c64::new(1.444, 0.0);
+    let slab = Slice::new(&[
+        (clad, Length::um(2.25 - 0.75 - 0.11)),
+        (c64::new(3.473, 0.0), Length::um(0.22)),
+        (clad, Length::um(2.25 + 0.75 - 0.11)),
+    ])
+    .unwrap();
+    // the radius to the window's middle: the core's 2 µm, plus its 0.75 µm below the middle
+    let sections = [
+        Section::new(slab.clone(), Length::ZERO),
+        Section::bend(slab.clone(), Length::um(2.75), std::f64::consts::FRAC_PI_2).unwrap(),
+        Section::new(slab, Length::ZERO),
+    ];
+    let lib = Eme::new(Polarization::Te, Wavelength::um(1.55).unwrap(), 8)
+        .unwrap()
+        .with_upper_pml(Length::um(2.0), 0.5)
+        .unwrap()
+        .s_matrix(&sections)
+        .unwrap();
+    assert_eq!([lib.s21[0][0].re, lib.s21[0][0].im], s[1][0]);
+    assert_eq!([lib.s11[0][0].re, lib.s11[0][0].im], s[0][0]);
+    // the bend's arc, 2.75 µm × π/2 at the window's middle, is the section's length
+    assert!((sections[1].length.to_um() - 2.75 * std::f64::consts::FRAC_PI_2).abs() < 1e-12);
+    // the scene turns: the output faces down, the drawing as tall as it is wide
+    let (x, y) = events
+        .iter()
+        .find_map(|e| match e {
+            Event::Scene { x_um, y_um, .. } => Some((*x_um, *y_um)),
+            _ => None,
+        })
+        .unwrap();
+    assert!((x[1] - x[0] - (2.75 + 2.25)).abs() < 1e-9, "{x:?}");
+    assert!((y[1] - y[0] - (2.75 + 2.25)).abs() < 1e-9, "{y:?}");
+}
+
+#[test]
+fn check_refuses_a_bend_it_cannot_solve() {
+    let refused = |text: String, says: &str| {
+        let err = check(&Job::parse(&text).unwrap()).unwrap_err().to_string();
+        assert!(err.contains(says), "{err}");
+    };
+    let b = bend_job();
+    refused(
+        b.replace("radius_um = 2.0\nangle_deg = 90.0", "radius_um = 2.0"),
+        "both radius_um and angle_deg",
+    );
+    refused(
+        b.replace("angle_deg = 90.0", "angle_deg = 90.0\nlength_um = 1.0"),
+        "leave length_um out",
+    );
+    refused(b.replace("angle_deg = 90.0", "angle_deg = 0.0"), "above 0");
+    refused(
+        b.replace("radius_um = 2.0", "radius_um = 1.0"),
+        "on one side of the bend's centre",
+    );
+    refused(
+        b.replacen(
+            "length_um = 0.0\ncore_um = 0.22",
+            "radius_um = 5.0\nangle_deg = 10.0\ncore_um = 0.22",
+            1,
+        ),
+        "not bends",
+    );
+    refused(
+        b.replace(
+            "core_um = 0.22\ncenter_um = -0.75\n\n[[task.section]]\nlength_um = 0.0",
+            "core_um = [0.22, 0.3]\ncenter_um = -0.75\n\n[[task.section]]\nlength_um = 0.0",
+        ),
+        "one thickness",
+    );
+}
+
+/// `jobs/eme-bend.yaml` gives the numbers its comment quotes.
+#[test]
+#[ignore = "11 wavelengths: in release"]
+fn the_built_in_bend_gives_the_numbers_its_comment_quotes() {
+    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("jobs");
+    let job = Job::load(&dir.join("eme-bend.yaml")).unwrap();
+    let rows: Vec<(f64, f64)> = events(&job)
+        .iter()
+        .filter_map(|e| match e {
+            Event::SParameters {
+                wavelength_um, s, ..
+            } => Some((*wavelength_um, s[1][0][0].powi(2) + s[1][0][1].powi(2))),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(rows.len(), 11);
+    for (at, want) in [(0, 0.938954), (5, 0.899089), (10, 0.841900)] {
+        assert!((rows[at].1 - want).abs() < 5e-7, "{:?}", rows[at]);
+    }
+}

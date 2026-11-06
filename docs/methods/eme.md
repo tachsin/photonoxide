@@ -20,6 +20,10 @@ papers:
     doi: 10.1093/imanum/draa098
   - cite: "P. Yeh, A. Yariv, C.-S. Hong, J. Opt. Soc. Am. 67, 423 (1977) (a period's Bloch waves from its transfer matrix, Eqs. (24)–(27))"
     doi: 10.1364/JOSA.67.000423
+  - cite: "M. Heiblum, J. H. Harris, IEEE J. Quantum Electron. 11, 75 (1975) (the conformal map that turns a bend into a straight guide of index n e^(u/R))"
+    doi: 10.1109/JQE.1975.1068563
+  - cite: "D. Marcuse, Bell Syst. Tech. J. 50, 2551 (1971) (a bent slab's modes matched to the outgoing Hankel function, Eq. 10: the exact bend the bends are checked against)"
+    doi: 10.1002/j.1538-7305.1971.tb02620.x
 validation:
   - eme/step-one-mode
   - eme/step-fresnel-te
@@ -56,6 +60,12 @@ validation:
   - eme/bloch-quarter-wave-modes
   - eme/bloch-band-edges
   - eme/grating-squaring
+  - eme/bend-index
+  - eme/bend-loss
+  - eme/bend-order
+  - eme/bend-halves
+  - eme/bend-no-angle
+  - eme/bend-joint
 ---
 
 Many devices are a waveguide whose cross-section changes along its length: a step, a taper, a
@@ -674,6 +684,120 @@ takes equal steps. `jobs/eme-grating.yaml` is the grating above, swept over its 
   period: { sections: [2, 3], count: 100 }
 ```
 
+## Bends
+
+A bend is a section whose cross-section is uniform along an arc. `Slice::bent(radius)` bends a
+slice in the plane of the expansion, its radius R to the window's middle: positive with the
+bend's centre beyond the lower wall (the upper wall outside), negative beyond the upper one.
+`Section::bend(slice, radius, angle)` is a bend of that angle, its length the arc's at R.
+
+**The map.** With ρ the distance from the bend's centre and φ the angle along it, $u = R\ln(\rho/R)$
+and $v = R\varphi$ are conformal, and turn the 2D wave equation of the bend into a straight
+guide's (Heiblum and Harris 1975): for TE (E along y)
+
+$$\partial_u^2 E + \partial_v^2 E + k^2 n^2 e^{2u/R} E = 0,$$
+
+a straight guide of index $n(u)\thinspace e^{u/R}$. For TM (H along y) the profile enters through
+$1/n^2$ and the map leaves it there, $\partial_u (n^{-2} \partial_u H) + \partial_v (n^{-2} \partial_v H) + k^2 e^{2u/R} H = 0$:
+a layer's weight in $P = (w/k)\thinspace dU/du$ stays $1/n^2$ while its $\alpha^2 = n^2 e^{2u/R} - n_\text{eff}^2$.
+A mode goes as $e^{i\beta v} = e^{i\beta R\varphi}$, so its $n_\text{eff} = \beta/k$ is the
+propagation constant along the arc at R, and $\nu = n_\text{eff} k R$ the angular order that
+`mode::bend` solves for exactly.
+
+**Thin layers.** The mapped profile is graded, so the bent section's modes are those of a stack
+of thin layers, each of the map's index at its middle: the midpoint rule's staircase, second
+order in the layers' thickness. Each region (each of the slice's layers, each PML) is cut into a
+power of two of them, at most `Eme::with_bend_step` thick in u (10 nm by default), so that
+halving the step doubles every count: the staircases nest, and Richardson's limit of two of them
+is good to the next order. With counts that only roughly doubled, the limit was off by 1e-8.
+
+**The PML** keeps its physical thickness: in u its thickness is the physical one over $\rho/R$ at
+the window's edge, and the profile goes on into it as its analytic continuation,
+$n^2 e^{2\tilde u/R}$ along the complex coordinate $\tilde u$. The light the bend radiates keeps
+meeting the profile it would have met. Two other PMLs were tried on TE at 2 µm, whose loss is
+3.1e-7 dB per 90°: one of the edge's index, uniform, put the loss 10 % off (the reflection from the
+change in the profile's slope), and one graded along the real coordinate 4 %; the continuation
+is within 6e-7 of the exact loss. A thick graded PML in a tight bend reaches a high index at its
+far end, where it holds modes of its own: TM at 2 µm loses two of them on the way to the bend
+with a PML 4 µm thick (2 µm is followed).
+
+**Its modes** are followed in two stages: from the uniform window to the thin layers straight
+(each of its physical index), as any section's; then the map's exponent $2\tilde u/R$ grows from 0
+to its own. Where two of them meet on the way, the bend's modes are followed from the uniform
+window directly instead. Two things found here hold for every section: a mode that lives at the
+PML's far end was stitched from the two walls' sweeps where one of them had followed a decaying
+field, so that it was 0.4 off orthogonal to the others; the sweeps are now joined only where they
+agree. And Newton's method now meets the sweeps where they meet best at the root, not at the guess.
+
+**At a joint** both sections' tangential fields are functions of the physical x across the
+joint's plane. A bent mode's are its mapped ones, but for the one that came from a derivative
+along the arc (TE's $H_x$, TM's $E_x$), which is $R/\rho$ times the mapped one, and
+$dx = (\rho/R)\thinspace du$. The overlaps between a straight and a bend are taken in x with those
+factors, exactly (the plan's $u = x$ holds only to first order in x/R); between two sections of one
+bend they are the mapped ones, so a bend's modes stay orthonormal and two bends of one radius in
+sequence are one.
+
+```rust
+use photonoxide::eme::{Eme, Section, Slice};
+use photonoxide::mode::Polarization;
+use photonoxide::units::{Length, Wavelength};
+use photonoxide::Complex64 as c64;
+
+// a 220 nm silicon slab, 1.39 µm of oxide inside it and 2.89 µm outside, to a PML outside
+let (si, sio2) = (c64::new(3.473, 0.0), c64::new(1.444, 0.0));
+let slab = Slice::new(&[(sio2, Length::um(1.39)), (si, Length::um(0.22)), (sio2, Length::um(2.89))])?;
+let eme = Eme::new(Polarization::Tm, Wavelength::um(1.55)?, 12)?.with_upper_pml(Length::um(2.0), 0.25)?;
+// the core's centre 2 µm from the bend's: 2.75 µm to the window's middle
+let quarter = std::f64::consts::FRAC_PI_2;
+let s = eme.s_matrix(&[
+    Section::new(slab.clone(), Length::ZERO),
+    Section::bend(slab.clone(), Length::um(2.75), quarter)?,
+    Section::new(slab, Length::ZERO),
+])?;
+let through = s.s21[0][0].norm_sqr();               // the bend's radiation and its two joints
+# let _ = through;
+# Ok::<(), photonoxide::Error>(())
+```
+
+Checked against `mode::bend`'s exact bent slab (radial shooting matched to the outgoing Hankel
+function, Marcuse's Eq. 10 without his approximation inside): a 220 nm silicon slab in oxide at
+1.55 µm, the window 2.5 µm outside it to a PML 2 µm thick of strength 0.5, and half the radius
+(at most 2.5 µm) inside.
+
+| Check | Ours | Exact |
+|---|---|---|
+| $n_\text{eff}$ at 2, 5, 10 and 20 µm, TE and TM, Richardson's limit of 10 and 5 nm layers (`eme/bend-index`) | within 3.4e-10 (our own error 2.2e-10: the limit's next halving and a PML twice as strong; the exact's own 1.9e-11) | `mode::bend`, its Runge–Kutta steps a quarter of its own |
+| the loss where it is above the arithmetic's reach: TE at 2 µm, 3.1e-7 dB per 90°; TM at 2, 3 and 5 µm, 0.19, 0.017 and 8.0e-5 dB per 90° (`eme/bend-loss`) | within 2.7e-5 relative (TM at 5 µm, where a PML twice as strong moves it by as much) | the same |
+| the layers' order at 2 µm, 10 nm and 2, 4 and 8 times as many (`eme/bend-order`) | 2.00 (TE 2.0001, 2.0000, 2.0000; TM 2.0007, 2.0009, 2.0032) | second order |
+| a 180° turn as two 90° bends joined by their overlaps, against one 180° bend, 12 modes (`eme/bend-halves`) | every entry of S within 5.1e-15 | the same cascade |
+| a bend of no angle between two straights at 2 and 3 µm, TE and TM, 24 modes (`eme/bend-no-angle`) | $\max(\lvert S_{21} - 1\rvert, \lvert S_{11}\rvert)$ 2.4e-5; at 2 µm TE with 6, 12, 16 and 24 modes 3.2e-3, 2.5e-3, 1.3e-4 and 3.5e-6 | the straight's S |
+| the straight-to-bend joint's coupling η between the fundamental modes, TE at 2, 3 and 5 µm and TM at 10 µm (`eme/bend-joint`) | within 3.4e-9 ($1 - \eta$ is 2.8e-3 at 2 µm TE) | the exact bent field's overlap with the straight slab's mode |
+
+A bend of no angle leaves its two joints, whose overlaps are inverse only with every mode: what
+remains is the truncation of two bases, as a zero-length section between two others in
+[periodic sections](#periodic-sections). It falls with the modes, though not monotonically.
+
+The exact bend had an error of its own at first: its inner solution started 6 decay lengths below
+the slab with an approximate $\psi'/\psi$, which adds the solution that decays outwards; by the
+slab that is down by $e^{-12}$, and it left $n_\text{eff}$ about 5e-9 off. It now starts 12 decay
+lengths deep. The joint's check excludes the leakier bends: its exact field is integrated across
+the window only, and a mode radiating more than an $\operatorname{Im} n_\text{eff}$ of about 1e-8
+puts power beyond it that the expansion's PML takes (TM at 5 µm, 2.9e-7, was 7.6e-7 off).
+
+**In a job,** a `[[task.section]]` with `radius_um` and `angle_deg` instead of `length_um` is a
+bend, its radius to the core's centre (to the window's middle for layers), positive turning
+towards the lower wall. Its length is the arc at the window's middle. The ports are straights, a
+bend is a core of one thickness or layers, and only 2D jobs that aren't symmetric take one; the
+scene draws it turning. `jobs/eme-bend.yaml` is the TM bend above, swept from 1.5 to 1.6 µm:
+$\lvert S_{21}\rvert^2$ is 0.8991 at 1.55 µm (0.46 dB, 0.19 dB of it the bend's radiation).
+
+```yaml
+  section:
+    - { name: input, length_um: 0.0, core_um: 0.22, center_um: -0.75 }
+    - { name: bend, radius_um: 2.0, angle_deg: 90.0, core_um: 0.22, center_um: -0.75 }
+    - { name: output, length_um: 0.0, core_um: 0.22, center_um: -0.75 }
+```
+
 ## Validation
 
 Measured with the cases' own settings, at 1.55 µm, silicon (3.473) in oxide (1.444):
@@ -709,6 +833,12 @@ Measured with the cases' own settings, at 1.55 µm, silicon (3.473) in oxide (1.
 | `eme/bloch-quarter-wave`, `-modes` | a quarter-wave stack (1.444 and 2.0 at 1.55 µm), $\cos K\Lambda$ of its Bloch modes ([periodic sections](#periodic-sections)): one mode at 61 wavelengths from 1 to 2.5 µm; 8 modes at 1.3, 1.55 and 1.8 µm | within 6.7e-16 and 8.1e-15 | the two layers' closed form, each mode its own | round-off, 1e-12 |
 | `eme/bloch-band-edges` | the same stack's first stop band, its edges by bisection on $\cos K\Lambda = -1$ | $\Delta\omega/\omega_0$ = 0.20645554758478, relative 2.0e-15 | $(4/\pi)\arcsin((n_2 - n_1)/(n_2 + n_1))$ | round-off, 1e-12 relative |
 | `eme/grating-squaring` | a silicon slab grating, 100 periods (20 modes, a PML), by repeated squaring | every entry of S within 2.5e-14 of the 200 sections in sequence | the same star products in another order | round-off, 1e-12 |
+| `eme/bend-index` | a 220 nm silicon slab bent at 2, 5, 10 and 20 µm, TE and TM ([bends](#bends)), Richardson's limit of 10 and 5 nm layers | $n_\text{eff}$ within 3.4e-10 (own error 2.2e-10) | `mode::bend`'s exact bent slab | discretisation, 7e-10 absolute, three times our own error |
+| `eme/bend-loss` | the same bends' loss where it is above the arithmetic's reach (TE at 2 µm, TM at 2, 3, 5 µm) | within 2.7e-5 relative | the same | discretisation, 9e-5 relative, three times our own error |
+| `eme/bend-order` | the same at 2 µm, 10 nm layers and 2, 4 and 8 times as many | order 2.00 | the midpoint staircase's second order | order, 2 within 0.1 |
+| `eme/bend-halves` | two 90° bends against one 180° bend, TE and TM, 12 modes | every entry of S within 5.1e-15 | the same cascade | round-off, 1e-12 |
+| `eme/bend-no-angle` | a bend of no angle between two straights, 24 modes | 2.4e-5 | the straight's S | discretisation, 1e-4, the mode-count gate of `eme/taper-modes` |
+| `eme/bend-joint` | the straight-to-bend joint's coupling, TE at 2, 3, 5 µm and TM at 10 µm | within 3.4e-9 (own error 1.3e-9) | the exact bent field's overlap with the straight's mode | discretisation, 4e-9 absolute, three times our own error |
 
 The FDFD comparison is the most telling: the two methods share nothing but the structure, and
 agree to 1.9e-5 of a reflection of 9.2e-5. Its transmission agrees too: 0.999829 against
@@ -750,7 +880,16 @@ What it does not do yet (#432):
   in reasonable time, and the 3D FDFD that checks it millions of unknowns for a device tens of
   micrometres long. The cases check a 1.6 µm MMI and a 1 µm taper; the studio's 6 µm MMI is not
   a case.
-- **Bends** are to come ([the bends' plan](../plans/eme-bends.md)).
+- **Bends are 2D only,** in the plane of the expansion: the map is exact only there, and a 3D
+  bend's modes need a bent-plane solver of their own ([the bends' plan](../plans/eme-bends.md)).
+  A bend's modes are followed through two stages, and in a tight bend, TM most, two of them can
+  still meet on the way: `jobs/eme-bend.yaml`'s straights lose two TM modes with a PML of
+  strength 0.5 (none with 0.25), and its bend with a PML 4 µm thick; the error names the mode.
+  A bend's loss in the job is that of its window: a mode radiating strongly puts power into the
+  PML that a narrower window would cut (the window must also stay on one side of the bend's
+  centre). The bend's mapped profile needs its own convergence beside the modes': the default
+  10 nm layers leave $n_\text{eff}$ off by 2.7e-6 (TE) and 2.1e-6 (TM) at 2 µm, which `[task.convergence]`
+  does not drive.
 - **A grating's Bloch modes are the expansion's,** with its modes' truncation error: the
   slab grating of [periodic sections](#periodic-sections) has a guided Bloch mode below the
   light line at 1.55 µm, which should be lossless (no diffraction order radiates), but with 20

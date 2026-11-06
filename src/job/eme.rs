@@ -14,7 +14,9 @@
 //! the sweep's points from the interpolant ([`crate::eme::Spectrum`]) with its estimated error.
 //! `[task.period]` repeats some of the sections `count` times, the structure solved by repeated
 //! squaring of one period's S-matrix ([`crate::eme::Eme::grating`]), and records the period's
-//! Bloch modes ([`crate::eme::Bloch`]) at each wavelength it solves as a sweep point.
+//! Bloch modes ([`crate::eme::Bloch`]) at each wavelength it solves as a sweep point. A section
+//! with `radius_um` and `angle_deg` is a bend by the conformal map ([`crate::eme::Slice::bent`]),
+//! drawn turning in the scene.
 //!
 //! The run records its scene (the cores seen from above, z along x), the solver's settings,
 //! the S-parameters between the guided modes at the two ends (at each wavelength), and each
@@ -60,14 +62,22 @@ struct LayerSpec {
     thickness_um: f64,
 }
 
-/// A `[[task.section]]`: a straight or a taper, in order along z.
+/// A `[[task.section]]`: a straight, a taper or a bend, in order along z.
 #[derive(Clone, Debug, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 struct SectionSpec {
     /// Its name, for the record: `"section k"` by default.
     name: Option<String>,
-    /// Its length along z, µm: 0 for a port's reference plane.
-    length_um: f64,
+    /// Its length along z, µm: 0 for a port's reference plane. A bend's is its arc, from
+    /// `radius_um` and `angle_deg`.
+    length_um: Option<f64>,
+    /// A bend's radius, µm, to the core's centre (to the window's middle for layers): positive
+    /// turning towards the lower wall (the bend's centre beyond it), negative towards the upper.
+    /// With `angle_deg` the section is a bend in the plane of the window, by the conformal map
+    /// ([`crate::eme::Slice::bent`]).
+    radius_um: Option<f64>,
+    /// A bend's angle, degrees.
+    angle_deg: Option<f64>,
     /// The core's thickness across the window, µm: one number for a straight, `[from, to]` for a
     /// taper.
     core_um: Option<Thickness>,
@@ -83,6 +93,27 @@ struct SectionSpec {
     profile: Option<String>,
     /// A taper's steps: equal ones, or the first ones `[task.adaptive]` refines; 10 by default.
     steps: Option<usize>,
+}
+
+impl SectionSpec {
+    /// Whether it is a bend.
+    fn is_bend(&self) -> bool {
+        self.radius_um.is_some() || self.angle_deg.is_some()
+    }
+
+    /// Its length along z (for a bend along the arc at the window's middle, where its modes'
+    /// propagation constants are taken), µm; NaN where it has none.
+    fn length(&self) -> f64 {
+        match (self.middle_radius(), self.angle_deg) {
+            (Some(r), Some(a)) => r.abs() * a.to_radians(),
+            _ => self.length_um.unwrap_or(f64::NAN),
+        }
+    }
+
+    /// A bend's radius to the window's middle, µm: its core's centre `center_um` from it.
+    fn middle_radius(&self) -> Option<f64> {
+        self.radius_um.map(|r| r - self.center_um.unwrap_or(0.0))
+    }
 }
 
 /// A `[task.pml]`: a perfectly matched layer inside the walls.
@@ -194,12 +225,15 @@ pub(super) struct EmeTask {
     period: Option<PeriodSpec>,
 }
 
-/// A section resolved at a wavelength: its name, length, and how its cross-section is made.
+/// A section resolved at a wavelength: its name, length, how its cross-section is made, and a
+/// bend's radius to the window's middle and angle (radians).
 #[derive(Clone, Debug)]
 struct Resolved {
     name: String,
     length: f64,
     shape: Shape,
+    radius: Option<f64>,
+    angle: f64,
 }
 
 #[derive(Clone, Debug)]
@@ -485,19 +519,28 @@ impl EmeTask {
         for (k, s) in self.section.iter().enumerate() {
             let at = format!("[[task.section]] #{}", k + 1);
             check_finite(&format!("{at} center_um"), s.center_um)?;
-            if !(s.length_um.is_finite() && s.length_um >= 0.0) {
-                return Err(task_error(format!(
-                    "{at}: length_um must be at least 0, got {}",
-                    s.length_um
-                )));
-            }
             let taper = matches!(s.core_um, Some(Thickness::Taper(_)));
+            if s.is_bend() {
+                self.validate_bend(&at, s, k, window, half, layers, taper)?;
+            } else {
+                let length = s.length_um.ok_or_else(|| {
+                    task_error(format!(
+                        "{at} needs length_um (a bend radius_um and angle_deg instead)"
+                    ))
+                })?;
+                if !(length.is_finite() && length >= 0.0) {
+                    return Err(task_error(format!(
+                        "{at}: length_um must be at least 0, got {length}"
+                    )));
+                }
+            }
+            let length = s.length();
             if taper && (k == 0 || k + 1 == self.section.len()) {
                 return Err(task_error(format!(
                     "{at}: the first and last sections are the ports, straights, not tapers"
                 )));
             }
-            if taper && s.length_um <= 0.0 {
+            if taper && length <= 0.0 {
                 return Err(task_error(format!("{at}: a taper needs a length above 0")));
             }
             if !taper && (s.profile.is_some() || s.steps.is_some()) {
@@ -570,6 +613,65 @@ impl EmeTask {
         Ok(())
     }
 
+    /// A bend's own settings: `s` is section `k` of a window `window` µm wide (the half's when
+    /// `half`), in 2D where `layers`.
+    #[allow(clippy::too_many_arguments)]
+    fn validate_bend(
+        &self,
+        at: &str,
+        s: &SectionSpec,
+        k: usize,
+        window: f64,
+        half: bool,
+        layers: bool,
+        taper: bool,
+    ) -> Result<()> {
+        let (Some(r), Some(a)) = (s.radius_um, s.angle_deg) else {
+            return Err(task_error(format!(
+                "{at}: a bend needs both radius_um and angle_deg"
+            )));
+        };
+        if s.length_um.is_some() {
+            return Err(task_error(format!(
+                "{at}: a bend's length is its arc, radius_um times angle_deg: leave length_um out"
+            )));
+        }
+        if !layers {
+            return Err(task_error(format!(
+                "{at}: a bend is a 2D job's: the conformal map is exact only in the plane of the \
+                 bend"
+            )));
+        }
+        if half {
+            return Err(task_error(format!(
+                "{at}: a bend has no plane of symmetry across it: a job with bends isn't symmetric"
+            )));
+        }
+        if k == 0 || k + 1 == self.section.len() {
+            return Err(task_error(format!(
+                "{at}: the first and last sections are the ports, straights, not bends"
+            )));
+        }
+        if taper {
+            return Err(task_error(format!(
+                "{at}: a bend's core is one thickness, not [from, to]"
+            )));
+        }
+        if !(a.is_finite() && a > 0.0) {
+            return Err(task_error(format!(
+                "{at}: angle_deg must be above 0, got {a}"
+            )));
+        }
+        let middle = s.middle_radius().unwrap_or(r);
+        if !(r.is_finite() && middle.abs() > 0.5 * window) {
+            return Err(task_error(format!(
+                "{at}: radius_um must keep the window ({window} um wide) on one side of the \
+                 bend's centre, got {r}"
+            )));
+        }
+        Ok(())
+    }
+
     /// The sections resolved at `wavelength` (µm): every medium's index there.
     fn sections(&self, wavelength: f64) -> Result<Vec<Resolved>> {
         let lam = Wavelength::um(wavelength)?;
@@ -619,8 +721,10 @@ impl EmeTask {
                         .name
                         .clone()
                         .unwrap_or_else(|| format!("section {}", k + 1)),
-                    length: s.length_um,
+                    length: s.length(),
                     shape,
+                    radius: s.middle_radius().filter(|_| s.is_bend()),
+                    angle: s.angle_deg.map_or(0.0, f64::to_radians),
                 })
             })
             .collect()
@@ -653,8 +757,17 @@ impl Resolved {
         matches!(self.shape, Shape::Core { from, to, .. } if from != to)
     }
 
-    /// Its cross-section a share `u` along it.
+    /// Its cross-section a share `u` along it, bent if it is a bend.
     fn slice_at(&self, u: f64, w: f64) -> Result<Slice> {
+        let slice = self.straight_at(u, w)?;
+        match self.radius {
+            Some(r) => slice.bent(Length::um(r)),
+            None => Ok(slice),
+        }
+    }
+
+    /// Its cross-section a share `u` along it, straight.
+    fn straight_at(&self, u: f64, w: f64) -> Result<Slice> {
         match &self.shape {
             Shape::Layers(layers) => Slice::new(
                 &layers
@@ -1115,7 +1228,7 @@ fn matrix_event(
 fn period_details(task: &EmeTask) -> Option<[String; 2]> {
     let p = task.period?;
     let [a, b] = p.sections;
-    let length: f64 = task.section[a - 1..b].iter().map(|s| s.length_um).sum();
+    let length: f64 = task.section[a - 1..b].iter().map(SectionSpec::length).sum();
     Some([
         "period".into(),
         format!(
@@ -1164,17 +1277,63 @@ fn scene_across(task: &EmeTask, window: f64, half: bool) -> Result<Event> {
     let w = if half { 2.0 * window } else { window };
     let mut shapes = Vec::new();
     let mut core_n = clad_n;
-    let mut z = 0.0;
+    // where each section starts and its heading (radians from x): a straight goes on along it, a
+    // bend turns it about its centre
+    let mut pen = Pen {
+        at: [0.0, 0.0],
+        heading: 0.0,
+    };
+    // the window's edges at each section's ends and along each bend, for the scene's extent
+    let mut edges = vec![pen.place(0.0, -0.5 * w), pen.place(0.0, 0.5 * w)];
     for r in order(task).into_iter().map(|k| &resolved[k]) {
         let l = r.length;
+        // a point of the section, a share u along it and y across it from the window's middle;
+        // and how many shares a straight edge takes (a bend's 32 a quarter turn)
+        let bend = r.radius.map(|radius| (radius, r.angle));
+        let point = |u: f64, y: f64| match bend {
+            Some((radius, angle)) => pen.arc(radius, u * angle, y),
+            None => pen.place(u * l, y),
+        };
+        let arc_points = bend.map_or(1, |(_, a)| {
+            (32.0 * a / std::f64::consts::FRAC_PI_2).ceil().max(1.0) as usize
+        });
+        // a band from a to b across, along the whole section
+        let band = |a: f64, b: f64, k: usize, width: &dyn Fn(f64) -> (f64, f64)| -> SceneShape {
+            let edge = |lower: bool| -> Vec<[f64; 2]> {
+                (0..=k)
+                    .map(|i| {
+                        let u = i as f64 / k as f64;
+                        let (lo, hi) = width(u);
+                        point(u, if lower { a + lo } else { b + hi })
+                    })
+                    .collect()
+            };
+            let mut outline = edge(true);
+            outline.extend(edge(false).into_iter().rev());
+            SceneShape {
+                layer: "core".into(),
+                outline,
+            }
+        };
         match &r.shape {
             Shape::Layers(layers) => {
                 let mut x = if half { 0.0 } else { -0.5 * w };
                 for &(n, d) in layers {
                     if n != clad_n && l > 0.0 {
-                        let rect = |a: f64, b: f64| SceneShape {
-                            layer: "core".into(),
-                            outline: vec![[z, a], [z + l, a], [z + l, b], [z, b]],
+                        let rect = |a: f64, b: f64| {
+                            if bend.is_some() {
+                                band(a, b, arc_points, &|_| (0.0, 0.0))
+                            } else {
+                                SceneShape {
+                                    layer: "core".into(),
+                                    outline: vec![
+                                        point(0.0, a),
+                                        point(1.0, a),
+                                        point(1.0, b),
+                                        point(0.0, b),
+                                    ],
+                                }
+                            }
                         };
                         shapes.push(rect(x, x + d));
                         if half {
@@ -1196,29 +1355,35 @@ fn scene_across(task: &EmeTask, window: f64, half: bool) -> Result<Event> {
                 core_n = core;
                 if l > 0.0 {
                     // the outline sampled at 32 points along a taper, 1 along a straight
-                    let k = if from == to { 1 } else { 32 };
-                    let edge = |sign: f64| -> Vec<[f64; 2]> {
-                        (0..=k)
-                            .map(|i| {
-                                let u = i as f64 / k as f64;
-                                [z + u * l, center + sign * 0.5 * profile.at(from, to, u)]
-                            })
-                            .collect()
-                    };
-                    let mut outline = edge(-1.0);
-                    outline.extend(edge(1.0).into_iter().rev());
-                    shapes.push(SceneShape {
-                        layer: "core".into(),
-                        outline,
-                    });
+                    let k = if from == to { arc_points } else { 32 };
+                    let half_at = |u: f64| 0.5 * profile.at(from, to, u);
+                    shapes.push(band(center, center, k, &|u| (-half_at(u), half_at(u))));
                 }
             }
         }
-        z += l;
+        for i in 1..=arc_points {
+            let u = i as f64 / arc_points as f64;
+            edges.extend([point(u, -0.5 * w), point(u, 0.5 * w)]);
+        }
+        pen = match bend {
+            Some((radius, angle)) => pen.turned(radius, angle),
+            None => Pen {
+                at: pen.place(l, 0.0),
+                ..pen
+            },
+        };
     }
+    let span = |axis: usize| {
+        let lo = edges.iter().map(|p| p[axis]).fold(f64::INFINITY, f64::min);
+        let hi = edges
+            .iter()
+            .map(|p| p[axis])
+            .fold(f64::NEG_INFINITY, f64::max);
+        [lo, hi.max(lo + 1e-3)]
+    };
     Ok(Event::Scene {
-        x_um: [0.0, z.max(1e-3)],
-        y_um: [-0.5 * w, 0.5 * w],
+        x_um: span(0),
+        y_um: span(1),
         z_um: [0.0, 1.0],
         wavelength_um: task.wavelength_um,
         substrate: medium(cladding.name(), clad_n),
@@ -1231,6 +1396,47 @@ fn scene_across(task: &EmeTask, window: f64, half: bool) -> Result<Event> {
         }],
         shapes,
     })
+}
+
+/// Where a section starts in the scene, and its heading (radians from x).
+#[derive(Clone, Copy, Debug)]
+struct Pen {
+    at: [f64; 2],
+    heading: f64,
+}
+
+impl Pen {
+    /// The point `along` ahead and `y` across (to the left).
+    fn place(&self, along: f64, y: f64) -> [f64; 2] {
+        let (s, c) = self.heading.sin_cos();
+        [
+            self.at[0] + along * c - y * s,
+            self.at[1] + along * s + y * c,
+        ]
+    }
+
+    /// The point a bend of radius `radius` (to the pen; positive with its centre on the right,
+    /// at −y) has reached after `angle` radians, `y` across from its middle.
+    fn arc(&self, radius: f64, angle: f64, y: f64) -> [f64; 2] {
+        let centre = self.place(0.0, -radius);
+        let turn = radius.signum() * angle;
+        let (s, c) = turn.sin_cos();
+        let (hs, hc) = self.heading.sin_cos();
+        // n cos + t sin, with t the heading and n to its left
+        let out = [-hs * c + hc * s, hc * c + hs * s];
+        [
+            centre[0] + (radius + y) * out[0],
+            centre[1] + (radius + y) * out[1],
+        ]
+    }
+
+    /// The pen after a bend of `radius` and `angle`.
+    fn turned(&self, radius: f64, angle: f64) -> Pen {
+        Pen {
+            at: self.arc(radius, angle, 0.0),
+            heading: self.heading - radius.signum() * angle,
+        }
+    }
 }
 
 /// The `"eme"` kind: a 2D structure of sections by eigenmode expansion.
@@ -1328,6 +1534,17 @@ fn eme(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
                 p.thickness_um,
                 p.strength,
                 p.sides.as_deref().unwrap_or("both")
+            ),
+        ]);
+    }
+    let bends = first.iter().filter(|r| r.radius.is_some()).count();
+    if bends > 0 {
+        details.push([
+            "bends".into(),
+            format!(
+                "{bends}, by the conformal map, each one's profile in thin layers at most {} um \
+                 thick",
+                crate::eme::BEND_STEP
             ),
         ]);
     }

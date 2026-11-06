@@ -2261,6 +2261,8 @@ pub fn cases() -> Vec<Case> {
     cases.extend(crate::eme::spectrum_checks::cases());
     // and periodic sections: Bloch modes from one period's S, N periods by repeated squaring
     cases.extend(crate::eme::periodic_checks::cases());
+    // and bends by the conformal map, against the exact bent slab
+    cases.extend(crate::eme::bend_checks::cases());
     // and convergence to a tolerance: the mode solver, FDFD and the expansion driven to one
     cases.extend(crate::convergence::checks::cases());
     // and the thin-film lithium niobate Mach-Zehnder modulator as a device
