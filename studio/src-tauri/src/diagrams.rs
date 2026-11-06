@@ -352,6 +352,25 @@ pub fn specs() -> Vec<DiagramSpec> {
                          SOI wafer, under an oxide cladding. Run, the job solves its modes and \
                          their indices from 1.5 to 1.6 µm. Drag to turn it.",
         },
+        DiagramSpec {
+            id: "yee",
+            title: "Yee's grid and the leapfrog",
+            caption: "At the left, one cell of Yee's grid, $\\Delta x$ by $\\Delta y$ by \
+                      $\\Delta z$, $x$ to the right, $y$ into the page and $z$ up. The electric \
+                      field's components $E_x$, $E_y$ and $E_z$ sit at the middles of the cell's \
+                      edges along them; the magnetic field's, $\\tilde H_x$, $\\tilde H_y$ and \
+                      $\\tilde H_z$, at the centres of the faces normal to them. Each E is circled \
+                      by four H and each H by four E, so every curl is a centred difference half \
+                      a cell wide. At the right, the leapfrog in time: E at the whole steps \
+                      $n - 1$, $n$, $n + 1$, H at the half steps between, each advanced from the \
+                      other's curl, $\\Delta t$ apart; it is stable while \
+                      $c\\Delta t \\le 1/\\sqrt{\\sum_i 1/\\Delta_i^2}$. One of each component is \
+                      drawn: $E_x$ lies on all four edges along $x$, and $\\tilde H_x$ on both \
+                      faces normal to $x$, each shared with the neighbouring cells. Not to \
+                      scale.",
+            job: None,
+            caption_3d: "",
+        },
     ]
 }
 

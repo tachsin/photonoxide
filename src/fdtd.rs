@@ -115,6 +115,89 @@ impl Cpml {
     }
 }
 
+/// The leapfrog's time step on cells of the sizes `cells` (µm, one per axis the field varies
+/// along), at the Courant number `courant`: Δt = C/√(Σ 1/Δᵢ²) in µm/c, as [`Simulation`] takes
+/// it. C ≤ 1 is Taflove and Brodwin's stability limit ([`grid_frequency`]).
+pub fn time_step(cells: &[f64], courant: f64) -> f64 {
+    courant / cells.iter().map(|d| 1.0 / (d * d)).sum::<f64>().sqrt()
+}
+
+/// The frequency a plane wave of wavevector `k` (rad/µm) has on Yee's grid with cells `cells`
+/// (µm) and time step `dt` (µm/c), in a uniform medium of refractive index `index`: Taflove and
+/// Brodwin's relation (IEEE Trans. Microw. Theory Tech. 23, 623 (1975),
+/// doi:10.1109/TMTT.1975.1128640),
+///
+/// n² sin²(ωΔt/2)/Δt² = Σᵢ sin²(kᵢΔᵢ/2)/Δᵢ²,
+///
+/// as an angular frequency ω (rad per µm/c). With s = (Δt/n)√(Σᵢ sin²(kᵢΔᵢ/2)/Δᵢ²) ≤ 1 it is
+/// real, ω = (2/Δt) asin s. With s > 1, past the stability limit, no real ω satisfies it: the
+/// root is ω = (2/Δt)(π/2 + i acosh s), whose field grows by e^(Im ω Δt) = (s + √(s² − 1))² a
+/// step, as e^(−iωt) is photonoxide's convention.
+pub fn grid_frequency(k: [f64; 3], cells: [f64; 3], dt: f64, index: f64) -> c64 {
+    let sum: f64 = k
+        .iter()
+        .zip(cells)
+        .map(|(&k, d)| ((k * d / 2.0).sin() / d).powi(2))
+        .sum();
+    let s = dt / index * sum.sqrt();
+    if s <= 1.0 {
+        c64::new(2.0 / dt * s.asin(), 0.0)
+    } else {
+        c64::new(std::f64::consts::PI / dt, 2.0 / dt * s.acosh())
+    }
+}
+
+/// The wavenumber |k| (rad/µm) Yee's grid gives a plane wave of `frequency` travelling along
+/// `direction` (normalized here) in a uniform medium of refractive index `index`, by
+/// [`grid_frequency`]'s relation solved for k by bisection, to round-off. Its true wavenumber
+/// is nω; the grid's is larger, so the wave travels slower than light, the more so the fewer
+/// cells a wavelength. `None` where no k along `direction` reaches the frequency: above the
+/// grid's highest frequency in that direction.
+pub fn grid_wavenumber(
+    frequency: Frequency,
+    direction: [f64; 3],
+    cells: [f64; 3],
+    dt: f64,
+    index: f64,
+) -> Option<f64> {
+    let norm = direction.iter().map(|u| u * u).sum::<f64>().sqrt();
+    if !(norm > 0.0 && norm.is_finite()) {
+        return None;
+    }
+    let u = direction.map(|u| u / norm);
+    let target = (index * (frequency.angular() * dt / 2.0).sin() / dt).powi(2);
+    let f = |k: f64| -> f64 {
+        u.iter()
+            .zip(cells)
+            .map(|(&u, d)| ((k * u * d / 2.0).sin() / d).powi(2))
+            .sum::<f64>()
+            - target
+    };
+    // each term rises until kuᵢΔᵢ = π: the sum rises on (0, the first such k]
+    let top = u
+        .iter()
+        .zip(cells)
+        .filter(|(u, _)| u.abs() > 0.0)
+        .map(|(u, d)| std::f64::consts::PI / (u.abs() * d))
+        .fold(f64::INFINITY, f64::min);
+    if f(top) < 0.0 {
+        return None;
+    }
+    let (mut a, mut b) = (0.0, top);
+    for _ in 0..200 {
+        let m = 0.5 * (a + b);
+        if m <= a || m >= b {
+            break;
+        }
+        if f(m) < 0.0 {
+            a = m;
+        } else {
+            b = m;
+        }
+    }
+    Some(0.5 * (a + b))
+}
+
 /// The boundaries of an FDTD grid: what is beyond each axis's ends.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Boundaries {

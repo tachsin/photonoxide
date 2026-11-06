@@ -163,7 +163,10 @@ $$
 
 slower than light, most along the axes. The scheme keeps this relation exactly, not
 approximately: a plane wave started on a periodic grid oscillates at its frequency to round-off
-(`fdtd/dispersion`, 3.6e-15).
+(`fdtd/dispersion`, 3.6e-15). `fdtd::grid_frequency` evaluates it for a wavevector (complex past
+the stability limit, the root that grows), `fdtd::grid_wavenumber` solves it for the wavenumber
+along a direction, and `fdtd::time_step` gives the step for a Courant number; a unit test checks
+`grid_frequency` against such a run to round-off.
 
 **Energy.** In a closed lossless box the leapfrog conserves
 $\tfrac12\sum\varepsilon E^2 + \tfrac12\sum\tilde H^{n-1/2}\cdot\tilde H^{n+1/2}$ exactly, because
