@@ -56,11 +56,11 @@ pub(crate) fn points(a: &[&Mode], b: &[&Mode]) -> Vec<Point> {
     let same = ma == mb;
     // a coordinate of a slice's to the common one, and back
     let to_x = |m: Option<Map>, s: f64| match m {
-        Some(m) if !same => m.to_x(s),
+        Some(m) if !same => m.x_at(s),
         _ => s,
     };
     let to_s = |m: Option<Map>, x: f64| match m {
-        Some(m) if !same => (m.to_s(x), m.jacobian(x)),
+        Some(m) if !same => (m.s_at(x), m.jacobian(x)),
         _ => (x, 1.0),
     };
     let mut edges: Vec<f64> = la

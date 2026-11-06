@@ -1375,7 +1375,10 @@ fn scene_across(task: &EmeTask, window: f64, half: bool) -> Result<Event> {
     }
     let span = |axis: usize| {
         let lo = edges.iter().map(|p| p[axis]).fold(f64::INFINITY, f64::min);
-        let hi = edges.iter().map(|p| p[axis]).fold(f64::NEG_INFINITY, f64::max);
+        let hi = edges
+            .iter()
+            .map(|p| p[axis])
+            .fold(f64::NEG_INFINITY, f64::max);
         [lo, hi.max(lo + 1e-3)]
     };
     Ok(Event::Scene {
@@ -1406,7 +1409,10 @@ impl Pen {
     /// The point `along` ahead and `y` across (to the left).
     fn place(&self, along: f64, y: f64) -> [f64; 2] {
         let (s, c) = self.heading.sin_cos();
-        [self.at[0] + along * c - y * s, self.at[1] + along * s + y * c]
+        [
+            self.at[0] + along * c - y * s,
+            self.at[1] + along * s + y * c,
+        ]
     }
 
     /// The point a bend of radius `radius` (to the pen; positive with its centre on the right,

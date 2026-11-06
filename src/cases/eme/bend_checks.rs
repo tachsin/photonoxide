@@ -155,6 +155,7 @@ pub(crate) fn index_limit(polarization: Polarization, r: f64) -> (c64, c64, (f64
     (want, got, own)
 }
 /// dB per 90° of a mode of effective index `n` at the radius `r` µm its index is taken at.
+#[cfg(test)]
 pub(crate) fn db_per_quarter(n: c64, r: f64) -> f64 {
     let k = std::f64::consts::TAU / LAMBDA;
     20.0 / std::f64::consts::LN_10 * k * n.im * r * std::f64::consts::FRAC_PI_2
@@ -345,7 +346,13 @@ pub(crate) fn loss_case() -> (f64, f64) {
 pub(crate) fn order_case() -> f64 {
     BOTH.iter()
         .flat_map(|&pol| orders(pol, 2.0))
-        .fold(2.0, |a: f64, b| if (b - 2.0).abs() > (a - 2.0).abs() { b } else { a })
+        .fold(2.0, |a: f64, b| {
+            if (b - 2.0).abs() > (a - 2.0).abs() {
+                b
+            } else {
+                a
+            }
+        })
 }
 
 /// The halves case: TE and TM at 2 µm with 12 modes, the largest |ΔS_qp|.
@@ -507,7 +514,9 @@ mod tests {
         assert!(slab.clone().bent(Length::um(f64::NAN)).is_err());
         // the slice is allowed, but not with a PML inside the bend that reaches the centre
         let half = 0.5 * slab.width().to_um();
-        let near = slab.bent(Length::um(half + 0.5)).expect("inside the radius");
+        let near = slab
+            .bent(Length::um(half + 0.5))
+            .expect("inside the radius");
         let eme = Eme::new(Polarization::Te, lam(), 4)
             .and_then(|e| e.with_pml(Length::um(1.0), 0.5))
             .expect("an eme");
@@ -518,7 +527,11 @@ mod tests {
     #[ignore = "prints the numbers"]
     fn the_bend_study() {
         let t = std::time::Instant::now();
-        eprintln!("index {:?} {:.1} s", index_case(), t.elapsed().as_secs_f64());
+        eprintln!(
+            "index {:?} {:.1} s",
+            index_case(),
+            t.elapsed().as_secs_f64()
+        );
         let t = std::time::Instant::now();
         eprintln!("loss {:?} {:.1} s", loss_case(), t.elapsed().as_secs_f64());
         let t = std::time::Instant::now();
@@ -530,7 +543,11 @@ mod tests {
         }
         eprintln!("order {} {:.1} s", order_case(), t.elapsed().as_secs_f64());
         let t = std::time::Instant::now();
-        eprintln!("halves {:e} {:.1} s", halves_case(), t.elapsed().as_secs_f64());
+        eprintln!(
+            "halves {:e} {:.1} s",
+            halves_case(),
+            t.elapsed().as_secs_f64()
+        );
         let t = std::time::Instant::now();
         for modes in [6, 12, 16, 24] {
             eprintln!(
@@ -539,12 +556,23 @@ mod tests {
                 no_angle(Polarization::Tm, 2.0, modes)
             );
         }
-        eprintln!("no angle {:e} {:.1} s", no_angle_case(), t.elapsed().as_secs_f64());
+        eprintln!(
+            "no angle {:e} {:.1} s",
+            no_angle_case(),
+            t.elapsed().as_secs_f64()
+        );
         let t = std::time::Instant::now();
-        eprintln!("joint {:?} {:.1} s", joint_case(), t.elapsed().as_secs_f64());
+        eprintln!(
+            "joint {:?} {:.1} s",
+            joint_case(),
+            t.elapsed().as_secs_f64()
+        );
         for (pol, r) in LOSSY {
             let n = exact_index(pol, r);
-            eprintln!("{pol:?} {r}: {n:.12} {:.4e} dB/90", db_per_quarter(n, middle(r)));
+            eprintln!(
+                "{pol:?} {r}: {n:.12} {:.4e} dB/90",
+                db_per_quarter(n, middle(r))
+            );
         }
         for (pol, r) in JOINTS {
             let eta = exact_coupling(pol, r, REFERENCE);

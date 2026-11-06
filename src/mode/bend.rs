@@ -292,8 +292,9 @@ impl SlabBend {
         // is below its own start, so that it is never integrated inwards
         let lowest = rhos.iter().copied().fold(ends.start, f64::min);
         let inner = if lowest < ends.start {
-            let kappa =
-                (nu * nu / (lowest * lowest) - c64::new(k * k * self.inner * self.inner, 0.0)).sqrt();
+            let kappa = (nu * nu / (lowest * lowest)
+                - c64::new(k * k * self.inner * self.inner, 0.0))
+            .sqrt();
             (lowest, (one, kappa - 1.0 / (2.0 * lowest)))
         } else {
             (ends.start, (one, ends.inner))

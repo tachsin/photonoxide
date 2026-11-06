@@ -335,7 +335,14 @@ fn newton(eme: &Eme, k: f64, layers: &[Layer], guess: c64, noise: f64) -> Option
 }
 
 /// [`newton`] with the sweeps meeting at boundary `at`.
-fn newton_at(eme: &Eme, k: f64, layers: &[Layer], guess: c64, noise: f64, at: usize) -> Option<c64> {
+fn newton_at(
+    eme: &Eme,
+    k: f64,
+    layers: &[Layer],
+    guess: c64,
+    noise: f64,
+    at: usize,
+) -> Option<c64> {
     let mut nu = guess;
     let mut last = f64::INFINITY;
     for _ in 0..60 {
@@ -663,14 +670,14 @@ impl Mode {
     /// The window's width with its PMLs, µm.
     pub fn width(&self) -> f64 {
         let s: f64 = self.layers.iter().map(|l| l.width).sum();
-        self.map.map_or(s, |m| m.to_x(s))
+        self.map.map_or(s, |m| m.x_at(s))
     }
 
     /// The tangential fields at x (µm from the lower wall, PMLs included), normalized to
     /// ⟨E, H⟩ = 1 in units of Z₀ for E: (E_y, H_x) for TE, (E_x, H_y) for TM. In a bent section
     /// x is along the radius from the lower wall, H_x and E_x the radial components.
     pub fn field(&self, x: f64) -> (c64, c64) {
-        let (s, jacobian) = self.map.map_or((x, 1.0), |m| (m.to_s(x), m.jacobian(x)));
+        let (s, jacobian) = self.map.map_or((x, 1.0), |m| (m.s_at(x), m.jacobian(x)));
         let j = self.layers.iter().rposition(|l| l.x0 <= s).unwrap_or(0);
         let (e, h) = self.e_h(j, s);
         match self.polarization {

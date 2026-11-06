@@ -576,7 +576,10 @@ fn check_refuses_a_bend_it_cannot_solve() {
         "not bends",
     );
     refused(
-        b.replace("core_um = 0.22\ncenter_um = -0.75\n\n[[task.section]]\nlength_um = 0.0", "core_um = [0.22, 0.3]\ncenter_um = -0.75\n\n[[task.section]]\nlength_um = 0.0"),
+        b.replace(
+            "core_um = 0.22\ncenter_um = -0.75\n\n[[task.section]]\nlength_um = 0.0",
+            "core_um = [0.22, 0.3]\ncenter_um = -0.75\n\n[[task.section]]\nlength_um = 0.0",
+        ),
         "one thickness",
     );
 }

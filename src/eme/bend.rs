@@ -74,7 +74,7 @@ impl Map {
     }
 
     /// s at physical x.
-    pub(crate) fn to_s(&self, x: f64) -> f64 {
+    pub(crate) fn s_at(&self, x: f64) -> f64 {
         let (lo, hi) = (self.lower, self.lower + self.width);
         let window = self.u[1] - self.u[0];
         if x < lo {
@@ -88,7 +88,7 @@ impl Map {
     }
 
     /// Physical x at s.
-    pub(crate) fn to_x(&self, s: f64) -> f64 {
+    pub(crate) fn x_at(&self, s: f64) -> f64 {
         let (lo, hi) = (self.lower_s(), self.lower_s() + self.u[1] - self.u[0]);
         if s < lo {
             s * self.jacobian[0]
@@ -170,7 +170,9 @@ pub(crate) fn layers(eme: &Eme, slice: &Slice, radius: f64, t: f64) -> Vec<Layer
         }
         s += width;
     };
-    let pml = eme.pml.map(|p| (p.thickness, c64::new(1.0, t * p.strength)));
+    let pml = eme
+        .pml
+        .map(|p| (p.thickness, c64::new(1.0, t * p.strength)));
     let lower = eme.pml.is_some_and(|p| p.lower);
     let first = slice.layers[0].0;
     let last = slice.layers[slice.layers.len() - 1].0;
@@ -184,12 +186,16 @@ pub(crate) fn layers(eme: &Eme, slice: &Slice, radius: f64, t: f64) -> Vec<Layer
         let u = |xi: f64| radius * (xi / radius).ln_1p();
         let (a, b) = (u(xi), u(xi + d));
         let base = s_lo - u_lo;
-        push(n, b - a, c64::new(1.0, 0.0), &move |s: f64| c64::new(s - base, 0.0));
+        push(n, b - a, c64::new(1.0, 0.0), &move |s: f64| {
+            c64::new(s - base, 0.0)
+        });
         xi += d;
     }
     if let Some((d, st)) = pml {
         let s_hi = s_lo + u_hi - u_lo;
-        push(last, d / map.jacobian[1], st, &move |s: f64| u_hi + st * (s - s_hi));
+        push(last, d / map.jacobian[1], st, &move |s: f64| {
+            u_hi + st * (s - s_hi)
+        });
     }
     out
 }
