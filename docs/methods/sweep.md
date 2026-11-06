@@ -156,15 +156,20 @@ at that tolerance, with their estimate at least the roughness, when all of these
 - their estimate is the smaller.
 
 At its next stall the sweep looks at its steps since the estimate last made progress, at least
-n of them. They show noise when three things hold:
+n of them. They show the sweep at its noise, asked for a tolerance the noise doesn't allow, when
+four things hold:
 
 - at least a fifth of them have a gain of 2 or more;
 - the least estimate is at least 2.6 times their median roughness (`Sweep::noise`);
-- that least is at most 10 %.
+- that least is at most 10 %;
+- the tolerance asked for is below 6.99 times that median roughness, the least estimate the
+  noise has allowed (below).
 
-The sweep then stops (`Sweep::stalled`) with the fit of its least estimate. Otherwise it may be
-a response not yet resolved, which misses its own held-out samples by about as much as its
-estimate, and it samples on, counting its steps afresh.
+The sweep then stops (`Sweep::stalled`) with the fit of its least estimate. Otherwise it samples
+on, counting its steps afresh: it may be a response not yet resolved, which misses its own
+held-out samples by about as much as its estimate, or a tolerance the noise may still allow,
+which the sweep meets or runs to its limit trying, with `Sweep::noise` saying where the noise
+is.
 
 One step can't make this decision. On one sweep below (η = 1e-10), the gain went from 1.0 to 96
 between consecutive samples and the roughness from 0.44 to 1.8 η. The rule as I first wrote it
@@ -186,7 +191,16 @@ every stall of those noisy sweeps and of the 2000 noiseless sweeps below:
   at its noise. The rule takes 2.6. One noiseless exp(sin) response had 7.61, and its share,
   0.07, refuses it.
 
-The same function, asked for $10^{-12}$ with 200 samples at most, over 30 seeds at each of nine
+The last threshold isn't a midpoint but a bound: the least estimate the noise has allowed. I
+ran the 300 sweeps below the noise in the table that follows on Windows and on Linux (WSL), whose
+`sin` and rounding differ in the last bits. None of the 600 got its estimate under 6.99 times its
+median roughness (7.35 on Windows, 6.99 on Linux). A tolerance below that was never met, so a
+stall there is the noise's; above it the sweep samples on. Without this condition the window's
+rule stopped sweeps whose tolerance the noise allows. Asked for $10^{-6}$
+at η = 1e-8, 34 of 60 stopped with estimates of 1.8e-6 to 8.6e-3 while their fits' true errors
+were under 4e-7; macOS's CI found one of them.
+
+The same function, asked for $10^{-13}$ with 200 samples at most, over 30 seeds at each of nine
 levels and the 30 moved sweeps (relative to the largest value; a uniform noise of $\pm\eta$ has
 a root mean square of about $0.5\eta$ of it; medians, with the 95 % point after the slash):
 
@@ -203,7 +217,7 @@ a root mean square of about $0.5\eta$ of it; medians, with the 95 % point after 
 | 1e-4 | 23 of 30 | 46 / 200 | 0.63 / 1.0 η | 120 η | 8.3 / 570 η |
 | 1e-10, one seed moved by 0 to 29 ulps | 30 of 30 | 58 / 94 | 0.81 / 6.7 η | 33 η | 8.2 / 40 η |
 
-In all 300 sweeps the estimate bounded the fit's true error, at most 0.72 of it. Where the rule
+In all 300, and in the 180 below asked for more, the estimate bounded the fit's true error, at most 0.72 of it, on both systems. Where the rule
 falls short:
 
 - **The estimate is pessimistic.** Its median over the 300 is 106 η, and one sweep in twenty
@@ -217,8 +231,22 @@ falls short:
 - **Some stop before the roughness is down to the noise.** At its 95 % point the roughness is
   41 η, at most 623 η, where the estimate's fits haven't resolved the noise yet.
 
-Asked for a tolerance above the noise ($10^{-8}$ with η = 1e-10), the sweep converges with the
-fits above the noise in 35 samples, where the interpolating fits never reach it. The rule
+Asked for a tolerance above the noise, 30 seeds at each of three levels (the same study):
+
+| Noise η | Asked for | Converged | Ran to the limit | Stopped |
+|---|---|---|---|---|
+| 1e-10 | 10 η | 12 | 9 | 9 |
+| 1e-10 | 100 η | 25 | 2 | 3 |
+| 1e-8 | 10 η | 5 | 7 | 18 |
+| 1e-8 | 100 η | 22 | 6 | 2 |
+| 1e-6 | 10 η | 9 | 18 | 3 |
+| 1e-6 | 100 η | 20 | 10 | 0 |
+
+The fits above the noise meet a tolerance the interpolating fits never reach: 67 of 90 at
+100 η (67 on Linux too). A sweep stops here only where its measured roughness puts the
+tolerance under the floor, which a roughness measured too early can (its 95 % point is 24 η). Then it reports that
+roughness, and the tolerance is what has to change. At 10 η, just above the floor, most sweeps
+either stop so or run to their limit, the estimate seldom coming down that far. The rule
 is off by default because it watches sweeps without noise too. A response not yet resolved can
 stall, and a fit through it can then look better above a tolerance. With the rule on, 2000
 sweeps of the test functions (50 of each kind, at the four tolerances of
@@ -233,14 +261,20 @@ Before the condition of a least estimate of 10 % at most, one Fabry–Perot resp
 after 25 samples with its estimate at 40 % and its true error 64 times that.
 `sweep/estimate-bounds-error` runs without the rule, as sweeps do unless asked. On the slab's
 2.5 nm samples asked for $10^{-10}$, the roughness is 1.0e-13, far below the estimate's 6.2e-9:
-that floor is not the samples' noise, but a quarter of the steps show it at 1e-13, so the rule
-stops the sweep at 49 samples with its least estimate, 6.2e-9 (7.8 without the rule). The rule
-as first written ran it to its limit of 60 with the same estimate. The numbers are printed by
-`cargo test --release --lib sweep::tests::the_stopping_rule_on_noisy_samples_study -- --ignored --nocapture`,
-and `sweep::tests::a_sweep_of_noisy_samples_stops_at_their_noise` checks nine sweeps on every
-run: at 1e-12, 1e-10 and 1e-8, one seed, the same moved by 4 ulps, and a second seed. Eight of
-the nine must stop, each estimate must bound its true error, and the median roughness must lie
-within the ensemble's 5 % to 95 % points at those levels, 0.54 to 41 η.
+that floor is not the samples' noise. The tolerance, $10^{-10}$, is far above what that roughness
+allows, so the sweep runs on to its 60 samples and ends with its least estimate, 6.2e-9 (7.8
+without the rule). The numbers are printed by
+`cargo test --release --lib sweep::tests::the_stopping_rule_on_noisy_samples_study -- --ignored --nocapture`.
+`sweep::tests::a_sweep_of_noisy_samples_stops_at_their_noise` checks 18 sweeps on every run,
+three realisations at each level: one seed, the same moved by 4 ulps, and a second seed.
+
+- **Asked for $10^{-13}$ at 1e-12, 1e-10 and 1e-8.** Eight of the nine must stop (the ensemble
+  stopped 120 of 120 there), and their median roughness must lie within the ensemble's 5 % to
+  95 % points, 0.54 to 41 η.
+- **Asked for 100 η at 1e-10, 1e-8 and 1e-6.** At least three of the nine must converge (the
+  ensemble converged 67 of 90 on Windows and on Linux; fewer has a chance under 0.3 %).
+- **All 18.** Each must stop only with its tolerance below 6.99 times its roughness, and each
+  estimate must bound its true error.
 
 ## Against a uniform grid
 
@@ -400,9 +434,10 @@ Refinement is off by default, so a branch chooses as before unless asked.
 - Noisy samples set a floor. With the stopping rule the sweep measures the noise, fits above it
   and stops at it: 254 of 270 sweeps at noise levels from 1e-12 to 1e-4 did, whatever the
   seed or the samples' last bits, with estimates of a median 106 times the noise that bounded
-  every fit's true error (measured above). A floor that isn't the samples' noise, as on the
-  slab's 2.5 nm samples, stops the sweep where their roughness shows, with `Sweep::noise` far
-  below the estimate. The sweep doesn't clean up AAA's spurious poles as Nakatsukasa et al. do;
+  every fit's true error (measured above). It stops only where the tolerance is below 6.99
+  times the roughness, what the noise allows; above that it samples on. A floor that isn't the
+  samples' noise, as on the slab's 2.5 nm samples, isn't noticed: the sweep runs to
+  `Options::max_samples` with `converged` false. The sweep doesn't clean up AAA's spurious poles as Nakatsukasa et al. do;
   it samples at their real parts instead. On noisy samples that leaves the estimate
   pessimistic, and at noise of 1e-6 and above it keeps 14 sweeps of 90 from stopping.
 - Mode following uses the full-vector solver's modes on a fixed grid. At an anticrossing of two

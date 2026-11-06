@@ -86,20 +86,22 @@
 //!   estimate last made progress decide, not one step (whose gain and roughness jump from one
 //!   sample to the next, so that a decision of one step's turned on the samples' last bits):
 //!   where a fifth of them have a gain of 2, the least estimate is at least 2.6 times their
-//!   median roughness ([`Sweep::noise`]) and at most 10 %, the stall stops the sweep
-//!   ([`Sweep::stalled`]) with the fit of its least estimate; else a response not yet resolved,
-//!   whose fits miss its samples by about as much as its estimate, is sampled on. On
-//!   2 + 0.3 sin 1.5x + 0.1x² with a uniform relative noise of η (its root mean square about
-//!   0.5 η of the largest value), asked for 1e-12, 254 of 270 sweeps (30 seeds at each of nine
-//!   levels from 1e-12 to 1e-4) stop before their limit of 200, and all 30 of one seed's with its
-//!   samples moved by 0 to 29 ulps (`the_stopping_rule_on_noisy_samples_study`; the table in
-//!   `docs/methods/sweep.md`): the median roughness is 0.79 η, and the estimate, a median of
-//!   106 η, bounds the fit's true error in every case. Without noise it stops none of 2000
-//!   sweeps of the test functions, but samples 117 of them otherwise, so it is off unless asked
-//!   (`the_stopping_rule_on_noiseless_sweeps_study`). On the slab's solver data on 2.5 nm cells
-//!   asked for 1e-10 the roughness is 1.0e-13, far below the estimate's 6.2e-9: that floor is
-//!   not the samples' noise, but a quarter of the steps show their roughness, and the sweep stops
-//!   at 49 samples with an estimate of 6.2e-9 (7.8 without the rule).
+//!   median roughness ([`Sweep::noise`]) and at most 10 %, and the tolerance asked for is below
+//!   6.99 times that roughness (the least estimate the noise allowed in the measured cases), the
+//!   stall stops the sweep ([`Sweep::stalled`]) with the fit of its least estimate; else it is
+//!   sampled on, a response not yet resolved (whose fits miss its samples by about as much as
+//!   its estimate) or a tolerance the noise may allow. On 2 + 0.3 sin 1.5x + 0.1x² with a
+//!   uniform relative noise of η (its root mean square about 0.5 η of the largest value),
+//!   asked for 1e-13, 254 of 270 sweeps (30 seeds at each of nine levels from 1e-12 to 1e-4)
+//!   stop before their limit of 200, and all 30 of one seed's with its samples moved by 0 to 29
+//!   ulps (`the_stopping_rule_on_noisy_samples_study`; the tables in `docs/methods/sweep.md`):
+//!   the median roughness is 0.79 η, and the estimate, a median of 106 η, bounds the fit's true
+//!   error in every case; asked for 100 η, 67 of 90 converge. Without noise it stops none of
+//!   2000 sweeps of the test functions, but samples 117 of them otherwise, so it is off unless
+//!   asked (`the_stopping_rule_on_noiseless_sweeps_study`). On the slab's solver data on 2.5 nm
+//!   cells asked for 1e-10 the roughness is 1.0e-13, far below the estimate's 6.2e-9: that floor
+//!   is not the samples' noise, the tolerance is far above what the roughness allows, and the
+//!   sweep runs on to its limit, ending with an estimate of 6.2e-9 (7.8 without the rule).
 //!
 //! A sweep of a mode follows one mode ([`Branch`]): each new wavelength's mode is the one,
 //! among the solver's candidates, whose fields overlap most with the mode found at the nearest
@@ -358,8 +360,12 @@ impl Sweep {
             }
             // a stall stops the sweep where its steps since the last progress showed noise;
             // else a response not yet resolved, sampled on, the steps counted afresh
-            let stalled =
-                stuck && noise_shown(&window, least.as_ref().map_or(f64::INFINITY, |l| l.0));
+            let stalled = stuck
+                && noise_shown(
+                    &window,
+                    least.as_ref().map_or(f64::INFINITY, |l| l.0),
+                    options.tolerance,
+                );
             if stuck && !stalled {
                 progress = samples.len();
                 window.clear();
@@ -437,6 +443,14 @@ const NOISE_SHARE: f64 = 0.2;
 /// the least at the noisy sweeps' stalls at their noise, 3.87 (the module's documentation).
 const NOISE_RATIO: f64 = 2.6;
 
+/// The least estimate the samples' noise allows, in times their median roughness: a stall stops
+/// the sweep only where the tolerance asked for is below it, else the sweep samples on. 6.99,
+/// the least estimate over roughness that any of 600 sweeps stopped at their noise reached: 300
+/// (30 seeds at each of nine levels from 1e-12 to 1e-4, and one seed's samples moved by 0 to 29
+/// ulps; the module's documentation) on Windows, 7.35 there, and the same on Linux, 6.99. A
+/// tolerance below it was never met.
+const NOISE_FLOOR: f64 = 6.99;
+
 /// The median roughness of a stalled sweep's watched steps (`(roughness, gain)` each): a step's
 /// roughness varies by a factor of four from one sample to the next, its median far less.
 fn median_roughness(window: &[(f64, f64)]) -> f64 {
@@ -445,20 +459,23 @@ fn median_roughness(window: &[(f64, f64)]) -> f64 {
     r.get(r.len() / 2).copied().unwrap_or(f64::NAN)
 }
 
-/// Whether a stalled sweep's watched steps since its last progress show noise: at least
-/// [`NOISE_SHARE`] of them a gain of [`GAIN`], their median roughness at most 1/[`NOISE_RATIO`]
-/// of the `least` estimate, and that at most [`RESOLVED`]. Each step's gain and roughness jump
+/// Whether a stalled sweep's watched steps since its last progress show it at its noise, with a
+/// `tolerance` the noise doesn't allow: at least [`NOISE_SHARE`] of them a gain of [`GAIN`],
+/// their median roughness at most 1/[`NOISE_RATIO`] of the `least` estimate, that at most
+/// [`RESOLVED`], and the tolerance below [`NOISE_FLOOR`] times the roughness. Each step's gain and roughness jump
 /// from one sample to the next (the gain between 1 and 96, the roughness by a factor of four,
 /// on one sweep): the decision is the window's, not one step's, so that it doesn't turn on the
 /// samples' last bits.
-fn noise_shown(window: &[(f64, f64)], least: f64) -> bool {
+fn noise_shown(window: &[(f64, f64)], least: f64, tolerance: f64) -> bool {
     if window.is_empty() {
         return false;
     }
     let showing = window.iter().filter(|w| w.1 >= GAIN).count();
+    let rough = median_roughness(window);
     least <= RESOLVED
-        && NOISE_RATIO * median_roughness(window) <= least
+        && NOISE_RATIO * rough <= least
         && showing as f64 >= NOISE_SHARE * window.len() as f64
+        && tolerance < NOISE_FLOOR * rough
 }
 
 /// The AAA tolerances a stalled sweep tries for its fits: 1e-13 to 1e-1, two a decade.
