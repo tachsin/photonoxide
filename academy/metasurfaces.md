@@ -146,9 +146,11 @@ into the rest:
 
 At the chart's start, Elsawy et al.'s supercell of four pillars in 1500 nm at 600 nm
 ([Elsawy et al., 2019](https://doi.org/10.1038/s41598-019-53878-9)), order +1 leaves normal
-incidence at 23.58° into air, $\sin\theta = \lambda/\Gamma = 0.4$, and the four-step staircase sends
-it 81.06 % of the power, the rest into orders −3 (9.01 %) and +5 (3.24 %), and less into the
-farther ones. Exact, no grid.
+incidence at 23.58° into air, $\sin\theta = \lambda/\Gamma = 0.4$, and the four-step staircase gives
+it 81.06 % of the power. Its next coefficients belong to orders −3 (9.01 %) and +5 (3.24 %), but at
+normal incidence $\lvert m\rvert\lambda/\Gamma \gt 1$ for both: they are evanescent, as the chart
+shows order −3 ending, and only orders −2 to +2 could travel, of which the staircase feeds none but
++1. Exact, no grid.
 
 ### Its limits {theory}
 
@@ -168,7 +170,8 @@ farther ones. Exact, no grid.
 :::answer
 $\mathrm{sinc}^2(1/2) = 4/\pi^2$ = 40.53 %, and as much into order −1, since $m = -1$ is $1 - N$:
 two pillars a period make a symmetric grating that can't tell left from right. The rest, 18.94 %,
-goes into the orders $\pm3, \pm5, \ldots$. A lens's rim, sampled by about two pillars a zone, works
+belongs to the orders $\pm3, \pm5, \ldots$, which travel only where $3\lambda/\Gamma$ and more stay
+below $n_t$. A lens's rim, sampled by about two pillars a zone, works
 this way (Section 6).
 :::
 

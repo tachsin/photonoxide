@@ -92,9 +92,9 @@ pub fn orders(
     }
     let p = period_nm * 1e-3;
     let gamma = pillars as f64 * p;
-    let colours = [3usize, 1, 0, 2, 4];
+    let colours = [5usize, 3, 1, 0, 2, 4, 6];
     let mut series = Vec::new();
-    for (c, m) in (-2i64..=2).enumerate() {
+    for (c, m) in (-3i64..=3).enumerate() {
         // each order as runs of angles where it propagates, split where it turns evanescent
         let mut run: Vec<[f64; 2]> = Vec::new();
         let mut runs = Vec::new();
@@ -471,7 +471,7 @@ pub fn pillar(period_nm: f64, height_nm: f64, wavelength: f64) -> photonoxide::R
     ];
     Ok(ChartData {
         maps: Vec::new(),
-        x_label: "ridge width w (µm)".to_owned(),
+        x_label: "ridge width w".to_owned(),
         x_length: true,
         y_label: "phase/2π and transmittance".to_owned(),
         y_log: false,
@@ -657,7 +657,7 @@ pub fn focus(na: f64, focal: f64, period_nm: f64, levels: usize) -> photonoxide:
     ];
     Ok(ChartData {
         maps: Vec::new(),
-        x_label: "across the focal plane x (µm)".to_owned(),
+        x_label: "across the focal plane x".to_owned(),
         x_length: true,
         y_label: "intensity (exact profile's peak = 1)".to_owned(),
         y_log: false,
@@ -687,7 +687,7 @@ pub fn focus(na: f64, focal: f64, period_nm: f64, levels: usize) -> photonoxide:
         marker: None,
         figures,
         note: format!(
-            "A cylindrical lens (2D), f = {} µm at λ = {DESIGN} µm, its phase −k(√(x² + f²) − f) wrapped, held over each pillar's cell; scalar, the 2D Rayleigh–Sommerfeld integral in its far-zone form (kρ ≫ 1), summed on steps of λ/20.",
+            "A cylindrical lens (2D), f = {} µm at λ = {DESIGN} µm, its phase −k(√(x² + f²) − f) wrapped and held over each pillar's cell; scalar, the far-zone form valid for kρ ≫ 1.",
             sig(focal, 4)
         ),
     })
@@ -751,7 +751,7 @@ pub fn axis(na: f64, focal: f64, wavelength: f64) -> photonoxide::Result<ChartDa
     ];
     Ok(ChartData {
         maps: Vec::new(),
-        x_label: "along the axis z (µm)".to_owned(),
+        x_label: "along the axis z".to_owned(),
         x_length: true,
         y_label: "intensity on the axis (design peak = 1)".to_owned(),
         y_log: false,
@@ -773,7 +773,7 @@ pub fn axis(na: f64, focal: f64, wavelength: f64) -> photonoxide::Result<ChartDa
         marker: Some(predicted),
         figures,
         note: format!(
-            "A cylindrical lens (2D) designed at {DESIGN} µm, f = {} µm, NA = {}, its exact phase wrapped at the design wavelength on steps of λ₀/20, each step's phase scaled by λ₀/λ (a delay with no dispersion of its own); scalar, the 2D Rayleigh–Sommerfeld integral in its far-zone form. The line marks f λ₀/λ.",
+            "A cylindrical lens (2D) designed at {DESIGN} µm, f = {} µm, NA = {}, each step's phase a delay with no dispersion of its own; scalar. The line marks f λ₀/λ.",
             sig(focal, 4),
             sig(na, 3)
         ),

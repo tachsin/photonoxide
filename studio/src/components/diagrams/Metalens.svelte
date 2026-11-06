@@ -9,7 +9,7 @@
   import Label from "./Label.svelte";
   import Wave from "./Wave.svelte";
 
-  const [W, Hh] = [560, 470];
+  const [W, Hh] = [600, 470];
   // the lens: its centre, the pillars' top and bottom, the substrate
   const cx = 226;
   const [top, base] = [272, 326];
@@ -43,10 +43,10 @@
   })();
 
   // the nanofin from above, rotated by α
-  const [fx, fy] = [500, 112];
+  const [fx, fy] = [520, 112];
   const alpha = 35;
   // the wrapped phase against r, beneath it
-  const [px0, px1, py0, py1] = [462, 548, 300, 352];
+  const [px0, px1, py0, py1] = [492, 576, 300, 352];
   const saw = (() => {
     let d = "";
     for (let k = 0; k <= 120; k++) {
@@ -75,7 +75,7 @@
   <Label x={cx - 8} y={focusY - 12} anchor="end" size={14} text="focus" width={60} class="text-accent" />
   <path d={thetaArc} class="fill-none stroke-base-content/70" stroke-width="1" />
   <Label x={cx + 14} y={focusY + 54} size={15} text="$\theta$" width={24} />
-  <Label x={cx + R + 8} y={focusY + 40} anchor="start" size={14} text="NA $= \sin\theta$" width={110} />
+  <Label x={cx + 10} y={focusY - 12} anchor="start" size={14} text="NA $= \sin\theta$" width={110} />
   <Dim x1={cx - R - 14} y1={top} x2={cx - R - 14} y2={focusY} />
   <Label x={cx - R - 24} y={(top + focusY) / 2} anchor="end" size={16} text="$f$" width={24} />
 
@@ -86,10 +86,10 @@
     <rect x={q.x - q.w / 2} y={top} width={q.w} height={base - top} class="fill-primary/60 stroke-primary" stroke-width="1" />
   {/each}
   <!-- p, w and H on the right-hand pillars -->
-  <Dim x1={pillars[2 * n - 2].x} y1={top - 10} x2={pillars[2 * n - 1].x} y2={top - 10} />
-  <Label x={(pillars[2 * n - 2].x + pillars[2 * n - 1].x) / 2} y={top - 20} size={15} text="$p$" width={24} />
-  <Dim x1={pillars[2 * n - 1].x + 14} y1={top} x2={pillars[2 * n - 1].x + 14} y2={base} />
-  <Label x={pillars[2 * n - 1].x + 22} y={(top + base) / 2} anchor="start" size={15} text="$H$" width={24} />
+  <Dim x1={pillars[n + 3].x} y1={top - 10} x2={pillars[n + 4].x} y2={top - 10} />
+  <Label x={(pillars[n + 3].x + pillars[n + 4].x) / 2} y={top - 22} size={15} text="$p$" width={24} />
+  <Dim x1={pillars[0].x - 16} y1={top} x2={pillars[0].x - 16} y2={base} />
+  <Label x={pillars[0].x - 24} y={(top + base) / 2} anchor="end" size={15} text="$H$" width={24} />
   <Dim x1={pillars[n].x - pillars[n].w / 2} y1={base - 10} x2={pillars[n].x + pillars[n].w / 2} y2={base - 10} outside class="stroke-primary-content fill-primary-content" />
   <Label x={pillars[n].x} y={top - 8} size={14} text="$w$" width={24} />
   <Dim x1={cx} y1={subBottom + 12} x2={cx + R} y2={subBottom + 12} />
@@ -99,10 +99,10 @@
   {#each [-0.6, 0, 0.6] as s (s)}
     <Wave x1={cx + s * R} y1={Hh - 12} x2={cx + s * R} y2={subBottom + 36} amplitude={5} cycles={3} />
   {/each}
-  <Label x={cx - R} y={Hh - 30} anchor="start" size={13} text="plane wave in" width={110} class="text-accent" />
+  <Label x={cx - 0.6 * R - 12} y={Hh - 30} anchor="end" size={13} text="plane wave in" width={110} class="text-accent" />
 
   <!-- a nanofin from above -->
-  <Label x={fx} y={40} size={14} text="a nanofin, from above" width={150} class="text-base-content/60" />
+  <Label x={fx} y={40} size={13} text="a nanofin, from above" width={150} class="text-base-content/60" />
   <line x1={fx - 40} y1={fy} x2={fx + 42} y2={fy} class="stroke-base-content/40" stroke-width="1" stroke-dasharray="3 3" />
   <Label x={fx + 46} y={fy} anchor="start" size={13} text="$x$" width={16} />
   <g transform="rotate({-alpha} {fx} {fy})">
@@ -110,11 +110,11 @@
   </g>
   <path d="M{fx + 30},{fy} A30,30 0 0 0 {fx + 30 * Math.cos((alpha * Math.PI) / 180)},{fy - 30 * Math.sin((alpha * Math.PI) / 180)}" class="fill-none stroke-base-content/70" stroke-width="1" />
   <Label x={fx + 40} y={fy - 12} anchor="start" size={15} text="$\alpha$" width={20} />
-  <Label x={fx} y={fy + 46} size={14} text="phase $2\alpha$, the other" width={150} />
-  <Label x={fx} y={fy + 64} size={14} text="circular polarization" width={150} />
+  <Label x={fx} y={fy + 46} size={13} text="phase $2\alpha$ in the other" width={150} />
+  <Label x={fx} y={fy + 64} size={13} text="circular polarization" width={150} />
 
   <!-- the wrapped phase against r -->
-  <Label x={(px0 + px1) / 2} y={py0 - 26} size={14} text="$\varphi(r)$, wrapped" width={150} class="text-base-content/60" />
+  <Label x={(px0 + px1) / 2} y={py0 - 26} size={13} text="$\varphi(r)$, wrapped" width={150} class="text-base-content/60" />
   <line x1={px0} y1={py1} x2={px1 + 6} y2={py1} class="stroke-base-content/50" stroke-width="1" />
   <line x1={px0} y1={py1} x2={px0} y2={py0 - 8} class="stroke-base-content/50" stroke-width="1" />
   <path d={saw} class="fill-none stroke-primary" stroke-width="1.4" />
