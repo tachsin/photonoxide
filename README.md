@@ -239,7 +239,7 @@ The optimized build profiles (`release`, `dist` and `fastest`) are described in
 
 Nothing is merged without an analytic test, a reproduction of a published result and a
 convergence test; adjoint gradients are checked against finite differences. The
-[report](docs/validation.md) has 836 cases: 547 against closed forms, 276 against published
+[report](docs/validation.md) has 840 cases: 551 against closed forms, 276 against published
 results and 13 against another code on a shared problem. Each states its source, tolerance and
 grid. CI fails when a case fails or the committed report isn't the one the code writes. CI
 checks every example's output too.
