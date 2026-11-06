@@ -1327,7 +1327,10 @@ pub fn fwm_gain(
 ) -> photonoxide::Result<ChartData> {
     let disp = Dispersion::new(1.55, &[beta2, 0.0, beta4 * 1e-4])?;
     let peak = fwm::peak_detuning(gamma, power, beta2);
-    let reach = (2.0 * gamma * power / beta2.abs().max(1e-4)).sqrt();
+    // where β₂Ω² or β₄Ω⁴/12 alone would cancel the Kerr shift 2γP
+    let reach = (2.0 * gamma * power / beta2.abs().max(1e-6))
+        .sqrt()
+        .min((24.0 * gamma * power / (beta4.abs() * 1e-4).max(1e-12)).powf(0.25));
     let edge = (2.5 * peak.unwrap_or(reach)).clamp(0.5, 300.0);
     let mut gain = Vec::new();
     let mut idler = Vec::new();
