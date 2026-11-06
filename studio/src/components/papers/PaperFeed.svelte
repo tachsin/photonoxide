@@ -51,15 +51,16 @@
       Not checked yet
     {/if}
   </span>
-  <span class="flex-1"></span>
-  {#if choices.length}
-    <button class="btn btn-ghost btn-xs gap-1 {picking ? 'btn-active' : ''}" onclick={() => (picking = !picking)} aria-expanded={picking} aria-controls={pickerId} title="Choose the journals the feed shows and asks">
-      <ListFilter size={12} /> {pickerLabel(choices)}
+  <span class="ml-auto flex items-center gap-1">
+    {#if choices.length}
+      <button class="btn btn-ghost btn-xs gap-1 {picking ? 'btn-active' : ''}" onclick={() => (picking = !picking)} aria-expanded={picking} aria-controls={pickerId} title="Choose the journals the feed shows and asks">
+        <ListFilter size={12} /> {pickerLabel(choices)}
+      </button>
+    {/if}
+    <button class="btn btn-ghost btn-xs gap-1 {compact ? 'btn-square' : ''}" onclick={() => refreshFeed(true)} disabled={papers.refreshing || noneOn} title="Ask the journals and arXiv for their newest papers now" aria-label="Refresh">
+      <RefreshCw size={12} class={papers.refreshing ? "animate-spin" : ""} />{#if !compact}Refresh{/if}
     </button>
-  {/if}
-  <button class="btn btn-ghost btn-xs gap-1" onclick={() => refreshFeed(true)} disabled={papers.refreshing || noneOn} title="Ask the journals and arXiv for their newest papers now">
-    <RefreshCw size={12} class={papers.refreshing ? "animate-spin" : ""} /> Refresh
-  </button>
+  </span>
 </div>
 
 {#if picking && choices.length}
@@ -94,7 +95,7 @@
     {:else}
       <p class="px-3 py-6 text-center text-sm faint">
         {#if noneOn}
-          No journal is chosen, so the feed shows and asks nothing.
+          No source is chosen, so the feed shows and asks nothing.
           <span class="mt-2 flex justify-center gap-2">
             <button class="btn btn-ghost btn-xs text-primary" onclick={() => setAllSources(true)}>Show all</button>
             {#if !picking}<button class="btn btn-ghost btn-xs" onclick={() => (picking = true)}>Choose…</button>{/if}

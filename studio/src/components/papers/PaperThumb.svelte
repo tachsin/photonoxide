@@ -33,6 +33,6 @@
 <span bind:this={box} class="paper-thumb relative grid shrink-0 place-items-center overflow-hidden rounded-lg font-semibold tracking-tight select-none {initials.length > 2 ? 'text-[10px]' : 'text-[11px]'}" style:--h={hue} style:width="{size}px" style:height="{size}px" aria-hidden="true">
   {initials}
   {#if name && !broken}
-    <img src={figureUrl(name)} alt="" loading="lazy" decoding="async" width={size} height={size} class="absolute inset-0 h-full w-full bg-white object-cover" onerror={() => (broken = true)} />
+    <img src={figureUrl(name)} alt="" loading="lazy" decoding="async" width={size} height={size} class="absolute inset-0 h-full w-full rounded-lg bg-white object-cover outline-1 -outline-offset-1 outline-base-content/15" onerror={() => (broken = true)} />
   {/if}
 </span>
