@@ -222,11 +222,11 @@ fn permanent_derangements() -> Outcome {
         d.push((k as f64 - 1.0) * (d[k - 1] + d[k - 2]));
     }
     let mut e: f64 = 0.0;
-    for n in 2..=14usize {
+    for (n, &count) in d.iter().enumerate().skip(2) {
         let a = Matrix::from_fn(n, n, |i, j| c64::new(if i == j { 0.0 } else { 1.0 }, 0.0));
         for formula in [Formula::Ryser, Formula::Glynn] {
             let p = permanent_by(&a, formula).expect(OK);
-            e = e.max((p - d[n]).norm() / d[n]);
+            e = e.max((p - count).norm() / count);
         }
     }
     // n = 1: no derangement, a permanent of exactly 0
