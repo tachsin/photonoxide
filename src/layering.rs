@@ -77,7 +77,7 @@ const LAYERS: &[Layer] = &[
     },
     Layer {
         name: "circuit",
-        modules: &["circuit", "compact"],
+        modules: &["circuit", "compact", "quantum"],
         may_use: &["core", "geometry", "linalg", "mode", "statics"],
     },
     Layer {
