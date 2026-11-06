@@ -232,6 +232,27 @@ pub fn specs() -> Vec<DiagramSpec> {
                          solves it by 2D FDFD from 1.5 to 1.6 µm. Drag to turn it.",
         },
         DiagramSpec {
+            id: "modulator",
+            title: "A Mach–Zehnder modulator and a heater, from above and in section",
+            caption: "Above, a push–pull Mach–Zehnder modulator seen from above: light of group \
+                      index $n_o$ is split between two arms that run through the two gaps of a \
+                      ground–signal–ground electrode $L$ long. A voltage $V(t)$ launched on the \
+                      signal from a source of resistance $R_G$ travels along it as an RF wave of \
+                      index $n_m$ and ends in a load $R_L$; at each instant its field across the \
+                      upper gap, arrowed, points opposite to the one across the lower, so the \
+                      arms' indices move apart. Below at the left, the same in section, x-cut \
+                      thin-film lithium niobate: a film etched to two ribs, each in a gap $g$ \
+                      wide between the electrodes on the film's slab, on buried oxide over \
+                      silicon. The crystal's $c$ axis lies across the guides, along the field, so \
+                      the TE mode's index $n_e$ moves by $-\\tfrac{1}{2}n_e^3r_{33}E$. Below at the \
+                      right, a thermo-optic phase shifter in section: a heater a height $h$ above \
+                      a silicon strip, dissipating $P'$ per unit length; the heat spreads down \
+                      through the oxide to the substrate, held at $T_0$, and the strip's rise \
+                      $\\Delta T$ moves its index by $(dn/dT)\\,\\Delta T$. Not to scale.",
+            job: None,
+            caption_3d: "",
+        },
+        DiagramSpec {
             id: "slab",
             title: "A slab waveguide, in section",
             caption: "A film of index $n_2$ and thickness $d$ lies between a cover of index $n_1$ \
