@@ -537,18 +537,26 @@ let t = s.at(Wavelength::um(1.55)?)[1][0]; // S21 between the TE0 modes
   wavelengths inside the range, and S has a square-root branch point at each: a rational
   function approaches it slowly. Measured on the step above in a closed window with 10 modes,
   asked for 1e-8 from 1.5 to 1.6 µm, the estimate is 5.5e-3 after 20 solves, 1.3e-4 after 50 and
-1.7e-6 after 100, and 4.5e-7 at the limit of 200, far from converged. With the PML no mode has a real cutoff, and
-  the same step converges in STEP_SOLVES solves.
+1.7e-6 after 100, and 4.5e-7 at the limit of 200, far from converged. With the PML no mode has a real cutoff, and the structures below
+  converge.
 
-On two structures, from 1.45 to 1.65 µm and asked for 1e-6, against the same expansion solved at
-every nanometre of the range (201 solves):
+On two structures, asked for 1e-6, against the same expansion solved at 201 wavelengths evenly
+spaced over the range:
 
-| Structure | Entries | Solves | Estimate | True error on 201 wavelengths | Ratio | $\lvert r - r^T \rvert$ | Power ratio |
-|---|---|---|---|---|---|---|---|
-| the taper of `jobs/eme-taper.yaml` on 16 equal steps, 40 even modes | 9 (TE0 at 220 nm; TE0, TE2 at 600 nm) | TAPER_ROW |
-| a 400 nm slab into one 3 µm wide and 20 µm long and out, 40 even modes | 4 (TE0 at each end) | MMI_ROW |
+| Structure | Range | Entries | Solves | Estimate | True error on 201 wavelengths | Ratio | $\lvert r - r^T \rvert$ | Power ratio |
+|---|---|---|---|---|---|---|---|---|
+| the taper of `jobs/eme-taper.yaml` on 16 equal steps, 40 even modes | 1.45 to 1.65 µm | 9 (TE0 at 220 nm; TE0, TE2 at 600 nm) | 32 | 5.1e-7 | 3.9e-13 | 7.5e-7 | 1.8e-14 | under 1e-3 |
+| a 400 nm slab into one 3 µm wide and 20 µm long and out, 40 even modes | 1.53 to 1.57 µm | 4 (TE0 at each end) | 117 | 3.1e-7 | 2.5e-12 | 7.8e-6 | 1.0e-14 | under 1e-3 |
 
-The solves saved: SAVED. The estimate is a bound only where the fit has seen the response (the
+The solves saved against the 201: 169 (84 %) on the taper, 84 (42 %) on the multimode section,
+whose seven even modes beat along its 20 µm and turn $S_{21}$ by about 0.16 every 2 nm. Over
+1.45 to 1.65 µm that section needs more than 200 solves: at the limit of 200 its estimate was 1.7
+and its true error on 201 wavelengths 0.05, so the estimate still bounded it (a ratio of 0.029),
+but did not converge. The estimate is cautious: the interpolants are 1e5 to 1e6 times more
+accurate than it says (their true error 3.9e-13 and 2.5e-12 where it states 5.1e-7 and 3.1e-7),
+since each half has only half the solves; a sweep stops later than it needs to, never earlier.
+The solves' own reciprocity, 8.9e-15 and 1.7e-15, the interpolants keep to 1.8e-14 and 1.0e-14.
+The estimate is a bound only where the fit has seen the response (the
 sweeps' page, [What it can't see](sweep.md#the-error-estimate)): a resonance narrower than the
 grid of 1001 wavelengths the estimate is taken on would be missed.
 
@@ -558,7 +566,7 @@ job has one, by `convergence::ToTolerance` as at any wavelength) and the adaptiv
 settled once at `wavelength_um`, every solve keeps them, and the run records S at each of the
 sweep's points from the interpolant, between the modes guided at both ends of the range, then
 the estimate with the wavelengths solved. 2D and 3D jobs alike. `jobs/eme-mmi-sweep.yaml` is the
-multimode section above, 201 points from JOB_SOLVES solves.
+multimode section above, 201 points over the C band from 117 solves.
 
 ```yaml
   sweep: { parameter: wavelength, from: 1.45, to: 1.65, points: 201 }
@@ -594,9 +602,9 @@ Measured with the cases' own settings, at 1.55 µm, silicon (3.473) in oxide (1.
 | `eme/3d-cut-taper-fdfd` | the same, $\lvert S_{21}\rvert^2$ | 0.9921834 | 3D FDFD of the device on the same plane at Δx = 0.1 µm over 3 to 7: 0.9921745 (fit residual 3.8e-5) | discretisation, 4e-4 absolute, three times FDFD's own error (its limit moves 1.3e-4 with its coarsest step) |
 | `eme/3d-cut-mmi-fdfd`, `-reflection` | a 1 × 2 strip MMI 1.6 × 2.4 µm, 0.5 µm access guides, the half y ≥ 0 on 50 × 55 nm cells, every one of 728 modes: $\lvert S_{21}\rvert^2$ (into both outputs) and $\lvert S_{11}\rvert^2$ | 0.9056087 and 1.6111e-3 | the same FDFD: 0.9056635 and 1.61168e-3 (residuals 8.9e-7, 1.6e-7) | discretisation, 2e-4 and 1.4e-5 absolute, three times FDFD's own error (its PML, 6.3e-5; its coarsest step, 4.5e-6) |
 | `eme/3d-cut-mmi-reciprocity`, `-power` | the same MMI | $\lvert S - S^T\rvert$ 2.5e-13; $\lvert S_p^\dagger S_p - 1\rvert$ 1.3e-12 | Lorentz reciprocity, power conservation | round-off, 1e-10 |
-| `eme/wavelength-taper`, `-mmi` | S over 1.45 to 1.65 µm from a few solves, every entry on one set of wavelengths, asked for 1e-6 ([S over wavelength](#s-over-wavelength)) | VALIDATION_RATIOS | the same expansion at each of 201 wavelengths | discretisation, a ratio of the true error to the estimate of at most 1, measured |
-| `eme/wavelength-reciprocity` | the two interpolants on the 201 wavelengths | $\lvert r - r^T \rvert$ VALIDATION_RECIPROCITY | the solves' own reciprocity, kept by a shared denominator | round-off, 1e-12 |
-| `eme/wavelength-power` | the same: each column's power against the solves' | VALIDATION_POWER of the bound $\sum_q (2\lvert S_{qp}\rvert + e_{qp}) e_{qp}$ | the bound the entries' estimates give | discretisation, a ratio of at most 1, measured |
+| `eme/wavelength-taper`, `-mmi` | S over a range (1.45 to 1.65 µm, the C band) from a few solves, every entry on one set of wavelengths, asked for 1e-6 ([S over wavelength](#s-over-wavelength)) | ratio of the true error to the estimate 7.5e-7 (taper, 32 solves) and 7.8e-6 (multimode section, 117 solves) | the same expansion at each of 201 wavelengths | discretisation, a ratio of the true error to the estimate of at most 1, measured |
+| `eme/wavelength-reciprocity` | the two interpolants on the 201 wavelengths | $\lvert r - r^T \rvert$ 1.8e-14 | the solves' own reciprocity, kept by a shared denominator | round-off, 1e-12 |
+| `eme/wavelength-power` | the same: each column's power against the solves' | under 1e-3 of the bound $\sum_q (2\lvert S_{qp}\rvert + e_{qp}) e_{qp}$ | the bound the entries' estimates give | discretisation, a ratio of at most 1, measured |
 
 The FDFD comparison is the most telling: the two methods share nothing but the structure, and
 agree to 1.9e-5 of a reflection of 9.2e-5. Its transmission agrees too: 0.999829 against
