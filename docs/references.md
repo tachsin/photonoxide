@@ -2,7 +2,7 @@
 
 <!-- Written by `photonoxide references --write` (or `just references`) from docs/references.yaml and the citations in the repository: edit those, not this page. -->
 
-Every paper, book and data set photonoxide cites, with every place in the repository that cites it, by file and line. 573 sources, 569 with a DOI and 4 without, are cited at 3011 places in 386 files. The sources are listed by their first author; [references-by-file.md](references-by-file.md) lists each methods page, lesson, example and source file with the sources it cites, and the [validation report](validation.md) gives each case's source on its row. How to cite a source is in [CONTRIBUTING.md](../CONTRIBUTING.md#citing-a-source); the list of sources is [references.yaml](references.yaml).
+Every paper, book and data set photonoxide cites, with every place in the repository that cites it, by file and line. 573 sources, 569 with a DOI and 4 without, are cited at 3063 places in 387 files. The sources are listed by their first author; [references-by-file.md](references-by-file.md) lists each methods page, lesson, example and source file with the sources it cites, and the [validation report](validation.md) gives each case's source on its row. How to cite a source is in [CONTRIBUTING.md](../CONTRIBUTING.md#citing-a-source); the list of sources is [references.yaml](references.yaml).
 
 [A](#a) · [B](#b) · [C](#c) · [D](#d) · [E](#e) · [F](#f) · [G](#g) · [H](#h) · [I](#i) · [J](#j) · [K](#k) · [L](#l) · [M](#m) · [N](#n) · [O](#o) · [P](#p) · [Q](#q) · [R](#r) · [S](#s) · [T](#t) · [U](#u) · [V](#v) · [W](#w) · [X](#x) · [Y](#y) · [Z](#z)
 
@@ -700,7 +700,7 @@ M. Cherchi, S. Ylinen, M. Harjanne, M. Kapulainen, T. Aalto, "Dramatic size redu
 W. C. Chew, W. H. Weedon, "A 3D perfectly matched medium from modified maxwell's equations with stretched coordinates", Micro & Optical Tech Letters 7, 599 (1994). [doi:10.1002/mop.4650071304](https://doi.org/10.1002/mop.4650071304)
 
 - Methods pages: [fdfd-3d.md:14](methods/fdfd-3d.md?plain=1#L14), [fdfd.md:12](methods/fdfd.md?plain=1#L12), [pml.md:10](methods/pml.md?plain=1#L10), [travelling-wave.md:28](methods/travelling-wave.md?plain=1#L28)
-- Academy lessons: [leaky-and-bent-guides.md:71](../academy/leaky-and-bent-guides.md?plain=1#L71), [316](../academy/leaky-and-bent-guides.md?plain=1#L316), [563](../academy/leaky-and-bent-guides.md?plain=1#L563)
+- Academy lessons: [fdfd-and-adjoints.md:67](../academy/fdfd-and-adjoints.md?plain=1#L67), [224](../academy/fdfd-and-adjoints.md?plain=1#L224), [759](../academy/fdfd-and-adjoints.md?plain=1#L759), [leaky-and-bent-guides.md:71](../academy/leaky-and-bent-guides.md?plain=1#L71), [316](../academy/leaky-and-bent-guides.md?plain=1#L316), [563](../academy/leaky-and-bent-guides.md?plain=1#L563)
 - Validation cases: [`fdfd3d/pml-reflection-stretched`](validation.md?plain=1#L178)
 - Code: [src/electro/full_wave.rs:43](../src/electro/full_wave.rs#L43), [src/fdfd/mod.rs:26](../src/fdfd/mod.rs#L26), [src/mode/vector.rs:172](../src/mode/vector.rs#L172), [src/validation.rs:1271](../src/validation.rs#L1271)
 
@@ -748,12 +748,14 @@ M. M. Choy, R. L. Byer, "Accurate second-order susceptibility measurements of vi
 A. Christ, H. Hartnagel, "Three-Dimensional Finite-Difference Method for the Analysis of Microwave-Device Embedding", IEEE Trans. Microwave Theory Techn. 35, 688 (1987). [doi:10.1109/TMTT.1987.1133733](https://doi.org/10.1109/TMTT.1987.1133733)
 
 - Methods pages: [fdfd-3d.md:8](methods/fdfd-3d.md?plain=1#L8)
+- Academy lessons: [fdfd-and-adjoints.md:55](../academy/fdfd-and-adjoints.md?plain=1#L55), [178](../academy/fdfd-and-adjoints.md?plain=1#L178), [755](../academy/fdfd-and-adjoints.md?plain=1#L755)
 - Code: [src/fdfd/mod.rs:18](../src/fdfd/mod.rs#L18), [src/fdfd/three.rs:4](../src/fdfd/three.rs#L4)
 
 #### Christiansen and Sigmund 2021
 
 R. E. Christiansen, O. Sigmund, "Inverse design in photonics by topology optimization: tutorial", J. Opt. Soc. Am. B 38, 496 (2021). [doi:10.1364/JOSAB.406048](https://doi.org/10.1364/JOSAB.406048)
 
+- Academy lessons: [fdfd-and-adjoints.md:133](../academy/fdfd-and-adjoints.md?plain=1#L133), [651](../academy/fdfd-and-adjoints.md?plain=1#L651), [779](../academy/fdfd-and-adjoints.md?plain=1#L779)
 - Other documents: [ROADMAP.md:775](../ROADMAP.md?plain=1#L775), [docs/plans/optimization.md:597](plans/optimization.md?plain=1#L597)
 
 #### Chrostowski and Hochberg 2015
@@ -1225,6 +1227,7 @@ R. W. Freund, M. Malhotra, "A block QMR algorithm for non-Hermitian linear syste
 R. W. Freund, N. M. Nachtigal, "QMR: a quasi-minimal residual method for non-Hermitian linear systems", Numer. Math. 60, 315 (1991). [doi:10.1007/BF01385726](https://doi.org/10.1007/BF01385726)
 
 - Methods pages: [backends.md:346](methods/backends.md?plain=1#L346), [block-qmr.md:12](methods/block-qmr.md?plain=1#L12), [fdfd-3d.md:18](methods/fdfd-3d.md?plain=1#L18)
+- Academy lessons: [fdfd-and-adjoints.md:61](../academy/fdfd-and-adjoints.md?plain=1#L61), [414](../academy/fdfd-and-adjoints.md?plain=1#L414), [758](../academy/fdfd-and-adjoints.md?plain=1#L758)
 - Validation cases: [`fdfd3d/qmr-direct`](validation.md?plain=1#L172), [`fdfd3d/block-qmr-ilu-s-matrix`](validation.md?plain=1#L182)
 - Code: [src/backend/iterative.rs:12](../src/backend/iterative.rs#L12), [src/backend/krylov.rs:4](../src/backend/krylov.rs#L4), [src/fdfd/three/iterative.rs:106](../src/fdfd/three/iterative.rs#L106), [src/validation.rs:1229](../src/validation.rs#L1229), [1299](../src/validation.rs#L1299)
 
@@ -1314,6 +1317,7 @@ S. Gehrsitz, F. K. Reinhart, C. Gourgon, N. Herres, A. Vonlanthen, H. Sigg, "The
 A. George, "Nested Dissection of a Regular Finite Element Mesh", SIAM J. Numer. Anal. 10, 345 (1973). [doi:10.1137/0710032](https://doi.org/10.1137/0710032)
 
 - Methods pages: [fdfd-3d.md:30](methods/fdfd-3d.md?plain=1#L30), [340](methods/fdfd-3d.md?plain=1#L340), [fdfd.md:16](methods/fdfd.md?plain=1#L16), [static.md:20](methods/static.md?plain=1#L20)
+- Academy lessons: [fdfd-and-adjoints.md:49](../academy/fdfd-and-adjoints.md?plain=1#L49), [383](../academy/fdfd-and-adjoints.md?plain=1#L383), [754](../academy/fdfd-and-adjoints.md?plain=1#L754)
 - Code: [src/sparse.rs:4](../src/sparse.rs#L4)
 - Other documents: [docs/plans/performance.md:614](plans/performance.md?plain=1#L614)
 
@@ -1544,6 +1548,7 @@ E. Hammerstad, O. Jensen, "Accurate Models for Microstrip Computer-Aided Design"
 
 A. M. Hammond, A. Oskooi, S. G. Johnson, S. E. Ralph, "Photonic topology optimization with semiconductor-foundry design-rule constraints", Opt. Express 29, 23916 (2021). [doi:10.1364/OE.431188](https://doi.org/10.1364/OE.431188)
 
+- Academy lessons: [fdfd-and-adjoints.md:139](../academy/fdfd-and-adjoints.md?plain=1#L139), [654](../academy/fdfd-and-adjoints.md?plain=1#L654), [774](../academy/fdfd-and-adjoints.md?plain=1#L774)
 - Other documents: [ROADMAP.md:776](../ROADMAP.md?plain=1#L776), [docs/plans/optimization.md:598](plans/optimization.md?plain=1#L598)
 
 #### Hansen and Ostermeier 2001
@@ -1751,6 +1756,7 @@ J. Hu, C. R. Menyuk, "Understanding leaky modes: slab waveguide revisited", Adv.
 T. W. Hughes, M. Minkov, I. A. D. Williamson, S. Fan, "Adjoint Method and Inverse Design for Nonlinear Nanophotonic Devices", ACS Photonics 5, 4781 (2018). [doi:10.1021/acsphotonics.8b01522](https://doi.org/10.1021/acsphotonics.8b01522)
 
 - Methods pages: [fdfd-adjoint.md:12](methods/fdfd-adjoint.md?plain=1#L12), [fdtd-adjoint.md:12](methods/fdtd-adjoint.md?plain=1#L12)
+- Academy lessons: [fdfd-and-adjoints.md:121](../academy/fdfd-and-adjoints.md?plain=1#L121), [563](../academy/fdfd-and-adjoints.md?plain=1#L563), [772](../academy/fdfd-and-adjoints.md?plain=1#L772)
 - Code: [src/fdfd/adjoint.rs:9](../src/fdfd/adjoint.rs#L9), [src/fdtd/adjoint.rs:30](../src/fdtd/adjoint.rs#L30)
 - Other documents: [ROADMAP.md:768](../ROADMAP.md?plain=1#L768)
 
@@ -1759,6 +1765,7 @@ T. W. Hughes, M. Minkov, I. A. D. Williamson, S. Fan, "Adjoint Method and Invers
 T. W. Hughes, M. Minkov, Y. Shi, S. Fan, "Training of photonic neural networks through in situ backpropagation and gradient measurement", Optica 5, 864 (2018). [doi:10.1364/OPTICA.5.000864](https://doi.org/10.1364/OPTICA.5.000864)
 
 - Methods pages: [circuit-adjoint.md:10](methods/circuit-adjoint.md?plain=1#L10)
+- Academy lessons: [fdfd-and-adjoints.md:127](../academy/fdfd-and-adjoints.md?plain=1#L127), [692](../academy/fdfd-and-adjoints.md?plain=1#L692), [773](../academy/fdfd-and-adjoints.md?plain=1#L773)
 - Other documents: [docs/plans/optimization.md:628](plans/optimization.md?plain=1#L628)
 
 #### Hughes et al. 2019
@@ -1965,6 +1972,7 @@ J. Kalb, F. Spaepen, M. Wuttig, "Calorimetric measurements of phase transformati
 Kane Yee, "Numerical solution of initial boundary value problems involving maxwell's equations in isotropic media", IEEE Trans. Antennas Propagat. 14, 302 (1966). [doi:10.1109/TAP.1966.1138693](https://doi.org/10.1109/TAP.1966.1138693)
 
 - Methods pages: [averaging.md:10](methods/averaging.md?plain=1#L10), [eme.md:16](methods/eme.md?plain=1#L16), [fdfd-3d.md:10](methods/fdfd-3d.md?plain=1#L10), [fdfd.md:8](methods/fdfd.md?plain=1#L8), [fdtd.md:10](methods/fdtd.md?plain=1#L10), [travelling-wave.md:24](methods/travelling-wave.md?plain=1#L24)
+- Academy lessons: [fdfd-and-adjoints.md:43](../academy/fdfd-and-adjoints.md?plain=1#L43), [176](../academy/fdfd-and-adjoints.md?plain=1#L176), [753](../academy/fdfd-and-adjoints.md?plain=1#L753)
 - Validation cases: [`fdfd3d/two-d-agreement`](validation.md?plain=1#L163), [`fdtd/dispersion`](validation.md?plain=1#L203), [`fdtd/energy`](validation.md?plain=1#L204), [`line/full-wave-plates-order`](validation.md?plain=1#L594)
 - Code: [src/electro/full_wave.rs:7](../src/electro/full_wave.rs#L7), [src/electro/full_wave_checks.rs:264](../src/electro/full_wave_checks.rs#L264), [src/fdfd/mod.rs:6](../src/fdfd/mod.rs#L6), [src/fdfd/three.rs:6](../src/fdfd/three.rs#L6), [src/fdtd.rs:4](../src/fdtd.rs#L4), [src/validation.rs:1166](../src/validation.rs#L1166), [1446](../src/validation.rs#L1446), [1453](../src/validation.rs#L1453)
 - Other documents: [ROADMAP.md:715](../ROADMAP.md?plain=1#L715)
@@ -2190,6 +2198,7 @@ P. Lalanne, P. Chavel, "Metalenses at visible wavelengths: past, present, perspe
 C. M. Lalau-Keraly, S. Bhargava, O. D. Miller, E. Yablonovitch, "Adjoint shape optimization applied to electromagnetic design", Opt. Express 21, 21693 (2013). [doi:10.1364/OE.21.021693](https://doi.org/10.1364/OE.21.021693)
 
 - Methods pages: [fdfd-adjoint.md:10](methods/fdfd-adjoint.md?plain=1#L10), [fdtd-adjoint.md:10](methods/fdtd-adjoint.md?plain=1#L10)
+- Academy lessons: [fdfd-and-adjoints.md:103](../academy/fdfd-and-adjoints.md?plain=1#L103), [483](../academy/fdfd-and-adjoints.md?plain=1#L483), [498](../academy/fdfd-and-adjoints.md?plain=1#L498), [763](../academy/fdfd-and-adjoints.md?plain=1#L763)
 - Validation cases: [`fdtd/adjoint-modes`](validation.md?plain=1#L268), [`fdtd/adjoint-backward-mode`](validation.md?plain=1#L274)
 - Examples: [README.md:58](../examples/README.md?plain=1#L58), [optimize_ybranch.rs:9](../examples/optimize_ybranch.rs#L9)
 - Code: [src/fdtd.rs:56](../src/fdtd.rs#L56), [src/fdtd/adjoint.rs:27](../src/fdtd/adjoint.rs#L27), [src/fdtd/adjoint_checks.rs:543](../src/fdtd/adjoint_checks.rs#L543), [src/validation.rs:1901](../src/validation.rs#L1901), [1943](../src/validation.rs#L1943)
@@ -2707,6 +2716,7 @@ G. Moille, Q. Li, L. Xiyuan, K. Srinivasan, "pyLLE: A Fast and User Friendly Lug
 
 S. Molesky, Z. Lin, A. Y. Piggott, W. Jin, J. Vucković, A. W. Rodriguez, "Inverse design in nanophotonics", Nature Photon 12, 659 (2018). [doi:10.1038/s41566-018-0246-9](https://doi.org/10.1038/s41566-018-0246-9)
 
+- Academy lessons: [fdfd-and-adjoints.md:115](../academy/fdfd-and-adjoints.md?plain=1#L115), [560](../academy/fdfd-and-adjoints.md?plain=1#L560), [778](../academy/fdfd-and-adjoints.md?plain=1#L778)
 - Other documents: [ROADMAP.md:767](../ROADMAP.md?plain=1#L767), [docs/plans/optimization.md:595](plans/optimization.md?plain=1#L595)
 
 #### Moutzouris et al. 2011
@@ -2961,6 +2971,7 @@ J. R. Pierce, "Coupling of Modes of Propagation", Journal of Applied Physics 25,
 
 A. Y. Piggott, J. Lu, K. G. Lagoudakis, J. Petykiewicz, T. M. Babinec, J. Vučković, "Inverse design and demonstration of a compact and broadband on-chip wavelength demultiplexer", Nature Photon 9, 374 (2015). [doi:10.1038/nphoton.2015.69](https://doi.org/10.1038/nphoton.2015.69)
 
+- Academy lessons: [fdfd-and-adjoints.md:109](../academy/fdfd-and-adjoints.md?plain=1#L109), [665](../academy/fdfd-and-adjoints.md?plain=1#L665), [765](../academy/fdfd-and-adjoints.md?plain=1#L765)
 - Other documents: [ROADMAP.md:763](../ROADMAP.md?plain=1#L763), [docs/plans/optimization.md:593](plans/optimization.md?plain=1#L593)
 
 #### Piggott et al. 2017
@@ -3218,6 +3229,7 @@ J. A. Roden, S. D. Gedney, "Convolution PML (CPML): An efficient FDTD implementa
 R. C. Rumpf, "SIMPLE IMPLEMENTATION OF ARBITRARILY SHAPED TOTAL-FIELD/SCATTERED-FIELD REGIONS IN FINITE-DIFFERENCE FREQUENCY-DOMAIN", PIER B 36, 221 (2012). [doi:10.2528/PIERB11092006](https://doi.org/10.2528/PIERB11092006)
 
 - Methods pages: [devices.md:34](methods/devices.md?plain=1#L34), [fdfd-3d.md:26](methods/fdfd-3d.md?plain=1#L26), [fdfd-ports.md:8](methods/fdfd-ports.md?plain=1#L8), [fdtd.md:44](methods/fdtd.md?plain=1#L44)
+- Academy lessons: [fdfd-and-adjoints.md:91](../academy/fdfd-and-adjoints.md?plain=1#L91), [245](../academy/fdfd-and-adjoints.md?plain=1#L245), [761](../academy/fdfd-and-adjoints.md?plain=1#L761)
 - Validation cases: [`fdfd/straight-guide`](validation.md?plain=1#L144), [`fdfd3d/straight-strip`](validation.md?plain=1#L167), [`fdtd/mode-source-fdfd`](validation.md?plain=1#L212), [`device/fdfd-straight`](validation.md?plain=1#L335)
 - Code: [src/device/mmi.rs:316](../src/device/mmi.rs#L316), [src/device/splitter_checks.rs:103](../src/device/splitter_checks.rs#L103), [src/fdfd/ports.rs:12](../src/fdfd/ports.rs#L12), [src/fdfd/three/ports.rs:18](../src/fdfd/three/ports.rs#L18), [src/validation.rs:1033](../src/validation.rs#L1033), [1194](../src/validation.rs#L1194), [1509](../src/validation.rs#L1509)
 
@@ -3390,6 +3402,7 @@ B. Shen, L. Chang, J. Liu, H. Wang, Q.-F. Yang, C. Xiang, R. N. Wang, J. He, T. 
 W. Shin, S. Fan, "Choice of the perfectly matched layer boundary condition for frequency-domain Maxwell’s equations solvers", Journal of Computational Physics 231, 3406 (2012). [doi:10.1016/j.jcp.2012.01.013](https://doi.org/10.1016/j.jcp.2012.01.013)
 
 - Methods pages: [fdfd-3d.md:12](methods/fdfd-3d.md?plain=1#L12), [fdfd.md:10](methods/fdfd.md?plain=1#L10)
+- Academy lessons: [fdfd-and-adjoints.md:85](../academy/fdfd-and-adjoints.md?plain=1#L85), [235](../academy/fdfd-and-adjoints.md?plain=1#L235), [760](../academy/fdfd-and-adjoints.md?plain=1#L760)
 - Validation cases: [`fdfd/pml-reflection`](validation.md?plain=1#L134), [`fdfd3d/pml-reflection`](validation.md?plain=1#L162)
 - Code: [src/fdfd/mod.rs:29](../src/fdfd/mod.rs#L29), [src/fdfd/three.rs:18](../src/fdfd/three.rs#L18), [src/validation.rs:963](../src/validation.rs#L963), [1159](../src/validation.rs#L1159)
 
@@ -3886,6 +3899,7 @@ Z. Vernon, M. Menotti, C. C. Tison, J. A. Steidle, M. L. Fanto, P. M. Thomas, S.
 G. Veronis, R. W. Dutton, S. Fan, "Method for sensitivity analysis of photonic crystal devices", Opt. Lett. 29, 2288 (2004). [doi:10.1364/OL.29.002288](https://doi.org/10.1364/OL.29.002288)
 
 - Methods pages: [averaging.md:14](methods/averaging.md?plain=1#L14), [circuit-adjoint.md:8](methods/circuit-adjoint.md?plain=1#L8), [fdfd-adjoint.md:8](methods/fdfd-adjoint.md?plain=1#L8), [fdtd-adjoint.md:8](methods/fdtd-adjoint.md?plain=1#L8)
+- Academy lessons: [fdfd-and-adjoints.md:73](../academy/fdfd-and-adjoints.md?plain=1#L73), [494](../academy/fdfd-and-adjoints.md?plain=1#L494), [762](../academy/fdfd-and-adjoints.md?plain=1#L762)
 - Validation cases: [`fdfd/adjoint-gradient-ez`](validation.md?plain=1#L147), [`fdfd3d/adjoint-gradient`](validation.md?plain=1#L168), [`fdfd3d/recycle-adjoint`](validation.md?plain=1#L191), [`fdtd/adjoint-modes`](validation.md?plain=1#L268), [`circuit/adjoint-mzi`](validation.md?plain=1#L283), [`chip/adjoint`](validation.md?plain=1#L373), [`fdfd/fill-derivative-ez`](validation.md?plain=1#L503)
 - Code: [src/cases/fdfd/fill_checks.rs:670](../src/cases/fdfd/fill_checks.rs#L670), [src/circuit/adjoint.rs:17](../src/circuit/adjoint.rs#L17), [src/fdfd/adjoint.rs:5](../src/fdfd/adjoint.rs#L5), [src/fdfd/three/adjoint.rs:5](../src/fdfd/three/adjoint.rs#L5), [src/fdtd/adjoint.rs:26](../src/fdtd/adjoint.rs#L26), [src/job/chip_checks.rs:37](../src/job/chip_checks.rs#L37), [src/validation.rs:1054](../src/validation.rs#L1054), [1201](../src/validation.rs#L1201), [1362](../src/validation.rs#L1362), [1901](../src/validation.rs#L1901), [2006](../src/validation.rs#L2006)
 - Other documents: [docs/plans/optimization.md:588](plans/optimization.md?plain=1#L588)
@@ -3920,6 +3934,7 @@ I. Vurgaftman, J. R. Meyer, L. R. Ram-Mohan, "Band parameters for III–V compou
 F. Wang, B. S. Lazarov, O. Sigmund, "On projection methods, convergence and robust formulations in topology optimization", Struct Multidisc Optim 43, 767 (2010). [doi:10.1007/s00158-010-0602-y](https://doi.org/10.1007/s00158-010-0602-y)
 
 - Methods pages: [optimization.md:34](methods/optimization.md?plain=1#L34), [219](methods/optimization.md?plain=1#L219)
+- Academy lessons: [fdfd-and-adjoints.md:79](../academy/fdfd-and-adjoints.md?plain=1#L79), [642](../academy/fdfd-and-adjoints.md?plain=1#L642), [767](../academy/fdfd-and-adjoints.md?plain=1#L767)
 - Other documents: [ROADMAP.md:761](../ROADMAP.md?plain=1#L761), [docs/plans/optimization.md:591](plans/optimization.md?plain=1#L591)
 
 #### Wang et al. 2011
@@ -4162,7 +4177,7 @@ D. E. Zelmon, D. L. Small, D. Jundt, "Infrared corrected Sellmeier coefficients 
 Y. Zhang, S. Yang, A. E.-J. Lim, G.-Q. Lo, C. Galland, T. Baehr-Jones, M. Hochberg, "A compact and low loss Y-junction for submicron silicon waveguide", Opt. Express 21, 1310 (2013). [doi:10.1364/OE.21.001310](https://doi.org/10.1364/OE.21.001310)
 
 - Methods pages: [booleans.md:14](methods/booleans.md?plain=1#L14), [devices.md:32](methods/devices.md?plain=1#L32), [eme.md:559](methods/eme.md?plain=1#L559), [geometry.md:27](methods/geometry.md?plain=1#L27)
-- Academy lessons: [directional-coupler.md:76](../academy/directional-coupler.md?plain=1#L76), [454](../academy/directional-coupler.md?plain=1#L454)
+- Academy lessons: [directional-coupler.md:76](../academy/directional-coupler.md?plain=1#L76), [454](../academy/directional-coupler.md?plain=1#L454), [fdfd-and-adjoints.md:97](../academy/fdfd-and-adjoints.md?plain=1#L97), [468](../academy/fdfd-and-adjoints.md?plain=1#L468), [764](../academy/fdfd-and-adjoints.md?plain=1#L764)
 - Validation cases: [`device/y-branch-ideal-2d`](validation.md?plain=1#L345), [`geometry/curves/zhang-y-junction`](validation.md?plain=1#L420), [`geometry/booleans/zhang-y-junction`](validation.md?plain=1#L428)
 - Examples: [README.md:58](../examples/README.md?plain=1#L58), [78](../examples/README.md?plain=1#L78), [optimize_ybranch.rs:6](../examples/optimize_ybranch.rs#L6), [y_junction_zhang.rs:6](../examples/y_junction_zhang.rs#L6)
 - Code: [src/device/splitter_checks.rs:173](../src/device/splitter_checks.rs#L173), [src/device/ybranch.rs:20](../src/device/ybranch.rs#L20), [src/geometry/boolean_checks.rs:819](../src/geometry/boolean_checks.rs#L819), [src/geometry/curve_checks.rs:749](../src/geometry/curve_checks.rs#L749)

@@ -22,6 +22,7 @@ moving a slider shows the physics the library computes, the code the
 | [Multimode interference couplers](mmi.md) | intermediate | `mmi` | `mmi-field`, `mmi-modes`, `mmi-length`, `mmi-spectrum`, `mmi-tolerance` |
 | [Photonic crystals and band gaps](photonic-crystals.md) | advanced | `crystal` | `crystal-stack`, `crystal-bands`, `crystal-group-index` |
 | [Metasurfaces and metalenses](metasurfaces.md) | advanced | `metalens` | `meta-orders`, `meta-pillar`, `meta-focus`, `meta-axis`, `meta-bandwidth` |
+| [FDFD and adjoint gradients](fdfd-and-adjoints.md) | advanced | `fdfd` | `fdfd-convergence`, `fdfd-gradient`, `fdfd-difference-step` |
 
 The whole curriculum is laid out: every lesson still to be written is here too, **coming soon**,
 with its numbered subsections, what each will answer and the examples each will use, so writing
@@ -32,7 +33,6 @@ it is filling them in. The library lists them in this order, the order to read t
 | [Crossings, mode converters and the polarization splitter-rotator](crossings-and-converters.md) | Multimode and polarization devices | advanced | `crossing_liu_poon`, `mode_converter_liu_poon`, `splitter_rotator_liu_poon` |
 | [Surface plasmons and Mie scattering](plasmonics.md) | Nanophotonics | advanced | `lorentz_okoniewski` |
 | [How FDTD works](how-fdtd-works.md) | Numerical methods | intermediate | `cpml_roden_gedney`, `pml_oskooi`, `tfsf_square_cylinder`, `subpixel_holes`, `bump_oskooi`, `lorentz_okoniewski` |
-| [FDFD and adjoint gradients](fdfd-and-adjoints.md) | Numerical methods | advanced | |
 | [Inverse design](inverse-design.md), with 0.7 | Numerical methods | advanced | `circuit_splitter`, `circuit_ring_critical`, `circuit_fit` |
 | [Modulators and phase shifters](modulators.md), with 0.6 | Active and quantum photonics | intermediate | |
 | [Nonlinear integrated optics](nonlinear-optics.md), with 0.6.1 | Active and quantum photonics | advanced | |
@@ -201,6 +201,7 @@ shows first.
 | `process` | five cross-sections of one wafer as a silicon strip is made: the SOI wafer, a film $t$ thick on a buried oxide $h$ thick over the handle; resist coated and exposed through a mask by light of wavelength $\lambda$ through a lens of numerical aperture NA; the resist developed, a line $w$ wide; the silicon etched down to the oxide, where it stops; the resist stripped and the strip clad in oxide | none |
 | `leaky` | a planar guide in section, the cover $n_c$, films $n_1 \ldots n_J$ and a substrate $n_s$ above $\operatorname{Re} n_\text{eff}$, the mode along $z$ shedding a plane wave into the substrate at $\theta$, weaker downstream, and its field $\lvert\psi(x)\rvert$ growing into the substrate as $e^{ik\alpha_s x}$; and a guide $n_1$ in $n_2$ bent at $R$ about $O$, its radial phase fronts, $e^{i\nu\varphi}$ with $\nu = kn_\text{eff}R$, and the radius $\rho_r = R\thinspace n_\text{eff}/n_2$ beyond which it radiates | none |
 | `metalens` | a metalens in section: pillars of height $H$ and widths $w$, one every period $p$, on a substrate, lit from below by a plane wave, their widths repeating zone by zone with the wrapped phase $\varphi(r) = -k(\sqrt{r^2 + f^2} - f)$; the wave converging on the focus a focal length $f$ above, the rim's ray at $\theta$, $\mathrm{NA} = \sin\theta$, the half-width $R$; beside it a nanofin from above, rotated by $\alpha$, whose converted light carries the phase $2\alpha$, and $\varphi$ against $r$ | none |
+| `fdfd` | a 2D FDFD problem: a grid closed by PMLs ($\partial_w \to s_w^{-1}\partial_w$), a guide through it, a source $b$, a monitor measuring $a = c^\mathsf{T}x$ and between them a design region of cells $\varepsilon_k$; the forward field $x$ of $A(\varepsilon)\,x = b$ travelling from the source and the adjoint field $\lambda$ of $A^\mathsf{T}\lambda = \partial F/\partial x$ travelling back from the monitor, and $dF/d\varepsilon_k = -2\operatorname{Re}(\lambda^\mathsf{T}\,\partial_kA\,x)$; beside it Yee's 2D grid for $E$ along $z$, $E_z$ at the centres and $H_x$, $H_y$ on the faces, and the five-point stencil | none |
 | `mmi` | a 1 × 2 MMI from above: a section $W$ wide and $L = 3L_\pi/8$ long fed in its middle by a guide $w_a$ wide, the light inside it computed from Soldano and Pennings's sine-like modes and quadratic phases, the input's spot opening into two images at the far face, the outputs at $\pm W/4$, $z$ along it; beneath, the first four modes $\psi_0 \ldots \psi_3$ across $W$, $\beta_0 - \beta_\nu \approx \nu(\nu + 2)\pi/3L_\pi$ and $L_\pi \approx 4n_rW_e^2/3\lambda_0$ | `mmi-fdfd.yaml` |
 
 Each diagram is an entry in `studio/src-tauri/src/diagrams.rs` (its title, its captions, and its
@@ -265,6 +266,9 @@ code; the window only draws what it returns, and asks again as a slider moves.
 | `meta-bandwidth` | `na` (0.24), `focal` µm (200), `thickness` µm (0.8), `index` (3.674), `centre` µm (1.454) | Presutti and Monticone's Eqs. 10–12: the bounds for resonant meta-atoms, Tucker's for waveguides and Miller's for any structure, against NA |
 | `crystal-stack` | `high` $\varepsilon_1$ (13), `low` $\varepsilon_2$ (1), `fill` $d_1/a$ (0.2) | `Multilayer::reflection`: one period's $t$, $\cos Ka = \operatorname{Re}(1/t)$ at 2000 frequencies to $\omega a/2\pi c = 1$, the band edges bisected; the quarter-wave stack's gap |
 | `crystal-group-index` | `high` $\varepsilon_1$ (13), `low` $\varepsilon_2$ (1), `fill` $d_1/a$ (0.2), `frequency` $\omega a/2\pi c$ (0.15) | `Multilayer::reflection` as above, $n_g = c\,dK/d\omega$ by a central difference of 10⁻⁶ of the frequency; $\sqrt{\langle\varepsilon\rangle}$ |
+| `fdfd-convergence` | `polarization` (1 E along z, 2 H along z), `thickness` nm (220) | `fdfd::Solver2d::port_modes` of a silicon slab (3.476 in 1.444) at 1.55 µm on grids of 4.4 to 128.4 cells across it, its faces 0.3 and 0.7 of a cell off the lines, each cell by 8 × 8 samples (`Solver2d::new`), its centre's material or its mean (`Solver2d::from_cells`); the error against `mode::slab::Slab::modes`, and each order between the two finest grids |
+| `fdfd-gradient` | `polarization` (1), `bump` $\varepsilon_b$ (6) | `Solver2d::from_cells` on the slab and bump of `fdfd/adjoint-gradient-ez`, 20 nm cells, `mode_source` and `solve_system`: the forward field, the right port's mode launched backwards, and `mode_power_gradient` in a window of 3,000 cells; a fourth-order central difference at one cell by `reuse_cells` as the check |
+| `fdfd-difference-step` | `polarization` (1), `probe` (1 bump, 2 core, 3 oxide) | the same problem: `mode_power_gradient` at the cell against second- and fourth-order central differences of the power, 4 solves at each of 12 steps from 10⁻⁶ to 10⁻⁰·⁵; the round-off bound from `Solver2d::residual` |
 | `crystal-bands` | `lattice` (1 square, 2 triangular), `kind` (1 rods, 2 holes), `eps` $\varepsilon$ (8.9), `radius` $r/a$ (0.2) | `fdtd::Simulation::smoothed` on one cell between Bloch-periodic sides, 2D, 24 cells a lattice constant, the subpixel average's diagonal; one complex run a k-point along the zone's edge, `fdtd::harmonic_inversion` on $E_z$ (TM) and $H_z$ (TE) probes; the triangular lattice on a rectangle of two sites, its folded bands cancelled by probes one lattice vector apart |
 
 The ranges are in `charts.rs` (the coupler's in `charts/coupler.rs`), and the window's sliders keep
@@ -294,6 +298,12 @@ orders and the bandwidth bounds) in milliseconds; scalar 2D propagation of a len
 the studio with no library function behind it, in tens of milliseconds; and the pillar's 2D FDTD
 unit cells, 31 runs between periodic sides in parallel, a few seconds, cached by geometry, checked
 in unit tests against the transfer matrices for a film and against a finer grid.
+The FDFD lesson's charts (`charts/fdfd.rs`) are 2D FDFD solves on the problems of the validation
+cases: the port modes on 18 grids in parallel; the gradient's 26,600 unknowns factorized once,
+with 4 more factorizations for its check; the step study's 48 factorizations in parallel. Their
+three unit tests, which compute all of them, take 2.4 s together; each chart is cached by its
+parameters, and checked against the exact slab's orders and against fourth-order differences to
+the validation cases' 10⁻⁶.
 A chart may draw pictures of a field over a cross-section in place of curves (`maps`), side by
 side with one colour scale, as `strip-fields` does.
 
