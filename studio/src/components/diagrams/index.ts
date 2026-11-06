@@ -8,6 +8,7 @@ import Bragg from "./Bragg.svelte";
 import Coupler from "./Coupler.svelte";
 import Crystal from "./Crystal.svelte";
 import Dispersion from "./Dispersion.svelte";
+import Fdfd from "./Fdfd.svelte";
 import Grating from "./Grating.svelte";
 import Leaky from "./Leaky.svelte";
 import Metalens from "./Metalens.svelte";
@@ -23,6 +24,7 @@ export const DRAWINGS: Record<string, Component> = {
   "coupler": Coupler,
   "crystal": Crystal,
   "dispersion": Dispersion,
+  "fdfd": Fdfd,
   "grating": Grating,
   "leaky": Leaky,
   "metalens": Metalens,
