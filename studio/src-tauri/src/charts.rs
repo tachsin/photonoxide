@@ -33,6 +33,7 @@ mod leaky;
 mod material;
 mod meta;
 mod mmi;
+mod modulator;
 mod slab;
 mod strip;
 
@@ -1088,6 +1089,7 @@ pub fn specs() -> Vec<ChartSpec> {
     .chain(crystal::specs())
     .chain(meta::specs())
     .chain(fdfd::specs())
+    .chain(modulator::specs())
     .collect()
 }
 
@@ -1473,6 +1475,16 @@ pub fn evaluate(id: &str, given: &BTreeMap<String, f64>) -> Result<ChartData, St
         "fdfd-convergence" => fdfd::convergence(at("polarization"), at("thickness")),
         "fdfd-gradient" => fdfd::gradient(at("polarization"), at("bump")),
         "fdfd-difference-step" => fdfd::difference_step(at("polarization"), at("probe")),
+        "heater-power" => modulator::heater_power(at("kind"), at("strip")),
+        "mzm-transfer" => modulator::mzm_transfer(at("length"), at("bias"), at("frequency")),
+        "modulator-response" => modulator::modulator_response(
+            at("mismatch"),
+            at("loss"),
+            at("dielectric"),
+            at("impedance"),
+            at("length"),
+        ),
+        "pcm-shift" => modulator::pcm_shift(at("thickness"), at("width")),
         "leaky-field" => leaky::field(at("order") as usize),
         "leaky-substrate" => leaky::substrate(at("oxide"), at("wavelength")),
         "bend-loss" => leaky::bend_loss(

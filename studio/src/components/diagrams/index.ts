@@ -13,6 +13,7 @@ import Grating from "./Grating.svelte";
 import Leaky from "./Leaky.svelte";
 import Metalens from "./Metalens.svelte";
 import Mmi from "./Mmi.svelte";
+import Modulator from "./Modulator.svelte";
 import Mzi from "./Mzi.svelte";
 import Process from "./Process.svelte";
 import Ring from "./Ring.svelte";
@@ -29,6 +30,7 @@ export const DRAWINGS: Record<string, Component> = {
   "leaky": Leaky,
   "metalens": Metalens,
   "mmi": Mmi,
+  "modulator": Modulator,
   "mzi": Mzi,
   "process": Process,
   "ring": Ring,
