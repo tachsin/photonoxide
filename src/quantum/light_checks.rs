@@ -954,7 +954,8 @@ mod tests {
                     tm1.group_index(lam)
                 );
             }
-            let purity = |delay: f64, points: usize| paesani_purity(&tm0, &tm1, delay, fwhm, points);
+            let purity =
+                |delay: f64, points: usize| paesani_purity(&tm0, &tm1, delay, fwhm, points);
             for delay in [0.0, 1.46, ours, 2.06] {
                 let (p, s, i) = purity(delay, 81);
                 eprintln!(
