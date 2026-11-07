@@ -386,7 +386,7 @@ impl SlabBend {
     /// (the cladding is uniform, so for either polarization) integrated by fourth-order
     /// Runge–Kutta from the wall inwards, the direction in which the outgoing wave grows, so
     /// that the integration is stable; unnormalized.
-    fn from_the_wall(&self, pml: BendPml, k: f64, nu: c64, ts: &[f64]) -> Vec<(c64, c64)> {
+    fn walled(&self, pml: BendPml, k: f64, nu: c64, ts: &[f64]) -> Vec<(c64, c64)> {
         let r = self.radius;
         let rho0 = r + pml.edge;
         let kn2 = c64::new(k * k * self.outer * self.outer, 0.0);
@@ -448,7 +448,7 @@ impl SlabBend {
         let at_edge = self.field(polarization, wavelength, n_eff, &[pml.edge])[0];
         let mut points = ts.to_vec();
         points.push(0.0);
-        let walked = self.from_the_wall(pml, k, nu, &points);
+        let walked = self.walled(pml, k, nu, &points);
         let scale = at_edge / walked[ts.len()].0;
         walked[..ts.len()].iter().map(|v| v.0 * scale).collect()
     }
@@ -481,7 +481,7 @@ impl SlabBend {
             // closed: the inner solution from the inner wall, the outer one from the PML's wall
             // back to the PML's inner edge
             let edge = r + pml.edge;
-            let (psi, du) = self.from_the_wall(pml, k, nu, &[0.0])[0];
+            let (psi, du) = self.walled(pml, k, nu, &[0.0])[0];
             let (zero, one) = (c64::new(0.0, 0.0), c64::new(1.0, 0.0));
             return Ends {
                 start: r + pml.wall,
