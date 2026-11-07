@@ -1002,7 +1002,8 @@ fn prepare(job: &Job) -> Result<Prepared> {
 fn not_a_kind(name: &str) -> Error {
     task_error(format!(
         "a job with a [circuit] table computes it by a \"spectrum\" task, studies it by a \
-         \"sweep\" or \"corners\" one, or optimizes it by an \"optimize\" one, not \"{name}\""
+         \"sweep\" or \"corners\" one, optimizes it by an \"optimize\" one, or sends photons \
+         through it by a \"quantum\" one, not \"{name}\""
     ))
 }
 

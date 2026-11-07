@@ -3,6 +3,8 @@
 // runs them as they are. No physics here: the probabilities, the dip and the budgets are the
 // library's; these only name, order and place them.
 
+import type { QuantumBudget, QuantumDip, QuantumSamples, QuantumSqueezed, QuantumStatistics } from "./events";
+
 /** The most photons the view puts on the ports (MOST_PHOTONS in circuits/quantum.rs). */
 export const MOST_PHOTONS = 8;
 
@@ -101,4 +103,66 @@ export function squeezedOn<T extends { port: string }>(ports: string[], inputs: 
 /** The covariance's rows and columns by name: each port's x, then each port's p. */
 export function quadratureLabels(ports: string[]): string[] {
   return [...ports.map((p) => `x ${p}`), ...ports.map((p) => `p ${p}`)];
+}
+
+/** A quantum job's records as a run keeps them (lib/events.ts's Quantum… types). */
+export interface QuantumRecord {
+  statistics: QuantumStatistics | null;
+  samples: QuantumSamples | null;
+  dip: QuantumDip | null;
+  budget: QuantumBudget | null;
+  squeezed: QuantumSqueezed | null;
+}
+
+/** What the Quantum tab's forms hold, for its job. */
+export interface QuantumForms {
+  ports: string[];
+  wavelength: number;
+  photons: Record<string, number>;
+  samples: number;
+  seed: number;
+  dip: { inputs: [string, string]; outputs: [string, string]; photons: { center_um: number | null; fwhm_nm: number }[]; span_ps: number | null; points: number };
+  band: { from_um: number; to_um: number; points: number };
+  budget: { from: string; to: string }[];
+  squeezed: { port: string; squeezing_db: number; angle_deg: number; displacement: [number, number] }[];
+}
+
+/** The dip's ports: those chosen where they are ports, else the first two inputs ("in…") into the first two other ports, as the dip part takes them. */
+export function dipPorts(ports: string[], inputs: [string, string], outputs: [string, string]): { inputs: [string, string]; outputs: [string, string] } {
+  const named = ports.filter((p) => /^in/i.test(p));
+  const fallback = (named.length >= 2 ? named : ports).slice(0, 2);
+  const ins = [0, 1].map((k) => (ports.includes(inputs[k]) ? inputs[k] : (fallback[k] ?? ""))) as [string, string];
+  const pool = [...ports.filter((p) => !ins.includes(p)), ...ports.filter((p) => ins.includes(p))];
+  const first = ports.includes(outputs[0]) ? outputs[0] : (pool[0] ?? "");
+  const second = ports.includes(outputs[1]) ? outputs[1] : (pool.find((p) => p !== first) ?? "");
+  return { inputs: ins, outputs: [first, second] };
+}
+
+/** The "quantum" job's task (without its kind) the forms make: the photons and their samples, the dip, the budget and the squeezed light, each where the forms give it. */
+export function quantumTask(f: QuantumForms): Record<string, unknown> {
+  const task: Record<string, unknown> = { wavelength_um: f.wavelength };
+  const photons = f.ports.filter((p) => (f.photons[p] ?? 0) > 0).map((port) => ({ port, count: f.photons[port] }));
+  if (photons.length) {
+    task.photons = photons;
+    if (f.samples > 0) task.sample = { samples: f.samples, seed: f.seed };
+  }
+  const { inputs, outputs } = dipPorts(f.ports, f.dip.inputs, f.dip.outputs);
+  if (inputs.every(Boolean) && outputs.every(Boolean) && f.band.points >= 2) {
+    task.dip = {
+      inputs,
+      outputs,
+      center_um: f.dip.photons.map((p) => p.center_um ?? f.wavelength),
+      fwhm_nm: f.dip.photons.map((p) => p.fwhm_nm),
+      from_um: f.band.from_um,
+      to_um: f.band.to_um,
+      points: f.band.points,
+      delays: f.dip.points,
+      ...(f.dip.span_ps !== null ? { span_ps: f.dip.span_ps } : {}),
+    };
+  }
+  const legs = f.budget.filter((l) => f.ports.includes(l.from) && f.ports.includes(l.to));
+  if (legs.length) task.budget = legs.map(({ from, to }) => ({ from, to }));
+  const squeezed = f.squeezed.filter((s) => f.ports.includes(s.port));
+  if (squeezed.length) task.squeezed = squeezed.map((s) => ({ port: s.port, squeezing_db: s.squeezing_db, angle_deg: s.angle_deg, displacement: s.displacement }));
+  return task;
 }

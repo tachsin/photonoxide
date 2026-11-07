@@ -16,12 +16,15 @@ pub mod chip;
 pub mod gaussian;
 pub mod library;
 pub mod quantum;
+pub mod quantum_job;
 pub mod sampling;
 
 #[cfg(test)]
 mod chip_tests;
 #[cfg(test)]
 mod gaussian_tests;
+#[cfg(test)]
+mod quantum_job_tests;
 #[cfg(test)]
 mod quantum_tests;
 #[cfg(test)]

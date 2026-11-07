@@ -218,6 +218,7 @@ pub fn show(dir: Option<&Path>, live: Option<Live>) -> Result<(), String> {
             crate::circuits::quantum::chip_loss_budget,
             crate::circuits::gaussian::chip_gaussian,
             crate::circuits::sampling::chip_sample,
+            crate::circuits::quantum_job::chip_quantum_job,
             crate::circuits::circuit_touchstone,
             crate::circuits::component_touchstone,
             crate::circuits::circuit_text,

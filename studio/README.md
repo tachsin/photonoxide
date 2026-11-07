@@ -485,6 +485,11 @@ in a drawer opened from the status bar.
       modes; one port's photon numbers P(0) to P(30) by hafnians, with what lies beyond; its
       Wigner function on a grid; and the covariance of every quadrature. Up to 20 dB and |α| ≤ 5
       a port; with no port given anything, it says what to do.
+    - **Run as a job:** every part's forms as they stand, written as a `"quantum"` task beside
+      the chip's `[circuit]` (`photonoxide::job`): the photons and 10 000 samples of them, the
+      dip over the chip's sweep, the budget's photons on their best routes and the squeezed
+      light. The run is kept in the runs drawer, its record holds the same numbers the parts
+      compute in place, and the run view draws them; `photonoxide run` runs the same file.
     - Refused, with the library's reason: a chip with gain (it can't be dilated with vacuum), a
       port that isn't one, a wavelength outside the sweep; an incomplete chip waits until it is
       finished.
