@@ -624,8 +624,13 @@ of 3e-9 (the interpolants' 1e-10 in n_eff through Δk's difference of indices).
 
 Why Chebyshev points and not the adaptive sweep of `photonoxide::sweep`: its AAA fit was tried
 first. On a slab's 2.5 nm cells the rational fits put spurious poles in the samples' last digits,
-and the estimate stalled at 1e-6 after 60 samples. The polynomials settle to 1e-10 in n_eff, their
-derivatives with them: 17 Chebyshev points across 0.15 µm for each of Zhao et al.'s modes below.
+and the estimate stalled near 1e-6 after 60 samples. That is the floor the samples' roughness puts
+under a sweep ([sweep.md](sweep.md), the floor), and it differs from slab to slab: the slab
+sweep.md measures (0.4 µm of 2.2 in 1.45) stops at 6.2e-9 on the same 2.5 nm cells, and its
+noise table puts the floor 30 to 7e6 times the samples' roughness, not in its order. Neither
+floor can be told from the samples in advance, and both are far above what the nonlinear guides
+need. The polynomials settle to 1e-10 in n_eff, their derivatives with them: 17 Chebyshev points
+across 0.15 µm for each of Zhao et al.'s modes below.
 
 ### Zhao et al.'s guide
 
