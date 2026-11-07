@@ -74,6 +74,14 @@ const ROWS: &[Row] = &[
         "",
     ),
     (
+        "desouza-2001",
+        "J. P. de Souza, M. Behar, J. F. Dias, J. H. R. dos Santos, Nucl. Instrum. Methods Phys. Res. B 175–177, 46 (2001)",
+        "Range parameters of ¹⁸O implanted into Si and SiO₂",
+        "10.1016/S0168-583X(00)00525-5",
+        "",
+        "",
+    ),
+    (
         "selvaraja-2009",
         "S. K. Selvaraja, P. Jaenen, W. Bogaerts, D. Van Thourhout, P. Dumon, R. Baets, J. Lightwave Technol. 27, 4076 (2009)",
         "Fabrication of Photonic Wire and Crystal Circuits in Silicon-on-Insulator Using 193-nm Optical Lithography",

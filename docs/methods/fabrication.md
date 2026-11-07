@@ -16,6 +16,13 @@ papers:
     doi: 10.1109/MCD.1987.6323126
   - cite: "P. L. F. Hemment, E. Maydell-Ondrusz, K. G. Stevens, J. A. Kilner, J. Butcher, Vacuum 34, 203 (1984) (200 keV, 1.8×10¹⁸ cm⁻²: the layers as implanted, p. 204, and after 1150 °C, p. 206; the oxide's thickness against the dose, Fig. 2)"
     doi: 10.1016/0042-207X(84)90128-3
+  - cite: "J. P. de Souza, M. Behar, J. F. Dias, J. H. R. dos Santos, Nucl. Instrum. Methods Phys. Res. B 175–177, 46 (2001) (¹⁸O in amorphized Si and in SiO₂, measured by nuclear reaction analysis: Rp and ΔRp at 25–200 keV against TRIM, Table 1, p. 48; the targets, p. 47)"
+    doi: 10.1016/S0168-583X(00)00525-5
+  - cite: "Ö. Kabadayi, H. Gümüş, Phys. Status Solidi B 242, 2391 (2005) (O in Si and SiO₂: ranges from four stopping powers, SRIM and PRAL against de Souza's measurements, Fig. 3, p. 2397; SRIM about 18 % above them, p. 2399)"
+    doi: 10.1002/pssb.200540082
+  - cite: "J. Lindhard, M. Scharff, H. E. Schiøtt, Mat. Fys. Medd. Dan. Vid. Selsk. 33, no. 14 (1963) (LSS theory: reduced units, Eq. 2.8, and electronic stopping, Eq. 2.10, p. 8; the projected range, Eq. 4.5, p. 25)"
+    doi: ""
+    ref: lindhard-scharff-schiott-1963
   - cite: "S. K. Selvaraja, P. Jaenen, W. Bogaerts, D. Van Thourhout, P. Dumon, R. Baets, J. Lightwave Technol. 27, 4076 (2009) (193 nm lithography and the HBr/O₂ etch, Sections II–IV)"
     doi: 10.1109/JLT.2009.2022282
   - cite: "R. J. Bojko, J. Li, L. He, T. Baehr-Jones, M. Hochberg, Y. Aida, J. Vac. Sci. Technol. B 29, 06F309 (2011) (electron-beam lithography in HSQ and the Cl₂ etch)"
@@ -688,13 +695,48 @@ atom, so the oxide has 0.44 × 5×10²² = 2.2×10²² molecules per cm³ and tw
 atoms. The dose for an oxide of thickness d is d × 4.4×10²² cm⁻³. The oxide takes the place of
 44 % of its thickness in silicon, and the surface rises by the other 56 %.
 
-**Where the oxide forms, and the film over it.** The depth of the oxide would need the range of
-oxygen ions in silicon. No published range table is in hand (the wanted sources are listed in the
-plan, section 6.1). The route therefore doesn't compute it. It uses the one published pair of
-energy and film: at 200 keV, about 200 nm of silicon over the oxide, for about 2×10¹⁸ cm⁻²
-(Celler and Cristoloveanu, p. 4959). Lam gives 100–300 nm over doses of 1.2–2.2×10¹⁸ cm⁻²
-(p. 6). The route is calibrated on these published points, not predictive. It refuses what they
-don't cover and gives the reason:
+**Where the oxide forms, and the film over it.** Two lengths must not be confused here. The
+oxygen's projected range Rp is the mean depth of the implanted oxygen. The film is the silicon
+left over the buried oxide after the anneal. The route uses the one published pair of energy and
+film: at 200 keV, about 200 nm of silicon over the oxide, for about 2×10¹⁸ cm⁻² (Celler and
+Cristoloveanu, p. 4959). Lam gives 100–300 nm over doses of 1.2–2.2×10¹⁸ cm⁻² (p. 6). At the same
+200 keV, Rp is about 400–470 nm, twice the film. What is in hand on the range:
+
+| Rp of O in Si, nm | 25 keV | 50 keV | 75 keV | 100 keV | 150 keV | 200 keV | Source |
+|---|---|---|---|---|---|---|---|
+| measured (¹⁸O, nuclear reaction analysis) | 55.4 | 99.2 | 154.5 | 195.7 | 291.8 | 398.2 | de Souza et al. 2001, Table 1, p. 48 |
+| its straggle ΔRp, measured | 18.1 | 33.4 | 35.7 | 58.7 | 66.1 | 56.9 | the same |
+| TRIM (1997) | 60.1 | 115.8 | 169.7 | 224.1 | 330.5 | 430.3 | the same |
+| SRIM2003.26, read from the figure | 65.8 | 122.1 | 177.4 | 232.2 | 367.3 | 441.7 | Kabadayi and Gümüş 2005, Fig. 3, p. 2397 |
+| LSS, our arithmetic from the paper | | 118.9 | 180.5 | 241.2 | 357.9 | 467.7 | Lindhard, Scharff and Schiøtt 1963, Eq. 4.5, p. 25 |
+
+- **The measured table** (J. P. de Souza, M. Behar, J. F. Dias, J. H. R. dos Santos, Nucl.
+  Instrum. Methods Phys. Res. B 175–177, 46 (2001), doi:10.1016/S0168-583X(00)00525-5) has two
+  caveats. The ion is ¹⁸O, whose ranges the authors take to be ¹⁶O's within 2 % (p. 47). The
+  silicon was amorphized from the surface to 280 nm (p. 47), so the 150 and 200 keV ranges lie
+  beyond that layer, which the paper doesn't discuss. TRIM, the only calculation it compares, is
+  8–17 % above it (Table 1, our arithmetic; "of the order of 10%" in their words, p. 48).
+- **SRIM** lies above the same measurements by "about 18%" from 25 to 200 keV (Ö. Kabadayi,
+  H. Gümüş, Phys. Status Solidi B 242, 2391 (2005), doi:10.1002/pssb.200540082, p. 2399). They
+  print no table, so the row above is read from their Fig. 3 (to about 0.5 %). Their SRIM gives
+  367 nm at 150 keV, close to the 370 nm Izumi took from Smith's table (p. 593). De Souza's
+  measured 292 nm is 21 % below it, and 23 % below the 380 nm Izumi measured after his anneal.
+- **LSS theory** prints no number for oxygen in silicon (J. Lindhard, M. Scharff, H. E. Schiøtt,
+  Mat. Fys. Medd. Dan. Vid. Selsk. 33, no. 14 (1963), ref:lindhard-scharff-schiott-1963). The row
+  above is our arithmetic from its reduced units (Eq. 2.8, p. 8), its electronic stopping
+  (Eq. 2.10, p. 8) and its first-order projected range (Eq. 4.5, p. 25), with the universal
+  nuclear cross section traced from its Fig. 1 (p. 9). Two choices in it are ours: the ion's
+  angle in the laboratory from each collision's kinematics, and electronic collisions taken as
+  not deflecting it. It lies within about 6 % of SRIM from 50 to 200 keV (−2.6 % to +5.9 %) and
+  17–23 % above the measurements. A ±20 % change in its electronic stopping constant moves Rp by
+  about ∓9 %.
+
+So at 200 keV the range is about 400–470 nm, the spread of these rows, and the measured values
+sit below every calculation. That still doesn't give the film. Going from Rp to the film would
+need how the oxide grows about the implanted profile, and no source in hand gives that as a
+number. The route therefore doesn't compute the oxide's depth from the energy. It keeps the
+published pair of energy and film. The route is calibrated on these published points, not
+predictive. It refuses what they don't cover and gives the reason:
 
 - a buried oxide outside 0.273–0.5 µm, the dose balance of Lam's doses, the doses whose film a
   source gives;
@@ -750,7 +792,11 @@ about 1350 °C, oxygen diffusing in from the surface oxidizes the silicon at the
 Fig. 5 is a drawing without numbers.
 
 **What it does not claim.** It does not compute the oxide's depth from the energy, or how the
-film depends on the dose (it takes 0.2 µm for every dose of the route). It has no oxide for anneals
+film depends on the dose (it takes 0.2 µm for every dose of the route). It computes no projected
+range either: the rows above are the papers' and our arithmetic, not the library's. A check of a
+range model against de Souza's Table 1 would be a case with a rule (the measurement's stated
+error in Rp, 3 nm at low energy and 5 % above 75 keV, p. 48), but the route has no range model
+to check, so it waits for one. It has no oxide for anneals
 below 1300 °C, no straggle or profile, and no epitaxy over the film. It says nothing of the
 defect density, the threading dislocations or the silicon pipes through a thin oxide.
 
@@ -861,8 +907,9 @@ These are listed in every flow that meets them, and wait for a source:
   a table rather than Campbell's estimate from the masses;
 - for a flow that makes its SOI wafer by SIMOX, the film the anneal leaves for each dose (the
   flow takes about 0.2 µm at 200 keV for every dose of 1.2–2.2×10¹⁸ cm⁻²), and so what the
-  sacrificial oxide takes off; the range of oxygen ions in silicon, without which the oxide's
-  depth isn't computed; and the oxide after an anneal below 1300 °C.
+  sacrificial oxide takes off; the oxide's depth, which the oxygen's projected range alone
+  doesn't give (the range is measured, about 400 nm at 200 keV, but how the oxide grows about the
+  implanted profile isn't in hand); and the oxide after an anneal below 1300 °C.
 
 ## In the studio
 

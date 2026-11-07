@@ -854,12 +854,14 @@ mod tests {
         .expect(OK)
     }
 
-    /// The purity of Paesani et al.'s source with the pumps delayed by `delay` ps, from the TM₀ and
-    /// TM₁ indices `tm0`, `tm1`, on a `points` grid; and the signal's and idler's wavelengths.
+    /// The purity of Paesani et al.'s source with the pumps delayed by `delay` ps and a Gaussian
+    /// pump of `fwhm` µm at 1.55 µm, from the TM₀ and TM₁ indices `tm0`, `tm1`, on a `points`
+    /// grid; and the signal's and idler's wavelengths.
     fn paesani_purity(
         tm0: &ModeIndex,
         tm1: &ModeIndex,
         delay: f64,
+        fwhm: f64,
         points: usize,
     ) -> (f64, f64, f64) {
         let beta = |m: &ModeIndex| {
@@ -889,7 +891,7 @@ mod tests {
             delay,
             pump: Pump {
                 center: pump_nu,
-                bandwidth: 0.0045 / (1.55 * 1.55),
+                bandwidth: fwhm / (1.55 * 1.55),
             },
         };
         let js = dual_pump_spectrum(
@@ -926,39 +928,58 @@ mod tests {
     #[ignore = "Paesani et al.'s source from the mode solver: slow"]
     fn print_paesani() {
         let start = std::time::Instant::now();
-        let (tm0, tm1) = (paesani_index(0, 0.02), paesani_index(1, 0.02));
-        eprintln!(
-            "modes: {} and {} points, estimates {:.1e} {:.1e} ({:.1} s)",
-            tm0.points(),
-            tm1.points(),
-            tm0.estimate(),
-            tm1.estimate(),
-            start.elapsed().as_secs_f64()
-        );
-        for lam in [1.516, 1.55, 1.588] {
+        let c = SPEED_OF_LIGHT * 1e-6; // µm/ps
+        // their Supplementary Note 3c's pump: a Gaussian of 4.58 nm, no spectral phase
+        let fwhm = 0.00458;
+        for h in [0.02, 0.01, 0.005] {
+            let (tm0, tm1) = (paesani_index(0, h), paesani_index(1, h));
+            let dng = tm1.group_index(1.55) - tm0.group_index(1.55);
+            // their Supplementary Eq. 2: τ = −(L/2)(1/v₀ − 1/v₁) = L Δn_g / (2c)
+            let ours = 11_000.0 * dng / (2.0 * c);
             eprintln!(
-                "{lam}: TM0 n {:.5} ng {:.5}; TM1 n {:.5} ng {:.5}",
-                tm0.n_eff(lam),
-                tm0.group_index(lam),
-                tm1.n_eff(lam),
-                tm1.group_index(lam)
+                "{h} um cells: {} and {} points, estimates {:.1e} {:.1e}; TM1 - TM0 group \
+                 index at 1.55 um {dng:.5}, delay by Supp. Eq. 2 {ours:.4} ps ({:.1} s)",
+                tm0.points(),
+                tm1.points(),
+                tm0.estimate(),
+                tm1.estimate(),
+                start.elapsed().as_secs_f64()
             );
-        }
-        let fine = (paesani_index(0, 0.01), paesani_index(1, 0.01));
-        for delay in [0.0, 1.46] {
-            let (p, _, _) = paesani_purity(&fine.0, &fine.1, delay, 81);
-            eprintln!(
-                "10 nm cells, delay {delay} ps: purity {p:.5}; TM1 - TM0 group index at 1.55: {:.5}",
-                fine.1.group_index(1.55) - fine.0.group_index(1.55)
-            );
-        }
-        for delay in [0.0, 1.0, 1.46, 1.96, 2.0] {
-            for points in [81, 161] {
-                let (p, s, i) = paesani_purity(&tm0, &tm1, delay, points);
+            for lam in [1.516, 1.55, 1.588] {
                 eprintln!(
-                    "delay {delay} ps, {points} points: purity {p:.5}, signal {s:.4} um, idler {i:.4} um"
+                    "  {lam}: TM0 n {:.5} ng {:.5}; TM1 n {:.5} ng {:.5}",
+                    tm0.n_eff(lam),
+                    tm0.group_index(lam),
+                    tm1.n_eff(lam),
+                    tm1.group_index(lam)
                 );
             }
+            let purity = |delay: f64, points: usize| paesani_purity(&tm0, &tm1, delay, fwhm, points);
+            for delay in [0.0, 1.46, ours, 2.06] {
+                let (p, s, i) = purity(delay, 81);
+                eprintln!(
+                    "  delay {delay:.4} ps: purity {p:.6} (161 points: {:.6}), signal {s:.4} \
+                     um, idler {i:.4} um",
+                    purity(delay, 161).0
+                );
+            }
+            // the best delay, by golden-section search
+            let g = 0.5 * (5f64.sqrt() - 1.0);
+            let (mut a, mut b) = (1.7, 2.3);
+            for _ in 0..30 {
+                let (x1, x2) = (b - g * (b - a), a + g * (b - a));
+                if purity(x1, 81).0 > purity(x2, 81).0 {
+                    b = x2;
+                } else {
+                    a = x1;
+                }
+            }
+            let best = 0.5 * (a + b);
+            eprintln!(
+                "  best delay {best:.4} ps: purity {:.6} ({:.1} s)",
+                purity(best, 81).0,
+                start.elapsed().as_secs_f64()
+            );
         }
     }
 }

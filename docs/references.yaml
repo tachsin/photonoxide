@@ -145,10 +145,10 @@
   venue: "ACM Trans. Math. Softw. 49, 1"
   year: 2023
 
-- doi: 10.1364/OE.16.016750
+- doi: 10.1364/OE.16.010750
   authors: "V. Anant, A. J. Kerman, E. A. Dauler, J. K. W. Yang, K. M. Rosfjord, K. K. Berggren"
   title: "Optical properties of superconducting nanowire single-photon detectors"
-  venue: "Opt. Express 16, 16750"
+  venue: "Opt. Express 16, 10750"
   year: 2008
 
 - doi: 10.1109/50.762914
@@ -812,6 +812,12 @@
   title: "Macromodeling of Multiport Systems Using a Fast Implementation of the Vector Fitting Method"
   venue: "IEEE Microw. Wireless Compon. Lett. 18, 383"
   year: 2008
+
+- doi: 10.1016/S0168-583X(00)00525-5
+  authors: "J. P. de Souza, M. Behar, J. F. Dias, J. H. R. dos Santos"
+  title: "Range parameters of ¹⁸O implanted into Si and SiO₂"
+  venue: "Nucl. Instrum. Methods Phys. Res. B 175–177, 46"
+  year: 2001
 
 - doi: 10.1002/lpor.201500321
   authors: "C. P. Dietrich, A. Fiore, M. G. Thompson, M. Kamp, S. Höfling"
@@ -1627,6 +1633,12 @@
   venue: "Opt. Lett. 38, 2810"
   year: 2013
 
+- doi: 10.1002/pssb.200540082
+  authors: "Ö. Kabadayi, H. Gümüş"
+  title: "Range and longitudinal range straggling with various stopping power formulations for oxygen ions in Si and SiO2"
+  venue: "Phys. Status Solidi B 242, 2391"
+  year: 2005
+
 - doi: 10.1016/0022-0248(84)90086-1
   authors: "C. Kaito, N. Nakamura, T. Yoshida, M. Shiojiri"
   title: "Structure and the process of crystallization in thin amorphous Sb2S3 films"
@@ -1836,6 +1848,12 @@
   venue: "Opt. Lett. 23, 1081"
   year: 1998
 
+- doi: 10.1364/JOSAA.16.001143
+  authors: "P. Lalanne, S. Astilean, P. Chavel, E. Cambril, H. Launois"
+  title: "Design and fabrication of blazed binary diffractive elements with sampling periods smaller than the structural cutoff"
+  venue: "J. Opt. Soc. Am. A 16, 1143"
+  year: 1999
+
 - doi: 10.1364/OE.21.021693
   authors: "C. M. Lalau-Keraly, S. Bhargava, O. D. Miller, E. Yablonovitch"
   title: "Adjoint shape optimization applied to electromagnetic design"
@@ -1951,6 +1969,13 @@
   title: "Nonlinear optical phenomena in silicon waveguides: modeling and applications"
   venue: "Opt. Express 15, 16604"
   year: 2007
+
+- key: lindhard-scharff-schiott-1963
+  authors: "J. Lindhard, M. Scharff, H. E. Schiøtt"
+  title: "Range concepts and heavy ion ranges (Notes on atomic collisions, II)"
+  venue: "Mat. Fys. Medd. Dan. Vid. Selsk. 33, no. 14"
+  year: 1963
+  open: https://gymarkiv.sdu.dk/MFM/kdvs/mfm%2030-39/mfm-33-14.pdf
 
 - doi: 10.1109/50.588673
   authors: "B. Little, S. Chu, H. Haus, J. Foresi, J.-P. Laine"

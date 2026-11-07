@@ -480,8 +480,10 @@ fn simox_steps(
              twice silicon's 5×10²² atoms per cm³ (campbell-2008, p. 43) times the 44 % of its \
              thickness an oxide consumes of silicon (p. 74). The oxide takes the place of {} of \
              silicon and the surface rises by the other {}. The energy is the one whose film a \
-             source gives, about 0.2 µm at 200 keV (celler-cristoloveanu-2003, p. 4959); no \
-             range table is in hand, so the depth isn't computed. The drawing shows the buried \
+             source gives, about 0.2 µm of silicon left over the oxide at 200 keV \
+             (celler-cristoloveanu-2003, p. 4959), which is not the oxygen's projected range \
+             (about 0.40 µm measured at 200 keV, desouza-2001, p. 48); the depth isn't computed \
+             from the range. The drawing shows the buried \
              oxide here, as an implant this heavy already makes one (hemment-1984, p. 204), and \
              the silicon over it at the anneal, which heals it.",
             number(r.energy),
@@ -500,7 +502,9 @@ fn simox_steps(
             um(lo),
             um(hi)
         ),
-        "the depth of the oxide is not computed: no range table of oxygen in silicon is in hand"
+        "the depth of the oxide is not computed from the energy: the film over it is the published \
+         0.2 µm at 200 keV (celler-cristoloveanu-2003, p. 4959), not derived from the oxygen's \
+         projected range (desouza-2001, Table 1, p. 48)"
             .into(),
     ];
     let mut anneal = step_of(

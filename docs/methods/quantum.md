@@ -353,7 +353,14 @@ sum instead (R. Kan, J. Multivariate Anal. 99, 542 (2008), doi:10.1016/j.jmva.20
 $r_i$ the repetitions and $h_i = r_i/2 - v_i$,
 $\operatorname{lhaf} = \sum_{v} (-1)^{\sum v} \prod_i \binom{r_i}{v_i} \sum_t \frac{(h \cdot \gamma)^{N - 2t} (h^T A h / 2)^t}{(N - 2t)!\thinspace t!}$
 over $\prod (r_i + 1)$ terms, the polarization of $\prod x_i^{r_i}$ whose Gaussian moments are the
-matchings. `Gaussian::probability` takes whichever costs less. The alternating sum loses digits as
+matchings. Kan states it (Proposition 1, p. 547) for the moments of a normal vector whose
+covariance is real and positive semidefinite, which are the hafnians of that covariance with rows
+repeated (p. 546). Using it for any complex symmetric matrix, as a Gaussian state's $A$ is, is our
+own extension, not the paper's: both sides are polynomials in the matrix's entries that agree on
+the real positive definite matrices, so they agree everywhere. It is checked numerically with
+complex matrices: the squeezed vacuum's closed-form $P(2k)$ to 30 photons and the displaced
+squeezed state's moments (`quantum/squeezed-vacuum`, `quantum/displaced-states`).
+`Gaussian::probability` takes whichever costs less. The alternating sum loses digits as
 the photons in one mode grow: about $10^{-10}$ relative at 30 in one mode, and patterns are
 limited to 30 photons.
 
@@ -692,21 +699,48 @@ with their own fit; from the two measured levels alone the squeezing before the 
   their Fig. 3's line reads about 0.84 at $Q_{SI}/Q_P = 0.5$ and 0.93 at 1 against our 0.800 and
   0.917. Their purities sit above ours by about the same margin at every ratio; the full device
   simulation behind their markers isn't given in the letter. Not a case until it closes.
-- **Paesani et al.'s inter-modal source.** Their guide (2 µm × 220 nm silicon in silica, 11 mm,
-  TM₀ and TM₁, a 4.5 nm pump at 1550 nm, the TM₀ pump delayed by 1.46 ps) from the mode solver on
-  20 and 10 nm cells puts the pairs at 1584.2 and 1517.3 nm (theirs about 1588 and 1516 nm) and
-  gives a purity of 0.9980 with the delay and 0.716 without (their simulation: 0.994 and 0.840;
-  their measurement: 0.9904 ± 0.0006 and 0.931 ± 0.002). Our TM₁ − TM₀ group-index difference at
-  1550 nm is 0.109, where their delay, chosen to centre the pumps' overlap in the guide, implies
-  0.080 ($2c\tau/L$); with our dispersion the best delay is near 1.96 ps (purity 0.9990). The pump's
-  shape (theirs filtered by a 5 nm square filter) and the dispersion behind their simulation are in
-  their Supplementary Note 1, not read here. The purity converges in both grids (81 against 161
-  frequencies: $10^{-5}$; 20 against 10 nm cells: $10^{-5}$ with the delay, 0.001 without), so the
-  gap is the model's, not the numerics'. Not a case until it closes.
+- **Paesani et al.'s inter-modal source.** Their guide is 2 × 0.22 µm silicon in silica, 11 mm
+  long, pumped in TM₀ and TM₁, the signal in TM₁ and the idler in TM₀, measured at 1588 and
+  1516 nm (Supplementary Note 1a, p. 2). Their measured purity is 0.9904 ± 0.0006 with the delay
+  and 0.931 ± 0.002 without. The article's delay, 1.46 ps (Fig. 1 and Methods), would need a
+  TM₁ − TM₀ group-index difference of 0.080, against our solver's 0.11. Their supplement shows the
+  mismatch is in that delay, not in our solver. Their Supplementary Fig. 4 (p. 7, read from its
+  vector paths) gives group indices of 4.007 (TM₀) and 4.119 (TM₁) at 1550 nm, a difference of
+  0.112. Their delay, $\tau = -(L/2)(1/v_0 - 1/v_1)$ (Supplementary Eq. 2, p. 2), puts the pumps'
+  best overlap in the middle of the guide, and with that difference it is $L\Delta n_g/2c$ =
+  2.06 ps (our arithmetic), not 1.46 ps. Our mode solver's difference converges towards theirs, as
+  the table below shows with our purities.
+
+| Cells | $\Delta n_g$ at 1550 nm | $\tau$ by Supp. Eq. 2 | Purity at that $\tau$ | Purity at 2.06 ps | Our best $\tau$, its purity | Signal, idler |
+|---|---|---|---|---|---|---|
+| 20 nm | 0.1070 | 1.963 ps | 0.99899 | 0.99847 | 1.75 ps, 0.99936 | 1584.2, 1517.3 nm |
+| 10 nm | 0.1095 | 2.009 ps | 0.99916 | 0.99899 | 1.80 ps, 0.99945 | 1585.1, 1516.5 nm |
+| 5 nm | 0.1111 | 2.038 ps | 0.99925 | 0.99919 | 1.82 ps, 0.99949 | 1585.6, 1516.0 nm |
+
+The purities in the table are for Paesani et al.'s Supplementary Note 3c pump, a Gaussian of
+4.58 nm without spectral phase, for which they give 99.95 % at 11 mm (p. 12). At the delay by
+Supp. Eq. 2 ours converges at first order (the differences are 1.8 and 0.9 × 10⁻⁴) to about
+0.99934 by Richardson's extrapolation. That is 0.00016 below their 99.95 %, three times half a unit
+of its last digit. Our model's best delay is about 10 % shorter, and there the purity reaches
+0.99949 on 5 nm cells. Their note doesn't say which delay it used, so that agreement can't be
+claimed. The comparison is close but doesn't agree to their printed digit, so it is not a case.
+
+Their other simulated purities need the measured pump. Its FROG spectrum (Supplementary Fig. 2b,
+p. 3, read by pixel) peaks at 1549.4 nm, 4.6 nm wide at half maximum, steep on the blue side with a
+long red tail: not a Gaussian. With it they give 0.993 at 11 mm without its spectral phase and
+0.984 with it (Supplementary Fig. 2a). The article's 99.4 % with the delay and 84.0 % without
+(Fig. 1b) are not in the supplement. A Gaussian of 4.5 nm gives here 0.9980 at 1.46 ps and 0.716
+without the delay. The frequency grid is converged: 81 against 161 points differ by $10^{-6}$ with
+the delay and $10^{-3}$ without. These wait for the measured pump to be modelled. The numbers come
+from an ignored test, `quantum::light_checks::tests::print_paesani`.
+
 - **Vaidya et al.'s quadrature squeezing.** Their 1.0 dB measured and about 4 dB inferred on chip
-  need their collection efficiency and gain parameter, which are in their Supplementary Materials.
-  With the escape efficiency of 0.75 alone, the most a ring can give on chip is 6.0 dB, above their
-  4 dB; the inference itself waits for those numbers.
+  need their net collection efficiency $\eta$ and gain $g$. Their Supplementary Materials give the
+  model, at the locked detuning $V_\pm = 1 + 4g\eta(2g \pm \sqrt{1 + 4g^2})$ (Supplementary
+  Eq. 10, the article's Eq. 2; Section S1, pp. 7–8), but print neither $\eta$ nor $g$, nor any
+  fitted parameter of the quadrature measurement. With the escape efficiency of 0.75 alone, the most
+  a ring can give on chip is 6.0 dB, above their 4 dB. The case stays blocked until $\eta$ and $g$
+  are published.
 
 ### Real components (Q3)
 
@@ -752,13 +786,16 @@ $9.8 \times 10^{-7}$ on 8, 4 and 2 nm nodes (`quantum/detector-film-slab`,
 **Silverstone et al.'s chip.** Their device (p. 104 and Methods) is two 5.2 mm spirals of a
 470 × 220 nm silicon strip in silica between two 2 × 2 MMIs of "reflectivity ~50%", a thermal
 phase shifter on one arm: the pump splits at the first MMI, each spiral makes pairs by four-wave
-mixing, and the second MMI interferes them. The MMIs' geometry isn't given, so ours is the
+mixing, and the second MMI interferes them. The MMIs' geometry isn't given, in the letter or in its
+Supplementary Information, whose Section S4 only assumes both balanced, $\xi = \eta = 1/2$
+(Supplementary Eqs. 18–26, pp. 5–6). So ours is the
 guided-mode model's 2 × 2 MMI with their strips as access guides (3 µm wide), at the length that
 splits evenly at 1549.6 nm (11.80 µm; at the model's own image length it splits unevenly, and the
 fringe would be 95.8%). The spirals are identical, so their loss (4.1 dB/cm) and phase are a common
 factor; the pairs' amplitudes are the pump photons' amplitudes at each source, multiplied. With
 the degenerate scheme's two pumps 22.4 nm apart, taken at 1549.6 ∓ 11.2 nm (the letter gives
-the detuning, not the centre), the pumps' split differs by so little over the band that the
+the detuning, not the centre, and the supplement's Section S1, pp. 1–2, names the lasers but not
+their wavelengths), the pumps' split differs by so little over the band that the
 fringe stays at 99.99996%, inside their 100.0 ± 0.4%. The case checks that a balanced chip's
 fringe is that complete across the pumps' band; how balanced theirs was is their measurement.
 
@@ -767,9 +804,14 @@ fringe is that complete across the pumps' band; how balanced theirs was is their
 - **Silverstone et al.'s non-degenerate fringes.** With one pump at 1549.6 nm and the signal and
   idler 6.4 nm apart, ours gives 99.944% for both Aᵢ × Bₛ and Aₛ × Bᵢ. Their Fig. 2c gives
   99.1 ± 0.5% and 98.8 ± 1.2%: the second agrees, the first is 0.84% above theirs, outside its
-  uncertainty. Their spurious pairs from the input and output guides (their Eq. 4) don't touch the
-  split fringe in their model, and their raw visibilities (Supplementary Section 7, not in the
-  papers folder) are below the net ones; what lowers Aᵢ × Bₛ isn't in the letter. Not a case.
+  uncertainty. Their Supplementary Table 1 (Section S7, p. 8) gives both, raw and net of
+  accidentals: Aₛ × Bᵢ 95.6 ± 1.2% raw and 98.8 ± 1.2% net, Bₛ × Aᵢ 96.1 ± 0.5% raw and
+  99.1 ± 0.5% net. Their spurious pairs from the input and output spot-size converters
+  (Section S5, pp. 6–7, Supplementary Eqs. 35–37) leave the split fringe at full visibility in
+  their model, so nothing in the letter or the supplement accounts for the net fringes falling short
+  of 100%. Not a case. (Their Supplementary Table 2, the off-chip HOM dips, gives 92 ± 3% net at
+  9.6 nm and 94 ± 4% at 3.2 nm, the two swapped against the letter's text (p. 106); no case here
+  uses them.)
 - **Arcari et al. 2014, β = 98.43%.** Their β is measured, $(\Gamma_c - \Gamma_{uc})/\Gamma_c$ with
   $\Gamma_c$ = 6.28 ns⁻¹ and $\Gamma_{uc}$ = 0.098 ns⁻¹ (98.44% from those two numbers); their
   simulated β (Fig. 1e, above 95% near the field's maxima at $n_g$ = 58) needs the photonic-crystal
@@ -780,11 +822,13 @@ fringe is that complete across the pumps' band; how balanced theirs was is their
   apart, 3.5 nm thick) on a 750 × 110 nm silicon strip on 3 µm of oxide, absorbs
   10.1 ± 0.2 dB in 10 µm by their 3D FDTD (OmniSim, 2 nm cells), and 0.98 ± 0.10 dB/µm measured;
   91% on-chip detection efficiency at 20 µm. Their NbN is a Drude–Lorentz fit to X. Hu's thesis
-  (MIT 2011, no DOI); the published index of such films is in X. Hu et al., IEEE Trans. Appl.
-  Supercond. 19, 336 (2009), doi:10.1109/TASC.2009.2018035, and V. Anant et al., Opt. Express 16,
-  16750 (2008), doi:10.1364/OE.16.016750, neither in the papers folder. Without NbN's index with
-  its provenance (the plan's decision 6) the mode-solver case waits; the solver's absorption itself
-  is checked above on a film slab.
+  (MIT 2011, no DOI). The published index of such films is V. Anant et al.'s, Opt. Express 16,
+  10750 (2008), doi:10.1364/OE.16.010750: $n = 5.23 - 5.82i$ at 1550 nm, measured by
+  spectroscopic ellipsometry on a 12 nm film on sapphire at room temperature (p. 10754 and note 18,
+  p. 10751). X. Hu et al., IEEE Trans. Appl. Supercond. 19, 336 (2009),
+  doi:10.1109/TASC.2009.2018035, Table I (p. 337), repeats it from Anant's thesis. Until NbN is in
+  the catalogue with that provenance (the plan's decision 6) the mode-solver case waits; the
+  solver's absorption itself is checked above on a film slab.
 - **Reddy et al. 2020's stack.** Their stack (p. 1650) as planar films at 1550 nm, the MoSi
   nanowires (80 nm wide, fill 0.57) as an effective medium of their MoSi index and the αSi that
   fills the gaps, absorbs 0.705 for E along the wires (reflecting 0.295) and 0.063 across them; a
