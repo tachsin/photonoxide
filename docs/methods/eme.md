@@ -60,6 +60,8 @@ validation:
   - eme/bloch-quarter-wave-modes
   - eme/bloch-band-edges
   - eme/grating-squaring
+  - eme/bloch-grating-lossless
+  - eme/bloch-grating-pml-order
   - eme/bend-index
   - eme/bend-loss
   - eme/bend-order
@@ -611,12 +613,45 @@ the same equations multiplied out, by QZ, which inverts nothing. In a reciprocal
 eigenvalues come in pairs $\lambda$ and $1/\lambda$, a Bloch mode going either way. Each pair is
 one `Bloch` mode: $\cos K\Lambda = (\lambda + 1/\lambda)/2$, and $K/k_0$ from the one of the pair
 with $\lvert\lambda\rvert \le 1$, in the reduced zone (its real part between 0 and $\lambda_0/2\Lambda$,
-up to its sign, which is the direction; its imaginary part the decay along z). The $m$-th Bloch
+up to its sign, which is the direction; its imaginary part the decay along z). The pairs are
+taken closest first over all of them, $\lvert \ln\lambda_p + \ln\lambda_q \rvert$ (mod $2\pi i$)
+smallest first. The $m$-th Bloch
 mode is the one most made of the section's $m$-th mode, of those left: the fundamental first. A
 Bloch mode that decays by $e^{-\operatorname{Im} K\Lambda}$ in one period has $\lambda$ to the
 eigenproblem's round-off, an absolute one, so its $K$ is good to about $\varepsilon\,e^{\operatorname{Im} K\Lambda}/\Lambda$:
 the guided, propagating and stop-band modes are at round-off, the strongly evanescent ones
-approximate.
+approximate. Beyond about $e^{-36}$ in a period ($\varepsilon$) the eigenproblem loses $\lambda$
+or $1/\lambda$ altogether (0, ∞ or a wrong magnitude), and the partner left behind pairs with
+what is left. Paired in order of decay instead, one such partner took the guided mode's
+$1/\lambda$, and the slab grating below between walls, 1.5 µm wide with 75 or 80 modes (its
+highest decaying by $e^{-44}$ and $e^{-46}$ in a period), put an evanescent mode first
+($K/k_0 = 3.50i$ with 80); closest first, the guided mode comes first at every count
+(`eme/bloch-grating-lossless`).
+
+**A guided Bloch mode is lossless.** Below the light line no diffraction order radiates, so the
+guided Bloch mode should have $\operatorname{Im} K = 0$. Between walls, with no PML, it does at
+any number of modes: each interface conserves power for any truncation (`eme/lossless-power`),
+so a propagating Bloch mode keeps $\lvert\lambda\rvert = 1$. The slab grating below, half of it
+1.5 µm wide between walls, has $\lvert\operatorname{Im} K/k_0\rvert$ under 5e-15 with 10, 20, 40
+and 80 modes (`eme/bloch-grating-lossless`), and its $\operatorname{Re} K/k_0$ converges fast:
+2.60348157, 2.60348322 and 2.60348352 with 50, 60 and 70 modes. With a PML the same mode has an
+$\operatorname{Im} K$ of the expansion's, not the grating's: the PML absorbs the part of the
+expansion's field that finitely many modes leave across the window. The Bloch mode's own field
+is evanescent there, which the PML's complex stretch leaves as it is. Three measurements show
+it:
+
+| What changes | $\operatorname{Im} K/k_0$ of the guided Bloch mode | What it shows |
+|---|---|---|
+| a PML 4 µm thick, its strength 0.2, 0.1, 0.05, 0.025, 0.0125, 0.00625, 20 modes | 1.34e-4, 7.19e-5, 3.66e-5, 1.84e-5, 9.20e-6, 4.60e-6 | first order in the strength, as absorption is, and 0 without a PML (`eme/bloch-grating-pml-order`) |
+| the same, 40 modes | 4.25e-4, 2.04e-4, 1.01e-4, 5.02e-5, 2.51e-5, 1.25e-5 | the same |
+| the PML 1, 1.5, 2.5 and 3.5 µm from the slab's centre (strength 0.1, 40 modes) | 1.64e-4, 2.04e-4, 2.08e-4, 1.64e-4 | not the mode's own tail, whose power there falls by about $10^{-19}$ over those distances ($e^{-2q\thinspace\Delta x}$, $q = k_0 ((K/k_0)^2 - 1.444^2)^{1/2} = 8.8$/µm) |
+| the number of modes, the PML 4 µm thick of strength 0.1: 10, 20, 40, 80, 160 | 2.5e-6, 7.2e-5, 2.0e-4, 6.8e-5, 4.8e-6 | the truncation's error, which is not monotone in the modes |
+
+So the PML's $\operatorname{Im} K$ of a guided Bloch mode is an error of the expansion, up to
+about $10^{-4}$ $k_0$ on this grating with up to 160 modes, and its $\operatorname{Re} K$ needs
+more modes in the PML's wider window (2.60347 with 160, against 2.60348 between walls with 50).
+A grating whose Bloch mode is guided is best solved between walls; a PML is for what radiates (a
+grating above the light line, or the light a finite grating's ends scatter).
 
 **N periods** (`Eme::grating`, `Eme3d::grating`): a structure's sections with some of them
 repeated `count` times in place. The period's S-matrix is taken to the power `count` − 1 by
@@ -666,6 +701,8 @@ its own at the interfaces:
 | the same with 8 modes in a window 2 µm wide, propagating and evanescent, at 1.3, 1.55 and 1.8 µm (`eme/bloch-quarter-wave-modes`) | within 8.1e-15 of each mode's closed form, relative to $\lvert\cos K\Lambda\rvert$ where it is above 1 (up to 26) | the same with $\beta_i = k_0 n_{\text{eff},i}$ |
 | the first stop band's width, its edges by bisection on $\cos K\Lambda = -1$ (`eme/bloch-band-edges`) | 0.20645554758478 | $\Delta\omega/\omega_0 = (4/\pi)\arcsin((n_2 - n_1)/(n_2 + n_1))$ = 0.20645554758479, relative 2.0e-15 |
 | the slab grating above, 100 periods by squaring (11 star products) against its 200 sections in sequence (`eme/grating-squaring`) | every entry of S within 2.5e-14 | the same products in another order |
+| the slab grating's guided Bloch mode between walls, 1.5 µm wide, 10, 20, 40 and 80 modes (`eme/bloch-grating-lossless`) | $\lvert\operatorname{Im} K/k_0\rvert$ under 5e-15, the guided mode first at each count | 0, below the light line |
+| the same with a PML 4 µm thick, its strength 0.0125 and 0.00625, 20 and 40 modes (`eme/bloch-grating-pml-order`) | $\operatorname{Im} K$ at order 1.00 in the strength | first order: the PML's absorption of the expansion's field |
 
 **In a job,** `[task.period]` names the sections of one period, counted from 1 between the
 ports, and how many periods: the run solves the structure by repeated squaring, and records the
@@ -833,6 +870,8 @@ Measured with the cases' own settings, at 1.55 µm, silicon (3.473) in oxide (1.
 | `eme/bloch-quarter-wave`, `-modes` | a quarter-wave stack (1.444 and 2.0 at 1.55 µm), $\cos K\Lambda$ of its Bloch modes ([periodic sections](#periodic-sections)): one mode at 61 wavelengths from 1 to 2.5 µm; 8 modes at 1.3, 1.55 and 1.8 µm | within 6.7e-16 and 8.1e-15 | the two layers' closed form, each mode its own | round-off, 1e-12 |
 | `eme/bloch-band-edges` | the same stack's first stop band, its edges by bisection on $\cos K\Lambda = -1$ | $\Delta\omega/\omega_0$ = 0.20645554758478, relative 2.0e-15 | $(4/\pi)\arcsin((n_2 - n_1)/(n_2 + n_1))$ | round-off, 1e-12 relative |
 | `eme/grating-squaring` | a silicon slab grating, 100 periods (20 modes, a PML), by repeated squaring | every entry of S within 2.5e-14 of the 200 sections in sequence | the same star products in another order | round-off, 1e-12 |
+| `eme/bloch-grating-lossless` | the same grating's guided Bloch mode between walls, 10 to 80 modes | $\lvert\operatorname{Im} K/k_0\rvert$ under 5e-15 | 0 below the light line: power conserved at each interface | round-off, 1e-12 |
+| `eme/bloch-grating-pml-order` | the same with a PML of strength 0.0125 and 0.00625, 20 and 40 modes | order 1.00 of $\operatorname{Im} K$ in the strength | a weak PML's first-order absorption | order, 1 within 0.1 |
 | `eme/bend-index` | a 220 nm silicon slab bent at 2, 5, 10 and 20 µm, TE and TM ([bends](#bends)), Richardson's limit of 10 and 5 nm layers | $n_\text{eff}$ within 3.4e-10 (own error 2.2e-10) | `mode::bend`'s exact bent slab | discretisation, 7e-10 absolute, three times our own error |
 | `eme/bend-loss` | the same bends' loss where it is above the arithmetic's reach (TE at 2 µm, TM at 2, 3, 5 µm) | within 2.7e-5 relative | the same | discretisation, 9e-5 relative, three times our own error |
 | `eme/bend-order` | the same at 2 µm, 10 nm layers and 2, 4 and 8 times as many | order 2.00 | the midpoint staircase's second order | order, 2 within 0.1 |
@@ -890,17 +929,17 @@ What it does not do yet (#432):
   centre). The bend's mapped profile needs its own convergence beside the modes': the default
   10 nm layers leave $n_\text{eff}$ off by 2.7e-6 (TE) and 2.1e-6 (TM) at 2 µm, which `[task.convergence]`
   does not drive.
-- **A grating's Bloch modes are the expansion's,** with its modes' truncation error: the
-  slab grating of [periodic sections](#periodic-sections) has a guided Bloch mode below the
-  light line at 1.55 µm, which should be lossless (no diffraction order radiates), but with 20
-  modes its $\operatorname{Im} K/k_0$ is 7.2e-5 and its $\operatorname{Re} K/k_0$ 2.60092, against
-  4.8e-6 and 2.60347 with 160 modes (10, 20, 40, 80, 160 modes: Re 2.60071, 2.60092, 2.60272,
-  2.60330, 2.60347; Im 2.5e-6, 7.2e-5, 2.0e-4, 6.8e-5, 4.8e-6; a PML 8 µm thick of strength
-  0.05 gives 3.3e-6 with 20 modes, 7.3e-5 with 40). The real part converges. The imaginary
-  part is not monotone in the modes, and why is not settled: it may be the power each interface
-  sends into the PML's modes that too few modes don't bring back in phase, but that is not
-  shown. It is not a closed-form check, so it is stated here rather than gated; a job drives its
-  modes with `[task.convergence]`.
+- **A grating's Bloch modes are the expansion's,** with its modes' truncation error. With a
+  PML, a guided Bloch mode below the light line has an $\operatorname{Im} K$ that is that error,
+  not a loss of the grating ([a guided Bloch mode is lossless](#periodic-sections)): the slab
+  grating's at 1.55 µm with a PML 4 µm thick of strength 0.1 is 2.5e-6, 7.2e-5, 2.0e-4, 6.8e-5
+  and 4.8e-6 $k_0$ with 10, 20, 40, 80 and 160 modes, not monotone, and it grows with the PML's
+  strength (4.3e-4 $k_0$ at 0.2 with 40 modes). It is the PML absorbing the part of the field
+  that finitely many modes leave across the window: first order in the PML's strength
+  (`eme/bloch-grating-pml-order`), the same with the PML 1 or 3.5 µm from the slab, and 0 to
+  round-off between walls at any number of modes (`eme/bloch-grating-lossless`). A loss of that
+  size is not resolved with a PML; between walls a guided Bloch mode is lossless to round-off.
+  The job's stop band (an $\operatorname{Im} K/k_0$ above 0.01) is far above it.
 - **S over wavelength** is interpolated in the wavelength only: a structure's own parameters
   (a width, a length) are swept by solving each value. Its estimate holds where the fit has seen
   the response, and needs one discretisation for every solve and a PML window

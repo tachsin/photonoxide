@@ -178,6 +178,26 @@ pub(crate) fn rules() -> Vec<(&'static str, Rule)> {
             ),
         ),
         (
+            "eme/bloch-grating-lossless",
+            Rule::new(
+                Absolute,
+                RoundOff,
+                1e-12,
+                Exact,
+                "power conserved at each interface for any number of modes in a closed window, so a propagating Bloch mode keeps its λ on the unit circle: round-off, 1e-12 as eme/lossless-power",
+            ),
+        ),
+        (
+            "eme/bloch-grating-pml-order",
+            Rule::new(
+                Absolute,
+                Order,
+                0.1,
+                Measured,
+                "a weak PML's first order in its strength, within 0.1 as eme/taper-steps-order: 1.00 with 20 and 40 modes at 0.0125 and 0.00625, 0.90 and 1.06 between 0.2 and 0.1, where the next order shows",
+            ),
+        ),
+        (
             "eme/3d-orthonormal",
             Rule::new(
                 Absolute,
