@@ -762,6 +762,18 @@ pub enum Event {
         /// The study and its verdict; its value is the run's grid's.
         check: crate::convergence::Convergence,
     },
+    /// A modes job's grid driven to its `[task.convergence]` tolerance (`drive = true`): the
+    /// task's step halved until the mode's Re n_eff converged, every grid and value recorded,
+    /// before the modes on the grid it stopped at.
+    GridRefined {
+        /// The mode driven, `"mode 1"`: the highest Re n_eff.
+        label: String,
+        /// Its wavelength, µm.
+        wavelength_um: f64,
+        /// The drive: its grids, values, the value reported (the finest grid's, with the gate's
+        /// estimate of its error) and why it stopped.
+        refined: crate::convergence::Refined,
+    },
     /// A picture of a static job's temperature in time, recorded as the steps go when its
     /// `[task.transient]` asks for `frames` (the start's first): on the pixels of its
     /// [`Event::StaticField`]s, in its own unit.

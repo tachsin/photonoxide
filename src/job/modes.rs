@@ -401,11 +401,27 @@ struct ConvergenceSpec {
     /// Fail the run when a mode's grid hasn't converged (by default its record says so and the
     /// run goes on).
     require: Option<bool>,
+    /// Drive the grid instead of checking it: halve the task's step until the first mode's
+    /// Re n_eff changes by less than the tolerance and the estimate of its remaining error is
+    /// within it ([`crate::convergence::ToTolerance::grids`], the gate's estimate), then solve
+    /// the modes on the grid it stopped at. A run whose budget runs out first fails, naming the
+    /// last two values.
+    drive: Option<bool>,
+    /// The most grids a driven run takes, the task's among them: 2 to 6 (4 by default).
+    budget: Option<usize>,
 }
 
 impl ConvergenceSpec {
     fn grids(&self) -> usize {
         self.grids.unwrap_or(3)
+    }
+
+    fn drives(&self) -> bool {
+        self.drive == Some(true)
+    }
+
+    fn budget(&self) -> usize {
+        self.budget.unwrap_or(4)
     }
 
     /// The tolerance, the grids, and the coarsest grid's cells in the windows and the PML.
@@ -414,6 +430,24 @@ impl ConvergenceSpec {
             return Err(task_error(format!(
                 "[task.convergence] tolerance must be above 0, got {}",
                 self.tolerance
+            )));
+        }
+        if self.drives() && self.grids.is_some() {
+            return Err(task_error(
+                "[task.convergence] drives the grid or checks the grids given: grids is for a \
+                 check, budget for a drive",
+            ));
+        }
+        if self.budget.is_some() && !self.drives() {
+            return Err(task_error(
+                "[task.convergence] budget is for a drive: set drive = true",
+            ));
+        }
+        if !(2..=6).contains(&self.budget()) {
+            return Err(task_error(format!(
+                "[task.convergence] budget is 2 to 6 grids, got {}: each halving of the step \
+                 costs four times the last",
+                self.budget()
             )));
         }
         if !matches!(self.grids(), 2 | 3) {
@@ -428,7 +462,12 @@ impl ConvergenceSpec {
                  points: give one or the other",
             ));
         }
-        let coarsest = task.step_nm * f64::from(1u32 << (self.grids() - 1));
+        // a drive's grids are the task's and finer ones
+        let coarsest = if self.drives() {
+            task.step_nm
+        } else {
+            task.step_nm * f64::from(1u32 << (self.grids() - 1))
+        };
         let name = |what: &str| format!("the coarsest grid's (step {coarsest} nm) {what}");
         check_cells(&name("window across the guide"), task.across()?, coarsest)?;
         if let Some(z) = task.z_um {
@@ -1613,18 +1652,59 @@ pub(super) fn modes(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
         Some(pml) => cs.with_pml(pml.pml()),
         None => Ok(cs),
     };
-    let cs = opened(cross_section(
-        &fs,
-        &frame.rect,
-        &frame.circle,
-        &frame.ring,
-        frame.cut,
-        across,
-        z,
-        step,
-        lam,
-        along,
-    )?)?;
+    let section = |h: f64| {
+        opened(cross_section(
+            &fs,
+            &frame.rect,
+            &frame.circle,
+            &frame.ring,
+            frame.cut,
+            across,
+            z,
+            h,
+            lam,
+            along,
+        )?)
+    };
+    // a driven grid: the task's step halved until the first mode's index has converged, the
+    // modes then solved on the grid it stopped at
+    let mut step = step;
+    if let Some(spec) = task.convergence.as_ref().filter(|c| c.drives()) {
+        let driver = crate::convergence::ToTolerance::new(
+            "Re n_eff of mode 1",
+            crate::convergence::Tolerance::Absolute(spec.tolerance),
+        )?
+        .with_budget(spec.budget())?;
+        let mut stopped = false;
+        let refined = driver.grids(step, |h| {
+            let found = solve(&section(h)?, lam)?;
+            let Some(found) = found else {
+                stopped = true;
+                return Err(Error::invalid("grid convergence", "stopped"));
+            };
+            found
+                .iter()
+                .map(|m| m.effective_index().re)
+                .reduce(f64::max)
+                .ok_or_else(|| {
+                    Error::invalid(
+                        "grid convergence",
+                        format!("the {h} um grid finds no mode to drive"),
+                    )
+                })
+        });
+        if stopped {
+            return Ok(());
+        }
+        let refined = refined?;
+        step = refined.grids[refined.grids.len() - 1];
+        run.record(&Event::GridRefined {
+            label: "mode 1".to_owned(),
+            wavelength_um: lam.to_um(),
+            refined,
+        })?;
+    }
+    let cs = section(step)?;
     let edge = window_edge_highest(&task, &s, z, lam.to_um())?;
     // what an open window keeps of the modes it solves, and how it names them
     let kept = || -> Result<String> {
@@ -1781,7 +1861,7 @@ pub(super) fn modes(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
     }
     // the grid study: each mode's Re n_eff on grids twice, then four times, as coarse, the
     // run's grid's checked by it; a mode a coarser grid doesn't find hasn't converged
-    if let Some(spec) = &task.convergence {
+    if let Some(spec) = task.convergence.as_ref().filter(|c| !c.drives()) {
         let reported: Vec<f64> = sorted.iter().map(|m| m.effective_index().re).collect();
         let mut coarse: Vec<(f64, Vec<f64>)> = Vec::new();
         for g in (1..spec.grids()).rev() {
