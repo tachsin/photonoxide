@@ -1,7 +1,7 @@
 ---
 title: "Linear-optical statistics"
 module: quantum
-summary: "Photons on a circuit's ports and what comes out: the S-matrix as the modes' transformation with its loss dilated, permanents by Ryser's and Glynn's formulas, partly distinguishable photons, an exact sampler, Hong–Ou–Mandel dips through S(ω), and the Reck and Clements meshes."
+summary: "Photons on a circuit's ports and what comes out: the S-matrix as the modes' transformation with its loss dilated, permanents by Ryser's and Glynn's formulas, partly distinguishable photons, an exact sampler, Hong–Ou–Mandel dips through S(ω), the Reck and Clements meshes; Gaussian states with hafnians, loop hafnians and torontonians, photon-pair sources from joint spectra and rings, and squeezers from parametric amplifiers."
 order: 31
 papers:
   - cite: "S. Aaronson, A. Arkhipov, Theory Comput. 9, 143 (2013)"
@@ -27,6 +27,28 @@ papers:
     ref: mezzadri-2007
   - cite: "D. Blackman, S. Vigna, ACM Trans. Math. Softw. 47, 36 (2021)"
     doi: 10.1145/3460772
+  - cite: "A. Björklund, B. Gupt, N. Quesada, ACM J. Exp. Algorithmics 24, 1.11 (2019)"
+    doi: 10.1145/3325111
+  - cite: "C. S. Hamilton et al., Phys. Rev. Lett. 119, 170501 (2017)"
+    doi: 10.1103/PhysRevLett.119.170501
+  - cite: "N. Quesada, J. M. Arrazola, N. Killoran, Phys. Rev. A 98, 062322 (2018)"
+    doi: 10.1103/PhysRevA.98.062322
+  - cite: "R. Kan, J. Multivariate Anal. 99, 542 (2008)"
+    doi: 10.1016/j.jmva.2007.01.013
+  - cite: "C. Weedbrook et al., Rev. Mod. Phys. 84, 621 (2012)"
+    doi: 10.1103/RevModPhys.84.621
+  - cite: "W. P. Grice, I. A. Walmsley, Phys. Rev. A 56, 1627 (1997)"
+    doi: 10.1103/PhysRevA.56.1627
+  - cite: "L. G. Helt, Z. Yang, M. Liscidini, J. E. Sipe, Opt. Lett. 35, 3006 (2010)"
+    doi: 10.1364/OL.35.003006
+  - cite: "Z. Vernon et al., Opt. Lett. 42, 3638 (2017)"
+    doi: 10.1364/OL.42.003638
+  - cite: "S. Paesani et al., Nat. Commun. 11, 2505 (2020)"
+    doi: 10.1038/s41467-020-16187-8
+  - cite: "V. D. Vaidya et al., Sci. Adv. 6, eaba9186 (2020)"
+    doi: 10.1126/sciadv.aba9186
+  - cite: "R. Nehra et al., Science 377, 1333 (2022)"
+    doi: 10.1126/science.abo6213
 validation:
   - quantum/permanent-ones
   - quantum/permanent-derangements
@@ -49,14 +71,38 @@ validation:
   - quantum/peruzzo-classical-bound
   - quantum/sampler-convergence
   - quantum/coupler-hom-order
+  - quantum/hafnian-ones
+  - quantum/hafnian-definition
+  - quantum/hafnian-threads
+  - quantum/squeezed-vacuum
+  - quantum/two-mode-thermal
+  - quantum/squeezed-loss
+  - quantum/displaced-states
+  - quantum/source-pairs
+  - quantum/source-hom-gaussian
+  - quantum/heralding-coupler
+  - quantum/ring-helt-short
+  - quantum/ring-helt-long
+  - quantum/ring-vernon-equal
+  - quantum/squeezer-degenerate
+  - quantum/squeezer-four-wave
+  - quantum/squeezer-rk4-order
+  - quantum/vaidya-number-difference
+  - quantum/vaidya-outcoupling
+  - quantum/nehra-inferred
+  - quantum/nehra-all-optical
+  - quantum/nehra-homodyne-bound
 ---
 
 A linear circuit does to photons what it does to light: it mixes the ports' modes by its
 S-matrix. Everything about photons through a circuit, from two photons on a coupler to a boson
 sampler, follows from that matrix, its loss and its change with frequency. The module
 `photonoxide::quantum` takes a [circuit](circuits.md)'s S-matrix, or any matrix, and computes
-the photons' statistics exactly, up to about 30 single photons. It is the first part of the
-0.6.3 milestone's plan, [docs/plans/quantum.md](../plans/quantum.md) (Q1).
+the photons' statistics exactly, up to about 30 single photons. Squeezed light through the same
+matrices is a Gaussian state, whose photon counts are hafnians; photon pairs come from 0.6.1's
+joint spectra, from rings, or from two pumps in two modes of a guide; squeezing from 0.6.1's
+parametric amplifiers. These are the first two parts of the 0.6.3 milestone's plan,
+[docs/plans/quantum.md](../plans/quantum.md) (Q1 and Q2).
 
 ## The S-matrix as a mode transformation
 
@@ -216,6 +262,136 @@ $U = e^{iHz}$ with $H$ tridiagonal and the couplings off its diagonal, the conti
 quantum walk of Peruzzo et al. 2010 (doi:10.1126/science.1193515, Eqs. 1–3; their Hamiltonian has
 the opposite sign, which conjugates $U$ and leaves every probability).
 
+## Gaussian states
+
+Squeezed, displaced and thermal light are Gaussian states: a state of $n$ modes is its
+quadratures' means $d$ and covariance $V$, with $\hat x = \hat a + \hat a^\dagger$ and
+$\hat p = -i(\hat a - \hat a^\dagger)$, so the vacuum's variances are 1 (Weedbrook et al. 2012,
+doi:10.1103/RevModPhys.84.621, with their $\hbar = 2$). `Gaussian` holds them, the $x$'s first.
+
+- **Operations.** A Gaussian unitary $\hat b = U \hat a + W \hat a^\dagger$ acts as the real
+  symplectic $S$ with the blocks $\operatorname{Re}(U + W)$ and $-\operatorname{Im}(U - W)$ in its first row of blocks and $\operatorname{Im}(U + W)$ and $\operatorname{Re}(U - W)$ in its second,
+  $V \to S V S^T$, $d \to S d$. The squeezer $\exp(\frac{1}{2}(\xi^* \hat a^2 - \xi \hat a^{\dagger 2}))$,
+  $\xi = r e^{i\varphi}$, takes $\hat a \to \hat a \cosh r - \hat a^\dagger e^{i\varphi} \sinh r$, and the
+  two-mode squeezer $\hat a \to \hat a \cosh r - \hat b^\dagger e^{i\varphi} \sinh r$.
+- **Circuits.** A circuit's transfer $T$ with its loss ([the S-matrix as a mode transformation](#the-s-matrix-as-a-mode-transformation))
+  gives $V \to R V R^T + I - R R^T$, $R$ the real form of $T$: the vacuum enters through the
+  loss. One loss $\eta$ turns a variance $v$ into $\eta v + 1 - \eta$. `Gaussian::through` takes a
+  `Transfer`, so any circuit, with the S-matrices its components compute, acts on squeezed light.
+- **What a detector sees.** A homodyne detector at phase $\theta$ measures the variance of
+  $x\cos\theta + p\sin\theta$; the squeezing in dB is $10 \log_{10}$ of the smallest one. The mean
+  photon number is $\frac{1}{4}(V_{xx} + V_{pp} + d_x^2 + d_p^2) - \frac{1}{2}$, and the photon numbers'
+  covariances follow from Wick's theorem: $\frac{1}{8}\operatorname{Tr}(V_{ab} V_{ab}^T) + \frac{1}{4} d_a^T V_{ab} d_b$
+  between two modes, and $\frac{1}{8}(\operatorname{Tr} V_{aa}^2 - 2) + \frac{1}{4} d_a^T V_{aa} d_a$ for one.
+- **Photon counts** (Hamilton et al. 2017, doi:10.1103/PhysRevLett.119.170501). In the basis
+  $(\hat a, \hat a^\dagger)$ the covariance is $\sigma = \frac{1}{4} W V W^\dagger$, $W$ the blocks $I$, $iI$ over $I$, $-iI$;
+  with $\sigma_Q = \sigma + \frac{1}{2} I$ and $A = X(I - \sigma_Q^{-1})$, $X$ the swap of the two
+  halves, a pattern $\bar n$ of photons has
+  $P(\bar n) = \operatorname{Haf}(A_{\bar n}) / (\sqrt{\det \sigma_Q} \prod_i n_i!)$, $A_{\bar n}$ the rows and
+  columns of mode $i$ and of its conjugate each repeated $n_i$ times. With means
+  $\beta = (\alpha, \alpha^*)$, the loop hafnian with the diagonal $\gamma = \beta^\dagger \sigma_Q^{-1}$
+  and the factor $\exp(-\frac{1}{2}\beta^\dagger \sigma_Q^{-1} \beta)$ (Björklund et al. 2019,
+  doi:10.1145/3325111).
+- **Clicks** of threshold detectors (Quesada et al. 2018, doi:10.1103/PhysRevA.98.062322): the
+  modes $S$ click and the rest stay dark with probability
+  $\operatorname{Tor}(O_S) / \sqrt{\det \sigma_Q}$, $O = I - \sigma_Q^{-1}$, for a state without means.
+
+## Hafnians, loop hafnians and torontonians
+
+The hafnian of a symmetric $2m \times 2m$ matrix is the sum over its perfect matchings of the
+products of the matched entries; the loop hafnian lets a vertex match itself, by its diagonal
+entry. Björklund et al.'s formula (Eqs. 24–26) sums over the $2^m$ subsets $Z$ of a fixed perfect
+matching: each term is the coefficient of $\lambda^m$ in
+$\exp\left(\sum_k \left[\frac{\operatorname{tr}(B^k)}{2k} + \frac{1}{2} v^T X B^{k-1} v\right] \lambda^k\right)$,
+$B = A_Z X$ the rows and columns of $Z$'s pairs with each pair's columns swapped and $v$ the diagonal
+of $A_Z$ (zero for the hafnian). The paper takes the power traces from a Schur decomposition; here
+they come from $\det(I - \lambda B)$, the characteristic polynomial of $B$'s Hessenberg form by the
+recursion over its leading blocks, then $\log$ and $\exp$ of power series: additions and
+multiplications only. The torontonian is
+$\sum_{Z} (-1)^{m - \lvert Z \rvert} / \sqrt{\det(I - O_Z)}$ (Quesada et al., Eq. 9). The $2^m$ terms are
+added as the permanents' are: in 256 parts fixed by $m$, each Kahan-summed, the parts in order, so
+the result is the same bit for bit on any number of threads.
+
+A pattern of many photons in few modes repeats the same rows many times, and the sum over subsets
+costs $2^N$ for $N$ photons whatever the repetition. There the probability takes Kan's moments of a
+sum instead (R. Kan, J. Multivariate Anal. 99, 542 (2008), doi:10.1016/j.jmva.2007.01.013): with
+$r_i$ the repetitions and $h_i = r_i/2 - v_i$,
+$\operatorname{lhaf} = \sum_{v} (-1)^{\sum v} \prod_i \binom{r_i}{v_i} \sum_t \frac{(h \cdot \gamma)^{N - 2t} (h^T A h / 2)^t}{(N - 2t)!\thinspace t!}$
+over $\prod (r_i + 1)$ terms, the polarization of $\prod x_i^{r_i}$ whose Gaussian moments are the
+matchings. `Gaussian::probability` takes whichever costs less. The alternating sum loses digits as
+the photons in one mode grow: about $10^{-10}$ relative at 30 in one mode, and patterns are
+limited to 30 photons.
+
+## Pair sources
+
+A spontaneous pair source whose pump doesn't deplete leaves a two-mode squeezed vacuum in each
+pair of Schmidt modes of its joint spectral amplitude (Grice & Walmsley 1997,
+doi:10.1103/PhysRevA.56.1627; 0.6.1's `JointSpectrum::schmidt` gives the weights $\lambda_k$ and the
+purity $P = \sum \lambda_k^2$). `Source` gives the pair $k$ the squeezing $r_k = g\sqrt{\lambda_k}$,
+the gain $g$ set by the mean number of pairs per pulse, $\sum_k \sinh^2 r_k = \mu$. Then:
+
+- **Pairs.** Mode $k$ holds $n$ pairs with probability $(1 - t_k) t_k^n$, $t_k = \tanh^2 r_k$; the
+  number of pairs is their sum, and `Source::multi_pair` the share of pulses with a pair that hold
+  more than one.
+- **$g^{(2)}$.** Either arm alone is thermal in each mode: $g^{(2)} = 1 + \sum \bar n_k^2 / (\sum \bar n_k)^2$,
+  2 for one mode and $1 + P$ at low gain.
+- **Two sources.** Heralded photons from sources $A$ and $B$ interfere on a balanced coupler with
+  visibility $\operatorname{Tr}(\rho_A \rho_B) = \lVert F_A^\dagger F_B \rVert^2 / (\lVert F_A \rVert^2 \lVert F_B \rVert^2)$,
+  $F$ the amplitudes as signal-by-idler matrices on a common signal grid (`hom_visibility`); a
+  source with itself gives its purity.
+- **Heralding through a circuit.** `heralding_through` takes each photon's path through any
+  component (filters, couplers, a whole circuit) from its S-matrix at the grid's frequencies, and
+  0.6.1's heralding efficiencies follow: the filters' spectral cut and the paths' loss together.
+  `Source::gaussian` gives the source as a `Gaussian` state of its first Schmidt modes, for
+  everything above.
+
+The squeezing $g\sqrt{\lambda_k}$ keeps the low-gain Schmidt modes: at high gain the modes
+themselves change with the gain, which this doesn't follow.
+
+## Pairs from rings
+
+A ring point-coupled to its bus enhances a wave's field by $F(\nu) = ik/(1 - r a e^{i\phi(\nu)})$,
+the ring components' `field_enhancement`. Two pump photons, each enhanced, make a signal and an
+idler, each enhanced on the way out, so (Helt et al. 2010, doi:10.1364/OL.35.003006; Vernon et al.
+2017, doi:10.1364/OL.42.003638, Eqs. 3–4)
+
+$f(\nu_s, \nu_i) = F_P(\nu_s + \nu_i) F_s(\nu_s) F_i(\nu_i)$, $F_P(\nu) = \int \alpha(\nu_p) \alpha(\nu - \nu_p) F_p(\nu_p) F_p(\nu - \nu_p)\thinspace d\nu_p$,
+
+$\alpha$ the pump pulse's spectral amplitude. `ring_spectrum` samples it, the pump's integral by the
+trapezoidal rule, and returns a `JointSpectrum`. The phase mismatch along the ring is left out: on
+resonance the azimuthal orders conserve momentum, and across a resonance it changes by far less
+than a radian in a ring of a few hundred µm. Vernon et al.'s second channel, coupled to the pump's
+resonance alone, is a pump wave whose round trip loses more, which widens its resonance.
+
+## Two pumps in two modes
+
+Paesani et al. 2020 (doi:10.1038/s41467-020-16187-8) pump a multimode silicon guide in its TM₀ and
+TM₁ modes at once, the TM₀ pump delayed, and take the signal in TM₁ and the idler in TM₀.
+`dual_pump_spectrum` computes
+
+$f(\nu_s, \nu_i) = \int \alpha(\nu_a) e^{i\omega_a\tau} \alpha(\nu_s + \nu_i - \nu_a) \int_0^L e^{i\Delta k z} dz\thinspace d\nu_a$,
+$\Delta k = \beta_a(\nu_a) + \beta_b(\nu_s + \nu_i - \nu_a) - \beta_s(\nu_s) - \beta_i(\nu_i)$,
+
+each $\beta$ the propagation constant of its wave's mode (from the mode solver's effective index
+over wavelength, `ModeIndex`). The delayed, faster pump catches the slower one inside the guide and
+passes it; their overlap rises and falls smoothly, which removes the sinc's side lobes and with them
+the spectral correlations. The middle of the overlap is at $z = c\tau/(n_{g,b} - n_{g,a})$.
+
+## Squeezing from parametric amplifiers
+
+An undepleted parametric amplifier is linear in its signal: the classical amplitudes leave as
+$A' = \mu A + \nu A^*$ (one mode) or $A'_i = \nu A_s^*$ beside $A'_s = \mu A_s$ (two), and the same
+Bogoliubov map on the annihilation operators, in photon units, is the quantum amplifier, a squeezer
+of $r = \operatorname{asinh}\lvert\nu\rvert$. `degenerate`, `non_degenerate` and `four_wave` read $\mu$
+and $\nu$ off 0.6.1's own coupled equations (second-harmonic generation run with the harmonic as
+the pump, difference-frequency generation, and four-wave mixing with the pump's self- and
+cross-phase modulation), seeded so weakly that the seed leaves at $10^{-6}$ of the pump's
+amplitude: its own depletion of the pump, of order $10^{-12}$ of its power, is below the
+integration's error. Without loss only:
+a lossy amplifier adds noise a Bogoliubov map can't carry, so the loss is applied to the squeezed
+state after it. These are single-frequency (continuous-wave) amplifiers, exact at any gain while the
+pump doesn't deplete; the multimode squeezing of a broadband pulse at high gain is left for later.
+
 ## What it is checked against
 
 The analytic cases hold to round-off: the permanent of the all-ones matrix is $n!$ and that of
@@ -289,6 +465,67 @@ strips' corners (`quantum/coupler-hom-order`, as `device/coupler-3d-order`). The
 convergence study names the coupler from FDFD; the mode solver's supermodes stand in until Q3
 brings a coupler's S-matrix from FDFD into the statistics.
 
+### Gaussian states, sources and squeezers (Q2)
+
+The identities hold to round-off: the all-ones hafnian is $(2n - 1)!!$ up to $2n = 24$ (to
+$1.3 \times 10^{-9}$ relative, the inclusion–exclusion's cancellation); hafnians and loop hafnians
+agree with the sums over matchings to $1.7 \times 10^{-13}$ relative up to 12 rows; a hafnian, a
+loop hafnian and a torontonian of 14 modes are the same bits on 1 and 7 threads. Squeezed vacuum
+has its closed-form $P(2k)$ up to 30 photons and no odd ones, and is dark on a threshold detector
+with probability $1/\cosh r$; each half of a two-mode squeezed vacuum is thermal; a 2 mm guide's
+4.5 dB/cm through the circuit gives $\eta e^{\mp 2r} + 1 - \eta$; a coherent state is Poissonian
+by the loop hafnian, and a displaced squeezed state's distribution has the mean and variance of its
+covariance. A source of four equal Schmidt modes has negative-binomial pairs and $g^{(2)} = 1.25$;
+the HOM visibility of two Gaussian joint spectra matches its closed form to $7 \times 10^{-15}$;
+the heralding through a lossy coupler adds up to its transmission. The squeezers read off 0.6.1's
+amplifiers give $r = \kappa\sqrt{P}L$ and four-wave mixing's closed-form gain, their RK4 converging
+at order 3.92.
+
+**Published.**
+
+| Case | Paper | photonoxide |
+|---|---|---|
+| Helt et al. 2010, ring of 47.5 µm, 1.48 GHz lines, 5 ps pump | K = 1.09 | 1.0909 |
+| Helt et al. 2010, the same, 5 ns pump | K = 10.00 | 9.986 (0.14 %; their linewidth is given to two figures, 0.68 %) |
+| Vernon et al. 2017, Fig. 2(a), equal linewidths, broad pump | K = 1.09 | 1.0909 |
+| Vaidya et al. 2020, number-difference squeezing on chip, escape efficiency 0.8 | ~7 dB | 6.99 dB |
+| Vaidya et al. 2020, the bound through 1.5 and 0.5 dB of coupling loss | about 5, nearly 10 dB | 5.35, 9.64 dB |
+| Nehra et al. 2022, 4.2 and 9.7 dB measured, both unknowns of the loss model solved | 10.48 ± 0.87 dB inferred, L ≈ 0.3 | 11.29 dB, L = 0.33 |
+| Nehra et al. 2022, 11 dB read through 33 dB of measurement gain (Eq. 1) | ~11 dB | 11.05 dB |
+| Nehra et al. 2022, homodyne behind an efficiency of 0.20 | < 1 dB | 0.97 dB |
+
+Vaidya et al.'s Eq. 3, the number-difference variance $(1 - \eta) n_\text{tot}$, holds at every gain
+for a lossy two-mode squeezed vacuum (to round-off, from the Gaussian state's photon-number
+covariances), so their measured 0.704 is an efficiency of 0.296. Nehra et al. solve for the loss
+with their own fit; from the two measured levels alone the squeezing before the loss is 11.29 dB,
+0.81 dB above their 10.48, inside their ±0.87.
+
+**What doesn't agree yet.**
+
+- **Vernon et al.'s dual-coupled ring.** For a pump resonance 6.6 times wider than the signal's and
+  idler's, their Fig. 2(b) gives $K = 1.0009$ (purity 0.999); their own point-coupling model, Eqs. 3
+  and 4, with the pump far broader than its resonance, gives $K = 1.0033$ here (purity 0.9967), and
+  a narrower pump only raises it. Their text's lower bound for equal linewidths, $K = 1.08$, is below
+  the model's broad-pump 1.0909, which pumps of finite duration only raise (their Fig. 2(a) prints 1.09), and
+  their Fig. 3's line reads about 0.84 at $Q_{SI}/Q_P = 0.5$ and 0.93 at 1 against our 0.800 and
+  0.917. Their purities sit above ours by about the same margin at every ratio; the full device
+  simulation behind their markers isn't given in the letter. Not a case until it closes.
+- **Paesani et al.'s inter-modal source.** Their guide (2 µm × 220 nm silicon in silica, 11 mm,
+  TM₀ and TM₁, a 4.5 nm pump at 1550 nm, the TM₀ pump delayed by 1.46 ps) from the mode solver on
+  20 and 10 nm cells puts the pairs at 1584.2 and 1517.3 nm (theirs about 1588 and 1516 nm) and
+  gives a purity of 0.9980 with the delay and 0.716 without (their simulation: 0.994 and 0.840;
+  their measurement: 0.9904 ± 0.0006 and 0.931 ± 0.002). Our TM₁ − TM₀ group-index difference at
+  1550 nm is 0.109, where their delay, chosen to centre the pumps' overlap in the guide, implies
+  0.080 ($2c\tau/L$); with our dispersion the best delay is near 1.96 ps (purity 0.9990). The pump's
+  shape (theirs filtered by a 5 nm square filter) and the dispersion behind their simulation are in
+  their Supplementary Note 1, not read here. The purity converges in both grids (81 against 161
+  frequencies: $10^{-5}$; 20 against 10 nm cells: $10^{-5}$ with the delay, 0.001 without), so the
+  gap is the model's, not the numerics'. Not a case until it closes.
+- **Vaidya et al.'s quadrature squeezing.** Their 1.0 dB measured and about 4 dB inferred on chip
+  need their collection efficiency and gain parameter, which are in their Supplementary Materials.
+  With the escape efficiency of 0.75 alone, the most a ring can give on chip is 6.0 dB, above their
+  4 dB; the inference itself waits for those numbers.
+
 ## Limits
 
 - Permanents up to $n = 40$ (hours), the definition up to 10, partly distinguishable photons up
@@ -296,5 +533,12 @@ brings a coupler's S-matrix from FDFD into the statistics.
 - `Distribution::exact` lists all $\binom{m+n-1}{n}$ patterns: 4 photons in 21 modes is 10 626,
   10 in 30 modes 6.4 × 10⁸, beyond memory. Single probabilities (`probability`) and samples have
   no such limit.
-- Gaussian states, squeezing, hafnians and the photon pairs' sources are Q2; frequency-dependent
-  statistics beyond two photons, loss budgets, emitters and detectors are Q3.
+- Hafnians and torontonians up to 60 rows (30 photons, or 30 clicking modes); patterns up to 30
+  photons, the moments-of-a-sum route losing digits as they crowd into one mode (about
+  $10^{-10}$ relative at 30). Clicks of states with means (a loop torontonian) aren't computed.
+- A source's squeezing per Schmidt mode, $g\sqrt{\lambda_k}$, is the low-gain picture; the
+  squeezers are continuous-wave and lossless (the loss goes after them). Broadband squeezing at
+  high gain, whose temporal modes change with the gain, is left for later; so are the Schmidt
+  modes' shapes, which the studio's source designer will draw.
+- Frequency-dependent statistics beyond two photons, loss budgets, emitters and detectors are
+  Q3.

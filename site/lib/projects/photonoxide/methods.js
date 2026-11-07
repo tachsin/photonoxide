@@ -80,7 +80,7 @@ export const CATEGORIES = [
   {
     id: "quantum",
     title: "Quantum photonics",
-    blurb: "Photons through a circuit: its S-matrix as the transformation of the ports' modes with its loss dilated, output probabilities by permanents for indistinguishable, distinguishable and partly distinguishable photons, an exact boson sampler, Hong–Ou–Mandel dips through the circuit's own S(ω), and the Reck and Clements meshes.",
+    blurb: "Photons through a circuit: its S-matrix as the transformation of the ports' modes with its loss dilated, output probabilities by permanents for indistinguishable, distinguishable and partly distinguishable photons, an exact boson sampler, Hong–Ou–Mandel dips through the circuit's own S(ω), the Reck and Clements meshes, Gaussian states with their photon counts by hafnians and clicks by torontonians, photon-pair sources from joint spectra and rings, and squeezers from parametric amplifiers.",
     groups: [{ title: null, slugs: ["quantum"] }],
   },
   {

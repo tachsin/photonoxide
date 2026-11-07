@@ -21,24 +21,39 @@
 //! docs/methods/quantum.md derives each formula and lists the validation cases.
 
 mod fock;
+mod gaussian;
+mod hafnian;
 mod hom;
+mod intermodal;
 mod matrix;
 mod mesh;
 mod permanent;
+mod ring;
 mod rng;
 mod sampler;
+mod source;
+mod squeezer;
 mod transfer;
 mod walk;
 
 pub(crate) mod checks;
+pub(crate) mod light_checks;
+#[cfg(test)]
+mod light_tests;
 #[cfg(test)]
 mod tests;
 
 pub use fock::{Distribution, Fock, Photons, patterns, probability};
+pub use gaussian::{Gaussian, anti_squeezed_quadrature, db_of_squeezing, squeezed_quadrature};
+pub use hafnian::{hafnian, loop_hafnian, torontonian};
 pub use hom::{Dip, Wavepacket, coincidence, hom_dip};
+pub use intermodal::{Beta, DualPump, dual_pump_spectrum};
 pub use matrix::Matrix;
 pub use mesh::{Arrangement, Cell, Mesh, fidelity, haar_unitary};
 pub use permanent::{Formula, permanent, permanent_by};
+pub use ring::{RingGrid, ring_spectrum};
 pub use sampler::sample;
+pub use source::{Source, heralding_through, hom_visibility, path};
+pub use squeezer::{Squeezer, degenerate, four_wave, non_degenerate};
 pub use transfer::Transfer;
 pub use walk::coupled_array;
