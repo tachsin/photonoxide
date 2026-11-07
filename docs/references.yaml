@@ -145,6 +145,12 @@
   venue: "ACM Trans. Math. Softw. 49, 1"
   year: 2023
 
+- doi: 10.1364/OE.16.016750
+  authors: "V. Anant, A. J. Kerman, E. A. Dauler, J. K. W. Yang, K. M. Rosfjord, K. K. Berggren"
+  title: "Optical properties of superconducting nanowire single-photon detectors"
+  venue: "Opt. Express 16, 16750"
+  year: 2008
+
 - doi: 10.1109/50.762914
   authors: "E. Anemogiannis, E. Glytsis, T. Gaylord"
   title: "Determination of guided and leaky modes in lossless and lossy planar multilayer optical waveguides: reflection pole method and wavevector density method"
@@ -1456,6 +1462,12 @@
   authors: "J. Hu, C. R. Menyuk"
   title: "Understanding leaky modes: slab waveguide revisited"
   venue: "Adv. Opt. Photon. 1, 58"
+  year: 2009
+
+- doi: 10.1109/TASC.2009.2018035
+  authors: "X. Hu, C. W. Holzwarth, D. Masciarelli, E. A. Dauler, K. K. Berggren"
+  title: "Efficiently Coupling Light to Superconducting Nanowire Single-Photon Detectors"
+  venue: "IEEE Trans. Appl. Supercond. 19, 336"
   year: 2009
 
 - doi: 10.1021/acsphotonics.8b01522

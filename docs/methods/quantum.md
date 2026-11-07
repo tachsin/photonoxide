@@ -1,7 +1,7 @@
 ---
 title: "Linear-optical statistics"
 module: quantum
-summary: "Photons on a circuit's ports and what comes out: the S-matrix as the modes' transformation with its loss dilated, permanents by Ryser's and Glynn's formulas, partly distinguishable photons, an exact sampler, Hong–Ou–Mandel dips through S(ω), the Reck and Clements meshes; Gaussian states with hafnians, loop hafnians and torontonians, photon-pair sources from joint spectra and rings, and squeezers from parametric amplifiers."
+summary: "Photons on a circuit's ports and what comes out: the S-matrix as the modes' transformation with its loss dilated, permanents by Ryser's and Glynn's formulas, partly distinguishable photons, an exact sampler, Hong–Ou–Mandel dips through S(ω), the Reck and Clements meshes; Gaussian states with hafnians, loop hafnians and torontonians, photon-pair sources from joint spectra and rings, and squeezers from parametric amplifiers; real components: photons with spectra through any fidelity's S(ω), pairs born inside a circuit, loss budgets against published thresholds, emitters' Purcell and β factors from FDTD and detectors' absorption."
 order: 31
 papers:
   - cite: "S. Aaronson, A. Arkhipov, Theory Comput. 9, 143 (2013)"
@@ -49,6 +49,22 @@ papers:
     doi: 10.1126/sciadv.aba9186
   - cite: "R. Nehra et al., Science 377, 1333 (2022)"
     doi: 10.1126/science.abo6213
+  - cite: "J. W. Silverstone et al., Nat. Photonics 8, 104 (2013)"
+    doi: 10.1038/nphoton.2013.339
+  - cite: "M. Varnava, D. E. Browne, T. Rudolph, Phys. Rev. Lett. 100, 060502 (2008)"
+    doi: 10.1103/PhysRevLett.100.060502
+  - cite: "S. Bartolucci et al., Nat. Commun. 14, 912 (2023)"
+    doi: 10.1038/s41467-023-36493-1
+  - cite: "H. Qi, D. J. Brod, N. Quesada, R. García-Patrón, Phys. Rev. Lett. 124, 100502 (2020)"
+    doi: 10.1103/PhysRevLett.124.100502
+  - cite: "M. Arcari et al., Phys. Rev. Lett. 113, 093603 (2014)"
+    doi: 10.1103/PhysRevLett.113.093603
+  - cite: "W. H. P. Pernice et al., Nat. Commun. 3, 1325 (2012)"
+    doi: 10.1038/ncomms2307
+  - cite: "D. V. Reddy et al., Optica 7, 1649 (2020)"
+    doi: 10.1364/OPTICA.400751
+  - cite: "J. Chilwell, I. Hodgkinson, J. Opt. Soc. Am. A 1, 742 (1984)"
+    doi: 10.1364/JOSAA.1.000742
 validation:
   - quantum/permanent-ones
   - quantum/permanent-derangements
@@ -92,6 +108,22 @@ validation:
   - quantum/nehra-inferred
   - quantum/nehra-all-optical
   - quantum/nehra-homodyne-bound
+  - quantum/spectral-flat
+  - quantum/spectral-hom
+  - quantum/spectral-sum
+  - quantum/touchstone-statistics
+  - quantum/budget-path
+  - quantum/varnava-threshold
+  - quantum/bartolucci-fusion
+  - quantum/qi-simulability
+  - quantum/silverstone-fringe
+  - quantum/emitter-homogeneous
+  - quantum/emitter-order
+  - quantum/emitter-mirror
+  - quantum/emitter-slab
+  - quantum/detector-stack-joule
+  - quantum/detector-film-slab
+  - quantum/detector-film-order
 ---
 
 A linear circuit does to photons what it does to light: it mixes the ports' modes by its
@@ -101,8 +133,11 @@ sampler, follows from that matrix, its loss and its change with frequency. The m
 the photons' statistics exactly, up to about 30 single photons. Squeezed light through the same
 matrices is a Gaussian state, whose photon counts are hafnians; photon pairs come from 0.6.1's
 joint spectra, from rings, or from two pumps in two modes of a guide; squeezing from 0.6.1's
-parametric amplifiers. These are the first two parts of the 0.6.3 milestone's plan,
-[docs/plans/quantum.md](../plans/quantum.md) (Q1 and Q2).
+parametric amplifiers. Real components (Q3) bring the S-matrices' frequency dependence from
+every fidelity into the statistics, pairs born inside a circuit, loss budgets against published
+thresholds, and the electromagnetics of emitters (Purcell and β factors from FDTD) and detectors
+(absorption from transfer matrices and the mode solver). These are the first three parts of the
+0.6.3 milestone's plan, [docs/plans/quantum.md](../plans/quantum.md) (Q1 to Q3).
 
 ## The S-matrix as a mode transformation
 
@@ -392,6 +427,153 @@ a lossy amplifier adds noise a Bogoliubov map can't carry, so the loss is applie
 state after it. These are single-frequency (continuous-wave) amplifiers, exact at any gain while the
 pump doesn't deplete; the multimode squeezing of a broadband pulse at high gain is left for later.
 
+## Many photons with spectra through S(ω)
+
+Q3 brings the statistics to real components, whose S-matrices change with frequency and come
+from any of photonoxide's fidelities: a closed form, a compact model, a 2D or 3D solve, or a
+measured Touchstone file. Each gives a `Spectrum`, its S-matrices at a sweep of wavelengths
+(`Spectrum::of` for any component, `Circuit::spectrum`, `Touchstone::spectrum`), and
+`SpectralInput` takes photons with spectra and delays through it. Photon $a$, of spectral
+amplitude $\varphi_a$ and delay $\tau_a$, entering port $t_a$, leaves port $q$ with amplitude
+$\psi_{aq}(\omega) = \varphi_a(\omega) e^{i\omega\tau_a} S_{q t_a}(\omega)$. Detectors that count
+photons without telling their frequencies apart see the pattern $R$, photons at ports
+$r_1, \dots, r_n$ ($m_r$ of them at port $r$), with probability
+
+$$
+P(R) = \frac{1}{N \prod_r m_r!} \sum_\sigma \sum_\rho \prod_j G_j(\sigma(j), \rho(j)),
+\qquad G_j(a, b) = \int \psi_{a r_j} \bar\psi_{b r_j} \thinspace d\omega,
+$$
+
+over permutations $\sigma$ and $\rho$ of the photons, with
+$N = \sum_\sigma \prod_a [t_{\sigma(a)} = t_a] \langle \varphi_a | \varphi_{\sigma(a)} \rangle$ the
+input state's norm (1 when each photon has a port of its own). It follows from the output state
+$\prod_a \hat B_a^\dagger \lvert 0 \rangle$, $\hat B_a^\dagger = \sum_q \int \psi_{aq} \hat b_q^\dagger(\omega)\thinspace d\omega$,
+by integrating $\lvert \langle 0 \rvert \prod_j \hat b_{r_j}(\omega_j) \ldots \rvert^2$ over every
+$\omega_j$: the amplitude is a sum over the photons' assignments to the slots, and its square
+integrates slot by slot. For each $\sigma$ the sum over $\rho$ is the permanent of
+$M^\sigma_{jb} = G_j(\sigma(j), b)$, so a pattern costs $n!$ permanents of $n \times n$; up to 8
+photons. With a frequency-independent $S$, $G_j(a, b) = S_{r_j t_a} \bar S_{r_j t_b}
+\langle \varphi_b | \varphi_a \rangle$ and $P(R)$ is the partly distinguishable probability of
+the photons' overlaps (`quantum/spectral-flat`); with two photons it is the Hong–Ou–Mandel
+coincidence above (`quantum/spectral-hom`); through a lossless $S(\omega)$ every pattern's
+probability sums to 1 (`quantum/spectral-sum`), and through a lossy one to the chance that no
+photon is lost. The integrals are trapezoidal sums over the sweep, as `hom_dip`'s.
+
+A figure of merit from a solver carries the solver's grid. A 2 × 2 MMI (3 µm wide,
+470 nm access guides at its first two-fold image by the guided-mode model, on 220 nm SOI; not
+balanced, so that the figure moves with the grid) gives two 3 nm photons on its inputs a HOM
+visibility of
+
+| Model of the MMI's S(ω) | HOM visibility |
+|---|---|
+| 2D, the guided-mode model (exact slab modes, no grid) | 0.8909 |
+| 2D FDFD, 40 nm cells | 0.7871 |
+| 2D FDFD, 20 nm cells | 0.8371 |
+| 2D FDFD, 10 nm cells | 0.8528 |
+| the 10 nm solve through a Touchstone file and back | the same to 8e-16 (`quantum/touchstone-statistics`) |
+| a compact model of the 10 nm solve (vector fitting, 8 poles, largest $\lvert \Delta S \rvert$ 0.0096) | 0.8497 |
+
+The FDFD figure converges with the grid (0.050, then 0.016 between grids, about 1.7th order), and
+its 10 nm value is within about 0.007 of the limit by that rate (Richardson's estimate); the
+guided-mode model, which leaves out radiation and reflection at the faces, sits about 0.03 above
+it. A compact model carries its fit's error into the statistics: 8 poles miss by 0.003.
+
+The 2D FDFD is labelled 2D, never the device's performance (devices.md); 3D figures carry their
+own grid, as the 3D coupler's visibility does in `quantum/coupler-hom-order`. An FDTD run gives
+one port's column of S per launch; a device's S-matrix from FDTD isn't a fidelity yet, so FDTD
+enters Q3 through the emitters below.
+
+## Photon pairs born inside a circuit
+
+Sources inside a circuit, pumped through one part of it, send their pairs through the rest.
+Weakly pumped sources at ports $k$ (each pair's signal entering at $s_k$ and its idler at $i_k$)
+make the state $\sum_k \xi_k \hat a^\dagger_{s_k} \hat a^\dagger_{i_k} \lvert 0 \rangle$, where
+for four-wave mixing $\xi_k$ is the product of the two pump photons' field amplitudes at source
+$k$, each from the pump's path through the first part. Through the rest, $S_s$ at the signal's
+wavelength and $S_i$ at the idler's, the signal reaches $o_1$ and the idler $o_2$ with amplitude
+$A = \sum_k \xi_k S_s[o_1, s_k] S_i[o_2, i_k]$, and degenerate photons one at each of $o_1 \ne o_2$
+with $\sum_k \xi_k (S[o_1, s_k] S[o_2, i_k] + S[o_2, s_k] S[o_1, i_k])$ (`pair_amplitude`). Two
+sources a phase $\phi$ apart make the fringe $\lvert x + y e^{i\phi} \rvert^2$, whose visibility
+$(N_{\max} - N_{\min})/N_{\max}$ (Silverstone et al.'s, doi:10.1038/nphoton.2013.339) is
+$4\lvert x \rvert \lvert y \rvert / (\lvert x \rvert + \lvert y \rvert)^2$ (`two_path_visibility`).
+
+## Loss budgets and thresholds
+
+A `Budget` is a list of stages, each with the share of photons it keeps and where that number
+comes from. `Budget::along` takes a path through a circuit, hop by hop (an instance, the port in,
+the port out), and makes each stage $\lvert S_{\text{out},\text{in}} \rvert^2$ of the instance's
+component at its own fidelity, its source the component's provenance; when the path is the only
+route between two ports the product is the circuit's own $\lvert S \rvert^2$
+(`quantum/budget-path`). A photon's budget adds its source's and detector's efficiencies as
+stages; an n-photon event keeps every photon with the product of their budgets (`event`).
+
+Budgets are held against published thresholds, each quoted with what it assumes (`Threshold`):
+
+- **Varnava, Browne & Rudolph 2008** (doi:10.1103/PhysRevLett.100.060502): sources of efficiency
+  $\eta_S$ (at most one photon, the mixture $\eta_S \lvert 1 \rangle\langle 1 \rvert + (1 - \eta_S)\lvert 0 \rangle\langle 0 \rvert$)
+  and detectors of efficiency $\eta_D$ make three-photon GHZ states that lose photons at the rate
+  $\epsilon = 1 - \eta_S/(2 - \eta_D \eta_S)$; their loss-tolerant tree clusters need
+  $(1 - \epsilon)\eta_D > 1/2$, which is $\eta_S \eta_D > 2/3$ (`quantum/varnava-threshold`).
+  Linear optics ideal but for absorptive loss, number-resolving detectors where the GHZ states
+  are made, dark counts rare.
+- **Bartolucci et al. 2023** (doi:10.1038/s41467-023-36493-1): fusion-based computing on a
+  (2,2)-Shor encoded 6-ring network tolerates 10.4% of loss per fusion, 2.7% per photon. In their
+  linear-optical model a fusion boosted to fail with probability $p_\text{fail}$ measures
+  $1/p_\text{fail}$ photons and is erased when any is lost, $1 - \eta^{1/p_\text{fail}}$;
+  $1 - 0.973^4 = 0.1037$ (`quantum/bartolucci-fusion`), so their two numbers are one at
+  $p_\text{fail} = 1/4$.
+- **Qi, Brod, Quesada & García-Patrón 2020** (doi:10.1103/PhysRevLett.124.100502): a Gaussian
+  boson sampler of $K$ squeezed modes (squeezing $r$, transmission $\eta$, threshold detectors of
+  efficiency $\eta_D$ and dark-count probability $p_D$, $q_D = p_D/\eta_D$) is simulable
+  classically to a total variation distance $\epsilon$ when
+  $F_{\max} = \operatorname{sech}\lbrace \tfrac12 \Theta[\ln((1 - 2q_D)/(\eta e^{-2r} + 1 - \eta))] \rbrace > e^{-\epsilon^2/4K}$
+  (their Eqs. 1 and 12, $\Theta$ the ramp), that is above
+  $\epsilon^* = 2\sqrt{-K \ln F_{\max}}$ (`qi_simulable_error`). Their test assumes uniform loss,
+  folded into the squeezed inputs, and the no-collision regime. For a designed chip, $\eta$ is its
+  budget's transmission and $r$ its squeezers' (Q2).
+
+## Emitters: Purcell and β factors from FDTD
+
+An emitter's decay into a channel, relative to its decay in a reference medium, is the power a
+classical dipole of the same moment sends into that channel over its power in the reference
+medium; both follow the local density of states at the emitter. `Simulation::emit`
+(`fdtd::emitter`) runs a dipole with a flux box around it and mode monitors on either side, and
+divides every transform by the dipole's spectrum: the powers of a unit current at each
+frequency. The **Purcell factor** is the box's power over the closed form $P_0$ in a homogeneous
+medium of index $n$; with $\mathbf E = i\tilde\omega(\mathbf I + \nabla\nabla/k^2) g\,\mathbf a$ for a
+current moment $\mathbf a$ (photonoxide's units: $c = 1$, $\tilde H = \eta_0 H$, $\tilde J = \eta_0 J$), the
+self-field's imaginary part gives $P_0 = n\tilde\omega^2 \lvert a \rvert^2/12\pi$ in 3D, and a line
+current along the axis a 2D grid doesn't vary along, $E_z = -(\tilde\omega a/4) H_0^{(1)}(kr)$, gives
+$P_0 = \tilde\omega \lvert a \rvert^2/8$ per unit length in every medium; $\tilde\omega$ is the
+leapfrog's frequency, at which the run is FDFD's. The **β factor** (Arcari et al. 2014,
+doi:10.1103/PhysRevLett.113.093603, Eq. 1) is the power into the guide's modes, both ways, over
+the box's power. In 2D, a line current at $y_0$ in a slab couples into its mode $\varphi(y)$
+($\int \varphi^2 dy = 1$, propagation constant $\beta$) with $P_\text{wg}/P_0 = 2\varphi(y_0)^2/\beta$,
+both directions together: the mode's share of the slab's Green's function, $i\omega a\,\varphi(y)\varphi(y_0)\, i e^{i\beta\lvert x \rvert}/2\beta$,
+carries $(\beta/2k_0)\int\lvert E_z\rvert^2$ each way.
+
+## Detectors: absorption from transfer matrices and the mode solver
+
+- **A detector stack** (light at normal or oblique incidence on films): `Multilayer::absorption`
+  takes the tangential fields (U, V) at each interface from the substrate's side,
+  $(U, V) = (t, \gamma_s t)$, back through the films' matrices (Chilwell & Hodgkinson's Eq. 10);
+  the power crossing an interface is $\operatorname{Re}(U\bar V)/\operatorname{Re}\gamma_c$ of the
+  incident, and each film absorbs the difference between its faces. That this is the film's Joule
+  heat, $k \operatorname{Im}(n^2) \int \lvert E \rvert^2 dz$ for TE, is checked against the field
+  inside each film (`quantum/detector-stack-joule`).
+- **A waveguide detector** (a film along a guide, the photon absorbed as it travels): the
+  full-vector solver's complex effective index gives the absorption,
+  $1 - e^{-2k_0 \operatorname{Im}(n_\text{eff}) L}$ over a length $L$ (`absorbed_fraction`). A
+  slab of 110 nm silicon on silica under air with a 4.1 nm absorbing film on top
+  ($n = 5.817 + 6.033i$, Reddy et al.'s MoSi) has the multilayer's exact complex root; the
+  full-vector solver on a cross-section between electric walls (the slab uniform across it)
+  reaches it at second order (`quantum/detector-film-slab`, `quantum/detector-film-order`).
+
+The films' optical constants are the detectors' and emitters' material data: NbN, WSi or MoSi,
+and GaAs at low temperature enter the catalogue with their provenance when a reproduction needs
+them (the plan's decision 6). Reddy et al.'s MoSi index above is their own estimate at 1550 nm,
+used for a check, not a catalogue entry.
+
 ## What it is checked against
 
 The analytic cases hold to round-off: the permanent of the all-ones matrix is $n!$ and that of
@@ -526,6 +708,92 @@ with their own fit; from the two measured levels alone the squeezing before the 
   With the escape efficiency of 0.75 alone, the most a ring can give on chip is 6.0 dB, above their
   4 dB; the inference itself waits for those numbers.
 
+### Real components (Q3)
+
+The identities hold to round-off: three photons with Gaussian spectra through a
+frequency-independent $S$ give Q1's partly distinguishable probabilities, with and without
+delays and with two photons on one input (`quantum/spectral-flat`, to $2 \times 10^{-15}$); two
+photons give `hom_dip`'s coincidences through a dispersive interferometer (`quantum/spectral-hom`,
+$10^{-15}$); three photons' patterns through its lossless $S(\omega)$ sum to 1
+(`quantum/spectral-sum`); an FDFD spectrum through a Touchstone file and back gives the same
+statistics (`quantum/touchstone-statistics`, $8 \times 10^{-16}$); a path's budget is the circuit's
+own $\lvert S \rvert^2$ (`quantum/budget-path`, $2 \times 10^{-16}$ relative). The dilation
+$S S^\dagger + L L^\dagger = I$ that the plan lists for Q3 is Q1's `quantum/dilation`. A Haar-random
+or lossy circuit with a frequency-independent $S$ gives Q1's results exactly, which is the
+plan's first analytic case.
+
+The emitters' closed forms hold to their grids' errors, at Yee's second order: a dipole in a
+medium of index 1.5 by 3D FDTD has a Purcell factor of 1.0181 on 40 nm cells and 1.0045 on 20 nm
+(`quantum/emitter-homogeneous`); a line current in vacuum by 2D FDTD 1.00198 on 20 nm and 1.00049
+on 10 nm, order 2.00 (`quantum/emitter-order`); before a mirror, $1 - J_0(2kd)$ at 0.16, 0.3 and
+0.5 µm to $6.4 \times 10^{-4}$ on 10 nm cells (`quantum/emitter-mirror`); in a slab of ε = 12,
+120 nm thick, the power into its mode over $P_0$ is 1.0247, 0.9822 and 0.9660 on 40, 20 and 10 nm
+cells against $2\varphi(y_0)^2/\beta = 0.9608$ (`quantum/emitter-slab`, 0.54% on 10 nm). That
+slab's β factor at its centre is 0.9536 on 20 nm cells and 0.9543 on 10 nm: 95.4% of the
+emission goes into the guide, the rest radiates.
+
+The detectors' hold likewise: in Reddy et al.'s stack each film's absorption from the flux
+between its faces is its Joule heat from the field inside it, to round-off
+(`quantum/detector-stack-joule`); the film slab's $\operatorname{Im} n_\text{eff}$ = 0.2105085 by the
+multilayer is reached by the full-vector solver to $2 \times 10^{-5}$, $3.7 \times 10^{-6}$ and
+$9.8 \times 10^{-7}$ on 8, 4 and 2 nm nodes (`quantum/detector-film-slab`,
+`quantum/detector-film-order`, order 1.92).
+
+**Published.**
+
+| Case | Paper | photonoxide |
+|---|---|---|
+| Varnava et al. 2008, the threshold from their loss model | $\eta_S \eta_D > 2/3$ | 2/3 to round-off |
+| Bartolucci et al. 2023, loss per fusion from 2.7% per photon, $p_\text{fail} = 1/4$ | 10.4% | 10.37% |
+| Qi et al. 2020 on Paesani et al.'s chip ($K$ = 4, $r$ = 0.1, $\eta$ = 0.088, $\eta_D$ = 0.78, $p_D$ = 1e-4) | simulable "with error 2%" | $\epsilon^*$ = 0.0224 |
+| Qi et al. 2020 on Zhong et al.'s sampler ($K$ = 6, $r$ = 0.38, $\eta$ = 0.89, $\eta_D$ = 0.82, $p_D$ = 1e-4) | "no solution for any ε ∈ [0, 1]" | $\epsilon^*$ = 1.10 |
+| Silverstone et al. 2013, the on-chip fringe of degenerate pairs (Fig. 2e) | V = 100.0 ± 0.4% | 99.99996% |
+
+**Silverstone et al.'s chip.** Their device (p. 104 and Methods) is two 5.2 mm spirals of a
+470 × 220 nm silicon strip in silica between two 2 × 2 MMIs of "reflectivity ~50%", a thermal
+phase shifter on one arm: the pump splits at the first MMI, each spiral makes pairs by four-wave
+mixing, and the second MMI interferes them. The MMIs' geometry isn't given, so ours is the
+guided-mode model's 2 × 2 MMI with their strips as access guides (3 µm wide), at the length that
+splits evenly at 1549.6 nm (11.80 µm; at the model's own image length it splits unevenly, and the
+fringe would be 95.8%). The spirals are identical, so their loss (4.1 dB/cm) and phase are a common
+factor; the pairs' amplitudes are the pump photons' amplitudes at each source, multiplied. With
+the degenerate scheme's two pumps 22.4 nm apart, taken at 1549.6 ∓ 11.2 nm (the letter gives
+the detuning, not the centre), the pumps' split differs by so little over the band that the
+fringe stays at 99.99996%, inside their 100.0 ± 0.4%. The case checks that a balanced chip's
+fringe is that complete across the pumps' band; how balanced theirs was is their measurement.
+
+**What doesn't agree yet.**
+
+- **Silverstone et al.'s non-degenerate fringes.** With one pump at 1549.6 nm and the signal and
+  idler 6.4 nm apart, ours gives 99.944% for both Aᵢ × Bₛ and Aₛ × Bᵢ. Their Fig. 2c gives
+  99.1 ± 0.5% and 98.8 ± 1.2%: the second agrees, the first is 0.84% above theirs, outside its
+  uncertainty. Their spurious pairs from the input and output guides (their Eq. 4) don't touch the
+  split fringe in their model, and their raw visibilities (Supplementary Section 7, not in the
+  papers folder) are below the net ones; what lowers Aᵢ × Bₛ isn't in the letter. Not a case.
+- **Arcari et al. 2014, β = 98.43%.** Their β is measured, $(\Gamma_c - \Gamma_{uc})/\Gamma_c$ with
+  $\Gamma_c$ = 6.28 ns⁻¹ and $\Gamma_{uc}$ = 0.098 ns⁻¹ (98.44% from those two numbers); their
+  simulated β (Fig. 1e, above 95% near the field's maxima at $n_g$ = 58) needs the photonic-crystal
+  waveguide's lattice constant, hole radius and membrane thickness, which are in their
+  Supplemental Material, not in the letter or the papers folder. The 3D FDTD reproduction
+  (`Simulation::emit` on their waveguide) waits for it.
+- **Pernice et al. 2012, 1 dB/µm.** Their waveguide detector, two NbN wires (100 nm wide, 120 nm
+  apart, 3.5 nm thick) on a 750 × 110 nm silicon strip on 3 µm of oxide, absorbs
+  10.1 ± 0.2 dB in 10 µm by their 3D FDTD (OmniSim, 2 nm cells), and 0.98 ± 0.10 dB/µm measured;
+  91% on-chip detection efficiency at 20 µm. Their NbN is a Drude–Lorentz fit to X. Hu's thesis
+  (MIT 2011, no DOI); the published index of such films is in X. Hu et al., IEEE Trans. Appl.
+  Supercond. 19, 336 (2009), doi:10.1109/TASC.2009.2018035, and V. Anant et al., Opt. Express 16,
+  16750 (2008), doi:10.1364/OE.16.016750, neither in the papers folder. Without NbN's index with
+  its provenance (the plan's decision 6) the mode-solver case waits; the solver's absorption itself
+  is checked above on a film slab.
+- **Reddy et al. 2020's stack.** Their stack (p. 1650) as planar films at 1550 nm, the MoSi
+  nanowires (80 nm wide, fill 0.57) as an effective medium of their MoSi index and the αSi that
+  fills the gaps, absorbs 0.705 for E along the wires (reflecting 0.295) and 0.063 across them; a
+  whole MoSi film 0.757. They designed the stack for "near-unity photon absorption into the
+  nanowire" by RCWA of the meander and measured 98.0 ± 0.5% system detection efficiency; their
+  simulated absorption for this stack isn't given (Supplement 1, Section 2, not in the papers
+  folder). Ours is far below near-unity, so the planar effective medium, the films' order as read
+  from their text, or the indices aren't what their design used. Not a case.
+
 ## Limits
 
 - Permanents up to $n = 40$ (hours), the definition up to 10, partly distinguishable photons up
@@ -540,5 +808,13 @@ with their own fit; from the two measured levels alone the squeezing before the 
   squeezers are continuous-wave and lossless (the loss goes after them). Broadband squeezing at
   high gain, whose temporal modes change with the gain, is left for later; so are the Schmidt
   modes' shapes, which the studio's source designer will draw.
-- Frequency-dependent statistics beyond two photons, loss budgets, emitters and detectors are
-  Q3.
+- Photons with spectra through S(ω): up to 8 (n! permanents a pattern), every pattern of
+  `distribution` as above. Detectors are frequency-blind; a frequency-resolving one would keep
+  the slots' frequencies apart.
+- Pairs inside a circuit are weakly pumped (one pair at a time); multi-pair noise through a
+  circuit is Q2's Gaussian states'.
+- An S-matrix from FDTD isn't a fidelity of a device yet (one launch a port); FDTD enters through
+  the emitters. Emitters are electric dipoles, in 2D along the axis that doesn't vary.
+- With 0.11's process variation (Monte Carlo and yield are still to come), HOM visibility, a
+  unitary's fidelity and the budget become distributions; until then a device's corners
+  (docs/methods/devices.md) can be swept by hand.

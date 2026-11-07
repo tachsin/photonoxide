@@ -208,7 +208,7 @@ fn partly(m: &Matrix, g: &Matrix, input: &Fock, output: &Fock) -> Result<f64> {
 }
 
 /// Every permutation of 0..n, in Heap's order.
-fn permutations(n: usize) -> Vec<Vec<usize>> {
+pub(super) fn permutations(n: usize) -> Vec<Vec<usize>> {
     let mut perm: Vec<usize> = (0..n).collect();
     let mut out = vec![perm.clone()];
     let mut c = vec![0usize; n];
@@ -240,6 +240,14 @@ pub struct Distribution {
 }
 
 impl Distribution {
+    /// A distribution of `patterns` with `probabilities`, one each, in that order.
+    pub(super) fn from_parts(patterns: Vec<Fock>, probabilities: Vec<f64>) -> Distribution {
+        Distribution {
+            patterns,
+            probabilities,
+        }
+    }
+
     /// Every output pattern's probability for photons in `input` through T (as
     /// [`probability`]), each pattern on rayon's threads, collected in order.
     ///
