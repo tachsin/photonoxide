@@ -377,7 +377,7 @@ impl Job {
 }
 
 /// YAML 1.2's booleans only: `no`, `yes`, `on` and `off` stay strings.
-pub(crate) fn yaml_options() -> serde_saphyr::Options {
+fn yaml_options() -> serde_saphyr::Options {
     serde_saphyr::options! {
         strict_booleans: true,
     }

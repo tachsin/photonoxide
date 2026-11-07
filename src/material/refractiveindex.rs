@@ -315,8 +315,10 @@ pub fn from_refractiveindex_info(name: &str, yaml: &str, source: &str) -> Result
     }) {
         return Err(bad(source, "the file is empty"));
     }
-    let doc: File = serde_saphyr::from_str_with_options(yaml, crate::run::yaml_options())
-        .map_err(|e| bad(source, e.to_string()))?;
+    // YAML 1.2's booleans only, as the jobs are read: `no`, `yes`, `on` and `off` stay text
+    let doc: File =
+        serde_saphyr::from_str_with_options(yaml, serde_saphyr::options! { strict_booleans: true })
+            .map_err(|e| bad(source, e.to_string()))?;
     let entries = doc
         .data
         .as_ref()
