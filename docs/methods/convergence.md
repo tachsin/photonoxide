@@ -143,9 +143,21 @@ driven to 1e-5 from 20 nm at second order. The exact root, by transfer matrices
 | Richardson's limit | 2.8448155441 | | 4.4e-11 |
 
 It stops at 0.625 nm, the first change below 1e-5. The last three grids show order 2.00. The
-estimated error of the limit is 5.8e-10, 13 times the true error. Asked for 1e-6, it would
-need 0.156 nm, where the eigensolver doesn't converge. Asked for 1e-12 within three grids, it
-refuses:
+estimated error of the limit is 5.8e-10, 13 times the true error.
+
+Asked for 1e-6 (`convergence/slab-tolerance-fine`), it goes on to 0.312 and 0.156 nm (changes
+1.83e-6 and 4.58e-7) and stops there, Richardson's limit 7.6e-11 from the exact root, the
+estimate 5.1e-11: at this level round-off is as large as the extrapolation's own error, and the
+estimate no longer bounds it. The 0.156 nm grid has 25 500 nodes, and there a residual computed
+with the matrix can't certify an eigenpair: A x loses ε‖A‖∞ ≈ ε·4/h² = 3.6e-8 to rounding, 2.7e-10
+of β² against the eigensolver's 1e-10. `slab_fd` checks that floor before it solves (ε‖A‖∞ over
+max(|σ|, 1)) and, where it is above the tolerance, accepts each pair by the shifted inverse's own
+residual, which has no such floor (`eigen::nearest_small`, as the RF line's modes do); on coarser
+grids it keeps the residual with A, so their numbers are unchanged. Before, the solve gave up at
+0.156 nm. The slab's error against the exact root stays second order on to 0.078 nm (51 500
+nodes): −2.44e-6, −6.10e-7, −1.52e-7 and −3.83e-8 at 0.625, 0.312, 0.156 and 0.078 nm.
+
+Asked for 1e-12 within three grids, it refuses:
 
 ```text
 the slab's TE n_eff did not reach the tolerance 1e-12 within 3 grids: its last two values
@@ -221,6 +233,7 @@ The validation report's cases, each with its rule (`src/validation/convergence.r
 | `convergence/slab-tolerance` | the slab's index driven to 1e-5 | 2.8448155441 | the exact root, 2.8448155441 (error 4.4e-11) | 1e-5, the one asked for |
 | `convergence/slab-estimate` | the true error over the estimate | 0.077 | at most 1: the estimate bounds the error | 1 |
 | `convergence/slab-order` | the order the recorded grids show | 2.00 | the scheme's 2 | 0.1 |
+| `convergence/slab-tolerance-fine` | the slab's index driven to 1e-6, on to 0.156 nm | 2.8448155442 | the exact root (error 7.6e-11) | 1e-6, the one asked for |
 | `convergence/eme-taper-fdfd` | the stepped taper's \|S₁₁\|², the expansion driven in modes and steps | 9.1819e-5 | FDFD driven the same way, 9.18173e-5 (1.9e-5 relative, the expansion's value to five digits) | 6e-4 relative: three times the 2e-4 both are driven to, so that our own estimate (7.1e-5) is at most a third |
 | `convergence/refusal` | the slab asked for 1e-12 within three grids: the parts its error misses | 0 | the quantity, the last two values and the tolerance, all named | half a part |
 
