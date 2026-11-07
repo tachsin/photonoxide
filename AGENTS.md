@@ -90,6 +90,7 @@ bash .github/codebase-report.sh                         # the codebase report: s
 just codebase-report-crates                             # the same with the program's code by crate (cargo-bloat; builds the release binary)
 cargo machete                                           # dependencies nothing uses (a Lint step in CI and the hooks)
 git diff --name-only origin/main...HEAD | AREAS_RANGE=origin/main...HEAD bash .github/areas.sh   # what CI runs for a branch
+git diff --name-only origin/main...HEAD | AREAS_RANGE=origin/main...HEAD bash .github/areas.sh | bash .github/shards.sh 1   # and its jobs
 cargo semver-checks check-release -p photonoxide --baseline-rev origin/main   # a branch's own breaks (CI's Semver job on a PR)
 cargo semver-checks check-release -p photonoxide        # the public API against the latest release (the release PR's check)
 ```
@@ -104,8 +105,10 @@ or test-read file gets its line in the map. A PR that changes the library (`src/
 PR answers for its own breaks only; the release PR is checked against the latest release on
 crates.io.
 **Tier 2**, the release PR, a PR labelled `full-ci`, and
-a change to `ci.yml`, `Cargo.toml` or `Cargo.lock`: every test on Linux, Windows and macOS (and on
-one thread), every example on the three systems, the 3D devices, the whole validation report. **Tier
+a change to `ci.yml`, `.github/shards.sh`, `Cargo.toml` or `Cargo.lock`: every test on Linux, Windows and macOS (and on
+one thread), every example on the three systems, the 3D devices, the whole validation report. The
+shards ([.github/shards.sh](.github/shards.sh)) split a run's tests, cases and examples among its
+jobs by measured times, each in exactly one job (the "What changed" job fails otherwise). **Tier
 3**, the Weekly workflow on Mondays when code changed that week: Tier 2, every Python wheel, the
 Systems comparison and the Libraries workflow's installs (those every week); a failure opens the
 issue "Weekly run failed". Run the full suite here after every merge or rebase
