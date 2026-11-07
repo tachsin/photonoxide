@@ -6,6 +6,52 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.6.3](https://github.com/tachsin/photonoxide/compare/v0.6.2...v0.6.3) - 2026-11-07
+
+### <!-- 0 -->Added
+
+- Afshar and Monro's n̄₂, a noise-aware sweep stop, a branch that refines itself, and GDS files in the editor (part of #595) ([#714](https://github.com/tachsin/photonoxide/pull/714))
+- *(fabrication)* SIMOX as the second bare-silicon start, from the published points (part of #622) ([#716](https://github.com/tachsin/photonoxide/pull/716))
+- *(studio)* a new Home page and a paper engine: modules, examples, a feed of the latest papers, and papers read inside the studio (closes #715) ([#718](https://github.com/tachsin/photonoxide/pull/718))
+- *(eme)* an eme job and taper steps placed where the response changes (part of #432) ([#717](https://github.com/tachsin/photonoxide/pull/717))
+- *(eme)* 3D cross-sections: the modes of a section, their overlaps, mirror walls and a taper checked against 3D FDFD (part of #432) ([#720](https://github.com/tachsin/photonoxide/pull/720))
+- *(academy)* the lesson Grating couplers (part of #228) ([#721](https://github.com/tachsin/photonoxide/pull/721))
+- *(academy)* the lesson Multimode interference couplers (part of #228) ([#723](https://github.com/tachsin/photonoxide/pull/723))
+- *(eme)* 3D sections from a device and the eme job's planes, checked against 3D FDFD (part of #432) ([#722](https://github.com/tachsin/photonoxide/pull/722))
+- *(academy)* the lesson Photonic crystals and band gaps (part of #228) ([#724](https://github.com/tachsin/photonoxide/pull/724))
+- *(academy)* the lesson Metasurfaces and metalenses (part of #228) ([#727](https://github.com/tachsin/photonoxide/pull/727))
+- *(academy)* the lesson FDFD and adjoint gradients (part of #228) ([#729](https://github.com/tachsin/photonoxide/pull/729))
+- *(academy)* the lesson Modulators and phase shifters (part of #228) ([#731](https://github.com/tachsin/photonoxide/pull/731))
+- *(academy)* the lesson Nonlinear integrated optics (part of #228) ([#732](https://github.com/tachsin/photonoxide/pull/732))
+- *(academy)* the lesson Surface plasmons and Mie scattering (part of #228) ([#725](https://github.com/tachsin/photonoxide/pull/725))
+- *(academy)* the lesson Crossings and converters (part of #228) ([#733](https://github.com/tachsin/photonoxide/pull/733))
+- *(eme)* S over wavelength from a few solves with a stated error (part of #432) ([#726](https://github.com/tachsin/photonoxide/pull/726))
+- *(academy)* the lesson How FDTD works (part of #228) ([#734](https://github.com/tachsin/photonoxide/pull/734))
+- *(eme)* periodic sections with Bloch modes from one period's S (part of #432) ([#735](https://github.com/tachsin/photonoxide/pull/735))
+- *(quantum)* linear-optical statistics (part of #737) ([#738](https://github.com/tachsin/photonoxide/pull/738))
+- *(eme)* bends by the conformal map (part of #432) ([#739](https://github.com/tachsin/photonoxide/pull/739))
+- *(quantum)* sources and Gaussian states (part of #737) ([#742](https://github.com/tachsin/photonoxide/pull/742))
+- *(quantum)* real components in quantum circuits (part of #737) ([#743](https://github.com/tachsin/photonoxide/pull/743))
+- *(studio)* the quantum view of the Chip page (part of #737) ([#746](https://github.com/tachsin/photonoxide/pull/746))
+- *(eme)* a job's own drawing cut into 3D sections (part of #432) ([#745](https://github.com/tachsin/photonoxide/pull/745))
+- quantum studio, NbN and the remaining 0.6.3 items (part of #737) ([#749](https://github.com/tachsin/photonoxide/pull/749))
+- *(studio)* a journal picker and images in the Home feed (part of #715) ([#736](https://github.com/tachsin/photonoxide/pull/736))
+
+### <!-- 1 -->Fixed
+
+- *(eigen, eme)* a shift on an eigenvalue moved off it, EME's mode limit traced, three more leftovers (part of #595) ([#711](https://github.com/tachsin/photonoxide/pull/711))
+- *(sweep)* the noise-aware stop does not depend on the last bits of the samples (part of #595) ([#730](https://github.com/tachsin/photonoxide/pull/730))
+- *(eme)* pair a period's Bloch eigenvalues closest first, and show a guided Bloch mode lossless (part of #432) ([#740](https://github.com/tachsin/photonoxide/pull/740))
+- 30 leftovers from #595 (nonlinear job, mode quantities, slab_fd, grid drive, EME bends, fabrication exports, dependencies) ([#750](https://github.com/tachsin/photonoxide/pull/750))
+
+### <!-- 4 -->Documentation
+
+- four #595 paper gaps tested candidate by candidate, Fig. 12 re-read, --beams for Passoni (part of #595) ([#713](https://github.com/tachsin/photonoxide/pull/713))
+- *(fabrication)* the thermal-ordering rule cited by its pages in Plummer, Deal and Griffin ([#719](https://github.com/tachsin/photonoxide/pull/719))
+- *(academy)* use the newly read papers in the crossings and metasurface lessons (part of #228) ([#741](https://github.com/tachsin/photonoxide/pull/741))
+- *(roadmap)* tick quantum Q1 to Q3 and the EME phases that landed (part of #737, #432) ([#744](https://github.com/tachsin/photonoxide/pull/744))
+- correct statements after reading the newly added papers (part of #228, #622, #737) ([#747](https://github.com/tachsin/photonoxide/pull/747))
+
 ## [0.6.2](https://github.com/tachsin/photonoxide/compare/v0.6.1...v0.6.2) - 2026-11-04
 
 ### <!-- 0 -->Added
