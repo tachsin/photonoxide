@@ -516,22 +516,25 @@ fn mmi_spectrum(step: f64) -> Spectrum {
     Spectrum::of(&*built.component, &mmi_sweep(), &built.values).expect(OK)
 }
 
+/// The MMI's S(ω) by 2D FDFD on cells of 40, 20 and 10 nm, solved once for the cases that use
+/// them.
+fn mmi_spectra() -> &'static [Spectrum] {
+    static S: OnceLock<Vec<Spectrum>> = OnceLock::new();
+    S.get_or_init(|| map_in_order(&[0.04, 0.02, 0.01], |&h| mmi_spectrum(h)))
+}
+
 /// The photon pair's HOM visibility through the MMI by 2D FDFD on cells of 40, 20 and 10 nm.
-#[cfg(test)]
-pub(crate) fn mmi_hom() -> &'static [f64; 3] {
-    static V: OnceLock<[f64; 3]> = OnceLock::new();
-    V.get_or_init(|| {
-        let v = map_in_order(&[0.04, 0.02, 0.01], |&h| hom_through(&mmi_spectrum(h)));
-        [v[0], v[1], v[2]]
-    })
+pub(crate) fn mmi_hom() -> [f64; 3] {
+    let s = mmi_spectra();
+    [hom_through(&s[0]), hom_through(&s[1]), hom_through(&s[2])]
 }
 
 /// The finest grid's S(ω) written to a Touchstone file's text and read back, and the HOM
 /// visibility through each: their difference.
 pub(crate) fn touchstone_hom() -> f64 {
     use crate::compact::touchstone::{Convention, Precision, Touchstone};
-    let spectrum = mmi_spectrum(0.01);
-    let file = Touchstone::from_spectrum(&spectrum, Convention::Engineering).expect(OK);
+    let spectrum = &mmi_spectra()[2];
+    let file = Touchstone::from_spectrum(spectrum, Convention::Engineering).expect(OK);
     let text = file.write(Precision::RoundTrip).expect(OK);
     let back = Touchstone::parse(&text, Some(4))
         .expect(OK)
@@ -543,7 +546,7 @@ pub(crate) fn touchstone_hom() -> f64 {
         back.matrices().to_vec(),
     )
     .expect(OK);
-    (hom_through(&named) - hom_through(&spectrum)).abs()
+    (hom_through(&named) - hom_through(spectrum)).abs()
 }
 
 /// A dipole along z in 2D (the grid one cell thick along z, periodic there), in vacuum, at
@@ -1027,6 +1030,14 @@ fn touchstone_case() -> Outcome {
     worst(touchstone_hom(), 1e-14)
 }
 
+/// The MMI's HOM visibility by 2D FDFD on 40, 20 and 10 nm cells: its order of convergence in
+/// the grid, from the ratio of the two changes.
+fn mmi_hom_order() -> Outcome {
+    let v = mmi_hom();
+    let order = ((v[0] - v[1]) / (v[1] - v[2])).abs().log2();
+    outcome((order * 100.0).round() / 100.0, 1.5, 0.5)
+}
+
 fn budget_path_case() -> Outcome {
     worst(budget_path(), 1e-13)
 }
@@ -1161,6 +1172,13 @@ pub(crate) fn cases() -> Vec<Case> {
             tier: Tier::Analytic,
             source: "the file holds the shortest decimals that read back to the same numbers (compact::touchstone, Precision::RoundTrip)",
             run: touchstone_case,
+        },
+        Case {
+            id: "quantum/mmi-hom-order",
+            title: r"Quantum: the Hong–Ou–Mandel visibility of two 3 nm photons through the same 2 × 2 MMI's $S(\omega)$ by 2D FDFD on cells of 40, 20 and 10 nm: its order of convergence in the grid (shown, to two decimals)",
+            tier: Tier::Analytic,
+            source: "the 2D FDFD with diagonal averaging is second order on edges along the grid's axes (docs/methods/averaging.md); the corners where the access guides meet the MMI's face, at which the field is singular, pull it below that, and the fill fractions, exact for its rectangles, keep it at first order at least",
+            run: mmi_hom_order,
         },
         Case {
             id: "quantum/budget-path",

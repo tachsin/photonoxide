@@ -112,6 +112,7 @@ validation:
   - quantum/spectral-hom
   - quantum/spectral-sum
   - quantum/touchstone-statistics
+  - quantum/mmi-hom-order
   - quantum/budget-path
   - quantum/varnava-threshold
   - quantum/bartolucci-fusion
@@ -511,7 +512,10 @@ visibility of
 | the 10 nm solve through a Touchstone file and back | the same to 8e-16 (`quantum/touchstone-statistics`) |
 | a compact model of the 10 nm solve (vector fitting, 8 poles, largest $\lvert \Delta S \rvert$ 0.0096) | 0.8497 |
 
-The FDFD figure converges with the grid (0.050, then 0.016 between grids, about 1.7th order), and
+The FDFD figure converges with the grid (0.050, then 0.016 between grids, order 1.67:
+`quantum/mmi-hom-order`, whose rule puts it between the scheme's second order on the
+grid-aligned edges and the first its exact fill fractions keep at the corners where the access
+guides meet the MMI, where the field is singular), and
 its 10 nm value is within about 0.007 of the limit by that rate (Richardson's estimate); the
 guided-mode model, which leaves out radiation and reflection at the faces, sits about 0.03 above
 it. A compact model carries its fit's error into the statistics: 8 poles miss by 0.003.
@@ -706,8 +710,10 @@ supermodes on three grids converges at order 0.87, the standard scheme's first o
 strips' corners (`quantum/coupler-hom-order`, as `device/coupler-3d-order`). The plan's
 convergence study names the coupler from FDFD: Q3 brings a 2 × 2 coupler's S(ω) from 2D FDFD into
 the statistics, the MMI of "Many photons with spectra through S(ω)" above, whose HOM visibility on 40, 20
-and 10 nm cells converges at about 1.7th order (0.7871, 0.8371, 0.8528). That is a table here,
-not a case with a rule yet, and the directional coupler itself is still the mode solver's.
+and 10 nm cells converges at order 1.67 (0.7871, 0.8371, 0.8528; `quantum/mmi-hom-order`). The
+directional coupler itself is still the mode solver's: the library's directional coupler has no
+2D FDFD model (only the MMI and the Y-branch have one), so its visibility from FDFD waits on
+that model.
 
 ### Gaussian states, sources and squeezers (Q2)
 

@@ -45,6 +45,16 @@ pub(crate) fn rules() -> Vec<(&'static str, Rule)> {
             ),
         ),
         (
+            "quantum/mmi-hom-order",
+            Rule::new(
+                Absolute,
+                Order,
+                0.5,
+                Measured,
+                "between the scheme's second order on the grid-aligned edges and the first order its exact fill fractions keep at the singular corners: 1.5 within 0.5, shown to two decimals",
+            ),
+        ),
+        (
             "quantum/budget-path",
             Rule::new(
                 Relative,
