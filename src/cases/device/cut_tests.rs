@@ -188,3 +188,12 @@ fn measure_the_cross_checks() {
     let (sym, unit) = super::cut_checks::invariants(&m);
     println!("mmi EME: |S11|^2 {r:.7e}, |S21|^2 {s:.9}, symmetry {sym:.1e}, unitarity {unit:.1e}");
 }
+
+#[test]
+#[ignore = "a minute and a half in release: the measurements behind the drawing cases"]
+fn measure_the_drawings() {
+    let (extruded, n) = super::cut_checks::drawing_extruded();
+    println!("stepped slab drawn in a job: {extruded:.2e} over {n} recorded entries");
+    let (taper, n) = super::cut_checks::drawing_taper();
+    println!("taper drawn as a path: {taper:.2e} over {n} recorded entries");
+}

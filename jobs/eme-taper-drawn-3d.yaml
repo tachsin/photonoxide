@@ -1,0 +1,45 @@
+# A strip taper drawn in the job and cut into the sections of a 3D eigenmode expansion
+# (docs/methods/eme.md, "A job's own drawing"): a path on a layer 220 nm thick, 400 nm wide for
+# 1 um, widening linearly to 800 nm over the next 1 um, then 800 nm for 1 um, silicon (3.473) in
+# oxide (1.444) on 2 um of oxide, at 1.55 um. The cut runs from x = 0 to 1 um, the taper alone;
+# the guides before and after it are the ports'. Each cross-section is a plane of Yee's grid
+# across y and z, 50 nm across and 55 nm up (220 nm in four cells), 0.4 um of oxide beside the
+# widest strip and 0.33 um below and above; the taper is mirror-symmetric about its axis, so
+# only the half y >= 0 is solved, an electric wall on the axis (the TE-like modes), with every
+# one of the plane's 480 modes. Cut exactly, at every x where a wall crosses one of the points
+# each cell is averaged from: 33 planes, each holding over its whole length, so the cut has no
+# step error. The run records the S-parameters between the guided modes at the two ends:
+# |S21|^2 = 0.9921834. The indices are constant so that this is the taper of the validation
+# case eme/3d-cut-taper-exact, and eme/3d-drawing-taper checks that this job gives its S.
+#   photonoxide run jobs/eme-taper-drawn-3d.yaml
+name: eme-taper-drawn-3d
+timeout_minutes: 10
+
+task:
+  kind: eme
+  wavelength_um: 1.55
+  modes: 480                   # every mode of the half plane
+
+  stack:
+    substrate: 1.444
+    cladding: 1.444
+    layer:
+      - { name: BOX, thickness_um: 2.0, material: 1.444, background: 1.444 }
+      - { name: core, thickness_um: 0.22, material: 3.473, background: 1.444 }
+  layer: core                  # the plane spans this layer's shapes across and its thickness up
+  x_um: [0.0, 1.0]             # the cut's start and end
+
+  path:
+    - layer: core
+      start: ["-1 um", 0]
+      width: 400 nm
+      segments:
+        - { straight: 1 um }
+        - { straight: 1 um, width: 800 nm }
+        - { straight: 1 um }
+
+  plane:
+    step_um: [0.05, 0.055]     # across (y) and up (z)
+    margins_um: [0.4, 0.33]    # oxide beside the shapes, and below and above the core
+    symmetry: half             # y >= 0, an electric wall on the axis
+    exact: true                # at every x where the plane changes
