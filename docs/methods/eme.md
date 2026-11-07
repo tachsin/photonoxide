@@ -644,7 +644,7 @@ it:
 |---|---|---|
 | a PML 4 µm thick, its strength 0.2, 0.1, 0.05, 0.025, 0.0125, 0.00625, 20 modes | 1.34e-4, 7.19e-5, 3.66e-5, 1.84e-5, 9.20e-6, 4.60e-6 | first order in the strength, as absorption is, and 0 without a PML (`eme/bloch-grating-pml-order`) |
 | the same, 40 modes | 4.25e-4, 2.04e-4, 1.01e-4, 5.02e-5, 2.51e-5, 1.25e-5 | the same |
-| the PML 1, 1.5, 2.5 and 3.5 µm from the slab's centre (strength 0.1, 40 modes) | 1.64e-4, 2.04e-4, 2.08e-4, 1.64e-4 | not the mode's own tail, whose power there falls by about $10^{-19}$ over those distances ($e^{-2q\,\Delta x}$, $q = k_0 ((K/k_0)^2 - 1.444^2)^{1/2} = 8.8$/µm) |
+| the PML 1, 1.5, 2.5 and 3.5 µm from the slab's centre (strength 0.1, 40 modes) | 1.64e-4, 2.04e-4, 2.08e-4, 1.64e-4 | not the mode's own tail, whose power there falls by about $10^{-19}$ over those distances ($e^{-2q\thinspace\Delta x}$, $q = k_0 ((K/k_0)^2 - 1.444^2)^{1/2} = 8.8$/µm) |
 | the number of modes, the PML 4 µm thick of strength 0.1: 10, 20, 40, 80, 160 | 2.5e-6, 7.2e-5, 2.0e-4, 6.8e-5, 4.8e-6 | the truncation's error, which is not monotone in the modes |
 
 So the PML's $\operatorname{Im} K$ of a guided Bloch mode is an error of the expansion, up to
