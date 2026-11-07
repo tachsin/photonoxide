@@ -286,8 +286,9 @@ pub(crate) fn bartolucci_fusion() -> f64 {
 }
 
 /// Qi et al.'s test on the two experiments they test (p. 100502-2): the smallest error ε to which
-/// Paesani et al.'s chip (K = 4, r = 0.1, η = 0.088, η_D = 0.78, p_D = 1e-4) is simulable, and
-/// Zhong et al.'s (K = 6, r = 0.38, η = 0.89, η_D = 0.82, p_D = 1e-4).
+/// Paesani et al.'s 2019 chip (Nat. Phys. 15, 925, their ref. 48; K = 4, r = 0.1, η = 0.088,
+/// η_D = 0.78, p_D = 1e-4) is simulable, and Zhong et al.'s 2019 sampler (Sci. Bull. 64, 511,
+/// their ref. 49; K = 6, r = 0.38, η = 0.89, η_D = 0.82, p_D = 1e-4).
 pub(crate) fn qi_tests() -> (f64, f64) {
     (
         qi_simulable_error(0.1, 0.088, 0.78, 1e-4, 4),
@@ -1203,7 +1204,7 @@ pub(crate) fn cases() -> Vec<Case> {
         },
         Case {
             id: "quantum/qi-simulability",
-            title: r"Quantum: Qi et al.'s test (their Eq. 1) on the experiments they test: the smallest error $\epsilon^* = 2\sqrt{-K \ln F_{\max}}$ to which Paesani et al.'s chip ($K$ = 4, $r$ = 0.1, $\eta$ = 0.088, $\eta_D$ = 0.78, $p_D$ = 1e-4) is simulable (shown), and Zhong et al.'s ($K$ = 6, $r$ = 0.38, $\eta$ = 0.89, $\eta_D$ = 0.82) not at any $\epsilon \le 1$",
+            title: r"Quantum: Qi et al.'s test (their Eq. 1) on the experiments they test: the smallest error $\epsilon^* = 2\sqrt{-K \ln F_{\max}}$ to which Paesani et al.'s 2019 chip (Nat. Phys. 15, 925, doi:10.1038/s41567-019-0567-8, their ref. 48) ($K$ = 4, $r$ = 0.1, $\eta$ = 0.088, $\eta_D$ = 0.78, $p_D$ = 1e-4) is simulable (shown), and Zhong et al.'s 2019 sampler (Sci. Bull. 64, 511, doi:10.1016/j.scib.2019.04.007, their ref. 49) ($K$ = 6, $r$ = 0.38, $\eta$ = 0.89, $\eta_D$ = 0.82) not at any $\epsilon \le 1$",
             tier: Tier::Published,
             source: "H. Qi, D. J. Brod, N. Quesada, R. García-Patrón, Phys. Rev. Lett. 124, 100502 (2020), doi:10.1103/PhysRevLett.124.100502, p. 100502-2: \"error 2%\", and \"no solution for any ε ∈ [0, 1]\"",
             run: qi_case,

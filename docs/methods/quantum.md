@@ -57,6 +57,10 @@ papers:
     doi: 10.1038/s41467-023-36493-1
   - cite: "H. Qi, D. J. Brod, N. Quesada, R. García-Patrón, Phys. Rev. Lett. 124, 100502 (2020)"
     doi: 10.1103/PhysRevLett.124.100502
+  - cite: "S. Paesani et al., Nat. Phys. 15, 925 (2019)"
+    doi: 10.1038/s41567-019-0567-8
+  - cite: "H.-S. Zhong et al., Sci. Bull. 64, 511 (2019)"
+    doi: 10.1016/j.scib.2019.04.007
   - cite: "M. Arcari et al., Phys. Rev. Lett. 113, 093603 (2014)"
     doi: 10.1103/PhysRevLett.113.093603
   - cite: "W. H. P. Pernice et al., Nat. Commun. 3, 1325 (2012)"
@@ -851,8 +855,8 @@ $9.8 \times 10^{-7}$ on 8, 4 and 2 nm nodes (`quantum/detector-film-slab`,
 |---|---|---|
 | Varnava et al. 2008, the threshold from their loss model | $\eta_S \eta_D > 2/3$ | 2/3 to round-off |
 | Bartolucci et al. 2023, loss per fusion from 2.7% per photon, $p_\text{fail} = 1/4$ | 10.4% | 10.37% |
-| Qi et al. 2020 on Paesani et al.'s chip ($K$ = 4, $r$ = 0.1, $\eta$ = 0.088, $\eta_D$ = 0.78, $p_D$ = 1e-4) | simulable "with error 2%" | $\epsilon^*$ = 0.0224 |
-| Qi et al. 2020 on Zhong et al.'s sampler ($K$ = 6, $r$ = 0.38, $\eta$ = 0.89, $\eta_D$ = 0.82, $p_D$ = 1e-4) | "no solution for any ε ∈ [0, 1]" | $\epsilon^*$ = 1.10 |
+| Qi et al. 2020 on Paesani et al.'s 2019 chip (Nat. Phys. 15, 925, doi:10.1038/s41567-019-0567-8, their ref. 48) ($K$ = 4, $r$ = 0.1, $\eta$ = 0.088, $\eta_D$ = 0.78, $p_D$ = 1e-4) | simulable "with error 2%" | $\epsilon^*$ = 0.0224 |
+| Qi et al. 2020 on Zhong et al.'s 2019 sampler (Sci. Bull. 64, 511, doi:10.1016/j.scib.2019.04.007, their ref. 49) ($K$ = 6, $r$ = 0.38, $\eta$ = 0.89, $\eta_D$ = 0.82, $p_D$ = 1e-4) | "no solution for any ε ∈ [0, 1]" | $\epsilon^*$ = 1.10 |
 | Silverstone et al. 2013, the on-chip fringe of degenerate pairs (Fig. 2e) | V = 100.0 ± 0.4% | 99.99996% |
 
 **Silverstone et al.'s chip.** Their device (p. 104 and Methods) is two 5.2 mm spirals of a

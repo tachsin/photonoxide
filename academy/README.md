@@ -28,6 +28,7 @@ moving a slider shows the physics the library computes, the code the
 | [Surface plasmons and Mie scattering](plasmonics.md) | advanced | `plasmon` | `plasmon-drude`, `plasmon-dispersion`, `plasmon-length`, `mie-efficiency`, `mie-plasmon`, `mie-gold` |
 | [Crossings, mode converters and the polarization splitter-rotator](crossings-and-converters.md) | advanced | `crossing` | `crossing-field`, `crossing-width`, `mmi-field`, `taper-length`, `converter-match`, `converter-coupler`, `rotator-hybrid`, `spot-size` |
 | [How FDTD works](how-fdtd-works.md) | intermediate | `yee` | `fdtd-stability`, `fdtd-dispersion`, `fdtd-pml` |
+| [Quantum light on a chip](quantum-light.md) | advanced | `quantum` | `hom-visibility`, `hom-dip`, `mesh-fidelity`, `boson-distribution`, `permanent-cost`, `loss-varnava`, `nl-jsa`, `pair-statistics`, `ring-pairs`, `squeezing-loss`, `squeezed-photons`, `gbs-simulability`, `fusion-loss` |
 
 The whole curriculum is laid out: every lesson still to be written is here too, **coming soon**,
 with its numbered subsections, what each will answer and the examples each will use, so writing
@@ -36,7 +37,6 @@ it is filling them in. The library lists them in this order, the order to read t
 | Lesson coming soon | Topic | Level | Examples |
 |---|---|---|---|
 | [Inverse design](inverse-design.md), with 0.7 | Numerical methods | advanced | `circuit_splitter`, `circuit_ring_critical`, `circuit_fit` |
-| [Quantum light on a chip](quantum-light.md), with 0.6.3 | Active and quantum photonics | advanced | |
 
 ## A lesson's file
 
@@ -207,6 +207,7 @@ shows first.
 | `modulator` | a push–pull Mach–Zehnder modulator from above: two arms in the gaps of a ground–signal–ground electrode $L$ long, the RF wave $n_m$ from $R_G$ into $R_L$ beside the light $n_o$, the field opposite in the two gaps; beneath it in section, x-cut thin-film lithium niobate, two ribs in gaps $g$ wide, the $c$ axis across and $\Delta n_e = -\tfrac12 n_e^3 r_{33} E$; and a thermo-optic shifter in section, a heater $h$ above a strip dissipating $P'$, its heat spreading to the substrate at $T_0$, $\Delta n = (dn/dT)\,\Delta T$ | none |
 | `plasmon` | at the left, a flat interface between a dielectric $\varepsilon_d \gt 0$ and a metal $\varepsilon_m \lt 0$, a wave of surface charge travelling along $z$ as $e^{i(kz - \omega t)}e^{-z/2L}$, its field's lines looping from $+$ to $-$, and its size $\lvert E\rvert$ across the interface falling over $\delta_d$ into the dielectric and the shorter $\delta_m$ into the metal; at the right, a sphere of radius $\rho$ and permittivity $\varepsilon$ in $\varepsilon_d$, its electrons pushed by the field $E_0$ of a plane wave, its dipole $p$, the light it scatters, and its resonance at $\varepsilon = -2\varepsilon_d$ | none |
 | `crossing` | a waveguide crossing from above, two guides $w$ wide widened to $W$ over tapers $L_t$ long either side of the centre over two dashed ellipses of thinner slab, TE₀ in, the through port and the side ports' crosstalk; an asymmetric coupler, a guide $w_a$ wide a gap $g$ from one $W$ wide over $L$, the narrow guide's TE₀ in and the wide guide's TE₁ out, $n_{\mathrm{eff},0}(w_a) = n_{\mathrm{eff},1}(W)$; and a splitter-rotator from above, its guide widened from $w_1$ to $w_2$ over $L$ under silicon nitride, TM₀ in turning into TE₁ and passed to the upper guide as TE₀, beside its cross-section, silicon on silica under Si₃N₄ ($n = 2.0$) | none |
+| `quantum` | a quantum photonic chip from above: a pump $\omega_p$ split onto two guides, a ring on each making pairs, $2\omega_p = \omega_s + \omega_i$, a mesh of Mach–Zehnder cells $T_{m,m+1}(\theta, \phi)$ acting on four modes as $U = D\prod T$, its loss as $\hat b = S\hat a + L\hat c$, and four detectors $\eta_D$; beneath, two photons, one delayed by $\tau$, on a coupler of $R$ and $T$, leaving together, and the dip $R^2 + T^2 - 2RTe^{-\sigma^2\tau^2}$ | none |
 | `yee` | one cell of Yee's grid, $\Delta x$ by $\Delta y$ by $\Delta z$ in an oblique view, $E_x$, $E_y$, $E_z$ at the middles of its edges and $\tilde H_x$, $\tilde H_y$, $\tilde H_z$ at the centres of its faces; beside it the leapfrog in time, E at the steps $n - 1$, $n$, $n + 1$ and $\tilde H$ at the half steps, each from the other's curl, $\Delta t$, and $c\Delta t \le 1/\sqrt{\sum_i 1/\Delta_i^2}$ | none |
 
 Each diagram is an entry in `studio/src-tauri/src/diagrams.rs` (its title, its captions, and its
@@ -306,6 +307,18 @@ code; the window only draws what it returns, and asks again as a slider moves.
 | `fdtd-dispersion` | `courant` C (0.5), `dims` $d$ (2) | `fdtd::grid_wavenumber`, `fdtd::time_step`: the phase velocity's shortfall $1 - v/c$ at 1 c/µm against 4 to 60 cells a wavelength, along an axis and the diagonals, on cubic cells |
 | `fdtd-stability` | `step` $c\Delta t/\Delta$ (0.6) | `fdtd::grid_frequency`, `fdtd::time_step`: the growth a step of the grid's fastest wave, $k\Delta = \pi$ on every axis, on a line, a plane and in a volume |
 | `fdtd-pml` | `target` $-\log_{10}R$ (15), `cells` a wavelength (20) | 1D runs of `fdtd::Simulation` with `Edges::Pml`: a CPML's reflected power at 1 c/µm against its thickness, 2 to 40 cells, for σ graded as $(x/L)^m$, m = 1, 2, 3, against a 160-cell layer |
+| `hom-visibility` | `overlap` $\lvert\langle\psi_1\vert\psi_2\rangle\rvert^2$ (0.8) | `quantum::probability` with `Photons::Indistinguishable`, `Distinguishable` and `Overlaps` on a lossless `Coupler`'s S-matrix at 99 couplings; the closed forms beside them |
+| `hom-dip` | `split` κ² (0.5), `width` nm (1), `offset` nm (0) | `quantum::hom_dip` and `Wavepacket` on `Circuit::spectrum` of a `Coupler`, 601 frequencies to 8σ beyond both photons, 201 delays |
+| `mesh-fidelity` | `modes` $N$ (20), `samples` (100) | `quantum::haar_unitary`, `Mesh::reck` and `Mesh::clements`, `Mesh::lossy`, `fidelity`: the mean over the validation report's unitaries at 11 losses from 0 to 1 dB a cell |
+| `boson-distribution` | `photons` $n$ (3), `modes` $m$ (6), `seed` (1), `overlap` (0.5) | `quantum::haar_unitary`, `Distribution::exact` for photons alike, told apart and overlapping, `bunching`; all $n$ in one mode against $n!$ |
+| `permanent-cost` | `up_to` $n$ (20) | `quantum::permanent_by` with `Formula::Glynn`, `Ryser` and `Definition`, timed as the chart is drawn |
+| `loss-varnava` | `detector` $\eta_D$ (0.9) | `quantum::varnava_loss`: $(1 - \epsilon)\eta_D$ against $\eta_S$, its crossing of 1/2 bisected |
+| `pair-statistics` | `purity` $P$ (0.9), `pairs` μ (0.1) | `quantum::Source::new` on a Gaussian joint spectrum's weights, `pairs`, `multi_pair`, `unheralded_g2`; thermal and Poisson beside it |
+| `ring-pairs` | `ratio` the pump's linewidth over the signal's (6.6) | Helt et al.'s ring by `AllPassRing` (`field_enhancement`, `fwhm`, `with_round_trip_loss`), `quantum::ring_spectrum` on 601 × 601 points 30 linewidths either side, `JointSpectrum::schmidt`, at 13 pulses from 0.05 to 500 ps |
+| `squeezing-loss` | `squeezing` dB (10) | `quantum::Gaussian::squeezed`, `lossy`, `quadrature_extremes` at 101 transmissions; $\eta e^{\mp 2r} + 1 - \eta$ beside them |
+| `squeezed-photons` | `squeezing` dB (6), `transmission` η (1) | `Gaussian::probability` (hafnians) for 0 to 30 photons; the closed form without loss, thermal and Poisson light of the same mean |
+| `gbs-simulability` | `squeezing` $r$ (0.38), `modes` $K$ (6), `detector` $\eta_D$ (0.82), `dark` $p_D$ (10⁻⁴) | `quantum::qi_simulable_error` at 200 transmissions, `qi_exact_transmission`; Qi et al.'s two experiments |
+| `fusion-loss` | `boost` (2: $p_\text{fail} = 1/4$) | `quantum::fusion_loss` for fusions failing with 1/2, 1/4 and 1/8 against the loss a photon; `quantum::permanent` on Knill et al.'s 3 × 3 sign gate and on a balanced coupler of two polarizations |
 
 The ranges are in `charts.rs` (the coupler's in `charts/coupler.rs`), and the window's sliders keep
 to them. A chart may draw its y axis on a logarithmic scale (`y_log`), and give curves that belong
@@ -372,6 +385,15 @@ equations' closed form and the tip against Chrostowski and Hochberg's index.
 The FDTD charts (`charts/yee.rs`): `fdtd-dispersion` and `fdtd-stability` evaluate Taflove and
 Brodwin's relation, exact and in milliseconds; `fdtd-pml` runs 72 short 1D FDTD runs, under a
 second together.
+The quantum charts (`charts/quantum.rs`) call `photonoxide::quantum`: permanents, hafnians and
+Gaussian states, exact and in milliseconds; the HOM dip's trapezoidal sums over 601 frequencies; the
+meshes' means over up to 500 Haar-random unitaries a loss, a second or so in parallel, cached; the
+ring's 26 joint spectra of 601 × 601 points and their singular values, a few seconds, cached; and
+`permanent-cost`, which times the permanents as it is drawn. Their unit tests check each against a
+closed form ($(R - T)^2$, the dip, $n!$ bunching, thermal pairs, $\eta e^{\mp 2r} + 1 - \eta$, the
+squeezed vacuum's $P(2k)$) or a published number (Hong et al.'s 0.999, Clements et al.'s Fig. 3,
+Varnava et al.'s 2/3, Bartolucci et al.'s 10.4 %, Knill et al.'s 1/4, Helt et al.'s 1.09, Nehra et
+al.'s bound, Qi et al.'s two experiments), each with the rule of its validation case.
 A chart may draw pictures of a field over a cross-section in place of curves (`maps`), side by
 side with one colour scale, as `strip-fields` does.
 
