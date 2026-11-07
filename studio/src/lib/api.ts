@@ -387,6 +387,8 @@ export const api = {
   chipHomDip: (chip: Chip, request: DipRequest) => invoke<DipView>("chip_hom_dip", { chip, request }),
   /** Each photon's routes through the chip, stage by stage, and the n-photon event. */
   chipLossBudget: (chip: Chip, request: BudgetRequest) => invoke<BudgetView>("chip_loss_budget", { chip, request }),
+  /** Squeezed light on the chip's ports through it (circuits/gaussian.rs): the output's covariance, squeezing, photon numbers and a port's Wigner function. */
+  chipGaussian: (chip: Chip, wavelengthUm: number, request: GaussianRequest) => invoke<GaussianView>("chip_gaussian", { chip, wavelengthUm, request }),
   circuitText: (chip: Chip) => invoke<string>("circuit_text", { chip }),
   circuitParse: (text: string) => invoke<Chip>("circuit_parse", { text }),
   circuitExamples: () => invoke<CircuitExample[]>("circuit_examples"),
@@ -1533,4 +1535,51 @@ export interface CircuitItem {
   about: string;
   instances: number;
   modified: number;
+}
+
+/** Squeezed vacuum on a port (its squeezing in dB at the angle φ of ξ = r e^{iφ}), then displaced by α (circuits/gaussian.rs). */
+export interface SqueezedInput {
+  port: string;
+  squeezing_db: number;
+  angle_deg: number;
+  displacement: [number, number];
+}
+
+export interface GaussianRequest {
+  inputs: SqueezedInput[];
+  /** The port whose photon numbers and Wigner function are drawn. */
+  shown: string;
+  photons: number;
+  /** The Wigner function's grid: ±span in x and p (the vacuum's σ is 1), points across. */
+  span: number;
+  points: number;
+}
+
+export interface GaussianPort {
+  port: string;
+  given_db: number;
+  /** The smallest and largest quadrature variances after the chip, dB from the vacuum's. */
+  squeezed_db: number;
+  anti_squeezed_db: number;
+  mean_photons: number;
+  squeezed_at_deg: number;
+}
+
+export interface GaussianView {
+  wavelength_um: number;
+  ports: string[];
+  /** V, 2n × 2n, row by row, (x₁ … x_n, p₁ … p_n). */
+  covariance: number[];
+  means: number[];
+  states: GaussianPort[];
+  purity: number;
+  loss_modes: number;
+  shown: string;
+  distribution: number[];
+  beyond: number;
+  /** The Wigner function's axis (x and p alike) and its values, p rows by x columns. */
+  axis: number[];
+  wigner: number[];
+  notes: string[];
+  seconds: number;
 }

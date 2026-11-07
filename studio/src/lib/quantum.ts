@@ -85,3 +85,20 @@ export function axisTo(total: number, thresholds: number[]): number {
 export function routeName(through: string[]): string {
   return through.join(" → ");
 }
+
+/** The squeezed light a chip starts with: 6 dB on the first port named as an input ("in…"), or on the first port. */
+export function defaultSqueezed(ports: string[]): { port: string; squeezing_db: number; angle_deg: number; displacement: [number, number] }[] {
+  const first = ports.find((p) => /^in/i.test(p)) ?? ports[0];
+  return first === undefined ? [] : [{ port: first, squeezing_db: 6, angle_deg: 0, displacement: [0, 0] }];
+}
+
+/** The squeezed inputs kept for the ports there are: one per port, a port no longer on the chip dropped. */
+export function squeezedOn<T extends { port: string }>(ports: string[], inputs: T[]): T[] {
+  const seen = new Set<string>();
+  return inputs.filter((i) => ports.includes(i.port) && !seen.has(i.port) && seen.add(i.port));
+}
+
+/** The covariance's rows and columns by name: each port's x, then each port's p. */
+export function quadratureLabels(ports: string[]): string[] {
+  return [...ports.map((p) => `x ${p}`), ...ports.map((p) => `p ${p}`)];
+}

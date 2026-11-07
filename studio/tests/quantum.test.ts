@@ -3,7 +3,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { MOST_PHOTONS, axisTo, dB, defaultPhotons, inputsOf, patternLabel, percent, photonsOn, routeName, total, waterfall } from "../src/lib/quantum.ts";
+import { MOST_PHOTONS, axisTo, dB, defaultPhotons, defaultSqueezed, inputsOf, patternLabel, percent, photonsOn, quadratureLabels, routeName, squeezedOn, total, waterfall } from "../src/lib/quantum.ts";
 
 test("a pattern is named by the ports that hold its photons", () => {
   const ports = ["in1", "in2", "out1", "out2"];
@@ -61,4 +61,13 @@ test("a waterfall's bars start where the stage before ends", () => {
   assert.equal(axisTo(0.2, [0.12]), 1.5);
   assert.equal(axisTo(42, []), 50);
   assert.equal(axisTo(0, []), 1.5);
+});
+
+test("squeezed light starts on the first input, keeps one input per port and drops ports gone", () => {
+  assert.deepEqual(defaultSqueezed(["out1", "in2", "in1"]), [{ port: "in2", squeezing_db: 6, angle_deg: 0, displacement: [0, 0] }]);
+  assert.deepEqual(defaultSqueezed(["a", "b"])[0].port, "a");
+  assert.deepEqual(defaultSqueezed([]), []);
+  const kept = squeezedOn(["a", "c"], [{ port: "a" }, { port: "b" }, { port: "a" }, { port: "c" }]);
+  assert.deepEqual(kept, [{ port: "a" }, { port: "c" }]);
+  assert.deepEqual(quadratureLabels(["a", "b"]), ["x a", "x b", "p a", "p b"]);
 });

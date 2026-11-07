@@ -216,6 +216,7 @@ pub fn show(dir: Option<&Path>, live: Option<Live>) -> Result<(), String> {
             crate::circuits::quantum::chip_quantum_statistics,
             crate::circuits::quantum::chip_hom_dip,
             crate::circuits::quantum::chip_loss_budget,
+            crate::circuits::gaussian::chip_gaussian,
             crate::circuits::circuit_touchstone,
             crate::circuits::component_touchstone,
             crate::circuits::circuit_text,

@@ -643,6 +643,25 @@ impl Gaussian {
         Ok((torontonian(&o)?.re / norm).clamp(0.0, 1.0))
     }
 
+    /// The Wigner function of `mode` (the others traced out) at the quadratures `x` and `p`:
+    /// W(r) = exp(−½ (r − d)ᵀ V⁻¹ (r − d)) / (2π √det V), V and d the mode's 2 × 2 covariance
+    /// and means (ħ = 2: the vacuum's W(0, 0) is 1/(2π), and ∫∫ W dx dp = 1). A Gaussian
+    /// state's Wigner function is this Gaussian, never negative (Weedbrook et al., Sec. II).
+    ///
+    /// # Errors
+    ///
+    /// [`Error::InvalidValue`] for a mode out of range.
+    pub fn wigner(&self, mode: usize, x: f64, p: f64) -> Result<f64> {
+        self.check_mode(mode)?;
+        let (ix, ip) = (mode, mode + self.modes);
+        let (a, b, c) = (self.v(ix, ix), self.v(ip, ip), self.v(ix, ip));
+        let det = a * b - c * c;
+        let (dx, dp) = (x - self.means[ix], p - self.means[ip]);
+        // (r − d)ᵀ V⁻¹ (r − d) with V⁻¹ = [[b, −c], [−c, a]] / det
+        let q = (b * dx * dx - 2.0 * c * dx * dp + a * dp * dp) / det;
+        Ok((-0.5 * q).exp() / (std::f64::consts::TAU * det.sqrt()))
+    }
+
     /// The squeezing of `mode` in dB, 10 log₁₀ of its smallest quadrature variance: negative
     /// when squeezed.
     ///
