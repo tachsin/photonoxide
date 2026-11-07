@@ -352,7 +352,7 @@ export interface ChipPanels {
   tab: "spectrum" | "study" | "optimize" | "quantum";
   /** The quantum view (components/chip/ChipQuantum.svelte): its part shown and its forms. */
   quantum: {
-    view: "photons" | "dip" | "budget" | "gaussian";
+    view: "photons" | "sampling" | "dip" | "budget" | "gaussian";
     /** The wavelength of the statistics and the budget, µm; the sweep's middle when null or outside it. */
     wavelength: number | null;
     /** Photons on each external port, by name. */

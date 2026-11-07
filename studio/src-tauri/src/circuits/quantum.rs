@@ -112,7 +112,7 @@ pub(crate) fn in_sweep(chip: &Chip, um: f64) -> Result<Wavelength, String> {
 }
 
 /// C(n + k − 1, k): the patterns of k photons in n modes, saturating.
-fn patterns_of(modes: usize, photons: usize) -> usize {
+pub(crate) fn patterns_of(modes: usize, photons: usize) -> usize {
     let mut c: u128 = 1;
     for i in 1..=photons as u128 {
         c = c * (modes as u128 + i - 1) / i;
@@ -124,7 +124,7 @@ fn patterns_of(modes: usize, photons: usize) -> usize {
 }
 
 /// The ports' names of a compiled circuit.
-fn port_names(circuit: &Circuit) -> Vec<String> {
+pub(crate) fn port_names(circuit: &Circuit) -> Vec<String> {
     circuit.ports().iter().map(|p| p.name.clone()).collect()
 }
 

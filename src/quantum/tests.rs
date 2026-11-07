@@ -424,3 +424,32 @@ fn a_coupled_array_is_unitary_and_symmetric() {
         }
     }
 }
+
+/// Counted samples are the same distribution as the samples themselves, and the distance is
+/// symmetric, 0 to itself, and counts a pattern on one side only in full.
+#[test]
+fn counted_samples_make_the_samples_distribution() {
+    let u = haar_unitary(4, 3);
+    let input = Fock::single_photons(4, &[0, 1]).unwrap();
+    let samples = sample(&u, &input, 500, 9).unwrap();
+    let mut counts: Vec<(Fock, usize)> = Vec::new();
+    for s in &samples {
+        match counts.iter_mut().find(|(f, _)| f == s) {
+            Some((_, c)) => *c += 1,
+            None => counts.push((s.clone(), 1)),
+        }
+    }
+    // a pattern listed twice, and one counted 0 times
+    counts.push((counts[0].0.clone(), 0));
+    counts.push((Fock::new(vec![0, 0, 0, 2]), 0));
+    let a = Distribution::from_samples(&samples);
+    let b = Distribution::from_counts(&counts);
+    assert_eq!(a, b);
+    let exact = Distribution::exact(&u, &input, &Photons::Indistinguishable).unwrap();
+    let d = exact.total_variation(&b);
+    assert!((d - b.total_variation(&exact)).abs() < 1e-15);
+    assert!(exact.total_variation(&exact).abs() < 1e-15);
+    let one = Distribution::from_counts(&[(Fock::new(vec![2, 0, 0, 0]), 3)]);
+    let other = Distribution::from_counts(&[(Fock::new(vec![0, 2, 0, 0]), 1)]);
+    assert!((one.total_variation(&other) - 1.0).abs() < 1e-15);
+}

@@ -445,7 +445,7 @@ in a drawer opened from the status bar.
   - **Quantum**, beside Study and Optimize: photons through the chip, computed by
     `photonoxide::quantum` (docs/methods/quantum.md) a moment after the chip or the form
     changes. Every external port takes photons in and lets them out; a lossy chip's loss is
-    dilated to loss modes, which the lost photons leave by. Four parts (Left and Right move
+    dilated to loss modes, which the lost photons leave by. Five parts (Left and Right move
     between them):
     - **Photons:** photons on each port (+ and −, up to 8 in all) at a wavelength of the sweep.
       The output patterns where every photon arrives, most likely first (the first 40, the rest
@@ -454,6 +454,14 @@ in a drawer opened from the status bar.
       port's mean photon number and P(0), P(1), P(≥2); and |S| between the ports, its phase on
       hover. Up to 16 ports and 100 000 patterns over the ports and loss modes; beyond, it says
       how many there would be.
+    - **Sampling:** the Photons part's photons sampled live by the library's exact sampler
+      (`Transfer::sample`, Clifford and Clifford's algorithm B), batch after batch, each batch
+      with a seed of its own and a hard limit of 1 s, the run stopped at the samples asked for,
+      its time limit or **Stop**. Against the exact distribution: the total variation distance
+      against N on log–log axes beside what a correct sampler reaches,
+      ½ Σ √(2p(1 − p)/(πN)), the most likely patterns' exact and sampled shares, and any
+      pattern sampled that the exact distribution gives no weight. A change of the chip, the
+      photons or the wavelength starts again.
     - **HOM dip:** photon 1 into a port, delayed, photon 2 into another (Gaussian spectra, a
       centre and a width each), the coincidences between two ports against the delay through
       the chip's own S(ω) over its sweep, with the visibility, the deepest delay and the level of
