@@ -390,6 +390,16 @@ the gain $g$ set by the mean number of pairs per pulse, $\sum_k \sinh^2 r_k = \m
 The squeezing $g\sqrt{\lambda_k}$ keeps the low-gain Schmidt modes: at high gain the modes
 themselves change with the gain, which this doesn't follow.
 
+The studio's Materials page has a source designer under **Photon-pair sources**
+([studio/README.md](../../studio/README.md)): a guide, a crystal, a ring (`ring_spectrum`, below)
+or a guide pumped in two modes (`dual_pump_spectrum`), its joint spectrum as maps, its Schmidt
+weights, its brightness where 0.6.1 gives one (down-conversion's `pair_rate_density`), the
+heralding through each arm's filter and coupler (`path` of each, then
+`JointSpectrum::heralding`), and `Source`'s pairs per pulse, $g^{(2)}$ and multi-pair share, as
+the form changes. Its tests hold a Gaussian amplitude's weights to the closed form
+$\lambda_k = (1 - \mu^2)\mu^{2k}$, $\mu^2 = (1 - P)/(1 + P)$, with $P$ from `gaussian_purity`, to
+$10^{-9}$, and a ring's Schmidt number to Helt et al.'s and Vernon et al.'s 1.09.
+
 ## Pairs from rings
 
 A ring point-coupled to its bus enhances a wave's field by $F(\nu) = ik/(1 - r a e^{i\phi(\nu)})$,

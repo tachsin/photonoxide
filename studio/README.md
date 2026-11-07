@@ -553,6 +553,33 @@ in a drawer opened from the status bar.
     sources, faint where no paper in hand gives one, two-photon absorption below twice the band
     edge's wavelength, the range of the index data), at a temperature and the alloys'
     compositions, the process's wavelengths marked on top.
+  - **Photon-pair sources**, under it: the source designer. A source's pairs computed a moment
+    after the form changes, by `photonoxide::nonlinear::pairs` and `photonoxide::quantum`
+    (docs/methods/quantum.md). The Chip page's Quantum tab leads here with **Pair sources →**.
+    - **The source:** a guide given by each wave's group index and dispersion at its centre,
+      phase matched at the centres, for down-conversion or four-wave mixing; a catalogue
+      crystal, each wave on an axis, poled for the centres (its period stated); a ring on a
+      bus, the pump on the resonance nearest its wavelength and the pairs a number of free
+      spectral ranges either side (its linewidths, Q and free spectral range stated); or a
+      guide pumped in two modes, one pump delayed (where the pumps meet stated). With the
+      pump's centre and bandwidth, the signal's wavelength, the grid, and the mean number of
+      pairs per pulse. A few starting points: a correlated guide and a group-velocity matched
+      one, type-II PPLN, Helt et al.'s ring, a ring whose pump resonance a second channel widens,
+      and two pumps in two modes.
+    - **What it shows:** the joint spectral amplitude |f| and intensity |f|² as maps (against
+      the photons' wavelengths, or their detunings in GHz for a ring); the Schmidt weights as
+      bars with the purity, the Schmidt number and the modes above 10⁻⁶; the brightness where
+      the library defines one (down-conversion: pairs/(s·GHz·mW) at the signal's centre, as the
+      nonlinear job gives it, and pairs/(s·mW) over the grid for a continuous pump); the
+      heralding efficiencies through each arm's ring filter (its drop port) and coupler (its
+      cross port), from their S-matrices, without and with each detector's efficiency, and the
+      heralded photons' purity; and the pairs per pulse: P(0) to P(5), the share of pulses with
+      a pair that hold more, and the unheralded g⁽²⁾.
+    - **Limits:** 11 to 301 points across each axis (an SVD of 301 × 301 stays live), a grid
+      at most 15% of the photons' frequencies either side, up to 1 pair per pulse (the Schmidt
+      modes are the low-gain ones: above 0.1 it says the gain may reshape them). It says when
+      the amplitude is still above 1% of its peak at the grid's edge, or above half its peak on
+      fewer than 3 points, since the purity is then the grid's; every refusal gives its numbers.
 - **Validation** (in System), in two tabs:
   - **Cases:** the release's report, searchable, its math rendered, and the same report run on
     this machine.
@@ -985,7 +1012,9 @@ node scripts/record-gifs.mjs --only hero,academy  # some: hero, device, material
   - `examples.rs`: the examples and jobs built in.
   - `settings.rs`: the settings and the workspace.
   - `materials.rs`: the Materials page's commands; `nonlinear.rs` its nonlinear view's (a
-    `"nonlinear"` job computed in place, and every material's transparency window).
+    `"nonlinear"` job computed in place, and every material's transparency window);
+    `sources.rs` its source designer's (a photon-pair source, computed by
+    `photonoxide::nonlinear::pairs` and `photonoxide::quantum`).
   - `circuits.rs`: the Components and Chip pages' commands, and chip files; `circuits/chip.rs`
     an instance's device design and the chip's jobs (the library's chip of a chip file, the
     Study and Optimize panels' jobs, a chip's job opened on the page); `circuits/library.rs`

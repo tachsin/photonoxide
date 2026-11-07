@@ -163,6 +163,7 @@ pub fn show(dir: Option<&Path>, live: Option<Live>) -> Result<(), String> {
             crate::materials::material_at,
             crate::nonlinear::nonlinear_compute,
             crate::nonlinear::transparency_windows,
+            crate::sources::pair_source,
             crate::devices::device_library,
             crate::devices::device_geometry,
             crate::devices::device_fabrication,

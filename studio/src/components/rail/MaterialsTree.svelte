@@ -1,11 +1,11 @@
 <script lang="ts">
   // The Materials tree in the rail: the catalogue by category, searchable by name, formula and
   // what each is; a material with no index model yet says so.
-  import { Search, Sigma } from "@lucide/svelte";
+  import { Search, Sigma, Sparkles } from "@lucide/svelte";
   import { untrack } from "svelte";
 
   import { app, go } from "../../lib/app.svelte";
-  import { CATEGORIES, loadMaterials, materials, NONLINEAR } from "../../lib/materials.svelte";
+  import { CATEGORIES, loadMaterials, materials, NONLINEAR, PAIR_SOURCES } from "../../lib/materials.svelte";
   import { groupOpen, setGroup } from "../../lib/rail.svelte";
   import TreeGroup from "./TreeGroup.svelte";
 
@@ -17,7 +17,9 @@
   /** The material the page shows. */
   /** Whether the page shows the nonlinear processes' view in place of a material. */
   const nonlinear = $derived(app.page === "materials" && materials.chosen === NONLINEAR);
-  const current = $derived(app.page === "materials" && !nonlinear ? (materials.entries.find((e) => e.id === materials.chosen) ?? materials.entries[0]) : undefined);
+  /** Whether it shows the photon-pair source designer. */
+  const designer = $derived(app.page === "materials" && materials.chosen === PAIR_SOURCES);
+  const current = $derived(app.page === "materials" && !nonlinear && !designer ? (materials.entries.find((e) => e.id === materials.chosen) ?? materials.entries[0]) : undefined);
 
   function choose(id: string) {
     materials.chosen = id;
@@ -46,6 +48,14 @@
 >
   <Sigma size={13} class="shrink-0" />
   <span class="min-w-0 flex-1 truncate text-[13px] font-medium">Nonlinear processes</span>
+</button>
+<button
+  class="mb-1 flex w-full items-center gap-2 rounded-lg px-2 py-1 text-left transition-colors {designer ? 'bg-primary/12 text-primary' : 'hover:bg-base-content/5'}"
+  onclick={() => choose(PAIR_SOURCES)}
+  title="Photon-pair sources: a guide, a crystal or a ring, its pairs' joint spectrum, Schmidt modes, brightness and heralding"
+>
+  <Sparkles size={13} class="shrink-0" />
+  <span class="min-w-0 flex-1 truncate text-[13px] font-medium">Photon-pair sources</span>
 </button>
 
 {#each CATEGORIES as [category, title] (category)}
