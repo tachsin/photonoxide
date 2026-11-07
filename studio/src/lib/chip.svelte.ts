@@ -349,7 +349,17 @@ export async function simulate() {
 // ---- the chip's study and optimization: their forms, kept across visits, and the run shown ----
 
 export interface ChipPanels {
-  tab: "spectrum" | "study" | "optimize";
+  tab: "spectrum" | "study" | "optimize" | "quantum";
+  /** The quantum view (components/chip/ChipQuantum.svelte): its part shown and its forms. */
+  quantum: {
+    view: "photons" | "dip" | "budget";
+    /** The wavelength of the statistics and the budget, µm; the sweep's middle when null or outside it. */
+    wavelength: number | null;
+    /** Photons on each external port, by name. */
+    photons: Record<string, number>;
+    dip: { inputs: [string, string]; outputs: [string, string]; photons: [{ center_um: number | null; fwhm_nm: number }, { center_um: number | null; fwhm_nm: number }]; span_ps: number | null; points: number };
+    budget: { photons: { from: string; to: string; route: number | null }[]; source: number; detector: number; shown: number };
+  };
   study: {
     mode: "sweep" | "corners";
     axes: { parameter: string; from: number; to: number; points: number }[];
@@ -376,6 +386,13 @@ export interface ChipPanels {
 
 export const panels = $state<ChipPanels>({
   tab: "spectrum",
+  quantum: {
+    view: "photons",
+    wavelength: null,
+    photons: {},
+    dip: { inputs: ["", ""], outputs: ["", ""], photons: [{ center_um: null, fwhm_nm: 1 }, { center_um: null, fwhm_nm: 1 }], span_ps: null, points: 201 },
+    budget: { photons: [], source: 1, detector: 1, shown: 0 },
+  },
   study: { mode: "sweep", axes: [], corners: [], points: 101, shown: null, q: "", p: "" },
   optimize: {
     objective: { expression: "", goal: "minimize", target: null, reduce: "worst" },

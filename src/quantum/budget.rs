@@ -16,7 +16,9 @@
 //!   classically simulable to a total variation distance ε when its squeezing r, transmission η
 //!   and detectors (η_D, dark counts p_D) satisfy their Eq. 1 ([`qi_simulable_error`]).
 
-use crate::circuit::Circuit;
+use std::collections::{HashMap, HashSet};
+
+use crate::circuit::{Circuit, Netlist, PortRef, SMatrix};
 use crate::units::Wavelength;
 use crate::{Error, Result};
 
@@ -155,6 +157,137 @@ impl Budget {
     /// the n-th power.
     pub fn event(&self, photons: u32) -> f64 {
         self.transmission().powi(photons as i32)
+    }
+}
+
+/// The routes a photon can take through `circuit` from its external port `from` to its external
+/// port `to` at `wavelength`, each as the hops of [`Budget::along`]: the paths that cross no
+/// instance twice and whose every hop carries power, |S_to,from|² > 0 of the instance's
+/// component at its values. They are found depth first, each instance's ports in order, and at
+/// most `most` of them are returned.
+///
+/// A route's budget is its own: where there are several, |S_to,from|² of the whole circuit holds
+/// their interference, and it equals a route's budget only for the only route. A loop (a ring
+/// from parts) is crossed once: the light that goes round it again isn't a route.
+///
+/// # Errors
+///
+/// [`Error::InvalidValue`] for a name that isn't an external port, or `from` equal to `to`; the
+/// components' own errors.
+pub fn routes(
+    circuit: &Circuit,
+    from: &str,
+    to: &str,
+    wavelength: Wavelength,
+    most: usize,
+) -> Result<Vec<Vec<Hop>>> {
+    let netlist = circuit.netlist();
+    let external = |name: &str| {
+        netlist
+            .external()
+            .iter()
+            .find(|(n, _)| n == name)
+            .map(|(_, r)| r.clone())
+            .ok_or_else(|| {
+                let names: Vec<&str> = netlist.external().iter().map(|(n, _)| n.as_str()).collect();
+                invalid(format!(
+                    "no external port {name}; the ports are {}",
+                    names.join(", ")
+                ))
+            })
+    };
+    let (start, end) = (external(from)?, external(to)?);
+    if from == to {
+        return Err(invalid(format!(
+            "a route runs from one port to another, not from {from} back to itself"
+        )));
+    }
+    let mut walk = Walk {
+        netlist,
+        end,
+        wavelength,
+        most,
+        matrices: HashMap::new(),
+        crossed: HashSet::new(),
+        path: Vec::new(),
+        found: Vec::new(),
+    };
+    walk.enter(&start)?;
+    Ok(walk.found)
+}
+
+/// A depth-first search for [`routes`].
+struct Walk<'a> {
+    netlist: &'a Netlist,
+    end: PortRef,
+    wavelength: Wavelength,
+    most: usize,
+    /// Each instance's S-matrix at the wavelength, computed when it is first reached.
+    matrices: HashMap<String, SMatrix>,
+    /// The instances on the path so far.
+    crossed: HashSet<String>,
+    path: Vec<Hop>,
+    found: Vec<Vec<Hop>>,
+}
+
+impl Walk<'_> {
+    /// Goes on from the light entering an instance by `entry`.
+    fn enter(&mut self, entry: &PortRef) -> Result<()> {
+        let instance = self
+            .netlist
+            .instance(&entry.instance)
+            .ok_or_else(|| invalid(format!("no instance {}", entry.instance)))?;
+        let p = instance
+            .port(&entry.port)
+            .ok_or_else(|| invalid(format!("{} has no port {}", entry.instance, entry.port)))?;
+        if !self.matrices.contains_key(&instance.name) {
+            let s = instance
+                .component
+                .s_matrix(self.wavelength, &instance.values)?;
+            self.matrices.insert(instance.name.clone(), s);
+        }
+        let powers: Vec<f64> = {
+            let s = &self.matrices[&instance.name];
+            (0..s.size()).map(|q| s.power(q, p)).collect()
+        };
+        self.crossed.insert(instance.name.clone());
+        for (q, port) in instance.component.ports().iter().enumerate() {
+            if self.found.len() >= self.most {
+                break;
+            }
+            if q == p || powers.get(q).is_none_or(|&t| t <= 0.0) {
+                continue;
+            }
+            self.path
+                .push(Hop::new(&instance.name, &entry.port, &port.name));
+            let leaving = PortRef {
+                instance: instance.name.clone(),
+                port: port.name.clone(),
+            };
+            if leaving == self.end {
+                self.found.push(self.path.clone());
+            } else if let Some(next) = self.partner(&leaving)
+                && !self.crossed.contains(&next.instance)
+            {
+                self.enter(&next)?;
+            }
+            self.path.pop();
+        }
+        self.crossed.remove(&instance.name);
+        Ok(())
+    }
+
+    /// The port wired to `port`, if a connection joins it to one.
+    fn partner(&self, port: &PortRef) -> Option<PortRef> {
+        self.netlist.connections().iter().find_map(|(a, b)| {
+            if a == port {
+                Some(b.clone())
+            } else if b == port {
+                Some(a.clone())
+            } else {
+                None
+            }
+        })
     }
 }
 

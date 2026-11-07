@@ -1,12 +1,13 @@
-//! The real components' unit tests (Q3): photons with spectra, pairs in a circuit, budgets.
+//! The real components' unit tests (Q3): photons with spectra, pairs in a circuit, budgets and
+//! the routes they run along.
 
 use std::sync::Arc;
 
 use num_complex::Complex64 as c64;
 
 use super::*;
-use crate::circuit::components::Coupler;
-use crate::circuit::{Netlist, SMatrix, Spectrum};
+use crate::circuit::components::{Coupler, Dispersion, Waveguide};
+use crate::circuit::{Circuit, Component, Netlist, SMatrix, Spectrum};
 use crate::units::Wavelength;
 
 const OK: &str = "a valid test";
@@ -145,4 +146,127 @@ fn thresholds_follow_their_papers() {
     assert!((qi_fidelity(0.3, 0.0, 1.0, 0.0) - 1.0).abs() < 1e-15);
     let eta = qi_exact_transmission(1.0, 0.8, 1e-3);
     assert!((eta - 1e-3 / 0.8 * (1.0 + 1.0 / 1f64.tanh())).abs() < 1e-15);
+}
+
+/// A Mach–Zehnder interferometer of two balanced couplers (0.1 and 0.3 dB of excess loss) and
+/// two guides losing 2.5 dB/cm, 1 mm and 1.2 mm long: ports `in1`, `in2`, `out1`, `out2`.
+fn lossy_mzi() -> Circuit {
+    let mut net = Netlist::new();
+    for (name, length) in [("upper", 1000.0), ("lower", 1200.0)] {
+        let guide = Dispersion::new(um(1.55), 2.4, 4.2).with_loss(2.5);
+        net.add(name, Arc::new(Waveguide::new(guide))).expect(OK);
+        net.set(name, "length", length).expect(OK);
+    }
+    for (name, excess) in [("split", 0.1), ("combine", 0.3)] {
+        let coupler = Coupler::new().with_excess_loss(excess).expect(OK);
+        net.add(name, Arc::new(coupler)).expect(OK);
+        net.set(name, "coupling", 0.5).expect(OK);
+    }
+    for (a, b) in [
+        ("split.o3", "upper.o1"),
+        ("split.o4", "lower.o1"),
+        ("upper.o2", "combine.o2"),
+        ("lower.o2", "combine.o1"),
+    ] {
+        net.connect(a, b).expect(OK);
+    }
+    for (name, at) in [
+        ("in1", "split.o2"),
+        ("in2", "split.o1"),
+        ("out1", "combine.o3"),
+        ("out2", "combine.o4"),
+    ] {
+        net.expose(name, at).expect(OK);
+    }
+    net.compile().expect(OK)
+}
+
+#[test]
+fn an_interferometer_has_two_routes_from_an_input_to_an_output() {
+    let circuit = lossy_mzi();
+    let w = um(1.55);
+    let found = routes(&circuit, "in1", "out1", w, 16).expect(OK);
+    let arms: Vec<&str> = found.iter().map(|r| r[1].instance.as_str()).collect();
+    assert_eq!(arms, ["upper", "lower"], "{found:?}");
+    for route in &found {
+        assert_eq!(route.len(), 3);
+        assert_eq!(
+            (route[0].instance.as_str(), route[0].from.as_str()),
+            ("split", "o2")
+        );
+        assert_eq!(
+            (route[2].instance.as_str(), route[2].to.as_str()),
+            ("combine", "o3")
+        );
+    }
+    // each route's budget is its stages' product: half of each coupler, their 0.4 dB of excess
+    // loss, and its arm's 0.25 dB/mm
+    for (route, mm) in found.iter().zip([1.0, 1.2]) {
+        let budget = Budget::along(&circuit, route, w).expect(OK);
+        let expected = 0.25 * 10f64.powf(-(0.4 + 0.25 * mm) / 10.0);
+        let t = budget.transmission();
+        assert!((t / expected - 1.0).abs() < 1e-12, "{t} against {expected}");
+    }
+    // at most `most`, in the order found
+    assert_eq!(routes(&circuit, "in1", "out1", w, 1).expect(OK), found[..1]);
+}
+
+#[test]
+fn the_only_route_carries_the_circuits_own_transmission() {
+    let mut net = Netlist::new();
+    let guide = Dispersion::new(um(1.55), 2.4, 4.2).with_loss(3.0);
+    net.add("g", Arc::new(Waveguide::new(guide))).expect(OK);
+    net.set("g", "length", 500.0).expect(OK);
+    let coupler = Coupler::new().with_excess_loss(0.2).expect(OK);
+    net.add("c", Arc::new(coupler)).expect(OK);
+    net.set("c", "coupling", 0.3).expect(OK);
+    net.connect("g.o2", "c.o1").expect(OK);
+    for (name, at) in [
+        ("in", "g.o1"),
+        ("b", "c.o2"),
+        ("out", "c.o4"),
+        ("x", "c.o3"),
+    ] {
+        net.expose(name, at).expect(OK);
+    }
+    let mut circuit = net.compile().expect(OK);
+    let w = um(1.56);
+    let found = routes(&circuit, "in", "out", w, 16).expect(OK);
+    assert_eq!(
+        found,
+        [vec![Hop::new("g", "o1", "o2"), Hop::new("c", "o1", "o4")]]
+    );
+    let budget = Budget::along(&circuit, &found[0], w).expect(OK);
+    let at = |name: &str| {
+        circuit
+            .ports()
+            .iter()
+            .position(|p| p.name == name)
+            .expect(OK)
+    };
+    let whole = circuit.s_matrix(w).expect(OK).power(at("out"), at("in"));
+    assert!((budget.transmission() / whole - 1.0).abs() < 1e-12);
+    // a coupler that sends everything across leaves no route through it (o1 to o4), and the
+    // route across (o1 to o3) whole
+    circuit.set("c", "coupling", 1.0).expect(OK);
+    assert!(routes(&circuit, "in", "out", w, 16).expect(OK).is_empty());
+    assert_eq!(routes(&circuit, "in", "x", w, 16).expect(OK).len(), 1);
+}
+
+#[test]
+fn routes_refuse_ports_that_arent_the_circuits() {
+    let circuit = lossy_mzi();
+    let w = um(1.55);
+    let e = routes(&circuit, "nowhere", "out1", w, 4)
+        .unwrap_err()
+        .to_string();
+    assert!(
+        e.contains("no external port nowhere") && e.contains("in1, in2, out1, out2"),
+        "{e}"
+    );
+    assert!(routes(&circuit, "in1", "split.o3", w, 4).is_err());
+    let e = routes(&circuit, "in1", "in1", w, 4)
+        .unwrap_err()
+        .to_string();
+    assert!(e.contains("one port to another"), "{e}");
 }

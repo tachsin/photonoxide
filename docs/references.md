@@ -2,7 +2,7 @@
 
 <!-- Written by `photonoxide references --write` (or `just references`) from docs/references.yaml and the citations in the repository: edit those, not this page. -->
 
-Every paper, book and data set photonoxide cites, with every place in the repository that cites it, by file and line. 587 sources, 582 with a DOI and 5 without, are cited at 3485 places in 424 files. The sources are listed by their first author; [references-by-file.md](references-by-file.md) lists each methods page, lesson, example and source file with the sources it cites, and the [validation report](validation.md) gives each case's source on its row. How to cite a source is in [CONTRIBUTING.md](../CONTRIBUTING.md#citing-a-source); the list of sources is [references.yaml](references.yaml).
+Every paper, book and data set photonoxide cites, with every place in the repository that cites it, by file and line. 587 sources, 582 with a DOI and 5 without, are cited at 3487 places in 425 files. The sources are listed by their first author; [references-by-file.md](references-by-file.md) lists each methods page, lesson, example and source file with the sources it cites, and the [validation report](validation.md) gives each case's source on its row. How to cite a source is in [CONTRIBUTING.md](../CONTRIBUTING.md#citing-a-source); the list of sources is [references.yaml](references.yaml).
 
 [A](#a) · [B](#b) · [C](#c) · [D](#d) · [E](#e) · [F](#f) · [G](#g) · [H](#h) · [I](#i) · [J](#j) · [K](#k) · [L](#l) · [M](#m) · [N](#n) · [O](#o) · [P](#p) · [Q](#q) · [R](#r) · [S](#s) · [T](#t) · [U](#u) · [V](#v) · [W](#w) · [X](#x) · [Y](#y) · [Z](#z)
 
@@ -181,7 +181,7 @@ P. Amestoy, A. Buttari, N. J. Higham, J.-Y. L’Excellent, T. Mary, B. Vieublé,
 
 V. Anant, A. J. Kerman, E. A. Dauler, J. K. W. Yang, K. M. Rosfjord, K. K. Berggren, "Optical properties of superconducting nanowire single-photon detectors", Opt. Express 16, 16750 (2008). [doi:10.1364/OE.16.016750](https://doi.org/10.1364/OE.16.016750)
 
-- Methods pages: [quantum.md:785](methods/quantum.md?plain=1#L785)
+- Methods pages: [quantum.md:792](methods/quantum.md?plain=1#L792)
 
 #### Anemogiannis et al. 1999
 
@@ -221,7 +221,7 @@ A. Arbabi, Y. Horie, A. J. Ball, M. Bagheri, A. Faraon, "Subwavelength-thick len
 
 M. Arcari, I. Söllner, A. Javadi, S. Lindskov Hansen, S. Mahmoodian, J. Liu, H. Thyrrestrup, E. H. Lee, J. D. Song, S. Stobbe, et al., "Near-Unity Coupling Efficiency of a Quantum Emitter to a Photonic Crystal Waveguide", Phys. Rev. Lett. 113, 093603 (2014). [doi:10.1103/PhysRevLett.113.093603](https://doi.org/10.1103/PhysRevLett.113.093603)
 
-- Methods pages: [quantum.md:61](methods/quantum.md?plain=1#L61), [549](methods/quantum.md?plain=1#L549)
+- Methods pages: [quantum.md:61](methods/quantum.md?plain=1#L61), [556](methods/quantum.md?plain=1#L556)
 - Academy lessons: [photonic-crystals.md:68](../academy/photonic-crystals.md?plain=1#L68), [351](../academy/photonic-crystals.md?plain=1#L351), [481](../academy/photonic-crystals.md?plain=1#L481)
 - Code: [src/fdtd/emitter.rs:7](../src/fdtd/emitter.rs#L7)
 - Other documents: [docs/plans/quantum.md:535](plans/quantum.md?plain=1#L535)
@@ -321,9 +321,9 @@ M. A. Barry, V. Berthier, B. D. Wilts, M.-C. Cambourieux, P. Bennet, R. Pollès,
 
 S. Bartolucci, P. Birchall, H. Bombín, H. Cable, C. Dawson, M. Gimeno-Segovia, E. Johnston, K. Kieling, N. Nickerson, M. Pant, et al., "Fusion-based quantum computation", Nat Commun 14, 912 (2023). [doi:10.1038/s41467-023-36493-1](https://doi.org/10.1038/s41467-023-36493-1), open access.
 
-- Methods pages: [quantum.md:57](methods/quantum.md?plain=1#L57), [519](methods/quantum.md?plain=1#L519)
+- Methods pages: [quantum.md:57](methods/quantum.md?plain=1#L57), [526](methods/quantum.md?plain=1#L526)
 - Validation cases: [`quantum/bartolucci-fusion`](validation.md?plain=1#L905)
-- Code: [src/quantum/budget.rs:13](../src/quantum/budget.rs#L13), [src/quantum/real_checks.rs:1083](../src/quantum/real_checks.rs#L1083)
+- Code: [src/quantum/budget.rs:13](../src/quantum/budget.rs#L13), [src/quantum/real_checks.rs:1083](../src/quantum/real_checks.rs#L1083), [studio/src-tauri/src/circuits/quantum.rs:594](../studio/src-tauri/src/circuits/quantum.rs#L594)
 - Other documents: [docs/plans/quantum.md:491](plans/quantum.md?plain=1#L491)
 
 #### Barwicz and Haus 2005
@@ -1833,7 +1833,7 @@ J. Hu, C. R. Menyuk, "Understanding leaky modes: slab waveguide revisited", Adv.
 
 X. Hu, C. W. Holzwarth, D. Masciarelli, E. A. Dauler, K. K. Berggren, "Efficiently Coupling Light to Superconducting Nanowire Single-Photon Detectors", IEEE Trans. Appl. Supercond. 19, 336 (2009). [doi:10.1109/TASC.2009.2018035](https://doi.org/10.1109/TASC.2009.2018035)
 
-- Methods pages: [quantum.md:784](methods/quantum.md?plain=1#L784)
+- Methods pages: [quantum.md:791](methods/quantum.md?plain=1#L791)
 
 #### Hughes et al. 2018a
 
@@ -3221,7 +3221,7 @@ M. W. Puckett, K. Liu, N. Chauhan, Q. Zhao, N. Jin, H. Cheng, J. Wu, R. O. Behun
 
 H. Qi, D. J. Brod, N. Quesada, R. García-Patrón, "Regimes of Classical Simulability for Noisy Gaussian Boson Sampling", Phys. Rev. Lett. 124, 100502 (2020). [doi:10.1103/PhysRevLett.124.100502](https://doi.org/10.1103/PhysRevLett.124.100502)
 
-- Methods pages: [quantum.md:59](methods/quantum.md?plain=1#L59), [525](methods/quantum.md?plain=1#L525)
+- Methods pages: [quantum.md:59](methods/quantum.md?plain=1#L59), [532](methods/quantum.md?plain=1#L532)
 - Validation cases: [`quantum/qi-simulability`](validation.md?plain=1#L906)
 - Code: [src/quantum/budget.rs:15](../src/quantum/budget.rs#L15), [src/quantum/real_checks.rs:1090](../src/quantum/real_checks.rs#L1090)
 - Other documents: [docs/plans/quantum.md:503](plans/quantum.md?plain=1#L503)
@@ -4049,9 +4049,9 @@ M. B. Van Gijzen, P. Sonneveld, "Algorithm 913: An elegant IDR( s ) variant that
 
 M. Varnava, D. E. Browne, T. Rudolph, "How Good Must Single Photon Sources and Detectors Be for Efficient Linear Optical Quantum Computation?", Phys. Rev. Lett. 100, 060502 (2008). [doi:10.1103/PhysRevLett.100.060502](https://doi.org/10.1103/PhysRevLett.100.060502)
 
-- Methods pages: [quantum.md:55](methods/quantum.md?plain=1#L55), [512](methods/quantum.md?plain=1#L512)
+- Methods pages: [quantum.md:55](methods/quantum.md?plain=1#L55), [519](methods/quantum.md?plain=1#L519)
 - Validation cases: [`quantum/varnava-threshold`](validation.md?plain=1#L904)
-- Code: [src/quantum/budget.rs:11](../src/quantum/budget.rs#L11), [src/quantum/real_checks.rs:1076](../src/quantum/real_checks.rs#L1076)
+- Code: [src/quantum/budget.rs:11](../src/quantum/budget.rs#L11), [src/quantum/real_checks.rs:1076](../src/quantum/real_checks.rs#L1076), [studio/src-tauri/src/circuits/quantum.rs:589](../studio/src-tauri/src/circuits/quantum.rs#L589)
 - Other documents: [docs/plans/quantum.md:489](plans/quantum.md?plain=1#L489)
 
 #### Vassilevski 2018

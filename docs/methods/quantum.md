@@ -507,6 +507,13 @@ route between two ports the product is the circuit's own $\lvert S \rvert^2$
 (`quantum/budget-path`). A photon's budget adds its source's and detector's efficiencies as
 stages; an n-photon event keeps every photon with the product of their budgets (`event`).
 
+The paths come from `routes`: every path between two external ports that crosses no instance
+twice and whose every hop carries power ($\lvert S_{qp} \rvert^2 > 0$ at the instance's values).
+An interferometer has one route per arm, each with its own budget, and the circuit's
+$\lvert S \rvert^2$ holds their interference; a loop (a ring from parts) is crossed once. The
+studio's Chip page draws a route's budget as a waterfall against the thresholds below
+([studio/README.md](../../studio/README.md)).
+
 Budgets are held against published thresholds, each quoted with what it assumes (`Threshold`):
 
 - **Varnava, Browne & Rudolph 2008** (doi:10.1103/PhysRevLett.100.060502): sources of efficiency
