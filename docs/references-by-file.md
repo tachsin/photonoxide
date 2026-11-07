@@ -405,6 +405,7 @@ Each methods page, lesson, example, job, document and source file that cites a s
 - [`studio/src-tauri/src/charts/plasmon.rs`](../studio/src-tauri/src/charts/plasmon.rs): [Mie 1908](references.md#mie-1908)
 - [`studio/src-tauri/src/charts/slab.rs`](../studio/src-tauri/src/charts/slab.rs): [Chrostowski and Hochberg 2015](references.md#chrostowski-and-hochberg-2015), [Kogelnik and Ramaswamy 1974](references.md#kogelnik-and-ramaswamy-1974)
 - [`studio/src-tauri/src/circuits/library.rs`](../studio/src-tauri/src/circuits/library.rs): [Chrostowski and Hochberg 2015](references.md#chrostowski-and-hochberg-2015)
+- [`studio/src-tauri/src/circuits/quantum.rs`](../studio/src-tauri/src/circuits/quantum.rs): [Bartolucci et al. 2023](references.md#bartolucci-et-al-2023), [Varnava et al. 2008](references.md#varnava-et-al-2008)
 - [`studio/src-tauri/src/examples.rs`](../studio/src-tauri/src/examples.rs): [Chrostowski and Hochberg 2015](references.md#chrostowski-and-hochberg-2015)
 - [`tests/jobs-toml/chip-fit.toml`](../tests/jobs-toml/chip-fit.toml): [Bogaerts et al. 2011](references.md#bogaerts-et-al-2011)
 - [`tests/jobs-toml/chip-ring-critical.toml`](../tests/jobs-toml/chip-ring-critical.toml): [Bogaerts et al. 2011](references.md#bogaerts-et-al-2011)
