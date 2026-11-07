@@ -164,7 +164,9 @@ The pages are grouped as the project site groups them.
   distinguishable photons, an exact boson sampler, Hong–Ou–Mandel dips through S(ω), and the
   Reck and Clements meshes; Gaussian states through any circuit, their photon counts by hafnians
   and clicks by torontonians; pair sources from a joint spectrum or a ring, and squeezers from
-  parametric amplifiers.
+  parametric amplifiers; real components: photons with spectra through any fidelity's S(ω),
+  pairs born inside a circuit, loss budgets against published thresholds, emitters' Purcell and
+  β factors from FDTD and detectors' absorption.
 
 ### Fabrication
 
