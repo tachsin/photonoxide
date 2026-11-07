@@ -302,6 +302,8 @@ export const api = {
   /** Every catalogue material's transparency window at a temperature (K), AlGaAs and AlGaN at their Al fractions. */
   transparencyWindows: (temperatureK: number | null, algaasX: number | null, alganX: number | null) =>
     invoke<TransparencyWindow[]>("transparency_windows", { temperatureK, algaasX, alganX }),
+  /** A photon-pair source computed (sources.rs): its joint spectrum, Schmidt weights, brightness, heralding and pairs. */
+  pairSource: (design: PairDesign) => invoke<PairSource>("pair_source", { design }),
   componentLibrary: () => invoke<KindInfo[]>("component_library"),
   componentKind: (id: string) => invoke<KindInfo>("component_kind", { id }),
   componentSpectrum: (part: Part, values: number[], sweep: Sweep) => invoke<SpectrumData>("component_spectrum", { part, values, sweep }),
@@ -471,6 +473,86 @@ export interface TransparencyWindow {
   two_photon: TransparencyEdge;
   multiphonon: TransparencyEdge;
   index_range: [number, number];
+}
+
+// The source designer (sources.rs): a photon-pair source as the command takes it and as it
+// comes back.
+
+/** The phase matching's shape: the device's sinc, or a Gaussian of the same width. */
+export type MatchingShape = "sinc" | "gaussian";
+
+/** One mode of a guide pumped in two modes, at the pump's wavelength (D in ps/(nm·km)). */
+export interface PairMode {
+  effective_index: number;
+  group_index: number;
+  dispersion: number;
+}
+
+/** Where the pairs are made (sources.rs's Medium). */
+export type PairMedium =
+  | { kind: "guide"; process: "spdc" | "sfwm"; group_index: [number, number, number]; dispersion: [number, number, number]; length_mm: number; matching: MatchingShape; efficiency: number | null }
+  | { kind: "crystal"; id: string; model: string | null; axes: [string, string, string]; temperature_c: number; length_mm: number; matching: MatchingShape; efficiency: number | null }
+  | { kind: "ring"; radius_um: number; effective_index: number; group_index: number; dispersion: number; coupling: number; loss_db_per_cm: number; pump_extra: number; order: number; span: number }
+  | { kind: "dual_pump"; modes: [PairMode, PairMode]; length_mm: number; delay_ps: number };
+
+/** What a photon passes on its way to its detector: a ring filter's drop port, a coupler's cross port, the detector. */
+export interface PairArm {
+  filter: { kind: "none" } | { kind: "ring"; radius_um: number; group_index: number; coupling: number; loss_db_per_cm: number };
+  coupler: number | null;
+  coupler_loss_db: number;
+  detector: number;
+}
+
+/** A photon-pair source to compute (sources.rs's Design). */
+export interface PairDesign {
+  medium: PairMedium;
+  pump: { wavelength_um: number; bandwidth_nm: number };
+  signal_um: number | null;
+  half_nm: number;
+  points: number;
+  mean_pairs: number;
+  arms: [PairArm, PairArm];
+}
+
+/** A number about the source, with its unit and where it comes from. */
+export interface PairFact {
+  label: string;
+  value: number;
+  unit: string;
+  about: string;
+}
+
+/** A photon-pair source as the library computes it (sources.rs's Designed). */
+export interface PairSource {
+  pump_um: number;
+  signal_um: number;
+  idler_um: number;
+  /** The maps' axes: detunings from each centre in GHz, or wavelengths in nm. */
+  unit: "GHz" | "nm";
+  signal_axis: number[];
+  idler_axis: number[];
+  /** |f| / max |f| and |f|² / max |f|², row by row: signal i, idler j at i × points + j. */
+  amplitude: number[];
+  intensity: number[];
+  points: number;
+  /** The largest Schmidt weights, largest first. */
+  weights: number[];
+  /** How many weights are above 10⁻⁶. */
+  modes: number;
+  purity: number;
+  schmidt_number: number;
+  /** Down-conversion's: pairs/(s·GHz·mW) at the signal's centre, pairs/(s·mW) over the grid. */
+  brightness: { spectral: number; rate: number } | null;
+  brightness_note: string | null;
+  heralding: { efficiency: [number, number]; detected: [number, number]; purity: number; schmidt_number: number; centre: [number, number]; facts: PairFact[] };
+  mean_pairs: number;
+  /** P(0), P(1), … pairs in a pulse. */
+  pairs: number[];
+  multi_pair: number;
+  g2: number;
+  facts: PairFact[];
+  notes: string[];
+  seconds: number;
 }
 
 // The materials catalogue (photonoxide::material::catalogue), as the program serializes it.

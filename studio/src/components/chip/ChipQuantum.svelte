@@ -3,8 +3,10 @@
   // through its S(ω), and the loss budget of each photon's route, all computed by the library
   // (photonoxide::quantum, through circuits/quantum.rs).
   import type { Chip } from "../../lib/api";
+  import { go } from "../../lib/app.svelte";
   import { editor, panels } from "../../lib/chip.svelte";
   import { sweepProblem } from "../../lib/circuit";
+  import { materials, PAIR_SOURCES } from "../../lib/materials.svelte";
   import QuantumBudget from "./QuantumBudget.svelte";
   import QuantumDip from "./QuantumDip.svelte";
   import QuantumPhotons from "./QuantumPhotons.svelte";
@@ -32,6 +34,12 @@
     q.wavelength !== null && q.wavelength >= chip.sweep.from_um && q.wavelength <= chip.sweep.to_um ? q.wavelength : Number(((chip.sweep.from_um + chip.sweep.to_um) / 2).toPrecision(12)),
   );
 
+  /** The pairs' sources are designed beside the nonlinear processes, on the Materials page. */
+  function designSource() {
+    materials.chosen = PAIR_SOURCES;
+    go("materials");
+  }
+
   function keys(e: KeyboardEvent) {
     const k = VIEWS.findIndex(([id]) => id === q.view);
     const next = e.key === "ArrowRight" ? k + 1 : e.key === "ArrowLeft" ? k - 1 : e.key === "Home" ? 0 : e.key === "End" ? VIEWS.length - 1 : null;
@@ -56,7 +64,8 @@
       >
     {/each}
   </div>
-  <span class="truncate text-xs faint">{VIEWS.find(([id]) => id === q.view)?.[2]}</span>
+  <span class="min-w-0 flex-1 truncate text-xs faint">{VIEWS.find(([id]) => id === q.view)?.[2]}</span>
+  <button class="btn btn-ghost btn-xs shrink-0" title="Materials › Photon-pair sources: a source's joint spectrum, Schmidt modes, brightness and heralding" onclick={designSource}>Pair sources →</button>
 </div>
 <div class="mt-3">
   {#if q.view === "photons"}

@@ -10,6 +10,7 @@
 
   import MathText from "../components/MathText.svelte";
   import NonlinearView from "../components/nonlinear/NonlinearView.svelte";
+  import SourceDesigner from "../components/sources/SourceDesigner.svelte";
   import Plot from "../components/Plot.svelte";
   import Tip from "../components/Tip.svelte";
   import UnitChip from "../components/UnitChip.svelte";
@@ -26,7 +27,7 @@
     type Tensor,
   } from "../lib/api";
   import type { Series } from "../lib/plot";
-  import { loadMaterials, materials, NONLINEAR } from "../lib/materials.svelte";
+  import { loadMaterials, materials, NONLINEAR, PAIR_SOURCES } from "../lib/materials.svelte";
   import { len, lenUnit, shown as inUnit, stored } from "../lib/units";
 
   let modelId = $state<string | null>(null);
@@ -237,6 +238,8 @@
   <div class="h-full min-h-0 overflow-y-auto">
     {#if materials.chosen === NONLINEAR}
       <NonlinearView />
+    {:else if materials.chosen === PAIR_SOURCES}
+      <SourceDesigner />
     {:else if entry}
       <div class="glow border-b border-base-content/8 px-4 py-5 sm:px-8 sm:py-6">
         <div class="flex items-start gap-4">
