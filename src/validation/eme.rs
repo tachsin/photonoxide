@@ -184,7 +184,7 @@ pub(crate) fn rules() -> Vec<(&'static str, Rule)> {
                 RoundOff,
                 1e-12,
                 Exact,
-                "power conserved at each interface for any number of modes in a closed window, so a propagating Bloch mode's |λ| = 1: round-off, 1e-12 as eme/lossless-power",
+                "power conserved at each interface for any number of modes in a closed window, so a propagating Bloch mode keeps its λ on the unit circle: round-off, 1e-12 as eme/lossless-power",
             ),
         ),
         (
