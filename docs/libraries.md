@@ -319,7 +319,7 @@ An open BLAS and LAPACK: the dense kernels of photonoxide's own solver's fronts,
   conda install -c conda-forge libopenblas=*=*openmp*
   ```
 
-  OpenBLAS built with OpenMP in place of its own threads, which some machines run faster: Benchmarks compares the two here. From photonoxide 0.6.2 on (#653), photonoxide holds each of its threads' OpenMP count at one, so its own parallel loops and OpenBLAS's don't multiply (#557); earlier versions leave it to OpenMP.
+  OpenBLAS built with OpenMP in place of its own threads, which some machines run faster: Benchmarks compares the two here. photonoxide holds each of its threads' OpenMP count at one, so its own parallel loops and OpenBLAS's don't multiply (#557).
 
   - Checked on Linux (ubuntu-24.04), 2026-11-01: installed libopenblas 0.3.34; found OpenBLAS 0.3.34, linked to libgomp, and the photonoxide-openblas backend after its smoke test and its tests.
 
