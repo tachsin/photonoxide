@@ -808,20 +808,24 @@ pub fn boson_distribution(
     Ok(out)
 }
 
-/// The time of one permanent by `formula` of an n × n matrix, s: repeated until a millisecond
-/// has passed, then divided.
+/// The time of one permanent by `formula` of an n × n matrix, s: the least of three batches, each
+/// repeated until 5 ms have passed and divided, so that a pause of the computer's doesn't count.
 fn time_permanent(n: usize, formula: Formula) -> photonoxide::Result<f64> {
     let a = haar_unitary(n, n as u64);
-    let start = Instant::now();
-    let mut runs = 0u32;
-    loop {
-        std::hint::black_box(permanent_by(&a, formula)?);
-        runs += 1;
-        if start.elapsed().as_secs_f64() > 1e-3 {
-            break;
+    let mut best = f64::INFINITY;
+    for _ in 0..3 {
+        let start = Instant::now();
+        let mut runs = 0u32;
+        loop {
+            std::hint::black_box(permanent_by(&a, formula)?);
+            runs += 1;
+            if start.elapsed().as_secs_f64() > 5e-3 {
+                break;
+            }
         }
+        best = best.min(start.elapsed().as_secs_f64() / f64::from(runs));
     }
-    Ok(start.elapsed().as_secs_f64() / f64::from(runs))
+    Ok(best)
 }
 
 /// The largest relative difference between Glynn's and Ryser's formulas, and the definition up
@@ -854,7 +858,8 @@ pub fn permanent_cost(up_to: f64) -> photonoxide::Result<ChartData> {
         }
     }
     let last = glynn[glynn.len() - 1][1];
-    let before = glynn[glynn.len() - 2][1];
+    // over the last four photons, all on the threads (n ≥ 12 + 4)
+    let before = glynn[glynn.len() - 5][1];
     let mut out = data(
         "n, the matrix's size",
         "time, s",
@@ -864,7 +869,7 @@ pub fn permanent_cost(up_to: f64) -> photonoxide::Result<ChartData> {
             curve("Ryser, n·2ⁿ", ryser, false, 1),
             curve("the definition, n·n!", definition, false, 2),
         ],
-        "Measured as the chart is drawn, each permanent repeated for a millisecond at least, on Haar-random unitaries; from n = 12 the Gray-code sums run in 256 parts on all threads.".to_owned(),
+        "Measured as the chart is drawn, the least of three batches each repeated for 5 ms at least, on Haar-random unitaries; from n = 12 the Gray-code sums run in 256 parts on all threads.".to_owned(),
     );
     out.figures = vec![
         figure(
@@ -876,10 +881,10 @@ pub fn permanent_cost(up_to: f64) -> photonoxide::Result<ChartData> {
         ),
         figure(
             "growth per photon",
-            last / before,
+            (last / before).powf(0.25),
             3,
             "",
-            "the time at n over n − 1: 2 for n·2ⁿ, once the threads are busy",
+            "the time's growth per photon over the last four: 2 for n·2ⁿ, once the threads are busy",
         ),
         figure(
             "formulas' agreement",
@@ -1447,7 +1452,8 @@ pub fn squeezed_photons(db: f64, eta: f64) -> photonoxide::Result<ChartData> {
     let r = r_of_db(db);
     let p = squeezed_numbers(db, eta, most)?;
     let mean = eta * r.sinh().powi(2);
-    let floor = 1e-30;
+    // the odd numbers of a lossless squeezed vacuum are zero, computed to round-off
+    let floor = 1e-13;
     let pts = |v: &[f64]| -> Vec<[f64; 2]> {
         v.iter()
             .enumerate()
@@ -1481,7 +1487,7 @@ pub fn squeezed_photons(db: f64, eta: f64) -> photonoxide::Result<ChartData> {
         true,
         series,
         format!(
-            "Exact: each P(n) the hafnian of the state's matrix with its rows repeated n times (Kan's moments where that costs less), r = {}, η = {}; P(n) below 10⁻³⁰ not drawn.",
+            "Exact: each P(n) the hafnian of the state's matrix with its rows repeated n times (Kan's moments where that costs less), r = {}, η = {}; P(n) below 10⁻¹³, round-off, not drawn.",
             sig(r, 3),
             sig(eta, 2)
         ),

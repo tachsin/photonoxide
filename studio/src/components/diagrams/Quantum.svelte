@@ -74,8 +74,8 @@
   {#each modes as y, k (k)}
     <path d="M{meshRight + 50},{y - 11} a11,11 0 0 1 0,22 Z" class="fill-success/40 stroke-success" stroke-width="1.6" />
   {/each}
-  <Label x={meshRight + 70} y={modes[1] + 20} anchor="start" size={14} text={String.raw`detectors $\eta_D$`} width={110} class="text-success" />
-  <Label x={meshRight + 70} y={modes[1] + 42} anchor="start" size={13} text={String.raw`$\lvert\mathrm{Per}\rvert^2$, Haf`} width={110} class="text-base-content/70" />
+  <Label x={592} y={modes[0] - 30} anchor="end" size={14} text={String.raw`detectors $\eta_D$`} width={130} class="text-success" />
+  <Label x={592} y={modes[3] + 30} anchor="end" size={13} text={String.raw`$\lvert\mathrm{Per}\rvert^2$, Haf`} width={110} class="text-base-content/70" />
 
   <!-- beneath: two photons on a coupler -->
   <line x1="8" y1="226" x2="592" y2="226" class="stroke-base-content/15" stroke-width="1" />
@@ -97,6 +97,6 @@
   <path d="M372,344 H572 M372,344 V262" fill="none" class="stroke-base-content/50" stroke-width="1.2" />
   <path d={dip} fill="none" class="stroke-accent" stroke-width="2.4" />
   <Label x={472} y={360} size={13} text="delay $\tau$" width={100} />
-  <Label x={366} y={258} anchor="end" size={12} text="coinc." width={60} class="text-base-content/70" />
+  <Label x={366} y={300} anchor="end" size={12} text="coinc." width={60} class="text-base-content/70" />
   <Label x={472} y={252} size={13} text={String.raw`$R^2 + T^2 - 2RT\,e^{-\sigma^2\tau^2}$`} width={220} />
 </svg>
