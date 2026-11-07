@@ -36,6 +36,7 @@ Rust-only names (`device_fabrication_from` and the like) have no entry there.
 | Guided modes told from the closed window's own (n_eff above the media at its open edges) | ✅ | ✅ [`vector_modes`](https://tachsin.gr/projects/photonoxide/docs/python/reference/photonoxide.html#vector_modes) returns only these, without PMLs | [vector](methods/vector.md) |
 | Leaky modes of shapes on a stack: a modes job with a PML, each mode named guided or leaky with its loss in dB/cm | ✅ | ◐ a job ([`run_job`](https://tachsin.gr/projects/photonoxide/docs/python/reference/photonoxide.html#run_job)): its `mode_loss` events | [PML](methods/pml.md), [vector](methods/vector.md) |
 | A mode's six field components | ✅ | ✅ [`vector_modes`](https://tachsin.gr/projects/photonoxide/docs/python/reference/photonoxide.html#vector_modes) | [fields](methods/fields.md) |
+| A mode's effective area, nonlinear coefficient, confinement and orthogonality | ✅ | ✅ [`vector_modes`](https://tachsin.gr/projects/photonoxide/docs/python/reference/photonoxide.html#vector_modes)' `VectorMode`; a modes job's `[task.quantities]` | [fields](methods/fields.md#a-modes-quantities) |
 | Hadley's scheme for dielectric corners | ✅ | ✅ [`vector_modes`](https://tachsin.gr/projects/photonoxide/docs/python/reference/photonoxide.html#vector_modes)(scheme="hadley"): the guided modes refined, a uniform grid, real permittivities, no PML | [hadley](methods/hadley.md) |
 | Bends | ✅ | — | [bends](methods/bends.md) |
 | The effective index method | ✅ | ◐ inside 2D FDFD and FDTD jobs | [eim](methods/eim.md) |

@@ -209,6 +209,41 @@ class VectorMode:
     """H_y, in the same units as ``hx``."""
     hz: np.ndarray
     """H_z, in the same units as ``hx``."""
+    wavelength_um: float = float("nan")
+    """The vacuum wavelength it was solved at, µm."""
+    effective_area_um2: float = float("nan")
+    """The effective area for the Kerr effect, µm²: Afshar and Monro's Eq. 41,
+    |∫ S_z dA|² / ∫ |S_z|² dA with S_z = (E × H*)·ẑ, the whole cross-section's (a mirror wall's
+    image added), from the fields with E's normal component one-sided at each interface."""
+    effective_area_transverse_um2: float = float("nan")
+    """The standard effective area from E_t alone, (∫ |E_t|² dA)² / ∫ |E_t|⁴ dA, µm²: their
+    Eq. 44, the same as ``effective_area_um2`` where ∇_t E_z = 0 and more fragile at corners."""
+    power_shares: np.ndarray | None = None
+    """Each cell's share of the power through the window, Re S_z dA over its sum, ``(ny, nx)``:
+    a set of cells' sum is the mode's confinement in it (:meth:`confinement`)."""
+    orthogonality: np.ndarray | None = None
+    """O_ab = ⟨a, b⟩ / (Re⟨a, a⟩ Re⟨b, b⟩)^½ with each mode the same call returned, in its order,
+    ⟨a, b⟩ = ∫ (E_a × H_b*)·ẑ dA: 1 with itself, near 0 with the others for an orthogonal set."""
+
+    def confinement(self, cells: Any) -> float:
+        """The share of the mode's power that flows through ``cells``, a boolean ``(ny, nx)``
+        array over the window, from 0 to 1: Γ = ∫_R Re S_z dA / ∫ Re S_z dA. With a mirror wall
+        it is the whole cross-section's for a set symmetric as the window is (a material's
+        cells, say ``permittivity == 3.473**2``)."""
+        if self.power_shares is None:
+            raise ValueError("this mode has no power shares")
+        mask = np.asarray(cells, dtype=bool)
+        if mask.shape != self.power_shares.shape:
+            raise ValueError(
+                f"cells must be {self.power_shares.shape}, the window's cells, not {mask.shape}"
+            )
+        return float(self.power_shares[mask].sum())
+
+    def nonlinear_coefficient(self, n2_m2_per_w: float) -> float:
+        """The nonlinear coefficient γ = 2π n₂ / (λ A_eff), 1/(W·m), for a nonlinear index n₂
+        (m²/W) uniform across the section and ``effective_area_um2``: Afshar and Monro's Eq. 42
+        with n₂ in place of their field-weighted n̄₂."""
+        return 2.0 * np.pi * n2_m2_per_w / (self.wavelength_um * 1e-6 * self.effective_area_um2 * 1e-12)
 
 
 @dataclass(frozen=True)

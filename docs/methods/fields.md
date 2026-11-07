@@ -26,6 +26,7 @@ validation:
   - mode/orthogonality-slab
   - mode/orthogonality-slab-order
   - mode/fields-folded-strip
+  - mode/quantities-facade-strip
   - thermo/slab-first-order
   - thermo/slab-vector
   - thermo/slab-vector-order
@@ -91,6 +92,19 @@ $S_z = (\mathbf E \times \mathbf H^*)\cdot\hat z$:
 | Confinement | `VectorMode::confinement` | $\Gamma = \int_R \operatorname{Re} S_z\thinspace dA / \int \operatorname{Re} S_z\thinspace dA$, $R$ a material or a box |
 | Orthogonality | `orthogonality` | $O_{ab} = \langle a, b\rangle / (\operatorname{Re}\langle a, a\rangle \operatorname{Re}\langle b, b\rangle)^{1/2}$, or the unconjugated product |
 | Normalization | `Fields::normalized` | the fields scaled to $P = 1$ |
+| Power shares | `Fields::power_shares` | each cell's $\operatorname{Re} S_z\thinspace dA / \int \operatorname{Re} S_z\thinspace dA$: a set of cells' sum is its confinement |
+
+**In Python and in a job.** Each `VectorMode` that `vector_modes` returns carries its
+`effective_area_um2` (Eq. 41) and `effective_area_transverse_um2` (Eq. 44), both the whole
+cross-section's, its `power_shares` over the window's cells, `(ny, nx)`, and its row of the set's
+`orthogonality` (the conjugated product with each mode the call returned, in their order), all from
+the one-sided fields as the library takes them; `m.confinement(eps == 3.473**2)` sums the shares
+over a set of cells, and `m.nonlinear_coefficient(n2)` gives γ for a uniform n₂. A modes job with
+`[task.quantities]` (`nonlinear_index_m2_per_w` optional) records a `mode_quantities` event for each
+mode after its field: the two areas, the confinement in the media whose index is above the media
+around the guides, the row of products and, with an n₂, γ. `mode/quantities-facade-strip` holds the
+façade's numbers to the library's own calls on a 480 × 200 nm strip's two modes: the same sums, so
+round-off.
 
 **The two areas.** Faraday's law gives, with our $e^{i(\beta z - \omega t)}$,
 $S_z = (\beta^* \lvert\mathbf E_t\rvert^2 - i\thinspace\mathbf E_t\cdot\nabla_t E_z^*)/k$ (the paper's

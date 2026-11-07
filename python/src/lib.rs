@@ -284,6 +284,17 @@ fn vector_modes<'py>(
         ] {
             d.set_item(name, PyArray1::from_vec(py, values).reshape([ny, nx])?)?;
         }
+        d.set_item("wavelength_um", wavelength_um)?;
+        d.set_item("effective_area_um2", m.effective_area_um2)?;
+        d.set_item(
+            "effective_area_transverse_um2",
+            m.effective_area_transverse_um2,
+        )?;
+        d.set_item(
+            "power_shares",
+            PyArray1::from_vec(py, m.power_shares).reshape([ny, nx])?,
+        )?;
+        d.set_item("orthogonality", PyArray1::from_vec(py, m.orthogonality))?;
         list.append(d)?;
     }
     Ok(list)

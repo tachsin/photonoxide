@@ -114,6 +114,14 @@ impl ModesTask {
     /// windows, the step, the cut, the number of modes, the PML and the sweep.
     pub(super) fn validate(&self) -> Result<()> {
         // (none is refused below)
+        if let Some(n2) = self.quantities.and_then(|q| q.nonlinear_index_m2_per_w)
+            && !(n2.is_finite() && n2 != 0.0)
+        {
+            return Err(task_error(format!(
+                "[task.quantities] nonlinear_index_m2_per_w must be a number other than 0, got \
+                 {n2}"
+            )));
+        }
         if let Some(modes) = self.modes
             && modes > MOST_MODES
         {
@@ -309,10 +317,23 @@ pub(super) struct ModesTask {
     /// The modes' grid checked: each effective index solved again on coarser grids, and its
     /// error estimated against a tolerance ([`crate::convergence`]).
     convergence: Option<ConvergenceSpec>,
+    /// Each mode's quantities beside its index, recorded as a `mode_quantities` event after its
+    /// field: its effective areas, its confinement in the guides, its products with the other
+    /// modes and, with an n₂, its γ ([`crate::mode::quantities`]).
+    quantities: Option<QuantitiesSpec>,
     pub(super) sweep: Option<SweepSpec>,
     /// The names of `[task.parameters]`, which a sweep may step through: set after reading.
     #[serde(skip)]
     pub(super) parameters: Vec<String>,
+}
+
+/// A modes job's `[task.quantities]`: what each mode gives beside its index.
+#[derive(Clone, Copy, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+struct QuantitiesSpec {
+    /// A nonlinear index n₂, m²/W, uniform across the section, for each mode's
+    /// γ = 2π n₂/(λ A_eff); none without it.
+    nonlinear_index_m2_per_w: Option<f64>,
 }
 
 /// A modes job's `[task.pml]`: perfectly matched layers inside its window's edges
@@ -1315,6 +1336,12 @@ fn window_media(s: &Structure, z: [f64; 2], wavelength_um: f64) -> Result<Vec<f6
 
 /// A medium's principal refractive indices (real parts) at `w`: an isotropic one's three the
 /// same, as its permittivity gives them.
+/// A cell's index for telling the guides' media from those around them: the square root of
+/// the real part of the mean of its ε_xx, ε_yy and ε_zz.
+fn cell_index(p: &crate::mode::vector::Permittivity) -> f64 {
+    ((p.xx + p.yy + p.zz).re / 3.0).max(0.0).sqrt()
+}
+
 fn principal_indices(m: &crate::material::Material, w: Wavelength) -> Result<[f64; 3]> {
     Ok(m.principal_permittivity(w)?.map(|e| e.re.max(0.0).sqrt()))
 }
@@ -1670,6 +1697,23 @@ pub(super) fn modes(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
     };
     let mut sorted: Vec<_> = found.iter().collect();
     sorted.sort_by(|a, b| b.effective_index().re.total_cmp(&a.effective_index().re));
+    // the quantities asked for, from the one-sided fields, as the library takes them
+    let quantities = match task.quantities {
+        Some(q) => {
+            let sided = sorted
+                .iter()
+                .map(|m| m.fields_one_sided(&cs))
+                .collect::<Result<Vec<_>>>()?;
+            let products = crate::mode::quantities::orthogonality(
+                &sided,
+                crate::mode::quantities::Product::Conjugated,
+            );
+            // the guides' media: above the index around them
+            let guides: Vec<bool> = cs.cells().iter().map(|p| cell_index(p) > edge).collect();
+            Some((q, sided, products, guides))
+        }
+        None => None,
+    };
     for (k, m) in sorted.iter().enumerate() {
         if stop.reason().is_some() {
             return Ok(());
@@ -1694,6 +1738,34 @@ pub(super) fn modes(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
         })?;
         if let Some(event) = loss(None, &label, m, lam)? {
             run.record(&event)?;
+        }
+        if let Some((q, sided, products, guides)) = &quantities {
+            let one = &sided[k];
+            let area = one.effective_area();
+            run.record(&Event::ModeQuantities {
+                label: label.clone(),
+                wavelength_um: lam.to_um(),
+                effective_area_um2: area,
+                effective_area_transverse_um2: one.effective_area_transverse(),
+                confinement: one
+                    .power_shares()
+                    .iter()
+                    .zip(guides)
+                    .filter(|(_, g)| **g)
+                    .map(|(s, _)| s)
+                    .sum(),
+                gamma_per_w_m: q
+                    .nonlinear_index_m2_per_w
+                    .map(|n2| crate::mode::quantities::nonlinear_coefficient(lam, n2, area)),
+                orthogonality: products
+                    .as_ref()
+                    .map(|o| {
+                        (0..o.len())
+                            .map(|b| [o.get(k, b).re, o.get(k, b).im])
+                            .collect()
+                    })
+                    .unwrap_or_default(),
+            })?;
         }
         if let Some(export) = &task.export {
             export_mode(export, job, run, &label, m, &fields, lam)?;

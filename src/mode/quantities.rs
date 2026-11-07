@@ -91,6 +91,25 @@ impl Fields {
         self.copies() * sum * sum / sq
     }
 
+    /// Each cell's share of the power through the window, Re S_z dA / Σ Re S_z dA, in the
+    /// fields' cell order (x outer, y inner: cell (i, j) at `i * ny + j`): the shares of a set
+    /// of cells add up to its confinement. With a mirror wall the window's cells hold the share
+    /// they and their images hold of the whole cross-section; a set symmetric as the window is
+    /// (a material's cells) has the whole cross-section's confinement. All zero for fields that
+    /// carry no power.
+    pub fn power_shares(&self) -> Vec<f64> {
+        let p: Vec<f64> = self
+            .poynting()
+            .zip(&self.area)
+            .map(|(s, a)| s.re * a)
+            .collect();
+        let total: f64 = p.iter().sum();
+        if total == 0.0 {
+            return vec![0.0; p.len()];
+        }
+        p.iter().map(|v| v / total).collect()
+    }
+
     /// The nonlinear coefficient γ = 2π n₂ / (λ A_eff), in 1/(W m), for a nonlinear index `n2`
     /// in m²/W, uniform, and [`Fields::effective_area`]'s A_eff: Afshar and Monro's Eq. 42 with
     /// their field-weighted n̄₂ taken as n₂.

@@ -458,6 +458,21 @@ pub struct VectorMode {
     pub e: [Vec<c64>; 3],
     /// H_x, H_y and H_z, the largest transverse component of H at the grid's nodes 1.
     pub h: [Vec<c64>; 3],
+    /// The effective area for the Kerr effect, µm²: Afshar and Monro's Eq. 41, the whole
+    /// cross-section's ([`crate::mode::fields::Fields::effective_area`], from the one-sided
+    /// fields).
+    pub effective_area_um2: f64,
+    /// The standard effective area from E_t alone, µm²: their Eq. 44
+    /// ([`crate::mode::fields::Fields::effective_area_transverse`]).
+    pub effective_area_transverse_um2: f64,
+    /// Each cell's share of the power through the window, `(ny, nx)` in C order, adding up to
+    /// 1 ([`crate::mode::fields::Fields::power_shares`]): a set of cells' sum is its
+    /// confinement.
+    pub power_shares: Vec<f64>,
+    /// The normalized product O_ab = ⟨a, b⟩ / (Re⟨a, a⟩ Re⟨b, b⟩)^½ of this mode with each mode
+    /// returned, in their order ([`crate::mode::quantities::orthogonality`], conjugated): 1 with
+    /// itself, near 0 with the others for an orthogonal set.
+    pub orthogonality: Vec<c64>,
 }
 
 /// Of the `count` modes of `cross_section` at `wavelength_um` whose effective indices are
@@ -529,9 +544,20 @@ pub fn vector_modes(
             None => return Ok(None),
         }
     }
+    // the quantities from the one-sided fields, as the library's take them
+    let sided = modes
+        .iter()
+        .map(|m| m.fields_one_sided(&cs))
+        .collect::<Result<Vec<_>>>()?;
+    let products = crate::mode::quantities::orthogonality(
+        &sided,
+        crate::mode::quantities::Product::Conjugated,
+    );
     modes
         .iter()
-        .map(|mode| {
+        .zip(&sided)
+        .enumerate()
+        .map(|(a, (mode, one))| {
             let fields = mode.fields(&cs)?;
             let (nx, ny) = (fields.x().len(), fields.y().len());
             // the library's (i, j), in C order (j, i)
@@ -541,6 +567,7 @@ pub fn vector_modes(
                     .map(|(i, j)| f(i, j))
                     .collect()
             };
+            let shares = one.power_shares();
             Ok(VectorMode {
                 effective_index: mode.effective_index(),
                 te_fraction: mode.te_fraction(),
@@ -548,6 +575,16 @@ pub fn vector_modes(
                 y_um: fields.y().to_vec(),
                 e: [0, 1, 2].map(|c| component(&|i, j| fields.e(i, j)[c])),
                 h: [0, 1, 2].map(|c| component(&|i, j| fields.h(i, j)[c])),
+                effective_area_um2: one.effective_area(),
+                effective_area_transverse_um2: one.effective_area_transverse(),
+                power_shares: (0..ny)
+                    .flat_map(|j| (0..nx).map(move |i| i * ny + j))
+                    .map(|k| shares[k])
+                    .collect(),
+                orthogonality: products
+                    .as_ref()
+                    .map(|o| (0..o.len()).map(|b| o.get(a, b)).collect())
+                    .unwrap_or_default(),
             })
         })
         .collect::<Result<Vec<_>>>()

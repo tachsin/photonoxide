@@ -419,6 +419,73 @@ fn fold_differences(h: f64) -> Vec<(bool, Boundary, Boundary, [f64; 3])> {
     out
 }
 
+/// The symmetric strip's two guided modes on 20 nm cells through the façade
+/// ([`crate::facade::vector_modes`], as Python has them) against the library's own calls on the
+/// same cross-section: the largest relative gap of the effective areas (Eq. 41 and 44), of the
+/// confinement in the silicon (the façade's power shares summed over its cells against
+/// [`VectorMode::confinement`]), and the largest gap of the orthogonality matrix; and the
+/// façade's fundamental's area, µm².
+pub(crate) fn facade_quantities() -> (f64, f64) {
+    let cs = symmetric_strip(0.02, Boundary::Zero, Boundary::Zero);
+    let library = vector::guided_modes(&cs, lam(), 2, None).expect("the solver converges");
+    let (x, y) = (cs.x().to_vec(), cs.y().to_vec());
+    let (nx, ny) = (x.len() - 1, y.len() - 1);
+    let cells = cs.cells();
+    // the library's (i, j) at i·ny + j; the façade's (ny, nx) in C order
+    let eps: Vec<c64> = (0..ny)
+        .flat_map(|j| (0..nx).map(move |i| (i, j)))
+        .map(|(i, j)| cells[i * ny + j].xx)
+        .collect();
+    let si = Permittivity::isotropic(c64::new(CORE * CORE, 0.0));
+    let facade = crate::facade::vector_modes(
+        &crate::facade::CrossSection::new(x, y, eps.clone()),
+        1.55,
+        2,
+        None,
+        &crate::run::Stop::new(None),
+    )
+    .expect("the façade solves")
+    .expect("not stopped");
+    let sided: Vec<Fields> = library
+        .iter()
+        .map(|m| m.fields_one_sided(&cs).expect("one-sided fields"))
+        .collect();
+    let products = orthogonality(&sided, Product::Conjugated).expect("one grid");
+    let rel = |a: f64, b: f64| (a / b - 1.0).abs();
+    let mut gap = 0.0f64;
+    for (a, (f, m)) in facade.iter().zip(&library).enumerate() {
+        let core: f64 = f
+            .power_shares
+            .iter()
+            .zip(&eps)
+            .filter(|(_, e)| **e == si.xx)
+            .map(|(s, _)| s)
+            .sum();
+        gap = gap
+            .max(rel(f.effective_area_um2, sided[a].effective_area()))
+            .max(rel(
+                f.effective_area_transverse_um2,
+                sided[a].effective_area_transverse(),
+            ))
+            .max(rel(
+                core,
+                m.confinement(&cs, &Region::Material(si))
+                    .expect("a confinement"),
+            ));
+        for b in 0..library.len() {
+            gap = gap.max((f.orthogonality[b] - products.get(a, b)).norm());
+        }
+    }
+    (gap, facade[0].effective_area_um2)
+}
+
+#[test]
+fn the_facades_quantities_are_the_librarys() {
+    let (gap, area) = facade_quantities();
+    assert!(gap < 1e-12, "{gap:e}");
+    assert!(area > 0.05 && area < 0.5, "{area}");
+}
+
 /// The observed order of `error` over spacings 10, 5 and 2.5 nm: the mean of the two halvings'.
 fn order(error: impl Fn(f64) -> f64) -> f64 {
     let e: Vec<f64> = [0.01, 0.005, 0.0025].into_iter().map(error).collect();
@@ -456,6 +523,21 @@ fn orders(measured: f64) -> Outcome {
 /// Every case of a mode's quantities, in report order.
 pub(crate) fn cases() -> Vec<Case> {
     vec![
+        Case {
+            id: "mode/quantities-facade-strip",
+            title: r"A 480 × 200 nm silicon strip (3.473) in oxide (1.444) on 20 nm cells, its two guided modes at 1.55 µm through the façade's `vector_modes` (Python's `VectorMode`) against the library's own calls on the same cross-section: the effective areas (Afshar and Monro's Eq. 41 and 44), the confinement in the silicon from the façade's power shares, and the orthogonality matrix, the largest gap (the fundamental's area in µm² shown)",
+            tier: Tier::Analytic,
+            source: r"`Fields::effective_area`, `effective_area_transverse`, `VectorMode::confinement` and `quantities::orthogonality` of the same modes (themselves checked by `mode/effective-area-slab-te`, `mode/confinement-slab-te` and `mode/orthogonality-slab`): one set of sums reached two ways",
+            run: || {
+                let (gap, area) = facade_quantities();
+                Outcome {
+                    measured: area,
+                    expected: area,
+                    tolerance: 1e-12 * area,
+                    error: gap * area,
+                }
+            },
+        },
         Case {
             id: "mode/effective-area-gaussian",
             title: r"Effective area of a Gaussian mode field $e^{-r^2/w^2}$ ($w$ = 1 µm, 50 nm cells to $\pm 6$ µm) by Afshar and Monro's Eq. 41 and Eq. 44, on the whole window, its half behind a wall and its quarter: the largest relative difference from $\pi w^2$ (shown)",
