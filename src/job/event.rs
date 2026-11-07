@@ -824,4 +824,31 @@ pub enum Event {
         /// The spectrum.
         spectrum: Box<super::PairSpectrum>,
     },
+    /// A `"quantum"` job's photons on a chip's ports: every pattern at the ports for photons
+    /// alike and told apart ([`super::QuantumStatistics`]).
+    QuantumStatistics {
+        /// The statistics.
+        statistics: Box<super::QuantumStatistics>,
+    },
+    /// A `"quantum"` job's samples of those photons against their exact distribution
+    /// ([`super::QuantumSamples`]).
+    QuantumSamples {
+        /// The samples.
+        samples: Box<super::QuantumSamples>,
+    },
+    /// A `"quantum"` job's Hong–Ou–Mandel dip through the chip's S(ω) ([`super::QuantumDip`]).
+    QuantumDip {
+        /// The dip.
+        dip: Box<super::QuantumDip>,
+    },
+    /// A `"quantum"` job's loss budget: each photon's best route ([`super::QuantumBudget`]).
+    QuantumBudget {
+        /// The budget.
+        budget: Box<super::QuantumBudget>,
+    },
+    /// A `"quantum"` job's squeezed light through the chip ([`super::QuantumSqueezed`]).
+    QuantumSqueezed {
+        /// The state's numbers.
+        squeezed: Box<super::QuantumSqueezed>,
+    },
 }

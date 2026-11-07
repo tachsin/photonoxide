@@ -1,6 +1,8 @@
 //! Fock states of photons in modes, the probability of each output pattern, and the
 //! distribution over all of them.
 
+use std::collections::BTreeMap;
+
 use num_complex::Complex64 as c64;
 
 use super::Matrix;
@@ -380,15 +382,44 @@ impl Distribution {
     /// The total variation distance to another distribution, ½ Σ |p − q| over the patterns of
     /// either.
     pub fn total_variation(&self, other: &Distribution) -> f64 {
-        let mut sum = 0.0;
-        for (p, &q) in self.patterns.iter().zip(&self.probabilities) {
-            sum += (q - other.probability_of(p)).abs();
+        // each side's patterns by name, so that the distance takes n log n, not n²
+        fn by_pattern(d: &Distribution) -> BTreeMap<&Fock, f64> {
+            let mut m: BTreeMap<&Fock, f64> = BTreeMap::new();
+            for (p, &q) in d.patterns.iter().zip(&d.probabilities) {
+                *m.entry(p).or_default() += q;
+            }
+            m
         }
-        for (p, &q) in other.patterns.iter().zip(&other.probabilities) {
-            if !self.patterns.contains(p) {
+        let (mine, theirs) = (by_pattern(self), by_pattern(other));
+        let mut sum = 0.0;
+        for (p, &q) in &mine {
+            sum += (q - theirs.get(p).copied().unwrap_or(0.0)).abs();
+        }
+        for (p, &q) in &theirs {
+            if !mine.contains_key(p) {
                 sum += q;
             }
         }
         0.5 * sum
+    }
+
+    /// The empirical distribution of counted samples: each pattern with its count's share of
+    /// the counts' total, in sorted order, a pattern counted twice summed and one counted 0
+    /// times left out.
+    pub fn from_counts(counts: &[(Fock, usize)]) -> Distribution {
+        let mut summed: BTreeMap<&Fock, usize> = BTreeMap::new();
+        for (f, c) in counts {
+            *summed.entry(f).or_default() += c;
+        }
+        let total = summed.values().sum::<usize>().max(1) as f64;
+        let (patterns, probabilities) = summed
+            .into_iter()
+            .filter(|(_, c)| *c > 0)
+            .map(|(f, c)| (f.clone(), c as f64 / total))
+            .unzip();
+        Distribution {
+            patterns,
+            probabilities,
+        }
     }
 }

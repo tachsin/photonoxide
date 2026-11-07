@@ -539,6 +539,7 @@ mod params;
 mod pockels;
 #[cfg(test)]
 mod pockels_tests;
+mod quantum;
 pub mod results;
 mod sampled;
 mod scene;
@@ -595,6 +596,11 @@ pub use nonlinear::{
 pub use optimize::{
     Aim, Bound, Evaluation, GradientCheck, Keep, Optimization, Problem, Recorder, Schedule,
     Variable, design_of, optimize_from_chip, optimize_from_device, optimizes,
+};
+pub use quantum::{
+    DipTask, LegTask, PhotonsOn, QuantumBudget, QuantumCount, QuantumDip, QuantumLeg,
+    QuantumPattern, QuantumSamples, QuantumSqueezed, QuantumStage, QuantumStatistics,
+    QuantumThreshold, SampleTask, SqueezedTask, quantum_from_chip,
 };
 pub use scene::{
     SceneEtched, SceneLayer, SceneMedium, ScenePort, SceneShape, design_scene, preview_ports,

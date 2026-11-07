@@ -1390,7 +1390,9 @@ The studio's Materials page has the same job as a form under **Nonlinear process
 list: the process, the waveguide, the poling, the pump and the map; the setup, the phase-matching
 map, the efficiency along the length and the joint spectrum drawn from the job's events; and every
 material's transparency window as a band over wavelength, the process's wavelengths marked on
-top. A run of the job opens on the same charts in the run view.
+top. A run of the job opens on the same charts in the run view. Under it, **Photon-pair sources**
+takes the pairs further: their Schmidt weights, brightness, heralding through filters and
+couplers, and pairs per pulse, for a guide, a crystal or a ring ([quantum.md](quantum.md#pair-sources)).
 
 Two cases run Zhao et al.'s guide ([above](#zhao-et-als-guide)) through a job, on the job's
 default 20 nm cells behind a mirror wall, at 20 °C (Malitson's own temperature, where the

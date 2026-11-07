@@ -1,9 +1,11 @@
 ---
 title: "The materials catalogue"
 module: material::catalogue
-summary: "Each material's index models, crystal, χ⁽²⁾ and Pockels tensors, every number from its paper: silica, silicon, nitride, GaAs and AlGaAs, InGaP, InP, AlN, and lithium niobate in bulk, MgO-doped and as thin film."
+summary: "Each material's index models, crystal, χ⁽²⁾ and Pockels tensors, every number from its paper: silica, silicon, nitride, GaAs and AlGaAs, InGaP, InP, AlN, lithium niobate in bulk, MgO-doped and as thin film, and NbN, the film of single-photon detectors."
 order: 2.5
 papers:
+  - cite: "V. Anant, A. J. Kerman, E. A. Dauler, J. K. W. Yang, K. M. Rosfjord, K. K. Berggren, Opt. Express 16, 10750 (2008)"
+    doi: 10.1364/OE.16.010750
   - cite: "H. H. Li, J. Phys. Chem. Ref. Data 9, 561 (1980)"
     doi: 10.1063/1.555624
   - cite: "D. B. Leviton, B. J. Frey, Proc. SPIE 6273, 62732K (2006)"
@@ -464,6 +466,36 @@ film crystallizes when held above $T_c$ long enough (milliseconds for
 Sb₂Se₃ by Lawson et al.; the kinetics aren't modelled) and is amorphized when it melts and is
 quenched; latent heat doesn't change when a film first reaches $T_m$, so the switching
 thresholds need none.
+
+## Superconducting films
+
+NbN, the film of superconducting nanowire single-photon detectors, is the entry `nbn` (category
+`superconductor`). Its index is Anant et al.'s (Opt. Express 16, 10750 (2008),
+doi:10.1364/OE.16.010750). J. A. Woollam, Inc. measured it for them by spectroscopic ellipsometry
+at room temperature, on a 12 nm NbN film on a sapphire wafer (note 18, p. 10751). The paper
+prints $n = 5.23 - i5.82$ at 1550 nm (p. 10754), $5.23 + 5.82i$ in the library's convention, and
+plots n and k from 600 to 1650 nm in its Fig. 6(b) (p. 10760). The catalogue's table is our
+reading of that figure's vector curves, through natural cubic splines in λ:
+
+| λ (nm) | 600 | 800 | 1000 | 1200 | 1400 | 1550 | 1650 |
+|---|---|---|---|---|---|---|---|
+| n | 2.59 | 3.27 | 3.90 | 4.44 | 4.91 | 5.23 | 5.43 |
+| k | 3.47 | 4.23 | 4.77 | 5.20 | 5.57 | 5.82 | 5.98 |
+
+The reading at 1550 nm, 5.229 and 5.824, is the printed value within 0.004. The model refuses
+wavelengths outside 0.6–1.65 µm. Three caveats come with it, all from the paper:
+
+- **The film's thickness.** A detector's film is a few nm thick; the index was measured on 12 nm.
+  Anant et al. apply it to their 4–6 nm films and name the difference, and the films' different
+  growth batches, as possible errors in their fit (p. 10757).
+- **The temperature.** A detector works below the film's critical temperature, where no index was
+  measured. Their absorptance at 6 K didn't differ significantly from the one at room temperature
+  (p. 10757).
+- **The structure.** The paper names none, so the entry's crystal system is `not-specified`: the
+  catalogue takes the film as isotropic, as the ellipsometry does, and claims no symmetry.
+
+Pernice et al.'s waveguide detector is computed with it (the quantum page, "Real components").
+WSi, MoSi and low-temperature GaAs films are not in the catalogue: their papers are not in hand.
 
 ## Electrical resistivities
 

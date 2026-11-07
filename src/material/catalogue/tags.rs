@@ -173,6 +173,14 @@ const CAVEATS: &str = "This holds in the electric-dipole approximation; what rem
 
 fn symmetry(crystal: &Crystal) -> Tag {
     let pg = crystal.point_group.as_str();
+    if crystal.system == CrystalSystem::NotSpecified {
+        return tag(
+            "symmetry",
+            "not specified",
+            "Without the structure the catalogue states nothing of what the symmetry allows: the point group alone would fix which elements of $\\chi^{(2)}$ and the Pockels tensor vanish, and the entry has no tensors.",
+            NYE,
+        );
+    }
     if crystal.system == CrystalSystem::Amorphous {
         return tag(
             "symmetry",
@@ -238,6 +246,8 @@ fn optical(crystal: &Crystal) -> Tag {
             "optically isotropic",
             if crystal.system == CrystalSystem::Amorphous {
                 "One refractive index for every direction and polarization: the dielectric tensor of an amorphous solid is, on average, a scalar."
+            } else if crystal.system == CrystalSystem::NotSpecified {
+                "One refractive index, as the source measured it: the film is taken as isotropic, which its structure, not given, neither supports nor rules out."
             } else {
                 "One refractive index for every direction and polarization: a cubic point group makes every second-rank tensor, the dielectric tensor among them, a scalar."
             },
@@ -301,12 +311,24 @@ impl Entry {
                 "One state of a material that a heat pulse switches between amorphous and crystalline, and that keeps either without power: each state is its own entry.",
                 "",
             ),
+            Category::Superconductor => tag(
+                "category",
+                "superconducting film",
+                "The film of a superconducting nanowire single-photon detector: strongly absorbing at optical wavelengths. Its optical constants are as its paper measured them, above the critical temperature; each index model says on what film.",
+                "",
+            ),
         }];
         tags.push(match c.system {
             CrystalSystem::Amorphous => tag(
                 "system",
                 "amorphous",
                 "No long-range order, so no crystal system or lattice.",
+                "",
+            ),
+            CrystalSystem::NotSpecified => tag(
+                "system",
+                "structure not specified",
+                format!("The crystal structure isn't given: {}.", c.notes),
                 "",
             ),
             system => {
@@ -344,6 +366,13 @@ impl Entry {
                     NYE,
                 )
             });
+        } else if c.system == CrystalSystem::NotSpecified {
+            tags.push(tag(
+                "point-group",
+                "point group not specified",
+                "The entry's sources don't give the structure, so the catalogue names no point group.",
+                "",
+            ));
         }
         if let Some(sg) = &c.space_group {
             let (tex, number) = space_group_latex(sg);

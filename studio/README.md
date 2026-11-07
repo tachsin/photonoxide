@@ -445,7 +445,7 @@ in a drawer opened from the status bar.
   - **Quantum**, beside Study and Optimize: photons through the chip, computed by
     `photonoxide::quantum` (docs/methods/quantum.md) a moment after the chip or the form
     changes. Every external port takes photons in and lets them out; a lossy chip's loss is
-    dilated to loss modes, which the lost photons leave by. Three parts (Left and Right move
+    dilated to loss modes, which the lost photons leave by. Five parts (Left and Right move
     between them):
     - **Photons:** photons on each port (+ and −, up to 8 in all) at a wavelength of the sweep.
       The output patterns where every photon arrives, most likely first (the first 40, the rest
@@ -454,6 +454,14 @@ in a drawer opened from the status bar.
       port's mean photon number and P(0), P(1), P(≥2); and |S| between the ports, its phase on
       hover. Up to 16 ports and 100 000 patterns over the ports and loss modes; beyond, it says
       how many there would be.
+    - **Sampling:** the Photons part's photons sampled live by the library's exact sampler
+      (`Transfer::sample`, Clifford and Clifford's algorithm B), batch after batch, each batch
+      with a seed of its own and a hard limit of 1 s, the run stopped at the samples asked for,
+      its time limit or **Stop**. Against the exact distribution: the total variation distance
+      against N on log–log axes beside what a correct sampler reaches,
+      ½ Σ √(2p(1 − p)/(πN)), the most likely patterns' exact and sampled shares, and any
+      pattern sampled that the exact distribution gives no weight. A change of the chip, the
+      photons or the wavelength starts again.
     - **HOM dip:** photon 1 into a port, delayed, photon 2 into another (Gaussian spectra, a
       centre and a width each), the coincidences between two ports against the delay through
       the chip's own S(ω) over its sweep, with the visibility, the deepest delay and the level of
@@ -469,6 +477,19 @@ in a drawer opened from the status bar.
       Varnava et al.'s and Bartolucci et al.'s thresholds on a photon's transmission as lines,
       their assumptions on hover; beside it, the n-photon event and the chip's own |S|² between
       the two ports, which holds every route's interference.
+    - **Squeezed light:** squeezed vacuum on chosen ports (its squeezing in dB, at the angle φ of
+      ξ = r e^(iφ)), each then displaced by α, the vacuum on the rest, through the chip's own
+      S-matrix with its loss as vacuum noise (`photonoxide::quantum::Gaussian`). Each port's
+      squeezing given and, for the light that leaves it, its squeezed and anti-squeezed
+      quadratures in dB, the angle squeezed most and ⟨n⟩; the whole state's purity and the loss
+      modes; one port's photon numbers P(0) to P(30) by hafnians, with what lies beyond; its
+      Wigner function on a grid; and the covariance of every quadrature. Up to 20 dB and |α| ≤ 5
+      a port; with no port given anything, it says what to do.
+    - **Run as a job:** every part's forms as they stand, written as a `"quantum"` task beside
+      the chip's `[circuit]` (`photonoxide::job`): the photons and 10 000 samples of them, the
+      dip over the chip's sweep, the budget's photons on their best routes and the squeezed
+      light. The run is kept in the runs drawer, its record holds the same numbers the parts
+      compute in place, and the run view draws them; `photonoxide run` runs the same file.
     - Refused, with the library's reason: a chip with gain (it can't be dilated with vacuum), a
       port that isn't one, a wavelength outside the sweep; an incomplete chip waits until it is
       finished.
@@ -553,6 +574,33 @@ in a drawer opened from the status bar.
     sources, faint where no paper in hand gives one, two-photon absorption below twice the band
     edge's wavelength, the range of the index data), at a temperature and the alloys'
     compositions, the process's wavelengths marked on top.
+  - **Photon-pair sources**, under it: the source designer. A source's pairs computed a moment
+    after the form changes, by `photonoxide::nonlinear::pairs` and `photonoxide::quantum`
+    (docs/methods/quantum.md). The Chip page's Quantum tab leads here with **Pair sources →**.
+    - **The source:** a guide given by each wave's group index and dispersion at its centre,
+      phase matched at the centres, for down-conversion or four-wave mixing; a catalogue
+      crystal, each wave on an axis, poled for the centres (its period stated); a ring on a
+      bus, the pump on the resonance nearest its wavelength and the pairs a number of free
+      spectral ranges either side (its linewidths, Q and free spectral range stated); or a
+      guide pumped in two modes, one pump delayed (where the pumps meet stated). With the
+      pump's centre and bandwidth, the signal's wavelength, the grid, and the mean number of
+      pairs per pulse. A few starting points: a correlated guide and a group-velocity matched
+      one, type-II PPLN, Helt et al.'s ring, a ring whose pump resonance a second channel widens,
+      and two pumps in two modes.
+    - **What it shows:** the joint spectral amplitude |f| and intensity |f|² as maps (against
+      the photons' wavelengths, or their detunings in GHz for a ring); the Schmidt weights as
+      bars with the purity, the Schmidt number and the modes above 10⁻⁶; the brightness where
+      the library defines one (down-conversion: pairs/(s·GHz·mW) at the signal's centre, as the
+      nonlinear job gives it, and pairs/(s·mW) over the grid for a continuous pump); the
+      heralding efficiencies through each arm's ring filter (its drop port) and coupler (its
+      cross port), from their S-matrices, without and with each detector's efficiency, and the
+      heralded photons' purity; and the pairs per pulse: P(0) to P(5), the share of pulses with
+      a pair that hold more, and the unheralded g⁽²⁾.
+    - **Limits:** 11 to 301 points across each axis (an SVD of 301 × 301 stays live), a grid
+      at most 15% of the photons' frequencies either side, up to 1 pair per pulse (the Schmidt
+      modes are the low-gain ones: above 0.1 it says the gain may reshape them). It says when
+      the amplitude is still above 1% of its peak at the grid's edge, or above half its peak on
+      fewer than 3 points, since the purity is then the grid's; every refusal gives its numbers.
 - **Validation** (in System), in two tabs:
   - **Cases:** the release's report, searchable, its math rendered, and the same report run on
     this machine.
@@ -985,7 +1033,9 @@ node scripts/record-gifs.mjs --only hero,academy  # some: hero, device, material
   - `examples.rs`: the examples and jobs built in.
   - `settings.rs`: the settings and the workspace.
   - `materials.rs`: the Materials page's commands; `nonlinear.rs` its nonlinear view's (a
-    `"nonlinear"` job computed in place, and every material's transparency window).
+    `"nonlinear"` job computed in place, and every material's transparency window);
+    `sources.rs` its source designer's (a photon-pair source, computed by
+    `photonoxide::nonlinear::pairs` and `photonoxide::quantum`).
   - `circuits.rs`: the Components and Chip pages' commands, and chip files; `circuits/chip.rs`
     an instance's device design and the chip's jobs (the library's chip of a chip file, the
     Study and Optimize panels' jobs, a chip's job opened on the page); `circuits/library.rs`

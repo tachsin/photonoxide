@@ -3,7 +3,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { MOST_PHOTONS, axisTo, dB, defaultPhotons, inputsOf, patternLabel, percent, photonsOn, routeName, total, waterfall } from "../src/lib/quantum.ts";
+import { MOST_PHOTONS, axisTo, dB, defaultPhotons, defaultSqueezed, dipPorts, quantumTask, inputsOf, patternLabel, percent, photonsOn, quadratureLabels, routeName, squeezedOn, total, waterfall } from "../src/lib/quantum.ts";
 
 test("a pattern is named by the ports that hold its photons", () => {
   const ports = ["in1", "in2", "out1", "out2"];
@@ -61,4 +61,42 @@ test("a waterfall's bars start where the stage before ends", () => {
   assert.equal(axisTo(0.2, [0.12]), 1.5);
   assert.equal(axisTo(42, []), 50);
   assert.equal(axisTo(0, []), 1.5);
+});
+
+test("squeezed light starts on the first input, keeps one input per port and drops ports gone", () => {
+  assert.deepEqual(defaultSqueezed(["out1", "in2", "in1"]), [{ port: "in2", squeezing_db: 6, angle_deg: 0, displacement: [0, 0] }]);
+  assert.deepEqual(defaultSqueezed(["a", "b"])[0].port, "a");
+  assert.deepEqual(defaultSqueezed([]), []);
+  const kept = squeezedOn(["a", "c"], [{ port: "a" }, { port: "b" }, { port: "a" }, { port: "c" }]);
+  assert.deepEqual(kept, [{ port: "a" }, { port: "c" }]);
+  assert.deepEqual(quadratureLabels(["a", "b"]), ["x a", "x b", "p a", "p b"]);
+});
+test("the dip's ports fall back to the first two inputs into two other ports", () => {
+  assert.deepEqual(dipPorts(["in1", "in2", "out1", "out2"], ["", ""], ["", ""]), { inputs: ["in1", "in2"], outputs: ["out1", "out2"] });
+  assert.deepEqual(dipPorts(["a", "b", "c"], ["c", "zz"], ["a", ""]), { inputs: ["c", "b"], outputs: ["a", "b"] });
+});
+
+test("a quantum job's task holds each part the forms give, and leaves out the rest", () => {
+  const forms = {
+    ports: ["in1", "in2", "out1", "out2"],
+    wavelength: 1.55,
+    photons: { in1: 1, in2: 1, out1: 0, out2: 0 },
+    samples: 10000,
+    seed: 1,
+    dip: { inputs: ["", ""] as [string, string], outputs: ["", ""] as [string, string], photons: [{ center_um: null, fwhm_nm: 1 }, { center_um: 1.551, fwhm_nm: 2 }], span_ps: null, points: 201 },
+    band: { from_um: 1.5, to_um: 1.6, points: 1001 },
+    budget: [{ from: "in1", to: "out1" }, { from: "gone", to: "out2" }],
+    squeezed: [{ port: "in1", squeezing_db: 6, angle_deg: 0, displacement: [0, 0] as [number, number] }],
+  };
+  const task = quantumTask(forms);
+  assert.deepEqual(task.photons, [{ port: "in1", count: 1 }, { port: "in2", count: 1 }]);
+  assert.deepEqual(task.sample, { samples: 10000, seed: 1 });
+  assert.deepEqual(task.dip, { inputs: ["in1", "in2"], outputs: ["out1", "out2"], center_um: [1.55, 1.551], fwhm_nm: [1, 2], from_um: 1.5, to_um: 1.6, points: 1001, delays: 201 });
+  assert.deepEqual(task.budget, [{ from: "in1", to: "out1" }]);
+  assert.equal((task.squeezed as unknown[]).length, 1);
+  // no photons: no statistics and no samples; nothing null is written (TOML has no null)
+  const bare = quantumTask({ ...forms, photons: {}, budget: [], squeezed: [] });
+  assert.equal(bare.photons, undefined);
+  assert.equal(bare.sample, undefined);
+  assert.ok(!JSON.stringify(bare).includes("null"));
 });

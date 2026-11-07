@@ -911,6 +911,106 @@ pub(crate) fn film_slab(film: c64, step: Option<f64>) -> c64 {
     }
 }
 
+/// Pernice et al.'s travelling-wave detector in cross-section (W. H. P. Pernice et al., Nat.
+/// Commun. 3, 1325 (2012), doi:10.1038/ncomms2307, p. 3 and Methods): a 750 × 110 nm silicon
+/// strip on its buried oxide under air, two NbN wires 100 nm wide and 120 nm apart, `thick` µm
+/// thick, on its top, centred. Silicon and silica as the catalogue gives them at room
+/// temperature, NbN as Anant et al. measured it ([`crate::material::catalogue::films`]). Its
+/// TE mode's complex effective index at 1.55 µm by the full-vector solver: half the
+/// cross-section, behind an electric wall on the plane of symmetry (the TE mode's E_x is even
+/// across it); nodes `h` µm apart over the strip and the wires, growing by 0.05 per µm outside
+/// to 0.05 µm, every interface a node, the wires in cells of a quarter of `h` at most across
+/// their thickness.
+#[cfg(test)]
+pub(crate) fn pernice_guide(thick: f64, h: f64) -> c64 {
+    let nbn = crate::material::catalogue::films::anant_nbn()
+        .expect(OK)
+        .refractive_index(um(1.55))
+        .expect(OK);
+    pernice_cross_section(nbn, thick, h)
+}
+
+/// [`pernice_guide`] with wires of index `nbn` (air: the bare strip).
+#[cfg(test)]
+pub(crate) fn pernice_cross_section(nbn: c64, thick: f64, h: f64) -> c64 {
+    use crate::material::catalogue::{Conditions, entry};
+    use crate::mode::vector::{
+        self, Boundaries as Walls, Boundary, CrossSection, Permittivity, graded_nodes,
+    };
+    let lam = um(1.55);
+    let index = |id: &str| -> c64 {
+        entry(id)
+            .expect(OK)
+            .default_model()
+            .expect(OK)
+            .materials(Conditions::default())
+            .expect(OK)[0]
+            .refractive_index(lam)
+            .expect(OK)
+    };
+    let (si, oxide) = (index("si"), index("sio2"));
+    let (half, core) = (0.375, 0.11);
+    // the wires' inner and outer edges: 60 and 160 nm from the centre
+    let (inner, outer) = (0.06, 0.16);
+    let top = core + thick;
+    let x = graded_nodes(0.0, 2.0, (0.0, half), h, 0.05, 0.05, &[inner, outer]);
+    let cells = ((4.0 * thick / h).ceil() as usize).max(2);
+    let fixed: Vec<f64> = (0..=cells)
+        .map(|m| core + thick * m as f64 / cells as f64)
+        .collect();
+    let y = graded_nodes(-2.0, 2.0, (0.0, top), h, 0.05, 0.05, &fixed);
+    let eps = |xc: f64, yc: f64| -> c64 {
+        let n = if yc < 0.0 {
+            oxide
+        } else if yc < core && xc < half {
+            si
+        } else if yc >= core && yc < top && xc > inner && xc < outer {
+            nbn
+        } else {
+            c64::new(1.0, 0.0)
+        };
+        n * n
+    };
+    let cells: Vec<Permittivity> = x
+        .windows(2)
+        .flat_map(|wx| {
+            let xc = 0.5 * (wx[0] + wx[1]);
+            y.windows(2)
+                .map(|wy| Permittivity::isotropic(eps(xc, 0.5 * (wy[0] + wy[1]))))
+                .collect::<Vec<_>>()
+        })
+        .collect();
+    let walls = Walls {
+        west: Boundary::ElectricWall,
+        east: Boundary::Zero,
+        south: Boundary::Zero,
+        north: Boundary::Zero,
+    };
+    let cs = CrossSection::new(x, y, cells)
+        .expect(OK)
+        .with_boundaries(walls)
+        .expect(OK);
+    vector::modes(&cs, lam, 4, Some(2.6))
+        .expect(OK)
+        .into_iter()
+        .filter(|m| m.te_fraction() > 0.5)
+        .max_by(|a, b| a.effective_index().re.total_cmp(&b.effective_index().re))
+        .expect(OK)
+        .effective_index()
+}
+
+/// The attenuation in dB over `length` µm of a mode of effective index `n_eff` at 1.55 µm, from
+/// the fraction it absorbs ([`crate::mode::dispersion::absorbed_fraction`]).
+#[cfg(test)]
+pub(crate) fn attenuation_db(n_eff: c64, length: f64) -> f64 {
+    let a = crate::mode::dispersion::absorbed_fraction(
+        n_eff,
+        um(1.55),
+        crate::units::Length::um(length),
+    );
+    -10.0 * (1.0 - a).log10()
+}
+
 fn spectral_flat_case() -> Outcome {
     worst(spectral_flat(), 1e-13)
 }
@@ -1199,6 +1299,47 @@ mod figures {
                 "reddy {name}: R {:.4} T {:.2e} A {:.4}",
                 a.reflectance, a.transmittance, a.films[4]
             );
+        }
+    }
+
+    #[test]
+    #[ignore = "Pernice et al.'s detector on three grids and two thicknesses: slow"]
+    fn print_pernice() {
+        let start = std::time::Instant::now();
+        for h in [0.004, 0.002, 0.001] {
+            let bare = pernice_cross_section(c64::new(1.0, 0.0), 0.0035, h);
+            let n = pernice_guide(0.0035, h);
+            eprintln!(
+                "bare strip, {:.1} nm nodes: n_eff {:.6} + {:.2e}i; with the wires Re n_eff {:+.3} %",
+                h * 1e3,
+                bare.re,
+                bare.im,
+                (n.re / bare.re - 1.0) * 100.0
+            );
+        }
+        for (thick, grids) in [
+            (0.0035, &[0.008, 0.004, 0.002, 0.001, 0.0005][..]),
+            (0.004, &[0.004, 0.002, 0.001][..]),
+        ] {
+            for &h in grids {
+                let n = pernice_guide(thick, h);
+                eprintln!(
+                    "{:.1} nm NbN, {:.1} nm nodes: n_eff {:.6} + {:.6}i, {:.4} dB in 10 um, \
+                     {:.4} dB/um, {:.4} absorbed in 20 um ({:.1} s)",
+                    thick * 1e3,
+                    h * 1e3,
+                    n.re,
+                    n.im,
+                    attenuation_db(n, 10.0),
+                    attenuation_db(n, 1.0),
+                    crate::mode::dispersion::absorbed_fraction(
+                        n,
+                        um(1.55),
+                        crate::units::Length::um(20.0)
+                    ),
+                    start.elapsed().as_secs_f64()
+                );
+            }
         }
     }
 }
