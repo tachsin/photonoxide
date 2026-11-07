@@ -32,7 +32,7 @@ export function spread(wanted: number[], gap: number, lo: number, hi: number): n
       clusters.pop();
     }
   }
-  const out = new Array<number>(wanted.length);
+  const out: number[] = Array.from({ length: wanted.length }, () => 0);
   for (const c of clusters) {
     const start = Math.max(c.start, lo);
     for (let j = 0; j < c.count; j++) out[order[c.first + j][1]] = start + j * gap;
