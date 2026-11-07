@@ -9,8 +9,9 @@
 # so only its upper half is solved (its even modes), 1.5 um to a PML 4 um thick of strength 0.1.
 # The stop band runs from 1.6025 to 1.66 um (the fundamental Bloch mode's Im K/k0 above 0.01,
 # at most 0.0666 at 1.6325 um), the reflection |S11|^2 reaching 0.99831 at 1.6375 um. With 20
-# modes the guided Bloch mode's K at 1.55 um is 1e-3 from 160 modes' and its Im K/k0, which
-# should be 0 below the light line, is 7.2e-5 (4.8e-6 with 160): docs/methods/eme.md.
+# modes the guided Bloch mode's K at 1.55 um is 1e-3 from 160 modes'. Its Im K/k0, 7.2e-5 here,
+# should be 0 below the light line: it is the PML absorbing the expansion's truncation error, 0
+# to round-off between walls (eme/bloch-grating-lossless) and far below the stop band's 0.01.
 #   photonoxide run jobs/eme-grating.yaml
 name: eme-grating
 timeout_minutes: 10

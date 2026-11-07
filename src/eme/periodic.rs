@@ -107,10 +107,11 @@ impl Bloch {
 
     /// The Bloch modes from the eigenvalues' logarithms, ln λ, paired λ with 1/λ, and ordered by
     /// the eigenvectors' `shares` in the section's modes.
+    ///
+    /// The pairs are taken closest first over all of them: a mode that decays by more than
+    /// e^(−36) or so in one period has its λ or 1/λ lost to round-off (0 or ∞, or a wrong
+    /// magnitude), and its partner then pairs with what is left, never with a guided mode's.
     fn paired(logs: &[c64], shares: &[Vec<f64>], period: f64, k0: f64) -> Bloch {
-        let mut left: Vec<usize> = (0..logs.len()).collect();
-        // the most strongly decaying forward first, the order the pairs are taken in
-        left.sort_by(|&p, &q| logs[p].re.total_cmp(&logs[q].re).then(p.cmp(&q)));
         // how far ln λ_p + ln λ_q is from 0 (mod 2πi): λ_p λ_q = 1 for a pair
         let apart = |p: usize, q: usize| {
             let s = logs[p] + logs[q];
@@ -118,23 +119,39 @@ impl Bloch {
             let d = s.re.hypot(phase);
             if d.is_nan() { f64::INFINITY } else { d }
         };
-        let mut modes: Vec<(c64, c64, usize)> = Vec::new();
-        while let Some(p) = (!left.is_empty()).then(|| left.remove(0)) {
-            let partner = (0..left.len()).min_by(|&i, &j| {
-                apart(p, left[i])
-                    .total_cmp(&apart(p, left[j]))
-                    .then(i.cmp(&j))
-            });
-            if let Some(i) = partner {
-                left.remove(i);
+        let count = logs.len();
+        let mut candidates: Vec<(f64, usize, usize)> = (0..count)
+            .flat_map(|p| (p + 1..count).map(move |q| (p, q)))
+            .map(|(p, q)| (apart(p, q), p, q))
+            .collect();
+        candidates.sort_by(|a, b| a.0.total_cmp(&b.0).then(a.1.cmp(&b.1)).then(a.2.cmp(&b.2)));
+        let mut taken = vec![false; count];
+        // each pair by the one with |λ| ≤ 1, the more strongly decaying forward
+        let mut firsts: Vec<usize> = Vec::with_capacity(count / 2);
+        for (_, p, q) in candidates {
+            if taken[p] || taken[q] {
+                continue;
             }
-            // K Λ = −i ln λ for the one of the pair with |λ| ≤ 1 (taken first): Im ≥ 0
-            let l = logs[p];
-            let lambda = l.exp();
-            let cos = 0.5 * (lambda + (-l).exp());
-            let k = c64::new(l.im.abs(), (-l.re).max(0.0)) / (period * k0);
-            modes.push((cos, k, p));
+            taken[p] = true;
+            taken[q] = true;
+            let decaying = logs[p].re.total_cmp(&logs[q].re).then(p.cmp(&q)).is_le();
+            firsts.push(if decaying { p } else { q });
         }
+        // one left over (an odd count) is a mode of its own
+        firsts.extend((0..count).filter(|&p| !taken[p]));
+        // the most strongly decaying forward first
+        firsts.sort_by(|&p, &q| logs[p].re.total_cmp(&logs[q].re).then(p.cmp(&q)));
+        let mut modes: Vec<(c64, c64, usize)> = firsts
+            .into_iter()
+            .map(|p| {
+                // K Λ = −i ln λ for the one of the pair with |λ| ≤ 1: Im ≥ 0
+                let l = logs[p];
+                let lambda = l.exp();
+                let cos = 0.5 * (lambda + (-l).exp());
+                let k = c64::new(l.im.abs(), (-l.re).max(0.0)) / (period * k0);
+                (cos, k, p)
+            })
+            .collect();
         // the m-th: of those left, the one with the largest share in the section's m-th mode
         let mut ordered = Vec::with_capacity(modes.len());
         let sections = shares.first().map_or(0, Vec::len);
