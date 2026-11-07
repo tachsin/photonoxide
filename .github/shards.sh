@@ -14,11 +14,13 @@
 #            PHOTONOXIDE_VALIDATION_CASES takes them, tests/validation_report.rs) and examples
 #   test     the unit tests' jobs: {os, part, filters, native}: the filters (and --skip's) given
 #            to the test binaries, and whether photonoxide-native's tests run there too
+#            (in the same Cargo command as photonoxide's where the job runs every test)
 #
 # Then it checks the split: every validation case of docs/validation.md the run wants is in exactly
 # one job, and no case is in two; every example the run wants is in exactly one job on each system
-# that runs it, and none is in two there. A case or an example in no job, or in two, fails it (and
-# CI's "What changed" job, so nothing else runs).
+# that runs it, and none is in two there; photonoxide-native's tests, when wanted, are in exactly
+# one job on each system, and never behind a filter that would leave them out. A case or an
+# example in no job, or in two, fails it (and CI's "What changed" job, so nothing else runs).
 #
 # Bash only, no Python and no jq (AGENTS.md; jq isn't on every machine that runs this).
 set -euo pipefail
@@ -187,9 +189,11 @@ fi
 
 # --- The unit tests ----------------------------------------------------------------------------
 #
-# In two jobs on each system: job::'s tests in the first (with photonoxide-native's), every
-# other in the second. A test whose name holds one of the first job's filters runs there, and the
-# second skips it (--skip takes the same substrings), so each test runs once. Measured on
+# In two jobs on each system: job::'s tests in the first, every other in the second. A test whose
+# name holds one of the first job's filters runs there, and the second skips it (--skip takes the
+# same substrings), so each test runs once. photonoxide-native's tests run in the second when it
+# runs every test (its filters are then only --skip's, and CI runs both crates' tests in one Cargo
+# command, which reuses the library's build), else in the first, on their own. Measured on
 # 6 November 2026 (run 42173428828, every test, thread-seconds on Linux and Windows): job:: 736
 # and 1175 of 1970 and 3159, the longest one test of 208 s; photonoxide-native's tests 2.2 and
 # 5.8 minutes, mostly their build. Each job builds the tests (about 5 minutes on Linux, 15 on
@@ -214,9 +218,11 @@ else
   first=${first# } second=${second# }
   [ -z "$second" ] || second+="$skips"
 fi
+native1=$native native2=false
+if [ "$tests" = "*" ] && [ "$native" = true ] && [ -n "$second" ]; then native1=false native2=true; fi
 for os in $systems; do
-  if [ -n "$first" ] || [ "$native" = true ]; then test_entry "$os" "1 of 2" "$first" "$native"; fi
-  if [ -n "$second" ]; then test_entry "$os" "2 of 2" "$second" false; fi
+  if [ -n "$first" ] || [ "$native1" = true ]; then test_entry "$os" "1 of 2" "$first" "$native1"; fi
+  if [ -n "$second" ] || [ "$native2" = true ]; then test_entry "$os" "2 of 2" "$second" "$native2"; fi
 done
 
 # --- The checks --------------------------------------------------------------------------------
@@ -287,6 +293,27 @@ for w in "${want[@]}"; do
   if [ -z "${seen[$w]:-}" ]; then fail "the example ${w#* } is in no job on ${w%% *}"; fi
 done
 if [ "${#want[@]}" -ne "${#seen[@]}" ]; then fail "${#seen[@]} examples run, ${#want[@]} wanted"; fi
+# photonoxide-native's tests, when wanted, in exactly one job on each system; in a job that runs
+# every test they run in the same command as photonoxide's, so its filters must all be --skip's
+# (a filter would leave them out)
+if [ "$native" = true ]; then
+  for os in $systems; do
+    k=0
+    for e in "${tested[@]}"; do
+      case "$e" in *"\"os\":\"$os\""*"\"native\":true"*) ;; *) continue ;; esac
+      k=$((k + 1))
+      if [ "$tests" = "*" ]; then
+        # the filters' words (no globbing: set -f above)
+        # shellcheck disable=SC2046
+        set -- $(field "$e" filters)
+        while [ $# -gt 0 ]; do
+          if [ "$1" = --skip ] && [ $# -ge 2 ]; then shift 2; else fail "photonoxide-native's tests on $os are in a job with the filter \"$1\""; break; fi
+        done
+      fi
+    done
+    if [ "$k" -ne 1 ]; then fail "photonoxide-native's tests are in $k jobs on $os"; fi
+  done
+fi
 [ "$failed" = false ] || exit 1
 echo "checked: each of the ${#want[@]} examples wanted (by system) in exactly one job" >&2
 

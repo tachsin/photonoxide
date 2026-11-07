@@ -224,9 +224,9 @@ jobs:
   # Tier 1: the changed areas' unit tests on Linux. Tier 2 and 3: every test on the three
   # systems, and on Linux once more on one thread: parallel code must not rely on having more
   # than one thread, and must give the same results on one thread as on many. In two jobs on
-  # each system (.github/shards.sh): job::'s tests and photonoxide-native's in the first, every
-  # other test in the second, which skips the first's (FILTERS: the test binaries' filters and
-  # --skip's), so each test runs once.
+  # each system (.github/shards.sh): job::'s tests in the first, every other test in the second,
+  # which skips the first's (FILTERS: the test binaries' filters and --skip's), so each test runs
+  # once; photonoxide-native's tests in the second when it runs every test, else in the first.
   test:
     name: Test (${{ matrix.os }}, ${{ matrix.part }})
     needs: changes
@@ -272,20 +272,31 @@ jobs:
         # shellcheck disable=SC2086
         run: cargo test --all-features --lib -- $FILTERS
       # this job's share of every test (the filters pick by name in each test binary and in the
-      # doc tests)
+      # doc tests), and photonoxide-native's tests with them where the job runs them (its
+      # filters are then only --skip's, which no test of photonoxide-native's has in its name).
+      # In one Cargo command with photonoxide's own, every feature on: Cargo then resolves the
+      # features of the crates both use as it does for photonoxide's tests alone (photonoxide's
+      # dev-dependencies widen some, syn's and memchr's among them) and builds nothing of
+      # photonoxide's again; `cargo test -p photonoxide-native` on its own after it built about
+      # 44 crates once more, the library among them (that step took 185, 384 and 339 s on Linux,
+      # Windows and macOS in run 42390305695, mostly building)
       - name: Every test
         if: env.TESTS == '*'
         # shellcheck disable=SC2086
-        run: cargo test --all-features -- $FILTERS
+        run: cargo test --all-features $PACKAGES -- $FILTERS
+        env:
+          PACKAGES: ${{ matrix.native && '-p photonoxide -p photonoxide-native' || '' }}
       - name: Every test, on one thread
         if: env.TESTS == '*' && needs.changes.outputs.tier != '1' && runner.os == 'Linux'
         # shellcheck disable=SC2086
         run: cargo test --all-features -- $FILTERS
         env:
           RAYON_NUM_THREADS: 1
-      # photonoxide-native against its test library; real libraries are found only where installed
+      # photonoxide-native against its test library, where the job doesn't run every test (Tier 1:
+      # the changed areas' filters would leave its tests out of the command above); real libraries
+      # are found only where installed
       - name: photonoxide-native
-        if: matrix.native
+        if: matrix.native && env.TESTS != '*'
         run: cargo test -p photonoxide-native
 
   # The release build's checks: the validation cases (each row against docs/validation.md) and
