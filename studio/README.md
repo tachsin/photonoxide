@@ -442,6 +442,36 @@ in a drawer opened from the status bar.
     (the largest singular value) and unitarity (the largest |SᴴS − I|, zero when nothing is
     lost). The results follow the chip: a change simulates it again. **Touchstone** saves the
     circuit's spectrum as a `.sNp` file, in photonoxide's e^(−iωt) convention.
+  - **Quantum**, beside Study and Optimize: photons through the chip, computed by
+    `photonoxide::quantum` (docs/methods/quantum.md) a moment after the chip or the form
+    changes. Every external port takes photons in and lets them out; a lossy chip's loss is
+    dilated to loss modes, which the lost photons leave by. Three parts (Left and Right move
+    between them):
+    - **Photons:** photons on each port (+ and −, up to 8 in all) at a wavelength of the sweep.
+      The output patterns where every photon arrives, most likely first (the first 40, the rest
+      summed), as bars for photons alike (|Per|²) and told apart (permanents of |S|²); the
+      probability that every photon arrives and that a port holds two or more (bunching); each
+      port's mean photon number and P(0), P(1), P(≥2); and |S| between the ports, its phase on
+      hover. Up to 16 ports and 100 000 patterns over the ports and loss modes; beyond, it says
+      how many there would be.
+    - **HOM dip:** photon 1 into a port, delayed, photon 2 into another (Gaussian spectra, a
+      centre and a width each), the coincidences between two ports against the delay through
+      the chip's own S(ω) over its sweep, with the visibility, the deepest delay and the level of
+      photons told apart. The delays span four times the photons' coherence unless a span is
+      given. It refuses a photon narrower than 4 of the sweep's steps and delays beyond π over
+      the sweep's largest angular step, which alias, and notes a photon whose spectrum runs past
+      the sweep's ends.
+    - **Loss budget:** photons each from a port to another along a route through the chip:
+      the paths that cross no instance twice, each hop carrying power
+      (`photonoxide::quantum::routes`), the one that keeps the most unless another is chosen. The
+      route's budget is a waterfall, stage by stage in dB (each instance's |S|² at its fidelity,
+      with its provenance on hover, and a source's and a detector's efficiency as stated), with
+      Varnava et al.'s and Bartolucci et al.'s thresholds on a photon's transmission as lines,
+      their assumptions on hover; beside it, the n-photon event and the chip's own |S|² between
+      the two ports, which holds every route's interference.
+    - Refused, with the library's reason: a chip with gain (it can't be dilated with vacuum), a
+      port that isn't one, a wavelength outside the sweep; an incomplete chip waits until it is
+      finished.
   - Keys: Delete removes the selection, R rotates it (Shift+R the other way), M mirrors it top
     to bottom, Ctrl+Z and Ctrl+Y undo and redo, Ctrl+S saves to the workspace's `circuits/`,
     Escape lets go.
