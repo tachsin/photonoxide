@@ -2,7 +2,7 @@
 
 <!-- Written by `photonoxide references --write` (or `just references`) from docs/references.yaml and the citations in the repository: edit those, not this page. -->
 
-Every paper, book and data set photonoxide cites, with every place in the repository that cites it, by file and line. 578 sources, 573 with a DOI and 5 without, are cited at 3365 places in 413 files. The sources are listed by their first author; [references-by-file.md](references-by-file.md) lists each methods page, lesson, example and source file with the sources it cites, and the [validation report](validation.md) gives each case's source on its row. How to cite a source is in [CONTRIBUTING.md](../CONTRIBUTING.md#citing-a-source); the list of sources is [references.yaml](references.yaml).
+Every paper, book and data set photonoxide cites, with every place in the repository that cites it, by file and line. 584 sources, 579 with a DOI and 5 without, are cited at 3383 places in 413 files. The sources are listed by their first author; [references-by-file.md](references-by-file.md) lists each methods page, lesson, example and source file with the sources it cites, and the [validation report](validation.md) gives each case's source on its row. How to cite a source is in [CONTRIBUTING.md](../CONTRIBUTING.md#citing-a-source); the list of sources is [references.yaml](references.yaml).
 
 [A](#a) · [B](#b) · [C](#c) · [D](#d) · [E](#e) · [F](#f) · [G](#g) · [H](#h) · [I](#i) · [J](#j) · [K](#k) · [L](#l) · [M](#m) · [N](#n) · [O](#o) · [P](#p) · [Q](#q) · [R](#r) · [S](#s) · [T](#t) · [U](#u) · [V](#v) · [W](#w) · [X](#x) · [Y](#y) · [Z](#z)
 
@@ -144,6 +144,12 @@ R. Alferness, "Waveguide Electrooptic Modulators", IEEE Trans. Microwave Theory 
 
 - Academy lessons: [mach-zehnder.md:28](../academy/mach-zehnder.md?plain=1#L28), [357](../academy/mach-zehnder.md?plain=1#L357), [modulators.md:43](../academy/modulators.md?plain=1#L43), [477](../academy/modulators.md?plain=1#L477), [691](../academy/modulators.md?plain=1#L691)
 
+#### Almeida et al. 2003
+
+V. R. Almeida, R. R. Panepucci, M. Lipson, "Nanotaper for compact mode conversion", Opt. Lett. 28, 1302 (2003). [doi:10.1364/OL.28.001302](https://doi.org/10.1364/OL.28.001302)
+
+- Academy lessons: [crossings-and-converters.md:36](../academy/crossings-and-converters.md?plain=1#L36), [565](../academy/crossings-and-converters.md?plain=1#L565), [629](../academy/crossings-and-converters.md?plain=1#L629)
+
 #### Amestoy et al. 2001
 
 P. R. Amestoy, I. S. Duff, J.-Y. L'Excellent, J. Koster, "A Fully Asynchronous Multifrontal Solver Using Distributed Dynamic Scheduling", SIAM J. Matrix Anal. Appl. 23, 15 (2001). [doi:10.1137/S0895479899358194](https://doi.org/10.1137/S0895479899358194)
@@ -203,7 +209,7 @@ A. Arbabi, L. L. Goddard, "Measurements of the refractive indices and thermo-opt
 
 A. Arbabi, Y. Horie, A. J. Ball, M. Bagheri, A. Faraon, "Subwavelength-thick lenses with high numerical apertures and large efficiency based on high-contrast transmitarrays", Nat Commun 6, 7069 (2015). [doi:10.1038/ncomms8069](https://doi.org/10.1038/ncomms8069)
 
-- Academy lessons: [metasurfaces.md:17](../academy/metasurfaces.md?plain=1#L17), [194](../academy/metasurfaces.md?plain=1#L194), [552](../academy/metasurfaces.md?plain=1#L552)
+- Academy lessons: [metasurfaces.md:29](../academy/metasurfaces.md?plain=1#L29), [214](../academy/metasurfaces.md?plain=1#L214), [580](../academy/metasurfaces.md?plain=1#L580)
 
 #### Arcari et al. 2014
 
@@ -392,7 +398,7 @@ W.-J. Beyn, "An integral method for solving nonlinear eigenvalue problems", Line
 P. Bienstman, R. Baets, "Optical modelling of photonic crystals and VCSELs using eigenmode expansion and perfectly matched layers", Optical and Quantum Electronics 33, 327 (2001). [doi:10.1023/A:1010882531238](https://doi.org/10.1023/A:1010882531238)
 
 - Methods pages: [eme.md:8](methods/eme.md?plain=1#L8)
-- Academy lessons: [crossings-and-converters.md:30](../academy/crossings-and-converters.md?plain=1#L30), [173](../academy/crossings-and-converters.md?plain=1#L173), [552](../academy/crossings-and-converters.md?plain=1#L552)
+- Academy lessons: [crossings-and-converters.md:30](../academy/crossings-and-converters.md?plain=1#L30), [200](../academy/crossings-and-converters.md?plain=1#L200), [627](../academy/crossings-and-converters.md?plain=1#L627)
 - Code: [src/eme.rs:6](../src/eme.rs#L6)
 - Jobs and circuits: [jobs/eme-mmi-sweep.yaml:2](../jobs/eme-mmi-sweep.yaml#L2), [jobs/eme-taper-3d.yaml:2](../jobs/eme-taper-3d.yaml#L2), [jobs/eme-taper.yaml:3](../jobs/eme-taper.yaml#L3)
 - Other documents: [ROADMAP.md:734](../ROADMAP.md?plain=1#L734)
@@ -450,6 +456,12 @@ W. Bogaerts, R. Baets, P. Dumon, V. Wiaux, S. Beckx, D. Taillaert, B. Luyssaert,
 
 - Academy lessons: [how-a-chip-is-made.md:43](../academy/how-a-chip-is-made.md?plain=1#L43), [213](../academy/how-a-chip-is-made.md?plain=1#L213), [strip-waveguide.md:100](../academy/strip-waveguide.md?plain=1#L100), [700](../academy/strip-waveguide.md?plain=1#L700)
 - Other documents: [docs/plans/fabrication.md:641](plans/fabrication.md?plain=1#L641)
+
+#### Bogaerts et al. 2007
+
+W. Bogaerts, P. Dumon, D. Van Thourhout, R. Baets, "Low-loss, low-cross-talk crossings for silicon-on-insulator nanophotonic waveguides", Opt. Lett. 32, 2801 (2007). [doi:10.1364/OL.32.002801](https://doi.org/10.1364/OL.32.002801)
+
+- Academy lessons: [crossings-and-converters.md:42](../academy/crossings-and-converters.md?plain=1#L42), [144](../academy/crossings-and-converters.md?plain=1#L144), [631](../academy/crossings-and-converters.md?plain=1#L631)
 
 #### Bogaerts et al. 2011
 
@@ -694,7 +706,7 @@ X. Chen, C. Li, C. K. Y. Fung, S. M. G. Lo, H. K. Tsang, "Apodized Waveguide Gra
 
 M. Chen, R. E. Christiansen, J. A. Fan, G. Işiklar, J. Jiang, S. G. Johnson, W. Ma, O. D. Miller, A. Oskooi, M. F. Schubert, et al., "Validation and characterization of algorithms and software for photonics inverse design", J. Opt. Soc. Am. B 41, A161 (2024). [doi:10.1364/JOSAB.506412](https://doi.org/10.1364/JOSAB.506412)
 
-- Academy lessons: [metasurfaces.md:59](../academy/metasurfaces.md?plain=1#L59), [504](../academy/metasurfaces.md?plain=1#L504), [562](../academy/metasurfaces.md?plain=1#L562)
+- Academy lessons: [metasurfaces.md:71](../academy/metasurfaces.md?plain=1#L71), [524](../academy/metasurfaces.md?plain=1#L524), [590](../academy/metasurfaces.md?plain=1#L590)
 - Other documents: [ROADMAP.md:828](../ROADMAP.md?plain=1#L828), [docs/plans/optimization.md:601](plans/optimization.md?plain=1#L601)
 
 #### Cheng and Chrostowski 2021
@@ -780,7 +792,7 @@ R. E. Christiansen, O. Sigmund, "Inverse design in photonics by topology optimiz
 L. Chrostowski, M. Hochberg, "Silicon Photonics Design: From Devices to Systems", Cambridge University Press (2015). [doi:10.1017/CBO9781316084168](https://doi.org/10.1017/CBO9781316084168)
 
 - Methods pages: [components.md:12](methods/components.md?plain=1#L12), [devices.md:8](methods/devices.md?plain=1#L8), [dispersion.md:8](methods/dispersion.md?plain=1#L8), [eim.md:10](methods/eim.md?plain=1#L10), [slab.md:11](methods/slab.md?plain=1#L11), [vector.md:12](methods/vector.md?plain=1#L12)
-- Academy lessons: [crossings-and-converters.md:48](../academy/crossings-and-converters.md?plain=1#L48), [213](../academy/crossings-and-converters.md?plain=1#L213), [497](../academy/crossings-and-converters.md?plain=1#L497), [557](../academy/crossings-and-converters.md?plain=1#L557), [directional-coupler.md:88](../academy/directional-coupler.md?plain=1#L88), [130](../academy/directional-coupler.md?plain=1#L130), [507](../academy/directional-coupler.md?plain=1#L507), [material-dispersion.md:68](../academy/material-dispersion.md?plain=1#L68), [349](../academy/material-dispersion.md?plain=1#L349), [slab-waveguide.md:84](../academy/slab-waveguide.md?plain=1#L84), [114](../academy/slab-waveguide.md?plain=1#L114), [583](../academy/slab-waveguide.md?plain=1#L583), [strip-waveguide.md:130](../academy/strip-waveguide.md?plain=1#L130), [160](../academy/strip-waveguide.md?plain=1#L160)
+- Academy lessons: [crossings-and-converters.md:66](../academy/crossings-and-converters.md?plain=1#L66), [240](../academy/crossings-and-converters.md?plain=1#L240), [562](../academy/crossings-and-converters.md?plain=1#L562), [637](../academy/crossings-and-converters.md?plain=1#L637), [directional-coupler.md:88](../academy/directional-coupler.md?plain=1#L88), [130](../academy/directional-coupler.md?plain=1#L130), [507](../academy/directional-coupler.md?plain=1#L507), [material-dispersion.md:68](../academy/material-dispersion.md?plain=1#L68), [349](../academy/material-dispersion.md?plain=1#L349), [slab-waveguide.md:84](../academy/slab-waveguide.md?plain=1#L84), [114](../academy/slab-waveguide.md?plain=1#L114), [583](../academy/slab-waveguide.md?plain=1#L583), [strip-waveguide.md:130](../academy/strip-waveguide.md?plain=1#L130), [160](../academy/strip-waveguide.md?plain=1#L160)
 - Validation cases: [`mode/slab-te-book`](validation.md?plain=1#L99), [`mode/slab-tm-book`](validation.md?plain=1#L100), [`mode/strip-book`](validation.md?plain=1#L103), [`mode/strip-group-index-book`](validation.md?plain=1#L109), [`mode/eim-strip-book`](validation.md?plain=1#L120), [`components/directional-coupler-power`](validation.md?plain=1#L300), [`device/coupler-closed-forms`](validation.md?plain=1#L311), [`device/strip-chrostowski`](validation.md?plain=1#L324), [`device/coupler-chrostowski`](validation.md?plain=1#L325), [`device/study-coupler-chrostowski`](validation.md?plain=1#L349)
 - Examples: [README.md:36](../examples/README.md?plain=1#L36), [40](../examples/README.md?plain=1#L40), [60](../examples/README.md?plain=1#L60), [directional_coupler.rs:4](../examples/directional_coupler.rs#L4), [42](../examples/directional_coupler.rs#L42), [effective_index_method.rs:4](../examples/effective_index_method.rs#L4), [group_index.rs:4](../examples/group_index.rs#L4), [48](../examples/group_index.rs#L48), [slab_soi.rs:4](../examples/slab_soi.rs#L4), [strip_waveguide.rs:5](../examples/strip_waveguide.rs#L5), [62](../examples/strip_waveguide.rs#L62), [python/examples/README.md:27](../python/examples/README.md?plain=1#L27), [python/examples/output/strip_waveguide.txt:15](../python/examples/output/strip_waveguide.txt#L15), [16](../python/examples/output/strip_waveguide.txt#L16), [python/examples/slab_soi.py:5](../python/examples/slab_soi.py#L5), [python/examples/strip_waveguide.py:5](../python/examples/strip_waveguide.py#L5), [59](../python/examples/strip_waveguide.py#L59), [64](../python/examples/strip_waveguide.py#L64)
 - Code: [python/tests/test_api.py:29](../python/tests/test_api.py#L29), [src/cases/device/cut_checks.rs:39](../src/cases/device/cut_checks.rs#L39), [src/circuit/components/coupler.rs:200](../src/circuit/components/coupler.rs#L200), [253](../src/circuit/components/coupler.rs#L253), [src/circuit/components/waveguide.rs:20](../src/circuit/components/waveguide.rs#L20), [327](../src/circuit/components/waveguide.rs#L327), [src/device/bend.rs:250](../src/device/bend.rs#L250), [src/device/checks.rs:75](../src/device/checks.rs#L75), [166](../src/device/checks.rs#L166), [173](../src/device/checks.rs#L173), [721](../src/device/checks.rs#L721), [src/device/fit.rs:12](../src/device/fit.rs#L12), [src/device/rib.rs:297](../src/device/rib.rs#L297), [src/device/tests.rs:353](../src/device/tests.rs#L353), [490](../src/device/tests.rs#L490), [src/device/waveguide.rs:22](../src/device/waveguide.rs#L22), [src/facade/device.rs:286](../src/facade/device.rs#L286), [src/job/study_checks.rs:43](../src/job/study_checks.rs#L43), [src/mode/dispersion.rs:5](../src/mode/dispersion.rs#L5), [src/mode/eim.rs:4](../src/mode/eim.rs#L4), [src/mode/slab.rs:13](../src/mode/slab.rs#L13), [src/stack.rs:134](../src/stack.rs#L134), [src/validation.rs:719](../src/validation.rs#L719), [726](../src/validation.rs#L726), [747](../src/validation.rs#L747), [789](../src/validation.rs#L789), [866](../src/validation.rs#L866), [2126](../src/validation.rs#L2126), [4735](../src/validation.rs#L4735), [studio/src-tauri/src/charts/coupler.rs:7](../studio/src-tauri/src/charts/coupler.rs#L7), [studio/src-tauri/src/charts/leaky.rs:36](../studio/src-tauri/src/charts/leaky.rs#L36), [studio/src-tauri/src/charts/slab.rs:8](../studio/src-tauri/src/charts/slab.rs#L8), [studio/src-tauri/src/circuits/library.rs:136](../studio/src-tauri/src/circuits/library.rs#L136), [studio/src-tauri/src/examples.rs:667](../studio/src-tauri/src/examples.rs#L667)
@@ -860,17 +872,23 @@ J. Crank, P. Nicolson, "A practical method for numerical evaluation of solutions
 
 ### D
 
-#### Dai and Bowers 2011
+#### Dai and Bowers 2011a
+
+D. Dai, J. E. Bowers, "Novel concept for ultracompact polarization splitter-rotator based on silicon nanowires", Opt. Express 19, 10940 (2011). [doi:10.1364/OE.19.010940](https://doi.org/10.1364/OE.19.010940)
+
+- Academy lessons: [crossings-and-converters.md:48](../academy/crossings-and-converters.md?plain=1#L48), [479](../academy/crossings-and-converters.md?plain=1#L479), [633](../academy/crossings-and-converters.md?plain=1#L633)
+
+#### Dai and Bowers 2011b
 
 D. Dai, J. E. Bowers, "Novel ultra-short and ultra-broadband polarization beam splitter based on a bent directional coupler", Opt. Express 19, 18614 (2011). [doi:10.1364/OE.19.018614](https://doi.org/10.1364/OE.19.018614)
 
-- Academy lessons: [crossings-and-converters.md:36](../academy/crossings-and-converters.md?plain=1#L36), [398](../academy/crossings-and-converters.md?plain=1#L398), [554](../academy/crossings-and-converters.md?plain=1#L554), [directional-coupler.md:70](../academy/directional-coupler.md?plain=1#L70), [382](../academy/directional-coupler.md?plain=1#L382), [518](../academy/directional-coupler.md?plain=1#L518)
+- Academy lessons: [crossings-and-converters.md:54](../academy/crossings-and-converters.md?plain=1#L54), [454](../academy/crossings-and-converters.md?plain=1#L454), [634](../academy/crossings-and-converters.md?plain=1#L634), [directional-coupler.md:70](../academy/directional-coupler.md?plain=1#L70), [382](../academy/directional-coupler.md?plain=1#L382), [518](../academy/directional-coupler.md?plain=1#L518)
 
 #### Dai et al. 2013
 
 D. Dai, J. Wang, Y. Shi, "Silicon mode (de)multiplexer enabling high capacity photonic networks-on-chip with a single-wavelength-carrier light", Opt. Lett. 38, 1422 (2013). [doi:10.1364/OL.38.001422](https://doi.org/10.1364/OL.38.001422)
 
-- Academy lessons: [crossings-and-converters.md:42](../academy/crossings-and-converters.md?plain=1#L42), [96](../academy/crossings-and-converters.md?plain=1#L96), [555](../academy/crossings-and-converters.md?plain=1#L555), [directional-coupler.md:82](../academy/directional-coupler.md?plain=1#L82), [386](../academy/directional-coupler.md?plain=1#L386), [519](../academy/directional-coupler.md?plain=1#L519)
+- Academy lessons: [crossings-and-converters.md:60](../academy/crossings-and-converters.md?plain=1#L60), [120](../academy/crossings-and-converters.md?plain=1#L120), [635](../academy/crossings-and-converters.md?plain=1#L635), [directional-coupler.md:82](../academy/directional-coupler.md?plain=1#L82), [386](../academy/directional-coupler.md?plain=1#L386), [519](../academy/directional-coupler.md?plain=1#L519)
 
 #### Daubechies 1988
 
@@ -1072,7 +1090,7 @@ I. Efthimiopoulos, J. Zhang, M. Kucway, C. Park, R. C. Ewing, Y. Wang, "Sb2Se3 u
 
 M. M. R. Elsawy, S. Lanteri, R. Duvigneau, G. Brière, M. S. Mohamed, P. Genevet, "Global optimization of metasurface designs using statistical learning methods", Sci Rep 9, 17918 (2019). [doi:10.1038/s41598-019-53878-9](https://doi.org/10.1038/s41598-019-53878-9), open access.
 
-- Academy lessons: [metasurfaces.md:41](../academy/metasurfaces.md?plain=1#L41), [148](../academy/metasurfaces.md?plain=1#L148), [561](../academy/metasurfaces.md?plain=1#L561)
+- Academy lessons: [metasurfaces.md:53](../academy/metasurfaces.md?plain=1#L53), [162](../academy/metasurfaces.md?plain=1#L162), [589](../academy/metasurfaces.md?plain=1#L589)
 - Other documents: [docs/plans/optimization.md:613](plans/optimization.md?plain=1#L613)
 
 #### Elshaari et al. 2016
@@ -1746,7 +1764,7 @@ C. Y. Ho, R. W. Powell, P. E. Liley, "Thermal Conductivity of the Elements", Jou
 G. B. Hocker, W. K. Burns, "Mode dispersion in diffused channel waveguides by the effective index method", Appl. Opt. 16, 113 (1977). [doi:10.1364/AO.16.000113](https://doi.org/10.1364/AO.16.000113)
 
 - Methods pages: [devices.md:24](methods/devices.md?plain=1#L24), [eim.md:8](methods/eim.md?plain=1#L8)
-- Academy lessons: [crossings-and-converters.md:18](../academy/crossings-and-converters.md?plain=1#L18), [116](../academy/crossings-and-converters.md?plain=1#L116), [549](../academy/crossings-and-converters.md?plain=1#L549), [mmi.md:23](../academy/mmi.md?plain=1#L23), [207](../academy/mmi.md?plain=1#L207), [480](../academy/mmi.md?plain=1#L480), [strip-waveguide.md:58](../academy/strip-waveguide.md?plain=1#L58), [300](../academy/strip-waveguide.md?plain=1#L300), [684](../academy/strip-waveguide.md?plain=1#L684)
+- Academy lessons: [crossings-and-converters.md:18](../academy/crossings-and-converters.md?plain=1#L18), [140](../academy/crossings-and-converters.md?plain=1#L140), [624](../academy/crossings-and-converters.md?plain=1#L624), [mmi.md:23](../academy/mmi.md?plain=1#L23), [207](../academy/mmi.md?plain=1#L207), [480](../academy/mmi.md?plain=1#L480), [strip-waveguide.md:58](../academy/strip-waveguide.md?plain=1#L58), [300](../academy/strip-waveguide.md?plain=1#L300), [684](../academy/strip-waveguide.md?plain=1#L684)
 - Validation cases: [`mode/eim-strip-book`](validation.md?plain=1#L120), [`device/rib-eim`](validation.md?plain=1#L333), [`device/mmi-guided-3d`](validation.md?plain=1#L339), [`device/mmi-fdfd-3d`](validation.md?plain=1#L340), [`device/mmi-best-length-3d`](validation.md?plain=1#L341), [`device/y-branch-2d-3d`](validation.md?plain=1#L344), [`device/pcm-analytic-index`](validation.md?plain=1#L661)
 - Examples: [README.md:39](../examples/README.md?plain=1#L39)
 - Code: [src/cases/device/pcm_checks.rs:426](../src/cases/device/pcm_checks.rs#L426), [src/circuit/components/mmi.rs:45](../src/circuit/components/mmi.rs#L45), [src/device/mmi.rs:320](../src/device/mmi.rs#L320), [338](../src/device/mmi.rs#L338), [src/device/pcm.rs:980](../src/device/pcm.rs#L980), [src/device/rib.rs:226](../src/device/rib.rs#L226), [295](../src/device/rib.rs#L295), [src/device/splitter_checks.rs:89](../src/device/splitter_checks.rs#L89), [131](../src/device/splitter_checks.rs#L131), [138](../src/device/splitter_checks.rs#L138), [145](../src/device/splitter_checks.rs#L145), [166](../src/device/splitter_checks.rs#L166), [src/mode/eim.rs:6](../src/mode/eim.rs#L6), [src/validation.rs:866](../src/validation.rs#L866)
@@ -1820,7 +1838,7 @@ T. W. Hughes, I. A. D. Williamson, M. Minkov, S. Fan, "Forward-Mode Differentiat
 
 T. W. Hughes, M. Minkov, V. Liu, Z. Yu, S. Fan, "A perspective on the pathway toward full wave simulation of large area metalenses", Applied Physics Letters 119, 150502 (2021). [doi:10.1063/5.0071245](https://doi.org/10.1063/5.0071245), open access.
 
-- Academy lessons: [metasurfaces.md:53](../academy/metasurfaces.md?plain=1#L53), [481](../academy/metasurfaces.md?plain=1#L481), [564](../academy/metasurfaces.md?plain=1#L564)
+- Academy lessons: [metasurfaces.md:65](../academy/metasurfaces.md?plain=1#L65), [501](../academy/metasurfaces.md?plain=1#L501), [592](../academy/metasurfaces.md?plain=1#L592)
 - Other documents: [docs/plans/performance.md:624](plans/performance.md?plain=1#L624)
 
 ### I
@@ -2127,7 +2145,7 @@ P. Kharel, C. Reimer, K. Luke, L. He, M. Zhang, "Breaking voltage–bandwidth li
 
 M. Khorasaninejad, W. T. Chen, R. C. Devlin, J. Oh, A. Y. Zhu, F. Capasso, "Metalenses at visible wavelengths: Diffraction-limited focusing and subwavelength resolution imaging", Science 352, 1190 (2016). [doi:10.1126/science.aaf6644](https://doi.org/10.1126/science.aaf6644)
 
-- Academy lessons: [metasurfaces.md:23](../academy/metasurfaces.md?plain=1#L23), [83](../academy/metasurfaces.md?plain=1#L83), [553](../academy/metasurfaces.md?plain=1#L553)
+- Academy lessons: [metasurfaces.md:35](../academy/metasurfaces.md?plain=1#L35), [95](../academy/metasurfaces.md?plain=1#L95), [581](../academy/metasurfaces.md?plain=1#L581)
 
 #### Killoran et al. 2019
 
@@ -2238,7 +2256,13 @@ J. Krupka, J. Breeze, A. Centeno, N. Alford, T. Claussen, L. Jensen, "Measuremen
 
 P. Lalanne, P. Chavel, "Metalenses at visible wavelengths: past, present, perspectives", Laser & Photonics Reviews 11, 1600295 (2017). [doi:10.1002/lpor.201600295](https://doi.org/10.1002/lpor.201600295)
 
-- Academy lessons: [metasurfaces.md:29](../academy/metasurfaces.md?plain=1#L29), [89](../academy/metasurfaces.md?plain=1#L89), [566](../academy/metasurfaces.md?plain=1#L566)
+- Academy lessons: [metasurfaces.md:41](../academy/metasurfaces.md?plain=1#L41), [101](../academy/metasurfaces.md?plain=1#L101), [594](../academy/metasurfaces.md?plain=1#L594)
+
+#### Lalanne et al. 1998
+
+P. Lalanne, S. Astilean, P. Chavel, E. Cambril, H. Launois, "Blazed binary subwavelength gratings with efficiencies larger than those of conventional échelette gratings", Opt. Lett. 23, 1081 (1998). [doi:10.1364/OL.23.001081](https://doi.org/10.1364/OL.23.001081)
+
+- Academy lessons: [metasurfaces.md:17](../academy/metasurfaces.md?plain=1#L17), [547](../academy/metasurfaces.md?plain=1#L547), [576](../academy/metasurfaces.md?plain=1#L576)
 
 #### Lalau-Keraly et al. 2013
 
@@ -2421,7 +2445,7 @@ V. Liu, S. Fan, "S4 : A free electromagnetic solver for layered periodic structu
 Z. Liu, J. K. S. Poon, "Comparison of Lumerical FDTD and Tidy3D for three-dimensional FDTD simulations of passive silicon photonic components", Opt. Continuum 4, 2427 (2025). [doi:10.1364/OPTCON.572107](https://doi.org/10.1364/OPTCON.572107)
 
 - Methods pages: [fdtd.md:52](methods/fdtd.md?plain=1#L52), [1071](methods/fdtd.md?plain=1#L1071)
-- Academy lessons: [crossings-and-converters.md:60](../academy/crossings-and-converters.md?plain=1#L60), [85](../academy/crossings-and-converters.md?plain=1#L85), [563](../academy/crossings-and-converters.md?plain=1#L563), [directional-coupler.md:112](../academy/directional-coupler.md?plain=1#L112), [406](../academy/directional-coupler.md?plain=1#L406), [523](../academy/directional-coupler.md?plain=1#L523), [mmi.md:41](../academy/mmi.md?plain=1#L41), [439](../academy/mmi.md?plain=1#L439), [495](../academy/mmi.md?plain=1#L495)
+- Academy lessons: [crossings-and-converters.md:84](../academy/crossings-and-converters.md?plain=1#L84), [109](../academy/crossings-and-converters.md?plain=1#L109), [645](../academy/crossings-and-converters.md?plain=1#L645), [directional-coupler.md:112](../academy/directional-coupler.md?plain=1#L112), [406](../academy/directional-coupler.md?plain=1#L406), [523](../academy/directional-coupler.md?plain=1#L523), [mmi.md:41](../academy/mmi.md?plain=1#L41), [439](../academy/mmi.md?plain=1#L439), [495](../academy/mmi.md?plain=1#L495)
 - Examples: [README.md:70](../examples/README.md?plain=1#L70), [coupler_liu_poon.rs:5](../examples/coupler_liu_poon.rs#L5), [crossing_liu_poon.rs:5](../examples/crossing_liu_poon.rs#L5), [mmi_liu_poon.rs:5](../examples/mmi_liu_poon.rs#L5), [mode_converter_liu_poon.rs:5](../examples/mode_converter_liu_poon.rs#L5), [pdk/mod.rs:7](../examples/pdk/mod.rs#L7), [ring_liu_poon.rs:5](../examples/ring_liu_poon.rs#L5), [splitter_rotator_liu_poon.rs:5](../examples/splitter_rotator_liu_poon.rs#L5)
 
 #### Liu et al. 2004
@@ -3125,7 +3149,7 @@ R. W. Powell, C. Y. Ho, P. E. Liley, "Thermal conductivity of selected materials
 
 F. Presutti, F. Monticone, "Focusing on bandwidth: achromatic metalens limits", Optica 7, 624 (2020). [doi:10.1364/OPTICA.389404](https://doi.org/10.1364/OPTICA.389404)
 
-- Academy lessons: [metasurfaces.md:47](../academy/metasurfaces.md?plain=1#L47), [425](../academy/metasurfaces.md?plain=1#L425), [560](../academy/metasurfaces.md?plain=1#L560), [568](../academy/metasurfaces.md?plain=1#L568)
+- Academy lessons: [metasurfaces.md:59](../academy/metasurfaces.md?plain=1#L59), [445](../academy/metasurfaces.md?plain=1#L445), [588](../academy/metasurfaces.md?plain=1#L588), [596](../academy/metasurfaces.md?plain=1#L596)
 - Code: [studio/src-tauri/src/charts/meta.rs:22](../studio/src-tauri/src/charts/meta.rs#L22)
 
 #### Probst et al. 2024
@@ -3489,7 +3513,7 @@ D. V. Shantsev, P. Jaysaval, S. de la Kethulle de Ryhove, P. R. Amestoy, A. Butt
 
 B. Shen, P. Wang, R. Polson, R. Menon, "An integrated-nanophotonics polarization beamsplitter with 2.4 × 2.4 μm2 footprint", Nature Photon 9, 378 (2015). [doi:10.1038/nphoton.2015.80](https://doi.org/10.1038/nphoton.2015.80)
 
-- Academy lessons: [crossings-and-converters.md:54](../academy/crossings-and-converters.md?plain=1#L54), [405](../academy/crossings-and-converters.md?plain=1#L405), [561](../academy/crossings-and-converters.md?plain=1#L561)
+- Academy lessons: [crossings-and-converters.md:72](../academy/crossings-and-converters.md?plain=1#L72), [461](../academy/crossings-and-converters.md?plain=1#L461), [641](../academy/crossings-and-converters.md?plain=1#L641)
 - Other documents: [ROADMAP.md:764](../ROADMAP.md?plain=1#L764), [docs/plans/optimization.md:609](plans/optimization.md?plain=1#L609)
 
 #### Shen et al. 2020
@@ -3544,7 +3568,13 @@ G. H. Shortley, R. Weller, "The Numerical Solution of Laplace's Equation", Journ
 
 S. Shrestha, A. C. Overvig, M. Lu, A. Stein, N. Yu, "Broadband achromatic dielectric metalenses", Light Sci Appl 7, 85 (2018). [doi:10.1038/s41377-018-0078-x](https://doi.org/10.1038/s41377-018-0078-x), open access.
 
-- Academy lessons: [metasurfaces.md:35](../academy/metasurfaces.md?plain=1#L35), [448](../academy/metasurfaces.md?plain=1#L448), [559](../academy/metasurfaces.md?plain=1#L559)
+- Academy lessons: [metasurfaces.md:47](../academy/metasurfaces.md?plain=1#L47), [468](../academy/metasurfaces.md?plain=1#L468), [587](../academy/metasurfaces.md?plain=1#L587)
+
+#### Shu et al. 2019
+
+H. Shu, B. Shen, Q. Deng, M. Jin, X. Wang, Z. Zhou, "A Design Guideline for Mode (De)Multiplexer Based on Integrated Tapered Asymmetric Directional Coupler", IEEE Photonics J. 11, 1 (2019). [doi:10.1109/JPHOT.2019.2941742](https://doi.org/10.1109/JPHOT.2019.2941742), open access.
+
+- Academy lessons: [crossings-and-converters.md:78](../academy/crossings-and-converters.md?plain=1#L78), [426](../academy/crossings-and-converters.md?plain=1#L426), [643](../academy/crossings-and-converters.md?plain=1#L643)
 
 #### Siew et al. 2021
 
@@ -3608,7 +3638,7 @@ E. Snitzer, "Cylindrical Dielectric Waveguide Modes\*", J. Opt. Soc. Am. 51, 491
 L. Soldano, E. Pennings, "Optical multi-mode interference devices based on self-imaging: principles and applications", J. Lightwave Technol. 13, 615 (1995). [doi:10.1109/50.372474](https://doi.org/10.1109/50.372474)
 
 - Methods pages: [components.md:10](methods/components.md?plain=1#L10), [devices.md:30](methods/devices.md?plain=1#L30), [eme.md:913](methods/eme.md?plain=1#L913), [generators.md:12](methods/generators.md?plain=1#L12)
-- Academy lessons: [crossings-and-converters.md:24](../academy/crossings-and-converters.md?plain=1#L24), [206](../academy/crossings-and-converters.md?plain=1#L206), [550](../academy/crossings-and-converters.md?plain=1#L550), [mmi.md:29](../academy/mmi.md?plain=1#L29), [58](../academy/mmi.md?plain=1#L58), [485](../academy/mmi.md?plain=1#L485)
+- Academy lessons: [crossings-and-converters.md:24](../academy/crossings-and-converters.md?plain=1#L24), [233](../academy/crossings-and-converters.md?plain=1#L233), [625](../academy/crossings-and-converters.md?plain=1#L625), [mmi.md:29](../academy/mmi.md?plain=1#L29), [58](../academy/mmi.md?plain=1#L58), [485](../academy/mmi.md?plain=1#L485)
 - Validation cases: [`components/mmi-beat-length-soldano`](validation.md?plain=1#L301), [`components/mmi-fdfd`](validation.md?plain=1#L302), [`device/mmi-self-imaging`](validation.md?plain=1#L329), [`device/mmi-guided-2d`](validation.md?plain=1#L338), [`device/mmi-guided-3d`](validation.md?plain=1#L339), [`device/mmi-best-power-3d`](validation.md?plain=1#L342)
 - Examples: [README.md:77](../examples/README.md?plain=1#L77), [mmi_soldano.rs:5](../examples/mmi_soldano.rs#L5)
 - Code: [src/circuit/components/mmi.rs:5](../src/circuit/components/mmi.rs#L5), [189](../src/circuit/components/mmi.rs#L189), [352](../src/circuit/components/mmi.rs#L352), [366](../src/circuit/components/mmi.rs#L366), [src/device/mmi.rs:309](../src/device/mmi.rs#L309), [src/device/splitter_checks.rs:61](../src/device/splitter_checks.rs#L61), [124](../src/device/splitter_checks.rs#L124), [131](../src/device/splitter_checks.rs#L131), [152](../src/device/splitter_checks.rs#L152), [src/validation.rs:2133](../src/validation.rs#L2133), [2140](../src/validation.rs#L2140), [studio/src-tauri/src/charts/mmi.rs:3](../studio/src-tauri/src/charts/mmi.rs#L3)
@@ -4259,6 +4289,12 @@ P. Yeh, A. Yariv, C.-S. Hong, "Electromagnetic propagation in periodic stratifie
 K. Yonekura, L. Jin, K. Takizawa, "Measurement of Wavelength Dependence of Electro-Optic Coefficients r 22 of Non-doped and 5% MgO-doped Congruent LiNbO3 Crystals and 1.8% MgO-doped Quasi-stoichiometric LiNbO3 Crystal by Multiple Reflection Interference Method", OPT REV 14, 194 (2007). [doi:10.1007/s10043-007-0194-y](https://doi.org/10.1007/s10043-007-0194-y)
 
 - Code: [src/material/catalogue/references.rs:172](../src/material/catalogue/references.rs#L172)
+
+#### Yu et al. 2011
+
+N. Yu, P. Genevet, M. A. Kats, F. Aieta, J.-P. Tetienne, F. Capasso, Z. Gaburro, "Light Propagation with Phase Discontinuities: Generalized Laws of Reflection and Refraction", Science 334, 333 (2011). [doi:10.1126/science.1210713](https://doi.org/10.1126/science.1210713)
+
+- Academy lessons: [metasurfaces.md:23](../academy/metasurfaces.md?plain=1#L23), [130](../academy/metasurfaces.md?plain=1#L130), [577](../academy/metasurfaces.md?plain=1#L577)
 
 #### Yu et al. 2012
 

@@ -31,6 +31,24 @@ papers:
     year: 2001
     role: milestone
     note: "Eigenmode expansion with perfectly matched layers: a structure cut into uniform sections, the field in each its modes, the sections joined by their S-matrices, the method photonoxide's crossing and taper charts use."
+  - cite: "V. R. Almeida, R. R. Panepucci, M. Lipson, Opt. Lett. 28, 1302 (2003)"
+    title: "Nanotaper for compact mode conversion"
+    doi: 10.1364/OL.28.001302
+    year: 2003
+    role: milestone
+    note: "A silicon wire narrowed over 40 µm to a tip about 100 nm wide at the chip's facet: an inverse taper short enough for a chip, after the long ones proposed for laser diodes; it coupled a lensed fibre's light 8.2 times (TE) and 7.0 times (TM) better than the bare wire."
+  - cite: "W. Bogaerts, P. Dumon, D. Van Thourhout, R. Baets, Opt. Lett. 32, 2801 (2007)"
+    title: "Low-loss, low-cross-talk crossings for silicon-on-insulator nanophotonic waveguides"
+    doi: 10.1364/OL.32.002801
+    year: 2007
+    role: milestone
+    note: "A crossing whose arms widen through 3 µm parabolic expanders while a shallow-etched cross keeps the light confined at its centre, a double etch: 0.16 dB lost a crossing and crosstalk below −40 dB, measured at 1550 nm."
+  - cite: "D. Dai, J. E. Bowers, Opt. Express 19, 10940 (2011)"
+    title: "Novel concept for ultracompact polarization splitter-rotator based on silicon nanowires"
+    doi: 10.1364/OE.19.010940
+    year: 2011
+    role: milestone
+    note: "A splitter-rotator from one etch: under silicon nitride a taper turns TM₀ into TE₁ where the two hybridize, around 0.76 µm of width, and an asymmetric coupler hands TE₁ to a narrow guide's TE₀; the design gdsfactory's splitter-rotator follows."
   - cite: "D. Dai, J. E. Bowers, Opt. Express 19, 18614 (2011)"
     title: "Novel ultra-short and ultra-broadband polarization beam splitter based on a bent directional coupler"
     doi: 10.1364/OE.19.018614
@@ -55,6 +73,12 @@ papers:
     year: 2015
     role: current
     note: "A polarization splitter of 20 × 20 silicon pixels 120 nm square, shaped by a nonlinear optimization: over 70 % average transmission and an extinction ratio above 10 dB across 32 nm, measured."
+  - cite: "H. Shu, B. Shen, Q. Deng, M. Jin, X. Wang, Z. Zhou, IEEE Photonics J. 11, 1 (2019)"
+    title: "A design guideline for mode (de)multiplexer based on integrated tapered asymmetric directional coupler"
+    doi: 10.1109/JPHOT.2019.2941742
+    year: 2019
+    role: current
+    note: "Mode multiplexers from a 400 nm guide beside a wide guide tapered through its phase-matched width, the taper's length and widths chosen by coupled-mode theory for tolerance to the width; the work Liu and Poon give for gdsfactory's mode converter. Read in IEEE's accepted manuscript."
   - cite: "Z. Liu, J. K. S. Poon, Opt. Continuum 4, 2427 (2025)"
     title: "Comparison of Lumerical FDTD and Tidy3D for three-dimensional FDTD simulations of passive silicon photonic components"
     doi: 10.1364/OPTCON.572107
@@ -116,7 +140,10 @@ The chart below is a crossing of two 500 nm guides on the plane of the effective
 ([Hocker and Burns, 1977](https://doi.org/10.1364/AO.16.000113)): the core the TE₀ index of
 220 nm of silicon in silica, 2.8475 at 1.55 µm, the silica 1.4440. In this plane the TE-like
 mode's E lies across the guide, so 2D FDFD solves for $H_z$. 0.7955 of the power leaves in the
-through port's TE₀, −0.99 dB; 0.084 crosses into each side arm; 0.0047 comes back.
+through port's TE₀, −0.99 dB; 0.084 crosses into each side arm, −10.8 dB; 0.0047 comes back. For
+direct crossings of silicon wires, [Bogaerts et al. (2007)](https://doi.org/10.1364/OL.32.002801)
+quote earlier calculations and measurements: 1.1 to 1.4 dB lost a crossing and about −9 dB into
+its arms (p. 2801), the same order as the plane's.
 
 ::chart crossing-field{kind=1}
 
@@ -199,7 +226,7 @@ the light reaches the centre in the wide guide's fundamental mode. With the elli
 0.685 to 0.764, still far below its 0.986 near 1 µm in this plane.
 :::
 
-### Multimode crossings and the slab {research}
+### Multimode crossings and the double etch {research}
 
 A wider centre is a short multimode section, and self-imaging can be put to use there: a multimode
 section fed at its centre by a symmetric field images it once at $3L_\pi/4$ and twice halfway
@@ -210,11 +237,29 @@ section opens; the chart of [the MMI lesson](mmi.md) shows a centre-fed section'
 
 ::chart mmi-field{width=2.5um, offset=0, span=1}
 
-[Chrostowski and Hochberg (2015)](https://doi.org/10.1017/CBO9781316084168) cite Bogaerts et al.'s
-low-loss, low-crosstalk crossings for silicon wires (their ref. 49), a paper not yet read for this
-lesson; photonoxide has no MMI crossing among its devices. gdsfactory's crossing guides the beam
-by a partial etch instead, its 150 nm slab, the two etch depths drawn as two layers. Nor does the
-library have periodic arrays of crossings.
+Such a crossing is long. [Chrostowski and Hochberg (2015)](https://doi.org/10.1017/CBO9781316084168)
+cite Bogaerts et al.'s crossings for silicon wires (their ref. 49), and those aren't multimode
+ones: Bogaerts et al. name an MMI crossing (Chen and Poon's, their ref. 3) as needing at least
+10 µm (p. 2802). Instead each arm widens through a parabolic expander 3 µm long, etched through the
+220 nm film towards the 2.5 µm the parabola would reach at the centre, and inside it a shallow etch
+leaves the full film only along a cross that widens from 500 to 800 nm over the crossing's 6 µm. The
+rest is a thinner slab, so where the other arm opens the walls the light stays confined, at a lower
+lateral index contrast: a double etch (Fig. 2, p. 2802). By their 2D eigenmode expansion at
+1.55 µm a direct crossing passes 67.6 % and theirs 96.8 % (Fig. 1, p. 2801). Made on 220 nm of
+silicon on 2 µm of oxide by 248 nm deep-UV lithography, the shallow etch first, and measured on
+chains of 0, 5, 10 and 21 crossings, it loses 0.16 dB a crossing at 1550 nm, with crosstalk below
+−40 dB, and wires from 440 to 550 nm wide do as well (pp. 2802–2803). The letter puts the 0.16 dB
+as 97.5 % (p. 2803), which is −0.11 dB (0.16 dB is 96.4 %), and its abstract prints the same
+97.5 % as −1.7 dB (p. 2801), a misprint: the text gives −0.16 dB throughout.
+
+gdsfactory's crossing is the same idea drawn differently: full-film arms widened linearly to 1.2 µm
+over two ellipses of slab left by a 70 nm partial etch (Section 13). In the plane of Section 3 the
+slab lifts its widened arms from 0.8368 to 0.9480, and the plain cross passes 0.7955. Bogaerts et
+al.'s figures can't be checked here yet: the letter gives neither the shallow etch's depth, which
+sets the slab's index in the plane and its thickness in 3D, nor the indices of its 2D plane. A
+chart of their crossing would need that depth and a parabolic outline in the crossing charts; a 3D
+run, the same depth in the crossing example's two etches. photonoxide has no MMI crossing among its
+devices, nor periodic arrays of crossings.
 
 ## 4. What does gdsfactory's crossing pass in 3D?
 
@@ -377,6 +422,17 @@ splitting alone; the overlaps don't, and the two differ by 0.06 at 1 µm. At the
 1.034 µm they agree within the share of the launch the pair's two modes leave out: 0.994 crosses,
 at 32.5 µm.
 
+Liu and Poon take this component from gdsfactory "as proposed in"
+[Shu et al. (2019)](https://doi.org/10.1109/JPHOT.2019.2941742) (Section 3.4, their ref. 22), but
+Shu et al.'s paper doesn't give its 500 nm, 1 µm and 20 µm. Theirs is a tapered asymmetric coupler:
+a 400 nm guide 200 nm from a wide guide that widens through the width phase-matched to it, which
+their solver puts at 840 nm for TE₀ to TE₁ at 1550 nm (their Section 3.1). Their TE₀–TE₁
+multiplexer widens from 795 to 872 nm over 44.11 µm (Section 4.1 and Table I), so that the transfer
+forgives errors in the narrow guide's width, ±10 nm by their coupled-mode model (Sections 3.3 and
+3.4). Set the chart of Section 7 to a 400 nm access guide: photonoxide's solver matches TE₁ at
+0.838 µm, against their 840 nm, and TE₂ at 1.279 µm, against their TE₀–TE₂ design's centre of
+1271 nm (Table I).
+
 [mode_converter_liu_poon](../examples/mode_converter_liu_poon.rs) runs the whole device, bends and
 tapers included, in 3D FDTD. On CI's 5 cells a wavelength the cross port's TE₁ is 0.457 at 1550 nm
 and its TE₀, the crosstalk, −39.2 dB:
@@ -419,13 +475,17 @@ don't mix the two kinds, so TE₁ and TM₀ can't exchange power however the str
 length: where their indices are equal, their curves simply cross. Under silica the chart below has
 them cross at 0.659 µm of width.
 
-Put silicon nitride above and silica below, as gdsfactory's splitter-rotator does (Liu and Poon,
-Section 2 and 3.5, after Dai and Bowers's splitter-rotator, their ref. 16), and the mirror is gone.
-TE₁ and TM₀ belong to the same kind under the one mirror left, the strip's vertical plane (a
+Put silicon nitride above and silica below, as
+[Dai and Bowers (2011)](https://doi.org/10.1364/OE.19.010940) did for their splitter-rotator and
+gdsfactory's does after them (Liu and Poon, Section 2 and 3.5, their ref. 16), and the mirror is
+gone. TE₁ and TM₀ belong to the same kind under the one mirror left, the strip's vertical plane (a
 magnetic wall there holds both), and they hybridize: near 0.762 µm the two branches turn away from
 each other, the least gap in index 0.0596, and each branch's polarization changes from TM to TE
-across it. A taper slow enough to stay on one branch
-takes TM₀ in and delivers TE₁.
+across it. A taper slow enough to stay on one branch takes TM₀ in and delivers TE₁. Dai and
+Bowers, with silicon 3.455, silica 1.445 and nitride 2.0, put the hybridization "around
+w = 0.76 µm, where the gap between the two curves is smallest" (p. 10944; their Fig. 1(c),
+p. 10942) and give no value for the gap: the 0.762 µm and 0.0596 are photonoxide's, at 1.55 µm with
+Li's silicon and Malitson's silica under nitride of 2.0.
 
 ::chart rotator-hybrid
 
@@ -450,10 +510,12 @@ $$
 $$
 
 The chart's last figure integrates these equations through gdsfactory's slow taper, from 690 to
-830 nm over 44 µm (Liu and Poon's Fig. 18), with $\kappa$ from the least gap and $\Delta\beta_d$ at
-each width from the solver's branches, $\Delta\beta_d = \pm\sqrt{S^2 - 4\kappa^2}$, starting in the
-upper branch's local mode: 0.9912 of the light stays on it and leaves as TE₁. A taper four times
-longer keeps more.
+830 nm over 44 µm (Liu and Poon's Fig. 18; Dai and Bowers's $w_1$, $w_2$ and $L_\mathrm{tp2}$,
+p. 10945), with $\kappa$ from the least gap and $\Delta\beta_d$ at each width from the solver's
+branches, $\Delta\beta_d = \pm\sqrt{S^2 - 4\kappa^2}$, starting in the upper branch's local mode:
+0.9912 of the light stays on it and leaves as TE₁. A taper four times longer keeps more. Dai and
+Bowers's eigenmode expansion of the whole three-part taper gives "close to 100%" for it
+(p. 10945); only its Fig. 3's curves (p. 10944) say more.
 
 **Try it.** Switch the cladding above to silica. Where do TE₁ and TM₀ cross, and what does
 Chrostowski and Hochberg's width sweep give?
@@ -471,7 +533,10 @@ gdsfactory's splitter-rotator widens its input to 0.69 µm over 4 µm, to 0.83 �
 0.9 µm over 1.867 µm, then runs 7 µm beside a 0.404 µm guide 0.15 µm away before both leave (Liu
 and Poon's Fig. 18; the example draws the narrow guide 405 nm wide). TM₀ in becomes TE₁ in the
 taper, and the coupler, phase matched between the 0.9 µm guide's TE₁ and the narrow guide's TE₀,
-passes it up.
+passes it up. These are Dai and Bowers's design: a taper from 0.54 µm whose last part is
+$L_\mathrm{tp3} = L_\mathrm{tp1}(w_3 - w_2)/(w_1 - w_0)$, 1.867 µm, and a 0.405 µm guide 0.15 µm
+away for 7.0 µm (pp. 10945–10946). By their simulations it passes TM₀ to the upper port's TE₀ over
+more than 70 nm of band at an extinction ratio of 10 dB (p. 10946).
 [splitter_rotator_liu_poon](../examples/splitter_rotator_liu_poon.rs) runs it in 3D FDTD under
 nitride of index 2.0, Liu and Poon's approximation. On CI's 5 cells a wavelength the upper port's
 TE₀ is 0.642 and its TM₀ −22.0 dB: at 6 cells the paper's two codes give 0.147 and 0.051, the device
@@ -495,6 +560,16 @@ A silicon strip's mode is half a micrometre across, a fibre's ten. An inverse ta
 strip towards the chip's edge until its mode barely holds to it and spreads into the cladding, to
 match a lensed or high-numerical-aperture fibre's beam
 ([Chrostowski and Hochberg, 2015](https://doi.org/10.1017/CBO9781316084168), Section 5.3).
+
+Inverse tapers had been proposed for coupling laser diodes to fibres, hundreds of micrometres long
+(the refs. 4–6 of [Almeida, Panepucci and Lipson, 2003](https://doi.org/10.1364/OL.28.001302),
+p. 1302). Almeida et al. made a short one on silicon: a wire 470 nm wide and 270 nm tall narrowed
+over a 40 µm parabolic taper to a tip 100 nm wide, in silica. By their simulations a 120 nm tip's
+TE mode overlaps the 4.9 µm mode of a fibre by about 94 %, 0.26 dB (pp. 1302–1303); measured with a
+lensed fibre, the taper coupled 8.2 times more TE light and 7.0 times more TM light than the bare
+wire, and 1 dB more is lost at ±1.2 µm of misalignment (pp. 1303–1304). The chart below holds
+220 nm of Li's silicon in Malitson's silica; checking their 94 % needs their 250 nm film, their
+indices (3.48 in 1.46) and their fibre's mode, which it doesn't take yet.
 
 The chart below solves the tip's mode, 220 nm thick in silica with 5 µm of silica beyond it, and
 sums its overlap with a Gaussian beam focused on the facet, of waist $w_0 = \lambda/(\pi\,\mathrm{NA})$,
@@ -550,16 +625,23 @@ The effective index method ([Hocker and Burns, 1977](https://doi.org/10.1364/AO.
 self-imaging in multimode guides ([Soldano and Pennings, 1995](https://doi.org/10.1109/50.372474))
 gave the designer of a planar device its plane and its multimode sections, and eigenmode expansion
 with perfectly matched layers ([Bienstman and Baets, 2001](https://doi.org/10.1023/A:1010882531238))
-a way to compute a long structure that changes along its length. On silicon wires, asymmetric and
-bent couplers sorted polarizations ([Dai and Bowers, 2011](https://doi.org/10.1364/OE.19.018614))
-and modes ([Dai, Wang and Shi, 2013](https://doi.org/10.1364/OL.38.001422)), and a design book
+a way to compute a long structure that changes along its length. On silicon wires, an inverse taper
+40 µm long met a fibre ([Almeida et al., 2003](https://doi.org/10.1364/OL.28.001302)), after the
+long ones of laser diodes; a double etch made a crossing that loses 0.16 dB
+([Bogaerts et al., 2007](https://doi.org/10.1364/OL.32.002801)); a taper under nitride and an
+asymmetric coupler made a splitter-rotator from one etch
+([Dai and Bowers, 2011](https://doi.org/10.1364/OE.19.010940)); asymmetric and bent couplers sorted
+polarizations ([Dai and Bowers, 2011](https://doi.org/10.1364/OE.19.018614)) and modes
+([Dai, Wang and Shi, 2013](https://doi.org/10.1364/OL.38.001422)); and a design book
 modelled the edge couplers and mode solutions such devices are built from
 ([Chrostowski and Hochberg, 2015](https://doi.org/10.1017/CBO9781316084168)).
 
 ::timeline
 
 Current work draws devices by optimization, as [Shen et al. (2015)](https://doi.org/10.1038/nphoton.2015.80)'s
-pixelated splitter, and asks how far the 3D simulations that rate them can be trusted:
+pixelated splitter, chooses tapers that let a converter forgive errors in width, as
+[Shu et al. (2019)](https://doi.org/10.1109/JPHOT.2019.2941742)'s couplers, and asks how far the 3D
+simulations that rate them can be trusted:
 [Liu and Poon (2025)](https://doi.org/10.1364/OPTCON.572107) found two commercial codes within 0.3 %
 on a crossing and 16 % apart on a mode converter, whose response swings within a few nanometres.
 
