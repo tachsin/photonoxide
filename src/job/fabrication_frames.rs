@@ -92,6 +92,8 @@ struct Resist {
     /// The polarity drawn, and whether the library names it (else the frames' default).
     polarity: Polarity,
     named: bool,
+    /// The source that states the polarity, if one in hand does.
+    source: Option<crate::fabrication::Source>,
     /// Whether a mould presses the pattern in (nanoimprint) instead of light or a beam.
     imprint: bool,
     /// Whether an electron beam writes it, else light through a mask.
@@ -290,6 +292,15 @@ impl Resist {
                 "No source in hand states how thick a layer the mould leaves in its recesses: it \
                  is drawn as {} of the resist's thickness.",
                 num(IMPRINT_RESIDUE)
+            ));
+        } else if let Some(s) = &self.source {
+            let citation = crate::fabrication::reference(&s.reference)
+                .map_or_else(|| s.reference.clone(), |r| r.citation);
+            parts.push(format!(
+                "The {} is {}: {citation}, {}.",
+                self.name,
+                self.polarity_word(),
+                s.location
             ));
         } else if self.named {
             parts.push(format!(
@@ -510,6 +521,7 @@ pub(super) fn frames(
                     tone: *tone,
                     polarity: polarity.as_ref().map_or(Polarity::Positive, |p| p.polarity),
                     named: polarity.is_some(),
+                    source: polarity.and_then(|p| p.source),
                     imprint: litho.is_some_and(crate::fabrication::Process::imprints),
                     beam: step.process.starts_with("ebl"),
                     top: top_of(under),

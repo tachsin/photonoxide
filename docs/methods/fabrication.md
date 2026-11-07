@@ -1003,9 +1003,10 @@ outline moved in or out at its top:
   positive resist is exposed where the developer will take it away, a negative one where it
   will stay, and the develop frame keeps what the step's tone says stays. The library records a
   lithography's polarity (`Process::polarity`, `fabrication::Polarity`) with the source that
-  states it; none in hand does yet, so the polarities it has are those its descriptions name
-  (HSQ and ma-N negative, PMMA positive), drawn and said to be so, and a photoresist, whose
-  polarity is the product's, is drawn positive, the frames' default, its frame saying so.
+  states it: HSQ negative and PMMA positive, from Chen 2015's Table 1 (p. 58), which the
+  exposure's frame cites; ma-N negative, as its description names it, which no source in hand
+  states (Chen's table hasn't it), drawn and said to be so; and a photoresist, whose polarity is
+  the product's, is drawn positive, the frames' default, its frame saying so.
   Nanoimprint (`Process::imprints`) exposes nothing; the layer its mould leaves in the recesses,
   which no source in hand states, is drawn a tenth of the resist's thickness (`IMPRINT_RESIDUE`).
 - **A film deposited over an etched step,** as a deposition of a layer over a strip or rib

@@ -896,10 +896,11 @@ fn the_exposure_shows_what_the_resist_will_lose_by_its_polarity() {
         "{}",
         expose.label
     );
+    // its polarity from Chen 2015's Table 1, cited in the frame's note
+    let note = expose.note.as_deref().unwrap();
     assert!(
-        expose.note.as_deref().unwrap().contains("description"),
-        "{:?}",
-        expose.note
+        note.contains("The HSQ resist is negative: Y. Chen, Microelectron. Eng. 135, 57 (2015), Table 1 (p. 58)."),
+        "{note}"
     );
     let develop = tfln.frames.iter().find(|f| f.phase == "develop").unwrap();
     let exposed: f64 = expose
