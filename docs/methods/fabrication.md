@@ -1024,13 +1024,19 @@ outline moved in or out at its top:
   over it. A cladding has no thickness in the design and is drawn as the stage draws it, filling
   the window. The frame after the deposition is the stage again: flat after a polish, or flat as
   the design draws it, which the frame says when no polish follows.
+  Where the model stops: a deposit over more than one layer etched open, over a layer whose
+  shapes are etched unlike (different depths or walls), or into trenches with sloped walls is
+  drawn flat, as the stage draws it; over sloped walls each ridge's loft is its own, so the films
+  of two ridges that would meet overlap instead of merging; and the corners are mitred, so a
+  film's section has, at each convex corner, (1 − π/4)n² more area than a rounded one's.
 - **A film evaporated for a lift-off,** on the resist and in its openings, at the top the design
   draws its layer at. Where an opening lies over a region etched open, the design (planar) still
   draws the layer on top, and so does the frame, saying that the film would land on the floor
   there.
 
 The window of the frames grows to hold a conformal film reaching past the 1 µm it keeps around
-the shapes, with 0.5 µm to spare. The last frame is the last stage, the structure the round trip
+the shapes, with 0.5 µm to spare, so it can be wider than the window the design view and the
+exported cross-sections show (they keep the 1 µm and clip the film there). The last frame is the last stage, the structure the round trip
 checks, with no films: executing the flow still gives the design back exactly.
 
 Each frame is drawn twice from the same scene: as a cross-section at a cut, and as solids in 3D
