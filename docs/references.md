@@ -181,7 +181,7 @@ P. Amestoy, A. Buttari, N. J. Higham, J.-Y. L’Excellent, T. Mary, B. Vieublé,
 
 V. Anant, A. J. Kerman, E. A. Dauler, J. K. W. Yang, K. M. Rosfjord, K. K. Berggren, "Optical properties of superconducting nanowire single-photon detectors", Opt. Express 16, 10750 (2008). [doi:10.1364/OE.16.010750](https://doi.org/10.1364/OE.16.010750)
 
-- Methods pages: [catalogue.md:8](methods/catalogue.md?plain=1#L8), [474](methods/catalogue.md?plain=1#L474), [quantum.md:879](methods/quantum.md?plain=1#L879)
+- Methods pages: [catalogue.md:8](methods/catalogue.md?plain=1#L8), [474](methods/catalogue.md?plain=1#L474), [quantum.md:881](methods/quantum.md?plain=1#L881)
 - Code: [src/material/catalogue/films.rs:3](../src/material/catalogue/films.rs#L3), [67](../src/material/catalogue/films.rs#L67), [src/material/catalogue/references.rs:655](../src/material/catalogue/references.rs#L655), [656](../src/material/catalogue/references.rs#L656)
 
 #### Anemogiannis et al. 1999
@@ -1841,7 +1841,7 @@ J. Hu, C. R. Menyuk, "Understanding leaky modes: slab waveguide revisited", Adv.
 
 X. Hu, C. W. Holzwarth, D. Masciarelli, E. A. Dauler, K. K. Berggren, "Efficiently Coupling Light to Superconducting Nanowire Single-Photon Detectors", IEEE Trans. Appl. Supercond. 19, 336 (2009). [doi:10.1109/TASC.2009.2018035](https://doi.org/10.1109/TASC.2009.2018035)
 
-- Methods pages: [quantum.md:882](methods/quantum.md?plain=1#L882)
+- Methods pages: [quantum.md:884](methods/quantum.md?plain=1#L884)
 
 #### Hughes et al. 2018a
 
@@ -2427,7 +2427,7 @@ H. H. Li, "Refractive index of silicon and germanium and its wavelength and temp
 - Academy lessons: [material-dispersion.md:38](../academy/material-dispersion.md?plain=1#L38), [89](../academy/material-dispersion.md?plain=1#L89), [109](../academy/material-dispersion.md?plain=1#L109), [277](../academy/material-dispersion.md?plain=1#L277), [439](../academy/material-dispersion.md?plain=1#L439), [459](../academy/material-dispersion.md?plain=1#L459)
 - Validation cases: [`material/silicon-li-table`](validation.md?plain=1#L12), [`material/silicon-frey-li`](validation.md?plain=1#L14), [`material/silicon-li-table-1`](validation.md?plain=1#L20), [`material/silicon-li-table-2`](validation.md?plain=1#L21), [`material/silicon-li-frey-dndt`](validation.md?plain=1#L24), [`material/silicon-komma-room`](validation.md?plain=1#L27)
 - Examples: [README.md:34](../examples/README.md?plain=1#L34), [silicon_index.rs:5](../examples/silicon_index.rs#L5), [python/examples/README.md:26](../python/examples/README.md?plain=1#L26), [python/examples/output/silicon_index.txt:7](../python/examples/output/silicon_index.txt#L7), [python/examples/silicon_index.py:5](../python/examples/silicon_index.py#L5)
-- Code: [python/tests/test_api.py:102](../python/tests/test_api.py#L102), [384](../python/tests/test_api.py#L384), [src/facade.rs:127](../src/facade.rs#L127), [src/facade/tests.rs:122](../src/facade/tests.rs#L122), [src/material/catalogue/references.rs:88](../src/material/catalogue/references.rs#L88), [src/material/catalogue/thermo.rs:6](../src/material/catalogue/thermo.rs#L6), [src/material/mod.rs:727](../src/material/mod.rs#L727), [785](../src/material/mod.rs#L785), [src/material/refractiveindex.rs:362](../src/material/refractiveindex.rs#L362), [598](../src/material/refractiveindex.rs#L598), [599](../src/material/refractiveindex.rs#L599), [src/validation.rs:112](../src/validation.rs#L112), [126](../src/validation.rs#L126), [168](../src/validation.rs#L168), [175](../src/validation.rs#L175), [196](../src/validation.rs#L196), [217](../src/validation.rs#L217), [studio/src-tauri/src/charts/material.rs:629](../studio/src-tauri/src/charts/material.rs#L629)
+- Code: [python/tests/test_api.py:102](../python/tests/test_api.py#L102), [384](../python/tests/test_api.py#L384), [src/facade.rs:127](../src/facade.rs#L127), [src/facade/tests.rs:122](../src/facade/tests.rs#L122), [src/material/catalogue/references.rs:88](../src/material/catalogue/references.rs#L88), [src/material/catalogue/thermo.rs:6](../src/material/catalogue/thermo.rs#L6), [src/material/mod.rs:727](../src/material/mod.rs#L727), [785](../src/material/mod.rs#L785), [src/material/refractiveindex.rs:441](../src/material/refractiveindex.rs#L441), [799](../src/material/refractiveindex.rs#L799), [800](../src/material/refractiveindex.rs#L800), [src/validation.rs:112](../src/validation.rs#L112), [126](../src/validation.rs#L126), [168](../src/validation.rs#L168), [175](../src/validation.rs#L175), [196](../src/validation.rs#L196), [217](../src/validation.rs#L217), [studio/src-tauri/src/charts/material.rs:629](../studio/src-tauri/src/charts/material.rs#L629)
 - Other documents: [ROADMAP.md:750](../ROADMAP.md?plain=1#L750)
 
 #### Li 1996
@@ -2583,7 +2583,7 @@ K. Luke, Y. Okawachi, M. R. E. Lamont, A. L. Gaeta, M. Lipson, "Broadband mid-in
 
 - Methods pages: [materials.md:12](methods/materials.md?plain=1#L12)
 - Academy lessons: [material-dispersion.md:62](../academy/material-dispersion.md?plain=1#L62), [219](../academy/material-dispersion.md?plain=1#L219), [450](../academy/material-dispersion.md?plain=1#L450)
-- Code: [src/material/catalogue/references.rs:123](../src/material/catalogue/references.rs#L123), [src/material/mod.rs:837](../src/material/mod.rs#L837), [861](../src/material/mod.rs#L861), [src/material/refractiveindex.rs:350](../src/material/refractiveindex.rs#L350)
+- Code: [src/material/catalogue/references.rs:123](../src/material/catalogue/references.rs#L123), [src/material/mod.rs:837](../src/material/mod.rs#L837), [861](../src/material/mod.rs#L861), [src/material/refractiveindex.rs:429](../src/material/refractiveindex.rs#L429)
 - Other documents: [ROADMAP.md:752](../ROADMAP.md?plain=1#L752)
 
 #### Lundow and Markström 2022
@@ -2672,7 +2672,7 @@ I. H. Malitson, "Interspecimen Comparison of the Refractive Index of Fused Silic
 - Academy lessons: [material-dispersion.md:32](../academy/material-dispersion.md?plain=1#L32), [90](../academy/material-dispersion.md?plain=1#L90), [234](../academy/material-dispersion.md?plain=1#L234), [438](../academy/material-dispersion.md?plain=1#L438), [458](../academy/material-dispersion.md?plain=1#L458)
 - Validation cases: [`material/silica-malitson-formula`](validation.md?plain=1#L16), [`material/silica-malitson-measured`](validation.md?plain=1#L17)
 - Examples: [README.md:35](../examples/README.md?plain=1#L35), [silica_index.rs:4](../examples/silica_index.rs#L4)
-- Code: [src/material/catalogue/references.rs:109](../src/material/catalogue/references.rs#L109), [src/material/mod.rs:46](../src/material/mod.rs#L46), [796](../src/material/mod.rs#L796), [825](../src/material/mod.rs#L825), [src/material/refractiveindex.rs:332](../src/material/refractiveindex.rs#L332), [445](../src/material/refractiveindex.rs#L445), [src/validation.rs:140](../src/validation.rs#L140), [147](../src/validation.rs#L147), [studio/src-tauri/src/charts/material.rs:629](../studio/src-tauri/src/charts/material.rs#L629)
+- Code: [src/material/catalogue/references.rs:109](../src/material/catalogue/references.rs#L109), [src/material/mod.rs:46](../src/material/mod.rs#L46), [796](../src/material/mod.rs#L796), [825](../src/material/mod.rs#L825), [src/material/refractiveindex.rs:411](../src/material/refractiveindex.rs#L411), [646](../src/material/refractiveindex.rs#L646), [src/validation.rs:140](../src/validation.rs#L140), [147](../src/validation.rs#L147), [studio/src-tauri/src/charts/material.rs:629](../studio/src-tauri/src/charts/material.rs#L629)
 - Other documents: [ROADMAP.md:751](../ROADMAP.md?plain=1#L751)
 
 #### Mandelshtam and Taylor 1997
@@ -3913,7 +3913,7 @@ T. Tamir, S. T. Peng, "Analysis and design of grating couplers", Appl. Phys. 14,
 
 C. Tan, "Determination of refractive index of silica glass for infrared wavelengths by IR spectroscopy", Journal of Non-Crystalline Solids 223, 158 (1998). [doi:10.1016/S0022-3093(97)00438-9](https://doi.org/10.1016/S0022-3093(97)00438-9)
 
-- Code: [src/material/refractiveindex.rs:335](../src/material/refractiveindex.rs#L335), [602](../src/material/refractiveindex.rs#L602), [603](../src/material/refractiveindex.rs#L603)
+- Code: [src/material/refractiveindex.rs:414](../src/material/refractiveindex.rs#L414), [803](../src/material/refractiveindex.rs#L803), [804](../src/material/refractiveindex.rs#L804)
 
 #### Tanaka et al. 1986
 
