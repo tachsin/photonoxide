@@ -21,9 +21,10 @@
 //! With real components (Q3): many photons with spectra through any S(ω), a closed form's, a
 //! compact model's, a solver's or a Touchstone file's ([`SpectralInput`]); photon pairs born
 //! inside a circuit and their fringes ([`pair_amplitude`]); loss budgets per path, photon and
-//! event, against published thresholds and Qi et al.'s simulability test ([`Budget`],
-//! [`Threshold`], [`qi_simulable_error`]). The emitters' and detectors' electromagnetics are
-//! the solvers': [`crate::fdtd::emitter`] for β and Purcell factors,
+//! event, along the routes a photon can take, against published thresholds and Qi et al.'s
+//! simulability test ([`Budget`], [`routes`], [`Threshold`], [`qi_simulable_error`]). The
+//! emitters' and detectors' electromagnetics are the solvers': [`crate::fdtd::emitter`] for β
+//! and Purcell factors,
 //! [`crate::mode::multilayer::Multilayer::absorption`] for a detector stack's absorption and the
 //! full-vector modes' loss for a waveguide detector's.
 //!
@@ -60,7 +61,7 @@ mod tests;
 
 pub use budget::{
     Budget, Hop, Stage, Threshold, event, fusion_loss, qi_exact_transmission, qi_fidelity,
-    qi_simulable_error, varnava_loss,
+    qi_simulable_error, routes, varnava_loss,
 };
 pub use fock::{Distribution, Fock, Photons, patterns, probability};
 pub use gaussian::{Gaussian, anti_squeezed_quadrature, db_of_squeezing, squeezed_quadrature};

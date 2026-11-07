@@ -111,7 +111,8 @@ It is released milestone by milestone ([changelog](CHANGELOG.md), [roadmap](ROAD
 click and checked against its paper; each component on its own page, its design in 3D, its models
 side by side, its runs, sweeps and corners; the Custom device for any other structure; runs played live or
 replayed (modes, fields, spectra, FDTD as the field propagates); the Academy's lessons with live
-charts; the materials catalogue; chips; the validation report; the external
+charts; the materials catalogue; chips, and photons through them (their statistics, the
+Hong–Ou–Mandel dip and the loss budget); the validation report; the external
 solvers installed; and the newest papers of the photonics journals and arXiv, any paper read
 inside the studio with its abstract, references and citations, and a reading list. The same program runs a job from the command line
 (`photonoxide run job.yaml`, `--headless` for batches). [studio/README.md](studio/README.md) has
