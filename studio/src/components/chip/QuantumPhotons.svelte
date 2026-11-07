@@ -62,7 +62,9 @@
   const degrees = (rad: number) => `${((rad * 180) / Math.PI).toFixed(1)}°`;
 </script>
 
-<div class="grid gap-x-5 gap-y-3 grid-cols-[13rem_minmax(0,1fr)_minmax(0,17rem)] max-xl:grid-cols-[12rem_minmax(0,1fr)]">
+<!-- three columns where the panel is wide, the ports' numbers under the patterns where it isn't -->
+<div class="@container">
+<div class="grid grid-cols-[12rem_minmax(0,1fr)] gap-x-5 gap-y-4 @5xl:grid-cols-[12rem_minmax(0,1fr)_17rem]">
   <!-- the photons in -->
   <div class="min-w-0">
     <label class="flex flex-col gap-1 text-xs">
@@ -93,16 +95,16 @@
   </div>
 
   {#if blocked}
-    <p class="self-center text-center text-sm muted max-xl:col-span-1 xl:col-span-2">{blocked}</p>
+    <p class="self-center text-center text-sm muted @5xl:col-span-2">{blocked}</p>
   {:else if !n}
-    <div class="self-center text-center xl:col-span-2">
+    <div class="self-center text-center @5xl:col-span-2">
       <p class="text-sm font-medium muted">No photons yet</p>
       <p class="mt-1 text-xs faint">Put a photon on a port with +: the output patterns, each port's photon numbers and bunching follow, for photons alike and told apart.</p>
     </div>
   {:else if problem}
-    <p class="self-center text-center text-sm text-warning xl:col-span-2">Can't compute: {problem}</p>
+    <p class="self-center text-center text-sm text-warning @5xl:col-span-2">Can't compute: {problem}</p>
   {:else if !result}
-    <div class="grid h-40 place-items-center xl:col-span-2"><span class="loading loading-ring text-primary"></span></div>
+    <div class="grid h-40 place-items-center @5xl:col-span-2"><span class="loading loading-ring text-primary"></span></div>
   {:else}
     {@const r = result}
     <!-- the patterns -->
@@ -116,14 +118,14 @@
         <span class="text-[11px] faint num">{r.computed.toLocaleString()} patterns, {r.seconds < 1 ? `${(r.seconds * 1000).toFixed(0)} ms` : `${r.seconds.toFixed(2)} s`}</span>
       </div>
       <div class="mt-2 flex items-center gap-3 text-[11px] muted">
-        <span class="flex items-center gap-1"><span class="inline-block h-2 w-3 rounded-sm bg-primary"></span> alike, |Per|²</span>
-        <span class="flex items-center gap-1"><span class="inline-block h-2 w-3 rounded-sm bg-base-content/30"></span> told apart</span>
+        <span class="flex items-center gap-1" title="Indistinguishable photons: |Per|² of S's rows and columns"><span class="inline-block h-2 w-3 rounded-sm bg-primary"></span> alike</span>
+        <span class="flex items-center gap-1" title="Distinguishable photons: permanents of |S|², as classical particles"><span class="inline-block h-2 w-3 rounded-sm bg-base-content/30"></span> told apart</span>
         <span class="flex-1"></span>
-        <span class="faint">{Math.min(r.patterns.length, r.arriving_patterns)} of {r.arriving_patterns} with every photon</span>
+        <span class="faint" title="The patterns where every photon arrives; those no photon can reach (back through a chip that reflects nothing) aren't drawn">{r.patterns.length} of {r.arriving_patterns} with every photon{r.never ? `; ${r.never} never happen` : ""}</span>
       </div>
       <ul class="mt-1 space-y-1" aria-label="The output patterns where every photon arrives, most likely first">
         {#each r.patterns as p (p.occupations.join())}
-          <li class="grid grid-cols-[minmax(6rem,9rem)_minmax(0,1fr)_7.5rem] items-center gap-2 text-xs">
+          <li class="grid grid-cols-[minmax(5rem,8rem)_minmax(3rem,1fr)_7rem] items-center gap-2 text-xs">
             <span class="truncate num" title={patternLabel(p.occupations, r.ports)}>{patternLabel(p.occupations, r.ports)}</span>
             <span class="flex flex-col gap-0.5">
               <span class="h-1.5 rounded-sm bg-primary" style="width: {Math.max(0.5, (100 * p.probability[0]) / top)}%"></span>
@@ -133,14 +135,14 @@
           </li>
         {/each}
       </ul>
-      {#if r.arriving_patterns > r.patterns.length}
-        <p class="mt-1 text-xs faint num">The other {r.arriving_patterns - r.patterns.length}: {percent(r.others[0])} · {percent(r.others[1])}</p>
+      {#if r.arriving_patterns - r.never > r.patterns.length}
+        <p class="mt-1 text-xs faint num">The other {r.arriving_patterns - r.never - r.patterns.length}: {percent(r.others[0])} · {percent(r.others[1])}</p>
       {/if}
     </div>
 
     <!-- each port's photon numbers, and S -->
-    <div class="min-w-0 max-xl:col-span-2">
-      <p class="panel-title">At each port</p>
+    <div class="col-start-2 min-w-0 @5xl:col-start-auto">
+      <p class="panel-title">At each port <span class="font-normal normal-case tracking-normal faint">alike, and told apart under it</span></p>
       <table class="mt-1 w-full text-xs num">
         <thead>
           <tr class="faint">
@@ -155,12 +157,12 @@
           {#each r.marginals as m (m.port)}
             {@const more = m.probabilities.map((ps) => ps.slice(2).reduce((a, b) => a + b, 0))}
             <tr title="Photons alike, then told apart">
-              <td class="max-w-20 truncate">{m.port}</td>
-              <td class="text-right">{label(Number(m.mean[0].toPrecision(3)))} <span class="faint">{label(Number(m.mean[1].toPrecision(3)))}</span></td>
+              <td class="max-w-20 truncate py-0.5 align-top">{m.port}</td>
+              <td class="text-right leading-tight">{label(Number(m.mean[0].toPrecision(3)))}<br /><span class="faint">{label(Number(m.mean[1].toPrecision(3)))}</span></td>
               {#each [0, 1] as k (k)}
-                <td class="text-right">{percent(m.probabilities[0][k] ?? 0)} <span class="faint">{percent(m.probabilities[1][k] ?? 0)}</span></td>
+                <td class="text-right leading-tight">{percent(m.probabilities[0][k] ?? 0)}<br /><span class="faint">{percent(m.probabilities[1][k] ?? 0)}</span></td>
               {/each}
-              <td class="text-right">{percent(more[0])} <span class="faint">{percent(more[1])}</span></td>
+              <td class="text-right leading-tight">{percent(more[0])}<br /><span class="faint">{percent(more[1])}</span></td>
             </tr>
           {/each}
         </tbody>
@@ -197,4 +199,5 @@
       </div>
     </div>
   {/if}
+</div>
 </div>

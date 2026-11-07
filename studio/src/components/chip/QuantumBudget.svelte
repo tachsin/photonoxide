@@ -34,8 +34,12 @@
     b.shown = k;
   }
   function add() {
+    // the next input and output not yet taken, as photons on separate ports are
     const last = legs.at(-1);
-    b.photons = [...legs, { from: last?.from ?? ports[0], to: last?.to ?? ports[1], route: null }];
+    const free = (p: string, end: "from" | "to") => !legs.some((l) => l[end] === p);
+    const from = ports.find((p) => /^in/i.test(p) && free(p, "from")) ?? last?.from ?? ports[0];
+    const to = ports.find((p) => !/^in/i.test(p) && p !== from && free(p, "to")) ?? last?.to ?? ports[1];
+    b.photons = [...legs, { from, to, route: null }];
     b.shown = legs.length;
   }
   function remove(k: number) {
@@ -113,7 +117,7 @@
           </div>
           {#if found && found.routes.length > 1}
             <select class="select select-xs mt-1 w-full num" aria-label="Photon {k + 1}'s route" value={found.chosen ?? 0} onchange={(e) => edit(k, { route: Number(e.currentTarget.value) })}>
-              {#each found.routes as r, i (i)}<option value={i}>{routeName(r.through)} · {dB(r.loss_db)}</option>{/each}
+              {#each found.routes as r, i (i)}<option value={i}>{dB(r.loss_db)} · {routeName(r.through)}</option>{/each}
             </select>
           {/if}
         </li>
@@ -144,7 +148,7 @@
         <span class="text-[11px] faint num">photon {shownLeg + 1}: {leg.routes.length}{leg.more ? "+" : ""} {leg.routes.length === 1 ? "route" : "routes"}</span>
       </div>
       {#if route}
-        <p class="mt-1 truncate text-xs muted" title={routeName(route.through)}>Along {routeName(route.through)}{leg.routes.length > 1 ? "; the routes interfere, so the chip's own transmission differs from each route's" : ""}</p>
+        <p class="mt-1 truncate text-xs muted" title={routeName(route.through)}>Along {routeName(route.through)}{leg.routes.length > 1 ? `, one of ${leg.routes.length} routes that interfere in the chip's own` : ""}</p>
         <div class="mt-1"><QuantumWaterfall {route} thresholds={r.thresholds} /></div>
         <p class="mt-1 text-[11px] faint">
           Thresholds on a photon's transmission, each under its paper's assumptions (hover a line):

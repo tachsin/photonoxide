@@ -79,6 +79,9 @@ fn two_photons_on_a_balanced_coupler_leave_together() {
     assert_eq!(json["photons"], 2);
     // the patterns of every photon arriving: 2 photons in 4 ports
     assert_eq!(json["arriving_patterns"], 10);
+    // none goes back to a, b: those 7 are left out
+    assert_eq!(json["never"], 7);
+    assert_eq!(json["patterns"].as_array().unwrap().len(), 3);
     let p = |occupations: [usize; 4], k: usize| -> f64 {
         json["patterns"]
             .as_array()

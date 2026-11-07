@@ -18,7 +18,8 @@
   const span = $derived(Math.max(40, width - LABEL - VALUE));
   const at = (db: number) => LABEL + (Math.max(0, db) / most) * span;
   const totalY = $derived(TOP + fall.falls.length * ROW);
-  const height = $derived(totalY + ROW + 18);
+  /** Under the total, a line for each threshold's name. */
+  const height = $derived(totalY + ROW + 6 + thresholds.length * 13);
   const cut = (t: string, n: number) => (t.length > n ? `${t.slice(0, n - 1)}…` : t);
 </script>
 
@@ -26,7 +27,7 @@
   <svg {width} {height} class="block" role="img" aria-label="The loss budget, stage by stage: a total of {dB(route.loss_db)}">
     <!-- the axis: loss in dB, growing to the right -->
     {#each ticks(0, most, 5) as t (t)}
-      <line x1={at(t)} x2={at(t)} y1={TOP - 4} y2={height - 18} class="stroke-base-content/8" />
+      <line x1={at(t)} x2={at(t)} y1={TOP - 4} y2={totalY + ROW} class="stroke-base-content/8" />
       <text x={at(t)} y={TOP - 7} text-anchor="middle" class="fill-base-content/45 text-[10px] num">{label(t)}</text>
     {/each}
     <text x={LABEL + span + 14} y={TOP - 7} class="fill-base-content/45 text-[10px]">dB</text>
@@ -55,8 +56,8 @@
       {@const met = route.transmission > t.transmission}
       <g>
         <title>{t.name}: a photon keeps more than {percent(t.transmission)} ({dB(t.loss_db)}), {met ? "met" : "not met"} here. {t.assumptions}</title>
-        <line x1={at(t.loss_db)} x2={at(t.loss_db)} y1={TOP - 2} y2={height - 16} class={met ? "stroke-success" : "stroke-error"} stroke-width="1.4" stroke-dasharray="5 3" />
-        <text x={at(t.loss_db)} y={height - 4} dx={k % 2 ? 4 : -4} text-anchor={k % 2 ? "start" : "end"} class="{met ? 'fill-success' : 'fill-error'} text-[10px]">{t.name.split(/[ ,]/)[0]} {dB(t.loss_db)}</text>
+        <line x1={at(t.loss_db)} x2={at(t.loss_db)} y1={TOP - 2} y2={totalY + ROW + 6 + k * 13} class={met ? "stroke-success" : "stroke-error"} stroke-width="1.4" stroke-dasharray="5 3" />
+        <text x={at(t.loss_db) + 4} y={totalY + ROW + 15 + k * 13} class="{met ? 'fill-success' : 'fill-error'} text-[10px]">{t.name.split(/[ ,]/)[0]}: {dB(t.loss_db)}, {met ? "met" : "not met"}</text>
       </g>
     {/each}
   </svg>

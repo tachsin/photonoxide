@@ -1310,6 +1310,8 @@ export interface QuantumStatistics {
   /** The patterns where every photon arrives, most likely first. */
   patterns: { occupations: number[]; probability: [number, number] }[];
   arriving_patterns: number;
+  /** Of those, the patterns no photon can reach, left out of `patterns`. */
+  never: number;
   others: [number, number];
   all_arrive: [number, number];
   bunching: [number, number];

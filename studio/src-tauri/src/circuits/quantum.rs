@@ -87,9 +87,10 @@ pub struct Statistics {
     /// The patterns where every photon arrives, most likely first (for indistinguishable
     /// photons), at most [`SHOWN_PATTERNS`].
     patterns: Vec<Pattern>,
-    /// How many patterns of every photon arriving there are, and the probability of those not
-    /// in `patterns`.
+    /// How many patterns of every photon arriving there are, how many of them no photons reach
+    /// (left out of `patterns`), and the probability of those `patterns` leaves out beyond them.
     arriving_patterns: usize,
+    never: usize,
     others: [f64; 2],
     /// The probability that every photon arrives at a port.
     all_arrive: [f64; 2],
@@ -204,8 +205,12 @@ pub(crate) fn statistics(
         })
         .collect();
     let all_arrive = [0, 1].map(|k| arriving.iter().map(|p| p.probability[k]).sum::<f64>());
-    arriving.sort_by(|a, b| b.probability[0].total_cmp(&a.probability[0]));
     let arriving_patterns = arriving.len();
+    // a pattern no photon can reach, alike or told apart (a permanent of zeros: back through a
+    // chip that reflects nothing), isn't drawn
+    arriving.retain(|p| p.probability != [0.0, 0.0]);
+    let never = arriving_patterns - arriving.len();
+    arriving.sort_by(|a, b| b.probability[0].total_cmp(&a.probability[0]));
     let others = [0, 1].map(|k| {
         arriving
             .iter()
@@ -240,6 +245,7 @@ pub(crate) fn statistics(
         computed,
         patterns: arriving,
         arriving_patterns,
+        never,
         others,
         all_arrive,
         bunching: [alike.bunching(), apart.bunching()],
@@ -358,7 +364,11 @@ pub(crate) fn hom(chip: &Chip, root: &Path, request: &DipRequest) -> Result<DipV
         None => (4.0 * widest_ps).min(resolved_ps),
     };
     let delays_ps: Vec<f64> = (0..request.points)
-        .map(|k| -span_ps + 2.0 * span_ps * k as f64 / (request.points - 1) as f64)
+        .map(|k| {
+            // the middle one exactly 0 for an odd number
+            let last = (request.points - 1) as f64;
+            span_ps * (2.0 * k as f64 - last) / last
+        })
         .collect();
     let started = Instant::now();
     let netlist = complete(chip, root)?;
