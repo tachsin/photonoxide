@@ -307,7 +307,9 @@ mod tests {
                         return Ok(v.clone());
                     }
                     let v = super::super::spectrum::entries(&solve(l)?, ports);
-                    kept.lock().expect("the kept solves").insert(l.to_bits(), v.clone());
+                    kept.lock()
+                        .expect("the kept solves")
+                        .insert(l.to_bits(), v.clone());
                     Ok(v)
                 };
                 let dense: Vec<(f64, Vec<c64>)> = (0..DENSE)
@@ -321,7 +323,11 @@ mod tests {
                 eprintln!(
                     "[{k}/8, {}%] {name} {range:?}: dense done, {elapsed:.0} s elapsed, ETA {:.0} s",
                     100 * (k - 1) / 8,
-                    if k > 1 { elapsed / (k - 1) as f64 * (9 - k) as f64 } else { f64::NAN }
+                    if k > 1 {
+                        elapsed / (k - 1) as f64 * (9 - k) as f64
+                    } else {
+                        f64::NAN
+                    }
                 );
                 for tolerance in tolerances {
                     // Spectrum::run's sweep: SweepSet::run over S's entries
@@ -336,7 +342,8 @@ mod tests {
                         [fit(&pick(4, 0)), fit(&pick(4, 2))],
                         [fit(&pick(4, 1)), fit(&pick(4, 3))],
                     ];
-                    let (mut truth, mut d_h, mut d_q, mut truth_h) = (0.0f64, 0.0f64, 0.0f64, 0.0f64);
+                    let (mut truth, mut d_h, mut d_q, mut truth_h) =
+                        (0.0f64, 0.0f64, 0.0f64, 0.0f64);
                     for (l, exact) in &dense {
                         let r = s.eval(*l);
                         truth = truth.max(gap(&r, exact));
