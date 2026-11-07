@@ -1,21 +1,7 @@
 //! Photon pairs from a ring resonator by spontaneous four-wave mixing: the joint spectral
-//! amplitude from the rings' field enhancements at the pump, signal and idler resonances.
+//! amplitude from the rings' field enhancements.
 //!
-//! A ring point-coupled to its bus enhances a wave's field by F(ν) = ik / (1 − r a e^{iφ(ν)})
-//! ([`crate::circuit::components::AllPassRing::field_enhancement`]), a Lorentzian near
-//! resonance. Two pump photons at ν_p and ν − ν_p, each enhanced, make a signal and an idler
-//! at ν_s + ν_i = ν, each enhanced on its way out, so the pairs' amplitude is
-//!
-//! f(ν_s, ν_i) = F_P(ν_s + ν_i) F_s(ν_s) F_i(ν_i),
-//! F_P(ν) = ∫ α(ν_p) α(ν − ν_p) F_p(ν_p) F_p(ν − ν_p) dν_p,
-//!
-//! α the pump pulse's spectral amplitude (L. G. Helt, Z. Yang, M. Liscidini, J. E. Sipe, Opt.
-//! Lett. 35, 3006 (2010), doi:10.1364/OL.35.003006, Eq. (2); Z. Vernon et al., Opt. Lett. 42,
-//! 3638 (2017), doi:10.1364/OL.42.003638, Eqs. (3)–(4)). The phase mismatch along the ring is
-//! left out: on resonance the azimuthal orders conserve momentum (2N_P = N_S + N_I), and over a
-//! resonance's width it changes by far less than a radian in a ring of a few hundred µm.
-//! Vernon et al.'s ring coupled to a second channel at the pump alone is a pump wave whose ring
-//! loses more per round trip (the second channel's coupling), so its resonance is wider.
+//! The method is in [`ring_spectrum`]'s documentation.
 
 use num_complex::Complex64 as c64;
 
@@ -37,9 +23,28 @@ pub struct RingGrid {
     pub pump_points: usize,
 }
 
+/// Photon pairs from a ring resonator by spontaneous four-wave mixing: the joint spectral
+/// amplitude from the rings' field enhancements at the pump, signal and idler resonances.
+///
+/// A ring point-coupled to its bus enhances a wave's field by F(ν) = ik / (1 − r a e^{iφ(ν)})
+/// ([`crate::circuit::components::AllPassRing::field_enhancement`]), a Lorentzian near
+/// resonance. Two pump photons at ν_p and ν − ν_p, each enhanced, make a signal and an idler
+/// at ν_s + ν_i = ν, each enhanced on its way out, so the pairs' amplitude is
+///
+/// f(ν_s, ν_i) = F_P(ν_s + ν_i) F_s(ν_s) F_i(ν_i),
+/// F_P(ν) = ∫ α(ν_p) α(ν − ν_p) F_p(ν_p) F_p(ν − ν_p) dν_p,
+///
+/// α the pump pulse's spectral amplitude (L. G. Helt, Z. Yang, M. Liscidini, J. E. Sipe, Opt.
+/// Lett. 35, 3006 (2010), doi:10.1364/OL.35.003006, Eq. (2); Z. Vernon et al., Opt. Lett. 42,
+/// 3638 (2017), doi:10.1364/OL.42.003638, Eqs. (3)–(4)). The phase mismatch along the ring is
+/// left out: on resonance the azimuthal orders conserve momentum (2N_P = N_S + N_I), and over a
+/// resonance's width it changes by far less than a radian in a ring of a few hundred µm.
+/// Vernon et al.'s ring coupled to a second channel at the pump alone is a pump wave whose ring
+/// loses more per round trip (the second channel's coupling), so its resonance is wider.
+///
 /// The joint spectrum of pairs from a ring, pumped by `pump` (centred on the pump resonance):
 /// `enhancement` gives F(ν) of the pump, signal and idler waves (ν in 1/µm), `centers` the
-/// signal's and idler's resonances (1/µm), on `grid` ([module docs](self)).
+/// signal's and idler's resonances (1/µm), on `grid`.
 ///
 /// # Errors
 ///

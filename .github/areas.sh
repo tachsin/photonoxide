@@ -186,11 +186,12 @@ area circuit \
   "circuit::" "circuit/ components/" \
   "circuit_fit circuit_ring_critical circuit_splitter optimize_ring_flat optimize_mzi_lattice optimize_ring_mzi optimize_ring_pareto optimize_mesh optimize_mesh_selfconfig ring_q_factor directional_coupler mzi_dwivedi"
 
-# the linear-optical statistics: photons through a circuit's S-matrix (its cases reach the coupler
-# device's supermodes for one convergence study)
+# quantum light: photons through a circuit's S-matrix, Gaussian states, pair sources from 0.6.1's
+# joint spectra and rings, squeezers from its amplifiers (its cases reach the coupler device's
+# supermodes for one convergence study, and the mode solver for Paesani et al.'s guide)
 area quantum \
-  "src/quantum.rs src/quantum/* src/validation/quantum.rs" \
-  "circuit device" \
+  "src/quantum.rs src/quantum/* src/validation/quantum.rs src/validation/quantum_light.rs" \
+  "circuit device nonlinear mode" \
   "quantum::" "quantum/" ""
 
 # the devices: components that know their geometry, built from the circuit's components on the

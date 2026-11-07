@@ -12,7 +12,7 @@
 //!   decomposition: additions and multiplications only, the same bits on every system.
 //! - **The torontonian** of a 2m × 2m matrix O, its modes i and i + m paired (N. Quesada,
 //!   J. M. Arrazola, N. Killoran, Phys. Rev. A 98, 062322 (2018), doi:10.1103/PhysRevA.98.062322,
-//!   Eq. (9)): Tor(O) = Σ_{Z ⊆ [m]} (−1)^(m−|Z|) / √det(I − O_Z).
+//!   Eq. (9)): Tor(O) = Σ_{Z ⊆ \[m\]} (−1)^(m−|Z|) / √det(I − O_Z).
 //!
 //! The 2^m terms are added as the permanents' are ([`super::permanent`]): in parts fixed by m,
 //! each Kahan-summed, the parts in order, so the result is the same bit for bit on any number of
@@ -110,7 +110,7 @@ pub fn loop_hafnian(a: &Matrix) -> Result<c64> {
 }
 
 /// The torontonian of a 2m × 2m matrix, mode i's rows and columns i and i + m:
-/// Σ_{Z ⊆ [m]} (−1)^(m−|Z|) / √det(I − O_Z), the principal square root. 1 for the 0 × 0 matrix.
+/// Σ_{Z ⊆ \[m\]} (−1)^(m−|Z|) / √det(I − O_Z), the principal square root. 1 for the 0 × 0 matrix.
 ///
 /// # Errors
 ///
@@ -196,8 +196,8 @@ fn coefficient(b: &Matrix, m: usize, diagonal: Option<impl Iterator<Item = c64>>
         let mut log = vec![c64::new(0.0, 0.0); m + 1];
         for j in 1..=m {
             let mut s = coeff(j);
-            for i in 1..j {
-                s -= log[i] * coeff(j - i) * (i as f64 / j as f64);
+            for (i, li) in log.iter().enumerate().take(j).skip(1) {
+                s -= li * coeff(j - i) * (i as f64 / j as f64);
             }
             log[j] = s;
         }
@@ -301,27 +301,27 @@ pub(crate) fn repeated(a: &Matrix, diagonal: Option<&[c64]>, repeats: &[usize]) 
 /// The hafnian (or with `loops`, the loop hafnian) by its definition, a recursion over the
 /// matchings of the first vertex: for checks, up to 16 vertices.
 pub(crate) fn by_definition(a: &Matrix, loops: bool) -> c64 {
-    fn go(a: &Matrix, left: &mut Vec<usize>, loops: bool) -> c64 {
+    fn go(a: &Matrix, left: &[usize], loops: bool) -> c64 {
         let Some(&first) = left.first() else {
             return c64::new(1.0, 0.0);
         };
         let mut sum = c64::new(0.0, 0.0);
         let rest: Vec<usize> = left[1..].to_vec();
         if loops {
-            let mut others = rest.clone();
-            sum += a[(first, first)] * go(a, &mut others, loops);
+            let others = rest.clone();
+            sum += a[(first, first)] * go(a, &others, loops);
         }
         for (k, &partner) in rest.iter().enumerate() {
-            let mut others: Vec<usize> = rest
+            let others: Vec<usize> = rest
                 .iter()
                 .enumerate()
                 .filter(|&(j, _)| j != k)
                 .map(|(_, &v)| v)
                 .collect();
-            sum += a[(first, partner)] * go(a, &mut others, loops);
+            sum += a[(first, partner)] * go(a, &others, loops);
         }
         sum
     }
-    let mut all: Vec<usize> = (0..a.rows()).collect();
-    go(a, &mut all, loops)
+    let all: Vec<usize> = (0..a.rows()).collect();
+    go(a, &all, loops)
 }

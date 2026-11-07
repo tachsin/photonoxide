@@ -1627,6 +1627,12 @@
   venue: "Journal of Applied Physics 93, 2389"
   year: 2003
 
+- doi: 10.1016/j.jmva.2007.01.013
+  authors: "R. Kan"
+  title: "From moments of sum to moments of product"
+  venue: "Journal of Multivariate Analysis 99, 542"
+  year: 2008
+
 - doi: 10.1109/TAP.1966.1138693
   authors: "Kane Yee"
   title: "Numerical solution of initial boundary value problems involving maxwell's equations in isotropic media"

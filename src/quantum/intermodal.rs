@@ -1,21 +1,7 @@
 //! Photon pairs by spontaneous four-wave mixing with two pumps in two modes of one guide, one
-//! pump delayed: inter-modal phase matching and the pump-delayed scheme of S. Paesani et al.,
-//! Nat. Commun. 11, 2505 (2020), doi:10.1038/s41467-020-16187-8.
+//! of them delayed.
 //!
-//! Pump photons a (in one mode) and b (in another) make a signal and an idler, each in a mode of
-//! its own, ν_a + ν_b = ν_s + ν_i. With both pumps' spectral amplitude α (one pulse split in
-//! two), pump a delayed by τ, and the guide's propagation constants β_j(ν) of each wave's mode,
-//! the pairs' amplitude is
-//!
-//! f(ν_s, ν_i) = ∫ α(ν_a) e^{iω_a τ} α(ν_s + ν_i − ν_a) ∫₀^L e^{iΔk z} dz dν_a,
-//! Δk = β_a(ν_a) + β_b(ν_s + ν_i − ν_a) − β_s(ν_s) − β_i(ν_i),
-//!
-//! ω = 2πcν (W. P. Grice, I. A. Walmsley, Phys. Rev. A 56, 1627 (1997),
-//! doi:10.1103/PhysRevA.56.1627, Eq. (9), with the two pumps' integral written out). The delay
-//! matters where the pumps' group velocities differ: the faster pump, delayed, catches up with the
-//! slower one inside the guide and passes it, so the pumps overlap only for a while, which
-//! switches the interaction on and off smoothly and removes the sinc's side lobes; the overlap's
-//! middle is at z = τ/(1/v_b − 1/v_a). The z integral is L e^{iΔkL/2} sinc(ΔkL/2).
+//! The method is in [`DualPump`]'s documentation.
 
 use std::f64::consts::TAU;
 
@@ -28,6 +14,25 @@ use crate::{Error, Result};
 /// A propagation constant β(ν) (rad/µm) of one wave's mode, ν in 1/µm.
 pub type Beta<'a> = &'a (dyn Fn(f64) -> f64 + Sync);
 
+/// Photon pairs by spontaneous four-wave mixing with two pumps in two modes of one guide, one
+/// pump delayed: inter-modal phase matching and the pump-delayed scheme of S. Paesani et al.,
+/// Nat. Commun. 11, 2505 (2020), doi:10.1038/s41467-020-16187-8.
+///
+/// Pump photons a (in one mode) and b (in another) make a signal and an idler, each in a mode of
+/// its own, ν_a + ν_b = ν_s + ν_i. With both pumps' spectral amplitude α (one pulse split in
+/// two), pump a delayed by τ, and the guide's propagation constants β_j(ν) of each wave's mode,
+/// the pairs' amplitude is
+///
+/// f(ν_s, ν_i) = ∫ α(ν_a) e^{iω_a τ} α(ν_s + ν_i − ν_a) ∫₀^L e^{iΔk z} dz dν_a,
+/// Δk = β_a(ν_a) + β_b(ν_s + ν_i − ν_a) − β_s(ν_s) − β_i(ν_i),
+///
+/// ω = 2πcν (W. P. Grice, I. A. Walmsley, Phys. Rev. A 56, 1627 (1997),
+/// doi:10.1103/PhysRevA.56.1627, Eq. (9), with the two pumps' integral written out). The delay
+/// matters where the pumps' group velocities differ: the faster pump, delayed, catches up with the
+/// slower one inside the guide and passes it, so the pumps overlap only for a while, which
+/// switches the interaction on and off smoothly and removes the sinc's side lobes; the overlap's
+/// middle is at z = τ/(1/v_b − 1/v_a). The z integral is L e^{iΔkL/2} sinc(ΔkL/2).
+///
 /// Two pumps in two modes of a guide: the four waves' β, its length and the delay.
 #[derive(Clone, Copy)]
 pub struct DualPump<'a> {
@@ -43,7 +48,7 @@ pub struct DualPump<'a> {
 
 /// The joint spectrum of a [`DualPump`] guide: `points` signal and idler frequencies `half`
 /// (1/µm) either side of `centers` (1/µm), the pump's integral over `pump_points` frequencies
-/// `pump_half` either side of its centre ([module docs](self)).
+/// `pump_half` either side of its centre ([`DualPump`]).
 ///
 /// # Errors
 ///

@@ -162,7 +162,9 @@ The pages are grouped as the project site groups them.
 - [quantum](methods/quantum.md): photons through a circuit's S-matrix, its loss dilated to noise
   modes: output probabilities by permanents (Ryser's and Glynn's formulas), partly
   distinguishable photons, an exact boson sampler, Hong–Ou–Mandel dips through S(ω), and the
-  Reck and Clements meshes.
+  Reck and Clements meshes; Gaussian states through any circuit, their photon counts by hafnians
+  and clicks by torontonians; pair sources from a joint spectrum or a ring, and squeezers from
+  parametric amplifiers.
 
 ### Fabrication
 

@@ -67,6 +67,7 @@ pub fn rules() -> Vec<(&'static str, Rule)> {
     rules.extend(nonlinear_kerr::rules());
     rules.extend(nonlinear_cavities::rules());
     rules.extend(quantum::rules());
+    rules.extend(quantum_light::rules());
     rules
 }
 
@@ -2298,6 +2299,7 @@ pub fn cases() -> Vec<Case> {
     cases.extend(crate::nonlinear::cavity_checks::cases());
     // and the linear-optical statistics of photons through a circuit's S-matrix (0.6.3, Q1)
     cases.extend(crate::quantum::checks::cases());
+    cases.extend(crate::quantum::light_checks::cases());
     cases
 }
 
@@ -5380,6 +5382,7 @@ mod nonlinear_kerr;
 mod pcm;
 mod pcm_conformal;
 mod quantum;
+mod quantum_light;
 mod roughness;
 mod sweep;
 #[cfg(feature = "gpu")]

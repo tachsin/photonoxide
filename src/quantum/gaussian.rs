@@ -1,31 +1,7 @@
-//! Gaussian states of light: squeezed, displaced and thermal modes, through any circuit, with
-//! their photon counts by hafnians and their clicks by torontonians.
+//! Gaussian states of light: squeezed, displaced and thermal modes through any circuit, their
+//! photon counts by hafnians and their clicks by torontonians.
 //!
-//! # Conventions
-//!
-//! - **Quadratures** x̂ = â + â†, p̂ = −i(â − â†) (ħ = 2): the vacuum's variances are 1, and a
-//!   variance below 1 is squeezed. A state of n modes is its means d = ⟨(x₁ … x_n, p₁ … p_n)⟩
-//!   and its covariance V_ij = ½⟨{Δr_i, Δr_j}⟩, the x's first (C. Weedbrook et al., Rev. Mod.
-//!   Phys. 84, 621 (2012), doi:10.1103/RevModPhys.84.621, Sec. II, with their ħ = 2).
-//! - **A Gaussian unitary** b̂ = U â + W â† acts on the quadratures as the real symplectic
-//!   S = [[Re(U + W), −Im(U − W)], [Im(U + W), Re(U − W)]]: V → S V Sᵀ, d → S d.
-//! - **The squeezer** S(ξ) = exp(½(ξ* â² − ξ â†²)), ξ = r e^{iφ}: â → â cosh r − â† e^{iφ} sinh r;
-//!   at φ = 0 it multiplies x's variance by e^{−2r} and p's by e^{2r}. **The two-mode squeezer**
-//!   exp(ξ* â b̂ − ξ â† b̂†) takes â → â cosh r − b̂† e^{iφ} sinh r and b̂ likewise.
-//! - **A passive circuit** b̂ = T â + L ĉ with the vacuum ĉ through its loss (L L† = I − T T†,
-//!   [`super::Transfer`]): V → R V Rᵀ + R_L R_Lᵀ, R and R_L the real forms of T and L; R_L R_Lᵀ =
-//!   I − R Rᵀ.
-//! - **Photon counts** (C. S. Hamilton et al., Phys. Rev. Lett. 119, 170501 (2017),
-//!   doi:10.1103/PhysRevLett.119.170501, Eqs. (2)–(5); with means, the loop hafnian of A.
-//!   Björklund, B. Gupt, N. Quesada, doi:10.1145/3325111): in the basis (â, â†), the complex
-//!   covariance σ = ¼ W V W† with W = [[I, iI], [I, −iI]], σ_Q = σ + ½I, A = X(I − σ_Q⁻¹) with
-//!   X = [[0, I], [I, 0]], β = (α, α*) the means (α = (d_x + i d_p)/2) and γ = β†σ_Q⁻¹:
-//!   P(n) = exp(−½ β†σ_Q⁻¹β) lhaf(Ã_n) / (√det σ_Q ∏ n_i!), Ã_n the rows and columns of A for
-//!   mode i and its conjugate each repeated n_i times, its diagonal γ's (the hafnian of A_n
-//!   without means).
-//! - **Threshold clicks** (N. Quesada, J. M. Arrazola, N. Killoran, Phys. Rev. A 98, 062322
-//!   (2018), doi:10.1103/PhysRevA.98.062322): the modes that click S, the rest dark,
-//!   P(S) = Tor(O_S) / √det σ_Q, O = I − σ_Q⁻¹, for a state without means.
+//! The method is in [`Gaussian`]'s documentation.
 
 use std::f64::consts::FRAC_PI_2;
 
@@ -39,6 +15,35 @@ use crate::{Error, Result};
 /// The most photons a pattern may hold: a hafnian of 2 × 30 rows is 2^30 terms.
 const MOST_PHOTONS: usize = 30;
 
+/// Gaussian states of light: squeezed, displaced and thermal modes, through any circuit, with
+/// their photon counts by hafnians and their clicks by torontonians.
+///
+/// # Conventions
+///
+/// - **Quadratures** x̂ = â + â†, p̂ = −i(â − â†) (ħ = 2): the vacuum's variances are 1, and a
+///   variance below 1 is squeezed. A state of n modes is its means d = ⟨(x₁ … x_n, p₁ … p_n)⟩
+///   and its covariance V_ij = ½⟨{Δr_i, Δr_j}⟩, the x's first (C. Weedbrook et al., Rev. Mod.
+///   Phys. 84, 621 (2012), doi:10.1103/RevModPhys.84.621, Sec. II, with their ħ = 2).
+/// - **A Gaussian unitary** b̂ = U â + W â† acts on the quadratures as the real symplectic
+///   S = [[Re(U + W), −Im(U − W)], [Im(U + W), Re(U − W)]]: V → S V Sᵀ, d → S d.
+/// - **The squeezer** S(ξ) = exp(½(ξ* â² − ξ â†²)), ξ = r e^{iφ}: â → â cosh r − â† e^{iφ} sinh r;
+///   at φ = 0 it multiplies x's variance by e^{−2r} and p's by e^{2r}. **The two-mode squeezer**
+///   exp(ξ* â b̂ − ξ â† b̂†) takes â → â cosh r − b̂† e^{iφ} sinh r and b̂ likewise.
+/// - **A passive circuit** b̂ = T â + L ĉ with the vacuum ĉ through its loss (L L† = I − T T†,
+///   [`super::Transfer`]): V → R V Rᵀ + R_L R_Lᵀ, R and R_L the real forms of T and L; R_L R_Lᵀ =
+///   I − R Rᵀ.
+/// - **Photon counts** (C. S. Hamilton et al., Phys. Rev. Lett. 119, 170501 (2017),
+///   doi:10.1103/PhysRevLett.119.170501, Eqs. (2)–(5); with means, the loop hafnian of A.
+///   Björklund, B. Gupt, N. Quesada, doi:10.1145/3325111): in the basis (â, â†), the complex
+///   covariance σ = ¼ W V W† with W = [[I, iI], [I, −iI]], σ_Q = σ + ½I, A = X(I − σ_Q⁻¹) with
+///   X = [[0, I], [I, 0]], β = (α, α*) the means (α = (d_x + i d_p)/2) and γ = β†σ_Q⁻¹:
+///   P(n) = exp(−½ β†σ_Q⁻¹β) lhaf(Ã_n) / (√det σ_Q ∏ n_i!), Ã_n the rows and columns of A for
+///   mode i and its conjugate each repeated n_i times, its diagonal γ's (the hafnian of A_n
+///   without means).
+/// - **Threshold clicks** (N. Quesada, J. M. Arrazola, N. Killoran, Phys. Rev. A 98, 062322
+///   (2018), doi:10.1103/PhysRevA.98.062322): the modes that click S, the rest dark,
+///   P(S) = Tor(O_S) / √det σ_Q, O = I − σ_Q⁻¹, for a state without means.
+///
 /// A Gaussian state of n modes: its quadratures' means and covariance (vacuum variance 1).
 #[derive(Clone, Debug, PartialEq)]
 pub struct Gaussian {
@@ -148,7 +153,7 @@ impl Gaussian {
         Ok(())
     }
 
-    /// Applies b̂ = U â + W â† to all the modes ([module conventions](self)).
+    /// Applies b̂ = U â + W â† to all the modes ([`Gaussian`]'s conventions).
     fn bogoliubov(&self, u: &Matrix, w: &Matrix) -> Gaussian {
         let n = self.modes;
         let s = Matrix::from_fn(2 * n, 2 * n, |i, j| {
@@ -223,7 +228,7 @@ impl Gaussian {
         Ok(g)
     }
 
-    /// The state with `mode` squeezed by ξ = r e^{iφ} ([module conventions](self)).
+    /// The state with `mode` squeezed by ξ = r e^{iφ} ([`Gaussian`]'s conventions).
     ///
     /// # Errors
     ///
@@ -313,7 +318,7 @@ impl Gaussian {
     }
 
     /// The state after a passive linear map b̂ = T â on all its modes, T n × n with T T† ≤ I,
-    /// the vacuum entering through its loss ([module conventions](self)).
+    /// the vacuum entering through its loss ([`Gaussian`]'s conventions).
     ///
     /// # Errors
     ///
@@ -524,7 +529,7 @@ impl Gaussian {
     }
 
     /// The probability of `pattern` photons in the modes, by a hafnian (or a loop hafnian with
-    /// means) ([module conventions](self)).
+    /// means) ([`Gaussian`]'s conventions).
     ///
     /// # Errors
     ///
@@ -608,7 +613,7 @@ impl Gaussian {
     }
 
     /// The probability that exactly the modes in `clicks` click on threshold detectors and the
-    /// rest stay dark, by a torontonian ([module conventions](self)).
+    /// rest stay dark, by a torontonian ([`Gaussian`]'s conventions).
     ///
     /// # Errors
     ///
