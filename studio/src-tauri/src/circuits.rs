@@ -14,9 +14,12 @@
 
 pub mod chip;
 pub mod library;
+pub mod quantum;
 
 #[cfg(test)]
 mod chip_tests;
+#[cfg(test)]
+mod quantum_tests;
 #[cfg(test)]
 mod tests;
 
@@ -955,6 +958,17 @@ pub struct Simulation {
 /// The spectrum of `chip` over its sweep, its netlist, and how long the solve took.
 fn solve(chip: &Chip, root: &Path) -> Result<(Netlist, Spectrum, f64), String> {
     let wavelengths = chip.sweep.wavelengths()?;
+    let netlist = complete(chip, root)?;
+    let started = Instant::now();
+    let circuit = netlist.compile().map_err(|e| e.to_string())?;
+    // one sparse solve per wavelength, the wavelengths on every core
+    let spectrum = circuit.spectrum(&wavelengths).map_err(|e| e.to_string())?;
+    Ok((netlist, spectrum, started.elapsed().as_secs_f64()))
+}
+
+/// The netlist of `chip`: refused, with its first problem, unless the chip is complete and has
+/// external ports.
+pub(crate) fn complete(chip: &Chip, root: &Path) -> Result<Netlist, String> {
     let (netlist, problems) = chip.netlist(root);
     if let Some(p) = problems.first() {
         return Err(if problems.len() > 1 {
@@ -966,11 +980,7 @@ fn solve(chip: &Chip, root: &Path) -> Result<(Netlist, Spectrum, f64), String> {
     if netlist.external().is_empty() {
         return Err("the circuit has no external ports: place one and wire it".into());
     }
-    let started = Instant::now();
-    let circuit = netlist.compile().map_err(|e| e.to_string())?;
-    // one sparse solve per wavelength, the wavelengths on every core
-    let spectrum = circuit.spectrum(&wavelengths).map_err(|e| e.to_string())?;
-    Ok((netlist, spectrum, started.elapsed().as_secs_f64()))
+    Ok(netlist)
 }
 
 /// Simulates `chip` over its sweep: the library's sparse solve of the whole netlist at each

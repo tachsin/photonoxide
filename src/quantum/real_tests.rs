@@ -190,8 +190,14 @@ fn an_interferometer_has_two_routes_from_an_input_to_an_output() {
     assert_eq!(arms, ["upper", "lower"], "{found:?}");
     for route in &found {
         assert_eq!(route.len(), 3);
-        assert_eq!((route[0].instance.as_str(), route[0].from.as_str()), ("split", "o2"));
-        assert_eq!((route[2].instance.as_str(), route[2].to.as_str()), ("combine", "o3"));
+        assert_eq!(
+            (route[0].instance.as_str(), route[0].from.as_str()),
+            ("split", "o2")
+        );
+        assert_eq!(
+            (route[2].instance.as_str(), route[2].to.as_str()),
+            ("combine", "o3")
+        );
     }
     // each route's budget is its stages' product: half of each coupler, their 0.4 dB of excess
     // loss, and its arm's 0.25 dB/mm
@@ -215,7 +221,12 @@ fn the_only_route_carries_the_circuits_own_transmission() {
     net.add("c", Arc::new(coupler)).expect(OK);
     net.set("c", "coupling", 0.3).expect(OK);
     net.connect("g.o2", "c.o1").expect(OK);
-    for (name, at) in [("in", "g.o1"), ("b", "c.o2"), ("out", "c.o4"), ("x", "c.o3")] {
+    for (name, at) in [
+        ("in", "g.o1"),
+        ("b", "c.o2"),
+        ("out", "c.o4"),
+        ("x", "c.o3"),
+    ] {
         net.expose(name, at).expect(OK);
     }
     let mut circuit = net.compile().expect(OK);
@@ -226,7 +237,13 @@ fn the_only_route_carries_the_circuits_own_transmission() {
         [vec![Hop::new("g", "o1", "o2"), Hop::new("c", "o1", "o4")]]
     );
     let budget = Budget::along(&circuit, &found[0], w).expect(OK);
-    let at = |name: &str| circuit.ports().iter().position(|p| p.name == name).expect(OK);
+    let at = |name: &str| {
+        circuit
+            .ports()
+            .iter()
+            .position(|p| p.name == name)
+            .expect(OK)
+    };
     let whole = circuit.s_matrix(w).expect(OK).power(at("out"), at("in"));
     assert!((budget.transmission() / whole - 1.0).abs() < 1e-12);
     // a coupler that sends everything across leaves no route through it (o1 to o4), and the
@@ -240,9 +257,16 @@ fn the_only_route_carries_the_circuits_own_transmission() {
 fn routes_refuse_ports_that_arent_the_circuits() {
     let circuit = lossy_mzi();
     let w = um(1.55);
-    let e = routes(&circuit, "nowhere", "out1", w, 4).unwrap_err().to_string();
-    assert!(e.contains("no external port nowhere") && e.contains("in1, in2, out1, out2"), "{e}");
+    let e = routes(&circuit, "nowhere", "out1", w, 4)
+        .unwrap_err()
+        .to_string();
+    assert!(
+        e.contains("no external port nowhere") && e.contains("in1, in2, out1, out2"),
+        "{e}"
+    );
     assert!(routes(&circuit, "in1", "split.o3", w, 4).is_err());
-    let e = routes(&circuit, "in1", "in1", w, 4).unwrap_err().to_string();
+    let e = routes(&circuit, "in1", "in1", w, 4)
+        .unwrap_err()
+        .to_string();
     assert!(e.contains("one port to another"), "{e}");
 }
