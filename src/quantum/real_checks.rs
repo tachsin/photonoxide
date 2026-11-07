@@ -1045,7 +1045,7 @@ pub(crate) fn cases() -> Vec<Case> {
             id: "quantum/spectral-hom",
             title: r"Quantum: two photons (2 and 3 nm wide, centred 1 nm apart) through a dispersive interferometer's swept $S(\omega)$ (couplers of 0.5 and 0.35, arms of 60 and 40 µm): the spectral formula's coincidences at 11 delays against the Hong–Ou–Mandel integrals of `hom_dip` (largest difference shown)",
             tier: Tier::Analytic,
-            source: "the spectral formula for two photons is the coincidence ∫|A|²∫|B|² + ∫|C|²∫|D|² + 2 Re(∫AD̄ ∫BC̄) (docs/methods/quantum.md)",
+            source: r"the spectral formula for two photons is the coincidence $\int \lvert A \rvert^2 \int \lvert B \rvert^2 + \int \lvert C \rvert^2 \int \lvert D \rvert^2 + 2 \operatorname{Re}(\int A \bar D \int B \bar C)$ (docs/methods/quantum.md)",
             run: spectral_hom_case,
         },
         Case {
@@ -1073,7 +1073,7 @@ pub(crate) fn cases() -> Vec<Case> {
             id: "quantum/varnava-threshold",
             title: r"Quantum: Varnava et al.'s threshold from their loss model: $\eta_S \eta_D$ where $(1 - \epsilon)\eta_D = 1/2$ with $\epsilon = 1 - \eta_S/(2 - \eta_D \eta_S)$, at $\eta_D$ from 0.7 to 1 (largest difference from 2/3 shown)",
             tier: Tier::Published,
-            source: "M. Varnava, D. E. Browne, T. Rudolph, Phys. Rev. Lett. 100, 060502 (2008), doi:10.1103/PhysRevLett.100.060502, p. 060502-2: η_S η_D > 2/3",
+            source: r"M. Varnava, D. E. Browne, T. Rudolph, Phys. Rev. Lett. 100, 060502 (2008), doi:10.1103/PhysRevLett.100.060502, p. 060502-2: $\eta_S \eta_D \gt 2/3$",
             run: varnava_case,
         },
         Case {
@@ -1085,7 +1085,7 @@ pub(crate) fn cases() -> Vec<Case> {
         },
         Case {
             id: "quantum/qi-simulability",
-            title: r"Quantum: Qi et al.'s test (their Eq. 1) on the experiments they test: the smallest error $\epsilon^* = 2\sqrt{-K \ln F_\max}$ to which Paesani et al.'s chip ($K$ = 4, $r$ = 0.1, $\eta$ = 0.088, $\eta_D$ = 0.78, $p_D$ = 1e-4) is simulable (shown), and Zhong et al.'s ($K$ = 6, $r$ = 0.38, $\eta$ = 0.89, $\eta_D$ = 0.82) not at any $\epsilon \le 1$",
+            title: r"Quantum: Qi et al.'s test (their Eq. 1) on the experiments they test: the smallest error $\epsilon^* = 2\sqrt{-K \ln F_{\max}}$ to which Paesani et al.'s chip ($K$ = 4, $r$ = 0.1, $\eta$ = 0.088, $\eta_D$ = 0.78, $p_D$ = 1e-4) is simulable (shown), and Zhong et al.'s ($K$ = 6, $r$ = 0.38, $\eta$ = 0.89, $\eta_D$ = 0.82) not at any $\epsilon \le 1$",
             tier: Tier::Published,
             source: "H. Qi, D. J. Brod, N. Quesada, R. García-Patrón, Phys. Rev. Lett. 124, 100502 (2020), doi:10.1103/PhysRevLett.124.100502, p. 100502-2: \"error 2%\", and \"no solution for any ε ∈ [0, 1]\"",
             run: qi_case,

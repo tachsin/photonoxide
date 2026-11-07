@@ -494,7 +494,7 @@ wavelength and $S_i$ at the idler's, the signal reaches $o_1$ and the idler $o_2
 $A = \sum_k \xi_k S_s[o_1, s_k] S_i[o_2, i_k]$, and degenerate photons one at each of $o_1 \ne o_2$
 with $\sum_k \xi_k (S[o_1, s_k] S[o_2, i_k] + S[o_2, s_k] S[o_1, i_k])$ (`pair_amplitude`). Two
 sources a phase $\phi$ apart make the fringe $\lvert x + y e^{i\phi} \rvert^2$, whose visibility
-$(N_\max - N_\min)/N_\max$ (Silverstone et al.'s, doi:10.1038/nphoton.2013.339) is
+$(N_{\max} - N_{\min})/N_{\max}$ (Silverstone et al.'s, doi:10.1038/nphoton.2013.339) is
 $4\lvert x \rvert \lvert y \rvert / (\lvert x \rvert + \lvert y \rvert)^2$ (`two_path_visibility`).
 
 ## Loss budgets and thresholds
@@ -526,9 +526,9 @@ Budgets are held against published thresholds, each quoted with what it assumes 
   boson sampler of $K$ squeezed modes (squeezing $r$, transmission $\eta$, threshold detectors of
   efficiency $\eta_D$ and dark-count probability $p_D$, $q_D = p_D/\eta_D$) is simulable
   classically to a total variation distance $\epsilon$ when
-  $F_\max = \operatorname{sech}\lbrace \tfrac12 \Theta[\ln((1 - 2q_D)/(\eta e^{-2r} + 1 - \eta))] \rbrace > e^{-\epsilon^2/4K}$
+  $F_{\max} = \operatorname{sech}\lbrace \tfrac12 \Theta[\ln((1 - 2q_D)/(\eta e^{-2r} + 1 - \eta))] \rbrace > e^{-\epsilon^2/4K}$
   (their Eqs. 1 and 12, $\Theta$ the ramp), that is above
-  $\epsilon^* = 2\sqrt{-K \ln F_\max}$ (`qi_simulable_error`). Their test assumes uniform loss,
+  $\epsilon^* = 2\sqrt{-K \ln F_{\max}}$ (`qi_simulable_error`). Their test assumes uniform loss,
   folded into the squeezed inputs, and the no-collision regime. For a designed chip, $\eta$ is its
   budget's transmission and $r$ its squeezers' (Q2).
 
