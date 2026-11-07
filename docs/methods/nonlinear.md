@@ -1110,6 +1110,36 @@ coupler, until the output changes by less than 10⁻¹⁴, and compare it with t
 RK4's error falls to a floor near 10⁻¹¹ for SHG and 10⁻¹³ for FWM, where the iteration stops
 (`nonlinear/ring-shg-enhancement`, `nonlinear/ring-fwm-enhancement`, on 20 steps).
 
+### Add-drop rings
+
+An add-drop ring (`AddDropRing::ring_wave`, a `cavity::AddDropWave`) has a second coupler
+halfway round, through r₂ and across ik₂, a point like the input's. The field past the input
+coupler is F = ik₁/(1 − r₁r₂a e^{iφ}), the field the ring component has there; the round trip's
+phase stays lumped at the input coupler, as in the all-pass ring. Each driving field steps down by
+its own r₂ at the drop coupler, so the pass's integral splits into two halves, the second weighted
+by the drivers' r₂ (r₂,ω² for SHG, r₂,p²r₂,s for FWM), with the mismatch's phase running on across
+the coupler:
+
+- G = S[r₂e^{−αL/2}I(0, L/2) + w e^{−αL/2}I(L/2, L)], I(u, v) = (e^{xv} − e^{xu})/x, with S
+  the source (κ|F_ω|²P_ω for SHG), w the drivers' weight, α and r₂ the generated wave's;
+- the generated field before the input coupler is C = G/(1 − r₁r₂a e^{iφ}): the through port
+  takes k₁²|C|² = |F|²|G|²;
+- the drop port takes k₂²|r₁e^{iφ}e^{−αL/4}C + S e^{−αL/4}I(0, L/2)|², the field at the drop
+  coupler: what came round from the input coupler and what the first half made.
+
+`cavity::second_harmonic_add_drop` and `cavity::four_wave_add_drop` give both ports; with no drop
+couplers their through ports are `second_harmonic`'s and `four_wave`'s. Two cases hold them:
+
+| Case | What it compares | Error |
+|---|---|---|
+| `nonlinear/ring-add-drop-build-up` | \|F\|² against the ring component's in → drop power over k₂²a, at 21 points across the resonance (100 µm, couplings 0.05 and 0.03, 3 dB/cm) | 3.6e-15 |
+| `nonlinear/ring-add-drop-shg` | the SHG ring above with drop couplers 0.03 and 0.05, run round trip by round trip with the couplers where they are, both ports | 1.1e-10, 3.9e-12, 2.7e-12, 3.0e-12 on 5, 10, 20, 40 steps a half |
+
+An earlier try spread the drop coupler along the ring as the fixed loss is spread; against the
+point coupler its through port was 2.5e-3 off and its drop port 45 % off, the harmonic being off
+its own resonance (its field at the drop coupler is mostly the first half's, not the circulating
+one), so the drop coupler is kept a point.
+
 ## Kerr microresonators
 
 `nonlinear::resonator` integrates the Lugiato–Lefever equation (LLE), the mean-field equation of a

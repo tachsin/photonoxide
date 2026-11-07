@@ -5,8 +5,9 @@
 
 use num_complex::Complex64 as c64;
 
-use crate::circuit::components::{AllPassRing, Dispersion};
-use crate::nonlinear::cavity::{RingWave, four_wave, second_harmonic};
+use crate::circuit::Component;
+use crate::circuit::components::{AddDropRing, AllPassRing, Dispersion};
+use crate::nonlinear::cavity::{RingWave, four_wave, second_harmonic, second_harmonic_add_drop};
 use crate::nonlinear::coupled::{SecondHarmonic, ThreeWave};
 use crate::nonlinear::fwm::{FourWave, Waves};
 use crate::nonlinear::opo::{Feedback, Oscillator, uniform_depletion};
@@ -157,6 +158,120 @@ fn ring_fwm_case() -> Outcome {
 }
 
 const RING_FWM_TOLERANCE: f64 = 1e-12;
+
+/// An add-drop ring (100 µm, 3 dB/cm, couplings 0.05 and 0.03) on its resonance near 1.55 µm
+/// and at 21 points across its width: the largest relative gap between the wave's build-up
+/// |F|² ([`AddDropRing::ring_wave`]) and the ring component's own |S_drop,in|²/(k₂²a), the in →
+/// drop power over the drop coupler's and the half round trip's: (the gap, the build-up on
+/// resonance).
+pub(crate) fn add_drop_build_up() -> (f64, f64) {
+    let run = || -> crate::Result<(f64, f64)> {
+        let (k1, k2, length) = (0.05, 0.03, 100.0);
+        let ring =
+            AddDropRing::new(Dispersion::new(Wavelength::um(1.55)?, 2.2, 2.3).with_loss(3.0))?;
+        let at = ring.resonance(Wavelength::um(1.55)?, length)?;
+        let width = ring.fwhm(at, &[length, k1, k2])?;
+        let values = [length, k1, k2];
+        let (mut gap, mut peak) = (0.0f64, f64::NAN);
+        for j in 0..21 {
+            let w = Wavelength::um(at.to_um() + width * (j as f64 - 10.0) / 10.0)?;
+            let wave = ring.ring_wave(w, &values)?;
+            let a = ring.round_trip(w, &values)?.norm();
+            let exact = ring.s_matrix(w, &values)?.power(3, 0) / (k2 * a);
+            gap = gap.max((wave.wave.build_up() / exact - 1.0).abs());
+            if j == 10 {
+                peak = wave.wave.build_up();
+            }
+        }
+        Ok((gap, peak))
+    };
+    run().unwrap_or((f64::NAN, f64::NAN))
+}
+
+fn add_drop_case() -> Outcome {
+    let (gap, peak) = add_drop_build_up();
+    Outcome {
+        measured: peak,
+        expected: peak,
+        tolerance: ADD_DROP_TOLERANCE * peak.abs(),
+        error: gap * peak.abs(),
+    }
+}
+
+const ADD_DROP_TOLERANCE: f64 = 1e-12;
+
+/// [`ring_shg`]'s rings as add-drop rings, drop couplings 0.03 (the fundamental's) and 0.05
+/// (the harmonic's), run round trip by round trip with the depleted coupled equations (`steps`
+/// RK4 steps a half) and the drop coupler at L/2, until the through port changes by less than
+/// 10⁻¹⁴: (the through port's relative gap to the closed form, the drop port's, the closed
+/// form's through and drop, W).
+pub(crate) fn add_drop_shg(steps: usize) -> (f64, f64, f64, f64) {
+    let run = || -> crate::Result<(f64, f64, f64, f64)> {
+        let length = 100.0;
+        let ring = |near: f64, effective: f64, group: f64| {
+            AddDropRing::new(
+                Dispersion::new(Wavelength::um(near)?, effective, group).with_loss(3.0),
+            )
+        };
+        let fundamental = ring(1.55, 2.2, 2.3)?;
+        let harmonic = ring(0.775, 2.25, 2.4)?;
+        let at = fundamental.resonance(Wavelength::um(1.55)?, length)?;
+        let half_at = Wavelength::um(at.to_um() / 2.0)?;
+        let (fv, hv) = ([length, 0.05, 0.03], [length, 0.08, 0.05]);
+        let f = fundamental.ring_wave(at, &fv)?;
+        let h = harmonic.ring_wave(half_at, &hv)?;
+        let (kappa, dk, p) = (1e-4, 0.002, 1e-9);
+        let closed = second_harmonic_add_drop(&f, &h, kappa, dk, p)?;
+        let shg = SecondHarmonic {
+            coupling: kappa,
+            mismatch: dk,
+            loss: [f.wave.loss(), h.wave.loss()],
+        };
+        let (r2f, r2h) = ((1.0 - fv[2]).sqrt(), (1.0 - hv[2]).sqrt());
+        let k2h = c64::new(0.0, hv[2].sqrt());
+        let bus = c64::new(p.sqrt(), 0.0);
+        let zero = c64::new(0.0, 0.0);
+        let (mut a1, mut a2) = (zero, zero);
+        let (mut last, mut out, mut drop) = (f64::NAN, f64::NAN, f64::NAN);
+        for _ in 0..200_000 {
+            let [m1, m2] = shg.propagate([a1, a2], length / 2.0, steps)?;
+            drop = (k2h * m2).norm_sqr();
+            // the second half in its own z from 0: the harmonic turned by e^{iΔkL/2} and back,
+            // so the mismatch's phase runs on from the first half's
+            let turn = c64::from_polar(1.0, dk * length / 2.0);
+            let [e1, e2] = shg.propagate([r2f * m1, r2h * m2 * turn], length / 2.0, steps)?;
+            let e2 = e2 / turn;
+            let (n1, _) = couple(&f.wave, fv[1], e1, bus);
+            let (n2, o2) = couple(&h.wave, hv[1], e2, zero);
+            a1 = n1;
+            a2 = n2;
+            out = o2.norm_sqr();
+            if ((out - last) / out).abs() < 1e-14 {
+                break;
+            }
+            last = out;
+        }
+        Ok((out, drop, closed.through, closed.drop))
+    };
+    run().unwrap_or((f64::NAN, f64::NAN, f64::NAN, f64::NAN))
+}
+
+/// The through port's harmonic against the closed form, the error the larger relative gap of
+/// the two ports.
+fn add_drop_shg_case() -> Outcome {
+    let (through, drop, closed, closed_drop) = add_drop_shg(RING_STEPS);
+    let gap = (through / closed - 1.0)
+        .abs()
+        .max((drop / closed_drop - 1.0).abs());
+    Outcome {
+        measured: through,
+        expected: closed,
+        tolerance: ADD_DROP_SHG_TOLERANCE * closed.abs(),
+        error: gap * closed.abs(),
+    }
+}
+
+const ADD_DROP_SHG_TOLERANCE: f64 = 6e-12;
 
 // ---------------------------------------------------------------------------------------------
 // Heralding
@@ -367,6 +482,20 @@ pub(crate) fn cases() -> Vec<Case> {
             run: ring_fwm_case,
         },
         Case {
+            id: "nonlinear/ring-add-drop-build-up",
+            title: r"An add-drop ring for the resonant processes (100 µm, 3 dB/cm, couplings 0.05 and 0.03, the drop coupler spread along the ring) on its resonance near 1.55 µm and at 21 points across its width: the build-up $\lvert F\rvert^2 = k_1^2/\lvert 1 - r_1r_2a e^{i\phi}\rvert^2$ against the ring component's in → drop power over $k_2^2a$, the largest relative gap (the build-up on resonance shown)",
+            tier: Tier::Analytic,
+            source: r"W. Bogaerts et al., Laser Photonics Rev. 6, 47 (2012), doi:10.1002/lpor.201100017, Eq. 6: in → drop is $-k_1k_2\sqrt{A}/(1 - r_1r_2A)$, the field past the input coupler $ik_1/(1 - r_1r_2A)$ times the half round trip and the drop coupler's $ik_2$",
+            run: add_drop_case,
+        },
+        Case {
+            id: "nonlinear/ring-add-drop-shg",
+            title: r"The SHG ring of `nonlinear/ring-shg-enhancement` as add-drop rings, drop couplers 0.03 (the fundamental's) and 0.05 (the harmonic's) halfway round: both ports' harmonic from the round trips run with the depleted coupled equations and the drop couplers (20 RK4 steps a half) against the closed forms, the larger relative gap (the through port's W shown)",
+            tier: Tier::Analytic,
+            source: r"the undepleted pass in two halves, the second weighted by the fundamental's $r_2^2$: $G = S[r_2e^{-\alpha_2L/2}I(0, L/2) + r_{2,\omega}^2e^{-\alpha_2L/2}I(L/2, L)]$, $C = G/(1 - r_1r_2ae^{i\phi})$, through $k_1^2\lvert C\rvert^2$, drop $k_2^2\lvert r_1e^{i\phi}e^{-\alpha_2L/4}C + Se^{-\alpha_2L/4}I(0, L/2)\rvert^2$, as Helt et al. (2010), doi:10.1364/OL.35.003006, for the all-pass ring",
+            run: add_drop_shg_case,
+        },
+        Case {
             id: "nonlinear/pairs-heralding-gaussian",
             title: r"The heralding efficiency of photon pairs through filters: a Gaussian joint spectrum $\lvert f\rvert^2 = e^{-z^\mathsf{T}Mz}$, $M = [[1, -0.9], [-0.9, 1]] \times 10^6$ µm², through Gaussian filters 0.8 and 1.2 × 10⁻³ /µm wide, on 201 × 201 points: the signal's, heralded by the idler (shown)",
             tier: Tier::Analytic,
@@ -414,6 +543,23 @@ pub(crate) fn cases() -> Vec<Case> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// What spreading an add-drop ring's drop coupler costs, as the method page quotes it: run
+    /// with `--ignored --nocapture` in release.
+    #[test]
+    #[ignore = "prints the add-drop ring's gaps the method page quotes"]
+    fn add_drop_gaps() {
+        let (gap, _) = add_drop_build_up();
+        eprintln!("add-drop build-up: {gap:.2e}");
+        for s in [5, 10, 20, 40] {
+            let (t, d, ct, cd) = add_drop_shg(s);
+            eprintln!(
+                "add-drop shg {s}: through {:.2e} drop {:.2e} ({ct:e} {cd:e})",
+                (t / ct - 1.0).abs(),
+                (d / cd - 1.0).abs()
+            );
+        }
+    }
 
     /// The convergence the rules quote: run with `--ignored --nocapture` in release.
     #[test]

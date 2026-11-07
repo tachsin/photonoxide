@@ -106,6 +106,24 @@ fn cavity_rules() -> Vec<(&'static str, Rule)> {
             ),
         ),
         (
+            "nonlinear/ring-add-drop-build-up",
+            Rule::new(
+                Relative,
+                RoundOff,
+                1e-12,
+                Exact,
+                "the two are one closed form arranged two ways, the ring component's through its S-matrix: round-off only",
+            ),
+        ),
+        (
+            "nonlinear/ring-add-drop-shg",
+            grid(
+                Relative,
+                6e-12,
+                "twice the largest error on 10 to 40 steps a half, 2.99e-12, rounded up: RK4's error falls from 1.1e-10 on 5 to the iteration's floor (3.9e-12, 2.7e-12 and 3.0e-12 on 10, 20 and 40, the larger of the two ports)",
+            ),
+        ),
+        (
             "nonlinear/pairs-heralding-gaussian",
             Rule::new(
                 Relative,
