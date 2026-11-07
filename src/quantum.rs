@@ -18,8 +18,18 @@
 //! - Haar-random unitaries and the Reck and Clements decompositions of a unitary into a mesh
 //!   of beam splitters ([`Mesh`]).
 //!
+//! With real components (Q3): many photons with spectra through any S(ω), a closed form's, a
+//! compact model's, a solver's or a Touchstone file's ([`SpectralInput`]); photon pairs born
+//! inside a circuit and their fringes ([`pair_amplitude`]); loss budgets per path, photon and
+//! event, against published thresholds and Qi et al.'s simulability test ([`Budget`],
+//! [`Threshold`], [`qi_simulable_error`]). The emitters' and detectors' electromagnetics are
+//! the solvers': [`crate::fdtd::emitter`] for β and Purcell factors,
+//! [`crate::mode::multilayer::Multilayer::absorption`] for a detector stack's absorption and the
+//! full-vector modes' loss for a waveguide detector's.
+//!
 //! docs/methods/quantum.md derives each formula and lists the validation cases.
 
+mod budget;
 mod fock;
 mod gaussian;
 mod hafnian;
@@ -27,11 +37,13 @@ mod hom;
 mod intermodal;
 mod matrix;
 mod mesh;
+mod pairs;
 mod permanent;
 mod ring;
 mod rng;
 mod sampler;
 mod source;
+mod spectral;
 mod squeezer;
 mod transfer;
 mod walk;
@@ -40,9 +52,16 @@ pub(crate) mod checks;
 pub(crate) mod light_checks;
 #[cfg(test)]
 mod light_tests;
+pub(crate) mod real_checks;
+#[cfg(test)]
+mod real_tests;
 #[cfg(test)]
 mod tests;
 
+pub use budget::{
+    Budget, Hop, Stage, Threshold, event, fusion_loss, qi_exact_transmission, qi_fidelity,
+    qi_simulable_error, varnava_loss,
+};
 pub use fock::{Distribution, Fock, Photons, patterns, probability};
 pub use gaussian::{Gaussian, anti_squeezed_quadrature, db_of_squeezing, squeezed_quadrature};
 pub use hafnian::{hafnian, loop_hafnian, torontonian};
@@ -50,10 +69,12 @@ pub use hom::{Dip, Wavepacket, coincidence, hom_dip};
 pub use intermodal::{Beta, DualPump, dual_pump_spectrum};
 pub use matrix::Matrix;
 pub use mesh::{Arrangement, Cell, Mesh, fidelity, haar_unitary};
+pub use pairs::{PairBirth, pair_amplitude, two_path_visibility};
 pub use permanent::{Formula, permanent, permanent_by};
 pub use ring::{RingGrid, ring_spectrum};
 pub use sampler::sample;
 pub use source::{Source, heralding_through, hom_visibility, path};
+pub use spectral::{SpectralInput, SpectralPhoton};
 pub use squeezer::{Squeezer, degenerate, four_wave, non_degenerate};
 pub use transfer::Transfer;
 pub use walk::coupled_array;

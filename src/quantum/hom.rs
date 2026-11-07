@@ -142,7 +142,7 @@ fn grid(spectrum: &Spectrum, photons: [&Wavepacket; 2]) -> Result<Grid> {
 }
 
 /// ∫ f dω by the trapezoidal rule on the grid ω.
-fn trapezoid(omega: &[f64], f: impl Fn(usize) -> c64) -> c64 {
+pub(super) fn trapezoid(omega: &[f64], f: impl Fn(usize) -> c64) -> c64 {
     (1..omega.len())
         .map(|i| (f(i - 1) + f(i)) * (0.5 * (omega[i] - omega[i - 1])))
         .sum()
