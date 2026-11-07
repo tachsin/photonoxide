@@ -101,6 +101,7 @@ pub(super) fn all() -> Vec<Entry> {
         lithium_tantalate(),
     ];
     all.extend(super::phase_change::entries());
+    all.extend(super::films::entries());
     all
 }
 

@@ -209,6 +209,11 @@ pub fn transparency(id: &str, conditions: Conditions) -> Option<Transparency> {
             edge(0.56, "twice the band edge's wavelength".into(), src("aitchison-1997", "p. 342")),
             edge(5.5, "the same statement's long end".into(), src("barboza-cudney-2009", "p. 453")),
         ),
+        "nbn" => (
+            not_specified("an absorbing film, k from 3.47 to 5.98 over its data's 0.6 to 1.65 µm (Anant et al., Fig. 6(b)): no transparency window there"),
+            not_specified("no band edge to take it from"),
+            not_specified(NO_MULTIPHONON),
+        ),
         _ => (
             not_specified("no paper in hand gives this material's band edge"),
             not_specified("no band edge to take it from"),

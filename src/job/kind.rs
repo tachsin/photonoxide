@@ -27,6 +27,7 @@ use super::modes::ModesKind;
 use super::nonlinear::NonlinearKind;
 use super::optimize::crosstalk::CrosstalkKind;
 use super::optimize::{ChipOptimizeKind, DeviceOptimizeKind};
+use super::quantum::QuantumKind;
 use super::statics::StaticKind;
 use super::structure::StructureKind;
 use super::study::StudyKind;
@@ -122,11 +123,12 @@ static DEVICE: [&dyn TaskKind; 8] = [
 ];
 
 /// The kinds of a task beside a `[circuit]`, in the order the schema lists them.
-static CHIP: [&dyn TaskKind; 4] = [
+static CHIP: [&dyn TaskKind; 5] = [
     &ChipStudyKind("spectrum"),
     &ChipStudyKind("sweep"),
     &ChipStudyKind("corners"),
     &ChipOptimizeKind,
+    &QuantumKind,
 ];
 
 /// The registry: every kind a task beside `holder` may be.

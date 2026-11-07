@@ -44,6 +44,10 @@
 //! ([`Category::PhaseChange`], e.g. `sb2se3-amorphous` and `sb2se3-crystalline`), the pair in a
 //! [`PhaseChange`] with the temperatures that switch it and its thermal properties
 //! ([`phase_change`]).
+//!
+//! The films of single-photon detectors ([`Category::Superconductor`]): NbN's n and k from 0.6
+//! to 1.65 µm, measured at room temperature on a 12 nm film (Anant et al. 2008), with the
+//! caveats its paper gives for the few-nm films of a detector.
 
 use serde::Serialize;
 
@@ -58,6 +62,7 @@ pub(crate) mod conductivity;
 pub(crate) mod conductivity_checks;
 mod entries;
 pub(crate) mod ferroelectric;
+pub(crate) mod films;
 pub(crate) mod kerr;
 pub(crate) mod litao3_dndt;
 pub(crate) mod litao3_ne;
@@ -113,6 +118,9 @@ pub enum Category {
     /// One state of a phase-change material: amorphous or crystalline, each its own entry
     /// ([`PhaseChange`] has the pair and what switches them).
     PhaseChange,
+    /// A superconducting film of single-photon detectors (NbN), its optical constants as its
+    /// paper measured them, above the film's critical temperature.
+    Superconductor,
 }
 
 /// The crystal system, or none for an amorphous material.
@@ -136,6 +144,9 @@ pub enum CrystalSystem {
     Monoclinic,
     /// Triclinic.
     Triclinic,
+    /// Not given by the entry's sources (a film whose structure its paper doesn't state): the
+    /// catalogue claims no symmetry for it.
+    NotSpecified,
 }
 
 /// How the material's index depends on the polarization.

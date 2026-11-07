@@ -3611,6 +3611,220 @@
       ],
       "type": "object"
     },
+    "DipTask": {
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "not": {
+            "required": [
+              "center",
+              "center_um"
+            ]
+          }
+        },
+        {
+          "anyOf": [
+            {
+              "required": [
+                "center_um"
+              ]
+            },
+            {
+              "required": [
+                "center"
+              ]
+            }
+          ]
+        },
+        {
+          "not": {
+            "required": [
+              "from",
+              "from_um"
+            ]
+          }
+        },
+        {
+          "anyOf": [
+            {
+              "required": [
+                "from_um"
+              ]
+            },
+            {
+              "required": [
+                "from"
+              ]
+            }
+          ]
+        },
+        {
+          "not": {
+            "required": [
+              "fwhm",
+              "fwhm_nm"
+            ]
+          }
+        },
+        {
+          "anyOf": [
+            {
+              "required": [
+                "fwhm_nm"
+              ]
+            },
+            {
+              "required": [
+                "fwhm"
+              ]
+            }
+          ]
+        },
+        {
+          "not": {
+            "required": [
+              "to",
+              "to_um"
+            ]
+          }
+        },
+        {
+          "anyOf": [
+            {
+              "required": [
+                "to_um"
+              ]
+            },
+            {
+              "required": [
+                "to"
+              ]
+            }
+          ]
+        }
+      ],
+      "description": "A Hong–Ou–Mandel dip: photon 1 into `inputs[0]`, delayed, photon 2 into `inputs[1]`, the coincidences between `outputs`.",
+      "properties": {
+        "center": {
+          "description": "Each photon's centre, µm. With its unit in the value, in place of center_um: a length with its unit, e.g. \"1.55 um\".",
+          "items": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "$ref": "#/$defs/Expression"
+              }
+            ]
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
+        "center_um": {
+          "description": "Each photon's centre, µm.",
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
+        "delays": {
+          "description": "How many delays (201 by default).",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "from": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "The band the chip's S(ω) is computed over, µm, and its points. With its unit in the value, in place of from_um: a length with its unit, e.g. \"1.55 um\"."
+        },
+        "from_um": {
+          "description": "The band the chip's S(ω) is computed over, µm, and its points.",
+          "type": "number"
+        },
+        "fwhm": {
+          "description": "The FWHM of each photon's power spectrum, nm (a transform-limited Gaussian). With its unit in the value, in place of fwhm_nm: a length with its unit, e.g. \"20 nm\".",
+          "items": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "$ref": "#/$defs/Expression"
+              }
+            ]
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
+        "fwhm_nm": {
+          "description": "The FWHM of each photon's power spectrum, nm (a transform-limited Gaussian).",
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
+        "inputs": {
+          "description": "The ports the photons enter by.",
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
+        "outputs": {
+          "description": "The ports whose coincidences are counted.",
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
+        "points": {
+          "description": "Its points.",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "span_ps": {
+          "description": "The delays from −span to +span, ps (four times the photons' coherence by default).",
+          "type": "number"
+        },
+        "to": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "Its end. With its unit in the value, in place of to_um: a length with its unit, e.g. \"1.55 um\"."
+        },
+        "to_um": {
+          "description": "Its end.",
+          "type": "number"
+        }
+      },
+      "required": [
+        "inputs",
+        "outputs",
+        "points"
+      ],
+      "type": "object"
+    },
     "EffectiveSpec": {
       "additionalProperties": false,
       "allOf": [
@@ -5757,6 +5971,25 @@
       "description": "A stack of your own (docs/methods/stacks.md): a substrate, a cladding and layers of the materials catalogue's, bottom to top, each with its thickness (thickness_um, or thickness as an expression). In a modes or structure job a crystal's table may give its orientation (docs/methods/catalogue.md): \"x-cut\", \"y-cut\", \"z-cut\", { cut, along_x }, or { euler_deg = [phi, theta, psi] } (z-x-z, degrees).",
       "type": "object"
     },
+    "LegTask": {
+      "additionalProperties": false,
+      "description": "A photon of a budget: from a port to another, along its best route.",
+      "properties": {
+        "from": {
+          "description": "The port it enters by.",
+          "type": "string"
+        },
+        "to": {
+          "description": "The port it leaves by.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "from",
+        "to"
+      ],
+      "type": "object"
+    },
     "LineConvergence": {
       "additionalProperties": false,
       "description": "`line.convergence`.",
@@ -6857,6 +7090,26 @@
       ],
       "type": "object"
     },
+    "PhotonsOn": {
+      "additionalProperties": false,
+      "description": "Photons on a port.",
+      "properties": {
+        "count": {
+          "description": "How many photons.",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "port": {
+          "description": "The port.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "port",
+        "count"
+      ],
+      "type": "object"
+    },
     "PlaceSpec": {
       "additionalProperties": false,
       "allOf": [
@@ -7441,6 +7694,95 @@
       },
       "type": "object"
     },
+    "QuantumTask": {
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "not": {
+            "required": [
+              "wavelength",
+              "wavelength_um"
+            ]
+          }
+        },
+        {
+          "anyOf": [
+            {
+              "required": [
+                "wavelength_um"
+              ]
+            },
+            {
+              "required": [
+                "wavelength"
+              ]
+            }
+          ]
+        }
+      ],
+      "description": "A `\"quantum\"` task: its wavelength, and what it computes there.",
+      "properties": {
+        "budget": {
+          "default": [],
+          "description": "A loss budget: each photon's best route from a port to another.",
+          "items": {
+            "$ref": "#/$defs/LegTask"
+          },
+          "type": "array"
+        },
+        "dip": {
+          "$ref": "#/$defs/DipTask",
+          "description": "A Hong–Ou–Mandel dip through the chip's S(ω)."
+        },
+        "export": {
+          "$ref": "#/$defs/ExportSpec",
+          "description": "What the run writes beside its record: none of a chip's."
+        },
+        "kind": {
+          "description": "`\"quantum\"`.",
+          "type": "string"
+        },
+        "photons": {
+          "default": [],
+          "description": "Photons on the external ports: their statistics, and their samples.",
+          "items": {
+            "$ref": "#/$defs/PhotonsOn"
+          },
+          "type": "array"
+        },
+        "sample": {
+          "$ref": "#/$defs/SampleTask",
+          "description": "Samples of those photons, counted against their exact distribution."
+        },
+        "squeezed": {
+          "default": [],
+          "description": "Squeezed light on ports.",
+          "items": {
+            "$ref": "#/$defs/SqueezedTask"
+          },
+          "type": "array"
+        },
+        "wavelength": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "The wavelength of the statistics, the samples, the budget and the squeezed light, µm. With its unit in the value, in place of wavelength_um: a length with its unit, e.g. \"1.55 um\"."
+        },
+        "wavelength_um": {
+          "description": "The wavelength of the statistics, the samples, the budget and the squeezed light, µm.",
+          "type": "number"
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "type": "object"
+    },
     "RailSpec": {
       "additionalProperties": false,
       "description": "`line.segmented.rail`: a `[[task.conductor]]` that is a rail, and the conductor it hangs from by its stem, both counted from 1.",
@@ -7966,6 +8308,27 @@
       },
       "required": [
         "layer"
+      ],
+      "type": "object"
+    },
+    "SampleTask": {
+      "additionalProperties": false,
+      "description": "Samples of the photons.",
+      "properties": {
+        "samples": {
+          "description": "How many.",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "seed": {
+          "description": "The seed: the same seed draws the same samples.",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "samples",
+        "seed"
       ],
       "type": "object"
     },
@@ -10535,6 +10898,65 @@
       ],
       "type": "object"
     },
+    "SqueezedTask": {
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "not": {
+            "required": [
+              "angle",
+              "angle_deg"
+            ]
+          }
+        }
+      ],
+      "description": "Squeezed vacuum on a port, then displaced.",
+      "properties": {
+        "angle": {
+          "anyOf": [
+            {
+              "default": 0.0,
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "φ of ξ = r e^{iφ}, degrees: x squeezed at 0, p at 180. With its unit in the value, in place of angle_deg: an angle with its unit, e.g. \"90 deg\"."
+        },
+        "angle_deg": {
+          "default": 0.0,
+          "description": "φ of ξ = r e^{iφ}, degrees: x squeezed at 0, p at 180.",
+          "type": "number"
+        },
+        "displacement": {
+          "default": [
+            0.0,
+            0.0
+          ],
+          "description": "α, its real and imaginary parts.",
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
+        "port": {
+          "description": "The port.",
+          "type": "string"
+        },
+        "squeezing_db": {
+          "description": "10 log₁₀ e^{2r}: the squeezed quadrature's variance below the vacuum's, dB.",
+          "type": "number"
+        }
+      },
+      "required": [
+        "port",
+        "squeezing_db"
+      ],
+      "type": "object"
+    },
     "StackField": {
       "anyOf": [
         {
@@ -11999,6 +12421,21 @@
                 "then": {
                   "$ref": "#/$defs/OptimizeTask"
                 }
+              },
+              {
+                "if": {
+                  "properties": {
+                    "kind": {
+                      "const": "quantum"
+                    }
+                  },
+                  "required": [
+                    "kind"
+                  ]
+                },
+                "then": {
+                  "$ref": "#/$defs/QuantumTask"
+                }
               }
             ],
             "properties": {
@@ -12008,7 +12445,8 @@
                   "spectrum",
                   "sweep",
                   "corners",
-                  "optimize"
+                  "optimize",
+                  "quantum"
                 ]
               }
             },

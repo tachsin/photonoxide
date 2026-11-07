@@ -106,6 +106,9 @@ fn refusal(holder: Holder, name: &str) -> String {
             `learning_rate`, `reduce`, `from_um`, `to_um`, `points`, `variable`, `objective`, \
             `constraint`, `corner`"
             .to_owned(),
+        (Holder::Chip, "quantum") => "`kind`, `wavelength_um`, `photons`, `sample`, `dip`, \
+            `budget`, `squeezed`, `export`"
+            .to_owned(),
         _ => panic!("no refusal written for the {holder:?} kind {name}: add it here"),
     };
     format!("can't read task: unknown field `bogus`, expected one of {fields}\n")

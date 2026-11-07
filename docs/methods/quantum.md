@@ -268,6 +268,15 @@ circuit's isometry: `Transfer::sample` drops the loss modes from each sample). S
 one input mode are allowed: the unit tests compare the sampler with the exact distribution for
 (2, 0, 1, 0, 0) as well as for single photons.
 
+Samples are compared with the exact distribution by the total variation distance
+$\frac{1}{2}\sum \lvert \hat p - p \rvert$ (`Distribution::total_variation`, over the patterns of
+either side, by pattern in $O(n \log n)$); `Distribution::from_counts` takes counted samples, as
+the studio keeps them. Each count is binomial, so a correct sampler's distance after $N$ samples
+is about $\frac{1}{2}\sum \sqrt{2p(1 - p)/(\pi N)}$, the mean of $\lvert \hat p - p \rvert$ for
+each pattern. The studio's Chip page samples live under **Sampling**, batch after batch with a
+hard limit on each ([studio/README.md](../../studio/README.md)); its tests sample a balanced
+coupler's two photons, which never arrive apart, to within four times that distance.
+
 ## Haar-random unitaries and the Reck and Clements meshes
 
 `haar_unitary` draws a Haar-random unitary as the $Q$ of a matrix of independent complex
@@ -330,6 +339,18 @@ doi:10.1103/RevModPhys.84.621, with their $\hbar = 2$). `Gaussian` holds them, t
 - **Clicks** of threshold detectors (Quesada et al. 2018, doi:10.1103/PhysRevA.98.062322): the
   modes $S$ click and the rest stay dark with probability
   $\operatorname{Tor}(O_S) / \sqrt{\det \sigma_Q}$, $O = I - \sigma_Q^{-1}$, for a state without means.
+- **The Wigner function** of one mode, the others traced out, is the Gaussian of its $2 \times 2$
+  covariance $V$ and means $d$: $W(r) = \exp(-\frac{1}{2}(r - d)^T V^{-1} (r - d)) / (2\pi\sqrt{\det V})$
+  (`Gaussian::wigner`), $1/(2\pi)$ at the vacuum's centre with $\hbar = 2$, and never negative.
+  Its test holds a squeezed vacuum's cuts along $x$ and $p$ to their closed forms and a lossy,
+  displaced, squeezed state's integral to 1 within $10^{-9}$.
+
+The studio's Chip page draws squeezed light through a chip in its Quantum tab, under **Squeezed
+light** ([studio/README.md](../../studio/README.md)): each port's squeezing in dB after the chip's
+loss, the covariance, a port's photon numbers and its Wigner function. Its tests hold a balanced
+coupler's outputs to $\frac{1}{2}(e^{\mp 2r} + 1)$ and $\frac{1}{2}\sinh^2 r$ photons, and two
+squeezed inputs to a two-mode squeezed vacuum whose halves are thermal,
+$P(n) = \bar n^n/(1 + \bar n)^{n+1}$, $\bar n = \sinh^2 r$, to $10^{-12}$.
 
 ## Hafnians, loop hafnians and torontonians
 
@@ -389,6 +410,16 @@ the gain $g$ set by the mean number of pairs per pulse, $\sum_k \sinh^2 r_k = \m
 
 The squeezing $g\sqrt{\lambda_k}$ keeps the low-gain Schmidt modes: at high gain the modes
 themselves change with the gain, which this doesn't follow.
+
+The studio's Materials page has a source designer under **Photon-pair sources**
+([studio/README.md](../../studio/README.md)): a guide, a crystal, a ring (`ring_spectrum`, below)
+or a guide pumped in two modes (`dual_pump_spectrum`), its joint spectrum as maps, its Schmidt
+weights, its brightness where 0.6.1 gives one (down-conversion's `pair_rate_density`), the
+heralding through each arm's filter and coupler (`path` of each, then
+`JointSpectrum::heralding`), and `Source`'s pairs per pulse, $g^{(2)}$ and multi-pair share, as
+the form changes. Its tests hold a Gaussian amplitude's weights to the closed form
+$\lambda_k = (1 - \mu^2)\mu^{2k}$, $\mu^2 = (1 - P)/(1 + P)$, with $P$ from `gaussian_purity`, to
+$10^{-9}$, and a ring's Schmidt number to Helt et al.'s and Vernon et al.'s 1.09.
 
 ## Pairs from rings
 
@@ -546,6 +577,19 @@ Budgets are held against published thresholds, each quoted with what it assumes 
   folded into the squeezed inputs, and the no-collision regime. For a designed chip, $\eta$ is its
   budget's transmission and $r$ its squeezers' (Q2).
 
+## As a job
+
+A task of kind `"quantum"` beside a chip's `[circuit]` computes the same at one wavelength and
+records it: the statistics of photons on the ports (`[[task.photons]]`), samples of them against
+their exact distribution (`[task.sample]`), a Hong–Ou–Mandel dip through the chip's $S(\omega)$
+over a band (`[task.dip]`), each photon's best route of a budget (`[[task.budget]]`) and squeezed
+light through the chip (`[[task.squeezed]]`), each as an event of the run's record
+(`QuantumStatistics`, `QuantumSamples`, `QuantumDip`, `QuantumBudget`, `QuantumSqueezed`).
+`photonoxide run` runs it from the command line, and the studio's Quantum tab writes one from its
+forms (**Run as a job**). Its tests hold a balanced coupler's record to the closed forms above
+(no coincidence, a dip to 0, half the photons on each route, squeezing halved with the vacuum),
+and the studio's to the numbers the tab computes in place, bit for bit.
+
 ## Emitters: Purcell and β factors from FDTD
 
 An emitter's decay into a channel, relative to its decay in a reference medium, is the power a
@@ -583,9 +627,11 @@ carries $(\beta/2k_0)\int\lvert E_z\rvert^2$ each way.
   full-vector solver on a cross-section between electric walls (the slab uniform across it)
   reaches it at second order (`quantum/detector-film-slab`, `quantum/detector-film-order`).
 
-The films' optical constants are the detectors' and emitters' material data: NbN, WSi or MoSi,
-and GaAs at low temperature enter the catalogue with their provenance when a reproduction needs
-them (the plan's decision 6). Reddy et al.'s MoSi index above is their own estimate at 1550 nm,
+The films' optical constants are the detectors' and emitters' material data, and they enter the
+catalogue with their provenance when a reproduction needs them (the plan's decision 6). NbN is
+there: `nbn`, Anant et al.'s room-temperature ellipsometry of a 12 nm film from 0.6 to 1.65 µm,
+with its caveats (the materials catalogue page). WSi, MoSi and low-temperature GaAs are not, as
+their papers are not in hand. Reddy et al.'s MoSi index above is their own estimate at 1550 nm,
 used for a check, not a catalogue entry.
 
 ## What it is checked against
@@ -833,9 +879,35 @@ fringe is that complete across the pumps' band; how balanced theirs was is their
   10750 (2008), doi:10.1364/OE.16.010750: $n = 5.23 - 5.82i$ at 1550 nm, measured by
   spectroscopic ellipsometry on a 12 nm film on sapphire at room temperature (p. 10754 and note 18,
   p. 10751). X. Hu et al., IEEE Trans. Appl. Supercond. 19, 336 (2009),
-  doi:10.1109/TASC.2009.2018035, Table I (p. 337), repeats it from Anant's thesis. Until NbN is in
-  the catalogue with that provenance (the plan's decision 6) the mode-solver case waits; the
-  solver's absorption itself is checked above on a film slab.
+  doi:10.1109/TASC.2009.2018035, Table I (p. 337), repeats it from Anant's thesis. That index is
+  now the catalogue's `nbn` (the materials catalogue page, "Superconducting films"). With it, the
+  full-vector solver gives the cross-section's TE mode (half of it behind an electric wall, air
+  above, silicon and silica at room temperature) and `absorbed_fraction` the attenuation. The
+  result is about twice theirs (the table below). Not a case.
+
+| Nodes | $\operatorname{Im} n_\text{eff}$, 3.5 nm of NbN | dB/µm, 3.5 nm | dB/µm, 4 nm |
+|---|---|---|---|
+| 8 nm | 0.06018 | 2.119 | |
+| 4 nm | 0.05947 | 2.094 | 2.325 |
+| 2 nm | 0.05851 | 2.060 | 2.290 |
+| 1 nm | 0.05681 | 2.000 | 2.222 |
+| 0.5 nm | 0.05561 | 1.958 | |
+
+The grid study doesn't converge at the scheme's second order. The film slab above does, but here
+the wires' edges, where the field is strongest, are not straight interfaces. The last two
+differences, 0.060 and 0.042 dB/µm, give an order of about 0.5, and Richardson's extrapolation at
+that order gives 1.86 dB/µm. So the converged value lies between about 1.86 and 1.96 dB/µm, near
+twice Pernice et al.'s 1.01 ± 0.02 dB/µm simulated and 0.98 ± 0.10 dB/µm measured; the
+difference is nine to ten times their measurement's uncertainty. Their Methods give the film as
+3.5 nm and their Fig. 1a draws 4 nm; at 4 nm ours is higher still. The real part checks out:
+the wires lower $\operatorname{Re} n_\text{eff}$ by 0.25 % against the bare strip (1.9775 on
+1 nm nodes), and Pernice et al. found the two "identical within 0.4%" (p. 4). What makes the
+factor of two isn't known. Their NbN is a fit to a thesis not in hand, measured at a temperature
+they don't state; their film's oxide and any resist left on it aren't given; the strip's etch
+depth and its cladding aren't stated, and we take a fully etched strip under air. The numbers come
+from an ignored test, `quantum::real_checks::figures::print_pernice`. The case stays open until
+the gap is explained, without a looser tolerance.
+
 - **Reddy et al. 2020's stack.** Their stack (p. 1650) as planar films at 1550 nm, the MoSi
   nanowires (80 nm wide, fill 0.57) as an effective medium of their MoSi index and the αSi that
   fills the gaps, absorbs 0.705 for E along the wires (reflecting 0.295) and 0.063 across them; a

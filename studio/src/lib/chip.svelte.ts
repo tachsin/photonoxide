@@ -4,7 +4,7 @@
 
 import { ask, open, save } from "@tauri-apps/plugin-dialog";
 
-import { api, type Part, type TimeConvention, type Chip, type DeviceRef, type DeviceSpec, type InstanceDevice, type KindInfo, type Placed, type Problem, type Simulation } from "./api";
+import { api, type Part, type TimeConvention, type Chip, type DeviceRef, type DeviceSpec, type InstanceDevice, type KindInfo, type Placed, type Problem, type Simulation, type SqueezedInput } from "./api";
 import { app, go, toast } from "./app.svelte";
 import { deviceOf, draftOf, key, loadDevices, openDevice } from "./device.svelte";
 import { emptyChip, freshName, snap } from "./circuit";
@@ -352,13 +352,15 @@ export interface ChipPanels {
   tab: "spectrum" | "study" | "optimize" | "quantum";
   /** The quantum view (components/chip/ChipQuantum.svelte): its part shown and its forms. */
   quantum: {
-    view: "photons" | "dip" | "budget";
+    view: "photons" | "sampling" | "dip" | "budget" | "gaussian";
     /** The wavelength of the statistics and the budget, µm; the sweep's middle when null or outside it. */
     wavelength: number | null;
     /** Photons on each external port, by name. */
     photons: Record<string, number>;
     dip: { inputs: [string, string]; outputs: [string, string]; photons: [{ center_um: number | null; fwhm_nm: number }, { center_um: number | null; fwhm_nm: number }]; span_ps: number | null; points: number };
     budget: { photons: { from: string; to: string; route: number | null }[]; source: number; detector: number; shown: number };
+    /** Squeezed light on the ports: each port's input (vacuum where none), the port drawn, its photons and its Wigner grid. */
+    gaussian: { inputs: SqueezedInput[]; shown: string | null; photons: number; span: number; points: number };
   };
   study: {
     mode: "sweep" | "corners";
@@ -392,6 +394,7 @@ export const panels = $state<ChipPanels>({
     photons: {},
     dip: { inputs: ["", ""], outputs: ["", ""], photons: [{ center_um: null, fwhm_nm: 1 }, { center_um: null, fwhm_nm: 1 }], span_ps: null, points: 201 },
     budget: { photons: [], source: 1, detector: 1, shown: 0 },
+    gaussian: { inputs: [], shown: null, photons: 12, span: 5, points: 81 },
   },
   study: { mode: "sweep", axes: [], corners: [], points: 101, shown: null, q: "", p: "" },
   optimize: {

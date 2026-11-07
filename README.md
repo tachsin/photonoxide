@@ -40,7 +40,7 @@ It is released milestone by milestone ([changelog](CHANGELOG.md), [roadmap](ROAD
 
 - **[Methods](docs/README.md#methods):** 53 write-ups in 10 topics, from waveguide modes to
   fabrication, each setting out its method, its limits and the papers it implements; their
-  front matter cites 284 distinct sources by DOI.
+  front matter cites 285 distinct sources by DOI.
 - **[Academy](academy/README.md):** lessons on devices and numerical methods at three depths,
   each opening on a drawing of its device, with charts the library computes live; 19 written,
   and 2 more laid out section by section, read on GitHub or in the studio.
@@ -57,7 +57,7 @@ It is released milestone by milestone ([changelog](CHANGELOG.md), [roadmap](ROAD
 - **Materials:** [dispersion models](docs/methods/materials.md) with their source, validity range
   and temperature; a [catalogue](docs/methods/catalogue.md) of Si, SiO₂, SiN, GaAs, AlGaAs,
   InGaP, InP, AlN, AlGaN, LiNbO₃ and MgO:LiNbO₃, BaTiO₃ and LiTaO₃, and the phase-change
-  Sb₂Se₃, Sb₂S₃ and Ge₂Sb₂Te₅ in both states, with χ⁽²⁾ and Pockels tensors, transparency
+  Sb₂Se₃, Sb₂S₃ and Ge₂Sb₂Te₅ in both states, and the detector film NbN, with χ⁽²⁾ and Pockels tensors, transparency
   windows, and the Kerr coefficients of Si, SiN, LiNbO₃ and AlN.
 - **Geometry for any device:** [shapes](docs/methods/geometry.md) kept exact, from paths with
   Euler bends to regions defined by [expressions](docs/methods/expressions.md);
@@ -111,8 +111,9 @@ It is released milestone by milestone ([changelog](CHANGELOG.md), [roadmap](ROAD
 click and checked against its paper; each component on its own page, its design in 3D, its models
 side by side, its runs, sweeps and corners; the Custom device for any other structure; runs played live or
 replayed (modes, fields, spectra, FDTD as the field propagates); the Academy's lessons with live
-charts; the materials catalogue; chips, and photons through them (their statistics, the
-Hong–Ou–Mandel dip and the loss budget); the validation report; the external
+charts; the materials catalogue, with nonlinear processes and photon-pair sources (a source's
+joint spectrum, Schmidt modes, brightness and heralding); chips, and photons through them (their statistics, the
+Hong–Ou–Mandel dip, the loss budget and squeezed light); the validation report; the external
 solvers installed; and the newest papers of the photonics journals and arXiv, any paper read
 inside the studio with its abstract, references and citations, and a reading list. The same program runs a job from the command line
 (`photonoxide run job.yaml`, `--headless` for batches). [studio/README.md](studio/README.md) has
