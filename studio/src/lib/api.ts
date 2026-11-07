@@ -378,6 +378,13 @@ export const api = {
   chipJob: (chip: Chip, task: ChipTaskIn) => invoke<string>("chip_job", { chip, task }),
   chipApply: (chip: Chip, parameters: [string, string][]) => invoke<Chip>("chip_apply", { chip, parameters }),
   chipOfJobText: (text: string) => invoke<Chip>("chip_of_job_text", { text }),
+  /** The quantum view (circuits/quantum.rs): photons on the chip's ports at one wavelength. */
+  chipQuantumStatistics: (chip: Chip, wavelengthUm: number, inputs: QuantumInput[]) =>
+    invoke<QuantumStatistics>("chip_quantum_statistics", { chip, wavelengthUm, inputs }),
+  /** The Hong–Ou–Mandel dip between two of the chip's ports, through its S(ω) over its sweep. */
+  chipHomDip: (chip: Chip, request: DipRequest) => invoke<DipView>("chip_hom_dip", { chip, request }),
+  /** Each photon's routes through the chip, stage by stage, and the n-photon event. */
+  chipLossBudget: (chip: Chip, request: BudgetRequest) => invoke<BudgetView>("chip_loss_budget", { chip, request }),
   circuitText: (chip: Chip) => invoke<string>("circuit_text", { chip }),
   circuitParse: (text: string) => invoke<Chip>("circuit_parse", { text }),
   circuitExamples: () => invoke<CircuitExample[]>("circuit_examples"),
@@ -1280,6 +1287,91 @@ export interface ChipParameter {
   max: number | null;
   /** A device's design parameter (else a component's value). */
   design: boolean;
+}
+
+/** Photons on one of the chip's external ports. */
+export interface QuantumInput {
+  port: string;
+  photons: number;
+}
+
+/** Photons on the chip's ports at one wavelength (circuits/quantum.rs); each pair is [indistinguishable, distinguishable]. */
+export interface QuantumStatistics {
+  wavelength_um: number;
+  ports: string[];
+  /** |S_qp| and arg S_qp (rad), rows the outputs, columns the inputs. */
+  magnitude: number[][];
+  phase: number[][];
+  loss_modes: number;
+  dilation_error: number;
+  photons: number;
+  /** The patterns computed, over the ports and the loss modes. */
+  computed: number;
+  /** The patterns where every photon arrives, most likely first. */
+  patterns: { occupations: number[]; probability: [number, number] }[];
+  arriving_patterns: number;
+  others: [number, number];
+  all_arrive: [number, number];
+  bunching: [number, number];
+  marginals: { port: string; probabilities: [number[], number[]]; mean: [number, number] }[];
+  seconds: number;
+}
+
+/** A photon with a Gaussian spectrum. */
+export interface DipPhoton {
+  center_um: number;
+  fwhm_nm: number;
+}
+
+export interface DipRequest {
+  inputs: [string, string];
+  outputs: [string, string];
+  photons: [DipPhoton, DipPhoton];
+  /** The delays from −span to +span, ps; the photons' own span when null. */
+  span_ps: number | null;
+  points: number;
+}
+
+export interface DipView {
+  delays_ps: number[];
+  coincidences: number[];
+  distinguishable: number;
+  visibility: number;
+  deepest_ps: number;
+  span_ps: number;
+  /** The longest delay the sweep's step resolves, ps. */
+  resolved_ps: number;
+  notes: string[];
+  seconds: number;
+}
+
+export interface BudgetRequest {
+  wavelength_um: number;
+  photons: { from: string; to: string; route: number | null }[];
+  source: number;
+  detector: number;
+}
+
+export interface BudgetStage {
+  name: string;
+  transmission: number;
+  loss_db: number;
+  source: string;
+}
+
+export interface BudgetRoute {
+  through: string[];
+  stages: BudgetStage[];
+  transmission: number;
+  loss_db: number;
+}
+
+export interface BudgetView {
+  photons: { from: string; to: string; routes: BudgetRoute[]; chosen: number | null; more: boolean; circuit: number }[];
+  event: number;
+  event_db: number | null;
+  thresholds: { name: string; doi: string; transmission: number; loss_db: number; assumptions: string }[];
+  seconds: number;
 }
 
 /** What a chip's optimization offers: its outputs, genoxide's methods, and each device instance's own objectives and constraints. */
