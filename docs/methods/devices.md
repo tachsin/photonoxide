@@ -333,6 +333,22 @@ The TE-like mode's currents are the field normal to the wall and $E_z$, the TM-l
 vertical field and $E_z$, weighted by their powers at the wall. It is first order in σ, for a
 strip with vertical walls in one cladding; the analytic model, which has no mode, refuses σ.
 
+What it doesn't cover, so far:
+
+- **Only the exponential autocorrelation.** Payne & Lacey's Gaussian one (their Eq. 24) is a
+  different spectrum in the same integral, but no validation case checks a loss computed with
+  it, so it isn't offered.
+- **Only the sidewalls.** The top and bottom faces are taken as smooth; their roughness (a
+  polished or deposited face's) adds a loss of its own that isn't computed.
+- **Only a rectangular core in one cladding.** A rib (the core standing on a slab of its own
+  film), sloped walls, or claddings that differ above and below are refused with an error
+  (`mode::roughness::sidewall_loss`: the core must fill a rectangle with one uniform cladding
+  round it).
+- **Only through the waveguide device.** The loss is the device's `roughness` and `correlation`
+  parameters, or the library call on a mode; a modes job on its own shapes doesn't report it.
+- **The corners from a fit.** The two rows of cells beside each corner take the singularity's
+  integral fitted to the next row (below), not a scheme built for the singular field.
+
 Three things differ from the paper as printed, each checked:
 
 - **Payne & Lacey's factor of 2.** Barwicz & Haus (p. 2729) write that Payne & Lacey's slab
