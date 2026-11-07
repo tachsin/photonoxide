@@ -16,7 +16,9 @@
 //! squaring of one period's S-matrix ([`crate::eme::Eme::grating`]), and records the period's
 //! Bloch modes ([`crate::eme::Bloch`]) at each wavelength it solves as a sweep point. A section
 //! with `radius_um` and `angle_deg` is a bend by the conformal map ([`crate::eme::Slice::bent`]),
-//! drawn turning in the scene.
+//! drawn turning in the scene. `[task.plane]` makes the sections 3D ([`three`]): strips on a
+//! plane, a `[device]`'s geometry cut along x, or the task's own drawing (a `stack`, its
+//! `layer`, its shapes and `x_um`) cut the same way.
 //!
 //! The run records its scene (the cores seen from above, z along x), the solver's settings,
 //! the S-parameters between the guided modes at the two ends (at each wavelength), and each
@@ -181,7 +183,7 @@ struct WavelengthSweep {
     points: usize,
 }
 
-#[derive(Clone, Debug, Deserialize, JsonSchema)]
+#[derive(Clone, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub(super) struct EmeTask {
     #[allow(dead_code)] // looked up by the registry (job::kind); kept for serde and the schema
@@ -210,11 +212,40 @@ pub(super) struct EmeTask {
     /// The cores' medium, unless a section gives its own.
     #[schemars(with = "Option<crate::job::schema::Medium>")]
     core: Option<toml::Value>,
-    /// The sections in order along z (a `[device]`'s are cut from its geometry).
+    /// The sections in order along z (a `[device]`'s or a drawing's are cut from its geometry).
     #[serde(default)]
     section: Vec<SectionSpec>,
     /// The sections in 3D: each cross-section a plane of Yee's grid ([`three`]).
     plane: Option<three::PlaneSpec>,
+    /// A drawing's stack, its shapes drawn on it and cut into 3D sections along x
+    /// ([`crate::device::Cut`]): a named one, `soi_220`, or `soi` / `nitride` with `core_nm`
+    /// and `bottom_oxide_um`; or a `[task.stack]` table of layers.
+    stack: Option<super::StackField>,
+    /// A named stack's core thickness, nm.
+    core_nm: Option<f64>,
+    /// A named stack's bottom oxide, µm.
+    bottom_oxide_um: Option<f64>,
+    /// A drawing's core layer: the plane spans its shapes across and its thickness up, with
+    /// `[task.plane]`'s margins.
+    layer: Option<String>,
+    /// Where a drawing is cut, from and to along x, µm: its guides must run on past both ends,
+    /// whose cross-sections are the ports'.
+    x_um: Option<[f64; 2]>,
+    /// A drawing's rectangles, as a structure job's.
+    #[serde(default)]
+    rect: Vec<super::RectSpec>,
+    /// A drawing's circles.
+    #[serde(default)]
+    circle: Vec<super::CircleSpec>,
+    /// A drawing's rings.
+    #[serde(default)]
+    ring: Vec<super::RingSpec>,
+    /// A drawing's paths: straights, arcs and tapers of a waveguide.
+    #[serde(default)]
+    path: Vec<super::PathSpec>,
+    /// A drawing's shapes defined by functions, masks, polygons and booleans.
+    #[serde(default)]
+    shape: Vec<super::shapes::ShapeSpec>,
     adaptive: Option<AdaptiveSpec>,
     convergence: Option<ConvergenceSpec>,
     sweep: Option<WavelengthSweep>,
@@ -372,6 +403,11 @@ impl EmeTask {
             self.validate_common()?;
             return three::validate(self, plane, device);
         }
+        if let Some(name) = self.drawing_field() {
+            return Err(task_error(format!(
+                "{name} is a drawing's, which is cut into 3D sections: give [task.plane]"
+            )));
+        }
         if device {
             return Err(task_error(
                 "an eme job beside a [device] cuts it into 3D sections: give [task.plane]",
@@ -388,6 +424,24 @@ impl EmeTask {
         self.cladding()?;
         self.validate_common()?;
         self.validate_2d()
+    }
+
+    /// The first of a drawing's fields the task gives, if any.
+    fn drawing_field(&self) -> Option<&'static str> {
+        [
+            ("stack", self.stack.is_some()),
+            ("core_nm", self.core_nm.is_some()),
+            ("bottom_oxide_um", self.bottom_oxide_um.is_some()),
+            ("layer", self.layer.is_some()),
+            ("x_um", self.x_um.is_some()),
+            ("[[task.rect]]", !self.rect.is_empty()),
+            ("[[task.circle]]", !self.circle.is_empty()),
+            ("[[task.ring]]", !self.ring.is_empty()),
+            ("[[task.path]]", !self.path.is_empty()),
+            ("[[task.shape]]", !self.shape.is_empty()),
+        ]
+        .into_iter()
+        .find_map(|(name, given)| given.then_some(name))
     }
 
     /// What 2D and 3D jobs both refuse: the PML's, the adaptive steps', the convergence's and the
@@ -438,8 +492,8 @@ impl EmeTask {
             let n = self.section.len();
             if n == 0 {
                 return Err(task_error(
-                    "[task.period] repeats some of the [[task.section]]: a [device]'s sections \
-                     are cut from its geometry",
+                    "[task.period] repeats some of the [[task.section]]: a [device]'s or a \
+                     drawing's sections are cut from its geometry",
                 ));
             }
             if !(a >= 2 && a <= b && b < n) {

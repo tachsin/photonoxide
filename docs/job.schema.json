@@ -3919,6 +3919,14 @@
         {
           "not": {
             "required": [
+              "bottom_oxide",
+              "bottom_oxide_um"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
               "wavelength",
               "wavelength_um"
             ]
@@ -3945,11 +3953,41 @@
               "window_um"
             ]
           }
+        },
+        {
+          "not": {
+            "required": [
+              "x",
+              "x_um"
+            ]
+          }
         }
       ],
       "properties": {
         "adaptive": {
           "$ref": "#/$defs/AdaptiveSpec"
+        },
+        "bottom_oxide": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "A named stack's bottom oxide, µm. With its unit in the value, in place of bottom_oxide_um: a length with its unit, e.g. \"1.55 um\"."
+        },
+        "bottom_oxide_um": {
+          "description": "A named stack's bottom oxide, µm.",
+          "type": "number"
+        },
+        "circle": {
+          "description": "A drawing's circles.",
+          "items": {
+            "$ref": "#/$defs/CircleSpec"
+          },
+          "type": "array"
         },
         "cladding": {
           "$ref": "#/$defs/Medium",
@@ -3962,6 +4000,10 @@
           "$ref": "#/$defs/Medium",
           "description": "The cores' medium, unless a section gives its own."
         },
+        "core_nm": {
+          "description": "A named stack's core thickness, nm.",
+          "type": "number"
+        },
         "interpolate": {
           "$ref": "#/$defs/InterpolateSpec",
           "description": "S over the sweep's wavelengths interpolated from a few solves, with its error stated."
@@ -3969,10 +4011,21 @@
         "kind": {
           "type": "string"
         },
+        "layer": {
+          "description": "A drawing's core layer: the plane spans its shapes across and its thickness up, with `[task.plane]`'s margins.",
+          "type": "string"
+        },
         "modes": {
           "description": "The modes each section keeps (in 3D at most the plane's unknowns: more keeps them all).",
           "minimum": 0,
           "type": "integer"
+        },
+        "path": {
+          "description": "A drawing's paths: straights, arcs and tapers of a waveguide.",
+          "items": {
+            "$ref": "#/$defs/PathSpec"
+          },
+          "type": "array"
         },
         "period": {
           "$ref": "#/$defs/PeriodSpec",
@@ -3989,12 +4042,37 @@
           "description": "`\"te\"` (the default; E along y, the direction the structure is uniform in) or `\"tm\"`.",
           "type": "string"
         },
+        "rect": {
+          "description": "A drawing's rectangles, as a structure job's.",
+          "items": {
+            "$ref": "#/$defs/RectSpec"
+          },
+          "type": "array"
+        },
+        "ring": {
+          "description": "A drawing's rings.",
+          "items": {
+            "$ref": "#/$defs/RingSpec"
+          },
+          "type": "array"
+        },
         "section": {
-          "description": "The sections in order along z (a `[device]`'s are cut from its geometry).",
+          "description": "The sections in order along z (a `[device]`'s or a drawing's are cut from its geometry).",
           "items": {
             "$ref": "#/$defs/SectionSpec"
           },
           "type": "array"
+        },
+        "shape": {
+          "description": "A drawing's shapes defined by functions, masks, polygons and booleans.",
+          "items": {
+            "$ref": "#/$defs/ShapeSpec"
+          },
+          "type": "array"
+        },
+        "stack": {
+          "$ref": "#/$defs/StackField",
+          "description": "A drawing's stack, its shapes drawn on it and cut into 3D sections along x (`crate::device::Cut`): a named one, `soi_220`, or `soi` / `nitride` with `core_nm` and `bottom_oxide_um`; or a `[task.stack]` table of layers."
         },
         "sweep": {
           "$ref": "#/$defs/WavelengthSweep2"
@@ -4041,6 +4119,31 @@
         "window_um": {
           "description": "The window's width across, wall to wall inside any PML, µm (the upper half's, when `symmetric`): a 2D job's.",
           "type": "number"
+        },
+        "x": {
+          "description": "Where a drawing is cut, from and to along x, µm: its guides must run on past both ends, whose cross-sections are the ports'. With its unit in the value, in place of x_um: a length with its unit, e.g. \"1.55 um\".",
+          "items": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "$ref": "#/$defs/Expression"
+              }
+            ]
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
+        "x_um": {
+          "description": "Where a drawing is cut, from and to along x, µm: its guides must run on past both ends, whose cross-sections are the ports'.",
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
         }
       },
       "required": [
@@ -6902,10 +7005,10 @@
               "$ref": "#/$defs/Expression"
             }
           ],
-          "description": "Beside a `[device]`: the longest step of a run of sloped outlines (a taper's sides, a curve), µm; 0.1 by default. With its unit in the value, in place of along_um: a length with its unit, e.g. \"1.55 um\"."
+          "description": "Beside a `[device]` or with a drawing: the longest step of a run of sloped outlines (a taper's sides, a curve), µm; 0.1 by default. With its unit in the value, in place of along_um: a length with its unit, e.g. \"1.55 um\"."
         },
         "along_um": {
-          "description": "Beside a `[device]`: the longest step of a run of sloped outlines (a taper's sides, a curve), µm; 0.1 by default.",
+          "description": "Beside a `[device]` or with a drawing: the longest step of a run of sloped outlines (a taper's sides, a curve), µm; 0.1 by default.",
           "type": "number"
         },
         "cells": {
@@ -6917,6 +7020,10 @@
           "maxItems": 2,
           "minItems": 2,
           "type": "array"
+        },
+        "exact": {
+          "description": "Beside a `[device]` or with a drawing: cut at every x where the plane changes (where a sloped outline crosses one of the points each cell is averaged from), so that each section holds over its whole length and the cut has no step error, instead of in steps of `along_um`; false by default.",
+          "type": "boolean"
         },
         "height": {
           "anyOf": [
@@ -6934,7 +7041,7 @@
           "type": "number"
         },
         "margins": {
-          "description": "Beside a `[device]`: the cladding kept beside its core's shapes and below and above its layer, µm; [0.5, 0.5] by default. With its unit in the value, in place of margins_um: a length with its unit, e.g. \"1.55 um\".",
+          "description": "Beside a `[device]` or with a drawing: the cladding kept beside its core's shapes and below and above its layer, µm; [0.5, 0.5] by default. With its unit in the value, in place of margins_um: a length with its unit, e.g. \"1.55 um\".",
           "items": {
             "anyOf": [
               {
@@ -6950,7 +7057,7 @@
           "type": "array"
         },
         "margins_um": {
-          "description": "Beside a `[device]`: the cladding kept beside its core's shapes and below and above its layer, µm; [0.5, 0.5] by default.",
+          "description": "Beside a `[device]` or with a drawing: the cladding kept beside its core's shapes and below and above its layer, µm; [0.5, 0.5] by default.",
           "items": {
             "type": "number"
           },
@@ -6959,7 +7066,7 @@
           "type": "array"
         },
         "step": {
-          "description": "The cells' size across (x) and up (y), µm; beside a `[device]`, across its y and up its z (the device runs along x). With its unit in the value, in place of step_um: a length with its unit, e.g. \"1.55 um\".",
+          "description": "The cells' size across (x) and up (y), µm; beside a `[device]` or with a drawing, across its y and up its z (the device runs along x). With its unit in the value, in place of step_um: a length with its unit, e.g. \"1.55 um\".",
           "items": {
             "anyOf": [
               {
@@ -6975,7 +7082,7 @@
           "type": "array"
         },
         "step_um": {
-          "description": "The cells' size across (x) and up (y), µm; beside a `[device]`, across its y and up its z (the device runs along x).",
+          "description": "The cells' size across (x) and up (y), µm; beside a `[device]` or with a drawing, across its y and up its z (the device runs along x).",
           "items": {
             "type": "number"
           },
