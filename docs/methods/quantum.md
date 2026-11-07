@@ -330,6 +330,18 @@ doi:10.1103/RevModPhys.84.621, with their $\hbar = 2$). `Gaussian` holds them, t
 - **Clicks** of threshold detectors (Quesada et al. 2018, doi:10.1103/PhysRevA.98.062322): the
   modes $S$ click and the rest stay dark with probability
   $\operatorname{Tor}(O_S) / \sqrt{\det \sigma_Q}$, $O = I - \sigma_Q^{-1}$, for a state without means.
+- **The Wigner function** of one mode, the others traced out, is the Gaussian of its $2 \times 2$
+  covariance $V$ and means $d$: $W(r) = \exp(-\frac{1}{2}(r - d)^T V^{-1} (r - d)) / (2\pi\sqrt{\det V})$
+  (`Gaussian::wigner`), $1/(2\pi)$ at the vacuum's centre with $\hbar = 2$, and never negative.
+  Its test holds a squeezed vacuum's cuts along $x$ and $p$ to their closed forms and a lossy,
+  displaced, squeezed state's integral to 1 within $10^{-9}$.
+
+The studio's Chip page draws squeezed light through a chip in its Quantum tab, under **Squeezed
+light** ([studio/README.md](../../studio/README.md)): each port's squeezing in dB after the chip's
+loss, the covariance, a port's photon numbers and its Wigner function. Its tests hold a balanced
+coupler's outputs to $\frac{1}{2}(e^{\mp 2r} + 1)$ and $\frac{1}{2}\sinh^2 r$ photons, and two
+squeezed inputs to a two-mode squeezed vacuum whose halves are thermal,
+$P(n) = \bar n^n/(1 + \bar n)^{n+1}$, $\bar n = \sinh^2 r$, to $10^{-12}$.
 
 ## Hafnians, loop hafnians and torontonians
 

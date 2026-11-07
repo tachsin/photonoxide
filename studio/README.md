@@ -445,7 +445,7 @@ in a drawer opened from the status bar.
   - **Quantum**, beside Study and Optimize: photons through the chip, computed by
     `photonoxide::quantum` (docs/methods/quantum.md) a moment after the chip or the form
     changes. Every external port takes photons in and lets them out; a lossy chip's loss is
-    dilated to loss modes, which the lost photons leave by. Three parts (Left and Right move
+    dilated to loss modes, which the lost photons leave by. Four parts (Left and Right move
     between them):
     - **Photons:** photons on each port (+ and −, up to 8 in all) at a wavelength of the sweep.
       The output patterns where every photon arrives, most likely first (the first 40, the rest
@@ -469,6 +469,14 @@ in a drawer opened from the status bar.
       Varnava et al.'s and Bartolucci et al.'s thresholds on a photon's transmission as lines,
       their assumptions on hover; beside it, the n-photon event and the chip's own |S|² between
       the two ports, which holds every route's interference.
+    - **Squeezed light:** squeezed vacuum on chosen ports (its squeezing in dB, at the angle φ of
+      ξ = r e^(iφ)), each then displaced by α, the vacuum on the rest, through the chip's own
+      S-matrix with its loss as vacuum noise (`photonoxide::quantum::Gaussian`). Each port's
+      squeezing given and, for the light that leaves it, its squeezed and anti-squeezed
+      quadratures in dB, the angle squeezed most and ⟨n⟩; the whole state's purity and the loss
+      modes; one port's photon numbers P(0) to P(30) by hafnians, with what lies beyond; its
+      Wigner function on a grid; and the covariance of every quadrature. Up to 20 dB and |α| ≤ 5
+      a port; with no port given anything, it says what to do.
     - Refused, with the library's reason: a chip with gain (it can't be dilated with vacuum), a
       port that isn't one, a wavelength outside the sweep; an incomplete chip waits until it is
       finished.

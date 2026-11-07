@@ -113,7 +113,7 @@ side by side, its runs, sweeps and corners; the Custom device for any other stru
 replayed (modes, fields, spectra, FDTD as the field propagates); the Academy's lessons with live
 charts; the materials catalogue, with nonlinear processes and photon-pair sources (a source's
 joint spectrum, Schmidt modes, brightness and heralding); chips, and photons through them (their statistics, the
-Hong–Ou–Mandel dip and the loss budget); the validation report; the external
+Hong–Ou–Mandel dip, the loss budget and squeezed light); the validation report; the external
 solvers installed; and the newest papers of the photonics journals and arXiv, any paper read
 inside the studio with its abstract, references and citations, and a reading list. The same program runs a job from the command line
 (`photonoxide run job.yaml`, `--headless` for batches). [studio/README.md](studio/README.md) has

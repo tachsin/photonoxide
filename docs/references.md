@@ -181,7 +181,7 @@ P. Amestoy, A. Buttari, N. J. Higham, J.-Y. L’Excellent, T. Mary, B. Vieublé,
 
 V. Anant, A. J. Kerman, E. A. Dauler, J. K. W. Yang, K. M. Rosfjord, K. K. Berggren, "Optical properties of superconducting nanowire single-photon detectors", Opt. Express 16, 10750 (2008). [doi:10.1364/OE.16.010750](https://doi.org/10.1364/OE.16.010750)
 
-- Methods pages: [quantum.md:843](methods/quantum.md?plain=1#L843)
+- Methods pages: [quantum.md:855](methods/quantum.md?plain=1#L855)
 
 #### Anemogiannis et al. 1999
 
@@ -221,7 +221,7 @@ A. Arbabi, Y. Horie, A. J. Ball, M. Bagheri, A. Faraon, "Subwavelength-thick len
 
 M. Arcari, I. Söllner, A. Javadi, S. Lindskov Hansen, S. Mahmoodian, J. Liu, H. Thyrrestrup, E. H. Lee, J. D. Song, S. Stobbe, et al., "Near-Unity Coupling Efficiency of a Quantum Emitter to a Photonic Crystal Waveguide", Phys. Rev. Lett. 113, 093603 (2014). [doi:10.1103/PhysRevLett.113.093603](https://doi.org/10.1103/PhysRevLett.113.093603)
 
-- Methods pages: [quantum.md:61](methods/quantum.md?plain=1#L61), [573](methods/quantum.md?plain=1#L573)
+- Methods pages: [quantum.md:61](methods/quantum.md?plain=1#L61), [585](methods/quantum.md?plain=1#L585)
 - Academy lessons: [photonic-crystals.md:68](../academy/photonic-crystals.md?plain=1#L68), [351](../academy/photonic-crystals.md?plain=1#L351), [481](../academy/photonic-crystals.md?plain=1#L481)
 - Code: [src/fdtd/emitter.rs:7](../src/fdtd/emitter.rs#L7)
 - Other documents: [docs/plans/quantum.md:535](plans/quantum.md?plain=1#L535)
@@ -321,7 +321,7 @@ M. A. Barry, V. Berthier, B. D. Wilts, M.-C. Cambourieux, P. Bennet, R. Pollès,
 
 S. Bartolucci, P. Birchall, H. Bombín, H. Cable, C. Dawson, M. Gimeno-Segovia, E. Johnston, K. Kieling, N. Nickerson, M. Pant, et al., "Fusion-based quantum computation", Nat Commun 14, 912 (2023). [doi:10.1038/s41467-023-36493-1](https://doi.org/10.1038/s41467-023-36493-1), open access.
 
-- Methods pages: [quantum.md:57](methods/quantum.md?plain=1#L57), [543](methods/quantum.md?plain=1#L543)
+- Methods pages: [quantum.md:57](methods/quantum.md?plain=1#L57), [555](methods/quantum.md?plain=1#L555)
 - Validation cases: [`quantum/bartolucci-fusion`](validation.md?plain=1#L905)
 - Code: [src/quantum/budget.rs:13](../src/quantum/budget.rs#L13), [src/quantum/real_checks.rs:1083](../src/quantum/real_checks.rs#L1083), [studio/src-tauri/src/circuits/quantum.rs:594](../studio/src-tauri/src/circuits/quantum.rs#L594)
 - Other documents: [docs/plans/quantum.md:491](plans/quantum.md?plain=1#L491)
@@ -1510,7 +1510,7 @@ P. Gräupner, J. C. Pommier, A. Cachard, J. L. Coutaz, "Electro-optical effect i
 
 W. P. Grice, I. A. Walmsley, "Spectral information and distinguishability in type-II down-conversion with a broadband pump", Phys. Rev. A 56, 1627 (1997). [doi:10.1103/PhysRevA.56.1627](https://doi.org/10.1103/PhysRevA.56.1627)
 
-- Methods pages: [nonlinear.md:26](methods/nonlinear.md?plain=1#L26), [quantum.md:41](methods/quantum.md?plain=1#L41), [371](methods/quantum.md?plain=1#L371)
+- Methods pages: [nonlinear.md:26](methods/nonlinear.md?plain=1#L26), [quantum.md:41](methods/quantum.md?plain=1#L41), [383](methods/quantum.md?plain=1#L383)
 - Academy lessons: [nonlinear-optics.md:112](../academy/nonlinear-optics.md?plain=1#L112), [1001](../academy/nonlinear-optics.md?plain=1#L1001), [1112](../academy/nonlinear-optics.md?plain=1#L1112)
 - Validation cases: [`nonlinear/pairs-gaussian-purity`](validation.md?plain=1#L763), [`quantum/source-hom-gaussian`](validation.md?plain=1#L886)
 - Code: [src/nonlinear/checks.rs:781](../src/nonlinear/checks.rs#L781), [src/nonlinear/pairs.rs:25](../src/nonlinear/pairs.rs#L25), [src/quantum/intermodal.rs:30](../src/quantum/intermodal.rs#L30), [src/quantum/light_checks.rs:136](../src/quantum/light_checks.rs#L136), [src/quantum/source.rs:9](../src/quantum/source.rs#L9)
@@ -1690,7 +1690,7 @@ W. Heinrich, "Quasi-TEM description of MMIC coplanar lines including conductor-l
 
 L. G. Helt, Z. Yang, M. Liscidini, J. E. Sipe, "Spontaneous four-wave mixing in microring resonators", Opt. Lett. 35, 3006 (2010). [doi:10.1364/OL.35.003006](https://doi.org/10.1364/OL.35.003006)
 
-- Methods pages: [quantum.md:43](methods/quantum.md?plain=1#L43), [407](methods/quantum.md?plain=1#L407)
+- Methods pages: [quantum.md:43](methods/quantum.md?plain=1#L43), [419](methods/quantum.md?plain=1#L419)
 - Academy lessons: [nonlinear-optics.md:178](../academy/nonlinear-optics.md?plain=1#L178), [896](../academy/nonlinear-optics.md?plain=1#L896), [1113](../academy/nonlinear-optics.md?plain=1#L1113)
 - Validation cases: [`nonlinear/ring-shg-enhancement`](validation.md?plain=1#L849), [`nonlinear/ring-fwm-enhancement`](validation.md?plain=1#L850), [`quantum/ring-helt-short`](validation.md?plain=1#L888), [`quantum/ring-helt-long`](validation.md?plain=1#L889)
 - Code: [src/circuit/components/ring.rs:309](../src/circuit/components/ring.rs#L309), [src/nonlinear/cavity.rs:32](../src/nonlinear/cavity.rs#L32), [src/nonlinear/cavity_checks.rs:359](../src/nonlinear/cavity_checks.rs#L359), [366](../src/nonlinear/cavity_checks.rs#L366), [src/quantum/light_checks.rs:150](../src/quantum/light_checks.rs#L150), [157](../src/quantum/light_checks.rs#L157), [src/quantum/ring.rs:38](../src/quantum/ring.rs#L38), [src/quantum/source.rs:10](../src/quantum/source.rs#L10)
@@ -1840,7 +1840,7 @@ J. Hu, C. R. Menyuk, "Understanding leaky modes: slab waveguide revisited", Adv.
 
 X. Hu, C. W. Holzwarth, D. Masciarelli, E. A. Dauler, K. K. Berggren, "Efficiently Coupling Light to Superconducting Nanowire Single-Photon Detectors", IEEE Trans. Appl. Supercond. 19, 336 (2009). [doi:10.1109/TASC.2009.2018035](https://doi.org/10.1109/TASC.2009.2018035)
 
-- Methods pages: [quantum.md:846](methods/quantum.md?plain=1#L846)
+- Methods pages: [quantum.md:858](methods/quantum.md?plain=1#L858)
 
 #### Hughes et al. 2018a
 
@@ -2074,7 +2074,7 @@ J. Kalb, F. Spaepen, M. Wuttig, "Calorimetric measurements of phase transformati
 
 R. Kan, "From moments of sum to moments of product", Journal of Multivariate Analysis 99, 542 (2008). [doi:10.1016/j.jmva.2007.01.013](https://doi.org/10.1016/j.jmva.2007.01.013)
 
-- Methods pages: [quantum.md:37](methods/quantum.md?plain=1#L37), [352](methods/quantum.md?plain=1#L352)
+- Methods pages: [quantum.md:37](methods/quantum.md?plain=1#L37), [364](methods/quantum.md?plain=1#L364)
 - Code: [src/quantum/hafnian.rs:237](../src/quantum/hafnian.rs#L237)
 
 #### Kane Yee 1966
@@ -3010,7 +3010,7 @@ A. F. Oskooi, D. Roundy, M. Ibanescu, P. Bermel, J. Joannopoulos, S. G. Johnson,
 
 S. Paesani, M. Borghi, S. Signorini, A. Maïnos, L. Pavesi, A. Laing, "Near-ideal spontaneous photon sources in silicon quantum photonics", Nat Commun 11, 2505 (2020). [doi:10.1038/s41467-020-16187-8](https://doi.org/10.1038/s41467-020-16187-8), open access.
 
-- Methods pages: [quantum.md:47](methods/quantum.md?plain=1#L47), [420](methods/quantum.md?plain=1#L420)
+- Methods pages: [quantum.md:47](methods/quantum.md?plain=1#L47), [432](methods/quantum.md?plain=1#L432)
 - Code: [src/quantum/intermodal.rs:19](../src/quantum/intermodal.rs#L19)
 - Other documents: [docs/plans/quantum.md:529](plans/quantum.md?plain=1#L529)
 
@@ -3248,7 +3248,7 @@ M. W. Puckett, K. Liu, N. Chauhan, Q. Zhao, N. Jin, H. Cheng, J. Wu, R. O. Behun
 
 H. Qi, D. J. Brod, N. Quesada, R. García-Patrón, "Regimes of Classical Simulability for Noisy Gaussian Boson Sampling", Phys. Rev. Lett. 124, 100502 (2020). [doi:10.1103/PhysRevLett.124.100502](https://doi.org/10.1103/PhysRevLett.124.100502)
 
-- Methods pages: [quantum.md:59](methods/quantum.md?plain=1#L59), [549](methods/quantum.md?plain=1#L549)
+- Methods pages: [quantum.md:59](methods/quantum.md?plain=1#L59), [561](methods/quantum.md?plain=1#L561)
 - Validation cases: [`quantum/qi-simulability`](validation.md?plain=1#L906)
 - Code: [src/quantum/budget.rs:15](../src/quantum/budget.rs#L15), [src/quantum/real_checks.rs:1090](../src/quantum/real_checks.rs#L1090)
 - Other documents: [docs/plans/quantum.md:503](plans/quantum.md?plain=1#L503)
@@ -3672,7 +3672,7 @@ O. Sigmund, "On the usefulness of non-gradient approaches in topology optimizati
 
 J. W. Silverstone, D. Bonneau, K. Ohira, N. Suzuki, H. Yoshida, N. Iizuka, M. Ezaki, C. M. Natarajan, M. G. Tanner, R. H. Hadfield, et al., "On-chip quantum interference between silicon photon-pair sources", Nature Photon 8, 104 (2013). [doi:10.1038/nphoton.2013.339](https://doi.org/10.1038/nphoton.2013.339)
 
-- Methods pages: [quantum.md:53](methods/quantum.md?plain=1#L53), [514](methods/quantum.md?plain=1#L514)
+- Methods pages: [quantum.md:53](methods/quantum.md?plain=1#L53), [526](methods/quantum.md?plain=1#L526)
 - Academy lessons: [nonlinear-optics.md:196](../academy/nonlinear-optics.md?plain=1#L196), [1051](../academy/nonlinear-optics.md?plain=1#L1051), [1114](../academy/nonlinear-optics.md?plain=1#L1114)
 - Validation cases: [`quantum/silverstone-fringe`](validation.md?plain=1#L907)
 - Code: [src/quantum/pairs.rs:18](../src/quantum/pairs.rs#L18), [src/quantum/real_checks.rs:1097](../src/quantum/real_checks.rs#L1097)
@@ -4076,7 +4076,7 @@ M. B. Van Gijzen, P. Sonneveld, "Algorithm 913: An elegant IDR( s ) variant that
 
 M. Varnava, D. E. Browne, T. Rudolph, "How Good Must Single Photon Sources and Detectors Be for Efficient Linear Optical Quantum Computation?", Phys. Rev. Lett. 100, 060502 (2008). [doi:10.1103/PhysRevLett.100.060502](https://doi.org/10.1103/PhysRevLett.100.060502)
 
-- Methods pages: [quantum.md:55](methods/quantum.md?plain=1#L55), [536](methods/quantum.md?plain=1#L536)
+- Methods pages: [quantum.md:55](methods/quantum.md?plain=1#L55), [548](methods/quantum.md?plain=1#L548)
 - Validation cases: [`quantum/varnava-threshold`](validation.md?plain=1#L904)
 - Code: [src/quantum/budget.rs:11](../src/quantum/budget.rs#L11), [src/quantum/real_checks.rs:1076](../src/quantum/real_checks.rs#L1076), [studio/src-tauri/src/circuits/quantum.rs:589](../studio/src-tauri/src/circuits/quantum.rs#L589)
 - Other documents: [docs/plans/quantum.md:489](plans/quantum.md?plain=1#L489)
@@ -4110,7 +4110,7 @@ D. Vermeulen, S. Selvaraja, P. Verheyen, G. Lepage, W. Bogaerts, P. Absil, D. Va
 
 Z. Vernon, M. Menotti, C. C. Tison, J. A. Steidle, M. L. Fanto, P. M. Thomas, S. F. Preble, A. M. Smith, P. M. Alsing, M. Liscidini, et al., "Truly unentangled photon pairs without spectral filtering", Opt. Lett. 42, 3638 (2017). [doi:10.1364/OL.42.003638](https://doi.org/10.1364/OL.42.003638)
 
-- Methods pages: [quantum.md:45](methods/quantum.md?plain=1#L45), [408](methods/quantum.md?plain=1#L408)
+- Methods pages: [quantum.md:45](methods/quantum.md?plain=1#L45), [420](methods/quantum.md?plain=1#L420)
 - Validation cases: [`quantum/ring-vernon-equal`](validation.md?plain=1#L890)
 - Code: [src/quantum/light_checks.rs:164](../src/quantum/light_checks.rs#L164), [src/quantum/ring.rs:39](../src/quantum/ring.rs#L39)
 - Other documents: [docs/plans/quantum.md:531](plans/quantum.md?plain=1#L531)

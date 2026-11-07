@@ -9,6 +9,7 @@
   import { materials, PAIR_SOURCES } from "../../lib/materials.svelte";
   import QuantumBudget from "./QuantumBudget.svelte";
   import QuantumDip from "./QuantumDip.svelte";
+  import QuantumGaussian from "./QuantumGaussian.svelte";
   import QuantumPhotons from "./QuantumPhotons.svelte";
 
   let { chip }: { chip: Chip } = $props();
@@ -18,6 +19,7 @@
     ["photons", "Photons", "Photons on the ports at one wavelength: the output patterns, each port's photon numbers and bunching"],
     ["dip", "HOM dip", "Two photons' coincidences against their delay, through the chip's S(ω) over its sweep"],
     ["budget", "Loss budget", "Each photon's route through the chip, stage by stage, against published thresholds"],
+    ["gaussian", "Squeezed light", "Squeezed light on the ports through the chip: the squeezing left after its loss, the covariance, a port's photon numbers and Wigner function"],
   ] as const;
 
   /** Why nothing can be computed yet, or "". */
@@ -72,7 +74,9 @@
     <QuantumPhotons {chip} {blocked} {wavelength} />
   {:else if q.view === "dip"}
     <QuantumDip {chip} {blocked} {wavelength} />
-  {:else}
+  {:else if q.view === "budget"}
     <QuantumBudget {chip} {blocked} {wavelength} />
+  {:else}
+    <QuantumGaussian {chip} {blocked} {wavelength} />
   {/if}
 </div>

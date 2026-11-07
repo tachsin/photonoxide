@@ -131,7 +131,7 @@ export function emptyField(value: unknown, path = ""): string | null {
 
 /** The bars of the Schmidt weights: each weight's height as a share of the largest, and its label. */
 export function schmidtBars(weights: number[]): { k: number; weight: number; height: number }[] {
-  const top = weights.length ? weights[0] : 1;
+  const top = weights.length ? Math.max(...weights) : 1;
   return weights.map((w, k) => ({ k, weight: w, height: top > 0 ? w / top : 0 }));
 }
 

@@ -168,3 +168,47 @@ fn hafnians_are_the_same_on_any_number_of_threads() {
     };
     assert_eq!(run(1), run(5));
 }
+
+/// A Gaussian state's Wigner function: the vacuum's peak is 1/(2π) (ħ = 2), it integrates to 1,
+/// a squeezed vacuum's falls as its variances say along x and p, and a coherent state's is the
+/// vacuum's moved to its means.
+#[test]
+fn the_wigner_function_has_its_closed_forms() {
+    use std::f64::consts::TAU;
+    let vacuum = Gaussian::vacuum(1);
+    assert!((vacuum.wigner(0, 0.0, 0.0).unwrap() - 1.0 / TAU).abs() < 1e-15);
+    let r = 0.6;
+    let s = Gaussian::vacuum(2).squeezed(1, r, 0.0).unwrap();
+    // V = diag(e^{−2r}, e^{2r}), det 1: W(x, 0) = e^{−x² e^{2r}/2}/(2π), W(0, p) = e^{−p² e^{−2r}/2}/(2π)
+    for v in [0.3, 1.0, 2.0] {
+        let wx = s.wigner(1, v, 0.0).unwrap();
+        let wp = s.wigner(1, 0.0, v).unwrap();
+        assert!((wx - (-0.5 * v * v * (2.0 * r).exp()).exp() / TAU).abs() < 1e-15);
+        assert!((wp - (-0.5 * v * v * (-2.0 * r).exp()).exp() / TAU).abs() < 1e-15);
+    }
+    // the other mode is the vacuum still
+    assert!((s.wigner(0, 0.0, 0.0).unwrap() - 1.0 / TAU).abs() < 1e-15);
+    // a lossy, displaced, squeezed state at an angle integrates to 1 on a grid
+    let g = Gaussian::vacuum(1)
+        .squeezed(0, 0.8, 1.1)
+        .unwrap()
+        .lossy(0, 0.7)
+        .unwrap()
+        .displaced(0, c64::new(0.5, -0.3))
+        .unwrap();
+    let (h, n) = (0.05, 640);
+    let mut total = 0.0;
+    for i in 0..n {
+        for j in 0..n {
+            let (x, p) = (-16.0 + h * i as f64, -16.0 + h * j as f64);
+            total += g.wigner(0, x, p).unwrap();
+        }
+    }
+    assert!((total * h * h - 1.0).abs() < 1e-9, "{}", total * h * h);
+    // a coherent state's peak sits at its means, (2 Re α, 2 Im α)
+    let c = Gaussian::vacuum(1)
+        .displaced(0, c64::new(0.5, -0.3))
+        .unwrap();
+    assert!((c.wigner(0, 1.0, -0.6).unwrap() - 1.0 / TAU).abs() < 1e-15);
+    assert!(c.wigner(1, 0.0, 0.0).is_err());
+}

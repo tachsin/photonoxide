@@ -101,7 +101,7 @@ pub struct Statistics {
 }
 
 /// The wavelength `um` checked against the chip's sweep: the view's results are the sweep's.
-fn in_sweep(chip: &Chip, um: f64) -> Result<Wavelength, String> {
+pub(crate) fn in_sweep(chip: &Chip, um: f64) -> Result<Wavelength, String> {
     let (from, to) = (chip.sweep.from_um, chip.sweep.to_um);
     if !(um.is_finite() && um >= from && um <= to) {
         return Err(format!(
