@@ -30,4 +30,4 @@ tauri-winres = "0.3"
 
 [target.'cfg(windows)'.dependencies]
 # the one thing it says itself: that it couldn't start (the program's window says the rest)
-rfd = { version = "0.16", default-features = false }
+rfd = { version = "0.17", default-features = false }

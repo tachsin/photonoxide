@@ -1,7 +1,8 @@
 //! A nonlinear process in a guide or a crystal: a task alone of kind `"nonlinear"`
 //! ([`crate::nonlinear`]).
 //!
-//! The task names the process (`"shg"`, `"sfg"`, `"dfg"`, `"opa"`, `"spdc"` or `"fwm"`), the
+//! The task names the process (`"shg"`, of type I or, with `shg_type = "ii"`, type II, `"sfg"`,
+//! `"dfg"`, `"opa"`, `"spdc"` or `"fwm"`), the
 //! waveguide its waves travel in, the grating that poles it, and the pump (and the signal). The
 //! waveguide is one of three:
 //!
@@ -38,7 +39,9 @@
 //! - [`Event::NonlinearEfficiency`]: the generated power against the length, depleted by the
 //!   coupled-amplitude equations with the losses ([`crate::nonlinear::coupled`]) beside the
 //!   undepleted closed form; for OPA the signal's gain, for SPDC the pairs' spectral brightness,
-//!   for FWM the signal's gain and the idler's conversion ([`crate::nonlinear::fwm`]);
+//!   for FWM the signal's gain and the idler's conversion, depleted by the coupled equations
+//!   with the losses and the self- and cross-phase terms beside the undepleted lossless closed
+//!   form ([`crate::nonlinear::fwm`]);
 //! - [`Event::PairSpectrum`] for SPDC and FWM: the joint spectral amplitude, with its purity and
 //!   Schmidt number ([`crate::nonlinear::pairs`]).
 //!
@@ -114,6 +117,11 @@ pub(super) struct NonlinearTask {
     kind: String,
     /// `"shg"`, `"sfg"`, `"dfg"`, `"opa"`, `"spdc"` or `"fwm"`.
     process: String,
+    /// SHG's type: `"i"` (the default: both fundamental photons in one wave, one index) or
+    /// `"ii"` (in two waves, the first and second fundamental, each its own index, axis or mode
+    /// family; the pump's power split equally between them, a fundamental polarized at 45° to
+    /// both). Type II's waves are the two fundamentals and the harmonic.
+    shg_type: Option<String>,
     /// The waveguide (or crystal) the waves travel in.
     waveguide: WaveguideSpec,
     /// The pump: SHG's fundamental, SFG's first input, the others' pump.
@@ -466,6 +474,9 @@ pub struct PairSpectrum {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Kind {
     Shg,
+    /// Type-II SHG: the two fundamental photons in two waves, each its own index, the pump's
+    /// power split equally between them.
+    ShgII,
     Sfg,
     Dfg,
     Opa,
@@ -490,9 +501,31 @@ impl Kind {
         })
     }
 
+    /// SHG of `shg_type` `"i"` (the default) or `"ii"`; the other processes take none.
+    fn with_type(self, shg_type: Option<&str>) -> Result<Kind> {
+        match (self, shg_type) {
+            (k, None) => Ok(k),
+            (Kind::Shg, Some("i")) => Ok(Kind::Shg),
+            (Kind::Shg, Some("ii")) => Ok(Kind::ShgII),
+            (Kind::Shg, Some(other)) => Err(task_error(format!(
+                "unknown shg_type \"{other}\": \"i\" (both fundamental photons in one wave) or \
+                 \"ii\" (in two)"
+            ))),
+            (k, Some(_)) => Err(task_error(format!(
+                "shg_type is SHG's; {} takes none",
+                k.title()
+            ))),
+        }
+    }
+
+    /// SHG of either type.
+    fn harmonic(self) -> bool {
+        matches!(self, Kind::Shg | Kind::ShgII)
+    }
+
     fn name(self) -> &'static str {
         match self {
-            Kind::Shg => "shg",
+            Kind::Shg | Kind::ShgII => "shg",
             Kind::Sfg => "sfg",
             Kind::Dfg => "dfg",
             Kind::Opa => "opa",
@@ -504,6 +537,7 @@ impl Kind {
     fn title(self) -> &'static str {
         match self {
             Kind::Shg => "second-harmonic generation",
+            Kind::ShgII => "type-II second-harmonic generation",
             Kind::Sfg => "sum-frequency generation",
             Kind::Dfg => "difference-frequency generation",
             Kind::Opa => "optical parametric amplification",
@@ -515,15 +549,16 @@ impl Kind {
     fn roles(self) -> &'static [&'static str] {
         match self {
             Kind::Shg => &["fundamental", "harmonic"],
+            Kind::ShgII => &["first fundamental", "second fundamental", "harmonic"],
             Kind::Sfg => &["first", "second", "sum"],
             _ => &["pump", "signal", "idler"],
         }
     }
 
-    /// The wave the map and the wavelength acceptance are in: SHG's fundamental, the others'
-    /// second wave (the signal), the pump held.
+    /// The wave the map and the wavelength acceptance are in: SHG's fundamental (type II's
+    /// first, the second following), the others' second wave (the signal), the pump held.
     fn tuned(self) -> usize {
-        usize::from(self != Kind::Shg)
+        usize::from(!self.harmonic())
     }
 
     /// Each wave's wavelength (µm) with the pump at `pump` and the tuned wave at `tuned`.
@@ -540,6 +575,7 @@ impl Kind {
         };
         Ok(match self {
             Kind::Shg => vec![tuned, tuned / 2.0],
+            Kind::ShgII => vec![tuned, tuned, tuned / 2.0],
             Kind::Sfg => vec![pump, tuned, 1.0 / (1.0 / pump + 1.0 / tuned)],
             Kind::Dfg | Kind::Opa | Kind::Spdc => {
                 vec![pump, tuned, rest(1.0 / pump - 1.0 / tuned, "idler")?]
@@ -558,6 +594,12 @@ impl Kind {
                 indices[0].clone(),
                 indices[0].clone(),
                 indices[1].clone(),
+            )),
+            Kind::ShgII => Ok(Process::second_harmonic(
+                w(0)?,
+                indices[0].clone(),
+                indices[1].clone(),
+                indices[2].clone(),
             )),
             Kind::Sfg => Process::sum_frequency(wave(0)?, wave(1)?, indices[2].clone()),
             Kind::Dfg | Kind::Opa | Kind::Spdc => {
@@ -1018,12 +1060,12 @@ fn task_of(job: &Job) -> Result<NonlinearTask> {
 impl Setup {
     fn of(job: &Job) -> Result<Setup> {
         let task = task_of(job)?;
-        let kind = Kind::parse(&task.process)?;
+        let kind = Kind::parse(&task.process)?.with_type(task.shg_type.as_deref())?;
         let roles = kind.roles().len();
         let pump = positive(task.pump.wavelength_um, "[task.pump] wavelength_um")?;
         let signal = task.signal.as_ref().and_then(|s| s.wavelength_um);
         let tuned = match kind {
-            Kind::Shg => {
+            Kind::Shg | Kind::ShgII => {
                 if task.signal.is_some() {
                     return Err(task_error(
                         "SHG has one input, the pump: [task.signal] is for the other processes",
@@ -1430,9 +1472,74 @@ fn accepted(
     } else {
         a.noncritical
     };
+    if !estimate.is_finite() {
+        // an index without dispersion: a record must read back, and JSON has no infinity
+        return Err("the mismatch doesn't change with it to first or second order".to_owned());
+    }
     Ok(Accepted {
         estimate: estimate * scale,
         numerical: a.numerical.is_finite().then_some(a.numerical * scale),
+    })
+}
+
+/// The temperature step of a ridge's temperature acceptance, K: its modes solved at the
+/// operating temperature and this far either side.
+pub(super) const RIDGE_KELVIN_STEP: f64 = 1.0;
+
+/// The phase ΔkL/2 of the ridge `r` at `kelvin`: its media read there, its modes solved again
+/// over `ranges`, the device's length and grating expanded there.
+fn ridge_phase_at(
+    setup: &Setup,
+    r: &RidgeGuide,
+    ranges: &[(f64, f64)],
+    grating: Option<Grating>,
+    kelvin: f64,
+) -> Result<f64> {
+    let at = r.at_kelvin(kelvin)?;
+    let (indices, _) = at.indices(&at.ridge, ranges)?;
+    let state = State {
+        temperature: kelvin,
+        ..setup.state
+    };
+    device_of(setup, &indices, grating)?.phase(&state)
+}
+
+/// A ridge's temperature acceptance, K: Fejer et al.'s estimates (as
+/// [`crate::nonlinear::phase::Device::acceptance`]) from the phase `p0` at the operating
+/// temperature and the modes solved again [`RIDGE_KELVIN_STEP`] either side, by central
+/// differences. The width between the half maxima would take a solve per step of the search: it
+/// isn't given.
+fn ridge_temperature_acceptance(
+    setup: &Setup,
+    r: &RidgeGuide,
+    ranges: &[(f64, f64)],
+    grating: Option<Grating>,
+    p0: f64,
+) -> std::result::Result<Accepted, String> {
+    use crate::nonlinear::phase::HALF_MAXIMUM;
+    if p0.abs() >= HALF_MAXIMUM {
+        return Err(format!(
+            "the response at the operating point is {:.3}, already below 1/2",
+            sinc2(p0)
+        ));
+    }
+    let (t0, h) = (setup.state.temperature, RIDGE_KELVIN_STEP);
+    let phase = |t: f64| ridge_phase_at(setup, r, ranges, grating, t).map_err(|e| e.to_string());
+    let (pp, pm) = (phase(t0 + h)?, phase(t0 - h)?);
+    let slope = (pp - pm) / (2.0 * h);
+    let curvature = (pp - 2.0 * p0 + pm) / (h * h);
+    let linear = 2.0 * HALF_MAXIMUM / slope.abs();
+    let estimate = if linear.is_finite() {
+        linear
+    } else {
+        2.0 * (2.0 * HALF_MAXIMUM / curvature.abs()).sqrt()
+    };
+    if !estimate.is_finite() {
+        return Err("the modes' mismatch doesn't change with it".to_owned());
+    }
+    Ok(Accepted {
+        estimate,
+        numerical: None,
     })
 }
 
@@ -1511,6 +1618,15 @@ fn compute(job: &Job, stop: &Stop) -> Result<Computed> {
                 None
             }
         }
+    } else if let Guide::Ridge(r) = &setup.guide {
+        // a ridge's indices are its modes at one temperature: solve them again either side
+        match ridge_temperature_acceptance(&setup, r, &ranges, grating.map(|g| g.0), phase) {
+            Ok(a) => Some(a),
+            Err(e) => {
+                notes.push(format!("no temperature acceptance: {e}"));
+                None
+            }
+        }
     } else {
         None
     };
@@ -1582,6 +1698,7 @@ fn compute(job: &Job, stop: &Stop) -> Result<Computed> {
     };
     let input_power = |k: usize| -> Option<f64> {
         match (kind, k) {
+            (Kind::ShgII, 0 | 1) => Some(0.5 * setup.pump_w * 1e3),
             (_, 0) => Some(setup.pump_w * 1e3),
             (Kind::Sfg | Kind::Dfg | Kind::Opa | Kind::Fwm, 1) => Some(setup.signal_w * 1e3),
             _ => None,
@@ -1627,7 +1744,7 @@ fn compute(job: &Job, stop: &Stop) -> Result<Computed> {
         "{} {} over {} mm{}",
         kind.title(),
         match kind {
-            Kind::Shg => format!("of {} µm", setup.waves[0]),
+            Kind::Shg | Kind::ShgII => format!("of {} µm", setup.waves[0]),
             Kind::Sfg => format!("of {} and {} µm", setup.waves[0], setup.waves[1]),
             _ => format!(
                 "pumped at {} µm, the signal at {} µm",
@@ -1794,7 +1911,7 @@ fn miller_waves(setup: &Setup) -> [f64; 3] {
     let w = &setup.waves;
     match setup.kind {
         Kind::Shg => [w[1], w[0], w[0]],
-        Kind::Sfg => [w[2], w[0], w[1]],
+        Kind::ShgII | Kind::Sfg => [w[2], w[0], w[1]],
         // the pump is the sum of the signal and the idler
         _ => [w[0], w[1], w[2]],
     }
@@ -1889,7 +2006,10 @@ fn coupling(setup: &Setup, r: &RidgeGuide, d: &SecondOrder) -> Result<f64> {
     let share = r.ridge.film_share(&fields[0].1, |_, _| true);
     match setup.kind {
         Kind::Shg => second_harmonic_coupling(&fields[1].0, &fields[0].0, d, &share),
-        Kind::Sfg => sum_frequency_coupling(&fields[2].0, &fields[0].0, &fields[1].0, d, &share),
+        // type II: the sum of two distinct fundamental fields
+        Kind::ShgII | Kind::Sfg => {
+            sum_frequency_coupling(&fields[2].0, &fields[0].0, &fields[1].0, d, &share)
+        }
         // the pump is the sum of the signal and the idler
         _ => sum_frequency_coupling(&fields[0].0, &fields[1].0, &fields[2].0, d, &share),
     }
@@ -1910,6 +2030,46 @@ fn sinhc(g2: f64, length: f64) -> f64 {
 
 /// The RK4 steps over the whole length.
 const STEPS: usize = 2000;
+
+/// Four-wave mixing along the job's length, depleted, with every wave's loss and the self- and
+/// cross-phase terms ([`fwm::FourWave::propagate_with_loss`]): the waves at each of the job's
+/// points, from its pump and signal and no idler, γ in 1/(W·m) and Δk in rad/m. Each segment
+/// runs in its own z from 0, so the pump is turned by e^{−iΔkz₀/2} into it and back: the
+/// mismatch's phase runs on across the segments.
+fn four_wave_path(setup: &Setup, gamma: f64, mismatch: f64) -> Result<Vec<fwm::Waves>> {
+    let n = setup.points;
+    let segment = setup.length_um / (n - 1) as f64 * 1e-6;
+    let per_segment = STEPS.div_ceil(n - 1).max(1);
+    let process = fwm::FourWave { gamma, mismatch };
+    // per m
+    let loss = [
+        setup.loss[0] * 1e6,
+        setup.loss[1] * 1e6,
+        setup.loss[2] * 1e6,
+    ];
+    let mut w = fwm::Waves {
+        pump: c64::new(setup.pump_w.sqrt(), 0.0),
+        signal: c64::new(setup.signal_w.sqrt(), 0.0),
+        idler: c64::new(0.0, 0.0),
+    };
+    let mut path = vec![w];
+    for k in 1..n {
+        let turn = c64::from_polar(1.0, -0.5 * mismatch * segment * (k - 1) as f64);
+        let mut b = process.propagate_with_loss(
+            fwm::Waves {
+                pump: w.pump * turn,
+                ..w
+            },
+            segment,
+            per_segment,
+            loss,
+        )?;
+        b.pump /= turn;
+        w = b;
+        path.push(w);
+    }
+    Ok(path)
+}
 
 fn efficiency_curve(
     setup: &Setup,
@@ -1939,12 +2099,6 @@ fn efficiency_curve(
             let Some(gamma) = setup.gamma else {
                 return Ok(None);
             };
-            if setup.lossy {
-                notes.push(
-                    "four-wave mixing's gain is lossless, in closed form: its losses aren't in it"
-                        .to_owned(),
-                );
-            }
             let dk = device.process().mismatch(&setup.state)? * 1e6;
             let gain: Vec<Option<f64>> = lengths
                 .iter()
@@ -1954,14 +2108,36 @@ fn efficiency_curve(
                 .iter()
                 .map(|z| db(fwm::conversion(gamma, p0, dk, z * 1e-6)))
                 .collect();
-            vec![
-                series("signal gain (undepleted pump, closed form)", "dB", gain),
-                series(
+            let path = four_wave_path(setup, gamma, dk)?;
+            let power = |f: fn(&fwm::Waves) -> c64| -> Vec<Option<f64>> {
+                path.iter().map(|w| mw(f(w).norm_sqr())).collect()
+            };
+            let depleted_gain = path.iter().map(|w| db(w.signal.norm_sqr() / ps)).collect();
+            let depleted_conversion = path.iter().map(|w| db(w.idler.norm_sqr() / ps)).collect();
+            [
+                lossless(series(
+                    "signal gain (undepleted pump, closed form)",
+                    "dB",
+                    gain,
+                )),
+                lossless(series(
                     "idler conversion (undepleted pump, closed form)",
                     "dB",
                     conversion,
-                ),
+                )),
+                Some(series("signal gain (depleted, RK4)", "dB", depleted_gain)),
+                Some(series(
+                    "idler conversion (depleted, RK4)",
+                    "dB",
+                    depleted_conversion,
+                )),
+                Some(series("signal (depleted, RK4)", "mW", power(|w| w.signal))),
+                Some(series("idler (depleted, RK4)", "mW", power(|w| w.idler))),
+                Some(series("pump (depleted, RK4)", "mW", power(|w| w.pump))),
             ]
+            .into_iter()
+            .flatten()
+            .collect()
         }
         _ => {
             let Some(kappa) = kappa else {
@@ -2005,9 +2181,16 @@ fn efficiency_curve(
                         series("conversion", "%", conversion),
                     ]
                 }
-                Kind::Sfg | Kind::Dfg | Kind::Opa | Kind::Spdc => {
-                    // ThreeWave's waves: SFG's first, second and sum; DFG's signal, idler and pump
-                    let sum = setup.kind == Kind::Sfg;
+                Kind::ShgII | Kind::Sfg | Kind::Dfg | Kind::Opa | Kind::Spdc => {
+                    // ThreeWave's waves: SFG's (and type-II SHG's) first, second and sum; DFG's
+                    // signal, idler and pump
+                    let sum = matches!(setup.kind, Kind::Sfg | Kind::ShgII);
+                    // type II: the pump's power split equally between its two waves
+                    let (p0, ps) = if setup.kind == Kind::ShgII {
+                        (0.5 * p0, 0.5 * p0)
+                    } else {
+                        (p0, ps)
+                    };
                     let (f1, l) = if sum {
                         (
                             [nu[0], nu[1]],
@@ -2086,6 +2269,28 @@ fn efficiency_curve(
                             path.iter().map(|a| mw(a[j].norm_sqr())).collect()
                         };
                         match setup.kind {
+                            Kind::ShgII => {
+                                let closed = lengths
+                                    .iter()
+                                    .map(|&z| mw(kappa * kappa * p0 * ps * z * z * sinc2z(z)))
+                                    .collect();
+                                let conversion = path
+                                    .iter()
+                                    .map(|a| Some(100.0 * a[2].norm_sqr() / (p0 + ps)))
+                                    .collect();
+                                [
+                                    Some(series("harmonic (depleted, RK4)", "mW", power(2))),
+                                    lossless(series(
+                                        "harmonic (undepleted, lossless closed form)",
+                                        "mW",
+                                        closed,
+                                    )),
+                                    Some(series("conversion", "%", conversion)),
+                                ]
+                                .into_iter()
+                                .flatten()
+                                .collect()
+                            }
                             Kind::Sfg => {
                                 let closed = lengths
                                     .iter()

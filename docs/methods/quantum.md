@@ -704,8 +704,10 @@ $N^{-1/2}$: 3 photons in 5 modes, 1000 to 256 000 samples, eight seeds each, giv
 500 × 220 nm strips 200 nm apart, a quarter of its cross-over length) from the mode solver's
 supermodes on three grids converges at order 0.87, the standard scheme's first order at the
 strips' corners (`quantum/coupler-hom-order`, as `device/coupler-3d-order`). The plan's
-convergence study names the coupler from FDFD; the mode solver's supermodes stand in until Q3
-brings a coupler's S-matrix from FDFD into the statistics.
+convergence study names the coupler from FDFD: Q3 brings a 2 × 2 coupler's S(ω) from 2D FDFD into
+the statistics, the MMI of "Many photons with spectra through S(ω)" above, whose HOM visibility on 40, 20
+and 10 nm cells converges at about 1.7th order (0.7871, 0.8371, 0.8528). That is a table here,
+not a case with a rule yet, and the directional coupler itself is still the mode solver's.
 
 ### Gaussian states, sources and squeezers (Q2)
 

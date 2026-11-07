@@ -655,7 +655,7 @@ pub const GUIDES: &[Guide] = &[
                 manager: "conda-forge",
                 command: "conda install -c conda-forge libopenblas=*=*openmp*",
                 systems: &["linux", "macos"],
-                note: "OpenBLAS built with OpenMP in place of its own threads, which some machines run faster: Benchmarks compares the two here. photonoxide holds each of its threads' OpenMP count at one, so its own parallel loops and OpenBLAS's don't multiply (#557).",
+                note: "OpenBLAS built with OpenMP in place of its own threads, which some machines run faster: Benchmarks compares the two here. From photonoxide 0.6.2 on (#653), photonoxide holds each of its threads' OpenMP count at one, so its own parallel loops and OpenBLAS's don't multiply (#557); earlier versions leave it to OpenMP.",
                 checked: &[Checked {
                     system: "linux",
                     image: UBUNTU,

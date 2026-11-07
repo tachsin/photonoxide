@@ -16,6 +16,8 @@
 //! - a run's tables, its numbers column by column, [`run_tables`], and written as CSV,
 //!   [`export_run`] ([`crate::export`]); its field files with their sizes estimated at a
 //!   precision and a level, [`estimate_fields`], and written again so, [`export_fields`];
+//! - masks: a GDSII file's cells and layers, [`gds_library`], and what a cell draws on a layer as
+//!   polygons with holes, as a job's `"gds"` shape reads it, [`gds_polygons`];
 //! - circuits from a netlist given as data, [`circuit_spectrum`];
 //! - Touchstone files: [`read_touchstone`], [`write_touchstone`];
 //! - devices, the components that know their geometry ([`crate::device`]): the library's,
@@ -53,6 +55,7 @@ mod circuit;
 mod conformance;
 mod device;
 mod fabrication;
+mod mask;
 mod nonlinear;
 #[cfg(test)]
 mod tests;
@@ -83,6 +86,7 @@ pub use fabrication::{
     DeviceFabrication, device_fabrication, device_fabrication_from, device_fabrication_job,
     device_fabrication_job_from, export_fabrication, export_fabrication_from,
 };
+pub use mask::{GdsCell, GdsLibrary, MaskPolygon, gds_library, gds_polygons};
 pub use nonlinear::{NonlinearProcess, nonlinear};
 
 /// A material of the catalogue ([`crate::material::catalogue`]), with its index models.
@@ -364,6 +368,12 @@ pub struct CrossSection {
     /// The layers' stretching strength α (s = 1 + iα at the window's edge); a few units absorb
     /// well over a layer about a wavelength thick.
     pub pml_strength: f64,
+    /// The finite-difference equations: `"standard"` (the full-vector scheme,
+    /// [`crate::mode::vector`]) or `"hadley"` (Hadley's high-accuracy equations,
+    /// [`crate::mode::hadley`], each mode the standard scheme's refined), which converge much
+    /// faster at a high-contrast core's corners. Hadley's need a uniform grid along each axis,
+    /// real permittivities and no PML.
+    pub scheme: String,
 }
 
 impl CrossSection {
@@ -377,6 +387,7 @@ impl CrossSection {
             boundaries: ["zero", "zero", "zero", "zero"].map(String::from),
             pml_um: [0.0; 4],
             pml_strength: 0.0,
+            scheme: "standard".into(),
         }
     }
 
@@ -447,6 +458,21 @@ pub struct VectorMode {
     pub e: [Vec<c64>; 3],
     /// H_x, H_y and H_z, the largest transverse component of H at the grid's nodes 1.
     pub h: [Vec<c64>; 3],
+    /// The effective area for the Kerr effect, µm²: Afshar and Monro's Eq. 41, the whole
+    /// cross-section's ([`crate::mode::fields::Fields::effective_area`], from the one-sided
+    /// fields).
+    pub effective_area_um2: f64,
+    /// The standard effective area from E_t alone, µm²: their Eq. 44
+    /// ([`crate::mode::fields::Fields::effective_area_transverse`]).
+    pub effective_area_transverse_um2: f64,
+    /// Each cell's share of the power through the window, `(ny, nx)` in C order, adding up to
+    /// 1 ([`crate::mode::fields::Fields::power_shares`]): a set of cells' sum is its
+    /// confinement.
+    pub power_shares: Vec<f64>,
+    /// The normalized product O_ab = ⟨a, b⟩ / (Re⟨a, a⟩ Re⟨b, b⟩)^½ of this mode with each mode
+    /// returned, in their order ([`crate::mode::quantities::orthogonality`], conjugated): 1 with
+    /// itself, near 0 with the others for an orthogonal set.
+    pub orthogonality: Vec<c64>,
 }
 
 /// Of the `count` modes of `cross_section` at `wavelength_um` whose effective indices are
@@ -466,12 +492,17 @@ pub struct VectorMode {
 /// comes back, as [`crate::mode::vector::modes`] finds them, leaky modes below the media
 /// around the guides with their loss (and the PMLs' own modes, their loss large).
 ///
+/// With the cross-section's `scheme` `"hadley"`, each guided mode is refined by Hadley's
+/// equations ([`crate::mode::hadley::refined`]), the same numbers as
+/// [`crate::mode::hadley::modes`] gives for the same starting modes.
+///
 /// # Errors
 ///
 /// [`Error::InvalidValue`] for a grid or permittivities the solver refuses (see
-/// [`crate::mode::vector::CrossSection::new`]), an unknown boundary, PMLs that don't fit, a
-/// count of 0, a `near_index` that isn't finite, a wavelength that isn't positive and finite,
-/// or an eigenproblem that doesn't converge.
+/// [`crate::mode::vector::CrossSection::new`]), an unknown boundary or scheme, PMLs that don't
+/// fit, a count of 0, a `near_index` that isn't finite, a wavelength that isn't positive and
+/// finite, or an eigenproblem that doesn't converge; with Hadley's equations, a grid that isn't
+/// uniform, a permittivity that isn't real, a PML, or a grid too coarse for them.
 pub fn vector_modes(
     cross_section: &CrossSection,
     wavelength_um: f64,
@@ -482,6 +513,16 @@ pub fn vector_modes(
     let cs = cross_section.build()?;
     let wavelength = Wavelength::um(wavelength_um)?;
     let stopped = || stop.reason().is_some();
+    let hadley = match cross_section.scheme.to_ascii_lowercase().as_str() {
+        "standard" => false,
+        "hadley" => true,
+        other => {
+            return Err(Error::invalid(
+                "scheme",
+                format!("is \"standard\" or \"hadley\", not {other:?}"),
+            ));
+        }
+    };
     // a closed window's own modes left out; an open one's leaky modes kept
     let pml = cs.pml();
     let open = pml.strength > 0.0
@@ -493,12 +534,30 @@ pub fn vector_modes(
     } else {
         vector::guided_modes_until(&cs, wavelength, count, near_index, stopped)?
     };
-    let Some(modes) = solved else {
+    let Some(mut modes) = solved else {
         return Ok(None);
     };
+    if hadley {
+        // each guided mode refined by Hadley's equations, as `mode::hadley::modes` refines its own
+        match crate::mode::hadley::refined(&cs, wavelength, &modes, stopped)? {
+            Some(refined) => modes = refined,
+            None => return Ok(None),
+        }
+    }
+    // the quantities from the one-sided fields, as the library's take them
+    let sided = modes
+        .iter()
+        .map(|m| m.fields_one_sided(&cs))
+        .collect::<Result<Vec<_>>>()?;
+    let products = crate::mode::quantities::orthogonality(
+        &sided,
+        crate::mode::quantities::Product::Conjugated,
+    );
     modes
         .iter()
-        .map(|mode| {
+        .zip(&sided)
+        .enumerate()
+        .map(|(a, (mode, one))| {
             let fields = mode.fields(&cs)?;
             let (nx, ny) = (fields.x().len(), fields.y().len());
             // the library's (i, j), in C order (j, i)
@@ -508,6 +567,7 @@ pub fn vector_modes(
                     .map(|(i, j)| f(i, j))
                     .collect()
             };
+            let shares = one.power_shares();
             Ok(VectorMode {
                 effective_index: mode.effective_index(),
                 te_fraction: mode.te_fraction(),
@@ -515,6 +575,16 @@ pub fn vector_modes(
                 y_um: fields.y().to_vec(),
                 e: [0, 1, 2].map(|c| component(&|i, j| fields.e(i, j)[c])),
                 h: [0, 1, 2].map(|c| component(&|i, j| fields.h(i, j)[c])),
+                effective_area_um2: one.effective_area(),
+                effective_area_transverse_um2: one.effective_area_transverse(),
+                power_shares: (0..ny)
+                    .flat_map(|j| (0..nx).map(move |i| i * ny + j))
+                    .map(|k| shares[k])
+                    .collect(),
+                orthogonality: products
+                    .as_ref()
+                    .map(|o| (0..o.len()).map(|b| o.get(a, b)).collect())
+                    .unwrap_or_default(),
             })
         })
         .collect::<Result<Vec<_>>>()

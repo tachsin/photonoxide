@@ -345,7 +345,7 @@ must be read before a tolerance is set.
   turns a quadrature variance $e^{-2r}$ into $\eta e^{-2r} + 1 - \eta$; the purity of a Gaussian
   JSA against its closed form.
 - *Published:* Paesani et al. (2020)'s source: the purity predicted from the multimode
-  waveguide's TE0 and TE1 dispersion, against their 0.9904 ± 0.0006 measured (their geometry and
+  waveguide's TM0 and TM1 dispersion (the paper's own modes), against their 0.9904 ± 0.0006 measured (their geometry and
   simulated purity to read); Vernon et al. (2017)'s Schmidt number against the ratio of the
   rings' couplings; Zhao et al. (2020, folder)'s thin-film lithium niobate pairs, shared with
   0.6.1; the on-chip squeezing of Vaidya et al. (2020) (about 4 dB inferred) and Nehra et al.

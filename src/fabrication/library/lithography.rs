@@ -7,20 +7,18 @@ use super::{
 };
 use crate::fabrication::stated::{Quantity, Stated, Unit};
 
-/// The polarity the library records for the resist of the lithography `id`: the one its
-/// description names (HSQ and ma-N negative, PMMA positive), with no source in hand read for it
-/// yet, so the frames draw it and say that no source states it; none for a photoresist, whose
-/// polarity is the product's, and for nanoimprint, which exposes nothing.
+/// The polarity the library records for the resist of the lithography `id`: HSQ negative and
+/// PMMA positive, as Chen 2015's Table 1 gives their tone; ma-N negative as its description
+/// names it, with no source in hand that states it (Chen's table hasn't ma-N), so the frames
+/// draw it and say so; none for a photoresist, whose polarity is the product's, and for
+/// nanoimprint, which exposes nothing.
 pub(super) fn polarity(id: &str) -> Option<ResistPolarity> {
-    let named = |polarity| {
-        Some(ResistPolarity {
-            polarity,
-            source: None,
-        })
-    };
+    let chen = || Some(src("chen-2015", "Table 1 (p. 58)"));
+    let of = |polarity, source| Some(ResistPolarity { polarity, source });
     match id {
-        "ebl-hsq" | "ebl-man" => named(Polarity::Negative),
-        "ebl-pmma" => named(Polarity::Positive),
+        "ebl-hsq" => of(Polarity::Negative, chen()),
+        "ebl-pmma" => of(Polarity::Positive, chen()),
+        "ebl-man" => of(Polarity::Negative, None),
         _ => None,
     }
 }

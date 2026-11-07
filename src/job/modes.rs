@@ -114,6 +114,14 @@ impl ModesTask {
     /// windows, the step, the cut, the number of modes, the PML and the sweep.
     pub(super) fn validate(&self) -> Result<()> {
         // (none is refused below)
+        if let Some(n2) = self.quantities.and_then(|q| q.nonlinear_index_m2_per_w)
+            && !(n2.is_finite() && n2 != 0.0)
+        {
+            return Err(task_error(format!(
+                "[task.quantities] nonlinear_index_m2_per_w must be a number other than 0, got \
+                 {n2}"
+            )));
+        }
         if let Some(modes) = self.modes
             && modes > MOST_MODES
         {
@@ -309,10 +317,23 @@ pub(super) struct ModesTask {
     /// The modes' grid checked: each effective index solved again on coarser grids, and its
     /// error estimated against a tolerance ([`crate::convergence`]).
     convergence: Option<ConvergenceSpec>,
+    /// Each mode's quantities beside its index, recorded as a `mode_quantities` event after its
+    /// field: its effective areas, its confinement in the guides, its products with the other
+    /// modes and, with an n₂, its γ ([`crate::mode::quantities`]).
+    quantities: Option<QuantitiesSpec>,
     pub(super) sweep: Option<SweepSpec>,
     /// The names of `[task.parameters]`, which a sweep may step through: set after reading.
     #[serde(skip)]
     pub(super) parameters: Vec<String>,
+}
+
+/// A modes job's `[task.quantities]`: what each mode gives beside its index.
+#[derive(Clone, Copy, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+struct QuantitiesSpec {
+    /// A nonlinear index n₂, m²/W, uniform across the section, for each mode's
+    /// γ = 2π n₂/(λ A_eff); none without it.
+    nonlinear_index_m2_per_w: Option<f64>,
 }
 
 /// A modes job's `[task.pml]`: perfectly matched layers inside its window's edges
@@ -380,11 +401,27 @@ struct ConvergenceSpec {
     /// Fail the run when a mode's grid hasn't converged (by default its record says so and the
     /// run goes on).
     require: Option<bool>,
+    /// Drive the grid instead of checking it: halve the task's step until the first mode's
+    /// Re n_eff changes by less than the tolerance and the estimate of its remaining error is
+    /// within it ([`crate::convergence::ToTolerance::grids`], the gate's estimate), then solve
+    /// the modes on the grid it stopped at. A run whose budget runs out first fails, naming the
+    /// last two values.
+    drive: Option<bool>,
+    /// The most grids a driven run takes, the task's among them: 2 to 6 (4 by default).
+    budget: Option<usize>,
 }
 
 impl ConvergenceSpec {
     fn grids(&self) -> usize {
         self.grids.unwrap_or(3)
+    }
+
+    fn drives(&self) -> bool {
+        self.drive == Some(true)
+    }
+
+    fn budget(&self) -> usize {
+        self.budget.unwrap_or(4)
     }
 
     /// The tolerance, the grids, and the coarsest grid's cells in the windows and the PML.
@@ -393,6 +430,24 @@ impl ConvergenceSpec {
             return Err(task_error(format!(
                 "[task.convergence] tolerance must be above 0, got {}",
                 self.tolerance
+            )));
+        }
+        if self.drives() && self.grids.is_some() {
+            return Err(task_error(
+                "[task.convergence] drives the grid or checks the grids given: grids is for a \
+                 check, budget for a drive",
+            ));
+        }
+        if self.budget.is_some() && !self.drives() {
+            return Err(task_error(
+                "[task.convergence] budget is for a drive: set drive = true",
+            ));
+        }
+        if !(2..=6).contains(&self.budget()) {
+            return Err(task_error(format!(
+                "[task.convergence] budget is 2 to 6 grids, got {}: each halving of the step \
+                 costs four times the last",
+                self.budget()
             )));
         }
         if !matches!(self.grids(), 2 | 3) {
@@ -407,7 +462,12 @@ impl ConvergenceSpec {
                  points: give one or the other",
             ));
         }
-        let coarsest = task.step_nm * f64::from(1u32 << (self.grids() - 1));
+        // a drive's grids are the task's and finer ones
+        let coarsest = if self.drives() {
+            task.step_nm
+        } else {
+            task.step_nm * f64::from(1u32 << (self.grids() - 1))
+        };
         let name = |what: &str| format!("the coarsest grid's (step {coarsest} nm) {what}");
         check_cells(&name("window across the guide"), task.across()?, coarsest)?;
         if let Some(z) = task.z_um {
@@ -1315,6 +1375,12 @@ fn window_media(s: &Structure, z: [f64; 2], wavelength_um: f64) -> Result<Vec<f6
 
 /// A medium's principal refractive indices (real parts) at `w`: an isotropic one's three the
 /// same, as its permittivity gives them.
+/// A cell's index for telling the guides' media from those around them: the square root of
+/// the real part of the mean of its ε_xx, ε_yy and ε_zz.
+fn cell_index(p: &crate::mode::vector::Permittivity) -> f64 {
+    ((p.xx + p.yy + p.zz).re / 3.0).max(0.0).sqrt()
+}
+
 fn principal_indices(m: &crate::material::Material, w: Wavelength) -> Result<[f64; 3]> {
     Ok(m.principal_permittivity(w)?.map(|e| e.re.max(0.0).sqrt()))
 }
@@ -1586,18 +1652,59 @@ pub(super) fn modes(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
         Some(pml) => cs.with_pml(pml.pml()),
         None => Ok(cs),
     };
-    let cs = opened(cross_section(
-        &fs,
-        &frame.rect,
-        &frame.circle,
-        &frame.ring,
-        frame.cut,
-        across,
-        z,
-        step,
-        lam,
-        along,
-    )?)?;
+    let section = |h: f64| {
+        opened(cross_section(
+            &fs,
+            &frame.rect,
+            &frame.circle,
+            &frame.ring,
+            frame.cut,
+            across,
+            z,
+            h,
+            lam,
+            along,
+        )?)
+    };
+    // a driven grid: the task's step halved until the first mode's index has converged, the
+    // modes then solved on the grid it stopped at
+    let mut step = step;
+    if let Some(spec) = task.convergence.as_ref().filter(|c| c.drives()) {
+        let driver = crate::convergence::ToTolerance::new(
+            "Re n_eff of mode 1",
+            crate::convergence::Tolerance::Absolute(spec.tolerance),
+        )?
+        .with_budget(spec.budget())?;
+        let mut stopped = false;
+        let refined = driver.grids(step, |h| {
+            let found = solve(&section(h)?, lam)?;
+            let Some(found) = found else {
+                stopped = true;
+                return Err(Error::invalid("grid convergence", "stopped"));
+            };
+            found
+                .iter()
+                .map(|m| m.effective_index().re)
+                .reduce(f64::max)
+                .ok_or_else(|| {
+                    Error::invalid(
+                        "grid convergence",
+                        format!("the {h} um grid finds no mode to drive"),
+                    )
+                })
+        });
+        if stopped {
+            return Ok(());
+        }
+        let refined = refined?;
+        step = refined.grids[refined.grids.len() - 1];
+        run.record(&Event::GridRefined {
+            label: "mode 1".to_owned(),
+            wavelength_um: lam.to_um(),
+            refined,
+        })?;
+    }
+    let cs = section(step)?;
     let edge = window_edge_highest(&task, &s, z, lam.to_um())?;
     // what an open window keeps of the modes it solves, and how it names them
     let kept = || -> Result<String> {
@@ -1670,6 +1777,23 @@ pub(super) fn modes(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
     };
     let mut sorted: Vec<_> = found.iter().collect();
     sorted.sort_by(|a, b| b.effective_index().re.total_cmp(&a.effective_index().re));
+    // the quantities asked for, from the one-sided fields, as the library takes them
+    let quantities = match task.quantities {
+        Some(q) => {
+            let sided = sorted
+                .iter()
+                .map(|m| m.fields_one_sided(&cs))
+                .collect::<Result<Vec<_>>>()?;
+            let products = crate::mode::quantities::orthogonality(
+                &sided,
+                crate::mode::quantities::Product::Conjugated,
+            );
+            // the guides' media: above the index around them
+            let guides: Vec<bool> = cs.cells().iter().map(|p| cell_index(p) > edge).collect();
+            Some((q, sided, products, guides))
+        }
+        None => None,
+    };
     for (k, m) in sorted.iter().enumerate() {
         if stop.reason().is_some() {
             return Ok(());
@@ -1695,6 +1819,34 @@ pub(super) fn modes(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
         if let Some(event) = loss(None, &label, m, lam)? {
             run.record(&event)?;
         }
+        if let Some((q, sided, products, guides)) = &quantities {
+            let one = &sided[k];
+            let area = one.effective_area();
+            run.record(&Event::ModeQuantities {
+                label: label.clone(),
+                wavelength_um: lam.to_um(),
+                effective_area_um2: area,
+                effective_area_transverse_um2: one.effective_area_transverse(),
+                confinement: one
+                    .power_shares()
+                    .iter()
+                    .zip(guides)
+                    .filter(|(_, g)| **g)
+                    .map(|(s, _)| s)
+                    .sum(),
+                gamma_per_w_m: q
+                    .nonlinear_index_m2_per_w
+                    .map(|n2| crate::mode::quantities::nonlinear_coefficient(lam, n2, area)),
+                orthogonality: products
+                    .as_ref()
+                    .map(|o| {
+                        (0..o.len())
+                            .map(|b| [o.get(k, b).re, o.get(k, b).im])
+                            .collect()
+                    })
+                    .unwrap_or_default(),
+            })?;
+        }
         if let Some(export) = &task.export {
             export_mode(export, job, run, &label, m, &fields, lam)?;
         }
@@ -1709,7 +1861,7 @@ pub(super) fn modes(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
     }
     // the grid study: each mode's Re n_eff on grids twice, then four times, as coarse, the
     // run's grid's checked by it; a mode a coarser grid doesn't find hasn't converged
-    if let Some(spec) = &task.convergence {
+    if let Some(spec) = task.convergence.as_ref().filter(|c| !c.drives()) {
         let reported: Vec<f64> = sorted.iter().map(|m| m.effective_index().re).collect();
         let mut coarse: Vec<(f64, Vec<f64>)> = Vec::new();
         for g in (1..spec.grids()).rev() {

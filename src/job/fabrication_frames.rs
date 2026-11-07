@@ -92,6 +92,8 @@ struct Resist {
     /// The polarity drawn, and whether the library names it (else the frames' default).
     polarity: Polarity,
     named: bool,
+    /// The source that states the polarity, if one in hand does.
+    source: Option<crate::fabrication::Source>,
     /// Whether a mould presses the pattern in (nanoimprint) instead of light or a beam.
     imprint: bool,
     /// Whether an electron beam writes it, else light through a mask.
@@ -291,6 +293,15 @@ impl Resist {
                  is drawn as {} of the resist's thickness.",
                 num(IMPRINT_RESIDUE)
             ));
+        } else if let Some(s) = &self.source {
+            let citation = crate::fabrication::reference(&s.reference)
+                .map_or_else(|| s.reference.clone(), |r| r.citation);
+            parts.push(format!(
+                "The {} is {}: {citation}, {}.",
+                self.name,
+                self.polarity_word(),
+                s.location
+            ));
         } else if self.named {
             parts.push(format!(
                 "No source in hand states the {}'s polarity by its place: it is drawn {}, as the \
@@ -448,15 +459,62 @@ pub(super) fn frames(
     design_top: f64,
     wavelength: Wavelength,
 ) -> Result<Vec<FlowFrame>> {
-    struct Moment {
-        step: usize,
-        phase: String,
-        label: String,
-        layer: Option<String>,
-        made: Made,
-        films: Vec<FrameFilm>,
-        note: Option<String>,
+    let (moments, x, y) = moments(flow, stages, x, y, wavelength)?;
+    let top = moments.iter().map(Moment::top).fold(design_top, f64::max);
+    let z = [z_bottom, top + 1.0];
+    moments
+        .into_iter()
+        .map(|m| {
+            let mut drawn = scene(&m.made.structure, x, y, z, wavelength)?;
+            named(&mut drawn, &m.made);
+            Ok(FlowFrame {
+                step: m.step,
+                phase: m.phase,
+                label: m.label,
+                layer: m.layer,
+                scene: drawn,
+                etched: scene_etched(&m.made.structure),
+                films: m.films,
+                note: m.note,
+            })
+        })
+        .collect()
+}
+
+/// A moment of a flow, as a frame draws it: the step it belongs to, what happens, the wafer's
+/// planar layers and the films over them ([`FlowFrame`] has each field's meaning).
+pub(crate) struct Moment {
+    pub step: usize,
+    pub phase: String,
+    pub label: String,
+    pub layer: Option<String>,
+    pub made: Made,
+    pub films: Vec<FrameFilm>,
+    pub note: Option<String>,
+}
+
+impl Moment {
+    /// The highest the wafer stands, its films included, µm.
+    pub fn top(&self) -> f64 {
+        self.films
+            .iter()
+            .map(|f| f.z_um[1])
+            .fold(self.made.structure.stack().thickness().to_um(), f64::max)
     }
+}
+
+/// The moments [`frames`] draws, and the window `x` × `y` grown to hold every conformal film.
+///
+/// # Errors
+///
+/// [`frames`]'s.
+pub(crate) fn moments(
+    flow: &Flow,
+    stages: &[Made],
+    x: [f64; 2],
+    y: [f64; 2],
+    wavelength: Wavelength,
+) -> Result<(Vec<Moment>, [f64; 2], [f64; 2])> {
     // the window, grown to hold every conformal film
     let mut grow: f64 = 0.0;
     for (k, step) in flow.steps.iter().enumerate().skip(1) {
@@ -510,6 +568,7 @@ pub(super) fn frames(
                     tone: *tone,
                     polarity: polarity.as_ref().map_or(Polarity::Positive, |p| p.polarity),
                     named: polarity.is_some(),
+                    source: polarity.and_then(|p| p.source),
                     imprint: litho.is_some_and(crate::fabrication::Process::imprints),
                     beam: step.process.starts_with("ebl"),
                     top: top_of(under),
@@ -690,31 +749,5 @@ pub(super) fn frames(
             }
         }
     }
-    let top = moments
-        .iter()
-        .map(|m| {
-            m.films
-                .iter()
-                .map(|f| f.z_um[1])
-                .fold(m.made.structure.stack().thickness().to_um(), f64::max)
-        })
-        .fold(design_top, f64::max);
-    let z = [z_bottom, top + 1.0];
-    moments
-        .into_iter()
-        .map(|m| {
-            let mut drawn = scene(&m.made.structure, x, y, z, wavelength)?;
-            named(&mut drawn, &m.made);
-            Ok(FlowFrame {
-                step: m.step,
-                phase: m.phase,
-                label: m.label,
-                layer: m.layer,
-                scene: drawn,
-                etched: scene_etched(&m.made.structure),
-                films: m.films,
-                note: m.note,
-            })
-        })
-        .collect()
+    Ok((moments, x, y))
 }

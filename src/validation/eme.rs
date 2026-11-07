@@ -454,7 +454,17 @@ pub(crate) fn rules() -> Vec<(&'static str, Rule)> {
                 Discretisation,
                 4e-9,
                 Noted,
-                "three times our own error, rounded up: the exact field's Runge–Kutta steps' (1.3e-9 at 2 µm TE, from steps twice as long), above the staircase's limit's change to the next halving's (3.4e-12)",
+                "three times our own error, rounded up: the exact field's Runge–Kutta steps' (1.3e-9 at 2 µm TE, from steps twice as long), above the staircase's limit's change to the next halving's (3.4e-12) and the departure's change with a PML twice as strong (6.1e-14)",
+            ),
+        ),
+        (
+            "eme/bend-joint-leaky",
+            Rule::new(
+                Absolute,
+                Discretisation,
+                3e-9,
+                Noted,
+                "three times our own error, rounded up: the largest, TM at 2 µm, the staircase's limit's change to the next halving's and the departure's change with a PML twice as strong (both 6.9e-10), above the exact field's Runge–Kutta steps'",
             ),
         ),
     ]

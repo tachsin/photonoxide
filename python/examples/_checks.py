@@ -14,6 +14,12 @@ def display(x: float) -> str:
     return s[:-2] if s.endswith(".0") else s
 
 
+def rounded(x: float) -> str:
+    """A float as Rust's ``{:.1e}`` writes it: ``3.4e-5``, ``1.3e-3``."""
+    mantissa, exp = f"{float(x):.1e}".split("e")
+    return f"{mantissa}e{int(exp)}"
+
+
 def exponent(x: float) -> str:
     """A float as Rust's ``{:e}`` writes it: ``5e-4``, ``1.5e-5``."""
     sign, digits, exp = Decimal(repr(float(x))).normalize().as_tuple()
@@ -40,6 +46,14 @@ class Checks:
         self._row(
             abs(got - value) <= tolerance,
             f"  {what:<34} {got:>12.6f}   {source} {value:<10.6f} ± {exponent(tolerance)}",
+        )
+
+    def converged(self, what: str, got: float, grids: int, error: float, tolerance: float) -> None:
+        """``got``, the finest of ``grids`` grids, whose two finest differ by ``error``, within
+        ``tolerance``: the Rust examples' ``Checks::converged``."""
+        self._row(
+            error <= tolerance,
+            f"  {what:<34} {got:>12.6f}   on {grids} grids, error {rounded(error)} ≤ {exponent(tolerance)}",
         )
 
     def _row(self, ok: bool, text: str) -> None:

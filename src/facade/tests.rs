@@ -199,6 +199,40 @@ fn vector_modes_are_the_solvers_in_c_order() {
         }
     }
     assert!(modes[0].te_fraction > 0.9);
+
+    // Hadley's equations: the guided modes refined, to the bit as the library refines them
+    cs.scheme = "hadley".into();
+    let refined = vector_modes(&cs, 1.55, 2, None, &Stop::new(None))
+        .unwrap()
+        .unwrap();
+    let theirs =
+        crate::mode::hadley::refined(&direct, Wavelength::um(1.55).unwrap(), &exact, || false)
+            .unwrap()
+            .unwrap();
+    assert_eq!(refined.len(), 1);
+    assert_eq!(
+        bits(refined[0].effective_index),
+        bits(theirs[0].effective_index())
+    );
+    let fields = theirs[0].fields(&direct).unwrap();
+    assert_eq!(bits(refined[0].e[0][0]), bits(fields.e(0, 0)[0]));
+    // the same as hadley::modes from the same start
+    let by_modes =
+        crate::mode::hadley::modes(&direct, Wavelength::um(1.55).unwrap(), 1, None).unwrap();
+    assert_eq!(
+        bits(refined[0].effective_index),
+        bits(by_modes[0].effective_index())
+    );
+    // the schemes differ, Hadley's lower at the corners
+    assert_ne!(refined[0].effective_index, modes[0].effective_index);
+    cs.scheme = "fancy".into();
+    let unknown = vector_modes(&cs, 1.55, 2, None, &Stop::new(None)).unwrap_err();
+    assert!(unknown.to_string().contains("\"standard\" or \"hadley\""));
+    // Hadley's need no PML
+    cs.scheme = "hadley".into();
+    cs.pml_um = [0.0, 0.25, 0.0, 0.25];
+    cs.pml_strength = 2.0;
+    assert!(vector_modes(&cs, 1.55, 2, None, &Stop::new(None)).is_err());
 }
 
 /// A 1 × 0.4 µm core of ε 4 in ε 2.1025 (indices 2 and 1.45), whole, on a 50 nm grid with its
@@ -661,6 +695,7 @@ fn facade_functions() -> Vec<&'static str> {
         include_str!("conformance.rs"),
         include_str!("device.rs"),
         include_str!("fabrication.rs"),
+        include_str!("mask.rs"),
         include_str!("nonlinear.rs"),
     ];
     let mut names: Vec<&str> = sources
@@ -680,7 +715,7 @@ fn every_facade_function_is_in_the_feature_table() {
     // so to the Python package) goes in its table, by name
     let table = include_str!("../../docs/features.md");
     let functions = facade_functions();
-    assert_eq!(functions.len(), 29, "{functions:?}");
+    assert_eq!(functions.len(), 31, "{functions:?}");
     for f in functions {
         assert!(
             table.contains(&format!("`{f}`")),
@@ -939,11 +974,15 @@ fn a_device_fabrication_is_its_jobs_record_to_the_bit() {
             f.markdown
         );
         assert_eq!(
+            std::fs::read_to_string(dir.join("flow.csv")).unwrap(),
+            f.csv
+        );
+        assert_eq!(
             std::fs::read_to_string(dir.join("flow-01.svg")).unwrap(),
             f.svgs[0]
         );
         let written = export_fabrication(&d, &[], &[], &scratch.0.join(kind)).unwrap();
-        assert_eq!(written.len(), 2 + f.svgs.len());
+        assert_eq!(written.len(), 3 + f.svgs.len());
     }
 }
 
@@ -1257,4 +1296,111 @@ fn the_stacks_are_the_catalogues_and_a_design_takes_each_by_name() {
     let mut d = design("waveguide", &[]);
     d.stack = Some("gaas".into());
     assert!(device_geometry(&d).is_err());
+}
+
+#[test]
+fn a_gds_files_cells_and_layers_are_the_readers() {
+    let scratch = Scratch::new();
+    let file = scratch.0.join("layout.gds");
+    std::fs::write(&file, crate::geometry::gds_checks::layout()).unwrap();
+    let library = gds_library(&file).unwrap();
+    let gds = crate::geometry::Gds::read(&file).unwrap();
+    assert_eq!(library.library, gds.library());
+    assert_eq!(
+        library.database_unit_um.to_bits(),
+        gds.database_unit().to_um().to_bits()
+    );
+    let names: Vec<&str> = library.cells.iter().map(|c| c.name.as_str()).collect();
+    assert_eq!(names, gds.cells());
+    for c in &library.cells {
+        assert_eq!(c.layers, gds.layers(&c.name).unwrap());
+    }
+    assert_eq!(library.top_cells, ["top"]);
+    assert_eq!(library.cells[1].layers, [[1, 0], [2, 0]]);
+}
+
+#[test]
+fn a_gds_layers_polygons_are_the_readers_to_the_bit() {
+    let scratch = Scratch::new();
+    let file = scratch.0.join("layout.gds");
+    std::fs::write(&file, crate::geometry::gds_checks::layout()).unwrap();
+    let gds = crate::geometry::Gds::read(&file).unwrap();
+    let bits = |p: &crate::geometry::Point| (p.x.to_um().to_bits(), p.y.to_um().to_bits());
+    let pair = |p: &(f64, f64)| (p.0.to_bits(), p.1.to_bits());
+    let window = crate::geometry::Bounds::new(
+        crate::geometry::Point::um(-2.0, -1.0),
+        crate::geometry::Point::um(3.0, 1.5),
+    );
+    for (cell, layer, x, y, bounds) in [
+        (None, [1, 0], None, None, None),
+        (Some("unit"), [1, 0], None, None, None),
+        (None, [2, 0], None, None, None),
+        (
+            None,
+            [1, 0],
+            Some((-2.0, 3.0)),
+            Some((-1.0, 1.5)),
+            Some(window),
+        ),
+    ] {
+        let ours = gds_polygons(&file, layer, cell, x, y).unwrap();
+        let theirs = gds.contours(cell.unwrap_or("top"), layer, bounds).unwrap();
+        assert_eq!(ours.len(), theirs.len());
+        for (a, b) in ours.iter().zip(&theirs) {
+            assert_eq!(
+                a.outer.iter().map(pair).collect::<Vec<_>>(),
+                b.outer.iter().map(bits).collect::<Vec<_>>()
+            );
+            assert_eq!(a.holes.len(), b.holes.len());
+            for (h, k) in a.holes.iter().zip(&b.holes) {
+                assert_eq!(
+                    h.iter().map(pair).collect::<Vec<_>>(),
+                    k.iter().map(bits).collect::<Vec<_>>()
+                );
+            }
+        }
+    }
+    // the union's area, its pieces' shoelace areas summed, is the closed form's
+    let area = |r: &[(f64, f64)]| {
+        (0..r.len())
+            .map(|k| {
+                let (a, b) = (r[k], r[(k + 1) % r.len()]);
+                a.0 * b.1 - b.0 * a.1
+            })
+            .sum::<f64>()
+            / 2.0
+    };
+    let total: f64 = gds_polygons(&file, [1, 0], None, None, None)
+        .unwrap()
+        .iter()
+        .map(|p| area(&p.outer) + p.holes.iter().map(|h| area(h)).sum::<f64>())
+        .sum();
+    let expected = crate::geometry::gds_checks::expected();
+    assert!(((total - expected) / expected).abs() < 1e-12, "{total}");
+}
+
+#[test]
+fn a_gds_layer_refuses_what_it_cannot_read() {
+    let scratch = Scratch::new();
+    let file = scratch.0.join("layout.gds");
+    std::fs::write(&file, crate::geometry::gds_checks::layout()).unwrap();
+    let message = |e: Error| e.to_string();
+    // a window takes both ranges, finite and increasing
+    let one = gds_polygons(&file, [1, 0], None, Some((0.0, 1.0)), None).unwrap_err();
+    assert!(message(one).contains("both x_um and y_um"));
+    let backwards =
+        gds_polygons(&file, [1, 0], None, Some((1.0, 0.0)), Some((0.0, 1.0))).unwrap_err();
+    assert!(message(backwards).contains("finite and increasing"));
+    // a layer the cell does not draw on names those it does
+    let empty = gds_polygons(&file, [7, 0], None, None, None).unwrap_err();
+    assert!(message(empty).contains("1/0"), "names the layers drawn");
+    let unknown = gds_polygons(&file, [1, 0], Some("nowhere"), None, None).unwrap_err();
+    assert!(message(unknown).contains("no cell"));
+    assert!(gds_library(&scratch.0.join("missing.gds")).is_err());
+    std::fs::write(
+        scratch.0.join("short.gds"),
+        &crate::geometry::gds_checks::layout()[..40],
+    )
+    .unwrap();
+    assert!(gds_library(&scratch.0.join("short.gds")).is_err());
 }

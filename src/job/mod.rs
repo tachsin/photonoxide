@@ -585,6 +585,7 @@ pub use fabrication::{
     fabrication_of_job_from, fabrication_view, fabrication_view_from, from_fabrication,
     from_fabrication_from,
 };
+pub(crate) use fabrication_frames::{Moment, moments};
 pub use fdfd::{FdfdSParameters, fdfd_s_parameters};
 pub use fdtd::{FoundResonance, SpectrumSeries};
 pub use fit::fit_from_device;
@@ -602,7 +603,8 @@ pub use quantum::{
     QuantumThreshold, SampleTask, SqueezedTask, quantum_from_chip,
 };
 pub use scene::{
-    SceneEtched, SceneLayer, SceneMedium, ScenePort, SceneShape, preview_ports, scene_etched,
+    SceneEtched, SceneLayer, SceneMedium, ScenePort, SceneShape, design_scene, preview_ports,
+    scene_etched,
 };
 pub use schema::{SCHEMA_URL, schema, schema_text};
 pub use statics::StaticValue;

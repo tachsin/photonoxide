@@ -1,6 +1,6 @@
 //! A device's process flow ([`crate::fabrication`]) as plain data: [`device_fabrication`] (the
-//! flow, what the rules find in it, and its export as JSON, a Markdown traveller and an SVG of
-//! each step's cross-section), [`device_fabrication_job`] and [`export_fabrication`]; and each
+//! flow, what the rules find in it, and its export as JSON, a Markdown traveller, a CSV table of
+//! the steps and an SVG of each step's cross-section), [`device_fabrication_job`] and [`export_fabrication`]; and each
 //! with the flow's start ([`device_fabrication_from`], [`device_fabrication_job_from`],
 //! [`export_fabrication_from`]): an SOI design from bare silicon, by Smart Cut.
 
@@ -33,6 +33,9 @@ pub struct DeviceFabrication {
     pub json: String,
     /// The process traveller, as a run's `flow.md` holds it.
     pub markdown: String,
+    /// The steps as a CSV table, as a run's `flow.csv` holds it
+    /// ([`crate::export::flow::FlowFile::csv`]).
+    pub csv: String,
     /// Each step's cross-section, a standalone SVG, as a run's `flow-01.svg`, ... hold them.
     pub svgs: Vec<String>,
 }
@@ -97,6 +100,7 @@ pub fn device_fabrication_from(
         assessment: line(&export.file.assessment),
         json: export.file.json(),
         markdown: export.file.markdown(),
+        csv: export.file.csv(),
         svgs: export.svgs(),
     })
 }
@@ -111,7 +115,7 @@ fn line<T: serde::Serialize>(v: &T) -> String {
 /// (`"yaml"`, the format we recommend, `"toml"` or `"json"`): a `device` table holding the design
 /// and a `"fabrication"` task with `prefer` and `avoid` ([`crate::job::from_fabrication`]).
 /// [`super::run_job`] runs it; its run records what [`device_fabrication`] gives, to the bit, and
-/// writes `flow.json`, `flow.md` and the cross-sections into its folder.
+/// writes `flow.json`, `flow.md`, `flow.csv` and the cross-sections into its folder.
 ///
 /// # Errors
 ///
@@ -158,9 +162,9 @@ pub fn device_fabrication_job_from(
 }
 
 /// Writes `design`'s process flow ([`device_fabrication`]) into `out_dir`, made if it isn't
-/// there: `flow.json`, `flow.md` and each step's cross-section, `flow-01.svg`, ..., as a
-/// `"fabrication"` job's run writes them into its folder; returns the files written, in that
-/// order.
+/// there: `flow.json`, `flow.md`, `flow.csv` and each step's cross-section, `flow-01.svg`, ...,
+/// as a `"fabrication"` job's run writes them into its folder; returns the files written, in
+/// that order.
 ///
 /// # Errors
 ///

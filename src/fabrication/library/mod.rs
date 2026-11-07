@@ -221,7 +221,8 @@ impl Process {
     }
 
     /// A lithography's resist polarity, where the library names it (HSQ and ma-N negative, PMMA
-    /// positive, none of them yet with a source read for it): none for a resist it doesn't name
+    /// positive; HSQ's and PMMA's with Chen 2015's Table 1 as their source, ma-N's with none in
+    /// hand): none for a resist it doesn't name
     /// (a photoresist, whose polarity is the product's), for a lithography that exposes nothing
     /// and for every other step.
     pub fn polarity(&self) -> Option<ResistPolarity> {

@@ -98,6 +98,11 @@ __all__ = [
     "device_derived",
     "device_geometry",
     "device_job",
+    "GdsLibrary",
+    "GdsCell",
+    "MaskPolygon",
+    "gds_library",
+    "gds_polygons",
     "Fabrication",
     "device_fabrication",
     "device_fabrication_job",
@@ -204,6 +209,41 @@ class VectorMode:
     """H_y, in the same units as ``hx``."""
     hz: np.ndarray
     """H_z, in the same units as ``hx``."""
+    wavelength_um: float = float("nan")
+    """The vacuum wavelength it was solved at, µm."""
+    effective_area_um2: float = float("nan")
+    """The effective area for the Kerr effect, µm²: Afshar and Monro's Eq. 41,
+    |∫ S_z dA|² / ∫ |S_z|² dA with S_z = (E × H*)·ẑ, the whole cross-section's (a mirror wall's
+    image added), from the fields with E's normal component one-sided at each interface."""
+    effective_area_transverse_um2: float = float("nan")
+    """The standard effective area from E_t alone, (∫ |E_t|² dA)² / ∫ |E_t|⁴ dA, µm²: their
+    Eq. 44, the same as ``effective_area_um2`` where ∇_t E_z = 0 and more fragile at corners."""
+    power_shares: np.ndarray | None = None
+    """Each cell's share of the power through the window, Re S_z dA over its sum, ``(ny, nx)``:
+    a set of cells' sum is the mode's confinement in it (:meth:`confinement`)."""
+    orthogonality: np.ndarray | None = None
+    """O_ab = ⟨a, b⟩ / (Re⟨a, a⟩ Re⟨b, b⟩)^½ with each mode the same call returned, in its order,
+    ⟨a, b⟩ = ∫ (E_a × H_b*)·ẑ dA: 1 with itself, near 0 with the others for an orthogonal set."""
+
+    def confinement(self, cells: Any) -> float:
+        """The share of the mode's power that flows through ``cells``, a boolean ``(ny, nx)``
+        array over the window, from 0 to 1: Γ = ∫_R Re S_z dA / ∫ Re S_z dA. With a mirror wall
+        it is the whole cross-section's for a set symmetric as the window is (a material's
+        cells, say ``permittivity == 3.473**2``)."""
+        if self.power_shares is None:
+            raise ValueError("this mode has no power shares")
+        mask = np.asarray(cells, dtype=bool)
+        if mask.shape != self.power_shares.shape:
+            raise ValueError(
+                f"cells must be {self.power_shares.shape}, the window's cells, not {mask.shape}"
+            )
+        return float(self.power_shares[mask].sum())
+
+    def nonlinear_coefficient(self, n2_m2_per_w: float) -> float:
+        """The nonlinear coefficient γ = 2π n₂ / (λ A_eff), 1/(W·m), for a nonlinear index n₂
+        (m²/W) uniform across the section and ``effective_area_um2``: Afshar and Monro's Eq. 42
+        with n₂ in place of their field-weighted n̄₂."""
+        return 2.0 * np.pi * n2_m2_per_w / (self.wavelength_um * 1e-6 * self.effective_area_um2 * 1e-12)
 
 
 @dataclass(frozen=True)
@@ -383,6 +423,7 @@ def vector_modes(
     pml_um: Sequence[float] = (0.0, 0.0, 0.0, 0.0),
     pml_strength: float = 0.0,
     timeout_s: float | None = 600.0,
+    scheme: str = "standard",
 ) -> list[VectorMode]:
     """Of the ``count`` modes of a cross-section whose effective indices are nearest
     ``near_index`` (the highest index in it when ``None``: the fundamental modes), the guided
@@ -406,6 +447,13 @@ def vector_modes(
     plane of symmetry, ``"electric"`` (for a TE-like mode, the vertical plane through the core)
     or ``"magnetic"`` (the horizontal one). ``pml_um`` are perfectly matched layers inside the
     same edges, µm thick, with stretching ``pml_strength`` (a few units).
+
+    ``scheme`` is the finite-difference equations: ``"standard"``, the full-vector scheme, or
+    ``"hadley"``, Hadley's high-accuracy equations (J. Lightwave Technol. 20, 1210 and 1219
+    (2002)), each mode the standard scheme's refined: they converge far faster beside a
+    high-contrast core's corners, where the standard scheme is about first order. Hadley's need
+    a uniform grid along each axis (the two spacings may differ), real permittivities and no
+    PML.
 
     The solve stops after ``timeout_s`` seconds (``None``: never) with ``TimeoutError``.
 
@@ -434,6 +482,7 @@ def vector_modes(
         [float(p) for p in pml_um],
         float(pml_strength),
         None if timeout_s is None else float(timeout_s),
+        str(scheme),
     )
     return [VectorMode(**m) for m in modes]
 
@@ -1158,6 +1207,94 @@ def device_job(
     return _native.device_job(kind, _values(values), fidelity, stack, _path(compact), job_name, format)
 
 
+# --- masks ------------------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class GdsCell:
+    """A cell of a GDSII file, and the layers it draws on."""
+
+    name: str
+    """Its name (STRNAME)."""
+    layers: list[tuple[int, int]]
+    """The ``(layer, datatype)`` pairs it draws on, the cells it places included, in order."""
+
+
+@dataclass(frozen=True)
+class GdsLibrary:
+    """A GDSII file's library: its name, its database unit and its cells."""
+
+    library: str
+    """The library's name (LIBNAME)."""
+    database_unit_um: float
+    """The database unit, µm: every coordinate in the file is a whole number of it."""
+    cells: list[GdsCell]
+    """The cells, in the file's order."""
+    top_cells: list[str]
+    """The cells no other cell places, in the file's order: :func:`gds_polygons` reads the one
+    there is when no cell is named."""
+
+
+@dataclass(frozen=True)
+class MaskPolygon:
+    """A polygon with holes, seen from above, in a GDSII file's coordinates."""
+
+    outer: np.ndarray
+    """Its outer boundary, ``(n, 2)``: (x, y) in µm, counterclockwise, the first vertex not
+    repeated."""
+    holes: list[np.ndarray]
+    """Its holes, each ``(n, 2)``, clockwise."""
+
+
+def gds_library(path: str | os.PathLike[str]) -> GdsLibrary:
+    """The library, database unit and cells of the GDSII file at ``path``, each cell with the
+    ``(layer, datatype)`` pairs it draws on (the cells it places included): what to name in
+    :func:`gds_polygons`, or in a job's ``"gds"`` shape. A malformed or cut-short file raises
+    an error naming the byte."""
+    g = _native.gds_library(os.fspath(path))
+    return GdsLibrary(
+        library=g["library"],
+        database_unit_um=g["database_unit_um"],
+        cells=[GdsCell(name=c["name"], layers=[tuple(l) for l in c["layers"]]) for c in g["cells"]],
+        top_cells=list(g["top_cells"]),
+    )
+
+
+def gds_polygons(
+    path: str | os.PathLike[str],
+    *,
+    gds_layer: Sequence[int],
+    cell: str | None = None,
+    x_um: Sequence[float] | None = None,
+    y_um: Sequence[float] | None = None,
+) -> list[MaskPolygon]:
+    """What ``cell`` (the file's one top cell when ``None``) of the GDSII file at ``path``
+    draws on ``gds_layer`` (``(layer, datatype)``), every cell it places flattened into it, as
+    polygons with holes in µm: the union of everything drawn there, keyholes as holes, within
+    the window ``x_um`` × ``y_um`` (each a ``(low, high)`` range in the file's coordinates,
+    both or neither) when given.
+
+    These are the polygons a job's ``"gds"`` shape draws (before its ``origin`` and ``angle``),
+    exactly as photonoxide's booleans give them: no vertex is moved. To read a layer and draw
+    the result:
+
+        for p in phox.gds_polygons("chip.gds", gds_layer=(1, 0)):
+            print(len(p.outer), "vertices,", len(p.holes), "holes")
+    """
+    layer = [int(v) for v in gds_layer]
+    if len(layer) != 2:
+        raise ValueError(f"gds_layer is (layer, datatype), not {tuple(gds_layer)!r}")
+
+    def window(r: Sequence[float] | None) -> tuple[float, float] | None:
+        if r is None:
+            return None
+        low, high = (float(v) for v in r)
+        return (low, high)
+
+    polygons = _native.gds_polygons(os.fspath(path), (layer[0], layer[1]), cell, window(x_um), window(y_um))
+    return [MaskPolygon(outer=p["outer"], holes=list(p["holes"])) for p in polygons]
+
+
 # --- a design's process flow ----------------------------------------------------------------
 
 
@@ -1168,7 +1305,7 @@ class Fabrication:
     ``flow`` and ``assessment`` are plain Python data (dicts, lists, strings, floats in their
     units: ``thickness_um``, ``depth_um``, ``sidewall_deg``), read from photonoxide's own JSON,
     so every number is the one the run records, to the bit. The texts are the files the run
-    writes into its folder: ``flow.json``, ``flow.md`` and ``flow-01.svg``, ..."""
+    writes into its folder: ``flow.json``, ``flow.md``, ``flow.csv`` and ``flow-01.svg``, ..."""
 
     flow: dict[str, Any]
     """The flow, as the run's ``flow`` event: ``library`` (the process library's version),
@@ -1198,6 +1335,12 @@ class Fabrication:
     capabilities with their sources, the alternatives, the rules' checks, the dimensions it makes
     and how accurately, and the wafer after it; the accuracy of every dimension, the warnings,
     what is not specified, the round trip and the references."""
+    csv: str
+    """The steps as a CSV table, as the run's ``flow.csv``: a header line, then one line a step
+    (``step`` from 1, ``process``, ``name``, ``step_type``, ``operation``, ``does``, ``layer``,
+    ``film``, ``thickness_um``, ``depth_um``, ``timed``, ``sidewall_deg``, ``tone``, ``reason``
+    and the counts of its ``capabilities`` and ``uncertainties``), each number the shortest
+    decimal that reads back to the same float."""
     svgs: list[str]
     """Each step's cross-section, a standalone SVG, as the run's ``flow-01.svg``, ...: the wafer
     after the step, cut across y at the middle of the design in x, its layers listed from the
@@ -1271,6 +1414,7 @@ def device_fabrication(
         assessment=json.loads(f["assessment"]),
         json=f["json"],
         markdown=f["markdown"],
+        csv=f["csv"],
         svgs=list(f["svgs"]),
     )
 
@@ -1292,7 +1436,7 @@ def device_fabrication_job(
     default). Without a ``format``, the
     job as data, a dict, which :func:`run_job` takes; with ``format`` (``"yaml"``, ``"toml"`` or
     ``"json"``), the job file's text. Its run records what :func:`device_fabrication` gives and
-    writes ``flow.json``, ``flow.md`` and ``flow-01.svg``, ... into its folder:
+    writes ``flow.json``, ``flow.md``, ``flow.csv`` and ``flow-01.svg``, ... into its folder:
 
     >>> job = phox.device_fabrication_job("waveguide", prefer=["ebl-hsq"])
     >>> job["name"], job["task"]
@@ -1322,12 +1466,13 @@ def export_fabrication(
     """Writes a design's process flow (see :func:`device_fabrication`, and ``start`` there) into
     ``out_dir``, made if it isn't there, as a ``"fabrication"`` job's run writes it into its
     folder: ``flow.json``
-    (the flow's data, which reads back to the same flow), ``flow.md`` (the process traveller) and
-    each step's cross-section, ``flow-01.svg``, ...; returns the files written, in that order:
+    (the flow's data, which reads back to the same flow), ``flow.md`` (the process traveller),
+    ``flow.csv`` (the steps as a table) and each step's cross-section, ``flow-01.svg``, ...;
+    returns the files written, in that order:
 
     >>> files = phox.export_fabrication("thermo-optic phase shifter", out_dir="heater")
-    >>> [file.name for file in files][:3], len(files)
-    (['flow.json', 'flow.md', 'flow-01.svg'], 14)
+    >>> [file.name for file in files][:4], len(files)
+    (['flow.json', 'flow.md', 'flow.csv', 'flow-01.svg'], 15)
     """
     paths = _native.export_fabrication(
         kind, _values(values), stack, _ids(prefer), _ids(avoid), os.fspath(out_dir), str(start)

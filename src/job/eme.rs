@@ -247,6 +247,10 @@ pub(super) struct EmeTask {
     #[serde(default)]
     shape: Vec<super::shapes::ShapeSpec>,
     adaptive: Option<AdaptiveSpec>,
+    /// A bend's thin layers' largest thickness in the mapped coordinate, nm (10 by default,
+    /// [`crate::eme::Eme::with_bend_step`]): where `[task.convergence]` starts the bends' layers
+    /// from, halving them until its quantity changes by less than its tolerance.
+    bend_step_nm: Option<f64>,
     convergence: Option<ConvergenceSpec>,
     sweep: Option<WavelengthSweep>,
     /// S over the sweep's wavelengths interpolated from a few solves, with its error stated.
@@ -376,7 +380,10 @@ impl EmeTask {
     /// The expansion's settings at `wavelength` with `modes` modes.
     fn eme(&self, wavelength: Wavelength, modes: usize) -> Result<Eme> {
         let [lower, upper] = self.walls()?;
-        let eme = Eme::new(self.polarization()?, wavelength, modes)?.with_walls(lower, upper);
+        let mut eme = Eme::new(self.polarization()?, wavelength, modes)?.with_walls(lower, upper);
+        if let Some(nm) = self.bend_step_nm {
+            eme = eme.with_bend_step(Length::um(nm * 1e-3))?;
+        }
         match &self.pml {
             None => Ok(eme),
             Some(p) if self.symmetric() => {
@@ -398,6 +405,13 @@ impl EmeTask {
         Wavelength::um(self.wavelength_um).map_err(|e| task_error(e.to_string()))?;
         if self.modes == 0 {
             return Err(task_error("modes must be at least 1"));
+        }
+        if let Some(nm) = self.bend_step_nm
+            && !(nm.is_finite() && nm > 0.0)
+        {
+            return Err(task_error(format!(
+                "bend_step_nm must be above 0, got {nm}"
+            )));
         }
         if let Some(plane) = &self.plane {
             self.validate_common()?;
@@ -868,15 +882,20 @@ fn quantity(name: Option<&str>) -> Result<Quantity> {
 /// the tapers' steps.
 type Solved = (Scattering, Option<f64>, usize);
 
-/// One solve: the S-matrix with `modes` modes and each taper's steps times `scale`.
+/// One solve: the S-matrix with `modes` modes and each taper's steps times `scale`, each
+/// bend's thin layers at most `bend_um` thick (the task's `bend_step_nm` when `None`).
 fn solve(
     task: &EmeTask,
     resolved: &[Resolved],
     wavelength: Wavelength,
     modes: usize,
     scale: usize,
+    bend_um: Option<f64>,
 ) -> Result<Solved> {
-    let eme = task.eme(wavelength, modes)?;
+    let mut eme = task.eme(wavelength, modes)?;
+    if let Some(h) = bend_um {
+        eme = eme.with_bend_step(Length::um(h))?;
+    }
     let w = task.window();
     if let Some(a) = &task.adaptive {
         let out = eme.adaptive(&pieces(resolved, w, scale)?, a.tolerance)?;
@@ -1007,7 +1026,7 @@ fn fixed(
             adaptive: None,
             ..task.clone()
         };
-        return Ok(solve(&plain, &resolved, lam, modes, scale)?.0);
+        return Ok(solve(&plain, &resolved, lam, modes, scale, None)?.0);
     };
     let w = task.window();
     let mut sections = Vec::new();
@@ -1030,17 +1049,22 @@ fn fixed(
 }
 
 /// A wavelength's solve, its modes (and a task's equal steps) driven by `[task.convergence]`
-/// when it has one, each study recorded: where it ended, (modes, the steps' scale), and the
-/// solve there.
+/// when it has one, and with bends their thin layers after them, each study recorded: where it
+/// ended, (modes, the steps' scale), the solve there, and the bends' layers' thickness the
+/// study refined them to (µm; `None` when it didn't study them).
 fn solve_at(
     task: &EmeTask,
     resolved: &[Resolved],
     wl: f64,
     run: &mut Run,
-) -> Result<((usize, usize), Solved)> {
+) -> Result<((usize, usize), Solved, Option<f64>)> {
     let lam = Wavelength::um(wl)?;
     let Some(c) = &task.convergence else {
-        return Ok(((task.modes, 1), solve(task, resolved, lam, task.modes, 1)?));
+        return Ok((
+            (task.modes, 1),
+            solve(task, resolved, lam, task.modes, 1, None)?,
+            None,
+        ));
     };
     let tapers = resolved.iter().filter(|r| r.is_taper()).count();
     let base_steps: usize = resolved
@@ -1056,7 +1080,7 @@ fn solve_at(
     let (studies, at): (Vec<Refined>, (usize, usize)) = if tapers > 0 && task.adaptive.is_none() {
         let r = driver.eme(task.modes, base_steps, |m, n| {
             // n is the base steps doubled: each taper's own doubled alike
-            let s = solve(task, resolved, lam, m, n / base_steps)?;
+            let s = solve(task, resolved, lam, m, n / base_steps, None)?;
             let v = read(&s.0);
             solved.push(((m, n / base_steps), s));
             Ok(v)
@@ -1065,7 +1089,7 @@ fn solve_at(
         (vec![r.mode_study, r.step_study, r.together], at)
     } else {
         let r = driver.counts(task.modes, |m| {
-            let s = solve(task, resolved, lam, m, 1)?;
+            let s = solve(task, resolved, lam, m, 1, None)?;
             let v = read(&s.0);
             solved.push(((m, 1), s));
             Ok(v)
@@ -1082,9 +1106,41 @@ fn solve_at(
     }
     let s = match solved.into_iter().find(|(k, _)| *k == at) {
         Some((_, s)) => s,
-        None => solve(task, resolved, lam, at.0, at.1)?,
+        None => solve(task, resolved, lam, at.0, at.1, None)?,
     };
-    Ok((at, s))
+    if !resolved.iter().any(|r| r.radius.is_some()) {
+        return Ok((at, s, None));
+    }
+    // the bends' mapped profile has its own discretisation beside the modes': its thin layers
+    // halved, at the modes and steps found, until the quantity changes by less than the
+    // tolerance (a staircase, second order in the layers' thickness)
+    let start = task.eme(lam, at.0)?.bend_step().to_um();
+    let layers = ToTolerance::new(
+        &format!("{name} of the fundamental modes at {wl} um, the bends' layers"),
+        Tolerance::Relative(c.tolerance),
+    )?;
+    let mut by_step: Vec<(f64, Solved)> = vec![(start, s)];
+    let r = layers.grids(start, |h| {
+        let found = by_step.iter().position(|(k, _)| *k == h);
+        let s = match found {
+            Some(i) => by_step.swap_remove(i).1,
+            None => solve(task, resolved, lam, at.0, at.1, Some(h))?,
+        };
+        let v = read(&s.0);
+        by_step.push((h, s));
+        Ok(v)
+    })?;
+    run.record(&Event::GridConvergence {
+        label: r.quantity.clone(),
+        wavelength_um: wl,
+        check: check_of(&r),
+    })?;
+    let finest = r.grids[r.grids.len() - 1];
+    let s = match by_step.into_iter().find(|(k, _)| *k == finest) {
+        Some((_, s)) => s,
+        None => solve(task, resolved, lam, at.0, at.1, Some(finest))?,
+    };
+    Ok((at, s, Some(finest)))
 }
 
 /// S over `[task.sweep]`'s wavelengths from as few solves as `[task.interpolate]`'s tolerance
@@ -1661,7 +1717,12 @@ fn eme(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
     if task.interpolate.is_some() {
         // the discretisation settled once, at the job's wavelength, and kept at every solve
         let resolved = task.sections(task.wavelength_um)?;
-        let (at, (_, error, steps)) = solve_at(&task, &resolved, task.wavelength_um, run)?;
+        let (at, (_, error, steps), bend) = solve_at(&task, &resolved, task.wavelength_um, run)?;
+        // the bends' layers as the study left them, kept at every solve too
+        let task = EmeTask {
+            bend_step_nm: bend.map(|h| h * 1e3).or(task.bend_step_nm),
+            ..task.clone()
+        };
         let edges = match &task.adaptive {
             Some(a) => {
                 if let Some(e) = error {
@@ -1706,7 +1767,7 @@ fn eme(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
         }
         let resolved = task.sections(wl)?;
         let ends = ends_at(wl)?;
-        let (at, (s, error, steps)) = solve_at(&task, &resolved, wl, run)?;
+        let (at, (s, error, steps), _) = solve_at(&task, &resolved, wl, run)?;
         if let Some(e) = error {
             run.record(&Event::SolveError {
                 point: task.sweep.as_ref().map(|_| point),

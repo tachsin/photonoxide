@@ -178,6 +178,29 @@ def test_fields_are_c_order_with_their_coordinates() -> None:
     assert 2.0 < mode.effective_index.real < 2.6
 
 
+def test_a_modes_quantities_come_with_it() -> None:
+    # the same quarter strip: the areas are the whole strip's, the shares the window's
+    x = np.arange(0, 21) * 0.05
+    y = np.arange(0, 13) * 0.0625
+    eps = np.full((12, 20), 2.085)
+    eps[:2, :5] = 12.0
+    (mode,) = phox.vector_modes(
+        x_um=x,
+        y_um=y,
+        permittivity=eps,
+        wavelength_um=1.55,
+        boundaries=("electric", "zero", "magnetic", "zero"),
+    )
+    assert mode.wavelength_um == 1.55
+    assert 0.0 < mode.effective_area_um2 < 1.0 and mode.effective_area_transverse_um2 > 0.0
+    assert mode.power_shares.shape == (12, 20)
+    assert abs(mode.power_shares.sum() - 1.0) < 1e-12
+    assert 0.0 < mode.confinement(eps == 12.0) < 1.0
+    assert mode.orthogonality.shape == (1,) and abs(mode.orthogonality[0] - 1.0) < 1e-12
+    gamma = mode.nonlinear_coefficient(4.5e-18)
+    assert abs(gamma - 2 * np.pi * 4.5e-18 / (1.55e-6 * mode.effective_area_um2 * 1e-12)) < 1e-9 * gamma
+
+
 def test_s_matrices_are_wavelength_then_ports() -> None:
     s = phox.circuit_spectrum(
         instances={"t": {"kind": "fixed", "ports": ["a", "b"], "s": [[[0, 0], [0.6, 0.8]], [[0.6, -0.8], [0, 0]]]}},

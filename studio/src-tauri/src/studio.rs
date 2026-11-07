@@ -19,6 +19,7 @@ use std::time::Duration;
 use photonoxide::job::{self, Event};
 use photonoxide::run::{Format, Job, Meta, Run, Stop};
 use photonoxide::units::Wavelength;
+use rayon::prelude::*;
 use serde::Serialize;
 use tauri::Manager;
 
@@ -644,17 +645,21 @@ fn jobs_in(dir: &Path) -> Vec<JobItem> {
     let listed: HashSet<&PathBuf> = paths.iter().collect();
     read.retain(|p, _| listed.contains(p));
     let stamps: Vec<Stamp> = paths.iter().map(|p| stamp(p)).collect();
+    // the files not read yet, or changed, read side by side: on the first call that is all of
+    // them, each one parsed
+    let fresh = |path: &PathBuf, now: &Stamp| matches!(read.get(path), Some((then, _)) if then == now && now.is_some());
+    let missing: Vec<(&PathBuf, &Stamp)> = paths
+        .iter()
+        .zip(&stamps)
+        .filter(|(p, s)| !fresh(p, s))
+        .collect();
+    let items: Vec<Option<JobItem>> = missing.par_iter().map(|(p, _)| job_item(p)).collect();
+    for ((path, now), item) in missing.into_iter().zip(items) {
+        read.insert(path.clone(), (*now, item));
+    }
     paths
         .iter()
-        .zip(stamps)
-        .filter_map(|(path, now)| match read.get(path) {
-            Some((then, item)) if *then == now && now.is_some() => item.clone(),
-            _ => {
-                let item = job_item(path);
-                read.insert(path.clone(), (now, item.clone()));
-                item
-            }
-        })
+        .filter_map(|path| read.get(path).and_then(|(_, item)| item.clone()))
         .collect()
 }
 
@@ -792,16 +797,20 @@ fn runs_in(dir: &Path, most: usize) -> Vec<RunItem> {
             ]
         })
         .collect();
+    // the runs not read yet, or changed, read side by side: on the first call (the first click
+    // on Components or Home) that is all 200, each one's record and job read
+    let fresh = |d: &PathBuf, now: &[Stamp; 3]| matches!(read.get(d), Some((then, _)) if then == now && now.iter().all(Option::is_some));
+    let missing: Vec<(&PathBuf, &[Stamp; 3])> = dirs
+        .iter()
+        .zip(&stamps)
+        .filter(|(d, s)| !fresh(d, s))
+        .collect();
+    let items: Vec<RunItem> = missing.par_iter().map(|(d, _)| run_item(d)).collect();
+    for ((d, now), item) in missing.into_iter().zip(items) {
+        read.insert(d.clone(), (*now, item));
+    }
     dirs.iter()
-        .zip(stamps)
-        .map(|(d, now)| match read.get(d) {
-            Some((then, item)) if *then == now && now.iter().all(Option::is_some) => item.clone(),
-            _ => {
-                let item = run_item(d);
-                read.insert(d.clone(), (now, item.clone()));
-                item
-            }
-        })
+        .filter_map(|d| read.get(d).map(|(_, item)| item.clone()))
         .collect()
 }
 

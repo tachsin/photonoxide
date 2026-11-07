@@ -451,6 +451,29 @@ fn uniform(eme: &Eme, k: f64, layers: &[Layer], m: usize) -> (c64, Vec<c64>) {
 /// high modes, which the slice hardly moves, follow in a few steps; a guided mode rises out of
 /// the window's. An error if a mode is lost or two end as one.
 fn follow(eme: &Eme, k: f64, slice: &Slice) -> Result<Vec<c64>> {
+    // where two modes meet on every path from the uniform window, from the closed window's
+    // instead, whose eigenvalues are real and counted exactly
+    paths(eme, k, slice).or_else(|first| from_closed(eme, k, slice).map_err(|_| first))
+}
+
+/// The closed window's modes (no PML, no loss: [`real_eigenvalues`], each one counted), followed
+/// as the PML's strength and the layers' loss grow from 0 to their own: a path on which the
+/// guided modes hardly move and the PML's modes rise out of the box's, so that it avoids the
+/// meetings the paths from the uniform window can run into (a tight TM bend's, the method page's
+/// Limits).
+fn from_closed(eme: &Eme, k: f64, slice: &Slice) -> Result<Vec<c64>> {
+    let closed = layers(eme, slice, 0.0);
+    let start: Vec<c64> = real_eigenvalues(eme, k, &closed, eme.modes)
+        .into_iter()
+        .map(|v| c64::new(v, 0.0))
+        .collect();
+    let end = layers(eme, slice, 1.0);
+    let path = |t: f64| layers(eme, slice, t);
+    track(eme, k, &path, &end, &start, "the closed window's")
+}
+
+/// [`follow`]'s paths from the uniform window.
+fn paths(eme: &Eme, k: f64, slice: &Slice) -> Result<Vec<c64>> {
     let end = layers(eme, slice, 1.0);
     if slice.radius.is_none() {
         return follow_layers(eme, k, &end);

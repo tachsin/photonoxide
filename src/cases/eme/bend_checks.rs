@@ -238,32 +238,57 @@ fn quadrature(a: f64, b: f64) -> Vec<(f64, f64)> {
 
 /// The straight-to-bend joint's coupling between the two fundamental modes,
 /// η = ⟨E_s, H_b⟩⟨E_b, H_s⟩ / (⟨E_s, H_s⟩⟨E_b, H_b⟩), at `r` µm by the expansion's overlaps,
-/// its normalized modes, the bend's at `step`.
-pub(crate) fn coupling(polarization: Polarization, r: f64, step: f64) -> c64 {
+/// its normalized modes, the bend's at `step`, the PML 1/`scale` as strong.
+pub(crate) fn coupling(polarization: Polarization, r: f64, step: f64, scale: f64) -> c64 {
     let want = exact_index(polarization, r);
-    let eme = settings(polarization, 6, step, 1.0);
+    let eme = settings(polarization, 6, step, scale);
     let s = eme.modes(&straight(r)).expect("the straight's modes");
     let b = eme.modes(&bent(r)).expect("the bend's modes");
     let g = nearest(&b, want);
     overlaps(&s, &b)[(0, g)] * overlaps(&b, &s)[(g, 0)]
 }
 
+/// The PML's thickness at the upper wall, µm ([`settings`]).
+const PML: f64 = 2.0;
+
 /// The same coupling with the exact bend's field ([`SlabBend::field`], its Runge–Kutta steps
-/// `steps` times its own) and the straight slab's mode, integrated across the window.
-pub(crate) fn exact_coupling(polarization: Polarization, r: f64, steps: f64) -> c64 {
-    let want = exact_with(polarization, r, steps, 12.0);
-    let straight_modes = settings(polarization, 6, STEP, 1.0)
-        .modes(&straight(r))
-        .expect("the straight's modes");
+/// `steps` times its own) and the straight slab's mode, integrated across the window and the
+/// PML 1/`scale` as strong as [`settings`]'s. The exact bend is closed by the same PML and wall
+/// ([`SlabBend::closed`]), its mode the one nearest the open bend's: in the PML both fields
+/// are continued along the complex coordinate as the expansion takes them, the straight's
+/// x̃ = x₁ + (1 + iσ)(x − x₁) and the bend's mapped ũ = u₁ + (1 + iσ)(x − x₁)/(dx/du)₁ from the
+/// window's edge x₁, the bend's arc factor R/ρ that edge's.
+pub(crate) fn exact_coupling(polarization: Polarization, r: f64, steps: f64, scale: f64) -> c64 {
     let (inner, outer) = window(r);
     let w = inner + T + outer;
+    let strength = 0.5 / scale;
+    let bend = exact(r).with_steps(steps).closed(
+        -0.5 * w,
+        0.5 * w,
+        PML,
+        strength,
+        polarization == Polarization::Te,
+    );
+    let want = bend
+        .mode_near(
+            polarization,
+            lam(),
+            exact_with(polarization, r, steps, 12.0),
+        )
+        .expect("the closed bend's mode");
+    let straight_modes = settings(polarization, 6, STEP, scale)
+        .modes(&straight(r))
+        .expect("the straight's modes");
     let mut points = quadrature(0.0, inner);
     points.extend(quadrature(inner, inner + T));
     points.extend(quadrature(inner + T, w));
+    let window_points = points.len();
+    points.extend(quadrature(w, w + PML));
     let xs: Vec<f64> = points.iter().map(|p| p.0 - 0.5 * w).collect();
-    let psi = exact(r)
-        .with_steps(steps)
-        .field(polarization, lam(), want, &xs);
+    let mut psi = bend.field(polarization, lam(), want, &xs[..window_points]);
+    let stretch = c64::new(1.0, strength);
+    let ts: Vec<f64> = points[window_points..].iter().map(|p| p.0 - w).collect();
+    psi.extend(bend.field_in_pml(polarization, lam(), want, &ts));
     let rm = middle(r);
     let index_at = |x: f64| if x > inner && x < inner + T { SI } else { SIO2 };
     let zero = c64::new(0.0, 0.0);
@@ -271,8 +296,13 @@ pub(crate) fn exact_coupling(polarization: Polarization, r: f64, steps: f64) -> 
     for (j, &(x, wt)) in points.iter().enumerate() {
         let (es, hs) = straight_modes[0].field(x);
         // the bend's tangential fields, up to one factor: TE (E_y, H_ρ) = (ψ, n_eff (R/ρ) ψ),
-        // TM (E_ρ, H_y) = (n_eff (R/ρ) ψ / n², ψ)
-        let shrink = rm / (rm + xs[j]);
+        // TM (E_ρ, H_y) = (n_eff (R/ρ) ψ / n², ψ); in the PML R/ρ is the window edge's and the
+        // weight is along the complex coordinate
+        let (shrink, wt) = if j < window_points {
+            (rm / (rm + xs[j]), c64::new(wt, 0.0))
+        } else {
+            (rm / (rm + 0.5 * w), stretch * wt)
+        };
         let n2 = index_at(x).powi(2);
         let (eb, hb) = match polarization {
             Polarization::Te => (psi[j], want * shrink * psi[j]),
@@ -305,13 +335,20 @@ pub(crate) const LOSSY: [(Polarization, f64); 4] = [
     (Polarization::Tm, 5.0),
 ];
 
-/// The joint case's bends: those whose Im n_eff is under 1e-8, whose radiation, which the exact
-/// field's integral across the window leaves out, is negligible.
+/// The joint case's bends: those whose Im n_eff is under 1e-8.
 pub(crate) const JOINTS: [(Polarization, f64); 4] = [
     (Polarization::Te, 2.0),
     (Polarization::Te, 3.0),
     (Polarization::Te, 5.0),
     (Polarization::Tm, 10.0),
+];
+
+/// The leaky joint case's bends: those that radiate, [`LOSSY`]'s TM bends, whose radiation the
+/// exact field's integral takes through the PML.
+pub(crate) const LEAKY_JOINTS: [(Polarization, f64); 3] = [
+    (Polarization::Tm, 2.0),
+    (Polarization::Tm, 3.0),
+    (Polarization::Tm, 5.0),
 ];
 
 /// The index case: the largest |Δn_eff| of Richardson's limit against the exact over both
@@ -379,19 +416,37 @@ pub(crate) fn no_angle_case() -> f64 {
 /// The joint case: the largest |Δη| of Richardson's limit of the expansion's coupling against
 /// the exact field's at [`JOINTS`], and the largest own error, the limit's or the exact's.
 pub(crate) fn joint_case() -> (f64, f64) {
+    joints(&JOINTS)
+}
+
+/// The leaky joint case: as [`joint_case`] at [`LEAKY_JOINTS`].
+pub(crate) fn leaky_joint_case() -> (f64, f64) {
+    joints(&LEAKY_JOINTS)
+}
+
+/// The departure of the expansion's coupling's limit from the exact's at `r` µm with the PML
+/// 1/`scale` as strong, and its own error: the limit's change to the next halving's and the
+/// exact's Runge–Kutta steps', at fourth order.
+fn joint(pol: Polarization, r: f64, scale: f64) -> (c64, f64) {
+    let c = [STEP, 0.5 * STEP, 0.25 * STEP].map(|s| coupling(pol, r, s, scale));
+    let (got, finer) = (limit(c[0], c[1]), limit(c[1], c[2]));
+    let (rough, want) = (
+        exact_coupling(pol, r, 2.0 * REFERENCE, scale),
+        exact_coupling(pol, r, REFERENCE, scale),
+    );
+    let own = (got - finer).norm().max((rough - want).norm() / 15.0);
+    (got - want, own)
+}
+
+/// The largest |Δη| over `bends`, and the largest own error: [`joint`]'s, or the departure's
+/// change with a PML twice as strong.
+fn joints(bends: &[(Polarization, f64)]) -> (f64, f64) {
     let mut worst = (0.0f64, 0.0f64);
-    for (pol, r) in JOINTS {
-        let c = [STEP, 0.5 * STEP, 0.25 * STEP].map(|s| coupling(pol, r, s));
-        let (got, finer) = (limit(c[0], c[1]), limit(c[1], c[2]));
-        let (rough, want) = (
-            exact_coupling(pol, r, 2.0 * REFERENCE),
-            exact_coupling(pol, r, REFERENCE),
-        );
-        worst.0 = worst.0.max((got - want).norm());
-        worst.1 = worst
-            .1
-            .max((got - finer).norm())
-            .max((rough - want).norm() / 15.0);
+    for &(pol, r) in bends {
+        let (off, own) = joint(pol, r, 1.0);
+        let (stronger, _) = joint(pol, r, 0.5);
+        worst.0 = worst.0.max(off.norm());
+        worst.1 = worst.1.max(own).max((stronger - off).norm());
     }
     worst
 }
@@ -463,11 +518,22 @@ pub(crate) fn cases() -> Vec<Case> {
             id: "eme/bend-joint",
             title: r"The joint between a straight and a bend: the same slab, TE at 2, 3 and 5 µm and TM at 10 µm, the fundamental modes' coupling $\eta = \langle E_s, H_b \rangle \langle E_b, H_s \rangle / (\langle E_s, H_s \rangle \langle E_b, H_b \rangle)$ by the expansion's overlaps (the bend's mode at 10 and 5 nm layers, Richardson's limit) against the exact bent field's overlap with the straight slab's mode (largest $\lvert \Delta \eta \rvert$ shown; $1 - \eta$ is 2.8e-3 at 2 µm TE)",
             tier: Tier::Analytic,
-            source: r"`mode::bend`'s field $\psi(\rho)$ at its exact $\nu$, by the same radial integration (Runge–Kutta, its steps halved), its tangential H (TE) or E (TM) $n_\text{eff}(R/\rho)\psi$, against the straight slab's mode, both integrated across the window by Gauss–Legendre; the bends whose $\operatorname{Im} n_\text{eff}$ is under 1e-8, so that the window holds the mode (beyond it the exact field's integral leaves out what the expansion's PML takes)",
+            source: r"`mode::bend`'s field $\psi(\rho)$ at its exact $\nu$, by the same radial integration (Runge–Kutta, its steps halved), closed as the expansion closes it (the walls, and the PML as the outer cladding's analytic continuation along the complex mapped coordinate, integrated from its wall inwards), its tangential H (TE) or E (TM) $n_\text{eff}(R/\rho)\psi$, against the straight slab's mode, both integrated across the window and the PML by Gauss–Legendre",
             run: || {
                 let (measured, own) = joint_case();
                 crate::verdict::note_numerical(own);
                 zero(measured, JOINT_TOLERANCE)
+            },
+        },
+        Case {
+            id: "eme/bend-joint-leaky",
+            title: r"The same joint where the bend radiates: TM at 2, 3 and 5 µm ($\operatorname{Im} n_\text{eff}$ 1.3e-3, 8.5e-5 and 2.9e-7), the coupling $\eta$ by the expansion's overlaps (Richardson's limit) against the exact bent field's, the light it radiates integrated through the PML (largest $\lvert \Delta \eta \rvert$ shown; $1 - \eta$ is 3.1e-2 at 2 µm)",
+            tier: Tier::Analytic,
+            source: r"as `eme/bend-joint`: the exact bend closed by the same walls and PML, so that the field the expansion puts into its PML is integrated on both sides; with the window only, TM at 5 µm was 7.6e-7 off",
+            run: || {
+                let (measured, own) = leaky_joint_case();
+                crate::verdict::note_numerical(own);
+                zero(measured, LEAKY_JOINT_TOLERANCE)
             },
         },
     ]
@@ -479,6 +545,8 @@ pub(crate) const INDEX_TOLERANCE: f64 = 7e-10;
 pub(crate) const LOSS_TOLERANCE: f64 = 9e-5;
 /// `eme/bend-joint`'s tolerance: three times the largest own error, rounded up.
 pub(crate) const JOINT_TOLERANCE: f64 = 4e-9;
+/// `eme/bend-joint-leaky`'s tolerance: three times the largest own error, rounded up.
+pub(crate) const LEAKY_JOINT_TOLERANCE: f64 = 3e-9;
 
 #[cfg(test)]
 mod tests {
@@ -574,9 +642,29 @@ mod tests {
                 db_per_quarter(n, middle(r))
             );
         }
-        for (pol, r) in JOINTS {
-            let eta = exact_coupling(pol, r, REFERENCE);
+        for (pol, r) in JOINTS.iter().chain(&LEAKY_JOINTS) {
+            let eta = exact_coupling(*pol, *r, REFERENCE, 1.0);
             eprintln!("{pol:?} {r}: 1 - eta {:.4e}", 1.0 - eta.norm());
+        }
+    }
+
+    #[test]
+    #[ignore = "prints the numbers"]
+    fn the_joint_study() {
+        for (pol, r) in JOINTS.iter().chain(&LEAKY_JOINTS) {
+            let t = std::time::Instant::now();
+            let (off, own) = joint(*pol, *r, 1.0);
+            let (stronger, own2) = joint(*pol, *r, 0.5);
+            eprintln!(
+                "{pol:?} {r}: off {:.3e} own {:.3e}; PML x2: off {:.3e} own {:.3e}; change {:.3e}; Im n {:.3e}; {:.1} s",
+                off.norm(),
+                own,
+                stronger.norm(),
+                own2,
+                (stronger - off).norm(),
+                exact_index(*pol, *r).im,
+                t.elapsed().as_secs_f64()
+            );
         }
     }
 }

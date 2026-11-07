@@ -8,6 +8,17 @@ use super::{Basis::*, Measure::*, Numerical::*, Rule};
 pub(crate) fn rules() -> Vec<(&'static str, Rule)> {
     vec![
         (
+            "mode/quantities-facade-strip",
+            Rule::new(
+                Relative,
+                RoundOff,
+                1e-12,
+                Exact,
+                "the façade's quantities and the library's are the same sums over the same modes, summed in another order for the confinement: round-off",
+            )
+            .varying(),
+        ),
+        (
             "mode/effective-area-gaussian",
             Rule::new(
                 Relative,

@@ -215,7 +215,7 @@ fn slab_modes<'py>(
 /// with its fields as `(ny, nx)` arrays: fewer than `count` when fewer are guided (with PMLs,
 /// every mode solved).
 #[pyfunction]
-#[pyo3(signature = (x_um, y_um, permittivity, wavelength_um, count, near_index, boundaries, pml_um, pml_strength, timeout_s))]
+#[pyo3(signature = (x_um, y_um, permittivity, wavelength_um, count, near_index, boundaries, pml_um, pml_strength, timeout_s, scheme="standard"))]
 #[allow(clippy::too_many_arguments)] // the façade's, one for one
 fn vector_modes<'py>(
     py: Python<'py>,
@@ -229,6 +229,7 @@ fn vector_modes<'py>(
     pml_um: [f64; 4],
     pml_strength: f64,
     timeout_s: Option<f64>,
+    scheme: &str,
 ) -> PyResult<Bound<'py, PyList>> {
     let mut cs = CrossSection::new(
         vector(&x_um),
@@ -248,6 +249,7 @@ fn vector_modes<'py>(
     cs.boundaries = boundaries;
     cs.pml_um = pml_um;
     cs.pml_strength = pml_strength;
+    cs.scheme = scheme.to_owned();
     let stop = stop_after(timeout_s)?;
     let modes = interruptible(py, &stop, || {
         facade::vector_modes(&cs, wavelength_um, count, near_index, &stop)
@@ -282,6 +284,17 @@ fn vector_modes<'py>(
         ] {
             d.set_item(name, PyArray1::from_vec(py, values).reshape([ny, nx])?)?;
         }
+        d.set_item("wavelength_um", wavelength_um)?;
+        d.set_item("effective_area_um2", m.effective_area_um2)?;
+        d.set_item(
+            "effective_area_transverse_um2",
+            m.effective_area_transverse_um2,
+        )?;
+        d.set_item(
+            "power_shares",
+            PyArray1::from_vec(py, m.power_shares).reshape([ny, nx])?,
+        )?;
+        d.set_item("orthogonality", PyArray1::from_vec(py, m.orthogonality))?;
         list.append(d)?;
     }
     Ok(list)
@@ -727,6 +740,56 @@ fn device_geometry<'py>(
     Ok(out)
 }
 
+/// A GDSII file's library, database unit and cells, each with the layers it draws on.
+#[pyfunction]
+fn gds_library(py: Python<'_>, path: PathBuf) -> PyResult<Bound<'_, PyDict>> {
+    let library = py.detach(|| facade::gds_library(&path)).fail(py)?;
+    let cells = PyList::empty(py);
+    for c in &library.cells {
+        let item = PyDict::new(py);
+        item.set_item("name", &c.name)?;
+        item.set_item(
+            "layers",
+            c.layers.iter().map(|&[l, d]| (l, d)).collect::<Vec<_>>(),
+        )?;
+        cells.append(item)?;
+    }
+    let out = PyDict::new(py);
+    out.set_item("library", &library.library)?;
+    out.set_item("database_unit_um", library.database_unit_um)?;
+    out.set_item("cells", cells)?;
+    out.set_item("top_cells", &library.top_cells)?;
+    Ok(out)
+}
+
+/// What a GDSII file's cell draws on a layer, as polygons with holes (`(n, 2)` arrays).
+#[pyfunction]
+#[pyo3(signature = (path, gds_layer, cell, x_um, y_um))]
+fn gds_polygons<'py>(
+    py: Python<'py>,
+    path: PathBuf,
+    gds_layer: [u16; 2],
+    cell: Option<String>,
+    x_um: Option<(f64, f64)>,
+    y_um: Option<(f64, f64)>,
+) -> PyResult<Bound<'py, PyList>> {
+    let polygons = py
+        .detach(|| facade::gds_polygons(&path, gds_layer, cell.as_deref(), x_um, y_um))
+        .fail(py)?;
+    let list = PyList::empty(py);
+    for p in &polygons {
+        let item = PyDict::new(py);
+        item.set_item("outer", points(py, &p.outer)?)?;
+        let holes = PyList::empty(py);
+        for h in &p.holes {
+            holes.append(points(py, h)?)?;
+        }
+        item.set_item("holes", holes)?;
+        list.append(item)?;
+    }
+    Ok(list)
+}
+
 /// The job file that computes a device's design, as text in a format.
 #[pyfunction]
 #[pyo3(signature = (kind, values, fidelity, stack, compact, name, format))]
@@ -795,6 +858,7 @@ fn device_fabrication<'py>(
     out.set_item("assessment", f.assessment)?;
     out.set_item("json", f.json)?;
     out.set_item("markdown", f.markdown)?;
+    out.set_item("csv", f.csv)?;
     out.set_item("svgs", f.svgs)?;
     Ok(out)
 }
@@ -880,6 +944,8 @@ fn _photonoxide(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(device_derived, module)?)?;
     module.add_function(wrap_pyfunction!(device_geometry, module)?)?;
     module.add_function(wrap_pyfunction!(device_job, module)?)?;
+    module.add_function(wrap_pyfunction!(gds_library, module)?)?;
+    module.add_function(wrap_pyfunction!(gds_polygons, module)?)?;
     module.add_function(wrap_pyfunction!(device_fabrication, module)?)?;
     module.add_function(wrap_pyfunction!(device_fabrication_job, module)?)?;
     module.add_function(wrap_pyfunction!(export_fabrication, module)?)?;

@@ -143,9 +143,21 @@ driven to 1e-5 from 20 nm at second order. The exact root, by transfer matrices
 | Richardson's limit | 2.8448155441 | | 4.4e-11 |
 
 It stops at 0.625 nm, the first change below 1e-5. The last three grids show order 2.00. The
-estimated error of the limit is 5.8e-10, 13 times the true error. Asked for 1e-6, it would
-need 0.156 nm, where the eigensolver doesn't converge. Asked for 1e-12 within three grids, it
-refuses:
+estimated error of the limit is 5.8e-10, 13 times the true error.
+
+Asked for 1e-6 (`convergence/slab-tolerance-fine`), it goes on to 0.312 and 0.156 nm (changes
+1.83e-6 and 4.58e-7) and stops there, Richardson's limit 7.6e-11 from the exact root, the
+estimate 5.1e-11: at this level round-off is as large as the extrapolation's own error, and the
+estimate no longer bounds it. The 0.156 nm grid has 25 500 nodes, and there a residual computed
+with the matrix can't certify an eigenpair: A x loses ε‖A‖∞ ≈ ε·4/h² = 3.6e-8 to rounding, 2.7e-10
+of β² against the eigensolver's 1e-10. `slab_fd` checks that floor before it solves (ε‖A‖∞ over
+max(|σ|, 1)) and, where it is above the tolerance, accepts each pair by the shifted inverse's own
+residual, which has no such floor (`eigen::nearest_small`, as the RF line's modes do); on coarser
+grids it keeps the residual with A, so their numbers are unchanged. Before, the solve gave up at
+0.156 nm. The slab's error against the exact root stays second order on to 0.078 nm (51 500
+nodes): −2.44e-6, −6.10e-7, −1.52e-7 and −3.83e-8 at 0.625, 0.312, 0.156 and 0.078 nm.
+
+Asked for 1e-12 within three grids, it refuses:
 
 ```text
 the slab's TE n_eff did not reach the tolerance 1e-12 within 3 grids: its last two values
@@ -186,11 +198,27 @@ A smooth taper shows the steps study at work: a slab widening linearly from 220 
 go from 10 to 80, where |S₂₁|² changes by 9.6e-6, and show order 1.98. The modes, checked again
 at 80 steps, change by 6.0e-6. The value is 0.996493, with an estimated error of 6.2e-6.
 
-### Not in a job yet
+### In a modes job
 
-`ToTolerance` is a library function. A modes job's `[task.convergence]` still checks the grids
-the job gives; it doesn't drive them to a tolerance. Doing so would add fields to the job's
-schema.
+A modes job's `[task.convergence]` checks the grids it is given, or, with `drive = true`, drives
+them: the task's `step_nm` is the first grid, halved until mode 1's (the highest) Re n_eff changes
+by less than the tolerance and the gate's estimate of its error is within it
+(`ToTolerance::grids` without an order: the full-vector scheme is about first order beside a
+core's corners), within `budget` grids (4 by default, at most 6, each costing four times the
+last). The run records a `grid_refined` event with every grid and value, then solves its modes on
+the grid the drive stopped at; a drive whose budget runs out fails the run, naming the last two
+values. `drive` takes no `grids` (those are a check's):
+
+```toml
+[task.convergence]
+tolerance = 4e-3
+drive = true
+```
+
+`job/modes-grid-driven` drives a 500 × 220 nm silicon strip in oxide (a closed 2 × 1.82 µm window)
+from 20 nm: it stops at 10 nm (2.446925 and 2.445725, a change of 1.2e-3), and its values and the
+mode it reports are the plain jobs' at 20 and 10 nm to the bit. A driver over wavelength is the
+adaptive sweep's job ([sweep](sweep.md)), from code only.
 
 ## Scope
 
@@ -221,6 +249,7 @@ The validation report's cases, each with its rule (`src/validation/convergence.r
 | `convergence/slab-tolerance` | the slab's index driven to 1e-5 | 2.8448155441 | the exact root, 2.8448155441 (error 4.4e-11) | 1e-5, the one asked for |
 | `convergence/slab-estimate` | the true error over the estimate | 0.077 | at most 1: the estimate bounds the error | 1 |
 | `convergence/slab-order` | the order the recorded grids show | 2.00 | the scheme's 2 | 0.1 |
+| `convergence/slab-tolerance-fine` | the slab's index driven to 1e-6, on to 0.156 nm | 7.6e-11 from the root | the exact root, 2.8448155441 |  1e-6, the one asked for |
 | `convergence/eme-taper-fdfd` | the stepped taper's \|S₁₁\|², the expansion driven in modes and steps | 9.1819e-5 | FDFD driven the same way, 9.18173e-5 (1.9e-5 relative, the expansion's value to five digits) | 6e-4 relative: three times the 2e-4 both are driven to, so that our own estimate (7.1e-5) is at most a third |
 | `convergence/refusal` | the slab asked for 1e-12 within three grids: the parts its error misses | 0 | the quantity, the last two values and the tolerance, all named | half a part |
 

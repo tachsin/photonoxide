@@ -6,13 +6,14 @@ use serde_json::{Value, json};
 
 use super::{
     CrossSection, DeviceDesign, DeviceFigure, DeviceGeometry, DeviceInfo, DeviceSpectrum,
-    IndexModelInfo, IndexOptions, JobSource, MaterialInfo, SParameters, SlabMode, Spectrum,
-    StackInfo, Stop, VectorMode, check_job, circuit_spectrum, device_derived, device_fabrication,
-    device_fabrication_from, device_fabrication_job, device_fabrication_job_from, device_geometry,
-    device_job, device_spectrum, device_spectrum_until, devices, estimate_fields,
-    export_fabrication, export_fabrication_from, export_fields, export_run, fdfd_s_parameters,
-    group_index, materials, nonlinear, read_touchstone, refractive_index, run_job, run_tables,
-    slab_modes, stacks, vector_modes, write_touchstone,
+    IndexModelInfo, IndexOptions, JobSource, MaskPolygon, MaterialInfo, SParameters, SlabMode,
+    Spectrum, StackInfo, Stop, VectorMode, check_job, circuit_spectrum, device_derived,
+    device_fabrication, device_fabrication_from, device_fabrication_job,
+    device_fabrication_job_from, device_geometry, device_job, device_spectrum,
+    device_spectrum_until, devices, estimate_fields, export_fabrication, export_fabrication_from,
+    export_fields, export_run, fdfd_s_parameters, gds_library, gds_polygons, group_index,
+    materials, nonlinear, read_touchstone, refractive_index, run_job, run_tables, slab_modes,
+    stacks, vector_modes, write_touchstone,
 };
 use crate::Complex64 as c64;
 use crate::{Error, Result};
@@ -130,6 +131,14 @@ fn vector_mode(m: &VectorMode) -> Value {
         "hx": complexes(&m.h[0], &shape),
         "hy": complexes(&m.h[1], &shape),
         "hz": complexes(&m.h[2], &shape),
+        "wavelength_um": 1.55,
+        "effective_area_um2": m.effective_area_um2,
+        "effective_area_transverse_um2": m.effective_area_transverse_um2,
+        "power_shares": nested(
+            &m.power_shares.iter().map(|&v| json!(v)).collect::<Vec<_>>(),
+            &shape
+        ),
+        "orthogonality": complexes(&m.orthogonality, &[m.orthogonality.len()]),
     })
 }
 
@@ -217,6 +226,65 @@ fn figure(f: &DeviceFigure) -> Value {
 
 fn points(p: &[(f64, f64)]) -> Value {
     Value::Array(p.iter().map(|&(x, y)| json!([x, y])).collect())
+}
+
+/// A GDSII file's library and a layer's polygons: the validation case's layout
+/// ([`crate::geometry::gds_checks::layout`]) written into `scratch`.
+fn gds_cases(scratch: &Path, cases: &mut Vec<Case>) -> Result<()> {
+    let file = scratch.join("layout.gds");
+    std::fs::write(&file, crate::geometry::gds_checks::layout()).map_err(|e| Error::Io {
+        path: file.display().to_string(),
+        reason: e.to_string(),
+    })?;
+    let path = file.display().to_string();
+    let library = gds_library(&file)?;
+    cases.push(case(
+        "gds_library/layout",
+        "gds_library",
+        &json!({"path": path}),
+        &json!({
+            "library": library.library,
+            "database_unit_um": library.database_unit_um,
+            "cells": library.cells.iter().map(|c| json!({"name": c.name, "layers": c.layers}))
+                .collect::<Vec<_>>(),
+            "top_cells": library.top_cells,
+        }),
+        &[],
+    ));
+    let polygons = |p: &[MaskPolygon]| -> Value {
+        Value::Array(
+            p.iter()
+                .map(|p| {
+                    json!({
+                        "outer": points(&p.outer),
+                        "holes": p.holes.iter().map(|h| points(h)).collect::<Vec<_>>(),
+                    })
+                })
+                .collect(),
+        )
+    };
+    cases.push(case(
+        "gds_polygons/layout-top",
+        "gds_polygons",
+        &json!({"path": path, "gds_layer": [1, 0]}),
+        &polygons(&gds_polygons(&file, [1, 0], None, None, None)?),
+        &[],
+    ));
+    cases.push(case(
+        "gds_polygons/layout-unit-window",
+        "gds_polygons",
+        &json!({"path": path, "gds_layer": [1, 0], "cell": "unit",
+                "x_um": [0.5, 3.0], "y_um": [0.25, 1.5]}),
+        &polygons(&gds_polygons(
+            &file,
+            [1, 0],
+            Some("unit"),
+            Some((0.5, 3.0)),
+            Some((0.25, 1.5)),
+        )?),
+        &[],
+    ));
+    Ok(())
 }
 
 fn geometry(g: &DeviceGeometry) -> Value {
@@ -498,6 +566,18 @@ pub fn conformance(scratch: &Path) -> Result<Vec<Case>> {
         "vector_modes",
         &json!({"x_um": x, "y_um": y, "permittivity": eps, "wavelength_um": 1.55, "count": 6,
                 "boundaries": cs.boundaries}),
+        &Value::Array(modes.iter().map(vector_mode).collect()),
+        &[],
+    ));
+
+    // the same strip by Hadley's equations
+    cs.scheme = "hadley".into();
+    let modes = vector_modes(&cs, 1.55, 2, None, &Stop::new(None))?.unwrap_or_default();
+    cases.push(case(
+        "vector_modes/strip-quarter-hadley",
+        "vector_modes",
+        &json!({"x_um": x, "y_um": y, "permittivity": eps, "wavelength_um": 1.55, "count": 2,
+                "boundaries": cs.boundaries, "scheme": "hadley"}),
         &Value::Array(modes.iter().map(vector_mode).collect()),
         &[],
     ));
@@ -850,6 +930,7 @@ pub fn conformance(scratch: &Path) -> Result<Vec<Case>> {
         &geometry(&device_geometry(&d)?),
         &[],
     ));
+    gds_cases(scratch, &mut cases)?;
     let (d, args) = design("directional coupler", &[("gap", 0.25)], Some("analytic"));
     cases.push(case(
         "device_job/coupler-yaml",
@@ -921,6 +1002,7 @@ fn fabrication_cases(scratch: &Path, cases: &mut Vec<Case>) -> Result<()> {
                 "assessment": parsed(&f.assessment)?,
                 "json": f.json,
                 "markdown": f.markdown,
+                "csv": f.csv,
                 "svgs": f.svgs,
             }),
             &[],
@@ -938,6 +1020,7 @@ fn fabrication_cases(scratch: &Path, cases: &mut Vec<Case>) -> Result<()> {
             "assessment": parsed(&f.assessment)?,
             "json": f.json,
             "markdown": f.markdown,
+            "csv": f.csv,
             "svgs": f.svgs,
         }),
         &[],

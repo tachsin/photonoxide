@@ -48,6 +48,7 @@ def vector_modes(
     pml_um: list[float],
     pml_strength: float,
     timeout_s: float | None,
+    scheme: str = ...,
 ) -> list[dict[str, Any]]: ...
 def check_job(path: str | PathLike[str] | None, text: str | None, format: str) -> None: ...
 def run_job(
@@ -96,6 +97,14 @@ def device_geometry(
     values: list[tuple[str, float]],
     stack: str | None,
 ) -> dict[str, Any]: ...
+def gds_library(path: str | PathLike[str]) -> dict[str, Any]: ...
+def gds_polygons(
+    path: str | PathLike[str],
+    gds_layer: tuple[int, int],
+    cell: str | None,
+    x_um: tuple[float, float] | None,
+    y_um: tuple[float, float] | None,
+) -> list[dict[str, Any]]: ...
 def device_job(
     kind: str,
     values: list[tuple[str, float]],

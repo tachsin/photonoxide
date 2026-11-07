@@ -70,6 +70,11 @@ pub(super) struct FabricationTask {
     /// oxygen and annealed.
     #[serde(default)]
     start: StartKey,
+    /// Where the exported cross-sections (`flow-01.svg`, ...) cut the wafer: the plane x, in µm,
+    /// anywhere across the design's shapes and 1 µm beyond them; the middle of the shapes in x
+    /// when it isn't given.
+    #[serde(default)]
+    cut_x: Option<f64>,
 }
 
 /// Where a fabrication flow starts, as a job writes it.
@@ -111,6 +116,26 @@ fn choices_of(job: &Job) -> Result<(Choices, Start)> {
     Ok((choices, task.start.into()))
 }
 
+/// Where `job`'s task cuts the exported cross-sections, if it says.
+fn cut_of(job: &Job) -> Result<Option<f64>> {
+    let task: FabricationTask = job
+        .task()
+        .clone()
+        .try_into()
+        .map_err(|e: toml::de::Error| task_error(e.to_string()))?;
+    Ok(task.cut_x)
+}
+
+/// The export of `job`'s flow, its cross-sections cut where its task says.
+fn export_of(job: &Job) -> Result<FlowExport> {
+    let (choices, start) = choices_of(job)?;
+    let export = FlowExport::of_design_from(&spec_of(job)?, &choices, start)?;
+    match cut_of(job)? {
+        Some(x) => export.cut_at(x).map_err(|e| task_error(e.to_string())),
+        None => Ok(export),
+    }
+}
+
 /// The flow of `job`'s design, as its task asks, with its round trip, and what the rules find
 /// in it.
 fn flow_of(job: &Job) -> Result<(FlowRecord, Assessment)> {
@@ -137,7 +162,11 @@ impl TaskKind for FabricationKind {
 
     fn check(&self, job: &Job) -> Result<()> {
         super::device_scene(job)?;
-        flow_of(job).map(|_| ())
+        flow_of(job)?;
+        if cut_of(job)?.is_some() {
+            export_of(job)?;
+        }
+        Ok(())
     }
 
     fn preview(&self, job: &Job) -> Result<Event> {
@@ -156,8 +185,7 @@ impl TaskKind for FabricationKind {
             })?;
             // the flow's JSON, traveller and cross-sections, beside the record
             if !run.dir().as_os_str().is_empty() {
-                let (choices, start) = choices_of(job)?;
-                FlowExport::of_design_from(&spec_of(job)?, &choices, start)?.write(run.dir())?;
+                export_of(job)?.write(run.dir())?;
             }
             Ok(())
         })

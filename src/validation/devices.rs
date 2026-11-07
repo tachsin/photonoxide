@@ -1300,6 +1300,16 @@ pub(crate) fn rules() -> Vec<(&'static str, Rule)> {
                 "CAMFR's 2.9135: our 5 nm grid's error in the leakage, in 1e-8",
             ),
         ),
+        (
+            "job/modes-grid-driven",
+            Rule::new(
+                Relative,
+                RoundOff,
+                1e-12,
+                Exact,
+                "the same cross-sections and solves through the driver and through plain jobs: round-off",
+            ),
+        ),
         // ---- the phase shifter ----
         (
             "shifter/slab-sheet",

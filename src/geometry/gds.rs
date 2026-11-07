@@ -28,7 +28,7 @@ use std::collections::{BTreeSet, HashMap};
 use std::path::Path;
 
 use super::clip::{self, Operation, Part};
-use super::{Array, Bounds, Element, Point, Polygon, Shape};
+use super::{Array, Bounds, Contour, Element, Point, Polygon, Shape};
 use crate::units::Length;
 use crate::{Error, Result};
 
@@ -1062,8 +1062,64 @@ impl Gds {
     /// As [`Gds::polygons`], and [`Error::InvalidValue`] when nothing is drawn on `layer` (or
     /// inside `window`), naming the layers the cell does draw on.
     pub fn shape(&self, cell: &str, layer: [u16; 2], window: Option<Bounds>) -> Result<Shape> {
+        let merged = self.merged(cell, layer, window)?;
+        let mut shapes = Vec::with_capacity(merged.len());
+        for part in merged {
+            shapes.push(piece(part)?);
+        }
+        if shapes.len() == 1 {
+            return Ok(shapes.remove(0));
+        }
+        Ok(Shape::Array(Array::new(
+            shapes
+                .into_iter()
+                .enumerate()
+                .map(|(k, s)| Element::new([k as i64, 0], s))
+                .collect(),
+        )?))
+    }
+
+    /// What `cell` draws on `layer`, as [`Gds::shape`] has it, as polygons with holes, in µm:
+    /// the union's pieces exactly as the booleans give them (no vertex moved, no tolerance),
+    /// each outer boundary counterclockwise and each hole clockwise, within `window` if one is
+    /// given. Their areas sum to the layer's area.
+    ///
+    /// # Errors
+    ///
+    /// As [`Gds::shape`].
+    pub fn contours(
+        &self,
+        cell: &str,
+        layer: [u16; 2],
+        window: Option<Bounds>,
+    ) -> Result<Vec<Contour>> {
+        let ring = |r: Vec<[f64; 2]>, counterclockwise: bool| -> Vec<Point> {
+            let twice: f64 = (0..r.len())
+                .map(|k| {
+                    let (a, b) = (r[k], r[(k + 1) % r.len()]);
+                    a[0] * b[1] - b[0] * a[1]
+                })
+                .sum();
+            let mut points: Vec<Point> = r.into_iter().map(|q| Point::um(q[0], q[1])).collect();
+            if (twice > 0.0) != counterclockwise {
+                points.reverse();
+            }
+            points
+        };
+        Ok(self
+            .merged(cell, layer, window)?
+            .into_iter()
+            .map(|(outer, holes)| Contour {
+                outer: ring(outer, true),
+                holes: holes.into_iter().map(|h| ring(h, false)).collect(),
+            })
+            .collect())
+    }
+
+    /// The union of what `cell` draws on `layer`, within `window`: never empty.
+    fn merged(&self, cell: &str, layer: [u16; 2], window: Option<Bounds>) -> Result<Vec<Part>> {
         let rings = self.rings(cell, layer)?;
-        let nothing = |inside: &str| -> Result<Shape> {
+        let nothing = |inside: &str| -> Result<Vec<Part>> {
             let drawn: Vec<String> = self.layers(cell)?.into_iter().map(layer_name).collect();
             Err(Error::invalid(
                 "GDSII layer",
@@ -1105,20 +1161,7 @@ impl Gds {
                 ));
             }
         }
-        let mut shapes = Vec::with_capacity(merged.len());
-        for part in merged {
-            shapes.push(piece(part)?);
-        }
-        if shapes.len() == 1 {
-            return Ok(shapes.remove(0));
-        }
-        Ok(Shape::Array(Array::new(
-            shapes
-                .into_iter()
-                .enumerate()
-                .map(|(k, s)| Element::new([k as i64, 0], s))
-                .collect(),
-        )?))
+        Ok(merged)
     }
 }
 

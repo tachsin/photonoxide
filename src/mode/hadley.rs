@@ -744,15 +744,35 @@ pub fn modes(
     count: usize,
     near: Option<f64>,
 ) -> Result<Vec<VectorMode>> {
-    let (hx, hy) = check(cs)?;
+    check(cs)?;
     let start = vector::modes(cs, wavelength, count, near)?;
+    Ok(refined(cs, wavelength, &start, || false)?.unwrap_or_default())
+}
+
+/// `start`, modes [`vector`] found on `cs` at `wavelength` (by [`vector::modes`] or
+/// [`vector::guided_modes`]), each refined by Hadley's equations as [`modes`] refines its own;
+/// `None` when `stopped` says so, which is asked before each mode.
+///
+/// # Errors
+///
+/// As [`modes`].
+pub fn refined(
+    cs: &CrossSection,
+    wavelength: Wavelength,
+    start: &[VectorMode],
+    stopped: impl Fn() -> bool,
+) -> Result<Option<Vec<VectorMode>>> {
+    let (hx, hy) = check(cs)?;
     let k = wavelength.wavenumber();
     let k2 = k * k;
     let numbering = Numbering::new(cs);
     let r = hx.hypot(hy);
-    start
-        .iter()
-        .map(|mode| {
+    let mut out = Vec::with_capacity(start.len());
+    for mode in start {
+        if stopped() {
+            return Ok(None);
+        }
+        out.push({
             let eb = mode.effective_index().powi(2);
             // every medium's |ξ| r, at the starting ε̄
             let worst = (0..cs.x().len() - 1)
@@ -775,15 +795,10 @@ pub fn modes(
             }
             let v0 = mode.to_unknowns(&numbering.unknowns);
             let (eb, v) = refine(cs, &numbering, k2, (hx, hy), c64::new(eb.re, 0.0), v0)?;
-            Ok(VectorMode::from_unknowns(
-                cs,
-                k,
-                eb * k2,
-                &numbering.unknowns,
-                &v,
-            ))
-        })
-        .collect()
+            VectorMode::from_unknowns(cs, k, eb * k2, &numbering.unknowns, &v)
+        });
+    }
+    Ok(Some(out))
 }
 
 /// Hadley I's uniform test problem (his Fig. 5): n = 3.44 at λ = 1.15 µm in a 2 × 2 µm box,

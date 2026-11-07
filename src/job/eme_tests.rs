@@ -547,6 +547,84 @@ fn a_bend_is_the_librarys_bend_to_the_bit() {
     assert!((y[1] - y[0] - (2.75 + 2.25)).abs() < 1e-9, "{y:?}");
 }
 
+/// The bend of [`bend_job`] by the library, `modes` modes, its thin layers at most `step` µm.
+fn library_bend(modes: usize, step: f64) -> crate::eme::Scattering {
+    let clad = c64::new(1.444, 0.0);
+    let slab = Slice::new(&[
+        (clad, Length::um(2.25 - 0.75 - 0.11)),
+        (c64::new(3.473, 0.0), Length::um(0.22)),
+        (clad, Length::um(2.25 + 0.75 - 0.11)),
+    ])
+    .unwrap();
+    let sections = [
+        Section::new(slab.clone(), Length::ZERO),
+        Section::bend(slab.clone(), Length::um(2.75), std::f64::consts::FRAC_PI_2).unwrap(),
+        Section::new(slab, Length::ZERO),
+    ];
+    Eme::new(Polarization::Te, Wavelength::um(1.55).unwrap(), modes)
+        .unwrap()
+        .with_upper_pml(Length::um(2.0), 0.5)
+        .unwrap()
+        .with_bend_step(Length::um(step))
+        .unwrap()
+        .s_matrix(&sections)
+        .unwrap()
+}
+
+#[test]
+fn a_bends_layers_are_the_tasks_and_the_convergence_refines_them() {
+    // bend_step_nm: the library's bend with that step, to the bit
+    let job =
+        Job::parse(&bend_job().replace("modes = 8", "modes = 8\nbend_step_nm = 5.0")).unwrap();
+    check(&job).unwrap();
+    let (_, s) = &s_parameters(&events(&job))[0];
+    let lib = library_bend(8, 0.005);
+    assert_eq!([lib.s21[0][0].re, lib.s21[0][0].im], s[1][0]);
+    // [task.convergence] drives the modes, then the bend's layers from the default, halving
+    let job = Job::parse(&format!(
+        "{}\n[task.convergence]\ntolerance = 1e-5\n",
+        bend_job()
+    ))
+    .unwrap();
+    check(&job).unwrap();
+    let events = events(&job);
+    let studies: Vec<&crate::convergence::Convergence> = events
+        .iter()
+        .filter_map(|e| match e {
+            Event::GridConvergence { check, .. } => Some(check),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(studies.len(), 2, "the modes' study and the layers'");
+    let layers = studies[1];
+    assert!(
+        layers.quantity.contains("the bends' layers"),
+        "{}",
+        layers.quantity
+    );
+    assert_eq!(
+        layers.steps_um[0],
+        crate::eme::Eme::new(Polarization::Te, Wavelength::um(1.55).unwrap(), 1)
+            .unwrap()
+            .bend_step()
+            .to_um()
+    );
+    assert!(layers.steps_um.len() >= 2);
+    let modes = (1.0 / studies[0].step_um).round() as usize;
+    // the run's S is the library's at the modes found and the finest layers studied
+    let (_, s) = &s_parameters(&events)[0];
+    let lib = library_bend(modes, layers.step_um);
+    assert_eq!([lib.s21[0][0].re, lib.s21[0][0].im], s[1][0]);
+    assert!(
+        check(
+            &Job::parse(&bend_job().replace("modes = 8", "modes = 8\nbend_step_nm = 0.0")).unwrap()
+        )
+        .unwrap_err()
+        .to_string()
+        .contains("bend_step_nm must be above 0")
+    );
+}
+
 #[test]
 fn check_refuses_a_bend_it_cannot_solve() {
     let refused = |text: String, says: &str| {
@@ -582,6 +660,47 @@ fn check_refuses_a_bend_it_cannot_solve() {
         ),
         "one thickness",
     );
+}
+
+/// `jobs/eme-bend.yaml`'s TM bend at 2 µm with a PML of strength 0.25, 0.5 and 1 and 16 and 24
+/// modes: every one is followed (0.5 and 1 lost two modes on the paths from the uniform window,
+/// which the closed window's path now takes), and at 24 modes the three agree within the
+/// expansion's mode-count gate, 1e-4 as `eme/taper-modes` (measured: 1.5e-5).
+#[test]
+#[ignore = "18 solves: in release"]
+fn the_bend_job_follows_its_modes_at_every_pml_strength() {
+    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("jobs");
+    let text = std::fs::read_to_string(dir.join("eme-bend.yaml")).unwrap();
+    let mut at_24: Vec<Vec<f64>> = Vec::new();
+    for strength in ["0.25", "0.5", "1.0"] {
+        for modes in ["16", "24"] {
+            let t = text
+                .replace("strength: 0.25", &format!("strength: {strength}"))
+                .replace("modes: 16", &format!("modes: {modes}"))
+                .replace("points: 11", "points: 3");
+            let job = Job::parse_as(&t, crate::run::Format::Yaml).unwrap();
+            let mut run = Run::in_memory();
+            execute(&job, &mut run, &Stop::new(None))
+                .unwrap_or_else(|e| panic!("strength {strength}, {modes} modes: {e}"));
+            let rows: Vec<f64> = run
+                .lines()
+                .iter()
+                .filter_map(|l| match serde_json::from_str(l).unwrap() {
+                    Event::SParameters { s, .. } => Some(s[1][0][0].powi(2) + s[1][0][1].powi(2)),
+                    _ => None,
+                })
+                .collect();
+            assert_eq!(rows.len(), 3);
+            if modes == "24" {
+                at_24.push(rows);
+            }
+        }
+    }
+    for other in &at_24[1..] {
+        for (a, b) in at_24[0].iter().zip(other) {
+            assert!((a - b).abs() < 1e-4, "{at_24:?}");
+        }
+    }
 }
 
 /// `jobs/eme-bend.yaml` gives the numbers its comment quotes.
