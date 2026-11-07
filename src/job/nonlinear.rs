@@ -38,7 +38,9 @@
 //! - [`Event::NonlinearEfficiency`]: the generated power against the length, depleted by the
 //!   coupled-amplitude equations with the losses ([`crate::nonlinear::coupled`]) beside the
 //!   undepleted closed form; for OPA the signal's gain, for SPDC the pairs' spectral brightness,
-//!   for FWM the signal's gain and the idler's conversion ([`crate::nonlinear::fwm`]);
+//!   for FWM the signal's gain and the idler's conversion, depleted by the coupled equations
+//!   with the losses and the self- and cross-phase terms beside the undepleted lossless closed
+//!   form ([`crate::nonlinear::fwm`]);
 //! - [`Event::PairSpectrum`] for SPDC and FWM: the joint spectral amplitude, with its purity and
 //!   Schmidt number ([`crate::nonlinear::pairs`]).
 //!
@@ -1430,6 +1432,10 @@ fn accepted(
     } else {
         a.noncritical
     };
+    if !estimate.is_finite() {
+        // an index without dispersion: a record must read back, and JSON has no infinity
+        return Err("the mismatch doesn't change with it to first or second order".to_owned());
+    }
     Ok(Accepted {
         estimate: estimate * scale,
         numerical: a.numerical.is_finite().then_some(a.numerical * scale),
@@ -1911,6 +1917,46 @@ fn sinhc(g2: f64, length: f64) -> f64 {
 /// The RK4 steps over the whole length.
 const STEPS: usize = 2000;
 
+/// Four-wave mixing along the job's length, depleted, with every wave's loss and the self- and
+/// cross-phase terms ([`fwm::FourWave::propagate_with_loss`]): the waves at each of the job's
+/// points, from its pump and signal and no idler, γ in 1/(W·m) and Δk in rad/m. Each segment
+/// runs in its own z from 0, so the pump is turned by e^{−iΔkz₀/2} into it and back: the
+/// mismatch's phase runs on across the segments.
+fn four_wave_path(setup: &Setup, gamma: f64, mismatch: f64) -> Result<Vec<fwm::Waves>> {
+    let n = setup.points;
+    let segment = setup.length_um / (n - 1) as f64 * 1e-6;
+    let per_segment = STEPS.div_ceil(n - 1).max(1);
+    let process = fwm::FourWave { gamma, mismatch };
+    // per m
+    let loss = [
+        setup.loss[0] * 1e6,
+        setup.loss[1] * 1e6,
+        setup.loss[2] * 1e6,
+    ];
+    let mut w = fwm::Waves {
+        pump: c64::new(setup.pump_w.sqrt(), 0.0),
+        signal: c64::new(setup.signal_w.sqrt(), 0.0),
+        idler: c64::new(0.0, 0.0),
+    };
+    let mut path = vec![w];
+    for k in 1..n {
+        let turn = c64::from_polar(1.0, -0.5 * mismatch * segment * (k - 1) as f64);
+        let mut b = process.propagate_with_loss(
+            fwm::Waves {
+                pump: w.pump * turn,
+                ..w
+            },
+            segment,
+            per_segment,
+            loss,
+        )?;
+        b.pump /= turn;
+        w = b;
+        path.push(w);
+    }
+    Ok(path)
+}
+
 fn efficiency_curve(
     setup: &Setup,
     device: &Device,
@@ -1939,12 +1985,6 @@ fn efficiency_curve(
             let Some(gamma) = setup.gamma else {
                 return Ok(None);
             };
-            if setup.lossy {
-                notes.push(
-                    "four-wave mixing's gain is lossless, in closed form: its losses aren't in it"
-                        .to_owned(),
-                );
-            }
             let dk = device.process().mismatch(&setup.state)? * 1e6;
             let gain: Vec<Option<f64>> = lengths
                 .iter()
@@ -1954,14 +1994,36 @@ fn efficiency_curve(
                 .iter()
                 .map(|z| db(fwm::conversion(gamma, p0, dk, z * 1e-6)))
                 .collect();
-            vec![
-                series("signal gain (undepleted pump, closed form)", "dB", gain),
-                series(
+            let path = four_wave_path(setup, gamma, dk)?;
+            let power = |f: fn(&fwm::Waves) -> c64| -> Vec<Option<f64>> {
+                path.iter().map(|w| mw(f(w).norm_sqr())).collect()
+            };
+            let depleted_gain = path.iter().map(|w| db(w.signal.norm_sqr() / ps)).collect();
+            let depleted_conversion = path.iter().map(|w| db(w.idler.norm_sqr() / ps)).collect();
+            [
+                lossless(series(
+                    "signal gain (undepleted pump, closed form)",
+                    "dB",
+                    gain,
+                )),
+                lossless(series(
                     "idler conversion (undepleted pump, closed form)",
                     "dB",
                     conversion,
-                ),
+                )),
+                Some(series("signal gain (depleted, RK4)", "dB", depleted_gain)),
+                Some(series(
+                    "idler conversion (depleted, RK4)",
+                    "dB",
+                    depleted_conversion,
+                )),
+                Some(series("signal (depleted, RK4)", "mW", power(|w| w.signal))),
+                Some(series("idler (depleted, RK4)", "mW", power(|w| w.idler))),
+                Some(series("pump (depleted, RK4)", "mW", power(|w| w.pump))),
             ]
+            .into_iter()
+            .flatten()
+            .collect()
         }
         _ => {
             let Some(kappa) = kappa else {

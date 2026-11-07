@@ -1360,7 +1360,7 @@ The run records four events after its start, and writes their contents beside it
 |---|---|
 | `nonlinear_setup` | the waves with their wavelengths, indices (a ridge's group indices too) and input powers; Δk₀ and the coherence length; the grating; Δk and sinc²(ΔkL/2) at the operating point; η and where it comes from; the acceptance bandwidths in the tuned wave's wavelength and in temperature (Fejer et al.'s estimate and the width between the half maxima); the phase-matched wavelength inside the map; notes, among them each wave outside the material's [transparency window](catalogue.md#transparency-windows) |
 | `phase_map` | Δk and sinc²(ΔkL/2) against the tuned wave's wavelength (SHG's fundamental, every other process's signal, the pump held: `Device::phase_tuned`), row by row against the temperature or the ridge's width, a ridge's modes solved at each temperature or width |
-| `nonlinear_efficiency` | against the length: the generated power by the coupled-amplitude equations (RK4, 2000 steps over the length, the losses in) beside the undepleted closed form; OPA's signal gain; SPDC's spectral brightness at the signal's centre, η P_p L² per hertz at degeneracy (`pair_rate_density`); FWM's signal gain and idler conversion, in closed form with the pump undepleted |
+| `nonlinear_efficiency` | against the length: the generated power by the coupled-amplitude equations (RK4, 2000 steps over the length, the losses in) beside the undepleted closed form; OPA's signal gain; SPDC's spectral brightness at the signal's centre, η P_p L² per hertz at degeneracy (`pair_rate_density`); FWM's pump, signal and idler by the coupled equations (RK4, the losses and the self- and cross-phase terms in) beside the signal gain and idler conversion in closed form with the pump undepleted, which a lossy job leaves out |
 | `pair_spectrum` | SPDC's and FWM's joint spectral amplitude, its purity and Schmidt number (`pairs::joint_spectrum`) |
 
 The job's numbers are the library's own calls: for Fejer et al.'s first row (SHG of 1.064 µm over
@@ -1395,8 +1395,16 @@ turned onto the chip by hand: one sum reached by two paths, so the tolerance is 
 1e-8 relative. The η's own grid error is the table's: 4160.1, 4163.7 and 4164.7 on 20, 10 and 5
 nm cells.
 
-What a job can't set yet: a type-II SHG (one index for both fundamental photons), a depleted FWM
-with its losses, a ridge's temperature acceptance, and a cavity around the guide.
+`job/nonlinear-fwm-depleted-loss` runs FWM through a job with the pump depleted and every wave
+losing 3 dB/cm (γ = 100 /(W·m), 10 mm, 1 W of pump and 300 mW of signal, one index for every wave
+so Δk = 0). With one loss α for every wave and Δk = 0, A_j = B_j e^{−αz/2} turns the lossy coupled
+equations into the lossless ones in ζ = (1 − e^{−αz})/α, so the job's pump, signal and idler at
+the end are the lossless guide's over (1 − e^{−αL})/α, times e^{−αL}: their largest gap is
+3.0e-12 (3.6e-12 without the loss), the job's 2000 RK4 steps' own error. An index without
+dispersion has no acceptance bandwidth: the record says so in a note.
+
+What a job can't set yet: a type-II SHG (one index for both fundamental photons), a ridge's
+temperature acceptance, and a cavity around the guide.
 
 ## Limits
 
@@ -1408,9 +1416,8 @@ with its losses, a ridge's temperature acceptance, and a cavity around the guide
 - Cross-phase modulation is between two pulses, Kerr only: no Raman, self-steepening or two-photon
   absorption between them. Free carriers start at none at each window's start: a pulse train's
   left-over carriers aren't held.
-- Resonant enhancement is for all-pass rings, each wave's own, and undepleted; an add-drop ring's
-  second coupler, a ring resonant at its pump for an oscillator, and a ring's photon pairs (0.6.3)
-  are not in yet.
+- Resonant enhancement is for all-pass and add-drop rings, each wave's own, and undepleted; a
+  ring resonant at its pump for an oscillator, and a ring's photon pairs (0.6.3), are not in yet.
 - In a guide, the crystal must have a principal axis along it (the full-vector solver's
   condition), and a mode is followed by its family and index, not through a crossing with another
   mode of its family. Wang et al.'s 4500 %/(W·cm²) (Optica 5, 1438) needs their ridge's etch depth

@@ -139,6 +139,110 @@ fn efficiency() -> Outcome {
     }
 }
 
+/// Four-wave mixing as a job: γ = 100 /(W·m), 10 mm, the index 2.0 at every wavelength (Δk = 0),
+/// 1 W of pump at 1.55 µm, 300 mW of signal at 1.56 µm, every wave losing `db` dB/cm.
+pub(super) fn fwm_job(db: f64) -> String {
+    format!(
+        "name = \"fwm-depleted\"\n[task]\nkind = \"nonlinear\"\nprocess = \"fwm\"\n\
+         length_mm = 10.0\n[task.waveguide]\ngamma_per_w_m = 100.0\nloss_db_per_cm = {db:?}\n\
+         [[task.waveguide.n_eff]]\nwavelengths_um = [1.0, 2.0]\nn_eff = [2.0, 2.0]\n\
+         [task.pump]\nwavelength_um = 1.55\npower_mw = 1000.0\n\
+         [task.signal]\nwavelength_um = 1.56\npower_mw = 300.0\n"
+    )
+}
+
+/// The job's pump, signal and idler at its end, W, from its depleted series.
+pub(super) fn fwm_job_end(text: &str) -> [f64; 3] {
+    let job = Job::parse(text).expect(OK);
+    super::check(&job).expect(OK);
+    let mut run = Run::in_memory();
+    execute(&job, &mut run, &Stop::new(None)).expect(OK);
+    let curve = run
+        .lines()
+        .iter()
+        .map(|l| serde_json::from_str::<Event>(l).expect("a recorded event"))
+        .find_map(|e| match e {
+            Event::NonlinearEfficiency { curve } => Some(*curve),
+            _ => None,
+        })
+        .expect("the job records its efficiency");
+    let last = |label: &str| -> f64 {
+        let s = curve
+            .series
+            .iter()
+            .find(|s| s.label == label)
+            .unwrap_or_else(|| panic!("no series {label}"));
+        s.values
+            .last()
+            .copied()
+            .flatten()
+            .expect("a power at the end")
+            * 1e-3
+    };
+    [
+        last("pump (depleted, RK4)"),
+        last("signal (depleted, RK4)"),
+        last("idler (depleted, RK4)"),
+    ]
+}
+
+/// [`fwm_job`]'s guide without loss over its effective length (1 − e^{−αL})/α, on `steps` RK4
+/// steps, its powers times e^{−αL}: with one loss α for every wave and Δk = 0, A_j = B_j e^{−αz/2}
+/// turns the lossy equations into the lossless ones in ζ = (1 − e^{−αz})/α. The pump, signal and
+/// idler at the end, W.
+pub(super) fn fwm_equal_loss(db: f64, steps: usize) -> [f64; 3] {
+    use crate::nonlinear::fwm::{FourWave, Waves};
+    use num_complex::Complex64 as c64;
+    let alpha = crate::nonlinear::pulse::loss_per_m(db);
+    let length = 0.01;
+    let effective = if alpha > 0.0 {
+        -(-alpha * length).exp_m1() / alpha
+    } else {
+        length
+    };
+    let w = FourWave {
+        gamma: 100.0,
+        mismatch: 0.0,
+    }
+    .propagate(
+        Waves {
+            pump: c64::new(1.0, 0.0),
+            signal: c64::new(0.3f64.sqrt(), 0.0),
+            idler: c64::new(0.0, 0.0),
+        },
+        effective,
+        steps,
+    )
+    .expect(OK);
+    let decay = (-alpha * length).exp();
+    [
+        w.pump.norm_sqr() * decay,
+        w.signal.norm_sqr() * decay,
+        w.idler.norm_sqr() * decay,
+    ]
+}
+
+/// The loss of the four-wave case, dB/cm.
+const FWM_DB: f64 = 3.0;
+
+/// The largest relative gap of the pump, signal and idler between the lossy job and the lossless
+/// guide over its effective length.
+fn fwm_depleted() -> Outcome {
+    let ours = fwm_job_end(&fwm_job(FWM_DB));
+    let exact = fwm_equal_loss(FWM_DB, 20_000);
+    let gap = (0..3)
+        .map(|j| (ours[j] / exact[j] - 1.0).abs())
+        .fold(0.0, f64::max);
+    Outcome {
+        measured: ours[2],
+        expected: exact[2],
+        tolerance: FWM_TOLERANCE * exact[2],
+        error: gap * exact[2],
+    }
+}
+
+const FWM_TOLERANCE: f64 = 4e-12;
+
 /// The cases, in report order.
 pub(crate) fn cases() -> Vec<Case> {
     vec![
@@ -156,5 +260,46 @@ pub(crate) fn cases() -> Vec<Case> {
             source: r"the library's `second_harmonic_coupling` of `Ridge` modes (nonlinear::guide), checked on its own by `nonlinear/guide-plane-wave` and `nonlinear/guide-slab-overlap`: one discrete overlap reached by two paths",
             run: efficiency,
         },
+        Case {
+            id: "job/nonlinear-fwm-depleted-loss",
+            title: r"Four-wave mixing through a nonlinear job: $\gamma$ = 100 /(W·m), 10 mm, one index for every wave ($\Delta k = 0$), 1 W of pump at 1.55 µm and 300 mW of signal at 1.56 µm, every wave losing 3 dB/cm; the job's depleted pump, signal and idler at the end (2000 RK4 steps, the self- and cross-phase terms in) against the lossless guide over its effective length, the largest relative gap (the idler's W shown)",
+            tier: Tier::Analytic,
+            source: r"with one loss $\alpha$ for every wave and $\Delta k = 0$, $A_j = B_je^{-\alpha z/2}$ turns G. P. Agrawal, Nonlinear Fiber Optics, 6th ed. (2019), Eqs. (10.2.1)–(10.2.4) with their losses into the lossless ones in $\zeta = (1 - e^{-\alpha z})/\alpha$: the lossless guide over $L_\mathrm{eff}$ (20 000 RK4 steps), its powers times $e^{-\alpha L}$",
+            run: fwm_depleted,
+        },
     ]
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn gap(a: [f64; 3], b: [f64; 3]) -> f64 {
+        (0..3)
+            .map(|j| (a[j] / b[j] - 1.0).abs())
+            .fold(0.0, f64::max)
+    }
+
+    /// The four-wave case's gaps, as its rule quotes them: run with `--ignored --nocapture` in
+    /// release.
+    #[test]
+    #[ignore = "prints the four-wave case's gaps"]
+    fn fwm_gaps() {
+        let best = fwm_equal_loss(FWM_DB, 400_000);
+        for steps in [2000, 4000, 100_000, 200_000] {
+            eprintln!(
+                "reference on {steps}: {:.2e}",
+                gap(fwm_equal_loss(FWM_DB, steps), best)
+            );
+        }
+        let ours = fwm_job_end(&fwm_job(FWM_DB));
+        eprintln!("job: {:.2e} ({ours:?} {best:?})", gap(ours, best));
+        let case = fwm_depleted();
+        eprintln!("case: {:.2e}", case.error / case.expected);
+        let lossless = fwm_job_end(&fwm_job(0.0));
+        eprintln!(
+            "lossless job: {:.2e}",
+            gap(lossless, fwm_equal_loss(0.0, 400_000))
+        );
+    }
 }

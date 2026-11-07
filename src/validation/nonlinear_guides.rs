@@ -40,6 +40,17 @@ fn job_rules() -> Vec<(&'static str, Rule)> {
                 "one overlap on the same cells by two paths, the job's and the library's: the same sums, so round-off",
             ),
         ),
+        (
+            "job/nonlinear-fwm-depleted-loss",
+            Rule::new(
+                Relative,
+                Discretisation,
+                4e-12,
+                Measured,
+                "the job's 2000 RK4 steps' error, 3.00e-12, rounded up (3.60e-12 with no loss); the reference's own on 2000 to 200 000 steps is 2.9e-14 to 9.4e-14 against 400 000",
+            )
+            .varying(),
+        ),
     ]
 }
 

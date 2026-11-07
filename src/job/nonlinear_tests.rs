@@ -271,6 +271,36 @@ fn pairs_by_spdc_and_fwm_have_a_joint_spectrum() {
 }
 
 #[test]
+fn four_wave_mixing_is_depleted_and_lossy_beside_its_lossless_closed_form() {
+    let text = crate::job::nonlinear_checks::fwm_job;
+    let labels = |db: f64| -> Vec<String> {
+        efficiency_of(&events(&text(db)))
+            .series
+            .iter()
+            .map(|s| s.label.clone())
+            .collect()
+    };
+    let lossless = labels(0.0);
+    assert!(
+        lossless
+            .iter()
+            .any(|l| l.ends_with("(undepleted pump, closed form)"))
+    );
+    // with loss, only the depleted series: the closed form has no loss in it
+    let lossy = labels(3.0);
+    assert!(
+        !lossy.iter().any(|l| l.contains("closed form")),
+        "{lossy:?}"
+    );
+    for s in ["signal gain", "idler conversion", "pump", "signal", "idler"] {
+        assert!(lossy.contains(&format!("{s} (depleted, RK4)")), "{s}");
+    }
+    // the photons: |A_s|² − |A_i|² is kept, lossless
+    let [_, signal, idler] = crate::job::nonlinear_checks::fwm_job_end(&text(0.0));
+    assert!((signal - idler - 0.3).abs() < 1e-12, "{signal} {idler}");
+}
+
+#[test]
 fn a_run_with_a_folder_writes_its_numbers_beside_its_record() {
     let dir = std::env::temp_dir().join(format!("photonoxide-nonlinear-{}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();
