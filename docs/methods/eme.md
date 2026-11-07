@@ -262,9 +262,12 @@ TE-like modes, E_x even about it) and `"quarter"` keeps y ≥ 0 too behind a mag
 Beside a `[device]` the sections are cut from the device's geometry instead
 ([a device's sections](#a-devices-sections)): `[task.plane]` then takes `step_um` (across the
 device's y and up its z), `margins_um = [beside, vertical]`, `along_um` (the longest step of a
-sloped run) and `symmetry = "half"`. A run's S-parameters are `Eme3d::s_matrix`'s on the same
-sections to the bit (the tests run both). `jobs/eme-taper-3d.yaml` is the strip taper of
-`eme/3d-taper-fdfd`, every mode, and `jobs/eme-mmi-3d.yaml` a 1 × 2 MMI cut from the device.
+sloped run) or `exact = true` (a cut with no step error), and `symmetry = "half"`. A task's own
+drawing is cut the same way ([a job's own drawing](#a-jobs-own-drawing)). A run's S-parameters
+are `Eme3d::s_matrix`'s on the same sections to the bit (the tests run both).
+`jobs/eme-taper-3d.yaml` is the strip taper of `eme/3d-taper-fdfd`, every mode,
+`jobs/eme-mmi-3d.yaml` a 1 × 2 MMI cut from the device, and `jobs/eme-taper-drawn-3d.yaml` a
+taper drawn in the job as a path and cut exactly.
 Polarization, walls, `window_um`, `symmetric`, layers and `[task.adaptive]` are a 2D job's and
 are refused in 3D.
 
@@ -537,13 +540,14 @@ task:
 
 Two cases check that a drawing is cut as the library cuts it. `eme/3d-drawing-extruded` writes
 the stepped slab of `eme/3d-cut-extruded` in a job as five rectangles on a `[task.stack]` of
-the same constant indices: every entry of S the run records is the hand-built sections' within
-DRAWN_EXTRUDED. `eme/3d-drawing-taper` runs the built-in job `jobs/eme-taper-drawn-3d.yaml`,
-the taper of `eme/3d-cut-taper-exact` drawn as a path (the YAML above on that case's constant
-indices), against the taper's device drawing cut exactly: every recorded entry within
-DRAWN_TAPER, its $\lvert S_{21}\rvert^2$ 0.9921834 as the device's. The path's polygon has the
-drawing's walls and its straights the led guides, so the cut meets the same sampling points at
-the same x and solves the same 33 planes.
+the same constant indices: the 9 entries of S the run records (the guided modes at the two
+ends) are the hand-built sections' within 4.7e-16. `eme/3d-drawing-taper` runs the built-in job
+`jobs/eme-taper-drawn-3d.yaml`, the taper of `eme/3d-cut-taper-exact` drawn as a path (the YAML
+above on that case's constant indices), against the taper's device drawing cut exactly: its 9
+recorded entries are the device's to the bit, $\lvert S_{21}\rvert^2$ = 0.9921834. The path's
+polygon has the drawing's walls and its straights the led guides, so the cut meets the same
+sampling points at the same x and solves the same 33 planes (every mode of the half plane, 92 s
+on six threads).
 
 ## S over wavelength
 
@@ -911,8 +915,8 @@ Measured with the cases' own settings, at 1.55 µm, silicon (3.473) in oxide (1.
 | `eme/3d-cut-taper-fdfd` | the same, $\lvert S_{21}\rvert^2$ | 0.9921834 | 3D FDFD of the device on the same plane at Δx = 0.1 µm over 3 to 7: 0.9921745 (fit residual 3.8e-5) | discretisation, 4e-4 absolute, three times FDFD's own error (its limit moves 1.3e-4 with its coarsest step) |
 | `eme/3d-cut-mmi-fdfd`, `-reflection` | a 1 × 2 strip MMI 1.6 × 2.4 µm, 0.5 µm access guides, the half y ≥ 0 on 50 × 55 nm cells, every one of 728 modes: $\lvert S_{21}\rvert^2$ (into both outputs) and $\lvert S_{11}\rvert^2$ | 0.9056087 and 1.6111e-3 | the same FDFD: 0.9056635 and 1.61168e-3 (residuals 8.9e-7, 1.6e-7) | discretisation, 2e-4 and 1.4e-5 absolute, three times FDFD's own error (its PML, 6.3e-5; its coarsest step, 4.5e-6) |
 | `eme/3d-cut-mmi-reciprocity`, `-power` | the same MMI | $\lvert S - S^T\rvert$ 2.5e-13; $\lvert S_p^\dagger S_p - 1\rvert$ 1.3e-12 | Lorentz reciprocity, power conservation | round-off, 1e-10 |
-| `eme/3d-drawing-extruded` | the stepped slab of `eme/3d-cut-extruded` drawn in a job as five rectangles ([a job's own drawing](#a-jobs-own-drawing)) | every entry the run records within DRAWN_EXTRUDED of the hand-built sections' | the same planes | round-off, 1e-10 |
-| `eme/3d-drawing-taper` | `jobs/eme-taper-drawn-3d.yaml`: the taper of `eme/3d-cut-taper-exact` drawn as a path in the job, cut exactly | every entry the run records within DRAWN_TAPER of the device's exact cut | the same 33 planes | round-off, 1e-10 |
+| `eme/3d-drawing-extruded` | the stepped slab of `eme/3d-cut-extruded` drawn in a job as five rectangles ([a job's own drawing](#a-jobs-own-drawing)) | every entry the run records within 4.7e-16 of the hand-built sections' | the same planes | round-off, 1e-10 |
+| `eme/3d-drawing-taper` | `jobs/eme-taper-drawn-3d.yaml`: the taper of `eme/3d-cut-taper-exact` drawn as a path in the job, cut exactly | every entry the run records the device's exact cut's to the bit | the same 33 planes | round-off, 1e-10 |
 | `eme/wavelength-taper`, `-mmi` | S over a range (1.45 to 1.65 µm, the C band) from a few solves, every entry on one set of wavelengths, asked for 1e-6 ([S over wavelength](#s-over-wavelength)) | ratio of the true error to the estimate 7.5e-7 (taper, 32 solves) and 7.8e-6 (multimode section, 117 solves) | the same expansion at each of 201 wavelengths | discretisation, a ratio of the true error to the estimate of at most 1, measured |
 | `eme/wavelength-reciprocity` | the two interpolants on the 201 wavelengths | $\lvert r - r^T \rvert$ 1.8e-14 | the solves' own reciprocity, kept by a shared denominator | round-off, 1e-12 |
 | `eme/wavelength-power` | the same: each column's power against the solves' | under 1e-3 of the bound $\sum_q (2\lvert S_{qp}\rvert + e_{qp}) e_{qp}$ | the bound the entries' estimates give | discretisation, a ratio of at most 1, measured |
