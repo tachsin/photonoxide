@@ -270,7 +270,7 @@ $\hat p = -i(\hat a - \hat a^\dagger)$, so the vacuum's variances are 1 (Weedbro
 doi:10.1103/RevModPhys.84.621, with their $\hbar = 2$). `Gaussian` holds them, the $x$'s first.
 
 - **Operations.** A Gaussian unitary $\hat b = U \hat a + W \hat a^\dagger$ acts as the real
-  symplectic $S = \begin{pmatrix} \operatorname{Re}(U + W) & -\operatorname{Im}(U - W) \\ \operatorname{Im}(U + W) & \operatorname{Re}(U - W) \end{pmatrix}$,
+  symplectic $S$ with the blocks $\operatorname{Re}(U + W)$ and $-\operatorname{Im}(U - W)$ in its first row of blocks and $\operatorname{Im}(U + W)$ and $\operatorname{Re}(U - W)$ in its second,
   $V \to S V S^T$, $d \to S d$. The squeezer $\exp(\frac{1}{2}(\xi^* \hat a^2 - \xi \hat a^{\dagger 2}))$,
   $\xi = r e^{i\varphi}$, takes $\hat a \to \hat a \cosh r - \hat a^\dagger e^{i\varphi} \sinh r$, and the
   two-mode squeezer $\hat a \to \hat a \cosh r - \hat b^\dagger e^{i\varphi} \sinh r$.
@@ -284,7 +284,7 @@ doi:10.1103/RevModPhys.84.621, with their $\hbar = 2$). `Gaussian` holds them, t
   covariances follow from Wick's theorem: $\frac{1}{8}\operatorname{Tr}(V_{ab} V_{ab}^T) + \frac{1}{4} d_a^T V_{ab} d_b$
   between two modes, and $\frac{1}{8}(\operatorname{Tr} V_{aa}^2 - 2) + \frac{1}{4} d_a^T V_{aa} d_a$ for one.
 - **Photon counts** (Hamilton et al. 2017, doi:10.1103/PhysRevLett.119.170501). In the basis
-  $(\hat a, \hat a^\dagger)$ the covariance is $\sigma = \frac{1}{4} W V W^\dagger$, $W = \begin{pmatrix} I & iI \\ I & -iI \end{pmatrix}$;
+  $(\hat a, \hat a^\dagger)$ the covariance is $\sigma = \frac{1}{4} W V W^\dagger$, $W$ the blocks $I$, $iI$ over $I$, $-iI$;
   with $\sigma_Q = \sigma + \frac{1}{2} I$ and $A = X(I - \sigma_Q^{-1})$, $X$ the swap of the two
   halves, a pattern $\bar n$ of photons has
   $P(\bar n) = \operatorname{Haf}(A_{\bar n}) / (\sqrt{\det \sigma_Q} \prod_i n_i!)$, $A_{\bar n}$ the rows and

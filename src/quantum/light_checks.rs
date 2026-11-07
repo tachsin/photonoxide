@@ -210,14 +210,14 @@ pub(crate) fn cases() -> Vec<Case> {
             id: "quantum/nehra-all-optical",
             title: r"Quantum: Nehra et al.'s all-optical measurement: 11 dB of squeezing amplified by a second squeezer of 33 dB phase-sensitive gain, the mean photon numbers with and without it (their Eq. 1) read as squeezing (dB shown)",
             tier: Tier::Published,
-            source: "R. Nehra et al., doi:10.1126/science.abo6213, Eq. 1 and p. 1334: a measurement gain \"> 33 dB for ~11 dB\" of squeezing; to the dB",
+            source: "R. Nehra et al., doi:10.1126/science.abo6213, Eq. 1 and p. 1334: a measurement gain of more than 33 dB \"for ~11 dB\" of squeezing; to the dB",
             run: nehra_all_optical,
         },
         Case {
             id: "quantum/nehra-homodyne-bound",
             title: r"Quantum: the most squeezing a homodyne detector sees behind Nehra et al.'s overall detection efficiency of 0.20 ($r$ = 10, dB shown)",
             tier: Tier::Published,
-            source: "R. Nehra et al., doi:10.1126/science.abo6213, p. 1335: η ≈ 0.20 \"puts an upper limit of < 1 dB to the measurable squeezing for a standard balanced homodyne detection\"",
+            source: "R. Nehra et al., doi:10.1126/science.abo6213, p. 1335: η ≈ 0.20 \"puts an upper limit of\" under 1 dB \"to the measurable squeezing for a standard balanced homodyne detection\"",
             run: nehra_homodyne_bound,
         },
     ]
