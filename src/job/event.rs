@@ -276,33 +276,6 @@ pub enum Event {
         /// Its value: smaller is better.
         error: f64,
     },
-    /// What a modes job's mode gives beside its index ([`crate::mode::quantities`]), from its
-    /// fields with E's normal component one-sided at each interface: recorded when the task has
-    /// `[task.quantities]`, after the mode's [`Event::ModeField`] (and its [`Event::ModeLoss`]),
-    /// for the job's own configuration.
-    ModeQuantities {
-        /// The mode's label, as its [`Event::Mode`] has it, e.g. `"mode 1 of 2"`.
-        label: String,
-        /// The vacuum wavelength, µm.
-        wavelength_um: f64,
-        /// The effective area for the Kerr effect, µm²: Afshar and Monro's Eq. 41, the whole
-        /// cross-section's ([`crate::mode::fields::Fields::effective_area`]).
-        effective_area_um2: f64,
-        /// The standard effective area from E_t alone, µm²: their Eq. 44
-        /// ([`crate::mode::fields::Fields::effective_area_transverse`]).
-        effective_area_transverse_um2: f64,
-        /// The share of its power in the media whose index is above the media around the
-        /// guides (the index [`Event::Solver`] keeps guided modes by): the guides' confinement,
-        /// from 0 to 1.
-        confinement: f64,
-        /// γ = 2π n₂/(λ A_eff), 1/(W·m), with the task's `nonlinear_index_m2_per_w`; none
-        /// without it.
-        gamma_per_w_m: Option<f64>,
-        /// O_ab = ⟨a, b⟩ / (Re⟨a, a⟩ Re⟨b, b⟩)^½ with each mode of the run, in their order, real
-        /// and imaginary parts ([`crate::mode::quantities::orthogonality`], conjugated): 1 with
-        /// itself, near 0 with the others for an orthogonal set.
-        orthogonality: Vec<[f64; 2]>,
-    },
     /// What kind of mode a modes job with a PML (`[task.pml]`) found, and its loss: recorded
     /// right after the mode's [`Event::ModeField`], or at a sweep's point right after its
     /// [`Event::SweepMode`]. A job without a PML records none: its window is closed, and every
@@ -762,18 +735,6 @@ pub enum Event {
         /// The study and its verdict; its value is the run's grid's.
         check: crate::convergence::Convergence,
     },
-    /// A modes job's grid driven to its `[task.convergence]` tolerance (`drive = true`): the
-    /// task's step halved until the mode's Re n_eff converged, every grid and value recorded,
-    /// before the modes on the grid it stopped at.
-    GridRefined {
-        /// The mode driven, `"mode 1"`: the highest Re n_eff.
-        label: String,
-        /// Its wavelength, µm.
-        wavelength_um: f64,
-        /// The drive: its grids, values, the value reported (the finest grid's, with the gate's
-        /// estimate of its error) and why it stopped.
-        refined: crate::convergence::Refined,
-    },
     /// A picture of a static job's temperature in time, recorded as the steps go when its
     /// `[task.transient]` asks for `frames` (the start's first): on the pixels of its
     /// [`Event::StaticField`]s, in its own unit.
@@ -850,5 +811,45 @@ pub enum Event {
     QuantumSqueezed {
         /// The state's numbers.
         squeezed: Box<super::QuantumSqueezed>,
+    },
+    // (new events go last: a variant inserted earlier moves every later one's discriminant)
+    /// What a modes job's mode gives beside its index ([`crate::mode::quantities`]), from its
+    /// fields with E's normal component one-sided at each interface: recorded when the task has
+    /// `[task.quantities]`, after the mode's [`Event::ModeField`] (and its [`Event::ModeLoss`]),
+    /// for the job's own configuration.
+    ModeQuantities {
+        /// The mode's label, as its [`Event::Mode`] has it, e.g. `"mode 1 of 2"`.
+        label: String,
+        /// The vacuum wavelength, µm.
+        wavelength_um: f64,
+        /// The effective area for the Kerr effect, µm²: Afshar and Monro's Eq. 41, the whole
+        /// cross-section's ([`crate::mode::fields::Fields::effective_area`]).
+        effective_area_um2: f64,
+        /// The standard effective area from E_t alone, µm²: their Eq. 44
+        /// ([`crate::mode::fields::Fields::effective_area_transverse`]).
+        effective_area_transverse_um2: f64,
+        /// The share of its power in the media whose index is above the media around the
+        /// guides (the index [`Event::Solver`] keeps guided modes by): the guides' confinement,
+        /// from 0 to 1.
+        confinement: f64,
+        /// γ = 2π n₂/(λ A_eff), 1/(W·m), with the task's `nonlinear_index_m2_per_w`; none
+        /// without it.
+        gamma_per_w_m: Option<f64>,
+        /// O_ab = ⟨a, b⟩ / (Re⟨a, a⟩ Re⟨b, b⟩)^½ with each mode of the run, in their order, real
+        /// and imaginary parts ([`crate::mode::quantities::orthogonality`], conjugated): 1 with
+        /// itself, near 0 with the others for an orthogonal set.
+        orthogonality: Vec<[f64; 2]>,
+    },
+    /// A modes job's grid driven to its `[task.convergence]` tolerance (`drive = true`): the
+    /// task's step halved until the mode's Re n_eff converged, every grid and value recorded,
+    /// before the modes on the grid it stopped at.
+    GridRefined {
+        /// The mode driven, `"mode 1"`: the highest Re n_eff.
+        label: String,
+        /// Its wavelength, µm.
+        wavelength_um: f64,
+        /// The drive: its grids, values, the value reported (the finest grid's, with the gate's
+        /// estimate of its error) and why it stopped.
+        refined: crate::convergence::Refined,
     },
 }
