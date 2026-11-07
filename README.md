@@ -40,10 +40,10 @@ It is released milestone by milestone ([changelog](CHANGELOG.md), [roadmap](ROAD
 
 - **[Methods](docs/README.md#methods):** 53 write-ups in 10 topics, from waveguide modes to
   fabrication, each setting out its method, its limits and the papers it implements; their
-  front matter cites 285 distinct sources by DOI.
+  front matter cites 287 distinct sources by DOI.
 - **[Academy](academy/README.md):** lessons on devices and numerical methods at three depths,
-  each opening on a drawing of its device, with charts the library computes live; 19 written,
-  and 2 more laid out section by section, read on GitHub or in the studio.
+  each opening on a drawing of its device, with charts the library computes live; 20 written,
+  and 1 more laid out section by section, read on GitHub or in the studio.
 - **[Fabrication](docs/methods/fabrication.md):** the process flow that would make a design, each
   step with its reason, its alternatives and what its process can achieve, as its source states
   it; 56 processes on 5 platforms, every flow executed back to its design and shown step by step

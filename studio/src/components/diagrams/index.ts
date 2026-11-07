@@ -19,6 +19,7 @@ import Mzi from "./Mzi.svelte";
 import Nonlinear from "./Nonlinear.svelte";
 import Plasmon from "./Plasmon.svelte";
 import Process from "./Process.svelte";
+import Quantum from "./Quantum.svelte";
 import Ring from "./Ring.svelte";
 import Slab from "./Slab.svelte";
 import Strip from "./Strip.svelte";
@@ -44,4 +45,5 @@ export const DRAWINGS: Record<string, Component> = {
   "slab": Slab,
   "strip": Strip,
   "yee": Yee,
+  "quantum": Quantum,
 };
