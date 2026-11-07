@@ -42,7 +42,9 @@ const MOST_PHOTONS: usize = 30;
 ///   without means).
 /// - **Threshold clicks** (N. Quesada, J. M. Arrazola, N. Killoran, Phys. Rev. A 98, 062322
 ///   (2018), doi:10.1103/PhysRevA.98.062322): the modes that click S, the rest dark,
-///   P(S) = Tor(O_S) / √det σ_Q, O = I − σ_Q⁻¹, for a state without means.
+///   P(S) = Tor(O_S) / √det σ_Q, O = I − σ_Q⁻¹, for a state without means; with means, the
+///   alternating sum over S's subsets Y of the probability that the dark modes and Y hold no
+///   photon, each a reduced state's P(0), exp(−½ β†σ_Q⁻¹β)/√det σ_Q (inclusion and exclusion).
 ///
 /// A Gaussian state of n modes: its quadratures' means and covariance (vacuum variance 1).
 #[derive(Clone, Debug, PartialEq)]
@@ -613,12 +615,14 @@ impl Gaussian {
     }
 
     /// The probability that exactly the modes in `clicks` click on threshold detectors and the
-    /// rest stay dark, by a torontonian ([`Gaussian`]'s conventions).
+    /// rest stay dark ([`Gaussian`]'s conventions): by a torontonian for a state without means,
+    /// and for one with means by its loop form, the sum over the clicking modes' subsets Y of
+    /// (−1)^|Y| times the probability that the dark modes and Y all hold no photon, each the
+    /// vacuum probability of the state reduced to them, exp(−½ β† σ_Q⁻¹ β)/√det σ_Q.
     ///
     /// # Errors
     ///
-    /// [`Error::InvalidValue`] for a pattern of the wrong length, or a state with means (whose
-    /// clicks need the torontonian's loop form, not here).
+    /// [`Error::InvalidValue`] for a pattern of the wrong length, or more than 30 clicking modes.
     pub fn click_probability(&self, clicks: &[bool]) -> Result<f64> {
         let n = self.modes;
         if clicks.len() != n {
@@ -628,9 +632,7 @@ impl Gaussian {
             )));
         }
         if self.means.iter().any(|&d| d != 0.0) {
-            return Err(invalid(
-                "threshold clicks are computed for states without means",
-            ));
+            return self.click_probability_with_means(clicks);
         }
         let (q, qinv) = self.q_matrices()?;
         let on: Vec<usize> = (0..n).filter(|&m| clicks[m]).collect();
@@ -641,6 +643,39 @@ impl Gaussian {
         });
         let norm = determinant(&q).re.sqrt();
         Ok((torontonian(&o)?.re / norm).clamp(0.0, 1.0))
+    }
+
+    /// [`Gaussian::click_probability`] of a state with means: inclusion and exclusion over the
+    /// clicking modes, each term a reduced state's vacuum probability (a loop hafnian of no
+    /// rows), the 2^k terms added in order, Kahan-summed.
+    fn click_probability_with_means(&self, clicks: &[bool]) -> Result<f64> {
+        let n = self.modes;
+        let on: Vec<usize> = (0..n).filter(|&m| clicks[m]).collect();
+        let dark: Vec<usize> = (0..n).filter(|&m| !clicks[m]).collect();
+        if on.len() > MOST_PHOTONS {
+            return Err(invalid(format!(
+                "a click pattern takes at most {MOST_PHOTONS} clicking modes, got {}",
+                on.len()
+            )));
+        }
+        let mut sum = super::permanent::Kahan::default();
+        for y in 0u64..1 << on.len() {
+            let mut modes = dark.clone();
+            modes.extend((0..on.len()).filter(|&i| y >> i & 1 == 1).map(|i| on[i]));
+            // no modes left: the empty product, 1
+            let vacuum = if modes.is_empty() {
+                c64::new(1.0, 0.0)
+            } else {
+                let empty = vec![0; modes.len()];
+                c64::new(self.reduced(&modes)?.probability(&empty)?, 0.0)
+            };
+            sum.add(if y.count_ones() % 2 == 1 {
+                -vacuum
+            } else {
+                vacuum
+            });
+        }
+        Ok(sum.sum.re.clamp(0.0, 1.0))
     }
 
     /// The Wigner function of `mode` (the others traced out) at the quadratures `x` and `p`:

@@ -2261,6 +2261,8 @@ pub fn cases() -> Vec<Case> {
     cases.extend(crate::device::cut_checks::cases());
     // and S over wavelength from a few solves, one set of samples for every entry
     cases.extend(crate::eme::spectrum_checks::cases());
+    // and FDFD's S over wavelength the same way, through a job's [task.interpolate]
+    cases.extend(crate::job::fdfd_cases());
     // and periodic sections: Bloch modes from one period's S, N periods by repeated squaring
     cases.extend(crate::eme::periodic_checks::cases());
     // and bends by the conformal map, against the exact bent slab

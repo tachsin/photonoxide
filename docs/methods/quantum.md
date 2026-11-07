@@ -98,6 +98,8 @@ validation:
   - quantum/two-mode-thermal
   - quantum/squeezed-loss
   - quantum/displaced-states
+  - quantum/clicks-coherent
+  - quantum/clicks-displaced
   - quantum/source-pairs
   - quantum/source-hom-gaussian
   - quantum/heralding-coupler
@@ -116,6 +118,7 @@ validation:
   - quantum/spectral-hom
   - quantum/spectral-sum
   - quantum/touchstone-statistics
+  - quantum/mmi-hom-order
   - quantum/budget-path
   - quantum/varnava-threshold
   - quantum/bartolucci-fusion
@@ -343,6 +346,15 @@ doi:10.1103/RevModPhys.84.621, with their $\hbar = 2$). `Gaussian` holds them, t
 - **Clicks** of threshold detectors (Quesada et al. 2018, doi:10.1103/PhysRevA.98.062322): the
   modes $S$ click and the rest stay dark with probability
   $\operatorname{Tor}(O_S) / \sqrt{\det \sigma_Q}$, $O = I - \sigma_Q^{-1}$, for a state without means.
+  With means, the same inclusion and exclusion over the clicking modes, written out: the sum over
+  the subsets $Y \subseteq S$ of $(-1)^{\lvert Y \rvert}$ times the probability that the dark
+  modes and $Y$ all hold no photon, each the vacuum probability of the state reduced to those
+  modes, $\exp(-\frac{1}{2}\beta^\dagger \sigma_Q^{-1} \beta)/\sqrt{\det \sigma_Q}$ of its own
+  $\sigma_Q$ and $\beta$ (the loop torontonian's terms, each a determinant and an inverse of
+  $2^{k}$ reduced states for $k$ clicking modes, up to 30). Coherent states through a lossy
+  interferometer click as products of $1 - e^{-\lvert \beta_j \rvert^2}$
+  (`quantum/clicks-coherent`), and a displaced two-mode squeezed vacuum as its photon-number
+  probabilities summed into each pattern (`quantum/clicks-displaced`), both to round-off.
 - **The Wigner function** of one mode, the others traced out, is the Gaussian of its $2 \times 2$
   covariance $V$ and means $d$: $W(r) = \exp(-\frac{1}{2}(r - d)^T V^{-1} (r - d)) / (2\pi\sqrt{\det V})$
   (`Gaussian::wigner`), $1/(2\pi)$ at the vacuum's centre with $\hbar = 2$, and never negative.
@@ -515,7 +527,10 @@ visibility of
 | the 10 nm solve through a Touchstone file and back | the same to 8e-16 (`quantum/touchstone-statistics`) |
 | a compact model of the 10 nm solve (vector fitting, 8 poles, largest $\lvert \Delta S \rvert$ 0.0096) | 0.8497 |
 
-The FDFD figure converges with the grid (0.050, then 0.016 between grids, about 1.7th order), and
+The FDFD figure converges with the grid (0.050, then 0.016 between grids, order 1.67:
+`quantum/mmi-hom-order`, whose rule puts it between the scheme's second order on the
+grid-aligned edges and the first its exact fill fractions keep at the corners where the access
+guides meet the MMI, where the field is singular), and
 its 10 nm value is within about 0.007 of the limit by that rate (Richardson's estimate); the
 guided-mode model, which leaves out radiation and reflection at the faces, sits about 0.03 above
 it. A compact model carries its fit's error into the statistics: 8 poles miss by 0.003.
@@ -710,8 +725,10 @@ supermodes on three grids converges at order 0.87, the standard scheme's first o
 strips' corners (`quantum/coupler-hom-order`, as `device/coupler-3d-order`). The plan's
 convergence study names the coupler from FDFD: Q3 brings a 2 × 2 coupler's S(ω) from 2D FDFD into
 the statistics, the MMI of "Many photons with spectra through S(ω)" above, whose HOM visibility on 40, 20
-and 10 nm cells converges at about 1.7th order (0.7871, 0.8371, 0.8528). That is a table here,
-not a case with a rule yet, and the directional coupler itself is still the mode solver's.
+and 10 nm cells converges at order 1.67 (0.7871, 0.8371, 0.8528; `quantum/mmi-hom-order`). The
+directional coupler itself is still the mode solver's: the library's directional coupler has no
+2D FDFD model (only the MMI and the Y-branch have one), so its visibility from FDFD waits on
+that model.
 
 ### Gaussian states, sources and squeezers (Q2)
 
@@ -932,7 +949,9 @@ the gap is explained, without a looser tolerance.
   no such limit.
 - Hafnians and torontonians up to 60 rows (30 photons, or 30 clicking modes); patterns up to 30
   photons, the moments-of-a-sum route losing digits as they crowd into one mode (about
-  $10^{-10}$ relative at 30). Clicks of states with means (a loop torontonian) aren't computed.
+  $10^{-10}$ relative at 30). Clicks of states with means take $2^k$ reduced states' vacuum
+  probabilities for $k$ clicking modes, one after another, not cut into parts across threads as
+  the torontonian's terms are: up to 30 clicking modes, practical to about 20.
 - A source's squeezing per Schmidt mode, $g\sqrt{\lambda_k}$, is the low-gain picture; the
   squeezers are continuous-wave and lossless (the loss goes after them). Broadband squeezing at
   high gain, whose temporal modes change with the gain, is left for later; so are the Schmidt

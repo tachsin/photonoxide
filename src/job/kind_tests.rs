@@ -65,7 +65,7 @@ fn refusal(holder: Holder, name: &str) -> String {
         (Holder::Solver, "fdfd") => "`kind`, `stack`, `core_nm`, `bottom_oxide_um`, \
             `wavelength_um`, `layer`, `polarization`, `x_um`, `y_um`, `step_nm`, `pml_cells`, \
             `averaging`, `field_um`, `rect`, `circle`, `ring`, `path`, `shape`, `component`, \
-            `port`, `sweep`, `export`"
+            `port`, `sweep`, `interpolate`, `export`"
             .to_owned(),
         (Holder::Solver | Holder::Device, "fdtd") => FDTD.to_owned(),
         (Holder::Solver, "static") => "`kind`, `physics`, `stack`, `core_nm`, \
@@ -80,7 +80,7 @@ fn refusal(holder: Holder, name: &str) -> String {
             .to_owned(),
         (Holder::Solver, "nonlinear") => {
             "`kind`, `process`, `shg_type`, `waveguide`, `pump`, `signal`, \
-            `poling`, `length_mm`, `temperature_c`, `map`, `pairs`, `points`"
+            `poling`, `length_mm`, `temperature_c`, `map`, `pairs`, `points`, `ring`"
                 .to_owned()
         }
         (Holder::Solver | Holder::Device, "eme") => "`kind`, `wavelength_um`, `polarization`, \

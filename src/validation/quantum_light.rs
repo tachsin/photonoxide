@@ -68,6 +68,20 @@ pub(crate) fn rules() -> Vec<(&'static str, Rule)> {
             ),
         ),
         (
+            "quantum/clicks-coherent",
+            exact(
+                1e-13,
+                "16 alternating sums of at most 16 vacuum probabilities against products of exponentials: round-off",
+            ),
+        ),
+        (
+            "quantum/clicks-displaced",
+            exact(
+                1e-13,
+                "the loop form's four terms against 256 loop hafnians summed, their tail beyond 15 photons a mode below 1e-14 (checked by the case): round-off",
+            ),
+        ),
+        (
             "quantum/source-pairs",
             exact(
                 1e-14,

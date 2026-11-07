@@ -13,6 +13,7 @@ validation:
   - sweep/estimate-bounds-error
   - sweep/slab-dispersion
   - sweep/mode-crossing
+  - job/fdfd-interpolate-step
 ---
 
 A spectrum computed on a uniform grid of wavelengths spends most of its solves where nothing
@@ -482,6 +483,22 @@ where the worst response needs it.
   first mode) is still to be decided.
 - A set of responses ([above](#several-responses-on-one-set-of-samples)) sweeps without the
   stopping rule on noisy samples.
-- Not yet in photonoxide: FDFD's S-parameters over wavelength from a sweep (eigenmode
-  expansion's are, `eme::Spectrum` and the `eme` job's `[task.interpolate]`). They can already be
-  swept with `SweepSet::run` on a closure.
+- S over wavelength from a sweep: eigenmode expansion's (`eme::Spectrum` and the `eme` job's
+  `[task.interpolate]`) and 2D FDFD's, through the `fdfd` job's `[task.interpolate]` (below).
+  Other solvers' responses are swept with `SweepSet::run` on a closure; the other jobs' sweeps,
+  and a convergence drive (`convergence::ToTolerance`) over wavelength, are not in yet.
+
+## In an FDFD job
+
+An `fdfd` job's `[task.interpolate]` (a `tolerance`, at least 1e-13, and `max_solves`, 200 by
+default) makes its `[task.sweep]` over wavelength an interpolation: every entry of the ports' S
+on one set of wavelengths by `SweepSet::run`, the grid and the ports the same at every
+wavelength (the plane's slab indices taken at each solve's own), and the run records S at each
+of the sweep's points from the interpolant, the ports' effective indices from a set-valued fit
+through the same solves, and one solve error: the worst entry's estimate, with the wavelengths
+solved. The field is recorded at `field_um` (the first point by default) from one solve, as a run
+without a sweep records it; the sweep's per-point fields are left out, since it doesn't solve at
+its points. `job/fdfd-interpolate-step` checks it on a 500 nm strip of the 220 nm SOI stack
+widening to 800 nm, 2D on 40 nm cells, its 2 × 2 S from 1.5 to 1.6 µm asked for 1e-6: 28 solves
+in place of 201, the estimate 7.9e-7 and the true error against the job solved at all 201 points
+1.9e-8 (a ratio of 0.025); the interpolant's reciprocity 6.7e-14.

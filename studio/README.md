@@ -993,6 +993,19 @@ PHOTONOXIDE_SETUP_PAYLOAD=target/dist/photonoxide.exe cargo build -p photonoxide
 It writes `target/dist/photonoxide-setup.exe`. Without `PHOTONOXIDE_SETUP_PAYLOAD` it builds
 without the program, as the lints do, and says so when run.
 
+On Windows, a test runs that real setup silently (`/S /D=<folder>`) into a temporary folder,
+then the installed program's quiet uninstall, and checks that nothing is left. With
+`PHOTONOXIDE_SETUP_TEST_ROOT` set, the program puts the shortcuts, the settings' folders and
+the Apps & Features entry under that folder and registry keys of the tests' own, so the test
+leaves an installed studio alone. It needs a built program, so it is ignored: CI's builds of
+the setup carry no payload, and on Linux and macOS the test isn't compiled at all. Run it by
+hand on Windows:
+
+```sh
+pnpm tauri build --no-bundle      # or any build of the program, target/debug/photonoxide.exe too
+PHOTONOXIDE_SETUP_PAYLOAD=target/release/photonoxide.exe cargo test -p photonoxide-setup --release --test real_setup -- --ignored
+```
+
 Build with the Tauri CLI, never with plain `cargo build`. Plain cargo leaves out the bundled
 window, so the window points at a dev server that isn't running. `pnpm tauri dev` serves the
 window from Vite and reloads it as you edit.

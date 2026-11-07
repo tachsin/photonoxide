@@ -7,6 +7,11 @@
 //! effective index method, so the results are 2D estimates, not a device's 3D performance. The
 //! slab's TE mode has E in the plane, so `polarization = "te"` is H along z in the 2D problem,
 //! and `"tm"` is E along z.
+//!
+//! A `[task.sweep]` over wavelength solves at each of its points; with `[task.interpolate]` it
+//! solves only where an interpolant of S needs it, every entry on one set of wavelengths
+//! ([`crate::sweep::SweepSet`]), and records S at its points from the interpolant with the
+//! worst entry's estimated error (docs/methods/sweep.md, In an FDFD job).
 
 use num_complex::Complex64 as c64;
 use schemars::{JsonSchema, SchemaGenerator};
@@ -49,6 +54,18 @@ struct WavelengthSweep {
     points: usize,
 }
 
+/// A `[task.interpolate]`: S over `[task.sweep]`'s wavelengths from as few solves as a
+/// tolerance needs, the grid and the ports the same at every wavelength.
+#[derive(Clone, Copy, Debug, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+struct InterpolateSpec {
+    /// The tolerance on every entry of S, relative to the largest |S_qp| solved (they are at
+    /// most 1: about an absolute one); at least 1e-13.
+    tolerance: f64,
+    /// The most solves: 200 by default, at least 5.
+    max_solves: Option<usize>,
+}
+
 #[derive(Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub(super) struct FdfdTask {
@@ -87,6 +104,9 @@ pub(super) struct FdfdTask {
     #[serde(default)]
     port: Vec<PortSpec>,
     sweep: Option<WavelengthSweep>,
+    /// S over the sweep's wavelengths interpolated from as few solves as a tolerance needs, its
+    /// error stated (every entry on one set of wavelengths: [`crate::sweep::SweepSet`]).
+    interpolate: Option<InterpolateSpec>,
     /// What the run writes beside its record: the tables, and the field at `field_um` as an
     /// npz when asked ([`crate::export`]).
     #[allow(dead_code)] // read by super::export_of, checked by serde
@@ -146,6 +166,25 @@ impl FdfdTask {
             check_sweep(sw.from, sw.to, sw.points)?;
             Wavelength::um(sw.from)?;
             Wavelength::um(sw.to)?;
+        }
+        if let Some(i) = &self.interpolate {
+            if self.sweep.is_none() {
+                return Err(task_error(
+                    "[task.interpolate] interpolates S over [task.sweep]'s wavelengths: give a \
+                     [task.sweep]",
+                ));
+            }
+            if !(i.tolerance.is_finite() && i.tolerance >= crate::sweep::DEFAULT_TOLERANCE) {
+                return Err(task_error(format!(
+                    "[task.interpolate] tolerance must be at least 1e-13, got {}",
+                    i.tolerance
+                )));
+            }
+            if i.max_solves.is_some_and(|n| n < 5) {
+                return Err(task_error(
+                    "[task.interpolate] max_solves must be at least 5, the solves it starts from",
+                ));
+            }
         }
         Ok(())
     }
@@ -870,7 +909,11 @@ pub(super) fn run(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
                 to: sw.to,
                 points: sw.points,
             })?;
-            Some(sweep_block(inner.nx, inner.ny, sw.points))
+            // an interpolated sweep solves where its interpolant needs, not at its points: the
+            // field is recorded at one wavelength only, as a run without a sweep records it
+            task.interpolate
+                .is_none()
+                .then(|| sweep_block(inner.nx, inner.ny, sw.points))
         }
         None => None,
     };
@@ -979,6 +1022,17 @@ pub(super) fn run(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
     if wavelengths.is_empty() || stop.reason().is_some() {
         return Ok(());
     }
+    if let (Some(spec), Some(sw)) = (task.interpolate, &task.sweep) {
+        // the field's wavelength solved as any point is, its S left to the interpolant
+        let (events, first) = solve_point(field_step, None)?;
+        for e in events
+            .iter()
+            .filter(|e| !matches!(e, Event::SParameters { .. }))
+        {
+            run.record(e)?;
+        }
+        return interpolated(&device, run, stop, spec, sw, &names, &first);
+    }
     let (events, first) = solve_point(0, None)?;
     for e in &events {
         run.record(e)?;
@@ -989,6 +1043,78 @@ pub(super) fn run(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
     super::sweep_points(run, stop, 1..wavelengths.len(), batch, |k| {
         Ok(Some(solve_point(k, Some(&first))?.0))
     })
+}
+
+/// S over `sweep`'s wavelengths from as few solves as `spec`'s tolerance needs: every entry of S
+/// on one set of wavelengths ([`SweepSet::run`], set-valued AAA with one denominator, the error
+/// estimated from two interleaved halves), each solve the same grid and ports as `first`'s at
+/// another wavelength; each sweep point's S-parameters from the interpolant, the ports' effective
+/// indices from a fit through the same solves, and the worst entry's estimated error with the
+/// wavelengths solved.
+fn interpolated(
+    device: &Device,
+    run: &mut Run,
+    stop: &Stop,
+    spec: InterpolateSpec,
+    sweep: &WavelengthSweep,
+    names: &[String],
+    first: &Solver2d,
+) -> Result<()> {
+    use crate::sweep::{DEFAULT_TOLERANCE, Options, RationalSet, SweepSet};
+    let mut indices: Vec<(f64, Vec<c64>)> = Vec::new();
+    let options = Options::new(spec.tolerance).with_max_samples(spec.max_solves.unwrap_or(200));
+    let set = SweepSet::run(
+        |l| {
+            let (_, ports, sm) = device.solve(Wavelength::um(l)?, Some(first))?;
+            indices.push((l, ports.iter().map(|p| p.mode.effective_index()).collect()));
+            Ok(sm.iter().flatten().copied().collect())
+        },
+        sweep.from,
+        sweep.to,
+        &options,
+    )?;
+    indices.sort_by(|a, b| a.0.total_cmp(&b.0));
+    let x: Vec<f64> = indices.iter().map(|s| s.0).collect();
+    let f: Vec<Vec<c64>> = indices.into_iter().map(|s| s.1).collect();
+    let indices = RationalSet::aaa(&x, &f, DEFAULT_TOLERANCE)?;
+    let n = names.len();
+    for k in 0..sweep.points {
+        if stop.reason().is_some() {
+            return Ok(());
+        }
+        let wl = sweep.from + (sweep.to - sweep.from) * k as f64 / (sweep.points - 1) as f64;
+        let s = set.eval(wl);
+        run.record(&Event::SParameters {
+            wavelength_um: wl,
+            ports: names.to_vec(),
+            effective_indices: indices.eval(wl).iter().map(|v| v.re).collect(),
+            s: s.chunks(n)
+                .map(|row| row.iter().map(|v| [v.re, v.im]).collect())
+                .collect(),
+        })?;
+    }
+    let solved: Vec<String> = set.samples.iter().map(|s| format!("{:.5}", s.0)).collect();
+    run.record(&Event::SolveError {
+        point: None,
+        value: device.task.wavelength_um,
+        measure: format!(
+            "S over {} to {} um interpolated from {} solves (set-valued AAA, one set of \
+             wavelengths for every entry), {} its tolerance {:e}: the estimated error of its \
+             worst entry; solved at {} um",
+            sweep.from,
+            sweep.to,
+            set.calls(),
+            if set.converged {
+                "within"
+            } else {
+                "not within"
+            },
+            spec.tolerance,
+            solved.join(", ")
+        ),
+        error: set.error,
+    })?;
+    Ok(())
 }
 
 /// The mode of `spec`'s guide at the column nearest the window's end on the port's side, two

@@ -910,6 +910,19 @@ impl Section {
         coefficient: impl Fn(&str) -> Option<Tensor>,
         what: &str,
     ) -> Result<Vec<[f64; 2]>> {
+        self.coefficients_scaled(grid, coefficient, |_, _| 1.0, what)
+    }
+
+    /// As [`Section::coefficients`], each medium's coefficient in cell `c` (j · nx + i) times
+    /// `scale(medium, c)` before the cell's media are averaged: a conductivity that depends on
+    /// the cell's temperature.
+    pub(crate) fn coefficients_scaled(
+        &self,
+        grid: &Grid,
+        coefficient: impl Fn(&str) -> Option<Tensor>,
+        scale: impl Fn(&str, usize) -> f64,
+        what: &str,
+    ) -> Result<Vec<[f64; 2]>> {
         let mut table = Vec::with_capacity(self.media.len());
         for m in &self.media {
             table.push(match coefficient(m) {
@@ -933,6 +946,15 @@ impl Section {
                             self.media.get(k).map_or("?", String::as_str)
                         ))
                     })?;
+                    let medium = &self.media[k];
+                    let s = scale(medium, j * nx + i);
+                    let t = if s == 1.0 {
+                        t
+                    } else {
+                        let scaled = Tensor::diagonal(t.xx * s, t.yy * s);
+                        scaled.check(medium)?;
+                        scaled
+                    };
                     values.push((t, f));
                 }
                 out.push(average(&values, shares.normal));

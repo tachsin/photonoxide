@@ -13,5 +13,10 @@ publish = false
 photonoxide = { path = ".." }
 num-complex = "0.4"
 
-# its own workspace: not a member of photonoxide's
+# its own workspace: not a member of photonoxide's. So it has its own lock and its own target,
+# and builds photonoxide once more there, only when run by hand (CI never builds it). A shared
+# target would reuse little: the library here has none of its tests' dependencies (which widen
+# some shared crates' features), the dev profile here is Cargo's own (the root's optimizes
+# photonoxide), and its lock resolves on its own; a member of the root's workspace instead would
+# put it in every workspace-wide command and in release-plz's view.
 [workspace]

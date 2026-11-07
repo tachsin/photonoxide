@@ -31,6 +31,8 @@ validation:
   - static/two-layer-flux
   - static/heated-slab-order
   - static/heated-slab
+  - static/nonlinear-slab-order
+  - static/nonlinear-slab
   - static/parallel-plate
   - static/coaxial
   - static/coaxial-order
@@ -159,6 +161,32 @@ is a 2D one of up to a few hundred thousand cells, which the direct solver facto
 or so; an iterative solve isn't needed at these sizes, and #351's multigrid is on Shin and Fan's
 operator and its own grids, not this one.
 
+## A conductivity that depends on temperature
+
+A medium's conductivity can follow its temperature linearly (#613's Elmer pair E5, #536):
+`Heat::conductivity_slope(medium, b, T_ref)` makes it $k(T) = k\,(1 + b\,(T - T_\mathrm{ref}))$,
+and `Heat::solve_nonlinear(tolerance, iterations)` solves the steady problem by Picard's
+iteration: the first solve has every conductivity at its reference, each next one has each
+cell's media at that cell's last temperature (averaged across an interface as above), until no
+cell changes by more than the tolerance times the largest $|T|$. Each step is one linear solve of
+the scheme above, so the result keeps its order. The solves of fixed conductivity
+(`Heat::solve`, the transients and the response) refuse a problem with a slope rather than
+leave it out.
+
+The check is a closed form: a slab generating $q$ with both faces at 0 and
+$k = k_0(1 + bT)$. Kirchhoff's transform $U = \int_0^T k\,dT' = k_0(T + bT^2/2)$ turns the
+equation into $-U'' = q$, so $U = q y (L - y)/2$ and
+
+$$T(y) = \frac{\sqrt{1 + 2bU(y)/k_0} - 1}{b}.$$
+
+With the heated slab's 2 µm of oxide, $k_0$ = 1.4 W/(m·K), $b = -2\times10^{-3}$ per K and
+560 W/m over it, the peak is 113 K, where the conductivity is 23 % below $k_0$ and the
+temperature 13 % above a fixed $k_0$'s. Picard's iteration reaches $10^{-12}$ in 11 solves; the
+largest error relative to the peak is 1.08e-3 on 40 rows and 2.70e-4 on 80, order 2.00
+(`static/nonlinear-slab`, `static/nonlinear-slab-order`). A slope that drives a cell's
+conductivity to zero or below is an error, as is an iteration that hasn't settled; a Newton
+step, and $k(T)$ in time, are not in yet.
+
 ## In time
 
 Heat also has a transient (#413): $\rho c_p\,\partial T/\partial t = \nabla\cdot(k\nabla T) + Q$.
@@ -262,6 +290,7 @@ formula, the window's ±200 µm box included: ±100 µm gives 4.3e-4, ±400 µm 
 |---|---|---|---|
 | `static/two-layer-temperature`, `static/two-layer-flux` | oxide under silicon between two temperatures: $T$ and the flux against the series resistance | graded, 10 to 250 nm | 4.4e-16 K, 6.3e-14 |
 | `static/heated-slab`, `static/heated-slab-order` | a slab generating heat, both faces at 0 K, against its parabola | 20, 40, 80 rows | order 2.00 |
+| `static/nonlinear-slab`, `static/nonlinear-slab-order` | the same slab with $k = k_0(1 + bT)$ by Picard's iteration, against Kirchhoff's exact profile | 40, 80 rows | 2.70e-4 of the peak at 80 rows, order 2.00 |
 | `static/parallel-plate` | two dielectrics between plates: $\varepsilon_0 W / (d_1/\varepsilon_1 + d_2/\varepsilon_2)$ | graded, 5 to 50 nm | 2.5e-14 |
 | `static/coaxial`, `static/coaxial-order` | $2\pi\varepsilon_0\varepsilon / \ln(b/a)$, curved conductors | 96 to 384 across | 1.5e-5 at 6.25 nm, order 2.03 |
 | `static/line-source-images`, `static/line-source-order` | a line source above an isothermal plane, by images | 10 to 40 nm | 1.4e-5 K at 10 nm, order 1.90 |

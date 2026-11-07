@@ -141,6 +141,39 @@ pub(crate) fn heated_slab(cells: usize) -> f64 {
         .fold(0.0, f64::max)
 }
 
+/// The heated slab of [`heated_slab`] with a conductivity that falls with temperature,
+/// k = k₀ (1 + b T), k₀ = 1.4 W/(m·K), b = −2 × 10⁻³ per K, and 560 W/m over the slab (a peak
+/// near 113 K, where k is 23 % below k₀), solved by Picard's iteration to 10⁻¹² on `cells`
+/// rows. Kirchhoff's transform U = k₀ (T + b T²/2) obeys −U″ = q with U = 0 at both faces, so
+/// U = q y (L − y)/2 and T = (√(1 + 2bU/k₀) − 1)/b exactly. Returns the largest error at the
+/// cells' centres relative to the exact peak, and the iterations taken.
+pub(crate) fn nonlinear_slab(cells: usize) -> (f64, usize) {
+    let (k0, b, length, width, power) = (1.4, -2e-3, 2.0, 1.0, 560.0);
+    let grid = Grid::new(
+        Axis::uniform(0.0, width, 1).expect("an axis"),
+        Axis::uniform(0.0, length, cells).expect("an axis"),
+    );
+    let mut heat = Heat::new(Section::new("oxide"), grid);
+    heat.conductivity("oxide", Tensor::isotropic(k0))
+        .conductivity_slope("oxide", b, 0.0)
+        .boundary(Side::Bottom, Boundary::Fixed(0.0))
+        .boundary(Side::Top, Boundary::Fixed(0.0))
+        .heater(rect([0.0, width], [0.0, length]), power);
+    let solved = heat.solve_nonlinear(1e-12, 200).expect("a solve");
+    let q = power / (width * length * 1e-12);
+    let exact = |y: f64| {
+        let u = q * y * (length * 1e-6 - y) / 2.0;
+        ((1.0 + 2.0 * b * u / k0).sqrt() - 1.0) / b
+    };
+    let peak = exact(0.5 * length * 1e-6);
+    let t = &solved.field;
+    let g = t.grid();
+    let e = (0..cells)
+        .map(|j| (t.value(0, j) - exact(g.y().centre(j) * 1e-6)).abs())
+        .fold(0.0, f64::max);
+    (e / peak, solved.iterations)
+}
+
 /// Oxide's heat capacity per volume, J/(m³·K): Jacques et al.'s Table 3 (doi:10.1364/OE.27.010456),
 /// 2203 kg/m³ and 709 J/(kg·K) at 300 K.
 const OXIDE_RHO_CP: f64 = 2203.0 * 709.0;
@@ -766,6 +799,37 @@ pub(crate) fn cases() -> Vec<Case> {
             },
         },
         Case {
+            id: "static/nonlinear-slab-order",
+            title: r"Static solver, heat with $k(T)$: the 2 µm oxide slab with $k = k_0(1 + bT)$, $k_0$ = 1.4 W/(m·K), $b = -2\times10^{-3}$ /K, 560 W/m over it, both faces at 0 K (a peak of 113 K, k 23 % down), by Picard's iteration to $10^{-12}$; the order of the largest error against Kirchhoff's exact profile from 40 to 80 rows (shown)",
+            tier: Tier::Analytic,
+            source: r"Kirchhoff's transform $U = k_0(T + bT^2/2)$ turns $-\nabla\cdot(k\nabla T) = q$ into $-U'' = q$, so $U = qy(L-y)/2$ and $T = (\sqrt{1 + 2bU/k_0} - 1)/b$, exactly; cell-centred finite volumes converge at second order",
+            run: || {
+                let (e1, e2) = (nonlinear_slab(40).0, nonlinear_slab(80).0);
+                let p = order(e1, e2, 2.0);
+                Outcome {
+                    measured: p,
+                    expected: 2.0,
+                    tolerance: 0.1,
+                    error: (p - 2.0).abs(),
+                }
+            },
+        },
+        Case {
+            id: "static/nonlinear-slab",
+            title: r"Static solver, heat with $k(T)$: the same slab on 80 rows of 25 nm; the largest error against Kirchhoff's exact profile, relative to its peak (shown)",
+            tier: Tier::Analytic,
+            source: r"$T = (\sqrt{1 + 2bU/k_0} - 1)/b$ with $U = qy(L-y)/2$",
+            run: || {
+                let e = nonlinear_slab(80).0;
+                Outcome {
+                    measured: e,
+                    expected: 0.0,
+                    tolerance: NONLINEAR_SLAB_TOLERANCE,
+                    error: e,
+                }
+            },
+        },
+        Case {
             id: "static/transient-slab",
             title: r"Static solver, heat in time: the same 2 µm oxide slab ($\rho c_p$ = 1.56 MJ/(m³·K), Jacques et al.'s Table 3) turned on from 0 K, on 80 rows of 25 nm, 400 Crank–Nicolson steps of 1.25 ns to 0.5 µs (its slowest time $d^2/\pi^2\alpha$ is 0.45 µs); the mean temperature at every step against the series solution, relative to its steady value (largest shown)",
             tier: Tier::Analytic,
@@ -1146,6 +1210,10 @@ pub(crate) fn cases() -> Vec<Case> {
     ]
 }
 
+/// static/nonlinear-slab's tolerance: the 40-row grid's error (1.08e-3 of the peak) carried to
+/// 80 rows at the lowest order static/nonlinear-slab-order admits, 1.9: 2.9e-4, rounded up.
+const NONLINEAR_SLAB_TOLERANCE: f64 = 3e-4;
+
 /// The cases' rules (#544), by id.
 pub(crate) fn rules() -> Vec<(&'static str, Rule)> {
     use crate::validation::{Basis::*, Measure::*, Numerical::*};
@@ -1190,6 +1258,26 @@ pub(crate) fn rules() -> Vec<(&'static str, Rule)> {
                 2e-4,
                 Measured,
                 "the 25 nm grid's second-order error, its order static/heated-slab-order's",
+            ),
+        ),
+        (
+            "static/nonlinear-slab-order",
+            Rule::new(
+                Absolute,
+                Order,
+                0.1,
+                Measured,
+                "second order; Kirchhoff's profile is smooth but not a polynomial, so within 0.1",
+            ),
+        ),
+        (
+            "static/nonlinear-slab",
+            Rule::new(
+                Relative,
+                Discretisation,
+                NONLINEAR_SLAB_TOLERANCE,
+                Measured,
+                "the 40-row grid's error carried to 80 rows at static/nonlinear-slab-order's lowest order, 1.9; Picard's iteration stops at 1e-12, far below it",
             ),
         ),
         (

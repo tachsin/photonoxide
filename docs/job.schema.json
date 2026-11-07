@@ -4251,7 +4251,7 @@
           "type": "number"
         },
         "interpolate": {
-          "$ref": "#/$defs/InterpolateSpec",
+          "$ref": "#/$defs/InterpolateSpec2",
           "description": "S over the sweep's wavelengths interpolated from a few solves, with its error stated."
         },
         "kind": {
@@ -4759,6 +4759,10 @@
         "field_um": {
           "description": "The field is recorded at the swept wavelength nearest this (µm): the first by default.",
           "type": "number"
+        },
+        "interpolate": {
+          "$ref": "#/$defs/InterpolateSpec",
+          "description": "S over the sweep's wavelengths interpolated from as few solves as a tolerance needs, its error stated (every entry on one set of wavelengths: `crate::sweep::SweepSet`)."
         },
         "kind": {
           "type": "string"
@@ -5598,6 +5602,25 @@
       "type": "object"
     },
     "InterpolateSpec": {
+      "additionalProperties": false,
+      "description": "A `[task.interpolate]`: S over `[task.sweep]`'s wavelengths from as few solves as a tolerance needs, the grid and the ports the same at every wavelength.",
+      "properties": {
+        "max_solves": {
+          "description": "The most solves: 200 by default, at least 5.",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "tolerance": {
+          "description": "The tolerance on every entry of S, relative to the largest |S_qp| solved (they are at most 1: about an absolute one); at least 1e-13.",
+          "type": "number"
+        }
+      },
+      "required": [
+        "tolerance"
+      ],
+      "type": "object"
+    },
+    "InterpolateSpec2": {
       "additionalProperties": false,
       "description": "A `[task.interpolate]`: S over `[task.sweep]`'s wavelengths from as few solves as a tolerance needs (`crate::eme::Spectrum`), the discretisation settled at `wavelength_um`.",
       "properties": {
@@ -6712,6 +6735,10 @@
           "$ref": "#/$defs/PumpSpec",
           "description": "The pump: SHG's fundamental, SFG's first input, the others' pump."
         },
+        "ring": {
+          "$ref": "#/$defs/RingSpec2",
+          "description": "The guide closed into an all-pass ring resonant at every wave, its circumference `length_mm`: SHG of type I and FWM only (`crate::nonlinear::cavity`)."
+        },
         "shg_type": {
           "description": "SHG's type: `\"i\"` (the default: both fundamental photons in one wave, one index) or `\"ii\"` (in two waves, the first and second fundamental, each its own index, axis or mode family; the pump's power split equally between them, a fundamental polarized at 45° to both). Type II's waves are the two fundamentals and the harmonic.",
           "type": "string"
@@ -7119,6 +7146,20 @@
         "segments"
       ],
       "type": "object"
+    },
+    "PerWave": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "items": {
+            "type": "number"
+          },
+          "type": "array"
+        }
+      ],
+      "description": "One value for every wave, or one per wave."
     },
     "PeriodSpec": {
       "additionalProperties": false,
@@ -8375,6 +8416,20 @@
       },
       "required": [
         "layer"
+      ],
+      "type": "object"
+    },
+    "RingSpec2": {
+      "additionalProperties": false,
+      "description": "`[task.ring]`: an all-pass ring of the task's guide, every wave on its resonance.",
+      "properties": {
+        "coupling": {
+          "$ref": "#/$defs/PerWave",
+          "description": "Each wave's power coupling k² to the bus, above 0 and at most 1: one for every wave, or one per wave in the process's order."
+        }
+      },
+      "required": [
+        "coupling"
       ],
       "type": "object"
     },

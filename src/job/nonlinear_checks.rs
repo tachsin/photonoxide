@@ -402,6 +402,83 @@ fn fwm_depleted() -> Outcome {
 
 const FWM_TOLERANCE: f64 = 4e-12;
 
+/// The ring cases' power coupling of every wave.
+const RING_COUPLING: f64 = 0.1;
+
+/// SHG of 1.55 µm in a lossless ring of poled congruent LiNbO₃ 1 mm round (the grating designed,
+/// η = 10 %/(W·cm²)), 1 mW of pump, every wave coupled by [`RING_COUPLING`]; or FWM in a lossless
+/// ring of one index 2.0 (Δk = 0), γ = 100 /(W·m), 1 mm round, 10 mW of pump at 1.55 µm, the
+/// signal at 1.56 µm.
+pub(super) fn ring_job(process: &str) -> String {
+    let ring = format!("[task.ring]\ncoupling = {RING_COUPLING:?}\n");
+    if process == "shg" {
+        format!(
+            "name = \"ring-shg\"\n[task]\nkind = \"nonlinear\"\nprocess = \"shg\"\nlength_mm = 1.0\n\
+             [task.waveguide]\nefficiency_percent_per_w_cm2 = 10.0\n\
+             [task.waveguide.crystal]\nid = \"linbo3\"\nmodel = \"edwards-lawrence-1984\"\n\
+             axes = [\"extraordinary\"]\n[task.poling]\n[task.pump]\nwavelength_um = 1.55\n\
+             power_mw = 1.0\n{ring}"
+        )
+    } else {
+        format!(
+            "name = \"ring-fwm\"\n[task]\nkind = \"nonlinear\"\nprocess = \"fwm\"\nlength_mm = 1.0\n\
+             [task.waveguide]\ngamma_per_w_m = 100.0\n\
+             [[task.waveguide.n_eff]]\nwavelengths_um = [1.0, 2.0]\nn_eff = [2.0, 2.0]\n\
+             [task.pump]\nwavelength_um = 1.55\npower_mw = 10.0\n\
+             [task.signal]\nwavelength_um = 1.56\n{ring}"
+        )
+    }
+}
+
+/// A ring job's (resonant, single pass) against Helt et al.'s lossless closed forms on
+/// resonance: |F|² = k²/(1 − r)², r = √(1 − k²); SHG's P₂ω = |F₂ω|²|F_ω|⁴ ηP²L² sinc²(ΔkL/2) and
+/// FWM's P_i/P_s = |F_i|²|F_s|²|F_p|⁴ (γP_pL)² sinc²(ΔkL/2), one pass the same with every
+/// |F|² = 1. Returns the job's resonant value, the closed form's, and the largest relative gap
+/// of the resonant value, the single pass and every build-up.
+pub(super) fn ring_against_closed_form(process: &str) -> (f64, f64, f64) {
+    let s = setup_of(&ring_job(process));
+    let ring = s
+        .ring
+        .as_ref()
+        .unwrap_or_else(|| panic!("no ring: {:?}", s.notes));
+    let k2 = RING_COUPLING;
+    let f2 = k2 / (1.0 - (1.0 - k2).sqrt()).powi(2);
+    let length_um = s.length_mm * 1000.0;
+    let (single, resonant) = if process == "shg" {
+        // η in 1/(W·µm²), P in W, L in µm; mW out
+        let eta = s.efficiency_percent_per_w_cm2.expect("an efficiency") / 100.0 * 1e-8;
+        let phase = 0.5 * s.residual_per_um * length_um;
+        let single =
+            eta * 1e-6 * length_um * length_um * crate::nonlinear::phase::sinc2(phase) * 1e3;
+        (single, f2.powi(3) * single)
+    } else {
+        let gamma = s.gamma_per_w_m.expect("a gamma");
+        let phase = 0.5 * s.mismatch_per_um * length_um;
+        let single =
+            (gamma * 10e-3 * length_um * 1e-6).powi(2) * crate::nonlinear::phase::sinc2(phase);
+        (single, f2.powi(4) * single)
+    };
+    let gap = |a: f64, b: f64| (a / b - 1.0).abs();
+    let worst = ring.build_ups.iter().map(|&b| gap(b, f2)).fold(
+        gap(ring.resonant, resonant).max(gap(ring.single_pass, single)),
+        f64::max,
+    );
+    (ring.resonant, resonant, worst)
+}
+
+fn ring_case(process: &'static str) -> Outcome {
+    let (measured, expected, worst) = ring_against_closed_form(process);
+    Outcome {
+        measured,
+        expected,
+        tolerance: RING_TOLERANCE * expected,
+        error: worst * expected,
+    }
+}
+
+/// The ring cases' tolerance, relative.
+pub(super) const RING_TOLERANCE: f64 = 1e-12;
+
 /// The cases, in report order.
 pub(crate) fn cases() -> Vec<Case> {
     vec![
@@ -439,6 +516,20 @@ pub(crate) fn cases() -> Vec<Case> {
             tier: Tier::Analytic,
             source: r"with $A_1 = A_2 = A/\sqrt2$ and one field, the sum's coupling is twice the harmonic's ($\omega_3 = 2\omega$): $-i\kappa_\mathrm{sum}A_1A_2 = -i\kappa A^2$, and each fundamental's equation is half the type-I one's, so the three-wave equations are the two-wave ones: one process reached two ways",
             run: type_ii_degenerate,
+        },
+        Case {
+            id: "job/nonlinear-ring-shg",
+            title: r"SHG of 1.55 µm through a nonlinear job's `[task.ring]`: a lossless all-pass ring of poled congruent LiNbO₃ 1 mm round (the grating designed, $\eta$ = 10 %/(W·cm²)), 1 mW of pump, every wave's power coupling $k^2$ = 0.1 and every wave on resonance; the harmonic out, one pass's and each wave's build-up against the closed forms, the largest relative gap (the ring's harmonic in mW shown)",
+            tier: Tier::Analytic,
+            source: r"L. G. Helt, Z. Yang, M. Liscidini, J. E. Sipe, Opt. Lett. 35, 3006 (2010), doi:10.1364/OL.35.003006: the field enhancement $F = ik/(1 - r)$ on resonance without loss, $r = \sqrt{1 - k^2}$, and $P_{2\omega} = \lvert F_{2\omega} \rvert^2 \lvert F_\omega \rvert^4 \eta P^2L^2 \mathrm{sinc}^2(\Delta kL/2)$, one pass with $\lvert F \rvert^2 = 1$",
+            run: || ring_case("shg"),
+        },
+        Case {
+            id: "job/nonlinear-ring-fwm",
+            title: r"Four-wave mixing through a nonlinear job's `[task.ring]`: a lossless ring of one index 2.0 ($\Delta k = 0$), $\gamma$ = 100 /(W·m), 1 mm round, 10 mW of pump at 1.55 µm and the signal at 1.56 µm, every wave's $k^2$ = 0.1 and on resonance; the idler's conversion out, one pass's and each wave's build-up against the closed forms, the largest relative gap (the ring's $P_i/P_s$ shown)",
+            tier: Tier::Analytic,
+            source: r"Helt et al. 2010's Eq. (5): $P_i/P_s = (\gamma P_pL)^2 \lvert F_s \rvert^2 \lvert F_i \rvert^2 \lvert F_p \rvert^4$ on resonance without loss, $\lvert F \rvert^2 = k^2/(1 - r)^2$, one pass with $\lvert F \rvert^2 = 1$",
+            run: || ring_case("fwm"),
         },
     ]
 }
@@ -499,5 +590,15 @@ mod tests {
             "lossless job: {:.2e}",
             gap(lossless, fwm_equal_loss(0.0, 400_000))
         );
+    }
+
+    /// The ring cases' gaps, as their rules quote them.
+    #[test]
+    fn the_ring_jobs_meet_helts_closed_forms() {
+        for p in ["shg", "fwm"] {
+            let (ours, exact, worst) = ring_against_closed_form(p);
+            eprintln!("ring {p}: {ours:e} against {exact:e}, gap {worst:.2e}");
+            assert!(worst < RING_TOLERANCE, "{p}: {worst:e}");
+        }
     }
 }
