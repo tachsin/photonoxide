@@ -658,6 +658,11 @@ observed order of 1.4 (the ridge's sloped walls are staircased; the period's is 
 Richardson limit of 1.5594 µm, so the grids' own error is 1.1e-3 µm on 10 nm cells, below the
 case's tolerance of 0.038 µm by a factor of 35. The case runs 20 and 10 nm cells and shows their
 difference, 1.7e-3 µm, as its own error; the 10 nm value lies below the converged one, not above.
+Its 5 nm interpolants are left out on purpose (decided 2026-11-07): they would add about five
+minutes to every run of the case, and with them the own error would fall from 1.7e-3 to the true
+1.1e-3 µm, a bound tighter by 1.5 on a case whose tolerance is 22 times the looser bound. The
+tolerance is the period's half digit, not the grids, so the extra minutes would buy nothing the
+case checks; the 5 nm row above is the grid study's, run by hand.
 The interpolants' tolerance doesn't enter: on 20 nm cells, tolerances of 1e-6, 1e-8, 1e-10 and
 1e-12 in n_eff (9 to 17 Chebyshev points) all give 1.556617 µm, and the whole window without the
 mirror wall 1.556618 (`guide_tests::zhao_matched_numbers`). The guide's
