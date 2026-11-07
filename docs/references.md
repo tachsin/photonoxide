@@ -22,7 +22,7 @@ S. Aaronson, A. Arkhipov, "The Computational Complexity of Linear Optics", Theor
 
 J. Abate, P. P. Valkó, "Multi‐precision Laplace transform inversion", Numerical Meth Engineering 60, 979 (2004). [doi:10.1002/nme.995](https://doi.org/10.1002/nme.995)
 
-- Methods pages: [devices.md:42](methods/devices.md?plain=1#L42), [979](methods/devices.md?plain=1#L979)
+- Methods pages: [devices.md:42](methods/devices.md?plain=1#L42), [995](methods/devices.md?plain=1#L995)
 - Validation cases: [`device/thermo-analytic-time-in-guide`](validation.md?plain=1#L653)
 - Code: [src/cases/device/thermo_checks.rs:489](../src/cases/device/thermo_checks.rs#L489), [src/device/thermo.rs:785](../src/device/thermo.rs#L785), [src/device/thermo_closed.rs:522](../src/device/thermo_closed.rs#L522)
 
@@ -187,7 +187,7 @@ V. Anant, A. J. Kerman, E. A. Dauler, J. K. W. Yang, K. M. Rosfjord, K. K. Bergg
 
 E. Anemogiannis, E. Glytsis, T. Gaylord, "Determination of guided and leaky modes in lossless and lossy planar multilayer optical waveguides: reflection pole method and wavevector density method", J. Lightwave Technol. 17, 929 (1999). [doi:10.1109/50.762914](https://doi.org/10.1109/50.762914)
 
-- Academy lessons: [leaky-and-bent-guides.md:83](../academy/leaky-and-bent-guides.md?plain=1#L83), [399](../academy/leaky-and-bent-guides.md?plain=1#L399), [561](../academy/leaky-and-bent-guides.md?plain=1#L561)
+- Academy lessons: [leaky-and-bent-guides.md:83](../academy/leaky-and-bent-guides.md?plain=1#L83), [400](../academy/leaky-and-bent-guides.md?plain=1#L400), [562](../academy/leaky-and-bent-guides.md?plain=1#L562)
 
 #### Anzt et al. 2015
 
@@ -419,7 +419,7 @@ P. Bienstman, R. Baets, "Optical modelling of photonic crystals and VCSELs using
 P. Bienstman, S. Selleri, L. Rosa, H. P. Uranus, W. C. L. Hopman, R. Costa, A. Melloni, L. C. Andreani, J. P. Hugonin, P. Lalanne, et al., "Modelling leaky photonic wires: A mode solver comparison", Opt Quant Electron 38, 731 (2007). [doi:10.1007/s11082-006-9025-9](https://doi.org/10.1007/s11082-006-9025-9)
 
 - Methods pages: [vector.md:14](methods/vector.md?plain=1#L14)
-- Academy lessons: [leaky-and-bent-guides.md:101](../academy/leaky-and-bent-guides.md?plain=1#L101), [566](../academy/leaky-and-bent-guides.md?plain=1#L566), [strip-waveguide.md:112](../academy/strip-waveguide.md?plain=1#L112), [562](../academy/strip-waveguide.md?plain=1#L562), [691](../academy/strip-waveguide.md?plain=1#L691)
+- Academy lessons: [leaky-and-bent-guides.md:101](../academy/leaky-and-bent-guides.md?plain=1#L101), [567](../academy/leaky-and-bent-guides.md?plain=1#L567), [strip-waveguide.md:112](../academy/strip-waveguide.md?plain=1#L112), [562](../academy/strip-waveguide.md?plain=1#L562), [691](../academy/strip-waveguide.md?plain=1#L691)
 - Validation cases: [`mode/leaky-wire-bienstman`](validation.md?plain=1#L125), [`mode/leaky-wire-bienstman-loss`](validation.md?plain=1#L126), [`job/leaky-wire-bienstman`](validation.md?plain=1#L481), [`job/leaky-wire-bienstman-loss`](validation.md?plain=1#L482)
 - Examples: [README.md:41](../examples/README.md?plain=1#L41), [leaky_wire_benchmark.rs:5](../examples/leaky_wire_benchmark.rs#L5)
 - Code: [src/job/leaky_checks.rs:57](../src/job/leaky_checks.rs#L57), [64](../src/job/leaky_checks.rs#L64), [src/validation.rs:903](../src/validation.rs#L903), [910](../src/validation.rs#L910)
@@ -462,7 +462,7 @@ W. Bogaerts, L. Chrostowski, "Silicon Photonics Circuit Design: Methods, Tools a
 
 W. Bogaerts, S. K. Selvaraja, "Compact Single-Mode Silicon Hybrid Rib/Strip Waveguide With Adiabatic Bends", IEEE Photonics J. 3, 422 (2011). [doi:10.1109/JPHOT.2011.2142931](https://doi.org/10.1109/JPHOT.2011.2142931)
 
-- Academy lessons: [leaky-and-bent-guides.md:119](../academy/leaky-and-bent-guides.md?plain=1#L119), [576](../academy/leaky-and-bent-guides.md?plain=1#L576)
+- Academy lessons: [leaky-and-bent-guides.md:119](../academy/leaky-and-bent-guides.md?plain=1#L119), [577](../academy/leaky-and-bent-guides.md?plain=1#L577)
 
 #### Bogaerts et al. 2005
 
@@ -734,7 +734,7 @@ R. Cheng, L. Chrostowski, "Spectral Design of Silicon Integrated Bragg Gratings:
 M. Cherchi, S. Ylinen, M. Harjanne, M. Kapulainen, T. Aalto, "Dramatic size reduction of waveguide bends on a micron-scale silicon photonic platform", Opt. Express 21, 17814 (2013). [doi:10.1364/OE.21.017814](https://doi.org/10.1364/OE.21.017814)
 
 - Methods pages: [generators.md:10](methods/generators.md?plain=1#L10), [geometry.md:16](methods/geometry.md?plain=1#L16)
-- Academy lessons: [leaky-and-bent-guides.md:125](../academy/leaky-and-bent-guides.md?plain=1#L125), [578](../academy/leaky-and-bent-guides.md?plain=1#L578)
+- Academy lessons: [leaky-and-bent-guides.md:125](../academy/leaky-and-bent-guides.md?plain=1#L125), [579](../academy/leaky-and-bent-guides.md?plain=1#L579)
 - Validation cases: [`geometry/paths/cherchi-l-bend`](validation.md?plain=1#L405)
 - Code: [src/geometry/path_checks.rs:425](../src/geometry/path_checks.rs#L425)
 
@@ -743,7 +743,7 @@ M. Cherchi, S. Ylinen, M. Harjanne, M. Kapulainen, T. Aalto, "Dramatic size redu
 W. C. Chew, W. H. Weedon, "A 3D perfectly matched medium from modified maxwell's equations with stretched coordinates", Micro & Optical Tech Letters 7, 599 (1994). [doi:10.1002/mop.4650071304](https://doi.org/10.1002/mop.4650071304)
 
 - Methods pages: [fdfd-3d.md:14](methods/fdfd-3d.md?plain=1#L14), [fdfd.md:12](methods/fdfd.md?plain=1#L12), [pml.md:10](methods/pml.md?plain=1#L10), [travelling-wave.md:28](methods/travelling-wave.md?plain=1#L28)
-- Academy lessons: [fdfd-and-adjoints.md:67](../academy/fdfd-and-adjoints.md?plain=1#L67), [224](../academy/fdfd-and-adjoints.md?plain=1#L224), [770](../academy/fdfd-and-adjoints.md?plain=1#L770), [leaky-and-bent-guides.md:71](../academy/leaky-and-bent-guides.md?plain=1#L71), [316](../academy/leaky-and-bent-guides.md?plain=1#L316), [563](../academy/leaky-and-bent-guides.md?plain=1#L563)
+- Academy lessons: [fdfd-and-adjoints.md:67](../academy/fdfd-and-adjoints.md?plain=1#L67), [224](../academy/fdfd-and-adjoints.md?plain=1#L224), [770](../academy/fdfd-and-adjoints.md?plain=1#L770), [leaky-and-bent-guides.md:71](../academy/leaky-and-bent-guides.md?plain=1#L71), [317](../academy/leaky-and-bent-guides.md?plain=1#L317), [564](../academy/leaky-and-bent-guides.md?plain=1#L564)
 - Validation cases: [`fdfd3d/pml-reflection-stretched`](validation.md?plain=1#L178)
 - Code: [src/electro/full_wave.rs:43](../src/electro/full_wave.rs#L43), [src/fdfd/mod.rs:26](../src/fdfd/mod.rs#L26), [src/mode/vector.rs:172](../src/mode/vector.rs#L172), [src/validation.rs:1274](../src/validation.rs#L1274)
 
@@ -760,7 +760,7 @@ W. C. Chew, J. M. Jin, E. Michielssen, "Complex coordinate stretching as a gener
 J. Chilwell, I. Hodgkinson, "Thin-films field-transfer matrix theory of planar multilayer waveguides and reflection from prism-loaded waveguides", J. Opt. Soc. Am. A 1, 742 (1984). [doi:10.1364/JOSAA.1.000742](https://doi.org/10.1364/JOSAA.1.000742)
 
 - Methods pages: [contour.md:14](methods/contour.md?plain=1#L14), [devices.md:48](methods/devices.md?plain=1#L48), [eme.md:12](methods/eme.md?plain=1#L12), [fdfd-3d.md:24](methods/fdfd-3d.md?plain=1#L24), [fdfd.md:14](methods/fdfd.md?plain=1#L14), [multilayer.md:8](methods/multilayer.md?plain=1#L8), [pml.md:12](methods/pml.md?plain=1#L12), [quantum.md:67](methods/quantum.md?plain=1#L67), [slab-fd.md:10](methods/slab-fd.md?plain=1#L10)
-- Academy lessons: [bragg-gratings.md:61](../academy/bragg-gratings.md?plain=1#L61), [168](../academy/bragg-gratings.md?plain=1#L168), [leaky-and-bent-guides.md:65](../academy/leaky-and-bent-guides.md?plain=1#L65), [165](../academy/leaky-and-bent-guides.md?plain=1#L165), [559](../academy/leaky-and-bent-guides.md?plain=1#L559), [585](../academy/leaky-and-bent-guides.md?plain=1#L585), [slab-waveguide.md:60](../academy/slab-waveguide.md?plain=1#L60), [480](../academy/slab-waveguide.md?plain=1#L480), [574](../academy/slab-waveguide.md?plain=1#L574), [599](../academy/slab-waveguide.md?plain=1#L599)
+- Academy lessons: [bragg-gratings.md:61](../academy/bragg-gratings.md?plain=1#L61), [168](../academy/bragg-gratings.md?plain=1#L168), [leaky-and-bent-guides.md:65](../academy/leaky-and-bent-guides.md?plain=1#L65), [165](../academy/leaky-and-bent-guides.md?plain=1#L165), [560](../academy/leaky-and-bent-guides.md?plain=1#L560), [586](../academy/leaky-and-bent-guides.md?plain=1#L586), [slab-waveguide.md:60](../academy/slab-waveguide.md?plain=1#L60), [480](../academy/slab-waveguide.md?plain=1#L480), [574](../academy/slab-waveguide.md?plain=1#L574), [599](../academy/slab-waveguide.md?plain=1#L599)
 - Validation cases: [`mode/multilayer-bound-chilwell`](validation.md?plain=1#L110), [`mode/multilayer-leaky-chilwell`](validation.md?plain=1#L111), [`mode/multilayer-power-chilwell`](validation.md?plain=1#L112), [`mode/multilayer-fresnel`](validation.md?plain=1#L113), [`mode/pml-leaky-chilwell`](validation.md?plain=1#L119), [`mode/slab-fd-chilwell`](validation.md?plain=1#L130), [`fdfd/slab-reflection-ez`](validation.md?plain=1#L131), [`fdfd3d/film-reflection-te`](validation.md?plain=1#L159), [`fdtd/bloch-multilayer`](validation.md?plain=1#L222), [`mode/contour-chilwell-bound`](validation.md?plain=1#L465), [`mode/contour-chilwell-leaky`](validation.md?plain=1#L466), [`mode/krylov-schur-chilwell`](validation.md?plain=1#L473), [`mode/every-guided-mode-chilwell`](validation.md?plain=1#L477), [`job/leaky-film-loss`](validation.md?plain=1#L478), [`device/pcm-analytic-index`](validation.md?plain=1#L661), [`sweep/slab-dispersion`](validation.md?plain=1#L747), [`quantum/detector-film-slab`](validation.md?plain=1#L915)
 - Examples: [README.md:43](../examples/README.md?plain=1#L43), [leaky_waves.rs:4](../examples/leaky_waves.rs#L4), [multilayer_chilwell.rs:5](../examples/multilayer_chilwell.rs#L5)
 - Code: [src/cases/device/pcm_checks.rs:426](../src/cases/device/pcm_checks.rs#L426), [src/cases/eigen/checks.rs:346](../src/cases/eigen/checks.rs#L346), [377](../src/cases/eigen/checks.rs#L377), [src/device/pcm.rs:983](../src/device/pcm.rs#L983), [src/job/leaky_checks.rs:36](../src/job/leaky_checks.rs#L36), [src/mode/multilayer.rs:5](../src/mode/multilayer.rs#L5), [src/mode/region/checks.rs:373](../src/mode/region/checks.rs#L373), [380](../src/mode/region/checks.rs#L380), [src/quantum/real_checks.rs:1139](../src/quantum/real_checks.rs#L1139), [src/sweep/checks.rs:443](../src/sweep/checks.rs#L443), [src/validation.rs:798](../src/validation.rs#L798), [805](../src/validation.rs#L805), [812](../src/validation.rs#L812), [819](../src/validation.rs#L819), [861](../src/validation.rs#L861), [938](../src/validation.rs#L938), [945](../src/validation.rs#L945), [1141](../src/validation.rs#L1141), [1582](../src/validation.rs#L1582), [studio/src-tauri/src/charts/leaky.rs:4](../studio/src-tauri/src/charts/leaky.rs#L4)
@@ -1671,7 +1671,7 @@ J. Heebner, Vincent Wong, A. Schweinsberg, R. Boyd, D. Jackson, "Optical transmi
 M. Heiblum, J. Harris, "Analysis of curved optical waveguides by conformal transformation", IEEE J. Quantum Electron. 11, 75 (1975). [doi:10.1109/JQE.1975.1068563](https://doi.org/10.1109/JQE.1975.1068563)
 
 - Methods pages: [bends.md:8](methods/bends.md?plain=1#L8), [components.md:16](methods/components.md?plain=1#L16), [devices.md:20](methods/devices.md?plain=1#L20), [eme.md:24](methods/eme.md?plain=1#L24)
-- Academy lessons: [leaky-and-bent-guides.md:59](../academy/leaky-and-bent-guides.md?plain=1#L59), [430](../academy/leaky-and-bent-guides.md?plain=1#L430), [557](../academy/leaky-and-bent-guides.md?plain=1#L557)
+- Academy lessons: [leaky-and-bent-guides.md:59](../academy/leaky-and-bent-guides.md?plain=1#L59), [431](../academy/leaky-and-bent-guides.md?plain=1#L431), [558](../academy/leaky-and-bent-guides.md?plain=1#L558)
 - Validation cases: [`mode/bend-slab-te`](validation.md?plain=1#L121), [`device/bend-analytic`](validation.md?plain=1#L316), [`device/bend-3d-grid`](validation.md?plain=1#L318), [`eme/bend-index`](validation.md?plain=1#L711)
 - Examples: [bend_loss.rs:14](../examples/bend_loss.rs#L14)
 - Code: [src/cases/eme/bend_checks.rs:415](../src/cases/eme/bend_checks.rs#L415), [src/circuit/components/waveguide.rs:505](../src/circuit/components/waveguide.rs#L505), [src/device/bend.rs:271](../src/device/bend.rs#L271), [476](../src/device/bend.rs#L476), [src/device/checks.rs:110](../src/device/checks.rs#L110), [124](../src/device/checks.rs#L124), [src/eme.rs:85](../src/eme.rs#L85), [src/eme/bend.rs:9](../src/eme/bend.rs#L9), [src/mode/vector.rs:444](../src/mode/vector.rs#L444), [src/validation.rs:875](../src/validation.rs#L875)
@@ -1834,7 +1834,7 @@ F. Horst, W. M. Green, S. Assefa, S. M. Shank, Y. A. Vlasov, B. J. Offrein, "Cas
 J. Hu, C. R. Menyuk, "Understanding leaky modes: slab waveguide revisited", Adv. Opt. Photon. 1, 58 (2009). [doi:10.1364/AOP.1.000058](https://doi.org/10.1364/AOP.1.000058)
 
 - Methods pages: [vector.md:16](methods/vector.md?plain=1#L16), [74](methods/vector.md?plain=1#L74)
-- Academy lessons: [leaky-and-bent-guides.md:113](../academy/leaky-and-bent-guides.md?plain=1#L113), [209](../academy/leaky-and-bent-guides.md?plain=1#L209), [569](../academy/leaky-and-bent-guides.md?plain=1#L569), [584](../academy/leaky-and-bent-guides.md?plain=1#L584), [strip-waveguide.md:124](../academy/strip-waveguide.md?plain=1#L124), [560](../academy/strip-waveguide.md?plain=1#L560)
+- Academy lessons: [leaky-and-bent-guides.md:113](../academy/leaky-and-bent-guides.md?plain=1#L113), [210](../academy/leaky-and-bent-guides.md?plain=1#L210), [570](../academy/leaky-and-bent-guides.md?plain=1#L570), [585](../academy/leaky-and-bent-guides.md?plain=1#L585), [strip-waveguide.md:124](../academy/strip-waveguide.md?plain=1#L124), [560](../academy/strip-waveguide.md?plain=1#L560)
 
 #### Hu et al. 2009
 
@@ -2163,7 +2163,7 @@ P. Kepič, P. Liška, B. Idesová, O. Caha, F. Ligmajer, T. Šikola, "Pulsed las
 J. Kestyn, E. Polizzi, P. T. Peter Tang, "Feast Eigensolver for Non-Hermitian Problems", SIAM J. Sci. Comput. 38, S772 (2016). [doi:10.1137/15M1026572](https://doi.org/10.1137/15M1026572)
 
 - Methods pages: [contour.md:12](methods/contour.md?plain=1#L12)
-- Academy lessons: [leaky-and-bent-guides.md:131](../academy/leaky-and-bent-guides.md?plain=1#L131), [381](../academy/leaky-and-bent-guides.md?plain=1#L381), [581](../academy/leaky-and-bent-guides.md?plain=1#L581)
+- Academy lessons: [leaky-and-bent-guides.md:131](../academy/leaky-and-bent-guides.md?plain=1#L131), [382](../academy/leaky-and-bent-guides.md?plain=1#L382), [582](../academy/leaky-and-bent-guides.md?plain=1#L582)
 - Validation cases: [`mode/contour-leaky-shift-invert`](validation.md?plain=1#L464)
 - Code: [src/eigen/contour.rs:6](../src/eigen/contour.rs#L6), [src/mode/region.rs:12](../src/mode/region.rs#L12), [src/mode/region/checks.rs:366](../src/mode/region/checks.rs#L366)
 - Other documents: [docs/plans/performance.md:628](plans/performance.md?plain=1#L628)
@@ -2701,7 +2701,7 @@ T. A. Manteuffel, A. B. White, "The numerical solution of second-order boundary 
 
 E. A. J. Marcatili, "Bends in Optical Dielectric Guides", Bell System Technical Journal 48, 2103 (1969). [doi:10.1002/j.1538-7305.1969.tb01167.x](https://doi.org/10.1002/j.1538-7305.1969.tb01167.x)
 
-- Academy lessons: [leaky-and-bent-guides.md:47](../academy/leaky-and-bent-guides.md?plain=1#L47), [554](../academy/leaky-and-bent-guides.md?plain=1#L554), [ring-resonator.md:25](../academy/ring-resonator.md?plain=1#L25)
+- Academy lessons: [leaky-and-bent-guides.md:47](../academy/leaky-and-bent-guides.md?plain=1#L47), [555](../academy/leaky-and-bent-guides.md?plain=1#L555), [ring-resonator.md:25](../academy/ring-resonator.md?plain=1#L25)
 
 #### Marcatili 1969b
 
@@ -2725,7 +2725,7 @@ R. Marchetti, C. Lacava, L. Carroll, K. Gradkowski, P. Minzioni, "Coupling strat
 D. Marcuse, "Bending Losses of the Asymmetric Slab Waveguide", Bell System Technical Journal 50, 2551 (1971). [doi:10.1002/j.1538-7305.1971.tb02620.x](https://doi.org/10.1002/j.1538-7305.1971.tb02620.x)
 
 - Methods pages: [bends.md:10](methods/bends.md?plain=1#L10), [components.md:14](methods/components.md?plain=1#L14), [devices.md:22](methods/devices.md?plain=1#L22), [eme.md:26](methods/eme.md?plain=1#L26)
-- Academy lessons: [leaky-and-bent-guides.md:53](../academy/leaky-and-bent-guides.md?plain=1#L53), [419](../academy/leaky-and-bent-guides.md?plain=1#L419), [434](../academy/leaky-and-bent-guides.md?plain=1#L434), [555](../academy/leaky-and-bent-guides.md?plain=1#L555), [586](../academy/leaky-and-bent-guides.md?plain=1#L586)
+- Academy lessons: [leaky-and-bent-guides.md:53](../academy/leaky-and-bent-guides.md?plain=1#L53), [420](../academy/leaky-and-bent-guides.md?plain=1#L420), [435](../academy/leaky-and-bent-guides.md?plain=1#L435), [556](../academy/leaky-and-bent-guides.md?plain=1#L556), [587](../academy/leaky-and-bent-guides.md?plain=1#L587)
 - Validation cases: [`mode/bend-slab-te`](validation.md?plain=1#L121), [`mode/bend-marcuse`](validation.md?plain=1#L124), [`components/ring-fsr-fdfd`](validation.md?plain=1#L293), [`device/bend-ring-slab`](validation.md?plain=1#L323), [`eme/bend-index`](validation.md?plain=1#L711)
 - Examples: [README.md:38](../examples/README.md?plain=1#L38), [bend_loss.rs:5](../examples/bend_loss.rs#L5)
 - Code: [src/cases/eme/bend_checks.rs:415](../src/cases/eme/bend_checks.rs#L415), [src/circuit/components/waveguide.rs:539](../src/circuit/components/waveguide.rs#L539), [src/device/bend.rs:247](../src/device/bend.rs#L247), [425](../src/device/bend.rs#L425), [src/device/checks.rs:159](../src/device/checks.rs#L159), [src/mode/bend.rs:8](../src/mode/bend.rs#L8), [src/validation.rs:875](../src/validation.rs#L875), [896](../src/validation.rs#L896), [2079](../src/validation.rs#L2079), [studio/src-tauri/src/charts/leaky.rs:13](../studio/src-tauri/src/charts/leaky.rs#L13)
@@ -2753,7 +2753,7 @@ G. Masetti, M. Severi, S. Solmi, "Modeling of carrier mobility against carrier c
 
 M. D. McKay, R. J. Beckman, W. J. Conover, "Comparison of Three Methods for Selecting Values of Input Variables in the Analysis of Output from a Computer Code", Technometrics 21, 239 (1979). [doi:10.1080/00401706.1979.10489755](https://doi.org/10.1080/00401706.1979.10489755)
 
-- Methods pages: [compact.md:332](methods/compact.md?plain=1#L332), [devices.md:1528](methods/devices.md?plain=1#L1528)
+- Methods pages: [compact.md:332](methods/compact.md?plain=1#L332), [devices.md:1544](methods/devices.md?plain=1#L1544)
 - Code: [src/device/compact.rs:54](../src/device/compact.rs#L54)
 
 #### McKinnon et al. 2009
@@ -3181,7 +3181,7 @@ G. Poberaj, H. Hu, W. Sohler, P. Günter, "Lithium niobate on insulator (LNOI) f
 E. Polizzi, "Density-matrix-based algorithm for solving eigenvalue problems", Phys. Rev. B 79, 115112 (2009). [doi:10.1103/PhysRevB.79.115112](https://doi.org/10.1103/PhysRevB.79.115112)
 
 - Methods pages: [contour.md:10](methods/contour.md?plain=1#L10)
-- Academy lessons: [leaky-and-bent-guides.md:107](../academy/leaky-and-bent-guides.md?plain=1#L107), [386](../academy/leaky-and-bent-guides.md?plain=1#L386), [568](../academy/leaky-and-bent-guides.md?plain=1#L568)
+- Academy lessons: [leaky-and-bent-guides.md:107](../academy/leaky-and-bent-guides.md?plain=1#L107), [387](../academy/leaky-and-bent-guides.md?plain=1#L387), [569](../academy/leaky-and-bent-guides.md?plain=1#L569)
 - Validation cases: [`mode/contour-uniform-box`](validation.md?plain=1#L461)
 - Code: [src/eigen/contour.rs:17](../src/eigen/contour.rs#L17), [src/mode/region.rs:10](../src/mode/region.rs#L10), [src/mode/region/checks.rs:341](../src/mode/region/checks.rs#L341)
 - Other documents: [docs/plans/performance.md:636](plans/performance.md?plain=1#L636)
@@ -3892,13 +3892,13 @@ N. Takato, T. Kominato, A. Sugita, K. Jinguji, H. Toba, M. Kawachi, "Silica-base
 
 T. Tamir, A. Oliner, "Guided complex waves. Part 1: Fields at an interface", Proc. Inst. Electr. Eng. UK 110, 310 (1963). [doi:10.1049/piee.1963.0044](https://doi.org/10.1049/piee.1963.0044)
 
-- Academy lessons: [grating-couplers.md:17](../academy/grating-couplers.md?plain=1#L17), [516](../academy/grating-couplers.md?plain=1#L516), [leaky-and-bent-guides.md:35](../academy/leaky-and-bent-guides.md?plain=1#L35), [190](../academy/leaky-and-bent-guides.md?plain=1#L190), [548](../academy/leaky-and-bent-guides.md?plain=1#L548)
+- Academy lessons: [grating-couplers.md:17](../academy/grating-couplers.md?plain=1#L17), [516](../academy/grating-couplers.md?plain=1#L516), [leaky-and-bent-guides.md:35](../academy/leaky-and-bent-guides.md?plain=1#L35), [190](../academy/leaky-and-bent-guides.md?plain=1#L190), [549](../academy/leaky-and-bent-guides.md?plain=1#L549)
 
 #### Tamir and Oliner 1963b
 
 T. Tamir, A. Oliner, "Guided complex waves. Part 2: Relation to radiation patterns", Proc. Inst. Electr. Eng. UK 110, 325 (1963). [doi:10.1049/piee.1963.0045](https://doi.org/10.1049/piee.1963.0045)
 
-- Academy lessons: [leaky-and-bent-guides.md:41](../academy/leaky-and-bent-guides.md?plain=1#L41), [205](../academy/leaky-and-bent-guides.md?plain=1#L205), [551](../academy/leaky-and-bent-guides.md?plain=1#L551)
+- Academy lessons: [leaky-and-bent-guides.md:41](../academy/leaky-and-bent-guides.md?plain=1#L41), [206](../academy/leaky-and-bent-guides.md?plain=1#L206), [552](../academy/leaky-and-bent-guides.md?plain=1#L552)
 
 #### Tamir and Peng 1977
 
@@ -3976,7 +3976,7 @@ P. Triverio, S. Grivet-Talocia, M. Nakhla, "A Parameterized Macromodeling Strate
 
 W. Tsai, M. Delfino, J. A. Fair, D. Hodul, "Temperature dependence of the electrical resistivity of reactively sputtered TiN films", Journal of Applied Physics 73, 4462 (1993). [doi:10.1063/1.352785](https://doi.org/10.1063/1.352785)
 
-- Methods pages: [catalogue.md:100](methods/catalogue.md?plain=1#L100), [devices.md:889](methods/devices.md?plain=1#L889)
+- Methods pages: [catalogue.md:100](methods/catalogue.md?plain=1#L100), [devices.md:905](methods/devices.md?plain=1#L905)
 - Validation cases: [`material/tin-tsai-eq-3`](validation.md?plain=1#L40), [`device/thermo-tin-resistance`](validation.md?plain=1#L659)
 - Code: [src/cases/device/thermo_checks.rs:531](../src/cases/device/thermo_checks.rs#L531), [src/material/catalogue/references.rs:424](../src/material/catalogue/references.rs#L424), [src/material/catalogue/resistivity.rs:7](../src/material/catalogue/resistivity.rs#L7), [135](../src/material/catalogue/resistivity.rs#L135), [src/validation.rs:308](../src/validation.rs#L308)
 
@@ -4129,7 +4129,7 @@ G. Veronis, R. W. Dutton, S. Fan, "Method for sensitivity analysis of photonic c
 
 Y. A. Vlasov, S. J. McNab, "Losses in single-mode silicon-on-insulator strip waveguides and bends", Opt. Express 12, 1622 (2004). [doi:10.1364/OPEX.12.001622](https://doi.org/10.1364/OPEX.12.001622)
 
-- Academy lessons: [leaky-and-bent-guides.md:95](../academy/leaky-and-bent-guides.md?plain=1#L95), [536](../academy/leaky-and-bent-guides.md?plain=1#L536), [574](../academy/leaky-and-bent-guides.md?plain=1#L574), [strip-waveguide.md:88](../academy/strip-waveguide.md?plain=1#L88), [619](../academy/strip-waveguide.md?plain=1#L619), [698](../academy/strip-waveguide.md?plain=1#L698)
+- Academy lessons: [leaky-and-bent-guides.md:95](../academy/leaky-and-bent-guides.md?plain=1#L95), [537](../academy/leaky-and-bent-guides.md?plain=1#L537), [575](../academy/leaky-and-bent-guides.md?plain=1#L575), [strip-waveguide.md:88](../academy/strip-waveguide.md?plain=1#L88), [619](../academy/strip-waveguide.md?plain=1#L619), [698](../academy/strip-waveguide.md?plain=1#L698)
 
 #### Vogelbacher et al. 2019
 
