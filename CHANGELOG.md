@@ -35,6 +35,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - *(studio)* the quantum view of the Chip page (part of #737) ([#746](https://github.com/tachsin/photonoxide/pull/746))
 - *(eme)* a job's own drawing cut into 3D sections (part of #432) ([#745](https://github.com/tachsin/photonoxide/pull/745))
 - quantum studio, NbN and the remaining 0.6.3 items (part of #737) ([#749](https://github.com/tachsin/photonoxide/pull/749))
+- *(studio)* a journal picker and images in the Home feed (part of #715) ([#736](https://github.com/tachsin/photonoxide/pull/736))
 
 ### <!-- 1 -->Fixed
 
