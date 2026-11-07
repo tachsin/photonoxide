@@ -865,7 +865,21 @@ function, Marcuse's Eq. 10 without his approximation inside): a 220 nm silicon s
 
 A bend of no angle leaves its two joints, whose overlaps are inverse only with every mode: what
 remains is the truncation of two bases, as a zero-length section between two others in
-[periodic sections](#periodic-sections). It falls with the modes, though not monotonically.
+[periodic sections](#periodic-sections). It is a property of finitely many modes, not an error
+of the bend: the two bases differ (the bend's mapped profile is graded, the straight's is not),
+so the overlap matrices of the two joints are inverse only in the limit, and no count short of
+every mode makes the gap zero. It falls with the modes, though not monotonically, at 2 µm:
+
+| Modes | 6 | 12 | 16 | 24 |
+|---|---|---|---|---|
+| TE, $\max(\lvert S_{21} - 1\rvert, \lvert S_{11}\rvert)$ | 3.2e-3 | 2.5e-3 | 1.3e-4 | 3.5e-6 |
+| TM | 3.1e-2 | 2.5e-2 | 2.0e-4 | 2.4e-5 |
+
+The gap is stated at 24 modes, where `eme/bend-no-angle` holds it to the mode-count gate of
+`eme/taper-modes` (1e-4) at 2 and 3 µm, TE and TM; below 16 modes it is 1e-3 to 3e-2, the size of
+a weak bend's own loss, so a bend's S is read with at least 24 modes, or with `[task.convergence]`,
+which doubles them until S stops changing. Why the fall stalls from 6 to 12 modes and then drops
+by an order of magnitude or more we have not found.
 
 The exact bend had an error of its own at first: its inner solution started 6 decay lengths below
 the slab with an approximate $\psi'/\psi$, which adds the solution that decays outwards; by the
