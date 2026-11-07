@@ -378,6 +378,26 @@ pub(crate) fn rules() -> Vec<(&'static str, Rule)> {
             ),
         ),
         (
+            "eme/3d-drawing-extruded",
+            Rule::new(
+                Absolute,
+                RoundOff,
+                1e-10,
+                Exact,
+                "the same planes as eme/3d-cut-extruded's, the job's S copied from the library's: round-off, 1e-10 as eme/3d-orthonormal",
+            ),
+        ),
+        (
+            "eme/3d-drawing-taper",
+            Rule::new(
+                Absolute,
+                RoundOff,
+                1e-10,
+                Exact,
+                "the same 33 planes over the same lengths: round-off, 1e-10 as eme/3d-orthonormal",
+            ),
+        ),
+        (
             "eme/bend-index",
             Rule::new(
                 Absolute,
