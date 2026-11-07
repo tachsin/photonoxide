@@ -2,7 +2,9 @@
 //! ([`crate::eme::Eme3d`]). A task alone gives each section as a strip on the plane, its width
 //! `core_um` (a taper's `[from, to]`, cut into equal steps, each the strip at its middle) and its
 //! height `[task.plane]`'s; beside a `[device]` the sections are cut from the device's geometry
-//! along x ([`crate::device::Cut`]). The run records the S-parameters between the guided modes
+//! along x ([`crate::device::Cut`]), and a task's own drawing (a `stack`, its `layer`, and
+//! rectangles, circles, rings, paths and shapes drawn on it, as a structure job's) is cut the same
+//! way from `x_um`'s start to its end. The run records the S-parameters between the guided modes
 //! at the two ends, as a 2D job's.
 
 use num_complex::Complex64 as c64;
@@ -19,14 +21,15 @@ use crate::device::Cut;
 use crate::eme::{Eme3d, Plane, PlaneGrid, Pml3d, Scattering, Section3d, Wall, Walls};
 use crate::job::{Event, task_error};
 use crate::run::{Job, Run, Stop};
+use crate::stack::Structure;
 use crate::units::{Length, Wavelength};
 
 /// A `[task.plane]`: the sections are 3D, each cross-section a plane of Yee's grid.
 #[derive(Clone, Debug, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub(super) struct PlaneSpec {
-    /// The cells' size across (x) and up (y), µm; beside a `[device]`, across its y and up its
-    /// z (the device runs along x).
+    /// The cells' size across (x) and up (y), µm; beside a `[device]` or with a drawing, across
+    /// its y and up its z (the device runs along x).
     step_um: [f64; 2],
     /// A task alone: the cells across and up, the window centred on the strips' axis (from the
     /// planes of symmetry when `symmetry` asks).
@@ -37,12 +40,17 @@ pub(super) struct PlaneSpec {
     /// is even about it, the TE-like ones) or, for a task alone, `"quarter"` (x ≥ 0 and y ≥ 0:
     /// a magnetic wall at y = 0 too).
     symmetry: Option<String>,
-    /// Beside a `[device]`: the cladding kept beside its core's shapes and below and above its
-    /// layer, µm; [0.5, 0.5] by default.
+    /// Beside a `[device]` or with a drawing: the cladding kept beside its core's shapes and
+    /// below and above its layer, µm; [0.5, 0.5] by default.
     margins_um: Option<[f64; 2]>,
-    /// Beside a `[device]`: the longest step of a run of sloped outlines (a taper's sides, a
-    /// curve), µm; 0.1 by default.
+    /// Beside a `[device]` or with a drawing: the longest step of a run of sloped outlines (a
+    /// taper's sides, a curve), µm; 0.1 by default.
     along_um: Option<f64>,
+    /// Beside a `[device]` or with a drawing: cut at every x where the plane changes (where a
+    /// sloped outline crosses one of the points each cell is averaged from), so that each
+    /// section holds over its whole length and the cut has no step error, instead of in steps
+    /// of `along_um`; false by default.
+    exact: Option<bool>,
 }
 
 /// The planes of symmetry a 3D job keeps.
@@ -94,20 +102,98 @@ impl PlaneSpec {
         })
     }
 
-    /// A `[device]`'s cut.
+    /// A `[device]`'s or a drawing's cut.
     fn cut(&self) -> Result<Cut> {
         let [beside, vertical] = self.margins_um.unwrap_or([0.5, 0.5]);
-        let cut = Cut::new(
+        let mut cut = Cut::new(
             self.step_um[0],
             self.step_um[1],
             self.along_um.unwrap_or(0.1),
         )?
         .with_margins(beside, vertical)?;
+        if self.exact() {
+            cut = cut.exactly();
+        }
         Ok(match self.symmetry()? {
             Symmetry::None => cut,
             _ => cut.mirrored(),
         })
     }
+
+    fn exact(&self) -> bool {
+        self.exact.unwrap_or(false)
+    }
+
+    /// How a cut's sections are made, for the solver's settings.
+    fn cut_details(&self, from: &str, sections: usize) -> String {
+        if self.exact() {
+            format!(
+                "cut from the {from}: {sections} (its guides at the ends), at every x where the \
+                 plane changes"
+            )
+        } else {
+            format!(
+                "cut from the {from}: {sections} (its guides at the ends), sloped runs in steps \
+                 of at most {} um",
+                self.along_um.unwrap_or(0.1)
+            )
+        }
+    }
+}
+
+/// A task's drawing: its stack with its shapes drawn on it, its core layer, and the cut's ends
+/// (µm along x); refused unless the core layer's shapes run on past both ends.
+fn drawing(task: &EmeTask) -> Result<(Structure, String, (f64, f64))> {
+    let stack = task
+        .stack
+        .as_ref()
+        .ok_or_else(|| task_error("a drawing needs its stack"))?;
+    let structure = crate::job::structure::draw_paths(
+        crate::job::structure::draw(
+            crate::job::structure::named_stack(stack, task.core_nm, task.bottom_oxide_um)?,
+            &task.rect,
+            &task.circle,
+            &task.ring,
+        )?,
+        &task.path,
+        &task.shape,
+        &[],
+    )?;
+    let core = task
+        .layer
+        .clone()
+        .ok_or_else(|| task_error("a drawing needs its layer, the core its plane spans"))?;
+    if structure.stack().layer(&core).is_none() {
+        return Err(task_error(format!("the stack has no layer {core}")));
+    }
+    let [a, b] = task
+        .x_um
+        .ok_or_else(|| task_error("a drawing needs x_um, where it is cut from and to along x"))?;
+    if !(a.is_finite() && b.is_finite() && b > a) {
+        return Err(task_error(format!(
+            "x_um runs from one x to a larger one, got [{a}, {b}]"
+        )));
+    }
+    let (lo, hi) = extent(&structure, &core)
+        .ok_or_else(|| task_error(format!("the layer {core} has no shapes to cut")))?;
+    if !(lo < a && hi > b) {
+        return Err(task_error(format!(
+            "the shapes on {core} run from x = {lo} to {hi} um: they must run on past both of \
+             x_um's ends, [{a}, {b}], whose cross-sections are the ports' guides"
+        )));
+    }
+    Ok((structure, core, (a, b)))
+}
+
+/// The x the shapes on `layer` run over, µm.
+fn extent(structure: &Structure, layer: &str) -> Option<(f64, f64)> {
+    let (mut lo, mut hi) = (f64::INFINITY, f64::NEG_INFINITY);
+    for shape in structure.shapes(layer) {
+        let b = shape.bounds();
+        lo = lo.min(b.min.x.to_um());
+        hi = hi.max(b.max.x.to_um());
+    }
+    (lo.is_finite() && hi.is_finite()).then_some((lo, hi))
 }
 
 /// What a 3D job refuses before solving anything; `device` when it has a `[device]`.
@@ -141,30 +227,46 @@ pub(super) fn validate(task: &EmeTask, plane: &PlaneSpec, device: bool) -> Resul
             "a 3D job's PML is inside every wall but its planes of symmetry: leave sides out",
         ));
     }
-    if device {
+    let drawn = task.drawing_field();
+    if device && let Some(name) = drawn {
+        return Err(task_error(format!(
+            "{name} is a drawing's: a [device] draws its own geometry"
+        )));
+    }
+    if device || drawn.is_some() {
+        let what = if device { "a [device]" } else { "a drawing" };
         if !task.section.is_empty() || task.cladding.is_some() || task.core.is_some() {
-            return Err(task_error(
-                "a [device]'s sections are cut from its geometry, its media its stack's: leave \
-                 [[task.section]], cladding and core out",
-            ));
+            return Err(task_error(format!(
+                "{what}'s sections are cut from its geometry, its media its stack's: leave \
+                 [[task.section]], cladding and core out"
+            )));
         }
         if plane.cells.is_some() || plane.height_um.is_some() {
-            return Err(task_error(
-                "a [device]'s plane is cut from its geometry: [task.plane] takes step_um, \
-                 margins_um, along_um and symmetry, not cells or height_um",
-            ));
+            return Err(task_error(format!(
+                "{what}'s plane is cut from its geometry: [task.plane] takes step_um, \
+                 margins_um, along_um, exact and symmetry, not cells or height_um"
+            )));
         }
         if symmetry == Symmetry::Quarter {
+            return Err(task_error(format!(
+                "{what} is cut whole or by its half (symmetry = \"half\"), not a quarter"
+            )));
+        }
+        if plane.exact() && plane.along_um.is_some() {
             return Err(task_error(
-                "a [device] is cut whole or by its half (symmetry = \"half\"), not a quarter",
+                "along_um is the steps of a cut that isn't exact: leave it out with exact = true",
             ));
         }
         plane.cut()?;
+        if !device {
+            drawing(task)?;
+        }
         return Ok(());
     }
-    if plane.margins_um.is_some() || plane.along_um.is_some() {
+    if plane.margins_um.is_some() || plane.along_um.is_some() || plane.exact.is_some() {
         return Err(task_error(
-            "margins_um and along_um are a [device]'s cut: a task alone gives cells and height_um",
+            "margins_um, along_um and exact are a [device]'s or a drawing's cut: a task alone \
+             gives cells and height_um",
         ));
     }
     let grid = plane.grid()?;
@@ -238,7 +340,8 @@ fn strip(grid: PlaneGrid, r: &Resolved, u: f64, height: f64) -> Result<Plane> {
     }
 }
 
-/// How a run's sections are made at a wavelength: from the task's strips, or a device's cut.
+/// How a run's sections are made at a wavelength: from the task's strips, a device's cut, or
+/// the cut of the task's drawing.
 enum Source {
     Strips {
         grid: PlaneGrid,
@@ -249,16 +352,34 @@ enum Source {
         plane: PlaneSpec,
         grid: PlaneGrid,
     },
+    Drawn {
+        structure: Box<Structure>,
+        core: String,
+        ends: (f64, f64),
+        plane: PlaneSpec,
+        grid: PlaneGrid,
+    },
 }
 
 impl Source {
-    fn of(job: &Job, plane: &PlaneSpec) -> Result<Source> {
+    fn of(job: &Job, task: &EmeTask, plane: &PlaneSpec) -> Result<Source> {
         if job.device().is_some() {
             let (device, design) = crate::job::device::spec_of(job)?.build()?;
             let geometry = device.geometry(design.values())?;
             let grid = plane.cut()?.geometry_grid(&geometry)?;
             return Ok(Source::Device {
                 geometry: Box::new(geometry),
+                plane: plane.clone(),
+                grid,
+            });
+        }
+        if task.drawing_field().is_some() {
+            let (structure, core, ends) = drawing(task)?;
+            let grid = plane.cut()?.grid(&structure, &core)?;
+            return Ok(Source::Drawn {
+                structure: Box::new(structure),
+                core,
+                ends,
                 plane: plane.clone(),
                 grid,
             });
@@ -271,7 +392,9 @@ impl Source {
 
     fn grid(&self) -> PlaneGrid {
         match self {
-            Source::Strips { grid, .. } | Source::Device { grid, .. } => *grid,
+            Source::Strips { grid, .. }
+            | Source::Device { grid, .. }
+            | Source::Drawn { grid, .. } => *grid,
         }
     }
 
@@ -290,6 +413,19 @@ impl Source {
                 let mut cut = plane.cut()?;
                 cut.along /= scale as f64;
                 let cut = cut.geometry(geometry, Wavelength::um(wavelength)?)?;
+                let steps = cut.sections.len().saturating_sub(2);
+                Ok((cut.sections, steps))
+            }
+            Source::Drawn {
+                structure,
+                core,
+                ends,
+                plane,
+                ..
+            } => {
+                let mut cut = plane.cut()?;
+                cut.along /= scale as f64;
+                let cut = cut.structure(structure, core, *ends, Wavelength::um(wavelength)?)?;
                 let steps = cut.sections.len().saturating_sub(2);
                 Ok((cut.sections, steps))
             }
@@ -388,7 +524,10 @@ pub(super) fn check(job: &Job, task: &EmeTask) -> Result<()> {
         return Ok(());
     };
     pml(task, plane)?;
-    let source = Source::of(job, plane)?;
+    let source = Source::of(job, task, plane)?;
+    if let Source::Drawn { structure, .. } = &source {
+        crate::job::check_materials(structure.stack(), &task.wavelengths())?;
+    }
     for w in task.wavelengths() {
         if let Source::Strips { .. } = source {
             task.sections(w)?;
@@ -398,8 +537,28 @@ pub(super) fn check(job: &Job, task: &EmeTask) -> Result<()> {
     Ok(())
 }
 
-/// A task alone's scene: its strips seen from above, as a 2D job's cores.
+/// A task alone's scene: its strips seen from above, as a 2D job's cores; or its drawing over
+/// its core layer's shapes along x and its plane across and up (both halves of a mirrored one).
 pub(super) fn scene(task: &EmeTask, plane: &PlaneSpec) -> Result<Event> {
+    if task.drawing_field().is_some() {
+        let (structure, core, _) = drawing(task)?;
+        let grid = plane.cut()?.grid(&structure, &core)?;
+        let (lo, hi) = extent(&structure, &core)
+            .ok_or_else(|| task_error(format!("the layer {core} has no shapes to cut")))?;
+        let right = grid.x(grid.nx);
+        let across = if plane.symmetry()? == Symmetry::None {
+            [grid.x0, right]
+        } else {
+            [-right, right]
+        };
+        return crate::job::scene::scene(
+            &structure,
+            [lo, hi],
+            across,
+            [grid.y0, grid.y(grid.ny)],
+            Wavelength::um(task.wavelength_um)?,
+        );
+    }
     let grid = plane.grid()?;
     super::scene_across(
         task,
@@ -441,7 +600,7 @@ pub(super) fn run(
     if !device {
         run.record(&scene(task, plane)?)?;
     }
-    let source = Source::of(job, plane)?;
+    let source = Source::of(job, task, plane)?;
     let grid = source.grid();
     let wavelengths = task.wavelengths();
     let (first, base_steps) = source.sections(task, wavelengths[0], 1)?;
@@ -472,15 +631,12 @@ pub(super) fn run(
         ],
         [
             "sections".to_owned(),
-            if device {
-                format!(
-                    "cut from the device: {} (its ports' guides at the ends), sloped runs in \
-                     steps of at most {} um",
-                    first.len(),
-                    plane.along_um.unwrap_or(0.1)
-                )
-            } else {
-                format!("{} ({base_steps} of them the tapers' steps)", first.len())
+            match source {
+                Source::Device { .. } => plane.cut_details("device", first.len()),
+                Source::Drawn { .. } => plane.cut_details("drawing", first.len()),
+                Source::Strips { .. } => {
+                    format!("{} ({base_steps} of them the tapers' steps)", first.len())
+                }
             },
         ],
     ];

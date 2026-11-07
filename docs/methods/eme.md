@@ -498,6 +498,53 @@ MMI (170 000), the five steps 40 s and 100 s together, the direct solver's memor
 3 GB; every mode of the MMI's three planes took 16 s, of the taper's 33 about a minute (six
 threads).
 
+### A job's own drawing
+
+An eme job needs no `[device]` to be cut: its task can draw its own structure, as a structure
+or FDFD job does, and `[task.plane]` cuts it the same way (`Cut::structure`). The task gives a
+`stack` (a named one, or a `[task.stack]` table of layers), the `layer` the plane spans (its
+shapes across, its thickness up, with the plane's margins), the shapes drawn on the stack
+(`[[task.rect]]`, `[[task.circle]]`, `[[task.ring]]`, `[[task.path]]` and `[[task.shape]]`:
+polygons, curves, masks, booleans, offsets), and `x_um`, where the cut starts and ends. A
+drawing has no ports, so the ends are where the task says: the cross-sections just outside
+them are the ports' guides, and the shapes on the core layer must run on past both ends (the
+check refuses a drawing that stops short). `exact = true` cuts at every x where the plane
+changes, as `Cut::exactly`, for a drawing or a `[device]`; without it a sloped run is cut in
+steps of `along_um`.
+
+```yaml
+task:
+  kind: eme
+  wavelength_um: 1.55
+  modes: 480
+  stack: soi_220
+  layer: Si
+  x_um: [0.0, 1.0]
+  path:
+    - layer: Si
+      start: ["-1 um", 0]
+      width: 400 nm
+      segments:
+        - { straight: 1 um }
+        - { straight: 1 um, width: 800 nm }   # a linear taper
+        - { straight: 1 um }
+  plane:
+    step_um: [0.05, 0.055]
+    margins_um: [0.4, 0.33]
+    symmetry: half
+    exact: true
+```
+
+Two cases check that a drawing is cut as the library cuts it. `eme/3d-drawing-extruded` writes
+the stepped slab of `eme/3d-cut-extruded` in a job as five rectangles on a `[task.stack]` of
+the same constant indices: every entry of S the run records is the hand-built sections' within
+DRAWN_EXTRUDED. `eme/3d-drawing-taper` runs the built-in job `jobs/eme-taper-drawn-3d.yaml`,
+the taper of `eme/3d-cut-taper-exact` drawn as a path (the YAML above on that case's constant
+indices), against the taper's device drawing cut exactly: every recorded entry within
+DRAWN_TAPER, its $\lvert S_{21}\rvert^2$ 0.9921834 as the device's. The path's polygon has the
+drawing's walls and its straights the led guides, so the cut meets the same sampling points at
+the same x and solves the same 33 planes.
+
 ## S over wavelength
 
 `Spectrum::run` gives a structure's S between the first modes at its two ends as a function of
@@ -864,6 +911,8 @@ Measured with the cases' own settings, at 1.55 µm, silicon (3.473) in oxide (1.
 | `eme/3d-cut-taper-fdfd` | the same, $\lvert S_{21}\rvert^2$ | 0.9921834 | 3D FDFD of the device on the same plane at Δx = 0.1 µm over 3 to 7: 0.9921745 (fit residual 3.8e-5) | discretisation, 4e-4 absolute, three times FDFD's own error (its limit moves 1.3e-4 with its coarsest step) |
 | `eme/3d-cut-mmi-fdfd`, `-reflection` | a 1 × 2 strip MMI 1.6 × 2.4 µm, 0.5 µm access guides, the half y ≥ 0 on 50 × 55 nm cells, every one of 728 modes: $\lvert S_{21}\rvert^2$ (into both outputs) and $\lvert S_{11}\rvert^2$ | 0.9056087 and 1.6111e-3 | the same FDFD: 0.9056635 and 1.61168e-3 (residuals 8.9e-7, 1.6e-7) | discretisation, 2e-4 and 1.4e-5 absolute, three times FDFD's own error (its PML, 6.3e-5; its coarsest step, 4.5e-6) |
 | `eme/3d-cut-mmi-reciprocity`, `-power` | the same MMI | $\lvert S - S^T\rvert$ 2.5e-13; $\lvert S_p^\dagger S_p - 1\rvert$ 1.3e-12 | Lorentz reciprocity, power conservation | round-off, 1e-10 |
+| `eme/3d-drawing-extruded` | the stepped slab of `eme/3d-cut-extruded` drawn in a job as five rectangles ([a job's own drawing](#a-jobs-own-drawing)) | every entry the run records within DRAWN_EXTRUDED of the hand-built sections' | the same planes | round-off, 1e-10 |
+| `eme/3d-drawing-taper` | `jobs/eme-taper-drawn-3d.yaml`: the taper of `eme/3d-cut-taper-exact` drawn as a path in the job, cut exactly | every entry the run records within DRAWN_TAPER of the device's exact cut | the same 33 planes | round-off, 1e-10 |
 | `eme/wavelength-taper`, `-mmi` | S over a range (1.45 to 1.65 µm, the C band) from a few solves, every entry on one set of wavelengths, asked for 1e-6 ([S over wavelength](#s-over-wavelength)) | ratio of the true error to the estimate 7.5e-7 (taper, 32 solves) and 7.8e-6 (multimode section, 117 solves) | the same expansion at each of 201 wavelengths | discretisation, a ratio of the true error to the estimate of at most 1, measured |
 | `eme/wavelength-reciprocity` | the two interpolants on the 201 wavelengths | $\lvert r - r^T \rvert$ 1.8e-14 | the solves' own reciprocity, kept by a shared denominator | round-off, 1e-12 |
 | `eme/wavelength-power` | the same: each column's power against the solves' | under 1e-3 of the bound $\sum_q (2\lvert S_{qp}\rvert + e_{qp}) e_{qp}$ | the bound the entries' estimates give | discretisation, a ratio of at most 1, measured |
@@ -907,14 +956,15 @@ What it does not do yet (#432):
   reflection needs nearly every mode of the plane. With
   fewer than every mode of the plane, power is conserved only to the truncation's error
   ([above](#sections-in-3d)).
-- **Sections are described or cut from a device:** a job gives straights and tapers of a core
-  or of layers in 2D, or strips on a plane in 3D, or cuts a `[device]` into planes
-  ([a device's sections](#a-devices-sections)); a job's own drawn shapes, a façade function of
-  its own and a view of its own in the studio (which shows its scene and S-parameters as any
-  job's, a device's job opening on the device's page) are to come. The Python package runs it as
-  any job, through `run_job`. A device is cut along x only, its ports facing ±x; a sloped etch's
-  walls, which lean with z, are cut in steps, not exactly; and the cut takes no bodies over the
-  stack.
+- **Sections are described or cut from a geometry:** a job gives straights and tapers of a core
+  or of layers in 2D, or strips on a plane in 3D, or cuts a `[device]` or its own drawing into
+  planes ([a device's sections](#a-devices-sections), [a job's own drawing](#a-jobs-own-drawing));
+  a façade function of its own and a view of its own in the studio (which shows its scene and
+  S-parameters as any job's, a device's job opening on the device's page) are to come. The
+  Python package runs it as any job, through `run_job`. A device or a drawing is cut along x
+  only, its ports facing ±x; a sloped etch's walls, which lean with z, are cut in steps, not
+  exactly; the cut takes no bodies over the stack, and a drawing takes no `[[task.component]]`
+  (a component's ports face any way, the cut's two ends only ±x).
 - **A device's size:** every mode of a plane is a dense solve, at most a few thousand unknowns
   in reasonable time, and the 3D FDFD that checks it millions of unknowns for a device tens of
   micrometres long. The cases check a 1.6 µm MMI and a 1 µm taper; the studio's 6 µm MMI is not
