@@ -1004,21 +1004,20 @@ pub fn bell_measurement() -> photonoxide::Result<f64> {
         let rows = out.mode_list();
         Ok(permanent(&u.select(&rows, inp))? / out.factorials().sqrt())
     };
-    let mut probs = vec![vec![0.0; outputs.len()]; 4];
-    for (s, state) in states.iter().enumerate() {
-        for (o, out) in outputs.iter().enumerate() {
+    let mut success = 0.0;
+    for out in &outputs {
+        // each Bell state's probability of this pattern
+        let mut probs = [0.0; 4];
+        for (p, state) in probs.iter_mut().zip(&states) {
             let mut a = c64::new(0.0, 0.0);
             for (inp, w) in state {
                 a += amplitude(inp, out)? * *w;
             }
-            probs[s][o] = a.norm_sqr();
+            *p = a.norm_sqr();
         }
-    }
-    let mut success = 0.0;
-    for o in 0..outputs.len() {
-        let giving: Vec<usize> = (0..4).filter(|&s| probs[s][o] > 1e-12).collect();
+        let giving: Vec<f64> = probs.into_iter().filter(|&p| p > 1e-12).collect();
         if giving.len() == 1 {
-            success += 0.25 * probs[giving[0]][o];
+            success += 0.25 * giving[0];
         }
     }
     Ok(success)

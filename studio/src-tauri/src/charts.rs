@@ -1542,9 +1542,9 @@ pub fn evaluate(id: &str, given: &BTreeMap<String, f64>) -> Result<ChartData, St
             },
             at("radius"),
         ),
-        _ => match plasmon::evaluate(id, &at)
-            .or_else(|| yee::evaluate(id, &at))
-            .or_else(|| quantum::evaluate(id, &at))
+        _ => match plasmon::evaluate(id, at)
+            .or_else(|| yee::evaluate(id, at))
+            .or_else(|| quantum::evaluate(id, at))
         {
             Some(result) => result,
             None => return Err(format!("chart {id} has no function")),

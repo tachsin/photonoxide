@@ -812,9 +812,10 @@ cost falls as the loss grows.
 
 ::chart gbs-simulability
 
-Qi et al. evaluate two experiments of 2019, not in the folder and known here from their citations:
-Paesani et al.'s chip ($K = 4$, $r = 0.1$, $\eta = 0.088$, $\eta_D = 0.78$), simulable "with error 2%",
-where photonoxide gives $\epsilon^* = 0.0224$; and Zhong et al.'s bulk sampler ($K = 6$, $r = 0.38$,
+Qi et al. evaluate two experiments of 2019, known here from their citations (refs. 48 and 49) as
+their papers aren't in the folder: Paesani et al.'s chip (Nat. Phys. 15, 925) ($K = 4$, $r = 0.1$, $\eta = 0.088$, $\eta_D = 0.78$), simulable "with error 2%",
+where photonoxide gives $\epsilon^* = 0.0224$; and Zhong et al.'s bulk sampler (Sci. Bull. 64,
+511) ($K = 6$, $r = 0.38$,
 $\eta = 0.89$, $\eta_D = 0.82$), with "no solution for any ε ∈ [0, 1]", where it gives 1.10.
 
 ::validation quantum/qi-simulability

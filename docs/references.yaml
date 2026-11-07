@@ -71,6 +71,12 @@
   venue: "Nat. Photonics 7, 545"
   year: 2013
 
+- doi: 10.1038/s41567-019-0567-8
+  authors: "S. Paesani, Y. Ding, R. Santagati, L. Chakhmakhchyan, C. Vigliar, K. Rottwitt, L. K. Oxenløwe, J. Wang, M. G. Thompson, A. Laing"
+  title: "Generation and sampling of quantum states of light in a silicon chip"
+  venue: "Nat. Phys. 15, 925"
+  year: 2019
+
 - doi: 10.1126/science.1155441
   authors: "A. Politi, M. J. Cryan, J. G. Rarity, S. Yu, J. L. O'Brien"
   title: "Silica-on-Silicon Waveguide Quantum Circuits"
@@ -584,6 +590,12 @@
   title: "Experimental boson sampling"
   venue: "Nat. Photonics 7, 540"
   year: 2013
+
+- doi: 10.1016/j.scib.2019.04.007
+  authors: "H.-S. Zhong, L.-C. Peng, Y. Li, Y. Hu, W. Li, J. Qin, D. Wu, W. Zhang, H. Li, L. Zhang, et al."
+  title: "Experimental Gaussian Boson sampling"
+  venue: "Sci. Bull. 64, 511"
+  year: 2019
 
 - doi: 10.1007/s10973-014-4000-3
   authors: "E. Černošková, R. Todorov, Z. Černošek, J. Holubová, L. Beneš"
