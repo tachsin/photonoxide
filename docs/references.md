@@ -323,7 +323,7 @@ S. Bartolucci, P. Birchall, H. Bombín, H. Cable, C. Dawson, M. Gimeno-Segovia, 
 
 - Methods pages: [quantum.md:57](methods/quantum.md?plain=1#L57), [526](methods/quantum.md?plain=1#L526)
 - Validation cases: [`quantum/bartolucci-fusion`](validation.md?plain=1#L905)
-- Code: [src/quantum/budget.rs:13](../src/quantum/budget.rs#L13), [src/quantum/real_checks.rs:1083](../src/quantum/real_checks.rs#L1083), [studio/src-tauri/src/circuits/quantum.rs:584](../studio/src-tauri/src/circuits/quantum.rs#L584)
+- Code: [src/quantum/budget.rs:13](../src/quantum/budget.rs#L13), [src/quantum/real_checks.rs:1083](../src/quantum/real_checks.rs#L1083), [studio/src-tauri/src/circuits/quantum.rs:594](../studio/src-tauri/src/circuits/quantum.rs#L594)
 - Other documents: [docs/plans/quantum.md:491](plans/quantum.md?plain=1#L491)
 
 #### Barwicz and Haus 2005
@@ -4051,7 +4051,7 @@ M. Varnava, D. E. Browne, T. Rudolph, "How Good Must Single Photon Sources and D
 
 - Methods pages: [quantum.md:55](methods/quantum.md?plain=1#L55), [519](methods/quantum.md?plain=1#L519)
 - Validation cases: [`quantum/varnava-threshold`](validation.md?plain=1#L904)
-- Code: [src/quantum/budget.rs:11](../src/quantum/budget.rs#L11), [src/quantum/real_checks.rs:1076](../src/quantum/real_checks.rs#L1076), [studio/src-tauri/src/circuits/quantum.rs:579](../studio/src-tauri/src/circuits/quantum.rs#L579)
+- Code: [src/quantum/budget.rs:11](../src/quantum/budget.rs#L11), [src/quantum/real_checks.rs:1076](../src/quantum/real_checks.rs#L1076), [studio/src-tauri/src/circuits/quantum.rs:589](../studio/src-tauri/src/circuits/quantum.rs#L589)
 - Other documents: [docs/plans/quantum.md:489](plans/quantum.md?plain=1#L489)
 
 #### Vassilevski 2018
