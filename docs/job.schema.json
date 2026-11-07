@@ -608,6 +608,15 @@
       "additionalProperties": false,
       "description": "A modes job's `[task.convergence]`: the grid study behind each mode's effective index. The modes are solved again on grids each twice as coarse, and the task's grid's Re n_eff, the number reported, is checked by `crate::convergence::Study::check`.",
       "properties": {
+        "budget": {
+          "description": "The most grids a driven run takes, the task's among them: 2 to 6 (4 by default).",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "drive": {
+          "description": "Drive the grid instead of checking it: halve the task's step until the first mode's Re n_eff changes by less than the tolerance and the estimate of its remaining error is within it (`crate::convergence::ToTolerance::grids`, the gate's estimate), then solve the modes on the grid it stopped at. A run whose budget runs out first fails, naming the last two values.",
+          "type": "boolean"
+        },
         "grids": {
           "description": "How many grids, the task's among them: 2 (a first-order estimate) or 3 (Richardson's, the default).",
           "minimum": 0,
@@ -4133,6 +4142,14 @@
         {
           "not": {
             "required": [
+              "bend_step",
+              "bend_step_nm"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
               "bottom_oxide",
               "bottom_oxide_um"
             ]
@@ -4180,6 +4197,21 @@
       "properties": {
         "adaptive": {
           "$ref": "#/$defs/AdaptiveSpec"
+        },
+        "bend_step": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "A bend's thin layers' largest thickness in the mapped coordinate, nm (10 by default, `crate::eme::Eme::with_bend_step`): where `[task.convergence]` starts the bends' layers from, halving them until its quantity changes by less than its tolerance. With its unit in the value, in place of bend_step_nm: a length with its unit, e.g. \"20 nm\"."
+        },
+        "bend_step_nm": {
+          "description": "A bend's thin layers' largest thickness in the mapped coordinate, nm (10 by default, `crate::eme::Eme::with_bend_step`): where `[task.convergence]` starts the bends' layers from, halving them until its quantity changes by less than its tolerance.",
+          "type": "number"
         },
         "bottom_oxide": {
           "anyOf": [
@@ -6067,6 +6099,18 @@
           "description": "Each medium's loss tangent, by name.",
           "type": "object"
         },
+        "loss_tangent_at_ghz": {
+          "description": "The frequency the given loss tangents hold at, f_ref of `loss_tangent_exponent`, GHz (by default the frequencies' geometric middle). A catalogue's tangent holds at the frequency it was measured at.",
+          "type": "number"
+        },
+        "loss_tangent_exponent": {
+          "additionalProperties": {
+            "type": "number"
+          },
+          "default": {},
+          "description": "Each medium's loss tangent as a power law in frequency, by name: the exponent p of tan δ(f) = tan δ (f / f_ref)^p, −1 for a conduction loss (σ/(ωε₀ε′)). A medium without one keeps its tangent at every frequency.",
+          "type": "object"
+        },
         "mirrored": {
           "default": false,
           "description": "Whether the window holds half the line, mirrored in its left side.",
@@ -6492,6 +6536,10 @@
           "description": "`\"x\"` or `\"y\"` (the default, an older job): the axis the modes travel along.",
           "type": "string"
         },
+        "quantities": {
+          "$ref": "#/$defs/QuantitiesSpec",
+          "description": "Each mode's quantities beside its index, recorded as a `mode_quantities` event after its field: its effective areas, its confinement in the guides, its products with the other modes and, with an n₂, its γ (`crate::mode::quantities`)."
+        },
         "rect": {
           "items": {
             "$ref": "#/$defs/RectSpec"
@@ -6663,6 +6711,10 @@
         "pump": {
           "$ref": "#/$defs/PumpSpec",
           "description": "The pump: SHG's fundamental, SFG's first input, the others' pump."
+        },
+        "shg_type": {
+          "description": "SHG's type: `\"i\"` (the default: both fundamental photons in one wave, one index) or `\"ii\"` (in two waves, the first and second fundamental, each its own index, axis or mode family; the pump's power split equally between them, a fundamental polarized at 45° to both). Type II's waves are the two fundamentals and the harmonic.",
+          "type": "string"
         },
         "signal": {
           "$ref": "#/$defs/SignalSpec",
@@ -7693,6 +7745,17 @@
         },
         "wavelength_um": {
           "description": "The vacuum wavelength, µm.",
+          "type": "number"
+        }
+      },
+      "type": "object"
+    },
+    "QuantitiesSpec": {
+      "additionalProperties": false,
+      "description": "A modes job's `[task.quantities]`: what each mode gives beside its index.",
+      "properties": {
+        "nonlinear_index_m2_per_w": {
+          "description": "A nonlinear index n₂, m²/W, uniform across the section, for each mode's γ = 2π n₂/(λ A_eff); none without it.",
           "type": "number"
         }
       },
