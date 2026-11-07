@@ -1442,6 +1442,67 @@ fn accepted(
     })
 }
 
+/// The temperature step of a ridge's temperature acceptance, K: its modes solved at the
+/// operating temperature and this far either side.
+pub(super) const RIDGE_KELVIN_STEP: f64 = 1.0;
+
+/// The phase ΔkL/2 of the ridge `r` at `kelvin`: its media read there, its modes solved again
+/// over `ranges`, the device's length and grating expanded there.
+fn ridge_phase_at(
+    setup: &Setup,
+    r: &RidgeGuide,
+    ranges: &[(f64, f64)],
+    grating: Option<Grating>,
+    kelvin: f64,
+) -> Result<f64> {
+    let at = r.at_kelvin(kelvin)?;
+    let (indices, _) = at.indices(&at.ridge, ranges)?;
+    let state = State {
+        temperature: kelvin,
+        ..setup.state
+    };
+    device_of(setup, &indices, grating)?.phase(&state)
+}
+
+/// A ridge's temperature acceptance, K: Fejer et al.'s estimates (as
+/// [`crate::nonlinear::phase::Device::acceptance`]) from the phase `p0` at the operating
+/// temperature and the modes solved again [`RIDGE_KELVIN_STEP`] either side, by central
+/// differences. The width between the half maxima would take a solve per step of the search: it
+/// isn't given.
+fn ridge_temperature_acceptance(
+    setup: &Setup,
+    r: &RidgeGuide,
+    ranges: &[(f64, f64)],
+    grating: Option<Grating>,
+    p0: f64,
+) -> std::result::Result<Accepted, String> {
+    use crate::nonlinear::phase::HALF_MAXIMUM;
+    if p0.abs() >= HALF_MAXIMUM {
+        return Err(format!(
+            "the response at the operating point is {:.3}, already below 1/2",
+            sinc2(p0)
+        ));
+    }
+    let (t0, h) = (setup.state.temperature, RIDGE_KELVIN_STEP);
+    let phase = |t: f64| ridge_phase_at(setup, r, ranges, grating, t).map_err(|e| e.to_string());
+    let (pp, pm) = (phase(t0 + h)?, phase(t0 - h)?);
+    let slope = (pp - pm) / (2.0 * h);
+    let curvature = (pp - 2.0 * p0 + pm) / (h * h);
+    let linear = 2.0 * HALF_MAXIMUM / slope.abs();
+    let estimate = if linear.is_finite() {
+        linear
+    } else {
+        2.0 * (2.0 * HALF_MAXIMUM / curvature.abs()).sqrt()
+    };
+    if !estimate.is_finite() {
+        return Err("the modes' mismatch doesn't change with it".to_owned());
+    }
+    Ok(Accepted {
+        estimate,
+        numerical: None,
+    })
+}
+
 fn ok(v: Result<f64>) -> Option<f64> {
     v.ok().filter(|x| x.is_finite())
 }
@@ -1511,6 +1572,15 @@ fn compute(job: &Job, stop: &Stop) -> Result<Computed> {
         .any(|w| w.index.depends_on_temperature());
     let temperature_acceptance = if temperature_dependent {
         match accepted(&device, Variable::Temperature, 1.0) {
+            Ok(a) => Some(a),
+            Err(e) => {
+                notes.push(format!("no temperature acceptance: {e}"));
+                None
+            }
+        }
+    } else if let Guide::Ridge(r) = &setup.guide {
+        // a ridge's indices are its modes at one temperature: solve them again either side
+        match ridge_temperature_acceptance(&setup, r, &ranges, grating.map(|g| g.0), phase) {
             Ok(a) => Some(a),
             Err(e) => {
                 notes.push(format!("no temperature acceptance: {e}"));

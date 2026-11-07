@@ -41,6 +41,16 @@ fn job_rules() -> Vec<(&'static str, Rule)> {
             ),
         ),
         (
+            "job/nonlinear-ridge-temperature-acceptance",
+            Rule::new(
+                Relative,
+                RoundOff,
+                1e-8,
+                Exact,
+                "the same modes solved at the same temperatures, read through the setup and through the map: the operating wavelength reached by the map's grid to its last bit, so round-off",
+            ),
+        ),
+        (
             "job/nonlinear-fwm-depleted-loss",
             Rule::new(
                 Relative,

@@ -1319,8 +1319,15 @@ Malitson's silica, moved by Leviton & Frey's change), the designed period and th
 follow it; Zelmon et al.'s indices, the catalogue's default for both lithium niobates, are
 measured at 21 °C only, and don't move. A map across `temperature_c` solves the ridge's modes
 again at each temperature, as a map across `width_um` does at each width: 5 rows by default, at
-most 21. A ridge has no temperature acceptance yet (the modes' Δk would have to be solved at
-neighbouring temperatures): the map shows it.
+most 21. A ridge's temperature acceptance solves its modes again 1 K either side of the task's
+temperature, its media read there, and takes Fejer et al.'s estimate from the central difference
+of ΔkL/2 (the noncritical one where the first derivative vanishes); the width between the half
+maxima would take a solve at each step of its search, so the record leaves it out. The two extra
+solves cost what two rows of a map do. `job/nonlinear-ridge-temperature-acceptance` reads Zhao et
+al.'s guide (on 40 nm cells) both ways, through the setup and through a map's rows at 19 and
+21 °C, and they agree to the bit: 104.87 K over 5 mm, with Zelmon's indices held and only silica
+moving. The 1 K difference's own error, from its gap to the 2 K one (Richardson), is 9.4e-6
+relative.
 
 The film's d tensor is the catalogue's measurement nearest the job's wavelengths, carried to them
 by [Miller's rule](#millers-rule): nearest by its fundamental against twice the generated wave's
@@ -1403,8 +1410,8 @@ the end are the lossless guide's over (1 − e^{−αL})/α, times e^{−αL}: t
 3.0e-12 (3.6e-12 without the loss), the job's 2000 RK4 steps' own error. An index without
 dispersion has no acceptance bandwidth: the record says so in a note.
 
-What a job can't set yet: a type-II SHG (one index for both fundamental photons), a ridge's
-temperature acceptance, and a cavity around the guide.
+What a job can't set yet: a type-II SHG (one index for both fundamental photons) and a cavity
+around the guide.
 
 ## Limits
 

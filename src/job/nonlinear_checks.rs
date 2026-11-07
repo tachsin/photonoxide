@@ -139,6 +139,69 @@ fn efficiency() -> Outcome {
     }
 }
 
+/// The cells of the temperature-acceptance case, nm: coarse, since it compares one set of
+/// solves reached two ways.
+const ACCEPTANCE_STEP_NM: f64 = 40.0;
+
+/// Zhao et al.'s guide on [`ACCEPTANCE_STEP_NM`] cells with a phase map against temperature,
+/// 18 to 22 °C on 5 rows (each row's modes solved again), at 1.56, 1.57 and 1.58 µm: (the
+/// setup's temperature acceptance, K; the map's phases ΔkL/2 at 1.57 µm, row by row).
+pub(super) fn ridge_acceptance_and_map() -> (f64, Vec<f64>) {
+    let text = format!(
+        "{}\n[task.map]\nwavelength_um = [1.56, 1.58]\npoints = 3\ntemperature_c = [18.0, 22.0]\nacross_points = 5\n",
+        zhao_job(ACCEPTANCE_STEP_NM)
+    );
+    let job = Job::parse(&text).expect(OK);
+    super::check(&job).expect(OK);
+    let mut run = Run::in_memory();
+    execute(&job, &mut run, &Stop::new(None)).expect(OK);
+    let events: Vec<Event> = run
+        .lines()
+        .iter()
+        .map(|l| serde_json::from_str::<Event>(l).expect("a recorded event"))
+        .collect();
+    let setup = events
+        .iter()
+        .find_map(|e| match e {
+            Event::NonlinearSetup { setup } => Some(setup),
+            _ => None,
+        })
+        .expect("the job records its setup");
+    let estimate = setup
+        .temperature_acceptance_k
+        .as_ref()
+        .unwrap_or_else(|| panic!("no temperature acceptance: {:?}", setup.notes))
+        .estimate;
+    let map = events
+        .iter()
+        .find_map(|e| match e {
+            Event::PhaseMap { map } => Some(map),
+            _ => None,
+        })
+        .expect("the job records its map");
+    // the job has no expansion: the map's Δk is 2φ/L
+    let length = 5000.0;
+    let phases = (0..5)
+        .map(|row| map.mismatch_per_um[row * 3 + 1].expect("a mismatch at 1.57 um") * length / 2.0)
+        .collect();
+    (estimate, phases)
+}
+
+/// The setup's temperature acceptance against Fejer et al.'s linear estimate from the map's
+/// rows at 19 and 21 °C.
+fn ridge_acceptance() -> Outcome {
+    use crate::nonlinear::phase::HALF_MAXIMUM;
+    let (estimate, phases) = ridge_acceptance_and_map();
+    let slope = (phases[3] - phases[1]) / 2.0;
+    let expected = 2.0 * HALF_MAXIMUM / slope.abs();
+    Outcome {
+        measured: estimate,
+        expected,
+        tolerance: 1e-8 * expected,
+        error: (estimate - expected).abs(),
+    }
+}
+
 /// Four-wave mixing as a job: γ = 100 /(W·m), 10 mm, the index 2.0 at every wavelength (Δk = 0),
 /// 1 W of pump at 1.55 µm, 300 mW of signal at 1.56 µm, every wave losing `db` dB/cm.
 pub(super) fn fwm_job(db: f64) -> String {
@@ -267,6 +330,13 @@ pub(crate) fn cases() -> Vec<Case> {
             source: r"with one loss $\alpha$ for every wave and $\Delta k = 0$, $A_j = B_je^{-\alpha z/2}$ turns G. P. Agrawal, Nonlinear Fiber Optics, 6th ed. (2019), Eqs. (10.2.1)–(10.2.4) with their losses into the lossless ones in $\zeta = (1 - e^{-\alpha z})/\alpha$: the lossless guide over $L_\mathrm{eff}$ (20 000 RK4 steps), its powers times $e^{-\alpha L}$",
             run: fwm_depleted,
         },
+        Case {
+            id: "job/nonlinear-ridge-temperature-acceptance",
+            title: r"Zhao et al. 2020's guide through a nonlinear job (as `job/nonlinear-ridge-zhao-period`, on 40 nm cells), with a phase map against temperature from 18 to 22 °C, each row's modes solved again: the setup's temperature acceptance, from the modes solved at 19, 20 and 21 °C, against Fejer et al.'s linear estimate from the map's rows at 19 and 21 °C at 1.57 µm (K shown)",
+            tier: Tier::Analytic,
+            source: r"M. M. Fejer et al., IEEE J. Quantum Electron. 28, 2631 (1992), doi:10.1109/3.161322, Eq. (25): $\delta T = 4 \cdot 1.39156/(L\lvert\partial\Delta k/\partial T\rvert)$, the derivative by central differences of the map's own $\Delta k$: one set of solves reached two ways",
+            run: ridge_acceptance,
+        },
     ]
 }
 
@@ -278,6 +348,22 @@ mod tests {
         (0..3)
             .map(|j| (a[j] / b[j] - 1.0).abs())
             .fold(0.0, f64::max)
+    }
+
+    /// The temperature-acceptance case's gap and the central difference's own error, as the
+    /// method page quotes them: run with `--ignored --nocapture` in release.
+    #[test]
+    #[ignore = "prints the ridge's temperature acceptance"]
+    fn ridge_acceptance_error() {
+        let (estimate, phases) = ridge_acceptance_and_map();
+        let slope = (phases[3] - phases[1]) / 2.0;
+        let wide = (phases[4] - phases[0]) / 4.0;
+        let o = ridge_acceptance();
+        eprintln!(
+            "estimate {estimate} K, gap {:.2e}; slope {slope} /K, from 2 K {wide}, the 1 K difference's error {:.2e}; phases {phases:?}",
+            o.error / o.expected,
+            ((slope - wide) / 3.0 / slope).abs()
+        );
     }
 
     /// The four-wave case's gaps, as its rule quotes them: run with `--ignored --nocapture` in
