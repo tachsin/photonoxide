@@ -80,7 +80,7 @@ fn refusal(holder: Holder, name: &str) -> String {
             .to_owned(),
         (Holder::Solver, "nonlinear") => {
             "`kind`, `process`, `shg_type`, `waveguide`, `pump`, `signal`, \
-            `poling`, `length_mm`, `temperature_c`, `map`, `pairs`, `points`"
+            `poling`, `length_mm`, `temperature_c`, `map`, `pairs`, `points`, `ring`"
                 .to_owned()
         }
         (Holder::Solver | Holder::Device, "eme") => "`kind`, `wavelength_um`, `polarization`, \
