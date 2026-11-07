@@ -101,9 +101,13 @@ def test_each_cross_section_parses_as_svg_with_its_layers_from_the_top_down(tmp_
             assert legend is not None
             lines = [t.text or "" for t in legend.iter(f"{SVG}text")]
             assert lines[0] == "Layers, from the top down, the substrate last"
-            assert [line.split(":")[0] for line in lines[1:]] == [
+            # the layers, then the films drawn over them (a resist, a deposited film), if any
+            layers = [line for line in lines[1:] if not line.startswith("over the layers: ")]
+            assert [line.split(":")[0] for line in layers] == [
                 row["name"] for row in data["stacks"][k]
             ]
+            over = lines[1 + len(layers):]
+            assert all(line.startswith("over the layers: ") for line in over)
         # the finished wafer draws each patterned layer's shapes
         last = ET.parse(svgs[-1]).getroot().find(f"{SVG}g[@id='cross-section']")
         assert last is not None and last.findall(f"{SVG}polygon")

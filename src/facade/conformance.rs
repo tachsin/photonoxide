@@ -131,6 +131,14 @@ fn vector_mode(m: &VectorMode) -> Value {
         "hx": complexes(&m.h[0], &shape),
         "hy": complexes(&m.h[1], &shape),
         "hz": complexes(&m.h[2], &shape),
+        "wavelength_um": 1.55,
+        "effective_area_um2": m.effective_area_um2,
+        "effective_area_transverse_um2": m.effective_area_transverse_um2,
+        "power_shares": nested(
+            &m.power_shares.iter().map(|&v| json!(v)).collect::<Vec<_>>(),
+            &shape
+        ),
+        "orthogonality": complexes(&m.orthogonality, &[m.orthogonality.len()]),
     })
 }
 
@@ -994,6 +1002,7 @@ fn fabrication_cases(scratch: &Path, cases: &mut Vec<Case>) -> Result<()> {
                 "assessment": parsed(&f.assessment)?,
                 "json": f.json,
                 "markdown": f.markdown,
+                "csv": f.csv,
                 "svgs": f.svgs,
             }),
             &[],
@@ -1011,6 +1020,7 @@ fn fabrication_cases(scratch: &Path, cases: &mut Vec<Case>) -> Result<()> {
             "assessment": parsed(&f.assessment)?,
             "json": f.json,
             "markdown": f.markdown,
+            "csv": f.csv,
             "svgs": f.svgs,
         }),
         &[],
