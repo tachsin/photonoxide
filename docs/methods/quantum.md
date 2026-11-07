@@ -94,6 +94,8 @@ validation:
   - quantum/two-mode-thermal
   - quantum/squeezed-loss
   - quantum/displaced-states
+  - quantum/clicks-coherent
+  - quantum/clicks-displaced
   - quantum/source-pairs
   - quantum/source-hom-gaussian
   - quantum/heralding-coupler
@@ -340,6 +342,15 @@ doi:10.1103/RevModPhys.84.621, with their $\hbar = 2$). `Gaussian` holds them, t
 - **Clicks** of threshold detectors (Quesada et al. 2018, doi:10.1103/PhysRevA.98.062322): the
   modes $S$ click and the rest stay dark with probability
   $\operatorname{Tor}(O_S) / \sqrt{\det \sigma_Q}$, $O = I - \sigma_Q^{-1}$, for a state without means.
+  With means, the same inclusion and exclusion over the clicking modes, written out: the sum over
+  the subsets $Y \subseteq S$ of $(-1)^{\lvert Y \rvert}$ times the probability that the dark
+  modes and $Y$ all hold no photon, each the vacuum probability of the state reduced to those
+  modes, $\exp(-\frac{1}{2}\beta^\dagger \sigma_Q^{-1} \beta)/\sqrt{\det \sigma_Q}$ of its own
+  $\sigma_Q$ and $\beta$ (the loop torontonian's terms, each a determinant and an inverse of
+  $2^{k}$ reduced states for $k$ clicking modes, up to 30). Coherent states through a lossy
+  interferometer click as products of $1 - e^{-\lvert \beta_j \rvert^2}$
+  (`quantum/clicks-coherent`), and a displaced two-mode squeezed vacuum as its photon-number
+  probabilities summed into each pattern (`quantum/clicks-displaced`), both to round-off.
 - **The Wigner function** of one mode, the others traced out, is the Gaussian of its $2 \times 2$
   covariance $V$ and means $d$: $W(r) = \exp(-\frac{1}{2}(r - d)^T V^{-1} (r - d)) / (2\pi\sqrt{\det V})$
   (`Gaussian::wigner`), $1/(2\pi)$ at the vacuum's centre with $\hbar = 2$, and never negative.
@@ -934,7 +945,9 @@ the gap is explained, without a looser tolerance.
   no such limit.
 - Hafnians and torontonians up to 60 rows (30 photons, or 30 clicking modes); patterns up to 30
   photons, the moments-of-a-sum route losing digits as they crowd into one mode (about
-  $10^{-10}$ relative at 30). Clicks of states with means (a loop torontonian) aren't computed.
+  $10^{-10}$ relative at 30). Clicks of states with means take $2^k$ reduced states' vacuum
+  probabilities for $k$ clicking modes, one after another, not cut into parts across threads as
+  the torontonian's terms are: up to 30 clicking modes, practical to about 20.
 - A source's squeezing per Schmidt mode, $g\sqrt{\lambda_k}$, is the low-gain picture; the
   squeezers are continuous-wave and lossless (the loss goes after them). Broadband squeezing at
   high gain, whose temporal modes change with the gain, is left for later; so are the Schmidt

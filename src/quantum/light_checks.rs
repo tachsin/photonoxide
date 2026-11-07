@@ -123,6 +123,20 @@ pub(crate) fn cases() -> Vec<Case> {
             run: displaced_states,
         },
         Case {
+            id: "quantum/clicks-coherent",
+            title: r"Quantum: coherent states ($\alpha$ = 0.6, 0.3i, 0.8 + 0.2i, −0.4 + 0.5i) through a Haar-random $4 \times 4$ interferometer losing 30% in every path: all 16 threshold click patterns against $\prod_j (1 - e^{-\lvert \beta_j \rvert^2})$ over the clicking modes times $e^{-\lvert \beta_j \rvert^2}$ over the dark, $\beta = T\alpha$, and their sum against 1 (largest difference shown)",
+            tier: Tier::Analytic,
+            source: r"a passive map keeps coherent states coherent, $\beta = T\alpha$, and a coherent state is dark with probability $e^{-\lvert \beta \rvert^2}$, independently in each mode",
+            run: clicks_coherent,
+        },
+        Case {
+            id: "quantum/clicks-displaced",
+            title: r"Quantum: a displaced two-mode squeezed vacuum ($r$ = 0.1, $\varphi$ = 0.4, $\alpha$ = 0.3 and 0.2i): its four threshold click patterns by the loop form against its photon-number probabilities by the loop hafnian, summed to 15 photons in each mode (their tail below $10^{-14}$; largest difference shown)",
+            tier: Tier::Analytic,
+            source: "a threshold detector clicks for one photon or more: each pattern is the sum of the number patterns it holds",
+            run: clicks_displaced,
+        },
+        Case {
             id: "quantum/source-pairs",
             title: r"Quantum: a pair source of $K$ = 4 equal Schmidt modes at 0.5 pairs per pulse: the number of pairs is negative binomial, $\binom{n + K - 1}{n} t^n (1 - t)^K$ with $t = \tanh^2 r$, for $n \le 10$; its unheralded $g^{(2)}$ is $1 + 1/K$, and a separable source's 2 (largest difference shown)",
             tier: Tier::Analytic,
@@ -386,6 +400,75 @@ fn displaced_states() -> Outcome {
         .max((m1 - g.mean_photons(0).expect(OK)).abs())
         .max((m2 - m1 * m1 - g.photon_covariance(0, 0).expect(OK)).abs());
     worst(e, 1e-11)
+}
+
+/// Every click pattern of `modes` modes, as the binary digits of 0 to 2^modes − 1.
+fn click_patterns(modes: usize) -> impl Iterator<Item = Vec<bool>> {
+    (0..1usize << modes).map(move |p| (0..modes).map(|m| p >> m & 1 == 1).collect())
+}
+
+fn clicks_coherent() -> Outcome {
+    let alpha = [
+        c64::new(0.6, 0.0),
+        c64::new(0.0, 0.3),
+        c64::new(0.8, 0.2),
+        c64::new(-0.4, 0.5),
+    ];
+    // a Haar-random interferometer with 30% loss in every path
+    let u = super::mesh::haar_unitary(4, 11);
+    let t = Matrix::from_fn(4, 4, |r, c| u[(r, c)] * 0.7f64.sqrt());
+    let mut g = Gaussian::vacuum(4);
+    for (m, &a) in alpha.iter().enumerate() {
+        g = g.displaced(m, a).expect(OK);
+    }
+    let out = g.transformed(&t).expect(OK);
+    // b = T a: each output a coherent state of amplitude (T α)_j, dark with e^(−|(T α)_j|²)
+    let dark: Vec<f64> = (0..4)
+        .map(|j| {
+            let b: c64 = (0..4).map(|k| t[(j, k)] * alpha[k]).sum();
+            (-b.norm_sqr()).exp()
+        })
+        .collect();
+    let (mut e, mut total): (f64, f64) = (0.0, 0.0);
+    for clicks in click_patterns(4) {
+        let p = out.click_probability(&clicks).expect(OK);
+        let closed: f64 = (0..4)
+            .map(|j| if clicks[j] { 1.0 - dark[j] } else { dark[j] })
+            .product();
+        e = e.max((p - closed).abs());
+        total += p;
+    }
+    worst(e.max((total - 1.0).abs()), 1e-13)
+}
+
+fn clicks_displaced() -> Outcome {
+    let g = Gaussian::vacuum(2)
+        .two_mode_squeezed(0, 1, 0.1, 0.4)
+        .expect(OK)
+        .displaced(0, c64::new(0.3, 0.0))
+        .expect(OK)
+        .displaced(1, c64::new(0.0, 0.2))
+        .expect(OK);
+    // the photon numbers' probabilities to 15 in each mode, summed into the four click
+    // patterns; what lies beyond, 1 − their sum, must be below round-off for the sums to be the
+    // clicks' reference
+    let mut by_pattern = [0.0f64; 4];
+    for n in 0..=15usize {
+        for m in 0..=15usize {
+            by_pattern[usize::from(n > 0) + 2 * usize::from(m > 0)] +=
+                g.probability(&[n, m]).expect(OK);
+        }
+    }
+    let tail = 1.0 - by_pattern.iter().sum::<f64>();
+    let mut e: f64 = if tail.abs() < 1e-14 {
+        0.0
+    } else {
+        f64::INFINITY
+    };
+    for (k, clicks) in click_patterns(2).enumerate() {
+        e = e.max((g.click_probability(&clicks).expect(OK) - by_pattern[k]).abs());
+    }
+    worst(e, 1e-13)
 }
 
 fn source_pairs() -> Outcome {
