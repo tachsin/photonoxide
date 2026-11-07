@@ -513,6 +513,7 @@ mod fabrication_frames;
 #[cfg(test)]
 mod fabrication_tests;
 mod fdfd;
+mod fdfd_checks;
 mod fdtd;
 mod fit;
 mod fit_checks;
@@ -644,6 +645,11 @@ pub(crate) fn leaky_cases() -> Vec<crate::validation::Case> {
 /// The validation cases of static jobs' lines: the catalogue's loss tangents through a job.
 pub(crate) fn line_cases() -> Vec<crate::validation::Case> {
     line_checks::cases()
+}
+
+/// The validation cases of FDFD jobs: S over wavelength interpolated from a few solves.
+pub(crate) fn fdfd_cases() -> Vec<crate::validation::Case> {
+    fdfd_checks::cases()
 }
 
 /// The validation cases of nonlinear jobs' ridges: Zhao et al.'s guide through a job.
