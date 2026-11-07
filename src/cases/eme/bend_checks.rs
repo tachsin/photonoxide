@@ -650,42 +650,6 @@ mod tests {
 
     #[test]
     #[ignore = "prints the numbers"]
-    fn the_following_study() {
-        let clad = c64::new(SIO2, 0.0);
-        let slab = Slice::new(&[
-            (clad, Length::um(1.39)),
-            (c64::new(SI, 0.0), Length::um(T)),
-            (clad, Length::um(2.89)),
-        ])
-        .expect("a slab");
-        for strength in [0.25, 0.5, 1.0] {
-            for modes in [10, 12, 16] {
-                for lambda in [1.5, 1.55, 1.6] {
-                    let eme = Eme::new(
-                        Polarization::Tm,
-                        Wavelength::from_um_unchecked(lambda),
-                        modes,
-                    )
-                    .and_then(|e| e.with_upper_pml(Length::um(2.0), strength))
-                    .expect("an eme");
-                    let t = std::time::Instant::now();
-                    let straight = eme.modes(&slab).map(|m| m.len());
-                    let bend = slab
-                        .clone()
-                        .bent(Length::um(2.75))
-                        .and_then(|b| eme.modes(&b))
-                        .map(|m| m.len());
-                    eprintln!(
-                        "σ {strength} modes {modes} λ {lambda}: straight {straight:?} bend {bend:?} {:.1} s",
-                        t.elapsed().as_secs_f64()
-                    );
-                }
-            }
-        }
-    }
-
-    #[test]
-    #[ignore = "prints the numbers"]
     fn the_joint_study() {
         for (pol, r) in JOINTS.iter().chain(&LEAKY_JOINTS) {
             let t = std::time::Instant::now();

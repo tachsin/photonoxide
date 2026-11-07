@@ -809,13 +809,18 @@ meeting the profile it would have met. Two other PMLs were tried on TE at 2 µm,
 3.1e-7 dB per 90°: one of the edge's index, uniform, put the loss 10 % off (the reflection from the
 change in the profile's slope), and one graded along the real coordinate 4 %; the continuation
 is within 6e-7 of the exact loss. A thick graded PML in a tight bend reaches a high index at its
-far end, where it holds modes of its own: TM at 2 µm loses two of them on the way to the bend
-with a PML 4 µm thick (2 µm is followed).
+far end, where it holds modes of its own: TM at 2 µm lost two of them on the way to the bend
+with a PML 4 µm thick (2 µm was followed); the closed window's path below follows them.
 
 **Its modes** are followed in two stages: from the uniform window to the thin layers straight
 (each of its physical index), as any section's; then the map's exponent $2\tilde u/R$ grows from 0
 to its own. Where two of them meet on the way, the bend's modes are followed from the uniform
-window directly instead. Two things found here hold for every section: a mode that lives at the
+window directly instead; where they meet on that path too, from the closed window's modes (no
+PML, no loss: real, and counted exactly) as the PML's strength grows from 0 to its own, a path on
+which the guided modes hardly move. That third path is what follows `jobs/eme-bend.yaml`'s TM bend
+at 2 µm with a PML of strength 0.5 or 1 (16 or 24 modes), where the first two lost two modes; at
+24 modes the three strengths' $\lvert S_{21}\rvert^2$ agree within 1.5e-5 at 1.5, 1.55 and 1.6 µm
+(a test, `the_bend_job_follows_its_modes_at_every_pml_strength`). Two things found here hold for every section: a mode that lives at the
 PML's far end was stitched from the two walls' sweeps where one of them had followed a decaying
 field, so that it was 0.4 off orthogonal to the others; the sweeps are now joined only where they
 agree. And Newton's method now meets the sweeps where they meet best at the root, not at the guess.
@@ -1002,9 +1007,10 @@ What it does not do yet (#432):
   a case.
 - **Bends are 2D only,** in the plane of the expansion: the map is exact only there, and a 3D
   bend's modes need a bent-plane solver of their own ([the bends' plan](../plans/eme-bends.md)).
-  A bend's modes are followed through two stages, and in a tight bend, TM most, two of them can
-  still meet on the way: `jobs/eme-bend.yaml`'s straights lose two TM modes with a PML of
-  strength 0.5 (none with 0.25), and its bend with a PML 4 µm thick; the error names the mode.
+  A bend's modes are followed through two stages, then from the uniform window directly, then
+  from the closed window as the PML grows; where two modes meet on all three paths the error
+  names the mode, never a wrong one (`jobs/eme-bend.yaml`'s TM bend at 2 µm is followed with a
+  PML of strength 0.25, 0.5 and 1).
   A bend's loss in the job is that of its window: a mode radiating strongly puts power into the
   PML that a narrower window would cut (the window must also stay on one side of the bend's
   centre). The bend's mapped profile needs its own convergence beside the modes': the default

@@ -9,8 +9,8 @@
 # it is the bend's radiation (the validation case eme/bend-loss checks the bent mode's loss
 # against the exact bent slab), the rest the two joints' mismatch between the straight's mode
 # and the bent one, which sits further out. From 1.5 to 1.6 um it goes from 0.27 to 0.75 dB.
-# A PML of strength 0.5 here loses two of the straights' TM modes on the way to them (the
-# method page's Limits); 0.25 doesn't.
+# A PML of strength 0.5 or 1 is followed too, from the closed window's modes (the method page's
+# Bends); at 24 modes the three strengths agree within 1.5e-5.
 #   photonoxide run jobs/eme-bend.yaml
 name: eme-bend
 timeout_minutes: 10

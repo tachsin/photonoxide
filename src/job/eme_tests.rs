@@ -662,6 +662,47 @@ fn check_refuses_a_bend_it_cannot_solve() {
     );
 }
 
+/// `jobs/eme-bend.yaml`'s TM bend at 2 µm with a PML of strength 0.25, 0.5 and 1 and 16 and 24
+/// modes: every one is followed (0.5 and 1 lost two modes on the paths from the uniform window,
+/// which the closed window's path now takes), and at 24 modes the three agree within the
+/// expansion's mode-count gate, 1e-4 as `eme/taper-modes` (measured: 1.5e-5).
+#[test]
+#[ignore = "18 solves: in release"]
+fn the_bend_job_follows_its_modes_at_every_pml_strength() {
+    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("jobs");
+    let text = std::fs::read_to_string(dir.join("eme-bend.yaml")).unwrap();
+    let mut at_24: Vec<Vec<f64>> = Vec::new();
+    for strength in ["0.25", "0.5", "1.0"] {
+        for modes in ["16", "24"] {
+            let t = text
+                .replace("strength: 0.25", &format!("strength: {strength}"))
+                .replace("modes: 16", &format!("modes: {modes}"))
+                .replace("points: 11", "points: 3");
+            let job = Job::parse_as(&t, crate::run::Format::Yaml).unwrap();
+            let mut run = Run::in_memory();
+            execute(&job, &mut run, &Stop::new(None))
+                .unwrap_or_else(|e| panic!("strength {strength}, {modes} modes: {e}"));
+            let rows: Vec<f64> = run
+                .lines()
+                .iter()
+                .filter_map(|l| match serde_json::from_str(l).unwrap() {
+                    Event::SParameters { s, .. } => Some(s[1][0][0].powi(2) + s[1][0][1].powi(2)),
+                    _ => None,
+                })
+                .collect();
+            assert_eq!(rows.len(), 3);
+            if modes == "24" {
+                at_24.push(rows);
+            }
+        }
+    }
+    for other in &at_24[1..] {
+        for (a, b) in at_24[0].iter().zip(other) {
+            assert!((a - b).abs() < 1e-4, "{at_24:?}");
+        }
+    }
+}
+
 /// `jobs/eme-bend.yaml` gives the numbers its comment quotes.
 #[test]
 #[ignore = "11 wavelengths: in release"]
