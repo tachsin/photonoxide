@@ -632,6 +632,26 @@ The estimate is a bound only where the fit has seen the response (the
 sweeps' page, [What it can't see](sweep.md#the-error-estimate)): a resonance narrower than the
 grid of 1001 wavelengths the estimate is taken on would be missed.
 
+**Could the estimate be tighter?** (#595.) The two structures were swept over four ranges each
+(the taper over 1.45 to 1.65, 1.45 to 1.55, 1.55 to 1.65 and 1.50 to 1.60 µm; the multimode
+section over 1.53 to 1.57, 1.54 to 1.56, 1.52 to 1.58 and 1.50 to 1.60 µm) at every tolerance from
+1e-3 to 1e-10, 64 sweeps, each against the same expansion solved at 201 wavelengths of its range
+(`the_estimators_ratio_study`, in release, about five minutes). The estimate over the true error
+was 25 to 3.7e8, and never below 1. It is about twice the halves' own true error: each half's fit
+was 12 to 1.8e8 times less accurate than the fit to all the solves, which is what the estimate
+measures. The true error itself stopped at 1e-13 to 2e-11, the solves' own last digits, from
+tolerances of 1e-4 on: a sweep's fit reaches the solves' floor long before its halves do, so the
+ratio is largest at loose tolerances (3.7e8 for the multimode section asked for 1e-3) and smallest
+at tight ones (25 at 1e-10). Two tighter estimates were measured on the same sweeps: the estimate
+to the power 1.5 (as if the full fit's error were the halves' to the power 1.5), and an
+extrapolation from the halves' and the quarters' fits, 2d_h²/d_q (the error falling geometrically
+with the solves). Both fell below the true error once it reached the solves' floor: the first to
+1.3e-4 of it, the second to 1.6e-8. No safety factor makes them bounds, since the floor isn't
+the estimate's to see, so the estimate stays as it is: cautious by a factor that grows with how
+far the solves are below the tolerance, a sweep stopping later than it needs, never earlier.
+Over 1.50 to 1.60 µm the multimode section shows the cost: at its limit of 200 solves its
+estimate was 3.9e-3 and its true error 1.2e-11.
+
 **In a job,** `[task.interpolate]` with a `tolerance` (and `max_solves`, 200 by default) makes the
 `eme` job's `[task.sweep]` an interpolation: the modes (driven by `[task.convergence]` when the
 job has one, by `convergence::ToTolerance` as at any wavelength) and the adaptive steps are
