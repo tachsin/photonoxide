@@ -401,11 +401,13 @@ impl LineSpec {
 /// of its values the one measured nearest `at_ghz` in log frequency (a band holding it is at
 /// it), and of several there the largest tan δ (a range's top, the larger axis). `None` when
 /// the catalogue hasn't the medium.
+#[cfg(test)]
 pub(super) fn catalogue_tangent(medium: &str, at_ghz: f64) -> Option<(f64, String)> {
     catalogue_tangent_measured(medium, at_ghz).map(|(t, from, _)| (t, from))
 }
 
-/// [`catalogue_tangent`], and the frequency its value was measured at nearest `at_ghz`, GHz:
+/// The catalogue's loss tangent for `medium` nearest `at_ghz` as `catalogue_tangent` describes it,
+/// and the frequency its value was measured at nearest `at_ghz`, GHz:
 /// `at_ghz` when the value's band holds it, else the band's end nearer it.
 fn catalogue_tangent_measured(medium: &str, at_ghz: f64) -> Option<(f64, String, f64)> {
     use crate::material::catalogue::{Axis, RfValue, rf_dielectric};
@@ -468,7 +470,7 @@ fn catalogue_tangent_measured(medium: &str, at_ghz: f64) -> Option<(f64, String,
 type Notes = Vec<(String, f64, String)>;
 
 /// `given` with each of `media` it doesn't name given the catalogue's loss tangent at `at`, the
-/// geometric middle of the frequencies ([`catalogue_tangent`]), each medium's tangent and where
+/// geometric middle of the frequencies ([`catalogue_tangent_measured`]), each medium's tangent and where
 /// it came from (given, the catalogue's, or none: lossless), and the frequency each catalogue
 /// tangent was measured at.
 fn with_catalogue(
