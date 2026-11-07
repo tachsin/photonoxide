@@ -388,6 +388,7 @@ def vector_modes(
     pml_um: Sequence[float] = (0.0, 0.0, 0.0, 0.0),
     pml_strength: float = 0.0,
     timeout_s: float | None = 600.0,
+    scheme: str = "standard",
 ) -> list[VectorMode]:
     """Of the ``count`` modes of a cross-section whose effective indices are nearest
     ``near_index`` (the highest index in it when ``None``: the fundamental modes), the guided
@@ -411,6 +412,13 @@ def vector_modes(
     plane of symmetry, ``"electric"`` (for a TE-like mode, the vertical plane through the core)
     or ``"magnetic"`` (the horizontal one). ``pml_um`` are perfectly matched layers inside the
     same edges, µm thick, with stretching ``pml_strength`` (a few units).
+
+    ``scheme`` is the finite-difference equations: ``"standard"``, the full-vector scheme, or
+    ``"hadley"``, Hadley's high-accuracy equations (J. Lightwave Technol. 20, 1210 and 1219
+    (2002)), each mode the standard scheme's refined: they converge far faster beside a
+    high-contrast core's corners, where the standard scheme is about first order. Hadley's need
+    a uniform grid along each axis (the two spacings may differ), real permittivities and no
+    PML.
 
     The solve stops after ``timeout_s`` seconds (``None``: never) with ``TimeoutError``.
 
@@ -439,6 +447,7 @@ def vector_modes(
         [float(p) for p in pml_um],
         float(pml_strength),
         None if timeout_s is None else float(timeout_s),
+        str(scheme),
     )
     return [VectorMode(**m) for m in modes]
 

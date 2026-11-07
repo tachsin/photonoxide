@@ -199,6 +199,40 @@ fn vector_modes_are_the_solvers_in_c_order() {
         }
     }
     assert!(modes[0].te_fraction > 0.9);
+
+    // Hadley's equations: the guided modes refined, to the bit as the library refines them
+    cs.scheme = "hadley".into();
+    let refined = vector_modes(&cs, 1.55, 2, None, &Stop::new(None))
+        .unwrap()
+        .unwrap();
+    let theirs =
+        crate::mode::hadley::refined(&direct, Wavelength::um(1.55).unwrap(), &exact, || false)
+            .unwrap()
+            .unwrap();
+    assert_eq!(refined.len(), 1);
+    assert_eq!(
+        bits(refined[0].effective_index),
+        bits(theirs[0].effective_index())
+    );
+    let fields = theirs[0].fields(&direct).unwrap();
+    assert_eq!(bits(refined[0].e[0][0]), bits(fields.e(0, 0)[0]));
+    // the same as hadley::modes from the same start
+    let by_modes =
+        crate::mode::hadley::modes(&direct, Wavelength::um(1.55).unwrap(), 1, None).unwrap();
+    assert_eq!(
+        bits(refined[0].effective_index),
+        bits(by_modes[0].effective_index())
+    );
+    // the schemes differ, Hadley's lower at the corners
+    assert_ne!(refined[0].effective_index, modes[0].effective_index);
+    cs.scheme = "fancy".into();
+    let unknown = vector_modes(&cs, 1.55, 2, None, &Stop::new(None)).unwrap_err();
+    assert!(unknown.to_string().contains("\"standard\" or \"hadley\""));
+    // Hadley's need no PML
+    cs.scheme = "hadley".into();
+    cs.pml_um = [0.0, 0.25, 0.0, 0.25];
+    cs.pml_strength = 2.0;
+    assert!(vector_modes(&cs, 1.55, 2, None, &Stop::new(None)).is_err());
 }
 
 /// A 1 × 0.4 µm core of ε 4 in ε 2.1025 (indices 2 and 1.45), whole, on a 50 nm grid with its

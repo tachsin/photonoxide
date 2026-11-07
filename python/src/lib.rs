@@ -215,7 +215,7 @@ fn slab_modes<'py>(
 /// with its fields as `(ny, nx)` arrays: fewer than `count` when fewer are guided (with PMLs,
 /// every mode solved).
 #[pyfunction]
-#[pyo3(signature = (x_um, y_um, permittivity, wavelength_um, count, near_index, boundaries, pml_um, pml_strength, timeout_s))]
+#[pyo3(signature = (x_um, y_um, permittivity, wavelength_um, count, near_index, boundaries, pml_um, pml_strength, timeout_s, scheme="standard"))]
 #[allow(clippy::too_many_arguments)] // the façade's, one for one
 fn vector_modes<'py>(
     py: Python<'py>,
@@ -229,6 +229,7 @@ fn vector_modes<'py>(
     pml_um: [f64; 4],
     pml_strength: f64,
     timeout_s: Option<f64>,
+    scheme: &str,
 ) -> PyResult<Bound<'py, PyList>> {
     let mut cs = CrossSection::new(
         vector(&x_um),
@@ -248,6 +249,7 @@ fn vector_modes<'py>(
     cs.boundaries = boundaries;
     cs.pml_um = pml_um;
     cs.pml_strength = pml_strength;
+    cs.scheme = scheme.to_owned();
     let stop = stop_after(timeout_s)?;
     let modes = interruptible(py, &stop, || {
         facade::vector_modes(&cs, wavelength_um, count, near_index, &stop)

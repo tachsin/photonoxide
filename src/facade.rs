@@ -368,6 +368,12 @@ pub struct CrossSection {
     /// The layers' stretching strength α (s = 1 + iα at the window's edge); a few units absorb
     /// well over a layer about a wavelength thick.
     pub pml_strength: f64,
+    /// The finite-difference equations: `"standard"` (the full-vector scheme,
+    /// [`crate::mode::vector`]) or `"hadley"` (Hadley's high-accuracy equations,
+    /// [`crate::mode::hadley`], each mode the standard scheme's refined), which converge much
+    /// faster at a high-contrast core's corners. Hadley's need a uniform grid along each axis,
+    /// real permittivities and no PML.
+    pub scheme: String,
 }
 
 impl CrossSection {
@@ -381,6 +387,7 @@ impl CrossSection {
             boundaries: ["zero", "zero", "zero", "zero"].map(String::from),
             pml_um: [0.0; 4],
             pml_strength: 0.0,
+            scheme: "standard".into(),
         }
     }
 
@@ -470,12 +477,17 @@ pub struct VectorMode {
 /// comes back, as [`crate::mode::vector::modes`] finds them, leaky modes below the media
 /// around the guides with their loss (and the PMLs' own modes, their loss large).
 ///
+/// With the cross-section's `scheme` `"hadley"`, each guided mode is refined by Hadley's
+/// equations ([`crate::mode::hadley::refined`]), the same numbers as
+/// [`crate::mode::hadley::modes`] gives for the same starting modes.
+///
 /// # Errors
 ///
 /// [`Error::InvalidValue`] for a grid or permittivities the solver refuses (see
-/// [`crate::mode::vector::CrossSection::new`]), an unknown boundary, PMLs that don't fit, a
-/// count of 0, a `near_index` that isn't finite, a wavelength that isn't positive and finite,
-/// or an eigenproblem that doesn't converge.
+/// [`crate::mode::vector::CrossSection::new`]), an unknown boundary or scheme, PMLs that don't
+/// fit, a count of 0, a `near_index` that isn't finite, a wavelength that isn't positive and
+/// finite, or an eigenproblem that doesn't converge; with Hadley's equations, a grid that isn't
+/// uniform, a permittivity that isn't real, a PML, or a grid too coarse for them.
 pub fn vector_modes(
     cross_section: &CrossSection,
     wavelength_um: f64,
@@ -486,6 +498,16 @@ pub fn vector_modes(
     let cs = cross_section.build()?;
     let wavelength = Wavelength::um(wavelength_um)?;
     let stopped = || stop.reason().is_some();
+    let hadley = match cross_section.scheme.to_ascii_lowercase().as_str() {
+        "standard" => false,
+        "hadley" => true,
+        other => {
+            return Err(Error::invalid(
+                "scheme",
+                format!("is \"standard\" or \"hadley\", not {other:?}"),
+            ));
+        }
+    };
     // a closed window's own modes left out; an open one's leaky modes kept
     let pml = cs.pml();
     let open = pml.strength > 0.0
@@ -497,9 +519,16 @@ pub fn vector_modes(
     } else {
         vector::guided_modes_until(&cs, wavelength, count, near_index, stopped)?
     };
-    let Some(modes) = solved else {
+    let Some(mut modes) = solved else {
         return Ok(None);
     };
+    if hadley {
+        // each guided mode refined by Hadley's equations, as `mode::hadley::modes` refines its own
+        match crate::mode::hadley::refined(&cs, wavelength, &modes, stopped)? {
+            Some(refined) => modes = refined,
+            None => return Ok(None),
+        }
+    }
     modes
         .iter()
         .map(|mode| {

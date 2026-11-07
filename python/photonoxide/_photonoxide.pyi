@@ -48,6 +48,7 @@ def vector_modes(
     pml_um: list[float],
     pml_strength: float,
     timeout_s: float | None,
+    scheme: str = ...,
 ) -> list[dict[str, Any]]: ...
 def check_job(path: str | PathLike[str] | None, text: str | None, format: str) -> None: ...
 def run_job(

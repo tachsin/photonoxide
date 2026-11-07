@@ -33,7 +33,7 @@ when one of its functions is missing here.
 | Guided modes told from the closed window's own (n_eff above the media at its open edges) | ✅ | ✅ `vector_modes` returns only these, without PMLs | [vector](methods/vector.md) |
 | Leaky modes of shapes on a stack: a modes job with a PML, each mode named guided or leaky with its loss in dB/cm | ✅ | ◐ a job (`run_job`): its `mode_loss` events | [PML](methods/pml.md), [vector](methods/vector.md) |
 | A mode's six field components | ✅ | ✅ `vector_modes` | [fields](methods/fields.md) |
-| Hadley's scheme for dielectric corners | ✅ | — | [hadley](methods/hadley.md) |
+| Hadley's scheme for dielectric corners | ✅ | ✅ `vector_modes(scheme="hadley")`: the guided modes refined, a uniform grid, real permittivities, no PML | [hadley](methods/hadley.md) |
 | Bends | ✅ | — | [bends](methods/bends.md) |
 | The effective index method | ✅ | ◐ inside 2D FDFD and FDTD jobs | [eim](methods/eim.md) |
 | Marcatili's method | ✅ | — | [marcatili](methods/marcatili.md) |

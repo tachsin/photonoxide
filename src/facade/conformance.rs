@@ -562,6 +562,18 @@ pub fn conformance(scratch: &Path) -> Result<Vec<Case>> {
         &[],
     ));
 
+    // the same strip by Hadley's equations
+    cs.scheme = "hadley".into();
+    let modes = vector_modes(&cs, 1.55, 2, None, &Stop::new(None))?.unwrap_or_default();
+    cases.push(case(
+        "vector_modes/strip-quarter-hadley",
+        "vector_modes",
+        &json!({"x_um": x, "y_um": y, "permittivity": eps, "wavelength_um": 1.55, "count": 2,
+                "boundaries": cs.boundaries, "scheme": "hadley"}),
+        &Value::Array(modes.iter().map(vector_mode).collect()),
+        &[],
+    ));
+
     // jobs
     let modes = modes_job();
     check_job(&job(&modes))?;
