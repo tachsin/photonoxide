@@ -1506,7 +1506,9 @@ class Nonlinear:
     operating point, ``efficiency_percent_per_w_cm2`` with ``efficiency_from`` (and a ridge's
     ``overlap_percent_per_w_cm2``), ``gamma_per_w_m``, ``wavelength_acceptance_nm`` and
     ``temperature_acceptance_k`` (each an ``estimate``, Fejer et al.'s, and a ``numerical``
-    width), ``matched_um`` and ``notes``."""
+    width), ``matched_um``, ``notes`` and, with ``[task.ring]``, ``ring`` (``couplings``,
+    ``build_ups``, ``quantity``, ``unit``, ``resonant``, ``single_pass``, ``enhancement`` and
+    FWM's ``kerr_detuning``)."""
     phase_map: dict[str, Any] | None
     """The phase-matching map: ``wavelengths_um`` of the ``tuned`` wave, ``across``
     (``"temperature_c"``, ``"width_um"`` or ``None``) with its ``across_values``, and

@@ -808,6 +808,21 @@ export interface NonlinearSetup {
   temperature_acceptance_k: Accepted | null;
   matched_um: number | null;
   notes: string[];
+  /** The guide closed into a ring resonant at every wave ([task.ring]); absent in older records. */
+  ring?: RingResonance | null;
+}
+
+/** A process in an all-pass ring resonant at every wave (photonoxide::job::RingResonance). */
+export interface RingResonance {
+  couplings: number[];
+  build_ups: number[];
+  quantity: string;
+  /** "mW", or "P_i/P_s" (a ratio). */
+  unit: string;
+  resonant: number;
+  single_pass: number;
+  enhancement: number;
+  kerr_detuning: number | null;
 }
 
 /** A nonlinear job's phase-matching map (photonoxide::job::PhaseMap): rows across, columns in wavelength. */

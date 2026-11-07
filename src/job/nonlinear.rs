@@ -31,7 +31,11 @@
 //!   where it comes from, the acceptance bandwidths in wavelength and temperature, the
 //!   phase-matched wavelength inside the map, and notes: what wasn't computed and why, and
 //!   each wave that lies outside a material's transparency window
-//!   ([`crate::material::catalogue::transparency`]);
+//!   ([`crate::material::catalogue::transparency`]); with `[task.ring]` (SHG of type I and FWM),
+//!   the guide closed into an all-pass ring of circumference `length_mm`, each wave's power
+//!   coupling to the bus given and every wave on its resonance: each wave's build-up, the
+//!   harmonic out (or the idler's conversion) against one pass, undepleted
+//!   ([`RingResonance`], [`crate::nonlinear::cavity`]);
 //! - [`Event::PhaseMap`]: Δk and sinc²(ΔkL/2) against the tuned wave's wavelength (SHG's
 //!   fundamental, every other process's signal, the pump held) and, with `width_um` or
 //!   `temperature_c` in `[task.map]`, the ridge's width or the temperature (a ridge's modes
@@ -144,6 +148,26 @@ pub(super) struct NonlinearTask {
     pairs: Option<PairsSpec>,
     /// The points along the length the efficiency is given at (101 by default).
     points: Option<usize>,
+    /// The guide closed into an all-pass ring resonant at every wave, its circumference
+    /// `length_mm`: SHG of type I and FWM only ([`crate::nonlinear::cavity`]).
+    ring: Option<RingSpec>,
+}
+
+/// `[task.ring]`: an all-pass ring of the task's guide, every wave on its resonance.
+#[derive(Clone, Debug, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+struct RingSpec {
+    /// Each wave's power coupling k² to the bus, above 0 and at most 1: one for every wave, or
+    /// one per wave in the process's order.
+    coupling: PerWave,
+}
+
+/// One value for every wave, or one per wave.
+#[derive(Clone, Debug, Deserialize, JsonSchema)]
+#[serde(untagged)]
+enum PerWave {
+    One(f64),
+    Each(Vec<f64>),
 }
 
 /// `[task.waveguide]`: where the waves' indices come from, and the guide's coefficients.
@@ -356,6 +380,36 @@ pub struct NonlinearSetup {
     pub matched_um: Option<f64>,
     /// What wasn't computed and why; waves outside a material's transparency window.
     pub notes: Vec<String>,
+    /// The guide closed into a ring resonant at every wave (`[task.ring]`).
+    #[serde(default)]
+    pub ring: Option<RingResonance>,
+}
+
+/// A process in an all-pass ring resonant at every wave ([`crate::nonlinear::cavity`]): the
+/// guide's length its circumference, each wave's loss spread along it, every round trip's phase
+/// a whole number of turns, undepleted.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[non_exhaustive]
+pub struct RingResonance {
+    /// Each wave's power coupling k² to the bus, in the process's order.
+    pub couplings: Vec<f64>,
+    /// Each wave's power build-up on resonance, |F|² = k²/(1 − r a)², r = √(1 − k²) and a the
+    /// round trip's field loss.
+    pub build_ups: Vec<f64>,
+    /// What `resonant` and `single_pass` are: SHG's harmonic power out, FWM's idler out over the
+    /// signal in.
+    pub quantity: String,
+    /// Their unit: `"mW"`, or `"P_i/P_s"` (a ratio).
+    pub unit: String,
+    /// Out of the ring.
+    pub resonant: f64,
+    /// Out of one pass of the same guide, its length the ring's.
+    pub single_pass: f64,
+    /// `resonant` over `single_pass`.
+    pub enhancement: f64,
+    /// FWM's pump Kerr phase per round trip in the ring, γ P_p |F_p|² L, over the resonance's
+    /// width 1 − r a: the ring's number holds while it is well under 1.
+    pub kerr_detuning: Option<f64>,
 }
 
 /// One wave of a process.
@@ -993,6 +1047,8 @@ struct Setup {
     map: Option<Map>,
     pairs: Option<Pairs>,
     points: usize,
+    /// Each wave's power coupling to the bus of the ring the guide is closed into.
+    ring: Option<Vec<f64>>,
 }
 
 #[derive(Clone, Debug)]
@@ -1327,6 +1383,27 @@ impl Setup {
             _ => None,
         };
         let points = count(task.points, 101, 2..=2001, "points")?;
+        let ring = match &task.ring {
+            None => None,
+            Some(_) if !matches!(kind, Kind::Shg | Kind::Fwm) => {
+                return Err(task_error(
+                    "[task.ring] is resonant SHG of type I or four-wave mixing \
+                     (crate::nonlinear::cavity)",
+                ));
+            }
+            Some(r) => {
+                let couplings = match &r.coupling {
+                    PerWave::One(v) => vec![*v; roles],
+                    PerWave::Each(v) => per_wave(v, roles, "[task.ring] coupling")?,
+                };
+                if couplings.iter().any(|k| !(*k > 0.0 && *k <= 1.0)) {
+                    return Err(task_error(
+                        "[task.ring] coupling is a power coupling k²: above 0 and at most 1",
+                    ));
+                }
+                Some(couplings)
+            }
+        };
         Ok(Setup {
             kind,
             guide,
@@ -1345,6 +1422,7 @@ impl Setup {
             map,
             pairs,
             points,
+            ring,
         })
     }
 
@@ -1764,6 +1842,10 @@ fn compute(job: &Job, stop: &Stop) -> Result<Computed> {
 
     let kappa = efficiency.map(coupling_from_efficiency);
     let efficiency_curve = efficiency_curve(&setup, &device, residual, kappa, &mut notes)?;
+    let ring = match &setup.ring {
+        None => None,
+        Some(couplings) => ring_resonance(&setup, &device, residual, kappa, couplings, &mut notes)?,
+    };
 
     let pairs = match setup.pairs {
         Some(p) => {
@@ -1816,6 +1898,7 @@ fn compute(job: &Job, stop: &Stop) -> Result<Computed> {
         temperature_acceptance_k: temperature_acceptance,
         matched_um: matched,
         notes,
+        ring,
     };
     Ok(Computed {
         setup: setup_record,
@@ -2016,6 +2099,86 @@ fn coupling(setup: &Setup, r: &RidgeGuide, d: &SecondOrder) -> Result<f64> {
 }
 
 /// sinh(gL)/g from g², continued to sin(|g|L)/|g| and L.
+/// The process in an all-pass ring of the guide, every wave on resonance, from the ring's
+/// formulas ([`crate::nonlinear::cavity`]): each wave's round trip a = e^{−αL/2} with its own
+/// loss, φ a whole number of turns. One pass is the same formula with every coupling 1 (r = 0,
+/// |F|² = 1): the straight guide's undepleted lossy closed form. `None`, with a note, where the
+/// process has no coefficient.
+fn ring_resonance(
+    setup: &Setup,
+    device: &Device,
+    residual: f64,
+    kappa: Option<f64>,
+    couplings: &[f64],
+    notes: &mut Vec<String>,
+) -> Result<Option<RingResonance>> {
+    use crate::nonlinear::cavity::{self, RingWave};
+    let length = setup.length_um;
+    let wave = |k: usize, coupling: f64| -> Result<RingWave> {
+        let a = (-0.5 * setup.loss[k] * length).exp();
+        RingWave::all_pass(coupling, c64::new(a, 0.0), length)
+            .map_err(|e| task_error(format!("[task.ring] {e}")))
+    };
+    let waves = |each: &dyn Fn(usize) -> f64| -> Result<Vec<RingWave>> {
+        (0..couplings.len()).map(|k| wave(k, each(k))).collect()
+    };
+    let ring = waves(&|k| couplings[k])?;
+    let pass = waves(&|_| 1.0)?;
+    let p0 = setup.pump_w;
+    let (quantity, unit, resonant, single, kerr) = match setup.kind {
+        Kind::Shg => {
+            let Some(kappa) = kappa else {
+                notes.push("no ring: SHG's ring needs its efficiency".to_owned());
+                return Ok(None);
+            };
+            let out = |w: &[RingWave]| cavity::second_harmonic(&w[0], &w[1], kappa, residual, p0);
+            (
+                "harmonic out (undepleted, every wave on resonance)",
+                "mW",
+                out(&ring)? * 1e3,
+                out(&pass)? * 1e3,
+                None,
+            )
+        }
+        Kind::Fwm => {
+            let Some(gamma) = setup.gamma else {
+                notes.push("no ring: four-wave mixing's ring needs gamma_per_w_m".to_owned());
+                return Ok(None);
+            };
+            let dk = device.process().mismatch(&setup.state)? * 1e6;
+            let out = |w: &[RingWave]| cavity::four_wave(&w[0], &w[1], &w[2], gamma, dk, p0);
+            // the pump's Kerr phase per round trip against the resonance's width
+            let r = (1.0 - couplings[0]).sqrt();
+            let width = 1.0 - r * ring[0].round_trip.norm();
+            let kerr = gamma * p0 * ring[0].build_up() * length * 1e-6 / width;
+            if kerr >= 1.0 {
+                notes.push(format!(
+                    "the pump's Kerr phase per round trip is {kerr:.3} of the ring's resonance \
+                     width: it detunes the ring, which the ring's number leaves out"
+                ));
+            }
+            (
+                "idler out over signal in (undepleted, every wave on resonance)",
+                "P_i/P_s",
+                out(&ring)?,
+                out(&pass)?,
+                Some(kerr),
+            )
+        }
+        _ => unreachable!("the setup refuses a ring for the other processes"),
+    };
+    Ok(Some(RingResonance {
+        couplings: couplings.to_vec(),
+        build_ups: ring.iter().map(RingWave::build_up).collect(),
+        quantity: quantity.to_owned(),
+        unit: unit.to_owned(),
+        resonant,
+        single_pass: single,
+        enhancement: resonant / single,
+        kerr_detuning: kerr,
+    }))
+}
+
 fn sinhc(g2: f64, length: f64) -> f64 {
     if g2 > 0.0 {
         let g = g2.sqrt();

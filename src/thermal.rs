@@ -11,6 +11,8 @@
 //! power per unit length (W/m), or the Joule heat of a current ([`crate::electro::Current`]).
 //! Its solution is a [`Field`] of temperatures at the cells' centres, with the heat each sink
 //! takes and what leaves through each side; a 2D number, per metre of a straight section.
+//! A conductivity that follows the temperature linearly ([`Heat::conductivity_slope`]) is
+//! solved steadily by Picard's iteration ([`Heat::solve_nonlinear`]).
 //!
 //! Temperatures are in whatever unit the problem's are (K or °C); a rise above a sink at 0 is
 //! a temperature difference.
@@ -85,6 +87,8 @@ pub struct Heat {
     pub(crate) heaters: Vec<(Shape, f64)>,
     extra: Option<Vec<f64>>,
     capacity: Vec<(String, f64)>,
+    /// Conductivities that depend on temperature: (medium, slope per degree, reference).
+    slopes: Vec<(String, f64, f64)>,
     /// Heaters given cell by cell (W/m in each), which follow the heaters' factor as they do:
     /// a phase shifter's drive of a current's Joule heat ([`crate::shifter`]).
     pub(crate) driven: Vec<Vec<f64>>,
@@ -199,6 +203,18 @@ pub struct Pulse {
     pub coldest_at_s: Vec<f64>,
 }
 
+/// A steady solve with conductivities that depend on temperature ([`Heat::solve_nonlinear`]).
+#[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
+pub struct Nonlinear {
+    /// The temperature.
+    pub field: Field,
+    /// The linear solves it took, the first at the slopes' references.
+    pub iterations: usize,
+    /// The last step's largest change of a cell's temperature.
+    pub change: f64,
+}
+
 /// What a pulse does to a phase-change film, from its coldest and hottest cells' highest
 /// temperatures against its crystallization and melting temperatures ([`Switch::of`]).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -260,8 +276,98 @@ impl Heat {
             heaters: Vec::new(),
             extra: None,
             capacity: Vec::new(),
+            slopes: Vec::new(),
             driven: Vec::new(),
         }
+    }
+
+    /// A conductivity that depends on temperature: `medium`'s ([`Heat::conductivity`]) times
+    /// 1 + `per_degree` (T − `reference`), T in the problem's unit, for
+    /// [`Heat::solve_nonlinear`] (a later call for the same medium wins). The solves of fixed
+    /// conductivity ([`Heat::solve`], the transients, the response) refuse a problem with one.
+    pub fn conductivity_slope(
+        &mut self,
+        medium: &str,
+        per_degree: f64,
+        reference: f64,
+    ) -> &mut Heat {
+        self.slopes.retain(|(m, _, _)| m != medium);
+        self.slopes.push((medium.to_owned(), per_degree, reference));
+        self
+    }
+
+    /// The steady temperature with the conductivities that depend on temperature
+    /// ([`Heat::conductivity_slope`]): Picard's iteration, each step's conductivities at the
+    /// last step's temperatures (the first at each slope's reference), until no cell's
+    /// temperature changes by more than `tolerance` times the largest |T|, within `iterations`
+    /// steps. Without a slope it is [`Heat::solve`]'s field after one step.
+    ///
+    /// # Errors
+    ///
+    /// As [`Heat::solve`]; [`Error::InvalidValue`] if a slope or reference isn't finite, the
+    /// tolerance isn't positive, a cell's conductivity isn't positive at its temperature, or the
+    /// iteration hasn't settled within `iterations`.
+    pub fn solve_nonlinear(&self, tolerance: f64, iterations: usize) -> Result<Nonlinear> {
+        if !(tolerance.is_finite() && tolerance > 0.0) {
+            return Err(Error::invalid(
+                "static problem",
+                format!("the tolerance must be positive and finite, got {tolerance}"),
+            ));
+        }
+        if let Some((m, _, _)) = self
+            .slopes
+            .iter()
+            .find(|(_, s, r)| !(s.is_finite() && r.is_finite()))
+        {
+            return Err(Error::invalid(
+                "static problem",
+                format!("{m}'s conductivity slope and reference must be finite"),
+            ));
+        }
+        let solve = |at: Option<&[f64]>| -> Result<Field> {
+            let Assembled {
+                discrete,
+                base,
+                heat,
+                values,
+            } = self.assemble(at)?;
+            let sources: Vec<f64> = base.iter().zip(&heat).map(|(b, h)| b + h).collect();
+            discrete.solve(&values, &sources)
+        };
+        // the first step at each slope's reference temperature
+        let mut field = solve(None)?;
+        if self.slopes.is_empty() {
+            return Ok(Nonlinear {
+                field,
+                iterations: 1,
+                change: 0.0,
+            });
+        }
+        let mut change = f64::INFINITY;
+        for step in 2..=iterations {
+            let next = solve(Some(field.values()))?;
+            let largest = next.values().iter().fold(0.0f64, |m, v| m.max(v.abs()));
+            change = next
+                .values()
+                .iter()
+                .zip(field.values())
+                .fold(0.0f64, |m, (a, b)| m.max((a - b).abs()));
+            field = next;
+            if change <= tolerance * largest {
+                return Ok(Nonlinear {
+                    field,
+                    iterations: step,
+                    change,
+                });
+            }
+        }
+        Err(Error::invalid(
+            "static problem",
+            format!(
+                "the conductivity's temperature hasn't settled within {iterations} steps (the \
+                 last changed a cell by {change:.3e})"
+            ),
+        ))
     }
 
     /// The heat capacity per volume of `medium`, ρ c_p in J/(m³·K), for [`Heat::transient`]
@@ -722,13 +828,32 @@ impl Heat {
     /// The problem assembled and factorized: its discrete form, the sources that don't follow
     /// the heaters (a current's Joule heat), the heaters' own, and the sinks' temperatures.
     pub(crate) fn discretize(&self) -> Result<Assembled> {
-        let coefficients = self.section.coefficients(
+        if let Some((medium, _, _)) = self.slopes.first() {
+            return Err(Error::invalid(
+                "static problem",
+                format!(
+                    "{medium}'s conductivity depends on temperature: Heat::solve_nonlinear solves \
+                     it, the solves of fixed conductivity don't"
+                ),
+            ));
+        }
+        self.assemble(None)
+    }
+
+    /// The problem assembled with each medium's conductivity at the cells' temperatures
+    /// `at` (j · nx + i) by its slope, or as given for `None`.
+    fn assemble(&self, at: Option<&[f64]>) -> Result<Assembled> {
+        let coefficients = self.section.coefficients_scaled(
             &self.grid,
             |m| {
                 self.conductivity
                     .iter()
                     .find(|(n, _)| n == m)
                     .map(|(_, t)| *t)
+            },
+            |m, c| match (at, self.slopes.iter().find(|(n, _, _)| n == m)) {
+                (Some(t), Some((_, slope, reference))) => 1.0 + slope * (t[c] - reference),
+                _ => 1.0,
             },
             "thermal conductivity",
         )?;
