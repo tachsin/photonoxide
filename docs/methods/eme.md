@@ -230,7 +230,9 @@ way every case above is run: a full window with a PML at both walls holds pairs 
 close that following them can merge two, which the solver refuses); `[task.adaptive]` places the tapers' steps where the response
 changes, to its tolerance; `[task.convergence]` doubles the modes (and the equal steps, by
 `convergence::ToTolerance::eme`) until the transmission or the reflection of the fundamental
-modes changes by less than its relative tolerance; `[task.sweep]` repeats it over the
+modes changes by less than its relative tolerance, and with bends then halves the bends' thin
+layers (from `bend_step_nm`, 10 nm by default) at the modes it found until the same quantity
+changes by less than the same tolerance, each study recorded; `[task.sweep]` repeats it over the
 wavelength. The run records the S-parameters between the guided modes at the two ends, each
 convergence study, and the adaptive steps' estimate. `photonoxide new eme` writes one to start
 from; `jobs/eme-taper.yaml` is a parabolic taper with both.
@@ -981,8 +983,11 @@ What it does not do yet (#432):
   A bend's loss in the job is that of its window: a mode radiating strongly puts power into the
   PML that a narrower window would cut (the window must also stay on one side of the bend's
   centre). The bend's mapped profile needs its own convergence beside the modes': the default
-  10 nm layers leave $n_\text{eff}$ off by 2.7e-6 (TE) and 2.1e-6 (TM) at 2 µm, which `[task.convergence]`
-  does not drive.
+  10 nm layers leave $n_\text{eff}$ off by 2.7e-6 (TE) and 2.1e-6 (TM) at 2 µm, the staircase's
+  second-order error (`eme/bend-order`). The default is not a number chosen to be small enough
+  for every job: it is where `[task.convergence]` starts, and the job's own tolerance decides
+  how far the layers are halved (the rule every grid here follows, `convergence::ToTolerance`);
+  a job without `[task.convergence]` takes `bend_step_nm` as given and its error with it.
 - **A grating's Bloch modes are the expansion's,** with its modes' truncation error. With a
   PML, a guided Bloch mode below the light line has an $\operatorname{Im} K$ that is that error,
   not a loss of the grating ([a guided Bloch mode is lossless](#periodic-sections)): the slab
