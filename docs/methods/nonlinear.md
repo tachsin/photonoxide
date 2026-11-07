@@ -79,6 +79,8 @@ validation:
   - nonlinear/guide-group-index
   - job/nonlinear-ridge-zhao-period
   - job/nonlinear-ridge-zhao-efficiency
+  - job/nonlinear-ring-shg
+  - job/nonlinear-ring-fwm
   - nonlinear/nlse-dispersion-silica-beta2
   - nonlinear/nlse-dispersion-silica-beta4
   - nonlinear/nlse-fundamental-soliton
@@ -1427,7 +1429,28 @@ mm with 1 W of pump and 0.5 dB/cm: the period, the wavelength acceptance, and th
 and conversion at the end agree to 2.3e-15. The studio's form doesn't offer the type yet; a job
 file does.
 
-What a job can't set yet: a cavity around the guide.
+A `[task.ring]` closes the guide into an all-pass ring for SHG of type I and FWM
+([resonant enhancement](#resonant-enhancement-in-rings)): its circumference is `length_mm`, each
+wave's power coupling to the bus is `coupling` (one for every wave, or one per wave in the
+process's order), each wave's loss is the guide's `loss_db_per_cm` spread along it, and every wave
+is on its resonance (each round trip's phase a whole number of turns). The setup's `ring` gives
+each wave's build-up |F|², the harmonic out (mW) or the idler's conversion P_i/P_s, one pass of the
+same guide (the same formula with every coupling 1, so |F|² = 1: the straight guide's undepleted
+closed form with its losses) and their ratio, and for FWM the pump's Kerr phase per round trip,
+γP_p|F_p|²L, over the resonance's width 1 − ra: the undepleted ring holds while it is well under
+1, and the run notes it at 1 or more. Holding every wave on resonance takes ΔkL a whole number of
+turns ([above](#resonant-enhancement-in-rings)); the record uses the guide's Δk as it is, so a
+ring that isn't phase-matched shows the straight guide's sinc² in it. The efficiency along the
+length stays the straight guide's. `job/nonlinear-ring-shg` (poled congruent LiNbO₃, 1 mm round,
+η = 10 %/(W·cm²), 1 mW, k² = 0.1 for both waves: 0.0548 mW, an enhancement of |F|⁶ = 5.48 × 10⁴)
+and `job/nonlinear-ring-fwm` (one index 2.0, γ = 100 /(W·m), 1 mm round, 10 mW of pump, k² = 0.1
+for every wave: P_i/P_s = 2.08, |F|⁸ = 2.08 × 10⁶ over one pass) take the ring's numbers against
+Helt et al.'s lossless closed forms on resonance, |F|² = k²/(1 − r)²: 7.8e-16 and 8.9e-16, the
+largest gap of the ring's value, one pass's and every build-up.
+
+What a job can't set yet: an add-drop ring, a detuned wave, a ring for the other processes, and
+the pulse propagation of the library (self-phase and cross-phase modulation of pulses, two-photon
+and free-carrier absorption, Kerr microresonators, oscillators).
 
 ## Limits
 

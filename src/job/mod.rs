@@ -591,7 +591,7 @@ pub use fdtd::{FoundResonance, SpectrumSeries};
 pub use fit::fit_from_device;
 pub use nonlinear::{
     Accepted, EfficiencyCurve, EfficiencySeries, NonlinearSetup, NonlinearWave, PairSpectrum,
-    PhaseMap, PoledGrating,
+    PhaseMap, PoledGrating, RingResonance,
 };
 pub use optimize::{
     Aim, Bound, Evaluation, GradientCheck, Keep, Optimization, Problem, Recorder, Schedule,

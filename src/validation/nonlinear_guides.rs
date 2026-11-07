@@ -72,6 +72,26 @@ fn job_rules() -> Vec<(&'static str, Rule)> {
             )
             .varying(),
         ),
+        (
+            "job/nonlinear-ring-shg",
+            Rule::new(
+                Relative,
+                RoundOff,
+                1e-12,
+                Exact,
+                "on resonance and without loss the ring's formulas are Helt et al.'s closed form term by term, so round-off",
+            ),
+        ),
+        (
+            "job/nonlinear-ring-fwm",
+            Rule::new(
+                Relative,
+                RoundOff,
+                1e-12,
+                Exact,
+                "on resonance and without loss the ring's formulas are Helt et al.'s Eq. (5) term by term, so round-off",
+            ),
+        ),
     ]
 }
 
