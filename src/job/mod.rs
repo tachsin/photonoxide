@@ -596,7 +596,8 @@ pub use optimize::{
     Variable, design_of, optimize_from_chip, optimize_from_device, optimizes,
 };
 pub use scene::{
-    SceneEtched, SceneLayer, SceneMedium, ScenePort, SceneShape, preview_ports, scene_etched,
+    SceneEtched, SceneLayer, SceneMedium, ScenePort, SceneShape, design_scene, preview_ports,
+    scene_etched,
 };
 pub use schema::{SCHEMA_URL, schema, schema_text};
 pub use statics::StaticValue;
