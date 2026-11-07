@@ -727,6 +727,56 @@ fn device_geometry<'py>(
     Ok(out)
 }
 
+/// A GDSII file's library, database unit and cells, each with the layers it draws on.
+#[pyfunction]
+fn gds_library(py: Python<'_>, path: PathBuf) -> PyResult<Bound<'_, PyDict>> {
+    let library = py.detach(|| facade::gds_library(&path)).fail(py)?;
+    let cells = PyList::empty(py);
+    for c in &library.cells {
+        let item = PyDict::new(py);
+        item.set_item("name", &c.name)?;
+        item.set_item(
+            "layers",
+            c.layers.iter().map(|&[l, d]| (l, d)).collect::<Vec<_>>(),
+        )?;
+        cells.append(item)?;
+    }
+    let out = PyDict::new(py);
+    out.set_item("library", &library.library)?;
+    out.set_item("database_unit_um", library.database_unit_um)?;
+    out.set_item("cells", cells)?;
+    out.set_item("top_cells", &library.top_cells)?;
+    Ok(out)
+}
+
+/// What a GDSII file's cell draws on a layer, as polygons with holes (`(n, 2)` arrays).
+#[pyfunction]
+#[pyo3(signature = (path, gds_layer, cell, x_um, y_um))]
+fn gds_polygons<'py>(
+    py: Python<'py>,
+    path: PathBuf,
+    gds_layer: [u16; 2],
+    cell: Option<String>,
+    x_um: Option<(f64, f64)>,
+    y_um: Option<(f64, f64)>,
+) -> PyResult<Bound<'py, PyList>> {
+    let polygons = py
+        .detach(|| facade::gds_polygons(&path, gds_layer, cell.as_deref(), x_um, y_um))
+        .fail(py)?;
+    let list = PyList::empty(py);
+    for p in &polygons {
+        let item = PyDict::new(py);
+        item.set_item("outer", points(py, &p.outer)?)?;
+        let holes = PyList::empty(py);
+        for h in &p.holes {
+            holes.append(points(py, h)?)?;
+        }
+        item.set_item("holes", holes)?;
+        list.append(item)?;
+    }
+    Ok(list)
+}
+
 /// The job file that computes a device's design, as text in a format.
 #[pyfunction]
 #[pyo3(signature = (kind, values, fidelity, stack, compact, name, format))]
@@ -880,6 +930,8 @@ fn _photonoxide(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(device_derived, module)?)?;
     module.add_function(wrap_pyfunction!(device_geometry, module)?)?;
     module.add_function(wrap_pyfunction!(device_job, module)?)?;
+    module.add_function(wrap_pyfunction!(gds_library, module)?)?;
+    module.add_function(wrap_pyfunction!(gds_polygons, module)?)?;
     module.add_function(wrap_pyfunction!(device_fabrication, module)?)?;
     module.add_function(wrap_pyfunction!(device_fabrication_job, module)?)?;
     module.add_function(wrap_pyfunction!(export_fabrication, module)?)?;

@@ -98,6 +98,11 @@ __all__ = [
     "device_derived",
     "device_geometry",
     "device_job",
+    "GdsLibrary",
+    "GdsCell",
+    "MaskPolygon",
+    "gds_library",
+    "gds_polygons",
     "Fabrication",
     "device_fabrication",
     "device_fabrication_job",
@@ -1156,6 +1161,94 @@ def device_job(
             _native.device_job(kind, _values(values), fidelity, stack, _path(compact), job_name, "json")
         )
     return _native.device_job(kind, _values(values), fidelity, stack, _path(compact), job_name, format)
+
+
+# --- masks ------------------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class GdsCell:
+    """A cell of a GDSII file, and the layers it draws on."""
+
+    name: str
+    """Its name (STRNAME)."""
+    layers: list[tuple[int, int]]
+    """The ``(layer, datatype)`` pairs it draws on, the cells it places included, in order."""
+
+
+@dataclass(frozen=True)
+class GdsLibrary:
+    """A GDSII file's library: its name, its database unit and its cells."""
+
+    library: str
+    """The library's name (LIBNAME)."""
+    database_unit_um: float
+    """The database unit, µm: every coordinate in the file is a whole number of it."""
+    cells: list[GdsCell]
+    """The cells, in the file's order."""
+    top_cells: list[str]
+    """The cells no other cell places, in the file's order: :func:`gds_polygons` reads the one
+    there is when no cell is named."""
+
+
+@dataclass(frozen=True)
+class MaskPolygon:
+    """A polygon with holes, seen from above, in a GDSII file's coordinates."""
+
+    outer: np.ndarray
+    """Its outer boundary, ``(n, 2)``: (x, y) in µm, counterclockwise, the first vertex not
+    repeated."""
+    holes: list[np.ndarray]
+    """Its holes, each ``(n, 2)``, clockwise."""
+
+
+def gds_library(path: str | os.PathLike[str]) -> GdsLibrary:
+    """The library, database unit and cells of the GDSII file at ``path``, each cell with the
+    ``(layer, datatype)`` pairs it draws on (the cells it places included): what to name in
+    :func:`gds_polygons`, or in a job's ``"gds"`` shape. A malformed or cut-short file raises
+    an error naming the byte."""
+    g = _native.gds_library(os.fspath(path))
+    return GdsLibrary(
+        library=g["library"],
+        database_unit_um=g["database_unit_um"],
+        cells=[GdsCell(name=c["name"], layers=[tuple(l) for l in c["layers"]]) for c in g["cells"]],
+        top_cells=list(g["top_cells"]),
+    )
+
+
+def gds_polygons(
+    path: str | os.PathLike[str],
+    *,
+    gds_layer: Sequence[int],
+    cell: str | None = None,
+    x_um: Sequence[float] | None = None,
+    y_um: Sequence[float] | None = None,
+) -> list[MaskPolygon]:
+    """What ``cell`` (the file's one top cell when ``None``) of the GDSII file at ``path``
+    draws on ``gds_layer`` (``(layer, datatype)``), every cell it places flattened into it, as
+    polygons with holes in µm: the union of everything drawn there, keyholes as holes, within
+    the window ``x_um`` × ``y_um`` (each a ``(low, high)`` range in the file's coordinates,
+    both or neither) when given.
+
+    These are the polygons a job's ``"gds"`` shape draws (before its ``origin`` and ``angle``),
+    exactly as photonoxide's booleans give them: no vertex is moved. To read a layer and draw
+    the result:
+
+        for p in phox.gds_polygons("chip.gds", gds_layer=(1, 0)):
+            print(len(p.outer), "vertices,", len(p.holes), "holes")
+    """
+    layer = [int(v) for v in gds_layer]
+    if len(layer) != 2:
+        raise ValueError(f"gds_layer is (layer, datatype), not {tuple(gds_layer)!r}")
+
+    def window(r: Sequence[float] | None) -> tuple[float, float] | None:
+        if r is None:
+            return None
+        low, high = (float(v) for v in r)
+        return (low, high)
+
+    polygons = _native.gds_polygons(os.fspath(path), (layer[0], layer[1]), cell, window(x_um), window(y_um))
+    return [MaskPolygon(outer=p["outer"], holes=list(p["holes"])) for p in polygons]
 
 
 # --- a design's process flow ----------------------------------------------------------------

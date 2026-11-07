@@ -401,6 +401,13 @@ boundary cut to it along a line it goes out and back on (a keyhole); the union f
 piece becomes the polygon less its holes, so a distance near the cut is the true boundary's. A
 hole drawn on a layer of its own is cut out by a job's `"difference"` of the two layers.
 
+**As polygons.** `Gds::contours(cell, [layer, datatype], window)` gives the same union as
+polygons with holes, each outer boundary counterclockwise and each hole clockwise, exactly as the
+booleans give them: no vertex is moved to a tolerance, so their areas sum to the layer's. This is
+what the façade and Python read a mask by, without a job: `gds_library(path)` lists the cells and
+the layers each draws on, and `gds_polygons(path, gds_layer=, cell=, x_um=, y_um=)` gives a layer's
+polygons ([python.md](../python.md)).
+
 **What it refuses.** A malformed file is an error naming the byte, never a panic: one cut short
 anywhere, a record whose length or data doesn't fit, an element without its fields or its `ENDEL`,
 a cell without its name or its `ENDSTR`, two cells of one name, no `UNITS`. Flattening refuses a
@@ -414,7 +421,7 @@ itself.
 | Check | Ours |
 |---|---|
 | Excess-64: 1, 0.5, −2.5, and 10⁻³ and 10⁻⁹ as files hold them, against their values | exact, to the bit |
-| A cell placed moved, turned a quarter, reflected and turned 30°, magnified 1.5 and as a 3 × 2 array: the layer's area, as the union and its polygons summed, against $3.82\thinspace(3 + 1.5^2 + 6)$ µm² | 8.3e-16 relative |
+| A cell placed moved, turned a quarter, reflected and turned 30°, magnified 1.5 and as a 3 × 2 array: the layer's area, as the union, its polygons summed and its polygons with holes summed, against $3.82\thinspace(3 + 1.5^2 + 6)$ µm² | 8.3e-16 relative |
 | A heptagon of arbitrary integer coordinates: its area read against the shoelace formula in integers | under 1e-13 relative |
 | A keyhole's area against the square less its hole, and its distance at the cut | the hole's, 0.5 µm |
 | The case's file cut short after each of its bytes, and each byte with one of two bits flipped | each an error or read, never a panic |

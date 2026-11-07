@@ -100,6 +100,7 @@ same designs give the same numbers in Rust and Python.
 | | Rust | Python | Method |
 |---|---|---|---|
 | Jobs: structure, modes, FDFD and FDTD, checked and run | ✅ | ✅ `check_job`, `run_job` | [runs](getting-started.md#runs-and-the-studio) |
+| Masks in: a GDSII file's cells and layers, and what a cell draws on a layer (every cell it places flattened, the union, keyholes as holes, a window) as polygons with holes; a job's `"gds"` shape | ✅ | ✅ `gds_library`, `gds_polygons`; the shape in a job | [geometry](methods/geometry.md#gdsii-files) |
 | Run records and replay | ✅ | ◐ the events of a run it makes | [runs](getting-started.md#runs-and-the-studio) |
 | A run's tables (n_eff, S-parameters, spectra, studies, histories, static numbers) as data and as CSV; its fields as NumPy's `.npz` when its job asks, written again at a chosen precision and level with their sizes estimated before writing | ✅ | ✅ `run_tables`, `export_run`, `estimate_fields`, `export_fields`; the `.npz` files by `numpy.load` | [export](methods/export.md) |
 | External solvers: PARDISO, MUMPS, SuperLU, Accelerate, cuDSS, Krylov on NVIDIA GPUs, `auto` | ✅ | — | [backends](methods/backends.md) |

@@ -16,6 +16,8 @@
 //! - a run's tables, its numbers column by column, [`run_tables`], and written as CSV,
 //!   [`export_run`] ([`crate::export`]); its field files with their sizes estimated at a
 //!   precision and a level, [`estimate_fields`], and written again so, [`export_fields`];
+//! - masks: a GDSII file's cells and layers, [`gds_library`], and what a cell draws on a layer as
+//!   polygons with holes, as a job's `"gds"` shape reads it, [`gds_polygons`];
 //! - circuits from a netlist given as data, [`circuit_spectrum`];
 //! - Touchstone files: [`read_touchstone`], [`write_touchstone`];
 //! - devices, the components that know their geometry ([`crate::device`]): the library's,
@@ -53,6 +55,7 @@ mod circuit;
 mod conformance;
 mod device;
 mod fabrication;
+mod mask;
 mod nonlinear;
 #[cfg(test)]
 mod tests;
@@ -83,6 +86,7 @@ pub use fabrication::{
     DeviceFabrication, device_fabrication, device_fabrication_from, device_fabrication_job,
     device_fabrication_job_from, export_fabrication, export_fabrication_from,
 };
+pub use mask::{GdsCell, GdsLibrary, MaskPolygon, gds_library, gds_polygons};
 pub use nonlinear::{NonlinearProcess, nonlinear};
 
 /// A material of the catalogue ([`crate::material::catalogue`]), with its index models.

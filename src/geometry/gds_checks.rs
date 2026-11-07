@@ -291,22 +291,26 @@ pub(crate) fn expected() -> f64 {
 }
 
 /// The largest relative difference of the layout's layers' areas, read back, from their closed
-/// forms: layer 1/0's union and its polygons summed, and layer 2/0's box.
+/// forms: layer 1/0's union, its polygons summed and its contours (the union as polygons with
+/// holes, as the façade's `gds_polygons` gives them) summed, and layer 2/0's box.
 pub(crate) fn area_error() -> f64 {
     let Ok(gds) = Gds::parse(&layout()) else {
         return f64::NAN;
     };
     let rel = |a: f64, b: f64| ((a - b) / b).abs();
-    let (Ok(one), Ok(polygons), Ok(two)) = (
+    let (Ok(one), Ok(polygons), Ok(contours), Ok(two)) = (
         gds.shape("top", [1, 0], None),
         gds.polygons("top", [1, 0]),
+        gds.contours("top", [1, 0], None),
         gds.shape("top", [2, 0], None),
     ) else {
         return f64::NAN;
     };
     let summed: f64 = polygons.iter().map(super::Polygon::area).sum();
+    let pieces: f64 = contours.iter().map(super::Contour::area).sum();
     rel(one.area(), expected())
         .max(rel(summed, expected()))
+        .max(rel(pieces, expected()))
         .max(rel(two.area(), 4.0))
 }
 
@@ -314,7 +318,7 @@ pub(crate) fn area_error() -> f64 {
 pub(crate) fn cases() -> Vec<Case> {
     vec![Case {
         id: "geometry/gds",
-        title: r"A GDSII file written here byte by byte: a cell of an L-shaped boundary, a box and a mitred path 0.2 µm wide, placed moved, turned a quarter, reflected and turned 30°, magnified 1.5 and as a 3 × 2 array, on a 1 nm database unit; each layer's area read back (the union and its polygons summed) against the closed form, and the excess-64 numbers 1, 0.5, −2.5, 10⁻³ and 10⁻⁹ as files hold them against their values (largest relative difference shown)",
+        title: r"A GDSII file written here byte by byte: a cell of an L-shaped boundary, a box and a mitred path 0.2 µm wide, placed moved, turned a quarter, reflected and turned 30°, magnified 1.5 and as a 3 × 2 array, on a 1 nm database unit; each layer's area read back (the union, its polygons summed and its polygons with holes summed) against the closed form, and the excess-64 numbers 1, 0.5, −2.5, 10⁻³ and 10⁻⁹ as files hold them against their values (largest relative difference shown)",
         tier: Tier::Analytic,
         source: r"the GDSII stream format (Calma, GDSII Stream Format Manual, release 6.0, 1987): records, excess-64 reals $(-1)^s\thinspace 0.f \times 16^{e - 64}$, references reflected, magnified, turned and moved in that order; the areas $3.82\thinspace(3 + 1.5^2 + 6)$ and $4$ µm²; measured 8.3e-16",
         run: || {
