@@ -577,6 +577,19 @@ Budgets are held against published thresholds, each quoted with what it assumes 
   folded into the squeezed inputs, and the no-collision regime. For a designed chip, $\eta$ is its
   budget's transmission and $r$ its squeezers' (Q2).
 
+## As a job
+
+A task of kind `"quantum"` beside a chip's `[circuit]` computes the same at one wavelength and
+records it: the statistics of photons on the ports (`[[task.photons]]`), samples of them against
+their exact distribution (`[task.sample]`), a Hong–Ou–Mandel dip through the chip's $S(\omega)$
+over a band (`[task.dip]`), each photon's best route of a budget (`[[task.budget]]`) and squeezed
+light through the chip (`[[task.squeezed]]`), each as an event of the run's record
+(`QuantumStatistics`, `QuantumSamples`, `QuantumDip`, `QuantumBudget`, `QuantumSqueezed`).
+`photonoxide run` runs it from the command line, and the studio's Quantum tab writes one from its
+forms (**Run as a job**). Its tests hold a balanced coupler's record to the closed forms above
+(no coincidence, a dip to 0, half the photons on each route, squeezing halved with the vacuum),
+and the studio's to the numbers the tab computes in place, bit for bit.
+
 ## Emitters: Purcell and β factors from FDTD
 
 An emitter's decay into a channel, relative to its decay in a reference medium, is the power a

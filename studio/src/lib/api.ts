@@ -391,6 +391,8 @@ export const api = {
   chipGaussian: (chip: Chip, wavelengthUm: number, request: GaussianRequest) => invoke<GaussianView>("chip_gaussian", { chip, wavelengthUm, request }),
   /** A batch of samples of the photons on the chip's ports, added to the counts so far, against the exact distribution (circuits/sampling.rs). */
   chipSample: (chip: Chip, wavelengthUm: number, request: SampleRequest) => invoke<SampleView>("chip_sample", { chip, wavelengthUm, request }),
+  /** The Quantum tab's forms as a "quantum" job's text, which runs from the command line and records a run (circuits/quantum_job.rs). */
+  chipQuantumJob: (chip: Chip, request: { name: string; timeout_minutes: number; task: Record<string, unknown> }) => invoke<string>("chip_quantum_job", { chip, request }),
   circuitText: (chip: Chip) => invoke<string>("circuit_text", { chip }),
   circuitParse: (text: string) => invoke<Chip>("circuit_parse", { text }),
   circuitExamples: () => invoke<CircuitExample[]>("circuit_examples"),

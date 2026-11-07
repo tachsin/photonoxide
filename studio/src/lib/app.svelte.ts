@@ -5,6 +5,7 @@ import type { ChipEvent, CompactFit, CompactPlan, ChipPoint, ChipStudy, DeviceMo
 import { template, type Kind } from "./job";
 import type { Looks } from "./layers";
 import type { NonlinearResult } from "./nonlinear";
+import type { QuantumRecord } from "./quantum";
 import { themeName } from "./themes";
 
 /**
@@ -266,6 +267,8 @@ export const run = $state({
   staticFrames: [] as StaticFrame[],
   /** A nonlinear job's setup, phase-matching map, efficiency along the length and pairs. */
   nonlinear: { setup: null, map: null, efficiency: null, pairs: null } as NonlinearResult,
+  /** A quantum job's photons through a chip: its statistics, samples, dip, budget and squeezed light, as recorded. */
+  quantum: { statistics: null, samples: null, dip: null, budget: null, squeezed: null } as QuantumRecord,
   /** The FDTD frame shown, or null to follow the latest. */
   frame: null as number | null,
   finished: null as { stopped: string | null; seconds: number } | null,
@@ -481,6 +484,21 @@ function take(e: Event) {
     case "pair_spectrum":
       run.nonlinear.pairs = e.spectrum;
       break;
+    case "quantum_statistics":
+      run.quantum.statistics = e.statistics;
+      break;
+    case "quantum_samples":
+      run.quantum.samples = e.samples;
+      break;
+    case "quantum_dip":
+      run.quantum.dip = e.dip;
+      break;
+    case "quantum_budget":
+      run.quantum.budget = e.budget;
+      break;
+    case "quantum_squeezed":
+      run.quantum.squeezed = e.squeezed;
+      break;
     case "finished":
       run.finished = { stopped: e.stopped, seconds: e.seconds };
       // a sweep followed to its end settles on the field the job asks for (its field_um: a
@@ -544,6 +562,7 @@ function reset(info: Info) {
     staticSteps: [],
     staticFrames: [],
     nonlinear: { setup: null, map: null, efficiency: null, pairs: null },
+    quantum: { statistics: null, samples: null, dip: null, budget: null, squeezed: null },
     frame: null,
     finished: null,
     problem: null,

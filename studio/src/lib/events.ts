@@ -843,6 +843,11 @@ export type Event =
   | { type: "phase_map"; map: PhaseMap }
   | { type: "nonlinear_efficiency"; curve: EfficiencyCurve }
   | { type: "pair_spectrum"; spectrum: PairSpectrum }
+  | { type: "quantum_statistics"; statistics: QuantumStatistics }
+  | { type: "quantum_samples"; samples: QuantumSamples }
+  | { type: "quantum_dip"; dip: QuantumDip }
+  | { type: "quantum_budget"; budget: QuantumBudget }
+  | { type: "quantum_squeezed"; squeezed: QuantumSqueezed }
   | ChipEvent
   | ChipStudy
   | ChipPoint
@@ -889,4 +894,56 @@ export type Event =
 
 export function modeKind(m: Mode): string {
   return m.te_fraction > 0.5 ? "TE-like" : "TM-like";
+}
+
+// A "quantum" job's records (photonoxide::job::quantum): photons through a chip.
+
+/** Every pattern at the ports for photons alike and told apart (photonoxide::job::QuantumStatistics). */
+export interface QuantumStatistics {
+  wavelength_um: number;
+  ports: string[];
+  input: number[];
+  loss_modes: number;
+  patterns: { occupations: number[]; probability: [number, number] }[];
+  all_arrive: [number, number];
+  bunching: [number, number];
+  means: [number, number][];
+}
+
+/** Samples against the exact distribution (photonoxide::job::QuantumSamples). */
+export interface QuantumSamples {
+  samples: number;
+  seed: number;
+  counts: { occupations: number[]; count: number }[];
+  distance: number;
+  expected: number;
+}
+
+/** A Hong–Ou–Mandel dip through the chip (photonoxide::job::QuantumDip). */
+export interface QuantumDip {
+  inputs: [string, string];
+  outputs: [string, string];
+  delays_ps: number[];
+  coincidences: number[];
+  distinguishable: number;
+  visibility: number;
+}
+
+/** Each photon's best route and the published thresholds (photonoxide::job::QuantumBudget). */
+export interface QuantumBudget {
+  wavelength_um: number;
+  legs: { from: string; to: string; routes: number; through: string[]; stages: { name: string; transmission: number; source: string }[]; transmission: number }[];
+  event: number;
+  thresholds: { name: string; transmission: number; assumptions: string }[];
+}
+
+/** Squeezed light through the chip (photonoxide::job::QuantumSqueezed). */
+export interface QuantumSqueezed {
+  wavelength_um: number;
+  ports: string[];
+  given_db: number[];
+  squeezed_db: number[];
+  anti_squeezed_db: number[];
+  mean_photons: number[];
+  purity: number;
 }
