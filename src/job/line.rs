@@ -18,7 +18,14 @@
 //! it is at it), and of several there the largest (a range's top, the larger axis), one value
 //! for every frequency; a medium the catalogue hasn't stays lossless, and a tangent the table
 //! gives is kept. The run then records each medium's tangent and where it came from (the
-//! sample, the frequency it was measured at, the paper). The run records the capacitances, the effective permittivity, the
+//! sample, the frequency it was measured at, the paper). A loss tangent depends on frequency:
+//! `loss_tangent_exponent` gives a medium's as a power law, tan δ(f) = tan δ (f / f_ref)^p,
+//! p = −1 for a conduction loss (a semiconductor's σ/(ωε₀ε′): silicon's), a fit's slope
+//! otherwise (lithium niobate's rises about 0.19 over Lee's 91 to 147 GHz); f_ref is
+//! `loss_tangent_at_ghz` for a tangent the table gives (the frequencies' geometric middle by
+//! default) and the frequency it was measured at for the catalogue's. Each frequency's numbers,
+//! the response and the full-wave mode then take the tangents at that frequency, and the run
+//! records each frequency's line loss tangent too. The run records the capacitances, the effective permittivity, the
 //! quasi-static index and impedance, each medium's share of the electric energy and the line's
 //! loss tangent, and at each of `frequencies_ghz` the RF index, Z₀ and the losses (dB/cm), the
 //! conductor loss by Wheeler's incremental-inductance rule beside it where the metal is at
@@ -109,6 +116,18 @@ pub(super) struct LineSpec {
     /// a medium the catalogue hasn't stays lossless.
     #[serde(default)]
     catalogue_loss_tangents: bool,
+    /// Each medium's loss tangent as a power law in frequency, by name: the exponent p of
+    /// tan δ(f) = tan δ (f / f_ref)^p, −1 for a conduction loss (σ/(ωε₀ε′)). A medium without
+    /// one keeps its tangent at every frequency.
+    #[serde(default)]
+    loss_tangent_exponent: BTreeMap<String, f64>,
+    /// The frequency the given loss tangents hold at, f_ref of `loss_tangent_exponent`, GHz (by
+    /// default the frequencies' geometric middle). A catalogue's tangent holds at the frequency
+    /// it was measured at.
+    loss_tangent_at_ghz: Option<f64>,
+    /// Each medium's f_ref, GHz: what [`check`] found.
+    #[serde(skip)]
+    reference_ghz: BTreeMap<String, f64>,
     /// Where each medium's loss tangent came from, with `catalogue_loss_tangents`: what
     /// [`check`] found, the run's notes.
     #[serde(skip)]
@@ -153,11 +172,11 @@ pub(super) struct FullWaveSpec {
 const FULL_WAVE_FROM_GHZ: f64 = 1.0;
 
 impl FullWaveSpec {
-    /// The solver it sets up for the line of `spec`.
-    fn solver(&self, spec: &LineSpec) -> Result<FullWave> {
+    /// The solver it sets up for the line of `spec`, its media's loss tangents `tangents`.
+    fn solver(&self, spec: &LineSpec, tangents: &[(&str, f64)]) -> Result<FullWave> {
         let mut fw = FullWave::new(spec.signal - 1, spec.conductivity_s_per_m)
             .map_err(|e| err(e.to_string()))?
-            .with_loss_tangents(&spec.tangents())
+            .with_loss_tangents(tangents)
             .with_strength(self.pml_strength.unwrap_or(4.0))
             .with_count(4);
         if spec.mirrored {
@@ -220,7 +239,7 @@ impl FullWaveSpec {
         {
             return Err(err(format!("full_wave.along {m} must be above 0, got {e}")));
         }
-        self.solver(spec).map(|_| ())
+        self.solver(spec, &spec.tangents()).map(|_| ())
     }
 }
 
@@ -310,10 +329,43 @@ impl LineSpec {
         }
     }
 
+    /// Each medium's loss tangent as given (or the catalogue's), at its reference frequency.
     fn tangents(&self) -> Vec<(&str, f64)> {
         self.loss_tangent
             .iter()
             .map(|(m, t)| (m.as_str(), *t))
+            .collect()
+    }
+
+    /// The frequencies' geometric middle, GHz.
+    fn middle_ghz(&self) -> f64 {
+        let (lo, hi) = self
+            .frequencies_ghz
+            .iter()
+            .fold((f64::INFINITY, 0.0f64), |(lo, hi), &f| {
+                (lo.min(f), hi.max(f))
+            });
+        (lo * hi).sqrt()
+    }
+
+    /// Each medium's loss tangent at `f_ghz`: its tangent, scaled by its power law
+    /// (`loss_tangent_exponent`) from the frequency it holds at; the same bits without one.
+    fn tangents_at(&self, f_ghz: f64) -> Vec<(&str, f64)> {
+        self.loss_tangent
+            .iter()
+            .map(|(m, t)| {
+                let t = match self.loss_tangent_exponent.get(m) {
+                    Some(&p) => {
+                        let reference = self.reference_ghz.get(m).copied().unwrap_or_else(|| {
+                            self.loss_tangent_at_ghz
+                                .unwrap_or_else(|| self.middle_ghz())
+                        });
+                        t * (f_ghz / reference).powf(p)
+                    }
+                    None => *t,
+                };
+                (m.as_str(), t)
+            })
             .collect()
     }
 
@@ -350,6 +402,12 @@ impl LineSpec {
 /// it), and of several there the largest tan δ (a range's top, the larger axis). `None` when
 /// the catalogue hasn't the medium.
 pub(super) fn catalogue_tangent(medium: &str, at_ghz: f64) -> Option<(f64, String)> {
+    catalogue_tangent_measured(medium, at_ghz).map(|(t, from, _)| (t, from))
+}
+
+/// [`catalogue_tangent`], and the frequency its value was measured at nearest `at_ghz`, GHz:
+/// `at_ghz` when the value's band holds it, else the band's end nearer it.
+fn catalogue_tangent_measured(medium: &str, at_ghz: f64) -> Option<(f64, String, f64)> {
     use crate::material::catalogue::{Axis, RfValue, rf_dielectric};
     let material = rf_dielectric(medium).or_else(|| {
         medium
@@ -402,34 +460,32 @@ pub(super) fn catalogue_tangent(medium: &str, at_ghz: f64) -> Option<(f64, Strin
              GHz, the frequencies' geometric middle",
             material.name, v.sample, v.source.reference, v.source.location
         ),
+        at_ghz.clamp(f0, f1),
     ))
 }
 
 /// Each medium's loss tangent and where it came from, as the run's notes record them.
 type Notes = Vec<(String, f64, String)>;
 
-/// `given` with each of `media` it doesn't name given the catalogue's loss tangent at the
-/// geometric middle of `frequencies_ghz` ([`catalogue_tangent`]), and each medium's tangent
-/// and where it came from: given, the catalogue's, or none (lossless).
+/// `given` with each of `media` it doesn't name given the catalogue's loss tangent at `at`, the
+/// geometric middle of the frequencies ([`catalogue_tangent`]), each medium's tangent and where
+/// it came from (given, the catalogue's, or none: lossless), and the frequency each catalogue
+/// tangent was measured at.
 fn with_catalogue(
     given: &BTreeMap<String, f64>,
     media: &[String],
-    frequencies_ghz: &[f64],
-) -> (BTreeMap<String, f64>, Notes) {
-    let (lo, hi) = frequencies_ghz
-        .iter()
-        .fold((f64::INFINITY, 0.0f64), |(lo, hi), &f| {
-            (lo.min(f), hi.max(f))
-        });
-    let at = (lo * hi).sqrt();
+    at: f64,
+) -> (BTreeMap<String, f64>, Notes, BTreeMap<String, f64>) {
     let mut tangents = given.clone();
     let mut notes = Vec::new();
+    let mut measured = BTreeMap::new();
     for m in media {
         if let Some(&t) = given.get(m) {
             notes.push((m.clone(), t, "given".to_owned()));
-        } else if let Some((t, from)) = catalogue_tangent(m, at) {
+        } else if let Some((t, from, f)) = catalogue_tangent_measured(m, at) {
             tangents.insert(m.clone(), t);
             notes.push((m.clone(), t, from));
+            measured.insert(m.clone(), f);
         } else {
             notes.push((
                 m.clone(),
@@ -438,7 +494,7 @@ fn with_catalogue(
             ));
         }
     }
-    (tangents, notes)
+    (tangents, notes, measured)
 }
 
 /// Checks the table against the job's conductors (how many), their heights (µm) and the
@@ -481,6 +537,28 @@ pub(super) fn check(
         if !(t.is_finite() && *t >= 0.0) {
             return Err(err(format!("loss_tangent {m} must be at least 0, got {t}")));
         }
+    }
+    if let Some(m) = spec
+        .loss_tangent_exponent
+        .keys()
+        .find(|m| !media.contains(m))
+    {
+        return Err(err(format!(
+            "loss_tangent_exponent names {m}, which the section hasn't (it has {})",
+            media.join(", ")
+        )));
+    }
+    for (m, p) in &spec.loss_tangent_exponent {
+        if !p.is_finite() {
+            return Err(err(format!(
+                "loss_tangent_exponent {m} must be finite, got {p}"
+            )));
+        }
+    }
+    if let Some(f) = spec.loss_tangent_at_ghz
+        && !(f.is_finite() && f > 0.0)
+    {
+        return Err(err(format!("loss_tangent_at_ghz must be above 0, got {f}")));
     }
     if let Some(s) = &spec.segmented {
         if s.rail.is_empty() {
@@ -554,10 +632,20 @@ pub(super) fn check(
         .map(|m| m.with_edge(edge))
         .map_err(|e| err(e.to_string()))?;
     let mut taken = spec.clone();
+    let mut measured = BTreeMap::new();
     if spec.catalogue_loss_tangents {
-        (taken.loss_tangent, taken.notes) =
-            with_catalogue(&spec.loss_tangent, media, &spec.frequencies_ghz);
+        (taken.loss_tangent, taken.notes, measured) =
+            with_catalogue(&spec.loss_tangent, media, spec.middle_ghz());
     }
+    // each medium's f_ref: a catalogue tangent's where it was measured, a given one's the table's
+    let given = spec
+        .loss_tangent_at_ghz
+        .unwrap_or_else(|| spec.middle_ghz());
+    taken.reference_ghz = taken
+        .loss_tangent
+        .keys()
+        .map(|m| (m.clone(), measured.get(m).copied().unwrap_or(given)))
+        .collect();
     Ok((taken, metal))
 }
 
@@ -620,7 +708,7 @@ impl Line {
     /// segmented line's Bloch index and Re Z_B at the highest frequency), and the loss (dB/cm)
     /// at the highest frequency.
     fn studied(&self, spec: &LineSpec, metal: &Metal) -> Result<[f64; 3]> {
-        let w = self.wave(spec.top() * 1e9, metal, &spec.tangents())?;
+        let w = self.wave(spec.top() * 1e9, metal, &spec.tangents_at(spec.top()))?;
         Ok(match self.segmented {
             None => [
                 self.channel.index(),
@@ -700,12 +788,13 @@ pub(super) fn run(
     let drive = spec.drive()?;
     let reference = match &drive {
         Some((d, f0, _)) => {
-            let w = built.wave(f0 * 1e9, metal, &tangents)?;
+            let w = built.wave(f0 * 1e9, metal, &spec.tangents_at(*f0))?;
             Some(response(w.gamma, w.impedance, f0 * 1e9, d))
         }
         None => None,
     };
     for &f in &spec.frequencies_ghz {
+        let tangents = spec.tangents_at(f);
         let w = line.wave(f * 1e9, metal, &tangents)?;
         let at = if f > QUASI_TEM_GHZ {
             format!("{f} GHz (beyond quasi-TEM)")
@@ -721,6 +810,15 @@ pub(super) fn run(
                 "ohm",
             ),
             value(format!("line at {at}: loss"), w.db_per_cm(), "dB/cm"),
+        ]);
+        if !spec.loss_tangent_exponent.is_empty() {
+            values.push(value(
+                format!("line at {at}: loss tangent (the media's, by energy)"),
+                line.loss_tangent(&tangents)?,
+                "",
+            ));
+        }
+        values.extend([
             value(
                 format!("line at {at}: conductor loss"),
                 w.conductor * DB_PER_NEPER / 100.0,
@@ -794,7 +892,7 @@ pub(super) fn run(
     }
     if let (Some((d, f0, up_to)), Some(r0)) = (&drive, reference) {
         let db = |f: f64| -> Result<f64> {
-            let w = built.wave(f, metal, &tangents)?;
+            let w = built.wave(f, metal, &spec.tangents_at(f / 1e9))?;
             Ok(20.0 * (response(w.gamma, w.impedance, f, d) / r0).log10())
         };
         for level in [3.0, 6.0] {
@@ -901,7 +999,9 @@ fn full_wave(
         unit: unit.to_owned(),
     };
     let tangents = spec.tangents();
-    let solver = fs.solver(spec)?;
+    let solver = fs.solver(spec, &tangents)?;
+    // a medium's tangent follows its power law: the solver set up at each frequency's
+    let scaled = !spec.loss_tangent_exponent.is_empty();
     let on = |fine_nm: Option<f64>| -> Result<Electrostatic> {
         match fine_nm {
             Some(nm) => rebuilt(1.0, Some(nm)),
@@ -911,8 +1011,14 @@ fn full_wave(
     let grid = on(fs.fine_nm)?;
     // each solve looks near the quasi-TEM line's index there
     let solve = |p: &Electrostatic, f: f64| -> Result<RfMode> {
-        let near = quasi.wave(f, metal, &tangents)?.index();
-        solver.solve(p, f, near).map_err(|e| err(e.to_string()))
+        let at = spec.tangents_at(f / 1e9);
+        let near = quasi.wave(f, metal, &at)?.index();
+        if scaled {
+            fs.solver(spec, &at)?.solve(p, f, near)
+        } else {
+            solver.solve(p, f, near)
+        }
+        .map_err(|e| err(e.to_string()))
     };
     let mut values = vec![value(
         "full-wave line: from".into(),
