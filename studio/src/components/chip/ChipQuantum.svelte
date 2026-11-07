@@ -11,12 +11,14 @@
   import QuantumDip from "./QuantumDip.svelte";
   import QuantumGaussian from "./QuantumGaussian.svelte";
   import QuantumPhotons from "./QuantumPhotons.svelte";
+  import QuantumSampling from "./QuantumSampling.svelte";
 
   let { chip }: { chip: Chip } = $props();
 
   const q = panels.quantum;
   const VIEWS = [
     ["photons", "Photons", "Photons on the ports at one wavelength: the output patterns, each port's photon numbers and bunching"],
+    ["sampling", "Sampling", "The same photons sampled live by the exact sampler, against their exact distribution, under a hard time limit"],
     ["dip", "HOM dip", "Two photons' coincidences against their delay, through the chip's S(ω) over its sweep"],
     ["budget", "Loss budget", "Each photon's route through the chip, stage by stage, against published thresholds"],
     ["gaussian", "Squeezed light", "Squeezed light on the ports through the chip: the squeezing left after its loss, the covariance, a port's photon numbers and Wigner function"],
@@ -72,6 +74,8 @@
 <div class="mt-3">
   {#if q.view === "photons"}
     <QuantumPhotons {chip} {blocked} {wavelength} />
+  {:else if q.view === "sampling"}
+    <QuantumSampling {chip} {blocked} {wavelength} />
   {:else if q.view === "dip"}
     <QuantumDip {chip} {blocked} {wavelength} />
   {:else if q.view === "budget"}

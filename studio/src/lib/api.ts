@@ -389,6 +389,8 @@ export const api = {
   chipLossBudget: (chip: Chip, request: BudgetRequest) => invoke<BudgetView>("chip_loss_budget", { chip, request }),
   /** Squeezed light on the chip's ports through it (circuits/gaussian.rs): the output's covariance, squeezing, photon numbers and a port's Wigner function. */
   chipGaussian: (chip: Chip, wavelengthUm: number, request: GaussianRequest) => invoke<GaussianView>("chip_gaussian", { chip, wavelengthUm, request }),
+  /** A batch of samples of the photons on the chip's ports, added to the counts so far, against the exact distribution (circuits/sampling.rs). */
+  chipSample: (chip: Chip, wavelengthUm: number, request: SampleRequest) => invoke<SampleView>("chip_sample", { chip, wavelengthUm, request }),
   circuitText: (chip: Chip) => invoke<string>("circuit_text", { chip }),
   circuitParse: (text: string) => invoke<Chip>("circuit_parse", { text }),
   circuitExamples: () => invoke<CircuitExample[]>("circuit_examples"),
@@ -1581,5 +1583,35 @@ export interface GaussianView {
   axis: number[];
   wigner: number[];
   notes: string[];
+  seconds: number;
+}
+
+/** A pattern at the ports and how many samples fell on it (circuits/sampling.rs). */
+export interface SampleCount {
+  occupations: number[];
+  count: number;
+}
+
+export interface SampleRequest {
+  inputs: QuantumInput[];
+  batch: number;
+  seed: number;
+  /** The hard limit on this call's sampling, ms. */
+  limit_ms: number;
+  counts: SampleCount[];
+}
+
+export interface SampleView {
+  ports: string[];
+  counts: SampleCount[];
+  samples: number;
+  drawn: number;
+  /** Whether the hard limit stopped the batch. */
+  stopped: boolean;
+  /** ½ Σ |p̂ − p|, and what a correct sampler is expected to reach at this many samples. */
+  distance: number;
+  expected: number;
+  patterns: { occupations: number[]; exact: number; sampled: number }[];
+  impossible: number;
   seconds: number;
 }

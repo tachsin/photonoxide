@@ -268,6 +268,15 @@ circuit's isometry: `Transfer::sample` drops the loss modes from each sample). S
 one input mode are allowed: the unit tests compare the sampler with the exact distribution for
 (2, 0, 1, 0, 0) as well as for single photons.
 
+Samples are compared with the exact distribution by the total variation distance
+$\frac{1}{2}\sum \lvert \hat p - p \rvert$ (`Distribution::total_variation`, over the patterns of
+either side, by pattern in $O(n \log n)$); `Distribution::from_counts` takes counted samples, as
+the studio keeps them. Each count is binomial, so a correct sampler's distance after $N$ samples
+is about $\frac{1}{2}\sum \sqrt{2p(1 - p)/(\pi N)}$, the mean of $\lvert \hat p - p \rvert$ for
+each pattern. The studio's Chip page samples live under **Sampling**, batch after batch with a
+hard limit on each ([studio/README.md](../../studio/README.md)); its tests sample a balanced
+coupler's two photons, which never arrive apart, to within four times that distance.
+
 ## Haar-random unitaries and the Reck and Clements meshes
 
 `haar_unitary` draws a Haar-random unitary as the $Q$ of a matrix of independent complex
