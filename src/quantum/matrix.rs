@@ -242,6 +242,172 @@ pub(crate) fn hermitian_eigen(h: &Matrix) -> (Vec<f64>, Matrix) {
     ((0..n).map(|i| a[(i, i)].re).collect(), v)
 }
 
+/// The LU factorization of a square matrix with partial pivoting, in place: the factors and the
+/// permutation's sign, or `None` when a pivot is exactly zero (a singular matrix).
+fn lu(a: &Matrix) -> (Matrix, f64, bool) {
+    let n = a.rows;
+    let mut m = a.clone();
+    let mut sign = 1.0;
+    for k in 0..n {
+        let p = (k..n)
+            .max_by(|&i, &j| m[(i, k)].norm().total_cmp(&m[(j, k)].norm()))
+            .unwrap_or(k);
+        if m[(p, k)].norm() == 0.0 {
+            return (m, sign, false);
+        }
+        if p != k {
+            for j in 0..n {
+                let t = m[(k, j)];
+                m[(k, j)] = m[(p, j)];
+                m[(p, j)] = t;
+            }
+            sign = -sign;
+        }
+        let pivot = m[(k, k)];
+        for i in k + 1..n {
+            let f = m[(i, k)] / pivot;
+            m[(i, k)] = f;
+            for j in k + 1..n {
+                let mkj = m[(k, j)];
+                m[(i, j)] -= f * mkj;
+            }
+        }
+    }
+    (m, sign, true)
+}
+
+/// The determinant of a square matrix, by LU with partial pivoting; 1 for the 0 × 0 matrix.
+pub(crate) fn determinant(a: &Matrix) -> c64 {
+    let (m, sign, regular) = lu(a);
+    if !regular {
+        return c64::new(0.0, 0.0);
+    }
+    (0..a.rows).map(|i| m[(i, i)]).product::<c64>() * sign
+}
+
+/// The inverse of a square matrix by Gauss–Jordan elimination with partial pivoting, or `None`
+/// when it is singular.
+pub(crate) fn inverse(a: &Matrix) -> Option<Matrix> {
+    let n = a.rows;
+    let mut m = a.clone();
+    let mut inv = Matrix::identity(n);
+    for k in 0..n {
+        let p = (k..n).max_by(|&i, &j| m[(i, k)].norm().total_cmp(&m[(j, k)].norm()))?;
+        if m[(p, k)].norm() == 0.0 {
+            return None;
+        }
+        for j in 0..n {
+            let (t, u) = (m[(k, j)], inv[(k, j)]);
+            m[(k, j)] = m[(p, j)];
+            m[(p, j)] = t;
+            inv[(k, j)] = inv[(p, j)];
+            inv[(p, j)] = u;
+        }
+        let pivot = m[(k, k)];
+        for j in 0..n {
+            m[(k, j)] /= pivot;
+            inv[(k, j)] /= pivot;
+        }
+        for i in 0..n {
+            if i == k {
+                continue;
+            }
+            let f = m[(i, k)];
+            if f.norm() == 0.0 {
+                continue;
+            }
+            for j in 0..n {
+                let (mkj, ikj) = (m[(k, j)], inv[(k, j)]);
+                m[(i, j)] -= f * mkj;
+                inv[(i, j)] -= f * ikj;
+            }
+        }
+    }
+    Some(inv)
+}
+
+/// The coefficients of det(I − λB) = Σ_j h_j λ^j, j = 0 … n, of a square matrix B: its
+/// characteristic polynomial det(xI − B) = Σ_j h_j x^(n−j) read backwards. B is brought to upper
+/// Hessenberg form by Householder reflections (similar, so the same polynomial), whose
+/// polynomial follows from the recursion over its leading blocks (R. C. La Budde's method; G. H.
+/// Golub, C. F. Van Loan, *Matrix Computations*): O(n³), with additions and multiplications only
+/// after the reduction, and the same bits on every system.
+pub(crate) fn det_one_minus(b: &Matrix) -> Vec<c64> {
+    let n = b.rows;
+    let mut h = b.clone();
+    // Householder reduction to upper Hessenberg form
+    for k in 0..n.saturating_sub(2) {
+        let norm = (k + 1..n).map(|i| h[(i, k)].norm_sqr()).sum::<f64>().sqrt();
+        if norm == 0.0 {
+            continue;
+        }
+        let x0 = h[(k + 1, k)];
+        let phase = if x0.norm() == 0.0 {
+            c64::new(1.0, 0.0)
+        } else {
+            x0 / x0.norm()
+        };
+        // v = x + e^{i arg x0} ‖x‖ e₁, H ← (I − 2vv†/v†v) H (I − 2vv†/v†v)
+        let mut v: Vec<c64> = (k + 1..n).map(|i| h[(i, k)]).collect();
+        v[0] += phase * norm;
+        let vv: f64 = v.iter().map(c64::norm_sqr).sum();
+        if vv == 0.0 {
+            continue;
+        }
+        for j in 0..n {
+            let dot: c64 = v
+                .iter()
+                .enumerate()
+                .map(|(a, va)| va.conj() * h[(k + 1 + a, j)])
+                .sum::<c64>()
+                * (2.0 / vv);
+            for (a, va) in v.iter().enumerate() {
+                h[(k + 1 + a, j)] -= va * dot;
+            }
+        }
+        for i in 0..n {
+            let dot: c64 = v
+                .iter()
+                .enumerate()
+                .map(|(a, va)| h[(i, k + 1 + a)] * va)
+                .sum::<c64>()
+                * (2.0 / vv);
+            for (a, va) in v.iter().enumerate() {
+                h[(i, k + 1 + a)] -= dot * va.conj();
+            }
+        }
+        for i in k + 2..n {
+            h[(i, k)] = c64::new(0.0, 0.0);
+        }
+    }
+    // p_i(x) = det(xI − H_i) of the leading i × i block, coefficients by ascending power:
+    // p_i = (x − h_ii) p_{i−1} − Σ_{j=1}^{i−1} h_{i−j,i} (∏_{l=i−j+1}^{i} h_{l,l−1}) p_{i−j−1}
+    // (one-based indices)
+    let mut p: Vec<Vec<c64>> = vec![vec![c64::new(1.0, 0.0)]];
+    for i in 1..=n {
+        let hii = h[(i - 1, i - 1)];
+        let prev = &p[i - 1];
+        let mut next = vec![c64::new(0.0, 0.0); i + 1];
+        for (d, c) in prev.iter().enumerate() {
+            next[d + 1] += c;
+            next[d] -= hii * c;
+        }
+        let mut product = c64::new(1.0, 0.0);
+        for j in 1..i {
+            // ∏_{l=i−j+1}^{i} h_{l,l−1}, one-based: grows by h_{i−j+1, i−j} each step
+            product *= h[(i - j, i - j - 1)];
+            let coefficient = h[(i - j - 1, i - 1)] * product;
+            for (d, c) in p[i - j - 1].iter().enumerate() {
+                next[d] -= coefficient * c;
+            }
+        }
+        p.push(next);
+    }
+    // det(I − λB) = λⁿ p(1/λ): h_j is the coefficient of x^(n−j)
+    let last = &p[n];
+    (0..=n).map(|j| last[n - j]).collect()
+}
+
 /// The QR factorization of a square matrix by modified Gram–Schmidt, applied twice for
 /// orthogonality to round-off: Q unitary, R upper triangular. Assumes full rank, which a
 /// Gaussian random matrix has with probability 1.

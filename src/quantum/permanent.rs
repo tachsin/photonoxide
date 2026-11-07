@@ -96,13 +96,13 @@ pub fn permanent_by(a: &Matrix, formula: Formula) -> Result<c64> {
 
 /// A complex sum with Kahan's compensation on each part.
 #[derive(Clone, Copy, Default)]
-struct Kahan {
-    sum: c64,
+pub(crate) struct Kahan {
+    pub(crate) sum: c64,
     carry: c64,
 }
 
 impl Kahan {
-    fn add(&mut self, x: c64) {
+    pub(crate) fn add(&mut self, x: c64) {
         let y = x - self.carry;
         let t = self.sum + y;
         self.carry = (t - self.sum) - y;
@@ -116,7 +116,7 @@ fn gray(g: u64) -> u64 {
 }
 
 /// Σ over g in 0..2^bits of `part(start, end)`, cut into fixed parts and added in order.
-fn parts(bits: u32, part: impl Fn(u64, u64) -> c64 + Sync + Send) -> c64 {
+pub(crate) fn parts(bits: u32, part: impl Fn(u64, u64) -> c64 + Sync + Send) -> c64 {
     let total = 1u64 << bits;
     let count = if bits >= THREADED_BITS { PARTS } else { 1 };
     let size = total / count;
