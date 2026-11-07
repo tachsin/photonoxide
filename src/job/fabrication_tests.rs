@@ -99,6 +99,26 @@ fn a_fabrication_run_writes_its_flows_json_traveller_and_cross_sections() {
     }
 }
 
+#[test]
+fn a_fabrication_task_places_its_cross_sections_cut() {
+    let root = dir("cut");
+    let job = Job::parse(&format!("{HEATER}cut_x = 0.5\n")).unwrap();
+    check(&job).unwrap();
+    let mut run = Run::create(&root.0, &job).unwrap();
+    execute(&job, &mut run, &Stop::new(None)).unwrap();
+    let file = crate::export::flow::FlowFile::read(
+        &std::fs::read_to_string(run.dir().join("flow.json")).unwrap(),
+    )
+    .unwrap();
+    assert_eq!(file.cut.x_um, 0.5);
+    let svg = std::fs::read_to_string(run.dir().join("flow-01.svg")).unwrap();
+    assert!(svg.contains("cut at x = 0.5 µm"), "{svg}");
+    // outside the window it shows, refused with the window named
+    let far = Job::parse(&format!("{HEATER}cut_x = 1000.0\n")).unwrap();
+    let err = check(&far).unwrap_err().to_string();
+    assert!(err.contains("cross-section's cut"), "{err}");
+}
+
 /// The fenced block of `page` that opens with `fence`, its lines.
 fn block<'a>(page: &'a str, fence: &str) -> Vec<&'a str> {
     let start = page

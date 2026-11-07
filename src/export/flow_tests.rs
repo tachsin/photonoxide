@@ -179,7 +179,7 @@ fn a_rib_is_drawn_with_its_slab_and_a_strip_with_none() {
     // at its slab's height beside it
     let strip = export("waveguide");
     let k = strip.file.flow.steps.len() - 1;
-    let s = Section::new(&strip.file, &strip.made[k], k);
+    let s = Section::new(&strip.file, &strip.drawn[k], k);
     let profile = s.profile("Si", 2.0);
     let heights: Vec<f64> = profile.iter().map(|p| p.1).collect();
     let floor = s.pz(2.0);
@@ -199,9 +199,9 @@ fn a_rib_is_drawn_with_its_slab_and_a_strip_with_none() {
         .find(|r| r.elsewhere.is_some())
         .expect("the rib's layer is patterned")
         .clone();
-    let s = Section::new(&rib.file, &rib.made[k], k);
+    let s = Section::new(&rib.file, &rib.drawn[k], k);
     let mut bottom = 0.0;
-    for l in rib.made[k].structure.stack().layers() {
+    for l in rib.drawn[k].0.structure.stack().layers() {
         if l.name == row.name {
             break;
         }
@@ -413,4 +413,121 @@ fn the_export_writes_its_files_into_a_folder() {
     std::fs::remove_dir_all(&dir).unwrap();
     assert_eq!(FlowExport::svg_name(0, 9), "flow-01.svg");
     assert_eq!(FlowExport::svg_name(99, 120), "flow-100.svg");
+}
+
+#[test]
+fn a_films_section_is_cut_exactly_from_its_loft() {
+    // a frustum: the square of half-width 1 at z = 0 shrinking to 0.5 at z = 1
+    let ring = |w: f64| vec![[-w, -w], [w, -w], [w, w], [-w, w], [-w, -w]];
+    let film = FrameFilm {
+        layer: "resist".into(),
+        film: "photoresist".into(),
+        eps: 2.1,
+        z_um: [0.0, 1.0],
+        bottom: ring(1.0),
+        top: ring(0.5),
+    };
+    // through the middle: one trapezoid, ±1 at the bottom to ±0.5 at the top
+    assert_eq!(
+        cut_film(&film, 0.0),
+        vec![[(-1.0, 0.0), (1.0, 0.0), (0.5, 1.0), (-0.5, 1.0)]]
+    );
+    // at x = 0.75 the wall leaves the plane half way up: the half-width there is 0.75
+    let pieces = cut_film(&film, 0.75);
+    assert_eq!(pieces.len(), 1, "{pieces:?}");
+    let [a, b, c, d] = pieces[0];
+    for (got, want) in [
+        (a, (-1.0, 0.0)),
+        (b, (1.0, 0.0)),
+        (c, (0.75, 0.5)),
+        (d, (-0.75, 0.5)),
+    ] {
+        assert!(
+            (got.0 - want.0).abs() < 1e-15 && (got.1 - want.1).abs() < 1e-15,
+            "{pieces:?}"
+        );
+    }
+    // beside it, nothing; and a hole (a ring opened in the film) leaves two pieces
+    assert!(cut_film(&film, 1.5).is_empty());
+    let mut holed = FrameFilm {
+        bottom: ring(1.0),
+        top: ring(1.0),
+        ..film
+    };
+    let hole = vec![
+        [-0.25, -0.25],
+        [-0.25, 0.25],
+        [0.25, 0.25],
+        [0.25, -0.25],
+        [-0.25, -0.25],
+    ];
+    holed.bottom.extend(hole.clone());
+    holed.top.extend(hole);
+    assert_eq!(
+        cut_film(&holed, 0.0),
+        vec![
+            [(-1.0, 0.0), (-0.25, 0.0), (-0.25, 1.0), (-1.0, 1.0)],
+            [(0.25, 0.0), (1.0, 0.0), (1.0, 1.0), (0.25, 1.0)],
+        ]
+    );
+}
+
+#[test]
+fn the_resist_and_the_films_over_the_layers_are_drawn() {
+    let strip = export("waveguide");
+    let resist = film_colour("photoresist");
+    let steps = &strip.file.flow.steps;
+    let drawn_in = |svg: &str, colour: &str| {
+        let films = &svg[svg.find("<g id=\"films\"").unwrap()..];
+        let films = &films[..films.find("</g>").unwrap()];
+        films.contains(&format!("fill=\"{colour}\""))
+    };
+    for (k, svg) in strip.svgs().iter().enumerate() {
+        // the resist from its lithography to its strip, named in the legend
+        let on = resist_on(steps, k) && steps[k].operation != "strip";
+        assert_eq!(
+            drawn_in(svg, resist),
+            on,
+            "step {}: {}",
+            k + 1,
+            steps[k].name
+        );
+        assert_eq!(svg.contains("over the layers: photoresist"), on, "{k}");
+    }
+    // a film deposited over an etched step, or evaporated onto a stencil: the heater's oxide
+    // over its strip and its metal, the modulator's electrodes
+    for kind in ["thermo-optic phase shifter", "TFLN Mach-Zehnder modulator"] {
+        let e = export(kind);
+        let named: Vec<String> = e
+            .svgs()
+            .iter()
+            .flat_map(|svg| {
+                svg.match_indices("over the layers: ")
+                    .map(|(i, m)| svg[i + m.len()..].split('<').next().unwrap().to_owned())
+                    .collect::<Vec<_>>()
+            })
+            .filter(|f| !f.ends_with("resist") && !f.ends_with("exposed"))
+            .collect();
+        assert!(!named.is_empty(), "{kind}");
+    }
+}
+
+#[test]
+fn the_cut_can_be_placed_across_the_window() {
+    let e = export("thermo-optic phase shifter");
+    let [lo, hi] = e.x_um;
+    let x = lo + 0.25 * (hi - lo);
+    let moved = e.clone().cut_at(x).unwrap();
+    assert_eq!(moved.file.cut.x_um, x);
+    assert!(
+        moved
+            .svg(0)
+            .contains(&format!("cut at x = {} µm", number(x)))
+    );
+    let back = FlowFile::read(&moved.file.json()).unwrap();
+    assert_eq!(back.cut.x_um.to_bits(), x.to_bits());
+    for bad in [lo - 0.1, hi + 0.1, f64::NAN] {
+        let err = e.clone().cut_at(bad).unwrap_err().to_string();
+        assert!(err.contains("cut"), "{err}");
+    }
 }

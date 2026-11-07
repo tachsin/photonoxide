@@ -10,7 +10,10 @@
 //! [`FlowFile::read`] gives back the same flow. The traveller and the cross-sections are made
 //! from the same data: the traveller from the file alone, the cross-sections from the wafer as
 //! the flow leaves it after each step ([`crate::fabrication::stages`]), cut across y at the
-//! middle of the design's shapes in x, as the studio's design view starts its cut.
+//! middle of the design's shapes in x, as the studio's design view starts its cut, or on a plane of
+//! one's choosing ([`FlowExport::cut_at`]). Each draws the wafer as the studio's Fabrication page
+//! draws the step's last frame: the planar layers, and over them the resist, a film deposited
+//! over an etched step and a film evaporated onto a stencil ([`crate::job::FrameFilm`]).
 
 use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
@@ -23,6 +26,8 @@ use crate::fabrication::{
     Verdict, assess, generate_from, round_trip, stages,
 };
 use crate::geometry::Point;
+use crate::job::FrameFilm;
+use crate::units::Wavelength;
 use crate::{Error, Result};
 
 /// A parameter of the design, at its value.
@@ -41,11 +46,13 @@ pub struct FlowParameter {
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 #[non_exhaustive]
 pub struct FlowCut {
-    /// The plane x = `x_um` the wafer is cut on, µm: the middle of the design's shapes in x.
+    /// The plane x = `x_um` the wafer is cut on, µm: the middle of the design's shapes in x,
+    /// unless [`FlowExport::cut_at`] put it elsewhere.
     pub x_um: f64,
     /// Across it, from and to, µm: the shapes' extent in y and 1 µm beyond it.
     pub y_um: [f64; 2],
-    /// Up, from and to, µm: from 0.5 µm into the substrate to 1 µm above the finished stack.
+    /// Up, from and to, µm: from 0.5 µm into the substrate to 1 µm above the highest the wafer
+    /// stands at any step, its resist and films included.
     pub z_um: [f64; 2],
 }
 
@@ -93,7 +100,12 @@ pub struct FlowFile {
 pub struct FlowExport {
     /// What `flow.json` holds.
     pub file: FlowFile,
-    made: Vec<Made>,
+    /// The wafer as each step leaves it, as the studio's Fabrication page draws its last frame:
+    /// the planar layers, and the films over them (the resist, a film deposited over an etched
+    /// step, a film evaporated onto a stencil).
+    drawn: Vec<(Made, Vec<FrameFilm>)>,
+    /// The window's extent in x, µm, that a cut may be placed in: the shapes' and 1 µm beyond.
+    x_um: [f64; 2],
 }
 
 /// The convention every list of layers here follows.
@@ -202,13 +214,26 @@ impl FlowExport {
         if !x[0].is_finite() {
             (x, y) = ([0.0, 0.0], [0.0, 0.0]);
         }
+        // each step's last frame, as the Fabrication page draws it, over the same window
+        let window = ([x[0] - 1.0, x[1] + 1.0], [y[0] - 1.0, y[1] + 1.0]);
+        let (moments, _, _) =
+            crate::job::moments(&flow, &made, window.0, window.1, Wavelength::um(1.55)?)?;
         let top = made
             .iter()
             .map(|m| m.structure.stack().thickness().to_um())
+            .chain(moments.iter().map(crate::job::Moment::top))
             .fold(s.stack().thickness().to_um(), f64::max);
+        let mut drawn: Vec<(Made, Vec<FrameFilm>)> = Vec::with_capacity(made.len());
+        for m in moments {
+            if m.step < drawn.len() {
+                drawn[m.step] = (m.made, m.films);
+            } else {
+                drawn.push((m.made, m.films));
+            }
+        }
         let cut = FlowCut {
             x_um: 0.5 * (x[0] + x[1]),
-            y_um: [y[0] - 1.0, y[1] + 1.0],
+            y_um: window.1,
             z_um: [-0.5, top + 1.0],
         };
         let parameters = device
@@ -231,8 +256,32 @@ impl FlowExport {
                 assessment,
                 stacks: made.iter().map(rows).collect(),
             },
-            made,
+            drawn,
+            x_um: window.0,
         })
+    }
+
+    /// The same export with its cross-sections cut on the plane x = `x_um` in place of the
+    /// middle of the design's shapes: anywhere across the window the cut shows, the shapes'
+    /// extent in x and 1 µm beyond it. `flow.json`'s `cut` records it.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::InvalidValue`] for a plane outside the window, or not a number.
+    pub fn cut_at(mut self, x_um: f64) -> Result<FlowExport> {
+        let [lo, hi] = self.x_um;
+        if !(x_um >= lo && x_um <= hi) {
+            return Err(Error::invalid(
+                "cross-section's cut",
+                format!(
+                    "is a plane x from {} to {} µm (the design's shapes and 1 µm beyond), not {x_um}",
+                    number(lo),
+                    number(hi)
+                ),
+            ));
+        }
+        self.file.cut.x_um = x_um;
+        Ok(self)
     }
 
     /// The name of step `k`'s (from 0) cross-section among `n` steps: `flow-01.svg`, ...
@@ -266,19 +315,22 @@ impl FlowExport {
 
     /// Every step's cross-section, in order ([`FlowExport::svg`]).
     pub fn svgs(&self) -> Vec<String> {
-        (0..self.made.len()).map(|k| self.svg(k)).collect()
+        (0..self.drawn.len()).map(|k| self.svg(k)).collect()
     }
 
     /// The wafer's cross-section after step `k` (from 0), as a standalone SVG: the layers drawn
     /// across the cut with each etch's floor and walls exact, each film in its colour, and
     /// beside them the layers from the top down, the substrate last, with their films and
-    /// thicknesses. y and z are drawn to scales of their own. The resist isn't drawn.
+    /// thicknesses. y and z are drawn to scales of their own. Over the layers, the films the
+    /// Fabrication page draws at the step's last frame: the resist, a film deposited over an etched
+    /// step (conformal), a film evaporated onto a stencil; each cut exactly, and named in the
+    /// legend.
     ///
     /// # Panics
     ///
     /// If `k` is not a step of the flow.
     pub fn svg(&self, k: usize) -> String {
-        Section::new(&self.file, &self.made[k], k).svg()
+        Section::new(&self.file, &self.drawn[k], k).svg()
     }
 }
 
@@ -355,16 +407,34 @@ fn describe(row: &StackRow) -> String {
     s
 }
 
-/// One step's cross-section, being drawn.
+/// One step's cross-section, being drawn: the wafer's planar layers as the step leaves them,
+/// and the films over them.
 struct Section<'a> {
     file: &'a FlowFile,
     made: &'a Made,
+    films: &'a [FrameFilm],
     k: usize,
 }
 
 impl Section<'_> {
-    fn new<'a>(file: &'a FlowFile, made: &'a Made, k: usize) -> Section<'a> {
-        Section { file, made, k }
+    fn new<'a>(file: &'a FlowFile, drawn: &'a (Made, Vec<FrameFilm>), k: usize) -> Section<'a> {
+        Section {
+            file,
+            made: &drawn.0,
+            films: &drawn.1,
+            k,
+        }
+    }
+
+    /// The films drawn over the layers, each once, in the order drawn.
+    fn over(&self) -> Vec<&str> {
+        let mut names: Vec<&str> = Vec::new();
+        for f in self.films {
+            if !names.contains(&f.film.as_str()) && !cut_film(f, self.file.cut.x_um).is_empty() {
+                names.push(&f.film);
+            }
+        }
+        names
     }
 
     fn px(&self, y: f64) -> f64 {
@@ -426,7 +496,8 @@ impl Section<'_> {
         let step = &steps[self.k];
         let rows = &self.file.stacks[self.k];
         let cut = self.file.cut;
-        let legend_bottom = PLOT_Y + 24.0 + 22.0 * rows.len() as f64;
+        let over = self.over();
+        let legend_bottom = PLOT_Y + 24.0 + 22.0 * (rows.len() + over.len()) as f64;
         let height = (PLOT_Y + PLOT_H + 70.0).max(legend_bottom + 16.0);
         let title = format!("Step {} of {}: {}", self.k + 1, steps.len(), step.name);
         let mut out = String::new();
@@ -458,12 +529,19 @@ impl Section<'_> {
             r#"<text x="16" y="48">{}</text>"#,
             escape(&format!("{}: {}", step.process, step.does))
         );
-        // the drawing: the substrate, each layer's background then its drawn film, the cladding
+        // the drawing: the substrate, each layer's background, the cladding, the films over the
+        // layers (the resist, a film over an etched step), then the layers' drawn shapes, as the
+        // Fabrication page draws a frame
+        let _ = writeln!(
+            out,
+            r#"<defs><clipPath id="plot"><rect x="{PLOT_X:.3}" y="{PLOT_Y:.3}" width="{PLOT_W:.3}" height="{PLOT_H:.3}"/></clipPath></defs>"#
+        );
         let _ = writeln!(out, r#"<g id="cross-section">"#);
         let [z0, z1] = cut.z_um;
         self.rect(&mut out, [z0, 0.0], &self.made.substrate);
         let mut bottom = 0.0;
         let mut tops = Vec::new();
+        let mut shapes = Vec::new();
         for (layer, (drawn, background)) in self
             .made
             .structure
@@ -486,16 +564,34 @@ impl Section<'_> {
                     .map(|(a, b)| format!("{a:.3},{b:.3}"))
                     .collect::<Vec<_>>()
                     .join(" ");
-                let _ = writeln!(
-                    out,
+                shapes.push(format!(
                     r#"<polygon points="{points}" fill="{}"/>"#,
                     film_colour(drawn)
-                );
+                ));
             }
             tops.push(top);
             bottom = top;
         }
         self.rect(&mut out, [bottom, z1], &self.made.cladding);
+        let _ = writeln!(out, r#"<g id="films" clip-path="url(#plot)">"#);
+        for film in self.films {
+            for piece in cut_film(film, cut.x_um) {
+                let points = piece
+                    .iter()
+                    .map(|&(y, z)| format!("{:.3},{:.3}", self.px(y), self.pz(z)))
+                    .collect::<Vec<_>>()
+                    .join(" ");
+                let _ = writeln!(
+                    out,
+                    r#"<polygon points="{points}" fill="{}"/>"#,
+                    film_colour(&film.film)
+                );
+            }
+        }
+        let _ = writeln!(out, "</g>");
+        for shape in shapes {
+            let _ = writeln!(out, "{shape}");
+        }
         for z in std::iter::once(0.0).chain(tops.iter().copied()) {
             let _ = writeln!(
                 out,
@@ -539,7 +635,7 @@ impl Section<'_> {
                 "Cut at x = {} µm, across y; z in µm; y and z each to its own scale.{}",
                 number(cut.x_um),
                 if resist_on(steps, self.k) {
-                    " Resist is on the wafer (not drawn)."
+                    " The resist is on the wafer."
                 } else {
                     ""
                 }
@@ -576,10 +672,106 @@ impl Section<'_> {
                 escape(&describe(row))
             );
         }
+        for (i, film) in over.iter().enumerate() {
+            let y = PLOT_Y + 24.0 + 22.0 * (rows.len() + i) as f64;
+            let _ = writeln!(
+                out,
+                r##"<rect x="{LEGEND_X}" y="{:.3}" width="14" height="14" fill="{}" stroke="#333333" stroke-width="0.5"/>"##,
+                y - 12.0,
+                film_colour(film)
+            );
+            let _ = writeln!(
+                out,
+                r#"<text x="{}" y="{y:.3}">{}</text>"#,
+                LEGEND_X + 38.0,
+                escape(&format!("over the layers: {film}"))
+            );
+        }
         let _ = writeln!(out, "</g>");
         let _ = writeln!(out, "</svg>");
         out
     }
+}
+
+/// A film's piece ([`FrameFilm`]) cut by the plane x = `x`: the quadrilaterals, (y, z) in µm,
+/// that make up its section, each from its bottom left round. The piece is the loft between its
+/// bottom and top outlines, each vertex moving straight from the one to the other, its faces
+/// planar (each edge stays parallel to itself); between the heights where a vertex crosses the
+/// plane, the same edges cross it, each where it does moving linearly in height, so the section
+/// there is exactly the trapezoids between the crossings paired in order along y (even-odd, the
+/// holes included).
+fn cut_film(film: &FrameFilm, x: f64) -> Vec<[(f64, f64); 4]> {
+    let (bottom, top) = (&film.bottom, &film.top);
+    let [z0, z1] = film.z_um;
+    if bottom.len() != top.len() || z1 <= z0 {
+        return Vec::new();
+    }
+    // the rings, as index ranges: each back to its first vertex, which isn't repeated here
+    let mut rings: Vec<(usize, usize)> = Vec::new();
+    let mut start = 0;
+    while start < bottom.len() {
+        let first = bottom[start];
+        let end = (start + 1..bottom.len())
+            .find(|&k| bottom[k] == first)
+            .unwrap_or(bottom.len());
+        if end - start >= 3 {
+            rings.push((start, end));
+        }
+        start = end + 1;
+    }
+    let at = |k: usize, s: f64| {
+        let (b, t) = (bottom[k], top[k]);
+        (b[0] + s * (t[0] - b[0]), b[1] + s * (t[1] - b[1]))
+    };
+    let mut breaks = vec![0.0, 1.0];
+    for &(a, b) in &rings {
+        for k in a..b {
+            let dx = top[k][0] - bottom[k][0];
+            if dx != 0.0 {
+                let s = (x - bottom[k][0]) / dx;
+                if s > 0.0 && s < 1.0 {
+                    breaks.push(s);
+                }
+            }
+        }
+    }
+    breaks.sort_by(f64::total_cmp);
+    breaks.dedup();
+    let mut pieces = Vec::new();
+    for w in breaks.windows(2) {
+        let (sa, sb) = (w[0], w[1]);
+        if sb - sa < 1e-12 {
+            continue;
+        }
+        let sm = 0.5 * (sa + sb);
+        // where each edge crossing the plane crosses it, at the middle and at the ends
+        let mut crossings: Vec<(f64, f64, f64)> = Vec::new();
+        for &(a, b) in &rings {
+            for i in a..b {
+                let j = if i + 1 == b { a } else { i + 1 };
+                let (p, q) = (at(i, sm), at(j, sm));
+                if (p.0 <= x) == (q.0 <= x) {
+                    continue;
+                }
+                let y_at = |s: f64| {
+                    let (p, q) = (at(i, s), at(j, s));
+                    if q.0 == p.0 {
+                        p.1
+                    } else {
+                        p.1 + (x - p.0) * (q.1 - p.1) / (q.0 - p.0)
+                    }
+                };
+                crossings.push((y_at(sm), y_at(sa), y_at(sb)));
+            }
+        }
+        crossings.sort_by(|a, b| a.0.total_cmp(&b.0));
+        let (za, zb) = (z0 + sa * (z1 - z0), z0 + sb * (z1 - z0));
+        for pair in crossings.chunks_exact(2) {
+            let (lo, hi) = (pair[0], pair[1]);
+            pieces.push([(lo.1, za), (hi.1, za), (hi.2, zb), (lo.2, zb)]);
+        }
+    }
+    pieces
 }
 
 /// Whether resist is on the wafer after step `k`: patterned and not yet removed or lifted off.

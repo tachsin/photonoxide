@@ -1121,10 +1121,13 @@ niobate modulator's, a nitride or GaAs design's), and a task that avoids a step 
   it has (their text and sources are in `flow.json` and the traveller); each number the shortest
   decimal that reads back to the same bits, as the run's other tables;
 - `flow-01.svg`, `flow-02.svg`, ...: the wafer's cross-section after each step, cut across y at
-  the middle of the design in x (as the design view's cut starts), each etch's floor and walls
-  drawn exactly, every film in its colour, and beside it the layers from the top down, the
-  substrate last, with their films and thicknesses. The resist isn't drawn; the caption says
-  when it is on the wafer.
+  the middle of the design in x (as the design view's cut starts), or on the plane the task's
+  `cut_x` names (µm, anywhere across the shapes and 1 µm beyond; `FlowExport::cut_at` in Rust).
+  Each draws the step's last frame as the Fabrication page does: the layers, each etch's floor
+  and walls exact, and over them the resist, a film deposited over an etched step and a film
+  evaporated onto a stencil, each cut exactly from its piece, every film in its colour; beside
+  it the layers from the top down, the substrate last, with their films and thicknesses, and the
+  films drawn over them.
 
 ## In Python
 
