@@ -766,8 +766,8 @@ fn cut_film(film: &FrameFilm, x: f64) -> Vec<[(f64, f64); 4]> {
         }
         crossings.sort_by(|a, b| a.0.total_cmp(&b.0));
         let (za, zb) = (z0 + sa * (z1 - z0), z0 + sb * (z1 - z0));
-        for pair in crossings.chunks_exact(2) {
-            let (lo, hi) = (pair[0], pair[1]);
+        for [lo, hi] in crossings.as_chunks::<2>().0 {
+            let (lo, hi) = (*lo, *hi);
             pieces.push([(lo.1, za), (hi.1, za), (hi.2, zb), (lo.2, zb)]);
         }
     }
