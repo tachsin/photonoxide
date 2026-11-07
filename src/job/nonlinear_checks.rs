@@ -521,14 +521,14 @@ pub(crate) fn cases() -> Vec<Case> {
             id: "job/nonlinear-ring-shg",
             title: r"SHG of 1.55 µm through a nonlinear job's `[task.ring]`: a lossless all-pass ring of poled congruent LiNbO₃ 1 mm round (the grating designed, $\eta$ = 10 %/(W·cm²)), 1 mW of pump, every wave's power coupling $k^2$ = 0.1 and every wave on resonance; the harmonic out, one pass's and each wave's build-up against the closed forms, the largest relative gap (the ring's harmonic in mW shown)",
             tier: Tier::Analytic,
-            source: r"L. G. Helt, Z. Yang, M. Liscidini, J. E. Sipe, Opt. Lett. 35, 3006 (2010), doi:10.1364/OL.35.003006: the field enhancement $F = ik/(1 - r)$ on resonance without loss, $r = \sqrt{1 - k^2}$, and $P_{2\omega} = |F_{2\omega}|^2|F_\omega|^4\,\eta P^2L^2\,\mathrm{sinc}^2(\Delta kL/2)$, one pass with $|F|^2 = 1$",
+            source: r"L. G. Helt, Z. Yang, M. Liscidini, J. E. Sipe, Opt. Lett. 35, 3006 (2010), doi:10.1364/OL.35.003006: the field enhancement $F = ik/(1 - r)$ on resonance without loss, $r = \sqrt{1 - k^2}$, and $P_{2\omega} = \lvert F_{2\omega} \rvert^2 \lvert F_\omega \rvert^4 \eta P^2L^2 \mathrm{sinc}^2(\Delta kL/2)$, one pass with $\lvert F \rvert^2 = 1$",
             run: || ring_case("shg"),
         },
         Case {
             id: "job/nonlinear-ring-fwm",
             title: r"Four-wave mixing through a nonlinear job's `[task.ring]`: a lossless ring of one index 2.0 ($\Delta k = 0$), $\gamma$ = 100 /(W·m), 1 mm round, 10 mW of pump at 1.55 µm and the signal at 1.56 µm, every wave's $k^2$ = 0.1 and on resonance; the idler's conversion out, one pass's and each wave's build-up against the closed forms, the largest relative gap (the ring's $P_i/P_s$ shown)",
             tier: Tier::Analytic,
-            source: r"Helt et al. 2010's Eq. (5): $P_i/P_s = (\gamma P_pL)^2|F_s|^2|F_i|^2|F_p|^4$ on resonance without loss, $|F|^2 = k^2/(1 - r)^2$, one pass with $|F|^2 = 1$",
+            source: r"Helt et al. 2010's Eq. (5): $P_i/P_s = (\gamma P_pL)^2 \lvert F_s \rvert^2 \lvert F_i \rvert^2 \lvert F_p \rvert^4$ on resonance without loss, $\lvert F \rvert^2 = k^2/(1 - r)^2$, one pass with $\lvert F \rvert^2 = 1$",
             run: || ring_case("fwm"),
         },
     ]
