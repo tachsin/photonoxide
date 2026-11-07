@@ -1168,7 +1168,7 @@ class Fabrication:
     ``flow`` and ``assessment`` are plain Python data (dicts, lists, strings, floats in their
     units: ``thickness_um``, ``depth_um``, ``sidewall_deg``), read from photonoxide's own JSON,
     so every number is the one the run records, to the bit. The texts are the files the run
-    writes into its folder: ``flow.json``, ``flow.md`` and ``flow-01.svg``, ..."""
+    writes into its folder: ``flow.json``, ``flow.md``, ``flow.csv`` and ``flow-01.svg``, ..."""
 
     flow: dict[str, Any]
     """The flow, as the run's ``flow`` event: ``library`` (the process library's version),
@@ -1198,6 +1198,12 @@ class Fabrication:
     capabilities with their sources, the alternatives, the rules' checks, the dimensions it makes
     and how accurately, and the wafer after it; the accuracy of every dimension, the warnings,
     what is not specified, the round trip and the references."""
+    csv: str
+    """The steps as a CSV table, as the run's ``flow.csv``: a header line, then one line a step
+    (``step`` from 1, ``process``, ``name``, ``step_type``, ``operation``, ``does``, ``layer``,
+    ``film``, ``thickness_um``, ``depth_um``, ``timed``, ``sidewall_deg``, ``tone``, ``reason``
+    and the counts of its ``capabilities`` and ``uncertainties``), each number the shortest
+    decimal that reads back to the same float."""
     svgs: list[str]
     """Each step's cross-section, a standalone SVG, as the run's ``flow-01.svg``, ...: the wafer
     after the step, cut across y at the middle of the design in x, its layers listed from the
@@ -1271,6 +1277,7 @@ def device_fabrication(
         assessment=json.loads(f["assessment"]),
         json=f["json"],
         markdown=f["markdown"],
+        csv=f["csv"],
         svgs=list(f["svgs"]),
     )
 
@@ -1292,7 +1299,7 @@ def device_fabrication_job(
     default). Without a ``format``, the
     job as data, a dict, which :func:`run_job` takes; with ``format`` (``"yaml"``, ``"toml"`` or
     ``"json"``), the job file's text. Its run records what :func:`device_fabrication` gives and
-    writes ``flow.json``, ``flow.md`` and ``flow-01.svg``, ... into its folder:
+    writes ``flow.json``, ``flow.md``, ``flow.csv`` and ``flow-01.svg``, ... into its folder:
 
     >>> job = phox.device_fabrication_job("waveguide", prefer=["ebl-hsq"])
     >>> job["name"], job["task"]
@@ -1322,12 +1329,13 @@ def export_fabrication(
     """Writes a design's process flow (see :func:`device_fabrication`, and ``start`` there) into
     ``out_dir``, made if it isn't there, as a ``"fabrication"`` job's run writes it into its
     folder: ``flow.json``
-    (the flow's data, which reads back to the same flow), ``flow.md`` (the process traveller) and
-    each step's cross-section, ``flow-01.svg``, ...; returns the files written, in that order:
+    (the flow's data, which reads back to the same flow), ``flow.md`` (the process traveller),
+    ``flow.csv`` (the steps as a table) and each step's cross-section, ``flow-01.svg``, ...;
+    returns the files written, in that order:
 
     >>> files = phox.export_fabrication("thermo-optic phase shifter", out_dir="heater")
-    >>> [file.name for file in files][:3], len(files)
-    (['flow.json', 'flow.md', 'flow-01.svg'], 14)
+    >>> [file.name for file in files][:4], len(files)
+    (['flow.json', 'flow.md', 'flow.csv', 'flow-01.svg'], 15)
     """
     paths = _native.export_fabrication(
         kind, _values(values), stack, _ids(prefer), _ids(avoid), os.fspath(out_dir), str(start)

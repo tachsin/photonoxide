@@ -102,7 +102,7 @@ It prints `TE0: n_eff = 2.8475` and `TM0: n_eff = 2.0531`, as the Rust example d
 | `stacks()` | the catalogue's stacks, which the device functions take by name as `stack=`: each one's layers of the catalogue's materials and its core layer | [`device::PRESETS`](methods/devices.md) |
 | `device_spectrum(kind, values=, fidelity=, stack=, wavelength_um=, timeout_s=)`, `device_derived(kind, ...)` | a design's S-parameters and figures at a fidelity, each with its model's grid | [`device`](methods/devices.md) |
 | `device_geometry(kind, values=, stack=)`, `device_job(kind, ..., format=)` | a design's stack, polygons and ports; the job that computes it | [`device`](methods/devices.md) |
-| `device_fabrication(kind, values=, stack=, prefer=, avoid=, start=)`, `device_fabrication_job(kind, ..., format=)`, `export_fabrication(kind, out_dir=, ...)` | a design's process flow: each step with its reason, alternatives and sources, the rules' checks and the accuracy of each dimension; the job that gives it; its export as JSON, a Markdown traveller and an SVG of each step's cross-section | [`fabrication`](methods/fabrication.md) |
+| `device_fabrication(kind, values=, stack=, prefer=, avoid=, start=)`, `device_fabrication_job(kind, ..., format=)`, `export_fabrication(kind, out_dir=, ...)` | a design's process flow: each step with its reason, alternatives and sources, the rules' checks and the accuracy of each dimension; the job that gives it; its export as JSON, a Markdown traveller, a CSV table of the steps and an SVG of each step's cross-section | [`fabrication`](methods/fabrication.md) |
 | `nonlinear(job, timeout_s=)` | a `"nonlinear"` job's process (SHG, SFG, DFG, OPA, SPDC or FWM in a crystal, a guide of given effective indices or a ridge whose modes it solves) as its run records it: the setup, the phase-matching map, the efficiency along the length and the pairs' joint spectrum | [`nonlinear`](methods/nonlinear.md#as-a-job) |
 
 Each function's docstring has the details, and the
@@ -218,9 +218,9 @@ above 1300 °C and a sacrificial oxide. Its published conditions make films up t
 The same result carries the flow's export: `json` (the flow's data, its keys in a fixed order),
 `markdown` (a process traveller: each step, what it does and why, the tool and the cited
 capability with its source, the dimensions it sets and how accurately; the layers from the top
-down, the substrate last) and `svgs` (each step's cross-section, a standalone SVG).
-`export_fabrication(kind, out_dir=...)` writes them as `flow.json`, `flow.md` and `flow-01.svg`,
-..., as a `"fabrication"` job's run writes them into its folder; `device_fabrication_job` gives
+down, the substrate last), `csv` (the steps as a table, one line a step) and `svgs` (each step's
+cross-section, a standalone SVG). `export_fabrication(kind, out_dir=...)` writes them as
+`flow.json`, `flow.md`, `flow.csv` and `flow-01.svg`, ..., as a `"fabrication"` job's run writes them into its folder; `device_fabrication_job` gives
 that job, which `run_job` runs. [The fabrication write-up](methods/fabrication.md#in-python) has
 the strip waveguide's job, call and traveller.
 

@@ -1058,7 +1058,8 @@ A `fabrication` task beside a `[device]` gives the device's flow. The strip wave
 # How a 500 x 220 nm silicon strip on 220 nm SOI (the waveguide device at its defaults) would be
 # made: the steps in order, each with its reason, its alternatives and its sources, and how
 # accurately each dimension is made. The run's folder gets flow.json, flow.md (a process
-# traveller) and flow-01.svg, ... (the wafer's cross-section after each step).
+# traveller), flow.csv (the steps as a table) and flow-01.svg, ... (the wafer's cross-section
+# after each step).
 #   photonoxide run jobs/strip-flow.yaml
 name: strip-flow
 
@@ -1113,6 +1114,11 @@ niobate modulator's, a nitride or GaAs design's), and a task that avoids a step 
   in it, the alternatives, the rules' checks, the dimensions it sets and how accurately, and the
   wafer after it; then the accuracy of every dimension, the warnings, what is not specified, the
   round trip and the references with their DOIs;
+- `flow.csv`: the steps as a table, for a spreadsheet or any CSV reader, one line a step: its
+  number, process id, name, step type, operation, what it does, layer, film, thickness, depth,
+  whether it is timed, wall angle, tone and reason, and how many capabilities and uncertainties
+  it has (their text and sources are in `flow.json` and the traveller); each number the shortest
+  decimal that reads back to the same bits, as the run's other tables;
 - `flow-01.svg`, `flow-02.svg`, ...: the wafer's cross-section after each step, cut across y at
   the middle of the design in x (as the design view's cut starts), each etch's floor and walls
   drawn exactly, every film in its colour, and beside it the layers from the top down, the

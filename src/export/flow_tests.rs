@@ -353,23 +353,63 @@ fn a_smart_cut_traveller_has_the_routes_steps_and_credits_each_thickness_to_its_
 }
 
 #[test]
+fn the_steps_csv_has_a_line_a_step_and_reads_back_to_the_flows_numbers() {
+    use crate::export::tables::fields;
+    for kind in DESIGNS {
+        let e = export(kind);
+        let csv = e.file.csv();
+        let lines: Vec<&str> = csv.lines().collect();
+        let steps = &e.file.flow.steps;
+        assert_eq!(lines.len(), 1 + steps.len(), "{kind}");
+        let header = fields(lines[0]);
+        assert_eq!(header.len(), 16, "{kind}");
+        let col = |name: &str| header.iter().position(|h| h == name).unwrap();
+        for (k, (line, s)) in lines[1..].iter().zip(steps).enumerate() {
+            let row = fields(line);
+            assert_eq!(row.len(), header.len(), "{kind} {k}: {line}");
+            assert_eq!(row[col("step")], (k + 1).to_string());
+            assert_eq!(row[col("process")], s.process);
+            assert_eq!(row[col("does")], s.does);
+            assert_eq!(row[col("reason")], s.reason, "{kind} {k}: quoted and back");
+            assert_eq!(row[col("layer")], s.layer.clone().unwrap_or_default());
+            // the numbers to the bit, an empty field where the step has none
+            for (name, v) in [
+                ("thickness_um", s.thickness_um),
+                ("depth_um", s.depth_um),
+                ("sidewall_deg", s.sidewall_deg),
+            ] {
+                let f = &row[col(name)];
+                match v {
+                    Some(v) => assert_eq!(f.parse::<f64>().unwrap().to_bits(), v.to_bits()),
+                    None => assert!(f.is_empty(), "{kind} {k} {name}: {f}"),
+                }
+            }
+            assert_eq!(row[col("timed")], s.timed.to_string());
+            assert_eq!(row[col("capabilities")], s.capabilities.len().to_string());
+        }
+    }
+}
+
+#[test]
 fn the_export_writes_its_files_into_a_folder() {
     let dir = std::env::temp_dir().join(format!("photonoxide-flow-export-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
     let e = export("waveguide");
     let files = e.write(&dir).unwrap();
     let n = e.file.flow.steps.len();
-    assert_eq!(files.len(), 2 + n);
+    assert_eq!(files.len(), 3 + n);
     assert_eq!(files[0], dir.join("flow.json"));
     assert_eq!(files[1], dir.join("flow.md"));
-    assert_eq!(files[2], dir.join("flow-01.svg"));
+    assert_eq!(files[2], dir.join("flow.csv"));
+    assert_eq!(files[3], dir.join("flow-01.svg"));
     let back = FlowFile::read(&std::fs::read_to_string(&files[0]).unwrap()).unwrap();
     assert_eq!(back, e.file);
     assert_eq!(
         std::fs::read_to_string(&files[1]).unwrap(),
         e.file.markdown()
     );
-    assert_eq!(std::fs::read_to_string(&files[2]).unwrap(), e.svg(0));
+    assert_eq!(std::fs::read_to_string(&files[2]).unwrap(), e.file.csv());
+    assert_eq!(std::fs::read_to_string(&files[3]).unwrap(), e.svg(0));
     std::fs::remove_dir_all(&dir).unwrap();
     assert_eq!(FlowExport::svg_name(0, 9), "flow-01.svg");
     assert_eq!(FlowExport::svg_name(99, 120), "flow-100.svg");

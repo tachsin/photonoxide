@@ -1,8 +1,9 @@
 //! A design's process flow, exported (F7 of #622): its data as JSON with stable keys
 //! ([`FlowFile`], [`FlowFile::json`]), a process traveller in Markdown ([`FlowFile::markdown`]),
-//! and the wafer's cross-section after each step as a standalone SVG ([`FlowExport::svg`]). A
-//! run of a `"fabrication"` job writes all three into its folder ([`FlowExport::write`]); the
-//! façade gives them to Python ([`crate::facade::device_fabrication`]).
+//! the steps as a CSV table ([`FlowFile::csv`]), and the wafer's cross-section after each step
+//! as a standalone SVG ([`FlowExport::svg`]). A run of a `"fabrication"` job writes them all
+//! into its folder ([`FlowExport::write`]); the façade gives them to Python
+//! ([`crate::facade::device_fabrication`]).
 //!
 //! The JSON holds the flow and the assessment exactly as the run's `flow` and `flow_assessment`
 //! events record them, each number the shortest decimal that reads back to the same bits, so
@@ -240,8 +241,8 @@ impl FlowExport {
         format!("flow-{:0width$}.svg", k + 1)
     }
 
-    /// Writes `flow.json`, `flow.md` and each step's cross-section (`flow-01.svg`, ...) into
-    /// `dir`, and returns the files written, in that order.
+    /// Writes `flow.json`, `flow.md`, `flow.csv` and each step's cross-section (`flow-01.svg`,
+    /// ...) into `dir`, and returns the files written, in that order.
     ///
     /// # Errors
     ///
@@ -252,6 +253,7 @@ impl FlowExport {
         let mut files = vec![
             (dir.join("flow.json"), self.file.json()),
             (dir.join("flow.md"), self.file.markdown()),
+            (dir.join("flow.csv"), self.file.csv()),
         ];
         for k in 0..n {
             files.push((dir.join(Self::svg_name(k, n)), self.svg(k)));
@@ -604,6 +606,53 @@ impl FlowFile {
     pub fn json(&self) -> String {
         let mut text = serde_json::to_string_pretty(self).expect("a flow always serializes");
         text.push('\n');
+        text
+    }
+
+    /// The steps as a CSV table, as `flow.csv` holds it: a header line, then one line a step in
+    /// order, for a spreadsheet or any CSV reader. Its columns: `step` (from 1), `process` (the
+    /// id), `name`, `step_type`, `operation`, `does`, `layer`, `film`, `thickness_um`,
+    /// `depth_um`, `timed`, `sidewall_deg`, `tone`, `reason`, and the counts of the step's
+    /// `capabilities` and `uncertainties` (their text and sources are in `flow.json` and the
+    /// traveller). Each number is the shortest decimal that reads back to the same bits; an empty
+    /// field is one the step doesn't have; a field with a comma, a quote or a line break is
+    /// quoted, its quotes doubled (RFC 4180), as the run's other tables
+    /// ([`crate::export::tables`]).
+    pub fn csv(&self) -> String {
+        use super::tables::{num, quote};
+        let opt = |v: Option<f64>| v.map(num).unwrap_or_default();
+        let mut text = String::from(
+            "step,process,name,step_type,operation,does,layer,film,thickness_um,depth_um,timed,\
+             sidewall_deg,tone,reason,capabilities,uncertainties\n",
+        );
+        for (k, s) in self.flow.steps.iter().enumerate() {
+            let tone = match s.tone {
+                Some(crate::fabrication::Tone::Keep) => "keep",
+                Some(crate::fabrication::Tone::Open) => "open",
+                None => "",
+            };
+            let fields = [
+                (k + 1).to_string(),
+                s.process.clone(),
+                s.name.clone(),
+                s.step.name().to_owned(),
+                s.operation.clone(),
+                s.does.clone(),
+                s.layer.clone().unwrap_or_default(),
+                s.film.clone().unwrap_or_default(),
+                opt(s.thickness_um),
+                opt(s.depth_um),
+                s.timed.to_string(),
+                opt(s.sidewall_deg),
+                tone.to_owned(),
+                s.reason.clone(),
+                s.capabilities.len().to_string(),
+                s.uncertainties.len().to_string(),
+            ];
+            let line = fields.iter().map(|f| quote(f)).collect::<Vec<_>>();
+            text.push_str(&line.join(","));
+            text.push('\n');
+        }
         text
     }
 

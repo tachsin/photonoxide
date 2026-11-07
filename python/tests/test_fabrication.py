@@ -48,6 +48,8 @@ def test_a_flow_is_its_jobs_record_to_the_bit(kind: str, tmp_path: Path) -> None
     # the run's folder holds the export: the same texts
     assert (run.dir / "flow.json").read_text(encoding="utf-8") == f.json
     assert (run.dir / "flow.md").read_text(encoding="utf-8") == f.markdown
+    assert (run.dir / "flow.csv").read_text(encoding="utf-8") == f.csv
+    assert len(f.csv.splitlines()) == 1 + len(f.steps)
     assert len(f.svgs) == len(f.steps)
     for k, svg in enumerate(f.svgs):
         assert (run.dir / f"flow-{k + 1:02d}.svg").read_text(encoding="utf-8") == svg
@@ -67,8 +69,8 @@ def test_the_export_reads_back_to_the_same_flow(tmp_path: Path) -> None:
     for kind in DESIGNS:
         files = phox.export_fabrication(kind, out_dir=tmp_path / kind.replace(" ", "-"))
         f = phox.device_fabrication(kind)
-        assert [p.name for p in files[:2]] == ["flow.json", "flow.md"]
-        assert len(files) == 2 + len(f.steps)
+        assert [p.name for p in files[:3]] == ["flow.json", "flow.md", "flow.csv"]
+        assert len(files) == 3 + len(f.steps)
         data = json.loads(files[0].read_text(encoding="utf-8"))
         assert list(data) == ["device", "parameters", "cut", "flow", "assessment", "stacks"]
         assert data["device"] == kind
@@ -86,7 +88,7 @@ def test_each_cross_section_parses_as_svg_with_its_layers_from_the_top_down(tmp_
     for kind in DESIGNS:
         files = phox.export_fabrication(kind, out_dir=tmp_path / kind.replace(" ", "-"))
         data = json.loads(files[0].read_text(encoding="utf-8"))
-        svgs = files[2:]
+        svgs = files[3:]
         for k, path in enumerate(svgs):
             root = ET.parse(path).getroot()
             assert root.tag == f"{SVG}svg"
