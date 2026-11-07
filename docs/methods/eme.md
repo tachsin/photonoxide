@@ -68,6 +68,7 @@ validation:
   - eme/bend-halves
   - eme/bend-no-angle
   - eme/bend-joint
+  - eme/bend-joint-leaky
 ---
 
 Many devices are a waveguide whose cross-section changes along its length: a step, a taper, a
@@ -861,7 +862,8 @@ function, Marcuse's Eq. 10 without his approximation inside): a 220 nm silicon s
 | the layers' order at 2 µm, 10 nm and 2, 4 and 8 times as many (`eme/bend-order`) | 2.00 (TE 2.0001, 2.0000, 2.0000; TM 2.0007, 2.0009, 2.0032) | second order |
 | a 180° turn as two 90° bends joined by their overlaps, against one 180° bend, 12 modes (`eme/bend-halves`) | every entry of S within 5.1e-15 | the same cascade |
 | a bend of no angle between two straights at 2 and 3 µm, TE and TM, 24 modes (`eme/bend-no-angle`) | $\max(\lvert S_{21} - 1\rvert, \lvert S_{11}\rvert)$ 2.4e-5; at 2 µm TE with 6, 12, 16 and 24 modes 3.2e-3, 2.5e-3, 1.3e-4 and 3.5e-6 | the straight's S |
-| the straight-to-bend joint's coupling η between the fundamental modes, TE at 2, 3 and 5 µm and TM at 10 µm (`eme/bend-joint`) | within 3.4e-9 ($1 - \eta$ is 2.8e-3 at 2 µm TE) | the exact bent field's overlap with the straight slab's mode |
+| the straight-to-bend joint's coupling η between the fundamental modes, TE at 2, 3 and 5 µm and TM at 10 µm (`eme/bend-joint`) | within 1.1e-9 ($1 - \eta$ is 2.8e-3 at 2 µm TE) | the exact bent field's overlap with the straight slab's mode, across the window and the PML |
+| the same where the bend radiates, TM at 2, 3 and 5 µm, $\operatorname{Im} n_\text{eff}$ 1.3e-3, 8.5e-5 and 2.9e-7 (`eme/bend-joint-leaky`) | within 1.2e-9 (own error 6.9e-10, TM at 2 µm; $1 - \eta$ is 3.1e-2 there) | the same |
 
 A bend of no angle leaves its two joints, whose overlaps are inverse only with every mode: what
 remains is the truncation of two bases, as a zero-length section between two others in
@@ -884,9 +886,17 @@ by an order of magnitude or more we have not found.
 The exact bend had an error of its own at first: its inner solution started 6 decay lengths below
 the slab with an approximate $\psi'/\psi$, which adds the solution that decays outwards; by the
 slab that is down by $e^{-12}$, and it left $n_\text{eff}$ about 5e-9 off. It now starts 12 decay
-lengths deep. The joint's check excludes the leakier bends: its exact field is integrated across
-the window only, and a mode radiating more than an $\operatorname{Im} n_\text{eff}$ of about 1e-8
-puts power beyond it that the expansion's PML takes (TM at 5 µm, 2.9e-7, was 7.6e-7 off).
+lengths deep. The joint's check first integrated the exact field across the window only, which
+left out what a radiating mode puts into the PML (TM at 5 µm, $\operatorname{Im} n_\text{eff}$
+2.9e-7, was 7.6e-7 off). The exact bend is now closed as the expansion closes it: the inner
+wall, and the PML as the outer cladding's analytic continuation along the same complex mapped
+coordinate, $\tilde u = u_1 + (1 + i\sigma)(x - x_1)/(dx/du)_1$ from the window's edge, then its
+wall; its field is integrated from that wall inwards, the direction in which the outgoing wave
+grows, so that the integration is stable (integrated outwards, the growing solution that
+round-off seeds swamped it, 2.5e-6 off at 2 µm TM with a PML of strength 1). Both walls matter
+at 2 µm TM: the field at the inner wall is 7.5e-6 of its peak, and with the open bend's
+solution there the coupling was 3.1e-8 off. Closed, every bend agrees within 1.2e-9 at either
+PML strength, 0.5 or 1.
 
 **In a job,** a `[[task.section]]` with `radius_um` and `angle_deg` instead of `length_um` is a
 bend, its radius to the core's centre (to the window's middle for layers), positive turning
@@ -946,7 +956,8 @@ Measured with the cases' own settings, at 1.55 µm, silicon (3.473) in oxide (1.
 | `eme/bend-order` | the same at 2 µm, 10 nm layers and 2, 4 and 8 times as many | order 2.00 | the midpoint staircase's second order | order, 2 within 0.1 |
 | `eme/bend-halves` | two 90° bends against one 180° bend, TE and TM, 12 modes | every entry of S within 5.1e-15 | the same cascade | round-off, 1e-12 |
 | `eme/bend-no-angle` | a bend of no angle between two straights, 24 modes | 2.4e-5 | the straight's S | discretisation, 1e-4, the mode-count gate of `eme/taper-modes` |
-| `eme/bend-joint` | the straight-to-bend joint's coupling, TE at 2, 3, 5 µm and TM at 10 µm | within 3.4e-9 (own error 1.3e-9) | the exact bent field's overlap with the straight's mode | discretisation, 4e-9 absolute, three times our own error |
+| `eme/bend-joint` | the straight-to-bend joint's coupling, TE at 2, 3, 5 µm and TM at 10 µm | within 1.1e-9 (own error 1.3e-9) | the exact bent field's overlap with the straight's mode, window and PML | discretisation, 4e-9 absolute, three times our own error |
+| `eme/bend-joint-leaky` | the same joint where the bend radiates, TM at 2, 3, 5 µm | within 1.2e-9 (own error 6.9e-10) | the same | discretisation, 3e-9 absolute, three times our own error |
 
 The FDFD comparison is the most telling: the two methods share nothing but the structure, and
 agree to 1.9e-5 of a reflection of 9.2e-5. Its transmission agrees too: 0.999829 against

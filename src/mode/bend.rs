@@ -37,7 +37,7 @@ use crate::{Error, Result};
 /// they meet.
 struct Ends {
     start: f64,
-    inner: c64,
+    inner: (c64, c64),
     middle: f64,
     outside: f64,
     wave: c64,
@@ -60,6 +60,20 @@ pub struct SlabBend {
     /// solution decaying outwards, which its start's approximate ψ'/ψ adds, has died out by
     /// e^(−24) at the stack (6 left n_eff about 5e-9 off, `eme/bend-index`).
     depth: f64,
+    /// Walls, and a PML before the outer one ([`SlabBend::closed`]), or none: the solution
+    /// regular at the centre and the outgoing cylinder wave.
+    pml: Option<BendPml>,
+}
+
+/// [`SlabBend::closed`]'s walls and PML: the inner wall's x (µm), where the PML starts (x, µm),
+/// how thick it is (µm), its stretch 1 + iσ, and the walls' condition.
+#[derive(Clone, Copy, Debug, PartialEq)]
+struct BendPml {
+    wall: f64,
+    edge: f64,
+    thickness: f64,
+    stretch: c64,
+    psi_vanishes: bool,
 }
 
 impl SlabBend {
@@ -137,6 +151,7 @@ impl SlabBend {
             layers: films.iter().map(|&(n, _)| n).collect(),
             steps: 1.0,
             depth: 12.0,
+            pml: None,
         })
     }
 
@@ -256,7 +271,16 @@ impl SlabBend {
     /// the cladding integrated, which the tests compare the two by.
     fn mismatch(&self, polarization: Polarization, k: f64, nu: c64, at_the_edge: bool) -> c64 {
         let ends = self.ends(polarization, k, nu, at_the_edge);
-        let inside = self.integrate(polarization, k, nu, ends.start, ends.middle, ends.inner);
+        let (psi, dpsi) = self.march(
+            polarization,
+            k,
+            nu,
+            ends.start,
+            ends.middle,
+            ends.inner,
+            true,
+        );
+        let inside = dpsi / psi;
         let outside = self.integrate(polarization, k, nu, ends.outside, ends.middle, ends.wave);
         inside - outside
     }
@@ -297,7 +321,7 @@ impl SlabBend {
             .sqrt();
             (lowest, (one, kappa - 1.0 / (2.0 * lowest)))
         } else {
-            (ends.start, (one, ends.inner))
+            (ends.start, ends.inner)
         };
         let outer = (one, ends.wave);
         let mid_in = walk(inner.0, inner.1, &[ends.middle])[0];
@@ -328,6 +352,107 @@ impl SlabBend {
         out
     }
 
+    /// The same bend closed as the expansion closes it ([`crate::eme::Slice::bent`] with an
+    /// upper PML): a wall at `wall` µm from the reference radius (in the inner cladding), and
+    /// from `edge` (in the outer cladding) a PML `thickness` µm thick of uniform `strength` σ,
+    /// then another wall; at the walls ψ vanishes where `psi_vanishes` (TE at an electric wall),
+    /// else ψ'. In the PML the mapped coordinate is complex, ũ = R ln(ρ₁/R) + (1 + iσ) t R/ρ₁ at
+    /// t µm past the edge ρ₁ (linear, with the edge's dx/du), and the field the analytic
+    /// continuation of the outer cladding's: the exact solution of the problem the expansion
+    /// discretizes, the walls' reflections and all. Its modes are found by
+    /// [`SlabBend::mode_near`] (not [`SlabBend::fundamental`], which changes the radius), and
+    /// its field asked for between the walls.
+    pub(crate) fn closed(
+        self,
+        wall: f64,
+        edge: f64,
+        thickness: f64,
+        strength: f64,
+        psi_vanishes: bool,
+    ) -> SlabBend {
+        SlabBend {
+            pml: Some(BendPml {
+                wall,
+                edge,
+                thickness,
+                stretch: c64::new(1.0, strength),
+                psi_vanishes,
+            }),
+            ..self
+        }
+    }
+
+    /// (ψ, ψ_ũ) in the PML at `ts` µm past its edge, from the wall: ψ_ũũ + (k²n² e^(2ũ/R) − ν²/R²)ψ = 0
+    /// (the cladding is uniform, so for either polarization) integrated by fourth-order
+    /// Runge–Kutta from the wall inwards, the direction in which the outgoing wave grows, so
+    /// that the integration is stable; unnormalized.
+    fn from_the_wall(&self, pml: BendPml, k: f64, nu: c64, ts: &[f64]) -> Vec<(c64, c64)> {
+        let r = self.radius;
+        let rho0 = r + pml.edge;
+        let kn2 = c64::new(k * k * self.outer * self.outer, 0.0);
+        let beta2 = nu * nu / (r * r);
+        let u0 = r * (rho0 / r).ln();
+        // dũ/dt
+        let speed = pml.stretch * (r / rho0);
+        let f = |t: f64, y: c64, dy: c64| -> (c64, c64) {
+            let u = u0 + speed * t;
+            (speed * dy, -speed * (kn2 * (2.0 * u / r).exp() - beta2) * y)
+        };
+        let longest = self.steps * (0.03 / (k * self.outer)).min(0.01);
+        let one = c64::new(1.0, 0.0);
+        let zero = c64::new(0.0, 0.0);
+        let (mut psi, mut du) = if pml.psi_vanishes {
+            (zero, one)
+        } else {
+            (one, zero)
+        };
+        let mut at = pml.thickness;
+        let mut order: Vec<usize> = (0..ts.len()).collect();
+        order.sort_by(|&a, &b| ts[b].total_cmp(&ts[a]));
+        let mut out = vec![(zero, zero); ts.len()];
+        for j in order {
+            let to = ts[j];
+            let steps = ((to - at).abs() / longest).ceil().max(1.0) as usize;
+            let h = (to - at) / steps as f64;
+            for _ in 0..steps {
+                let (k1y, k1d) = f(at, psi, du);
+                let (k2y, k2d) = f(at + 0.5 * h, psi + 0.5 * h * k1y, du + 0.5 * h * k1d);
+                let (k3y, k3d) = f(at + 0.5 * h, psi + 0.5 * h * k2y, du + 0.5 * h * k2d);
+                let (k4y, k4d) = f(at + h, psi + h * k3y, du + h * k3d);
+                psi += h / 6.0 * (k1y + 2.0 * k2y + 2.0 * k3y + k4y);
+                du += h / 6.0 * (k1d + 2.0 * k2d + 2.0 * k3d + k4d);
+                at += h;
+            }
+            at = to;
+            out[j] = (psi, du);
+        }
+        out
+    }
+
+    /// The field in the PML of [`SlabBend::closed`], ψ at `ts` µm past its edge (from 0 to
+    /// its thickness), normalized as [`SlabBend::field`].
+    ///
+    /// # Panics
+    ///
+    /// Without a PML.
+    pub(crate) fn field_in_pml(
+        &self,
+        polarization: Polarization,
+        wavelength: Wavelength,
+        n_eff: c64,
+        ts: &[f64],
+    ) -> Vec<c64> {
+        let pml = self.pml.expect("a bend with a PML");
+        let k = wavelength.wavenumber();
+        let nu = n_eff * k * self.radius;
+        let at_edge = self.field(polarization, wavelength, n_eff, &[pml.edge])[0];
+        let mut points = ts.to_vec();
+        points.push(0.0);
+        let walked = self.from_the_wall(pml, k, nu, &points);
+        let scale = at_edge / walked[ts.len()].0;
+        walked[..ts.len()].iter().map(|v| v.0 * scale).collect()
+    }
+
     /// Where the inner and the outgoing solutions start and meet, and their ψ'/ψ at their
     /// starts.
     fn ends(&self, polarization: Polarization, k: f64, nu: c64, at_the_edge: bool) -> Ends {
@@ -340,7 +465,7 @@ impl SlabBend {
             (nu * nu / (rho * rho) - c64::new(k * k * self.inner * self.inner, 0.0)).sqrt()
         };
         let start = (first - self.depth / kappa(first).re.max(1e-3)).max(0.5 * first);
-        let inner = kappa(start) - 1.0 / (2.0 * start);
+        let inner = (c64::new(1.0, 0.0), kappa(start) - 1.0 / (2.0 * start));
         // outside: the outgoing cylinder wave, H⁽¹⁾_ν(k n ρ), where Debye's expansions give it.
         // Its turning point is at k n ρ = Re ν, about n_eff / n times the radius: far out for a
         // gentle bend. Where the stack's edge is well before it, the wave is known there (it is
@@ -352,6 +477,24 @@ impl SlabBend {
         let before = at_the_edge
             && cosh > 1.0
             && nu.re * (1.0 - 1.0 / (cosh * cosh)).powf(1.5) >= DEBYE_REACH;
+        if let Some(pml) = self.pml {
+            // closed: the inner solution from the inner wall, the outer one from the PML's wall
+            // back to the PML's inner edge
+            let edge = r + pml.edge;
+            let (psi, du) = self.from_the_wall(pml, k, nu, &[0.0])[0];
+            let (zero, one) = (c64::new(0.0, 0.0), c64::new(1.0, 0.0));
+            return Ends {
+                start: r + pml.wall,
+                inner: if pml.psi_vanishes {
+                    (zero, one)
+                } else {
+                    (one, zero)
+                },
+                middle,
+                outside: edge,
+                wave: du / psi * (r / edge),
+            };
+        }
         let (rho_out, mut wave) = if before {
             (last, kn * debye_log_derivative_evanescent(nu, kn * last))
         } else {
