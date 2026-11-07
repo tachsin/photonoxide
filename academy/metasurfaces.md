@@ -12,6 +12,18 @@ validation:
   - mode/slab-te-book
 charts: [meta-orders, meta-pillar, meta-focus, meta-axis, meta-bandwidth]
 papers:
+  - cite: "P. Lalanne, S. Astilean, P. Chavel, E. Cambril, H. Launois, Opt. Lett. 23, 1081 (1998)"
+    title: "Blazed binary subwavelength gratings with efficiencies larger than those of conventional échelette gratings"
+    doi: 10.1364/OL.23.001081
+    year: 1998
+    role: milestone
+    note: "Square TiO₂ pillars on glass, five a 1.9 µm period on a 380 nm sampling period, deflect unpolarized 633 nm light by about 20°: 77 % (TE) and 78 % (TM) measured in the first order, against 66.5 % for an ideal échelette grating in glass."
+  - cite: "N. Yu, P. Genevet, M. A. Kats, F. Aieta, J.-P. Tetienne, F. Capasso, Z. Gaburro, Science 334, 333 (2011)"
+    title: "Light propagation with phase discontinuities: generalized laws of reflection and refraction"
+    doi: 10.1126/science.1210713
+    year: 2011
+    role: milestone
+    note: "The generalized laws of reflection and refraction from Fermat's principle with a phase that jumps along an interface, shown with arrays of gold V-antennas on silicon at 8 µm whose phases step by π/4."
   - cite: "A. Arbabi, Y. Horie, A. J. Ball, M. Bagheri, A. Faraon, Nat. Commun. 6, 7069 (2015)"
     title: "Subwavelength-thick lenses with high numerical apertures and large efficiency based on high-contrast transmitarrays"
     doi: 10.1038/ncomms8069
@@ -115,8 +127,10 @@ n_t\sin\theta_t - n_i\sin\theta_i = \frac{\lambda}{2\pi}\frac{d\Phi}{dx} .
 $$
 
 With no gradient it is Snell's law. With one, light leaves at an angle Snell's law doesn't give:
-the **generalized law of refraction**, the form in which Lalanne and Chavel date the field's
-recent growth to Yu et al.'s nanoantenna arrays of 2011 (Section 11).
+the **generalized law of refraction**. [Yu et al. (2011)](https://doi.org/10.1126/science.1210713)
+derived it from Fermat's principle for a phase $\Phi(x)$ that jumps along an interface, in this
+form with $\lambda$ the vacuum wavelength (their Eq. 2, p. 333), and Lalanne and Chavel date the
+field's recent growth to that paper (their Section 1; Section 11 here).
 
 ### It is a grating's first order {theory}
 
@@ -151,6 +165,12 @@ it 81.06 % of the power. Its next coefficients belong to orders −3 (9.01 %) an
 normal incidence $\lvert m\rvert\lambda/\Gamma \gt 1$ for both: they are evanescent, as the chart
 shows order −3 ending, and only orders −2 to +2 could travel, of which the staircase feeds none but
 +1. Exact, no grid.
+
+Yu et al.'s interfaces were such a staircase: eight gold V-antennas a supercell, their phases in
+steps of $\pi/4$, with $\Gamma$ from 11 to 21 µm on silicon at $\lambda_0$ = 8 µm. The
+cross-polarized light leaves at $\theta_{t,\perp} = \arcsin[n_\text{Si}\sin\theta_i - \lambda_0/\Gamma]$,
+the generalized law with $d\Phi/dx = -2\pi/\Gamma$ (their Eq. 6 and Fig. 3, p. 335). They note
+that the array's discreteness also leaves ordinary reflected and refracted beams (p. 333).
 
 ### Its limits {theory}
 
@@ -524,9 +544,14 @@ them:
   the fins, 600 nm, filled them by atomic layer deposition of amorphous TiO₂ (at least half the fin's
   width, so the walls meet), etched away the film left on top and stripped the resist: walls of about
   90°, which etching a 40 nm fin 600 nm tall would not give.
-- **Blazed binary TiO₂.** Lalanne et al.'s gratings of 1998 and 1999, as Lalanne and Chavel recount,
-  were written by electron beam, lifted off and etched by chemically assisted reactive ion etching,
-  their narrowest pillars 90 nm on a 272 nm period at 633 nm (Section 3).
+- **Blazed binary TiO₂.** [Lalanne et al. (1998)](https://doi.org/10.1364/OL.23.001081) wrote
+  square pillars by electron beam in 150 nm of PMMA, lifted off a nickel mask and etched the TiO₂
+  film on glass by reactive ion etching in SF₆ and CH₄ (p. 1083). Their pillars sit on a 380 nm
+  period with fill factors from 0.31 to 0.77, designed 545 nm deep (p. 1082), so the narrowest is
+  about 118 nm wide; the made pillars reach an aspect ratio of 4.6 (p. 1083). Lalanne and Chavel,
+  recounting the gratings of 1998 and 1999 together, give the narrowest pillar as 90 nm on a 272 nm
+  period and the etch as chemically assisted reactive ion etching (Section 3). Those aren't the 1998
+  letter's figures, and the 1999 paper they also draw on hasn't been read for this lesson.
 
 A pillar's width error moves its phase by the slope of Section 3's chart; a height error moves every
 pillar's phase together, which a lens forgives, and its efficiency through the staircase.
@@ -544,11 +569,14 @@ pillars are the sensitive ones (2D FDTD on 20 nm cells).
 
 Lalanne and Chavel trace the metalens to Kock's microwave delay lenses of 1948, made of polystyrene
 foam doped with metal inserts; to proposals around 1991 to write graded effective indices in
-subwavelength gratings; and to Lalanne et al.'s blazed-binary TiO₂ gratings and lens of 1998 and
-1999, which beat the échelette's efficiency at large deflections and reached 80 % in a lens at
-850 nm. They date the field's recent growth to Yu et al.'s 2011 arrays of metallic nanoantennas,
-which revisited Snell's law with a phase gradient. Dielectric pillars then replaced the lossy
-antennas for lenses in transmission:
+subwavelength gratings; and to Lalanne et al.'s blazed-binary TiO₂ gratings of 1998 and 1999 and
+their 20° off-axis lens at 850 nm, which reached 80 % (Section 3). The 1998 letter's grating of
+period 3λ, five pillars a period, measured 77 % (TE) and 78 % (TM) in the first order, against
+66.5 % for an ideal échelette grating in glass of the same period
+([Lalanne et al., 1998](https://doi.org/10.1364/OL.23.001081), p. 1083). Lalanne and Chavel date the
+field's recent growth to [Yu et al.'s](https://doi.org/10.1126/science.1210713) arrays of gold
+V-antennas of 2011, which refracted 8 µm light by a phase gradient along a silicon surface
+(Section 2 here). Dielectric pillars then replaced the lossy antennas for lenses in transmission:
 [Arbabi et al. (2015)](https://doi.org/10.1038/ncomms8069) with silicon posts at 1550 nm and
 [Khorasaninejad et al. (2016)](https://doi.org/10.1126/science.aaf6644) with TiO₂ fins in the
 visible.
