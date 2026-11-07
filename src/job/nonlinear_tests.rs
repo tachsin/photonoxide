@@ -271,6 +271,52 @@ fn pairs_by_spdc_and_fwm_have_a_joint_spectrum() {
 }
 
 #[test]
+fn type_ii_shg_takes_a_third_wave_each_with_its_own_index() {
+    // ordinary + extraordinary → extraordinary, as the library's process of those indices
+    let text = crate::job::nonlinear_checks::shg_job("ii", 0.0).replace(
+        "axes = [\"extraordinary\"]",
+        "axes = [\"ordinary\", \"extraordinary\", \"extraordinary\"]",
+    );
+    let e = events(&text);
+    let s = setup_of(&e);
+    assert_eq!(s.waves.len(), 3);
+    assert_eq!(s.waves[0].role, "first fundamental");
+    assert_eq!(s.waves[1].wavelength_um, 1.55);
+    assert_eq!(s.waves[2].wavelength_um, 0.775);
+    assert_eq!(s.waves[0].power_mw, Some(500.0));
+    assert_eq!(s.waves[1].power_mw, Some(500.0));
+    let index = |axis| Index::catalogue("linbo3", Some("edwards-lawrence-1984"), axis).unwrap();
+    let shg = Process::second_harmonic(
+        Wavelength::um(1.55).unwrap(),
+        index(Axis::Ordinary),
+        index(Axis::Extraordinary),
+        index(Axis::Extraordinary),
+    );
+    assert_eq!(
+        s.mismatch_per_um,
+        shg.mismatch(&State::celsius(25.0)).unwrap()
+    );
+    // the harmonic's undepleted closed form, ηP₁P₂L² at phase matching
+    let c = efficiency_of(&e);
+    let closed = series(c, "harmonic (undepleted")[100].unwrap();
+    assert!(
+        (closed / (2.0 * 0.5 * 0.5 * 1e3) - 1.0).abs() < 1e-12,
+        "{closed}"
+    );
+    // a type for SHG only, and one of two
+    let bad = |from: &str, to: &str| {
+        let job = Job::parse(&text.replace(from, to)).unwrap();
+        check(&job).unwrap_err().to_string()
+    };
+    assert!(bad("shg_type = \"ii\"", "shg_type = \"iii\"").contains("unknown shg_type"));
+    assert!(
+        bad("process = \"shg\"", "process = \"sfg\"").contains("shg_type is SHG's"),
+        "{}",
+        bad("process = \"shg\"", "process = \"sfg\"")
+    );
+}
+
+#[test]
 fn four_wave_mixing_is_depleted_and_lossy_beside_its_lossless_closed_form() {
     let text = crate::job::nonlinear_checks::fwm_job;
     let labels = |db: f64| -> Vec<String> {

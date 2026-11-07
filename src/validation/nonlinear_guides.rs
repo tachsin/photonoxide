@@ -51,6 +51,17 @@ fn job_rules() -> Vec<(&'static str, Rule)> {
             ),
         ),
         (
+            "job/nonlinear-shg-type-ii-degenerate",
+            Rule::new(
+                Relative,
+                RoundOff,
+                1e-12,
+                Measured,
+                "one process reached two ways, the same RK4 steps on equations that are the same once the fundamental is split: round-off, 2.3e-15 and 2.4e-15 with and without the loss",
+            )
+            .varying(),
+        ),
+        (
             "job/nonlinear-fwm-depleted-loss",
             Rule::new(
                 Relative,

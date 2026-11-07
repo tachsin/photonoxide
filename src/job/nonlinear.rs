@@ -1,7 +1,8 @@
 //! A nonlinear process in a guide or a crystal: a task alone of kind `"nonlinear"`
 //! ([`crate::nonlinear`]).
 //!
-//! The task names the process (`"shg"`, `"sfg"`, `"dfg"`, `"opa"`, `"spdc"` or `"fwm"`), the
+//! The task names the process (`"shg"`, of type I or, with `shg_type = "ii"`, type II, `"sfg"`,
+//! `"dfg"`, `"opa"`, `"spdc"` or `"fwm"`), the
 //! waveguide its waves travel in, the grating that poles it, and the pump (and the signal). The
 //! waveguide is one of three:
 //!
@@ -116,6 +117,11 @@ pub(super) struct NonlinearTask {
     kind: String,
     /// `"shg"`, `"sfg"`, `"dfg"`, `"opa"`, `"spdc"` or `"fwm"`.
     process: String,
+    /// SHG's type: `"i"` (the default: both fundamental photons in one wave, one index) or
+    /// `"ii"` (in two waves, the first and second fundamental, each its own index, axis or mode
+    /// family; the pump's power split equally between them, a fundamental polarized at 45° to
+    /// both). Type II's waves are the two fundamentals and the harmonic.
+    shg_type: Option<String>,
     /// The waveguide (or crystal) the waves travel in.
     waveguide: WaveguideSpec,
     /// The pump: SHG's fundamental, SFG's first input, the others' pump.
@@ -468,6 +474,9 @@ pub struct PairSpectrum {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Kind {
     Shg,
+    /// Type-II SHG: the two fundamental photons in two waves, each its own index, the pump's
+    /// power split equally between them.
+    ShgII,
     Sfg,
     Dfg,
     Opa,
@@ -492,9 +501,31 @@ impl Kind {
         })
     }
 
+    /// SHG of `shg_type` `"i"` (the default) or `"ii"`; the other processes take none.
+    fn with_type(self, shg_type: Option<&str>) -> Result<Kind> {
+        match (self, shg_type) {
+            (k, None) => Ok(k),
+            (Kind::Shg, Some("i")) => Ok(Kind::Shg),
+            (Kind::Shg, Some("ii")) => Ok(Kind::ShgII),
+            (Kind::Shg, Some(other)) => Err(task_error(format!(
+                "unknown shg_type \"{other}\": \"i\" (both fundamental photons in one wave) or \
+                 \"ii\" (in two)"
+            ))),
+            (k, Some(_)) => Err(task_error(format!(
+                "shg_type is SHG's; {} takes none",
+                k.title()
+            ))),
+        }
+    }
+
+    /// SHG of either type.
+    fn harmonic(self) -> bool {
+        matches!(self, Kind::Shg | Kind::ShgII)
+    }
+
     fn name(self) -> &'static str {
         match self {
-            Kind::Shg => "shg",
+            Kind::Shg | Kind::ShgII => "shg",
             Kind::Sfg => "sfg",
             Kind::Dfg => "dfg",
             Kind::Opa => "opa",
@@ -506,6 +537,7 @@ impl Kind {
     fn title(self) -> &'static str {
         match self {
             Kind::Shg => "second-harmonic generation",
+            Kind::ShgII => "type-II second-harmonic generation",
             Kind::Sfg => "sum-frequency generation",
             Kind::Dfg => "difference-frequency generation",
             Kind::Opa => "optical parametric amplification",
@@ -517,15 +549,16 @@ impl Kind {
     fn roles(self) -> &'static [&'static str] {
         match self {
             Kind::Shg => &["fundamental", "harmonic"],
+            Kind::ShgII => &["first fundamental", "second fundamental", "harmonic"],
             Kind::Sfg => &["first", "second", "sum"],
             _ => &["pump", "signal", "idler"],
         }
     }
 
-    /// The wave the map and the wavelength acceptance are in: SHG's fundamental, the others'
-    /// second wave (the signal), the pump held.
+    /// The wave the map and the wavelength acceptance are in: SHG's fundamental (type II's
+    /// first, the second following), the others' second wave (the signal), the pump held.
     fn tuned(self) -> usize {
-        usize::from(self != Kind::Shg)
+        usize::from(!self.harmonic())
     }
 
     /// Each wave's wavelength (µm) with the pump at `pump` and the tuned wave at `tuned`.
@@ -542,6 +575,7 @@ impl Kind {
         };
         Ok(match self {
             Kind::Shg => vec![tuned, tuned / 2.0],
+            Kind::ShgII => vec![tuned, tuned, tuned / 2.0],
             Kind::Sfg => vec![pump, tuned, 1.0 / (1.0 / pump + 1.0 / tuned)],
             Kind::Dfg | Kind::Opa | Kind::Spdc => {
                 vec![pump, tuned, rest(1.0 / pump - 1.0 / tuned, "idler")?]
@@ -560,6 +594,12 @@ impl Kind {
                 indices[0].clone(),
                 indices[0].clone(),
                 indices[1].clone(),
+            )),
+            Kind::ShgII => Ok(Process::second_harmonic(
+                w(0)?,
+                indices[0].clone(),
+                indices[1].clone(),
+                indices[2].clone(),
             )),
             Kind::Sfg => Process::sum_frequency(wave(0)?, wave(1)?, indices[2].clone()),
             Kind::Dfg | Kind::Opa | Kind::Spdc => {
@@ -1020,12 +1060,12 @@ fn task_of(job: &Job) -> Result<NonlinearTask> {
 impl Setup {
     fn of(job: &Job) -> Result<Setup> {
         let task = task_of(job)?;
-        let kind = Kind::parse(&task.process)?;
+        let kind = Kind::parse(&task.process)?.with_type(task.shg_type.as_deref())?;
         let roles = kind.roles().len();
         let pump = positive(task.pump.wavelength_um, "[task.pump] wavelength_um")?;
         let signal = task.signal.as_ref().and_then(|s| s.wavelength_um);
         let tuned = match kind {
-            Kind::Shg => {
+            Kind::Shg | Kind::ShgII => {
                 if task.signal.is_some() {
                     return Err(task_error(
                         "SHG has one input, the pump: [task.signal] is for the other processes",
@@ -1658,6 +1698,7 @@ fn compute(job: &Job, stop: &Stop) -> Result<Computed> {
     };
     let input_power = |k: usize| -> Option<f64> {
         match (kind, k) {
+            (Kind::ShgII, 0 | 1) => Some(0.5 * setup.pump_w * 1e3),
             (_, 0) => Some(setup.pump_w * 1e3),
             (Kind::Sfg | Kind::Dfg | Kind::Opa | Kind::Fwm, 1) => Some(setup.signal_w * 1e3),
             _ => None,
@@ -1703,7 +1744,7 @@ fn compute(job: &Job, stop: &Stop) -> Result<Computed> {
         "{} {} over {} mm{}",
         kind.title(),
         match kind {
-            Kind::Shg => format!("of {} µm", setup.waves[0]),
+            Kind::Shg | Kind::ShgII => format!("of {} µm", setup.waves[0]),
             Kind::Sfg => format!("of {} and {} µm", setup.waves[0], setup.waves[1]),
             _ => format!(
                 "pumped at {} µm, the signal at {} µm",
@@ -1870,7 +1911,7 @@ fn miller_waves(setup: &Setup) -> [f64; 3] {
     let w = &setup.waves;
     match setup.kind {
         Kind::Shg => [w[1], w[0], w[0]],
-        Kind::Sfg => [w[2], w[0], w[1]],
+        Kind::ShgII | Kind::Sfg => [w[2], w[0], w[1]],
         // the pump is the sum of the signal and the idler
         _ => [w[0], w[1], w[2]],
     }
@@ -1965,7 +2006,10 @@ fn coupling(setup: &Setup, r: &RidgeGuide, d: &SecondOrder) -> Result<f64> {
     let share = r.ridge.film_share(&fields[0].1, |_, _| true);
     match setup.kind {
         Kind::Shg => second_harmonic_coupling(&fields[1].0, &fields[0].0, d, &share),
-        Kind::Sfg => sum_frequency_coupling(&fields[2].0, &fields[0].0, &fields[1].0, d, &share),
+        // type II: the sum of two distinct fundamental fields
+        Kind::ShgII | Kind::Sfg => {
+            sum_frequency_coupling(&fields[2].0, &fields[0].0, &fields[1].0, d, &share)
+        }
         // the pump is the sum of the signal and the idler
         _ => sum_frequency_coupling(&fields[0].0, &fields[1].0, &fields[2].0, d, &share),
     }
@@ -2137,9 +2181,16 @@ fn efficiency_curve(
                         series("conversion", "%", conversion),
                     ]
                 }
-                Kind::Sfg | Kind::Dfg | Kind::Opa | Kind::Spdc => {
-                    // ThreeWave's waves: SFG's first, second and sum; DFG's signal, idler and pump
-                    let sum = setup.kind == Kind::Sfg;
+                Kind::ShgII | Kind::Sfg | Kind::Dfg | Kind::Opa | Kind::Spdc => {
+                    // ThreeWave's waves: SFG's (and type-II SHG's) first, second and sum; DFG's
+                    // signal, idler and pump
+                    let sum = matches!(setup.kind, Kind::Sfg | Kind::ShgII);
+                    // type II: the pump's power split equally between its two waves
+                    let (p0, ps) = if setup.kind == Kind::ShgII {
+                        (0.5 * p0, 0.5 * p0)
+                    } else {
+                        (p0, ps)
+                    };
                     let (f1, l) = if sum {
                         (
                             [nu[0], nu[1]],
@@ -2218,6 +2269,28 @@ fn efficiency_curve(
                             path.iter().map(|a| mw(a[j].norm_sqr())).collect()
                         };
                         match setup.kind {
+                            Kind::ShgII => {
+                                let closed = lengths
+                                    .iter()
+                                    .map(|&z| mw(kappa * kappa * p0 * ps * z * z * sinc2z(z)))
+                                    .collect();
+                                let conversion = path
+                                    .iter()
+                                    .map(|a| Some(100.0 * a[2].norm_sqr() / (p0 + ps)))
+                                    .collect();
+                                [
+                                    Some(series("harmonic (depleted, RK4)", "mW", power(2))),
+                                    lossless(series(
+                                        "harmonic (undepleted, lossless closed form)",
+                                        "mW",
+                                        closed,
+                                    )),
+                                    Some(series("conversion", "%", conversion)),
+                                ]
+                                .into_iter()
+                                .flatten()
+                                .collect()
+                            }
                             Kind::Sfg => {
                                 let closed = lengths
                                     .iter()

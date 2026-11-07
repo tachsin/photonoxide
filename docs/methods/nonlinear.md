@@ -1353,7 +1353,8 @@ has no other permutation. The job doesn't borrow congruent LiNbO₃'s d₂₂ or
 MgO:LN ridge's η from the catalogue stops with a note naming the missing element (d₁₆ = d₂₁ =
 −d₂₂, the first it meets) and asks for `d_pm_per_v`, as the Zhao et al. job below gives it.
 
-The waves are taken in each process's order: SHG's fundamental (the pump) and harmonic; SFG's
+The waves are taken in each process's order: SHG's fundamental (the pump) and harmonic; type-II
+SHG's (`shg_type = "ii"`) first and second fundamental and harmonic; SFG's
 first input, second input and sum; DFG's, OPA's and SPDC's pump, signal and idler (the signal
 twice the pump's wavelength by default for SPDC); FWM's pump, signal and idler. A grating without
 a period is designed to cancel Δk₀ at the operating point, its period at the expansion's
@@ -1410,8 +1411,21 @@ the end are the lossless guide's over (1 − e^{−αL})/α, times e^{−αL}: t
 3.0e-12 (3.6e-12 without the loss), the job's 2000 RK4 steps' own error. An index without
 dispersion has no acceptance bandwidth: the record says so in a note.
 
-What a job can't set yet: a type-II SHG (one index for both fundamental photons) and a cavity
-around the guide.
+Type-II SHG (`shg_type = "ii"`) puts the two fundamental photons in two waves at the pump's
+wavelength, each with its own index: a crystal's axis (ordinary and extraordinary, say), an
+`n_eff` table or a ridge's mode family (TE and TM) per wave. The pump's power is split equally
+between them, a fundamental polarized at 45° to both, and the process runs as sum-frequency
+generation of the two: `Process::second_harmonic` of the two indices, the three-wave equations
+along the length, and a ridge's coupling `sum_frequency_coupling` of the two fundamental fields.
+Its η is that of P₃ = ηP₁P₂L², as for SFG: for two equal fields the sum's coupling is twice the
+harmonic's (ω₃ = 2ω), so the same overlap gives four times type I's η, defined by P₂ = ηP²L².
+`job/nonlinear-shg-type-ii-degenerate` holds this: type II with both fundamentals the same
+extraordinary wave of congruent LiNbO₃ (η = 200 %/(W·cm²)) against type I (50 %/(W·cm²)), over 10
+mm with 1 W of pump and 0.5 dB/cm: the period, the wavelength acceptance, and the depleted harmonic
+and conversion at the end agree to 2.3e-15. The studio's form doesn't offer the type yet; a job
+file does.
+
+What a job can't set yet: a cavity around the guide.
 
 ## Limits
 
