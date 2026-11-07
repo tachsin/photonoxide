@@ -18,6 +18,12 @@ papers:
     year: 1998
     role: milestone
     note: "Square TiO₂ pillars on glass, five a 1.9 µm period on a 380 nm sampling period, deflect unpolarized 633 nm light by about 20°: 77 % (TE) and 78 % (TM) measured in the first order, against 66.5 % for an ideal échelette grating in glass."
+  - cite: "P. Lalanne, S. Astilean, P. Chavel, E. Cambril, H. Launois, J. Opt. Soc. Am. A 16, 1143 (1999)"
+    title: "Design and fabrication of blazed binary diffractive elements with sampling periods smaller than the structural cutoff"
+    doi: 10.1364/JOSAA.16.001143
+    year: 1999
+    role: milestone
+    note: "The same gratings on the 272 nm structural cutoff, seven pillars a 1.9 µm period, etched about 816 nm deep by plain reactive ion etching in SF₆/CH₄ with pillars of aspect ratio up to 8.8: 80 % (TE) and 84 % (TM) measured at 633 nm; and a 20° off-axis lens for 860 nm lasers, 85.5 % expected and 80 % measured."
   - cite: "N. Yu, P. Genevet, M. A. Kats, F. Aieta, J.-P. Tetienne, F. Capasso, Z. Gaburro, Science 334, 333 (2011)"
     title: "Light propagation with phase discontinuities: generalized laws of reflection and refraction"
     doi: 10.1126/science.1210713
@@ -548,10 +554,16 @@ them:
   square pillars by electron beam in 150 nm of PMMA, lifted off a nickel mask and etched the TiO₂
   film on glass by reactive ion etching in SF₆ and CH₄ (p. 1083). Their pillars sit on a 380 nm
   period with fill factors from 0.31 to 0.77, designed 545 nm deep (p. 1082), so the narrowest is
-  about 118 nm wide; the made pillars reach an aspect ratio of 4.6 (p. 1083). Lalanne and Chavel,
-  recounting the gratings of 1998 and 1999 together, give the narrowest pillar as 90 nm on a 272 nm
-  period and the etch as chemically assisted reactive ion etching (Section 3). Those aren't the 1998
-  letter's figures, and the 1999 paper they also draw on hasn't been read for this lesson.
+  about 118 nm wide; the made pillars reach an aspect ratio of 4.6 (p. 1083). In
+  [the 1999 paper](https://doi.org/10.1364/JOSAA.16.001143) the same group gives the process in
+  full (p. 1148): TiO₂ evaporated by electron beam, PMMA written at 50 keV, a nickel mask lifted
+  off, and plain reactive ion etching in equal flows of SF₆ and CH₄ at 8 mTorr, 30 W and a
+  self-bias of −180 V, about 40 nm/min. Its design rule is 80 nm for both the narrowest pillar and
+  the narrowest gap, on a 272 nm sampling period (p. 1148). Its 633 nm grating is etched about
+  816 nm deep with pillars of aspect ratio up to about 8.8 (Fig. 10, p. 1151), so the narrowest is
+  about 93 nm wide; the paper doesn't print that width. Lalanne and Chavel, recounting the gratings
+  of 1998 and 1999 together, give 90 nm on a 272 nm period, which fits this grating, and call the
+  etch "chemically-assisted reactive ion etching" (Section 3); neither paper uses that phrase.
 
 A pillar's width error moves its phase by the slope of Section 3's chart; a height error moves every
 pillar's phase together, which a lens forgives, and its efficiency through the staircase.
@@ -570,10 +582,15 @@ pillars are the sensitive ones (2D FDTD on 20 nm cells).
 Lalanne and Chavel trace the metalens to Kock's microwave delay lenses of 1948, made of polystyrene
 foam doped with metal inserts; to proposals around 1991 to write graded effective indices in
 subwavelength gratings; and to Lalanne et al.'s blazed-binary TiO₂ gratings of 1998 and 1999 and
-their 20° off-axis lens at 850 nm, which reached 80 % (Section 3). The 1998 letter's grating of
+their 20° off-axis lens, which reached 80 % (Section 3). The 1998 letter's grating of
 period 3λ, five pillars a period, measured 77 % (TE) and 78 % (TM) in the first order, against
 66.5 % for an ideal échelette grating in glass of the same period
-([Lalanne et al., 1998](https://doi.org/10.1364/OL.23.001081), p. 1083). Lalanne and Chavel date the
+([Lalanne et al., 1998](https://doi.org/10.1364/OL.23.001081), p. 1083). The 1999 paper's grating
+of the same period, seven pillars a period on the 272 nm sampling period, measured 80 % (TE) and
+84 % (TM) against 87.8 % and 88.8 % computed (Table 1, p. 1151), 82 % in its conclusions
+(p. 1154). Its lens, for 860 nm surface-emitting lasers (Lalanne and Chavel write 850 nm), was
+expected to reach 85.5 % and measured 80 % (p. 1153)
+([Lalanne et al., 1999](https://doi.org/10.1364/JOSAA.16.001143)). Lalanne and Chavel date the
 field's recent growth to [Yu et al.'s](https://doi.org/10.1126/science.1210713) arrays of gold
 V-antennas of 2011, which refracted 8 µm light by a phase gradient along a silicon surface
 (Section 2 here). Dielectric pillars then replaced the lossy antennas for lenses in transmission:

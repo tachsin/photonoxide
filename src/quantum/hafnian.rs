@@ -240,7 +240,9 @@ fn coefficient(b: &Matrix, m: usize, diagonal: Option<impl Iterator<Item = c64>>
 /// Σ_{v_i = 0}^{r_i} (−1)^(Σv) ∏ C(r_i, v_i) Σ_t (h·γ)^(N−2t) (hᵀ a h / 2)^t / ((N − 2t)! t!),
 ///
 /// only t = N/2 without loops: the polarization of ∏ x_i^(r_i), whose Gaussian moments are the
-/// matchings. ∏(r_i + 1) terms, few when the photons crowd into few modes, where Björklund et
+/// matchings. Kan's Proposition 1 (p. 547) is for a real positive semidefinite covariance; its
+/// use for any complex symmetric `a` is ours (both sides are polynomials in the entries), checked
+/// numerically. ∏(r_i + 1) terms, few when the photons crowd into few modes, where Björklund et
 /// al.'s sum over subsets would take 2^(N/2). The alternating sum loses digits as N grows: about
 /// 1e-10 relative at 30 photons in one mode, and nothing useful beyond about 40.
 pub(crate) fn repeated(a: &Matrix, diagonal: Option<&[c64]>, repeats: &[usize]) -> c64 {
