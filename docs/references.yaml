@@ -59,6 +59,24 @@
   venue: "Solid State Communications 15, 59"
   year: 1974
 
+- doi: 10.1126/science.1231440
+  authors: "M. A. Broome, A. Fedrizzi, S. Rahimi-Keshari, J. Dove, S. Aaronson, T. C. Ralph, A. G. White"
+  title: "Photonic Boson Sampling in a Tunable Circuit"
+  venue: "Science 339, 794"
+  year: 2013
+
+- doi: 10.1038/nphoton.2013.112
+  authors: "A. Crespi, R. Osellame, R. Ramponi, D. J. Brod, E. F. Galvão, N. Spagnolo, C. Vitelli, E. Maiorino, P. Mataloni, F. Sciarrino"
+  title: "Integrated multimode interferometers with arbitrary designs for photonic boson sampling"
+  venue: "Nat. Photonics 7, 545"
+  year: 2013
+
+- doi: 10.1126/science.1155441
+  authors: "A. Politi, M. J. Cryan, J. G. Rarity, S. Yu, J. L. O'Brien"
+  title: "Silica-on-Silicon Waveguide Quantum Circuits"
+  venue: "Science 320, 646"
+  year: 2008
+
 - doi: 10.1038/s41586-024-08406-9
   authors: "H. Aghaee Rad, T. Ainsworth, R. N. Alexander, B. Altieri, M. F. Askarani, R. Baby, L. Banchi, B. Q. Baragiola, J. E. Bourassa, R. S. Chadwick, et al."
   title: "Scaling and networking a modular photonic quantum computer"
@@ -554,6 +572,18 @@
   title: "Frontiers of silicon-on-insulator"
   venue: "J. Appl. Phys. 93, 4955"
   year: 2003
+
+- doi: 10.1126/science.1231692
+  authors: "J. B. Spring, B. J. Metcalf, P. C. Humphreys, W. S. Kolthammer, X.-M. Jin, M. Barbieri, A. Datta, N. Thomas-Peter, N. K. Langford, D. Kundys, et al."
+  title: "Boson Sampling on a Photonic Chip"
+  venue: "Science 339, 798"
+  year: 2013
+
+- doi: 10.1038/nphoton.2013.102
+  authors: "M. Tillmann, B. Dakić, R. Heilmann, S. Nolte, A. Szameit, P. Walther"
+  title: "Experimental boson sampling"
+  venue: "Nat. Photonics 7, 540"
+  year: 2013
 
 - doi: 10.1007/s10973-014-4000-3
   authors: "E. Černošková, R. Todorov, Z. Černošek, J. Holubová, L. Beneš"

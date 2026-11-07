@@ -38,6 +38,7 @@ mod mmi;
 mod modulator;
 mod nonlinear;
 mod plasmon;
+mod quantum;
 mod slab;
 mod strip;
 mod yee;
@@ -1100,6 +1101,7 @@ pub fn specs() -> Vec<ChartSpec> {
     .chain(crossing::specs())
     .chain(converter::specs())
     .chain(yee::specs())
+    .chain(quantum::specs())
     .collect()
 }
 
@@ -1540,7 +1542,10 @@ pub fn evaluate(id: &str, given: &BTreeMap<String, f64>) -> Result<ChartData, St
             },
             at("radius"),
         ),
-        _ => match plasmon::evaluate(id, at).or_else(|| yee::evaluate(id, at)) {
+        _ => match plasmon::evaluate(id, &at)
+            .or_else(|| yee::evaluate(id, &at))
+            .or_else(|| quantum::evaluate(id, &at))
+        {
             Some(result) => result,
             None => return Err(format!("chart {id} has no function")),
         },
