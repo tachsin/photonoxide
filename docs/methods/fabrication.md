@@ -1003,9 +1003,10 @@ outline moved in or out at its top:
   positive resist is exposed where the developer will take it away, a negative one where it
   will stay, and the develop frame keeps what the step's tone says stays. The library records a
   lithography's polarity (`Process::polarity`, `fabrication::Polarity`) with the source that
-  states it; none in hand does yet, so the polarities it has are those its descriptions name
-  (HSQ and ma-N negative, PMMA positive), drawn and said to be so, and a photoresist, whose
-  polarity is the product's, is drawn positive, the frames' default, its frame saying so.
+  states it: HSQ negative and PMMA positive, from Chen 2015's Table 1 (p. 58), which the
+  exposure's frame cites; ma-N negative, as its description names it, which no source in hand
+  states (Chen's table hasn't it), drawn and said to be so; and a photoresist, whose polarity is
+  the product's, is drawn positive, the frames' default, its frame saying so.
   Nanoimprint (`Process::imprints`) exposes nothing; the layer its mould leaves in the recesses,
   which no source in hand states, is drawn a tenth of the resist's thickness (`IMPRINT_RESIDUE`).
 - **A film deposited over an etched step,** as a deposition of a layer over a strip or rib
@@ -1023,13 +1024,19 @@ outline moved in or out at its top:
   over it. A cladding has no thickness in the design and is drawn as the stage draws it, filling
   the window. The frame after the deposition is the stage again: flat after a polish, or flat as
   the design draws it, which the frame says when no polish follows.
+  Where the model stops: a deposit over more than one layer etched open, over a layer whose
+  shapes are etched unlike (different depths or walls), or into trenches with sloped walls is
+  drawn flat, as the stage draws it; over sloped walls each ridge's loft is its own, so the films
+  of two ridges that would meet overlap instead of merging; and the corners are mitred, so a
+  film's section has, at each convex corner, (1 − π/4)n² more area than a rounded one's.
 - **A film evaporated for a lift-off,** on the resist and in its openings, at the top the design
   draws its layer at. Where an opening lies over a region etched open, the design (planar) still
   draws the layer on top, and so does the frame, saying that the film would land on the floor
   there.
 
 The window of the frames grows to hold a conformal film reaching past the 1 µm it keeps around
-the shapes, with 0.5 µm to spare. The last frame is the last stage, the structure the round trip
+the shapes, with 0.5 µm to spare, so it can be wider than the window the design view and the
+exported cross-sections show (they keep the 1 µm and clip the film there). The last frame is the last stage, the structure the round trip
 checks, with no films: executing the flow still gives the design back exactly.
 
 Each frame is drawn twice from the same scene: as a cross-section at a cut, and as solids in 3D
@@ -1058,7 +1065,8 @@ A `fabrication` task beside a `[device]` gives the device's flow. The strip wave
 # How a 500 x 220 nm silicon strip on 220 nm SOI (the waveguide device at its defaults) would be
 # made: the steps in order, each with its reason, its alternatives and its sources, and how
 # accurately each dimension is made. The run's folder gets flow.json, flow.md (a process
-# traveller) and flow-01.svg, ... (the wafer's cross-section after each step).
+# traveller), flow.csv (the steps as a table) and flow-01.svg, ... (the wafer's cross-section
+# after each step).
 #   photonoxide run jobs/strip-flow.yaml
 name: strip-flow
 
@@ -1113,11 +1121,19 @@ niobate modulator's, a nitride or GaAs design's), and a task that avoids a step 
   in it, the alternatives, the rules' checks, the dimensions it sets and how accurately, and the
   wafer after it; then the accuracy of every dimension, the warnings, what is not specified, the
   round trip and the references with their DOIs;
+- `flow.csv`: the steps as a table, for a spreadsheet or any CSV reader, one line a step: its
+  number, process id, name, step type, operation, what it does, layer, film, thickness, depth,
+  whether it is timed, wall angle, tone and reason, and how many capabilities and uncertainties
+  it has (their text and sources are in `flow.json` and the traveller); each number the shortest
+  decimal that reads back to the same bits, as the run's other tables;
 - `flow-01.svg`, `flow-02.svg`, ...: the wafer's cross-section after each step, cut across y at
-  the middle of the design in x (as the design view's cut starts), each etch's floor and walls
-  drawn exactly, every film in its colour, and beside it the layers from the top down, the
-  substrate last, with their films and thicknesses. The resist isn't drawn; the caption says
-  when it is on the wafer.
+  the middle of the design in x (as the design view's cut starts), or on the plane the task's
+  `cut_x` names (µm, anywhere across the shapes and 1 µm beyond; `FlowExport::cut_at` in Rust).
+  Each draws the step's last frame as the Fabrication page does: the layers, each etch's floor
+  and walls exact, and over them the resist, a film deposited over an etched step and a film
+  evaporated onto a stencil, each cut exactly from its piece, every film in its colour; beside
+  it the layers from the top down, the substrate last, with their films and thicknesses, and the
+  films drawn over them.
 
 ## In Python
 

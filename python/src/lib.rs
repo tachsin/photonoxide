@@ -847,6 +847,7 @@ fn device_fabrication<'py>(
     out.set_item("assessment", f.assessment)?;
     out.set_item("json", f.json)?;
     out.set_item("markdown", f.markdown)?;
+    out.set_item("csv", f.csv)?;
     out.set_item("svgs", f.svgs)?;
     Ok(out)
 }

@@ -175,9 +175,9 @@ for R = 1e-8 at normal incidence reflects about $R^{\cos 60°} = 10^{-4}$ in amp
 stronger PML (40 cells, R = 1e-16) brings R + T to 1 within 2e-7 at every angle.
 
 **The PML itself.** 20 cells graded to R = 1e-8 send back an amplitude of 2.5e-6 of a plane wave
-17° off normal in oxide, in a plane 30° from x, for both polarizations. That is the 2D number
-and the grading's prediction: the round trip keeps (1e-8)^1.38 of the power, an amplitude of
-3e-6.
+17° off normal in oxide, in a plane 30° from x, for both polarizations. That is the 2D number,
+the discrete layer's own reflection, set by its 20 cells; the grading itself would keep
+(1e-8)^1.38 of the amplitude, about 1e-11 ([the 2D page](fdfd.md) has the cell counts).
 
 **Against the 2D solver.** A silicon rod (0.4 × 0.3 µm) in lossy oxide, uniform along z, in a
 cell Bloch-periodic along x and y, on a 25 nm grid. The 2D solver's field and the 3D solver's

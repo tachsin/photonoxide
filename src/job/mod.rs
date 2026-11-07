@@ -584,6 +584,7 @@ pub use fabrication::{
     fabrication_of_job_from, fabrication_view, fabrication_view_from, from_fabrication,
     from_fabrication_from,
 };
+pub(crate) use fabrication_frames::{Moment, moments};
 pub use fdfd::{FdfdSParameters, fdfd_s_parameters};
 pub use fdtd::{FoundResonance, SpectrumSeries};
 pub use fit::fit_from_device;

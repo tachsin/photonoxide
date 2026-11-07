@@ -974,11 +974,15 @@ fn a_device_fabrication_is_its_jobs_record_to_the_bit() {
             f.markdown
         );
         assert_eq!(
+            std::fs::read_to_string(dir.join("flow.csv")).unwrap(),
+            f.csv
+        );
+        assert_eq!(
             std::fs::read_to_string(dir.join("flow-01.svg")).unwrap(),
             f.svgs[0]
         );
         let written = export_fabrication(&d, &[], &[], &scratch.0.join(kind)).unwrap();
-        assert_eq!(written.len(), 2 + f.svgs.len());
+        assert_eq!(written.len(), 3 + f.svgs.len());
     }
 }
 

@@ -4278,6 +4278,10 @@
           },
           "type": "array"
         },
+        "cut_x": {
+          "description": "Where the exported cross-sections (`flow-01.svg`, ...) cut the wafer: the plane x, in µm, anywhere across the design's shapes and 1 µm beyond them; the middle of the shapes in x when it isn't given.",
+          "type": "number"
+        },
         "kind": {
           "type": "string"
         },
