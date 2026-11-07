@@ -648,6 +648,13 @@ const PAPERS: &[(&str, &str, &str, &str, &str)] = &[
         "10.1007/BF02069487",
         "",
     ),
+    (
+        "anant-2008",
+        "V. Anant, A. J. Kerman, E. A. Dauler, J. K. W. Yang, K. M. Rosfjord, K. K. Berggren, Opt. Express 16, 10750 (2008)",
+        "Optical properties of superconducting nanowire single-photon detectors",
+        "10.1364/OE.16.010750",
+        "https://doi.org/10.1364/OE.16.010750",
+    ),
 ];
 
 /// The papers with these keys.

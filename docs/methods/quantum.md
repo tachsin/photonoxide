@@ -627,9 +627,11 @@ carries $(\beta/2k_0)\int\lvert E_z\rvert^2$ each way.
   full-vector solver on a cross-section between electric walls (the slab uniform across it)
   reaches it at second order (`quantum/detector-film-slab`, `quantum/detector-film-order`).
 
-The films' optical constants are the detectors' and emitters' material data: NbN, WSi or MoSi,
-and GaAs at low temperature enter the catalogue with their provenance when a reproduction needs
-them (the plan's decision 6). Reddy et al.'s MoSi index above is their own estimate at 1550 nm,
+The films' optical constants are the detectors' and emitters' material data, and they enter the
+catalogue with their provenance when a reproduction needs them (the plan's decision 6). NbN is
+there: `nbn`, Anant et al.'s room-temperature ellipsometry of a 12 nm film from 0.6 to 1.65 µm,
+with its caveats (the materials catalogue page). WSi, MoSi and low-temperature GaAs are not, as
+their papers are not in hand. Reddy et al.'s MoSi index above is their own estimate at 1550 nm,
 used for a check, not a catalogue entry.
 
 ## What it is checked against
@@ -877,9 +879,35 @@ fringe is that complete across the pumps' band; how balanced theirs was is their
   10750 (2008), doi:10.1364/OE.16.010750: $n = 5.23 - 5.82i$ at 1550 nm, measured by
   spectroscopic ellipsometry on a 12 nm film on sapphire at room temperature (p. 10754 and note 18,
   p. 10751). X. Hu et al., IEEE Trans. Appl. Supercond. 19, 336 (2009),
-  doi:10.1109/TASC.2009.2018035, Table I (p. 337), repeats it from Anant's thesis. Until NbN is in
-  the catalogue with that provenance (the plan's decision 6) the mode-solver case waits; the
-  solver's absorption itself is checked above on a film slab.
+  doi:10.1109/TASC.2009.2018035, Table I (p. 337), repeats it from Anant's thesis. That index is
+  now the catalogue's `nbn` (the materials catalogue page, "Superconducting films"). With it, the
+  full-vector solver gives the cross-section's TE mode (half of it behind an electric wall, air
+  above, silicon and silica at room temperature) and `absorbed_fraction` the attenuation. The
+  result is about twice theirs (the table below). Not a case.
+
+| Nodes | $\operatorname{Im} n_\text{eff}$, 3.5 nm of NbN | dB/µm, 3.5 nm | dB/µm, 4 nm |
+|---|---|---|---|
+| 8 nm | 0.06018 | 2.119 | |
+| 4 nm | 0.05947 | 2.094 | 2.325 |
+| 2 nm | 0.05851 | 2.060 | 2.290 |
+| 1 nm | 0.05681 | 2.000 | 2.222 |
+| 0.5 nm | 0.05561 | 1.958 | |
+
+The grid study doesn't converge at the scheme's second order. The film slab above does, but here
+the wires' edges, where the field is strongest, are not straight interfaces. The last two
+differences, 0.060 and 0.042 dB/µm, give an order of about 0.5, and Richardson's extrapolation at
+that order gives 1.86 dB/µm. So the converged value lies between about 1.86 and 1.96 dB/µm, near
+twice Pernice et al.'s 1.01 ± 0.02 dB/µm simulated and 0.98 ± 0.10 dB/µm measured; the
+difference is nine to ten times their measurement's uncertainty. Their Methods give the film as
+3.5 nm and their Fig. 1a draws 4 nm; at 4 nm ours is higher still. The real part checks out:
+the wires lower $\operatorname{Re} n_\text{eff}$ by 0.25 % against the bare strip (1.9775 on
+1 nm nodes), and Pernice et al. found the two "identical within 0.4%" (p. 4). What makes the
+factor of two isn't known. Their NbN is a fit to a thesis not in hand, measured at a temperature
+they don't state; their film's oxide and any resist left on it aren't given; the strip's etch
+depth and its cladding aren't stated, and we take a fully etched strip under air. The numbers come
+from an ignored test, `quantum::real_checks::figures::print_pernice`. The case stays open until
+the gap is explained, without a looser tolerance.
+
 - **Reddy et al. 2020's stack.** Their stack (p. 1650) as planar films at 1550 nm, the MoSi
   nanowires (80 nm wide, fill 0.57) as an effective medium of their MoSi index and the αSi that
   fills the gaps, absorbs 0.705 for E along the wires (reflecting 0.295) and 0.063 across them; a

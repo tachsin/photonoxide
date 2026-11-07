@@ -222,10 +222,11 @@
   const SUBSCRIPT = "₀₁₂₃₄₅₆₇₈₉";
   /**
    * The Materials Project's search for the material's formula, where it is one crystal of one
-   * composition: not an amorphous film, an alloy of variable or fractional composition, or a doped crystal.
+   * composition: not an amorphous film, a film whose structure isn't specified, an alloy of variable or
+   * fractional composition, or a doped crystal.
    */
   function structureUrl(e: MaterialEntry): string | null {
-    if (e.crystal.system.toLowerCase() === "amorphous") return null;
+    if (["amorphous", "not-specified"].includes(e.crystal.system.toLowerCase())) return null;
     const formula = [...e.formula].map((c) => (SUBSCRIPT.includes(c) ? String(SUBSCRIPT.indexOf(c)) : c)).join("");
     if (!/^([A-Z][a-z]?\d*)+$/.test(formula)) return null;
     return `https://next-gen.materialsproject.org/materials?formula=${formula}`;

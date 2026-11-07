@@ -20,9 +20,17 @@
 //!   chip, each port's squeezing after it and the state's purity ([`Event::QuantumSqueezed`]).
 //!
 //! ```yaml
-//! name: mzi-quantum
+//! name: coupler-quantum
 //! timeout_minutes: 1
-//! circuit: { ... }                # a chip, as a "spectrum" job's
+//! circuit:                         # a chip, as a "spectrum" job's
+//!   connections: []
+//!   instance:
+//!     - { name: x, component: coupler, values: { coupling: 0.5 } }
+//!   port:
+//!     - { name: in1, at: x.o1 }
+//!     - { name: in2, at: x.o2 }
+//!     - { name: out1, at: x.o3 }
+//!     - { name: out2, at: x.o4 }
 //! task:
 //!   kind: quantum
 //!   wavelength_um: 1.55

@@ -39,4 +39,5 @@ export const CATEGORIES: [MaterialEntry["category"], string][] = [
   ["semiconductor", "Semiconductors"],
   ["nonlinear-crystal", "Nonlinear crystals"],
   ["phase-change", "Phase-change materials"],
+  ["superconductor", "Superconducting films"],
 ];
