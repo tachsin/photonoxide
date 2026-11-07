@@ -73,9 +73,12 @@ points = {POINTS}
 #[derive(Clone, Debug)]
 pub(super) struct Study {
     pub estimate: f64,
+    #[allow(dead_code)] // the study test prints it
     pub solves: usize,
+    #[allow(dead_code)] // the study test prints it
     pub converged: bool,
     pub truth: f64,
+    #[allow(dead_code)] // the study test prints it
     pub reciprocity: f64,
 }
 

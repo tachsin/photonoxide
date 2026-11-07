@@ -268,7 +268,8 @@ mod tests {
         use std::collections::HashMap;
         use std::sync::Mutex;
         type Solve = fn(f64) -> crate::Result<Scattering>;
-        let cases: [(&str, Solve, (usize, usize), [(f64, f64); 4]); 2] = [
+        type Structure = (&'static str, Solve, (usize, usize), [(f64, f64); 4]);
+        let cases: [Structure; 2] = [
             (
                 "taper",
                 taper,
