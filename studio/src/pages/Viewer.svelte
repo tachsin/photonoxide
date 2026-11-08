@@ -73,13 +73,13 @@
     }
   });
 
-  // an FDTD run opens on its field in time, which the 2D view plays, a static run on its field, a nonlinear one and a quantum one on their charts; a device's model on its
+  // an FDTD run opens on its field in time, which the 2D view plays, a static run on its field, a nonlinear one, a quantum one and an eme one on their charts; a device's model on its
   // S-parameters and figures, an optimization on its convergence. Inside a device's page the view
   // stays on the device, in 3D: the page's panel has the plots.
   let shownFdtd = -1;
   $effect(() => {
     const g = run.info?.generation ?? -1;
-    if (!embedded && (run.job?.kind === "fdtd" || run.job?.kind === "static" || run.job?.kind === "nonlinear" || run.job?.kind === "quantum" || run.device || run.optimization) && g !== shownFdtd) {
+    if (!embedded && (run.job?.kind === "fdtd" || run.job?.kind === "static" || run.job?.kind === "nonlinear" || run.job?.kind === "quantum" || run.job?.kind === "eme" || run.device || run.optimization) && g !== shownFdtd) {
       shownFdtd = g;
       view = "2d";
     }

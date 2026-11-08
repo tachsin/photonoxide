@@ -57,6 +57,14 @@ Rust-only names (`device_fabrication_from` and the like) have no entry there.
 | Solvers: direct (multifrontal) | ✅ | ◐ a job's `[solver] direct` | [backends](methods/backends.md) |
 | Solvers: QMR, block QMR, multigrid, recycling | ✅ | — | [block-qmr](methods/block-qmr.md), [fdfd-3d](methods/fdfd-3d.md), [multigrid-stencil](methods/multigrid-stencil.md), [recycling](methods/recycling.md) |
 
+## Eigenmode expansion
+
+| | Rust | Python | Method |
+|---|---|---|---|
+| 2D sections: straights, tapers (adaptive steps), bends by the conformal map, periodic sections with Bloch modes | ✅ | ✅ an `"eme"` job: [`eme`](https://tachsin.gr/projects/photonoxide/docs/python/reference/photonoxide.html#eme) (its sections, S at each wavelength, its convergence studies and errors) | [eme](methods/eme.md) |
+| 3D sections on a plane: strips, a device's geometry or a job's own drawing cut into planes | ✅ | ✅ an `"eme"` job with `[task.plane]`: [`eme`](https://tachsin.gr/projects/photonoxide/docs/python/reference/photonoxide.html#eme) | [eme](methods/eme.md#sections-in-3d) |
+| S over wavelength from a few solves, with its error | ✅ | ✅ `[task.interpolate]`: [`eme`](https://tachsin.gr/projects/photonoxide/docs/python/reference/photonoxide.html#eme)'s points and errors | [eme](methods/eme.md#s-over-wavelength) |
+
 ## FDTD
 
 | | Rust | Python | Method |

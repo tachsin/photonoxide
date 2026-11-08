@@ -197,6 +197,23 @@ fn a_devices_sections_are_its_cut_and_the_run_is_the_library_to_the_bit() {
             .any(|[k, v]| k == "modes" && v.contains("every one")),
         "{details:?}"
     );
+    // then the cut's planes as its sections, each where the one before it ends
+    let sections = events
+        .iter()
+        .find_map(|e| match e {
+            Event::EmeSections { sections } => Some(sections.clone()),
+            _ => None,
+        })
+        .unwrap();
+    assert_eq!(sections.len(), cut.sections.len());
+    let mut z = 0.0;
+    for (k, (s, c)) in sections.iter().zip(&cut.sections).enumerate() {
+        assert_eq!(s.name, format!("cut {}", k + 1));
+        assert_eq!(s.kind, "cut");
+        assert_eq!(s.start_um, z);
+        assert_eq!(s.length_um, c.length.to_um());
+        z += s.length_um;
+    }
 }
 
 #[test]

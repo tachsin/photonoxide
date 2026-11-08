@@ -467,5 +467,35 @@ pub(crate) fn rules() -> Vec<(&'static str, Rule)> {
                 "three times our own error, rounded up: the largest, TM at 2 µm, the staircase's limit's change to the next halving's and the departure's change with a PML twice as strong (both 6.9e-10), above the exact field's Runge–Kutta steps'",
             ),
         ),
+        (
+            "eme/beam-fresnel",
+            Rule::new(
+                Absolute,
+                RoundOff,
+                1e-12,
+                Exact,
+                "each mode is a plane wave at its own angle and meets the step with Fresnel's coefficient exactly (eme/step-fresnel-te), and the modes sample the beam's angular spectrum, whose sum and integral differ by its images in the walls, exp(-89) here: round-off, 1e-12 as eme/step-fresnel-te",
+            ),
+        ),
+        (
+            "eme/beam-film",
+            Rule::new(
+                Absolute,
+                RoundOff,
+                1e-12,
+                Exact,
+                "the same modes through two interfaces and the film's propagation, each mode on its own: round-off, 1e-12 as eme/beam-fresnel",
+            ),
+        ),
+        (
+            "eme/beam-slab-coupling",
+            Rule::new(
+                Relative,
+                RoundOff,
+                1e-12,
+                Exact,
+                "the expansion's fundamental mode is the exact slab's to exp(-q d) with the walls 15 µm from the core (q about 10 per µm), and both integrals are Gauss-Legendre sums to round-off: round-off, 1e-12",
+            ),
+        ),
     ]
 }

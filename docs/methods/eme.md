@@ -289,6 +289,37 @@ task:
     - { name: output, length_um: 0.0, core_um: 0.7 }
 ```
 
+The run records, after the solver's settings, the sections along the structure
+(`eme_sections`: each one's name, kind, start, length, steps, a bend's radius and angle, a
+period's repeats; a device's or a drawing's cut planes as `cut 1`, `cut 2`, ...).
+
+### From Python
+
+`photonoxide.eme(job)` (the façade's `facade::eme`) runs any `eme` job, 2D or 3D, without a
+folder and returns what its run records: the solver's settings, the sections, S between the
+guided modes at the two ends at each wavelength (`points`, each with its ports, their effective
+indices and S as an `(n, n)` array), the convergence studies, the estimated errors and a
+period's Bloch modes. Every number is the run's to the bit (the façade's conformance cases
+check Python against Rust).
+
+```python
+import photonoxide as phox
+
+e = phox.eme("jobs/eme-taper.yaml")
+print([(s.name, s.kind, s.length_um) for s in e.sections])
+wavelengths, t = e.transmission("2 TE0", "1 TE0")
+print(f"|S21|^2 = {t[0]:.6f} at {wavelengths[0]} um")
+for study in e.studies:
+    print(study.label, study.values[-1], "converged" if study.converged else study.reason)
+```
+
+### In the studio
+
+An `eme` run's page shows its sections along the structure as a strip to scale (each kind its
+own colour, a period's sections marked with their repeats), its S-parameters over wavelength
+as |S|² in dB between the guided modes, with an interpolated sweep's estimated error and the
+wavelengths it solved, and each convergence study's values against its modes, steps or layers.
+
 ## Sections in 3D
 
 A real taper, MMI or Y-branch is a cross-section in x and y that changes along z. `Eme3d` takes
@@ -937,6 +968,67 @@ $\lvert S_{21}\rvert^2$ is 0.8991 at 1.55 µm (0.46 dB, 0.19 dB of it the bend's
     - { name: output, length_um: 0.0, core_um: 0.22, center_um: -0.75 }
 ```
 
+## A beam
+
+A beam comes into a structure from outside it: from a fibre, a lens or another chip. Here it is
+a Gaussian across the first section's plane, `Beam::gaussian(waist, centre)`, its phase fronts
+tilted by `Beam::tilted(θ, n)`:
+
+$$f(x) = e^{-(x - c)^2/w^2}\thinspace e^{i k n \sin\theta\thinspace(x - c)},$$
+
+$E_y$ for TE and $H_y$ for TM. `Eme::launch` writes it as the first section's forward modes,
+the amplitudes that make their transverse field on the plane the beam's: for TE
+$a_m = \langle E_\text{in}, H_m\rangle = \int f\thinspace h_m\thinspace d\tilde x$, for TM
+$a_m = \langle E_m, H_\text{in}\rangle = \int e_m f\thinspace d\tilde x$, exact by the modes'
+unconjugated orthogonality ([normalization](#normalization-and-the-interfaces)), Gauss–Legendre
+sums over the beam's nine waists either side of its centre. `Launched::arriving` keeps the
+propagating modes alone (a beam that comes from afar carries no evanescent waves), and
+`Scattering::forward` carries them through: $S_{11}a$ back, $S_{21}a$ on.
+
+**The modes are a basis of plane waves.** In a uniform section between walls the modes are
+standing plane waves, $k_x = m\pi/W$, so a beam's expansion samples its angular spectrum, a
+Gaussian $A(k_x) = e^{-(k_x - k n \sin\theta)^2 w^2/4}$ centred on its tilt, and each mode
+meets an interface between uniform media at its own angle with Fresnel's coefficient
+(`eme/step-fresnel-te`). A tilted beam is therefore the plane-wave input the method lacked: the
+power a step or a film returns is $\int \lvert A\rvert^2 \lvert r\rvert^2 k_z\thinspace dk_x /
+\int \lvert A\rvert^2 k_z\thinspace dk_x$ over the propagating waves, which the discrete sum
+reaches as fast as the beam's images in the walls fade ($e^{-89}$ for a 3 µm waist in a 40 µm
+window). Measured (`eme/beam-fresnel`, `eme/beam-film`): a 3 µm beam in oxide meeting a uniform
+2.0, or crossing a 0.3 µm film of it, at 0° to 30°, centred and 2 µm off, TE and TM, returns and
+passes the spectral integral's shares to $2.2 \times 10^{-14}$, and $R + T = 1$ to the same.
+
+**A beam's overlap with a guide's mode** is `Launched::couplings`:
+$\lvert\int f U_m w\thinspace dx\rvert^2 / (\int \lvert f\rvert^2 w\thinspace dx \int U_m^2 w\thinspace dx)$,
+$w = 1$ for TE and $1/n^2$ for TM, the share of the beam's power the mode takes where their
+impedances match, which from the amplitudes is $\lvert a_m\rvert^2 / (\operatorname{Re} n_\text{eff}
+\int \lvert f\rvert^2 w\thinspace dx)$. Against the exact slab's mode integrated across the whole
+line (`eme/beam-slab-coupling`: a 220 nm silicon slab, waists 0.3 to 2 µm, centred and 0.5 µm
+off, at 0° and 10°) it agrees to $3.2 \times 10^{-14}$ relative. With the facet's index step
+the expansion gives more than the overlap: the reflection and the light that couples into the
+guide's other modes and the radiation.
+
+In a job, `[task.beam]` (`waist_um`, `center_um`, `angle_deg`, and `index`, the medium of the
+tilt, the cladding's by default) launches the beam on the first section at each wavelength and
+records the shares of its power reflected, passed and carried by each guided mode at the last
+end (`eme_beam`). Its power is its propagating modes' $\sum \lvert a_m\rvert^2$, exact between
+walls without a PML, so a beam's job has neither; it is a 2D job's. `jobs/eme-beam.yaml` meets
+a 220 nm silicon slab's facet with a 1 µm beam in oxide: TE0 takes 0.3474 of its power and
+0.0357 comes back.
+
+```yaml
+task:
+  kind: eme
+  wavelength_um: 1.55
+  modes: 60                  # every propagating mode of the oxide (37) and more
+  window_um: 20.0            # between walls, no PML
+  cladding: 1.444
+  core: 3.473
+  section:
+    - { name: oxide, length_um: 0.0, layers: [{ medium: 1.444, thickness_um: 20.0 }] }
+    - { name: slab, length_um: 0.0, core_um: 0.22 }
+  beam: { waist_um: 1.0, center_um: 0.0, angle_deg: 0.0 }
+```
+
 ## Validation
 
 Measured with the cases' own settings, at 1.55 µm, silicon (3.473) in oxide (1.444):
@@ -983,6 +1075,9 @@ Measured with the cases' own settings, at 1.55 µm, silicon (3.473) in oxide (1.
 | `eme/bend-no-angle` | a bend of no angle between two straights, 24 modes | 2.4e-5 | the straight's S | discretisation, 1e-4, the mode-count gate of `eme/taper-modes` |
 | `eme/bend-joint` | the straight-to-bend joint's coupling, TE at 2, 3, 5 µm and TM at 10 µm | within 1.1e-9 (own error 1.3e-9) | the exact bent field's overlap with the straight's mode, window and PML | discretisation, 4e-9 absolute, three times our own error |
 | `eme/bend-joint-leaky` | the same joint where the bend radiates, TM at 2, 3, 5 µm | within 1.2e-9 (own error 6.9e-10) | the same | discretisation, 3e-9 absolute, three times our own error |
+| `eme/beam-fresnel` | a Gaussian (waist 3 µm) in oxide meeting a uniform 2.0, 110 modes in a 40 µm window, at 0°, 10°, 20°, 30°, centred and 2 µm off, TE and TM ([a beam](#a-beam)): its reflected share | within 2.2e-14 (and $R + T - 1$) | Fresnel's $r_s$, $r_p$ over its angular spectrum | round-off, 1e-12 |
+| `eme/beam-film` | the same through a 0.3 µm film of 2.0 in oxide: its transmitted share | within 3.2e-15 | Airy's transmission over the angular spectrum | round-off, 1e-12 |
+| `eme/beam-slab-coupling` | a Gaussian's overlap with a 220 nm silicon slab's fundamental mode, waists 0.3, 1, 2 µm, centred and 0.5 µm off, 0° and 10°, TE and TM | within 3.2e-14 relative | the exact slab's mode integrated across the line | round-off, 1e-12 relative |
 
 The FDFD comparison is the most telling: the two methods share nothing but the structure, and
 agree to 1.9e-5 of a reflection of 9.2e-5. Its transmission agrees too: 0.999829 against
@@ -1014,10 +1109,10 @@ What it does not do yet (#432):
   ([above](#sections-in-3d)).
 - **Sections are described or cut from a geometry:** a job gives straights and tapers of a core
   or of layers in 2D, or strips on a plane in 3D, or cuts a `[device]` or its own drawing into
-  planes ([a device's sections](#a-devices-sections), [a job's own drawing](#a-jobs-own-drawing));
-  a façade function of its own and a view of its own in the studio (which shows its scene and
-  S-parameters as any job's, a device's job opening on the device's page) are to come. The
-  Python package runs it as any job, through `run_job`. A device or a drawing is cut along x
+  planes ([a device's sections](#a-devices-sections), [a job's own drawing](#a-jobs-own-drawing)),
+  and Python and the studio take what a run records ([from Python](#from-python),
+  [in the studio](#in-the-studio)); nothing builds sections from a GDS file's cells yet. A
+  device or a drawing is cut along x
   only, its ports facing ±x; a sloped etch's walls, which lean with z, are cut in steps, not
   exactly; the cut takes no bodies over the stack, and a drawing takes no `[[task.component]]`
   (a component's ports face any way, the cut's two ends only ±x).
@@ -1054,6 +1149,24 @@ What it does not do yet (#432):
   (a width, a length) are swept by solving each value. Its estimate holds where the fit has seen
   the response, and needs one discretisation for every solve and a PML window
   ([above](#s-over-wavelength)).
+- **A beam is 2D, a Gaussian, between walls** ([a beam](#a-beam)): its power is its
+  propagating modes', exact without a PML, so a `[task.beam]` takes none, and the window must
+  hold the beam's waists and keep every propagating mode. A fibre's mode is a Gaussian here, as
+  its usual approximation is; its exact LP₀₁ and a beam on a 3D section's plane (the crossings
+  lesson's inverse-taper tip against a lensed fibre, a full-vector mode's overlap) are not
+  launched yet: a 3D beam's H on Yee's plane needs its own projection, since E alone doesn't
+  give the vector modes' amplitudes. **Angled facets** are not sections: a facet tilted against
+  the axis is an interface that leans across the window, which sections normal to z only
+  staircase. A tilted beam on a normal interface is the same problem only for uniform media on
+  both sides (a guide's facet is not), so an angled facet's reflection back into a guide waits for
+  a staircase study with its own convergence, or for a rotated frame.
+- **FDTD on tapers is not a case.** The tapers are checked against FDFD on the same staircase
+  (`eme/taper-fdfd`, `eme/3d-taper-fdfd`), which solves the same frequency-domain problem the
+  expansion does; FDTD would add its time stepping's dispersion, which a stated error needs
+  driven out by a grid study. The 2D taper's reflection, 9.2e-5, needs FDTD's to about 1e-6 for
+  a Rule of the kind the FDFD case has: cells of 2.5 nm over a window several micrometres wide
+  and long, millions of cells for tens of thousands of steps at each of three grids, beyond a
+  validation case's time.
 - **No published taper or MMI yet:** no paper we have gives a taper's or an MMI's S by
   eigenmode expansion with the numbers needed to repeat it (Bienstman and Baets's grating sends
   its material data to another exercise; Soldano and Pennings's self-imaging gives closed forms,

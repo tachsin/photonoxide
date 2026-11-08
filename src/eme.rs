@@ -85,7 +85,12 @@
 //! [doi:10.1109/JQE.1975.1068563](https://doi.org/10.1109/JQE.1975.1068563)), cut into thin
 //! layers ([`Eme::with_bend_step`]), its PML the profile's analytic continuation, and its joints
 //! with other sections taken in the physical coordinate (the `bend` module's docs). Not here
-//! yet: a job's own drawn shapes, and bends in 3D (#432).
+//! yet: bends in 3D (#432).
+//!
+//! **A beam** ([`Beam`]: a Gaussian across the first section's plane, tilted by an angle) is
+//! launched as that section's forward modes' amplitudes ([`Eme::launch`]); in a uniform
+//! section the modes are plane waves at discrete angles, a basis that samples the beam's angular
+//! spectrum, and [`Scattering::forward`] carries the amplitudes through the structure.
 
 use num_complex::Complex64 as c64;
 
@@ -94,6 +99,9 @@ use crate::units::{Length, Wavelength};
 use crate::{Error, Result};
 
 mod adaptive;
+mod beam;
+#[path = "cases/eme/beam_checks.rs"]
+pub(crate) mod beam_checks;
 mod bend;
 #[path = "cases/eme/bend_checks.rs"]
 pub(crate) mod bend_checks;
@@ -116,6 +124,7 @@ pub(crate) mod three_checks;
 mod three_tests;
 
 pub use adaptive::{Adaptive, MAX_STEPS, Piece, Round, Taper};
+pub use beam::{Beam, Launched, power};
 pub use modes::Mode;
 pub use periodic::Bloch;
 pub use plane::{Mode3d, Plane, PlaneGrid, Pml3d, Walls};

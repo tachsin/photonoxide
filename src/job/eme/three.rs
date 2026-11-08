@@ -587,6 +587,32 @@ fn guided(indices: &[c64], cladding: f64) -> usize {
         .max(1)
 }
 
+/// The planes cut from a `[device]` or a drawing as the run records its sections, `"cut 1"` to
+/// the last, each where it starts along x from the first.
+fn cut_sections(sections: &[Section3d]) -> Event {
+    let mut z = 0.0;
+    let sections = sections
+        .iter()
+        .enumerate()
+        .map(|(k, s)| {
+            let length = s.length.to_um();
+            let record = super::EmeSection {
+                name: format!("cut {}", k + 1),
+                kind: "cut".into(),
+                start_um: z,
+                length_um: length,
+                steps: 1,
+                radius_um: None,
+                angle_deg: None,
+                repeats: 1,
+            };
+            z += length;
+            record
+        })
+        .collect();
+    Event::EmeSections { sections }
+}
+
 /// The run of a 3D job: its scene (a task alone's; a device's is recorded before), the
 /// solver's settings, and at each wavelength the S-parameters and any convergence study.
 pub(super) fn run(
@@ -658,6 +684,10 @@ pub(super) fn run(
         step_um: grid.dx.max(grid.dy),
         unknowns: grid.unknowns(),
         details,
+    })?;
+    run.record(&match source {
+        Source::Strips { .. } => super::sections_event(task, &task.sections(wavelengths[0])?),
+        Source::Device { .. } | Source::Drawn { .. } => cut_sections(&first),
     })?;
     if let Some(s) = &task.sweep {
         run.record(&Event::Sweep {

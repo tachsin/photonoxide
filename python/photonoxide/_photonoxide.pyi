@@ -120,6 +120,12 @@ def nonlinear(
     format: str,
     timeout_s: float | None,
 ) -> dict[str, Any]: ...
+def eme(
+    path: str | PathLike[str] | None,
+    text: str | None,
+    format: str,
+    timeout_s: float | None,
+) -> dict[str, Any]: ...
 def device_fabrication(
     kind: str,
     values: list[tuple[str, float]],

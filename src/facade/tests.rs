@@ -671,6 +671,175 @@ fn the_conformance_cases_are_computed_and_name_their_calls() {
     }
 }
 
+/// A 220 to 300 nm slab taper in four equal steps, 12 modes, between electric walls 3 µm apart:
+/// the `"eme"` job's own tests' taper.
+const EME_TAPER: &str = r#"
+name = "taper"
+timeout_minutes = 5
+
+[task]
+kind = "eme"
+wavelength_um = 1.55
+modes = 12
+window_um = 3.0
+cladding = 1.444
+core = 3.473
+
+[[task.section]]
+length_um = 0.0
+core_um = 0.22
+
+[[task.section]]
+length_um = 0.4
+core_um = [0.22, 0.30]
+steps = 4
+
+[[task.section]]
+length_um = 0.0
+core_um = 0.30
+"#;
+
+fn eme_source(text: &str) -> JobSource {
+    JobSource::Text {
+        text: text.into(),
+        format: "toml".into(),
+    }
+}
+
+#[test]
+fn an_eme_solution_is_the_librarys_expansion_to_the_bit() {
+    use crate::eme::{Eme, Section, Slice};
+    let e = eme(&eme_source(EME_TAPER), &Stop::new(None))
+        .unwrap()
+        .unwrap();
+    assert_eq!(e.module, "eme");
+    assert_eq!(e.cells, [12, 4]);
+    assert!(
+        e.settings
+            .iter()
+            .any(|(k, v)| k == "polarization" && v == "te")
+    );
+    let kinds: Vec<_> = e.sections.iter().map(|s| s.kind.as_str()).collect();
+    assert_eq!(kinds, ["straight", "taper", "straight"]);
+    assert_eq!(e.points.len(), 1);
+    let p = &e.points[0];
+    assert_eq!(p.ports, ["1 TE0", "2 TE0", "2 TE1"]);
+    assert_eq!(p.wavelength_um, 1.55);
+    let slab = |t: f64| {
+        Slice::slab(
+            c64::new(3.473, 0.0),
+            Length::um(t),
+            c64::new(1.444, 0.0),
+            Length::um(3.0),
+        )
+        .unwrap()
+    };
+    let mut sections = vec![Section::new(slab(0.22), Length::ZERO)];
+    sections.extend(
+        Section::sampled(Length::um(0.4), 4, |z| {
+            Ok(slab(0.22 + (0.30 - 0.22) * (z.to_um() / 0.4)))
+        })
+        .unwrap(),
+    );
+    sections.push(Section::new(slab(0.30), Length::ZERO));
+    let lib = Eme::new(Polarization::Te, Wavelength::um(1.55).unwrap(), 12)
+        .unwrap()
+        .s_matrix(&sections)
+        .unwrap();
+    // S between TE0 at the first end and TE0, TE1 at the last, C order
+    let want = [
+        [lib.s11[0][0], lib.s12[0][0], lib.s12[0][1]],
+        [lib.s21[0][0], lib.s22[0][0], lib.s22[0][1]],
+        [lib.s21[1][0], lib.s22[1][0], lib.s22[1][1]],
+    ];
+    for (q, row) in want.iter().enumerate() {
+        for (r, &w) in row.iter().enumerate() {
+            assert_eq!(bits(p.s[q * 3 + r]), bits(w), "S{q}{r}");
+        }
+    }
+    assert_eq!(p.effective_index[0].to_bits(), lib.first[0].re.to_bits());
+    assert_eq!(p.effective_index[2].to_bits(), lib.last[1].re.to_bits());
+}
+
+#[test]
+fn an_eme_solution_is_its_runs_record_to_the_bit() {
+    let scratch = Scratch::new();
+    let text = EME_TAPER.to_owned()
+        + "\n[task.sweep]\nparameter = \"wavelength\"\nfrom = 1.5\nto = 1.6\npoints = 3\n\
+           \n[task.convergence]\ntolerance = 1e-3\n";
+    let source = eme_source(&text);
+    let e = eme(&source, &Stop::new(None)).unwrap().unwrap();
+    let run = run_job(&source, &scratch.0, &Stop::new(None)).unwrap();
+    let events: Vec<serde_json::Value> = run
+        .events
+        .iter()
+        .map(|e| serde_json::from_str(e).unwrap())
+        .collect();
+    let of = |kind: &'static str| events.iter().filter(move |e| e["type"] == kind);
+    let f = |v: &serde_json::Value| v.as_f64().unwrap().to_bits();
+    // S at each wavelength
+    let recorded: Vec<_> = of("s_parameters").collect();
+    assert_eq!(e.points.len(), 3);
+    assert_eq!(recorded.len(), 3);
+    for (p, r) in e.points.iter().zip(&recorded) {
+        assert_eq!(p.wavelength_um.to_bits(), f(&r["wavelength_um"]));
+        let n = p.ports.len();
+        for q in 0..n {
+            assert_eq!(p.ports[q], r["ports"][q]);
+            for c in 0..n {
+                let z = &r["s"][q][c];
+                assert_eq!(bits(p.s[q * n + c]), (f(&z[0]), f(&z[1])));
+            }
+        }
+    }
+    // a study at each wavelength, each grid's value
+    let studies: Vec<_> = of("grid_convergence").collect();
+    assert_eq!(e.studies.len(), studies.len());
+    assert!(studies.len() >= 3, "{}", studies.len());
+    for (s, r) in e.studies.iter().zip(&studies) {
+        assert_eq!(s.label, r["label"]);
+        assert_eq!(s.value.to_bits(), f(&r["check"]["value"]));
+        assert_eq!(
+            s.values.len(),
+            r["check"]["values"].as_array().unwrap().len()
+        );
+        for (v, w) in s
+            .values
+            .iter()
+            .zip(r["check"]["values"].as_array().unwrap())
+        {
+            assert_eq!(v.to_bits(), f(w));
+        }
+        assert_eq!(s.converged, r["check"]["verdict"] == "converged");
+    }
+    // the sections and the settings as recorded
+    let sections = of("eme_sections").next().unwrap();
+    assert_eq!(
+        e.sections.len(),
+        sections["sections"].as_array().unwrap().len()
+    );
+    let solver = of("solver").next().unwrap();
+    assert_eq!(
+        e.settings.len(),
+        solver["details"].as_array().unwrap().len()
+    );
+    // stopped before it starts: nothing
+    let stop = Stop::new(None);
+    stop.request();
+    assert_eq!(eme(&source, &stop).unwrap(), None);
+    // a job of another kind
+    assert!(
+        eme(
+            &JobSource::Text {
+                text: FDFD.into(),
+                format: "toml".into()
+            },
+            &Stop::new(None)
+        )
+        .is_err()
+    );
+}
+
 /// The façade's functions the bindings reach through another's argument, not by a function of
 /// their own: (the façade's function, the bindings' function, its argument).
 /// [`device_spectrum_until`] is `device_spectrum` with a `timeout_s`, the [`Stop`]'s deadline;
@@ -694,6 +863,7 @@ fn facade_functions() -> Vec<&'static str> {
         include_str!("circuit.rs"),
         include_str!("conformance.rs"),
         include_str!("device.rs"),
+        include_str!("eme.rs"),
         include_str!("fabrication.rs"),
         include_str!("mask.rs"),
         include_str!("nonlinear.rs"),
@@ -715,7 +885,7 @@ fn every_facade_function_is_in_the_feature_table() {
     // so to the Python package) goes in its table, by name
     let table = include_str!("../../docs/features.md");
     let functions = facade_functions();
-    assert_eq!(functions.len(), 31, "{functions:?}");
+    assert_eq!(functions.len(), 32, "{functions:?}");
     for f in functions {
         assert!(
             table.contains(&format!("`{f}`")),
