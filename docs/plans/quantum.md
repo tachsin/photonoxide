@@ -335,7 +335,7 @@ must be read before a tolerance is set.
   variances, photon-number probabilities by hafnians and loop hafnians (Björklund et al. 2019),
   threshold clicks by torontonians (Quesada et al. 2018).
 - Squeezing from 0.6.1's parametric amplifiers, low gain first; high gain only when its
-  validation is in place.
+  validation is in place (now `quantum::Broadband`, with analytic cases).
 
 **Validation.**
 

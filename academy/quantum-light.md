@@ -962,9 +962,9 @@ coupler, and pairs per pulse with $g^{(2)}$ and the multi-pair share.
 What the library does not do: it has no single-photon emitters beyond their Purcell and β factors
 from FDTD, and no quantum-dot sources; detectors are their absorption, from transfer matrices and the
 mode solver, not their timing or dark counts; an S-matrix from FDTD isn't a device's fidelity yet,
-one launch a port; clicks of states with means (a loop torontonian) aren't computed; squeezing is
-continuous-wave and lossless in the amplifier, the low-gain Schmidt modes kept at high gain, so
-broadband squeezing at high gain is left for later; and it computes no GKP or other non-Gaussian
+one launch a port; squeezing is lossless in the amplifier, and broadband squeezing at high gain,
+whose modes change with the gain, is a dense map of a few hundred frequencies, not yet in the
+studio; and it computes no GKP or other non-Gaussian
 states, decoders or thresholds of its own. Two comparisons on the detector side don't agree:
 Pernice et al.'s (2012) NbN wires on a silicon strip absorb
 1.01 ± 0.02 dB/µm by their simulation and 0.98 ± 0.10 measured, where the mode solver with the

@@ -28,8 +28,12 @@
 //! [`crate::mode::multilayer::Multilayer::absorption`] for a detector stack's absorption and the
 //! full-vector modes' loss for a waveguide detector's.
 //!
+//! Broadband pulsed squeezing at any gain, whose squeezed modes change with the gain: the
+//! Bogoliubov map of a source cut into slices along its length ([`Broadband`]).
+//!
 //! docs/methods/quantum.md derives each formula and lists the validation cases.
 
+mod broadband;
 mod budget;
 mod fock;
 mod gaussian;
@@ -59,6 +63,7 @@ mod real_tests;
 #[cfg(test)]
 mod tests;
 
+pub use broadband::Broadband;
 pub use budget::{
     Budget, Hop, Stage, Threshold, event, fusion_loss, qi_exact_transmission, qi_fidelity,
     qi_simulable_error, routes, varnava_loss,

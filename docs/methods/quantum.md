@@ -69,6 +69,10 @@ papers:
     doi: 10.1364/OPTICA.400751
   - cite: "J. Chilwell, I. Hodgkinson, J. Opt. Soc. Am. A 1, 742 (1984)"
     doi: 10.1364/JOSAA.1.000742
+  - cite: "W. Wasilewski, A. I. Lvovsky, K. Banaszek, C. Radzewicz, Phys. Rev. A 73, 063819 (2006)"
+    doi: 10.1103/PhysRevA.73.063819
+  - cite: "A. Christ, B. Brecht, W. Mauerer, C. Silberhorn, New J. Phys. 15, 053038 (2013)"
+    doi: 10.1088/1367-2630/15/5/053038
 validation:
   - quantum/permanent-ones
   - quantum/permanent-derangements
@@ -114,6 +118,13 @@ validation:
   - quantum/nehra-inferred
   - quantum/nehra-all-optical
   - quantum/nehra-homodyne-bound
+  - quantum/broadband-symplectic
+  - quantum/broadband-exponential
+  - quantum/broadband-low-gain
+  - quantum/broadband-single-mode
+  - quantum/broadband-mismatched
+  - quantum/broadband-mismatched-order
+  - quantum/broadband-photons
   - quantum/spectral-flat
   - quantum/spectral-hom
   - quantum/spectral-sum
@@ -425,7 +436,7 @@ the gain $g$ set by the mean number of pairs per pulse, $\sum_k \sinh^2 r_k = \m
   everything above.
 
 The squeezing $g\sqrt{\lambda_k}$ keeps the low-gain Schmidt modes: at high gain the modes
-themselves change with the gain, which this doesn't follow.
+themselves change with the gain, which `Broadband` follows (below).
 
 The studio's Materials page has a source designer under **Photon-pair sources**
 ([studio/README.md](../../studio/README.md)): a guide, a crystal, a ring (`ring_spectrum`, below)
@@ -479,7 +490,76 @@ amplitude: its own depletion of the pump, of order $10^{-12}$ of its power, is b
 integration's error. Without loss only:
 a lossy amplifier adds noise a Bogoliubov map can't carry, so the loss is applied to the squeezed
 state after it. These are single-frequency (continuous-wave) amplifiers, exact at any gain while the
-pump doesn't deplete; the multimode squeezing of a broadband pulse at high gain is left for later.
+pump doesn't deplete; the multimode squeezing of a broadband pulse at high gain is `Broadband`'s
+(below).
+
+## Broadband squeezing at high gain
+
+A pulsed pump that doesn't deplete couples the signal's frequencies $a_j$ to the idler's $b_k$.
+Over a short slice of the medium the coupling is a matrix $G$ (signal × idler) and
+$d\mathbf a/dz = G\,\mathbf b^\dagger$, $d\mathbf b^\dagger/dz = G^\dagger \mathbf a$, so the slice
+maps $(\mathbf a, \mathbf b^\dagger)$ by the exponential of the Hermitian generator
+$K = \begin{pmatrix} 0 & G \\ G^\dagger & 0 \end{pmatrix}$. With $G = U S V^\dagger$,
+
+$e^K = \begin{pmatrix} I + U(\cosh S - I)U^\dagger & U \sinh S\,V^\dagger \\ V \sinh S\,U^\dagger & I + V(\cosh S - I)V^\dagger \end{pmatrix}$.
+
+`Broadband::new` multiplies the slices' maps in order, the last on the left; each keeps the
+commutators, $M \Sigma M^\dagger = \Sigma$ with $\Sigma = \operatorname{diag}(I, -I)$. The output's
+squeezing is the Bloch–Messiah decomposition's: $\mathbf a_\text{out} = A\mathbf a + B\mathbf b^\dagger$,
+the singular values of $B$ are $\sinh r_k$, their left vectors the signal's squeezed modes
+(`signal_mode`), and the signal's mean photon number is $\operatorname{Tr} BB^\dagger = \sum_k \sinh^2 r_k$.
+`Broadband::sliced` cuts a down-conversion source into $N$ slices: on the signal and idler grids,
+with the pump's amplitude $\alpha(\nu_s + \nu_i)$ and the phase mismatch $x = \Delta k L/2$ (a
+device's `phase_at_frequencies`), slice $n$ couples by $\alpha e^{2ixt_n}/N$ at its middle
+$t_n = (n + \tfrac12)/N - \tfrac12$ of the length; the slices add up to $\alpha\operatorname{sinc} x$,
+the joint spectrum, and the gain $g$ scales that sum so that its singular values are
+$g\sqrt{\lambda_k}$, the Schmidt model's.
+
+Where the phase matching varies along the medium, the slices' generators don't commute, and the
+ordered product leaves the single exponential of the whole joint spectrum (`Broadband::exponential`,
+the Schmidt model above, exact at any gain only when the slices commute): the squeezed modes and
+their squeezing change with the gain. This is the approach of Wasilewski, Lvovsky, Banaszek and
+Radzewicz ("Pulsed squeezed light: Simultaneous squeezing of multiple modes", Phys. Rev. A 73,
+063819 (2006)) and, for down-conversion at high gain, of Christ, Brecht, Mauerer and Silberhorn
+("Theory of quantum frequency conversion and type-II parametric down-conversion in the high-gain
+regime", New J. Phys. 15, 053038 (2013)); neither paper is in hand, so the equations here are the
+quadratic Hamiltonian's own, checked against closed forms, and nothing is taken from their
+results. Lossless and undepleted; four-wave mixing's self- and cross-phase modulation of the
+pump are left out.
+
+For a source with a Gaussian pump of unit bandwidth and $x = 3\nu_s - 1.5\nu_i$ (48 frequencies
+each from −4 to 4, the cases' source), on 40 slices (80 in brackets):
+
+| $g$ | $r_1, r_2, r_3$ | One exponential | Modes | Photons (one exponential) | $1 - \lvert\langle u_1 \vert u_1^{(0)}\rangle\rvert^2$ |
+|---|---|---|---|---|---|
+| 0.5 | 0.4861, 0.0833, 0.0786 | 0.4772, 0.0839, 0.0785 | 1.182 | 0.278 (0.268) | 1.1e-3 |
+| 1 | 1.0238, 0.1774, 0.1564 | 0.9543, 0.1679, 0.1571 | 1.135 | 1.566 (1.313) | 1.7e-2 |
+| 2 | 2.371 (2.373), 0.642, 0.287 | 1.909, 0.336, 0.314 | 1.051 | 28.9 (11.2) | 0.17 |
+| 3 | 3.974 (3.978), 1.628 (1.634), 0.355 | 2.863, 0.504, 0.471 | 1.018 | 714 (77.0) | 0.36 |
+
+"Modes" is $(\sum \sinh^2 r_k)^2/\sum \sinh^4 r_k$, the Schmidt number at low gain; the last
+column is how far the first signal mode has moved from its shape at $g$ = 0.01. The first mode
+gains far more than the Schmidt model gives, as a phase-mismatched amplifier at one frequency
+does: there the ordered product reaches $\kappa L \sinh(gL)/gL$, $gL = \sqrt{(\kappa L)^2 - x^2}$,
+where the single exponential gives $\sinh(\kappa L \operatorname{sinc} x)$. The figures come from
+the ignored test `quantum::light_checks::tests::print_broadband`.
+
+The cases (Analytic):
+
+- `quantum/broadband-symplectic`: the high-gain map ($g$ = 3) keeps $\Sigma$ to 5.3e-15 of its
+  largest entry squared.
+- `quantum/broadband-exponential`: the single exponential's squeezing is $g\sqrt{\lambda_k}$ at
+  $g$ = 2, to 1.8e-15.
+- `quantum/broadband-low-gain`: the ordered product's first squeezing leaves the single
+  exponential's as $g^2$ (order 2.000 from $g$ = 0.02 and 0.01): the first correction, Magnus's
+  second term, is a passive rotation (the commutator of two such generators is block-diagonal).
+- `quantum/broadband-single-mode`: one frequency each, phase-matched: $r$, $\cosh r$, $\tanh r$
+  and $\sinh^2 r$ to round-off.
+- `quantum/broadband-mismatched` and `-order`: one frequency each with $x$ = 1 and $\kappa L$ = 3,
+  the phase-mismatched amplifier's closed form to 1.8e-7 on 1000 slices, converging at order 2.00
+  (the exponential midpoint rule).
+- `quantum/broadband-photons`: $\operatorname{Tr} BB^\dagger$, $\sum \sinh^2 r_k$ and the
+  `Gaussian` state's photons (`Broadband::gaussian`) agree to round-off.
 
 ## Many photons with spectra through S(ω)
 
@@ -1056,8 +1136,11 @@ the gap is explained, without a looser tolerance.
   the torontonian's terms are: up to 30 clicking modes, practical to about 20.
 - A source's squeezing per Schmidt mode, $g\sqrt{\lambda_k}$, is the low-gain picture; the
   squeezers are continuous-wave and lossless (the loss goes after them). Broadband squeezing at
-  high gain, whose temporal modes change with the gain, is left for later; so are the Schmidt
-  modes' shapes, which the studio's source designer will draw.
+  high gain is `Broadband`'s: lossless and undepleted, without four-wave mixing's self- and
+  cross-phase modulation, a dense map of (signal + idler)² entries (a few hundred frequencies),
+  and not in the studio's source designer yet, whose devices give a joint spectrum, not the phase
+  mismatch along the length that the slices need. The Schmidt modes' shapes are left for later,
+  for the studio's source designer to draw.
 - Photons with spectra through S(ω): up to 8 (n! permanents a pattern), every pattern of
   `distribution` as above. Detectors are frequency-blind; a frequency-resolving one would keep
   the slots' frequencies apart.
