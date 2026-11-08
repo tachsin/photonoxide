@@ -1227,6 +1227,12 @@
   venue: "Phys. Rev. A 64, 012310"
   year: 2001
 
+- doi: 10.1364/JOSAA.13.001019
+  authors: "G. Granet, B. Guizal"
+  title: "Efficient implementation of the coupled-wave method for metallic lamellar gratings in TM polarization"
+  venue: "J. Opt. Soc. Am. A 13, 1019"
+  year: 1996
+
 - doi: 10.1063/1.350844
   authors: "P. Gräupner, J. C. Pommier, A. Cachard, J. L. Coutaz"
   title: "Electro-optical effect in aluminum nitride waveguides"
@@ -1861,6 +1867,12 @@
   venue: "Laser & Photonics Reviews 11, 1600295"
   year: 2017
 
+- doi: 10.1364/JOSAA.13.000779
+  authors: "P. Lalanne, G. M. Morris"
+  title: "Highly improved convergence of the coupled-wave method for TM polarization"
+  venue: "J. Opt. Soc. Am. A 13, 779"
+  year: 1996
+
 - doi: 10.1364/OL.23.001081
   authors: "P. Lalanne, S. Astilean, P. Chavel, E. Cambril, H. Launois"
   title: "Blazed binary subwavelength gratings with efficiencies larger than those of conventional échelette gratings"
@@ -1958,6 +1970,12 @@
   title: "Refractive index of silicon and germanium and its wavelength and temperature derivatives"
   venue: "Journal of Physical and Chemical Reference Data 9, 561"
   year: 1980
+
+- doi: 10.1364/JOSAA.13.001024
+  authors: "L. Li"
+  title: "Formulation and comparison of two recursive matrix algorithms for modeling layered diffraction gratings"
+  venue: "J. Opt. Soc. Am. A 13, 1024"
+  year: 1996
 
 - doi: 10.1364/JOSAA.13.001870
   authors: "L. Li"
@@ -2306,10 +2324,22 @@
   venue: "ACS Photonics 7, 1729"
   year: 2020
 
+- doi: 10.1364/JOSA.71.000811
+  authors: "M. G. Moharam, T. K. Gaylord"
+  title: "Rigorous coupled-wave analysis of planar-grating diffraction"
+  venue: "J. Opt. Soc. Am. 71, 811"
+  year: 1981
+
 - doi: 10.1364/JOSAA.12.001068
   authors: "M. G. Moharam, T. K. Gaylord, E. B. Grann, D. A. Pommet"
   title: "Formulation for stable and efficient implementation of the rigorous coupled-wave analysis of binary gratings"
   venue: "J. Opt. Soc. Am. A 12, 1068"
+  year: 1995
+
+- doi: 10.1364/JOSAA.12.001077
+  authors: "M. G. Moharam, T. K. Gaylord, D. A. Pommet, E. B. Grann"
+  title: "Stable implementation of the rigorous coupled-wave analysis for surface-relief gratings: enhanced transmittance matrix approach"
+  venue: "J. Opt. Soc. Am. A 12, 1077"
   year: 1995
 
 - doi: 10.6028/jres.124.012

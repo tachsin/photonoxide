@@ -38,6 +38,8 @@ The pages are grouped as the project site groups them.
   characteristic equations, to the last bit.
 - [multilayer](methods/multilayer.md): the bound modes and leaky waves of any planar stack, and
   its reflection and transmission of a plane wave, from 2 × 2 field-transfer matrices.
+- [rcwa](methods/rcwa.md): a plane wave's diffraction by a stack of lamellar gratings and films,
+  TE and TM, by rigorous coupled-wave analysis with Li's factorization rules.
 - [marcatili](methods/marcatili.md): a rectangular guide's modes from two slab-like equations,
   ignoring the corners.
 - [eim](methods/eim.md): a ridge waveguide's mode from two slab problems, fast and approximate,

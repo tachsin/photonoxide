@@ -792,6 +792,243 @@ pub(crate) fn reddy_stack(film: c64) -> crate::mode::multilayer::Multilayer {
     crate::mode::multilayer::Multilayer::new(c64::new(1.0, 0.0), &films, si).expect(OK)
 }
 
+/// Fig. S3 of Reddy et al.'s Supplement 1 (p. 3 of the supplement): their MoSi's n from 1300 to
+/// 1700 nm, read from the figure's vector curve (nm, n).
+#[cfg(test)]
+const MOSI_N: [(f64, f64); 35] = [
+    (1299.01, 5.4367),
+    (1317.01, 5.4631),
+    (1366.0, 5.5317),
+    (1391.0, 5.5653),
+    (1410.0, 5.5926),
+    (1422.0, 5.6106),
+    (1432.0, 5.6259),
+    (1438.0, 5.6365),
+    (1443.0, 5.645),
+    (1448.0, 5.6537),
+    (1462.0, 5.6737),
+    (1472.0, 5.686),
+    (1484.0, 5.7006),
+    (1498.0, 5.7303),
+    (1522.0, 5.7806),
+    (1527.0, 5.7914),
+    (1551.0, 5.8181),
+    (1576.0, 5.8474),
+    (1577.0, 5.8495),
+    (1578.0, 5.8506),
+    (1591.0, 5.8771),
+    (1601.0, 5.8964),
+    (1603.0, 5.8996),
+    (1613.0, 5.9176),
+    (1621.0, 5.9316),
+    (1623.0, 5.9348),
+    (1626.0, 5.9394),
+    (1641.0, 5.9613),
+    (1648.0, 5.9723),
+    (1662.0, 5.9929),
+    (1680.0, 6.0279),
+    (1682.0, 6.0319),
+    (1683.0, 6.033),
+    (1685.0, 6.0371),
+    (1701.0, 6.0542),
+];
+
+/// Fig. S3's κ, the same way (nm, κ).
+#[cfg(test)]
+#[allow(clippy::approx_constant)] // κ = 6.2831 at 1701 nm, not 2π
+const MOSI_K: [(f64, f64); 33] = [
+    (1299.01, 5.5583),
+    (1333.01, 5.6144),
+    (1344.0, 5.6355),
+    (1369.0, 5.6839),
+    (1379.0, 5.7013),
+    (1420.0, 5.7664),
+    (1439.0, 5.8018),
+    (1454.0, 5.8322),
+    (1470.0, 5.8661),
+    (1479.0, 5.8859),
+    (1480.0, 5.8868),
+    (1487.0, 5.9023),
+    (1488.0, 5.9032),
+    (1523.0, 5.98),
+    (1536.0, 6.0064),
+    (1548.0, 6.0298),
+    (1549.0, 6.0309),
+    (1566.0, 6.0631),
+    (1571.0, 6.0698),
+    (1576.0, 6.078),
+    (1581.0, 6.0847),
+    (1583.0, 6.0877),
+    (1585.0, 6.0907),
+    (1599.0, 6.1174),
+    (1607.0, 6.1349),
+    (1618.0, 6.1609),
+    (1619.0, 6.1615),
+    (1620.0, 6.1638),
+    (1630.0, 6.1707),
+    (1660.0, 6.1933),
+    (1663.0, 6.1951),
+    (1682.0, 6.2398),
+    (1701.0, 6.2831),
+];
+
+/// Linear interpolation in a table of (nm, value), clamped at its ends.
+#[cfg(test)]
+fn interpolate(table: &[(f64, f64)], nm: f64) -> f64 {
+    let k = table
+        .partition_point(|p| p.0 < nm)
+        .clamp(1, table.len() - 1);
+    let ((x0, y0), (x1, y1)) = (table[k - 1], table[k]);
+    let s = ((nm - x0) / (x1 - x0)).clamp(0.0, 1.0);
+    y0 + s * (y1 - y0)
+}
+
+/// Reddy et al.'s MoSi at `nm`: Fig. S3's n + iκ.
+#[cfg(test)]
+pub(crate) fn mosi_index(nm: f64) -> c64 {
+    c64::new(interpolate(&MOSI_N, nm), interpolate(&MOSI_K, nm))
+}
+
+#[cfg(test)]
+/// Reddy et al.'s detector as built, patterned: what [`reddy_grating`] varies.
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct Detector {
+    /// The top αSi of the anti-reflection coating, nm (68 as designed, then tuned in situ).
+    pub top: f64,
+    /// The coating's SiO₂, nm (248.7).
+    pub oxide: f64,
+    /// The coating's first αSi above the wires, nm (50).
+    pub first: f64,
+    /// The index that fills the 60 nm gaps between the wires (and the cap's): the coating's
+    /// first αSi as deposited.
+    pub fill: c64,
+    /// The MoSi's index.
+    pub mosi: c64,
+    /// The cap's index (their 2.274).
+    pub cap: c64,
+}
+
+#[cfg(test)]
+impl Detector {
+    /// As designed, at 1550 nm's MoSi index.
+    pub(crate) fn designed() -> Detector {
+        Detector {
+            top: 68.0,
+            oxide: 248.7,
+            first: 50.0,
+            fill: c64::new(2.735, 0.0),
+            mosi: c64::new(5.817, 6.033),
+            cap: c64::new(2.274, 0.0),
+        }
+    }
+}
+
+/// Reddy et al.'s detector as an RCWA stack, from the vacuum down: the coating's top αSi
+/// (`detector.top`), its SiO₂ (248.7 nm) and its first αSi (50 nm, above the wires' top); the
+/// wires, 80 nm wide at 140 nm pitch, as two lamellar layers, the 2 nm cap over the 4.1 nm MoSi,
+/// their 60 nm gaps filled with `detector.fill`; the 13-layer mirror (SiO₂ 266.75 nm and αSi
+/// 141.70 nm, SiO₂ first from the bottom) on silicon (3.476).
+#[cfg(test)]
+pub(crate) fn reddy_grating(detector: Detector) -> crate::mode::rcwa::Grating {
+    use crate::mode::rcwa::{Grating, Layer};
+    use crate::units::Length;
+    let (si, oxide, asi) = (
+        c64::new(3.476, 0.0),
+        c64::new(1.453, 0.0),
+        c64::new(2.735, 0.0),
+    );
+    let nm = |d: f64| Length::um(d * 1e-3);
+    let wires =
+        |n: c64, d: f64| Layer::lamellar(&[(n, nm(80.0)), (detector.fill, nm(60.0))], nm(d));
+    let mut layers = vec![
+        Layer::uniform(asi, nm(detector.top)),
+        Layer::uniform(oxide, nm(detector.oxide)),
+        Layer::uniform(asi, nm(detector.first)),
+        wires(detector.cap, 2.0),
+        wires(detector.mosi, 4.1),
+    ];
+    for k in 0..13 {
+        layers.push(if k % 2 == 0 {
+            Layer::uniform(oxide, nm(266.75))
+        } else {
+            Layer::uniform(asi, nm(141.70))
+        });
+    }
+    Grating::new(nm(140.0), c64::new(1.0, 0.0), &layers, si).expect(OK)
+}
+
+/// The harmonics either side of the zeroth that the detector's RCWA keeps.
+#[cfg(test)]
+pub(crate) const DETECTOR_ORDERS: usize = 20;
+
+/// The detector's (reflectance, absorption) at `nm` for `pol` (TE: E along the wires), the MoSi
+/// at Fig. S3's index there when `dispersive`.
+#[cfg(test)]
+pub(crate) fn detector_at(
+    detector: Detector,
+    pol: crate::mode::Polarization,
+    nm: f64,
+    dispersive: bool,
+) -> (f64, f64) {
+    let d = Detector {
+        mosi: if dispersive {
+            mosi_index(nm)
+        } else {
+            detector.mosi
+        },
+        ..detector
+    };
+    let r = reddy_grating(d)
+        .diffract(pol, um(nm * 1e-3), 0.0, DETECTOR_ORDERS)
+        .expect(OK);
+    (r.reflectance, r.absorption)
+}
+
+/// The detector's reflection minimum for `pol` (`None`: unpolarized, the mean of TE and TM)
+/// between `from` and `to` nm: a 1 nm scan, then golden sections to 0.01 nm. (nm, R, A).
+#[cfg(test)]
+pub(crate) fn detector_minimum(
+    detector: Detector,
+    pol: Option<crate::mode::Polarization>,
+    dispersive: bool,
+    (from, to): (f64, f64),
+) -> (f64, f64, f64) {
+    use crate::mode::Polarization::{Te, Tm};
+    let at = |nm: f64| match pol {
+        Some(p) => detector_at(detector, p, nm, dispersive),
+        None => {
+            let (a, b) = (
+                detector_at(detector, Te, nm, dispersive),
+                detector_at(detector, Tm, nm, dispersive),
+            );
+            ((a.0 + b.0) / 2.0, (a.1 + b.1) / 2.0)
+        }
+    };
+    let steps = (to - from).round() as usize;
+    let best = (0..=steps)
+        .map(|k| {
+            let nm = from + k as f64;
+            (nm, at(nm).0)
+        })
+        .min_by(|a, b| a.1.total_cmp(&b.1))
+        .expect(OK)
+        .0;
+    let golden = (5f64.sqrt() - 1.0) / 2.0;
+    let (mut a, mut b) = ((best - 1.0).max(from), (best + 1.0).min(to));
+    while b - a > 0.01 {
+        let c = b - golden * (b - a);
+        let d = a + golden * (b - a);
+        if at(c).0 < at(d).0 {
+            b = d;
+        } else {
+            a = c;
+        }
+    }
+    let x = (a + b) / 2.0;
+    let (r, absorbed) = at(x);
+    (x, r, absorbed)
+}
+
 /// Reddy et al.'s stack with its MoSi as a whole film: each film's absorption from the flux
 /// between its faces against its Joule heat, k Im(n²) ∫|E|² dz over Re(γ_c), the field inside it
 /// from the films' matrices on 2000 Simpson intervals, TE at normal incidence and at 40°: the
@@ -1349,6 +1586,137 @@ mod figures {
             "reddy parallel: reflection minimum at {} nm, R {:.2e}, A {:.4}",
             best.0, best.1, best.2
         );
+    }
+
+    /// Reddy et al.'s detector patterned, by RCWA: the harmonics, the stack as designed at
+    /// 1550 nm and its reflection minima, with Fig. S3's dispersion, other gap fills, and the
+    /// coating's thicknesses that move the minimum.
+    #[test]
+    #[ignore = "prints the methods page's figures for Reddy et al.'s patterned stack"]
+    fn print_reddy_patterned() {
+        use crate::mode::Polarization::{Te, Tm};
+        let start = std::time::Instant::now();
+        let designed = Detector::designed();
+        for m in [5, 10, 20, 40, 80] {
+            for pol in [Te, Tm] {
+                let d = reddy_grating(designed)
+                    .diffract(pol, um(1.55), 0.0, m)
+                    .expect(OK);
+                eprintln!(
+                    "orders {m} {pol:?} at 1550: R {:.6} A {:.6} T {:.2e}",
+                    d.reflectance, d.absorption, d.transmittance
+                );
+            }
+        }
+        let range = (1300.0, 1800.0);
+        for (name, pol) in [("TE", Some(Te)), ("TM", Some(Tm)), ("unpolarized", None)] {
+            let fixed = detector_minimum(designed, pol, false, range);
+            let disp = detector_minimum(designed, pol, true, (1300.0, 1700.0));
+            eprintln!(
+                "designed {name}: minimum (nm, R, A) at 1550's index {fixed:.4?}, with Fig. S3 {disp:.4?}"
+            );
+        }
+        eprintln!("({:.0} s)", start.elapsed().as_secs_f64());
+        for (name, fill) in [
+            ("SiO2", c64::new(1.453, 0.0)),
+            ("vacuum", c64::new(1.0, 0.0)),
+            ("the cap's 2.274", c64::new(2.274, 0.0)),
+        ] {
+            let d = Detector { fill, ..designed };
+            eprintln!(
+                "fill {name}: TE minimum with Fig. S3 {:.4?}, TM at 1550's index {:.4?}",
+                detector_minimum(d, Some(Te), true, (1300.0, 1700.0)),
+                detector_minimum(d, Some(Tm), false, (1300.0, 1800.0))
+            );
+        }
+        // the coating the other way up: 68 nm on the wires, 50 nm on top
+        let reversed = Detector {
+            top: 50.0,
+            first: 68.0,
+            ..designed
+        };
+        eprintln!(
+            "coating reversed: TE minimum with Fig. S3 {:.4?}, TM at 1550's index {:.4?}",
+            detector_minimum(reversed, Some(Te), true, (1300.0, 1700.0)),
+            detector_minimum(reversed, Some(Tm), false, (1300.0, 1800.0))
+        );
+        // what moves the minimum: one nm more of each coating layer (TE with Fig. S3, TM at
+        // 1550's index, whose minimum lies beyond the figure's 1700 nm)
+        let te0 = detector_minimum(designed, Some(Te), true, (1300.0, 1700.0)).0;
+        let tm0 = detector_minimum(designed, Some(Tm), false, (1300.0, 1800.0)).0;
+        for (name, d) in [
+            (
+                "top aSi",
+                Detector {
+                    top: 69.0,
+                    ..designed
+                },
+            ),
+            (
+                "coating SiO2",
+                Detector {
+                    oxide: 249.7,
+                    ..designed
+                },
+            ),
+            (
+                "first aSi",
+                Detector {
+                    first: 51.0,
+                    ..designed
+                },
+            ),
+        ] {
+            let te = detector_minimum(d, Some(Te), true, (1300.0, 1700.0)).0;
+            let tm = detector_minimum(d, Some(Tm), false, (1300.0, 1800.0)).0;
+            eprintln!(
+                "+1 nm {name}: TE minimum moves {:+.3} nm, TM {:+.3} nm",
+                te - te0,
+                tm - tm0
+            );
+        }
+        for top in [0.0f64, 10.0, 20.0, 30.0, 40.0, 50.0, 60.0, 68.0, 80.0] {
+            let d = Detector {
+                top: top.max(0.01),
+                ..designed
+            };
+            let te = detector_minimum(d, Some(Te), true, (1300.0, 1700.0));
+            let tm = detector_minimum(d, Some(Tm), false, (1300.0, 1800.0));
+            let (a, b) = (
+                detector_at(d, Te, 1550.0, true),
+                detector_at(d, Tm, 1550.0, true),
+            );
+            eprintln!(
+                "top aSi {top} nm: TE minimum {te:.4?}, TM {tm:.4?}; at 1550 (R, A) TE {a:.4?} TM {b:.4?}",
+            );
+        }
+        // the top αSi that puts TE's minimum at 1550 and 1535 nm, by bisection
+        for target in [1550.0, 1535.0] {
+            let (mut lo, mut hi) = (0.01, 68.0);
+            for _ in 0..20 {
+                let mid = (lo + hi) / 2.0;
+                let d = Detector {
+                    top: mid,
+                    ..designed
+                };
+                if detector_minimum(d, Some(Te), true, (1300.0, 1700.0)).0 > target {
+                    hi = mid;
+                } else {
+                    lo = mid;
+                }
+            }
+            let d = Detector {
+                top: (lo + hi) / 2.0,
+                ..designed
+            };
+            eprintln!(
+                "TE minimum at {target}: top aSi {:.2} nm; there (R, A) TE {:.4?} TM {:.4?}",
+                (lo + hi) / 2.0,
+                detector_at(d, Te, target, true),
+                detector_at(d, Tm, target, true)
+            );
+        }
+        eprintln!("({:.0} s)", start.elapsed().as_secs_f64());
     }
 
     #[test]
