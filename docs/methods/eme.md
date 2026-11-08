@@ -1201,9 +1201,26 @@ What it does not do yet (#432):
   propagating one and few more, R stalls 1.3e-3 to 3.5e-3 below. With 220 the gap halves with each
   doubling of the steps, 2.0e-3, 6.0e-4, 3.1e-4 and 1.7e-4 at 100 to 800: first order, as a
   staircase across the window is (the corners are a grating whose depth goes with the step), and
-  the first-order limit of 400 and 800 steps is 2.4e-5 below. It converges to the closed form,
-  but slowly: 800 steps of 220 modes take 128 s on six threads, and the modes' own error is not
-  yet measured at that size, so no case states a bound.
+  the first-order limit of 400 and 800 steps is 2.4e-5 below. The modes' own error, measured at
+  the same steps (R less the closed form):
+
+  | Modes | 200 steps | 400 steps | 800 steps |
+  |---|---|---|---|
+  | 110 | −3.47e-3 | −2.34e-3 | |
+  | 160 | −1.07e-3 | −7.40e-4 | |
+  | 220 | −5.97e-4 | −3.13e-4 | −1.69e-4 |
+  | 320 | −5.09e-4 | −1.63e-4 | −7.00e-5 |
+
+  The two errors don't separate. From 220 to 320 modes R moves by 8.7e-5, 1.5e-4 and 9.9e-5 at
+  200, 400 and 800 steps, as much as a halving of the steps moves it, so the modes still matter
+  at every step tried: a finer staircase has smaller corners, whose scattering takes modes of
+  higher order to hold. With 320 modes the halvings shrink R's gap by 3.1 and then 2.3 times,
+  not the factor of 2 of a first-order error, and the first-order limit of 400 and 800 steps is
+  2.3e-5 above the closed form, where 220 modes' is 2.4e-5 below. So the closed form is reached
+  to about 2e-5, but no rule gives the error of one staircase from its own refinements: neither
+  the steps' halvings nor the modes' added count is in its asymptotic range yet. That makes it a
+  study, not a case. The largest run, 800 steps of 320 modes, takes 506 s on six threads
+  (`PHOX_FACET_MODES` and `PHOX_FACET_STEPS` choose the counts the study runs).
 - **FDTD on tapers is not a case.** The tapers are checked against FDFD on the same staircase
   (`eme/taper-fdfd`, `eme/3d-taper-fdfd`), which solves the same frequency-domain problem the
   expansion does; FDTD would add its time stepping's dispersion, which a stated error needs
