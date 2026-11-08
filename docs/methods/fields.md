@@ -181,35 +181,51 @@ grid couldn't reach is the exact fields' 1.41. The second digit doesn't hold (41
 elements and the multipole method as ways to find a mode's fields but not which one gave Fig. 1,
 so that gap isn't explained yet.
 
-On the grid, the trouble is E at the edge, and taking it from H instead helps but doesn't settle
-it. H is continuous everywhere, so $\mathbf D_t = (i/k)(\nabla\times\mathbf H)_t$, which needs only
-H and $\partial H_z$, has no $1/h$ spike; a cell of one material takes $\mathbf E_t = \mathbf D_t/\varepsilon$.
-A cell the edge crosses can take $\mathbf D_t/\langle\varepsilon\rangle$ (its mean), or be split
-into its two sides by the share of each and the edge's normal $\hat n$, the field along the edge
-$E_\parallel$ the same on both and $D_\perp$ the same on both ($E_\perp = D_\perp/\varepsilon$ on
-each side), with $E_\parallel$ and $D_\perp$ from the cell's own $\mathbf D_t$ or from the cells of
-one material within two of it. $\gamma^V/\gamma^F$ for the same rod, against the exact 1.4127:
+On the grid there are two errors, told apart by giving the fields the exact mode's H at the grid's
+nodes in place of the eigensolver's.
 
-| Grid | Mode's $n_\mathrm{eff}$ (exact 1.691643) | `fields_one_sided` | From D, mean | From D, split | From D, split, from neighbours |
+The first is how a cell gets E from H. Its $H_z$ comes from $\nabla\cdot\mathbf H$ over the cell
+and its $E_z$ from $\nabla\times\mathbf H$; where the edge crosses the cell obliquely, those mix the
+two sides' derivatives, which jump at the edge, and come out O(1) wrong at any grid. With the
+exact H, the cells' $H_z$ is off by up to 0.22, 0.21 and 0.28 (where it is 0.24 to 0.34) at 10, 5
+and 2.5 nm, while $\mathbf H_t$'s error falls (0.11, 0.042, 0.026). A difference of $E_z$ or $H_z$
+across such cells then spikes as $1/h$. What converges takes E from D and smooths what is
+continuous: $\mathbf D_t = (i/k)(\nabla\times\mathbf H)_t$ needs only H and $\partial H_z$, and a
+cell of one material takes $\mathbf E_t = \mathbf D_t/\varepsilon$; in a cell the edge crosses,
+$H_z$ and $E_z$ (both continuous across it) are the mean of the cells of one material within two
+of it, and the cell is split into its two sides by the share of each and the edge's normal
+$\hat n$, with $E_\parallel$ and $D_\perp$ the same on both sides (from the same neighbours),
+$E_\perp = D_\perp/\varepsilon$ on each, and each side's $\lvert\mathbf E\rvert^4$ weighed by its own
+$n^2 n_2$. $\gamma^V/\gamma^F$ for the same rod, against the exact 1.4127:
+
+| Grid | Exact H: `fields_one_sided` | Exact H: smoothed | Eigensolver's mode: $n_\mathrm{eff}$ (exact 1.691643) | Its `fields_one_sided` | Its smoothed |
 |---|---|---|---|---|---|
-| 20 nm | 1.738927 | 1.314 | 1.290 | 1.223 | 1.217 |
-| 10 nm | 1.728079 | 1.663 | 1.343 | 1.298 | 1.290 |
-| 5 nm | 1.719673 | 11.92 | 1.351 | 1.339 | 1.327 |
-| 2.5 nm | 1.714727 | 82.03 | 1.406 | 1.391 | 1.359 |
+| 20 nm | 1.576 | 1.191 | 1.738927 | 1.314 | 1.133 |
+| 10 nm | 1.783 | 1.345 | 1.728079 | 1.663 | 1.284 |
+| 5 nm | 2.460 | 1.394 | 1.719673 | 11.92 | 1.331 |
+| 2.5 nm | 17.71 | 1.408 | 1.714727 | 82.03 | 1.361 |
+| 1.25 nm | 81.69 | 1.4119 | not run | not run | not run |
 
-The fields from D no longer run away, and they head for the exact ratio, but at no steady order
-(the split's error 13 %, 8.1 %, 5.2 %, 1.5 %; the neighbours' 14 %, 8.7 %, 6.1 %, 3.8 %, about
-order 0.6), and Eq. 44's area from them still wanders (from 0.055 to 0.065 µm² and back to
-0.052 µm² by the split, against the exact 0.0802). The mode itself is the limit: its index is
-1.4 % above the exact one at 2.5 nm and converges at order 0.3 to 0.4. Each cell takes the plain
-mean of its permittivity, the average that did best for a thicker silicon rod's index at 1.55 µm
+With the exact H, the smoothed fields converge to the exact ratio at second order (errors 16 %,
+4.8 %, 1.3 %, 0.31 %, 0.059 %; orders 1.7, 1.9, 2.1 and 2.4), and Eq. 44's area with them (0.0681
+to 0.0793 µm², against 0.0802). Leave out the smoothing of $H_z$ and $E_z$ and the split cells
+still run away (1.51 and 2.11 at 2.5 and 1.25 nm with the exact H).
+
+The second error is the mode's own. With the eigensolver's H, the smoothed ratio heads for the
+exact one at order 0.6 to 1.1 (errors 20 %, 9.1 %, 5.8 %, 3.7 %), as slowly as the index does: 1.4 %
+high at 2.5 nm, converging at order 0.3 to 0.4. Each cell takes the plain mean of its
+permittivity, the average that did best for a thicker silicon rod's index at 1.55 µm
 ([stacks.md](stacks.md)), but this rod is near cut-off, where the index rises by 0.13 for each
-10 nm of diameter, and the mean leaves it about a nanometre wider in radius at 5 nm. A converged
-$\bar n_2$ at an oblique interface needs a mode that converges there first, so
-`field_weighted_n2` keeps its one-sided fields, right where the interfaces lie on the grid's lines
+10 nm of diameter, and the mean leaves it about a nanometre wider in radius at 5 nm.
+
+So a converged $\bar n_2$ at an oblique interface needs both: the smoothing above in the library,
+which needs each cell's share and the edge's normal (a cross-section keeps only the averaged
+permittivity), and a mode that converges at an oblique interface. Until then `field_weighted_n2`
+keeps its one-sided fields, right where the interfaces lie on the grid's lines
 (`mode/kerr-index-slab-tm`). The study is
-`mode::quantities_checks::tests::afshar_and_monros_rod_study`, the exact fields
-`mode::quantities_checks::tests::afshar_and_monros_rod_exact`.
+`mode::quantities_checks::tests::afshar_and_monros_rod_study` (`ROD_EXACT_H=1` for the exact H),
+the exact fields `mode::quantities_checks::tests::afshar_and_monros_rod_exact`, and the cells'
+$H_z$ `mode::quantities_checks::tests::rod_exact_h_diagnostic`.
 
 **Which fields.** The integrals take the fields at the cells' centres. From
 `VectorMode::fields_one_sided`, E's normal component keeps its jump at each interface and a
