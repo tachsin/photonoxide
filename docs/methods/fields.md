@@ -8,6 +8,8 @@ papers:
     doi: 10.1109/JLT.2008.923643
   - cite: "S. Afshar V., T. M. Monro, Opt. Express 17, 2298 (2009) (the effective area from S_z, Eq. 41, the standard one, Eq. 44, and the field-weighted n̄₂ of Eqs. 39 and 42)"
     doi: 10.1364/OE.17.002298
+  - cite: "E. Snitzer, J. Opt. Soc. Am. 51, 491 (1961) (the round rod's exact HE₁₁ mode, against which their silicon rod's n̄₂ is checked)"
+    doi: 10.1364/JOSA.51.000491
   - cite: "S. G. Johnson, M. Ibanescu, M. A. Skorobogatiy, O. Weisberg, J. D. Joannopoulos, Y. Fink, Phys. Rev. E 65, 066611 (2002) (first-order perturbation, away from moving boundaries)"
     doi: 10.1103/PhysRevE.65.066611
   - cite: "S. Dwivedi et al., J. Lightwave Technol. 33, 4471 (2015) (silicon wires' measured dn_eff/dT, Fig. 8)"
@@ -158,11 +160,56 @@ averaged permittivity, so $E_z$ steps from cell to cell along a curved edge, and
 $\partial E_z/(i\beta)$ term spikes as $1/h$. Afshar and Monro's silicon rod (3.45 in silica,
 1.45, at 800 nm, $D$ = 150 nm, the HE₁₁ mode on a quarter window) shows it. $\gamma^V/\gamma^F$, their
 $\bar n_2$ over Foster et al.'s $S_z^2$-weighted $n_2$, is 1.31, 1.66, 11.9 and 82 at 20, 10, 5
-and 2.5 nm. Eq. 44's area falls 30-fold over the same grids, while Eq. 41's moves by 12 %. Their
-Fig. 1c and its text give 1.4 for that ratio at that diameter, which needs E at a curved interface
-that converges. Neither the central differences of `fields` nor a staircased rod give it (1.45,
-1.86, 11.6 and 2.33, 5.50, 24.6 at 20, 10 and 5 nm). The study is
-`mode::quantities_checks::tests::afshar_and_monros_rod_study`.
+and 2.5 nm. Eq. 44's area falls 30-fold over the same grids, while Eq. 41's moves by 12 %.
+Neither the central differences of `fields` nor a staircased rod do better (1.45, 1.86, 11.6 and
+2.33, 5.50, 24.6 at 20, 10 and 5 nm).
+
+The rod's exact fields give what the paper does. A round rod is the step-index fibre (Snitzer
+1961), whose HE₁₁ fields are Bessel functions in closed form ($E_z$ and $H_z$ as $J_1$ inside and
+$K_1$ outside, the index from the fibre's eigenvalue equation, the transverse fields from $E_z$
+and $H_z$). Through Eqs. 39, 41 and 48 they give:
+
+| Their text (Section 3) | The exact fields |
+|---|---|
+| $\gamma^V$ and $\gamma^F$ differ by at most 40 %, at $D$ = 0.15 µm | 41.3 % at 0.15 µm (38.6 % at 0.14 µm, 37.4 % at 0.16 µm) |
+| 14 % between the two curves' maxima | 15.2 %: $\gamma^V$ 1384 W⁻¹m⁻¹ at 0.19 µm, $\gamma^F$ 1201 at 0.20 µm (on a 0.01 µm step) |
+| $\gamma^V$ twice $\gamma^S$ (Eq. 47, Agrawal's) at $D$ = 0.19 µm | 2.09 |
+
+So our reading of their equations gives their numbers to the first digit, and the 1.4 that the
+grid couldn't reach is the exact fields' 1.41. The second digit doesn't hold (41.3 against 40,
+15.2 against 14). Their curves are fits through their computed points, and the paper names finite
+elements and the multipole method as ways to find a mode's fields but not which one gave Fig. 1,
+so that gap isn't explained yet.
+
+On the grid, the trouble is E at the edge, and taking it from H instead helps but doesn't settle
+it. H is continuous everywhere, so $\mathbf D_t = (i/k)(\nabla\times\mathbf H)_t$, which needs only
+H and $\partial H_z$, has no $1/h$ spike; a cell of one material takes $\mathbf E_t = \mathbf D_t/\varepsilon$.
+A cell the edge crosses can take $\mathbf D_t/\langle\varepsilon\rangle$ (its mean), or be split
+into its two sides by the share of each and the edge's normal $\hat n$, the field along the edge
+$E_\parallel$ the same on both and $D_\perp$ the same on both ($E_\perp = D_\perp/\varepsilon$ on
+each side), with $E_\parallel$ and $D_\perp$ from the cell's own $\mathbf D_t$ or from the cells of
+one material within two of it. $\gamma^V/\gamma^F$ for the same rod, against the exact 1.4127:
+
+| Grid | Mode's $n_\mathrm{eff}$ (exact 1.691643) | `fields_one_sided` | From D, mean | From D, split | From D, split, from neighbours |
+|---|---|---|---|---|---|
+| 20 nm | 1.738927 | 1.314 | 1.290 | 1.223 | 1.217 |
+| 10 nm | 1.728079 | 1.663 | 1.343 | 1.298 | 1.290 |
+| 5 nm | 1.719673 | 11.92 | 1.351 | 1.339 | 1.327 |
+| 2.5 nm | 1.714727 | 82.03 | 1.406 | 1.391 | 1.359 |
+
+The fields from D no longer run away, and they head for the exact ratio, but at no steady order
+(the split's error 13 %, 8.1 %, 5.2 %, 1.5 %; the neighbours' 14 %, 8.7 %, 6.1 %, 3.8 %, about
+order 0.6), and Eq. 44's area from them still wanders (from 0.055 to 0.065 µm² and back to
+0.052 µm² by the split, against the exact 0.0802). The mode itself is the limit: its index is
+1.4 % above the exact one at 2.5 nm and converges at order 0.3 to 0.4. Each cell takes the plain
+mean of its permittivity, the average that did best for a thicker silicon rod's index at 1.55 µm
+([stacks.md](stacks.md)), but this rod is near cut-off, where the index rises by 0.13 for each
+10 nm of diameter, and the mean leaves it about a nanometre wider in radius at 5 nm. A converged
+$\bar n_2$ at an oblique interface needs a mode that converges there first, so
+`field_weighted_n2` keeps its one-sided fields, right where the interfaces lie on the grid's lines
+(`mode/kerr-index-slab-tm`). The study is
+`mode::quantities_checks::tests::afshar_and_monros_rod_study`, the exact fields
+`mode::quantities_checks::tests::afshar_and_monros_rod_exact`.
 
 **Which fields.** The integrals take the fields at the cells' centres. From
 `VectorMode::fields_one_sided`, E's normal component keeps its jump at each interface and a
