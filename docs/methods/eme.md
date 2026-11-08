@@ -1193,7 +1193,17 @@ What it does not do yet (#432):
   the axis is an interface that leans across the window, which sections normal to z only
   staircase. A tilted beam on a normal interface is the same problem only for uniform media on
   both sides (a guide's facet is not), so an angled facet's reflection back into a guide waits for
-  a staircase study with its own convergence, or for a rotated frame.
+  a staircase with an error bound of its own, or for a rotated frame. Measured on the simplest
+  one (`study_an_angled_facet` in the beam's cases, ignored): `eme/beam-fresnel`'s 3 µm beam square
+  on, TE, meeting 2.0 across a facet tilted by 10° in the same 40 µm window, the facet as 50 to
+  800 sections, against Fresnel's $r_s$ over the beam's angular spectrum in its own frame, each
+  plane wave meeting the facet at its own angle plus 10° (R = 0.0273777). With 110 modes, every
+  propagating one and few more, R stalls 1.3e-3 to 3.5e-3 below. With 220 the gap halves with each
+  doubling of the steps, 2.0e-3, 6.0e-4, 3.1e-4 and 1.7e-4 at 100 to 800: first order, as a
+  staircase across the window is (the corners are a grating whose depth goes with the step), and
+  the first-order limit of 400 and 800 steps is 2.4e-5 below. It converges to the closed form,
+  but slowly: 800 steps of 220 modes take 128 s on six threads, and the modes' own error is not
+  yet measured at that size, so no case states a bound.
 - **FDTD on tapers is not a case.** The tapers are checked against FDFD on the same staircase
   (`eme/taper-fdfd`, `eme/3d-taper-fdfd`), which solves the same frequency-domain problem the
   expansion does; FDTD would add its time stepping's dispersion, which a stated error needs
