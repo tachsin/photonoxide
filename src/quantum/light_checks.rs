@@ -267,7 +267,7 @@ pub(crate) fn cases() -> Vec<Case> {
             id: "quantum/broadband-mismatched",
             title: r"Quantum: one frequency each with a phase mismatch $\Delta k L/2$ = 1 and coupling $\kappa L$ = 3, on 1000 slices: $\lvert B \rvert$ against the phase-mismatched amplifier's $\kappa L \sinh(gL)/gL$, $gL = \sqrt{(\kappa L)^2 - (\Delta k L/2)^2}$ (relative, shown)",
             tier: Tier::Analytic,
-            source: "d a/dz = κ e^{iΔkz} b†, d b†/dz = κ e^{−iΔkz} a: |B(L)| = (κ/g) sinh gL, g² = κ² − (Δk/2)²",
+            source: "d a/dz = κ e^{iΔkz} b†, d b†/dz = κ e^{−iΔkz} a: B(L) has the modulus (κ/g) sinh gL, g² = κ² − (Δk/2)²",
             run: broadband_mismatched,
         },
         Case {
