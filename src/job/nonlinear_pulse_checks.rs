@@ -161,8 +161,8 @@ fn relative(ours: f64, theirs: f64, tolerance: f64) -> Outcome {
     Outcome {
         measured: ours,
         expected: theirs,
-        tolerance,
-        error: ((ours - theirs) / theirs).abs(),
+        tolerance: tolerance * theirs.abs(),
+        error: (ours - theirs).abs(),
     }
 }
 
