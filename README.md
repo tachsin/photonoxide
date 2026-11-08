@@ -57,7 +57,7 @@ It is released milestone by milestone ([changelog](CHANGELOG.md), [roadmap](ROAD
 - **Materials:** [dispersion models](docs/methods/materials.md) with their source, validity range
   and temperature; a [catalogue](docs/methods/catalogue.md) of Si, SiO₂, SiN, GaAs, AlGaAs,
   InGaP, InP, AlN, AlGaN, LiNbO₃ and MgO:LiNbO₃, BaTiO₃ and LiTaO₃, and the phase-change
-  Sb₂Se₃, Sb₂S₃ and Ge₂Sb₂Te₅ in both states, and the detector film NbN, with χ⁽²⁾ and Pockels tensors, transparency
+  Sb₂Se₃, Sb₂S₃ and Ge₂Sb₂Te₅ in both states, and the detector films NbN and MoSi, with χ⁽²⁾ and Pockels tensors, transparency
   windows, and the Kerr coefficients of Si, SiN, LiNbO₃ and AlN.
 - **Geometry for any device:** [shapes](docs/methods/geometry.md) kept exact, from paths with
   Euler bends to regions defined by [expressions](docs/methods/expressions.md);
