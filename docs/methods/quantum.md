@@ -649,9 +649,12 @@ carries $(\beta/2k_0)\int\lvert E_z\rvert^2$ each way.
 The films' optical constants are the detectors' and emitters' material data, and they enter the
 catalogue with their provenance when a reproduction needs them (the plan's decision 6). NbN is
 there: `nbn`, Anant et al.'s room-temperature ellipsometry of a 12 nm film from 0.6 to 1.65 µm,
-with its caveats (the materials catalogue page). WSi, MoSi and low-temperature GaAs are not, as
-their papers are not in hand. Reddy et al.'s MoSi index above is their own estimate at 1550 nm,
-used for a check, not a catalogue entry.
+with its caveats (the materials catalogue page). WSi and low-temperature GaAs are not, as their
+papers are not in hand. MoSi isn't either: Reddy et al.'s index above is their fit at 1550 nm of
+a 4.1 nm film under a 2 nm silicon cap, from spectrophotometric transmission and reflection
+(Supplement 1, Section 2), used for a check. Their Fig. S3 gives that film's $n$ and $\kappa$ from
+1300 to 1700 nm (about 5.44 + 5.56i to 6.05 + 6.28i), which a catalogue entry for MoSi could take
+up, with the caveat that it is one film's fit and not a measurement of the material alone.
 
 ## What it is checked against
 
@@ -855,9 +858,22 @@ $9.8 \times 10^{-7}$ on 8, 4 and 2 nm nodes (`quantum/detector-film-slab`,
 |---|---|---|
 | Varnava et al. 2008, the threshold from their loss model | $\eta_S \eta_D > 2/3$ | 2/3 to round-off |
 | Bartolucci et al. 2023, loss per fusion from 2.7% per photon, $p_\text{fail} = 1/4$ | 10.4% | 10.37% |
-| Qi et al. 2020 on Paesani et al.'s 2019 chip (Nat. Phys. 15, 925, doi:10.1038/s41567-019-0567-8, their ref. 48) ($K$ = 4, $r$ = 0.1, $\eta$ = 0.088, $\eta_D$ = 0.78, $p_D$ = 1e-4) | simulable "with error 2%" | $\epsilon^*$ = 0.0224 |
-| Qi et al. 2020 on Zhong et al.'s 2019 sampler (Sci. Bull. 64, 511, doi:10.1016/j.scib.2019.04.007, their ref. 49) ($K$ = 6, $r$ = 0.38, $\eta$ = 0.89, $\eta_D$ = 0.82, $p_D$ = 1e-4) | "no solution for any ε ∈ [0, 1]" | $\epsilon^*$ = 1.10 |
+| Qi et al. 2020 on Paesani et al.'s 2019 chip (Nat. Phys. 15, 925, doi:10.1038/s41567-019-0567-8, their ref. 48) ($K$ = 4 and $\eta_D$ = 0.78 from the article; $r$ = 0.1, $\eta$ = 0.088 and $p_D$ = 1e-4 as Qi et al. take them) | simulable "with error 2%" | $\epsilon^*$ = 0.0224 |
+| Qi et al. 2020 on Zhong et al.'s 2019 sampler (Sci. Bull. 64, 511, doi:10.1016/j.scib.2019.04.007, their ref. 49) ($K$ = 6, $r$ = 0.38 and $\eta_D$ = 0.75 from the article; $\eta$ = 0.89 and $p_D$ = 1e-4 as Qi et al. take them) | "no solution for any ε ∈ [0, 1]" | $\epsilon^*$ = 1.10 |
 | Silverstone et al. 2013, the on-chip fringe of degenerate pairs (Fig. 2e) | V = 100.0 ± 0.4% | 99.99996% |
+
+**Qi et al.'s inputs.** Qi et al. give both experiments' parameters in their text (p. 100502-2);
+"error 2%" and "no solution" are their own results. Of Paesani et al.'s, $K = 4$ squeezed modes
+and detectors of about 78% efficiency are in the article (PDF p. 1 of its first release, which
+carries no page numbers); $r \approx 0.1$ and $\eta = 0.088$ are not, as it prints no squeezing
+value or loss budget, so they would come from its Supplementary Information, which we haven't
+read. The case uses Qi et al.'s values for them. Of Zhong et al.'s, $K = 6$ and $r \approx 0.38$
+(the mean of their 0.365, 0.363 and 0.418, p. 513) are in the article. Its 12 detectors average
+75% at 1550 nm (p. 512), where Qi et al. take $\eta_D = 0.82$, and it gives no transmission:
+$\eta = 0.89$ is Qi et al.'s estimate, 0.99 for the interferometer times an assumed 0.9 for the
+coupling to the detectors (their note 51). The case uses the article's 0.75; with Qi et al.'s
+0.82 the sampler's $\epsilon^*$ is 1.1023 instead of 1.1022, so the result doesn't move. The
+dark-count probability, $p_D = 10^{-4}$, is Qi et al.'s figure for typical nanowire detectors.
 
 **Silverstone et al.'s chip.** Their device (p. 104 and Methods) is two 5.2 mm spirals of a
 470 × 220 nm silicon strip in silica between two 2 × 2 MMIs of "reflectivity ~50%", a thermal
@@ -931,14 +947,31 @@ depth and its cladding aren't stated, and we take a fully etched strip under air
 from an ignored test, `quantum::real_checks::figures::print_pernice`. The case stays open until
 the gap is explained, without a looser tolerance.
 
-- **Reddy et al. 2020's stack.** Their stack (p. 1650) as planar films at 1550 nm, the MoSi
-  nanowires (80 nm wide, fill 0.57) as an effective medium of their MoSi index and the αSi that
-  fills the gaps, absorbs 0.705 for E along the wires (reflecting 0.295) and 0.063 across them; a
-  whole MoSi film 0.757. They designed the stack for "near-unity photon absorption into the
-  nanowire" by RCWA of the meander and measured 98.0 ± 0.5% system detection efficiency; their
-  simulated absorption for this stack isn't given (Supplement 1, Section 2, not in the papers
-  folder). Ours is far below near-unity, so the planar effective medium, the films' order as read
-  from their text, or the indices aren't what their design used. Not a case.
+- **Reddy et al. 2020's stack.** They designed the stack (p. 1650) for "near-unity photon
+  absorption into the nanowire" by RCWA of the meander and measured 98.0 ± 0.5% system detection
+  efficiency. Their Supplement 1 (Section 2, pp. 2–3 of the supplement) gives the indices at
+  1550 nm: SiO₂ 1.453 and αSi 2.735, MoSi (n, κ) = (5.817, 6.033) fitted to a 4.1 nm film, and the
+  2 nm sputtered Si cap a real index of 2.274. The anti-reflection coating as designed, αSi 50 nm,
+  SiO₂ 248.7 nm and αSi 68 nm, gave reflection minima at 1530–1540 nm near the wafer's centre;
+  short further depositions then tuned the top αSi in situ for minima at 1550 nm, its final
+  thickness not given. A single pass through the wire layer absorbs 0.057 to 0.1 by their
+  estimate, so 45 to 80 passes reach 99%. The supplement gives no simulated absorption or
+  reflectance of the stack.
+
+  Ours takes their films as planar, the coating as designed, the MoSi nanowires (80 nm wide at
+  140 nm pitch, fill 80/140) as an effective medium of their MoSi index and the αSi that fills
+  the gaps. At 1550 nm it absorbs 0.715 for E along the wires (reflecting 0.284), 0.065 across
+  them, and a whole MoSi film 0.763 (with the cap at αSi's 2.735 instead, 0.706 along the wires).
+  Its reflection minimum along the wires is at 1678.25 nm on a 0.25 nm grid, where the wires
+  absorb 0.998, the MoSi index held at 1550 nm's; with Fig. S3's dispersion, read from the
+  figure's curves, the minimum is at 1679.75 nm and the absorption 0.999 (the same
+  transfer-matrix arithmetic outside the library). So the planar picture does reach near-unity,
+  but about 145 nm to the red of their coating's 1530–1540 nm: some layer's thickness or index
+  as we read it differs from what was built. A patterned model would settle it: RCWA or FDTD of the 80 nm MoSi wires at 140 nm
+  pitch with the 60 nm gaps filled by the coating's first αSi, the 2 nm cap, both polarizations
+  at normal incidence, the 13-layer mirror, Fig. S3's dispersion, and the top αSi fitted to their
+  1550 nm minimum. Not a case; the planar figures come from an ignored test,
+  `quantum::real_checks::figures::print_reddy`.
 
 ## Limits
 
