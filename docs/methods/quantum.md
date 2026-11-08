@@ -778,6 +778,27 @@ with their own fit; from the two measured levels alone the squeezing before the 
   their Fig. 3's line reads about 0.84 at $Q_{SI}/Q_P = 0.5$ and 0.93 at 1 against our 0.800 and
   0.917. Their purities sit above ours by about the same margin at every ratio; the full device
   simulation behind their markers isn't given in the letter. Not a case until it closes.
+
+  A likely cause is the frequency window. Eq. 3's residual correlation at a ratio of 6.6 lies in
+  the Lorentzians' tails, so $K$ depends on how far the integrals reach. The letter only says they
+  reach "the full extent of the corresponding resonance". With the signal's and idler's
+  frequencies each cut at ±$w$ of their linewidths (FWHM), the same model gives:
+
+  | $w$ | Equal Q | Ratio 6.6 |
+  |---|---|---|
+  | 3.5 | 1.0820 | 1.00070 |
+  | 4.0 | 1.0845 | 1.00088 |
+  | 4.2 | 1.0852 | 1.00095 |
+  | 5 | 1.0873 | 1.00122 |
+  | 10 | 1.0904 | 1.00244 |
+  | none | 1.0909 | 1.0033 |
+
+  A window of about ±4 linewidths gives both the text's 1.08 and Fig. 2(b)'s 1.0009. With no
+  window the same model gives Fig. 2(a)'s 1.09. These numbers come from Eq. 3 with a pump far
+  broader than its resonance, on 481 points, computed outside the library. The last row is
+  the library's ring model's 1.0033 above. The window doesn't explain Fig. 3's line: at a
+  ratio of 0.5 a ±4 window gives 0.804, against about 0.84. Without the authors' window this
+  stays a likely cause, not a match.
 - **Paesani et al.'s inter-modal source.** Their guide is 2 × 0.22 µm silicon in silica, 11 mm
   long, pumped in TM₀ and TM₁, the signal in TM₁ and the idler in TM₀, measured at 1588 and
   1516 nm (Supplementary Note 1a, p. 2). Their measured purity is 0.9904 ± 0.0006 with the delay
