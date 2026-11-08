@@ -87,7 +87,7 @@ fn refusal(holder: Holder, name: &str) -> String {
             `modes`, `window_um`, `walls`, `symmetric`, `pml`, `cladding`, `core`, `section`, \
             `plane`, `stack`, `core_nm`, `bottom_oxide_um`, `layer`, `x_um`, `rect`, `circle`, \
             `ring`, `path`, `shape`, `adaptive`, `bend_step_nm`, `convergence`, `sweep`, `interpolate`, \
-            `period`"
+            `period`, `beam`"
             .to_owned(),
         (Holder::Device, "spectrum") => format!("`kind`, {GRIDS}, `export`"),
         (Holder::Device, "sweep" | "corners") => {
