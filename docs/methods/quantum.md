@@ -994,7 +994,26 @@ the gap is explained, without a looser tolerance.
   figure's curves, the minimum is at 1679.75 nm and the absorption 0.999 (the same
   transfer-matrix arithmetic outside the library). So the planar picture does reach near-unity,
   but about 145 nm to the red of their coating's 1530–1540 nm: some layer's thickness or index
-  as we read it differs from what was built. A patterned model would settle it: RCWA or FDTD of the 80 nm MoSi wires at 140 nm
+  as we read it differs from what was built.
+
+  We checked the readings one at a time, along the wires, with the same transfer matrices outside
+  the library (they give 1678.2 nm and 0.715 at 1550 nm, as ours). The mirror's layers are their
+  quarter waves (1550/(4 × 1.453) = 266.7 nm, 1550/(4 × 2.735) = 141.7 nm), 13 of them starting and
+  ending with SiO₂, and the coating's order is the order deposited (αSi 50 nm on the wires, 68 nm
+  on top), so neither is a misreading. The other readings move the minimum the wrong way or too
+  little: the coating upside down (68 nm on the wires) 1706 nm; no cap 1672 nm; light from glass
+  (n 1.45) 1712 nm, or from glass across a 100 nm air gap (the fibre spacers' height) 1664 nm; the
+  index across the wires 1709 nm; a whole MoSi film 1687 nm; MoSi's n and κ swapped 1700 nm. With
+  no coating the minimum is at 1550 nm (absorption 0.958), so the mirror and the film are tuned to
+  1550 nm and the shift is the coating's. To reach 1530–1540 nm alone, the top αSi would need 22 to
+  24 nm instead of 68 (its minimum then reflects 0.15), the bottom αSi about 20 nm instead of 50 (1535.5 nm),
+  or the coating's SiO₂ about 175 nm instead of 248.7 (170 nm gives 1521 nm, 180 nm 1543.5 nm).
+  248.7 nm as an optical thickness, 171.2 nm of SiO₂, would give 1524 nm, but the paper gives every
+  other thickness as a physical one, so that reading isn't claimed. A coating that absorbs all at
+  1550 nm on this mirror is, by a search on 2 to 4 nm steps, αSi 102 nm, SiO₂ 128 nm and αSi 60 nm
+  from the top: nothing near the printed one.
+
+  A patterned model would settle it: RCWA or FDTD of the 80 nm MoSi wires at 140 nm
   pitch with the 60 nm gaps filled by the coating's first αSi, the 2 nm cap, both polarizations
   at normal incidence, the 13-layer mirror, Fig. S3's dispersion, and the top αSi fitted to their
   1550 nm minimum. Not a case; the planar figures come from an ignored test,
