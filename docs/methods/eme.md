@@ -289,6 +289,37 @@ task:
     - { name: output, length_um: 0.0, core_um: 0.7 }
 ```
 
+The run records, after the solver's settings, the sections along the structure
+(`eme_sections`: each one's name, kind, start, length, steps, a bend's radius and angle, a
+period's repeats; a device's or a drawing's cut planes as `cut 1`, `cut 2`, ...).
+
+### From Python
+
+`photonoxide.eme(job)` (the façade's `facade::eme`) runs any `eme` job, 2D or 3D, without a
+folder and returns what its run records: the solver's settings, the sections, S between the
+guided modes at the two ends at each wavelength (`points`, each with its ports, their effective
+indices and S as an `(n, n)` array), the convergence studies, the estimated errors and a
+period's Bloch modes. Every number is the run's to the bit (the façade's conformance cases
+check Python against Rust).
+
+```python
+import photonoxide as phox
+
+e = phox.eme("jobs/eme-taper.yaml")
+print([(s.name, s.kind, s.length_um) for s in e.sections])
+wavelengths, t = e.transmission("2 TE0", "1 TE0")
+print(f"|S21|^2 = {t[0]:.6f} at {wavelengths[0]} um")
+for study in e.studies:
+    print(study.label, study.values[-1], "converged" if study.converged else study.reason)
+```
+
+### In the studio
+
+An `eme` run's page shows its sections along the structure as a strip to scale (each kind its
+own colour, a period's sections marked with their repeats), its S-parameters over wavelength
+as |S|² in dB between the guided modes, with an interpolated sweep's estimated error and the
+wavelengths it solved, and each convergence study's values against its modes, steps or layers.
+
 ## Sections in 3D
 
 A real taper, MMI or Y-branch is a cross-section in x and y that changes along z. `Eme3d` takes
@@ -1014,10 +1045,10 @@ What it does not do yet (#432):
   ([above](#sections-in-3d)).
 - **Sections are described or cut from a geometry:** a job gives straights and tapers of a core
   or of layers in 2D, or strips on a plane in 3D, or cuts a `[device]` or its own drawing into
-  planes ([a device's sections](#a-devices-sections), [a job's own drawing](#a-jobs-own-drawing));
-  a façade function of its own and a view of its own in the studio (which shows its scene and
-  S-parameters as any job's, a device's job opening on the device's page) are to come. The
-  Python package runs it as any job, through `run_job`. A device or a drawing is cut along x
+  planes ([a device's sections](#a-devices-sections), [a job's own drawing](#a-jobs-own-drawing)),
+  and Python and the studio take what a run records ([from Python](#from-python),
+  [in the studio](#in-the-studio)); nothing builds sections from a GDS file's cells yet. A
+  device or a drawing is cut along x
   only, its ports facing ±x; a sloped etch's walls, which lean with z, are cut in steps, not
   exactly; the cut takes no bodies over the stack, and a drawing takes no `[[task.component]]`
   (a component's ports face any way, the cut's two ends only ±x).

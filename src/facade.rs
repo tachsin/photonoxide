@@ -31,7 +31,10 @@
 //!   [`device_fabrication`], its job, [`device_fabrication_job`], and its files,
 //!   [`export_fabrication`];
 //! - a `"nonlinear"` job's process, what its run records computed without a folder (its setup,
-//!   phase-matching map, efficiency along the length and pairs), [`nonlinear`].
+//!   phase-matching map, efficiency along the length and pairs), [`nonlinear`];
+//! - an `"eme"` job's expansion ([`crate::eme`]), what its run records computed without a
+//!   folder (the solver's settings, the sections, S at each wavelength, the convergence
+//!   studies, the estimated errors and a period's Bloch modes), [`eme`].
 //!
 //! Its conventions:
 //!
@@ -54,6 +57,7 @@
 mod circuit;
 mod conformance;
 mod device;
+mod eme;
 mod fabrication;
 mod mask;
 mod nonlinear;
@@ -82,6 +86,7 @@ pub use device::{
     ValidityRange, device_derived, device_geometry, device_job, device_spectrum,
     device_spectrum_until, devices, stacks,
 };
+pub use eme::{EmeBloch, EmeError, EmePoint, EmeSectionInfo, EmeSolution, EmeStudy, eme};
 pub use fabrication::{
     DeviceFabrication, device_fabrication, device_fabrication_from, device_fabrication_job,
     device_fabrication_job_from, export_fabrication, export_fabrication_from,

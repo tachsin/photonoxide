@@ -852,6 +852,23 @@ export interface PairSpectrum {
   matching: string;
 }
 
+/** A section of an "eme" job's structure, in order along it (photonoxide::job::EmeSection). */
+export interface EmeSection {
+  name: string;
+  /** "straight", "taper", "bend", or "cut" for a plane cut from a device or a drawing. */
+  kind: string;
+  /** Where it starts along the structure, µm: a period's section at its first period's place. */
+  start_um: number;
+  /** Its length, µm; a bend's along the arc at the window's middle. */
+  length_um: number;
+  /** The cross-sections it is solved in at the job's own settings. */
+  steps: number;
+  radius_um: number | null;
+  angle_deg: number | null;
+  /** How many times it is repeated: a period's count, 1 otherwise. */
+  repeats: number;
+}
+
 export type Event =
   | { type: "started"; job: string; kind: string }
   | { type: "nonlinear_setup"; setup: NonlinearSetup }
@@ -863,6 +880,7 @@ export type Event =
   | { type: "quantum_dip"; dip: QuantumDip }
   | { type: "quantum_budget"; budget: QuantumBudget }
   | { type: "quantum_squeezed"; squeezed: QuantumSqueezed }
+  | { type: "eme_sections"; sections: EmeSection[] }
   | ChipEvent
   | ChipStudy
   | ChipPoint

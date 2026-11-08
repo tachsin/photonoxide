@@ -852,4 +852,10 @@ pub enum Event {
         /// estimate of its error) and why it stopped.
         refined: crate::convergence::Refined,
     },
+    /// An `"eme"` job's sections along its structure, recorded after its [`Event::Solver`]: the
+    /// job's straights, tapers and bends in order, or a `[device]`'s or a drawing's cut planes.
+    EmeSections {
+        /// The sections, in order along the structure.
+        sections: Vec<super::EmeSection>,
+    },
 }

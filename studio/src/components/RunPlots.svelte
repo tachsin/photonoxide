@@ -12,6 +12,7 @@
   import Plot from "./Plot.svelte";
   import RasterView from "./RasterView.svelte";
   import StaticFields from "./StaticFields.svelte";
+  import EmeRun from "./eme/EmeRun.svelte";
   import NonlinearResults from "./nonlinear/NonlinearResults.svelte";
   import QuantumRun from "./chip/QuantumRun.svelte";
   import TemperatureInTime from "./TemperatureInTime.svelte";
@@ -127,7 +128,7 @@
 </script>
 
 <div class="mx-auto max-w-6xl space-y-6 p-6">
-  {#if !run.pictures.length && !run.modes.length && !run.sweep && !run.fields.length && !run.sparams.length && !run.frames.length && !Object.keys(run.spectra).length && !run.device && !run.study && !run.optimization && !run.statics.length && !run.staticResult && !run.staticSteps.length && !run.nonlinear.setup && !Object.values(run.quantum).some(Boolean)}
+  {#if !run.pictures.length && !run.modes.length && !run.sweep && !run.fields.length && !run.sparams.length && !run.frames.length && !Object.keys(run.spectra).length && !run.device && !run.study && !run.optimization && !run.statics.length && !run.staticResult && !run.staticSteps.length && !run.nonlinear.setup && !Object.values(run.quantum).some(Boolean) && !run.eme.sections}
     <div class="grid h-64 place-items-center text-sm faint">
       {run.finished ? "This run recorded nothing to plot." : "Waiting for the first results…"}
     </div>
@@ -261,7 +262,14 @@
     </section>
   {/if}
 
-  {#if run.sparams.length}
+  {#if run.job?.kind === "eme" && (run.eme.sections || run.sparams.length || run.eme.studies.length)}
+    <section class="panel space-y-4 p-5">
+      <h3 class="font-semibold">Eigenmode expansion <span class="font-normal faint">· {run.solver?.module === "eme 3d" ? "3D, sections on a plane" : "2D, slab sections"}</span></h3>
+      <EmeRun record={run.eme} sparams={run.sparams} errors={run.errors} />
+    </section>
+  {/if}
+
+  {#if run.sparams.length && run.job?.kind !== "eme"}
     {@const first = tabled}
     <section class="panel p-5">
       <div class="flex items-center gap-3">

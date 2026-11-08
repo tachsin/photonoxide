@@ -196,6 +196,13 @@ in a drawer opened from the status bar.
     resonances come in a table with their Q. The side panel has the time, the steps, the field
     left against the stopping rule, the speed and the frames' share of the run's time; the 3D
     view paints the frame shown on its plane.
+  - **An eme run** (eigenmode expansion, 2D or 3D) opens on the 2D view: its sections along
+    the structure as a strip to scale (straights, tapers, bends and a device's cut planes each
+    in their own colour, a period dashed with its count) with a table of each one's start,
+    length and steps; its S-parameters over wavelength between the guided modes, by the ports'
+    names, in power or dB, an interpolated sweep's solved wavelengths marked and its estimated
+    error beside; and each convergence study's values against its modes, steps or bends' layers,
+    with its verdict. All of it is what the run recorded.
   - **Fabrication** (beside 3D and 2D, for a run of a design: a device's job, or a structure
     task's layers and shapes): how the run's design would be made, from the bare wafer, with
     the Fabrication page's own 2D and 3D views and timeline (the same component), the step shown

@@ -109,6 +109,13 @@ __all__ = [
     "export_fabrication",
     "Nonlinear",
     "nonlinear",
+    "Eme",
+    "EmeSection",
+    "EmePoint",
+    "EmeStudy",
+    "EmeError",
+    "EmeBloch",
+    "eme",
 ]
 
 core_version: str = _native.core_version
@@ -1573,4 +1580,175 @@ def nonlinear(job: Job, *, timeout_s: float | None = 3600.0) -> Nonlinear:
         phase_map=None if p["phase_map"] is None else json.loads(p["phase_map"]),
         efficiency=None if p["efficiency"] is None else json.loads(p["efficiency"]),
         pair_spectrum=None if p["pair_spectrum"] is None else json.loads(p["pair_spectrum"]),
+    )
+
+
+# --- an eigenmode expansion -----------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class EmeSection:
+    """A section of an ``"eme"`` job's structure, in order along it (:class:`Eme`)."""
+
+    name: str
+    """Its name: the job's own (``"section 2"`` where it gives none), or a cut plane's,
+    ``"cut 3"``."""
+    kind: str
+    """``"straight"``, ``"taper"``, ``"bend"``, or ``"cut"`` for a plane cut from a
+    ``[device]`` or the job's own drawing."""
+    start_um: float
+    """Where it starts along the structure, µm: its first period's place for a section of
+    ``[task.period]``."""
+    length_um: float
+    """Its length, µm; a bend's along the arc at the window's middle."""
+    steps: int
+    """The cross-sections it is solved in at the job's own settings: a taper's steps, 1
+    otherwise."""
+    radius_um: float | None
+    """A bend's radius to the window's middle, µm."""
+    angle_deg: float | None
+    """A bend's angle, degrees."""
+    repeats: int
+    """How many times it is repeated: ``[task.period]``'s count, 1 otherwise."""
+
+
+@dataclass(frozen=True)
+class EmePoint:
+    """The S-parameters at one wavelength, between the guided modes at the two ends
+    (:class:`Eme`)."""
+
+    wavelength_um: float
+    """The wavelength, µm."""
+    ports: list[str]
+    """The ports' modes, the first end's then the last's, e.g. ``"1 TE0"``, ``"2 m1"``."""
+    effective_index: np.ndarray
+    """Each port mode's effective index (its real part), ``(n,)``."""
+    s: np.ndarray
+    """The S-matrix, complex ``(n, n)``: ``s[q, p]`` from port mode p into q."""
+
+
+@dataclass(frozen=True)
+class EmeStudy:
+    """A convergence study of the expansion (``[task.convergence]``): its modes, its steps or a
+    bend's layers refined until the quantity changed by less than the tolerance."""
+
+    label: str
+    """What was studied."""
+    wavelength_um: float
+    """The wavelength, µm."""
+    grids: np.ndarray
+    """Each grid, coarsest first, as recorded: a spacing, µm, or one over a count (1/modes for
+    a study of the modes)."""
+    values: np.ndarray
+    """The quantity on each grid."""
+    value: float
+    """The value reported: the finest grid's, or Richardson's limit where the order is known."""
+    tolerance: float | None
+    """The tolerance it was driven to."""
+    error: float | None
+    """Its estimated error; ``None`` where the grids don't show it."""
+    order: float | None
+    """The observed order, from three grids converging monotonically."""
+    converged: bool
+    """Whether it reached the tolerance."""
+    reason: str
+    """The verdict in words."""
+
+
+@dataclass(frozen=True)
+class EmeError:
+    """An estimated error of the expansion: the adaptive steps' at a wavelength, or the
+    interpolation's over a sweep (:class:`Eme`)."""
+
+    wavelength_um: float
+    """The wavelength it is at, µm (an interpolation's: the job's own)."""
+    measure: str
+    """What it measures."""
+    error: float
+    """The error."""
+
+
+@dataclass(frozen=True)
+class EmeBloch:
+    """A ``[task.period]``'s Bloch modes at one wavelength, the least decaying first, at most 4."""
+
+    wavelength_um: float
+    """The wavelength, µm."""
+    effective_index: np.ndarray
+    """Each mode's K/k₀ in the reduced zone, complex; its imaginary part the decay."""
+
+
+@dataclass(frozen=True)
+class Eme:
+    """An ``"eme"`` job's expansion, as its run records it (:func:`eme`): every number the one
+    the run records, to the bit."""
+
+    module: str
+    """``"eme"`` for a 2D job, ``"eme 3d"`` for one on a plane (``[task.plane]``)."""
+    cells: tuple[int, int]
+    """A 2D job's modes and its tapers' steps at its own settings; a 3D job's plane in cells,
+    across and up."""
+    step_um: float
+    """A 2D job's longest taper step, µm (0 without a taper); a 3D job's larger cell side."""
+    unknowns: int
+    """The unknowns: a 2D job's modes times its cross-sections, a 3D job's plane's."""
+    settings: list[tuple[str, str]]
+    """The solver's settings in words, each ``(name, value)``."""
+    sections: list[EmeSection]
+    """The sections in order along the structure."""
+    points: list[EmePoint]
+    """The S-parameters at each wavelength, in the order solved (or interpolated)."""
+    studies: list[EmeStudy]
+    """Each convergence study, in the order recorded."""
+    errors: list[EmeError]
+    """Each estimated error."""
+    bloch: list[EmeBloch]
+    """A ``[task.period]``'s Bloch modes at each wavelength solved."""
+
+    def transmission(self, into: str, out_of: str) -> tuple[np.ndarray, np.ndarray]:
+        """|S|² from the port mode ``out_of`` into ``into`` (``"2 TE0"`` and ``"1 TE0"``, say)
+        at each wavelength that has both: the wavelengths, µm, and the powers."""
+        rows = [
+            (p.wavelength_um, abs(p.s[p.ports.index(into), p.ports.index(out_of)]) ** 2)
+            for p in self.points
+            if into in p.ports and out_of in p.ports
+        ]
+        return (
+            np.array([r[0] for r in rows], dtype=np.float64),
+            np.array([r[1] for r in rows], dtype=np.float64),
+        )
+
+
+def eme(job: Job, *, timeout_s: float | None = 3600.0) -> Eme:
+    """What an ``"eme"`` job's run records (eigenmode expansion: 2D sections, 3D strips on a
+    plane, a ``[device]`` or the job's own drawing cut into planes, bends, a ``[task.period]``,
+    a sweep, ``[task.interpolate]``), computed without a folder: the solver's settings, the
+    sections, the S-parameters between the guided modes at the two ends at each wavelength, the
+    convergence studies, the estimated errors and a period's Bloch modes. :func:`run_job` runs
+    the same job into a folder. A 220 to 300 nm silicon slab taper in oxide, 0.4 µm long:
+
+    >>> e = phox.eme({"name": "taper", "task": {
+    ...     "kind": "eme", "wavelength_um": 1.55, "modes": 12, "window_um": 3.0,
+    ...     "cladding": 1.444, "core": 3.473, "section": [
+    ...         {"length_um": 0.0, "core_um": 0.22},
+    ...         {"length_um": 0.4, "core_um": [0.22, 0.3], "steps": 4},
+    ...         {"length_um": 0.0, "core_um": 0.3}]}})
+    >>> [s.kind for s in e.sections], e.points[0].ports
+    (['straight', 'taper', 'straight'], ['1 TE0', '2 TE0', '2 TE1'])
+    >>> round(float(e.transmission("2 TE0", "1 TE0")[1][0]), 6)
+    0.999943
+    """
+    path, text = _job(job)
+    e = _native.eme(path, text, "json", None if timeout_s is None else float(timeout_s))
+    return Eme(
+        module=e["module"],
+        cells=tuple(e["cells"]),
+        step_um=e["step_um"],
+        unknowns=e["unknowns"],
+        settings=[tuple(s) for s in e["settings"]],
+        sections=[EmeSection(**s) for s in e["sections"]],
+        points=[EmePoint(**p) for p in e["points"]],
+        studies=[EmeStudy(**s) for s in e["studies"]],
+        errors=[EmeError(**x) for x in e["errors"]],
+        bloch=[EmeBloch(**b) for b in e["bloch"]],
     )

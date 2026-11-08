@@ -26,7 +26,7 @@
 
 use num_complex::Complex64 as c64;
 use schemars::{JsonSchema, SchemaGenerator};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 use super::execute::solver_run;
 use super::kind::TaskKind;
@@ -818,6 +818,74 @@ fn core_slice(core: c64, cladding: c64, center: f64, t: f64, w: f64, half: bool)
         (core, Length::um(t)),
         (cladding, Length::um(above)),
     ])
+}
+
+/// A section of an `"eme"` job's structure as its run records it ([`Event::EmeSections`]):
+/// what it is and where it lies along the structure.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[non_exhaustive]
+pub struct EmeSection {
+    /// Its name: the job's own (`"section 2"` where it gives none), or a cut's, `"cut 3"`.
+    pub name: String,
+    /// `"straight"`, `"taper"`, `"bend"`, or `"cut"` for a plane cut from a `[device]` or the
+    /// job's own drawing.
+    pub kind: String,
+    /// Where it starts along the structure, µm: its first period's place for a section of
+    /// `[task.period]`, the periods' whole length before the sections after them.
+    pub start_um: f64,
+    /// Its length, µm; a bend's along the arc at the window's middle.
+    pub length_um: f64,
+    /// The cross-sections it is solved in at the job's own settings: a taper's steps, 1
+    /// otherwise (`[task.adaptive]` and `[task.convergence]` may place more).
+    pub steps: usize,
+    /// A bend's radius to the window's middle, µm.
+    pub radius_um: Option<f64>,
+    /// A bend's angle, degrees.
+    pub angle_deg: Option<f64>,
+    /// How many times it is repeated: `[task.period]`'s count for a section of the period, 1
+    /// otherwise.
+    pub repeats: usize,
+}
+
+/// The sections of a 2D job (or a 3D job's strips) as its run records them.
+fn sections_event(task: &EmeTask, resolved: &[Resolved]) -> Event {
+    let period = task
+        .period
+        .map(|p| (p.sections[0] - 1..p.sections[1], p.count));
+    let mut z = 0.0;
+    let mut sections = Vec::with_capacity(resolved.len());
+    for (k, r) in resolved.iter().enumerate() {
+        let repeats = match &period {
+            Some((range, count)) if range.contains(&k) => *count,
+            _ => 1,
+        };
+        sections.push(EmeSection {
+            name: r.name.clone(),
+            kind: if r.radius.is_some() {
+                "bend"
+            } else if r.is_taper() {
+                "taper"
+            } else {
+                "straight"
+            }
+            .into(),
+            start_um: z,
+            length_um: r.length,
+            steps: r.steps(),
+            radius_um: r.radius,
+            angle_deg: r.radius.map(|_| r.angle.to_degrees()),
+            repeats,
+        });
+        z += r.length;
+        // after a period's last section, the other periods
+        if let Some((range, count)) = &period
+            && k + 1 == range.end
+        {
+            let one: f64 = resolved[range.clone()].iter().map(|r| r.length).sum();
+            z += one * (*count as f64 - 1.0);
+        }
+    }
+    Event::EmeSections { sections }
 }
 
 impl Resolved {
@@ -1694,6 +1762,7 @@ fn eme(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
         unknowns: task.modes * (task.section.len() + base_steps),
         details,
     })?;
+    run.record(&sections_event(&task, &first))?;
     if let Some(s) = &task.sweep {
         run.record(&Event::Sweep {
             parameter: "wavelength".into(),

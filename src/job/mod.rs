@@ -461,7 +461,8 @@
 //!   or of layers given one by one, by eigenmode expansion ([`crate::eme`]), its tapers' steps
 //!   equal or placed where the response changes (`[task.adaptive]`) and its modes driven to a
 //!   tolerance (`[task.convergence]`), some of its sections repeated as a grating
-//!   (`[task.period]`); recorded as its scene, the S-parameters between the guided modes at its
+//!   (`[task.period]`); recorded as its scene, its sections ([`Event::EmeSections`]), the
+//!   S-parameters between the guided modes at its
 //!   two ends ([`Event::SParameters`], at each wavelength of a sweep), a period's Bloch modes
 //!   ([`Event::SweepPoint`]) and its convergence studies ([`Event::GridConvergence`]). See
 //!   `eme.rs`.
@@ -578,6 +579,7 @@ pub use chip::{
     study_from_chip,
 };
 pub use device::{Compute, DeviceFigure, fdfd_size, from_device};
+pub use eme::EmeSection;
 pub use event::Event;
 pub use execute::{conclude, execute, farms, preview};
 pub use fabrication::{

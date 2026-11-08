@@ -199,6 +199,57 @@ fn adaptive_steps_and_convergence_are_recorded() {
     assert_eq!(s_parameters(&events).len(), 1);
 }
 
+/// A run's sections: each one's kind, start, length and steps, after the solver's settings.
+fn sections(events: &[Event]) -> Vec<super::EmeSection> {
+    let at = events
+        .iter()
+        .position(|e| matches!(e, Event::EmeSections { .. }))
+        .unwrap();
+    assert!(matches!(events[at - 1], Event::Solver { .. }));
+    match &events[at] {
+        Event::EmeSections { sections } => sections.clone(),
+        _ => unreachable!(),
+    }
+}
+
+#[test]
+fn a_run_records_its_sections_along_the_structure() {
+    // a taper between its two ports
+    let s = sections(&events(&Job::parse(TAPER).unwrap()));
+    let got: Vec<_> = s
+        .iter()
+        .map(|s| {
+            (
+                s.name.as_str(),
+                s.kind.as_str(),
+                s.start_um,
+                s.length_um,
+                s.steps,
+            )
+        })
+        .collect();
+    assert_eq!(
+        got,
+        [
+            ("section 1", "straight", 0.0, 0.0, 1),
+            ("section 2", "taper", 0.0, 0.4, 4),
+            ("section 3", "straight", 0.4, 0.0, 1),
+        ]
+    );
+    assert!(s.iter().all(|s| s.repeats == 1 && s.radius_um.is_none()));
+    // a period's sections repeated 10 times, the port after it past all ten
+    let s = sections(&events(&Job::parse(&grating()).unwrap()));
+    let got: Vec<_> = s.iter().map(|s| (s.start_um, s.repeats)).collect();
+    assert_eq!(got, [(0.0, 1), (0.0, 10), (0.3, 10), (5.0, 1)]);
+    // a bend: its radius to the window's middle, its angle, its arc there
+    let s = sections(&events(&Job::parse(&bend_job()).unwrap()));
+    assert_eq!(s[1].kind, "bend");
+    assert_eq!(s[1].radius_um, Some(2.75));
+    assert!((s[1].angle_deg.unwrap() - 90.0).abs() < 1e-12);
+    assert!((s[1].length_um - 2.75 * std::f64::consts::FRAC_PI_2).abs() < 1e-12);
+    assert_eq!(s[2].start_um, s[1].length_um);
+}
+
 #[test]
 fn a_sweep_records_s_at_each_wavelength() {
     let job = TAPER.to_owned()
