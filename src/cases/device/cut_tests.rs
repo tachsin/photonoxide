@@ -196,4 +196,15 @@ fn measure_the_drawings() {
     println!("stepped slab drawn in a job: {extruded:.2e} over {n} recorded entries");
     let (taper, n) = super::cut_checks::drawing_taper();
     println!("taper drawn as a path: {taper:.2e} over {n} recorded entries");
+    let (gds, n) = super::cut_checks::drawing_gds();
+    println!("stepped slab from a GDSII file: {gds:.2e} over {n} recorded entries");
+}
+
+#[test]
+fn a_drawing_read_from_a_gds_file_is_the_one_drawn_as_rectangles() {
+    // the guided modes at the two ends, as eme/3d-drawing-extruded's: 3 ports, 9 entries, the
+    // same to the bit (the file's whole nanometres are the rectangles' corners)
+    let (difference, n) = super::cut_checks::drawing_gds();
+    assert_eq!(n, 9);
+    assert_eq!(difference, 0.0);
 }

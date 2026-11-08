@@ -34,9 +34,9 @@ const CRUMBS = [
 const GUIDE = "docs/python.md";
 
 /**
- * The reference's first page, `photonoxide.html`, when the latest release has the reference
- * attached; until then (a release made before it was attached) a page that says so, with the
- * guide and the docstrings' source to read meanwhile.
+ * The reference's first page, `photonoxide.html`, when the app has a copy of the reference or the
+ * latest release has it attached (python-reference.js); else a page that says so, with the guide
+ * and the docstrings' source to read meanwhile.
  */
 export default async function PythonReferencePage() {
   if (await getPythonReferencePage("photonoxide.html")) {

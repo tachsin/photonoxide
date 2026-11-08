@@ -272,6 +272,71 @@ pub(crate) fn cases() -> Vec<Case> {
 mod tests {
     use super::*;
 
+    /// A facet tilted by `alpha` across the window as a staircase of `steps` sections: N2 from the
+    /// lower wall to u_k, N1 above, u_k at each step's middle.
+    fn facet_sections(alpha: f64, steps: usize) -> Result<Vec<Section>> {
+        let long = WINDOW * alpha.tan();
+        let mut s = vec![Section::new(uniform(N1, WINDOW)?, Length::ZERO)];
+        for k in 0..steps {
+            let u = (k as f64 + 0.5) * WINDOW / steps as f64;
+            let slice = Slice::new(&[
+                (c64::new(N2, 0.0), Length::um(u)),
+                (c64::new(N1, 0.0), Length::um(WINDOW - u)),
+            ])?;
+            s.push(Section::new(slice, Length::um(long / steps as f64)));
+        }
+        s.push(Section::new(uniform(N2, WINDOW)?, Length::ZERO));
+        Ok(s)
+    }
+
+    /// The beam square on, reflected by a facet tilted by `alpha`: Fresnel's over its angular
+    /// spectrum in its own frame, each plane wave meeting the facet at ψ + α.
+    fn rotated_share(polarization: Polarization, alpha: f64) -> f64 {
+        let kn = k() * N1;
+        let g = |psi: f64| {
+            let a = (-(kn * psi.sin()).powi(2) * WAIST * WAIST / 4.0).exp();
+            a * a * (kn * psi.cos()).powi(2)
+        };
+        let r =
+            |psi: f64| g(psi) * fresnel(polarization, N1, N2, kn * (psi + alpha).sin()).norm_sqr();
+        integrate(&r, 400) / integrate(&g, 400)
+    }
+
+    /// The measurements behind eme.md's angled facets (its limits): the beam square on, TE, a
+    /// facet of N2 tilted by 10° across the window as a staircase of 50 to 800 steps, with 110
+    /// and 220 modes, against [`rotated_share`]. Measured 8 November 2026: with 110 modes (every
+    /// propagating one and few more) R stalls 1.3e-3 to 3.5e-3 below the closed form 0.0273777;
+    /// with 220 the gap halves with each doubling of the steps (first order: 2.0e-3, 6.0e-4,
+    /// 3.1e-4 and 1.7e-4 at 100 to 800 steps, 128 s for 800 on six threads), and the first-order
+    /// limit of 400 and 800 is 2.4e-5 below it. R + T − 1 stays under 4e-14.
+    #[test]
+    #[ignore = "a study of about five minutes: an angled facet as a staircase"]
+    fn study_an_angled_facet() {
+        let (pol, alpha) = (Polarization::Te, 10f64.to_radians());
+        let want = rotated_share(pol, alpha);
+        println!("TE at 10 degrees: the closed form's R = {want:.9}");
+        for modes in [110, 220] {
+            for steps in [50, 100, 200, 400, 800] {
+                let t0 = std::time::Instant::now();
+                let sections = facet_sections(alpha, steps).unwrap();
+                let eme = Eme::new(pol, Wavelength::um(LAMBDA).unwrap(), modes).unwrap();
+                let beam = Beam::gaussian(Length::um(WAIST), Length::ZERO).unwrap();
+                let launched = eme.launch(&sections[0].slice, &beam).unwrap();
+                let s = eme.s_matrix(&sections).unwrap();
+                let (r, t) = s.forward(&launched.arriving()).unwrap();
+                let p = launched.power();
+                let (r, t) = (power(&r, &s.first) / p, power(&t, &s.last) / p);
+                println!(
+                    "  {modes} modes, {steps} steps: R {r:.9}, R - closed form {:.3e}, R + T - 1 \
+                     {:.1e}, {:.1} s",
+                    r - want,
+                    r + t - 1.0,
+                    t0.elapsed().as_secs_f64()
+                );
+            }
+        }
+    }
+
     #[test]
     fn a_beams_shares_and_overlaps_are_the_closed_forms_to_round_off() {
         for pol in [Polarization::Te, Polarization::Tm] {

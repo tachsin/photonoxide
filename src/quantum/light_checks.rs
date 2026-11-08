@@ -879,7 +879,7 @@ fn nehra_homodyne_bound() -> Outcome {
 
 #[cfg(test)]
 mod tests {
-    use super::super::intermodal::{DualPump, dual_pump_spectrum};
+    use super::super::intermodal::{DualPump, dual_pump_spectrum, shaped_dual_pump_spectrum};
     use super::*;
     use crate::material::Material;
     use crate::material::catalogue::{Conditions, entry};
@@ -947,6 +947,86 @@ mod tests {
         fwhm: f64,
         points: usize,
     ) -> (f64, f64, f64) {
+        paesani_shaped_purity(tm0, tm1, delay, fwhm, points, None)
+    }
+
+    /// Paesani et al.'s measured pump (their Supplementary Fig. 2b, p. 3, by FROG), read by pixel
+    /// from the figure's raster: the intensity (peak 1) and the spectral phase (rad) from 1540 to
+    /// 1560 nm in 0.1 nm steps. The curves' axes were placed by the figure's tick marks; where the
+    /// two curves cross, or the intensity lies on the axis, the reading is interpolated. It peaks
+    /// at 1549.6 nm, is half its peak from 1548.0 to 1552.5 nm and has its centroid at 1550.39 nm.
+    #[rustfmt::skip]
+    const PAESANI_PUMP: [(f64, f64); 201] = [
+        (0.0000, 0.9550), (0.0000, 0.9550), (0.0000, 0.9550), (0.0000, 0.9550), (0.0000, 0.9550),
+        (0.0000, 0.9550), (0.0000, 0.9550), (0.0000, 0.9550), (0.0000, 0.9550), (0.0000, 0.9550),
+        (0.0000, 0.9550), (0.0000, 0.9550), (0.0000, 0.9550), (0.0000, 0.9550), (0.0000, 0.9550),
+        (0.0000, 0.9550), (0.0000, 0.9550), (0.0000, 0.9550), (0.0000, 0.9550), (0.0000, 0.9550),
+        (0.0000, 0.9550), (0.0000, 0.9550), (0.0000, 0.9550), (0.0000, 0.9550), (0.0000, 0.9550),
+        (0.0000, 0.9550), (0.0000, 0.9550), (0.0000, 0.9550), (0.0000, 0.9550), (0.0000, 0.9550),
+        (0.0000, 0.9550), (0.0000, 0.9550), (0.0000, 0.9550), (0.0000, 0.9550), (0.0000, 0.9550),
+        (0.0000, 0.9550), (0.0000, 0.9550), (0.0050, 0.9524), (0.0050, 0.9470), (0.0050, 0.9358),
+        (0.0050, 0.9284), (0.0054, 0.9149), (0.0057, 0.9017), (0.0061, 0.8881), (0.0069, 0.8749),
+        (0.0078, 0.8622), (0.0087, 0.8518), (0.0098, 0.8443), (0.0110, 0.8409), (0.0122, 0.8505),
+        (0.0139, 0.8711), (0.0155, 0.9031), (0.0173, 0.9447), (0.0188, 0.9905), (0.0203, 1.0409),
+        (0.0218, 1.0903), (0.0227, 1.1373), (0.0234, 1.1772), (0.0233, 1.2099), (0.0220, 1.2307),
+        (0.0208, 1.2338), (0.0195, 1.2316), (0.0187, 1.2225), (0.0198, 1.2051), (0.0230, 1.1863),
+        (0.0281, 1.1623), (0.0346, 1.1335), (0.0422, 1.1027), (0.0502, 1.0695), (0.0589, 1.0347),
+        (0.0699, 0.9970), (0.0858, 0.9598), (0.1090, 0.9209), (0.1414, 0.8649), (0.1831, 0.7955),
+        (0.2335, 0.7171), (0.2910, 0.6277), (0.3534, 0.5366), (0.4291, 0.4245), (0.4838, 0.3560),
+        (0.5471, 0.2735), (0.6070, 0.2064), (0.6637, 0.1531), (0.7165, 0.1172), (0.7653, 0.0985),
+        (0.8095, 0.0835), (0.8488, 0.0685), (0.8830, 0.0558), (0.9117, 0.0433), (0.9359, 0.0332),
+        (0.9555, 0.0239), (0.9714, 0.0147), (0.9834, 0.0076), (0.9921, 0.0047), (0.9972, 0.0022),
+        (0.9999, -0.0019), (1.0000, 0.0021), (0.9990, 0.0063), (0.9950, 0.0108), (0.9895, 0.0185),
+        (0.9828, 0.0276), (0.9744, 0.0382), (0.9646, 0.0500), (0.9535, 0.0607), (0.9412, 0.0724),
+        (0.9272, 0.0840), (0.9124, 0.0938), (0.8964, 0.1045), (0.8794, 0.1151), (0.8617, 0.1269),
+        (0.8430, 0.1385), (0.8236, 0.1513), (0.8032, 0.1641), (0.7822, 0.1764), (0.7605, 0.1881),
+        (0.7382, 0.1980), (0.7153, 0.2078), (0.6923, 0.2165), (0.6691, 0.2214), (0.6454, 0.2269),
+        (0.6218, 0.2306), (0.5979, 0.2339), (0.5742, 0.2367), (0.5502, 0.2387), (0.5266, 0.2390),
+        (0.5032, 0.2439), (0.4799, 0.2478), (0.4568, 0.2457), (0.4339, 0.2491), (0.4116, 0.2516),
+        (0.3897, 0.2500), (0.3683, 0.2508), (0.3474, 0.2454), (0.3270, 0.2396), (0.3071, 0.2315),
+        (0.2877, 0.2209), (0.2687, 0.2080), (0.2533, 0.1919), (0.2299, 0.1849), (0.2136, 0.1632),
+        (0.1959, 0.1476), (0.1783, 0.1324), (0.1607, 0.1189), (0.1432, 0.1046), (0.1259, 0.0847),
+        (0.1088, 0.0670), (0.0924, 0.0442), (0.0767, 0.0224), (0.0620, -0.0007), (0.0487, -0.0220),
+        (0.0366, -0.0429), (0.0266, -0.0583), (0.0183, -0.0722), (0.0118, -0.0821),
+        (0.0071, -0.0843), (0.0050, -0.0846), (0.0000, -0.0774), (0.0000, -0.0643),
+        (0.0000, -0.0468), (0.0000, -0.0292), (0.0000, -0.0066), (0.0000, 0.0166),
+        (0.0050, 0.0412), (0.0050, 0.0638), (0.0050, 0.0853), (0.0050, 0.1036), (0.0050, 0.1218),
+        (0.0050, 0.1359), (0.0050, 0.1511), (0.0050, 0.1670), (0.0050, 0.1831), (0.0050, 0.1984),
+        (0.0050, 0.2137), (0.0050, 0.2268), (0.0050, 0.2392), (0.0050, 0.2488), (0.0000, 0.2561),
+        (0.0000, 0.2622), (0.0000, 0.2611), (0.0000, 0.2611), (0.0000, 0.2611), (0.0000, 0.2611),
+        (0.0000, 0.2611), (0.0000, 0.2611), (0.0000, 0.2611), (0.0000, 0.2611), (0.0000, 0.2611),
+        (0.0000, 0.2611), (0.0000, 0.2611), (0.0000, 0.2611), (0.0000, 0.2611), (0.0000, 0.2611),
+        (0.0000, 0.2611), (0.0000, 0.2611), (0.0000, 0.2611), (0.0000, 0.2611), (0.0000, 0.2611),
+        (0.0000, 0.2611), (0.0000, 0.2611), (0.0000, 0.2611), (0.0000, 0.2611),
+    ];
+
+    /// The measured pump's amplitude at ν (1/µm): I^p e^{iσφ} (p = ½ takes the plotted intensity
+    /// as |α|²), linear between the table's wavelengths, zero outside them; σ = 0 leaves the
+    /// phase out.
+    fn paesani_pump(sign: f64, power: f64) -> impl Fn(f64) -> c64 + Sync {
+        move |nu: f64| {
+            let x = (1e3 / nu - 1540.0) / 0.1;
+            if !(0.0..200.0).contains(&x) {
+                return c64::new(0.0, 0.0);
+            }
+            let k = x.floor() as usize;
+            let t = x - k as f64;
+            let (i0, p0) = PAESANI_PUMP[k];
+            let (i1, p1) = PAESANI_PUMP[k + 1];
+            let intensity = (i0 + t * (i1 - i0)).max(0.0);
+            c64::from_polar(intensity.powf(power), sign * (p0 + t * (p1 - p0)))
+        }
+    }
+
+    /// [`paesani_purity`] with the pump's amplitude `shaped` in place of the Gaussian when given.
+    fn paesani_shaped_purity(
+        tm0: &ModeIndex,
+        tm1: &ModeIndex,
+        delay: f64,
+        fwhm: f64,
+        points: usize,
+        shaped: Option<&(dyn Fn(f64) -> c64 + Sync)>,
+    ) -> (f64, f64, f64) {
         let beta = |m: &ModeIndex| {
             let m = m.clone();
             move |nu: f64| TAU * nu * m.n_eff(1.0 / nu)
@@ -977,14 +1057,25 @@ mod tests {
                 bandwidth: fwhm / (1.55 * 1.55),
             },
         };
-        let js = dual_pump_spectrum(
-            &guide,
-            [signal, idler],
-            0.006,
-            points,
-            0.008,
-            2 * points + 1,
-        )
+        let js = match shaped {
+            None => dual_pump_spectrum(
+                &guide,
+                [signal, idler],
+                0.006,
+                points,
+                0.008,
+                2 * points + 1,
+            ),
+            Some(alpha) => shaped_dual_pump_spectrum(
+                &guide,
+                alpha,
+                [signal, idler],
+                0.006,
+                points,
+                0.008,
+                2 * points + 1,
+            ),
+        }
         .expect(OK);
         (js.schmidt().expect(OK).purity(), 1.0 / signal, 1.0 / idler)
     }
@@ -1064,6 +1155,55 @@ mod tests {
                 purity(best, 81).0,
                 start.elapsed().as_secs_f64()
             );
+        }
+    }
+
+    #[test]
+    #[ignore = "Paesani et al.'s source with their measured pump: slow"]
+    fn print_paesani_measured_pump() {
+        let start = std::time::Instant::now();
+        let c = SPEED_OF_LIGHT * 1e-6; // µm/ps
+        let cells: Vec<f64> = std::env::var("PAESANI_CELLS").map_or_else(
+            |_| vec![0.02, 0.01, 0.005],
+            |v| v.split(',').map(|s| s.parse().expect(OK)).collect(),
+        );
+        // their Supp. Eq. 3 has e^{−iω_pτ} e^{−iΔkz} and α = A e^{iφ}: in ours, A e^{−iφ}
+        let (flat, theirs, flipped) = (
+            paesani_pump(0.0, 0.5),
+            paesani_pump(-1.0, 0.5),
+            paesani_pump(1.0, 0.5),
+        );
+        // the plotted intensity taken as the field's amplitude A instead of |A|²
+        let (flat_a, theirs_a) = (paesani_pump(0.0, 1.0), paesani_pump(-1.0, 1.0));
+        for h in cells {
+            let (tm0, tm1) = (paesani_index(0, h), paesani_index(1, h));
+            let dng = tm1.group_index(1.55) - tm0.group_index(1.55);
+            let eq2 = 11_000.0 * dng / (2.0 * c);
+            eprintln!(
+                "{h} um cells: delay by Supp. Eq. 2 {eq2:.4} ps ({:.1} s)",
+                start.elapsed().as_secs_f64()
+            );
+            for delay in [eq2, 2.06, 0.0] {
+                for points in [81, 161] {
+                    let p = |a: &(dyn Fn(f64) -> c64 + Sync)| {
+                        paesani_shaped_purity(&tm0, &tm1, delay, 0.00458, points, Some(a)).0
+                    };
+                    eprintln!(
+                        "  delay {delay:.4} ps, {points} points: Gaussian {:.6}, measured without \
+                         phase {:.6}, with e^-i phi {:.6}, with e^+i phi {:.6} ({:.1} s)",
+                        paesani_purity(&tm0, &tm1, delay, 0.00458, points).0,
+                        p(&flat),
+                        p(&theirs),
+                        p(&flipped),
+                        start.elapsed().as_secs_f64()
+                    );
+                    eprintln!(
+                        "    the intensity as A: without phase {:.6}, with e^-i phi {:.6}",
+                        p(&flat_a),
+                        p(&theirs_a)
+                    );
+                }
+            }
         }
     }
 }

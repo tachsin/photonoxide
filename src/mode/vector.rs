@@ -961,6 +961,28 @@ pub struct VectorMode {
 }
 
 impl VectorMode {
+    /// A mode from its transverse H at the nodes of the grid `x` × `y` (node (i, j) at
+    /// `i * y.len() + j`), its β and k, for the checks to give a closed form's field to
+    /// [`VectorMode::fields`].
+    #[cfg(test)]
+    pub(crate) fn from_nodes(
+        beta: f64,
+        k: f64,
+        x: Vec<f64>,
+        y: Vec<f64>,
+        hx: Vec<c64>,
+        hy: Vec<c64>,
+    ) -> VectorMode {
+        VectorMode {
+            beta2: c64::new(beta * beta, 0.0),
+            k,
+            x,
+            y,
+            hx,
+            hy,
+        }
+    }
+
     /// The effective index n_eff = β/k of the forward-travelling mode (Re β ≥ 0, the principal
     /// root of β²); in a passive structure its imaginary part is ≥ 0, the mode decaying along z.
     pub fn effective_index(&self) -> c64 {

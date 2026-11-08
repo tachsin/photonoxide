@@ -247,10 +247,30 @@ impl RodKerr {
 /// at x = 0 and a magnetic one at y = 0 (the HE₁₁ mode with E along x), square cells of side `h`:
 /// its mode's Kerr quantities. `how` 0: cells averaged where the rod's edge crosses them (the
 /// area share from 64 × 64 samples), n² n₂ and n₂ there their area means, and the one-sided
-/// fields; 1: the same with the central differences of [`VectorMode::fields`]; 2: staircased.
+/// fields; 1: the same with the central differences of [`VectorMode::fields`]; 2: staircased
+/// (one-sided fields); 3, 4, 5 and 6: E_t from D ([`rod_kerr_from_d`] with `split` 1, 0, 2 and
+/// 3). One mode serves every `how` but 2's; with `exact_h` it is the exact mode's H at the nodes
+/// ([`RodExact`]), no eigensolve.
 #[cfg(test)]
-fn rod_kerr(d: f64, h: f64, how: u8) -> RodKerr {
-    let [nc, n2c, ns, n2s] = ROD;
+fn rod_kerr(d: f64, h: f64, hows: &[u8], exact_h: bool) -> Vec<(u8, RodKerr)> {
+    let mut out = Vec::new();
+    for stair in [false, true] {
+        let hows: Vec<u8> = hows
+            .iter()
+            .copied()
+            .filter(|&w| (w == 2) == stair)
+            .collect();
+        if !hows.is_empty() {
+            out.extend(rod_kerr_grid(d, h, stair, &hows, exact_h));
+        }
+    }
+    out
+}
+
+/// [`rod_kerr`] on one grid, staircased or not.
+#[cfg(test)]
+fn rod_kerr_grid(d: f64, h: f64, stair: bool, hows: &[u8], exact_h: bool) -> Vec<(u8, RodKerr)> {
+    let [nc, _, ns, _] = ROD;
     let (ec, es) = (nc * nc, ns * ns);
     let a = 0.5 * d;
     let side = 1.2;
@@ -275,7 +295,7 @@ fn rod_kerr(d: f64, h: f64, how: u8) -> RodKerr {
             } else {
                 0.0
             };
-            shares.push(if how == 2 { f.round() } else { f });
+            shares.push(if stair { f.round() } else { f });
         }
     }
     let cells = shares
@@ -284,6 +304,7 @@ fn rod_kerr(d: f64, h: f64, how: u8) -> RodKerr {
             Permittivity::isotropic(crate::stack::mean(c64::new(ec, 0.0), c64::new(es, 0.0), f))
         })
         .collect();
+    let nodes = x.clone();
     let cs = CrossSection::new(x.clone(), x, cells)
         .and_then(|cs| {
             cs.with_boundaries(Boundaries {
@@ -293,15 +314,52 @@ fn rod_kerr(d: f64, h: f64, how: u8) -> RodKerr {
             })
         })
         .expect("a valid rod");
-    let mode = vector::modes(&cs, rod_lam(), 1, None)
-        .expect("the rod's mode")
-        .remove(0);
-    let fields = if how == 1 {
-        mode.fields(&cs)
+    let mode = if exact_h {
+        // the exact mode's H at the nodes, with its β: no eigensolve
+        let rod = RodExact::new(d);
+        let (mut hx, mut hy) = (Vec::new(), Vec::new());
+        for &px in &nodes {
+            for &py in &nodes {
+                let [a, b, _] = rod.h_at(px, py);
+                hx.push(a);
+                hy.push(b);
+            }
+        }
+        VectorMode::from_nodes(rod.beta, rod.k, nodes.clone(), nodes, hx, hy)
     } else {
-        mode.fields_one_sided(&cs)
+        vector::modes(&cs, rod_lam(), 1, None)
+            .expect("the rod's mode")
+            .remove(0)
+    };
+    hows.iter()
+        .map(|&how| (how, rod_kerr_eval(&cs, &mode, &shares, how)))
+        .collect()
+}
+
+/// [`rod_kerr`]'s quantities of one mode by one `how`.
+#[cfg(test)]
+fn rod_kerr_eval(cs: &CrossSection, mode: &VectorMode, shares: &[f64], how: u8) -> RodKerr {
+    let [nc, n2c, ns, n2s] = ROD;
+    let (ec, es) = (nc * nc, ns * ns);
+    let fields = if how == 1 || how >= 3 {
+        mode.fields(cs)
+    } else {
+        mode.fields_one_sided(cs)
     }
     .expect("its grid");
+    if how >= 3 {
+        return rod_kerr_from_d(
+            mode,
+            &fields,
+            shares,
+            match how {
+                3 => 1,
+                4 => 0,
+                5 => 2,
+                _ => 3,
+            },
+        );
+    }
     let weight: Vec<f64> = shares
         .iter()
         .map(|f| f * ec * n2c + (1.0 - f) * es * n2s)
@@ -311,7 +369,7 @@ fn rod_kerr(d: f64, h: f64, how: u8) -> RodKerr {
         .e
         .iter()
         .zip(&fields.h)
-        .zip(fields.area.iter().zip(&shares))
+        .zip(fields.area.iter().zip(shares))
     {
         let s2 = (e[0] * h[1].conj() - e[1] * h[0].conj()).norm_sqr() * a;
         top += (f * n2c + (1.0 - f) * n2s) * s2;
@@ -325,6 +383,405 @@ fn rod_kerr(d: f64, h: f64, how: u8) -> RodKerr {
         n2_foster: top / bottom,
         area: fields.effective_area(),
         area_transverse: fields.effective_area_transverse(),
+    }
+}
+
+/// The rod's Kerr quantities with E's transverse part from D: D_t = (i/k)(∇×H)_t from H, which
+/// is continuous everywhere (D_x = (β/k)H_y + (i/k)∂_y H_z, D_y = −(β/k)H_x − (i/k)∂_x H_z,
+/// ∂H_z by central differences of the cells' H_z, H_z even across the electric wall at x = 0 and
+/// odd across the magnetic one at y = 0), and E_z as [`VectorMode::fields`] has it. A cell of
+/// one material takes E_t = D_t/ε. A cell the rod's edge crosses (share `f` of the core):
+///
+/// - `split` 0: E_t = D_t/⟨ε⟩, ⟨ε⟩ the cell's mean, and the area mean of n² n₂;
+/// - 1: taken as its two sides, each with its share of the area: along the edge (t = ẑ × n, n
+///   the rod's outward normal at the cell's centre) E_t·t = D·t/⟨ε⟩ on both (E continuous
+///   there), across it E·n = D·n/ε on each side (D continuous there), and each side's |E|⁴,
+///   |E·E|² and S_z² weighed by its own n² n₂;
+/// - 2: as 1, with E·t and D·n the mean over the cells of one material within two cells of it
+///   (each E = D_t/ε), not the cell's own D_t;
+/// - 3: as 2, with H_z and E_z in such a cell (and so ∂H_z beside it) the mean over the same
+///   cells: both are continuous across the edge, but a cell's ∇·H and ∇×H, from which they come,
+///   mix the two sides' derivatives there, and are O(1) wrong at any grid
+///   (`tests::rod_exact_h_diagnostic`).
+#[cfg(test)]
+fn rod_kerr_from_d(mode: &VectorMode, fields: &Fields, shares: &[f64], split: u8) -> RodKerr {
+    let [nc, n2c, ns, n2s] = ROD;
+    let (ec, es) = (nc * nc, ns * ns);
+    let n = fields.xc.len();
+    let h = fields.xc[1] - fields.xc[0];
+    let k = rod_lam().wavenumber();
+    let beta = mode.effective_index().re * k;
+    let i = c64::new(0.0, 1.0);
+    // H_z and E_z, continuous across the edge: with split 3, in a cell the edge crosses (where
+    // ∇·H and ∇×H over the cell mix the two sides' derivatives) the mean of the cells of one
+    // material within two cells of it
+    let interface = |c: usize| shares[c] > 0.0 && shares[c] < 1.0;
+    let smooth = |q: usize| -> Vec<c64> {
+        (0..n * n)
+            .map(|c| {
+                let own = if q == 2 {
+                    fields.h[c][2]
+                } else {
+                    fields.e[c][2]
+                };
+                if split != 3 || !interface(c) {
+                    return own;
+                }
+                let (a, b) = (c / n, c % n);
+                let (mut sum, mut count) = (c64::new(0.0, 0.0), 0.0);
+                for p in a.saturating_sub(2)..(a + 3).min(n) {
+                    for r in b.saturating_sub(2)..(b + 3).min(n) {
+                        if !interface(p * n + r) {
+                            sum += if q == 2 {
+                                fields.h[p * n + r][2]
+                            } else {
+                                fields.e[p * n + r][2]
+                            };
+                            count += 1.0;
+                        }
+                    }
+                }
+                if count > 0.0 { sum / count } else { own }
+            })
+            .collect()
+    };
+    let (hzc, ezc) = (smooth(2), smooth(3));
+    let hz = |a: isize, b: isize| -> c64 {
+        // the images across the walls at x = 0 (electric: H_z even) and y = 0 (magnetic: odd)
+        let (a, sa) = if a < 0 { (-a - 1, 1.0) } else { (a, 1.0) };
+        let (b, sb) = if b < 0 { (-b - 1, -1.0) } else { (b, 1.0) };
+        hzc[a as usize * n + b as usize] * (sa * sb)
+    };
+    let d = |a: usize, b: usize, along_x: bool| -> c64 {
+        let (a, b) = (a as isize, b as isize);
+        let last = n as isize - 1;
+        if along_x {
+            let (lo, hi) = ((a - 1).max(-1), (a + 1).min(last));
+            (hz(hi, b) - hz(lo, b)) / (h * (hi - lo) as f64)
+        } else {
+            let (lo, hi) = ((b - 1).max(-1), (b + 1).min(last));
+            (hz(a, hi) - hz(a, lo)) / (h * (hi - lo) as f64)
+        }
+    };
+    let (mut top, mut s2, mut fos, mut sz, mut t2, mut t4) = (0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
+    // what a side of a cell adds: its E, H, n² n₂, n₂ and area
+    let mut add = |e: [c64; 3], hh: [c64; 3], w: f64, n2: f64, area: f64| {
+        let norm = e.iter().map(|c| c.norm_sqr()).sum::<f64>();
+        let square: c64 = e.iter().map(|c| c * c).sum();
+        let s = (e[0] * hh[1].conj() - e[1] * hh[0].conj()).re;
+        let t = e[0].norm_sqr() + e[1].norm_sqr();
+        top += w * (2.0 * norm * norm + square.norm_sqr()) * area;
+        s2 += s * s * area;
+        fos += n2 * s * s * area;
+        sz += s * area;
+        t2 += t * area;
+        t4 += t * t * area;
+    };
+    let dt: Vec<[c64; 2]> = (0..n * n)
+        .map(|c| {
+            let (a, b) = (c / n, c % n);
+            let hh = fields.h[c];
+            [
+                (beta * hh[1] + i * d(a, b, false)) / k,
+                (-beta * hh[0] - i * d(a, b, true)) / k,
+            ]
+        })
+        .collect();
+    for a in 0..n {
+        for b in 0..n {
+            let c = a * n + b;
+            let hh = fields.h[c];
+            let [dx, dy] = dt[c];
+            let ez = ezc[c];
+            let f = shares[c];
+            let area = fields.area[c];
+            let mean = f * ec + (1.0 - f) * es;
+            if split >= 2 && f > 0.0 && f < 1.0 {
+                // E along the edge and D across it, both continuous, the mean over the cells
+                // of one material within two cells of this one
+                let r = fields.xc[a].hypot(fields.yc[b]);
+                let (nx, ny) = (fields.xc[a] / r, fields.yc[b] / r);
+                let (mut along, mut across, mut count) =
+                    (c64::new(0.0, 0.0), c64::new(0.0, 0.0), 0.0);
+                for p in a.saturating_sub(2)..(a + 3).min(n) {
+                    for q in b.saturating_sub(2)..(b + 3).min(n) {
+                        let g = shares[p * n + q];
+                        if g > 0.0 && g < 1.0 {
+                            continue;
+                        }
+                        let eps = if g >= 1.0 { ec } else { es };
+                        let [px, py] = dt[p * n + q];
+                        along += (-ny * px + nx * py) / eps;
+                        across += nx * px + ny * py;
+                        count += 1.0;
+                    }
+                }
+                if count > 0.0 {
+                    let (along, across) = (along / count, across / count);
+                    for (eps, n2, part) in [(ec, n2c, f), (es, n2s, 1.0 - f)] {
+                        let en = across / eps;
+                        let e = [nx * en - ny * along, ny * en + nx * along, ez];
+                        add(e, hh, eps * n2, n2, area * part);
+                    }
+                    continue;
+                }
+            }
+            if f <= 0.0 || f >= 1.0 || split == 0 {
+                let (w, n2) = (
+                    f * ec * n2c + (1.0 - f) * es * n2s,
+                    f * n2c + (1.0 - f) * n2s,
+                );
+                add([dx / mean, dy / mean, ez], hh, w, n2, area);
+                continue;
+            }
+            let r = fields.xc[a].hypot(fields.yc[b]);
+            let (nx, ny) = (fields.xc[a] / r, fields.yc[b] / r);
+            let along = (-ny * dx + nx * dy) / mean;
+            let across = nx * dx + ny * dy;
+            for (eps, n2, part) in [(ec, n2c, f), (es, n2s, 1.0 - f)] {
+                let en = across / eps;
+                let e = [nx * en - ny * along, ny * en + nx * along, ez];
+                add(e, hh, eps * n2, n2, area * part);
+            }
+        }
+    }
+    let copies = 4.0;
+    RodKerr {
+        neff: mode.effective_index().re,
+        n2_vector: top / (3.0 * s2),
+        n2_foster: fos / s2,
+        area: copies * sz * sz / s2,
+        area_transverse: copies * t2 * t2 / t4,
+    }
+}
+
+/// The rod's exact HE₁₁ Kerr quantities at diameter `d` µm, from the step-index fibre's fields:
+/// E_z = J₁(ur) cos φ and H_z = B J₁(ur) sin φ in the core, the same with K₁(wr) J₁(ua)/K₁(wa)
+/// outside (u² = k²n₁² − β², w² = β² − k²n₂²), β from [`crate::stack::checks::he11`], B from E_φ's
+/// continuity at r = a, and the transverse fields from E_z and H_z,
+/// E_t = (i/κ²)(β∇E_z − k ẑ × ∇H_z), H_t = (i/κ²)(β∇H_z + kε ẑ × ∇E_z), κ² = k²ε − β² (in Z₀'s
+/// units). The integrals by Simpson's rule in r (2000 intervals in the core, 20000 outside to
+/// 40/w beyond the edge) and the trapezoidal rule in φ (exact for the trigonometric polynomial
+/// the integrands are). Also returns |H_φ|'s relative jump at the edge, 0 for the right β.
+#[cfg(test)]
+fn rod_kerr_exact(d: f64) -> (RodKerr, f64) {
+    use std::f64::consts::PI;
+    let [_, n2c, _, n2s] = ROD;
+    let rod = RodExact::new(d);
+    let (a, w) = (rod.a, rod.w);
+    let nphi = 64;
+    // per radius: ∫ dφ of [n² n₂ (2|E|⁴ + |E·E|²), S_z², n₂ S_z², S_z, |E_t|², |E_t|⁴]
+    let ring = |r: f64| -> [f64; 6] {
+        if r < 1e-9 {
+            // the centre: each integrand carries a factor r
+            return [0.0; 6];
+        }
+        let n2 = if r < a { n2c } else { n2s };
+        let mut out = [0.0; 6];
+        for p in 0..nphi {
+            let phi = 2.0 * PI * p as f64 / nphi as f64;
+            let (eps, [er, ep, ez], [hr, hp, _]) = rod.polar(r, phi);
+            let sz = (er * hp.conj() - ep * hr.conj()).re;
+            let norm = er.norm_sqr() + ep.norm_sqr() + ez.norm_sqr();
+            let square = er * er + ep * ep + ez * ez;
+            let t = er.norm_sqr() + ep.norm_sqr();
+            let dphi = 2.0 * PI / nphi as f64;
+            out[0] += eps * n2 * (2.0 * norm * norm + square.norm_sqr()) * dphi;
+            out[1] += sz * sz * dphi;
+            out[2] += n2 * sz * sz * dphi;
+            out[3] += sz * dphi;
+            out[4] += t * dphi;
+            out[5] += t * t * dphi;
+        }
+        out.map(|v| v * r)
+    };
+    let simpson = |lo: f64, hi: f64, n: usize| -> [f64; 6] {
+        let h = (hi - lo) / n as f64;
+        let mut s = [0.0; 6];
+        for j in 0..=n {
+            // the edge's side taken from the region integrated
+            let r = (lo + h * j as f64).clamp(lo, hi);
+            let r = if lo > 0.0 && j == 0 {
+                lo * (1.0 + 1e-14)
+            } else if j == n {
+                hi * (1.0 - 1e-14)
+            } else {
+                r
+            };
+            let wgt = if j == 0 || j == n {
+                1.0
+            } else if j % 2 == 1 {
+                4.0
+            } else {
+                2.0
+            };
+            for (s, v) in s.iter_mut().zip(ring(r)) {
+                *s += wgt * v;
+            }
+        }
+        s.map(|v| v * h / 3.0)
+    };
+    let (inner, outer) = (simpson(0.0, a, 2000), simpson(a, a + 40.0 / w, 20000));
+    let t: Vec<f64> = (0..6).map(|q| inner[q] + outer[q]).collect();
+    (
+        RodKerr {
+            neff: rod.beta / rod.k,
+            n2_vector: t[0] / (3.0 * t[1]),
+            n2_foster: t[2] / t[1],
+            area: t[3] * t[3] / t[1],
+            area_transverse: t[4] * t[4] / t[5],
+        },
+        rod.jump(),
+    )
+}
+
+/// The step-index fibre's HE₁₁ mode for the rod of [`rod_kerr_exact`], its fields at any point.
+#[cfg(test)]
+struct RodExact {
+    a: f64,
+    k: f64,
+    beta: f64,
+    u: f64,
+    w: f64,
+    /// J₁(ua)/K₁(wa): the outside's radial function's scale.
+    c: f64,
+    /// H_z's amplitude over E_z's.
+    b: f64,
+}
+
+#[cfg(test)]
+impl RodExact {
+    fn new(d: f64) -> RodExact {
+        let [nc, _, ns, _] = ROD;
+        let a = 0.5 * d;
+        let lam = rod_lam();
+        let k = lam.wavenumber();
+        let beta = crate::stack::checks::he11(nc, ns, a, lam) * k;
+        let (u, w) = (
+            (k * k * nc * nc - beta * beta).sqrt(),
+            (beta * beta - k * k * ns * ns).sqrt(),
+        );
+        let c = Self::jn(1.0, u * a) / Self::kn(1.0, w * a);
+        let mut rod = RodExact {
+            a,
+            k,
+            beta,
+            u,
+            w,
+            c,
+            b: 0.0,
+        };
+        // E_φ continuous at r = a
+        let (f, d1, d2) = rod.edge();
+        rod.b =
+            -beta * f * (1.0 / (u * u) + 1.0 / (w * w)) / (a * k * (d1 / (u * u) + d2 / (w * w)));
+        rod
+    }
+
+    /// J_n(x) by its integral (the midpoint rule, spectrally accurate), its series near 0.
+    fn jn(n: f64, x: f64) -> f64 {
+        if x.abs() < 1e-3 {
+            return if n == 0.0 {
+                1.0 - x * x / 4.0
+            } else {
+                x / 2.0 - x * x * x / 16.0
+            };
+        }
+        let m = 2000;
+        (0..m)
+            .map(|i| {
+                let t = (i as f64 + 0.5) / m as f64 * std::f64::consts::PI;
+                (n * t - x * t.sin()).cos()
+            })
+            .sum::<f64>()
+            / m as f64
+    }
+
+    /// K_n(x) by its integral.
+    fn kn(n: f64, x: f64) -> f64 {
+        let (m, top) = (4000, 8.0);
+        (0..m)
+            .map(|i| {
+                let t = (i as f64 + 0.5) / m as f64 * top;
+                (-x * t.cosh()).exp() * (n * t).cosh()
+            })
+            .sum::<f64>()
+            * top
+            / m as f64
+    }
+
+    /// The radial function at the edge, and its derivative inside and outside.
+    fn edge(&self) -> (f64, f64, f64) {
+        let (u, w, a) = (self.u, self.w, self.a);
+        let f = Self::jn(1.0, u * a);
+        let d1 = u * (Self::jn(0.0, u * a) - f / (u * a));
+        let d2 = self.c * w * (-Self::kn(0.0, w * a) - Self::kn(1.0, w * a) / (w * a));
+        (f, d1, d2)
+    }
+
+    /// H_φ's relative jump at the edge: 0 for the right β.
+    fn jump(&self) -> f64 {
+        let [nc, _, ns, _] = ROD;
+        let (f, d1, d2) = self.edge();
+        let (u, w) = (self.u, self.w);
+        let inside = (self.beta * self.b * f / self.a + self.k * nc * nc * d1) / (u * u);
+        let outside = (self.beta * self.b * f / self.a + self.k * ns * ns * d2) / (-w * w);
+        (inside - outside).abs() / inside.abs()
+    }
+
+    /// ε and the fields' polar components (r, φ, z) at (r, φ), r > 0: E_z = F(r) cos φ,
+    /// H_z = B F(r) sin φ.
+    fn polar(&self, r: f64, phi: f64) -> (f64, [c64; 3], [c64; 3]) {
+        let [nc, _, ns, _] = ROD;
+        let (f, df, kappa2, eps) = if r < self.a {
+            let x = self.u * r;
+            let (j0, j1) = (Self::jn(0.0, x), Self::jn(1.0, x));
+            // J₁′ = J₀ − J₁/x, ½ at 0
+            let dj = if x > 1e-3 {
+                j0 - j1 / x
+            } else {
+                0.5 - 3.0 * x * x / 16.0
+            };
+            (j1, self.u * dj, self.u * self.u, nc * nc)
+        } else {
+            let x = self.w * r;
+            let (k0, k1) = (Self::kn(0.0, x), Self::kn(1.0, x));
+            (
+                self.c * k1,
+                self.c * self.w * (-k0 - k1 / x),
+                -self.w * self.w,
+                ns * ns,
+            )
+        };
+        // F/r, its limit u/2 at the centre
+        let fr = if r < self.a && self.u * r < 1e-3 {
+            self.u * (0.5 - (self.u * r).powi(2) / 16.0)
+        } else {
+            f / r
+        };
+        let (beta, k, b) = (self.beta, self.k, self.b);
+        let i = c64::new(0.0, 1.0);
+        let (cs, sn) = (phi.cos(), phi.sin());
+        let e = [
+            i / kappa2 * (beta * df + k * b * fr) * cs,
+            i / kappa2 * (-beta * fr - k * b * df) * sn,
+            c64::new(f * cs, 0.0),
+        ];
+        let h = [
+            i / kappa2 * (beta * b * df + k * eps * fr) * sn,
+            i / kappa2 * (beta * b * fr + k * eps * df) * cs,
+            c64::new(b * f * sn, 0.0),
+        ];
+        (eps, e, h)
+    }
+
+    /// H's Cartesian components at (x, y).
+    fn h_at(&self, x: f64, y: f64) -> [c64; 3] {
+        let r = x.hypot(y);
+        let phi = y.atan2(x);
+        let (_, _, [hr, hp, hz]) = self.polar(r.max(1e-12), phi);
+        let (cs, sn) = (phi.cos(), phi.sin());
+        [hr * cs - hp * sn, hr * sn + hp * cs, hz]
     }
 }
 
@@ -668,7 +1125,7 @@ mod tests {
     #[test]
     #[ignore = "a grid study, run by hand (cargo test --release -- --ignored --nocapture)"]
     fn afshar_and_monros_rod_study() {
-        // the silicon rod of their Fig. 1c at 800 nm: γ^V/γ^F and γ^V/γ^S by grid and diameter
+        // the silicon rod of their Fig. 1c at 800 nm, D = 0.15 µm: γ^V/γ^F and γ^V/γ^S by grid and\n        // by how the fields are taken (rod_kerr), against the exact fields (rod_kerr_exact)
         let start = std::time::Instant::now();
         let exact = slab_tm_kerr_exact(0.22);
         eprintln!("TM slab n2 ratio exact {exact:.9}");
@@ -680,20 +1137,117 @@ mod tests {
                 start.elapsed().as_secs_f64()
             );
         }
-        let runs: Vec<(f64, f64, u8)> = [0u8, 1, 2]
+        // ROD_GRIDS="0.02,0.01" and ROD_HOWS="0,3,4" choose the runs
+        let list = |var: &str, default: &str| -> Vec<f64> {
+            std::env::var(var)
+                .unwrap_or_else(|_| default.to_owned())
+                .split(',')
+                .map(|s| s.trim().parse().expect("a number"))
+                .collect()
+        };
+        let grids = list("ROD_GRIDS", "0.02,0.01,0.005");
+        let hows: Vec<u8> = list("ROD_HOWS", "0,1,2,3,4,5")
             .into_iter()
-            .flat_map(|how| [0.02, 0.01, 0.005].into_iter().map(move |h| (0.15, h, how)))
+            .map(|v| v as u8)
             .collect();
-        for (k, (d, h, how)) in runs.iter().enumerate() {
-            let r = rod_kerr(*d, *h, *how);
-            eprint!("how {how} ");
+        // ROD_EXACT_H=1: the exact mode's H at the nodes instead of the eigensolver's
+        let exact_h = std::env::var("ROD_EXACT_H").is_ok_and(|v| v == "1");
+        let d = 0.15;
+        let (exact, jump) = rod_kerr_exact(d);
+        println!(
+            "exact D {d}: neff {:.6} (H_phi jump {jump:.1e}) n2V {:.6e} n2F {:.6e} A41 {:.6} \
+             A44 {:.6} V/F {:.5} V/S {:.5}",
+            exact.neff,
+            exact.n2_vector,
+            exact.n2_foster,
+            exact.area,
+            exact.area_transverse,
+            exact.vector_over_foster(),
+            exact.vector_over_standard(),
+        );
+        for (k, h) in grids.iter().enumerate() {
+            for (how, r) in rod_kerr(d, *h, &hows, exact_h) {
+                println!(
+                    "step {}/{} ({:.0} %, {:.0} s): how {how} D {d} h {h}: neff {:.6} \
+                     n2V {:.6e} n2F {:.6e} A41 {:.6} A44 {:.6} V/F {:.5} (rel {:.2e}) V/S {:.5}",
+                    k + 1,
+                    grids.len(),
+                    100.0 * (k + 1) as f64 / grids.len() as f64,
+                    start.elapsed().as_secs_f64(),
+                    r.neff,
+                    r.n2_vector,
+                    r.n2_foster,
+                    r.area,
+                    r.area_transverse,
+                    r.vector_over_foster(),
+                    r.vector_over_foster() / exact.vector_over_foster() - 1.0,
+                    r.vector_over_standard(),
+                );
+            }
+        }
+    }
+
+    #[test]
+    #[ignore = "a study, run by hand (cargo test --release -- --ignored --nocapture)"]
+    fn rod_exact_h_diagnostic() {
+        // the exact H at the nodes: the cells' H_z (from ∇·H) and H_t against the exact ones
+        let rod = RodExact::new(0.15);
+        for h in [0.01, 0.005, 0.0025] {
+            let n = (1.2f64 / h).round() as usize;
+            let x: Vec<f64> = (0..=n).map(|i| 1.2 * i as f64 / n as f64).collect();
+            let (mut hx, mut hy) = (Vec::new(), Vec::new());
+            for &px in &x {
+                for &py in &x {
+                    let [a, b, _] = rod.h_at(px, py);
+                    hx.push(a);
+                    hy.push(b);
+                }
+            }
+            let cs = CrossSection::uniform((0.0, 1.2, n), (0.0, 1.2, n), |_, _| {
+                Permittivity::isotropic(c64::new(1.0, 0.0))
+            })
+            .unwrap();
+            let mode = VectorMode::from_nodes(rod.beta, rod.k, x.clone(), x.clone(), hx, hy);
+            let f = mode.fields(&cs).unwrap();
+            let mut worst = [(0.0f64, 0usize); 3];
+            for (c, hh) in f.h.iter().enumerate() {
+                let (px, py) = (f.xc[c / n], f.yc[c % n]);
+                let ex = rod.h_at(px, py);
+                for q in 0..3 {
+                    let e = (hh[q] - ex[q]).norm();
+                    if e > worst[q].0 {
+                        worst[q] = (e, c);
+                    }
+                }
+            }
+            for (q, (e, c)) in worst.iter().enumerate() {
+                let (px, py) = (f.xc[c / n], f.yc[c % n]);
+                println!(
+                    "h {h}: H[{q}] largest error {e:.3e} at r {:.5} (x {px:.5}, y {py:.5}), exact {:.4}",
+                    px.hypot(py),
+                    rod.h_at(px, py)[q]
+                );
+            }
+        }
+    }
+
+    #[test]
+    #[ignore = "a study, run by hand (cargo test --release -- --ignored --nocapture)"]
+    fn afshar_and_monros_rod_exact() {
+        // the step-index fibre's exact fields: γ^V, γ^F and γ^S by diameter, as their Fig. 1c
+        let ds = [
+            0.1, 0.12, 0.14, 0.15, 0.16, 0.18, 0.19, 0.2, 0.22, 0.25, 0.3, 0.4, 0.6,
+        ];
+        for (k, d) in ds.iter().enumerate() {
+            let (r, jump) = rod_kerr_exact(*d);
+            let g = |n2: f64, area: f64| {
+                crate::mode::quantities::nonlinear_coefficient(rod_lam(), n2, area)
+            };
             println!(
-                "step {}/{} ({:.0} %, {:.0} s): D {d} h {h}: neff {:.6} n2V {:.6e} n2F {:.6e} \
-                 A41 {:.6} A44 {:.6} V/F {:.5} V/S {:.5} gV {:.2} gF {:.2}",
+                "exact {}/{} D {d}: neff {:.6} jump {jump:.1e} n2V {:.6e} n2F {:.6e} A41 {:.6} \
+                 A44 {:.6} V/F {:.5} V/S {:.5} gV {:.1} gF {:.1} gS {:.1}",
                 k + 1,
-                runs.len(),
-                100.0 * (k + 1) as f64 / runs.len() as f64,
-                start.elapsed().as_secs_f64(),
+                ds.len(),
                 r.neff,
                 r.n2_vector,
                 r.n2_foster,
@@ -701,8 +1255,9 @@ mod tests {
                 r.area_transverse,
                 r.vector_over_foster(),
                 r.vector_over_standard(),
-                crate::mode::quantities::nonlinear_coefficient(rod_lam(), r.n2_vector, r.area),
-                crate::mode::quantities::nonlinear_coefficient(rod_lam(), r.n2_foster, r.area),
+                g(r.n2_vector, r.area),
+                g(r.n2_foster, r.area),
+                g(ROD[1], r.area_transverse),
             );
         }
     }

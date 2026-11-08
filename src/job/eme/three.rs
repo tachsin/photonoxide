@@ -3,8 +3,8 @@
 //! `core_um` (a taper's `[from, to]`, cut into equal steps, each the strip at its middle) and its
 //! height `[task.plane]`'s; beside a `[device]` the sections are cut from the device's geometry
 //! along x ([`crate::device::Cut`]), and a task's own drawing (a `stack`, its `layer`, and
-//! rectangles, circles, rings, paths and shapes drawn on it, as a structure job's) is cut the same
-//! way from `x_um`'s start to its end. The run records the S-parameters between the guided modes
+//! rectangles, circles, rings, paths and shapes drawn on it, as a structure job's, a GDSII file's
+//! cell among them) is cut the same way from `x_um`'s start to its end. The run records the S-parameters between the guided modes
 //! at the two ends, as a 2D job's.
 
 use num_complex::Complex64 as c64;

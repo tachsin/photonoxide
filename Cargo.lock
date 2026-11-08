@@ -3642,10 +3642,13 @@ dependencies = [
 name = "photonoxide-native"
 version = "0.6.2"
 dependencies = [
+ "boon",
+ "genoxide",
  "libloading 0.9.0",
  "num-complex",
  "photonoxide",
  "rayon",
+ "zip 4.6.1",
 ]
 
 [[package]]

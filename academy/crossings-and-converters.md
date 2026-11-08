@@ -522,9 +522,15 @@ Chrostowski and Hochberg's width sweep give?
 
 :::answer
 At 0.659 µm, each keeping its polarization (TE₁'s TE fraction above 0.5, TM₀'s below 0.01). Their
-sweep of a 220 nm strip in oxide on 20 nm steps puts the crossing at about 680 nm (Section 3.2.8):
-21 nm away, more than half their step. photonoxide's strip device solver (20 nm cells) puts it
-between 640 and 660 nm too, so the difference isn't the grid.
+text puts the crossing "at approximately 680 nm" (Section 3.2.8), but that is the first width of
+their 20 nm sweep past it. Their Fig. 3.18a, read from its vector paths, has TE₁ at 1.8544 and
+TM₀ at 1.865 at 660 nm, and TE₁ at 1.9048 and TM₀ at 1.873 at 680 nm. So the curves cross between
+those two widths, at 665 nm when TE₁ is taken as straight between its markers (the figure draws
+TM₀ as a smoothed curve, not through markers). The chart samples every 20 nm too and joins the
+samples the same way. Ours is 6 nm below theirs, under a third of their step. Their sweep used
+the book's own silicon model and a constant oxide index on a 20 nm mesh (Listings 3.4 and 3.12);
+ours uses Li's silicon and Malitson's silica. photonoxide's strip device solver (20 nm cells)
+also puts the crossing between 640 and 660 nm.
 :::
 
 ## 11. What does the polarization splitter-rotator deliver?
@@ -568,8 +574,16 @@ over a 40 µm parabolic taper to a tip 100 nm wide, in silica. By their simulati
 TE mode overlaps the 4.9 µm mode of a fibre by about 94 %, 0.26 dB (pp. 1302–1303); measured with a
 lensed fibre, the taper coupled 8.2 times more TE light and 7.0 times more TM light than the bare
 wire, and 1 dB more is lost at ±1.2 µm of misalignment (pp. 1303–1304). The chart below holds
-220 nm of Li's silicon in Malitson's silica; checking their 94 % needs their 250 nm film, their
-indices (3.48 in 1.46) and their fibre's mode, which it doesn't take yet.
+220 nm of Li's silicon in Malitson's silica. Their 94 % needs their 250 nm film, their indices
+(3.48 in 1.46) and their fibre's mode (index 1.468, MFD 4.9 µm), so we solved that tip
+separately with the same full-vector solver, from 60 to 200 nm on 10 nm steps. Against a
+Gaussian of 4.9 µm diameter, TE₀ couples best at 140 nm, 0.908 (0.42 dB), with 12 and 20 µm of
+cladding beyond the tip. Near the cut-off the answer depends on the window: with only 5 µm of
+cladding a 130 nm tip gives 0.960 and a 120 nm tip 0.954. A real fibre's mode has longer tails
+than a Gaussian. A step-index fibre in 1.46 with index 1.468 and an MFD of 4.9 µm (Petermann's,
+a core of 1.877 µm radius and index 1.481) couples best at 140 nm too: 0.946 (0.24 dB), against
+their 94 % (0.26 dB) at 120 nm. The best coupling agrees, but our tip is 20 nm wider than theirs:
+at 120 nm ours couples only 0.765. Their simulation window isn't given.
 
 The chart below solves the tip's mode, 220 nm thick in silica with 5 µm of silica beyond it, and
 sums its overlap with a Gaussian beam focused on the facet, of waist $w_0 = \lambda/(\pi\,\mathrm{NA})$,

@@ -372,7 +372,11 @@ Farjadpour et al.'s lattice of tilted elliptical air holes in $\varepsilon = 12$
 bands' errors against pixels a period fall with slopes of −2.26 and −2.11 with their smoothing,
 against their −2.43 and quadratic, from 16 to 64 pixels. With the plain mean ε, band 2's slope is
 −1.40 against their −1.33; band 1's is −1.84 against their −1.33, which photonoxide prints and
-does not reproduce:
+does not reproduce. Over their own resolutions it stays steep: −1.81 from 20 to 64 pixels. A fit
+of $A/N + B/N^2$ to ours gives −1.91 from 20 to 100. The plain mean's first-order error depends on
+the mode and on $k$, which the paper doesn't give: at the M point, oblique to the grid, the two
+lowest bands fall at −2.02 and −1.62. None of these is their −1.33, and their mean's error at 20
+pixels, 2.83 × 10⁻³, is three times ours:
 
 ::example subpixel_holes
 

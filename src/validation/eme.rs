@@ -398,6 +398,16 @@ pub(crate) fn rules() -> Vec<(&'static str, Rule)> {
             ),
         ),
         (
+            "eme/3d-drawing-gds",
+            Rule::new(
+                Absolute,
+                RoundOff,
+                1e-10,
+                Exact,
+                "the same strips from whole nanometres, so the same planes as eme/3d-drawing-extruded's: round-off, 1e-10 as eme/3d-orthonormal",
+            ),
+        ),
+        (
             "eme/bend-index",
             Rule::new(
                 Absolute,
