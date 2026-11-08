@@ -66,7 +66,8 @@ It is released milestone by milestone ([changelog](CHANGELOG.md), [roadmap](ROAD
   [stacks with partial etches and sidewalls](docs/methods/stacks.md), and
   [3D bodies and graded media](docs/methods/bodies.md); each solver reads it by points or by
   [each cell's fill](docs/methods/averaging.md).
-- **Modes:** [slabs](docs/methods/slab.md) and [multilayers](docs/methods/multilayer.md),
+- **Modes:** [slabs](docs/methods/slab.md) and [multilayers](docs/methods/multilayer.md) (and their
+  [lamellar gratings](docs/methods/rcwa.md) by RCWA),
   [full-vector cross-sections](docs/methods/vector.md) with [PMLs](docs/methods/pml.md),
   [Hadley's](docs/methods/hadley.md) scheme for dielectric corners, [bends](docs/methods/bends.md)
   and [dispersion](docs/methods/dispersion.md); every mode in a region of the complex
