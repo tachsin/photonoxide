@@ -69,6 +69,7 @@ pub fn rules() -> Vec<(&'static str, Rule)> {
     rules.extend(quantum::rules());
     rules.extend(quantum_light::rules());
     rules.extend(quantum_real::rules());
+    rules.extend(rcwa::rules());
     rules
 }
 
@@ -2308,6 +2309,8 @@ pub fn cases() -> Vec<Case> {
     cases.extend(crate::quantum::checks::cases());
     cases.extend(crate::quantum::light_checks::cases());
     cases.extend(crate::quantum::real_checks::cases());
+    // and rigorous coupled-wave analysis: lamellar gratings, Li's rules, the static limit
+    cases.extend(crate::mode::rcwa_checks::cases());
     cases
 }
 
@@ -5392,6 +5395,7 @@ mod pcm_conformal;
 mod quantum;
 mod quantum_light;
 mod quantum_real;
+mod rcwa;
 mod roughness;
 mod sweep;
 #[cfg(feature = "gpu")]
