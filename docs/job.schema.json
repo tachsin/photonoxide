@@ -326,6 +326,24 @@
       },
       "type": "object"
     },
+    "CarriersSpec": {
+      "additionalProperties": false,
+      "description": "`[task.pulse.two_photon.carriers]`: silicon's free carriers.",
+      "properties": {
+        "index_ratio": {
+          "description": "n₀/n, the material's index over the mode's (1 by default).",
+          "type": "number"
+        },
+        "lifetime_ps": {
+          "description": "The effective lifetime τ₀, ps.",
+          "type": "number"
+        }
+      },
+      "required": [
+        "lifetime_ps"
+      ],
+      "type": "object"
+    },
     "ChipTask": {
       "additionalProperties": false,
       "allOf": [
@@ -4351,7 +4369,7 @@
           "type": "number"
         },
         "interpolate": {
-          "$ref": "#/$defs/InterpolateSpec2",
+          "$ref": "#/$defs/InterpolateSpec3",
           "description": "S over the sweep's wavelengths interpolated from a few solves, with its error stated."
         },
         "kind": {
@@ -4861,7 +4879,7 @@
           "type": "number"
         },
         "interpolate": {
-          "$ref": "#/$defs/InterpolateSpec",
+          "$ref": "#/$defs/InterpolateSpec2",
           "description": "S over the sweep's wavelengths interpolated from as few solves as a tolerance needs, its error stated (every entry on one set of wavelengths: `crate::sweep::SweepSet`)."
         },
         "kind": {
@@ -5703,6 +5721,25 @@
     },
     "InterpolateSpec": {
       "additionalProperties": false,
+      "description": "A modes job's `[task.interpolate]`: each mode's effective index and TE fraction over a wavelength sweep from as few solves as a tolerance needs, every one on one set of wavelengths (`crate::sweep::SweepSet`), the grid the same at every wavelength.",
+      "properties": {
+        "max_solves": {
+          "description": "The most solves: 200 by default, at least 5.",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "tolerance": {
+          "description": "The tolerance on every value, relative to the largest |n_eff| solved; at least 1e-13.",
+          "type": "number"
+        }
+      },
+      "required": [
+        "tolerance"
+      ],
+      "type": "object"
+    },
+    "InterpolateSpec2": {
+      "additionalProperties": false,
       "description": "A `[task.interpolate]`: S over `[task.sweep]`'s wavelengths from as few solves as a tolerance needs, the grid and the ports the same at every wavelength.",
       "properties": {
         "max_solves": {
@@ -5720,7 +5757,7 @@
       ],
       "type": "object"
     },
-    "InterpolateSpec2": {
+    "InterpolateSpec3": {
       "additionalProperties": false,
       "description": "A `[task.interpolate]`: S over `[task.sweep]`'s wavelengths from as few solves as a tolerance needs (`crate::eme::Spectrum`), the discretisation settled at `wavelength_um`.",
       "properties": {
@@ -6619,6 +6656,10 @@
           "$ref": "#/$defs/ExportSpec",
           "description": "Writes each mode's complex fields, and a summary table of every mode, into the run's directory (issue #431; not a sweep's points, which stay pictures only)."
         },
+        "interpolate": {
+          "$ref": "#/$defs/InterpolateSpec",
+          "description": "Each mode's effective index and TE fraction over the wavelength sweep's points interpolated from as few solves as a tolerance needs, its error stated; the points then carry no pictures."
+        },
         "kind": {
           "type": "string"
         },
@@ -6830,6 +6871,10 @@
         "process": {
           "description": "`\"shg\"`, `\"sfg\"`, `\"dfg\"`, `\"opa\"`, `\"spdc\"` or `\"fwm\"`.",
           "type": "string"
+        },
+        "pulse": {
+          "$ref": "#/$defs/PulseSpec",
+          "description": "A pulse along four-wave mixing's guide by the NLSE's split-step, and optionally a second pulse at the signal's wavelength coupled to it by cross-phase modulation (`crate::nonlinear::pulse`, `crate::nonlinear::xpm`)."
         },
         "pump": {
           "$ref": "#/$defs/PumpSpec",
@@ -7818,6 +7863,67 @@
       },
       "type": "object"
     },
+    "PulseSpec": {
+      "additionalProperties": false,
+      "description": "`[task.pulse]`: a pulse launched into four-wave mixing's guide at the pump's wavelength, its γ the guide's `gamma_per_w_m`, its loss the pump's, over the task's `length_mm`.",
+      "properties": {
+        "dispersion_ps_per_m": {
+          "description": "β₂, β₃, … at the pump's wavelength, ps^k/m (1 ps²/m is 1000 ps²/km): at least β₂.",
+          "items": {
+            "type": "number"
+          },
+          "type": "array"
+        },
+        "peak_power_w": {
+          "description": "The peak power P₀, W.",
+          "type": "number"
+        },
+        "points": {
+          "description": "The points across the window, a power of two: 1024 by default.",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "raman": {
+          "description": "Silica's delayed Raman response (Agrawal's Eq. (2.3.39); false by default).",
+          "type": "boolean"
+        },
+        "second": {
+          "$ref": "#/$defs/SecondSpec",
+          "description": "A second pulse at the signal's wavelength, coupled to the first by cross-phase modulation (Kerr only: no Raman, self-steepening or two-photon absorption with it)."
+        },
+        "self_steepening": {
+          "description": "Self-steepening, γ/ω₀ (false by default).",
+          "type": "boolean"
+        },
+        "shape": {
+          "description": "`\"sech\"` (the default), √P₀ sech(T/T₀), or `\"gaussian\"`, √P₀ exp(−T²/2T₀²).",
+          "type": "string"
+        },
+        "steps": {
+          "description": "The split steps over the length: 2000 by default.",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "t0_ps": {
+          "description": "T₀, ps.",
+          "type": "number"
+        },
+        "two_photon": {
+          "$ref": "#/$defs/TwoPhotonSpec",
+          "description": "Two-photon absorption, and the free carriers it makes (Lin, Painter and Agrawal 2007)."
+        },
+        "window_ps": {
+          "description": "The time window, ps: 50 T₀ by default. The grid is periodic, so the window must hold the pulse and what it sheds.",
+          "type": "number"
+        }
+      },
+      "required": [
+        "peak_power_w",
+        "t0_ps",
+        "dispersion_ps_per_m"
+      ],
+      "type": "object"
+    },
     "PumpSpec": {
       "additionalProperties": false,
       "allOf": [
@@ -8551,6 +8657,50 @@
       "required": [
         "samples",
         "seed"
+      ],
+      "type": "object"
+    },
+    "SecondSpec": {
+      "additionalProperties": false,
+      "description": "`[task.pulse.second]`: a second pulse at the signal's wavelength, centred `delay_ps` after the first, on the same grid; its loss the signal's.",
+      "properties": {
+        "delay_ps": {
+          "description": "Where it is centred at the start, ps after the first (0 by default).",
+          "type": "number"
+        },
+        "dispersion_ps_per_m": {
+          "description": "Its β₂, β₃, … at the signal's wavelength, ps^k/m.",
+          "items": {
+            "type": "number"
+          },
+          "type": "array"
+        },
+        "gamma_per_w_m": {
+          "description": "Its γ, 1/(W·m): the guide's times the pump's wavelength over the signal's by default (one effective area and n₂ for both).",
+          "type": "number"
+        },
+        "peak_power_w": {
+          "description": "Its peak power, W.",
+          "type": "number"
+        },
+        "shape": {
+          "description": "`\"sech\"` or `\"gaussian\"`: the first pulse's shape by default.",
+          "type": "string"
+        },
+        "t0_ps": {
+          "description": "Its T₀, ps.",
+          "type": "number"
+        },
+        "walk_off_ps_per_m": {
+          "description": "The walk-off d = 1/v_g2 − 1/v_g1, ps/m: positive when the second pulse is slower.",
+          "type": "number"
+        }
+      },
+      "required": [
+        "peak_power_w",
+        "t0_ps",
+        "dispersion_ps_per_m",
+        "walk_off_ps_per_m"
       ],
       "type": "object"
     },
@@ -12287,6 +12437,10 @@
     "SweepSpec": {
       "additionalProperties": false,
       "properties": {
+        "follow": {
+          "description": "How the modes are numbered from point to point: `\"index\"` (the default), by effective index at each point, highest first; or `\"overlap\"` (a wavelength sweep only), mode k at each point the one whose field overlaps mode k's at the point before most, mode k at the first point the k-th by index: each mode keeps its number through crossings. The points are then solved one after another.",
+          "type": "string"
+        },
         "from": {
           "anyOf": [
             {
@@ -12390,6 +12544,29 @@
       "required": [
         "step_ns",
         "duration_us"
+      ],
+      "type": "object"
+    },
+    "TwoPhotonSpec": {
+      "additionalProperties": false,
+      "description": "`[task.pulse.two_photon]`.",
+      "properties": {
+        "area_um2": {
+          "description": "The mode's effective area ā, µm².",
+          "type": "number"
+        },
+        "carriers": {
+          "$ref": "#/$defs/CarriersSpec",
+          "description": "The free carriers, silicon's (σ_a and σ_n of Lin et al.'s Eq. (20), scaled by (λ/1.55 µm)²); none by default."
+        },
+        "coefficient_m_per_w": {
+          "description": "β_T, m/W (0.5 cm/GW is 5e-12 m/W).",
+          "type": "number"
+        }
+      },
+      "required": [
+        "coefficient_m_per_w",
+        "area_um2"
       ],
       "type": "object"
     },

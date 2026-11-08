@@ -308,15 +308,27 @@ mod tests {
     /// propagating one and few more) R stalls 1.3e-3 to 3.5e-3 below the closed form 0.0273777;
     /// with 220 the gap halves with each doubling of the steps (first order: 2.0e-3, 6.0e-4,
     /// 3.1e-4 and 1.7e-4 at 100 to 800 steps, 128 s for 800 on six threads), and the first-order
-    /// limit of 400 and 800 is 2.4e-5 below it. R + T − 1 stays under 4e-14.
+    /// limit of 400 and 800 is 2.4e-5 below it. R + T − 1 stays under 4e-14. With 160 and 320
+    /// modes (PHOX_FACET_MODES=110,160,220,320, PHOX_FACET_STEPS=200,400,800): R − closed form
+    /// −1.07e-3, −7.40e-4 (160 at 200, 400 steps) and −5.09e-4, −1.63e-4, −7.00e-5 (320 at 200,
+    /// 400, 800; 506 s for 800), the 320 modes' first-order limit of 400 and 800 2.3e-5 above:
+    /// the modes' error and the staircase's don't separate at these sizes (eme.md, Limits).
     #[test]
     #[ignore = "a study of about five minutes: an angled facet as a staircase"]
     fn study_an_angled_facet() {
         let (pol, alpha) = (Polarization::Te, 10f64.to_radians());
         let want = rotated_share(pol, alpha);
         println!("TE at 10 degrees: the closed form's R = {want:.9}");
-        for modes in [110, 220] {
-            for steps in [50, 100, 200, 400, 800] {
+        // the modes and the steps from PHOX_FACET_MODES and PHOX_FACET_STEPS (lists of counts),
+        // to run the study in parts
+        let list = |name: &str, default: &[usize]| -> Vec<usize> {
+            std::env::var(name).map_or_else(
+                |_| default.to_vec(),
+                |v| v.split(',').filter_map(|s| s.trim().parse().ok()).collect(),
+            )
+        };
+        for modes in list("PHOX_FACET_MODES", &[110, 220]) {
+            for steps in list("PHOX_FACET_STEPS", &[50, 100, 200, 400, 800]) {
                 let t0 = std::time::Instant::now();
                 let sections = facet_sections(alpha, steps).unwrap();
                 let eme = Eme::new(pol, Wavelength::um(LAMBDA).unwrap(), modes).unwrap();

@@ -80,7 +80,8 @@ pub enum Event {
         value: f64,
         /// The vacuum wavelength, µm.
         wavelength_um: f64,
-        /// The modes' effective indices, highest first, real and imaginary parts.
+        /// The modes' effective indices, real and imaginary parts: highest first, or in the
+        /// modes' numbers when the sweep follows them (`follow = "overlap"`).
         effective_indices: Vec<[f64; 2]>,
         /// Their TE fractions, in the same order.
         te_fractions: Vec<f64>,
@@ -872,5 +873,11 @@ pub enum Event {
         ports: Vec<String>,
         /// Each one's share of the beam's power.
         shares: Vec<f64>,
+    },
+    /// A `"nonlinear"` job's `[task.pulse]`: one pulse at the guide's end against itself at the
+    /// start ([`super::PulsePropagation`]); one event for each of two pulses.
+    NonlinearPulse {
+        /// The pulse.
+        pulse: Box<super::PulsePropagation>,
     },
 }

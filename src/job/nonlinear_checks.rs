@@ -532,6 +532,9 @@ pub(crate) fn cases() -> Vec<Case> {
             run: || ring_case("fwm"),
         },
     ]
+    .into_iter()
+    .chain(super::nonlinear_pulse_checks::cases())
+    .collect()
 }
 
 #[cfg(test)]

@@ -19,6 +19,17 @@ pub(crate) fn rules() -> Vec<(&'static str, Rule)> {
             .varying(),
         ),
         (
+            "job/modes-interpolate-crossing",
+            Rule::new(
+                Absolute,
+                Discretisation,
+                1.0,
+                Measured,
+                "the estimate's claim, as job/fdfd-interpolate-step: the interpolant's true error at most its estimate, a ratio of at most 1; the case measures that ratio itself (1.1e-6: 19 solves, the estimate 1.3e-6, the true error 1.4e-12, the modes followed by overlap; numbered by index, the same sweep takes its 200 solves without reaching the tolerance)",
+            )
+            .varying(),
+        ),
+        (
             "sweep/aaa-rational",
             Rule::new(
                 Relative,
