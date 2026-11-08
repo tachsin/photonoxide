@@ -879,8 +879,29 @@ export interface EmeBeam {
   shares: number[];
 }
 
+/** A nonlinear job's [task.pulse]: a pulse at the guide's end against itself at the start (photonoxide::job::PulsePropagation). */
+export interface PulsePropagation {
+  label: string;
+  wavelength_um: number;
+  length_mm: number;
+  steps: number;
+  times_ps: number[];
+  power_in_w: number[];
+  power_out_w: number[];
+  phase_rad: number[];
+  /** Ω/2π from the carrier, THz, increasing. */
+  frequencies_thz: number[];
+  spectrum_in: number[];
+  spectrum_out: number[];
+  peak_power_w: [number, number];
+  energy_pj: [number, number];
+  rms_bandwidth_thz: [number, number];
+  notes: string[];
+}
+
 export type Event =
   | { type: "started"; job: string; kind: string }
+  | { type: "nonlinear_pulse"; pulse: PulsePropagation }
   | { type: "nonlinear_setup"; setup: NonlinearSetup }
   | { type: "phase_map"; map: PhaseMap }
   | { type: "nonlinear_efficiency"; curve: EfficiencyCurve }

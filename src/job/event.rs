@@ -874,4 +874,10 @@ pub enum Event {
         /// Each one's share of the beam's power.
         shares: Vec<f64>,
     },
+    /// A `"nonlinear"` job's `[task.pulse]`: one pulse at the guide's end against itself at the
+    /// start ([`super::PulsePropagation`]); one event for each of two pulses.
+    NonlinearPulse {
+        /// The pulse.
+        pulse: Box<super::PulsePropagation>,
+    },
 }

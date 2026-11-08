@@ -534,6 +534,7 @@ mod modes;
 mod modes_checks;
 mod nonlinear;
 mod nonlinear_checks;
+mod nonlinear_pulse_checks;
 #[cfg(test)]
 mod nonlinear_tests;
 pub mod optimize;
@@ -595,7 +596,7 @@ pub use fdtd::{FoundResonance, SpectrumSeries};
 pub use fit::fit_from_device;
 pub use nonlinear::{
     Accepted, EfficiencyCurve, EfficiencySeries, NonlinearSetup, NonlinearWave, PairSpectrum,
-    PhaseMap, PoledGrating, RingResonance,
+    PhaseMap, PoledGrating, PulsePropagation, RingResonance,
 };
 pub use optimize::{
     Aim, Bound, Evaluation, GradientCheck, Keep, Optimization, Problem, Recorder, Schedule,

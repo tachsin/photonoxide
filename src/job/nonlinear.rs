@@ -47,7 +47,11 @@
 //!   with the losses and the self- and cross-phase terms beside the undepleted lossless closed
 //!   form ([`crate::nonlinear::fwm`]);
 //! - [`Event::PairSpectrum`] for SPDC and FWM: the joint spectral amplitude, with its purity and
-//!   Schmidt number ([`crate::nonlinear::pairs`]).
+//!   Schmidt number ([`crate::nonlinear::pairs`]);
+//! - [`Event::NonlinearPulse`] for FWM with a `[task.pulse]`: a pulse along the guide by the
+//!   NLSE's split-step, and a second one at the signal's wavelength coupled to it by cross-phase
+//!   modulation with `[task.pulse.second]`, each at the end against the start
+//!   ([`PulsePropagation`], [`crate::nonlinear::pulse`], [`crate::nonlinear::xpm`]).
 //!
 //! A run with a folder writes the same numbers beside its record: `nonlinear.json` (the four
 //! events' contents), `phase_map.csv`, `efficiency.csv` and `pair_spectrum.csv`.
@@ -76,6 +80,10 @@
 //!     temperature_c: [15.0, 35.0]
 //!     across_points: 21
 //! ```
+
+mod pulse;
+
+pub use pulse::PulsePropagation;
 
 use std::f64::consts::{PI, TAU};
 use std::fmt::Write as _;
@@ -151,6 +159,10 @@ pub(super) struct NonlinearTask {
     /// The guide closed into an all-pass ring resonant at every wave, its circumference
     /// `length_mm`: SHG of type I and FWM only ([`crate::nonlinear::cavity`]).
     ring: Option<RingSpec>,
+    /// A pulse along four-wave mixing's guide by the NLSE's split-step, and optionally a second
+    /// pulse at the signal's wavelength coupled to it by cross-phase modulation
+    /// ([`crate::nonlinear::pulse`], [`crate::nonlinear::xpm`]).
+    pulse: Option<pulse::PulseSpec>,
 }
 
 /// `[task.ring]`: an all-pass ring of the task's guide, every wave on its resonance.
@@ -2771,6 +2783,19 @@ impl TaskKind for NonlinearKind {
 
     fn check(&self, job: &Job) -> Result<()> {
         let setup = Setup::of(job)?;
+        if task_of(job)?.pulse.is_some() {
+            if setup.kind != Kind::Fwm {
+                return Err(task_error(
+                    "[task.pulse] runs in four-wave mixing's Kerr guide: give process = \"fwm\" \
+                     and the guide's gamma_per_w_m",
+                ));
+            }
+            if setup.gamma.is_none() {
+                return Err(task_error(
+                    "[task.pulse] needs the guide's gamma_per_w_m, the pulse's Kerr coefficient",
+                ));
+            }
+        }
         match &setup.guide {
             // the cross-sections drawn at each wave's wavelength, without solving them
             Guide::Ridge(r) => {
@@ -2829,6 +2854,12 @@ impl TaskKind for NonlinearKind {
                 run.record(&Event::PairSpectrum {
                     spectrum: Box::new(p.clone()),
                 })?;
+            }
+            let task = task_of(job)?;
+            if task.pulse.is_some() && stop.reason().is_none() {
+                for p in pulse::pulses(task.pulse.as_ref(), &Setup::of(job)?)? {
+                    run.record(&Event::NonlinearPulse { pulse: Box::new(p) })?;
+                }
             }
             if !run.dir().as_os_str().is_empty() {
                 write_files(run.dir(), &c)?;

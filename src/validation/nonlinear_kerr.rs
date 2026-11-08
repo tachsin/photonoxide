@@ -8,6 +8,7 @@ use super::{Basis::*, Measure::*, Numerical::*, Rule};
 
 pub(crate) fn rules() -> Vec<(&'static str, Rule)> {
     let mut rules = pulse_rules();
+    rules.extend(job_pulse_rules());
     rules.extend(fwm_rules());
     rules.extend(lle_rules());
     rules
@@ -19,6 +20,45 @@ fn grid(measure: super::Measure, tolerance: f64, why: &'static str) -> Rule {
 
 fn order(why: &'static str) -> Rule {
     Rule::new(Absolute, Order, 0.1, Measured, why)
+}
+
+/// The NLSE through a nonlinear job's `[task.pulse]`: each the library's case of the same
+/// pulse and guide, whose rule it takes, since the job calls the same split-step.
+fn job_pulse_rules() -> Vec<(&'static str, Rule)> {
+    vec![
+        (
+            "job/nonlinear-pulse-spm-broadening",
+            grid(
+                Relative,
+                1e-12,
+                "as nonlinear/nlse-spm-broadening, the same pulse through the job: without dispersion the step is exact, and on 1024 points the time grid's error is at round-off (1.8e-8 on 512, 2.2e-16 on 1024 and 2048)",
+            ),
+        ),
+        (
+            "job/nonlinear-pulse-soliton",
+            grid(
+                Absolute,
+                2e-5,
+                "as nonlinear/nlse-fundamental-soliton, the same soliton through the job: the error on 2000 steps, 1.11e-5, rounded up, second order (1.8e-4, 4.4e-5, 1.1e-5, 2.8e-6 and 7.0e-7 on 500 to 8000), so 4000's is a quarter of it (2.8e-6 through the job)",
+            ),
+        ),
+        (
+            "job/nonlinear-pulse-xpm",
+            grid(
+                Absolute,
+                8e-6,
+                "as nonlinear/xpm-walk-off-phase, the same two pulses through the job: the error on 1000 steps, 7.14e-6, rounded up, the walk-off between Kerr steps at second order (2.9e-5, 7.1e-6 and 1.8e-6 on 500 to 2000; 1.8e-6 through the job on 2000)",
+            ),
+        ),
+        (
+            "job/nonlinear-pulse-two-photon",
+            grid(
+                Relative,
+                8e-7,
+                "as nonlinear/nlse-tpa-power, the same pulse through the job: the error on 200 steps, 7.19e-7, rounded up, the loss's midpoint rule in the split-step at second order (2.9e-6, 7.2e-7, 1.8e-7 and 4.5e-8 on 100 to 800); the nonlinear step is exact",
+            ),
+        ),
+    ]
 }
 
 /// The NLSE and the dispersion it takes.

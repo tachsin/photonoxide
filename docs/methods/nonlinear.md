@@ -81,6 +81,10 @@ validation:
   - job/nonlinear-ridge-zhao-efficiency
   - job/nonlinear-ring-shg
   - job/nonlinear-ring-fwm
+  - job/nonlinear-pulse-spm-broadening
+  - job/nonlinear-pulse-soliton
+  - job/nonlinear-pulse-xpm
+  - job/nonlinear-pulse-two-photon
   - nonlinear/nlse-dispersion-silica-beta2
   - nonlinear/nlse-dispersion-silica-beta4
   - nonlinear/nlse-fundamental-soliton
@@ -1448,9 +1452,37 @@ for every wave: P_i/P_s = 2.08, |F|⁸ = 2.08 × 10⁶ over one pass) take the r
 Helt et al.'s lossless closed forms on resonance, |F|² = k²/(1 − r)²: 7.8e-16 and 8.9e-16, the
 largest gap of the ring's value, one pass's and every build-up.
 
-What a job can't set yet: an add-drop ring, a detuned wave, a ring for the other processes, and
-the pulse propagation of the library (self-phase and cross-phase modulation of pulses, two-photon
-and free-carrier absorption, Kerr microresonators, oscillators).
+A `[task.pulse]` sends a pulse along four-wave mixing's guide by the NLSE's split-step
+([pulses along a Kerr guide](#pulses-along-a-kerr-guide)). The pulse is at the pump's wavelength,
+with the guide's `gamma_per_w_m` as its γ and the pump's loss, over `length_mm`. It takes its shape
+(`"sech"` or `"gaussian"`), `peak_power_w`, `t0_ps` and `dispersion_ps_per_m` (β₂, β₃, … at the
+pump, at least β₂), and the grid's `window_ps` (50 T₀), `points` (1024, a power of two) and
+`steps` (2000). `self_steepening` and `raman` (silica's response) add the higher-order terms, and
+`[task.pulse.two_photon]` (`coefficient_m_per_w`, `area_um2`, and optionally
+`[task.pulse.two_photon.carriers]` with silicon's carriers, `lifetime_ps` and `index_ratio`) adds
+two-photon and free-carrier absorption. A `[task.pulse.second]` puts a second pulse at the signal's
+wavelength beside the first, with its own shape, power, width and dispersion, its walk-off
+`walk_off_ps_per_m`, a `delay_ps` and its own γ (the guide's times λ_p/λ_s by default). The two are
+coupled by cross-phase modulation ([between two pulses](#cross-phase-modulation-between-two-pulses)),
+the Kerr effect alone, so a second pulse takes none of the higher-order terms. The run records
+a `nonlinear_pulse` event for each pulse after the process's own events. It holds the power and
+the gained phase against the time, the spectrum at the start and the end, the peak power, the
+energy and the RMS spectral width at both ends, and notes with the dispersion and nonlinear
+lengths and the soliton order. The studio doesn't draw it yet, and `nonlinear.json` leaves it out.
+
+Four cases take the library's NLSE cases through a job, each the same pulse and guide in four-wave
+mixing's guide of one index. Each meets its closed form as the library's case does, under that case's rule:
+
+| Case | Through the job | The library's |
+|---|---|---|
+| `job/nonlinear-pulse-spm-broadening`: a Gaussian's RMS broadening at φ_max = 4.5π | 12.443951, round-off | `nonlinear/nlse-spm-broadening` |
+| `job/nonlinear-pulse-soliton`: the fundamental soliton after five periods, 4000 steps | 2.8e-6 | `nonlinear/nlse-fundamental-soliton` |
+| `job/nonlinear-pulse-xpm`: Agrawal's Fig. 7.2, the first pulse's phase, 2000 steps | 1.8e-6 | `nonlinear/xpm-walk-off-phase` |
+| `job/nonlinear-pulse-two-photon`: the peak's power after 2 cm, 400 steps | 1.486405 W | `nonlinear/nlse-tpa-power` |
+
+What a job can't set yet: an add-drop ring, a detuned wave, a ring for the other processes, the
+pulse's dispersion from the guide's own indices (it is given), Kerr microresonators and
+oscillators.
 
 ## Limits
 
