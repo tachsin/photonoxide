@@ -60,7 +60,7 @@ fn refusal(holder: Holder, name: &str) -> String {
         (Holder::Solver, "modes") => "`kind`, `stack`, `core_nm`, `bottom_oxide_um`, \
             `wavelength_um`, `layer`, `propagation`, `x_um`, `y_um`, `z_um`, `cut_x_um`, \
             `cut_y_um`, `step_nm`, `modes`, `modes_above`, `modes_near`, `pml`, `rect`, `circle`, \
-            `ring`, `export`, `convergence`, `quantities`, `sweep`"
+            `ring`, `export`, `convergence`, `quantities`, `sweep`, `interpolate`"
             .to_owned(),
         (Holder::Solver, "fdfd") => "`kind`, `stack`, `core_nm`, `bottom_oxide_um`, \
             `wavelength_um`, `layer`, `polarization`, `x_um`, `y_um`, `step_nm`, `pml_cells`, \
@@ -80,7 +80,7 @@ fn refusal(holder: Holder, name: &str) -> String {
             .to_owned(),
         (Holder::Solver, "nonlinear") => {
             "`kind`, `process`, `shg_type`, `waveguide`, `pump`, `signal`, \
-            `poling`, `length_mm`, `temperature_c`, `map`, `pairs`, `points`, `ring`"
+            `poling`, `length_mm`, `temperature_c`, `map`, `pairs`, `points`, `ring`, `pulse`"
                 .to_owned()
         }
         (Holder::Solver | Holder::Device, "eme") => "`kind`, `wavelength_um`, `polarization`, \
