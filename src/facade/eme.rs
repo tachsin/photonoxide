@@ -38,6 +38,8 @@ pub struct EmeSolution {
     pub errors: Vec<EmeError>,
     /// A `[task.period]`'s Bloch modes at each wavelength solved.
     pub bloch: Vec<EmeBloch>,
+    /// A `[task.beam]`'s shares of power at each wavelength solved.
+    pub beams: Vec<EmeBeamShares>,
 }
 
 /// A section of the structure ([`crate::job::EmeSection`]).
@@ -126,12 +128,29 @@ pub struct EmeBloch {
     pub effective_index: Vec<c64>,
 }
 
+/// A `[task.beam]` at one wavelength: the shares of the beam's power the structure reflects
+/// and passes, and each guided mode's at the last end.
+#[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
+pub struct EmeBeamShares {
+    /// The wavelength, µm.
+    pub wavelength_um: f64,
+    /// The share reflected.
+    pub reflected: f64,
+    /// The share passed.
+    pub transmitted: f64,
+    /// The last end's guided modes, e.g. `"2 TE0"`.
+    pub ports: Vec<String>,
+    /// Each one's share.
+    pub shares: Vec<f64>,
+}
+
 /// What the `"eme"` job `job`'s run records, computed without a folder: the solver's settings,
 /// the sections, the S-parameters between the guided modes at the two ends at each wavelength,
-/// the convergence studies, the estimated errors and a period's Bloch modes, each to the bit
-/// what its event holds. Every form of the job runs: 2D sections, 3D strips on a plane, a
-/// `[device]`'s or the job's own drawing cut into planes, bends, a `[task.period]`, a sweep and
-/// `[task.interpolate]`. It stops at `stop`'s deadline or the job's own `timeout_minutes`,
+/// the convergence studies, the estimated errors, a period's Bloch modes and a beam's shares,
+/// each to the bit what its event holds. Every form of the job runs: 2D sections, 3D strips on a
+/// plane, a `[device]`'s or the job's own drawing cut into planes, bends, a `[task.period]`, a
+/// sweep, `[task.interpolate]` and a `[task.beam]`. It stops at `stop`'s deadline or the job's own `timeout_minutes`,
 /// whichever comes first, and returns `None` when it did.
 ///
 /// # Errors
@@ -160,6 +179,7 @@ pub fn eme(job: &JobSource, stop: &Stop) -> Result<Option<EmeSolution>> {
         studies: Vec::new(),
         errors: Vec::new(),
         bloch: Vec::new(),
+        beams: Vec::new(),
     };
     for line in run.lines() {
         let event: Event = serde_json::from_str(line).map_err(|e| Error::Parse {
@@ -245,6 +265,19 @@ pub fn eme(job: &JobSource, stop: &Stop) -> Result<Option<EmeSolution>> {
                     .iter()
                     .map(|&[re, im]| c64::new(re, im))
                     .collect(),
+            }),
+            Event::EmeBeam {
+                wavelength_um,
+                reflected,
+                transmitted,
+                ports,
+                shares,
+            } => out.beams.push(EmeBeamShares {
+                wavelength_um,
+                reflected,
+                transmitted,
+                ports,
+                shares,
             }),
             _ => {}
         }

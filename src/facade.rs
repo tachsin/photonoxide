@@ -86,7 +86,9 @@ pub use device::{
     ValidityRange, device_derived, device_geometry, device_job, device_spectrum,
     device_spectrum_until, devices, stacks,
 };
-pub use eme::{EmeBloch, EmeError, EmePoint, EmeSectionInfo, EmeSolution, EmeStudy, eme};
+pub use eme::{
+    EmeBeamShares, EmeBloch, EmeError, EmePoint, EmeSectionInfo, EmeSolution, EmeStudy, eme,
+};
 pub use fabrication::{
     DeviceFabrication, device_fabrication, device_fabrication_from, device_fabrication_job,
     device_fabrication_job_from, export_fabrication, export_fabrication_from,

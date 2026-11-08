@@ -250,6 +250,108 @@ fn a_run_records_its_sections_along_the_structure() {
     assert_eq!(s[2].start_um, s[1].length_um);
 }
 
+/// A run's `[task.beam]` records: (wavelength, reflected, transmitted, ports, shares).
+type Shares = (f64, f64, f64, Vec<String>, Vec<f64>);
+
+fn beam_shares(events: &[Event]) -> Vec<Shares> {
+    events
+        .iter()
+        .filter_map(|e| match e {
+            Event::EmeBeam {
+                wavelength_um,
+                reflected,
+                transmitted,
+                ports,
+                shares,
+            } => Some((
+                *wavelength_um,
+                *reflected,
+                *transmitted,
+                ports.clone(),
+                shares.clone(),
+            )),
+            _ => None,
+        })
+        .collect()
+}
+
+#[test]
+fn a_beams_shares_are_the_librarys_launch_to_the_bit() {
+    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("jobs");
+    let job = Job::load(&dir.join("eme-beam.yaml")).unwrap();
+    check(&job).unwrap();
+    let got = beam_shares(&events(&job));
+    assert_eq!(got.len(), 1);
+    let (wl, reflected, transmitted, ports, shares) = &got[0];
+    assert_eq!(*wl, 1.55);
+    assert_eq!(ports, &["2 TE0"]);
+    // the library's: the beam on the oxide's modes, through the facet
+    let lam = Wavelength::um(1.55).unwrap();
+    let eme = Eme::new(Polarization::Te, lam, 60).unwrap();
+    let oxide = Slice::new(&[(c64::new(1.444, 0.0), Length::um(20.0))]).unwrap();
+    let slab = Slice::slab(
+        c64::new(3.473, 0.0),
+        Length::um(0.22),
+        c64::new(1.444, 0.0),
+        Length::um(20.0),
+    )
+    .unwrap();
+    let s = eme
+        .s_matrix(&[
+            Section::new(oxide.clone(), Length::ZERO),
+            Section::new(slab, Length::ZERO),
+        ])
+        .unwrap();
+    let beam = crate::eme::Beam::gaussian(Length::um(1.0), Length::ZERO)
+        .unwrap()
+        .tilted(0.0, 1.444)
+        .unwrap();
+    let launched = eme.launch(&oxide, &beam).unwrap();
+    let p = launched.power();
+    let (r, t) = s.forward(&launched.arriving()).unwrap();
+    assert_eq!(*reflected, crate::eme::power(&r, &s.first) / p);
+    assert_eq!(*transmitted, crate::eme::power(&t, &s.last) / p);
+    assert_eq!(shares[0], t[0].norm_sqr() / p);
+    // between walls, without loss: what isn't reflected passes
+    assert!(
+        (reflected + transmitted - 1.0).abs() < 1e-12,
+        "{reflected} {transmitted}"
+    );
+    // the numbers the job's comment quotes
+    assert_eq!(
+        ((shares[0] * 1e4).round(), (reflected * 1e4).round()),
+        (3474.0, 357.0)
+    );
+}
+
+#[test]
+fn check_refuses_a_beam_it_cannot_launch() {
+    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("jobs");
+    let text = std::fs::read_to_string(dir.join("eme-beam.yaml")).unwrap();
+    for (from, to, says) in [
+        ("waist_um: 1.0", "waist_um: 0.0", "waist_um"),
+        (
+            "waist_um: 1.0",
+            "waist_um: 1.0\n    center_um: 12.0",
+            "center_um",
+        ),
+        (
+            "waist_um: 1.0",
+            "waist_um: 1.0\n    angle_deg: 90.0",
+            "angle_deg",
+        ),
+        (
+            "  window_um: 20.0",
+            "  window_um: 20.0\n  pml: { thickness_um: 2.0, strength: 0.1 }",
+            "[task.pml]",
+        ),
+    ] {
+        let job = Job::parse_as(&text.replace(from, to), crate::run::Format::Yaml).unwrap();
+        let e = check(&job).unwrap_err().to_string();
+        assert!(e.contains(says), "{e}");
+    }
+}
+
 #[test]
 fn a_sweep_records_s_at_each_wavelength() {
     let job = TAPER.to_owned()

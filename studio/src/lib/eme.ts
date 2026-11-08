@@ -2,13 +2,14 @@
 // and the convergence studies, each read from what the run records (photonoxide::job's "eme"
 // task); nothing here computes a number the run doesn't hold but |S|² and its dB.
 
-import type { EmeSection, GridConvergence, SParameters, SolveError } from "./events";
+import type { EmeBeam, EmeSection, GridConvergence, SParameters, SolveError } from "./events";
 import type { Series } from "./plot";
 
-/** What an eme run recorded beside its S-parameters: its sections and its studies. */
+/** What an eme run recorded beside its S-parameters: its sections, its studies and a beam's shares. */
 export interface EmeRecord {
   sections: EmeSection[] | null;
   studies: GridConvergence[];
+  beams: EmeBeam[];
 }
 
 /** |S|² in dB, floored at −300 dB where it is 0. */

@@ -83,6 +83,20 @@
     </div>
   {/if}
 
+  {#if record.beams.length}
+    <div>
+      <h4 class="font-medium">Beam <span class="font-normal faint">· the shares of a Gaussian's power, launched on the first section's modes</span></h4>
+      <table class="mt-1 w-full max-w-2xl text-xs">
+        <thead><tr class="muted"><th class="text-left font-normal">wavelength (µm)</th><th class="text-right font-normal">reflected</th><th class="text-right font-normal">passed</th>{#each record.beams[0].ports as port (port)}<th class="text-right font-normal">into {port}</th>{/each}</tr></thead>
+        <tbody>
+          {#each record.beams as b (b.wavelength_um)}
+            <tr><td class="num">{figure(b.wavelength_um)}</td><td class="num text-right">{figure(b.reflected)}</td><td class="num text-right">{figure(b.transmitted)}</td>{#each b.shares as share, k (k)}<td class="num text-right">{figure(share)}</td>{/each}</tr>
+          {/each}
+        </tbody>
+      </table>
+    </div>
+  {/if}
+
   {#if record.studies.length}
     <div>
       <h4 class="font-medium">Convergence <span class="font-normal faint">· each study as recorded</span></h4>

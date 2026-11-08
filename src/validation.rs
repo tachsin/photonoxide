@@ -2267,6 +2267,8 @@ pub fn cases() -> Vec<Case> {
     cases.extend(crate::eme::periodic_checks::cases());
     // and bends by the conformal map, against the exact bent slab
     cases.extend(crate::eme::bend_checks::cases());
+    // and a beam launched on the modes: tilted Gaussians against Fresnel's and Airy's spectra
+    cases.extend(crate::eme::beam_checks::cases());
     // and convergence to a tolerance: the mode solver, FDFD and the expansion driven to one
     cases.extend(crate::convergence::checks::cases());
     // and the thin-film lithium niobate Mach-Zehnder modulator as a device

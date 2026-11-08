@@ -837,8 +837,8 @@ fn nonlinear<'py>(
     Ok(out)
 }
 /// An `"eme"` job's expansion ([`facade::eme`]): a dict of the solver's settings, the sections,
-/// the S-parameters at each wavelength (S an `(n, n)` array), the studies, the errors and the
-/// Bloch modes.
+/// the S-parameters at each wavelength (S an `(n, n)` array), the studies, the errors, the
+/// Bloch modes and a beam's shares.
 #[pyfunction]
 #[pyo3(signature = (path, text, format, timeout_s))]
 fn eme<'py>(
@@ -922,6 +922,17 @@ fn eme<'py>(
         bloch.append(d)?;
     }
     out.set_item("bloch", bloch)?;
+    let beams = PyList::empty(py);
+    for b in e.beams {
+        let d = PyDict::new(py);
+        d.set_item("wavelength_um", b.wavelength_um)?;
+        d.set_item("reflected", b.reflected)?;
+        d.set_item("transmitted", b.transmitted)?;
+        d.set_item("ports", b.ports)?;
+        d.set_item("shares", PyArray1::from_vec(py, b.shares))?;
+        beams.append(d)?;
+    }
+    out.set_item("beams", beams)?;
     Ok(out)
 }
 

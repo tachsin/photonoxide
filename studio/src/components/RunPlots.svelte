@@ -262,7 +262,7 @@
     </section>
   {/if}
 
-  {#if run.job?.kind === "eme" && (run.eme.sections || run.sparams.length || run.eme.studies.length)}
+  {#if run.job?.kind === "eme" && (run.eme.sections || run.sparams.length || run.eme.studies.length || run.eme.beams.length)}
     <section class="panel space-y-4 p-5">
       <h3 class="font-semibold">Eigenmode expansion <span class="font-normal faint">· {run.solver?.module === "eme 3d" ? "3D, sections on a plane" : "2D, slab sections"}</span></h3>
       <EmeRun record={run.eme} sparams={run.sparams} errors={run.errors} />

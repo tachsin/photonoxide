@@ -858,4 +858,19 @@ pub enum Event {
         /// The sections, in order along the structure.
         sections: Vec<super::EmeSection>,
     },
+    /// An `"eme"` job's `[task.beam]` at one wavelength, recorded after its
+    /// [`Event::SParameters`]: the shares of the beam's power the structure reflects and
+    /// passes, and the share each guided mode at the last end carries.
+    EmeBeam {
+        /// The wavelength, µm.
+        wavelength_um: f64,
+        /// The share reflected into the first section's propagating modes.
+        reflected: f64,
+        /// The share passed into the last section's propagating modes.
+        transmitted: f64,
+        /// The last end's guided modes, e.g. `"2 TE0"`.
+        ports: Vec<String>,
+        /// Each one's share of the beam's power.
+        shares: Vec<f64>,
+    },
 }

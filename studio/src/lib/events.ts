@@ -869,6 +869,16 @@ export interface EmeSection {
   repeats: number;
 }
 
+/** An eme job's [task.beam] at one wavelength: the shares of the beam's power reflected, passed and in each guided mode at the last end. */
+export interface EmeBeam {
+  type: "eme_beam";
+  wavelength_um: number;
+  reflected: number;
+  transmitted: number;
+  ports: string[];
+  shares: number[];
+}
+
 export type Event =
   | { type: "started"; job: string; kind: string }
   | { type: "nonlinear_setup"; setup: NonlinearSetup }
@@ -881,6 +891,7 @@ export type Event =
   | { type: "quantum_budget"; budget: QuantumBudget }
   | { type: "quantum_squeezed"; squeezed: QuantumSqueezed }
   | { type: "eme_sections"; sections: EmeSection[] }
+  | EmeBeam
   | ChipEvent
   | ChipStudy
   | ChipPoint

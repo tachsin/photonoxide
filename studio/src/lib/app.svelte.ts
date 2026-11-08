@@ -271,7 +271,7 @@ export const run = $state({
   /** A quantum job's photons through a chip: its statistics, samples, dip, budget and squeezed light, as recorded. */
   quantum: { statistics: null, samples: null, dip: null, budget: null, squeezed: null } as QuantumRecord,
   /** An eme job's sections along its structure and its convergence studies, as recorded. */
-  eme: { sections: null, studies: [] } as EmeRecord,
+  eme: { sections: null, studies: [], beams: [] } as EmeRecord,
   /** The FDTD frame shown, or null to follow the latest. */
   frame: null as number | null,
   finished: null as { stopped: string | null; seconds: number } | null,
@@ -508,6 +508,9 @@ function take(e: Event) {
     case "grid_convergence":
       run.eme.studies.push(e);
       break;
+    case "eme_beam":
+      run.eme.beams.push(e);
+      break;
     case "finished":
       run.finished = { stopped: e.stopped, seconds: e.seconds };
       // a sweep followed to its end settles on the field the job asks for (its field_um: a
@@ -572,7 +575,7 @@ function reset(info: Info) {
     staticFrames: [],
     nonlinear: { setup: null, map: null, efficiency: null, pairs: null },
     quantum: { statistics: null, samples: null, dip: null, budget: null, squeezed: null },
-    eme: { sections: null, studies: [] },
+    eme: { sections: null, studies: [], beams: [] },
     frame: null,
     finished: null,
     problem: null,

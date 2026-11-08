@@ -115,6 +115,7 @@ __all__ = [
     "EmeStudy",
     "EmeError",
     "EmeBloch",
+    "EmeBeamShares",
     "eme",
 ]
 
@@ -1679,6 +1680,23 @@ class EmeBloch:
 
 
 @dataclass(frozen=True)
+class EmeBeamShares:
+    """A `[task.beam]` at one wavelength (:class:Eme): the shares of the Gaussian's power the
+    structure reflects and passes, and each guided mode's at the last end."""
+
+    wavelength_um: float
+    """The wavelength, µm."""
+    reflected: float
+    """The share reflected into the first section's propagating modes."""
+    transmitted: float
+    """The share passed into the last section's propagating modes."""
+    ports: list[str]
+    """The last end's guided modes, e.g. `"2 TE0"`."""
+    shares: np.ndarray
+    """Each one's share of the beam's power."""
+
+
+@dataclass(frozen=True)
 class Eme:
     """An ``"eme"`` job's expansion, as its run records it (:func:`eme`): every number the one
     the run records, to the bit."""
@@ -1704,6 +1722,8 @@ class Eme:
     """Each estimated error."""
     bloch: list[EmeBloch]
     """A ``[task.period]``'s Bloch modes at each wavelength solved."""
+    beams: list[EmeBeamShares]
+    """A ``[task.beam]``'s shares of power at each wavelength solved."""
 
     def transmission(self, into: str, out_of: str) -> tuple[np.ndarray, np.ndarray]:
         """|S|² from the port mode ``out_of`` into ``into`` (``"2 TE0"`` and ``"1 TE0"``, say)
@@ -1724,8 +1744,9 @@ def eme(job: Job, *, timeout_s: float | None = 3600.0) -> Eme:
     plane, a ``[device]`` or the job's own drawing cut into planes, bends, a ``[task.period]``,
     a sweep, ``[task.interpolate]``), computed without a folder: the solver's settings, the
     sections, the S-parameters between the guided modes at the two ends at each wavelength, the
-    convergence studies, the estimated errors and a period's Bloch modes. :func:`run_job` runs
-    the same job into a folder. A 220 to 300 nm silicon slab taper in oxide, 0.4 µm long:
+    convergence studies, the estimated errors, a period's Bloch modes and a ``[task.beam]``'s
+    shares of power. :func:`run_job` runs the same job into a folder. A 220 to 300 nm silicon
+    slab taper in oxide, 0.4 µm long:
 
     >>> e = phox.eme({"name": "taper", "task": {
     ...     "kind": "eme", "wavelength_um": 1.55, "modes": 12, "window_um": 3.0,
@@ -1751,4 +1772,5 @@ def eme(job: Job, *, timeout_s: float | None = 3600.0) -> Eme:
         studies=[EmeStudy(**s) for s in e["studies"]],
         errors=[EmeError(**x) for x in e["errors"]],
         bloch=[EmeBloch(**b) for b in e["bloch"]],
+        beams=[EmeBeamShares(**b) for b in e["beams"]],
     )

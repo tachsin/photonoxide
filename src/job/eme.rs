@@ -35,7 +35,8 @@ use super::{Event, check_finite, check_sweep, task_error};
 use crate::Result;
 use crate::convergence::{Convergence, Refined, ToTolerance, Tolerance, Verdict};
 use crate::eme::{
-    Eme, Piece, Scattering, Section, Slice, Spectrum, Taper, Wall, entries as spectrum_entries,
+    Beam, Eme, Piece, Scattering, Section, Slice, Spectrum, Taper, Wall,
+    entries as spectrum_entries, power,
 };
 use crate::material::Material;
 use crate::mode::Polarization;
@@ -173,6 +174,20 @@ struct PeriodSpec {
     count: usize,
 }
 
+/// A `[task.beam]`: a Gaussian across the first section's plane ([`crate::eme::Beam`]).
+#[derive(Clone, Copy, Debug, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+struct BeamSpec {
+    /// Its waist, µm: the field falls to 1/e at the waist from its centre.
+    waist_um: f64,
+    /// Its centre, µm from the window's middle (0 by default).
+    center_um: Option<f64>,
+    /// The tilt of its phase fronts, degrees, toward +x (0 by default).
+    angle_deg: Option<f64>,
+    /// The index of the medium the tilt is in: the cladding's by default.
+    index: Option<f64>,
+}
+
 #[derive(Clone, Debug, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 struct WavelengthSweep {
@@ -258,6 +273,10 @@ pub(super) struct EmeTask {
     /// Some sections repeated: a grating, solved by repeated squaring of one period's S-matrix,
     /// and its Bloch modes recorded.
     period: Option<PeriodSpec>,
+    /// A Gaussian beam launched on the first section's modes (2D, between walls without a PML):
+    /// the shares of its power reflected, transmitted and carried by each guided mode at the
+    /// last end, recorded at each wavelength.
+    beam: Option<BeamSpec>,
 }
 
 /// A section resolved at a wavelength: its name, length, how its cross-section is made, and a
@@ -414,6 +433,11 @@ impl EmeTask {
             )));
         }
         if let Some(plane) = &self.plane {
+            if self.beam.is_some() {
+                return Err(task_error(
+                    "[task.beam] is a 2D job's: a beam on a 3D section's plane isn't launched yet",
+                ));
+            }
             self.validate_common()?;
             return three::validate(self, plane, device);
         }
@@ -572,7 +596,50 @@ impl EmeTask {
                 ));
             }
         }
+        if let Some(b) = &self.beam {
+            self.validate_beam(b)?;
+        }
         self.validate_sections(self.window(), self.symmetric(), true)
+    }
+
+    /// A `[task.beam]`'s settings: a beam needs the whole window between walls (its power is
+    /// the propagating modes' there) and the first section straight.
+    fn validate_beam(&self, b: &BeamSpec) -> Result<()> {
+        let at = "[task.beam]";
+        if !(b.waist_um.is_finite() && b.waist_um > 0.0) {
+            return Err(task_error(format!("{at}: waist_um must be positive")));
+        }
+        let half = 0.5 * self.window();
+        let c = b.center_um.unwrap_or(0.0);
+        if !(c.is_finite() && c.abs() < half) {
+            return Err(task_error(format!(
+                "{at}: center_um must be inside the window, within {half} um of its middle"
+            )));
+        }
+        if !b.angle_deg.unwrap_or(0.0).is_finite() || b.angle_deg.unwrap_or(0.0).abs() >= 90.0 {
+            return Err(task_error(format!("{at}: angle_deg must be within ±90")));
+        }
+        if b.index.is_some_and(|n| !(n.is_finite() && n > 0.0)) {
+            return Err(task_error(format!("{at}: index must be positive")));
+        }
+        if self.pml.is_some() || self.symmetric() {
+            return Err(task_error(format!(
+                "{at}: a beam's shares of power are its propagating modes' between walls: leave \
+                 out [task.pml] and symmetric"
+            )));
+        }
+        if self.interpolate.is_some() {
+            return Err(task_error(format!(
+                "{at}: the beam's shares are solved at each wavelength: leave out \
+                 [task.interpolate]"
+            )));
+        }
+        if self.section.first().is_some_and(SectionSpec::is_bend) {
+            return Err(task_error(format!(
+                "{at}: the beam is launched on the first section, which must be straight"
+            )));
+        }
+        Ok(())
     }
 
     /// The sections' own settings, their cores inside a window `window` µm wide (the half's
@@ -1859,6 +1926,53 @@ fn eme(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
         if let Some(e) = bloch_event(&task, &resolved, wl, at)? {
             run.record(&e)?;
         }
+        if let Some(b) = &task.beam {
+            run.record(&beam_event(&task, b, wl, at.0, &s, &ends)?)?;
+        }
     }
     Ok(())
+}
+
+/// A `[task.beam]` launched on the first section's `modes` modes at `wavelength` µm and carried
+/// by `s`: the shares of its power reflected, transmitted and in each guided mode at the last
+/// end.
+fn beam_event(
+    task: &EmeTask,
+    b: &BeamSpec,
+    wavelength: f64,
+    modes: usize,
+    s: &Scattering,
+    (first, last): &(Slice, Slice),
+) -> Result<Event> {
+    let lam = Wavelength::um(wavelength)?;
+    let index = match b.index {
+        Some(n) => n,
+        None => {
+            let m: Material = crate::device::spec::task_medium(task.cladding()?, "cladding")
+                .map_err(|e| task_error(format!("cladding: {e}")))?;
+            m.refractive_index(lam)
+                .map_err(|e| task_error(format!("cladding: {e}")))?
+                .re
+        }
+    };
+    let beam = Beam::gaussian(
+        Length::um(b.waist_um),
+        Length::um(b.center_um.unwrap_or(0.0)),
+    )?
+    .tilted(b.angle_deg.unwrap_or(0.0).to_radians(), index)?;
+    let launched = task.eme(lam, modes)?.launch(first, &beam)?;
+    let p = launched.power();
+    let (r, t) = s.forward(&launched.arriving())?;
+    let n = guided(&s.last, last, false);
+    let pol = match task.polarization()? {
+        Polarization::Te => "TE",
+        Polarization::Tm => "TM",
+    };
+    Ok(Event::EmeBeam {
+        wavelength_um: wavelength,
+        reflected: power(&r, &s.first) / p,
+        transmitted: power(&t, &s.last) / p,
+        ports: (0..n).map(|m| format!("2 {pol}{m}")).collect(),
+        shares: t.iter().take(n).map(|a| a.norm_sqr() / p).collect(),
+    })
 }

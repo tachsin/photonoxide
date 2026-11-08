@@ -1203,7 +1203,13 @@ fn eme_cases(cases: &mut Vec<Case>) -> Result<()> {
         section(0.0, json!(0.22)),
     ]);
     grating["period"] = json!({"sections": [2, 3], "count": 10});
-    for (name, task) in [("taper-sweep", taper), ("grating", grating)] {
+    let mut beam = task(vec![
+        json!({"length_um": 0.0, "layers": [{"medium": 1.444, "thickness_um": 3.0}]}),
+        section(0.0, json!(0.22)),
+    ]);
+    beam["modes"] = json!(30);
+    beam["beam"] = json!({"waist_um": 0.5, "center_um": 0.1, "angle_deg": 5.0});
+    for (name, task) in [("taper-sweep", taper), ("grating", grating), ("beam", beam)] {
         let data = json!({"name": name, "timeout_minutes": 5, "task": task});
         let e = eme(&job(&data), &Stop::new(None))?
             .ok_or_else(|| Error::invalid("eme", "the case's run stopped before its end"))?;
@@ -1261,6 +1267,13 @@ fn eme_cases(cases: &mut Vec<Case>) -> Result<()> {
                 "bloch": e.bloch.iter().map(|b| json!({
                     "wavelength_um": b.wavelength_um,
                     "effective_index": complexes(&b.effective_index, &[b.effective_index.len()]),
+                })).collect::<Vec<_>>(),
+                "beams": e.beams.iter().map(|b| json!({
+                    "wavelength_um": b.wavelength_um,
+                    "reflected": b.reflected,
+                    "transmitted": b.transmitted,
+                    "ports": b.ports,
+                    "shares": b.shares,
                 })).collect::<Vec<_>>(),
             }),
             &[],
