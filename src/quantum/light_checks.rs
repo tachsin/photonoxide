@@ -1098,6 +1098,36 @@ mod tests {
         }
     }
 
+    /// Vernon et al.'s Fig. 3: the purity's line against Q_SI/Q_P, read from the figure's vector
+    /// paths, against Eq. 3 here with the signal's and idler's frequencies cut at ±3 pump
+    /// linewidths (3 × ratio signal linewidths), and with no such cut (±20 signal linewidths).
+    /// The line's first vertex, 0.8396 at a ratio of 0.5, needs a pump resonance narrower than
+    /// the signal's, which `ring_schmidt` (it widens the pump's by an extra loss) doesn't make.
+    #[test]
+    #[ignore = "Vernon et al.'s Fig. 3 against a window of three pump linewidths: seconds"]
+    fn print_vernon_fig3() {
+        // (Q_SI/Q_P, the line's purity), from the vector path's vertices
+        let line = [
+            (1.0, 0.9273),
+            (1.5, 0.9592),
+            (2.0, 0.9740),
+            (3.0, 0.9868),
+            (4.0, 0.9921),
+        ];
+        for (ratio, read) in line {
+            let span = 3.0 * ratio;
+            let per = |n: f64| (2.0 * span * n) as usize + 1;
+            let fine = 1.0 / ring_schmidt(0.05, ratio, span, per(40.0));
+            let coarse = 1.0 / ring_schmidt(0.05, ratio, span, per(20.0));
+            let open = 1.0 / ring_schmidt(0.05, ratio, 20.0, 801);
+            eprintln!(
+                "ratio {ratio}: line {read:.4}, ±3 pump linewidths {fine:.5} (grid {:.1e}, off {:+.5}), none {open:.5}",
+                (fine - coarse).abs(),
+                fine - read
+            );
+        }
+    }
+
     #[test]
     #[ignore = "Paesani et al.'s source from the mode solver: slow"]
     fn print_paesani() {

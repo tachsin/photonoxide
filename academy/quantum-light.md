@@ -702,17 +702,18 @@ gives 1.09; ours is 1.0909.
 
 ::validation quantum/ring-helt-short quantum/ring-helt-long quantum/ring-vernon-equal
 
-**Not reproduced: Vernon et al.'s dual-coupled ring.** For a pump resonance 6.6 times wider than
-the signal's and idler's their Fig. 2(b) gives $K = 1.0009$ (purity 0.999); their own model, Eqs. 3
-and 4, with a pump far broader than its resonance, gives 1.0033 here (purity 0.9967), the chart's
-value, converged on its grid, and a narrower pump only raises it. Their Fig. 3 reads about 0.84 at
-$Q_{SI}/Q_P = 0.5$ and 0.93 at 1, ours 0.800 and 0.917; their text's bound for equal linewidths,
-1.08, is below the model's broad-pump 1.0909. Their purities sit above ours by about the same
-margin everywhere; the device simulation behind their markers isn't in the letter. A likely
-cause is how far their integrals reach. Cutting the signal's and idler's frequencies at ±4
-linewidths gives both their 1.08 for equal linewidths and their 1.0009, because the remaining
-correlation lies in the resonances' tails. The window doesn't explain Fig. 3's 0.84, and the
-letter doesn't give it.
+**Explained, not a case: Vernon et al.'s dual-coupled ring.** For a pump resonance 6.6 times
+wider than the signal's and idler's their Fig. 2(b) gives $K = 1.0009$ (purity 0.999); their own
+model, Eqs. 3 and 4, with a pump far broader than its resonance, gives 1.0033 here (purity
+0.9967), the chart's value, converged on its grid. Their Fig. 3's line, the same model against
+$Q_{SI}/Q_P$, reads 0.8396 at a ratio of 0.5, 0.9273 at 1 and 0.9967 at 6.5 (from the figure's
+vector paths), ours 0.800, 0.917 and 0.9965. The difference is how far the integrals reach,
+which the letter doesn't state: cut the signal's and idler's frequencies at three pump
+linewidths either side, and the model gives the whole line within 7.3e-4, and their text's 1.08
+for equal linewidths (1.0781). The remaining correlation lies in the resonances' tails, so the
+cut matters most where the pump's resonance is narrow. Fig. 2(b)'s 1.0009 isn't on the line: it
+is the full device simulation, which Fig. 3 marks at a ratio of 9.9, not 6.6. The window is
+inferred from the figure, so this stays out of the validation cases.
 
 **Not reproduced: Paesani et al.'s inter-modal source.** They pump an 11 mm silicon guide,
 2 × 0.22 µm, in its TM₀ and TM₁ modes at once, the TM₀ pump delayed, and measure a purity of

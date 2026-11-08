@@ -770,35 +770,37 @@ with their own fit; from the two measured levels alone the squeezing before the 
 
 **What doesn't agree yet.**
 
-- **Vernon et al.'s dual-coupled ring.** For a pump resonance 6.6 times wider than the signal's and
-  idler's, their Fig. 2(b) gives $K = 1.0009$ (purity 0.999); their own point-coupling model, Eqs. 3
-  and 4, with the pump far broader than its resonance, gives $K = 1.0033$ here (purity 0.9967), and
-  a narrower pump only raises it. Their text's lower bound for equal linewidths, $K = 1.08$, is below
-  the model's broad-pump 1.0909, which pumps of finite duration only raise (their Fig. 2(a) prints 1.09), and
-  their Fig. 3's line reads about 0.84 at $Q_{SI}/Q_P = 0.5$ and 0.93 at 1 against our 0.800 and
-  0.917. Their purities sit above ours by about the same margin at every ratio; the full device
-  simulation behind their markers isn't given in the letter. Not a case until it closes.
+- **Vernon et al.'s dual-coupled ring.** Their own point-coupling model, Eqs. 3 and 4, with the
+  pump far broader than its resonance, gives $K = 1.0909$ for equal linewidths here, Fig. 2(a)'s
+  1.09 (a case). Their text gives 1.08 for the same ring, and their Fig. 2(b) gives
+  $K = 1.0009$ (purity 0.999) for a pump resonance 6.6 times wider, where the same model gives
+  1.0033 (purity 0.9967); a narrower pump only raises $K$.
 
-  A likely cause is the frequency window. Eq. 3's residual correlation at a ratio of 6.6 lies in
-  the Lorentzians' tails, so $K$ depends on how far the integrals reach. The letter only says they
-  reach "the full extent of the corresponding resonance". With the signal's and idler's
-  frequencies each cut at ±$w$ of their linewidths (FWHM), the same model gives:
+  Fig. 3, the purity against $Q_{SI}/Q_P$, is drawn as vector paths. Its line ("calculated using
+  an effective point-coupling model", Eq. 3) has its vertices at 0.8396 (ratio 0.5), 0.9273 (1),
+  0.9592 (1.5), 0.9740 (2), 0.9868 (3), 0.9921 (4), 0.9947 (5), 0.9967 (6.5) and 0.9986 (10),
+  read against the figure's tick lines (0.01 pt of the path is 2.6e-5 in purity). With no
+  window the model gives 0.8000, 0.9167, 0.9546, 0.9714, 0.9857, 0.9915, 0.9944, 0.9965 and
+  0.9985: it agrees from a ratio of 4 up and falls below the line toward small ratios.
 
-  | $w$ | Equal Q | Ratio 6.6 |
-  |---|---|---|
-  | 3.5 | 1.0820 | 1.00070 |
-  | 4.0 | 1.0845 | 1.00088 |
-  | 4.2 | 1.0852 | 1.00095 |
-  | 5 | 1.0873 | 1.00122 |
-  | 10 | 1.0904 | 1.00244 |
-  | none | 1.0909 | 1.0033 |
+  The cause is how far the integrals reach, which the letter states only as "the full extent of
+  the corresponding resonance". Cut the signal's and idler's frequencies at ±3 of the *pump's*
+  linewidths (FWHM), and Eq. 3 gives the line at every vertex within 7.3e-4 (0.8403, 0.9276,
+  0.9594, 0.9741, 0.9869, 0.9921, 0.9947, 0.9968, 0.9986; converged on the grid, the sharp
+  cut's error first order in the spacing). Fitted to each vertex alone, the window comes out
+  at 2.99 to 3.08 pump linewidths from a ratio of 0.5 to 5 (beyond, the purity hardly depends on
+  it). The same window gives $K = 1.0781$ for equal linewidths: the text's 1.08. Fig. 2(b)'s 1.0009 isn't on the line, which reads 0.9967 ($K$ = 1.0033) at a
+  ratio of 6.5, as our model does. Fig. 3's caption says its circular marker is Fig. 2(b)'s
+  wavefunction from the full device simulation, and that marker sits at a ratio of 9.9 with a
+  purity of 0.9990, not at 6.6. So Fig. 2(b)'s number is the device simulation's, not Eq. 3's.
 
-  A window of about ±4 linewidths gives both the text's 1.08 and Fig. 2(b)'s 1.0009. With no
-  window the same model gives Fig. 2(a)'s 1.09. These numbers come from Eq. 3 with a pump far
-  broader than its resonance, on 481 points, computed outside the library. The last row is
-  the library's ring model's 1.0033 above. The window doesn't explain Fig. 3's line: at a
-  ratio of 0.5 a ±4 window gives 0.804, against about 0.84. Without the authors' window this
-  stays a likely cause, not a match.
+  These numbers come from Eq. 3 outside the library (no window: 801 points; the window: 40 and
+  80 points a signal linewidth, extrapolated). The library's ring model gives the same with a
+  window of three pump linewidths: 0.92744, 0.95932, 0.97408, 0.98687 and 0.99213 at ratios of
+  1 to 4 on 40 points a linewidth, each within 1.4e-4 of the line (the ignored test `quantum::light_checks::tests::print_vernon_fig3`; its ring can't make
+  the narrower pump resonance of a ratio of 0.5). Not a case: the window is inferred from the
+  figure, not stated in the letter. An earlier reading here, a window of ±4 *signal* linewidths,
+  matched 1.08 and 1.0009 but not Fig. 3's line; it is superseded.
 - **Paesani et al.'s inter-modal source.** Their guide is 2 × 0.22 µm silicon in silica, 11 mm
   long, pumped in TM₀ and TM₁, the signal in TM₁ and the idler in TM₀, measured at 1588 and
   1516 nm (Supplementary Note 1a, p. 2). Their measured purity is 0.9904 ± 0.0006 with the delay
