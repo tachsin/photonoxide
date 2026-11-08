@@ -328,7 +328,7 @@ S. Bartolucci, P. Birchall, H. Bombín, H. Cable, C. Dawson, M. Gimeno-Segovia, 
 
 - Methods pages: [quantum.md:57](methods/quantum.md?plain=1#L57), [663](methods/quantum.md?plain=1#L663)
 - Academy lessons: [quantum-light.md:285](../academy/quantum-light.md?plain=1#L285), [633](../academy/quantum-light.md?plain=1#L633), [887](../academy/quantum-light.md?plain=1#L887), [1014](../academy/quantum-light.md?plain=1#L1014)
-- Validation cases: [`quantum/bartolucci-fusion`](validation.md?plain=1#L929)
+- Validation cases: [`quantum/bartolucci-fusion`](validation.md?plain=1#L936)
 - Code: [src/quantum/budget.rs:13](../src/quantum/budget.rs#L13), [src/quantum/real_checks.rs:1207](../src/quantum/real_checks.rs#L1207), [studio/src-tauri/src/circuits/quantum.rs:594](../studio/src-tauri/src/circuits/quantum.rs#L594)
 - Other documents: [docs/plans/quantum.md:492](plans/quantum.md?plain=1#L492)
 
@@ -775,7 +775,7 @@ J. Chilwell, I. Hodgkinson, "Thin-films field-transfer matrix theory of planar m
 
 - Methods pages: [contour.md:14](methods/contour.md?plain=1#L14), [devices.md:48](methods/devices.md?plain=1#L48), [eme.md:12](methods/eme.md?plain=1#L12), [fdfd-3d.md:24](methods/fdfd-3d.md?plain=1#L24), [fdfd.md:14](methods/fdfd.md?plain=1#L14), [multilayer.md:8](methods/multilayer.md?plain=1#L8), [pml.md:12](methods/pml.md?plain=1#L12), [quantum.md:71](methods/quantum.md?plain=1#L71), [slab-fd.md:10](methods/slab-fd.md?plain=1#L10)
 - Academy lessons: [bragg-gratings.md:61](../academy/bragg-gratings.md?plain=1#L61), [168](../academy/bragg-gratings.md?plain=1#L168), [leaky-and-bent-guides.md:65](../academy/leaky-and-bent-guides.md?plain=1#L65), [165](../academy/leaky-and-bent-guides.md?plain=1#L165), [560](../academy/leaky-and-bent-guides.md?plain=1#L560), [586](../academy/leaky-and-bent-guides.md?plain=1#L586), [slab-waveguide.md:60](../academy/slab-waveguide.md?plain=1#L60), [480](../academy/slab-waveguide.md?plain=1#L480), [574](../academy/slab-waveguide.md?plain=1#L574), [599](../academy/slab-waveguide.md?plain=1#L599)
-- Validation cases: [`mode/multilayer-bound-chilwell`](validation.md?plain=1#L110), [`mode/multilayer-leaky-chilwell`](validation.md?plain=1#L111), [`mode/multilayer-power-chilwell`](validation.md?plain=1#L112), [`mode/multilayer-fresnel`](validation.md?plain=1#L113), [`mode/pml-leaky-chilwell`](validation.md?plain=1#L119), [`mode/slab-fd-chilwell`](validation.md?plain=1#L130), [`fdfd/slab-reflection-ez`](validation.md?plain=1#L131), [`fdfd3d/film-reflection-te`](validation.md?plain=1#L159), [`fdtd/bloch-multilayer`](validation.md?plain=1#L222), [`mode/contour-chilwell-bound`](validation.md?plain=1#L465), [`mode/contour-chilwell-leaky`](validation.md?plain=1#L466), [`mode/krylov-schur-chilwell`](validation.md?plain=1#L473), [`mode/every-guided-mode-chilwell`](validation.md?plain=1#L477), [`job/leaky-film-loss`](validation.md?plain=1#L478), [`device/pcm-analytic-index`](validation.md?plain=1#L665), [`sweep/slab-dispersion`](validation.md?plain=1#L759), [`quantum/detector-film-slab`](validation.md?plain=1#L937)
+- Validation cases: [`mode/multilayer-bound-chilwell`](validation.md?plain=1#L110), [`mode/multilayer-leaky-chilwell`](validation.md?plain=1#L111), [`mode/multilayer-power-chilwell`](validation.md?plain=1#L112), [`mode/multilayer-fresnel`](validation.md?plain=1#L113), [`mode/pml-leaky-chilwell`](validation.md?plain=1#L119), [`mode/slab-fd-chilwell`](validation.md?plain=1#L130), [`fdfd/slab-reflection-ez`](validation.md?plain=1#L131), [`fdfd3d/film-reflection-te`](validation.md?plain=1#L159), [`fdtd/bloch-multilayer`](validation.md?plain=1#L222), [`mode/contour-chilwell-bound`](validation.md?plain=1#L465), [`mode/contour-chilwell-leaky`](validation.md?plain=1#L466), [`mode/krylov-schur-chilwell`](validation.md?plain=1#L473), [`mode/every-guided-mode-chilwell`](validation.md?plain=1#L477), [`job/leaky-film-loss`](validation.md?plain=1#L478), [`device/pcm-analytic-index`](validation.md?plain=1#L665), [`sweep/slab-dispersion`](validation.md?plain=1#L759), [`quantum/detector-film-slab`](validation.md?plain=1#L944)
 - Examples: [README.md:43](../examples/README.md?plain=1#L43), [leaky_waves.rs:4](../examples/leaky_waves.rs#L4), [multilayer_chilwell.rs:5](../examples/multilayer_chilwell.rs#L5)
 - Code: [src/cases/device/pcm_checks.rs:426](../src/cases/device/pcm_checks.rs#L426), [src/cases/eigen/checks.rs:346](../src/cases/eigen/checks.rs#L346), [377](../src/cases/eigen/checks.rs#L377), [src/device/pcm.rs:983](../src/device/pcm.rs#L983), [src/job/leaky_checks.rs:36](../src/job/leaky_checks.rs#L36), [src/mode/multilayer.rs:5](../src/mode/multilayer.rs#L5), [src/mode/region/checks.rs:373](../src/mode/region/checks.rs#L373), [380](../src/mode/region/checks.rs#L380), [src/quantum/real_checks.rs:1263](../src/quantum/real_checks.rs#L1263), [src/sweep/checks.rs:443](../src/sweep/checks.rs#L443), [src/validation.rs:798](../src/validation.rs#L798), [805](../src/validation.rs#L805), [812](../src/validation.rs#L812), [819](../src/validation.rs#L819), [861](../src/validation.rs#L861), [938](../src/validation.rs#L938), [945](../src/validation.rs#L945), [1141](../src/validation.rs#L1141), [1582](../src/validation.rs#L1582), [studio/src-tauri/src/charts/leaky.rs:4](../studio/src-tauri/src/charts/leaky.rs#L4)
 
@@ -3055,7 +3055,7 @@ S. Paesani, Y. Ding, R. Santagati, L. Chakhmakhchyan, C. Vigliar, K. Rottwitt, L
 
 - Methods pages: [quantum.md:61](methods/quantum.md?plain=1#L61), [991](methods/quantum.md?plain=1#L991)
 - Academy lessons: [quantum-light.md:219](../academy/quantum-light.md?plain=1#L219), [837](../academy/quantum-light.md?plain=1#L837)
-- Validation cases: [`quantum/qi-simulability`](validation.md?plain=1#L930)
+- Validation cases: [`quantum/qi-simulability`](validation.md?plain=1#L937)
 - Code: [src/quantum/real_checks.rs:1212](../src/quantum/real_checks.rs#L1212)
 
 #### Paesani et al. 2020
@@ -3312,7 +3312,7 @@ H. Qi, D. J. Brod, N. Quesada, R. García-Patrón, "Regimes of Classical Simulab
 
 - Methods pages: [quantum.md:59](methods/quantum.md?plain=1#L59), [669](methods/quantum.md?plain=1#L669)
 - Academy lessons: [quantum-light.md:237](../academy/quantum-light.md?plain=1#L237), [827](../academy/quantum-light.md?plain=1#L827), [1007](../academy/quantum-light.md?plain=1#L1007)
-- Validation cases: [`quantum/qi-simulability`](validation.md?plain=1#L930)
+- Validation cases: [`quantum/qi-simulability`](validation.md?plain=1#L937)
 - Code: [src/quantum/budget.rs:15](../src/quantum/budget.rs#L15), [src/quantum/real_checks.rs:1214](../src/quantum/real_checks.rs#L1214)
 - Other documents: [docs/plans/quantum.md:504](plans/quantum.md?plain=1#L504)
 
@@ -3381,7 +3381,7 @@ M. Reck, A. Zeilinger, H. J. Bernstein, P. Bertani, "Experimental realization of
 D. V. Reddy, R. R. Nerem, S. W. Nam, R. P. Mirin, V. B. Verma, "Superconducting nanowire single-photon detectors with 98% system detection efficiency at 1550 nm", Optica 7, 1649 (2020). [doi:10.1364/OPTICA.400751](https://doi.org/10.1364/OPTICA.400751)
 
 - Methods pages: [catalogue.md:10](methods/catalogue.md?plain=1#L10), [502](methods/catalogue.md?plain=1#L502), [quantum.md:69](methods/quantum.md?plain=1#L69)
-- Validation cases: [`quantum/detector-stack-joule`](validation.md?plain=1#L936)
+- Validation cases: [`quantum/detector-stack-joule`](validation.md?plain=1#L943)
 - Code: [src/material/catalogue/films.rs:17](../src/material/catalogue/films.rs#L17), [168](../src/material/catalogue/films.rs#L168), [src/material/catalogue/references.rs:662](../src/material/catalogue/references.rs#L662), [663](../src/material/catalogue/references.rs#L663), [src/quantum/real_checks.rs:1256](../src/quantum/real_checks.rs#L1256)
 - Other documents: [docs/plans/quantum.md:537](plans/quantum.md?plain=1#L537)
 
@@ -3738,7 +3738,7 @@ J. W. Silverstone, D. Bonneau, K. Ohira, N. Suzuki, H. Yoshida, N. Iizuka, M. Ez
 
 - Methods pages: [quantum.md:53](methods/quantum.md?plain=1#L53), [634](methods/quantum.md?plain=1#L634)
 - Academy lessons: [nonlinear-optics.md:198](../academy/nonlinear-optics.md?plain=1#L198), [1060](../academy/nonlinear-optics.md?plain=1#L1060), [1123](../academy/nonlinear-optics.md?plain=1#L1123), [quantum-light.md:165](../academy/quantum-light.md?plain=1#L165), [733](../academy/quantum-light.md?plain=1#L733), [995](../academy/quantum-light.md?plain=1#L995)
-- Validation cases: [`quantum/silverstone-fringe`](validation.md?plain=1#L931)
+- Validation cases: [`quantum/silverstone-fringe`](validation.md?plain=1#L938)
 - Code: [src/quantum/pairs.rs:18](../src/quantum/pairs.rs#L18), [src/quantum/real_checks.rs:1221](../src/quantum/real_checks.rs#L1221)
 - Other documents: [docs/plans/quantum.md:529](plans/quantum.md?plain=1#L529)
 
@@ -4155,7 +4155,7 @@ M. Varnava, D. E. Browne, T. Rudolph, "How Good Must Single Photon Sources and D
 
 - Methods pages: [quantum.md:55](methods/quantum.md?plain=1#L55), [656](methods/quantum.md?plain=1#L656)
 - Academy lessons: [quantum-light.md:99](../academy/quantum-light.md?plain=1#L99), [625](../academy/quantum-light.md?plain=1#L625), [989](../academy/quantum-light.md?plain=1#L989)
-- Validation cases: [`quantum/varnava-threshold`](validation.md?plain=1#L928)
+- Validation cases: [`quantum/varnava-threshold`](validation.md?plain=1#L935)
 - Code: [src/quantum/budget.rs:11](../src/quantum/budget.rs#L11), [src/quantum/real_checks.rs:1200](../src/quantum/real_checks.rs#L1200), [studio/src-tauri/src/circuits/quantum.rs:589](../studio/src-tauri/src/circuits/quantum.rs#L589)
 - Other documents: [docs/plans/quantum.md:490](plans/quantum.md?plain=1#L490)
 
@@ -4554,7 +4554,7 @@ H.-S. Zhong, L.-C. Peng, Y. Li, Y. Hu, W. Li, J. Qin, D. Wu, W. Zhang, H. Li, L.
 
 - Methods pages: [quantum.md:63](methods/quantum.md?plain=1#L63), [992](methods/quantum.md?plain=1#L992)
 - Academy lessons: [quantum-light.md:225](../academy/quantum-light.md?plain=1#L225), [842](../academy/quantum-light.md?plain=1#L842)
-- Validation cases: [`quantum/qi-simulability`](validation.md?plain=1#L930)
+- Validation cases: [`quantum/qi-simulability`](validation.md?plain=1#L937)
 - Code: [src/quantum/real_checks.rs:1212](../src/quantum/real_checks.rs#L1212)
 
 #### Zhong et al. 2020
