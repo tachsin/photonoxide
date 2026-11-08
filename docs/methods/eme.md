@@ -1160,6 +1160,13 @@ What it does not do yet (#432):
   staircase. A tilted beam on a normal interface is the same problem only for uniform media on
   both sides (a guide's facet is not), so an angled facet's reflection back into a guide waits for
   a staircase study with its own convergence, or for a rotated frame.
+- **FDTD on tapers is not a case.** The tapers are checked against FDFD on the same staircase
+  (`eme/taper-fdfd`, `eme/3d-taper-fdfd`), which solves the same frequency-domain problem the
+  expansion does; FDTD would add its time stepping's dispersion, which a stated error needs
+  driven out by a grid study. The 2D taper's reflection, 9.2e-5, needs FDTD's to about 1e-6 for
+  a Rule of the kind the FDFD case has: cells of 2.5 nm over a window several micrometres wide
+  and long, millions of cells for tens of thousands of steps at each of three grids, beyond a
+  validation case's time.
 - **No published taper or MMI yet:** no paper we have gives a taper's or an MMI's S by
   eigenmode expansion with the numbers needed to repeat it (Bienstman and Baets's grating sends
   its material data to another exercise; Soldano and Pennings's self-imaging gives closed forms,

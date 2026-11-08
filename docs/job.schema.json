@@ -186,6 +186,102 @@
       ],
       "type": "object"
     },
+    "BeamSpec": {
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "not": {
+            "required": [
+              "angle",
+              "angle_deg"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "center",
+              "center_um"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "waist",
+              "waist_um"
+            ]
+          }
+        },
+        {
+          "anyOf": [
+            {
+              "required": [
+                "waist_um"
+              ]
+            },
+            {
+              "required": [
+                "waist"
+              ]
+            }
+          ]
+        }
+      ],
+      "description": "A `[task.beam]`: a Gaussian across the first section's plane (`crate::eme::Beam`).",
+      "properties": {
+        "angle": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "The tilt of its phase fronts, degrees, toward +x (0 by default). With its unit in the value, in place of angle_deg: an angle with its unit, e.g. \"90 deg\"."
+        },
+        "angle_deg": {
+          "description": "The tilt of its phase fronts, degrees, toward +x (0 by default).",
+          "type": "number"
+        },
+        "center": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "Its centre, µm from the window's middle (0 by default). With its unit in the value, in place of center_um: a length with its unit, e.g. \"1.55 um\"."
+        },
+        "center_um": {
+          "description": "Its centre, µm from the window's middle (0 by default).",
+          "type": "number"
+        },
+        "index": {
+          "description": "The index of the medium the tilt is in: the cladding's by default.",
+          "type": "number"
+        },
+        "waist": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "Its waist, µm: the field falls to 1/e at the waist from its centre. With its unit in the value, in place of waist_um: a length with its unit, e.g. \"1.55 um\"."
+        },
+        "waist_um": {
+          "description": "Its waist, µm: the field falls to 1/e at the waist from its centre.",
+          "type": "number"
+        }
+      },
+      "type": "object"
+    },
     "Body": {
       "description": "A body in space over the structure, 3D only (docs/methods/bodies.md): a sphere, a box, an extrusion of a shape, or a union, intersection or difference of bodies, with its medium.",
       "properties": {
@@ -4197,6 +4293,10 @@
       "properties": {
         "adaptive": {
           "$ref": "#/$defs/AdaptiveSpec"
+        },
+        "beam": {
+          "$ref": "#/$defs/BeamSpec",
+          "description": "A Gaussian beam launched on the first section's modes (2D, between walls without a PML): the shares of its power reflected, transmitted and carried by each guided mode at the last end, recorded at each wavelength."
         },
         "bend_step": {
           "anyOf": [
