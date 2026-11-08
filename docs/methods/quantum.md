@@ -965,9 +965,9 @@ the gap is explained, without a looser tolerance.
   Its reflection minimum along the wires is at 1678.25 nm on a 0.25 nm grid, where the wires
   absorb 0.998, the MoSi index held at 1550 nm's; with Fig. S3's dispersion, read from the
   figure's curves, the minimum is at 1679.75 nm and the absorption 0.999 (the same
-  transfer-matrix arithmetic outside the library). So the planar picture does reach near-unity, but about 145 nm to the red of
-  their coating's 1530–1540 nm: some layer's thickness or index as we read it differs from what
-  was built. A patterned model would settle it: RCWA or FDTD of the 80 nm MoSi wires at 140 nm
+  transfer-matrix arithmetic outside the library). So the planar picture does reach near-unity,
+  but about 145 nm to the red of their coating's 1530–1540 nm: some layer's thickness or index
+  as we read it differs from what was built. A patterned model would settle it: RCWA or FDTD of the 80 nm MoSi wires at 140 nm
   pitch with the 60 nm gaps filled by the coating's first αSi, the 2 nm cap, both polarizations
   at normal incidence, the 13-layer mirror, Fig. S3's dispersion, and the top αSi fitted to their
   1550 nm minimum. Not a case; the planar figures come from an ignored test,

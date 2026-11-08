@@ -983,7 +983,7 @@ thresholds ([Varnava et al., 2008](https://doi.org/10.1103/PhysRevLett.100.06050
 
 On chips, two-photon interference and a CNOT gate in silica waveguides
 ([Politi et al., 2008](https://doi.org/10.1126/science.1155441))
-began integrated quantum photonics; [Peruzzo et al. (2010)](https://doi.org/10.1126/science.1193515)
+were an early landmark of integrated quantum photonics; [Peruzzo et al. (2010)](https://doi.org/10.1126/science.1193515)
 walked two photons through 21 guides, [Helt et al. (2010)](https://doi.org/10.1364/OL.35.003006)
 gave rings' pairs their theory, and [Silverstone et al. (2013)](https://doi.org/10.1038/nphoton.2013.339)
 interfered two silicon sources on a chip. [Aaronson and Arkhipov](https://doi.org/10.4086/toc.2013.v009a004)
