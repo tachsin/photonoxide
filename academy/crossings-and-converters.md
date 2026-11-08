@@ -522,9 +522,15 @@ Chrostowski and Hochberg's width sweep give?
 
 :::answer
 At 0.659 µm, each keeping its polarization (TE₁'s TE fraction above 0.5, TM₀'s below 0.01). Their
-sweep of a 220 nm strip in oxide on 20 nm steps puts the crossing at about 680 nm (Section 3.2.8):
-21 nm away, more than half their step. photonoxide's strip device solver (20 nm cells) puts it
-between 640 and 660 nm too, so the difference isn't the grid.
+text puts the crossing "at approximately 680 nm" (Section 3.2.8), but that is the first width of
+their 20 nm sweep past it. Their Fig. 3.18a, read from its vector paths, has TE₁ at 1.8544 and
+TM₀ at 1.865 at 660 nm, and TE₁ at 1.9048 and TM₀ at 1.873 at 680 nm. So the curves cross between
+those two widths, at 665 nm when TE₁ is taken as straight between its markers (the figure draws
+TM₀ as a smoothed curve, not through markers). The chart samples every 20 nm too and joins the
+samples the same way. Ours is 6 nm below theirs, under a third of their step. Their sweep used
+the book's own silicon model and a constant oxide index on a 20 nm mesh (Listings 3.4 and 3.12);
+ours uses Li's silicon and Malitson's silica. photonoxide's strip device solver (20 nm cells)
+also puts the crossing between 640 and 660 nm.
 :::
 
 ## 11. What does the polarization splitter-rotator deliver?
