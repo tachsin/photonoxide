@@ -169,6 +169,62 @@ pub(crate) fn drawing_extruded() -> (f64, usize) {
     job_against(&job, &crate::eme::three_checks::extruded(0.01, 1))
 }
 
+/// The stepped slab's five strips as boxes on layer 1/0 of one cell of a GDSII file (1 nm
+/// database unit), written byte by byte into a folder of its own; and the folder.
+fn stepped_gds_folder() -> std::path::PathBuf {
+    use crate::geometry::gds_checks::Writer;
+    let dir = std::env::temp_dir().join(format!("photonoxide-eme-gds-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).expect("a folder for the GDSII file");
+    let mut w = Writer::new(1e-3, 1e-9);
+    w.begin("stepped");
+    // from x and to x, and the half width, nm
+    for (a, b, h) in [
+        (-1000, 0, 110),
+        (0, 100, 120),
+        (100, 200, 130),
+        (200, 300, 140),
+        (300, 1300, 150),
+    ] {
+        w.rect([1, 0], [a, -h], [b, h]);
+    }
+    w.end();
+    std::fs::write(dir.join("stepped.gds"), w.finish()).expect("the GDSII file written");
+    dir
+}
+
+/// [`STEPPED_JOB`] with its five rectangles read from a GDSII file instead
+/// ([`stepped_gds_folder`]): one `type = "gds"` shape on the core layer, its file found from
+/// the job's folder.
+fn stepped_gds_job() -> crate::run::Job {
+    let start = STEPPED_JOB.find("[[task.rect]]").expect("the rectangles");
+    let end = STEPPED_JOB.find("[task.plane]").expect("the plane");
+    let text = format!(
+        "{}[[task.shape]]\ntype = \"gds\"\nlayer = \"core\"\nfile = \"stepped.gds\"\ngds_layer = [1, 0]\n\n{}",
+        &STEPPED_JOB[..start],
+        &STEPPED_JOB[end..],
+    );
+    crate::run::Job::parse(&text)
+        .expect("the job parses")
+        .in_dir(stepped_gds_folder())
+}
+
+/// The stepped slab read from a GDSII file in an eme job ([`stepped_gds_job`]) against the same
+/// strips drawn in the job as rectangles ([`STEPPED_JOB`]): the largest difference over every
+/// entry of S the two runs record, and how many entries (refused unless both record the same
+/// ports).
+pub(crate) fn drawing_gds() -> (f64, usize) {
+    let shapes = recorded(&crate::run::Job::parse(STEPPED_JOB).expect("the job parses"));
+    let gds = recorded(&stepped_gds_job());
+    assert_eq!(shapes.0, gds.0, "the same ports");
+    let mut worst: f64 = 0.0;
+    let mut count = 0;
+    for (a, b) in shapes.1.iter().flatten().zip(gds.1.iter().flatten()) {
+        worst = worst.max((c64::new(a[0], a[1]) - c64::new(b[0], b[1])).norm());
+        count += 1;
+    }
+    (worst, count)
+}
+
 /// The built-in job `jobs/eme-taper-drawn-3d.yaml`, the taper drawn as a path in the job and cut
 /// exactly, against the taper's drawing cut exactly ([`taper_exact`]): the largest difference
 /// over every entry of S the run records, and how many.
@@ -183,19 +239,7 @@ pub(crate) fn drawing_taper() -> (f64, usize) {
 /// many entries the job recorded. Its ports are named "1 ..." at the first end, "2 ..." at the
 /// last, each end's guided modes in order.
 fn job_against(job: &crate::run::Job, s: &Scattering) -> (f64, usize) {
-    use crate::job::{Event, execute};
-    use crate::run::{Run, Stop};
-    let mut run = Run::in_memory();
-    execute(job, &mut run, &Stop::new(None)).expect("the job runs");
-    let (ports, recorded) = run
-        .lines()
-        .iter()
-        .map(|l| serde_json::from_str::<Event>(l).expect("a recorded event"))
-        .find_map(|e| match e {
-            Event::SParameters { ports, s, .. } => Some((ports, s)),
-            _ => None,
-        })
-        .expect("the run's S-parameters");
+    let (ports, recorded) = recorded(job);
     let n1 = ports.iter().filter(|p| p.starts_with("1 ")).count();
     let at = |q: usize, p: usize| match (q < n1, p < n1) {
         (true, true) => s.s11[q][p],
@@ -212,6 +256,22 @@ fn job_against(job: &crate::run::Job, s: &Scattering) -> (f64, usize) {
         }
     }
     (worst, count)
+}
+
+/// A job's run: the S-parameters it records first, their ports and entries.
+fn recorded(job: &crate::run::Job) -> (Vec<String>, Vec<Vec<[f64; 2]>>) {
+    use crate::job::{Event, execute};
+    use crate::run::{Run, Stop};
+    let mut run = Run::in_memory();
+    execute(job, &mut run, &Stop::new(None)).expect("the job runs");
+    run.lines()
+        .iter()
+        .map(|l| serde_json::from_str::<Event>(l).expect("a recorded event"))
+        .find_map(|e| match e {
+            Event::SParameters { ports, s, .. } => Some((ports, s)),
+            _ => None,
+        })
+        .expect("the run's S-parameters")
 }
 
 fn largest_difference(a: &Scattering, b: &Scattering) -> f64 {
@@ -566,6 +626,13 @@ pub(crate) fn cases() -> Vec<Case> {
             tier: Tier::Analytic,
             source: r"the same planes: the path's polygon has the drawing's walls, its straights the led guides, so the cut crosses the same sampling points at the same x",
             run: || zero(drawing_taper().0, 1e-10),
+        },
+        Case {
+            id: "eme/3d-drawing-gds",
+            title: r#"An eme job's drawing read from a GDSII file: eme/3d-drawing-extruded's five strips as boxes on layer 1/0 of one cell (1 nm database unit), written byte by byte, drawn on the job's core layer by one `type = "gds"` shape and cut on the same plane, against the same job with the strips drawn as rectangles: the largest difference over every entry of $S$ the two runs record (shown)"#,
+            tier: Tier::Analytic,
+            source: r"the same planes: the file's boxes have the rectangles' corners in whole nanometres, so the cut turns at the same x and the cells' averaging sees the same strips",
+            run: || zero(drawing_gds().0, 1e-10),
         },
     ]
 }

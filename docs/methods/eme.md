@@ -542,7 +542,8 @@ or FDFD job does, and `[task.plane]` cuts it the same way (`Cut::structure`). Th
 `stack` (a named one, or a `[task.stack]` table of layers), the `layer` the plane spans (its
 shapes across, its thickness up, with the plane's margins), the shapes drawn on the stack
 (`[[task.rect]]`, `[[task.circle]]`, `[[task.ring]]`, `[[task.path]]` and `[[task.shape]]`:
-polygons, curves, masks, booleans, offsets), and `x_um`, where the cut starts and ends. A
+polygons, curves, masks, booleans, offsets, and a GDSII file's cell and layer), and `x_um`,
+where the cut starts and ends. A
 drawing has no ports, so the ends are where the task says: the cross-sections just outside
 them are the ports' guides, and the shapes on the core layer must run on past both ends (the
 check refuses a drawing that stops short). `exact = true` cuts at every x where the plane
@@ -582,6 +583,38 @@ recorded entries are the device's to the bit, $\lvert S_{21}\rvert^2$ = 0.992183
 polygon has the drawing's walls and its straights the led guides, so the cut meets the same
 sampling points at the same x and solves the same 33 planes (every mode of the half plane, 92 s
 on six threads).
+
+A layout's sections come from its GDSII file the same way: a `[[task.shape]]` of `type = "gds"`
+draws what a cell draws on one of the file's layers (every cell it places flattened into it) on
+the stack's layer the shape names, the file found from the job file's folder, and the cut reads
+it as any other shape ([GDSII files](geometry.md#gdsii-files)).
+
+```yaml
+task:
+  kind: eme
+  wavelength_um: 1.55
+  modes: 480
+  stack: soi_220
+  layer: Si
+  x_um: [0.0, 1.0]
+  shape:
+    - type: gds
+      layer: Si
+      file: taper.gds
+      cell: taper          # the file's one top cell if left out
+      gds_layer: [1, 0]
+  plane:
+    step_um: [0.05, 0.055]
+    margins_um: [0.4, 0.33]
+    symmetry: half
+    exact: true
+```
+
+`eme/3d-drawing-gds` writes `eme/3d-drawing-extruded`'s five strips byte by byte as boxes on
+layer 1/0 of one cell (a 1 nm database unit) and runs that job with them read from the file in
+place of the rectangles: the 9 entries the run records are the rectangles' to the bit, since the
+file's whole nanometres are the rectangles' corners, so the cut turns at the same x and the cells
+see the same strips.
 
 ## S over wavelength
 
@@ -1060,6 +1093,7 @@ Measured with the cases' own settings, at 1.55 µm, silicon (3.473) in oxide (1.
 | `eme/3d-cut-mmi-reciprocity`, `-power` | the same MMI | $\lvert S - S^T\rvert$ 2.5e-13; $\lvert S_p^\dagger S_p - 1\rvert$ 1.3e-12 | Lorentz reciprocity, power conservation | round-off, 1e-10 |
 | `eme/3d-drawing-extruded` | the stepped slab of `eme/3d-cut-extruded` drawn in a job as five rectangles ([a job's own drawing](#a-jobs-own-drawing)) | every entry the run records within 4.7e-16 of the hand-built sections' | the same planes | round-off, 1e-10 |
 | `eme/3d-drawing-taper` | `jobs/eme-taper-drawn-3d.yaml`: the taper of `eme/3d-cut-taper-exact` drawn as a path in the job, cut exactly | every entry the run records the device's exact cut's to the bit | the same 33 planes | round-off, 1e-10 |
+| `eme/3d-drawing-gds` | `eme/3d-drawing-extruded`'s strips read from a GDSII file (boxes on layer 1/0, 1 nm database unit) by a `type = "gds"` shape | every entry the run records the rectangles' run's to the bit | the same planes | round-off, 1e-10 |
 | `eme/wavelength-taper`, `-mmi` | S over a range (1.45 to 1.65 µm, the C band) from a few solves, every entry on one set of wavelengths, asked for 1e-6 ([S over wavelength](#s-over-wavelength)) | ratio of the true error to the estimate 7.5e-7 (taper, 32 solves) and 7.8e-6 (multimode section, 117 solves) | the same expansion at each of 201 wavelengths | discretisation, a ratio of the true error to the estimate of at most 1, measured |
 | `eme/wavelength-reciprocity` | the two interpolants on the 201 wavelengths | $\lvert r - r^T \rvert$ 1.8e-14 | the solves' own reciprocity, kept by a shared denominator | round-off, 1e-12 |
 | `eme/wavelength-power` | the same: each column's power against the solves' | under 1e-3 of the bound $\sum_q (2\lvert S_{qp}\rvert + e_{qp}) e_{qp}$ | the bound the entries' estimates give | discretisation, a ratio of at most 1, measured |

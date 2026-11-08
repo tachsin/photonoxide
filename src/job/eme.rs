@@ -258,7 +258,8 @@ pub(super) struct EmeTask {
     /// A drawing's paths: straights, arcs and tapers of a waveguide.
     #[serde(default)]
     path: Vec<super::PathSpec>,
-    /// A drawing's shapes defined by functions, masks, polygons and booleans.
+    /// A drawing's shapes defined by functions, masks, polygons and booleans, and a GDSII file's
+    /// cell on one of its layers (`type = "gds"`): a layout's sections cut from its file.
     #[serde(default)]
     shape: Vec<super::shapes::ShapeSpec>,
     adaptive: Option<AdaptiveSpec>,
