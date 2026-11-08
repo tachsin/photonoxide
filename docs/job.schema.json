@@ -4410,7 +4410,7 @@
           "type": "array"
         },
         "shape": {
-          "description": "A drawing's shapes defined by functions, masks, polygons and booleans.",
+          "description": "A drawing's shapes defined by functions, masks, polygons and booleans, and a GDSII file's cell on one of its layers (`type = \"gds\"`): a layout's sections cut from its file.",
           "items": {
             "$ref": "#/$defs/ShapeSpec"
           },
