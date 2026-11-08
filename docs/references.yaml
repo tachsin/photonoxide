@@ -59,30 +59,6 @@
   venue: "Solid State Communications 15, 59"
   year: 1974
 
-- doi: 10.1126/science.1231440
-  authors: "M. A. Broome, A. Fedrizzi, S. Rahimi-Keshari, J. Dove, S. Aaronson, T. C. Ralph, A. G. White"
-  title: "Photonic Boson Sampling in a Tunable Circuit"
-  venue: "Science 339, 794"
-  year: 2013
-
-- doi: 10.1038/nphoton.2013.112
-  authors: "A. Crespi, R. Osellame, R. Ramponi, D. J. Brod, E. F. Galvão, N. Spagnolo, C. Vitelli, E. Maiorino, P. Mataloni, F. Sciarrino"
-  title: "Integrated multimode interferometers with arbitrary designs for photonic boson sampling"
-  venue: "Nat. Photonics 7, 545"
-  year: 2013
-
-- doi: 10.1038/s41567-019-0567-8
-  authors: "S. Paesani, Y. Ding, R. Santagati, L. Chakhmakhchyan, C. Vigliar, K. Rottwitt, L. K. Oxenløwe, J. Wang, M. G. Thompson, A. Laing"
-  title: "Generation and sampling of quantum states of light in a silicon chip"
-  venue: "Nat. Phys. 15, 925"
-  year: 2019
-
-- doi: 10.1126/science.1155441
-  authors: "A. Politi, M. J. Cryan, J. G. Rarity, S. Yu, J. L. O'Brien"
-  title: "Silica-on-Silicon Waveguide Quantum Circuits"
-  venue: "Science 320, 646"
-  year: 2008
-
 - doi: 10.1038/s41586-024-08406-9
   authors: "H. Aghaee Rad, T. Ainsworth, R. N. Alexander, B. Altieri, M. F. Askarani, R. Baby, L. Banchi, B. Q. Baragiola, J. E. Bourassa, R. S. Chadwick, et al."
   title: "Scaling and networking a modular photonic quantum computer"
@@ -484,6 +460,12 @@
   venue: "Applied Physics Letters 90, 191104"
   year: 2007
 
+- doi: 10.1126/science.1231440
+  authors: "M. A. Broome, A. Fedrizzi, S. Rahimi-Keshari, J. Dove, S. Aaronson, T. C. Ralph, A. G. White"
+  title: "Photonic Boson Sampling in a Tunable Circuit"
+  venue: "Science 339, 794"
+  year: 2013
+
 - doi: 10.1103/PhysRevLett.95.010501
   authors: "D. E. Browne, T. Rudolph"
   title: "Resource-Efficient Linear Optical Quantum Computation"
@@ -578,24 +560,6 @@
   title: "Frontiers of silicon-on-insulator"
   venue: "J. Appl. Phys. 93, 4955"
   year: 2003
-
-- doi: 10.1126/science.1231692
-  authors: "J. B. Spring, B. J. Metcalf, P. C. Humphreys, W. S. Kolthammer, X.-M. Jin, M. Barbieri, A. Datta, N. Thomas-Peter, N. K. Langford, D. Kundys, et al."
-  title: "Boson Sampling on a Photonic Chip"
-  venue: "Science 339, 798"
-  year: 2013
-
-- doi: 10.1038/nphoton.2013.102
-  authors: "M. Tillmann, B. Dakić, R. Heilmann, S. Nolte, A. Szameit, P. Walther"
-  title: "Experimental boson sampling"
-  venue: "Nat. Photonics 7, 540"
-  year: 2013
-
-- doi: 10.1016/j.scib.2019.04.007
-  authors: "H.-S. Zhong, L.-C. Peng, Y. Li, Y. Hu, W. Li, J. Qin, D. Wu, W. Zhang, H. Li, L. Zhang, et al."
-  title: "Experimental Gaussian Boson sampling"
-  venue: "Sci. Bull. 64, 511"
-  year: 2019
 
 - doi: 10.1007/s10973-014-4000-3
   authors: "E. Černošková, R. Todorov, Z. Černošek, J. Holubová, L. Beneš"
@@ -694,6 +658,13 @@
   venue: "IEEE Trans. Microwave Theory Techn. 35, 688"
   year: 1987
 
+- doi: 10.1088/1367-2630/15/5/053038
+  authors: "A. Christ, B. Brecht, W. Mauerer, C. Silberhorn"
+  title: "Theory of quantum frequency conversion and type-II parametric down-conversion in the high-gain regime"
+  venue: "New J. Phys. 15, 053038"
+  year: 2013
+  open: https://doi.org/10.1088/1367-2630/15/5/053038
+
 - doi: 10.1364/JOSAB.406048
   authors: "R. E. Christiansen, O. Sigmund"
   title: "Inverse design in photonics by topology optimization: tutorial"
@@ -761,6 +732,12 @@
   venue: "Math. Proc. Camb. Phil. Soc. 43, 50"
   year: 1947
 
+- doi: 10.1038/nphoton.2013.112
+  authors: "A. Crespi, R. Osellame, R. Ramponi, D. J. Brod, E. F. Galvão, N. Spagnolo, C. Vitelli, E. Maiorino, P. Mataloni, F. Sciarrino"
+  title: "Integrated multimode interferometers with arbitrary designs for photonic boson sampling"
+  venue: "Nat. Photonics 7, 545"
+  year: 2013
+
 - doi: 10.1364/OE.19.010940
   authors: "D. Dai, J. E. Bowers"
   title: "Novel concept for ultracompact polarization splitter-rotator based on silicon nanowires"
@@ -790,6 +767,12 @@
   title: "A Practical Guide to Splines"
   venue: "Springer New York"
   year: 1978
+
+- doi: 10.1016/S0168-583X(00)00525-5
+  authors: "J. P. de Souza, M. Behar, J. F. Dias, J. H. R. dos Santos"
+  title: "Range parameters of ¹⁸O implanted into Si and SiO₂"
+  venue: "Nucl. Instrum. Methods Phys. Res. B 175–177, 46"
+  year: 2001
 
 - doi: 10.1063/1.1713945
   authors: "B. E. Deal, A. S. Grove"
@@ -854,12 +837,6 @@
   title: "Macromodeling of Multiport Systems Using a Fast Implementation of the Vector Fitting Method"
   venue: "IEEE Microw. Wireless Compon. Lett. 18, 383"
   year: 2008
-
-- doi: 10.1016/S0168-583X(00)00525-5
-  authors: "J. P. de Souza, M. Behar, J. F. Dias, J. H. R. dos Santos"
-  title: "Range parameters of ¹⁸O implanted into Si and SiO₂"
-  venue: "Nucl. Instrum. Methods Phys. Res. B 175–177, 46"
-  year: 2001
 
 - doi: 10.1002/lpor.201500321
   authors: "C. P. Dietrich, A. Fiore, M. G. Thompson, M. Kamp, S. Höfling"
@@ -2017,7 +1994,7 @@
   title: "Range concepts and heavy ion ranges (Notes on atomic collisions, II)"
   venue: "Mat. Fys. Medd. Dan. Vid. Selsk. 33, no. 14"
   year: 1963
-  open: https://gymarkiv.sdu.dk/MFM/kdvs/mfm%2030-39/mfm-33-14.pdf
+  open: "https://gymarkiv.sdu.dk/MFM/kdvs/mfm%2030-39/mfm-33-14.pdf"
 
 - doi: 10.1109/50.588673
   authors: "B. Little, S. Chu, H. Haus, J. Foresi, J.-P. Laine"
@@ -2450,6 +2427,12 @@
   venue: "Computer Physics Communications 181, 687"
   year: 2010
 
+- doi: 10.1038/s41567-019-0567-8
+  authors: "S. Paesani, Y. Ding, R. Santagati, L. Chakhmakhchyan, C. Vigliar, K. Rottwitt, L. K. Oxenløwe, J. Wang, M. G. Thompson, A. Laing"
+  title: "Generation and sampling of quantum states of light in a silicon chip"
+  venue: "Nat. Phys. 15, 925"
+  year: 2019
+
 - doi: 10.1038/s41467-020-16187-8
   authors: "S. Paesani, M. Borghi, S. Signorini, A. Maïnos, L. Pavesi, A. Laing"
   title: "Near-ideal spontaneous photon sources in silicon quantum photonics"
@@ -2586,6 +2569,12 @@
   title: "Lithium niobate on insulator (LNOI) for micro‐photonic devices"
   venue: "Laser & Photonics Reviews 6, 488"
   year: 2012
+
+- doi: 10.1126/science.1155441
+  authors: "A. Politi, M. J. Cryan, J. G. Rarity, S. Yu, J. L. O'Brien"
+  title: "Silica-on-Silicon Waveguide Quantum Circuits"
+  venue: "Science 320, 646"
+  year: 2008
 
 - doi: 10.1103/PhysRevB.79.115112
   authors: "E. Polizzi"
@@ -3063,6 +3052,12 @@
   venue: "Numer. Math. 126, 741"
   year: 2013
 
+- doi: 10.1126/science.1231692
+  authors: "J. B. Spring, B. J. Metcalf, P. C. Humphreys, W. S. Kolthammer, X.-M. Jin, M. Barbieri, A. Datta, N. Thomas-Peter, N. K. Langford, D. Kundys, et al."
+  title: "Boson Sampling on a Photonic Chip"
+  venue: "Science 339, 798"
+  year: 2013
+
 - doi: 10.1137/060652610
   authors: "A. St-Cyr, M. J. Gander, S. J. Thomas"
   title: "Optimized Multiplicative, Additive, and Restricted Additive Schwarz Preconditioning"
@@ -3232,6 +3227,12 @@
   title: "Theory of Prism–Film Coupler and Thin-Film Light Guides"
   venue: "J. Opt. Soc. Am. 60, 1325"
   year: 1970
+
+- doi: 10.1038/nphoton.2013.102
+  authors: "M. Tillmann, B. Dakić, R. Heilmann, S. Nolte, A. Szameit, P. Walther"
+  title: "Experimental boson sampling"
+  venue: "Nat. Photonics 7, 540"
+  year: 2013
 
 - doi: 10.1038/nphoton.2017.14
   authors: "E. Timurdogan, C. V. Poulton, M. J. Byrd, M. R. Watts"
@@ -3454,6 +3455,12 @@
   venue: "Opt. Express 26, 5894"
   year: 2018
 
+- doi: 10.1103/PhysRevA.73.063819
+  authors: "W. Wasilewski, A. I. Lvovsky, K. Banaszek, C. Radzewicz"
+  title: "Pulsed squeezed light: Simultaneous squeezing of multiple modes"
+  venue: "Phys. Rev. A 73, 063819"
+  year: 2006
+
 - doi: 10.1103/RevModPhys.84.621
   authors: "C. Weedbrook, S. Pirandola, R. García-Patrón, N. J. Cerf, T. C. Ralph, J. H. Shapiro, S. Lloyd"
   title: "Gaussian quantum information"
@@ -3629,6 +3636,12 @@
   venue: "Adv Materials Inter 9, 2200429"
   year: 2022
   open: https://doi.org/10.1002/admi.202200429
+
+- doi: 10.1016/j.scib.2019.04.007
+  authors: "H.-S. Zhong, L.-C. Peng, Y. Li, Y. Hu, W. Li, J. Qin, D. Wu, W. Zhang, H. Li, L. Zhang, et al."
+  title: "Experimental Gaussian Boson sampling"
+  venue: "Sci. Bull. 64, 511"
+  year: 2019
 
 - doi: 10.1126/science.abe8770
   authors: "H.-S. Zhong, H. Wang, Y.-H. Deng, M.-C. Chen, L.-C. Peng, Y.-H. Luo, J. Qin, D. Wu, X. Ding, Y. Hu, et al."

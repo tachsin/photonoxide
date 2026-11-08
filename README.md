@@ -40,7 +40,7 @@ It is released milestone by milestone ([changelog](CHANGELOG.md), [roadmap](ROAD
 
 - **[Methods](docs/README.md#methods):** 53 write-ups in 10 topics, from waveguide modes to
   fabrication, each setting out its method, its limits and the papers it implements; their
-  front matter cites 287 distinct sources by DOI.
+  front matter cites 289 distinct sources by DOI.
 - **[Academy](academy/README.md):** lessons on devices and numerical methods at three depths,
   each opening on a drawing of its device, with charts the library computes live; 20 written,
   and 1 more laid out section by section, read on GitHub or in the studio.
@@ -241,7 +241,7 @@ The optimized build profiles (`release`, `dist` and `fastest`) are described in
 
 Nothing is merged without an analytic test, a reproduction of a published result and a
 convergence test; adjoint gradients are checked against finite differences. The
-[report](docs/validation.md) has 930 cases: 626 against closed forms, 291 against published
+[report](docs/validation.md) has 937 cases: 633 against closed forms, 291 against published
 results and 13 against another code on a shared problem. Each states its source, tolerance and
 grid. CI fails when a case fails or the committed report isn't the one the code writes. CI
 checks every example's output too.
