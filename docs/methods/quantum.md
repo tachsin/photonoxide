@@ -649,12 +649,12 @@ carries $(\beta/2k_0)\int\lvert E_z\rvert^2$ each way.
 The films' optical constants are the detectors' and emitters' material data, and they enter the
 catalogue with their provenance when a reproduction needs them (the plan's decision 6). NbN is
 there: `nbn`, Anant et al.'s room-temperature ellipsometry of a 12 nm film from 0.6 to 1.65 µm,
-with its caveats (the materials catalogue page). WSi and low-temperature GaAs are not, as their
-papers are not in hand. MoSi isn't either: Reddy et al.'s index above is their fit at 1550 nm of
-a 4.1 nm film under a 2 nm silicon cap, from spectrophotometric transmission and reflection
-(Supplement 1, Section 2), used for a check. Their Fig. S3 gives that film's $n$ and $\kappa$ from
-1300 to 1700 nm (about 5.44 + 5.56i to 6.05 + 6.28i), which a catalogue entry for MoSi could take
-up, with the caveat that it is one film's fit and not a measurement of the material alone.
+with its caveats (the materials catalogue page). So is MoSi: `mosi`, Reddy et al.'s fit of a
+4.1 nm film under a 2 nm silicon cap, from spectrophotometric transmission and reflection
+(Supplement 1, Section 2): the index above at 1550 nm, and their Fig. S3's $n$ and $\kappa$ from
+1300 to 1700 nm (5.438 + 5.560i to 6.053 + 6.281i, our reading of its curves), with the caveat
+that it is one film's fit and not a measurement of the material alone. WSi and low-temperature
+GaAs are not, as their papers are not in hand (GaAs's index from 103 K up is in the catalogue).
 
 ## What it is checked against
 

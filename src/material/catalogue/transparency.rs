@@ -214,6 +214,11 @@ pub fn transparency(id: &str, conditions: Conditions) -> Option<Transparency> {
             not_specified("no band edge to take it from"),
             not_specified(NO_MULTIPHONON),
         ),
+        "mosi" => (
+            not_specified("an absorbing film, κ from 5.56 to 6.28 over its data's 1.3 to 1.7 µm (Reddy et al., Supplement 1, Fig. S3): no transparency window there"),
+            not_specified("no band edge to take it from"),
+            not_specified(NO_MULTIPHONON),
+        ),
         _ => (
             not_specified("no paper in hand gives this material's band edge"),
             not_specified("no band edge to take it from"),
