@@ -778,6 +778,27 @@ with their own fit; from the two measured levels alone the squeezing before the 
   their Fig. 3's line reads about 0.84 at $Q_{SI}/Q_P = 0.5$ and 0.93 at 1 against our 0.800 and
   0.917. Their purities sit above ours by about the same margin at every ratio; the full device
   simulation behind their markers isn't given in the letter. Not a case until it closes.
+
+  A likely cause is the frequency window. Eq. 3's residual correlation at a ratio of 6.6 lies in
+  the Lorentzians' tails, so $K$ depends on how far the integrals reach. The letter only says they
+  reach "the full extent of the corresponding resonance". With the signal's and idler's
+  frequencies each cut at ±$w$ of their linewidths (FWHM), the same model gives:
+
+  | $w$ | Equal Q | Ratio 6.6 |
+  |---|---|---|
+  | 3.5 | 1.0820 | 1.00070 |
+  | 4.0 | 1.0845 | 1.00088 |
+  | 4.2 | 1.0852 | 1.00095 |
+  | 5 | 1.0873 | 1.00122 |
+  | 10 | 1.0904 | 1.00244 |
+  | none | 1.0909 | 1.0033 |
+
+  A window of about ±4 linewidths gives both the text's 1.08 and Fig. 2(b)'s 1.0009. With no
+  window the same model gives Fig. 2(a)'s 1.09. These numbers come from Eq. 3 with a pump far
+  broader than its resonance, on 481 points, computed outside the library. The last row is
+  the library's ring model's 1.0033 above. The window doesn't explain Fig. 3's line: at a
+  ratio of 0.5 a ±4 window gives 0.804, against about 0.84. Without the authors' window this
+  stays a likely cause, not a match.
 - **Paesani et al.'s inter-modal source.** Their guide is 2 × 0.22 µm silicon in silica, 11 mm
   long, pumped in TM₀ and TM₁, the signal in TM₁ and the idler in TM₀, measured at 1588 and
   1516 nm (Supplementary Note 1a, p. 2). Their measured purity is 0.9904 ± 0.0006 with the delay
@@ -810,8 +831,35 @@ long red tail: not a Gaussian. With it they give 0.993 at 11 mm without its spec
 0.984 with it (Supplementary Fig. 2a). The article's 99.4 % with the delay and 84.0 % without
 (Fig. 1b) are not in the supplement. A Gaussian of 4.5 nm gives here 0.9980 at 1.46 ps and 0.716
 without the delay. The frequency grid is converged: 81 against 161 points differ by $10^{-6}$ with
-the delay and $10^{-3}$ without. These wait for the measured pump to be modelled. The numbers come
-from an ignored test, `quantum::light_checks::tests::print_paesani`.
+the delay and $10^{-3}$ without. The numbers come from an ignored test,
+`quantum::light_checks::tests::print_paesani`.
+
+`shaped_dual_pump_spectrum` takes a pump of any complex spectral amplitude, so the measured pump
+can be modelled. We read Supplementary Fig. 2b's two curves by pixel, the axes placed by the
+figure's tick marks: the intensity peaks at 1549.6 nm, is half its peak from 1548.0 to 1552.5 nm,
+and has its centroid at 1550.39 nm. The amplitude is $\sqrt{I}\,e^{-i\varphi}$: their
+Supplementary Eq. 3 is written with $e^{-i\omega_p\tau}$ and $e^{-i\Delta k z}$ and
+$\alpha = A e^{i\varphi}$, so in our convention the pump's phase changes sign (the joint spectra
+are then each other's conjugates, with the same purity). At the delay by Supp. Eq. 2, on 161 points:
+
+| Cells | Without the phase | With the phase | The phase's cost |
+|---|---|---|---|
+| 20 nm | 0.98974 | 0.97928 | 0.0105 |
+| 10 nm | 0.99039 | 0.98044 | 0.0100 |
+| 5 nm | 0.99072 | 0.98105 | 0.0097 |
+| Theirs, 11 mm (Supp. Fig. 2a) | 0.993 | 0.984 | 0.009 |
+
+Both converge at first order, to about 0.9911 and 0.9817 by Richardson's extrapolation. The
+phase's cost agrees with theirs: 0.0094 extrapolated against their 0.009, read off the figure's
+inset. Both purities sit about 0.002 below theirs, against 0.00016 for the Gaussian pump, so our
+guide's dispersion isn't the cause. What stays is the pump as read from a raster figure. The purity
+is sensitive to the spectrum's sharp edges: setting the reading to zero below 3 % of the peak,
+which steepens its edges, drops the purity without the phase from 0.9897 to 0.9845 on 20 nm
+cells. Taking the plotted intensity as the amplitude $A$ instead of $A^2$ gives 0.9773, further
+from theirs, so the reading as $\lvert\alpha\rvert^2$ stands. The phase's sign matters too: with
+$e^{+i\varphi}$ the purity is 0.9772 on 5 nm cells instead of 0.9810. The 0.002 left is the size of
+what a pixel reading of a steep edge can move, but that isn't shown, so it is not a case. The
+numbers come from `quantum::light_checks::tests::print_paesani_measured_pump`.
 
 - **Vaidya et al.'s quadrature squeezing.** Their 1.0 dB measured and about 4 dB inferred on chip
   need their net collection efficiency $\eta$ and gain $g$. Their Supplementary Materials give the
@@ -967,7 +1015,26 @@ the gap is explained, without a looser tolerance.
   figure's curves, the minimum is at 1679.75 nm and the absorption 0.999 (the same
   transfer-matrix arithmetic outside the library). So the planar picture does reach near-unity,
   but about 145 nm to the red of their coating's 1530–1540 nm: some layer's thickness or index
-  as we read it differs from what was built. A patterned model would settle it: RCWA or FDTD of the 80 nm MoSi wires at 140 nm
+  as we read it differs from what was built.
+
+  We checked the readings one at a time, along the wires, with the same transfer matrices outside
+  the library (they give 1678.2 nm and 0.715 at 1550 nm, as ours). The mirror's layers are their
+  quarter waves (1550/(4 × 1.453) = 266.7 nm, 1550/(4 × 2.735) = 141.7 nm), 13 of them starting and
+  ending with SiO₂, and the coating's order is the order deposited (αSi 50 nm on the wires, 68 nm
+  on top), so neither is a misreading. The other readings move the minimum the wrong way or too
+  little: the coating upside down (68 nm on the wires) 1706 nm; no cap 1672 nm; light from glass
+  (n 1.45) 1712 nm, or from glass across a 100 nm air gap (the fibre spacers' height) 1664 nm; the
+  index across the wires 1709 nm; a whole MoSi film 1687 nm; MoSi's n and κ swapped 1700 nm. With
+  no coating the minimum is at 1550 nm (absorption 0.958), so the mirror and the film are tuned to
+  1550 nm and the shift is the coating's. To reach 1530–1540 nm alone, the top αSi would need 22 to
+  24 nm instead of 68 (its minimum then reflects 0.15), the bottom αSi about 20 nm instead of 50 (1535.5 nm),
+  or the coating's SiO₂ about 175 nm instead of 248.7 (170 nm gives 1521 nm, 180 nm 1543.5 nm).
+  248.7 nm as an optical thickness, 171.2 nm of SiO₂, would give 1524 nm, but the paper gives every
+  other thickness as a physical one, so that reading isn't claimed. A coating that absorbs all at
+  1550 nm on this mirror is, by a search on 2 to 4 nm steps, αSi 102 nm, SiO₂ 128 nm and αSi 60 nm
+  from the top: nothing near the printed one.
+
+  A patterned model would settle it: RCWA or FDTD of the 80 nm MoSi wires at 140 nm
   pitch with the 60 nm gaps filled by the coating's first αSi, the 2 nm cap, both polarizations
   at normal incidence, the 13-layer mirror, Fig. S3's dispersion, and the top αSi fitted to their
   1550 nm minimum. Not a case; the planar figures come from an ignored test,

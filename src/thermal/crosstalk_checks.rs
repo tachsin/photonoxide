@@ -32,9 +32,14 @@ pub(crate) const WAFER: f64 = 725.0;
 /// victim's arm) centred at each of `victims` (µm across), and `gap` between them. The guides:
 /// the rib, then each strip. The heat graded from 20 nm by `r` (growing by 1.2, to 25 µm).
 pub(crate) fn chip(victims: &[f64], gap: Gap, half: f64, r: f64) -> PhaseShifter {
+    chip_on(victims, gap, half, r, WAFER)
+}
+
+/// [`chip`] on a substrate `wafer` µm thick.
+pub(crate) fn chip_on(victims: &[f64], gap: Gap, half: f64, r: f64, wafer: f64) -> PhaseShifter {
     let top = 3.32;
     let mut section = Section::new("SiO2");
-    section.layer(-2.0 - WAFER, -2.0, "substrate").expect(OK);
+    section.layer(-2.0 - wafer, -2.0, "substrate").expect(OK);
     if let Gap::Trench { from, to, depth } = gap {
         section.draw(rect([from, to], [-2.0 - depth, top]), "air");
     }
@@ -52,7 +57,7 @@ pub(crate) fn chip(victims: &[f64], gap: Gap, half: f64, r: f64) -> PhaseShifter
     features.extend(section.features());
     let grid = Grid::fitted(
         [-half, half],
-        [-2.0 - WAFER, top],
+        [-2.0 - wafer, top],
         &finer(25.0, 0.02, 1.2, r),
         &features,
     )
@@ -451,4 +456,42 @@ pub(crate) fn cases() -> Vec<Case> {
             },
         },
     ]
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The share of the heater's phase a strip takes at each gap, on substrates of several
+    /// thicknesses: what Jacques et al.'s measured victim (a two-armed MZI, the heater 320 µm
+    /// long) would see if its far arm, or the chip's length, were in the model.
+    #[test]
+    #[ignore = "Jacques et al.'s crosstalk against the gap: slow"]
+    fn print_jacques_crosstalk_profile() {
+        let gaps = [
+            5.0, 7.5, 10.0, 12.5, 15.0, 17.5, 20.0, 25.0, 30.0, 40.0, 50.0, 75.0, 100.0, 150.0,
+            200.0, 300.0,
+        ];
+        let at: Vec<f64> = gaps.iter().map(|&d| victim_at(d)).collect();
+        for wafer in [WAFER, 320.0, 160.0, 50.0, 14.0] {
+            let start = std::time::Instant::now();
+            let e = chip_on(&at, Gap::Oxide, 2000.0, 1.0, wafer)
+                .efficiency()
+                .expect(OK);
+            let x: Vec<String> = (1..=gaps.len())
+                .map(|i| format!("{}: {:.5}", gaps[i - 1], e.crosstalk(i, 0, 0)))
+                .collect();
+            eprintln!(
+                "substrate {wafer} um ({:.1} s): {}",
+                start.elapsed().as_secs_f64(),
+                x.join(", ")
+            );
+        }
+        for gap in [5.0, 15.0] {
+            eprintln!(
+                "alone at {gap} um: {:.5}",
+                chip_crosstalk(&[victim_at(gap)], Gap::Oxide, 1.0)[0]
+            );
+        }
+    }
 }
