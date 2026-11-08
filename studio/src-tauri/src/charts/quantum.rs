@@ -363,7 +363,7 @@ pub fn specs() -> Vec<ChartSpec> {
                     "detector",
                     "Detector $\\eta_D$",
                     "",
-                    (0.1, 1.0, 0.82),
+                    (0.1, 1.0, 0.75),
                     0.01,
                     false,
                     "The threshold detectors' efficiency.",
@@ -1513,11 +1513,13 @@ pub fn squeezed_photons(db: f64, eta: f64) -> photonoxide::Result<ChartData> {
     Ok(out)
 }
 
-/// Qi et al.'s two evaluations: Paesani et al.'s 2019 chip and Zhong et al.'s 2019 sampler.
+/// Qi et al.'s two evaluations: Paesani et al.'s 2019 chip (r and η as Qi et al. take them) and
+/// Zhong et al.'s 2019 sampler (η_D = 0.75 from the article, where Qi et al. take 0.82; η their
+/// estimate).
 pub fn qi_examples() -> (f64, f64) {
     (
         qi_simulable_error(0.1, 0.088, 0.78, 1e-4, 4),
-        qi_simulable_error(0.38, 0.89, 0.82, 1e-4, 6),
+        qi_simulable_error(0.38, 0.89, 0.75, 1e-4, 6),
     )
 }
 
@@ -1571,7 +1573,7 @@ pub fn gbs_simulability(
             zhong,
             3,
             "",
-            "K = 6, r = 0.38, η = 0.89, η_D = 0.82: \"no solution for any ε ∈ [0, 1]\"",
+            "K = 6, r = 0.38, η = 0.89, η_D = 0.75: Qi et al. find \"no solution for any ε ∈ [0, 1]\"",
         ),
     ];
     Ok(out)
