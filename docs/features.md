@@ -31,6 +31,7 @@ Rust-only names (`device_fabrication_from` and the like) have no entry there.
 |---|---|---|---|
 | The slab, exact, with its fields | ✅ | ✅ [`slab_modes`](https://tachsin.gr/projects/photonoxide/docs/python/reference/photonoxide.html#slab_modes) | [slab](methods/slab.md) |
 | Multilayers: modes and reflection | ✅ | — | [multilayer](methods/multilayer.md) |
+| Lamellar gratings: diffraction efficiencies by RCWA, TE and TM | ✅ | — | [rcwa](methods/rcwa.md) |
 | Planar profiles by finite differences | ✅ | — | [slab-fd](methods/slab-fd.md) |
 | Full-vector modes of a cross-section, mirror walls and PMLs | ✅ | ✅ [`vector_modes`](https://tachsin.gr/projects/photonoxide/docs/python/reference/photonoxide.html#vector_modes), the permittivity as an array: the guided modes, or with PMLs every mode solved, leaky ones with their loss; ◐ shapes on a stack: a job | [vector](methods/vector.md), [PML](methods/pml.md), [walls](methods/walls.md) |
 | Guided modes told from the closed window's own (n_eff above the media at its open edges) | ✅ | ✅ [`vector_modes`](https://tachsin.gr/projects/photonoxide/docs/python/reference/photonoxide.html#vector_modes) returns only these, without PMLs | [vector](methods/vector.md) |

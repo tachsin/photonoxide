@@ -28,7 +28,7 @@ export const CATEGORIES = [
     title: "Waveguide modes",
     blurb: "A guide's modes and what follows from them, from characteristic equations exact to the last bit to finite differences on any cross-section.",
     groups: [
-      { title: "Exact and approximate", slugs: ["slab", "multilayer", "marcatili", "eim"] },
+      { title: "Exact and approximate", slugs: ["slab", "multilayer", "rcwa", "marcatili", "eim"] },
       { title: "On a grid", slugs: ["vector", "hadley", "slab-fd", "bends"] },
       { title: "The window's edges", slugs: ["pml", "walls"] },
       { title: "What a mode gives", slugs: ["fields", "dispersion"] },
@@ -137,6 +137,7 @@ export const ALGORITHMS = [
   { name: "Quasi-phase matching", does: "a process kept in step by a periodically reversed nonlinear coefficient, its period, order, duty cycle and acceptance bandwidths", methods: ["nonlinear"] },
   { name: "QMR, complex symmetric", does: "3D FDFD by iteration, with or without the matrix", methods: ["fdfd-3d"] },
   { name: "Richardson extrapolation", does: "the grid's error removed from three grids", methods: ["vector"] },
+  { name: "Rigorous coupled-wave analysis", does: "a lamellar grating's diffraction from its Fourier modes, TM by Li's inverse rule", methods: ["rcwa"] },
   { name: "Shortley–Weller boundary points", does: "curved conductors met between the grid's points, at second order", methods: ["static"] },
   { name: "Stretched-coordinate PML", does: "absorbing layers in the frequency domain", methods: ["pml", "fdfd"] },
   { name: "Sub-network growth", does: "Filipsson's circuit solve, the reference", methods: ["circuits"] },

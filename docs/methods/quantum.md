@@ -1034,11 +1034,47 @@ the gap is explained, without a looser tolerance.
   1550 nm on this mirror is, by a search on 2 to 4 nm steps, αSi 102 nm, SiO₂ 128 nm and αSi 60 nm
   from the top: nothing near the printed one.
 
-  A patterned model would settle it: RCWA or FDTD of the 80 nm MoSi wires at 140 nm
-  pitch with the 60 nm gaps filled by the coating's first αSi, the 2 nm cap, both polarizations
-  at normal incidence, the 13-layer mirror, Fig. S3's dispersion, and the top αSi fitted to their
-  1550 nm minimum. Not a case; the planar figures come from an ignored test,
-  `quantum::real_checks::figures::print_reddy`.
+  **Patterned, by RCWA** ([rcwa](rcwa.md)). The wires are now what the paper describes: 80 nm of
+  MoSi under its 2 nm cap at 140 nm pitch, two lamellar layers whose 60 nm gaps hold the coating's
+  first αSi, with that αSi's 50 nm above the cap, the rest of the coating over it and the mirror
+  under it, at normal incidence, 41 harmonics (TE, E along the wires, is converged to 10⁻⁵ by
+  21; TM's absorption moves by 3 × 10⁻⁴ from 41 to 161). At 1550 nm with their MoSi index it
+  absorbs 0.716 along the wires, as the planar model's 0.715, but 0.480 across them, not 0.065:
+  the wire layer is 6.1 nm thick under a 140 nm period, so the field across the wires runs around
+  them through the αSi instead of through them in series, and the planar harmonic mean, which
+  assumes a layer much thicker than its period, doesn't hold (see the static limit on the rcwa
+  page: TM's departure from it is a skin of about Λ/2π at each face). Unpolarized, 0.598.
+
+  The patterning doesn't move the resonance. Along the wires the reflection minimum is at
+  1677.88 nm with 1550 nm's index (absorbing 0.998) and 1679.16 nm with Fig. S3's dispersion (its
+  curves read from the figure's vector paths; absorbing 0.999), where the planar model has
+  1678.25 and 1679.75 nm. Across the wires it lies further out, 1729.91 nm (absorbing 0.958), past
+  the end of Fig. S3; unpolarized, 1707.12 nm. What the paper leaves open moves it little:
+
+  | Change (TE minimum with Fig. S3's dispersion; TM with 1550 nm's index) | TE minimum, nm | TM minimum, nm |
+  |---|---|---|
+  | As designed, the gaps filled with αSi (2.735) | 1679.16 | 1729.91 |
+  | Gaps filled with SiO₂ (1.453) | 1670.25 | 1714.22 |
+  | Gaps empty (1.0) | 1668.40 | 1710.03 |
+  | Gaps filled with the cap's 2.274 | 1675.33 | 1723.83 |
+  | The coating the other way up (68 nm on the wires, 50 nm on top) | above 1700 | 1754.29 |
+  | Each nm more of the top αSi | +2.19 | +2.26 |
+  | Each nm more of the coating's SiO₂ | +1.71 | +1.69 |
+  | Each nm more of the first αSi | +4.50 | +4.13 |
+
+  The top αSi, the one they tuned in situ, moves the TE minimum by 2.2 nm per nm, and the
+  minimum stays deep as it does (from 60 to 68 nm it moves 19 nm with R below 0.005), as their
+  short depositions did. But it can't bring the resonance to 1550 nm with near-unity absorption:
+  the TE minimum reaches 1550 nm at a top αSi of 23.25 nm and 1535 nm at 18.14 nm, and there it
+  is shallow, reflecting 0.155 and 0.197 along the wires (absorbing 0.845 and 0.803; across them
+  0.710 and 0.670). With no top αSi at all the minimum leaves the band. So no reasonable top αSi
+  reproduces their 1550 nm. A 145 nm shift at these rates needs about 32 nm less of the first
+  αSi, 85 nm less SiO₂ or about 18 % less of the whole coating (a linear estimate from the
+  table), or indices other than those printed. The gap stays open with these measurements; what
+  would settle it is the as-built thicknesses, or the reflection spectrum their in-situ tuning
+  measured. The figures come from ignored tests, `quantum::real_checks::figures::print_reddy`
+  (planar) and `print_reddy_patterned` (RCWA). Not a case: no number agrees with the paper's to
+  its printed digits.
 
 ## Limits
 
