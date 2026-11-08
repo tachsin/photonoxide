@@ -105,7 +105,7 @@ papers:
     doi: 10.1126/science.1155441
     year: 2008
     role: milestone
-    note: "Two-photon interference and a CNOT gate in silica waveguides, which Wang et al.'s review calls a landmark of integrated quantum photonics (p. 1). Known here from that review; its PDF is not in the papers folder."
+    note: "Silica-on-silicon waveguides at 804 nm: two-photon interference on a directional coupler with a visibility of 94.8 ± 0.5 % and a CNOT gate with an average logical-basis fidelity of 94.3 ± 0.2 % (abstract, p. 646). Wang et al.'s review calls it a landmark of integrated quantum photonics (p. 1)."
   - cite: "A. Peruzzo et al., Science 329, 1500 (2010)"
     title: "Quantum Walks of Correlated Photons"
     doi: 10.1126/science.1193515
@@ -141,25 +141,25 @@ papers:
     doi: 10.1126/science.1231440
     year: 2013
     role: milestone
-    note: "One of the first boson-sampling experiments, with three photons, as Wang et al.'s review groups them (p. 8). Known here from that review and Crossref's record; its PDF is not in the papers folder."
+    note: "One of the first boson-sampling experiments: two and three photons in six modes, the two polarizations in each of the three spatial modes of a fused-fibre 3 × 3 beam splitter with polarization controllers before and after it, so not a chip, though its abstract speaks of a 6-mode integrated optical circuit. Published online in December 2012; read from that first version, so no page numbers are given."
   - cite: "J. B. Spring et al., Science 339, 798 (2013)"
     title: "Boson Sampling on a Photonic Chip"
     doi: 10.1126/science.1231692
     year: 2013
     role: milestone
-    note: "One of the first boson-sampling experiments, on a chip, with three photons (Wang et al.'s review, p. 8). Known here from that review and Crossref's record; its PDF is not in the papers folder."
+    note: "One of the first boson-sampling experiments, on a chip: three photons and, on a second chip of the same geometry, four (|202000⟩, a double pair from one source), in a silica-on-silicon circuit written by UV laser with M = 6 modes and 10 beam splitters (abstract, p. 798; p. 799). Their L1 distances to the permanents' prediction are d(3) = 0.094 ± 0.014 and d(4) = 0.097 ± 0.004 (p. 800). Published online in December 2012."
   - cite: "M. Tillmann et al., Nat. Photonics 7, 540 (2013)"
     title: "Experimental boson sampling"
     doi: 10.1038/nphoton.2013.102
     year: 2013
     role: milestone
-    note: "One of the first boson-sampling experiments, with three photons (Wang et al.'s review, p. 8). Known here from that review and Crossref's record; its PDF is not in the papers folder."
+    note: "One of the first boson-sampling experiments: three photons in networks of 5 × 5 modes, 8 directional couplers and 11 phase shifters, written by femtosecond laser in fused silica (PDF p. 2); the measured three-photon distributions agree with the predicted ones to fidelities of 0.98, 0.97, 0.98 and 0.96, each ± 0.01 (Fig. 4, PDF p. 3). Read from the advance online version of 12 May 2013, whose pages are numbered 1–5."
   - cite: "A. Crespi et al., Nat. Photonics 7, 545 (2013)"
     title: "Integrated multimode interferometers with arbitrary designs for photonic boson sampling"
     doi: 10.1038/nphoton.2013.112
     year: 2013
     role: milestone
-    note: "One of the first boson-sampling experiments, in laser-written interferometers, with three photons (Wang et al.'s review, p. 8). Known here from that review and Crossref's record; its PDF is not in the papers folder."
+    note: "One of the first boson-sampling experiments: three photons in five modes, a random 5 × 5 unitary built as Reck et al.'s triangle of 10 directional couplers, written by femtosecond laser in borosilicate glass (PDF pp. 1–2, 5); the three-photon distribution lies at a variation distance of 0.105 ± 0.024 from the prediction of the reconstructed unitary with the photons' partial distinguishability (PDF p. 3). Read from the advance online version of 26 May 2013, whose pages are numbered 1–5."
   - cite: "J. W. Silverstone et al., Nat. Photonics 8, 104 (published online 15 December 2013)"
     title: "On-chip quantum interference between silicon photon-pair sources"
     doi: 10.1038/nphoton.2013.339
@@ -214,12 +214,24 @@ papers:
     year: 2019
     role: milestone
     note: "A 5 × 1248-site two-dimensional cluster state of squeezed light multiplexed in time, every nullifier below −4.5 dB."
+  - cite: "S. Paesani, Y. Ding, R. Santagati et al., Nat. Phys. 15, 925 (2019)"
+    title: "Generation and sampling of quantum states of light in a silicon chip"
+    doi: 10.1038/s41567-019-0567-8
+    year: 2019
+    role: milestone
+    note: "Four spiral photon-pair sources, a random walk over 12 coupled guides and 16 nanowire detectors of about 78 % efficiency (PDF p. 1): scattershot and Gaussian boson sampling on one silicon chip, up to eight photons; one of the two experiments Qi et al. test. Read from the first release, whose pages carry no numbers."
+  - cite: "H.-S. Zhong, L.-C. Peng, Y. Li et al., Sci. Bull. 64, 511 (2019)"
+    title: "Experimental Gaussian Boson sampling"
+    doi: 10.1016/j.scib.2019.04.007
+    year: 2019
+    role: milestone
+    note: "Three two-mode squeezed vacua from down-conversion through a random 12 × 12 transformation of six spatial modes and two polarizations, read by 12 nanowire detectors of 75 % average efficiency at 1550 nm (p. 512): Gaussian boson sampling of three to five photons (p. 513); the other experiment Qi et al. test."
   - cite: "J. Wang, F. Sciarrino, A. Laing, M. G. Thompson, Nat. Photonics 14, 273 (published online 21 October 2019)"
     title: "Integrated photonic quantum technologies"
     doi: 10.1038/s41566-019-0532-1
     year: 2019
     role: review
-    note: "Sources, circuits and detectors on chips and what they have done: the review this lesson takes its account of the first chips and boson-sampling experiments from."
+    note: "Sources, circuits and detectors on chips and what they had done by 2019, the first chips and boson-sampling experiments among them."
   - cite: "H. Qi, D. J. Brod, N. Quesada, R. García-Patrón, Phys. Rev. Lett. 124, 100502 (2020)"
     title: "Regimes of Classical Simulability for Noisy Gaussian Boson Sampling"
     doi: 10.1103/PhysRevLett.124.100502
@@ -570,12 +582,15 @@ gives; their supplement, which describes the spreading regions, isn't in hand.
 
 ::validation quantum/peruzzo-correlations quantum/peruzzo-classical-bound
 
-The first boson-sampling experiments followed in 2013 with three photons, mainly in integrated
-optics ([Broome et al.](https://doi.org/10.1126/science.1231440), [Spring et al.](https://doi.org/10.1126/science.1231692),
-[Tillmann et al.](https://doi.org/10.1038/nphoton.2013.102), [Crespi et al.](https://doi.org/10.1038/nphoton.2013.112);
-known here from [Wang et al.'s review](https://doi.org/10.1038/s41566-019-0532-1), p. 8, as their
-papers aren't in the folder). Single photons from probabilistic sources made larger experiments
-slow; squeezed light, in section 6, took sampling to tens and hundreds of photons.
+The first boson-sampling experiments followed in 2013 with three photons, and in one of them four.
+[Broome et al.](https://doi.org/10.1126/science.1231440) used six modes of a fused-fibre 3 × 3 beam
+splitter, the two polarizations of each of its three spatial modes. [Spring et al.](https://doi.org/10.1126/science.1231692)
+used a silica-on-silicon chip of six modes and ten beam splitters, written by UV laser, and sent four
+photons through a second chip of the same geometry. [Tillmann et al.](https://doi.org/10.1038/nphoton.2013.102)
+and [Crespi et al.](https://doi.org/10.1038/nphoton.2013.112) used networks of five modes written
+by femtosecond laser in glass. Broome's and Spring's reports were published online in December
+2012. Single photons from probabilistic sources made larger experiments slow; squeezed light, in
+section 6, took sampling to tens and hundreds of photons.
 
 **Try it.** Set the overlap to 0 and to 1. Which curve does the partly distinguishable one follow,
 and how does the bunching change between them?
@@ -812,11 +827,16 @@ cost falls as the loss grows.
 
 ::chart gbs-simulability
 
-Qi et al. evaluate two experiments of 2019, known here from their citations (refs. 48 and 49) as
-their papers aren't in the folder: Paesani et al.'s chip (Nat. Phys. 15, 925) ($K = 4$, $r = 0.1$, $\eta = 0.088$, $\eta_D = 0.78$), simulable "with error 2%",
-where photonoxide gives $\epsilon^* = 0.0224$; and Zhong et al.'s bulk sampler (Sci. Bull. 64,
-511) ($K = 6$, $r = 0.38$,
-$\eta = 0.89$, $\eta_D = 0.82$), with "no solution for any ε ∈ [0, 1]", where it gives 1.10.
+Qi et al. evaluate two experiments of 2019. [Paesani et al.'s chip](https://doi.org/10.1038/s41567-019-0567-8)
+sent $K = 4$ squeezed modes into a walk of 12 guides read by detectors of about 78 % efficiency
+(their PDF p. 1). Qi et al. take $r = 0.1$ and $\eta = 0.088$ for it, which the article doesn't
+print; they would come from its Supplementary Information, which we haven't read. With these, Qi
+et al. find it simulable "with error 2%", where photonoxide gives $\epsilon^* = 0.0224$.
+[Zhong et al.'s sampler](https://doi.org/10.1016/j.scib.2019.04.007) had $K = 6$ squeezed modes of
+mean $r = 0.38$ and detectors of 75 % average efficiency (pp. 512–513). It gives no transmission:
+$\eta = 0.89$ is Qi et al.'s own estimate (their note 51), and they take $\eta_D = 0.82$. Qi et al.
+find "no solution for any ε ∈ [0, 1]"; with the paper's $\eta_D = 0.75$, photonoxide gives
+$\epsilon^* = 1.10$ (1.1022, against 1.1023 at 0.82), so the conclusion holds.
 
 ::validation quantum/qi-simulability
 
@@ -962,12 +982,13 @@ clusters ([Menicucci et al., 2006](https://doi.org/10.1103/PhysRevLett.97.110501
 thresholds ([Varnava et al., 2008](https://doi.org/10.1103/PhysRevLett.100.060502)) followed.
 
 On chips, two-photon interference and a CNOT gate in silica waveguides
-([Politi et al., 2008](https://doi.org/10.1126/science.1155441), known here from Wang et al.'s review)
+([Politi et al., 2008](https://doi.org/10.1126/science.1155441))
 began integrated quantum photonics; [Peruzzo et al. (2010)](https://doi.org/10.1126/science.1193515)
 walked two photons through 21 guides, [Helt et al. (2010)](https://doi.org/10.1364/OL.35.003006)
 gave rings' pairs their theory, and [Silverstone et al. (2013)](https://doi.org/10.1038/nphoton.2013.339)
 interfered two silicon sources on a chip. [Aaronson and Arkhipov](https://doi.org/10.4086/toc.2013.v009a004)
-posed boson sampling (STOC 2011, the journal 2013), and four groups sampled three photons in 2013.
+posed boson sampling (STOC 2011, the journal 2013), and four groups sampled three photons in 2013,
+one of them four as well.
 [Carolan et al. (2015)](https://doi.org/10.1126/science.aab3642) made a universal six-mode chip,
 [Clements et al. (2016)](https://doi.org/10.1364/OPTICA.3.001460) a better mesh, and
 [Hamilton et al. (2017)](https://doi.org/10.1103/PhysRevLett.119.170501) Gaussian boson sampling.

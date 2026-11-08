@@ -286,13 +286,16 @@ pub(crate) fn bartolucci_fusion() -> f64 {
 }
 
 /// Qi et al.'s test on the two experiments they test (p. 100502-2): the smallest error ε to which
-/// Paesani et al.'s 2019 chip (Nat. Phys. 15, 925, their ref. 48; K = 4, r = 0.1, η = 0.088,
-/// η_D = 0.78, p_D = 1e-4) is simulable, and Zhong et al.'s 2019 sampler (Sci. Bull. 64, 511,
-/// their ref. 49; K = 6, r = 0.38, η = 0.89, η_D = 0.82, p_D = 1e-4).
+/// Paesani et al.'s 2019 chip (Nat. Phys. 15, 925, their ref. 48) is simulable, K = 4 and
+/// η_D = 0.78 from the article (PDF p. 1), r = 0.1, η = 0.088 and p_D = 1e-4 as Qi et al. take
+/// them (the article prints neither r nor η); and Zhong et al.'s 2019 sampler (Sci. Bull. 64, 511,
+/// their ref. 49), K = 6, r = 0.38 and η_D = 0.75 from the article (pp. 512–513; Qi et al. take
+/// 0.82, which gives 1.1023 where 0.75 gives 1.1022), η = 0.89 (Qi et al.'s estimate, their
+/// note 51) and p_D = 1e-4.
 pub(crate) fn qi_tests() -> (f64, f64) {
     (
         qi_simulable_error(0.1, 0.088, 0.78, 1e-4, 4),
-        qi_simulable_error(0.38, 0.89, 0.82, 1e-4, 6),
+        qi_simulable_error(0.38, 0.89, 0.75, 1e-4, 6),
     )
 }
 
@@ -757,24 +760,26 @@ pub(crate) fn homogeneous_3d(h: f64) -> f64 {
     e.purcell()[0]
 }
 
-/// Reddy et al.'s stack at 1550 nm, from the vacuum down: the anti-reflection coating (αSi 68 nm,
-/// SiO₂ 248.7 nm, αSi 50 nm), the αSi cap (2 nm), the 4.1 nm MoSi film (n, κ = 5.817, 6.033,
-/// their estimate) taken as a whole film of index `film`, the 13-layer Bragg mirror (SiO₂
-/// 266.75 nm and αSi 141.70 nm, SiO₂ first from the bottom), on silicon. Indices 1.453 (SiO₂),
-/// 2.735 (αSi), theirs at 1550 nm; silicon 3.476.
+/// Reddy et al.'s stack at 1550 nm, from the vacuum down: the anti-reflection coating as designed
+/// (αSi 68 nm, SiO₂ 248.7 nm, αSi 50 nm; the top αSi was later tuned in situ to a thickness they
+/// don't give), the sputtered Si cap (2 nm), the 4.1 nm MoSi film (n, κ = 5.817, 6.033, their
+/// fit) taken as a whole film of index `film`, the 13-layer Bragg mirror (SiO₂ 266.75 nm and αSi
+/// 141.70 nm, SiO₂ first from the bottom), on silicon. Indices at 1550 nm, theirs: 1.453 (SiO₂),
+/// 2.735 (αSi), 2.274 (the cap, its real index; Supplement 1, Section 2); silicon 3.476.
 pub(crate) fn reddy_stack(film: c64) -> crate::mode::multilayer::Multilayer {
     use crate::units::Length;
-    let (si, oxide, asi) = (
+    let (si, oxide, asi, cap) = (
         c64::new(3.476, 0.0),
         c64::new(1.453, 0.0),
         c64::new(2.735, 0.0),
+        c64::new(2.274, 0.0),
     );
     let nm = |d: f64| Length::um(d * 1e-3);
     let mut films = vec![
         (asi, nm(68.0)),
         (oxide, nm(248.7)),
         (asi, nm(50.0)),
-        (asi, nm(2.0)),
+        (cap, nm(2.0)),
         (film, nm(4.1)),
     ];
     for k in 0..13 {
@@ -1204,9 +1209,9 @@ pub(crate) fn cases() -> Vec<Case> {
         },
         Case {
             id: "quantum/qi-simulability",
-            title: r"Quantum: Qi et al.'s test (their Eq. 1) on the experiments they test: the smallest error $\epsilon^* = 2\sqrt{-K \ln F_{\max}}$ to which Paesani et al.'s 2019 chip (Nat. Phys. 15, 925, doi:10.1038/s41567-019-0567-8, their ref. 48) ($K$ = 4, $r$ = 0.1, $\eta$ = 0.088, $\eta_D$ = 0.78, $p_D$ = 1e-4) is simulable (shown), and Zhong et al.'s 2019 sampler (Sci. Bull. 64, 511, doi:10.1016/j.scib.2019.04.007, their ref. 49) ($K$ = 6, $r$ = 0.38, $\eta$ = 0.89, $\eta_D$ = 0.82) not at any $\epsilon \le 1$",
+            title: r"Quantum: Qi et al.'s test (their Eq. 1) on the experiments they test: the smallest error $\epsilon^* = 2\sqrt{-K \ln F_{\max}}$ to which Paesani et al.'s 2019 chip (Nat. Phys. 15, 925, doi:10.1038/s41567-019-0567-8, their ref. 48) ($K$ = 4 and $\eta_D$ = 0.78 from the article; $r$ = 0.1, $\eta$ = 0.088 and $p_D$ = 1e-4 as Qi et al. take them) is simulable (shown), and Zhong et al.'s 2019 sampler (Sci. Bull. 64, 511, doi:10.1016/j.scib.2019.04.007, their ref. 49) ($K$ = 6, $r$ = 0.38 and $\eta_D$ = 0.75 from the article, p. 512; $\eta$ = 0.89, Qi et al.'s estimate) not at any $\epsilon \le 1$",
             tier: Tier::Published,
-            source: "H. Qi, D. J. Brod, N. Quesada, R. García-Patrón, Phys. Rev. Lett. 124, 100502 (2020), doi:10.1103/PhysRevLett.124.100502, p. 100502-2: \"error 2%\", and \"no solution for any ε ∈ [0, 1]\"",
+            source: "H. Qi, D. J. Brod, N. Quesada, R. García-Patrón, Phys. Rev. Lett. 124, 100502 (2020), doi:10.1103/PhysRevLett.124.100502, p. 100502-2: \"error 2%\", and \"no solution for any ε ∈ [0, 1]\" (theirs with η_D = 0.82); the inputs from the articles where they print them, S. Paesani et al., Nat. Phys. 15, 925 (2019), PDF p. 1, and H.-S. Zhong et al., Sci. Bull. 64, 511 (2019), pp. 512–513",
             run: qi_case,
         },
         Case {
@@ -1248,7 +1253,7 @@ pub(crate) fn cases() -> Vec<Case> {
             id: "quantum/detector-stack-joule",
             title: r"Quantum: Reddy et al.'s detector stack (anti-reflection coating, 4.1 nm MoSi as a whole film, 13-layer Bragg mirror on silicon) at 1550 nm, TE at 0° and 40°: each film's absorption from the flux between its faces against its Joule heat $k \operatorname{Im}(n^2)\int \lvert E \rvert^2 dz$ (largest difference shown)",
             tier: Tier::Analytic,
-            source: "Poynting's theorem in each film; the stack from D. V. Reddy et al., Optica 7, 1649 (2020), doi:10.1364/OPTICA.400751, p. 1650",
+            source: "Poynting's theorem in each film; the stack from D. V. Reddy et al., Optica 7, 1649 (2020), doi:10.1364/OPTICA.400751, p. 1650, and its Supplement 1, Section 2 (the indices, the 2 nm Si cap's 2.274 among them)",
             run: stack_joule_case,
         },
         Case {
@@ -1269,7 +1274,8 @@ pub(crate) fn cases() -> Vec<Case> {
 }
 
 /// The figures docs/methods/quantum.md quotes beside the cases: the fidelities' table, the
-/// non-degenerate fringes, the slab's β factor and Reddy et al.'s stack.
+/// non-degenerate fringes, the slab's β factor (`print_the_figures`) and Reddy et al.'s stack
+/// (`print_reddy`).
 #[cfg(test)]
 mod figures {
     use super::*;
@@ -1278,7 +1284,6 @@ mod figures {
     #[ignore = "prints the methods page's figures: slow (2D FDFD and FDTD)"]
     fn print_the_figures() {
         use crate::compact::{CompactModel, Options};
-        use crate::mode::Polarization;
         eprintln!("mmi hom by fdfd at 40, 20, 10 nm {:?}", mmi_hom());
         let spectrum = mmi_spectrum(0.01);
         for poles in [4, 8] {
@@ -1303,22 +1308,47 @@ mod figures {
         for h in [0.02, 0.01] {
             eprintln!("slab at {h}: (guided/P0, beta) {:?}", slab_emission(0.0, h));
         }
+    }
+
+    /// Reddy et al.'s stack as planar films, the wires (fill 80/140) an effective medium of
+    /// their MoSi and the αSi that fills the gaps: at 1550 nm, and the reflection minimum along
+    /// the wires from 1400 to 1800 nm on a 0.25 nm grid, the MoSi index held at 1550 nm's.
+    #[test]
+    #[ignore = "prints the methods page's figures for Reddy et al.'s stack"]
+    fn print_reddy() {
+        use crate::mode::Polarization;
         let film = c64::new(5.817, 6.033);
-        let f = 0.57;
+        let f = 80.0 / 140.0;
         let (eps_m, eps_a) = (film * film, c64::new(2.735 * 2.735, 0.0));
+        let parallel = eps_m * f + eps_a * (1.0 - f);
         for (name, eps) in [
             ("whole film", eps_m),
-            ("parallel", eps_m * f + eps_a * (1.0 - f)),
+            ("parallel", parallel),
             ("across", 1.0 / (f / eps_m + (1.0 - f) / eps_a)),
         ] {
             let a = reddy_stack(eps.sqrt())
                 .absorption(Polarization::Te, um(1.55), 0.0)
                 .expect(OK);
             eprintln!(
-                "reddy {name}: R {:.4} T {:.2e} A {:.4}",
+                "reddy {name} at 1550 nm: R {:.4} T {:.2e} A {:.4}",
                 a.reflectance, a.transmittance, a.films[4]
             );
         }
+        let stack = reddy_stack(parallel.sqrt());
+        let mut best = (0.0, f64::INFINITY, 0.0);
+        for k in 0..=1600 {
+            let nm = 1400.0 + 0.25 * f64::from(k);
+            let a = stack
+                .absorption(Polarization::Te, um(nm * 1e-3), 0.0)
+                .expect(OK);
+            if a.reflectance < best.1 {
+                best = (nm, a.reflectance, a.films[4]);
+            }
+        }
+        eprintln!(
+            "reddy parallel: reflection minimum at {} nm, R {:.2e}, A {:.4}",
+            best.0, best.1, best.2
+        );
     }
 
     #[test]

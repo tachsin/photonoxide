@@ -317,7 +317,7 @@ code; the window only draws what it returns, and asks again as a slider moves.
 | `ring-pairs` | `ratio` the pump's linewidth over the signal's (6.6) | Helt et al.'s ring by `AllPassRing` (`field_enhancement`, `fwhm`, `with_round_trip_loss`), `quantum::ring_spectrum` on 601 × 601 points 30 linewidths either side, `JointSpectrum::schmidt`, at 13 pulses from 0.05 to 500 ps |
 | `squeezing-loss` | `squeezing` dB (10) | `quantum::Gaussian::squeezed`, `lossy`, `quadrature_extremes` at 101 transmissions; $\eta e^{\mp 2r} + 1 - \eta$ beside them |
 | `squeezed-photons` | `squeezing` dB (6), `transmission` η (1) | `Gaussian::probability` (hafnians) for 0 to 30 photons; the closed form without loss, thermal and Poisson light of the same mean |
-| `gbs-simulability` | `squeezing` $r$ (0.38), `modes` $K$ (6), `detector` $\eta_D$ (0.82), `dark` $p_D$ (10⁻⁴) | `quantum::qi_simulable_error` at 200 transmissions, `qi_exact_transmission`; Qi et al.'s two experiments |
+| `gbs-simulability` | `squeezing` $r$ (0.38), `modes` $K$ (6), `detector` $\eta_D$ (0.75), `dark` $p_D$ (10⁻⁴) | `quantum::qi_simulable_error` at 200 transmissions, `qi_exact_transmission`; Qi et al.'s two experiments |
 | `fusion-loss` | `boost` (2: $p_\text{fail} = 1/4$) | `quantum::fusion_loss` for fusions failing with 1/2, 1/4 and 1/8 against the loss a photon; `quantum::permanent` on Knill et al.'s 3 × 3 sign gate and on a balanced coupler of two polarizations |
 
 The ranges are in `charts.rs` (the coupler's in `charts/coupler.rs`), and the window's sliders keep
