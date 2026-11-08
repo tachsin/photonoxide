@@ -67,7 +67,7 @@ pub use fock::{Distribution, Fock, Photons, patterns, probability};
 pub use gaussian::{Gaussian, anti_squeezed_quadrature, db_of_squeezing, squeezed_quadrature};
 pub use hafnian::{hafnian, loop_hafnian, torontonian};
 pub use hom::{Dip, Wavepacket, coincidence, hom_dip};
-pub use intermodal::{Beta, DualPump, dual_pump_spectrum};
+pub use intermodal::{Beta, DualPump, dual_pump_spectrum, shaped_dual_pump_spectrum};
 pub use matrix::Matrix;
 pub use mesh::{Arrangement, Cell, Mesh, fidelity, haar_unitary};
 pub use pairs::{PairBirth, pair_amplitude, two_path_visibility};

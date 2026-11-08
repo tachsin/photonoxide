@@ -810,8 +810,35 @@ long red tail: not a Gaussian. With it they give 0.993 at 11 mm without its spec
 0.984 with it (Supplementary Fig. 2a). The article's 99.4 % with the delay and 84.0 % without
 (Fig. 1b) are not in the supplement. A Gaussian of 4.5 nm gives here 0.9980 at 1.46 ps and 0.716
 without the delay. The frequency grid is converged: 81 against 161 points differ by $10^{-6}$ with
-the delay and $10^{-3}$ without. These wait for the measured pump to be modelled. The numbers come
-from an ignored test, `quantum::light_checks::tests::print_paesani`.
+the delay and $10^{-3}$ without. The numbers come from an ignored test,
+`quantum::light_checks::tests::print_paesani`.
+
+`shaped_dual_pump_spectrum` takes a pump of any complex spectral amplitude, so the measured pump
+can be modelled. We read Supplementary Fig. 2b's two curves by pixel, the axes placed by the
+figure's tick marks: the intensity peaks at 1549.6 nm, is half its peak from 1548.0 to 1552.5 nm,
+and has its centroid at 1550.39 nm. The amplitude is $\sqrt{I}\,e^{-i\varphi}$: their
+Supplementary Eq. 3 is written with $e^{-i\omega_p\tau}$ and $e^{-i\Delta k z}$ and
+$\alpha = A e^{i\varphi}$, so in our convention the pump's phase changes sign (the joint spectra
+are then each other's conjugates, with the same purity). At the delay by Supp. Eq. 2, on 161 points:
+
+| Cells | Without the phase | With the phase | The phase's cost |
+|---|---|---|---|
+| 20 nm | 0.98974 | 0.97928 | 0.0105 |
+| 10 nm | 0.99039 | 0.98044 | 0.0100 |
+| 5 nm | 0.99072 | 0.98105 | 0.0097 |
+| Theirs, 11 mm (Supp. Fig. 2a) | 0.993 | 0.984 | 0.009 |
+
+Both converge at first order, to about 0.9911 and 0.9817 by Richardson's extrapolation. The
+phase's cost agrees with theirs: 0.0094 extrapolated against their 0.009, read off the figure's
+inset. Both purities sit about 0.002 below theirs, against 0.00016 for the Gaussian pump, so our
+guide's dispersion isn't the cause. What stays is the pump as read from a raster figure. The purity
+is sensitive to the spectrum's sharp edges: setting the reading to zero below 3 % of the peak,
+which steepens its edges, drops the purity without the phase from 0.9897 to 0.9845 on 20 nm
+cells. Taking the plotted intensity as the amplitude $A$ instead of $A^2$ gives 0.9773, further
+from theirs, so the reading as $\lvert\alpha\rvert^2$ stands. The phase's sign matters too: with
+$e^{+i\varphi}$ the purity is 0.9772 on 5 nm cells instead of 0.9810. The 0.002 left is the size of
+what a pixel reading of a steep edge can move, but that isn't shown, so it is not a case. The
+numbers come from `quantum::light_checks::tests::print_paesani_measured_pump`.
 
 - **Vaidya et al.'s quadrature squeezing.** Their 1.0 dB measured and about 4 dB inferred on chip
   need their net collection efficiency $\eta$ and gain $g$. Their Supplementary Materials give the

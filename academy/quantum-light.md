@@ -718,8 +718,10 @@ not follow from their own Supplementary Eq. 2 with their Supplementary Fig. 4's 
 (4.007 and 4.119, a difference of 0.112), which give 2.06 ps; photonoxide's mode solver gives a
 difference of 0.1070, 0.1095 and 0.1111 on 20, 10 and 5 nm cells, converging towards theirs. For
 their note's Gaussian pump of 4.58 nm, which they say gives 99.95 % at 11 mm, ours at the delay of
-their Eq. 2 extrapolates to 0.99934, below their printed digit; their simulated 0.993 and 0.984 need
-the measured pump, not yet modelled.
+their Eq. 2 extrapolates to 0.99934, below their printed digit. With their measured pump, read off
+their Supplementary Fig. 2b, ours extrapolates to about 0.991 without its spectral phase and 0.982
+with it, against their simulated 0.993 and 0.984: the phase costs the same 0.009, but both sit
+about 0.002 below theirs.
 
 **Silverstone et al.'s two sources.** Two 5.2 mm silicon spirals between two MMIs, pumped through
 the first, interfere their pairs at the second

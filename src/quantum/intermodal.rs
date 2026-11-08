@@ -62,6 +62,38 @@ pub fn dual_pump_spectrum(
     pump_half: f64,
     pump_points: usize,
 ) -> Result<JointSpectrum> {
+    let pump = guide.pump;
+    let amplitude = move |nu: f64| c64::new(pump.amplitude(nu), 0.0);
+    shaped_dual_pump_spectrum(
+        guide,
+        &amplitude,
+        centers,
+        half,
+        points,
+        pump_half,
+        pump_points,
+    )
+}
+
+/// [`dual_pump_spectrum`] with a pump of any spectral amplitude, a measured one with its spectral
+/// phase for instance: `amplitude(ν)` is α(ν), complex, ν in 1/µm, the same for both pumps. The
+/// pump's integral is centred on `guide.pump.center`; `guide.pump.bandwidth` isn't used. In the
+/// convention of the formula in [`DualPump`] (e^{+iωτ}, e^{+iΔkz}), a spectrum written with
+/// e^{−iωτ} and e^{−iΔkz} (Paesani et al.'s Supplementary Eq. 3) takes the conjugate of its
+/// α: the two joint spectra are then each other's conjugates, with the same purity.
+///
+/// # Errors
+///
+/// As [`dual_pump_spectrum`].
+pub fn shaped_dual_pump_spectrum(
+    guide: &DualPump<'_>,
+    amplitude: &(dyn Fn(f64) -> c64 + Sync),
+    centers: [f64; 2],
+    half: f64,
+    points: usize,
+    pump_half: f64,
+    pump_points: usize,
+) -> Result<JointSpectrum> {
     if points < 2
         || pump_points < 2
         || !(half > 0.0 && pump_half > 0.0 && guide.length > 0.0)
@@ -97,10 +129,9 @@ pub fn dual_pump_spectrum(
                 } else {
                     1.0
                 };
-                let weight = c64::from_polar(
-                    guide.pump.amplitude(v) * guide.pump.amplitude(other) * w * p_step,
-                    TAU * c * v * guide.delay,
-                );
+                let weight = amplitude(v)
+                    * amplitude(other)
+                    * c64::from_polar(w * p_step, TAU * c * v * guide.delay);
                 (weight, ba(v) + bb(other))
             })
             .collect()
@@ -133,4 +164,44 @@ pub fn dual_pump_spectrum(
         idler,
         amplitude,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A shaped pump given the Gaussian's own amplitude is the Gaussian pump, and a pump with a
+    /// constant phase only multiplies the spectrum by that phase twice.
+    #[test]
+    fn shaped_pump_matches_the_gaussian() {
+        let (b0, b1) = (|nu: f64| 2.0 * nu + 0.1 * nu * nu, |nu: f64| 2.1 * nu);
+        let guide = DualPump {
+            beta: [&b0, &b1, &b1, &b0],
+            length: 1000.0,
+            delay: 0.5,
+            pump: Pump {
+                center: 0.645,
+                bandwidth: 0.002,
+            },
+        };
+        let run = |f: &(dyn Fn(f64) -> c64 + Sync)| {
+            shaped_dual_pump_spectrum(&guide, f, [0.63, 0.66], 0.004, 9, 0.006, 21)
+                .unwrap()
+                .amplitude
+        };
+        let plain = dual_pump_spectrum(&guide, [0.63, 0.66], 0.004, 9, 0.006, 21)
+            .unwrap()
+            .amplitude;
+        let pump = guide.pump;
+        let same = run(&|nu| c64::new(pump.amplitude(nu), 0.0));
+        let turned = run(&|nu| c64::from_polar(pump.amplitude(nu), 0.3));
+        for ((a, b), c) in plain.iter().zip(&same).zip(&turned) {
+            assert!((a - b).norm() <= 1e-12 * a.norm().max(1e-300), "{a} {b}");
+            let expected = a * c64::from_polar(1.0, 0.6);
+            assert!(
+                (c - expected).norm() <= 1e-12 * a.norm().max(1e-300),
+                "{c} {expected}"
+            );
+        }
+    }
 }
