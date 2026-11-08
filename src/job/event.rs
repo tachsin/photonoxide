@@ -80,7 +80,8 @@ pub enum Event {
         value: f64,
         /// The vacuum wavelength, µm.
         wavelength_um: f64,
-        /// The modes' effective indices, highest first, real and imaginary parts.
+        /// The modes' effective indices, real and imaginary parts: highest first, or in the
+        /// modes' numbers when the sweep follows them (`follow = "overlap"`).
         effective_indices: Vec<[f64; 2]>,
         /// Their TE fractions, in the same order.
         te_fractions: Vec<f64>,
