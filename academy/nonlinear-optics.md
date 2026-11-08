@@ -53,6 +53,8 @@ validation:
   - nonlinear/fwm-nlse-gain
   - nonlinear/ring-shg-enhancement
   - nonlinear/ring-fwm-enhancement
+  - job/nonlinear-ring-shg
+  - job/nonlinear-ring-fwm
   - nonlinear/lle-homogeneous-lower
   - nonlinear/lle-homogeneous-upper
   - nonlinear/lle-instability-rate
@@ -703,7 +705,8 @@ not 1.5, the match 66 nm (3.3 %) above their 2 µm (10 nm cells). Neither is rep
 
 A job of kind `"nonlinear"` sets up the same from a file ([jobs/ppln-shg.yaml](../jobs/ppln-shg.yaml)):
 the process, a crystal, effective indices or a ridge, the grating and the pump; its run records the
-mismatch, the bandwidths, the efficiency along the length and a photon pair's joint spectrum, and
+mismatch, the bandwidths, the efficiency along the length, a ridge's temperature acceptance and a
+photon pair's joint spectrum, and
 the studio's Materials page edits it. Zhao et al.'s guide through a job designs 2.8172 µm on its
 default 20 nm cells and gives the library's η to round-off:
 
@@ -897,6 +900,12 @@ and the idler by $\lvert F_p\rvert^4\lvert F_s\rvert^2\lvert F_i\rvert^2$
 trip by round trip meets that closed form:
 
 ::validation nonlinear/ring-shg-enhancement nonlinear/ring-fwm-enhancement
+
+A nonlinear job's `[task.ring]` closes its guide into the same all-pass ring, every wave on its
+resonance, for SHG of type I and for four-wave mixing, and records each wave's build-up beside one
+pass of the straight guide ([as a job](../docs/methods/nonlinear.md#as-a-job)):
+
+::validation job/nonlinear-ring-shg job/nonlinear-ring-fwm
 
 ## 11. How does a ring make a Kerr comb?
 
@@ -1122,6 +1131,6 @@ and [Agrawal (2019)](https://doi.org/10.1016/C2018-0-01168-8); the materials' da
 ::timeline
 
 What photonoxide doesn't do yet: a biaxial crystal's index surface, focused bulk beams, a ring
-resonant at its pump as a parametric oscillator, a ring's photon pairs, a ridge's temperature
-acceptance in a job, and poling in the fabrication engine
-([limits](../docs/methods/nonlinear.md#limits)).
+resonant at its pump as a parametric oscillator, and poling in the fabrication engine
+([limits](../docs/methods/nonlinear.md#limits)). A ring's photon pairs are in the quantum module
+([pairs from rings](../docs/methods/quantum.md#pairs-from-rings)).

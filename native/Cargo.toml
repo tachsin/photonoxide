@@ -15,3 +15,20 @@ photonoxide = { path = ".." }
 libloading = "0.9.0"
 num-complex = "0.4"
 rayon = "1.12.0"
+
+# None of these is used here. They make `cargo test --all-features -p photonoxide-native` resolve
+# every crate it shares with photonoxide's tests to the same features as `cargo test
+# --all-features` of photonoxide does (photonoxide with all its features, and photonoxide's own
+# dev-dependencies, which widen syn's, memchr's, once_cell's and others'), so the library's tests'
+# build serves this crate's tests too: CI's Tier 1 runs them in a command of their own after the
+# changed areas' unit tests (one Cargo command can't, its test filters reach every test binary).
+# Without them that command built 44 crates again (205 s on Linux in run 42459641209). They
+# repeat photonoxide's lines and features exactly; .github/shards.sh fails the run when they don't.
+[dev-dependencies]
+photonoxide = { path = "..", features = ["gpu"] }
+genoxide = { version = "0.13.1", default-features = false }
+boon = "0.6.1"
+zip = { version = "4", default-features = false, features = ["deflate-flate2"] }
+
+[package.metadata.cargo-machete]
+ignored = ["genoxide", "boon", "zip"]

@@ -191,9 +191,11 @@ fi
 #
 # In two jobs on each system: job::'s tests in the first, every other in the second. A test whose
 # name holds one of the first job's filters runs there, and the second skips it (--skip takes the
-# same substrings), so each test runs once. photonoxide-native's tests run in the second when it
-# runs every test (its filters are then only --skip's, and CI runs both crates' tests in one Cargo
-# command, which reuses the library's build), else in the first, on their own. Measured on
+# same substrings), so each test runs once. photonoxide-native's tests run in the second job when
+# there is one, else in the first: with every test in the same Cargo command as photonoxide's
+# (its filters are then only --skip's), else in a command of their own after the changed areas'
+# unit tests, whose build they reuse while native/Cargo.toml's dev-dependencies repeat
+# photonoxide's (checked below; a test filter would reach native's test binaries too). Measured on
 # 6 November 2026 (run 42173428828, every test, thread-seconds on Linux and Windows): job:: 736
 # and 1175 of 1970 and 3159, the longest one test of 208 s; photonoxide-native's tests 2.2 and
 # 5.8 minutes, mostly their build. Each job builds the tests (about 5 minutes on Linux, 15 on
@@ -219,7 +221,7 @@ else
   [ -z "$second" ] || second+="$skips"
 fi
 native1=$native native2=false
-if [ "$tests" = "*" ] && [ "$native" = true ] && [ -n "$second" ]; then native1=false native2=true; fi
+if [ "$native" = true ] && [ -n "$second" ]; then native1=false native2=true; fi
 for os in $systems; do
   if [ -n "$first" ] || [ "$native1" = true ]; then test_entry "$os" "1 of 2" "$first" "$native1"; fi
   if [ -n "$second" ] || [ "$native2" = true ]; then test_entry "$os" "2 of 2" "$second" "$native2"; fi
@@ -313,6 +315,20 @@ if [ "$native" = true ]; then
     done
     if [ "$k" -ne 1 ]; then fail "photonoxide-native's tests are in $k jobs on $os"; fi
   done
+fi
+# native's tests reuse the library's tests' build only while Cargo resolves the crates both use to
+# the same features: native/Cargo.toml's dev-dependencies are photonoxide's lines, and photonoxide
+# with every feature it has but `default`
+section() { awk -v h="[$2]" '{ sub(/\r$/, "") } /^\[/ { on = ($0 == h); next } on && !/^[[:space:]]*(#|$)/' "$1"; }
+lib_dev=$(section Cargo.toml dev-dependencies)
+native_dev=$(section native/Cargo.toml dev-dependencies | sed '/^photonoxide = /d')
+if [ "$lib_dev" != "$native_dev" ]; then
+  fail "native/Cargo.toml's dev-dependencies aren't photonoxide's (Cargo.toml's): native's tests would build the shared crates again"
+fi
+lib_features=$(section Cargo.toml features | sed -e 's/[[:space:]]*=.*//' -e '/^default$/d' | sort | tr '\n' ' ')
+native_features=$(section native/Cargo.toml dev-dependencies | sed -n 's/^photonoxide = .*features = \[\([^]]*\)\].*/\1/p' | tr -d '" ' | tr ',' '\n' | sed '/^$/d' | sort | tr '\n' ' ')
+if [ "$lib_features" != "$native_features" ]; then
+  fail "native/Cargo.toml's dev-dependency on photonoxide turns on \"$native_features\", photonoxide has \"$lib_features\""
 fi
 [ "$failed" = false ] || exit 1
 echo "checked: each of the ${#want[@]} examples wanted (by system) in exactly one job" >&2

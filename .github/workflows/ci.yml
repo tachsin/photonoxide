@@ -226,7 +226,7 @@ jobs:
   # than one thread, and must give the same results on one thread as on many. In two jobs on
   # each system (.github/shards.sh): job::'s tests in the first, every other test in the second,
   # which skips the first's (FILTERS: the test binaries' filters and --skip's), so each test runs
-  # once; photonoxide-native's tests in the second when it runs every test, else in the first.
+  # once; photonoxide-native's tests in the second when there is one, else in the first.
   test:
     name: Test (${{ matrix.os }}, ${{ matrix.part }})
     needs: changes
@@ -293,11 +293,15 @@ jobs:
         env:
           RAYON_NUM_THREADS: 1
       # photonoxide-native against its test library, where the job doesn't run every test (Tier 1:
-      # the changed areas' filters would leave its tests out of the command above); real libraries
-      # are found only where installed
+      # one command can't hold both crates' tests, since the changed areas' filters reach every
+      # test binary and would leave native's out, and no filter picks all of native's and none
+      # of photonoxide's); real libraries are found only where installed. Its dev-dependencies
+      # repeat photonoxide's and turn on photonoxide's features (native/Cargo.toml, checked by
+      # .github/shards.sh), so this command resolves the shared crates as the changed areas' unit
+      # tests did and builds only photonoxide's library and native itself
       - name: photonoxide-native
         if: matrix.native && env.TESTS != '*'
-        run: cargo test -p photonoxide-native
+        run: cargo test --all-features -p photonoxide-native
 
   # The release build's checks: the validation cases (each row against docs/validation.md) and
   # the examples, each against its paper, printing exactly its committed output (shown on the

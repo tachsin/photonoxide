@@ -275,7 +275,12 @@ impl VectorMode {
     /// nodes (a slab's TM₀ at second order, `mode/kerr-index-slab-tm`). Where an interface is
     /// oblique to the grid (a rod), each cell's E_z takes its own averaged permittivity and
     /// E_t's ∂E_z/(iβ) term spikes as 1/h at the edge: n̄₂ grows as the cells shrink, as Eq. 44's
-    /// area falls at a strip's corners (docs/methods/fields.md).
+    /// area falls at a strip's corners. Afshar and Monro's silicon rod (D = 0.15 µm, 800 nm)
+    /// gives γ^V/γ^F = 1.41 from its exact fields, their 1.4, and 1.31 to 82 from 20 to 2.5 nm
+    /// here. Given the exact mode's H, E_t from D = (i/k)(∇ × H)_t with H_z and E_z smoothed
+    /// over the cells the edge crosses, each split into its two sides, converges to 1.41 at
+    /// second order; given the eigensolver's, it heads there only as slowly as the mode's index
+    /// converges at that edge, order 0.3 to 0.4 (docs/methods/fields.md).
     ///
     /// # Errors
     ///

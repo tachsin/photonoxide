@@ -1463,7 +1463,8 @@ and free-carrier absorption, Kerr microresonators, oscillators).
   absorption between them. Free carriers start at none at each window's start: a pulse train's
   left-over carriers aren't held.
 - Resonant enhancement is for all-pass and add-drop rings, each wave's own, and undepleted; a
-  ring resonant at its pump for an oscillator, and a ring's photon pairs (0.6.3), are not in yet.
+  ring resonant at its pump for an oscillator is not in yet. A ring's photon pairs are the quantum
+  module's `ring_spectrum` ([pairs from rings](quantum.md#pairs-from-rings)).
 - In a guide, the crystal must have a principal axis along it (the full-vector solver's
   condition), and a mode is followed by its family and index, not through a crossing with another
   mode of its family. Wang et al.'s 4500 %/(W·cm²) (Optica 5, 1438) needs their ridge's etch depth

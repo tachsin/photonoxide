@@ -708,7 +708,11 @@ and 4, with a pump far broader than its resonance, gives 1.0033 here (purity 0.9
 value, converged on its grid, and a narrower pump only raises it. Their Fig. 3 reads about 0.84 at
 $Q_{SI}/Q_P = 0.5$ and 0.93 at 1, ours 0.800 and 0.917; their text's bound for equal linewidths,
 1.08, is below the model's broad-pump 1.0909. Their purities sit above ours by about the same
-margin everywhere; the device simulation behind their markers isn't in the letter.
+margin everywhere; the device simulation behind their markers isn't in the letter. A likely
+cause is how far their integrals reach. Cutting the signal's and idler's frequencies at ±4
+linewidths gives both their 1.08 for equal linewidths and their 1.0009, because the remaining
+correlation lies in the resonances' tails. The window doesn't explain Fig. 3's 0.84, and the
+letter doesn't give it.
 
 **Not reproduced: Paesani et al.'s inter-modal source.** They pump an 11 mm silicon guide,
 2 × 0.22 µm, in its TM₀ and TM₁ modes at once, the TM₀ pump delayed, and measure a purity of
@@ -718,8 +722,10 @@ not follow from their own Supplementary Eq. 2 with their Supplementary Fig. 4's 
 (4.007 and 4.119, a difference of 0.112), which give 2.06 ps; photonoxide's mode solver gives a
 difference of 0.1070, 0.1095 and 0.1111 on 20, 10 and 5 nm cells, converging towards theirs. For
 their note's Gaussian pump of 4.58 nm, which they say gives 99.95 % at 11 mm, ours at the delay of
-their Eq. 2 extrapolates to 0.99934, below their printed digit; their simulated 0.993 and 0.984 need
-the measured pump, not yet modelled.
+their Eq. 2 extrapolates to 0.99934, below their printed digit. With their measured pump, read off
+their Supplementary Fig. 2b, ours extrapolates to about 0.991 without its spectral phase and 0.982
+with it, against their simulated 0.993 and 0.984: the phase costs the same 0.009, but both sit
+about 0.002 below theirs.
 
 **Silverstone et al.'s two sources.** Two 5.2 mm silicon spirals between two MMIs, pumped through
 the first, interfere their pairs at the second
