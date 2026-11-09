@@ -1105,6 +1105,13 @@
   venue: "Photon. Res. 11, 643"
   year: 2023
 
+- doi: 10.1116/1.580239
+  authors: "J. G. E. Gardeniers, H. A. C. Tilmans, C. C. G. Visser"
+  title: "LPCVD silicon-rich silicon nitride films for applications in micromechanics, studied with statistical experimental design"
+  venue: "Journal of Vacuum Science & Technology A: Vacuum, Surfaces, and Films 14, 2879"
+  year: 1996
+  open: https://ris.utwente.nl/ws/files/6771994/JVS_14_2879.pdf
+
 - doi: 10.1007/s00340-008-2998-2
   authors: "O. Gayer, Z. Sacks, E. Galun, A. Arie"
   title: "Temperature and wavelength dependent refractive index equations for MgO-doped congruent and stoichiometric LiNbO3"
