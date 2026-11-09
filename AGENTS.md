@@ -93,6 +93,8 @@ git diff --name-only origin/main...HEAD | AREAS_RANGE=origin/main...HEAD bash .g
 git diff --name-only origin/main...HEAD | AREAS_RANGE=origin/main...HEAD bash .github/areas.sh | bash .github/shards.sh 1   # and its jobs
 cargo semver-checks check-release -p photonoxide --baseline-rev origin/main   # a branch's own breaks (CI's Semver job on a PR)
 cargo semver-checks check-release -p photonoxide        # the public API against the latest release (the release PR's check)
+just release-marks                                     # the release PR's marks: the milestone's ✅ in ROADMAP.md, README's status row, FALLBACK_MILESTONES, CHANGELOG (--at <tag>)
+just site-check                                        # after a release and a deploy: tachsin.gr's overview, roadmap and Python reference against the latest release
 ```
 
 CI runs in tiers (issue #315). **Tier 1**, every PR and push to main: on Linux, lint, MSRV, and the

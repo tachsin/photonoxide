@@ -14,10 +14,20 @@ goes live when the app pins a commit that has it (`pnpm sync:photonoxide --updat
 latest), and the app is deployed.
 
 **The content follows releases by itself.** The pages read the repository's files (the methods,
-the examples, the validation report, the roadmap) at the tag of GitHub's latest release, looked
-up daily (`github.js`), and show that release's version (`release.js`). A release appears on the
-site within a day, with no new pin and no deploy. Only when GitHub can't be reached do they read
-the pinned commit instead.
+the examples, the validation report, the roadmap) at the tag of GitHub's latest release, and show
+that release's version (`release.js`). The tag is looked up at most every ten minutes and kept in
+the server's memory (`latest.js`), not in Next's data cache, which lives on disk, outlives
+deploys and restarts, and serves a stale answer to the first visit after its time is up (0.6.3's
+release waited on it for most of a day, through a deploy). A release appears on the site within
+ten minutes, with no new pin and no deploy, and a deploy always asks GitHub again. Only when
+GitHub can't be reached do they read the pinned commit instead. The files themselves are read at
+the tag, which never moves, so they stay in Next's data cache.
+
+The latest release's milestone, and every older one, shows as done on the roadmap and the
+overview (`milestones.js`), whatever its heading in ROADMAP.md at the tag says; the release PR
+still marks it (✅, and the README's status row), and CI checks that it does
+(`.github/scripts/release-marks.sh`). After a deploy, `just site-check` compares the live pages
+with the latest release (below).
 
 | Folder | In the app |
 | --- | --- |
@@ -114,6 +124,17 @@ works today and what is to come follow its `milestone` in ROADMAP.md at the late
 them with no edit here. The studio's tests (`studio/src-tauri/tests/site.rs`) fail when a
 highlight names a milestone ROADMAP.md doesn't have, or `FALLBACK_MILESTONES` isn't ROADMAP.md's
 headings. When a release adds something worth a highlight, add one with its milestone.
+
+## Checking the live site
+
+`just site-check` (`.github/scripts/site-check.mjs`) reads the live pages as anyone sees them and
+compares them with GitHub's latest release: the overview's "x.y.z is the latest release", every
+milestone's status on the roadmap page and the overview's cards against ROADMAP.md at the
+release's tag (with `milestones.js`, as the pages read it), and the Python API reference's
+`__version__`. It fails with what the pages show and what to do; `--wait 15` keeps trying for a
+quarter of an hour, `--release vX.Y.Z` checks against another release. It never deploys, and it
+can't see which commit of this folder the site is built from, only what the pages say. The Site
+check workflow runs it daily.
 
 ## The methods' categories
 
