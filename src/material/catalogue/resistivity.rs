@@ -179,11 +179,11 @@ impl TinFilm {
         TinFilm::KearneyAnnealed,
     ];
 
-    /// Its Tsai et al. Table II row, or its Kearney et al. sample's index.
+    /// Its row of Tsai et al.'s Table IV, or its Kearney et al. sample's index.
     fn row(self) -> Result<usize, usize> {
         match self {
-            TinFilm::TsaiBiased => Ok(5),
-            TinFilm::TsaiHot => Ok(4),
+            TinFilm::TsaiBiased => Ok(3),
+            TinFilm::TsaiHot => Ok(2),
             TinFilm::TsaiCollimated => Ok(1),
             TinFilm::TsaiUncollimated => Ok(0),
             TinFilm::KearneyHot => Err(0),
@@ -213,11 +213,8 @@ impl TinFilm {
     /// outside it), or Kearney et al.'s measured value whatever the thickness.
     pub fn resistivity(self, thickness_nm: f64) -> f64 {
         match self.row() {
-            Ok(row) => {
-                let (_, rho_grain, l0) = TSAI_TABLE_IV
-                    .into_iter()
-                    .find(|r| r.0 == row)
-                    .expect("each of Tsai et al.'s films has a Table IV row");
+            Ok(k) => {
+                let (_, rho_grain, l0) = TSAI_TABLE_IV[k];
                 tsai_eq_3(rho_grain, l0, thickness_nm)
             }
             Err(sample) => KEARNEY[sample].1,
@@ -228,8 +225,9 @@ impl TinFilm {
     /// Tsai et al.'s Table III from 5 to 280 K, Kearney et al.'s from 293 to 773 K.
     pub fn tcr(self) -> (f64, (f64, f64)) {
         match self.row() {
-            Ok(row) => (
-                TSAI_TABLE_III[row].expect("each Table IV film has a Table III coefficient") * 1e-6,
+            // every Table IV film has a Table III coefficient
+            Ok(k) => (
+                TSAI_TABLE_III[TSAI_TABLE_IV[k].0].map_or(f64::NAN, |ppm| ppm * 1e-6),
                 TSAI_TCR_K,
             ),
             Err(sample) => (KEARNEY[sample].2, KEARNEY_TCR_K),
@@ -245,11 +243,8 @@ impl TinFilm {
     /// Where its resistivity and coefficient come from, as a heater's figures state it.
     pub fn source(self) -> String {
         match self.row() {
-            Ok(row) => {
-                let (_, g, l) = TSAI_TABLE_IV
-                    .into_iter()
-                    .find(|r| r.0 == row)
-                    .expect("each of Tsai et al.'s films has a Table IV row");
+            Ok(k) => {
+                let (row, g, l) = TSAI_TABLE_IV[k];
                 let (collimated, celsius, bias, _) = TSAI_TABLE_II[row];
                 format!(
                     "TiN's resistivity by Tsai et al.'s Eq. (3) with their Table IV's row for the \
