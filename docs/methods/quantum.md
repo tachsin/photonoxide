@@ -989,6 +989,18 @@ $e^{+i\varphi}$ the purity is 0.9772 on 5 nm cells instead of 0.9810. The 0.002 
 what a pixel reading of a steep edge can move, but that isn't shown, so it is not a case. The
 numbers come from `quantum::light_checks::tests::print_paesani_measured_pump`.
 
+Their side of the comparison is read well enough: Supplementary Fig. 2a's inset has its ticks
+40 pixels per 0.01 apart, so a pixel is 0.00025, and at 11 mm its curves read 0.9934 without the
+phase and 0.9838 with it, 0.0023 and 0.0021 above ours. Three other readings of the pump, on
+20 nm cells at the delay by Supp. Eq. 2, move our purity without the phase from 0.98974 by at most
+0.0007: the spectrum taken per unit wavelength and turned into one per unit frequency
+($\lambda^2$, 0.98976), the curve's line-width floor of 0.005 taken off (0.98905), and the
+amplitude interpolated between the read points instead of the intensity (0.98972). The delay of
+2.06 ps from their own group indices gives 0.98922. The authors' published data
+(doi:10.6084/m9.figshare.11882760, the article's data availability statement) holds the main
+figures' data (the measured joint spectra, squeezing, $g^{(2)}$, the HOM dips and the
+tomography) but not the FROG pump, so the pump as numbers stays missing.
+
 - **Vaidya et al.'s quadrature squeezing.** Their 1.0 dB measured and about 4 dB inferred on chip
   need their net collection efficiency $\eta$ and gain $g$. Their Supplementary Materials give the
   model, at the locked detuning $V_\pm = 1 + 4g\eta(2g \pm \sqrt{1 + 4g^2})$ (Supplementary

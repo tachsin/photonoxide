@@ -1215,6 +1215,36 @@ mod tests {
         }
     }
 
+    /// Other readings of the measured pump, without its phase: the plotted spectrum taken per
+    /// unit wavelength (`Jacobian`, times λ² to make it per unit frequency), the curve's
+    /// line-width floor of 0.005 taken off (`Floor`), and the amplitude, not the intensity,
+    /// interpolated between the read points (`Amplitude`).
+    #[derive(Clone, Copy, Debug)]
+    enum Reading {
+        Jacobian,
+        Floor,
+        Amplitude,
+    }
+
+    fn paesani_pump_read(reading: Reading) -> impl Fn(f64) -> c64 + Sync {
+        move |nu: f64| {
+            let x = (1e3 / nu - 1540.0) / 0.1;
+            if !(0.0..200.0).contains(&x) {
+                return c64::new(0.0, 0.0);
+            }
+            let k = x.floor() as usize;
+            let t = x - k as f64;
+            let (i0, i1) = (PAESANI_PUMP[k].0.max(0.0), PAESANI_PUMP[k + 1].0.max(0.0));
+            let intensity = i0 + t * (i1 - i0);
+            let amplitude = match reading {
+                Reading::Jacobian => (intensity * (1e3 / nu / 1550.0).powi(2)).sqrt(),
+                Reading::Floor => (intensity - 0.005).max(0.0).sqrt(),
+                Reading::Amplitude => i0.sqrt() + t * (i1.sqrt() - i0.sqrt()),
+            };
+            c64::new(amplitude, 0.0)
+        }
+    }
+
     /// [`paesani_purity`] with the pump's amplitude `shaped` in place of the Gaussian when given.
     fn paesani_shaped_purity(
         tm0: &ModeIndex,
@@ -1463,6 +1493,20 @@ mod tests {
                         p(&theirs_a)
                     );
                 }
+            }
+            for reading in [Reading::Jacobian, Reading::Floor, Reading::Amplitude] {
+                eprintln!(
+                    "  delay {eq2:.4} ps, 161 points, {reading:?} reading, without phase {:.6}",
+                    paesani_shaped_purity(
+                        &tm0,
+                        &tm1,
+                        eq2,
+                        0.00458,
+                        161,
+                        Some(&paesani_pump_read(reading))
+                    )
+                    .0
+                );
             }
         }
     }
