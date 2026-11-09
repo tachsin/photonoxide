@@ -531,8 +531,10 @@ mod line_checks;
 #[cfg(test)]
 mod line_tests;
 mod modes;
+mod modes_checks;
 mod nonlinear;
 mod nonlinear_checks;
+mod nonlinear_pulse_checks;
 #[cfg(test)]
 mod nonlinear_tests;
 pub mod optimize;
@@ -594,7 +596,7 @@ pub use fdtd::{FoundResonance, SpectrumSeries};
 pub use fit::fit_from_device;
 pub use nonlinear::{
     Accepted, EfficiencyCurve, EfficiencySeries, NonlinearSetup, NonlinearWave, PairSpectrum,
-    PhaseMap, PoledGrating, RingResonance,
+    PhaseMap, PoledGrating, PulsePropagation, RingResonance,
 };
 pub use optimize::{
     Aim, Bound, Evaluation, GradientCheck, Keep, Optimization, Problem, Recorder, Schedule,
@@ -652,6 +654,12 @@ pub(crate) fn line_cases() -> Vec<crate::validation::Case> {
 /// The validation cases of FDFD jobs: S over wavelength interpolated from a few solves.
 pub(crate) fn fdfd_cases() -> Vec<crate::validation::Case> {
     fdfd_checks::cases()
+}
+
+/// The validation cases of modes jobs' sweeps: effective indices over wavelength interpolated
+/// from a few solves, the modes followed through a crossing.
+pub(crate) fn modes_cases() -> Vec<crate::validation::Case> {
+    modes_checks::cases()
 }
 
 /// The validation cases of nonlinear jobs' ridges: Zhao et al.'s guide through a job.

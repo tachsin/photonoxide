@@ -34,7 +34,8 @@ bounds the whole run, farm included: at it, or when the window stops the run, th
 it would alone, without waiting for the points the workers have in flight, and the workers
 stop them by themselves.
 
-What is farmed is a `modes` or `fdfd` job's `[task.sweep]`, or a device's study (a `[device]`
+What is farmed is a `modes` or `fdfd` job's `[task.sweep]` (not a `modes` sweep with
+`follow = "overlap"` or a `[task.interpolate]`, which solves its points one after another), or a device's study (a `[device]`
 job whose task is a `"sweep"` or `"corners"`, [devices](methods/devices.md#studied-as-a-job): each
 point a design computed by the device's own model); a job without one runs as it always does,
 and the program says so. The window shows a farmed run live like any run: the run records
