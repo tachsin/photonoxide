@@ -536,7 +536,11 @@ value is films made one way, with their thickness, the temperature coefficient o
 resistivity depends on how it was made far more than on its material, so a heater's own film
 should be chosen, not an average. The metal thermo-optic heater takes Tsai et al.'s lowest films
 by their Eq. (3) at its own thickness (`catalogue::tin_film_resistivity`: 45.3 µΩ·cm at 100 nm)
-for its resistance and a voltage drive ([devices](devices.md#thermo-optic-phase-shifters)).
+for its resistance and a voltage or current drive, or one of five other films
+(`catalogue::TinFilm`: Tsai et al.'s other three Table IV films by Eq. (3), Kearney et al.'s
+samples F and D at their measured values). Only Kearney et al.'s coefficients span a heater's
+temperatures (293 to 773 K; Tsai et al.'s stop at 280 K), so only with their films does the
+heater's resistance follow its temperature ([devices](devices.md#thermo-optic-phase-shifters)).
 
 | TiN film | Thickness | ρ at room temperature (µΩ·cm) | TCR (per K) | Source |
 |---|---|---|---|---|

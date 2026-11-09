@@ -172,6 +172,29 @@ impl Slab {
         rise
     }
 
+    /// The steady rise (K per W/m) of a sheet's first strip averaged over itself at the sheet's
+    /// height: its share of the power, the mean across the strip of its own Green's function.
+    /// Kummer's transformation as in [`Slab::steady_accelerated`]: a strip's own `across`,
+    /// averaged over it, is 2/k − 2(1 − e^(−kw))/(k²w); its 2/k sums to twice the slab's Green's
+    /// function across its height at the sheet's, in closed form, and the rest falls as 1/k³,
+    /// summed over 200 000 terms (the tail below 1e-10 of the whole for a strip wider than a
+    /// thousandth of the slab).
+    pub(super) fn strip_mean(&self, sheet: &Sheets) -> f64 {
+        let (h, s) = (self.height, sheet.height);
+        let Some(&(_, w, share)) = sheet.strips.first() else {
+            return 0.0;
+        };
+        let across_height = if self.held { s * (h - s) / h } else { s };
+        let mut rest = 0.0;
+        for m in 0..200_000 {
+            let k = self.k(m);
+            let sin = libm::sin(k * s);
+            let mean = -2.0 * (1.0 - libm::exp(-k * w)) / (k * k * w);
+            rest += 2.0 / h * sin * sin * mean / k;
+        }
+        share / w / (2.0 * self.conductivity) * (2.0 * across_height + rest)
+    }
+
     /// The rise's response at (x, y) to one sheet's drive at `frequency_hz`, the sheet's
     /// `steady` rise times its response: the steady series plus Σ_m [term(p_m) − term(k_m)],
     /// p_m = √(k_m² + iω/D), whose terms fall as 1/m⁴.

@@ -91,7 +91,10 @@ PHOTONOXIDE_ELMER=C:/elmer/bin PHOTONOXIDE_ELMER_PATH=C:/msys64/ucrt64/bin just 
 PHOTONOXIDE_OPENEMS=C:/openEMS just openems                                    # writes docs/validation-openems.md
 PHOTONOXIDE_OPENEMS=C:/openEMS cargo test --manifest-path crosscode/Cargo.toml --release --test openems_lines -- --ignored --nocapture   # writes docs/validation-openems-lines.md
 just crosscode                                                               # this crate's fmt, clippy and unit tests
+PHOTONOXIDE_ELMER=C:/elmer/bin PHOTONOXIDE_ELMER_PATH=C:/msys64/ucrt64/bin python crosscode/e5/e5.py   # E5, k(T): Elmer against the closed form
 ```
+
+- **E5, a conductivity that depends on temperature** (#613, #536), not run yet: `e5/e5.py` (Python's standard library only) writes static/nonlinear-slab's slab for Elmer on the same mesh lines at 40 and 80 rows (`e5/case.sif` is its input, HeatSolver with $k = k_0(1 + bT)$ as a table and Picard's iteration to 1e-12), runs ElmerSolver and compares its peak with Kirchhoff's closed form, 112.70 K. The rule is the pairs' 0.5 % for a rise on 80 rows, where photonoxide's own error is 2.70e-4 of the peak; it prints Elmer's order from 40 to 80 rows. `--write-only` writes the inputs to `target/tmp/elmer-e5/` without Elmer. It is a script rather than a study in `tests/elmer.rs` because the slab's answer is a closed form both codes are held to, so neither needs the other's run.
 
 - **Finding the programs:** `PHOTONOXIDE_ELMER` and `PHOTONOXIDE_OPENEMS` name each program or its folder; otherwise it is looked for on `PATH`. `PHOTONOXIDE_ELMER_PATH` names folders of Elmer's run-time libraries when they aren't on `PATH`. Without a program, its study prints `skipped:` and passes.
 - **Settings:** `PHOTONOXIDE_MACHINE` names the computer in the reports. `PHOTONOXIDE_OPENEMS_THREADS` sets openEMS's threads (8 by default). `PHOTONOXIDE_LOADED=1` says in Elmer's report that its times were taken while the computer was busy with other work. `PHOTONOXIDE_ELMER_ONLY` runs only some of Elmer's problems (`line`, `heater`, `heaters`, `transient`, `joule`, `tfln`, comma-separated) and prints their report without writing it; `PHOTONOXIDE_OPENEMS_ONLY` does the same for the later openEMS lines (`microstrip`, `zhang`, `lossy`, `rails`).
@@ -117,6 +120,7 @@ just crosscode                                                               # t
 | `src/tfln.rs` | a thin-film lithium niobate modulator's electrodes, for photonoxide and Elmer |
 | `src/line.rs` | a line's wavenumber and impedance from voltages and currents at planes along it |
 | `src/report.rs` | errors in percent, times and the computer's name, as the reports print them |
+| `e5/e5.py`, `e5/case.sif` | E5: the slab whose conductivity follows its temperature, for Elmer, against the closed form photonoxide's static/nonlinear-slab is held to |
 | `tests/elmer.rs`, `tests/openems.rs`, `tests/openems_lines.rs` | the studies, which write the reports (the last, openEMS on the lines after the coplanar one, writes its own) |
 
 ## Rules

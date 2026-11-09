@@ -2507,6 +2507,17 @@
                     ],
                     "description": "cover µm: 1 by default, from 0 to 10."
                   },
+                  "current": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "current mA: 0 by default, from 0 to 1000."
+                  },
                   "heater_thickness": {
                     "anyOf": [
                       {
