@@ -24,7 +24,12 @@ use super::{
     Built, Device, EXACT, Figure, Geometry, Method, Range, Stated, Values, figure, method,
     parameter,
 };
-use crate::material::catalogue::TIN_FILM_SOURCE;
+use crate::material::catalogue::TinFilm;
+
+/// The ambient the heat models take, K (Jacques et al.'s Table 3 at 300 K), and the room
+/// temperature Kearney et al.'s resistivities are at, K: a film's R(T) = R₀(1 + α(T − 293 K)).
+const AMBIENT_K: f64 = 300.0;
+const ROOM_K: f64 = 293.0;
 
 /// Which heater a [`ThermoShifter`] has.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -133,6 +138,7 @@ fn conductivity(id: &str, model: &str, thickness: Option<f64>) -> Result<f64> {
 #[derive(Clone, Debug, PartialEq)]
 pub struct ThermoShifter {
     heater: Heater,
+    film: TinFilm,
     stack: LayerStack,
     core: String,
     refinement: f64,
@@ -251,6 +257,7 @@ impl ThermoShifter {
                 .expect("a heater has a power")
                 + 1;
             parameters.insert(at, parameter("voltage", "V", 0.0, 0.0, 50.0));
+            parameters.insert(at + 1, parameter("current", "mA", 0.0, 0.0, 1e3));
         }
         let kind = kind_of(heater);
         let measurements: Vec<Measurement> = MEASURED
@@ -260,6 +267,7 @@ impl ThermoShifter {
             .collect();
         let mut d = ThermoShifter {
             heater,
+            film: TinFilm::default(),
             stack,
             core: core.to_owned(),
             refinement: 1.0,
@@ -303,6 +311,35 @@ impl ThermoShifter {
         Ok(self)
     }
 
+    /// The same metal heater made of `film` ([`TinFilm`]): its resistance at room temperature
+    /// the film's resistivity at the heater's thickness, and, for Kearney et al.'s films, whose
+    /// temperature coefficient spans a heater's temperatures (293 to 773 K), its resistance
+    /// following the heater's temperature under a voltage or current drive
+    /// ([`ThermoShifter::resistance`]). Tsai et al.'s films (the default, [`TinFilm::TsaiBiased`])
+    /// keep their room-temperature resistance: their coefficients stop at 280 K.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::InvalidValue`] for a heater that isn't a metal one.
+    pub fn with_film(mut self, film: TinFilm) -> Result<ThermoShifter> {
+        if self.heater != Heater::Metal {
+            return Err(Error::invalid(
+                "device",
+                format!(
+                    "a {} has no TiN film: only the metal heater has",
+                    self.kind()
+                ),
+            ));
+        }
+        self.film = film;
+        Ok(self)
+    }
+
+    /// The metal heater's TiN film ([`ThermoShifter::with_film`]).
+    pub fn film(&self) -> TinFilm {
+        self.film
+    }
+
     /// Its measured devices.
     pub fn measurements(&self) -> &[Measurement] {
         &self.measurements
@@ -340,10 +377,12 @@ impl ThermoShifter {
         self.cross_section(values)?.fin(spreading)
     }
 
-    /// The metal heater's resistance at `values`, Ω, and its film's resistivity, µΩ·cm: R = ρ
-    /// L/(w t), the TiN strip `length` long, `heater_width` wide and `heater_thickness` thick,
-    /// ρ the catalogue's film at that thickness
-    /// ([`crate::material::catalogue::tin_film_resistivity`]: Tsai et al.'s Eq. (3)).
+    /// The metal heater's resistance at `values` at room temperature, Ω, and its film's
+    /// resistivity, µΩ·cm: R = ρ L/(w t), the TiN strip `length` long, `heater_width` wide and
+    /// `heater_thickness` thick, ρ its film's at that thickness ([`TinFilm::resistivity`]: by
+    /// default Tsai et al.'s Eq. (3) for their lowest-resistivity films). Under a drive, a film
+    /// whose coefficient covers a heater's temperatures (Kearney et al.'s) has R = R₀(1 + α(T −
+    /// 293 K)), T the heater's mean temperature, 300 K plus its rise: the figure `R_heater`.
     ///
     /// # Errors
     ///
@@ -361,36 +400,99 @@ impl ThermoShifter {
             ));
         }
         let t = values.at("heater_thickness");
-        let rho = crate::material::catalogue::tin_film_resistivity(t * 1e3);
+        let rho = self.film.resistivity(t * 1e3);
         // µΩ·cm to Ω·m, the lengths µm to m
         let r = rho * 1e-8 * values.at("length") / (values.at("heater_width") * t * 1e-6);
         Ok((r, rho))
     }
 
-    /// The heater's power at `values`, mW: `power`, or a metal heater's V²/R at its `voltage`
-    /// ([`ThermoShifter::resistance`]), with the resistance (Ω) and its film's resistivity
-    /// (µΩ·cm) for a metal heater.
-    fn drive(&self, values: &Values) -> Result<(f64, Option<(f64, f64)>)> {
+    /// The heater's power at `values`, mW: `power`, or a metal heater's at its `voltage` or
+    /// `current` ([`ThermoShifter::resistance`]). `per_mw` is the heater's own mean rise per
+    /// power, K/mW: a film that follows its temperature has R = R_a(1 + a P), R_a its
+    /// resistance at the ambient and a = α' `per_mw` (α' = α/(1 + α(300 − 293 K))), so at a
+    /// voltage a P² + P = V²/R_a, P = 2q/(1 + √(1 + 4aq)) with q = V²/R_a, and at a current P =
+    /// I²R_a/(1 − aI²R_a), refused where aI²R_a ≥ 1 (no steady state: the heat runs away).
+    fn drive(&self, values: &Values, per_mw: Option<f64>) -> Result<Heating> {
         let power = values.at("power");
         if self.heater != Heater::Metal {
-            return Ok((power, None));
+            return Ok(Heating { power, film: None });
         }
-        let film = self.resistance(values)?;
-        let volts = values.at("voltage");
-        if volts > 0.0 && power > 0.0 {
+        let (r0, rho) = self.resistance(values)?;
+        let (volts, milliamps) = (values.at("voltage"), values.at("current"));
+        let given = [power, volts, milliamps]
+            .iter()
+            .filter(|&&x| x > 0.0)
+            .count();
+        if given > 1 {
             return Err(Error::invalid(
                 "device",
                 format!(
-                    "a heater is driven by a power or by a voltage, not both: power = {power} mW \
-                     and voltage = {volts} V"
+                    "a heater is driven by one of a power, a voltage or a current: power = \
+                     {power} mW, voltage = {volts} V and current = {milliamps} mA"
                 ),
             ));
         }
-        if volts > 0.0 {
-            Ok((volts * volts / film.0 * 1e3, Some(film)))
+        let (alpha, (_, hottest)) = self.film.tcr();
+        let follows = self.film.follows_temperature();
+        // the resistance at the ambient and the coefficient on the rise above it
+        let (r_a, alpha_a) = if follows {
+            let at_ambient = 1.0 + alpha * (AMBIENT_K - ROOM_K);
+            (r0 * at_ambient, alpha / at_ambient)
         } else {
-            Ok((power, Some(film)))
+            (r0, 0.0)
+        };
+        let a = alpha_a * per_mw.unwrap_or(0.0);
+        let (power, by_voltage, by_current) = if volts > 0.0 {
+            // mW and mW/V
+            let q = volts * volts / r_a * 1e3;
+            let p = 2.0 * q / (1.0 + (1.0 + 4.0 * a * q).sqrt());
+            (p, 2.0 * volts / r_a * 1e3 / (1.0 + 2.0 * a * p), 0.0)
+        } else if milliamps > 0.0 {
+            // I²R in mW (mA² Ω is µW) and mW/mA
+            let q = milliamps * milliamps * r_a * 1e-3;
+            if a * q >= 1.0 {
+                return Err(Error::invalid(
+                    "device",
+                    format!(
+                        "at {milliamps} mA the TiN heater ({}) has no steady state: its \
+                         resistance rises with its temperature faster than the heat leaves \
+                         (α'·Z·I²R = {:.3} ≥ 1)",
+                        self.film.id(),
+                        a * q
+                    ),
+                ));
+            }
+            let held = 1.0 - a * q;
+            (q / held, 0.0, 2.0 * milliamps * r_a * 1e-3 / (held * held))
+        } else {
+            (power, 0.0, 0.0)
+        };
+        let rise = per_mw.map(|z| z * power);
+        if follows && let Some(rise) = rise {
+            let t = AMBIENT_K + rise;
+            if t > hottest {
+                return Err(Error::invalid(
+                    "device",
+                    format!(
+                        "the TiN heater ({}) reaches {t:.1} K at {power:.4} mW, above the {hottest} \
+                         K its temperature coefficient was measured to",
+                        self.film.id()
+                    ),
+                ));
+            }
         }
+        Ok(Heating {
+            power,
+            film: Some(Film {
+                r0,
+                rho,
+                r: r_a * (1.0 + a * power),
+                rise,
+                follows,
+                by_voltage,
+                by_current,
+            }),
+        })
     }
 
     /// The cross-section's numbers at `values`.
@@ -483,7 +585,7 @@ impl ThermoShifter {
         &self,
         values: &Values,
         fidelity: Fidelity,
-    ) -> Result<(Vec<Figure>, Provenance, bool)> {
+    ) -> Result<(Vec<Figure>, Provenance, bool, Heating)> {
         values.check(self)?;
         let m = method(self.kind(), &self.methods, fidelity)?;
         let lambda = values.at("wavelength");
@@ -518,7 +620,34 @@ impl ThermoShifter {
             .find(|g| g.symbol == "P_pi")
             .map(|g| (g.value, g.grid.clone()))
             .ok_or_else(|| Error::invalid("device", "the model gives no P_pi"))?;
-        let (power, film) = self.drive(values)?;
+        // a metal heater's own mean rise per W/m: the model's, or the analytic one's beside a
+        // measured device
+        let per_wm = if self.heater == Heater::Metal {
+            let own = figures
+                .iter()
+                .find(|g| g.symbol == "z_heater")
+                .map(|g| g.value);
+            Some(match own {
+                Some(z) => z,
+                None => {
+                    let z = section.heater_mean()?;
+                    figures.push(figure(
+                        "heater's own mean rise per power",
+                        "z_heater",
+                        z,
+                        "K·m/W",
+                        f,
+                        "the analytic model's: the heater's sheet averaged over itself",
+                    ));
+                    z
+                }
+            })
+        } else {
+            None
+        };
+        let per_mw = per_wm.map(|z| z / (values.at("length") * 1e-6) * 1e-3);
+        let heating = self.drive(values, per_mw)?;
+        let (power, film) = (heating.power, heating.film);
         figures.push(figure(
             "phase at the power",
             "phi",
@@ -545,28 +674,68 @@ impl ThermoShifter {
                 &grid,
             ));
         }
-        let volts = if film.is_some() {
-            values.at("voltage")
+        let (volts, milliamps) = if film.is_some() {
+            (values.at("voltage"), values.at("current"))
         } else {
-            0.0
+            (0.0, 0.0)
         };
-        if let Some((r, rho)) = film {
-            let source = format!(
-                "exact: no grid; R = ρL/(wt), ρ = {rho:.4} µΩ·cm at {:.4} nm, {TIN_FILM_SOURCE}",
-                values.at("heater_thickness") * 1e3
+        if let Some(film) = film {
+            let mut source = format!(
+                "R = ρL/(wt) = {:.4} Ω at room temperature, ρ = {:.4} µΩ·cm at {:.4} nm, {}",
+                film.r0,
+                film.rho,
+                values.at("heater_thickness") * 1e3,
+                self.film.source()
             );
+            if film.follows {
+                source.push_str(
+                    "; R = R₀(1 + α(T − 293 K)) at the heater's mean temperature, 300 K plus its \
+                     rise, its power and rise solved together in closed form",
+                );
+            } else {
+                source.push_str("; R at room temperature, the coefficient below a heater's");
+            }
+            let source = if film.follows && power > 0.0 {
+                let grid = figures
+                    .iter()
+                    .find(|g| g.symbol == "z_heater")
+                    .map_or(String::new(), |g| g.grid.clone());
+                format!("{grid}; {source}")
+            } else {
+                format!("exact: no grid; {source}")
+            };
             figures.push(figure(
                 "heater's resistance",
                 "R_heater",
-                r,
+                film.r,
                 "Ω",
                 f,
                 &source,
             ));
+            if let (Some(rise), true) = (film.rise, power > 0.0) {
+                figures.push(figure(
+                    "heater's own mean rise at the power",
+                    "dT_heater",
+                    rise,
+                    "K",
+                    f,
+                    &source,
+                ));
+            }
             if volts > 0.0 {
                 figures.push(figure(
                     "power at the voltage, V²/R",
                     "P_V",
+                    power,
+                    "mW",
+                    f,
+                    &source,
+                ));
+            }
+            if milliamps > 0.0 {
+                figures.push(figure(
+                    "power at the current, I²R",
+                    "P_I",
                     power,
                     "mW",
                     f,
@@ -586,9 +755,15 @@ impl ThermoShifter {
             ));
         }
         let driven = match film {
-            Some((r, _)) if volts > 0.0 => format!(
-                ", P = V²/R = {power:.4} mW at {volts} V, R = {r:.4} Ohm from the TiN film's \
-                 resistivity"
+            Some(film) if volts > 0.0 => format!(
+                ", P = V²/R = {power:.4} mW at {volts} V, R = {:.4} Ohm from the TiN film's \
+                 resistivity",
+                film.r
+            ),
+            Some(film) if milliamps > 0.0 => format!(
+                ", P = I²R = {power:.4} mW at {milliamps} mA, R = {:.4} Ohm from the TiN film's \
+                 resistivity",
+                film.r
             ),
             _ => String::new(),
         };
@@ -601,8 +776,33 @@ impl ThermoShifter {
             error: None,
             validity: Some((1.5, 1.6)),
         };
-        Ok((figures, provenance, measured_loss))
+        Ok((figures, provenance, measured_loss, heating))
     }
+}
+
+/// A heater's drive at some values ([`ThermoShifter::drive`]): its power, mW, and a metal
+/// heater's film.
+#[derive(Clone, Copy, Debug)]
+struct Heating {
+    power: f64,
+    film: Option<Film>,
+}
+
+/// A metal heater's resistance under its drive.
+#[derive(Clone, Copy, Debug)]
+struct Film {
+    /// The resistance at room temperature, Ω, and the film's resistivity, µΩ·cm.
+    r0: f64,
+    rho: f64,
+    /// The resistance at the heater's temperature, Ω (`r0` for a film that doesn't follow it).
+    r: f64,
+    /// The heater's own mean rise at the power, K, where the model gives it.
+    rise: Option<f64>,
+    /// Whether the resistance follows the heater's temperature.
+    follows: bool,
+    /// dP/dV (mW/V) under a voltage, dP/dI (mW/mA) under a current; 0 otherwise.
+    by_voltage: f64,
+    by_current: f64,
 }
 
 /// The kind of a heater's shifter.
@@ -1131,7 +1331,23 @@ impl Section2d {
         let guide = &shifter.guides()[0];
         let f = Fidelity::TwoD;
         let time_grid = format!("{grid}; BDF2 steps of {step} us");
-        Ok(vec![
+        // the metal heater's own mean rise per W/m: the rise averaged over its cells
+        let own = if self.heater == Heater::Metal {
+            let (b, hw) = (self.heater_bottom, 0.5 * self.heater_width);
+            let tin = rect([-hw, hw], [b, b + self.heater_thickness])?;
+            let z = shifter.rise(0)?.mean(&tin)?;
+            vec![figure(
+                "heater's own mean rise per power",
+                "z_heater",
+                z,
+                "K·m/W",
+                f,
+                &grid,
+            )]
+        } else {
+            Vec::new()
+        };
+        let mut figures = vec![
             figure("power for a π shift", "P_pi", p_pi, "mW", f, &grid),
             figure(
                 "1/e time, turned on",
@@ -1174,7 +1390,9 @@ impl Section2d {
                 f,
                 &grid,
             ),
-        ])
+        ];
+        figures.extend(own);
+        Ok(figures)
     }
 
     /// The oxide as a slab from the substrate (its silicon as the oxide of the same thermal
@@ -1378,6 +1596,14 @@ impl Section2d {
         Ok((fin, neighbour))
     }
 
+    /// The metal heater's own mean rise, K per W/m, by the analytic model: its sheet averaged
+    /// over itself ([`Slab::strip_mean`]).
+    fn heater_mean(&self) -> Result<f64> {
+        let (slab, plane) = self.slab()?;
+        let sheets = self.sheets(plane);
+        Ok(slab.strip_mean(&sheets[0]))
+    }
+
     /// The analytic model's figures.
     fn analytic(&self, lambda: f64) -> Result<Vec<Figure>> {
         use table3::*;
@@ -1413,7 +1639,19 @@ impl Section2d {
         let s = dn_dt * rise;
         let p_pi = lambda * 1e-6 / (2.0 * s) * 1e3;
         let f = Fidelity::Analytic;
-        Ok(vec![
+        let own = if self.heater == Heater::Metal {
+            vec![figure(
+                "heater's own mean rise per power",
+                "z_heater",
+                self.heater_mean()?,
+                "K·m/W",
+                f,
+                EXACT,
+            )]
+        } else {
+            Vec::new()
+        };
+        Ok([
             figure("power for a π shift", "P_pi", p_pi, "mW", f, EXACT),
             figure("1/e time, turned on", "tau", tau * 1e6, "µs", f, EXACT),
             figure("−3 dB frequency", "f_3dB", cutoff * 1e-3, "kHz", f, EXACT),
@@ -1428,7 +1666,10 @@ impl Section2d {
                 EXACT,
             ),
             figure("effective index", "n_eff", n_eff, "", f, EXACT),
-        ])
+        ]
+        .into_iter()
+        .chain(own)
+        .collect())
     }
 }
 
@@ -1521,7 +1762,7 @@ impl Device for ThermoShifter {
     }
 
     fn component(&self, values: &Values, fidelity: Fidelity) -> Result<Built> {
-        let (figures, provenance, measured_loss) = self.model(values, fidelity)?;
+        let (figures, provenance, measured_loss, heating) = self.model(values, fidelity)?;
         let value = |symbol: &str| {
             figures
                 .iter()
@@ -1530,13 +1771,20 @@ impl Device for ThermoShifter {
         };
         let p_pi = value("P_pi");
         // the loss over the length, or the measured device's insertion loss, which neither moves
-        let (power, film) = self.drive(values)?;
+        let (power, film) = (heating.power, heating.film);
         let (phase, loss) = (PI * power / p_pi, value("IL"));
-        // a metal heater's voltage: dP/dV = 2V/R (mW/V); a drive moves only while the other is 0
-        let volts = film.map_or(0.0, |_| values.at("voltage"));
-        let by_power = (volts == 0.0).then(|| vec![PI / p_pi, 0.0]);
-        let by_voltage = film.and_then(|(r, _)| {
-            (values.at("power") == 0.0).then(|| vec![PI / p_pi * 2.0 * volts / r * 1e3, 0.0])
+        // a metal heater's voltage or current: dP/dV or dP/dI ([`ThermoShifter::drive`]); a
+        // drive moves only while the others are 0
+        let (volts, milliamps) =
+            film.map_or((0.0, 0.0), |_| (values.at("voltage"), values.at("current")));
+        let others_off = |a: f64, b: f64| a == 0.0 && b == 0.0;
+        let by_power = others_off(volts, milliamps).then(|| vec![PI / p_pi, 0.0]);
+        let by_voltage = film.and_then(|film| {
+            others_off(values.at("power"), milliamps)
+                .then(|| vec![PI / p_pi * film.by_voltage, 0.0])
+        });
+        let by_current = film.and_then(|film| {
+            others_off(values.at("power"), volts).then(|| vec![PI / p_pi * film.by_current, 0.0])
         });
         let (by_loss, by_length) = if measured_loss {
             (0.0, 0.0)
@@ -1549,6 +1797,7 @@ impl Device for ThermoShifter {
             .map(|p| match p.name.as_str() {
                 "power" => by_power.clone(),
                 "voltage" => by_voltage.clone(),
+                "current" => by_current.clone(),
                 "loss" => Some(vec![0.0, by_loss]),
                 "length" => Some(vec![0.0, by_length]),
                 _ => None,

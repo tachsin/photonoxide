@@ -3,12 +3,14 @@
 //! al.'s published heaters through the devices (the phase's own cases, `shifter/jacques-*` and
 //! `shifter/harris-*`, reproduced through them), the 2D models against the measured devices,
 //! the 2D grid's convergence, every fidelity run as a job to the bit, and the TiN heater's
-//! resistance and its voltage drive against the hand's.
+//! resistance, its films and its voltage drive against the hand's, and a film's resistance
+//! following its temperature against Picard's iteration.
 
 use std::sync::OnceLock;
 
 use crate::circuit::Fidelity;
 use crate::convergence::Study;
+use crate::material::catalogue::TinFilm;
 use crate::thermal::shifter_checks::{Heater, NPP, TIN};
 use crate::units::Wavelength;
 use crate::validation::{Case, Outcome, Tier};
@@ -403,6 +405,105 @@ fn voltage_against_hand() -> f64 {
     .fold(0.0, f64::max)
 }
 
+/// Each TiN film's room-temperature resistivity at `d` nm by hand, µΩ·cm: Tsai et al.'s Eq. (3)
+/// with their ρ₀ = 23 µΩ·cm and Table IV's rows typed again, or Kearney et al.'s values (Section
+/// 3, p. 80).
+fn film_by_hand(film: TinFilm, d: f64) -> f64 {
+    let eq3 = |grain: f64, l0: f64| 23.0 * (1.0 + 0.375 * l0 / d) + grain;
+    match film {
+        TinFilm::TsaiBiased => eq3(14.0, 96.0),
+        TinFilm::TsaiHot => eq3(31.0, 72.0),
+        TinFilm::TsaiCollimated => eq3(181.0, 41.0),
+        TinFilm::TsaiUncollimated => eq3(232.0, 39.0),
+        TinFilm::KearneyHot => 70.2,
+        TinFilm::KearneyAnnealed => 78.0,
+    }
+}
+
+/// The metal device's `R_heater` undriven with each film at 100 and 50 nm of TiN against
+/// R = ρL/(wt) by hand ([`film_by_hand`]; Kearney et al.'s at the ambient, R₀(1 + α·7 K)): the
+/// largest relative error.
+fn films_against_hand() -> f64 {
+    let mut worst = 0.0f64;
+    for film in TinFilm::ALL {
+        let d = ThermoShifter::metal().with_film(film).expect(OK);
+        for t in [0.1, 0.05] {
+            let v = values(&d, &[("heater_thickness", t)]);
+            let r = figure(&d, &v, Fidelity::Analytic, "R_heater");
+            let mut hand = film_by_hand(film, t * 1e3) * 1e-8 * 320e-6 / (7.5e-6 * t * 1e-6);
+            if film.follows_temperature() {
+                hand *= 1.0 + film.tcr().0 * 7.0;
+            }
+            worst = worst.max((r / hand - 1.0).abs());
+        }
+    }
+    worst
+}
+
+/// Kearney et al.'s sample F as the metal device's heater (analytic), at 3 V and at 10 mA: its
+/// power, its own mean rise and resistance (the device's closed form) against Picard's
+/// iteration on the same steady state, each step's power from R = R₀(1 + α(T − 293 K)) at the
+/// last step's T = 300 K + z P/L (z the device's own mean rise per W/m), from the power at
+/// R₀, until a step moves the power by no more than 1e-15 of itself; and the phase π P/P_π:
+/// the largest relative error.
+fn tcr_drive_against_picard() -> f64 {
+    let film = TinFilm::KearneyHot;
+    let d = ThermoShifter::metal().with_film(film).expect(OK);
+    let (alpha, _) = film.tcr();
+    let r0 = 70.2e-8 * 320e-6 / (7.5e-6 * 0.1e-6);
+    let mut worst = 0.0f64;
+    for (drive, x) in [("voltage", 3.0), ("current", 10.0)] {
+        let b = d
+            .component(&values(&d, &[(drive, x)]), Fidelity::Analytic)
+            .expect(OK);
+        let at = |s: &str| b.figure(s).expect(OK).value;
+        let per_watt = at("z_heater") / 320e-6;
+        let law = |r: f64| {
+            if drive == "voltage" {
+                x * x / r
+            } else {
+                (x * 1e-3) * (x * 1e-3) * r
+            }
+        };
+        let resistance = |p: f64| r0 * (1.0 + alpha * (300.0 + per_watt * p - 293.0));
+        let mut p = law(r0);
+        for _ in 0..200 {
+            let next = law(resistance(p));
+            let moved = (next - p).abs();
+            p = next;
+            if moved <= 1e-15 * p {
+                break;
+            }
+        }
+        let power = at(if drive == "voltage" { "P_V" } else { "P_I" }) * 1e-3;
+        let error = |a: f64, b: f64| (a / b - 1.0).abs();
+        worst = worst
+            .max(error(power, p))
+            .max(error(at("dT_heater"), per_watt * p))
+            .max(error(at("R_heater"), resistance(p)))
+            .max(error(
+                b.values[0],
+                std::f64::consts::PI * p * 1e3 / at("P_pi"),
+            ));
+    }
+    worst
+}
+
+/// The metal heater's own mean rise per W/m, analytic over 2D, at the fabricated design and the
+/// TiN 1 and 10 µm wide: the ratio farthest from 1, less 1.
+fn heater_rise_against_2d() -> f64 {
+    let d = ThermoShifter::metal();
+    [7.5, 1.0, 10.0]
+        .iter()
+        .map(|&w| {
+            let v = values(&d, &[("heater_width", w)]);
+            let a = figure(&d, &v, Fidelity::Analytic, "z_heater");
+            let b = figure(&d, &v, Fidelity::TwoD, "z_heater");
+            a / b - 1.0
+        })
+        .fold(0.0, |m: f64, e| if e.abs() > m.abs() { e } else { m })
+}
+
 /// The cases.
 pub(crate) fn cases() -> Vec<Case> {
     vec![
@@ -537,6 +638,27 @@ pub(crate) fn cases() -> Vec<Case> {
             tier: Tier::Analytic,
             source: r"Joule's law, $P = V^2/R$; the index change per power $s$ is the rise per power times $dn_\mathrm{eff}/dT$, $\Delta n_\mathrm{eff} = s P/L$",
             run: || outcome(voltage_against_hand(), 0.0, 1e-12),
+        },
+        Case {
+            id: "device/thermo-tin-films",
+            title: r"Thermo-optic phase shifter, the choice of TiN film: the metal device's $R$ undriven with each of the six films (Tsai et al.'s four Table IV films by their Eq. (3), Kearney et al.'s samples F and D by their measured resistivity, at the 300 K ambient by their coefficient) at 100 and 50 nm of TiN, against $R = \rho L/(wt)$ by hand: the largest relative error (shown)",
+            tier: Tier::Analytic,
+            source: r"W. Tsai et al., J. Appl. Phys. 73, 4462 (1993), doi:10.1063/1.352785: Eq. (3), $\rho_0$ = 23 µΩ·cm (p. 4467) and Table IV; B. T. Kearney et al., Thin Solid Films 661, 78 (2018), doi:10.1016/j.tsf.2018.07.001: 70.2 and 78.0 µΩ·cm, 0.095 and 0.099 %/K (Section 3, p. 80)",
+            run: || outcome(films_against_hand(), 0.0, 1e-12),
+        },
+        Case {
+            id: "device/thermo-tcr-drive",
+            title: r"Thermo-optic phase shifter whose heater's resistance follows its temperature: Kearney et al.'s sample F as the metal device's TiN (analytic) at 3 V and at 10 mA, its power, its own mean rise, its resistance and its phase from the device's closed form ($aP^2 + P = V^2/R_a$, $P = I^2R_a/(1 - aI^2R_a)$) against Picard's iteration on the same steady state, $R = R_0(1 + \alpha(T - 293\,\mathrm{K}))$ at the last step's $T = 300\,\mathrm{K} + zP/L$: the largest relative error (shown)",
+            tier: Tier::Analytic,
+            source: r"Joule's law at a fixed voltage or current with a resistance linear in the heater's temperature, the heat linear in the power (the heater's mean rise $zP/L$, $z$ the model's own); B. T. Kearney et al., doi:10.1016/j.tsf.2018.07.001, for $\alpha$ = 0.095 %/K from 293 to 773 K",
+            run: || outcome(tcr_drive_against_picard(), 0.0, 1e-12),
+        },
+        Case {
+            id: "device/thermo-heater-rise",
+            title: r"Thermo-optic phase shifter, the TiN heater's own mean rise per power (what its resistance follows), analytic against 2D: the closed forms' (the heater's sheet averaged over itself in the oxide slab, Kummer's transformation) against the 2D model's (the static solver's rise averaged over the heater's cells), the TiN 7.5 (Jacques et al.'s fabricated), 1 and 10 µm wide: the ratio farthest from 1, analytic over 2D (shown), the analytic fidelity's stated error",
+            tier: Tier::Analytic,
+            source: r"the same heat problem thermally all oxide, as device/thermo-analytic-metal: the heater's own conductivity (TiN, 28 W/(m·K)), which evens its temperature across it, left out",
+            run: || outcome(1.0 + heater_rise_against_2d(), 1.0, 0.15),
         },
     ]
 }

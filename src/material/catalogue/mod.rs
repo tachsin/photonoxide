@@ -97,8 +97,8 @@ pub use phase_change::{
     PhaseChange, State, figure_of_merit, partly_crystalline, phase_change, phase_changes,
 };
 pub use resistivity::{
-    Resistivity, ResistivityValue, TIN_FILM_NM, TIN_FILM_SOURCE, resistivities, resistivity,
-    tin_film_resistivity,
+    KEARNEY_TCR_K, Resistivity, ResistivityValue, TIN_FILM_NM, TIN_FILM_SOURCE, TSAI_TCR_K,
+    TinFilm, resistivities, resistivity, tin_film_resistivity,
 };
 pub use rf::{RfDielectric, RfValue, rf_dielectric, rf_dielectrics};
 pub use symmetry::{Pattern, pattern};

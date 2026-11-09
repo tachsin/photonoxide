@@ -124,8 +124,164 @@ pub const TIN_FILM_NM: (f64, f64) = (45.0, 100.0);
 /// films' surfaces scatter more, thicker ones tend to ρ₀ + ρ_grain = 37 µΩ·cm). A thermo-optic
 /// heater's resistance takes it ([`crate::device::ThermoShifter`]).
 pub fn tin_film_resistivity(thickness_nm: f64) -> f64 {
-    let (_, rho_grain, l0) = TSAI_TABLE_IV[3];
-    tsai_eq_3(rho_grain, l0, thickness_nm)
+    TinFilm::TsaiBiased.resistivity(thickness_nm)
+}
+
+/// Kearney et al.'s two lowest-resistivity films (Section 3, p. 80): (thickness nm, ρ µΩ·cm at
+/// room temperature, TCR per K from room temperature to 500 °C), sample F (the substrate at
+/// 600 °C) and sample D (at 350 °C, annealed at 600 °C for 4 h without breaking the vacuum).
+pub(crate) const KEARNEY: [(f64, f64, f64); 2] = [(58.0, 70.2, 0.095e-2), (62.5, 78.0, 0.099e-2)];
+
+/// The temperatures Kearney et al.'s coefficients span, K: room temperature (293 K) to 500 °C.
+pub const KEARNEY_TCR_K: (f64, f64) = (293.0, 773.0);
+
+/// The temperatures Tsai et al.'s coefficients (Table III) span, K.
+pub const TSAI_TCR_K: (f64, f64) = (5.0, 280.0);
+
+/// A TiN film a heater can be made of: one of Tsai et al.'s four films with Eq. (3)'s parameters
+/// (their Table IV), its resistivity following the film's thickness, or one of Kearney et al.'s
+/// two lowest-resistivity films, their measured resistivity at any thickness (theirs 58 and
+/// 62.5 nm). Each has its temperature coefficient of resistance and the temperatures it spans:
+/// Tsai et al.'s from 5 to 280 K (Table III), below a heater's; Kearney et al.'s from room
+/// temperature to 500 °C (293 to 773 K), a heater's.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+#[non_exhaustive]
+pub enum TinFilm {
+    /// Tsai et al.'s collimated films sputtered at 500 °C with −100 V of rf bias, the lowest
+    /// resistivity (45 µΩ·cm at 100 nm; Table IV: ρ_grain 14 µΩ·cm, l₀ 96 nm; TCR 1355 ppm/K).
+    #[default]
+    TsaiBiased,
+    /// Tsai et al.'s collimated films sputtered at 500 °C without bias (Table IV: 31 µΩ·cm,
+    /// 72 nm; TCR 1018 ppm/K).
+    TsaiHot,
+    /// Tsai et al.'s collimated films sputtered at 40 °C (Table IV: 181 µΩ·cm, 41 nm; TCR
+    /// 264 ppm/K).
+    TsaiCollimated,
+    /// Tsai et al.'s uncollimated films sputtered at 40 °C (Table IV: 232 µΩ·cm, 39 nm; TCR
+    /// 228 ppm/K).
+    TsaiUncollimated,
+    /// Kearney et al.'s sample F, RF sputtered onto fused silica at 600 °C: 70.2 µΩ·cm at 58 nm,
+    /// TCR 0.095 %/K from room temperature to 500 °C.
+    KearneyHot,
+    /// Kearney et al.'s sample D, sputtered at 350 °C and annealed at 600 °C for 4 h without
+    /// breaking the vacuum: 78.0 µΩ·cm at 62.5 nm, TCR 0.099 %/K to 500 °C.
+    KearneyAnnealed,
+}
+
+impl TinFilm {
+    /// Every film, the default first.
+    pub const ALL: [TinFilm; 6] = [
+        TinFilm::TsaiBiased,
+        TinFilm::TsaiHot,
+        TinFilm::TsaiCollimated,
+        TinFilm::TsaiUncollimated,
+        TinFilm::KearneyHot,
+        TinFilm::KearneyAnnealed,
+    ];
+
+    /// Its Tsai et al. Table II row, or its Kearney et al. sample's index.
+    fn row(self) -> Result<usize, usize> {
+        match self {
+            TinFilm::TsaiBiased => Ok(5),
+            TinFilm::TsaiHot => Ok(4),
+            TinFilm::TsaiCollimated => Ok(1),
+            TinFilm::TsaiUncollimated => Ok(0),
+            TinFilm::KearneyHot => Err(0),
+            TinFilm::KearneyAnnealed => Err(1),
+        }
+    }
+
+    /// Its id, e.g. `"tsai-biased"`.
+    pub fn id(self) -> &'static str {
+        match self {
+            TinFilm::TsaiBiased => "tsai-biased",
+            TinFilm::TsaiHot => "tsai-hot",
+            TinFilm::TsaiCollimated => "tsai-collimated",
+            TinFilm::TsaiUncollimated => "tsai-uncollimated",
+            TinFilm::KearneyHot => "kearney-hot",
+            TinFilm::KearneyAnnealed => "kearney-annealed",
+        }
+    }
+
+    /// The film with this id.
+    pub fn from_id(id: &str) -> Option<TinFilm> {
+        TinFilm::ALL.into_iter().find(|f| f.id() == id)
+    }
+
+    /// The resistivity of the film `thickness_nm` thick at room temperature, µΩ·cm: Tsai et
+    /// al.'s Eq. (3) with its Table IV row (their films 45 to 100 nm, [`TIN_FILM_NM`]; carried on
+    /// outside it), or Kearney et al.'s measured value whatever the thickness.
+    pub fn resistivity(self, thickness_nm: f64) -> f64 {
+        match self.row() {
+            Ok(row) => {
+                let (_, rho_grain, l0) = TSAI_TABLE_IV
+                    .into_iter()
+                    .find(|r| r.0 == row)
+                    .expect("each of Tsai et al.'s films has a Table IV row");
+                tsai_eq_3(rho_grain, l0, thickness_nm)
+            }
+            Err(sample) => KEARNEY[sample].1,
+        }
+    }
+
+    /// The temperature coefficient of resistance, per K, and the temperatures it spans, K:
+    /// Tsai et al.'s Table III from 5 to 280 K, Kearney et al.'s from 293 to 773 K.
+    pub fn tcr(self) -> (f64, (f64, f64)) {
+        match self.row() {
+            Ok(row) => (
+                TSAI_TABLE_III[row].expect("each Table IV film has a Table III coefficient") * 1e-6,
+                TSAI_TCR_K,
+            ),
+            Err(sample) => (KEARNEY[sample].2, KEARNEY_TCR_K),
+        }
+    }
+
+    /// Whether its coefficient covers a heater's temperatures (from 293 K up): Kearney et al.'s
+    /// films. Tsai et al.'s stop at 280 K.
+    pub fn follows_temperature(self) -> bool {
+        self.row().is_err()
+    }
+
+    /// Where its resistivity and coefficient come from, as a heater's figures state it.
+    pub fn source(self) -> String {
+        match self.row() {
+            Ok(row) => {
+                let (_, g, l) = TSAI_TABLE_IV
+                    .into_iter()
+                    .find(|r| r.0 == row)
+                    .expect("each of Tsai et al.'s films has a Table IV row");
+                let (collimated, celsius, bias, _) = TSAI_TABLE_II[row];
+                format!(
+                    "TiN's resistivity by Tsai et al.'s Eq. (3) with their Table IV's row for the \
+                     {} films sputtered at {celsius} °C{}, ρ = 23(1 + 0.375 × {l} nm/d) + {g} µΩ·cm \
+                     at the film's thickness d (their films 45 to 100 nm, carried on outside it); \
+                     its TCR (Table III) spans 5 to 280 K: W. Tsai et al., J. Appl. Phys. 73, 4462 \
+                     (1993), doi:10.1063/1.352785",
+                    if collimated {
+                        "collimated"
+                    } else {
+                        "uncollimated"
+                    },
+                    if bias == 0.0 {
+                        String::new()
+                    } else {
+                        format!(" with {bias} V of bias")
+                    }
+                )
+            }
+            Err(sample) => {
+                let (d, rho, tcr) = KEARNEY[sample];
+                format!(
+                    "TiN's resistivity {rho} µΩ·cm at room temperature and its TCR {:.3} %/K from \
+                     293 to 773 K, Kearney et al.'s sample {} ({d} nm on fused silica; Section 3, \
+                     p. 80): B. T. Kearney et al., Thin Solid Films 661, 78 (2018), \
+                     doi:10.1016/j.tsf.2018.07.001",
+                    tcr * 100.0,
+                    ["F", "D"][sample]
+                )
+            }
+        }
+    }
 }
 
 /// Where [`tin_film_resistivity`] comes from, as a heater's notes state it.
@@ -249,6 +405,26 @@ mod tests {
         let lowest = &tin.values[5];
         assert!((lowest.conductivity().0 - 2.222e6).abs() < 1e3);
         assert!((lowest.tcr.unwrap() - 1.355e-3).abs() < 1e-15);
+    }
+
+    #[test]
+    fn the_films_by_id_their_resistivity_and_coefficients() {
+        for f in TinFilm::ALL {
+            assert_eq!(TinFilm::from_id(f.id()), Some(f));
+            let (tcr, (lo, hi)) = f.tcr();
+            assert!(tcr > 0.0 && tcr < 2e-3, "{f:?}");
+            // Tsai's coefficients stop below a heater's temperatures, Kearney's cover them
+            assert_eq!(f.follows_temperature(), lo >= 293.0 && hi > 300.0, "{f:?}");
+            assert!(!f.source().is_empty());
+        }
+        assert_eq!(TinFilm::default(), TinFilm::TsaiBiased);
+        assert!((TinFilm::TsaiHot.resistivity(100.0) - 60.21).abs() < 1e-9);
+        assert!(
+            (TinFilm::TsaiUncollimated.resistivity(100.0) - (23.0 * 1.14625 + 232.0)).abs() < 1e-9
+        );
+        assert_eq!(TinFilm::KearneyHot.resistivity(10.0), 70.2);
+        assert_eq!(TinFilm::KearneyAnnealed.tcr(), (0.099e-2, (293.0, 773.0)));
+        assert!((TinFilm::TsaiBiased.tcr().0 - 1355e-6).abs() < 1e-18);
     }
 
     #[test]
