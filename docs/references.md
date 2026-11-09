@@ -17,7 +17,7 @@ S. Aaronson, A. Arkhipov, "The Computational Complexity of Linear Optics", Theor
 - Methods pages: [quantum.md:8](methods/quantum.md?plain=1#L8), [197](methods/quantum.md?plain=1#L197)
 - Academy lessons: [quantum-light.md:123](../academy/quantum-light.md?plain=1#L123), [533](../academy/quantum-light.md?plain=1#L533), [998](../academy/quantum-light.md?plain=1#L998)
 - Code: [src/quantum.rs:11](../src/quantum.rs#L11), [src/quantum/fock.rs:129](../src/quantum/fock.rs#L129)
-- Other documents: [docs/plans/quantum.md:496](plans/quantum.md?plain=1#L496)
+- Other documents: [docs/plans/quantum.md:497](plans/quantum.md?plain=1#L497)
 
 #### Abate and Valkó 2004
 
@@ -85,7 +85,7 @@ M. A. Afromowitz, "Refractive index of Ga1−xAlxAs", Solid State Communications
 H. Aghaee Rad, T. Ainsworth, R. N. Alexander, B. Altieri, M. F. Askarani, R. Baby, L. Banchi, B. Q. Baragiola, J. E. Bourassa, R. S. Chadwick, et al., "Scaling and networking a modular photonic quantum computer", Nature 638, 912 (2025). [doi:10.1038/s41586-024-08406-9](https://doi.org/10.1038/s41586-024-08406-9), open access.
 
 - Academy lessons: [quantum-light.md:315](../academy/quantum-light.md?plain=1#L315), [922](../academy/quantum-light.md?plain=1#L922), [1022](../academy/quantum-light.md?plain=1#L1022)
-- Other documents: [docs/plans/quantum.md:520](plans/quantum.md?plain=1#L520)
+- Other documents: [docs/plans/quantum.md:521](plans/quantum.md?plain=1#L521)
 
 #### Agrawal 2019
 
@@ -227,7 +227,7 @@ M. Arcari, I. Söllner, A. Javadi, S. Lindskov Hansen, S. Mahmoodian, J. Liu, H.
 - Methods pages: [quantum.md:65](methods/quantum.md?plain=1#L65), [742](methods/quantum.md?plain=1#L742)
 - Academy lessons: [photonic-crystals.md:68](../academy/photonic-crystals.md?plain=1#L68), [352](../academy/photonic-crystals.md?plain=1#L352), [482](../academy/photonic-crystals.md?plain=1#L482)
 - Code: [src/fdtd/emitter.rs:7](../src/fdtd/emitter.rs#L7)
-- Other documents: [docs/plans/quantum.md:536](plans/quantum.md?plain=1#L536)
+- Other documents: [docs/plans/quantum.md:537](plans/quantum.md?plain=1#L537)
 
 #### Armstrong et al. 1962
 
@@ -257,7 +257,7 @@ M. I. Aroyo, "International Tables for Crystallography: Space-group symmetry", I
 J. M. Arrazola, V. Bergholm, K. Brádler, T. R. Bromley, M. J. Collins, I. Dhand, A. Fumagalli, T. Gerrits, A. Goussev, L. G. Helt, et al., "Quantum circuits with many photons on a programmable nanophotonic chip", Nature 591, 54 (2021). [doi:10.1038/s41586-021-03202-1](https://doi.org/10.1038/s41586-021-03202-1)
 
 - Academy lessons: [quantum-light.md:261](../academy/quantum-light.md?plain=1#L261), [823](../academy/quantum-light.md?plain=1#L823), [1014](../academy/quantum-light.md?plain=1#L1014)
-- Other documents: [docs/plans/quantum.md:528](plans/quantum.md?plain=1#L528)
+- Other documents: [docs/plans/quantum.md:529](plans/quantum.md?plain=1#L529)
 
 #### Arrieta et al. 2026
 
@@ -284,7 +284,7 @@ K. Aryana, H. J. Kim, M. R. Islam, N. Hong, C.-C. Popescu, S. Makarem, T. Gu, J.
 W. Asavanant, Y. Shiozawa, S. Yokoyama, B. Charoensombutamon, H. Emura, R. N. Alexander, S. Takeda, J.-I. Yoshikawa, N. C. Menicucci, H. Yonezawa, et al., "Generation of time-domain-multiplexed two-dimensional cluster state", Science 366, 373 (2019). [doi:10.1126/science.aay2645](https://doi.org/10.1126/science.aay2645)
 
 - Academy lessons: [quantum-light.md:213](../academy/quantum-light.md?plain=1#L213), [917](../academy/quantum-light.md?plain=1#L917), [1019](../academy/quantum-light.md?plain=1#L1019)
-- Other documents: [docs/plans/quantum.md:516](plans/quantum.md?plain=1#L516)
+- Other documents: [docs/plans/quantum.md:517](plans/quantum.md?plain=1#L517)
 
 ### B
 
@@ -330,7 +330,7 @@ S. Bartolucci, P. Birchall, H. Bombín, H. Cable, C. Dawson, M. Gimeno-Segovia, 
 - Academy lessons: [quantum-light.md:285](../academy/quantum-light.md?plain=1#L285), [633](../academy/quantum-light.md?plain=1#L633), [887](../academy/quantum-light.md?plain=1#L887), [1016](../academy/quantum-light.md?plain=1#L1016)
 - Validation cases: [`quantum/bartolucci-fusion`](validation.md?plain=1#L944)
 - Code: [src/quantum/budget.rs:13](../src/quantum/budget.rs#L13), [src/quantum/real_checks.rs:1444](../src/quantum/real_checks.rs#L1444), [studio/src-tauri/src/circuits/quantum.rs:594](../studio/src-tauri/src/circuits/quantum.rs#L594)
-- Other documents: [docs/plans/quantum.md:492](plans/quantum.md?plain=1#L492)
+- Other documents: [docs/plans/quantum.md:493](plans/quantum.md?plain=1#L493)
 
 #### Barwicz and Haus 2005
 
@@ -437,7 +437,7 @@ A. Björklund, B. Gupt, N. Quesada, "A Faster Hafnian Formula for Complex Matric
 - Methods pages: [quantum.md:31](methods/quantum.md?plain=1#L31), [356](methods/quantum.md?plain=1#L356)
 - Validation cases: [`quantum/hafnian-ones`](validation.md?plain=1#L907), [`quantum/hafnian-definition`](validation.md?plain=1#L908)
 - Code: [src/quantum/gaussian.rs:37](../src/quantum/gaussian.rs#L37), [src/quantum/hafnian.rs:6](../src/quantum/hafnian.rs#L6), [src/quantum/light_checks.rs:81](../src/quantum/light_checks.rs#L81), [88](../src/quantum/light_checks.rs#L88)
-- Other documents: [docs/plans/quantum.md:503](plans/quantum.md?plain=1#L503)
+- Other documents: [docs/plans/quantum.md:504](plans/quantum.md?plain=1#L504)
 
 #### Blackman and Vigna 2021
 
@@ -577,7 +577,7 @@ M. A. Broome, A. Fedrizzi, S. Rahimi-Keshari, J. Dove, S. Aaronson, T. C. Ralph,
 D. E. Browne, T. Rudolph, "Resource-Efficient Linear Optical Quantum Computation", Phys. Rev. Lett. 95, 010501 (2005). [doi:10.1103/PhysRevLett.95.010501](https://doi.org/10.1103/PhysRevLett.95.010501)
 
 - Academy lessons: [quantum-light.md:87](../academy/quantum-light.md?plain=1#L87), [884](../academy/quantum-light.md?plain=1#L884), [989](../academy/quantum-light.md?plain=1#L989)
-- Other documents: [docs/plans/quantum.md:489](plans/quantum.md?plain=1#L489)
+- Other documents: [docs/plans/quantum.md:490](plans/quantum.md?plain=1#L490)
 
 #### Bruel 1995
 
@@ -654,7 +654,7 @@ C. Campos, J. E. Roman, "NEP: A Module for the Parallel Solution of Nonlinear Ei
 J. Carolan, C. Harrold, C. Sparrow, E. Martín-López, N. J. Russell, J. W. Silverstone, P. J. Shadbolt, N. Matsuda, M. Oguma, M. Itoh, et al., "Universal linear optics", Science 349, 711 (2015). [doi:10.1126/science.aab3642](https://doi.org/10.1126/science.aab3642)
 
 - Academy lessons: [quantum-light.md:177](../academy/quantum-light.md?plain=1#L177), [460](../academy/quantum-light.md?plain=1#L460), [1001](../academy/quantum-light.md?plain=1#L1001)
-- Other documents: [docs/plans/quantum.md:527](plans/quantum.md?plain=1#L527)
+- Other documents: [docs/plans/quantum.md:528](plans/quantum.md?plain=1#L528)
 
 #### Carson and Higham 2018
 
@@ -843,7 +843,7 @@ W. R. Clements, P. C. Humphreys, B. J. Metcalf, W. S. Kolthammer, I. A. Walsmley
 - Examples: [README.md:47](../examples/README.md?plain=1#L47), [56](../examples/README.md?plain=1#L56), [circuit_splitter.rs:6](../examples/circuit_splitter.rs#L6), [optimize_mesh.rs:7](../examples/optimize_mesh.rs#L7)
 - Code: [src/circuit/adjoint/checks.rs:245](../src/circuit/adjoint/checks.rs#L245), [src/quantum/checks.rs:151](../src/quantum/checks.rs#L151), [158](../src/quantum/checks.rs#L158), [165](../src/quantum/checks.rs#L165), [172](../src/quantum/checks.rs#L172), [src/quantum/mesh.rs:4](../src/quantum/mesh.rs#L4), [src/validation.rs:2024](../src/validation.rs#L2024), [tests/jobs-toml/chip-splitter.toml:1](../tests/jobs-toml/chip-splitter.toml#L1)
 - Jobs and circuits: [jobs/chip-splitter.yaml:1](../jobs/chip-splitter.yaml#L1)
-- Other documents: [ROADMAP.md:831](../ROADMAP.md?plain=1#L831), [docs/plans/optimization.md:627](plans/optimization.md?plain=1#L627), [docs/plans/quantum.md:480](plans/quantum.md?plain=1#L480)
+- Other documents: [ROADMAP.md:831](../ROADMAP.md?plain=1#L831), [docs/plans/optimization.md:627](plans/optimization.md?plain=1#L627), [docs/plans/quantum.md:481](plans/quantum.md?plain=1#L481)
 
 #### Clifford and Clifford 2018
 
@@ -853,7 +853,7 @@ P. Clifford, R. Clifford, "The Classical Complexity of Boson Sampling", Proceedi
 - Academy lessons: [quantum-light.md:189](../academy/quantum-light.md?plain=1#L189), [559](../academy/quantum-light.md?plain=1#L559)
 - Validation cases: [`quantum/sampler-convergence`](validation.md?plain=1#L905)
 - Code: [src/quantum/checks.rs:193](../src/quantum/checks.rs#L193), [src/quantum/permanent.rs:249](../src/quantum/permanent.rs#L249), [src/quantum/sampler.rs:2](../src/quantum/sampler.rs#L2)
-- Other documents: [docs/plans/quantum.md:500](plans/quantum.md?plain=1#L500)
+- Other documents: [docs/plans/quantum.md:501](plans/quantum.md?plain=1#L501)
 
 #### Coello et al. 2004
 
@@ -1185,7 +1185,7 @@ Y. A. Erlangga, C. W. Oosterlee, C. Vuik, "A Novel Multigrid Based Preconditione
 F. Ewert, P. van Loock, "3/4-Efficient Bell Measurement with Passive Linear Optics and Unentangled Ancillae", Phys. Rev. Lett. 113, 140403 (2014). [doi:10.1103/PhysRevLett.113.140403](https://doi.org/10.1103/PhysRevLett.113.140403)
 
 - Academy lessons: [quantum-light.md:171](../academy/quantum-light.md?plain=1#L171), [886](../academy/quantum-light.md?plain=1#L886)
-- Other documents: [docs/plans/quantum.md:491](plans/quantum.md?plain=1#L491)
+- Other documents: [docs/plans/quantum.md:492](plans/quantum.md?plain=1#L492)
 
 ### F
 
@@ -1362,7 +1362,7 @@ T. Fujisawa, S. Makino, T. Sato, K. Saitoh, "Low-loss, compact, and fabrication-
 K. Fukui, A. Tomita, A. Okamoto, K. Fujii, "High-Threshold Fault-Tolerant Quantum Computation with Analog Quantum Error Correction", Phys. Rev. X 8, 021054 (2018). [doi:10.1103/PhysRevX.8.021054](https://doi.org/10.1103/PhysRevX.8.021054), open access.
 
 - Academy lessons: [quantum-light.md:207](../academy/quantum-light.md?plain=1#L207), [911](../academy/quantum-light.md?plain=1#L911), [1018](../academy/quantum-light.md?plain=1#L1018)
-- Other documents: [docs/plans/quantum.md:517](plans/quantum.md?plain=1#L517)
+- Other documents: [docs/plans/quantum.md:518](plans/quantum.md?plain=1#L518)
 
 ### G
 
@@ -1489,7 +1489,7 @@ D. G. Glynn, "The permanent of a square matrix", European Journal of Combinatori
 - Academy lessons: [quantum-light.md:129](../academy/quantum-light.md?plain=1#L129), [555](../academy/quantum-light.md?plain=1#L555)
 - Validation cases: [`quantum/permanent-formulas`](validation.md?plain=1#L888)
 - Code: [src/quantum/checks.rs:74](../src/quantum/checks.rs#L74), [src/quantum/permanent.rs:8](../src/quantum/permanent.rs#L8)
-- Other documents: [docs/plans/quantum.md:499](plans/quantum.md?plain=1#L499)
+- Other documents: [docs/plans/quantum.md:500](plans/quantum.md?plain=1#L500)
 
 #### Goel et al. 2026
 
@@ -1535,7 +1535,7 @@ D. Gostimirovic, D.-X. Xu, O. Liboiron-Ladouceur, Y. Grinberg, "Deep Learning-Ba
 D. Gottesman, A. Kitaev, J. Preskill, "Encoding a qubit in an oscillator", Phys. Rev. A 64, 012310 (2001). [doi:10.1103/PhysRevA.64.012310](https://doi.org/10.1103/PhysRevA.64.012310)
 
 - Academy lessons: [quantum-light.md:81](../academy/quantum-light.md?plain=1#L81), [906](../academy/quantum-light.md?plain=1#L906), [987](../academy/quantum-light.md?plain=1#L987)
-- Other documents: [docs/plans/quantum.md:513](plans/quantum.md?plain=1#L513)
+- Other documents: [docs/plans/quantum.md:514](plans/quantum.md?plain=1#L514)
 
 #### Granet and Guizal 1996
 
@@ -1558,13 +1558,13 @@ W. P. Grice, I. A. Walmsley, "Spectral information and distinguishability in typ
 - Academy lessons: [nonlinear-optics.md:114](../academy/nonlinear-optics.md?plain=1#L114), [1010](../academy/nonlinear-optics.md?plain=1#L1010), [1121](../academy/nonlinear-optics.md?plain=1#L1121), [quantum-light.md:63](../academy/quantum-light.md?plain=1#L63), [658](../academy/quantum-light.md?plain=1#L658), [983](../academy/quantum-light.md?plain=1#L983)
 - Validation cases: [`nonlinear/pairs-gaussian-purity`](validation.md?plain=1#L781), [`quantum/source-hom-gaussian`](validation.md?plain=1#L917)
 - Code: [src/nonlinear/checks.rs:781](../src/nonlinear/checks.rs#L781), [src/nonlinear/pairs.rs:25](../src/nonlinear/pairs.rs#L25), [src/quantum/intermodal.rs:30](../src/quantum/intermodal.rs#L30), [src/quantum/light_checks.rs:151](../src/quantum/light_checks.rs#L151), [src/quantum/source.rs:9](../src/quantum/source.rs#L9)
-- Other documents: [ROADMAP.md:857](../ROADMAP.md?plain=1#L857), [docs/plans/quantum.md:481](plans/quantum.md?plain=1#L481)
+- Other documents: [ROADMAP.md:857](../ROADMAP.md?plain=1#L857), [docs/plans/quantum.md:482](plans/quantum.md?plain=1#L482)
 
 #### Gupt et al. 2019
 
 B. Gupt, J. Izaac, N. Quesada, "The Walrus: a library for the calculation of hafnians, Hermite polynomials and Gaussian boson sampling", JOSS 4, 1705 (2019). [doi:10.21105/joss.01705](https://doi.org/10.21105/joss.01705), open access.
 
-- Other documents: [docs/plans/quantum.md:544](plans/quantum.md?plain=1#L544)
+- Other documents: [docs/plans/quantum.md:545](plans/quantum.md?plain=1#L545)
 
 #### Gurses et al. 2022
 
@@ -1667,7 +1667,7 @@ C. S. Hamilton, R. Kruse, L. Sansoni, S. Barkhofen, C. Silberhorn, I. Jex, "Gaus
 - Academy lessons: [quantum-light.md:195](../academy/quantum-light.md?plain=1#L195), [804](../academy/quantum-light.md?plain=1#L804), [1003](../academy/quantum-light.md?plain=1#L1003)
 - Validation cases: [`quantum/squeezed-vacuum`](validation.md?plain=1#L910)
 - Code: [src/quantum/gaussian.rs:36](../src/quantum/gaussian.rs#L36), [src/quantum/light_checks.rs:102](../src/quantum/light_checks.rs#L102)
-- Other documents: [docs/plans/quantum.md:501](plans/quantum.md?plain=1#L501)
+- Other documents: [docs/plans/quantum.md:502](plans/quantum.md?plain=1#L502)
 
 #### Hammerstad and Jensen 1980
 
@@ -1751,7 +1751,7 @@ L. G. Helt, Z. Yang, M. Liscidini, J. E. Sipe, "Spontaneous four-wave mixing in 
 - Academy lessons: [nonlinear-optics.md:180](../academy/nonlinear-optics.md?plain=1#L180), [899](../academy/nonlinear-optics.md?plain=1#L899), [1122](../academy/nonlinear-optics.md?plain=1#L1122), [quantum-light.md:117](../academy/quantum-light.md?plain=1#L117), [688](../academy/quantum-light.md?plain=1#L688), [996](../academy/quantum-light.md?plain=1#L996)
 - Validation cases: [`job/nonlinear-ring-shg`](validation.md?plain=1#L843), [`nonlinear/ring-shg-enhancement`](validation.md?plain=1#L876), [`nonlinear/ring-fwm-enhancement`](validation.md?plain=1#L877), [`nonlinear/ring-add-drop-shg`](validation.md?plain=1#L879), [`quantum/ring-helt-short`](validation.md?plain=1#L919), [`quantum/ring-helt-long`](validation.md?plain=1#L920)
 - Code: [src/circuit/components/ring.rs:309](../src/circuit/components/ring.rs#L309), [src/job/nonlinear_checks.rs:524](../src/job/nonlinear_checks.rs#L524), [src/nonlinear/cavity.rs:41](../src/nonlinear/cavity.rs#L41), [src/nonlinear/cavity_checks.rs:474](../src/nonlinear/cavity_checks.rs#L474), [481](../src/nonlinear/cavity_checks.rs#L481), [495](../src/nonlinear/cavity_checks.rs#L495), [src/quantum/light_checks.rs:165](../src/quantum/light_checks.rs#L165), [172](../src/quantum/light_checks.rs#L172), [src/quantum/ring.rs:38](../src/quantum/ring.rs#L38), [src/quantum/source.rs:10](../src/quantum/source.rs#L10)
-- Other documents: [docs/plans/quantum.md:531](plans/quantum.md?plain=1#L531)
+- Other documents: [docs/plans/quantum.md:532](plans/quantum.md?plain=1#L532)
 
 #### Hemment et al. 1984
 
@@ -1793,7 +1793,7 @@ M. R. Hestenes, "Inversion of Matrices by Biorthogonalization and Related Result
 
 N. Heurtel, A. Fyrillas, G. D. Gliniasty, R. Le Bihan, S. Malherbe, M. Pailhas, E. Bertasi, B. Bourdoncle, P.-E. Emeriau, R. Mezher, et al., "Perceval: A Software Platform for Discrete Variable Photonic Quantum Computing", Quantum 7, 931 (2023). [doi:10.22331/q-2023-02-21-931](https://doi.org/10.22331/q-2023-02-21-931), open access.
 
-- Other documents: [docs/plans/quantum.md:542](plans/quantum.md?plain=1#L542)
+- Other documents: [docs/plans/quantum.md:543](plans/quantum.md?plain=1#L543)
 
 #### Higham 2002
 
@@ -1878,7 +1878,7 @@ C. K. Hong, Z. Y. Ou, L. Mandel, "Measurement of subpicosecond time intervals be
 - Academy lessons: [quantum-light.md:51](../academy/quantum-light.md?plain=1#L51), [383](../academy/quantum-light.md?plain=1#L383), [429](../academy/quantum-light.md?plain=1#L429), [980](../academy/quantum-light.md?plain=1#L980)
 - Validation cases: [`quantum/hom-visibility`](validation.md?plain=1#L890), [`quantum/hom-balanced`](validation.md?plain=1#L891)
 - Code: [src/quantum/checks.rs:88](../src/quantum/checks.rs#L88), [95](../src/quantum/checks.rs#L95), [src/quantum/hom.rs:2](../src/quantum/hom.rs#L2)
-- Other documents: [docs/plans/quantum.md:486](plans/quantum.md?plain=1#L486)
+- Other documents: [docs/plans/quantum.md:487](plans/quantum.md?plain=1#L487)
 
 #### Horst et al. 2013
 
@@ -2254,7 +2254,7 @@ M. Khorasaninejad, W. T. Chen, R. C. Devlin, J. Oh, A. Y. Zhu, F. Capasso, "Meta
 
 N. Killoran, J. Izaac, N. Quesada, V. Bergholm, M. Amy, C. Weedbrook, "Strawberry Fields: A Software Platform for Photonic Quantum Computing", Quantum 3, 129 (2019). [doi:10.22331/q-2019-03-11-129](https://doi.org/10.22331/q-2019-03-11-129), open access.
 
-- Other documents: [docs/plans/quantum.md:543](plans/quantum.md?plain=1#L543)
+- Other documents: [docs/plans/quantum.md:544](plans/quantum.md?plain=1#L544)
 
 #### Kippenberg et al. 2018
 
@@ -2270,7 +2270,7 @@ T. J. Kippenberg, A. L. Gaeta, M. Lipson, M. L. Gorodetsky, "Dissipative Kerr so
 E. Knill, R. Laflamme, G. J. Milburn, "A scheme for efficient quantum computation with linear optics", Nature 409, 46 (2001). [doi:10.1038/35051009](https://doi.org/10.1038/35051009)
 
 - Academy lessons: [quantum-light.md:69](../academy/quantum-light.md?plain=1#L69), [863](../academy/quantum-light.md?plain=1#L863), [984](../academy/quantum-light.md?plain=1#L984)
-- Other documents: [docs/plans/quantum.md:487](plans/quantum.md?plain=1#L487)
+- Other documents: [docs/plans/quantum.md:488](plans/quantum.md?plain=1#L488)
 
 #### Kogelnik 1975
 
@@ -2311,7 +2311,7 @@ J. Komma, C. Schwarz, G. Hofmann, D. Heinert, R. Nawrodt, "Thermo-optic coeffici
 S. Konno, W. Asavanant, F. Hanamura, H. Nagayoshi, K. Fukui, A. Sakaguchi, R. Ide, F. China, M. Yabuno, S. Miki, et al., "Logical states for fault-tolerant quantum computation with propagating light", Science 383, 289 (2024). [doi:10.1126/science.adk7560](https://doi.org/10.1126/science.adk7560)
 
 - Academy lessons: [quantum-light.md:291](../academy/quantum-light.md?plain=1#L291), [919](../academy/quantum-light.md?plain=1#L919), [1020](../academy/quantum-light.md?plain=1#L1020)
-- Other documents: [docs/plans/quantum.md:518](plans/quantum.md?plain=1#L518)
+- Other documents: [docs/plans/quantum.md:519](plans/quantum.md?plain=1#L519)
 
 #### Kottke et al. 2008
 
@@ -2424,7 +2424,7 @@ C. Lanczos, "A Precision Approximation of the Gamma Function", Journal of the So
 M. V. Larsen, J. E. Bourassa, S. Kocsis, J. F. Tasker, R. S. Chadwick, C. González-Arciniegas, J. Hastrup, C. E. Lopetegui-González, F. M. Miatto, A. Motamedi, et al., "Integrated photonic source of Gottesman–Kitaev–Preskill qubits", Nature 642, 587 (2025). [doi:10.1038/s41586-025-09044-5](https://doi.org/10.1038/s41586-025-09044-5), open access.
 
 - Academy lessons: [quantum-light.md:309](../academy/quantum-light.md?plain=1#L309), [920](../academy/quantum-light.md?plain=1#L920), [1021](../academy/quantum-light.md?plain=1#L1021)
-- Other documents: [docs/plans/quantum.md:519](plans/quantum.md?plain=1#L519)
+- Other documents: [docs/plans/quantum.md:520](plans/quantum.md?plain=1#L520)
 
 #### Lawson and Hanson 1995
 
@@ -2601,7 +2601,7 @@ D. Liu, Y. Tan, E. Khoram, Z. Yu, "Training Deep Neural Networks for the Inverse
 H.-L. Liu, H. Su, Y.-H. Deng, S.-Q. Gong, Y.-C. Gu, H.-Y. Tang, M.-H. Jia, Q. Wei, Y.-K. Song, D.-Z. Wang, et al., "Gaussian boson sampling with 1,024 squeezed states in 8,176 modes", Nature 653, 687 (2026). [doi:10.1038/s41586-026-10523-6](https://doi.org/10.1038/s41586-026-10523-6)
 
 - Academy lessons: [quantum-light.md:321](../academy/quantum-light.md?plain=1#L321), [822](../academy/quantum-light.md?plain=1#L822), [1008](../academy/quantum-light.md?plain=1#L1008)
-- Other documents: [docs/plans/quantum.md:508](plans/quantum.md?plain=1#L508)
+- Other documents: [docs/plans/quantum.md:509](plans/quantum.md?plain=1#L509)
 
 #### Loh et al. 2009
 
@@ -2672,7 +2672,7 @@ P. Lundow, K. Markström, "Efficient computation of permanents, with application
 - Academy lessons: [quantum-light.md:273](../academy/quantum-light.md?plain=1#L273), [554](../academy/quantum-light.md?plain=1#L554)
 - Validation cases: [`quantum/permanent-formulas`](validation.md?plain=1#L888)
 - Code: [src/quantum/checks.rs:74](../src/quantum/checks.rs#L74), [src/quantum/permanent.rs:5](../src/quantum/permanent.rs#L5)
-- Other documents: [docs/plans/quantum.md:498](plans/quantum.md?plain=1#L498)
+- Other documents: [docs/plans/quantum.md:499](plans/quantum.md?plain=1#L499)
 
 #### Lyeo et al. 2006
 
@@ -2712,7 +2712,7 @@ M. J. Madou, "Fundamentals of Microfabrication and Nanotechnology, Three-Volume 
 L. S. Madsen, F. Laudenbach, M. F. Askarani, F. Rortais, T. Vincent, J. F. F. Bulmer, F. M. Miatto, L. Neuhaus, L. G. Helt, M. J. Collins, et al., "Quantum computational advantage with a programmable photonic processor", Nature 606, 75 (2022). [doi:10.1038/s41586-022-04725-x](https://doi.org/10.1038/s41586-022-04725-x), open access.
 
 - Academy lessons: [quantum-light.md:267](../academy/quantum-light.md?plain=1#L267), [820](../academy/quantum-light.md?plain=1#L820), [1007](../academy/quantum-light.md?plain=1#L1007)
-- Other documents: [docs/plans/quantum.md:507](plans/quantum.md?plain=1#L507)
+- Other documents: [docs/plans/quantum.md:508](plans/quantum.md?plain=1#L508)
 
 #### Majkić et al. 2017
 
@@ -2822,7 +2822,7 @@ D. Marcuse, "THE ASYMMETRIC SLAB WAVEGUIDE", Theory of Dielectric Optical Wavegu
 
 N. Maring, A. Fyrillas, M. Pont, E. Ivanov, P. Stepanov, N. Margaria, W. Hease, A. Pishchagin, A. Lemaître, I. Sagnes, et al., "A versatile single-photon-based quantum computing platform", Nat. Photon. 18, 603 (2024). [doi:10.1038/s41566-024-01403-4](https://doi.org/10.1038/s41566-024-01403-4), open access.
 
-- Other documents: [docs/plans/quantum.md:526](plans/quantum.md?plain=1#L526)
+- Other documents: [docs/plans/quantum.md:527](plans/quantum.md?plain=1#L527)
 
 #### Masetti et al. 1983
 
@@ -2862,7 +2862,7 @@ A. Mekis, S. Gloeckner, G. Masini, A. Narasimha, T. Pinguet, S. Sahni, P. De Dob
 N. C. Menicucci, P. van Loock, M. Gu, C. Weedbrook, T. C. Ralph, M. A. Nielsen, "Universal Quantum Computation with Continuous-Variable Cluster States", Phys. Rev. Lett. 97, 110501 (2006). [doi:10.1103/PhysRevLett.97.110501](https://doi.org/10.1103/PhysRevLett.97.110501)
 
 - Academy lessons: [quantum-light.md:93](../academy/quantum-light.md?plain=1#L93), [905](../academy/quantum-light.md?plain=1#L905), [990](../academy/quantum-light.md?plain=1#L990)
-- Other documents: [docs/plans/quantum.md:514](plans/quantum.md?plain=1#L514)
+- Other documents: [docs/plans/quantum.md:515](plans/quantum.md?plain=1#L515)
 
 #### Mezzadri 2007
 
@@ -3014,7 +3014,7 @@ R. Nehra, R. Sekine, L. Ledezma, Q. Guo, R. M. Gray, A. Roy, A. Marandi, "Few-cy
 - Academy lessons: [quantum-light.md:279](../academy/quantum-light.md?plain=1#L279), [784](../academy/quantum-light.md?plain=1#L784), [1015](../academy/quantum-light.md?plain=1#L1015)
 - Validation cases: [`quantum/nehra-inferred`](validation.md?plain=1#L927), [`quantum/nehra-all-optical`](validation.md?plain=1#L928), [`quantum/nehra-homodyne-bound`](validation.md?plain=1#L929)
 - Code: [src/quantum/light_checks.rs:221](../src/quantum/light_checks.rs#L221), [228](../src/quantum/light_checks.rs#L228), [235](../src/quantum/light_checks.rs#L235)
-- Other documents: [docs/plans/quantum.md:534](plans/quantum.md?plain=1#L534)
+- Other documents: [docs/plans/quantum.md:535](plans/quantum.md?plain=1#L535)
 
 #### Nelder and Mead 1965
 
@@ -3045,7 +3045,7 @@ L. Novotny, B. Hecht, "Principles of Nano-Optics", Cambridge University Press (2
 C. Oh, M. Liu, Y. Alexeev, B. Fefferman, L. Jiang, "Classical algorithm for simulating experimental Gaussian boson sampling", Nat. Phys. 20, 1461 (2024). [doi:10.1038/s41567-024-02535-8](https://doi.org/10.1038/s41567-024-02535-8)
 
 - Academy lessons: [quantum-light.md:297](../academy/quantum-light.md?plain=1#L297), [832](../academy/quantum-light.md?plain=1#L832), [1010](../academy/quantum-light.md?plain=1#L1010)
-- Other documents: [docs/plans/quantum.md:505](plans/quantum.md?plain=1#L505)
+- Other documents: [docs/plans/quantum.md:506](plans/quantum.md?plain=1#L506)
 
 #### Ohashi et al. 1993
 
@@ -3119,7 +3119,7 @@ S. Paesani, M. Borghi, S. Signorini, A. Maïnos, L. Pavesi, A. Laing, "Near-idea
 - Methods pages: [quantum.md:47](methods/quantum.md?plain=1#L47), [469](methods/quantum.md?plain=1#L469)
 - Academy lessons: [quantum-light.md:243](../academy/quantum-light.md?plain=1#L243), [721](../academy/quantum-light.md?plain=1#L721), [1012](../academy/quantum-light.md?plain=1#L1012)
 - Code: [src/quantum/intermodal.rs:19](../src/quantum/intermodal.rs#L19)
-- Other documents: [docs/plans/quantum.md:530](plans/quantum.md?plain=1#L530)
+- Other documents: [docs/plans/quantum.md:531](plans/quantum.md?plain=1#L531)
 
 #### Pai et al. 2019
 
@@ -3214,7 +3214,7 @@ W. Pernice, C. Schuck, O. Minaeva, M. Li, G. Goltsman, A. Sergienko, H. Tang, "H
 
 - Methods pages: [quantum.md:67](methods/quantum.md?plain=1#L67)
 - Code: [src/quantum/real_checks.rs:1161](../src/quantum/real_checks.rs#L1161)
-- Other documents: [docs/plans/quantum.md:538](plans/quantum.md?plain=1#L538)
+- Other documents: [docs/plans/quantum.md:539](plans/quantum.md?plain=1#L539)
 
 #### Peruzzo et al. 2010
 
@@ -3224,7 +3224,7 @@ A. Peruzzo, M. Lobino, J. C. F. Matthews, N. Matsuda, A. Politi, K. Poulios, X.-
 - Academy lessons: [quantum-light.md:111](../academy/quantum-light.md?plain=1#L111), [572](../academy/quantum-light.md?plain=1#L572), [995](../academy/quantum-light.md?plain=1#L995)
 - Validation cases: [`quantum/peruzzo-correlations`](validation.md?plain=1#L903), [`quantum/peruzzo-classical-bound`](validation.md?plain=1#L904)
 - Code: [src/quantum/checks.rs:179](../src/quantum/checks.rs#L179), [186](../src/quantum/checks.rs#L186), [src/quantum/walk.rs:2](../src/quantum/walk.rs#L2)
-- Other documents: [docs/plans/quantum.md:509](plans/quantum.md?plain=1#L509)
+- Other documents: [docs/plans/quantum.md:510](plans/quantum.md?plain=1#L510)
 
 #### Pettit and Turner 1965
 
@@ -3342,7 +3342,7 @@ M. J. Probst, A. Khurana, J. B. Slaby, A. M. Hammond, S. E. Ralph, "Fabrication 
 PsiQuantum team, K. Alexander, A. Benyamini, D. Black, D. Bonneau, S. Burgos, B. Burridge, H. Cable, G. Campbell, G. Catalano, et al., "A manufacturable platform for photonic quantum computing", Nature 641, 876 (2025). [doi:10.1038/s41586-025-08820-7](https://doi.org/10.1038/s41586-025-08820-7), open access.
 
 - Academy lessons: [quantum-light.md:303](../academy/quantum-light.md?plain=1#L303), [431](../academy/quantum-light.md?plain=1#L431), [924](../academy/quantum-light.md?plain=1#L924), [1017](../academy/quantum-light.md?plain=1#L1017)
-- Other documents: [docs/plans/quantum.md:525](plans/quantum.md?plain=1#L525)
+- Other documents: [docs/plans/quantum.md:526](plans/quantum.md?plain=1#L526)
 
 #### Pu et al. 2016
 
@@ -3368,7 +3368,7 @@ H. Qi, D. J. Brod, N. Quesada, R. García-Patrón, "Regimes of Classical Simulab
 - Academy lessons: [quantum-light.md:237](../academy/quantum-light.md?plain=1#L237), [827](../academy/quantum-light.md?plain=1#L827), [1009](../academy/quantum-light.md?plain=1#L1009)
 - Validation cases: [`quantum/qi-simulability`](validation.md?plain=1#L945)
 - Code: [src/quantum/budget.rs:15](../src/quantum/budget.rs#L15), [src/quantum/real_checks.rs:1451](../src/quantum/real_checks.rs#L1451)
-- Other documents: [docs/plans/quantum.md:504](plans/quantum.md?plain=1#L504)
+- Other documents: [docs/plans/quantum.md:505](plans/quantum.md?plain=1#L505)
 
 #### Quesada et al. 2018
 
@@ -3377,7 +3377,7 @@ N. Quesada, J. M. Arrazola, N. Killoran, "Gaussian boson sampling using threshol
 - Methods pages: [quantum.md:35](methods/quantum.md?plain=1#L35), [357](methods/quantum.md?plain=1#L357)
 - Validation cases: [`quantum/two-mode-thermal`](validation.md?plain=1#L911)
 - Code: [src/quantum/gaussian.rs:44](../src/quantum/gaussian.rs#L44), [src/quantum/hafnian.rs:14](../src/quantum/hafnian.rs#L14), [src/quantum/light_checks.rs:109](../src/quantum/light_checks.rs#L109)
-- Other documents: [docs/plans/quantum.md:502](plans/quantum.md?plain=1#L502)
+- Other documents: [docs/plans/quantum.md:503](plans/quantum.md?plain=1#L503)
 
 ### R
 
@@ -3406,7 +3406,7 @@ R. Rannacher, "Finite element solution of diffusion problems with irregular data
 R. Raussendorf, H. J. Briegel, "A One-Way Quantum Computer", Phys. Rev. Lett. 86, 5188 (2001). [doi:10.1103/PhysRevLett.86.5188](https://doi.org/10.1103/PhysRevLett.86.5188)
 
 - Academy lessons: [quantum-light.md:75](../academy/quantum-light.md?plain=1#L75), [882](../academy/quantum-light.md?plain=1#L882), [986](../academy/quantum-light.md?plain=1#L986)
-- Other documents: [docs/plans/quantum.md:488](plans/quantum.md?plain=1#L488)
+- Other documents: [docs/plans/quantum.md:489](plans/quantum.md?plain=1#L489)
 
 #### Rayleigh 1887
 
@@ -3428,7 +3428,7 @@ M. Reck, A. Zeilinger, H. J. Bernstein, P. Bertani, "Experimental realization of
 - Academy lessons: [mach-zehnder.md:52](../academy/mach-zehnder.md?plain=1#L52), [368](../academy/mach-zehnder.md?plain=1#L368), [quantum-light.md:57](../academy/quantum-light.md?plain=1#L57), [455](../academy/quantum-light.md?plain=1#L455), [981](../academy/quantum-light.md?plain=1#L981)
 - Validation cases: [`quantum/mesh-reconstruction`](validation.md?plain=1#L899)
 - Code: [src/quantum/checks.rs:151](../src/quantum/checks.rs#L151), [src/quantum/mesh.rs:3](../src/quantum/mesh.rs#L3)
-- Other documents: [ROADMAP.md:830](../ROADMAP.md?plain=1#L830), [docs/plans/optimization.md:618](plans/optimization.md?plain=1#L618), [docs/plans/quantum.md:479](plans/quantum.md?plain=1#L479)
+- Other documents: [ROADMAP.md:830](../ROADMAP.md?plain=1#L830), [docs/plans/optimization.md:618](plans/optimization.md?plain=1#L618), [docs/plans/quantum.md:480](plans/quantum.md?plain=1#L480)
 
 #### Reddy et al. 2020
 
@@ -3437,7 +3437,7 @@ D. V. Reddy, R. R. Nerem, S. W. Nam, R. P. Mirin, V. B. Verma, "Superconducting 
 - Methods pages: [catalogue.md:10](methods/catalogue.md?plain=1#L10), [502](methods/catalogue.md?plain=1#L502), [quantum.md:69](methods/quantum.md?plain=1#L69)
 - Validation cases: [`quantum/detector-stack-joule`](validation.md?plain=1#L951)
 - Code: [src/material/catalogue/films.rs:17](../src/material/catalogue/films.rs#L17), [168](../src/material/catalogue/films.rs#L168), [src/material/catalogue/references.rs:662](../src/material/catalogue/references.rs#L662), [663](../src/material/catalogue/references.rs#L663), [src/quantum/real_checks.rs:1493](../src/quantum/real_checks.rs#L1493)
-- Other documents: [docs/plans/quantum.md:537](plans/quantum.md?plain=1#L537)
+- Other documents: [docs/plans/quantum.md:538](plans/quantum.md?plain=1#L538)
 
 #### Reed et al. 2010
 
@@ -3551,7 +3551,7 @@ H. Ryser, "Combinatorial Mathematics", American Mathematical Society (1963). [do
 
 - Methods pages: [quantum.md:10](methods/quantum.md?plain=1#L10), [202](methods/quantum.md?plain=1#L202)
 - Code: [src/quantum/permanent.rs:5](../src/quantum/permanent.rs#L5)
-- Other documents: [docs/plans/quantum.md:497](plans/quantum.md?plain=1#L497)
+- Other documents: [docs/plans/quantum.md:498](plans/quantum.md?plain=1#L498)
 
 ### S
 
@@ -3794,7 +3794,7 @@ J. W. Silverstone, D. Bonneau, K. Ohira, N. Suzuki, H. Yoshida, N. Iizuka, M. Ez
 - Academy lessons: [nonlinear-optics.md:198](../academy/nonlinear-optics.md?plain=1#L198), [1060](../academy/nonlinear-optics.md?plain=1#L1060), [1123](../academy/nonlinear-optics.md?plain=1#L1123), [quantum-light.md:165](../academy/quantum-light.md?plain=1#L165), [733](../academy/quantum-light.md?plain=1#L733), [997](../academy/quantum-light.md?plain=1#L997)
 - Validation cases: [`quantum/silverstone-fringe`](validation.md?plain=1#L946)
 - Code: [src/quantum/pairs.rs:18](../src/quantum/pairs.rs#L18), [src/quantum/real_checks.rs:1458](../src/quantum/real_checks.rs#L1458)
-- Other documents: [docs/plans/quantum.md:529](plans/quantum.md?plain=1#L529)
+- Other documents: [docs/plans/quantum.md:530](plans/quantum.md?plain=1#L530)
 
 #### Sinatkas et al. 2021
 
@@ -4092,7 +4092,7 @@ E. Timurdogan, C. V. Poulton, M. J. Byrd, M. R. Watts, "Electric field-induced s
 
 N. Tomm, A. Javadi, N. O. Antoniadis, D. Najer, M. C. Löbl, A. R. Korsch, R. Schott, S. R. Valentin, A. D. Wieck, A. Ludwig, et al., "A bright and fast source of coherent single photons", Nat. Nanotechnol. 16, 399 (2021). [doi:10.1038/s41565-020-00831-x](https://doi.org/10.1038/s41565-020-00831-x)
 
-- Other documents: [docs/plans/quantum.md:535](plans/quantum.md?plain=1#L535)
+- Other documents: [docs/plans/quantum.md:536](plans/quantum.md?plain=1#L536)
 
 #### Triverio et al. 2009
 
@@ -4178,7 +4178,7 @@ V. D. Vaidya, B. Morrison, L. G. Helt, R. Shahrokshahi, D. H. Mahler, M. J. Coll
 - Academy lessons: [quantum-light.md:249](../academy/quantum-light.md?plain=1#L249), [778](../academy/quantum-light.md?plain=1#L778), [1013](../academy/quantum-light.md?plain=1#L1013)
 - Validation cases: [`quantum/vaidya-number-difference`](validation.md?plain=1#L925), [`quantum/vaidya-outcoupling`](validation.md?plain=1#L926)
 - Code: [src/quantum/light_checks.rs:207](../src/quantum/light_checks.rs#L207), [214](../src/quantum/light_checks.rs#L214)
-- Other documents: [docs/plans/quantum.md:533](plans/quantum.md?plain=1#L533)
+- Other documents: [docs/plans/quantum.md:534](plans/quantum.md?plain=1#L534)
 
 #### Valdez et al. 2023
 
@@ -4211,7 +4211,7 @@ M. Varnava, D. E. Browne, T. Rudolph, "How Good Must Single Photon Sources and D
 - Academy lessons: [quantum-light.md:99](../academy/quantum-light.md?plain=1#L99), [625](../academy/quantum-light.md?plain=1#L625), [991](../academy/quantum-light.md?plain=1#L991)
 - Validation cases: [`quantum/varnava-threshold`](validation.md?plain=1#L943)
 - Code: [src/quantum/budget.rs:11](../src/quantum/budget.rs#L11), [src/quantum/real_checks.rs:1437](../src/quantum/real_checks.rs#L1437), [studio/src-tauri/src/circuits/quantum.rs:589](../studio/src-tauri/src/circuits/quantum.rs#L589)
-- Other documents: [docs/plans/quantum.md:490](plans/quantum.md?plain=1#L490)
+- Other documents: [docs/plans/quantum.md:491](plans/quantum.md?plain=1#L491)
 
 #### Vassilevski 2018
 
@@ -4246,7 +4246,7 @@ Z. Vernon, M. Menotti, C. C. Tison, J. A. Steidle, M. L. Fanto, P. M. Thomas, S.
 - Academy lessons: [quantum-light.md:201](../academy/quantum-light.md?plain=1#L201), [689](../academy/quantum-light.md?plain=1#L689), [1011](../academy/quantum-light.md?plain=1#L1011)
 - Validation cases: [`quantum/ring-vernon-equal`](validation.md?plain=1#L921)
 - Code: [src/quantum/light_checks.rs:179](../src/quantum/light_checks.rs#L179), [src/quantum/ring.rs:39](../src/quantum/ring.rs#L39)
-- Other documents: [docs/plans/quantum.md:532](plans/quantum.md?plain=1#L532)
+- Other documents: [docs/plans/quantum.md:533](plans/quantum.md?plain=1#L533)
 
 #### Veronis et al. 2004
 
@@ -4341,7 +4341,7 @@ C. Wang, C. Langrock, A. Marandi, M. Jankowski, M. Zhang, B. Desiatov, M. M. Fej
 J. Wang, F. Sciarrino, A. Laing, M. G. Thompson, "Integrated photonic quantum technologies", Nat. Photonics 14, 273 (2019). [doi:10.1038/s41566-019-0532-1](https://doi.org/10.1038/s41566-019-0532-1)
 
 - Academy lessons: [quantum-light.md:231](../academy/quantum-light.md?plain=1#L231), [1004](../academy/quantum-light.md?plain=1#L1004)
-- Other documents: [docs/plans/quantum.md:524](plans/quantum.md?plain=1#L524)
+- Other documents: [docs/plans/quantum.md:525](plans/quantum.md?plain=1#L525)
 
 #### Wang et al. 2022
 
@@ -4378,7 +4378,7 @@ C. Weedbrook, S. Pirandola, R. García-Patrón, N. J. Cerf, T. C. Ralph, J. H. S
 - Academy lessons: [quantum-light.md:135](../academy/quantum-light.md?plain=1#L135), [761](../academy/quantum-light.md?plain=1#L761)
 - Validation cases: [`quantum/squeezed-vacuum`](validation.md?plain=1#L910), [`quantum/two-mode-thermal`](validation.md?plain=1#L911), [`quantum/displaced-states`](validation.md?plain=1#L913)
 - Code: [src/quantum/gaussian.rs:26](../src/quantum/gaussian.rs#L26), [src/quantum/light_checks.rs:102](../src/quantum/light_checks.rs#L102), [109](../src/quantum/light_checks.rs#L109), [123](../src/quantum/light_checks.rs#L123), [src/quantum/squeezer.rs:8](../src/quantum/squeezer.rs#L8)
-- Other documents: [docs/plans/quantum.md:515](plans/quantum.md?plain=1#L515)
+- Other documents: [docs/plans/quantum.md:516](plans/quantum.md?plain=1#L516)
 
 #### Wen 1969
 
@@ -4592,7 +4592,7 @@ J. Zhao, C. Ma, M. Rüsing, S. Mookherjea, "High Quality Entangled Photon Pair G
 - Validation cases: [`nonlinear/guide-zhao-period`](validation.md?plain=1#L829), [`job/nonlinear-ridge-zhao-period`](validation.md?plain=1#L838)
 - Examples: [README.md:86](../examples/README.md?plain=1#L86), [pairs_zhao.rs:6](../examples/pairs_zhao.rs#L6)
 - Code: [src/job/nonlinear_checks.rs:489](../src/job/nonlinear_checks.rs#L489), [src/nonlinear/guide_checks.rs:639](../src/nonlinear/guide_checks.rs#L639)
-- Other documents: [ROADMAP.md:871](../ROADMAP.md?plain=1#L871), [docs/plans/quantum.md:482](plans/quantum.md?plain=1#L482)
+- Other documents: [ROADMAP.md:871](../ROADMAP.md?plain=1#L871), [docs/plans/quantum.md:483](plans/quantum.md?plain=1#L483)
 
 #### Zhao et al. 2022
 
@@ -4616,7 +4616,7 @@ H.-S. Zhong, L.-C. Peng, Y. Li, Y. Hu, W. Li, J. Qin, D. Wu, W. Zhang, H. Li, L.
 H.-S. Zhong, H. Wang, Y.-H. Deng, M.-C. Chen, L.-C. Peng, Y.-H. Luo, J. Qin, D. Wu, X. Ding, Y. Hu, et al., "Quantum computational advantage using photons", Science 370, 1460 (2020). [doi:10.1126/science.abe8770](https://doi.org/10.1126/science.abe8770)
 
 - Academy lessons: [quantum-light.md:255](../academy/quantum-light.md?plain=1#L255), [818](../academy/quantum-light.md?plain=1#L818), [1006](../academy/quantum-light.md?plain=1#L1006)
-- Other documents: [docs/plans/quantum.md:506](plans/quantum.md?plain=1#L506)
+- Other documents: [docs/plans/quantum.md:507](plans/quantum.md?plain=1#L507)
 
 #### Zhou et al. 2015
 
