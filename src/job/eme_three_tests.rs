@@ -197,6 +197,23 @@ fn a_devices_sections_are_its_cut_and_the_run_is_the_library_to_the_bit() {
             .any(|[k, v]| k == "modes" && v.contains("every one")),
         "{details:?}"
     );
+    // then the cut's planes as its sections, each where the one before it ends
+    let sections = events
+        .iter()
+        .find_map(|e| match e {
+            Event::EmeSections { sections } => Some(sections.clone()),
+            _ => None,
+        })
+        .unwrap();
+    assert_eq!(sections.len(), cut.sections.len());
+    let mut z = 0.0;
+    for (k, (s, c)) in sections.iter().zip(&cut.sections).enumerate() {
+        assert_eq!(s.name, format!("cut {}", k + 1));
+        assert_eq!(s.kind, "cut");
+        assert_eq!(s.start_um, z);
+        assert_eq!(s.length_um, c.length.to_um());
+        z += s.length_um;
+    }
 }
 
 #[test]
@@ -280,7 +297,11 @@ fn check_refuses_what_a_3d_run_would() {
     );
     refused(
         &swap("height_um = 0.2", "height_um = 0.2\nalong_um = 0.1"),
-        "a [device]'s cut",
+        "a drawing's cut",
+    );
+    refused(
+        &swap("height_um = 0.2", "height_um = 0.2\nexact = true"),
+        "a drawing's cut",
     );
     // beside a device: no sections of its own, no quarter, no strips' fields
     refused(
@@ -299,6 +320,196 @@ fn check_refuses_what_a_3d_run_would() {
     refused(
         &DEVICE.replace("[task.plane]\nstep_um = [0.05, 0.055]\nmargins_um = [0.4, 0.33]\nsymmetry = \"half\"\n", ""),
         "give [task.plane]",
+    );
+}
+
+/// A strip taper drawn in the job on SOI's silicon at 1.55 µm: a guide 400 nm wide, a polygon
+/// widening to 600 nm over 0.4 µm, a guide 600 nm wide; cut from x = 0 to 0.4 µm on its half in
+/// steps of 0.1 µm, 40 modes.
+const DRAWING: &str = r#"
+name = "drawn-3d"
+timeout_minutes = 5
+
+[task]
+kind = "eme"
+wavelength_um = 1.55
+modes = 40
+stack = "soi_220"
+layer = "Si"
+x_um = [0.0, 0.4]
+
+[[task.rect]]
+layer = "Si"
+center_um = [-0.5, 0.0]
+size_um = [1.0, 0.4]
+
+[[task.shape]]
+type = "polygon"
+layer = "Si"
+points_um = [[0.0, -0.2], [0.4, -0.3], [0.4, 0.3], [0.0, 0.2]]
+
+[[task.rect]]
+layer = "Si"
+center_um = [0.9, 0.0]
+size_um = [1.0, 0.6]
+
+[task.plane]
+step_um = [0.05, 0.055]
+margins_um = [0.3, 0.33]
+symmetry = "half"
+along_um = 0.1
+"#;
+
+/// [`DRAWING`]'s structure, the library's way.
+fn drawing() -> crate::stack::Structure {
+    use crate::geometry::{Point, Polygon, Shape};
+    let mut s = crate::stack::Structure::new(crate::stack::LayerStack::soi_220());
+    let rect = |x: f64, l: f64, w: f64| {
+        Shape::rect(Point::um(x, 0.0), Length::um(l), Length::um(w)).unwrap()
+    };
+    s.draw("Si", rect(-0.5, 1.0, 0.4)).unwrap();
+    let points = [[0.0, -0.2], [0.4, -0.3], [0.4, 0.3], [0.0, 0.2]];
+    let polygon = Polygon::new(points.iter().map(|p| Point::um(p[0], p[1])).collect()).unwrap();
+    s.draw("Si", Shape::Polygon(polygon)).unwrap();
+    s.draw("Si", rect(0.9, 1.0, 0.6)).unwrap();
+    s
+}
+
+/// Every entry of a run's S against the library's `lib`, to the bit.
+fn assert_the_librarys(ports: &[String], s: &[Vec<[f64; 2]>], lib: &crate::eme::Scattering) {
+    let n1 = first_end(ports);
+    assert!(n1 >= 1 && ports.len() > n1, "{ports:?}");
+    let at = |q: usize, p: usize| match (q < n1, p < n1) {
+        (true, true) => lib.s11[q][p],
+        (true, false) => lib.s12[q][p - n1],
+        (false, true) => lib.s21[q - n1][p],
+        (false, false) => lib.s22[q - n1][p - n1],
+    };
+    for (q, row) in s.iter().enumerate() {
+        for (p, v) in row.iter().enumerate() {
+            assert_eq!([at(q, p).re, at(q, p).im], *v, "S[{q}][{p}]");
+        }
+    }
+}
+
+#[test]
+fn a_drawings_sections_are_its_cut_and_the_run_is_the_library_to_the_bit() {
+    let job = Job::parse(DRAWING).unwrap();
+    check(&job).unwrap();
+    let events = events(&job);
+    let cut = Cut::new(0.05, 0.055, 0.1)
+        .and_then(|c| c.with_margins(0.3, 0.33))
+        .unwrap()
+        .mirrored();
+    let sections = cut.structure(&drawing(), "Si", (0.0, 0.4), lam()).unwrap();
+    // the input guide, the taper's four steps, the output guide
+    assert_eq!(sections.sections.len(), 6);
+    let lib = Eme3d::new(lam(), 40)
+        .unwrap()
+        .s_matrix(&sections.sections)
+        .unwrap();
+    let got = s_parameters(&events);
+    assert_eq!(got.len(), 1);
+    assert_the_librarys(&got[0].0, &got[0].1, &lib);
+    // its scene, its three shapes drawn whole; and the solver's settings
+    let shapes = events
+        .iter()
+        .find_map(|e| match e {
+            Event::Scene { shapes, .. } => Some(shapes.len()),
+            _ => None,
+        })
+        .unwrap();
+    assert_eq!(shapes, 3);
+    let details = events
+        .iter()
+        .find_map(|e| match e {
+            Event::Solver { details, .. } => Some(details.clone()),
+            _ => None,
+        })
+        .unwrap();
+    assert!(
+        details
+            .iter()
+            .any(|[k, v]| k == "sections" && v.starts_with("cut from the drawing: 6")),
+        "{details:?}"
+    );
+    // and its preview is the same scene
+    assert!(matches!(super::preview(&job).unwrap(), Event::Scene { .. }));
+}
+
+#[test]
+fn a_drawing_cut_exactly_is_the_librarys_exact_cut() {
+    let job = Job::parse(&DRAWING.replace("along_um = 0.1", "exact = true")).unwrap();
+    check(&job).unwrap();
+    let cut = Cut::new(0.05, 0.055, 0.1)
+        .and_then(|c| c.with_margins(0.3, 0.33))
+        .unwrap()
+        .mirrored()
+        .exactly();
+    let sections = cut.structure(&drawing(), "Si", (0.0, 0.4), lam()).unwrap();
+    // the half's wall crosses 16 sampling points over its 0.1 µm (one every 6.25 nm across):
+    // 17 planes between the ends' guides
+    assert_eq!(sections.sections.len(), 19);
+    let lib = Eme3d::new(lam(), 40)
+        .unwrap()
+        .s_matrix(&sections.sections)
+        .unwrap();
+    let got = s_parameters(&events(&job));
+    assert_the_librarys(&got[0].0, &got[0].1, &lib);
+}
+
+#[test]
+fn check_refuses_what_a_drawings_run_would() {
+    let refused = |text: &str, says: &str| {
+        let err = check(&Job::parse(text).unwrap()).unwrap_err().to_string();
+        assert!(err.contains(says), "{err}");
+    };
+    let swap = |from: &str, to: &str| {
+        let text = DRAWING.replace(from, to);
+        assert_ne!(text, DRAWING, "{from}");
+        text
+    };
+    let plane = "[task.plane]\nstep_um = [0.05, 0.055]\nmargins_um = [0.3, 0.33]\nsymmetry = \"half\"\nalong_um = 0.1\n";
+    refused(&swap(plane, ""), "give [task.plane]");
+    refused(&swap("layer = \"Si\"\nx_um", "x_um"), "needs its layer");
+    refused(&swap("x_um = [0.0, 0.4]\n", ""), "needs x_um");
+    refused(
+        &swap("x_um = [0.0, 0.4]", "x_um = [0.4, 0.0]"),
+        "to a larger one",
+    );
+    refused(
+        &swap("x_um = [0.0, 0.4]", "x_um = [-1.5, 0.4]"),
+        "run on past both",
+    );
+    refused(
+        &swap("layer = \"Si\"\nx_um", "layer = \"core\"\nx_um"),
+        "no layer core",
+    );
+    refused(&swap("stack = \"soi_220\"\n", ""), "needs its stack");
+    refused(
+        &swap("symmetry = \"half\"", "symmetry = \"quarter\""),
+        "not a quarter",
+    );
+    refused(
+        &swap("along_um = 0.1", "along_um = 0.1\nexact = true"),
+        "along_um is the steps",
+    );
+    refused(
+        &swap("along_um = 0.1", "along_um = 0.1\ncells = [10, 10]"),
+        "not cells",
+    );
+    refused(
+        &(DRAWING.to_owned() + "\n[[task.section]]\nlength_um = 0.0\ncore_um = 0.5\n"),
+        "cut from its geometry",
+    );
+    refused(
+        &swap("modes = 40", "modes = 40\ncladding = 1.444"),
+        "cut from its geometry",
+    );
+    // a device draws its own
+    refused(
+        &DEVICE.replace("modes = 100000", "modes = 100000\nlayer = \"Si\""),
+        "a [device] draws its own",
     );
 }
 
@@ -331,4 +542,46 @@ fn a_3d_job_interpolates_over_its_sweep() {
         .and_then(|n| n.parse().ok())
         .unwrap();
     assert!((5..=9).contains(&solves), "{measure}");
+}
+
+#[test]
+fn a_3d_period_is_the_librarys_grating_to_the_bit() {
+    let job = STRIPS
+        .replace(
+            "length_um = 0.3\ncore_um = [0.4, 0.7]\nsteps = 3\n",
+            "length_um = 0.2\ncore_um = 0.7\n\n[[task.section]]\nlength_um = 0.2\ncore_um = 0.4\n",
+        )
+        .replace("modes = 40", "modes = 12")
+        + "\n[task.period]\nsections = [2, 3]\ncount = 3\n";
+    let job = Job::parse(&job).unwrap();
+    check(&job).unwrap();
+    let events = events(&job);
+    let got = s_parameters(&events);
+    let (ports, s) = &got[0];
+    assert_eq!(ports[0], "1 m0");
+    let grid = centred(24, 16, 0.05, 0.05);
+    let sections = [
+        Section3d::new(strip(grid, 0.4, 0.2), Length::ZERO),
+        Section3d::new(strip(grid, 0.7, 0.2), Length::um(0.2)),
+        Section3d::new(strip(grid, 0.4, 0.2), Length::um(0.2)),
+        Section3d::new(strip(grid, 0.7, 0.2), Length::ZERO),
+    ];
+    let eme = Eme3d::new(lam(), 12).unwrap();
+    let lib = eme.grating(&sections, 1..3, 3).unwrap();
+    assert_eq!([lib.s11[0][0].re, lib.s11[0][0].im], s[0][0]);
+    let bloch = eme.bloch(&sections[1..3]).unwrap();
+    let point = events
+        .iter()
+        .find_map(|e| match e {
+            Event::SweepPoint {
+                effective_indices,
+                te_fractions,
+                ..
+            } => Some((effective_indices.clone(), te_fractions.clone())),
+            _ => None,
+        })
+        .unwrap();
+    assert!(point.1.is_empty());
+    let n = bloch.effective_indices[0];
+    assert_eq!(point.0[0], [n.re, n.im]);
 }

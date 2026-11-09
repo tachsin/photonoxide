@@ -415,3 +415,48 @@ fn a_layered_capacitors_field_is_each_layers_own() {
         .boundary(Side::Bottom, Boundary::Fixed(0.0));
     assert!(elsewhere.electric_field(&phi).is_err());
 }
+
+#[test]
+fn a_conductivity_of_temperature_is_solved_by_picard_and_refused_elsewhere() {
+    let grid = || {
+        Grid::new(
+            Axis::uniform(0.0, 1.0, 1).unwrap(),
+            Axis::uniform(0.0, 2.0, 20).unwrap(),
+        )
+    };
+    let heater = Shape::rect(Point::um(0.5, 1.0), Length::um(1.0), Length::um(2.0)).unwrap();
+    let mut heat = crate::thermal::Heat::new(Section::new("oxide"), grid());
+    heat.conductivity("oxide", Tensor::isotropic(1.4))
+        .boundary(Side::Bottom, Boundary::Fixed(0.0))
+        .boundary(Side::Top, Boundary::Fixed(0.0))
+        .heater(heater, 100.0);
+    // without a slope it is the linear solve, in one step
+    let linear = heat.solve().unwrap();
+    let same = heat.solve_nonlinear(1e-12, 50).unwrap();
+    assert_eq!(same.iterations, 1);
+    assert_eq!(same.field.values(), linear.values());
+    // a slope of zero settles at the second step on the linear field
+    heat.conductivity_slope("oxide", 0.0, 20.0);
+    let flat = heat.solve_nonlinear(1e-12, 50).unwrap();
+    assert_eq!(flat.iterations, 2);
+    assert!(flat.change <= 1e-12 * linear.max().0);
+    // a falling conductivity heats more; the fixed-k solves refuse the problem
+    heat.conductivity_slope("oxide", -2e-3, 0.0);
+    let hotter = heat.solve_nonlinear(1e-12, 200).unwrap();
+    assert!(hotter.field.max().0 > linear.max().0);
+    assert!(heat.solve().is_err());
+    // too few steps, a bad tolerance or a conductivity that turns negative are errors
+    assert!(heat.solve_nonlinear(1e-12, 2).is_err());
+    assert!(heat.solve_nonlinear(0.0, 50).is_err());
+    heat.conductivity_slope("oxide", -1.0, 0.0);
+    assert!(heat.solve_nonlinear(1e-12, 50).is_err());
+}
+
+#[test]
+fn the_nonlinear_slab_meets_kirchhoffs_profile_at_second_order() {
+    let (e40, n40) = checks::nonlinear_slab(40);
+    let (e80, n80) = checks::nonlinear_slab(80);
+    let p = order_of(|n| checks::nonlinear_slab(n).0, 40);
+    println!("nonlinear slab 40: {e40:e} ({n40} steps), 80: {e80:e} ({n80} steps), order {p}");
+    assert!((p - 2.0).abs() < 0.1);
+}

@@ -1,0 +1,71 @@
+Header
+  Mesh DB "." "mesh"
+End
+
+Simulation
+  Coordinate System = Cartesian 2D
+  Coordinate Scaling = 1.0e-6
+  Simulation Type = Steady State
+  Steady State Max Iterations = 1
+  Output Intervals = 0
+End
+
+Body 1
+  Name = "oxide"
+  Equation = 1
+  Material = 1
+  Body Force = 1
+End
+
+Equation 1
+  Active Solvers(1) = 1
+End
+
+Solver 1
+  Equation = Heat Equation
+  Procedure = "HeatSolve" "HeatSolver"
+  Variable = Temperature
+  Linear System Solver = Direct
+  Linear System Direct Method = Umfpack
+  Nonlinear System Max Iterations = 200
+  Nonlinear System Convergence Tolerance = 1.0e-12
+  Nonlinear System Newton After Iterations = 1000
+  Nonlinear System Newton After Tolerance = 0.0
+  Nonlinear System Relaxation Factor = 1.0
+End
+
+Solver 2
+  Exec Solver = After All
+  Equation = SaveScalars
+  Procedure = "SaveData" "SaveScalars"
+  Filename = "scalars.dat"
+  Variable 1 = Temperature
+  Operator 1 = max
+End
+
+! k = k0 (1 + b T), k0 = 1.4 W/(m K), b = -0.002 per K: linear between the table's two points
+Material 1
+  Heat Conductivity = Variable Temperature
+    Real
+      0.0 1.400000e+00
+      200.0 8.400000e-01
+    End
+  Density = 1.0
+End
+
+! 560.0 W/m over the 1.0 x 2.0 um cross-section, W/m^3 (per mass, a density of 1)
+Body Force 1
+  Heat Source = 2.800000e+14
+End
+
+Boundary Condition 1
+  Name = "bottom"
+  Target Boundaries(1) = 1
+  Temperature = 0.0
+End
+
+Boundary Condition 2
+  Name = "top"
+  Target Boundaries(1) = 2
+  Temperature = 0.0
+End

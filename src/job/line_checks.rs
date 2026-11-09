@@ -1,7 +1,9 @@
 //! What the validation report checks a static job's `line` table on (#595): its dielectric loss
 //! with the catalogue's loss tangents (`catalogue_loss_tangents`), on two dielectrics in series
 //! between plates, against the closed form of capacitors in series and the tangents the catalogue
-//! prints at that frequency, read by hand.
+//! prints at that frequency, read by hand; and the same with each tangent a power law in frequency
+//! (`loss_tangent_exponent`), silicon's a conduction loss, against the closed form at each
+//! frequency.
 
 use super::{Event, execute};
 use crate::electro::line::DB_PER_NEPER;
@@ -78,21 +80,77 @@ fn plates_loss() -> f64 {
     (job - closed).abs() / closed
 }
 
+/// [`PLATES`]'s dielectric loss with each medium's tangent a power law, relative to the closed
+/// form at each of 25, 50 and 100 GHz (largest): given tangents (silicon 1e-3, oxide 1e-4 at
+/// 50 GHz, silicon's p = −1, a conduction loss, oxide's 0.5), and the catalogue's (silicon's
+/// 19e-4 as measured at 100 GHz, p = −1; fused silica's 1.0e-4 over 2 to 300 GHz, at the
+/// frequencies' geometric middle, p = 0.2). α_d = π f n Σ q_i tan δ_i (f/f_i)^{p_i} / c.
+fn law_loss() -> f64 {
+    let (oxide, silicon): (f64, f64) = (0.3 / 3.9, 0.5 / 11.7);
+    let n = (0.8 / (oxide + silicon)).sqrt();
+    let frequencies = [25.0, 50.0, 100.0];
+    let middle = (25.0f64 * 100.0).sqrt();
+    let jobs = [
+        (
+            "    loss_tangent: { Si: 1.0e-3, SiO2: 1.0e-4 }\n    loss_tangent_at_ghz: 50.0\n    \
+             loss_tangent_exponent: { Si: -1.0, SiO2: 0.5 }\n",
+            [(1.0e-3, 50.0, -1.0), (1.0e-4, 50.0, 0.5)],
+        ),
+        (
+            "    catalogue_loss_tangents: true\n    loss_tangent_exponent: { Si: -1.0, SiO2: 0.2 }\n",
+            [(19e-4, 100.0, -1.0), (1.0e-4, middle, 0.2)],
+        ),
+    ];
+    let mut worst = 0.0f64;
+    for (table, [si, ox]) in jobs {
+        let text = PLATES
+            .replace("    catalogue_loss_tangents: true\n", table)
+            .replace("[50.0, 100.0]", "[25.0, 50.0, 100.0]");
+        let v = values_of(&text);
+        for f in frequencies {
+            let job = named(&v, &format!("line at {f} GHz: dielectric loss"));
+            let law = |(t, f0, p): (f64, f64, f64)| t * (f / f0).powf(p);
+            let tan = (silicon * law(si) + oxide * law(ox)) / (oxide + silicon);
+            let closed =
+                std::f64::consts::PI * f * 1e9 * n * tan / SPEED_OF_LIGHT * DB_PER_NEPER / 100.0;
+            worst = worst.max((job - closed).abs() / closed);
+        }
+    }
+    worst
+}
+
 /// The cases.
 pub(crate) fn cases() -> Vec<Case> {
-    vec![Case {
-        id: "line/job-catalogue-tangents",
-        title: r"Travelling-wave electrodes as a job, the catalogue's loss tangents: a static job's `line` table with `catalogue_loss_tangents` and no tangent given, on two dielectrics in series between plates without ends (0.5 µm of silicon, $\varepsilon$ 11.7, under 0.3 µm of oxide, 3.9), at 50 and 100 GHz; its dielectric loss at 100 GHz (dB/cm) against $\alpha_d = \pi f n \sum_i q_i \tan\delta_i / c$, $n$ and the shares $q_i$ of capacitors in series, the tangents the catalogue prints nearest 70.7 GHz (relative error shown)",
-        tier: Tier::Analytic,
-        source: r"the energy of capacitors in series divides as their elastances $d_i/\varepsilon_i$, $n^2 = C/C_0$; the tangents read off J. W. Lamb, Int. J. Infrared Millim. Waves 17, 1997 (1996), doi:10.1007/BF02069487, Table I: fused silica (Spectrosil) $1.0 \times 10^{-4}$ over 2 to 300 GHz, silicon $19 \times 10^{-4}$ at 100 GHz",
-        run: || {
-            let e = plates_loss();
-            Outcome {
-                measured: e,
-                expected: 0.0,
-                tolerance: 1e-12,
-                error: e,
-            }
+    vec![
+        Case {
+            id: "line/job-catalogue-tangents",
+            title: r"Travelling-wave electrodes as a job, the catalogue's loss tangents: a static job's `line` table with `catalogue_loss_tangents` and no tangent given, on two dielectrics in series between plates without ends (0.5 µm of silicon, $\varepsilon$ 11.7, under 0.3 µm of oxide, 3.9), at 50 and 100 GHz; its dielectric loss at 100 GHz (dB/cm) against $\alpha_d = \pi f n \sum_i q_i \tan\delta_i / c$, $n$ and the shares $q_i$ of capacitors in series, the tangents the catalogue prints nearest 70.7 GHz (relative error shown)",
+            tier: Tier::Analytic,
+            source: r"the energy of capacitors in series divides as their elastances $d_i/\varepsilon_i$, $n^2 = C/C_0$; the tangents read off J. W. Lamb, Int. J. Infrared Millim. Waves 17, 1997 (1996), doi:10.1007/BF02069487, Table I: fused silica (Spectrosil) $1.0 \times 10^{-4}$ over 2 to 300 GHz, silicon $19 \times 10^{-4}$ at 100 GHz",
+            run: || {
+                let e = plates_loss();
+                Outcome {
+                    measured: e,
+                    expected: 0.0,
+                    tolerance: 1e-12,
+                    error: e,
+                }
+            },
         },
-    }]
+        Case {
+            id: "line/job-tangent-law",
+            title: r"Travelling-wave electrodes as a job, each loss tangent a power law in frequency (`loss_tangent_exponent`): the plates of `line/job-catalogue-tangents` at 25, 50 and 100 GHz, the tangents given at 50 GHz (silicon $10^{-3}$, $p = -1$, a conduction loss; oxide $10^{-4}$, $p = 0.5$) and the catalogue's (silicon's $19 \times 10^{-4}$ where it was measured, 100 GHz, $p = -1$; fused silica's, $p = 0.2$); the dielectric loss at each frequency (dB/cm) against $\alpha_d = \pi f n \sum_i q_i \tan\delta_i (f/f_i)^{p_i} / c$ (largest relative error shown)",
+            tier: Tier::Analytic,
+            source: r"the energy of capacitors in series divides as their elastances $d_i/\varepsilon_i$, $n^2 = C/C_0$; a conduction loss $\tan\delta = \sigma/(\omega\varepsilon_0\varepsilon')$, $p = -1$; the catalogue's tangents read off J. W. Lamb, Int. J. Infrared Millim. Waves 17, 1997 (1996), doi:10.1007/BF02069487, Table I",
+            run: || {
+                let e = law_loss();
+                Outcome {
+                    measured: e,
+                    expected: 0.0,
+                    tolerance: 1e-12,
+                    error: e,
+                }
+            },
+        },
+    ]
 }

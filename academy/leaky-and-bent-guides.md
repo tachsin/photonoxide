@@ -35,7 +35,7 @@ papers:
     doi: 10.1049/piee.1963.0044
     year: 1963
     role: origin
-    note: "Every wave a plane interface guides, as a pole of a source's field: surface waves, forward and backward, and complex waves, proper or improper. An improper wave grows away from the interface, isn't a mode, and is present only in a wedge between the interface and a ray from the source at its angle θc, along which it gives its power to the radiation; they called leaky every complex wave that does so, proper or not."
+    note: "Every wave a plane interface guides, as a pole of a source's field: surface waves, forward and backward, and complex waves, proper or improper. An improper wave grows away from the interface, isn't a mode, and is present only in a wedge between the interface and a ray from the source at its angle θc, along which it gives its power to the space wave, which carries it into the radiation field; they called leaky every complex wave that does so, proper or not."
   - cite: "T. Tamir, A. A. Oliner, Proc. IEE 110, 325 (1963)"
     title: "Guided complex waves. Part 2: Relation to radiation patterns"
     doi: 10.1049/piee.1963.0045
@@ -201,7 +201,8 @@ puts it so: an improper wave can never exist by itself as a mode of a spectral r
 is present in a source's field only inside a wedge between the interface and a ray from the source at
 their angle $\theta_c$, beyond $\theta$ and nearer the interface. Inside the wedge the field decays
 along every radius, so its growth with depth ends at that ray, along which it gives its power to
-the radiation (their Section 4). They called **leaky** every complex wave that radiates so, proper
+the space wave, the source's cylindrical wave, which carries it into the radiation field (their
+Section 4). They called **leaky** every complex wave that radiates so, proper
 or improper. [Part 2](https://doi.org/10.1049/piee.1963.0045) finds the radiation pattern from the
 wave's field along the interface: a wave excited in one direction only (their unidirectional
 excitation) gives a single peak a little nearer the normal than $\theta$ (its Eqs. 29 and 44), close to $\theta$
@@ -548,7 +549,7 @@ Leaky waves were first studied in microwave antennas that radiate along their le
 [Tamir and Oliner (1963)](https://doi.org/10.1049/piee.1963.0044) classified every wave a plane
 interface guides, surface waves and complex waves, proper and improper; showed that an improper
 wave, growing away from the interface, is present only in a wedge beside it and gives its power to
-the radiation along the wedge's edge; and in [Part 2](https://doi.org/10.1049/piee.1963.0045)
+the space wave along the wedge's edge, which carries it into the radiation; and in [Part 2](https://doi.org/10.1049/piee.1963.0045)
 found the peak that power makes in the radiation pattern. Integrated optics met
 radiating guides at once: in 1969
 [Marcatili](https://doi.org/10.1002/j.1538-7305.1969.tb01167.x) gave the radiation loss of a bent

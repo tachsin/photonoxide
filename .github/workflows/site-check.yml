@@ -1,0 +1,37 @@
+name: Site check
+
+# Does tachsin.gr/projects/photonoxide show the latest release? The overview's version, the
+# roadmap's milestones against ROADMAP.md at the release's tag, and the Python API reference's
+# version (.github/scripts/site-check.mjs, `just site-check`). Daily, so a release the site
+# doesn't show fails within a day; by hand after a deploy (Run workflow). It reads the public
+# pages only and never deploys: a failure says what the pages show and what to do.
+on:
+  schedule:
+    - cron: '41 6 * * *'
+  workflow_dispatch:
+    inputs:
+      wait:
+        description: minutes to keep trying until the pages agree
+        required: false
+        default: "0"
+
+permissions:
+  contents: read
+
+jobs:
+  site:
+    name: The site shows the latest release
+    if: ${{ github.repository_owner == 'tachsin' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          WAIT: ${{ inputs.wait || '0' }}
+        run: node .github/scripts/site-check.mjs --wait "$WAIT"

@@ -1,6 +1,7 @@
 // Papers as the window shows and exports them: the types of the paper engine (papers.rs), the
-// feed's topics, short author lists, a DOI or arXiv id read from what is pasted, and the reading
-// list as BibTeX or CSV. Plain functions, tested by tests/papers.test.ts.
+// feed's topics, short author lists, a DOI or arXiv id read from what is pasted, the journal
+// picker's choices, a journal's initials, and the reading list as BibTeX or CSV. Plain
+// functions, tested by tests/papers.test.ts.
 
 /** A paper in a list: no abstract, its first three authors and how many there are. */
 export interface PaperSummary {
@@ -38,11 +39,24 @@ export interface FeedState {
   source_errors: string[];
 }
 
+/** A source as the journal picker shows it; `id` is a journal's first ISSN, or "arxiv". */
+export interface Choice {
+  id: string;
+  name: string;
+  short: string;
+  publisher: string;
+  on: boolean;
+}
+
 export interface Feed {
   papers: PaperSummary[];
   state: FeedState;
   due: boolean;
   sources: string[];
+  /** Every source, on or off, for the journal picker. */
+  choices: Choice[];
+  /** The sources on that were never asked. */
+  missing: number;
 }
 
 export interface PaperReference {
@@ -91,6 +105,56 @@ export const PAPER_TOPICS: { id: string; label: string }[] = [
   { id: "modulators", label: "Modulators" },
   { id: "fabrication", label: "Fabrication" },
 ];
+
+// ---- the journal picker: the settings keep the sources turned off, so a journal added later starts on ----
+
+/** The ids turned off once `id` is turned on or off. */
+export function withSource(off: string[], id: string, on: boolean): string[] {
+  const rest = off.filter((x) => x !== id);
+  return on ? rest : [...rest, id];
+}
+
+/** The ids turned off when every source is on (`on`), or none is. */
+export function withAll(choices: Choice[], on: boolean): string[] {
+  return on ? [] : choices.map((c) => c.id);
+}
+
+/** What the picker's button says: "All sources", "5 of 17", "None". */
+export function pickerLabel(choices: Choice[]): string {
+  const on = choices.filter((c) => c.on).length;
+  if (on === choices.length) return "All sources";
+  return on ? `${on} of ${choices.length}` : "None";
+}
+
+/** Words a journal's initials skip. */
+const SMALL = new Set(["of", "and", "the", "&", "for", "in", "on"]);
+
+/**
+ * A journal's initials for its badge, from the feed's short name: "Nat. Photon." → "NP",
+ * "Phys. Rev. Lett." → "PRL", "Optica" → "Op", "arXiv" → "aX". Three letters at most.
+ */
+export function monogram(venue: string): string {
+  if (venue.trim().toLowerCase() === "arxiv") return "aX";
+  const words = venue
+    .split(/[\s.,:;/()-]+/)
+    .filter((w) => w && !SMALL.has(w.toLowerCase()) && /\p{L}/u.test(w));
+  if (!words.length) return "?";
+  if (words.length === 1) {
+    const [a, b = ""] = [...words[0]];
+    return a.toUpperCase() + b.toLowerCase();
+  }
+  return words
+    .slice(0, 3)
+    .map((w) => [...w][0].toUpperCase())
+    .join("");
+}
+
+/** A journal's badge hue, 0–359, the same for the same name on every start. */
+export function monogramHue(venue: string): number {
+  let h = 2166136261;
+  for (const c of venue) h = Math.imul(h ^ c.codePointAt(0)!, 16777619) >>> 0;
+  return h % 360;
+}
 
 /** "Smith", "Smith and Lee", "Smith et al." from the authors and how many there are. */
 export function shortAuthors(authors: string[], count = authors.length): string {

@@ -126,9 +126,14 @@ normal incidence reflects about $R^{\cos\theta}$. A thicker, stronger PML (40 ce
 brings R + T to 1 within 1e-6 at every angle.
 
 **The PML itself.** 20 cells graded to R = 1e-8 send back an amplitude of 2.5e-6 of a plane wave
-17° off normal in oxide, for both polarizations. That is the grading's prediction: the wave
-crosses the layer 1.38 times as fast as in vacuum, so its round trip keeps (1e-8)^1.38 of the
-power, an amplitude of 3e-6.
+17° off normal in oxide, for both polarizations. That is the discrete layer's own reflection,
+not the grading's. R is the round trip's amplitude at normal incidence in vacuum
+(σ_max = −(m + 1) ln R / (2η₀d), Shin and Fan 2012), so a wave whose wavenumber across the
+layer is 1.38 times the vacuum one keeps R^1.38 of its amplitude, about 1e-11, five orders below
+what comes back. What comes back is set by how many cells sample the grading, not by their size:
+2.5e-6 with 20 cells of 20 nm or of 10 nm, 1.6e-7 with 40 and 9.7e-9 with 80, falling as the
+fourth power of the count (m + 1 for the cubic grading; measured 4.01 and 4.00 a doubling, in
+`fdfd::tests`).
 
 ## Limits
 

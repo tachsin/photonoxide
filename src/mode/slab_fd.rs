@@ -153,7 +153,15 @@ impl Profile {
         let n_max =
             near.unwrap_or_else(|| self.cells.iter().map(|e| e.re.sqrt()).fold(1.0, f64::max));
         let shift = c64::new(k2 * n_max * n_max, 0.0);
-        let pairs = crate::eigen::nearest(n, &entries, shift, count, 1e-10)?;
+        let pairs = if residual_floor(&entries, shift) > TOLERANCE {
+            // on a fine grid A x loses ε‖A‖ to rounding, above the tolerance times β² (at
+            // 0.156 nm in a 4 µm window, 2.7e-10 against 1e-10): the residual computed with A
+            // can't certify a pair, so the shifted inverse's own residual, which has no such
+            // floor, accepts it
+            crate::eigen::nearest_small(n, &entries, shift, count, TOLERANCE)?
+        } else {
+            crate::eigen::nearest(n, &entries, shift, count, TOLERANCE)?
+        };
         Ok(pairs
             .into_iter()
             .map(|p| ProfileMode::new(k, p.value, &p.vector))
@@ -289,6 +297,23 @@ impl Profile {
     }
 }
 
+/// The relative residual each eigenpair of [`Profile::modes`] is accepted at.
+const TOLERANCE: f64 = 1e-10;
+
+/// What rounding leaves in a residual computed with the matrix of `entries`, relative to the
+/// eigenvalues near `shift` as [`crate::eigen::nearest`] measures them: ε‖A‖∞ / max(|σ|, 1).
+fn residual_floor(entries: &[(usize, usize, c64)], shift: c64) -> f64 {
+    let mut rows: Vec<f64> = Vec::new();
+    for &(i, _, v) in entries {
+        if rows.len() <= i {
+            rows.resize(i + 1, 0.0);
+        }
+        rows[i] += v.norm();
+    }
+    let norm = rows.iter().copied().fold(0.0, f64::max);
+    f64::EPSILON * norm / shift.norm().max(1.0)
+}
+
 impl ProfileMode {
     /// The mode of eigenvalue β² and field `vector` at wavenumber k, the field's peak 1.
     fn new(k: f64, beta2: c64, vector: &[c64]) -> ProfileMode {
@@ -361,6 +386,31 @@ mod tests {
                 let order = (w[0] / w[1]).abs().log2();
                 assert!((order - 2.0).abs() < 0.1, "{pol:?}: {errors:?}");
             }
+        }
+    }
+
+    /// The book's slab on grids down to 0.078 nm, 51 500 nodes, where a residual computed with
+    /// A has a rounding floor above the tolerance: second order to the exact index on to there.
+    #[test]
+    fn the_finest_grids_converge_too() {
+        let slab = Slab::new(1.444, 3.473, 1.444, Length::nm(220.0)).unwrap();
+        let exact = slab.modes(Polarization::Te, lam())[0].effective_index();
+        let error = |h: f64| {
+            book(h)
+                .modes(Polarization::Te, lam(), 1, Some(2.85))
+                .unwrap()[0]
+                .effective_index
+                .re
+                - exact
+        };
+        let errors: Vec<f64> = [0.000625, 0.0003125, 0.00015625, 0.000078125]
+            .into_iter()
+            .map(error)
+            .collect();
+        eprintln!("{errors:?}");
+        for w in errors.windows(2) {
+            let order = (w[0] / w[1]).abs().log2();
+            assert!((order - 2.0).abs() < 0.1, "{errors:?}");
         }
     }
 

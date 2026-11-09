@@ -186,6 +186,102 @@
       ],
       "type": "object"
     },
+    "BeamSpec": {
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "not": {
+            "required": [
+              "angle",
+              "angle_deg"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "center",
+              "center_um"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "waist",
+              "waist_um"
+            ]
+          }
+        },
+        {
+          "anyOf": [
+            {
+              "required": [
+                "waist_um"
+              ]
+            },
+            {
+              "required": [
+                "waist"
+              ]
+            }
+          ]
+        }
+      ],
+      "description": "A `[task.beam]`: a Gaussian across the first section's plane (`crate::eme::Beam`).",
+      "properties": {
+        "angle": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "The tilt of its phase fronts, degrees, toward +x (0 by default). With its unit in the value, in place of angle_deg: an angle with its unit, e.g. \"90 deg\"."
+        },
+        "angle_deg": {
+          "description": "The tilt of its phase fronts, degrees, toward +x (0 by default).",
+          "type": "number"
+        },
+        "center": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "Its centre, µm from the window's middle (0 by default). With its unit in the value, in place of center_um: a length with its unit, e.g. \"1.55 um\"."
+        },
+        "center_um": {
+          "description": "Its centre, µm from the window's middle (0 by default).",
+          "type": "number"
+        },
+        "index": {
+          "description": "The index of the medium the tilt is in: the cladding's by default.",
+          "type": "number"
+        },
+        "waist": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "Its waist, µm: the field falls to 1/e at the waist from its centre. With its unit in the value, in place of waist_um: a length with its unit, e.g. \"1.55 um\"."
+        },
+        "waist_um": {
+          "description": "Its waist, µm: the field falls to 1/e at the waist from its centre.",
+          "type": "number"
+        }
+      },
+      "type": "object"
+    },
     "Body": {
       "description": "A body in space over the structure, 3D only (docs/methods/bodies.md): a sphere, a box, an extrusion of a shape, or a union, intersection or difference of bodies, with its medium.",
       "properties": {
@@ -228,6 +324,24 @@
           "type": "string"
         }
       },
+      "type": "object"
+    },
+    "CarriersSpec": {
+      "additionalProperties": false,
+      "description": "`[task.pulse.two_photon.carriers]`: silicon's free carriers.",
+      "properties": {
+        "index_ratio": {
+          "description": "n₀/n, the material's index over the mode's (1 by default).",
+          "type": "number"
+        },
+        "lifetime_ps": {
+          "description": "The effective lifetime τ₀, ps.",
+          "type": "number"
+        }
+      },
+      "required": [
+        "lifetime_ps"
+      ],
       "type": "object"
     },
     "ChipTask": {
@@ -608,6 +722,15 @@
       "additionalProperties": false,
       "description": "A modes job's `[task.convergence]`: the grid study behind each mode's effective index. The modes are solved again on grids each twice as coarse, and the task's grid's Re n_eff, the number reported, is checked by `crate::convergence::Study::check`.",
       "properties": {
+        "budget": {
+          "description": "The most grids a driven run takes, the task's among them: 2 to 6 (4 by default).",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "drive": {
+          "description": "Drive the grid instead of checking it: halve the task's step until the first mode's Re n_eff changes by less than the tolerance and the estimate of its remaining error is within it (`crate::convergence::ToTolerance::grids`, the gate's estimate), then solve the modes on the grid it stopped at. A run whose budget runs out first fails, naming the last two values.",
+          "type": "boolean"
+        },
         "grids": {
           "description": "How many grids, the task's among them: 2 (a first-order estimate) or 3 (Richardson's, the default).",
           "minimum": 0,
@@ -2384,6 +2507,17 @@
                     ],
                     "description": "cover µm: 1 by default, from 0 to 10."
                   },
+                  "current": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "current mA: 0 by default, from 0 to 1000."
+                  },
                   "heater_thickness": {
                     "anyOf": [
                       {
@@ -3611,6 +3745,220 @@
       ],
       "type": "object"
     },
+    "DipTask": {
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "not": {
+            "required": [
+              "center",
+              "center_um"
+            ]
+          }
+        },
+        {
+          "anyOf": [
+            {
+              "required": [
+                "center_um"
+              ]
+            },
+            {
+              "required": [
+                "center"
+              ]
+            }
+          ]
+        },
+        {
+          "not": {
+            "required": [
+              "from",
+              "from_um"
+            ]
+          }
+        },
+        {
+          "anyOf": [
+            {
+              "required": [
+                "from_um"
+              ]
+            },
+            {
+              "required": [
+                "from"
+              ]
+            }
+          ]
+        },
+        {
+          "not": {
+            "required": [
+              "fwhm",
+              "fwhm_nm"
+            ]
+          }
+        },
+        {
+          "anyOf": [
+            {
+              "required": [
+                "fwhm_nm"
+              ]
+            },
+            {
+              "required": [
+                "fwhm"
+              ]
+            }
+          ]
+        },
+        {
+          "not": {
+            "required": [
+              "to",
+              "to_um"
+            ]
+          }
+        },
+        {
+          "anyOf": [
+            {
+              "required": [
+                "to_um"
+              ]
+            },
+            {
+              "required": [
+                "to"
+              ]
+            }
+          ]
+        }
+      ],
+      "description": "A Hong–Ou–Mandel dip: photon 1 into `inputs[0]`, delayed, photon 2 into `inputs[1]`, the coincidences between `outputs`.",
+      "properties": {
+        "center": {
+          "description": "Each photon's centre, µm. With its unit in the value, in place of center_um: a length with its unit, e.g. \"1.55 um\".",
+          "items": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "$ref": "#/$defs/Expression"
+              }
+            ]
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
+        "center_um": {
+          "description": "Each photon's centre, µm.",
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
+        "delays": {
+          "description": "How many delays (201 by default).",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "from": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "The band the chip's S(ω) is computed over, µm, and its points. With its unit in the value, in place of from_um: a length with its unit, e.g. \"1.55 um\"."
+        },
+        "from_um": {
+          "description": "The band the chip's S(ω) is computed over, µm, and its points.",
+          "type": "number"
+        },
+        "fwhm": {
+          "description": "The FWHM of each photon's power spectrum, nm (a transform-limited Gaussian). With its unit in the value, in place of fwhm_nm: a length with its unit, e.g. \"20 nm\".",
+          "items": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "$ref": "#/$defs/Expression"
+              }
+            ]
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
+        "fwhm_nm": {
+          "description": "The FWHM of each photon's power spectrum, nm (a transform-limited Gaussian).",
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
+        "inputs": {
+          "description": "The ports the photons enter by.",
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
+        "outputs": {
+          "description": "The ports whose coincidences are counted.",
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
+        "points": {
+          "description": "Its points.",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "span_ps": {
+          "description": "The delays from −span to +span, ps (four times the photons' coherence by default).",
+          "type": "number"
+        },
+        "to": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "Its end. With its unit in the value, in place of to_um: a length with its unit, e.g. \"1.55 um\"."
+        },
+        "to_um": {
+          "description": "Its end.",
+          "type": "number"
+        }
+      },
+      "required": [
+        "inputs",
+        "outputs",
+        "points"
+      ],
+      "type": "object"
+    },
     "EffectiveSpec": {
       "additionalProperties": false,
       "allOf": [
@@ -3919,6 +4267,22 @@
         {
           "not": {
             "required": [
+              "bend_step",
+              "bend_step_nm"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "bottom_oxide",
+              "bottom_oxide_um"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
               "wavelength",
               "wavelength_um"
             ]
@@ -3945,11 +4309,60 @@
               "window_um"
             ]
           }
+        },
+        {
+          "not": {
+            "required": [
+              "x",
+              "x_um"
+            ]
+          }
         }
       ],
       "properties": {
         "adaptive": {
           "$ref": "#/$defs/AdaptiveSpec"
+        },
+        "beam": {
+          "$ref": "#/$defs/BeamSpec",
+          "description": "A Gaussian beam launched on the first section's modes (2D, between walls without a PML): the shares of its power reflected, transmitted and carried by each guided mode at the last end, recorded at each wavelength."
+        },
+        "bend_step": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "A bend's thin layers' largest thickness in the mapped coordinate, nm (10 by default, `crate::eme::Eme::with_bend_step`): where `[task.convergence]` starts the bends' layers from, halving them until its quantity changes by less than its tolerance. With its unit in the value, in place of bend_step_nm: a length with its unit, e.g. \"20 nm\"."
+        },
+        "bend_step_nm": {
+          "description": "A bend's thin layers' largest thickness in the mapped coordinate, nm (10 by default, `crate::eme::Eme::with_bend_step`): where `[task.convergence]` starts the bends' layers from, halving them until its quantity changes by less than its tolerance.",
+          "type": "number"
+        },
+        "bottom_oxide": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "A named stack's bottom oxide, µm. With its unit in the value, in place of bottom_oxide_um: a length with its unit, e.g. \"1.55 um\"."
+        },
+        "bottom_oxide_um": {
+          "description": "A named stack's bottom oxide, µm.",
+          "type": "number"
+        },
+        "circle": {
+          "description": "A drawing's circles.",
+          "items": {
+            "$ref": "#/$defs/CircleSpec"
+          },
+          "type": "array"
         },
         "cladding": {
           "$ref": "#/$defs/Medium",
@@ -3962,17 +4375,36 @@
           "$ref": "#/$defs/Medium",
           "description": "The cores' medium, unless a section gives its own."
         },
+        "core_nm": {
+          "description": "A named stack's core thickness, nm.",
+          "type": "number"
+        },
         "interpolate": {
-          "$ref": "#/$defs/InterpolateSpec",
+          "$ref": "#/$defs/InterpolateSpec3",
           "description": "S over the sweep's wavelengths interpolated from a few solves, with its error stated."
         },
         "kind": {
+          "type": "string"
+        },
+        "layer": {
+          "description": "A drawing's core layer: the plane spans its shapes across and its thickness up, with `[task.plane]`'s margins.",
           "type": "string"
         },
         "modes": {
           "description": "The modes each section keeps (in 3D at most the plane's unknowns: more keeps them all).",
           "minimum": 0,
           "type": "integer"
+        },
+        "path": {
+          "description": "A drawing's paths: straights, arcs and tapers of a waveguide.",
+          "items": {
+            "$ref": "#/$defs/PathSpec"
+          },
+          "type": "array"
+        },
+        "period": {
+          "$ref": "#/$defs/PeriodSpec",
+          "description": "Some sections repeated: a grating, solved by repeated squaring of one period's S-matrix, and its Bloch modes recorded."
         },
         "plane": {
           "$ref": "#/$defs/PlaneSpec",
@@ -3985,12 +4417,37 @@
           "description": "`\"te\"` (the default; E along y, the direction the structure is uniform in) or `\"tm\"`.",
           "type": "string"
         },
+        "rect": {
+          "description": "A drawing's rectangles, as a structure job's.",
+          "items": {
+            "$ref": "#/$defs/RectSpec"
+          },
+          "type": "array"
+        },
+        "ring": {
+          "description": "A drawing's rings.",
+          "items": {
+            "$ref": "#/$defs/RingSpec"
+          },
+          "type": "array"
+        },
         "section": {
-          "description": "The sections in order along z (a `[device]`'s are cut from its geometry).",
+          "description": "The sections in order along z (a `[device]`'s or a drawing's are cut from its geometry).",
           "items": {
             "$ref": "#/$defs/SectionSpec"
           },
           "type": "array"
+        },
+        "shape": {
+          "description": "A drawing's shapes defined by functions, masks, polygons and booleans, and a GDSII file's cell on one of its layers (`type = \"gds\"`): a layout's sections cut from its file.",
+          "items": {
+            "$ref": "#/$defs/ShapeSpec"
+          },
+          "type": "array"
+        },
+        "stack": {
+          "$ref": "#/$defs/StackField",
+          "description": "A drawing's stack, its shapes drawn on it and cut into 3D sections along x (`crate::device::Cut`): a named one, `soi_220`, or `soi` / `nitride` with `core_nm` and `bottom_oxide_um`; or a `[task.stack]` table of layers."
         },
         "sweep": {
           "$ref": "#/$defs/WavelengthSweep2"
@@ -4037,6 +4494,31 @@
         "window_um": {
           "description": "The window's width across, wall to wall inside any PML, µm (the upper half's, when `symmetric`): a 2D job's.",
           "type": "number"
+        },
+        "x": {
+          "description": "Where a drawing is cut, from and to along x, µm: its guides must run on past both ends, whose cross-sections are the ports'. With its unit in the value, in place of x_um: a length with its unit, e.g. \"1.55 um\".",
+          "items": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "$ref": "#/$defs/Expression"
+              }
+            ]
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
+        "x_um": {
+          "description": "Where a drawing is cut, from and to along x, µm: its guides must run on past both ends, whose cross-sections are the ports'.",
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
         }
       },
       "required": [
@@ -4170,6 +4652,10 @@
             "type": "string"
           },
           "type": "array"
+        },
+        "cut_x": {
+          "description": "Where the exported cross-sections (`flow-01.svg`, ...) cut the wafer: the plane x, in µm, anywhere across the design's shapes and 1 µm beyond them; the middle of the shapes in x when it isn't given.",
+          "type": "number"
         },
         "kind": {
           "type": "string"
@@ -4402,6 +4888,10 @@
         "field_um": {
           "description": "The field is recorded at the swept wavelength nearest this (µm): the first by default.",
           "type": "number"
+        },
+        "interpolate": {
+          "$ref": "#/$defs/InterpolateSpec2",
+          "description": "S over the sweep's wavelengths interpolated from as few solves as a tolerance needs, its error stated (every entry on one set of wavelengths: `crate::sweep::SweepSet`)."
         },
         "kind": {
           "type": "string"
@@ -5242,6 +5732,44 @@
     },
     "InterpolateSpec": {
       "additionalProperties": false,
+      "description": "A modes job's `[task.interpolate]`: each mode's effective index and TE fraction over a wavelength sweep from as few solves as a tolerance needs, every one on one set of wavelengths (`crate::sweep::SweepSet`), the grid the same at every wavelength.",
+      "properties": {
+        "max_solves": {
+          "description": "The most solves: 200 by default, at least 5.",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "tolerance": {
+          "description": "The tolerance on every value, relative to the largest |n_eff| solved; at least 1e-13.",
+          "type": "number"
+        }
+      },
+      "required": [
+        "tolerance"
+      ],
+      "type": "object"
+    },
+    "InterpolateSpec2": {
+      "additionalProperties": false,
+      "description": "A `[task.interpolate]`: S over `[task.sweep]`'s wavelengths from as few solves as a tolerance needs, the grid and the ports the same at every wavelength.",
+      "properties": {
+        "max_solves": {
+          "description": "The most solves: 200 by default, at least 5.",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "tolerance": {
+          "description": "The tolerance on every entry of S, relative to the largest |S_qp| solved (they are at most 1: about an absolute one); at least 1e-13.",
+          "type": "number"
+        }
+      },
+      "required": [
+        "tolerance"
+      ],
+      "type": "object"
+    },
+    "InterpolateSpec3": {
+      "additionalProperties": false,
       "description": "A `[task.interpolate]`: S over `[task.sweep]`'s wavelengths from as few solves as a tolerance needs (`crate::eme::Spectrum`), the discretisation settled at `wavelength_um`.",
       "properties": {
         "max_solves": {
@@ -5650,6 +6178,25 @@
       "description": "A stack of your own (docs/methods/stacks.md): a substrate, a cladding and layers of the materials catalogue's, bottom to top, each with its thickness (thickness_um, or thickness as an expression). In a modes or structure job a crystal's table may give its orientation (docs/methods/catalogue.md): \"x-cut\", \"y-cut\", \"z-cut\", { cut, along_x }, or { euler_deg = [phi, theta, psi] } (z-x-z, degrees).",
       "type": "object"
     },
+    "LegTask": {
+      "additionalProperties": false,
+      "description": "A photon of a budget: from a port to another, along its best route.",
+      "properties": {
+        "from": {
+          "description": "The port it enters by.",
+          "type": "string"
+        },
+        "to": {
+          "description": "The port it leaves by.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "from",
+        "to"
+      ],
+      "type": "object"
+    },
     "LineConvergence": {
       "additionalProperties": false,
       "description": "`line.convergence`.",
@@ -5721,6 +6268,18 @@
           },
           "default": {},
           "description": "Each medium's loss tangent, by name.",
+          "type": "object"
+        },
+        "loss_tangent_at_ghz": {
+          "description": "The frequency the given loss tangents hold at, f_ref of `loss_tangent_exponent`, GHz (by default the frequencies' geometric middle). A catalogue's tangent holds at the frequency it was measured at.",
+          "type": "number"
+        },
+        "loss_tangent_exponent": {
+          "additionalProperties": {
+            "type": "number"
+          },
+          "default": {},
+          "description": "Each medium's loss tangent as a power law in frequency, by name: the exponent p of tan δ(f) = tan δ (f / f_ref)^p, −1 for a conduction loss (σ/(ωε₀ε′)). A medium without one keeps its tangent at every frequency.",
           "type": "object"
         },
         "mirrored": {
@@ -6108,6 +6667,10 @@
           "$ref": "#/$defs/ExportSpec",
           "description": "Writes each mode's complex fields, and a summary table of every mode, into the run's directory (issue #431; not a sweep's points, which stay pictures only)."
         },
+        "interpolate": {
+          "$ref": "#/$defs/InterpolateSpec",
+          "description": "Each mode's effective index and TE fraction over the wavelength sweep's points interpolated from as few solves as a tolerance needs, its error stated; the points then carry no pictures."
+        },
         "kind": {
           "type": "string"
         },
@@ -6147,6 +6710,10 @@
         "propagation": {
           "description": "`\"x\"` or `\"y\"` (the default, an older job): the axis the modes travel along.",
           "type": "string"
+        },
+        "quantities": {
+          "$ref": "#/$defs/QuantitiesSpec",
+          "description": "Each mode's quantities beside its index, recorded as a `mode_quantities` event after its field: its effective areas, its confinement in the guides, its products with the other modes and, with an n₂, its γ (`crate::mode::quantities`)."
         },
         "rect": {
           "items": {
@@ -6316,9 +6883,21 @@
           "description": "`\"shg\"`, `\"sfg\"`, `\"dfg\"`, `\"opa\"`, `\"spdc\"` or `\"fwm\"`.",
           "type": "string"
         },
+        "pulse": {
+          "$ref": "#/$defs/PulseSpec",
+          "description": "A pulse along four-wave mixing's guide by the NLSE's split-step, and optionally a second pulse at the signal's wavelength coupled to it by cross-phase modulation (`crate::nonlinear::pulse`, `crate::nonlinear::xpm`)."
+        },
         "pump": {
           "$ref": "#/$defs/PumpSpec",
           "description": "The pump: SHG's fundamental, SFG's first input, the others' pump."
+        },
+        "ring": {
+          "$ref": "#/$defs/RingSpec2",
+          "description": "The guide closed into an all-pass ring resonant at every wave, its circumference `length_mm`: SHG of type I and FWM only (`crate::nonlinear::cavity`)."
+        },
+        "shg_type": {
+          "description": "SHG's type: `\"i\"` (the default: both fundamental photons in one wave, one index) or `\"ii\"` (in two waves, the first and second fundamental, each its own index, axis or mode family; the pump's power split equally between them, a fundamental polarized at 45° to both). Type II's waves are the two fundamentals and the harmonic.",
+          "type": "string"
         },
         "signal": {
           "$ref": "#/$defs/SignalSpec",
@@ -6724,6 +7303,66 @@
       ],
       "type": "object"
     },
+    "PerWave": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "items": {
+            "type": "number"
+          },
+          "type": "array"
+        }
+      ],
+      "description": "One value for every wave, or one per wave."
+    },
+    "PeriodSpec": {
+      "additionalProperties": false,
+      "description": "A `[task.period]`: some of the sections, in order, repeated as a grating.",
+      "properties": {
+        "count": {
+          "description": "How many periods, at least 1.",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "sections": {
+          "description": "The first and the last of the sections that make one period, counted from 1 in the order of `[[task.section]]`; not the ports (the first and last sections).",
+          "items": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        }
+      },
+      "required": [
+        "sections",
+        "count"
+      ],
+      "type": "object"
+    },
+    "PhotonsOn": {
+      "additionalProperties": false,
+      "description": "Photons on a port.",
+      "properties": {
+        "count": {
+          "description": "How many photons.",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "port": {
+          "description": "The port.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "port",
+        "count"
+      ],
+      "type": "object"
+    },
     "PlaceSpec": {
       "additionalProperties": false,
       "allOf": [
@@ -6868,10 +7507,10 @@
               "$ref": "#/$defs/Expression"
             }
           ],
-          "description": "Beside a `[device]`: the longest step of a run of sloped outlines (a taper's sides, a curve), µm; 0.1 by default. With its unit in the value, in place of along_um: a length with its unit, e.g. \"1.55 um\"."
+          "description": "Beside a `[device]` or with a drawing: the longest step of a run of sloped outlines (a taper's sides, a curve), µm; 0.1 by default. With its unit in the value, in place of along_um: a length with its unit, e.g. \"1.55 um\"."
         },
         "along_um": {
-          "description": "Beside a `[device]`: the longest step of a run of sloped outlines (a taper's sides, a curve), µm; 0.1 by default.",
+          "description": "Beside a `[device]` or with a drawing: the longest step of a run of sloped outlines (a taper's sides, a curve), µm; 0.1 by default.",
           "type": "number"
         },
         "cells": {
@@ -6883,6 +7522,10 @@
           "maxItems": 2,
           "minItems": 2,
           "type": "array"
+        },
+        "exact": {
+          "description": "Beside a `[device]` or with a drawing: cut at every x where the plane changes (where a sloped outline crosses one of the points each cell is averaged from), so that each section holds over its whole length and the cut has no step error, instead of in steps of `along_um`; false by default.",
+          "type": "boolean"
         },
         "height": {
           "anyOf": [
@@ -6900,7 +7543,7 @@
           "type": "number"
         },
         "margins": {
-          "description": "Beside a `[device]`: the cladding kept beside its core's shapes and below and above its layer, µm; [0.5, 0.5] by default. With its unit in the value, in place of margins_um: a length with its unit, e.g. \"1.55 um\".",
+          "description": "Beside a `[device]` or with a drawing: the cladding kept beside its core's shapes and below and above its layer, µm; [0.5, 0.5] by default. With its unit in the value, in place of margins_um: a length with its unit, e.g. \"1.55 um\".",
           "items": {
             "anyOf": [
               {
@@ -6916,7 +7559,7 @@
           "type": "array"
         },
         "margins_um": {
-          "description": "Beside a `[device]`: the cladding kept beside its core's shapes and below and above its layer, µm; [0.5, 0.5] by default.",
+          "description": "Beside a `[device]` or with a drawing: the cladding kept beside its core's shapes and below and above its layer, µm; [0.5, 0.5] by default.",
           "items": {
             "type": "number"
           },
@@ -6925,7 +7568,7 @@
           "type": "array"
         },
         "step": {
-          "description": "The cells' size across (x) and up (y), µm; beside a `[device]`, across its y and up its z (the device runs along x). With its unit in the value, in place of step_um: a length with its unit, e.g. \"1.55 um\".",
+          "description": "The cells' size across (x) and up (y), µm; beside a `[device]` or with a drawing, across its y and up its z (the device runs along x). With its unit in the value, in place of step_um: a length with its unit, e.g. \"1.55 um\".",
           "items": {
             "anyOf": [
               {
@@ -6941,7 +7584,7 @@
           "type": "array"
         },
         "step_um": {
-          "description": "The cells' size across (x) and up (y), µm; beside a `[device]`, across its y and up its z (the device runs along x).",
+          "description": "The cells' size across (x) and up (y), µm; beside a `[device]` or with a drawing, across its y and up its z (the device runs along x).",
           "items": {
             "type": "number"
           },
@@ -7231,6 +7874,67 @@
       },
       "type": "object"
     },
+    "PulseSpec": {
+      "additionalProperties": false,
+      "description": "`[task.pulse]`: a pulse launched into four-wave mixing's guide at the pump's wavelength, its γ the guide's `gamma_per_w_m`, its loss the pump's, over the task's `length_mm`.",
+      "properties": {
+        "dispersion_ps_per_m": {
+          "description": "β₂, β₃, … at the pump's wavelength, ps^k/m (1 ps²/m is 1000 ps²/km): at least β₂.",
+          "items": {
+            "type": "number"
+          },
+          "type": "array"
+        },
+        "peak_power_w": {
+          "description": "The peak power P₀, W.",
+          "type": "number"
+        },
+        "points": {
+          "description": "The points across the window, a power of two: 1024 by default.",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "raman": {
+          "description": "Silica's delayed Raman response (Agrawal's Eq. (2.3.39); false by default).",
+          "type": "boolean"
+        },
+        "second": {
+          "$ref": "#/$defs/SecondSpec",
+          "description": "A second pulse at the signal's wavelength, coupled to the first by cross-phase modulation (Kerr only: no Raman, self-steepening or two-photon absorption with it)."
+        },
+        "self_steepening": {
+          "description": "Self-steepening, γ/ω₀ (false by default).",
+          "type": "boolean"
+        },
+        "shape": {
+          "description": "`\"sech\"` (the default), √P₀ sech(T/T₀), or `\"gaussian\"`, √P₀ exp(−T²/2T₀²).",
+          "type": "string"
+        },
+        "steps": {
+          "description": "The split steps over the length: 2000 by default.",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "t0_ps": {
+          "description": "T₀, ps.",
+          "type": "number"
+        },
+        "two_photon": {
+          "$ref": "#/$defs/TwoPhotonSpec",
+          "description": "Two-photon absorption, and the free carriers it makes (Lin, Painter and Agrawal 2007)."
+        },
+        "window_ps": {
+          "description": "The time window, ps: 50 T₀ by default. The grid is periodic, so the window must hold the pulse and what it sheds.",
+          "type": "number"
+        }
+      },
+      "required": [
+        "peak_power_w",
+        "t0_ps",
+        "dispersion_ps_per_m"
+      ],
+      "type": "object"
+    },
     "PumpSpec": {
       "additionalProperties": false,
       "allOf": [
@@ -7302,6 +8006,106 @@
           "type": "number"
         }
       },
+      "type": "object"
+    },
+    "QuantitiesSpec": {
+      "additionalProperties": false,
+      "description": "A modes job's `[task.quantities]`: what each mode gives beside its index.",
+      "properties": {
+        "nonlinear_index_m2_per_w": {
+          "description": "A nonlinear index n₂, m²/W, uniform across the section, for each mode's γ = 2π n₂/(λ A_eff); none without it.",
+          "type": "number"
+        }
+      },
+      "type": "object"
+    },
+    "QuantumTask": {
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "not": {
+            "required": [
+              "wavelength",
+              "wavelength_um"
+            ]
+          }
+        },
+        {
+          "anyOf": [
+            {
+              "required": [
+                "wavelength_um"
+              ]
+            },
+            {
+              "required": [
+                "wavelength"
+              ]
+            }
+          ]
+        }
+      ],
+      "description": "A `\"quantum\"` task: its wavelength, and what it computes there.",
+      "properties": {
+        "budget": {
+          "default": [],
+          "description": "A loss budget: each photon's best route from a port to another.",
+          "items": {
+            "$ref": "#/$defs/LegTask"
+          },
+          "type": "array"
+        },
+        "dip": {
+          "$ref": "#/$defs/DipTask",
+          "description": "A Hong–Ou–Mandel dip through the chip's S(ω)."
+        },
+        "export": {
+          "$ref": "#/$defs/ExportSpec",
+          "description": "What the run writes beside its record: none of a chip's."
+        },
+        "kind": {
+          "description": "`\"quantum\"`.",
+          "type": "string"
+        },
+        "photons": {
+          "default": [],
+          "description": "Photons on the external ports: their statistics, and their samples.",
+          "items": {
+            "$ref": "#/$defs/PhotonsOn"
+          },
+          "type": "array"
+        },
+        "sample": {
+          "$ref": "#/$defs/SampleTask",
+          "description": "Samples of those photons, counted against their exact distribution."
+        },
+        "squeezed": {
+          "default": [],
+          "description": "Squeezed light on ports.",
+          "items": {
+            "$ref": "#/$defs/SqueezedTask"
+          },
+          "type": "array"
+        },
+        "wavelength": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "The wavelength of the statistics, the samples, the budget and the squeezed light, µm. With its unit in the value, in place of wavelength_um: a length with its unit, e.g. \"1.55 um\"."
+        },
+        "wavelength_um": {
+          "description": "The wavelength of the statistics, the samples, the budget and the squeezed light, µm.",
+          "type": "number"
+        }
+      },
+      "required": [
+        "kind"
+      ],
       "type": "object"
     },
     "RailSpec": {
@@ -7832,9 +8636,96 @@
       ],
       "type": "object"
     },
+    "RingSpec2": {
+      "additionalProperties": false,
+      "description": "`[task.ring]`: an all-pass ring of the task's guide, every wave on its resonance.",
+      "properties": {
+        "coupling": {
+          "$ref": "#/$defs/PerWave",
+          "description": "Each wave's power coupling k² to the bus, above 0 and at most 1: one for every wave, or one per wave in the process's order."
+        }
+      },
+      "required": [
+        "coupling"
+      ],
+      "type": "object"
+    },
+    "SampleTask": {
+      "additionalProperties": false,
+      "description": "Samples of the photons.",
+      "properties": {
+        "samples": {
+          "description": "How many.",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "seed": {
+          "description": "The seed: the same seed draws the same samples.",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "samples",
+        "seed"
+      ],
+      "type": "object"
+    },
+    "SecondSpec": {
+      "additionalProperties": false,
+      "description": "`[task.pulse.second]`: a second pulse at the signal's wavelength, centred `delay_ps` after the first, on the same grid; its loss the signal's.",
+      "properties": {
+        "delay_ps": {
+          "description": "Where it is centred at the start, ps after the first (0 by default).",
+          "type": "number"
+        },
+        "dispersion_ps_per_m": {
+          "description": "Its β₂, β₃, … at the signal's wavelength, ps^k/m.",
+          "items": {
+            "type": "number"
+          },
+          "type": "array"
+        },
+        "gamma_per_w_m": {
+          "description": "Its γ, 1/(W·m): the guide's times the pump's wavelength over the signal's by default (one effective area and n₂ for both).",
+          "type": "number"
+        },
+        "peak_power_w": {
+          "description": "Its peak power, W.",
+          "type": "number"
+        },
+        "shape": {
+          "description": "`\"sech\"` or `\"gaussian\"`: the first pulse's shape by default.",
+          "type": "string"
+        },
+        "t0_ps": {
+          "description": "Its T₀, ps.",
+          "type": "number"
+        },
+        "walk_off_ps_per_m": {
+          "description": "The walk-off d = 1/v_g2 − 1/v_g1, ps/m: positive when the second pulse is slower.",
+          "type": "number"
+        }
+      },
+      "required": [
+        "peak_power_w",
+        "t0_ps",
+        "dispersion_ps_per_m",
+        "walk_off_ps_per_m"
+      ],
+      "type": "object"
+    },
     "SectionSpec": {
       "additionalProperties": false,
       "allOf": [
+        {
+          "not": {
+            "required": [
+              "angle",
+              "angle_deg"
+            ]
+          }
+        },
         {
           "not": {
             "required": [
@@ -7852,22 +8743,31 @@
           }
         },
         {
-          "anyOf": [
-            {
-              "required": [
-                "length_um"
-              ]
-            },
-            {
-              "required": [
-                "length"
-              ]
-            }
-          ]
+          "not": {
+            "required": [
+              "radius",
+              "radius_um"
+            ]
+          }
         }
       ],
-      "description": "A `[[task.section]]`: a straight or a taper, in order along z.",
+      "description": "A `[[task.section]]`: a straight, a taper or a bend, in order along z.",
       "properties": {
+        "angle": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "A bend's angle, degrees. With its unit in the value, in place of angle_deg: an angle with its unit, e.g. \"90 deg\"."
+        },
+        "angle_deg": {
+          "description": "A bend's angle, degrees.",
+          "type": "number"
+        },
         "center": {
           "anyOf": [
             {
@@ -7907,10 +8807,10 @@
               "$ref": "#/$defs/Expression"
             }
           ],
-          "description": "Its length along z, µm: 0 for a port's reference plane. With its unit in the value, in place of length_um: a length with its unit, e.g. \"1.55 um\"."
+          "description": "Its length along z, µm: 0 for a port's reference plane. A bend's is its arc, from `radius_um` and `angle_deg`. With its unit in the value, in place of length_um: a length with its unit, e.g. \"1.55 um\"."
         },
         "length_um": {
-          "description": "Its length along z, µm: 0 for a port's reference plane.",
+          "description": "Its length along z, µm: 0 for a port's reference plane. A bend's is its arc, from `radius_um` and `angle_deg`.",
           "type": "number"
         },
         "name": {
@@ -7920,6 +8820,21 @@
         "profile": {
           "description": "A taper's profile: `\"linear\"` (the default), `\"parabolic\"` (the thickness squared linear) or `\"exponential\"`.",
           "type": "string"
+        },
+        "radius": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "A bend's radius, µm, to the core's centre (to the window's middle for layers): positive turning towards the lower wall (the bend's centre beyond it), negative towards the upper. With `angle_deg` the section is a bend in the plane of the window, by the conformal map (`crate::eme::Slice::bent`). With its unit in the value, in place of radius_um: a length with its unit, e.g. \"1.55 um\"."
+        },
+        "radius_um": {
+          "description": "A bend's radius, µm, to the core's centre (to the window's middle for layers): positive turning towards the lower wall (the bend's centre beyond it), negative towards the upper. With `angle_deg` the section is a bend in the plane of the window, by the conformal map (`crate::eme::Slice::bent`).",
+          "type": "number"
         },
         "steps": {
           "description": "A taper's steps: equal ones, or the first ones `[task.adaptive]` refines; 10 by default.",
@@ -10366,6 +11281,65 @@
       ],
       "type": "object"
     },
+    "SqueezedTask": {
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "not": {
+            "required": [
+              "angle",
+              "angle_deg"
+            ]
+          }
+        }
+      ],
+      "description": "Squeezed vacuum on a port, then displaced.",
+      "properties": {
+        "angle": {
+          "anyOf": [
+            {
+              "default": 0.0,
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "φ of ξ = r e^{iφ}, degrees: x squeezed at 0, p at 180. With its unit in the value, in place of angle_deg: an angle with its unit, e.g. \"90 deg\"."
+        },
+        "angle_deg": {
+          "default": 0.0,
+          "description": "φ of ξ = r e^{iφ}, degrees: x squeezed at 0, p at 180.",
+          "type": "number"
+        },
+        "displacement": {
+          "default": [
+            0.0,
+            0.0
+          ],
+          "description": "α, its real and imaginary parts.",
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
+        "port": {
+          "description": "The port.",
+          "type": "string"
+        },
+        "squeezing_db": {
+          "description": "10 log₁₀ e^{2r}: the squeezed quadrature's variance below the vacuum's, dB.",
+          "type": "number"
+        }
+      },
+      "required": [
+        "port",
+        "squeezing_db"
+      ],
+      "type": "object"
+    },
     "StackField": {
       "anyOf": [
         {
@@ -11474,6 +12448,10 @@
     "SweepSpec": {
       "additionalProperties": false,
       "properties": {
+        "follow": {
+          "description": "How the modes are numbered from point to point: `\"index\"` (the default), by effective index at each point, highest first; or `\"overlap\"` (a wavelength sweep only), mode k at each point the one whose field overlaps mode k's at the point before most, mode k at the first point the k-th by index: each mode keeps its number through crossings. The points are then solved one after another.",
+          "type": "string"
+        },
         "from": {
           "anyOf": [
             {
@@ -11577,6 +12555,29 @@
       "required": [
         "step_ns",
         "duration_us"
+      ],
+      "type": "object"
+    },
+    "TwoPhotonSpec": {
+      "additionalProperties": false,
+      "description": "`[task.pulse.two_photon]`.",
+      "properties": {
+        "area_um2": {
+          "description": "The mode's effective area ā, µm².",
+          "type": "number"
+        },
+        "carriers": {
+          "$ref": "#/$defs/CarriersSpec",
+          "description": "The free carriers, silicon's (σ_a and σ_n of Lin et al.'s Eq. (20), scaled by (λ/1.55 µm)²); none by default."
+        },
+        "coefficient_m_per_w": {
+          "description": "β_T, m/W (0.5 cm/GW is 5e-12 m/W).",
+          "type": "number"
+        }
+      },
+      "required": [
+        "coefficient_m_per_w",
+        "area_um2"
       ],
       "type": "object"
     },
@@ -11830,6 +12831,21 @@
                 "then": {
                   "$ref": "#/$defs/OptimizeTask"
                 }
+              },
+              {
+                "if": {
+                  "properties": {
+                    "kind": {
+                      "const": "quantum"
+                    }
+                  },
+                  "required": [
+                    "kind"
+                  ]
+                },
+                "then": {
+                  "$ref": "#/$defs/QuantumTask"
+                }
               }
             ],
             "properties": {
@@ -11839,7 +12855,8 @@
                   "spectrum",
                   "sweep",
                   "corners",
-                  "optimize"
+                  "optimize",
+                  "quantum"
                 ]
               }
             },

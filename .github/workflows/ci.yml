@@ -8,13 +8,19 @@ name: CI
 #   Files nothing reads run only the docs' links. A pull request that changes the library (src/
 #   or the root Cargo.toml) has its public API checked against its base's (cargo-semver-checks).
 # - Tier 2, the release pull request (release-plz's branch), a pull request labelled `full-ci`
-#   (the Full CI workflow starts it), and a change to this workflow or to Cargo.toml or
-#   Cargo.lock: everything, the tests on Linux, Windows and macOS, single-threaded too, every
-#   example on all three systems, the 3D devices, the whole validation report and the studio on
-#   each system.
+#   (the Full CI workflow starts it), and a change to this workflow, to its shards
+#   (.github/shards.sh) or to Cargo.toml or Cargo.lock: everything, the tests on Linux, Windows
+#   and macOS, single-threaded too, every example on all three systems, the 3D devices, the whole
+#   validation report and the studio on each system.
 # - Tier 3, Mondays (the Weekly workflow, when code changed in the past seven days) and by hand
 #   (Run workflow): Tier 2, and the Weekly workflow adds the Libraries workflow's installs, the
 #   Systems comparison and every Python wheel.
+#
+# What a run checks is split among runners (.github/shards.sh, by measured times): the unit tests
+# in two jobs on each system, the validation cases in groups, the examples in two jobs on each
+# system, so that the longest job, which sets the run's wall time, is short. Every test, case and
+# example runs in exactly one job, as it did in one before; the "What changed" job fails when the
+# split leaves a case or an example out or runs it twice.
 on:
   push:
     branches: [main]
@@ -58,8 +64,7 @@ jobs:
       tier: ${{ steps.classify.outputs.tier }}
       code: ${{ steps.classify.outputs.code }}
       tests: ${{ steps.classify.outputs.tests }}
-      native: ${{ steps.classify.outputs.native }}
-      systems: ${{ steps.classify.outputs.systems }}
+      test: ${{ steps.classify.outputs.test }}
       release: ${{ steps.classify.outputs.release }}
       studio: ${{ steps.classify.outputs.studio }}
       library: ${{ steps.classify.outputs.library }}
@@ -92,8 +97,9 @@ jobs:
             else
               git diff --name-only "$range" > "$RUNNER_TEMP/changed.txt"
               cat "$RUNNER_TEMP/changed.txt"
-              # this workflow and the dependencies change what every system builds and runs
-              if grep -qxE '\.github/workflows/ci\.yml|Cargo\.toml|Cargo\.lock' "$RUNNER_TEMP/changed.txt"; then
+              # this workflow, its shards and the dependencies change what every system builds
+              # and runs
+              if grep -qxE '\.github/workflows/ci\.yml|\.github/shards\.sh|Cargo\.toml|Cargo\.lock' "$RUNNER_TEMP/changed.txt"; then
                 tier=2
               fi
             fi
@@ -117,137 +123,13 @@ jobs:
           echo "tier $tier"
           cat "$RUNNER_TEMP/areas.txt"
           get() { sed -n "s/^$1=//p" "$RUNNER_TEMP/areas.txt"; }
-          code=$(get code) tests=$(get tests) native=$(get native) cases=$(get cases)
-          examples=$(get examples) studio=$(get studio)
+          code=$(get code) tests=$(get tests) studio=$(get studio)
+          # the jobs of the release build and of the unit tests, split by measured times, and
+          # the check that every case and example the run wants is in exactly one of them
+          bash .github/shards.sh "$tier" < "$RUNNER_TEMP/areas.txt" > "$RUNNER_TEMP/shards.txt"
+          release=$(sed -n 's/^release=//p' "$RUNNER_TEMP/shards.txt")
+          test=$(sed -n 's/^test=//p' "$RUNNER_TEMP/shards.txt")
 
-          heavy="splitter_rotator_liu_poon mode_converter_liu_poon mmi_liu_poon coupler_liu_poon crossing_liu_poon ring_liu_poon"
-          entries=()
-          # entry NAME OS CASES EXAMPLES: a job of the release build, its validation cases and examples
-          entry() { entries+=("$(jq -nc --arg name "$1" --arg os "$2" --arg cases "$3" --arg examples "$4" '$ARGS.named')"); }
-
-          # The validation cases, the slowest groups each on a runner of their own: a group is a
-          # name and its prefixes, and the prefixes of the earlier groups inside it are left out.
-          # Every case runs in exactly one job, and together they check the whole report.
-          # Measured on CI's runners (0.5.2, #321 and #328): fdtd's adjoints 4.7 min, its smoothing
-          # 4.8, its comparisons with fdfd 2.5, the rest of fdtd 4.4, fdfd3d 6.3; the release
-          # build about 2 minutes more each. The fabrication engine's round trips (#622) took 6.4
-          # minutes for the library's alone on CI's runner (#635), so its cases run on their own.
-          # What was left took 31 minutes of cases on the release pull request of 31 October 2026
-          # (49.5 minutes in all on a cold cache, #644's), with the device/ cases 16 of them
-          # (pcm 4, thermo 3, compact 2, threads 1.4), shifter/ 4, line/ 3, mode/ 2, nonlinear/ 1.3,
-          # pockels/ 1 and the small areas 4.5. So the devices and the areas after them are split
-          # in four (about 10 minutes of cases each, and 2 more with the release build): device/'s
-          # pcm, thermo, threads and
-          # compact; the rest of device/ with mode/; shifter/ with line/; and the rest, nonlinear/,
-          # pockels/ and the small areas.
-          # Measured again on main's push of the 0.6.2 release (4 November 2026, run 41780269185;
-          # job minutes, the release build included): device/'s pcm, thermo, threads and compact
-          # 19.1 (its cases 6.2, 4.3, 1.4 and 3.7 minutes: 15.6, against the 10.4 above), shifter/
-          # and line/ 14.5, the rest of device/ with mode/ 13.1 (9.7 of cases), the rest 12.6 (8.1,
-          # with job/'s nonlinear-ridge-zhao cases among them), fdfd3d 12.3, fabrication 12.0, the
-          # fdtd groups 5.8 to 7.4. The examples are the longest jobs (Windows 40.0 minutes, Linux
-          # 31.3, macOS 29.4, against the limit of 60) with the Linux unit tests (39.6): they set
-          # the run's wall time, so no group is split until one passes them. The first to split
-          # would be device/'s pcm group, into pcm and the other three.
-          gnames=() gprefixes=()
-          group() { gnames+=("$1"); gprefixes+=("$2"); }
-          group "fdtd/adjoint" "fdtd/adjoint"
-          group "fdtd/smoothing" "fdtd/smoothing"
-          group "fdtd/fdfd" "fdtd/fdfd"
-          group "fdtd/" "fdtd/"
-          group "fdfd3d/" "fdfd3d/"
-          group "fabrication/" "fabrication/"
-          group "device/ (pcm, thermo, threads, compact)" "device/pcm device/thermo device/threads device/compact"
-          group "device/ (the rest) and mode/" "device/ mode/"
-          group "shifter/ and line/" "shifter/ line/"
-          rest=""
-          if [ -n "$cases" ]; then
-            for i in "${!gnames[@]}"; do
-              # the group's prefixes that the changed areas reach: a prefix inside an area's
-              # (fdtd/adjoint in fdtd/), or an area inside the prefix
-              mine=""
-              for p in ${gprefixes[$i]}; do
-                take=false
-                if [ "$cases" = "*" ]; then
-                  take=true
-                else
-                  for c in $cases; do
-                    case "$p" in "$c"*) take=true ;; esac
-                    case "$c" in "$p"*) take=true ;; esac
-                  done
-                fi
-                [ "$take" = true ] && mine+=" $p"
-              done
-              [ -n "$mine" ] || continue
-              these="${mine# }"
-              for ((j = 0; j < i; j++)); do
-                for q in ${gprefixes[$j]}; do
-                  for p in $mine; do
-                    case "$q" in "$p"*) these+=" -$q" ;; esac
-                  done
-                done
-              done
-              entry "${gnames[$i]}" ubuntu-latest "$these" ""
-            done
-            if [ "$cases" = "*" ]; then
-              for i in "${!gnames[@]}"; do
-                for p in ${gprefixes[$i]}; do rest+=" -$p"; done
-              done
-            else
-              # an area that no prefix of a group covers, less the prefixes inside it
-              for c in $cases; do
-                covered=false
-                for i in "${!gnames[@]}"; do
-                  for p in ${gprefixes[$i]}; do
-                    case "$c" in "$p"*) covered=true ;; esac
-                  done
-                done
-                [ "$covered" = true ] && continue
-                rest+=" $c"
-                for i in "${!gnames[@]}"; do
-                  for p in ${gprefixes[$i]}; do
-                    case "$p" in "$c"*) rest+=" -$p" ;; esac
-                  done
-                done
-              done
-            fi
-          fi
-
-          # The examples. "*" is every example but the 3D devices: on Linux on Tier 1; on Tier 2
-          # and 3 on all three systems, and the 3D devices on Linux, each on a runner of its own
-          # (crossing and ring together)
-          light=""
-          for example in examples/*.rs; do
-            name=$(basename "$example" .rs)
-            case " $heavy " in *" $name "*) ;; *) light+=" $name" ;; esac
-          done
-          if [ "$examples" = "*" ]; then
-            if [ "$tier" = 1 ]; then
-              entry "examples" ubuntu-latest "" "${light# }"
-            else
-              for os in ubuntu-latest windows-latest macos-latest; do
-                entry "examples" "$os" "" "${light# }"
-              done
-              for h in splitter_rotator_liu_poon mode_converter_liu_poon mmi_liu_poon coupler_liu_poon "crossing_liu_poon ring_liu_poon"; do
-                entry "$h" ubuntu-latest "" "$h"
-              done
-            fi
-            examples=""
-          else
-            # a 3D device whose file changed runs on a runner of its own
-            others=""
-            for name in $examples; do
-              case " $heavy " in *" $name "*) entry "$name" ubuntu-latest "" "$name" ;; *) others+=" $name" ;; esac
-            done
-            examples=$others
-          fi
-          # the rest of the cases and the light examples together, on one release build
-          if [ -n "${rest// /}" ] || [ -n "${examples// /}" ]; then
-            entry "the rest" ubuntu-latest "${rest# }" "${examples# }"
-          fi
-          release=$(printf '%s\n' "${entries[@]}" | jq -sc '.')
-
-          if [ "$tier" = 1 ]; then systems='["ubuntu-latest"]'; else systems='["ubuntu-latest","windows-latest","macos-latest"]'; fi
           case "$studio" in
             linux) studio='["ubuntu-latest"]' ;;
             all) studio='["ubuntu-latest","windows-latest","macos-latest"]' ;;
@@ -257,8 +139,7 @@ jobs:
             echo "tier=$tier"
             echo "code=$code"
             echo "tests=$tests"
-            echo "native=$native"
-            echo "systems=$systems"
+            echo "test=$test"
             echo "release=$release"
             echo "studio=$studio"
             echo "library=$library"
@@ -342,18 +223,22 @@ jobs:
 
   # Tier 1: the changed areas' unit tests on Linux. Tier 2 and 3: every test on the three
   # systems, and on Linux once more on one thread: parallel code must not rely on having more
-  # than one thread, and must give the same results on one thread as on many.
+  # than one thread, and must give the same results on one thread as on many. In two jobs on
+  # each system (.github/shards.sh): job::'s tests in the first, every other test in the second,
+  # which skips the first's (FILTERS: the test binaries' filters and --skip's), so each test runs
+  # once; photonoxide-native's tests in the second when there is one, else in the first.
   test:
-    name: Test (${{ matrix.os }})
+    name: Test (${{ matrix.os }}, ${{ matrix.part }})
     needs: changes
-    if: needs.changes.outputs.tests != '' || needs.changes.outputs.native == 'true'
+    if: needs.changes.outputs.test != '[]'
     strategy:
       fail-fast: false
       matrix:
-        os: ${{ fromJSON(needs.changes.outputs.systems) }}
+        include: ${{ fromJSON(needs.changes.outputs.test) }}
     runs-on: ${{ matrix.os == 'ubuntu-latest' && 'ubuntu-24.04' || matrix.os }}
     env:
       TESTS: ${{ needs.changes.outputs.tests }}
+      FILTERS: ${{ matrix.filters }}
     defaults:
       run:
         shell: bash
@@ -383,28 +268,47 @@ jobs:
       # the library's test binary alone: its few doc tests would build the library once more (two
       # minutes), so they run with every test
       - name: The changed areas' unit tests
-        if: env.TESTS != '' && env.TESTS != '*'
+        if: env.TESTS != '' && env.TESTS != '*' && env.FILTERS != ''
         # shellcheck disable=SC2086
-        run: cargo test --all-features --lib -- $TESTS
+        run: cargo test --all-features --lib -- $FILTERS
+      # this job's share of every test (the filters pick by name in each test binary and in the
+      # doc tests), and photonoxide-native's tests with them where the job runs them (its
+      # filters are then only --skip's, which no test of photonoxide-native's has in its name).
+      # In one Cargo command with photonoxide's own, every feature on: Cargo then resolves the
+      # features of the crates both use as it does for photonoxide's tests alone (photonoxide's
+      # dev-dependencies widen some, syn's and memchr's among them) and builds nothing of
+      # photonoxide's again; `cargo test -p photonoxide-native` on its own after it built about
+      # 44 crates once more, the library among them (that step took 185, 384 and 339 s on Linux,
+      # Windows and macOS in run 42390305695, mostly building)
       - name: Every test
         if: env.TESTS == '*'
-        run: cargo test --all-features
+        # shellcheck disable=SC2086
+        run: cargo test --all-features $PACKAGES -- $FILTERS
+        env:
+          PACKAGES: ${{ matrix.native && '-p photonoxide -p photonoxide-native' || '' }}
       - name: Every test, on one thread
         if: env.TESTS == '*' && needs.changes.outputs.tier != '1' && runner.os == 'Linux'
-        run: cargo test --all-features
+        # shellcheck disable=SC2086
+        run: cargo test --all-features -- $FILTERS
         env:
           RAYON_NUM_THREADS: 1
-      # photonoxide-native against its test library; real libraries are found only where installed
+      # photonoxide-native against its test library, where the job doesn't run every test (Tier 1:
+      # one command can't hold both crates' tests, since the changed areas' filters reach every
+      # test binary and would leave native's out, and no filter picks all of native's and none
+      # of photonoxide's); real libraries are found only where installed. Its dev-dependencies
+      # repeat photonoxide's and turn on photonoxide's features (native/Cargo.toml, checked by
+      # .github/shards.sh), so this command resolves the shared crates as the changed areas' unit
+      # tests did and builds only photonoxide's library and native itself
       - name: photonoxide-native
-        if: needs.changes.outputs.native == 'true'
-        run: cargo test -p photonoxide-native
+        if: matrix.native && env.TESTS != '*'
+        run: cargo test --all-features -p photonoxide-native
 
   # The release build's checks: the validation cases (each row against docs/validation.md) and
   # the examples, each against its paper, printing exactly its committed output (shown on the
   # project site). The slowest groups of cases and the 3D devices each run on a runner of their
-  # own; the examples run on Windows and macOS too on Tier 2 and 3: the system's maths library
-  # mustn't show in what an example prints (issue #280; the Systems workflow runs the 3D devices
-  # and the report on those systems).
+  # own, the other examples in two jobs (.github/shards.sh); the examples run on Windows and
+  # macOS too on Tier 2 and 3: the system's maths library mustn't show in what an example prints
+  # (issue #280; the Systems workflow runs the 3D devices and the report on those systems).
   release:
     name: Validation and examples (${{ matrix.name }}${{ matrix.os != 'ubuntu-latest' && format(', {0}', matrix.os) || '' }})
     needs: changes
@@ -457,14 +361,17 @@ jobs:
           args=()
           for name in $EXAMPLES; do args+=(--example "$name"); done
           cargo build --release --quiet "${args[@]}"
+      # each example's time printed after it, for the shards' balance (.github/shards.sh)
       - name: Examples, each against its paper, and their output
         if: env.EXAMPLES != ''
         run: |
           for name in $EXAMPLES; do
             echo "::group::$name"
+            start=$SECONDS
             cargo run --release --quiet --example "$name" > "$RUNNER_TEMP/$name.txt"
             diff -u "examples/output/$name.txt" "$RUNNER_TEMP/$name.txt"
             echo "::endgroup::"
+            echo "$((SECONDS - start)) s  $name"
           done
 
   # the studio on each system: its code differs by platform (the nightly channel's prerequisites

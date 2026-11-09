@@ -1,6 +1,6 @@
 # Performance plan: kernels, threads, GPUs and distributed memory
 
-*A survey and a plan, 2026-10-04. Nothing here is on the roadmap yet: I review it first.*
+*A survey and a plan, 2026-10-04. Phases A to E are on the roadmap: A to C are released, D is in 0.7 and E is 0.7.1, Distributed memory. Phase F, the optional research, I review first.*
 
 I asked for GPU support, MPI-style parallel algorithms and MKL-class kernel
 optimizations, for where each applies, and for what PETSc and SLEPc (and the libraries around

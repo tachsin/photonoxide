@@ -371,6 +371,25 @@ pub fn specs() -> Vec<DiagramSpec> {
             job: None,
             caption_3d: "",
         },
+        DiagramSpec {
+            id: "quantum",
+            title: "A quantum photonic chip",
+            caption: "Above, a chip from the left to the right. A pump of frequency \
+                      $\\omega_p$ is split onto two guides, and a ring on each turns pairs of \
+                      pump photons into a signal and an idler, $2\\omega_p = \\omega_s + \\omega_i$. \
+                      The photons enter a mesh of Mach–Zehnder cells, each a beam splitter set by \
+                      $\\theta$ and a phase $\\phi$, which acts on the four modes' annihilation \
+                      operators as a unitary, $U = D\\prod T_{m,m+1}(\\theta, \\phi)$; with its \
+                      loss it is a matrix $S$, and the lost light lets the vacuum $\\hat c$ in. \
+                      Four detectors of efficiency $\\eta_D$ count the photons; the probability of \
+                      a pattern is the squared permanent of a submatrix, or for squeezed light a \
+                      hafnian. Below, two photons, one delayed by $\\tau$, meet on a coupler of \
+                      reflectance $R$ and transmittance $T$; alike and on time, they leave \
+                      together by one output or the other, and their coincidences dip against \
+                      $\\tau$ as $R^2 + T^2 - 2RT e^{-\\sigma^2\\tau^2}$. Not to scale.",
+            job: None,
+            caption_3d: "",
+        },
     ]
 }
 

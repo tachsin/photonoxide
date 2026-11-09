@@ -333,6 +333,22 @@ The TE-like mode's currents are the field normal to the wall and $E_z$, the TM-l
 vertical field and $E_z$, weighted by their powers at the wall. It is first order in σ, for a
 strip with vertical walls in one cladding; the analytic model, which has no mode, refuses σ.
 
+What it doesn't cover, so far:
+
+- **Only the exponential autocorrelation.** Payne & Lacey's Gaussian one (their Eq. 24) is a
+  different spectrum in the same integral, but no validation case checks a loss computed with
+  it, so it isn't offered.
+- **Only the sidewalls.** The top and bottom faces are taken as smooth; their roughness (a
+  polished or deposited face's) adds a loss of its own that isn't computed.
+- **Only a rectangular core in one cladding.** A rib (the core standing on a slab of its own
+  film), sloped walls, or claddings that differ above and below are refused with an error
+  (`mode::roughness::sidewall_loss`: the core must fill a rectangle with one uniform cladding
+  round it).
+- **Only through the waveguide device.** The loss is the device's `roughness` and `correlation`
+  parameters, or the library call on a mode; a modes job on its own shapes doesn't report it.
+- **The corners from a fit.** The two rows of cells beside each corner take the singularity's
+  integral fitted to the next row (below), not a scheme built for the singular field.
+
 Three things differ from the paper as printed, each checked:
 
 - **Payne & Lacey's factor of 2.** Barwicz & Haus (p. 2729) write that Payne & Lacey's slab
@@ -897,14 +913,58 @@ thick; outside that the equation is carried on (towards $\rho_0 + \rho_\mathrm{g
 TiN's resistivity depends on how it was made far more than on its thickness (45 to 350 µΩ·cm
 in Tsai et al.'s Table II, 70 and 78 µΩ·cm for Kearney et al.'s films), so $R$ is that of a
 film made as Tsai et al.'s best: at the defaults (320 × 7.5 µm, 100 nm) 193.2 Ω, and $P_\pi$
-of 29.9 mW (analytic) is 2.40 V. The temperature coefficient (Tsai et al.'s Table III, 1.4e-3/K
-for these films, 5 to 280 K) is left out: $R$ is the film's at room temperature. A power and a
-voltage together are refused. The voltage's derivative is exact,
+of 29.9 mW (analytic) is 2.40 V. The voltage's derivative is exact,
 $\partial P/\partial V = 2V/R$; under a voltage the power has none, and the other way round.
 The device's $R$ at 100 and 50 nm of TiN (193.2 and 457.0 Ω) is Eq. (3) and $\rho L/(wt)$ by
 hand, and at 2.4 V its power, the rise its mode feels and its phase are the hand's from $V^2/R$
 and the device's own $s$, $dn_\mathrm{eff}/dT$ and $P_\pi$, and the same device's given that
 power, all to round-off (`device/thermo-tin-resistance`, `device/thermo-voltage-drive`).
+
+**A choice of film, and a resistance that follows the heater's temperature.**
+`ThermoShifter::with_film` takes one of six TiN films (`catalogue::TinFilm`), each with its
+temperature coefficient of resistance α and the temperatures that coefficient was measured over:
+
+| Film | How it was made | ρ at room temperature | α | Over |
+|---|---|---|---|---|
+| `tsai-biased` (the default) | Tsai et al., collimated, 500 °C, −100 V of bias | Eq. (3): ρ_grain 14 µΩ·cm, l₀ 96 nm; 45.3 µΩ·cm at 100 nm | 1355 ppm/K | 5 to 280 K |
+| `tsai-hot` | collimated, 500 °C, no bias | 31 µΩ·cm, 72 nm; 60.2 at 100 nm | 1018 ppm/K | 5 to 280 K |
+| `tsai-collimated` | collimated, 40 °C | 181 µΩ·cm, 41 nm; 207.5 at 100 nm | 264 ppm/K | 5 to 280 K |
+| `tsai-uncollimated` | uncollimated, 40 °C | 232 µΩ·cm, 39 nm; 258.4 at 100 nm | 228 ppm/K | 5 to 280 K |
+| `kearney-hot` | Kearney et al.'s sample F, RF sputtered on fused silica at 600 °C, 58 nm | 70.2 µΩ·cm | 0.095 %/K | 293 to 773 K |
+| `kearney-annealed` | sample D, 350 °C, annealed at 600 °C for 4 h in vacuum, 62.5 nm | 78.0 µΩ·cm | 0.099 %/K | 293 to 773 K |
+
+Tsai et al.'s ρ follows the film's thickness by their Eq. (3) and Table IV (J. Appl. Phys. 73,
+4462 (1993), doi:10.1063/1.352785); Kearney et al.'s is their measured value whatever the
+thickness (Thin Solid Films 661, 78 (2018), doi:10.1016/j.tsf.2018.07.001, Section 3, p. 80).
+Tsai et al.'s coefficients (Table III) were measured from 5 to 280 K, all below a heater's
+temperatures, so a heater of those films keeps its room-temperature $R$. Kearney et al.'s were
+measured from room temperature to 500 °C, so with those films $R$ follows the heater's mean
+temperature, $R = R_0(1 + \alpha(T - 293\,\mathrm{K}))$, $T$ the 300 K ambient plus the heater's
+own mean rise $zP/L$ (the figure `z_heater`, K·m/W: the analytic model's sheet averaged over
+itself in closed form, or the 2D model's rise averaged over the heater's cells; a measured
+device takes the analytic one's). The heat is linear in the power, so the power and the
+temperature are solved together in closed form: with $R_a$ the resistance at the ambient and
+$a = \alpha' z/L$ ($\alpha' = \alpha/(1 + 7\alpha)$, the coefficient on the rise above the
+ambient), a voltage gives $aP^2 + P = V^2/R_a$ and a current $P = I^2R_a/(1 - aI^2R_a)$. A heater
+above 773 K is refused, as is a current with $aI^2R_a \ge 1$, where the resistance rises faster
+than the heat leaves and no steady state exists. A drive is one of `power`, `voltage` and
+`current` (mA); the others are refused alongside it. The derivatives in the voltage and the
+current are exact: $\partial P/\partial V = 2V/(R_a(1 + 2aP))$, $\partial P/\partial I =
+2IR_a/(1 - aI^2R_a)^2$. With Kearney et al.'s sample F at the defaults, $R$ is 299.5 Ω at room
+temperature; at 3 V the heater takes 29.2 mW and rises 23.9 K (analytic), 308.3 Ω.
+
+Each film's undriven $R$ is $\rho L/(wt)$ by hand at 100 and 50 nm (`device/thermo-tin-films`),
+and the closed form's power, rise, resistance and phase at 3 V and at 10 mA are Picard's
+iteration on the same steady state to round-off (`device/thermo-tcr-drive`). The heater's own
+rise, analytic against 2D, is 6.1 % above at the fabricated design and at most 6.8 % off over
+the TiN 1, 7.5 and 10 µm wide (`device/thermo-heater-rise`, the analytic fidelity's 15 %): the
+closed form leaves out the TiN's own conductivity. The doped
+and in-guide heaters stay driven by a power: Jacques et al.'s N++ strips have no sheet
+resistance the device holds, and Harris et al.'s in-guide heater's sheet resistances in series
+across the averaged section (the ridge, the p and p++ slab, the channels at their share of the
+length) give about 170 Ω for the 61.6 µm device against the 769 Ω they measured (Section 4.1:
+$V_\pi$ = 4.36 V at 24.77 mW): the current's path through the periodic channels and into the
+contacts is 3D, and a drive from that resistance would be off by a factor of 4.5.
 
 Its **component** is the phase the heater adds and the guide's loss: ports `o1` and `o2`,
 parameters `phase` (rad) and `loss` (dB), $S_{21} = S_{12} = 10^{-\mathrm{IL}/20}\, e^{i\varphi\lambda_0/\lambda}$
@@ -912,13 +972,15 @@ with $\varphi = \pi P/P_\pi$ (Jacques et al.'s Eqs. 4 and 5) and IL the loss ove
 or at the measured fidelity the measured device's insertion loss where it gives one (Harris et
 al.'s 0.23 dB).
 The unheated guide's own propagation is a waveguide's: a circuit puts one beside it. Its
-derivatives in the power (or the metal heater's voltage), the loss and the length are exact. The figures, each with its
+derivatives in the power (or the metal heater's voltage or current), the loss and the length are exact. The figures, each with its
 fidelity and grid: `P_pi` (mW), `tau` (the phase's 1/e time turned on, µs), `f_3dB` (kHz), `X`
 (the crosstalk on a neighbour at the pitch: the share of the guide's phase it takes), `s`
 ($\partial n_\mathrm{eff}/\partial P'$, m/W), `dneff_dT`, `n_eff`, `phi`, `dT` (the
 temperature rise the guide's mode feels at the power, $(s/(dn_\mathrm{eff}/dT))\thinspace P/L$,
-K; at the analytic and 2D fidelities) and `IL`, and the metal heater's `R_heater` (Ω, with
-the film's resistivity and its source in its grid) and, under a voltage, `P_V` (mW). $P_\pi$ is
+K; at the analytic and 2D fidelities) and `IL`, and the metal heater's `z_heater` (its own
+mean rise per power, K·m/W), `R_heater` (Ω, at its temperature, with the film's resistivity and
+its source in its grid), under a drive `dT_heater` (its own mean rise, K), and under a voltage
+`P_V`, under a current `P_I` (mW). $P_\pi$ is
 a 2D number, a straight section's of any length (the length cancels: Jacques et al.'s Section
 2.1): a device's bends, leads and ends aren't in it.
 

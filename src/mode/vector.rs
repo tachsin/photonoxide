@@ -961,6 +961,28 @@ pub struct VectorMode {
 }
 
 impl VectorMode {
+    /// A mode from its transverse H at the nodes of the grid `x` × `y` (node (i, j) at
+    /// `i * y.len() + j`), its β and k, for the checks to give a closed form's field to
+    /// [`VectorMode::fields`].
+    #[cfg(test)]
+    pub(crate) fn from_nodes(
+        beta: f64,
+        k: f64,
+        x: Vec<f64>,
+        y: Vec<f64>,
+        hx: Vec<c64>,
+        hy: Vec<c64>,
+    ) -> VectorMode {
+        VectorMode {
+            beta2: c64::new(beta * beta, 0.0),
+            k,
+            x,
+            y,
+            hx,
+            hy,
+        }
+    }
+
     /// The effective index n_eff = β/k of the forward-travelling mode (Re β ≥ 0, the principal
     /// root of β²); in a passive structure its imaginary part is ≥ 0, the mode decaying along z.
     pub fn effective_index(&self) -> c64 {
@@ -2351,5 +2373,178 @@ mod tests {
     #[should_panic(expected = "graded_nodes needs finite ends a < b")]
     fn graded_nodes_to_infinity_panic() {
         graded_nodes(-1.0, f64::INFINITY, (-0.2, 0.2), 0.01, 0.05, 0.1, &[]);
+    }
+
+    /// Simpson's rule over [a, b] in `n` (even) steps.
+    fn simpson(f: impl Fn(f64) -> f64, a: f64, b: f64, n: usize) -> f64 {
+        let h = (b - a) / n as f64;
+        let inner: f64 = (1..n)
+            .map(|i| f(a + i as f64 * h) * if i % 2 == 1 { 4.0 } else { 2.0 })
+            .sum();
+        (f(a) + f(b) + inner) * h / 3.0
+    }
+
+    /// J_n(x) = (1/π) ∫₀^π cos(nτ − x sin τ) dτ.
+    fn bessel_j(n: f64, x: f64) -> f64 {
+        simpson(|t| (n * t - x * t.sin()).cos(), 0.0, PI, 2000) / PI
+    }
+
+    /// K_n(x) = ∫₀^∞ e^(−x cosh t) cosh(nt) dt, x > 0.
+    fn bessel_k(n: f64, x: f64) -> f64 {
+        simpson(|t| (-x * t.cosh()).exp() * (n * t).cosh(), 0.0, 12.0, 4000)
+    }
+
+    /// A step-index fibre's LP₀₁ field against r (µm), 1 on the axis, and its effective index:
+    /// a core of radius `a` and index `core` in `clad`, at `l` µm.
+    fn fibre_mode(a: f64, core: f64, clad: f64, l: f64) -> (impl Fn(f64) -> f64, f64) {
+        let k0 = 2.0 * PI / l;
+        let v = k0 * a * (core * core - clad * clad).sqrt();
+        let w = |u: f64| (v * v - u * u).sqrt();
+        let f = |u: f64| {
+            u * bessel_j(1.0, u) / bessel_j(0.0, u)
+                - w(u) * bessel_k(1.0, w(u)) / bessel_k(0.0, w(u))
+        };
+        let (mut lo, mut hi) = (1e-6, v.min(2.4048) - 1e-9);
+        for _ in 0..80 {
+            let mid = 0.5 * (lo + hi);
+            if (f(mid) > 0.0) == (f(lo) > 0.0) {
+                lo = mid;
+            } else {
+                hi = mid;
+            }
+        }
+        let u = 0.5 * (lo + hi);
+        let (wu, j0u, k0w) = (w(u), bessel_j(0.0, u), bessel_k(0.0, w(u)));
+        let dr = 0.002;
+        let table: Vec<f64> = (0..=15_000)
+            .map(|k| {
+                let r = k as f64 * dr;
+                if r < a {
+                    bessel_j(0.0, u * r / a) / j0u
+                } else {
+                    bessel_k(0.0, wu * r / a) / k0w
+                }
+            })
+            .collect();
+        let n_eff = (core * core - (u / (k0 * a)).powi(2)).sqrt();
+        let field = move |r: f64| {
+            let x = r / dr;
+            let k = x.floor() as usize;
+            if k + 1 >= table.len() {
+                return 0.0;
+            }
+            table[k] + (x - k as f64) * (table[k + 1] - table[k])
+        };
+        (field, n_eff)
+    }
+
+    /// The share of a quarter-section mode's power a beam polarized as it takes, the beam's
+    /// E = F(r) x̂ (TE) or F(r) ŷ (TM) and H = n ẑ × E: Re(⟨m, b⟩⟨b, m⟩)/(Re⟨m, m⟩ ⟨b, b⟩),
+    /// ⟨a, b⟩ = ∫(E_a × H_b*)·ẑ (n cancels).
+    fn quarter_overlap(
+        m: &crate::mode::fields::Fields,
+        cs: &CrossSection,
+        te: bool,
+        beam: &dyn Fn(f64) -> f64,
+    ) -> f64 {
+        let (x, y) = (cs.x(), cs.y());
+        let zero = c64::new(0.0, 0.0);
+        let (mut mb, mut bm, mut bb, mut mm) = (zero, zero, 0.0, 0.0);
+        for i in 0..x.len() - 1 {
+            for j in 0..y.len() - 1 {
+                let area = (x[i + 1] - x[i]) * (y[j + 1] - y[j]);
+                let (xc, yc) = (m.x()[i], m.y()[j]);
+                let g = beam((xc * xc + yc * yc).sqrt());
+                let (e, h) = (m.e(i, j), m.h(i, j));
+                let (egx, egy, hgx, hgy) = if te {
+                    (g, 0.0, 0.0, g)
+                } else {
+                    (0.0, g, -g, 0.0)
+                };
+                mb += (e[0] * hgy - e[1] * hgx) * area;
+                bm += (h[1].conj() * egx - h[0].conj() * egy) * area;
+                bb += g * g * area;
+                mm += (e[0] * h[1].conj() - e[1] * h[0].conj()).re * area;
+            }
+        }
+        (mb * bm).re / (mm * bb)
+    }
+
+    /// Almeida et al.'s nanotaper tip (Opt. Lett. 28, 1302 (2003), Fig. 2): silicon (3.48) 250 nm
+    /// thick and `w` wide in silica (1.46) at 1.55 µm, its TE₀ and TM₀ against their fibre (n_eff
+    /// 1.468, MFD 4.9 µm: a step-index core of 1.877 µm radius and index 1.481) and a Gaussian of
+    /// the same MFD, with `margin` µm of silica beyond the tip. PRINT_ALMEIDA_CELL sets the cells
+    /// over the tip (µm, 0.01 by default), PRINT_ALMEIDA_HEIGHT the film (µm, 0.25 by default:
+    /// their simulations'; they measured 0.27) and PRINT_ALMEIDA_MARGINS the margins (µm, "5,12,20").
+    #[test]
+    #[ignore = "prints Almeida et al.'s tip overlaps for the crossings-and-converters lesson"]
+    fn print_almeida_tip() {
+        let var = |name: &str, default: &str| std::env::var(name).unwrap_or(default.to_owned());
+        let fine: f64 = var("PRINT_ALMEIDA_CELL", "0.01").parse().unwrap();
+        let top: f64 = var("PRINT_ALMEIDA_HEIGHT", "0.25").parse::<f64>().unwrap() / 2.0;
+        let margins: Vec<f64> = var("PRINT_ALMEIDA_MARGINS", "5,12,20")
+            .split(',')
+            .map(|s| s.parse().unwrap())
+            .collect();
+        let (fibre, n_fibre) = fibre_mode(1.877, 1.481, 1.46, 1.55);
+        eprintln!("fibre LP01 n_eff {n_fibre:.5}, film {:.3} um", 2.0 * top);
+        let gaussian = |r: f64| (-(r * r) / (2.45 * 2.45)).exp();
+        for margin in margins {
+            for te in [true, false] {
+                let widths: Vec<f64> = if te {
+                    (16..=36).map(|k| 0.005 * f64::from(k)).collect()
+                } else {
+                    (6..=16).map(|k| 0.005 * f64::from(k)).collect()
+                };
+                for w in widths {
+                    let half = w / 2.0;
+                    let x = graded_nodes(
+                        0.0,
+                        half + margin,
+                        (0.0, half + 0.1),
+                        fine,
+                        0.2,
+                        0.1,
+                        &[half],
+                    );
+                    let y =
+                        graded_nodes(0.0, top + margin, (0.0, top + 0.1), fine, 0.2, 0.1, &[top]);
+                    let mut cells = Vec::new();
+                    for i in 0..x.len() - 1 {
+                        for j in 0..y.len() - 1 {
+                            let inside =
+                                0.5 * (x[i] + x[i + 1]) < half && 0.5 * (y[j] + y[j + 1]) < top;
+                            let n: f64 = if inside { 3.48 } else { 1.46 };
+                            cells.push(iso(n * n));
+                        }
+                    }
+                    let (west, south) = if te {
+                        (Boundary::ElectricWall, Boundary::MagneticWall)
+                    } else {
+                        (Boundary::MagneticWall, Boundary::ElectricWall)
+                    };
+                    let cs = CrossSection::new(x, y, cells)
+                        .unwrap()
+                        .with_boundaries(Boundaries {
+                            west,
+                            south,
+                            ..Boundaries::default()
+                        })
+                        .unwrap();
+                    let m = modes(&cs, Wavelength::um(1.55).unwrap(), 1, None)
+                        .unwrap()
+                        .remove(0);
+                    let f = m.fields(&cs).unwrap();
+                    eprintln!(
+                        "margin {margin:4} um, {} {:5.1} nm: n_eff {:.5}, fibre {:.4}, Gaussian {:.4}",
+                        if te { "TE" } else { "TM" },
+                        w * 1e3,
+                        m.effective_index().re,
+                        quarter_overlap(&f, &cs, te, &fibre),
+                        quarter_overlap(&f, &cs, te, &gaussian),
+                    );
+                }
+            }
+        }
     }
 }

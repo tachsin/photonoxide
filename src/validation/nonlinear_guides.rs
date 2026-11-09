@@ -40,6 +40,58 @@ fn job_rules() -> Vec<(&'static str, Rule)> {
                 "one overlap on the same cells by two paths, the job's and the library's: the same sums, so round-off",
             ),
         ),
+        (
+            "job/nonlinear-ridge-temperature-acceptance",
+            Rule::new(
+                Relative,
+                RoundOff,
+                1e-8,
+                Exact,
+                "the same modes solved at the same temperatures, read through the setup and through the map: the operating wavelength reached by the map's grid to its last bit, so round-off",
+            ),
+        ),
+        (
+            "job/nonlinear-shg-type-ii-degenerate",
+            Rule::new(
+                Relative,
+                RoundOff,
+                1e-12,
+                Measured,
+                "one process reached two ways, the same RK4 steps on equations that are the same once the fundamental is split: round-off, 2.3e-15 and 2.4e-15 with and without the loss",
+            )
+            .varying(),
+        ),
+        (
+            "job/nonlinear-fwm-depleted-loss",
+            Rule::new(
+                Relative,
+                Discretisation,
+                4e-12,
+                Measured,
+                "the job's 2000 RK4 steps' error, 3.00e-12, rounded up (3.60e-12 with no loss); the reference's own on 2000 to 200 000 steps is 2.9e-14 to 9.4e-14 against 400 000",
+            )
+            .varying(),
+        ),
+        (
+            "job/nonlinear-ring-shg",
+            Rule::new(
+                Relative,
+                RoundOff,
+                1e-12,
+                Exact,
+                "on resonance and without loss the ring's formulas are Helt et al.'s closed form term by term, so round-off",
+            ),
+        ),
+        (
+            "job/nonlinear-ring-fwm",
+            Rule::new(
+                Relative,
+                RoundOff,
+                1e-12,
+                Exact,
+                "on resonance and without loss the ring's formulas are Helt et al.'s Eq. (5) term by term, so round-off",
+            ),
+        ),
     ]
 }
 

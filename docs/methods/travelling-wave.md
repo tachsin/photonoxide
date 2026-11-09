@@ -137,10 +137,18 @@ job takes the one measured nearest the geometric middle $f_m = \sqrt{f_\mathrm{m
 of its frequencies, nearest in $\lvert\ln(f/f_m)\rvert$, a band that holds $f_m$ counting as at
 it; of several there, the largest $\tan\delta$ (a range's top, the larger of a crystal's two
 axes), so the loss is the catalogue's upper one for samples of that kind at that frequency.
-One value serves every frequency of the job. That is the scalar model's limit: a crystal's
-tangent along and across its axis differ (lithium niobate's means by 17%), lithium niobate's rises
-about as $f^{0.25}$ (Lee), and silicon's, a conduction loss, falls as $1/f$, so its
-$\alpha_d$ is flat in frequency where the model's grows. A tangent the job gives is kept; a
+A crystal's tangent along and across its axis differ (lithium niobate's means by 17%), and a
+tangent depends on frequency: lithium niobate's rises (a least-squares power law through Lee's
+Fig. 2 gives $f^{0.20}$ across the axis and $f^{0.18}$ along it over 91 to 147 GHz), and
+silicon's, a conduction loss $\sigma/(\omega\varepsilon_0\varepsilon')$, falls as $1/f$, so its
+$\alpha_d$ is flat in frequency. `loss_tangent_exponent` gives a medium's tangent as a power law,
+$\tan\delta(f) = \tan\delta\,(f/f_\mathrm{ref})^p$ ($p = -1$ for a conduction loss), $f_\mathrm{ref}$
+the frequency a catalogue's value was measured at (the point of its band nearest $f_m$), or
+`loss_tangent_at_ghz` for a tangent the job gives ($f_m$ by default); without one, a medium's
+tangent serves every frequency of the job. Each frequency's line, its response and its full-wave
+mode take the tangents at that frequency, and the run records each frequency's line loss tangent
+(`line/job-tangent-law` checks the dielectric loss at 25, 50 and 100 GHz against
+$\pi f n \sum_i q_i \tan\delta_i (f/f_i)^{p_i} / c$ to round-off). A tangent the job gives is kept; a
 medium the catalogue hasn't (a deposited oxide, a polymer, air) stays lossless. The run records
 each medium's tangent and where it came from: given, or the catalogue's sample, the frequency it
 was measured at and its paper, and $f_m$.
@@ -612,9 +620,9 @@ curves ripple with the photodiode's response, so one frequency doesn't make a ca
 An `"electrostatic"` static job's `line` table (`job::line`): `signal` (its conductor, counted
 from 1), `mirrored`, the metal's `conductivity_s_per_m` (its thickness the signal rectangle's
 height unless `thickness_um` says), `edge` (`square` or `bevelled`), `loss_tangent` by medium,
-`catalogue_loss_tangents: true` for the catalogue's where `loss_tangent` names none (see
+`x
 [dielectric loss](#dielectric-loss); each medium's tangent and where it came from are then
-recorded as `line: loss tangent of …` entries), `frequencies_ghz`, and `response` (`length_mm`, `group_index`, `source_ohm` and `load_ohm`, 50 Ω
+recorded as `line: loss tangent of …` entries), `loss_tangent_exponent` by medium and `loss_tangent_at_ghz` for tangents that follow a power law in frequency, `frequencies_ghz`, and `response` (`length_mm`, `group_index`, `source_ohm` and `load_ohm`, 50 Ω
 by default, `reference_ghz`, 1 GHz by default) for the response and its 3 and 6 dB bandwidths;
 `convergence: { tolerance: 0.01 }` checks the quasi-static index and impedance and the loss at the
 highest frequency on grids twice and four times as coarse. jobs/tfln-line.yaml is Zhang et al.'s

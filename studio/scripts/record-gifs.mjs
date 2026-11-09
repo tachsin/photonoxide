@@ -18,7 +18,8 @@
 //    so the status bar shows no one's home folder, with a WebView2 profile of its own in a temporary
 //    folder and the DevTools port 9228 (--port changes it).
 // 3. Plays each scene with a drawn pointer that moves smoothly, screencasting the page at
-//    1280 x 760. A long run is recorded as a time-lapse, with a badge saying how much faster.
+//    1440 x 900 (the window sized and placed to fit the screen's work area, behind the others).
+//    A long run is recorded as a time-lapse, with a badge saying how much faster.
 // 4. Closes the program (by its process id), then resamples each scene to a steady frame rate,
 //    crossfades between takes and from the end back to the start (so each GIF loops seamlessly),
 //    scales with Lanczos (ffmpeg) and encodes with gifski.
@@ -52,12 +53,21 @@ const KEEP = argv.includes("--keep");
 /** A folder kept by an earlier --keep: compose its takes again without recording. */
 const REUSE = opt("frames", null);
 /** The page's size while recording, in CSS pixels. */
-const VIEW = { width: 1280, height: 760 };
+const VIEW = { width: 1440, height: 900 };
 
 const GIFS = {
-  // the README's top: a strip's mode travelling while the camera orbits; a ring's spectrum
-  // building up and the ring lit at resonance; an MZI wired on the chip and its spectrum
-  hero: { width: 1040, fps: 15, fade: 9, quality: [78, 65, 55], takes: ["wave", "ring", "chip"] },
+  // the README's top, about 30 s, each scene captioned: Home; an MMI's FDTD run; a strip's mode
+  // travelling; a ring's spectrum building up and the ring lit at resonance; a heater switched on;
+  // photon pairs' phase matching; an MZI wired on the chip; the ring's fabrication flow; a lesson's
+  // live chart; the validation report
+  hero: {
+    width: 1000,
+    fps: 12,
+    fade: 5,
+    // full motion quality: with less, a page left lingers faintly under the next one's text
+    quality: [72, 100, 50],
+    takes: ["home", "fdtd", "wave", "ring", "heater", "nonlinear", "chip", "fab", "lesson", "proof"],
+  },
   device: { width: 860, fps: 12, fade: 8, quality: [85, 75, 70], takes: ["device"] },
   materials: { width: 860, fps: 12, fade: 8, quality: [85, 75, 70], takes: ["materials"] },
   validation: { width: 860, fps: 12, fade: 8, quality: [85, 75, 70], takes: ["validation"] },
@@ -242,6 +252,10 @@ if (!window.__rec) {
       display: none; align-items: center; gap: 6px; padding: 5px 12px 5px 10px; border-radius: 999px;
       font: 600 13px/1 Inter Variable, Inter, system-ui, sans-serif; color: #e8edf5; letter-spacing: 0.01em;
       background: rgb(15 17 21 / 0.82); border: 1px solid rgb(255 255 255 / 0.14); box-shadow: 0 6px 20px rgb(0 0 0 / 0.35); }
+    #rec-caption { position: fixed; left: 50%; bottom: 52px; transform: translateX(-50%); z-index: 2147483645; pointer-events: none;
+      display: none; max-width: 86%; padding: 8px 18px; border-radius: 10px; white-space: nowrap;
+      font: 600 21px/1.25 Inter Variable, Inter, system-ui, sans-serif; color: #f2f5fa; letter-spacing: 0.005em;
+      background: rgb(12 14 18 / 0.88); border: 1px solid rgb(255 255 255 / 0.16); box-shadow: 0 8px 26px rgb(0 0 0 / 0.45); }
     /* no toasts in the recordings */
     div.pointer-events-none.fixed.z-50.w-96 { display: none !important; }
   ${"`"};
@@ -253,7 +267,9 @@ if (!window.__rec) {
   ripple.id = "rec-ripple";
   const badge = document.createElement("div");
   badge.id = "rec-badge";
-  document.body.append(ripple, cursor, badge);
+  const caption = document.createElement("div");
+  caption.id = "rec-caption";
+  document.body.append(ripple, cursor, badge, caption);
   let shown = false;
   const at = (x, y) => (cursor.style.transform = "translate(" + (x - 2) + "px, " + (y - 1.5) + "px)");
   addEventListener("pointermove", (e) => shown && at(e.clientX, e.clientY), true);
@@ -279,6 +295,11 @@ if (!window.__rec) {
     badge(text) {
       badge.style.display = text ? "flex" : "none";
       badge.innerHTML = text ? '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#6cb4ff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 19 22 12 13 5 13 19"/><polygon points="2 19 11 12 2 5 2 19"/></svg>' + text : "";
+    },
+    /** A line of text at the foot of the page, saying what the scene shows (the hero's). */
+    caption(text) {
+      caption.style.display = text ? "block" : "none";
+      caption.textContent = text ?? "";
     },
     /** The visible element matching a selector, by its text when given (an exact match first), and which of them. */
     find(selector, text, nth = 0) {
@@ -407,8 +428,10 @@ const railless = () =>
 /** Folds the navigation rail to its icons, or opens it again. */
 async function fold(folded) {
   const now = await js(`return document.querySelector("nav").getBoundingClientRect().width < 120;`);
-  // the rail's last button folds and opens it
-  if (now !== folded) await js(`[...document.querySelectorAll("nav button")].at(-1).click();`);
+  // the rail's Collapse button folds it (its label goes when folded: the one before the status then)
+  if (now !== folded)
+    await js(`const all = [...document.querySelectorAll("nav button")];
+              (all.find((b) => b.textContent.trim() === "Collapse") ?? all.at(-2)).click();`);
   await sleep(300);
 }
 
@@ -500,29 +523,64 @@ async function showIndexPlot() {
 
 let rec;
 
-/** Finds a template's card on Home, and which of the cards' buttons is its Run or Open. */
-async function exampleCard(name, button) {
+/** Runs a template from Home's examples (every topic of its accordion opened), unrecorded. */
+async function runExample(name) {
   await goTo("Home");
-  await until(`return __rec.find("article h3", args[0]);`, `the ${name} card`, 20000, name);
-  await js(`__rec.find("article h3", args[0]).closest("article").scrollIntoView({ block: "center" });`, name);
-  await sleep(400);
-  const nth = await js(
-    `const cards = [...document.querySelectorAll("article")].filter((a) => a.querySelector("h3")?.textContent.trim() === args[0]);
-     const b = [...cards[0].querySelectorAll("button")].find((x) => x.textContent.trim() === args[1]);
-     return [...document.querySelectorAll("article button")].filter((x) => x.getBoundingClientRect().width).indexOf(b);`,
+  await until(`return document.querySelector("[id^=ex-head-]");`, "the examples", 20000);
+  await js(`for (const b of document.querySelectorAll("[id^=ex-head-]")) if (b.getAttribute("aria-expanded") === "false") b.click();`);
+  await until(
+    `const li = [...document.querySelectorAll("li")].find((l) => l.querySelector("span.font-medium")?.textContent.trim() === args[0]);
+     return li && [...li.querySelectorAll("button")].some((b) => b.textContent.trim() === "Run");`,
+    `the ${name} example`,
+    20000,
     name,
-    button,
   );
-  return { selector: "article button", nth };
+  await js(
+    `const li = [...document.querySelectorAll("li")].find((l) => l.querySelector("span.font-medium")?.textContent.trim() === args[0]);
+     [...li.querySelectorAll("button")].find((b) => b.textContent.trim() === "Run").click();`,
+    name,
+  );
+  // its run's page, open on it
+  await until(`return [...document.querySelectorAll("h1")].some((h) => h.textContent.replace(/\\s+/g, " ").trim() === "Run · " + args[0]);`, `the ${name} run`, 30000, name);
+  await sleep(300);
 }
+
+/** The page above the status bar, rail and all: what the hero keeps of each take. */
+const aboveFooter = () => js(`return { x: 0, y: 0, width: innerWidth, height: document.querySelector("footer").getBoundingClientRect().top };`);
+
+/** Begins a take of the hero: its caption shown, the status bar left out. */
+async function heroTake(name, caption) {
+  await js(`__rec.caption(args[0]);`, caption ?? null);
+  await rec.begin(name);
+  rec.crop(await aboveFooter());
+}
+async function heroEnd() {
+  await rec.end();
+  await js(`__rec.caption(null);`);
+  await cursor(false);
+}
+
+/** Scrolls the nearest scrolling box around the element `selector` finds, so the element's top sits `margin` below the box's. */
+const scrollTo = (selector, text, margin = 12, smooth = true) =>
+  js(
+    `const e = __rec.find(args[0], args[1]);
+     let box = e.parentElement;
+     while (box && !(box.scrollHeight > box.clientHeight + 4 && /auto|scroll/.test(getComputedStyle(box).overflowY))) box = box.parentElement;
+     if (!box) return false;
+     box.scrollTo({ top: box.scrollTop + e.getBoundingClientRect().top - box.getBoundingClientRect().top - args[2], behavior: args[3] ? "smooth" : "instant" });
+     return true;`,
+    selector,
+    text ?? null,
+    margin,
+    smooth,
+  );
 
 const finished = () => until(`return __rec.find("span.badge", "finished in");`, "the run to finish", 20 * 60 * 1000);
 
 const SCENES = {
   /** A strip's first mode travelling along it, the camera orbiting slowly. */
   async wave() {
-    const card = await exampleCard("strip-modes", "Run");
-    await js(`[...document.querySelectorAll(args[0])].filter((x) => x.getBoundingClientRect().width)[args[1]].click();`, card.selector, card.nth);
+    await runExample("strip-modes");
     await finished();
     await sleep(800);
     // the 3D view, a little closer
@@ -535,22 +593,20 @@ const SCENES = {
     await sleep(600);
     await cursor(true);
     await moveTo(view.x - 120, view.y + 90, 10);
-    await rec.begin("wave");
-    await sleep(400);
-    // a slow orbit, a quarter turn at most
-    await drag({ x: view.x - 120, y: view.y + 90 }, { x: view.x + 70, y: view.y + 80 }, 4300, (t) => t * t * (3 - 2 * t));
-    await moveTo(view.x + 150, view.y + 150, 500);
+    await heroTake("wave", "A silicon strip's first mode, solved and travelling along it in 3D");
     await sleep(300);
-    await rec.end();
-    await cursor(false);
+    // a slow orbit, a quarter turn at most
+    await drag({ x: view.x - 120, y: view.y + 90 }, { x: view.x + 70, y: view.y + 80 }, 2300, (t) => t * t * (3 - 2 * t));
+    await moveTo(view.x + 150, view.y + 150, 400);
+    await sleep(200);
+    await heroEnd();
   },
 
   /** A ring's spectrum building up live (a time-lapse), then the ring lit at resonance. */
   async ring() {
-    const card = await exampleCard("ring-fdfd", "Run");
     await moveTo(VIEW.width / 2, VIEW.height / 2, 10);
-    await js(`[...document.querySelectorAll(args[0])].filter((x) => x.getBoundingClientRect().width)[args[1]].click();`, card.selector, card.nth);
-    await until(`return __rec.find("main button", "2D");`, "the viewer");
+    await runExample("ring-fdfd");
+    await until(`return [...document.querySelectorAll("main button")].some((b) => b.textContent.trim() === "2D" && b.getBoundingClientRect().width);`, "the viewer");
     await js(`__rec.find("main button", "2D").click();`);
     // the spectrum alone while the run plays: the field's picture, which arrives above it, hidden
     await until(`return __rec.find("h3", "S-parameters");`, "the first S-parameters", 120000);
@@ -572,14 +628,14 @@ const SCENES = {
     const nice = [10, 15, 20, 25, 30, 40, 50, 60, 75, 80, 100, 120, 150, 200, 250, 300];
     const speed = nice.reduce((best, s) => (Math.abs(left / s - LAPSE) < Math.abs(left / best - LAPSE) ? s : best));
     log(`  ${n1} of ${total} wavelengths, about ${left.toFixed(0)} s to go: played ${speed}× faster`);
-    await rec.begin("ring");
+    await heroTake("ring", "A ring's spectrum by 2D FDFD, point by point; then the ring at resonance");
     await js(`__rec.badge(args[0]);`, `${speed}× faster`);
     await rec.speed(speed, GIFS.hero.fps);
     await finished();
     await rec.speed(1);
     await js(`__rec.badge(null); clearInterval(window.__pin);
               for (const s of document.querySelectorAll("main section")) s.style.display = "";`);
-    await sleep(700);
+    await sleep(300);
     await rec.cut();
     // the ring at resonance, in 3D
     await js(`__rec.find("main button", "3D").click();`);
@@ -590,10 +646,9 @@ const SCENES = {
     await cursor(true);
     await sleep(300);
     // turned slowly, then held: the light circling the ring at resonance is what this shows
-    await drag({ x: view.x - 120, y: view.y + 110 }, { x: view.x + 10, y: view.y + 100 }, 4000, (t) => t * t * (3 - 2 * t));
-    await sleep(1200);
-    await rec.end();
-    await cursor(false);
+    await drag({ x: view.x - 120, y: view.y + 110 }, { x: view.x + 10, y: view.y + 100 }, 1700, (t) => t * t * (3 - 2 * t));
+    await sleep(300);
+    await heroEnd();
   },
 
   /** An MZI's last two wires drawn on the chip, then simulated: its spectrum and its checks. */
@@ -606,8 +661,8 @@ const SCENES = {
       .replace('    ["lower.o2", "combine.o1"],\n', "");
     fs.writeFileSync(path.join(WORKSPACE, "circuits", "mzi.toml"), mzi);
     await goTo("Chip");
-    await until(`return __rec.find("aside button", "mzi");`, "the saved MZI");
-    await js(`__rec.find("aside button", "mzi").click();`);
+    await until(`return __rec.find("nav button", "mzi");`, "the saved MZI");
+    await js(`__rec.find("nav button", "mzi").click();`);
     await until(`return document.querySelector('[data-pin="upper.o2"]');`, "the MZI on the chip");
     // more room for the canvas, and the chip a little closer
     await fold(true);
@@ -622,19 +677,191 @@ const SCENES = {
     const pin = (ref) => js(`const r = document.querySelector('[data-pin="' + args[0] + '"]').getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 };`, ref);
     const start = await pin("upper.o2");
     await moveTo(start.x - 60, start.y + 90, 10);
-    await rec.begin("chip");
-    await sleep(300);
-    await drag(await pin("upper.o2"), await pin("combine.o2"), 750, ease, 350);
-    await sleep(150);
-    await drag(await pin("lower.o2"), await pin("combine.o1"), 750, ease, 350);
-    await sleep(250);
-    await click("button", "Simulate", { ms: 600 });
+    await heroTake("chip", "A Mach-Zehnder wired port to port on the chip, then simulated");
+    await rec.speed(1.6);
+    await drag(await pin("upper.o2"), await pin("combine.o2"), 650, ease, 300);
+    await sleep(120);
+    await drag(await pin("lower.o2"), await pin("combine.o1"), 650, ease, 300);
+    await sleep(200);
+    await click("button", "Simulate", { ms: 550 });
     await until(`return __rec.find("span.badge", "σ");`, "the spectrum", 20000);
-    await moveTo(mouse.x - 40, mouse.y + 330, 700);
-    await sleep(1900);
-    await rec.end();
-    await cursor(false);
+    await moveTo(mouse.x - 40, mouse.y + 330, 600);
+    await sleep(1200);
+    await heroEnd();
     await fold(false);
+  },
+
+  /** Home, at the top: what the studio is, in its own words, and how many cases pass. */
+  async home() {
+    await goTo("Home");
+    await until(`return __rec.find("h1, h2", "Design, simulate");`, "Home's heading", 20000);
+    await js(`const h = __rec.find("h1, h2", "Design, simulate"); let b = h.parentElement;
+              while (b && !(b.scrollHeight > b.clientHeight + 4 && /auto|scroll/.test(getComputedStyle(b).overflowY))) b = b.parentElement;
+              b?.scrollTo({ top: 0 });`);
+    await sleep(600);
+    const badge = await box("main button.badge", "validation cases pass");
+    const examples = await box("main button", "Open an example");
+    await moveTo(badge.x - 40, badge.y + 150, 10);
+    await cursor(true);
+    await heroTake("home", null);
+    await sleep(250);
+    // to the count of validation cases, then to the examples
+    await moveTo(badge.x, badge.y + 4, 750);
+    await sleep(300);
+    await moveTo(examples.x - 60, examples.y + 6, 700);
+    await sleep(250);
+    await heroEnd();
+  },
+
+  /** An MMI's FDTD run, live: the pulse entering, filling the MMI and leaving by its two arms (a time-lapse). */
+  async fdtd() {
+    await moveTo(VIEW.width / 2, VIEW.height / 2, 10);
+    await runExample("mmi-fdtd");
+    await until(`return [...document.querySelectorAll("main h3")].find((h) => h.textContent.trim().startsWith("Field"));`, "the FDTD field", 60000);
+    await until(`return Number(document.querySelector("main").innerText.match(/(\\d+) \\/ \\d+\\s/)?.[1] ?? 0) >= 2;`, "the first frames", 60000);
+    await heroTake("fdtd", "FDTD: a pulse through a 1 × 2 MMI, shown as the run steps");
+    const speed = FDTD_SPEED;
+    await js(`__rec.badge(args[0]);`, `${speed}× faster`);
+    await rec.speed(speed, GIFS.hero.fps);
+    await sleep(FDTD_SECONDS * 1000);
+    await rec.speed(1);
+    await rec.end();
+    await js(`__rec.badge(null); __rec.caption(null); document.querySelector("button[aria-label='Stop the run']")?.click();`);
+    await sleep(800);
+  },
+
+  /** A thermo-optic phase shifter switched on: its 2D model's temperature rising in time. */
+  async heater() {
+    await goTo("Components");
+    await sleep(600);
+    await js(`if (!__rec.find("button", "Thermo-optic phase shifter")) document.querySelector("button[title^='The components']")?.click();`);
+    await until(`return __rec.find("button", "Thermo-optic phase shifter");`, "the components");
+    await js(`__rec.find("button", "Thermo-optic phase shifter").click();`);
+    await until(`return __rec.find("main button", "Temperature");`, "the shifter's page");
+    await js(`__rec.find("main button", "Temperature").click();`);
+    await until(`return __rec.find("main button", "In time");`, "the temperature view", 60000);
+    await js(`__rec.find("main button", "In time").click();`);
+    await until(`return __rec.find("main button[aria-label=Play]") && !document.querySelector("[aria-label='Turning the heater on']");`, "the heater turned on", 120000);
+    await sleep(800);
+    // the curve and the picture under it in view
+    await scrollTo("main button", "In time", 8, false);
+    await sleep(500);
+    const play = await box("main button[aria-label=Play]");
+    await moveTo(play.x + 160, play.y - 120, 10);
+    await cursor(true);
+    await heroTake("heater", "A thermo-optic phase shifter switched on: its 2D model's heat in time");
+    await rec.speed(3);
+    await sleep(300);
+    await click("main button[aria-label=Play]", null, { ms: 600 });
+    await moveTo(play.x + 260, play.y + 120, 900);
+    await until(`return __rec.find("main button[aria-label=Play]");`, "the end of the turn-on", 30000);
+    await sleep(500);
+    await heroEnd();
+  },
+
+  /** Photon pairs from poled lithium niobate: the job computed, its phase-matching map. */
+  async nonlinear() {
+    await goTo("Materials");
+    await until(`return __rec.find("button", "Nonlinear processes");`, "the materials list");
+    await js(`__rec.find("button", "Nonlinear processes").click();`);
+    await until(`return __rec.find("main button.btn-xs", "Degenerate SPDC");`, "the nonlinear presets");
+    await js(`__rec.find("main button.btn-xs", "PPLN SHG").click();`);
+    await sleep(400);
+    await moveTo(700, 400, 10);
+    await cursor(true);
+    await heroTake("nonlinear", "Photon pairs from poled LiNbO₃: phase matching against wavelength and temperature");
+    await rec.speed(1.7);
+    await click("main button.btn-xs", "Degenerate SPDC", { ms: 600 });
+    await sleep(250);
+    await click("main button", "Compute", { ms: 600 });
+    await until(`return __rec.find("main h3", "Phase matching");`, "the phase-matching map", 30000);
+    await sleep(300);
+    await scrollTo("main h3", "Phase matching", 70);
+    await sleep(600);
+    // along the map at the operating temperature
+    const map = await box("main h3", "Phase matching");
+    await moveTo(map.left + 160, map.top + 200, 500);
+    await moveTo(map.left + 460, map.top + 190, 1300, (t) => t);
+    await sleep(300);
+    await heroEnd();
+  },
+
+  /** An all-pass ring made from the bare wafer, step by step in 3D. */
+  async fab() {
+    await goTo("Fabrication");
+    await until(`return document.querySelector("main select");`, "the design picker", 30000);
+    await js(`const s = document.querySelector("main select");
+              s.value = "lib:ring-all-pass";
+              s.dispatchEvent(new Event("change", { bubbles: true }));`);
+    await until(`return __rec.find("main div", "5 steps, from the bare wafer") && __rec.find("main button", "3D");`, "the ring's flow", 60000);
+    await js(`__rec.find("main button", "3D").click();
+              const sp = document.querySelector("main select[aria-label=Speed]");
+              sp.value = "2";
+              sp.dispatchEvent(new Event("change", { bubbles: true }));
+              document.querySelector("main button[aria-label='Back to the bare wafer']").click();`);
+    await sleep(1500);
+    await scrollTo("main div", "5 steps, from the bare wafer", 22, false);
+    await sleep(800);
+    const play = await box("main button[aria-label=Play]");
+    await moveTo(play.x + 120, play.y - 160, 10);
+    await cursor(true);
+    await heroTake("fab", "How the ring would be made, from the bare wafer, step by step");
+    await rec.speed(2.4);
+    await sleep(200);
+    await click("main button[aria-label=Play]", null, { ms: 500 });
+    await moveTo(play.x + 420, play.y - 260, 900);
+    await until(`return __rec.find("main button[aria-label=Play]") && /7 \\/ 7/.test(document.querySelector("main").innerText);`, "the flow played", 60000);
+    await sleep(600);
+    await heroEnd();
+  },
+
+  /** The ring resonator's lesson: its live chart brought to critical coupling. */
+  async lesson() {
+    await goTo("Academy");
+    await until(`return __rec.find("nav button, aside button", "The ring resonator");`, "the lessons");
+    await js(`__rec.find("nav button, aside button", "The ring resonator").click();`);
+    await until(`return __rec.find("figure.panel:not([data-diagram])");`, "the ring's chart");
+    await sleep(800);
+    await js(`const fig = __rec.find("figure.panel:not([data-diagram])");
+       const art = fig.closest("article");
+       const head = fig.firstElementChild.getBoundingClientRect();
+       art.scrollTo({ top: art.scrollTop + head.bottom - art.getBoundingClientRect().top });`);
+    await sleep(900);
+    await cursor(true);
+    await slideTo("radius", RING_RADIUS, 200);
+    await slideTo("window", 50, 200);
+    await slideTo("coupling", 730, 200);
+    await sleep(900);
+    const critical = await js(
+      `const label = [...document.querySelectorAll("figure.panel p")].find((p) => p.textContent.includes("Critical coupling"));
+       const sup = "⁰¹²³⁴⁵⁶⁷⁸⁹";
+       const text = label.nextElementSibling.textContent.replace(/\\s/g, "").replace(/[⁰¹²³⁴⁵⁶⁷⁸⁹⁻]/g, (c) => (c === "⁻" ? "-" : String(sup.indexOf(c))));
+       const m = /^([\\d.]+)(?:×10(-?\\d+))?/.exec(text);
+       return Number(m[1]) * 10 ** Number(m[2] ?? 0);`,
+    );
+    const at = Math.round((1000 * Math.log(critical / 1e-4)) / Math.log(0.5 / 1e-4));
+    await heroTake("lesson", "The Academy: a ring taken to critical coupling on a chart the library computes");
+    await sleep(150);
+    await slideTo("coupling", at, 1600, (t) => t * t * (3 - 2 * t));
+    await moveTo(mouse.x + 60, mouse.y + 110, 400);
+    await sleep(700);
+    await heroEnd();
+  },
+
+  /** The validation report, last: every case passing, the FDTD ones picked out. */
+  async proof() {
+    await goTo("Validation");
+    await until(`return __rec.find("h2", "cases pass");`, "the report");
+    await sleep(600);
+    await moveTo(760, 560, 10);
+    await cursor(true);
+    await heroTake("proof", "Each solver checked against exact solutions and published papers");
+    await sleep(300);
+    await click("main button", "fdtd", { ms: 800 });
+    await sleep(500);
+    await moveTo(mouse.x + 140, mouse.y + 200, 700);
+    await sleep(1500);
+    await heroEnd();
   },
 
   /** A directional coupler's page: its gap and length moved, the view following; then its cut. */
@@ -829,7 +1056,11 @@ async function slideTo(key, to, ms = 1000, curve = ease) {
 }
 
 /** How long the ring's run lasts in the hero GIF, in seconds: its speed-up follows from it. */
-const LAPSE = 5;
+const LAPSE = 2.5;
+
+/** The MMI's FDTD run in the hero: played this many times faster, for this many seconds of the run. */
+const FDTD_SPEED = 6;
+const FDTD_SECONDS = 17;
 
 // ---- composing the GIFs ----
 
@@ -927,11 +1158,62 @@ function encode(name, spec, frames, width, height) {
   log(`${path.relative(repo, gif)}: ${(frames.length / spec.fps).toFixed(1)} s, ${frames.length} frames, ${width} x ${height}, ${mb.toFixed(2)} MB`);
 }
 
+// ---- the window ----
+
+/**
+ * Sizes the studio's window so its page is VIEW in CSS pixels at the window's display scale, and
+ * puts it in the bottom-right corner of the primary display's work area, behind the other windows
+ * and without taking the focus (it keeps rendering there: occlusion is off). A window that can't
+ * hold VIEW at that scale is made as large as the work area allows; the page is still laid out at
+ * VIEW by the emulation, so the recording is the same and only the window on the screen shows less.
+ */
+function placeWindow(pid) {
+  const script = String.raw`
+$ErrorActionPreference = "Stop"
+Add-Type @"
+using System; using System.Runtime.InteropServices;
+public static class HeroWin {
+  [StructLayout(LayoutKind.Sequential)] public struct R { public int L, T, Ri, B; }
+  [DllImport("user32.dll")] public static extern IntPtr SetThreadDpiAwarenessContext(IntPtr c);
+  [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr h, out R r);
+  [DllImport("user32.dll")] public static extern bool GetClientRect(IntPtr h, out R r);
+  [DllImport("user32.dll")] public static extern uint GetDpiForWindow(IntPtr h);
+  [DllImport("user32.dll")] public static extern bool SystemParametersInfo(uint a, uint b, out R r, uint c);
+  [DllImport("user32.dll")] public static extern bool SetWindowPos(IntPtr h, IntPtr after, int x, int y, int cx, int cy, uint f);
+}
+"@
+[void][HeroWin]::SetThreadDpiAwarenessContext([IntPtr](-4))
+$h = [IntPtr]::Zero
+for ($i = 0; $i -lt 50 -and $h -eq [IntPtr]::Zero; $i++) { $h = (Get-Process -Id ${pid}).MainWindowHandle; if ($h -eq [IntPtr]::Zero) { Start-Sleep -Milliseconds 200 } }
+if ($h -eq [IntPtr]::Zero) { "no window"; exit 1 }
+$w = New-Object HeroWin+R; $c = New-Object HeroWin+R; $a = New-Object HeroWin+R
+[void][HeroWin]::GetWindowRect($h, [ref]$w); [void][HeroWin]::GetClientRect($h, [ref]$c)
+[void][HeroWin]::SystemParametersInfo(0x30, 0, [ref]$a, 0)
+$scale = [HeroWin]::GetDpiForWindow($h) / 96.0
+$fw = ($w.Ri - $w.L) - ($c.Ri - $c.L); $fh = ($w.B - $w.T) - ($c.B - $c.T)
+$ow = [Math]::Min([int][Math]::Round(${VIEW.width} * $scale) + $fw, $a.Ri - $a.L)
+$oh = [Math]::Min([int][Math]::Round(${VIEW.height} * $scale) + $fh, $a.B - $a.T)
+# HWND_BOTTOM, SWP_NOACTIVATE
+[void][HeroWin]::SetWindowPos($h, [IntPtr]1, $a.Ri - $ow, $a.B - $oh, $ow, $oh, 0x10)
+[void][HeroWin]::GetClientRect($h, [ref]$c)
+"scale {0}, page {1} x {2} CSS px in a work area of {3} x {4} px" -f $scale, [Math]::Round(($c.Ri - $c.L) / $scale), [Math]::Round(($c.B - $c.T) / $scale), ($a.Ri - $a.L), ($a.B - $a.T)
+`;
+  const r = spawnSync("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", script], { encoding: "utf8" });
+  const said = `${r.stdout ?? ""}${r.stderr ?? ""}`.trim();
+  if (r.status !== 0) {
+    log(`  couldn't place the window: ${said}`);
+    return;
+  }
+  log(`  the window: ${said}${/page (\d+) x (\d+)/.exec(said)?.slice(1).join("x") === `${VIEW.width}x${VIEW.height}` ? "" : ` (the recording is laid out at ${VIEW.width} x ${VIEW.height} all the same)`}`);
+}
+
 // ---- the session ----
 
 async function record() {
   fs.mkdirSync(CONFIG, { recursive: true });
   fs.writeFileSync(path.join(CONFIG, "settings.json"), JSON.stringify(RECORDING_SETTINGS, null, 2));
+  // no window size or place kept from an earlier session (put back at the end with the settings)
+  fs.rmSync(path.join(CONFIG, ".window-state.json"), { force: true });
   log(`starting ${path.relative(repo, EXE)} in ${WORKSPACE}`);
   child = spawn(EXE, [], {
     cwd: WORKSPACE,
@@ -950,8 +1232,10 @@ async function record() {
     target = list.find((t) => t.type === "page" && t.url.includes("tauri.localhost"));
   }
   if (!target) throw new Error(`no studio window on port ${PORT}`);
+  placeWindow(child.pid);
   cdp = new Cdp(target.webSocketDebuggerUrl);
   await cdp.open();
+  // the page laid out at VIEW whatever the window's size, so every recording is the same
   await cdp.send("Emulation.setDeviceMetricsOverride", { ...VIEW, deviceScaleFactor: 1, mobile: false });
   await until(`return document.querySelector("nav button");`, "the window");
   await js(PAGE_HELPERS);
@@ -960,7 +1244,7 @@ async function record() {
   if (workspace !== WORKSPACE) throw new Error(`the workspace is ${workspace}, not ${WORKSPACE}`);
   rec = new Recorder();
 
-  const order = ["wave", "ring", "device", "chip", "materials", "validation", "academy"];
+  const order = ["home", "fdtd", "wave", "ring", "heater", "nonlinear", "chip", "fab", "lesson", "proof", "device", "materials", "validation", "academy"];
   for (const name of order) {
     if (wanted.has(name)) await SCENES[name]();
   }

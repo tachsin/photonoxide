@@ -199,6 +199,159 @@ fn adaptive_steps_and_convergence_are_recorded() {
     assert_eq!(s_parameters(&events).len(), 1);
 }
 
+/// A run's sections: each one's kind, start, length and steps, after the solver's settings.
+fn sections(events: &[Event]) -> Vec<super::EmeSection> {
+    let at = events
+        .iter()
+        .position(|e| matches!(e, Event::EmeSections { .. }))
+        .unwrap();
+    assert!(matches!(events[at - 1], Event::Solver { .. }));
+    match &events[at] {
+        Event::EmeSections { sections } => sections.clone(),
+        _ => unreachable!(),
+    }
+}
+
+#[test]
+fn a_run_records_its_sections_along_the_structure() {
+    // a taper between its two ports
+    let s = sections(&events(&Job::parse(TAPER).unwrap()));
+    let got: Vec<_> = s
+        .iter()
+        .map(|s| {
+            (
+                s.name.as_str(),
+                s.kind.as_str(),
+                s.start_um,
+                s.length_um,
+                s.steps,
+            )
+        })
+        .collect();
+    assert_eq!(
+        got,
+        [
+            ("section 1", "straight", 0.0, 0.0, 1),
+            ("section 2", "taper", 0.0, 0.4, 4),
+            ("section 3", "straight", 0.4, 0.0, 1),
+        ]
+    );
+    assert!(s.iter().all(|s| s.repeats == 1 && s.radius_um.is_none()));
+    // a period's sections repeated 10 times, the port after it past all ten
+    let s = sections(&events(&Job::parse(&grating()).unwrap()));
+    let got: Vec<_> = s.iter().map(|s| (s.start_um, s.repeats)).collect();
+    assert_eq!(got, [(0.0, 1), (0.0, 10), (0.3, 10), (5.0, 1)]);
+    // a bend: its radius to the window's middle, its angle, its arc there
+    let s = sections(&events(&Job::parse(&bend_job()).unwrap()));
+    assert_eq!(s[1].kind, "bend");
+    assert_eq!(s[1].radius_um, Some(2.75));
+    assert!((s[1].angle_deg.unwrap() - 90.0).abs() < 1e-12);
+    assert!((s[1].length_um - 2.75 * std::f64::consts::FRAC_PI_2).abs() < 1e-12);
+    assert_eq!(s[2].start_um, s[1].length_um);
+}
+
+/// A run's `[task.beam]` records: (wavelength, reflected, transmitted, ports, shares).
+type Shares = (f64, f64, f64, Vec<String>, Vec<f64>);
+
+fn beam_shares(events: &[Event]) -> Vec<Shares> {
+    events
+        .iter()
+        .filter_map(|e| match e {
+            Event::EmeBeam {
+                wavelength_um,
+                reflected,
+                transmitted,
+                ports,
+                shares,
+            } => Some((
+                *wavelength_um,
+                *reflected,
+                *transmitted,
+                ports.clone(),
+                shares.clone(),
+            )),
+            _ => None,
+        })
+        .collect()
+}
+
+#[test]
+fn a_beams_shares_are_the_librarys_launch_to_the_bit() {
+    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("jobs");
+    let job = Job::load(&dir.join("eme-beam.yaml")).unwrap();
+    check(&job).unwrap();
+    let got = beam_shares(&events(&job));
+    assert_eq!(got.len(), 1);
+    let (wl, reflected, transmitted, ports, shares) = &got[0];
+    assert_eq!(*wl, 1.55);
+    assert_eq!(ports, &["2 TE0"]);
+    // the library's: the beam on the oxide's modes, through the facet
+    let lam = Wavelength::um(1.55).unwrap();
+    let eme = Eme::new(Polarization::Te, lam, 60).unwrap();
+    let oxide = Slice::new(&[(c64::new(1.444, 0.0), Length::um(20.0))]).unwrap();
+    let slab = Slice::slab(
+        c64::new(3.473, 0.0),
+        Length::um(0.22),
+        c64::new(1.444, 0.0),
+        Length::um(20.0),
+    )
+    .unwrap();
+    let s = eme
+        .s_matrix(&[
+            Section::new(oxide.clone(), Length::ZERO),
+            Section::new(slab, Length::ZERO),
+        ])
+        .unwrap();
+    let beam = crate::eme::Beam::gaussian(Length::um(1.0), Length::ZERO)
+        .unwrap()
+        .tilted(0.0, 1.444)
+        .unwrap();
+    let launched = eme.launch(&oxide, &beam).unwrap();
+    let p = launched.power();
+    let (r, t) = s.forward(&launched.arriving()).unwrap();
+    assert_eq!(*reflected, crate::eme::power(&r, &s.first) / p);
+    assert_eq!(*transmitted, crate::eme::power(&t, &s.last) / p);
+    assert_eq!(shares[0], t[0].norm_sqr() / p);
+    // between walls, without loss: what isn't reflected passes
+    assert!(
+        (reflected + transmitted - 1.0).abs() < 1e-12,
+        "{reflected} {transmitted}"
+    );
+    // the numbers the job's comment quotes
+    assert_eq!(
+        ((shares[0] * 1e4).round(), (reflected * 1e4).round()),
+        (3474.0, 357.0)
+    );
+}
+
+#[test]
+fn check_refuses_a_beam_it_cannot_launch() {
+    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("jobs");
+    let text = std::fs::read_to_string(dir.join("eme-beam.yaml")).unwrap();
+    for (from, to, says) in [
+        ("waist_um: 1.0", "waist_um: 0.0", "waist_um"),
+        (
+            "waist_um: 1.0",
+            "waist_um: 1.0\n    center_um: 12.0",
+            "center_um",
+        ),
+        (
+            "waist_um: 1.0",
+            "waist_um: 1.0\n    angle_deg: 90.0",
+            "angle_deg",
+        ),
+        (
+            "  window_um: 20.0",
+            "  window_um: 20.0\n  pml: { thickness_um: 2.0, strength: 0.1 }",
+            "[task.pml]",
+        ),
+    ] {
+        let job = Job::parse_as(&text.replace(from, to), crate::run::Format::Yaml).unwrap();
+        let e = check(&job).unwrap_err().to_string();
+        assert!(e.contains(says), "{e}");
+    }
+}
+
 #[test]
 fn a_sweep_records_s_at_each_wavelength() {
     let job = TAPER.to_owned()
@@ -333,4 +486,393 @@ fn the_built_in_sweep_is_the_cases_interpolant() {
     assert_eq!(ports, &["1 TE0", "2 TE0"]);
     let r = spectrum.at(um(MMI_RANGE.0 + (MMI_RANGE.1 - MMI_RANGE.0) * 100.0 / 200.0));
     assert_eq!(s[1][0], [r[1][0].re, r[1][0].im]);
+}
+
+/// A slab grating: 0.3 µm of 300 nm slab and 0.2 µm of 220 nm, ten times, between two 220 nm
+/// ports, in [`TAPER`]'s window.
+fn grating() -> String {
+    TAPER
+        .replace(
+            "[[task.section]]\nlength_um = 0.4\ncore_um = [0.22, 0.30]\nsteps = 4\n",
+            "[[task.section]]\nlength_um = 0.3\ncore_um = 0.30\n\n[[task.section]]\n\
+             length_um = 0.2\ncore_um = 0.22\n",
+        )
+        .replace(
+            "length_um = 0.0\ncore_um = 0.30\n",
+            "length_um = 0.0\ncore_um = 0.22\n",
+        )
+        + "\n[task.period]\nsections = [2, 3]\ncount = 10\n"
+}
+
+#[test]
+fn a_period_is_the_librarys_grating_and_bloch_modes_to_the_bit() {
+    let job = Job::parse(&grating()).unwrap();
+    check(&job).unwrap();
+    let events = events(&job);
+    let got = s_parameters(&events);
+    assert_eq!(got.len(), 1);
+    let (ports, s) = &got[0];
+    assert_eq!(ports, &["1 TE0", "2 TE0"]);
+    let sections = [
+        Section::new(slab(0.22), Length::ZERO),
+        Section::new(slab(0.30), Length::um(0.3)),
+        Section::new(slab(0.22), Length::um(0.2)),
+        Section::new(slab(0.22), Length::ZERO),
+    ];
+    let eme = Eme::new(Polarization::Te, Wavelength::um(1.55).unwrap(), 12).unwrap();
+    let lib = eme.grating(&sections, 1..3, 10).unwrap();
+    assert_eq!([lib.s21[0][0].re, lib.s21[0][0].im], s[1][0]);
+    assert_eq!([lib.s11[0][0].re, lib.s11[0][0].im], s[0][0]);
+    let bloch = eme.bloch(&sections[1..3]).unwrap();
+    let point = events
+        .iter()
+        .find_map(|e| match e {
+            Event::SweepPoint {
+                effective_indices,
+                te_fractions,
+                ..
+            } => Some((effective_indices.clone(), te_fractions.clone())),
+            _ => None,
+        })
+        .unwrap();
+    assert_eq!(point.0.len(), 4);
+    assert_eq!(point.1, vec![1.0; 4]);
+    for (got, want) in point.0.iter().zip(&bloch.effective_indices) {
+        assert_eq!(*got, [want.re, want.im]);
+    }
+    // the scene draws every period
+    let shapes = events
+        .iter()
+        .find_map(|e| match e {
+            Event::Scene { shapes, .. } => Some(shapes.len()),
+            _ => None,
+        })
+        .unwrap();
+    assert_eq!(shapes, 20);
+}
+
+/// `jobs/eme-grating.yaml` gives the stop band its comment quotes.
+#[test]
+#[ignore = "81 wavelengths: in release"]
+fn the_built_in_grating_gives_the_numbers_its_comment_quotes() {
+    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("jobs");
+    let job = Job::load(&dir.join("eme-grating.yaml")).unwrap();
+    let events = events(&job);
+    let mut rows = Vec::new();
+    let mut bloch = Vec::new();
+    for e in &events {
+        match e {
+            Event::SParameters {
+                wavelength_um, s, ..
+            } => rows.push((
+                *wavelength_um,
+                s[1][0][0].powi(2) + s[1][0][1].powi(2),
+                s[0][0][0].powi(2) + s[0][0][1].powi(2),
+            )),
+            Event::SweepPoint {
+                effective_indices, ..
+            } => bloch.push(effective_indices[0]),
+            _ => {}
+        }
+    }
+    assert_eq!(rows.len(), 81);
+    assert_eq!(bloch.len(), 81);
+    // the stop band: where the fundamental Bloch mode decays, Im K/k0 above 0.01
+    let band: Vec<f64> = rows
+        .iter()
+        .zip(&bloch)
+        .filter(|(_, b)| b[1] > 0.01)
+        .map(|(r, _)| r.0)
+        .collect();
+    assert_eq!(band.len(), 24, "{band:?}");
+    assert!((band[0] - 1.6025).abs() < 1e-9 && (band[23] - 1.66).abs() < 1e-9);
+    let (l, _, r) = rows
+        .iter()
+        .copied()
+        .fold((0.0, 0.0, 0.0), |a, b| if b.2 > a.2 { b } else { a });
+    assert!(
+        (l - 1.6375).abs() < 1e-9 && (r - 0.998307).abs() < 5e-7,
+        "{l} {r}"
+    );
+    let decay = bloch.iter().map(|b| b[1]).fold(0.0, f64::max);
+    assert!((decay - 0.066627).abs() < 5e-7, "{decay}");
+}
+
+#[test]
+fn check_refuses_a_period_it_cannot_repeat() {
+    let refused = |text: String, says: &str| {
+        let err = check(&Job::parse(&text).unwrap()).unwrap_err().to_string();
+        assert!(err.contains(says), "{err}");
+    };
+    let g = grating();
+    for bad in ["[1, 3]", "[3, 2]", "[2, 4]"] {
+        refused(
+            g.replace("sections = [2, 3]", &format!("sections = {bad}")),
+            "between the ports",
+        );
+    }
+    refused(g.replace("count = 10", "count = 0"), "at least 1");
+    refused(
+        g.clone() + "\n[task.adaptive]\ntolerance = 1e-3\n",
+        "takes equal steps",
+    );
+}
+
+/// A TE slab, 220 nm, through a 90° bend at 2 µm to its centre between two straights, the core
+/// 0.75 µm below the window's middle.
+fn bend_job() -> String {
+    r#"
+name = "bend"
+timeout_minutes = 5
+
+[task]
+kind = "eme"
+wavelength_um = 1.55
+modes = 8
+window_um = 4.5
+cladding = 1.444
+core = 3.473
+
+[task.pml]
+thickness_um = 2.0
+strength = 0.5
+sides = "upper"
+
+[[task.section]]
+length_um = 0.0
+core_um = 0.22
+center_um = -0.75
+
+[[task.section]]
+radius_um = 2.0
+angle_deg = 90.0
+core_um = 0.22
+center_um = -0.75
+
+[[task.section]]
+length_um = 0.0
+core_um = 0.22
+center_um = -0.75
+"#
+    .to_owned()
+}
+
+#[test]
+fn a_bend_is_the_librarys_bend_to_the_bit() {
+    let job = Job::parse(&bend_job()).unwrap();
+    check(&job).unwrap();
+    let events = events(&job);
+    let got = s_parameters(&events);
+    let (ports, s) = &got[0];
+    assert_eq!(ports, &["1 TE0", "2 TE0"]);
+    let clad = c64::new(1.444, 0.0);
+    let slab = Slice::new(&[
+        (clad, Length::um(2.25 - 0.75 - 0.11)),
+        (c64::new(3.473, 0.0), Length::um(0.22)),
+        (clad, Length::um(2.25 + 0.75 - 0.11)),
+    ])
+    .unwrap();
+    // the radius to the window's middle: the core's 2 µm, plus its 0.75 µm below the middle
+    let sections = [
+        Section::new(slab.clone(), Length::ZERO),
+        Section::bend(slab.clone(), Length::um(2.75), std::f64::consts::FRAC_PI_2).unwrap(),
+        Section::new(slab, Length::ZERO),
+    ];
+    let lib = Eme::new(Polarization::Te, Wavelength::um(1.55).unwrap(), 8)
+        .unwrap()
+        .with_upper_pml(Length::um(2.0), 0.5)
+        .unwrap()
+        .s_matrix(&sections)
+        .unwrap();
+    assert_eq!([lib.s21[0][0].re, lib.s21[0][0].im], s[1][0]);
+    assert_eq!([lib.s11[0][0].re, lib.s11[0][0].im], s[0][0]);
+    // the bend's arc, 2.75 µm × π/2 at the window's middle, is the section's length
+    assert!((sections[1].length.to_um() - 2.75 * std::f64::consts::FRAC_PI_2).abs() < 1e-12);
+    // the scene turns: the output faces down, the drawing as tall as it is wide
+    let (x, y) = events
+        .iter()
+        .find_map(|e| match e {
+            Event::Scene { x_um, y_um, .. } => Some((*x_um, *y_um)),
+            _ => None,
+        })
+        .unwrap();
+    assert!((x[1] - x[0] - (2.75 + 2.25)).abs() < 1e-9, "{x:?}");
+    assert!((y[1] - y[0] - (2.75 + 2.25)).abs() < 1e-9, "{y:?}");
+}
+
+/// The bend of [`bend_job`] by the library, `modes` modes, its thin layers at most `step` µm.
+fn library_bend(modes: usize, step: f64) -> crate::eme::Scattering {
+    let clad = c64::new(1.444, 0.0);
+    let slab = Slice::new(&[
+        (clad, Length::um(2.25 - 0.75 - 0.11)),
+        (c64::new(3.473, 0.0), Length::um(0.22)),
+        (clad, Length::um(2.25 + 0.75 - 0.11)),
+    ])
+    .unwrap();
+    let sections = [
+        Section::new(slab.clone(), Length::ZERO),
+        Section::bend(slab.clone(), Length::um(2.75), std::f64::consts::FRAC_PI_2).unwrap(),
+        Section::new(slab, Length::ZERO),
+    ];
+    Eme::new(Polarization::Te, Wavelength::um(1.55).unwrap(), modes)
+        .unwrap()
+        .with_upper_pml(Length::um(2.0), 0.5)
+        .unwrap()
+        .with_bend_step(Length::um(step))
+        .unwrap()
+        .s_matrix(&sections)
+        .unwrap()
+}
+
+#[test]
+fn a_bends_layers_are_the_tasks_and_the_convergence_refines_them() {
+    // bend_step_nm: the library's bend with that step, to the bit
+    let job =
+        Job::parse(&bend_job().replace("modes = 8", "modes = 8\nbend_step_nm = 5.0")).unwrap();
+    check(&job).unwrap();
+    let (_, s) = &s_parameters(&events(&job))[0];
+    let lib = library_bend(8, 0.005);
+    assert_eq!([lib.s21[0][0].re, lib.s21[0][0].im], s[1][0]);
+    // [task.convergence] drives the modes, then the bend's layers from the default, halving
+    let job = Job::parse(&format!(
+        "{}\n[task.convergence]\ntolerance = 1e-5\n",
+        bend_job()
+    ))
+    .unwrap();
+    check(&job).unwrap();
+    let events = events(&job);
+    let studies: Vec<&crate::convergence::Convergence> = events
+        .iter()
+        .filter_map(|e| match e {
+            Event::GridConvergence { check, .. } => Some(check),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(studies.len(), 2, "the modes' study and the layers'");
+    let layers = studies[1];
+    assert!(
+        layers.quantity.contains("the bends' layers"),
+        "{}",
+        layers.quantity
+    );
+    assert_eq!(
+        layers.steps_um[0],
+        crate::eme::Eme::new(Polarization::Te, Wavelength::um(1.55).unwrap(), 1)
+            .unwrap()
+            .bend_step()
+            .to_um()
+    );
+    assert!(layers.steps_um.len() >= 2);
+    let modes = (1.0 / studies[0].step_um).round() as usize;
+    // the run's S is the library's at the modes found and the finest layers studied
+    let (_, s) = &s_parameters(&events)[0];
+    let lib = library_bend(modes, layers.step_um);
+    assert_eq!([lib.s21[0][0].re, lib.s21[0][0].im], s[1][0]);
+    assert!(
+        check(
+            &Job::parse(&bend_job().replace("modes = 8", "modes = 8\nbend_step_nm = 0.0")).unwrap()
+        )
+        .unwrap_err()
+        .to_string()
+        .contains("bend_step_nm must be above 0")
+    );
+}
+
+#[test]
+fn check_refuses_a_bend_it_cannot_solve() {
+    let refused = |text: String, says: &str| {
+        let err = check(&Job::parse(&text).unwrap()).unwrap_err().to_string();
+        assert!(err.contains(says), "{err}");
+    };
+    let b = bend_job();
+    refused(
+        b.replace("radius_um = 2.0\nangle_deg = 90.0", "radius_um = 2.0"),
+        "both radius_um and angle_deg",
+    );
+    refused(
+        b.replace("angle_deg = 90.0", "angle_deg = 90.0\nlength_um = 1.0"),
+        "leave length_um out",
+    );
+    refused(b.replace("angle_deg = 90.0", "angle_deg = 0.0"), "above 0");
+    refused(
+        b.replace("radius_um = 2.0", "radius_um = 1.0"),
+        "on one side of the bend's centre",
+    );
+    refused(
+        b.replacen(
+            "length_um = 0.0\ncore_um = 0.22",
+            "radius_um = 5.0\nangle_deg = 10.0\ncore_um = 0.22",
+            1,
+        ),
+        "not bends",
+    );
+    refused(
+        b.replace(
+            "core_um = 0.22\ncenter_um = -0.75\n\n[[task.section]]\nlength_um = 0.0",
+            "core_um = [0.22, 0.3]\ncenter_um = -0.75\n\n[[task.section]]\nlength_um = 0.0",
+        ),
+        "one thickness",
+    );
+}
+
+/// `jobs/eme-bend.yaml`'s TM bend at 2 µm with a PML of strength 0.25, 0.5 and 1 and 16 and 24
+/// modes: every one is followed (0.5 and 1 lost two modes on the paths from the uniform window,
+/// which the closed window's path now takes), and at 24 modes the three agree within the
+/// expansion's mode-count gate, 1e-4 as `eme/taper-modes` (measured: 1.5e-5).
+#[test]
+#[ignore = "18 solves: in release"]
+fn the_bend_job_follows_its_modes_at_every_pml_strength() {
+    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("jobs");
+    let text = std::fs::read_to_string(dir.join("eme-bend.yaml")).unwrap();
+    let mut at_24: Vec<Vec<f64>> = Vec::new();
+    for strength in ["0.25", "0.5", "1.0"] {
+        for modes in ["16", "24"] {
+            let t = text
+                .replace("strength: 0.25", &format!("strength: {strength}"))
+                .replace("modes: 16", &format!("modes: {modes}"))
+                .replace("points: 11", "points: 3");
+            let job = Job::parse_as(&t, crate::run::Format::Yaml).unwrap();
+            let mut run = Run::in_memory();
+            execute(&job, &mut run, &Stop::new(None))
+                .unwrap_or_else(|e| panic!("strength {strength}, {modes} modes: {e}"));
+            let rows: Vec<f64> = run
+                .lines()
+                .iter()
+                .filter_map(|l| match serde_json::from_str(l).unwrap() {
+                    Event::SParameters { s, .. } => Some(s[1][0][0].powi(2) + s[1][0][1].powi(2)),
+                    _ => None,
+                })
+                .collect();
+            assert_eq!(rows.len(), 3);
+            if modes == "24" {
+                at_24.push(rows);
+            }
+        }
+    }
+    for other in &at_24[1..] {
+        for (a, b) in at_24[0].iter().zip(other) {
+            assert!((a - b).abs() < 1e-4, "{at_24:?}");
+        }
+    }
+}
+
+/// `jobs/eme-bend.yaml` gives the numbers its comment quotes.
+#[test]
+#[ignore = "11 wavelengths: in release"]
+fn the_built_in_bend_gives_the_numbers_its_comment_quotes() {
+    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("jobs");
+    let job = Job::load(&dir.join("eme-bend.yaml")).unwrap();
+    let rows: Vec<(f64, f64)> = events(&job)
+        .iter()
+        .filter_map(|e| match e {
+            Event::SParameters {
+                wavelength_um, s, ..
+            } => Some((*wavelength_um, s[1][0][0].powi(2) + s[1][0][1].powi(2))),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(rows.len(), 11);
+    for (at, want) in [(0, 0.938954), (5, 0.899089), (10, 0.841900)] {
+        assert!((rows[at].1 - want).abs() < 5e-7, "{:?}", rows[at]);
+    }
 }

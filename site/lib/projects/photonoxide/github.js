@@ -1,13 +1,16 @@
 import { cache } from "react";
 import { parse as parseYaml } from "yaml";
 import { fetchCached } from "@/lib/projects/fetch-cached";
+import { latestTagLookup } from "./latest";
 import { PHOTONOXIDE_BRANCH, PHOTONOXIDE_COMMIT, PHOTONOXIDE_REPO } from "./meta";
+import { readLocalReferencePage, readPythonReferencePage, releaseAssetName } from "./python-reference";
 
 /**
  * Reads the public photonoxide repository on GitHub, server-side, at the
  * latest release: the tag of GitHub's latest release (`v0.4.3`), looked up
- * through Next's data cache (daily), so a release reaches the pages within a
- * day without pinning a new commit. When GitHub can't say, the pages read the
+ * at most every ten minutes and kept in the server's memory (latest.js), so a
+ * release reaches the pages within ten minutes without pinning a new commit,
+ * and a deploy (a restart) asks again. When GitHub can't say, the pages read the
  * commit they were synced from (PHOTONOXIDE_COMMIT), as genoxide's pages do.
  *
  * One GitHub API call lists every file (the git tree of the tag); the files
@@ -21,20 +24,36 @@ import { PHOTONOXIDE_BRANCH, PHOTONOXIDE_COMMIT, PHOTONOXIDE_REPO } from "./meta
 const LATEST_URL = `https://api.github.com/repos/${PHOTONOXIDE_REPO}/releases/latest`;
 export const BLOB_BASE = `https://github.com/${PHOTONOXIDE_REPO}/blob/${PHOTONOXIDE_BRANCH}/`;
 
+/** One server's lookup, shared by every request (latest.js). */
+const latestTag = latestTagLookup({
+  ask: async (etag) => {
+    try {
+      // not through Next's data cache: it outlives deploys and serves stale (latest.js)
+      const res = await fetch(LATEST_URL, {
+        cache: "no-store",
+        headers: {
+          Accept: "application/vnd.github+json",
+          "User-Agent": "tachsin.gr/projects (+https://tachsin.gr/projects)",
+          ...(etag ? { "If-None-Match": etag } : {}),
+        },
+        signal: AbortSignal.timeout(8000),
+      });
+      if (res.status === 304) return { status: 304 };
+      if (!res.ok) return null;
+      const release = await res.json();
+      return { status: 200, tag: release?.tag_name ?? null, etag: res.headers.get("etag") };
+    } catch {
+      return null;
+    }
+  },
+});
+
 /**
  * The latest release's tag, e.g. "v0.4.3", or null when GitHub can't be
  * reached or there is no release.
  * @returns {Promise<string | null>}
  */
-export const getLatestTag = cache(async () => {
-  const release = await fetchCached(LATEST_URL, {
-    as: "json",
-    headers: { Accept: "application/vnd.github+json" },
-    tags: ["photonoxide"],
-  });
-  const tag = release?.tag_name;
-  return typeof tag === "string" && /^v\d+\.\d+\.\d+$/.test(tag) ? tag : null;
-});
+export const getLatestTag = cache(() => latestTag());
 
 /** What the pages read: the latest release's tag, or the synced commit. */
 const getRef = cache(async () => (await getLatestTag()) ?? PHOTONOXIDE_COMMIT);
@@ -105,31 +124,29 @@ export const getRepoFile = cache(async (path) => {
 });
 
 /**
- * One page of the Python API reference, as HTML text, or null when the latest release has none
- * (the releases before the reference was attached, or GitHub can't be reached).
+ * One page of the Python API reference, as HTML text, or null when there is none.
  *
- * pdoc makes the reference in every run of python-wheels.yml, and a publishing run at a release's
- * tag attaches its pages to that GitHub release, one asset per page, named
- * `python-reference-<path with "/" as ".">`: `photonoxide.html` is
- * `python-reference-photonoxide.html`, `photonoxide/errors.html` is
- * `python-reference-photonoxide.errors.html`. The reference is never committed.
+ * pdoc makes the reference in every run of python-wheels.yml (its `python-reference` artifact).
+ * The page comes from the app's own copy, which its sync takes from the run that published the
+ * latest release and commits; else from the latest release's assets
+ * `python-reference-<path with "/" as ".">`, which the releases up to 0.6.2 have
+ * (python-reference.js).
  * @param {string} path  the page's path inside the reference, e.g. "photonoxide/errors.html"
  * @returns {Promise<string | null>}
  */
-export const getPythonReferencePage = cache(async (path) => {
-  const segments = String(path).split("/");
-  // only the file names pdoc makes: no "..", no odd characters
-  if (!segments.every((s) => /^[A-Za-z0-9_-]+(\.[A-Za-z0-9_-]+)*$/.test(s) && !s.includes(".."))) {
-    return null;
-  }
-  const tag = await getLatestTag();
-  if (!tag) return null;
-  const asset = `python-reference-${segments.join(".")}`;
-  return fetchCached(
-    `https://github.com/${PHOTONOXIDE_REPO}/releases/download/${tag}/${encodeURIComponent(asset)}`,
-    { tags: ["photonoxide"] },
-  );
-});
+export const getPythonReferencePage = cache((path) =>
+  readPythonReferencePage(path, {
+    readLocal: (segments) => readLocalReferencePage(segments),
+    fetchRelease: async (segments) => {
+      const tag = await getLatestTag();
+      if (!tag) return null;
+      return fetchCached(
+        `https://github.com/${PHOTONOXIDE_REPO}/releases/download/${tag}/${encodeURIComponent(releaseAssetName(segments))}`,
+        { tags: ["photonoxide"] },
+      );
+    },
+  }),
+);
 
 /** A file's page on GitHub, on the branch. */
 export function blobUrl(path) {

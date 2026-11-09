@@ -108,6 +108,13 @@ pub fn loss_db_per_cm(n_eff: c64, wavelength: Wavelength) -> f64 {
     10.0 * std::f64::consts::LOG10_E * 2.0 * wavelength.wavenumber() * n_eff.im * 1e4
 }
 
+/// The share of a mode's power absorbed over `length` of a guide whose mode has effective index
+/// `n_eff` at `wavelength`, 1 − e^(−2 k₀ Im(n_eff) L): a travelling-wave detector's absorption,
+/// all of the mode's loss counted as absorbed where the loss is its absorbing film's.
+pub fn absorbed_fraction(n_eff: c64, wavelength: Wavelength, length: crate::units::Length) -> f64 {
+    -(-2.0 * wavelength.wavenumber() * n_eff.im * length.to_um()).exp_m1()
+}
+
 /// The radiation loss of a quarter turn, in dB, of a bend of `radius` whose mode has effective
 /// index `n_eff` along the arc at that radius ([`crate::mode::vector::CrossSection::bent`],
 /// [`crate::mode::bend::SlabBend`]): the power decays as e^(−2 k₀ Im(n_eff) s) over the arc

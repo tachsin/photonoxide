@@ -205,7 +205,7 @@ pub(crate) fn cases() -> Vec<Case> {
         },
         Case {
             id: "eme/wavelength-power",
-            title: r"The two interpolants' power: the departure of each column's $\sum_q \lvert r_{qp} \rvert^2$ from the solves' over the 201 wavelengths, against the bound $\sum_q (2\lvert S_{qp} \rvert + e_{qp})\,e_{qp}$ that each entry's estimate $e_{qp}$ gives it (largest ratio of the two shown)",
+            title: r"The two interpolants' power: the departure of each column's $\sum_q \lvert r_{qp} \rvert^2$ from the solves' over the 201 wavelengths, against the bound $\sum_q (2\lvert S_{qp} \rvert + e_{qp}) \thinspace e_{qp}$ that each entry's estimate $e_{qp}$ gives it (largest ratio of the two shown)",
             tier: Tier::Analytic,
             source: r"power is quadratic in S, so the interpolant keeps it only to its error: with $\lvert r_{qp} - S_{qp} \rvert \le e_{qp}$, $\lvert \sum_q \lvert r_{qp} \rvert^2 - \lvert S_{qp} \rvert^2 \rvert \le \sum_q (2\lvert S_{qp} \rvert + e_{qp}) e_{qp}$",
             run: || zero(up2(taper_study().power.max(mmi_study().power)), 1.0),
@@ -252,6 +252,135 @@ mod tests {
             );
         }
         assert!(Spectrum::run(solve, um(1.5), um(1.6), (0, 1), &Options::new(1e-8)).is_err());
+    }
+
+    /// The estimate against the true error (#595): the taper and the multimode section over
+    /// four ranges each, swept to every tolerance from 1e-3 to 1e-10, each sweep's estimate and
+    /// true error on the range's 201 dense wavelengths, and two tighter candidates measured
+    /// beside it: the estimate to the power 1.5, and an extrapolation from the halves' and the
+    /// quarters' fits (e ≈ 2 d_h²/d_q, the error falling geometrically with the solves). The
+    /// solves are kept, so that the sweeps of one range, which take the same wavelengths in the
+    /// same order and only stop at different points, solve each once. The method page quotes it.
+    #[test]
+    #[ignore = "sweeps of two structures over eight ranges: in release, prints, about half an hour"]
+    fn the_estimators_ratio_study() {
+        use crate::sweep::{DEFAULT_TOLERANCE, RationalSet, SweepSet};
+        use std::collections::HashMap;
+        use std::sync::Mutex;
+        type Solve = fn(f64) -> crate::Result<Scattering>;
+        type Structure = (&'static str, Solve, (usize, usize), [(f64, f64); 4]);
+        let cases: [Structure; 2] = [
+            (
+                "taper",
+                taper,
+                (1, 2),
+                [(1.45, 1.65), (1.45, 1.55), (1.55, 1.65), (1.50, 1.60)],
+            ),
+            (
+                "mmi",
+                mmi,
+                (1, 1),
+                [(1.53, 1.57), (1.54, 1.56), (1.52, 1.58), (1.50, 1.60)],
+            ),
+        ];
+        let tolerances = [1e-3, 1e-4, 1e-5, 1e-6, 1e-7, 1e-8, 1e-9, 1e-10];
+        let fit = |s: &[&(f64, Vec<c64>)]| {
+            let x: Vec<f64> = s.iter().map(|s| s.0).collect();
+            let f: Vec<Vec<c64>> = s.iter().map(|s| s.1.clone()).collect();
+            RationalSet::aaa(&x, &f, DEFAULT_TOLERANCE).expect("a fit")
+        };
+        let gap = |a: &[c64], b: &[c64]| {
+            a.iter()
+                .zip(b)
+                .map(|(a, b)| (a - b).norm())
+                .fold(0.0, f64::max)
+        };
+        let started = std::time::Instant::now();
+        let (mut low, mut high) = (f64::INFINITY, 0.0f64);
+        let (mut low15, mut low_x) = (f64::INFINITY, f64::INFINITY);
+        let mut k = 0;
+        for (name, solve, ports, ranges) in cases {
+            for range in ranges {
+                k += 1;
+                let kept: Mutex<HashMap<u64, Vec<c64>>> = Mutex::new(HashMap::new());
+                let entries = |l: f64| -> crate::Result<Vec<c64>> {
+                    if let Some(v) = kept.lock().expect("the kept solves").get(&l.to_bits()) {
+                        return Ok(v.clone());
+                    }
+                    let v = super::super::spectrum::entries(&solve(l)?, ports);
+                    kept.lock()
+                        .expect("the kept solves")
+                        .insert(l.to_bits(), v.clone());
+                    Ok(v)
+                };
+                let dense: Vec<(f64, Vec<c64>)> = (0..DENSE)
+                    .into_par_iter()
+                    .map(|j| {
+                        let l = range.0 + (range.1 - range.0) * j as f64 / (DENSE - 1) as f64;
+                        (l, entries(l).expect("a dense solve"))
+                    })
+                    .collect();
+                let elapsed = started.elapsed().as_secs_f64();
+                eprintln!(
+                    "[{k}/8, {}%] {name} {range:?}: dense done, {elapsed:.0} s elapsed, ETA {:.0} s",
+                    100 * (k - 1) / 8,
+                    if k > 1 {
+                        elapsed / (k - 1) as f64 * (9 - k) as f64
+                    } else {
+                        f64::NAN
+                    }
+                );
+                for tolerance in tolerances {
+                    // Spectrum::run's sweep: SweepSet::run over S's entries
+                    let s = SweepSet::run(&entries, range.0, range.1, &Options::new(tolerance))
+                        .expect("the interpolant");
+                    let samples: Vec<&(f64, Vec<c64>)> = s.samples.iter().collect();
+                    let pick = |m: usize, r: usize| -> Vec<&(f64, Vec<c64>)> {
+                        samples.iter().copied().skip(r).step_by(m).collect()
+                    };
+                    let halves = [fit(&pick(2, 0)), fit(&pick(2, 1))];
+                    let quarters = [
+                        [fit(&pick(4, 0)), fit(&pick(4, 2))],
+                        [fit(&pick(4, 1)), fit(&pick(4, 3))],
+                    ];
+                    let (mut truth, mut d_h, mut d_q, mut truth_h) =
+                        (0.0f64, 0.0f64, 0.0f64, 0.0f64);
+                    for (l, exact) in &dense {
+                        let r = s.eval(*l);
+                        truth = truth.max(gap(&r, exact));
+                        for (h, q) in halves.iter().zip(&quarters) {
+                            let rh = h.eval(*l);
+                            d_h = d_h.max(gap(&r, &rh));
+                            truth_h = truth_h.max(gap(&rh, exact));
+                            for rq in q {
+                                d_q = d_q.max(gap(&rh, &rq.eval(*l)));
+                            }
+                        }
+                    }
+                    let estimate = s.error;
+                    let scale = s.scale;
+                    let p15 = scale * (estimate / scale).powf(1.5);
+                    let extrapolated = 2.0 * d_h * d_h / d_q;
+                    let ratio = truth / estimate;
+                    low = low.min(estimate / truth);
+                    high = high.max(estimate / truth);
+                    low15 = low15.min(p15 / truth);
+                    low_x = low_x.min(extrapolated / truth);
+                    eprintln!(
+                        "  {name} {range:?} tol {tolerance:.0e}: {} solves (converged {}), estimate {estimate:.2e}, true {truth:.2e} (true/estimate {ratio:.2e}); halves' true {truth_h:.2e} ({:.1e} times the fit's); est^1.5 {p15:.2e} (over true {:.2e}); extrapolated {extrapolated:.2e} (over true {:.2e})",
+                        s.calls(),
+                        s.converged,
+                        truth_h / truth,
+                        p15 / truth,
+                        extrapolated / truth
+                    );
+                }
+            }
+        }
+        eprintln!(
+            "estimate over true: {low:.2e} to {high:.2e}; est^1.5 over true at least {low15:.2e}; extrapolated over true at least {low_x:.2e}; {:.0} s",
+            started.elapsed().as_secs_f64()
+        );
     }
 
     /// The numbers the method page and the cases quote.

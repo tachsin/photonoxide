@@ -114,6 +114,14 @@ impl ModesTask {
     /// windows, the step, the cut, the number of modes, the PML and the sweep.
     pub(super) fn validate(&self) -> Result<()> {
         // (none is refused below)
+        if let Some(n2) = self.quantities.and_then(|q| q.nonlinear_index_m2_per_w)
+            && !(n2.is_finite() && n2 != 0.0)
+        {
+            return Err(task_error(format!(
+                "[task.quantities] nonlinear_index_m2_per_w must be a number other than 0, got \
+                 {n2}"
+            )));
+        }
         if let Some(modes) = self.modes
             && modes > MOST_MODES
         {
@@ -210,9 +218,58 @@ impl ModesTask {
             c.validate(self)?;
         }
         let Some(sweep) = &self.sweep else {
+            if self.interpolate.is_some() {
+                return Err(task_error(
+                    "[task.interpolate] interpolates the modes over [task.sweep]'s wavelengths: \
+                     give a [task.sweep] over the wavelength",
+                ));
+            }
             return Ok(());
         };
         check_sweep(sweep.from, sweep.to, sweep.points)?;
+        match sweep.follow.as_deref() {
+            None | Some("index") => {}
+            Some("overlap") if sweep.parameter != "wavelength" => {
+                return Err(task_error(format!(
+                    "follow = \"overlap\" follows the modes over a wavelength sweep, where the \
+                     grid is the same at every point; a sweep of \"{}\" moves the grid's nodes \
+                     with the shapes",
+                    sweep.parameter
+                )));
+            }
+            Some("overlap") => {}
+            Some(other) => {
+                return Err(task_error(format!(
+                    "unknown follow \"{other}\": index or overlap"
+                )));
+            }
+        }
+        if let Some(i) = &self.interpolate {
+            if sweep.parameter != "wavelength" {
+                return Err(task_error(format!(
+                    "[task.interpolate] interpolates the modes over a wavelength sweep, not one \
+                     of \"{}\"",
+                    sweep.parameter
+                )));
+            }
+            if self.modes_above.is_some() {
+                return Err(task_error(
+                    "[task.interpolate] needs the same modes at every wavelength: give a count \
+                     (modes), not modes_above, whose number of modes changes with the wavelength",
+                ));
+            }
+            if !(i.tolerance.is_finite() && i.tolerance >= crate::sweep::DEFAULT_TOLERANCE) {
+                return Err(task_error(format!(
+                    "[task.interpolate] tolerance must be at least 1e-13, got {}",
+                    i.tolerance
+                )));
+            }
+            if i.max_solves.is_some_and(|n| n < 5) {
+                return Err(task_error(
+                    "[task.interpolate] max_solves must be at least 5, the solves it starts from",
+                ));
+            }
+        }
         match sweep.parameter.as_str() {
             "wavelength" => {
                 Wavelength::um(sweep.from)?;
@@ -265,6 +322,31 @@ pub(super) struct SweepSpec {
     points: usize,
     /// For a width sweep: which rectangle, in the order given (0 by default).
     rect: Option<usize>,
+    /// How the modes are numbered from point to point: `"index"` (the default), by effective
+    /// index at each point, highest first; or `"overlap"` (a wavelength sweep only), mode k at
+    /// each point the one whose field overlaps mode k's at the point before most, mode k at the
+    /// first point the k-th by index: each mode keeps its number through crossings. The points
+    /// are then solved one after another.
+    follow: Option<String>,
+}
+
+impl SweepSpec {
+    /// Whether the modes are followed by their fields' overlap from point to point.
+    fn follows(&self) -> bool {
+        self.follow.as_deref() == Some("overlap")
+    }
+}
+
+/// A modes job's `[task.interpolate]`: each mode's effective index and TE fraction over a
+/// wavelength sweep from as few solves as a tolerance needs, every one on one set of
+/// wavelengths ([`crate::sweep::SweepSet`]), the grid the same at every wavelength.
+#[derive(Clone, Copy, Debug, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+struct InterpolateSpec {
+    /// The tolerance on every value, relative to the largest |n_eff| solved; at least 1e-13.
+    tolerance: f64,
+    /// The most solves: 200 by default, at least 5.
+    max_solves: Option<usize>,
 }
 
 #[derive(Deserialize, JsonSchema)]
@@ -309,10 +391,27 @@ pub(super) struct ModesTask {
     /// The modes' grid checked: each effective index solved again on coarser grids, and its
     /// error estimated against a tolerance ([`crate::convergence`]).
     convergence: Option<ConvergenceSpec>,
+    /// Each mode's quantities beside its index, recorded as a `mode_quantities` event after its
+    /// field: its effective areas, its confinement in the guides, its products with the other
+    /// modes and, with an n₂, its γ ([`crate::mode::quantities`]).
+    quantities: Option<QuantitiesSpec>,
     pub(super) sweep: Option<SweepSpec>,
+    /// Each mode's effective index and TE fraction over the wavelength sweep's points
+    /// interpolated from as few solves as a tolerance needs, its error stated; the points then
+    /// carry no pictures.
+    interpolate: Option<InterpolateSpec>,
     /// The names of `[task.parameters]`, which a sweep may step through: set after reading.
     #[serde(skip)]
     pub(super) parameters: Vec<String>,
+}
+
+/// A modes job's `[task.quantities]`: what each mode gives beside its index.
+#[derive(Clone, Copy, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+struct QuantitiesSpec {
+    /// A nonlinear index n₂, m²/W, uniform across the section, for each mode's
+    /// γ = 2π n₂/(λ A_eff); none without it.
+    nonlinear_index_m2_per_w: Option<f64>,
 }
 
 /// A modes job's `[task.pml]`: perfectly matched layers inside its window's edges
@@ -380,11 +479,27 @@ struct ConvergenceSpec {
     /// Fail the run when a mode's grid hasn't converged (by default its record says so and the
     /// run goes on).
     require: Option<bool>,
+    /// Drive the grid instead of checking it: halve the task's step until the first mode's
+    /// Re n_eff changes by less than the tolerance and the estimate of its remaining error is
+    /// within it ([`crate::convergence::ToTolerance::grids`], the gate's estimate), then solve
+    /// the modes on the grid it stopped at. A run whose budget runs out first fails, naming the
+    /// last two values.
+    drive: Option<bool>,
+    /// The most grids a driven run takes, the task's among them: 2 to 6 (4 by default).
+    budget: Option<usize>,
 }
 
 impl ConvergenceSpec {
     fn grids(&self) -> usize {
         self.grids.unwrap_or(3)
+    }
+
+    fn drives(&self) -> bool {
+        self.drive == Some(true)
+    }
+
+    fn budget(&self) -> usize {
+        self.budget.unwrap_or(4)
     }
 
     /// The tolerance, the grids, and the coarsest grid's cells in the windows and the PML.
@@ -393,6 +508,24 @@ impl ConvergenceSpec {
             return Err(task_error(format!(
                 "[task.convergence] tolerance must be above 0, got {}",
                 self.tolerance
+            )));
+        }
+        if self.drives() && self.grids.is_some() {
+            return Err(task_error(
+                "[task.convergence] drives the grid or checks the grids given: grids is for a \
+                 check, budget for a drive",
+            ));
+        }
+        if self.budget.is_some() && !self.drives() {
+            return Err(task_error(
+                "[task.convergence] budget is for a drive: set drive = true",
+            ));
+        }
+        if !(2..=6).contains(&self.budget()) {
+            return Err(task_error(format!(
+                "[task.convergence] budget is 2 to 6 grids, got {}: each halving of the step \
+                 costs four times the last",
+                self.budget()
             )));
         }
         if !matches!(self.grids(), 2 | 3) {
@@ -407,7 +540,12 @@ impl ConvergenceSpec {
                  points: give one or the other",
             ));
         }
-        let coarsest = task.step_nm * f64::from(1u32 << (self.grids() - 1));
+        // a drive's grids are the task's and finer ones
+        let coarsest = if self.drives() {
+            task.step_nm
+        } else {
+            task.step_nm * f64::from(1u32 << (self.grids() - 1))
+        };
         let name = |what: &str| format!("the coarsest grid's (step {coarsest} nm) {what}");
         check_cells(&name("window across the guide"), task.across()?, coarsest)?;
         if let Some(z) = task.z_um {
@@ -1315,6 +1453,12 @@ fn window_media(s: &Structure, z: [f64; 2], wavelength_um: f64) -> Result<Vec<f6
 
 /// A medium's principal refractive indices (real parts) at `w`: an isotropic one's three the
 /// same, as its permittivity gives them.
+/// A cell's index for telling the guides' media from those around them: the square root of
+/// the real part of the mean of its ε_xx, ε_yy and ε_zz.
+fn cell_index(p: &crate::mode::vector::Permittivity) -> f64 {
+    ((p.xx + p.yy + p.zz).re / 3.0).max(0.0).sqrt()
+}
+
 fn principal_indices(m: &crate::material::Material, w: Wavelength) -> Result<[f64; 3]> {
     Ok(m.principal_permittivity(w)?.map(|e| e.re.max(0.0).sqrt()))
 }
@@ -1472,6 +1616,17 @@ impl TaskKind for ModesKind {
     fn exports(&self, _: &Job) -> (&'static str, &'static [&'static str]) {
         ("a modes job", EM_FIELDS)
     }
+
+    // a followed sweep solves its points one after another, and an interpolated one where its
+    // interpolant needs: neither has points to farm
+    fn farms(&self, job: &Job) -> bool {
+        let task = job.task();
+        let Some(sweep) = task.get("sweep").and_then(toml::Value::as_table) else {
+            return false;
+        };
+        !task.contains_key("interpolate")
+            && sweep.get("follow").and_then(toml::Value::as_str) != Some("overlap")
+    }
 }
 
 pub(super) fn modes(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
@@ -1586,18 +1741,59 @@ pub(super) fn modes(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
         Some(pml) => cs.with_pml(pml.pml()),
         None => Ok(cs),
     };
-    let cs = opened(cross_section(
-        &fs,
-        &frame.rect,
-        &frame.circle,
-        &frame.ring,
-        frame.cut,
-        across,
-        z,
-        step,
-        lam,
-        along,
-    )?)?;
+    let section = |h: f64| {
+        opened(cross_section(
+            &fs,
+            &frame.rect,
+            &frame.circle,
+            &frame.ring,
+            frame.cut,
+            across,
+            z,
+            h,
+            lam,
+            along,
+        )?)
+    };
+    // a driven grid: the task's step halved until the first mode's index has converged, the
+    // modes then solved on the grid it stopped at
+    let mut step = step;
+    if let Some(spec) = task.convergence.as_ref().filter(|c| c.drives()) {
+        let driver = crate::convergence::ToTolerance::new(
+            "Re n_eff of mode 1",
+            crate::convergence::Tolerance::Absolute(spec.tolerance),
+        )?
+        .with_budget(spec.budget())?;
+        let mut stopped = false;
+        let refined = driver.grids(step, |h| {
+            let found = solve(&section(h)?, lam)?;
+            let Some(found) = found else {
+                stopped = true;
+                return Err(Error::invalid("grid convergence", "stopped"));
+            };
+            found
+                .iter()
+                .map(|m| m.effective_index().re)
+                .reduce(f64::max)
+                .ok_or_else(|| {
+                    Error::invalid(
+                        "grid convergence",
+                        format!("the {h} um grid finds no mode to drive"),
+                    )
+                })
+        });
+        if stopped {
+            return Ok(());
+        }
+        let refined = refined?;
+        step = refined.grids[refined.grids.len() - 1];
+        run.record(&Event::GridRefined {
+            label: "mode 1".to_owned(),
+            wavelength_um: lam.to_um(),
+            refined,
+        })?;
+    }
+    let cs = section(step)?;
     let edge = window_edge_highest(&task, &s, z, lam.to_um())?;
     // what an open window keeps of the modes it solves, and how it names them
     let kept = || -> Result<String> {
@@ -1670,6 +1866,23 @@ pub(super) fn modes(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
     };
     let mut sorted: Vec<_> = found.iter().collect();
     sorted.sort_by(|a, b| b.effective_index().re.total_cmp(&a.effective_index().re));
+    // the quantities asked for, from the one-sided fields, as the library takes them
+    let quantities = match task.quantities {
+        Some(q) => {
+            let sided = sorted
+                .iter()
+                .map(|m| m.fields_one_sided(&cs))
+                .collect::<Result<Vec<_>>>()?;
+            let products = crate::mode::quantities::orthogonality(
+                &sided,
+                crate::mode::quantities::Product::Conjugated,
+            );
+            // the guides' media: above the index around them
+            let guides: Vec<bool> = cs.cells().iter().map(|p| cell_index(p) > edge).collect();
+            Some((q, sided, products, guides))
+        }
+        None => None,
+    };
     for (k, m) in sorted.iter().enumerate() {
         if stop.reason().is_some() {
             return Ok(());
@@ -1695,6 +1908,34 @@ pub(super) fn modes(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
         if let Some(event) = loss(None, &label, m, lam)? {
             run.record(&event)?;
         }
+        if let Some((q, sided, products, guides)) = &quantities {
+            let one = &sided[k];
+            let area = one.effective_area();
+            run.record(&Event::ModeQuantities {
+                label: label.clone(),
+                wavelength_um: lam.to_um(),
+                effective_area_um2: area,
+                effective_area_transverse_um2: one.effective_area_transverse(),
+                confinement: one
+                    .power_shares()
+                    .iter()
+                    .zip(guides)
+                    .filter(|(_, g)| **g)
+                    .map(|(s, _)| s)
+                    .sum(),
+                gamma_per_w_m: q
+                    .nonlinear_index_m2_per_w
+                    .map(|n2| crate::mode::quantities::nonlinear_coefficient(lam, n2, area)),
+                orthogonality: products
+                    .as_ref()
+                    .map(|o| {
+                        (0..o.len())
+                            .map(|b| [o.get(k, b).re, o.get(k, b).im])
+                            .collect()
+                    })
+                    .unwrap_or_default(),
+            })?;
+        }
         if let Some(export) = &task.export {
             export_mode(export, job, run, &label, m, &fields, lam)?;
         }
@@ -1709,7 +1950,7 @@ pub(super) fn modes(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
     }
     // the grid study: each mode's Re n_eff on grids twice, then four times, as coarse, the
     // run's grid's checked by it; a mode a coarser grid doesn't find hasn't converged
-    if let Some(spec) = &task.convergence {
+    if let Some(spec) = task.convergence.as_ref().filter(|c| !c.drives()) {
         let reported: Vec<f64> = sorted.iter().map(|m| m.effective_index().re).collect();
         let mut coarse: Vec<(f64, Vec<f64>)> = Vec::new();
         for g in (1..spec.grids()).rev() {
@@ -1783,7 +2024,43 @@ pub(super) fn modes(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
         to: sweep.to,
         points: sweep.points,
     })?;
-    let point = |k: usize| -> Result<Option<Vec<Event>>> {
+    // the job's cross-section at another wavelength: the same grid
+    let section_at = |w: Wavelength| {
+        cross_section(
+            &fs,
+            &frame.rect,
+            &frame.circle,
+            &frame.ring,
+            frame.cut,
+            across,
+            z,
+            step,
+            w,
+            along,
+        )
+    };
+    if let Some(spec) = task.interpolate {
+        let edge_at = |w: f64| window_edge_highest(&task, &s, z, w);
+        return interpolated(
+            run,
+            stop,
+            sweep,
+            spec,
+            |w| {
+                let cs = opened(section_at(w)?)?;
+                let Some(mut found) = solve(&cs, w)? else {
+                    return Ok(None);
+                };
+                found.sort_by(|a, b| b.effective_index().re.total_cmp(&a.effective_index().re));
+                Ok(Some(found))
+            },
+            open.then_some(&edge_at as &dyn Fn(f64) -> Result<f64>),
+        );
+    }
+    // a point's events and its modes, numbered by index, or followed from `previous`'s
+    let point = |k: usize,
+                 previous: Option<&[crate::mode::vector::VectorMode]>|
+     -> Result<Option<(Vec<Event>, Vec<crate::mode::vector::VectorMode>)>> {
         if stop.reason().is_some() {
             return Ok(None);
         }
@@ -1794,21 +2071,7 @@ pub(super) fn modes(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
         let (cs, w) = match sweep.parameter.as_str() {
             "wavelength" => {
                 let w = Wavelength::um(value)?;
-                (
-                    cross_section(
-                        &fs,
-                        &frame.rect,
-                        &frame.circle,
-                        &frame.ring,
-                        frame.cut,
-                        across,
-                        z,
-                        step,
-                        w,
-                        along,
-                    )?,
-                    w,
-                )
+                (section_at(w)?, w)
             }
             other => {
                 // the swept rectangle at the point's width, or the shapes at the parameter's value
@@ -1871,6 +2134,9 @@ pub(super) fn modes(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
             return Ok(None);
         };
         found.sort_by(|a, b| b.effective_index().re.total_cmp(&a.effective_index().re));
+        if let Some(previous) = previous {
+            found = follow(previous, found)?;
+        }
         events.push(Event::SweepPoint {
             parameter: sweep.parameter.clone(),
             value,
@@ -1939,10 +2205,188 @@ pub(super) fn modes(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
                 error: m.residual(&cs)?,
             });
         }
-        Ok(Some(events))
+        Ok(Some((events, found)))
     };
+    if sweep.follows() {
+        // one point after another, each followed from the one before
+        let mut last: Option<Vec<crate::mode::vector::VectorMode>> = None;
+        for k in 0..sweep.points {
+            let Some((events, found)) = point(k, last.as_deref())? else {
+                return Ok(());
+            };
+            for e in &events {
+                run.record(e)?;
+            }
+            last = Some(found);
+        }
+        return Ok(());
+    }
     // a point takes about 6 kB per unknown of its cross-section (measured: 1.45 GB at 253 k
     // unknowns, examples/strip_waveguide.rs on its 5 nm grid)
     let batch = in_flight(cs.unknowns() as f64 * 6e3);
-    sweep_points(run, stop, 0..sweep.points, batch, point)
+    sweep_points(run, stop, 0..sweep.points, batch, |k| {
+        Ok(point(k, None)?.map(|(events, _)| events))
+    })
+}
+
+/// `found`, numbered by index, renumbered as `previous` (a point's modes in their numbers):
+/// the pairs of a mode before and a mode found taken by their fields' overlap
+/// ([`crate::mode::vector::VectorMode::overlap`]), the largest first, each mode once; each
+/// mode found takes the number of the mode before it pairs with, and those left over follow in
+/// order of index. A mode that leaves the count ends its number, and the numbers after it move
+/// up one.
+fn follow(
+    previous: &[crate::mode::vector::VectorMode],
+    found: Vec<crate::mode::vector::VectorMode>,
+) -> Result<Vec<crate::mode::vector::VectorMode>> {
+    let mut pairs = Vec::with_capacity(previous.len() * found.len());
+    for (i, p) in previous.iter().enumerate() {
+        for (j, m) in found.iter().enumerate() {
+            let o = p.overlap(m).ok_or_else(|| {
+                task_error(
+                    "follow = \"overlap\" needs the same grid at every point, and it changed \
+                     between two of them",
+                )
+            })?;
+            pairs.push((o, i, j));
+        }
+    }
+    pairs.sort_by(|a, b| b.0.total_cmp(&a.0));
+    let mut of_previous = vec![None; previous.len()];
+    let mut taken = vec![false; found.len()];
+    for (_, i, j) in pairs {
+        if of_previous[i].is_none() && !taken[j] {
+            of_previous[i] = Some(j);
+            taken[j] = true;
+        }
+    }
+    let mut slots: Vec<Option<crate::mode::vector::VectorMode>> =
+        found.into_iter().map(Some).collect();
+    let mut ordered: Vec<_> = of_previous
+        .iter()
+        .flatten()
+        .filter_map(|&j| slots[j].take())
+        .collect();
+    ordered.extend(slots.into_iter().flatten());
+    Ok(ordered)
+}
+
+/// A wavelength sweep's modes from as few solves as `spec`'s tolerance needs: each mode's
+/// effective index and TE fraction on one set of wavelengths ([`crate::sweep::SweepSet`],
+/// set-valued AAA, the error estimated from two interleaved halves), each solve's modes from
+/// `solve_at` (highest index first; `None` when stopped), followed from the nearest solve's
+/// with `follow = "overlap"`; each sweep point's from the interpolant (and, in an open window,
+/// where `edge_at` gives the index around the guides, each mode's kind and loss), and the worst
+/// value's estimated error with the wavelengths solved.
+fn interpolated(
+    run: &mut Run,
+    stop: &Stop,
+    sweep: &SweepSpec,
+    spec: InterpolateSpec,
+    mut solve_at: impl FnMut(Wavelength) -> Result<Option<Vec<crate::mode::vector::VectorMode>>>,
+    edge_at: Option<&dyn Fn(f64) -> Result<f64>>,
+) -> Result<()> {
+    use crate::sweep::{Options, SweepSet};
+    use num_complex::Complex64 as c64;
+    let follows = sweep.follows();
+    // each solve's modes in their numbers, kept to follow the next solve's from the nearest
+    let mut solved: Vec<(f64, Vec<crate::mode::vector::VectorMode>)> = Vec::new();
+    let mut count: Option<usize> = None;
+    let options = Options::new(spec.tolerance).with_max_samples(spec.max_solves.unwrap_or(200));
+    let set = SweepSet::run(
+        |l| {
+            let Some(mut found) = solve_at(Wavelength::um(l)?)? else {
+                return Err(Error::invalid("[task.interpolate]", "stopped"));
+            };
+            if found.is_empty() || count.is_some_and(|c| c != found.len()) {
+                return Err(task_error(format!(
+                    "[task.interpolate] needs the same number of modes at every wavelength: {} \
+                     at {l} um, {} before",
+                    found.len(),
+                    count.unwrap_or(0)
+                )));
+            }
+            count = Some(found.len());
+            if follows
+                && let Some((_, near)) = solved
+                    .iter()
+                    .min_by(|a, b| (a.0 - l).abs().total_cmp(&(b.0 - l).abs()))
+            {
+                found = follow(near, found)?;
+            }
+            let values = found
+                .iter()
+                .map(|m| m.effective_index())
+                .chain(found.iter().map(|m| c64::new(m.te_fraction(), 0.0)))
+                .collect();
+            if follows {
+                solved.push((l, found));
+            }
+            Ok(values)
+        },
+        sweep.from,
+        sweep.to,
+        &options,
+    );
+    if stop.reason().is_some() {
+        return Ok(());
+    }
+    let set = set?;
+    let n = count.unwrap_or(0);
+    for k in 0..sweep.points {
+        if stop.reason().is_some() {
+            return Ok(());
+        }
+        let wl = sweep.from + (sweep.to - sweep.from) * k as f64 / (sweep.points - 1) as f64;
+        let v = set.eval(wl);
+        let (indices, te) = v.split_at(n);
+        run.record(&Event::SweepPoint {
+            parameter: sweep.parameter.clone(),
+            value: wl,
+            wavelength_um: wl,
+            effective_indices: indices.iter().map(|v| [v.re, v.im]).collect(),
+            te_fractions: te.iter().map(|v| v.re).collect(),
+        })?;
+        if let Some(edge_at) = edge_at {
+            let edge = edge_at(wl)?;
+            for (rank, index) in indices.iter().enumerate() {
+                run.record(&Event::ModeLoss {
+                    point: Some(k),
+                    label: format!("mode {} of {n}", rank + 1),
+                    kind: if index.re > edge { "guided" } else { "leaky" }.into(),
+                    loss_db_per_cm: crate::mode::dispersion::loss_db_per_cm(
+                        *index,
+                        Wavelength::um(wl)?,
+                    ),
+                })?;
+            }
+        }
+    }
+    let solved: Vec<String> = set.samples.iter().map(|s| format!("{:.5}", s.0)).collect();
+    run.record(&Event::SolveError {
+        point: None,
+        value: sweep.from,
+        measure: format!(
+            "the modes' n_eff and TE fractions over {} to {} um interpolated from {} solves \
+             (set-valued AAA, one set of wavelengths for every value; the modes {}), {} its \
+             tolerance {:e}: the estimated error of its worst value; solved at {} um",
+            sweep.from,
+            sweep.to,
+            set.calls(),
+            if follows {
+                "followed by their fields' overlap"
+            } else {
+                "numbered by index at each solve"
+            },
+            if set.converged {
+                "within"
+            } else {
+                "not within"
+            },
+            spec.tolerance,
+            solved.join(", ")
+        ),
+        error: set.error,
+    })?;
+    Ok(())
 }

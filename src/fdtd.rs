@@ -54,6 +54,8 @@
 //!   [`Simulation::gradient`]): exact for the scheme, from the transforms alone (see the adjoint
 //!   module; C. M. Lalau-Keraly et al., Opt. Express 21, 21693 (2013),
 //!   doi:10.1364/OE.21.021693).
+//! - **Emitters:** a dipole's power out of a box around it and into a waveguide's modes, as its
+//!   Purcell and β factors ([`emitter`], [`Simulation::emit`]).
 //! - **Mie's series** for a plane wave on a sphere, [`Mie`] and [`Sphere`] (G. Mie, Ann. Phys. 330,
 //!   377 (1908), doi:10.1002/andp.19083300302), written from his paper: FDTD's spheres are
 //!   checked against it.
@@ -1601,6 +1603,7 @@ pub(crate) mod checks;
 pub(crate) mod crystal_checks;
 #[cfg(test)]
 mod crystal_tests;
+pub mod emitter;
 mod harmonic;
 #[cfg(test)]
 mod harmonic_tests;

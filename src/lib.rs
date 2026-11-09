@@ -43,6 +43,9 @@
 //!   AAA rational fit with its estimated error, and a mode followed through crossings by overlap.
 //! - [`bench`](mod@bench): fixed problems that time the solvers at a stated accuracy, which
 //!   `photonoxide bench` runs.
+//! - [`quantum`]: linear-optical statistics of photons through a circuit's S-matrix:
+//!   permanents, output probabilities with partly distinguishable photons, an exact sampler,
+//!   Hong–Ou–Mandel dips with the photons' spectra, and the Reck and Clements meshes.
 //! - [`parallel`]: independent problems (a sweep's points) side by side, collected in order.
 //! - [`farm`]: the same across processes, on this machine or others over TCP: a sweep's points
 //!   or whole jobs (a population, corners) sent to workers and gathered by index.
@@ -94,6 +97,7 @@ pub mod mode;
 pub mod nonlinear;
 pub mod parallel;
 mod portable;
+pub mod quantum;
 pub mod raster;
 pub mod run;
 mod shifter;

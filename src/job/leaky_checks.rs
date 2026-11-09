@@ -64,6 +64,13 @@ pub(crate) fn cases() -> Vec<Case> {
             source: "P. Bienstman et al., Opt. Quantum Electron. 38, 731 (2006), doi:10.1007/s11082-006-9025-9, Table 6: 2.9135 (CAMFR); the tolerance is the 5 nm grid's error, 0.963 of it here (0.94 and 0.95 at 20 and 10 nm), 0.97 on the library's graded 5 nm grid",
             run: wire_im,
         },
+        Case {
+            id: "job/modes-grid-driven",
+            title: r"A modes job's grid driven to a tolerance (`[task.convergence]` with `drive = true`): the same 220 nm film in oxide across a closed window, from 20 nm, halving, until mode 1's $\operatorname{Re} n_\text{eff}$ changes by less than 3e-4; the drive's value on each of its grids and the mode the run reports on the last, against the plain jobs on the same grids (Re $n_\text{eff}$ on the last grid shown)",
+            tier: Tier::Analytic,
+            source: r"the same cross-sections and solves reached two ways, through the driver (`convergence::ToTolerance::grids`, checked by `convergence/slab-tolerance`) and through a job at each step: round-off",
+            run: film_driven,
+        },
     ]
 }
 
@@ -153,6 +160,120 @@ pub(super) fn film_index(step_nm: f64, pml_um: f64, strength: f64) -> Option<c64
     let lx = 4.0 / (h * h) * (std::f64::consts::PI / (2.0 * (cells + 2.0))).sin().powi(2);
     let k0 = Wavelength::um(1.55).ok()?.wavenumber();
     Some((n * n + lx / (k0 * k0)).sqrt())
+}
+
+/// A 500 × 220 nm strip of the film's silicon in oxide in a closed window 2 × 1.82 µm (no PML),
+/// at `step_nm`, with `extra` added to the task.
+pub(super) fn closed_film_job(step_nm: f64, extra: &str) -> String {
+    format!(
+        r#"
+name = "closed-strip"
+timeout_minutes = 30
+
+[task]
+kind = "modes"
+wavelength_um = 1.55
+layer = "film"
+propagation = "x"
+y_um = [-1.0, 1.0]
+z_um = [-0.8, 1.02]
+step_nm = {step_nm}
+modes = 1
+{extra}
+[task.stack]
+substrate = {OXIDE}
+cladding = {OXIDE}
+
+[[task.stack.layer]]
+name = "film"
+thickness_um = 0.22
+material = {SI}
+background = {OXIDE}
+
+[[task.rect]]
+layer = "film"
+center_um = [0.0, 0.0]
+size_um = [10.0, 0.5]
+"#
+    )
+}
+
+/// The tolerance the closed strip's grid is driven to, on Re n_eff: its corners converge at
+/// about first order, so a drive to finer than a few 1e-3 takes grids below 5 nm.
+const DRIVE_TOLERANCE: f64 = 4e-3;
+
+/// The closed strip driven from 20 nm to [`DRIVE_TOLERANCE`]: (its drive, the first mode's Re
+/// n_eff on the grid it stopped at).
+pub(super) fn driven_film() -> (crate::convergence::Refined, f64) {
+    let events = events_of(
+        &closed_film_job(
+            20.0,
+            &format!("[task.convergence]\ntolerance = {DRIVE_TOLERANCE:e}\ndrive = true\n"),
+        ),
+        crate::run::Format::Toml,
+    );
+    let refined = events
+        .iter()
+        .find_map(|e| match e {
+            Event::GridRefined { refined, .. } => Some(refined.clone()),
+            _ => None,
+        })
+        .expect("a driven grid");
+    let n = events
+        .iter()
+        .find_map(|e| match e {
+            Event::Mode {
+                effective_index, ..
+            } => Some(effective_index[0]),
+            _ => None,
+        })
+        .expect("a mode");
+    (refined, n)
+}
+
+/// The first mode's Re n_eff of the closed film's plain job at `step_nm`.
+pub(super) fn closed_film_index(step_nm: f64) -> f64 {
+    events_of(&closed_film_job(step_nm, ""), crate::run::Format::Toml)
+        .iter()
+        .find_map(|e| match e {
+            Event::Mode {
+                effective_index, ..
+            } => Some(effective_index[0]),
+            _ => None,
+        })
+        .expect("a mode")
+}
+
+/// The drive's value at each of its grids and the mode the run reports against the plain jobs
+/// on the same grids: the largest gap, relative.
+fn film_driven() -> Outcome {
+    let (refined, reported) = driven_film();
+    let mut gap = 0.0f64;
+    for (h, v) in refined.grids.iter().zip(&refined.values) {
+        gap = gap.max((v / closed_film_index(h * 1000.0) - 1.0).abs());
+    }
+    let last = refined.values[refined.values.len() - 1];
+    gap = gap.max((reported / last - 1.0).abs());
+    Outcome {
+        measured: reported,
+        expected: last,
+        tolerance: 1e-12 * last,
+        error: gap * last,
+    }
+}
+
+#[cfg(test)]
+#[test]
+fn the_driven_film_stops_where_its_index_has_converged() {
+    let (refined, reported) = driven_film();
+    eprintln!(
+        "grids {:?}, values {:?}, {}",
+        refined.grids, refined.values, refined.reason
+    );
+    assert!(refined.reached && refined.grids.len() >= 2);
+    assert_eq!(refined.values[refined.values.len() - 1], reported);
+    let o = film_driven();
+    assert!(o.error <= o.tolerance, "{o:?}");
 }
 
 /// The film's exact leaky TE mode, by transfer matrices.

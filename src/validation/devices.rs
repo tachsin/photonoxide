@@ -1300,6 +1300,16 @@ pub(crate) fn rules() -> Vec<(&'static str, Rule)> {
                 "CAMFR's 2.9135: our 5 nm grid's error in the leakage, in 1e-8",
             ),
         ),
+        (
+            "job/modes-grid-driven",
+            Rule::new(
+                Relative,
+                RoundOff,
+                1e-12,
+                Exact,
+                "the same cross-sections and solves through the driver and through plain jobs: round-off",
+            ),
+        ),
         // ---- the phase shifter ----
         (
             "shifter/slab-sheet",
@@ -1749,6 +1759,36 @@ pub(crate) fn rules() -> Vec<(&'static str, Rule)> {
                 1e-12,
                 Exact,
                 "V²/R, the rise and the phase it gives computed two ways, and the same power given: round-off",
+            ),
+        ),
+        (
+            "device/thermo-tin-films",
+            Rule::new(
+                Relative,
+                RoundOff,
+                1e-12,
+                Exact,
+                "R = ρL/(wt) with each film's resistivity computed two ways: round-off",
+            ),
+        ),
+        (
+            "device/thermo-tcr-drive",
+            Rule::new(
+                Relative,
+                RoundOff,
+                1e-12,
+                Exact,
+                "the closed form's root and Picard's fixed point, iterated to 1e-15 of the power: round-off",
+            ),
+        ),
+        (
+            "device/thermo-heater-rise",
+            Rule::new(
+                Relative,
+                Model,
+                0.15,
+                THERMO_GRID,
+                "the analytic fidelity's stated error, as device/thermo-analytic-metal: the heat thermally all oxide",
             ),
         ),
     ]

@@ -1,14 +1,17 @@
+import { isReleased } from "./latest.js";
+
 /**
- * ROADMAP.md read into milestones, with no import from the app, so the
- * studio's tests (studio/tests/site-inline.test.ts) run it on the
- * repository's own ROADMAP.md. roadmap.js reads the file from GitHub and
- * hands it here; the overview's milestones and the roadmap page both come
- * from it.
+ * photonoxide's milestones in ROADMAP.md. Plain functions with no React or app imports, so the
+ * studio's tests run them (`studio/tests/site-latest.test.ts`, and `site-inline.test.ts` on the
+ * repository's own ROADMAP.md); roadmap.js reads the file. The overview's milestones and the
+ * roadmap page both come from here.
  *
  * A milestone is a `### <version>: <title>` heading (a version like "0.4" or "0.3.x"). Its items are the
  * `- [ ]` / `- [x]` lines under it (top level only), their bold lead-in
- * being the item's name. A heading ending in ✅ is done whatever its boxes
- * say; the first milestone not done is "next".
+ * being the item's name. A milestone is done when its heading ends in ✅, or when the latest
+ * release has it (its version is the release's or older), whatever its boxes say: a release's
+ * tag then shows its own milestone done even when the ✅ was added after the tag. The first
+ * milestone not done is "next".
  */
 
 /**
@@ -26,13 +29,38 @@ const ITEM = /^- \[( |x|X)\]\s+(.*)$/;
 const BOLD = /\*\*(.+?)\*\*/;
 const FENCE = /^\s*(```|~~~)/;
 
-/** @param {string} markdown @returns {Milestone[]} */
-export function parseMilestones(markdown) {
+/** A milestone from its heading's version and title (the title may end in ✅). */
+function milestone(version, title, release) {
+  const done = title.endsWith("✅") || isReleased(version, release);
+  return {
+    version,
+    title: title.replace(/\s*✅$/, ""),
+    status: done ? "done" : "planned",
+    items: [],
+    done: 0,
+    total: 0,
+  };
+}
+
+/** The first milestone not done is next. */
+function markNext(milestones) {
+  const next = milestones.find((m) => m.status !== "done");
+  if (next) next.status = "next";
+  return milestones;
+}
+
+/**
+ * @param {string} markdown  ROADMAP.md
+ * @param {string | null} [release]  the latest release, e.g. "0.6.3"
+ * @returns {Milestone[]}
+ */
+export function parseMilestones(markdown, release = null) {
   /** @type {Milestone[]} */
   const milestones = [];
   let current = null;
   let fenced = false;
   for (const line of String(markdown ?? "").split(/\r?\n/)) {
+    // a fenced block's lines are its text, never a heading or an item
     if (FENCE.test(line)) fenced = !fenced;
     if (fenced) continue;
     if (line.startsWith("## ")) {
@@ -41,15 +69,7 @@ export function parseMilestones(markdown) {
     }
     const heading = HEADING.exec(line);
     if (heading) {
-      const done = heading[2].endsWith("✅");
-      current = {
-        version: heading[1],
-        title: heading[2].replace(/\s*✅$/, ""),
-        status: done ? "done" : "planned",
-        items: [],
-        done: 0,
-        total: 0,
-      };
+      current = milestone(heading[1], heading[2], release);
       milestones.push(current);
       continue;
     }
@@ -66,9 +86,22 @@ export function parseMilestones(markdown) {
       if (name) current.items.push(name);
     }
   }
-  const next = milestones.find((m) => m.status !== "done");
-  if (next) next.status = "next";
-  return milestones;
+  return markNext(milestones);
+}
+
+/**
+ * The milestones from headings alone, `<version>: <title>` (meta.js's FALLBACK_MILESTONES).
+ * @param {string[]} headings
+ * @param {string | null} [release]
+ * @returns {Milestone[]}
+ */
+export function milestonesFromHeadings(headings, release = null) {
+  return markNext(
+    headings.map((heading) => {
+      const [version, ...rest] = heading.split(": ");
+      return milestone(version, rest.join(": "), release);
+    }),
+  );
 }
 
 /** A heading's anchor, as the app's Markdown renderer makes it: "0.5.4: Geometry and devices ✅" is "054-geometry-and-devices". */
@@ -101,13 +134,15 @@ export function milestoneAnchor(m) {
 
 /**
  * ROADMAP.md in its sections and their `### ` blocks, each milestone's block
- * with its parsed milestone. Every line of the file but its `# ` title is in
- * exactly one place, so a page built from this prints all of it.
+ * with its parsed milestone (its status as parseMilestones gives it for the
+ * same release). Every line of the file but its `# ` title is in exactly one
+ * place, so a page built from this prints all of it.
  * @param {string} markdown
+ * @param {string | null} [release]  the latest release, e.g. "0.6.3"
  * @returns {{ title: string, preface: string, sections: RoadmapSection[] }}
  */
-export function splitRoadmap(markdown) {
-  const parsed = parseMilestones(markdown);
+export function splitRoadmap(markdown, release = null) {
+  const parsed = parseMilestones(markdown, release);
   let next = 0;
   let title = "";
   const preface = [];

@@ -12,6 +12,13 @@
 //! wavelength repeats the whole at each point; with `[task.interpolate]` it solves only where
 //! its tolerance needs, the modes and steps settled once at `wavelength_um`, and records S at
 //! the sweep's points from the interpolant ([`crate::eme::Spectrum`]) with its estimated error.
+//! `[task.period]` repeats some of the sections `count` times, the structure solved by repeated
+//! squaring of one period's S-matrix ([`crate::eme::Eme::grating`]), and records the period's
+//! Bloch modes ([`crate::eme::Bloch`]) at each wavelength it solves as a sweep point. A section
+//! with `radius_um` and `angle_deg` is a bend by the conformal map ([`crate::eme::Slice::bent`]),
+//! drawn turning in the scene. `[task.plane]` makes the sections 3D ([`three`]): strips on a
+//! plane, a `[device]`'s geometry cut along x, or the task's own drawing (a `stack`, its
+//! `layer`, its shapes and `x_um`) cut the same way.
 //!
 //! The run records its scene (the cores seen from above, z along x), the solver's settings,
 //! the S-parameters between the guided modes at the two ends (at each wavelength), and each
@@ -19,7 +26,7 @@
 
 use num_complex::Complex64 as c64;
 use schemars::{JsonSchema, SchemaGenerator};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 use super::execute::solver_run;
 use super::kind::TaskKind;
@@ -28,7 +35,8 @@ use super::{Event, check_finite, check_sweep, task_error};
 use crate::Result;
 use crate::convergence::{Convergence, Refined, ToTolerance, Tolerance, Verdict};
 use crate::eme::{
-    Eme, Piece, Scattering, Section, Slice, Spectrum, Taper, Wall, entries as spectrum_entries,
+    Beam, Eme, Piece, Scattering, Section, Slice, Spectrum, Taper, Wall,
+    entries as spectrum_entries, power,
 };
 use crate::material::Material;
 use crate::mode::Polarization;
@@ -57,14 +65,22 @@ struct LayerSpec {
     thickness_um: f64,
 }
 
-/// A `[[task.section]]`: a straight or a taper, in order along z.
+/// A `[[task.section]]`: a straight, a taper or a bend, in order along z.
 #[derive(Clone, Debug, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 struct SectionSpec {
     /// Its name, for the record: `"section k"` by default.
     name: Option<String>,
-    /// Its length along z, µm: 0 for a port's reference plane.
-    length_um: f64,
+    /// Its length along z, µm: 0 for a port's reference plane. A bend's is its arc, from
+    /// `radius_um` and `angle_deg`.
+    length_um: Option<f64>,
+    /// A bend's radius, µm, to the core's centre (to the window's middle for layers): positive
+    /// turning towards the lower wall (the bend's centre beyond it), negative towards the upper.
+    /// With `angle_deg` the section is a bend in the plane of the window, by the conformal map
+    /// ([`crate::eme::Slice::bent`]).
+    radius_um: Option<f64>,
+    /// A bend's angle, degrees.
+    angle_deg: Option<f64>,
     /// The core's thickness across the window, µm: one number for a straight, `[from, to]` for a
     /// taper.
     core_um: Option<Thickness>,
@@ -80,6 +96,27 @@ struct SectionSpec {
     profile: Option<String>,
     /// A taper's steps: equal ones, or the first ones `[task.adaptive]` refines; 10 by default.
     steps: Option<usize>,
+}
+
+impl SectionSpec {
+    /// Whether it is a bend.
+    fn is_bend(&self) -> bool {
+        self.radius_um.is_some() || self.angle_deg.is_some()
+    }
+
+    /// Its length along z (for a bend along the arc at the window's middle, where its modes'
+    /// propagation constants are taken), µm; NaN where it has none.
+    fn length(&self) -> f64 {
+        match (self.middle_radius(), self.angle_deg) {
+            (Some(r), Some(a)) => r.abs() * a.to_radians(),
+            _ => self.length_um.unwrap_or(f64::NAN),
+        }
+    }
+
+    /// A bend's radius to the window's middle, µm: its core's centre `center_um` from it.
+    fn middle_radius(&self) -> Option<f64> {
+        self.radius_um.map(|r| r - self.center_um.unwrap_or(0.0))
+    }
 }
 
 /// A `[task.pml]`: a perfectly matched layer inside the walls.
@@ -126,6 +163,31 @@ struct InterpolateSpec {
     max_solves: Option<usize>,
 }
 
+/// A `[task.period]`: some of the sections, in order, repeated as a grating.
+#[derive(Clone, Copy, Debug, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+struct PeriodSpec {
+    /// The first and the last of the sections that make one period, counted from 1 in the
+    /// order of `[[task.section]]`; not the ports (the first and last sections).
+    sections: [usize; 2],
+    /// How many periods, at least 1.
+    count: usize,
+}
+
+/// A `[task.beam]`: a Gaussian across the first section's plane ([`crate::eme::Beam`]).
+#[derive(Clone, Copy, Debug, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+struct BeamSpec {
+    /// Its waist, µm: the field falls to 1/e at the waist from its centre.
+    waist_um: f64,
+    /// Its centre, µm from the window's middle (0 by default).
+    center_um: Option<f64>,
+    /// The tilt of its phase fronts, degrees, toward +x (0 by default).
+    angle_deg: Option<f64>,
+    /// The index of the medium the tilt is in: the cladding's by default.
+    index: Option<f64>,
+}
+
 #[derive(Clone, Debug, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 struct WavelengthSweep {
@@ -136,7 +198,7 @@ struct WavelengthSweep {
     points: usize,
 }
 
-#[derive(Clone, Debug, Deserialize, JsonSchema)]
+#[derive(Clone, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub(super) struct EmeTask {
     #[allow(dead_code)] // looked up by the registry (job::kind); kept for serde and the schema
@@ -165,24 +227,68 @@ pub(super) struct EmeTask {
     /// The cores' medium, unless a section gives its own.
     #[schemars(with = "Option<crate::job::schema::Medium>")]
     core: Option<toml::Value>,
-    /// The sections in order along z (a `[device]`'s are cut from its geometry).
+    /// The sections in order along z (a `[device]`'s or a drawing's are cut from its geometry).
     #[serde(default)]
     section: Vec<SectionSpec>,
     /// The sections in 3D: each cross-section a plane of Yee's grid ([`three`]).
     plane: Option<three::PlaneSpec>,
+    /// A drawing's stack, its shapes drawn on it and cut into 3D sections along x
+    /// ([`crate::device::Cut`]): a named one, `soi_220`, or `soi` / `nitride` with `core_nm`
+    /// and `bottom_oxide_um`; or a `[task.stack]` table of layers.
+    stack: Option<super::StackField>,
+    /// A named stack's core thickness, nm.
+    core_nm: Option<f64>,
+    /// A named stack's bottom oxide, µm.
+    bottom_oxide_um: Option<f64>,
+    /// A drawing's core layer: the plane spans its shapes across and its thickness up, with
+    /// `[task.plane]`'s margins.
+    layer: Option<String>,
+    /// Where a drawing is cut, from and to along x, µm: its guides must run on past both ends,
+    /// whose cross-sections are the ports'.
+    x_um: Option<[f64; 2]>,
+    /// A drawing's rectangles, as a structure job's.
+    #[serde(default)]
+    rect: Vec<super::RectSpec>,
+    /// A drawing's circles.
+    #[serde(default)]
+    circle: Vec<super::CircleSpec>,
+    /// A drawing's rings.
+    #[serde(default)]
+    ring: Vec<super::RingSpec>,
+    /// A drawing's paths: straights, arcs and tapers of a waveguide.
+    #[serde(default)]
+    path: Vec<super::PathSpec>,
+    /// A drawing's shapes defined by functions, masks, polygons and booleans, and a GDSII file's
+    /// cell on one of its layers (`type = "gds"`): a layout's sections cut from its file.
+    #[serde(default)]
+    shape: Vec<super::shapes::ShapeSpec>,
     adaptive: Option<AdaptiveSpec>,
+    /// A bend's thin layers' largest thickness in the mapped coordinate, nm (10 by default,
+    /// [`crate::eme::Eme::with_bend_step`]): where `[task.convergence]` starts the bends' layers
+    /// from, halving them until its quantity changes by less than its tolerance.
+    bend_step_nm: Option<f64>,
     convergence: Option<ConvergenceSpec>,
     sweep: Option<WavelengthSweep>,
     /// S over the sweep's wavelengths interpolated from a few solves, with its error stated.
     interpolate: Option<InterpolateSpec>,
+    /// Some sections repeated: a grating, solved by repeated squaring of one period's S-matrix,
+    /// and its Bloch modes recorded.
+    period: Option<PeriodSpec>,
+    /// A Gaussian beam launched on the first section's modes (2D, between walls without a PML):
+    /// the shares of its power reflected, transmitted and carried by each guided mode at the
+    /// last end, recorded at each wavelength.
+    beam: Option<BeamSpec>,
 }
 
-/// A section resolved at a wavelength: its name, length, and how its cross-section is made.
+/// A section resolved at a wavelength: its name, length, how its cross-section is made, and a
+/// bend's radius to the window's middle and angle (radians).
 #[derive(Clone, Debug)]
 struct Resolved {
     name: String,
     length: f64,
     shape: Shape,
+    radius: Option<f64>,
+    angle: f64,
 }
 
 #[derive(Clone, Debug)]
@@ -294,7 +400,10 @@ impl EmeTask {
     /// The expansion's settings at `wavelength` with `modes` modes.
     fn eme(&self, wavelength: Wavelength, modes: usize) -> Result<Eme> {
         let [lower, upper] = self.walls()?;
-        let eme = Eme::new(self.polarization()?, wavelength, modes)?.with_walls(lower, upper);
+        let mut eme = Eme::new(self.polarization()?, wavelength, modes)?.with_walls(lower, upper);
+        if let Some(nm) = self.bend_step_nm {
+            eme = eme.with_bend_step(Length::um(nm * 1e-3))?;
+        }
         match &self.pml {
             None => Ok(eme),
             Some(p) if self.symmetric() => {
@@ -317,9 +426,26 @@ impl EmeTask {
         if self.modes == 0 {
             return Err(task_error("modes must be at least 1"));
         }
+        if let Some(nm) = self.bend_step_nm
+            && !(nm.is_finite() && nm > 0.0)
+        {
+            return Err(task_error(format!(
+                "bend_step_nm must be above 0, got {nm}"
+            )));
+        }
         if let Some(plane) = &self.plane {
+            if self.beam.is_some() {
+                return Err(task_error(
+                    "[task.beam] is a 2D job's: a beam on a 3D section's plane isn't launched yet",
+                ));
+            }
             self.validate_common()?;
             return three::validate(self, plane, device);
+        }
+        if let Some(name) = self.drawing_field() {
+            return Err(task_error(format!(
+                "{name} is a drawing's, which is cut into 3D sections: give [task.plane]"
+            )));
         }
         if device {
             return Err(task_error(
@@ -337,6 +463,24 @@ impl EmeTask {
         self.cladding()?;
         self.validate_common()?;
         self.validate_2d()
+    }
+
+    /// The first of a drawing's fields the task gives, if any.
+    fn drawing_field(&self) -> Option<&'static str> {
+        [
+            ("stack", self.stack.is_some()),
+            ("core_nm", self.core_nm.is_some()),
+            ("bottom_oxide_um", self.bottom_oxide_um.is_some()),
+            ("layer", self.layer.is_some()),
+            ("x_um", self.x_um.is_some()),
+            ("[[task.rect]]", !self.rect.is_empty()),
+            ("[[task.circle]]", !self.circle.is_empty()),
+            ("[[task.ring]]", !self.ring.is_empty()),
+            ("[[task.path]]", !self.path.is_empty()),
+            ("[[task.shape]]", !self.shape.is_empty()),
+        ]
+        .into_iter()
+        .find_map(|(name, given)| given.then_some(name))
     }
 
     /// What 2D and 3D jobs both refuse: the PML's, the adaptive steps', the convergence's and the
@@ -380,6 +524,32 @@ impl EmeTask {
             check_sweep(s.from, s.to, s.points)?;
             for w in [s.from, s.to] {
                 Wavelength::um(w).map_err(|e| task_error(e.to_string()))?;
+            }
+        }
+        if let Some(p) = &self.period {
+            let [a, b] = p.sections;
+            let n = self.section.len();
+            if n == 0 {
+                return Err(task_error(
+                    "[task.period] repeats some of the [[task.section]]: a [device]'s or a \
+                     drawing's sections are cut from its geometry",
+                ));
+            }
+            if !(a >= 2 && a <= b && b < n) {
+                return Err(task_error(format!(
+                    "[task.period] sections are the first and last of one period, counted from 1, \
+                     between the ports (sections 2 to {}), got [{a}, {b}]",
+                    n.saturating_sub(1)
+                )));
+            }
+            if p.count == 0 {
+                return Err(task_error("[task.period] count must be at least 1"));
+            }
+            if self.adaptive.is_some() {
+                return Err(task_error(
+                    "[task.adaptive] places the steps of the whole structure: a job with a \
+                     [task.period] takes equal steps",
+                ));
             }
         }
         if let Some(i) = &self.interpolate {
@@ -427,7 +597,50 @@ impl EmeTask {
                 ));
             }
         }
+        if let Some(b) = &self.beam {
+            self.validate_beam(b)?;
+        }
         self.validate_sections(self.window(), self.symmetric(), true)
+    }
+
+    /// A `[task.beam]`'s settings: a beam needs the whole window between walls (its power is
+    /// the propagating modes' there) and the first section straight.
+    fn validate_beam(&self, b: &BeamSpec) -> Result<()> {
+        let at = "[task.beam]";
+        if !(b.waist_um.is_finite() && b.waist_um > 0.0) {
+            return Err(task_error(format!("{at}: waist_um must be positive")));
+        }
+        let half = 0.5 * self.window();
+        let c = b.center_um.unwrap_or(0.0);
+        if !(c.is_finite() && c.abs() < half) {
+            return Err(task_error(format!(
+                "{at}: center_um must be inside the window, within {half} um of its middle"
+            )));
+        }
+        if !b.angle_deg.unwrap_or(0.0).is_finite() || b.angle_deg.unwrap_or(0.0).abs() >= 90.0 {
+            return Err(task_error(format!("{at}: angle_deg must be within ±90")));
+        }
+        if b.index.is_some_and(|n| !(n.is_finite() && n > 0.0)) {
+            return Err(task_error(format!("{at}: index must be positive")));
+        }
+        if self.pml.is_some() || self.symmetric() {
+            return Err(task_error(format!(
+                "{at}: a beam's shares of power are its propagating modes' between walls: leave \
+                 out [task.pml] and symmetric"
+            )));
+        }
+        if self.interpolate.is_some() {
+            return Err(task_error(format!(
+                "{at}: the beam's shares are solved at each wavelength: leave out \
+                 [task.interpolate]"
+            )));
+        }
+        if self.section.first().is_some_and(SectionSpec::is_bend) {
+            return Err(task_error(format!(
+                "{at}: the beam is launched on the first section, which must be straight"
+            )));
+        }
+        Ok(())
     }
 
     /// The sections' own settings, their cores inside a window `window` µm wide (the half's
@@ -442,19 +655,28 @@ impl EmeTask {
         for (k, s) in self.section.iter().enumerate() {
             let at = format!("[[task.section]] #{}", k + 1);
             check_finite(&format!("{at} center_um"), s.center_um)?;
-            if !(s.length_um.is_finite() && s.length_um >= 0.0) {
-                return Err(task_error(format!(
-                    "{at}: length_um must be at least 0, got {}",
-                    s.length_um
-                )));
-            }
             let taper = matches!(s.core_um, Some(Thickness::Taper(_)));
+            if s.is_bend() {
+                self.validate_bend(&at, s, k, window, half, layers, taper)?;
+            } else {
+                let length = s.length_um.ok_or_else(|| {
+                    task_error(format!(
+                        "{at} needs length_um (a bend radius_um and angle_deg instead)"
+                    ))
+                })?;
+                if !(length.is_finite() && length >= 0.0) {
+                    return Err(task_error(format!(
+                        "{at}: length_um must be at least 0, got {length}"
+                    )));
+                }
+            }
+            let length = s.length();
             if taper && (k == 0 || k + 1 == self.section.len()) {
                 return Err(task_error(format!(
                     "{at}: the first and last sections are the ports, straights, not tapers"
                 )));
             }
-            if taper && s.length_um <= 0.0 {
+            if taper && length <= 0.0 {
                 return Err(task_error(format!("{at}: a taper needs a length above 0")));
             }
             if !taper && (s.profile.is_some() || s.steps.is_some()) {
@@ -527,6 +749,65 @@ impl EmeTask {
         Ok(())
     }
 
+    /// A bend's own settings: `s` is section `k` of a window `window` µm wide (the half's when
+    /// `half`), in 2D where `layers`.
+    #[allow(clippy::too_many_arguments)]
+    fn validate_bend(
+        &self,
+        at: &str,
+        s: &SectionSpec,
+        k: usize,
+        window: f64,
+        half: bool,
+        layers: bool,
+        taper: bool,
+    ) -> Result<()> {
+        let (Some(r), Some(a)) = (s.radius_um, s.angle_deg) else {
+            return Err(task_error(format!(
+                "{at}: a bend needs both radius_um and angle_deg"
+            )));
+        };
+        if s.length_um.is_some() {
+            return Err(task_error(format!(
+                "{at}: a bend's length is its arc, radius_um times angle_deg: leave length_um out"
+            )));
+        }
+        if !layers {
+            return Err(task_error(format!(
+                "{at}: a bend is a 2D job's: the conformal map is exact only in the plane of the \
+                 bend"
+            )));
+        }
+        if half {
+            return Err(task_error(format!(
+                "{at}: a bend has no plane of symmetry across it: a job with bends isn't symmetric"
+            )));
+        }
+        if k == 0 || k + 1 == self.section.len() {
+            return Err(task_error(format!(
+                "{at}: the first and last sections are the ports, straights, not bends"
+            )));
+        }
+        if taper {
+            return Err(task_error(format!(
+                "{at}: a bend's core is one thickness, not [from, to]"
+            )));
+        }
+        if !(a.is_finite() && a > 0.0) {
+            return Err(task_error(format!(
+                "{at}: angle_deg must be above 0, got {a}"
+            )));
+        }
+        let middle = s.middle_radius().unwrap_or(r);
+        if !(r.is_finite() && middle.abs() > 0.5 * window) {
+            return Err(task_error(format!(
+                "{at}: radius_um must keep the window ({window} um wide) on one side of the \
+                 bend's centre, got {r}"
+            )));
+        }
+        Ok(())
+    }
+
     /// The sections resolved at `wavelength` (µm): every medium's index there.
     fn sections(&self, wavelength: f64) -> Result<Vec<Resolved>> {
         let lam = Wavelength::um(wavelength)?;
@@ -576,8 +857,10 @@ impl EmeTask {
                         .name
                         .clone()
                         .unwrap_or_else(|| format!("section {}", k + 1)),
-                    length: s.length_um,
+                    length: s.length(),
                     shape,
+                    radius: s.middle_radius().filter(|_| s.is_bend()),
+                    angle: s.angle_deg.map_or(0.0, f64::to_radians),
                 })
             })
             .collect()
@@ -605,13 +888,90 @@ fn core_slice(core: c64, cladding: c64, center: f64, t: f64, w: f64, half: bool)
     ])
 }
 
+/// A section of an `"eme"` job's structure as its run records it ([`Event::EmeSections`]):
+/// what it is and where it lies along the structure.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[non_exhaustive]
+pub struct EmeSection {
+    /// Its name: the job's own (`"section 2"` where it gives none), or a cut's, `"cut 3"`.
+    pub name: String,
+    /// `"straight"`, `"taper"`, `"bend"`, or `"cut"` for a plane cut from a `[device]` or the
+    /// job's own drawing.
+    pub kind: String,
+    /// Where it starts along the structure, µm: its first period's place for a section of
+    /// `[task.period]`, the periods' whole length before the sections after them.
+    pub start_um: f64,
+    /// Its length, µm; a bend's along the arc at the window's middle.
+    pub length_um: f64,
+    /// The cross-sections it is solved in at the job's own settings: a taper's steps, 1
+    /// otherwise (`[task.adaptive]` and `[task.convergence]` may place more).
+    pub steps: usize,
+    /// A bend's radius to the window's middle, µm.
+    pub radius_um: Option<f64>,
+    /// A bend's angle, degrees.
+    pub angle_deg: Option<f64>,
+    /// How many times it is repeated: `[task.period]`'s count for a section of the period, 1
+    /// otherwise.
+    pub repeats: usize,
+}
+
+/// The sections of a 2D job (or a 3D job's strips) as its run records them.
+fn sections_event(task: &EmeTask, resolved: &[Resolved]) -> Event {
+    let period = task
+        .period
+        .map(|p| (p.sections[0] - 1..p.sections[1], p.count));
+    let mut z = 0.0;
+    let mut sections = Vec::with_capacity(resolved.len());
+    for (k, r) in resolved.iter().enumerate() {
+        let repeats = match &period {
+            Some((range, count)) if range.contains(&k) => *count,
+            _ => 1,
+        };
+        sections.push(EmeSection {
+            name: r.name.clone(),
+            kind: if r.radius.is_some() {
+                "bend"
+            } else if r.is_taper() {
+                "taper"
+            } else {
+                "straight"
+            }
+            .into(),
+            start_um: z,
+            length_um: r.length,
+            steps: r.steps(),
+            radius_um: r.radius,
+            angle_deg: r.radius.map(|_| r.angle.to_degrees()),
+            repeats,
+        });
+        z += r.length;
+        // after a period's last section, the other periods
+        if let Some((range, count)) = &period
+            && k + 1 == range.end
+        {
+            let one: f64 = resolved[range.clone()].iter().map(|r| r.length).sum();
+            z += one * (*count as f64 - 1.0);
+        }
+    }
+    Event::EmeSections { sections }
+}
+
 impl Resolved {
     fn is_taper(&self) -> bool {
         matches!(self.shape, Shape::Core { from, to, .. } if from != to)
     }
 
-    /// Its cross-section a share `u` along it.
+    /// Its cross-section a share `u` along it, bent if it is a bend.
     fn slice_at(&self, u: f64, w: f64) -> Result<Slice> {
+        let slice = self.straight_at(u, w)?;
+        match self.radius {
+            Some(r) => slice.bent(Length::um(r)),
+            None => Ok(slice),
+        }
+    }
+
+    /// Its cross-section a share `u` along it, straight.
+    fn straight_at(&self, u: f64, w: f64) -> Result<Slice> {
         match &self.shape {
             Shape::Layers(layers) => Slice::new(
                 &layers
@@ -658,21 +1018,37 @@ fn quantity(name: Option<&str>) -> Result<Quantity> {
 /// the tapers' steps.
 type Solved = (Scattering, Option<f64>, usize);
 
-/// One solve: the S-matrix with `modes` modes and each taper's steps times `scale`.
+/// One solve: the S-matrix with `modes` modes and each taper's steps times `scale`, each
+/// bend's thin layers at most `bend_um` thick (the task's `bend_step_nm` when `None`).
 fn solve(
     task: &EmeTask,
     resolved: &[Resolved],
     wavelength: Wavelength,
     modes: usize,
     scale: usize,
+    bend_um: Option<f64>,
 ) -> Result<Solved> {
-    let eme = task.eme(wavelength, modes)?;
+    let mut eme = task.eme(wavelength, modes)?;
+    if let Some(h) = bend_um {
+        eme = eme.with_bend_step(Length::um(h))?;
+    }
     let w = task.window();
     if let Some(a) = &task.adaptive {
         let out = eme.adaptive(&pieces(resolved, w, scale)?, a.tolerance)?;
         let steps = out.edges.iter().map(|e| e.len() - 1).sum();
         return Ok((out.scattering, Some(out.error), steps));
     }
+    let (sections, steps) = sections_of(resolved, w, scale)?;
+    let s = match period_range(task, resolved, scale) {
+        Some((range, count)) => eme.grating(&sections, range, count)?,
+        None => eme.s_matrix(&sections)?,
+    };
+    Ok((s, None, steps))
+}
+
+/// The sections of `resolved` in a window `w` µm wide, each taper's equal steps times `scale`,
+/// and the tapers' steps; one period of a `[task.period]`.
+fn sections_of(resolved: &[Resolved], w: f64, scale: usize) -> Result<(Vec<Section>, usize)> {
     let mut sections = Vec::new();
     let mut steps = 0;
     for r in resolved {
@@ -687,7 +1063,64 @@ fn solve(
             sections.push(Section::new(r.slice_at(0.0, w)?, Length::um(r.length)));
         }
     }
-    Ok((eme.s_matrix(&sections)?, None, steps))
+    Ok((sections, steps))
+}
+
+/// A `[task.period]`'s sections among those [`sections_of`] makes (each taper's steps times
+/// `scale`), and its count.
+fn period_range(
+    task: &EmeTask,
+    resolved: &[Resolved],
+    scale: usize,
+) -> Option<(std::ops::Range<usize>, usize)> {
+    let p = task.period?;
+    let [a, b] = p.sections;
+    let made = |r: &Resolved| if r.is_taper() { r.steps() * scale } else { 1 };
+    let start: usize = resolved.iter().take(a - 1).map(made).sum();
+    let end: usize = resolved.iter().take(b).map(made).sum();
+    Some((start..end, p.count))
+}
+
+/// The Bloch modes of a `[task.period]`'s period at `wavelength` µm with `modes` modes and its
+/// tapers' steps times `scale`, as a sweep point over the wavelength: the least decaying first,
+/// at most 4, each K/k₀ in the reduced zone (its real part at most λ/2Λ) with Im K/k₀ its decay.
+fn bloch_event(
+    task: &EmeTask,
+    resolved: &[Resolved],
+    wavelength: f64,
+    (modes, scale): (usize, usize),
+) -> Result<Option<Event>> {
+    let Some((range, _)) = period_range(task, resolved, scale) else {
+        return Ok(None);
+    };
+    let (sections, _) = sections_of(resolved, task.window(), scale)?;
+    let eme = task.eme(Wavelength::um(wavelength)?, modes)?;
+    let bloch = eme.bloch(&sections[range])?;
+    let te = match task.polarization()? {
+        Polarization::Te => 1.0,
+        Polarization::Tm => 0.0,
+    };
+    Ok(Some(bloch_point(&bloch, wavelength, Some(te))))
+}
+
+/// A period's Bloch modes as a sweep point over the wavelength (see [`bloch_event`]), with
+/// their TE fraction `te` where it is one for all (a 2D job's: 1 for TE, 0 for TM), none for a
+/// 3D job's hybrid modes.
+pub(super) fn bloch_point(bloch: &crate::eme::Bloch, wavelength: f64, te: Option<f64>) -> Event {
+    let indices: Vec<[f64; 2]> = bloch
+        .effective_indices
+        .iter()
+        .filter(|n| n.re.is_finite() && n.im.is_finite())
+        .take(4)
+        .map(|n| [n.re, n.im])
+        .collect();
+    Event::SweepPoint {
+        parameter: "wavelength".into(),
+        value: wavelength,
+        wavelength_um: wavelength,
+        te_fractions: te.map_or_else(Vec::new, |t| vec![t; indices.len()]),
+        effective_indices: indices,
+    }
 }
 
 /// The structure as [`Eme::adaptive`] takes it: its tapers from each one's steps times `scale`.
@@ -729,7 +1162,7 @@ fn fixed(
             adaptive: None,
             ..task.clone()
         };
-        return Ok(solve(&plain, &resolved, lam, modes, scale)?.0);
+        return Ok(solve(&plain, &resolved, lam, modes, scale, None)?.0);
     };
     let w = task.window();
     let mut sections = Vec::new();
@@ -752,17 +1185,22 @@ fn fixed(
 }
 
 /// A wavelength's solve, its modes (and a task's equal steps) driven by `[task.convergence]`
-/// when it has one, each study recorded: where it ended, (modes, the steps' scale), and the
-/// solve there.
+/// when it has one, and with bends their thin layers after them, each study recorded: where it
+/// ended, (modes, the steps' scale), the solve there, and the bends' layers' thickness the
+/// study refined them to (µm; `None` when it didn't study them).
 fn solve_at(
     task: &EmeTask,
     resolved: &[Resolved],
     wl: f64,
     run: &mut Run,
-) -> Result<((usize, usize), Solved)> {
+) -> Result<((usize, usize), Solved, Option<f64>)> {
     let lam = Wavelength::um(wl)?;
     let Some(c) = &task.convergence else {
-        return Ok(((task.modes, 1), solve(task, resolved, lam, task.modes, 1)?));
+        return Ok((
+            (task.modes, 1),
+            solve(task, resolved, lam, task.modes, 1, None)?,
+            None,
+        ));
     };
     let tapers = resolved.iter().filter(|r| r.is_taper()).count();
     let base_steps: usize = resolved
@@ -778,7 +1216,7 @@ fn solve_at(
     let (studies, at): (Vec<Refined>, (usize, usize)) = if tapers > 0 && task.adaptive.is_none() {
         let r = driver.eme(task.modes, base_steps, |m, n| {
             // n is the base steps doubled: each taper's own doubled alike
-            let s = solve(task, resolved, lam, m, n / base_steps)?;
+            let s = solve(task, resolved, lam, m, n / base_steps, None)?;
             let v = read(&s.0);
             solved.push(((m, n / base_steps), s));
             Ok(v)
@@ -787,7 +1225,7 @@ fn solve_at(
         (vec![r.mode_study, r.step_study, r.together], at)
     } else {
         let r = driver.counts(task.modes, |m| {
-            let s = solve(task, resolved, lam, m, 1)?;
+            let s = solve(task, resolved, lam, m, 1, None)?;
             let v = read(&s.0);
             solved.push(((m, 1), s));
             Ok(v)
@@ -804,9 +1242,41 @@ fn solve_at(
     }
     let s = match solved.into_iter().find(|(k, _)| *k == at) {
         Some((_, s)) => s,
-        None => solve(task, resolved, lam, at.0, at.1)?,
+        None => solve(task, resolved, lam, at.0, at.1, None)?,
     };
-    Ok((at, s))
+    if !resolved.iter().any(|r| r.radius.is_some()) {
+        return Ok((at, s, None));
+    }
+    // the bends' mapped profile has its own discretisation beside the modes': its thin layers
+    // halved, at the modes and steps found, until the quantity changes by less than the
+    // tolerance (a staircase, second order in the layers' thickness)
+    let start = task.eme(lam, at.0)?.bend_step().to_um();
+    let layers = ToTolerance::new(
+        &format!("{name} of the fundamental modes at {wl} um, the bends' layers"),
+        Tolerance::Relative(c.tolerance),
+    )?;
+    let mut by_step: Vec<(f64, Solved)> = vec![(start, s)];
+    let r = layers.grids(start, |h| {
+        let found = by_step.iter().position(|(k, _)| *k == h);
+        let s = match found {
+            Some(i) => by_step.swap_remove(i).1,
+            None => solve(task, resolved, lam, at.0, at.1, Some(h))?,
+        };
+        let v = read(&s.0);
+        by_step.push((h, s));
+        Ok(v)
+    })?;
+    run.record(&Event::GridConvergence {
+        label: r.quantity.clone(),
+        wavelength_um: wl,
+        check: check_of(&r),
+    })?;
+    let finest = r.grids[r.grids.len() - 1];
+    let s = match by_step.into_iter().find(|(k, _)| *k == finest) {
+        Some((_, s)) => s,
+        None => solve(task, resolved, lam, at.0, at.1, Some(finest))?,
+    };
+    Ok((at, s, Some(finest)))
 }
 
 /// S over `[task.sweep]`'s wavelengths from as few solves as `[task.interpolate]`'s tolerance
@@ -1000,6 +1470,38 @@ fn matrix_event(
     }
 }
 
+/// The solver's detail of a `[task.period]`.
+fn period_details(task: &EmeTask) -> Option<[String; 2]> {
+    let p = task.period?;
+    let [a, b] = p.sections;
+    let length: f64 = task.section[a - 1..b].iter().map(SectionSpec::length).sum();
+    Some([
+        "period".into(),
+        format!(
+            "sections {a} to {b} ({length} um) {} times, by repeated squaring of its S-matrix; \
+             its Bloch modes recorded as a sweep point at each wavelength solved",
+            p.count
+        ),
+    ])
+}
+
+/// The order the sections come in along z: a `[task.period]`'s repeated in place.
+fn order(task: &EmeTask) -> Vec<usize> {
+    let n = task.section.len();
+    match task.period {
+        None => (0..n).collect(),
+        Some(p) => {
+            let [a, b] = p.sections;
+            let mut out: Vec<usize> = (0..a - 1).collect();
+            for _ in 0..p.count {
+                out.extend(a - 1..b);
+            }
+            out.extend(b..n);
+            out
+        }
+    }
+}
+
 /// The scene: the cores (and layers other than the cladding) seen from above, z along x and the
 /// window across y, on one layer 1 µm thick.
 fn eme_scene(task: &EmeTask) -> Result<Event> {
@@ -1021,17 +1523,63 @@ fn scene_across(task: &EmeTask, window: f64, half: bool) -> Result<Event> {
     let w = if half { 2.0 * window } else { window };
     let mut shapes = Vec::new();
     let mut core_n = clad_n;
-    let mut z = 0.0;
-    for r in &resolved {
+    // where each section starts and its heading (radians from x): a straight goes on along it, a
+    // bend turns it about its centre
+    let mut pen = Pen {
+        at: [0.0, 0.0],
+        heading: 0.0,
+    };
+    // the window's edges at each section's ends and along each bend, for the scene's extent
+    let mut edges = vec![pen.place(0.0, -0.5 * w), pen.place(0.0, 0.5 * w)];
+    for r in order(task).into_iter().map(|k| &resolved[k]) {
         let l = r.length;
+        // a point of the section, a share u along it and y across it from the window's middle;
+        // and how many shares a straight edge takes (a bend's 32 a quarter turn)
+        let bend = r.radius.map(|radius| (radius, r.angle));
+        let point = |u: f64, y: f64| match bend {
+            Some((radius, angle)) => pen.arc(radius, u * angle, y),
+            None => pen.place(u * l, y),
+        };
+        let arc_points = bend.map_or(1, |(_, a)| {
+            (32.0 * a / std::f64::consts::FRAC_PI_2).ceil().max(1.0) as usize
+        });
+        // a band from a to b across, along the whole section
+        let band = |a: f64, b: f64, k: usize, width: &dyn Fn(f64) -> (f64, f64)| -> SceneShape {
+            let edge = |lower: bool| -> Vec<[f64; 2]> {
+                (0..=k)
+                    .map(|i| {
+                        let u = i as f64 / k as f64;
+                        let (lo, hi) = width(u);
+                        point(u, if lower { a + lo } else { b + hi })
+                    })
+                    .collect()
+            };
+            let mut outline = edge(true);
+            outline.extend(edge(false).into_iter().rev());
+            SceneShape {
+                layer: "core".into(),
+                outline,
+            }
+        };
         match &r.shape {
             Shape::Layers(layers) => {
                 let mut x = if half { 0.0 } else { -0.5 * w };
                 for &(n, d) in layers {
                     if n != clad_n && l > 0.0 {
-                        let rect = |a: f64, b: f64| SceneShape {
-                            layer: "core".into(),
-                            outline: vec![[z, a], [z + l, a], [z + l, b], [z, b]],
+                        let rect = |a: f64, b: f64| {
+                            if bend.is_some() {
+                                band(a, b, arc_points, &|_| (0.0, 0.0))
+                            } else {
+                                SceneShape {
+                                    layer: "core".into(),
+                                    outline: vec![
+                                        point(0.0, a),
+                                        point(1.0, a),
+                                        point(1.0, b),
+                                        point(0.0, b),
+                                    ],
+                                }
+                            }
                         };
                         shapes.push(rect(x, x + d));
                         if half {
@@ -1053,29 +1601,35 @@ fn scene_across(task: &EmeTask, window: f64, half: bool) -> Result<Event> {
                 core_n = core;
                 if l > 0.0 {
                     // the outline sampled at 32 points along a taper, 1 along a straight
-                    let k = if from == to { 1 } else { 32 };
-                    let edge = |sign: f64| -> Vec<[f64; 2]> {
-                        (0..=k)
-                            .map(|i| {
-                                let u = i as f64 / k as f64;
-                                [z + u * l, center + sign * 0.5 * profile.at(from, to, u)]
-                            })
-                            .collect()
-                    };
-                    let mut outline = edge(-1.0);
-                    outline.extend(edge(1.0).into_iter().rev());
-                    shapes.push(SceneShape {
-                        layer: "core".into(),
-                        outline,
-                    });
+                    let k = if from == to { arc_points } else { 32 };
+                    let half_at = |u: f64| 0.5 * profile.at(from, to, u);
+                    shapes.push(band(center, center, k, &|u| (-half_at(u), half_at(u))));
                 }
             }
         }
-        z += l;
+        for i in 1..=arc_points {
+            let u = i as f64 / arc_points as f64;
+            edges.extend([point(u, -0.5 * w), point(u, 0.5 * w)]);
+        }
+        pen = match bend {
+            Some((radius, angle)) => pen.turned(radius, angle),
+            None => Pen {
+                at: pen.place(l, 0.0),
+                ..pen
+            },
+        };
     }
+    let span = |axis: usize| {
+        let lo = edges.iter().map(|p| p[axis]).fold(f64::INFINITY, f64::min);
+        let hi = edges
+            .iter()
+            .map(|p| p[axis])
+            .fold(f64::NEG_INFINITY, f64::max);
+        [lo, hi.max(lo + 1e-3)]
+    };
     Ok(Event::Scene {
-        x_um: [0.0, z.max(1e-3)],
-        y_um: [-0.5 * w, 0.5 * w],
+        x_um: span(0),
+        y_um: span(1),
         z_um: [0.0, 1.0],
         wavelength_um: task.wavelength_um,
         substrate: medium(cladding.name(), clad_n),
@@ -1088,6 +1642,47 @@ fn scene_across(task: &EmeTask, window: f64, half: bool) -> Result<Event> {
         }],
         shapes,
     })
+}
+
+/// Where a section starts in the scene, and its heading (radians from x).
+#[derive(Clone, Copy, Debug)]
+struct Pen {
+    at: [f64; 2],
+    heading: f64,
+}
+
+impl Pen {
+    /// The point `along` ahead and `y` across (to the left).
+    fn place(&self, along: f64, y: f64) -> [f64; 2] {
+        let (s, c) = self.heading.sin_cos();
+        [
+            self.at[0] + along * c - y * s,
+            self.at[1] + along * s + y * c,
+        ]
+    }
+
+    /// The point a bend of radius `radius` (to the pen; positive with its centre on the right,
+    /// at −y) has reached after `angle` radians, `y` across from its middle.
+    fn arc(&self, radius: f64, angle: f64, y: f64) -> [f64; 2] {
+        let centre = self.place(0.0, -radius);
+        let turn = radius.signum() * angle;
+        let (s, c) = turn.sin_cos();
+        let (hs, hc) = self.heading.sin_cos();
+        // n cos + t sin, with t the heading and n to its left
+        let out = [-hs * c + hc * s, hc * c + hs * s];
+        [
+            centre[0] + (radius + y) * out[0],
+            centre[1] + (radius + y) * out[1],
+        ]
+    }
+
+    /// The pen after a bend of `radius` and `angle`.
+    fn turned(&self, radius: f64, angle: f64) -> Pen {
+        Pen {
+            at: self.arc(radius, angle, 0.0),
+            heading: self.heading - radius.signum() * angle,
+        }
+    }
 }
 
 /// The `"eme"` kind: a 2D structure of sections by eigenmode expansion.
@@ -1188,6 +1783,17 @@ fn eme(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
             ),
         ]);
     }
+    let bends = first.iter().filter(|r| r.radius.is_some()).count();
+    if bends > 0 {
+        details.push([
+            "bends".into(),
+            format!(
+                "{bends}, by the conformal map, each one's profile in thin layers at most {} um \
+                 thick",
+                crate::eme::BEND_STEP
+            ),
+        ]);
+    }
     if tapers > 0 {
         details.push([
             "taper steps".into(),
@@ -1199,6 +1805,9 @@ fn eme(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
                 None => format!("{base_steps}, equal"),
             },
         ]);
+    }
+    if let Some(d) = period_details(&task) {
+        details.push(d);
     }
     if let Some(i) = &task.interpolate {
         details.push([
@@ -1221,6 +1830,7 @@ fn eme(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
         unknowns: task.modes * (task.section.len() + base_steps),
         details,
     })?;
+    run.record(&sections_event(&task, &first))?;
     if let Some(s) = &task.sweep {
         run.record(&Event::Sweep {
             parameter: "wavelength".into(),
@@ -1244,7 +1854,12 @@ fn eme(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
     if task.interpolate.is_some() {
         // the discretisation settled once, at the job's wavelength, and kept at every solve
         let resolved = task.sections(task.wavelength_um)?;
-        let (at, (_, error, steps)) = solve_at(&task, &resolved, task.wavelength_um, run)?;
+        let (at, (_, error, steps), bend) = solve_at(&task, &resolved, task.wavelength_um, run)?;
+        // the bends' layers as the study left them, kept at every solve too
+        let task = EmeTask {
+            bend_step_nm: bend.map(|h| h * 1e3).or(task.bend_step_nm),
+            ..task.clone()
+        };
         let edges = match &task.adaptive {
             Some(a) => {
                 if let Some(e) = error {
@@ -1267,6 +1882,9 @@ fn eme(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
             }
             None => None,
         };
+        if let Some(e) = bloch_event(&task, &resolved, task.wavelength_um, at)? {
+            run.record(&e)?;
+        }
         let half = task.symmetric();
         return interpolated(
             &task,
@@ -1286,7 +1904,7 @@ fn eme(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
         }
         let resolved = task.sections(wl)?;
         let ends = ends_at(wl)?;
-        let (_, (s, error, steps)) = solve_at(&task, &resolved, wl, run)?;
+        let (at, (s, error, steps), _) = solve_at(&task, &resolved, wl, run)?;
         if let Some(e) = error {
             run.record(&Event::SolveError {
                 point: task.sweep.as_ref().map(|_| point),
@@ -1306,6 +1924,56 @@ fn eme(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
             task.polarization()?,
             task.symmetric(),
         ))?;
+        if let Some(e) = bloch_event(&task, &resolved, wl, at)? {
+            run.record(&e)?;
+        }
+        if let Some(b) = &task.beam {
+            run.record(&beam_event(&task, b, wl, at.0, &s, &ends)?)?;
+        }
     }
     Ok(())
+}
+
+/// A `[task.beam]` launched on the first section's `modes` modes at `wavelength` µm and carried
+/// by `s`: the shares of its power reflected, transmitted and in each guided mode at the last
+/// end.
+fn beam_event(
+    task: &EmeTask,
+    b: &BeamSpec,
+    wavelength: f64,
+    modes: usize,
+    s: &Scattering,
+    (first, last): &(Slice, Slice),
+) -> Result<Event> {
+    let lam = Wavelength::um(wavelength)?;
+    let index = match b.index {
+        Some(n) => n,
+        None => {
+            let m: Material = crate::device::spec::task_medium(task.cladding()?, "cladding")
+                .map_err(|e| task_error(format!("cladding: {e}")))?;
+            m.refractive_index(lam)
+                .map_err(|e| task_error(format!("cladding: {e}")))?
+                .re
+        }
+    };
+    let beam = Beam::gaussian(
+        Length::um(b.waist_um),
+        Length::um(b.center_um.unwrap_or(0.0)),
+    )?
+    .tilted(b.angle_deg.unwrap_or(0.0).to_radians(), index)?;
+    let launched = task.eme(lam, modes)?.launch(first, &beam)?;
+    let p = launched.power();
+    let (r, t) = s.forward(&launched.arriving())?;
+    let n = guided(&s.last, last, false);
+    let pol = match task.polarization()? {
+        Polarization::Te => "TE",
+        Polarization::Tm => "TM",
+    };
+    Ok(Event::EmeBeam {
+        wavelength_um: wavelength,
+        reflected: power(&r, &s.first) / p,
+        transmitted: power(&t, &s.last) / p,
+        ports: (0..n).map(|m| format!("2 {pol}{m}")).collect(),
+        shares: t.iter().take(n).map(|a| a.norm_sqr() / p).collect(),
+    })
 }

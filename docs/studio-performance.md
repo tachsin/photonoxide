@@ -371,6 +371,25 @@ WebGL contexts after round 2: evicted    0         -1     documented: none
 WebGL contexts after round 3: evicted    0         -1     documented: none
 ```
 
+**`home` and `device_geometry` over their limits (#595).** Measured again on 2026-11-07 with the
+42 jobs of `jobs/` (252 runs in the seed, the newest 200 listed), three launches, a build with
+two changes: `home` reads the runs and jobs it hasn't read yet side by side (all 200 on the first
+click), and `device_geometry` draws the design's scene from the geometry it has just made,
+instead of writing the design as a job, reading it back and making the geometry again.
+
+| First click on Components | `home` (ms) | at once | `device_geometry` (ms) | at once |
+| --- | ---: | ---: | ---: | ---: |
+| empty workspace | 56.7 (45.8–57.7) | 4 | 10.4 (10.3–12.2) | 3 |
+| seeded, 200 runs | 68.0 (65.7–68.9) | 4 | 11.6 (11.3–11.7) | 3 |
+| limit | 40.6 | | 7.8 | |
+
+Both stay over. The empty workspace says why the changes don't show: there `home` reads no job and
+no run, and still takes 56.7 ms, so the 200 runs cost the seeded click only 11 ms more. The
+measure is the window's, from the call to its answer, while three or four commands run at once,
+so most of what it shows is the wait for a thread, not the command's own work. Telling the two apart needs a
+timer inside the command, which the measure doesn't log yet; until then the limits stay as they
+are.
+
 **The seed.** The studio's lists are as long as in use only with a workspace of use: the 34 jobs of
 `jobs/` and 204 runs (the 34 jobs run by the build, each run copied to six), about 300 MB. The first
 `just perf` makes it in `target/perf/seed`, running each job headless (a few minutes); later runs

@@ -8,6 +8,28 @@ use super::{Basis::*, Measure::*, Numerical::*, Rule};
 pub(crate) fn rules() -> Vec<(&'static str, Rule)> {
     vec![
         (
+            "job/fdfd-interpolate-step",
+            Rule::new(
+                Absolute,
+                Discretisation,
+                1.0,
+                Measured,
+                "the estimate's claim, as eme/wavelength-taper: the interpolant's true error at most its estimate, a ratio of at most 1; the case measures that ratio itself (0.025: 28 solves, the estimate 7.9e-7, the true error 1.9e-8)",
+            )
+            .varying(),
+        ),
+        (
+            "job/modes-interpolate-crossing",
+            Rule::new(
+                Absolute,
+                Discretisation,
+                1.0,
+                Measured,
+                "the estimate's claim, as job/fdfd-interpolate-step: the interpolant's true error at most its estimate, a ratio of at most 1; the case measures that ratio itself (1.1e-6: 19 solves, the estimate 1.3e-6, the true error 1.4e-12, the modes followed by overlap; numbered by index, the same sweep takes its 200 solves without reaching the tolerance)",
+            )
+            .varying(),
+        ),
+        (
             "sweep/aaa-rational",
             Rule::new(
                 Relative,

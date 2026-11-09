@@ -16,6 +16,13 @@ papers:
     doi: 10.1109/MCD.1987.6323126
   - cite: "P. L. F. Hemment, E. Maydell-Ondrusz, K. G. Stevens, J. A. Kilner, J. Butcher, Vacuum 34, 203 (1984) (200 keV, 1.8×10¹⁸ cm⁻²: the layers as implanted, p. 204, and after 1150 °C, p. 206; the oxide's thickness against the dose, Fig. 2)"
     doi: 10.1016/0042-207X(84)90128-3
+  - cite: "J. P. de Souza, M. Behar, J. F. Dias, J. H. R. dos Santos, Nucl. Instrum. Methods Phys. Res. B 175–177, 46 (2001) (¹⁸O in amorphized Si and in SiO₂, measured by nuclear reaction analysis: Rp and ΔRp at 25–200 keV against TRIM, Table 1, p. 48; the targets, p. 47)"
+    doi: 10.1016/S0168-583X(00)00525-5
+  - cite: "Ö. Kabadayi, H. Gümüş, Phys. Status Solidi B 242, 2391 (2005) (O in Si and SiO₂: ranges from four stopping powers, SRIM and PRAL against de Souza's measurements, Fig. 3, p. 2397; SRIM about 18 % above them, p. 2399)"
+    doi: 10.1002/pssb.200540082
+  - cite: "J. Lindhard, M. Scharff, H. E. Schiøtt, Mat. Fys. Medd. Dan. Vid. Selsk. 33, no. 14 (1963) (LSS theory: reduced units, Eq. 2.8, and electronic stopping, Eq. 2.10, p. 8; the projected range, Eq. 4.5, p. 25)"
+    doi: ""
+    ref: lindhard-scharff-schiott-1963
   - cite: "S. K. Selvaraja, P. Jaenen, W. Bogaerts, D. Van Thourhout, P. Dumon, R. Baets, J. Lightwave Technol. 27, 4076 (2009) (193 nm lithography and the HBr/O₂ etch, Sections II–IV)"
     doi: 10.1109/JLT.2009.2022282
   - cite: "R. J. Bojko, J. Li, L. He, T. Baehr-Jones, M. Hochberg, Y. Aida, J. Vac. Sci. Technol. B 29, 06F309 (2011) (electron-beam lithography in HSQ and the Cl₂ etch)"
@@ -44,6 +51,8 @@ papers:
     doi: 10.1364/OE.19.003163
   - cite: "K. Luke, A. Dutt, C. B. Poitras, M. Lipson, Opt. Express 21, 22829 (2013) (thick nitride: its cracks, crack-stop trenches, the etch, the 1200 °C anneal and the cladding, PDF pp. 2–4)"
     doi: 10.1364/OE.21.022829
+  - cite: "J. G. E. Gardeniers, H. A. C. Tilmans, C. C. G. Visser, J. Vac. Sci. Technol. A 14, 2879 (1996) (LPCVD nitride from dichlorosilane and ammonia: the stress of near-stoichiometric films, Table VII, p. 2887)"
+    doi: 10.1116/1.580239
   - cite: "M. H. P. Pfeiffer et al., Optica 3, 20 (2016) (the photonic Damascene process, PDF pp. 2–3)"
     doi: 10.1364/OPTICA.3.000020
   - cite: "C. Ríos et al., Nat. Photonics 9, 725 (2015) (GST cells on nitride guides, sputtered and lifted off; Methods, PDF p. 9)"
@@ -523,7 +532,13 @@ the library's, with its source; where no source gives one, the engine says "not 
   deposited thicker and polished flat. A layer patterned over an unpolished step is flagged:
   lift-off needs a smooth or planarized surface (Campbell, Section 11.9).
 - **Film thickness.** A film thicker than its process makes is flagged: LPCVD nitride over about
-  200 nm cracks under its own stress (Campbell, p. 373).
+  200 nm cracks under its own stress (Campbell, p. 373). That stress is about 1 GPa, tensile:
+  Gardeniers et al. measured 790 ± 110 to 1110 ± 40 MPa on near-stoichiometric films made from
+  dichlorosilane and ammonia (Table VII, p. 2887). Campbell prints it as "typically 12 to 18 GPa",
+  ten times as much. A stress that high would stretch a film of Young's modulus 250 to 280 GPa
+  (Campbell, pp. 241 and 581) by several percent; in the book's own unit for film stress,
+  12 to 18 × 10⁹ dyn/cm² is 1.2 to 1.8 GPa, close to the measured values. The rule uses only the
+  thickness, so the stress's value changes no flow.
 - **Registration.** Each patterned layer's edges are measured against those of the patterned
   layer below, at the cut through the middle of the design, and compared with its lithography's
   cited overlay (193 nm: 12 nm; immersion: 7 nm; 248 nm: 8–25 nm; electron beam: 5 nm field
@@ -688,13 +703,48 @@ atom, so the oxide has 0.44 × 5×10²² = 2.2×10²² molecules per cm³ and tw
 atoms. The dose for an oxide of thickness d is d × 4.4×10²² cm⁻³. The oxide takes the place of
 44 % of its thickness in silicon, and the surface rises by the other 56 %.
 
-**Where the oxide forms, and the film over it.** The depth of the oxide would need the range of
-oxygen ions in silicon. No published range table is in hand (the wanted sources are listed in the
-plan, section 6.1). The route therefore doesn't compute it. It uses the one published pair of
-energy and film: at 200 keV, about 200 nm of silicon over the oxide, for about 2×10¹⁸ cm⁻²
-(Celler and Cristoloveanu, p. 4959). Lam gives 100–300 nm over doses of 1.2–2.2×10¹⁸ cm⁻²
-(p. 6). The route is calibrated on these published points, not predictive. It refuses what they
-don't cover and gives the reason:
+**Where the oxide forms, and the film over it.** Two lengths must not be confused here. The
+oxygen's projected range Rp is the mean depth of the implanted oxygen. The film is the silicon
+left over the buried oxide after the anneal. The route uses the one published pair of energy and
+film: at 200 keV, about 200 nm of silicon over the oxide, for about 2×10¹⁸ cm⁻² (Celler and
+Cristoloveanu, p. 4959). Lam gives 100–300 nm over doses of 1.2–2.2×10¹⁸ cm⁻² (p. 6). At the same
+200 keV, Rp is about 400–470 nm, twice the film. What is in hand on the range:
+
+| Rp of O in Si, nm | 25 keV | 50 keV | 75 keV | 100 keV | 150 keV | 200 keV | Source |
+|---|---|---|---|---|---|---|---|
+| measured (¹⁸O, nuclear reaction analysis) | 55.4 | 99.2 | 154.5 | 195.7 | 291.8 | 398.2 | de Souza et al. 2001, Table 1, p. 48 |
+| its straggle ΔRp, measured | 18.1 | 33.4 | 35.7 | 58.7 | 66.1 | 56.9 | the same |
+| TRIM (1997) | 60.1 | 115.8 | 169.7 | 224.1 | 330.5 | 430.3 | the same |
+| SRIM2003.26, read from the figure | 65.8 | 122.1 | 177.4 | 232.2 | 367.3 | 441.7 | Kabadayi and Gümüş 2005, Fig. 3, p. 2397 |
+| LSS, our arithmetic from the paper | | 118.9 | 180.5 | 241.2 | 357.9 | 467.7 | Lindhard, Scharff and Schiøtt 1963, Eq. 4.5, p. 25 |
+
+- **The measured table** (J. P. de Souza, M. Behar, J. F. Dias, J. H. R. dos Santos, Nucl.
+  Instrum. Methods Phys. Res. B 175–177, 46 (2001), doi:10.1016/S0168-583X(00)00525-5) has two
+  caveats. The ion is ¹⁸O, whose ranges the authors take to be ¹⁶O's within 2 % (p. 47). The
+  silicon was amorphized from the surface to 280 nm (p. 47), so the 150 and 200 keV ranges lie
+  beyond that layer, which the paper doesn't discuss. TRIM, the only calculation it compares, is
+  8–17 % above it (Table 1, our arithmetic; "of the order of 10%" in their words, p. 48).
+- **SRIM** lies above the same measurements by "about 18%" from 25 to 200 keV (Ö. Kabadayi,
+  H. Gümüş, Phys. Status Solidi B 242, 2391 (2005), doi:10.1002/pssb.200540082, p. 2399). They
+  print no table, so the row above is read from their Fig. 3 (to about 0.5 %). Their SRIM gives
+  367 nm at 150 keV, close to the 370 nm Izumi took from Smith's table (p. 593). De Souza's
+  measured 292 nm is 21 % below it, and 23 % below the 380 nm Izumi measured after his anneal.
+- **LSS theory** prints no number for oxygen in silicon (J. Lindhard, M. Scharff, H. E. Schiøtt,
+  Mat. Fys. Medd. Dan. Vid. Selsk. 33, no. 14 (1963), ref:lindhard-scharff-schiott-1963). The row
+  above is our arithmetic from its reduced units (Eq. 2.8, p. 8), its electronic stopping
+  (Eq. 2.10, p. 8) and its first-order projected range (Eq. 4.5, p. 25), with the universal
+  nuclear cross section traced from its Fig. 1 (p. 9). Two choices in it are ours: the ion's
+  angle in the laboratory from each collision's kinematics, and electronic collisions taken as
+  not deflecting it. It lies within about 6 % of SRIM from 50 to 200 keV (−2.6 % to +5.9 %) and
+  17–23 % above the measurements. A ±20 % change in its electronic stopping constant moves Rp by
+  about ∓9 %.
+
+So at 200 keV the range is about 400–470 nm, the spread of these rows, and the measured values
+sit below every calculation. That still doesn't give the film. Going from Rp to the film would
+need how the oxide grows about the implanted profile, and no source in hand gives that as a
+number. The route therefore doesn't compute the oxide's depth from the energy. It keeps the
+published pair of energy and film. The route is calibrated on these published points, not
+predictive. It refuses what they don't cover and gives the reason:
 
 - a buried oxide outside 0.273–0.5 µm, the dose balance of Lam's doses, the doses whose film a
   source gives;
@@ -750,7 +800,11 @@ about 1350 °C, oxygen diffusing in from the surface oxidizes the silicon at the
 Fig. 5 is a drawing without numbers.
 
 **What it does not claim.** It does not compute the oxide's depth from the energy, or how the
-film depends on the dose (it takes 0.2 µm for every dose of the route). It has no oxide for anneals
+film depends on the dose (it takes 0.2 µm for every dose of the route). It computes no projected
+range either: the rows above are the papers' and our arithmetic, not the library's. A check of a
+range model against de Souza's Table 1 would be a case with a rule (the measurement's stated
+error in Rp, 3 nm at low energy and 5 % above 75 keV, p. 48), but the route has no range model
+to check, so it waits for one. It has no oxide for anneals
 below 1300 °C, no straggle or profile, and no epitaxy over the film. It says nothing of the
 defect density, the threading dislocations or the silicon pipes through a thin oxide.
 
@@ -861,8 +915,9 @@ These are listed in every flow that meets them, and wait for a source:
   a table rather than Campbell's estimate from the masses;
 - for a flow that makes its SOI wafer by SIMOX, the film the anneal leaves for each dose (the
   flow takes about 0.2 µm at 200 keV for every dose of 1.2–2.2×10¹⁸ cm⁻²), and so what the
-  sacrificial oxide takes off; the range of oxygen ions in silicon, without which the oxide's
-  depth isn't computed; and the oxide after an anneal below 1300 °C.
+  sacrificial oxide takes off; the oxide's depth, which the oxygen's projected range alone
+  doesn't give (the range is measured, about 400 nm at 200 keV, but how the oxide grows about the
+  implanted profile isn't in hand); and the oxide after an anneal below 1300 °C.
 
 ## In the studio
 
@@ -956,9 +1011,10 @@ outline moved in or out at its top:
   positive resist is exposed where the developer will take it away, a negative one where it
   will stay, and the develop frame keeps what the step's tone says stays. The library records a
   lithography's polarity (`Process::polarity`, `fabrication::Polarity`) with the source that
-  states it; none in hand does yet, so the polarities it has are those its descriptions name
-  (HSQ and ma-N negative, PMMA positive), drawn and said to be so, and a photoresist, whose
-  polarity is the product's, is drawn positive, the frames' default, its frame saying so.
+  states it: HSQ negative and PMMA positive, from Chen 2015's Table 1 (p. 58), which the
+  exposure's frame cites; ma-N negative, as its description names it, which no source in hand
+  states (Chen's table hasn't it), drawn and said to be so; and a photoresist, whose polarity is
+  the product's, is drawn positive, the frames' default, its frame saying so.
   Nanoimprint (`Process::imprints`) exposes nothing; the layer its mould leaves in the recesses,
   which no source in hand states, is drawn a tenth of the resist's thickness (`IMPRINT_RESIDUE`).
 - **A film deposited over an etched step,** as a deposition of a layer over a strip or rib
@@ -976,13 +1032,19 @@ outline moved in or out at its top:
   over it. A cladding has no thickness in the design and is drawn as the stage draws it, filling
   the window. The frame after the deposition is the stage again: flat after a polish, or flat as
   the design draws it, which the frame says when no polish follows.
+  Where the model stops: a deposit over more than one layer etched open, over a layer whose
+  shapes are etched unlike (different depths or walls), or into trenches with sloped walls is
+  drawn flat, as the stage draws it; over sloped walls each ridge's loft is its own, so the films
+  of two ridges that would meet overlap instead of merging; and the corners are mitred, so a
+  film's section has, at each convex corner, (1 − π/4)n² more area than a rounded one's.
 - **A film evaporated for a lift-off,** on the resist and in its openings, at the top the design
   draws its layer at. Where an opening lies over a region etched open, the design (planar) still
   draws the layer on top, and so does the frame, saying that the film would land on the floor
   there.
 
 The window of the frames grows to hold a conformal film reaching past the 1 µm it keeps around
-the shapes, with 0.5 µm to spare. The last frame is the last stage, the structure the round trip
+the shapes, with 0.5 µm to spare, so it can be wider than the window the design view and the
+exported cross-sections show (they keep the 1 µm and clip the film there). The last frame is the last stage, the structure the round trip
 checks, with no films: executing the flow still gives the design back exactly.
 
 Each frame is drawn twice from the same scene: as a cross-section at a cut, and as solids in 3D
@@ -1011,7 +1073,8 @@ A `fabrication` task beside a `[device]` gives the device's flow. The strip wave
 # How a 500 x 220 nm silicon strip on 220 nm SOI (the waveguide device at its defaults) would be
 # made: the steps in order, each with its reason, its alternatives and its sources, and how
 # accurately each dimension is made. The run's folder gets flow.json, flow.md (a process
-# traveller) and flow-01.svg, ... (the wafer's cross-section after each step).
+# traveller), flow.csv (the steps as a table) and flow-01.svg, ... (the wafer's cross-section
+# after each step).
 #   photonoxide run jobs/strip-flow.yaml
 name: strip-flow
 
@@ -1066,11 +1129,19 @@ niobate modulator's, a nitride or GaAs design's), and a task that avoids a step 
   in it, the alternatives, the rules' checks, the dimensions it sets and how accurately, and the
   wafer after it; then the accuracy of every dimension, the warnings, what is not specified, the
   round trip and the references with their DOIs;
+- `flow.csv`: the steps as a table, for a spreadsheet or any CSV reader, one line a step: its
+  number, process id, name, step type, operation, what it does, layer, film, thickness, depth,
+  whether it is timed, wall angle, tone and reason, and how many capabilities and uncertainties
+  it has (their text and sources are in `flow.json` and the traveller); each number the shortest
+  decimal that reads back to the same bits, as the run's other tables;
 - `flow-01.svg`, `flow-02.svg`, ...: the wafer's cross-section after each step, cut across y at
-  the middle of the design in x (as the design view's cut starts), each etch's floor and walls
-  drawn exactly, every film in its colour, and beside it the layers from the top down, the
-  substrate last, with their films and thicknesses. The resist isn't drawn; the caption says
-  when it is on the wafer.
+  the middle of the design in x (as the design view's cut starts), or on the plane the task's
+  `cut_x` names (µm, anywhere across the shapes and 1 µm beyond; `FlowExport::cut_at` in Rust).
+  Each draws the step's last frame as the Fabrication page does: the layers, each etch's floor
+  and walls exact, and over them the resist, a film deposited over an etched step and a film
+  evaporated onto a stencil, each cut exactly from its piece, every film in its colour; beside
+  it the layers from the top down, the substrate last, with their films and thicknesses, and the
+  films drawn over them.
 
 ## In Python
 

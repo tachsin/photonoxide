@@ -98,12 +98,25 @@ __all__ = [
     "device_derived",
     "device_geometry",
     "device_job",
+    "GdsLibrary",
+    "GdsCell",
+    "MaskPolygon",
+    "gds_library",
+    "gds_polygons",
     "Fabrication",
     "device_fabrication",
     "device_fabrication_job",
     "export_fabrication",
     "Nonlinear",
     "nonlinear",
+    "Eme",
+    "EmeSection",
+    "EmePoint",
+    "EmeStudy",
+    "EmeError",
+    "EmeBloch",
+    "EmeBeamShares",
+    "eme",
 ]
 
 core_version: str = _native.core_version
@@ -204,6 +217,41 @@ class VectorMode:
     """H_y, in the same units as ``hx``."""
     hz: np.ndarray
     """H_z, in the same units as ``hx``."""
+    wavelength_um: float = float("nan")
+    """The vacuum wavelength it was solved at, µm."""
+    effective_area_um2: float = float("nan")
+    """The effective area for the Kerr effect, µm²: Afshar and Monro's Eq. 41,
+    |∫ S_z dA|² / ∫ |S_z|² dA with S_z = (E × H*)·ẑ, the whole cross-section's (a mirror wall's
+    image added), from the fields with E's normal component one-sided at each interface."""
+    effective_area_transverse_um2: float = float("nan")
+    """The standard effective area from E_t alone, (∫ |E_t|² dA)² / ∫ |E_t|⁴ dA, µm²: their
+    Eq. 44, the same as ``effective_area_um2`` where ∇_t E_z = 0 and more fragile at corners."""
+    power_shares: np.ndarray | None = None
+    """Each cell's share of the power through the window, Re S_z dA over its sum, ``(ny, nx)``:
+    a set of cells' sum is the mode's confinement in it (:meth:`confinement`)."""
+    orthogonality: np.ndarray | None = None
+    """O_ab = ⟨a, b⟩ / (Re⟨a, a⟩ Re⟨b, b⟩)^½ with each mode the same call returned, in its order,
+    ⟨a, b⟩ = ∫ (E_a × H_b*)·ẑ dA: 1 with itself, near 0 with the others for an orthogonal set."""
+
+    def confinement(self, cells: Any) -> float:
+        """The share of the mode's power that flows through ``cells``, a boolean ``(ny, nx)``
+        array over the window, from 0 to 1: Γ = ∫_R Re S_z dA / ∫ Re S_z dA. With a mirror wall
+        it is the whole cross-section's for a set symmetric as the window is (a material's
+        cells, say ``permittivity == 3.473**2``)."""
+        if self.power_shares is None:
+            raise ValueError("this mode has no power shares")
+        mask = np.asarray(cells, dtype=bool)
+        if mask.shape != self.power_shares.shape:
+            raise ValueError(
+                f"cells must be {self.power_shares.shape}, the window's cells, not {mask.shape}"
+            )
+        return float(self.power_shares[mask].sum())
+
+    def nonlinear_coefficient(self, n2_m2_per_w: float) -> float:
+        """The nonlinear coefficient γ = 2π n₂ / (λ A_eff), 1/(W·m), for a nonlinear index n₂
+        (m²/W) uniform across the section and ``effective_area_um2``: Afshar and Monro's Eq. 42
+        with n₂ in place of their field-weighted n̄₂."""
+        return 2.0 * np.pi * n2_m2_per_w / (self.wavelength_um * 1e-6 * self.effective_area_um2 * 1e-12)
 
 
 @dataclass(frozen=True)
@@ -383,6 +431,7 @@ def vector_modes(
     pml_um: Sequence[float] = (0.0, 0.0, 0.0, 0.0),
     pml_strength: float = 0.0,
     timeout_s: float | None = 600.0,
+    scheme: str = "standard",
 ) -> list[VectorMode]:
     """Of the ``count`` modes of a cross-section whose effective indices are nearest
     ``near_index`` (the highest index in it when ``None``: the fundamental modes), the guided
@@ -406,6 +455,13 @@ def vector_modes(
     plane of symmetry, ``"electric"`` (for a TE-like mode, the vertical plane through the core)
     or ``"magnetic"`` (the horizontal one). ``pml_um`` are perfectly matched layers inside the
     same edges, µm thick, with stretching ``pml_strength`` (a few units).
+
+    ``scheme`` is the finite-difference equations: ``"standard"``, the full-vector scheme, or
+    ``"hadley"``, Hadley's high-accuracy equations (J. Lightwave Technol. 20, 1210 and 1219
+    (2002)), each mode the standard scheme's refined: they converge far faster beside a
+    high-contrast core's corners, where the standard scheme is about first order. Hadley's need
+    a uniform grid along each axis (the two spacings may differ), real permittivities and no
+    PML.
 
     The solve stops after ``timeout_s`` seconds (``None``: never) with ``TimeoutError``.
 
@@ -434,6 +490,7 @@ def vector_modes(
         [float(p) for p in pml_um],
         float(pml_strength),
         None if timeout_s is None else float(timeout_s),
+        str(scheme),
     )
     return [VectorMode(**m) for m in modes]
 
@@ -1158,6 +1215,94 @@ def device_job(
     return _native.device_job(kind, _values(values), fidelity, stack, _path(compact), job_name, format)
 
 
+# --- masks ------------------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class GdsCell:
+    """A cell of a GDSII file, and the layers it draws on."""
+
+    name: str
+    """Its name (STRNAME)."""
+    layers: list[tuple[int, int]]
+    """The ``(layer, datatype)`` pairs it draws on, the cells it places included, in order."""
+
+
+@dataclass(frozen=True)
+class GdsLibrary:
+    """A GDSII file's library: its name, its database unit and its cells."""
+
+    library: str
+    """The library's name (LIBNAME)."""
+    database_unit_um: float
+    """The database unit, µm: every coordinate in the file is a whole number of it."""
+    cells: list[GdsCell]
+    """The cells, in the file's order."""
+    top_cells: list[str]
+    """The cells no other cell places, in the file's order: :func:`gds_polygons` reads the one
+    there is when no cell is named."""
+
+
+@dataclass(frozen=True)
+class MaskPolygon:
+    """A polygon with holes, seen from above, in a GDSII file's coordinates."""
+
+    outer: np.ndarray
+    """Its outer boundary, ``(n, 2)``: (x, y) in µm, counterclockwise, the first vertex not
+    repeated."""
+    holes: list[np.ndarray]
+    """Its holes, each ``(n, 2)``, clockwise."""
+
+
+def gds_library(path: str | os.PathLike[str]) -> GdsLibrary:
+    """The library, database unit and cells of the GDSII file at ``path``, each cell with the
+    ``(layer, datatype)`` pairs it draws on (the cells it places included): what to name in
+    :func:`gds_polygons`, or in a job's ``"gds"`` shape. A malformed or cut-short file raises
+    an error naming the byte."""
+    g = _native.gds_library(os.fspath(path))
+    return GdsLibrary(
+        library=g["library"],
+        database_unit_um=g["database_unit_um"],
+        cells=[GdsCell(name=c["name"], layers=[tuple(l) for l in c["layers"]]) for c in g["cells"]],
+        top_cells=list(g["top_cells"]),
+    )
+
+
+def gds_polygons(
+    path: str | os.PathLike[str],
+    *,
+    gds_layer: Sequence[int],
+    cell: str | None = None,
+    x_um: Sequence[float] | None = None,
+    y_um: Sequence[float] | None = None,
+) -> list[MaskPolygon]:
+    """What ``cell`` (the file's one top cell when ``None``) of the GDSII file at ``path``
+    draws on ``gds_layer`` (``(layer, datatype)``), every cell it places flattened into it, as
+    polygons with holes in µm: the union of everything drawn there, keyholes as holes, within
+    the window ``x_um`` × ``y_um`` (each a ``(low, high)`` range in the file's coordinates,
+    both or neither) when given.
+
+    These are the polygons a job's ``"gds"`` shape draws (before its ``origin`` and ``angle``),
+    exactly as photonoxide's booleans give them: no vertex is moved. To read a layer and draw
+    the result:
+
+        for p in phox.gds_polygons("chip.gds", gds_layer=(1, 0)):
+            print(len(p.outer), "vertices,", len(p.holes), "holes")
+    """
+    layer = [int(v) for v in gds_layer]
+    if len(layer) != 2:
+        raise ValueError(f"gds_layer is (layer, datatype), not {tuple(gds_layer)!r}")
+
+    def window(r: Sequence[float] | None) -> tuple[float, float] | None:
+        if r is None:
+            return None
+        low, high = (float(v) for v in r)
+        return (low, high)
+
+    polygons = _native.gds_polygons(os.fspath(path), (layer[0], layer[1]), cell, window(x_um), window(y_um))
+    return [MaskPolygon(outer=p["outer"], holes=list(p["holes"])) for p in polygons]
+
+
 # --- a design's process flow ----------------------------------------------------------------
 
 
@@ -1168,7 +1313,7 @@ class Fabrication:
     ``flow`` and ``assessment`` are plain Python data (dicts, lists, strings, floats in their
     units: ``thickness_um``, ``depth_um``, ``sidewall_deg``), read from photonoxide's own JSON,
     so every number is the one the run records, to the bit. The texts are the files the run
-    writes into its folder: ``flow.json``, ``flow.md`` and ``flow-01.svg``, ..."""
+    writes into its folder: ``flow.json``, ``flow.md``, ``flow.csv`` and ``flow-01.svg``, ..."""
 
     flow: dict[str, Any]
     """The flow, as the run's ``flow`` event: ``library`` (the process library's version),
@@ -1198,6 +1343,12 @@ class Fabrication:
     capabilities with their sources, the alternatives, the rules' checks, the dimensions it makes
     and how accurately, and the wafer after it; the accuracy of every dimension, the warnings,
     what is not specified, the round trip and the references."""
+    csv: str
+    """The steps as a CSV table, as the run's ``flow.csv``: a header line, then one line a step
+    (``step`` from 1, ``process``, ``name``, ``step_type``, ``operation``, ``does``, ``layer``,
+    ``film``, ``thickness_um``, ``depth_um``, ``timed``, ``sidewall_deg``, ``tone``, ``reason``
+    and the counts of its ``capabilities`` and ``uncertainties``), each number the shortest
+    decimal that reads back to the same float."""
     svgs: list[str]
     """Each step's cross-section, a standalone SVG, as the run's ``flow-01.svg``, ...: the wafer
     after the step, cut across y at the middle of the design in x, its layers listed from the
@@ -1271,6 +1422,7 @@ def device_fabrication(
         assessment=json.loads(f["assessment"]),
         json=f["json"],
         markdown=f["markdown"],
+        csv=f["csv"],
         svgs=list(f["svgs"]),
     )
 
@@ -1292,7 +1444,7 @@ def device_fabrication_job(
     default). Without a ``format``, the
     job as data, a dict, which :func:`run_job` takes; with ``format`` (``"yaml"``, ``"toml"`` or
     ``"json"``), the job file's text. Its run records what :func:`device_fabrication` gives and
-    writes ``flow.json``, ``flow.md`` and ``flow-01.svg``, ... into its folder:
+    writes ``flow.json``, ``flow.md``, ``flow.csv`` and ``flow-01.svg``, ... into its folder:
 
     >>> job = phox.device_fabrication_job("waveguide", prefer=["ebl-hsq"])
     >>> job["name"], job["task"]
@@ -1322,12 +1474,13 @@ def export_fabrication(
     """Writes a design's process flow (see :func:`device_fabrication`, and ``start`` there) into
     ``out_dir``, made if it isn't there, as a ``"fabrication"`` job's run writes it into its
     folder: ``flow.json``
-    (the flow's data, which reads back to the same flow), ``flow.md`` (the process traveller) and
-    each step's cross-section, ``flow-01.svg``, ...; returns the files written, in that order:
+    (the flow's data, which reads back to the same flow), ``flow.md`` (the process traveller),
+    ``flow.csv`` (the steps as a table) and each step's cross-section, ``flow-01.svg``, ...;
+    returns the files written, in that order:
 
     >>> files = phox.export_fabrication("thermo-optic phase shifter", out_dir="heater")
-    >>> [file.name for file in files][:3], len(files)
-    (['flow.json', 'flow.md', 'flow-01.svg'], 14)
+    >>> [file.name for file in files][:4], len(files)
+    (['flow.json', 'flow.md', 'flow.csv', 'flow-01.svg'], 15)
     """
     paths = _native.export_fabrication(
         kind, _values(values), stack, _ids(prefer), _ids(avoid), os.fspath(out_dir), str(start)
@@ -1361,7 +1514,9 @@ class Nonlinear:
     operating point, ``efficiency_percent_per_w_cm2`` with ``efficiency_from`` (and a ridge's
     ``overlap_percent_per_w_cm2``), ``gamma_per_w_m``, ``wavelength_acceptance_nm`` and
     ``temperature_acceptance_k`` (each an ``estimate``, Fejer et al.'s, and a ``numerical``
-    width), ``matched_um`` and ``notes``."""
+    width), ``matched_um``, ``notes`` and, with ``[task.ring]``, ``ring`` (``couplings``,
+    ``build_ups``, ``quantity``, ``unit``, ``resonant``, ``single_pass``, ``enhancement`` and
+    FWM's ``kerr_detuning``)."""
     phase_map: dict[str, Any] | None
     """The phase-matching map: ``wavelengths_um`` of the ``tuned`` wave, ``across``
     (``"temperature_c"``, ``"width_um"`` or ``None``) with its ``across_values``, and
@@ -1426,4 +1581,196 @@ def nonlinear(job: Job, *, timeout_s: float | None = 3600.0) -> Nonlinear:
         phase_map=None if p["phase_map"] is None else json.loads(p["phase_map"]),
         efficiency=None if p["efficiency"] is None else json.loads(p["efficiency"]),
         pair_spectrum=None if p["pair_spectrum"] is None else json.loads(p["pair_spectrum"]),
+    )
+
+
+# --- an eigenmode expansion -----------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class EmeSection:
+    """A section of an ``"eme"`` job's structure, in order along it (:class:`Eme`)."""
+
+    name: str
+    """Its name: the job's own (``"section 2"`` where it gives none), or a cut plane's,
+    ``"cut 3"``."""
+    kind: str
+    """``"straight"``, ``"taper"``, ``"bend"``, or ``"cut"`` for a plane cut from a
+    ``[device]`` or the job's own drawing."""
+    start_um: float
+    """Where it starts along the structure, µm: its first period's place for a section of
+    ``[task.period]``."""
+    length_um: float
+    """Its length, µm; a bend's along the arc at the window's middle."""
+    steps: int
+    """The cross-sections it is solved in at the job's own settings: a taper's steps, 1
+    otherwise."""
+    radius_um: float | None
+    """A bend's radius to the window's middle, µm."""
+    angle_deg: float | None
+    """A bend's angle, degrees."""
+    repeats: int
+    """How many times it is repeated: ``[task.period]``'s count, 1 otherwise."""
+
+
+@dataclass(frozen=True)
+class EmePoint:
+    """The S-parameters at one wavelength, between the guided modes at the two ends
+    (:class:`Eme`)."""
+
+    wavelength_um: float
+    """The wavelength, µm."""
+    ports: list[str]
+    """The ports' modes, the first end's then the last's, e.g. ``"1 TE0"``, ``"2 m1"``."""
+    effective_index: np.ndarray
+    """Each port mode's effective index (its real part), ``(n,)``."""
+    s: np.ndarray
+    """The S-matrix, complex ``(n, n)``: ``s[q, p]`` from port mode p into q."""
+
+
+@dataclass(frozen=True)
+class EmeStudy:
+    """A convergence study of the expansion (``[task.convergence]``): its modes, its steps or a
+    bend's layers refined until the quantity changed by less than the tolerance."""
+
+    label: str
+    """What was studied."""
+    wavelength_um: float
+    """The wavelength, µm."""
+    grids: np.ndarray
+    """Each grid, coarsest first, as recorded: a spacing, µm, or one over a count (1/modes for
+    a study of the modes)."""
+    values: np.ndarray
+    """The quantity on each grid."""
+    value: float
+    """The value reported: the finest grid's, or Richardson's limit where the order is known."""
+    tolerance: float | None
+    """The tolerance it was driven to."""
+    error: float | None
+    """Its estimated error; ``None`` where the grids don't show it."""
+    order: float | None
+    """The observed order, from three grids converging monotonically."""
+    converged: bool
+    """Whether it reached the tolerance."""
+    reason: str
+    """The verdict in words."""
+
+
+@dataclass(frozen=True)
+class EmeError:
+    """An estimated error of the expansion: the adaptive steps' at a wavelength, or the
+    interpolation's over a sweep (:class:`Eme`)."""
+
+    wavelength_um: float
+    """The wavelength it is at, µm (an interpolation's: the job's own)."""
+    measure: str
+    """What it measures."""
+    error: float
+    """The error."""
+
+
+@dataclass(frozen=True)
+class EmeBloch:
+    """A ``[task.period]``'s Bloch modes at one wavelength, the least decaying first, at most 4."""
+
+    wavelength_um: float
+    """The wavelength, µm."""
+    effective_index: np.ndarray
+    """Each mode's K/k₀ in the reduced zone, complex; its imaginary part the decay."""
+
+
+@dataclass(frozen=True)
+class EmeBeamShares:
+    """A `[task.beam]` at one wavelength (:class:Eme): the shares of the Gaussian's power the
+    structure reflects and passes, and each guided mode's at the last end."""
+
+    wavelength_um: float
+    """The wavelength, µm."""
+    reflected: float
+    """The share reflected into the first section's propagating modes."""
+    transmitted: float
+    """The share passed into the last section's propagating modes."""
+    ports: list[str]
+    """The last end's guided modes, e.g. `"2 TE0"`."""
+    shares: np.ndarray
+    """Each one's share of the beam's power."""
+
+
+@dataclass(frozen=True)
+class Eme:
+    """An ``"eme"`` job's expansion, as its run records it (:func:`eme`): every number the one
+    the run records, to the bit."""
+
+    module: str
+    """``"eme"`` for a 2D job, ``"eme 3d"`` for one on a plane (``[task.plane]``)."""
+    cells: tuple[int, int]
+    """A 2D job's modes and its tapers' steps at its own settings; a 3D job's plane in cells,
+    across and up."""
+    step_um: float
+    """A 2D job's longest taper step, µm (0 without a taper); a 3D job's larger cell side."""
+    unknowns: int
+    """The unknowns: a 2D job's modes times its cross-sections, a 3D job's plane's."""
+    settings: list[tuple[str, str]]
+    """The solver's settings in words, each ``(name, value)``."""
+    sections: list[EmeSection]
+    """The sections in order along the structure."""
+    points: list[EmePoint]
+    """The S-parameters at each wavelength, in the order solved (or interpolated)."""
+    studies: list[EmeStudy]
+    """Each convergence study, in the order recorded."""
+    errors: list[EmeError]
+    """Each estimated error."""
+    bloch: list[EmeBloch]
+    """A ``[task.period]``'s Bloch modes at each wavelength solved."""
+    beams: list[EmeBeamShares]
+    """A ``[task.beam]``'s shares of power at each wavelength solved."""
+
+    def transmission(self, into: str, out_of: str) -> tuple[np.ndarray, np.ndarray]:
+        """|S|² from the port mode ``out_of`` into ``into`` (``"2 TE0"`` and ``"1 TE0"``, say)
+        at each wavelength that has both: the wavelengths, µm, and the powers."""
+        rows = [
+            (p.wavelength_um, abs(p.s[p.ports.index(into), p.ports.index(out_of)]) ** 2)
+            for p in self.points
+            if into in p.ports and out_of in p.ports
+        ]
+        return (
+            np.array([r[0] for r in rows], dtype=np.float64),
+            np.array([r[1] for r in rows], dtype=np.float64),
+        )
+
+
+def eme(job: Job, *, timeout_s: float | None = 3600.0) -> Eme:
+    """What an ``"eme"`` job's run records (eigenmode expansion: 2D sections, 3D strips on a
+    plane, a ``[device]`` or the job's own drawing cut into planes, bends, a ``[task.period]``,
+    a sweep, ``[task.interpolate]``), computed without a folder: the solver's settings, the
+    sections, the S-parameters between the guided modes at the two ends at each wavelength, the
+    convergence studies, the estimated errors, a period's Bloch modes and a ``[task.beam]``'s
+    shares of power. :func:`run_job` runs the same job into a folder. A 220 to 300 nm silicon
+    slab taper in oxide, 0.4 µm long:
+
+    >>> e = phox.eme({"name": "taper", "task": {
+    ...     "kind": "eme", "wavelength_um": 1.55, "modes": 12, "window_um": 3.0,
+    ...     "cladding": 1.444, "core": 3.473, "section": [
+    ...         {"length_um": 0.0, "core_um": 0.22},
+    ...         {"length_um": 0.4, "core_um": [0.22, 0.3], "steps": 4},
+    ...         {"length_um": 0.0, "core_um": 0.3}]}})
+    >>> [s.kind for s in e.sections], e.points[0].ports
+    (['straight', 'taper', 'straight'], ['1 TE0', '2 TE0', '2 TE1'])
+    >>> round(float(e.transmission("2 TE0", "1 TE0")[1][0]), 6)
+    0.999943
+    """
+    path, text = _job(job)
+    e = _native.eme(path, text, "json", None if timeout_s is None else float(timeout_s))
+    return Eme(
+        module=e["module"],
+        cells=tuple(e["cells"]),
+        step_um=e["step_um"],
+        unknowns=e["unknowns"],
+        settings=[tuple(s) for s in e["settings"]],
+        sections=[EmeSection(**s) for s in e["sections"]],
+        points=[EmePoint(**p) for p in e["points"]],
+        studies=[EmeStudy(**s) for s in e["studies"]],
+        errors=[EmeError(**x) for x in e["errors"]],
+        bloch=[EmeBloch(**b) for b in e["bloch"]],
+        beams=[EmeBeamShares(**b) for b in e["beams"]],
     )

@@ -1,9 +1,13 @@
 ---
 title: "The materials catalogue"
 module: material::catalogue
-summary: "Each material's index models, crystal, χ⁽²⁾ and Pockels tensors, every number from its paper: silica, silicon, nitride, GaAs and AlGaAs, InGaP, InP, AlN, and lithium niobate in bulk, MgO-doped and as thin film."
+summary: "Each material's index models, crystal, χ⁽²⁾ and Pockels tensors, every number from its paper: silica, silicon, nitride, GaAs and AlGaAs, InGaP, InP, AlN, lithium niobate in bulk, MgO-doped and as thin film, and NbN and MoSi, the films of single-photon detectors."
 order: 2.5
 papers:
+  - cite: "V. Anant, A. J. Kerman, E. A. Dauler, J. K. W. Yang, K. M. Rosfjord, K. K. Berggren, Opt. Express 16, 10750 (2008)"
+    doi: 10.1364/OE.16.010750
+  - cite: "D. V. Reddy, R. R. Nerem, S. W. Nam, R. P. Mirin, V. B. Verma, Optica 7, 1649 (2020)"
+    doi: 10.1364/OPTICA.400751
   - cite: "H. H. Li, J. Phys. Chem. Ref. Data 9, 561 (1980)"
     doi: 10.1063/1.555624
   - cite: "D. B. Leviton, B. J. Frey, Proc. SPIE 6273, 62732K (2006)"
@@ -465,6 +469,64 @@ Sb₂Se₃ by Lawson et al.; the kinetics aren't modelled) and is amorphized whe
 quenched; latent heat doesn't change when a film first reaches $T_m$, so the switching
 thresholds need none.
 
+## Superconducting films
+
+NbN, the film of superconducting nanowire single-photon detectors, is the entry `nbn` (category
+`superconductor`). Its index is Anant et al.'s (Opt. Express 16, 10750 (2008),
+doi:10.1364/OE.16.010750). J. A. Woollam, Inc. measured it for them by spectroscopic ellipsometry
+at room temperature, on a 12 nm NbN film on a sapphire wafer (note 18, p. 10751). The paper
+prints $n = 5.23 - i5.82$ at 1550 nm (p. 10754), $5.23 + 5.82i$ in the library's convention, and
+plots n and k from 600 to 1650 nm in its Fig. 6(b) (p. 10760). The catalogue's table is our
+reading of that figure's vector curves, through natural cubic splines in λ:
+
+| λ (nm) | 600 | 800 | 1000 | 1200 | 1400 | 1550 | 1650 |
+|---|---|---|---|---|---|---|---|
+| n | 2.59 | 3.27 | 3.90 | 4.44 | 4.91 | 5.23 | 5.43 |
+| k | 3.47 | 4.23 | 4.77 | 5.20 | 5.57 | 5.82 | 5.98 |
+
+The reading at 1550 nm, 5.229 and 5.824, is the printed value within 0.004. The model refuses
+wavelengths outside 0.6–1.65 µm. Three caveats come with it, all from the paper:
+
+- **The film's thickness.** A detector's film is a few nm thick; the index was measured on 12 nm.
+  Anant et al. apply it to their 4–6 nm films and name the difference, and the films' different
+  growth batches, as possible errors in their fit (p. 10757).
+- **The temperature.** A detector works below the film's critical temperature, where no index was
+  measured. Their absorptance at 6 K didn't differ significantly from the one at room temperature
+  (p. 10757).
+- **The structure.** The paper names none, so the entry's crystal system is `not-specified`: the
+  catalogue takes the film as isotropic, as the ellipsometry does, and claims no symmetry.
+
+Pernice et al.'s waveguide detector is computed with it (the quantum page, "Real components").
+
+MoSi is the entry `mosi` (the same category), from Reddy et al.'s Supplement 1 (Optica 7, 1649
+(2020), doi:10.1364/OPTICA.400751, Section 2). They deposited their 4.1 nm MoSi film (thickness by
+X-ray reflectivity) under its 2 nm sputtered silicon cap on UV-fused silica and fitted it to a
+spectrophotometer's transmission and reflection: $(n, \kappa) = (5.817, 6.033)$ at 1550 nm
+(supplement p. 2). Their Fig. S3 (p. 3) plots the n and κ estimated for that film from 1300 to
+1700 nm as vector curves; the catalogue's table, every 25 nm, is our reading of them against the
+figure's tick lines, through natural cubic splines in λ:
+
+| λ (nm) | 1300 | 1400 | 1500 | 1550 | 1600 | 1700 |
+|---|---|---|---|---|---|---|
+| n | 5.438 | 5.578 | 5.735 | 5.817 | 5.895 | 6.053 |
+| κ | 5.560 | 5.735 | 5.930 | 6.033 | 6.120 | 6.281 |
+
+The reading at 1550 nm is the printed value to its last digit. The model refuses wavelengths
+outside 1.3–1.7 µm. Its caveats:
+
+- **One film's fit.** The index was fitted to one 4.1 nm film together with its 2 nm cap (of real
+  index 2.274, characterized alone), not measured on the material alone; a film of another
+  thickness, or grown otherwise, may differ.
+- **The temperature and the composition.** The supplement gives neither the temperature of the
+  measurement nor the film's composition; a detector works below the critical temperature, where
+  no index was measured.
+- **The structure.** None is named, so the crystal system is `not-specified`, as NbN's.
+
+Reddy et al.'s detector stack is computed with the printed value (the quantum page). WSi is not in
+the catalogue: its paper is not in hand. GaAs is (Skauli et al. 2003 from 22 °C, Gehrsitz et al.
+2000 down to 103 K), but not at the few kelvin of a quantum dot: no paper in hand gives its index
+there.
+
 ## Electrical resistivities
 
 `catalogue::resistivities()` has measured films' electrical resistivity (`catalogue::
@@ -474,7 +536,11 @@ value is films made one way, with their thickness, the temperature coefficient o
 resistivity depends on how it was made far more than on its material, so a heater's own film
 should be chosen, not an average. The metal thermo-optic heater takes Tsai et al.'s lowest films
 by their Eq. (3) at its own thickness (`catalogue::tin_film_resistivity`: 45.3 µΩ·cm at 100 nm)
-for its resistance and a voltage drive ([devices](devices.md#thermo-optic-phase-shifters)).
+for its resistance and a voltage or current drive, or one of five other films
+(`catalogue::TinFilm`: Tsai et al.'s other three Table IV films by Eq. (3), Kearney et al.'s
+samples F and D at their measured values). Only Kearney et al.'s coefficients span a heater's
+temperatures (293 to 773 K; Tsai et al.'s stop at 280 K), so only with their films does the
+heater's resistance follow its temperature ([devices](devices.md#thermo-optic-phase-shifters)).
 
 | TiN film | Thickness | ρ at room temperature (µΩ·cm) | TCR (per K) | Source |
 |---|---|---|---|---|

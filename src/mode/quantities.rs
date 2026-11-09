@@ -91,6 +91,25 @@ impl Fields {
         self.copies() * sum * sum / sq
     }
 
+    /// Each cell's share of the power through the window, Re S_z dA / Σ Re S_z dA, in the
+    /// fields' cell order (x outer, y inner: cell (i, j) at `i * ny + j`): the shares of a set
+    /// of cells add up to its confinement. With a mirror wall the window's cells hold the share
+    /// they and their images hold of the whole cross-section; a set symmetric as the window is
+    /// (a material's cells) has the whole cross-section's confinement. All zero for fields that
+    /// carry no power.
+    pub fn power_shares(&self) -> Vec<f64> {
+        let p: Vec<f64> = self
+            .poynting()
+            .zip(&self.area)
+            .map(|(s, a)| s.re * a)
+            .collect();
+        let total: f64 = p.iter().sum();
+        if total == 0.0 {
+            return vec![0.0; p.len()];
+        }
+        p.iter().map(|v| v / total).collect()
+    }
+
     /// The nonlinear coefficient γ = 2π n₂ / (λ A_eff), in 1/(W m), for a nonlinear index `n2`
     /// in m²/W, uniform, and [`Fields::effective_area`]'s A_eff: Afshar and Monro's Eq. 42 with
     /// their field-weighted n̄₂ taken as n₂.
@@ -256,7 +275,12 @@ impl VectorMode {
     /// nodes (a slab's TM₀ at second order, `mode/kerr-index-slab-tm`). Where an interface is
     /// oblique to the grid (a rod), each cell's E_z takes its own averaged permittivity and
     /// E_t's ∂E_z/(iβ) term spikes as 1/h at the edge: n̄₂ grows as the cells shrink, as Eq. 44's
-    /// area falls at a strip's corners (docs/methods/fields.md).
+    /// area falls at a strip's corners. Afshar and Monro's silicon rod (D = 0.15 µm, 800 nm)
+    /// gives γ^V/γ^F = 1.41 from its exact fields, their 1.4, and 1.31 to 82 from 20 to 2.5 nm
+    /// here. Given the exact mode's H, E_t from D = (i/k)(∇ × H)_t with H_z and E_z smoothed
+    /// over the cells the edge crosses, each split into its two sides, converges to 1.41 at
+    /// second order; given the eigensolver's, it heads there only as slowly as the mode's index
+    /// converges at that edge, order 0.3 to 0.4 (docs/methods/fields.md).
     ///
     /// # Errors
     ///

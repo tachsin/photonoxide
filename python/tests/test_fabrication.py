@@ -48,6 +48,8 @@ def test_a_flow_is_its_jobs_record_to_the_bit(kind: str, tmp_path: Path) -> None
     # the run's folder holds the export: the same texts
     assert (run.dir / "flow.json").read_text(encoding="utf-8") == f.json
     assert (run.dir / "flow.md").read_text(encoding="utf-8") == f.markdown
+    assert (run.dir / "flow.csv").read_text(encoding="utf-8") == f.csv
+    assert len(f.csv.splitlines()) == 1 + len(f.steps)
     assert len(f.svgs) == len(f.steps)
     for k, svg in enumerate(f.svgs):
         assert (run.dir / f"flow-{k + 1:02d}.svg").read_text(encoding="utf-8") == svg
@@ -67,8 +69,8 @@ def test_the_export_reads_back_to_the_same_flow(tmp_path: Path) -> None:
     for kind in DESIGNS:
         files = phox.export_fabrication(kind, out_dir=tmp_path / kind.replace(" ", "-"))
         f = phox.device_fabrication(kind)
-        assert [p.name for p in files[:2]] == ["flow.json", "flow.md"]
-        assert len(files) == 2 + len(f.steps)
+        assert [p.name for p in files[:3]] == ["flow.json", "flow.md", "flow.csv"]
+        assert len(files) == 3 + len(f.steps)
         data = json.loads(files[0].read_text(encoding="utf-8"))
         assert list(data) == ["device", "parameters", "cut", "flow", "assessment", "stacks"]
         assert data["device"] == kind
@@ -86,7 +88,7 @@ def test_each_cross_section_parses_as_svg_with_its_layers_from_the_top_down(tmp_
     for kind in DESIGNS:
         files = phox.export_fabrication(kind, out_dir=tmp_path / kind.replace(" ", "-"))
         data = json.loads(files[0].read_text(encoding="utf-8"))
-        svgs = files[2:]
+        svgs = files[3:]
         for k, path in enumerate(svgs):
             root = ET.parse(path).getroot()
             assert root.tag == f"{SVG}svg"
@@ -99,9 +101,13 @@ def test_each_cross_section_parses_as_svg_with_its_layers_from_the_top_down(tmp_
             assert legend is not None
             lines = [t.text or "" for t in legend.iter(f"{SVG}text")]
             assert lines[0] == "Layers, from the top down, the substrate last"
-            assert [line.split(":")[0] for line in lines[1:]] == [
+            # the layers, then the films drawn over them (a resist, a deposited film), if any
+            layers = [line for line in lines[1:] if not line.startswith("over the layers: ")]
+            assert [line.split(":")[0] for line in layers] == [
                 row["name"] for row in data["stacks"][k]
             ]
+            over = lines[1 + len(layers):]
+            assert all(line.startswith("over the layers: ") for line in over)
         # the finished wafer draws each patterned layer's shapes
         last = ET.parse(svgs[-1]).getroot().find(f"{SVG}g[@id='cross-section']")
         assert last is not None and last.findall(f"{SVG}polygon")

@@ -99,6 +99,26 @@ fn a_fabrication_run_writes_its_flows_json_traveller_and_cross_sections() {
     }
 }
 
+#[test]
+fn a_fabrication_task_places_its_cross_sections_cut() {
+    let root = dir("cut");
+    let job = Job::parse(&format!("{HEATER}cut_x = 0.5\n")).unwrap();
+    check(&job).unwrap();
+    let mut run = Run::create(&root.0, &job).unwrap();
+    execute(&job, &mut run, &Stop::new(None)).unwrap();
+    let file = crate::export::flow::FlowFile::read(
+        &std::fs::read_to_string(run.dir().join("flow.json")).unwrap(),
+    )
+    .unwrap();
+    assert_eq!(file.cut.x_um, 0.5);
+    let svg = std::fs::read_to_string(run.dir().join("flow-01.svg")).unwrap();
+    assert!(svg.contains("cut at x = 0.5 µm"), "{svg}");
+    // outside the window it shows, refused with the window named
+    let far = Job::parse(&format!("{HEATER}cut_x = 1000.0\n")).unwrap();
+    let err = check(&far).unwrap_err().to_string();
+    assert!(err.contains("cross-section's cut"), "{err}");
+}
+
 /// The fenced block of `page` that opens with `fence`, its lines.
 fn block<'a>(page: &'a str, fence: &str) -> Vec<&'a str> {
     let start = page
@@ -896,10 +916,11 @@ fn the_exposure_shows_what_the_resist_will_lose_by_its_polarity() {
         "{}",
         expose.label
     );
+    // its polarity from Chen 2015's Table 1, cited in the frame's note
+    let note = expose.note.as_deref().unwrap();
     assert!(
-        expose.note.as_deref().unwrap().contains("description"),
-        "{:?}",
-        expose.note
+        note.contains("The HSQ resist is negative: Y. Chen, Microelectron. Eng. 135, 57 (2015), Table 1 (p. 58)."),
+        "{note}"
     );
     let develop = tfln.frames.iter().find(|f| f.phase == "develop").unwrap();
     let exposed: f64 = expose

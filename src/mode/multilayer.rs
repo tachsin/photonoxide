@@ -77,6 +77,19 @@ pub struct Reflection {
     pub transmittance: f64,
 }
 
+/// Where a plane wave's power goes in a [`Multilayer`] ([`Multilayer::absorption`]): reflected,
+/// transmitted, and absorbed in each film.
+#[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
+pub struct Absorption {
+    /// The share reflected.
+    pub reflectance: f64,
+    /// The share transmitted into the substrate.
+    pub transmittance: f64,
+    /// The share absorbed in each film, from the cover's side.
+    pub films: Vec<f64>,
+}
+
 /// A plane wave's reflection by a [`Multilayer`] with the derivatives of its reflectance and
 /// transmittance in each film's thickness and index ([`Multilayer::reflection_derivatives`]).
 #[derive(Clone, Debug, PartialEq)]
@@ -375,6 +388,102 @@ impl Multilayer {
             by_thickness,
             by_index,
         })
+    }
+
+    /// Where a plane wave's power goes, film by film: incident from the cover at `angle` as in
+    /// [`Multilayer::reflection`], the share reflected, transmitted into the substrate and
+    /// absorbed in each film.
+    ///
+    /// The tangential fields (U, V) at each interface follow from the substrate's side,
+    /// (U, V) = (t, γ_s t), by the films' matrices back towards the cover (Eq. 10); the power
+    /// crossing an interface towards the substrate is Re(U V̄) over the incident wave's Re(γ_c),
+    /// and a film absorbs the difference between what crosses its top and its bottom. The shares
+    /// sum to 1 by construction; that each film's share is its Joule heat, k Im(n²) ∫|E|² dz for
+    /// TE, is checked against the field inside it (the module's tests).
+    ///
+    /// # Errors
+    ///
+    /// As [`Multilayer::reflection`].
+    pub fn absorption(
+        &self,
+        polarization: Polarization,
+        wavelength: Wavelength,
+        angle: f64,
+    ) -> Result<Absorption> {
+        let fields = self.interface_fields(polarization, wavelength, angle)?;
+        let beta = c64::new(self.cover.re * angle.sin(), 0.0);
+        let gc = Self::gamma(
+            polarization,
+            self.cover,
+            Self::alpha_outside(self.cover, beta),
+        );
+        let flux: Vec<f64> = fields
+            .iter()
+            .map(|&(u, v)| (u * v.conj()).re / gc.re)
+            .collect();
+        let films = flux.windows(2).map(|w| w[0] - w[1]).collect();
+        Ok(Absorption {
+            reflectance: 1.0 - flux[0],
+            transmittance: flux[flux.len() - 1],
+            films,
+        })
+    }
+
+    /// The tangential fields (U, V) of a plane wave incident at `angle` with unit amplitude at
+    /// each interface, from the cover's (U = 1 + r) to the substrate's (U = t): one more than
+    /// the films.
+    pub(crate) fn interface_fields(
+        &self,
+        polarization: Polarization,
+        wavelength: Wavelength,
+        angle: f64,
+    ) -> Result<Vec<(c64, c64)>> {
+        let reflection = self.reflection(polarization, wavelength, angle)?;
+        let k = 2.0 * PI / wavelength.to_um();
+        let beta = c64::new(self.cover.re * angle.sin(), 0.0);
+        let gs = Self::gamma(
+            polarization,
+            self.substrate,
+            Self::alpha_outside(self.substrate, beta),
+        );
+        let mut out = vec![(reflection.t, gs * reflection.t)];
+        for &(n, d) in self.films.iter().rev() {
+            let (u, v) = out[out.len() - 1];
+            out.push(Self::across(polarization, k, beta, n, d, (u, v)));
+        }
+        out.reverse();
+        Ok(out)
+    }
+
+    /// (U, V) a distance `d` above a point of a film of index `n` where they are `(u, v)`: the
+    /// film's matrix over that distance (Eq. 10).
+    pub(crate) fn across(
+        polarization: Polarization,
+        k: f64,
+        beta: c64,
+        n: c64,
+        d: f64,
+        (u, v): (c64, c64),
+    ) -> (c64, c64) {
+        let i = c64::new(0.0, 1.0);
+        let alpha = (n * n - beta * beta).sqrt();
+        let gamma = Self::gamma(polarization, n, alpha);
+        let phi = alpha * k * d;
+        let (c, s) = (phi.cos(), phi.sin());
+        let s_over_gamma = if gamma.norm() < 1e-300 {
+            match polarization {
+                Polarization::Te => c64::new(k * d, 0.0),
+                Polarization::Tm => n * n * k * d,
+            }
+        } else {
+            s / gamma
+        };
+        (c * u - i * s_over_gamma * v, -i * gamma * s * u + c * v)
+    }
+
+    /// The films, from the cover's side: each one's index and thickness, µm.
+    pub fn films(&self) -> &[(c64, f64)] {
+        &self.films
     }
 
     /// The modal-dispersion function χ(β) (Eq. 26).
