@@ -923,10 +923,16 @@ node scripts/record-gifs.mjs --only hero,academy  # some: hero, device, material
 - **What it touches:** it backs up the studio's settings (`%APPDATA%gr.tachsin.photonoxide`),
   records with photonoxide dark, no tips and no welcome, and puts them back as they were when it
   ends or fails. The program runs in an empty workspace, `C:photonoxide-demo`, removed
-  afterwards, with a WebView2 profile of its own. The window shows on screen while it records.
-- **How:** each scene is played with a drawn pointer and screencast at 1280 × 760; the ring's run
-  is a time-lapse whose speed-up follows from how fast this machine solves it, and says so in a
-  badge. The frames are resampled to a steady rate, crossfaded between scenes and from the end
+  afterwards, with a WebView2 profile of its own. The window shows on screen while it records:
+  it is sized so its page is 1440 × 900 at the display's scale (as large as the work area allows
+  when that doesn't fit), put in the work area's bottom-right corner, behind the other windows and
+  without the focus. Any window size and place the settings kept from before are left out, and
+  put back with them.
+- **How:** each scene is played with a drawn pointer and screencast at 1440 × 900 (the page is
+  laid out at that size whatever the window's); the MMI's FDTD run and the ring's sweep are
+  time-lapses, the ring's speed-up following from how fast this machine solves it, each saying so
+  in a badge. The hero's scenes each have a caption at the foot of the page, and leave out the
+  status bar. The frames are resampled to a steady rate, crossfaded between scenes and from the end
   back to the start, scaled by ffmpeg and encoded by gifski. `--keep` keeps the frames, and
   `--frames <folder>` composes kept frames again without recording.
 
