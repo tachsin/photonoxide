@@ -83,18 +83,18 @@
       {@const r = result}
       {#if problem}<p class="text-warning">Can't compute the change: {problem}. Shown: the last squeezing computed.</p>{/if}
       {#each r.notes as note (note)}<p class="text-warning">{note}</p>{/each}
-      <div class="grid gap-3 @3xl:grid-cols-[minmax(0,1fr)_minmax(0,0.8fr)_minmax(0,1.3fr)]">
+      <div class="grid gap-3 @3xl:grid-cols-[minmax(0,1fr)_auto_minmax(0,1.2fr)]">
         <div class="min-w-0">
           <p class="font-medium">Each pair of modes' squeezing</p>
           <p class="muted"><span class="inline-block size-2 rounded-sm bg-primary"></span> sliced · <span class="inline-block size-2 rounded-sm bg-base-content/30"></span> Schmidt model, 10 log₁₀ e<sup>2r</sup></p>
           <SqueezingBars sliced={r.squeezing_db[0]} schmidt={r.squeezing_db[1]} />
         </div>
-        <table class="h-fit w-full">
+        <table class="h-fit w-full [&_td]:px-1 [&_td]:whitespace-nowrap [&_th]:px-1">
           <thead>
             <tr><th></th><th class="text-right font-normal muted">sliced</th><th class="text-right font-normal muted">Schmidt</th></tr>
           </thead>
           <tbody>
-            <tr title="The first pair of modes' squeezing r₁, in dB: the squeezed quadrature's variance below the vacuum's"><td class="muted">first squeezing</td><td class="num text-right whitespace-nowrap">{figure(r.squeezing_db[0][0])} dB</td><td class="num text-right whitespace-nowrap">{figure(r.squeezing_db[1][0])} dB</td></tr>
+            <tr title="The first pair of modes' squeezing r₁, in dB: the squeezed quadrature's variance below the vacuum's"><td class="muted">first squeezing, dB</td><td class="num text-right">{figure(r.squeezing_db[0][0])}</td><td class="num text-right">{figure(r.squeezing_db[1][0])}</td></tr>
             <tr title="r₁ itself"><td class="muted">r₁</td><td class="num text-right">{figure(r.squeezing[0][0])}</td><td class="num text-right">{figure(r.squeezing[1][0])}</td></tr>
             <tr title="The signal's mean photon number, Σ sinh² r_k"><td class="muted">photons</td><td class="num text-right">{figure(r.mean_photons[0])}</td><td class="num text-right">{figure(r.mean_photons[1])}</td></tr>
             <tr title="(Σ sinh² r_k)² / Σ sinh⁴ r_k: the Schmidt number K at low gain"><td class="muted">modes</td><td class="num text-right">{figure(r.mode_number[0])}</td><td class="num text-right">{figure(r.mode_number[1])}</td></tr>
