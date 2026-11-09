@@ -60,12 +60,12 @@ fn refusal(holder: Holder, name: &str) -> String {
         (Holder::Solver, "modes") => "`kind`, `stack`, `core_nm`, `bottom_oxide_um`, \
             `wavelength_um`, `layer`, `propagation`, `x_um`, `y_um`, `z_um`, `cut_x_um`, \
             `cut_y_um`, `step_nm`, `modes`, `modes_above`, `modes_near`, `pml`, `rect`, `circle`, \
-            `ring`, `export`, `convergence`, `sweep`"
+            `ring`, `export`, `convergence`, `quantities`, `sweep`, `interpolate`"
             .to_owned(),
         (Holder::Solver, "fdfd") => "`kind`, `stack`, `core_nm`, `bottom_oxide_um`, \
             `wavelength_um`, `layer`, `polarization`, `x_um`, `y_um`, `step_nm`, `pml_cells`, \
             `averaging`, `field_um`, `rect`, `circle`, `ring`, `path`, `shape`, `component`, \
-            `port`, `sweep`, `export`"
+            `port`, `sweep`, `interpolate`, `export`"
             .to_owned(),
         (Holder::Solver | Holder::Device, "fdtd") => FDTD.to_owned(),
         (Holder::Solver, "static") => "`kind`, `physics`, `stack`, `core_nm`, \
@@ -78,12 +78,16 @@ fn refusal(holder: Holder, name: &str) -> String {
         (Holder::Solver, "optimize") => "`kind`, `method`, `seed`, `evaluations`, \
             `population`, `learning_rate`, `crosstalk`"
             .to_owned(),
-        (Holder::Solver, "nonlinear") => "`kind`, `process`, `waveguide`, `pump`, `signal`, \
-            `poling`, `length_mm`, `temperature_c`, `map`, `pairs`, `points`"
-            .to_owned(),
+        (Holder::Solver, "nonlinear") => {
+            "`kind`, `process`, `shg_type`, `waveguide`, `pump`, `signal`, \
+            `poling`, `length_mm`, `temperature_c`, `map`, `pairs`, `points`, `ring`, `pulse`"
+                .to_owned()
+        }
         (Holder::Solver | Holder::Device, "eme") => "`kind`, `wavelength_um`, `polarization`, \
             `modes`, `window_um`, `walls`, `symmetric`, `pml`, `cladding`, `core`, `section`, \
-            `plane`, `adaptive`, `convergence`, `sweep`, `interpolate`"
+            `plane`, `stack`, `core_nm`, `bottom_oxide_um`, `layer`, `x_um`, `rect`, `circle`, \
+            `ring`, `path`, `shape`, `adaptive`, `bend_step_nm`, `convergence`, `sweep`, `interpolate`, \
+            `period`, `beam`"
             .to_owned(),
         (Holder::Device, "spectrum") => format!("`kind`, {GRIDS}, `export`"),
         (Holder::Device, "sweep" | "corners") => {
@@ -97,13 +101,16 @@ fn refusal(holder: Holder, name: &str) -> String {
             "`kind`, `method`, `seed`, `evaluations`, `population`, `learning_rate`, `reduce`, \
              {GRIDS}, `continuation`, `variable`, `objective`, `constraint`, `corner`, `export`"
         ),
-        (Holder::Device, "fabrication") => "`kind`, `prefer`, `avoid`, `start`".to_owned(),
+        (Holder::Device, "fabrication") => "`kind`, `prefer`, `avoid`, `start`, `cut_x`".to_owned(),
         (Holder::Chip, "spectrum" | "sweep" | "corners") => {
             "`kind`, `from_um`, `to_um`, `points`, `axis`, `corner`, `export`".to_owned()
         }
         (Holder::Chip, "optimize") => "`kind`, `method`, `seed`, `evaluations`, `population`, \
             `learning_rate`, `reduce`, `from_um`, `to_um`, `points`, `variable`, `objective`, \
             `constraint`, `corner`"
+            .to_owned(),
+        (Holder::Chip, "quantum") => "`kind`, `wavelength_um`, `photons`, `sample`, `dip`, \
+            `budget`, `squeezed`, `export`"
             .to_owned(),
         _ => panic!("no refusal written for the {holder:?} kind {name}: add it here"),
     };

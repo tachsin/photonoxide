@@ -551,5 +551,16 @@ pub(crate) fn rules() -> Vec<(&'static str, Rule)> {
                 "capacitors in series, the interfaces on the grid's lines, as line/filling-plates: round-off",
             ),
         ),
+        (
+            "line/job-tangent-law",
+            Rule::new(
+                Relative,
+                RoundOff,
+                1e-12,
+                Exact,
+                "capacitors in series, each tangent a power law evaluated once, as \
+                 line/job-catalogue-tangents: round-off",
+            ),
+        ),
     ]
 }

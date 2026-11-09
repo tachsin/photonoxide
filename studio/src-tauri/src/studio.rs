@@ -19,6 +19,7 @@ use std::time::Duration;
 use photonoxide::job::{self, Event};
 use photonoxide::run::{Format, Job, Meta, Run, Stop};
 use photonoxide::units::Wavelength;
+use rayon::prelude::*;
 use serde::Serialize;
 use tauri::Manager;
 
@@ -62,6 +63,26 @@ pub fn show(dir: Option<&Path>, live: Option<Live>) -> Result<(), String> {
         .plugin(tauri_plugin_process::init())
         // the window opens where it was left, at the size it had
         .plugin(tauri_plugin_window_state::Builder::default().build())
+        // the feed's figures, kept on disk (papers/images.rs): `paperimg:` serves a file of
+        // that folder by its name, and nothing else; the window asks for them by name
+        .register_uri_scheme_protocol("paperimg", |ctx, request| {
+            let name = request.uri().path().trim_start_matches('/');
+            let found = ctx
+                .app_handle()
+                .try_state::<std::sync::Arc<crate::papers::Papers>>()
+                .and_then(|p| p.images.read(name));
+            let response = match found {
+                Some((bytes, mime)) => tauri::http::Response::builder()
+                    .status(200)
+                    .header("Content-Type", mime)
+                    .header("Cache-Control", "max-age=86400")
+                    .body(bytes),
+                None => tauri::http::Response::builder()
+                    .status(404)
+                    .body(Vec::new()),
+            };
+            response.unwrap_or_else(|_| tauri::http::Response::new(Vec::new()))
+        })
         .invoke_handler(tauri::generate_handler![
             info,
             poll,
@@ -95,6 +116,9 @@ pub fn show(dir: Option<&Path>, live: Option<Live>) -> Result<(), String> {
             crate::papers::papers_refresh,
             crate::papers::paper_open,
             crate::papers::papers_search,
+            crate::papers::paper_image,
+            crate::papers::paper_images_kept,
+            crate::papers::paper_images_clear,
             crate::papers::reading_list,
             crate::papers::reading_list_save,
             published_report,
@@ -140,6 +164,8 @@ pub fn show(dir: Option<&Path>, live: Option<Live>) -> Result<(), String> {
             crate::materials::material_at,
             crate::nonlinear::nonlinear_compute,
             crate::nonlinear::transparency_windows,
+            crate::sources::pair_source,
+            crate::sources::squeezing::pair_squeezing,
             crate::devices::device_library,
             crate::devices::device_geometry,
             crate::devices::device_fabrication,
@@ -189,6 +215,12 @@ pub fn show(dir: Option<&Path>, live: Option<Live>) -> Result<(), String> {
             crate::circuits::chip::chip_job,
             crate::circuits::chip::chip_apply,
             crate::circuits::chip::chip_of_job_text,
+            crate::circuits::quantum::chip_quantum_statistics,
+            crate::circuits::quantum::chip_hom_dip,
+            crate::circuits::quantum::chip_loss_budget,
+            crate::circuits::gaussian::chip_gaussian,
+            crate::circuits::sampling::chip_sample,
+            crate::circuits::quantum_job::chip_quantum_job,
             crate::circuits::circuit_touchstone,
             crate::circuits::component_touchstone,
             crate::circuits::circuit_text,
@@ -351,6 +383,10 @@ struct Started {
 impl Studio {
     pub(crate) fn workspace(&self) -> PathBuf {
         lock(&self.workspace).clone()
+    }
+
+    pub(crate) fn settings(&self) -> Settings {
+        lock(&self.settings).clone()
     }
 }
 
@@ -610,17 +646,21 @@ fn jobs_in(dir: &Path) -> Vec<JobItem> {
     let listed: HashSet<&PathBuf> = paths.iter().collect();
     read.retain(|p, _| listed.contains(p));
     let stamps: Vec<Stamp> = paths.iter().map(|p| stamp(p)).collect();
+    // the files not read yet, or changed, read side by side: on the first call that is all of
+    // them, each one parsed
+    let fresh = |path: &PathBuf, now: &Stamp| matches!(read.get(path), Some((then, _)) if then == now && now.is_some());
+    let missing: Vec<(&PathBuf, &Stamp)> = paths
+        .iter()
+        .zip(&stamps)
+        .filter(|(p, s)| !fresh(p, s))
+        .collect();
+    let items: Vec<Option<JobItem>> = missing.par_iter().map(|(p, _)| job_item(p)).collect();
+    for ((path, now), item) in missing.into_iter().zip(items) {
+        read.insert(path.clone(), (*now, item));
+    }
     paths
         .iter()
-        .zip(stamps)
-        .filter_map(|(path, now)| match read.get(path) {
-            Some((then, item)) if *then == now && now.is_some() => item.clone(),
-            _ => {
-                let item = job_item(path);
-                read.insert(path.clone(), (now, item.clone()));
-                item
-            }
-        })
+        .filter_map(|path| read.get(path).and_then(|(_, item)| item.clone()))
         .collect()
 }
 
@@ -758,16 +798,20 @@ fn runs_in(dir: &Path, most: usize) -> Vec<RunItem> {
             ]
         })
         .collect();
+    // the runs not read yet, or changed, read side by side: on the first call (the first click
+    // on Components or Home) that is all 200, each one's record and job read
+    let fresh = |d: &PathBuf, now: &[Stamp; 3]| matches!(read.get(d), Some((then, _)) if then == now && now.iter().all(Option::is_some));
+    let missing: Vec<(&PathBuf, &[Stamp; 3])> = dirs
+        .iter()
+        .zip(&stamps)
+        .filter(|(d, s)| !fresh(d, s))
+        .collect();
+    let items: Vec<RunItem> = missing.par_iter().map(|(d, _)| run_item(d)).collect();
+    for ((d, now), item) in missing.into_iter().zip(items) {
+        read.insert(d.clone(), (*now, item));
+    }
     dirs.iter()
-        .zip(stamps)
-        .map(|(d, now)| match read.get(d) {
-            Some((then, item)) if *then == now && now.iter().all(Option::is_some) => item.clone(),
-            _ => {
-                let item = run_item(d);
-                read.insert(d.clone(), (now, item.clone()));
-                item
-            }
-        })
+        .filter_map(|d| read.get(d).map(|(_, item)| item.clone()))
         .collect()
 }
 
@@ -1491,6 +1535,7 @@ method_docs!(
     "nonlinear.md",
     "phase-shifter.md",
     "pml.md",
+    "quantum.md",
     "recycling.md",
     "slab-fd.md",
     "slab.md",

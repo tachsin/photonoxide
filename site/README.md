@@ -34,12 +34,16 @@ What the pages read from the repository, at the latest release's tag (or the pin
 | `docs/validation.md` | the validation report, which `photonoxide validate` writes and CI checks; its cases' math is `$…$` |
 | `docs/getting-started.md` | the docs page |
 | `docs/python.md` | the Python page |
-| the Python API reference: the copy committed in the tachsin.gr repository, `photonoxide-python-reference/python-reference-<page>.html` (`photonoxide.html`, `photonoxide.errors.html`, `index.html`), else the assets of a release up to 0.6.2 | `/docs/python/reference`, which opens `photonoxide.html`; `/docs/python/reference/photonoxide.html` and `.../photonoxide/errors.html` serve the pages as pdoc made them (`github.js`, `getPythonReferencePage`) |
+| the Python API reference: the app's copy in `photonoxide-python-reference/` (`photonoxide.html`, `photonoxide/errors.html`, `index.html`, `VERSION`), else the release's assets `python-reference-<page>.html` | `/docs/python/reference`, which opens `photonoxide.html`; `/docs/python/reference/photonoxide.html` and `.../photonoxide/errors.html` serve the pages as pdoc made them (`python-reference.js`, `github.js`'s `getPythonReferencePage`) |
 | `docs/languages.md` | the page for every other language: the program run on a job file, its run's folder read |
 | `ROADMAP.md` | the roadmap, the overview's milestones, and its highlights' status and hero line (each highlight in `meta.js` names its milestone) |
 | `CHANGELOG.md` | the latest release's version when GitHub's releases can't be read: its first `## [x.y.z]` heading, on the overview (`release.js`) |
 
-The Python API reference is the one page not read from a file of the repository. pdoc makes it from the docstrings and type stubs of the Linux wheel in every run of `python-wheels.yml` (the `python-reference` artifact, kept 90 days): one self-contained HTML file each (styles inline, no scripts, no search index), named `python-reference-<path with "/" as ".">`. Since 0.6.3 a release no longer carries them; releases up to 0.6.2 still have them as assets. The site reads the copy committed in the tachsin.gr repository (`photonoxide-python-reference/`) and else the assets of a release up to 0.6.2; `pnpm run deploy` there first runs `scripts/sync-python-reference.sh` (needs `gh` signed in), which brings the folder up to photonoxide's latest release and, if it changed, commits and pushes just that folder, and the site serves it after the deploy. The reference is never committed to this repository.
+The Python API reference is the one page not read from a file of the repository. pdoc makes it from the docstrings and type stubs of the Linux wheel in every run of `python-wheels.yml`: one self-contained HTML file per module (styles inline, no scripts, no search index), kept 90 days as the run's `python-reference` artifact. Nothing is attached to the release. The app keeps a copy of the latest release's, committed in the app:
+
+- **Where:** `photonoxide-python-reference/` at the app's root, beside `photonoxide-site.json`: pdoc's pages at their own paths (`photonoxide.html`, `photonoxide/errors.html`, `index.html`) and `VERSION`, the release's tag (`v0.6.3`), written last. The site sync's folders are elsewhere, so it never touches this one. pdoc's footer on each page names the version too.
+- **How it gets there:** `pnpm sync:photonoxide --python-reference` in the app (with `gh` signed in) looks up the latest release, downloads the `python-reference` artifact of the `python-wheels.yml` run that published it (a `workflow_dispatch` run at the tag), and replaces the folder's pages with it; then the folder is committed. When there is no such artifact (a release made before this, or one older than 90 days), it keeps the committed copy and says so. `--dry-run` downloads and lists what it would write, and writes nothing.
+- **How the page reads it** (`python-reference.js`, checked by the studio's `tests/site-python-reference.test.ts`): the app's copy first; a copy without `VERSION` counts as none. Else, for a page the copy doesn't have, the latest release's asset `python-reference-<path with "/" as ".">`, which the releases up to 0.6.2 have; with neither, the landing page says the reference isn't available. So a new release's reference reaches the site when its copy is synced, committed and deployed, not by itself as the other pages do.
 
 Links between method write-ups (`pml.md`), and to the three guides, become links between their pages; other relative links go to GitHub.
 
@@ -79,6 +83,7 @@ The contract between the two repositories: these have to exist in the app, with 
 | Module | Exports |
 | --- | --- |
 | `@/photonoxide-site.json` | `commit`: the pinned commit, the one these pages were synced from |
+| `photonoxide-python-reference/` (a folder at the app's root, read from the server's working folder) | the Python API reference's pages and `VERSION` (above) |
 | `@/components/projects/Breadcrumbs` | default |
 | `@/components/projects/JsonLd` | default |
 | `@/components/projects/LangCodeGroup` | default (an example's code and output) |

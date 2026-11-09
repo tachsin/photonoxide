@@ -648,6 +648,20 @@ const PAPERS: &[(&str, &str, &str, &str, &str)] = &[
         "10.1007/BF02069487",
         "",
     ),
+    (
+        "anant-2008",
+        "V. Anant, A. J. Kerman, E. A. Dauler, J. K. W. Yang, K. M. Rosfjord, K. K. Berggren, Opt. Express 16, 10750 (2008)",
+        "Optical properties of superconducting nanowire single-photon detectors",
+        "10.1364/OE.16.010750",
+        "https://doi.org/10.1364/OE.16.010750",
+    ),
+    (
+        "reddy-2020",
+        "D. V. Reddy, R. R. Nerem, S. W. Nam, R. P. Mirin, V. B. Verma, Optica 7, 1649 (2020)",
+        "Superconducting nanowire single-photon detectors with 98% system detection efficiency at 1550 nm",
+        "10.1364/OPTICA.400751",
+        "https://doi.org/10.1364/OPTICA.400751",
+    ),
 ];
 
 /// The papers with these keys.

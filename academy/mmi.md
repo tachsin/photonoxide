@@ -390,6 +390,18 @@ the loss stays within 0.5 dB of its 0.231 dB from $\Delta w$ = −100 to +140 nm
 against the estimate's 349 nm, and is 0.258 and 0.227 dB at −20 and +20 nm. A film 10 nm
 thinner or thicker moves it to 0.238 or 0.236 dB.
 
+The 31 % between the two comes in three parts, each measured on the same device (widths and
+lengths on 1 nm steps). First, the length: the section cut 0.740 µm short or 0.802 µm long
+costs 0.5 dB, a mean of 0.771 µm against the estimate's 0.923, so the Rayleigh range overstates
+this guide's tolerance by 20 %. Their $w_0$, "the full $1/e$ amplitude width of the input field",
+doesn't close it: the 0.8 µm guide's field across the plane (TM, as the section's) falls to $1/e$
+over 0.650 µm, which gives $\delta L$ = 0.610 µm, now too small: for a guide this narrow in
+silicon the Gaussian-beam picture is only approximate. Through their Eq. 40 the measured length gives
+$\Delta w$ = −140 to +151 nm, 291 nm. Second, a width error does more than move the image: with
+only the section's width changed, the guides as drawn, the loss stays within 0.5 dB from −136 to
++126 nm, 262 nm. Third, guides that widen with the section narrow it again, to −104 to +141 nm,
+245 nm on 1 nm steps (the chart's 5 nm steps give 240).
+
 ::chart mmi-tolerance
 
 ### Broadening the band {research}

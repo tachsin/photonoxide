@@ -15,11 +15,20 @@
 //! an hour after a failed one), only while Settings' "Paper feed" is on; nothing runs while the
 //! studio is closed. A paper the user opens is fetched then, switch or no switch.
 //!
+//! **The journal picker:** Home's feed shows and asks only the sources the user keeps on
+//! (Settings' `paper_sources_off` lists those turned off); a source turned on that was never
+//! asked is asked on its own ([`Papers::refresh`]'s `only_new`).
+//!
+//! **Images** (`images.rs`, off unless Settings' "Images in the feed" is on): an arXiv preprint's
+//! first figure, from arxiv.org's HTML version of it; a journal's paper keeps its journal's
+//! initials, drawn by the window.
+//!
 //! **Cache**, under the studio's local data folder (`papers/`): each source's last answer, read
 //! at once when Home opens (stale while it revalidates: the window shows it and refreshes
 //! behind it), and each paper opened, so it opens again offline. The reading list is the
 //! user's, in the workspace (`papers/reading-list.json`), and never leaves the computer.
 
+pub mod images;
 #[cfg(test)]
 mod ours;
 pub mod parse;
@@ -290,6 +299,8 @@ pub enum Host {
     Crossref,
     Arxiv,
     OpenAlex,
+    /// arxiv.org itself, for the figures: its robots.txt asks for 15 s between requests.
+    ArxivWeb,
 }
 
 impl Host {
@@ -298,6 +309,7 @@ impl Host {
             Host::Crossref => Duration::from_millis(250),
             Host::Arxiv => Duration::from_secs(3),
             Host::OpenAlex => Duration::from_millis(170),
+            Host::ArxivWeb => Duration::from_secs(15),
         }
     }
 }
@@ -358,6 +370,14 @@ pub enum Source {
 }
 
 impl Source {
+    /// Its id in the journal picker and the settings: a journal's first ISSN, or `arxiv`.
+    pub fn id(&self) -> &str {
+        match self {
+            Source::Journal(j) => &j.issn[0],
+            Source::Arxiv => "arxiv",
+        }
+    }
+
     /// The file its cache is kept in.
     fn key(&self) -> String {
         match self {
@@ -439,6 +459,46 @@ pub fn sources() -> Vec<Source> {
         .collect()
 }
 
+/// The sources the user keeps on: every source but those `off` names by id.
+pub fn chosen(off: &[String]) -> Vec<Source> {
+    sources()
+        .into_iter()
+        .filter(|s| !off.iter().any(|o| o == s.id()))
+        .collect()
+}
+
+/// A source as the journal picker shows it.
+#[derive(Clone, Debug, Serialize, PartialEq)]
+pub struct Choice {
+    /// [`Source::id`].
+    pub id: String,
+    pub name: String,
+    /// The name the feed's lines carry ("Opt. Express").
+    pub short: String,
+    pub publisher: String,
+    pub on: bool,
+}
+
+impl Choice {
+    fn of(s: &Source, off: &[String]) -> Choice {
+        let (name, short, publisher) = match s {
+            Source::Journal(j) => (j.name.clone(), j.short.clone(), j.publisher.clone()),
+            Source::Arxiv => (
+                "arXiv, physics.optics".to_owned(),
+                "arXiv".to_owned(),
+                "Cornell University".to_owned(),
+            ),
+        };
+        Choice {
+            id: s.id().to_owned(),
+            name,
+            short,
+            publisher,
+            on: !off.iter().any(|o| o == s.id()),
+        }
+    }
+}
+
 /// A source's last answer, kept on disk.
 #[derive(Default, Serialize, Deserialize)]
 #[serde(default)]
@@ -502,6 +562,10 @@ pub struct Feed {
     pub due: bool,
     /// The sources, each a journal and its publisher, for Settings' text.
     pub sources: Vec<String>,
+    /// Every source, on or off, for the journal picker.
+    pub choices: Vec<Choice>,
+    /// The sources on that were never asked (turned on since the last check).
+    pub missing: usize,
 }
 
 /// A starred paper and the user's note on it.
@@ -521,6 +585,8 @@ pub struct Papers {
     polite: Polite,
     /// Held through a refresh, so two never run at once.
     refreshing: Mutex<()>,
+    /// The figures kept on disk (`images/`).
+    pub images: images::Images,
 }
 
 pub fn now() -> u64 {
@@ -590,6 +656,7 @@ fn doi_path(doi: &str) -> String {
 impl Papers {
     pub fn new(dir: PathBuf, http: Arc<dyn Http>, polite: Polite) -> Papers {
         Papers {
+            images: images::Images::new(dir.join("images")),
             dir,
             http,
             polite,
@@ -631,9 +698,9 @@ impl Papers {
         read_json(&self.state_file()).unwrap_or_default()
     }
 
-    /// Every paper of the sources' caches, newest first, each once.
-    fn cached(&self) -> Vec<Paper> {
-        let mut papers: Vec<Paper> = sources()
+    /// Every paper of the caches of the sources kept on, newest first, each once.
+    fn cached(&self, off: &[String]) -> Vec<Paper> {
+        let mut papers: Vec<Paper> = chosen(off)
             .iter()
             .filter_map(|s| read_json::<SourceCache>(&self.source_file(s)))
             .flat_map(|c| c.papers)
@@ -644,37 +711,53 @@ impl Papers {
         papers
     }
 
-    /// The feed from the cache, at once; `due` when a check should run.
-    pub fn feed(&self, now: u64) -> Feed {
+    /// The feed of the sources kept on (all but `off`), from the cache, at once; `due` when a
+    /// check should run.
+    pub fn feed(&self, now: u64, off: &[String]) -> Feed {
         let state = self.state();
         let wait = if state.failures > 0 { RETRY } else { FRESH };
+        let all = sources();
         Feed {
-            papers: self.cached().iter().map(Summary::from).collect(),
+            papers: self.cached(off).iter().map(Summary::from).collect(),
             due: now.saturating_sub(state.checked_at) >= wait.as_secs(),
             state,
-            sources: sources()
+            sources: all
                 .iter()
                 .map(|s| match s {
                     Source::Journal(j) => format!("{} ({})", j.name, j.publisher),
                     Source::Arxiv => "arXiv, physics.optics".to_owned(),
                 })
                 .collect(),
+            choices: all.iter().map(|s| Choice::of(s, off)).collect(),
+            missing: chosen(off)
+                .iter()
+                .filter(|s| !self.source_file(s).exists())
+                .count(),
         }
     }
 
-    /// Asks every source for its newest papers, keeping each answer, and returns the feed. A
-    /// source that fails keeps its last answer; when none answers, the check counts as failed.
-    /// Two network failures before any answer stop the check (offline: no point in waiting on
-    /// every source's timeout). A refresh already running makes this one return at once.
-    pub fn refresh(&self, now: u64) -> Feed {
+    /// Asks the sources kept on (all but `off`) for their newest papers, keeping each answer,
+    /// and returns the feed. A source that fails keeps its last answer; when none answers, the
+    /// check counts as failed. Two network failures before any answer stop the check (offline:
+    /// no point in waiting on every source's timeout). A refresh already running makes this one
+    /// return at once. `only_new` asks only the sources never asked (just turned on in the
+    /// picker), and leaves the check's state as it was; with no source to ask, nothing is asked.
+    pub fn refresh(&self, now: u64, off: &[String], only_new: bool) -> Feed {
+        let asked: Vec<Source> = chosen(off)
+            .into_iter()
+            .filter(|s| !only_new || !self.source_file(s).exists())
+            .collect();
+        if asked.is_empty() {
+            return self.feed(now, off);
+        }
         let Ok(running) = self.refreshing.try_lock() else {
-            return self.feed(now);
+            return self.feed(now, off);
         };
         let mut state = self.state();
         let today = day(now);
         let (mut reached, mut unreachable) = (0, 0);
         let mut errors = Vec::new();
-        for s in sources() {
+        for s in asked {
             let file = self.source_file(&s);
             let mut cache: SourceCache = read_json(&file).unwrap_or_default();
             let mut headers = Vec::new();
@@ -722,6 +805,10 @@ impl Papers {
                 break;
             }
         }
+        if only_new {
+            drop(running);
+            return self.feed(now, off);
+        }
         state.checked_at = now;
         state.source_errors = errors;
         if reached == 0 {
@@ -738,7 +825,7 @@ impl Papers {
         }
         let _ = write_json(&self.state_file(), &state);
         drop(running);
-        self.feed(now)
+        self.feed(now, off)
     }
 
     fn paper_file(&self, id: &str) -> PathBuf {
@@ -968,7 +1055,8 @@ impl Papers {
         let mut found: Vec<Paper> = extra
             .iter()
             .cloned()
-            .chain(self.cached())
+            // every source's papers, those the picker hides too: a search looks through all kept
+            .chain(self.cached(&[]))
             .chain(pages)
             .filter(|p| seen.insert(p.id.clone()))
             .filter(|p| {
@@ -1066,18 +1154,59 @@ async fn blocking<T: Send + 'static>(f: impl FnOnce() -> T + Send + 'static) -> 
         .map_err(|e| e.to_string())
 }
 
-/// The feed from the cache, at once.
+/// The feed from the cache, at once: the sources the picker keeps on.
 #[tauri::command]
-pub async fn papers_feed(papers: tauri::State<'_, Arc<Papers>>) -> Result<Feed, String> {
+pub async fn papers_feed(
+    papers: tauri::State<'_, Arc<Papers>>,
+    studio: tauri::State<'_, crate::studio::Studio>,
+) -> Result<Feed, String> {
     let p = Arc::clone(&papers);
-    blocking(move || p.feed(now())).await
+    let off = studio.settings().paper_sources_off;
+    blocking(move || p.feed(now(), &off)).await
 }
 
-/// Asks the sources for their newest papers, and returns the feed.
+/// Asks the sources the picker keeps on for their newest papers (with `only_new`, those never
+/// asked), and returns the feed.
 #[tauri::command]
-pub async fn papers_refresh(papers: tauri::State<'_, Arc<Papers>>) -> Result<Feed, String> {
+pub async fn papers_refresh(
+    papers: tauri::State<'_, Arc<Papers>>,
+    studio: tauri::State<'_, crate::studio::Studio>,
+    only_new: Option<bool>,
+) -> Result<Feed, String> {
     let p = Arc::clone(&papers);
-    blocking(move || p.refresh(now())).await
+    let off = studio.settings().paper_sources_off;
+    blocking(move || p.refresh(now(), &off, only_new.unwrap_or(false))).await
+}
+
+/// A preprint's figure for the feed, by paper id: the name `paperimg:` serves it by, or none
+/// (not a preprint, no figure, or Settings' "Images in the feed" off: then nothing is asked).
+#[tauri::command]
+pub async fn paper_image(
+    papers: tauri::State<'_, Arc<Papers>>,
+    studio: tauri::State<'_, crate::studio::Studio>,
+    id: String,
+) -> Result<Option<String>, String> {
+    if !studio.settings().paper_images {
+        return Ok(None);
+    }
+    let p = Arc::clone(&papers);
+    blocking(move || p.image(&id, now())).await?
+}
+
+/// The figures kept on disk: how many, and their bytes.
+#[tauri::command]
+pub async fn paper_images_kept(
+    papers: tauri::State<'_, Arc<Papers>>,
+) -> Result<(usize, u64), String> {
+    let p = Arc::clone(&papers);
+    blocking(move || p.images.kept()).await
+}
+
+/// Removes the figures kept on disk.
+#[tauri::command]
+pub async fn paper_images_clear(papers: tauri::State<'_, Arc<Papers>>) -> Result<(), String> {
+    let p = Arc::clone(&papers);
+    blocking(move || p.images.clear()).await?
 }
 
 /// A paper's page, by DOI or arXiv id (as typed or pasted).

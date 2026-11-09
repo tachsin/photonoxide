@@ -38,6 +38,8 @@ The pages are grouped as the project site groups them.
   characteristic equations, to the last bit.
 - [multilayer](methods/multilayer.md): the bound modes and leaky waves of any planar stack, and
   its reflection and transmission of a plane wave, from 2 × 2 field-transfer matrices.
+- [rcwa](methods/rcwa.md): a plane wave's diffraction by a stack of lamellar gratings and films,
+  TE and TM, by rigorous coupled-wave analysis with Li's factorization rules.
 - [marcatili](methods/marcatili.md): a rectangular guide's modes from two slab-like equations,
   ignoring the corners.
 - [eim](methods/eim.md): a ridge waveguide's mode from two slab problems, fast and approximate,
@@ -156,6 +158,17 @@ The pages are grouped as the project site groups them.
   frequency by vector fitting, and Touchstone files.
 - [sweep](methods/sweep.md): a response over wavelength or frequency from as few solves as it
   needs, by adaptive sampling and AAA rational approximation.
+
+### Quantum photonics
+
+- [quantum](methods/quantum.md): photons through a circuit's S-matrix, its loss dilated to noise
+  modes: output probabilities by permanents (Ryser's and Glynn's formulas), partly
+  distinguishable photons, an exact boson sampler, Hong–Ou–Mandel dips through S(ω), and the
+  Reck and Clements meshes; Gaussian states through any circuit, their photon counts by hafnians
+  and clicks by torontonians; pair sources from a joint spectrum or a ring, and squeezers from
+  parametric amplifiers; real components: photons with spectra through any fidelity's S(ω),
+  pairs born inside a circuit, loss budgets against published thresholds, emitters' Purcell and
+  β factors from FDTD and detectors' absorption.
 
 ### Fabrication
 

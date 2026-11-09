@@ -619,7 +619,21 @@ pub(super) fn scene(
 pub(super) fn device_scene(job: &Job) -> Result<Event> {
     let (device, design) = device::spec_of(job)?.build()?;
     let values = design.values();
-    let geometry = device.geometry(values)?;
+    design_scene(&device.geometry(values)?, values)
+}
+
+/// The scene of a device's design whose geometry at `values` is `geometry`: what a device
+/// job's preview shows ([`super::preview`]), for a caller that has the geometry already (the
+/// studio's Design tab), without the job's text written and read again.
+///
+/// # Errors
+///
+/// [`crate::Error::InvalidValue`] when the stack has no layer the first port's guide is drawn
+/// on, or the design's wavelength isn't positive.
+pub fn design_scene(
+    geometry: &crate::device::Geometry,
+    values: &crate::device::Values,
+) -> Result<Event> {
     let shapes = scene_shapes(&geometry.structure);
     let points = shapes.iter().flat_map(|s| s.outline.iter().copied()).chain(
         geometry

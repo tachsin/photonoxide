@@ -6,13 +6,14 @@ use serde_json::{Value, json};
 
 use super::{
     CrossSection, DeviceDesign, DeviceFigure, DeviceGeometry, DeviceInfo, DeviceSpectrum,
-    IndexModelInfo, IndexOptions, JobSource, MaterialInfo, SParameters, SlabMode, Spectrum,
-    StackInfo, Stop, VectorMode, check_job, circuit_spectrum, device_derived, device_fabrication,
-    device_fabrication_from, device_fabrication_job, device_fabrication_job_from, device_geometry,
-    device_job, device_spectrum, device_spectrum_until, devices, estimate_fields,
-    export_fabrication, export_fabrication_from, export_fields, export_run, fdfd_s_parameters,
-    group_index, materials, nonlinear, read_touchstone, refractive_index, run_job, run_tables,
-    slab_modes, stacks, vector_modes, write_touchstone,
+    IndexModelInfo, IndexOptions, JobSource, MaskPolygon, MaterialInfo, SParameters, SlabMode,
+    Spectrum, StackInfo, Stop, VectorMode, check_job, circuit_spectrum, device_derived,
+    device_fabrication, device_fabrication_from, device_fabrication_job,
+    device_fabrication_job_from, device_geometry, device_job, device_spectrum,
+    device_spectrum_until, devices, eme, estimate_fields, export_fabrication,
+    export_fabrication_from, export_fields, export_run, fdfd_s_parameters, gds_library,
+    gds_polygons, group_index, materials, nonlinear, read_touchstone, refractive_index, run_job,
+    run_tables, slab_modes, stacks, vector_modes, write_touchstone,
 };
 use crate::Complex64 as c64;
 use crate::{Error, Result};
@@ -130,6 +131,14 @@ fn vector_mode(m: &VectorMode) -> Value {
         "hx": complexes(&m.h[0], &shape),
         "hy": complexes(&m.h[1], &shape),
         "hz": complexes(&m.h[2], &shape),
+        "wavelength_um": 1.55,
+        "effective_area_um2": m.effective_area_um2,
+        "effective_area_transverse_um2": m.effective_area_transverse_um2,
+        "power_shares": nested(
+            &m.power_shares.iter().map(|&v| json!(v)).collect::<Vec<_>>(),
+            &shape
+        ),
+        "orthogonality": complexes(&m.orthogonality, &[m.orthogonality.len()]),
     })
 }
 
@@ -217,6 +226,65 @@ fn figure(f: &DeviceFigure) -> Value {
 
 fn points(p: &[(f64, f64)]) -> Value {
     Value::Array(p.iter().map(|&(x, y)| json!([x, y])).collect())
+}
+
+/// A GDSII file's library and a layer's polygons: the validation case's layout
+/// ([`crate::geometry::gds_checks::layout`]) written into `scratch`.
+fn gds_cases(scratch: &Path, cases: &mut Vec<Case>) -> Result<()> {
+    let file = scratch.join("layout.gds");
+    std::fs::write(&file, crate::geometry::gds_checks::layout()).map_err(|e| Error::Io {
+        path: file.display().to_string(),
+        reason: e.to_string(),
+    })?;
+    let path = file.display().to_string();
+    let library = gds_library(&file)?;
+    cases.push(case(
+        "gds_library/layout",
+        "gds_library",
+        &json!({"path": path}),
+        &json!({
+            "library": library.library,
+            "database_unit_um": library.database_unit_um,
+            "cells": library.cells.iter().map(|c| json!({"name": c.name, "layers": c.layers}))
+                .collect::<Vec<_>>(),
+            "top_cells": library.top_cells,
+        }),
+        &[],
+    ));
+    let polygons = |p: &[MaskPolygon]| -> Value {
+        Value::Array(
+            p.iter()
+                .map(|p| {
+                    json!({
+                        "outer": points(&p.outer),
+                        "holes": p.holes.iter().map(|h| points(h)).collect::<Vec<_>>(),
+                    })
+                })
+                .collect(),
+        )
+    };
+    cases.push(case(
+        "gds_polygons/layout-top",
+        "gds_polygons",
+        &json!({"path": path, "gds_layer": [1, 0]}),
+        &polygons(&gds_polygons(&file, [1, 0], None, None, None)?),
+        &[],
+    ));
+    cases.push(case(
+        "gds_polygons/layout-unit-window",
+        "gds_polygons",
+        &json!({"path": path, "gds_layer": [1, 0], "cell": "unit",
+                "x_um": [0.5, 3.0], "y_um": [0.25, 1.5]}),
+        &polygons(&gds_polygons(
+            &file,
+            [1, 0],
+            Some("unit"),
+            Some((0.5, 3.0)),
+            Some((0.25, 1.5)),
+        )?),
+        &[],
+    ));
+    Ok(())
 }
 
 fn geometry(g: &DeviceGeometry) -> Value {
@@ -498,6 +566,18 @@ pub fn conformance(scratch: &Path) -> Result<Vec<Case>> {
         "vector_modes",
         &json!({"x_um": x, "y_um": y, "permittivity": eps, "wavelength_um": 1.55, "count": 6,
                 "boundaries": cs.boundaries}),
+        &Value::Array(modes.iter().map(vector_mode).collect()),
+        &[],
+    ));
+
+    // the same strip by Hadley's equations
+    cs.scheme = "hadley".into();
+    let modes = vector_modes(&cs, 1.55, 2, None, &Stop::new(None))?.unwrap_or_default();
+    cases.push(case(
+        "vector_modes/strip-quarter-hadley",
+        "vector_modes",
+        &json!({"x_um": x, "y_um": y, "permittivity": eps, "wavelength_um": 1.55, "count": 2,
+                "boundaries": cs.boundaries, "scheme": "hadley"}),
         &Value::Array(modes.iter().map(vector_mode).collect()),
         &[],
     ));
@@ -850,6 +930,7 @@ pub fn conformance(scratch: &Path) -> Result<Vec<Case>> {
         &geometry(&device_geometry(&d)?),
         &[],
     ));
+    gds_cases(scratch, &mut cases)?;
     let (d, args) = design("directional coupler", &[("gap", 0.25)], Some("analytic"));
     cases.push(case(
         "device_job/coupler-yaml",
@@ -875,6 +956,7 @@ pub fn conformance(scratch: &Path) -> Result<Vec<Case>> {
     ));
     fabrication_cases(scratch, &mut cases)?;
     nonlinear_cases(&mut cases)?;
+    eme_cases(&mut cases)?;
     Ok(cases)
 }
 
@@ -921,6 +1003,7 @@ fn fabrication_cases(scratch: &Path, cases: &mut Vec<Case>) -> Result<()> {
                 "assessment": parsed(&f.assessment)?,
                 "json": f.json,
                 "markdown": f.markdown,
+                "csv": f.csv,
                 "svgs": f.svgs,
             }),
             &[],
@@ -938,6 +1021,7 @@ fn fabrication_cases(scratch: &Path, cases: &mut Vec<Case>) -> Result<()> {
             "assessment": parsed(&f.assessment)?,
             "json": f.json,
             "markdown": f.markdown,
+            "csv": f.csv,
             "svgs": f.svgs,
         }),
         &[],
@@ -1088,6 +1172,109 @@ fn nonlinear_cases(cases: &mut Vec<Case>) -> Result<()> {
                 "phase_map": opt(&p.phase_map)?,
                 "efficiency": opt(&p.efficiency)?,
                 "pair_spectrum": opt(&p.pair_spectrum)?,
+            }),
+            &[],
+        ));
+    }
+    Ok(())
+}
+
+/// An eigenmode expansion's: a slab taper swept over three wavelengths with its modes driven to a
+/// tolerance at each, and a slab grating of ten periods with its Bloch modes.
+fn eme_cases(cases: &mut Vec<Case>) -> Result<()> {
+    let section = |length: f64, core: Value| json!({"length_um": length, "core_um": core});
+    let task = |sections: Vec<Value>| {
+        json!({
+            "kind": "eme", "wavelength_um": 1.55, "modes": 12, "window_um": 3.0,
+            "cladding": 1.444, "core": 3.473, "section": sections,
+        })
+    };
+    let mut taper = task(vec![
+        section(0.0, json!(0.22)),
+        json!({"length_um": 0.4, "core_um": [0.22, 0.3], "steps": 4}),
+        section(0.0, json!(0.3)),
+    ]);
+    taper["sweep"] = json!({"parameter": "wavelength", "from": 1.5, "to": 1.6, "points": 3});
+    taper["convergence"] = json!({"tolerance": 1e-3});
+    let mut grating = task(vec![
+        section(0.0, json!(0.22)),
+        section(0.3, json!(0.3)),
+        section(0.2, json!(0.22)),
+        section(0.0, json!(0.22)),
+    ]);
+    grating["period"] = json!({"sections": [2, 3], "count": 10});
+    let mut beam = task(vec![
+        json!({"length_um": 0.0, "layers": [{"medium": 1.444, "thickness_um": 3.0}]}),
+        section(0.0, json!(0.22)),
+    ]);
+    beam["modes"] = json!(30);
+    beam["beam"] = json!({"waist_um": 0.5, "center_um": 0.1, "angle_deg": 5.0});
+    for (name, task) in [("taper-sweep", taper), ("grating", grating), ("beam", beam)] {
+        let data = json!({"name": name, "timeout_minutes": 5, "task": task});
+        let e = eme(&job(&data), &Stop::new(None))?
+            .ok_or_else(|| Error::invalid("eme", "the case's run stopped before its end"))?;
+        let points: Vec<Value> = e
+            .points
+            .iter()
+            .map(|p| {
+                let n = p.ports.len();
+                json!({
+                    "wavelength_um": p.wavelength_um,
+                    "ports": p.ports,
+                    "effective_index": p.effective_index,
+                    "s": complexes(&p.s, &[n, n]),
+                })
+            })
+            .collect();
+        cases.push(case(
+            &format!("eme/{name}"),
+            "eme",
+            &json!({"job": data}),
+            &json!({
+                "module": e.module,
+                "cells": e.cells,
+                "step_um": e.step_um,
+                "unknowns": e.unknowns,
+                "settings": e.settings.iter().map(|(k, v)| json!([k, v])).collect::<Vec<_>>(),
+                "sections": e.sections.iter().map(|s| json!({
+                    "name": s.name,
+                    "kind": s.kind,
+                    "start_um": s.start_um,
+                    "length_um": s.length_um,
+                    "steps": s.steps,
+                    "radius_um": s.radius_um,
+                    "angle_deg": s.angle_deg,
+                    "repeats": s.repeats,
+                })).collect::<Vec<_>>(),
+                "points": points,
+                "studies": e.studies.iter().map(|s| json!({
+                    "label": s.label,
+                    "wavelength_um": s.wavelength_um,
+                    "grids": s.grids,
+                    "values": s.values,
+                    "value": s.value,
+                    "tolerance": s.tolerance,
+                    "error": s.error,
+                    "order": s.order,
+                    "converged": s.converged,
+                    "reason": s.reason,
+                })).collect::<Vec<_>>(),
+                "errors": e.errors.iter().map(|x| json!({
+                    "wavelength_um": x.wavelength_um,
+                    "measure": x.measure,
+                    "error": x.error,
+                })).collect::<Vec<_>>(),
+                "bloch": e.bloch.iter().map(|b| json!({
+                    "wavelength_um": b.wavelength_um,
+                    "effective_index": complexes(&b.effective_index, &[b.effective_index.len()]),
+                })).collect::<Vec<_>>(),
+                "beams": e.beams.iter().map(|b| json!({
+                    "wavelength_um": b.wavelength_um,
+                    "reflected": b.reflected,
+                    "transmitted": b.transmitted,
+                    "ports": b.ports,
+                    "shares": b.shares,
+                })).collect::<Vec<_>>(),
             }),
             &[],
         ));

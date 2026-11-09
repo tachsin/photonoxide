@@ -1,0 +1,28 @@
+# A Gaussian beam meeting a silicon slab's end: 220 nm of 3.473 in oxide (1.444) at 1.55 um, the
+# beam in the oxide with its waist (1 um) on the slab's facet, by eigenmode expansion
+# (docs/methods/eme.md, "A beam"). The beam is launched on the first section's modes, which in
+# the uniform oxide are plane waves at discrete angles; the expansion carries them onto the slab
+# and records the shares of the beam's power reflected, passed and carried by the slab's TE0.
+# The window is 20 um between walls (a beam's power is its propagating modes' there, so no
+# PML), wide enough that the beam's 9 waists fit and every propagating mode of the oxide (37 of
+# them) is kept. TE0 takes 0.3474 of the beam's power, 0.0357 comes back, and the rest passes
+# into the light the slab doesn't guide.
+#   photonoxide run jobs/eme-beam.yaml
+name: eme-beam
+timeout_minutes: 10
+
+task:
+  kind: eme
+  wavelength_um: 1.55
+  polarization: te
+  modes: 60
+  window_um: 20.0
+  cladding: 1.444
+  core: 3.473
+
+  section:
+    - { name: oxide, length_um: 0.0, layers: [{ medium: 1.444, thickness_um: 20.0 }] }
+    - { name: slab, length_um: 0.0, core_um: 0.22 }
+
+  beam:
+    waist_um: 1.0

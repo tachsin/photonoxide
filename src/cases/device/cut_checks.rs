@@ -111,6 +111,169 @@ pub(crate) fn cut_extruded() -> (f64, usize) {
     (largest_difference(&s, &hand), cut.sections.len())
 }
 
+/// The stepped slab of [`stepped_slab`] as an eme job's own drawing: the same strips as
+/// rectangles on a `[task.stack]` of the same constant indices, cut from x = 0 to 0.3 µm on the
+/// same plane, 30 modes.
+const STEPPED_JOB: &str = r#"
+name = "stepped-slab-drawn"
+timeout_minutes = 5
+
+[task]
+kind = "eme"
+wavelength_um = 1.55
+modes = 30
+layer = "core"
+x_um = [0.0, 0.3]
+
+[task.stack]
+substrate = 1.444
+cladding = 1.444
+layer = [{ name = "core", thickness_um = 0.01, material = 3.473, background = 1.444 }]
+
+[[task.rect]]
+layer = "core"
+center_um = [-0.5, 0.0]
+size_um = [1.0, 0.22]
+
+[[task.rect]]
+layer = "core"
+center_um = [0.05, 0.0]
+size_um = [0.1, 0.24]
+
+[[task.rect]]
+layer = "core"
+center_um = [0.15, 0.0]
+size_um = [0.1, 0.26]
+
+[[task.rect]]
+layer = "core"
+center_um = [0.25, 0.0]
+size_um = [0.1, 0.28]
+
+[[task.rect]]
+layer = "core"
+center_um = [0.8, 0.0]
+size_um = [1.0, 0.30]
+
+[task.plane]
+step_um = [0.01, 0.01]
+margins_um = [1.35, 0.0]
+along_um = 1.0
+"#;
+
+/// The stepped slab drawn in a job ([`STEPPED_JOB`]) against the sections built by hand
+/// (eme/3d-extruded-separable's): the largest difference over every entry of S the run records,
+/// and how many entries it records.
+pub(crate) fn drawing_extruded() -> (f64, usize) {
+    let job = crate::run::Job::parse(STEPPED_JOB).expect("the job parses");
+    job_against(&job, &crate::eme::three_checks::extruded(0.01, 1))
+}
+
+/// The stepped slab's five strips as boxes on layer 1/0 of one cell of a GDSII file (1 nm
+/// database unit), written byte by byte into a folder of its own; and the folder.
+fn stepped_gds_folder() -> std::path::PathBuf {
+    use crate::geometry::gds_checks::Writer;
+    let dir = std::env::temp_dir().join(format!("photonoxide-eme-gds-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).expect("a folder for the GDSII file");
+    let mut w = Writer::new(1e-3, 1e-9);
+    w.begin("stepped");
+    // from x and to x, and the half width, nm
+    for (a, b, h) in [
+        (-1000, 0, 110),
+        (0, 100, 120),
+        (100, 200, 130),
+        (200, 300, 140),
+        (300, 1300, 150),
+    ] {
+        w.rect([1, 0], [a, -h], [b, h]);
+    }
+    w.end();
+    std::fs::write(dir.join("stepped.gds"), w.finish()).expect("the GDSII file written");
+    dir
+}
+
+/// [`STEPPED_JOB`] with its five rectangles read from a GDSII file instead
+/// ([`stepped_gds_folder`]): one `type = "gds"` shape on the core layer, its file found from
+/// the job's folder.
+fn stepped_gds_job() -> crate::run::Job {
+    let start = STEPPED_JOB.find("[[task.rect]]").expect("the rectangles");
+    let end = STEPPED_JOB.find("[task.plane]").expect("the plane");
+    let text = format!(
+        "{}[[task.shape]]\ntype = \"gds\"\nlayer = \"core\"\nfile = \"stepped.gds\"\ngds_layer = [1, 0]\n\n{}",
+        &STEPPED_JOB[..start],
+        &STEPPED_JOB[end..],
+    );
+    crate::run::Job::parse(&text)
+        .expect("the job parses")
+        .in_dir(stepped_gds_folder())
+}
+
+/// The stepped slab read from a GDSII file in an eme job ([`stepped_gds_job`]) against the same
+/// strips drawn in the job as rectangles ([`STEPPED_JOB`]): the largest difference over every
+/// entry of S the two runs record, and how many entries (refused unless both record the same
+/// ports).
+pub(crate) fn drawing_gds() -> (f64, usize) {
+    let shapes = recorded(&crate::run::Job::parse(STEPPED_JOB).expect("the job parses"));
+    let gds = recorded(&stepped_gds_job());
+    assert_eq!(shapes.0, gds.0, "the same ports");
+    let mut worst: f64 = 0.0;
+    let mut count = 0;
+    for (a, b) in shapes.1.iter().flatten().zip(gds.1.iter().flatten()) {
+        worst = worst.max((c64::new(a[0], a[1]) - c64::new(b[0], b[1])).norm());
+        count += 1;
+    }
+    (worst, count)
+}
+
+/// The built-in job `jobs/eme-taper-drawn-3d.yaml`, the taper drawn as a path in the job and cut
+/// exactly, against the taper's drawing cut exactly ([`taper_exact`]): the largest difference
+/// over every entry of S the run records, and how many.
+pub(crate) fn drawing_taper() -> (f64, usize) {
+    let path =
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("jobs/eme-taper-drawn-3d.yaml");
+    let job = crate::run::Job::load(&path).expect("the built-in job");
+    job_against(&job, &exact_taper().1)
+}
+
+/// A job's recorded S-parameters against `s`: the largest difference over every entry, and how
+/// many entries the job recorded. Its ports are named "1 ..." at the first end, "2 ..." at the
+/// last, each end's guided modes in order.
+fn job_against(job: &crate::run::Job, s: &Scattering) -> (f64, usize) {
+    let (ports, recorded) = recorded(job);
+    let n1 = ports.iter().filter(|p| p.starts_with("1 ")).count();
+    let at = |q: usize, p: usize| match (q < n1, p < n1) {
+        (true, true) => s.s11[q][p],
+        (true, false) => s.s12[q][p - n1],
+        (false, true) => s.s21[q - n1][p],
+        (false, false) => s.s22[q - n1][p - n1],
+    };
+    let mut worst: f64 = 0.0;
+    let mut count = 0;
+    for (q, row) in recorded.iter().enumerate() {
+        for (p, v) in row.iter().enumerate() {
+            worst = worst.max((c64::new(v[0], v[1]) - at(q, p)).norm());
+            count += 1;
+        }
+    }
+    (worst, count)
+}
+
+/// A job's run: the S-parameters it records first, their ports and entries.
+fn recorded(job: &crate::run::Job) -> (Vec<String>, Vec<Vec<[f64; 2]>>) {
+    use crate::job::{Event, execute};
+    use crate::run::{Run, Stop};
+    let mut run = Run::in_memory();
+    execute(job, &mut run, &Stop::new(None)).expect("the job runs");
+    run.lines()
+        .iter()
+        .map(|l| serde_json::from_str::<Event>(l).expect("a recorded event"))
+        .find_map(|e| match e {
+            Event::SParameters { ports, s, .. } => Some((ports, s)),
+            _ => None,
+        })
+        .expect("the run's S-parameters")
+}
+
 fn largest_difference(a: &Scattering, b: &Scattering) -> f64 {
     let blocks = |s: &Scattering| [s.s11.clone(), s.s12.clone(), s.s21.clone(), s.s22.clone()];
     let mut worst: f64 = 0.0;
@@ -339,8 +502,14 @@ fn taper_both() -> &'static Both {
             .geometry(&geometry, lam())
             .expect("the sections")
             .grid;
-        (taper_exact(), fdfd_limit(&geometry, grid))
+        (exact_taper().clone(), fdfd_limit(&geometry, grid))
     })
+}
+
+/// [`taper_exact`], computed once for the cases that read it.
+fn exact_taper() -> &'static ((f64, f64), Scattering) {
+    static EXACT: OnceLock<((f64, f64), Scattering)> = OnceLock::new();
+    EXACT.get_or_init(taper_exact)
 }
 
 /// S's largest departure from symmetry, and from unitarity on the propagating modes.
@@ -395,7 +564,7 @@ pub(crate) fn cases() -> Vec<Case> {
             source: r"the same planes: between two such x the cells' averaging sees the same cross-section, so each midpoint step's plane is one of the exact cut's, over the same lengths",
             run: || {
                 zero(
-                    largest_difference(&taper_exact().1, &taper_in_steps()),
+                    largest_difference(&exact_taper().1, &taper_in_steps()),
                     1e-10,
                 )
             },
@@ -443,6 +612,27 @@ pub(crate) fn cases() -> Vec<Case> {
             tier: Tier::Analytic,
             source: r"power conservation: with every mode of the plane the tangential fields are continuous at each interface exactly",
             run: || zero(invariants(&mmi_both().0.1).1, 1e-10),
+        },
+        Case {
+            id: "eme/3d-drawing-extruded",
+            title: r"An eme job's own drawing cut into 3D sections: eme/3d-cut-extruded's stepped slab written in the job as five rectangles on a `[task.stack]` of the same constant indices, cut from x = 0 to 0.3 µm on the same plane, against the same sections built by hand (30 modes): the largest difference over every entry of $S$ the run records (shown)",
+            tier: Tier::Analytic,
+            source: r"the same planes: the job draws the same strips on the same stack, and the cut reads them as eme/3d-cut-extruded's",
+            run: || zero(drawing_extruded().0, 1e-10),
+        },
+        Case {
+            id: "eme/3d-drawing-taper",
+            title: r"The built-in job `jobs/eme-taper-drawn-3d.yaml`: eme/3d-cut-taper-exact's taper drawn in the job as a path (400 nm for 1 µm, a linear taper to 800 nm over 1 µm, 800 nm for 1 µm) and cut exactly from x = 0 to 1 µm, every mode of the half plane, against the taper's drawing cut exactly (its guides led out of the device): the largest difference over every entry of $S$ the run records (shown)",
+            tier: Tier::Analytic,
+            source: r"the same planes: the path's polygon has the drawing's walls, its straights the led guides, so the cut crosses the same sampling points at the same x",
+            run: || zero(drawing_taper().0, 1e-10),
+        },
+        Case {
+            id: "eme/3d-drawing-gds",
+            title: r#"An eme job's drawing read from a GDSII file: eme/3d-drawing-extruded's five strips as boxes on layer 1/0 of one cell (1 nm database unit), written byte by byte, drawn on the job's core layer by one `type = "gds"` shape and cut on the same plane, against the same job with the strips drawn as rectangles: the largest difference over every entry of $S$ the two runs record (shown)"#,
+            tier: Tier::Analytic,
+            source: r"the same planes: the file's boxes have the rectangles' corners in whole nanometres, so the cut turns at the same x and the cells' averaging sees the same strips",
+            run: || zero(drawing_gds().0, 1e-10),
         },
     ]
 }

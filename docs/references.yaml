@@ -115,6 +115,12 @@
   venue: "IEEE Trans. Microwave Theory Techn. 30, 1121"
   year: 1982
 
+- doi: 10.1364/OL.28.001302
+  authors: "V. R. Almeida, R. R. Panepucci, M. Lipson"
+  title: "Nanotaper for compact mode conversion"
+  venue: "Opt. Lett. 28, 1302"
+  year: 2003
+
 - doi: 10.1137/S0895479899358194
   authors: "P. R. Amestoy, I. S. Duff, J.-Y. L'Excellent, J. Koster"
   title: "A Fully Asynchronous Multifrontal Solver Using Distributed Dynamic Scheduling"
@@ -138,6 +144,12 @@
   title: "Combining Sparse Approximate Factorizations with Mixed-precision Iterative Refinement"
   venue: "ACM Trans. Math. Softw. 49, 1"
   year: 2023
+
+- doi: 10.1364/OE.16.010750
+  authors: "V. Anant, A. J. Kerman, E. A. Dauler, J. K. W. Yang, K. M. Rosfjord, K. K. Berggren"
+  title: "Optical properties of superconducting nanowire single-photon detectors"
+  venue: "Opt. Express 16, 10750"
+  year: 2008
 
 - doi: 10.1109/50.762914
   authors: "E. Anemogiannis, E. Glytsis, T. Gaylord"
@@ -340,6 +352,12 @@
   venue: "ACM J. Exp. Algorithmics 24, 1"
   year: 2019
 
+- doi: 10.1145/3460772
+  authors: "D. Blackman, S. Vigna"
+  title: "Scrambled Linear Pseudorandom Number Generators"
+  venue: "ACM Trans. Math. Softw. 47, 36"
+  year: 2021
+
 - doi: 10.1007/BF01339455
   authors: "F. Bloch"
   title: "�ber die Quantenmechanik der Elektronen in Kristallgittern"
@@ -369,6 +387,12 @@
   title: "Nanophotonic waveguides in silicon-on-insulator fabricated with CMOS technology"
   venue: "J. Lightwave Technol. 23, 401"
   year: 2005
+
+- doi: 10.1364/OL.32.002801
+  authors: "W. Bogaerts, P. Dumon, D. Van Thourhout, R. Baets"
+  title: "Low-loss, low-cross-talk crossings for silicon-on-insulator nanophotonic waveguides"
+  venue: "Opt. Lett. 32, 2801"
+  year: 2007
 
 - doi: 10.1002/lpor.201100017
   authors: "W. Bogaerts, P. De Heyn, T. Van Vaerenbergh, K. De Vos, S. Kumar Selvaraja, T. Claes, P. Dumon, P. Bienstman, D. Van Thourhout, R. Baets"
@@ -436,6 +460,12 @@
   venue: "Applied Physics Letters 90, 191104"
   year: 2007
 
+- doi: 10.1126/science.1231440
+  authors: "M. A. Broome, A. Fedrizzi, S. Rahimi-Keshari, J. Dove, S. Aaronson, T. C. Ralph, A. G. White"
+  title: "Photonic Boson Sampling in a Tunable Circuit"
+  venue: "Science 339, 794"
+  year: 2013
+
 - doi: 10.1103/PhysRevLett.95.010501
   authors: "D. E. Browne, T. Rudolph"
   title: "Resource-Efficient Linear Optical Quantum Computation"
@@ -498,7 +528,7 @@
 - doi: 10.1145/3447544
   authors: "C. Campos, J. E. Roman"
   title: "NEP: A Module for the Parallel Solution of Nonlinear Eigenvalue Problems in SLEPc"
-  venue: "ACM Trans. Math. Softw. 47, 1"
+  venue: "ACM Trans. Math. Softw. 47, 36"
   year: 2021
 
 - doi: 10.1126/science.aab3642
@@ -628,6 +658,13 @@
   venue: "IEEE Trans. Microwave Theory Techn. 35, 688"
   year: 1987
 
+- doi: 10.1088/1367-2630/15/5/053038
+  authors: "A. Christ, B. Brecht, W. Mauerer, C. Silberhorn"
+  title: "Theory of quantum frequency conversion and type-II parametric down-conversion in the high-gain regime"
+  venue: "New J. Phys. 15, 053038"
+  year: 2013
+  open: https://doi.org/10.1088/1367-2630/15/5/053038
+
 - doi: 10.1364/JOSAB.406048
   authors: "R. E. Christiansen, O. Sigmund"
   title: "Inverse design in photonics by topology optimization: tutorial"
@@ -695,6 +732,18 @@
   venue: "Math. Proc. Camb. Phil. Soc. 43, 50"
   year: 1947
 
+- doi: 10.1038/nphoton.2013.112
+  authors: "A. Crespi, R. Osellame, R. Ramponi, D. J. Brod, E. F. Galvão, N. Spagnolo, C. Vitelli, E. Maiorino, P. Mataloni, F. Sciarrino"
+  title: "Integrated multimode interferometers with arbitrary designs for photonic boson sampling"
+  venue: "Nat. Photonics 7, 545"
+  year: 2013
+
+- doi: 10.1364/OE.19.010940
+  authors: "D. Dai, J. E. Bowers"
+  title: "Novel concept for ultracompact polarization splitter-rotator based on silicon nanowires"
+  venue: "Opt. Express 19, 10940"
+  year: 2011
+
 - doi: 10.1364/OE.19.018614
   authors: "D. Dai, J. E. Bowers"
   title: "Novel ultra-short and ultra-broadband polarization beam splitter based on a bent directional coupler"
@@ -718,6 +767,12 @@
   title: "A Practical Guide to Splines"
   venue: "Springer New York"
   year: 1978
+
+- doi: 10.1016/S0168-583X(00)00525-5
+  authors: "J. P. de Souza, M. Behar, J. F. Dias, J. H. R. dos Santos"
+  title: "Range parameters of ¹⁸O implanted into Si and SiO₂"
+  venue: "Nucl. Instrum. Methods Phys. Res. B 175–177, 46"
+  year: 2001
 
 - doi: 10.1063/1.1713945
   authors: "B. E. Deal, A. S. Grove"
@@ -1050,6 +1105,13 @@
   venue: "Photon. Res. 11, 643"
   year: 2023
 
+- doi: 10.1116/1.580239
+  authors: "J. G. E. Gardeniers, H. A. C. Tilmans, C. C. G. Visser"
+  title: "LPCVD silicon-rich silicon nitride films for applications in micromechanics, studied with statistical experimental design"
+  venue: "Journal of Vacuum Science & Technology A: Vacuum, Surfaces, and Films 14, 2879"
+  year: 1996
+  open: https://ris.utwente.nl/ws/files/6771994/JVS_14_2879.pdf
+
 - doi: 10.1007/s00340-008-2998-2
   authors: "O. Gayer, Z. Sacks, E. Galun, A. Arie"
   title: "Temperature and wavelength dependent refractive index equations for MgO-doped congruent and stoichiometric LiNbO3"
@@ -1172,6 +1234,12 @@
   venue: "Phys. Rev. A 64, 012310"
   year: 2001
 
+- doi: 10.1364/JOSAA.13.001019
+  authors: "G. Granet, B. Guizal"
+  title: "Efficient implementation of the coupled-wave method for metallic lamellar gratings in TM polarization"
+  venue: "J. Opt. Soc. Am. A 13, 1019"
+  year: 1996
+
 - doi: 10.1063/1.350844
   authors: "P. Gräupner, J. C. Pommier, A. Cachard, J. L. Coutaz"
   title: "Electro-optical effect in aluminum nitride waveguides"
@@ -1232,6 +1300,18 @@
   title: "High-accuracy finite-difference equations for dielectric waveguide analysis II: dielectric corners"
   venue: "J. Lightwave Technol. 20, 1219"
   year: 2002
+
+- doi: 10.1002/andp.19023130502
+  authors: "E. Hagen, H. Rubens"
+  title: "Das Reflexionsvermögen einiger Metalle für ultraviolette und ultrarote Strahlen"
+  venue: "Annalen der Physik 313, 1"
+  year: 1902
+
+- doi: 10.1002/andp.19023130613
+  authors: "E. Hagen, H. Rubens"
+  title: "Die Absorption ultravioletter, sichtbarer und ultraroter Strahlen in dünnen Metallschichten"
+  venue: "Annalen der Physik 313, 432"
+  year: 1902
 
 - doi: 10.1007/978-3-642-05221-7
   authors: "E. Hairer, G. Wanner"
@@ -1434,6 +1514,12 @@
   venue: "Adv. Opt. Photon. 1, 58"
   year: 2009
 
+- doi: 10.1109/TASC.2009.2018035
+  authors: "X. Hu, C. W. Holzwarth, D. Masciarelli, E. A. Dauler, K. K. Berggren"
+  title: "Efficiently Coupling Light to Superconducting Nanowire Single-Photon Detectors"
+  venue: "IEEE Trans. Appl. Supercond. 19, 336"
+  year: 2009
+
 - doi: 10.1021/acsphotonics.8b01522
   authors: "T. W. Hughes, M. Minkov, I. A. D. Williamson, S. Fan"
   title: "Adjoint Method and Inverse Design for Nonlinear Nanophotonic Devices"
@@ -1591,6 +1677,12 @@
   venue: "Opt. Lett. 38, 2810"
   year: 2013
 
+- doi: 10.1002/pssb.200540082
+  authors: "Ö. Kabadayi, H. Gümüş"
+  title: "Range and longitudinal range straggling with various stopping power formulations for oxygen ions in Si and SiO2"
+  venue: "Phys. Status Solidi B 242, 2391"
+  year: 2005
+
 - doi: 10.1016/0022-0248(84)90086-1
   authors: "C. Kaito, N. Nakamura, T. Yoshida, M. Shiojiri"
   title: "Structure and the process of crystallization in thin amorphous Sb2S3 films"
@@ -1602,6 +1694,12 @@
   title: "Calorimetric measurements of phase transformations in thin films of amorphous Te alloys used for optical data storage"
   venue: "Journal of Applied Physics 93, 2389"
   year: 2003
+
+- doi: 10.1016/j.jmva.2007.01.013
+  authors: "R. Kan"
+  title: "From moments of sum to moments of product"
+  venue: "Journal of Multivariate Analysis 99, 542"
+  year: 2008
 
 - doi: 10.1109/TAP.1966.1138693
   authors: "Kane Yee"
@@ -1788,6 +1886,24 @@
   venue: "Laser & Photonics Reviews 11, 1600295"
   year: 2017
 
+- doi: 10.1364/JOSAA.13.000779
+  authors: "P. Lalanne, G. M. Morris"
+  title: "Highly improved convergence of the coupled-wave method for TM polarization"
+  venue: "J. Opt. Soc. Am. A 13, 779"
+  year: 1996
+
+- doi: 10.1364/OL.23.001081
+  authors: "P. Lalanne, S. Astilean, P. Chavel, E. Cambril, H. Launois"
+  title: "Blazed binary subwavelength gratings with efficiencies larger than those of conventional échelette gratings"
+  venue: "Opt. Lett. 23, 1081"
+  year: 1998
+
+- doi: 10.1364/JOSAA.16.001143
+  authors: "P. Lalanne, S. Astilean, P. Chavel, E. Cambril, H. Launois"
+  title: "Design and fabrication of blazed binary diffractive elements with sampling periods smaller than the structural cutoff"
+  venue: "J. Opt. Soc. Am. A 16, 1143"
+  year: 1999
+
 - doi: 10.1364/OE.21.021693
   authors: "C. M. Lalau-Keraly, S. Bhargava, O. D. Miller, E. Yablonovitch"
   title: "Adjoint shape optimization applied to electromagnetic design"
@@ -1874,6 +1990,12 @@
   venue: "Journal of Physical and Chemical Reference Data 9, 561"
   year: 1980
 
+- doi: 10.1364/JOSAA.13.001024
+  authors: "L. Li"
+  title: "Formulation and comparison of two recursive matrix algorithms for modeling layered diffraction gratings"
+  venue: "J. Opt. Soc. Am. A 13, 1024"
+  year: 1996
+
 - doi: 10.1364/JOSAA.13.001870
   authors: "L. Li"
   title: "Use of Fourier series in the analysis of discontinuous periodic structures"
@@ -1903,6 +2025,13 @@
   title: "Nonlinear optical phenomena in silicon waveguides: modeling and applications"
   venue: "Opt. Express 15, 16604"
   year: 2007
+
+- key: lindhard-scharff-schiott-1963
+  authors: "J. Lindhard, M. Scharff, H. E. Schiøtt"
+  title: "Range concepts and heavy ion ranges (Notes on atomic collisions, II)"
+  venue: "Mat. Fys. Medd. Dan. Vid. Selsk. 33, no. 14"
+  year: 1963
+  open: "https://gymarkiv.sdu.dk/MFM/kdvs/mfm%2030-39/mfm-33-14.pdf"
 
 - doi: 10.1109/50.588673
   authors: "B. Little, S. Chu, H. Haus, J. Foresi, J.-P. Laine"
@@ -2153,6 +2282,12 @@
   venue: "Phys. Rev. Lett. 97, 110501"
   year: 2006
 
+- key: mezzadri-2007
+  authors: "F. Mezzadri"
+  title: "How to generate random matrices from the classical compact groups"
+  venue: "Notices Amer. Math. Soc. 54, 592"
+  year: 2007
+
 - doi: 10.1145/1513895.1513905
   authors: "P. Micikevicius"
   title: "3D finite difference computation on GPUs using CUDA"
@@ -2208,10 +2343,22 @@
   venue: "ACS Photonics 7, 1729"
   year: 2020
 
+- doi: 10.1364/JOSA.71.000811
+  authors: "M. G. Moharam, T. K. Gaylord"
+  title: "Rigorous coupled-wave analysis of planar-grating diffraction"
+  venue: "J. Opt. Soc. Am. 71, 811"
+  year: 1981
+
 - doi: 10.1364/JOSAA.12.001068
   authors: "M. G. Moharam, T. K. Gaylord, E. B. Grann, D. A. Pommet"
   title: "Formulation for stable and efficient implementation of the rigorous coupled-wave analysis of binary gratings"
   venue: "J. Opt. Soc. Am. A 12, 1068"
+  year: 1995
+
+- doi: 10.1364/JOSAA.12.001077
+  authors: "M. G. Moharam, T. K. Gaylord, D. A. Pommet, E. B. Grann"
+  title: "Stable implementation of the rigorous coupled-wave analysis for surface-relief gratings: enhanced transmittance matrix approach"
+  venue: "J. Opt. Soc. Am. A 12, 1077"
   year: 1995
 
 - doi: 10.6028/jres.124.012
@@ -2328,6 +2475,12 @@
   title: "Meep: A flexible free-software package for electromagnetic simulations by the FDTD method"
   venue: "Computer Physics Communications 181, 687"
   year: 2010
+
+- doi: 10.1038/s41567-019-0567-8
+  authors: "S. Paesani, Y. Ding, R. Santagati, L. Chakhmakhchyan, C. Vigliar, K. Rottwitt, L. K. Oxenløwe, J. Wang, M. G. Thompson, A. Laing"
+  title: "Generation and sampling of quantum states of light in a silicon chip"
+  venue: "Nat. Phys. 15, 925"
+  year: 2019
 
 - doi: 10.1038/s41467-020-16187-8
   authors: "S. Paesani, M. Borghi, S. Signorini, A. Maïnos, L. Pavesi, A. Laing"
@@ -2465,6 +2618,12 @@
   title: "Lithium niobate on insulator (LNOI) for micro‐photonic devices"
   venue: "Laser & Photonics Reviews 6, 488"
   year: 2012
+
+- doi: 10.1126/science.1155441
+  authors: "A. Politi, M. J. Cryan, J. G. Rarity, S. Yu, J. L. O'Brien"
+  title: "Silica-on-Silicon Waveguide Quantum Circuits"
+  venue: "Science 320, 646"
+  year: 2008
 
 - doi: 10.1103/PhysRevB.79.115112
   authors: "E. Polizzi"
@@ -2844,6 +3003,13 @@
   year: 2018
   open: https://doi.org/10.1038/s41377-018-0078-x
 
+- doi: 10.1109/JPHOT.2019.2941742
+  authors: "H. Shu, B. Shen, Q. Deng, M. Jin, X. Wang, Z. Zhou"
+  title: "A Design Guideline for Mode (De)Multiplexer Based on Integrated Tapered Asymmetric Directional Coupler"
+  venue: "IEEE Photonics J. 11, 1"
+  year: 2019
+  open: https://doi.org/10.1109/JPHOT.2019.2941742
+
 - doi: 10.1109/JLT.2021.3066203
   authors: "S. Y. Siew, B. Li, F. Gao, H. Y. Zheng, W. Zhang, P. Guo, S. W. Xie, A. Song, B. Dong, L. W. Luo, et al."
   title: "Review of Silicon Photonics Technology and Platform Development"
@@ -2933,6 +3099,12 @@
   authors: "N. Spillane, V. Dolean, P. Hauret, F. Nataf, C. Pechstein, R. Scheichl"
   title: "Abstract robust coarse spaces for systems of PDEs via generalized eigenproblems in the overlaps"
   venue: "Numer. Math. 126, 741"
+  year: 2013
+
+- doi: 10.1126/science.1231692
+  authors: "J. B. Spring, B. J. Metcalf, P. C. Humphreys, W. S. Kolthammer, X.-M. Jin, M. Barbieri, A. Datta, N. Thomas-Peter, N. K. Langford, D. Kundys, et al."
+  title: "Boson Sampling on a Photonic Chip"
+  venue: "Science 339, 798"
   year: 2013
 
 - doi: 10.1137/060652610
@@ -3104,6 +3276,12 @@
   title: "Theory of Prism–Film Coupler and Thin-Film Light Guides"
   venue: "J. Opt. Soc. Am. 60, 1325"
   year: 1970
+
+- doi: 10.1038/nphoton.2013.102
+  authors: "M. Tillmann, B. Dakić, R. Heilmann, S. Nolte, A. Szameit, P. Walther"
+  title: "Experimental boson sampling"
+  venue: "Nat. Photonics 7, 540"
+  year: 2013
 
 - doi: 10.1038/nphoton.2017.14
   authors: "E. Timurdogan, C. V. Poulton, M. J. Byrd, M. R. Watts"
@@ -3326,6 +3504,12 @@
   venue: "Opt. Express 26, 5894"
   year: 2018
 
+- doi: 10.1103/PhysRevA.73.063819
+  authors: "W. Wasilewski, A. I. Lvovsky, K. Banaszek, C. Radzewicz"
+  title: "Pulsed squeezed light: Simultaneous squeezing of multiple modes"
+  venue: "Phys. Rev. A 73, 063819"
+  year: 2006
+
 - doi: 10.1103/RevModPhys.84.621
   authors: "C. Weedbrook, S. Pirandola, R. García-Patrón, N. J. Cerf, T. C. Ralph, J. H. Shapiro, S. Lloyd"
   title: "Gaussian quantum information"
@@ -3446,6 +3630,12 @@
   venue: "OPT REV 14, 194"
   year: 2007
 
+- doi: 10.1126/science.1210713
+  authors: "N. Yu, P. Genevet, M. A. Kats, F. Aieta, J.-P. Tetienne, F. Capasso, Z. Gaburro"
+  title: "Light Propagation with Phase Discontinuities: Generalized Laws of Reflection and Refraction"
+  venue: "Science 334, 333"
+  year: 2011
+
 - doi: 10.1364/OE.20.012926
   authors: "H. Yu, M. Pantouvaki, J. Van Campenhout, D. Korn, K. Komorowska, P. Dumon, Y. Li, P. Verheyen, P. Absil, L. Alloatti, et al."
   title: "Performance tradeoff between lateral and interdigitated doping patterns for high speed carrier-depletion based silicon modulators"
@@ -3495,6 +3685,12 @@
   venue: "Adv Materials Inter 9, 2200429"
   year: 2022
   open: https://doi.org/10.1002/admi.202200429
+
+- doi: 10.1016/j.scib.2019.04.007
+  authors: "H.-S. Zhong, L.-C. Peng, Y. Li, Y. Hu, W. Li, J. Qin, D. Wu, W. Zhang, H. Li, L. Zhang, et al."
+  title: "Experimental Gaussian Boson sampling"
+  venue: "Sci. Bull. 64, 511"
+  year: 2019
 
 - doi: 10.1126/science.abe8770
   authors: "H.-S. Zhong, H. Wang, Y.-H. Deng, M.-C. Chen, L.-C. Peng, Y.-H. Luo, J. Qin, D. Wu, X. Ding, Y. Hu, et al."

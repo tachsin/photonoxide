@@ -59,6 +59,15 @@ fn implant() -> Process {
             "p. 4959",
         ),
         fact(
+            "¹⁸O implanted into silicon amorphized to 280 nm, its profile measured by nuclear \
+             reaction analysis: a projected range of 55.4, 99.2, 154.5, 195.7, 291.8 and 398.2 nm \
+             at 25, 50, 75, 100, 150 and 200 keV, TRIM (1997) giving 8–17 % more. The 150 and \
+             200 keV ranges lie beyond the amorphized layer. The range is the implanted oxygen's \
+             mean depth, not the film left over the oxide after the anneal.",
+            "desouza-2001",
+            "Table 1 (p. 48); the targets, p. 47",
+        ),
+        fact(
             "16O⁺ implanted at 150 keV to 1.2×10¹⁸ cm⁻²: the projected range from Smith's table, \
              3700 Å, measured at 3800 Å after the anneal.",
             "izumi-1978",

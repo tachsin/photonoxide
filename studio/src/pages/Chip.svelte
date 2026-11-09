@@ -21,6 +21,7 @@
   import { onMount } from "svelte";
 
   import ChipOptimize from "../components/chip/ChipOptimize.svelte";
+  import ChipQuantum from "../components/chip/ChipQuantum.svelte";
   import ChipStudy from "../components/chip/ChipStudy.svelte";
   import InstanceDevice from "../components/chip/InstanceDevice.svelte";
   import Glyph from "../components/Glyph.svelte";
@@ -491,7 +492,7 @@
   let offer = $state<ChipOptimizeInfo | null>(null);
   let offerProblem = $state("");
   $effect(() => {
-    if (panels.tab === "spectrum") return;
+    if (panels.tab !== "study" && panels.tab !== "optimize") return;
     const c = $state.snapshot(chip) as Chip;
     let live = true;
     api
@@ -718,6 +719,7 @@
             <button role="tab" class="tab {panels.tab === 'spectrum' ? 'tab-active' : ''}" onclick={() => (panels.tab = "spectrum")}>S-parameters</button>
             <button role="tab" class="tab {panels.tab === 'study' ? 'tab-active' : ''}" onclick={() => (panels.tab = "study")}>Study</button>
             <button role="tab" class="tab {panels.tab === 'optimize' ? 'tab-active' : ''}" onclick={() => (panels.tab = "optimize")}>Optimize</button>
+            <button role="tab" class="tab {panels.tab === 'quantum' ? 'tab-active' : ''}" title="Photons through the chip: their statistics, the HOM dip, the loss budget and squeezed light" onclick={() => (panels.tab = "quantum")}>Quantum</button>
           </div>
           {#if panels.tab === "spectrum"}
           <h3 class="panel-title whitespace-nowrap">The circuit's S-parameters</h3>
@@ -750,6 +752,8 @@
           <div class="mt-3">
             {#if offerProblem}<p class="text-xs text-warning">{offerProblem}</p>{:else}<ChipOptimize {chip} info={offer} />{/if}
           </div>
+        {:else if panels.tab === "quantum"}
+          <div class="mt-3"><ChipQuantum {chip} /></div>
         {:else}
         <div class="mt-1 flex flex-wrap items-center gap-2">
           {#if editor.sim}

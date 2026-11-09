@@ -66,6 +66,10 @@ pub fn rules() -> Vec<(&'static str, Rule)> {
     rules.extend(nonlinear_guides::rules());
     rules.extend(nonlinear_kerr::rules());
     rules.extend(nonlinear_cavities::rules());
+    rules.extend(quantum::rules());
+    rules.extend(quantum_light::rules());
+    rules.extend(quantum_real::rules());
+    rules.extend(rcwa::rules());
     rules
 }
 
@@ -960,7 +964,7 @@ pub fn cases() -> Vec<Case> {
             id: "fdfd/pml-reflection",
             title: "2D FDFD: what a 20-cell PML graded to $R = 10^{-8}$ ($m = 3$) sends back of a plane wave 17 degrees off its normal, in oxide on a 20 nm grid, both polarizations (largest amplitude shown)",
             tier: Tier::Analytic,
-            source: "W. Shin, S. Fan, J. Comput. Phys. 231, 3406 (2012), doi:10.1016/j.jcp.2012.01.013, Eqs. 2.7-2.9: graded for $R = 10^{-8}$ in vacuum at normal incidence; in oxide 17 degrees off, the round trip absorbs to $(10^{-8})^{1.38}$, an amplitude of 3e-6; measured 2.5e-6",
+            source: "W. Shin, S. Fan, J. Comput. Phys. 231, 3406 (2012), doi:10.1016/j.jcp.2012.01.013, Eqs. 2.7-2.9: graded for $R = 10^{-8}$, the round trip's amplitude in vacuum at normal incidence; in oxide 17 degrees off, the graded layer itself keeps $(10^{-8})^{1.38}$ of the amplitude, about 1e-11; measured 2.5e-6, the 20-cell layer's own reflection, which falls as the fourth power of the cell count",
             run: fdfd_pml_reflection,
         },
         Case {
@@ -1156,7 +1160,7 @@ pub fn cases() -> Vec<Case> {
             id: "fdfd3d/pml-reflection",
             title: "3D FDFD: what a 20-cell PML graded to $R = 10^{-8}$ ($m = 3$) sends back of a plane wave 17 degrees off its normal in a plane 30 degrees from $x$, in oxide on a 20 nm grid, both polarizations (largest amplitude shown)",
             tier: Tier::Analytic,
-            source: "W. Shin, S. Fan, J. Comput. Phys. 231, 3406 (2012), doi:10.1016/j.jcp.2012.01.013, Eqs. 2.5-2.9: graded for $R = 10^{-8}$ in vacuum at normal incidence; in oxide 17 degrees off, the round trip absorbs to $(10^{-8})^{1.38}$, an amplitude of 3e-6; measured 2.5e-6, as in 2D",
+            source: "W. Shin, S. Fan, J. Comput. Phys. 231, 3406 (2012), doi:10.1016/j.jcp.2012.01.013, Eqs. 2.5-2.9: graded for $R = 10^{-8}$, the round trip's amplitude in vacuum at normal incidence; in oxide 17 degrees off, the graded layer itself keeps $(10^{-8})^{1.38}$ of the amplitude, about 1e-11; measured 2.5e-6, as in 2D: the 20-cell layer's own reflection",
             run: fdfd3d_pml_reflection,
         },
         Case {
@@ -2258,6 +2262,16 @@ pub fn cases() -> Vec<Case> {
     cases.extend(crate::device::cut_checks::cases());
     // and S over wavelength from a few solves, one set of samples for every entry
     cases.extend(crate::eme::spectrum_checks::cases());
+    // and FDFD's S over wavelength the same way, through a job's [task.interpolate]
+    cases.extend(crate::job::fdfd_cases());
+    // and a modes job's effective indices, the modes followed through a crossing
+    cases.extend(crate::job::modes_cases());
+    // and periodic sections: Bloch modes from one period's S, N periods by repeated squaring
+    cases.extend(crate::eme::periodic_checks::cases());
+    // and bends by the conformal map, against the exact bent slab
+    cases.extend(crate::eme::bend_checks::cases());
+    // and a beam launched on the modes: tilted Gaussians against Fresnel's and Airy's spectra
+    cases.extend(crate::eme::beam_checks::cases());
     // and convergence to a tolerance: the mode solver, FDFD and the expansion driven to one
     cases.extend(crate::convergence::checks::cases());
     // and the thin-film lithium niobate Mach-Zehnder modulator as a device
@@ -2291,6 +2305,12 @@ pub fn cases() -> Vec<Case> {
     cases.extend(crate::nonlinear::absorption_checks::cases());
     // and resonant processes: SHG and FWM in rings, heralding through filters, OPOs
     cases.extend(crate::nonlinear::cavity_checks::cases());
+    // and the linear-optical statistics of photons through a circuit's S-matrix (0.6.3, Q1)
+    cases.extend(crate::quantum::checks::cases());
+    cases.extend(crate::quantum::light_checks::cases());
+    cases.extend(crate::quantum::real_checks::cases());
+    // and rigorous coupled-wave analysis: lamellar gratings, Li's rules, the static limit
+    cases.extend(crate::mode::rcwa_checks::cases());
     cases
 }
 
@@ -4037,7 +4057,7 @@ fn fdfd3d_pml_reflection() -> Outcome {
     Outcome {
         measured: worst,
         expected: 0.0,
-        // as in 2D: the round trip keeps (1e-8)^1.38 of the power, an amplitude of 3e-6
+        // as in 2D: the 20-cell layer's own reflection, 2.5e-6; the grading itself keeps about 1e-11
         tolerance: 1e-5,
         error: worst,
     }
@@ -4101,8 +4121,8 @@ fn fdfd_pml_reflection() -> Outcome {
     Outcome {
         measured: worst,
         expected: 0.0,
-        // in oxide at 17 degrees the wave crosses the PML 1.38 times as fast as in vacuum, so its
-        // round trip keeps (1e-8)^1.38 of the power: an amplitude of 3e-6
+        // what comes back is the 20-cell layer's own reflection, 2.5e-6, set by the cell count; the
+        // grading itself keeps (1e-8)^1.38 of the amplitude, about 1e-11 (fdfd::tests)
         tolerance: 1e-5,
         error: worst,
     }
@@ -5372,6 +5392,10 @@ mod nonlinear_guides;
 mod nonlinear_kerr;
 mod pcm;
 mod pcm_conformal;
+mod quantum;
+mod quantum_light;
+mod quantum_real;
+mod rcwa;
 mod roughness;
 mod sweep;
 #[cfg(feature = "gpu")]

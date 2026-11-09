@@ -1,7 +1,9 @@
 //! The rules (#544) of eigenmode expansion's cases (#432): the one-mode step and the uniform
 //! media's step against closed forms, a lossless structure's reciprocity and power at round-off,
 //! and a stepped taper against 2D FDFD with the expansion's own convergence in its number of
-//! modes.
+//! modes; periodic sections' Bloch modes against the two-layer closed form and N periods by
+//! repeated squaring at round-off; bends against the exact bent slab within our own error, two
+//! bends against one at round-off.
 
 use super::{Basis::*, Measure::*, Numerical::*, Rule};
 
@@ -134,6 +136,66 @@ pub(crate) fn rules() -> Vec<(&'static str, Rule)> {
                 "the bound the entries' estimates give a column's power: a ratio of at most 1 wherever they bound the entries' errors",
             )
             .varying(),
+        ),
+        (
+            "eme/bloch-quarter-wave",
+            Rule::new(
+                Absolute,
+                RoundOff,
+                1e-12,
+                Exact,
+                "an exact identity for one uniform mode a layer: round-off over a 2 × 2 eigenproblem and two Fresnel steps, 1e-12 as eme/step-fresnel-te",
+            ),
+        ),
+        (
+            "eme/bloch-quarter-wave-modes",
+            Rule::new(
+                Absolute,
+                RoundOff,
+                1e-12,
+                Exact,
+                "as eme/bloch-quarter-wave, each mode its own stack: round-off, relative to the magnitude of cos KΛ where it is above 1 (an evanescent mode's grows as its decay per period)",
+            ),
+        ),
+        (
+            "eme/bloch-band-edges",
+            Rule::new(
+                Relative,
+                RoundOff,
+                1e-12,
+                Exact,
+                "bisection to neighbouring floats on a function at round-off whose slope at the edges is about 1: round-off, 1e-12",
+            ),
+        ),
+        (
+            "eme/grating-squaring",
+            Rule::new(
+                Absolute,
+                RoundOff,
+                1e-12,
+                Exact,
+                "the same star products in another order: round-off, 1e-12 as eme/lossless-reciprocity",
+            ),
+        ),
+        (
+            "eme/bloch-grating-lossless",
+            Rule::new(
+                Absolute,
+                RoundOff,
+                1e-12,
+                Exact,
+                "power conserved at each interface for any number of modes in a closed window, so a propagating Bloch mode keeps its λ on the unit circle: round-off, 1e-12 as eme/lossless-power",
+            ),
+        ),
+        (
+            "eme/bloch-grating-pml-order",
+            Rule::new(
+                Absolute,
+                Order,
+                0.1,
+                Measured,
+                "a weak PML's first order in its strength, within 0.1 as eme/taper-steps-order: 1.00 with 20 and 40 modes at 0.0125 and 0.00625, 0.90 and 1.06 between 0.2 and 0.1, where the next order shows",
+            ),
         ),
         (
             "eme/3d-orthonormal",
@@ -313,6 +375,136 @@ pub(crate) fn rules() -> Vec<(&'static str, Rule)> {
                 1e-10,
                 Exact,
                 "with every mode the interfaces are exact: round-off, 1e-10 as eme/3d-orthonormal",
+            ),
+        ),
+        (
+            "eme/3d-drawing-extruded",
+            Rule::new(
+                Absolute,
+                RoundOff,
+                1e-10,
+                Exact,
+                "the same planes as eme/3d-cut-extruded's, the job's S copied from the library's: round-off, 1e-10 as eme/3d-orthonormal",
+            ),
+        ),
+        (
+            "eme/3d-drawing-taper",
+            Rule::new(
+                Absolute,
+                RoundOff,
+                1e-10,
+                Exact,
+                "the same 33 planes over the same lengths: round-off, 1e-10 as eme/3d-orthonormal",
+            ),
+        ),
+        (
+            "eme/3d-drawing-gds",
+            Rule::new(
+                Absolute,
+                RoundOff,
+                1e-10,
+                Exact,
+                "the same strips from whole nanometres, so the same planes as eme/3d-drawing-extruded's: round-off, 1e-10 as eme/3d-orthonormal",
+            ),
+        ),
+        (
+            "eme/bend-index",
+            Rule::new(
+                Absolute,
+                Discretisation,
+                7e-10,
+                Noted,
+                "three times our own error, rounded up: the largest of Richardson's limit's change to the next halving's (2.2e-10, TM at 2 µm), its change with a PML twice as strong (2.2e-10) and the exact bend's own (its Runge–Kutta steps' and its inner start's, 1.9e-11)",
+            ),
+        ),
+        (
+            "eme/bend-loss",
+            Rule::new(
+                Absolute,
+                Discretisation,
+                9e-5,
+                Noted,
+                "three times our own error relative to the loss, rounded up: the largest, a PML twice as strong moving Im n_eff by 7.8e-12 of 2.9e-7 (TM at 5 µm), which is the error measured",
+            ),
+        ),
+        (
+            "eme/bend-order",
+            Rule::new(
+                Absolute,
+                Order,
+                0.1,
+                Measured,
+                "the midpoint staircase's second order, within 0.1 as eme/taper-steps-order",
+            ),
+        ),
+        (
+            "eme/bend-halves",
+            Rule::new(
+                Absolute,
+                RoundOff,
+                1e-12,
+                Exact,
+                "a joint between a section's own modes is the identity to round-off: 1e-12 as eme/grating-squaring",
+            ),
+        ),
+        (
+            "eme/bend-no-angle",
+            Rule::new(
+                Absolute,
+                Discretisation,
+                1e-4,
+                Measured,
+                "the truncation of two bases, which falls with the modes: the expansion's mode-count gate, 1e-4 as eme/taper-modes",
+            ),
+        ),
+        (
+            "eme/bend-joint",
+            Rule::new(
+                Absolute,
+                Discretisation,
+                4e-9,
+                Noted,
+                "three times our own error, rounded up: the exact field's Runge–Kutta steps' (1.3e-9 at 2 µm TE, from steps twice as long), above the staircase's limit's change to the next halving's (3.4e-12) and the departure's change with a PML twice as strong (6.1e-14)",
+            ),
+        ),
+        (
+            "eme/bend-joint-leaky",
+            Rule::new(
+                Absolute,
+                Discretisation,
+                3e-9,
+                Noted,
+                "three times our own error, rounded up: the largest, TM at 2 µm, the staircase's limit's change to the next halving's and the departure's change with a PML twice as strong (both 6.9e-10), above the exact field's Runge–Kutta steps'",
+            ),
+        ),
+        (
+            "eme/beam-fresnel",
+            Rule::new(
+                Absolute,
+                RoundOff,
+                1e-12,
+                Exact,
+                "each mode is a plane wave at its own angle and meets the step with Fresnel's coefficient exactly (eme/step-fresnel-te), and the modes sample the beam's angular spectrum, whose sum and integral differ by its images in the walls, exp(-89) here: round-off, 1e-12 as eme/step-fresnel-te",
+            ),
+        ),
+        (
+            "eme/beam-film",
+            Rule::new(
+                Absolute,
+                RoundOff,
+                1e-12,
+                Exact,
+                "the same modes through two interfaces and the film's propagation, each mode on its own: round-off, 1e-12 as eme/beam-fresnel",
+            ),
+        ),
+        (
+            "eme/beam-slab-coupling",
+            Rule::new(
+                Relative,
+                RoundOff,
+                1e-12,
+                Exact,
+                "the expansion's fundamental mode is the exact slab's to exp(-q d) with the walls 15 µm from the core (q about 10 per µm), and both integrals are Gauss-Legendre sums to round-off: round-off, 1e-12",
             ),
         ),
     ]

@@ -65,12 +65,33 @@ pub(crate) fn slab_driver(tolerance: f64, budget: usize) -> ToTolerance {
 }
 
 /// The slab's TE index driven to 1e-5 from 20 nm, halving, Richardson at second order. (It
-/// reaches it at 0.625 nm, the sixth grid; the eigensolver doesn't converge at 0.156 nm, so 1e-6,
-/// which would need that grid, isn't asked.)
+/// reaches it at 0.625 nm, the sixth grid.)
 pub(crate) fn slab_driven() -> Refined {
     slab_driver(SLAB_TOLERANCE, 8)
         .grids(0.02, slab_te)
         .expect("the slab reaches 1e-5")
+}
+
+/// The tolerance of the slab driven on to its finest grids: its sixth decimal.
+pub(crate) const SLAB_FINE_TOLERANCE: f64 = 1e-6;
+
+/// The same driven to 1e-6, which takes the grids down to 0.156 nm, where a residual computed
+/// with the matrix has a rounding floor above the eigensolver's tolerance (slab_fd takes the
+/// shifted inverse's own residual there).
+pub(crate) fn slab_driven_fine() -> Refined {
+    slab_driver(SLAB_FINE_TOLERANCE, 9)
+        .grids(0.02, slab_te)
+        .expect("the slab reaches 1e-6")
+}
+
+fn slab_fine_tolerance() -> Outcome {
+    let (r, exact) = (slab_driven_fine(), slab_exact());
+    Outcome {
+        measured: r.value,
+        expected: exact,
+        tolerance: SLAB_FINE_TOLERANCE,
+        error: (r.value - exact).abs(),
+    }
 }
 
 /// Half of a slab `t` µm thick, its plane of symmetry at the lower wall, in a half-window 1.5
@@ -279,6 +300,13 @@ pub(crate) fn cases() -> Vec<Case> {
             run: slab_order,
         },
         Case {
+            id: "convergence/slab-tolerance-fine",
+            title: r"The same slab driven to 1e-6, which takes it on to the 0.156 nm grid (25 500 nodes), where a residual computed with the matrix has a rounding floor (2.7e-10) above the eigensolver's tolerance (1e-10) and slab_fd takes the shifted inverse's own: the value reported (shown) against the exact root",
+            tier: Tier::Analytic,
+            source: r"the slab's exact TE root by transfer matrices (mode::multilayer), 2.844816",
+            run: slab_fine_tolerance,
+        },
+        Case {
             id: "convergence/eme-taper-fdfd",
             title: r"A stepped taper (eme/taper-fdfd's: a silicon slab from 220 to 300 nm through 240, 260 and 280 nm, each 0.1 µm long, TE): its reflection $\lvert S_{11} \rvert^2$ by eigenmode expansion driven to 2e-4 relative, in its modes (25 to 200), its steps (3 and 6 sections of the steps) and together (shown), against FDFD driven to 2e-4 from 10 nm at second order",
             tier: Tier::CrossCode,
@@ -339,6 +367,23 @@ mod tests {
         let finest = r.values[r.values.len() - 1];
         assert!((finest - exact).abs() > 1e-6);
         assert!(error < 1e-9);
+    }
+
+    /// The slab driven to 1e-6, on to the grids where the residual with A can't certify a pair.
+    #[test]
+    fn a_slabs_index_is_driven_on_to_its_finest_grids() {
+        let (r, exact) = (slab_driven_fine(), slab_exact());
+        assert!(r.reached, "{}", r.reason);
+        eprintln!(
+            "grids {:?}, error {:e}, estimate {:?}, order {:?}, {}",
+            r.grids,
+            (r.value - exact).abs(),
+            r.error,
+            r.observed_order,
+            r.reason
+        );
+        assert!(r.grids.contains(&0.00015625), "{:?}", r.grids);
+        assert!((r.value - exact).abs() < SLAB_FINE_TOLERANCE);
     }
 
     /// The refusal names what it should, and a budget that's enough isn't refused.

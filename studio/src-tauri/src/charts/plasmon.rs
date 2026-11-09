@@ -1218,4 +1218,110 @@ mod tests {
         // a free-electron metal through gold at 650 nm resonates far to the blue of gold's
         assert!(fig(&data, "Drude fit's resonance") < 420.0);
     }
+
+    /// Hagen and Rubens's measured gold at Mie's wavelengths but 525 nm: R (Ann. Phys. 8, 1,
+    /// Tabelle 4, p. 17) and g = nκ (Ann. Phys. 8, 432, Tabelle 4, p. 447), n from their p. 453
+    /// formula n = a − √(a² − g² − 1), a = (1 + R)/(1 − R). At 420 and 450 nm the root is
+    /// imaginary; at 500 to 650 nm n is 1.22, 0.50, 0.41 and 0.41, Mie's curve 1.10, 0.57, 0.38
+    /// and 0.41. With the measured n and κ there, the series' median difference from his 70
+    /// numbers grows from 1.4 % to 2.9 %, and his 650 nm spheres of 20, 40 and 60 nm come out at
+    /// 7.1, 9.1 and 14.3 ‰, further below his 8.0, 11.3 and 16.4 than with his own gold.
+    #[test]
+    fn hagen_and_rubens_gold() {
+        let measured = [
+            (420.0, 0.293, 1.72),
+            (450.0, 0.331, 1.73),
+            (500.0, 0.470, 2.07),
+            (550.0, 0.740, 2.32),
+            (600.0, 0.844, 2.91),
+            (650.0, 0.889, 3.58),
+        ];
+        let index = |r: f64, g: f64| {
+            let a = (1.0 + r) / (1.0 - r);
+            let d = a * a - g * g - 1.0;
+            (d >= 0.0).then(|| a - d.sqrt())
+        };
+        let ns: Vec<Option<f64>> = measured.iter().map(|m| index(m.1, m.2)).collect();
+        assert!(ns[0].is_none() && ns[1].is_none());
+        for (n, want) in ns[2..].iter().zip([1.22, 0.50, 0.41, 0.41]) {
+            close(n.unwrap(), want, 0.005);
+        }
+        // gold relative to water: the measured index where there is one, else Mie's
+        let table = Mie::gold_in_water();
+        let eps: Vec<c64> = table
+            .iter()
+            .map(|g| {
+                let water = g.wavelength / g.in_water;
+                measured
+                    .iter()
+                    .zip(&ns)
+                    .find(|(m, n)| m.0 == g.wavelength && n.is_some())
+                    .map_or(g.permittivity, |(m, n)| {
+                        let m = c64::new(n.unwrap(), m.2);
+                        m * m / (water * water)
+                    })
+            })
+            .collect();
+        let extinction = |d: f64, k: usize| {
+            let g = table[k];
+            let mie = Mie::new(PI * d / g.in_water, Some(refractive_index(eps[k]))).unwrap();
+            per_mm(mie.extinction(), d)
+        };
+        let mut all = Vec::new();
+        for row in &MIE_TABLE {
+            for (k, m) in row.1.iter().enumerate() {
+                all.push(((extinction(row.0.max(FINEST), k) - m) / m).abs());
+            }
+        }
+        all.sort_by(f64::total_cmp);
+        close(all[all.len() / 2], 0.029, 0.0005);
+        for (d, want) in [(20.0, 7.1), (40.0, 9.1), (60.0, 14.3)] {
+            close(extinction(d, 6), want, 0.05);
+        }
+    }
+
+    /// Mie computed the absorption only at his Table I's sizes, α² = 0, 0.2, 0.4 … (at 650 nm
+    /// spheres 0, 69, 98 … nm across), and read his p. 438 numbers off curves drawn through them
+    /// against the diameter (p. 437). Between 0 and 69 nm the series' extinction bends upward,
+    /// so a curve flat at 0 through his point at α² = 0.2 (straight in α²) stands above it: with
+    /// the series' a₁ at α² = 0.2 it gives 7.9, 11.0 and 16.1 ‰ at 20, 40 and 60 nm, with his
+    /// (1.920 − 0.515i, Table I, p. 420; the series' 1.815 − 0.484i) 8.0, 11.4 and 17.0. His
+    /// 8.0, 11.3 and 16.4 lie on or between them; the series itself gives 7.4, 9.4 and 14.7.
+    #[test]
+    fn mies_650_nm_spheres_lie_on_his_curve() {
+        let g = Mie::gold_in_water()[6];
+        let index = refractive_index(g.permittivity);
+        // 𝔞₁ = a₁/2α³ in Mie's convention, and the extinction efficiency, at size x
+        let series = |x: f64| {
+            let mie = Mie::new(x, Some(index)).unwrap();
+            (
+                mie.mie_coefficients()[0].0 / (2.0 * x.powi(3)),
+                mie.extinction(),
+            )
+        };
+        // α → 0: (m′² − 1)/(m′² + 2), m′² in Mie's convention
+        let e = g.permittivity.conj();
+        let at_zero = (e - 1.0) / (e + 2.0);
+        let mies_own = c64::new(1.920, -0.515);
+        close(series(0.2_f64.sqrt()).0.re, 1.815, 0.0005);
+        close(series(0.2_f64.sqrt()).0.im, -0.484, 0.0005);
+        // the extinction with a₁ taken from a straight line in α² through 0 and `at_02`: a₁'s
+        // share of it is −4α Im 𝔞₁
+        let on_line = |d: f64, at_02: c64| {
+            let x = PI * d / g.in_water;
+            let (frak, q) = series(x);
+            let line = at_zero + (at_02 - at_zero) * (x * x / 0.2);
+            per_mm(q + 4.0 * x * (frak.im - line.im), d)
+        };
+        let at_02 = series(0.2_f64.sqrt()).0;
+        for (d, own, his, ours) in [
+            (20.0, 7.9, 8.0, 7.4),
+            (40.0, 11.0, 11.4, 9.4),
+            (60.0, 16.1, 17.0, 14.7),
+        ] {
+            close(on_line(d, at_02), own, 0.05);
+            close(on_line(d, mies_own), his, 0.05);
+            close(per_mm(series(PI * d / g.in_water).1, d), ours, 0.05);
+        }
+    }
 }

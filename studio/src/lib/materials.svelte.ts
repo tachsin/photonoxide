@@ -13,6 +13,8 @@ export const materials = $state({
 
 /** What the page shows in place of a material: the nonlinear processes' view (components/nonlinear). */
 export const NONLINEAR = "#nonlinear";
+/** What the page shows in place of a material: the photon-pair source designer (components/sources). */
+export const PAIR_SOURCES = "#pair-sources";
 
 let loading: Promise<void> | null = null;
 
@@ -37,4 +39,5 @@ export const CATEGORIES: [MaterialEntry["category"], string][] = [
   ["semiconductor", "Semiconductors"],
   ["nonlinear-crystal", "Nonlinear crystals"],
   ["phase-change", "Phase-change materials"],
+  ["superconductor", "Superconducting films"],
 ];

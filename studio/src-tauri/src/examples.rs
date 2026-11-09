@@ -505,9 +505,19 @@ pub fn jobs() -> Vec<JobExample> {
             include_str!("../../../jobs/eme-mmi-3d.yaml"),
         ),
         (
+            "eme-taper-drawn-3d.yaml",
+            include_str!("../../../jobs/eme-taper-drawn-3d.yaml"),
+        ),
+        (
             "eme-mmi-sweep.yaml",
             include_str!("../../../jobs/eme-mmi-sweep.yaml"),
         ),
+        (
+            "eme-grating.yaml",
+            include_str!("../../../jobs/eme-grating.yaml"),
+        ),
+        ("eme-bend.yaml", include_str!("../../../jobs/eme-bend.yaml")),
+        ("eme-beam.yaml", include_str!("../../../jobs/eme-beam.yaml")),
         (
             "ring-pareto.yaml",
             include_str!("../../../jobs/ring-pareto.yaml"),

@@ -808,6 +808,21 @@ export interface NonlinearSetup {
   temperature_acceptance_k: Accepted | null;
   matched_um: number | null;
   notes: string[];
+  /** The guide closed into a ring resonant at every wave ([task.ring]); absent in older records. */
+  ring?: RingResonance | null;
+}
+
+/** A process in an all-pass ring resonant at every wave (photonoxide::job::RingResonance). */
+export interface RingResonance {
+  couplings: number[];
+  build_ups: number[];
+  quantity: string;
+  /** "mW", or "P_i/P_s" (a ratio). */
+  unit: string;
+  resonant: number;
+  single_pass: number;
+  enhancement: number;
+  kerr_detuning: number | null;
 }
 
 /** A nonlinear job's phase-matching map (photonoxide::job::PhaseMap): rows across, columns in wavelength. */
@@ -837,12 +852,67 @@ export interface PairSpectrum {
   matching: string;
 }
 
+/** A section of an "eme" job's structure, in order along it (photonoxide::job::EmeSection). */
+export interface EmeSection {
+  name: string;
+  /** "straight", "taper", "bend", or "cut" for a plane cut from a device or a drawing. */
+  kind: string;
+  /** Where it starts along the structure, µm: a period's section at its first period's place. */
+  start_um: number;
+  /** Its length, µm; a bend's along the arc at the window's middle. */
+  length_um: number;
+  /** The cross-sections it is solved in at the job's own settings. */
+  steps: number;
+  radius_um: number | null;
+  angle_deg: number | null;
+  /** How many times it is repeated: a period's count, 1 otherwise. */
+  repeats: number;
+}
+
+/** An eme job's [task.beam] at one wavelength: the shares of the beam's power reflected, passed and in each guided mode at the last end. */
+export interface EmeBeam {
+  type: "eme_beam";
+  wavelength_um: number;
+  reflected: number;
+  transmitted: number;
+  ports: string[];
+  shares: number[];
+}
+
+/** A nonlinear job's [task.pulse]: a pulse at the guide's end against itself at the start (photonoxide::job::PulsePropagation). */
+export interface PulsePropagation {
+  label: string;
+  wavelength_um: number;
+  length_mm: number;
+  steps: number;
+  times_ps: number[];
+  power_in_w: number[];
+  power_out_w: number[];
+  phase_rad: number[];
+  /** Ω/2π from the carrier, THz, increasing. */
+  frequencies_thz: number[];
+  spectrum_in: number[];
+  spectrum_out: number[];
+  peak_power_w: [number, number];
+  energy_pj: [number, number];
+  rms_bandwidth_thz: [number, number];
+  notes: string[];
+}
+
 export type Event =
   | { type: "started"; job: string; kind: string }
+  | { type: "nonlinear_pulse"; pulse: PulsePropagation }
   | { type: "nonlinear_setup"; setup: NonlinearSetup }
   | { type: "phase_map"; map: PhaseMap }
   | { type: "nonlinear_efficiency"; curve: EfficiencyCurve }
   | { type: "pair_spectrum"; spectrum: PairSpectrum }
+  | { type: "quantum_statistics"; statistics: QuantumStatistics }
+  | { type: "quantum_samples"; samples: QuantumSamples }
+  | { type: "quantum_dip"; dip: QuantumDip }
+  | { type: "quantum_budget"; budget: QuantumBudget }
+  | { type: "quantum_squeezed"; squeezed: QuantumSqueezed }
+  | { type: "eme_sections"; sections: EmeSection[] }
+  | EmeBeam
   | ChipEvent
   | ChipStudy
   | ChipPoint
@@ -889,4 +959,56 @@ export type Event =
 
 export function modeKind(m: Mode): string {
   return m.te_fraction > 0.5 ? "TE-like" : "TM-like";
+}
+
+// A "quantum" job's records (photonoxide::job::quantum): photons through a chip.
+
+/** Every pattern at the ports for photons alike and told apart (photonoxide::job::QuantumStatistics). */
+export interface QuantumStatistics {
+  wavelength_um: number;
+  ports: string[];
+  input: number[];
+  loss_modes: number;
+  patterns: { occupations: number[]; probability: [number, number] }[];
+  all_arrive: [number, number];
+  bunching: [number, number];
+  means: [number, number][];
+}
+
+/** Samples against the exact distribution (photonoxide::job::QuantumSamples). */
+export interface QuantumSamples {
+  samples: number;
+  seed: number;
+  counts: { occupations: number[]; count: number }[];
+  distance: number;
+  expected: number;
+}
+
+/** A Hong–Ou–Mandel dip through the chip (photonoxide::job::QuantumDip). */
+export interface QuantumDip {
+  inputs: [string, string];
+  outputs: [string, string];
+  delays_ps: number[];
+  coincidences: number[];
+  distinguishable: number;
+  visibility: number;
+}
+
+/** Each photon's best route and the published thresholds (photonoxide::job::QuantumBudget). */
+export interface QuantumBudget {
+  wavelength_um: number;
+  legs: { from: string; to: string; routes: number; through: string[]; stages: { name: string; transmission: number; source: string }[]; transmission: number }[];
+  event: number;
+  thresholds: { name: string; transmission: number; assumptions: string }[];
+}
+
+/** Squeezed light through the chip (photonoxide::job::QuantumSqueezed). */
+export interface QuantumSqueezed {
+  wavelength_um: number;
+  ports: string[];
+  given_db: number[];
+  squeezed_db: number[];
+  anti_squeezed_db: number[];
+  mean_photons: number[];
+  purity: number;
 }

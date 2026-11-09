@@ -31,6 +31,7 @@ mod references;
 mod runner;
 mod settings;
 mod setup;
+mod sources;
 mod studio;
 mod tasks;
 mod watch;

@@ -82,6 +82,20 @@ in a drawer opened from the status bar.
     `studio/src-tauri/src/papers/journals.json`. Filtered by topic: integrated photonics,
     nonlinear, quantum, metasurfaces, lasers, modulators and fabrication, a paper in each topic
     whose title or abstract holds one of its words (`TOPICS` in `studio/src-tauri/src/papers.rs`).
+  - **The journal picker:** the feed's button with the sources' count opens a box for each
+    journal and arXiv, with All and None. The choice is kept in the settings and applies at once:
+    the feed shows only the sources chosen, and only those are asked. A source turned on that was
+    never asked is asked on its own a moment later; a journal added to the data file later starts
+    on. With none chosen, the feed says so and offers to show all again.
+  - **Images:** each paper in the feed has its journal's initials on the journal's own tint, drawn
+    by the window. With Settings › Papers › Images in the feed on (it is off at first), an arXiv
+    preprint shows its first figure instead: for each preprint on screen, the studio asks
+    arxiv.org for the first 256 kB of the preprint's HTML version and then for its first PNG,
+    JPEG, GIF or WebP figure, at most 1.5 MB, the two requests at least 15 s apart, as arxiv.org's
+    robots.txt asks. Nothing else is contacted: Crossref and arXiv's listing carry no images, and
+    the journals' own pages either block programs or carry no picture of the paper. The figures
+    are kept in the studio's local data folder for 30 days, at most 32 MB, oldest first out;
+    Settings shows how much is kept and removes it.
   - **When it checks:** as soon as photonoxide opens and every four hours while it stays open
     (half an hour after a check that failed), one request to each source, never while it is
     closed; Settings › Papers turns it off and says when it last checked. The requests carry the
@@ -182,6 +196,13 @@ in a drawer opened from the status bar.
     resonances come in a table with their Q. The side panel has the time, the steps, the field
     left against the stopping rule, the speed and the frames' share of the run's time; the 3D
     view paints the frame shown on its plane.
+  - **An eme run** (eigenmode expansion, 2D or 3D) opens on the 2D view: its sections along
+    the structure as a strip to scale (straights, tapers, bends and a device's cut planes each
+    in their own colour, a period dashed with its count) with a table of each one's start,
+    length and steps; its S-parameters over wavelength between the guided modes, by the ports'
+    names, in power or dB, an interpolated sweep's solved wavelengths marked and its estimated
+    error beside; and each convergence study's values against its modes, steps or bends' layers,
+    with its verdict. All of it is what the run recorded.
   - **Fabrication** (beside 3D and 2D, for a run of a design: a device's job, or a structure
     task's layers and shapes): how the run's design would be made, from the bare wafer, with
     the Fabrication page's own 2D and 3D views and timeline (the same component), the step shown
@@ -428,6 +449,57 @@ in a drawer opened from the status bar.
     (the largest singular value) and unitarity (the largest |SᴴS − I|, zero when nothing is
     lost). The results follow the chip: a change simulates it again. **Touchstone** saves the
     circuit's spectrum as a `.sNp` file, in photonoxide's e^(−iωt) convention.
+  - **Quantum**, beside Study and Optimize: photons through the chip, computed by
+    `photonoxide::quantum` (docs/methods/quantum.md) a moment after the chip or the form
+    changes. Every external port takes photons in and lets them out; a lossy chip's loss is
+    dilated to loss modes, which the lost photons leave by. Five parts (Left and Right move
+    between them):
+    - **Photons:** photons on each port (+ and −, up to 8 in all) at a wavelength of the sweep.
+      The output patterns where every photon arrives, most likely first (the first 40, the rest
+      summed), as bars for photons alike (|Per|²) and told apart (permanents of |S|²); the
+      probability that every photon arrives and that a port holds two or more (bunching); each
+      port's mean photon number and P(0), P(1), P(≥2); and |S| between the ports, its phase on
+      hover. Up to 16 ports and 100 000 patterns over the ports and loss modes; beyond, it says
+      how many there would be.
+    - **Sampling:** the Photons part's photons sampled live by the library's exact sampler
+      (`Transfer::sample`, Clifford and Clifford's algorithm B), batch after batch, each batch
+      with a seed of its own and a hard limit of 1 s, the run stopped at the samples asked for,
+      its time limit or **Stop**. Against the exact distribution: the total variation distance
+      against N on log–log axes beside what a correct sampler reaches,
+      ½ Σ √(2p(1 − p)/(πN)), the most likely patterns' exact and sampled shares, and any
+      pattern sampled that the exact distribution gives no weight. A change of the chip, the
+      photons or the wavelength starts again.
+    - **HOM dip:** photon 1 into a port, delayed, photon 2 into another (Gaussian spectra, a
+      centre and a width each), the coincidences between two ports against the delay through
+      the chip's own S(ω) over its sweep, with the visibility, the deepest delay and the level of
+      photons told apart. The delays span four times the photons' coherence unless a span is
+      given. It refuses a photon narrower than 4 of the sweep's steps and delays beyond π over
+      the sweep's largest angular step, which alias, and notes a photon whose spectrum runs past
+      the sweep's ends.
+    - **Loss budget:** photons each from a port to another along a route through the chip:
+      the paths that cross no instance twice, each hop carrying power
+      (`photonoxide::quantum::routes`), the one that keeps the most unless another is chosen. The
+      route's budget is a waterfall, stage by stage in dB (each instance's |S|² at its fidelity,
+      with its provenance on hover, and a source's and a detector's efficiency as stated), with
+      Varnava et al.'s and Bartolucci et al.'s thresholds on a photon's transmission as lines,
+      their assumptions on hover; beside it, the n-photon event and the chip's own |S|² between
+      the two ports, which holds every route's interference.
+    - **Squeezed light:** squeezed vacuum on chosen ports (its squeezing in dB, at the angle φ of
+      ξ = r e^(iφ)), each then displaced by α, the vacuum on the rest, through the chip's own
+      S-matrix with its loss as vacuum noise (`photonoxide::quantum::Gaussian`). Each port's
+      squeezing given and, for the light that leaves it, its squeezed and anti-squeezed
+      quadratures in dB, the angle squeezed most and ⟨n⟩; the whole state's purity and the loss
+      modes; one port's photon numbers P(0) to P(30) by hafnians, with what lies beyond; its
+      Wigner function on a grid; and the covariance of every quadrature. Up to 20 dB and |α| ≤ 5
+      a port; with no port given anything, it says what to do.
+    - **Run as a job:** every part's forms as they stand, written as a `"quantum"` task beside
+      the chip's `[circuit]` (`photonoxide::job`): the photons and 10 000 samples of them, the
+      dip over the chip's sweep, the budget's photons on their best routes and the squeezed
+      light. The run is kept in the runs drawer, its record holds the same numbers the parts
+      compute in place, and the run view draws them; `photonoxide run` runs the same file.
+    - Refused, with the library's reason: a chip with gain (it can't be dilated with vacuum), a
+      port that isn't one, a wavelength outside the sweep; an incomplete chip waits until it is
+      finished.
   - Keys: Delete removes the selection, R rotates it (Shift+R the other way), M mirrors it top
     to bottom, Ctrl+Z and Ctrl+Y undo and redo, Ctrl+S saves to the workspace's `circuits/`,
     Escape lets go.
@@ -509,6 +581,48 @@ in a drawer opened from the status bar.
     sources, faint where no paper in hand gives one, two-photon absorption below twice the band
     edge's wavelength, the range of the index data), at a temperature and the alloys'
     compositions, the process's wavelengths marked on top.
+  - **Photon-pair sources**, under it: the source designer. A source's pairs computed a moment
+    after the form changes, by `photonoxide::nonlinear::pairs` and `photonoxide::quantum`
+    (docs/methods/quantum.md). The Chip page's Quantum tab leads here with **Pair sources →**.
+    - **The source:** a guide given by each wave's group index and dispersion at its centre,
+      phase matched at the centres, for down-conversion or four-wave mixing; a catalogue
+      crystal, each wave on an axis, poled for the centres (its period stated); a ring on a
+      bus, the pump on the resonance nearest its wavelength and the pairs a number of free
+      spectral ranges either side (its linewidths, Q and free spectral range stated); or a
+      guide pumped in two modes, one pump delayed (where the pumps meet stated). With the
+      pump's centre and bandwidth, the signal's wavelength, the grid, and the mean number of
+      pairs per pulse. A few starting points: a correlated guide and a group-velocity matched
+      one, type-II PPLN, Helt et al.'s ring, a ring whose pump resonance a second channel widens,
+      and two pumps in two modes.
+    - **What it shows:** the joint spectral amplitude |f| and intensity |f|² as maps (against
+      the photons' wavelengths, or their detunings in GHz for a ring); the Schmidt weights as
+      bars with the purity, the Schmidt number and the modes above 10⁻⁶; the brightness where
+      the library defines one (down-conversion: pairs/(s·GHz·mW) at the signal's centre, as the
+      nonlinear job gives it, and pairs/(s·mW) over the grid for a continuous pump); the
+      heralding efficiencies through each arm's ring filter (its drop port) and coupler (its
+      cross port), from their S-matrices, without and with each detector's efficiency, and the
+      heralded photons' purity; and the pairs per pulse: P(0) to P(5), the share of pulses with
+      a pair that hold more, and the unheralded g⁽²⁾.
+    - **Limits:** 11 to 301 points across each axis (an SVD of 301 × 301 stays live), a grid
+      at most 15% of the photons' frequencies either side, up to 1 pair per pulse (the Schmidt
+      modes are the low-gain ones: above 0.1 it says the gain may reshape them). It says when
+      the amplitude is still above 1% of its peak at the grid's edge, or above half its peak on
+      fewer than 3 points, since the purity is then the grid's; every refusal gives its numbers.
+    - **Squeezing at high gain**, under it, for a guide or a crystal: the source cut into
+      slices along its length, each slice coupling the photons by the pump's amplitude and the
+      device's own phase mismatch there (`photonoxide::quantum::Broadband`), against the
+      Schmidt model, whose modes stay the low-gain ones, squeezed by g√λ_k. Given the gain g,
+      the slices and the points, a moment after any change it draws each pair of modes'
+      squeezing in dB both ways, the signal's photons and the effective number of modes both
+      ways, the first two signal modes' shapes with how far the gain has moved each from its
+      Schmidt mode, the first squeezing's change from half the slices (the slicing's error) and
+      the map's symplectic error. The slices are the device's sinc even when the maps above
+      draw its Gaussian stand-in, and it says so; for four-wave mixing it says that the pump's
+      self- and cross-phase modulation are left out. Up to g = 5, 2 to 200 slices (an even
+      number) and 11 to 101 points (a map of (2 × points)² entries per slice); it says when the
+      first squeezing moves by more than 1% from half the slices, or the first mode's amplitude
+      is still above 1% of its peak at the grid's edge. A ring and two pumps in two modes aren't
+      sliced: a ring's pairs are its resonances', and two pumps' overlap changes along the guide.
 - **Validation** (in System), in two tabs:
   - **Cases:** the release's report, searchable, its math rendered, and the same report run on
     this machine.
@@ -901,6 +1015,19 @@ PHOTONOXIDE_SETUP_PAYLOAD=target/dist/photonoxide.exe cargo build -p photonoxide
 It writes `target/dist/photonoxide-setup.exe`. Without `PHOTONOXIDE_SETUP_PAYLOAD` it builds
 without the program, as the lints do, and says so when run.
 
+On Windows, a test runs that real setup silently (`/S /D=<folder>`) into a temporary folder,
+then the installed program's quiet uninstall, and checks that nothing is left. With
+`PHOTONOXIDE_SETUP_TEST_ROOT` set, the program puts the shortcuts, the settings' folders and
+the Apps & Features entry under that folder and registry keys of the tests' own, so the test
+leaves an installed studio alone. It needs a built program, so it is ignored: CI's builds of
+the setup carry no payload, and on Linux and macOS the test isn't compiled at all. Run it by
+hand on Windows:
+
+```sh
+pnpm tauri build --no-bundle      # or any build of the program, target/debug/photonoxide.exe too
+PHOTONOXIDE_SETUP_PAYLOAD=target/release/photonoxide.exe cargo test -p photonoxide-setup --release --test real_setup -- --ignored
+```
+
 Build with the Tauri CLI, never with plain `cargo build`. Plain cargo leaves out the bundled
 window, so the window points at a dev server that isn't running. `pnpm tauri dev` serves the
 window from Vite and reloads it as you edit.
@@ -941,7 +1068,10 @@ node scripts/record-gifs.mjs --only hero,academy  # some: hero, device, material
   - `examples.rs`: the examples and jobs built in.
   - `settings.rs`: the settings and the workspace.
   - `materials.rs`: the Materials page's commands; `nonlinear.rs` its nonlinear view's (a
-    `"nonlinear"` job computed in place, and every material's transparency window).
+    `"nonlinear"` job computed in place, and every material's transparency window);
+    `sources.rs` its source designer's (a photon-pair source, computed by
+    `photonoxide::nonlinear::pairs` and `photonoxide::quantum`), and `sources/squeezing.rs`
+    a guide's or a crystal's squeezing at high gain (`quantum::Broadband`).
   - `circuits.rs`: the Components and Chip pages' commands, and chip files; `circuits/chip.rs`
     an instance's device design and the chip's jobs (the library's chip of a chip file, the
     Study and Optimize panels' jobs, a chip's job opened on the page); `circuits/library.rs`

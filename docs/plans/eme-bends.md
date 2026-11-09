@@ -1,7 +1,14 @@
 # Bends and periodic sections in eigenmode expansion: a plan
 
-*A plan, 2026-11-06, for the next phase of #432. Nothing of it is built yet. Periodic sections
-([section 5](#5-periodic-sections)) come first: their check is a closed form at round-off.*
+*A plan, 2026-11-06, for the next phase of #432. Periodic sections ([section 5](#5-periodic-sections))
+are built (2026-11-06): `Eme::bloch` and `Eme::grating` in 2D and 3D, the job's `[task.period]`,
+its three checks at round-off ([the method page](../methods/eme.md#periodic-sections)). The
+bends (sections 2 to 4) are built too (2026-11-06): `Slice::bent`, `Section::bend`, the job's
+`radius_um` and `angle_deg`, six cases ([the method page](../methods/eme.md#bends)). Where it went
+otherwise than planned: the joint is taken in the physical coordinate exactly, not with u = x;
+the PML is the mapped profile's analytic continuation; the thin layers' counts are powers of two,
+so that the staircases nest; and the exact bend's inner start had to go deeper (12 decay lengths,
+from 6) for the comparison to hold below 5e-9.*
 
 A bend is a section whose cross-section is uniform along an arc instead of a line. Eigenmode
 expansion needs two things from it: the modes of the bent section with their propagation
@@ -78,4 +85,6 @@ Checks, all at round-off:
    sequence.
 
 Then a slab grating (a corrugated core) in a PML window, its Bloch modes' loss against the
-expansion of many periods.
+expansion of many periods. Not a case yet: the guided Bloch mode's loss below the light line,
+which should be 0, is the expansion's truncation error and not monotone in the modes (the
+method page's Limits), so many periods would measure that, not the Bloch modes.

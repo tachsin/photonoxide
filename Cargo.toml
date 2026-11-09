@@ -23,14 +23,14 @@ default-members = ["."]
 [workspace.package]
 # photonoxide's version, which every crate here has (the program, the native libraries' crate and
 # the Python package take it with version.workspace): release-plz bumps it here
-version = "0.6.2"
+version = "0.6.3"
 
 [dependencies]
 # without faer's `npy` default: nothing here reads .npy files, and it brought pest, whose newer
 # releases assemble and link .asm files (psm) at build time, against AGENTS.md's "nothing linked"
-faer = { version = "0.24.4", default-features = false, features = ["std", "rayon", "sparse-linalg", "rand"] }
+faer = { version = "0.24.4", default-features = false, features = ["std", "rayon", "sparse-linalg"] }
 # deflate for exported files (export::write_mode_npz's .npz, issue #431): default features build
-# on zlib-rs, a pure-Rust reimplementation, not a linked C zlib
+# on miniz_oxide, pure Rust, not a linked C zlib
 flate2 = "1.1"
 # the ZIP format's own checksum, for export's minimal ZIP writer (export::zip)
 crc32fast = "1.5"
@@ -48,8 +48,8 @@ rayon = "1.12.0"
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["float_roundtrip"] }
 toml = "1"
-yaml-rust2 = "0.13.0"
-# job files in YAML (run::Format): serde, YAML 1.2, pure Rust with no unsafe code
+# job files in YAML (run::Format) and refractiveindex.info's material files
+# (material::refractiveindex): serde, YAML 1.2, pure Rust with no unsafe code
 serde-saphyr = "2.0"
 # the job file's JSON Schema (job::schema), derived from the structs the tasks are read into so
 # the two can't drift: what editors complete and check a job with. MIT, pure Rust
@@ -75,12 +75,19 @@ private-gemm-x86 = "0.1.22"
 # examples in, depends on it too.
 [dev-dependencies]
 genoxide = { version = "0.13.1", default-features = false }
-# checks every built-in job against job::schema(): JSON Schema 2020-12, pure Rust, MIT OR Apache-2.0
+# checks every built-in job against job::schema(): JSON Schema 2020-12, pure Rust, MIT OR Apache-2.0.
+# It adds 39 of the 194 crates of the library's tests (regex, url, idna and the icu crates; 155
+# without it, cargo tree on Linux, November 2026), and stays here: the checks in job's tests
+# (schema.rs, short_tests.rs, tests.rs and results.rs) hold the schema against what the
+# library itself reads, checks and writes, through crate-internal helpers, so the library's own
+# tests catch a schema that drifts from serde's. Moved to the studio's tests they would catch it
+# only there, and a hand-written validator in their place would be a weaker ground truth.
 boon = "0.6.1"
 # export's own tests read the `.npz` its minimal ZIP writer (export::zip) made, with a real
-# parser as the ground truth for the container format; only `deflate` (flate2, pure Rust): no
+# parser as the ground truth for the container format; only `deflate-flate2` (reading, on
+# flate2's own pure-Rust backend): no
 # bzip2, lzma or zstd, which link C
-zip = { version = "4", default-features = false, features = ["deflate"] }
+zip = { version = "4", default-features = false, features = ["deflate-flate2"] }
 
 # the solvers' heavy lifting runs in dependencies (faer's sparse LU) and in photonoxide itself (FDFD
 # assembly, the mode solvers, QMR): optimize both in debug and test builds too, so `cargo test`

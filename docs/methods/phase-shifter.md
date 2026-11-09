@@ -151,6 +151,31 @@ warmed too; and the heater is 320 µm long, so heat spreading along the chip lea
 neighbour as far as the length, which is why the 135 µm gap is furthest off. Read as centre to
 centre instead, the 5 µm gap gives 0.317. The cases take the edge reading and 40 %.
 
+The same chip with strips at many gaps (an ignored test,
+`thermal::crosstalk_checks::tests::print_jacques_crosstalk_profile`, on the cases' coarser grid;
+a strip alone gives the same to 7 × 10⁻⁴) narrows what the gap can be. On the 725 µm substrate the
+share falls from 0.182 at 5 µm to 0.0582 at 15 µm, a ratio of 3.13, against the measured
+0.141/0.0435 = 3.24: the decay's shape agrees, its level is too high. Neither of the two effects
+above changes only the level:
+
+- **The chip's length.** A substrate as thin as the length over which heat spreads stands in for
+  it here. It lowers the share but steepens the decay: 0.173 and 0.0482 on 320 µm (ratio 3.60),
+  0.166 and 0.0396 on 160 µm (4.19), 0.153 and 0.0250 on 50 µm, and 0.139 and 0.0115 on the
+  paper's own 14 µm. Matching 0.141 at 5 µm puts 15 µm far below 0.0435.
+- **The victim's far arm.** Its share subtracts from the near arm's. To reach the measured, the
+  far arm would need 0.041 at 5 µm and 0.0147 at 15 µm. On the 725 µm substrate that is a strip
+  about 30 µm and about 300 µm from the heater, so no one arm spacing fits both. The same holds
+  for a gap measured from somewhere other than the N++ edge: matching both needs 1.6 µm more at
+  5 µm and 15 µm more at 15 µm.
+
+What does fit both is a factor: the measured are 0.774 and 0.747 of ours. The gap splits in two
+about equal parts. The heater's own phase: our section's Pπ is 26.09 mW (`shifter/jacques-npp`;
+the paper's own simulation 25.5 mW) against the measured 22.8 mW, so our s₁₁ is 14 % low. The
+victim's phase per mW: ours, 0.183 × π/26.09 mW = 0.0220 rad/mW at 5 µm and 0.0070 at 15 µm,
+is 14 % and 17 % above the measured 0.0194 and 0.0060 (Fig. 9(b)). The first part is the heater
+itself, which the paper's simulation misses too. The second is what the length and the far arm
+would remove, but their sizes need the layout: the gap stays open.
+
 **The deep trench** is air from the cladding's top through the silicon and the buried oxide into
 the substrate ("partially": 2 µm taken), 0.5 µm clear of the heater and the victim: it cuts the
 crosstalk at 5 µm by 3.48 (2 µm deep; 3.5 to 4.1 from 2 to 10 µm), against the measured 3.13.

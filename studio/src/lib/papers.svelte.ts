@@ -1,11 +1,14 @@
 // The paper engine's state in the window (papers.rs does the work): Home's feed, read from the
-// cache at once and refreshed behind it; the paper open on the Papers page and the way back; the
-// reading list. The feed's checks are silent: no toast, and after three failed checks in a row,
-// one quiet line in the feed.
+// cache at once and refreshed behind it; the journal picker; the preprints' figures, asked one at
+// a time for the rows on screen; the paper open on the Papers page and the way back; the reading
+// list. The feed's checks are silent: no toast, and after three failed checks in a row, one quiet
+// line in the feed.
+
+import { convertFileSrc } from "@tauri-apps/api/core";
 
 import { api } from "./api";
 import { app, go, toast, updateSettings } from "./app.svelte";
-import type { Feed, Paper, PaperSummary, Starred } from "./paperText";
+import { withAll, withSource, type Feed, type Paper, type PaperSummary, type Starred } from "./paperText";
 
 /** Checks in a row that reached no source before the feed says so. */
 export const QUIET_FAILURES = 3;
@@ -35,13 +38,13 @@ export async function loadFeed(force = false) {
   }
 }
 
-/** Asks the sources (papers.rs); `asked` when the user pressed Refresh. */
-export async function refreshFeed(asked = false) {
+/** Asks the sources (papers.rs); `asked` when the user pressed Refresh; `onlyNew`, only the sources never asked. */
+export async function refreshFeed(asked = false, onlyNew = false) {
   if (papers.refreshing) return;
   papers.refreshing = true;
   papers.asked = asked;
   try {
-    papers.feed = await api.papersRefresh();
+    papers.feed = await api.papersRefresh(onlyNew);
   } catch (e) {
     if (asked) toast(`Couldn't check for new papers: ${e}`, "error");
   } finally {
@@ -65,6 +68,92 @@ export function startFeed(): () => void {
 export async function setFeed(on: boolean) {
   await updateSettings((s) => (s.paper_feed = on));
   if (on && papers.feed?.due) void refreshFeed();
+}
+
+// ---- the journal picker: the settings keep the sources turned off (papers.rs reads them) ----
+
+let newTimer: ReturnType<typeof setTimeout> | undefined;
+
+/** Keeps the sources but `off` in the feed: shown at once from the cache; a source turned on that was never asked is asked alone, a moment after the last click (only while the feed checks by itself). */
+async function setOff(off: string[]) {
+  await updateSettings((s) => (s.paper_sources_off = off));
+  await loadFeed(true);
+  clearTimeout(newTimer);
+  if (app.state?.settings.paper_feed && papers.feed?.missing) {
+    newTimer = setTimeout(() => void refreshFeed(false, true), 1500);
+  }
+}
+
+/** Turns one source of the feed on or off. */
+export function setSourceOn(id: string, on: boolean) {
+  return setOff(withSource(app.state?.settings.paper_sources_off ?? [], id, on));
+}
+
+/** Turns every source of the feed on, or off. */
+export function setAllSources(on: boolean) {
+  return setOff(withAll(papers.feed?.choices ?? [], on));
+}
+
+// ---- the preprints' figures (papers/images.rs), only while Settings' images are on ----
+
+/** Each preprint's figure by paper id: its file's name, null for none, absent until asked. */
+export const figures = $state<Record<string, string | null>>({});
+/** The rows on screen that want a figure, in the order they came into view. */
+const wanted = new Set<string>();
+let fetching = false;
+/** The switch's change on its way to papers.rs: the window shows it at once, and the asking waits for it. */
+let saving: Promise<void> | null = null;
+
+/** The URL a kept figure is shown by (the paperimg: scheme, studio.rs). */
+export function figureUrl(name: string): string {
+  return convertFileSrc(name, "paperimg");
+}
+
+/** A row with a preprint came on screen (`on`) or went off it: the figures are asked one at a time, for the rows still on screen. */
+export function wantFigure(id: string, on: boolean) {
+  if (!on) {
+    wanted.delete(id);
+    return;
+  }
+  if (id in figures || !app.state?.settings.paper_images) return;
+  wanted.add(id);
+  void askFigures();
+}
+
+async function askFigures() {
+  if (fetching) return;
+  fetching = true;
+  try {
+    if (saving) await saving;
+    for (;;) {
+      const id = wanted.values().next().value;
+      if (id === undefined || !app.state?.settings.paper_images) break;
+      wanted.delete(id);
+      if (id in figures) continue;
+      try {
+        figures[id] = await api.paperImage(id);
+      } catch {
+        // offline or a server error: the initials stay, and it is asked again on the next start
+        figures[id] = null;
+      }
+    }
+  } finally {
+    fetching = false;
+  }
+}
+
+/** Turns the feed's figures on or off (Settings); off, none is asked or shown. */
+export async function setFigures(on: boolean) {
+  saving = updateSettings((s) => (s.paper_images = on));
+  await saving;
+  saving = null;
+  if (!on) wanted.clear();
+}
+
+/** Removes the figures kept on disk, and forgets those shown. */
+export async function clearFigures() {
+  await api.paperImagesClear();
+  for (const id of Object.keys(figures)) delete figures[id];
 }
 
 /** Opens a paper's page, by `doi:...`, `arxiv:...` or as pasted. */

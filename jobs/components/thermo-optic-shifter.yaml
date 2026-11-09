@@ -5,6 +5,7 @@ device:
   kind: thermo-optic phase shifter
   parameters:
     cover: "1.0"
+    current: "0.0"
     heater_thickness: "0.1"
     heater_width: "7.5"
     height: "2.0"

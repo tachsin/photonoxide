@@ -132,9 +132,36 @@ pub struct Target {
     pub data: Vec<PathBuf>,
 }
 
+/// A test's folder for everything an install writes outside its own folder: the Start menu, the
+/// Desktop, the settings' folders, and registry keys of the tests' own (under
+/// `Software\photonoxide-tests`), so that a test of the real setup (studio/setup/tests) leaves
+/// the user's install and its Apps & Features entry alone.
+pub const TEST_ROOT: &str = "PHOTONOXIDE_SETUP_TEST_ROOT";
+
 impl Target {
-    /// The user's: in `dir`, or where the last install was, or NSIS's per-user default.
+    /// The user's: in `dir`, or where the last install was, or NSIS's per-user default; under
+    /// [`TEST_ROOT`] when that is set.
     pub fn user(dir: Option<PathBuf>) -> Result<Self, String> {
+        Self::user_or_test(dir, std::env::var_os(TEST_ROOT))
+    }
+
+    /// [`Target::user`], with [`TEST_ROOT`]'s value given.
+    fn user_or_test(
+        dir: Option<PathBuf>,
+        test_root: Option<std::ffi::OsString>,
+    ) -> Result<Self, String> {
+        if let Some(root) = test_root.filter(|r| !r.is_empty()) {
+            let root = PathBuf::from(root);
+            let name = root
+                .file_name()
+                .map(|n| n.to_string_lossy().into_owned())
+                .ok_or_else(|| format!("{TEST_ROOT} names no folder: {}", root.display()))?;
+            let mut target = Self::under(&root, &format!(r"Software\photonoxide-tests\{name}"));
+            if let Some(dir) = dir {
+                target.dir = dir;
+            }
+            return Ok(target);
+        }
         let local = known(dirs::data_local_dir(), "local app data")?;
         let roaming = known(dirs::data_dir(), "roaming app data")?;
         let desktop = known(dirs::desktop_dir(), "Desktop")?;
@@ -149,6 +176,18 @@ impl Target {
             maker_key: MAKER_KEY.into(),
             data: vec![roaming.join(IDENTIFIER), local.join(IDENTIFIER)],
         })
+    }
+
+    /// A test's: every folder under `root`, the registry keys under `key`, never the install's.
+    fn under(root: &Path, key: &str) -> Self {
+        Self {
+            dir: root.join("install"),
+            start_menu: root.join("start"),
+            desktop: root.join("desktop"),
+            uninstall_key: format!(r"{key}\uninstall"),
+            maker_key: format!(r"{key}\maker"),
+            data: vec![root.join("roaming"), root.join("local")],
+        }
     }
 
     pub fn program(&self) -> PathBuf {
@@ -947,13 +986,26 @@ mod tests {
         let _ = std::fs::remove_dir_all(&root);
         // a registry key of the test's own, never the install's
         let key = format!(r"Software\photonoxide-tests\{name}-{}", std::process::id());
-        Target {
-            dir: root.join("install"),
-            start_menu: root.join("start"),
-            desktop: root.join("desktop"),
-            uninstall_key: format!(r"{key}\uninstall"),
-            maker_key: format!(r"{key}\maker"),
-            data: vec![root.join("roaming"), root.join("local")],
+        Target::under(&root, &key)
+    }
+
+    #[test]
+    fn under_the_test_root_nothing_is_the_users() {
+        let root = std::env::temp_dir().join("photonoxide-setup-root");
+        let dir = root.join("here");
+        let t = Target::user_or_test(Some(dir.clone()), Some(root.clone().into())).unwrap();
+        let default = Target::user_or_test(None, Some(root.clone().into())).unwrap();
+        assert_eq!(t.dir, dir);
+        assert_eq!(default.dir, root.join("install"));
+        for p in [&t.start_menu, &t.desktop, &t.data[0], &t.data[1]] {
+            assert!(p.starts_with(&root), "{}", p.display());
+        }
+        let name = root.file_name().unwrap().to_string_lossy().into_owned();
+        for k in [&t.uninstall_key, &t.maker_key] {
+            assert!(
+                k.starts_with(&format!(r"Software\photonoxide-tests\{name}\")),
+                "{k}"
+            );
         }
     }
 

@@ -253,6 +253,52 @@ fn a_line_table_is_refused_where_it_cant_be_one() {
         },
         "full_wave.along names glass",
     );
+    refused(
+        &|t| {
+            t.replace(
+                "    signal: 1",
+                "    signal: 1\n    loss_tangent_exponent: { glass: -1.0 }",
+            )
+        },
+        "loss_tangent_exponent names glass",
+    );
+}
+
+#[test]
+fn a_tangent_without_a_law_gives_the_same_bits_and_with_one_follows_it() {
+    use super::line_checks::{PLATES, named, values_of};
+    let given = PLATES.replace(
+        "    catalogue_loss_tangents: true\n",
+        "    loss_tangent: { Si: 1.0e-3, SiO2: 1.0e-4 }\n",
+    );
+    let plain = values_of(&given);
+    // an exponent of 0 is the same tangent at every frequency, to the bit
+    let flat = values_of(&given.replace(
+        "    loss_tangent: { Si",
+        "    loss_tangent_exponent: { Si: 0.0 }\n    loss_tangent: { Si",
+    ));
+    for name in [
+        "line at 50 GHz: dielectric loss",
+        "line at 100 GHz: dielectric loss",
+    ] {
+        assert_eq!(named(&plain, name).to_bits(), named(&flat, name).to_bits());
+    }
+    // a conduction loss: silicon's tangent halves from 50 to 100 GHz, f_ref 50 GHz given
+    let conduction = values_of(&given.replace(
+        "    loss_tangent: { Si",
+        "    loss_tangent_at_ghz: 50.0\n    loss_tangent_exponent: { Si: -1.0 }\n    loss_tangent: { Si",
+    ));
+    let (oxide, silicon): (f64, f64) = (0.3 / 3.9, 0.5 / 11.7);
+    let at = |f: f64| {
+        named(
+            &conduction,
+            &format!("line at {f} GHz: loss tangent (the media's"),
+        )
+    };
+    let expected = |f: f64| (silicon * 1e-3 * 50.0 / f + oxide * 1e-4) / (oxide + silicon);
+    for f in [50.0, 100.0] {
+        assert!((at(f) / expected(f) - 1.0).abs() < 1e-12, "{f}: {}", at(f));
+    }
 }
 
 #[test]
@@ -341,4 +387,14 @@ fn a_full_wave_table_is_refused_on_a_segmented_line() {
     .unwrap();
     let e = check(&job).expect_err("refused").to_string();
     assert!(e.contains("full_wave is for a uniform line"), "{e}");
+}
+
+#[test]
+fn the_tangent_law_case_holds_to_its_rule() {
+    let case = super::line_checks::cases()
+        .into_iter()
+        .find(|c| c.id == "line/job-tangent-law")
+        .unwrap();
+    let outcome = (case.run)();
+    assert!(outcome.error <= outcome.tolerance, "{}", outcome.error);
 }

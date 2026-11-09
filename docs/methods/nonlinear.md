@@ -79,6 +79,12 @@ validation:
   - nonlinear/guide-group-index
   - job/nonlinear-ridge-zhao-period
   - job/nonlinear-ridge-zhao-efficiency
+  - job/nonlinear-ring-shg
+  - job/nonlinear-ring-fwm
+  - job/nonlinear-pulse-spm-broadening
+  - job/nonlinear-pulse-soliton
+  - job/nonlinear-pulse-xpm
+  - job/nonlinear-pulse-two-photon
   - nonlinear/nlse-dispersion-silica-beta2
   - nonlinear/nlse-dispersion-silica-beta4
   - nonlinear/nlse-fundamental-soliton
@@ -624,8 +630,13 @@ of 3e-9 (the interpolants' 1e-10 in n_eff through Δk's difference of indices).
 
 Why Chebyshev points and not the adaptive sweep of `photonoxide::sweep`: its AAA fit was tried
 first. On a slab's 2.5 nm cells the rational fits put spurious poles in the samples' last digits,
-and the estimate stalled at 1e-6 after 60 samples. The polynomials settle to 1e-10 in n_eff, their
-derivatives with them: 17 Chebyshev points across 0.15 µm for each of Zhao et al.'s modes below.
+and the estimate stalled near 1e-6 after 60 samples. That is the floor the samples' roughness puts
+under a sweep ([sweep.md](sweep.md), the floor), and it differs from slab to slab: the slab
+sweep.md measures (0.4 µm of 2.2 in 1.45) stops at 6.2e-9 on the same 2.5 nm cells, and its
+noise table puts the floor 30 to 7e6 times the samples' roughness, not in its order. Neither
+floor can be told from the samples in advance, and both are far above what the nonlinear guides
+need. The polynomials settle to 1e-10 in n_eff, their derivatives with them: 17 Chebyshev points
+across 0.15 µm for each of Zhao et al.'s modes below.
 
 ### Zhao et al.'s guide
 
@@ -653,6 +664,11 @@ observed order of 1.4 (the ridge's sloped walls are staircased; the period's is 
 Richardson limit of 1.5594 µm, so the grids' own error is 1.1e-3 µm on 10 nm cells, below the
 case's tolerance of 0.038 µm by a factor of 35. The case runs 20 and 10 nm cells and shows their
 difference, 1.7e-3 µm, as its own error; the 10 nm value lies below the converged one, not above.
+Its 5 nm interpolants are left out on purpose (decided 2026-11-07): they would add about five
+minutes to every run of the case, and with them the own error would fall from 1.7e-3 to the true
+1.1e-3 µm, a bound tighter by 1.5 on a case whose tolerance is 22 times the looser bound. The
+tolerance is the period's half digit, not the grids, so the extra minutes would buy nothing the
+case checks; the 5 nm row above is the grid study's, run by hand.
 The interpolants' tolerance doesn't enter: on 20 nm cells, tolerances of 1e-6, 1e-8, 1e-10 and
 1e-12 in n_eff (9 to 17 Chebyshev points) all give 1.556617 µm, and the whole window without the
 mirror wall 1.556618 (`guide_tests::zhao_matched_numbers`). The guide's
@@ -1100,6 +1116,36 @@ coupler, until the output changes by less than 10⁻¹⁴, and compare it with t
 RK4's error falls to a floor near 10⁻¹¹ for SHG and 10⁻¹³ for FWM, where the iteration stops
 (`nonlinear/ring-shg-enhancement`, `nonlinear/ring-fwm-enhancement`, on 20 steps).
 
+### Add-drop rings
+
+An add-drop ring (`AddDropRing::ring_wave`, a `cavity::AddDropWave`) has a second coupler
+halfway round, through r₂ and across ik₂, a point like the input's. The field past the input
+coupler is F = ik₁/(1 − r₁r₂a e^{iφ}), the field the ring component has there; the round trip's
+phase stays lumped at the input coupler, as in the all-pass ring. Each driving field steps down by
+its own r₂ at the drop coupler, so the pass's integral splits into two halves, the second weighted
+by the drivers' r₂ (r₂,ω² for SHG, r₂,p²r₂,s for FWM), with the mismatch's phase running on across
+the coupler:
+
+- G = S[r₂e^{−αL/2}I(0, L/2) + w e^{−αL/2}I(L/2, L)], I(u, v) = (e^{xv} − e^{xu})/x, with S
+  the source (κ|F_ω|²P_ω for SHG), w the drivers' weight, α and r₂ the generated wave's;
+- the generated field before the input coupler is C = G/(1 − r₁r₂a e^{iφ}): the through port
+  takes k₁²|C|² = |F|²|G|²;
+- the drop port takes k₂²|r₁e^{iφ}e^{−αL/4}C + S e^{−αL/4}I(0, L/2)|², the field at the drop
+  coupler: what came round from the input coupler and what the first half made.
+
+`cavity::second_harmonic_add_drop` and `cavity::four_wave_add_drop` give both ports; with no drop
+couplers their through ports are `second_harmonic`'s and `four_wave`'s. Two cases hold them:
+
+| Case | What it compares | Error |
+|---|---|---|
+| `nonlinear/ring-add-drop-build-up` | \|F\|² against the ring component's in → drop power over k₂²a, at 21 points across the resonance (100 µm, couplings 0.05 and 0.03, 3 dB/cm) | 3.6e-15 |
+| `nonlinear/ring-add-drop-shg` | the SHG ring above with drop couplers 0.03 and 0.05, run round trip by round trip with the couplers where they are, both ports | 1.1e-10, 3.9e-12, 2.7e-12, 3.0e-12 on 5, 10, 20, 40 steps a half |
+
+An earlier try spread the drop coupler along the ring as the fixed loss is spread; against the
+point coupler its through port was 2.5e-3 off and its drop port 45 % off, the harmonic being off
+its own resonance (its field at the drop coupler is mostly the first half's, not the circulating
+one), so the drop coupler is kept a point.
+
 ## Kerr microresonators
 
 `nonlinear::resonator` integrates the Lugiato–Lefever equation (LLE), the mean-field equation of a
@@ -1279,8 +1325,15 @@ Malitson's silica, moved by Leviton & Frey's change), the designed period and th
 follow it; Zelmon et al.'s indices, the catalogue's default for both lithium niobates, are
 measured at 21 °C only, and don't move. A map across `temperature_c` solves the ridge's modes
 again at each temperature, as a map across `width_um` does at each width: 5 rows by default, at
-most 21. A ridge has no temperature acceptance yet (the modes' Δk would have to be solved at
-neighbouring temperatures): the map shows it.
+most 21. A ridge's temperature acceptance solves its modes again 1 K either side of the task's
+temperature, its media read there, and takes Fejer et al.'s estimate from the central difference
+of ΔkL/2 (the noncritical one where the first derivative vanishes); the width between the half
+maxima would take a solve at each step of its search, so the record leaves it out. The two extra
+solves cost what two rows of a map do. `job/nonlinear-ridge-temperature-acceptance` reads Zhao et
+al.'s guide (on 40 nm cells) both ways, through the setup and through a map's rows at 19 and
+21 °C, and they agree to the bit: 104.87 K over 5 mm, with Zelmon's indices held and only silica
+moving. The 1 K difference's own error, from its gap to the 2 K one (Richardson), is 9.4e-6
+relative.
 
 The film's d tensor is the catalogue's measurement nearest the job's wavelengths, carried to them
 by [Miller's rule](#millers-rule): nearest by its fundamental against twice the generated wave's
@@ -1306,7 +1359,8 @@ has no other permutation. The job doesn't borrow congruent LiNbO₃'s d₂₂ or
 MgO:LN ridge's η from the catalogue stops with a note naming the missing element (d₁₆ = d₂₁ =
 −d₂₂, the first it meets) and asks for `d_pm_per_v`, as the Zhao et al. job below gives it.
 
-The waves are taken in each process's order: SHG's fundamental (the pump) and harmonic; SFG's
+The waves are taken in each process's order: SHG's fundamental (the pump) and harmonic; type-II
+SHG's (`shg_type = "ii"`) first and second fundamental and harmonic; SFG's
 first input, second input and sum; DFG's, OPA's and SPDC's pump, signal and idler (the signal
 twice the pump's wavelength by default for SPDC); FWM's pump, signal and idler. A grating without
 a period is designed to cancel Δk₀ at the operating point, its period at the expansion's
@@ -1320,7 +1374,7 @@ The run records four events after its start, and writes their contents beside it
 |---|---|
 | `nonlinear_setup` | the waves with their wavelengths, indices (a ridge's group indices too) and input powers; Δk₀ and the coherence length; the grating; Δk and sinc²(ΔkL/2) at the operating point; η and where it comes from; the acceptance bandwidths in the tuned wave's wavelength and in temperature (Fejer et al.'s estimate and the width between the half maxima); the phase-matched wavelength inside the map; notes, among them each wave outside the material's [transparency window](catalogue.md#transparency-windows) |
 | `phase_map` | Δk and sinc²(ΔkL/2) against the tuned wave's wavelength (SHG's fundamental, every other process's signal, the pump held: `Device::phase_tuned`), row by row against the temperature or the ridge's width, a ridge's modes solved at each temperature or width |
-| `nonlinear_efficiency` | against the length: the generated power by the coupled-amplitude equations (RK4, 2000 steps over the length, the losses in) beside the undepleted closed form; OPA's signal gain; SPDC's spectral brightness at the signal's centre, η P_p L² per hertz at degeneracy (`pair_rate_density`); FWM's signal gain and idler conversion, in closed form with the pump undepleted |
+| `nonlinear_efficiency` | against the length: the generated power by the coupled-amplitude equations (RK4, 2000 steps over the length, the losses in) beside the undepleted closed form; OPA's signal gain; SPDC's spectral brightness at the signal's centre, η P_p L² per hertz at degeneracy (`pair_rate_density`); FWM's pump, signal and idler by the coupled equations (RK4, the losses and the self- and cross-phase terms in) beside the signal gain and idler conversion in closed form with the pump undepleted, which a lossy job leaves out |
 | `pair_spectrum` | SPDC's and FWM's joint spectral amplitude, its purity and Schmidt number (`pairs::joint_spectrum`) |
 
 The job's numbers are the library's own calls: for Fejer et al.'s first row (SHG of 1.064 µm over
@@ -1342,7 +1396,9 @@ The studio's Materials page has the same job as a form under **Nonlinear process
 list: the process, the waveguide, the poling, the pump and the map; the setup, the phase-matching
 map, the efficiency along the length and the joint spectrum drawn from the job's events; and every
 material's transparency window as a band over wavelength, the process's wavelengths marked on
-top. A run of the job opens on the same charts in the run view.
+top. A run of the job opens on the same charts in the run view. Under it, **Photon-pair sources**
+takes the pairs further: their Schmidt weights, brightness, heralding through filters and
+couplers, and pairs per pulse, for a guide, a crystal or a ring ([quantum.md](quantum.md#pair-sources)).
 
 Two cases run Zhao et al.'s guide ([above](#zhao-et-als-guide)) through a job, on the job's
 default 20 nm cells behind a mirror wall, at 20 °C (Malitson's own temperature, where the
@@ -1355,8 +1411,78 @@ turned onto the chip by hand: one sum reached by two paths, so the tolerance is 
 1e-8 relative. The η's own grid error is the table's: 4160.1, 4163.7 and 4164.7 on 20, 10 and 5
 nm cells.
 
-What a job can't set yet: a type-II SHG (one index for both fundamental photons), a depleted FWM
-with its losses, a ridge's temperature acceptance, and a cavity around the guide.
+`job/nonlinear-fwm-depleted-loss` runs FWM through a job with the pump depleted and every wave
+losing 3 dB/cm (γ = 100 /(W·m), 10 mm, 1 W of pump and 300 mW of signal, one index for every wave
+so Δk = 0). With one loss α for every wave and Δk = 0, A_j = B_j e^{−αz/2} turns the lossy coupled
+equations into the lossless ones in ζ = (1 − e^{−αz})/α, so the job's pump, signal and idler at
+the end are the lossless guide's over (1 − e^{−αL})/α, times e^{−αL}: their largest gap is
+3.0e-12 (3.6e-12 without the loss), the job's 2000 RK4 steps' own error. An index without
+dispersion has no acceptance bandwidth: the record says so in a note.
+
+Type-II SHG (`shg_type = "ii"`) puts the two fundamental photons in two waves at the pump's
+wavelength, each with its own index: a crystal's axis (ordinary and extraordinary, say), an
+`n_eff` table or a ridge's mode family (TE and TM) per wave. The pump's power is split equally
+between them, a fundamental polarized at 45° to both, and the process runs as sum-frequency
+generation of the two: `Process::second_harmonic` of the two indices, the three-wave equations
+along the length, and a ridge's coupling `sum_frequency_coupling` of the two fundamental fields.
+Its η is that of P₃ = ηP₁P₂L², as for SFG: for two equal fields the sum's coupling is twice the
+harmonic's (ω₃ = 2ω), so the same overlap gives four times type I's η, defined by P₂ = ηP²L².
+`job/nonlinear-shg-type-ii-degenerate` holds this: type II with both fundamentals the same
+extraordinary wave of congruent LiNbO₃ (η = 200 %/(W·cm²)) against type I (50 %/(W·cm²)), over 10
+mm with 1 W of pump and 0.5 dB/cm: the period, the wavelength acceptance, and the depleted harmonic
+and conversion at the end agree to 2.3e-15. The studio's form doesn't offer the type yet; a job
+file does.
+
+A `[task.ring]` closes the guide into an all-pass ring for SHG of type I and FWM
+([resonant enhancement](#resonant-enhancement-in-rings)): its circumference is `length_mm`, each
+wave's power coupling to the bus is `coupling` (one for every wave, or one per wave in the
+process's order), each wave's loss is the guide's `loss_db_per_cm` spread along it, and every wave
+is on its resonance (each round trip's phase a whole number of turns). The setup's `ring` gives
+each wave's build-up |F|², the harmonic out (mW) or the idler's conversion P_i/P_s, one pass of the
+same guide (the same formula with every coupling 1, so |F|² = 1: the straight guide's undepleted
+closed form with its losses) and their ratio, and for FWM the pump's Kerr phase per round trip,
+γP_p|F_p|²L, over the resonance's width 1 − ra: the undepleted ring holds while it is well under
+1, and the run notes it at 1 or more. Holding every wave on resonance takes ΔkL a whole number of
+turns ([above](#resonant-enhancement-in-rings)); the record uses the guide's Δk as it is, so a
+ring that isn't phase-matched shows the straight guide's sinc² in it. The efficiency along the
+length stays the straight guide's. `job/nonlinear-ring-shg` (poled congruent LiNbO₃, 1 mm round,
+η = 10 %/(W·cm²), 1 mW, k² = 0.1 for both waves: 0.0548 mW, an enhancement of |F|⁶ = 5.48 × 10⁴)
+and `job/nonlinear-ring-fwm` (one index 2.0, γ = 100 /(W·m), 1 mm round, 10 mW of pump, k² = 0.1
+for every wave: P_i/P_s = 2.08, |F|⁸ = 2.08 × 10⁶ over one pass) take the ring's numbers against
+Helt et al.'s lossless closed forms on resonance, |F|² = k²/(1 − r)²: 7.8e-16 and 8.9e-16, the
+largest gap of the ring's value, one pass's and every build-up.
+
+A `[task.pulse]` sends a pulse along four-wave mixing's guide by the NLSE's split-step
+([pulses along a Kerr guide](#pulses-along-a-kerr-guide)). The pulse is at the pump's wavelength,
+with the guide's `gamma_per_w_m` as its γ and the pump's loss, over `length_mm`. It takes its shape
+(`"sech"` or `"gaussian"`), `peak_power_w`, `t0_ps` and `dispersion_ps_per_m` (β₂, β₃, … at the
+pump, at least β₂), and the grid's `window_ps` (50 T₀), `points` (1024, a power of two) and
+`steps` (2000). `self_steepening` and `raman` (silica's response) add the higher-order terms, and
+`[task.pulse.two_photon]` (`coefficient_m_per_w`, `area_um2`, and optionally
+`[task.pulse.two_photon.carriers]` with silicon's carriers, `lifetime_ps` and `index_ratio`) adds
+two-photon and free-carrier absorption. A `[task.pulse.second]` puts a second pulse at the signal's
+wavelength beside the first, with its own shape, power, width and dispersion, its walk-off
+`walk_off_ps_per_m`, a `delay_ps` and its own γ (the guide's times λ_p/λ_s by default). The two are
+coupled by cross-phase modulation ([between two pulses](#cross-phase-modulation-between-two-pulses)),
+the Kerr effect alone, so a second pulse takes none of the higher-order terms. The run records
+a `nonlinear_pulse` event for each pulse after the process's own events. It holds the power and
+the gained phase against the time, the spectrum at the start and the end, the peak power, the
+energy and the RMS spectral width at both ends, and notes with the dispersion and nonlinear
+lengths and the soliton order. The studio doesn't draw it yet, and `nonlinear.json` leaves it out.
+
+Four cases take the library's NLSE cases through a job, each the same pulse and guide in four-wave
+mixing's guide of one index. Each meets its closed form as the library's case does, under that case's rule:
+
+| Case | Through the job | The library's |
+|---|---|---|
+| `job/nonlinear-pulse-spm-broadening`: a Gaussian's RMS broadening at φ_max = 4.5π | 12.443951, round-off | `nonlinear/nlse-spm-broadening` |
+| `job/nonlinear-pulse-soliton`: the fundamental soliton after five periods, 4000 steps | 2.8e-6 | `nonlinear/nlse-fundamental-soliton` |
+| `job/nonlinear-pulse-xpm`: Agrawal's Fig. 7.2, the first pulse's phase, 2000 steps | 1.8e-6 | `nonlinear/xpm-walk-off-phase` |
+| `job/nonlinear-pulse-two-photon`: the peak's power after 2 cm, 400 steps | 1.486405 W | `nonlinear/nlse-tpa-power` |
+
+What a job can't set yet: an add-drop ring, a detuned wave, a ring for the other processes, the
+pulse's dispersion from the guide's own indices (it is given), Kerr microresonators and
+oscillators.
 
 ## Limits
 
@@ -1368,9 +1494,9 @@ with its losses, a ridge's temperature acceptance, and a cavity around the guide
 - Cross-phase modulation is between two pulses, Kerr only: no Raman, self-steepening or two-photon
   absorption between them. Free carriers start at none at each window's start: a pulse train's
   left-over carriers aren't held.
-- Resonant enhancement is for all-pass rings, each wave's own, and undepleted; an add-drop ring's
-  second coupler, a ring resonant at its pump for an oscillator, and a ring's photon pairs (0.6.3)
-  are not in yet.
+- Resonant enhancement is for all-pass and add-drop rings, each wave's own, and undepleted; a
+  ring resonant at its pump for an oscillator is not in yet. A ring's photon pairs are the quantum
+  module's `ring_spectrum` ([pairs from rings](quantum.md#pairs-from-rings)).
 - In a guide, the crystal must have a principal axis along it (the full-vector solver's
   condition), and a mode is followed by its family and index, not through a crossing with another
   mode of its family. Wang et al.'s 4500 %/(W·cm²) (Optica 5, 1438) needs their ridge's etch depth

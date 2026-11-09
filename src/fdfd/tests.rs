@@ -69,6 +69,37 @@ fn the_pml_barely_reflects() {
 }
 
 #[test]
+fn the_pml_reflects_by_its_cell_count_far_above_its_grading() {
+    // R is the round trip's amplitude at normal incidence in vacuum (Shin and Fan's sigma_max),
+    // so the graded layer itself keeps R^(ky/k0) of a wave crossing it at ky: about 1e-11 here.
+    // What comes back is the discrete layer's own reflection: set by how many cells sample the
+    // grading, not by their size, falling as a power of the count (m + 1 = 4 for the cubic
+    // grading, measured 4.01 and 4.00)
+    let ky = 1.444 * (1.0 - 0.3_f64 * 0.3).sqrt();
+    let graded = 1e-8_f64.powf(ky);
+    for polarization in [Polarization::Ez, Polarization::Hz] {
+        let r = |h: f64, cells: usize| pml_reflection_on(polarization, (h, cells));
+        let (r20, r40, r80) = (r(0.02, 20), r(0.01, 40), r(0.005, 80));
+        assert!(
+            r20 > 1e4 * graded,
+            "{polarization:?}: {r20} against {graded}"
+        );
+        // the same 20 cells, half the size: the same reflection, where doubling the count takes
+        // log2 of the ratio to 4 (measured 1 %)
+        let half = r(0.01, 20);
+        assert_eq!(
+            (r20 / half).log2().round(),
+            0.0,
+            "{polarization:?}: {r20} {half}"
+        );
+        for (a, b) in [(r20, r40), (r40, r80)] {
+            let order = (a / b).log2();
+            assert_eq!(order.round(), 4.0, "{polarization:?}: {a} then {b}");
+        }
+    }
+}
+
+#[test]
 fn each_component_sees_its_own_average_and_bad_problems_are_errors() {
     let grid = Grid {
         nx: 2,

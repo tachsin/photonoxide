@@ -3,8 +3,9 @@ import { getPythonReferencePage } from "@/lib/projects/photonoxide/github";
 /**
  * The Python API reference's pages, as pdoc made them: `.../docs/python/reference/photonoxide.html`
  * and `.../photonoxide/errors.html`. They are whole HTML files (their styles inline, no scripts),
- * attached to each GitHub release by python-wheels.yml, so pdoc's own relative links between them
- * work as they are. The landing page, `.../docs/python/reference`, is in `../page.js`.
+ * served at pdoc's own paths, so its relative links between them work as they are; where they
+ * come from is in `lib/projects/photonoxide/python-reference.js`. The landing page,
+ * `.../docs/python/reference`, is in `../page.js`.
  */
 export async function GET(_request, { params }) {
   const { path } = await params;

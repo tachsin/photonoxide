@@ -80,7 +80,8 @@ pub enum Event {
         value: f64,
         /// The vacuum wavelength, µm.
         wavelength_um: f64,
-        /// The modes' effective indices, highest first, real and imaginary parts.
+        /// The modes' effective indices, real and imaginary parts: highest first, or in the
+        /// modes' numbers when the sweep follows them (`follow = "overlap"`).
         effective_indices: Vec<[f64; 2]>,
         /// Their TE fractions, in the same order.
         te_fractions: Vec<f64>,
@@ -784,5 +785,99 @@ pub enum Event {
     PairSpectrum {
         /// The spectrum.
         spectrum: Box<super::PairSpectrum>,
+    },
+    /// A `"quantum"` job's photons on a chip's ports: every pattern at the ports for photons
+    /// alike and told apart ([`super::QuantumStatistics`]).
+    QuantumStatistics {
+        /// The statistics.
+        statistics: Box<super::QuantumStatistics>,
+    },
+    /// A `"quantum"` job's samples of those photons against their exact distribution
+    /// ([`super::QuantumSamples`]).
+    QuantumSamples {
+        /// The samples.
+        samples: Box<super::QuantumSamples>,
+    },
+    /// A `"quantum"` job's Hong–Ou–Mandel dip through the chip's S(ω) ([`super::QuantumDip`]).
+    QuantumDip {
+        /// The dip.
+        dip: Box<super::QuantumDip>,
+    },
+    /// A `"quantum"` job's loss budget: each photon's best route ([`super::QuantumBudget`]).
+    QuantumBudget {
+        /// The budget.
+        budget: Box<super::QuantumBudget>,
+    },
+    /// A `"quantum"` job's squeezed light through the chip ([`super::QuantumSqueezed`]).
+    QuantumSqueezed {
+        /// The state's numbers.
+        squeezed: Box<super::QuantumSqueezed>,
+    },
+    // (new events go last: a variant inserted earlier moves every later one's discriminant)
+    /// What a modes job's mode gives beside its index ([`crate::mode::quantities`]), from its
+    /// fields with E's normal component one-sided at each interface: recorded when the task has
+    /// `[task.quantities]`, after the mode's [`Event::ModeField`] (and its [`Event::ModeLoss`]),
+    /// for the job's own configuration.
+    ModeQuantities {
+        /// The mode's label, as its [`Event::Mode`] has it, e.g. `"mode 1 of 2"`.
+        label: String,
+        /// The vacuum wavelength, µm.
+        wavelength_um: f64,
+        /// The effective area for the Kerr effect, µm²: Afshar and Monro's Eq. 41, the whole
+        /// cross-section's ([`crate::mode::fields::Fields::effective_area`]).
+        effective_area_um2: f64,
+        /// The standard effective area from E_t alone, µm²: their Eq. 44
+        /// ([`crate::mode::fields::Fields::effective_area_transverse`]).
+        effective_area_transverse_um2: f64,
+        /// The share of its power in the media whose index is above the media around the
+        /// guides (the index [`Event::Solver`] keeps guided modes by): the guides' confinement,
+        /// from 0 to 1.
+        confinement: f64,
+        /// γ = 2π n₂/(λ A_eff), 1/(W·m), with the task's `nonlinear_index_m2_per_w`; none
+        /// without it.
+        gamma_per_w_m: Option<f64>,
+        /// O_ab = ⟨a, b⟩ / (Re⟨a, a⟩ Re⟨b, b⟩)^½ with each mode of the run, in their order, real
+        /// and imaginary parts ([`crate::mode::quantities::orthogonality`], conjugated): 1 with
+        /// itself, near 0 with the others for an orthogonal set.
+        orthogonality: Vec<[f64; 2]>,
+    },
+    /// A modes job's grid driven to its `[task.convergence]` tolerance (`drive = true`): the
+    /// task's step halved until the mode's Re n_eff converged, every grid and value recorded,
+    /// before the modes on the grid it stopped at.
+    GridRefined {
+        /// The mode driven, `"mode 1"`: the highest Re n_eff.
+        label: String,
+        /// Its wavelength, µm.
+        wavelength_um: f64,
+        /// The drive: its grids, values, the value reported (the finest grid's, with the gate's
+        /// estimate of its error) and why it stopped.
+        refined: crate::convergence::Refined,
+    },
+    /// An `"eme"` job's sections along its structure, recorded after its [`Event::Solver`]: the
+    /// job's straights, tapers and bends in order, or a `[device]`'s or a drawing's cut planes.
+    EmeSections {
+        /// The sections, in order along the structure.
+        sections: Vec<super::EmeSection>,
+    },
+    /// An `"eme"` job's `[task.beam]` at one wavelength, recorded after its
+    /// [`Event::SParameters`]: the shares of the beam's power the structure reflects and
+    /// passes, and the share each guided mode at the last end carries.
+    EmeBeam {
+        /// The wavelength, µm.
+        wavelength_um: f64,
+        /// The share reflected into the first section's propagating modes.
+        reflected: f64,
+        /// The share passed into the last section's propagating modes.
+        transmitted: f64,
+        /// The last end's guided modes, e.g. `"2 TE0"`.
+        ports: Vec<String>,
+        /// Each one's share of the beam's power.
+        shares: Vec<f64>,
+    },
+    /// A `"nonlinear"` job's `[task.pulse]`: one pulse at the guide's end against itself at the
+    /// start ([`super::PulsePropagation`]); one event for each of two pulses.
+    NonlinearPulse {
+        /// The pulse.
+        pulse: Box<super::PulsePropagation>,
     },
 }

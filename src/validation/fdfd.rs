@@ -50,7 +50,7 @@ pub(crate) fn rules() -> Vec<(&'static str, Rule)> {
                 Discretisation,
                 1e-5,
                 Measured,
-                "Shin and Fan's grading: the round trip keeps (1e-8)^1.38, an amplitude of 3e-6, and the 20 nm grid's own reflection",
+                "the 20-cell layer's own reflection, measured 2.5e-6 (set by the cell count, not the cells' size); Shin and Fan's grading itself keeps (1e-8)^1.38 of the amplitude, about 1e-11",
             ),
         ),
         // ---- 2D ports and the cut crystals' slabs ----

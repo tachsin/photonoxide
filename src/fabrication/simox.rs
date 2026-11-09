@@ -14,13 +14,24 @@
 //!    p. 43) times the fraction of its thickness that growing an oxide consumes of silicon
 //!    (44 %, p. 74): one silicon atom per molecule, so that fraction is the molecules' density
 //!    over silicon's. 2 × 0.44 × 5×10²² = 4.4×10²² cm⁻³ ([`oxide`]).
-//! 2. **No range table.** No range of oxygen ions in silicon from a published table is in hand,
-//!    so the depth the oxide forms at isn't computed from the energy. The route uses the one
-//!    published pair of energy and film the process gives: 200 keV and about 200 nm of silicon
-//!    over the oxide (Celler, p. 4959), for doses of 1.2–2.2×10¹⁸ cm⁻², over which the film
-//!    is 100–300 nm (H. W. Lam, IEEE Circuits Devices Mag. 3, 6 (1987),
-//!    doi:10.1109/MCD.1987.6323126, p. 6). The model is calibrated on published points, not
-//!    predictive: it refuses what they don't cover ([`route`]).
+//! 2. **The film from published points, not from the range.** The route uses the one published
+//!    pair of energy and film the process gives: 200 keV and about 200 nm of silicon over the
+//!    oxide (Celler, p. 4959), for doses of 1.2–2.2×10¹⁸ cm⁻², over which the film is 100–300 nm
+//!    (H. W. Lam, IEEE Circuits Devices Mag. 3, 6 (1987), doi:10.1109/MCD.1987.6323126, p. 6).
+//!    That film is the silicon left over the buried oxide after the anneal, not the oxygen's
+//!    projected range Rp, which at 200 keV is about 400–470 nm: 398.2 nm measured by J. P. de
+//!    Souza, M. Behar, J. F. Dias, J. H. R. dos Santos, Nucl. Instrum. Methods Phys. Res. B
+//!    175–177, 46 (2001), doi:10.1016/S0168-583X(00)00525-5 (Table 1, p. 48: ¹⁸O by nuclear
+//!    reaction analysis in silicon amorphized to 280 nm, so the 150 and 200 keV ranges lie
+//!    beyond the amorphized layer, p. 47), TRIM's (1997) 8–17 % above that table (Table 1);
+//!    SRIM2003.26 about 18 % above it (Ö. Kabadayi, H. Gümüş, Phys. Status Solidi B 242, 2391
+//!    (2005), doi:10.1002/pssb.200540082, Fig. 3, p. 2397, and p. 2399); and 467.7 nm by our
+//!    arithmetic from the LSS projected range (J. Lindhard, M. Scharff, H. E. Schiøtt, Mat. Fys.
+//!    Medd. Dan. Vid. Selsk. 33, no. 14 (1963), ref:lindhard-scharff-schiott-1963, Eq. 4.5,
+//!    p. 25), within about 6 % of SRIM's from 50 to 200 keV. The depth the oxide forms at isn't
+//!    computed from the energy: going from Rp to the film would need how the oxide grows about
+//!    the implanted profile, which no source in hand gives as a number. The model is calibrated
+//!    on published points, not predictive: it refuses what they don't cover ([`route`]).
 //! 3. **Thinning** to the design's film by a sacrificial oxide stripped in hydrofluoric acid, as
 //!    Izumi did (600 Å of oxide grown and etched off, taking 300 Å of the surface, p. 593), with
 //!    the oxidation of [`super::smart_cut`]'s thinning.

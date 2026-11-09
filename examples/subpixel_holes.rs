@@ -47,7 +47,10 @@
 //! What doesn't: for the lowest mode the mean ε converges at −1.84, not −1.33, and the new
 //! method's margin over it is a factor of 2 to 3, not 10 to 30; the mean's first-order error
 //! is the mode's D across the holes' surfaces, which at this k is weak (the paper doesn't give
-//! its k). Werner and Cary's placement of the off-diagonal entries (`Coupling::Nodes`, stable,
+//! its k). Over the paper's own resolutions the slope is still −1.81 (20 to 64), and A/N + B/N²
+//! fitted to ours gives −1.91 from 20 to 100. At the M point, k = (½, ½) 2π/a, oblique to the
+//! grid (a 2 × 2 supercell, the same smoothing and reference), the two lowest bands
+//! (0.205663 and 0.208027 c/a) fall at −2.02 and −1.62. Werner and Cary's placement of the off-diagonal entries (`Coupling::Nodes`, stable,
 //! photonoxide's default) is printed beside them: no better than the mean, as at any oblique
 //! interface (docs/methods/fdtd.md).
 //!

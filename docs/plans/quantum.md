@@ -1,10 +1,10 @@
 # Quantum photonics: a survey and a plan
 
-*A survey and a plan, 2026-10-08. Nothing here is on the roadmap yet: I review it first.*
+*A survey and a plan, 2026-10-08. It is on the roadmap since 2026-10-09 (decisions, section 5). Built, and released as 0.6.3: Q1 (#738), Q2 (#742) and Q3 (#743), part of #737, with what each leaves for #595 stated on the methods page; the studio's quantum views (#746, #749, #765) and the Academy's lesson (#751). Q4 and Q5 are not built.*
 
-The roadmap has photon pairs in 0.6.1 (SPDC and SFWM, the joint spectral amplitude, purity,
-brightness and heralding) and one line in 0.16, "Quantum photonics: linear optical circuits and
-their statistics". This page asks what photonic quantum computing and quantum photonics need from
+When this was written, the roadmap had photon pairs in 0.6.1 (SPDC and SFWM, the joint spectral
+amplitude, purity, brightness and heralding) and one line in 0.16, "Quantum photonics: linear
+optical circuits and their statistics" (since removed, as decision 8 says). This page asks what photonic quantum computing and quantum photonics need from
 a validated photonics library, and proposes how photonoxide, its studio and its Academy could
 serve them. It has five parts:
 
@@ -335,7 +335,7 @@ must be read before a tolerance is set.
   variances, photon-number probabilities by hafnians and loop hafnians (Björklund et al. 2019),
   threshold clicks by torontonians (Quesada et al. 2018).
 - Squeezing from 0.6.1's parametric amplifiers, low gain first; high gain only when its
-  validation is in place.
+  validation is in place (now `quantum::Broadband`, with analytic cases).
 
 **Validation.**
 
@@ -345,7 +345,7 @@ must be read before a tolerance is set.
   turns a quadrature variance $e^{-2r}$ into $\eta e^{-2r} + 1 - \eta$; the purity of a Gaussian
   JSA against its closed form.
 - *Published:* Paesani et al. (2020)'s source: the purity predicted from the multimode
-  waveguide's TE0 and TE1 dispersion, against their 0.9904 ± 0.0006 measured (their geometry and
+  waveguide's TM0 and TM1 dispersion (the paper's own modes), against their 0.9904 ± 0.0006 measured (their geometry and
   simulated purity to read); Vernon et al. (2017)'s Schmidt number against the ratio of the
   rings' couplings; Zhao et al. (2020, folder)'s thin-film lithium niobate pairs, shared with
   0.6.1; the on-chip squeezing of Vaidya et al. (2020) (about 4 dB inferred) and Nehra et al.
@@ -369,7 +369,8 @@ must be read before a tolerance is set.
 - Emitters and detectors: β and Purcell factors from FDTD with a dipole and mode monitors; a
   waveguide nanowire's absorption from the mode solver; a detector stack's absorption from
   `Multilayer`. These need the films' optical constants (NbN, WSi or MoSi, GaAs at low
-  temperature) with provenance, which the catalogue doesn't have.
+  temperature) with provenance; NbN (Anant et al. 2008) and MoSi (Reddy et al. 2020's
+  Supplement 1) are in the catalogue now, WSi and GaAs at low temperature wait for their papers.
 
 **Validation.**
 
@@ -462,7 +463,8 @@ today's components plus the visibility formula.
    squeezing with Q3; KLM and fusion, and GKP, as theory lessons whenever written.
    *Recommended: as listed.*
 8. **0.16's line.** Replace "Quantum photonics: linear optical circuits and their statistics" by
-   Q5 as Academy material, or remove it. *Recommended: remove it once 0.6.2 is on the roadmap.*
+   Q5 as Academy material, or remove it. *Recommended: remove it once 0.6.2 is on the roadmap.* Done: the milestone went onto the roadmap as 0.6.3, and
+   the line is gone.
 
 ## References
 

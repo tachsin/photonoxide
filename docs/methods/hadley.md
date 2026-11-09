@@ -85,7 +85,12 @@ and Tisseur, Algorithm 4.7: Newton's method on $M(\bar\varepsilon)h = 0$ with a 
 Eqs. 4.15–4.16). Each step solves $M(\bar\varepsilon_k)\thinspace w = M'(\bar\varepsilon_k)\thinspace v_k$ and sets
 $\bar\varepsilon_{k+1} = \bar\varepsilon_k - u^H v_k / u^H w$, with $M'$ by central differences.
 It starts from the standard scheme's mode on the same grid and converges quadratically:
-two or three steps to 1e-13 on the corner problems.
+two or three steps to 1e-13 on the corner problems. `refined` refines modes found already (a
+modes job's guided ones), asking a stop before each.
+
+In Python, and in the façade the package wraps, `vector_modes(..., scheme="hadley")` refines the
+guided modes so, to the bit as `refined` does in Rust ([python.md](../python.md)); its strip example
+prints both schemes, as the Rust example does.
 
 The Bessel functions take arguments $|\xi| r$ of a few units at most; their power series is
 accurate there and has no cancellation when ξ is imaginary (ε < ε̄). Grids whose arguments

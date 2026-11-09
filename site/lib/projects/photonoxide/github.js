@@ -2,6 +2,7 @@ import { cache } from "react";
 import { parse as parseYaml } from "yaml";
 import { fetchCached } from "@/lib/projects/fetch-cached";
 import { PHOTONOXIDE_BRANCH, PHOTONOXIDE_COMMIT, PHOTONOXIDE_REPO } from "./meta";
+import { readLocalReferencePage, readPythonReferencePage, releaseAssetName } from "./python-reference";
 
 /**
  * Reads the public photonoxide repository on GitHub, server-side, at the
@@ -73,31 +74,29 @@ export const getRepoFile = cache(async (path) => {
 });
 
 /**
- * One page of the Python API reference, as HTML text, or null when the latest release has none
- * (the releases before the reference was attached, or GitHub can't be reached).
+ * One page of the Python API reference, as HTML text, or null when there is none.
  *
- * pdoc makes the reference in every run of python-wheels.yml, and a publishing run at a release's
- * tag attaches its pages to that GitHub release, one asset per page, named
- * `python-reference-<path with "/" as ".">`: `photonoxide.html` is
- * `python-reference-photonoxide.html`, `photonoxide/errors.html` is
- * `python-reference-photonoxide.errors.html`. The reference is never committed.
+ * pdoc makes the reference in every run of python-wheels.yml (its `python-reference` artifact).
+ * The page comes from the app's own copy, which its sync takes from the run that published the
+ * latest release and commits; else from the latest release's assets
+ * `python-reference-<path with "/" as ".">`, which the releases up to 0.6.2 have
+ * (python-reference.js).
  * @param {string} path  the page's path inside the reference, e.g. "photonoxide/errors.html"
  * @returns {Promise<string | null>}
  */
-export const getPythonReferencePage = cache(async (path) => {
-  const segments = String(path).split("/");
-  // only the file names pdoc makes: no "..", no odd characters
-  if (!segments.every((s) => /^[A-Za-z0-9_-]+(\.[A-Za-z0-9_-]+)*$/.test(s) && !s.includes(".."))) {
-    return null;
-  }
-  const tag = await getLatestTag();
-  if (!tag) return null;
-  const asset = `python-reference-${segments.join(".")}`;
-  return fetchCached(
-    `https://github.com/${PHOTONOXIDE_REPO}/releases/download/${tag}/${encodeURIComponent(asset)}`,
-    { tags: ["photonoxide"] },
-  );
-});
+export const getPythonReferencePage = cache((path) =>
+  readPythonReferencePage(path, {
+    readLocal: (segments) => readLocalReferencePage(segments),
+    fetchRelease: async (segments) => {
+      const tag = await getLatestTag();
+      if (!tag) return null;
+      return fetchCached(
+        `https://github.com/${PHOTONOXIDE_REPO}/releases/download/${tag}/${encodeURIComponent(releaseAssetName(segments))}`,
+        { tags: ["photonoxide"] },
+      );
+    },
+  }),
+);
 
 /** A file's page on GitHub, on the branch. */
 export function blobUrl(path) {

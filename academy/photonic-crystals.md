@@ -291,7 +291,8 @@ TE bands at 0.145257 and 0.164053 $c/a$, their reference the 64- and 96-cell run
 Its smoothing's error falls with a slope of −2.26 against the paper's −2.43, below the mean
 $\varepsilon$'s at every resolution, as the paper found. One number is not reproduced: the mean
 $\varepsilon$'s slope for the first band is −1.84 here against the paper's −1.33 (printed, not
-checked). The case `fdtd/smoothing-crystal` checks the smoothing's error on a crystal's band
+checked). It is −1.81 over the paper's own 20 to 64 pixels, and −2.02 and −1.62 for the two
+lowest bands at the M point, so it depends on the mode and on the paper's unstated $k$. The case `fdtd/smoothing-crystal` checks the smoothing's error on a crystal's band
 against another published reference:
 
 ::validation fdtd/smoothing-crystal

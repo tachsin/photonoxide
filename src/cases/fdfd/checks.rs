@@ -134,10 +134,16 @@ pub(crate) fn flux_spread(run: &SlabRun) -> f64 {
 /// 20 cells graded to R = 1e-8 on a 20 nm grid: the amplitude of what comes back up, relative
 /// to what went down.
 pub(crate) fn pml_reflection(polarization: Polarization) -> f64 {
-    let h = 0.02;
+    pml_reflection_on(polarization, (0.02, PML))
+}
+
+/// [`pml_reflection`] on an `h` grid with a PML of `cells`, in a window 4 µm tall: the source
+/// at its middle, what comes back read 0.8 and 1.2 µm from its bottom.
+pub(crate) fn pml_reflection_on(polarization: Polarization, (h, cells): (f64, usize)) -> f64 {
+    let rows = |y: f64| (y / h).round() as usize;
     let grid = Grid {
         nx: 2,
-        ny: 200,
+        ny: rows(4.0),
         dx: h,
         dy: h,
         x0: 0.0,
@@ -148,8 +154,8 @@ pub(crate) fn pml_reflection(polarization: Polarization) -> f64 {
     let boundaries = Boundaries {
         x: Edges::Bloch { k: kx },
         y: Edges::Pml {
-            low: PML,
-            high: PML,
+            low: cells,
+            high: cells,
         },
         reflection: 1e-8,
         order: 3.0,
@@ -165,14 +171,14 @@ pub(crate) fn pml_reflection(polarization: Polarization) -> f64 {
     .unwrap();
     let mut source = vec![c64::new(0.0, 0.0); grid.nx * grid.ny];
     for i in 0..grid.nx {
-        source[100 * grid.nx + i] = c64::from_polar(1.0, kx * grid.x(i));
+        source[rows(2.0) * grid.nx + i] = c64::from_polar(1.0, kx * grid.x(i));
     }
     let field = solver.solve(&source).unwrap();
     // between the source and the bottom PML the field is the downgoing wave and whatever
     // the PML sends back: separate them by their discrete wavenumber
     let ky = ((k0 * 1.444).powi(2) - (2.0 / h * (kx * h / 2.0).sin()).powi(2)).sqrt();
     let kd = 2.0 * (ky * h / 2.0).asin() / h; // the grid's own wavenumber
-    let (j1, j2) = (40, 60);
+    let (j1, j2) = (rows(0.8), rows(1.2));
     let (u1, u2) = (field.at(0, j1), field.at(0, j2));
     // u = a e^{-i kd y} + b e^{+i kd y}
     let (e1m, e1p) = (

@@ -583,6 +583,39 @@ impl AddDropRing {
         }
         Ok(powers)
     }
+
+    /// The round trip's field factor a e^{iφ} at λ, the couplers left out: e^{iγL} with the
+    /// guide's complex propagation constant γ, times the fixed loss per round trip.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::InvalidValue`] for `values` as in [`AddDropRing::fwhm`].
+    pub fn round_trip(&self, wavelength: Wavelength, values: &[f64]) -> Result<c64> {
+        check_values(values, 3)?;
+        let i = c64::new(0.0, 1.0);
+        Ok((i * self.guide.propagation(wavelength) * values[0]).exp()
+            * 10f64.powf(-self.round_trip_loss / 20.0))
+    }
+
+    /// The wave at λ in this ring as the resonant nonlinear processes take it
+    /// ([`crate::nonlinear::cavity::AddDropWave`]): F = ik₁/(1 − r₁r₂a e^{iφ}), the field past
+    /// the input coupler, the round trip and both couplings.
+    ///
+    /// # Errors
+    ///
+    /// As [`AddDropRing::round_trip`], or if F isn't finite.
+    pub fn ring_wave(
+        &self,
+        wavelength: Wavelength,
+        values: &[f64],
+    ) -> Result<crate::nonlinear::cavity::AddDropWave> {
+        crate::nonlinear::cavity::AddDropWave::new(
+            values[1],
+            values[2],
+            self.round_trip(wavelength, values)?,
+            values[0],
+        )
+    }
 }
 
 impl Component for AddDropRing {

@@ -503,6 +503,63 @@ fn a_modes_job_records_the_strips_modes() {
     assert!(matches!(&events[6], Event::ModeField { component, .. } if component == "Ez"));
 }
 
+/// `[task.quantities]` records each mode's areas, confinement, products and γ after its field.
+#[test]
+fn a_modes_job_records_its_modes_quantities_when_asked() {
+    let text = format!("{MODES}\n[task.quantities]\nnonlinear_index_m2_per_w = 4.5e-18\n");
+    let job = Job::parse(&text).unwrap();
+    let mut run = Run::in_memory();
+    execute(&job, &mut run, &Stop::new(None)).unwrap();
+    let events: Vec<Event> = run
+        .lines()
+        .iter()
+        .map(|l| serde_json::from_str(l).unwrap())
+        .collect();
+    let q: Vec<_> = events
+        .iter()
+        .filter_map(|e| match e {
+            Event::ModeQuantities {
+                label,
+                effective_area_um2,
+                effective_area_transverse_um2,
+                confinement,
+                gamma_per_w_m,
+                orthogonality,
+                ..
+            } => Some((
+                label.clone(),
+                *effective_area_um2,
+                *effective_area_transverse_um2,
+                *confinement,
+                *gamma_per_w_m,
+                orthogonality.clone(),
+            )),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(q.len(), 2);
+    for (k, (label, area, transverse, confinement, gamma, products)) in q.iter().enumerate() {
+        assert_eq!(label, &format!("mode {} of 2", k + 1));
+        assert!(
+            *area > 0.05 && *area < 1.0 && *transverse > 0.0,
+            "{area} {transverse}"
+        );
+        assert!(*confinement > 0.3 && *confinement < 1.0, "{confinement}");
+        let expected = crate::mode::quantities::nonlinear_coefficient(
+            crate::units::Wavelength::um(1.55).unwrap(),
+            4.5e-18,
+            *area,
+        );
+        assert_eq!(gamma.unwrap(), expected);
+        assert_eq!(products.len(), 2);
+        assert!((products[k][0] - 1.0).abs() < 1e-12 && products[k][1].abs() < 1e-12);
+    }
+    // the fundamental TE-like mode is the more confined; a mode's product with the other is
+    // the TE and TM modes' overlap, near 0
+    assert!(q[0].3 > q[1].3);
+    assert!(q[0].5[1][0].hypot(q[0].5[1][1]) < 1e-3, "{:?}", q[0].5);
+}
+
 /// `[task.export]` writes each mode into the run's directory, its `.npz`'s own
 /// `effective_index` and the csv's row the same bits as the run's own [`Event::Mode`]: not a
 /// separate recomputation, the solve's own result.

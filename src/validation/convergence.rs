@@ -38,6 +38,16 @@ pub(crate) fn rules() -> Vec<(&'static str, Rule)> {
             ),
         ),
         (
+            "convergence/slab-tolerance-fine",
+            Rule::new(
+                Absolute,
+                Discretisation,
+                1e-6,
+                Measured,
+                "the tolerance the driver is asked for, 1e-6 on n_eff (its sixth decimal): the case checks that it delivers it on grids down to 0.156 nm",
+            ),
+        ),
+        (
             "convergence/eme-taper-fdfd",
             Rule::new(
                 Relative,

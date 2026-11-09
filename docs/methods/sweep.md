@@ -13,6 +13,8 @@ validation:
   - sweep/estimate-bounds-error
   - sweep/slab-dispersion
   - sweep/mode-crossing
+  - job/fdfd-interpolate-step
+  - job/modes-interpolate-crossing
 ---
 
 A spectrum computed on a uniform grid of wavelengths spends most of its solves where nothing
@@ -482,6 +484,67 @@ where the worst response needs it.
   first mode) is still to be decided.
 - A set of responses ([above](#several-responses-on-one-set-of-samples)) sweeps without the
   stopping rule on noisy samples.
-- Not yet in photonoxide: FDFD's S-parameters over wavelength from a sweep (eigenmode
-  expansion's are, `eme::Spectrum` and the `eme` job's `[task.interpolate]`). They can already be
-  swept with `SweepSet::run` on a closure.
+- S over wavelength from a sweep: eigenmode expansion's (`eme::Spectrum` and the `eme` job's
+  `[task.interpolate]`) and 2D FDFD's, through the `fdfd` job's `[task.interpolate]` (below).
+  A `modes` job's effective indices over wavelength, through its `[task.interpolate]` (below).
+  Other solvers' responses are swept with `SweepSet::run` on a closure; the other jobs' sweeps,
+  and a convergence drive (`convergence::ToTolerance`) over wavelength, are not in yet.
+
+## In an FDFD job
+
+An `fdfd` job's `[task.interpolate]` (a `tolerance`, at least 1e-13, and `max_solves`, 200 by
+default) makes its `[task.sweep]` over wavelength an interpolation: every entry of the ports' S
+on one set of wavelengths by `SweepSet::run`, the grid and the ports the same at every
+wavelength (the plane's slab indices taken at each solve's own), and the run records S at each
+of the sweep's points from the interpolant, the ports' effective indices from a set-valued fit
+through the same solves, and one solve error: the worst entry's estimate, with the wavelengths
+solved. The field is recorded at `field_um` (the first point by default) from one solve, as a run
+without a sweep records it; the sweep's per-point fields are left out, since it doesn't solve at
+its points. `job/fdfd-interpolate-step` checks it on a 500 nm strip of the 220 nm SOI stack
+widening to 800 nm, 2D on 40 nm cells, its 2 × 2 S from 1.5 to 1.6 µm asked for 1e-6: 28 solves
+in place of 201, the estimate 7.9e-7 and the true error against the job solved at all 201 points
+1.9e-8 (a ratio of 0.025); the interpolant's reciprocity 6.7e-14.
+
+## In a modes job
+
+A `modes` job's `[task.sweep]` numbers its modes by effective index at each point, highest
+first. Where two modes cross, "mode 1" then jumps from one to the other. With
+`follow = "overlap"` in the sweep (a wavelength sweep only, where the grid is the same at every
+point) the sweep keeps each mode's number through crossings instead. Mode k at the first point
+is the k-th by index. At each next point, the pairs of a mode before and a mode found are taken
+by their fields' overlap (`VectorMode::overlap`), largest first, each mode once. The points are
+then solved one after another, so a followed sweep isn't farmed. Leave `follow` out, or set it to
+`"index"`, and the sweep numbers its modes by index as before. At an anticrossing the overlap
+behaves as `Branch`'s does ([Anticrossings](#anticrossings)): which mode it keeps depends on
+the step between points.
+
+A `[task.interpolate]` (a `tolerance`, at least 1e-13 relative to the largest |n_eff|, and
+`max_solves`, 200 by default) turns a wavelength sweep into an interpolation. Every mode's
+effective index and TE fraction go on one set of wavelengths through `SweepSet::run`, on the same
+grid at every wavelength. With `follow = "overlap"`, each solve's modes are followed from the
+nearest solve's. The run records each of the sweep's points from the interpolant (in an open
+window, each mode's kind and loss from its interpolated index too), and one solve error: the
+worst value's estimate, with the wavelengths solved. The task's own wavelength is solved and
+recorded with its fields as always. The sweep's points carry no pictures, since it doesn't
+solve at them. It needs a count of modes (`modes`, not `modes_above`), and the same number of
+modes at every wavelength.
+
+`job/modes-interpolate-crossing` checks it on two slabs in air, 4 µm apart, across the job's
+1 µm window. One is 120 nm of index 3.0, the other 600 nm of 2.0 above it, on a 20 nm grid. The
+slabs' exact TE modes (`mode::slab`) cross once between 1.5 and 1.8 µm, at about 1.65 µm. So far
+apart they don't couple, so each slab's mode is smooth through the crossing. The job's two
+highest modes are asked for to 1e-6 over the sweep's 61 wavelengths. Both runs are checked
+against the same job solved at all 61 points, numbered the same way:
+
+| How the modes are numbered | Solves | Within its tolerance | Estimate | True error | Ratio |
+|---|---|---|---|---|---|
+| followed by overlap | 19 | yes | 1.3e-6 | 1.4e-12 | 1.0e-6 |
+| by index at each solve | 200 (the most) | no | 6.4 | 3.4e-9 | 5.2e-10 |
+
+Followed, each mode is one slab's, and 19 solves fit both to well within the tolerance. By
+index, each mode has a kink where the slabs cross, and the fit can't reach the tolerance there.
+The sweep spends all 200 solves on it and says it isn't within its tolerance. Its fit, from 200
+solves, is still close (3.4e-9), but its estimate can't tell. The numbers are printed by
+`cargo test --release --lib job::modes_checks::tests::the_interpolated_crossing_study -- --ignored --nocapture`,
+and `job::modes_checks::tests::the_followed_modes_cross_where_the_slabs_do` checks on every run
+that the followed modes cross where the slabs' exact ones do.

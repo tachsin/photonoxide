@@ -16,6 +16,8 @@
 #              the 3D devices (which run on Tier 2 and 3, and when their own file changes)
 #   studio     the studio's checks: empty, "linux", or "all" (Linux, Windows and macOS)
 #
+# The shards (.github/shards.sh) then split these tests, cases and examples among CI's jobs.
+#
 # Each area owns some files (globs, in which * matches / too), uses some other areas' code, and
 # is checked by its unit tests, its validation cases and its examples. A change to an area runs
 # its checks and those of every area that uses it, directly or through another: the areas its
@@ -186,6 +188,15 @@ area circuit \
   "circuit::" "circuit/ components/" \
   "circuit_fit circuit_ring_critical circuit_splitter optimize_ring_flat optimize_mzi_lattice optimize_ring_mzi optimize_ring_pareto optimize_mesh optimize_mesh_selfconfig ring_q_factor directional_coupler mzi_dwivedi"
 
+# quantum light: photons through a circuit's S-matrix, Gaussian states, pair sources from 0.6.1's
+# joint spectra and rings, squeezers from its amplifiers, real components (its cases reach the
+# coupler and MMI devices' solves for the fidelities, the mode solver for Paesani et al.'s guide
+# and the detectors' films, FDTD for the emitters, and Touchstone files and compact models)
+area quantum \
+  "src/quantum.rs src/quantum/* src/validation/quantum.rs src/validation/quantum_light.rs src/validation/quantum_real.rs" \
+  "circuit device nonlinear mode fdtd fdfd compact" \
+  "quantum::" "quantum/" ""
+
 # the devices: components that know their geometry, built from the circuit's components on the
 # mode solvers' cross-sections and by FDFD of their own drawings (through the 2D jobs' plane);
 # the thermo-optic phase shifters on the static solver and the shifter's chain (src/thermal);
@@ -285,8 +296,8 @@ ignored() {
     # the cross-code harness (openEMS run on your own machine, `just openems`), a crate of its
     # own outside the workspace that CI never builds (docs/cross-code.md)
     crosscode/*) return 0 ;;
-    # this workflow and the map run everything; the others run as themselves
-    .github/workflows/ci.yml | .github/areas.sh) return 1 ;;
+    # this workflow, the map and the shards run everything; the others run as themselves
+    .github/workflows/ci.yml | .github/areas.sh | .github/shards.sh) return 1 ;;
     .github/workflows/*) return 0 ;;
     assets/* | studio/scripts/* | LICENSE* | .gitignore | .gitattributes) return 0 ;;
   esac

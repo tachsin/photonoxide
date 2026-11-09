@@ -1,18 +1,23 @@
 <script lang="ts">
-  // The latest papers: the journals and arXiv's newest (papers.rs), filtered by topic, newest
-  // first. Read from the cache at once (skeletons until then) and refreshed behind it; when it
-  // last checked, and after three failed checks in a row one quiet line saying so. Home shows
-  // a dozen; the Papers page shows them all.
-  import { ArrowRight, CloudOff, RefreshCw } from "@lucide/svelte";
+  // The latest papers: the newest of the journals and arXiv the picker keeps on (papers.rs),
+  // filtered by topic, newest first, each with its journal's initials or its figure. Read from
+  // the cache at once (skeletons until then) and refreshed behind it; when it last checked, and
+  // after three failed checks in a row one quiet line saying so. Home shows a dozen; the Papers
+  // page shows them all.
+  import { ArrowRight, CloudOff, ListFilter, RefreshCw } from "@lucide/svelte";
 
   import { app } from "../../lib/app.svelte";
-  import { age, PAPER_TOPICS } from "../../lib/paperText";
-  import { loadFeed, papers, QUIET_FAILURES, refreshFeed, showPapers } from "../../lib/papers.svelte";
+  import { age, PAPER_TOPICS, pickerLabel } from "../../lib/paperText";
+  import { loadFeed, papers, QUIET_FAILURES, refreshFeed, setAllSources, showPapers } from "../../lib/papers.svelte";
+  import JournalPicker from "./JournalPicker.svelte";
   import PaperRow from "./PaperRow.svelte";
 
   let { limit = 0, compact = false }: { limit?: number; compact?: boolean } = $props();
 
   let topic = $state<string | null>(null);
+  /** The journal picker open. */
+  let picking = $state(false);
+  const pickerId = $props.id();
   loadFeed();
 
   const feed = $derived(papers.feed);
@@ -28,6 +33,8 @@
     return Date.now();
   });
   const quiet = $derived(feed && feed.state.failures >= QUIET_FAILURES);
+  const choices = $derived(feed?.choices ?? []);
+  const noneOn = $derived(choices.length > 0 && !choices.some((c) => c.on));
 </script>
 
 <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
@@ -44,11 +51,21 @@
       Not checked yet
     {/if}
   </span>
-  <span class="flex-1"></span>
-  <button class="btn btn-ghost btn-xs gap-1" onclick={() => refreshFeed(true)} disabled={papers.refreshing} title="Ask the journals and arXiv for their newest papers now">
-    <RefreshCw size={12} class={papers.refreshing ? "animate-spin" : ""} /> Refresh
-  </button>
+  <span class="ml-auto flex items-center gap-1">
+    {#if choices.length}
+      <button class="btn btn-ghost btn-xs gap-1 {picking ? 'btn-active' : ''}" onclick={() => (picking = !picking)} aria-expanded={picking} aria-controls={pickerId} title="Choose the journals the feed shows and asks">
+        <ListFilter size={12} /> {pickerLabel(choices)}
+      </button>
+    {/if}
+    <button class="btn btn-ghost btn-xs gap-1 {compact ? 'btn-square' : ''}" onclick={() => refreshFeed(true)} disabled={papers.refreshing || noneOn} title="Ask the journals and arXiv for their newest papers now" aria-label="Refresh">
+      <RefreshCw size={12} class={papers.refreshing ? "animate-spin" : ""} />{#if !compact}Refresh{/if}
+    </button>
+  </span>
 </div>
+
+{#if picking && choices.length}
+  <JournalPicker {choices} id={pickerId} />
+{/if}
 
 <div class="mt-2.5 flex flex-wrap gap-1.5" role="group" aria-label="Topic">
   <button class="btn btn-xs shrink-0 rounded-full {topic === null ? 'btn-primary' : 'btn-ghost border-base-content/10'}" aria-pressed={topic === null} onclick={() => (topic = null)}>All</button>
@@ -67,14 +84,23 @@
 <div class="mt-2 {compact ? '-mx-2.5' : '-mx-3'}">
   {#if !feed}
     {#each Array(limit || 8) as _, k (k)}
-      <div class="space-y-1.5 px-3 py-2.5"><div class="skeleton h-3.5 w-11/12"></div><div class="skeleton h-3 w-1/2"></div></div>
+      <div class="flex gap-2.5 {compact ? 'px-2.5 py-2' : 'px-3 py-2.5'}">
+        <div class="skeleton mt-0.5 shrink-0 rounded-lg {compact ? 'size-9' : 'size-10'}"></div>
+        <div class="flex-1 space-y-1.5"><div class="skeleton h-3.5 w-11/12"></div><div class="skeleton h-3 w-1/2"></div></div>
+      </div>
     {/each}
   {:else}
     {#each shown as p (p.id)}
-      <PaperRow paper={p} dense={compact} />
+      <PaperRow paper={p} dense={compact} thumb />
     {:else}
       <p class="px-3 py-6 text-center text-sm faint">
-        {#if topic}No paper on this topic in the feed yet.
+        {#if noneOn}
+          No source is chosen, so the feed shows and asks nothing.
+          <span class="mt-2 flex justify-center gap-2">
+            <button class="btn btn-ghost btn-xs text-primary" onclick={() => setAllSources(true)}>Show all</button>
+            {#if !picking}<button class="btn btn-ghost btn-xs" onclick={() => (picking = true)}>Choose…</button>{/if}
+          </span>
+        {:else if topic}No paper on this topic in the feed yet.
         {:else if papers.refreshing}The first papers are on their way.
         {:else}No papers yet: Refresh asks the journals and arXiv.{/if}
       </p>

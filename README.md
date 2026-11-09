@@ -38,18 +38,18 @@ It is released milestone by milestone ([changelog](CHANGELOG.md), [roadmap](ROAD
 
 ## What it holds
 
-- **[Methods](docs/README.md#methods):** 52 write-ups in 9 topics, from waveguide modes to
+- **[Methods](docs/README.md#methods):** 54 write-ups in 10 topics, from waveguide modes to
   fabrication, each setting out its method, its limits and the papers it implements; their
-  front matter cites 256 distinct sources by DOI.
+  front matter cites 299 distinct sources by DOI.
 - **[Academy](academy/README.md):** lessons on devices and numerical methods at three depths,
-  each opening on a drawing of its device, with charts the library computes live; 19 written,
-  and 2 more laid out section by section, read on GitHub or in the studio.
+  each opening on a drawing of its device, with charts the library computes live; 20 written,
+  and 1 more laid out section by section, read on GitHub or in the studio.
 - **[Fabrication](docs/methods/fabrication.md):** the process flow that would make a design, each
   step with its reason, its alternatives and what its process can achieve, as its source states
   it; 56 processes on 5 platforms, every flow executed back to its design and shown step by step
   in the studio. New platforms and exports are in progress.
 - **[The library, the Python package and the studio](#install):** the code that runs a design,
-  with 55 examples that each reproduce a paper, 39 job files ready to run, and 836 validation
+  with 55 examples that each reproduce a paper, 43 job files ready to run, and 950 validation
   cases that check it.
 
 ## What it computes
@@ -57,7 +57,7 @@ It is released milestone by milestone ([changelog](CHANGELOG.md), [roadmap](ROAD
 - **Materials:** [dispersion models](docs/methods/materials.md) with their source, validity range
   and temperature; a [catalogue](docs/methods/catalogue.md) of Si, SiO₂, SiN, GaAs, AlGaAs,
   InGaP, InP, AlN, AlGaN, LiNbO₃ and MgO:LiNbO₃, BaTiO₃ and LiTaO₃, and the phase-change
-  Sb₂Se₃, Sb₂S₃ and Ge₂Sb₂Te₅ in both states, with χ⁽²⁾ and Pockels tensors, transparency
+  Sb₂Se₃, Sb₂S₃ and Ge₂Sb₂Te₅ in both states, and the detector films NbN and MoSi, with χ⁽²⁾ and Pockels tensors, transparency
   windows, and the Kerr coefficients of Si, SiN, LiNbO₃ and AlN.
 - **Geometry for any device:** [shapes](docs/methods/geometry.md) kept exact, from paths with
   Euler bends to regions defined by [expressions](docs/methods/expressions.md);
@@ -66,7 +66,8 @@ It is released milestone by milestone ([changelog](CHANGELOG.md), [roadmap](ROAD
   [stacks with partial etches and sidewalls](docs/methods/stacks.md), and
   [3D bodies and graded media](docs/methods/bodies.md); each solver reads it by points or by
   [each cell's fill](docs/methods/averaging.md).
-- **Modes:** [slabs](docs/methods/slab.md) and [multilayers](docs/methods/multilayer.md),
+- **Modes:** [slabs](docs/methods/slab.md) and [multilayers](docs/methods/multilayer.md) (and their
+  [lamellar gratings](docs/methods/rcwa.md) by RCWA),
   [full-vector cross-sections](docs/methods/vector.md) with [PMLs](docs/methods/pml.md),
   [Hadley's](docs/methods/hadley.md) scheme for dielectric corners, [bends](docs/methods/bends.md)
   and [dispersion](docs/methods/dispersion.md); every mode in a region of the complex
@@ -111,7 +112,9 @@ It is released milestone by milestone ([changelog](CHANGELOG.md), [roadmap](ROAD
 click and checked against its paper; each component on its own page, its design in 3D, its models
 side by side, its runs, sweeps and corners; the Custom device for any other structure; runs played live or
 replayed (modes, fields, spectra, FDTD as the field propagates); the Academy's lessons with live
-charts; the materials catalogue; chips; the validation report; the external
+charts; the materials catalogue, with nonlinear processes and photon-pair sources (a source's
+joint spectrum, Schmidt modes, brightness and heralding); chips, and photons through them (their statistics, the
+Hong–Ou–Mandel dip, the loss budget and squeezed light); the validation report; the external
 solvers installed; and the newest papers of the photonics journals and arXiv, any paper read
 inside the studio with its abstract, references and citations, and a reading list. The same program runs a job from the command line
 (`photonoxide run job.yaml`, `--headless` for batches). [studio/README.md](studio/README.md) has
@@ -239,7 +242,7 @@ The optimized build profiles (`release`, `dist` and `fastest`) are described in
 
 Nothing is merged without an analytic test, a reproduction of a published result and a
 convergence test; adjoint gradients are checked against finite differences. The
-[report](docs/validation.md) has 836 cases: 547 against closed forms, 276 against published
+[report](docs/validation.md) has 950 cases: 646 against closed forms, 291 against published
 results and 13 against another code on a shared problem. Each states its source, tolerance and
 grid. CI fails when a case fails or the committed report isn't the one the code writes. CI
 checks every example's output too.
@@ -257,10 +260,10 @@ checks every example's output too.
 | 0.5.4 Geometry and devices | Geometry for any device; the device library on pages of its own, with its models, runs, sweeps, corners and optimization; compact models; the chip built from devices; devices in Python | ✅ released |
 | 0.6.0 Thermal and electro-optic, and writing jobs | Heat, thermo-optic and Pockels devices, travelling-wave electrodes, phase-change materials, the job editor | ✅ released |
 | 0.6.1 Nonlinear integrated optics | Phase matching and QPM, photon pairs, the NLSE, four-wave mixing and Kerr combs, fabrication flows; open gaps in [#595](https://github.com/tachsin/photonoxide/issues/595) | ✅ released |
-| 0.6.2 Eigenmode expansion and the mode solver's tools | On main: 2D eigenmode expansion, convergence to a tolerance, adaptive sweeps, effective area and confinement, sidewall-roughness loss. Left: 3D eigenmode expansion, beam and fibre coupling | ✅ released in part |
-| 0.6.3 Quantum light | Linear-optical statistics, photon-pair sources, Gaussian states, loss budgets of quantum circuits | planned |
-| 0.7 Inverse design | Topology and shape optimization with fabrication constraints | planned |
-| 0.7.1 – 0.16 | Distributed memory, carrier modulators, layout, RCWA and beam propagation, a device library, photonic crystals, plasmonics, nonlinear FDTD | planned |
+| 0.6.2 Eigenmode expansion and the mode solver's tools | 2D eigenmode expansion, convergence to a tolerance, adaptive sweeps, effective area and confinement, sidewall-roughness loss; 3D expansion, bends, periodic sections, drawn shapes and Gaussian beams followed in 0.6.3 | ✅ released |
+| 0.6.3 Quantum light | Linear-optical statistics, photon-pair sources, Gaussian states and broadband squeezing, loss budgets of quantum circuits, the quantum view in the studio; 3D eigenmode expansion with bends, periodic sections, drawn shapes and beams; a 1D RCWA | ✅ released |
+| 0.7 Inverse design | Topology and shape optimization with fabrication constraints | 🚧 next |
+| 0.7.1 – 0.16 | Distributed memory, carrier modulators, layout, RCWA in full (a 1D RCWA is in 0.6.3) and beam propagation, a device library, photonic crystals, plasmonics, nonlinear FDTD | planned |
 | 1.0 | A stable API | planned |
 
 [ROADMAP.md](ROADMAP.md) has the details, with what each item measured.

@@ -2,7 +2,11 @@
 
 *A plan, 2026-11-04, for the next phase of #432. Parts 1 to 5 done (2026-11-05). Since: S over
 wavelength from a few solves, 2D and 3D (`eme::Spectrum`, the job's `[task.interpolate]`,
-2026-11-06); bends and periodic sections next, [their plan](eme-bends.md).*
+2026-11-06); periodic sections (`Eme::bloch`, `Eme::grating`, the job's `[task.period]`,
+2026-11-06); bends by the conformal map (`Slice::bent`, the job's `radius_um` and `angle_deg`,
+2026-11-06, [their plan](eme-bends.md)); a job's own drawing cut into sections as a device is
+(its `stack`, `layer`, shapes and `x_um`, and `exact` for an exact cut;
+`jobs/eme-taper-drawn-3d.yaml`, 2026-11-07).*
 
 **Status by part (2026-11-05):**
 

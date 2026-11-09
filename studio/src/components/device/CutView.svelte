@@ -6,6 +6,7 @@
   import type { FrameFilm } from "../../lib/api";
   import { cut, fillOf, tick } from "../../lib/deviceview";
   import type { Scene, SceneEtched } from "../../lib/events";
+  import { spread } from "../../lib/labels";
   import { ticks } from "../../lib/plot";
   import { unitText } from "../../lib/units";
 
@@ -117,6 +118,23 @@
     }
     return out.filter((o) => o.z_um[1] > top + 1e-9).map((o) => ({ ...o, z_um: [Math.max(top, o.z_um[0]), o.z_um[1]] as [number, number] }));
   });
+  /** A line of the names' 10 px text, the least two names stand apart. */
+  const LINE = 11;
+  /** Every name at the right, its text and where it is drawn: the layers', the films', the cladding's and the substrate's, each centred on what it names but kept a line apart (a layer a few nanometres thick would sit on its neighbours' names). */
+  const placed = $derived.by(() => {
+    if (!names) return [];
+    const items: { key: string; text: string; y: number }[] = [];
+    for (const l of labels) {
+      if (l.z_um[1] > z[0] && l.z_um[0] < z[1]) items.push({ key: `layer ${l.name}`, text: `${l.name}: ${l.material}${l.background !== l.material ? ` in ${l.background}` : ""}`, y: (Z(Math.min(z[1], l.z_um[1])) + Z(Math.max(z[0], l.z_um[0]))) / 2 });
+    }
+    for (const l of filmLabels) {
+      if (l.z_um[0] < z[1]) items.push({ key: `film ${l.layer}`, text: `${l.layer}: ${l.films.join(", ")}`, y: (Z(Math.min(z[1], l.z_um[1])) + Z(l.z_um[0])) / 2 });
+    }
+    items.push({ key: "cladding", text: `cladding: ${scene.cladding.material}`, y: Z(z[1]) + 8 });
+    items.push({ key: "substrate", text: `substrate: ${scene.substrate.material}`, y: Z(z[0]) - 8 });
+    const ys = spread(items.map((i) => i.y), LINE, Z(z[1]) + 4, Z(z[0]) - 4);
+    return items.map((it, k) => ({ ...it, y: ys[k] }));
+  });
   /** A layer whose shapes are air (trenches not yet filled): its background is drawn around them only, so the trenches show. */
   const around = (l: Scene["layers"][number]) => {
     if (l.material.eps >= 1.05 || l.material.material !== "air") return null;
@@ -180,21 +198,10 @@
       {/each}
     </g>
     <rect x={X(across[0])} y={Z(z[1])} width={w} height={h} class="fill-none stroke-base-content/20" />
-    <!-- the layers' names, at the right -->
-    {#each names ? labels : [] as l (l.name)}
-      {#if l.z_um[1] > z[0] && l.z_um[0] < z[1]}
-        <text x={X(across[1]) + 6} y={(Z(Math.min(z[1], l.z_um[1])) + Z(Math.max(z[0], l.z_um[0]))) / 2} dominant-baseline="central" class="fill-base-content/60 text-[10px]">{l.name}: {l.material}{l.background !== l.material ? ` in ${l.background}` : ""}</text>
-      {/if}
+    <!-- the layers' names, at the right, a line apart -->
+    {#each placed as l (l.key)}
+      <text x={X(across[1]) + 6} y={l.y} dominant-baseline="central" class="fill-base-content/60 text-[10px]">{l.text}</text>
     {/each}
-    {#each names ? filmLabels : [] as l (l.layer)}
-      {#if l.z_um[0] < z[1]}
-        <text x={X(across[1]) + 6} y={(Z(Math.min(z[1], l.z_um[1])) + Z(l.z_um[0])) / 2} dominant-baseline="central" class="fill-base-content/60 text-[10px]">{l.layer}: {l.films.join(", ")}</text>
-      {/if}
-    {/each}
-    {#if names}
-    <text x={X(across[1]) + 6} y={Z(z[1]) + 8} dominant-baseline="central" class="fill-base-content/60 text-[10px]">cladding: {scene.cladding.material}</text>
-    <text x={X(across[1]) + 6} y={Z(z[0]) - 8} dominant-baseline="central" class="fill-base-content/60 text-[10px]">substrate: {scene.substrate.material}</text>
-    {/if}
     {#each ticks(across[0], across[1], Math.max(2, Math.round(w / 90))) as t (t)}
       <line x1={X(t)} x2={X(t)} y1={Z(z[0])} y2={Z(z[0]) + 4} class="stroke-base-content/40" />
       <text x={X(t)} y={Z(z[0]) + 15} text-anchor="middle" class="fill-base-content/55 text-[10px] num">{tick(t)}</text>

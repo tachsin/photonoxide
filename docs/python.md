@@ -92,8 +92,9 @@ It prints `TE0: n_eff = 2.8475` and `TM0: n_eff = 2.0531`, as the Rust example d
 | `refractive_index(id, wavelength_um=, model=, axis=, temperature_k=, composition=)` | n + iκ | [`Material::refractive_index`](methods/materials.md) |
 | `group_index(...)` | the bulk group index | `Material::group_index` |
 | `slab_modes(below=, core=, above=, thickness_um=, polarization=, wavelength_um=, x_um=)` | the exact slab's guided modes and their fields | [`mode::slab`](methods/slab.md) |
-| `vector_modes(x_um=, y_um=, permittivity=, wavelength_um=, count=, near_index=, boundaries=, pml_um=, pml_strength=)` | a cross-section's guided full-vector modes, with E and H: of `count` solved, those above the media at the window's open edges (fewer when fewer are guided); with PMLs every one, leaky ones with their loss | [`mode::vector`](methods/vector.md) |
+| `vector_modes(x_um=, y_um=, permittivity=, wavelength_um=, count=, near_index=, boundaries=, pml_um=, pml_strength=, scheme=)` | a cross-section's guided full-vector modes, with E and H: of `count` solved, those above the media at the window's open edges (fewer when fewer are guided); with PMLs every one, leaky ones with their loss; `scheme="hadley"` refines them by Hadley's equations | [`mode::vector`](methods/vector.md), [`mode::hadley`](methods/hadley.md) |
 | `check_job(job)`, `run_job(job, runs_dir=)` | a job checked, or run into a run folder as `photonoxide run --headless` does, its events returned | [`job`](../src/job/mod.rs) |
+| `gds_library(path)`, `gds_polygons(path, gds_layer=, cell=, x_um=, y_um=)` | masks in: a GDSII file's cells and the layers each draws on; what a cell draws on a layer, every cell it places flattened, as polygons with holes (the union, keyholes as holes, within a window), the polygons a job's `"gds"` shape draws | [`geometry::Gds`](methods/geometry.md#gdsii-files) |
 | `fdfd_s_parameters(job, wavelength_um=)` | an `"fdfd"` job's S-parameters by 2D FDFD | [`fdfd`](methods/fdfd-ports.md) |
 | `circuit_spectrum(instances=, connections=, ports=, wavelength_um=)` | a circuit's S-matrices from a netlist given as data | [`circuit`](methods/circuits.md) |
 | `read_touchstone(path, convention=)`, `write_touchstone(path, spectrum, convention=)` | Touchstone files, the time convention always named | [`compact::touchstone`](methods/compact.md) |
@@ -102,8 +103,9 @@ It prints `TE0: n_eff = 2.8475` and `TM0: n_eff = 2.0531`, as the Rust example d
 | `stacks()` | the catalogue's stacks, which the device functions take by name as `stack=`: each one's layers of the catalogue's materials and its core layer | [`device::PRESETS`](methods/devices.md) |
 | `device_spectrum(kind, values=, fidelity=, stack=, wavelength_um=, timeout_s=)`, `device_derived(kind, ...)` | a design's S-parameters and figures at a fidelity, each with its model's grid | [`device`](methods/devices.md) |
 | `device_geometry(kind, values=, stack=)`, `device_job(kind, ..., format=)` | a design's stack, polygons and ports; the job that computes it | [`device`](methods/devices.md) |
-| `device_fabrication(kind, values=, stack=, prefer=, avoid=, start=)`, `device_fabrication_job(kind, ..., format=)`, `export_fabrication(kind, out_dir=, ...)` | a design's process flow: each step with its reason, alternatives and sources, the rules' checks and the accuracy of each dimension; the job that gives it; its export as JSON, a Markdown traveller and an SVG of each step's cross-section | [`fabrication`](methods/fabrication.md) |
+| `device_fabrication(kind, values=, stack=, prefer=, avoid=, start=)`, `device_fabrication_job(kind, ..., format=)`, `export_fabrication(kind, out_dir=, ...)` | a design's process flow: each step with its reason, alternatives and sources, the rules' checks and the accuracy of each dimension; the job that gives it; its export as JSON, a Markdown traveller, a CSV table of the steps and an SVG of each step's cross-section | [`fabrication`](methods/fabrication.md) |
 | `nonlinear(job, timeout_s=)` | a `"nonlinear"` job's process (SHG, SFG, DFG, OPA, SPDC or FWM in a crystal, a guide of given effective indices or a ridge whose modes it solves) as its run records it: the setup, the phase-matching map, the efficiency along the length and the pairs' joint spectrum | [`nonlinear`](methods/nonlinear.md#as-a-job) |
+| `eme(job, timeout_s=)` | an `"eme"` job's eigenmode expansion (2D or 3D sections, a device or a drawing cut into planes, bends, a period, a sweep or an interpolated one) as its run records it: the solver's settings, the sections, S between the guided modes at the two ends at each wavelength, the convergence studies, the estimated errors, a period's Bloch modes and a `[task.beam]`'s shares of power | [`eme`](methods/eme.md#from-python) |
 
 Each function's docstring has the details, and the
 [API reference](https://tachsin.gr/projects/photonoxide/docs/python/reference) has them all, generated from the
@@ -218,9 +220,9 @@ above 1300 °C and a sacrificial oxide. Its published conditions make films up t
 The same result carries the flow's export: `json` (the flow's data, its keys in a fixed order),
 `markdown` (a process traveller: each step, what it does and why, the tool and the cited
 capability with its source, the dimensions it sets and how accurately; the layers from the top
-down, the substrate last) and `svgs` (each step's cross-section, a standalone SVG).
-`export_fabrication(kind, out_dir=...)` writes them as `flow.json`, `flow.md` and `flow-01.svg`,
-..., as a `"fabrication"` job's run writes them into its folder; `device_fabrication_job` gives
+down, the substrate last), `csv` (the steps as a table, one line a step) and `svgs` (each step's
+cross-section, a standalone SVG). `export_fabrication(kind, out_dir=...)` writes them as
+`flow.json`, `flow.md`, `flow.csv` and `flow-01.svg`, ..., as a `"fabrication"` job's run writes them into its folder; `device_fabrication_job` gives
 that job, which `run_job` runs. [The fabrication write-up](methods/fabrication.md#in-python) has
 the strip waveguide's job, call and traveller.
 
@@ -313,14 +315,12 @@ workflow*, on `main` or a tag, with *publish* ticked.
 **The API reference** ([tachsin.gr/projects/photonoxide/docs/python/reference](https://tachsin.gr/projects/photonoxide/docs/python/reference))
 is made by [pdoc](https://pdoc.dev) in every run of `python-wheels.yml`, from the docstrings and
 type stubs of the Linux wheel it built, and kept as the run's `python-reference` artifact: one
-self-contained HTML file for the package and one for `photonoxide.errors`. Since 0.6.3 a release
-no longer carries them (releases up to 0.6.2 still have them as assets, named
-`python-reference-photonoxide.html` and `python-reference-photonoxide.errors.html`). The site's
-reference page serves the copy committed in the tachsin.gr repository, and else the assets of a
-release up to 0.6.2; `pnpm run deploy` there brings that copy up to photonoxide's latest
-release. Nothing is set up by hand here for it, and the reference is never committed to this
-repository. To make it locally: `just python-reference`, into `target/python-reference`
-(pdoc's version is the package's `docs` extra).
+self-contained HTML file for the package and one for `photonoxide.errors`, kept 90 days. Nothing
+is attached to the release: tachsin.gr's sync takes the artifact of the run that published the
+latest release (the run at the release's tag) and commits its pages in the site's app, and the
+site's reference page serves them (`site/README.md`). This repository never commits the
+reference. To make it locally: `just python-reference`, into `target/python-reference` (pdoc's
+version is the package's `docs` extra).
 
 **The reference stays complete.** `python/tests/test_docs.py` fails when a public class,
 function, method or attribute of `photonoxide` or `photonoxide.errors` has no docstring (an

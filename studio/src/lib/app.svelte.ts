@@ -4,7 +4,9 @@ import { api, type AppState, type FabDesign, type FabStart, type Info, type JobF
 import type { ChipEvent, CompactFit, CompactPlan, ChipPoint, ChipStudy, DeviceModel, DevicePoint, DeviceStudy, Evaluation, Event, FdtdFrame, FdtdProgress, FdtdResonances, FdtdSpectrum, Field, Front, Mode, ModeField, ModeLoss, Optimization, Optimum, Permittivity, Scene, ScenePort, Shape, SolveError, Solver, SParameters, StaticField, StaticFrame, StaticResult, StaticStep, Sweep, SweepField, SweepMode, SweepPermittivity, SweepPoint } from "./events";
 import { template, type Kind } from "./job";
 import type { Looks } from "./layers";
+import type { EmeRecord } from "./eme";
 import type { NonlinearResult } from "./nonlinear";
+import type { QuantumRecord } from "./quantum";
 import { themeName } from "./themes";
 
 /**
@@ -266,6 +268,10 @@ export const run = $state({
   staticFrames: [] as StaticFrame[],
   /** A nonlinear job's setup, phase-matching map, efficiency along the length and pairs. */
   nonlinear: { setup: null, map: null, efficiency: null, pairs: null } as NonlinearResult,
+  /** A quantum job's photons through a chip: its statistics, samples, dip, budget and squeezed light, as recorded. */
+  quantum: { statistics: null, samples: null, dip: null, budget: null, squeezed: null } as QuantumRecord,
+  /** An eme job's sections along its structure and its convergence studies, as recorded. */
+  eme: { sections: null, studies: [], beams: [] } as EmeRecord,
   /** The FDTD frame shown, or null to follow the latest. */
   frame: null as number | null,
   finished: null as { stopped: string | null; seconds: number } | null,
@@ -481,6 +487,30 @@ function take(e: Event) {
     case "pair_spectrum":
       run.nonlinear.pairs = e.spectrum;
       break;
+    case "quantum_statistics":
+      run.quantum.statistics = e.statistics;
+      break;
+    case "quantum_samples":
+      run.quantum.samples = e.samples;
+      break;
+    case "quantum_dip":
+      run.quantum.dip = e.dip;
+      break;
+    case "quantum_budget":
+      run.quantum.budget = e.budget;
+      break;
+    case "quantum_squeezed":
+      run.quantum.squeezed = e.squeezed;
+      break;
+    case "eme_sections":
+      run.eme.sections = e.sections;
+      break;
+    case "grid_convergence":
+      run.eme.studies.push(e);
+      break;
+    case "eme_beam":
+      run.eme.beams.push(e);
+      break;
     case "finished":
       run.finished = { stopped: e.stopped, seconds: e.seconds };
       // a sweep followed to its end settles on the field the job asks for (its field_um: a
@@ -544,6 +574,8 @@ function reset(info: Info) {
     staticSteps: [],
     staticFrames: [],
     nonlinear: { setup: null, map: null, efficiency: null, pairs: null },
+    quantum: { statistics: null, samples: null, dip: null, budget: null, squeezed: null },
+    eme: { sections: null, studies: [], beams: [] },
     frame: null,
     finished: null,
     problem: null,
@@ -626,7 +658,7 @@ export async function boot() {
     app.state = await api.appState();
   } catch {
     app.state = {
-      settings: { theme: "system", workspace: null, check_updates: false, channel: "stable", hints: true, welcomed: true, dismissed: [], view: "3d", length_unit: "um", tuned_builds: false, paper_feed: false },
+      settings: { theme: "system", workspace: null, check_updates: false, channel: "stable", hints: true, welcomed: true, dismissed: [], view: "3d", length_unit: "um", tuned_builds: false, paper_feed: false, paper_sources_off: [], paper_images: false },
       workspace: "",
       version: "dev",
       platform: "browser",

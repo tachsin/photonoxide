@@ -779,15 +779,14 @@ pub fn geometry(spec_in: &SpecIn) -> GeometryView {
                 })
                 .collect();
             view.etched = job::scene_etched(&g.structure);
+            // the design job's preview, from the geometry at hand: the job's text written and
+            // read again, and the device built and drawn again, took most of the command's time
+            match job::design_scene(&g, values) {
+                Ok(scene) => view.scene = Some(scene),
+                Err(e) => view.problem = view.problem.take().or(Some(text(e))),
+            }
         }
         Err(e) => view.problem = Some(text(e)),
-    }
-    match job_text(&spec, "design", "")
-        .and_then(|t| Job::parse_as(&t, Format::Yaml).map_err(text))
-        .and_then(|j| job::preview(&j).map_err(text))
-    {
-        Ok(scene) => view.scene = Some(scene),
-        Err(e) => view.problem = view.problem.take().or(Some(e)),
     }
     view.fields = fields;
     view

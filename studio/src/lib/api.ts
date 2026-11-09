@@ -29,6 +29,10 @@ export interface Settings {
   tuned_builds: boolean;
   /** Home's paper feed checks the journals and arXiv by itself, every four hours while the window is open (papers.rs). */
   paper_feed: boolean;
+  /** The feed's sources turned off with Home's journal picker, by id (a journal's first ISSN, or "arxiv"). */
+  paper_sources_off: string[];
+  /** The feed shows each arXiv preprint's first figure, from arxiv.org (papers/images.rs); off at first. */
+  paper_images: boolean;
 }
 
 export interface AppState {
@@ -265,8 +269,13 @@ export const api = {
   changelog: () => invoke<string>("changelog"),
   /** Home's paper feed from the cache, at once (papers.rs). */
   papersFeed: () => invoke<Feed>("papers_feed"),
-  /** Asks the journals and arXiv for their newest papers; the feed after. */
-  papersRefresh: () => invoke<Feed>("papers_refresh"),
+  /** Asks the journals and arXiv the picker keeps on for their newest papers (`onlyNew`: those never asked); the feed after. */
+  papersRefresh: (onlyNew = false) => invoke<Feed>("papers_refresh", { onlyNew }),
+  /** A preprint's first figure for the feed: the name the paperimg: scheme serves it by, or null (Settings' images off, a journal's paper, or no figure). */
+  paperImage: (id: string) => invoke<string | null>("paper_image", { id }),
+  /** The figures kept on disk: how many, and their bytes. */
+  paperImagesKept: () => invoke<[number, number]>("paper_images_kept"),
+  paperImagesClear: () => invoke<void>("paper_images_clear"),
   /** A paper's page by DOI or arXiv id: from the cache, else the sources. */
   paperOpen: (id: string) => invoke<PaperPage>("paper_open", { id }),
   papersSearch: (query: string) => invoke<PaperSummary[]>("papers_search", { query }),
@@ -293,6 +302,9 @@ export const api = {
   /** Every catalogue material's transparency window at a temperature (K), AlGaAs and AlGaN at their Al fractions. */
   transparencyWindows: (temperatureK: number | null, algaasX: number | null, alganX: number | null) =>
     invoke<TransparencyWindow[]>("transparency_windows", { temperatureK, algaasX, alganX }),
+  /** A photon-pair source computed (sources.rs): its joint spectrum, Schmidt weights, brightness, heralding and pairs. */
+  pairSource: (design: PairDesign) => invoke<PairSource>("pair_source", { design }),
+  pairSqueezing: (design: PairDesign, gain: PairGain) => invoke<PairSqueezing>("pair_squeezing", { design, gain }),
   componentLibrary: () => invoke<KindInfo[]>("component_library"),
   componentKind: (id: string) => invoke<KindInfo>("component_kind", { id }),
   componentSpectrum: (part: Part, values: number[], sweep: Sweep) => invoke<SpectrumData>("component_spectrum", { part, values, sweep }),
@@ -369,6 +381,19 @@ export const api = {
   chipJob: (chip: Chip, task: ChipTaskIn) => invoke<string>("chip_job", { chip, task }),
   chipApply: (chip: Chip, parameters: [string, string][]) => invoke<Chip>("chip_apply", { chip, parameters }),
   chipOfJobText: (text: string) => invoke<Chip>("chip_of_job_text", { text }),
+  /** The quantum view (circuits/quantum.rs): photons on the chip's ports at one wavelength. */
+  chipQuantumStatistics: (chip: Chip, wavelengthUm: number, inputs: QuantumInput[]) =>
+    invoke<QuantumStatistics>("chip_quantum_statistics", { chip, wavelengthUm, inputs }),
+  /** The Hong–Ou–Mandel dip between two of the chip's ports, through its S(ω) over its sweep. */
+  chipHomDip: (chip: Chip, request: DipRequest) => invoke<DipView>("chip_hom_dip", { chip, request }),
+  /** Each photon's routes through the chip, stage by stage, and the n-photon event. */
+  chipLossBudget: (chip: Chip, request: BudgetRequest) => invoke<BudgetView>("chip_loss_budget", { chip, request }),
+  /** Squeezed light on the chip's ports through it (circuits/gaussian.rs): the output's covariance, squeezing, photon numbers and a port's Wigner function. */
+  chipGaussian: (chip: Chip, wavelengthUm: number, request: GaussianRequest) => invoke<GaussianView>("chip_gaussian", { chip, wavelengthUm, request }),
+  /** A batch of samples of the photons on the chip's ports, added to the counts so far, against the exact distribution (circuits/sampling.rs). */
+  chipSample: (chip: Chip, wavelengthUm: number, request: SampleRequest) => invoke<SampleView>("chip_sample", { chip, wavelengthUm, request }),
+  /** The Quantum tab's forms as a "quantum" job's text, which runs from the command line and records a run (circuits/quantum_job.rs). */
+  chipQuantumJob: (chip: Chip, request: { name: string; timeout_minutes: number; task: Record<string, unknown> }) => invoke<string>("chip_quantum_job", { chip, request }),
   circuitText: (chip: Chip) => invoke<string>("circuit_text", { chip }),
   circuitParse: (text: string) => invoke<Chip>("circuit_parse", { text }),
   circuitExamples: () => invoke<CircuitExample[]>("circuit_examples"),
@@ -457,6 +482,117 @@ export interface TransparencyWindow {
   index_range: [number, number];
 }
 
+// The source designer (sources.rs): a photon-pair source as the command takes it and as it
+// comes back.
+
+/** The phase matching's shape: the device's sinc, or a Gaussian of the same width. */
+export type MatchingShape = "sinc" | "gaussian";
+
+/** One mode of a guide pumped in two modes, at the pump's wavelength (D in ps/(nm·km)). */
+export interface PairMode {
+  effective_index: number;
+  group_index: number;
+  dispersion: number;
+}
+
+/** Where the pairs are made (sources.rs's Medium). */
+export type PairMedium =
+  | { kind: "guide"; process: "spdc" | "sfwm"; group_index: [number, number, number]; dispersion: [number, number, number]; length_mm: number; matching: MatchingShape; efficiency: number | null }
+  | { kind: "crystal"; id: string; model: string | null; axes: [string, string, string]; temperature_c: number; length_mm: number; matching: MatchingShape; efficiency: number | null }
+  | { kind: "ring"; radius_um: number; effective_index: number; group_index: number; dispersion: number; coupling: number; loss_db_per_cm: number; pump_extra: number; order: number; span: number }
+  | { kind: "dual_pump"; modes: [PairMode, PairMode]; length_mm: number; delay_ps: number };
+
+/** What a photon passes on its way to its detector: a ring filter's drop port, a coupler's cross port, the detector. */
+export interface PairArm {
+  filter: { kind: "none" } | { kind: "ring"; radius_um: number; group_index: number; coupling: number; loss_db_per_cm: number };
+  coupler: number | null;
+  coupler_loss_db: number;
+  detector: number;
+}
+
+/** A photon-pair source to compute (sources.rs's Design). */
+export interface PairDesign {
+  medium: PairMedium;
+  pump: { wavelength_um: number; bandwidth_nm: number };
+  signal_um: number | null;
+  half_nm: number;
+  points: number;
+  mean_pairs: number;
+  arms: [PairArm, PairArm];
+}
+
+/** A number about the source, with its unit and where it comes from. */
+export interface PairFact {
+  label: string;
+  value: number;
+  unit: string;
+  about: string;
+}
+
+/** A photon-pair source as the library computes it (sources.rs's Designed). */
+export interface PairSource {
+  pump_um: number;
+  signal_um: number;
+  idler_um: number;
+  /** The maps' axes: detunings from each centre in GHz, or wavelengths in nm. */
+  unit: "GHz" | "nm";
+  signal_axis: number[];
+  idler_axis: number[];
+  /** |f| / max |f| and |f|² / max |f|², row by row: signal i, idler j at i × points + j. */
+  amplitude: number[];
+  intensity: number[];
+  points: number;
+  /** The largest Schmidt weights, largest first. */
+  weights: number[];
+  /** How many weights are above 10⁻⁶. */
+  modes: number;
+  purity: number;
+  schmidt_number: number;
+  /** Down-conversion's: pairs/(s·GHz·mW) at the signal's centre, pairs/(s·mW) over the grid. */
+  brightness: { spectral: number; rate: number } | null;
+  brightness_note: string | null;
+  heralding: { efficiency: [number, number]; detected: [number, number]; purity: number; schmidt_number: number; centre: [number, number]; facts: PairFact[] };
+  mean_pairs: number;
+  /** P(0), P(1), … pairs in a pulse. */
+  pairs: number[];
+  multi_pair: number;
+  g2: number;
+  facts: PairFact[];
+  notes: string[];
+  seconds: number;
+}
+
+/** The gain and the slicing of a guide's or a crystal's squeezing at high gain (sources/squeezing.rs's Gain). */
+export interface PairGain {
+  /** g: the Schmidt model squeezes mode k by g√λ_k. */
+  gain: number;
+  /** N, even: the change from N/2 slices is the slicing's error. */
+  slices: number;
+  points: number;
+}
+
+/** A source's squeezing at high gain (sources/squeezing.rs's Squeezed): each pair is [sliced, the Schmidt model's]. */
+export interface PairSqueezing {
+  gain: number;
+  slices: number;
+  points: number;
+  /** r_k, largest first. */
+  squeezing: [number[], number[]];
+  /** 10 log₁₀ e^{2r}, dB. */
+  squeezing_db: [number[], number[]];
+  mean_photons: [number, number];
+  mode_number: [number, number];
+  /** The signal's wavelengths, nm. */
+  signal_axis: number[];
+  /** The first signal modes' |u|², and 1 − |⟨u|u⁽⁰⁾⟩|². */
+  modes: { sliced: number[]; schmidt: number[]; shift: number }[];
+  /** r₁ on N slices less r₁ on N/2. */
+  slice_change: number;
+  symplectic_error: number;
+  notes: string[];
+  seconds: number;
+}
+
 // The materials catalogue (photonoxide::material::catalogue), as the program serializes it.
 
 export type Axis = "isotropic" | "ordinary" | "extraordinary";
@@ -537,7 +673,7 @@ export interface MaterialEntry {
   id: string;
   name: string;
   formula: string;
-  category: "dielectric" | "semiconductor" | "nonlinear-crystal" | "phase-change";
+  category: "dielectric" | "semiconductor" | "nonlinear-crystal" | "phase-change" | "superconductor";
   summary: string;
   crystal: {
     system: string;
@@ -1273,6 +1409,93 @@ export interface ChipParameter {
   design: boolean;
 }
 
+/** Photons on one of the chip's external ports. */
+export interface QuantumInput {
+  port: string;
+  photons: number;
+}
+
+/** Photons on the chip's ports at one wavelength (circuits/quantum.rs); each pair is [indistinguishable, distinguishable]. */
+export interface QuantumStatistics {
+  wavelength_um: number;
+  ports: string[];
+  /** |S_qp| and arg S_qp (rad), rows the outputs, columns the inputs. */
+  magnitude: number[][];
+  phase: number[][];
+  loss_modes: number;
+  dilation_error: number;
+  photons: number;
+  /** The patterns computed, over the ports and the loss modes. */
+  computed: number;
+  /** The patterns where every photon arrives, most likely first. */
+  patterns: { occupations: number[]; probability: [number, number] }[];
+  arriving_patterns: number;
+  /** Of those, the patterns no photon can reach, left out of `patterns`. */
+  never: number;
+  others: [number, number];
+  all_arrive: [number, number];
+  bunching: [number, number];
+  marginals: { port: string; probabilities: [number[], number[]]; mean: [number, number] }[];
+  seconds: number;
+}
+
+/** A photon with a Gaussian spectrum. */
+export interface DipPhoton {
+  center_um: number;
+  fwhm_nm: number;
+}
+
+export interface DipRequest {
+  inputs: [string, string];
+  outputs: [string, string];
+  photons: [DipPhoton, DipPhoton];
+  /** The delays from −span to +span, ps; the photons' own span when null. */
+  span_ps: number | null;
+  points: number;
+}
+
+export interface DipView {
+  delays_ps: number[];
+  coincidences: number[];
+  distinguishable: number;
+  visibility: number;
+  deepest_ps: number;
+  span_ps: number;
+  /** The longest delay the sweep's step resolves, ps. */
+  resolved_ps: number;
+  notes: string[];
+  seconds: number;
+}
+
+export interface BudgetRequest {
+  wavelength_um: number;
+  photons: { from: string; to: string; route: number | null }[];
+  source: number;
+  detector: number;
+}
+
+export interface BudgetStage {
+  name: string;
+  transmission: number;
+  loss_db: number;
+  source: string;
+}
+
+export interface BudgetRoute {
+  through: string[];
+  stages: BudgetStage[];
+  transmission: number;
+  loss_db: number;
+}
+
+export interface BudgetView {
+  photons: { from: string; to: string; routes: BudgetRoute[]; chosen: number | null; more: boolean; circuit: number }[];
+  event: number;
+  event_db: number | null;
+  thresholds: { name: string; doi: string; transmission: number; loss_db: number; assumptions: string }[];
+  seconds: number;
+}
+
 /** What a chip's optimization offers: its outputs, genoxide's methods, and each device instance's own objectives and constraints. */
 export interface ChipOptimizeInfo {
   outputs: { name: string; unit: string; about: string; per_wavelength: boolean }[];
@@ -1348,4 +1571,81 @@ export interface CircuitItem {
   about: string;
   instances: number;
   modified: number;
+}
+
+/** Squeezed vacuum on a port (its squeezing in dB at the angle φ of ξ = r e^{iφ}), then displaced by α (circuits/gaussian.rs). */
+export interface SqueezedInput {
+  port: string;
+  squeezing_db: number;
+  angle_deg: number;
+  displacement: [number, number];
+}
+
+export interface GaussianRequest {
+  inputs: SqueezedInput[];
+  /** The port whose photon numbers and Wigner function are drawn. */
+  shown: string;
+  photons: number;
+  /** The Wigner function's grid: ±span in x and p (the vacuum's σ is 1), points across. */
+  span: number;
+  points: number;
+}
+
+export interface GaussianPort {
+  port: string;
+  given_db: number;
+  /** The smallest and largest quadrature variances after the chip, dB from the vacuum's. */
+  squeezed_db: number;
+  anti_squeezed_db: number;
+  mean_photons: number;
+  squeezed_at_deg: number;
+}
+
+export interface GaussianView {
+  wavelength_um: number;
+  ports: string[];
+  /** V, 2n × 2n, row by row, (x₁ … x_n, p₁ … p_n). */
+  covariance: number[];
+  means: number[];
+  states: GaussianPort[];
+  purity: number;
+  loss_modes: number;
+  shown: string;
+  distribution: number[];
+  beyond: number;
+  /** The Wigner function's axis (x and p alike) and its values, p rows by x columns. */
+  axis: number[];
+  wigner: number[];
+  notes: string[];
+  seconds: number;
+}
+
+/** A pattern at the ports and how many samples fell on it (circuits/sampling.rs). */
+export interface SampleCount {
+  occupations: number[];
+  count: number;
+}
+
+export interface SampleRequest {
+  inputs: QuantumInput[];
+  batch: number;
+  seed: number;
+  /** The hard limit on this call's sampling, ms. */
+  limit_ms: number;
+  counts: SampleCount[];
+}
+
+export interface SampleView {
+  ports: string[];
+  counts: SampleCount[];
+  samples: number;
+  drawn: number;
+  /** Whether the hard limit stopped the batch. */
+  stopped: boolean;
+  /** ½ Σ |p̂ − p|, and what a correct sampler is expected to reach at this many samples. */
+  distance: number;
+  expected: number;
+  patterns: { occupations: number[]; exact: number; sampled: number }[];
+  impossible: number;
+  seconds: number;
 }

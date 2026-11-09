@@ -988,33 +988,39 @@ fn build(
             .into(),
         );
     }
+    // the own setup carries the program Tauri builds, so Tauri's own bundle (and the NSIS tools
+    // it downloads) isn't needed: the program alone
+    let bundles: Vec<OsString> = if own_setup {
+        vec!["--no-bundle".into()]
+    } else {
+        vec!["--bundles".into(), plan.bundle.clone().into()]
+    };
     say(
         "frontend",
         format!(
-            "Building with the Tauri CLI: pnpm tauri build --bundles {}",
-            plan.bundle
+            "Building with the Tauri CLI: pnpm tauri build {}",
+            bundles
+                .iter()
+                .map(|a| a.to_string_lossy())
+                .collect::<Vec<_>>()
+                .join(" ")
         ),
     );
     let tauri = Step {
         what: "pnpm tauri build",
         program: &pnpm,
-        args: vec![
-            "tauri".into(),
-            "build".into(),
-            "--bundles".into(),
-            plan.bundle.clone().into(),
-            "--config".into(),
-            config_file.into_os_string(),
-        ]
-        .into_iter()
-        .chain(
-            plan.options
-                .tuned
-                .then(|| ["--".into(), "--profile".into(), "fastest".into()])
-                .into_iter()
-                .flatten(),
-        )
-        .collect(),
+        args: ["tauri".into(), "build".into()]
+            .into_iter()
+            .chain(bundles)
+            .chain(["--config".into(), config_file.into_os_string()])
+            .chain(
+                plan.options
+                    .tuned
+                    .then(|| ["--".into(), "--profile".into(), "fastest".into()])
+                    .into_iter()
+                    .flatten(),
+            )
+            .collect(),
         cwd: &studio,
         env: &env,
     };
@@ -1443,6 +1449,12 @@ mod tests {
         // after the Tauri step, and Tauri's own setup was not the one kept
         let at = |needle: &str| log.iter().position(|l| l.contains(needle)).unwrap();
         assert!(at("fake pnpm tauri build") < at("fake cargo build"));
+        // Tauri builds the program alone: no bundle, so no NSIS tools to download
+        let tauri = &log[at("fake pnpm tauri build")];
+        assert!(
+            tauri.starts_with("fake pnpm tauri build --no-bundle --config"),
+            "{tauri}"
+        );
         assert!(
             !dirs
                 .ready()

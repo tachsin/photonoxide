@@ -130,7 +130,7 @@ impl Csv {
 }
 
 /// A field as CSV has it: quoted when it holds a comma, a quote or a line break.
-fn quote(field: &str) -> String {
+pub(super) fn quote(field: &str) -> String {
     if field.contains([',', '"', '\n', '\r']) {
         format!("\"{}\"", field.replace('"', "\"\""))
     } else {
@@ -139,7 +139,7 @@ fn quote(field: &str) -> String {
 }
 
 /// A number as the shortest decimal that reads back to it.
-fn num(v: f64) -> String {
+pub(super) fn num(v: f64) -> String {
     format!("{v:?}")
 }
 

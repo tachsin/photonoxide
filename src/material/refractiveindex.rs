@@ -8,7 +8,7 @@
 //! `tabulated nk`, one wavelength per line). The formulas are those of the database's document
 //! "Dispersion formulas" (refractiveindex.info, 2014-06-29), implemented here as it writes them.
 
-use yaml_rust2::{Yaml, YamlLoader};
+use serde::Deserialize;
 
 use super::{CC0, Curve, Material, Model, Provenance, Table};
 use crate::units::Wavelength;
@@ -107,13 +107,79 @@ fn numbers(source: &str, text: &str) -> Result<Vec<f64>> {
         .collect()
 }
 
-/// A YAML scalar as text: a string, or a number written out.
-fn text(y: &Yaml) -> Option<String> {
-    match y {
-        Yaml::String(s) | Yaml::Real(s) => Some(s.clone()),
-        Yaml::Integer(i) => Some(i.to_string()),
-        _ => None,
+/// A database file, as far as the importer reads it: other keys are left alone.
+#[derive(Deserialize)]
+struct File {
+    #[serde(rename = "REFERENCES")]
+    references: Option<Scalar>,
+    #[serde(rename = "COMMENTS")]
+    comments: Option<Scalar>,
+    #[serde(rename = "DATA")]
+    data: Option<Vec<RawEntry>>,
+    #[serde(rename = "CONDITIONS")]
+    conditions: Option<Conditions>,
+}
+
+/// One `DATA` entry as written.
+#[derive(Deserialize)]
+struct RawEntry {
+    #[serde(rename = "type")]
+    kind: Option<Scalar>,
+    coefficients: Option<Scalar>,
+    wavelength_range: Option<Scalar>,
+    data: Option<Scalar>,
+}
+
+#[derive(Deserialize)]
+struct Conditions {
+    temperature: Option<Scalar>,
+}
+
+/// A YAML value where the importer reads a scalar: text, a whole number or a real, as the YAML
+/// 1.2 core schema resolves a plain scalar; anything else (a list, a map, a boolean) is none of
+/// them.
+#[derive(Deserialize)]
+#[serde(untagged)]
+enum Scalar {
+    Text(String),
+    Integer(i64),
+    Real(f64),
+    Other(serde::de::IgnoredAny),
+}
+
+impl Scalar {
+    /// As text: a string, or a number written out (a real as its shortest form, which reads
+    /// back as the same bits).
+    fn text(&self) -> Option<String> {
+        match self {
+            Scalar::Text(s) => Some(s.clone()),
+            Scalar::Integer(i) => Some(i.to_string()),
+            Scalar::Real(r) => Some(r.to_string()),
+            Scalar::Other(_) => None,
+        }
     }
+
+    /// A string only.
+    fn as_str(&self) -> Option<&str> {
+        match self {
+            Scalar::Text(s) => Some(s),
+            _ => None,
+        }
+    }
+
+    /// A number only, not a string of one.
+    fn number(&self) -> Option<f64> {
+        match self {
+            Scalar::Integer(i) => Some(*i as f64),
+            Scalar::Real(r) => Some(*r),
+            _ => None,
+        }
+    }
+}
+
+/// An optional scalar's text.
+fn text(y: Option<&Scalar>) -> Option<String> {
+    y.and_then(Scalar::text)
 }
 
 /// The text without HTML tags, with runs of whitespace as one space.
@@ -165,9 +231,11 @@ enum Entry {
     Tabulated { kind: String, rows: Vec<Vec<f64>> },
 }
 
-fn entry(source: &str, y: &Yaml) -> Result<Entry> {
-    let kind = y["type"]
-        .as_str()
+fn entry(source: &str, y: &RawEntry) -> Result<Entry> {
+    let kind = y
+        .kind
+        .as_ref()
+        .and_then(Scalar::as_str)
         .ok_or_else(|| bad(source, "a DATA entry has no type"))?;
     if let Some(number) = kind.strip_prefix("formula ") {
         let number: u8 = number
@@ -178,12 +246,12 @@ fn entry(source: &str, y: &Yaml) -> Result<Entry> {
             .ok_or_else(|| bad(source, format!("unknown formula {kind:?}")))?;
         let coefficients = numbers(
             source,
-            &text(&y["coefficients"])
+            &text(y.coefficients.as_ref())
                 .ok_or_else(|| bad(source, "a formula has no coefficients"))?,
         )?;
         let range = numbers(
             source,
-            &text(&y["wavelength_range"])
+            &text(y.wavelength_range.as_ref())
                 .ok_or_else(|| bad(source, "a formula has no wavelength_range"))?,
         )?;
         let [lo, hi] = range[..] else {
@@ -200,8 +268,10 @@ fn entry(source: &str, y: &Yaml) -> Result<Entry> {
         "tabulated nk" => 3,
         other => return Err(bad(source, format!("unsupported DATA type {other:?}"))),
     };
-    let data = y["data"]
-        .as_str()
+    let data = y
+        .data
+        .as_ref()
+        .and_then(Scalar::as_str)
         .ok_or_else(|| bad(source, format!("{kind} has no data")))?;
     let rows = data
         .lines()
@@ -239,12 +309,19 @@ fn column(rows: &[Vec<f64>], i: usize) -> Vec<f64> {
 /// and [`Error::InvalidValue`] for a table that isn't valid (see [`Table::new`]) or a range
 /// that is empty.
 pub fn from_refractiveindex_info(name: &str, yaml: &str, source: &str) -> Result<Material> {
-    let docs = YamlLoader::load_from_str(yaml).map_err(|e| bad(source, e.to_string()))?;
-    let doc = docs
-        .first()
-        .ok_or_else(|| bad(source, "the file is empty"))?;
-    let entries = doc["DATA"]
-        .as_vec()
+    if yaml.lines().all(|l| {
+        let l = l.trim();
+        l.is_empty() || l.starts_with('#')
+    }) {
+        return Err(bad(source, "the file is empty"));
+    }
+    // YAML 1.2's booleans only, as the jobs are read: `no`, `yes`, `on` and `off` stay text
+    let doc: File =
+        serde_saphyr::from_str_with_options(yaml, serde_saphyr::options! { strict_booleans: true })
+            .map_err(|e| bad(source, e.to_string()))?;
+    let entries = doc
+        .data
+        .as_ref()
         .ok_or_else(|| bad(source, "the file has no DATA list"))?
         .iter()
         .map(|y| entry(source, y))
@@ -296,16 +373,18 @@ pub fn from_refractiveindex_info(name: &str, yaml: &str, source: &str) -> Result
         }
     };
 
-    let references = text(&doc["REFERENCES"]).unwrap_or_default();
-    let temperature = doc["CONDITIONS"]["temperature"]
-        .as_f64()
-        .or_else(|| doc["CONDITIONS"]["temperature"].as_i64().map(|t| t as f64));
+    let references = text(doc.references.as_ref()).unwrap_or_default();
+    let temperature = doc
+        .conditions
+        .as_ref()
+        .and_then(|c| c.temperature.as_ref())
+        .and_then(Scalar::number);
     let provenance = Provenance {
         reference: plain(&references),
         doi: doi(&references).unwrap_or_default(),
         data: format!("{CC0}: {source}"),
         temperature,
-        notes: plain(&text(&doc["COMMENTS"]).unwrap_or_default()),
+        notes: plain(&text(doc.comments.as_ref()).unwrap_or_default()),
     };
     Material::new(
         name,
@@ -404,6 +483,128 @@ DATA:
 
     fn lam(v: f64) -> Wavelength {
         Wavelength::um(v).unwrap()
+    }
+
+    /// The YAML a database file may hold beyond the plain case, each with what it must read as.
+    const EDGES: [(&str, &str); 9] = [
+        // one coefficient: a YAML integer, not a string of numbers
+        (
+            "int-coefficient",
+            "DATA:\n  - type: formula 3\n    wavelength_range: 0.5 2\n    coefficients: 2\n",
+        ),
+        // one coefficient written as a real
+        (
+            "real-coefficient",
+            "DATA:\n  - type: formula 3\n    wavelength_range: 0.5 2\n    coefficients: 2.25\n",
+        ),
+        // numbers written as quoted strings
+        (
+            "quoted-numbers",
+            "DATA:\n  - type: \"formula 1\"\n    wavelength_range: \"0.5 2.0\"\n    coefficients: \"0 1.0 0.1\"\nCONDITIONS:\n    temperature: \"293\"\n",
+        ),
+        // a temperature as a real, and one with its unit (not a number: none)
+        (
+            "real-temperature",
+            "DATA:\n  - type: formula 3\n    wavelength_range: 0.5 2\n    coefficients: 2\nCONDITIONS:\n    temperature: 293.15\n",
+        ),
+        (
+            "unit-temperature",
+            "DATA:\n  - type: formula 3\n    wavelength_range: 0.5 2\n    coefficients: 2\nCONDITIONS:\n    temperature: 293 K\n",
+        ),
+        // references and comments as numbers, plain scalars
+        (
+            "numeric-text",
+            "REFERENCES: 1965\nCOMMENTS: 20.5\nDATA:\n  - type: formula 3\n    wavelength_range: 0.5 2\n    coefficients: 2\n",
+        ),
+        // keys the importer doesn't read, of any kind, and empty values
+        (
+            "other-keys",
+            "SPECS:\n    n_absolute: true\n    nested:\n      - 1\n      - [2, 3]\nCOMMENTS:\nDATA:\n  - type: formula 3\n    wavelength_range: 0.5 2\n    coefficients: 2\n    extra: [1, 2]\nCONDITIONS:\n    pressure: 101325\n    temperature:\n",
+        ),
+        // a wavelength range and coefficients in exponent notation
+        (
+            "exponents",
+            "DATA:\n  - type: formula 2\n    wavelength_range: 5e-1 2.0E0\n    coefficients: 0 1.0e0 1E-2\n",
+        ),
+        // a table whose lines carry trailing spaces and blank lines
+        (
+            "table-spaces",
+            "DATA:\n  - type: tabulated n\n    data: |\n        0.5 1.5  \n\n        1.0 1.4\n        1.5 1.3\n",
+        ),
+    ];
+
+    /// The fixtures and the edges, each as the importer reads it (its Debug form, every number's
+    /// bits in it): what the move from one YAML reader to another must leave unchanged.
+    fn parsed_fixtures() -> Vec<(String, String)> {
+        let mut all: Vec<(&str, &str)> = vec![
+            ("malitson", MALITSON),
+            ("luke", LUKE),
+            ("li", LI_START),
+            (
+                "formula-and-k",
+                "DATA:\n  - type: formula 1\n    wavelength_range: 0.5 2.0\n    coefficients: 0 1.0 0.1\n  - type: tabulated k\n    data: |\n        0.6 0.01\n        1.0 0.02\n        1.8 0.03\n",
+            ),
+            (
+                "nk",
+                "DATA:\n  - type: tabulated nk\n    data: |\n        0.5 1.5 0.1\n        1.0 1.4 0.2\n        1.5 1.3 0.3\n",
+            ),
+        ];
+        all.extend(EDGES);
+        all.into_iter()
+            .map(|(name, yaml)| {
+                let m = from_refractiveindex_info(name, yaml, "test");
+                (name.to_owned(), format!("{m:?}"))
+            })
+            .collect()
+    }
+
+    /// Writes [`parsed_fixtures`] to the file `PHOTONOXIDE_YAML_DUMP` names: the comparison
+    /// that showed the move from yaml-rust2 to serde-saphyr leaves every fixture's material the
+    /// same to the bit (#595).
+    #[test]
+    #[ignore = "writes the parsed fixtures for a comparison"]
+    fn dump_the_parsed_fixtures() {
+        let path = std::env::var("PHOTONOXIDE_YAML_DUMP").unwrap();
+        let text: String = parsed_fixtures()
+            .iter()
+            .map(|(n, d)| format!("{n}: {d}\n"))
+            .collect();
+        std::fs::write(path, text).unwrap();
+    }
+
+    /// Each edge reads as the YAML 1.2 core schema resolves it: a lone coefficient as a number,
+    /// a quoted temperature and one with a unit as none, numbers in text as written.
+    #[test]
+    fn each_edge_of_a_database_file_reads_as_written() {
+        let read = |name: &str| {
+            let (_, yaml) = EDGES.iter().find(|(n, _)| *n == name).unwrap();
+            from_refractiveindex_info(name, yaml, "test").unwrap()
+        };
+        let debug = |name: &str| format!("{:?}", read(name));
+        assert!(debug("int-coefficient").contains("coefficients: [2.0]"));
+        assert!(debug("real-coefficient").contains("coefficients: [2.25]"));
+        assert!(debug("quoted-numbers").contains("coefficients: [0.0, 1.0, 0.1]"));
+        assert_eq!(read("quoted-numbers").provenance().temperature, None);
+        assert_eq!(
+            read("real-temperature").provenance().temperature,
+            Some(293.15)
+        );
+        assert_eq!(read("unit-temperature").provenance().temperature, None);
+        let text = read("numeric-text");
+        assert_eq!(text.provenance().reference, "1965");
+        assert_eq!(text.provenance().notes, "20.5");
+        let other = read("other-keys");
+        assert_eq!(other.provenance().notes, "");
+        assert_eq!(other.provenance().temperature, None);
+        let e = read("exponents");
+        assert_eq!((e.range().0.to_um(), e.range().1.to_um()), (0.5, 2.0));
+        assert!(debug("exponents").contains("coefficients: [0.0, 1.0, 0.01]"));
+        assert!(debug("table-spaces").contains("x: [0.5, 1.0, 1.5]"));
+        // and an empty file, or one of comments only
+        for empty in ["", "# only a comment\n\n"] {
+            let e = from_refractiveindex_info("x", empty, "test").unwrap_err();
+            assert!(e.to_string().contains("empty"), "{e}");
+        }
     }
 
     #[test]
