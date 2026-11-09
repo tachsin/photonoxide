@@ -140,7 +140,7 @@ fn the_tin_heater_is_driven_by_a_voltage_through_its_films_resistance() {
     // a power and a voltage both is refused, and the doped heaters have no voltage
     let both = Values::new(&d, &[("voltage", 2.0), ("power", 5.0)]).unwrap();
     let e = d.component(&both, Fidelity::Analytic).unwrap_err();
-    assert!(e.to_string().contains("not both"), "{e}");
+    assert!(e.to_string().contains("one of a power"), "{e}");
     let doped = ThermoShifter::doped();
     assert!(!doped.parameters().iter().any(|p| p.name == "voltage"));
     assert!(doped.resistance(&Values::defaults(&doped)).is_err());
@@ -427,4 +427,79 @@ fn the_in_guide_heater_refuses_what_it_cant_take() {
     }
     let g = d.geometry(&Values::defaults(&d)).unwrap();
     assert!(!g.structure.is_plain("Si"));
+}
+
+#[test]
+fn a_film_that_follows_its_temperature_is_solved_with_its_power() {
+    use crate::material::catalogue::TinFilm;
+    let d = ThermoShifter::metal()
+        .with_film(TinFilm::KearneyHot)
+        .unwrap();
+    let at = |changes: &[(&str, f64)]| {
+        let v = Values::new(&d, changes).unwrap();
+        d.component(&v, Fidelity::Analytic).unwrap()
+    };
+    let fig = |b: &super::Built, s: &str| b.figure(s).unwrap().value;
+    // undriven: R₀(1 + α·7 K) at the ambient
+    let off = at(&[]);
+    let r0 = 70.2e-8 * 320e-6 / (7.5e-6 * 0.1e-6);
+    assert!((fig(&off, "R_heater") / (r0 * (1.0 + 0.095e-2 * 7.0)) - 1.0).abs() < 1e-12);
+    let z = fig(&off, "z_heater") / 320e-6 * 1e-3;
+    for (drive, x) in [("voltage", 3.0), ("current", 10.0)] {
+        let on = at(&[(drive, x)]);
+        let p = fig(&on, if drive == "voltage" { "P_V" } else { "P_I" });
+        let rise = fig(&on, "dT_heater");
+        let r = fig(&on, "R_heater");
+        assert!((rise / (z * p) - 1.0).abs() < 1e-12);
+        assert!((r / (r0 * (1.0 + 0.095e-2 * (7.0 + rise))) - 1.0).abs() < 1e-12);
+        let by_law = if drive == "voltage" {
+            x * x / r * 1e3
+        } else {
+            x * x * r * 1e-3
+        };
+        assert!((p / by_law - 1.0).abs() < 1e-12, "{drive}: {p} {by_law}");
+        // the derivative against a difference
+        let h = 1e-4 * x;
+        let up = at(&[(drive, x + h)]);
+        let down = at(&[(drive, x - h)]);
+        let k = d.parameters().iter().position(|q| q.name == drive).unwrap();
+        let dphi = (up.values[0] - down.values[0]) / (2.0 * h);
+        let given = on.derivatives[k].as_ref().unwrap()[0];
+        assert!((given / dphi - 1.0).abs() < 1e-6, "{drive}: {given} {dphi}");
+    }
+    // the default film keeps its room-temperature resistance
+    let tsai = ThermoShifter::metal();
+    let v = Values::new(&tsai, &[("voltage", 3.0)]).unwrap();
+    let b = tsai.component(&v, Fidelity::Analytic).unwrap();
+    let (r, _) = tsai.resistance(&v).unwrap();
+    assert_eq!(fig(&b, "R_heater"), r);
+}
+
+#[test]
+fn drives_are_one_at_a_time_and_a_film_s_range_is_kept() {
+    use crate::material::catalogue::TinFilm;
+    assert!(
+        ThermoShifter::doped()
+            .with_film(TinFilm::KearneyHot)
+            .is_err()
+    );
+    let d = ThermoShifter::metal()
+        .with_film(TinFilm::KearneyHot)
+        .unwrap();
+    let both = Values::new(&d, &[("voltage", 1.0), ("current", 1.0)]).unwrap();
+    assert!(d.component(&both, Fidelity::Analytic).is_err());
+    // far above 773 K
+    let hot = Values::new(&d, &[("voltage", 40.0)]).unwrap();
+    let e = d
+        .component(&hot, Fidelity::Analytic)
+        .unwrap_err()
+        .to_string();
+    assert!(e.contains("773"), "{e}");
+    // a current with no steady state
+    let runaway = Values::new(&d, &[("current", 1e3)]).unwrap();
+    let e = d
+        .component(&runaway, Fidelity::Analytic)
+        .unwrap_err()
+        .to_string();
+    assert!(e.contains("no steady state"), "{e}");
 }

@@ -1761,5 +1761,35 @@ pub(crate) fn rules() -> Vec<(&'static str, Rule)> {
                 "V²/R, the rise and the phase it gives computed two ways, and the same power given: round-off",
             ),
         ),
+        (
+            "device/thermo-tin-films",
+            Rule::new(
+                Relative,
+                RoundOff,
+                1e-12,
+                Exact,
+                "R = ρL/(wt) with each film's resistivity computed two ways: round-off",
+            ),
+        ),
+        (
+            "device/thermo-tcr-drive",
+            Rule::new(
+                Relative,
+                RoundOff,
+                1e-12,
+                Exact,
+                "the closed form's root and Picard's fixed point, iterated to 1e-15 of the power: round-off",
+            ),
+        ),
+        (
+            "device/thermo-heater-rise",
+            Rule::new(
+                Relative,
+                Model,
+                0.15,
+                THERMO_GRID,
+                "the analytic fidelity's stated error, as device/thermo-analytic-metal: the heat thermally all oxide",
+            ),
+        ),
     ]
 }
