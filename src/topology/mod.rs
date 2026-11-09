@@ -248,7 +248,9 @@ impl ConicFilter {
                 let at = coords(self.shape, p);
                 self.offsets
                     .iter()
-                    .filter_map(|(o, w)| neighbour(self.shape, at, *o).map(|q| w * g[q] / self.norms[q]))
+                    .filter_map(|(o, w)| {
+                        neighbour(self.shape, at, *o).map(|q| w * g[q] / self.norms[q])
+                    })
                     .sum()
             })
             .collect())

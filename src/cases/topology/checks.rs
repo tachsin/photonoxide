@@ -103,7 +103,9 @@ pub(crate) fn projection_identities_error() -> f64 {
     for beta in BETAS {
         for eta in ETAS {
             let p = Projection::new(beta, eta).expect("a valid projection");
-            worst = worst.max(p.value(0.0).abs()).max((p.value(1.0) - 1.0).abs());
+            worst = worst
+                .max(p.value(0.0).abs())
+                .max((p.value(1.0) - 1.0).abs());
         }
         let p = Projection::new(beta, 0.5).expect("a valid projection");
         for x in points() {
@@ -188,8 +190,13 @@ pub(crate) fn filter_linear_error() -> f64 {
         };
         let x: Vec<f64> = (0..n).map(ramp).collect();
         for (p, v) in f.apply(&x).expect("filtered").into_iter().enumerate() {
-            let at = [p % shape[0], (p / shape[0]) % shape[1], p / (shape[0] * shape[1])];
-            let inside = (0..3).all(|a| shape[a] == 1 || (at[a] >= reach && at[a] + reach < shape[a]));
+            let at = [
+                p % shape[0],
+                (p / shape[0]) % shape[1],
+                p / (shape[0] * shape[1]),
+            ];
+            let inside =
+                (0..3).all(|a| shape[a] == 1 || (at[a] >= reach && at[a] + reach < shape[a]));
             if inside {
                 worst = worst.max((v - ramp(p)).abs());
             }
@@ -287,7 +294,10 @@ impl Chain {
             .mode_power_gradient(&field, &ports[1].mode, Direction::Forward)
             .expect("a gradient");
         let d_eps = self.placement.restrict(&per_cell).expect("restricted");
-        let gradient = self.density.gradient(&self.rho, &d_eps).expect("pulled back");
+        let gradient = self
+            .density
+            .gradient(&self.rho, &d_eps)
+            .expect("pulled back");
         let residual = base.residual(&field, &source).expect("a residual");
         pixels
             .iter()
@@ -295,7 +305,11 @@ impl Chain {
                 let at = |d: f64| {
                     let mut rho = self.rho.clone();
                     rho[p] += d;
-                    power(&base.reuse_cells(lam, &self.cells_at(&rho)).expect("a problem"))
+                    power(
+                        &base
+                            .reuse_cells(lam, &self.cells_at(&rho))
+                            .expect("a problem"),
+                    )
                 };
                 Probe {
                     gradient: gradient[p],
@@ -314,12 +328,7 @@ pub(crate) const PIXELS: [usize; 3] = [0, 5, 55];
 
 fn fdfd_gradient() -> Outcome {
     let probes = chain().probes(&PIXELS, 1e-3);
-    crate::verdict::note_numerical(
-        probes
-            .iter()
-            .map(Probe::resolution)
-            .fold(0.0, f64::max),
-    );
+    crate::verdict::note_numerical(probes.iter().map(Probe::resolution).fold(0.0, f64::max));
     zero(
         probes
             .iter()
