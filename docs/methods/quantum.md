@@ -818,23 +818,33 @@ with probability 0.50 when distinguishable and 0.27 when not, the off-diagonal l
 Fig. 3 shows vanishing; for (−1, 1), the coincidence of guides 0 and 7 falls from 0.0068 for
 distinguishable photons to 0.00084.
 
-**What doesn't agree yet.** Their simulated correlation matrices (Figs. 3B, 3D, 4B and 4D) are
-MATLAB 3D bar charts drawn as vector paths, and each bar's height is the length of its side
-faces' vertical edges, scaled by the panel's z axis, whose own line reads 0.02001, 0.04005,
-0.02002 and 0.04000 for its 0.02 and 0.04 ticks. Their tallest bars and ours, with $Cz = 3.91$:
+**Their simulated panels.** Their simulated correlation matrices (Figs. 3B, 3D, 4B and 4D) are
+MATLAB 3D bar charts drawn as vector paths. Each bar is a unit box whose four vertical edges stand
+on its cell's corners, so a cell's height is the edge length found at all four of its corners,
+scaled by the panel's z axis, whose own line reads 0.02001, 0.04005, 0.02002 and 0.04000 for its
+0.02 and 0.04 ticks. The panels plot only the pairs they measured: the output guides are pitched
+at half the collecting fibre arrays' pitch, so they measured 121 of the 231 pairs (p. 1501), the
+pairs $q, r$ with $q - r$ even, and the other cells of each panel are left white, with no bar.
+A bar hidden at one of its corners can't be read; on the measured pairs, with $Cz = 3.91$:
 
-| Panel | Input, photons | Paper (tallest bar) | photonoxide (largest $\Gamma_{q,r}$) |
-|---|---|---|---|
-| 3B | (0, 1), distinguishable | 0.0178 | 0.0236 |
-| 3D | (0, 1), indistinguishable | 0.0237 | 0.0361 |
-| 4B | (−1, 1), distinguishable | 0.0147 | 0.0162 |
-| 4D | (−1, 1), indistinguishable | 0.0266 | 0.0264 |
+| Panel | Input, photons | Paper (tallest bar) | photonoxide, tallest on the measured pairs | photonoxide, tallest of all 231 | Bars read | Largest difference over them |
+|---|---|---|---|---|---|---|
+| 3B | (0, 1), distinguishable | 0.0178 | 0.0176 | 0.0236 | 75 | 0.00025 |
+| 3D | (0, 1), indistinguishable | 0.0237 | 0.0239 | 0.0361 | 61 | 0.00042 |
+| 4B | (−1, 1), distinguishable | 0.0147 | 0.0162 | 0.0162 | 86 | 0.0041 |
+| 4D | (−1, 1), indistinguishable | 0.0266 | 0.0264 | 0.0264 | 90 | 0.00065 |
 
-Only Fig. 4D agrees (1%). No single $Cz$ from 2 to 6 matches all four panels, either as
-$\Gamma_{q,r}$ or with the $21 \times 21$ matrix normalized to 1, so their simulations' length or
-couplings differ from the uniform array the text gives, perhaps by the spreading regions'
-coupling, which the paper states only as an effective length (its fig. S1, in the supplement, is
-not read here). The gap stays open, and the panels' heights are not a case until it closes.
+So the tallest bars of Figs. 3B and 3D, which lie off the measured pairs in our matrices, are
+no longer a gap: Figs. 3B, 3D and 4D agree bar by bar to 1.4%, 1.8% and 2.4% of their tallest
+bar, and fitting $Cz$ to each panel alone gives 3.91, 3.91 and 3.895, the text's 3.91. Fig. 4B
+does not: it fits best at $Cz = 4.035$ (largest difference 0.00077), so it was drawn for a
+slightly longer array, or a stronger coupling, than Fig. 4D, which has the same input. Two
+questions stay open, and the bar heights are not a case until they close: why Fig. 4B's $Cz$
+differs, and what sets the remaining 1–2% bar to bar (a scale factor, $\Gamma$ normalized over
+the measured pairs, and a second-neighbour coupling from −0.06 to 0.06 of $C$ each leave it as
+it is). The supplement's fig. S1, which compares a 350 µm array's output with the simulation to
+find the effective 82 µm, isn't in hand; the arXiv version (arXiv:1006.4764) has the same four
+panels and says only that the 350 µm pattern is "not shown".
 
 **Convergence.** The sampler's total variation distance to the exact distribution falls as
 $N^{-1/2}$: 3 photons in 5 modes, 1000 to 256 000 samples, eight seeds each, give an order of

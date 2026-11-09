@@ -574,11 +574,13 @@ were the first many-mode test on a chip: their correlations violated a classical
 standard deviations. photonoxide's coupled-mode array with their coupling, $C = 5$ per mm over an
 effective 782 µm, gives their Eq. 4 for the correlations as the permanent formula to $10^{-17}$,
 and the bound violated at 70 pairs of guides for inputs (0, 1) and 56 for (−1, 1) by photons alike
-and nowhere by photons told apart, as they report. Their simulated correlation matrices are **not
-reproduced**: the tallest bars of their Figs. 3B, 3D and 4B are 0.0178, 0.0237 and 0.0147, ours
-0.0236, 0.0361 and 0.0162; only Fig. 4D agrees, 0.0266 against our 0.0264. No single coupling
-length from 2 to 6 matches all four, so their simulation's array differs from the one their text
-gives; their supplement, which describes the spreading regions, isn't in hand.
+and nowhere by photons told apart, as they report. Their simulated correlation matrices show only
+the 121 pairs of guides they measured, those whose numbers differ by an even number, since their
+fibre arrays have twice the pitch of the output guides. On those pairs their Figs. 3B, 3D and 4D
+agree with ours bar by bar to 2.4% of the tallest bar (0.0178, 0.0237 and 0.0266 against our
+0.0176, 0.0239 and 0.0264). Their Fig. 4B, the same input as 4D with photons told apart, is
+**not reproduced**: its tallest bar is 0.0147 against our 0.0162, and its bars fit a 3% longer
+array than the other three panels'.
 
 ::validation quantum/peruzzo-correlations quantum/peruzzo-classical-bound
 
