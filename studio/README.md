@@ -1057,11 +1057,21 @@ node scripts/record-gifs.mjs --only hero,academy  # some: hero, device, material
   put back with them.
 - **How:** each scene is played with a drawn pointer and screencast at 1440 × 900 (the page is
   laid out at that size whatever the window's); the MMI's FDTD run and the ring's sweep are
-  time-lapses, the ring's speed-up following from how fast this machine solves it, each saying so
-  in a badge. The hero's scenes each have a caption at the foot of the page, and leave out the
-  status bar. The frames are resampled to a steady rate, crossfaded between scenes and from the end
-  back to the start, scaled by ffmpeg and encoded by gifski. `--keep` keeps the frames, and
-  `--frames <folder>` composes kept frames again without recording.
+  time-lapses, each saying so in a badge. The ring's sweep plays 15 times faster and the GIF
+  keeps its last 2.6 seconds, however long this machine takes; its take ends on the spectrum,
+  and the 3D view is opened and drawn off the record before the next take begins on it, so the
+  two crossfade with nothing between. The frames are resampled to a steady rate, crossfaded
+  between scenes and from the end back to the start, scaled by ffmpeg and encoded by gifski.
+  `--keep` keeps the frames, and `--frames <folder>` composes kept frames again without
+  recording.
+- **The hero:** eight scenes, no captions, under 35 seconds, each scene on screen at least
+  3.5 seconds with the crossfades left out (the recorder prints each scene's seconds). Every take
+  is cropped the same, down to the top of the rail's Collapse row, so the rail's last two rows and
+  the status bar beside them are left out whole; before each take the page's scrolling panes are
+  moved a few pixels, the least that does it, so no line of text is cut by that foot or by a
+  pane's top. Toasts, and a chart's busy spinner as its slider moves, are hidden. Record it with
+  `--workspace` set to a folder with a short, neutral path (`C:\Users\Public\photonoxide-demo`):
+  the Chip page shows the circuit file's path.
 
 ## Layout
 
