@@ -1,5 +1,6 @@
 import { cache } from "react";
 import { getRepoFile, getRepoFiles } from "./github";
+import { plainText, splitTitle } from "./inline";
 
 /**
  * photonoxide's examples, read from the repository at the pinned commit
@@ -19,8 +20,12 @@ import { getRepoFile, getRepoFiles } from "./github";
  * @property {string} slug     URL segment, e.g. "strip-waveguide"
  * @property {string} name     the cargo example's name, e.g. "strip_waveguide"
  * @property {string} path     examples/<name>.rs
- * @property {string} title
- * @property {string} summary  the doc comment's first paragraph after the title
+ * @property {string} title    the doc comment's first sentence, inline Markdown
+ * @property {string} head     the title, or its first phrase when it is long (inline.js, `splitTitle`)
+ * @property {string} subtitle the rest of a long title after its head, or ""
+ * @property {string} plainTitle    the head as plain text, for metadata and breadcrumbs
+ * @property {string} summary  the doc comment's first paragraph after the title, inline Markdown
+ * @property {string} plainSummary  the summary as plain text, for metadata
  * @property {string} doc      the doc comment as Markdown, without its title line
  * @property {string} code     the file without its doc comment
  * @property {string | null} output
@@ -45,9 +50,23 @@ function parse(name, source, output) {
   const { doc, code } = splitDoc(source);
   const [first, ...rest] = doc.split(/\n\s*\n/);
   const title = (first ?? name).replace(/\s+/g, " ").trim().replace(/\.$/, "");
+  const { head, rest: subtitle } = splitTitle(title);
   const body = rest.join("\n\n");
   const summary = (rest[0] ?? "").replace(/\s+/g, " ").trim();
-  return { slug: slugFor(name), name, path: `examples/${name}.rs`, title, summary, doc: body, code, output };
+  return {
+    slug: slugFor(name),
+    name,
+    path: `examples/${name}.rs`,
+    title,
+    head,
+    subtitle,
+    plainTitle: plainText(head),
+    summary,
+    plainSummary: plainText(summary),
+    doc: body,
+    code,
+    output,
+  };
 }
 
 /** @returns {Promise<{ ok: boolean, examples: Example[] }>} ok is false when GitHub can't be reached */

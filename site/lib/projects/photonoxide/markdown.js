@@ -1,6 +1,7 @@
 import katex from "katex";
 import { renderMarkdown } from "@/lib/projects/highlight";
 import { blobUrl, rawUrl } from "./github";
+import { INLINE_MATH, inlineMarkdown, shortenLinks, stashRefs } from "./inline";
 import {
   CROSS_CODE_DOCS_PATH,
   DESIGN_DOCS_PATH,
@@ -32,8 +33,20 @@ const GUIDES = {
 
 const PLACEHOLDER = (i) => `PNXMATH${i}X`;
 
-/** Inline math, as GitHub finds it: no space just inside the dollars, no letter, digit or dollar just outside. */
-const INLINE_MATH = /(?<![\\$\w])\$(?!\s)([^$\n]+?)(?<!\s)\$(?![\w$])/g;
+/** TeX to KaTeX's HTML; a TeX error shows the source in red rather than failing the page. */
+function renderTex(tex, displayMode = false) {
+  return katex.renderToString(String(tex).trim(), { displayMode, throwOnError: false, output: "html" });
+}
+
+/**
+ * A line of inline Markdown (a card's title or summary) as HTML, its math by
+ * KaTeX: inline.js's `inlineMarkdown`, which says what it takes.
+ * @param {string} text
+ * @param {Parameters<typeof inlineMarkdown>[1]} [options]
+ */
+export function renderInline(text, options = {}) {
+  return inlineMarkdown(text, { math: (tex) => renderTex(tex), ...options });
+}
 
 /**
  * Plain text with inline `$ … $` math, such as a validation case's
@@ -47,7 +60,7 @@ export function inlineMath(text) {
   let last = 0;
   for (const m of s.matchAll(INLINE_MATH)) {
     if (m.index > last) parts.push({ text: s.slice(last, m.index) });
-    parts.push({ html: katex.renderToString(m[1], { throwOnError: false, output: "html" }) });
+    parts.push({ html: renderTex(m[1]) });
     last = m.index + m[0].length;
   }
   if (last < s.length) parts.push({ text: s.slice(last) });
@@ -60,28 +73,45 @@ function splitCode(source) {
 }
 
 /**
+ * Options beyond the renderer's own (`resolveUrl`), each off unless asked:
+ * - `refs`: issue and pull request references (`#584`, `(#583: #584)`) as
+ *   small linked chips (inline.js, `stashRefs`);
+ * - `compact`: a link whose text is a DOI or a bare URL shows "DOI" or its
+ *   host, the whole address kept (inline.js, `shortenLinks`);
+ * - `notes`: an italic parenthesis, `*( … )*`, the roadmap's notes on what
+ *   was done, as a quieter note of its own (`pnx-note`) under its line.
+ * The pages style the chips and notes with `RichText.module.css`.
+ *
  * @param {string} source
- * @param {{ resolveUrl?: (href: string, kind: "link" | "image") => string }} [options]
+ * @param {{
+ *   resolveUrl?: (href: string, kind: "link" | "image") => string,
+ *   refs?: boolean, compact?: boolean, notes?: boolean,
+ * }} [options]
  * @returns {Promise<string>} HTML
  */
 export async function renderMathMarkdown(source, options = {}) {
-  const math = [];
-  const stash = (tex, displayMode) => {
-    math.push(katex.renderToString(tex.trim(), { displayMode, throwOnError: false, output: "html" }));
-    return PLACEHOLDER(math.length - 1);
+  const { refs = false, compact = false, notes = false, ...rendererOptions } = options;
+  const stashed = [];
+  const stashHtml = (html) => {
+    stashed.push(html);
+    return PLACEHOLDER(stashed.length - 1);
   };
+  const stash = (tex, displayMode) => stashHtml(renderTex(tex, displayMode));
   const text = splitCode(String(source ?? ""))
     .map((part, i) => {
       if (i % 2 === 1) return part; // code
-      return part
+      const withMath = part
         .replace(/\$\$([\s\S]+?)\$\$/g, (_, tex) => `\n\n${stash(tex, true)}\n\n`)
         .replace(INLINE_MATH, (_, tex) => stash(tex, false));
+      return refs ? stashRefs(withMath, stashHtml) : withMath;
     })
     .join("");
-  const html = await renderMarkdown(text, options);
+  let html = await renderMarkdown(text, rendererOptions);
+  if (compact) html = shortenLinks(html);
+  if (notes) html = html.replace(/<em>\(([\s\S]*?)\)<\/em>/g, '<span class="pnx-note">$1</span>');
   return html
-    .replace(new RegExp(`<p>${PLACEHOLDER("(\\d+)")}</p>`, "g"), (_, i) => math[Number(i)])
-    .replace(new RegExp(PLACEHOLDER("(\\d+)"), "g"), (_, i) => math[Number(i)]);
+    .replace(new RegExp(`<p>${PLACEHOLDER("(\\d+)")}</p>`, "g"), (_, i) => stashed[Number(i)])
+    .replace(new RegExp(PLACEHOLDER("(\\d+)"), "g"), (_, i) => stashed[Number(i)]);
 }
 
 /**

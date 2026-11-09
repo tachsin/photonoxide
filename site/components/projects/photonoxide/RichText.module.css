@@ -1,0 +1,160 @@
+/*
+ * What markdown.js and inline.js put into the pages' HTML beyond plain
+ * Markdown: issue and pull request chips (`pnx-ref`), short DOI and URL links
+ * (`pnx-doi`, `pnx-url`), the roadmap's notes (`pnx-note`) and its checklists.
+ * `.prose` goes on a `proj-prose` article, `.inline` on a card's line of text.
+ * The colours are the app's theme tokens, so light and dark follow the theme.
+ */
+
+.prose,
+.inline {
+  --pnx-line: var(--proj-line, color-mix(in oklab, var(--color-base-content) 11%, transparent));
+  --pnx-line-strong: var(--proj-line-strong, color-mix(in oklab, var(--color-base-content) 18%, transparent));
+  --pnx-muted: var(--proj-muted, color-mix(in oklab, var(--color-base-content) 64%, transparent));
+}
+
+/* ---------- issue and pull request chips ---------- */
+
+.prose :global(a.pnx-ref),
+.inline :global(a.pnx-ref) {
+  display: inline-block;
+  margin: 0 0.08em;
+  border: 1px solid var(--pnx-line);
+  border-radius: 0.45em;
+  padding: 0 0.38em;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 0.74em;
+  line-height: 1.55;
+  vertical-align: 0.08em;
+  white-space: nowrap;
+  color: var(--pnx-muted);
+  text-decoration: none;
+  background: color-mix(in oklab, var(--color-base-content) 4%, transparent);
+  transition: color 0.15s, border-color 0.15s, background-color 0.15s;
+}
+
+.prose :global(a.pnx-ref:hover),
+.inline :global(a.pnx-ref:hover) {
+  color: var(--color-primary);
+  border-color: color-mix(in oklab, var(--color-primary) 45%, transparent);
+  background: color-mix(in oklab, var(--color-primary) 8%, transparent);
+}
+
+.prose :global(.pnx-refs),
+.inline :global(.pnx-refs) {
+  white-space: normal;
+}
+
+.prose :global(.pnx-ref-sep),
+.inline :global(.pnx-ref-sep) {
+  margin: 0 0.1em 0 -0.05em;
+  font-size: 0.8em;
+  color: var(--pnx-muted);
+}
+
+/* ---------- short links ---------- */
+
+.prose :global(a.pnx-doi),
+.inline :global(a.pnx-doi) {
+  display: inline-block;
+  border: 1px solid color-mix(in oklab, var(--color-primary) 30%, transparent);
+  border-radius: 0.45em;
+  padding: 0 0.4em;
+  font-size: 0.7em;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  line-height: 1.6;
+  vertical-align: 0.1em;
+  white-space: nowrap;
+  color: var(--color-primary);
+  text-decoration: none;
+  background: color-mix(in oklab, var(--color-primary) 7%, transparent);
+}
+
+.prose :global(a.pnx-doi)::after,
+.inline :global(a.pnx-doi)::after {
+  content: "↗";
+  margin-left: 0.2em;
+  font-weight: 400;
+}
+
+.prose :global(a.pnx-doi:hover),
+.inline :global(a.pnx-doi:hover) {
+  border-color: var(--color-primary);
+}
+
+.prose :global(a.pnx-url),
+.inline :global(a.pnx-url) {
+  overflow-wrap: anywhere;
+}
+
+/* ---------- the roadmap's notes and checklists ---------- */
+
+.prose :global(.pnx-note) {
+  display: block;
+  margin: 0.4em 0 0.15em;
+  border-left: 2px solid var(--pnx-line-strong);
+  padding: 0.05em 0 0.05em 0.8em;
+  font-size: 0.88em;
+  line-height: 1.65;
+  color: var(--pnx-muted);
+}
+
+.prose :global(ul:has(> li > input[type="checkbox"])),
+.prose :global(ul:has(> li > p > input[type="checkbox"])) {
+  padding-left: 1.7em;
+  list-style: none;
+}
+
+.prose :global(li:has(> input[type="checkbox"])),
+.prose :global(li:has(> p > input[type="checkbox"])) {
+  position: relative;
+  margin: 0.55em 0;
+}
+
+.prose :global(li > input[type="checkbox"]),
+.prose :global(li > p > input[type="checkbox"]) {
+  appearance: none;
+  position: absolute;
+  top: 0.38em;
+  left: -1.6em;
+  width: 1em;
+  height: 1em;
+  margin: 0;
+  border: 1.5px solid var(--pnx-line-strong);
+  border-radius: 0.3em;
+  background: transparent;
+}
+
+.prose :global(li > input[type="checkbox"]:checked),
+.prose :global(li > p > input[type="checkbox"]:checked) {
+  border-color: var(--color-primary);
+  background: var(--color-primary);
+  box-shadow: inset 0 0 0 2.5px var(--color-base-100);
+}
+
+/* the nested lists under an item keep their bullets */
+.prose :global(li ul) {
+  margin: 0.35em 0 0.2em;
+  list-style: disc;
+}
+
+/* ---------- a card's line ---------- */
+
+.inline :global(code) {
+  border-radius: 0.3em;
+  padding: 0.05em 0.3em;
+  font-size: 0.9em;
+  background: color-mix(in oklab, var(--color-base-content) 6%, transparent);
+}
+
+.inline :global(a:not(.pnx-ref):not(.pnx-doi)) {
+  color: var(--color-primary);
+  text-decoration: underline;
+  text-decoration-color: color-mix(in oklab, var(--color-primary) 35%, transparent);
+  text-underline-offset: 2px;
+}
+
+.inline :global(.katex) {
+  font-size: 1.05em;
+}
