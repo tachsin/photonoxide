@@ -372,3 +372,81 @@ fn the_waveguide_device_adds_its_roughness_loss() {
     assert!((design.values().get("correlation").unwrap() - 0.1).abs() < 1e-15);
     assert!(crate::device::Design::new(&d, &[("roughness", "60 nm")]).is_err());
 }
+
+/// [`sidewall_loss`]'s α with Barwicz and Haus's G₁,₁ as printed (`printed`) or ours.
+fn alpha_with(cs: &CrossSection, mode: &VectorMode, r: &Roughness, printed: bool) -> f64 {
+    let wavelength = lam(1.55);
+    let core = Core::of(cs).unwrap();
+    let fields = mode.fields_sided(cs, true).unwrap();
+    let sums = wall_sums(cs, &core, &fields, CORNER_CELLS).unwrap();
+    let rows = 2f64.powf(f64::from(
+        u8::from(core.south_mirror) + u8::from(core.north_mirror),
+    ));
+    let columns = if core.west_mirror { 2.0 } else { 1.0 };
+    let power = fields.power() * rows * columns;
+    let sums = sums.map(|s| s * rows / power);
+    let te_like = mode.te_fraction() >= 0.5;
+    let beta = mode.effective_index().re * wavelength.wavenumber();
+    let radiation = Radiation {
+        k0: wavelength.wavenumber(),
+        cladding: core.cladding.sqrt(),
+        eps_core: core.core,
+        eps_cladding: core.cladding,
+        width: Some(core.width),
+        height: core.height,
+        beta,
+        roughness: *r,
+        printed,
+    };
+    let (main, gamma, shapes) = if te_like {
+        ([1.0, 0.0, 0.0], sums[2] / sums[0], (Shape::Cosine, Shape::Cosine))
+    } else {
+        ([0.0, 1.0, 0.0], sums[2] / sums[1], (Shape::Cosine, Shape::Sine))
+    };
+    let pattern = (radiation.integral(main, shapes.0)
+        + gamma * radiation.integral([0.0, 0.0, 1.0], shapes.1))
+        / (1.0 + gamma);
+    radiation.prefactor(core.core - core.cladding, sums.iter().sum::<f64>()) * pattern
+}
+
+/// Barwicz and Haus's Fig. 13: the loss over its value at L_c = 50 nm against L_c, for their
+/// three guides (SiON 1.5 × 3.0 µm, Si₃N₄ 0.4 × 0.8 µm, Si 0.195 × 0.390 µm, in 1.45 at
+/// 1.55 µm), both modes, with our Green's function and theirs as printed. The ratio cancels the
+/// field at the wall and the mode's power, leaving the radiation's pattern and spectrum.
+#[test]
+#[ignore = "Barwicz and Haus's Fig. 13: slow"]
+fn print_barwicz_haus_fig13() {
+    let guides = [
+        ("SiON", (3.0, 1.5), 1.50, 0.025, 3.0),
+        ("Si3N4", (0.8, 0.4), 2.00, 0.005, 1.0),
+        ("Si", (0.39, 0.195), 3.50, 0.0025, 0.5),
+    ];
+    let lcs = [10.0, 20.0, 30.0, 40.0, 50.0, 75.0, 100.0, 125.0, 147.0, 150.0];
+    for (name, size, n, step, margin) in guides {
+        for te in [true, false] {
+            let cs = rectangle(size, (n, 1.45), step, margin, te, false);
+            let mode = crate::mode::hadley::modes(&cs, lam(1.55), 1, None).unwrap();
+            for printed in [false, true] {
+                let a: Vec<f64> = lcs
+                    .iter()
+                    .map(|&lc| {
+                        let r = Roughness::exponential(nm(1.0), nm(lc)).unwrap();
+                        alpha_with(&cs, &mode[0], &r, printed)
+                    })
+                    .collect();
+                let at50 = a[4];
+                eprintln!(
+                    "{name} {} (te fraction {:.3}), {}: {}",
+                    if te { "TE-like" } else { "TM-like" },
+                    mode[0].te_fraction(),
+                    if printed { "printed G" } else { "our G" },
+                    lcs.iter()
+                        .zip(&a)
+                        .map(|(l, v)| format!("{l}: {:.4}", v / at50))
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                );
+            }
+        }
+    }
+}

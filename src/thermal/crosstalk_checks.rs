@@ -37,6 +37,20 @@ pub(crate) fn chip(victims: &[f64], gap: Gap, half: f64, r: f64) -> PhaseShifter
 
 /// [`chip`] on a substrate `wafer` µm thick.
 pub(crate) fn chip_on(victims: &[f64], gap: Gap, half: f64, r: f64, wafer: f64) -> PhaseShifter {
+    chip_with(victims, gap, half, r, wafer, false)
+}
+
+/// [`chip_on`]; `screened` gives each medium a heat capacity equal to its conductivity, so one
+/// backward-Euler step of 1/k_z² seconds from zero solves −∇·(k∇T̂) + k k_z² T̂ = q̂, the
+/// temperature of the heater's Fourier component e^(i k_z z) along the guides (k_z in 1/m).
+fn chip_with(
+    victims: &[f64],
+    gap: Gap,
+    half: f64,
+    r: f64,
+    wafer: f64,
+    screened: bool,
+) -> PhaseShifter {
     let top = 3.32;
     let mut section = Section::new("SiO2");
     section.layer(-2.0 - wafer, -2.0, "substrate").expect(OK);
@@ -72,7 +86,7 @@ pub(crate) fn chip_on(victims: &[f64], gap: Gap, half: f64, r: f64, wafer: f64) 
         ("air", 0.026, 1.177 * 1006.0),
     ] {
         heat.conductivity(m, Tensor::isotropic(k))
-            .heat_capacity(m, c);
+            .heat_capacity(m, if screened { k } else { c });
     }
     heat.boundary(Side::Bottom, Boundary::Fixed(0.0)).boundary(
         Side::Top,
@@ -461,6 +475,7 @@ pub(crate) fn cases() -> Vec<Case> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::thermal::{Scheme, Stepping};
 
     /// The share of the heater's phase a strip takes at each gap, on substrates of several
     /// thicknesses: what Jacques et al.'s measured victim (a two-armed MZI, the heater 320 µm
@@ -491,6 +506,99 @@ mod tests {
             eprintln!(
                 "alone at {gap} um: {:.5}",
                 chip_crosstalk(&[victim_at(gap)], Gap::Oxide, 1.0)[0]
+            );
+        }
+    }
+
+    /// Jacques et al.'s heater and its victims at gaps of 5 and 15 µm with the heater, the
+    /// heated guide and each victim's near arm `length` µm long and side by side (their Fig. 5(a);
+    /// the 320 µm TOPS), the guides' index change averaged over that length: the heater's power
+    /// P/L along it, T(x, y, z) = ∫ T̂(k) Ŝ(k) e^{ikz} dk/2π with Ŝ(k) = 2 sin(kL/2)/k, so each
+    /// guide's mean over the length is its 2D (z-invariant) value times
+    /// R = (2/π) ∫₀^∞ sinc²(u) τ(2u/L) du, τ(k) = T̂(k)/T̂(0) on the guide (`chip_with`'s
+    /// screened solves, interpolated in log k). Prints each guide's R, the section's Pπ and the
+    /// crosstalk, against the 2D numbers.
+    #[test]
+    #[ignore = "Jacques et al.'s crosstalk with the heater's length: slow"]
+    fn print_jacques_length_averaged() {
+        let at = [victim_at(5.0), victim_at(15.0)];
+        let ps = chip_with(&at, Gap::Oxide, 2000.0, 1.0, WAFER, true);
+        let guides = 1 + at.len();
+        let steady: Vec<f64> = (0..guides)
+            .map(|g| ps.steady(0, g, true).expect(OK))
+            .collect();
+        // k_z from 10 to 1e8 per metre, 8 per decade
+        let ks: Vec<f64> = (0..=56).map(|i| 10f64.powf(1.0 + i as f64 / 8.0)).collect();
+        let start = std::time::Instant::now();
+        let tau: Vec<Vec<f64>> = ks
+            .iter()
+            .map(|&k| {
+                let h = ps
+                    .step(0, &Stepping::new(1.0 / (k * k), 1, Scheme::Bdf2), true)
+                    .expect(OK);
+                (0..guides)
+                    .map(|g| h.watched[g][1] / steady[g])
+                    .collect()
+            })
+            .collect();
+        eprintln!(
+            "{} screened solves in {:.1} s",
+            ks.len(),
+            start.elapsed().as_secs_f64()
+        );
+        for (k, t) in ks.iter().zip(&tau) {
+            eprintln!(
+                "  k {k:.3e} /m: tau {}",
+                t.iter()
+                    .map(|v| format!("{v:.5}"))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            );
+        }
+        // τ(k) by linear interpolation in log k; 1 below the first node, falling as k⁻² past
+        // the last
+        let tau_at = |g: usize, k: f64| -> f64 {
+            if k <= ks[0] {
+                return 1.0;
+            }
+            let n = ks.len() - 1;
+            if k >= ks[n] {
+                return tau[n][g] * (ks[n] / k).powi(2);
+            }
+            let i = ks.partition_point(|&x| x <= k) - 1;
+            let s = (k / ks[i]).ln() / (ks[i + 1] / ks[i]).ln();
+            tau[i][g] + s * (tau[i + 1][g] - tau[i][g])
+        };
+        let e = ps.efficiency().expect(OK);
+        let p_pi_2d = e.p_pi(0, 0) * 1e3;
+        for length_um in [160.0, 320.0, 640.0, 1280.0] {
+            let l = length_um * 1e-6;
+            // (2/π) ∫₀^U sinc²(u) τ(2u/L) du by the midpoint rule, steps of 1e-3, U = 2000; the
+            // tail past U, (1/π) τ(2U/L)/U at most, is below 1e-6
+            let (du, n) = (1e-3, 2_000_000);
+            let r: Vec<f64> = (0..guides)
+                .map(|g| {
+                    let mut sum = 0.0;
+                    for i in 0..n {
+                        let u = (i as f64 + 0.5) * du;
+                        let s = u.sin() / u;
+                        sum += s * s * tau_at(g, 2.0 * u / l);
+                    }
+                    2.0 / PI * sum * du
+                })
+                .collect();
+            eprintln!(
+                "L = {length_um} um: R (own, 5 um, 15 um) {:.4}, {:.4}, {:.4}; P_pi {:.2} mW (2D {:.2}); crosstalk at 5 um {:.4} (2D {:.4}), at 15 um {:.4} (2D {:.4}); the 5 to 15 um ratio {:.3}",
+                r[0],
+                r[1],
+                r[2],
+                p_pi_2d / r[0],
+                p_pi_2d,
+                e.crosstalk(1, 0, 0) * r[1] / r[0],
+                e.crosstalk(1, 0, 0),
+                e.crosstalk(2, 0, 0) * r[2] / r[0],
+                e.crosstalk(2, 0, 0),
+                e.crosstalk(1, 0, 0) * r[1] / (e.crosstalk(2, 0, 0) * r[2])
             );
         }
     }

@@ -857,7 +857,18 @@ impl Model {
 /// ε per cell on `g` of the grooves `cut` (their starts and widths, µm), E along z: each cell's
 /// mean over its area.
 fn cells(g: Grid, s: Setup, y_box: f64, cut: &[(f64, f64)]) -> Vec<c64> {
-    let (si, ox) = (N_SI * N_SI, N_OX * N_OX);
+    cells_with(g, s, y_box, cut, (N_SI, N_OX))
+}
+
+/// [`cells`] with the silicon's and the oxide's indices `(n_si, n_ox)`.
+fn cells_with(
+    g: Grid,
+    s: Setup,
+    y_box: f64,
+    cut: &[(f64, f64)],
+    (n_si, n_ox): (f64, f64),
+) -> Vec<c64> {
+    let (si, ox) = (n_si * n_si, n_ox * n_ox);
     let mut eps = Vec::with_capacity(g.nx * g.ny);
     for j in 0..g.ny {
         let (ya, yb) = (g.y0 + j as f64 * g.dy, g.y0 + (j + 1) as f64 * g.dy);
@@ -882,10 +893,15 @@ impl Model {
     /// its Gaussian angular spectrum about its axis, its waist at x = FIO, the setup's `waist`
     /// above the film's top (on it for the searches).
     fn beam(&self, wavelength: f64) -> Beam {
+        self.beam_in(wavelength, N_OX)
+    }
+
+    /// [`Model::beam`] in an oxide of index `n_ox`.
+    fn beam_in(&self, wavelength: f64, n_ox: f64) -> Beam {
         let g = self.grid;
         let w0 = self.setup.mfd / 2.0;
         let k0 = 2.0 * PI / wavelength;
-        let k = k0 * N_OX;
+        let k = k0 * n_ox;
         let (st, ct) = math::sin_cos(ANGLE * PI / 180.0);
         let m = 161;
         let qmax = 8.0 / w0;
@@ -1627,6 +1643,107 @@ fn beams() -> photonoxide::Result<()> {
     Ok(())
 }
 
+/// The silicon's and the oxide's indices at `wavelength` µm with the catalogue's dispersion
+/// (Li 1980's silicon, Malitson 1965's silica) about the paper's 3.47 and 1.44 at 1.55 µm:
+/// n(λ) = n_paper + n_catalogue(λ) − n_catalogue(1.55 µm).
+fn dispersive(wavelength: f64) -> photonoxide::Result<(f64, f64)> {
+    let n = |m: &photonoxide::material::Material, l: f64| -> photonoxide::Result<f64> {
+        Ok(m.refractive_index(Wavelength::um(l)?)?.re)
+    };
+    let (si, ox) = (
+        photonoxide::material::silicon(),
+        photonoxide::material::silica(),
+    );
+    Ok((
+        N_SI + n(&si, wavelength)? - n(&si, CENTRE)?,
+        N_OX + n(&ox, wavelength)? - n(&ox, CENTRE)?,
+    ))
+}
+
+/// `--dispersion`: every design of [`FRONTS`] on the searches' grid with the waist at FID, with
+/// the paper's constant indices and with the catalogue's dispersion about them ([`dispersive`]):
+/// the efficiency and the 1-dB bandwidth of each against the data file's. Reported, not checked.
+fn dispersion(step: (f64, f64)) -> photonoxide::Result<()> {
+    println!(
+        "\nThe paper's own designs on {:.0} × {:.0} nm, the waist at FID: the indices constant (3.47 and 1.44), and with Li's silicon's and Malitson's silica's dispersion about them (CE %, 1-dB bandwidth nm, the bandwidth's difference from the data file's)",
+        1000.0 * step.0,
+        1000.0 * step.1
+    );
+    let lambda = wavelengths(FRONT_WAVELENGTHS);
+    let indices = lambda
+        .iter()
+        .map(|&l| dispersive(l))
+        .collect::<photonoxide::Result<Vec<_>>>()?;
+    println!(
+        "  the indices with dispersion: {:.4} and {:.4} at {} µm, {:.4} and {:.4} at {} µm",
+        indices[0].0,
+        indices[0].1,
+        lambda[0],
+        indices[lambda.len() - 1].0,
+        indices[lambda.len() - 1].1,
+        lambda[lambda.len() - 1]
+    );
+    let started = Instant::now();
+    for front in &FRONTS {
+        header(front);
+        let structures: Vec<&Structure> = front.structures.iter().collect();
+        let model = Model::new(front.setup(front.fid), step)?;
+        let constant = structure_bands(&model, &structures);
+        eprintln!(
+            "MFD {} um, --dispersion: 1 of 2 index models, {} in",
+            front.mfd,
+            minutes(started.elapsed().as_secs_f64())
+        );
+        let jobs: Vec<(usize, usize)> = (0..structures.len())
+            .flat_map(|d| (0..lambda.len()).map(move |k| (d, k)))
+            .collect();
+        let ce: Vec<f64> = jobs
+            .par_iter()
+            .map(|&(d, k)| {
+                let eps = cells_with(
+                    model.grid,
+                    model.setup,
+                    model.y_box,
+                    &structures[d].cut(),
+                    indices[k],
+                );
+                model
+                    .efficiency(&eps, &model.beam_in(lambda[k], indices[k].1))
+                    .expect("a solve")
+            })
+            .collect();
+        let with: Vec<Band> = ce
+            .chunks(lambda.len())
+            .map(|c| band(&lambda, c))
+            .collect();
+        eprintln!(
+            "MFD {} um, --dispersion: 2 of 2 index models, {} in",
+            front.mfd,
+            minutes(started.elapsed().as_secs_f64())
+        );
+        for (k, s) in structures.iter().enumerate() {
+            let cell = |b: &Band| {
+                format!(
+                    "{:.2} % at {:.1} nm ({:+.1} %), peak at {:.1} nm",
+                    100.0 * b.peak,
+                    b.width_nm(),
+                    100.0 * (held(b.width_nm(), 1) - s.bandwidth) / s.bandwidth,
+                    500.0 * (b.low + b.high)
+                )
+            };
+            println!(
+                "  structure {}: paper {} % at {} nm; constant {}; dispersive {}",
+                s.number,
+                s.ce,
+                s.bandwidth,
+                cell(&constant[k]),
+                cell(&with[k])
+            );
+        }
+    }
+    Ok(())
+}
+
 fn full(checks: &mut common::Checks) -> photonoxide::Result<()> {
     let path =
         std::env::var("GRATING_LOG").unwrap_or_else(|_| "optimize_grating_pareto.log".into());
@@ -1815,6 +1932,11 @@ pub fn main() -> photonoxide::Result<ExitCode> {
     );
     if std::env::args().any(|a| a == "--beams") {
         beams()?;
+        return Ok(ExitCode::SUCCESS);
+    }
+    if std::env::args().any(|a| a == "--dispersion") {
+        let fine = std::env::args().any(|a| a == "--fine");
+        dispersion(if fine { GRIDS[2] } else { STEP })?;
         return Ok(ExitCode::SUCCESS);
     }
     if std::env::args().any(|a| a == "--supplement") {
