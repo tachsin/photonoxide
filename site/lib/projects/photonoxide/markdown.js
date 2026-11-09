@@ -108,7 +108,9 @@ export async function renderMathMarkdown(source, options = {}) {
     .join("");
   let html = await renderMarkdown(text, rendererOptions);
   if (compact) html = shortenLinks(html);
-  if (notes) html = html.replace(/<em>\(([\s\S]*?)\)<\/em>/g, '<span class="pnx-note">$1</span>');
+  // a note is one emphasis, with none inside: a stray asterisk in the text ("φ*") can leave
+  // an emphasis open, and the note must never reach across into the next one
+  if (notes) html = html.replace(/<em>\(((?:(?!<\/?em>)[\s\S])*?)\)<\/em>/g, '<span class="pnx-note">$1</span>');
   return html
     .replace(new RegExp(`<p>${PLACEHOLDER("(\\d+)")}</p>`, "g"), (_, i) => stashed[Number(i)])
     .replace(new RegExp(PLACEHOLDER("(\\d+)"), "g"), (_, i) => stashed[Number(i)]);
@@ -125,7 +127,8 @@ export function repoLinkResolver(folder) {
   return (href, kind) => {
     if (!href || /^[a-z]+:/i.test(href) || href.startsWith("#") || href.startsWith("/")) return href;
     const [target, anchor] = href.split("#");
-    const resolved = new URL(target, `https://x/${folder}/`).pathname.slice(1);
+    // the root's documents (folder "") resolve from "/", not "//"
+    const resolved = new URL(target, `https://x/${folder ? `${folder}/` : ""}`).pathname.slice(1);
     const method = /^docs\/methods\/([\w-]+)\.md$/.exec(resolved);
     if (method) return `${METHODS_PATH}/${method[1]}${anchor ? `#${anchor}` : ""}`;
     if (kind === "image") return rawUrl(resolved);

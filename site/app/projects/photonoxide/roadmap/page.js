@@ -114,13 +114,15 @@ function TimelineItem({ block, html, last }) {
               />
             </h3>
             {counted ? (
-              <span className="mt-2 flex items-center gap-2.5 text-base-content/60 text-xs">
-                <progress
-                  className={`progress h-1.5 w-24 sm:w-32 ${status === "next" ? "progress-primary" : ""}`}
-                  value={m.done}
-                  max={m.total}
-                  aria-label={`${m.done} of ${m.total} items done`}
-                />
+              <span className="mt-1.5 flex items-center gap-2.5 text-base-content/55 text-xs">
+                {status === "next" ? (
+                  <progress
+                    className="progress progress-primary h-1.5 w-24 sm:w-32"
+                    value={m.done}
+                    max={m.total}
+                    aria-label={`${m.done} of ${m.total} items done`}
+                  />
+                ) : null}
                 {m.done} of {m.total} done
               </span>
             ) : null}
