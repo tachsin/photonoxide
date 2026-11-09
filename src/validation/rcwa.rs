@@ -35,6 +35,16 @@ pub(crate) fn rules() -> Vec<(&'static str, Rule)> {
             ),
         ),
         (
+            "mode/rcwa-effective-medium-faces",
+            Rule::new(
+                Absolute,
+                Order,
+                0.1,
+                Measured,
+                "the bulk's second order (a mirror-symmetric cell) and the faces' first, within 0.1",
+            ),
+        ),
+        (
             "mode/rcwa-tm-convergence",
             Rule::new(
                 Absolute,

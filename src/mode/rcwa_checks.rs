@@ -47,6 +47,13 @@ pub(crate) fn cases() -> Vec<Case> {
             run: effective_medium_order,
         },
         Case {
+            id: "mode/rcwa-effective-medium-faces",
+            title: r"The same grating (fill 0.5) set in its own static medium ($\varepsilon_\parallel$ for TE, $\varepsilon_\perp$ for TM), one and two half-waves of it thick, at 1.55 µm with periods of 10 and 5 nm: the phase of its zeroth-order $t$ beyond the medium's, split into the part proportional to the thickness (the bulk's) and the rest (the faces'); the orders in the period of TE's and TM's bulk phase (second) and TM's faces' (first), the largest distance from those shown",
+            tier: Tier::Analytic,
+            source: r"the static limit's correction inside the grating is even in $\Lambda/\lambda$ (a mirror-symmetric cell), second order for both polarizations; at a face the TM field $E_x = D_x/\varepsilon$ inside differs stripe by stripe from the uniform one outside, and the evanescent orders that make up the difference, reaching about $\Lambda/2\pi$ to either side, carry a polarization of their own: a sheet at each face whose strength is first order in $\Lambda$. TE's $E_y$ is continuous everywhere and has no such sheet",
+            run: effective_medium_faces,
+        },
+        Case {
             id: "mode/rcwa-tm-convergence",
             title: r"A deep silicon-in-air grating (500 nm period, fill 0.5, 600 nm thick, air over 1.45) at 1 µm, TM zeroth-order transmittance with Laurent's rule where Li's inverse rule belongs: its order of convergence in the harmonics from 201, 401 and 801 (shown); extrapolated at that order it meets Li's rules at 801 harmonics to 7e-8, which are within 2e-5 at 51",
             tier: Tier::Analytic,
@@ -171,6 +178,78 @@ fn effective_medium_order() -> Outcome {
     }
 }
 
+/// The silicon-in-air grating (fill 0.5) of period `p` µm, `d` µm thick, between two half-spaces
+/// of index `outer`: its zeroth-order r and t at 1.55 µm, normal incidence, by `rule`.
+fn embedded(
+    pol: Polarization,
+    p: f64,
+    d: f64,
+    outer: c64,
+    orders: usize,
+    rule: Factorization,
+) -> (c64, c64) {
+    let layer = Layer::lamellar(
+        &[
+            (re(3.48), Length::um(0.5 * p)),
+            (re(1.0), Length::um(0.5 * p)),
+        ],
+        Length::um(d),
+    );
+    let g = Grating::new(Length::um(p), outer, &[layer], outer).expect(OK);
+    let x = g.diffract_with(pol, wl(1.55), 0.0, orders, rule).expect(OK);
+    (x.r[orders], x.t[orders])
+}
+
+/// The static limit's permittivity of the silicon-in-air grating (fill 0.5): ε∥ for TE, ε⊥ for
+/// TM.
+fn static_limit(pol: Polarization) -> f64 {
+    let (e1, e2, f) = (3.48f64 * 3.48, 1.0, 0.5);
+    if pol == Polarization::Te {
+        f * e1 + (1.0 - f) * e2
+    } else {
+        1.0 / (f / e1 + (1.0 - f) / e2)
+    }
+}
+
+/// The grating of period `p` µm set in its own static medium, one and two half-waves of that
+/// medium thick (where the faces' multiple reflection adds no phase): the phase of its
+/// zeroth-order t beyond the medium's, split into the part proportional to the thickness (the
+/// bulk's, per µm) and the part that isn't (the two faces').
+fn bulk_and_faces(pol: Polarization, p: f64, orders: usize, rule: Factorization) -> (f64, f64) {
+    let n0 = static_limit(pol).sqrt();
+    let k0 = 2.0 * std::f64::consts::PI / 1.55;
+    let phase = |d: f64| {
+        let (_, t) = embedded(pol, p, d, re(n0), orders, rule);
+        (t * c64::new(0.0, -k0 * n0 * d).exp()).arg()
+    };
+    let half = 1.55 / (2.0 * n0);
+    let (a, b) = (phase(half), phase(2.0 * half));
+    let bulk = (b - a) / half;
+    (bulk, a - half * bulk)
+}
+
+/// The orders in the period, from 10 to 5 nm, of TE's and TM's bulk phase (second) and TM's
+/// faces' (first): the largest distance from those.
+fn effective_medium_faces() -> Outcome {
+    let order = |pol: Polarization, face: bool| {
+        let [coarse, fine] = [0.01, 0.005].map(|p| {
+            let (bulk, faces) = bulk_and_faces(pol, p, 40, Factorization::Li);
+            if face { faces } else { bulk }
+        });
+        (coarse / fine).log2()
+    };
+    let error = (order(Polarization::Te, false) - 2.0)
+        .abs()
+        .max((order(Polarization::Tm, false) - 2.0).abs())
+        .max((order(Polarization::Tm, true) - 1.0).abs());
+    Outcome {
+        measured: error,
+        expected: 0.0,
+        tolerance: 0.1,
+        error,
+    }
+}
+
 /// The deep grating of the TM convergence case.
 fn deep_grating() -> Grating {
     let layer = Layer::lamellar(
@@ -218,6 +297,12 @@ mod tests {
 
     /// [`echelette`] with a period of `ratio` wavelengths.
     fn echelette_at(layers: usize, orders: usize, depth: f64, ratio: f64) -> f64 {
+        let [te, tm] = echelette_pols(layers, orders, depth, ratio);
+        (te + tm) / 2.0
+    }
+
+    /// [`echelette_at`]'s TE and TM efficiencies.
+    fn echelette_pols(layers: usize, orders: usize, depth: f64, ratio: f64) -> [f64; 2] {
         let n = 1.52;
         // the letter's 3λ, 1.9 µm at 633 nm: exactly 3λ would put the third orders at grazing
         let lambda = 1.9 / ratio;
@@ -237,42 +322,92 @@ mod tests {
             })
             .collect();
         let g = Grating::new(Length::um(period), re(1.0), &stack, re(n)).expect(OK);
-        let t: f64 = POLARIZATIONS
-            .iter()
-            .map(|&pol| {
-                g.diffract(pol, wl(lambda), 0.0, orders)
-                    .expect(OK)
-                    .transmitted_order(1)
-            })
-            .sum();
-        t / 2.0
+        POLARIZATIONS.map(|pol| {
+            g.diffract(pol, wl(lambda), 0.0, orders)
+                .expect(OK)
+                .transmitted_order(1)
+        })
     }
 
     /// The échelette's best depth (in λ/(n − 1)) and its efficiency, by golden-section search on
     /// [0.9, 1.4].
     fn echelette_best(layers: usize, orders: usize) -> (f64, f64) {
+        best_depth(|depth| echelette(layers, orders, depth))
+    }
+
+    /// The depth (in λ/(n − 1)) on [0.9, 1.4] where `efficiency` peaks, and the peak, by
+    /// golden-section search.
+    fn best_depth(efficiency: impl Fn(f64) -> f64) -> (f64, f64) {
         let golden = (5f64.sqrt() - 1.0) / 2.0;
         let (mut a, mut b) = (0.9, 1.4);
         let mut c = b - golden * (b - a);
         let mut d = a + golden * (b - a);
-        let (mut fc, mut fd) = (echelette(layers, orders, c), echelette(layers, orders, d));
+        let (mut fc, mut fd) = (efficiency(c), efficiency(d));
         while b - a > 1e-5 {
             if fc > fd {
                 b = d;
                 d = c;
                 fd = fc;
                 c = b - golden * (b - a);
-                fc = echelette(layers, orders, c);
+                fc = efficiency(c);
             } else {
                 a = c;
                 c = d;
                 fc = fd;
                 d = a + golden * (b - a);
-                fd = echelette(layers, orders, d);
+                fd = efficiency(d);
             }
         }
         let x = (a + b) / 2.0;
-        (x, echelette(layers, orders, x))
+        (x, efficiency(x))
+    }
+
+    /// Lalanne et al.'s échelette against the period (in wavelengths), the staircase's layers and
+    /// the harmonics, the depth optimized for unpolarized light at each.
+    #[test]
+    #[ignore = "prints the échelette's sensitivity"]
+    fn print_echelette_scan() {
+        for ratio in [
+            2.95,
+            2.99,
+            2.999,
+            2.9999,
+            3.0001,
+            3.0005,
+            3.001,
+            1.9 / 0.633,
+            1.9 / 0.6328,
+            3.005,
+            3.01,
+            3.02,
+            3.05,
+            3.1,
+        ] {
+            let mut line = format!("ratio {ratio:.5}:");
+            for layers in [15, 30, 60, 120] {
+                let (h, t) = best_depth(|depth| echelette_at(layers, 30, depth, ratio));
+                let [te, tm] = echelette_pols(layers, 30, h, ratio);
+                line += &format!(
+                    " {layers} layers depth {h:.4} T {:.3} (TE {:.3} TM {:.3});",
+                    100.0 * t,
+                    100.0 * te,
+                    100.0 * tm
+                );
+            }
+            eprintln!("{line}");
+        }
+        for orders in [15, 30, 60] {
+            let (h, t) = best_depth(|depth| echelette_at(60, orders, depth, 1.9 / 0.633));
+            eprintln!(
+                "60 layers, {orders} orders: depth {h:.4} T {:.3}",
+                100.0 * t
+            );
+        }
+        // the efficiency against the depth at the letter's period, 120 layers
+        for depth in [1.0, 1.05, 1.1, 1.12, 1.15, 1.2] {
+            let t = echelette_at(120, 30, depth, 1.9 / 0.633);
+            eprintln!("depth {depth}: T {:.3}", 100.0 * t);
+        }
     }
 
     /// A silicon-in-air lamellar grating on glass: TM zeroth-order transmittance against the
@@ -367,6 +502,59 @@ mod tests {
                 .collect();
             eprintln!("echelette period/lambda {ratio}: T+1 (15, 60 layers) {t:?}");
         }
+    }
+
+    /// The grating set in its own static medium: the bulk's index beyond the static limit's
+    /// against the second-order form birefringence, the faces' phase, and each face's reflection
+    /// as a sheet's, r/(1 + e^(2iφ)), at four thicknesses; by Li's rules and by Laurent's.
+    #[test]
+    #[ignore = "prints the TM static limit study"]
+    fn print_static_limit() {
+        let (e1, e2, f) = (3.48f64 * 3.48, 1.0f64, 0.5f64);
+        let k0 = 2.0 * std::f64::consts::PI / 1.55;
+        // the second order in Λ/λ
+        let second = |pol: Polarization, p: f64| {
+            let s =
+                (std::f64::consts::PI * p / 1.55 * f * (1.0 - f)).powi(2) / 3.0 * (e1 - e2).powi(2);
+            let (along, across) = (
+                static_limit(Polarization::Te),
+                static_limit(Polarization::Tm),
+            );
+            if pol == Polarization::Te {
+                along + s
+            } else {
+                across + s * along * across.powi(3) / (e1 * e2).powi(2)
+            }
+        };
+        for pol in POLARIZATIONS {
+            let n0 = static_limit(pol).sqrt();
+            for rule in [Factorization::Li, Factorization::Laurent] {
+                if pol == Polarization::Te && rule == Factorization::Laurent {
+                    continue;
+                }
+                for m in [20, 40, 80] {
+                    for p in [0.04, 0.02, 0.01, 0.005] {
+                        let (bulk, faces) = bulk_and_faces(pol, p, m, rule);
+                        let sheets: Vec<String> = [0.15, 0.3, 0.6, 1.2]
+                            .iter()
+                            .map(|&d| {
+                                let (r, _) = embedded(pol, p, d, re(n0), m, rule);
+                                let s = r / (1.0 + c64::new(0.0, 2.0 * k0 * n0 * d).exp());
+                                format!("{:.4e}{:+.4e}i", s.re, s.im)
+                            })
+                            .collect();
+                        eprintln!(
+                            "{pol:?} {rule:?} M {m} period {p}: dn {:.5e} second order {:.5e} faces {faces:.5e} = {:.4} k0 period; sheets {sheets:?}",
+                            bulk / k0,
+                            second(pol, p).sqrt() - n0,
+                            faces / (k0 * p)
+                        );
+                    }
+                }
+            }
+        }
+        let o = effective_medium_faces();
+        eprintln!("faces case: {o:?}");
     }
 
     #[test]

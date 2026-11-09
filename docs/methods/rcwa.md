@@ -28,6 +28,7 @@ validation:
   - mode/rcwa-uniform-multilayer
   - mode/rcwa-energy-lossless
   - mode/rcwa-effective-medium-order
+  - mode/rcwa-effective-medium-faces
   - mode/rcwa-tm-convergence
 ---
 
@@ -154,9 +155,41 @@ exactly at grazing (a Wood anomaly) makes its plane wave's V singular; the solve
   thickness, in proportion from 0.3 µm on (a 0.15, 0.3, 0.6, 1.2 µm layer in air at Λ = 10 nm:
   the phase of $t/t_\text{film}$ off by 0.85, 3.6, 7.3, 14.5 × 10⁻⁴), a correction to the medium's index. TM's
   departs as Λ (order 1.03), and it hardly depends on the thickness (2.4–3.7 × 10⁻³ over the same
-  layers): the normal E at the layer's two faces drives evanescent orders that reach about Λ/2π
-  into it and out of it, a skin whose share of the layer is first order in Λ. The static limit of
-  a layer thinner than its period is therefore not the film of $\varepsilon_\perp$ for TM.
+  layers): it comes from the layer's two faces, not from its inside (the next case).
+- **The bulk and the faces** (`mode/rcwa-effective-medium-faces`): the same grating set in its own
+  static medium, so that only what the static limit leaves out remains, one and two half-waves of
+  that medium thick (there the two faces' multiple reflection adds no phase). The phase of $t$
+  beyond the medium's splits into a part proportional to the thickness, the bulk's index, and a
+  part that isn't, the faces'. Inside, both polarizations follow the second-order form
+  birefringence,
+
+  $$
+  \varepsilon_\parallel^{(2)} = \varepsilon_\parallel + \frac{\pi^2}{3}\Big(\frac{\Lambda}{\lambda}\Big)^2 f^2(1-f)^2(\varepsilon_1-\varepsilon_2)^2,
+  \qquad
+  \varepsilon_\perp^{(2)} = \varepsilon_\perp + \frac{\pi^2}{3}\Big(\frac{\Lambda}{\lambda}\Big)^2 f^2(1-f)^2(\varepsilon_1-\varepsilon_2)^2\,\varepsilon_\parallel\frac{\varepsilon_\perp^3}{\varepsilon_1^2\varepsilon_2^2}
+  $$
+
+  (the expansion usually credited to S. M. Rytov, 1956; not read here, the formulas checked only
+  against the RCWA): at Λ = 10 nm the RCWA's index lies above the
+  static limit's by 2.06306 × 10⁻⁴ for TE, the formula's 2.06307 × 10⁻⁴, and by 1.0957 × 10⁻⁴ for
+  TM, the formula's 1.0952 × 10⁻⁴; TM's remaining difference, 0.61, 0.15, 0.04 % of the
+  correction at Λ = 40, 20, 10 nm, falls fourfold per halving, the next term's order. The faces
+  are where TM differs: inside the grating $D_x$ is uniform and $E_x = D_x/\varepsilon$ changes
+  from stripe to stripe, outside $E_x$ is uniform, and the evanescent orders that make up the
+  difference at each face, reaching about Λ/2π to either side, carry a polarization of their
+  own. Each face acts as a thin sheet: it reflects with the same sign from either side (so
+  $r/(1 + e^{2i\varphi})$, φ the medium's phase across the layer, is the same at 0.15, 0.6 and
+  1.2 µm, 1.94 to 1.95 × 10⁻³ at Λ = 10 nm, and 2.09 × 10⁻³ at 0.3 µm, near a quarter-wave, where the
+  bulk's own step shows) and adds a phase to $t$ of 0.096 $k_0\Lambda$ for the two faces (3.90 ×
+  10⁻³ at Λ = 10 nm, 1.95 × 10⁻³ at 5 nm), first order in Λ. TE's $E_y$ is continuous everywhere:
+  its faces' phase is 1.3 × 10⁻⁶ at Λ = 10 nm and falls eightfold per halving. With 41, 81 and 161
+  harmonics these numbers agree to 0.05 % of themselves. As a control, Laurent's rule (Li's Eq. 5)
+  leaves the faces nearly as they are (0.099 $k_0\Lambda$ with 41 harmonics, 0.097 with 161) but
+  puts its error into the bulk: the index 1.4, 0.73 and 0.37 × 10⁻² off with 41, 81 and 161
+  harmonics at every period, an error first order in 1/M and of order zero in Λ. So
+  TM's first-order approach is the faces', not a fault of the solver: the static limit of a TM
+  layer is the film of $\varepsilon_\perp$ with a sheet at each face whose strength is of order
+  $k_0\Lambda$, and that sheet, not the inside, sets the departure of thin layers.
 - **TM's convergence** (`mode/rcwa-tm-convergence`): a deep silicon grating (500 nm period, fill
   0.5, 600 nm thick, at 1 µm). With Laurent's rule where the inverse rule belongs (Li's Eq. 5) the
   zeroth-order transmittance converges at first order in 1/M: from 201 to 401 to 801 harmonics it
@@ -177,12 +210,29 @@ with 60 and 66.43 % with 120 (depth 1.120 λ/(n − 1)), so the sawtooth itself 
 points below theirs. The number is sensitive to the period: the third orders graze the air at
 exactly 3λ (a Wood anomaly), and there the efficiency changes as the square root of the detuning.
 At 2.9999λ and 3.0001λ the 60-layer staircase gives 66.18 % and 66.26 %, the 15-layer one 66.52 %
-and 66.59 %. So the staircase's resolution and the period's last digit each move the efficiency
-by a few tenths of a point, and the letter states neither; 66.5 % lies inside that range, but no
-single reading of it reproduces the printed digits, so it is not a case.
+and 66.59 %.
+
+A finer scan, the depth optimized at each point (TE and TM in brackets), with 120 layers, where
+the staircase has converged (60 layers differ by 0.005 points at most, and 31, 61 and 121 harmonics
+give 66.42, 66.44 and 66.43 % at 60 layers):
+
+| period / λ | 2.95 | 2.99 | 2.999 | 2.9999 | 3.0001 | 3.001 | 3.0016 | 3.0025 | 3.005 | 3.01 | 3.02 |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 120 layers, % | 66.20 | 66.10 | 66.14 | 66.18 | 66.26 | 66.38 | 66.43 | 66.50 | 66.62 | 66.81 | 67.10 |
+| 15 layers, % | 66.43 | 66.40 | 66.48 | 66.52 | 66.59 | 66.72 | 66.76 | 66.83 | 66.95 | 67.13 | 67.41 |
+
+At the letter's 1.9 µm and 633 nm (3.0016λ) the sawtooth gives 66.43 % (TE 64.87, TM 67.99), the
+best depth 1.120 λ/(n − 1), "slightly larger" than λ/(n − 1) as the letter says; the efficiency
+falls by 0.05 points at 1.10 and by 0.12 at 1.15. The letter's three readings of its period give
+three numbers: exactly 3λ, the limit from either side of the anomaly, about 66.2 %; 1.9 µm at
+633 nm, 66.43 %; 1.9 µm at the He–Ne line, 632.8 nm (3.0025λ), 66.50 %. A 15-layer staircase, as
+their 1999 paper computes, adds 0.2 to 0.3 points to each. 66.5 % lies inside the range the stated parameters allow, and the third
+reading meets it, but the letter doesn't say which it used; picking the one that matches would be
+choosing the answer, so it is not a case.
 
 The figures above that aren't cases come from ignored tests,
-`mode::rcwa_checks::tests::print_tm_convergence` and `print_tails`.
+`mode::rcwa_checks::tests::print_tm_convergence`, `print_tails`, `print_static_limit` and
+`print_echelette_scan`.
 
 ## Limits
 
