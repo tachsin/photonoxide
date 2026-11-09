@@ -536,9 +536,7 @@ mod tests {
                 let h = ps
                     .step(0, &Stepping::new(1.0 / (k * k), 1, Scheme::Bdf2), true)
                     .expect(OK);
-                (0..guides)
-                    .map(|g| h.watched[g][1] / steady[g])
-                    .collect()
+                (0..guides).map(|g| h.watched[g][1] / steady[g]).collect()
             })
             .collect();
         eprintln!(

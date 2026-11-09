@@ -155,14 +155,32 @@
 //! 48, 45, 35), and by 5.7 to 8.4 % (6 µm), to 3.0 to 5.4 % below (58, 42, 39, 37), the
 //! efficiencies within 0.6 points of the other beam's. That is the gap's size but not its pattern:
 //! at 6 µm it overshoots, so the source's profile alone isn't the cause, and the supplement doesn't
-//! say how its source was computed. Still to try: where FIO is measured, the grooves' positions as
-//! their starts, and the FDTD monitor in the guide in place of the projection on the fibre's mode.
+//! say how its source was computed.
+//!
+//! **The indices' dispersion** (`--dispersion`, 2026-11-09). Fig. 1's caption prints the indices
+//! as constants, 3.47 and 1.44, and the model takes them so. `--dispersion` adds silicon's and
+//! silica's own dispersion about them, the catalogue's (Li 1980, Malitson 1965):
+//! n(λ) = n_paper + n_catalogue(λ) − n_catalogue(1.55 µm), 3.4839 and 1.4418 at 1.40 µm, 3.4596
+//! and 1.4381 at 1.70 µm. On 10 × 5 nm with the waist at FID every bandwidth narrows, by 2.5 to
+//! 2.9 % at 4 µm and TODO6, the efficiencies move by 0.01 points and the peaks by under 0.5 nm:
+//! the 4 µm bandwidths end +1.5, +1.5, +1.9, +0.6, +1.1 and +0.2 % from the data file's (56, 52,
+//! 49, 48, 45, 35; 87.2 nm against 85.9, 94.4 against 93.0, 101.1 against 99.2, 104.4 against
+//! 103.8, 106.6 against 105.4, 121.1 against 120.9), the 6 µm ones TODO6. A gap of +2.7 to
+//! +4.7 % (4 µm) and TODO6 on every design becomes one of either sign about the size of the file's
+//! 1.5 nm steps (1.2 to 2.2 % of these bandwidths) and the paper's own spread of 1.32 %: the
+//! paper's spectra are what dispersive silicon and silica give, though it prints constant
+//! indices. With dispersion, the source's profile at 1.55 µm (`--beams`, 4.2 to 8.4 % narrower)
+//! would overshoot, so it isn't needed. Not a case: the residual is still above the
+//! paper's spread for 52, 49 and 56 (TODO6), and the paper doesn't say which material models it
+//! used.
 //!
 //! ```sh
 //! cargo run --release --example optimize_grating_pareto                  # the recorded designs
 //! cargo run --release --example optimize_grating_pareto -- --full        # the searches
 //! cargo run --release --example optimize_grating_pareto -- --supplement  # the paper's designs
 //! cargo run --release --example optimize_grating_pareto -- --beams       # the two beams, 20 x 10 nm
+//! cargo run --release --example optimize_grating_pareto -- --dispersion  # the indices' dispersion
+//! cargo run --release --example optimize_grating_pareto -- --dispersion --fine  # on 10 x 5 nm
 //! ```
 
 mod common;
@@ -1712,10 +1730,7 @@ fn dispersion(step: (f64, f64)) -> photonoxide::Result<()> {
                     .expect("a solve")
             })
             .collect();
-        let with: Vec<Band> = ce
-            .chunks(lambda.len())
-            .map(|c| band(&lambda, c))
-            .collect();
+        let with: Vec<Band> = ce.chunks(lambda.len()).map(|c| band(&lambda, c)).collect();
         eprintln!(
             "MFD {} um, --dispersion: 2 of 2 index models, {} in",
             front.mfd,

@@ -399,9 +399,17 @@ fn alpha_with(cs: &CrossSection, mode: &VectorMode, r: &Roughness, printed: bool
         printed,
     };
     let (main, gamma, shapes) = if te_like {
-        ([1.0, 0.0, 0.0], sums[2] / sums[0], (Shape::Cosine, Shape::Cosine))
+        (
+            [1.0, 0.0, 0.0],
+            sums[2] / sums[0],
+            (Shape::Cosine, Shape::Cosine),
+        )
     } else {
-        ([0.0, 1.0, 0.0], sums[2] / sums[1], (Shape::Cosine, Shape::Sine))
+        (
+            [0.0, 1.0, 0.0],
+            sums[2] / sums[1],
+            (Shape::Cosine, Shape::Sine),
+        )
     };
     let pattern = (radiation.integral(main, shapes.0)
         + gamma * radiation.integral([0.0, 0.0, 1.0], shapes.1))
@@ -421,7 +429,9 @@ fn print_barwicz_haus_fig13() {
         ("Si3N4", (0.8, 0.4), 2.00, 0.005, 1.0),
         ("Si", (0.39, 0.195), 3.50, 0.0025, 0.5),
     ];
-    let lcs = [10.0, 20.0, 30.0, 40.0, 50.0, 75.0, 100.0, 125.0, 147.0, 150.0];
+    let lcs = [
+        10.0, 20.0, 30.0, 40.0, 50.0, 75.0, 100.0, 125.0, 147.0, 150.0,
+    ];
     for (name, size, n, step, margin) in guides {
         for te in [true, false] {
             let cs = rectangle(size, (n, 1.45), step, margin, te, false);
