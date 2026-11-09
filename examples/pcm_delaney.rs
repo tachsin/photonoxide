@@ -38,11 +38,19 @@
 //! main text's crystalline 0.989, 0.972) are nearest the rib with the film on its top (0.991,
 //! 0.979; 0.980, 0.948) and further from every other candidate (crystalline 0.87 to 0.97; the
 //! overlap |∫ E₁·E₂* dA|² / (∫ |E₁|² dA ∫ |E₂|² dA), the supplement's Sec. S3): their crystalline
-//! films barely move the mode where their Δn_eff is the larger. What would settle it is the
-//! simulation itself (its solver, indices and drawing), which neither paper gives.
+//! films barely move the mode where their Δn_eff is the larger.
+//!
+//! **Fig. 7 read by pixel** (`--fig7`). The 2020 paper's Fig. 7(c)–(f) draws its simulated
+//! sections to scale: a 505 nm rib etched 118 nm (2.62 nm a pixel, the lines 3 pixels wide), a
+//! 24 nm film on the rib's top and over the slab, none on the walls. On that geometry, TE: 0.0613
+//! and 0.0371, 14.5 % below and 4.2 % above theirs, so no thickness or solver's scale fits both;
+//! the overlaps with the main component E_x alone (a scalar E₁E₂, as the formula reads) are 0.993,
+//! 0.985 and 0.985, 0.966 against Table S1's 0.995, 0.987 and 0.978, 0.968. The geometry and the
+//! overlaps agree; the indices their mode solver took for Δn_eff are what neither paper gives.
 //!
 //! ```sh
 //! cargo run --release --example pcm_delaney
+//! cargo run --release --example pcm_delaney -- --fig7   # Fig. 7's geometry and the overlaps
 //! ```
 
 mod common;
