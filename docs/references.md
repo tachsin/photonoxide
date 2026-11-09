@@ -15,7 +15,7 @@ Every paper, book and data set photonoxide cites, with every place in the reposi
 S. Aaronson, A. Arkhipov, "The Computational Complexity of Linear Optics", Theory of Comput. 9, 143 (2013). [doi:10.4086/toc.2013.v009a004](https://doi.org/10.4086/toc.2013.v009a004)
 
 - Methods pages: [quantum.md:8](methods/quantum.md?plain=1#L8), [197](methods/quantum.md?plain=1#L197)
-- Academy lessons: [quantum-light.md:123](../academy/quantum-light.md?plain=1#L123), [533](../academy/quantum-light.md?plain=1#L533), [996](../academy/quantum-light.md?plain=1#L996)
+- Academy lessons: [quantum-light.md:123](../academy/quantum-light.md?plain=1#L123), [533](../academy/quantum-light.md?plain=1#L533), [998](../academy/quantum-light.md?plain=1#L998)
 - Code: [src/quantum.rs:11](../src/quantum.rs#L11), [src/quantum/fock.rs:129](../src/quantum/fock.rs#L129)
 - Other documents: [docs/plans/quantum.md:496](plans/quantum.md?plain=1#L496)
 
@@ -42,7 +42,7 @@ S. Abel, F. Eltes, J. E. Ortmann, A. Messner, P. Castera, T. Wagner, D. Urbonas,
 - Methods pages: [electro-optic.md:303](methods/electro-optic.md?plain=1#L303)
 - Validation cases: [`material/batio3-abel-films`](validation.md?plain=1#L76), [`pockels/bto-angle`](validation.md?plain=1#L558), [`pockels/bto-abel-response`](validation.md?plain=1#L562), [`pockels/bto-abel`](validation.md?plain=1#L563)
 - Code: [src/cases/mode/pockels/checks.rs:1047](../src/cases/mode/pockels/checks.rs#L1047), [src/material/catalogue/ferroelectric.rs:18](../src/material/catalogue/ferroelectric.rs#L18), [282](../src/material/catalogue/ferroelectric.rs#L282), [src/material/catalogue/references.rs:466](../src/material/catalogue/references.rs#L466), [src/mode/pockels/bto.rs:2](../src/mode/pockels/bto.rs#L2), [225](../src/mode/pockels/bto.rs#L225), [232](../src/mode/pockels/bto.rs#L232), [src/validation.rs:561](../src/validation.rs#L561)
-- Other documents: [ROADMAP.md:797](../ROADMAP.md?plain=1#L797)
+- Other documents: [ROADMAP.md:798](../ROADMAP.md?plain=1#L798)
 
 #### Aberth 1973
 
@@ -84,7 +84,7 @@ M. A. Afromowitz, "Refractive index of Ga1−xAlxAs", Solid State Communications
 
 H. Aghaee Rad, T. Ainsworth, R. N. Alexander, B. Altieri, M. F. Askarani, R. Baby, L. Banchi, B. Q. Baragiola, J. E. Bourassa, R. S. Chadwick, et al., "Scaling and networking a modular photonic quantum computer", Nature 638, 912 (2025). [doi:10.1038/s41586-024-08406-9](https://doi.org/10.1038/s41586-024-08406-9), open access.
 
-- Academy lessons: [quantum-light.md:315](../academy/quantum-light.md?plain=1#L315), [922](../academy/quantum-light.md?plain=1#L922), [1020](../academy/quantum-light.md?plain=1#L1020)
+- Academy lessons: [quantum-light.md:315](../academy/quantum-light.md?plain=1#L315), [922](../academy/quantum-light.md?plain=1#L922), [1022](../academy/quantum-light.md?plain=1#L1022)
 - Other documents: [docs/plans/quantum.md:520](plans/quantum.md?plain=1#L520)
 
 #### Agrawal 2019
@@ -95,7 +95,7 @@ G. P. Agrawal, "Nonlinear Fiber Optics", Elsevier (2019). [doi:10.1016/C2018-0-0
 - Academy lessons: [nonlinear-optics.md:246](../academy/nonlinear-optics.md?plain=1#L246), [782](../academy/nonlinear-optics.md?plain=1#L782), [1126](../academy/nonlinear-optics.md?plain=1#L1126)
 - Validation cases: [`job/nonlinear-pulse-spm-broadening`](validation.md?plain=1#L845), [`job/nonlinear-pulse-soliton`](validation.md?plain=1#L846), [`job/nonlinear-pulse-xpm`](validation.md?plain=1#L847), [`nonlinear/nlse-fundamental-soliton`](validation.md?plain=1#L851), [`nonlinear/nlse-second-order-soliton`](validation.md?plain=1#L852), [`nonlinear/nlse-third-order-period`](validation.md?plain=1#L853), [`nonlinear/nlse-split-step-order`](validation.md?plain=1#L854), [`nonlinear/nlse-spm-phase`](validation.md?plain=1#L855), [`nonlinear/nlse-spm-broadening`](validation.md?plain=1#L856), [`nonlinear/nlse-photon-number`](validation.md?plain=1#L857), [`nonlinear/fwm-gain-matched`](validation.md?plain=1#L858), [`nonlinear/nlse-tpa-order`](validation.md?plain=1#L870), [`nonlinear/xpm-walk-off-phase`](validation.md?plain=1#L874), [`quantum/squeezer-four-wave`](validation.md?plain=1#L923)
 - Code: [src/job/nonlinear_pulse_checks.rs:185](../src/job/nonlinear_pulse_checks.rs#L185), [195](../src/job/nonlinear_pulse_checks.rs#L195), [202](../src/job/nonlinear_pulse_checks.rs#L202), [src/nonlinear/absorption_checks.rs:280](../src/nonlinear/absorption_checks.rs#L280), [308](../src/nonlinear/absorption_checks.rs#L308), [src/nonlinear/fwm.rs:5](../src/nonlinear/fwm.rs#L5), [src/nonlinear/kerr_checks.rs:662](../src/nonlinear/kerr_checks.rs#L662), [669](../src/nonlinear/kerr_checks.rs#L669), [676](../src/nonlinear/kerr_checks.rs#L676), [683](../src/nonlinear/kerr_checks.rs#L683), [690](../src/nonlinear/kerr_checks.rs#L690), [697](../src/nonlinear/kerr_checks.rs#L697), [704](../src/nonlinear/kerr_checks.rs#L704), [716](../src/nonlinear/kerr_checks.rs#L716), [src/nonlinear/pulse.rs:4](../src/nonlinear/pulse.rs#L4), [src/nonlinear/xpm.rs:6](../src/nonlinear/xpm.rs#L6), [src/quantum/light_checks.rs:193](../src/quantum/light_checks.rs#L193)
-- Other documents: [ROADMAP.md:872](../ROADMAP.md?plain=1#L872)
+- Other documents: [ROADMAP.md:873](../ROADMAP.md?plain=1#L873)
 
 #### Ahler et al. 2026a
 
@@ -122,7 +122,7 @@ J. Aitchison, D. Hutchings, J. Kang, G. Stegeman, A. Villeneuve, "The nonlinear 
 
 - Methods pages: [catalogue.md:46](methods/catalogue.md?plain=1#L46)
 - Code: [src/material/catalogue/references.rs:627](../src/material/catalogue/references.rs#L627), [src/material/catalogue/transparency.rs:21](../src/material/catalogue/transparency.rs#L21)
-- Other documents: [ROADMAP.md:857](../ROADMAP.md?plain=1#L857)
+- Other documents: [ROADMAP.md:858](../ROADMAP.md?plain=1#L858)
 
 #### Akahane et al. 2003
 
@@ -183,7 +183,7 @@ P. Amestoy, A. Buttari, N. J. Higham, J.-Y. L’Excellent, T. Mary, B. Vieublé,
 
 V. Anant, A. J. Kerman, E. A. Dauler, J. K. W. Yang, K. M. Rosfjord, K. K. Berggren, "Optical properties of superconducting nanowire single-photon detectors", Opt. Express 16, 10750 (2008). [doi:10.1364/OE.16.010750](https://doi.org/10.1364/OE.16.010750)
 
-- Methods pages: [catalogue.md:8](methods/catalogue.md?plain=1#L8), [476](methods/catalogue.md?plain=1#L476), [quantum.md:1048](methods/quantum.md?plain=1#L1048)
+- Methods pages: [catalogue.md:8](methods/catalogue.md?plain=1#L8), [476](methods/catalogue.md?plain=1#L476), [quantum.md:1084](methods/quantum.md?plain=1#L1084)
 - Code: [src/material/catalogue/films.rs:3](../src/material/catalogue/films.rs#L3), [75](../src/material/catalogue/films.rs#L75), [src/material/catalogue/references.rs:655](../src/material/catalogue/references.rs#L655), [656](../src/material/catalogue/references.rs#L656)
 
 #### Anemogiannis et al. 1999
@@ -224,7 +224,7 @@ A. Arbabi, Y. Horie, A. J. Ball, M. Bagheri, A. Faraon, "Subwavelength-thick len
 
 M. Arcari, I. Söllner, A. Javadi, S. Lindskov Hansen, S. Mahmoodian, J. Liu, H. Thyrrestrup, E. H. Lee, J. D. Song, S. Stobbe, et al., "Near-Unity Coupling Efficiency of a Quantum Emitter to a Photonic Crystal Waveguide", Phys. Rev. Lett. 113, 093603 (2014). [doi:10.1103/PhysRevLett.113.093603](https://doi.org/10.1103/PhysRevLett.113.093603)
 
-- Methods pages: [quantum.md:65](methods/quantum.md?plain=1#L65), [706](methods/quantum.md?plain=1#L706)
+- Methods pages: [quantum.md:65](methods/quantum.md?plain=1#L65), [742](methods/quantum.md?plain=1#L742)
 - Academy lessons: [photonic-crystals.md:68](../academy/photonic-crystals.md?plain=1#L68), [352](../academy/photonic-crystals.md?plain=1#L352), [482](../academy/photonic-crystals.md?plain=1#L482)
 - Code: [src/fdtd/emitter.rs:7](../src/fdtd/emitter.rs#L7)
 - Other documents: [docs/plans/quantum.md:536](plans/quantum.md?plain=1#L536)
@@ -237,7 +237,7 @@ J. A. Armstrong, N. Bloembergen, J. Ducuing, P. S. Pershan, "Interactions betwee
 - Academy lessons: [nonlinear-optics.md:78](../academy/nonlinear-optics.md?plain=1#L78), [400](../academy/nonlinear-optics.md?plain=1#L400), [576](../academy/nonlinear-optics.md?plain=1#L576), [1095](../academy/nonlinear-optics.md?plain=1#L1095)
 - Validation cases: [`nonlinear/coupled-shg-tanh`](validation.md?plain=1#L776), [`nonlinear/opo-steady-photons`](validation.md?plain=1#L884), [`quantum/squeezer-degenerate`](validation.md?plain=1#L922)
 - Code: [src/nonlinear/cavity_checks.rs:530](../src/nonlinear/cavity_checks.rs#L530), [src/nonlinear/checks.rs:746](../src/nonlinear/checks.rs#L746), [src/nonlinear/coupled.rs:31](../src/nonlinear/coupled.rs#L31), [src/quantum/light_checks.rs:186](../src/quantum/light_checks.rs#L186)
-- Other documents: [ROADMAP.md:851](../ROADMAP.md?plain=1#L851)
+- Other documents: [ROADMAP.md:852](../ROADMAP.md?plain=1#L852)
 
 #### Arnold et al. 2000
 
@@ -256,14 +256,14 @@ M. I. Aroyo, "International Tables for Crystallography: Space-group symmetry", I
 
 J. M. Arrazola, V. Bergholm, K. Brádler, T. R. Bromley, M. J. Collins, I. Dhand, A. Fumagalli, T. Gerrits, A. Goussev, L. G. Helt, et al., "Quantum circuits with many photons on a programmable nanophotonic chip", Nature 591, 54 (2021). [doi:10.1038/s41586-021-03202-1](https://doi.org/10.1038/s41586-021-03202-1)
 
-- Academy lessons: [quantum-light.md:261](../academy/quantum-light.md?plain=1#L261), [823](../academy/quantum-light.md?plain=1#L823), [1012](../academy/quantum-light.md?plain=1#L1012)
+- Academy lessons: [quantum-light.md:261](../academy/quantum-light.md?plain=1#L261), [823](../academy/quantum-light.md?plain=1#L823), [1014](../academy/quantum-light.md?plain=1#L1014)
 - Other documents: [docs/plans/quantum.md:528](plans/quantum.md?plain=1#L528)
 
 #### Arrieta et al. 2026
 
 R. Arrieta, G. Romano, S. G. Johnson, "Hyperparameter-free minimum-lengthscale constraints for topology optimization", Struct Multidisc Optim 69, 210 (2026). [doi:10.1007/s00158-026-04388-6](https://doi.org/10.1007/s00158-026-04388-6)
 
-- Other documents: [ROADMAP.md:839](../ROADMAP.md?plain=1#L839)
+- Other documents: [ROADMAP.md:840](../ROADMAP.md?plain=1#L840)
 
 #### Aryana et al. 2021
 
@@ -283,7 +283,7 @@ K. Aryana, H. J. Kim, M. R. Islam, N. Hong, C.-C. Popescu, S. Makarem, T. Gu, J.
 
 W. Asavanant, Y. Shiozawa, S. Yokoyama, B. Charoensombutamon, H. Emura, R. N. Alexander, S. Takeda, J.-I. Yoshikawa, N. C. Menicucci, H. Yonezawa, et al., "Generation of time-domain-multiplexed two-dimensional cluster state", Science 366, 373 (2019). [doi:10.1126/science.aay2645](https://doi.org/10.1126/science.aay2645)
 
-- Academy lessons: [quantum-light.md:213](../academy/quantum-light.md?plain=1#L213), [917](../academy/quantum-light.md?plain=1#L917), [1017](../academy/quantum-light.md?plain=1#L1017)
+- Academy lessons: [quantum-light.md:213](../academy/quantum-light.md?plain=1#L213), [917](../academy/quantum-light.md?plain=1#L917), [1019](../academy/quantum-light.md?plain=1#L1019)
 - Other documents: [docs/plans/quantum.md:516](plans/quantum.md?plain=1#L516)
 
 ### B
@@ -305,7 +305,7 @@ Z. Bai, J. W. Demmel, "On swapping diagonal blocks in real Schur form", Linear A
 
 S. Bandyopadhyay, R. Hamerly, D. Englund, "Hardware error correction for programmable photonics", Optica 8, 1247 (2021). [doi:10.1364/OPTICA.424052](https://doi.org/10.1364/OPTICA.424052)
 
-- Other documents: [ROADMAP.md:832](../ROADMAP.md?plain=1#L832)
+- Other documents: [ROADMAP.md:833](../ROADMAP.md?plain=1#L833)
 
 #### Barboza and Cudney 2009
 
@@ -326,8 +326,8 @@ M. A. Barry, V. Berthier, B. D. Wilts, M.-C. Cambourieux, P. Bennet, R. Pollès,
 
 S. Bartolucci, P. Birchall, H. Bombín, H. Cable, C. Dawson, M. Gimeno-Segovia, E. Johnston, K. Kieling, N. Nickerson, M. Pant, et al., "Fusion-based quantum computation", Nat Commun 14, 912 (2023). [doi:10.1038/s41467-023-36493-1](https://doi.org/10.1038/s41467-023-36493-1), open access.
 
-- Methods pages: [quantum.md:57](methods/quantum.md?plain=1#L57), [663](methods/quantum.md?plain=1#L663)
-- Academy lessons: [quantum-light.md:285](../academy/quantum-light.md?plain=1#L285), [633](../academy/quantum-light.md?plain=1#L633), [887](../academy/quantum-light.md?plain=1#L887), [1014](../academy/quantum-light.md?plain=1#L1014)
+- Methods pages: [quantum.md:57](methods/quantum.md?plain=1#L57), [699](methods/quantum.md?plain=1#L699)
+- Academy lessons: [quantum-light.md:285](../academy/quantum-light.md?plain=1#L285), [633](../academy/quantum-light.md?plain=1#L633), [887](../academy/quantum-light.md?plain=1#L887), [1016](../academy/quantum-light.md?plain=1#L1016)
 - Validation cases: [`quantum/bartolucci-fusion`](validation.md?plain=1#L944)
 - Code: [src/quantum/budget.rs:13](../src/quantum/budget.rs#L13), [src/quantum/real_checks.rs:1444](../src/quantum/real_checks.rs#L1444), [studio/src-tauri/src/circuits/quantum.rs:594](../studio/src-tauri/src/circuits/quantum.rs#L594)
 - Other documents: [docs/plans/quantum.md:492](plans/quantum.md?plain=1#L492)
@@ -339,7 +339,7 @@ T. Barwicz, H. Haus, "Three-dimensional analysis of scattering losses due to sid
 - Methods pages: [devices.md:64](methods/devices.md?plain=1#L64)
 - Validation cases: [`roughness/payne-lacey-eq9`](validation.md?plain=1#L758)
 - Code: [src/mode/roughness.rs:9](../src/mode/roughness.rs#L9), [src/mode/roughness_checks.rs:148](../src/mode/roughness_checks.rs#L148)
-- Other documents: [ROADMAP.md:747](../ROADMAP.md?plain=1#L747), [docs/plans/fabrication.md:646](plans/fabrication.md?plain=1#L646)
+- Other documents: [ROADMAP.md:748](../ROADMAP.md?plain=1#L748), [docs/plans/fabrication.md:646](plans/fabrication.md?plain=1#L646)
 
 #### Bauer et al. 2011
 
@@ -380,7 +380,7 @@ J.-P. Berenger, "A perfectly matched layer for the absorption of electromagnetic
 - Methods pages: [fdtd.md:18](methods/fdtd.md?plain=1#L18)
 - Academy lessons: [how-fdtd-works.md:48](../academy/how-fdtd-works.md?plain=1#L48), [240](../academy/how-fdtd-works.md?plain=1#L240), [269](../academy/how-fdtd-works.md?plain=1#L269), [452](../academy/how-fdtd-works.md?plain=1#L452)
 - Code: [src/fdtd.rs:23](../src/fdtd.rs#L23)
-- Other documents: [ROADMAP.md:725](../ROADMAP.md?plain=1#L725)
+- Other documents: [ROADMAP.md:726](../ROADMAP.md?plain=1#L726)
 
 #### Berseth et al. 1992
 
@@ -418,7 +418,7 @@ P. Bienstman, R. Baets, "Optical modelling of photonic crystals and VCSELs using
 - Academy lessons: [crossings-and-converters.md:30](../academy/crossings-and-converters.md?plain=1#L30), [200](../academy/crossings-and-converters.md?plain=1#L200), [641](../academy/crossings-and-converters.md?plain=1#L641)
 - Code: [src/eme.rs:6](../src/eme.rs#L6)
 - Jobs and circuits: [jobs/eme-mmi-sweep.yaml:2](../jobs/eme-mmi-sweep.yaml#L2), [jobs/eme-taper-3d.yaml:2](../jobs/eme-taper-3d.yaml#L2), [jobs/eme-taper.yaml:3](../jobs/eme-taper.yaml#L3)
-- Other documents: [ROADMAP.md:743](../ROADMAP.md?plain=1#L743)
+- Other documents: [ROADMAP.md:744](../ROADMAP.md?plain=1#L744)
 
 #### Bienstman et al. 2007
 
@@ -462,7 +462,7 @@ D. J. Blumenthal, R. Heideman, D. Geuzebroek, A. Leinse, C. Roeloffzen, "Silicon
 
 W. Bogaerts, L. Chrostowski, "Silicon Photonics Circuit Design: Methods, Tools and Challenges", Laser & Photonics Reviews 12, 1700237 (2018). [doi:10.1002/lpor.201700237](https://doi.org/10.1002/lpor.201700237)
 
-- Other documents: [ROADMAP.md:759](../ROADMAP.md?plain=1#L759)
+- Other documents: [ROADMAP.md:760](../ROADMAP.md?plain=1#L760)
 
 #### Bogaerts and Selvaraja 2011
 
@@ -493,7 +493,7 @@ W. Bogaerts, P. De Heyn, T. Van Vaerenbergh, K. De Vos, S. Kumar Selvaraja, T. C
 - Examples: [README.md:48](../examples/README.md?plain=1#L48), [54](../examples/README.md?plain=1#L54), [61](../examples/README.md?plain=1#L61), [circuit_fit.rs:7](../examples/circuit_fit.rs#L7), [circuit_ring_critical.rs:5](../examples/circuit_ring_critical.rs#L5), [optimize_ring_pareto.rs:6](../examples/optimize_ring_pareto.rs#L6), [ring_liu_poon.rs:40](../examples/ring_liu_poon.rs#L40), [ring_q_factor.rs:5](../examples/ring_q_factor.rs#L5), [python/examples/README.md:29](../python/examples/README.md?plain=1#L29), [python/examples/_ring.py:3](../python/examples/_ring.py#L3), [python/examples/ring_fsr.py:5](../python/examples/ring_fsr.py#L5), [python/examples/touchstone_ring.py:5](../python/examples/touchstone_ring.py#L5)
 - Code: [python/tests/test_api.py:47](../python/tests/test_api.py#L47), [src/cases/compact/checks.rs:128](../src/cases/compact/checks.rs#L128), [740](../src/cases/compact/checks.rs#L740), [src/circuit/components/coupler.rs:37](../src/circuit/components/coupler.rs#L37), [111](../src/circuit/components/coupler.rs#L111), [src/circuit/components/ring.rs:3](../src/circuit/components/ring.rs#L3), [388](../src/circuit/components/ring.rs#L388), [644](../src/circuit/components/ring.rs#L644), [src/device/checks.rs:68](../src/device/checks.rs#L68), [145](../src/device/checks.rs#L145), [180](../src/device/checks.rs#L180), [src/device/ring.rs:286](../src/device/ring.rs#L286), [src/job/fit_checks.rs:429](../src/job/fit_checks.rs#L429), [src/nonlinear/cavity_checks.rs:488](../src/nonlinear/cavity_checks.rs#L488), [src/validation.rs:1968](../src/validation.rs#L1968), [1975](../src/validation.rs#L1975), [1982](../src/validation.rs#L1982), [2052](../src/validation.rs#L2052), [2059](../src/validation.rs#L2059), [2066](../src/validation.rs#L2066), [2073](../src/validation.rs#L2073), [2080](../src/validation.rs#L2080), [tests/jobs-toml/chip-fit.toml:2](../tests/jobs-toml/chip-fit.toml#L2), [tests/jobs-toml/chip-ring-critical.toml:1](../tests/jobs-toml/chip-ring-critical.toml#L1)
 - Jobs and circuits: [jobs/chip-fit.yaml:2](../jobs/chip-fit.yaml#L2), [jobs/chip-ring-critical.yaml:1](../jobs/chip-ring-critical.yaml#L1)
-- Other documents: [ROADMAP.md:758](../ROADMAP.md?plain=1#L758), [docs/plans/optimization.md:625](plans/optimization.md?plain=1#L625)
+- Other documents: [ROADMAP.md:759](../ROADMAP.md?plain=1#L759), [docs/plans/optimization.md:625](plans/optimization.md?plain=1#L625)
 
 #### Bogaerts et al. 2020
 
@@ -543,13 +543,13 @@ R. W. Boyd, "Nonlinear Optics", Elsevier (2020). [doi:10.1016/C2015-0-05510-1](h
 - Methods pages: [nonlinear.md:10](methods/nonlinear.md?plain=1#L10)
 - Academy lessons: [nonlinear-optics.md:252](../academy/nonlinear-optics.md?plain=1#L252), [285](../academy/nonlinear-optics.md?plain=1#L285), [1125](../academy/nonlinear-optics.md?plain=1#L1125)
 - Code: [src/material/catalogue/tags.rs:43](../src/material/catalogue/tags.rs#L43), [src/nonlinear/phase.rs:51](../src/nonlinear/phase.rs#L51)
-- Other documents: [ROADMAP.md:871](../ROADMAP.md?plain=1#L871)
+- Other documents: [ROADMAP.md:872](../ROADMAP.md?plain=1#L872)
 
 #### Boyd and Kleinman 1968
 
 G. D. Boyd, D. A. Kleinman, "Parametric Interaction of Focused Gaussian Light Beams", Journal of Applied Physics 39, 3597 (1968). [doi:10.1063/1.1656831](https://doi.org/10.1063/1.1656831)
 
-- Other documents: [ROADMAP.md:853](../ROADMAP.md?plain=1#L853)
+- Other documents: [ROADMAP.md:854](../ROADMAP.md?plain=1#L854)
 
 #### Bragg and Bragg 1913
 
@@ -576,7 +576,7 @@ M. A. Broome, A. Fedrizzi, S. Rahimi-Keshari, J. Dove, S. Aaronson, T. C. Ralph,
 
 D. E. Browne, T. Rudolph, "Resource-Efficient Linear Optical Quantum Computation", Phys. Rev. Lett. 95, 010501 (2005). [doi:10.1103/PhysRevLett.95.010501](https://doi.org/10.1103/PhysRevLett.95.010501)
 
-- Academy lessons: [quantum-light.md:87](../academy/quantum-light.md?plain=1#L87), [884](../academy/quantum-light.md?plain=1#L884), [987](../academy/quantum-light.md?plain=1#L987)
+- Academy lessons: [quantum-light.md:87](../academy/quantum-light.md?plain=1#L87), [884](../academy/quantum-light.md?plain=1#L884), [989](../academy/quantum-light.md?plain=1#L989)
 - Other documents: [docs/plans/quantum.md:489](plans/quantum.md?plain=1#L489)
 
 #### Bruel 1995
@@ -653,7 +653,7 @@ C. Campos, J. E. Roman, "NEP: A Module for the Parallel Solution of Nonlinear Ei
 
 J. Carolan, C. Harrold, C. Sparrow, E. Martín-López, N. J. Russell, J. W. Silverstone, P. J. Shadbolt, N. Matsuda, M. Oguma, M. Itoh, et al., "Universal linear optics", Science 349, 711 (2015). [doi:10.1126/science.aab3642](https://doi.org/10.1126/science.aab3642)
 
-- Academy lessons: [quantum-light.md:177](../academy/quantum-light.md?plain=1#L177), [460](../academy/quantum-light.md?plain=1#L460), [999](../academy/quantum-light.md?plain=1#L999)
+- Academy lessons: [quantum-light.md:177](../academy/quantum-light.md?plain=1#L177), [460](../academy/quantum-light.md?plain=1#L460), [1001](../academy/quantum-light.md?plain=1#L1001)
 - Other documents: [docs/plans/quantum.md:527](plans/quantum.md?plain=1#L527)
 
 #### Carson and Higham 2018
@@ -674,7 +674,7 @@ J. L. Casson, K. T. Gahagan, D. A. Scrymgeour, R. K. Jain, J. M. Robinson, V. Go
 
 D. Caughey, R. Thomas, "Carrier mobilities in silicon empirically related to doping and field", Proc. IEEE 55, 2192 (1967). [doi:10.1109/PROC.1967.6123](https://doi.org/10.1109/PROC.1967.6123)
 
-- Other documents: [ROADMAP.md:819](../ROADMAP.md?plain=1#L819)
+- Other documents: [ROADMAP.md:820](../ROADMAP.md?plain=1#L820)
 
 #### Celler and Cristoloveanu 2003
 
@@ -697,7 +697,7 @@ L. Chang, A. Boes, X. Guo, D. T. Spencer, M. J. Kennedy, J. D. Peters, N. Volet,
 
 - Methods pages: [nonlinear.md:32](methods/nonlinear.md?plain=1#L32)
 - Academy lessons: [nonlinear-optics.md:240](../academy/nonlinear-optics.md?plain=1#L240), [699](../academy/nonlinear-optics.md?plain=1#L699), [1108](../academy/nonlinear-optics.md?plain=1#L1108)
-- Other documents: [ROADMAP.md:869](../ROADMAP.md?plain=1#L869)
+- Other documents: [ROADMAP.md:870](../ROADMAP.md?plain=1#L870)
 
 #### Chelladurai et al. 2025
 
@@ -712,7 +712,7 @@ D. Chelladurai, M. Kohli, J. Winiger, D. Moor, A. Messner, Y. Fedoryshyn, M. Ele
 
 Y. K. Chembo, C. R. Menyuk, "Spatiotemporal Lugiato-Lefever formalism for Kerr-comb generation in whispering-gallery-mode resonators", Phys. Rev. A 87, 053852 (2013). [doi:10.1103/PhysRevA.87.053852](https://doi.org/10.1103/PhysRevA.87.053852)
 
-- Other documents: [ROADMAP.md:864](../ROADMAP.md?plain=1#L864)
+- Other documents: [ROADMAP.md:865](../ROADMAP.md?plain=1#L865)
 
 #### Chen 2015
 
@@ -735,7 +735,7 @@ X. Chen, C. Li, C. K. Y. Fung, S. M. G. Lo, H. K. Tsang, "Apodized Waveguide Gra
 M. Chen, R. E. Christiansen, J. A. Fan, G. Işiklar, J. Jiang, S. G. Johnson, W. Ma, O. D. Miller, A. Oskooi, M. F. Schubert, et al., "Validation and characterization of algorithms and software for photonics inverse design", J. Opt. Soc. Am. B 41, A161 (2024). [doi:10.1364/JOSAB.506412](https://doi.org/10.1364/JOSAB.506412)
 
 - Academy lessons: [metasurfaces.md:77](../academy/metasurfaces.md?plain=1#L77), [530](../academy/metasurfaces.md?plain=1#L530), [607](../academy/metasurfaces.md?plain=1#L607)
-- Other documents: [ROADMAP.md:837](../ROADMAP.md?plain=1#L837), [docs/plans/optimization.md:601](plans/optimization.md?plain=1#L601)
+- Other documents: [ROADMAP.md:838](../ROADMAP.md?plain=1#L838), [docs/plans/optimization.md:601](plans/optimization.md?plain=1#L601)
 
 #### Cheng and Chrostowski 2021
 
@@ -820,7 +820,7 @@ A. Christ, B. Brecht, W. Mauerer, C. Silberhorn, "Theory of quantum frequency co
 R. E. Christiansen, O. Sigmund, "Inverse design in photonics by topology optimization: tutorial", J. Opt. Soc. Am. B 38, 496 (2021). [doi:10.1364/JOSAB.406048](https://doi.org/10.1364/JOSAB.406048)
 
 - Academy lessons: [fdfd-and-adjoints.md:133](../academy/fdfd-and-adjoints.md?plain=1#L133), [658](../academy/fdfd-and-adjoints.md?plain=1#L658), [790](../academy/fdfd-and-adjoints.md?plain=1#L790)
-- Other documents: [ROADMAP.md:784](../ROADMAP.md?plain=1#L784), [docs/plans/optimization.md:597](plans/optimization.md?plain=1#L597)
+- Other documents: [ROADMAP.md:785](../ROADMAP.md?plain=1#L785), [docs/plans/optimization.md:597](plans/optimization.md?plain=1#L597)
 
 #### Chrostowski and Hochberg 2015
 
@@ -831,19 +831,19 @@ L. Chrostowski, M. Hochberg, "Silicon Photonics Design: From Devices to Systems"
 - Validation cases: [`mode/slab-te-book`](validation.md?plain=1#L99), [`mode/slab-tm-book`](validation.md?plain=1#L100), [`mode/strip-book`](validation.md?plain=1#L103), [`mode/strip-group-index-book`](validation.md?plain=1#L109), [`mode/eim-strip-book`](validation.md?plain=1#L120), [`components/directional-coupler-power`](validation.md?plain=1#L300), [`device/coupler-closed-forms`](validation.md?plain=1#L311), [`device/strip-chrostowski`](validation.md?plain=1#L324), [`device/coupler-chrostowski`](validation.md?plain=1#L325), [`device/study-coupler-chrostowski`](validation.md?plain=1#L349)
 - Examples: [README.md:36](../examples/README.md?plain=1#L36), [40](../examples/README.md?plain=1#L40), [60](../examples/README.md?plain=1#L60), [directional_coupler.rs:4](../examples/directional_coupler.rs#L4), [42](../examples/directional_coupler.rs#L42), [effective_index_method.rs:4](../examples/effective_index_method.rs#L4), [group_index.rs:4](../examples/group_index.rs#L4), [48](../examples/group_index.rs#L48), [slab_soi.rs:4](../examples/slab_soi.rs#L4), [strip_waveguide.rs:5](../examples/strip_waveguide.rs#L5), [62](../examples/strip_waveguide.rs#L62), [python/examples/README.md:27](../python/examples/README.md?plain=1#L27), [python/examples/output/strip_waveguide.txt:15](../python/examples/output/strip_waveguide.txt#L15), [16](../python/examples/output/strip_waveguide.txt#L16), [python/examples/slab_soi.py:5](../python/examples/slab_soi.py#L5), [python/examples/strip_waveguide.py:5](../python/examples/strip_waveguide.py#L5), [66](../python/examples/strip_waveguide.py#L66), [71](../python/examples/strip_waveguide.py#L71)
 - Code: [python/tests/test_api.py:29](../python/tests/test_api.py#L29), [src/cases/device/cut_checks.rs:39](../src/cases/device/cut_checks.rs#L39), [src/circuit/components/coupler.rs:200](../src/circuit/components/coupler.rs#L200), [253](../src/circuit/components/coupler.rs#L253), [src/circuit/components/waveguide.rs:20](../src/circuit/components/waveguide.rs#L20), [327](../src/circuit/components/waveguide.rs#L327), [src/device/bend.rs:250](../src/device/bend.rs#L250), [src/device/checks.rs:75](../src/device/checks.rs#L75), [166](../src/device/checks.rs#L166), [173](../src/device/checks.rs#L173), [721](../src/device/checks.rs#L721), [src/device/fit.rs:12](../src/device/fit.rs#L12), [src/device/rib.rs:297](../src/device/rib.rs#L297), [src/device/tests.rs:353](../src/device/tests.rs#L353), [490](../src/device/tests.rs#L490), [src/device/waveguide.rs:22](../src/device/waveguide.rs#L22), [src/facade/device.rs:286](../src/facade/device.rs#L286), [src/job/study_checks.rs:43](../src/job/study_checks.rs#L43), [src/mode/dispersion.rs:5](../src/mode/dispersion.rs#L5), [src/mode/eim.rs:4](../src/mode/eim.rs#L4), [src/mode/slab.rs:13](../src/mode/slab.rs#L13), [src/stack.rs:134](../src/stack.rs#L134), [src/validation.rs:722](../src/validation.rs#L722), [729](../src/validation.rs#L729), [750](../src/validation.rs#L750), [792](../src/validation.rs#L792), [869](../src/validation.rs#L869), [2129](../src/validation.rs#L2129), [4748](../src/validation.rs#L4748), [studio/src-tauri/src/charts/coupler.rs:7](../studio/src-tauri/src/charts/coupler.rs#L7), [studio/src-tauri/src/charts/leaky.rs:36](../studio/src-tauri/src/charts/leaky.rs#L36), [studio/src-tauri/src/charts/slab.rs:8](../studio/src-tauri/src/charts/slab.rs#L8), [studio/src-tauri/src/circuits/library.rs:136](../studio/src-tauri/src/circuits/library.rs#L136), [studio/src-tauri/src/examples.rs:672](../studio/src-tauri/src/examples.rs#L672)
-- Other documents: [CONTRIBUTING.md:26](../CONTRIBUTING.md?plain=1#L26), [72](../CONTRIBUTING.md?plain=1#L72), [74](../CONTRIBUTING.md?plain=1#L74), [ROADMAP.md:757](../ROADMAP.md?plain=1#L757)
+- Other documents: [CONTRIBUTING.md:26](../CONTRIBUTING.md?plain=1#L26), [72](../CONTRIBUTING.md?plain=1#L72), [74](../CONTRIBUTING.md?plain=1#L74), [ROADMAP.md:758](../ROADMAP.md?plain=1#L758)
 
 #### Clements et al. 2016
 
 W. R. Clements, P. C. Humphreys, B. J. Metcalf, W. S. Kolthammer, I. A. Walsmley, "Optimal design for universal multiport interferometers", Optica 3, 1460 (2016). [doi:10.1364/OPTICA.3.001460](https://doi.org/10.1364/OPTICA.3.001460), open access.
 
 - Methods pages: [circuit-adjoint.md:12](methods/circuit-adjoint.md?plain=1#L12), [optimization.md:10](methods/optimization.md?plain=1#L10), [quantum.md:22](methods/quantum.md?plain=1#L22), [309](methods/quantum.md?plain=1#L309)
-- Academy lessons: [mach-zehnder.md:106](../academy/mach-zehnder.md?plain=1#L106), [370](../academy/mach-zehnder.md?plain=1#L370), [476](../academy/mach-zehnder.md?plain=1#L476), [quantum-light.md:183](../academy/quantum-light.md?plain=1#L183), [457](../academy/quantum-light.md?plain=1#L457), [1000](../academy/quantum-light.md?plain=1#L1000)
+- Academy lessons: [mach-zehnder.md:106](../academy/mach-zehnder.md?plain=1#L106), [370](../academy/mach-zehnder.md?plain=1#L370), [476](../academy/mach-zehnder.md?plain=1#L476), [quantum-light.md:183](../academy/quantum-light.md?plain=1#L183), [457](../academy/quantum-light.md?plain=1#L457), [1002](../academy/quantum-light.md?plain=1#L1002)
 - Validation cases: [`circuit/adjoint-mesh`](validation.md?plain=1#L285), [`quantum/mesh-reconstruction`](validation.md?plain=1#L899), [`quantum/mesh-depth`](validation.md?plain=1#L900), [`quantum/clements-fig3-size`](validation.md?plain=1#L901), [`quantum/clements-fig3-loss`](validation.md?plain=1#L902)
 - Examples: [README.md:47](../examples/README.md?plain=1#L47), [56](../examples/README.md?plain=1#L56), [circuit_splitter.rs:6](../examples/circuit_splitter.rs#L6), [optimize_mesh.rs:7](../examples/optimize_mesh.rs#L7)
 - Code: [src/circuit/adjoint/checks.rs:245](../src/circuit/adjoint/checks.rs#L245), [src/quantum/checks.rs:151](../src/quantum/checks.rs#L151), [158](../src/quantum/checks.rs#L158), [165](../src/quantum/checks.rs#L165), [172](../src/quantum/checks.rs#L172), [src/quantum/mesh.rs:4](../src/quantum/mesh.rs#L4), [src/validation.rs:2024](../src/validation.rs#L2024), [tests/jobs-toml/chip-splitter.toml:1](../tests/jobs-toml/chip-splitter.toml#L1)
 - Jobs and circuits: [jobs/chip-splitter.yaml:1](../jobs/chip-splitter.yaml#L1)
-- Other documents: [ROADMAP.md:830](../ROADMAP.md?plain=1#L830), [docs/plans/optimization.md:627](plans/optimization.md?plain=1#L627), [docs/plans/quantum.md:480](plans/quantum.md?plain=1#L480)
+- Other documents: [ROADMAP.md:831](../ROADMAP.md?plain=1#L831), [docs/plans/optimization.md:627](plans/optimization.md?plain=1#L627), [docs/plans/quantum.md:480](plans/quantum.md?plain=1#L480)
 
 #### Clifford and Clifford 2018
 
@@ -870,7 +870,7 @@ S. Coen, H. G. Randle, T. Sylvestre, M. Erkintalo, "Modeling of octave-spanning 
 - Validation cases: [`nonlinear/lle-coen-2012-duration`](validation.md?plain=1#L867)
 - Examples: [README.md:87](../examples/README.md?plain=1#L87), [soliton_coen.rs:5](../examples/soliton_coen.rs#L5)
 - Code: [src/nonlinear/kerr_checks.rs:784](../src/nonlinear/kerr_checks.rs#L784), [src/nonlinear/resonator.rs:7](../src/nonlinear/resonator.rs#L7)
-- Other documents: [ROADMAP.md:845](../ROADMAP.md?plain=1#L845)
+- Other documents: [ROADMAP.md:846](../ROADMAP.md?plain=1#L846)
 
 #### Coenen et al. 2022
 
@@ -879,7 +879,7 @@ D. Coenen, H. Oprins, P. De Heyn, J. Van Campenhout, I. De Wolf, "Analysis of Th
 - Methods pages: [thermal-compact.md:8](methods/thermal-compact.md?plain=1#L8), [23](methods/thermal-compact.md?plain=1#L23)
 - Validation cases: [`thermal-rc/coenen-cauer-ucut`](validation.md?plain=1#L636), [`thermal-rc/coenen-cauer`](validation.md?plain=1#L637), [`thermal-rc/coenen-200khz`](validation.md?plain=1#L638), [`thermal-rc/coenen-start-up`](validation.md?plain=1#L639)
 - Code: [src/circuit/heated.rs:124](../src/circuit/heated.rs#L124), [src/thermal/rc.rs:4](../src/thermal/rc.rs#L4), [src/thermal/rc_checks.rs:233](../src/thermal/rc_checks.rs#L233), [243](../src/thermal/rc_checks.rs#L243), [253](../src/thermal/rc_checks.rs#L253), [264](../src/thermal/rc_checks.rs#L264)
-- Other documents: [ROADMAP.md:813](../ROADMAP.md?plain=1#L813)
+- Other documents: [ROADMAP.md:814](../ROADMAP.md?plain=1#L814)
 
 #### Collet 2021
 
@@ -979,7 +979,7 @@ M. Delaney, I. Zeimpekis, D. Lawson, D. W. Hewak, O. L. Muskens, "A New Family o
 - Validation cases: [`material/pcm-delaney-fits`](validation.md?plain=1#L45), [`material/pcm-delaney-fits-gst`](validation.md?plain=1#L46), [`material/pcm-delaney-contrast`](validation.md?plain=1#L47), [`material/pcm-delaney-table-1`](validation.md?plain=1#L48), [`material/pcm-delaney-losses`](validation.md?plain=1#L49), [`material/pcm-delaney-fom`](validation.md?plain=1#L50), [`material/pcm-delaney-lossless`](validation.md?plain=1#L51), [`material/pcm-sb2se3-crystallization`](validation.md?plain=1#L52), [`material/pcm-sb2s3-crystallization`](validation.md?plain=1#L53), [`device/pcm-fom`](validation.md?plain=1#L673), [`device/pcm-conformal-area`](validation.md?plain=1#L676), [`fabrication/thermal-order`](validation.md?plain=1#L801), [`fabrication/pcm-rules`](validation.md?plain=1#L813)
 - Examples: [README.md:82](../examples/README.md?plain=1#L82), [pcm_delaney.rs:6](../examples/pcm_delaney.rs#L6)
 - Code: [src/cases/device/pcm_checks.rs:461](../src/cases/device/pcm_checks.rs#L461), [482](../src/cases/device/pcm_checks.rs#L482), [src/device/pcm.rs:963](../src/device/pcm.rs#L963), [src/fabrication/checks.rs:454](../src/fabrication/checks.rs#L454), [src/fabrication/platform_checks.rs:742](../src/fabrication/platform_checks.rs#L742), [src/fabrication/references.rs:232](../src/fabrication/references.rs#L232), [src/material/catalogue/phase_change.rs:6](../src/material/catalogue/phase_change.rs#L6), [686](../src/material/catalogue/phase_change.rs#L686), [src/material/catalogue/references.rs:11](../src/material/catalogue/references.rs#L11), [src/validation.rs:344](../src/validation.rs#L344), [351](../src/validation.rs#L351), [358](../src/validation.rs#L358), [365](../src/validation.rs#L365), [372](../src/validation.rs#L372), [379](../src/validation.rs#L379), [386](../src/validation.rs#L386), [393](../src/validation.rs#L393), [400](../src/validation.rs#L400)
-- Other documents: [ROADMAP.md:815](../ROADMAP.md?plain=1#L815), [docs/plans/fabrication.md:667](plans/fabrication.md?plain=1#L667)
+- Other documents: [ROADMAP.md:816](../ROADMAP.md?plain=1#L816), [docs/plans/fabrication.md:667](plans/fabrication.md?plain=1#L667)
 
 #### Delaney et al. 2020b
 
@@ -1017,7 +1017,7 @@ C. Deng, Y. He, W. Yang, H. Yu, Z. Hong, H. Liu, H. Han, W. Li, Y. Ma, Z. Zhang,
 
 - Validation cases: [`material/batio3-abel-films`](validation.md?plain=1#L76), [`pockels/bto-deng`](validation.md?plain=1#L559)
 - Code: [src/cases/mode/pockels/checks.rs:1054](../src/cases/mode/pockels/checks.rs#L1054), [src/material/catalogue/references.rs:501](../src/material/catalogue/references.rs#L501), [502](../src/material/catalogue/references.rs#L502), [src/validation.rs:561](../src/validation.rs#L561)
-- Other documents: [ROADMAP.md:799](../ROADMAP.md?plain=1#L799)
+- Other documents: [ROADMAP.md:800](../ROADMAP.md?plain=1#L800)
 
 #### DeSalvo et al. 1996
 
@@ -1115,7 +1115,7 @@ S. Dwivedi, A. Ruocco, M. Vanslembrouck, T. Spuesens, P. Bienstman, P. Dumon, T.
 - Examples: [README.md:62](../examples/README.md?plain=1#L62), [mzi_dwivedi.rs:8](../examples/mzi_dwivedi.rs#L8)
 - Code: [src/cases/mode/thermo_checks.rs:366](../src/cases/mode/thermo_checks.rs#L366), [373](../src/cases/mode/thermo_checks.rs#L373), [380](../src/cases/mode/thermo_checks.rs#L380), [src/circuit/components/measured.rs:6](../src/circuit/components/measured.rs#L6), [src/device/checks.rs:187](../src/device/checks.rs#L187), [src/validation.rs:2150](../src/validation.rs#L2150), [2157](../src/validation.rs#L2157), [2164](../src/validation.rs#L2164), [2171](../src/validation.rs#L2171), [2178](../src/validation.rs#L2178), [2185](../src/validation.rs#L2185)
 - Jobs and circuits: [jobs/wire-470nm-corners.yaml:2](../jobs/wire-470nm-corners.yaml#L2), [jobs/wire-602nm-corners.yaml:2](../jobs/wire-602nm-corners.yaml#L2), [jobs/wire-805nm-corners.yaml:2](../jobs/wire-805nm-corners.yaml#L2)
-- Other documents: [ROADMAP.md:764](../ROADMAP.md?plain=1#L764)
+- Other documents: [ROADMAP.md:765](../ROADMAP.md?plain=1#L765)
 
 ### E
 
@@ -1156,7 +1156,7 @@ F. Eltes, C. Mai, D. Caimi, M. Kroh, Y. Popoff, G. Winzer, D. Petousi, S. Lischk
 
 - Validation cases: [`material/batio3-abel-films`](validation.md?plain=1#L76), [`pockels/bto-eltes`](validation.md?plain=1#L560)
 - Code: [src/cases/mode/pockels/checks.rs:1061](../src/cases/mode/pockels/checks.rs#L1061), [src/material/catalogue/references.rs:487](../src/material/catalogue/references.rs#L487), [src/validation.rs:561](../src/validation.rs#L561)
-- Other documents: [ROADMAP.md:798](../ROADMAP.md?plain=1#L798)
+- Other documents: [ROADMAP.md:799](../ROADMAP.md?plain=1#L799)
 
 #### Engquist and Ying 2011
 
@@ -1197,7 +1197,7 @@ A. B. Fallahkhair, K. S. Li, T. E. Murphy, "Vector Finite Difference Modesolver 
 - Academy lessons: [slab-waveguide.md:78](../academy/slab-waveguide.md?plain=1#L78), [520](../academy/slab-waveguide.md?plain=1#L520), [576](../academy/slab-waveguide.md?plain=1#L576), [strip-waveguide.md:118](../academy/strip-waveguide.md?plain=1#L118), [199](../academy/strip-waveguide.md?plain=1#L199), [628](../academy/strip-waveguide.md?plain=1#L628), [687](../academy/strip-waveguide.md?plain=1#L687), [720](../academy/strip-waveguide.md?plain=1#L720)
 - Validation cases: [`device/coupler-3d-order`](validation.md?plain=1#L320), [`job/leaky-film-grid-order`](validation.md?plain=1#L479)
 - Code: [src/circuit/components/waveguide.rs:367](../src/circuit/components/waveguide.rs#L367), [src/device/checks.rs:138](../src/device/checks.rs#L138), [src/device/fit.rs:11](../src/device/fit.rs#L11), [src/device/pcm.rs:1004](../src/device/pcm.rs#L1004), [src/device/tfln.rs:1260](../src/device/tfln.rs#L1260), [src/device/thermo.rs:976](../src/device/thermo.rs#L976), [src/device/waveguide.rs:33](../src/device/waveguide.rs#L33), [src/job/leaky_checks.rs:43](../src/job/leaky_checks.rs#L43), [src/mode/slab_fd.rs:16](../src/mode/slab_fd.rs#L16), [src/mode/vector.rs:5](../src/mode/vector.rs#L5)
-- Other documents: [ROADMAP.md:735](../ROADMAP.md?plain=1#L735)
+- Other documents: [ROADMAP.md:736](../ROADMAP.md?plain=1#L736)
 
 #### Farjadpour et al. 2006
 
@@ -1208,7 +1208,7 @@ A. Farjadpour, D. Roundy, A. Rodriguez, M. Ibanescu, P. Bermel, J. D. Joannopoul
 - Validation cases: [`fdtd/smoothing-slab`](validation.md?plain=1#L227), [`fdtd/ring-order`](validation.md?plain=1#L262), [`device/mmi-2d-grid`](validation.md?plain=1#L337), [`averaging/film-integrals`](validation.md?plain=1#L491), [`fdfd/fill-slab-te-mean`](validation.md?plain=1#L494), [`fdfd/fill-crystal-te-tensor`](validation.md?plain=1#L501)
 - Examples: [README.md:66](../examples/README.md?plain=1#L66), [subpixel_holes.rs:6](../examples/subpixel_holes.rs#L6)
 - Code: [src/averaging.rs:15](../src/averaging.rs#L15), [src/averaging/checks.rs:150](../src/averaging/checks.rs#L150), [src/cases/fdfd/fill_checks.rs:3](../src/cases/fdfd/fill_checks.rs#L3), [535](../src/cases/fdfd/fill_checks.rs#L535), [626](../src/cases/fdfd/fill_checks.rs#L626), [src/device/splitter_checks.rs:117](../src/device/splitter_checks.rs#L117), [src/fdfd/fill.rs:4](../src/fdfd/fill.rs#L4), [src/fdfd/three/fill.rs:6](../src/fdfd/three/fill.rs#L6), [src/fdtd/smoothing.rs:5](../src/fdtd/smoothing.rs#L5), [src/stack.rs:414](../src/stack.rs#L414), [src/statics.rs:25](../src/statics.rs#L25), [src/validation.rs:1618](../src/validation.rs#L1618), [1863](../src/validation.rs#L1863)
-- Other documents: [ROADMAP.md:727](../ROADMAP.md?plain=1#L727)
+- Other documents: [ROADMAP.md:728](../ROADMAP.md?plain=1#L728)
 
 #### Fejer et al. 1992
 
@@ -1219,7 +1219,7 @@ M. Fejer, G. Magel, D. Jundt, R. Byer, "Quasi-phase-matched second harmonic gene
 - Validation cases: [`nonlinear/sinc2-half-maximum`](validation.md?plain=1#L765), [`nonlinear/fejer-table-1-coherence`](validation.md?plain=1#L767), [`nonlinear/fejer-table-1-wavelength`](validation.md?plain=1#L768), [`nonlinear/fejer-table-1-temperature`](validation.md?plain=1#L769), [`nonlinear/fejer-table-1-tilt-about-z`](validation.md?plain=1#L770), [`nonlinear/fejer-table-1-tilt-toward-z`](validation.md?plain=1#L771), [`job/nonlinear-ridge-temperature-acceptance`](validation.md?plain=1#L841)
 - Examples: [README.md:84](../examples/README.md?plain=1#L84), [qpm_fejer.rs:6](../examples/qpm_fejer.rs#L6), [python/examples/README.md:30](../python/examples/README.md?plain=1#L30), [python/examples/ppln_shg.py:6](../python/examples/ppln_shg.py#L6)
 - Code: [src/job/nonlinear_checks.rs:510](../src/job/nonlinear_checks.rs#L510), [src/nonlinear/checks.rs:660](../src/nonlinear/checks.rs#L660), [669](../src/nonlinear/checks.rs#L669), [src/nonlinear/phase.rs:50](../src/nonlinear/phase.rs#L50)
-- Other documents: [ROADMAP.md:854](../ROADMAP.md?plain=1#L854)
+- Other documents: [ROADMAP.md:855](../ROADMAP.md?plain=1#L855)
 
 #### Ferrini et al. 2002
 
@@ -1233,7 +1233,7 @@ R. Ferrini, G. Guizzetti, M. Patrini, A. Parisini, L. Tarricone, B. Valenti, "Op
 
 M. Fiers, T. Van Vaerenbergh, K. Caluwaerts, D. Vande Ginste, B. Schrauwen, J. Dambre, P. Bienstman, "Time-domain and frequency-domain modeling of nonlinear optical components at the circuit-level using a node-based approach", J. Opt. Soc. Am. B 29, 896 (2012). [doi:10.1364/JOSAB.29.000896](https://doi.org/10.1364/JOSAB.29.000896)
 
-- Other documents: [ROADMAP.md:827](../ROADMAP.md?plain=1#L827)
+- Other documents: [ROADMAP.md:828](../ROADMAP.md?plain=1#L828)
 
 #### Filipsson 1981
 
@@ -1242,7 +1242,7 @@ G. Filipsson, "A New General Computer Algorithm for S-Matrix Calculation of Inte
 - Methods pages: [circuits.md:8](methods/circuits.md?plain=1#L8)
 - Validation cases: [`circuit/sub-network-growth`](validation.md?plain=1#L280)
 - Code: [src/circuit/solve.rs:19](../src/circuit/solve.rs#L19), [src/validation.rs:1989](../src/validation.rs#L1989)
-- Other documents: [ROADMAP.md:828](../ROADMAP.md?plain=1#L828), [docs/design/components.md:105](design/components.md?plain=1#L105)
+- Other documents: [ROADMAP.md:829](../ROADMAP.md?plain=1#L829), [docs/design/components.md:105](design/components.md?plain=1#L105)
 
 #### Fischer 1998
 
@@ -1258,7 +1258,7 @@ P. F. Fischer, "Projection techniques for iterative solution of with successive 
 M. A. Foster, A. C. Turner, J. E. Sharping, B. S. Schmidt, M. Lipson, A. L. Gaeta, "Broad-band optical parametric gain on a silicon photonic chip", Nature 441, 960 (2006). [doi:10.1038/nature04932](https://doi.org/10.1038/nature04932)
 
 - Academy lessons: [nonlinear-optics.md:150](../academy/nonlinear-optics.md?plain=1#L150), [893](../academy/nonlinear-optics.md?plain=1#L893), [1109](../academy/nonlinear-optics.md?plain=1#L1109)
-- Other documents: [ROADMAP.md:861](../ROADMAP.md?plain=1#L861)
+- Other documents: [ROADMAP.md:862](../ROADMAP.md?plain=1#L862)
 
 #### Frankel et al. 1991
 
@@ -1273,7 +1273,7 @@ M. Frankel, S. Gupta, J. Valdmanis, G. Mourou, "Terahertz attenuation and disper
 P. A. Franken, A. E. Hill, C. W. Peters, G. Weinreich, "Generation of Optical Harmonics", Phys. Rev. Lett. 7, 118 (1961). [doi:10.1103/PhysRevLett.7.118](https://doi.org/10.1103/PhysRevLett.7.118)
 
 - Academy lessons: [nonlinear-optics.md:72](../academy/nonlinear-optics.md?plain=1#L72), [1093](../academy/nonlinear-optics.md?plain=1#L1093)
-- Other documents: [ROADMAP.md:850](../ROADMAP.md?plain=1#L850)
+- Other documents: [ROADMAP.md:851](../ROADMAP.md?plain=1#L851)
 
 #### Franssila 2010
 
@@ -1297,7 +1297,7 @@ J. A. Frantz, J. D. Myers, A. Clabeau, R. Y. Bekele, N. Hong, M. A. Vincenti, M.
 
 L. F. Frellsen, Y. Ding, O. Sigmund, L. H. Frandsen, "Topology optimized mode multiplexing in silicon-on-insulator photonic wire waveguides", Opt. Express 24, 16866 (2016). [doi:10.1364/OE.24.016866](https://doi.org/10.1364/OE.24.016866)
 
-- Other documents: [ROADMAP.md:774](../ROADMAP.md?plain=1#L774)
+- Other documents: [ROADMAP.md:775](../ROADMAP.md?plain=1#L775)
 
 #### Freund 1992
 
@@ -1334,7 +1334,7 @@ B. J. Frey, D. B. Leviton, T. J. Madison, "Temperature-dependent refractive inde
 - Academy lessons: [material-dispersion.md:56](../academy/material-dispersion.md?plain=1#L56), [302](../academy/material-dispersion.md?plain=1#L302), [332](../academy/material-dispersion.md?plain=1#L332), [448](../academy/material-dispersion.md?plain=1#L448)
 - Validation cases: [`material/silicon-frey-table`](validation.md?plain=1#L13), [`material/silicon-frey-li`](validation.md?plain=1#L14), [`material/silicon-frey-dndt`](validation.md?plain=1#L23), [`material/silicon-li-frey-dndt`](validation.md?plain=1#L24), [`material/silicon-komma-reading`](validation.md?plain=1#L25), [`material/silicon-komma-frey-dndt`](validation.md?plain=1#L26)
 - Code: [src/material/catalogue/models.rs:277](../src/material/catalogue/models.rs#L277), [src/material/catalogue/references.rs:95](../src/material/catalogue/references.rs#L95), [src/material/catalogue/thermo.rs:7](../src/material/catalogue/thermo.rs#L7), [247](../src/material/catalogue/thermo.rs#L247), [261](../src/material/catalogue/thermo.rs#L261), [src/validation.rs:120](../src/validation.rs#L120), [127](../src/validation.rs#L127), [190](../src/validation.rs#L190), [197](../src/validation.rs#L197), [204](../src/validation.rs#L204), [211](../src/validation.rs#L211), [studio/src-tauri/src/charts/material.rs:629](../studio/src-tauri/src/charts/material.rs#L629)
-- Other documents: [ROADMAP.md:811](../ROADMAP.md?plain=1#L811)
+- Other documents: [ROADMAP.md:812](../ROADMAP.md?plain=1#L812)
 
 #### Friedrich et al. 2000
 
@@ -1361,7 +1361,7 @@ T. Fujisawa, S. Makino, T. Sato, K. Saitoh, "Low-loss, compact, and fabrication-
 
 K. Fukui, A. Tomita, A. Okamoto, K. Fujii, "High-Threshold Fault-Tolerant Quantum Computation with Analog Quantum Error Correction", Phys. Rev. X 8, 021054 (2018). [doi:10.1103/PhysRevX.8.021054](https://doi.org/10.1103/PhysRevX.8.021054), open access.
 
-- Academy lessons: [quantum-light.md:207](../academy/quantum-light.md?plain=1#L207), [911](../academy/quantum-light.md?plain=1#L911), [1016](../academy/quantum-light.md?plain=1#L1016)
+- Academy lessons: [quantum-light.md:207](../academy/quantum-light.md?plain=1#L207), [911](../academy/quantum-light.md?plain=1#L911), [1018](../academy/quantum-light.md?plain=1#L1018)
 - Other documents: [docs/plans/quantum.md:517](plans/quantum.md?plain=1#L517)
 
 ### G
@@ -1397,7 +1397,7 @@ O. Gayer, Z. Sacks, E. Galun, A. Arie, "Temperature and wavelength dependent ref
 - Methods pages: [catalogue.md:54](methods/catalogue.md?plain=1#L54)
 - Validation cases: [`material/linbo3-mgo-gayer-zelmon`](validation.md?plain=1#L68)
 - Code: [src/material/catalogue/models.rs:734](../src/material/catalogue/models.rs#L734), [src/material/catalogue/references.rs:242](../src/material/catalogue/references.rs#L242), [src/validation.rs:505](../src/validation.rs#L505)
-- Other documents: [ROADMAP.md:863](../ROADMAP.md?plain=1#L863)
+- Other documents: [ROADMAP.md:864](../ROADMAP.md?plain=1#L864)
 
 #### Gayer et al. 2010
 
@@ -1412,7 +1412,7 @@ S. Gehrsitz, F. K. Reinhart, C. Gourgon, N. Herres, A. Vonlanthen, H. Sigg, "The
 - Methods pages: [catalogue.md:68](methods/catalogue.md?plain=1#L68)
 - Validation cases: [`material/gaas-gehrsitz-gap`](validation.md?plain=1#L78), [`material/gaas-gehrsitz-n-inf`](validation.md?plain=1#L79), [`material/algaas-gehrsitz-samples`](validation.md?plain=1#L80)
 - Code: [src/material/catalogue/models.rs:476](../src/material/catalogue/models.rs#L476), [src/material/catalogue/references.rs:249](../src/material/catalogue/references.rs#L249), [src/validation.rs:575](../src/validation.rs#L575), [582](../src/validation.rs#L582), [589](../src/validation.rs#L589)
-- Other documents: [ROADMAP.md:858](../ROADMAP.md?plain=1#L858)
+- Other documents: [ROADMAP.md:859](../ROADMAP.md?plain=1#L859)
 
 #### George 1973
 
@@ -1444,7 +1444,7 @@ G. Ghione, "Semiconductor Devices for High-Speed Optoelectronics", Cambridge Uni
 - Academy lessons: [modulators.md:61](../academy/modulators.md?plain=1#L61), [481](../academy/modulators.md?plain=1#L481)
 - Validation cases: [`line/response-walk-off`](validation.md?plain=1#L572)
 - Code: [src/cases/electro/line_checks.rs:979](../src/cases/electro/line_checks.rs#L979), [src/device/tfln.rs:1206](../src/device/tfln.rs#L1206), [src/electro/line.rs:53](../src/electro/line.rs#L53)
-- Other documents: [ROADMAP.md:802](../ROADMAP.md?plain=1#L802)
+- Other documents: [ROADMAP.md:803](../ROADMAP.md?plain=1#L803)
 
 #### Ghione and Naldi 1984
 
@@ -1453,7 +1453,7 @@ G. Ghione, C. Naldi, "Analytical formulas for coplanar lines in hybrid and monol
 - Methods pages: [devices.md:56](methods/devices.md?plain=1#L56), [static.md:18](methods/static.md?plain=1#L18), [travelling-wave.md:12](methods/travelling-wave.md?plain=1#L12)
 - Validation cases: [`static/coplanar-wen`](validation.md?plain=1#L525), [`line/ghione-naldi-thick`](validation.md?plain=1#L566), [`device/tfln-analytic-line`](validation.md?plain=1#L738)
 - Code: [crosscode/src/cpw.rs:6](../crosscode/src/cpw.rs#L6), [crosscode/tests/openems.rs:239](../crosscode/tests/openems.rs#L239), [src/cases/device/tfln_checks.rs:306](../src/cases/device/tfln_checks.rs#L306), [src/cases/electro/line_checks.rs:937](../src/cases/electro/line_checks.rs#L937), [src/cases/statics/checks.rs:1002](../src/cases/statics/checks.rs#L1002), [src/device/tfln.rs:1201](../src/device/tfln.rs#L1201)
-- Other documents: [ROADMAP.md:803](../ROADMAP.md?plain=1#L803), [docs/validation-openems.md:9](validation-openems.md?plain=1#L9)
+- Other documents: [ROADMAP.md:804](../ROADMAP.md?plain=1#L804), [docs/validation-openems.md:9](validation-openems.md?plain=1#L9)
 
 #### Ghysels and Vanroose 2014
 
@@ -1528,13 +1528,13 @@ F. Goos, H. Hänchen, "Ein neuer und fundamentaler Versuch zur Totalreflexion", 
 
 D. Gostimirovic, D.-X. Xu, O. Liboiron-Ladouceur, Y. Grinberg, "Deep Learning-Based Prediction of Fabrication-Process-Induced Structural Variations in Nanophotonic Devices", ACS Photonics 9, 2623 (2022). [doi:10.1021/acsphotonics.1c01973](https://doi.org/10.1021/acsphotonics.1c01973), open access.
 
-- Other documents: [ROADMAP.md:787](../ROADMAP.md?plain=1#L787)
+- Other documents: [ROADMAP.md:788](../ROADMAP.md?plain=1#L788)
 
 #### Gottesman et al. 2001
 
 D. Gottesman, A. Kitaev, J. Preskill, "Encoding a qubit in an oscillator", Phys. Rev. A 64, 012310 (2001). [doi:10.1103/PhysRevA.64.012310](https://doi.org/10.1103/PhysRevA.64.012310)
 
-- Academy lessons: [quantum-light.md:81](../academy/quantum-light.md?plain=1#L81), [906](../academy/quantum-light.md?plain=1#L906), [985](../academy/quantum-light.md?plain=1#L985)
+- Academy lessons: [quantum-light.md:81](../academy/quantum-light.md?plain=1#L81), [906](../academy/quantum-light.md?plain=1#L906), [987](../academy/quantum-light.md?plain=1#L987)
 - Other documents: [docs/plans/quantum.md:513](plans/quantum.md?plain=1#L513)
 
 #### Granet and Guizal 1996
@@ -1555,10 +1555,10 @@ P. Gräupner, J. C. Pommier, A. Cachard, J. L. Coutaz, "Electro-optical effect i
 W. P. Grice, I. A. Walmsley, "Spectral information and distinguishability in type-II down-conversion with a broadband pump", Phys. Rev. A 56, 1627 (1997). [doi:10.1103/PhysRevA.56.1627](https://doi.org/10.1103/PhysRevA.56.1627)
 
 - Methods pages: [nonlinear.md:26](methods/nonlinear.md?plain=1#L26), [quantum.md:41](methods/quantum.md?plain=1#L41), [419](methods/quantum.md?plain=1#L419)
-- Academy lessons: [nonlinear-optics.md:114](../academy/nonlinear-optics.md?plain=1#L114), [1010](../academy/nonlinear-optics.md?plain=1#L1010), [1121](../academy/nonlinear-optics.md?plain=1#L1121), [quantum-light.md:63](../academy/quantum-light.md?plain=1#L63), [658](../academy/quantum-light.md?plain=1#L658), [981](../academy/quantum-light.md?plain=1#L981)
+- Academy lessons: [nonlinear-optics.md:114](../academy/nonlinear-optics.md?plain=1#L114), [1010](../academy/nonlinear-optics.md?plain=1#L1010), [1121](../academy/nonlinear-optics.md?plain=1#L1121), [quantum-light.md:63](../academy/quantum-light.md?plain=1#L63), [658](../academy/quantum-light.md?plain=1#L658), [983](../academy/quantum-light.md?plain=1#L983)
 - Validation cases: [`nonlinear/pairs-gaussian-purity`](validation.md?plain=1#L781), [`quantum/source-hom-gaussian`](validation.md?plain=1#L917)
 - Code: [src/nonlinear/checks.rs:781](../src/nonlinear/checks.rs#L781), [src/nonlinear/pairs.rs:25](../src/nonlinear/pairs.rs#L25), [src/quantum/intermodal.rs:30](../src/quantum/intermodal.rs#L30), [src/quantum/light_checks.rs:151](../src/quantum/light_checks.rs#L151), [src/quantum/source.rs:9](../src/quantum/source.rs#L9)
-- Other documents: [ROADMAP.md:856](../ROADMAP.md?plain=1#L856), [docs/plans/quantum.md:481](plans/quantum.md?plain=1#L481)
+- Other documents: [ROADMAP.md:857](../ROADMAP.md?plain=1#L857), [docs/plans/quantum.md:481](plans/quantum.md?plain=1#L481)
 
 #### Gupt et al. 2019
 
@@ -1573,7 +1573,7 @@ B. V. Gurses, R. Fatemi, A. Khachaturian, A. Hajimiri, "Large-Scale Crosstalk-Co
 - Methods pages: [thermal-compact.md:12](methods/thermal-compact.md?plain=1#L12), [151](methods/thermal-compact.md?plain=1#L151)
 - Validation cases: [`correction/gurses-cutoff`](validation.md?plain=1#L644), [`correction/gurses-neighbour`](validation.md?plain=1#L645), [`correction/gurses-array`](validation.md?plain=1#L646)
 - Code: [src/job/optimize/crosstalk.rs:379](../src/job/optimize/crosstalk.rs#L379), [src/thermal/correction.rs:4](../src/thermal/correction.rs#L4), [src/thermal/correction_checks.rs:9](../src/thermal/correction_checks.rs#L9), [104](../src/thermal/correction_checks.rs#L104), [118](../src/thermal/correction_checks.rs#L118), [131](../src/thermal/correction_checks.rs#L131)
-- Other documents: [ROADMAP.md:814](../ROADMAP.md?plain=1#L814)
+- Other documents: [ROADMAP.md:815](../ROADMAP.md?plain=1#L815)
 
 #### Gustavsen and Semlyen 1999
 
@@ -1583,7 +1583,7 @@ B. Gustavsen, A. Semlyen, "Rational approximation of frequency domain responses 
 - Academy lessons: [ring-resonator.md:37](../academy/ring-resonator.md?plain=1#L37), [487](../academy/ring-resonator.md?plain=1#L487)
 - Validation cases: [`compact/vf-paper-rms`](validation.md?plain=1#L376)
 - Code: [src/cases/compact/checks.rs:705](../src/cases/compact/checks.rs#L705), [src/compact/fit.rs:6](../src/compact/fit.rs#L6), [src/compact/mod.rs:4](../src/compact/mod.rs#L4), [src/compact/model.rs:269](../src/compact/model.rs#L269), [src/compact/model/tests.rs:76](../src/compact/model/tests.rs#L76), [src/compact/param.rs:14](../src/compact/param.rs#L14), [1369](../src/compact/param.rs#L1369), [src/device/compact.rs:703](../src/device/compact.rs#L703)
-- Other documents: [ROADMAP.md:824](../ROADMAP.md?plain=1#L824)
+- Other documents: [ROADMAP.md:825](../ROADMAP.md?plain=1#L825)
 
 #### Güttel and Tisseur 2017
 
@@ -1605,7 +1605,7 @@ S. Güttel, R. Van Beeumen, K. Meerbergen, W. Michiels, "NLEIGS: A Class of Full
 
 G. R. Hadley, "Wide-angle beam propagation using Padé approximant operators", Opt. Lett. 17, 1426 (1992). [doi:10.1364/OL.17.001426](https://doi.org/10.1364/OL.17.001426)
 
-- Other documents: [ROADMAP.md:748](../ROADMAP.md?plain=1#L748)
+- Other documents: [ROADMAP.md:749](../ROADMAP.md?plain=1#L749)
 
 #### Hadley 2002a
 
@@ -1615,7 +1615,7 @@ G. Hadley, "High-accuracy finite-difference equations for dielectric waveguide a
 - Academy lessons: [strip-waveguide.md:76](../academy/strip-waveguide.md?plain=1#L76), [689](../academy/strip-waveguide.md?plain=1#L689)
 - Validation cases: [`mode/hadley-uniform-box`](validation.md?plain=1#L149)
 - Code: [src/device/fit.rs:9](../src/device/fit.rs#L9), [src/device/waveguide.rs:24](../src/device/waveguide.rs#L24), [35](../src/device/waveguide.rs#L35), [474](../src/device/waveguide.rs#L474), [src/mode/hadley.rs:5](../src/mode/hadley.rs#L5), [src/validation.rs:1072](../src/validation.rs#L1072)
-- Other documents: [ROADMAP.md:736](../ROADMAP.md?plain=1#L736)
+- Other documents: [ROADMAP.md:737](../ROADMAP.md?plain=1#L737)
 
 #### Hadley 2002b
 
@@ -1626,7 +1626,7 @@ G. Hadley, "High-accuracy finite-difference equations for dielectric waveguide a
 - Validation cases: [`mode/hadley-box-low`](validation.md?plain=1#L104), [`mode/hadley-box-high`](validation.md?plain=1#L105), [`mode/hadley-corner-low`](validation.md?plain=1#L106), [`mode/hadley-corner-high`](validation.md?plain=1#L107), [`mode/hadley-corners-box-low`](validation.md?plain=1#L154), [`fdfd3d/port-mode-strip`](validation.md?plain=1#L166), [`device/waveguide-fit-neff`](validation.md?plain=1#L313), [`device/waveguide-3d-order`](validation.md?plain=1#L315), [`device/rib-eim`](validation.md?plain=1#L333), [`device/rib-hadley`](validation.md?plain=1#L334), [`stack/rib-hadley-table`](validation.md?plain=1#L487), [`eme/3d-hadley`](validation.md?plain=1#L690)
 - Examples: [README.md:45](../examples/README.md?plain=1#L45), [76](../examples/README.md?plain=1#L76), [hadley_corners.rs:6](../examples/hadley_corners.rs#L6), [rib_hadley.rs:5](../examples/rib_hadley.rs#L5), [49](../examples/rib_hadley.rs#L49), [strip_waveguide.rs:16](../examples/strip_waveguide.rs#L16)
 - Code: [src/bench/catalogue.rs:776](../src/bench/catalogue.rs#L776), [src/cases/eme/three_checks.rs:656](../src/cases/eme/three_checks.rs#L656), [src/cases/stack/checks.rs:449](../src/cases/stack/checks.rs#L449), [src/device/checks.rs:89](../src/device/checks.rs#L89), [103](../src/device/checks.rs#L103), [src/device/fit.rs:9](../src/device/fit.rs#L9), [src/device/splitter_checks.rs:89](../src/device/splitter_checks.rs#L89), [96](../src/device/splitter_checks.rs#L96), [385](../src/device/splitter_checks.rs#L385), [src/device/waveguide.rs:25](../src/device/waveguide.rs#L25), [36](../src/device/waveguide.rs#L36), [474](../src/device/waveguide.rs#L474), [src/mode/hadley.rs:7](../src/mode/hadley.rs#L7), [src/mode/vector.rs:16](../src/mode/vector.rs#L16), [1486](../src/mode/vector.rs#L1486), [src/validation.rs:757](../src/validation.rs#L757), [764](../src/validation.rs#L764), [771](../src/validation.rs#L771), [778](../src/validation.rs#L778), [1107](../src/validation.rs#L1107), [1191](../src/validation.rs#L1191)
-- Other documents: [ROADMAP.md:737](../ROADMAP.md?plain=1#L737)
+- Other documents: [ROADMAP.md:738](../ROADMAP.md?plain=1#L738)
 
 #### Hairer and Wanner 1996
 
@@ -1645,14 +1645,14 @@ R. Halir, P. Cheben, J. M. Luque‐González, J. D. Sarmiento‐Merenguel, J. H.
 
 R. Hamerly, S. Bandyopadhyay, D. Englund, "Accurate Self-Configuration of Rectangular Multiport Interferometers", Phys. Rev. Applied 18, 024019 (2022). [doi:10.1103/PhysRevApplied.18.024019](https://doi.org/10.1103/PhysRevApplied.18.024019)
 
-- Other documents: [ROADMAP.md:833](../ROADMAP.md?plain=1#L833)
+- Other documents: [ROADMAP.md:834](../ROADMAP.md?plain=1#L834)
 
 #### Hamilton et al. 2017
 
 C. S. Hamilton, R. Kruse, L. Sansoni, S. Barkhofen, C. Silberhorn, I. Jex, "Gaussian Boson Sampling", Phys. Rev. Lett. 119, 170501 (2017). [doi:10.1103/PhysRevLett.119.170501](https://doi.org/10.1103/PhysRevLett.119.170501)
 
 - Methods pages: [quantum.md:33](methods/quantum.md?plain=1#L33), [348](methods/quantum.md?plain=1#L348)
-- Academy lessons: [quantum-light.md:195](../academy/quantum-light.md?plain=1#L195), [804](../academy/quantum-light.md?plain=1#L804), [1001](../academy/quantum-light.md?plain=1#L1001)
+- Academy lessons: [quantum-light.md:195](../academy/quantum-light.md?plain=1#L195), [804](../academy/quantum-light.md?plain=1#L804), [1003](../academy/quantum-light.md?plain=1#L1003)
 - Validation cases: [`quantum/squeezed-vacuum`](validation.md?plain=1#L910)
 - Code: [src/quantum/gaussian.rs:36](../src/quantum/gaussian.rs#L36), [src/quantum/light_checks.rs:102](../src/quantum/light_checks.rs#L102)
 - Other documents: [docs/plans/quantum.md:501](plans/quantum.md?plain=1#L501)
@@ -1668,7 +1668,7 @@ E. Hammerstad, O. Jensen, "Accurate Models for Microstrip Computer-Aided Design"
 A. M. Hammond, A. Oskooi, S. G. Johnson, S. E. Ralph, "Photonic topology optimization with semiconductor-foundry design-rule constraints", Opt. Express 29, 23916 (2021). [doi:10.1364/OE.431188](https://doi.org/10.1364/OE.431188)
 
 - Academy lessons: [fdfd-and-adjoints.md:139](../academy/fdfd-and-adjoints.md?plain=1#L139), [662](../academy/fdfd-and-adjoints.md?plain=1#L662), [785](../academy/fdfd-and-adjoints.md?plain=1#L785)
-- Other documents: [ROADMAP.md:785](../ROADMAP.md?plain=1#L785), [docs/plans/optimization.md:598](plans/optimization.md?plain=1#L598)
+- Other documents: [ROADMAP.md:786](../ROADMAP.md?plain=1#L786), [docs/plans/optimization.md:598](plans/optimization.md?plain=1#L598)
 
 #### Hansen and Ostermeier 2001
 
@@ -1695,7 +1695,7 @@ N. C. Harris, Y. Ma, J. Mower, T. Baehr-Jones, D. Englund, M. Hochberg, C. Galla
 - Validation cases: [`shifter/harris-p-pi`](validation.md?plain=1#L632), [`shifter/harris-bandwidth`](validation.md?plain=1#L633), [`shifter/harris-bounds`](validation.md?plain=1#L634), [`device/thermo-harris`](validation.md?plain=1#L658), [`device/thermo-harris-bandwidth`](validation.md?plain=1#L659), [`device/thermo-in-guide-measured`](validation.md?plain=1#L660)
 - Examples: [README.md:81](../examples/README.md?plain=1#L81), [thermo_harris.rs:5](../examples/thermo_harris.rs#L5)
 - Code: [crosscode/src/joule.rs:2](../crosscode/src/joule.rs#L2), [src/cases/device/thermo_checks.rs:597](../src/cases/device/thermo_checks.rs#L597), [604](../src/cases/device/thermo_checks.rs#L604), [611](../src/cases/device/thermo_checks.rs#L611), [src/device/measured/harris-2014.toml:5](../src/device/measured/harris-2014.toml#L5), [src/device/thermo.rs:912](../src/device/thermo.rs#L912), [src/fabrication/references.rs:208](../src/fabrication/references.rs#L208), [210](../src/fabrication/references.rs#L210), [src/thermal/crosstalk_checks.rs:140](../src/thermal/crosstalk_checks.rs#L140), [351](../src/thermal/crosstalk_checks.rs#L351), [416](../src/thermal/crosstalk_checks.rs#L416), [436](../src/thermal/crosstalk_checks.rs#L436), [450](../src/thermal/crosstalk_checks.rs#L450)
-- Other documents: [ROADMAP.md:809](../ROADMAP.md?plain=1#L809), [docs/plans/fabrication.md:662](plans/fabrication.md?plain=1#L662)
+- Other documents: [ROADMAP.md:810](../ROADMAP.md?plain=1#L810), [docs/plans/fabrication.md:662](plans/fabrication.md?plain=1#L662)
 
 #### He et al. 2019
 
@@ -1703,7 +1703,7 @@ M. He, M. Xu, Y. Ren, J. Jian, Z. Ruan, Y. Xu, S. Gao, S. Sun, X. Wen, L. Zhou, 
 
 - Methods pages: [electro-optic.md:16](methods/electro-optic.md?plain=1#L16), [218](methods/electro-optic.md?plain=1#L218)
 - Academy lessons: [modulators.md:103](../academy/modulators.md?plain=1#L103), [424](../academy/modulators.md?plain=1#L424), [714](../academy/modulators.md?plain=1#L714)
-- Other documents: [ROADMAP.md:791](../ROADMAP.md?plain=1#L791)
+- Other documents: [ROADMAP.md:792](../ROADMAP.md?plain=1#L792)
 
 #### Heebner et al. 2004
 
@@ -1735,8 +1735,8 @@ W. Heinrich, "Quasi-TEM description of MMIC coplanar lines including conductor-l
 
 L. G. Helt, Z. Yang, M. Liscidini, J. E. Sipe, "Spontaneous four-wave mixing in microring resonators", Opt. Lett. 35, 3006 (2010). [doi:10.1364/OL.35.003006](https://doi.org/10.1364/OL.35.003006)
 
-- Methods pages: [quantum.md:43](methods/quantum.md?plain=1#L43), [455](methods/quantum.md?plain=1#L455)
-- Academy lessons: [nonlinear-optics.md:180](../academy/nonlinear-optics.md?plain=1#L180), [899](../academy/nonlinear-optics.md?plain=1#L899), [1122](../academy/nonlinear-optics.md?plain=1#L1122), [quantum-light.md:117](../academy/quantum-light.md?plain=1#L117), [688](../academy/quantum-light.md?plain=1#L688), [994](../academy/quantum-light.md?plain=1#L994)
+- Methods pages: [quantum.md:43](methods/quantum.md?plain=1#L43), [456](methods/quantum.md?plain=1#L456)
+- Academy lessons: [nonlinear-optics.md:180](../academy/nonlinear-optics.md?plain=1#L180), [899](../academy/nonlinear-optics.md?plain=1#L899), [1122](../academy/nonlinear-optics.md?plain=1#L1122), [quantum-light.md:117](../academy/quantum-light.md?plain=1#L117), [688](../academy/quantum-light.md?plain=1#L688), [996](../academy/quantum-light.md?plain=1#L996)
 - Validation cases: [`job/nonlinear-ring-shg`](validation.md?plain=1#L843), [`nonlinear/ring-shg-enhancement`](validation.md?plain=1#L876), [`nonlinear/ring-fwm-enhancement`](validation.md?plain=1#L877), [`nonlinear/ring-add-drop-shg`](validation.md?plain=1#L879), [`quantum/ring-helt-short`](validation.md?plain=1#L919), [`quantum/ring-helt-long`](validation.md?plain=1#L920)
 - Code: [src/circuit/components/ring.rs:309](../src/circuit/components/ring.rs#L309), [src/job/nonlinear_checks.rs:524](../src/job/nonlinear_checks.rs#L524), [src/nonlinear/cavity.rs:41](../src/nonlinear/cavity.rs#L41), [src/nonlinear/cavity_checks.rs:474](../src/nonlinear/cavity_checks.rs#L474), [481](../src/nonlinear/cavity_checks.rs#L481), [495](../src/nonlinear/cavity_checks.rs#L495), [src/quantum/light_checks.rs:165](../src/quantum/light_checks.rs#L165), [172](../src/quantum/light_checks.rs#L172), [src/quantum/ring.rs:38](../src/quantum/ring.rs#L38), [src/quantum/source.rs:10](../src/quantum/source.rs#L10)
 - Other documents: [docs/plans/quantum.md:531](plans/quantum.md?plain=1#L531)
@@ -1769,7 +1769,7 @@ T. Herr, V. Brasch, J. D. Jost, C. Y. Wang, N. M. Kondratiev, M. L. Gorodetsky, 
 - Methods pages: [nonlinear.md:40](methods/nonlinear.md?plain=1#L40)
 - Academy lessons: [nonlinear-optics.md:192](../academy/nonlinear-optics.md?plain=1#L192), [959](../academy/nonlinear-optics.md?plain=1#L959), [1116](../academy/nonlinear-optics.md?plain=1#L1116)
 - Code: [src/nonlinear/resonator.rs:9](../src/nonlinear/resonator.rs#L9)
-- Other documents: [ROADMAP.md:865](../ROADMAP.md?plain=1#L865)
+- Other documents: [ROADMAP.md:866](../ROADMAP.md?plain=1#L866)
 
 #### Hestenes 1958
 
@@ -1846,7 +1846,7 @@ C. Holloway, E. Kuester, "A quasi-closed form expression for the conductor loss 
 - Methods pages: [devices.md:58](methods/devices.md?plain=1#L58), [travelling-wave.md:8](methods/travelling-wave.md?plain=1#L8)
 - Validation cases: [`line/holloway-kuester-current`](validation.md?plain=1#L564), [`line/wheeler-holloway-kuester`](validation.md?plain=1#L570), [`line/full-wave-quasi-tem-loss`](validation.md?plain=1#L602)
 - Code: [src/cases/electro/line_checks.rs:920](../src/cases/electro/line_checks.rs#L920), [965](../src/cases/electro/line_checks.rs#L965), [src/device/tfln.rs:1204](../src/device/tfln.rs#L1204), [src/electro/full_wave_checks.rs:295](../src/electro/full_wave_checks.rs#L295), [src/electro/line.rs:17](../src/electro/line.rs#L17)
-- Other documents: [ROADMAP.md:804](../ROADMAP.md?plain=1#L804)
+- Other documents: [ROADMAP.md:805](../ROADMAP.md?plain=1#L805)
 
 #### Holzgrafe et al. 2024
 
@@ -1856,14 +1856,14 @@ J. Holzgrafe, E. Puma, R. Cheng, H. Warner, A. Shams-Ansari, R. Shankar, M. Lon�
 - Academy lessons: [modulators.md:127](../academy/modulators.md?plain=1#L127), [408](../academy/modulators.md?plain=1#L408), [711](../academy/modulators.md?plain=1#L711)
 - Validation cases: [`pockels/wang-2018`](validation.md?plain=1#L555)
 - Code: [src/cases/mode/pockels/checks.rs:1026](../src/cases/mode/pockels/checks.rs#L1026)
-- Other documents: [ROADMAP.md:801](../ROADMAP.md?plain=1#L801)
+- Other documents: [ROADMAP.md:802](../ROADMAP.md?plain=1#L802)
 
 #### Hong et al. 1987
 
 C. K. Hong, Z. Y. Ou, L. Mandel, "Measurement of subpicosecond time intervals between two photons by interference", Phys. Rev. Lett. 59, 2044 (1987). [doi:10.1103/PhysRevLett.59.2044](https://doi.org/10.1103/PhysRevLett.59.2044)
 
 - Methods pages: [quantum.md:18](methods/quantum.md?plain=1#L18), [248](methods/quantum.md?plain=1#L248)
-- Academy lessons: [quantum-light.md:51](../academy/quantum-light.md?plain=1#L51), [383](../academy/quantum-light.md?plain=1#L383), [429](../academy/quantum-light.md?plain=1#L429), [978](../academy/quantum-light.md?plain=1#L978)
+- Academy lessons: [quantum-light.md:51](../academy/quantum-light.md?plain=1#L51), [383](../academy/quantum-light.md?plain=1#L383), [429](../academy/quantum-light.md?plain=1#L429), [980](../academy/quantum-light.md?plain=1#L980)
 - Validation cases: [`quantum/hom-visibility`](validation.md?plain=1#L890), [`quantum/hom-balanced`](validation.md?plain=1#L891)
 - Code: [src/quantum/checks.rs:88](../src/quantum/checks.rs#L88), [95](../src/quantum/checks.rs#L95), [src/quantum/hom.rs:2](../src/quantum/hom.rs#L2)
 - Other documents: [docs/plans/quantum.md:486](plans/quantum.md?plain=1#L486)
@@ -1886,7 +1886,7 @@ J. Hu, C. R. Menyuk, "Understanding leaky modes: slab waveguide revisited", Adv.
 
 X. Hu, C. W. Holzwarth, D. Masciarelli, E. A. Dauler, K. K. Berggren, "Efficiently Coupling Light to Superconducting Nanowire Single-Photon Detectors", IEEE Trans. Appl. Supercond. 19, 336 (2009). [doi:10.1109/TASC.2009.2018035](https://doi.org/10.1109/TASC.2009.2018035)
 
-- Methods pages: [quantum.md:1051](methods/quantum.md?plain=1#L1051)
+- Methods pages: [quantum.md:1087](methods/quantum.md?plain=1#L1087)
 
 #### Hughes et al. 2018a
 
@@ -1895,7 +1895,7 @@ T. W. Hughes, M. Minkov, I. A. D. Williamson, S. Fan, "Adjoint Method and Invers
 - Methods pages: [fdfd-adjoint.md:12](methods/fdfd-adjoint.md?plain=1#L12), [fdtd-adjoint.md:12](methods/fdtd-adjoint.md?plain=1#L12)
 - Academy lessons: [fdfd-and-adjoints.md:121](../academy/fdfd-and-adjoints.md?plain=1#L121), [568](../academy/fdfd-and-adjoints.md?plain=1#L568), [783](../academy/fdfd-and-adjoints.md?plain=1#L783)
 - Code: [src/fdfd/adjoint.rs:9](../src/fdfd/adjoint.rs#L9), [src/fdtd/adjoint.rs:30](../src/fdtd/adjoint.rs#L30)
-- Other documents: [ROADMAP.md:777](../ROADMAP.md?plain=1#L777)
+- Other documents: [ROADMAP.md:778](../ROADMAP.md?plain=1#L778)
 
 #### Hughes et al. 2018b
 
@@ -1909,7 +1909,7 @@ T. W. Hughes, M. Minkov, Y. Shi, S. Fan, "Training of photonic neural networks t
 
 T. W. Hughes, I. A. D. Williamson, M. Minkov, S. Fan, "Forward-Mode Differentiation of Maxwell’s Equations", ACS Photonics 6, 3010 (2019). [doi:10.1021/acsphotonics.9b01238](https://doi.org/10.1021/acsphotonics.9b01238)
 
-- Other documents: [ROADMAP.md:778](../ROADMAP.md?plain=1#L778)
+- Other documents: [ROADMAP.md:779](../ROADMAP.md?plain=1#L779)
 
 #### Hughes et al. 2021
 
@@ -1949,7 +1949,7 @@ M. Jacques, A. Samani, E. El-Fiky, D. Patel, Z. Xing, D. V. Plant, "Optimization
 - Examples: [README.md:80](../examples/README.md?plain=1#L80), [thermo_jacques.rs:5](../examples/thermo_jacques.rs#L5)
 - Code: [crosscode/src/heaters.rs:2](../crosscode/src/heaters.rs#L2), [crosscode/src/joule.rs:15](../crosscode/src/joule.rs#L15), [crosscode/src/transient.rs:2](../crosscode/src/transient.rs#L2), [src/cases/device/thermo_checks.rs:542](../src/cases/device/thermo_checks.rs#L542), [559](../src/cases/device/thermo_checks.rs#L559), [569](../src/cases/device/thermo_checks.rs#L569), [576](../src/cases/device/thermo_checks.rs#L576), [src/cases/mode/thermo_checks.rs:387](../src/cases/mode/thermo_checks.rs#L387), [src/cases/statics/checks.rs:177](../src/cases/statics/checks.rs#L177), [542](../src/cases/statics/checks.rs#L542), [1062](../src/cases/statics/checks.rs#L1062), [1083](../src/cases/statics/checks.rs#L1083), [1107](../src/cases/statics/checks.rs#L1107), [src/cases/thermal/shifter_checks.rs:189](../src/cases/thermal/shifter_checks.rs#L189), [451](../src/cases/thermal/shifter_checks.rs#L451), [464](../src/cases/thermal/shifter_checks.rs#L464), [474](../src/cases/thermal/shifter_checks.rs#L474), [493](../src/cases/thermal/shifter_checks.rs#L493), [src/device/active.rs:198](../src/device/active.rs#L198), [src/device/measured/jacques-2019-npp.toml:5](../src/device/measured/jacques-2019-npp.toml#L5), [src/device/measured/jacques-2019-tin.toml:4](../src/device/measured/jacques-2019-tin.toml#L4), [src/device/thermo.rs:905](../src/device/thermo.rs#L905), [src/fabrication/references.rs:200](../src/fabrication/references.rs#L200), [202](../src/fabrication/references.rs#L202), [src/thermal/crosstalk_checks.rs:325](../src/thermal/crosstalk_checks.rs#L325), [369](../src/thermal/crosstalk_checks.rs#L369), [384](../src/thermal/crosstalk_checks.rs#L384), [399](../src/thermal/crosstalk_checks.rs#L399), [src/validation.rs:302](../src/validation.rs#L302)
 - Jobs and circuits: [jobs/pcm-switching.yaml:39](../jobs/pcm-switching.yaml#L39)
-- Other documents: [ROADMAP.md:808](../ROADMAP.md?plain=1#L808), [docs/plans/fabrication.md:662](plans/fabrication.md?plain=1#L662)
+- Other documents: [ROADMAP.md:809](../ROADMAP.md?plain=1#L809), [docs/plans/fabrication.md:662](plans/fabrication.md?plain=1#L662)
 
 #### JaeHyuk Shin et al. 2005
 
@@ -1958,7 +1958,7 @@ JaeHyuk Shin, C. Ozturk, S. Sakamoto, Y. Chiu, N. Dagli, "Novel T-rail electrode
 - Methods pages: [travelling-wave.md:22](methods/travelling-wave.md?plain=1#L22)
 - Validation cases: [`line/periodic-shin-limit`](validation.md?plain=1#L586)
 - Code: [src/cases/electro/line_checks.rs:1077](../src/cases/electro/line_checks.rs#L1077), [src/electro/line.rs:46](../src/electro/line.rs#L46), [501](../src/electro/line.rs#L501)
-- Other documents: [ROADMAP.md:806](../ROADMAP.md?plain=1#L806)
+- Other documents: [ROADMAP.md:807](../ROADMAP.md?plain=1#L807)
 
 #### Jazbinšek and Zgonik 2002
 
@@ -1968,13 +1968,13 @@ M. Jazbinšek, M. Zgonik, "Material tensor parameters of LiNbO 3 relevant for el
 - Academy lessons: [modulators.md:55](../academy/modulators.md?plain=1#L55), [337](../academy/modulators.md?plain=1#L337)
 - Validation cases: [`material/linbo3-zelmon-633`](validation.md?plain=1#L64), [`pockels/plates-x-cut`](validation.md?plain=1#L548)
 - Code: [src/cases/mode/pockels/checks.rs:977](../src/cases/mode/pockels/checks.rs#L977), [src/device/tfln.rs:704](../src/device/tfln.rs#L704), [src/material/catalogue/references.rs:151](../src/material/catalogue/references.rs#L151), [src/validation.rs:477](../src/validation.rs#L477)
-- Other documents: [ROADMAP.md:795](../ROADMAP.md?plain=1#L795)
+- Other documents: [ROADMAP.md:796](../ROADMAP.md?plain=1#L796)
 
 #### Jensen and Sigmund 2010
 
 J. Jensen, O. Sigmund, "Topology optimization for nano‐photonics", Laser &amp; Photonics Reviews 5, 308 (2010). [doi:10.1002/lpor.201000014](https://doi.org/10.1002/lpor.201000014)
 
-- Other documents: [ROADMAP.md:769](../ROADMAP.md?plain=1#L769)
+- Other documents: [ROADMAP.md:770](../ROADMAP.md?plain=1#L770)
 
 #### Ji et al. 2017
 
@@ -2025,7 +2025,7 @@ S. John, "Strong localization of photons in certain disordered dielectric superl
 
 S. Johnson, J. Joannopoulos, "Block-iterative frequency-domain methods for Maxwell's equations in a planewave basis", Opt. Express 8, 173 (2001). [doi:10.1364/OE.8.000173](https://doi.org/10.1364/OE.8.000173)
 
-- Other documents: [ROADMAP.md:739](../ROADMAP.md?plain=1#L739)
+- Other documents: [ROADMAP.md:740](../ROADMAP.md?plain=1#L740)
 
 #### Johnson et al. 2002
 
@@ -2034,7 +2034,7 @@ S. G. Johnson, M. Ibanescu, M. A. Skorobogatiy, O. Weisberg, J. D. Joannopoulos,
 - Methods pages: [electro-optic.md:10](methods/electro-optic.md?plain=1#L10), [fields.md:14](methods/fields.md?plain=1#L14), [phase-shifter.md:12](methods/phase-shifter.md?plain=1#L12)
 - Validation cases: [`thermo/slab-first-order`](validation.md?plain=1#L537), [`shifter/slab-sheet`](validation.md?plain=1#L619)
 - Code: [src/cases/mode/thermo_checks.rs:338](../src/cases/mode/thermo_checks.rs#L338), [src/cases/thermal/shifter_checks.rs:409](../src/cases/thermal/shifter_checks.rs#L409), [src/device/thermo.rs:973](../src/device/thermo.rs#L973), [src/mode/thermo.rs:8](../src/mode/thermo.rs#L8)
-- Other documents: [ROADMAP.md:807](../ROADMAP.md?plain=1#L807)
+- Other documents: [ROADMAP.md:808](../ROADMAP.md?plain=1#L808)
 
 #### Jolivet and Tournier 2016
 
@@ -2063,7 +2063,7 @@ Y. S. Ju, K. E. Goodson, "Phonon scattering in silicon films with thickness of o
 - Methods pages: [catalogue.md:114](methods/catalogue.md?plain=1#L114)
 - Validation cases: [`material/silicon-film-ju-goodson`](validation.md?plain=1#L38)
 - Code: [src/material/catalogue/conductivity.rs:10](../src/material/catalogue/conductivity.rs#L10), [src/material/catalogue/references.rs:452](../src/material/catalogue/references.rs#L452), [src/validation.rs:295](../src/validation.rs#L295)
-- Other documents: [ROADMAP.md:812](../ROADMAP.md?plain=1#L812)
+- Other documents: [ROADMAP.md:813](../ROADMAP.md?plain=1#L813)
 
 #### Jundt 1997
 
@@ -2131,7 +2131,7 @@ Kane Yee, "Numerical solution of initial boundary value problems involving maxwe
 - Academy lessons: [fdfd-and-adjoints.md:43](../academy/fdfd-and-adjoints.md?plain=1#L43), [176](../academy/fdfd-and-adjoints.md?plain=1#L176), [763](../academy/fdfd-and-adjoints.md?plain=1#L763), [how-fdtd-works.md:30](../academy/how-fdtd-works.md?plain=1#L30), [108](../academy/how-fdtd-works.md?plain=1#L108), [141](../academy/how-fdtd-works.md?plain=1#L141), [448](../academy/how-fdtd-works.md?plain=1#L448)
 - Validation cases: [`fdfd3d/two-d-agreement`](validation.md?plain=1#L163), [`fdtd/dispersion`](validation.md?plain=1#L203), [`fdtd/energy`](validation.md?plain=1#L204), [`line/full-wave-plates-order`](validation.md?plain=1#L598)
 - Code: [src/electro/full_wave.rs:7](../src/electro/full_wave.rs#L7), [src/electro/full_wave_checks.rs:264](../src/electro/full_wave_checks.rs#L264), [src/fdfd/mod.rs:6](../src/fdfd/mod.rs#L6), [src/fdfd/three.rs:6](../src/fdfd/three.rs#L6), [src/fdtd.rs:4](../src/fdtd.rs#L4), [src/validation.rs:1170](../src/validation.rs#L1170), [1450](../src/validation.rs#L1450), [1457](../src/validation.rs#L1457)
-- Other documents: [ROADMAP.md:724](../ROADMAP.md?plain=1#L724)
+- Other documents: [ROADMAP.md:725](../ROADMAP.md?plain=1#L725)
 
 #### Karypis and Kumar 1998
 
@@ -2230,7 +2230,7 @@ P. Kharel, C. Reimer, K. Luke, L. He, M. Zhang, "Breaking voltage–bandwidth li
 - Validation cases: [`line/kharel-2021-impedance`](validation.md?plain=1#L575), [`line/kharel-2021-quartz-index`](validation.md?plain=1#L589), [`device/tfln-kharel-loss`](validation.md?plain=1#L744)
 - Code: [crosscode/src/t_rails.rs:3](../crosscode/src/t_rails.rs#L3), [src/cases/device/tfln_checks.rs:354](../src/cases/device/tfln_checks.rs#L354), [src/cases/electro/line_checks.rs:1000](../src/cases/electro/line_checks.rs#L1000), [1098](../src/cases/electro/line_checks.rs#L1098), [src/device/measured/kharel-2021.toml:6](../src/device/measured/kharel-2021.toml#L6)
 - Jobs and circuits: [jobs/tfln-segmented.yaml:2](../jobs/tfln-segmented.yaml#L2)
-- Other documents: [ROADMAP.md:792](../ROADMAP.md?plain=1#L792)
+- Other documents: [ROADMAP.md:793](../ROADMAP.md?plain=1#L793)
 
 #### Khorasaninejad et al. 2016
 
@@ -2251,13 +2251,13 @@ T. J. Kippenberg, A. L. Gaeta, M. Lipson, M. L. Gorodetsky, "Dissipative Kerr so
 - Methods pages: [nonlinear.md:42](methods/nonlinear.md?plain=1#L42)
 - Academy lessons: [nonlinear-optics.md:228](../academy/nonlinear-optics.md?plain=1#L228), [915](../academy/nonlinear-optics.md?plain=1#L915), [1117](../academy/nonlinear-optics.md?plain=1#L1117), [ring-resonator.md:97](../academy/ring-resonator.md?plain=1#L97), [126](../academy/ring-resonator.md?plain=1#L126), [401](../academy/ring-resonator.md?plain=1#L401), [590](../academy/ring-resonator.md?plain=1#L590)
 - Code: [src/nonlinear/resonator.rs:12](../src/nonlinear/resonator.rs#L12)
-- Other documents: [ROADMAP.md:844](../ROADMAP.md?plain=1#L844)
+- Other documents: [ROADMAP.md:845](../ROADMAP.md?plain=1#L845)
 
 #### Knill et al. 2001
 
 E. Knill, R. Laflamme, G. J. Milburn, "A scheme for efficient quantum computation with linear optics", Nature 409, 46 (2001). [doi:10.1038/35051009](https://doi.org/10.1038/35051009)
 
-- Academy lessons: [quantum-light.md:69](../academy/quantum-light.md?plain=1#L69), [863](../academy/quantum-light.md?plain=1#L863), [982](../academy/quantum-light.md?plain=1#L982)
+- Academy lessons: [quantum-light.md:69](../academy/quantum-light.md?plain=1#L69), [863](../academy/quantum-light.md?plain=1#L863), [984](../academy/quantum-light.md?plain=1#L984)
 - Other documents: [docs/plans/quantum.md:487](plans/quantum.md?plain=1#L487)
 
 #### Kogelnik 1975
@@ -2292,13 +2292,13 @@ J. Komma, C. Schwarz, G. Hofmann, D. Heinert, R. Nawrodt, "Thermo-optic coeffici
 - Methods pages: [catalogue.md:18](methods/catalogue.md?plain=1#L18)
 - Validation cases: [`material/silicon-komma-reading`](validation.md?plain=1#L25), [`material/silicon-komma-frey-dndt`](validation.md?plain=1#L26), [`material/silicon-komma-room`](validation.md?plain=1#L27), [`material/silicon-dndt-positive`](validation.md?plain=1#L28)
 - Code: [src/material/catalogue/references.rs:102](../src/material/catalogue/references.rs#L102), [103](../src/material/catalogue/references.rs#L103), [src/material/catalogue/thermo.rs:10](../src/material/catalogue/thermo.rs#L10), [262](../src/material/catalogue/thermo.rs#L262), [src/validation.rs:204](../src/validation.rs#L204), [211](../src/validation.rs#L211), [218](../src/validation.rs#L218), [225](../src/validation.rs#L225)
-- Other documents: [ROADMAP.md:810](../ROADMAP.md?plain=1#L810)
+- Other documents: [ROADMAP.md:811](../ROADMAP.md?plain=1#L811)
 
 #### Konno et al. 2024
 
 S. Konno, W. Asavanant, F. Hanamura, H. Nagayoshi, K. Fukui, A. Sakaguchi, R. Ide, F. China, M. Yabuno, S. Miki, et al., "Logical states for fault-tolerant quantum computation with propagating light", Science 383, 289 (2024). [doi:10.1126/science.adk7560](https://doi.org/10.1126/science.adk7560)
 
-- Academy lessons: [quantum-light.md:291](../academy/quantum-light.md?plain=1#L291), [919](../academy/quantum-light.md?plain=1#L919), [1018](../academy/quantum-light.md?plain=1#L1018)
+- Academy lessons: [quantum-light.md:291](../academy/quantum-light.md?plain=1#L291), [919](../academy/quantum-light.md?plain=1#L919), [1020](../academy/quantum-light.md?plain=1#L1020)
 - Other documents: [docs/plans/quantum.md:518](plans/quantum.md?plain=1#L518)
 
 #### Kottke et al. 2008
@@ -2308,7 +2308,7 @@ C. Kottke, A. Farjadpour, S. G. Johnson, "Perturbation theory for anisotropic di
 - Methods pages: [fdtd.md:34](methods/fdtd.md?plain=1#L34)
 - Validation cases: [`fdtd/smoothing-anisotropic-slab`](validation.md?plain=1#L228)
 - Code: [src/fdtd/smoothing.rs:10](../src/fdtd/smoothing.rs#L10), [src/validation.rs:1625](../src/validation.rs#L1625)
-- Other documents: [ROADMAP.md:728](../ROADMAP.md?plain=1#L728)
+- Other documents: [ROADMAP.md:729](../ROADMAP.md?plain=1#L729)
 
 #### Krasnokutska et al. 2018
 
@@ -2380,7 +2380,7 @@ C. M. Lalau-Keraly, S. Bhargava, O. D. Miller, E. Yablonovitch, "Adjoint shape o
 - Validation cases: [`fdtd/adjoint-modes`](validation.md?plain=1#L268), [`fdtd/adjoint-backward-mode`](validation.md?plain=1#L274)
 - Examples: [README.md:58](../examples/README.md?plain=1#L58), [optimize_ybranch.rs:9](../examples/optimize_ybranch.rs#L9)
 - Code: [src/fdtd.rs:56](../src/fdtd.rs#L56), [src/fdtd/adjoint.rs:27](../src/fdtd/adjoint.rs#L27), [src/fdtd/adjoint_checks.rs:543](../src/fdtd/adjoint_checks.rs#L543), [src/validation.rs:1905](../src/validation.rs#L1905), [1947](../src/validation.rs#L1947)
-- Other documents: [ROADMAP.md:768](../ROADMAP.md?plain=1#L768), [docs/plans/optimization.md:589](plans/optimization.md?plain=1#L589)
+- Other documents: [ROADMAP.md:769](../ROADMAP.md?plain=1#L769), [docs/plans/optimization.md:589](plans/optimization.md?plain=1#L589)
 
 #### Lam 1987
 
@@ -2411,7 +2411,7 @@ C. Lanczos, "A Precision Approximation of the Gamma Function", Journal of the So
 
 M. V. Larsen, J. E. Bourassa, S. Kocsis, J. F. Tasker, R. S. Chadwick, C. González-Arciniegas, J. Hastrup, C. E. Lopetegui-González, F. M. Miatto, A. Motamedi, et al., "Integrated photonic source of Gottesman–Kitaev–Preskill qubits", Nature 642, 587 (2025). [doi:10.1038/s41586-025-09044-5](https://doi.org/10.1038/s41586-025-09044-5), open access.
 
-- Academy lessons: [quantum-light.md:309](../academy/quantum-light.md?plain=1#L309), [920](../academy/quantum-light.md?plain=1#L920), [1019](../academy/quantum-light.md?plain=1#L1019)
+- Academy lessons: [quantum-light.md:309](../academy/quantum-light.md?plain=1#L309), [920](../academy/quantum-light.md?plain=1#L920), [1021](../academy/quantum-light.md?plain=1#L1021)
 - Other documents: [docs/plans/quantum.md:519](plans/quantum.md?plain=1#L519)
 
 #### Lawson and Hanson 1995
@@ -2456,7 +2456,7 @@ M. Leidinger, S. Fieberg, N. Waasem, F. Kühnemann, K. Buse, I. Breunig, "Compar
 - Methods pages: [catalogue.md:44](methods/catalogue.md?plain=1#L44)
 - Academy lessons: [nonlinear-optics.md:210](../academy/nonlinear-optics.md?plain=1#L210), [336](../academy/nonlinear-optics.md?plain=1#L336), [1129](../academy/nonlinear-optics.md?plain=1#L1129)
 - Code: [src/material/catalogue/references.rs:620](../src/material/catalogue/references.rs#L620), [621](../src/material/catalogue/references.rs#L621), [src/material/catalogue/transparency.rs:15](../src/material/catalogue/transparency.rs#L15)
-- Other documents: [ROADMAP.md:866](../ROADMAP.md?plain=1#L866)
+- Other documents: [ROADMAP.md:867](../ROADMAP.md?plain=1#L867)
 
 #### Leviton and Frey 2006
 
@@ -2484,7 +2484,7 @@ H. H. Li, "Refractive index of silicon and germanium and its wavelength and temp
 - Validation cases: [`material/silicon-li-table`](validation.md?plain=1#L12), [`material/silicon-frey-li`](validation.md?plain=1#L14), [`material/silicon-li-table-1`](validation.md?plain=1#L20), [`material/silicon-li-table-2`](validation.md?plain=1#L21), [`material/silicon-li-frey-dndt`](validation.md?plain=1#L24), [`material/silicon-komma-room`](validation.md?plain=1#L27)
 - Examples: [README.md:34](../examples/README.md?plain=1#L34), [silicon_index.rs:5](../examples/silicon_index.rs#L5), [python/examples/README.md:26](../python/examples/README.md?plain=1#L26), [python/examples/output/silicon_index.txt:7](../python/examples/output/silicon_index.txt#L7), [python/examples/silicon_index.py:5](../python/examples/silicon_index.py#L5)
 - Code: [python/tests/test_api.py:102](../python/tests/test_api.py#L102), [384](../python/tests/test_api.py#L384), [src/facade.rs:134](../src/facade.rs#L134), [src/facade/tests.rs:122](../src/facade/tests.rs#L122), [src/material/catalogue/references.rs:88](../src/material/catalogue/references.rs#L88), [src/material/catalogue/thermo.rs:6](../src/material/catalogue/thermo.rs#L6), [src/material/mod.rs:727](../src/material/mod.rs#L727), [785](../src/material/mod.rs#L785), [src/material/refractiveindex.rs:441](../src/material/refractiveindex.rs#L441), [799](../src/material/refractiveindex.rs#L799), [800](../src/material/refractiveindex.rs#L800), [src/validation.rs:113](../src/validation.rs#L113), [127](../src/validation.rs#L127), [169](../src/validation.rs#L169), [176](../src/validation.rs#L176), [197](../src/validation.rs#L197), [218](../src/validation.rs#L218), [studio/src-tauri/src/charts/material.rs:629](../studio/src-tauri/src/charts/material.rs#L629)
-- Other documents: [ROADMAP.md:752](../ROADMAP.md?plain=1#L752)
+- Other documents: [ROADMAP.md:753](../ROADMAP.md?plain=1#L753)
 
 #### Li 1996a
 
@@ -2499,7 +2499,7 @@ L. Li, "Use of Fourier series in the analysis of discontinuous periodic structur
 - Methods pages: [rcwa.md:20](methods/rcwa.md?plain=1#L20)
 - Validation cases: [`mode/rcwa-tm-convergence`](validation.md?plain=1#L957)
 - Code: [src/mode/rcwa_checks.rs:53](../src/mode/rcwa_checks.rs#L53)
-- Other documents: [ROADMAP.md:741](../ROADMAP.md?plain=1#L741)
+- Other documents: [ROADMAP.md:742](../ROADMAP.md?plain=1#L742)
 
 #### Li and Demmel 2003
 
@@ -2532,7 +2532,7 @@ Q. Lin, O. J. Painter, G. P. Agrawal, "Nonlinear optical phenomena in silicon wa
 - Academy lessons: [nonlinear-optics.md:162](../academy/nonlinear-optics.md?plain=1#L162), [793](../academy/nonlinear-optics.md?plain=1#L793), [1111](../academy/nonlinear-optics.md?plain=1#L1111)
 - Validation cases: [`job/nonlinear-pulse-two-photon`](validation.md?plain=1#L848), [`nonlinear/nlse-tpa-power`](validation.md?plain=1#L868), [`nonlinear/nlse-tpa-phase`](validation.md?plain=1#L869), [`nonlinear/nlse-carriers-gaussian`](validation.md?plain=1#L871), [`nonlinear/nlse-fca-cw-power`](validation.md?plain=1#L872)
 - Code: [src/job/nonlinear_pulse_checks.rs:209](../src/job/nonlinear_pulse_checks.rs#L209), [src/nonlinear/absorption_checks.rs:266](../src/nonlinear/absorption_checks.rs#L266), [273](../src/nonlinear/absorption_checks.rs#L273), [287](../src/nonlinear/absorption_checks.rs#L287), [294](../src/nonlinear/absorption_checks.rs#L294)
-- Other documents: [ROADMAP.md:862](../ROADMAP.md?plain=1#L862)
+- Other documents: [ROADMAP.md:863](../ROADMAP.md?plain=1#L863)
 
 #### Lindhard et al. 1963
 
@@ -2562,7 +2562,7 @@ J. W. Liu, "The Role of Elimination Trees in Sparse Factorization", SIAM J. Matr
 
 V. Liu, S. Fan, "S4 : A free electromagnetic solver for layered periodic structures", Computer Physics Communications 183, 2233 (2012). [doi:10.1016/j.cpc.2012.04.026](https://doi.org/10.1016/j.cpc.2012.04.026)
 
-- Other documents: [ROADMAP.md:742](../ROADMAP.md?plain=1#L742)
+- Other documents: [ROADMAP.md:743](../ROADMAP.md?plain=1#L743)
 
 #### Liu and Poon 2025
 
@@ -2588,7 +2588,7 @@ D. Liu, Y. Tan, E. Khoram, Z. Yu, "Training Deep Neural Networks for the Inverse
 
 H.-L. Liu, H. Su, Y.-H. Deng, S.-Q. Gong, Y.-C. Gu, H.-Y. Tang, M.-H. Jia, Q. Wei, Y.-K. Song, D.-Z. Wang, et al., "Gaussian boson sampling with 1,024 squeezed states in 8,176 modes", Nature 653, 687 (2026). [doi:10.1038/s41586-026-10523-6](https://doi.org/10.1038/s41586-026-10523-6)
 
-- Academy lessons: [quantum-light.md:321](../academy/quantum-light.md?plain=1#L321), [822](../academy/quantum-light.md?plain=1#L822), [1006](../academy/quantum-light.md?plain=1#L1006)
+- Academy lessons: [quantum-light.md:321](../academy/quantum-light.md?plain=1#L321), [822](../academy/quantum-light.md?plain=1#L822), [1008](../academy/quantum-light.md?plain=1#L1008)
 - Other documents: [docs/plans/quantum.md:508](plans/quantum.md?plain=1#L508)
 
 #### Loh et al. 2009
@@ -2610,7 +2610,7 @@ W. E. Lorensen, H. E. Cline, "Marching cubes: A high resolution 3D surface const
 
 J. Lu, J. Vučković, "Nanophotonic computational design", Opt. Express 21, 13351 (2013). [doi:10.1364/OE.21.013351](https://doi.org/10.1364/OE.21.013351)
 
-- Other documents: [ROADMAP.md:767](../ROADMAP.md?plain=1#L767)
+- Other documents: [ROADMAP.md:768](../ROADMAP.md?plain=1#L768)
 
 #### Lu et al. 2015
 
@@ -2622,7 +2622,7 @@ Z. Lu, H. Yun, Y. Wang, Z. Chen, F. Zhang, N. A. F. Jaeger, L. Chrostowski, "Bro
 
 Z. Lu, J. Jhoja, J. Klein, X. Wang, A. Liu, J. Flueckiger, J. Pond, L. Chrostowski, "Performance prediction for silicon photonics integrated circuits with layout-dependent correlated manufacturing variability", Opt. Express 25, 9712 (2017). [doi:10.1364/OE.25.009712](https://doi.org/10.1364/OE.25.009712)
 
-- Other documents: [ROADMAP.md:834](../ROADMAP.md?plain=1#L834)
+- Other documents: [ROADMAP.md:835](../ROADMAP.md?plain=1#L835)
 
 #### Lugiato and Lefever 1987
 
@@ -2632,7 +2632,7 @@ L. A. Lugiato, R. Lefever, "Spatial Dissipative Structures in Passive Optical Sy
 - Academy lessons: [nonlinear-optics.md:96](../academy/nonlinear-optics.md?plain=1#L96), [924](../academy/nonlinear-optics.md?plain=1#L924), [1113](../academy/nonlinear-optics.md?plain=1#L1113)
 - Validation cases: [`nonlinear/lle-homogeneous-lower`](validation.md?plain=1#L863), [`nonlinear/lle-homogeneous-upper`](validation.md?plain=1#L864), [`nonlinear/lle-instability-rate`](validation.md?plain=1#L865)
 - Code: [src/nonlinear/kerr_checks.rs:756](../src/nonlinear/kerr_checks.rs#L756), [763](../src/nonlinear/kerr_checks.rs#L763), [770](../src/nonlinear/kerr_checks.rs#L770), [src/nonlinear/resonator.rs:4](../src/nonlinear/resonator.rs#L4)
-- Other documents: [ROADMAP.md:843](../ROADMAP.md?plain=1#L843)
+- Other documents: [ROADMAP.md:844](../ROADMAP.md?plain=1#L844)
 
 #### Luke et al. 2013
 
@@ -2650,7 +2650,7 @@ K. Luke, Y. Okawachi, M. R. E. Lamont, A. L. Gaeta, M. Lipson, "Broadband mid-in
 - Methods pages: [materials.md:12](methods/materials.md?plain=1#L12)
 - Academy lessons: [material-dispersion.md:62](../academy/material-dispersion.md?plain=1#L62), [219](../academy/material-dispersion.md?plain=1#L219), [450](../academy/material-dispersion.md?plain=1#L450)
 - Code: [src/material/catalogue/references.rs:123](../src/material/catalogue/references.rs#L123), [src/material/mod.rs:837](../src/material/mod.rs#L837), [861](../src/material/mod.rs#L861), [src/material/refractiveindex.rs:429](../src/material/refractiveindex.rs#L429)
-- Other documents: [ROADMAP.md:754](../ROADMAP.md?plain=1#L754)
+- Other documents: [ROADMAP.md:755](../ROADMAP.md?plain=1#L755)
 
 #### Lundow and Markström 2022
 
@@ -2699,7 +2699,7 @@ M. J. Madou, "Fundamentals of Microfabrication and Nanotechnology, Three-Volume 
 
 L. S. Madsen, F. Laudenbach, M. F. Askarani, F. Rortais, T. Vincent, J. F. F. Bulmer, F. M. Miatto, L. Neuhaus, L. G. Helt, M. J. Collins, et al., "Quantum computational advantage with a programmable photonic processor", Nature 606, 75 (2022). [doi:10.1038/s41586-022-04725-x](https://doi.org/10.1038/s41586-022-04725-x), open access.
 
-- Academy lessons: [quantum-light.md:267](../academy/quantum-light.md?plain=1#L267), [820](../academy/quantum-light.md?plain=1#L820), [1005](../academy/quantum-light.md?plain=1#L1005)
+- Academy lessons: [quantum-light.md:267](../academy/quantum-light.md?plain=1#L267), [820](../academy/quantum-light.md?plain=1#L820), [1007](../academy/quantum-light.md?plain=1#L1007)
 - Other documents: [docs/plans/quantum.md:507](plans/quantum.md?plain=1#L507)
 
 #### Majkić et al. 2017
@@ -2741,7 +2741,7 @@ I. H. Malitson, "Interspecimen Comparison of the Refractive Index of Fused Silic
 - Validation cases: [`material/silica-malitson-formula`](validation.md?plain=1#L16), [`material/silica-malitson-measured`](validation.md?plain=1#L17)
 - Examples: [README.md:35](../examples/README.md?plain=1#L35), [silica_index.rs:4](../examples/silica_index.rs#L4)
 - Code: [src/material/catalogue/references.rs:109](../src/material/catalogue/references.rs#L109), [src/material/mod.rs:46](../src/material/mod.rs#L46), [796](../src/material/mod.rs#L796), [825](../src/material/mod.rs#L825), [src/material/refractiveindex.rs:411](../src/material/refractiveindex.rs#L411), [646](../src/material/refractiveindex.rs#L646), [src/validation.rs:141](../src/validation.rs#L141), [148](../src/validation.rs#L148), [studio/src-tauri/src/charts/material.rs:629](../studio/src-tauri/src/charts/material.rs#L629)
-- Other documents: [ROADMAP.md:753](../ROADMAP.md?plain=1#L753)
+- Other documents: [ROADMAP.md:754](../ROADMAP.md?plain=1#L754)
 
 #### Mandelshtam and Taylor 1997
 
@@ -2751,7 +2751,7 @@ V. A. Mandelshtam, H. S. Taylor, "Harmonic inversion of time signals and its app
 - Academy lessons: [how-fdtd-works.md:54](../academy/how-fdtd-works.md?plain=1#L54), [438](../academy/how-fdtd-works.md?plain=1#L438), [457](../academy/how-fdtd-works.md?plain=1#L457), [photonic-crystals.md:38](../academy/photonic-crystals.md?plain=1#L38), [264](../academy/photonic-crystals.md?plain=1#L264), [472](../academy/photonic-crystals.md?plain=1#L472)
 - Validation cases: [`fdtd/harmonic-inversion`](validation.md?plain=1#L250)
 - Code: [src/fdtd.rs:51](../src/fdtd.rs#L51), [src/fdtd/harmonic.rs:3](../src/fdtd/harmonic.rs#L3), [src/validation.rs:1779](../src/validation.rs#L1779)
-- Other documents: [ROADMAP.md:731](../ROADMAP.md?plain=1#L731)
+- Other documents: [ROADMAP.md:732](../ROADMAP.md?plain=1#L732)
 
 #### Manolatou et al. 1999
 
@@ -2781,7 +2781,7 @@ E. A. J. Marcatili, "Dielectric Rectangular Waveguide and Directional Coupler fo
 - Validation cases: [`mode/marcatili-closed-form`](validation.md?plain=1#L128), [`mode/marcatili-vector`](validation.md?plain=1#L129), [`device/thermo-analytic-metal`](validation.md?plain=1#L648), [`device/thermo-analytic-in-guide`](validation.md?plain=1#L656)
 - Examples: [README.md:42](../examples/README.md?plain=1#L42), [marcatili.rs:5](../examples/marcatili.rs#L5)
 - Code: [src/cases/device/thermo_checks.rs:514](../src/cases/device/thermo_checks.rs#L514), [583](../src/cases/device/thermo_checks.rs#L583), [src/device/thermo.rs:920](../src/device/thermo.rs#L920), [src/mode/marcatili.rs:5](../src/mode/marcatili.rs#L5), [src/validation.rs:925](../src/validation.rs#L925), [932](../src/validation.rs#L932)
-- Other documents: [ROADMAP.md:734](../ROADMAP.md?plain=1#L734)
+- Other documents: [ROADMAP.md:735](../ROADMAP.md?plain=1#L735)
 
 #### Marchetti et al. 2019
 
@@ -2816,7 +2816,7 @@ N. Maring, A. Fyrillas, M. Pont, E. Ivanov, P. Stepanov, N. Margaria, W. Hease, 
 
 G. Masetti, M. Severi, S. Solmi, "Modeling of carrier mobility against carrier concentration in arsenic-, phosphorus-, and boron-doped silicon", IEEE Trans. Electron Devices 30, 764 (1983). [doi:10.1109/T-ED.1983.21207](https://doi.org/10.1109/T-ED.1983.21207)
 
-- Other documents: [ROADMAP.md:818](../ROADMAP.md?plain=1#L818)
+- Other documents: [ROADMAP.md:819](../ROADMAP.md?plain=1#L819)
 
 #### McKay et al. 1979
 
@@ -2849,7 +2849,7 @@ A. Mekis, S. Gloeckner, G. Masini, A. Narasimha, T. Pinguet, S. Sahni, P. De Dob
 
 N. C. Menicucci, P. van Loock, M. Gu, C. Weedbrook, T. C. Ralph, M. A. Nielsen, "Universal Quantum Computation with Continuous-Variable Cluster States", Phys. Rev. Lett. 97, 110501 (2006). [doi:10.1103/PhysRevLett.97.110501](https://doi.org/10.1103/PhysRevLett.97.110501)
 
-- Academy lessons: [quantum-light.md:93](../academy/quantum-light.md?plain=1#L93), [905](../academy/quantum-light.md?plain=1#L905), [988](../academy/quantum-light.md?plain=1#L988)
+- Academy lessons: [quantum-light.md:93](../academy/quantum-light.md?plain=1#L93), [905](../academy/quantum-light.md?plain=1#L905), [990](../academy/quantum-light.md?plain=1#L990)
 - Other documents: [docs/plans/quantum.md:514](plans/quantum.md?plain=1#L514)
 
 #### Mezzadri 2007
@@ -2875,7 +2875,7 @@ G. Mie, "Beiträge zur Optik trüber Medien, speziell kolloidaler Metallösungen
 - Academy lessons: [plasmonics.md:28](../academy/plasmonics.md?plain=1#L28), [59](../academy/plasmonics.md?plain=1#L59), [314](../academy/plasmonics.md?plain=1#L314), [506](../academy/plasmonics.md?plain=1#L506)
 - Validation cases: [`fdtd/mie-table`](validation.md?plain=1#L253), [`fdtd/mie-sphere`](validation.md?plain=1#L256)
 - Code: [src/fdtd.rs:60](../src/fdtd.rs#L60), [src/fdtd/mie.rs:2](../src/fdtd/mie.rs#L2), [src/validation.rs:1800](../src/validation.rs#L1800), [1821](../src/validation.rs#L1821), [studio/src-tauri/src/charts/plasmon.rs:880](../studio/src-tauri/src/charts/plasmon.rs#L880)
-- Other documents: [ROADMAP.md:749](../ROADMAP.md?plain=1#L749)
+- Other documents: [ROADMAP.md:750](../ROADMAP.md?plain=1#L750)
 
 #### Miller 1964
 
@@ -2885,7 +2885,7 @@ R. C. Miller, "OPTICAL SECOND HARMONIC GENERATION IN PIEZOELECTRIC CRYSTALS", Ap
 - Academy lessons: [nonlinear-optics.md:84](../academy/nonlinear-optics.md?plain=1#L84), [358](../academy/nonlinear-optics.md?plain=1#L358), [1098](../academy/nonlinear-optics.md?plain=1#L1098)
 - Validation cases: [`nonlinear/miller-linbo3-d33`](validation.md?plain=1#L789), [`nonlinear/miller-linbo3-d31`](validation.md?plain=1#L790), [`nonlinear/miller-linbo3-mgo-d33`](validation.md?plain=1#L791), [`nonlinear/miller-linbo3-mgo-d31`](validation.md?plain=1#L792)
 - Code: [src/nonlinear/data_checks.rs:333](../src/nonlinear/data_checks.rs#L333), [340](../src/nonlinear/data_checks.rs#L340), [347](../src/nonlinear/data_checks.rs#L347), [354](../src/nonlinear/data_checks.rs#L354), [src/nonlinear/miller.rs:4](../src/nonlinear/miller.rs#L4)
-- Other documents: [ROADMAP.md:852](../ROADMAP.md?plain=1#L852)
+- Other documents: [ROADMAP.md:853](../ROADMAP.md?plain=1#L853)
 
 #### Miller 1969
 
@@ -2897,7 +2897,7 @@ S. E. Miller, "Integrated Optics: An Introduction", Bell System Technical Journa
 
 D. A. B. Miller, "Self-configuring universal linear optical component \[Invited\]", Photon. Res. 1, 1 (2013). [doi:10.1364/PRJ.1.000001](https://doi.org/10.1364/PRJ.1.000001)
 
-- Other documents: [ROADMAP.md:831](../ROADMAP.md?plain=1#L831), [docs/plans/optimization.md:626](plans/optimization.md?plain=1#L626)
+- Other documents: [ROADMAP.md:832](../ROADMAP.md?plain=1#L832), [docs/plans/optimization.md:626](plans/optimization.md?plain=1#L626)
 
 #### Miller et al. 1971
 
@@ -2936,7 +2936,7 @@ M. G. Moharam, T. K. Gaylord, "Rigorous coupled-wave analysis of planar-grating 
 M. G. Moharam, T. K. Gaylord, E. B. Grann, D. A. Pommet, "Formulation for stable and efficient implementation of the rigorous coupled-wave analysis of binary gratings", J. Opt. Soc. Am. A 12, 1068 (1995). [doi:10.1364/JOSAA.12.001068](https://doi.org/10.1364/JOSAA.12.001068)
 
 - Methods pages: [rcwa.md:10](methods/rcwa.md?plain=1#L10)
-- Other documents: [ROADMAP.md:740](../ROADMAP.md?plain=1#L740)
+- Other documents: [ROADMAP.md:741](../ROADMAP.md?plain=1#L741)
 
 #### Moharam et al. 1995b
 
@@ -2948,14 +2948,14 @@ M. G. Moharam, T. K. Gaylord, D. A. Pommet, E. B. Grann, "Stable implementation 
 
 G. Moille, Q. Li, L. Xiyuan, K. Srinivasan, "pyLLE: A Fast and User Friendly Lugiato-Lefever Equation Solver", J. RES. NATL. INST. STAN. 124, 124012 (2019). [doi:10.6028/jres.124.012](https://doi.org/10.6028/jres.124.012)
 
-- Other documents: [ROADMAP.md:846](../ROADMAP.md?plain=1#L846)
+- Other documents: [ROADMAP.md:847](../ROADMAP.md?plain=1#L847)
 
 #### Molesky et al. 2018
 
 S. Molesky, Z. Lin, A. Y. Piggott, W. Jin, J. Vucković, A. W. Rodriguez, "Inverse design in nanophotonics", Nature Photon 12, 659 (2018). [doi:10.1038/s41566-018-0246-9](https://doi.org/10.1038/s41566-018-0246-9)
 
 - Academy lessons: [fdfd-and-adjoints.md:115](../academy/fdfd-and-adjoints.md?plain=1#L115), [565](../academy/fdfd-and-adjoints.md?plain=1#L565), [789](../academy/fdfd-and-adjoints.md?plain=1#L789)
-- Other documents: [ROADMAP.md:776](../ROADMAP.md?plain=1#L776), [docs/plans/optimization.md:595](plans/optimization.md?plain=1#L595)
+- Other documents: [ROADMAP.md:777](../ROADMAP.md?plain=1#L777), [docs/plans/optimization.md:595](plans/optimization.md?plain=1#L595)
 
 #### Moutzouris et al. 2011
 
@@ -2986,20 +2986,20 @@ Y. Nakatsukasa, O. Sète, L. N. Trefethen, "The AAA Algorithm for Rational Appro
 - Methods pages: [sweep.md:8](methods/sweep.md?plain=1#L8)
 - Validation cases: [`sweep/aaa-rational`](validation.md?plain=1#L761)
 - Code: [src/sweep.rs:24](../src/sweep.rs#L24), [src/sweep/aaa.rs:6](../src/sweep/aaa.rs#L6), [src/sweep/checks.rs:422](../src/sweep/checks.rs#L422)
-- Other documents: [ROADMAP.md:744](../ROADMAP.md?plain=1#L744)
+- Other documents: [ROADMAP.md:745](../ROADMAP.md?plain=1#L745)
 
 #### Nedeljkovic et al. 2011
 
 M. Nedeljkovic, R. Soref, G. Z. Mashanovich, "Free-Carrier Electrorefraction and Electroabsorption Modulation Predictions for Silicon Over the 1&#x2013;14- \<formula formulatype="inline"\>\<tex Notation="TeX"\>\$\\mu\\hbox{m}\$\</tex\>\</formula\> Infrared Wavelength Range", IEEE Photonics J. 3, 1171 (2011). [doi:10.1109/JPHOT.2011.2171930](https://doi.org/10.1109/JPHOT.2011.2171930)
 
-- Other documents: [ROADMAP.md:820](../ROADMAP.md?plain=1#L820)
+- Other documents: [ROADMAP.md:821](../ROADMAP.md?plain=1#L821)
 
 #### Nehra et al. 2022
 
 R. Nehra, R. Sekine, L. Ledezma, Q. Guo, R. M. Gray, A. Roy, A. Marandi, "Few-cycle vacuum squeezing in nanophotonics", Science 377, 1333 (2022). [doi:10.1126/science.abo6213](https://doi.org/10.1126/science.abo6213)
 
 - Methods pages: [quantum.md:51](methods/quantum.md?plain=1#L51)
-- Academy lessons: [quantum-light.md:279](../academy/quantum-light.md?plain=1#L279), [784](../academy/quantum-light.md?plain=1#L784), [1013](../academy/quantum-light.md?plain=1#L1013)
+- Academy lessons: [quantum-light.md:279](../academy/quantum-light.md?plain=1#L279), [784](../academy/quantum-light.md?plain=1#L784), [1015](../academy/quantum-light.md?plain=1#L1015)
 - Validation cases: [`quantum/nehra-inferred`](validation.md?plain=1#L927), [`quantum/nehra-all-optical`](validation.md?plain=1#L928), [`quantum/nehra-homodyne-bound`](validation.md?plain=1#L929)
 - Code: [src/quantum/light_checks.rs:221](../src/quantum/light_checks.rs#L221), [228](../src/quantum/light_checks.rs#L228), [235](../src/quantum/light_checks.rs#L235)
 - Other documents: [docs/plans/quantum.md:534](plans/quantum.md?plain=1#L534)
@@ -3032,7 +3032,7 @@ L. Novotny, B. Hecht, "Principles of Nano-Optics", Cambridge University Press (2
 
 C. Oh, M. Liu, Y. Alexeev, B. Fefferman, L. Jiang, "Classical algorithm for simulating experimental Gaussian boson sampling", Nat. Phys. 20, 1461 (2024). [doi:10.1038/s41567-024-02535-8](https://doi.org/10.1038/s41567-024-02535-8)
 
-- Academy lessons: [quantum-light.md:297](../academy/quantum-light.md?plain=1#L297), [832](../academy/quantum-light.md?plain=1#L832), [1008](../academy/quantum-light.md?plain=1#L1008)
+- Academy lessons: [quantum-light.md:297](../academy/quantum-light.md?plain=1#L297), [832](../academy/quantum-light.md?plain=1#L832), [1010](../academy/quantum-light.md?plain=1#L1010)
 - Other documents: [docs/plans/quantum.md:505](plans/quantum.md?plain=1#L505)
 
 #### Ohashi et al. 1993
@@ -3076,7 +3076,7 @@ A. F. Oskooi, C. Kottke, S. G. Johnson, "Accurate finite-difference time-domain 
 - Methods pages: [fdtd.md:36](methods/fdtd.md?plain=1#L36)
 - Validation cases: [`fdtd/smoothing-oblique-nodes`](validation.md?plain=1#L230), [`fdtd/smoothing-oskooi`](validation.md?plain=1#L233)
 - Code: [src/fdtd/smoothing.rs:15](../src/fdtd/smoothing.rs#L15), [src/validation.rs:1639](../src/validation.rs#L1639), [1660](../src/validation.rs#L1660)
-- Other documents: [ROADMAP.md:729](../ROADMAP.md?plain=1#L729)
+- Other documents: [ROADMAP.md:730](../ROADMAP.md?plain=1#L730)
 
 #### Oskooi et al. 2010
 
@@ -3087,7 +3087,7 @@ A. F. Oskooi, D. Roundy, M. Ibanescu, P. Bermel, J. Joannopoulos, S. G. Johnson,
 - Validation cases: [`fdtd/spectrum`](validation.md?plain=1#L209), [`fdtd/meep-pml-rates`](validation.md?plain=1#L259)
 - Examples: [README.md:67](../examples/README.md?plain=1#L67), [bump_oskooi.rs:6](../examples/bump_oskooi.rs#L6), [pml_oskooi.rs:6](../examples/pml_oskooi.rs#L6)
 - Code: [src/fdtd.rs:43](../src/fdtd.rs#L43), [src/fdtd/meep_checks.rs:2](../src/fdtd/meep_checks.rs#L2), [src/fdtd/sources.rs:9](../src/fdtd/sources.rs#L9), [src/units.rs:8](../src/units.rs#L8), [src/validation.rs:1492](../src/validation.rs#L1492), [1842](../src/validation.rs#L1842)
-- Other documents: [ROADMAP.md:730](../ROADMAP.md?plain=1#L730), [docs/plans/performance.md:585](plans/performance.md?plain=1#L585)
+- Other documents: [ROADMAP.md:731](../ROADMAP.md?plain=1#L731), [docs/plans/performance.md:585](plans/performance.md?plain=1#L585)
 
 ### P
 
@@ -3095,7 +3095,7 @@ A. F. Oskooi, D. Roundy, M. Ibanescu, P. Bermel, J. Joannopoulos, S. G. Johnson,
 
 S. Paesani, Y. Ding, R. Santagati, L. Chakhmakhchyan, C. Vigliar, K. Rottwitt, L. K. Oxenløwe, J. Wang, M. G. Thompson, A. Laing, "Generation and sampling of quantum states of light in a silicon chip", Nat. Phys. 15, 925 (2019). [doi:10.1038/s41567-019-0567-8](https://doi.org/10.1038/s41567-019-0567-8)
 
-- Methods pages: [quantum.md:61](methods/quantum.md?plain=1#L61), [991](methods/quantum.md?plain=1#L991)
+- Methods pages: [quantum.md:61](methods/quantum.md?plain=1#L61), [1027](methods/quantum.md?plain=1#L1027)
 - Academy lessons: [quantum-light.md:219](../academy/quantum-light.md?plain=1#L219), [837](../academy/quantum-light.md?plain=1#L837)
 - Validation cases: [`quantum/qi-simulability`](validation.md?plain=1#L945)
 - Code: [src/quantum/real_checks.rs:1449](../src/quantum/real_checks.rs#L1449)
@@ -3104,8 +3104,8 @@ S. Paesani, Y. Ding, R. Santagati, L. Chakhmakhchyan, C. Vigliar, K. Rottwitt, L
 
 S. Paesani, M. Borghi, S. Signorini, A. Maïnos, L. Pavesi, A. Laing, "Near-ideal spontaneous photon sources in silicon quantum photonics", Nat Commun 11, 2505 (2020). [doi:10.1038/s41467-020-16187-8](https://doi.org/10.1038/s41467-020-16187-8), open access.
 
-- Methods pages: [quantum.md:47](methods/quantum.md?plain=1#L47), [468](methods/quantum.md?plain=1#L468)
-- Academy lessons: [quantum-light.md:243](../academy/quantum-light.md?plain=1#L243), [721](../academy/quantum-light.md?plain=1#L721), [1010](../academy/quantum-light.md?plain=1#L1010)
+- Methods pages: [quantum.md:47](methods/quantum.md?plain=1#L47), [469](methods/quantum.md?plain=1#L469)
+- Academy lessons: [quantum-light.md:243](../academy/quantum-light.md?plain=1#L243), [721](../academy/quantum-light.md?plain=1#L721), [1012](../academy/quantum-light.md?plain=1#L1012)
 - Code: [src/quantum/intermodal.rs:19](../src/quantum/intermodal.rs#L19)
 - Other documents: [docs/plans/quantum.md:530](plans/quantum.md?plain=1#L530)
 
@@ -3168,7 +3168,7 @@ S. V. Patankar, "Numerical Heat Transfer and Fluid Flow", CRC Press (2018). [doi
 
 D. Patel, S. Ghosh, M. Chagnon, A. Samani, V. Veerasubramanian, M. Osman, D. V. Plant, "Design, analysis, and transmission system performance of a 41 GHz silicon photonic modulator", Opt. Express 23, 14263 (2015). [doi:10.1364/OE.23.014263](https://doi.org/10.1364/OE.23.014263)
 
-- Other documents: [ROADMAP.md:822](../ROADMAP.md?plain=1#L822)
+- Other documents: [ROADMAP.md:823](../ROADMAP.md?plain=1#L823)
 
 #### Pauline Bennet 2023
 
@@ -3186,7 +3186,7 @@ F. P. Payne, J. P. R. Lacey, "A theoretical analysis of scattering loss from pla
 - Methods pages: [devices.md:62](methods/devices.md?plain=1#L62)
 - Validation cases: [`roughness/payne-lacey-eq9`](validation.md?plain=1#L758), [`roughness/payne-lacey-slab`](validation.md?plain=1#L759)
 - Code: [src/mode/roughness.rs:11](../src/mode/roughness.rs#L11), [src/mode/roughness_checks.rs:148](../src/mode/roughness_checks.rs#L148), [163](../src/mode/roughness_checks.rs#L163)
-- Other documents: [ROADMAP.md:746](../ROADMAP.md?plain=1#L746)
+- Other documents: [ROADMAP.md:747](../ROADMAP.md?plain=1#L747)
 
 #### Pérez-López et al. 2020
 
@@ -3209,7 +3209,7 @@ W. Pernice, C. Schuck, O. Minaeva, M. Li, G. Goltsman, A. Sergienko, H. Tang, "H
 A. Peruzzo, M. Lobino, J. C. F. Matthews, N. Matsuda, A. Politi, K. Poulios, X.-Q. Zhou, Y. Lahini, N. Ismail, K. Wörhoff, et al., "Quantum Walks of Correlated Photons", Science 329, 1500 (2010). [doi:10.1126/science.1193515](https://doi.org/10.1126/science.1193515)
 
 - Methods pages: [quantum.md:24](methods/quantum.md?plain=1#L24), [324](methods/quantum.md?plain=1#L324)
-- Academy lessons: [quantum-light.md:111](../academy/quantum-light.md?plain=1#L111), [572](../academy/quantum-light.md?plain=1#L572), [993](../academy/quantum-light.md?plain=1#L993)
+- Academy lessons: [quantum-light.md:111](../academy/quantum-light.md?plain=1#L111), [572](../academy/quantum-light.md?plain=1#L572), [995](../academy/quantum-light.md?plain=1#L995)
 - Validation cases: [`quantum/peruzzo-correlations`](validation.md?plain=1#L903), [`quantum/peruzzo-classical-bound`](validation.md?plain=1#L904)
 - Code: [src/quantum/checks.rs:179](../src/quantum/checks.rs#L179), [186](../src/quantum/checks.rs#L186), [src/quantum/walk.rs:2](../src/quantum/walk.rs#L2)
 - Other documents: [docs/plans/quantum.md:509](plans/quantum.md?plain=1#L509)
@@ -3242,7 +3242,7 @@ J. R. Pierce, "Coupling of Modes of Propagation", Journal of Applied Physics 25,
 A. Y. Piggott, J. Lu, K. G. Lagoudakis, J. Petykiewicz, T. M. Babinec, J. Vučković, "Inverse design and demonstration of a compact and broadband on-chip wavelength demultiplexer", Nature Photon 9, 374 (2015). [doi:10.1038/nphoton.2015.69](https://doi.org/10.1038/nphoton.2015.69)
 
 - Academy lessons: [fdfd-and-adjoints.md:109](../academy/fdfd-and-adjoints.md?plain=1#L109), [673](../academy/fdfd-and-adjoints.md?plain=1#L673), [776](../academy/fdfd-and-adjoints.md?plain=1#L776)
-- Other documents: [ROADMAP.md:772](../ROADMAP.md?plain=1#L772), [docs/plans/optimization.md:593](plans/optimization.md?plain=1#L593)
+- Other documents: [ROADMAP.md:773](../ROADMAP.md?plain=1#L773), [docs/plans/optimization.md:593](plans/optimization.md?plain=1#L593)
 
 #### Piggott et al. 2017
 
@@ -3255,14 +3255,14 @@ A. Y. Piggott, J. Petykiewicz, L. Su, J. Vučković, "Fabrication-constrained na
 
 A. Y. Piggott, E. Y. Ma, L. Su, G. H. Ahn, N. V. Sapra, D. Vercruysse, A. M. Netherton, A. S. P. Khope, J. E. Bowers, J. Vučković, "Inverse-Designed Photonics for Semiconductor Foundries", ACS Photonics 7, 569 (2020). [doi:10.1021/acsphotonics.9b01540](https://doi.org/10.1021/acsphotonics.9b01540)
 
-- Other documents: [ROADMAP.md:781](../ROADMAP.md?plain=1#L781)
+- Other documents: [ROADMAP.md:782](../ROADMAP.md?plain=1#L782)
 
 #### Ploeg et al. 2021
 
 S. Ploeg, H. Gunther, R. M. Camacho, "Simphony: An Open-Source Photonic Integrated Circuit Simulation Framework", Comput. Sci. Eng. 23, 65 (2021). [doi:10.1109/MCSE.2020.3012099](https://doi.org/10.1109/MCSE.2020.3012099)
 
 - Methods pages: [components.md:299](methods/components.md?plain=1#L299)
-- Other documents: [ROADMAP.md:763](../ROADMAP.md?plain=1#L763)
+- Other documents: [ROADMAP.md:764](../ROADMAP.md?plain=1#L764)
 
 #### Poberaj et al. 2012
 
@@ -3277,7 +3277,7 @@ G. Poberaj, H. Hu, W. Sohler, P. Günter, "Lithium niobate on insulator (LNOI) f
 
 A. Politi, M. J. Cryan, J. G. Rarity, S. Yu, J. L. O'Brien, "Silica-on-Silicon Waveguide Quantum Circuits", Science 320, 646 (2008). [doi:10.1126/science.1155441](https://doi.org/10.1126/science.1155441)
 
-- Academy lessons: [quantum-light.md:105](../academy/quantum-light.md?plain=1#L105), [992](../academy/quantum-light.md?plain=1#L992)
+- Academy lessons: [quantum-light.md:105](../academy/quantum-light.md?plain=1#L105), [994](../academy/quantum-light.md?plain=1#L994)
 
 #### Polizzi 2009
 
@@ -3296,7 +3296,7 @@ M. N. Polyanskiy, "Refractiveindex.info database of optical constants", Sci Data
 - Methods pages: [materials.md:14](methods/materials.md?plain=1#L14)
 - Academy lessons: [material-dispersion.md:74](../academy/material-dispersion.md?plain=1#L74), [392](../academy/material-dispersion.md?plain=1#L392), [452](../academy/material-dispersion.md?plain=1#L452)
 - Code: [src/material/mod.rs:14](../src/material/mod.rs#L14), [705](../src/material/mod.rs#L705), [src/material/refractiveindex.rs:4](../src/material/refractiveindex.rs#L4)
-- Other documents: [ROADMAP.md:755](../ROADMAP.md?plain=1#L755)
+- Other documents: [ROADMAP.md:756](../ROADMAP.md?plain=1#L756)
 
 #### Poulson et al. 2013
 
@@ -3329,7 +3329,7 @@ M. J. Probst, A. Khurana, J. B. Slaby, A. M. Hammond, S. E. Ralph, "Fabrication 
 
 PsiQuantum team, K. Alexander, A. Benyamini, D. Black, D. Bonneau, S. Burgos, B. Burridge, H. Cable, G. Campbell, G. Catalano, et al., "A manufacturable platform for photonic quantum computing", Nature 641, 876 (2025). [doi:10.1038/s41586-025-08820-7](https://doi.org/10.1038/s41586-025-08820-7), open access.
 
-- Academy lessons: [quantum-light.md:303](../academy/quantum-light.md?plain=1#L303), [431](../academy/quantum-light.md?plain=1#L431), [924](../academy/quantum-light.md?plain=1#L924), [1015](../academy/quantum-light.md?plain=1#L1015)
+- Academy lessons: [quantum-light.md:303](../academy/quantum-light.md?plain=1#L303), [431](../academy/quantum-light.md?plain=1#L431), [924](../academy/quantum-light.md?plain=1#L924), [1017](../academy/quantum-light.md?plain=1#L1017)
 - Other documents: [docs/plans/quantum.md:525](plans/quantum.md?plain=1#L525)
 
 #### Pu et al. 2016
@@ -3338,7 +3338,7 @@ M. Pu, L. Ottaviano, E. Semenova, K. Yvind, "Efficient frequency comb generation
 
 - Academy lessons: [nonlinear-optics.md:222](../academy/nonlinear-optics.md?plain=1#L222), [945](../academy/nonlinear-optics.md?plain=1#L945), [1120](../academy/nonlinear-optics.md?plain=1#L1120)
 - Examples: [README.md:88](../examples/README.md?plain=1#L88), [comb_pu.rs:5](../examples/comb_pu.rs#L5)
-- Other documents: [ROADMAP.md:867](../ROADMAP.md?plain=1#L867)
+- Other documents: [ROADMAP.md:868](../ROADMAP.md?plain=1#L868)
 
 #### Puckett et al. 2021
 
@@ -3352,8 +3352,8 @@ M. W. Puckett, K. Liu, N. Chauhan, Q. Zhao, N. Jin, H. Cheng, J. Wu, R. O. Behun
 
 H. Qi, D. J. Brod, N. Quesada, R. García-Patrón, "Regimes of Classical Simulability for Noisy Gaussian Boson Sampling", Phys. Rev. Lett. 124, 100502 (2020). [doi:10.1103/PhysRevLett.124.100502](https://doi.org/10.1103/PhysRevLett.124.100502)
 
-- Methods pages: [quantum.md:59](methods/quantum.md?plain=1#L59), [669](methods/quantum.md?plain=1#L669)
-- Academy lessons: [quantum-light.md:237](../academy/quantum-light.md?plain=1#L237), [827](../academy/quantum-light.md?plain=1#L827), [1007](../academy/quantum-light.md?plain=1#L1007)
+- Methods pages: [quantum.md:59](methods/quantum.md?plain=1#L59), [705](methods/quantum.md?plain=1#L705)
+- Academy lessons: [quantum-light.md:237](../academy/quantum-light.md?plain=1#L237), [827](../academy/quantum-light.md?plain=1#L827), [1009](../academy/quantum-light.md?plain=1#L1009)
 - Validation cases: [`quantum/qi-simulability`](validation.md?plain=1#L945)
 - Code: [src/quantum/budget.rs:15](../src/quantum/budget.rs#L15), [src/quantum/real_checks.rs:1451](../src/quantum/real_checks.rs#L1451)
 - Other documents: [docs/plans/quantum.md:504](plans/quantum.md?plain=1#L504)
@@ -3393,7 +3393,7 @@ R. Rannacher, "Finite element solution of diffusion problems with irregular data
 
 R. Raussendorf, H. J. Briegel, "A One-Way Quantum Computer", Phys. Rev. Lett. 86, 5188 (2001). [doi:10.1103/PhysRevLett.86.5188](https://doi.org/10.1103/PhysRevLett.86.5188)
 
-- Academy lessons: [quantum-light.md:75](../academy/quantum-light.md?plain=1#L75), [882](../academy/quantum-light.md?plain=1#L882), [984](../academy/quantum-light.md?plain=1#L984)
+- Academy lessons: [quantum-light.md:75](../academy/quantum-light.md?plain=1#L75), [882](../academy/quantum-light.md?plain=1#L882), [986](../academy/quantum-light.md?plain=1#L986)
 - Other documents: [docs/plans/quantum.md:488](plans/quantum.md?plain=1#L488)
 
 #### Rayleigh 1887
@@ -3406,17 +3406,17 @@ L. Rayleigh, "XVII. On the maintenance of vibrations by forces of double frequen
 
 S. Raza, M. Hammood, N. A. F. Jaeger, L. Chrostowski, "Fabrication-aware inverse design with shape optimization for photonic integrated circuits", Opt. Lett. 50, 117 (2024). [doi:10.1364/OL.543961](https://doi.org/10.1364/OL.543961)
 
-- Other documents: [ROADMAP.md:840](../ROADMAP.md?plain=1#L840), [docs/plans/optimization.md:603](plans/optimization.md?plain=1#L603)
+- Other documents: [ROADMAP.md:841](../ROADMAP.md?plain=1#L841), [docs/plans/optimization.md:603](plans/optimization.md?plain=1#L603)
 
 #### Reck et al. 1994
 
 M. Reck, A. Zeilinger, H. J. Bernstein, P. Bertani, "Experimental realization of any discrete unitary operator", Phys. Rev. Lett. 73, 58 (1994). [doi:10.1103/PhysRevLett.73.58](https://doi.org/10.1103/PhysRevLett.73.58)
 
 - Methods pages: [quantum.md:20](methods/quantum.md?plain=1#L20), [308](methods/quantum.md?plain=1#L308)
-- Academy lessons: [mach-zehnder.md:52](../academy/mach-zehnder.md?plain=1#L52), [368](../academy/mach-zehnder.md?plain=1#L368), [quantum-light.md:57](../academy/quantum-light.md?plain=1#L57), [455](../academy/quantum-light.md?plain=1#L455), [979](../academy/quantum-light.md?plain=1#L979)
+- Academy lessons: [mach-zehnder.md:52](../academy/mach-zehnder.md?plain=1#L52), [368](../academy/mach-zehnder.md?plain=1#L368), [quantum-light.md:57](../academy/quantum-light.md?plain=1#L57), [455](../academy/quantum-light.md?plain=1#L455), [981](../academy/quantum-light.md?plain=1#L981)
 - Validation cases: [`quantum/mesh-reconstruction`](validation.md?plain=1#L899)
 - Code: [src/quantum/checks.rs:151](../src/quantum/checks.rs#L151), [src/quantum/mesh.rs:3](../src/quantum/mesh.rs#L3)
-- Other documents: [ROADMAP.md:829](../ROADMAP.md?plain=1#L829), [docs/plans/optimization.md:618](plans/optimization.md?plain=1#L618), [docs/plans/quantum.md:479](plans/quantum.md?plain=1#L479)
+- Other documents: [ROADMAP.md:830](../ROADMAP.md?plain=1#L830), [docs/plans/optimization.md:618](plans/optimization.md?plain=1#L618), [docs/plans/quantum.md:479](plans/quantum.md?plain=1#L479)
 
 #### Reddy et al. 2020
 
@@ -3522,7 +3522,7 @@ J. A. Roden, S. D. Gedney, "Convolution PML (CPML): An efficient FDTD implementa
 - Academy lessons: [how-fdtd-works.md:66](../academy/how-fdtd-works.md?plain=1#L66)
 - Examples: [README.md:63](../examples/README.md?plain=1#L63), [cpml_roden_gedney.rs:5](../examples/cpml_roden_gedney.rs#L5)
 - Code: [src/fdtd.rs:21](../src/fdtd.rs#L21), [src/validation/gpu.rs:248](../src/validation/gpu.rs#L248)
-- Other documents: [ROADMAP.md:726](../ROADMAP.md?plain=1#L726), [docs/validation-gpu.md:22](validation-gpu.md?plain=1#L22)
+- Other documents: [ROADMAP.md:727](../ROADMAP.md?plain=1#L727), [docs/validation-gpu.md:22](validation-gpu.md?plain=1#L22)
 
 #### Rumpf 2012
 
@@ -3551,7 +3551,7 @@ S. Afshar V., T. M. Monro, "A full vectorial model for pulse propagation in emer
 - Academy lessons: [nonlinear-optics.md:174](../academy/nonlinear-optics.md?plain=1#L174), [757](../academy/nonlinear-optics.md?plain=1#L757), [1112](../academy/nonlinear-optics.md?plain=1#L1112)
 - Validation cases: [`nonlinear/kerr-gamma-gaussian`](validation.md?plain=1#L788)
 - Code: [src/mode/quantities.rs:10](../src/mode/quantities.rs#L10), [src/nonlinear/data_checks.rs:326](../src/nonlinear/data_checks.rs#L326)
-- Other documents: [ROADMAP.md:745](../ROADMAP.md?plain=1#L745)
+- Other documents: [ROADMAP.md:746](../ROADMAP.md?plain=1#L746)
 
 #### Saad 2003
 
@@ -3569,13 +3569,13 @@ Y. Saad, "Numerical Methods for Large Eigenvalue Problems: Revised Edition", Soc
 - Methods pages: [eigen.md:8](methods/eigen.md?plain=1#L8)
 - Validation cases: [`mode/contour-strip-shift-invert`](validation.md?plain=1#L463), [`mode/contour-leaky-shift-invert`](validation.md?plain=1#L464), [`mode/krylov-schur-growing`](validation.md?plain=1#L472)
 - Code: [src/cases/eigen/checks.rs:339](../src/cases/eigen/checks.rs#L339), [src/eigen.rs:5](../src/eigen.rs#L5), [src/mode/region/checks.rs:359](../src/mode/region/checks.rs#L359), [366](../src/mode/region/checks.rs#L366)
-- Other documents: [ROADMAP.md:738](../ROADMAP.md?plain=1#L738), [docs/plans/performance.md:579](plans/performance.md?plain=1#L579)
+- Other documents: [ROADMAP.md:739](../ROADMAP.md?plain=1#L739), [docs/plans/performance.md:579](plans/performance.md?plain=1#L579)
 
 #### Sacher and Poon 2008
 
 W. D. Sacher, J. K. S. Poon, "Dynamics of microring resonator modulators", Opt. Express 16, 15741 (2008). [doi:10.1364/OE.16.015741](https://doi.org/10.1364/OE.16.015741)
 
-- Other documents: [ROADMAP.md:823](../ROADMAP.md?plain=1#L823)
+- Other documents: [ROADMAP.md:824](../ROADMAP.md?plain=1#L824)
 
 #### Sakurai and Sugiura 2003
 
@@ -3611,7 +3611,7 @@ N. A. Sanford, A. V. Davydov, D. V. Tsvetkov, A. V. Dmitriev, S. Keller, U. K. M
 
 D. Scharfetter, H. Gummel, "Large-signal analysis of a silicon Read diode oscillator", IEEE Trans. Electron Devices 16, 64 (1969). [doi:10.1109/T-ED.1969.16566](https://doi.org/10.1109/T-ED.1969.16566)
 
-- Other documents: [ROADMAP.md:816](../ROADMAP.md?plain=1#L816)
+- Other documents: [ROADMAP.md:817](../ROADMAP.md?plain=1#L817)
 
 #### Schenk and Gärtner 2004
 
@@ -3637,13 +3637,13 @@ M. Schubert, V. Gottschalch, C. M. Herzinger, H. Yao, P. G. Snyder, J. A. Woolla
 
 M. F. Schubert, A. K. C. Cheung, I. A. D. Williamson, A. Spyra, D. H. Alexander, "Inverse Design of Photonic Devices with Strict Foundry Fabrication Constraints", ACS Photonics 9, 2327 (2022). [doi:10.1021/acsphotonics.2c00313](https://doi.org/10.1021/acsphotonics.2c00313), open access.
 
-- Other documents: [ROADMAP.md:786](../ROADMAP.md?plain=1#L786), [docs/plans/optimization.md:599](plans/optimization.md?plain=1#L599)
+- Other documents: [ROADMAP.md:787](../ROADMAP.md?plain=1#L787), [docs/plans/optimization.md:599](plans/optimization.md?plain=1#L599)
 
 #### Selberherr 1984
 
 S. Selberherr, "Analysis and Simulation of Semiconductor Devices", Springer Vienna (1984). [doi:10.1007/978-3-7091-8752-4](https://doi.org/10.1007/978-3-7091-8752-4)
 
-- Other documents: [ROADMAP.md:817](../ROADMAP.md?plain=1#L817)
+- Other documents: [ROADMAP.md:818](../ROADMAP.md?plain=1#L818)
 
 #### Sellmeier 1871
 
@@ -3693,7 +3693,7 @@ D. V. Shantsev, P. Jaysaval, S. de la Kethulle de Ryhove, P. R. Amestoy, A. Butt
 B. Shen, P. Wang, R. Polson, R. Menon, "An integrated-nanophotonics polarization beamsplitter with 2.4 × 2.4 μm2 footprint", Nature Photon 9, 378 (2015). [doi:10.1038/nphoton.2015.80](https://doi.org/10.1038/nphoton.2015.80)
 
 - Academy lessons: [crossings-and-converters.md:72](../academy/crossings-and-converters.md?plain=1#L72), [461](../academy/crossings-and-converters.md?plain=1#L461), [655](../academy/crossings-and-converters.md?plain=1#L655)
-- Other documents: [ROADMAP.md:773](../ROADMAP.md?plain=1#L773), [docs/plans/optimization.md:609](plans/optimization.md?plain=1#L609)
+- Other documents: [ROADMAP.md:774](../ROADMAP.md?plain=1#L774), [docs/plans/optimization.md:609](plans/optimization.md?plain=1#L609)
 
 #### Shen et al. 2020
 
@@ -3727,7 +3727,7 @@ I. Shoji, T. Kondo, A. Kitamoto, M. Shirane, R. Ito, "Absolute scale of second-o
 - Academy lessons: [nonlinear-optics.md:120](../academy/nonlinear-optics.md?plain=1#L120), [337](../academy/nonlinear-optics.md?plain=1#L337), [1099](../academy/nonlinear-optics.md?plain=1#L1099)
 - Validation cases: [`material/linbo3-shoji-miller`](validation.md?plain=1#L67), [`nonlinear/miller-linbo3-d33`](validation.md?plain=1#L789), [`nonlinear/miller-linbo3-d31`](validation.md?plain=1#L790), [`nonlinear/miller-linbo3-mgo-d33`](validation.md?plain=1#L791), [`nonlinear/miller-linbo3-mgo-d31`](validation.md?plain=1#L792)
 - Code: [src/material/catalogue/references.rs:207](../src/material/catalogue/references.rs#L207), [src/nonlinear/data_checks.rs:333](../src/nonlinear/data_checks.rs#L333), [340](../src/nonlinear/data_checks.rs#L340), [347](../src/nonlinear/data_checks.rs#L347), [354](../src/nonlinear/data_checks.rs#L354), [src/validation.rs:498](../src/validation.rs#L498)
-- Other documents: [ROADMAP.md:855](../ROADMAP.md?plain=1#L855)
+- Other documents: [ROADMAP.md:856](../ROADMAP.md?plain=1#L856)
 
 #### Shoji et al. 2002
 
@@ -3778,8 +3778,8 @@ O. Sigmund, "On the usefulness of non-gradient approaches in topology optimizati
 
 J. W. Silverstone, D. Bonneau, K. Ohira, N. Suzuki, H. Yoshida, N. Iizuka, M. Ezaki, C. M. Natarajan, M. G. Tanner, R. H. Hadfield, et al., "On-chip quantum interference between silicon photon-pair sources", Nature Photon 8, 104 (2013). [doi:10.1038/nphoton.2013.339](https://doi.org/10.1038/nphoton.2013.339)
 
-- Methods pages: [quantum.md:53](methods/quantum.md?plain=1#L53), [634](methods/quantum.md?plain=1#L634)
-- Academy lessons: [nonlinear-optics.md:198](../academy/nonlinear-optics.md?plain=1#L198), [1060](../academy/nonlinear-optics.md?plain=1#L1060), [1123](../academy/nonlinear-optics.md?plain=1#L1123), [quantum-light.md:165](../academy/quantum-light.md?plain=1#L165), [733](../academy/quantum-light.md?plain=1#L733), [995](../academy/quantum-light.md?plain=1#L995)
+- Methods pages: [quantum.md:53](methods/quantum.md?plain=1#L53), [670](methods/quantum.md?plain=1#L670)
+- Academy lessons: [nonlinear-optics.md:198](../academy/nonlinear-optics.md?plain=1#L198), [1060](../academy/nonlinear-optics.md?plain=1#L1060), [1123](../academy/nonlinear-optics.md?plain=1#L1123), [quantum-light.md:165](../academy/quantum-light.md?plain=1#L165), [733](../academy/quantum-light.md?plain=1#L733), [997](../academy/quantum-light.md?plain=1#L997)
 - Validation cases: [`quantum/silverstone-fringe`](validation.md?plain=1#L946)
 - Code: [src/quantum/pairs.rs:18](../src/quantum/pairs.rs#L18), [src/quantum/real_checks.rs:1458](../src/quantum/real_checks.rs#L1458)
 - Other documents: [docs/plans/quantum.md:529](plans/quantum.md?plain=1#L529)
@@ -3805,7 +3805,7 @@ T. Skauli, P. S. Kuo, K. L. Vodopyanov, T. J. Pinguet, O. Levi, L. A. Eyres, J. 
 - Methods pages: [catalogue.md:74](methods/catalogue.md?plain=1#L74)
 - Validation cases: [`material/gaas-skauli-shg`](validation.md?plain=1#L83), [`material/gaas-skauli-dndt`](validation.md?plain=1#L84)
 - Code: [src/material/catalogue/models.rs:781](../src/material/catalogue/models.rs#L781), [src/material/catalogue/references.rs:263](../src/material/catalogue/references.rs#L263), [src/material/mod.rs:127](../src/material/mod.rs#L127), [src/validation.rs:610](../src/validation.rs#L610), [617](../src/validation.rs#L617)
-- Other documents: [ROADMAP.md:860](../ROADMAP.md?plain=1#L860)
+- Other documents: [ROADMAP.md:861](../ROADMAP.md?plain=1#L861)
 
 #### Snitzer 1961
 
@@ -3825,7 +3825,7 @@ L. Soldano, E. Pennings, "Optical multi-mode interference devices based on self-
 - Examples: [README.md:77](../examples/README.md?plain=1#L77), [mmi_soldano.rs:5](../examples/mmi_soldano.rs#L5)
 - Code: [src/circuit/components/mmi.rs:5](../src/circuit/components/mmi.rs#L5), [189](../src/circuit/components/mmi.rs#L189), [352](../src/circuit/components/mmi.rs#L352), [366](../src/circuit/components/mmi.rs#L366), [src/device/mmi.rs:309](../src/device/mmi.rs#L309), [src/device/splitter_checks.rs:61](../src/device/splitter_checks.rs#L61), [124](../src/device/splitter_checks.rs#L124), [131](../src/device/splitter_checks.rs#L131), [152](../src/device/splitter_checks.rs#L152), [src/validation.rs:2136](../src/validation.rs#L2136), [2143](../src/validation.rs#L2143), [studio/src-tauri/src/charts/mmi.rs:3](../studio/src-tauri/src/charts/mmi.rs#L3)
 - Jobs and circuits: [jobs/mmi-1x2-self-imaging.yaml:2](../jobs/mmi-1x2-self-imaging.yaml#L2), [jobs/mmi-2x2-self-imaging.yaml:2](../jobs/mmi-2x2-self-imaging.yaml#L2)
-- Other documents: [ROADMAP.md:760](../ROADMAP.md?plain=1#L760)
+- Other documents: [ROADMAP.md:761](../ROADMAP.md?plain=1#L761)
 
 #### Somekh et al. 1973
 
@@ -3850,7 +3850,7 @@ R. Soref, "The Past, Present, and Future of Silicon Photonics", IEEE J. Select. 
 R. Soref, B. Bennett, "Electrooptical effects in silicon", IEEE J. Quantum Electron. 23, 123 (1987). [doi:10.1109/JQE.1987.1073206](https://doi.org/10.1109/JQE.1987.1073206)
 
 - Academy lessons: [mach-zehnder.md:34](../academy/mach-zehnder.md?plain=1#L34), [297](../academy/mach-zehnder.md?plain=1#L297), [modulators.md:49](../academy/modulators.md?plain=1#L49), [567](../academy/modulators.md?plain=1#L567), [696](../academy/modulators.md?plain=1#L696)
-- Other documents: [ROADMAP.md:756](../ROADMAP.md?plain=1#L756)
+- Other documents: [ROADMAP.md:757](../ROADMAP.md?plain=1#L757)
 
 #### Soref et al. 1991
 
@@ -3909,13 +3909,13 @@ R. Storn, K. Price, "Differential Evolution – A Simple and Efficient Heuristic
 
 L. Su, R. Trivedi, N. V. Sapra, A. Y. Piggott, D. Vercruysse, J. Vučković, "Fully-automated optimization of grating couplers", Opt. Express 26, 4023 (2018). [doi:10.1364/OE.26.004023](https://doi.org/10.1364/OE.26.004023)
 
-- Other documents: [ROADMAP.md:775](../ROADMAP.md?plain=1#L775)
+- Other documents: [ROADMAP.md:776](../ROADMAP.md?plain=1#L776)
 
 #### Su et al. 2020
 
 L. Su, D. Vercruysse, J. Skarda, N. V. Sapra, J. A. Petykiewicz, J. Vučković, "Nanophotonic inverse design with SPINS: Software architecture and practical considerations", Applied Physics Reviews 7, 011407 (2020). [doi:10.1063/1.5131263](https://doi.org/10.1063/1.5131263)
 
-- Other documents: [ROADMAP.md:780](../ROADMAP.md?plain=1#L780)
+- Other documents: [ROADMAP.md:781](../ROADMAP.md?plain=1#L781)
 
 #### Suceava et al. 2025
 
@@ -3954,7 +3954,7 @@ K. Svanberg, "The method of moving asymptotes—a new method for structural opti
 
 - Methods pages: [optimization.md:18](methods/optimization.md?plain=1#L18), [187](methods/optimization.md?plain=1#L187)
 - Code: [src/job/optimize.rs:176](../src/job/optimize.rs#L176)
-- Other documents: [ROADMAP.md:782](../ROADMAP.md?plain=1#L782), [docs/plans/optimization.md:575](plans/optimization.md?plain=1#L575)
+- Other documents: [ROADMAP.md:783](../ROADMAP.md?plain=1#L783), [docs/plans/optimization.md:575](plans/optimization.md?plain=1#L575)
 
 #### Svanberg 2002
 
@@ -3962,7 +3962,7 @@ K. Svanberg, "A Class of Globally Convergent Optimization Methods Based on Conse
 
 - Methods pages: [optimization.md:20](methods/optimization.md?plain=1#L20), [188](methods/optimization.md?plain=1#L188)
 - Code: [src/job/optimize.rs:189](../src/job/optimize.rs#L189)
-- Other documents: [ROADMAP.md:783](../ROADMAP.md?plain=1#L783), [docs/plans/optimization.md:576](plans/optimization.md?plain=1#L576)
+- Other documents: [ROADMAP.md:784](../ROADMAP.md?plain=1#L784), [docs/plans/optimization.md:576](plans/optimization.md?plain=1#L576)
 
 ### T
 
@@ -4163,7 +4163,7 @@ K. J. Vahala, "Optical microcavities", Nature 424, 839 (2003). [doi:10.1038/natu
 V. D. Vaidya, B. Morrison, L. G. Helt, R. Shahrokshahi, D. H. Mahler, M. J. Collins, K. Tan, J. Lavoie, A. Repingon, M. Menotti, et al., "Broadband quadrature-squeezed vacuum and nonclassical photon number correlations from a nanophotonic device", Sci. Adv. 6, eaba9186 (2020). [doi:10.1126/sciadv.aba9186](https://doi.org/10.1126/sciadv.aba9186), open access.
 
 - Methods pages: [quantum.md:49](methods/quantum.md?plain=1#L49)
-- Academy lessons: [quantum-light.md:249](../academy/quantum-light.md?plain=1#L249), [778](../academy/quantum-light.md?plain=1#L778), [1011](../academy/quantum-light.md?plain=1#L1011)
+- Academy lessons: [quantum-light.md:249](../academy/quantum-light.md?plain=1#L249), [778](../academy/quantum-light.md?plain=1#L778), [1013](../academy/quantum-light.md?plain=1#L1013)
 - Validation cases: [`quantum/vaidya-number-difference`](validation.md?plain=1#L925), [`quantum/vaidya-outcoupling`](validation.md?plain=1#L926)
 - Code: [src/quantum/light_checks.rs:207](../src/quantum/light_checks.rs#L207), [214](../src/quantum/light_checks.rs#L214)
 - Other documents: [docs/plans/quantum.md:533](plans/quantum.md?plain=1#L533)
@@ -4175,7 +4175,7 @@ F. Valdez, V. Mere, S. Mookherjea, "100 GHz bandwidth, 1 volt integrated electro
 - Academy lessons: [modulators.md:121](../academy/modulators.md?plain=1#L121), [419](../academy/modulators.md?plain=1#L419), [715](../academy/modulators.md?plain=1#L715)
 - Validation cases: [`pockels/valdez-2023`](validation.md?plain=1#L557)
 - Code: [src/cases/mode/pockels/checks.rs:1040](../src/cases/mode/pockels/checks.rs#L1040)
-- Other documents: [ROADMAP.md:794](../ROADMAP.md?plain=1#L794)
+- Other documents: [ROADMAP.md:795](../ROADMAP.md?plain=1#L795)
 
 #### van der Vorst and Melissen 1990
 
@@ -4195,8 +4195,8 @@ M. B. Van Gijzen, P. Sonneveld, "Algorithm 913: An elegant IDR( s ) variant that
 
 M. Varnava, D. E. Browne, T. Rudolph, "How Good Must Single Photon Sources and Detectors Be for Efficient Linear Optical Quantum Computation?", Phys. Rev. Lett. 100, 060502 (2008). [doi:10.1103/PhysRevLett.100.060502](https://doi.org/10.1103/PhysRevLett.100.060502)
 
-- Methods pages: [quantum.md:55](methods/quantum.md?plain=1#L55), [656](methods/quantum.md?plain=1#L656)
-- Academy lessons: [quantum-light.md:99](../academy/quantum-light.md?plain=1#L99), [625](../academy/quantum-light.md?plain=1#L625), [989](../academy/quantum-light.md?plain=1#L989)
+- Methods pages: [quantum.md:55](methods/quantum.md?plain=1#L55), [692](methods/quantum.md?plain=1#L692)
+- Academy lessons: [quantum-light.md:99](../academy/quantum-light.md?plain=1#L99), [625](../academy/quantum-light.md?plain=1#L625), [991](../academy/quantum-light.md?plain=1#L991)
 - Validation cases: [`quantum/varnava-threshold`](validation.md?plain=1#L943)
 - Code: [src/quantum/budget.rs:11](../src/quantum/budget.rs#L11), [src/quantum/real_checks.rs:1437](../src/quantum/real_checks.rs#L1437), [studio/src-tauri/src/circuits/quantum.rs:589](../studio/src-tauri/src/circuits/quantum.rs#L589)
 - Other documents: [docs/plans/quantum.md:490](plans/quantum.md?plain=1#L490)
@@ -4217,21 +4217,21 @@ B. R. Vatti, "A generic solution to polygon clipping", Commun. ACM 35, 56 (1992)
 
 D. Vercruysse, N. V. Sapra, L. Su, R. Trivedi, J. Vučković, "Analytical level set fabrication constraints for inverse design", Sci Rep 9, 8999 (2019). [doi:10.1038/s41598-019-45026-0](https://doi.org/10.1038/s41598-019-45026-0), open access.
 
-- Other documents: [ROADMAP.md:779](../ROADMAP.md?plain=1#L779)
+- Other documents: [ROADMAP.md:780](../ROADMAP.md?plain=1#L780)
 
 #### Vermeulen et al. 2010
 
 D. Vermeulen, S. Selvaraja, P. Verheyen, G. Lepage, W. Bogaerts, P. Absil, D. Van Thourhout, G. Roelkens, "High-efficiency fiber-to-chip grating couplers realized using an advanced CMOS-compatible Silicon-On-Insulator platform", Opt. Express 18, 18278 (2010). [doi:10.1364/OE.18.018278](https://doi.org/10.1364/OE.18.018278)
 
 - Academy lessons: [grating-couplers.md:47](../academy/grating-couplers.md?plain=1#L47), [357](../academy/grating-couplers.md?plain=1#L357), [525](../academy/grating-couplers.md?plain=1#L525)
-- Other documents: [ROADMAP.md:762](../ROADMAP.md?plain=1#L762)
+- Other documents: [ROADMAP.md:763](../ROADMAP.md?plain=1#L763)
 
 #### Vernon et al. 2017
 
 Z. Vernon, M. Menotti, C. C. Tison, J. A. Steidle, M. L. Fanto, P. M. Thomas, S. F. Preble, A. M. Smith, P. M. Alsing, M. Liscidini, et al., "Truly unentangled photon pairs without spectral filtering", Opt. Lett. 42, 3638 (2017). [doi:10.1364/OL.42.003638](https://doi.org/10.1364/OL.42.003638)
 
-- Methods pages: [quantum.md:45](methods/quantum.md?plain=1#L45), [456](methods/quantum.md?plain=1#L456)
-- Academy lessons: [quantum-light.md:201](../academy/quantum-light.md?plain=1#L201), [689](../academy/quantum-light.md?plain=1#L689), [1009](../academy/quantum-light.md?plain=1#L1009)
+- Methods pages: [quantum.md:45](methods/quantum.md?plain=1#L45), [457](methods/quantum.md?plain=1#L457)
+- Academy lessons: [quantum-light.md:201](../academy/quantum-light.md?plain=1#L201), [689](../academy/quantum-light.md?plain=1#L689), [1011](../academy/quantum-light.md?plain=1#L1011)
 - Validation cases: [`quantum/ring-vernon-equal`](validation.md?plain=1#L921)
 - Code: [src/quantum/light_checks.rs:179](../src/quantum/light_checks.rs#L179), [src/quantum/ring.rs:39](../src/quantum/ring.rs#L39)
 - Other documents: [docs/plans/quantum.md:532](plans/quantum.md?plain=1#L532)
@@ -4268,7 +4268,7 @@ I. Vurgaftman, J. R. Meyer, L. R. Ram-Mohan, "Band parameters for III–V compou
 - Academy lessons: [nonlinear-optics.md:144](../academy/nonlinear-optics.md?plain=1#L144), [341](../academy/nonlinear-optics.md?plain=1#L341), [1128](../academy/nonlinear-optics.md?plain=1#L1128)
 - Validation cases: [`material/transparency-gaas-gap`](validation.md?plain=1#L793)
 - Code: [src/material/catalogue/references.rs:613](../src/material/catalogue/references.rs#L613), [src/material/catalogue/transparency.rs:6](../src/material/catalogue/transparency.rs#L6), [src/nonlinear/data_checks.rs:361](../src/nonlinear/data_checks.rs#L361)
-- Other documents: [ROADMAP.md:859](../ROADMAP.md?plain=1#L859)
+- Other documents: [ROADMAP.md:860](../ROADMAP.md?plain=1#L860)
 
 ### W
 
@@ -4278,7 +4278,7 @@ F. Wang, B. S. Lazarov, O. Sigmund, "On projection methods, convergence and robu
 
 - Methods pages: [optimization.md:34](methods/optimization.md?plain=1#L34), [219](methods/optimization.md?plain=1#L219)
 - Academy lessons: [fdfd-and-adjoints.md:79](../academy/fdfd-and-adjoints.md?plain=1#L79), [648](../academy/fdfd-and-adjoints.md?plain=1#L648), [778](../academy/fdfd-and-adjoints.md?plain=1#L778)
-- Other documents: [ROADMAP.md:770](../ROADMAP.md?plain=1#L770), [docs/plans/optimization.md:591](plans/optimization.md?plain=1#L591)
+- Other documents: [ROADMAP.md:771](../ROADMAP.md?plain=1#L771), [docs/plans/optimization.md:591](plans/optimization.md?plain=1#L591)
 
 #### Wang et al. 2011
 
@@ -4311,7 +4311,7 @@ C. Wang, M. Zhang, B. Stern, M. Lipson, M. Lončar, "Nanophotonic lithium niobat
 - Academy lessons: [modulators.md:85](../academy/modulators.md?plain=1#L85), [417](../academy/modulators.md?plain=1#L417)
 - Validation cases: [`pockels/overlap-gamma`](validation.md?plain=1#L554), [`pockels/wang-2018`](validation.md?plain=1#L555), [`device/tfln-wang-vpil`](validation.md?plain=1#L741), [`device/tfln-measured`](validation.md?plain=1#L742)
 - Code: [src/cases/device/tfln_checks.rs:333](../src/cases/device/tfln_checks.rs#L333), [340](../src/cases/device/tfln_checks.rs#L340), [src/cases/mode/pockels/checks.rs:1019](../src/cases/mode/pockels/checks.rs#L1019), [1026](../src/cases/mode/pockels/checks.rs#L1026), [src/device/measured/wang-2018.toml:5](../src/device/measured/wang-2018.toml#L5), [src/device/tfln.rs:1253](../src/device/tfln.rs#L1253), [src/mode/pockels.rs:289](../src/mode/pockels.rs#L289)
-- Other documents: [ROADMAP.md:790](../ROADMAP.md?plain=1#L790)
+- Other documents: [ROADMAP.md:791](../ROADMAP.md?plain=1#L791)
 
 #### Wang et al. 2018c
 
@@ -4322,13 +4322,13 @@ C. Wang, C. Langrock, A. Marandi, M. Jankowski, M. Zhang, B. Desiatov, M. M. Fej
 - Validation cases: [`nonlinear/wang-2018-duty-cycle`](validation.md?plain=1#L773)
 - Examples: [README.md:85](../examples/README.md?plain=1#L85), [ppln_wang.rs:6](../examples/ppln_wang.rs#L6)
 - Code: [src/nonlinear/checks.rs:725](../src/nonlinear/checks.rs#L725)
-- Other documents: [ROADMAP.md:868](../ROADMAP.md?plain=1#L868)
+- Other documents: [ROADMAP.md:869](../ROADMAP.md?plain=1#L869)
 
 #### Wang et al. 2019
 
 J. Wang, F. Sciarrino, A. Laing, M. G. Thompson, "Integrated photonic quantum technologies", Nat. Photonics 14, 273 (2019). [doi:10.1038/s41566-019-0532-1](https://doi.org/10.1038/s41566-019-0532-1)
 
-- Academy lessons: [quantum-light.md:231](../academy/quantum-light.md?plain=1#L231), [1002](../academy/quantum-light.md?plain=1#L1002)
+- Academy lessons: [quantum-light.md:231](../academy/quantum-light.md?plain=1#L231), [1004](../academy/quantum-light.md?plain=1#L1004)
 - Other documents: [docs/plans/quantum.md:524](plans/quantum.md?plain=1#L524)
 
 #### Wang et al. 2022
@@ -4343,13 +4343,13 @@ M. Wang, X. Chen, U. Khan, W. Bogaerts, "Programmable wavelength filter with dou
 C. Wang, Z. Li, J. Riemensberger, G. Lihachev, M. Churaev, W. Kao, X. Ji, J. Zhang, T. Blesin, A. Davydova, et al., "Lithium tantalate photonic integrated circuits for volume manufacturing", Nature 629, 784 (2024). [doi:10.1038/s41586-024-07369-1](https://doi.org/10.1038/s41586-024-07369-1), open access.
 
 - Methods pages: [electro-optic.md:385](methods/electro-optic.md?plain=1#L385)
-- Other documents: [ROADMAP.md:800](../ROADMAP.md?plain=1#L800)
+- Other documents: [ROADMAP.md:801](../ROADMAP.md?plain=1#L801)
 
 #### Waqas et al. 2018
 
 A. Waqas, D. Melati, P. Manfredi, A. Melloni, "Stochastic process design kits for photonic circuits based on polynomial chaos augmented macro-modelling", Opt. Express 26, 5894 (2018). [doi:10.1364/OE.26.005894](https://doi.org/10.1364/OE.26.005894)
 
-- Other documents: [ROADMAP.md:836](../ROADMAP.md?plain=1#L836)
+- Other documents: [ROADMAP.md:837](../ROADMAP.md?plain=1#L837)
 
 #### Wasilewski et al. 2006
 
@@ -4380,7 +4380,7 @@ C. Wen, "Coplanar Waveguide: A Surface Strip Transmission Line Suitable for Nonr
 
 T.-W. Weng, Z. Zhang, Z. Su, Y. Marzouk, A. Melloni, L. Daniel, "Uncertainty quantification of silicon photonic devices with correlated and non-Gaussian random parameters", Opt. Express 23, 4242 (2015). [doi:10.1364/OE.23.004242](https://doi.org/10.1364/OE.23.004242)
 
-- Other documents: [ROADMAP.md:835](../ROADMAP.md?plain=1#L835)
+- Other documents: [ROADMAP.md:836](../ROADMAP.md?plain=1#L836)
 
 #### Wengert 1964
 
@@ -4413,7 +4413,7 @@ H. Wheeler, "Formulas for the Skin Effect", Proc. IRE 30, 412 (1942). [doi:10.11
 - Methods pages: [travelling-wave.md:10](methods/travelling-wave.md?plain=1#L10)
 - Validation cases: [`line/wheeler-plates`](validation.md?plain=1#L569)
 - Code: [src/cases/electro/line_checks.rs:958](../src/cases/electro/line_checks.rs#L958), [src/electro/line.rs:29](../src/electro/line.rs#L29), [631](../src/electro/line.rs#L631)
-- Other documents: [ROADMAP.md:805](../ROADMAP.md?plain=1#L805)
+- Other documents: [ROADMAP.md:806](../ROADMAP.md?plain=1#L806)
 
 #### Wiecha et al. 2021
 
@@ -4483,13 +4483,13 @@ Y. Ye, D. Spina, Y. Xing, W. Bogaerts, T. Dhaene, "Numerical modeling of a linea
 
 - Methods pages: [compact.md:157](methods/compact.md?plain=1#L157)
 - Examples: [README.md:79](../examples/README.md?plain=1#L79), [compact_mzi_ye.rs:7](../examples/compact_mzi_ye.rs#L7)
-- Other documents: [ROADMAP.md:825](../ROADMAP.md?plain=1#L825)
+- Other documents: [ROADMAP.md:826](../ROADMAP.md?plain=1#L826)
 
 #### Ye et al. 2022
 
 Y. Ye, T. Ullrick, W. Bogaerts, T. Dhaene, D. Spina, "SPICE-Compatible Equivalent Circuit Models for Accurate Time-Domain Simulations of Passive Photonic Integrated Circuits", J. Lightwave Technol. 40, 7856 (2022). [doi:10.1109/JLT.2022.3206818](https://doi.org/10.1109/JLT.2022.3206818)
 
-- Other documents: [ROADMAP.md:826](../ROADMAP.md?plain=1#L826)
+- Other documents: [ROADMAP.md:827](../ROADMAP.md?plain=1#L827)
 
 #### Yeh et al. 1977
 
@@ -4518,7 +4518,7 @@ N. Yu, P. Genevet, M. A. Kats, F. Aieta, J.-P. Tetienne, F. Capasso, Z. Gaburro,
 
 H. Yu, M. Pantouvaki, J. Van Campenhout, D. Korn, K. Komorowska, P. Dumon, Y. Li, P. Verheyen, P. Absil, L. Alloatti, et al., "Performance tradeoff between lateral and interdigitated doping patterns for high speed carrier-depletion based silicon modulators", Opt. Express 20, 12926 (2012). [doi:10.1364/OE.20.012926](https://doi.org/10.1364/OE.20.012926)
 
-- Other documents: [ROADMAP.md:821](../ROADMAP.md?plain=1#L821)
+- Other documents: [ROADMAP.md:822](../ROADMAP.md?plain=1#L822)
 
 ### Z
 
@@ -4536,7 +4536,7 @@ D. E. Zelmon, D. L. Small, D. Jundt, "Infrared corrected Sellmeier coefficients 
 - Academy lessons: [nonlinear-optics.md:126](../academy/nonlinear-optics.md?plain=1#L126), [371](../academy/nonlinear-optics.md?plain=1#L371), [1101](../academy/nonlinear-optics.md?plain=1#L1101)
 - Validation cases: [`material/linbo3-zelmon-opo`](validation.md?plain=1#L65)
 - Code: [src/material/catalogue/models.rs:345](../src/material/catalogue/models.rs#L345), [src/material/catalogue/references.rs:144](../src/material/catalogue/references.rs#L144), [src/validation.rs:484](../src/validation.rs#L484)
-- Other documents: [ROADMAP.md:796](../ROADMAP.md?plain=1#L796)
+- Other documents: [ROADMAP.md:797](../ROADMAP.md?plain=1#L797)
 
 #### Zhang et al. 2013
 
@@ -4547,7 +4547,7 @@ Y. Zhang, S. Yang, A. E.-J. Lim, G.-Q. Lo, C. Galland, T. Baehr-Jones, M. Hochbe
 - Validation cases: [`device/y-branch-ideal-2d`](validation.md?plain=1#L345), [`geometry/curves/zhang-y-junction`](validation.md?plain=1#L420), [`geometry/booleans/zhang-y-junction`](validation.md?plain=1#L428)
 - Examples: [README.md:58](../examples/README.md?plain=1#L58), [78](../examples/README.md?plain=1#L78), [optimize_ybranch.rs:6](../examples/optimize_ybranch.rs#L6), [y_junction_zhang.rs:6](../examples/y_junction_zhang.rs#L6)
 - Code: [src/device/splitter_checks.rs:173](../src/device/splitter_checks.rs#L173), [src/device/ybranch.rs:20](../src/device/ybranch.rs#L20), [src/geometry/boolean_checks.rs:819](../src/geometry/boolean_checks.rs#L819), [src/geometry/curve_checks.rs:749](../src/geometry/curve_checks.rs#L749)
-- Other documents: [ROADMAP.md:761](../ROADMAP.md?plain=1#L761), [docs/plans/optimization.md:607](plans/optimization.md?plain=1#L607)
+- Other documents: [ROADMAP.md:762](../ROADMAP.md?plain=1#L762), [docs/plans/optimization.md:607](plans/optimization.md?plain=1#L607)
 
 #### Zhang et al. 2017
 
@@ -4569,7 +4569,7 @@ Y. Zhang, L. Shao, J. Yang, Z. Chen, K. Zhang, K.-M. Shum, D. Zhu, C. H. Chan, M
 - Examples: [README.md:83](../examples/README.md?plain=1#L83), [tfln_zhang.rs:7](../examples/tfln_zhang.rs#L7)
 - Code: [crosscode/src/tfln.rs:2](../crosscode/src/tfln.rs#L2), [crosscode/src/zhang_line.rs:2](../crosscode/src/zhang_line.rs#L2), [src/cases/device/tfln_checks.rs:326](../src/cases/device/tfln_checks.rs#L326), [340](../src/cases/device/tfln_checks.rs#L340), [347](../src/cases/device/tfln_checks.rs#L347), [src/cases/electro/line_checks.rs:986](../src/cases/electro/line_checks.rs#L986), [1021](../src/cases/electro/line_checks.rs#L1021), [src/cases/mode/pockels/checks.rs:1033](../src/cases/mode/pockels/checks.rs#L1033), [src/device/measured/zhang-2022-10.8mm.toml:5](../src/device/measured/zhang-2022-10.8mm.toml#L5), [src/device/measured/zhang-2022-5.8mm.toml:5](../src/device/measured/zhang-2022-5.8mm.toml#L5), [src/device/tfln.rs:1208](../src/device/tfln.rs#L1208), [src/electro/full_wave_checks.rs:309](../src/electro/full_wave_checks.rs#L309), [src/electro/line.rs:54](../src/electro/line.rs#L54), [src/fabrication/checks.rs:461](../src/fabrication/checks.rs#L461), [src/fabrication/references.rs:192](../src/fabrication/references.rs#L192), [194](../src/fabrication/references.rs#L194)
 - Jobs and circuits: [jobs/tfln-line.yaml:2](../jobs/tfln-line.yaml#L2)
-- Other documents: [ROADMAP.md:793](../ROADMAP.md?plain=1#L793)
+- Other documents: [ROADMAP.md:794](../ROADMAP.md?plain=1#L794)
 
 #### Zhao et al. 2020
 
@@ -4580,7 +4580,7 @@ J. Zhao, C. Ma, M. Rüsing, S. Mookherjea, "High Quality Entangled Photon Pair G
 - Validation cases: [`nonlinear/guide-zhao-period`](validation.md?plain=1#L829), [`job/nonlinear-ridge-zhao-period`](validation.md?plain=1#L838)
 - Examples: [README.md:86](../examples/README.md?plain=1#L86), [pairs_zhao.rs:6](../examples/pairs_zhao.rs#L6)
 - Code: [src/job/nonlinear_checks.rs:489](../src/job/nonlinear_checks.rs#L489), [src/nonlinear/guide_checks.rs:639](../src/nonlinear/guide_checks.rs#L639)
-- Other documents: [ROADMAP.md:870](../ROADMAP.md?plain=1#L870), [docs/plans/quantum.md:482](plans/quantum.md?plain=1#L482)
+- Other documents: [ROADMAP.md:871](../ROADMAP.md?plain=1#L871), [docs/plans/quantum.md:482](plans/quantum.md?plain=1#L482)
 
 #### Zhao et al. 2022
 
@@ -4594,7 +4594,7 @@ J. Zhao, J. Hui, Z. Ye, T. Lai, M. Y. Efremov, H. Wang, L. H. Allen, "Exploring 
 
 H.-S. Zhong, L.-C. Peng, Y. Li, Y. Hu, W. Li, J. Qin, D. Wu, W. Zhang, H. Li, L. Zhang, et al., "Experimental Gaussian Boson sampling", Sci. Bull. 64, 511 (2019). [doi:10.1016/j.scib.2019.04.007](https://doi.org/10.1016/j.scib.2019.04.007)
 
-- Methods pages: [quantum.md:63](methods/quantum.md?plain=1#L63), [992](methods/quantum.md?plain=1#L992)
+- Methods pages: [quantum.md:63](methods/quantum.md?plain=1#L63), [1028](methods/quantum.md?plain=1#L1028)
 - Academy lessons: [quantum-light.md:225](../academy/quantum-light.md?plain=1#L225), [842](../academy/quantum-light.md?plain=1#L842)
 - Validation cases: [`quantum/qi-simulability`](validation.md?plain=1#L945)
 - Code: [src/quantum/real_checks.rs:1449](../src/quantum/real_checks.rs#L1449)
@@ -4603,14 +4603,14 @@ H.-S. Zhong, L.-C. Peng, Y. Li, Y. Hu, W. Li, J. Qin, D. Wu, W. Zhang, H. Li, L.
 
 H.-S. Zhong, H. Wang, Y.-H. Deng, M.-C. Chen, L.-C. Peng, Y.-H. Luo, J. Qin, D. Wu, X. Ding, Y. Hu, et al., "Quantum computational advantage using photons", Science 370, 1460 (2020). [doi:10.1126/science.abe8770](https://doi.org/10.1126/science.abe8770)
 
-- Academy lessons: [quantum-light.md:255](../academy/quantum-light.md?plain=1#L255), [818](../academy/quantum-light.md?plain=1#L818), [1004](../academy/quantum-light.md?plain=1#L1004)
+- Academy lessons: [quantum-light.md:255](../academy/quantum-light.md?plain=1#L255), [818](../academy/quantum-light.md?plain=1#L818), [1006](../academy/quantum-light.md?plain=1#L1006)
 - Other documents: [docs/plans/quantum.md:506](plans/quantum.md?plain=1#L506)
 
 #### Zhou et al. 2015
 
 M. Zhou, B. S. Lazarov, F. Wang, O. Sigmund, "Minimum length scale in topology optimization by geometric constraints", Computer Methods in Applied Mechanics and Engineering 293, 266 (2015). [doi:10.1016/j.cma.2015.05.003](https://doi.org/10.1016/j.cma.2015.05.003)
 
-- Other documents: [ROADMAP.md:771](../ROADMAP.md?plain=1#L771)
+- Other documents: [ROADMAP.md:772](../ROADMAP.md?plain=1#L772)
 
 #### Zhu et al. 2021
 

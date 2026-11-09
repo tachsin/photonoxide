@@ -608,6 +608,21 @@ in a drawer opened from the status bar.
       modes are the low-gain ones: above 0.1 it says the gain may reshape them). It says when
       the amplitude is still above 1% of its peak at the grid's edge, or above half its peak on
       fewer than 3 points, since the purity is then the grid's; every refusal gives its numbers.
+    - **Squeezing at high gain**, under it, for a guide or a crystal: the source cut into
+      slices along its length, each slice coupling the photons by the pump's amplitude and the
+      device's own phase mismatch there (`photonoxide::quantum::Broadband`), against the
+      Schmidt model, whose modes stay the low-gain ones, squeezed by g√λ_k. Given the gain g,
+      the slices and the points, a moment after any change it draws each pair of modes'
+      squeezing in dB both ways, the signal's photons and the effective number of modes both
+      ways, the first two signal modes' shapes with how far the gain has moved each from its
+      Schmidt mode, the first squeezing's change from half the slices (the slicing's error) and
+      the map's symplectic error. The slices are the device's sinc even when the maps above
+      draw its Gaussian stand-in, and it says so; for four-wave mixing it says that the pump's
+      self- and cross-phase modulation are left out. Up to g = 5, 2 to 200 slices (an even
+      number) and 11 to 101 points (a map of (2 × points)² entries per slice); it says when the
+      first squeezing moves by more than 1% from half the slices, or the first mode's amplitude
+      is still above 1% of its peak at the grid's edge. A ring and two pumps in two modes aren't
+      sliced: a ring's pairs are its resonances', and two pumps' overlap changes along the guide.
 - **Validation** (in System), in two tabs:
   - **Cases:** the release's report, searchable, its math rendered, and the same report run on
     this machine.
@@ -1055,7 +1070,8 @@ node scripts/record-gifs.mjs --only hero,academy  # some: hero, device, material
   - `materials.rs`: the Materials page's commands; `nonlinear.rs` its nonlinear view's (a
     `"nonlinear"` job computed in place, and every material's transparency window);
     `sources.rs` its source designer's (a photon-pair source, computed by
-    `photonoxide::nonlinear::pairs` and `photonoxide::quantum`).
+    `photonoxide::nonlinear::pairs` and `photonoxide::quantum`), and `sources/squeezing.rs`
+    a guide's or a crystal's squeezing at high gain (`quantum::Broadband`).
   - `circuits.rs`: the Components and Chip pages' commands, and chip files; `circuits/chip.rs`
     an instance's device design and the chip's jobs (the library's chip of a chip file, the
     Study and Optimize panels' jobs, a chip's job opened on the page); `circuits/library.rs`
