@@ -263,7 +263,7 @@ checks every example's output too.
 | 0.6.2 Eigenmode expansion and the mode solver's tools | 2D eigenmode expansion, convergence to a tolerance, adaptive sweeps, effective area and confinement, sidewall-roughness loss; 3D expansion, bends, periodic sections, drawn shapes and Gaussian beams followed in 0.6.3 | ✅ released |
 | 0.6.3 Quantum light | Linear-optical statistics, photon-pair sources, Gaussian states and broadband squeezing, loss budgets of quantum circuits, the quantum view in the studio; 3D eigenmode expansion with bends, periodic sections, drawn shapes and beams; a 1D RCWA | ✅ released |
 | 0.7 Inverse design | Topology and shape optimization with fabrication constraints | 🚧 next |
-| 0.7.1 – 0.16 | Distributed memory, carrier modulators, layout, RCWA and beam propagation, a device library, photonic crystals, plasmonics, nonlinear FDTD | planned |
+| 0.7.1 – 0.16 | Distributed memory, carrier modulators, layout, RCWA in full (a 1D RCWA is in 0.6.3) and beam propagation, a device library, photonic crystals, plasmonics, nonlinear FDTD | planned |
 | 1.0 | A stable API | planned |
 
 [ROADMAP.md](ROADMAP.md) has the details, with what each item measured.
