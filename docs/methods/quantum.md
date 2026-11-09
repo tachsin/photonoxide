@@ -927,6 +927,16 @@ with their own fit; from the two measured levels alone the squeezing before the 
   the narrower pump resonance of a ratio of 0.5). Not a case: the window is inferred from the
   figure, not stated in the letter. An earlier reading here, a window of ±4 *signal* linewidths,
   matched 1.08 and 1.0009 but not Fig. 3's line; it is superseded.
+
+  The letter was read again for a window. It gives none in numbers: "a range large enough to
+  capture the full extent of the corresponding resonance, but not so large as to overlap with
+  any other resonances" (p. 3639), and Fig. 2's axes, a little over ±1 signal linewidth, are a
+  plot's range. Its other reading, that Fig. 3 is the *maximum* purity over Gaussian pump pulses
+  and 1.08 the "lower bound ... pumped with a Gaussian pulse" (p. 3639), doesn't hold either: with
+  no window, a search over pulses from 0.05 to 50 ps ends at the shortest, a pump far broader than
+  the resonances, at 0.91671 ($K$ = 1.09086) for equal linewidths and 0.95461, 0.97151, 0.98584
+  and 0.99166 at ratios of 1.5 to 4, the broad pump's values (the ignored test
+  `quantum::light_checks::tests::print_vernon_fig3_best_pulse`). The window stays inferred.
 - **Paesani et al.'s inter-modal source.** Their guide is 2 × 0.22 µm silicon in silica, 11 mm
   long, pumped in TM₀ and TM₁, the signal in TM₁ and the idler in TM₀, measured at 1588 and
   1516 nm (Supplementary Note 1a, p. 2). Their measured purity is 0.9904 ± 0.0006 with the delay
