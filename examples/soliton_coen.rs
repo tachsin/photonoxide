@@ -3,12 +3,13 @@
 //! S. Coen, H. G. Randle, T. Sylvestre, M. Erkintalo, "Modeling of octave-spanning Kerr
 //! frequency combs using a generalized mean-field Lugiato–Lefever model", Opt. Lett. 38, 37
 //! (2012), [doi:10.1364/OL.38.000037](https://doi.org/10.1364/OL.38.000037): their Fig. 2, a
-//! critically coupled MgF₂ disc, FSR 18.2 GHz, γ = 0.032 /(W·km), β₂ = −13 ps²/km,
-//! α = θ = 1.75 × 10⁻⁵, P_in = 55.6 mW, L = 11.9 mm and δ₀ = 0.0012 (p. 38), whose single
-//! soliton is "∼400 fs" long (the inset of Fig. 2(a)).
+//! critically coupled MgF₂ disc, FSR 18.2 GHz, $\gamma = 0.032\ \mathrm{W^{-1}\,km^{-1}}$,
+//! $\beta_2 = -13\ \mathrm{ps^2/km}$, $\alpha = \theta = 1.75 \times 10^{-5}$,
+//! $P_\mathrm{in} = 55.6$ mW, $L = 11.9$ mm and $\delta_0 = 0.0012$ (p. 38), whose single soliton
+//! is "∼400 fs" long (the inset of Fig. 2(a)).
 //!
 //! The ring's equation (`nonlinear::resonator::Ring`) on 512 modes, its approximate soliton
-//! (`Resonator::soliton`) settled by split-step until |ψ|² changes by less than 10⁻¹⁰ of its peak
+//! (`Resonator::soliton`) settled by split-step until $|\psi|^2$ changes by less than $10^{-10}$ of its peak
 //! per unit time, at two steps, the finer one the estimate of our own error. The tolerance is
 //! half a unit of the one significant digit of '∼400 fs', 50 fs: the paper states no other.
 //!

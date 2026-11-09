@@ -4,17 +4,19 @@
 //! self-imaging: principles and applications", J. Lightwave Technol. 13, 615 (1995),
 //! [doi:10.1109/50.372474](https://doi.org/10.1109/50.372474), Section III:
 //!
-//! - the beat length of the two lowest modes, L_π ≈ 4 n_r W_e² / (3 λ₀) (Eq. 6), with the
-//!   effective width W_e = W_M + (λ₀/π)(n_c/n_r)^{2σ}(n_r² − n_c²)^{−1/2} (Eq. 4), σ = 1 for the
-//!   lateral TM field of a TE-like guide;
-//! - a 1 × 2 splitter fed in its middle forms its two-fold image at 3L_π/8 (symmetric
-//!   interference, Eq. 37 with N = 2), and a 2 × 2 coupler fed at ±W_e/6 at L_π/2 (paired
-//!   interference, Eq. 33 with N = 2).
+//! - the beat length of the two lowest modes, $L_\pi \approx 4 n_r W_e^2 / (3\lambda_0)$ (Eq. 6),
+//!   with the effective width
+//!   $W_e = W_M + (\lambda_0/\pi)(n_c/n_r)^{2\sigma}(n_r^2 - n_c^2)^{-1/2}$ (Eq. 4), $\sigma = 1$
+//!   for the lateral TM field of a TE-like guide;
+//! - a 1 × 2 splitter fed in its middle forms its two-fold image at $3L_\pi/8$ (symmetric
+//!   interference, Eq. 37 with $N = 2$), and a 2 × 2 coupler fed at $\pm W_e/6$ at $L_\pi/2$
+//!   (paired interference, Eq. 33 with $N = 2$).
 //!
 //! Here photonoxide's MMI devices (`device::StripMmi`) on 220 nm SOI, their 2D model: the plane
-//! seen from above by the effective index method (n_r the 220 nm film's TE index in silica, n_c
-//! silica's, Li's silicon and Malitson's silica at 1.55 µm), the section's exact slab modes. The
-//! device's first two-fold image (its `L_image`, from the exact β₀ − β₁) against the paper's,
+//! seen from above by the effective index method ($n_r$ the 220 nm film's TE index in silica,
+//! $n_c$ silica's, Li's silicon and Malitson's silica at 1.55 µm), the section's exact slab
+//! modes. The device's first two-fold image (its `L_image`, from the exact $\beta_0 - \beta_1$)
+//! against the paper's,
 //! for sections 3 to 12 µm wide: the paraxial approximation of Eq. 6 is the paper's error, about
 //! 1 % at 3 µm and less as the section widens. At each device's own length, the guided-mode
 //! analysis's power into each output and its excess loss are printed (2D, an estimate, not the

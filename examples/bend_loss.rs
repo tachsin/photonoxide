@@ -6,7 +6,7 @@
 //! Eqs. 32–33: the loss of a slab bent at a large radius, from the straight slab's field. Here a
 //! slab of 1.6 in 1.5, 1 µm thick, at 1 µm, TE (E normal to the bend plane). The exact loss
 //! (`mode::bend`, Marcuse's Eq. 10 with nothing approximated) and his formula meet as the radius
-//! grows, their difference falling as 1/R; the check is at 120 µm, within 10 %. (Beyond, the loss
+//! grows, their difference falling as $1/R$; the check is at 120 µm, within 10 %. (Beyond, the loss
 //! nears round-off: 8e-14 at 160 µm.)
 //!
 //! Then the book's strip as a slab (2.845, 500 nm, in 1.444, at 1.55 µm) bent at 1 and 2 µm, by

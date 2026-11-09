@@ -6,13 +6,16 @@
 //! [doi:10.1109/TEMC.1982.304054](https://doi.org/10.1109/TEMC.1982.304054), Section III.A and
 //! Fig. 5(a):
 //!
-//! - **The problem:** a perfectly conducting square cylinder, k₀A_s = 1 (A_s half its side), lit
-//!   by a TM plane wave (E_z) travelling along +y, at normal incidence to one face (φⁱ = 90°).
+//! - **The problem:** a perfectly conducting square cylinder, $k_0 A_s = 1$ ($A_s$ half its
+//!   side), lit by a TM plane wave ($E_z$) travelling along $+y$, at normal incidence to one face
+//!   ($\varphi^i = 90°$).
 //! - **Their FD-TD:** 20 cells a side, the total-field/scattered-field surface 5 cells from the
-//!   cylinder; the surface current is n̂ × H_tan, H half a cell from the surface.
+//!   cylinder; the surface current is $\hat n \times H_\mathrm{tan}$, $H$ half a cell from the
+//!   surface.
 //! - **Their reference:** the method of moments on their Eq. 8a, the electric field integral
-//!   equation E_zⁱ = (k₀η₀/4) ∫ J_z H₀⁽²⁾(k₀|ρ − ρ'|) dl' (e^(+jωt)), with pulses and point
-//!   matching at 80 points, the solid line of Fig. 5(a): |J_z|/|H_xⁱ| around the surface.
+//!   equation $E_z^i = (k_0\eta_0/4) \int J_z H_0^{(2)}(k_0|\rho - \rho'|)\,dl'$
+//!   ($e^{+j\omega t}$), with pulses and point matching at 80 points, the solid line of
+//!   Fig. 5(a): $|J_z|/|H_x^i|$ around the surface.
 //!   Their FD-TD agrees with it "to better than ±1 percent ... at all comparison points more
 //!   than 2 cells from the cylinder edges".
 //!
@@ -22,12 +25,13 @@
 //!
 //! Here:
 //!
-//! - **FD-TD** as theirs: a continuous wave at λ = 1 µm (A_s = λ/2π; a conductor in vacuum
-//!   scales with λ) switched on over 5 periods, its amplitude over the 30th to the 32nd, 100
-//!   steps a period; beyond the box 10 cells of scattered field and a CPML of 20 cells (κ = 5,
-//!   α = 0.5/µm, for the evanescent near field: moving it 70 cells further out changes nothing
-//!   in the sixth digit). At 20 cells a side, then at 40 to see the grid's error.
-//! - **The moment method** as theirs, Eq. 8a with e^(−iωt) and H₀⁽¹⁾, by pulses and point
+//! - **FD-TD** as theirs: a continuous wave at $\lambda = 1$ µm ($A_s = \lambda/2\pi$; a conductor
+//!   in vacuum scales with $\lambda$) switched on over 5 periods, its amplitude over the 30th to
+//!   the 32nd, 100 steps a period; beyond the box 10 cells of scattered field and a CPML of 20
+//!   cells ($\kappa = 5$, $\alpha = 0.5$/µm, for the evanescent near field: moving it 70 cells
+//!   further out changes nothing in the sixth digit). At 20 cells a side, then at 40 to see the
+//!   grid's error.
+//! - **The moment method** as theirs, Eq. 8a with $e^{-i\omega t}$ and $H_0^{(1)}$, by pulses and point
 //!   matching at 100 points a side (it moves by 1e-4 from 50 to 200), the self term
 //!   integrated in closed form and the others by 5-point Gauss–Legendre.
 //!

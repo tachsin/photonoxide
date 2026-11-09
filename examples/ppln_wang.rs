@@ -7,7 +7,8 @@
 //! thin-film LiNbO₃ ridges 600 nm thick and about 1.4 µm wide, poled at 4.1 µm over 4 mm.
 //!
 //! What the paper prints that can be reproduced without the ridge's etch depth, which it doesn't
-//! give: the poling's duty cycle, 39 % ± 3 %, "reduces the actual d_eff by 7 %" (p. 1440), which
+//! give: the poling's duty cycle, 39 % ± 3 %, "reduces the actual $d_\mathrm{eff}$ by 7 %"
+//! (p. 1440), which
 //! Fejer et al.'s Eq. (22) checks; and bulk lithium niobate's group-velocity mismatch between
 //! 1550 and 775 nm, "∼300 fs/mm" (p. 1440), from the catalogue's extraordinary index. Their
 //! calculated 4500 %/(W·cm²) and the period itself need the ridge's cross-section, so they wait

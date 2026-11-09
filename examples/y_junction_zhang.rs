@@ -5,10 +5,10 @@
 //! compact and low loss Y-junction for submicron silicon waveguide", Opt. Express 21, 1310
 //! (2013), [doi:10.1364/OE.21.001310](https://doi.org/10.1364/OE.21.001310), Section 2.1, Fig.
 //! 1(a) and Table 1: a taper 2 µm long from a 500 × 220 nm silicon strip in oxide to two 500 nm
-//! arms 200 nm apart, its width w₁ … w₁₃ at 13 points of equal spacing, "defined by spline
-//! interpolation" of them (the spline's ends unstated: not-a-knot here), optimized at 1550 nm in
-//! 2D FDTD until "one solution with sub-0.2 dB insertion loss emerged"; 0.13 dB in 3D FDTD at
-//! λ/34; measured 0.28 ± 0.02 dB.
+//! arms 200 nm apart, its width $w_1, \dots, w_{13}$ at 13 points of equal spacing, "defined by
+//! spline interpolation" of them (the spline's ends unstated: not-a-knot here), optimized at
+//! 1550 nm in 2D FDTD until "one solution with sub-0.2 dB insertion loss emerged"; 0.13 dB in 3D
+//! FDTD at $\lambda/34$; measured 0.28 ± 0.02 dB.
 //!
 //! Here photonoxide's Y-branch device (`device::StripYBranch`) at its defaults, which are
 //! Zhang et al.'s widths, its outline the expression language's `spline` through them, with
@@ -18,7 +18,7 @@
 //! - the drawn outline's width at the 13 points, measured through its inside test, against
 //!   Table 1 (exactly, to round-off);
 //! - its 2D model, 2D FDFD by the effective index method on 20 and 10 nm grids at 1550 nm: the
-//!   insertion loss, −10 log₁₀ of the power in both arms' fundamental modes, against their 2D
+//!   insertion loss, $-10\log_{10}$ of the power in both arms' fundamental modes, against their 2D
 //!   design's "sub-0.2 dB". A 2D estimate, labelled so: not the device's performance, which is
 //!   the 3D model's.
 //!

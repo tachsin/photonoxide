@@ -1,33 +1,36 @@
-//! Maximally flat filters of coupled rings found by optimization: N = 2 to 6 rings in series
+//! Maximally flat filters of coupled rings found by optimization: $N = 2$ to 6 rings in series
 //! between two buses, their couplings fitted by genoxide's L-BFGS-B on the circuit adjoint's
 //! gradient (from CMA-ES's best, a global check) until the drop port's response is the
-//! Butterworth shape 1/(1 + (δ/δ_c)^2N), and the ring-to-ring couplings compared with Little's
-//! synthesis.
+//! Butterworth shape $1/(1 + (\delta/\delta_c)^{2N})$, and the ring-to-ring couplings compared
+//! with Little's synthesis.
 //!
 //! B. E. Little, S. T. Chu, H. A. Haus, J. Foresi, J.-P. Laine, J. Lightwave Technol. 15, 998
 //! (1997), [doi:10.1109/50.588673](https://doi.org/10.1109/50.588673), Table I: the coupling
-//! coefficients of maximally flat filters as μᵢ²/μ⁴, μ the bus's coupling (μ² = 2/τ_e, its
-//! energy decay rate) and μᵢ the i-th ring-to-ring one (by symmetry the first half): 0.250
-//! (N = 2); 0.125 (3); 0.100, 0.040 (4); 0.0955, 0.0295 (5); 0.0915, 0.0245, 0.0179 (6).
+//! coefficients of maximally flat filters as $\mu_i^2/\mu^4$, $\mu$ the bus's coupling
+//! ($\mu^2 = 2/\tau_e$, its energy decay rate) and $\mu_i$ the $i$-th ring-to-ring one (by
+//! symmetry the first half): 0.250 ($N = 2$); 0.125 (3); 0.100, 0.040 (4); 0.0955, 0.0295 (5);
+//! 0.0915, 0.0245, 0.0179 (6).
 //!
-//! **In the circuit.** Each ring's round trip T and power couplings κ²: the bus couples the
-//! energy out at μ² = κ_b²/T and ring i to ring i + 1 at μᵢ = κᵢ/T, so μᵢ²/μ⁴ = κᵢ²/κ_b⁴,
-//! independent of T. Coupled-mode theory, which Little's table is, is the limit of small κ²:
-//! the circuit's exact couplers differ from it at O(κ_b²), which this example shows at
-//! κ_b² = 1e-3, 1e-4 and 1e-5, falling tenfold with it, and checks at 1e-5, where it is below
-//! the printed digits (N = 6's third, 0.017949 by the prototype, is printed 0.0179).
+//! **In the circuit.** Each ring's round trip $T$ and power couplings $\kappa^2$: the bus couples
+//! the energy out at $\mu^2 = \kappa_b^2/T$ and ring $i$ to ring $i + 1$ at $\mu_i = \kappa_i/T$,
+//! so $\mu_i^2/\mu^4 = \kappa_i^2/\kappa_b^4$, independent of $T$. Coupled-mode theory, which
+//! Little's table is, is the limit of small $\kappa^2$: the circuit's exact couplers differ from
+//! it at $O(\kappa_b^2)$, which this example shows at $\kappa_b^2 = 10^{-3}$, $10^{-4}$ and
+//! $10^{-5}$, falling tenfold with it, and checks at $10^{-5}$, where it is below the printed
+//! digits ($N = 6$'s third, 0.017949 by the prototype, is printed 0.0179).
 //!
-//! **The prototype.** The relation μᵢ²/μ⁴ = g₁²/(4 gᵢ gᵢ₊₁), with gₖ = 2 sin((2k − 1)π/2N) the
-//! Butterworth low-pass prototype's elements (G. L. Matthaei, L. Young, E. M. T. Jones,
+//! **The prototype.** The relation $\mu_i^2/\mu^4 = g_1^2/(4 g_i g_{i+1})$, with
+//! $g_k = 2\sin((2k - 1)\pi/2N)$ the Butterworth low-pass prototype's elements (G. L. Matthaei, L. Young, E. M. T. Jones,
 //! Microwave Filters, Impedance-Matching Networks, and Coupling Structures, Artech House (1980),
 //! Section 4.05, no DOI), was derived for #244's plan, not taken from the paper: coupled
-//! resonators of external decay γ_e = Δω/g₁ and couplings kᵢ = Δω/√(gᵢgᵢ₊₁) give
-//! kᵢ²/(2γ_e)² = g₁²/(4gᵢgᵢ₊₁). It reproduces every row of Table I but N = 4, whose printed
-//! 0.100 and 0.040 the prototype makes 0.1036 and 0.0429: N = 4 is checked against the
-//! prototype and the paper's values printed beside (#244's decision 4).
+//! resonators of external decay $\gamma_e = \Delta\omega/g_1$ and couplings
+//! $k_i = \Delta\omega/\sqrt{g_i g_{i+1}}$ give $k_i^2/(2\gamma_e)^2 = g_1^2/(4 g_i g_{i+1})$. It
+//! reproduces every row of Table I but $N = 4$, whose printed 0.100 and 0.040 the prototype makes
+//! 0.1036 and 0.0429: $N = 4$ is checked against the prototype and the paper's values printed
+//! beside (#244's decision 4).
 //!
-//! Lossless rings, the response against the round-trip phase detuning δ (each ring's phase the
-//! same: a frequency's), 61 points over ±3κ_b². The circuit solve: exact, no grid.
+//! Lossless rings, the response against the round-trip phase detuning $\delta$ (each ring's phase
+//! the same: a frequency's), 61 points over $\pm 3\kappa_b^2$. The circuit solve: exact, no grid.
 //!
 //! ```sh
 //! cargo run --release --example optimize_ring_flat

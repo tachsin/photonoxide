@@ -4,25 +4,28 @@
 //!
 //! W. Bogaerts et al., Laser Photonics Rev. 6, 47 (published online 13 September 2011; the
 //! January 2012 issue), [doi:10.1002/lpor.201100017](https://doi.org/10.1002/lpor.201100017),
-//! Eqs. 5–8: on resonance the drop port carries D = (1 − r₁²)(1 − r₂²) a / (1 − r₁r₂a)², and the
-//! resonance's full width at half maximum is FWHM = (1 − r₁r₂a) λ² / (π n_g L √(r₁r₂a)), r₁ and
-//! r₂ the couplers' self-couplings, a the round trip's amplitude.
+//! Eqs. 5–8: on resonance the drop port carries
+//! $D = (1 - r_1^2)(1 - r_2^2)\,a / (1 - r_1 r_2 a)^2$, and the resonance's full width at half
+//! maximum is $\mathrm{FWHM} = (1 - r_1 r_2 a)\,\lambda^2 / (\pi n_g L \sqrt{r_1 r_2 a})$, $r_1$ and
+//! $r_2$ the couplers' self-couplings, $a$ the round trip's amplitude.
 //!
-//! **The front, derived here.** The width depends on the product p = r₁r₂ alone, and at a fixed
-//! p, (1 − r₁²)(1 − r₂²) = 1 + p² − r₁² − p²/r₁² is largest at r₁² = p (where r₁² + p²/r₁² is
-//! least): r₁ = r₂ = √p. So the designs that no other beats on both, the most drop at the least
-//! width, are the symmetric rings, D(p) = (1 − p)² a / (1 − pa)² against FWHM(p): narrowing the
+//! **The front, derived here.** The width depends on the product $p = r_1 r_2$ alone, and at a
+//! fixed $p$, $(1 - r_1^2)(1 - r_2^2) = 1 + p^2 - r_1^2 - p^2/r_1^2$ is largest at $r_1^2 = p$
+//! (where $r_1^2 + p^2/r_1^2$ is least): $r_1 = r_2 = \sqrt{p}$. So the designs that no other beats
+//! on both, the most drop at the least width, are the symmetric rings,
+//! $D(p) = (1 - p)^2 a / (1 - pa)^2$ against $\mathrm{FWHM}(p)$: narrowing the
 //! resonance costs drop. The optimizers' fronts are checked against that curve by their
 //! hypervolume (within 1 % of the curve's). Point by point they come within a few 1e-3 of it:
 //! off the symmetric ridge the drop falls only quadratically in the asymmetry, so a population
 //! spread along the front settles onto it slowly (printed). Each of their points is then
-//! polished by genoxide's GCMMA, the most drop at no more than its width (an ε-constraint), on
+//! polished by genoxide's GCMMA, the most drop at no more than its width (an
+//! $\varepsilon$-constraint), on
 //! the circuit adjoint's gradient, and checked within 1e-3 of the curve: the global search's front
 //! and a local method's polish, as #244's plan has it (Section 1.6).
 //!
 //! The drop is the circuit solve's at resonance (photonoxide's circuit, Bogaerts's couplers),
 //! the width Eq. 8's: exact, no grid. The hypervolume is photonoxide's
-//! (`job::optimize::hypervolume`), of the costs −D and FWHM.
+//! (`job::optimize::hypervolume`), of the costs $-D$ and FWHM.
 //!
 //! ```sh
 //! cargo run --release --example optimize_ring_pareto

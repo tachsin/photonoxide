@@ -4,16 +4,17 @@
 //! G. R. Hadley, "High-accuracy finite-difference equations for dielectric waveguide analysis
 //! II: dielectric corners", J. Lightwave Technol. 20, 1219 (2002),
 //! [doi:10.1109/JLT.2002.800371](https://doi.org/10.1109/JLT.2002.800371), Figs. 4–7: a quarter
-//! of each waveguide, 1 × 1 µm, at λ = 1.5 µm, with indices from series expansions (up to 4000
-//! terms) good to 1e-8 or better.
+//! of each waveguide, 1 × 1 µm, at $\lambda = 1.5$ µm, with indices from series expansions (up to
+//! 4000 terms) good to $10^{-8}$ or better.
 //!
-//! - Figs. 4–5, boxes: ε = 2.25 or 8 for x, y < 0.5 µm, 1 elsewhere; on all four edges H_x is
-//!   zero and H_y has zero normal derivative.
-//! - Figs. 6–7, impinged corners: ε = 1 for x, y > 0.5 µm, 2.25 or 8 elsewhere; H_y has zero
-//!   derivative on the west and south edges and is zero on the others, H_x the opposite.
+//! - Figs. 4–5, boxes: $\varepsilon = 2.25$ or 8 for $x, y < 0.5$ µm, 1 elsewhere; on all four
+//!   edges $H_x$ is zero and $H_y$ has zero normal derivative.
+//! - Figs. 6–7, impinged corners: $\varepsilon = 1$ for $x, y > 0.5$ µm, 2.25 or 8 elsewhere;
+//!   $H_y$ has zero derivative on the west and south edges and is zero on the others, $H_x$ the
+//!   opposite.
 //!
-//! Those edges are mirror walls: H_x zero on an edge normal to x is an electric wall, on an
-//! edge normal to y a magnetic one. Each problem is solved twice on each grid:
+//! Those edges are mirror walls: $H_x$ zero on an edge normal to $x$ is an electric wall, on an
+//! edge normal to $y$ a magnetic one. Each problem is solved twice on each grid:
 //!
 //! - by the standard full-vector scheme (`mode::vector`, Fallahkhair et al. 2008), which
 //!   converges at about first order at the convex corners (Figs. 4–5), with the error changing

@@ -10,8 +10,9 @@
 //! **The mesh.** Fig. 3a (p. 5; the same drawing, Suppl. Fig. 17a, Suppl. p. 18): seven
 //! hexagonal cells of tunable basic units (TBUs), 30 units, and six more at the edge (C1, C4, A3,
 //! A7, B11, B12): 36 units, 72 phase shifters, 24 ports. Each unit is a Mach-Zehnder
-//! interferometer: a 50:50 coupler, a phase shifter on each arm (φ_u, φ_l), a second 50:50
-//! coupler, so its bar amplitude is (e^(iφ_u) − e^(iφ_l))/2 and it is in cross when φ_u = φ_l.
+//! interferometer: a 50:50 coupler, a phase shifter on each arm ($\varphi_u$, $\varphi_l$), a
+//! second 50:50 coupler, so its bar amplitude is $(e^{i\varphi_u} - e^{i\varphi_l})/2$ and it is in
+//! cross when $\varphi_u = \varphi_l$.
 //! Where three units meet, each one's guide on a side joins the next unit's guide on that side;
 //! where a unit is missing, those two guides are ports. Built that way from the drawing, the
 //! all-cross state routes exactly the paper's twelve port pairs (Fig. 3b), which the example
@@ -19,7 +20,7 @@
 //!
 //! **What a mesh is unknown by** (Methods, p. 9; Suppl. Note 1, Suppl. p. 2): each unit's loss,
 //! normal with mean 0.15 dB and standard deviation 0.05 dB, and each phase shifter's passive
-//! phase, uniform over 2π (the Methods say "a normal distribution between 0 and 2π"; a phase
+//! phase, uniform over $2\pi$ (the Methods say "a normal distribution between 0 and 2π"; a phase
 //! drawn over the circle is uniform). The couplers are 50:50: the supplement puts the couplers'
 //! fabrication errors in that random passive state (Suppl. Note 2, Suppl. p. 2), and the Notes
 //! give no other coupler model for this study. Every unit has the same length, one basic unit
@@ -30,9 +31,9 @@
 //! of shifters as for Fig. 4 (p. 6; Suppl. p. 35), on 20 meshes as Fig. 4's statistics, is
 //! printed at the end, not checked: the paper reports no all-cross run with crosstalk.
 //!
-//! **The cost** (Eq. 2, p. 5; Suppl. Eq. 9, Suppl. p. 18): CF = −(1/N) Σ log |H_ch| over the
-//! N = 12 channels (Suppl. p. 20: "the 12 optical channels"), |H_ch| the largest field
-//! amplitude over the period. The logarithm is the natural one: Fig. 3d's final CF, about 0.3,
+//! **The cost** (Eq. 2, p. 5; Suppl. Eq. 9, Suppl. p. 18):
+//! $\mathrm{CF} = -(1/N) \sum \log |H_\mathrm{ch}|$ over the $N = 12$ channels (Suppl. p. 20:
+//! "the 12 optical channels"), $|H_\mathrm{ch}|$ the largest field amplitude over the period. The logarithm is the natural one: Fig. 3d's final CF, about 0.3,
 //! is −ln of Fig. 3c's −2.3 dB (a common logarithm would give 0.12). The output feature OF1 is
 //! the power averaged over the channels and the period, in dB; a run succeeds when it ends
 //! above −3 dB (p. 5: "an average error better than 3-dB"). An operation is one evaluation
@@ -47,9 +48,9 @@
 //! genetic algorithm (p. 5; Suppl. Note 4, Suppl. p. 6; Suppl. Table 15, Suppl. p. 20): 144
 //! genomes (200 % of the phases), the best 18 (25 % of the phases) the parents, kept, and 126
 //! children of them by one-point crossover; in each child 36 phases (50 %) move by a uniform
-//! step within ±r, r = 0.5π e^(−0.5 t) (Table 15's initial range and decay); within 3000
+//! step within $\pm r$, $r = 0.5\pi\,e^{-0.5t}$ (Table 15's initial range and decay); within 3000
 //! operations, 144 + 22 × 126 = 2916. The text's "20 % mating" is Table 15's 25 % of the phases,
-//! 12.5 % of the population. Phases are within [0, 2π]; the genetic algorithm's steps wrap
+//! 12.5 % of the population. Phases are within $[0, 2\pi]$; the genetic algorithm's steps wrap
 //! around the circle, as a phase does, and the swarm stops at the bounds. Gradient descent
 //! with momentum (Suppl. Eqs. 5 and 7, Suppl. pp. 7–8 and 23), genoxide's: the gradient by
 //! central differences of 0.3 mrad (Suppl. p. 7), 1 + 2 × 72 = 145 operations an iteration,
@@ -63,11 +64,11 @@
 //! **The checks.** The paper ran each method on 100 meshes and reports the share above −3 dB:
 //! 76.66 % for Fig. 3's swarm (p. 5), 70 % for Table 18's (Suppl. p. 22), 95 % for the genetic
 //! algorithm (p. 5 and Suppl. p. 20). A share of 100 runs is a binomial count, so ours and the
-//! paper's differ by chance with a standard deviation of √(2 p(1 − p)/100) at the paper's p, and
+//! paper's differ by chance with a standard deviation of $\sqrt{2p(1 - p)/100}$ at the paper's $p$, and
 //! a share is checked within two of them. (76.66 % isn't a whole number of 100 runs.) Fig. 3's
 //! swarm is checked: 79 of 100. Table 18's swarm ends 2.0 standard deviations below the paper,
-//! 57 against 70: printed, not checked. The genetic algorithm hangs on what t counts, which the
-//! paper doesn't say: over generations, its range is 0.5π e^(−11) by the last and 4 of 100
+//! 57 against 70: printed, not checked. The genetic algorithm hangs on what $t$ counts, which the
+//! paper doesn't say: over generations, its range is $0.5\pi\,e^{-11}$ by the last and 4 of 100
 //! meshes succeed; over thousands of operations, 99. Both are printed, neither checked. The
 //! paper's descent converges in 5 to 6 iterations, 750 to 900 operations, at a rate of 50
 //! (Suppl. p. 23); here a rate of 50 overshoots on every mesh and never gets there, while 1 does

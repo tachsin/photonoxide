@@ -3,14 +3,15 @@
 //! E. A. J. Marcatili, "Dielectric rectangular waveguide and directional coupler for integrated
 //! optics", Bell Syst. Tech. J. 48, 2071 (1969),
 //! [doi:10.1002/j.1538-7305.1969.tb01166.x](https://doi.org/10.1002/j.1538-7305.1969.tb01166.x):
-//! his Fig. 6b guide, a = 2b, n₁ = 1.5 in n₁/1.05, the fundamental E^x and E^y modes against the
-//! normalized height B = 2b/λ (n₁² − n₄²)^½. The ordinate is his normalized constant
-//! (k_z² − k₄²)/(k₁² − k₄²). He compares his solutions with Goell's computer solutions there and
-//! states they "coincide even for moderately large values of b", and that his closed form is
+//! his Fig. 6b guide, $a = 2b$, $n_1 = 1.5$ in $n_1/1.05$, the fundamental $E^x$ and $E^y$ modes
+//! against the normalized height $B = (2b/\lambda)(n_1^2 - n_4^2)^{1/2}$. The ordinate is his
+//! normalized constant $(k_z^2 - k_4^2)/(k_1^2 - k_4^2)$. He compares his solutions with Goell's
+//! computer solutions there and states they "coincide even for moderately large values of $b$",
+//! and that his closed form is
 //! "within a few percent" of his exact solution where the constant is at least 0.5 (p. 2083).
 //!
 //! Here the transcendental equations are solved exactly, and the full-vector solver plays
-//! Goell's part (a quarter of the guide behind the mode's walls, b/40 in the core). Far from
+//! Goell's part (a quarter of the guide behind the mode's walls, $b/40$ in the core). Far from
 //! cutoff they agree to 1e-4; near it the field reaches into the corners Marcatili ignores.
 //! The checks below are his closed form's stated accuracy; the comparison with the full-vector
 //! solver is printed, and checked in the validation report.

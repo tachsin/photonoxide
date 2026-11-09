@@ -6,15 +6,15 @@
 //! P. Bennet et al., J. Opt. Soc. Am. B 41, A126 (2024),
 //! [doi:10.1364/JOSAB.506389](https://doi.org/10.1364/JOSAB.506389) (open: arXiv:2309.09760),
 //! Section 3 and Figs. 6–7, with the problem as their published code states it (Zenodo,
-//! doi:10.5281/zenodo.10246032): layers of n = 1.8 and 1.4 alternating from the top (the first
+//! doi:10.5281/zenodo.10246032): layers of $n = 1.8$ and 1.4 alternating from the top (the first
 //! 1.8), on a substrate of 1.8, under air, at 600 nm and normal incidence; each thickness between
-//! 0 and a half-wave of the lower index, 214.29 nm; the cost 1 − R. Their DE is
-//! "current-to-best" with F₁ = F₂ = 0.8 and CR = 1/2, 30 individuals (their Table 1), genoxide's
-//! current-to-pbest/1 with p at the best alone (M. A. Barry et al., Sci. Rep. 10, 12024 (2020),
-//! doi:10.1038/s41598-020-68719-3). The best structures their Fig. 7c shows are the quarter-wave
-//! stack, 83 and 107 nm (from a plot): exactly λ/4n, 83.333 and 107.143 nm. Its reflectance, in
-//! closed form R = ((1 − Y)/(1 + Y))² with Y = (1.8/1.4)^(2N) · 1.8 for N pairs, is 0.985521 for
-//! 20 layers and 0.835144 for 10, the lowest costs of their Fig. 6 (from a plot); the plan
+//! 0 and a half-wave of the lower index, 214.29 nm; the cost $1 - R$. Their DE is
+//! "current-to-best" with $F_1 = F_2 = 0.8$ and $\mathrm{CR} = 1/2$, 30 individuals (their
+//! Table 1), genoxide's current-to-pbest/1 with $p$ at the best alone (M. A. Barry et al., Sci.
+//! Rep. 10, 12024 (2020), doi:10.1038/s41598-020-68719-3). The best structures their Fig. 7c
+//! shows are the quarter-wave stack, 83 and 107 nm (from a plot): exactly $\lambda/4n$, 83.333
+//! and 107.143 nm. Its reflectance, in closed form $R = ((1 - Y)/(1 + Y))^2$ with
+//! $Y = (1.8/1.4)^{2N} \cdot 1.8$ for $N$ pairs, is 0.985521 for 20 layers and 0.835144 for 10, the lowest costs of their Fig. 6 (from a plot); the plan
 //! (docs/plans/optimization.md) prints them to 6 digits, the tolerance here.
 //!
 //! The derivative is `Multilayer::reflection_derivatives`, checked here against fourth-order
