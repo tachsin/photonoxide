@@ -51,6 +51,8 @@ papers:
     doi: 10.1364/OE.19.003163
   - cite: "K. Luke, A. Dutt, C. B. Poitras, M. Lipson, Opt. Express 21, 22829 (2013) (thick nitride: its cracks, crack-stop trenches, the etch, the 1200 °C anneal and the cladding, PDF pp. 2–4)"
     doi: 10.1364/OE.21.022829
+  - cite: "J. G. E. Gardeniers, H. A. C. Tilmans, C. C. G. Visser, J. Vac. Sci. Technol. A 14, 2879 (1996) (LPCVD nitride from dichlorosilane and ammonia: the stress of near-stoichiometric films, Table VII, p. 2887)"
+    doi: 10.1116/1.580239
   - cite: "M. H. P. Pfeiffer et al., Optica 3, 20 (2016) (the photonic Damascene process, PDF pp. 2–3)"
     doi: 10.1364/OPTICA.3.000020
   - cite: "C. Ríos et al., Nat. Photonics 9, 725 (2015) (GST cells on nitride guides, sputtered and lifted off; Methods, PDF p. 9)"
@@ -530,7 +532,13 @@ the library's, with its source; where no source gives one, the engine says "not 
   deposited thicker and polished flat. A layer patterned over an unpolished step is flagged:
   lift-off needs a smooth or planarized surface (Campbell, Section 11.9).
 - **Film thickness.** A film thicker than its process makes is flagged: LPCVD nitride over about
-  200 nm cracks under its own stress (Campbell, p. 373).
+  200 nm cracks under its own stress (Campbell, p. 373). That stress is about 1 GPa, tensile:
+  Gardeniers et al. measured 790 ± 110 to 1110 ± 40 MPa on near-stoichiometric films made from
+  dichlorosilane and ammonia (Table VII, p. 2887). Campbell prints it as "typically 12 to 18 GPa",
+  ten times as much. A stress that high would stretch a film of Young's modulus 250 to 280 GPa
+  (Campbell, pp. 241 and 581) by several percent; in the book's own unit for film stress,
+  12 to 18 × 10⁹ dyn/cm² is 1.2 to 1.8 GPa, close to the measured values. The rule uses only the
+  thickness, so the stress's value changes no flow.
 - **Registration.** Each patterned layer's edges are measured against those of the patterned
   layer below, at the cut through the middle of the design, and compared with its lithography's
   cited overlay (193 nm: 12 nm; immersion: 7 nm; 248 nm: 8–25 nm; electron beam: 5 nm field

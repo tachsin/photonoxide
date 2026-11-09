@@ -2,7 +2,7 @@
 
 <!-- Written by `photonoxide references --write` (or `just references`) from docs/references.yaml and the citations in the repository: edit those, not this page. -->
 
-Every paper, book and data set photonoxide cites, with every place in the repository that cites it, by file and line. 605 sources, 599 with a DOI and 6 without, are cited at 3690 places in 433 files. The sources are listed by their first author; [references-by-file.md](references-by-file.md) lists each methods page, lesson, example and source file with the sources it cites, and the [validation report](validation.md) gives each case's source on its row. How to cite a source is in [CONTRIBUTING.md](../CONTRIBUTING.md#citing-a-source); the list of sources is [references.yaml](references.yaml).
+Every paper, book and data set photonoxide cites, with every place in the repository that cites it, by file and line. 606 sources, 600 with a DOI and 6 without, are cited at 3691 places in 433 files. The sources are listed by their first author; [references-by-file.md](references-by-file.md) lists each methods page, lesson, example and source file with the sources it cites, and the [validation report](validation.md) gives each case's source on its row. How to cite a source is in [CONTRIBUTING.md](../CONTRIBUTING.md#citing-a-source); the list of sources is [references.yaml](references.yaml).
 
 [A](#a) · [B](#b) · [C](#c) · [D](#d) · [E](#e) · [F](#f) · [G](#g) · [H](#h) · [I](#i) · [J](#j) · [K](#k) · [L](#l) · [M](#m) · [N](#n) · [O](#o) · [P](#p) · [Q](#q) · [R](#r) · [S](#s) · [T](#t) · [U](#u) · [V](#v) · [W](#w) · [X](#x) · [Y](#y) · [Z](#z)
 
@@ -949,7 +949,7 @@ C. de Boor, "A Practical Guide to Splines", Springer New York (1978). [doi:10.10
 
 J. P. de Souza, M. Behar, J. F. Dias, J. H. R. dos Santos, "Range parameters of ¹⁸O implanted into Si and SiO₂", Nucl. Instrum. Methods Phys. Res. B 175–177, 46 (2001). [doi:10.1016/S0168-583X(00)00525-5](https://doi.org/10.1016/S0168-583X(00)00525-5)
 
-- Methods pages: [fabrication.md:20](methods/fabrication.md?plain=1#L20), [714](methods/fabrication.md?plain=1#L714)
+- Methods pages: [fabrication.md:20](methods/fabrication.md?plain=1#L20), [722](methods/fabrication.md?plain=1#L722)
 - Code: [src/fabrication/references.rs:80](../src/fabrication/references.rs#L80), [src/fabrication/simox.rs:24](../src/fabrication/simox.rs#L24)
 
 #### Deal and Grove 1965
@@ -974,7 +974,7 @@ K. Deb, A. Pratap, S. Agarwal, T. Meyarivan, "A fast and elitist multiobjective 
 
 M. Delaney, I. Zeimpekis, D. Lawson, D. W. Hewak, O. L. Muskens, "A New Family of Ultralow Loss Reversible Phase‐Change Materials for Photonic Integrated Circuits: Sb 2 S 3 and Sb 2 Se 3", Adv Funct Materials 30, 2002447 (2020). [doi:10.1002/adfm.202002447](https://doi.org/10.1002/adfm.202002447), open access.
 
-- Methods pages: [catalogue.md:350](methods/catalogue.md?plain=1#L350), [devices.md:44](methods/devices.md?plain=1#L44), [fabrication.md:59](methods/fabrication.md?plain=1#L59)
+- Methods pages: [catalogue.md:350](methods/catalogue.md?plain=1#L350), [devices.md:44](methods/devices.md?plain=1#L44), [fabrication.md:61](methods/fabrication.md?plain=1#L61)
 - Academy lessons: [modulators.md:109](../academy/modulators.md?plain=1#L109), [603](../academy/modulators.md?plain=1#L603), [705](../academy/modulators.md?plain=1#L705)
 - Validation cases: [`material/pcm-delaney-fits`](validation.md?plain=1#L45), [`material/pcm-delaney-fits-gst`](validation.md?plain=1#L46), [`material/pcm-delaney-contrast`](validation.md?plain=1#L47), [`material/pcm-delaney-table-1`](validation.md?plain=1#L48), [`material/pcm-delaney-losses`](validation.md?plain=1#L49), [`material/pcm-delaney-fom`](validation.md?plain=1#L50), [`material/pcm-delaney-lossless`](validation.md?plain=1#L51), [`material/pcm-sb2se3-crystallization`](validation.md?plain=1#L52), [`material/pcm-sb2s3-crystallization`](validation.md?plain=1#L53), [`device/pcm-fom`](validation.md?plain=1#L670), [`device/pcm-conformal-area`](validation.md?plain=1#L673), [`fabrication/thermal-order`](validation.md?plain=1#L798), [`fabrication/pcm-rules`](validation.md?plain=1#L810)
 - Examples: [README.md:82](../examples/README.md?plain=1#L82), [pcm_delaney.rs:6](../examples/pcm_delaney.rs#L6)
@@ -993,7 +993,7 @@ M. Delaney, I. Zeimpekis, D. Lawson, D. Hewak, O. Muskens, "Dataset for A new fa
 
 M. Delaney, I. Zeimpekis, H. Du, X. Yan, M. Banakar, D. J. Thomson, D. W. Hewak, O. L. Muskens, "Nonvolatile programmable silicon photonics using an ultralow-loss Sb 2 Se 3 phase change material", Sci. Adv. 7, eabg3500 (2021). [doi:10.1126/sciadv.abg3500](https://doi.org/10.1126/sciadv.abg3500), open access.
 
-- Methods pages: [fabrication.md:61](methods/fabrication.md?plain=1#L61)
+- Methods pages: [fabrication.md:63](methods/fabrication.md?plain=1#L63)
 - Validation cases: [`fabrication/pcm-reported-flows`](validation.md?plain=1#L811)
 - Examples: [pcm_delaney.rs:25](../examples/pcm_delaney.rs#L25)
 - Code: [src/fabrication/platform_checks.rs:749](../src/fabrication/platform_checks.rs#L749), [src/fabrication/references.rs:272](../src/fabrication/references.rs#L272), [274](../src/fabrication/references.rs#L274)
@@ -1040,7 +1040,7 @@ D. Deschrijver, M. Mrozowski, T. Dhaene, D. De Zutter, "Macromodeling of Multipo
 
 C. P. Dietrich, A. Fiore, M. G. Thompson, M. Kamp, S. Höfling, "GaAs integrated quantum photonics: Towards compact and multi‐functional quantum photonic integrated circuits", Laser & Photonics Reviews 10, 870 (2016). [doi:10.1002/lpor.201500321](https://doi.org/10.1002/lpor.201500321)
 
-- Methods pages: [fabrication.md:67](methods/fabrication.md?plain=1#L67)
+- Methods pages: [fabrication.md:69](methods/fabrication.md?plain=1#L69)
 - Validation cases: [`fabrication/gaas-rules`](validation.md?plain=1#L815)
 - Code: [src/fabrication/platform_checks.rs:777](../src/fabrication/platform_checks.rs#L777), [src/fabrication/references.rs:256](../src/fabrication/references.rs#L256)
 - Other documents: [docs/plans/fabrication.md:669](plans/fabrication.md?plain=1#L669)
@@ -1383,6 +1383,12 @@ M. J. Gander, F. Magoulès, F. Nataf, "Optimized Schwarz Methods without Overlap
 Z. Gao, X. Chen, Z. Zhang, U. Chakraborty, W. Bogaerts, D. S. Boning, "Automatic synthesis of light-processing functions for programmable photonics: theory and realization", Photon. Res. 11, 643 (2023). [doi:10.1364/PRJ.474606](https://doi.org/10.1364/PRJ.474606)
 
 - Other documents: [docs/plans/optimization.md:624](plans/optimization.md?plain=1#L624)
+
+#### Gardeniers et al. 1996
+
+J. G. E. Gardeniers, H. A. C. Tilmans, C. C. G. Visser, "LPCVD silicon-rich silicon nitride films for applications in micromechanics, studied with statistical experimental design", Journal of Vacuum Science & Technology A: Vacuum, Surfaces, and Films 14, 2879 (1996). [doi:10.1116/1.580239](https://doi.org/10.1116/1.580239) [Open copy](https://ris.utwente.nl/ws/files/6771994/JVS_14_2879.pdf).
+
+- Methods pages: [fabrication.md:55](methods/fabrication.md?plain=1#L55)
 
 #### Gayer et al. 2008
 
@@ -2080,7 +2086,7 @@ D. Jundt, M. Fejer, R. Byer, "Optical properties of lithium-rich lithium niobate
 
 H. Jung, C. Xiong, K. Y. Fong, X. Zhang, H. X. Tang, "Optical frequency comb generation from aluminum nitride microring resonator", Opt. Lett. 38, 2810 (2013). [doi:10.1364/OL.38.002810](https://doi.org/10.1364/OL.38.002810)
 
-- Methods pages: [catalogue.md:40](methods/catalogue.md?plain=1#L40), [fabrication.md:65](methods/fabrication.md?plain=1#L65)
+- Methods pages: [catalogue.md:40](methods/catalogue.md?plain=1#L40), [fabrication.md:67](methods/fabrication.md?plain=1#L67)
 - Academy lessons: [nonlinear-optics.md:204](../academy/nonlinear-optics.md?plain=1#L204), [346](../academy/nonlinear-optics.md?plain=1#L346), [1119](../academy/nonlinear-optics.md?plain=1#L1119)
 - Validation cases: [`fabrication/aln-reported-flows`](validation.md?plain=1#L813)
 - Code: [src/fabrication/platform_checks.rs:763](../src/fabrication/platform_checks.rs#L763), [src/fabrication/references.rs:248](../src/fabrication/references.rs#L248), [src/material/catalogue/kerr.rs:17](../src/material/catalogue/kerr.rs#L17), [src/material/catalogue/references.rs:606](../src/material/catalogue/references.rs#L606)
@@ -2091,7 +2097,7 @@ H. Jung, C. Xiong, K. Y. Fong, X. Zhang, H. X. Tang, "Optical frequency comb gen
 
 Ö. Kabadayi, H. Gümüş, "Range and longitudinal range straggling with various stopping power formulations for oxygen ions in Si and SiO2", Phys. Status Solidi B 242, 2391 (2005). [doi:10.1002/pssb.200540082](https://doi.org/10.1002/pssb.200540082)
 
-- Methods pages: [fabrication.md:22](methods/fabrication.md?plain=1#L22), [720](methods/fabrication.md?plain=1#L720)
+- Methods pages: [fabrication.md:22](methods/fabrication.md?plain=1#L22), [728](methods/fabrication.md?plain=1#L728)
 - Code: [src/fabrication/simox.rs:28](../src/fabrication/simox.rs#L28)
 
 #### Kaito et al. 1984
@@ -2532,7 +2538,7 @@ Q. Lin, O. J. Painter, G. P. Agrawal, "Nonlinear optical phenomena in silicon wa
 
 J. Lindhard, M. Scharff, H. E. Schiøtt, "Range concepts and heavy ion ranges (Notes on atomic collisions, II)", Mat. Fys. Medd. Dan. Vid. Selsk. 33, no. 14 (1963). [Open copy](https://gymarkiv.sdu.dk/MFM/kdvs/mfm%2030-39/mfm-33-14.pdf).
 
-- Methods pages: [fabrication.md:25](methods/fabrication.md?plain=1#L25), [725](methods/fabrication.md?plain=1#L725)
+- Methods pages: [fabrication.md:25](methods/fabrication.md?plain=1#L25), [733](methods/fabrication.md?plain=1#L733)
 - Code: [src/fabrication/simox.rs:30](../src/fabrication/simox.rs#L30)
 
 #### Little et al. 1997
@@ -3219,7 +3225,7 @@ G. D. Pettit, W. J. Turner, "Refractive Index of InP", Journal of Applied Physic
 
 M. H. P. Pfeiffer, A. Kordts, V. Brasch, M. Zervas, M. Geiselmann, J. D. Jost, T. J. Kippenberg, "Photonic Damascene process for integrated high-Q microresonator based nonlinear photonics", Optica 3, 20 (2016). [doi:10.1364/OPTICA.3.000020](https://doi.org/10.1364/OPTICA.3.000020)
 
-- Methods pages: [fabrication.md:55](methods/fabrication.md?plain=1#L55), [nonlinear.md:44](methods/nonlinear.md?plain=1#L44)
+- Methods pages: [fabrication.md:57](methods/fabrication.md?plain=1#L57), [nonlinear.md:44](methods/nonlinear.md?plain=1#L44)
 - Academy lessons: [nonlinear-optics.md:216](../academy/nonlinear-optics.md?plain=1#L216), [850](../academy/nonlinear-optics.md?plain=1#L850), [1118](../academy/nonlinear-optics.md?plain=1#L1118)
 - Validation cases: [`fabrication/nitride-rules`](validation.md?plain=1#L807), [`fabrication/nitride-reported-flows`](validation.md?plain=1#L808)
 - Code: [src/fabrication/platform_checks.rs:721](../src/fabrication/platform_checks.rs#L721), [728](../src/fabrication/platform_checks.rs#L728), [src/fabrication/references.rs:296](../src/fabrication/references.rs#L296), [298](../src/fabrication/references.rs#L298)
@@ -3482,7 +3488,7 @@ M. Rigler, J. Buh, M. P. Hoffmann, R. Kirste, M. Bobea, S. Mita, M. D. Gerhold, 
 
 C. Ríos, M. Stegmaier, P. Hosseini, D. Wang, T. Scherer, C. D. Wright, H. Bhaskaran, W. H. P. Pernice, "Integrated all-photonic non-volatile multi-level memory", Nature Photon 9, 725 (2015). [doi:10.1038/nphoton.2015.182](https://doi.org/10.1038/nphoton.2015.182)
 
-- Methods pages: [fabrication.md:57](methods/fabrication.md?plain=1#L57)
+- Methods pages: [fabrication.md:59](methods/fabrication.md?plain=1#L59)
 - Academy lessons: [modulators.md:79](../academy/modulators.md?plain=1#L79), [596](../academy/modulators.md?plain=1#L596), [704](../academy/modulators.md?plain=1#L704)
 - Validation cases: [`fabrication/nitride-reported-flows`](validation.md?plain=1#L808), [`fabrication/pcm-rules`](validation.md?plain=1#L810)
 - Code: [src/fabrication/platform_checks.rs:728](../src/fabrication/platform_checks.rs#L728), [742](../src/fabrication/platform_checks.rs#L742), [src/fabrication/references.rs:224](../src/fabrication/references.rs#L224)
@@ -4434,7 +4440,7 @@ E. Wooten, K. Kissa, A. Yi-Yan, E. Murphy, D. Lafaw, P. Hallemeier, D. Maack, D.
 
 C. Xiong, W. H. P. Pernice, H. X. Tang, "Low-Loss, Silicon Integrated, Aluminum Nitride Photonic Circuits and Their Use for Electro-Optic Signal Processing", Nano Lett. 12, 3562 (2012). [doi:10.1021/nl3011885](https://doi.org/10.1021/nl3011885)
 
-- Methods pages: [fabrication.md:63](methods/fabrication.md?plain=1#L63)
+- Methods pages: [fabrication.md:65](methods/fabrication.md?plain=1#L65)
 - Validation cases: [`fabrication/aln-reported-flows`](validation.md?plain=1#L813)
 - Code: [src/fabrication/platform_checks.rs:763](../src/fabrication/platform_checks.rs#L763), [src/fabrication/references.rs:240](../src/fabrication/references.rs#L240)
 - Other documents: [docs/plans/fabrication.md:668](plans/fabrication.md?plain=1#L668)
