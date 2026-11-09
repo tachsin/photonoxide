@@ -1,14 +1,16 @@
 import { cache } from "react";
 import { parse as parseYaml } from "yaml";
 import { fetchCached } from "@/lib/projects/fetch-cached";
+import { latestTagLookup } from "./latest";
 import { PHOTONOXIDE_BRANCH, PHOTONOXIDE_COMMIT, PHOTONOXIDE_REPO } from "./meta";
 import { readLocalReferencePage, readPythonReferencePage, releaseAssetName } from "./python-reference";
 
 /**
  * Reads the public photonoxide repository on GitHub, server-side, at the
  * latest release: the tag of GitHub's latest release (`v0.4.3`), looked up
- * through Next's data cache (daily), so a release reaches the pages within a
- * day without pinning a new commit. When GitHub can't say, the pages read the
+ * at most every ten minutes and kept in the server's memory (latest.js), so a
+ * release reaches the pages within ten minutes without pinning a new commit,
+ * and a deploy (a restart) asks again. When GitHub can't say, the pages read the
  * commit they were synced from (PHOTONOXIDE_COMMIT), as genoxide's pages do.
  *
  * One GitHub API call lists every file (the git tree of the tag); the files
@@ -22,20 +24,36 @@ import { readLocalReferencePage, readPythonReferencePage, releaseAssetName } fro
 const LATEST_URL = `https://api.github.com/repos/${PHOTONOXIDE_REPO}/releases/latest`;
 export const BLOB_BASE = `https://github.com/${PHOTONOXIDE_REPO}/blob/${PHOTONOXIDE_BRANCH}/`;
 
+/** One server's lookup, shared by every request (latest.js). */
+const latestTag = latestTagLookup({
+  ask: async (etag) => {
+    try {
+      // not through Next's data cache: it outlives deploys and serves stale (latest.js)
+      const res = await fetch(LATEST_URL, {
+        cache: "no-store",
+        headers: {
+          Accept: "application/vnd.github+json",
+          "User-Agent": "tachsin.gr/projects (+https://tachsin.gr/projects)",
+          ...(etag ? { "If-None-Match": etag } : {}),
+        },
+        signal: AbortSignal.timeout(8000),
+      });
+      if (res.status === 304) return { status: 304 };
+      if (!res.ok) return null;
+      const release = await res.json();
+      return { status: 200, tag: release?.tag_name ?? null, etag: res.headers.get("etag") };
+    } catch {
+      return null;
+    }
+  },
+});
+
 /**
  * The latest release's tag, e.g. "v0.4.3", or null when GitHub can't be
  * reached or there is no release.
  * @returns {Promise<string | null>}
  */
-export const getLatestTag = cache(async () => {
-  const release = await fetchCached(LATEST_URL, {
-    as: "json",
-    headers: { Accept: "application/vnd.github+json" },
-    tags: ["photonoxide"],
-  });
-  const tag = release?.tag_name;
-  return typeof tag === "string" && /^v\d+\.\d+\.\d+$/.test(tag) ? tag : null;
-});
+export const getLatestTag = cache(() => latestTag());
 
 /** What the pages read: the latest release's tag, or the synced commit. */
 const getRef = cache(async () => (await getLatestTag()) ?? PHOTONOXIDE_COMMIT);

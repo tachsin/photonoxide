@@ -3,7 +3,7 @@ import { getLatestTag, getRepoFile } from "./github";
 
 /**
  * The latest release: GitHub's latest release (its tag without the "v"), so
- * a new release shows within a day (see github.js); failing that, the first
+ * a new release shows within ten minutes (see latest.js); failing that, the first
  * `## [x.y.z]` heading of CHANGELOG.md, which release-plz writes when it
  * releases. `## [Unreleased]` is skipped.
  */

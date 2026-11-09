@@ -14,10 +14,20 @@ goes live when the app pins a commit that has it (`pnpm sync:photonoxide --updat
 latest), and the app is deployed.
 
 **The content follows releases by itself.** The pages read the repository's files (the methods,
-the examples, the validation report, the roadmap) at the tag of GitHub's latest release, looked
-up daily (`github.js`), and show that release's version (`release.js`). A release appears on the
-site within a day, with no new pin and no deploy. Only when GitHub can't be reached do they read
-the pinned commit instead.
+the examples, the validation report, the roadmap) at the tag of GitHub's latest release, and show
+that release's version (`release.js`). The tag is looked up at most every ten minutes and kept in
+the server's memory (`latest.js`), not in Next's data cache, which lives on disk, outlives
+deploys and restarts, and serves a stale answer to the first visit after its time is up (0.6.3's
+release waited on it for most of a day, through a deploy). A release appears on the site within
+ten minutes, with no new pin and no deploy, and a deploy always asks GitHub again. Only when
+GitHub can't be reached do they read the pinned commit instead. The files themselves are read at
+the tag, which never moves, so they stay in Next's data cache.
+
+The latest release's milestone, and every older one, shows as done on the roadmap and the
+overview (`milestones.js`), whatever its heading in ROADMAP.md at the tag says; the release PR
+still marks it (✅, and the README's status row), and CI checks that it does
+(`.github/release-marks.sh`). After a deploy, `just site-check` compares the live pages with
+the latest release (below).
 
 | Folder | In the app |
 | --- | --- |
