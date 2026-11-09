@@ -6,6 +6,33 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.6.4](https://github.com/tachsin/photonoxide/compare/v0.6.3...v0.6.4) - 2026-11-09
+
+### <!-- 0 -->Added
+
+- *(studio)* the source designer shows broadband squeezing at high gain ([#765](https://github.com/tachsin/photonoxide/pull/765))
+- *(readme)* a new 30-second hero, ten scenes of the studio as it is now ([#771](https://github.com/tachsin/photonoxide/pull/771))
+- *(site)* the roadmap as a timeline, example cards in Markdown, and KaTeX in the examples ([#772](https://github.com/tachsin/photonoxide/pull/772))
+- *(readme)* the hero again, eight scenes without captions, the ring's switch to 3D clean ([#775](https://github.com/tachsin/photonoxide/pull/775))
+
+### <!-- 1 -->Fixed
+
+- LPCVD nitride's film stress, about 1 GPa, where Campbell's 3rd edition prints 12 to 18 GPa (part of #595) ([#762](https://github.com/tachsin/photonoxide/pull/762))
+- a choice of TiN film with its resistance following the heater's temperature, and the Elmer pair E5's input (part of #595) ([#764](https://github.com/tachsin/photonoxide/pull/764))
+- Mie's 650 nm spheres, Lalanne's échelette and the RCWA's TM static limit (3 lines, part of #595) ([#766](https://github.com/tachsin/photonoxide/pull/766))
+- the project site follows a release (the release looked up every ten minutes, its milestone done, checks on the release PR and the live site) ([#769](https://github.com/tachsin/photonoxide/pull/769))
+- the quantum and coupler leftovers, Peruzzo's panels explained (4 lines, part of #595) ([#770](https://github.com/tachsin/photonoxide/pull/770))
+- the device-model gaps against papers in hand, Passoni's bandwidths explained (5 lines, part of #595) ([#776](https://github.com/tachsin/photonoxide/pull/776))
+- the release-marks check accepts a patch release that has no milestone of its own ([#778](https://github.com/tachsin/photonoxide/pull/778))
+- *(studio)* state an unbounded acceptance bandwidth as unbounded ([#777](https://github.com/tachsin/photonoxide/pull/777))
+- the Release marks workflow parses, its condition quoted ([#779](https://github.com/tachsin/photonoxide/pull/779))
+
+### <!-- 4 -->Documentation
+
+- statements that went stale at 0.6.3 ([#767](https://github.com/tachsin/photonoxide/pull/767))
+- where the Python API reference comes from since 0.6.3 ([#768](https://github.com/tachsin/photonoxide/pull/768))
+- the plan for 0.8, carrier modulators, signals and programmable circuits ([#780](https://github.com/tachsin/photonoxide/pull/780))
+
 ## [0.6.3](https://github.com/tachsin/photonoxide/compare/v0.6.2...v0.6.3) - 2026-11-09
 
 ### <!-- 0 -->Added
