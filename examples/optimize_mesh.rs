@@ -6,32 +6,34 @@
 //! W. R. Clements et al., Optica 3, 1460 (2016),
 //! [doi:10.1364/OPTICA.3.001460](https://doi.org/10.1364/OPTICA.3.001460).
 //!
-//! **The mesh.** Clements's rectangular arrangement of N(N − 1)/2 MZIs, N columns deep, then a
-//! phase on every output: N² phases. Each MZI is a phase φ on its upper input, a 50:50 coupler,
-//! a phase θ on its upper arm and a second 50:50 coupler; its cross power is
-//! t = cos²(θ/2). Clements showed such a mesh implements any N × N unitary: a fit to any target
-//! reaches round-off. The cost is Pai's Eq. 12, (1/2N) ‖Û − U‖², its gradient the matrix
-//! model's adjoint (one pass forward, one back), checked against photonoxide's circuit solve
-//! and circuit adjoint of the same mesh built as a netlist.
+//! **The mesh.** Clements's rectangular arrangement of $N(N - 1)/2$ MZIs, $N$ columns deep, then
+//! a phase on every output: $N^2$ phases. Each MZI is a phase $\varphi$ on its upper input, a
+//! 50:50 coupler, a phase $\theta$ on its upper arm and a second 50:50 coupler; its cross power
+//! is $t = \cos^2(\theta/2)$. Clements showed such a mesh implements any $N \times N$ unitary: a
+//! fit to any target reaches round-off. The cost is Pai's Eq. 12,
+//! $(1/2N)\,\lVert \hat U - U \rVert^2$, its gradient the matrix model's adjoint (one pass
+//! forward, one back), checked against photonoxide's circuit solve and circuit adjoint of the
+//! same mesh built as a netlist.
 //!
-//! **The Haar initialization.** An MZI's sensitivity index α = |I| + |O| − N − 1 counts the
-//! inputs I that reach it and the outputs O it reaches (Pai's Section III); over a rectangular
-//! mesh its mean is (N + 1)/3. A Haar-random unitary's MZIs have independent θ with
-//! t^α uniform (Pai's Eq. 8), so θ = 2 arccos ξ^(1/2α) for ξ uniform, and every other phase
-//! uniform, draws a Haar-random mesh (Eq. 9). Checked here by its statistics: a Haar-random
-//! unitary's every entry has E|U_qp|⁴ = 2/(N(N + 1)), and the sampled means are checked within
-//! 3 standard errors over the mesh and within 4 at each entry. With one more than Pai's α the
-//! mean over the mesh hardly moves, but an entry's |z| reaches about 50; with every phase
+//! **The Haar initialization.** An MZI's sensitivity index $\alpha = |I| + |O| - N - 1$ counts
+//! the inputs $I$ that reach it and the outputs $O$ it reaches (Pai's Section III); over a
+//! rectangular mesh its mean is $(N + 1)/3$. A Haar-random unitary's MZIs have independent
+//! $\theta$ with $t^\alpha$ uniform (Pai's Eq. 8), so $\theta = 2\arccos \xi^{1/2\alpha}$ for $\xi$
+//! uniform, and every other phase uniform, draws a Haar-random mesh (Eq. 9). Checked here by its
+//! statistics: a Haar-random unitary's every entry has $E|U_{qp}|^4 = 2/(N(N + 1))$, and the
+//! sampled means are checked within 3 standard errors over the mesh and within 4 at each entry.
+//! With one more than Pai's $\alpha$ the mean over the mesh hardly moves, but an entry's $|z|$
+//! reaches about 50; with every phase
 //! uniform the mean is far off (printed): the entries' test is the one that tells them apart.
 //!
 //! **The fits.** From the Haar initialization, genoxide's L-BFGS-B fits Haar-random targets
 //! (Mezzadri's construction) to round-off, each checked at 1e-20. The phases are free: kept within
-//! a phase shifter's ±2π, L-BFGS-B stops against the bounds at misfits about 1e-3; with bounds of
-//! ±1000 rad, never reached, it gets to round-off from every start. Adam at Pai's learning rate
-//! 0.0025, for 20 000 iterations as in Pai's Figure 6, from the Haar initialization and from
-//! uniform phases, is printed, not checked: Pai's figure (N = 128, a plot) has the Haar
-//! initialization converging faster, as uniform phases leave so large a mesh nearly banded; at
-//! N = 8 and 16 the two start about as well. Exact: no grid.
+//! a phase shifter's $\pm 2\pi$, L-BFGS-B stops against the bounds at misfits about 1e-3; with
+//! bounds of ±1000 rad, never reached, it gets to round-off from every start. Adam at Pai's
+//! learning rate 0.0025, for 20 000 iterations as in Pai's Figure 6, from the Haar initialization
+//! and from uniform phases, is printed, not checked: Pai's figure ($N = 128$, a plot) has the
+//! Haar initialization converging faster, as uniform phases leave so large a mesh nearly banded;
+//! at $N = 8$ and 16 the two start about as well. Exact: no grid.
 //!
 //! ```sh
 //! cargo run --release --example optimize_mesh

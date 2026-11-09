@@ -5,7 +5,7 @@
 //! 10487 (2014), [doi:10.1364/OE.22.010487](https://doi.org/10.1364/OE.22.010487): a 61.6 µm
 //! phase shifter on 220 nm SOI, a current across a ridge on a 90 nm slab, its p region 1.0 µm
 //! wide across the guide and p++ beyond, heat channels 0.8 µm wide every 2.44 µm to the contacts
-//! (Section 2, Fig. 1). Measured in an unbalanced MZI (Section 4.1): P_π 24.77 ± 0.43 mW, the
+//! (Section 2, Fig. 1). Measured in an unbalanced MZI (Section 4.1): $P_\pi$ 24.77 ± 0.43 mW, the
 //! −3 dB frequency 130.0 ± 5.59 kHz, the insertion loss 0.23 ± 0.13 dB.
 //!
 //! The device (`device::ThermoShifter::in_guide`, its defaults this design) at each of its
@@ -18,9 +18,9 @@
 //! takes a 500 nm ridge, the slab continuous to 1.0 µm from the guide's centre and the contacts
 //! 3.0 µm out (`shifter/harris-*`'s).
 //!
-//! P_π is a 2D number, a straight section's (any length), and the periodic channels are
+//! $P_\pi$ is a 2D number, a straight section's (any length), and the periodic channels are
 //! averaged: the 2D model is a section's, not the made device's 3D. The tolerances: 10% and the
-//! measurement's uncertainty for P_π against the measured (what the paper doesn't give, and the
+//! measurement's uncertainty for $P_\pi$ against the measured (what the paper doesn't give, and the
 //! 3D), 20% and its uncertainty for the bandwidth, and the analytic model's stated 15% against
 //! the 2D.
 //!

@@ -8,7 +8,7 @@
 //! - Table 3: the four TE and four TM bound modes, to 6 decimals, and the share of each one's
 //!   power in every layer, to 0.1 %;
 //! - Table 2: five TE leaky waves below the substrate's index, complex, to 5 decimals. One
-//!   printed value, m = 5's real part 1.38250, is one unit in the last place above ours
+//!   printed value, $m = 5$'s real part 1.38250, is one unit in the last place above ours
 //!   (1.3824892); the other nine are ours rounded.
 //!
 //! ```sh

@@ -1,26 +1,29 @@
 //! A maximally flat half-band lattice filter found by optimization: three couplers joined by
-//! two delays, 2ΔL then ΔL, their couplings and phases fitted by genoxide's L-BFGS-B on the
+//! two delays, $2\Delta L$ then $\Delta L$, their couplings and phases fitted by genoxide's L-BFGS-B on the
 //! circuit adjoint's gradient (from seeded random starts) until the cross port's response is the
 //! maximally flat half-band response, and compared with Jinguji and Oguma's design.
 //!
 //! K. Jinguji, T. Oguma, J. Lightwave Technol. 18, 252 (2000),
 //! [doi:10.1109/50.822800](https://doi.org/10.1109/50.822800), Table I: the maximally flat
-//! half-band filter of this lattice, θ = 0.0833π, 0.3333π, 0.25π (power couplings sin²θ =
-//! 0.067, 0.75, 0.5) and φ = π, 0; synthesized as in K. Jinguji, M. Kawachi, J. Lightwave
-//! Technol. 13, 73 (1995), [doi:10.1109/50.350643](https://doi.org/10.1109/50.350643).
+//! half-band filter of this lattice, $\theta = 0.0833\pi$, $0.3333\pi$, $0.25\pi$ (power couplings
+//! $\sin^2\theta = 0.067$, 0.75, 0.5) and $\varphi = \pi$, 0; synthesized as in K. Jinguji,
+//! M. Kawachi, J. Lightwave Technol. 13, 73 (1995),
+//! [doi:10.1109/50.350643](https://doi.org/10.1109/50.350643).
 //!
-//! **The target.** A lossless lattice of total delay 3ΔL is a power-complementary trigonometric
-//! polynomial of degree 3 in ω, the phase across ΔL. The maximally flat half-band one of that
-//! degree, flat to order 4 at ω = 0 and 0 to order 4 at ω = π, is
-//! T(ω) = cos⁴(ω/2) (1 + 2 sin²(ω/2)), T(ω) + T(ω + π) = 1: the power response of the shortest
-//! of I. Daubechies's filters after the Haar one (Commun. Pure Appl. Math. 41, 909 (1988),
+//! **The target.** A lossless lattice of total delay $3\Delta L$ is a power-complementary
+//! trigonometric polynomial of degree 3 in $\omega$, the phase across $\Delta L$. The maximally
+//! flat half-band one of that degree, flat to order 4 at $\omega = 0$ and 0 to order 4 at
+//! $\omega = \pi$, is $T(\omega) = \cos^4(\omega/2)\,(1 + 2\sin^2(\omega/2))$,
+//! $T(\omega) + T(\omega + \pi) = 1$: the power response of the shortest of I. Daubechies's
+//! filters after the Haar one (Commun. Pure Appl. Math. 41, 909 (1988),
 //! doi:10.1002/cpa.3160410705). Table I's design gives it at the cross port to 1e-15.
 //!
-//! **The power, and the field.** Fitted to T alone at 64 phases over one period, the design is
-//! found only roughly: T's double zero at ω = π makes the misfit about quartic near it, and
-//! L-BFGS-B stops a few 1e-4 π away (printed). The power fixes |H| only; Table I's design
-//! realizes the spectral factor H_D(ω) = ((1 + z)/2)² ((1 − √3)/2 + (1 + √3)/2 z), z = e^(iω),
-//! and fitted to H_D's field (with the best global phase), the problem is well conditioned:
+//! **The power, and the field.** Fitted to $T$ alone at 64 phases over one period, the design is
+//! found only roughly: $T$'s double zero at $\omega = \pi$ makes the misfit about quartic near it,
+//! and L-BFGS-B stops a few $10^{-4}\pi$ away (printed). The power fixes $|H|$ only; Table I's
+//! design realizes the spectral factor
+//! $H_D(\omega) = ((1 + z)/2)^2\,((1 - \sqrt3)/2 + (1 + \sqrt3)/2\,z)$, $z = e^{i\omega}$, and
+//! fitted to $H_D$'s field (with the best global phase), the problem is well conditioned:
 //! that is the fit checked. The circuit solve: exact, no grid.
 //!
 //! ```sh

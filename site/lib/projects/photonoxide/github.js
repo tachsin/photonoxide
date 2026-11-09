@@ -59,10 +59,41 @@ export const getLatestTag = cache(() => latestTag());
 const getRef = cache(async () => (await getLatestTag()) ?? PHOTONOXIDE_COMMIT);
 
 /**
+ * A local checkout of photonoxide to read instead of GitHub, for previewing
+ * edits to the repository's files (an example's doc comment, ROADMAP.md) on
+ * the app's dev server before they are released:
+ * `PHOTONOXIDE_LOCAL_REPO=<checkout> pnpm dev`. Never set on tachsin.gr.
+ */
+const LOCAL_REPO = process.env.PHOTONOXIDE_LOCAL_REPO || null;
+const LOCAL_SKIP = new Set(["node_modules", "target", "dist"]);
+
+async function localFiles() {
+  const { readdir } = await import("node:fs/promises");
+  const files = new Set();
+  const walk = async (dir) => {
+    for (const entry of await readdir(`${LOCAL_REPO}/${dir}`, { withFileTypes: true })) {
+      if (entry.name.startsWith(".") || LOCAL_SKIP.has(entry.name)) continue;
+      const rel = dir ? `${dir}/${entry.name}` : entry.name;
+      if (entry.isDirectory()) await walk(rel);
+      else if (entry.isFile()) files.add(rel);
+    }
+  };
+  await walk("");
+  return files;
+}
+
+async function localFile(path) {
+  if (path.split("/").some((s) => s === ".." || s === "")) return null;
+  const { readFile } = await import("node:fs/promises");
+  return readFile(`${LOCAL_REPO}/${path}`, "utf8").catch(() => null);
+}
+
+/**
  * Every file path at that ref, or null when GitHub can't be reached.
  * @returns {Promise<Set<string> | null>}
  */
 export const getRepoFiles = cache(async () => {
+  if (LOCAL_REPO) return localFiles().catch(() => null);
   const ref = await getRef();
   const tree = await fetchCached(
     `https://api.github.com/repos/${PHOTONOXIDE_REPO}/git/trees/${ref}?recursive=1`,
@@ -81,6 +112,7 @@ export const getRepoFiles = cache(async () => {
  * @param {string} path  repository-relative, e.g. "docs/methods/pml.md"
  */
 export const getRepoFile = cache(async (path) => {
+  if (LOCAL_REPO) return localFile(path);
   const ref = await getRef();
   return fetchCached(
     `https://raw.githubusercontent.com/${PHOTONOXIDE_REPO}/${ref}/${path

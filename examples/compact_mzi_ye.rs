@@ -5,14 +5,15 @@
 //! Y. Ye, D. Spina, Y. Xing, W. Bogaerts, T. Dhaene, "Numerical modeling of a linear photonic
 //! system for accurate and efficient time-domain simulations", Photonics Res. 6, 560 (2018),
 //! [doi:10.1364/PRJ.6.000560](https://doi.org/10.1364/PRJ.6.000560), Section 6.A: an MZI of two
-//! ideal 50/50 couplers and arms of 150 and 100 µm, both of n_eff 2.35 and n_g 4.3 at 1.55 µm
-//! and 200 dB/m. Its scattering parameters are fitted by vector fitting (Gustavsen and
+//! ideal 50/50 couplers and arms of 150 and 100 µm, both of $n_\mathrm{eff}$ 2.35 and $n_g$ 4.3
+//! at 1.55 µm and 200 dB/m. Its scattering parameters are fitted by vector fitting (Gustavsen and
 //! Semlyen's, real poles and conjugate pairs), "aiming at a maximum absolute error of less than
 //! −60 dB", checked on frequency samples kept apart from the fit: Model A over 187.5 to 200 THz
-//! takes 67 poles, Model B over f_c ± Δ (f_c = 193.72 THz, Δ = 150 GHz) 8.
+//! takes 67 poles, Model B over $f_c \pm \Delta$ ($f_c = 193.72$ THz, $\Delta = 150$ GHz) 8.
 //!
-//! Here the same MZI is photonoxide's netlist of two ideal couplers and two waveguides (n_eff
-//! first order in λ about 1.55 µm, as their analytic model's dispersion), its 4 × 4 S fitted by
+//! Here the same MZI is photonoxide's netlist of two ideal couplers and two waveguides
+//! ($n_\mathrm{eff}$ first order in $\lambda$ about 1.55 µm, as their analytic model's dispersion),
+//! its 4 × 4 $S$ fitted by
 //! [`CompactModel::fit`] with real poles and conjugate pairs, as theirs, at the even of 2001
 //! frequencies (Model A) or 201 (Model B), evenly spaced, and checked at the odd ones. A real
 //! model's poles come in pairs here (an even count): the fewest that reach −60 dB, and the

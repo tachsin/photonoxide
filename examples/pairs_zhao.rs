@@ -6,7 +6,7 @@
 //! (2020), [doi:10.1103/PhysRevLett.124.163603](https://doi.org/10.1103/PhysRevLett.124.163603):
 //! 300 nm of x-cut 5 mol% MgO-doped LiNbO₃ on 1.8 µm of silica, etched 50 nm to a ridge 1.24 µm
 //! wide with 75° sidewalls, air above, along the crystal's y, poled over 5 mm at "the calculated
-//! QPM period, Λ = 2.8 µm, to match the refractive indices of the lowest-order TE-polarized
+//! QPM period, $\Lambda = 2.8$ µm, to match the refractive indices of the lowest-order TE-polarized
 //! waveguide modes at 1570 and 785 nm", with effective areas of 1.1 µm² at 1570 nm and 0.4 µm²
 //! at 785 nm (p. 1).
 //!
@@ -20,7 +20,7 @@
 //! The matched wavelength converges from below as the cells shrink, at an order of 1.4: 1.5566,
 //! 1.5583 and 1.5590 µm on 20, 10 and 5 nm cells, toward 1.5594 µm, so the difference printed
 //! below, 1.7e-3 µm, bounds the 10 nm value's own error, 1.1e-3 µm. The interpolants' tolerance
-//! doesn't move it: 1e-6 to 1e-12 in n_eff all give 1.556617 µm on 20 nm cells
+//! doesn't move it: 1e-6 to 1e-12 in $n_\mathrm{eff}$ all give 1.556617 µm on 20 nm cells
 //! (docs/methods/nonlinear.md, "Zhao et al.'s guide").
 //!
 //! The tolerances: half a unit of the last printed digit (0.05 µm, 0.05 µm²), and for the

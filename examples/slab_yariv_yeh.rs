@@ -4,11 +4,11 @@
 //! Oxford University Press (2007), a textbook without a DOI. Effective indices printed to 4
 //! decimals:
 //!
-//! - Section 3.2, p. 123 and Figs. 3.8–3.9: an asymmetric slab, n₁ = 1.0, n₂ = 2.0, n₃ = 1.7,
-//!   t/λ = 1: two TE modes, 1.9594 and 1.8375, and two TM modes;
-//! - Section 3.1, pp. 117–118: a symmetric slab, n = 1.5 / 1.6 / 1.5, d = 5 µm, λ = 1.55 µm
-//!   (V = 5.6425): four TE modes, 1.5946, 1.5785, 1.5521 and 1.5175; TE_m and TM_m share a
-//!   cutoff, V = mπ/2 (p. 117), so four TM modes.
+//! - Section 3.2, p. 123 and Figs. 3.8–3.9: an asymmetric slab, $n_1 = 1.0$, $n_2 = 2.0$,
+//!   $n_3 = 1.7$, $t/\lambda = 1$: two TE modes, 1.9594 and 1.8375, and two TM modes;
+//! - Section 3.1, pp. 117–118: a symmetric slab, $n = 1.5 / 1.6 / 1.5$, $d = 5$ µm,
+//!   $\lambda = 1.55$ µm ($V = 5.6425$): four TE modes, 1.5946, 1.5785, 1.5521 and 1.5175;
+//!   $\mathrm{TE}_m$ and $\mathrm{TM}_m$ share a cutoff, $V = m\pi/2$ (p. 117), so four TM modes.
 //!
 //! ```sh
 //! cargo run --release --example slab_yariv_yeh

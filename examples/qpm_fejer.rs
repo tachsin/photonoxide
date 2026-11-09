@@ -4,10 +4,10 @@
 //! M. M. Fejer, G. A. Magel, D. H. Jundt, R. L. Byer, "Quasi-phase-matched second harmonic
 //! generation: tuning and tolerances", IEEE J. Quantum Electron. 28, 2631 (1992),
 //! [doi:10.1109/3.161322](https://doi.org/10.1109/3.161322), Table I: SHG of 0.86, 1.064 and
-//! 2.12 µm in congruent LiNbO₃ at 25 °C by d₃₁, d₃₃ and d₂₂, first-order QPM at a 50 % duty
-//! cycle; l_c, and the FWHM acceptance of 1 mm in the fundamental's wavelength, the temperature
-//! (with the thermal expansion along the grating) and two tilts. They computed it with Edwards and
-//! Lawrence's indices (their Ref. [24]), and δT at 0.86 µm with Jundt et al.'s for lithium-rich
+//! 2.12 µm in congruent LiNbO₃ at 25 °C by $d_{31}$, $d_{33}$ and $d_{22}$, first-order QPM at a
+//! 50 % duty cycle; $l_c$, and the FWHM acceptance of 1 mm in the fundamental's wavelength, the
+//! temperature (with the thermal expansion along the grating) and two tilts. They computed it with
+//! Edwards and Lawrence's indices (their Ref. [24]), and $\delta T$ at 0.86 µm with Jundt et al.'s for lithium-rich
 //! material (Ref. [25], footnote f); both are the catalogue's.
 //!
 //! Each value is compared with the printed one to half a unit of its last printed digit. Of the
