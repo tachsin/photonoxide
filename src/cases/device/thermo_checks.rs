@@ -648,7 +648,7 @@ pub(crate) fn cases() -> Vec<Case> {
         },
         Case {
             id: "device/thermo-tcr-drive",
-            title: r"Thermo-optic phase shifter whose heater's resistance follows its temperature: Kearney et al.'s sample F as the metal device's TiN (analytic) at 3 V and at 10 mA, its power, its own mean rise, its resistance and its phase from the device's closed form ($aP^2 + P = V^2/R_a$, $P = I^2R_a/(1 - aI^2R_a)$) against Picard's iteration on the same steady state, $R = R_0(1 + \alpha(T - 293\,\mathrm{K}))$ at the last step's $T = 300\,\mathrm{K} + zP/L$: the largest relative error (shown)",
+            title: r"Thermo-optic phase shifter whose heater's resistance follows its temperature: Kearney et al.'s sample F as the metal device's TiN (analytic) at 3 V and at 10 mA, its power, its own mean rise, its resistance and its phase from the device's closed form ($aP^2 + P = V^2/R_a$, $P = I^2R_a/(1 - aI^2R_a)$) against Picard's iteration on the same steady state, $R = R_0(1 + \alpha(T - 293\thinspace\mathrm{K}))$ at the last step's $T = 300\thinspace\mathrm{K} + zP/L$: the largest relative error (shown)",
             tier: Tier::Analytic,
             source: r"Joule's law at a fixed voltage or current with a resistance linear in the heater's temperature, the heat linear in the power (the heater's mean rise $zP/L$, $z$ the model's own); B. T. Kearney et al., doi:10.1016/j.tsf.2018.07.001, for $\alpha$ = 0.095 %/K from 293 to 773 K",
             run: || outcome(tcr_drive_against_picard(), 0.0, 1e-12),
