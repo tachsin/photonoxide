@@ -2,7 +2,7 @@
 
 <!-- Written by `photonoxide references --write` (or `just references`) from docs/references.yaml and the citations in the repository: edit those, not this page. -->
 
-Every paper, book and data set photonoxide cites, with every place in the repository that cites it, by file and line. 606 sources, 600 with a DOI and 6 without, are cited at 3691 places in 433 files. The sources are listed by their first author; [references-by-file.md](references-by-file.md) lists each methods page, lesson, example and source file with the sources it cites, and the [validation report](validation.md) gives each case's source on its row. How to cite a source is in [CONTRIBUTING.md](../CONTRIBUTING.md#citing-a-source); the list of sources is [references.yaml](references.yaml).
+Every paper, book and data set photonoxide cites, with every place in the repository that cites it, by file and line. 608 sources, 602 with a DOI and 6 without, are cited at 3695 places in 433 files. The sources are listed by their first author; [references-by-file.md](references-by-file.md) lists each methods page, lesson, example and source file with the sources it cites, and the [validation report](validation.md) gives each case's source on its row. How to cite a source is in [CONTRIBUTING.md](../CONTRIBUTING.md#citing-a-source); the list of sources is [references.yaml](references.yaml).
 
 [A](#a) · [B](#b) · [C](#c) · [D](#d) · [E](#e) · [F](#f) · [G](#g) · [H](#h) · [I](#i) · [J](#j) · [K](#k) · [L](#l) · [M](#m) · [N](#n) · [O](#o) · [P](#p) · [Q](#q) · [R](#r) · [S](#s) · [T](#t) · [U](#u) · [V](#v) · [W](#w) · [X](#x) · [Y](#y) · [Z](#z)
 
@@ -1081,7 +1081,7 @@ W. Dörfler, "A Convergent Adaptive Algorithm for Poisson’s Equation", SIAM J.
 
 P. Drude, "Zur Elektronentheorie der Metalle", Annalen der Physik 306, 566 (1900). [doi:10.1002/andp.19003060312](https://doi.org/10.1002/andp.19003060312)
 
-- Academy lessons: [material-dispersion.md:26](../academy/material-dispersion.md?plain=1#L26), [173](../academy/material-dispersion.md?plain=1#L173), [437](../academy/material-dispersion.md?plain=1#L437), [plasmonics.md:22](../academy/plasmonics.md?plain=1#L22), [57](../academy/plasmonics.md?plain=1#L57), [110](../academy/plasmonics.md?plain=1#L110), [420](../academy/plasmonics.md?plain=1#L420), [504](../academy/plasmonics.md?plain=1#L504)
+- Academy lessons: [material-dispersion.md:26](../academy/material-dispersion.md?plain=1#L26), [173](../academy/material-dispersion.md?plain=1#L173), [437](../academy/material-dispersion.md?plain=1#L437), [plasmonics.md:22](../academy/plasmonics.md?plain=1#L22), [69](../academy/plasmonics.md?plain=1#L69), [122](../academy/plasmonics.md?plain=1#L122), [432](../academy/plasmonics.md?plain=1#L432), [543](../academy/plasmonics.md?plain=1#L543)
 
 #### Duff and Koster 2001
 
@@ -1627,6 +1627,18 @@ G. Hadley, "High-accuracy finite-difference equations for dielectric waveguide a
 - Examples: [README.md:45](../examples/README.md?plain=1#L45), [76](../examples/README.md?plain=1#L76), [hadley_corners.rs:6](../examples/hadley_corners.rs#L6), [rib_hadley.rs:5](../examples/rib_hadley.rs#L5), [49](../examples/rib_hadley.rs#L49), [strip_waveguide.rs:16](../examples/strip_waveguide.rs#L16)
 - Code: [src/bench/catalogue.rs:776](../src/bench/catalogue.rs#L776), [src/cases/eme/three_checks.rs:656](../src/cases/eme/three_checks.rs#L656), [src/cases/stack/checks.rs:449](../src/cases/stack/checks.rs#L449), [src/device/checks.rs:89](../src/device/checks.rs#L89), [103](../src/device/checks.rs#L103), [src/device/fit.rs:9](../src/device/fit.rs#L9), [src/device/splitter_checks.rs:89](../src/device/splitter_checks.rs#L89), [96](../src/device/splitter_checks.rs#L96), [385](../src/device/splitter_checks.rs#L385), [src/device/waveguide.rs:25](../src/device/waveguide.rs#L25), [36](../src/device/waveguide.rs#L36), [474](../src/device/waveguide.rs#L474), [src/mode/hadley.rs:7](../src/mode/hadley.rs#L7), [src/mode/vector.rs:16](../src/mode/vector.rs#L16), [1486](../src/mode/vector.rs#L1486), [src/validation.rs:757](../src/validation.rs#L757), [764](../src/validation.rs#L764), [771](../src/validation.rs#L771), [778](../src/validation.rs#L778), [1107](../src/validation.rs#L1107), [1191](../src/validation.rs#L1191)
 - Other documents: [ROADMAP.md:737](../ROADMAP.md?plain=1#L737)
+
+#### Hagen and Rubens 1902a
+
+E. Hagen, H. Rubens, "Das Reflexionsvermögen einiger Metalle für ultraviolette und ultrarote Strahlen", Annalen der Physik 313, 1 (1902). [doi:10.1002/andp.19023130502](https://doi.org/10.1002/andp.19023130502)
+
+- Academy lessons: [plasmonics.md:28](../academy/plasmonics.md?plain=1#L28), [463](../academy/plasmonics.md?plain=1#L463)
+
+#### Hagen and Rubens 1902b
+
+E. Hagen, H. Rubens, "Die Absorption ultravioletter, sichtbarer und ultraroter Strahlen in dünnen Metallschichten", Annalen der Physik 313, 432 (1902). [doi:10.1002/andp.19023130613](https://doi.org/10.1002/andp.19023130613)
+
+- Academy lessons: [plasmonics.md:34](../academy/plasmonics.md?plain=1#L34), [465](../academy/plasmonics.md?plain=1#L465)
 
 #### Hairer and Wanner 1996
 
@@ -2497,8 +2509,8 @@ L. Li, "Formulation and comparison of two recursive matrix algorithms for modeli
 L. Li, "Use of Fourier series in the analysis of discontinuous periodic structures", J. Opt. Soc. Am. A 13, 1870 (1996). [doi:10.1364/JOSAA.13.001870](https://doi.org/10.1364/JOSAA.13.001870)
 
 - Methods pages: [rcwa.md:20](methods/rcwa.md?plain=1#L20)
-- Validation cases: [`mode/rcwa-tm-convergence`](validation.md?plain=1#L954)
-- Code: [src/mode/rcwa_checks.rs:53](../src/mode/rcwa_checks.rs#L53)
+- Validation cases: [`mode/rcwa-tm-convergence`](validation.md?plain=1#L955)
+- Code: [src/mode/rcwa_checks.rs:60](../src/mode/rcwa_checks.rs#L60)
 - Other documents: [ROADMAP.md:741](../ROADMAP.md?plain=1#L741)
 
 #### Li and Demmel 2003
@@ -2872,7 +2884,7 @@ P. Micikevicius, "3D finite difference computation on GPUs using CUDA", Proceedi
 G. Mie, "Beiträge zur Optik trüber Medien, speziell kolloidaler Metallösungen", Annalen der Physik 330, 377 (1908). [doi:10.1002/andp.19083300302](https://doi.org/10.1002/andp.19083300302)
 
 - Methods pages: [fdtd.md:8](methods/fdtd.md?plain=1#L8), [936](methods/fdtd.md?plain=1#L936)
-- Academy lessons: [plasmonics.md:28](../academy/plasmonics.md?plain=1#L28), [59](../academy/plasmonics.md?plain=1#L59), [314](../academy/plasmonics.md?plain=1#L314), [506](../academy/plasmonics.md?plain=1#L506)
+- Academy lessons: [plasmonics.md:40](../academy/plasmonics.md?plain=1#L40), [71](../academy/plasmonics.md?plain=1#L71), [326](../academy/plasmonics.md?plain=1#L326), [545](../academy/plasmonics.md?plain=1#L545)
 - Validation cases: [`fdtd/mie-table`](validation.md?plain=1#L253), [`fdtd/mie-sphere`](validation.md?plain=1#L256)
 - Code: [src/fdtd.rs:60](../src/fdtd.rs#L60), [src/fdtd/mie.rs:2](../src/fdtd/mie.rs#L2), [src/validation.rs:1800](../src/validation.rs#L1800), [1821](../src/validation.rs#L1821), [studio/src-tauri/src/charts/plasmon.rs:880](../studio/src-tauri/src/charts/plasmon.rs#L880)
 - Other documents: [ROADMAP.md:749](../ROADMAP.md?plain=1#L749)
@@ -3046,7 +3058,7 @@ M. Ohashi, T. Kondo, R. Ito, S. Fukatsu, Y. Shiraki, K. Kumata, S. S. Kano, "Det
 M. Okoniewaki, M. Mrozowski, M. Stuchly, "Simple treatment of multi-term dispersion in FDTD", IEEE Microw. Guid. Wave Lett. 7, 121 (1997). [doi:10.1109/75.569723](https://doi.org/10.1109/75.569723)
 
 - Methods pages: [fdtd.md:24](methods/fdtd.md?plain=1#L24)
-- Academy lessons: [how-fdtd-works.md:60](../academy/how-fdtd-works.md?plain=1#L60), [405](../academy/how-fdtd-works.md?plain=1#L405), [455](../academy/how-fdtd-works.md?plain=1#L455), [plasmonics.md:40](../academy/plasmonics.md?plain=1#L40), [478](../academy/plasmonics.md?plain=1#L478), [512](../academy/plasmonics.md?plain=1#L512)
+- Academy lessons: [how-fdtd-works.md:60](../academy/how-fdtd-works.md?plain=1#L60), [405](../academy/how-fdtd-works.md?plain=1#L405), [455](../academy/how-fdtd-works.md?plain=1#L455), [plasmonics.md:52](../academy/plasmonics.md?plain=1#L52), [517](../academy/plasmonics.md?plain=1#L517), [551](../academy/plasmonics.md?plain=1#L551)
 - Validation cases: [`fdtd/ade-fdfd`](validation.md?plain=1#L218)
 - Examples: [README.md:65](../examples/README.md?plain=1#L65), [lorentz_okoniewski.rs:6](../examples/lorentz_okoniewski.rs#L6)
 - Code: [src/fdtd.rs:37](../src/fdtd.rs#L37), [src/fdtd/media.rs:8](../src/fdtd/media.rs#L8), [src/validation.rs:1555](../src/validation.rs#L1555)
@@ -3498,7 +3510,7 @@ C. Ríos, M. Stegmaier, P. Hosseini, D. Wang, T. Scherer, C. D. Wright, H. Bhask
 
 R. H. Ritchie, "Plasma Losses by Fast Electrons in Thin Films", Phys. Rev. 106, 874 (1957). [doi:10.1103/PhysRev.106.874](https://doi.org/10.1103/PhysRev.106.874)
 
-- Academy lessons: [plasmonics.md:34](../academy/plasmonics.md?plain=1#L34), [184](../academy/plasmonics.md?plain=1#L184), [509](../academy/plasmonics.md?plain=1#L509)
+- Academy lessons: [plasmonics.md:46](../academy/plasmonics.md?plain=1#L46), [196](../academy/plasmonics.md?plain=1#L196), [548](../academy/plasmonics.md?plain=1#L548)
 
 #### Roache 1997
 

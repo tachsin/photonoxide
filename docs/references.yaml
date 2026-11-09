@@ -1301,6 +1301,18 @@
   venue: "J. Lightwave Technol. 20, 1219"
   year: 2002
 
+- doi: 10.1002/andp.19023130502
+  authors: "E. Hagen, H. Rubens"
+  title: "Das Reflexionsvermögen einiger Metalle für ultraviolette und ultrarote Strahlen"
+  venue: "Annalen der Physik 313, 1"
+  year: 1902
+
+- doi: 10.1002/andp.19023130613
+  authors: "E. Hagen, H. Rubens"
+  title: "Die Absorption ultravioletter, sichtbarer und ultraroter Strahlen in dünnen Metallschichten"
+  venue: "Annalen der Physik 313, 432"
+  year: 1902
+
 - doi: 10.1007/978-3-642-05221-7
   authors: "E. Hairer, G. Wanner"
   title: "Solving Ordinary Differential Equations II"
