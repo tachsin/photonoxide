@@ -255,6 +255,7 @@ the studio and read on GitHub as ordinary Markdown.
 - [Roadmap](../ROADMAP.md): what each release holds and what comes next.
 - Plans, each reviewed before work on it starts:
   - [External backends and the in-app benchmark](plans/backends.md)
+  - [Carrier modulators, signals and programmable circuits (0.8)](plans/carrier-modulators.md)
   - [Python bindings, and every other language through the program](plans/bindings.md)
   - [A fabrication engine](plans/fabrication.md)
   - [Optimization in photonic design](plans/optimization.md)
