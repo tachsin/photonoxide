@@ -154,7 +154,7 @@ export function inlineMarkdown(text, options = {}) {
   const stashed = [];
   const stash = (html) => {
     stashed.push(html);
-    return `\u0000${stashed.length - 1}\u0000`;
+    return `\uE000${stashed.length - 1}\uE000`;
   };
   const out = splitCodeSpans(text)
     .map((part, i) => {
@@ -177,8 +177,8 @@ export function inlineMarkdown(text, options = {}) {
     .join("");
   // stashed pieces may hold placeholders of their own (a link's label)
   let html = out;
-  for (let pass = 0; pass < 3 && html.includes("\u0000"); pass++) {
-    html = html.replace(/\u0000(\d+)\u0000/g, (_, i) => stashed[Number(i)]);
+  for (let pass = 0; pass < 3 && html.includes("\uE000"); pass++) {
+    html = html.replace(/\uE000(\d+)\uE000/g, (_, i) => stashed[Number(i)]);
   }
   return html;
 }
