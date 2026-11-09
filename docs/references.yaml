@@ -3673,6 +3673,12 @@
   venue: "Optica 4, 1536"
   year: 2017
 
+- doi: 10.1109/JPHOT.2017.2781710
+  authors: "H. Zhang, L. Xu, J. Chen, L. Zhou, B. M. A. Rahman, X. Wu, L. Lu, Y. Xu, J. Xu, J. Song, et al."
+  title: "Ultracompact Si-GST Hybrid Waveguides for Nonvolatile Light Wave Manipulation"
+  venue: "IEEE Photonics J. 10, 1"
+  year: 2018
+
 - doi: 10.1364/PRJ.468518
   authors: "Y. Zhang, L. Shao, J. Yang, Z. Chen, K. Zhang, K.-M. Shum, D. Zhu, C. H. Chan, M. Lončar, C. Wang"
   title: "Systematic investigation of millimeter-wave optic modulation performance in thin-film lithium niobate"
