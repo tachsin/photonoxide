@@ -85,6 +85,13 @@ area fdfd \
   "fdfd:: backend::iterative:: backend::krylov::" "fdfd/ fdfd3d/" \
   "bump_oskooi cpml_roden_gedney lorentz_okoniewski pml_oskooi subpixel_holes tfsf_square_cylinder optimize_grating_pareto"
 
+# inverse design's densities (0.7, #761): filters, projections and the gradient pulled back to
+# the densities; its chain case runs 2D FDFD's adjoint
+area topology \
+  "src/topology/* src/cases/topology/* src/validation/topology.rs" \
+  "fdfd" \
+  "topology::" "topology/" ""
+
 # eigenmode expansion (#432): slab stacks' modes and their S-matrices; its taper case runs 2D FDFD
 area eme \
   "src/eme.rs src/eme/* src/cases/eme/* src/validation/eme.rs" \

@@ -18,6 +18,8 @@
 //!   processes, quasi-phase matching and the acceptance bandwidths.
 //! - [`fdfd`]: frequency-domain finite differences in 2D and 3D on Yee's grid, with PMLs, mode
 //!   ports, S-parameters and adjoint gradients.
+//! - [`topology`]: densities for inverse design: a design region's pixels filtered and
+//!   projected to a solver's permittivity, and the solver's adjoint gradient pulled back to them.
 //! - [`eme`]: eigenmode expansion, a structure cut into uniform sections joined by their modes'
 //!   S-matrices: 2D slab stacks, with a PML.
 //! - [`circuit`]: components with ports and S-matrices, connected into netlists, solved as one
@@ -107,6 +109,7 @@ mod statics;
 mod stop;
 pub mod sweep;
 pub mod thermal;
+pub mod topology;
 mod traffic;
 pub mod units;
 pub mod validation;

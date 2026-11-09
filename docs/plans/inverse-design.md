@@ -6,7 +6,8 @@
 decisions in [section 4](#4-decisions) need my call; until I make it, each phase follows the
 recommended option, marked "recommended, awaiting tachsin", and a later commit adapts if I choose
 otherwise. The Academy lesson [inverse-design.md](../../academy/inverse-design.md) is written last,
-once the milestone is built.*
+once the milestone is built. Where the work stands and how to pick it up:
+[section 6](#6-starting-the-work).*
 
 The rule of [AGENTS.md](../../AGENTS.md) holds throughout: optimizers come from
 [genoxide](https://github.com/tachsin/genoxide). photonoxide supplies the objectives, their
@@ -87,30 +88,49 @@ A solver-independent module (decision 1) for a design region of n_x × n_y (× n
 - the **chain**: the gradient a solver gives with respect to ε pulled back through the projection
   and the filter's transpose, for 2D FDFD (`Solver2d::from_cells`) and FDTD's `Design`.
 
-*Validation:* the projection's closed forms at round-off: ρ̂(0) = 0 and ρ̂(1) = 1 for any β,
-ρ̂(η) = tanh βη / (tanh βη + tanh β(1 − η)), the step it tends to as β grows, and its derivative
-against the analytic one; the filter's transpose,
-⟨Fx, y⟩ = ⟨x, Fᵀy⟩, and a uniform density filtered to itself, at round-off; the whole chain's
-gradient (densities to a port's power in 2D FDFD) against fourth-order differences, within what
-the differences resolve, as `fdfd/adjoint-gradient-ez` is ruled. *Papers:* Wang, Lazarov &
-Sigmund 2010 and Christiansen & Sigmund 2021 (both in hand, to be read); Bourdin 2001 and Lazarov
-& Sigmund's Helmholtz filter are cited through them unless their PDFs arrive.
+*Validation* (five cases, drafted on the branch, section 6):
+
+- `topology/projection-derivative`: the derivative against the complex step, Im ρ̂(x + ih)/h,
+  which takes no difference, at 201 points for β = 1, 8, 64, 256 and η = ¼, ½, ¾ (round-off);
+- `topology/projection-identities`: ρ̂(0) = 0, ρ̂(1) = 1, and ρ̂(1 − x) = 1 − ρ̂(x) at η = ½
+  (round-off);
+- `topology/filter-transpose`: ⟨Fx, y⟩ = ⟨x, Fᵀy⟩ on 160 × 160 and 24 × 20 × 16 pixels, cut off
+  and padded at the edges (round-off);
+- `topology/filter-preserves-linear`: a uniform density kept everywhere, a linear ramp kept a
+  radius from the edges (the weights are normalized and symmetric; round-off);
+- `topology/fdfd-gradient`: the whole chain's gradient (a 10 × 10 region's densities beside a
+  220 nm slab to a port mode's power, 2D FDFD, E along z, 20 nm) against fourth-order differences
+  of the densities, within what the differences resolve, ruled as `fdfd/adjoint-gradient-ez` is.
+  Its δ comes from a step study (an ignored test, `the_chain_step_study`) not yet run.
+
+*Papers:* Wang, Lazarov & Sigmund 2010 (read for this phase: Eqs. 4, 5, 7 and 9, Section 5.1's
+thresholds, Section 6's length scale) and Christiansen & Sigmund 2021 (read: Eqs. 17 and 18). The
+Helmholtz filter of Lazarov & Sigmund 2010, Christiansen & Sigmund's Eq. 17, waits for I4's
+demultiplexer, which uses it; on a regular grid with Neumann edges a cosine transform
+diagonalizes it, so it needs no sparse solver.
 
 ### I2: Robust designs and min-max
 
-- **Eroded, nominal and dilated designs** from one density by three thresholds η_e > η_n > η_d
-  (Sigmund 2009; Wang et al. 2010), and the relation between a threshold and the edge's
-  displacement for the conic filter: on a straight edge, the filtered density across it is the
-  conic kernel's integral over a half-plane, so the eroded edge moves by a distance that follows
-  in closed form (derived on the methods page; Qian & Sigmund 2013 give it for a linear filter).
+- **Eroded, nominal and dilated designs** from one density by three thresholds, 1 − η, ½ and η
+  (Wang et al. 2010, Section 5.1 and Eq. 14; Sigmund 2009), and the relation between a threshold
+  and the edge's displacement. In 1D (the hat kernel R − |x|) it is exact: a solid bar that the
+  eroded threshold η_e just removes has width h = 2R(1 − √(1 − η_e)), and the nominal design's
+  width b equals it, so b/2R = 1 − √(1 − η_e) for η_e ≥ ¾ and √(η_e − ½) below (worked out for
+  this plan; the same relation as the conic-radius formula of Qian & Sigmund 2013, to be checked
+  against that paper). Wang et al.'s worked example (Section 6) gives b/2R = 1.1055 at η = 0.2;
+  this analysis gives 2(1 − √0.2) = 1.1056 for b/R at that threshold, so the two differ by the
+  factor 2 in R. Which reading their Fig. 12 uses is to be settled before the number is a
+  reference. On a 2D pixel grid the cone's
+  marginal across a straight edge is m(x) = aR − x² ln((R + a)/|x|), a = √(R² − x²), not the
+  hat, so the 2D edge shift is computed from it, and the discrete filter's shift is checked
+  against that at second order in the pixel.
 - **The epigraph form** of min-max over wavelengths, corners and the three designs: the variables
   (x, t), the objective t, the constraints f_k(x) − t ≤ 0 with their Jacobians, in the form
   genoxide's `Mma` and `Constrained` take.
 
 *Validation:* the edge displacement against the closed form on a straight edge, the pixels' own
 error stated (discretisation, with its order); the epigraph's Jacobian against differences.
-*Papers:* Sigmund 2009, Wang 2010, Christiansen & Sigmund 2021 (in hand); Qian & Sigmund 2013
-(missing).
+*Papers:* Sigmund 2009, Wang 2010, Christiansen & Sigmund 2021 (in hand); Qian & Sigmund 2013\n(to get).
 
 ### I3: Length scales: the metric and the constraints
 
@@ -126,8 +146,7 @@ error stated (discretisation, with its order); the epigraph's Jacobian against d
 a ring, a gap), within a pixel; the metric on the testbed's published mode-converter designs
 against the length scales its `run.py` prints (decision 2); the constraints' gradients against
 differences; a constraint satisfied exactly by a pattern built to its length scale. *Papers:*
-Chen 2024 and Hammond 2021 (in hand); Zhou 2015 (missing, closed access); Arrieta 2026 (open on
-arXiv, 2507.16108).
+Chen 2024 and Hammond 2021 (in hand); Zhou 2015 and Arrieta 2026 (to get, section 5).
 
 ### I4: 2D topology optimization, the published devices (#244's phase 9)
 
@@ -171,7 +190,7 @@ pixel by the interface it implies.
 *Validation:* a straight and a curved interface whose fill fraction per pixel is exact, at the
 order the paper states; the gradient against differences at large and infinite β; their
 convergence comparison against the standard projection on one of their problems (reproduced on
-the mode converter). *Papers:* Hammond 2025 (Opt. Express 33, open access; not in the folder).
+the mode converter). *Papers:* Hammond 2025 (Opt. Express 33, 33620; to get, section 5).
 
 ### I7: Level sets and shape derivatives
 
@@ -185,8 +204,7 @@ the mode converter). *Papers:* Hammond 2025 (Opt. Express 33, open access; not i
 
 *Validation:* the shape gradient against differences; a circle's level-set shape derivative
 against the analytic dF/dR of a field identity; the Y-branch against Lalau-Keraly's 2D and 3D
-numbers. *Papers:* Lalau-Keraly 2013 (read), Piggott 2017 (in hand); Vercruysse 2019 (open
-access, Sci. Rep.).
+numbers. *Papers:* Lalau-Keraly 2013 (read), Piggott 2017 (in hand); Vercruysse 2019 (Sci. Rep. 9, 8999; to get).
 
 ### I8: Lithography inside the loop
 
@@ -213,7 +231,7 @@ manuscript, not the typeset version).
 *Validation:* each against fourth-order differences within what they resolve, and a closed form
 each: a slab's dn_eff/dw from the dispersion relation's implicit derivative; a uniform grating's
 first-order efficiency derivative; Hughes 2018's own device numbers where the paper states them.
-*Papers:* Hughes 2018 (in hand, not read); Hughes 2019 (missing).
+*Papers:* Hughes 2018 (in hand, not read); Hughes 2019 (to get).
 
 ### I10: Quantum objectives (quantum.md's Q4)
 
@@ -280,38 +298,93 @@ Piggott 2015 and 2017, Khan 2024, Molesky 2018, Lalau-Keraly 2013, Hughes 2018, 
 Shen 2015, Su 2020, Svanberg 1987 and 2002, Liu 2026. Each is read before the phase that uses it.
 
 Missing, each DOI checked on Crossref on 2026-11-09 (the file name by the year online):
+To get, the journal versions, each DOI checked on Crossref on 2026-11-09, the file name by the
+year online (most important first):
 
 - M. Zhou, B. S. Lazarov, F. Wang, O. Sigmund, "Minimum length scale in topology optimization by
   geometric constraints", Comput. Methods Appl. Mech. Eng. 293, 266 (2015),
-  doi:10.1016/j.cma.2015.05.003 (I3; closed access): `zhou-2015.pdf`.
+  doi:10.1016/j.cma.2015.05.003 (I3): `zhou-2015.pdf`.
+- A. M. Hammond, A. Oskooi, I. M. Hammond, M. Chen, S. E. Ralph, S. G. Johnson, "Unifying and
+  accelerating level-set and density-based topology optimization by subpixel-smoothed
+  projection", Opt. Express 33, 33620 (2025), doi:10.1364/OE.563512 (I6): `hammond-2025.pdf`.
+- R. Arrieta, G. Romano, S. G. Johnson, "Hyperparameter-free minimum-lengthscale constraints for
+  topology optimization", Struct. Multidiscip. Optim. 69, 210 (2026),
+  doi:10.1007/s00158-026-04388-6 (I3): `arrieta-2026.pdf`.
 - X. Qian, O. Sigmund, "Topological design of electromechanical actuators with robustness toward
   over- and under-etching", Comput. Methods Appl. Mech. Eng. 253, 237 (2013),
-  doi:10.1016/j.cma.2012.08.020 (I2; closed access): `qian-sigmund-2013.pdf`.
-- B. Bourdin, "Filters in topology optimization", Int. J. Numer. Methods Eng. 50, 2143 (2001),
-  doi:10.1002/nme.116 (I1; closed access): `bourdin-2001.pdf`.
+  doi:10.1016/j.cma.2012.08.020 (I2, the threshold's edge shift): `qian-sigmund-2013.pdf`.
 - B. S. Lazarov, O. Sigmund, "Filters in topology optimization based on Helmholtz-type
   differential equations", Int. J. Numer. Methods Eng. 86, 765 (published online 2010),
-  doi:10.1002/nme.3072 (I1; closed access): `lazarov-sigmund-2010.pdf`.
-- A. M. Hammond et al., "Unifying and accelerating level-set and density-based topology
-  optimization by subpixel-smoothed projection", Opt. Express 33 (2025), doi:10.1364/OE.563512
-  (I6; open access, Optica): `hammond-2025.pdf`.
-- R. Arrieta, G. Romano, S. G. Johnson, "Hyperparameter-free minimum-lengthscale constraints for
-  topology optimization", Struct. Multidiscip. Optim. 69 (2026), doi:10.1007/s00158-026-04388-6
-  (I3; arXiv 2507.16108).
+  doi:10.1002/nme.3072 (I4, the Helmholtz filter): `lazarov-sigmund-2010.pdf`.
 - D. Vercruysse, N. V. Sapra, L. Su, R. Trivedi, J. Vučković, "Analytical level set fabrication
   constraints for inverse design", Sci. Rep. 9, 8999 (2019), doi:10.1038/s41598-019-45026-0
-  (I7; open access).
+  (I7): `vercruysse-2019.pdf`.
 - T. W. Hughes, I. A. D. Williamson, M. Minkov, S. Fan, "Forward-mode differentiation of
-  Maxwell's equations", ACS Photonics 6, 3010 (2019), doi:10.1021/acsphotonics.9b01238 (I9;
-  arXiv).
-- L. F. Frellsen et al., "Topology optimized mode multiplexing in silicon-on-insulator photonic
-  wire waveguides", Opt. Express 24, 16866 (2016), doi:10.1364/OE.24.016866 (I12; open access,
-  Optica): `frellsen-2016.pdf`.
-- L. Su et al., "Fully-automated optimization of grating couplers", Opt. Express 26, 4023 (2018),
-  doi:10.1364/OE.26.004023 (I12; open access, Optica): `su-2018.pdf`.
-- A. Y. Piggott et al., "Inverse-designed photonics for semiconductor foundries", ACS Photonics 7,
-  569 (2020), doi:10.1021/acsphotonics.9b01540 (I12; open access).
+  Maxwell's equations", ACS Photonics 6, 3010 (2019), doi:10.1021/acsphotonics.9b01238 (I9):
+  `hughes-2019.pdf`.
+- L. F. Frellsen, Y. Ding, O. Sigmund, L. H. Frandsen, "Topology optimized mode multiplexing in
+  silicon-on-insulator photonic wire waveguides", Opt. Express 24, 16866 (2016),
+  doi:10.1364/OE.24.016866 (I12): `frellsen-2016.pdf`.
+- L. Su, R. Trivedi, N. V. Sapra, A. Y. Piggott, D. Vercruysse, J. Vučković, "Fully-automated
+  optimization of grating couplers", Opt. Express 26, 4023 (2018), doi:10.1364/OE.26.004023
+  (I12): `su-2018.pdf`.
+- A. Y. Piggott, E. Y. Ma, L. Su, G. H. Ahn, N. V. Sapra, D. Vercruysse, A. M. Netherton,
+  A. S. P. Khope, J. E. Bowers, J. Vučković, "Inverse-designed photonics for semiconductor
+  foundries", ACS Photonics 7, 569 (2020), doi:10.1021/acsphotonics.9b01540 (I12):
+  `piggott-2020.pdf`.
+- B. Bourdin, "Filters in topology optimization", Int. J. Numer. Methods Eng. 50, 2143 (2001),
+  doi:10.1002/nme.116 (I1, the filter's origin; Wang et al. restate it): `bourdin-2001.pdf`,
+  optional.
 - J. K. Guest, J. H. Prévost, T. Belytschko, "Achieving minimum length scale in topology
   optimization using nodal design variables and projection functions", Int. J. Numer. Methods
-  Eng. 61, 238 (2004), doi:10.1002/nme.1064 (I1, the projection's origin; closed access):
-  `guest-2004.pdf`, optional.
+  Eng. 61, 238 (2004), doi:10.1002/nme.1064 (I1, the projection's origin): `guest-2004.pdf`,
+  optional.
+
+Mason et al.'s co-optimized multiplexers (I11's target) have no journal version on Crossref yet;
+the preprint is arXiv 2509.07233. Khan 2024 in the folder is the manuscript; the typeset version
+(Opt. Lett. 50, 117) would replace it.
+
+## 6. Starting the work
+
+*2026-11-09: the plan is final. The implementation starts on another machine; nothing was run on
+this one beyond I1's unit tests.*
+
+**On the branch** `feat/inverse-design-0.7` (from `main` at the 0.6.3 release, #761):
+
+- this plan, ROADMAP's link to it and the docs index entry (committed);
+- a work-in-progress commit of I1, labelled `wip(topology): I1 in progress, not finished`:
+  - `src/topology/mod.rs`: `ConicFilter` (cut-off or padded edges), `Projection` (Eq. 9 with its
+    derivative, libm's tanh and cosh), `Density` (`physical`, `permittivity`, `pullback`,
+    `gradient`) and `Placement` (`embed`, `restrict`);
+  - `src/cases/topology/checks.rs`: the five cases of I1;
+  - `src/validation/topology.rs`: their rules;
+  - `src/topology/tests.rs`: six unit tests (they pass in a debug build), the chain test and the
+    step study (both ignored, release only);
+  - the registrations: `lib.rs`, the layering test (the geometry layer), `validation.rs`'s cases
+    and rules, and an area in `.github/areas.sh`;
+  - `docs/methods/topology.md`, its numbers still placeholders (`RESULT_*`, `STEP_STUDY`).
+
+**What I1 still needs:**
+
+1. Run the step study in release and choose `topology/fdfd-gradient`'s δ from it (the error and
+   the resolution per δ, as `fdfd/adjoint-gradient-ez`'s); set the rule's tolerance and wording
+   from what it shows.
+2. Run the five cases, put their numbers in the methods page.
+3. `cargo fmt`, `clippy -D warnings` on the touched code, rustdoc.
+4. Amend nothing: a new commit `feat(topology): densities, the conic filter and the projection,
+   with the gradient pulled back (I1, part of #761)`.
+
+**The first commands:**
+
+```bash
+git fetch origin
+git switch feat/inverse-design-0.7
+git merge origin/main                      # main moves; merge, never rebase the branch
+cargo test --lib topology                  # the six unit tests
+cargo test --release --lib topology::tests::the_chain_step_study -- --ignored --nocapture
+just validate-cases "topology/"            # the five cases, in release
+```
+
+Then I2 to I12 in order, one commit each, the branch pushed as it goes and one pull request at
+the end (`feat(optimize): ... (part of #761)`). At the end, once: `just references`, `just
+schema`, `just validation`, the README counts, the full checks.
