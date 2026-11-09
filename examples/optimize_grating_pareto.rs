@@ -123,7 +123,7 @@
 //! With the waist on the film they are 0.40 to 1.74 points below the paper's, so the fibre's distance matters
 //! at the half-point level. The bandwidths are wider than the paper's for every design, by 3.3 to
 //! 4.7 nm (3 to 5 %; 4.8 to 6.1 nm with the waist on the film), beyond the spread of 1.32 % and
-//! far beyond our grid's error (at most 0.4 nm): a gap we don't explain, reported and not checked.
+//! far beyond our grid's error (at most 0.4 nm): a gap the indices' dispersion explains (below), reported and not checked.
 //! Where the fibre's offset is measured (at its facet here), the grooves' positions taken as their
 //! centres, and the paper's FDTD mesh and spectra (its bandwidths come in steps of about 1.5 nm)
 //! are the candidates. Our grid's error on the efficiency is within a third of the spread
@@ -162,17 +162,18 @@
 //! silica's own dispersion about them, the catalogue's (Li 1980, Malitson 1965):
 //! n(λ) = n_paper + n_catalogue(λ) − n_catalogue(1.55 µm), 3.4839 and 1.4418 at 1.40 µm, 3.4596
 //! and 1.4381 at 1.70 µm. On 10 × 5 nm with the waist at FID every bandwidth narrows, by 2.5 to
-//! 2.9 % at 4 µm and TODO6, the efficiencies move by 0.01 points and the peaks by under 0.5 nm:
-//! the 4 µm bandwidths end +1.5, +1.5, +1.9, +0.6, +1.1 and +0.2 % from the data file's (56, 52,
-//! 49, 48, 45, 35; 87.2 nm against 85.9, 94.4 against 93.0, 101.1 against 99.2, 104.4 against
-//! 103.8, 106.6 against 105.4, 121.1 against 120.9), the 6 µm ones TODO6. A gap of +2.7 to
-//! +4.7 % (4 µm) and TODO6 on every design becomes one of either sign about the size of the file's
-//! 1.5 nm steps (1.2 to 2.2 % of these bandwidths) and the paper's own spread of 1.32 %: the
-//! paper's spectra are what dispersive silicon and silica give, though it prints constant
-//! indices. With dispersion, the source's profile at 1.55 µm (`--beams`, 4.2 to 8.4 % narrower)
-//! would overshoot, so it isn't needed. Not a case: the residual is still above the
-//! paper's spread for 52, 49 and 56 (TODO6), and the paper doesn't say which material models it
-//! used.
+//! 2.9 % at 4 µm and 3.3 % at 6 µm; the efficiencies move by 0.04 points at most and the peaks by
+//! 1.1 nm at most. The 4 µm bandwidths end +1.5, +1.5, +1.9, +0.6, +1.1 and +0.2 % from the data
+//! file's (56, 52, 49, 48, 45, 35; 87.2 nm against 85.9, 94.4 against 93.0, 101.1 against 99.2,
+//! 104.4 against 103.8, 106.6 against 105.4, 121.1 against 120.9), the 6 µm ones +0.9, +0.3, −0.3
+//! and −1.8 % (58, 42, 39, 37; 68.1 against 67.5, 96.4 against 96.1, 98.9 against 99.2, 100.5
+//! against 102.3). A gap of +2.7 to +4.7 % (4 µm) and +1.6 to +4.3 % (6 µm), the same sign on
+//! every design, becomes one of either sign within 1.9 %, about the file's 1.5 nm steps (1.2 to
+//! 2.2 % of these bandwidths) and the paper's own spread of 1.32 %: the paper's spectra are what
+//! dispersive silicon and silica give, though it prints constant indices. With dispersion, the
+//! source's profile at 1.55 µm (`--beams`, 4.2 to 8.4 % narrower) would overshoot, so it isn't
+//! needed. Not a case: four designs (56, 52, 49 and 37) stay just beyond the paper's spread, and
+//! the paper doesn't say which material models its solver took.
 //!
 //! ```sh
 //! cargo run --release --example optimize_grating_pareto                  # the recorded designs
