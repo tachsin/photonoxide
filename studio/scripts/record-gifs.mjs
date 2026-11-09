@@ -56,7 +56,7 @@ const REUSE = opt("frames", null);
 const VIEW = { width: 1440, height: 900 };
 
 const GIFS = {
-  // the README's top, under 35 s, eight scenes of at least 3.5 s each and no captions: an MMI's
+  // the README's top, under 35 s, eight scenes of at least 3.5 s each, crossfades left out, and no captions: an MMI's
   // FDTD run; a ring's spectrum building up, then the ring lit at resonance (two takes, crossfaded);
   // a directional coupler's and a Y-branch's design moved by their sliders; an MZI wired on the
   // chip; a heater switched on, its heat spreading; the ring's fabrication flow; a lesson's live
@@ -823,7 +823,7 @@ const SCENES = {
     const start = await pin("upper.o2");
     await moveTo(start.x - 60, start.y + 90, 10);
     await heroTake("chip");
-    await rec.speed(1.4);
+    await rec.speed(1.3);
     await drag(await pin("upper.o2"), await pin("combine.o2"), 650, ease, 300);
     await sleep(120);
     await drag(await pin("lower.o2"), await pin("combine.o1"), 650, ease, 300);
@@ -965,9 +965,9 @@ const SCENES = {
     await heroTake("lesson");
     await sleep(500);
     // the input coupling slid down to critical: the dip deepens to zero, the figures following
-    await slideTo("coupling", at, 2200, (t) => t * t * (3 - 2 * t));
+    await slideTo("coupling", at, 1900, (t) => t * t * (3 - 2 * t));
     await moveTo(mouse.x + 60, mouse.y + 90, 400);
-    await sleep(900);
+    await sleep(700);
     await heroEnd();
   },
 
@@ -1168,13 +1168,13 @@ const LAPSE = GIFS.hero.lapse.ring;
 
 /** The MMI's FDTD run in the hero: played this many times faster, for this many seconds of the run. */
 const FDTD_SPEED = 6;
-const FDTD_SECONDS = 25;
+const FDTD_SECONDS = 26;
 
 /** The heater's pictures (a few a second in the studio), played this many times faster in the hero. */
 const HEATER_SPEED = 1.9;
 
 /** The fabrication flow (at the player's own speed of 2), played this many times faster in the hero. */
-const FAB_SPEED = 1.9;
+const FAB_SPEED = 1.75;
 
 // ---- composing the GIFs ----
 
