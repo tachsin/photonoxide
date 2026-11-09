@@ -4,6 +4,7 @@
   // the pairs' joint spectral amplitude. The Materials page's nonlinear view and the run view
   // both draw them from the run's events.
   import type { NonlinearResult } from "../../lib/nonlinear";
+  import { acceptanceText } from "../../lib/acceptance";
   import type { Series } from "../../lib/plot";
   import Plot from "../Plot.svelte";
   import HeatMap from "./HeatMap.svelte";
@@ -66,11 +67,11 @@
       {#if setup.gamma_per_w_m !== null}<dt class="faint">γ</dt><dd class="num">{setup.gamma_per_w_m} /(W·m)</dd>{/if}
       {#if setup.wavelength_acceptance_nm}
         <dt class="faint">acceptance in λ ({setup.tuned})</dt>
-        <dd class="num">{setup.wavelength_acceptance_nm.estimate.toPrecision(4)} nm (Fejer et al.'s estimate){setup.wavelength_acceptance_nm.numerical !== null ? `, ${setup.wavelength_acceptance_nm.numerical.toPrecision(4)} nm between the half maxima` : ""}</dd>
+        <dd class="num">{acceptanceText("wavelength", setup.wavelength_acceptance_nm, setup, map)}</dd>
       {/if}
       {#if setup.temperature_acceptance_k}
         <dt class="faint">acceptance in temperature</dt>
-        <dd class="num">{setup.temperature_acceptance_k.estimate.toPrecision(4)} K{setup.temperature_acceptance_k.numerical !== null ? `, ${setup.temperature_acceptance_k.numerical.toPrecision(4)} K between the half maxima` : ""}</dd>
+        <dd class="num">{acceptanceText("temperature", setup.temperature_acceptance_k, setup)}</dd>
       {/if}
       {#if setup.matched_um !== null}<dt class="faint">phase matched at</dt><dd class="num">{setup.matched_um.toFixed(5)} µm ({setup.tuned})</dd>{/if}
     </dl>
