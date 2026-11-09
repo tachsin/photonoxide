@@ -12,6 +12,10 @@
 #   - site/lib/projects/photonoxide/meta.js: FALLBACK_MILESTONES has the heading with its ✅
 #     (the studio's test site.rs checks the whole list against ROADMAP.md);
 #   - CHANGELOG.md: the first version heading is "## [X.Y.Z]".
+# A patch release (Z > 0) without a milestone of its own, such as a release of fixes, is checked
+# against the newest milestone at or below it instead: that milestone's ✅, its "✅ released" row
+# and its FALLBACK_MILESTONES entry, and the version's own CHANGELOG.md section. A release with a
+# milestone of its own is checked against that milestone only; a minor release (Z = 0) needs one.
 # The Release marks workflow runs it on the release PR; `just release-marks` runs it here.
 set -euo pipefail
 cd "$(dirname "$0")/../.."
@@ -31,18 +35,64 @@ if ! [[ $version =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
   echo "::error::release-marks: no version X.Y.Z (got '$version')"
   exit 2
 fi
-if [ "${BASH_REMATCH[3]}" = 0 ]; then milestone="${BASH_REMATCH[1]}.${BASH_REMATCH[2]}"; else milestone=$version; fi
-esc=${milestone//./\\.}
-vesc=${version//./\\.}
+patch=${BASH_REMATCH[3]}
+if [ "$patch" = 0 ]; then milestone="${BASH_REMATCH[1]}.${BASH_REMATCH[2]}"; else milestone=$version; fi
 failed=0
 fail() {
   echo "::error file=$1::$2"
   failed=1
 }
 
-# ROADMAP.md: the heading, and the boxes under it up to the next heading
 roadmap=$(show ROADMAP.md)
+esc=${milestone//./\\.}
 heading=$(grep -E "^### $esc: " <<<"$roadmap" | head -1 || true)
+# the milestone's version in full ("0.6" is 0.6.0), which its README.md row may name
+mversion=$version
+if [ -z "$heading" ] && [ "$patch" != 0 ]; then
+  # A patch release without a milestone of its own: the newest milestone at or below it, among
+  # the headings "### X.Y: …" and "### X.Y.Z: …" ("0.3.x" and the 1.0 criteria aren't versions).
+  read -r -a want <<<"${version//./ }"
+  best=""
+  while IFS= read -r line; do
+    [[ $line =~ ^###\ ([0-9]+)\.([0-9]+)(\.([0-9]+))?:\  ]] || continue
+    name="${BASH_REMATCH[1]}.${BASH_REMATCH[2]}${BASH_REMATCH[3]}"
+    have=("${BASH_REMATCH[1]}" "${BASH_REMATCH[2]}" "${BASH_REMATCH[4]:-0}")
+    # at or below the version
+    below=1
+    for i in 0 1 2; do
+      if ((have[i] != want[i])); then
+        ((have[i] < want[i])) || below=0
+        break
+      fi
+    done
+    ((below)) || continue
+    # and newer than the best so far
+    if [ -n "$best" ]; then
+      read -r -a b <<<"${best//./ }"
+      newer=0
+      for i in 0 1 2; do
+        if ((have[i] != b[i])); then
+          ((have[i] > b[i])) && newer=1
+          break
+        fi
+      done
+      ((newer)) || continue
+    fi
+    best="${have[0]}.${have[1]}.${have[2]}"
+    milestone=$name
+    heading=$line
+  done < <(grep -E '^### ' <<<"$roadmap" || true)
+  if [ -n "$heading" ]; then
+    mversion=$best
+    esc=${milestone//./\\.}
+    echo "$version has no milestone of its own in ROADMAP.md: checking the newest milestone at or below it, $milestone, and CHANGELOG.md's section for $version."
+  else
+    milestone=$version
+  fi
+fi
+vesc=${mversion//./\\.}
+
+# ROADMAP.md: the heading, and the boxes under it up to the next heading
 if [ -z "$heading" ]; then
   fail ROADMAP.md "ROADMAP.md has no milestone '### $milestone: …'. Add it (or the release's version is wrong)."
 else
@@ -84,4 +134,8 @@ if [ "$failed" = 1 ]; then
   echo "The files${at:+ at $at} don't mark the release of $version yet (above). Mark it on main, or on the release PR after the last merge, before merging the release PR: the tag is what tachsin.gr, crates.io and GitHub show."
   exit 1
 fi
-echo "$version${at:+ at $at}: ROADMAP.md, README.md, FALLBACK_MILESTONES and CHANGELOG.md mark the release."
+if [ "$mversion" != "$version" ]; then
+  echo "$version${at:+ at $at}: CHANGELOG.md has its section, and ROADMAP.md, README.md and FALLBACK_MILESTONES mark $milestone, the newest milestone at or below it, released."
+else
+  echo "$version${at:+ at $at}: ROADMAP.md, README.md, FALLBACK_MILESTONES and CHANGELOG.md mark the release."
+fi
