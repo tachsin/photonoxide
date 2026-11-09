@@ -617,7 +617,7 @@ fabrication engine". Open copies are noted only where one was seen.
 **Textbooks**
 
 - J. D. Plummer, M. D. Deal, P. B. Griffin, *Silicon VLSI Technology: Fundamentals, Practice and Modeling*, 1st ed., Prentice Hall (2000). ISBN 9780130850379 (Open Library; not on Crossref).
-- S. A. Campbell, *Fabrication Engineering at the Micro- and Nanoscale*, Oxford University Press (2012). ISBN 9780199861224 (Open Library; not on Crossref).
+- S. A. Campbell, *Fabrication Engineering at the Micro- and Nanoscale*, 3rd ed., Oxford University Press (2008). ISBN 9780195320176 (Open Library; not on Crossref). The edition in the folder and the one the pages cited here refer to; the 4th edition (2012, ISBN 9780199861224) is not in the folder.
 - M. J. Madou, *Fundamentals of Microfabrication and Nanotechnology*, three-volume set, CRC Press (2018). [10.1201/9781315274164](https://doi.org/10.1201/9781315274164)
 - S. Franssila, *Introduction to Microfabrication*, Wiley (2010). [10.1002/9781119990413](https://doi.org/10.1002/9781119990413)
 - C. Mack, *Fundamental Principles of Optical Lithography*, Wiley (2007). [10.1002/9780470723876](https://doi.org/10.1002/9780470723876)
