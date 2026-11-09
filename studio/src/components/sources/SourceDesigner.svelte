@@ -3,7 +3,8 @@
   // (a guide, a crystal, a ring, or a guide pumped in two modes) computed a moment after the form
   // changes (pair_source, sources.rs). It draws the joint spectral amplitude and intensity, the
   // Schmidt weights with the purity and the Schmidt number, the brightness where the library
-  // defines one, the heralding through each arm's filter and coupler, and the pairs per pulse.
+  // defines one, the heralding through each arm's filter and coupler, and the pairs per pulse;
+  // below them, a guide's or a crystal's squeezing at high gain (SourceSqueezing).
   import { Sparkles } from "@lucide/svelte";
 
   import { api, type PairArm, type PairDesign, type PairMedium, type PairSource } from "../../lib/api";
@@ -11,6 +12,7 @@
   import { axisLabel, defaults, emptyField, figure, FEWEST_POINTS, KINDS, MOST_POINTS, PRESETS, share, transposed } from "../../lib/sources";
   import HeatMap from "../nonlinear/HeatMap.svelte";
   import SchmidtBars from "./SchmidtBars.svelte";
+  import SourceSqueezing from "./SourceSqueezing.svelte";
 
   loadMaterials();
 
@@ -319,6 +321,8 @@
             </table>
           </div>
         </div>
+
+        <SourceSqueezing design={d} />
       {/if}
     </div>
   </div>

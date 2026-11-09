@@ -957,14 +957,16 @@ to try it.
 The Materials page's **Photon-pair sources** designs a source: a guide, a catalogue crystal, a ring
 (with a second channel at the pump) or a guide pumped in two modes; its joint spectrum, Schmidt
 weights, purity, brightness where the library defines one, heralding through each arm's filter and
-coupler, and pairs per pulse with $g^{(2)}$ and the multi-pair share.
+coupler, and pairs per pulse with $g^{(2)}$ and the multi-pair share. For a guide or a crystal,
+its **Squeezing at high gain** cuts the source into slices along its length and shows how far the
+squeezing and the squeezed modes leave the Schmidt model's as the gain grows.
 
 What the library does not do: it has no single-photon emitters beyond their Purcell and β factors
 from FDTD, and no quantum-dot sources; detectors are their absorption, from transfer matrices and the
 mode solver, not their timing or dark counts; an S-matrix from FDTD isn't a device's fidelity yet,
 one launch a port; squeezing is lossless in the amplifier, and broadband squeezing at high gain,
-whose modes change with the gain, is a dense map of a few hundred frequencies, not yet in the
-studio; and it computes no GKP or other non-Gaussian
+whose modes change with the gain, is a dense map of a few hundred frequencies, lossless and with
+an undepleted pump; and it computes no GKP or other non-Gaussian
 states, decoders or thresholds of its own. Two comparisons on the detector side don't agree:
 Pernice et al.'s (2012) NbN wires on a silicon strip absorb
 1.01 ± 0.02 dB/µm by their simulation and 0.98 ± 0.10 measured, where the mode solver with the

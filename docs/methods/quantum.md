@@ -446,7 +446,8 @@ heralding through each arm's filter and coupler (`path` of each, then
 `JointSpectrum::heralding`), and `Source`'s pairs per pulse, $g^{(2)}$ and multi-pair share, as
 the form changes. Its tests hold a Gaussian amplitude's weights to the closed form
 $\lambda_k = (1 - \mu^2)\mu^{2k}$, $\mu^2 = (1 - P)/(1 + P)$, with $P$ from `gaussian_purity`, to
-$10^{-9}$, and a ring's Schmidt number to Helt et al.'s and Vernon et al.'s 1.09.
+$10^{-9}$, and a ring's Schmidt number to Helt et al.'s and Vernon et al.'s 1.09. Below it,
+**Squeezing at high gain** takes a guide or a crystal further with `Broadband` (below).
 
 ## Pairs from rings
 
@@ -560,6 +561,41 @@ The cases (Analytic):
   (the exponential midpoint rule).
 - `quantum/broadband-photons`: $\operatorname{Tr} BB^\dagger$, $\sum \sinh^2 r_k$ and the
   `Gaussian` state's photons (`Broadband::gaussian`) agree to round-off.
+
+### In the studio
+
+The source designer's **Squeezing at high gain** ([studio/README.md](../../studio/README.md))
+slices a guide or a crystal of the designer with its device's own `phase_at_frequencies`, the
+pump's amplitude (for four-wave mixing, the two pump photons' spectrum, each at half the pair's
+frequency, as `joint_spectrum` takes them) and the gain $g$, and computes `Broadband::exponential`
+of the device's sinc spectrum on the same grid beside it. It runs `sliced` twice, on $N$ and $N/2$
+slices: the first squeezing's change between them is the slicing's error, about three times the
+$N$-slice error at the midpoint rule's second order. A ring isn't sliced (its pairs are its
+resonances', with no mismatch along a length), nor are two pumps in two modes (their overlap
+changes along the guide, which `sliced` doesn't take).
+
+For the designer's correlated guide (10 mm, group indices 2.3, 2.2 and 2.3 for the pump, signal
+and idler, no dispersion, a 1 nm pump at 775 nm, its own sinc; 61 points 15 nm either side of the
+signal, 100 slices), in dB, $10\log_{10} e^{2r}$:
+
+| $g$ | First three, sliced | Schmidt model | Photons (Schmidt) | Modes (Schmidt) | First mode moved | From 50 slices |
+|---|---|---|---|---|---|---|
+| 0.5 | 4.159, 1.186, 0.604 | 4.098, 1.133, 0.601 | 0.28 (0.27) | 1.242 (1.235) | 1.0e-3 | 1.2e-4 |
+| 1 | 8.658, 2.695, 1.231 | 8.197, 2.266, 1.202 | 1.51 (1.30) | 1.212 (1.191) | 1.5e-2 | 3.0e-4 |
+| 2 | 19.31, 7.81, 2.84 | 16.39, 4.53, 2.40 | 22.1 (10.9) | 1.121 (1.091) | 0.14 | 8.5e-4 |
+| 3 | 31.51, 16.28, 6.29 | 24.59, 6.80, 3.61 | 364 (72.6) | 1.062 (1.032) | 0.30 | 1.4e-3 |
+
+"First mode moved" is $1 - \lvert\langle u_1 \vert u_1^{(0)}\rangle\rvert^2$ against the Schmidt
+model's first mode, and the last column is the change in $r_1$. Here the sliced source's modes
+number slightly more than the Schmidt model's, because its second mode gains far more than its
+share (7.8 dB against 4.5 at $g$ = 2). In the group-velocity matched guide (2.3, 2.2468, 2.3532,
+the same pump, 8 nm either side) the first mode takes nearly all of it: at $g$ = 3 the sliced
+source has 1449 photons in 1.004 modes, the Schmidt model 78.5 in 1.021. The figures come from
+the ignored test `sources::squeezing::tests::print_figures` in the studio. Its tests hold slices
+that commute (every wave at one group index) to the Schmidt model to $10^{-9}$ at $g$ = 3, the
+Schmidt model's squeezing to $g\sqrt{\lambda_k}$ of the designer's own weights to $10^{-12}$, the
+map's symplectic error to `quantum/broadband-symplectic`'s $10^{-12}$, and the slicing's order to
+`quantum/broadband-mismatched-order`'s 2 ± 0.1.
 
 ## Many photons with spectra through S(ω)
 
@@ -1173,10 +1209,10 @@ the gap is explained, without a looser tolerance.
 - A source's squeezing per Schmidt mode, $g\sqrt{\lambda_k}$, is the low-gain picture; the
   squeezers are continuous-wave and lossless (the loss goes after them). Broadband squeezing at
   high gain is `Broadband`'s: lossless and undepleted, without four-wave mixing's self- and
-  cross-phase modulation, a dense map of (signal + idler)² entries (a few hundred frequencies),
-  and not in the studio's source designer yet, whose devices give a joint spectrum, not the phase
-  mismatch along the length that the slices need. The Schmidt modes' shapes are left for later,
-  for the studio's source designer to draw.
+  cross-phase modulation, a dense map of (signal + idler)² entries (a few hundred frequencies).
+  The studio's source designer slices its guides and crystals (up to 101 points a side and 200
+  slices, to stay live) and draws the first two squeezed signal modes' shapes beside the Schmidt
+  modes; a ring and two pumps in two modes aren't sliced.
 - Photons with spectra through S(ω): up to 8 (n! permanents a pattern), every pattern of
   `distribution` as above. Detectors are frequency-blind; a frequency-resolving one would keep
   the slots' frequencies apart.

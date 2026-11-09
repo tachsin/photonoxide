@@ -3,7 +3,8 @@
 // (tests/sources.test.ts) runs them as they are. No physics here: the spectra, the Schmidt
 // weights, the brightness, the heralding and the pairs are the library's.
 
-import type { PairArm, PairDesign, PairMedium } from "./api";
+import type { PairArm, PairDesign, PairGain, PairMedium, PairSqueezing } from "./api";
+import type { Series } from "./plot";
 
 /** The kinds of source, in the order the form offers them. */
 export const KINDS: { id: PairMedium["kind"]; label: string; about: string }[] = [
@@ -166,4 +167,53 @@ export function axisLabel(photon: "signal" | "idler", unit: "GHz" | "nm"): strin
 /** The map's values as the heat map takes them, rows its y (the idler) and columns its x (the signal): the command's rows are the signal's. */
 export function transposed(values: number[], points: number): number[] {
   return Array.from({ length: values.length }, (_, k) => values[(k % points) * points + Math.floor(k / points)]);
+}
+
+// Squeezing at high gain (sources/squeezing.rs): a guide or a crystal cut into slices along its length.
+
+/** The limits of squeezing at high gain (MOST_GAIN, FEWEST_SLICES, MOST_SLICES and MOST_GAIN_POINTS in sources/squeezing.rs). */
+export const MOST_GAIN = 5;
+export const FEWEST_SLICES = 2;
+export const MOST_SLICES = 200;
+export const MOST_GAIN_POINTS = 101;
+
+/** Whether a source can be cut into slices along its length: a guide or a crystal, not a ring or two pumps in two modes. */
+export function sliceable(medium: PairMedium): boolean {
+  return medium.kind === "guide" || medium.kind === "crystal";
+}
+
+/** Why a ring or two pumps in two modes have no squeezing at high gain here. */
+export const NOT_SLICEABLE =
+  "Squeezing at high gain cuts a guide or a crystal into slices along its length. A ring's pairs are its resonances', with no phase mismatch along a length, and two pumps' overlap changes along the guide, which the slices don't take.";
+
+/** Where squeezing at high gain starts: g = 2, 100 slices, 61 points. */
+export function defaultGain(): PairGain {
+  return { gain: 2, slices: 100, points: 61 };
+}
+
+/** What is wrong with a gain before it is sent, or null: the command refuses the same, with its numbers. */
+export function gainProblem(g: PairGain): string | null {
+  if (!Number.isFinite(g.gain)) return "Fill in the gain g.";
+  if (!Number.isFinite(g.slices)) return "Fill in the slices.";
+  if (!Number.isFinite(g.points)) return "Fill in the points.";
+  if (g.slices % 2 !== 0) return "The slices must be even: half of them give the slicing's error.";
+  return null;
+}
+
+/** Each pair of modes' squeezing as paired bars, k = 0, 1, …: the sliced source's and the Schmidt model's dB, each height a share of the largest of both. */
+export function pairedBars(sliced: number[], schmidt: number[]): { k: number; sliced: number; schmidt: number; heights: [number, number] }[] {
+  const n = Math.max(sliced.length, schmidt.length);
+  const top = Math.max(0, ...sliced, ...schmidt);
+  return Array.from({ length: n }, (_, k) => {
+    const [a, b] = [sliced[k] ?? 0, schmidt[k] ?? 0];
+    return { k, sliced: a, schmidt: b, heights: [top > 0 ? a / top : 0, top > 0 ? b / top : 0] as [number, number] };
+  });
+}
+
+/** The first signal modes' |u|² over the signal's wavelength as the line plot takes them: each mode sliced (solid) and in the Schmidt model (dashed), in one colour per mode. */
+export function modeSeries(s: PairSqueezing, colours: string[]): Series[] {
+  return s.modes.flatMap((m, k) => [
+    { label: `mode ${k + 1}, sliced`, points: s.signal_axis.map((x, j) => [x, m.sliced[j]] as [number, number]), colour: colours[k % colours.length] },
+    { label: `mode ${k + 1}, Schmidt model`, points: s.signal_axis.map((x, j) => [x, m.schmidt[j]] as [number, number]), colour: colours[k % colours.length], dashed: true },
+  ]);
 }

@@ -304,6 +304,7 @@ export const api = {
     invoke<TransparencyWindow[]>("transparency_windows", { temperatureK, algaasX, alganX }),
   /** A photon-pair source computed (sources.rs): its joint spectrum, Schmidt weights, brightness, heralding and pairs. */
   pairSource: (design: PairDesign) => invoke<PairSource>("pair_source", { design }),
+  pairSqueezing: (design: PairDesign, gain: PairGain) => invoke<PairSqueezing>("pair_squeezing", { design, gain }),
   componentLibrary: () => invoke<KindInfo[]>("component_library"),
   componentKind: (id: string) => invoke<KindInfo>("component_kind", { id }),
   componentSpectrum: (part: Part, values: number[], sweep: Sweep) => invoke<SpectrumData>("component_spectrum", { part, values, sweep }),
@@ -557,6 +558,37 @@ export interface PairSource {
   multi_pair: number;
   g2: number;
   facts: PairFact[];
+  notes: string[];
+  seconds: number;
+}
+
+/** The gain and the slicing of a guide's or a crystal's squeezing at high gain (sources/squeezing.rs's Gain). */
+export interface PairGain {
+  /** g: the Schmidt model squeezes mode k by g√λ_k. */
+  gain: number;
+  /** N, even: the change from N/2 slices is the slicing's error. */
+  slices: number;
+  points: number;
+}
+
+/** A source's squeezing at high gain (sources/squeezing.rs's Squeezed): each pair is [sliced, the Schmidt model's]. */
+export interface PairSqueezing {
+  gain: number;
+  slices: number;
+  points: number;
+  /** r_k, largest first. */
+  squeezing: [number[], number[]];
+  /** 10 log₁₀ e^{2r}, dB. */
+  squeezing_db: [number[], number[]];
+  mean_photons: [number, number];
+  mode_number: [number, number];
+  /** The signal's wavelengths, nm. */
+  signal_axis: number[];
+  /** The first signal modes' |u|², and 1 − |⟨u|u⁽⁰⁾⟩|². */
+  modes: { sliced: number[]; schmidt: number[]; shift: number }[];
+  /** r₁ on N slices less r₁ on N/2. */
+  slice_change: number;
+  symplectic_error: number;
   notes: string[];
   seconds: number;
 }
