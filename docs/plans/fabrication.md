@@ -1,6 +1,6 @@
 # A fabrication engine: the process flow of a design, suggested and animated
 
-*A plan, 2026-10-30. I review it first; the work is tracked in #622.*
+*A plan, 2026-10-30. The engine shipped in 0.6.1 and grew in 0.6.2 and 0.6.3; what is left is under 0.10 in the roadmap, tracked in #622.*
 
 A design in photonoxide is a stack of layers and the shapes drawn on them, with each etch's depth
 and sidewall angle. That is also what a cleanroom makes. This page plans an engine that reads a

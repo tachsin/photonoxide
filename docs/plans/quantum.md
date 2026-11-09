@@ -1,10 +1,10 @@
 # Quantum photonics: a survey and a plan
 
-*A survey and a plan, 2026-10-08. It is on the roadmap since 2026-10-09 (decisions, section 5). Built so far: Q1 (#738), Q2 (#742) and Q3 (#743), part of #737, with what each leaves for #595 stated on the methods page; Q4 and Q5 are not.*
+*A survey and a plan, 2026-10-08. It is on the roadmap since 2026-10-09 (decisions, section 5). Built, and released as 0.6.3: Q1 (#738), Q2 (#742) and Q3 (#743), part of #737, with what each leaves for #595 stated on the methods page; the studio's quantum views (#746, #749, #765) and the Academy's lesson (#751). Q4 and Q5 are not built.*
 
-The roadmap has photon pairs in 0.6.1 (SPDC and SFWM, the joint spectral amplitude, purity,
-brightness and heralding) and one line in 0.16, "Quantum photonics: linear optical circuits and
-their statistics". This page asks what photonic quantum computing and quantum photonics need from
+When this was written, the roadmap had photon pairs in 0.6.1 (SPDC and SFWM, the joint spectral
+amplitude, purity, brightness and heralding) and one line in 0.16, "Quantum photonics: linear
+optical circuits and their statistics" (since removed, as decision 8 says). This page asks what photonic quantum computing and quantum photonics need from
 a validated photonics library, and proposes how photonoxide, its studio and its Academy could
 serve them. It has five parts:
 
@@ -463,7 +463,8 @@ today's components plus the visibility formula.
    squeezing with Q3; KLM and fusion, and GKP, as theory lessons whenever written.
    *Recommended: as listed.*
 8. **0.16's line.** Replace "Quantum photonics: linear optical circuits and their statistics" by
-   Q5 as Academy material, or remove it. *Recommended: remove it once 0.6.2 is on the roadmap.*
+   Q5 as Academy material, or remove it. *Recommended: remove it once 0.6.2 is on the roadmap.* Done: the milestone went onto the roadmap as 0.6.3, and
+   the line is gone.
 
 ## References
 
