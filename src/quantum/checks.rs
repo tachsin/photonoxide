@@ -735,3 +735,31 @@ fn coupler_hom_order() -> Outcome {
         .log2();
     outcome((order * 100.0).round() / 100.0, 1.0, 0.5)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The tallest Γ of Peruzzo et al.'s four simulated panels over the pairs they measured
+    /// (q − r even: their fibre arrays have twice the output pitch), as docs/methods/quantum.md
+    /// gives them against the paper's 0.0178, 0.0237, 0.0147 and 0.0266.
+    #[test]
+    fn peruzzo_tallest_on_the_measured_pairs() {
+        let u = peruzzo_array();
+        let panels = [
+            (10, 11, Photons::Distinguishable, 0.0176),
+            (10, 11, Photons::Indistinguishable, 0.0239),
+            (9, 11, Photons::Distinguishable, 0.0162),
+            (9, 11, Photons::Indistinguishable, 0.0264),
+        ];
+        for (a, b, photons, docs) in panels {
+            let g = gamma(&u, a, b, &photons);
+            let tallest = (0..21)
+                .flat_map(|q| (0..21).map(move |r| (q, r)))
+                .filter(|(q, r)| (q + r) % 2 == 0)
+                .map(|(q, r)| g[q][r])
+                .fold(0.0, f64::max);
+            assert!((tallest - docs).abs() < 5e-5, "{tallest} against {docs}");
+        }
+    }
+}

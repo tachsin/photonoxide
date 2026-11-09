@@ -2476,6 +2476,13 @@
   venue: "Computer Physics Communications 181, 687"
   year: 2010
 
+- doi: 10.6084/m9.figshare.11882760
+  authors: "S. Paesani"
+  title: "Data for \"Near-ideal spontaneous photon sources in silicon quantum photonics\""
+  venue: figshare
+  year: 2020
+  agency: datacite
+
 - doi: 10.1038/s41567-019-0567-8
   authors: "S. Paesani, Y. Ding, R. Santagati, L. Chakhmakhchyan, C. Vigliar, K. Rottwitt, L. K. Oxenløwe, J. Wang, M. G. Thompson, A. Laing"
   title: "Generation and sampling of quantum states of light in a silicon chip"

@@ -1215,6 +1215,36 @@ mod tests {
         }
     }
 
+    /// Other readings of the measured pump, without its phase: the plotted spectrum taken per
+    /// unit wavelength (`Jacobian`, times λ² to make it per unit frequency), the curve's
+    /// line-width floor of 0.005 taken off (`Floor`), and the amplitude, not the intensity,
+    /// interpolated between the read points (`Amplitude`).
+    #[derive(Clone, Copy, Debug)]
+    enum Reading {
+        Jacobian,
+        Floor,
+        Amplitude,
+    }
+
+    fn paesani_pump_read(reading: Reading) -> impl Fn(f64) -> c64 + Sync {
+        move |nu: f64| {
+            let x = (1e3 / nu - 1540.0) / 0.1;
+            if !(0.0..200.0).contains(&x) {
+                return c64::new(0.0, 0.0);
+            }
+            let k = x.floor() as usize;
+            let t = x - k as f64;
+            let (i0, i1) = (PAESANI_PUMP[k].0.max(0.0), PAESANI_PUMP[k + 1].0.max(0.0));
+            let intensity = i0 + t * (i1 - i0);
+            let amplitude = match reading {
+                Reading::Jacobian => (intensity * (1e3 / nu / 1550.0).powi(2)).sqrt(),
+                Reading::Floor => (intensity - 0.005).max(0.0).sqrt(),
+                Reading::Amplitude => i0.sqrt() + t * (i1.sqrt() - i0.sqrt()),
+            };
+            c64::new(amplitude, 0.0)
+        }
+    }
+
     /// [`paesani_purity`] with the pump's amplitude `shaped` in place of the Gaussian when given.
     fn paesani_shaped_purity(
         tm0: &ModeIndex,
@@ -1358,6 +1388,46 @@ mod tests {
         }
     }
 
+    /// Another reading of Vernon et al.'s Fig. 3 ("maximum heralded state purity") and of their
+    /// text's K = 1.08 ("the lower bound" for a Gaussian pulse): the purity at the best Gaussian
+    /// pulse (by golden-section search on its length, 0.05 to 50 ps), with no cut of the
+    /// frequencies (±20 signal linewidths), against the line. The search ends at the shortest
+    /// pulse, the broad pump's purity, so this reading doesn't give the line.
+    #[test]
+    #[ignore = "Vernon et al.'s Fig. 3 at the best Gaussian pulse: a minute"]
+    fn print_vernon_fig3_best_pulse() {
+        let line = [
+            (1.0, 0.9273),
+            (1.5, 0.9592),
+            (2.0, 0.9740),
+            (3.0, 0.9868),
+            (4.0, 0.9921),
+        ];
+        for (ratio, read) in line {
+            let k = |pulse: f64, points: usize| ring_schmidt(pulse, ratio, 20.0, points);
+            // the pulse (ps) on a log scale
+            let g = 0.5 * (5f64.sqrt() - 1.0);
+            let (mut a, mut b) = (0.05f64.ln(), 50f64.ln());
+            for _ in 0..30 {
+                let (c, d) = (b - g * (b - a), a + g * (b - a));
+                if k(c.exp(), 401) < k(d.exp(), 401) {
+                    b = d;
+                } else {
+                    a = c;
+                }
+            }
+            let best = (0.5 * (a + b)).exp();
+            let (fine, coarse) = (1.0 / k(best, 801), 1.0 / k(best, 401));
+            eprintln!(
+                "ratio {ratio}: line {read:.4}, best pulse {best:.3} ps, purity {fine:.5} (K {:.5}; grid {:.1e}, off {:+.5}); a broad pump {:.5}",
+                1.0 / fine,
+                (fine - coarse).abs(),
+                fine - read,
+                1.0 / k(0.05, 801)
+            );
+        }
+    }
+
     #[test]
     #[ignore = "Paesani et al.'s source from the mode solver: slow"]
     fn print_paesani() {
@@ -1463,6 +1533,20 @@ mod tests {
                         p(&theirs_a)
                     );
                 }
+            }
+            for reading in [Reading::Jacobian, Reading::Floor, Reading::Amplitude] {
+                eprintln!(
+                    "  delay {eq2:.4} ps, 161 points, {reading:?} reading, without phase {:.6}",
+                    paesani_shaped_purity(
+                        &tm0,
+                        &tm1,
+                        eq2,
+                        0.00458,
+                        161,
+                        Some(&paesani_pump_read(reading))
+                    )
+                    .0
+                );
             }
         }
     }

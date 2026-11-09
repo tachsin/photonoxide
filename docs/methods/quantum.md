@@ -818,23 +818,33 @@ with probability 0.50 when distinguishable and 0.27 when not, the off-diagonal l
 Fig. 3 shows vanishing; for (−1, 1), the coincidence of guides 0 and 7 falls from 0.0068 for
 distinguishable photons to 0.00084.
 
-**What doesn't agree yet.** Their simulated correlation matrices (Figs. 3B, 3D, 4B and 4D) are
-MATLAB 3D bar charts drawn as vector paths, and each bar's height is the length of its side
-faces' vertical edges, scaled by the panel's z axis, whose own line reads 0.02001, 0.04005,
-0.02002 and 0.04000 for its 0.02 and 0.04 ticks. Their tallest bars and ours, with $Cz = 3.91$:
+**Their simulated panels.** Their simulated correlation matrices (Figs. 3B, 3D, 4B and 4D) are
+MATLAB 3D bar charts drawn as vector paths. Each bar is a unit box whose four vertical edges stand
+on its cell's corners, so a cell's height is the edge length found at all four of its corners,
+scaled by the panel's z axis, whose own line reads 0.02001, 0.04005, 0.02002 and 0.04000 for its
+0.02 and 0.04 ticks. The panels plot only the pairs they measured: the output guides are pitched
+at half the collecting fibre arrays' pitch, so they measured 121 of the 231 pairs (p. 1501), the
+pairs $q, r$ with $q - r$ even, and the other cells of each panel are left white, with no bar.
+A bar hidden at one of its corners can't be read; on the measured pairs, with $Cz = 3.91$:
 
-| Panel | Input, photons | Paper (tallest bar) | photonoxide (largest $\Gamma_{q,r}$) |
-|---|---|---|---|
-| 3B | (0, 1), distinguishable | 0.0178 | 0.0236 |
-| 3D | (0, 1), indistinguishable | 0.0237 | 0.0361 |
-| 4B | (−1, 1), distinguishable | 0.0147 | 0.0162 |
-| 4D | (−1, 1), indistinguishable | 0.0266 | 0.0264 |
+| Panel | Input, photons | Paper (tallest bar) | photonoxide, tallest on the measured pairs | photonoxide, tallest of all 231 | Bars read | Largest difference over them |
+|---|---|---|---|---|---|---|
+| 3B | (0, 1), distinguishable | 0.0178 | 0.0176 | 0.0236 | 75 | 0.00025 |
+| 3D | (0, 1), indistinguishable | 0.0237 | 0.0239 | 0.0361 | 61 | 0.00042 |
+| 4B | (−1, 1), distinguishable | 0.0147 | 0.0162 | 0.0162 | 86 | 0.0041 |
+| 4D | (−1, 1), indistinguishable | 0.0266 | 0.0264 | 0.0264 | 90 | 0.00065 |
 
-Only Fig. 4D agrees (1%). No single $Cz$ from 2 to 6 matches all four panels, either as
-$\Gamma_{q,r}$ or with the $21 \times 21$ matrix normalized to 1, so their simulations' length or
-couplings differ from the uniform array the text gives, perhaps by the spreading regions'
-coupling, which the paper states only as an effective length (its fig. S1, in the supplement, is
-not read here). The gap stays open, and the panels' heights are not a case until it closes.
+So the tallest bars of Figs. 3B and 3D, which lie off the measured pairs in our matrices, are
+no longer a gap: Figs. 3B, 3D and 4D agree bar by bar to 1.4%, 1.8% and 2.4% of their tallest
+bar, and fitting $Cz$ to each panel alone gives 3.91, 3.91 and 3.895, the text's 3.91. Fig. 4B
+does not: it fits best at $Cz = 4.035$ (largest difference 0.00077), so it was drawn for a
+slightly longer array, or a stronger coupling, than Fig. 4D, which has the same input. Two
+questions stay open, and the bar heights are not a case until they close: why Fig. 4B's $Cz$
+differs, and what sets the remaining 1–2% bar to bar (a scale factor, $\Gamma$ normalized over
+the measured pairs, and a second-neighbour coupling from −0.06 to 0.06 of $C$ each leave it as
+it is). The supplement's fig. S1, which compares a 350 µm array's output with the simulation to
+find the effective 82 µm, isn't in hand; the arXiv version (arXiv:1006.4764) has the same four
+panels and says only that the 350 µm pattern is "not shown".
 
 **Convergence.** The sampler's total variation distance to the exact distribution falls as
 $N^{-1/2}$: 3 photons in 5 modes, 1000 to 256 000 samples, eight seeds each, give an order of
@@ -917,6 +927,16 @@ with their own fit; from the two measured levels alone the squeezing before the 
   the narrower pump resonance of a ratio of 0.5). Not a case: the window is inferred from the
   figure, not stated in the letter. An earlier reading here, a window of ±4 *signal* linewidths,
   matched 1.08 and 1.0009 but not Fig. 3's line; it is superseded.
+
+  The letter was read again for a window. It gives none in numbers: "a range large enough to
+  capture the full extent of the corresponding resonance, but not so large as to overlap with
+  any other resonances" (p. 3639), and Fig. 2's axes, a little over ±1 signal linewidth, are a
+  plot's range. Its other reading, that Fig. 3 is the *maximum* purity over Gaussian pump pulses
+  and 1.08 the "lower bound ... pumped with a Gaussian pulse" (p. 3639), doesn't hold either: with
+  no window, a search over pulses from 0.05 to 50 ps ends at the shortest, a pump far broader than
+  the resonances, at 0.91671 ($K$ = 1.09086) for equal linewidths and 0.95461, 0.97151, 0.98584
+  and 0.99166 at ratios of 1.5 to 4, the broad pump's values (the ignored test
+  `quantum::light_checks::tests::print_vernon_fig3_best_pulse`). The window stays inferred.
 - **Paesani et al.'s inter-modal source.** Their guide is 2 × 0.22 µm silicon in silica, 11 mm
   long, pumped in TM₀ and TM₁, the signal in TM₁ and the idler in TM₀, measured at 1588 and
   1516 nm (Supplementary Note 1a, p. 2). Their measured purity is 0.9904 ± 0.0006 with the delay
@@ -978,6 +998,18 @@ from theirs, so the reading as $\lvert\alpha\rvert^2$ stands. The phase's sign m
 $e^{+i\varphi}$ the purity is 0.9772 on 5 nm cells instead of 0.9810. The 0.002 left is the size of
 what a pixel reading of a steep edge can move, but that isn't shown, so it is not a case. The
 numbers come from `quantum::light_checks::tests::print_paesani_measured_pump`.
+
+Their side of the comparison is read well enough: Supplementary Fig. 2a's inset has its ticks
+40 pixels per 0.01 apart, so a pixel is 0.00025, and at 11 mm its curves read 0.9934 without the
+phase and 0.9838 with it, 0.0023 and 0.0021 above ours. Three other readings of the pump, on
+20 nm cells at the delay by Supp. Eq. 2, move our purity without the phase from 0.98974 by at most
+0.0007: the spectrum taken per unit wavelength and turned into one per unit frequency
+($\lambda^2$, 0.98976), the curve's line-width floor of 0.005 taken off (0.98905), and the
+amplitude interpolated between the read points instead of the intensity (0.98972). The delay of
+2.06 ps from their own group indices gives 0.98922. The authors' published data
+(doi:10.6084/m9.figshare.11882760, the article's data availability statement) holds the main
+figures' data (the measured joint spectra, squeezing, $g^{(2)}$, the HOM dips and the
+tomography) but not the FROG pump, so the pump as numbers stays missing.
 
 - **Vaidya et al.'s quadrature squeezing.** Their 1.0 dB measured and about 4 dB inferred on chip
   need their net collection efficiency $\eta$ and gain $g$. Their Supplementary Materials give the
