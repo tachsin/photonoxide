@@ -313,12 +313,14 @@ workflow*, on `main` or a tag, with *publish* ticked.
 **The API reference** ([tachsin.gr/projects/photonoxide/docs/python/reference](https://tachsin.gr/projects/photonoxide/docs/python/reference))
 is made by [pdoc](https://pdoc.dev) in every run of `python-wheels.yml`, from the docstrings and
 type stubs of the Linux wheel it built, and kept as the run's `python-reference` artifact: one
-self-contained HTML file for the package and one for `photonoxide.errors`. A run that publishes
-a release (it runs at the release's tag) also attaches them to the GitHub release, as
-`python-reference-photonoxide.html` and `python-reference-photonoxide.errors.html`, and the
-site's reference page serves the latest release's. Nothing is set up by hand for it, and the
-reference is never committed. To make it locally: `just python-reference`, into
-`target/python-reference` (pdoc's version is the package's `docs` extra).
+self-contained HTML file for the package and one for `photonoxide.errors`. Since 0.6.3 a release
+no longer carries them (releases up to 0.6.2 still have them as assets, named
+`python-reference-photonoxide.html` and `python-reference-photonoxide.errors.html`). The site's
+reference page serves the copy committed in the tachsin.gr repository, and else the assets of a
+release up to 0.6.2; `pnpm run deploy` there brings that copy up to photonoxide's latest
+release. Nothing is set up by hand here for it, and the reference is never committed to this
+repository. To make it locally: `just python-reference`, into `target/python-reference`
+(pdoc's version is the package's `docs` extra).
 
 **The reference stays complete.** `python/tests/test_docs.py` fails when a public class,
 function, method or attribute of `photonoxide` or `photonoxide.errors` has no docstring (an
