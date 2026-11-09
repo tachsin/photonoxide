@@ -20,7 +20,8 @@ permissions:
 jobs:
   marks:
     name: Release marks
-    if: ${{ startsWith(github.head_ref, 'release-plz-') || startsWith(github.event.pull_request.title, 'chore: release v') }}
+    # quoted: "chore: release v" has a ": ", which YAML would read as a mapping in a bare value
+    if: "startsWith(github.head_ref, 'release-plz-') || startsWith(github.event.pull_request.title, 'chore: release v')"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
