@@ -254,6 +254,18 @@
   venue: "Optica 8, 1247"
   year: 2021
 
+- doi: 10.1038/s41566-024-01567-z
+  authors: "S. Bandyopadhyay, A. Sludds, S. Krastanov, R. Hamerly, N. Harris, D. Bunandar, M. Streshinsky, M. Hochberg, D. Englund"
+  title: "Single-chip photonic deep neural network with forward-only training"
+  venue: "Nat. Photon. 18, 1335"
+  year: 2024
+
+- doi: 10.1109/JLT.2024.3382091
+  authors: "S. Bao, Y. Ma, J. Xue, J. Wu, N. Qi, B. Wang"
+  title: "A Comprehensive Equivalent Circuit Model of Silicon Microring Modulators for Photonics-Electronics Codesign"
+  venue: "J. Lightwave Technol. 42, 4924"
+  year: 2024
+
 - doi: 10.1007/s00340-009-3434-y
   authors: "N. A. Barboza, R. S. Cudney"
   title: "Improved Sellmeier equation for congruently grown lithium tantalate"
@@ -756,6 +768,12 @@
   venue: "Opt. Lett. 38, 1422"
   year: 2013
 
+- doi: 10.1103/PhysRev.99.1151
+  authors: "W. C. Dash, R. Newman"
+  title: "Intrinsic Optical Absorption in Single-Crystal Germanium and Silicon at 77°K and 300°K"
+  venue: "Phys. Rev. 99, 1151"
+  year: 1955
+
 - doi: 10.1002/cpa.3160410705
   authors: "I. Daubechies"
   title: "Orthonormal bases of compactly supported wavelets"
@@ -843,6 +861,12 @@
   title: "GaAs integrated quantum photonics: Towards compact and multi‐functional quantum photonic integrated circuits"
   venue: "Laser & Photonics Reviews 10, 870"
   year: 2016
+
+- doi: 10.1109/JLT.2014.2323954
+  authors: "R. Ding, Y. Liu, Y. Ma, Y. Yang, Q. Li, A. E.-J. Lim, G.-Q. Lo, K. Bergman, T. Baehr-Jones, M. Hochberg"
+  title: "High-Speed Silicon Modulator With Slow-Wave Electrodes and Fully Independent Differential Drive"
+  venue: "J. Lightwave Technol. 32, 2240"
+  year: 2014
 
 - doi: 10.1137/080728536
   authors: "V. Dolean, M. Gander, L. Gerardo-Giorda"
@@ -1252,6 +1276,12 @@
   venue: "Phys. Rev. A 56, 1627"
   year: 1997
 
+- doi: 10.1109/T-ED.1964.15364
+  authors: "H. Gummel"
+  title: "A self-consistent iterative scheme for one-dimensional steady state transistor calculations"
+  venue: "IEEE Trans. Electron Devices 11, 455"
+  year: 1964
+
 - doi: 10.21105/joss.01705
   authors: "B. Gupt, J. Izaac, N. Quesada"
   title: "The Walrus: a library for the calculation of hafnians, Hermite polynomials and Gaussian boson sampling"
@@ -1326,6 +1356,12 @@
   year: 2016
   open: https://doi.org/10.1002/lpor.201600213
 
+- doi: 10.1103/PhysRev.87.387
+  authors: "R. N. Hall"
+  title: "Electron-Hole Recombination in Germanium"
+  venue: "Phys. Rev. 87, 387"
+  year: 1952
+
 - doi: 10.1103/PhysRevApplied.18.024019
   authors: "R. Hamerly, S. Bandyopadhyay, D. Englund"
   title: "Accurate Self-Configuration of Rectangular Multiport Interferometers"
@@ -1349,6 +1385,12 @@
   title: "Photonic topology optimization with semiconductor-foundry design-rule constraints"
   venue: "Opt. Express 29, 23916"
   year: 2021
+
+- doi: 10.1126/sciadv.adi5339
+  authors: "C. Han, Z. Zheng, H. Shu, M. Jin, J. Qin, R. Chen, Y. Tao, B. Shen, B. Bai, F. Yang, et al."
+  title: "Slow-light silicon modulator with 110-GHz bandwidth"
+  venue: "Sci. Adv. 9, eadi5339"
+  year: 2023
 
 - doi: 10.1162/106365601750190398
   authors: "N. Hansen, A. Ostermeier"
@@ -1550,6 +1592,12 @@
   title: "Thermal and Kerr nonlinear properties of plasma-deposited silicon nitride/ silicon dioxide waveguides"
   venue: "Opt. Express 16, 12987"
   year: 2008
+
+- doi: 10.1063/1.1564868
+  authors: "Y. Ishikawa, K. Wada, D. D. Cannon, J. Liu, H.-C. Luan, L. C. Kimerling"
+  title: "Strain-induced band gap shrinkage in Ge grown on Si substrate"
+  venue: "Applied Physics Letters 82, 2044"
+  year: 2003
 
 - doi: 10.1049/el:19780397
   authors: "K. Izumi, M. Doken, H. Ariyoshi"
@@ -2033,6 +2081,12 @@
   year: 1963
   open: "https://gymarkiv.sdu.dk/MFM/kdvs/mfm%2030-39/mfm-33-14.pdf"
 
+- doi: 10.1364/OE.23.027213
+  authors: "S. Lischke, D. Knoll, C. Mai, L. Zimmermann, A. Peczek, M. Kroh, A. Trusch, E. Krune, K. Voigt, A. Mai"
+  title: "High bandwidth, high responsivity waveguide-coupled germanium p-i-n photodiode"
+  venue: "Opt. Express 23, 27213"
+  year: 2015
+
 - doi: 10.1109/50.588673
   authors: "B. Little, S. Chu, H. Haus, J. Foresi, J.-P. Laine"
   title: "Microring resonator channel dropping filters"
@@ -2288,6 +2342,12 @@
   venue: "Notices Amer. Math. Soc. 54, 592"
   year: 2007
 
+- doi: 10.1038/nphoton.2010.157
+  authors: "J. Michel, J. Liu, L. C. Kimerling"
+  title: "High-performance Ge-on-Si photodetectors"
+  venue: "Nature Photon 4, 527"
+  year: 2010
+
 - doi: 10.1145/1513895.1513905
   authors: "P. Micikevicius"
   title: "3D finite difference computation on GPUs using CUDA"
@@ -2427,6 +2487,12 @@
   venue: "Cambridge University Press"
   year: 2012
 
+- doi: 10.1116/1.4963075
+  authors: "T. N. Nunley, N. S. Fernando, N. Samarasingha, J. M. Moya, C. M. Nelson, A. A. Medina, S. Zollner"
+  title: "Optical constants of germanium and thermally grown germanium dioxide from 0.5 to 6.6eV via a multisample ellipsometry investigation"
+  venue: "Journal of Vacuum Science & Technology B, Nanotechnology and Microelectronics: Materials, Processing, Measurement, and Phenomena 34, 061205"
+  year: 2016
+
 - doi: 10.1038/s41567-024-02535-8
   authors: "C. Oh, M. Liu, Y. Alexeev, B. Fefferman, L. Jiang"
   title: "Classical algorithm for simulating experimental Gaussian boson sampling"
@@ -2557,6 +2623,13 @@
   title: "A theoretical analysis of scattering loss from planar optical waveguides"
   venue: "Opt Quant Electron 26, 977"
   year: 1994
+
+- doi: 10.1038/s41467-017-00714-1
+  authors: "D. Pérez, I. Gasulla, L. Crudgington, D. J. Thomson, A. Z. Khokhar, K. Li, W. Cao, G. Z. Mashanovich, J. Capmany"
+  title: "Multipurpose silicon photonics signal processor core"
+  venue: "Nat Commun 8, 636"
+  year: 2017
+  open: https://doi.org/10.1038/s41467-017-00714-1
 
 - doi: 10.1038/s41467-020-19608-w
   authors: "D. Pérez-López, A. López, P. DasMahapatra, J. Capmany"
@@ -2985,6 +3058,12 @@
   venue: "Opt. Express 21, 22578"
   year: 2013
 
+- doi: 10.1103/PhysRev.87.835
+  authors: "W. Shockley, W. T. Read"
+  title: "Statistics of the Recombinations of Holes and Electrons"
+  venue: "Phys. Rev. 87, 835"
+  year: 1952
+
 - doi: 10.1364/JOSAB.14.002268
   authors: "I. Shoji, T. Kondo, A. Kitamoto, M. Shirane, R. Ito"
   title: "Absolute scale of second-order nonlinear-optical coefficients"
@@ -3192,6 +3271,12 @@
   title: "A Class of Globally Convergent Optimization Methods Based on Conservative Convex Separable Approximations"
   venue: "SIAM J. Optim. 12, 555"
   year: 2002
+
+- doi: 10.1002/0470068329
+  authors: "S. Sze, K. K. Ng"
+  title: "Physics of Semiconductor Devices"
+  venue: Wiley
+  year: 2006
 
 - doi: 10.1109/TMTT.1975.1128640
   authors: "A. Taflove, M. Brodwin"
@@ -3505,6 +3590,12 @@
   year: 2024
   open: https://doi.org/10.1038/s41586-024-07369-1
 
+- doi: 10.1021/acsphotonics.5c02939
+  authors: "X. Wang, J. Song, F. Yu, R. Shen, X. Wang, C. Yang, T. Xia, F. Yang, H. Zhao, W. Chu, et al."
+  title: "Silicon Nitride Waveguide-Integrated Ge Photodetector with >110 GHz Bandwidth under 1 mA Operation in the O-Band"
+  venue: "ACS Photonics 13, 4449"
+  year: 2026
+
 - doi: 10.1364/OE.26.005894
   authors: "A. Waqas, D. Melati, P. Manfredi, A. Melloni"
   title: "Stochastic process design kits for photonic circuits based on polynomial chaos augmented macro-modelling"
@@ -3570,6 +3661,12 @@
   title: "Roofline: an insightful visual performance model for multicore architectures"
   venue: "Commun. ACM 52, 65"
   year: 2009
+
+- doi: 10.1109/JPROC.2018.2877636
+  authors: "J. Witzens"
+  title: "High-Speed Silicon Photonics Modulators"
+  venue: "Proc. IEEE 106, 2158"
+  year: 2018
 
 - doi: 10.1109/2944.826874
   authors: "E. Wooten, K. Kissa, A. Yi-Yan, E. Murphy, D. Lafaw, P. Hallemeier, D. Maack, D. Attanasio, D. Fritz, G. McBrien, et al."

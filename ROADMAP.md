@@ -497,6 +497,8 @@ The plan, with its survey, sources and scope, is [docs/plans/quantum.md](docs/pl
 
 ### 0.8: Carrier modulators, signals and programmable circuits
 
+The plan, with its phases, validation targets, sources and open decisions, is [docs/plans/carrier-modulators.md](docs/plans/carrier-modulators.md).
+
 - [ ] **Drift-diffusion** on the cross-section: Poisson with electron and hole continuity, Scharfetter–Gummel fluxes (Scharfetter & Gummel 1969), Gummel then Newton iterations (Selberherr 1984), and doping-dependent mobility (Masetti 1983; Caughey & Thomas 1967). Steady state and small signal first; large-signal transients later.
 - [ ] **Plasma dispersion:** carriers to Δn and Δα (Soref & Bennett 1987; Nedeljkovic 2011) as a material model with provenance; the junction's C(V) and series resistance; travelling-wave lines loaded by the junction (Patel 2015).
 - [ ] **Time-domain circuits:** S-parameters turned into causal, passive pole–residue models by vector fitting (Gustavsen 1999; complex baseband: Ye 2018, 2022), and node-based time stepping (Fiers 2012). Differentiable, so genoxide can optimize end to end.
