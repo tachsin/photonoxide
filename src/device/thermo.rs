@@ -113,10 +113,14 @@ fn conductivity(id: &str, model: &str, thickness: Option<f64>) -> Result<f64> {
 /// The metal heater can be driven by a `voltage` (V) instead of a power: its power is then V²/R,
 /// the strip's resistance R = ρL/(wt) over its `length`, `heater_width` and `heater_thickness`,
 /// ρ the catalogue's TiN film at that thickness (Tsai et al.'s Eq. (3) for their collimated
-/// films sputtered at 500 °C, 45.3 µΩ·cm at 100 nm; [`ThermoShifter::resistance`]). Give a power
-/// or a voltage, not both. Its figures add the resistance `R_heater` (Ω) and, under a voltage,
-/// the power `P_V` (mW); every heater's analytic and 2D figures add the rise its guide's mode
-/// feels at the power, `dT` (K: s over dn_eff/dT, times the power per length).
+/// films sputtered at 500 °C, 45.3 µΩ·cm at 100 nm; [`ThermoShifter::resistance`]), or by a
+/// `current` (mA), I²R; another film is [`ThermoShifter::with_film`]'s, and with a film whose
+/// coefficient spans a heater's temperatures R follows the heater's own mean temperature. Give
+/// one of a power, a voltage and a current. Its figures add its own mean rise per power
+/// `z_heater` (K·m/W), the resistance `R_heater` (Ω), under a drive its own rise `dT_heater` (K),
+/// and the power `P_V` or `P_I` (mW) under a voltage or a current; every heater's analytic and
+/// 2D figures add the rise its guide's mode feels at the power, `dT` (K: s over dn_eff/dT, times
+/// the power per length).
 ///
 /// - **Analytic:** closed forms (docs/methods/devices.md): the cross-section thermally all
 ///   oxide between the isothermal substrate and an insulated top, the heaters sheets at their
