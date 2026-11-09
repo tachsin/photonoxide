@@ -26,8 +26,8 @@ the tag, which never moves, so they stay in Next's data cache.
 The latest release's milestone, and every older one, shows as done on the roadmap and the
 overview (`milestones.js`), whatever its heading in ROADMAP.md at the tag says; the release PR
 still marks it (✅, and the README's status row), and CI checks that it does
-(`.github/release-marks.sh`). After a deploy, `just site-check` compares the live pages with
-the latest release (below).
+(`.github/scripts/release-marks.sh`). After a deploy, `just site-check` compares the live pages
+with the latest release (below).
 
 | Folder | In the app |
 | --- | --- |
@@ -124,6 +124,17 @@ works today and what is to come follow its `milestone` in ROADMAP.md at the late
 them with no edit here. The studio's tests (`studio/src-tauri/tests/site.rs`) fail when a
 highlight names a milestone ROADMAP.md doesn't have, or `FALLBACK_MILESTONES` isn't ROADMAP.md's
 headings. When a release adds something worth a highlight, add one with its milestone.
+
+## Checking the live site
+
+`just site-check` (`.github/scripts/site-check.mjs`) reads the live pages as anyone sees them and
+compares them with GitHub's latest release: the overview's "x.y.z is the latest release", every
+milestone's status on the roadmap page and the overview's cards against ROADMAP.md at the
+release's tag (with `milestones.js`, as the pages read it), and the Python API reference's
+`__version__`. It fails with what the pages show and what to do; `--wait 15` keeps trying for a
+quarter of an hour, `--release vX.Y.Z` checks against another release. It never deploys, and it
+can't see which commit of this folder the site is built from, only what the pages say. The Site
+check workflow runs it daily.
 
 ## The methods' categories
 
