@@ -258,6 +258,7 @@ the studio and read on GitHub as ordinary Markdown.
   - [Python bindings, and every other language through the program](plans/bindings.md)
   - [A fabrication engine](plans/fabrication.md)
   - [Optimization in photonic design](plans/optimization.md)
+  - [Inverse design (0.7)](plans/inverse-design.md)
   - [Performance: kernels, threads, GPUs and distributed memory](plans/performance.md)
   - [Quantum photonics](plans/quantum.md)
 
