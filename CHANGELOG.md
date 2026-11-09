@@ -39,6 +39,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - *(eme)* the expansion's façade function, Python and studio view, and a Gaussian beam on the modes (part of #432) ([#754](https://github.com/tachsin/photonoxide/pull/754))
 - a 1D RCWA, and Reddy's patterned stack (part of #595, #743) ([#757](https://github.com/tachsin/photonoxide/pull/757))
 - *(quantum)* broadband squeezing at high gain, MoSi in the catalogue, and Vernon's Fig. 3 explained (part of #737) ([#759](https://github.com/tachsin/photonoxide/pull/759))
+- *(studio)* a journal picker and images in the Home feed (part of #715) ([#736](https://github.com/tachsin/photonoxide/pull/736))
 
 ### <!-- 1 -->Fixed
 
