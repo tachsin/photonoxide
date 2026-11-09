@@ -106,8 +106,8 @@ function TimelineItem({ block, html, last }) {
             className="mt-1 shrink-0 text-base-content/40 transition-transform group-open:rotate-90"
           />
           <span className="min-w-0 flex-1">
-            <h3 className="flex flex-wrap items-baseline gap-x-2.5 gap-y-0.5 text-base leading-snug">
-              {m ? <span className="font-mono text-base-content/55 text-sm">{m.version}</span> : null}
+            <h3 className="text-base leading-snug">
+              {m ? <span className="mr-2.5 font-mono text-base-content/55 text-sm">{m.version}</span> : null}
               <span
                 className={`font-semibold tracking-tight ${status === "planned" ? "text-base-content/80" : ""} ${m ? "" : "text-base-content/75"}`}
                 dangerouslySetInnerHTML={{ __html: renderInline(m ? m.title : block.heading, { links: false }) }}

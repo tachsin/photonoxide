@@ -22,21 +22,21 @@ the pinned commit instead.
 | Folder | In the app |
 | --- | --- |
 | `app/projects/photonoxide/` | the routes: the overview, `/docs` (getting started), `/docs/python`, `/docs/python/reference` (the Python API reference) and `/docs/languages` (the guides beside it), `/methods` and `/methods/[slug]`, `/examples` and `/examples/[slug]`, `/validation`, `/roadmap`, `/dependencies`, the sub-navigation layout (the registry's sections, then `EXTRA_SECTIONS` of `meta.js`: a page of ours the app's registry doesn't list yet) and the Open Graph image |
-| `lib/projects/photonoxide/` | the data: static facts and copy (`meta.js`), and the repository's files read from GitHub at the latest release's tag (`github.js`): the methods, the examples, the validation report, the roadmap and the release's version, and Markdown with TeX math (`markdown.js`); the Dependencies page's data (`dependencies/`, below) |
-| `components/projects/photonoxide/` | the components only these pages use: `HeroLight`, the overview's light animation, `ValidationRows`, the report's table, and the Dependencies page's `DependencyChangelog` and `NewSinceLastVisit` |
+| `lib/projects/photonoxide/` | the data: static facts and copy (`meta.js`), and the repository's files read from GitHub at the latest release's tag (`github.js`): the methods, the examples, the validation report, the roadmap and the release's version, Markdown with TeX math (`markdown.js`), the small text pieces with no import at all (`inline.js`: issue chips, short DOI links, a card's inline Markdown, a long title's head) and ROADMAP.md read into sections and milestones (`milestones.js`); the Dependencies page's data (`dependencies/`, below) |
+| `components/projects/photonoxide/` | the components only these pages use: `HeroLight`, the overview's light animation, `ValidationRows`, the report's table, `RoadmapControls`, the roadmap's Expand all and Collapse all, `RichText.module.css`, the styles of the chips, short links, notes and checklists in rendered Markdown, and the Dependencies page's `DependencyChangelog` and `NewSinceLastVisit` |
 
 What the pages read from the repository, at the latest release's tag (or the pinned commit):
 
 | File | Page |
 | --- | --- |
 | `docs/methods/<slug>.md` | a method: front matter (title, module, summary, order, papers with DOIs, validation case ids, examples) and its write-up in Markdown with `$…$` and `$$…$$` math; its category is in `methods.js` (see "The methods' categories" below), and without a title its first `# ` heading is its title |
-| `examples/<name>.rs`, `examples/output/<name>.txt` | an example: its doc comment (the first sentence is the title), its code, and what it prints, which CI checks |
+| `examples/<name>.rs`, `examples/output/<name>.txt` | an example: its doc comment (the first sentence is the title), its code, and what it prints, which CI checks. The doc comment is Markdown with `$…$` math, as a method's write-up (its formulas are TeX between dollars; rustdoc shows them as text). A title longer than 90 characters is shown as its head, up to its first colon or else comma, with the rest under it (`splitTitle`); the card prints the summary's Markdown, its DOI a short link |
 | `docs/validation.md` | the validation report, which `photonoxide validate` writes and CI checks; its cases' math is `$…$` |
 | `docs/getting-started.md` | the docs page |
 | `docs/python.md` | the Python page |
 | the Python API reference: the release's assets `python-reference-<page>.html` (`photonoxide.html`, `photonoxide.errors.html`, `index.html`) | `/docs/python/reference`, which opens `photonoxide.html`; `/docs/python/reference/photonoxide.html` and `.../photonoxide/errors.html` serve the pages as pdoc made them (`github.js`, `getPythonReferencePage`) |
 | `docs/languages.md` | the page for every other language: the program run on a job file, its run's folder read |
-| `ROADMAP.md` | the roadmap, the overview's milestones, and its highlights' status and hero line (each highlight in `meta.js` names its milestone) |
+| `ROADMAP.md` | the roadmap, the overview's milestones, and its highlights' status and hero line (each highlight in `meta.js` names its milestone). The roadmap page prints all of it, in parts that open and close (native `<details>`, so they work without JavaScript): its sections as cards (Vision open), and the milestones as a timeline, done ones collapsed with a check, the next open and marked, planned ones quieter, each open one with its done/total; a link to a milestone's anchor (`#054-geometry-and-devices`, as when the page printed the file whole) opens it. In the text, `#584` and `(#583: #584)` are chips linking to the issue or pull request, a link whose text is a DOI shows "DOI", and an italic `*( … )*` note is set under its line |
 | `CHANGELOG.md` | the latest release's version when GitHub's releases can't be read: its first `## [x.y.z]` heading, on the overview (`release.js`) |
 
 The Python API reference is the one page not read from a file of the repository. pdoc makes it from the docstrings and type stubs of the Linux wheel in every run of `python-wheels.yml` (the `python-reference` artifact), and the run that publishes a release attaches its pages to that GitHub release: one self-contained HTML file each (styles inline, no scripts, no search index), named `python-reference-<path with "/" as ".">`. The site reads them from the latest release, so a release's reference appears within a day; a release made before the reference was attached shows a page that says so. The reference is never committed.
@@ -70,7 +70,13 @@ Its plain functions are checked by the studio's tests (`studio/tests/site-depend
 Nothing else in `site/` is copied. Imports use the app's `@/` alias, which is the app's root.
 
 To see edits on the app's dev server: `pnpm dev` there, then
-`pnpm sync:photonoxide --from <this folder> --watch`.
+`pnpm sync:photonoxide --from <this folder> --watch`. To see edits to the repository's files too (an example's doc
+comment, ROADMAP.md) before a release, start it with `PHOTONOXIDE_LOCAL_REPO=<this checkout>`: the pages then read
+that checkout's files instead of GitHub's (`github.js`). It is never set on tachsin.gr.
+
+The plain functions of `inline.js` and `milestones.js` are checked by the studio's tests
+(`studio/tests/site-inline.test.ts`), on the repository's own ROADMAP.md, and every `$…$` in the examples'
+doc comments is rendered there with KaTeX.
 
 ## What the pages use from the app
 
@@ -95,8 +101,9 @@ The contract between the two repositories: these have to exist in the app, with 
 Also from the app: the `/projects` layout around these pages, the `proj-*` classes of
 `app/projects/projects.css`, Tailwind and daisyUI utilities (the app's `app/globals.css` lists the
 three folders with `@source`), and the npm packages `next`, `react`, `lucide-react`, `react-icons`,
-`yaml` and `katex` (its stylesheet, `katex/dist/katex.min.css`, is imported by the methods' layout
-and the validation page).
+`yaml` and `katex` (its stylesheet, `katex/dist/katex.min.css`, is imported by the methods' layout,
+the validation page, the roadmap and the examples' pages). `RichText.module.css` is a CSS module,
+which Next builds in.
 
 The other way, the app uses `photonoxidePaths` from `lib/projects/photonoxide/paths.js` for its
 sitemap (the registry's `extraPaths`).
