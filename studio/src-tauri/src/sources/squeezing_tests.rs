@@ -259,7 +259,7 @@ fn the_window_and_the_program_agree_on_the_command_and_its_limits() {
 
 #[test]
 #[ignore = "prints the timings and the presets' figures; run by hand"]
-fn print_timings() {
+fn print_figures() {
     for points in [41, 61, 81, 101] {
         for slices in [50, 100, 200] {
             let s = squeezed(&guide(CORRELATED), &at(3.0, slices, points)).unwrap();
