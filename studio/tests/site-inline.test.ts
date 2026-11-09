@@ -21,6 +21,10 @@ import {
 } from "../../site/lib/projects/photonoxide/inline.js";
 import { headingAnchor, milestoneAnchor, parseMilestones, splitRoadmap } from "../../site/lib/projects/photonoxide/milestones.js";
 
+// DOIs built from their parts, so the repository's references index doesn't take this file for a citation
+const YEE = ["10.1109", "TAP.1966.1138693"].join("/");
+const WANG = ["10.1038", "s41598-021-04598-6"].join("/");
+
 const repo = (path: string) => readFileSync(fileURLToPath(new URL(`../../${path}`, import.meta.url)), "utf8");
 
 /** stashRefs with the stashed HTML kept beside the text, as markdown.js does. */
@@ -56,10 +60,10 @@ test("references are left alone in links, anchors, words and other repositories"
 
 test("a link whose text is a DOI or a bare URL shows a short label and keeps the address", () => {
   assert.equal(
-    shortenLinks('<a href="https://doi.org/10.1109/TAP.1966.1138693">10.1109/TAP.1966.1138693</a>'),
-    '<a href="https://doi.org/10.1109/TAP.1966.1138693" class="pnx-doi" title="doi:10.1109/TAP.1966.1138693">DOI</a>',
+    shortenLinks(`<a href="https://doi.org/${YEE}">${YEE}</a>`),
+    `<a href="https://doi.org/${YEE}" class="pnx-doi" title="doi:${YEE}">DOI</a>`,
   );
-  assert.match(shortenLinks('<a href="https://doi.org/10.1/x">doi:10.1038/s41598-021-04598-6</a>'), /class="pnx-doi" title="doi:10\.1038\/s41598-021-04598-6">DOI</);
+  assert.ok(shortenLinks(`<a href="https://doi.org/x">doi:${WANG}</a>`).endsWith(`class="pnx-doi" title="doi:${WANG}">DOI</a>`));
   const url = "https://github.com/tachsin/genoxide/blob/main/README.md";
   assert.equal(
     shortenLinks(`<a href="${url}">${url}</a>`),
@@ -75,13 +79,13 @@ test("a link whose text is a DOI or a bare URL shows a short label and keeps the
 
 test("a card's inline Markdown: the DOI a short link, emphasis, code and math rendered, the rest escaped", () => {
   const card =
-    "M. Wang, *Sci. Rep.* 12, 1482 (2022), [doi:10.1038/s41598-021-04598-6](https://doi.org/10.1038/s41598-021-04598-6). " +
+    `M. Wang, *Sci. Rep.* 12, 1482 (2022), [doi:${WANG}](https://doi.org/${WANG}). ` +
     "`k_n < 1` and $w_{n+1}$ <b> (#12)";
   const html = inlineMarkdown(card, { refs: true, math: (tex: string) => `[${tex}]` });
   assert.equal(
     html,
-    'M. Wang, <em>Sci. Rep.</em> 12, 1482 (2022), <a href="https://doi.org/10.1038/s41598-021-04598-6" class="pnx-doi" ' +
-      'title="doi:10.1038/s41598-021-04598-6">DOI</a>. <code>k_n &lt; 1</code> and [w_{n+1}] &lt;b&gt; ' +
+    `M. Wang, <em>Sci. Rep.</em> 12, 1482 (2022), <a href="https://doi.org/${WANG}" class="pnx-doi" ` +
+      `title="doi:${WANG}">DOI</a>. <code>k_n &lt; 1</code> and [w_{n+1}] &lt;b&gt; ` +
       `<span class="pnx-refs">${refChip(12)}</span>`,
   );
   // inside another link (a card's heading) a link keeps only its text
