@@ -47,7 +47,8 @@
 //!
 //! The films of single-photon detectors ([`Category::Superconductor`]): NbN's n and k from 0.6
 //! to 1.65 µm, measured at room temperature on a 12 nm film (Anant et al. 2008), with the
-//! caveats its paper gives for the few-nm films of a detector.
+//! caveats its paper gives for the few-nm films of a detector; MoSi's n and κ from 1.3 to 1.7 µm,
+//! fitted to one 4.1 nm film under a silicon cap (Reddy et al. 2020).
 
 use serde::Serialize;
 
@@ -118,7 +119,7 @@ pub enum Category {
     /// One state of a phase-change material: amorphous or crystalline, each its own entry
     /// ([`PhaseChange`] has the pair and what switches them).
     PhaseChange,
-    /// A superconducting film of single-photon detectors (NbN), its optical constants as its
+    /// A superconducting film of single-photon detectors (NbN, MoSi), its optical constants as its
     /// paper measured them, above the film's critical temperature.
     Superconductor,
 }

@@ -69,6 +69,10 @@ papers:
     doi: 10.1364/OPTICA.400751
   - cite: "J. Chilwell, I. Hodgkinson, J. Opt. Soc. Am. A 1, 742 (1984)"
     doi: 10.1364/JOSAA.1.000742
+  - cite: "W. Wasilewski, A. I. Lvovsky, K. Banaszek, C. Radzewicz, Phys. Rev. A 73, 063819 (2006)"
+    doi: 10.1103/PhysRevA.73.063819
+  - cite: "A. Christ, B. Brecht, W. Mauerer, C. Silberhorn, New J. Phys. 15, 053038 (2013)"
+    doi: 10.1088/1367-2630/15/5/053038
 validation:
   - quantum/permanent-ones
   - quantum/permanent-derangements
@@ -114,6 +118,13 @@ validation:
   - quantum/nehra-inferred
   - quantum/nehra-all-optical
   - quantum/nehra-homodyne-bound
+  - quantum/broadband-symplectic
+  - quantum/broadband-exponential
+  - quantum/broadband-low-gain
+  - quantum/broadband-single-mode
+  - quantum/broadband-mismatched
+  - quantum/broadband-mismatched-order
+  - quantum/broadband-photons
   - quantum/spectral-flat
   - quantum/spectral-hom
   - quantum/spectral-sum
@@ -425,7 +436,7 @@ the gain $g$ set by the mean number of pairs per pulse, $\sum_k \sinh^2 r_k = \m
   everything above.
 
 The squeezing $g\sqrt{\lambda_k}$ keeps the low-gain Schmidt modes: at high gain the modes
-themselves change with the gain, which this doesn't follow.
+themselves change with the gain, which `Broadband` follows (below).
 
 The studio's Materials page has a source designer under **Photon-pair sources**
 ([studio/README.md](../../studio/README.md)): a guide, a crystal, a ring (`ring_spectrum`, below)
@@ -479,7 +490,76 @@ amplitude: its own depletion of the pump, of order $10^{-12}$ of its power, is b
 integration's error. Without loss only:
 a lossy amplifier adds noise a Bogoliubov map can't carry, so the loss is applied to the squeezed
 state after it. These are single-frequency (continuous-wave) amplifiers, exact at any gain while the
-pump doesn't deplete; the multimode squeezing of a broadband pulse at high gain is left for later.
+pump doesn't deplete; the multimode squeezing of a broadband pulse at high gain is `Broadband`'s
+(below).
+
+## Broadband squeezing at high gain
+
+A pulsed pump that doesn't deplete couples the signal's frequencies $a_j$ to the idler's $b_k$.
+Over a short slice of the medium the coupling is a matrix $G$ (signal × idler) and
+$d\mathbf a/dz = G\,\mathbf b^\dagger$, $d\mathbf b^\dagger/dz = G^\dagger \mathbf a$, so the slice
+maps $(\mathbf a, \mathbf b^\dagger)$ by the exponential of the Hermitian generator
+$K = \begin{pmatrix} 0 & G \\ G^\dagger & 0 \end{pmatrix}$. With $G = U S V^\dagger$,
+
+$e^K = \begin{pmatrix} I + U(\cosh S - I)U^\dagger & U \sinh S\,V^\dagger \\ V \sinh S\,U^\dagger & I + V(\cosh S - I)V^\dagger \end{pmatrix}$.
+
+`Broadband::new` multiplies the slices' maps in order, the last on the left; each keeps the
+commutators, $M \Sigma M^\dagger = \Sigma$ with $\Sigma = \operatorname{diag}(I, -I)$. The output's
+squeezing is the Bloch–Messiah decomposition's: $\mathbf a_\text{out} = A\mathbf a + B\mathbf b^\dagger$,
+the singular values of $B$ are $\sinh r_k$, their left vectors the signal's squeezed modes
+(`signal_mode`), and the signal's mean photon number is $\operatorname{Tr} BB^\dagger = \sum_k \sinh^2 r_k$.
+`Broadband::sliced` cuts a down-conversion source into $N$ slices: on the signal and idler grids,
+with the pump's amplitude $\alpha(\nu_s + \nu_i)$ and the phase mismatch $x = \Delta k L/2$ (a
+device's `phase_at_frequencies`), slice $n$ couples by $\alpha e^{2ixt_n}/N$ at its middle
+$t_n = (n + \tfrac12)/N - \tfrac12$ of the length; the slices add up to $\alpha\operatorname{sinc} x$,
+the joint spectrum, and the gain $g$ scales that sum so that its singular values are
+$g\sqrt{\lambda_k}$, the Schmidt model's.
+
+Where the phase matching varies along the medium, the slices' generators don't commute, and the
+ordered product leaves the single exponential of the whole joint spectrum (`Broadband::exponential`,
+the Schmidt model above, exact at any gain only when the slices commute): the squeezed modes and
+their squeezing change with the gain. This is the approach of Wasilewski, Lvovsky, Banaszek and
+Radzewicz ("Pulsed squeezed light: Simultaneous squeezing of multiple modes", Phys. Rev. A 73,
+063819 (2006)) and, for down-conversion at high gain, of Christ, Brecht, Mauerer and Silberhorn
+("Theory of quantum frequency conversion and type-II parametric down-conversion in the high-gain
+regime", New J. Phys. 15, 053038 (2013)); neither paper is in hand, so the equations here are the
+quadratic Hamiltonian's own, checked against closed forms, and nothing is taken from their
+results. Lossless and undepleted; four-wave mixing's self- and cross-phase modulation of the
+pump are left out.
+
+For a source with a Gaussian pump of unit bandwidth and $x = 3\nu_s - 1.5\nu_i$ (48 frequencies
+each from −4 to 4, the cases' source), on 40 slices (80 in brackets):
+
+| $g$ | $r_1, r_2, r_3$ | One exponential | Modes | Photons (one exponential) | $1 - \lvert\langle u_1 \vert u_1^{(0)}\rangle\rvert^2$ |
+|---|---|---|---|---|---|
+| 0.5 | 0.4861, 0.0833, 0.0786 | 0.4772, 0.0839, 0.0785 | 1.182 | 0.278 (0.268) | 1.1e-3 |
+| 1 | 1.0238, 0.1774, 0.1564 | 0.9543, 0.1679, 0.1571 | 1.135 | 1.566 (1.313) | 1.7e-2 |
+| 2 | 2.371 (2.373), 0.642, 0.287 | 1.909, 0.336, 0.314 | 1.051 | 28.9 (11.2) | 0.17 |
+| 3 | 3.974 (3.978), 1.628 (1.634), 0.355 | 2.863, 0.504, 0.471 | 1.018 | 714 (77.0) | 0.36 |
+
+"Modes" is $(\sum \sinh^2 r_k)^2/\sum \sinh^4 r_k$, the Schmidt number at low gain; the last
+column is how far the first signal mode has moved from its shape at $g$ = 0.01. The first mode
+gains far more than the Schmidt model gives, as a phase-mismatched amplifier at one frequency
+does: there the ordered product reaches $\kappa L \sinh(gL)/gL$, $gL = \sqrt{(\kappa L)^2 - x^2}$,
+where the single exponential gives $\sinh(\kappa L \operatorname{sinc} x)$. The figures come from
+the ignored test `quantum::light_checks::tests::print_broadband`.
+
+The cases (Analytic):
+
+- `quantum/broadband-symplectic`: the high-gain map ($g$ = 3) keeps $\Sigma$ to 5.3e-15 of its
+  largest entry squared.
+- `quantum/broadband-exponential`: the single exponential's squeezing is $g\sqrt{\lambda_k}$ at
+  $g$ = 2, to 1.8e-15.
+- `quantum/broadband-low-gain`: the ordered product's first squeezing leaves the single
+  exponential's as $g^2$ (order 2.000 from $g$ = 0.02 and 0.01): the first correction, Magnus's
+  second term, is a passive rotation (the commutator of two such generators is block-diagonal).
+- `quantum/broadband-single-mode`: one frequency each, phase-matched: $r$, $\cosh r$, $\tanh r$
+  and $\sinh^2 r$ to round-off.
+- `quantum/broadband-mismatched` and `-order`: one frequency each with $x$ = 1 and $\kappa L$ = 3,
+  the phase-mismatched amplifier's closed form to 1.8e-7 on 1000 slices, converging at order 2.00
+  (the exponential midpoint rule).
+- `quantum/broadband-photons`: $\operatorname{Tr} BB^\dagger$, $\sum \sinh^2 r_k$ and the
+  `Gaussian` state's photons (`Broadband::gaussian`) agree to round-off.
 
 ## Many photons with spectra through S(ω)
 
@@ -649,12 +729,12 @@ carries $(\beta/2k_0)\int\lvert E_z\rvert^2$ each way.
 The films' optical constants are the detectors' and emitters' material data, and they enter the
 catalogue with their provenance when a reproduction needs them (the plan's decision 6). NbN is
 there: `nbn`, Anant et al.'s room-temperature ellipsometry of a 12 nm film from 0.6 to 1.65 µm,
-with its caveats (the materials catalogue page). WSi and low-temperature GaAs are not, as their
-papers are not in hand. MoSi isn't either: Reddy et al.'s index above is their fit at 1550 nm of
-a 4.1 nm film under a 2 nm silicon cap, from spectrophotometric transmission and reflection
-(Supplement 1, Section 2), used for a check. Their Fig. S3 gives that film's $n$ and $\kappa$ from
-1300 to 1700 nm (about 5.44 + 5.56i to 6.05 + 6.28i), which a catalogue entry for MoSi could take
-up, with the caveat that it is one film's fit and not a measurement of the material alone.
+with its caveats (the materials catalogue page). So is MoSi: `mosi`, Reddy et al.'s fit of a
+4.1 nm film under a 2 nm silicon cap, from spectrophotometric transmission and reflection
+(Supplement 1, Section 2): the index above at 1550 nm, and their Fig. S3's $n$ and $\kappa$ from
+1300 to 1700 nm (5.438 + 5.560i to 6.053 + 6.281i, our reading of its curves), with the caveat
+that it is one film's fit and not a measurement of the material alone. WSi and low-temperature
+GaAs are not, as their papers are not in hand (GaAs's index from 103 K up is in the catalogue).
 
 ## What it is checked against
 
@@ -770,35 +850,37 @@ with their own fit; from the two measured levels alone the squeezing before the 
 
 **What doesn't agree yet.**
 
-- **Vernon et al.'s dual-coupled ring.** For a pump resonance 6.6 times wider than the signal's and
-  idler's, their Fig. 2(b) gives $K = 1.0009$ (purity 0.999); their own point-coupling model, Eqs. 3
-  and 4, with the pump far broader than its resonance, gives $K = 1.0033$ here (purity 0.9967), and
-  a narrower pump only raises it. Their text's lower bound for equal linewidths, $K = 1.08$, is below
-  the model's broad-pump 1.0909, which pumps of finite duration only raise (their Fig. 2(a) prints 1.09), and
-  their Fig. 3's line reads about 0.84 at $Q_{SI}/Q_P = 0.5$ and 0.93 at 1 against our 0.800 and
-  0.917. Their purities sit above ours by about the same margin at every ratio; the full device
-  simulation behind their markers isn't given in the letter. Not a case until it closes.
+- **Vernon et al.'s dual-coupled ring.** Their own point-coupling model, Eqs. 3 and 4, with the
+  pump far broader than its resonance, gives $K = 1.0909$ for equal linewidths here, Fig. 2(a)'s
+  1.09 (a case). Their text gives 1.08 for the same ring, and their Fig. 2(b) gives
+  $K = 1.0009$ (purity 0.999) for a pump resonance 6.6 times wider, where the same model gives
+  1.0033 (purity 0.9967); a narrower pump only raises $K$.
 
-  A likely cause is the frequency window. Eq. 3's residual correlation at a ratio of 6.6 lies in
-  the Lorentzians' tails, so $K$ depends on how far the integrals reach. The letter only says they
-  reach "the full extent of the corresponding resonance". With the signal's and idler's
-  frequencies each cut at ±$w$ of their linewidths (FWHM), the same model gives:
+  Fig. 3, the purity against $Q_{SI}/Q_P$, is drawn as vector paths. Its line ("calculated using
+  an effective point-coupling model", Eq. 3) has its vertices at 0.8396 (ratio 0.5), 0.9273 (1),
+  0.9592 (1.5), 0.9740 (2), 0.9868 (3), 0.9921 (4), 0.9947 (5), 0.9967 (6.5) and 0.9986 (10),
+  read against the figure's tick lines (0.01 pt of the path is 2.6e-5 in purity). With no
+  window the model gives 0.8000, 0.9167, 0.9546, 0.9714, 0.9857, 0.9915, 0.9944, 0.9965 and
+  0.9985: it agrees from a ratio of 4 up and falls below the line toward small ratios.
 
-  | $w$ | Equal Q | Ratio 6.6 |
-  |---|---|---|
-  | 3.5 | 1.0820 | 1.00070 |
-  | 4.0 | 1.0845 | 1.00088 |
-  | 4.2 | 1.0852 | 1.00095 |
-  | 5 | 1.0873 | 1.00122 |
-  | 10 | 1.0904 | 1.00244 |
-  | none | 1.0909 | 1.0033 |
+  The cause is how far the integrals reach, which the letter states only as "the full extent of
+  the corresponding resonance". Cut the signal's and idler's frequencies at ±3 of the *pump's*
+  linewidths (FWHM), and Eq. 3 gives the line at every vertex within 7.3e-4 (0.8403, 0.9276,
+  0.9594, 0.9741, 0.9869, 0.9921, 0.9947, 0.9968, 0.9986; converged on the grid, the sharp
+  cut's error first order in the spacing). Fitted to each vertex alone, the window comes out
+  at 2.99 to 3.08 pump linewidths from a ratio of 0.5 to 5 (beyond, the purity hardly depends on
+  it). The same window gives $K = 1.0781$ for equal linewidths: the text's 1.08. Fig. 2(b)'s 1.0009 isn't on the line, which reads 0.9967 ($K$ = 1.0033) at a
+  ratio of 6.5, as our model does. Fig. 3's caption says its circular marker is Fig. 2(b)'s
+  wavefunction from the full device simulation, and that marker sits at a ratio of 9.9 with a
+  purity of 0.9990, not at 6.6. So Fig. 2(b)'s number is the device simulation's, not Eq. 3's.
 
-  A window of about ±4 linewidths gives both the text's 1.08 and Fig. 2(b)'s 1.0009. With no
-  window the same model gives Fig. 2(a)'s 1.09. These numbers come from Eq. 3 with a pump far
-  broader than its resonance, on 481 points, computed outside the library. The last row is
-  the library's ring model's 1.0033 above. The window doesn't explain Fig. 3's line: at a
-  ratio of 0.5 a ±4 window gives 0.804, against about 0.84. Without the authors' window this
-  stays a likely cause, not a match.
+  These numbers come from Eq. 3 outside the library (no window: 801 points; the window: 40 and
+  80 points a signal linewidth, extrapolated). The library's ring model gives the same with a
+  window of three pump linewidths: 0.92744, 0.95932, 0.97408, 0.98687 and 0.99213 at ratios of
+  1 to 4 on 40 points a linewidth, each within 1.4e-4 of the line (the ignored test `quantum::light_checks::tests::print_vernon_fig3`; its ring can't make
+  the narrower pump resonance of a ratio of 0.5). Not a case: the window is inferred from the
+  figure, not stated in the letter. An earlier reading here, a window of ±4 *signal* linewidths,
+  matched 1.08 and 1.0009 but not Fig. 3's line; it is superseded.
 - **Paesani et al.'s inter-modal source.** Their guide is 2 × 0.22 µm silicon in silica, 11 mm
   long, pumped in TM₀ and TM₁, the signal in TM₁ and the idler in TM₀, measured at 1588 and
   1516 nm (Supplementary Note 1a, p. 2). Their measured purity is 0.9904 ± 0.0006 with the delay
@@ -1090,8 +1172,11 @@ the gap is explained, without a looser tolerance.
   the torontonian's terms are: up to 30 clicking modes, practical to about 20.
 - A source's squeezing per Schmidt mode, $g\sqrt{\lambda_k}$, is the low-gain picture; the
   squeezers are continuous-wave and lossless (the loss goes after them). Broadband squeezing at
-  high gain, whose temporal modes change with the gain, is left for later; so are the Schmidt
-  modes' shapes, which the studio's source designer will draw.
+  high gain is `Broadband`'s: lossless and undepleted, without four-wave mixing's self- and
+  cross-phase modulation, a dense map of (signal + idler)² entries (a few hundred frequencies),
+  and not in the studio's source designer yet, whose devices give a joint spectrum, not the phase
+  mismatch along the length that the slices need. The Schmidt modes' shapes are left for later,
+  for the studio's source designer to draw.
 - Photons with spectra through S(ω): up to 8 (n! permanents a pattern), every pattern of
   `distribution` as above. Detectors are frequency-blind; a frequency-resolving one would keep
   the slots' frequencies apart.

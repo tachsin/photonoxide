@@ -1,11 +1,13 @@
 ---
 title: "The materials catalogue"
 module: material::catalogue
-summary: "Each material's index models, crystal, χ⁽²⁾ and Pockels tensors, every number from its paper: silica, silicon, nitride, GaAs and AlGaAs, InGaP, InP, AlN, lithium niobate in bulk, MgO-doped and as thin film, and NbN, the film of single-photon detectors."
+summary: "Each material's index models, crystal, χ⁽²⁾ and Pockels tensors, every number from its paper: silica, silicon, nitride, GaAs and AlGaAs, InGaP, InP, AlN, lithium niobate in bulk, MgO-doped and as thin film, and NbN and MoSi, the films of single-photon detectors."
 order: 2.5
 papers:
   - cite: "V. Anant, A. J. Kerman, E. A. Dauler, J. K. W. Yang, K. M. Rosfjord, K. K. Berggren, Opt. Express 16, 10750 (2008)"
     doi: 10.1364/OE.16.010750
+  - cite: "D. V. Reddy, R. R. Nerem, S. W. Nam, R. P. Mirin, V. B. Verma, Optica 7, 1649 (2020)"
+    doi: 10.1364/OPTICA.400751
   - cite: "H. H. Li, J. Phys. Chem. Ref. Data 9, 561 (1980)"
     doi: 10.1063/1.555624
   - cite: "D. B. Leviton, B. J. Frey, Proc. SPIE 6273, 62732K (2006)"
@@ -495,7 +497,35 @@ wavelengths outside 0.6–1.65 µm. Three caveats come with it, all from the pap
   catalogue takes the film as isotropic, as the ellipsometry does, and claims no symmetry.
 
 Pernice et al.'s waveguide detector is computed with it (the quantum page, "Real components").
-WSi, MoSi and low-temperature GaAs films are not in the catalogue: their papers are not in hand.
+
+MoSi is the entry `mosi` (the same category), from Reddy et al.'s Supplement 1 (Optica 7, 1649
+(2020), doi:10.1364/OPTICA.400751, Section 2). They deposited their 4.1 nm MoSi film (thickness by
+X-ray reflectivity) under its 2 nm sputtered silicon cap on UV-fused silica and fitted it to a
+spectrophotometer's transmission and reflection: $(n, \kappa) = (5.817, 6.033)$ at 1550 nm
+(supplement p. 2). Their Fig. S3 (p. 3) plots the n and κ estimated for that film from 1300 to
+1700 nm as vector curves; the catalogue's table, every 25 nm, is our reading of them against the
+figure's tick lines, through natural cubic splines in λ:
+
+| λ (nm) | 1300 | 1400 | 1500 | 1550 | 1600 | 1700 |
+|---|---|---|---|---|---|---|
+| n | 5.438 | 5.578 | 5.735 | 5.817 | 5.895 | 6.053 |
+| κ | 5.560 | 5.735 | 5.930 | 6.033 | 6.120 | 6.281 |
+
+The reading at 1550 nm is the printed value to its last digit. The model refuses wavelengths
+outside 1.3–1.7 µm. Its caveats:
+
+- **One film's fit.** The index was fitted to one 4.1 nm film together with its 2 nm cap (of real
+  index 2.274, characterized alone), not measured on the material alone; a film of another
+  thickness, or grown otherwise, may differ.
+- **The temperature and the composition.** The supplement gives neither the temperature of the
+  measurement nor the film's composition; a detector works below the critical temperature, where
+  no index was measured.
+- **The structure.** None is named, so the crystal system is `not-specified`, as NbN's.
+
+Reddy et al.'s detector stack is computed with the printed value (the quantum page). WSi is not in
+the catalogue: its paper is not in hand. GaAs is (Skauli et al. 2003 from 22 °C, Gehrsitz et al.
+2000 down to 103 K), but not at the few kelvin of a quantum dot: no paper in hand gives its index
+there.
 
 ## Electrical resistivities
 

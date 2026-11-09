@@ -658,6 +658,13 @@
   venue: "IEEE Trans. Microwave Theory Techn. 35, 688"
   year: 1987
 
+- doi: 10.1088/1367-2630/15/5/053038
+  authors: "A. Christ, B. Brecht, W. Mauerer, C. Silberhorn"
+  title: "Theory of quantum frequency conversion and type-II parametric down-conversion in the high-gain regime"
+  venue: "New J. Phys. 15, 053038"
+  year: 2013
+  open: https://doi.org/10.1088/1367-2630/15/5/053038
+
 - doi: 10.1364/JOSAB.406048
   authors: "R. E. Christiansen, O. Sigmund"
   title: "Inverse design in photonics by topology optimization: tutorial"
@@ -3477,6 +3484,12 @@
   title: "Stochastic process design kits for photonic circuits based on polynomial chaos augmented macro-modelling"
   venue: "Opt. Express 26, 5894"
   year: 2018
+
+- doi: 10.1103/PhysRevA.73.063819
+  authors: "W. Wasilewski, A. I. Lvovsky, K. Banaszek, C. Radzewicz"
+  title: "Pulsed squeezed light: Simultaneous squeezing of multiple modes"
+  venue: "Phys. Rev. A 73, 063819"
+  year: 2006
 
 - doi: 10.1103/RevModPhys.84.621
   authors: "C. Weedbrook, S. Pirandola, R. García-Patrón, N. J. Cerf, T. C. Ralph, J. H. Shapiro, S. Lloyd"

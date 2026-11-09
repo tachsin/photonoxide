@@ -335,7 +335,7 @@ must be read before a tolerance is set.
   variances, photon-number probabilities by hafnians and loop hafnians (Björklund et al. 2019),
   threshold clicks by torontonians (Quesada et al. 2018).
 - Squeezing from 0.6.1's parametric amplifiers, low gain first; high gain only when its
-  validation is in place.
+  validation is in place (now `quantum::Broadband`, with analytic cases).
 
 **Validation.**
 
@@ -369,8 +369,8 @@ must be read before a tolerance is set.
 - Emitters and detectors: β and Purcell factors from FDTD with a dipole and mode monitors; a
   waveguide nanowire's absorption from the mode solver; a detector stack's absorption from
   `Multilayer`. These need the films' optical constants (NbN, WSi or MoSi, GaAs at low
-  temperature) with provenance; NbN is in the catalogue now (Anant et al. 2008), the others wait
-  for their papers.
+  temperature) with provenance; NbN (Anant et al. 2008) and MoSi (Reddy et al. 2020's
+  Supplement 1) are in the catalogue now, WSi and GaAs at low temperature wait for their papers.
 
 **Validation.**
 

@@ -40,7 +40,7 @@ It is released milestone by milestone ([changelog](CHANGELOG.md), [roadmap](ROAD
 
 - **[Methods](docs/README.md#methods):** 54 write-ups in 10 topics, from waveguide modes to
   fabrication, each setting out its method, its limits and the papers it implements; their
-  front matter cites 296 distinct sources by DOI.
+  front matter cites 298 distinct sources by DOI.
 - **[Academy](academy/README.md):** lessons on devices and numerical methods at three depths,
   each opening on a drawing of its device, with charts the library computes live; 20 written,
   and 1 more laid out section by section, read on GitHub or in the studio.
@@ -49,7 +49,7 @@ It is released milestone by milestone ([changelog](CHANGELOG.md), [roadmap](ROAD
   it; 56 processes on 5 platforms, every flow executed back to its design and shown step by step
   in the studio. New platforms and exports are in progress.
 - **[The library, the Python package and the studio](#install):** the code that runs a design,
-  with 55 examples that each reproduce a paper, 43 job files ready to run, and 939 validation
+  with 55 examples that each reproduce a paper, 43 job files ready to run, and 946 validation
   cases that check it.
 
 ## What it computes
@@ -57,7 +57,7 @@ It is released milestone by milestone ([changelog](CHANGELOG.md), [roadmap](ROAD
 - **Materials:** [dispersion models](docs/methods/materials.md) with their source, validity range
   and temperature; a [catalogue](docs/methods/catalogue.md) of Si, SiO₂, SiN, GaAs, AlGaAs,
   InGaP, InP, AlN, AlGaN, LiNbO₃ and MgO:LiNbO₃, BaTiO₃ and LiTaO₃, and the phase-change
-  Sb₂Se₃, Sb₂S₃ and Ge₂Sb₂Te₅ in both states, and the detector film NbN, with χ⁽²⁾ and Pockels tensors, transparency
+  Sb₂Se₃, Sb₂S₃ and Ge₂Sb₂Te₅ in both states, and the detector films NbN and MoSi, with χ⁽²⁾ and Pockels tensors, transparency
   windows, and the Kerr coefficients of Si, SiN, LiNbO₃ and AlN.
 - **Geometry for any device:** [shapes](docs/methods/geometry.md) kept exact, from paths with
   Euler bends to regions defined by [expressions](docs/methods/expressions.md);
@@ -242,7 +242,7 @@ The optimized build profiles (`release`, `dist` and `fastest`) are described in
 
 Nothing is merged without an analytic test, a reproduction of a published result and a
 convergence test; adjoint gradients are checked against finite differences. The
-[report](docs/validation.md) has 939 cases: 635 against closed forms, 291 against published
+[report](docs/validation.md) has 946 cases: 642 against closed forms, 291 against published
 results and 13 against another code on a shared problem. Each states its source, tolerance and
 grid. CI fails when a case fails or the committed report isn't the one the code writes. CI
 checks every example's output too.

@@ -187,5 +187,66 @@ pub(crate) fn rules() -> Vec<(&'static str, Rule)> {
                 "their bound, under 1 dB: the interval from 0 to 1 dB, its middle and half its width",
             ),
         ),
+        (
+            "quantum/broadband-symplectic",
+            exact(
+                1e-12,
+                "40 products of 96 × 96 maps whose entries reach cosh² r ≈ 10³, relative to the largest squared: round-off",
+            ),
+        ),
+        (
+            "quantum/broadband-exponential",
+            exact(
+                1e-12,
+                "two singular-value decompositions of the same 48 × 48 spectrum, squeezing up to 2: round-off",
+            ),
+        ),
+        (
+            "quantum/broadband-low-gain",
+            Rule::new(
+                Absolute,
+                Order,
+                0.1,
+                Measured,
+                "the relative difference's order in g, 2 within 0.1",
+            ),
+        ),
+        (
+            "quantum/broadband-single-mode",
+            exact(
+                1e-13,
+                "ten commuting 1 × 1 maps multiplied, values up to sinh² 2 ≈ 13: round-off",
+            ),
+        ),
+        (
+            "quantum/broadband-mismatched",
+            Rule::new(
+                Relative,
+                Discretisation,
+                1e-5,
+                Noted,
+                "the exponential midpoint rule on 1000 slices: its error falls as the slice's square (quantum/broadband-mismatched-order); ours against 500 slices, over 2² − 1 (Richardson)",
+            ),
+        ),
+        (
+            "quantum/broadband-mismatched-order",
+            Rule::new(
+                Absolute,
+                Order,
+                0.1,
+                Measured,
+                "the midpoint rule's second order within 0.1",
+            ),
+        ),
+        (
+            "quantum/broadband-photons",
+            Rule::new(
+                Relative,
+                RoundOff,
+                1e-10,
+                Exact,
+                "sums of 48 squares of numbers up to sinh² r ≈ 10³, and a 96-mode Gaussian state's photons: round-off",
+            ),
+        ),
     ]
 }

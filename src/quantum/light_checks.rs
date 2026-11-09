@@ -3,7 +3,8 @@
 //! vacuum against their closed forms, loss, coherent and displaced squeezed states, clicks;
 //! pair sources (their pairs, g⁽²⁾, two sources' interference, heralding through a coupler);
 //! rings' pairs against Helt et al. and Vernon et al.; squeezers from 0.6.1's amplifiers; the
-//! squeezing papers of Vaidya et al. and Nehra et al. Paesani et al.'s inter-modal source, from
+//! squeezing papers of Vaidya et al. and Nehra et al.; broadband squeezing at high gain against
+//! its closed forms. Paesani et al.'s inter-modal source, from
 //! the mode solver, is computed by an ignored test here: it doesn't agree with their paper yet
 //! (docs/methods/quantum.md says by how much), so it isn't a case.
 
@@ -234,7 +235,203 @@ pub(crate) fn cases() -> Vec<Case> {
             source: "R. Nehra et al., doi:10.1126/science.abo6213, p. 1335: η ≈ 0.20 \"puts an upper limit of\" under 1 dB \"to the measurable squeezing for a standard balanced homodyne detection\"",
             run: nehra_homodyne_bound,
         },
+        Case {
+            id: "quantum/broadband-symplectic",
+            title: r"Quantum: a broadband source at high gain ($g$ = 3; 48 signal and 48 idler frequencies, a Gaussian pump, a phase mismatch linear in both, 40 slices): its Bogoliubov map $M$ keeps the commutators, $M \Sigma M^\dagger = \Sigma$, $\Sigma = \operatorname{diag}(I, -I)$ (largest entry of the difference over $M$'s largest squared, shown)",
+            tier: Tier::Analytic,
+            source: "an ordered product of exponentials of Hermitian generators [[0, G], [G†, 0]] keeps Σ exactly",
+            run: broadband_symplectic,
+        },
+        Case {
+            id: "quantum/broadband-exponential",
+            title: r"Quantum: the same source's joint spectrum as one exponential at $g$ = 2: its squeezing against the Schmidt model's $r_k = g\sqrt{\lambda_k}$ (largest difference over the first 10 modes shown)",
+            tier: Tier::Analytic,
+            source: r"exp [[0, G], [G†, 0]] = [[U cosh S U†, U sinh S V†], …] for G = U S V†, so sinh r_k are G's singular values, g√λ_k",
+            run: broadband_exponential,
+        },
+        Case {
+            id: "quantum/broadband-low-gain",
+            title: r"Quantum: the sliced source's first squeezing against the single exponential's at $g$ = 0.02 and 0.01 (32 frequencies each, 20 slices): the order in $g$ of their relative difference (shown)",
+            tier: Tier::Analytic,
+            source: "at low gain the ordered product is the exponential of the sum; the first correction, Magnus's second term, is a passive rotation of order g², which moves the squeezing relatively as g²",
+            run: broadband_low_gain,
+        },
+        Case {
+            id: "quantum/broadband-single-mode",
+            title: r"Quantum: one signal and one idler frequency, phase-matched, coupling 2 over 10 slices: $r$, $\lvert A \rvert = \cosh r$, $\lvert B/A \rvert = \tanh r$ and the mean photon number $\sinh^2 r$ against $r$ = 2 (largest relative difference shown)",
+            tier: Tier::Analytic,
+            source: "a two-mode squeezer: a_out = cosh r a + sinh r b†; slices that commute add their couplings",
+            run: broadband_single_mode,
+        },
+        Case {
+            id: "quantum/broadband-mismatched",
+            title: r"Quantum: one frequency each with a phase mismatch $\Delta k L/2$ = 1 and coupling $\kappa L$ = 3, on 1000 slices: $\lvert B \rvert$ against the phase-mismatched amplifier's $\kappa L \sinh(gL)/gL$, $gL = \sqrt{(\kappa L)^2 - (\Delta k L/2)^2}$ (relative, shown)",
+            tier: Tier::Analytic,
+            source: "d a/dz = κ e^{iΔkz} b†, d b†/dz = κ e^{−iΔkz} a: B(L) has the modulus (κ/g) sinh gL, g² = κ² − (Δk/2)²",
+            run: broadband_mismatched,
+        },
+        Case {
+            id: "quantum/broadband-mismatched-order",
+            title: r"Quantum: the same on 100, 200 and 400 slices: the order of convergence of $\lvert B \rvert$ in the slice (shown)",
+            tier: Tier::Analytic,
+            source: "the exponential midpoint rule, a symmetric product, is second order in the slice",
+            run: broadband_mismatched_order,
+        },
+        Case {
+            id: "quantum/broadband-photons",
+            title: r"Quantum: the high-gain source's mean photon number from its map, $\operatorname{Tr} BB^\dagger$, against $\sum_k \sinh^2 r_k$ and against its 96-mode Gaussian state's photons (largest relative difference shown)",
+            tier: Tier::Analytic,
+            source: "B = U sinh R W† (Bloch–Messiah), so Tr BB† = Σ sinh² r_k; each pair of squeezed modes a two-mode squeezed vacuum of r_k",
+            run: broadband_photons,
+        },
     ]
+}
+
+// ---------------------------------------------------------------------------------------------
+// Broadband squeezing at any gain
+// ---------------------------------------------------------------------------------------------
+
+/// A source with a Gaussian pump of unit bandwidth and a phase mismatch x = 3ν_s − 1.5ν_i, its
+/// signal and idler on `n` points from −4 to 4.
+fn gvm_grid(n: usize) -> Vec<f64> {
+    (0..n)
+        .map(|k| -4.0 + 8.0 * k as f64 / (n - 1) as f64)
+        .collect()
+}
+
+/// The source's pump amplitude at ν_s + ν_i.
+fn gvm_pump(nu: f64) -> c64 {
+    c64::new((-2.0 * std::f64::consts::LN_2 * nu * nu).exp(), 0.0)
+}
+
+/// The source's phase mismatch ΔkL/2.
+fn gvm_mismatch(s: f64, i: f64) -> crate::Result<f64> {
+    Ok(3.0 * s - 1.5 * i)
+}
+
+fn gvm(n: usize, slices: usize, gain: f64) -> Broadband {
+    let grid = gvm_grid(n);
+    Broadband::sliced(&grid, &grid, gvm_pump, gvm_mismatch, slices, gain).expect(OK)
+}
+
+/// The joint spectrum the slices of [`gvm`] add up to: α (1/N) Σ e^{2ixt_n}.
+fn gvm_spectrum(n: usize, slices: usize) -> JointSpectrum {
+    let grid = gvm_grid(n);
+    let (pump, mismatch) = (gvm_pump, gvm_mismatch);
+    let mut amplitude = Vec::with_capacity(n * n);
+    for &s in &grid {
+        for &i in &grid {
+            let x = mismatch(s, i).expect(OK);
+            let sum: c64 = (0..slices)
+                .map(|k| {
+                    let t = (k as f64 + 0.5) / slices as f64 - 0.5;
+                    c64::from_polar(1.0 / slices as f64, 2.0 * x * t)
+                })
+                .sum();
+            amplitude.push(pump(s + i) * sum);
+        }
+    }
+    JointSpectrum {
+        signal: grid.clone(),
+        idler: grid,
+        amplitude,
+    }
+}
+
+fn broadband_symplectic() -> Outcome {
+    outcome(gvm(48, 40, 3.0).symplectic_error(), 0.0, 1e-12)
+}
+
+fn broadband_exponential() -> Outcome {
+    let js = gvm_spectrum(48, 40);
+    let weights = js.schmidt().expect(OK).weights;
+    let b = Broadband::exponential(&js, 2.0).expect(OK);
+    let worst = b
+        .squeezing()
+        .iter()
+        .zip(&weights)
+        .take(10)
+        .map(|(r, l)| (r - 2.0 * l.sqrt()).abs())
+        .fold(0.0, f64::max);
+    outcome(worst, 0.0, 1e-12)
+}
+
+fn broadband_low_gain() -> Outcome {
+    let js = gvm_spectrum(32, 20);
+    let gap = |g: f64| {
+        let sliced = gvm(32, 20, g).squeezing()[0];
+        let single = Broadband::exponential(&js, g).expect(OK).squeezing()[0];
+        ((sliced - single) / single).abs()
+    };
+    let order = (gap(0.02) / gap(0.01)).log2();
+    outcome(order, 2.0, 0.1)
+}
+
+fn one_by_one(coupling: f64, x: f64, slices: usize) -> Broadband {
+    let gens: Vec<Matrix> = (0..slices)
+        .map(|k| {
+            let t = (k as f64 + 0.5) / slices as f64 - 0.5;
+            Matrix::from_fn(1, 1, |_, _| {
+                c64::from_polar(coupling / slices as f64, 2.0 * x * t)
+            })
+        })
+        .collect();
+    Broadband::new(&gens).expect(OK)
+}
+
+fn broadband_single_mode() -> Outcome {
+    let b = one_by_one(2.0, 0.0, 10);
+    let m = b.map();
+    let (a, bb) = (m[(0, 0)].norm(), m[(0, 1)].norm());
+    let r = 2.0_f64;
+    let worst = [
+        (b.squeezing()[0] - r).abs() / r,
+        (a - r.cosh()).abs() / r.cosh(),
+        (bb / a - r.tanh()).abs() / r.tanh(),
+        (b.mean_photons() - r.sinh().powi(2)).abs() / r.sinh().powi(2),
+    ]
+    .into_iter()
+    .fold(0.0, f64::max);
+    outcome(worst, 0.0, 1e-13)
+}
+
+/// The phase-mismatched amplifier's |B| in closed form, κL = 3, ΔkL/2 = 1.
+fn mismatched_closed_form() -> f64 {
+    let gl = (9.0_f64 - 1.0).sqrt();
+    3.0 * gl.sinh() / gl
+}
+
+fn mismatched(slices: usize) -> f64 {
+    one_by_one(3.0, 1.0, slices).map()[(0, 1)].norm()
+}
+
+fn broadband_mismatched() -> Outcome {
+    let (fine, coarse) = (mismatched(1000), mismatched(500));
+    let exact = mismatched_closed_form();
+    // second order: the finer run's error is the difference over 2² − 1
+    note_numerical((fine - coarse).abs() / 3.0 / exact);
+    relative(fine, exact, 1e-5)
+}
+
+fn broadband_mismatched_order() -> Outcome {
+    let exact = mismatched_closed_form();
+    let e: Vec<f64> = [100, 200, 400]
+        .iter()
+        .map(|&n| (mismatched(n) - exact).abs())
+        .collect();
+    let order = 0.5 * ((e[0] / e[1]).log2() + (e[1] / e[2]).log2());
+    outcome(order, 2.0, 0.1)
+}
+
+fn broadband_photons() -> Outcome {
+    let b = gvm(48, 40, 3.0);
+    let trace = b.mean_photons();
+    let sum: f64 = b.squeezing().iter().map(|r| r.sinh().powi(2)).sum();
+    let k = b.squeezing().len();
+    let g = b.gaussian(k).expect(OK);
+    let gaussian: f64 = (0..k).map(|m| g.mean_photons(m).expect(OK)).sum();
+    let worst = ((trace - sum).abs()).max((trace - gaussian).abs()) / trace;
+    outcome(worst, 0.0, 1e-10)
 }
 
 fn hafnian_ones() -> Outcome {
@@ -1094,6 +1291,69 @@ mod tests {
                 o.error,
                 o.tolerance,
                 start.elapsed().as_secs_f64()
+            );
+        }
+    }
+
+    /// The broadband source of the cases at rising gain: its first squeezings against the
+    /// Schmidt model's, its number of modes, and how far its first signal mode has moved from
+    /// the low-gain one (1 − |⟨u₁(g)|u₁(0.01)⟩|²).
+    #[test]
+    #[ignore = "prints the broadband source's squeezing and modes against the gain"]
+    fn print_broadband() {
+        let js = gvm_spectrum(48, 40);
+        let low = gvm(48, 40, 0.01);
+        let u0 = low.signal_mode(0).unwrap();
+        for g in [0.5, 1.0, 2.0, 3.0] {
+            for slices in [40, 80] {
+                let b = gvm(48, slices, g);
+                let e = Broadband::exponential(&js, g).unwrap();
+                let u = b.signal_mode(0).unwrap();
+                let overlap: c64 = u.iter().zip(u0).map(|(a, b)| a.conj() * b).sum();
+                eprintln!(
+                    "g {g} slices {slices}: r {:.4} {:.4} {:.4} (one exponential {:.4} {:.4} {:.4}), modes {:.4} ({:.4}), photons {:.4} ({:.4}), mode moved {:.2e}",
+                    b.squeezing()[0],
+                    b.squeezing()[1],
+                    b.squeezing()[2],
+                    e.squeezing()[0],
+                    e.squeezing()[1],
+                    e.squeezing()[2],
+                    b.mode_number(),
+                    e.mode_number(),
+                    b.mean_photons(),
+                    e.mean_photons(),
+                    1.0 - overlap.norm_sqr()
+                );
+            }
+        }
+    }
+
+    /// Vernon et al.'s Fig. 3: the purity's line against Q_SI/Q_P, read from the figure's vector
+    /// paths, against Eq. 3 here with the signal's and idler's frequencies cut at ±3 pump
+    /// linewidths (3 × ratio signal linewidths), and with no such cut (±20 signal linewidths).
+    /// The line's first vertex, 0.8396 at a ratio of 0.5, needs a pump resonance narrower than
+    /// the signal's, which `ring_schmidt` (it widens the pump's by an extra loss) doesn't make.
+    #[test]
+    #[ignore = "Vernon et al.'s Fig. 3 against a window of three pump linewidths: seconds"]
+    fn print_vernon_fig3() {
+        // (Q_SI/Q_P, the line's purity), from the vector path's vertices
+        let line = [
+            (1.0, 0.9273),
+            (1.5, 0.9592),
+            (2.0, 0.9740),
+            (3.0, 0.9868),
+            (4.0, 0.9921),
+        ];
+        for (ratio, read) in line {
+            let span = 3.0 * ratio;
+            let per = |n: f64| (2.0 * span * n) as usize + 1;
+            let fine = 1.0 / ring_schmidt(0.05, ratio, span, per(40.0));
+            let coarse = 1.0 / ring_schmidt(0.05, ratio, span, per(20.0));
+            let open = 1.0 / ring_schmidt(0.05, ratio, 20.0, 801);
+            eprintln!(
+                "ratio {ratio}: line {read:.4}, ±3 pump linewidths {fine:.5} (grid {:.1e}, off {:+.5}), none {open:.5}",
+                (fine - coarse).abs(),
+                fine - read
             );
         }
     }
