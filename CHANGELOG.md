@@ -24,6 +24,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - the quantum and coupler leftovers, Peruzzo's panels explained (4 lines, part of #595) ([#770](https://github.com/tachsin/photonoxide/pull/770))
 - the device-model gaps against papers in hand, Passoni's bandwidths explained (5 lines, part of #595) ([#776](https://github.com/tachsin/photonoxide/pull/776))
 - the release-marks check accepts a patch release that has no milestone of its own ([#778](https://github.com/tachsin/photonoxide/pull/778))
+- *(studio)* state an unbounded acceptance bandwidth as unbounded ([#777](https://github.com/tachsin/photonoxide/pull/777))
+- the Release marks workflow parses, its condition quoted ([#779](https://github.com/tachsin/photonoxide/pull/779))
 
 ### <!-- 4 -->Documentation
 
