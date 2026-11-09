@@ -9,13 +9,13 @@
 //! manuscript is open at biblio.ugent.be/publication/7065396). On imec's 200 mm line they made
 //! Mach-Zehnder interferometers of 1 × 2 MMIs and silicon wires designed 450, 600 and 800 nm
 //! wide and 215 nm thick, in oxide (2 µm below, 1.25 µm above), three per width: two of low
-//! order (m = 15 and 16, designed to resonate at 1550 nm), whose resonance gives the effective
-//! index unambiguously (n_eff L = m λ, their Eq. 3), and one of high order (M = 110), whose free
-//! spectral range gives the group index (FSR = λ²/(n_g L), Eq. 8). Cross-section SEM puts the
-//! wires at 470 ± 4, 602 (Table I; 604 in the text) and 805 nm wide and 211 ± 1 nm thick.
-//! Their Table I, at 1550 nm:
+//! order ($m = 15$ and 16, designed to resonate at 1550 nm), whose resonance gives the effective
+//! index unambiguously ($n_\mathrm{eff} L = m\lambda$, their Eq. 3), and one of high order
+//! ($M = 110$), whose free spectral range gives the group index
+//! ($\mathrm{FSR} = \lambda^2/(n_g L)$, Eq. 8). Cross-section SEM puts the wires at 470 ± 4, 602
+//! (Table I; 604 in the text) and 805 nm wide and 211 ± 1 nm thick. Their Table I, at 1550 nm:
 //!
-//! | Width | n_eff | n_g |
+//! | Width | $n_\mathrm{eff}$ | $n_g$ |
 //! |---|---|---|
 //! | 470 nm | 2.355 ± 0.002 | 4.2739 ± 0.0042 |
 //! | 602 nm | 2.534 ± 0.0035 | 4.0453 ± 0.0045 |
@@ -26,16 +26,17 @@
 //! 1550 nm is the paper's: photonoxide's waveguide device ([`StripWaveguide`]) at the SEM's
 //! width and thickness, its 3D model, the TE-like mode by Hadley's high-accuracy equations on
 //! a quarter domain, about 10 nm grids, at 1.52 to 1.58 µm, a [`Waveguide`]. The interferometers are
-//! designed as the paper's were: their path differences ΔL = m λ/n_eff from the designed
-//! 215 nm thick wire's index. Each is a netlist of two ideal splitters and two arms, and its
-//! spectrum is read the way the paper reads the measured one: the M = 110 interferometer's
-//! peaks give n_g = λ₁λ₂/((λ₂ − λ₁) ΔL) between each pair, fitted by a line in λ (Eq. 10), and
-//! the m = 15 one's peak λ_r gives n_eff(λ_r) = 15 λ_r/ΔL, carried to 1550 nm by
-//! d(n/λ)/dλ = −n_g/λ².
+//! designed as the paper's were: their path differences $\Delta L = m\lambda/n_\mathrm{eff}$ from
+//! the designed 215 nm thick wire's index. Each is a netlist of two ideal splitters and two arms,
+//! and its spectrum is read the way the paper reads the measured one: the $M = 110$
+//! interferometer's peaks give $n_g = \lambda_1\lambda_2/((\lambda_2 - \lambda_1)\,\Delta L)$
+//! between each pair, fitted by a line in $\lambda$ (Eq. 10), and the $m = 15$ one's peak
+//! $\lambda_r$ gives $n_\mathrm{eff}(\lambda_r) = 15\lambda_r/\Delta L$, carried to 1550 nm by
+//! $d(n/\lambda)/d\lambda = -n_g/\lambda^2$.
 //!
 //! The tolerance is the paper's own estimate of what fabrication moves (their Eq. 5 and
 //! Fig. 1): ±20 nm in width and ±5 nm in thickness, through the solver's derivatives, plus
-//! Table I's uncertainty. The SEM's own ±4 and ±1 nm would allow the 470 nm wire's n_g only
+//! Table I's uncertainty. The SEM's own ±4 and ±1 nm would allow the 470 nm wire's $n_g$ only
 //! 0.013, and it is 0.041 off: the narrowest wire feels its sidewalls most, and the model's
 //! rectangle leaves out their slope and roughness; the paper's own simulations of the SEM
 //! geometry miss too (its Fig. 7), which it puts down to local variations and the wires'

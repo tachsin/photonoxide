@@ -4,26 +4,26 @@
 //! photonic crystal", Nature 425, 944 (2003),
 //! [doi:10.1038/nature02063](https://doi.org/10.1038/nature02063), Fig. 1, p. 945 and Fig. 4:
 //!
-//! - **The device:** a silicon slab 0.6a thick (0.25 µm) in air, a triangular lattice of air
-//!   holes of radius 0.29a (0.12 µm), a = 0.42 µm, three holes missing in a row (the L3 cavity),
-//!   and the holes at both its ends moved out along the row by 0.15a (their Fig. 1c).
-//! - **The result:** the cavities they made, each with the end holes moved by 0 to 0.25a, all
-//!   resonate between 1.565 and 1.580 µm (Fig. 4a's axis); moving the end holes by 0.15a raises
-//!   Q/V by "a factor of 10" (Fig. 4c), V unchanged ("small and constant at (6–7) × 10⁻¹⁴
-//!   cm³"), so Q by about 10, to 45,000. Their own 3D FDTD is shown, but its numbers aren't
+//! - **The device:** a silicon slab $0.6a$ thick (0.25 µm) in air, a triangular lattice of air
+//!   holes of radius $0.29a$ (0.12 µm), $a = 0.42$ µm, three holes missing in a row (the L3
+//!   cavity), and the holes at both its ends moved out along the row by $0.15a$ (their Fig. 1c).
+//! - **The result:** the cavities they made, each with the end holes moved by 0 to $0.25a$, all
+//!   resonate between 1.565 and 1.580 µm (Fig. 4a's axis); moving the end holes by $0.15a$ raises
+//!   $Q/V$ by "a factor of 10" (Fig. 4c), $V$ unchanged ("small and constant at (6–7) × 10⁻¹⁴
+//!   cm³"), so $Q$ by about 10, to 45,000. Their own 3D FDTD is shown, but its numbers aren't
 //!   printed.
 //!
 //! Here the cavity is one body ([`photonoxide::geometry::Body`]): a box of silicon (the catalogue's,
 //! Li's, at 1.57 µm) less the lattice's disks extruded through it, 21 × 15 sites; FDTD's
-//! smoothing ([`photonoxide::fdtd::Structure`]) takes it as it takes any body, each value of E's
-//! permittivity the subpixel average over its cell from the body's surface and normal
-//! (`Coupling::Diagonal`). CPMLs of 12 cells, a·0.7 of air above and below the slab inside them.
-//! A pulse of E_y at the cavity's centre, 0.04/a wide about a/λ = 0.264; E_y at a point near
-//! the centre after the pulse, by harmonic inversion (`fdtd::harmonic_inversion`): the
-//! fundamental mode's frequency and Q = ω/2γ.
+//! smoothing ([`photonoxide::fdtd::Structure`]) takes it as it takes any body, each value of
+//! $E$'s permittivity the subpixel average over its cell from the body's surface and normal
+//! (`Coupling::Diagonal`). CPMLs of 12 cells, $0.7a$ of air above and below the slab inside them.
+//! A pulse of $E_y$ at the cavity's centre, $0.04/a$ wide about $a/\lambda = 0.264$; $E_y$ at a
+//! point near the centre after the pulse, by harmonic inversion (`fdtd::harmonic_inversion`): the
+//! fundamental mode's frequency and $Q = \omega/2\gamma$.
 //!
 //! - **CI** (about a minute and a half on 20 threads): the cavity's geometry as a body, exactly:
-//!   its volume from its cells' fills against T (|A| − N π r²), the cavity's sites silicon and
+//!   its volume from its cells' fills against $T(|A| - N\pi r^2)$, the cavity's sites silicon and
 //!   every hole air through the slab; and the unshifted and shifted cavities at 8 cells a lattice
 //!   constant (52.5 nm cells), the record 300 µm/c after the pulse.
 //! - **`--full`** (about 40 minutes on 20 threads): 12 and 16 cells a lattice constant, the
@@ -35,9 +35,9 @@
 //!   measured Q is limited by the fabrication's disorder, the computed one by the lattice's 21 ×
 //!   15 sites and the grid).
 //!
-//! What it found (`--full`, 20 threads): a/λ 0.2635, 0.2641 and 0.2639 unshifted and 0.2618,
-//! 0.2623 and 0.2621 shifted at 8, 12 and 16 cells, so λ = 1.591 and 1.603 µm, 0.7 % and 1.4 %
-//! above the measured span; Q 5574, 5413 and 5107 unshifted and 56 156, 52 275 and 38 182
+//! What it found (`--full`, 20 threads): $a/\lambda$ 0.2635, 0.2641 and 0.2639 unshifted and
+//! 0.2618, 0.2623 and 0.2621 shifted at 8, 12 and 16 cells, so $\lambda = 1.591$ and 1.603 µm,
+//! 0.7 % and 1.4 % above the measured span; $Q$ 5574, 5413 and 5107 unshifted and 56 156, 52 275 and 38 182
 //! shifted, a rise of 10.1, 9.7 and 7.5. The frequencies settle to 1e-3; the shifted cavity's Q,
 //! decaying 4 % over the record, doesn't yet settle with the grid, and is reported, not
 //! claimed, beyond the factor of 2.

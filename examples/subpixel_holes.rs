@@ -1,56 +1,60 @@
 //! Subpixel smoothing's convergence: a mode of a square lattice of elliptical air holes in
-//! ε = 12, its frequency's error against resolution with and without smoothing.
+//! $\varepsilon = 12$, its frequency's error against resolution with and without smoothing.
 //!
 //! A. Farjadpour et al., "Improving accuracy by subpixel smoothing in the finite-difference time
 //! domain", Opt. Lett. 31, 2972 (2006),
 //! [doi:10.1364/OL.31.002972](https://doi.org/10.1364/OL.31.002972), Fig. 1:
 //!
-//! - **The problem:** a square lattice (period a) of elliptical air holes in ε = 12, the TE
-//!   polarization (E in the plane), its lowest frequency at a Bloch wave vector "not aligned
-//!   with the grid", against a plane-wave calculation at a very high resolution; FDTD from 10 to
-//!   100 pixels a period.
-//! - **Their smoothing** (their Eq. 1): ε̃⁻¹ = P⟨ε⁻¹⟩ + (1 − P)⟨ε⟩⁻¹ over each pixel about the
-//!   E component's point, its off-diagonal entries applied to "the Dy and Dz components from
-//!   their four adjacent Yee points" averaged: `Coupling::Points` here. "As a trick to make the
-//!   quadratic convergence of our method more apparent", also over pixels twice as wide (2Δx).
-//! - **The result:** no smoothing converges erratically; the mean ε, and the others they tried,
-//!   linearly; their method with "the smallest errors by a large margin", erratically at s = 1
-//!   and quadratically at s = 2.
+//! - **The problem:** a square lattice (period $a$) of elliptical air holes in
+//!   $\varepsilon = 12$, the TE polarization ($E$ in the plane), its lowest frequency at a Bloch
+//!   wave vector "not aligned with the grid", against a plane-wave calculation at a very high
+//!   resolution; FDTD from 10 to 100 pixels a period.
+//! - **Their smoothing** (their Eq. 1):
+//!   $\tilde\varepsilon^{-1} = P\langle\varepsilon^{-1}\rangle + (1 - P)\langle\varepsilon\rangle^{-1}$
+//!   over each pixel about the $E$ component's point, its off-diagonal entries applied to "the Dy
+//!   and Dz components from their four adjacent Yee points" averaged: `Coupling::Points` here.
+//!   "As a trick to make the quadratic convergence of our method more apparent", also over pixels
+//!   twice as wide ($2\Delta x$).
+//! - **The result:** no smoothing converges erratically; the mean $\varepsilon$, and the others
+//!   they tried, linearly; their method with "the smallest errors by a large margin", erratically
+//!   at $s = 1$ and quadratically at $s = 2$.
 //!
 //! Read off the figure (at 600 dpi, 1771 pixels a decade of resolution and 233 a decade of
 //! error, the frame's ticks consistent to a pixel; the filled markers found by colour and
-//! eroded clear of the lines): the new method at 2Δx is 1.96e-3 at 20 pixels a period, 3.80e-4
-//! at 40 and 4.25e-5 at 100, a least-squares slope of −2.43 over 20 to 100; the mean ε is
-//! 2.83e-3, 1.12e-3 and 3.34e-4, a slope of −1.33. Their s = 1 and unsmoothed curves are too
-//! erratic for a slope.
+//! eroded clear of the lines): the new method at $2\Delta x$ is 1.96e-3 at 20 pixels a period,
+//! 3.80e-4 at 40 and 4.25e-5 at 100, a least-squares slope of −2.43 over 20 to 100; the mean
+//! $\varepsilon$ is 2.83e-3, 1.12e-3 and 3.34e-4, a slope of −1.33. Their $s = 1$ and unsmoothed
+//! curves are too erratic for a slope.
 //!
 //! What the paper leaves open, and how it is set here:
 //!
-//! - **The ellipse:** from the inset, 0.19a × 0.14a, the long axis 53° from x, centred.
-//! - **The wave vector:** periodic sides two periods apart along x, and a magnetic current
-//!   ∝ cos(πx/a) on every H̃_z with two electric point currents, so that the modes found are
-//!   those of k = (½, 0) 2π/a, the X point: the lowest at ωa/2πc = 0.14526 (the paper's
-//!   choice, the smallest ω) and the next at 0.16405, 13 % higher. (A Bloch boundary would
-//!   take any k; the lattice here needs only real fields.)
+//! - **The ellipse:** from the inset, $0.19a \times 0.14a$, the long axis 53° from $x$, centred.
+//! - **The wave vector:** periodic sides two periods apart along $x$, and a magnetic current
+//!   $\propto \cos(\pi x/a)$ on every $\tilde H_z$ with two electric point currents, so that the
+//!   modes found are those of $k = (\tfrac12, 0)\,2\pi/a$, the X point: the lowest at
+//!   $\omega a/2\pi c = 0.14526$ (the paper's choice, the smallest $\omega$) and the next at
+//!   0.16405, 13 % higher. (A Bloch boundary would take any $k$; the lattice here needs only real
+//!   fields.)
 //! - **The frequency:** from the matrix pencil (Y. Hua, T. K. Sarkar, IEEE Trans. Acoust.
-//!   Speech Signal Process. 38, 814 (1990)) on three probes over 80 a/c after the pulse, in
+//!   Speech Signal Process. 38, 814 (1990)) on three probes over $80\,a/c$ after the pulse, in
 //!   place of filter diagonalization; it finds a sum of two sinusoids to 1e-10.
-//! - **The reference:** Richardson's extrapolation of the new method at 2Δx from 64 and 96
-//!   pixels, which converges smoothly as h², in place of a plane-wave calculation; for the
-//!   lowest mode it agrees with the s = 1 method's from 96 and 128 pixels to 8e-6 (relative),
+//! - **The reference:** Richardson's extrapolation of the new method at $2\Delta x$ from 64 and 96
+//!   pixels, which converges smoothly as $h^2$, in place of a plane-wave calculation; for the
+//!   lowest mode it agrees with the $s = 1$ method's from 96 and 128 pixels to 8e-6 (relative),
 //!   a fifth of the new method's error at 64 pixels.
 //!
-//! What reproduces, for the lowest mode: the new method's slope at 2Δx (−2.26 against the
-//! paper's −2.43), its quadratic convergence at s = 1 (−2.12, "asymptotically quadratic"), and
+//! What reproduces, for the lowest mode: the new method's slope at $2\Delta x$ (−2.26 against the
+//! paper's −2.43), its quadratic convergence at $s = 1$ (−2.12, "asymptotically quadratic"), and
 //! its error below the mean's at every resolution. For the second mode, the mean's first order
-//! (−1.40 against −1.33), the new method's erratic convergence at s = 1 and quadratic at 2Δx.
-//! What doesn't: for the lowest mode the mean ε converges at −1.84, not −1.33, and the new
-//! method's margin over it is a factor of 2 to 3, not 10 to 30; the mean's first-order error
-//! is the mode's D across the holes' surfaces, which at this k is weak (the paper doesn't give
-//! its k). Over the paper's own resolutions the slope is still −1.81 (20 to 64), and A/N + B/N²
-//! fitted to ours gives −1.91 from 20 to 100. At the M point, k = (½, ½) 2π/a, oblique to the
-//! grid (a 2 × 2 supercell, the same smoothing and reference), the two lowest bands
-//! (0.205663 and 0.208027 c/a) fall at −2.02 and −1.62. Werner and Cary's placement of the off-diagonal entries (`Coupling::Nodes`, stable,
+//! (−1.40 against −1.33), the new method's erratic convergence at $s = 1$ and quadratic at
+//! $2\Delta x$. What doesn't: for the lowest mode the mean $\varepsilon$ converges at −1.84, not
+//! −1.33, and the new method's margin over it is a factor of 2 to 3, not 10 to 30; the mean's
+//! first-order error is the mode's $D$ across the holes' surfaces, which at this $k$ is weak (the
+//! paper doesn't give its $k$). Over the paper's own resolutions the slope is still −1.81 (20 to
+//! 64), and $A/N + B/N^2$ fitted to ours gives −1.91 from 20 to 100. At the M point,
+//! $k = (\tfrac12, \tfrac12)\,2\pi/a$, oblique to the grid (a 2 × 2 supercell, the same smoothing
+//! and reference), the two lowest bands (0.205663 and 0.208027 $c/a$) fall at −2.02 and −1.62.
+//! Werner and Cary's placement of the off-diagonal entries (`Coupling::Nodes`, stable,
 //! photonoxide's default) is printed beside them: no better than the mean, as at any oblique
 //! interface (docs/methods/fdtd.md).
 //!

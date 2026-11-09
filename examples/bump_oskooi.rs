@@ -6,32 +6,34 @@
 //! [doi:10.1016/j.cpc.2009.11.008](https://doi.org/10.1016/j.cpc.2009.11.008), Section 3 and
 //! Fig. 7:
 //!
-//! - **The problem:** "a small semicircular bump in a dielectric waveguide (ε = 12), excited by
-//!   a point-dipole source in the waveguide", in 2D, at resolutions of 10 to 100 pixels a.
+//! - **The problem:** "a small semicircular bump in a dielectric waveguide ($\varepsilon = 12$),
+//!   excited by a point-dipole source in the waveguide", in 2D, at resolutions of 10 to 100
+//!   pixels a.
 //! - **The result:** "Appropriate subpixel smoothing of the dielectric interfaces leads to
-//!   roughly second-order [O(Δx²)] convergence ..., whereas the unsmoothed structure has only
+//!   roughly second-order [$O(\Delta x^2)$] convergence ..., whereas the unsmoothed structure has only
 //!   first-order convergence", "erratic linear convergence" (Section 3).
 //!
 //! Settings the paper leaves to its Fig. 7's inset, read off it here (rendered at 8 times):
 //!
-//! - **The guide:** a = 1 µm wide (121 pixels in the inset), along x.
-//! - **The bump:** a half disc of radius 0.25a (60 pixels across) on the guide's upper face, its
-//!   centre 4.5a (548 pixels) from the dipole.
-//! - **The frequency:** f = 0.2 c/a. The inset's guided wavelength, 1.64a (198 pixels from crest
-//!   to crest), is the slab's at f = 0.2: n_eff = 3.04, 1/(0.2 × 3.04) = 1.64.
-//! - **The polarization:** E_z, out of the plane, from a dipole J_z on the guide's axis: the
+//! - **The guide:** $a = 1$ µm wide (121 pixels in the inset), along $x$.
+//! - **The bump:** a half disc of radius $0.25a$ (60 pixels across) on the guide's upper face,
+//!   its centre $4.5a$ (548 pixels) from the dipole.
+//! - **The frequency:** $f = 0.2\,c/a$. The inset's guided wavelength, $1.64a$ (198 pixels from
+//!   crest to crest), is the slab's at $f = 0.2$: $n_\mathrm{eff} = 3.04$,
+//!   $1/(0.2 \times 3.04) = 1.64$.
+//! - **The polarization:** $E_z$, out of the plane, from a dipole $J_z$ on the guide's axis: the
 //!   inset's field is a scalar, and its source a ring about a point.
 //!
 //! Settings the paper leaves open, set here:
 //!
-//! - **The cell:** 6.75a × 3.5a inside CPMLs 1.5a thick (R = 1e-8, order 3).
-//! - **The scattered power:** the flux of the scattered field, E with the bump less E without
-//!   it on the same grid, out of a box 2a × 2.5a about the bump: what the bump sends into the
-//!   guide either way and into the cladding. At f = 0.2, from a pulse 0.1 c/a wide, each run's
-//!   transforms divided by the pulse's spectrum.
-//! - **Smoothing:** photonoxide's subpixel smoothing (`Smoothing::default()`) against ε sampled
-//!   at each value of E (`Average::Sampled`, "no smoothing"). For E_z, along every interface,
-//!   the smoothed ε is the mean over each value's cell.
+//! - **The cell:** $6.75a \times 3.5a$ inside CPMLs $1.5a$ thick ($R = 10^{-8}$, order 3).
+//! - **The scattered power:** the flux of the scattered field, $E$ with the bump less $E$ without
+//!   it on the same grid, out of a box $2a \times 2.5a$ about the bump: what the bump sends into
+//!   the guide either way and into the cladding. At $f = 0.2$, from a pulse $0.1\,c/a$ wide, each
+//!   run's transforms divided by the pulse's spectrum.
+//! - **Smoothing:** photonoxide's subpixel smoothing (`Smoothing::default()`) against
+//!   $\varepsilon$ sampled at each value of $E$ (`Average::Sampled`, "no smoothing"). For $E_z$,
+//!   along every interface, the smoothed $\varepsilon$ is the mean over each value's cell.
 //! - **The reference:** the smoothed power at 50 pixels a. (At 60 it differs by 4e-4 of
 //!   itself, a tenth of the smoothed error at 30.)
 //! - **Resolutions:** 10 to 30 pixels a, two by two (the paper's run to 100; here the runs grow

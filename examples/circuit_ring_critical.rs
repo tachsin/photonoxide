@@ -3,10 +3,11 @@
 //!
 //! W. Bogaerts et al., Laser Photonics Rev. 6, 47 (published online 13 September 2011; the
 //! January 2012 issue), [doi:10.1002/lpor.201100017](https://doi.org/10.1002/lpor.201100017),
-//! Eqs. 2, 3 and 12: the through power vanishes on a resonance, n_eff L = m λ (Eq. 3), at
-//! critical coupling, when the self-coupling r equals the round trip's amplitude a, r = a (Eqs. 2
-//! and 12). With a = 10^(−αL/20) for a loss α, the closed forms are R = m λ / (2π n_eff) and
-//! κ² = 1 − a², which the tuned ring is checked against.
+//! Eqs. 2, 3 and 12: the through power vanishes on a resonance, $n_\mathrm{eff} L = m\lambda$
+//! (Eq. 3), at critical coupling, when the self-coupling $r$ equals the round trip's amplitude
+//! $a$, $r = a$ (Eqs. 2 and 12). With $a = 10^{-\alpha L/20}$ for a loss $\alpha$, the closed
+//! forms are $R = m\lambda/(2\pi n_\mathrm{eff})$ and $\kappa^2 = 1 - a^2$, which the tuned ring
+//! is checked against.
 //!
 //! ```sh
 //! cargo run --release --example circuit_ring_critical

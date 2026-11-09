@@ -4,10 +4,10 @@
 //! II: dielectric corners", J. Lightwave Technol. 20, 1219 (2002),
 //! [doi:10.1109/JLT.2002.800371](https://doi.org/10.1109/JLT.2002.800371), Section IV, Fig. 13
 //! and Table I: a rib 3 µm wide in a 1 µm film of index 3.44 on a substrate of 3.40 under air,
-//! at 1.15 µm, its quasi-TE index for slabs D = 0 to 0.7 µm left beside it, to 6 decimals.
+//! at 1.15 µm, its quasi-TE index for slabs $D = 0$ to 0.7 µm left beside it, to 6 decimals.
 //!
 //! Here the rib is photonoxide's rib waveguide device (`device::RibWaveguide`) on that stack,
-//! etched 1 − D deep (D = 0, etched through, is the strip waveguide device), its cross-section
+//! etched $1 - D$ deep ($D = 0$, etched through, is the strip waveguide device), its cross-section
 //! solved by Hadley's equations on a uniform 50 nm grid: the half behind the rib's vertical
 //! mirror plane, 5 µm wide, 4 µm below and above the film's middle (100 × 180 cells). The
 //! device's 2D model, the effective index method, is printed beside it with its error: an

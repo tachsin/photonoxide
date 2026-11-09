@@ -5,21 +5,21 @@
 //! [doi:10.1002/lpor.201100017](https://doi.org/10.1002/lpor.201100017), Section 2.4 and
 //! Fig. 5: rings losing 2.7 dB/cm in their waveguide, plus 0.04 dB in their bends and 0.035 dB
 //! in their coupler (all-pass) or 0.07 dB in their two couplers (add-drop) per round trip (his
-//! Eq. 19), at critical coupling (r = a for the all-pass ring, r₁ = r₂a with r₂ = 0.99 for the
-//! add-drop ring). A longer ring stores the light longer, but loses more of it per round trip:
-//! the loaded Q (his Eqs. 20 and 22) peaks. "The highest Q-factor that can be obtained under
+//! Eq. 19), at critical coupling ($r = a$ for the all-pass ring, $r_1 = r_2 a$ with $r_2 = 0.99$
+//! for the add-drop ring). A longer ring stores the light longer, but loses more of it per round
+//! trip: the loaded $Q$ (his Eqs. 20 and 22) peaks. "The highest Q-factor that can be obtained under
 //! the given conditions is about 1.42·10⁵ with an APF resonator of approximately 10 mm
 //! roundtrip length. The highest Q-factor for an add-drop resonator would be 1.36·10⁵ for almost
 //! 13 mm in length."
 //!
 //! The lengths of the peaks, and the ratio of the two peaks (1.42/1.36, each printed to three
-//! digits), depend only on the losses: Q is n_g/λ times a function of the length. The peaks
+//! digits), depend only on the losses: $Q$ is $n_g/\lambda$ times a function of the length. The peaks
 //! themselves need the group index Fig. 5 was drawn with, which the paper doesn't give; with
 //! the 4.30 it measured (Section 3.3.2, Fig. 13) they come out 6 % below the text's. The rings
 //! are photonoxide's ring devices ([`StripRing`]) on that guide, stated, at the analytic
 //! fidelity, and each Q is their component's [`AllPassRing::q_factor`] and
 //! [`AddDropRing::q_factor`], the paper's formulas; the last lines measure the FWHM on the
-//! ring's own spectrum instead, to show what those formulas (a Lorentzian line, ra near 1) leave
+//! ring's own spectrum instead, to show what those formulas (a Lorentzian line, $ra$ near 1) leave
 //! out at a finesse of 5.
 //!
 //! ```sh

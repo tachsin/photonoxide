@@ -7,8 +7,9 @@
 //! 4.27, 4.18, 4.10 and 4.04.
 //!
 //! The materials are the book's (Listing 3.1): its Lorentz fit to silicon (Eq. 3.2), and oxide
-//! of constant index 1.444. The group index is n_g = n_eff − λ dn_eff/dλ (Eq. 3.5), from the
-//! TE-like mode tracked over 1.54, 1.55 and 1.56 µm. The mode is symmetric, so only a quarter of
+//! of constant index 1.444. The group index is
+//! $n_g = n_\mathrm{eff} - \lambda\,dn_\mathrm{eff}/d\lambda$ (Eq. 3.5), from the TE-like mode
+//! tracked over 1.54, 1.55 and 1.56 µm. The mode is symmetric, so only a quarter of
 //! the cross-section is solved, behind two mirror walls. The narrowest strip converges slowest:
 //! its corners hold the most light.
 //!

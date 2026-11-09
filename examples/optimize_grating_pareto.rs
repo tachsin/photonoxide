@@ -7,32 +7,34 @@
 //! 041107 (2017), [doi:10.1063/1.4974992](https://doi.org/10.1063/1.4974992); its pages
 //! 041107-1 to -5 are p. 1 to 5 below.
 //!
-//! **The structure** (Fig. 1 and its caption, p. 2): a 220 nm silicon film, n = 3.47, on a
-//! buried oxide T_BOX thick, n = 1.44, on a silicon substrate, under a top oxide; partially etched
-//! grooves, filled with the top oxide; TE polarization, the electric field along the grooves
-//! (p. 2), which is E along z here; the fibre at 10° (p. 2). Each of Fig. 6's fronts has its own
-//! T_BOX, fibre offset FIO and etch (the table in Fig. 6, p. 4): 2.1 µm, 2.60 µm and 150 nm for a
+//! **The structure** (Fig. 1 and its caption, p. 2): a 220 nm silicon film, $n = 3.47$, on a
+//! buried oxide $T_\mathrm{BOX}$ thick, $n = 1.44$, on a silicon substrate, under a top oxide;
+//! partially etched grooves, filled with the top oxide; TE polarization, the electric field along
+//! the grooves (p. 2), which is $E$ along $z$ here; the fibre at 10° (p. 2). Each of Fig. 6's
+//! fronts has its own $T_\mathrm{BOX}$, fibre offset FIO and etch (the table in Fig. 6, p. 4): 2.1 µm, 2.60 µm and 150 nm for a
 //! mode field diameter of 4.0 µm; 2.0 µm, 3.70 µm and 120 nm for 6.0 µm.
 //!
 //! **The fibre** is a Gaussian beam whose mode field diameter (MFD) is the diameter at which its
-//! field falls to 1/e (p. 2), so its waist is MFD/2. Fig. 1 measures the fibre offset from the
+//! field falls to $1/e$ (p. 2), so its waist is MFD/2. Fig. 1 measures the fibre offset from the
 //! grating's start to the fibre's axis. For the searches its waist is put on the film's top, its
 //! axis FIO from the first groove, tilted 10° in the top oxide so that its light runs into the
 //! waveguide. The fibre's height, FID in Fig. 1, is 1.28 µm (the supplement's Supp. Tab. I and
 //! data files); the supplement's designs below are solved with the waist on the film and with it
-//! FID above, its axis through x = FIO there. The beam is exact in 2D: a sum of 161 plane waves of
+//! FID above, its axis through $x = \mathrm{FIO}$ there. The beam is exact in 2D: a sum of 161 plane waves of
 //! its Gaussian angular spectrum.
 //!
 //! **The coupling efficiency** is found by reciprocity: the waveguide's TE0 mode is launched into
 //! the grating and the field it sends up is projected on the fibre's beam travelling the other
 //! way, on a line 0.3 µm above the film. With the flux form of the projection,
-//! η = |¼ ∫ (E H̃_b* + E_b* H̃) dx|² / (P_b P_in), P_b the beam's flux through the line and P_in
-//! the mode's power, H̃ = ∂_y E_z / (i k₀) on the grid's faces.
+//! $\eta = |\tfrac14 \int (E \tilde H_b^* + E_b^* \tilde H)\,dx|^2 / (P_b P_\mathrm{in})$, $P_b$
+//! the beam's flux through the line and $P_\mathrm{in}$ the mode's power,
+//! $\tilde H = \partial_y E_z / (i k_0)$ on the grid's faces.
 //!
 //! **The grating** (p. 4): "we vary the width and position of each grating element"; the
 //! footprint is "slightly larger than MFD" (p. 2). The searches, set up before the supplement was
-//! read, use a grating of N grooves, N = 8 for the 4 µm fibre and 11 for the 6 µm one, the first
-//! groove's start at 0; the variables are the N grooves' widths (60 to 450 nm) and the N − 1
+//! read, use a grating of $N$ grooves, $N = 8$ for the 4 µm fibre and 11 for the 6 µm one, the
+//! first groove's start at 0; the variables are the $N$ grooves' widths (60 to 450 nm) and the
+//! $N - 1$
 //! teeth between them (60 to 500 nm). The supplement's data files have 8 grooves over 5 µm for
 //! the 4 µm fibre and 13 over 8 µm for the 6 µm one.
 //!
@@ -42,7 +44,7 @@
 //! the efficiency at 1.55 µm. Then the two objectives from there. The paper's multi-objective
 //! PSO isn't in genoxide; its NSGA-II runs instead (#244's row 12), with the paper's 20 agents
 //! (population 20: the chirped design and 19 others within 50 nm of it), simulated binary
-//! crossover and polynomial mutation (both η = 20, a gene's mutation 1/n). The paper ran 1000
+//! crossover and polynomial mutation (both $\eta = 20$, a gene's mutation $1/n$). The paper ran 1000
 //! iterations, 2 × 10⁴ structures; here 80 generations, 1620. The front is the non-dominated
 //! set of every structure evaluated, as the paper's front "stored at each step". The objectives
 //! are the peak efficiency and the 1-dB bandwidth around it, both maximized; a design whose band
@@ -85,7 +87,7 @@
 //!
 //! **The paper's own designs** (its supplementary material, Sec. VI and the data files
 //! supp_MFD_4.txt and supp_MFD_6.txt): each front's common data (MFD, n, the film, etch, FIO,
-//! FID, T_BOX, mean period, footprint) and, for every structure on it, numbered by increasing
+//! FID, $T_\mathrm{BOX}$, mean period, footprint) and, for every structure on it, numbered by increasing
 //! efficiency, its efficiency, 1-dB bandwidth and each groove's position and width, the
 //! positions from the centre of the first groove of the linear chirp the search started from
 //! (taken here as the grooves' centres), the fibre's offset from the same point. The files' 4 µm
@@ -159,9 +161,9 @@
 //!
 //! **The indices' dispersion** (`--dispersion`, 2026-11-09). Fig. 1's caption prints the indices
 //! as constants, 3.47 and 1.44, and the model takes them so. `--dispersion` adds silicon's and
-//! silica's own dispersion about them, the catalogue's (Li 1980, Malitson 1965):
-//! n(λ) = n_paper + n_catalogue(λ) − n_catalogue(1.55 µm), 3.4839 and 1.4418 at 1.40 µm, 3.4596
-//! and 1.4381 at 1.70 µm. On 10 × 5 nm with the waist at FID every bandwidth narrows, by 2.5 to
+//! silica's own dispersion about them, the catalogue's (Li 1980, Malitson 1965),
+//! $n(\lambda) = n_\mathrm{paper} + n_\mathrm{cat}(\lambda) - n_\mathrm{cat}(1.55\ \mu\mathrm{m})$:
+//! 3.4839 and 1.4418 at 1.40 µm, 3.4596 and 1.4381 at 1.70 µm. On 10 × 5 nm with the waist at FID every bandwidth narrows, by 2.5 to
 //! 2.9 % at 4 µm and 3.3 % at 6 µm; the efficiencies move by 0.04 points at most and the peaks by
 //! 1.1 nm at most. The 4 µm bandwidths end +1.5, +1.5, +1.9, +0.6, +1.1 and +0.2 % from the data
 //! file's (56, 52, 49, 48, 45, 35; 87.2 nm against 85.9, 94.4 against 93.0, 101.1 against 99.2,

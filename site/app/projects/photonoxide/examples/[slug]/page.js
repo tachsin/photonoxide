@@ -1,3 +1,4 @@
+import "katex/dist/katex.min.css";
 import { BookOpen } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -5,11 +6,12 @@ import Breadcrumbs from "@/components/projects/Breadcrumbs";
 import JsonLd from "@/components/projects/JsonLd";
 import LangCodeGroup from "@/components/projects/LangCodeGroup";
 import SourceUnavailable from "@/components/projects/SourceUnavailable";
+import rich from "@/components/projects/photonoxide/RichText.module.css";
 import { breadcrumbList } from "@/lib/projects/json-ld";
 import { projectsMetadata } from "@/lib/projects/metadata";
 import { getExample, getExamples, runCommand } from "@/lib/projects/photonoxide/examples";
 import { blobUrl } from "@/lib/projects/photonoxide/github";
-import { renderMathMarkdown, repoLinkResolver } from "@/lib/projects/photonoxide/markdown";
+import { renderInline, renderMathMarkdown, repoLinkResolver } from "@/lib/projects/photonoxide/markdown";
 import {
   EXAMPLES_PATH,
   METHODS_PATH,
@@ -20,14 +22,16 @@ import {
 import { getMethods } from "@/lib/projects/photonoxide/methods";
 import { absoluteUrl } from "@/lib/tools-metadata";
 
+const resolveExampleUrl = (href) => repoLinkResolver("examples")(href, "link");
+
 export async function generateMetadata({ params }) {
   const { slug } = await params;
   const example = await getExample(slug);
   if (!example) return { title: { absolute: "Example — photonoxide" }, robots: { index: false, follow: true } };
   return projectsMetadata({
-    title: example.title,
-    fullTitle: `${example.title} — photonoxide example`,
-    description: example.summary || `The photonoxide example ${example.name}.`,
+    title: example.plainTitle,
+    fullTitle: `${example.plainTitle} — photonoxide example`,
+    description: example.plainSummary || `The photonoxide example ${example.name}.`,
     path: `${EXAMPLES_PATH}/${example.slug}`,
     image: PHOTONOXIDE_OG_IMAGE,
     type: "article",
@@ -55,17 +59,17 @@ export default async function ExamplePage({ params }) {
     { name: "Projects", path: "/projects" },
     { name: "photonoxide", path: PHOTONOXIDE_PATH },
     { name: "Examples", path: EXAMPLES_PATH },
-    { name: example.title, path },
+    { name: example.plainTitle, path },
   ];
   const html = example.doc.trim()
-    ? await renderMathMarkdown(example.doc, { resolveUrl: repoLinkResolver("examples") })
+    ? await renderMathMarkdown(example.doc, { resolveUrl: repoLinkResolver("examples"), refs: true, compact: true })
     : "";
   const structuredData = {
     "@graph": [
       {
         "@type": "SoftwareSourceCode",
-        name: `${example.title} — photonoxide example`,
-        description: example.summary,
+        name: `${example.plainTitle} — photonoxide example`,
+        description: example.plainSummary,
         url: absoluteUrl(path),
         codeRepository: PHOTONOXIDE_LINKS.github,
         codeSampleType: "full solution",
@@ -88,12 +92,21 @@ export default async function ExamplePage({ params }) {
           </Link>
           <code className="proj-tag">{example.name}</code>
         </div>
-        <h1 className="mt-4 font-semibold text-4xl tracking-tight sm:text-5xl">{example.title}</h1>
+        <h1
+          className={`${rich.inline} mt-4 font-semibold text-3xl tracking-tight sm:text-5xl`}
+          dangerouslySetInnerHTML={{ __html: renderInline(example.head, { links: false }) }}
+        />
+        {example.subtitle ? (
+          <p
+            className={`${rich.inline} proj-lead mt-4 text-lg`}
+            dangerouslySetInnerHTML={{ __html: renderInline(example.subtitle, { refs: true, resolveUrl: resolveExampleUrl }) }}
+          />
+        ) : null}
       </header>
 
       {html ? (
         <article
-          className="proj-prose proj-rise-1 mt-8 max-w-3xl"
+          className={`proj-prose ${rich.prose} proj-rise-1 mt-8 max-w-3xl`}
           dangerouslySetInnerHTML={{ __html: html }}
         />
       ) : null}

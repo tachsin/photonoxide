@@ -6,28 +6,31 @@
 //! Section V and Figs. 2–4:
 //!
 //! - **The problem:** a 100 × 25 mm perfectly conducting plate, of no thickness, in soil
-//!   (ε_r = 7.73, σ = 0.273 S/m), on a grid of 1 mm cells. A CPML of 10 cells sits only 3 cells
-//!   from the plate on every side, a 126 × 51 × 26 cell lattice.
+//!   ($\varepsilon_r = 7.73$, $\sigma = 0.273$ S/m), on a grid of 1 mm cells. A CPML of 10 cells
+//!   sits only 3 cells from the plate on every side, a 126 × 51 × 26 cell lattice.
 //! - **The source:** a vertical current element just above one corner, a differentiated
 //!   Gaussian "with a 6 GHz bandwidth".
 //! - **The measurement:** the error of the electric field near the opposite corner, against the
 //!   same lattice extended 75 cells out on every side (276 × 201 × 176), as
-//!   20 log₁₀(|E − E_ref| / max |E_ref|), its largest value over 2000 steps.
+//!   $20\log_{10}(|E - E_\mathrm{ref}| / \max|E_\mathrm{ref}|)$, its largest value over 2000
+//!   steps.
 //! - **The results:**
-//!   - with the PML's grading of order m = 4, σ_max = 0.7 σ_opt and κ_max = 11 but no frequency
-//!     shift (α = 0, the traditional PML), "the maximum error ... is on the order of −48 dB";
-//!   - with α = 0.05 S/m, σ_max = 1.1 σ_opt and κ_max = 7, "−67 dB", where
-//!     σ_opt = (m + 1)/(150π √ε_r Δ) (their Eq. 15).
+//!   - with the PML's grading of order $m = 4$, $\sigma_\mathrm{max} = 0.7\,\sigma_\mathrm{opt}$
+//!     and $\kappa_\mathrm{max} = 11$ but no frequency shift ($\alpha = 0$, the traditional PML),
+//!     "the maximum error ... is on the order of −48 dB";
+//!   - with $\alpha = 0.05$ S/m, $\sigma_\mathrm{max} = 1.1\,\sigma_\mathrm{opt}$ and
+//!     $\kappa_\mathrm{max} = 7$, "−67 dB", where
+//!     $\sigma_\mathrm{opt} = (m + 1)/(150\pi \sqrt{\varepsilon_r}\,\Delta)$ (their Eq. 15).
 //!
 //! Settings the paper leaves open:
 //!
 //! - **The time step:** the Courant number is 0.99.
-//! - **The field compared:** E_z, the plate's normal component, one cell above the opposite
+//! - **The field compared:** $E_z$, the plate's normal component, one cell above the opposite
 //!   corner.
 //! - **The pulse's width,** which the errors depend on strongly: a differentiated Gaussian of
-//!   width τ = 1/(π · 6 GHz) gives −51.5 and −76.1 dB, and half as wide −38.2 and −55.1 dB. It is
-//!   set here, as τ = 0.72/(π · 6 GHz) = 38 ps, so that the traditional PML's error is the
-//!   paper's −48 dB. The CFS-PML's error is then a prediction.
+//!   width $\tau = 1/(\pi \cdot 6\ \mathrm{GHz})$ gives −51.5 and −76.1 dB, and half as wide −38.2
+//!   and −55.1 dB. It is set here, as $\tau = 0.72/(\pi \cdot 6\ \mathrm{GHz}) = 38$ ps, so that
+//!   the traditional PML's error is the paper's −48 dB. The CFS-PML's error is then a prediction.
 //! - **The reference:** padded by 40 cells instead of 75. It gives the same errors to 0.12 dB
 //!   (measured against the 75-cell one) at a third of the cost.
 //!

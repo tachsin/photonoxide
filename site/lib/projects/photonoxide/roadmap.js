@@ -1,7 +1,7 @@
 import { cache } from "react";
 import { getRepoFile } from "./github";
 import { FALLBACK_MILESTONES } from "./meta";
-import { milestonesFromHeadings, parseMilestones } from "./milestones";
+import { milestonesFromHeadings, parseMilestones, splitRoadmap } from "./milestones";
 import { getLatestRelease } from "./release";
 
 /**
@@ -22,4 +22,13 @@ export const getMilestones = cache(async () => {
   return parsed.length
     ? { ok: true, milestones: parsed }
     : { ok: false, milestones: milestonesFromHeadings(FALLBACK_MILESTONES, release) };
+});
+
+/**
+ * ROADMAP.md in its sections and blocks (milestones.js, `splitRoadmap`), its milestones' status
+ * as getMilestones has it, or null when it can't be read.
+ */
+export const getRoadmap = cache(async () => {
+  const [markdown, release] = await Promise.all([getRepoFile("ROADMAP.md"), getLatestRelease()]);
+  return markdown ? splitRoadmap(markdown, release) : null;
 });

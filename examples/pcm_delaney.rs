@@ -6,26 +6,28 @@
 //! [doi:10.1002/adfm.202002447](https://doi.org/10.1002/adfm.202002447): 25 nm films of Sb2Se3,
 //! Sb2S3 and GST on a 500 nm wide 220 nm SOI rib. Section 2.5 gives, for the crystalline films,
 //! the index change between the states (Sb2Se3 0.0717, Sb2S3 0.0356, simulated), the measured
-//! loss (0.01 and 0.028 dB/um) and their figure of merit, Eq. (1), 2 pi Δn_eff / (λ α): 29.0 and
+//! loss (0.01 and 0.028 dB/um) and their figure of merit, Eq. (1),
+//! $2\pi\,\Delta n_\mathrm{eff} / (\lambda\alpha)$: 29.0 and
 //! 5.15 rad/dB, to three digits.
 //!
 //! The devices (`device::PcmShifter`, its defaults a 25 nm film on a 500 x 220 nm strip) at
 //! each of their fidelities: the analytic effective index method with exact complex slabs and
 //! the 2D full-vector solve, with the 2D model's cells gated against cells half the size. What the
-//! paper does compare is its figure of merit's formula, from its own numbers. Its Δn_eff is not
+//! paper does compare is its figure of merit's formula, from its own numbers. Its
+//! $\Delta n_\mathrm{eff}$ is not
 //! compared: the paper and its supplement give neither the rib's etch depth, the patch's extent
 //! over the slab nor the polarization. Nor are its losses, which are the cells' measured ones, far
-//! above the absorption of the fits (k below 1e-4 for Sb2Se3, none for Sb2S3); GST's 0.282 rad/dB
+//! above the absorption of the fits ($k$ below 1e-4 for Sb2Se3, none for Sb2S3); GST's 0.282 rad/dB
 //! is quoted there from another group's guide. The checks here are the figure of merit's formula
 //! against the paper's two numbers (the 5 % their rounding leaves), the 2D grid's gate (2 %) and
 //! the analytic model's stated 15 % against the 2D one.
 //!
-//! **Why the Δn_eff isn't reproduced** (2D, TE unless said; Sb2Se3, Sb2S3; the paper's 0.0717
+//! **Why the $\Delta n_\mathrm{eff}$ isn't reproduced** (2D, TE unless said; Sb2Se3, Sb2S3; the paper's 0.0717
 //! and 0.0356, a ratio of 2.01). The same group's later paper (M. Delaney et al., Sci. Adv. 7,
 //! eabg3500 (2021), [doi:10.1126/sciadv.abg3500](https://doi.org/10.1126/sciadv.abg3500), p. 2
 //! and Materials and Methods) gives the platform: a 500 nm rib in 220 nm SOI etched 120 nm (a
 //! 100 nm slab), the indices 3.285 and 4.050 (the catalogue's, as the 2020 paper's Table 1), and
-//! quotes the same Δn_eff, 0.072, from the 2020 paper. Each candidate, one at a time: the strip
+//! quotes the same $\Delta n_\mathrm{eff}$, 0.072, from the 2020 paper. Each candidate, one at a time: the strip
 //! here 0.0568, 0.0318 (ratio 1.79); that rib, the film on its top, 0.0430, 0.0235 (1.83); a
 //! 150 nm slab 0.0353, 0.0190; the TM-like mode on the strip 0.0817, 0.0561 (1.46) (the rib
 //! guides none); a film following the strip's walls, 25 nm, 0.0823, 0.0515 (1.60); on the rib,
@@ -37,16 +39,19 @@
 //! and crystalline, against the silica-capped guide: Sb2S3 0.995, 0.987; Sb2Se3 0.978, 0.968; the
 //! main text's crystalline 0.989, 0.972) are nearest the rib with the film on its top (0.991,
 //! 0.979; 0.980, 0.948) and further from every other candidate (crystalline 0.87 to 0.97; the
-//! overlap |∫ E₁·E₂* dA|² / (∫ |E₁|² dA ∫ |E₂|² dA), the supplement's Sec. S3): their crystalline
-//! films barely move the mode where their Δn_eff is the larger.
+//! overlap
+//! $|\int E_1 \cdot E_2^*\,dA|^2 / (\int |E_1|^2\,dA \int |E_2|^2\,dA)$, the supplement's
+//! Sec. S3): their crystalline films barely move the mode where their $\Delta n_\mathrm{eff}$ is
+//! the larger.
 //!
 //! **Fig. 7 read by pixel** (`--fig7`). The 2020 paper's Fig. 7(c)–(f) draws its simulated
 //! sections to scale: a 505 nm rib etched 118 nm (2.62 nm a pixel, the lines 3 pixels wide), a
 //! 24 nm film on the rib's top and over the slab, none on the walls. On that geometry, TE: 0.0613
 //! and 0.0371, 14.5 % below and 4.2 % above theirs, so no thickness or solver's scale fits both;
-//! the overlaps with the main component E_x alone (a scalar E₁E₂, as the formula reads) are 0.993,
-//! 0.985 and 0.985, 0.966 against Table S1's 0.995, 0.987 and 0.978, 0.968. The geometry and the
-//! overlaps agree; the indices their mode solver took for Δn_eff are what neither paper gives.
+//! the overlaps with the main component $E_x$ alone (a scalar $E_1 E_2$, as the formula reads)
+//! are 0.993, 0.985 and 0.985, 0.966 against Table S1's 0.995, 0.987 and 0.978, 0.968. The
+//! geometry and the overlaps agree; the indices their mode solver took for
+//! $\Delta n_\mathrm{eff}$ are what neither paper gives.
 //!
 //! ```sh
 //! cargo run --release --example pcm_delaney
