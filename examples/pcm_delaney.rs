@@ -42,21 +42,33 @@
 //! overlap
 //! $|\int E_1 \cdot E_2^*\,dA|^2 / (\int |E_1|^2\,dA \int |E_2|^2\,dA)$, the supplement's
 //! Sec. S3): their crystalline films barely move the mode where their $\Delta n_\mathrm{eff}$ is
-//! the larger. What would settle it is the
-//! simulation itself (its solver, indices and drawing), which neither paper gives.
+//! the larger.
+//!
+//! **Fig. 7 read by pixel** (`--fig7`). The 2020 paper's Fig. 7(c)–(f) draws its simulated
+//! sections to scale: a 505 nm rib etched 118 nm (2.62 nm a pixel, the lines 3 pixels wide), a
+//! 24 nm film on the rib's top and over the slab, none on the walls. On that geometry, TE: 0.0613
+//! and 0.0371, 14.5 % below and 4.2 % above theirs, so no thickness or solver's scale fits both;
+//! the overlaps with the main component $E_x$ alone (a scalar $E_1 E_2$, as the formula reads)
+//! are 0.993, 0.985 and 0.985, 0.966 against Table S1's 0.995, 0.987 and 0.978, 0.968. The
+//! geometry and the overlaps agree; the indices their mode solver took for
+//! $\Delta n_\mathrm{eff}$ are what neither paper gives.
 //!
 //! ```sh
 //! cargo run --release --example pcm_delaney
+//! cargo run --release --example pcm_delaney -- --fig7   # Fig. 7's geometry and the overlaps
 //! ```
 
 mod common;
 
 use std::process::ExitCode;
 
+use photonoxide::Complex64 as c64;
 use photonoxide::circuit::Fidelity;
 use photonoxide::convergence::Study;
 use photonoxide::device::{Device, PcmShifter, Values};
 use photonoxide::material::catalogue::figure_of_merit;
+use photonoxide::mode::fields::Fields;
+use photonoxide::mode::vector::{self, CrossSection, Permittivity, VectorMode};
 use photonoxide::units::Wavelength;
 
 /// The 2D model's index change between the states (the real parts) at the defaults, its cells
@@ -79,8 +91,123 @@ const FOM: [f64; 2] = [1.45, 0.26];
 const GRID: f64 = 0.02;
 const ANALYTIC: f64 = 0.15;
 
+/// The TE-like guided mode of `cs` of the largest real index among the four nearest `near`.
+fn te_mode(cs: &CrossSection, lam: Wavelength, near: f64) -> photonoxide::Result<VectorMode> {
+    vector::modes(cs, lam, 4, Some(near))?
+        .into_iter()
+        .filter(|m| m.is_guided(1.444) && m.te_fraction() > 0.5)
+        .max_by(|a, b| a.effective_index().re.total_cmp(&b.effective_index().re))
+        .ok_or_else(|| photonoxide::Error::InvalidValue {
+            what: "cross-section",
+            reason: "no TE-like guided mode".into(),
+        })
+}
+
+/// The supplement's overlap |∫ E₁·E₂* dA|² / (∫ |E₁|² dA ∫ |E₂|² dA) of two modes on one grid,
+/// with every component of E and with its main one alone (E_x, across the guide).
+fn overlaps(a: &Fields, b: &Fields) -> [f64; 2] {
+    // each cell's width from its centre's neighbours
+    let width = |v: &[f64], k: usize| -> f64 {
+        let lo = if k == 0 {
+            v[0] - 0.5 * (v[1] - v[0])
+        } else {
+            0.5 * (v[k - 1] + v[k])
+        };
+        let hi = if k + 1 == v.len() {
+            v[k] + 0.5 * (v[k] - v[k - 1])
+        } else {
+            0.5 * (v[k] + v[k + 1])
+        };
+        hi - lo
+    };
+    let (mut cross, mut na, mut nb) = (c64::new(0.0, 0.0), 0.0, 0.0);
+    let (mut cross_x, mut nax, mut nbx) = (c64::new(0.0, 0.0), 0.0, 0.0);
+    for i in 0..a.x().len() {
+        for j in 0..a.y().len() {
+            let area = width(a.x(), i) * width(a.y(), j);
+            let (ea, eb) = (a.e(i, j), b.e(i, j));
+            cross += (0..3).map(|k| ea[k] * eb[k].conj()).sum::<c64>() * area;
+            na += ea.iter().map(|z| z.norm_sqr()).sum::<f64>() * area;
+            nb += eb.iter().map(|z| z.norm_sqr()).sum::<f64>() * area;
+            cross_x += ea[0] * eb[0].conj() * area;
+            nax += ea[0].norm_sqr() * area;
+            nbx += eb[0].norm_sqr() * area;
+        }
+    }
+    [
+        cross.norm_sqr() / (na * nb),
+        cross_x.norm_sqr() / (nax * nbx),
+    ]
+}
+
+/// `--fig7`: the geometry Delaney et al.'s Fig. 7(c)–(f) draws (read by pixel: a 500 nm rib
+/// etched 120 nm, the 25 nm film on its top and over its slab, none on its walls), and the rib
+/// with the film on its top alone: each material's Δn_eff and its modes' overlaps with the bare
+/// guide's (the film's cells silica), amorphous and crystalline, as their supplement's Table S1.
+/// Reported, not checked.
+fn fig7(lam: Wavelength) -> photonoxide::Result<()> {
+    let silica = photonoxide::material::silica().permittivity(lam)?;
+    println!(
+        "Delaney et al. 2020's Fig. 7 geometry: a 500 x 220 nm rib etched 120 nm, 25 nm films, TE, 1550 nm (2D); overlaps |∫E1·E2*|²/(∫|E1|²∫|E2|²) with the bare rib's mode, every component of E and E_x alone (amorphous / crystalline)"
+    );
+    let geometries: [(&str, &[(&str, f64)]); 2] = [
+        ("top and slab", &[("slab", 0.1), ("slab_film", 0.025)]),
+        ("top only", &[("slab", 0.1)]),
+    ];
+    for d in [PcmShifter::sb2s3(), PcmShifter::sb2se3(), PcmShifter::gst()] {
+        let name = d.kind().split(' ').next().expect("a kind").to_owned();
+        for (g, set) in geometries {
+            let v = Values::new(&d, set)?;
+            let row = || -> photonoxide::Result<String> {
+                let dn = d
+                    .component(&v, Fidelity::TwoD)?
+                    .figure("dn_eff_ac")
+                    .expect("every model gives it")
+                    .value;
+                let (ca, cc) = (d.cross_section(&v, 0.0)?, d.cross_section(&v, 1.0)?);
+                // the film's cells are those that differ between the states: silica in the bare
+                let cells: Vec<Permittivity> = ca
+                    .cells()
+                    .iter()
+                    .zip(cc.cells())
+                    .map(|(a, c)| {
+                        if a.zz == c.zz {
+                            *a
+                        } else {
+                            Permittivity::isotropic(silica)
+                        }
+                    })
+                    .collect();
+                let cb = CrossSection::new(ca.x().to_vec(), ca.y().to_vec(), cells)?
+                    .with_boundaries(ca.boundaries())?;
+                let mb = te_mode(&cb, lam, 2.9)?;
+                let ma = te_mode(&ca, lam, mb.effective_index().re)?;
+                let mc = te_mode(&cc, lam, ma.effective_index().re + dn)?;
+                let fb = mb.fields(&cb)?;
+                let (oa, oc) = (
+                    overlaps(&ma.fields(&ca)?, &fb),
+                    overlaps(&mc.fields(&cc)?, &fb),
+                );
+                Ok(format!(
+                    "dn_eff {dn:.4}; overlap {:.3} / {:.3}, E_x alone {:.3} / {:.3}",
+                    oa[0], oc[0], oa[1], oc[1]
+                ))
+            };
+            match row() {
+                Ok(s) => println!("  {name:<6} {g:<12} {s}"),
+                Err(e) => println!("  {name:<6} {g:<12} {e}"),
+            }
+        }
+    }
+    Ok(())
+}
+
 pub fn main() -> photonoxide::Result<ExitCode> {
     let lam = Wavelength::um(1.55)?;
+    if std::env::args().any(|a| a == "--fig7") {
+        fig7(lam)?;
+        return Ok(ExitCode::SUCCESS);
+    }
     let mut setup = common::Setup::new();
     for d in [PcmShifter::sb2se3(), PcmShifter::sb2s3(), PcmShifter::gst()] {
         setup.part(&format!("the {}, at its defaults", d.kind()));

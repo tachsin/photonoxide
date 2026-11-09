@@ -125,7 +125,7 @@
 //! With the waist on the film they are 0.40 to 1.74 points below the paper's, so the fibre's distance matters
 //! at the half-point level. The bandwidths are wider than the paper's for every design, by 3.3 to
 //! 4.7 nm (3 to 5 %; 4.8 to 6.1 nm with the waist on the film), beyond the spread of 1.32 % and
-//! far beyond our grid's error (at most 0.4 nm): a gap we don't explain, reported and not checked.
+//! far beyond our grid's error (at most 0.4 nm): a gap the indices' dispersion explains (below), reported and not checked.
 //! Where the fibre's offset is measured (at its facet here), the grooves' positions taken as their
 //! centres, and the paper's FDTD mesh and spectra (its bandwidths come in steps of about 1.5 nm)
 //! are the candidates. Our grid's error on the efficiency is within a third of the spread
@@ -157,14 +157,33 @@
 //! 48, 45, 35), and by 5.7 to 8.4 % (6 µm), to 3.0 to 5.4 % below (58, 42, 39, 37), the
 //! efficiencies within 0.6 points of the other beam's. That is the gap's size but not its pattern:
 //! at 6 µm it overshoots, so the source's profile alone isn't the cause, and the supplement doesn't
-//! say how its source was computed. Still to try: where FIO is measured, the grooves' positions as
-//! their starts, and the FDTD monitor in the guide in place of the projection on the fibre's mode.
+//! say how its source was computed.
+//!
+//! **The indices' dispersion** (`--dispersion`, 2026-11-09). Fig. 1's caption prints the indices
+//! as constants, 3.47 and 1.44, and the model takes them so. `--dispersion` adds silicon's and
+//! silica's own dispersion about them, the catalogue's (Li 1980, Malitson 1965),
+//! $n(\lambda) = n_\mathrm{paper} + n_\mathrm{cat}(\lambda) - n_\mathrm{cat}(1.55\ \mu\mathrm{m})$:
+//! 3.4839 and 1.4418 at 1.40 µm, 3.4596 and 1.4381 at 1.70 µm. On 10 × 5 nm with the waist at FID every bandwidth narrows, by 2.5 to
+//! 2.9 % at 4 µm and 3.3 % at 6 µm; the efficiencies move by 0.04 points at most and the peaks by
+//! 1.1 nm at most. The 4 µm bandwidths end +1.5, +1.5, +1.9, +0.6, +1.1 and +0.2 % from the data
+//! file's (56, 52, 49, 48, 45, 35; 87.2 nm against 85.9, 94.4 against 93.0, 101.1 against 99.2,
+//! 104.4 against 103.8, 106.6 against 105.4, 121.1 against 120.9), the 6 µm ones +0.9, +0.3, −0.3
+//! and −1.8 % (58, 42, 39, 37; 68.1 against 67.5, 96.4 against 96.1, 98.9 against 99.2, 100.5
+//! against 102.3). A gap of +2.7 to +4.7 % (4 µm) and +1.6 to +4.3 % (6 µm), the same sign on
+//! every design, becomes one of either sign within 1.9 %, about the file's 1.5 nm steps (1.2 to
+//! 2.2 % of these bandwidths) and the paper's own spread of 1.32 %: the paper's spectra are what
+//! dispersive silicon and silica give, though it prints constant indices. With dispersion, the
+//! source's profile at 1.55 µm (`--beams`, 4.2 to 8.4 % narrower) would overshoot, so it isn't
+//! needed. Not a case: four designs (56, 52, 49 and 37) stay just beyond the paper's spread, and
+//! the paper doesn't say which material models its solver took.
 //!
 //! ```sh
 //! cargo run --release --example optimize_grating_pareto                  # the recorded designs
 //! cargo run --release --example optimize_grating_pareto -- --full        # the searches
 //! cargo run --release --example optimize_grating_pareto -- --supplement  # the paper's designs
 //! cargo run --release --example optimize_grating_pareto -- --beams       # the two beams, 20 x 10 nm
+//! cargo run --release --example optimize_grating_pareto -- --dispersion  # the indices' dispersion
+//! cargo run --release --example optimize_grating_pareto -- --dispersion --fine  # on 10 x 5 nm
 //! ```
 
 mod common;
@@ -859,7 +878,18 @@ impl Model {
 /// ε per cell on `g` of the grooves `cut` (their starts and widths, µm), E along z: each cell's
 /// mean over its area.
 fn cells(g: Grid, s: Setup, y_box: f64, cut: &[(f64, f64)]) -> Vec<c64> {
-    let (si, ox) = (N_SI * N_SI, N_OX * N_OX);
+    cells_with(g, s, y_box, cut, (N_SI, N_OX))
+}
+
+/// [`cells`] with the silicon's and the oxide's indices `(n_si, n_ox)`.
+fn cells_with(
+    g: Grid,
+    s: Setup,
+    y_box: f64,
+    cut: &[(f64, f64)],
+    (n_si, n_ox): (f64, f64),
+) -> Vec<c64> {
+    let (si, ox) = (n_si * n_si, n_ox * n_ox);
     let mut eps = Vec::with_capacity(g.nx * g.ny);
     for j in 0..g.ny {
         let (ya, yb) = (g.y0 + j as f64 * g.dy, g.y0 + (j + 1) as f64 * g.dy);
@@ -884,10 +914,15 @@ impl Model {
     /// its Gaussian angular spectrum about its axis, its waist at x = FIO, the setup's `waist`
     /// above the film's top (on it for the searches).
     fn beam(&self, wavelength: f64) -> Beam {
+        self.beam_in(wavelength, N_OX)
+    }
+
+    /// [`Model::beam`] in an oxide of index `n_ox`.
+    fn beam_in(&self, wavelength: f64, n_ox: f64) -> Beam {
         let g = self.grid;
         let w0 = self.setup.mfd / 2.0;
         let k0 = 2.0 * PI / wavelength;
-        let k = k0 * N_OX;
+        let k = k0 * n_ox;
         let (st, ct) = math::sin_cos(ANGLE * PI / 180.0);
         let m = 161;
         let qmax = 8.0 / w0;
@@ -1629,6 +1664,104 @@ fn beams() -> photonoxide::Result<()> {
     Ok(())
 }
 
+/// The silicon's and the oxide's indices at `wavelength` µm with the catalogue's dispersion
+/// (Li 1980's silicon, Malitson 1965's silica) about the paper's 3.47 and 1.44 at 1.55 µm:
+/// n(λ) = n_paper + n_catalogue(λ) − n_catalogue(1.55 µm).
+fn dispersive(wavelength: f64) -> photonoxide::Result<(f64, f64)> {
+    let n = |m: &photonoxide::material::Material, l: f64| -> photonoxide::Result<f64> {
+        Ok(m.refractive_index(Wavelength::um(l)?)?.re)
+    };
+    let (si, ox) = (
+        photonoxide::material::silicon(),
+        photonoxide::material::silica(),
+    );
+    Ok((
+        N_SI + n(&si, wavelength)? - n(&si, CENTRE)?,
+        N_OX + n(&ox, wavelength)? - n(&ox, CENTRE)?,
+    ))
+}
+
+/// `--dispersion`: every design of [`FRONTS`] on the searches' grid with the waist at FID, with
+/// the paper's constant indices and with the catalogue's dispersion about them ([`dispersive`]):
+/// the efficiency and the 1-dB bandwidth of each against the data file's. Reported, not checked.
+fn dispersion(step: (f64, f64)) -> photonoxide::Result<()> {
+    println!(
+        "\nThe paper's own designs on {:.0} × {:.0} nm, the waist at FID: the indices constant (3.47 and 1.44), and with Li's silicon's and Malitson's silica's dispersion about them (CE %, 1-dB bandwidth nm, the bandwidth's difference from the data file's)",
+        1000.0 * step.0,
+        1000.0 * step.1
+    );
+    let lambda = wavelengths(FRONT_WAVELENGTHS);
+    let indices = lambda
+        .iter()
+        .map(|&l| dispersive(l))
+        .collect::<photonoxide::Result<Vec<_>>>()?;
+    println!(
+        "  the indices with dispersion: {:.4} and {:.4} at {} µm, {:.4} and {:.4} at {} µm",
+        indices[0].0,
+        indices[0].1,
+        lambda[0],
+        indices[lambda.len() - 1].0,
+        indices[lambda.len() - 1].1,
+        lambda[lambda.len() - 1]
+    );
+    let started = Instant::now();
+    for front in &FRONTS {
+        header(front);
+        let structures: Vec<&Structure> = front.structures.iter().collect();
+        let model = Model::new(front.setup(front.fid), step)?;
+        let constant = structure_bands(&model, &structures);
+        eprintln!(
+            "MFD {} um, --dispersion: 1 of 2 index models, {} in",
+            front.mfd,
+            minutes(started.elapsed().as_secs_f64())
+        );
+        let jobs: Vec<(usize, usize)> = (0..structures.len())
+            .flat_map(|d| (0..lambda.len()).map(move |k| (d, k)))
+            .collect();
+        let ce: Vec<f64> = jobs
+            .par_iter()
+            .map(|&(d, k)| {
+                let eps = cells_with(
+                    model.grid,
+                    model.setup,
+                    model.y_box,
+                    &structures[d].cut(),
+                    indices[k],
+                );
+                model
+                    .efficiency(&eps, &model.beam_in(lambda[k], indices[k].1))
+                    .expect("a solve")
+            })
+            .collect();
+        let with: Vec<Band> = ce.chunks(lambda.len()).map(|c| band(&lambda, c)).collect();
+        eprintln!(
+            "MFD {} um, --dispersion: 2 of 2 index models, {} in",
+            front.mfd,
+            minutes(started.elapsed().as_secs_f64())
+        );
+        for (k, s) in structures.iter().enumerate() {
+            let cell = |b: &Band| {
+                format!(
+                    "{:.2} % at {:.1} nm ({:+.1} %), peak at {:.1} nm",
+                    100.0 * b.peak,
+                    b.width_nm(),
+                    100.0 * (held(b.width_nm(), 1) - s.bandwidth) / s.bandwidth,
+                    500.0 * (b.low + b.high)
+                )
+            };
+            println!(
+                "  structure {}: paper {} % at {} nm; constant {}; dispersive {}",
+                s.number,
+                s.ce,
+                s.bandwidth,
+                cell(&constant[k]),
+                cell(&with[k])
+            );
+        }
+    }
+    Ok(())
+}
+
 fn full(checks: &mut common::Checks) -> photonoxide::Result<()> {
     let path =
         std::env::var("GRATING_LOG").unwrap_or_else(|_| "optimize_grating_pareto.log".into());
@@ -1817,6 +1950,11 @@ pub fn main() -> photonoxide::Result<ExitCode> {
     );
     if std::env::args().any(|a| a == "--beams") {
         beams()?;
+        return Ok(ExitCode::SUCCESS);
+    }
+    if std::env::args().any(|a| a == "--dispersion") {
+        let fine = std::env::args().any(|a| a == "--fine");
+        dispersion(if fine { GRIDS[2] } else { STEP })?;
         return Ok(ExitCode::SUCCESS);
     }
     if std::env::args().any(|a| a == "--supplement") {

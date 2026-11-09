@@ -216,7 +216,7 @@ papers:
     doi: 10.1364/OPTICA.3.000020
     year: 2016
     role: current
-    note: "Silicon nitride rings made by filling trenches and polishing, Q to 3.7 × 10⁶, and a single-soliton comb in a 238.2 µm ring with a 1.75 × 0.85 µm guide, its measured D₂/2π 0.49 MHz against 0.26 simulated."
+    note: "Silicon nitride rings made by filling trenches and polishing, Q to 3.7 × 10⁶, and a single-soliton comb in a 238.2 µm ring with a 1.75 × 0.85 µm guide, its measured D₂/2π 0.49 MHz in the text (1.90 MHz by the polynomial drawn in its Fig. 5(c)) against 0.26 simulated."
   - cite: "M. Pu, L. Ottaviano, E. Semenova, K. Yvind, Optica 3, 823 (2016)"
     title: "Efficient frequency comb generation in AlGaAs-on-insulator"
     doi: 10.1364/OPTICA.3.000823
@@ -848,9 +848,11 @@ and differentiated; silica's come out as its Sellmeier formula's Taylor series t
 The silicon nitride strip of Section 8 has $\beta_2 = -0.1547$ ps²/m for TE₀ (10 nm cells, 0.24 %
 from 20 nm), and its fundamental soliton of 100 fs needs 18.1 W. In a ring of
 [Pfeiffer et al. (2016)](https://doi.org/10.1364/OPTICA.3.000020)'s free spectral range, 95.65 GHz,
-this straight guide gives $D_2/2\pi = 1.426$ MHz for TM₀; they measured 0.49 MHz and simulated
-0.26 for their 238.2 µm ring. Their bend and the indices they simulated with aren't given, so the
-factor of three is not reproduced.
+this straight guide gives $D_2/2\pi = 1.426$ MHz for TM₀. Their text gives 0.49 MHz measured
+and 0.26 simulated for their 238.2 µm ring, but the polynomial they drew through their measured
+resonances (their Fig. 5(c), read from the PDF's vector paths) is 1.90 MHz: the text and the
+figure disagree by 3.9 times. Against the figure ours is 25 % low; their bend and the indices
+they simulated with aren't given.
 
 ## 10. What does four-wave mixing need for gain?
 

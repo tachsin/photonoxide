@@ -42,6 +42,8 @@ papers:
     doi: 10.1002/nme.995
   - cite: "M. Delaney, I. Zeimpekis, D. Lawson, D. W. Hewak, O. L. Muskens, Adv. Funct. Mater. 30, 2002447 (2020) (the phase-change shifters: the two states' indices, the 25 nm film and the figure of merit, Eq. 1)"
     doi: 10.1002/adfm.202002447
+  - cite: "H. Zhang, L. Zhou, B. M. A. Rahman, X. Wu, L. Lu, Y. Xu, J. Xu, J. Song, Z. Hu, L. Xu, J. Chen, IEEE Photonics J. 10, 2200110 (2018) (Delaney et al.'s ref. 58: a 20 nm GST patch's measured and simulated index change and loss)"
+    doi: 10.1109/JPHOT.2017.2781710
   - cite: "J. A. Frantz et al., Opt. Mater. Express 13, 3631 (2023) (a part-crystallized film as the linear effective medium of the two states)"
     doi: 10.1364/OME.506019
   - cite: "J. Chilwell, I. Hodgkinson, J. Opt. Soc. Am. A 1, 742 (1984) (the exact complex slab modes of the effective index method)"
@@ -413,6 +415,31 @@ caption, about 0.7, agrees with the reading); the grid's error (3 % for the TE-l
 doesn't close it either. Their Fig. 11's ratio to the 2D theory, about 0.11 for silicon's
 TE-like mode, is 0.10 with the printed Green's function and 0.072 without (that figure not read
 in the way above). The differences are unexplained: Fig. 12 is not a validation case.
+
+**Against Barwicz & Haus's Fig. 13**, the loss over its value at $L_c$ = 50 nm against $L_c$ for
+three guides (SiON 1.5 × 3.0 µm, Si₃N₄ 0.4 × 0.8 µm, Si 0.195 × 0.390 µm): the ratio cancels the
+field at the walls and the mode's power, and keeps the radiation's pattern and the roughness's
+spectrum. The figure is a 1-bit raster of 2050 × 1645 pixels, its axes placed by the frame, a
+pixel 0.0016 up, the curves 3 to 4 pixels thick. At $L_c$ = 147 nm, the last column clear of
+the frame, where the six curves part (the TM-like ones by the labels' arrows), and ours (an
+ignored test, `mode::roughness::tests::print_barwicz_haus_fig13`, Hadley's equations on 25, 5
+and 2.5 nm):
+
+| Guide | Mode | Fig. 13, read | Ours | With the printed Green's function |
+|---|---|---|---|---|
+| SiON | TE-like | 2.036 | 2.033 (−0.1 %) | 2.033 |
+| SiON | TM-like | 1.984 | 1.983 (−0.0 %) | 1.982 |
+| Si₃N₄ | TE-like | 1.852 | 1.845 (−0.3 %) | 1.842 |
+| Si₃N₄ | TM-like | 1.883 | 1.869 (−0.7 %) | 1.868 |
+| Si | TE-like | 1.479 | 1.483 (+0.2 %) | 1.479 (0.0 %) |
+| Si | TM-like | 1.819 | 1.862 (+2.4 %) | 1.840 (+1.1 %) |
+
+At 20 nm the figure's silicon TE-like curve is 0.463 (ours 0.462) and the other five lie
+together at 0.438 (ours 0.435 to 0.439). So on SiON and Si₃N₄ the radiation and its spectrum
+agree to under 1 %, and Fig. 12's −6 to +13 % there is in what the ratio cancels. A factor in
+the loss's prefactor would be common to every guide, and the differences change sign, so what is
+left is the field at the walls over the mode's power, ∫|E|² along the wall and γ, from their
+vectorial mode solver, which the paper doesn't tabulate.
 
 ## Bend
 
@@ -1154,10 +1181,13 @@ nothing in the fits, so the losses of the table are the materials' alone. Delane
 measured 0.01 and 0.028 dB/µm in their crystalline cells, far above what the materials absorb
 (they point to grain boundaries and voids), so their figures of merit (29.0 and 5.15 rad/dB,
 from their measured losses) are not comparable with the table's. For GST they quote 0.282 rad/dB
-from another group's 20 nm patch on an SOI waveguide (3.72 dB/µm and $\Delta n_\mathrm{eff}$ 0.259,
-their ref. 58, which we don't have). Ours is 0.20 rad/dB (2D), 29 % below, from an index change
-3.2 times and a loss 4.4 times theirs, for 25 nm. We have not explained the gap, so GST is not a
-case.
+from another group's 20 nm patch on an SOI waveguide (their ref. 58, H. Zhang et al. 2018):
+$2\pi \cdot 0.259/(1.55\ \mu\mathrm{m} \times 3.72\ \mathrm{dB/\mu m})$, the $\Delta
+n_\mathrm{eff}$ and crystalline loss that paper extracts from its measurements (its Table 1),
+against the bare guide's loss. That paper's own simulation (VFEM, p. 4) takes $n_\mathrm{eff}$
+from 2.6328 to 2.8324 and the loss from 0.013 to 4.038 dB/µm between the states, about
+0.20 rad/dB, as ours (0.20, 2D). GST is not a case: neither paper gives a simulated figure of
+merit for a 25 nm film.
 
 **A film that follows the guide, and the TM-like mode.** Ours, 25 nm films at 1.55 µm on the
 default 500 × 220 nm guide (a strip, or a rib with a 100 nm slab), the film on the top alone or
@@ -1223,6 +1253,27 @@ assumption), in TE: the film on the top and the slab, as their Fig. 7 draws it, 
 so their numbers are TE-like ones, or of another rib. No single geometry we tried gives both of
 theirs (Sb₂Se₃ 3.6 % above with the conformal film, where Sb₂S₃ is 29 % above), so this stays
 not a case.
+
+**Fig. 7 read by pixel.** Delaney et al.'s Fig. 7(c)–(f) draws the simulated sections to scale,
+their outlines in white (a raster of 1501 × 1061 pixels, 2.62 nm a pixel from the 220 nm of
+silicon, the lines 3 pixels wide): the rib 193 pixels wide (505 nm), etched 45 pixels (118 nm,
+a 102 nm slab); the film 9 pixels thick (24 nm) on the rib's top, as wide as the rib, and over
+the slab from the walls to the panel's edges; no film on the walls wider than a pixel. That is
+the rib with a 100 nm slab and the film on the top and the slab above, TE-like (the rib's
+TM-like mode leaks; their bare rib's field is brightest at the foot of the walls, as a TE-like
+field is). There ours is 0.0613 and 0.0371 (`pcm_delaney --fig7`), 14.5 % below and 4.2 % above
+their 0.0717 and 0.0356: opposite signs, so no film thickness, mesh or solver's scale moves both
+to theirs, and their ratio of 2.01 against our 1.65 on their own geometry needs other indices
+than their Table 1's. (Sec. 2.5 gives the made films as 22 nm, the figure and the text 25 nm.)
+Their overlaps with the bare rib (supplement Table S1, the formula of its Sec. S3,
+$|\int E_1 E_2\,dA|^2/(\int|E_1|^2dA \int|E_2|^2dA)$; amorphous, crystalline): Sb₂S₃ 0.995,
+0.987, Sb₂Se₃ 0.978, 0.968, GST 0.956, 0.342 (the main text's crystalline 0.989, 0.972 and
+0.335). Ours on Fig. 7's geometry with every component of E: 0.987, 0.973 and 0.974, 0.942; with
+the main component $E_x$ alone, as a scalar $E_1E_2$ reads, 0.993, 0.985 and 0.985, 0.966,
+within 0.007 of theirs. GST over the slab raises it above the guide and ours leaks; on the rib
+with GST on the top alone, $E_x$ alone gives 0.951, 0.370. So the figure's geometry and the
+overlaps agree with ours; the index change is what doesn't, and the indices their mode solver
+took for it aren't given.
 
 Each lower model against the next one up (`device/pcm-*`), stated 15 %: the analytic
 $\Delta n_\mathrm{eff}$ within 12.5 % of the 2D model's over its validity (the three materials

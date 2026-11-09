@@ -881,11 +881,17 @@ solves 20 rad/ps apart, and −0.154295 from the interpolant's own λ-derivative
 The strip's fundamental soliton of T₀ = 100 fs needs 18.1 W (TE₀, 10 nm cells).
 
 In a ring of Pfeiffer et al.'s FSR, 95.65 GHz, these give D₂/2π = (c/n_g)D₁²|β₂|/2π = 1.260 MHz
-(TE₀) and 1.426 MHz (TM₀) on 10 nm cells. Pfeiffer et al. measured 0.49 MHz for the TM₀ family
-of their 238.2 µm ring and simulated 0.26 MHz ("we attribute deviations to inaccuracy in the values
-of material dispersion", p. 23). They don't give the indices they simulated with, and ours is a straight
-guide, not their bend, so this is not a case; the factor of three between their measurement and
-our straight guide is listed with the gaps against papers.
+(TE₀) and 1.426 MHz (TM₀) on 10 nm cells. Pfeiffer et al.'s text gives 0.49 MHz measured for
+the TM₀ family of their 238.2 µm ring and 0.26 MHz simulated ("we attribute deviations to
+inaccuracy in the values of material dispersion", p. 23), but their own Fig. 5(c) doesn't. Read
+from the PDF's vector paths (the axes placed by the tick marks of a 600 dpi raster), the red
+dashed polynomial they fitted to the resonances is a cubic in the frequency (to 0.002 GHz rms over
+its 200 points) whose quadratic term gives D₂/2π = 2a·FSR² = 1.90 MHz, and a parabola through the
+92 resonances off the avoided crossings gives 1.885 MHz. 0.49 MHz would rise 0.67 GHz at 189 and
+199 THz, where the figure reaches 2.8 and 2.4 GHz. The text and the figure disagree by 3.9 times.
+Against the figure our straight guide is 25 % low (our group index, 2.143, is 2.3 % above the
+2.096 their FSR implies). They don't give the indices they simulated with, and ours is a straight
+guide, not their bend, so this is not a case.
 
 ### Solitons
 
