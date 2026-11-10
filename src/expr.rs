@@ -52,6 +52,7 @@ mod special;
 mod tests;
 
 pub use parse::Expr;
+pub(crate) use parse::identifiers;
 
 /// A dimension: a power of length and a power of angle. Lengths are in µm and angles in
 /// radians.

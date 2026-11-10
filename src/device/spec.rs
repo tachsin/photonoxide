@@ -355,6 +355,99 @@ impl Spec {
         super::method(device.kind(), device.fidelities(), self.fidelity)?;
         Ok((device, design))
     }
+
+    /// What is wrong with each of its parameters' names that is neither one of `device`'s
+    /// parameters nor used by another's expression: a misspelled parameter (`gapp`), which
+    /// would otherwise be left out and take its default without a word. Each in a sentence
+    /// naming the device's parameters and the nearest of them.
+    pub(crate) fn unused_names(&self, device: &dyn Device) -> Vec<String> {
+        let names: Vec<&str> = device
+            .parameters()
+            .iter()
+            .map(|p| p.name.as_str())
+            .collect();
+        let used: Vec<String> = self
+            .parameters
+            .iter()
+            .flat_map(|(_, e)| crate::expr::identifiers(e))
+            .collect();
+        self.parameters
+            .iter()
+            .map(|(n, _)| n)
+            .filter(|n| !names.contains(&n.as_str()) && !used.contains(n))
+            .map(|n| {
+                let hint = nearest(n, &names)
+                    .map_or_else(String::new, |near| format!(" (did you mean {near}?)"));
+                format!(
+                    "a {} has no parameter {n}{hint}; its parameters are {}, and no other \
+                     parameter's expression uses {n}",
+                    device.kind(),
+                    names.join(", ")
+                )
+            })
+            .collect()
+    }
+
+    /// Refuses a name among its parameters that is neither one of `device`'s nor used by
+    /// another's expression ([`Spec::unused_names`]).
+    ///
+    /// # Errors
+    ///
+    /// [`Error::InvalidValue`] naming the first such name.
+    pub(crate) fn check_names(&self, device: &dyn Device) -> Result<()> {
+        match self.unused_names(device).into_iter().next() {
+            None => Ok(()),
+            Some(reason) => Err(Error::invalid("device", reason)),
+        }
+    }
+}
+
+/// The name among `names` nearest to `name`, if one is near: at most two edits away (one for
+/// a name of up to four letters), ignoring case, or the only one it begins (`R` for `radius`).
+fn nearest<'a>(name: &str, names: &[&'a str]) -> Option<&'a str> {
+    let lower = name.to_lowercase();
+    let reach = if lower.chars().count() <= 4 { 1 } else { 2 };
+    let best = names
+        .iter()
+        .map(|n| (edits(&lower, &n.to_lowercase()), *n))
+        .min_by_key(|(d, _)| *d)
+        .filter(|(d, _)| *d <= reach)
+        .map(|(_, n)| n);
+    best.or_else(|| {
+        let mut begun = names
+            .iter()
+            .filter(|n| !lower.is_empty() && n.to_lowercase().starts_with(&lower));
+        match (begun.next(), begun.next()) {
+            (Some(n), None) => Some(*n),
+            _ => None,
+        }
+    })
+}
+
+/// The edits (insertions, deletions, substitutions and swaps of neighbours) taking `a` to `b`:
+/// the optimal string alignment distance.
+fn edits(a: &str, b: &str) -> usize {
+    let (a, b): (Vec<char>, Vec<char>) = (a.chars().collect(), b.chars().collect());
+    let mut d = vec![vec![0usize; b.len() + 1]; a.len() + 1];
+    for (i, row) in d.iter_mut().enumerate() {
+        row[0] = i;
+    }
+    for j in 0..=b.len() {
+        d[0][j] = j;
+    }
+    for i in 1..=a.len() {
+        for j in 1..=b.len() {
+            let cost = usize::from(a[i - 1] != b[j - 1]);
+            let mut v = (d[i - 1][j] + 1)
+                .min(d[i][j - 1] + 1)
+                .min(d[i - 1][j - 1] + cost);
+            if i > 1 && j > 1 && a[i - 1] == b[j - 2] && a[i - 2] == b[j - 1] {
+                v = v.min(d[i - 2][j - 2] + 1);
+            }
+            d[i][j] = v;
+        }
+    }
+    d[a.len()][b.len()]
 }
 
 /// The grids a job sets on a device's solves (a `"spectrum"` task, [`crate::job`]): the cells'

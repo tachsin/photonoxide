@@ -213,6 +213,7 @@ fn prepare(job: &Job) -> Result<Prepared> {
     spec.device_with(&grids)?;
     let size = spec.fdfd_size(&grids)?;
     let wavelengths = band_of(task.from_um, task.to_um, task.points, BAND_POINTS, &design)?;
+    crate::device::check_analytic_band(&spec.kind, spec.fidelity, &wavelengths)?;
     if wavelengths.len() < 2 {
         return Err(task_error(
             "a compact model is fitted over a band: give it two wavelengths or more",

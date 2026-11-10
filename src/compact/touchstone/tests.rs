@@ -694,6 +694,37 @@ fn optical_spectra_convert_through_frequency() {
         read.spectrum(Convention::Engineering).unwrap().matrices()[1],
         matrices[1]
     );
+    // the convention stated in a comment line after the first, which the reader passes over
+    for (file, convention, said) in [
+        (&t, Convention::Physics, "exp(-i*omega*t) (physics)"),
+        (&e, Convention::Engineering, "exp(+j*omega*t) (engineering)"),
+    ] {
+        let stated = file
+            .write_stating(Precision::RoundTrip, convention)
+            .unwrap();
+        let lines: Vec<&str> = stated.lines().collect();
+        assert_eq!(lines[0], "! written by photonoxide");
+        assert!(
+            lines[1].starts_with("! time convention: fields as") && lines[1].contains(said),
+            "{}",
+            lines[1]
+        );
+        assert!(stated.is_ascii());
+        assert_eq!(
+            stated.lines().skip(2).collect::<Vec<_>>(),
+            file.write(Precision::RoundTrip)
+                .unwrap()
+                .lines()
+                .skip(1)
+                .collect::<Vec<_>>()
+        );
+        let read = Touchstone::parse(&stated, None).unwrap();
+        assert_eq!(read, *file);
+        assert_eq!(
+            read.spectrum(convention).unwrap().matrices()[1],
+            matrices[1]
+        );
+    }
     // a 0 Hz point has no wavelength
     let dc =
         Touchstone::s_parameters(vec![0.0, 1.0], vec![vec![vec![c64::new(1.0, 0.0)]]; 2]).unwrap();

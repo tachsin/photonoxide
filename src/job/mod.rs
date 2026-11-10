@@ -561,6 +561,8 @@ mod study_checks;
 #[cfg(test)]
 mod study_tests;
 mod templates;
+#[cfg(test)]
+mod trust_tests;
 
 use check::{
     check_cells, check_finite, check_materials, check_step, check_sweep, check_window, task_error,
@@ -575,7 +577,7 @@ use structure::{
     diagonal_stack, draw, draw_paths, named_stack, path_of, stack_media, tensor_stack,
 };
 
-pub use check::check;
+pub use check::{check, warnings};
 pub use chip::{
     COMPONENTS, ChipDesign, ChipInstance, ChipPart, ChipPort, InstanceModel, spectrum_from_chip,
     study_from_chip,

@@ -544,6 +544,66 @@ impl Results {
         })
     }
 
+    /// What a console says of its numbers whose grid isn't known to have converged, a line
+    /// each: the modes' indices [`Results::convergence`] holds as not converged (with why) or
+    /// unchecked (those on one grid together), and a modes sweep's points, each solved on one
+    /// grid with no check. Empty when every number it checks converged.
+    pub fn convergence_lines(&self) -> Vec<String> {
+        use crate::convergence::Verdict;
+        let mut lines = Vec::new();
+        // the unchecked ones together, by wavelength and grid: (wavelength, reason, quantities)
+        let mut unchecked: Vec<(f64, &str, Vec<&str>)> = Vec::new();
+        for c in &self.convergence {
+            let check = &c.check;
+            match check.verdict {
+                Verdict::NotConverged => lines.push(format!(
+                    "convergence: not converged: {} at {} um: {}",
+                    check.quantity,
+                    c.wavelength_um,
+                    check
+                        .reason
+                        .strip_prefix("not converged: ")
+                        .unwrap_or(&check.reason)
+                )),
+                Verdict::Unchecked => {
+                    match unchecked
+                        .iter_mut()
+                        .find(|(w, r, _)| *w == c.wavelength_um && *r == check.reason)
+                    {
+                        Some((_, _, q)) => q.push(&check.quantity),
+                        None => {
+                            unchecked.push((c.wavelength_um, &check.reason, vec![&check.quantity]));
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+        let how = if self.kind == "modes" {
+            " ([task.convergence] checks it)"
+        } else {
+            ""
+        };
+        for (w, reason, quantities) in unchecked {
+            lines.push(format!(
+                "convergence: unchecked: {} at {w} um: {reason}{how}",
+                quantities.join(", ")
+            ));
+        }
+        if self.convergence.is_empty()
+            && self.kind == "modes"
+            && let Some(sweep) = self.sweep.as_ref().filter(|s| !s.points.is_empty())
+        {
+            lines.push(format!(
+                "convergence: unchecked: the {} points of the sweep over {}, each solved on one \
+                 grid: no check",
+                sweep.points.len(),
+                sweep.parameter
+            ));
+        }
+        lines
+    }
+
     /// The `results.json` in `dir`.
     ///
     /// # Errors

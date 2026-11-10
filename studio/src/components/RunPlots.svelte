@@ -24,12 +24,13 @@
   /** Spectra as power (linear, the default: dips read as they are) or in dB (small values show). */
   let decibels = $state(false);
 
-  /** |S_q1|² against the wavelength, one series per output. */
+  /** |S_q1|² against the wavelength, one series per output, each named with its ports (a CSV's column too). */
   const spectra = $derived.by((): Series[] => {
     if (run.sparams.length < 2) return [];
-    const ports = run.sparams[0].ports.length;
+    const names = run.sparams[0].ports;
+    const ports = names.length;
     return Array.from({ length: ports }, (_, q) => ({
-      label: `S${q + 1}1`,
+      label: `S${q + 1}1 (${names[0] ?? 1} into ${names[q] ?? q + 1})`,
       points: run.sparams.map((sp) => {
         const [re, im] = sp.s[q][0];
         return [sp.wavelength_um, decibels ? db(re, im) : re * re + im * im] as [number, number];

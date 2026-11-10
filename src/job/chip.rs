@@ -360,6 +360,20 @@ impl ChipDesign {
         self.ports.iter().map(|p| p.name.clone()).collect()
     }
 
+    /// Refuses a band of `wavelengths` (µm) outside where an instance's analytic fit holds
+    /// ([`crate::device::check_analytic_band`]), naming the instance.
+    pub(super) fn check_band(&self, wavelengths: &[f64]) -> Result<()> {
+        for i in &self.instances {
+            if let InstanceModel::Device(spec) = &i.model {
+                crate::device::check_analytic_band(&spec.kind, spec.fidelity, wavelengths)
+                    .map_err(|e| {
+                        Error::invalid("band", format!("{}: {}", i.name, strip(&e.to_string())))
+                    })?;
+            }
+        }
+        Ok(())
+    }
+
     /// The index of the instance `name`.
     fn index(&self, name: &str) -> Option<usize> {
         self.instances.iter().position(|i| i.name == name)
@@ -978,6 +992,7 @@ fn prepare(job: &Job) -> Result<Prepared> {
         task.points,
         if study.is_some() { 101 } else { 501 },
     )?;
+    chip.check_band(&wavelengths)?;
     chip.assemble()?;
     let designs = match &study {
         None => vec![chip.clone()],

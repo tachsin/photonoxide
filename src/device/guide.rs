@@ -11,6 +11,86 @@ use crate::{Error, Result};
 
 use super::fit;
 use super::section::{self, Cut, Mesh, Scheme, Symmetry};
+use crate::circuit::Fidelity;
+
+/// The devices whose analytic model is made of the strip's fit ([`Strip::analytic`]), by kind:
+/// their guides' dispersion is the fit's at 1.55 µm, first order in λ, which holds over
+/// [`fit::BAND`].
+const FIT_KINDS: [&str; 7] = [
+    "waveguide",
+    "bend",
+    "directional coupler",
+    "all-pass ring",
+    "add-drop ring",
+    "MZI",
+    "Y-branch MZI",
+];
+
+/// Refuses a band of `wavelengths` (µm) that the device `kind`'s model at `fidelity` is taken
+/// over when that model is the analytic fit and the band leaves the fit's: the band a job's task
+/// sweeps, where [`Strip::analytic`] guards the design's own `wavelength` the same way. A band
+/// typed in nanometres (1500 to 1600) is told so.
+///
+/// # Errors
+///
+/// [`Error::InvalidValue`] for a band outside [`fit::BAND`], naming the fix.
+pub(crate) fn check_analytic_band(
+    kind: &str,
+    fidelity: Fidelity,
+    wavelengths: &[f64],
+) -> Result<()> {
+    if fidelity != Fidelity::Analytic || !FIT_KINDS.contains(&kind) {
+        return Ok(());
+    }
+    let from = wavelengths.iter().copied().fold(f64::INFINITY, f64::min);
+    let to = wavelengths
+        .iter()
+        .copied()
+        .fold(f64::NEG_INFINITY, f64::max);
+    let (lo, hi) = fit::BAND;
+    // the ends a design's wavelength ± span/2 gives, which may round a little past the fit's
+    let slack = 1e-9;
+    if wavelengths.is_empty() || (from >= lo - slack && to <= hi + slack) {
+        return Ok(());
+    }
+    let band = if from == to {
+        format!("{from} um")
+    } else {
+        format!("{from} to {to} um")
+    };
+    Err(Error::invalid(
+        "band",
+        format!(
+            "a {kind}'s analytic fit holds from {lo} to {hi} um, not {band}: {}",
+            out_of_band_fix(from, to)
+        ),
+    ))
+}
+
+/// What to do about a band from `from` to `to` µm outside the fit's: give it in micrometres if
+/// it reads as nanometres (1550 for 1.55 µm), solve the modes otherwise.
+fn out_of_band_fix(from: f64, to: f64) -> String {
+    let (lo, hi) = fit::BAND;
+    let nm = |x: f64| (lo..=hi).contains(&(x / 1000.0));
+    if nm(from) || nm(to) {
+        let (a, b) = (from / 1000.0, to / 1000.0);
+        let as_um = if from == to {
+            format!("{a} um")
+        } else {
+            format!("{a} to {b} um")
+        };
+        format!(
+            "wavelengths here are in micrometres, and {} reads as nanometres: write {as_um}",
+            if from == to {
+                format!("{from}")
+            } else {
+                format!("{from} to {to}")
+            }
+        )
+    } else {
+        "solve the modes (3D), or take a band within it".into()
+    }
+}
 
 /// How a guide's core layer is cut beside it: the slab of the layer's material left there
 /// (µm; 0 etches through it, a strip) and the walls' angle from the layer's plane (degrees; 90

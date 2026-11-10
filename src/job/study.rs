@@ -702,6 +702,7 @@ fn prepare(job: &Job) -> Result<Prepared> {
     spec.device_with(&grids)?;
     let size = spec.fdfd_size(&grids)?;
     let wavelengths = band_of(task.from_um, task.to_um, task.points, BAND_POINTS, &design)?;
+    crate::device::check_analytic_band(&spec.kind, spec.fidelity, &wavelengths)?;
     let study = task.study()?;
     let designs = study.designs(&spec)?;
     for (k, d) in designs.iter().enumerate() {

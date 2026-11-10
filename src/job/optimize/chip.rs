@@ -175,6 +175,7 @@ pub(super) fn of(job: &Job) -> Result<Problem> {
         task.reduce.as_deref(),
     )?;
     let wavelengths = band(task.from_um, task.to_um, task.points, 5)?;
+    chip.check_band(&wavelengths)?;
     if wavelengths.len() > 1001 {
         return Err(task_error(format!(
             "an optimization takes each quantity at most at 1001 wavelengths, got {}",
