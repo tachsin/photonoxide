@@ -5,7 +5,8 @@ the grid and the tolerance, and exits with code 1 when it is outside that tolera
 example.
 
 ```sh
-cargo run --release --example <name>
+photonoxide example <name>               # the installed program; `photonoxide example --list` lists them
+cargo run --release --example <name>     # from a checkout
 ```
 
 What each prints is in [`output/`](output), and CI checks that it still prints exactly that.

@@ -82,7 +82,7 @@ export default async function ExamplesPage() {
         <h1 className="mt-2 font-semibold text-4xl tracking-tight sm:text-5xl">Published results, reproduced</h1>
         <p className="proj-lead mt-4 text-lg">{DESCRIPTION}</p>
         <pre className="mt-5 w-fit max-w-full overflow-x-auto rounded-xl bg-base-200 px-4 py-2.5 font-mono text-sm">
-          cargo run --release --example &lt;name&gt;
+          {"photonoxide example <name>               # the installed program (example --list lists them)\ncargo run --release --example <name>     # from a checkout"}
         </pre>
       </header>
 

@@ -199,7 +199,8 @@ Both print `TE0: n_eff = 2.8475` and `TM0: n_eff = 2.0531`. Each of the
 outside its stated tolerance:
 
 ```sh
-cargo run --release --example strip_waveguide   # or: just example strip_waveguide
+photonoxide example strip_waveguide             # the installed program; `photonoxide example --list` lists them
+cargo run --release --example strip_waveguide   # from a checkout, or: just example strip_waveguide
 ```
 
 Every example prints its setup first: the layers from the top down, the shapes with their
