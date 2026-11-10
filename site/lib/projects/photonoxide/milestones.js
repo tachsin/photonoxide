@@ -181,3 +181,27 @@ export function splitRoadmap(markdown, release = null) {
   }));
   return { title, preface: preface.join("\n").trim(), sections: out };
 }
+
+/**
+ * A milestone block's checklist (its body, without the heading): its top-level `- [ ]` and
+ * `- [x]` items in order, each ticked or not, its bold lead-in as its name and the rest of its
+ * first line as its text. The roadmap page and the studio's Mission page both draw from it.
+ *
+ * @param {string} body
+ * @returns {{ done: boolean, name: string, text: string }[]}
+ */
+export function checklist(body) {
+  const items = [];
+  let fenced = false;
+  for (const line of String(body ?? "").split(/\r?\n/)) {
+    if (FENCE.test(line)) fenced = !fenced;
+    if (fenced) continue;
+    const m = ITEM.exec(line);
+    if (!m) continue;
+    const bold = BOLD.exec(m[2]);
+    const name = (bold ? bold[1] : m[2]).replace(/[:,.]$/, "").trim();
+    const text = bold ? m[2].slice(bold.index + bold[0].length).replace(/^[\s:.,;—–-]+/, "") : "";
+    items.push({ done: m[1].toLowerCase() === "x", name, text });
+  }
+  return items;
+}

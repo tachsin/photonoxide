@@ -19,7 +19,7 @@ import {
   stashRefs,
   texToText,
 } from "../../site/lib/projects/photonoxide/inline.js";
-import { headingAnchor, milestoneAnchor, parseMilestones, splitRoadmap } from "../../site/lib/projects/photonoxide/milestones.js";
+import { checklist, headingAnchor, milestoneAnchor, parseMilestones, splitRoadmap } from "../../site/lib/projects/photonoxide/milestones.js";
 
 // DOIs built from their parts, so the repository's references index doesn't take this file for a citation
 const YEE = ["10.1109", "TAP.1966.1138693"].join("/");
@@ -182,4 +182,24 @@ test("every formula in the examples' doc comments renders with KaTeX", () => {
     }
   }
   assert.ok(formulas > 100, `${formulas} formulas`);
+});
+
+// The studio's Mission page ticks each item from `checklist`, the site counts them with
+// `parseMilestones`: on the repository's ROADMAP.md, every milestone's items agree, by name and
+// by count, so the two draw one roadmap.
+test("a milestone's checklist is the items the site counts", () => {
+  const { sections } = splitRoadmap(repo("ROADMAP.md"), "0.6.4");
+  const blocks = sections.flatMap((s) => s.blocks).filter((b) => b.milestone);
+  assert.ok(blocks.length > 20);
+  for (const b of blocks) {
+    const items = checklist(b.body);
+    const m = b.milestone!;
+    assert.equal(items.length, m.total, `${m.version}: total`);
+    assert.equal(items.filter((i) => i.done).length, m.done, `${m.version}: done`);
+    assert.deepEqual(items.map((i) => i.name).filter(Boolean), m.items, `${m.version}: names`);
+  }
+  assert.deepEqual(checklist("intro\n\n- [x] **Ports:** a mode each\n  more\n- [ ] Plain item\n```\n- [x] **fenced**\n```"), [
+    { done: true, name: "Ports", text: "a mode each" },
+    { done: false, name: "Plain item", text: "" },
+  ]);
 });
