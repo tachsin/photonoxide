@@ -3,9 +3,8 @@
 *A plan, 2026-11-09, for ROADMAP's 0.7, tracked in #761. It follows the optimization survey
 ([optimization.md](optimization.md), #244), whose phases 1 to 8 and 10 are built, and
 [quantum.md](quantum.md)'s Q4, which belongs here but comes after the classical machinery. The
-decisions in [section 4](#4-decisions) need my call; until I make it, each phase follows the
-recommended option, marked "recommended, awaiting tachsin", and a later commit adapts if I choose
-otherwise. The Academy lesson [inverse-design.md](../../academy/inverse-design.md) is written last,
+decisions in [section 4](#4-decisions) were taken on 2026-11-10: I decided the recommended option
+of each of the eight, and the phases follow them. The Academy lesson [inverse-design.md](../../academy/inverse-design.md) is written last,
 once the milestone is built. Where the work stands and how to pick it up:
 [section 6](#6-starting-the-work).*
 
@@ -263,31 +262,31 @@ The performance plan's Phase D (mixed precision and the GPU's QMR) is decision 3
 
 ## 4. Decisions
 
-*Each is "recommended, awaiting tachsin" until I decide.*
+*I decided on 2026-11-10 to take the recommended option of each of the eight; each says so below, and its text is kept.*
 
-1. **Where densities live.** (a) A new module, `photonoxide::topology`: densities, filters,
+1. **Where densities live.** *Decided 2026-11-10: the recommended option.* (a) A new module, `photonoxide::topology`: densities, filters,
    projections, robust designs, length scales and level sets, solver-independent, each solver's
    gradient pulled back through it; (b) inside each solver, beside its adjoint. *Recommended: (a);*
    FDFD and FDTD share it, and the Rust module boundary keeps it in the one crate.
-2. **The testbed's designs as data.** Chen et al.'s designs and scripts are released under the
+2. **The testbed's designs as data.** *Decided 2026-11-10: the recommended option.* Chen et al.'s designs and scripts are released under the
    MIT licence (NanoComp/photonics-opt-testbed). (a) Commit only the designs the cases use
    (160 × 160 values, 128 kB each), with the licence and the commit they came from; (b) fetch them
    at test time. *Recommended: (a):* the cases must run offline, and the licence allows it.
-3. **The performance plan's Phase D** (a single-precision LU refined in double, the GPU's QMR).
+3. **The performance plan's Phase D** *Decided 2026-11-10: the recommended option.* (a single-precision LU refined in double, the GPU's QMR).
    (a) Its own issue under the performance plan, outside this umbrella; (b) a phase here.
    *Recommended: (a):* it is a solver change that every 3D user needs, independent of design.
-4. **3D verifications.** The 3D devices take hours each. (a) Examples with `--full`, each run
+4. **3D verifications.** *Decided 2026-11-10: the recommended option.* The 3D devices take hours each. (a) Examples with `--full`, each run
    once, its numbers recorded in its doc comment and the plain run compared by CI; (b) cases in
    the validation report. *Recommended: (a),* as `optimize_ybranch` does.
-5. **The augmented Lagrangian.** It is planned in genoxide (batch C) but not released. (a) Use
+5. **The augmented Lagrangian.** *Decided 2026-11-10: the recommended option.* It is planned in genoxide (batch C) but not released. (a) Use
    MMA and GCMMA's constraints, which genoxide has; (b) wait. *Recommended: (a).*
-6. **Forward mode.** (a) Only where parameters are fewer than outputs, and as a cross-check of
+6. **Forward mode.** *Decided 2026-11-10: the recommended option.* (a) Only where parameters are fewer than outputs, and as a cross-check of
    the adjoints; (b) a general forward mode through every solver. *Recommended: (a).*
-7. **Published designs on another discretization.** Christiansen & Sigmund's FEM and the
+7. **Published designs on another discretization.** *Decided 2026-11-10: the recommended option.* Christiansen & Sigmund's FEM and the
    testbed's Meep numbers are not our grid's. *Recommended:* each compared at the paper's
    printed digits with our grid study beside it; where our own error is above a third of the
    tolerance, the number is reported and the gap kept open (#595), never the tolerance loosened.
-8. **The dashboard's place.** (a) The device page's Optimize tab gains the design view, as #338
+8. **The dashboard's place.** *Decided 2026-11-10: the recommended option.* (a) The device page's Optimize tab gains the design view, as #338
    moved #244's views there; (b) a separate dashboard. *Recommended: (a).*
 
 ## 5. Papers
