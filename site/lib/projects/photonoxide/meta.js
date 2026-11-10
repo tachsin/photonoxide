@@ -193,11 +193,11 @@ export const PHOTONOXIDE_HIGHLIGHTS = [
 export const PHOTONOXIDE_PROPERTIES = [
   {
     title: "Validated",
-    body: "Every solver passes analytic tests, reproduces published results and agrees with an established code, in a public report.",
+    body: "Solvers are checked against analytic solutions and published results, in a public report with each case's tolerance and grid; the static solver and the RF line are also compared with Elmer and openEMS.",
   },
   {
     title: "Converged",
-    body: "Every number comes with its grid, boundaries and run time. Unconverged results are flagged, never quietly reported.",
+    body: "A result names the grid, boundaries and run time it came from, and a convergence study measures its error. The aim for 1.0: every number carries its own convergence.",
   },
   {
     title: "Fabrication-aware",
@@ -205,7 +205,7 @@ export const PHOTONOXIDE_PROPERTIES = [
   },
   {
     title: "Reproducible",
-    body: "The same input gives bit-for-bit the same result on any number of threads.",
+    body: "A rerun gives the same bits. Across thread counts the parallel kernels match bit for bit, and the dense ones to round-off (n_eff to about 3e-15).",
   },
 ];
 

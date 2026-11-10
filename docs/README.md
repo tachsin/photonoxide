@@ -230,8 +230,8 @@ the studio and read on GitHub as ordinary Markdown.
   CI fails when they are out of date.
 - [Validation report: the GPU](validation-gpu.md): the GPU's cases, written before each release
   on a computer with a GPU.
-- [Cross-code comparison](cross-code.md): each solver against an established code that solves
-  the same physics; the reports from other codes are [openEMS](validation-openems.md),
+- [Cross-code comparison](cross-code.md): the static solver against Elmer and the RF line against
+  openEMS, established codes that solve the same physics; the reports from other codes are [openEMS](validation-openems.md),
   [openEMS on more lines](validation-openems-lines.md) and [Elmer](validation-elmer.md), and the
   programs that run the other codes are in [crosscode/](../crosscode/README.md).
 - [Direct solvers](baselines.md): photonoxide's sparse direct solves against PARDISO and MUMPS.

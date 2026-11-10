@@ -49,7 +49,7 @@ It is released milestone by milestone ([changelog](CHANGELOG.md), [roadmap](ROAD
   it; 56 processes on 5 platforms, every flow executed back to its design and shown step by step
   in the studio. New platforms and exports are in progress.
 - **[The library, the Python package and the studio](#install):** the code that runs a design,
-  with 55 examples that each reproduce a paper, 43 job files ready to run, and 950 validation
+  with 55 examples that each compute a published result and print it beside the paper's, 43 job files ready to run, and 950 validation
   cases that check it.
 
 ## What it computes
@@ -195,7 +195,8 @@ for polarization in ("te", "tm"):
 ```
 
 Both print `TE0: n_eff = 2.8475` and `TM0: n_eff = 2.0531`. Each of the
-[examples](examples/README.md) reproduces one paper's numbers and fails when it disagrees:
+[examples](examples/README.md) computes one paper's numbers, prints them beside the paper's and exits 1
+outside its stated tolerance:
 
 ```sh
 cargo run --release --example strip_waveguide   # or: just example strip_waveguide
@@ -243,8 +244,10 @@ The optimized build profiles (`release`, `dist` and `fastest`) are described in
 Nothing is merged without an analytic test, a reproduction of a published result and a
 convergence test; adjoint gradients are checked against finite differences. The
 [report](docs/validation.md) has 950 cases: 646 against closed forms, 291 against published
-results and 13 against another code on a shared problem. Each states its source, tolerance and
-grid. CI fails when a case fails or the committed report isn't the one the code writes. CI
+results and 13 against a second method of photonoxide's own on a shared problem. Each states its source,
+tolerance and grid; a published case is a number a paper prints or a formula re-implemented from its
+equations, and a few are bounds, not equalities. The comparisons with other codes (Elmer for the static
+solver, openEMS for the RF line) are in [docs/cross-code.md](docs/cross-code.md) and run locally. CI fails when a case fails or the committed report isn't the one the code writes. CI
 checks every example's output too.
 
 ## Status
@@ -270,12 +273,12 @@ checks every example's output too.
 
 ## Principles
 
-- **Validated:** every number from a checked method, with its grid.
+- **Validated:** each method is checked against closed forms or published results, and a result names the grid it came from.
 - **Cited:** every methods page and every written lesson names the papers it rests on, and every
   stated process capability its source, by DOI where the source has one.
 - **Pure Rust:** libraries you install yourself are optional backends, loaded at run time and
   never required ([the plan](docs/plans/backends.md)).
-- **Reproducible:** the same bits on any number of threads; every run replays.
+- **Reproducible:** a rerun gives the same bits and every run replays; across thread counts the parallel kernels match bit for bit and the dense ones to round-off (n_eff to about 3e-15).
 - **Visible:** the studio and the command line run the same job.
 
 ## Contributing

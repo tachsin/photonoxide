@@ -1,8 +1,8 @@
 # Examples
 
-Each example reproduces a published result: it computes something with photonoxide, prints it
-next to the number the paper prints, with the grid and the tolerance, and fails (exit code 1)
-when they disagree. CI runs every example.
+Each example computes a published result: it prints it next to the number the paper prints, with
+the grid and the tolerance, and exits with code 1 when it is outside that tolerance. CI runs every
+example.
 
 ```sh
 cargo run --release --example <name>

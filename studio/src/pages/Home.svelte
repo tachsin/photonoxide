@@ -130,8 +130,8 @@
             <Logo size={40} />
             <span class="text-sm font-semibold tracking-wide text-base-content/70">photonoxide studio</span>
           </div>
-          <h1 class="mt-5 max-w-2xl text-[1.85rem] leading-tight font-semibold tracking-tight text-balance @3xl:text-[2.45rem] @3xl:leading-[1.12]">Design, simulate and make photonic chips, every number checked.</h1>
-          <p class="mt-3 max-w-xl text-[15px] leading-relaxed text-pretty muted">Waveguide modes, FDFD and FDTD, circuits, nonlinear optics and fabrication flows in one window, each solver checked against exact solutions and published papers.</p>
+          <h1 class="mt-5 max-w-2xl text-[1.85rem] leading-tight font-semibold tracking-tight text-balance @3xl:text-[2.45rem] @3xl:leading-[1.12]">Design, simulate and make photonic chips, each figure with its model, grid and reference.</h1>
+          <p class="mt-3 max-w-xl text-[15px] leading-relaxed text-pretty muted">Waveguide modes, FDFD and FDTD, circuits, nonlinear optics and fabrication flows in one window, the solvers' cases checked against exact solutions and published papers.</p>
           <div class="mt-6 flex flex-wrap items-center gap-2 text-xs">
             <span class="badge badge-ghost gap-1.5 border-base-content/10 font-mono" title="photonoxide {app.state?.build.label ?? app.state?.version} on {app.state?.platform}">v{app.state?.build.label ?? app.state?.version}</span>
             {#if status}
@@ -141,7 +141,7 @@
                 <span class="badge badge-soft gap-1.5 {status.tone === 'success' ? 'badge-success' : 'badge-neutral'}">{status.text}</span>
               {/if}
             {/if}
-            <button class="badge badge-ghost gap-1.5 border-base-content/10 hover:border-success/40" onclick={showCases} title="The validation report: every solver against exact solutions and papers">
+            <button class="badge badge-ghost gap-1.5 border-base-content/10 hover:border-success/40" onclick={showCases} title="The validation report: the solvers' cases against exact solutions and papers">
               <ShieldCheck size={12} class="text-success" />{report ? `${report.passed} of ${report.total} validation cases pass` : "validation cases"}
             </button>
             <button class="badge badge-ghost gap-1.5 border-base-content/10 hover:border-primary/40" onclick={() => showPublished()} title="The examples that reproduce published papers">{catalog.data?.examples.length ?? "–"} published results reproduced</button>

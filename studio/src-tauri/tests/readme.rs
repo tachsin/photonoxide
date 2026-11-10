@@ -16,8 +16,8 @@
 //! - **examples:** `examples/*.rs`; **job files:** the `.yaml`, `.yml`, `.toml` and `.json` files
 //!   in `jobs/`;
 //! - **validation cases:** the rows of `docs/validation.md` that start with `` | ` ``, by their
-//!   Tier column: `analytic` (against closed forms), `published` and `cross-code` (against
-//!   another code);
+//!   Tier column: `analytic` (against closed forms), `published` and `cross-code` (against a
+//!   second method of photonoxide's own);
 //! - **processes:** `fabrication::library()`; **platforms:** the distinct platforms its processes
 //!   are used on (`used_for`).
 
@@ -269,7 +269,7 @@ fn the_validation_cases_are_counted_by_tier() {
     );
     check(
         "Validation",
-        "{} cases: {} against closed forms, {} against published results and {} against another code",
+        "{} cases: {} against closed forms, {} against published results and {} against a second method",
         &[all, analytic, published, cross_code],
         "docs/validation.md's cases, and its analytic, published and cross-code ones",
     );

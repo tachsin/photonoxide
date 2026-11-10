@@ -13,7 +13,7 @@ import { renderInline, repoLinkResolver } from "@/lib/projects/photonoxide/markd
 import { EXAMPLES_PATH, PHOTONOXIDE_LINKS, PHOTONOXIDE_OG_IMAGE, PHOTONOXIDE_PATH } from "@/lib/projects/photonoxide/meta";
 
 const DESCRIPTION =
-  "Each example reproduces a published result: it computes something with photonoxide, prints it beside the number the paper prints, and fails when they disagree. CI runs them all.";
+  "Each example computes a published result and prints it beside the number the paper prints, with the grid and the tolerance; it exits with code 1 when it is outside that tolerance. CI runs them all.";
 
 export const metadata = projectsMetadata({
   title: "Examples",

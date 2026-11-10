@@ -28,8 +28,8 @@ const CRUMBS = [
 
 const TIERS = [
   { tier: "analytic", label: "Analytic", note: "a closed-form solution" },
-  { tier: "published", label: "Published", note: "a published measurement or result" },
-  { tier: "cross-code", label: "Cross-code", note: "an established code on the same structure" },
+  { tier: "published", label: "Published", note: "a number a paper prints, or a formula re-implemented from its equations, each with its own tolerance" },
+  { tier: "cross-code", label: "Cross-code", note: "a second method of photonoxide's own on the same structure" },
 ];
 
 export default async function ValidationPage() {

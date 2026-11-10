@@ -178,7 +178,7 @@ export default async function PhotonoxidePage() {
       href: EXAMPLES_PATH,
       count: examples.length || null,
       label: "examples",
-      body: "Each reproduces a published result, prints it beside the paper's numbers, and fails when they disagree.",
+      body: "Each computes a published result and prints it beside the paper's numbers, with its tolerance; outside it, the example fails.",
     },
     {
       Icon: FlaskConical,
