@@ -216,7 +216,7 @@ the studio and read on GitHub as ordinary Markdown.
 
 - [Fabrication](methods/fabrication.md): the engine and its rules.
 - [A fabrication engine: the plan](plans/fabrication.md): the plan and its phases.
-- The studio shows a design's flow in the Fabrication tab of a device's page.
+- The studio shows a design's flow on its Fabrication page, which a device's Fabricate opens.
 
 ## Validation
 

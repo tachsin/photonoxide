@@ -10,7 +10,7 @@ import type { Drawing, Medium } from "./jobedit";
 import type { BenchData, BenchRequest, CatalogueEntry, Planned } from "./bench.svelte";
 import type { LibraryReport } from "./libraries.svelte";
 import type { BuildInfo } from "./nightly.svelte";
-import type { Feed, PaperPage, PaperSummary, Starred } from "./paperText";
+import type { CitedSource, Feed, PaperPage, PaperSummary, Starred } from "./paperText";
 
 export interface Settings {
   /** "system", "dark" or "light" (the studio's own themes), or a further theme's name (lib/themes.ts). */
@@ -267,6 +267,8 @@ export const api = {
   taskOutput: (id: number, from: number) => invoke<Progress>("task_output", { id, from }),
   stopTask: (id: number) => invoke<void>("stop_task", { id }),
   changelog: () => invoke<string>("changelog"),
+  /** ROADMAP.md as this program was built with it: the Mission page reads it as the site does. */
+  roadmap: () => invoke<string>("roadmap"),
   /** Home's paper feed from the cache, at once (papers.rs). */
   papersFeed: () => invoke<Feed>("papers_feed"),
   /** Asks the journals and arXiv the picker keeps on for their newest papers (`onlyNew`: those never asked); the feed after. */
@@ -278,6 +280,8 @@ export const api = {
   paperImagesClear: () => invoke<void>("paper_images_clear"),
   /** A paper's page by DOI or arXiv id: from the cache, else the sources. */
   paperOpen: (id: string) => invoke<PaperPage>("paper_open", { id }),
+  /** Every source photonoxide cites, by its first author, with every place it cites it. */
+  citedSources: () => invoke<CitedSource[]>("cited_sources"),
   papersSearch: (query: string) => invoke<PaperSummary[]>("papers_search", { query }),
   readingList: () => invoke<Starred[]>("reading_list"),
   readingListSave: (list: Starred[]) => invoke<void>("reading_list_save", { list }),
@@ -408,6 +412,8 @@ export const api = {
   libraryInstall: (library: string, id: string) => invoke<void>("library_install", { library, id }),
   /** Removes what the program installed for a library from its own environment. */
   libraryRemove: (library: string) => invoke<void>("library_remove", { library }),
+  /** Stops the install or removal under way: its download, or the command it runs. */
+  libraryCancel: () => invoke<void>("library_cancel"),
   /** This machine, and the libraries suggested for it. */
   hardwareAdvice: () => invoke<HardwareAdvice>("hardware_advice"),
   /** Whether the setup's Advanced path asked for the performance step at this start. */

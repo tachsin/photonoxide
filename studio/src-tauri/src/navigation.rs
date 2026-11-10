@@ -95,11 +95,23 @@ fn the_rail_holds_seven_pages_and_the_system_group() {
             "papers"
         ]
     );
-    assert_eq!(array("SYSTEM"), ["validation", "libraries", "benchmarks"]);
+    assert_eq!(
+        array("SYSTEM"),
+        [
+            "mission",
+            "validation",
+            "libraries",
+            "benchmarks",
+            "settings"
+        ]
+    );
     let rail = "components/NavRail.svelte";
     holds(rail, "{#each RAIL as page (page)}", "the rail's pages");
-    holds(rail, "{#each SYSTEM as page (page)}", "the System group");
-    holds(rail, r#"{@render item("settings")}"#, "Settings");
+    holds(
+        rail,
+        "{#each SYSTEM as page (page)}",
+        "the System group, Settings in it",
+    );
 }
 
 #[test]
@@ -123,9 +135,9 @@ fn the_fabrication_page_opens_any_design_and_a_component_leads_there() {
     holds(player, "<FabCut", "the 2D view");
     holds(player, "<Fab3D", "the 3D view");
     holds(
-        "components/device/FabricationTab.svelte",
+        "lib/device.svelte.ts",
         "fabricate({ kind: \"device\"",
-        "a component's Fabrication tab leads to the page",
+        "a component's Fabricate leads to the page",
     );
     // a run of a design (a device, a structure task) has a Fabrication tab, the same player on
     // the run's design, leading to the page

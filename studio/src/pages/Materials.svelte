@@ -27,7 +27,8 @@
     type Tensor,
   } from "../lib/api";
   import type { Series } from "../lib/plot";
-  import { loadMaterials, materials, NONLINEAR, PAIR_SOURCES } from "../lib/materials.svelte";
+  import { app } from "../lib/app.svelte";
+  import { CATEGORIES, loadMaterials, materials, NONLINEAR, PAIR_SOURCES } from "../lib/materials.svelte";
   import { len, lenUnit, shown as inUnit, stored } from "../lib/units";
 
   let modelId = $state<string | null>(null);
@@ -50,6 +51,28 @@
   const problem = $derived(materials.problem);
 
   const entry = $derived(entries.find((e) => e.id === (materials.chosen ?? entries[0]?.id)));
+  // the top bar names what is shown (Materials › Silicon), with the rest as the rail lists them
+  $effect(() => {
+    const on = materials.chosen === NONLINEAR || materials.chosen === PAIR_SOURCES ? materials.chosen : entry?.id;
+    const label = on === NONLINEAR ? "Nonlinear processes" : on === PAIR_SOURCES ? "Photon-pair sources" : entry ? `${entry.formula}: ${entry.name}` : "";
+    const about = on === NONLINEAR ? "Phase matching and the efficiency of a process in a crystal or a guide" : on === PAIR_SOURCES ? "A guide, a crystal or a ring: its pairs' joint spectrum, brightness and heralding" : (entry?.category ? (CATEGORIES.find(([c]) => c === entry.category)?.[1] ?? "") : "");
+    app.crumb = label
+      ? {
+          page: "materials",
+          label,
+          about,
+          current: on,
+          groups: [
+            { title: "Designers", items: [{ id: NONLINEAR, label: "Nonlinear processes" }, { id: PAIR_SOURCES, label: "Photon-pair sources" }] },
+            ...CATEGORIES.map(([c, title]) => ({ title, items: entries.filter((e) => e.category === c).map((e) => ({ id: e.id, label: `${e.formula}: ${e.name}`, hint: e.index.length ? undefined : "no index model yet" })) })),
+          ],
+          pick: (id) => (materials.chosen = id),
+        }
+      : null;
+  });
+  $effect(() => () => {
+    if (app.crumb?.page === "materials") app.crumb = null;
+  });
   const model = $derived<IndexModel | undefined>(
     entry ? (entry.index.find((m) => m.id === modelId) ?? entry.index.find((m) => m.default) ?? entry.index[0]) : undefined,
   );

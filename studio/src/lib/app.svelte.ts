@@ -23,11 +23,18 @@ export interface OpenJob {
   name: string;
 }
 
-export type Page = "home" | "components" | "chip" | "fabrication" | "academy" | "materials" | "papers" | "validation" | "libraries" | "benchmarks" | "settings" | "viewer";
+export type Page = "home" | "components" | "chip" | "fabrication" | "academy" | "materials" | "papers" | "mission" | "validation" | "libraries" | "benchmarks" | "settings" | "viewer";
 
 export const app = $state({
   ready: false,
   state: null as AppState | null,
+  /** What the page shows inside itself, for the top bar to name after the page (Components ›
+   *  Waveguide), with the page's other items to switch to from there. */
+  crumb: null as Crumb | null,
+  /** A methods page (docs/methods/<file>) shown over whatever page, from a citation. */
+  methodDoc: null as string | null,
+  /** A validation case the Cases tab opens searched for. */
+  caseQuery: null as string | null,
   page: "home" as Page,
   /** The last page on the rail shown, where the run view leads back to. */
   back: "home" as Page,
@@ -100,8 +107,10 @@ export function showPublished(name: string | null = null) {
   go("validation");
 }
 
-/** Validation's Cases tab: the report. */
-export function showCases() {
+/** Validation's Cases tab: the report, searched for the case `id` when one is given. */
+export function showCases(id: unknown = null) {
+  // (also a click handler as it is: an event is no case)
+  app.caseQuery = typeof id === "string" ? id : null;
   app.validationTab = "cases";
   go("validation");
 }
@@ -675,4 +684,28 @@ export async function boot() {
   }
   app.ready = true;
   follow();
+}
+
+/** An item a page can switch to from the top bar's breadcrumb. */
+export interface CrumbItem {
+  id: string;
+  label: string;
+  /** A line about it, shown under its name. */
+  hint?: string;
+}
+
+/**
+ * What a page shows inside itself, named in the top bar after the page (Components › Waveguide):
+ * its name, a line about it, whether it changed since it was opened or saved, and the page's
+ * other items in groups, as its list in the rail has them, to switch to (`pick`).
+ */
+export interface Crumb {
+  page: Page;
+  label: string;
+  about: string;
+  changed?: boolean;
+  /** The item shown, among `groups`. */
+  current?: string;
+  groups?: { title: string; items: CrumbItem[] }[];
+  pick?: (id: string) => void;
 }

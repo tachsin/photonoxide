@@ -9,33 +9,25 @@
   import ExamplesAccordion from "../components/home/ExamplesAccordion.svelte";
   import ModuleArt, { type Art } from "../components/home/ModuleArt.svelte";
   import RecentStrip, { type WorkItem } from "../components/home/RecentStrip.svelte";
+  import ReleaseNotes from "../components/home/ReleaseNotes.svelte";
   import Logo from "../components/Logo.svelte";
-  import Markdown from "../components/Markdown.svelte";
   import PaperFeed from "../components/papers/PaperFeed.svelte";
   import ReadingList from "../components/papers/ReadingList.svelte";
   import Tip from "../components/Tip.svelte";
   import { loadList, papers, showPapers } from "../lib/papers.svelte";
   import { api, duration, KINDS, type CircuitItem, type Home } from "../lib/api";
-  import { app, go, newCustom, openCustom, run, showCases, showPublished, startRun, toast, type Page } from "../lib/app.svelte";
+  import { app, go, newCustom, openCustom, run, showCases, startRun, toast, type Page } from "../lib/app.svelte";
   import { catalog, loadCatalog } from "../lib/catalog.svelte";
   import { latestRelease } from "../lib/changelog";
   import { openDesign } from "../lib/device.svelte";
   import { openChipFile, showChip } from "../lib/chip.svelte";
   import type { Topic } from "../lib/topics";
   import { updater } from "../lib/updater.svelte";
+  import { chipTitle } from "../lib/circuit";
 
   let home = $state<Home | null>(null);
   let circuits = $state<CircuitItem[]>([]);
   let changelog = $state("");
-  let report = $state<{ passed: number; total: number } | null>(null);
-  api
-    .publishedReport()
-    .then((r) => {
-      const rows = r.split("\n").filter((l) => l.startsWith("| `"));
-      // the eighth cell is the result (#544's columns come after it)
-      report = { passed: rows.filter((l) => l.slice(1, -1).split(" | ")[7]?.trim() === "pass").length, total: rows.length };
-    })
-    .catch(() => {});
   // the changelog (for What's new) once the window is idle: nothing above the fold needs it
   const idle = window.requestIdleCallback ?? ((run: () => void) => setTimeout(run, 300));
   idle(() => {
@@ -85,7 +77,7 @@
         icon: j.kind === "device" ? FileCog : FileText,
         open: () => (j.kind === "device" ? openDesign(j.path) : openJob(j.path)),
       })),
-      ...circuits.map((c) => ({ key: c.path, name: c.name, what: `chip, ${c.instances} part${c.instances === 1 ? "" : "s"}`, modified: c.modified, icon: CircuitBoard, open: () => openChipFile(c.path) })),
+      ...circuits.map((c) => ({ key: c.path, name: chipTitle(c.name), what: `chip, ${c.instances} part${c.instances === 1 ? "" : "s"}`, modified: c.modified, icon: CircuitBoard, open: () => openChipFile(c.path) })),
     ]
       .sort((a, b) => b.modified - a.modified)
       .slice(0, 12),
@@ -121,7 +113,7 @@
 </script>
 
 <div class="@container h-full overflow-y-auto">
-  <div class="mx-auto max-w-[96rem] space-y-10 px-5 pt-6 pb-14 @3xl:px-10 @3xl:pt-8">
+  <div class="mx-auto max-w-384 space-y-10 px-5 pt-6 pb-14 @3xl:px-10 @3xl:pt-8">
     <!-- the hero: what the studio is, three ways in, and the build's status -->
     <header class="glow relative overflow-hidden rounded-3xl border border-base-content/8 bg-base-100 px-6 py-7 @3xl:px-10 @3xl:py-10">
       <div class="flex flex-col gap-8 @5xl:flex-row @5xl:items-center @5xl:gap-12">
@@ -134,6 +126,7 @@
           <p class="mt-3 max-w-xl text-[15px] leading-relaxed text-pretty muted">Waveguide modes, FDFD and FDTD, circuits, nonlinear optics and fabrication flows in one window, the solvers' cases checked against exact solutions and published papers.</p>
           <div class="mt-6 flex flex-wrap items-center gap-2 text-xs">
             <span class="badge badge-ghost gap-1.5 border-base-content/10 font-mono" title="photonoxide {app.state?.build.label ?? app.state?.version} on {app.state?.platform}">v{app.state?.build.label ?? app.state?.version}</span>
+            <span class="badge badge-ghost border-base-content/10">{app.state?.platform}</span>
             {#if status}
               {#if status.action}
                 <button class="badge badge-accent badge-soft gap-1.5 hover:brightness-110" onclick={status.action}><Sparkles size={12} />{status.text}</button>
@@ -141,15 +134,10 @@
                 <span class="badge badge-soft gap-1.5 {status.tone === 'success' ? 'badge-success' : 'badge-neutral'}">{status.text}</span>
               {/if}
             {/if}
-            <button class="badge badge-ghost gap-1.5 border-base-content/10 hover:border-success/40" onclick={showCases} title="The validation report: the solvers' cases against exact solutions and papers">
-              <ShieldCheck size={12} class="text-success" />{report ? `${report.passed} of ${report.total} validation cases pass` : "validation cases"}
-            </button>
-            <button class="badge badge-ghost gap-1.5 border-base-content/10 hover:border-primary/40" onclick={() => showPublished()} title="The examples that reproduce published papers">{catalog.data?.examples.length ?? "–"} published results reproduced</button>
-            <span class="badge badge-ghost border-base-content/10">{app.state?.platform}</span>
           </div>
         </div>
 
-        <nav aria-label="Start" class="grid gap-3 @4xl:grid-cols-3 @5xl:w-[25rem] @5xl:shrink-0 @5xl:grid-cols-1">
+        <nav aria-label="Start" class="grid gap-3 @4xl:grid-cols-3 @5xl:w-100 @5xl:shrink-0 @5xl:grid-cols-1">
           <button class="hero-action group" onclick={() => go("components")}>
             <span class="hero-icon bg-primary/12 text-primary"><Boxes size={20} /></span>
             <span class="min-w-0 flex-1"><span class="block font-semibold">Open a component</span><span class="block truncate text-xs muted">Its design, model, spectra and layout</span></span>
@@ -289,8 +277,9 @@
 <dialog class="modal" class:modal-open={notes}>
   <div class="modal-box max-w-3xl">
     <h3 class="text-lg font-semibold">What's new</h3>
-    <div class="mt-2 max-h-[65vh] overflow-y-auto pr-2">
-      {#if notes}<Markdown text={changelog.replace(/^# Changelog[\s\S]*?(?=## \[)/, "")} />{/if}
+    <p class="mt-0.5 text-sm muted">Every release of photonoxide, newest first.</p>
+    <div class="mt-4 max-h-[65vh] overflow-y-auto pr-1">
+      {#if notes}<ReleaseNotes {changelog} />{/if}
     </div>
     <div class="modal-action"><button class="btn" onclick={() => (notes = false)}>Close</button></div>
   </div>
