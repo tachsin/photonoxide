@@ -528,8 +528,10 @@ def run_job(
     job: Job, *, runs_dir: str | os.PathLike[str] = "runs", timeout_s: float | None = 3600.0
 ) -> JobRun:
     """Runs a job as ``photonoxide run --headless`` does, into a new folder under ``runs_dir``,
-    and returns its record. Every kind of job runs: ``"structure"``, ``"modes"``, ``"fdfd"`` and
-    ``"fdtd"``.
+    and returns its record. Every kind of job a job file can name runs: the ones
+    ``photonoxide new --list`` lists (``"structure"``, ``"modes"``, ``"fdfd"``, ``"fdtd"``,
+    ``"static"``, ``"eme"``, ``"device"``, ``"sweep"``, ``"optimize"`` and ``"chip"``) and the
+    others the job schema has, such as the fabrication and nonlinear jobs.
 
     The run stops at ``timeout_s`` seconds (``None``: no limit of its own) or at the job's own
     ``timeout_minutes``, whichever comes first, or on Ctrl+C. A run stopped by its timeout is

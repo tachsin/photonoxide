@@ -168,9 +168,9 @@ export default async function PhotonoxidePage() {
     {
       Icon: BookOpen,
       href: METHODS_PATH,
-      // the foundations (units, geometry, materials) aren't methods
-      count: methods.filter((m) => m.category !== "foundations").length || null,
-      label: "methods",
+      // every page the methods index lists, the foundations (units, geometry, materials) too
+      count: methods.length || null,
+      label: "method pages",
       body: "From exact slabs and full-vector modes to FDFD, FDTD, circuits and compact models, each with its paper and its limits.",
     },
     {
