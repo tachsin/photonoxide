@@ -390,6 +390,11 @@ so most of what it shows is the wait for a thread, not the command's own work. T
 timer inside the command, which the measure doesn't log yet; until then the limits stay as they
 are.
 
+**Decided 2026-11-10: the limits are not raised.** At 0.6.3 and 0.6.4 two measures were over their
+limits: `home`, the first click on Components, at 67.4 ms against 40.6, and `device_geometry` at
+10.7 ms against 7.8. I decided to report both at each release and to leave the limits where they
+are. The studio is fast, and, as above, the measure is mostly waiting among several commands.
+
 **The seed.** The studio's lists are as long as in use only with a workspace of use: the 34 jobs of
 `jobs/` and 204 runs (the 34 jobs run by the build, each run copied to six), about 300 MB. The first
 `just perf` makes it in `target/perf/seed`, running each job headless (a few minutes); later runs

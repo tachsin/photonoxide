@@ -508,6 +508,7 @@ The plan, with its phases, validation targets, sources and open decisions, is [d
   - minimal driver and receiver models (photonoxide isn't a SPICE);
   - eye diagrams, extinction ratio and optical modulation amplitude.
 - [ ] **Programmable meshes:** Reck, Clements and hexagonal meshes (the Reck and Clements decompositions come in 0.6.3); self-configuration (Miller 2013; Hamerly 2022) and error correction (Bandyopadhyay 2021); calibration posed for genoxide.
+- [ ] **Germanium optical data and absorption:** germanium's complex index at 1.31 and 1.55 µm in the catalogue with its provenance, and a detector's absorbed fraction and responsivity from the mode solver; the detector as a device is in 0.13 ([plan](docs/plans/carrier-modulators.md), decision 8, decided 2026-11-10).
 - [ ] **Components:** the silicon depletion modulator (MZM and ring), and mesh cells.
 - [ ] **Studio:** eye diagrams and time traces; mesh programming.
 - [ ] **Validation:**
@@ -606,7 +607,8 @@ Begun early, in 0.5.4: `photonoxide::device` (#338's P2 and P6, [devices](docs/m
   - MZIs; *(done in 0.5.4, of directional couplers and of Y-branches, as netlists of their devices (#375))*
   - grating couplers (Vermeulen 2010; Su 2018); *(drawn by the generators in 0.5.4 (#369), not yet a device)*
   - AWGs;
-  - demultiplexers.
+  - demultiplexers;
+  - the germanium photodetector (its absorption and responsivity come with 0.8; its bandwidth and dark current as a device once silicon drift-diffusion is validated; [plan](docs/plans/carrier-modulators.md)).
 - [ ] **Studio:** the device catalogue in the component library. *(In place for the devices so far, in 0.5.4: each on its page in Components, with Design, Overview, Model, Simulate and Study (#362, #381, #387); it grows with the list above.)*
 
 ### 0.14: Periodic structures and nanophotonics

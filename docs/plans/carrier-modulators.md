@@ -63,7 +63,7 @@ papers it needs, and the decisions to take. It has nine parts:
 5. **Meshes are mostly there as examples.** The Clements fit and Pérez-López's self-configuring
    hexagonal mesh run today; the closed-form Reck and Clements decompositions are 0.6.3's Q1. 0.8
    promotes the meshes to the library and adds self-configuration and error correction.
-6. **Germanium photodetectors are an open decision** (Section 9, decision 8). My recommendation:
+6. **Germanium photodetectors** (Section 9, decision 8; decided 2026-11-10):
    germanium's optical data in the catalogue and a detector's absorption with 0.8, the detector as
    a device after silicon drift-diffusion is validated.
 
@@ -363,7 +363,7 @@ result, convergence) and its cost. The numbers of cases are *estimates*.
 
 **Cost:** small to medium; independent of P1 to P5. About 6 cases.
 
-### G: Germanium photodetectors (an open decision)
+### G: Germanium photodetectors
 
 The roadmap has no germanium: no material, no device, no milestone. #774 proposes germanium in the
 catalogue, drift-diffusion in 0.8 and a device in 0.13. What a waveguide germanium detector needs,
@@ -388,7 +388,7 @@ in the order it could be built:
 Papers it would be checked against *(all to read)*: Wang et al. 2026 (a silicon nitride
 waveguide-integrated germanium detector, above 110 GHz at 1 mA in the O band, its title says),
 Lischke et al. 2015 (a waveguide-coupled germanium p–i–n photodiode) and Michel et al. 2010's
-review. The options and my recommendation are decision 8.
+review. The options and what I decided are decision 8.
 
 ## 4. Validation targets by paper
 
@@ -417,7 +417,7 @@ survey's of 2026-10-02, read from the full text then, to be confirmed from the P
 
 **Order.** P1, then P2 (the modulator exists at analytic fidelity, and the Academy's lesson has
 its charts), then P3 in 1D and then 2D, the modulator's 2D fidelity with it, then P4 and P5. P6
-depends only on 0.6.3's Q1 and can be done whenever an agent is free; G waits for decision 8.
+depends only on 0.6.3's Q1 and can be done whenever an agent is free; G's first two items come with 0.8 and its detector device with 0.13, as decision 8 says.
 Phases are commits on one branch and one pull request at the end, as every milestone's work is.
 
 **Dependencies on earlier milestones.**
@@ -486,7 +486,7 @@ runs as a job from the program and the window, its record replayable.
 | Programmable photonics (B6) | written now from the examples; P6 adds its decompositions, self-configuration and error-correction sections | a mesh's fidelity against splitter error and loss; Reck against Clements |
 | From components to circuits (B2) | written now; P5 adds a section on circuits in time | a component's poles and its response in time |
 | Optical links and co-packaged optics (B10) | an outline until P5; its receiver needs G | a link's budget and eye from a modulator, a channel and a receiver |
-| Germanium photodetectors (B10) | an outline until decision 8 | absorption, responsivity and bandwidth against length and doping |
+| Germanium photodetectors (B10) | an outline; decided 2026-11-10 (decision 8) | absorption, responsivity and bandwidth against length and doping |
 
 When P1 lands, the modulators lesson's Section 9 loses its "photonoxide does not compute carrier
 modulators yet" and links the new lesson.
@@ -499,7 +499,7 @@ modulators yet" and links the new lesson.
   behavioural models of P4 and P5.
 - Electro-absorption (Franz–Keldysh, quantum-confined Stark) modulators, plasmonic and
   transparent-conductor modulators.
-- Lasers and III–V integration (#774's other open decision).
+- Lasers and III–V integration (#774's other decision: decided 2026-11-10, a theory lesson only, no milestone).
 - Drift-diffusion in 3D, Fermi–Dirac statistics and degenerate contacts, impact ionization,
   tunnelling, process simulation of implants.
 - Circuit simulation of electronics: drivers and receivers are a few closed-form blocks
@@ -507,34 +507,34 @@ modulators yet" and links the new lesson.
 
 ## 9. Decisions
 
-Open; nothing is decided by this page.
+I decided on 2026-11-10 to take the recommended option of each of the nine; each says so below, and its text is kept. Lasers (heterogeneous III–V) get no milestone: a theory lesson only (#774).
 
-1. **Where the carrier physics lives.** (a) A `carrier` module in the static layer, the Δn map
+1. **Where the carrier physics lives.** *Decided 2026-11-10: the recommended option.* (a) A `carrier` module in the static layer, the Δn map
    handed to the mode solver like a temperature field; (b) inside `electro`. *Recommended: (a)*,
    as the roadmap's Architecture lists it, in the one crate.
-2. **The default plasma-dispersion model.** (a) Nedeljkovic et al. 2011 once its paper is read,
+2. **The default plasma-dispersion model.** *Decided 2026-11-10: the recommended option.* (a) Nedeljkovic et al. 2011 once its paper is read,
    Soref & Bennett until then; (b) Soref & Bennett always. Either way both are available and their
    difference is stated. *Recommended: (a).*
-3. **The nonlinear module's free carriers.** (a) They keep Lin et al. 2007's coefficients, which
+3. **The nonlinear module's free carriers.** *Decided 2026-11-10: the recommended option.* (a) They keep Lin et al. 2007's coefficients, which
    their published cases use, and say so beside the new model; (b) they move to the new model.
    *Recommended: (a).*
-4. **The order of P2 and P3.** (a) The modulator at analytic fidelity before drift-diffusion; (b)
+4. **The order of P2 and P3.** *Decided 2026-11-10: the recommended option.* (a) The modulator at analytic fidelity before drift-diffusion; (b)
    drift-diffusion first. *Recommended: (a)*: it is cheaper, has published targets at once and
    gives the lesson its charts.
-5. **The first drift-diffusion target.** (a) Yu et al. 2012's uniform junction; (b) Ding et al.
+5. **The first drift-diffusion target.** *Decided 2026-11-10: the recommended option.* (a) Yu et al. 2012's uniform junction; (b) Ding et al.
    2014's, with its profile assumed from the drawing. *Recommended: (a) first, (b) as the second*,
    once Yu et al. is in the folder.
-6. **Passivity of models stepped in time.** (a) Refuse a model that isn't passive; (b) enforce
+6. **Passivity of models stepped in time.** *Decided 2026-11-10: the recommended option.* (a) Refuse a model that isn't passive; (b) enforce
    passivity by perturbing the residues. *Recommended: (a) now, (b) only if real devices need it.*
-7. **Han et al. 2023's slow-light modulator.** (a) A stretch case after P2, needing a periodic
+7. **Han et al. 2023's slow-light modulator.** *Decided 2026-11-10: the recommended option.* (a) A stretch case after P2, needing a periodic
    guide's Bloch mode; (b) not in 0.8. *Recommended: (a), not a gate for the release.*
-8. **Germanium photodetectors.** (a) As #774 proposes: germanium's optical data in the catalogue
+8. **Germanium photodetectors.** *Decided 2026-11-10: the recommended option.* (a) As #774 proposes: germanium's optical data in the catalogue
    and a detector's absorption and responsivity with 0.8 (items 1 and 2 of G, at P1's cost), the
    detector's bandwidth and dark current as a device in 0.13 once P3 is validated; (b) a milestone
    of its own for detectors, heterojunction drift-diffusion included; (c) an Academy lesson only,
    no code.
-   *Recommended: (a).* It needs the six germanium papers in Section 4 and a yes.
-9. **Link budgets.** (a) Products of validated transmissions with closed-form penalties and
+   *Recommended: (a).* It needs the six germanium papers in Section 4.
+9. **Link budgets.** *Decided 2026-11-10: the recommended option.* (a) Products of validated transmissions with closed-form penalties and
    Gaussian-noise definitions only; (b) receiver sensitivity models. *Recommended: (a).*
 
 ## References
