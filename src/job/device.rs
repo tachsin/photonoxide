@@ -267,16 +267,20 @@ fn extent(geometry: &crate::device::Geometry) -> ([f64; 2], [f64; 2]) {
 // ---- a job's device, for the tasks that compute it ----
 
 /// The job's design: its spec, read from its `[device]` table, its compact model's file found
-/// from the job's folder ([`Job::dir`]).
+/// from the job's folder ([`Job::dir`]). A name among its parameters that is neither the device's
+/// nor used by another's expression (a misspelled `gapp`, which would take the default gap) is
+/// refused.
 pub(super) fn spec_of(job: &Job) -> Result<Spec> {
     let table = job
         .device()
         .ok_or_else(|| task_error("the job has no [device] table"))?;
     let spec = Spec::from_table(table)?;
-    Ok(match job.dir() {
+    let spec = match job.dir() {
         Some(dir) => spec.resolved_in(dir),
         None => spec,
-    })
+    };
+    spec.check_names(spec.device()?.as_ref())?;
+    Ok(spec)
 }
 
 /// The kind of the task beside a job's `[device]`: `None` for a design alone.
@@ -488,6 +492,7 @@ fn prepare(job: &Job) -> Result<Prepared> {
     // a 3D FDFD larger than a 3D solve holds here is refused before it starts
     spec.fdfd_size(&grids)?;
     let wavelengths = band_of(task.from_um, task.to_um, task.points, 101, &design)?;
+    crate::device::check_analytic_band(&spec.kind, spec.fidelity, &wavelengths)?;
     Ok(Prepared {
         spec,
         device,

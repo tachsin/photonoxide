@@ -1026,7 +1026,7 @@ fn simulate(chip: &Chip, root: &Path) -> Result<Simulation, String> {
 /// photonoxide's e^(−iωt) convention).
 pub(crate) fn write_touchstone(path: &Path, spectrum: &Spectrum) -> Result<(), String> {
     Touchstone::from_spectrum(spectrum, Convention::Physics)
-        .and_then(|file| file.write_file(path, Precision::RoundTrip))
+        .and_then(|file| file.write_file_stating(path, Precision::RoundTrip, Convention::Physics))
         .map_err(|e| e.to_string())
 }
 

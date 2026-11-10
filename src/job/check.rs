@@ -151,6 +151,35 @@ pub fn check(job: &Job) -> Result<()> {
     check_export(job)
 }
 
+/// What `job` does that it may not mean, though [`check`] accepts it, each in a sentence: on a
+/// chip, a name among an instance's device parameters that is neither the device's nor used by
+/// another of its expressions (a misspelled one leaves the parameter at its default). A chip's
+/// instances take names of their own, which a study names as `instance.name`, so these are
+/// warnings rather than errors; a device job refuses them. The command line prints them before
+/// it runs the job.
+pub fn warnings(job: &Job) -> Vec<String> {
+    let Ok(chip) = chip::chip_of(job) else {
+        return Vec::new();
+    };
+    let mut out = Vec::new();
+    for i in &chip.instances {
+        if let chip::InstanceModel::Device(spec) = &i.model {
+            let spec = match job.dir() {
+                Some(dir) => spec.resolved_in(dir),
+                None => spec.clone(),
+            };
+            if let Ok(device) = spec.device() {
+                out.extend(
+                    spec.unused_names(device.as_ref())
+                        .into_iter()
+                        .map(|w| format!("{}: {w}", i.name)),
+                );
+            }
+        }
+    }
+    out
+}
+
 /// The job's direct solver: one that is registered and available, and asked of a job that has
 /// a direct solve to give it. What [`check`] and the run both refuse, in the same words.
 pub(super) fn check_direct(job: &Job, kind: &str) -> Result<()> {

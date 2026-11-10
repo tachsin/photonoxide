@@ -234,6 +234,10 @@ fn run(args: &[String]) -> ExitCode {
         Ok(j) => j,
         Err(e) => return fail(e),
     };
+    // what the job does that it may not mean, though it runs: a chip's misspelled parameter
+    for w in job::warnings(&job) {
+        eprintln!("warning: {w}");
+    }
     // this machine's benchmark records for auto, and the external libraries if the job needs
     // them
     auto::prepare(&job);
@@ -298,7 +302,15 @@ fn run(args: &[String]) -> ExitCode {
         stop.request();
     }
     match worker.join() {
-        Ok(Ok(stopped)) => ended(stopped),
+        Ok(Ok(stopped)) => {
+            // what results.json says of grids not known to have converged, said here too
+            if let Ok(results) = job::results::Results::read(&dir) {
+                for line in results.convergence_lines() {
+                    eprintln!("{line}");
+                }
+            }
+            ended(stopped)
+        }
         Ok(Err(e)) => fail(e),
         Err(_) => fail("the job panicked"),
     }
@@ -320,10 +332,19 @@ fn ended(stopped: Option<StopReason>) -> ExitCode {
     }
 }
 
+/// Whether a command's arguments ask for its usage (`--help` or `-h`), which a command taking a
+/// run directory first would otherwise read as one.
+fn asks_for_help(args: &[String]) -> bool {
+    args.iter().any(|a| a == "--help" || a == "-h")
+}
+
 fn view(args: &[String]) -> ExitCode {
     let [dir] = args else {
         return usage();
     };
+    if asks_for_help(args) {
+        return usage();
+    }
     let dir = Path::new(dir);
     if !dir.join("events.jsonl").is_file() {
         return fail(format!("{} has no events.jsonl", dir.display()));
@@ -338,6 +359,9 @@ fn export(args: &[String]) -> ExitCode {
     let Some((dir, rest)) = args.split_first() else {
         return usage();
     };
+    if asks_for_help(args) {
+        return usage();
+    }
     let dir = Path::new(dir);
     if !dir.join("events.jsonl").is_file() {
         return fail(format!("{} has no events.jsonl", dir.display()));
@@ -595,6 +619,18 @@ mod console {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn export_and_view_take_help_for_help_not_for_a_run_directory() {
+        let help = |args: &[&str]| args.iter().map(|&a| a.to_owned()).collect::<Vec<_>>();
+        assert!(asks_for_help(&help(&["--help"])));
+        assert!(asks_for_help(&help(&["runs/a", "-h"])));
+        assert!(!asks_for_help(&help(&["runs/a", "--list"])));
+        // the usage (exit 2), as every other command gives it, not "--help has no events.jsonl"
+        let usage = format!("{:?}", ExitCode::from(2));
+        assert_eq!(format!("{:?}", export(&help(&["--help"]))), usage);
+        assert_eq!(format!("{:?}", view(&help(&["--help"]))), usage);
+    }
 
     #[test]
     fn new_writes_a_template_in_the_format_its_file_names_and_never_over_a_file() {

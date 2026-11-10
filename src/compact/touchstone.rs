@@ -331,6 +331,40 @@ impl Touchstone {
         })
     }
 
+    /// [`Touchstone::write`], stating the values' time convention, `convention`, in a comment
+    /// line after the first: the specification has no place for one, and a tool that reads
+    /// only the file then knows it (a reader passes comments over).
+    ///
+    /// # Errors
+    ///
+    /// As [`Touchstone::write`].
+    pub fn write_stating(&self, precision: Precision, convention: Convention) -> Result<String> {
+        let text = self.write(precision)?;
+        let (first, rest) = text.split_once('\n').unwrap_or((text.as_str(), ""));
+        Ok(format!(
+            "{first}\n{}\n{rest}",
+            convention_comment(convention)
+        ))
+    }
+
+    /// Writes the file, as [`Touchstone::write_stating`] does, to `path`.
+    ///
+    /// # Errors
+    ///
+    /// As [`Touchstone::write`], and [`Error::Io`] if it can't be written.
+    pub fn write_file_stating(
+        &self,
+        path: &Path,
+        precision: Precision,
+        convention: Convention,
+    ) -> Result<()> {
+        let text = self.write_stating(precision, convention)?;
+        std::fs::write(path, text).map_err(|e| Error::Io {
+            path: path.display().to_string(),
+            reason: e.to_string(),
+        })
+    }
+
     /// Reads Touchstone text. `ports` is a Version 1 file's number of ports (its `.sNp`
     /// extension's N); with `None` it is taken from how the data is laid out. A Version 2.0
     /// file states its own, and `ports`, if given, must agree.
@@ -594,6 +628,20 @@ impl Touchstone {
 
 fn hertz(w: Wavelength) -> f64 {
     SPEED_OF_LIGHT / (w.to_um() * 1e-6)
+}
+
+/// The comment line that states a file's time convention, in ASCII as the file is.
+fn convention_comment(convention: Convention) -> &'static str {
+    match convention {
+        Convention::Physics => {
+            "! time convention: fields as exp(-i*omega*t) (physics); a tool that takes \
+             exp(+j*omega*t) reads the complex conjugate"
+        }
+        Convention::Engineering => {
+            "! time convention: fields as exp(+j*omega*t) (engineering); a tool that takes \
+             exp(-i*omega*t) reads the complex conjugate"
+        }
+    }
 }
 
 /// A value between the file's convention and photonoxide's: conjugated for engineering.
