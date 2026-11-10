@@ -27,9 +27,11 @@
   /** |S_q1|² against the wavelength, one series per output. */
   const spectra = $derived.by((): Series[] => {
     if (run.sparams.length < 2) return [];
-    const ports = run.sparams[0].ports.length;
+    const names = run.sparams[0].ports;
+    const ports = names.length;
     return Array.from({ length: ports }, (_, q) => ({
-      label: `S${q + 1}1`,
+      // the pair by name too, in the chart's legend and its CSV's columns: which is the through port, which the drop
+      label: names[q] && names[0] ? `S${q + 1}1, into ${names[q]} from ${names[0]}` : `S${q + 1}1`,
       points: run.sparams.map((sp) => {
         const [re, im] = sp.s[q][0];
         return [sp.wavelength_um, decibels ? db(re, im) : re * re + im * im] as [number, number];
@@ -297,7 +299,7 @@
           series={spectra}
           xLabel="wavelength"
           xLength
-          yLabel={decibels ? "|S_q1|² (dB)" : "|S_q1|²"}
+          yLabel={decibels ? "|S|² from port 1 (dB)" : "|S|² from port 1"}
           yRange={decibels ? undefined : [0, 1.02]}
           name="{run.job?.job ?? 'run'}-spectra"
           {marker}

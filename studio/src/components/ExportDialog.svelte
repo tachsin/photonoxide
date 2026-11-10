@@ -76,7 +76,9 @@
     busy = true;
     try {
       const written = await api.exportWrite(dir, chosenTables, to ? chosenFiles : [], to, precision, level);
-      toast(`${written.length} file${written.length === 1 ? "" : "s"} written`, "success");
+      // where they went: the folder they are in (the run's, or the one chosen)
+      const folder = written.length ? written[0].replace(/[\\/][^\\/]*$/, "") : (to ?? dir);
+      toast(`${written.length} file${written.length === 1 ? "" : "s"} written to ${folder}`, "success", undefined, 6000);
       if (to && written.length) await revealItemInDir(written[0]);
       await load();
     } catch (e) {
