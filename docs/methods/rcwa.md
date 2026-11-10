@@ -49,7 +49,7 @@ k_m = k_0 n_c \sin\theta + \frac{2\pi m}{\Lambda},
 $$
 
 with ψ the field along y (E for TE, H for TM). In units of $k_0 = 2\pi/\lambda$, $K_x =
-\operatorname{diag}(k_m/k_0)$ and $z' = k_0 z$. Write $E = [\![\varepsilon]\!]$ and $A =
+\mathop{\mathrm{diag}}(k_m/k_0)$ and $z' = k_0 z$. Write $E = [\![\varepsilon]\!]$ and $A =
 [\![1/\varepsilon]\!]$ for the Toeplitz matrices whose (m, n) entries are the Fourier
 coefficients $\varepsilon_{m-n}$ and $(1/\varepsilon)_{m-n}$; for stripes of permittivity
 $\varepsilon_j$ between $x_j$ and $x_{j+1}$,
@@ -84,8 +84,8 @@ uses Laurent's rule where the inverse rule belongs; Li's Theorem 2 shows its err
 doesn't vanish as M grows (p. 1872). It is kept in the code to show the difference.
 
 The eigenvectors $W$ and eigenvalues $q^2$ of the layer's matrix are its modes, $\psi = W(e^{-Qz'}
-c^+ + e^{Q(z'-d')} c^-)$, $Q = \operatorname{diag}(q)$, $q = -ik_z$. Each $q$ takes the root that
-decays downward, $\operatorname{Re} q \gt 0$, or for a propagating mode (Re q zero to rounding)
+c^+ + e^{Q(z'-d')} c^-)$, $Q = \mathop{\mathrm{diag}}(q)$, $q = -ik_z$. Each $q$ takes the root that
+decays downward, $\mathop{\mathrm{Re}} q \gt 0$, or for a propagating mode (Re q zero to rounding)
 the one that travels downward. The tangential fields' coefficients are
 
 $$
@@ -133,8 +133,8 @@ E (TE) or H (TM). With $k_{z,m} = i q_m$, the flux of each order gives its share
 power:
 
 $$
-R_m = \lvert r_m \rvert^2 \frac{\operatorname{Re} k^c_{z,m}}{k^c_{z,0}}, \quad
-T_m = \lvert t_m \rvert^2 \frac{\operatorname{Re} k^s_{z,m}}{k^c_{z,0}} \text{ (TE)}; \qquad
+R_m = \lvert r_m \rvert^2 \frac{\mathop{\mathrm{Re}} k^c_{z,m}}{k^c_{z,0}}, \quad
+T_m = \lvert t_m \rvert^2 \frac{\mathop{\mathrm{Re}} k^s_{z,m}}{k^c_{z,0}} \text{ (TE)}; \qquad
 \text{TM: } k_z/\varepsilon \text{ in place of } k_z .
 $$
 

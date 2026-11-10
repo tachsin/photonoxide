@@ -664,14 +664,14 @@ pub(crate) fn cases() -> Vec<Case> {
     vec![
         Case {
             id: "nonlinear/sinc2-half-maximum",
-            title: r"The undepleted response $\operatorname{sinc}^2(\Delta k L/2)$ falls to ½ at $\Delta k L/2 = 1.391557\ldots$ (Fejer's $0.4429\pi$), the point every FWHM acceptance bandwidth is taken at ($\operatorname{sinc}^2$ there shown)",
+            title: r"The undepleted response $\mathop{\mathrm{sinc}}^2(\Delta k L/2)$ falls to ½ at $\Delta k L/2 = 1.391557\ldots$ (Fejer's $0.4429\pi$), the point every FWHM acceptance bandwidth is taken at ($\mathop{\mathrm{sinc}}^2$ there shown)",
             tier: Tier::Analytic,
             source: r"$\sin x / x = 1/\sqrt{2}$; Fejer et al., IEEE J. Quantum Electron. 28, 2631 (1992), doi:10.1109/3.161322, Sec. II",
             run: half_maximum,
         },
         Case {
             id: "nonlinear/sinc2-length-squared",
-            title: r"Quasi-phase-matched SHG of 1.064 µm in congruent LiNbO₃ ($d_{33}$, Edwards and Lawrence's indices, 25 °C), its grating designed for the process: the undepleted harmonic's power over 2 mm against 1 mm, $L^2 \operatorname{sinc}^2(\Delta k L/2)$ at $\Delta k = 0$ (ratio shown)",
+            title: r"Quasi-phase-matched SHG of 1.064 µm in congruent LiNbO₃ ($d_{33}$, Edwards and Lawrence's indices, 25 °C), its grating designed for the process: the undepleted harmonic's power over 2 mm against 1 mm, $L^2 \mathop{\mathrm{sinc}}^2(\Delta k L/2)$ at $\Delta k = 0$ (ratio shown)",
             tier: Tier::Analytic,
             source: r"$\left\lvert\int_0^L e^{-i\Delta k z} dz\right\rvert^2 = L^2$ at $\Delta k = 0$; Fejer et al., Eqs. (4) and (19)",
             run: length_squared,
@@ -727,7 +727,7 @@ pub(crate) fn cases() -> Vec<Case> {
         },
         Case {
             id: "nonlinear/coupled-undepleted",
-            title: r"The coupled-amplitude equations of SHG by RK4 (1000 steps), undepleted: $\eta = 4500$ %/(W·cm²), 4 mm, $\Delta k L/2 = 1$, from $10^{-20}$ W, against $\eta P_0^2 L^2 \operatorname{sinc}^2(1)$ (the harmonic's power shown, W)",
+            title: r"The coupled-amplitude equations of SHG by RK4 (1000 steps), undepleted: $\eta = 4500$ %/(W·cm²), 4 mm, $\Delta k L/2 = 1$, from $10^{-20}$ W, against $\eta P_0^2 L^2 \mathop{\mathrm{sinc}}^2(1)$ (the harmonic's power shown, W)",
             tier: Tier::Analytic,
             source: r"the undepleted limit, Fejer et al., Eq. (19); the depletion is below $10^{-19}$",
             run: coupled_undepleted_case,
@@ -750,7 +750,7 @@ pub(crate) fn cases() -> Vec<Case> {
             id: "nonlinear/coupled-sfg-sech",
             title: r"Phase-matched sum-frequency generation of 1.55 and 1.31 µm from equal photon fluxes $F$, depleted, by RK4 (1000 steps): the sum's photons $P_3/\nu_3 F$ at $L = 2l$ against $\tanh^2 2$ (shown)",
             tier: Tier::Analytic,
-            source: r"Armstrong et al., Sec. VI: with equal numbers of photons at $\omega_1$ and $\omega_2$, $u_1 = u_2 = u_1(0)\operatorname{sech}(z/l)$ and $u_3 = u_1(0)\tanh(z/l)$",
+            source: r"Armstrong et al., Sec. VI: with equal numbers of photons at $\omega_1$ and $\omega_2$, $u_1 = u_2 = u_1(0)\mathop{\mathrm{sech}}(z/l)$ and $u_3 = u_1(0)\tanh(z/l)$",
             run: coupled_sech_case,
         },
         Case {
@@ -778,7 +778,7 @@ pub(crate) fn cases() -> Vec<Case> {
             id: "nonlinear/pairs-gaussian-purity",
             title: r"Photon pairs: degenerate down-conversion of 0.775 µm over 1 cm (group indices 2.30, 2.25 and 2.40), a Gaussian pump 0.6 nm wide and Gaussian phase matching: the purity of the joint spectral amplitude by the singular value decomposition of 201 × 201 samples, against the two-dimensional Gaussian's $P = \sqrt{1 - c^2/ab}$ (purity shown)",
             tier: Tier::Analytic,
-            source: r"$\operatorname{Tr}\rho^2$ of a Gaussian amplitude $e^{-z^T M z/2}$, $M = [[a, c], [c, b]]$, in closed form; the amplitude as W. P. Grice, I. A. Walmsley, Phys. Rev. A 56, 1627 (1997), doi:10.1103/PhysRevA.56.1627, Eq. (9), its phase matching a Gaussian of the sinc²'s FWHM",
+            source: r"$\mathop{\mathrm{Tr}}\rho^2$ of a Gaussian amplitude $e^{-z^T M z/2}$, $M = [[a, c], [c, b]]$, in closed form; the amplitude as W. P. Grice, I. A. Walmsley, Phys. Rev. A 56, 1627 (1997), doi:10.1103/PhysRevA.56.1627, Eq. (9), its phase matching a Gaussian of the sinc²'s FWHM",
             run: pairs_gaussian_case,
         },
     ]

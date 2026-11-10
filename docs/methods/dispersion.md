@@ -31,8 +31,8 @@ three-point, second-order differences of the samples, which may be unevenly spac
 parabola. Both include the materials' dispersion when the effective indices do, so each
 wavelength's cross-section is built from the materials at that wavelength.
 
-The **loss** follows from the imaginary index: the power decays as $e^{-2k_0 \operatorname{Im}(n_\text{eff}) z}$, in
-dB/cm $10 \log_{10}(e) \cdot 2 k_0 \operatorname{Im}(n_\text{eff}) \cdot 10^4$ with $k_0$ in 1/µm.
+The **loss** follows from the imaginary index: the power decays as $e^{-2k_0 \mathop{\mathrm{Im}}(n_\text{eff}) z}$, in
+dB/cm $10 \log_{10}(e) \cdot 2 k_0 \mathop{\mathrm{Im}}(n_\text{eff}) \cdot 10^4$ with $k_0$ in 1/µm.
 
 ## Following one mode
 

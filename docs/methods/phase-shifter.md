@@ -174,7 +174,7 @@ above changes only the level:
   a 2D problem with $k k_z^2 T$ added, 57 of them from $k_z$ = 10 to 10⁸ per metre (each one
   backward-Euler step of $1/k_z^2$ s with the heat capacities set to the conductivities), and a
   guide's mean over the length is its 2D value times
-  $R = \frac{2}{\pi}\int_0^\infty \operatorname{sinc}^2 u\,\tau(2u/L)\,du$, $\tau(k)$ its
+  $R = \frac{2}{\pi}\int_0^\infty \mathop{\mathrm{sinc}}^2 u\,\tau(2u/L)\,du$, $\tau(k)$ its
   temperature at $k_z = k$ over its 2D one. At the paper's 320 µm R is 0.972 for the heated
   guide, 0.884 at 5 µm and 0.673 at 15 µm: the crosstalk falls to 0.166 and 0.0403, 18 % above
   and 7 % below the measured, a ratio of 4.12 against 3.24, and the chip's own Pπ rises from

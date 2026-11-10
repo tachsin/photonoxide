@@ -141,7 +141,7 @@ below as one body.
 `material::Graded` is a refractive index $n(x, y, z)$ (`Graded::index`) or a relative
 permittivity $\varepsilon(x, y, z)$ (`Graded::permittivity`): an expression (docs/methods/
 expressions.md) of the coordinates, lengths with their units, and of named parameters, a plain
-number: `1.5 + 0.1*exp(-(x/2um)^2 - (z/0.5um)^2)`, a diffused guide's $\operatorname{erf}$
+number: `1.5 + 0.1*exp(-(x/2um)^2 - (z/0.5um)^2)`, a diffused guide's $\mathop{\mathrm{erf}}$
 profile, a GRIN lens's parabola. It has no dispersion, and being real it is never active;
 `Graded::check` refuses it where $\varepsilon$ isn't positive and finite, and every solver that
 samples it refuses what it finds there so.

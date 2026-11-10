@@ -43,10 +43,10 @@ pub fn specs() -> Vec<DiagramSpec> {
             title: "A leaky multilayer, and a bend from above",
             caption: "At the left, a planar guide in section: a cover $n_c$, films $n_1 \\ldots \
                       n_J$, and a substrate $n_s$ whose index is above the mode's \
-                      $\\operatorname{Re} n_\\text{eff}$. The mode travels along $z$ as \
+                      $\\mathop{\\mathrm{Re}} n_\\text{eff}$. The mode travels along $z$ as \
                       $e^{ikn_\\text{eff}z}$ and sheds a plane wave into the substrate at an \
                       angle $\\theta$ from the faces' normal, weaker further along as the mode \
-                      loses power, so $\\operatorname{Im} n_\\text{eff} \\gt 0$. Its field \
+                      loses power, so $\\mathop{\\mathrm{Im}} n_\\text{eff} \\gt 0$. Its field \
                       $\\lvert\\psi(x)\\rvert$ decays into the cover and grows into the \
                       substrate as $e^{ik\\alpha_s x}$. At the right, a guide of index $n_1$ in a \
                       cladding $n_2$, bent at a radius $R$ about $O$, seen from above: the mode \

@@ -191,6 +191,8 @@ const TEX_WORDS = {
   times: "×", cdot: "·", pm: "±", mp: "∓", le: "≤", leq: "≤", ge: "≥", geq: "≥", ne: "≠", neq: "≠",
   approx: "≈", sim: "∼", propto: "∝", to: "→", rightarrow: "→", leftarrow: "←", sum: "Σ", prod: "Π",
   int: "∫", sqrt: "√", ell: "ℓ", hbar: "ħ", circ: "°", degree: "°",
+  // \mathop{\mathrm{Re}}, the docs' operator names (GitHub refuses \operatorname): the name alone
+  mathop: "",
 };
 
 /** TeX as readable plain text, for a page's title or description: Greek letters and operators as characters, the rest unbraced. */

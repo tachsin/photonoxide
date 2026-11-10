@@ -6,8 +6,8 @@
 //! 500 × 220 nm of silicon (3.5) on 1 µm of oxide (1.45) on a silicon substrate, air above, at
 //! 1.55 µm. The fundamental TE mode leaks through the oxide into the substrate. Ten methods
 //! were compared (Table 6); the two that agree best, CAMFR and the aperiodic Fourier modal
-//! method, give $\operatorname{Re} n_\mathrm{eff} = 2.412372$ (7 digits) and
-//! $\operatorname{Im} n_\mathrm{eff} = 2.9135 \times 10^{-8}$ and $2.91348 \times 10^{-8}$.
+//! method, give $\mathop{\mathrm{Re}} n_\mathrm{eff} = 2.412372$ (7 digits) and
+//! $\mathop{\mathrm{Im}} n_\mathrm{eff} = 2.9135 \times 10^{-8}$ and $2.91348 \times 10^{-8}$.
 //!
 //! The wire's corners slow finite differences to order ~0.67 here (silicon against air), so
 //! the raw results converge slowly: +4.0e-3, +2.5e-3, +1.5e-3 at 5, 2.5 and 1.25 nm. Their

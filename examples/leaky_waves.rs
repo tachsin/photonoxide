@@ -5,7 +5,7 @@
 //! leaky waves of their four-layer guide (cover 1.0; films 1.66, 1.53, 1.60, 1.66, 500 nm each;
 //! substrate 1.50; 632.8 nm), complex effective indices to 5 decimals. A leaky wave's field
 //! grows into the substrate; the PML (W. C. Chew et al., Microw. Opt. Technol. Lett. 15, 363
-//! (1997)) absorbs it, and the loss, $\operatorname{Im} n_\mathrm{eff}$, comes out of the
+//! (1997)) absorbs it, and the loss, $\mathop{\mathrm{Im}} n_\mathrm{eff}$, comes out of the
 //! eigenvalue.
 //!
 //! The guide lies flat, uniform in $x$ between two electric walls (TE), on a 2.5 nm grid: 1 µm of

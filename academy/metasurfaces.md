@@ -284,7 +284,7 @@ subject of [Surface plasmons and Mie scattering](plasmonics.md).
 
 A rectangular fin is birefringent: light polarized along its length and across it travel through
 it with different effective indices, so a fin aligned with $x$ transmits with the Jones matrix
-$T_0 = \operatorname{diag}(t_x, t_y)$. Rotate it by $\alpha$:
+$T_0 = \mathop{\mathrm{diag}}(t_x, t_y)$. Rotate it by $\alpha$:
 
 $$
 T(\alpha) = R(\alpha)\,T_0\,R(-\alpha)

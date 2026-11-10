@@ -32,7 +32,7 @@ every sign:
 
 - a wave travelling towards +x is $e^{i(kx - \omega t)}$: at a fixed time, its phase grows with x;
 - a waveguide mode travels along z as $e^{i(\beta z - \omega t)}$, so a lossy or leaky mode has
-  $\operatorname{Im}\beta \gt 0$, and so does its effective index $n_\text{eff} = \beta / k_0$;
+  $\mathop{\mathrm{Im}}\beta \gt 0$, and so does its effective index $n_\text{eff} = \beta / k_0$;
 - a passive, lossy medium has a **positive** imaginary permittivity, and refractive index
   $n = n' + i\kappa$ with $\kappa \ge 0$;
 - a real signal's amplitude at ω is recovered with the kernel $e^{+i\omega t}$:
@@ -81,5 +81,5 @@ systems before the change: the report and 29 of the 31 examples printed the same
 ## Validation
 
 Two analytic cases pin the convention: the amplitude of a real signal is recovered with the
-kernel above, and a wave in a medium with $\operatorname{Im}\varepsilon \gt 0$ decays over one wavelength by
+kernel above, and a wave in a medium with $\mathop{\mathrm{Im}}\varepsilon \gt 0$ decays over one wavelength by
 exactly $e^{-2\pi\kappa}$.

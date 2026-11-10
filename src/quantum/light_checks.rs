@@ -78,7 +78,7 @@ pub(crate) fn cases() -> Vec<Case> {
             id: "quantum/hafnian-ones",
             title: r"Quantum: the hafnian of the $2n \times 2n$ all-ones matrix is the number of perfect matchings of $2n$ vertices, $(2n - 1)!!$, $n$ = 1 to 12 (largest relative error shown)",
             tier: Tier::Analytic,
-            source: r"$\operatorname{Haf}(J_{2n}) = (2n-1)!!$; A. Björklund, B. Gupt, N. Quesada, ACM J. Exp. Algorithmics 24, 1.11 (2019), doi:10.1145/3325111, Eq. (24)",
+            source: r"$\mathop{\mathrm{Haf}}(J_{2n}) = (2n-1)!!$; A. Björklund, B. Gupt, N. Quesada, ACM J. Exp. Algorithmics 24, 1.11 (2019), doi:10.1145/3325111, Eq. (24)",
             run: hafnian_ones,
         },
         Case {
@@ -118,7 +118,7 @@ pub(crate) fn cases() -> Vec<Case> {
         },
         Case {
             id: "quantum/displaced-states",
-            title: r"Quantum: a coherent state ($\alpha$ = 0.7 − 0.4i) by the loop hafnian is Poissonian, $n$ = 0 to 15; and a displaced squeezed state ($r$ = 0.3, $\varphi$ = 1.1, $\alpha$ = 0.4 + 0.5i): its distribution's mean and variance, to 30 photons, against the covariance's $\frac{1}{4}(\operatorname{Tr} V + \lvert d \rvert^2) - \frac{1}{2}$ and $\frac{1}{8}(\operatorname{Tr} V^2 - 2) + \frac{1}{4} d^T V d$ (largest difference shown)",
+            title: r"Quantum: a coherent state ($\alpha$ = 0.7 − 0.4i) by the loop hafnian is Poissonian, $n$ = 0 to 15; and a displaced squeezed state ($r$ = 0.3, $\varphi$ = 1.1, $\alpha$ = 0.4 + 0.5i): its distribution's mean and variance, to 30 photons, against the covariance's $\frac{1}{4}(\mathop{\mathrm{Tr}} V + \lvert d \rvert^2) - \frac{1}{2}$ and $\frac{1}{8}(\mathop{\mathrm{Tr}} V^2 - 2) + \frac{1}{4} d^T V d$ (largest difference shown)",
             tier: Tier::Analytic,
             source: "a coherent state's number distribution is Poisson's; a Gaussian state's photon-number moments by Wick's theorem (C. Weedbrook et al., doi:10.1103/RevModPhys.84.621, with ħ = 2)",
             run: displaced_states,
@@ -146,9 +146,9 @@ pub(crate) fn cases() -> Vec<Case> {
         },
         Case {
             id: "quantum/source-hom-gaussian",
-            title: r"Quantum: the Hong–Ou–Mandel visibility of heralded photons from two sources with Gaussian joint spectra ($M$ = [[1, 0.6], [0.6, 1.3]] and [[1.4, −0.3], [−0.3, 0.9]]), $\operatorname{Tr}(\rho_A \rho_B)$ on a 161-point grid, against its closed form, and a source with itself against its purity $\sqrt{1 - c^2/ab}$ (largest difference shown)",
+            title: r"Quantum: the Hong–Ou–Mandel visibility of heralded photons from two sources with Gaussian joint spectra ($M$ = [[1, 0.6], [0.6, 1.3]] and [[1.4, −0.3], [−0.3, 0.9]]), $\mathop{\mathrm{Tr}}(\rho_A \rho_B)$ on a 161-point grid, against its closed form, and a source with itself against its purity $\sqrt{1 - c^2/ab}$ (largest difference shown)",
             tier: Tier::Analytic,
-            source: r"Gaussian integrals: $\operatorname{Tr}(\rho_A \rho_B) = 2\sqrt{\det M_A \det M_B} / \sqrt{b_A b_B \det(Q_A + Q_B)}$, $Q = \frac{1}{2}$[[$2a - c^2/b$, $-c^2/b$], [$-c^2/b$, $2a - c^2/b$]]; W. P. Grice, I. A. Walmsley, Phys. Rev. A 56, 1627 (1997), doi:10.1103/PhysRevA.56.1627",
+            source: r"Gaussian integrals: $\mathop{\mathrm{Tr}}(\rho_A \rho_B) = 2\sqrt{\det M_A \det M_B} / \sqrt{b_A b_B \det(Q_A + Q_B)}$, $Q = \frac{1}{2}$[[$2a - c^2/b$, $-c^2/b$], [$-c^2/b$, $2a - c^2/b$]]; W. P. Grice, I. A. Walmsley, Phys. Rev. A 56, 1627 (1997), doi:10.1103/PhysRevA.56.1627",
             run: source_hom_gaussian,
         },
         Case {
@@ -237,7 +237,7 @@ pub(crate) fn cases() -> Vec<Case> {
         },
         Case {
             id: "quantum/broadband-symplectic",
-            title: r"Quantum: a broadband source at high gain ($g$ = 3; 48 signal and 48 idler frequencies, a Gaussian pump, a phase mismatch linear in both, 40 slices): its Bogoliubov map $M$ keeps the commutators, $M \Sigma M^\dagger = \Sigma$, $\Sigma = \operatorname{diag}(I, -I)$ (largest entry of the difference over $M$'s largest squared, shown)",
+            title: r"Quantum: a broadband source at high gain ($g$ = 3; 48 signal and 48 idler frequencies, a Gaussian pump, a phase mismatch linear in both, 40 slices): its Bogoliubov map $M$ keeps the commutators, $M \Sigma M^\dagger = \Sigma$, $\Sigma = \mathop{\mathrm{diag}}(I, -I)$ (largest entry of the difference over $M$'s largest squared, shown)",
             tier: Tier::Analytic,
             source: "an ordered product of exponentials of Hermitian generators [[0, G], [G†, 0]] keeps Σ exactly",
             run: broadband_symplectic,
@@ -279,7 +279,7 @@ pub(crate) fn cases() -> Vec<Case> {
         },
         Case {
             id: "quantum/broadband-photons",
-            title: r"Quantum: the high-gain source's mean photon number from its map, $\operatorname{Tr} BB^\dagger$, against $\sum_k \sinh^2 r_k$ and against its 96-mode Gaussian state's photons (largest relative difference shown)",
+            title: r"Quantum: the high-gain source's mean photon number from its map, $\mathop{\mathrm{Tr}} BB^\dagger$, against $\sum_k \sinh^2 r_k$ and against its 96-mode Gaussian state's photons (largest relative difference shown)",
             tier: Tier::Analytic,
             source: "B = U sinh R W† (Bloch–Messiah), so Tr BB† = Σ sinh² r_k; each pair of squeezed modes a two-mode squeezed vacuum of r_k",
             run: broadband_photons,

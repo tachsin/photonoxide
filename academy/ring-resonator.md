@@ -499,7 +499,7 @@ $C$ a constant of the dispersion (the compact models' write-up derives it). The 
 gives $ra$, as the finesse did. The residue gives $r$ alone, and so $a = ra/r$: exchanging $r$ and
 $a$ keeps the poles and changes the residue. The chart fits 201 samples of $t$ across the
 resonance with 4 poles and reads $\kappa^2 = 1 - r^2$ and the loss in dB/cm back for the ring and
-for its twin. The pole also gives the decay Q of Section 4, $|\operatorname{Im} p|/(2|\operatorname{Re} p|) = \pi n_g L/(\lambda\lvert\ln ra\rvert)$.
+for its twin. The pole also gives the decay Q of Section 4, $|\mathop{\mathrm{Im}} p|/(2|\mathop{\mathrm{Re}} p|) = \pi n_g L/(\lambda\lvert\ln ra\rvert)$.
 
 The library's fit of an all-pass ring ($r = 0.95$, $a = 0.98$) over four resonances, and its poles
 against these exact ones:

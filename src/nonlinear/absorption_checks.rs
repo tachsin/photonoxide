@@ -305,7 +305,7 @@ pub(crate) fn cases() -> Vec<Case> {
             id: "nonlinear/xpm-walk-off-phase",
             title: r"Cross-phase modulation between two Gaussians that walk off, without dispersion: Agrawal's Fig. 7.2 ($\gamma_1P_1L = 40$, $P_2/P_1 = 0.5$, $\gamma_2/\gamma_1 = 1.2$, $\delta = dL/T_0 = 5$; 2000 split steps, 1024 points): the largest $\lvert A_1(L)/A_1(0) - e^{i\phi_1}\rvert$ over $\lvert T\rvert \leq 3T_0$ (shown)",
             tier: Tier::Analytic,
-            source: r"Agrawal (2019), doi:10.1016/C2018-0-01168-8, Eqs. (7.4.5)–(7.4.9): $\phi_1 = \gamma_1L[P_1e^{-\tau^2} + P_2(\sqrt{\pi}/\delta)(\operatorname{erf}\tau - \operatorname{erf}(\tau - \delta))]$",
+            source: r"Agrawal (2019), doi:10.1016/C2018-0-01168-8, Eqs. (7.4.5)–(7.4.9): $\phi_1 = \gamma_1L[P_1e^{-\tau^2} + P_2(\sqrt{\pi}/\delta)(\mathop{\mathrm{erf}}\tau - \mathop{\mathrm{erf}}(\tau - \delta))]$",
             run: xpm_case,
         },
         Case {

@@ -95,7 +95,7 @@ nothing. Lossless, it is unitary.
 `Dispersion::from_modes` takes a mode of the [full-vector solver](vector.md) at
 $\lambda_0 - 2h, \dots, \lambda_0 + 2h$, tracked across them ([dispersion.md](dispersion.md)):
 $n_0$, $n_g$ and $D$ from the three in the middle by central differences, the loss from
-$\operatorname{Im} n_0$, and the model's error from the outer two. A `Waveguide::from_modes`
+$\mathop{\mathrm{Im}} n_0$, and the model's error from the outer two. A `Waveguide::from_modes`
 built so is exact for a waveguide uniform along its length, to its grid's error, so its fidelity
 is 3D; it holds over $\lambda_0 \pm 2h$.
 `Dispersion::from_hadley` does the same with each mode refined by
@@ -239,7 +239,7 @@ bends' and couplers' 0.075 or 0.11 dB, the loaded Q peaks at 9.35 mm (all-pass, 
 `jobs/ring-fdfd.yaml`, an all-pass ring of 2 µm radius by 2D FDFD (25 nm grid), resonates at
 1.52060 and 1.56730 µm, 46.70 nm apart; Eq. 9 with the group index of the exact bent slab of
 the same plane (4.04 at the midpoint) says 46.95 nm. Both resonances sit 2.3 nm above the bent
-slab's own, $\operatorname{Re}\nu = m$: the bus's coupling pulls them, and the 25 nm grid's
+slab's own, $\mathop{\mathrm{Re}}\nu = m$: the bus's coupling pulls them, and the 25 nm grid's
 staircased ring is a little larger.
 
 ## Mach-Zehnder interferometer
@@ -247,7 +247,7 @@ staircased ring is a little larger.
 `mzi` builds a Mach-Zehnder interferometer as a netlist (instances `splitter`, `combiner`,
 `upper`, `lower`), solved by the [circuit solve](circuits.md) like any chip, and `mzi_y` the
 same with Y-branches. Its closed form, without reflections, is the product of transfer matrices
-$C_c \operatorname{diag}(t_\text{lower}, t_\text{upper})\thinspace C_s$, each coupler's
+$C_c \mathop{\mathrm{diag}}(t_\text{lower}, t_\text{upper})\thinspace C_s$, each coupler's
 $C = \begin{pmatrix} t & x \\ x & t \end{pmatrix}$ in the basis (lower guide, upper guide),
 $t$ its through and $x$ its across field; the netlist matches it to 2e-16, and without loss it is
 unitary to 4e-16.

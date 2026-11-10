@@ -148,12 +148,12 @@ itself, so $e^{iKa}$ is an eigenvalue of $T$, and with $\det T = 1$ the two eige
 $e^{\pm iKa}$, whose sum is the trace:
 
 $$
-\cos Ka = \tfrac12 \operatorname{tr} T = \cos k_1 d_1 \cos k_2 d_2 - \tfrac12\left(\frac{n_1}{n_2} + \frac{n_2}{n_1}\right)\sin k_1 d_1 \sin k_2 d_2 ,
+\cos Ka = \tfrac12 \mathop{\mathrm{tr}} T = \cos k_1 d_1 \cos k_2 d_2 - \tfrac12\left(\frac{n_1}{n_2} + \frac{n_2}{n_1}\right)\sin k_1 d_1 \sin k_2 d_2 ,
 $$
 
 $k_i = n_i\omega/c$. Where the right side lies between −1 and 1, $K$ is real and a wave travels;
 where it lies outside, $K$ is complex and the wave decays along the stack: a gap. The chart
-evaluates the half trace as $\operatorname{Re}(1/t)$, $t$ one period's transmission from
+evaluates the half trace as $\mathop{\mathrm{Re}}(1/t)$, $t$ one period's transmission from
 `Multilayer::reflection`, which equals it for a symmetric, lossless period; it is exact, with no
 grid.
 

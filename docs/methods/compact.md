@@ -109,7 +109,7 @@ surplus poles' residues are 3e-6 rad/s, against the paper's 4.3e-7 Hz.
 
 **The Laplace variable.** photonoxide's fields go as $e^{-i\omega t}$, so a field $e^{st}$ has
 $s = -i\omega$. A wavelength λ is $s = -i\,2\pi/\lambda$, in rad/µm. A stable pole has
-$\operatorname{Re} a \lt 0$, as in the paper's convention. A resonance at ω with quality factor
+$\mathop{\mathrm{Re}} a \lt 0$, as in the paper's convention. A resonance at ω with quality factor
 Q has $a \approx -\omega/2Q - i\omega$. A delay τ (µm of light travel, $n_g L$ for a guide) is
 $e^{-s\tau} = e^{i\omega\tau}$, the phase of light that travels. `Delay::Fixed(τ)` takes it out
 before the fit. `Delay::Estimate` takes each element's delay from the slope of its unwrapped
@@ -256,7 +256,7 @@ by another route:
 - A pole sits on the axis at $s = j\omega$ when $1 + t\thinspace g(j\omega) = 0$, with
   $g(s) = \delta^T(sI - H)^{-1}b$, that is, where $g(j\omega)$ is real and at most −1.
 - g is real on the axis where $F(s) = g(s) - \overline{g(-\bar s)}$ vanishes. F is realized on
-  $\operatorname{blkdiag}(H, -\bar H)$, and its zeros are the finite generalized eigenvalues of
+  $\mathop{\mathrm{blkdiag}}(H, -\bar H)$, and its zeros are the finite generalized eigenvalues of
   its system pencil: every candidate ω at once, without sampling.
 - Each candidate's t is only estimated from g. It is pinned by bisection on the sign of the
   real part of the pole nearest the axis point, searched on both sides of the estimate, and kept

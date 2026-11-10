@@ -214,9 +214,9 @@ frequency and shortens its wavelength.
 ## 3. How far does a surface plasmon travel, and how tightly is it held?
 
 The metal's loss makes $k$ complex. Its imaginary part sets the **propagation length**
-$L = 1/(2\operatorname{Im} k)$, over which the power falls by $e$; the decay constants
+$L = 1/(2\mathop{\mathrm{Im}} k)$, over which the power falls by $e$; the decay constants
 $\kappa_d$ and $\kappa_m$ set how far the field reaches into the dielectric and into the metal,
-$\delta_d = 1/\operatorname{Re}\kappa_d$ and $\delta_m = 1/\operatorname{Re}\kappa_m$. The chart
+$\delta_d = 1/\mathop{\mathrm{Re}}\kappa_d$ and $\delta_m = 1/\mathop{\mathrm{Re}}\kappa_m$. The chart
 draws the three against frequency up to $\omega_\text{sp}$, in units of the plasma wavelength
 $\lambda_p = 2\pi c/\omega_p$, for vacuum over a Drude metal with $\gamma = 0.01\thinspace\omega_p$
 (exact, no grid):
@@ -246,10 +246,10 @@ expand $k^2 = k_0^2\varepsilon_m\varepsilon_d/(\varepsilon_m + \varepsilon_d)$ t
 $\varepsilon''$: its derivative in $\varepsilon_m$ is $k_0^2\varepsilon_d^2/(\varepsilon_m + \varepsilon_d)^2$, so
 
 $$
-\operatorname{Im}(k^2) \approx k_0^2\frac{\varepsilon_d^2\varepsilon''}{(\varepsilon' + \varepsilon_d)^2},
+\mathop{\mathrm{Im}}(k^2) \approx k_0^2\frac{\varepsilon_d^2\varepsilon''}{(\varepsilon' + \varepsilon_d)^2},
 \qquad
-L = \frac{1}{2\operatorname{Im}k} = \frac{\operatorname{Re}k}{\operatorname{Im}(k^2)}
-\approx \frac{\operatorname{Re}k\thinspace(\varepsilon' + \varepsilon_d)^2}{k_0^2\varepsilon_d^2\varepsilon''} .
+L = \frac{1}{2\mathop{\mathrm{Im}}k} = \frac{\mathop{\mathrm{Re}}k}{\mathop{\mathrm{Im}}(k^2)}
+\approx \frac{\mathop{\mathrm{Re}}k\thinspace(\varepsilon' + \varepsilon_d)^2}{k_0^2\varepsilon_d^2\varepsilon''} .
 $$
 
 $L$ grows as $1/\varepsilon''$, and, for a Drude metal, as $1/\gamma$: with
@@ -289,7 +289,7 @@ has them in photonoxide's convention). The power the sphere takes from the wave 
 scatters, over its shadow $\pi\rho^2$, are its extinction and scattering efficiencies,
 
 $$
-Q_\text{ext} = \frac{2}{\alpha^2}\sum_\nu (2\nu + 1)\operatorname{Re}(a_\nu + b_\nu),
+Q_\text{ext} = \frac{2}{\alpha^2}\sum_\nu (2\nu + 1)\mathop{\mathrm{Re}}(a_\nu + b_\nu),
 \qquad
 Q_\text{sca} = \frac{2}{\alpha^2}\sum_\nu (2\nu + 1)\left(\lvert a_\nu\rvert^2 + \lvert b_\nu\rvert^2\right) ,
 $$
@@ -372,11 +372,11 @@ $$
 
 the field of a dipole $p = 4\pi\varepsilon_0\varepsilon_d C$ outside. Its polarizability
 $\alpha_p = 4\pi\rho^3 F$, $F = (\varepsilon - \varepsilon_d)/(\varepsilon + 2\varepsilon_d)$,
-absorbs $C_\text{abs} = k\operatorname{Im}\alpha_p$ and scatters $C_\text{sca} = k^4\lvert\alpha_p\rvert^2/6\pi$,
+absorbs $C_\text{abs} = k\mathop{\mathrm{Im}}\alpha_p$ and scatters $C_\text{sca} = k^4\lvert\alpha_p\rvert^2/6\pi$,
 $k = n_d k_0$; over $\pi\rho^2$, with $x = k\rho$,
 
 $$
-Q_\text{abs} = 4x\operatorname{Im}F, \qquad Q_\text{sca} = \frac{8}{3}x^4\lvert F\rvert^2 ,
+Q_\text{abs} = 4x\mathop{\mathrm{Im}}F, \qquad Q_\text{sca} = \frac{8}{3}x^4\lvert F\rvert^2 ,
 $$
 
 Mie's first electric term for small $\alpha$, his $(\mathfrak{a}_1)_0 = (m'^2 - 1)/(m'^2 + 2)$ (p. 418),

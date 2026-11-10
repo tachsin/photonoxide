@@ -69,11 +69,11 @@ m.ex, m.ey, m.ez, m.hx, m.hy, m.hz   # m.ex[j, i] is E_x at (m.x_um[i], m.y_um[j
 ## Power and coupling
 
 With $\langle a, b\rangle = \int (\mathbf E_a \times \mathbf H_b^*)\cdot\hat z\thinspace dA$, the power is
-$P = \tfrac12 \operatorname{Re}\langle a, a\rangle$, and the share of mode a's power that launches mode b, at a junction
+$P = \tfrac12 \mathop{\mathrm{Re}}\langle a, a\rangle$, and the share of mode a's power that launches mode b, at a junction
 between two waveguides or at the start of a bend, is
 
 $$
-\eta = \frac{\operatorname{Re}\left(\langle a, b\rangle \langle b, a\rangle\right)}{\operatorname{Re}\langle a, a\rangle \thinspace\operatorname{Re}\langle b, b\rangle}.
+\eta = \frac{\mathop{\mathrm{Re}}\left(\langle a, b\rangle \langle b, a\rangle\right)}{\mathop{\mathrm{Re}}\langle a, a\rangle \thinspace\mathop{\mathrm{Re}}\langle b, b\rangle}.
 $$
 
 It is 1 for a mode with itself and 0 between modes that are orthogonal. Both modes must be on the
@@ -91,10 +91,10 @@ $S_z = (\mathbf E \times \mathbf H^*)\cdot\hat z$:
 | Nonlinear coefficient | `Fields::nonlinear_coefficient` | $\gamma = 2\pi n_2 / (\lambda A_\mathrm{eff})$, $n_2$ given (their Eq. 42 with $\bar n_2 = n_2$) |
 | Field-weighted $\bar n_2$ | `VectorMode::field_weighted_n2`, `Fields::field_weighted_n2` | $\bar n_2 = \int n^2 n_2 [2\lvert\mathbf E\rvert^4 + \lvert\mathbf E\cdot\mathbf E\rvert^2] dA / 3\int \lvert S_z\rvert^2 dA$ (their Eqs. 39 and 42) |
 | Full-vector γ | `VectorMode::vector_nonlinear_coefficient` | $\gamma^V = 2\pi \bar n_2 / (\lambda A_\mathrm{eff})$ (their Eq. 39) |
-| Confinement | `VectorMode::confinement` | $\Gamma = \int_R \operatorname{Re} S_z\thinspace dA / \int \operatorname{Re} S_z\thinspace dA$, $R$ a material or a box |
-| Orthogonality | `orthogonality` | $O_{ab} = \langle a, b\rangle / (\operatorname{Re}\langle a, a\rangle \operatorname{Re}\langle b, b\rangle)^{1/2}$, or the unconjugated product |
+| Confinement | `VectorMode::confinement` | $\Gamma = \int_R \mathop{\mathrm{Re}} S_z\thinspace dA / \int \mathop{\mathrm{Re}} S_z\thinspace dA$, $R$ a material or a box |
+| Orthogonality | `orthogonality` | $O_{ab} = \langle a, b\rangle / (\mathop{\mathrm{Re}}\langle a, a\rangle \mathop{\mathrm{Re}}\langle b, b\rangle)^{1/2}$, or the unconjugated product |
 | Normalization | `Fields::normalized` | the fields scaled to $P = 1$ |
-| Power shares | `Fields::power_shares` | each cell's $\operatorname{Re} S_z\thinspace dA / \int \operatorname{Re} S_z\thinspace dA$: a set of cells' sum is its confinement |
+| Power shares | `Fields::power_shares` | each cell's $\mathop{\mathrm{Re}} S_z\thinspace dA / \int \mathop{\mathrm{Re}} S_z\thinspace dA$: a set of cells' sum is its confinement |
 
 **In Python and in a job.** Each `VectorMode` that `vector_modes` returns carries its
 `effective_area_um2` (Eq. 41) and `effective_area_transverse_um2` (Eq. 44), both the whole
@@ -282,11 +282,11 @@ boundary moves, shifts a mode's frequency at fixed $\beta$ by
 $\Delta\omega/\omega = -\tfrac12 \int \mathbf E^*\cdot\Delta\varepsilon\cdot\mathbf E\thinspace dA / \int \varepsilon|\mathbf E|^2 dA$
 to first order (Johnson et al. 2002, before their moving boundaries). At fixed $\omega$ that is
 a shift of $\beta$ of $\Delta\omega$ over the group velocity, the energy's,
-$v_g = \tfrac12\operatorname{Re}\int(\mathbf E\times\mathbf H^*)\cdot\hat z\thinspace dA \big/ \tfrac12\varepsilon_0\int\varepsilon|\mathbf E|^2 dA$;
+$v_g = \tfrac12\mathop{\mathrm{Re}}\int(\mathbf E\times\mathbf H^*)\cdot\hat z\thinspace dA \big/ \tfrac12\varepsilon_0\int\varepsilon|\mathbf E|^2 dA$;
 with E in units of $Z_0$ times H's,
 
 $$
-\Delta n_\mathrm{eff} = \frac{\int \mathbf E^*\cdot\Delta\varepsilon\cdot\mathbf E\thinspace dA}{2\operatorname{Re}\int (\mathbf E\times\mathbf H^*)\cdot\hat z\thinspace dA}.
+\Delta n_\mathrm{eff} = \frac{\int \mathbf E^*\cdot\Delta\varepsilon\cdot\mathbf E\thinspace dA}{2\mathop{\mathrm{Re}}\int (\mathbf E\times\mathbf H^*)\cdot\hat z\thinspace dA}.
 $$
 
 `mode::thermo::index_change` takes it from the fields above, but for one thing: beside a change
