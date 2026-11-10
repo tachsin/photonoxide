@@ -82,8 +82,7 @@ Where the editor is used:
 |---|---|---|
 | Custom device, "As text" | The whole job | Both ways with the form |
 | Design page | A component's whole file | Saved as one of mine; a built-in file is read only |
-| A device's **Job** tab, "The design" | The design file's `device` section | Both ways with the page |
-| A device's **Job** tab, "The run" | The run's `task` section: the same text as the Simulate tab's | Both ways with the Simulate tab's form |
+| A device's **Job** tab | The run's whole job, its `device` section (the design, every field written out) and its `task`: the same text as the Simulate tab's; the design's file alone where the library won't write the run | Both ways with the page and the Simulate tab's form |
 | A device's **Simulate** tab, "As text" | The run's whole job, as Run runs it and Save job writes it | Both ways with its form |
 | A device's **Study** and **Optimize** tabs, "As text" | The study's or the optimization's whole job, as Save job writes it | Read only: their forms write it |
 
@@ -132,11 +131,12 @@ Reference and Problems, in the page's format with the format switch.
 It shows the **whole job**, not its `task` section. The run's job is the file Run runs and Save
 job writes, and the tab's own form writes into both of its sections: "How" sets the design's
 fidelity, in `device`, and the band, the grid and the time limit are in `task` and at the top.
-Showing a section would hide a part of what the form changes and of what runs. The Job tab is the
-place for sections: there "The design" is the `device` section and "The run" the `task` section.
+Showing a section would hide a part of what the form changes and of what runs. The Job tab shows
+the same whole job, the design and how it runs in one text (it showed them as two, "The design"
+and "The run", until a reader asked why they were apart).
 
 One text, not two: the run's text is the page's (`Draft.text` while edited, the form's job
-otherwise), and the Simulate tab and the Job tab's "The run" both show it and both edit it. An edit
+otherwise), and the Simulate tab and the Job tab both show it and both edit it. An edit
 in one is in the other, and "Back to the form" or "Back to the page" drops it for both. The
 Simulate tab keeps the rest of what it did: Run, Save job (now in the text's format), the run's
 results beside the form, the library's refusal of a run above the buttons, an edit the form can't

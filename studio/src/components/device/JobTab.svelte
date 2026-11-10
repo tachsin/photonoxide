@@ -1,13 +1,14 @@
 <script lang="ts">
-  // A device's Job tab (#668): the page as its job's text in the shared editor (JobEditor), the
-  // text on the left with the schema's completions and the check's problems, the design in 3D
-  // beside it. "The design" is the `device` section of the design's file, as Save writes it; "The
-  // run" is the `task` section of the job the Simulate tab runs, the one text both tabs show and
-  // edit (`draft.text` while edited; #668 decision 2). The page and the text agree both
-  // ways: an edit of the page writes the text again, and an edit of the text that the page can
-  // hold moves the page. A text the page can't hold (one that doesn't read, a design of another
-  // device) is kept as typed, and the tab says why. What the library refuses to write (a run too
-  // big for its grid) is listed in Problems, in its words.
+  // A device's Job tab (#668): the page as its job's text in the shared editor (JobEditor), in the
+  // page's panel like every tab, with the schema's completions, its Reference and the check's
+  // problems; the design is in the page's view beside it. One text, the whole job the Simulate tab
+  // runs: its `device` section (the design, every field written out, as Save writes it) and its
+  // `task` (how it runs), the one text both tabs show and edit (`draft.text` while edited; #668
+  // decision 2). The page and the text agree both ways: an edit of the page writes the text again,
+  // and an edit of the text that the page can hold moves the page, the design and the run alike.
+  // A text the page can't hold (one that doesn't read, a design of another device) is kept as
+  // typed, and the tab says why. Where the library refuses to write the run (one too big for its
+  // grid), its reason is listed in Problems and the design's file is shown alone, to edit.
   import { FileCode2, RotateCcw } from "@lucide/svelte";
   import { untrack } from "svelte";
 
@@ -16,14 +17,10 @@
   import { openBuiltIn, openInDesign } from "../../lib/designpage.svelte";
   import { FORMATS, inOrder, sameParameters } from "../../lib/designs";
   import { dirty, notHeld, rungOf, switchFormat, unread, type Draft } from "../../lib/device.svelte";
-  import type { Scene } from "../../lib/events";
   import JobEditor from "../job/JobEditor.svelte";
-  import Device3D from "./Device3D.svelte";
 
-  let { info, draft, scene, fields }: { info: DeviceInfo; draft: Draft; scene: Scene | null; fields: DeviceField[] } = $props();
+  let { info, draft, fields }: { info: DeviceInfo; draft: Draft; fields: DeviceField[] } = $props();
 
-  /** The design's file, or the job the Simulate tab runs. */
-  let mode = $state<"design" | "run">("design");
   const format = $derived<JobFormat>(draft.jobFormat ?? "yaml");
   const name = $derived(draft.name ?? info.id);
 
@@ -60,11 +57,11 @@
   const how = $derived(draft.compute.fdtd ? `FDTD ${draft.compute.fdtd}D` : rungOf(draft.spec.fidelity, draft.compute.fdfd_2d));
   const runName = $derived(`${name}-${how.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`.replace(/-+$/, ""));
   let ran = $state({ key: "", text: "", refused: "" });
-  const runKey = $derived(JSON.stringify([draft.spec, draft.compute, runName, format]));
+  // every field written out, as in the design's file: the text says every number
+  const runKey = $derived(JSON.stringify([shown, draft.compute, runName, format]));
   $effect(() => {
-    if (mode !== "run") return;
     const k = runKey;
-    const [spec, compute, n, f] = [$state.snapshot(draft.spec), $state.snapshot(draft.compute), runName, format];
+    const [spec, compute, n, f] = [$state.snapshot(shown) as DeviceSpec, $state.snapshot(draft.compute), runName, format];
     let live = true;
     api
       .deviceJob(spec, compute, n)
@@ -96,10 +93,16 @@
   /** The text as typed, or as the page last wrote it (the one before, while the next is on its way). */
   const designText = $derived(draft.jobText ?? made.text);
   const runText = $derived(draft.text ?? (ran.key === runKey && !ran.refused ? ran.text : designText));
+  /** The library won't write the run the Simulate tab sets: there is no whole job, and the design's file is shown instead. */
+  const refused = $derived(draft.text === null && ran.key === runKey && !!ran.refused);
+  /**
+   * One text, the whole job: the design (its `device` section) and how it runs (its `task`), as
+   * the Simulate tab runs it. The design's file alone only where there is no whole job: the
+   * library won't write the run, or the design's file was being typed in when that happened.
+   */
+  const mode = $derived<"design" | "run">(refused || draft.jobText !== null ? "design" : "run");
   const text = $derived(mode === "design" ? designText : runText);
   const textFormat = $derived<JobFormat>(mode === "run" && draft.text !== null ? formatOfText(draft.text) : format);
-  /** The library won't write the run the Simulate tab sets: there is no run's text, and the design's file is shown to read. */
-  const refused = $derived(mode === "run" && draft.text === null && ran.key === runKey && !!ran.refused);
   const refusals = $derived(refused ? [`The run the Simulate tab sets isn't written: ${ran.refused}`] : []);
 
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -148,8 +151,14 @@
     why = notHeld(form, info.kind);
     // the form holds all of it: the page follows, and writes the text again
     if (!why && form.spec && form.compute) {
-      draft.spec = form.spec;
-      draft.compute = form.compute;
+      // the design the page shows, every field written out: nothing to move
+      const s = form.spec;
+      const same = s.fidelity === shown.fidelity && JSON.stringify(s.stack) === JSON.stringify(shown.stack) && sameParameters(s.parameters, shown.parameters) && (s.compact ?? null) === (shown.compact ?? null);
+      if (!same) {
+        fromText = JSON.stringify(s);
+        draft.spec = s;
+      }
+      if (JSON.stringify(form.compute) !== JSON.stringify(draft.compute)) draft.compute = form.compute;
       draft.text = null;
     }
   }
@@ -175,37 +184,23 @@
     openInDesign({ text: designText, format, path: draft.path, builtIn: false, saved: draft.path && !dirty(draft, info) ? designText : "" });
   }
 
-  let height = $state(0);
   const edits = $derived(mode === "design" ? draft.jobText != null : draft.text !== null);
 </script>
 
-<JobEditor {text} format={textFormat} onchange={edited} component="the {info.kind}" section={mode === "design" ? "device" : refused ? null : "task"} readonly={refused} {refusals}>
+<JobEditor {text} format={textFormat} onchange={edited} component="the {info.kind}" section={mode === "design" ? "device" : null} {refusals} sides={["problems", "reference"]} side="problems">
   {#snippet toolbar()}
     <div class="mb-2 flex flex-wrap items-center gap-2">
-      <div class="join" role="group" aria-label="The job shown">
-        <button class="btn btn-xs join-item {mode === 'design' ? 'btn-primary btn-soft' : ''}" aria-pressed={mode === "design"} onclick={() => ((mode = "design"), (why = ""))} title="The design's file, as Save writes it: its device section">The design</button>
-        <button class="btn btn-xs join-item {mode === 'run' ? 'btn-primary btn-soft' : ''}" aria-pressed={mode === "run"} onclick={() => ((mode = "run"), (why = ""))} title="The job the Simulate tab runs: its task section">The run</button>
-      </div>
       <div class="join" role="group" aria-label="The format">
         {#each FORMATS as [f, label] (f)}
           <button class="btn btn-xs join-item {format === f ? 'btn-active' : 'btn-ghost'}" aria-pressed={format === f} onclick={() => setFormat(f)}>{label}</button>
         {/each}
       </div>
-      <span class="text-[11px] faint">{edits ? "edited here" : refused ? "no run: the library won't write it" : "as the page writes it: type to edit, the page follows"}</span>
+      <span class="text-[11px] faint">{edits ? "edited here" : refused ? "the design alone: the library won't write its run" : "the design and how it runs, as the page writes them: type to edit, the page follows"}</span>
       <span class="flex-1"></span>
       {#if edits}<button class="btn btn-ghost btn-xs gap-1" onclick={backToPage} title="Drop the edits the page can't hold: the page writes the text again"><RotateCcw size={12} /> Back to the page</button>{/if}
       <button class="btn btn-ghost btn-xs gap-1" onclick={openAsJob} title="Open the design's file on the Design page: a built-in component's own file at its defaults, to read and to save a copy of"><FileCode2 size={12} /> Open as a job</button>
     </div>
-    {#if refused}<p role="status" class="mb-2 rounded-lg border border-warning/30 bg-warning/8 px-3 py-1.5 text-xs">The library won't write the run the Simulate tab sets (its reason is in Problems), so there is no run's text: the design's file is shown, read only. Change how it runs on the Simulate tab.</p>{/if}
+    {#if refused}<p role="status" class="mb-2 rounded-lg border border-warning/30 bg-warning/8 px-3 py-1.5 text-xs">The library won't write the run the Simulate tab sets (its reason is in Problems), so the design's file is shown alone, to edit. Change how it runs on the Simulate tab, and the whole job comes back.</p>{/if}
     {#if why}<p role="status" class="mb-2 rounded-lg border border-warning/30 bg-warning/8 px-3 py-1.5 text-xs selectable">The page can't take this text: {why}. It is kept as typed.</p>{/if}
-  {/snippet}
-  {#snippet preview()}
-    <div class="relative min-h-0 flex-1 overflow-hidden" bind:clientHeight={height}>
-      {#if scene}
-        <Device3D {scene} height={Math.max(160, height - 8)} />
-      {:else}
-        <div class="skeleton m-3 h-[calc(100%-1.5rem)]"></div>
-      {/if}
-    </div>
   {/snippet}
 </JobEditor>

@@ -99,7 +99,8 @@
   </div>
 </div>
 
-<div class="mt-3 space-y-4">
+<!-- in two columns where the panel is wide -->
+<div class="mt-3 grid gap-x-8 gap-y-4 @2xl:grid-cols-2">
   {#each deviceRows as f (f.name)}
     {@const p = parameter(f.name)}
     {@const lit = literal(f)}

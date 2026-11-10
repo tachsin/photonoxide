@@ -25,7 +25,7 @@
   import { addInstance, exportTouchstone, library, loadLibrary, partKey, partOf } from "../lib/chip.svelte";
   import { sweepProblem, type Quantity } from "../lib/circuit";
   import { DESIGN } from "../lib/designpage.svelte";
-  import { deviceOf, loadDevices } from "../lib/device.svelte";
+  import { deviceOf, dirty, drafts, loadDevices } from "../lib/device.svelte";
   import { label } from "../lib/plot";
   import { isMicrometres, len, showIn, shown as inUnit, storeIn, stored, unitOf, unitText } from "../lib/units";
 
@@ -120,6 +120,25 @@
   function choose(id: string) {
     app.component = id;
   }
+
+  // the top bar names the component shown (Components › Waveguide), with the others to switch to,
+  // grouped as the rail's list groups them: one item a component, its first model
+  $effect(() => {
+    const d = device ? drafts[device.id] : undefined;
+    const label = custom ? "Custom device" : designing ? "Design" : kind ? (d?.name ?? kind.title) : "";
+    const about = custom ? "Any structure no device describes, as a job" : designing ? "Every component as its job file" : (device?.about ?? kind?.about ?? "");
+    const groups = [
+      { title: "Build your own", items: [{ id: CUSTOM, label: "Custom device", hint: "a structure as a job" }, { id: DESIGN, label: "Design", hint: "every component as its job file" }] },
+      ...[...new Set(everything.map((k) => k.category))].map((title) => ({
+        title,
+        items: everything.filter((k) => k.category === title && familyOf(k)[0] === k).map((k) => ({ id: partKey(k), label: k.title, hint: [...new Set(familyOf(k).map((f) => f.provenance.fidelity))].join(", ") })),
+      })),
+    ];
+    app.crumb = label ? { page: "components", label, about, changed: !!(d && device && dirty(d, device)), current: custom ? CUSTOM : designing ? DESIGN : kind ? partKey(familyOf(kind)[0]) : undefined, groups, pick: (id) => (app.component = id) } : null;
+  });
+  $effect(() => () => {
+    if (app.crumb?.page === "components") app.crumb = null;
+  });
   // a component chosen (here, in the rail, from Ctrl+K or the chip) starts from its first port
   $effect(() => {
     void app.component;
