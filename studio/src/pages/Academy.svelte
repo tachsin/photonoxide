@@ -34,6 +34,27 @@
     academy.lesson = id;
   }
 
+  // the top bar names the lesson shown (Academy › The ring resonator), with the others by topic
+  $effect(() => {
+    const c = current;
+    app.crumb = c
+      ? {
+          page: "academy",
+          label: c.title,
+          about: c.summary,
+          current: c.id,
+          groups: [...new Set(lessons.map((l) => l.topic))].map((title) => ({
+            title,
+            items: lessons.filter((l) => l.topic === title).map((l) => ({ id: l.id, label: l.title, hint: l.status === "coming" ? "coming soon" : `${l.level} · ${l.minutes} min` })),
+          })),
+          pick: choose,
+        }
+      : null;
+  });
+  $effect(() => () => {
+    if (app.crumb?.page === "academy") app.crumb = null;
+  });
+
   /** The method write-up shown beside the lesson. */
   let doc = $state<MethodDoc | null>(null);
 

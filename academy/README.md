@@ -88,16 +88,16 @@ methods: [slab.md]
 ## The body
 
 **Sections** are `##` headings. A heading may end in its depth, `{intuition}`, `{theory}` or
-`{research}`; without one it is intuition. The window shows intuition sections open and the
-others closed, to open one at a time or all at once from the lesson's depth switch. Text before
-the first heading is the lesson's opening. `#` headings aren't allowed: the title is the front
-matter's.
+`{research}`; without one it is intuition. The window shows every section open, theory and
+research labelled as such, each folding at its heading, and all at once from the contents.
+Text before the first heading is the lesson's opening. `#` headings aren't allowed: the title is
+the front matter's.
 
 **Parts.** A `###` heading that ends in a depth, `### The derivation {theory}`, starts a part of
 the `##` section above it, at that depth, running to the next part or section: a section can
-open on its intuition and keep its derivation and its literature a click away. A `###` heading
+open on its intuition, then give its derivation and its literature, each labelled. A `###` heading
 without a depth stays in the text as an ordinary subheading. The window lists every section and
-part as the lesson's outline, beside the lesson on a wide window and under a Contents button
+part as the lesson's contents, a column beside the lesson on a wide window and at its top
 otherwise, to jump to.
 
 A lesson either follows the usual sections:
@@ -140,6 +140,7 @@ or digit just outside), and display math between lines holding only `$$`.
 | `::device <id>` | a device the lesson teaches, by its id in the component library (`waveguide`, `rib-waveguide`), to open on its page |
 | `::fabrication <id>` | how a device of the component library is made at its defaults: its flow from the bare wafer played frame by frame on its cross-section and in 3D, each step's words beneath, as the Fabrication page plays it |
 | `::fabrication <id>{key=value, key=value}` | the same with these parameters, each in its own unit as a job's `[device.parameters]` writes it: `::fabrication waveguide{width=0.45, sidewall=82}` |
+| `::lithography <tool> <tool> ...` | lithography machines cut through in 2D and built in 3D, animated: the first tool shown, the rest to compare. The tools: `uv-photolithography` (contact), `i-line`, `duv-248`, `duv-193`, `duv-193i` (immersion), `euv`, `ebl` (the electron-beam writer), `nanoimprint` |
 | `::timeline` | the front matter's papers by year, each linked by its DOI |
 
 A chart's values carry their units or none: `radius=10um`, `radius=10000nm`, `loss=2dB/cm`,
@@ -169,8 +170,8 @@ The normalized frequency $V$ and index $b$, the $b$–$V$ diagram, each mode's c
 counts of an asymmetric and a symmetric slab.
 ```
 
-The window shows it with a calm "coming soon" chip, its question, that paragraph and its examples,
-whatever depth the lesson is read to. A written lesson may hold such sections; a lesson with
+The window shows it with a calm "coming soon" chip, its question, that paragraph and its examples.
+A written lesson may hold such sections; a lesson with
 `status: coming` holds only them, numbered `1.`, `2.`, `3.` in order, with no opening: its summary
 says what it is about. Each subsection answers one question, its heading; the paragraph names
 what the answer will contain, its numbers with their sources, and no more. To write one, replace

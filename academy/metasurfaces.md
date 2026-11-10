@@ -539,6 +539,11 @@ outline is. The strip's flow in photonoxide's fabrication engine shows them:
 
 ::fabrication waveguide
 
+Arbabi et al. and Lalanne et al. wrote their pillars by electron beam, below, which needs no mask:
+the writer fills each shape line by line, the beam blanked between lines and between shapes.
+
+::lithography ebl
+
 The pillars are taller and narrower than a strip, and three processes in this lesson's papers make
 them:
 

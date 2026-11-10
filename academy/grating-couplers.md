@@ -433,8 +433,12 @@ than narrowing it.
 
 Taillaert et al. made theirs in two lithography and etch steps on 200 mm wafers: the grooves
 etched 70 nm deep first, then the guides etched through the 220 nm film, both by 248 nm
-lithography at NA 0.63, which makes periods down to 400 nm (Section 3.1). Each dimension errs
-differently:
+lithography at NA 0.63, which makes periods down to 400 nm (Section 3.1). Projection
+lithography at 248 nm, the mask's grooves imaged smaller onto the resist one field after another:
+
+::lithography duv-248 duv-193
+
+Each dimension errs differently:
 
 - **The period** is the mask's, drawn exactly: it doesn't drift.
 - **The etch depth** is timed, since no film below stops it. photonoxide's fabrication engine

@@ -1,5 +1,5 @@
 // The Academy (studio/src-tauri/src/academy.rs and charts.rs): its lessons, loaded once, and what
-// the page remembers between visits: the lesson open, how deep it reads, and the sections opened.
+// the page remembers between visits: the lesson open, and the sections folded.
 
 import { api } from "./api";
 import type { Raster } from "./events";
@@ -28,7 +28,9 @@ export type LessonBlock =
   | { kind: "answer"; markdown: string }
   | { kind: "device"; device: string }
   /** How a library device is made: its flow played step by step, from `job` (TOML), as the Fabrication page plays it. */
-  | { kind: "fabrication"; device: string; label: string; parameters: Record<string, string>; job: string };
+  | { kind: "fabrication"; device: string; label: string; parameters: Record<string, string>; job: string }
+  /** Lithography machines in 2D and 3D, animated (components/fabrication/LithoTool.svelte): the first shown, the rest to compare. */
+  | { kind: "lithography"; tools: string[] };
 
 /** A section still to be written: what it will answer, and the examples it will use. */
 export interface Coming {
@@ -155,9 +157,6 @@ export interface Academy {
   charts: ChartSpec[];
 }
 
-/** The depths in order: reading to "theory" opens intuition and theory. */
-export const DEPTHS: Depth[] = ["intuition", "theory", "research"];
-
 export const LEVELS: Level[] = ["introductory", "intermediate", "advanced"];
 
 /** A subsection's heading split into its number and its question: "2. Why …?" is ["2", "Why …?"]. */
@@ -174,11 +173,7 @@ export const academy = $state({
   error: "",
   /** The lesson open, by id. */
   lesson: null as string | null,
-  /** How deep each lesson reads, by its id. */
-  depth: {} as Record<string, Depth>,
-  /** Sections opened one by one beyond that depth, as "lesson#section". */
-  opened: [] as string[],
-  /** Sections closed one by one within it. */
+  /** The sections folded, as "lesson#section": every section is open until folded. */
   closed: [] as string[],
 });
 

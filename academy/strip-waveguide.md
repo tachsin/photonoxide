@@ -671,6 +671,12 @@ from the bare wafer:
 
 ::fabrication waveguide
 
+The scanner that exposes the resist, in 2D and 3D: the laser's light spread evenly over the mask,
+the mask's image made smaller by the lens, and the wafer scanned under it field by field. The
+electron beam, which writes the strip with no mask, to compare:
+
+::lithography duv-193 ebl
+
 [How a chip is made](how-a-chip-is-made.md) takes each step in turn: the wafer, the lithography
 and what limits it, the etch stop, the films, and what the flow checks.
 
