@@ -981,3 +981,60 @@ fn nanoimprint_presses_the_pattern_in_and_exposes_nothing() {
     );
     assert!(view.flow.round_trip.unwrap().exact());
 }
+
+#[test]
+fn every_step_of_a_wafer_made_here_changes_its_drawing() {
+    use super::fabrication_frames::{BOND_INTERFACE, HYDROGEN};
+    use crate::fabrication::Start;
+    let here = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+    let strip = crate::device::Spec::new("waveguide");
+    let smart = fabrication_of_from(&strip, &[], &[], Start::SmartCut).unwrap();
+    let simox = fabrication_of_job(
+        &Job::load(&here.join("jobs/strip-flow-simox.yaml")).unwrap(),
+        &[],
+        &[],
+    )
+    .unwrap();
+    // the routes' frames, one a step: each drawn unlike the one before it
+    for (view, steps) in [(&smart, 9), (&simox, 5)] {
+        for w in view.frames[..steps].windows(2) {
+            assert!(
+                w[0].scene != w[1].scene || w[0].films != w[1].films,
+                "{:?} draws as {:?}",
+                w[1].label,
+                w[0].label
+            );
+        }
+        // and the round trip still compares the stages, which keep the design's film
+        assert!(view.flow.round_trip.as_ref().unwrap().exact());
+    }
+    // the implanted plane at its depth below the oxide, inside the window
+    let r = smart.smart_cut.as_ref().unwrap();
+    let implant = smart.frames.iter().find(|f| f.phase == "implant").unwrap();
+    let h = implant
+        .films
+        .iter()
+        .find(|f| f.film == HYDROGEN)
+        .expect("the implanted plane");
+    assert!(
+        ((h.z_um[0] + h.z_um[1]) / 2.0 + r.split).abs() < 1e-9,
+        "{h:?}"
+    );
+    let Event::Scene { z_um, .. } = &implant.scene else {
+        panic!("a scene")
+    };
+    assert!(z_um[0] < h.z_um[0], "{z_um:?}");
+    // the bond drawn until the anneal, the excess until the sacrificial oxide
+    let at = |phase: &str| smart.frames.iter().find(|f| f.phase == phase).unwrap();
+    let bonded = |phase: &str| at(phase).films.iter().any(|f| f.film == BOND_INTERFACE);
+    assert!(bonded("bond") && bonded("split") && !bonded("anneal"));
+    let top = |phase: &str| {
+        at(phase)
+            .films
+            .iter()
+            .map(|f| f.z_um[1])
+            .fold(f64::NEG_INFINITY, f64::max)
+    };
+    assert!((top("split") - (r.oxide + r.split)).abs() < 1e-9);
+    assert!((top("planarize") - (r.oxide + r.split - r.polish)).abs() < 1e-9);
+}

@@ -23,6 +23,11 @@
 //!   range; fully conformal, the frames' default, where no source states it). The frame after it
 //!   is the executor's stage again: flat after a polish, or as the design draws it.
 //! - **A film evaporated for a lift-off**, on the resist and in its openings.
+//! - **A wafer the flow makes for itself** (Smart Cut or SIMOX), whose stages keep the design's
+//!   film throughout: what each step of the route does, from its numbers (`start_films`): the
+//!   implanted hydrogen's plane, the rest of the donor bonded on and the bonded interface until
+//!   the anneal, the film's excess until the polish and the sacrificial oxide, that oxide until
+//!   the strip; for SIMOX, the damaged silicon over the implanted oxide until the anneal.
 //!
 //! The last frame is the last stage, the structure the round trip checks.
 
@@ -461,7 +466,13 @@ pub(super) fn frames(
 ) -> Result<Vec<FlowFrame>> {
     let (moments, x, y) = moments(flow, stages, x, y, wavelength)?;
     let top = moments.iter().map(Moment::top).fold(design_top, f64::max);
-    let z = [z_bottom, top + 1.0];
+    // deep enough for a film inside the substrate (a Smart Cut donor's implanted plane)
+    let low = moments
+        .iter()
+        .flat_map(|m| &m.films)
+        .map(|f| f.z_um[0] - 0.3)
+        .fold(z_bottom, f64::min);
+    let z = [low, top + 1.0];
     moments
         .into_iter()
         .map(|m| {
@@ -736,13 +747,14 @@ pub(crate) fn moments(
                         );
                     }
                     (None, None) => {
+                        let (films, note) = start_films(flow, k, made, x, y, wavelength)?;
                         push(
                             &record.operation,
                             record.does.clone(),
                             record.layer.clone(),
                             made.clone(),
-                            Vec::new(),
-                            None,
+                            films,
+                            note,
                         );
                     }
                 }
@@ -750,4 +762,202 @@ pub(crate) fn moments(
         }
     }
     Ok((moments, x, y))
+}
+
+/// How thick the rest of a Smart Cut donor is drawn above its implanted plane, µm: cut short, as
+/// a wafer is hundreds of micrometres thick.
+pub(crate) const DONOR_DRAWN_UM: f64 = 0.8;
+
+/// The thinnest a plane is drawn, µm: a bonded interface, or an implanted peak narrower than it.
+pub(crate) const PLANE_DRAWN_UM: f64 = 0.03;
+
+/// How far a plane inside the wafer (an implanted peak, a bonded interface) is drawn past the
+/// window's sides, µm, so a 3D view shows it where it would otherwise be hidden in the silicon.
+const PLANE_OVERHANG_UM: f64 = 0.2;
+
+/// The film names of what a flow that makes its own SOI wafer adds to its frames.
+pub(crate) const HYDROGEN: &str = "implanted hydrogen";
+pub(crate) const BOND_INTERFACE: &str = "bond interface";
+pub(crate) const DAMAGED_SI: &str = "Si, implant-damaged";
+
+/// What the planar stages of a flow that makes its own SOI wafer (Smart Cut or SIMOX) leave out
+/// at step `k`, drawn for its frame from the route's own numbers, with what the frame shows: the
+/// implanted hydrogen's plane, the rest of the donor bonded on and the bonded interface until the
+/// anneal strengthens it, the film's excess until the polish and the sacrificial oxide take it
+/// off, that oxide until the hydrofluoric acid strips it; for SIMOX, the silicon over the
+/// implanted oxide until the anneal heals it. The stages keep the design's film throughout (the
+/// round trip compares them, not the frames). Nothing for any other step or flow.
+fn start_films(
+    flow: &Flow,
+    k: usize,
+    made: &Made,
+    x: [f64; 2],
+    y: [f64; 2],
+    wavelength: Wavelength,
+) -> Result<(Vec<FrameFilm>, Option<String>)> {
+    use crate::fabrication::{simox, smart_cut};
+    // only the route's own steps, the run of them the flow starts with: a later step of the
+    // same process (a silicon polish of the design's own) draws nothing of the route's
+    const ROUTE: [&str; 10] = [
+        "si-wafer",
+        "thermal-oxidation",
+        "h-implant",
+        "direct-bonding",
+        "smart-cut-split",
+        "anneal-bond",
+        "cmp-si",
+        "hf-oxide-strip",
+        "o-implant",
+        "simox-anneal",
+    ];
+    let route_end = flow
+        .steps
+        .iter()
+        .position(|s| !ROUTE.contains(&s.process.as_str()))
+        .unwrap_or(flow.steps.len());
+    if k >= route_end {
+        return Ok((Vec::new(), None));
+    }
+    let step = &flow.steps[k];
+    // the layer a step of the route deposits, and its film
+    let deposit = |id: &str| {
+        flow.steps.iter().find_map(|s| match &s.operation {
+            Operation::Deposit { film, layers, .. } if s.process == id => {
+                layers.first().map(|l| (l.clone(), film.clone()))
+            }
+            _ => None,
+        })
+    };
+    let eps = |m: &Material| -> Result<f64> { Ok(m.permittivity(wavelength)?.re) };
+    let paint = |layer: &str, film: &str, eps: f64| Paint {
+        layer: layer.into(),
+        film: film.into(),
+        eps,
+    };
+    let window = rect(x, y);
+    let past = rect(
+        [x[0] - PLANE_OVERHANG_UM, x[1] + PLANE_OVERHANG_UM],
+        [y[0] - PLANE_OVERHANG_UM, y[1] + PLANE_OVERHANG_UM],
+    );
+    let top = top_of(made);
+    let thinning = matches!(step.operation, Operation::Planarize { .. })
+        && step.process == "thermal-oxidation";
+    let um = |v: f64| format!("{} µm", num(v));
+    let mut films = Vec::new();
+
+    if let (Some((film, si)), Some((oxide, ox))) =
+        (deposit("direct-bonding"), deposit("thermal-oxidation"))
+    {
+        let r = smart_cut::route(film.thickness.to_um(), oxide.thickness.to_um())?;
+        let o = r.oxide;
+        let silicon = paint(&film.name, &si.name, eps(&si.optical)?);
+        let donor = paint("donor", &si.name, eps(&si.optical)?);
+        let hydrogen = paint("implant", HYDROGEN, eps(&si.optical)?);
+        let bond = paint("bond", BOND_INTERFACE, eps(&ox.optical)?);
+        let half = r.straggle.max(PLANE_DRAWN_UM / 2.0);
+        let plane = |z: f64| prism(&hydrogen, &past, z - half, z + half);
+        // the bond is between the handle's silicon (below z = 0) and the donor's oxide
+        let interface = || prism(&bond, &past, -PLANE_DRAWN_UM / 2.0, PLANE_DRAWN_UM / 2.0);
+        let note = match step.process.as_str() {
+            "h-implant" => {
+                films.extend(plane(-r.split));
+                Some(format!(
+                    "The hydrogen's peak, {} below the oxide, drawn one straggle ({}) to each \
+                     side; past the window's sides, so it shows in 3D.",
+                    um(r.split),
+                    um(r.straggle)
+                ))
+            }
+            "direct-bonding" => {
+                films.extend(interface());
+                films.extend(prism(&silicon, &window, top, o + r.split));
+                films.extend(prism(
+                    &donor,
+                    &window,
+                    o + r.split,
+                    o + r.split + DONOR_DRAWN_UM,
+                ));
+                films.extend(plane(o + r.split));
+                Some(format!(
+                    "The donor turned over onto the handle, its oxide bonded to the handle's \
+                     silicon (the line at the oxide's foot). Above the design's film, its {} of \
+                     excess up to the implanted plane, and the rest of the donor, drawn {} thick: \
+                     a wafer is hundreds of micrometres.",
+                    um(r.excess),
+                    um(DONOR_DRAWN_UM)
+                ))
+            }
+            "smart-cut-split" => {
+                films.extend(interface());
+                films.extend(prism(&silicon, &window, top, o + r.split));
+                Some(format!(
+                    "Split along the implanted plane: the rest of the donor is gone, and {} of \
+                     silicon stays, {} more than the design's film. The bond is still weak.",
+                    um(r.split),
+                    um(r.excess)
+                ))
+            }
+            "anneal-bond" => {
+                films.extend(prism(&silicon, &window, top, o + r.split));
+                Some("The bond strengthened: its line is gone.".into())
+            }
+            "cmp-si" => {
+                films.extend(prism(&silicon, &window, top, o + r.split - r.polish));
+                Some(format!(
+                    "{} polished off; {} of excess left for the sacrificial oxide.",
+                    um(r.polish),
+                    um(r.excess - r.polish)
+                ))
+            }
+            _ if thinning => {
+                let sacrificial = paint("sacrificial oxide", &ox.name, eps(&ox.optical)?);
+                films.extend(prism(&sacrificial, &window, top, top + r.sacrificial));
+                Some(format!(
+                    "The sacrificial oxide, {}: it has grown into the silicon by {}, down to \
+                     the design's film.",
+                    um(r.sacrificial),
+                    um(r.consumed)
+                ))
+            }
+            _ => None,
+        };
+        return Ok((films, note));
+    }
+
+    if let (Some((oxide, ox)), Some((film, si))) = (deposit("o-implant"), deposit("simox-anneal")) {
+        let r = simox::route(film.thickness.to_um(), oxide.thickness.to_um())?;
+        let silicon = paint(&film.name, &si.name, eps(&si.optical)?);
+        let note = match step.process.as_str() {
+            "o-implant" => {
+                let damaged = paint(&film.name, DAMAGED_SI, eps(&si.optical)?);
+                films.extend(prism(&damaged, &window, top, top + r.made));
+                Some(format!(
+                    "Over the buried oxide, about {} of silicon the oxygen passed through, \
+                     damaged until the anneal heals it.",
+                    um(r.made)
+                ))
+            }
+            "simox-anneal" if r.thinned > 0.0 => {
+                films.extend(prism(&silicon, &window, top, top + r.thinned));
+                Some(format!(
+                    "The film healed, {} more than the design's: what the sacrificial oxide \
+                     takes off.",
+                    um(r.thinned)
+                ))
+            }
+            _ if thinning => {
+                let sacrificial = paint("sacrificial oxide", &ox.name, eps(&ox.optical)?);
+                films.extend(prism(&sacrificial, &window, top, top + r.sacrificial));
+                Some(format!(
+                    "The sacrificial oxide, {}: it has grown into the silicon by {}, down to \
+                     the design's film.",
+                    um(r.sacrificial),
+                    um(r.thinned)
+                ))
+            }
+            _ => None,
+        };
+        return Ok((films, note));
+    }
+    Ok((films, None))
 }

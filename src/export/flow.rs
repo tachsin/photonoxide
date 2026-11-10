@@ -363,6 +363,10 @@ pub fn film_colour(film: &str) -> &'static str {
         "Cu/Au" => "#d9a520",
         "Au" | "Cu" | "Al" => "#d0a63a",
         "Si3N4" | "SiN" => "#9ccf9f",
+        // what a flow that makes its own SOI wafer draws in its frames
+        "implanted hydrogen" => "#e8673c",
+        "bond interface" => "#2f3644",
+        "Si, implant-damaged" => "#a99bb8",
         _ => {
             const OTHERS: [&str; 6] = [
                 "#b7a1d6", "#f0c27a", "#9fd3c7", "#e38b8b", "#a3b86c", "#d7b5a0",
