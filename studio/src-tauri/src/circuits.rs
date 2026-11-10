@@ -1075,7 +1075,7 @@ pub struct CircuitExample {
 }
 
 /// The circuits built into the program: circuits/ in the repository.
-pub fn example_texts() -> [(&'static str, &'static str); 4] {
+pub fn example_texts() -> [(&'static str, &'static str); 7] {
     [
         ("mzi.toml", include_str!("../../../circuits/mzi.toml")),
         (
@@ -1089,6 +1089,18 @@ pub fn example_texts() -> [(&'static str, &'static str); 4] {
         (
             "splitter-1x4.toml",
             include_str!("../../../circuits/splitter-1x4.toml"),
+        ),
+        (
+            "wdm-demux-4.toml",
+            include_str!("../../../circuits/wdm-demux-4.toml"),
+        ),
+        (
+            "switch-1x4.toml",
+            include_str!("../../../circuits/switch-1x4.toml"),
+        ),
+        (
+            "vernier-filter.toml",
+            include_str!("../../../circuits/vernier-filter.toml"),
         ),
     ]
 }

@@ -7,7 +7,7 @@ minutes: 50
 prerequisites: []
 examples: [circuit_ring_critical, ring_q_factor, circuit_fit]
 jobs: [ring-fdfd.yaml]
-circuits: [ring-all-pass.toml, ring-add-drop.toml]
+circuits: [ring-all-pass.toml, ring-add-drop.toml, wdm-demux-4.toml, vernier-filter.toml]
 methods: [components.md, circuits.md, circuit-adjoint.md, compact.md]
 validation:
   - components/ring-all-pass-bogaerts
