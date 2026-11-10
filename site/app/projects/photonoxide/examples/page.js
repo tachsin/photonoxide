@@ -13,7 +13,7 @@ import { renderInline, repoLinkResolver } from "@/lib/projects/photonoxide/markd
 import { EXAMPLES_PATH, PHOTONOXIDE_LINKS, PHOTONOXIDE_OG_IMAGE, PHOTONOXIDE_PATH } from "@/lib/projects/photonoxide/meta";
 
 const DESCRIPTION =
-  "Each example reproduces a published result: it computes something with photonoxide, prints it beside the number the paper prints, and fails when they disagree. CI runs them all.";
+  "Each example computes a published result and prints it beside the number the paper prints, with the grid and the tolerance; it exits with code 1 when it is outside that tolerance. CI runs them all.";
 
 export const metadata = projectsMetadata({
   title: "Examples",
@@ -82,7 +82,7 @@ export default async function ExamplesPage() {
         <h1 className="mt-2 font-semibold text-4xl tracking-tight sm:text-5xl">Published results, reproduced</h1>
         <p className="proj-lead mt-4 text-lg">{DESCRIPTION}</p>
         <pre className="mt-5 w-fit max-w-full overflow-x-auto rounded-xl bg-base-200 px-4 py-2.5 font-mono text-sm">
-          cargo run --release --example &lt;name&gt;
+          {"photonoxide example <name>               # the installed program (example --list lists them)\ncargo run --release --example <name>     # from a checkout"}
         </pre>
       </header>
 

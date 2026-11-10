@@ -6,6 +6,10 @@
 import { mount } from "svelte";
 
 import "./app.css";
+import { install as commitAsTyped } from "./lib/typing";
+
+// a number typed counts as it is typed, and before the click that follows it (#783 B5)
+commitAsTyped(document);
 
 const target = document.getElementById("app")!;
 if ((window as { __PHOTONOXIDE_SETUP__?: unknown }).__PHOTONOXIDE_SETUP__) {

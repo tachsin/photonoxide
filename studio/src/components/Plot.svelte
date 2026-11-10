@@ -60,7 +60,7 @@
     if (!path) return;
     try {
       await api.saveText(path, csv());
-      toast(`Saved ${path.split(/[\\/]/).pop()}`, "success", undefined, 2500);
+      toast(`Saved ${path}`, "success", undefined, 4000);
     } catch (e) {
       toast(String(e), "error");
     }
@@ -123,7 +123,8 @@
 </script>
 
 <div class="group/plot relative" bind:clientWidth={width}>
-  <div class="tooltip tooltip-left absolute top-0 right-0 z-10 opacity-0 transition-opacity group-hover/plot:opacity-100" data-tip="Save the data as CSV">
+  <!-- always there (a touch screen has no hover), brighter on the plot's hover or the button's focus -->
+  <div class="tooltip tooltip-left absolute top-0 right-0 z-10 opacity-60 transition-opacity group-hover/plot:opacity-100 focus-within:opacity-100" data-tip="Save the data as CSV">
     <button class="btn btn-ghost btn-xs btn-square" aria-label="Save the data as CSV" onclick={saveCsv}><Download size={14} /></button>
   </div>
   <svg {width} {height} class="block select-none" role="img" aria-label="{yLabel} against {xName}" onpointermove={move} onpointerleave={() => (hover = null)}>

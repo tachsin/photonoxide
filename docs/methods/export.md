@@ -55,6 +55,27 @@ The tables come from the run's own record when it ends (`export::tables::write_t
 also reads a finished run's directory again), so every number is the one its event recorded, to
 the bit.
 
+### In the studio
+
+Two buttons write a table without a job file. **Save the data as CSV** is the download icon at
+the top right of a chart (it shows when the pointer is over the chart): it saves the series the
+chart plots, as it plots them. **Export…** is in the run page's sidebar once the run has finished:
+it writes the run's tables and fields you tick, into the run's folder or one of yours.
+
+### What the CSV tables don't hold
+
+Which table holds what: the modes' indices and TE fractions are in `modes.csv` and, along a sweep,
+`sweep.csv`; S-parameters are in `s_parameters.csv` and, for a study's points, `study.csv`; an
+FDTD run's spectra and resonances are in `spectra.csv` and `resonances.csv`; a static job's numbers
+are in `static.csv`; an optimization's points are in `history.csv`.
+
+The figures a device page shows, n_eff, n_g, κ², FSR, Q, P_π, τ and crosstalk, each with its model
+and grid, are **not** in any CSV. They are recorded in `events.jsonl`, as the `figures` of a
+`device_model` event and of each `device_point` event, and `results.json` has the run's numbers.
+The group index n_g is in no exported table today: `modes.csv` and `sweep.csv` carry n_eff, not n_g
+(the studio plots n_g from the same run). A script that needs a figure reads the event; one that
+needs n_g can take it from n_eff over wavelength, $n_g = n_\mathrm{eff} - \lambda\,dn_\mathrm{eff}/d\lambda$.
+
 ## The fields
 
 NumPy's own `.npz`, a ZIP of `.npy` arrays (NEP 1), deflated. The grid and the small numbers

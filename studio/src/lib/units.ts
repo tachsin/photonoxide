@@ -2,7 +2,7 @@
 // files, runs and chips keep their own units (µm, and nm where a field's name says so); only
 // the window converts, exactly, on the way in and out.
 
-import { app, updateSettings } from "./app.svelte";
+import { app, toast, updateSettings } from "./app.svelte";
 
 export type LengthUnit = "um" | "nm";
 
@@ -16,10 +16,11 @@ export function unitText(u: LengthUnit = lengthUnit()): string {
   return u === "nm" ? "nm" : "µm";
 }
 
-/** Shows every length in the other unit, app-wide, and saves the choice. */
+/** Shows every length in the other unit, app-wide, and saves the choice; says so, the fields' numbers changing with it (#783 B6). */
 export function toggleLengthUnit() {
   const next: LengthUnit = lengthUnit() === "um" ? "nm" : "um";
   updateSettings((s) => (s.length_unit = next));
+  toast(`Lengths now shown in ${unitText(next)}, everywhere: the lengths themselves are as they were`, "info", undefined, 3000);
 }
 
 /** x × 10^k as decimals do it: through x's shortest decimal form, so 1.55 × 10³ is 1550, not 1550.0000000000002, and back. */

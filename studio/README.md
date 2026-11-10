@@ -660,9 +660,13 @@ in a drawer opened from the status bar.
 - **Lengths in µm or nm:** every length and wavelength the studio shows or asks for (the
   Custom device's fields, a component's or an instance's parameters, the chip's wavelengths, the
   run view's readouts, the plots' axes, hover values and CSV files, the Materials page) is in one
-  unit, µm or nm, app-wide. Click the unit beside any value to switch it everywhere, or choose
-  it in the settings. Only the window converts, exactly: job and chip files keep their units
-  (µm, and nm where a field's name says so).
+  unit, µm or nm, app-wide. Click the unit beside any value to switch it everywhere (a toast
+  says so), or choose it in the settings; a length field shows its unit inside it as you type.
+  Only the window converts, exactly: job and chip files keep their units (µm, and nm where a
+  field's name says so).
+- **Number fields count as you type:** a value takes effect after a short pause in typing, and
+  at once when you press anywhere else, so a click on Run straight after typing runs the value
+  shown, and labels such as "Run 21 points" follow the typing.
 
 Help is built in:
 - a welcome on the first start, which asks for the channel, Stable or Nightly (Settings › Updates

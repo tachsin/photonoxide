@@ -17,7 +17,8 @@
   import { FORMATS } from "../../lib/designs";
   import { keep, notHeld, pending, rungOf, rungs, shownRun, switchFormat, unread, type Draft } from "../../lib/device.svelte";
   import { plain } from "../../lib/deviceview";
-  import { shown, stored } from "../../lib/units";
+  import { heldRun } from "../../lib/typing";
+  import { shown, stored, unitText } from "../../lib/units";
   import JobEditor from "../job/JobEditor.svelte";
   import RunPlots from "../RunPlots.svelte";
   import UnitChip from "../UnitChip.svelte";
@@ -111,8 +112,11 @@
   }
 
   const text = $derived(draft.text ?? (made.key === madeKey ? made.text : ""));
+  /** The form's job is being made again, from a value just typed: Run waits for it rather than refusing the click. */
+  const making = $derived(draft.text === null && made.key !== madeKey);
   const textFormat = $derived<JobFormat>(draft.text !== null ? formatOfText(draft.text) : format);
-  const problem = $derived(draft.text !== null ? (typed?.error ?? "") : made.key === madeKey ? made.problem : "");
+  // the last job's problem stays while the next is made: its line doesn't vanish under the pointer on its way to Run
+  const problem = $derived(draft.text !== null ? (typed?.error ?? "") : made.problem);
   const otherDevice = $derived(draft.text !== null && !!typed?.spec && typed.spec.kind !== info.kind ? typed.spec.kind : null);
   /** Why the form can't take the text as typed, when it can't (the problem and another device's said above the buttons). */
   const why = $derived(draft.text !== null && typed && !typed.error && !otherDevice ? notHeld(typed, info.kind) : "");
@@ -149,6 +153,12 @@
       onshow();
     }
   }
+
+  // a click on Run while the job is made from a value just typed: it runs once the job is made
+  const runClick = heldRun(() => making, () => start());
+  $effect(() => {
+    if (!making) runClick.made();
+  });
 
   async function start() {
     if (!text || problem || otherDevice) {
@@ -212,11 +222,24 @@
     b[k] = k === 2 ? Math.round(v) : stored(v);
     draft.compute = { ...draft.compute, band: b };
   }
-  function setNumber(key: "step_nm" | "step_z_nm" | "margin_um" | "samples" | "pml_cells" | "timeout_minutes", raw: string) {
+  type GridKey = "step_nm" | "step_z_nm" | "margin_um" | "samples" | "pml_cells" | "timeout_minutes";
+  /** What was typed in each grid field, kept in view when the form holds none for it: the device's own. */
+  let typedGrid = $state<Partial<Record<GridKey, string>>>({});
+  // another model or FDTD: another grid, and what was typed for the last one goes
+  $effect(() => {
+    void how;
+    typedGrid = {};
+  });
+  function setNumber(key: GridKey, raw: string) {
     const v = raw.trim() === "" ? null : Number(raw);
     if (v !== null && !Number.isFinite(v)) return;
+    typedGrid[key] = raw.trim();
     draft.compute = { ...draft.compute, [key]: key === "samples" || key === "pml_cells" ? (v === null ? null : Math.round(v)) : v };
   }
+  /** A grid field's text: the form's value, or, when it holds none (the device's own), what was typed. */
+  const gridText = (key: GridKey) => (draft.compute[key] !== null ? val(draft.compute[key]) : (typedGrid[key] ?? ""));
+  /** The fields typed in whose value the form holds as the device's own, said under the grid. */
+  const ownTyped = $derived((["step_nm", "step_z_nm", "margin_um", "samples", "pml_cells"] as const).filter((k) => draft.compute[k] === null && !!typedGrid[k]));
   function choose(r: string) {
     if (r === "FDTD 2D" || r === "FDTD 3D") {
       draft.compute = { ...draft.compute, fdtd: r === "FDTD 2D" ? 2 : 3, step_z_nm: null, samples: null, fdfd_2d: false };
@@ -263,11 +286,11 @@
     <div class="mt-2 flex flex-wrap items-end gap-3">
       <label class="flex flex-col gap-1 text-xs">
         <span class="muted">From (<UnitChip />)</span>
-        <input class="input input-xs w-24 num" type="number" step={shown(0.01)} value={shown(band[0])} onchange={(e) => setBand(0, Number((e.currentTarget as HTMLInputElement).value))} />
+        <span class="input input-xs w-28"><input class="num" type="number" step={shown(0.01)} value={shown(band[0])} onchange={(e) => setBand(0, Number((e.currentTarget as HTMLInputElement).value))} /><span class="faint">{unitText()}</span></span>
       </label>
       <label class="flex flex-col gap-1 text-xs">
         <span class="muted">To (<UnitChip />)</span>
-        <input class="input input-xs w-24 num" type="number" step={shown(0.01)} value={shown(band[1])} onchange={(e) => setBand(1, Number((e.currentTarget as HTMLInputElement).value))} />
+        <span class="input input-xs w-28"><input class="num" type="number" step={shown(0.01)} value={shown(band[1])} onchange={(e) => setBand(1, Number((e.currentTarget as HTMLInputElement).value))} /><span class="faint">{unitText()}</span></span>
       </label>
       <label class="flex flex-col gap-1 text-xs">
         <span class="muted">Points</span>
@@ -285,41 +308,44 @@
       <div class="mt-2 grid grid-cols-2 gap-3">
         <label class="flex flex-col gap-1 text-xs">
           <span class="muted">{draft.compute.fdtd ? "Cells, nm" : fdfd ? "Cells in the plane, nm" : "Mesh step, nm"}</span>
-          <input class="input input-xs num" type="number" min="1" placeholder={draft.compute.fdtd ? (draft.compute.fdtd === 3 ? "50" : "40") : "its own"} value={val(draft.compute.step_nm)} onchange={(e) => setNumber("step_nm", (e.currentTarget as HTMLInputElement).value)} />
+          <input class="input input-xs num" type="number" min="1" placeholder={draft.compute.fdtd ? (draft.compute.fdtd === 3 ? "50" : "40") : "its own"} value={gridText("step_nm")} onchange={(e) => setNumber("step_nm", (e.currentTarget as HTMLInputElement).value)} />
         </label>
         {#if fdfd && draft.spec.fidelity === "3D"}
           <label class="flex flex-col gap-1 text-xs">
             <span class="muted">Cells' height, nm</span>
-            <input class="input input-xs num" type="number" min="1" placeholder="its own" value={val(draft.compute.step_z_nm)} onchange={(e) => setNumber("step_z_nm", (e.currentTarget as HTMLInputElement).value)} />
+            <input class="input input-xs num" type="number" min="1" placeholder="its own" value={gridText("step_z_nm")} onchange={(e) => setNumber("step_z_nm", (e.currentTarget as HTMLInputElement).value)} />
           </label>
         {/if}
         {#if !draft.compute.fdtd}
           <label class="flex flex-col gap-1 text-xs">
             <span class="muted">Cladding beside, µm</span>
-            <input class="input input-xs num" type="number" min="0" step="0.1" placeholder="its own" value={val(draft.compute.margin_um)} onchange={(e) => setNumber("margin_um", (e.currentTarget as HTMLInputElement).value)} />
+            <input class="input input-xs num" type="number" min="0" step="0.1" placeholder="its own" value={gridText("margin_um")} onchange={(e) => setNumber("margin_um", (e.currentTarget as HTMLInputElement).value)} />
           </label>
         {/if}
         {#if fdfd}
           <label class="flex flex-col gap-1 text-xs">
             <span class="muted">Wavelengths solved</span>
-            <input class="input input-xs num" type="number" min="1" placeholder="5" value={val(draft.compute.samples)} onchange={(e) => setNumber("samples", (e.currentTarget as HTMLInputElement).value)} />
+            <input class="input input-xs num" type="number" min="1" placeholder="5" value={gridText("samples")} onchange={(e) => setNumber("samples", (e.currentTarget as HTMLInputElement).value)} />
           </label>
         {/if}
         {#if fdfd || draft.compute.fdtd}
           <label class="flex flex-col gap-1 text-xs">
             <span class="muted">PML cells</span>
-            <input class="input input-xs num" type="number" min="4" placeholder={draft.compute.fdtd ? "20" : "12"} value={val(draft.compute.pml_cells)} onchange={(e) => setNumber("pml_cells", (e.currentTarget as HTMLInputElement).value)} />
+            <input class="input input-xs num" type="number" min="4" placeholder={draft.compute.fdtd ? "20" : "12"} value={gridText("pml_cells")} onchange={(e) => setNumber("pml_cells", (e.currentTarget as HTMLInputElement).value)} />
           </label>
         {/if}
       </div>
       {#if size}
         <p class="mt-2 text-xs num">{size[0]} × {size[1]} cells in the plane, <span class="font-medium">{sci(size[2])}</span> unknowns a solve</p>
       {/if}
+      {#if ownTyped.length}
+        <p role="status" class="mt-1 text-xs muted">{ownTyped.map((k) => `${typedGrid[k]}${k === "margin_um" ? " µm" : k.endsWith("_nm") ? " nm" : ""}`).join(", ")}: the device's own grid, which the run uses.</p>
+      {/if}
       <p class="mt-1 text-[11px] faint">Empty fields are the device's own grid, as its Model tab states it; the view's "As solved" shows these cells.</p>
     {/if}
     <label class="mt-3 flex items-center gap-2 text-xs">
       <span class="muted">Stop it after</span>
-      <input class="input input-xs w-20 num" type="number" min="1" placeholder="30" value={val(draft.compute.timeout_minutes)} onchange={(e) => setNumber("timeout_minutes", (e.currentTarget as HTMLInputElement).value)} />
+      <input class="input input-xs w-20 num" type="number" min="1" placeholder="30" value={gridText("timeout_minutes")} onchange={(e) => setNumber("timeout_minutes", (e.currentTarget as HTMLInputElement).value)} />
       <span class="muted">minutes</span>
     </label>
   </section>
@@ -332,7 +358,7 @@
   {/if}
 
   <div class="flex flex-wrap gap-2">
-    <button class="btn btn-primary btn-sm gap-1.5" disabled={!text || !!problem || !!otherDevice} onclick={start} title="Run the job: checked by the library, recorded in runs/, shown here live"><Play size={14} /> Run {how}</button>
+    <button class="btn btn-primary btn-sm gap-1.5" disabled={!making && (!text || !!problem || !!otherDevice)} onclick={() => runClick.click()} title="Run the job: checked by the library, recorded in runs/, shown here live"><Play size={14} /> Run {how}</button>
     <button class="btn btn-sm gap-1.5 {asText ? 'btn-active' : ''}" onclick={() => (asText = !asText)} title="The job file, editable, with the schema's completions, Reference and Problems"><Code size={14} /> As text</button>
     <button class="btn btn-ghost btn-sm gap-1.5" disabled={!text} onclick={save} title="Save the job to the workspace's jobs/ as {jobName}.{textFormat}"><Save size={14} /> Save job</button>
   </div>

@@ -68,7 +68,7 @@
     type WorldPin,
   } from "../lib/circuit";
   import { label } from "../lib/plot";
-  import { isMicrometres, len, lenUnit, showIn, shown, storeIn, stored, unitOf } from "../lib/units";
+  import { isMicrometres, len, lenUnit, showIn, shown, storeIn, stored, unitOf, unitText } from "../lib/units";
 
   loadLibrary();
 
@@ -946,8 +946,8 @@
       </label>
       <p class="panel-title mt-5">Wavelengths</p>
       <div class="mt-2 grid grid-cols-3 gap-2 text-xs">
-        <label class="flex flex-col gap-1"><span class="muted">From (<UnitChip />)</span><input class="input input-xs num" type="number" step={shown(0.01)} value={shown(chip.sweep.from_um)} onchange={(e) => change((c) => (c.sweep.from_um = stored(Number(e.currentTarget.value))))} /></label>
-        <label class="flex flex-col gap-1"><span class="muted">To (<UnitChip />)</span><input class="input input-xs num" type="number" step={shown(0.01)} value={shown(chip.sweep.to_um)} onchange={(e) => change((c) => (c.sweep.to_um = stored(Number(e.currentTarget.value))))} /></label>
+        <label class="flex flex-col gap-1"><span class="muted">From (<UnitChip />)</span><span class="input input-xs w-28"><input class="num" type="number" step={shown(0.01)} value={shown(chip.sweep.from_um)} onchange={(e) => change((c) => (c.sweep.from_um = stored(Number(e.currentTarget.value))))} /><span class="faint">{unitText()}</span></span></label>
+        <label class="flex flex-col gap-1"><span class="muted">To (<UnitChip />)</span><span class="input input-xs w-28"><input class="num" type="number" step={shown(0.01)} value={shown(chip.sweep.to_um)} onchange={(e) => change((c) => (c.sweep.to_um = stored(Number(e.currentTarget.value))))} /><span class="faint">{unitText()}</span></span></label>
         <label class="flex flex-col gap-1"><span class="muted">Points</span><input class="input input-xs num" type="number" step="100" value={chip.sweep.points} onchange={(e) => change((c) => (c.sweep.points = Math.round(Number(e.currentTarget.value))))} /></label>
       </div>
       {#if sweepProblem(chip.sweep)}<p class="mt-1 text-xs text-warning">{sweepProblem(chip.sweep)}</p>{/if}
