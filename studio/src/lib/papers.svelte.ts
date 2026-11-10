@@ -7,7 +7,10 @@
 import { convertFileSrc } from "@tauri-apps/api/core";
 
 import { api } from "./api";
-import { app, go, toast, updateSettings } from "./app.svelte";
+import { app, go, openCustom, showCases, showPublished, toast, updateSettings } from "./app.svelte";
+import { jobExample, loadCatalog } from "./catalog.svelte";
+import { openChipText, showChip } from "./chip.svelte";
+import { openDeviceText } from "./device.svelte";
 import { withAll, withSource, type Feed, type Paper, type PaperSummary, type Starred } from "./paperText";
 
 /** Checks in a row that reached no source before the feed says so. */
@@ -22,7 +25,7 @@ export const papers = $state({
   open: null as string | null,
   trail: [] as string[],
   /** The Papers page's tab when no paper is open. */
-  tab: "feed" as "feed" | "list" | "search",
+  tab: "feed" as "feed" | "list" | "cited" | "search",
   query: "",
   list: [] as Starred[],
   listLoaded: false,
@@ -175,7 +178,7 @@ export function paperBack() {
 }
 
 /** The Papers page on its lists: the feed, the reading list or a search. */
-export function showPapers(tab: "feed" | "list" | "search" = "feed") {
+export function showPapers(tab: "feed" | "list" | "cited" | "search" = "feed") {
   papers.open = null;
   papers.trail = [];
   papers.tab = tab;
@@ -236,4 +239,34 @@ export function setNote(id: string, note: string) {
   s.note = note;
   clearTimeout(noteTimer);
   noteTimer = setTimeout(() => void saveList(), 600);
+}
+
+// ---- where photonoxide cites a paper, opened where it lives ----
+
+/** The kinds of place a citation can be opened at in the studio; code and other documents can't. */
+export const OPENED_HERE = ["Methods pages", "Academy lessons", "Examples", "Validation cases", "Jobs and circuits"];
+
+/**
+ * Opens a place photonoxide cites a paper, by its kind and its name as docs/references.md lists
+ * them: a methods page over the page shown, a lesson in the Academy, an example among the
+ * published results, a validation case in the report, a job or a circuit where it opens.
+ */
+export async function openCited(place: string, name: string): Promise<void> {
+  if (place === "Methods pages") app.methodDoc = name;
+  else if (place === "Academy lessons") {
+    app.lesson = name.replace(/\.md$/, "");
+    go("academy");
+  } else if (place === "Examples") showPublished(name.replace(/\.rs$/, ""));
+  else if (place === "Validation cases") showCases(name);
+  else if (place === "Jobs and circuits") {
+    if (name.startsWith("circuits/")) {
+      const file = name.slice("circuits/".length);
+      const e = (await api.circuitExamples()).find((x) => x.file === file);
+      if (e) return void showChip(e.chip, null);
+    }
+    await loadCatalog();
+    const job = jobExample(name);
+    if (!job) return toast(`${name} isn't built into this program`, "error");
+    if (!(await openChipText(job.text)) && !(await openDeviceText(job.text))) openCustom(job.text);
+  }
 }

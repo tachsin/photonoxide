@@ -36,7 +36,7 @@
       title={starred ? "In your reading list: click to take it off" : "Keep it in your reading list"}><Star size={14} fill={starred ? "currentColor" : "none"} /></button
     >
     {#if url && !dense}
-      <button class="btn btn-ghost btn-xs btn-square text-base-content/30 opacity-0 group-hover/paper:opacity-100 focus-visible:opacity-100" onclick={() => openUrl(url)} aria-label="Open its publisher's page in the browser" title={url}><ExternalLink size={13} /></button>
+      <button class="btn btn-ghost btn-xs btn-square text-base-content/30 opacity-0 group-hover/paper:opacity-100 focus-visible:opacity-100" onclick={() => openUrl(url, { external: true })} aria-label="Open its publisher's page in the browser" title={url}><ExternalLink size={13} /></button>
     {/if}
   </span>
 </div>

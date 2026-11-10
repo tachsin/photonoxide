@@ -32,6 +32,14 @@
   let area = $state("");
   let tier = $state("");
   let open = $state<string | null>(null);
+  // a case sent here (from a citation, say): searched for, and opened
+  $effect(() => {
+    const id = app.caseQuery;
+    if (!id) return;
+    query = id;
+    open = id;
+    app.caseQuery = null;
+  });
   api.publishedReport().then((r) => (published = r)).catch(() => {});
 
   const task = $derived(tasks["validation"]);

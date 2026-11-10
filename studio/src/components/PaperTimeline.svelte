@@ -45,7 +45,7 @@
           <p class="mt-0.5 text-sm leading-snug font-medium">{p.title}</p>
           <p class="mt-0.5 text-xs leading-snug faint">{p.cite}</p>
           <p class="mt-1 text-[13px] leading-relaxed muted">{p.note}</p>
-          <button class="btn mt-1 -ml-2 gap-1 text-primary btn-ghost btn-xs" onclick={() => openUrl(`https://doi.org/${p.doi}`)} title="Open the paper at its publisher">
+          <button class="btn mt-1 -ml-2 gap-1 text-primary btn-ghost btn-xs" onclick={() => openUrl(`https://doi.org/${p.doi}`)} title="Its page in Papers: where photonoxide cites it, and its publisher">
             <ExternalLink size={11} /> doi:{p.doi}
           </button>
         </div>
