@@ -379,9 +379,9 @@ impl Spec {
                 let hint = nearest(n, &names)
                     .map_or_else(String::new, |near| format!(" (did you mean {near}?)"));
                 format!(
-                    "a {} has no parameter {n}{hint}; its parameters are {}, and no other \
+                    "{} has no parameter {n}{hint}; its parameters are {}, and no other \
                      parameter's expression uses {n}",
-                    device.kind(),
+                    with_article(device.kind()),
                     names.join(", ")
                 )
             })
@@ -414,14 +414,32 @@ fn nearest<'a>(name: &str, names: &[&'a str]) -> Option<&'a str> {
         .filter(|(d, _)| *d <= reach)
         .map(|(_, n)| n);
     best.or_else(|| {
-        let mut begun = names
+        let begun: Vec<&str> = names
             .iter()
-            .filter(|n| !lower.is_empty() && n.to_lowercase().starts_with(&lower));
-        match (begun.next(), begun.next()) {
-            (Some(n), None) => Some(*n),
+            .copied()
+            .filter(|n| !lower.is_empty() && n.to_lowercase().starts_with(&lower))
+            .collect();
+        // one name it begins; of several, the one word among compounds (radius, not
+        // round_trip_loss)
+        let words: Vec<&str> = begun.iter().copied().filter(|n| !n.contains('_')).collect();
+        match (begun.as_slice(), words.as_slice()) {
+            ([n], _) | (_, [n]) => Some(*n),
             _ => None,
         }
     })
+}
+
+/// `kind` with its indefinite article: "an all-pass ring", "an MZI", "a waveguide".
+pub(crate) fn with_article(kind: &str) -> String {
+    let mut chars = kind.chars();
+    let first = chars.next().unwrap_or(' ');
+    // an initialism read letter by letter (MZI, MMI) starts with a vowel's sound
+    let initialism = first == 'M' && chars.next().is_some_and(char::is_uppercase);
+    if "aeiouAEIOU".contains(first) || initialism {
+        format!("an {kind}")
+    } else {
+        format!("a {kind}")
+    }
 }
 
 /// The edits (insertions, deletions, substitutions and swaps of neighbours) taking `a` to `b`:

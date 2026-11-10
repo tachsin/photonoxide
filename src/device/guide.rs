@@ -61,7 +61,8 @@ pub(crate) fn check_analytic_band(
     Err(Error::invalid(
         "band",
         format!(
-            "a {kind}'s analytic fit holds from {lo} to {hi} um, not {band}: {}",
+            "{}'s analytic fit holds from {lo} to {hi} um, not {band}: {}",
+            super::spec::with_article(kind),
             out_of_band_fix(from, to)
         ),
     ))

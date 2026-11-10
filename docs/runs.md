@@ -21,6 +21,12 @@ prints the run's folder on its first line of output (`runs/20261014-120000-strip
 
 A stopped run's folder holds what was done before it stopped.
 
+What the run's numbers may not be, it says on stderr, without changing the exit code: a line
+`warning: ...` before it starts for a chip instance's parameter that nothing uses (a misspelled
+name, which leaves the parameter at its default; a device job refuses one), and at its end a
+line `convergence: ...` for each number `results.json` holds as `unchecked` or `not_converged`
+(below), and for a modes sweep, whose points are each solved on one grid.
+
 ## The files
 
 | File | What it holds |
