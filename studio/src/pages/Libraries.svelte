@@ -2,8 +2,10 @@
   // Libraries: the external libraries photonoxide can use, as found on this machine, with each
   // one's licence, what it provides, where photonoxide looked, and how to install it. None is
   // needed: photonoxide's own solvers are the default and the reference. First, those suggested
-  // for this machine, ranked and said by what its own benchmark records measured (#564).
-  import { CircleCheck, CircleDashed, CircleX, Copy, Cpu, Download, FolderSearch, Gauge, Package, RefreshCw, Scale, Trash2, TriangleAlert } from "@lucide/svelte";
+  // for this machine, ranked and said by what its own benchmark records measured (#564). Those
+  // with no build for this system (CUDA on macOS) are folded away, greyed, at the foot, and
+  // their backends are left out of the table.
+  import { ChevronRight, CircleCheck, CircleDashed, CircleX, Copy, Cpu, Download, FolderSearch, Gauge, Package, RefreshCw, Scale, Trash2, TriangleAlert } from "@lucide/svelte";
   import { listen } from "@tauri-apps/api/event";
   import { tick } from "svelte";
   import { openUrl } from "../lib/open";
@@ -30,14 +32,30 @@
 
   const report = $derived(libraries.report);
   const system = $derived(report ? systemOf(report.platform) : "");
-  const external = $derived(report?.guides.filter((g) => !g.built_in) ?? []);
+  /** Whether the library's vendor makes no build for this system, so it can never run here. */
+  const noBuild = (g: Guide) => !!report && (g.no_build ?? []).some((s) => s === system || s === report.platform);
+  /** The libraries this system can run, and those with no build for it, which are only listed. */
+  const here = $derived(report?.guides.filter((g) => !noBuild(g)) ?? []);
+  const elsewhere = $derived(report?.guides.filter(noBuild) ?? []);
+  const external = $derived(here.filter((g) => !g.built_in));
+  /** The backends this system can run: those built on a library with no build here are left out. */
+  const backends = $derived(report?.backends.filter((b) => !elsewhere.some((g) => g.backends.includes(b.name))) ?? []);
   const found = $derived(external.filter((g) => report?.libraries.find((l) => l.name === g.library)?.found).length);
   const available = $derived(report?.backends.filter((b) => b.available).length ?? 0);
 
   /** The install waiting for the user's confirmation, and the command it will run. */
   let confirming = $state<{ guide: Guide; install: Install; plan: string } | null>(null);
-  /** An install or removal under way, or just done: its output as it came, and what changed. */
-  let running = $state<{ library: string; verb: string; lines: string[]; state: "running" | "done" | "failed"; error: string; changed: string[] } | null>(null);
+  /** An install or removal under way, or just done (in the store: it goes on when the page is left). */
+  const running = $derived(libraries.job);
+  /** The time, every second while something runs: the dialog's clock. */
+  let now = $state(Date.now());
+  $effect(() => {
+    if (running?.state !== "running") return;
+    const timer = setInterval(() => (now = Date.now()), 1000);
+    return () => clearInterval(timer);
+  });
+  /** A duration as m:ss. */
+  const clock = (ms: number) => `${Math.floor(ms / 60000)}:${String(Math.floor(ms / 1000) % 60).padStart(2, "0")}`;
   let log: HTMLElement | undefined = $state();
   /** What the program installed into its own environment, and where that is. */
   let mine = $state<{ environment: string | null; libraries: Record<string, { id: string; manager: string; packages: string[] }> }>({ environment: null, libraries: {} });
@@ -94,26 +112,40 @@
   /** Runs `work` with its output shown as it comes, then detects again and says what changed. */
   async function follow(library: string, verb: string, work: () => Promise<void>) {
     const before = foundNow();
-    running = { library, verb, lines: [], state: "running", error: "", changed: [] };
-    const stop = await listen<{ library: string; line: string }>("library-install", async ({ payload }) => {
-      if (!running || payload.library !== library) return;
-      running.lines.push(payload.line);
+    now = Date.now();
+    libraries.job = { library, verb, lines: [], state: "running", error: "", changed: { gained: [], lost: [] }, progress: null, stopping: false, started: now, ended: now };
+    // this install's record, the store's own: what the events and the end write to
+    const job = libraries.job!;
+    const stopLines = await listen<{ library: string; line: string }>("library-install", async ({ payload }) => {
+      if (libraries.job !== job || payload.library !== library) return;
+      job.lines.push(payload.line);
       await tick();
       log?.scrollTo({ top: log.scrollHeight });
     });
+    const stopProgress = await listen<{ library: string; done: number; total: number | null }>("library-progress", ({ payload }) => {
+      if (libraries.job !== job || payload.library !== library) return;
+      job.progress = { done: payload.done, total: payload.total };
+    });
+    const stop = () => {
+      stopLines();
+      stopProgress();
+    };
     try {
       await work();
       await detect();
       await loadOwn();
       const after = foundNow();
       const gained = [...after].filter((x) => !before.has(x));
-      const lost = [...before].filter((x) => !after.has(x)).map((x) => `no longer ${x}`);
-      running.changed = [...gained, ...lost];
-      running.state = "done";
+      const lost = [...before].filter((x) => !after.has(x));
+      job.changed = { gained, lost };
+      job.state = "done";
     } catch (e) {
-      running.state = "failed";
-      running.error = String(e);
+      job.state = job.stopping ? "cancelled" : "failed";
+      job.error = String(e);
+      // what a cancelled install left, if anything, is found again
+      if (job.stopping) await detect();
     } finally {
+      job.ended = Date.now();
       stop();
     }
   }
@@ -128,6 +160,21 @@
   async function remove(library: string) {
     await follow(library, "Removing", () => api.libraryRemove(library));
   }
+
+  /** Stops the install or removal under way. */
+  async function cancel() {
+    if (!running || running.state !== "running") return;
+    running.stopping = true;
+    try {
+      await api.libraryCancel();
+    } catch (e) {
+      running.stopping = false;
+      toast(String(e), "error");
+    }
+  }
+
+  /** Megabytes, to one decimal. */
+  const mb = (bytes: number) => (bytes / 1e6).toFixed(1);
 
   const provides: Record<string, string> = {
     direct: "sparse direct solves",
@@ -211,10 +258,10 @@
         <div class="overflow-x-auto">
           <table class="table table-sm">
             <thead>
-              <tr><th>Backend</th><th>Solves</th><th>State</th><th>Version</th><th>Licence</th><th>Same bits every run</th><th>Threads</th><th>Symmetric · transpose</th></tr>
+              <tr><th>Backend</th><th>Solves</th><th>State</th><th>Version</th><th>Licence</th></tr>
             </thead>
             <tbody>
-              {#each report.backends as b (`${b.kind}:${b.name}`)}
+              {#each backends as b (`${b.kind}:${b.name}`)}
                 <tr>
                   <td class="font-mono text-[12.5px] font-medium">{b.name}</td>
                   <td class="muted">{b.kind}</td>
@@ -227,9 +274,6 @@
                   </td>
                   <td class="num text-xs whitespace-nowrap">{b.version ?? "—"}</td>
                   <td class="text-xs muted">{b.licence?.replace(" (installed by the user)", "") ?? "—"}</td>
-                  <td class="text-xs">{b.deterministic === null ? "—" : b.deterministic ? "yes" : "no"}</td>
-                  <td class="max-w-72 text-xs muted"><span class="line-clamp-2" title={b.threads ?? ""}>{b.threads ?? "—"}</span></td>
-                  <td class="text-xs muted">{b.symmetric === null ? "—" : `${b.symmetric ? "yes" : "no"} · ${b.transpose ? "yes" : "no"}`}</td>
                 </tr>
               {/each}
             </tbody>
@@ -238,7 +282,7 @@
       </section>
 
       <div class="grid grid-cols-1 gap-4 xl:grid-cols-2">
-        {#each report.guides as g (g.library)}
+        {#each here as g (g.library)}
           {@const lib = libOf(g)}
           {@const own = report.backends.filter((b) => g.backends.includes(b.name))}
           {@const instead = unsupported(g)}
@@ -368,6 +412,30 @@
           </article>
         {/each}
       </div>
+
+      {#if elsewhere.length}
+        <!-- the libraries with no build for this system: folded, greyed, each with what runs instead -->
+        <details class="panel group overflow-hidden">
+          <summary class="flex cursor-pointer list-none items-center gap-2 px-4 py-3 text-base-content/55 hover:text-base-content [&::-webkit-details-marker]:hidden">
+            <ChevronRight size={15} class="shrink-0 transition-transform duration-200 group-open:rotate-90 motion-reduce:transition-none" />
+            <h3 class="shrink-0 font-semibold">No build for this system</h3>
+            <span class="badge badge-ghost badge-sm num">{elsewhere.length}</span>
+            <span class="min-w-0 truncate text-xs faint">{elsewhere.map((g) => g.library).join(", ")}: they can't run on {report.platform}, and photonoxide's own solvers run instead</span>
+          </summary>
+          <ul class="divide-y divide-base-content/8 border-t border-base-content/8 opacity-60">
+            {#each elsewhere as g (g.library)}
+              <li class="px-4 py-3">
+                <p class="text-sm font-medium">
+                  {g.library}
+                  {#each g.backends as b (b)}<span class="badge badge-ghost badge-sm ml-1.5 font-mono">{b}</span>{/each}
+                </p>
+                <p class="mt-0.5 text-xs muted">{unsupported(g) ?? `Its vendor makes no build for ${report.platform}: photonoxide's own solvers run here.`}</p>
+                <p class="mt-1 text-xs faint">{g.about}</p>
+              </li>
+            {/each}
+          </ul>
+        </details>
+      {/if}
     {/if}
   </div>
 </div>
@@ -406,18 +474,45 @@
   {#if running}
     <div class="modal-box max-w-2xl">
       <h3 class="flex items-center gap-2 text-lg font-semibold">
-        {#if running.state === "running"}<span class="loading loading-spinner loading-sm text-primary"></span>{:else if running.state === "done"}<CircleCheck size={20} class="text-success" />{:else}<CircleX size={20} class="text-error" />{/if}
-        {running.verb} {running.library}{running.state === "done" ? ": done" : running.state === "failed" ? ": stopped" : "…"}
+        {#if running.state === "running"}<span class="loading loading-spinner loading-sm text-primary"></span>{:else if running.state === "done"}<CircleCheck size={20} class="text-success" />{:else if running.state === "cancelled"}<CircleX size={20} class="text-base-content/50" />{:else}<CircleX size={20} class="text-error" />{/if}
+        {running.verb} {running.library}{running.state === "done" ? ": done" : running.state === "failed" ? ": stopped" : running.state === "cancelled" ? ": cancelled" : running.stopping ? ": cancelling…" : "…"}
+        <span class="ml-auto text-sm font-normal num faint" title="How long it has run">{clock(Math.max(0, (running.state === "running" ? now : running.ended) - running.started))}</span>
       </h3>
+      {#if running.state === "running" && running.progress && running.progress.done !== running.progress.total}
+        {@const p = running.progress}
+        <!-- a download under way: a bar when its size is known, else how much has come -->
+        <div class="mt-3">
+          {#if p.total}
+            <progress class="progress progress-primary w-full" value={p.done} max={p.total}></progress>
+            <p class="mt-1 text-xs num faint">{mb(p.done)} of {mb(p.total)} MB · {Math.floor((100 * p.done) / p.total)} %</p>
+          {:else if p.done === 0}
+            <progress class="progress progress-primary w-full"></progress>
+            <p class="mt-1 text-xs faint">Connecting to the server…</p>
+          {:else}
+            <progress class="progress progress-primary w-full"></progress>
+            <p class="mt-1 text-xs num faint">{mb(p.done)} MB so far</p>
+          {/if}
+        </div>
+      {/if}
       <pre bind:this={log} class="mt-3 max-h-80 overflow-auto rounded-lg bg-base-300/70 px-3 py-2 font-mono text-[12px] leading-relaxed whitespace-pre-wrap selectable">{running.lines.join("\n") || "Starting…"}</pre>
       {#if running.state === "failed"}<p class="mt-3 text-sm text-error selectable">{running.error}</p>{/if}
+      {#if running.state === "cancelled"}<p class="mt-3 text-sm muted">Cancelled: nothing was recorded as installed. Install it again to finish it.</p>{/if}
       {#if running.state === "done"}
         <p class="mt-3 text-sm">
-          {#if running.changed.length}Found again, and what changed: {running.changed.join(", ")}.{:else}Found again: nothing changed in what photonoxide finds. A library may need the program restarted, or a driver it depends on.{/if}
+          {#if running.changed.gained.length || running.changed.lost.length}
+            photonoxide checked this computer again.
+            {#if running.changed.gained.length}Now available: {running.changed.gained.join(", ")}.{/if}
+            {#if running.changed.lost.length}No longer available: {running.changed.lost.join(", ")}.{/if}
+          {:else}
+            photonoxide checked this computer again, and nothing new is available yet. Restart photonoxide; if {running.library} still isn't found, it may need a driver installed first.
+          {/if}
         </p>
       {/if}
       <div class="modal-action">
-        <button class="btn" disabled={running.state === "running"} onclick={() => (running = null)}>Close</button>
+        {#if running.state === "running"}
+          <button class="btn btn-ghost text-error" disabled={running.stopping} onclick={cancel} title="Stop the download, or the command it runs">{running.stopping ? "Cancelling…" : "Cancel"}</button>
+        {/if}
+        <button class="btn" disabled={running.state === "running"} onclick={() => (libraries.job = null)}>Close</button>
       </div>
     </div>
   {/if}

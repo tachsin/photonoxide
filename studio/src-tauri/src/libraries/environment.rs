@@ -19,6 +19,9 @@ use std::collections::BTreeMap;
 use std::io::{BufRead, BufReader, Read};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::mpsc::RecvTimeoutError;
+use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -169,9 +172,72 @@ fn sha256(bytes: &[u8]) -> String {
         .collect()
 }
 
+/// Set by the window's Cancel: the download and the command running stop at their next check.
+static CANCEL: AtomicBool = AtomicBool::new(false);
+
+/// What an install or a removal cancelled says.
+pub const CANCELLED: &str = "Cancelled: stopped before it finished";
+
+/// Stops the install or removal under way.
+pub fn cancel() {
+    CANCEL.store(true, Ordering::SeqCst);
+}
+
+/// Clears an earlier Cancel, as an install or a removal starts.
+pub fn begin() {
+    CANCEL.store(false, Ordering::SeqCst);
+}
+
+fn cancelled() -> bool {
+    CANCEL.load(Ordering::SeqCst)
+}
+
+/// How far a download is: the bytes so far, and of how many when the server says.
+pub type Progress<'a> = &'a mut dyn FnMut(u64, Option<u64>);
+
+/// What a download's thread sends: how far it is, then the file or why it stopped.
+enum Fetched {
+    Progress(u64, Option<u64>),
+    Done(Result<Vec<u8>, String>),
+}
+
+/// Downloads `url` in pieces, saying how far it is every 256 kB; stops when cancelled.
+fn fetch(url: &str, tx: &std::sync::mpsc::Sender<Fetched>) -> Result<Vec<u8>, String> {
+    if rustls::crypto::CryptoProvider::get_default().is_none() {
+        let _ = rustls::crypto::ring::default_provider().install_default();
+    }
+    let mut response = reqwest::blocking::Client::builder()
+        .user_agent(format!("photonoxide/{}", photonoxide::VERSION))
+        .connect_timeout(Duration::from_secs(30))
+        .timeout(Duration::from_secs(600))
+        .build()
+        .and_then(|c| c.get(url).send())
+        .and_then(reqwest::blocking::Response::error_for_status)
+        .map_err(|e| format!("micromamba couldn't be downloaded ({e}): check the connection"))?;
+    let total = response.content_length();
+    let mut bytes = Vec::with_capacity(usize::try_from(total.unwrap_or(0)).unwrap_or(0));
+    let mut piece = vec![0u8; 64 * 1024];
+    let mut shown = 0;
+    while !cancelled() {
+        let n = response
+            .read(&mut piece)
+            .map_err(|e| format!("micromamba's download stopped: {e}"))?;
+        if n == 0 {
+            let _ = tx.send(Fetched::Progress(bytes.len() as u64, total));
+            return Ok(bytes);
+        }
+        bytes.extend_from_slice(&piece[..n]);
+        if bytes.len() - shown >= 256 * 1024 {
+            shown = bytes.len();
+            let _ = tx.send(Fetched::Progress(shown as u64, total));
+        }
+    }
+    Err(CANCELLED.to_owned())
+}
+
 /// micromamba, downloaded once and checked: every use checks the file against its SHA-256
-/// again, so a file changed on disk isn't run.
-pub fn micromamba(say: &mut dyn FnMut(&str)) -> Result<PathBuf, String> {
+/// again, so a file changed on disk isn't run. Its download says how far it is to `progress`.
+pub fn micromamba(say: &mut dyn FnMut(&str), progress: Progress) -> Result<PathBuf, String> {
     let (platform, expected) = build_here()?;
     let dir = tools()?.join(format!("micromamba-{MICROMAMBA}"));
     let file = dir.join(if cfg!(windows) {
@@ -190,20 +256,27 @@ pub fn micromamba(say: &mut dyn FnMut(&str)) -> Result<PathBuf, String> {
     say(&format!(
         "Downloading micromamba {MICROMAMBA} (conda-forge's installer, BSD-3-Clause) from {url}"
     ));
-    if rustls::crypto::CryptoProvider::get_default().is_none() {
-        let _ = rustls::crypto::ring::default_provider().install_default();
-    }
-    let mut response = reqwest::blocking::Client::builder()
-        .user_agent(format!("photonoxide/{}", photonoxide::VERSION))
-        .timeout(std::time::Duration::from_secs(600))
-        .build()
-        .and_then(|c| c.get(&url).send())
-        .and_then(reqwest::blocking::Response::error_for_status)
-        .map_err(|e| format!("micromamba couldn't be downloaded ({e}): check the connection"))?;
-    let mut bytes = Vec::new();
-    response
-        .read_to_end(&mut bytes)
-        .map_err(|e| format!("micromamba's download stopped: {e}"))?;
+    progress(0, None);
+    // on a thread of its own, so Cancel answers at once even while it connects or stalls: the
+    // thread is left to end by itself
+    let (tx, rx) = std::sync::mpsc::channel();
+    std::thread::spawn(move || {
+        let result = fetch(&url, &tx);
+        let _ = tx.send(Fetched::Done(result));
+    });
+    let bytes = loop {
+        match rx.recv_timeout(Duration::from_millis(200)) {
+            Ok(Fetched::Progress(done, total)) => progress(done, total),
+            Ok(Fetched::Done(result)) => break result?,
+            Err(RecvTimeoutError::Timeout) => {}
+            Err(RecvTimeoutError::Disconnected) => {
+                return Err("micromamba's download stopped".to_owned());
+            }
+        }
+        if cancelled() {
+            return Err(CANCELLED.to_owned());
+        }
+    };
     let got = sha256(&bytes);
     if got != expected {
         return Err(format!(
@@ -222,7 +295,8 @@ pub fn micromamba(say: &mut dyn FnMut(&str)) -> Result<PathBuf, String> {
     Ok(file)
 }
 
-/// Runs `program` with `args`, each line of its output to `say` as it comes; its outcome.
+/// Runs `program` with `args`, each line of its output to `say` as it comes; its outcome. A
+/// Cancel kills it.
 pub fn run(
     program: &Path,
     args: &[String],
@@ -259,11 +333,23 @@ pub fn run(
             }
         })
     });
-    for line in rx {
-        // progress bars redraw with carriage returns: the last state of each line
-        let line = line.rsplit('\r').next().unwrap_or("").trim_end().to_owned();
-        if !line.is_empty() {
-            say(&line);
+    loop {
+        match rx.recv_timeout(Duration::from_millis(200)) {
+            Ok(line) => {
+                // progress bars redraw with carriage returns: the last state of each line
+                let line = line.rsplit('\r').next().unwrap_or("").trim_end().to_owned();
+                if !line.is_empty() {
+                    say(&line);
+                }
+            }
+            Err(RecvTimeoutError::Timeout) => {}
+            Err(RecvTimeoutError::Disconnected) => break,
+        }
+        if cancelled() {
+            // the readers aren't waited for: a process it started may still hold the pipes
+            let _ = child.kill();
+            let _ = child.wait();
+            return Err(CANCELLED.to_owned());
         }
     }
     for t in [err, out].into_iter().flatten() {
@@ -304,11 +390,12 @@ pub fn install(
     id: &str,
     packages: &[String],
     say: &mut dyn FnMut(&str),
+    progress: Progress,
 ) -> Result<(), String> {
     if packages.is_empty() {
         return Err(format!("{library}'s install {id} names no package"));
     }
-    let mamba = micromamba(say)?;
+    let mamba = micromamba(say, progress)?;
     let prefix = prefix()?;
     let root = tools()?.join("mamba");
     let verb = if prefix.join("conda-meta").is_dir() {
@@ -356,12 +443,12 @@ pub fn forget(library: &str) -> Result<(), String> {
 }
 
 /// Removes what the program installed for `library` from the environment.
-pub fn remove(library: &str, say: &mut dyn FnMut(&str)) -> Result<(), String> {
+pub fn remove(library: &str, say: &mut dyn FnMut(&str), progress: Progress) -> Result<(), String> {
     let mut record = installed();
     let Some(r) = record.libraries.get(library).cloned() else {
         return Err(format!("photonoxide didn't install {library}"));
     };
-    let mamba = micromamba(say)?;
+    let mamba = micromamba(say, progress)?;
     let prefix = prefix()?;
     let root = tools()?.join("mamba");
     // a package another library installed too stays
@@ -446,10 +533,16 @@ mod tests {
         let dir = std::env::var_os("PHOTONOXIDE_LIBRARIES_DIR")
             .expect("PHOTONOXIDE_LIBRARIES_DIR, a scratch folder: never the program's own");
         let mut lines = Vec::new();
-        install("Zstandard", "conda", &["zstd".into()], &mut |l| {
-            println!("{l}");
-            lines.push(l.to_owned());
-        })
+        install(
+            "Zstandard",
+            "conda",
+            &["zstd".into()],
+            &mut |l| {
+                println!("{l}");
+                lines.push(l.to_owned());
+            },
+            &mut |_, _| {},
+        )
         .unwrap();
         let found = photonoxide_native::discover(&photonoxide_native::zstd::ZSTD, None);
         let own = found
@@ -459,7 +552,7 @@ mod tests {
             .unwrap_or_else(|| panic!("zstd not found in {}: {found:?}", dir.display()));
         assert!(own.path.starts_with(&dir), "{}", own.path.display());
         assert_eq!(installed().libraries["Zstandard"].packages, ["zstd"]);
-        remove("Zstandard", &mut |l| println!("{l}")).unwrap();
+        remove("Zstandard", &mut |l| println!("{l}"), &mut |_, _| {}).unwrap();
         assert!(!installed().libraries.contains_key("Zstandard"));
     }
 
