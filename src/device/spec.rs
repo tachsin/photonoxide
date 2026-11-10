@@ -369,7 +369,7 @@ impl Spec {
         let used: Vec<String> = self
             .parameters
             .iter()
-            .flat_map(|(_, e)| crate::expr::identifiers(e))
+            .flat_map(|(_, e)| names_in(e))
             .collect();
         self.parameters
             .iter()
@@ -400,6 +400,16 @@ impl Spec {
             Some(reason) => Err(Error::invalid("device", reason)),
         }
     }
+}
+
+/// The names an expression's text mentions: each run of letters, digits and underscores that
+/// starts with a letter or an underscore (a number's exponent, `1e-6`, is part of the number).
+/// Units and functions are among them, which only makes a name more often taken as used.
+fn names_in(text: &str) -> Vec<String> {
+    text.split(|c: char| !(c.is_alphanumeric() || c == '_'))
+        .filter(|t| t.starts_with(|c: char| c.is_alphabetic() || c == '_'))
+        .map(str::to_owned)
+        .collect()
 }
 
 /// The name among `names` nearest to `name`, if one is near: at most two edits away (one for
