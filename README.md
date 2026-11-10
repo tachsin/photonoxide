@@ -43,7 +43,8 @@ It is released milestone by milestone ([changelog](CHANGELOG.md), [roadmap](ROAD
   front matter cites 300 distinct sources by DOI.
 - **[Academy](academy/README.md):** lessons on devices and numerical methods at three depths,
   each opening on a drawing of its device, with charts the library computes live; 20 written,
-  and 1 more laid out section by section, read on GitHub or in the studio.
+  and 1 more laid out section by section, read on GitHub or in the studio. New to rings?
+  [Start the lesson](academy/ring-resonator.md).
 - **[Fabrication](docs/methods/fabrication.md):** the process flow that would make a design, each
   step with its reason, its alternatives and what its process can achieve, as its source states
   it; 56 processes on 5 platforms, every flow executed back to its design and shown step by step

@@ -230,6 +230,13 @@ export default async function PhotonoxidePage() {
             How it computes
           </Link>
         </div>
+        <p className="proj-rise-2 mt-4 text-base-content/60 text-sm">
+          New to rings?{" "}
+          <a href={PHOTONOXIDE_LINKS.ringLesson} target="_blank" rel="noopener noreferrer" className="link link-primary">
+            Start the lesson
+          </a>
+          : the ring resonator, an Academy lesson whose charts run live in the studio.
+        </p>
 
         <ul className="proj-rise-2 mt-8 flex flex-wrap justify-center gap-2">
           {HERO_LINKS.map(({ label, href, Icon }) => (

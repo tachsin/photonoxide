@@ -3,18 +3,42 @@
 photonoxide is photonics design and simulation software: a Rust library, Python bindings and a
 live desktop studio. Its methods pages derive each solver from the papers it implements, the
 Academy teaches devices and numerical methods, and the fabrication flows show how a design would
-be made; every method is checked against an analytic solution or a published result. This page
-takes you from adding it to a project to
-your first waveguide modes, materials and circuit, and says where everything else is.
+be made; each method is checked against an analytic solution or a published result. This page
+starts with the studio, then takes you from adding the library to a project to your first waveguide
+modes, materials and circuit, and says where everything else is.
 
-## Add it
+## The studio first
+
+Install the `photonoxide` program for Linux, Windows or macOS from a
+[release](https://github.com/tachsin/photonoxide/releases), or the Python package with
+`pip install photonoxide`. Then, in the studio:
+
+1. Open **Components** and pick the all-pass ring.
+2. Press **Run**. The spectrum draws as it is computed.
+3. Hover over the chart and use its **Save the data as CSV** button (top right), or **Export…** in
+   the run's sidebar for every table the run has ([what the tables hold](methods/export.md)).
+
+New to rings? The [ring resonator lesson](https://github.com/tachsin/photonoxide/blob/main/academy/ring-resonator.md)
+in the Academy builds the spectrum up step by step; its charts run live in the studio.
+
+From a terminal, the same program:
+
+```sh
+photonoxide --help                   # every command
+photonoxide example --list           # the built-in examples, each a published result
+photonoxide new modes job.yaml       # a short job that runs as it is, a comment on each field
+photonoxide run job.yaml --headless  # no window; prints the run's folder, with results.json and CSV tables
+```
+
+The rest of this page is for the Rust library, and then the studio and jobs in more detail.
+
+## Add the library
 
 ```sh
 cargo add photonoxide
 ```
 
-The latest release, 0.4.0, has everything on this page: the materials, the mode solvers, FDFD,
-and components and circuits. For the work on the main branch since:
+For the work on the main branch since the last release:
 `photonoxide = { git = "https://github.com/tachsin/photonoxide" }`.
 
 photonoxide is pure Rust: no C, Fortran or Python, so `cargo build` is all it needs.
@@ -325,8 +349,9 @@ the effective indices as the points arrive, and for a wavelength sweep the group
 
 - **Methods**: each method's equations, paper, validation and limits, on this site and in
   `docs/methods/`.
-- **Examples**: each reproduces a published result and fails when it disagrees,
-  `cargo run --release --example <name>`.
+- **Examples**: each computes a published result, prints it beside the paper's and fails outside
+  its tolerance: `photonoxide example <name>` (the installed program; `example --list` lists them) or
+  `cargo run --release --example <name>` from a checkout.
 - **Designs**: a strip waveguide's modes, a ring's spectrum and a directional coupler, each as a
   job file beside the same calls in Python, with its layers from the top down,
   [docs/design.md](design.md).

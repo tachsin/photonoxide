@@ -53,6 +53,7 @@ export const PHOTONOXIDE_LINKS = {
   github: `https://github.com/${PHOTONOXIDE_REPO}`,
   roadmap: `${BLOB}ROADMAP.md`,
   readme: `${BLOB}README.md`,
+  ringLesson: `${BLOB}academy/ring-resonator.md`,
   issues: `https://github.com/${PHOTONOXIDE_REPO}/issues`,
   pitfalls: `${BLOB}ROADMAP.md#pitfalls-ruled-out-by-design`,
   validation: `${BLOB}ROADMAP.md#validation`,
