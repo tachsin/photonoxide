@@ -1,6 +1,6 @@
 # Cross-code comparison
 
-photonoxide's solvers, each checked against an established code that solves the same physics.
+Two of photonoxide's solvers, the static solver and the RF line, each checked against an established code that solves the same physics.
 Each comparison is a pair. Where both codes solve the same equations on the same mesh, the pair
 compares accuracy and speed; where they solve the physics differently, it compares accuracy
 only. This crate runs the other codes as external programs; it is local only, and CI never builds

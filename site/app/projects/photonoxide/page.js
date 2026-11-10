@@ -168,9 +168,9 @@ export default async function PhotonoxidePage() {
     {
       Icon: BookOpen,
       href: METHODS_PATH,
-      // the foundations (units, geometry, materials) aren't methods
-      count: methods.filter((m) => m.category !== "foundations").length || null,
-      label: "methods",
+      // every page the methods index lists, the foundations (units, geometry, materials) too
+      count: methods.length || null,
+      label: "method pages",
       body: "From exact slabs and full-vector modes to FDFD, FDTD, circuits and compact models, each with its paper and its limits.",
     },
     {
@@ -178,7 +178,7 @@ export default async function PhotonoxidePage() {
       href: EXAMPLES_PATH,
       count: examples.length || null,
       label: "examples",
-      body: "Each reproduces a published result, prints it beside the paper's numbers, and fails when they disagree.",
+      body: "Each computes a published result and prints it beside the paper's numbers, with its tolerance; outside it, the example fails.",
     },
     {
       Icon: FlaskConical,
@@ -230,6 +230,13 @@ export default async function PhotonoxidePage() {
             How it computes
           </Link>
         </div>
+        <p className="proj-rise-2 mt-4 text-base-content/60 text-sm">
+          New to rings?{" "}
+          <a href={PHOTONOXIDE_LINKS.ringLesson} target="_blank" rel="noopener noreferrer" className="link link-primary">
+            Start the lesson
+          </a>
+          : the ring resonator, an Academy lesson whose charts run live in the studio.
+        </p>
 
         <ul className="proj-rise-2 mt-8 flex flex-wrap justify-center gap-2">
           {HERO_LINKS.map(({ label, href, Icon }) => (

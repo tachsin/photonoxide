@@ -14,7 +14,7 @@ import {
 } from "@/lib/projects/photonoxide/meta";
 
 const DESCRIPTION =
-  "photonoxide's solvers, each checked against an established code that solves the same physics: against Elmer for heat and electrostatics (accuracy and speed), against openEMS for the RF line (accuracy).";
+  "Two of photonoxide's solvers, each checked against an established code that solves the same physics: against Elmer for heat and electrostatics (accuracy and speed), against openEMS for the RF line (accuracy).";
 
 export const metadata = projectsMetadata({
   title: "Cross-code comparison",

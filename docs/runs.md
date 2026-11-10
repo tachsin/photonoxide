@@ -14,8 +14,8 @@ prints the run's folder on its first line of output (`runs/20261014-120000-strip
 | Code | The run |
 |---:|---|
 | 0 | finished |
-| 1 | failed: the error is on stderr, in `results.json` and in the record's last event |
-| 2 | wasn't started: the command line was wrong |
+| 1 | failed: the error is on stderr, in `results.json` and in the record's last event; a job file that is missing, can't be read or doesn't parse fails here too, before any run folder exists |
+| 2 | wasn't started: the command line was wrong (an unknown command or flag, or no job file named) |
 | 3 | stopped by its timeout: the job's `timeout_minutes` or `--timeout`, whichever is shorter |
 | 4 | stopped on request: its window was closed before it finished |
 
