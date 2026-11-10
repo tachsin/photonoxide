@@ -13,6 +13,7 @@
   import { fitOf, fits, rungs, took, type Draft } from "../../lib/device.svelte";
   import { plain } from "../../lib/deviceview";
   import type { CompactFit, Event } from "../../lib/events";
+  import { heldRun } from "../../lib/typing";
   import { shown as inUnit, stored, unitText } from "../../lib/units";
   import UnitChip from "../UnitChip.svelte";
 
@@ -86,7 +87,15 @@
     return () => clearTimeout(timer);
   });
   const text = $derived(made.key === madeKey ? made.text : "");
-  const problem = $derived(made.key === madeKey ? made.problem : "");
+  /** The job is being made again, from a value just typed: its Run waits for it rather than refusing the click. */
+  const making = $derived(!!st.axes.length && made.key !== madeKey);
+  // the last job's problem stays while the next is made: its line doesn't vanish under the pointer on its way to Run
+  const problem = $derived(made.problem);
+  // a click on Run while the job is made from a value just typed: it runs once the job is made
+  const runClick = heldRun(() => making, () => start());
+  $effect(() => {
+    if (!making) runClick.made();
+  });
   const each = $derived(source ? took[`${info.id} ${source.fidelity}`] : undefined);
 
   // ---- the fit shown: the one running, or one opened from its run ----
@@ -225,8 +234,8 @@
       <div class="flex flex-col gap-1 text-xs">
         <span class="muted">Band (<UnitChip />), wavelengths</span>
         <div class="grid grid-cols-3 gap-2">
-          <input class="input input-xs num" type="number" value={inUnit(band[0])} onchange={(e) => setBand(0, (e.currentTarget as HTMLInputElement).value)} />
-          <input class="input input-xs num" type="number" value={inUnit(band[1])} onchange={(e) => setBand(1, (e.currentTarget as HTMLInputElement).value)} />
+          <span class="input input-xs"><input class="num" type="number" value={inUnit(band[0])} onchange={(e) => setBand(0, (e.currentTarget as HTMLInputElement).value)} /><span class="faint">{unitText()}</span></span>
+          <span class="input input-xs"><input class="num" type="number" value={inUnit(band[1])} onchange={(e) => setBand(1, (e.currentTarget as HTMLInputElement).value)} /><span class="faint">{unitText()}</span></span>
           <input class="input input-xs num" type="number" min="2" value={band[2]} onchange={(e) => setBand(2, (e.currentTarget as HTMLInputElement).value)} />
         </div>
       </div>
@@ -284,7 +293,7 @@
         <progress class="progress progress-primary w-40" value={done} max={total}></progress>
         <span class="text-xs faint num">{done} of {total} samples</span>
       {:else}
-        <button class="btn btn-primary btn-sm gap-1.5" disabled={!text || !!problem} onclick={start} title="Run the samples as a job at the {source?.key} fidelity, and fit the model to them"><Play size={13} /> Fit</button>
+        <button class="btn btn-primary btn-sm gap-1.5" disabled={!making && (!text || !!problem)} onclick={() => runClick.click()} title="Run the samples as a job at the {source?.key} fidelity, and fit the model to them"><Play size={13} /> Fit</button>
       {/if}
       <span class="text-xs faint">{samples} samples and {st.held_out} held out, each a{source?.fidelity === "analytic" ? " closed form" : ` ${source?.key} solve`}</span>
       {#if problem}<span class="w-full text-xs text-warning">{plain(problem)}</span>{/if}
