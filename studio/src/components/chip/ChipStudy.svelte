@@ -20,8 +20,22 @@
   const study = $derived(live ? run.chipStudy : null);
   const points = $derived<ChipPoint[]>(live ? run.chipPoints : []);
   const ports = $derived(study?.ports ?? chip.port.map((p) => p.name));
-  const q = $derived(ports.includes(st.q) ? st.q : (ports[1] ?? ports[0] ?? ""));
   const p = $derived(ports.includes(st.p) ? st.p : (ports[0] ?? ""));
+  /** The port most of the light from `p` reaches at the first point computed: the curve shown first carries power, not a path no light takes (in2 from in1, −300 dB). */
+  const brightest = $derived.by(() => {
+    const pt = points.find((x) => !x.error);
+    const pi = study ? study.ports.indexOf(p) : -1;
+    if (!study || !pt || pi < 0) return null;
+    let best: string | null = null;
+    let most = -1;
+    study.ports.forEach((name, qi) => {
+      if (qi === pi) return;
+      const power = pt.s.reduce((sum, s) => sum + s[qi][pi][0] ** 2 + s[qi][pi][1] ** 2, 0);
+      if (power > most) [best, most] = [name, power];
+    });
+    return best;
+  });
+  const q = $derived(ports.includes(st.q) ? st.q : (brightest ?? ports[1] ?? ports[0] ?? ""));
   const fidelities = $derived(run.chip ? [...new Set(run.chip.instances.map((i) => i.fidelity))] : []);
   const grids = $derived(run.chip ? [...new Set(run.chip.instances.filter((i) => i.device).map((i) => `${i.name}: ${i.fidelity}, ${i.grid}`))] : []);
 
@@ -134,9 +148,9 @@
     {#if study}
       <div class="mb-1 flex flex-wrap items-center gap-2 text-xs">
         <span class="muted">|S|² into</span>
-        <select class="select select-xs w-auto" value={q} onchange={(e) => (st.q = e.currentTarget.value)} aria-label="Out of">{#each ports as n (n)}<option>{n}</option>{/each}</select>
+        <select class="select select-xs w-auto" value={q} onchange={(e) => (st.q = e.currentTarget.value)} aria-label="Into the port (where the light goes)" title="The port the light goes into">{#each ports as n (n)}<option>{n}</option>{/each}</select>
         <span class="muted">from</span>
-        <select class="select select-xs w-auto" value={p} onchange={(e) => (st.p = e.currentTarget.value)} aria-label="Into">{#each ports as n (n)}<option>{n}</option>{/each}</select>
+        <select class="select select-xs w-auto" value={p} onchange={(e) => (st.p = e.currentTarget.value)} aria-label="From the port (where the light comes in)" title="The port the light comes in at">{#each ports as n (n)}<option>{n}</option>{/each}</select>
         <span class="badge badge-ghost badge-xs num">{points.length}/{study.points} points</span>
         {#each fidelities as f (f)}<span class="badge badge-secondary badge-soft badge-xs">{f}</span>{/each}
         {#if going}<span class="loading loading-dots loading-xs"></span>{/if}

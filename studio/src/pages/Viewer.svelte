@@ -213,6 +213,22 @@
   let exporting = $state(false);
   /** The largest numerical error the run recorded, if it recorded any. */
   const worstError = $derived(run.errors.length ? Math.max(...run.errors.map((e) => e.error)) : null);
+  /** The grid's error beside the solver's residual (#783 A6): the run's grid studies' verdict, or that it solved on one grid. */
+  const gridCheck = $derived.by(() => {
+    const checks = run.eme.studies.map((s) => s.check);
+    const reasons = [...new Set(checks.map((c) => c.reason).filter(Boolean))].join("; ");
+    if (!checks.length) {
+      return run.finished
+        ? { text: "not checked (one grid)", tone: "faint", about: "The run solved on one grid: how far its answer moves with the step was not measured" }
+        : { text: "…", tone: "faint", about: "Recorded when the run has it" };
+    }
+    if (checks.some((c) => c.verdict === "not_converged")) return { text: "not converged", tone: "text-warning", about: reasons || "The run's finer grids don't agree within the tolerance" };
+    if (checks.every((c) => c.verdict === "converged")) {
+      const errors = checks.map((c) => c.error).filter((e): e is number => e !== null);
+      return { text: errors.length ? `converged, ≤ ${Math.max(...errors).toExponential(1)}` : "converged", tone: "num", about: reasons || "The run's grid studies converged" };
+    }
+    return { text: "not checked (one grid)", tone: "faint", about: reasons || "The run solved on one grid: how far its answer moves with the step was not measured" };
+  });
   /** The field the 3D view paints, and where. */
   const painted = $derived.by(() => {
     const f = field;
@@ -381,8 +397,9 @@
           </dd>
           <dt class="faint">grid</dt><dd class="num">{run.solver.cells[0]} × {run.solver.cells[1]} cells</dd>
           {#if worstError !== null}
-            <dt class="faint">error</dt><dd class="num" title="The largest numerical error of the run's solves; the Solver panel has each one">≤ {worstError.toExponential(1)}</dd>
+            <dt class="faint">solver residual</dt><dd class="num" title="How well the run's discrete problems were solved, the largest over its solves (the Solver panel has each one): not the grid's error, nor the error against the true answer">≤ {worstError.toExponential(1)}</dd>
           {/if}
+          <dt class="faint">grid error</dt><dd class={gridCheck.tone} title={gridCheck.about}>{gridCheck.text}</dd>
         {/if}
         {#if run.scene}
           <dt class="faint">λ</dt><dd class="num">{len(run.scene.wavelength_um)} <UnitChip tip="left" /></dd>

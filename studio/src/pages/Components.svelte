@@ -27,7 +27,7 @@
   import { DESIGN } from "../lib/designpage.svelte";
   import { deviceOf, loadDevices } from "../lib/device.svelte";
   import { label } from "../lib/plot";
-  import { isMicrometres, len, showIn, shown as inUnit, storeIn, stored, unitOf } from "../lib/units";
+  import { isMicrometres, len, showIn, shown as inUnit, storeIn, stored, unitOf, unitText } from "../lib/units";
 
   loadLibrary();
   loadDevices();
@@ -229,11 +229,11 @@
             <div class="mt-3 flex flex-wrap items-end gap-4">
               <label class="flex flex-col gap-1 text-xs">
                 <span class="muted">From (<UnitChip />)</span>
-                <input class="input input-xs w-24 num" type="number" step={inUnit(0.01)} min={inUnit(0.1)} value={inUnit(sweep.from_um)} oninput={(e) => typed(e, (v) => (sweep.from_um = v))} />
+                <span class="input input-xs w-28"><input class="num" type="number" step={inUnit(0.01)} min={inUnit(0.1)} value={inUnit(sweep.from_um)} oninput={(e) => typed(e, (v) => (sweep.from_um = v))} /><span class="faint">{unitText()}</span></span>
               </label>
               <label class="flex flex-col gap-1 text-xs">
                 <span class="muted">To (<UnitChip />)</span>
-                <input class="input input-xs w-24 num" type="number" step={inUnit(0.01)} min={inUnit(0.1)} value={inUnit(sweep.to_um)} oninput={(e) => typed(e, (v) => (sweep.to_um = v))} />
+                <span class="input input-xs w-28"><input class="num" type="number" step={inUnit(0.01)} min={inUnit(0.1)} value={inUnit(sweep.to_um)} oninput={(e) => typed(e, (v) => (sweep.to_um = v))} /><span class="faint">{unitText()}</span></span>
               </label>
               <label class="flex flex-col gap-1 text-xs">
                 <span class="muted">Points</span>

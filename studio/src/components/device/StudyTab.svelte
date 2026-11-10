@@ -24,6 +24,7 @@
   import { plain } from "../../lib/deviceview";
   import type { Event } from "../../lib/events";
   import { designCurves, overlaidOf, recordOf, type StudyRecord } from "../../lib/study";
+  import { heldRun } from "../../lib/typing";
   import { shown as inUnit, stored, unitText } from "../../lib/units";
   import JobEditor from "../job/JobEditor.svelte";
   import Overlay, { type OverlayItem } from "../Overlay.svelte";
@@ -166,7 +167,10 @@
     return () => clearTimeout(timer);
   });
   const text = $derived(made.key === madeKey ? made.text : "");
-  const problem = $derived(made.key === madeKey ? made.problem : "");
+  /** The job is being made again, from a value just typed: Run waits for it rather than refusing the click. */
+  const making = $derived(!!study && made.key !== madeKey);
+  // the last job's problem stays while the next is made: its line doesn't vanish under the pointer on its way to Run
+  const problem = $derived(made.problem);
   let asText = $state(false);
   // the text, opened, in view: the panel's form is above it
   let box = $state<HTMLElement>();
@@ -207,6 +211,12 @@
     if (!going) return;
     const t = setInterval(() => (now = performance.now()), 500);
     return () => clearInterval(t);
+  });
+
+  // a click on Run while the job is made from a value just typed: it runs once the job is made
+  const runClick = heldRun(() => making, () => start());
+  $effect(() => {
+    if (!making) runClick.made();
   });
 
   async function start() {
@@ -313,7 +323,7 @@
             {#each ["from", "to"] as const as end (end)}
               <label class="flex flex-col gap-1">
                 <span class="muted">{end}{#if isLength(a.parameter)}{" "}(<UnitChip />){/if}</span>
-                <input class="input input-xs num" type="number" value={view(a.parameter, a[end])} onchange={(e) => (a[end] = keep(a.parameter, Number((e.currentTarget as HTMLInputElement).value)))} />
+                <span class="input input-xs"><input class="num" type="number" value={view(a.parameter, a[end])} onchange={(e) => (a[end] = keep(a.parameter, Number((e.currentTarget as HTMLInputElement).value)))} />{#if isLength(a.parameter)}<span class="faint">{unitText()}</span>{:else if p?.unit}<span class="faint">{p.unit}</span>{/if}</span>
               </label>
             {/each}
             <label class="flex flex-col gap-1">
@@ -382,11 +392,11 @@
       <div class="mt-2 flex flex-wrap items-end gap-3 text-xs">
         <label class="flex flex-col gap-1">
           <span class="muted">From (<UnitChip />)</span>
-          <input class="input input-xs w-24 num" type="number" step={inUnit(0.01)} value={inUnit(band[0])} onchange={(e) => setBand(0, (e.currentTarget as HTMLInputElement).value)} />
+          <span class="input input-xs w-28"><input class="num" type="number" step={inUnit(0.01)} value={inUnit(band[0])} onchange={(e) => setBand(0, (e.currentTarget as HTMLInputElement).value)} /><span class="faint">{unitText()}</span></span>
         </label>
         <label class="flex flex-col gap-1">
           <span class="muted">To (<UnitChip />)</span>
-          <input class="input input-xs w-24 num" type="number" step={inUnit(0.01)} value={inUnit(band[1])} onchange={(e) => setBand(1, (e.currentTarget as HTMLInputElement).value)} />
+          <span class="input input-xs w-28"><input class="num" type="number" step={inUnit(0.01)} value={inUnit(band[1])} onchange={(e) => setBand(1, (e.currentTarget as HTMLInputElement).value)} /><span class="faint">{unitText()}</span></span>
         </label>
         <label class="flex flex-col gap-1">
           <span class="muted">Wavelengths</span>
@@ -400,7 +410,7 @@
       <div role="alert" class="alert alert-warning alert-soft text-sm selectable">{plain(problem)}</div>
     {/if}
     <div class="flex flex-wrap items-center gap-2">
-      <button class="btn btn-primary btn-sm gap-1.5" disabled={!text || !!problem || going} onclick={start} title="Run the study: checked by the library, recorded in runs/ point by point, shown here as it goes"><Play size={14} /> Run {pointCount} points</button>
+      <button class="btn btn-primary btn-sm gap-1.5" disabled={going || (!making && (!text || !!problem))} onclick={() => runClick.click()} title="Run the study: checked by the library, recorded in runs/ point by point, shown here as it goes"><Play size={14} /> Run {pointCount} points</button>
       <button class="btn btn-sm gap-1.5 {asText ? 'btn-active' : ''}" onclick={() => (asText = !asText)} title="The job file"><Code size={14} /> As text</button>
       <button class="btn btn-ghost btn-sm gap-1.5" disabled={!text} onclick={save} title="Save the job to the workspace's jobs/ as {jobName}.yaml: photonoxide run runs it, headless or farmed to workers"><Save size={14} /> Save job</button>
     </div>
