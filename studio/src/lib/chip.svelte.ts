@@ -230,7 +230,12 @@ export const dirty = () => snapshot() !== editor.saved;
 let opened = snapshot();
 
 /** Opens `chip` in the editor, from `path` if it is a file of the workspace. */
+/** Whether a chip was ever opened (an example, a file, a new one): until then the Chip page opens
+ *  on the first example, so it starts on a working circuit. */
+export const chipOpened = { yes: false };
+
 export function openChip(chip: Chip, path: string | null) {
+  chipOpened.yes = true;
   editor.chip = JSON.parse(JSON.stringify(chip));
   editor.chip.connections ??= [];
   editor.chip.instance ??= [];
