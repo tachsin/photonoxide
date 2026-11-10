@@ -147,7 +147,14 @@ pub fn resolution(k1: f64, feature_nm: f64) -> photonoxide::Result<ChartData> {
             (a.min(o.na[0]), b.max(o.na[1]))
         });
     for (k, (name, o)) in optics.iter().enumerate() {
-        let points: Vec<[f64; 2]> = span(o.na[0], o.na[1], 60)
+        // one cited aperture (EUV's prototype cameras, NA 0.1) is one point, which the chart
+        // draws as a dot: a range of one value has no line to draw
+        let nas = if o.na[1] > o.na[0] {
+            span(o.na[0], o.na[1], 60)
+        } else {
+            vec![o.na[0]]
+        };
+        let points: Vec<[f64; 2]> = nas
             .into_iter()
             .map(|na| [na, k1 * o.wavelength_nm / na])
             .collect();
