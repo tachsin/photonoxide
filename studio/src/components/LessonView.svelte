@@ -1,15 +1,16 @@
 <script lang="ts">
-  // A lesson: its header, its contents (a column at the left, at the top on a narrow window) and
-  // its sections, every one open until folded at its heading, theory and research labelled. Its
-  // text is the lesson's Markdown with KaTeX; its charts, examples, validation cases and timeline
-  // are blocks.
+  // A lesson: its header (its track and its place on it, and the path followed), its contents (a
+  // column at the left, at the top on a narrow window), its sections, every one open until folded
+  // at its heading, theory and research labelled, and at its end what comes next on the path or
+  // track. Its text is the lesson's Markdown with KaTeX; its charts, examples, validation cases
+  // and timeline are blocks.
   import "katex/dist/katex.min.css";
   import { tick } from "svelte";
 
-  import { BookOpen, Boxes, ChevronDown, ChevronRight, CircleCheck, CircleX, CircuitBoard, Clock, Eye, Factory, ListOrdered, Play, ShieldCheck, SquarePen, TableOfContents } from "@lucide/svelte";
+  import { ArrowLeft, ArrowRight, BookOpen, Boxes, ChevronDown, ChevronRight, CircleCheck, CircleX, CircuitBoard, Clock, Eye, Factory, ListOrdered, Play, Route, ShieldCheck, SquarePen, TableOfContents, X } from "@lucide/svelte";
   import { openUrl } from "../lib/open";
 
-  import { academy, numbered, type ChartSpec, type DiagramSpec, type Depth, type Lesson, type LessonSection } from "../lib/academy.svelte";
+  import { academy, numbered, pathOf, placeIn, trackOf, type Academy, type Depth, type Lesson, type LessonSection } from "../lib/academy.svelte";
   import { api, type CircuitExample } from "../lib/api";
   import { openCustom, showCases, showPublished, toast } from "../lib/app.svelte";
   import { catalog, jobExample, loadCatalog } from "../lib/catalog.svelte";
@@ -27,21 +28,42 @@
 
   let {
     lesson,
-    lessons,
-    diagrams,
-    charts,
+    data,
     docs,
     onlesson,
+    onopen,
     ondoc,
   }: {
     lesson: Lesson;
-    lessons: Lesson[];
-    diagrams: DiagramSpec[];
-    charts: ChartSpec[];
+    /** The lessons, their tracks and paths, and the diagrams and charts. */
+    data: Academy;
     docs: MethodDoc[];
+    /** Opens a lesson from a link in it: on the path followed it keeps to it. */
     onlesson: (id: string) => void;
+    /** Opens a lesson from the track's or the path's Next: following that path, or none. */
+    onopen: (id: string, path: string | null) => void;
     ondoc: (doc: MethodDoc) => void;
   } = $props();
+
+  const lessons = $derived(data.lessons);
+  const diagrams = $derived(data.diagrams);
+  const charts = $derived(data.charts);
+
+  // where the lesson stands: on its track, and on the path followed when it is on it
+  const track = $derived(trackOf(data, lesson.id));
+  const onTrack = $derived(track ? placeIn(track.lessons, lesson.id) : null);
+  const path = $derived(pathOf(data, lesson.id));
+  const onPath = $derived(path ? placeIn(path.lessons, lesson.id) : null);
+  /** The sections the path reads of this lesson, when it reads only some. */
+  const partOf = $derived(path?.sections[lesson.id] ?? null);
+  /** What comes next and before: on the path followed, else on the track. */
+  const along = $derived(onPath && path ? { name: path.title, place: onPath, path: path.id } : onTrack && track ? { name: track.title, place: onTrack, path: null } : null);
+  /** The track's next too, when following a path leads elsewhere. */
+  const trackNext = $derived(onPath && onTrack?.next && onTrack.next !== onPath.next ? onTrack.next : null);
+  const sectionsNote = (id: string) => {
+    const n = path?.sections[id];
+    return n ? `sections ${n.join(" and ")}` : "";
+  };
 
   loadCatalog();
   let circuits = $state<CircuitExample[]>([]);
@@ -142,6 +164,15 @@
     if (r.top < b.top) to(box.scrollTop - (b.top - r.top) - 8);
     else if (r.bottom > b.bottom) to(box.scrollTop + (r.bottom - b.bottom) + 8);
   }
+  // a path reading the lesson in part opens it at its first section
+  $effect(() => {
+    const n = academy.at;
+    if (n === null) return;
+    academy.at = null;
+    const s = lesson.sections.find((x) => x.level === 2 && numbered(x.title)[0] === String(n));
+    if (s) void tick().then(() => reveal(s));
+  });
+
   /** The contents on a narrow window, at the top: folded until asked for. */
   let contentsOpen = $state(false);
 
@@ -224,8 +255,20 @@
   <article bind:this={scroller} class="min-w-0 flex-1 overflow-y-auto" onclick={click} onscroll={spy}>
     <header class="glow border-b border-base-content/8">
       <div class="mx-auto max-w-250 px-5 pt-6 pb-6 sm:px-8">
+        {#if path && onPath}
+          <div class="mb-3 flex w-fit max-w-full items-center gap-2 rounded-full border border-primary/25 bg-primary/6 py-0.5 pr-1 pl-2.5 text-xs">
+            <Route size={12} class="shrink-0 text-primary" />
+            <span class="min-w-0 truncate"><span class="font-medium text-primary">{path.title}</span> <span class="faint">· {onPath.k} of {onPath.n}{partOf ? ` · ${sectionsNote(lesson.id)} on this path` : ""}</span></span>
+            <button class="btn btn-circle shrink-0 btn-ghost btn-xs" onclick={() => (academy.path = null)} title="Stop following this path" aria-label="Stop following this path"><X size={11} /></button>
+          </div>
+        {/if}
         <div class="flex flex-wrap items-center gap-2 text-xs">
-          <span class="font-medium text-primary">{lesson.topic}</span>
+          {#if track && onTrack}
+            <button class="font-medium text-primary hover:underline" onclick={() => (academy.lesson = null)} title="{track.title}: {track.summary} All the tracks on the overview">{track.title}</button>
+            <span class="faint num">{onTrack.k} of {onTrack.n}</span>
+            <span class="faint">·</span>
+          {/if}
+          <span class="badge badge-ghost badge-sm">{lesson.topic}</span>
           <span class="badge badge-soft badge-sm {LEVEL[lesson.level]}">{lesson.level}</span>
           {#if coming}
             <span class="coming-chip">coming soon{lesson.milestone ? ` · with ${lesson.milestone}` : ""}</span>
@@ -398,9 +441,49 @@
         {/if}
       {/each}
       </div>
+
+      <!-- what comes next: on the path followed, else on the track; and the track's next too when the path leads elsewhere -->
+      {#if along && (along.place.next || along.place.previous)}
+        <nav class="mt-16 border-t border-base-content/8 pt-6" aria-label="Next lesson">
+          <p class="mb-3 flex items-center gap-1.5 text-xs faint">
+            {#if along.path}<Route size={12} class="text-primary" />{/if}
+            <span class="font-medium text-base-content/75">{along.name}</span> · {along.place.k} of {along.place.n}
+          </p>
+          <div class="grid gap-3 sm:grid-cols-2">
+            {#if along.place.previous}
+              {@render step(along.place.previous, along.path, "previous")}
+            {:else}
+              <span class="hidden sm:block"></span>
+            {/if}
+            {#if along.place.next}
+              {@render step(along.place.next, along.path, "next")}
+            {:else}
+              <p class="panel flex items-center px-4 py-3 text-sm muted">The last lesson {along.path ? "on this path" : "on this track"}. <button class="ml-1 text-primary hover:underline" onclick={() => (academy.lesson = null)}>All the tracks</button></p>
+            {/if}
+          </div>
+          {#if trackNext && track}
+            <p class="mt-3 text-xs faint">Next on its track, {track.title}: <button class="text-primary hover:underline" onclick={() => onopen(trackNext, null)}>{title(trackNext)}</button></p>
+          {/if}
+        </nav>
+      {/if}
     </div>
   </article>
 </div>
+
+<!-- a neighbour on the track or path: its title, and its sections when the path reads it in part -->
+{#snippet step(id: string, via: string | null, way: "previous" | "next")}
+  {@const l = lessons.find((x) => x.id === id)}
+  {#if l}
+    <button class="panel group flex items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-base-content/3 {way === 'next' ? 'sm:flex-row-reverse sm:text-right' : ''}" onclick={() => onopen(id, via)}>
+      {#if way === "next"}<ArrowRight size={16} class="shrink-0 text-primary transition-transform group-hover:translate-x-0.5" />{:else}<ArrowLeft size={16} class="shrink-0 faint transition-transform group-hover:-translate-x-0.5" />{/if}
+      <span class="min-w-0 flex-1">
+        <span class="block text-[11px] tracking-wide uppercase faint">{way === "next" ? "Next" : "Before"}</span>
+        <span class="block text-sm font-semibold">{l.title}</span>
+        <span class="block text-[11.5px] faint">{l.status === "coming" ? "coming soon" : `${l.level} · ${l.minutes} min`}{via && sectionsNote(id) ? ` · ${sectionsNote(id)}` : ""}</span>
+      </span>
+    </button>
+  {/if}
+{/snippet}
 
 <!-- the contents' heading: their name (on a narrow window, the button that opens them), and Fold all -->
 {#snippet contentsHead(narrow = false)}

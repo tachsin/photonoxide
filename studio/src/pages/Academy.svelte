@@ -1,13 +1,15 @@
 <script lang="ts">
-  // The Academy: lessons on how devices work and how the ideas came about, by topic and level,
-  // each at three depths, with charts photonoxide computes as their sliders move. The lessons
-  // are academy/*.md, built into the program; they are listed in the rail, under Academy
-  // (components/rail/AcademyTree.svelte).
+  // The Academy: lessons on how devices work and how the ideas came about, on tracks in the order
+  // to read them, each at three depths, with charts photonoxide computes as their sliders move.
+  // The lessons are academy/*.md and their tracks academy/tracks.yaml, built into the program;
+  // they are listed in the rail, under Academy (components/rail/AcademyTree.svelte), and on the
+  // overview, open when no lesson is (components/AcademyOverview.svelte).
   import "katex/dist/katex.min.css";
 
   import { BookMarked, ExternalLink, GraduationCap, X } from "@lucide/svelte";
   import { openUrl } from "../lib/open";
 
+  import AcademyOverview from "../components/AcademyOverview.svelte";
   import LessonView from "../components/LessonView.svelte";
   import { academy, loadAcademy } from "../lib/academy.svelte";
   import { api } from "../lib/api";
@@ -26,30 +28,53 @@
   app.lesson = null;
 
   const lessons = $derived(academy.data?.lessons ?? []);
-  const published = $derived(lessons.filter((l) => l.status === "published"));
-  // opened without a choice: the first lesson written, not the first laid out
-  const current = $derived(lessons.find((l) => l.id === academy.lesson) ?? published[0] ?? lessons[0]);
+  // opened without a choice: the overview of the tracks
+  const current = $derived(lessons.find((l) => l.id === academy.lesson) ?? null);
+  const OVERVIEW = "overview";
 
+  /** Opens a lesson from a link or the breadcrumb: a lesson on the path followed keeps to it, any other leaves it. */
   function choose(id: string) {
+    if (id === OVERVIEW) {
+      academy.lesson = null;
+      return;
+    }
+    const path = academy.data?.paths.find((p) => p.id === academy.path);
+    if (!path?.lessons.includes(id)) academy.path = null;
+    academy.at = path?.lessons.includes(id) ? (path.sections[id]?.[0] ?? null) : null;
     academy.lesson = id;
   }
 
-  // the top bar names the lesson shown (Academy › The ring resonator), with the others by topic
+  /** Opens a lesson from the overview: from a path's list it follows the path, from a track's it leaves it. */
+  function open(id: string, path: string | null) {
+    academy.path = path;
+    academy.at = path ? (academy.data?.paths.find((p) => p.id === path)?.sections[id]?.[0] ?? null) : null;
+    academy.lesson = id;
+  }
+
+  // the top bar names the lesson shown (Academy › The ring resonator), or the overview, with the
+  // lessons by track to switch to
   $effect(() => {
+    const data = academy.data;
+    if (!data) return;
     const c = current;
-    app.crumb = c
-      ? {
-          page: "academy",
-          label: c.title,
-          about: c.summary,
-          current: c.id,
-          groups: [...new Set(lessons.map((l) => l.topic))].map((title) => ({
-            title,
-            items: lessons.filter((l) => l.topic === title).map((l) => ({ id: l.id, label: l.title, hint: l.status === "coming" ? "coming soon" : `${l.level} · ${l.minutes} min` })),
-          })),
-          pick: choose,
-        }
-      : null;
+    const hint = (id: string) => {
+      const l = lessons.find((x) => x.id === id);
+      return l ? (l.status === "coming" ? "coming soon" : `${l.level} · ${l.minutes} min`) : "";
+    };
+    app.crumb = {
+      page: "academy",
+      label: c ? c.title : "Overview",
+      about: c ? c.summary : "The tracks and paths, and every lesson on them",
+      current: c ? c.id : OVERVIEW,
+      groups: [
+        { title: "Academy", items: [{ id: OVERVIEW, label: "Overview", hint: "the tracks and paths" }] },
+        ...data.tracks.map((t) => ({
+          title: t.title,
+          items: t.lessons.map((id) => ({ id, label: lessons.find((l) => l.id === id)?.title ?? id, hint: hint(id) })),
+        })),
+      ],
+      pick: choose,
+    };
   });
   $effect(() => () => {
     if (app.crumb?.page === "academy") app.crumb = null;
@@ -72,8 +97,10 @@
   <section class="h-full min-h-0 min-w-0">
     {#if current && academy.data}
       {#key current.id}
-        <LessonView lesson={current} {lessons} diagrams={academy.data.diagrams} charts={academy.data.charts} {docs} onlesson={choose} ondoc={(d) => (doc = d)} />
+        <LessonView lesson={current} data={academy.data} {docs} onlesson={choose} onopen={open} ondoc={(d) => (doc = d)} />
       {/key}
+    {:else if academy.data}
+      <AcademyOverview data={academy.data} onopen={open} />
     {:else}
       <div class="grid h-full place-items-center">
         {#if academy.error}
