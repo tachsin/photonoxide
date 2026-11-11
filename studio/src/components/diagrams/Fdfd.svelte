@@ -58,7 +58,7 @@
   <!-- the two systems and the gradient -->
   <Label x={gx0} y={218} anchor="start" size={14} text={String.raw`forward: $A(\varepsilon)\,x = b$, measured $a = c^\mathsf{T}x$`} width={300} class="text-accent" />
   <Label x={gx0} y={244} anchor="start" size={14} text={String.raw`adjoint: $A^\mathsf{T}\lambda = \partial F/\partial x$`} width={220} class="text-secondary" />
-  <Label x={gx0} y={278} anchor="start" size={15} text={String.raw`$\dfrac{dF}{d\varepsilon_k} = -2\operatorname{Re}\!\left(\lambda^\mathsf{T}\dfrac{\partial A}{\partial\varepsilon_k}x\right)$, every $k$ at once`} width={330} />
+  <Label x={gx0} y={278} anchor="start" size={15} text={String.raw`$\dfrac{dF}{d\varepsilon_k} = -2\mathop{\mathrm{Re}}\!\left(\lambda^\mathsf{T}\dfrac{\partial A}{\partial\varepsilon_k}x\right)$, every $k$ at once`} width={330} />
 
   <!-- Yee's 2D grid, E along z -->
   {#each [0, 1, 2, 3] as k (k)}

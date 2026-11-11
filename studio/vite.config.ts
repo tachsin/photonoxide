@@ -65,7 +65,10 @@ function katexWoff2(): Plugin {
 export default defineConfig({
   plugins: [katexWoff2(), pageMath(), tailwindcss(), svelte()],
   clearScreen: false,
-  server: { port: 1430, strictPort: true },
+  // the project site's plain code the studio shares (the roadmap's parser) as $site, and its folder
+  // served beside the studio's own
+  resolve: { alias: { $site: fileURLToPath(new URL("../site/lib/projects/photonoxide", import.meta.url)) } },
+  server: { port: 1430, strictPort: true, fs: { allow: [fileURLToPath(new URL(".", import.meta.url)), fileURLToPath(new URL("../site/lib", import.meta.url))] } },
   build: {
     target: "es2022",
     outDir: "dist",

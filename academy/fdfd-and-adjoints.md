@@ -257,8 +257,8 @@ the mode leaves it in one direction only ([FDFD ports](../docs/methods/fdfd-port
 
 A wave $e^{ik_wx_w}$ in stretched coordinates becomes $e^{ik_w\tilde x_w}$ with
 $\tilde x_w = \int s_w\thinspace dx_w$: its phase is unchanged and its amplitude falls as
-$e^{-k_w\int\operatorname{Im}s_w}$, whatever the angle, so the layer's face reflects nothing. With
-the grading above, $\int_0^d\operatorname{Im}s_w\thinspace dl = -\ln R/2k_0$, and the round trip
+$e^{-k_w\int\mathop{\mathrm{Im}}s_w}$, whatever the angle, so the layer's face reflects nothing. With
+the grading above, $\int_0^d\mathop{\mathrm{Im}}s_w\thinspace dl = -\ln R/2k_0$, and the round trip
 through the layer and back returns $R^{k_w/k_0}$ of the amplitude: $R$ at normal incidence in
 vacuum, and $R^{1.38}$, about 10⁻¹¹ for $R = 10^{-8}$, for a wave 17° off the normal in oxide,
 $k_w/k_0 = 1.444\cos 17^\circ = 1.38$. On the grid the layer sends back more, and how much depends on
@@ -524,13 +524,13 @@ vanishes.
 
 ### The derivation {theory}
 
-$F$ is real and $x$ complex. To first order, $dF = 2\operatorname{Re}(g^\mathsf{T}dx)$ with
+$F$ is real and $x$ complex. To first order, $dF = 2\mathop{\mathrm{Re}}(g^\mathsf{T}dx)$ with
 $g = \partial F/\partial x$ the Wirtinger derivative, $\bar x$ held fixed. Differentiate the system
 with $b$ fixed: $A\thinspace dx + dA\thinspace x = 0$, so $dx = -A^{-1}dA\thinspace x$ and
 
 $$
-\frac{dF}{dp} = -2\operatorname{Re}\negthinspace\left(g^\mathsf{T}A^{-1}\frac{\partial A}{\partial p}x\right)
-= -2\operatorname{Re}\negthinspace\left(\lambda^\mathsf{T}\frac{\partial A}{\partial p}x\right),
+\frac{dF}{dp} = -2\mathop{\mathrm{Re}}\negthinspace\left(g^\mathsf{T}A^{-1}\frac{\partial A}{\partial p}x\right)
+= -2\mathop{\mathrm{Re}}\negthinspace\left(\lambda^\mathsf{T}\frac{\partial A}{\partial p}x\right),
 \qquad A^\mathsf{T}\lambda = g ,
 $$
 
@@ -546,7 +546,7 @@ $g = \bar a\thinspace c$: the adjoint source sits on the monitor's two columns. 
 $\varepsilon_k$ enters $A$ only as $k_0^2\varepsilon_k$ on cell $k$'s diagonal, and
 
 $$
-\frac{\partial F}{\partial\varepsilon_k} = -2k_0^2\operatorname{Re}(\lambda_kx_k) ,
+\frac{\partial F}{\partial\varepsilon_k} = -2k_0^2\mathop{\mathrm{Re}}(\lambda_kx_k) ,
 $$
 
 the product of the two fields in cell $k$. With $H$ along $z$, $\varepsilon$ enters through the faces'
@@ -685,7 +685,7 @@ A parameter $\theta$ of one component changes only its block of $S_b$, on both s
 and the gradient of a real $F$ of the circuit's S-matrix is
 
 $$
-\frac{\partial F}{\partial\theta} = 2\operatorname{Re}\operatorname{tr}\negthinspace\left(\Lambda^\mathsf{T}\thinspace\partial_\theta S_b\thinspace A\right),
+\frac{\partial F}{\partial\theta} = 2\mathop{\mathrm{Re}}\mathop{\mathrm{tr}}\negthinspace\left(\Lambda^\mathsf{T}\thinspace\partial_\theta S_b\thinspace A\right),
 \qquad M^\mathsf{T}\Lambda = EG, \qquad A = \Gamma B + E ,
 $$
 

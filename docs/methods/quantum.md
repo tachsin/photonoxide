@@ -189,20 +189,20 @@ $n$ photons with occupations $s_t$ of the input modes leave with occupations $m_
 modes with probability
 
 $$
-P = \frac{\lvert \operatorname{Per}(M) \rvert^2}{\prod_t s_t! \prod_r m_r!},
+P = \frac{\lvert \mathop{\mathrm{Per}}(M) \rvert^2}{\prod_t s_t! \prod_r m_r!},
 $$
 
 where $M$ is $T$'s $n \times n$ submatrix of the output photons' rows and the input photons'
 columns, each mode repeated as often as it is occupied (Aaronson & Arkhipov 2013,
 doi:10.4086/toc.2013.v009a004). The permanent is the determinant without its signs,
-$\operatorname{Per}(A) = \sum_\sigma \prod_i a_{i,\sigma(i)}$, and has no known polynomial
+$\mathop{\mathrm{Per}}(A) = \sum_\sigma \prod_i a_{i,\sigma(i)}$, and has no known polynomial
 algorithm. Two formulas bring its cost from $n \cdot n!$ to about $n 2^n$:
 
 - **Ryser's**, read in Lundow & Markström 2022 (doi:10.1016/j.jcp.2022.110990, Eq. 3), since
   Ryser's book (doi:10.5948/UPO9781614440147) is out of print:
-  $\operatorname{Per}(A) = (-1)^n \sum_{S \subseteq [n]} (-1)^{\lvert S \rvert} \prod_i \sum_{j \in S} a_{ij}$;
+  $\mathop{\mathrm{Per}}(A) = (-1)^n \sum_{S \subseteq [n]} (-1)^{\lvert S \rvert} \prod_i \sum_{j \in S} a_{ij}$;
 - **Glynn's** (doi:10.1016/j.ejc.2010.01.010, Theorem 2.1):
-  $\operatorname{Per}(A) = 2^{1-n} \sum_\delta \left(\prod_k \delta_k\right) \prod_j \sum_i \delta_i a_{ij}$
+  $\mathop{\mathrm{Per}}(A) = 2^{1-n} \sum_\delta \left(\prod_k \delta_k\right) \prod_j \sum_i \delta_i a_{ij}$
   over $\delta \in \lbrace \pm 1 \rbrace^n$ with $\delta_1 = 1$, half Ryser's terms.
 
 Both run in Gray-code order, so consecutive terms differ by one column (Ryser) or one sign
@@ -225,7 +225,7 @@ over an internal basis and summing the internal labels out at the detectors,
 
 $$
 P = \frac{1}{\prod_r m_r!\thinspace \mathcal N} \sum_{\sigma \in S_n} \Big( \prod_j G_{\sigma(j), j} \Big)
-\operatorname{Per}\big( M \circ \overline{M_\sigma} \big),
+\mathop{\mathrm{Per}}\big( M \circ \overline{M_\sigma} \big),
 \qquad G_{ij} = \langle \psi_i \vert \psi_j \rangle ,
 $$
 
@@ -233,10 +233,10 @@ where $M \circ \overline{M_\sigma}$ is the entrywise product of $M$ with the con
 whose columns $\sigma$ permutes, and
 $\mathcal N = \sum_\sigma \prod_j G_{\sigma(j), j}$ over the $\sigma$ that keep every photon in its
 input mode is the input state's norm (1 for photons in different modes). The overlaps' Gram
-matrix $G$ of all ones gives back $\lvert \operatorname{Per} M \rvert^2 / (\prod s_t! \prod m_r!)$,
-by the identity $\sum_\sigma \operatorname{Per}(A \circ B_\sigma) = \operatorname{Per}(A) \operatorname{Per}(B)$;
+matrix $G$ of all ones gives back $\lvert \mathop{\mathrm{Per}} M \rvert^2 / (\prod s_t! \prod m_r!)$,
+by the identity $\sum_\sigma \mathop{\mathrm{Per}}(A \circ B_\sigma) = \mathop{\mathrm{Per}}(A) \mathop{\mathrm{Per}}(B)$;
 $G = I$ leaves only $\sigma = \text{id}$ and the probabilities of classical particles,
-$\operatorname{Per}(\lvert M \rvert^2) / \prod m_r!$. `Photons` names the three cases, and the
+$\mathop{\mathrm{Per}}(\lvert M \rvert^2) / \prod m_r!$. `Photons` names the three cases, and the
 sum over permutations takes up to eight photons. `quantum/partly-distinguishable` checks it
 against the route it summarizes: each photon expanded into a two-dimensional internal space,
 $U \otimes I_2$ on six modes, its internal modes summed out at the end.
@@ -260,7 +260,7 @@ integrals,
 
 $$
 P(\tau) = \int \lvert A \rvert^2 \int \lvert B \rvert^2 + \int \lvert C \rvert^2 \int \lvert D \rvert^2
-+ 2 \operatorname{Re}\Big( \int A \bar D \thinspace d\omega \int B \bar C \thinspace d\omega \Big),
++ 2 \mathop{\mathrm{Re}}\Big( \int A \bar D \thinspace d\omega \int B \bar C \thinspace d\omega \Big),
 $$
 
 the last term the interference, which a long delay averages away. `hom_dip` evaluates each
@@ -276,7 +276,7 @@ the dip to $\tau = n_g L / c$, where the coincidences vanish (`quantum/hom-delay
 Clifford and Clifford's algorithm B (doi:10.1137/1.9781611975031.10) draws exact samples of the
 output pattern in $O(n 2^n + m n^2)$ for $n$ photons in $m$ modes. It puts the input photons'
 columns of $T$ in a random order $\alpha$ and draws the photons' output modes one at a time, the
-$k$-th with weights $\lvert \operatorname{Per} T[r_1, \dots, r_{k-1}, x; \alpha_1, \dots, \alpha_k] \rvert^2$
+$k$-th with weights $\lvert \mathop{\mathrm{Per}} T[r_1, \dots, r_{k-1}, x; \alpha_1, \dots, \alpha_k] \rvert^2$
 over the modes $x$. Each weight is a Laplace expansion along the last row, and the minors of all
 of them come from one pass of Glynn's formula with prefix and suffix products (their Lemma 3.2).
 `sample` takes an explicit seed; sample $i$ draws from its own stream of a xoshiro256**
@@ -313,7 +313,7 @@ $\phi' = \arg(-d_m/d_{m+1})$, $d'_m = -e^{-i\phi} d_{m+1}$ and $d'_{m+1} = d_{m+
 The optical depth, the most cells a path crosses, is $2N - 3$ for the triangle and $N$ for the
 rectangle. `Mesh::lossy` loses the same power on both outputs of every cell, Clements et al.'s
 model of unbalanced loss, and `fidelity` is their Eq. 6,
-$\lvert \operatorname{tr}(U^\dagger U_\text{exp}) \rvert^2 / (N \operatorname{tr}(U_\text{exp}^\dagger U_\text{exp}))$.
+$\lvert \mathop{\mathrm{tr}}(U^\dagger U_\text{exp}) \rvert^2 / (N \mathop{\mathrm{tr}}(U_\text{exp}^\dagger U_\text{exp}))$.
 Programming a mesh as a circuit of couplers and phase shifters, with self-configuration and
 error correction, is 0.8's.
 
@@ -332,7 +332,7 @@ $\hat p = -i(\hat a - \hat a^\dagger)$, so the vacuum's variances are 1 (Weedbro
 doi:10.1103/RevModPhys.84.621, with their $\hbar = 2$). `Gaussian` holds them, the $x$'s first.
 
 - **Operations.** A Gaussian unitary $\hat b = U \hat a + W \hat a^\dagger$ acts as the real
-  symplectic $S$ with the blocks $\operatorname{Re}(U + W)$ and $-\operatorname{Im}(U - W)$ in its first row of blocks and $\operatorname{Im}(U + W)$ and $\operatorname{Re}(U - W)$ in its second,
+  symplectic $S$ with the blocks $\mathop{\mathrm{Re}}(U + W)$ and $-\mathop{\mathrm{Im}}(U - W)$ in its first row of blocks and $\mathop{\mathrm{Im}}(U + W)$ and $\mathop{\mathrm{Re}}(U - W)$ in its second,
   $V \to S V S^T$, $d \to S d$. The squeezer $\exp(\frac{1}{2}(\xi^* \hat a^2 - \xi \hat a^{\dagger 2}))$,
   $\xi = r e^{i\varphi}$, takes $\hat a \to \hat a \cosh r - \hat a^\dagger e^{i\varphi} \sinh r$, and the
   two-mode squeezer $\hat a \to \hat a \cosh r - \hat b^\dagger e^{i\varphi} \sinh r$.
@@ -343,20 +343,20 @@ doi:10.1103/RevModPhys.84.621, with their $\hbar = 2$). `Gaussian` holds them, t
 - **What a detector sees.** A homodyne detector at phase $\theta$ measures the variance of
   $x\cos\theta + p\sin\theta$; the squeezing in dB is $10 \log_{10}$ of the smallest one. The mean
   photon number is $\frac{1}{4}(V_{xx} + V_{pp} + d_x^2 + d_p^2) - \frac{1}{2}$, and the photon numbers'
-  covariances follow from Wick's theorem: $\frac{1}{8}\operatorname{Tr}(V_{ab} V_{ab}^T) + \frac{1}{4} d_a^T V_{ab} d_b$
-  between two modes, and $\frac{1}{8}(\operatorname{Tr} V_{aa}^2 - 2) + \frac{1}{4} d_a^T V_{aa} d_a$ for one.
+  covariances follow from Wick's theorem: $\frac{1}{8}\mathop{\mathrm{Tr}}(V_{ab} V_{ab}^T) + \frac{1}{4} d_a^T V_{ab} d_b$
+  between two modes, and $\frac{1}{8}(\mathop{\mathrm{Tr}} V_{aa}^2 - 2) + \frac{1}{4} d_a^T V_{aa} d_a$ for one.
 - **Photon counts** (Hamilton et al. 2017, doi:10.1103/PhysRevLett.119.170501). In the basis
   $(\hat a, \hat a^\dagger)$ the covariance is $\sigma = \frac{1}{4} W V W^\dagger$, $W$ the blocks $I$, $iI$ over $I$, $-iI$;
   with $\sigma_Q = \sigma + \frac{1}{2} I$ and $A = X(I - \sigma_Q^{-1})$, $X$ the swap of the two
   halves, a pattern $\bar n$ of photons has
-  $P(\bar n) = \operatorname{Haf}(A_{\bar n}) / (\sqrt{\det \sigma_Q} \prod_i n_i!)$, $A_{\bar n}$ the rows and
+  $P(\bar n) = \mathop{\mathrm{Haf}}(A_{\bar n}) / (\sqrt{\det \sigma_Q} \prod_i n_i!)$, $A_{\bar n}$ the rows and
   columns of mode $i$ and of its conjugate each repeated $n_i$ times. With means
   $\beta = (\alpha, \alpha^*)$, the loop hafnian with the diagonal $\gamma = \beta^\dagger \sigma_Q^{-1}$
   and the factor $\exp(-\frac{1}{2}\beta^\dagger \sigma_Q^{-1} \beta)$ (Björklund et al. 2019,
   doi:10.1145/3325111).
 - **Clicks** of threshold detectors (Quesada et al. 2018, doi:10.1103/PhysRevA.98.062322): the
   modes $S$ click and the rest stay dark with probability
-  $\operatorname{Tor}(O_S) / \sqrt{\det \sigma_Q}$, $O = I - \sigma_Q^{-1}$, for a state without means.
+  $\mathop{\mathrm{Tor}}(O_S) / \sqrt{\det \sigma_Q}$, $O = I - \sigma_Q^{-1}$, for a state without means.
   With means, the same inclusion and exclusion over the clicking modes, written out: the sum over
   the subsets $Y \subseteq S$ of $(-1)^{\lvert Y \rvert}$ times the probability that the dark
   modes and $Y$ all hold no photon, each the vacuum probability of the state reduced to those
@@ -385,7 +385,7 @@ The hafnian of a symmetric $2m \times 2m$ matrix is the sum over its perfect mat
 products of the matched entries; the loop hafnian lets a vertex match itself, by its diagonal
 entry. Björklund et al.'s formula (Eqs. 24–26) sums over the $2^m$ subsets $Z$ of a fixed perfect
 matching: each term is the coefficient of $\lambda^m$ in
-$\exp\left(\sum_k \left[\frac{\operatorname{tr}(B^k)}{2k} + \frac{1}{2} v^T X B^{k-1} v\right] \lambda^k\right)$,
+$\exp\left(\sum_k \left[\frac{\mathop{\mathrm{tr}}(B^k)}{2k} + \frac{1}{2} v^T X B^{k-1} v\right] \lambda^k\right)$,
 $B = A_Z X$ the rows and columns of $Z$'s pairs with each pair's columns swapped and $v$ the diagonal
 of $A_Z$ (zero for the hafnian). The paper takes the power traces from a Schur decomposition; here
 they come from $\det(I - \lambda B)$, the characteristic polynomial of $B$'s Hessenberg form by the
@@ -399,7 +399,7 @@ A pattern of many photons in few modes repeats the same rows many times, and the
 costs $2^N$ for $N$ photons whatever the repetition. There the probability takes Kan's moments of a
 sum instead (R. Kan, J. Multivariate Anal. 99, 542 (2008), doi:10.1016/j.jmva.2007.01.013): with
 $r_i$ the repetitions and $h_i = r_i/2 - v_i$,
-$\operatorname{lhaf} = \sum_{v} (-1)^{\sum v} \prod_i \binom{r_i}{v_i} \sum_t \frac{(h \cdot \gamma)^{N - 2t} (h^T A h / 2)^t}{(N - 2t)!\thinspace t!}$
+$\mathop{\mathrm{lhaf}} = \sum_{v} (-1)^{\sum v} \prod_i \binom{r_i}{v_i} \sum_t \frac{(h \cdot \gamma)^{N - 2t} (h^T A h / 2)^t}{(N - 2t)!\thinspace t!}$
 over $\prod (r_i + 1)$ terms, the polarization of $\prod x_i^{r_i}$ whose Gaussian moments are the
 matchings. Kan states it (Proposition 1, p. 547) for the moments of a normal vector whose
 covariance is real and positive semidefinite, which are the hafnians of that covariance with rows
@@ -426,7 +426,7 @@ the gain $g$ set by the mean number of pairs per pulse, $\sum_k \sinh^2 r_k = \m
 - **$g^{(2)}$.** Either arm alone is thermal in each mode: $g^{(2)} = 1 + \sum \bar n_k^2 / (\sum \bar n_k)^2$,
   2 for one mode and $1 + P$ at low gain.
 - **Two sources.** Heralded photons from sources $A$ and $B$ interfere on a balanced coupler with
-  visibility $\operatorname{Tr}(\rho_A \rho_B) = \lVert F_A^\dagger F_B \rVert^2 / (\lVert F_A \rVert^2 \lVert F_B \rVert^2)$,
+  visibility $\mathop{\mathrm{Tr}}(\rho_A \rho_B) = \lVert F_A^\dagger F_B \rVert^2 / (\lVert F_A \rVert^2 \lVert F_B \rVert^2)$,
   $F$ the amplitudes as signal-by-idler matrices on a common signal grid (`hom_visibility`); a
   source with itself gives its purity.
 - **Heralding through a circuit.** `heralding_through` takes each photon's path through any
@@ -483,7 +483,7 @@ the spectral correlations. The middle of the overlap is at $z = c\tau/(n_{g,b} -
 An undepleted parametric amplifier is linear in its signal: the classical amplitudes leave as
 $A' = \mu A + \nu A^*$ (one mode) or $A'_i = \nu A_s^*$ beside $A'_s = \mu A_s$ (two), and the same
 Bogoliubov map on the annihilation operators, in photon units, is the quantum amplifier, a squeezer
-of $r = \operatorname{asinh}\lvert\nu\rvert$. `degenerate`, `non_degenerate` and `four_wave` read $\mu$
+of $r = \mathop{\mathrm{asinh}}\lvert\nu\rvert$. `degenerate`, `non_degenerate` and `four_wave` read $\mu$
 and $\nu$ off 0.6.1's own coupled equations (second-harmonic generation run with the harmonic as
 the pump, difference-frequency generation, and four-wave mixing with the pump's self- and
 cross-phase modulation), seeded so weakly that the seed leaves at $10^{-6}$ of the pump's
@@ -505,14 +505,14 @@ $K = \begin{pmatrix} 0 & G \\ G^\dagger & 0 \end{pmatrix}$. With $G = U S V^\dag
 $e^K = \begin{pmatrix} I + U(\cosh S - I)U^\dagger & U \sinh S\,V^\dagger \\ V \sinh S\,U^\dagger & I + V(\cosh S - I)V^\dagger \end{pmatrix}$.
 
 `Broadband::new` multiplies the slices' maps in order, the last on the left; each keeps the
-commutators, $M \Sigma M^\dagger = \Sigma$ with $\Sigma = \operatorname{diag}(I, -I)$. The output's
+commutators, $M \Sigma M^\dagger = \Sigma$ with $\Sigma = \mathop{\mathrm{diag}}(I, -I)$. The output's
 squeezing is the Bloch–Messiah decomposition's: $\mathbf a_\text{out} = A\mathbf a + B\mathbf b^\dagger$,
 the singular values of $B$ are $\sinh r_k$, their left vectors the signal's squeezed modes
-(`signal_mode`), and the signal's mean photon number is $\operatorname{Tr} BB^\dagger = \sum_k \sinh^2 r_k$.
+(`signal_mode`), and the signal's mean photon number is $\mathop{\mathrm{Tr}} BB^\dagger = \sum_k \sinh^2 r_k$.
 `Broadband::sliced` cuts a down-conversion source into $N$ slices: on the signal and idler grids,
 with the pump's amplitude $\alpha(\nu_s + \nu_i)$ and the phase mismatch $x = \Delta k L/2$ (a
 device's `phase_at_frequencies`), slice $n$ couples by $\alpha e^{2ixt_n}/N$ at its middle
-$t_n = (n + \tfrac12)/N - \tfrac12$ of the length; the slices add up to $\alpha\operatorname{sinc} x$,
+$t_n = (n + \tfrac12)/N - \tfrac12$ of the length; the slices add up to $\alpha\mathop{\mathrm{sinc}} x$,
 the joint spectrum, and the gain $g$ scales that sum so that its singular values are
 $g\sqrt{\lambda_k}$, the Schmidt model's.
 
@@ -542,7 +542,7 @@ each from −4 to 4, the cases' source), on 40 slices (80 in brackets):
 column is how far the first signal mode has moved from its shape at $g$ = 0.01. The first mode
 gains far more than the Schmidt model gives, as a phase-mismatched amplifier at one frequency
 does: there the ordered product reaches $\kappa L \sinh(gL)/gL$, $gL = \sqrt{(\kappa L)^2 - x^2}$,
-where the single exponential gives $\sinh(\kappa L \operatorname{sinc} x)$. The figures come from
+where the single exponential gives $\sinh(\kappa L \mathop{\mathrm{sinc}} x)$. The figures come from
 the ignored test `quantum::light_checks::tests::print_broadband`.
 
 The cases (Analytic):
@@ -559,7 +559,7 @@ The cases (Analytic):
 - `quantum/broadband-mismatched` and `-order`: one frequency each with $x$ = 1 and $\kappa L$ = 3,
   the phase-mismatched amplifier's closed form to 1.8e-7 on 1000 slices, converging at order 2.00
   (the exponential midpoint rule).
-- `quantum/broadband-photons`: $\operatorname{Tr} BB^\dagger$, $\sum \sinh^2 r_k$ and the
+- `quantum/broadband-photons`: $\mathop{\mathrm{Tr}} BB^\dagger$, $\sum \sinh^2 r_k$ and the
   `Gaussian` state's photons (`Broadband::gaussian`) agree to round-off.
 
 ### In the studio
@@ -706,7 +706,7 @@ Budgets are held against published thresholds, each quoted with what it assumes 
   boson sampler of $K$ squeezed modes (squeezing $r$, transmission $\eta$, threshold detectors of
   efficiency $\eta_D$ and dark-count probability $p_D$, $q_D = p_D/\eta_D$) is simulable
   classically to a total variation distance $\epsilon$ when
-  $F_{\max} = \operatorname{sech}\lbrace \tfrac12 \Theta[\ln((1 - 2q_D)/(\eta e^{-2r} + 1 - \eta))] \rbrace > e^{-\epsilon^2/4K}$
+  $F_{\max} = \mathop{\mathrm{sech}}\lbrace \tfrac12 \Theta[\ln((1 - 2q_D)/(\eta e^{-2r} + 1 - \eta))] \rbrace > e^{-\epsilon^2/4K}$
   (their Eqs. 1 and 12, $\Theta$ the ramp), that is above
   $\epsilon^* = 2\sqrt{-K \ln F_{\max}}$ (`qi_simulable_error`). Their test assumes uniform loss,
   folded into the squeezed inputs, and the no-collision regime. For a designed chip, $\eta$ is its
@@ -750,13 +750,13 @@ carries $(\beta/2k_0)\int\lvert E_z\rvert^2$ each way.
 - **A detector stack** (light at normal or oblique incidence on films): `Multilayer::absorption`
   takes the tangential fields (U, V) at each interface from the substrate's side,
   $(U, V) = (t, \gamma_s t)$, back through the films' matrices (Chilwell & Hodgkinson's Eq. 10);
-  the power crossing an interface is $\operatorname{Re}(U\bar V)/\operatorname{Re}\gamma_c$ of the
+  the power crossing an interface is $\mathop{\mathrm{Re}}(U\bar V)/\mathop{\mathrm{Re}}\gamma_c$ of the
   incident, and each film absorbs the difference between its faces. That this is the film's Joule
-  heat, $k \operatorname{Im}(n^2) \int \lvert E \rvert^2 dz$ for TE, is checked against the field
+  heat, $k \mathop{\mathrm{Im}}(n^2) \int \lvert E \rvert^2 dz$ for TE, is checked against the field
   inside each film (`quantum/detector-stack-joule`).
 - **A waveguide detector** (a film along a guide, the photon absorbed as it travels): the
   full-vector solver's complex effective index gives the absorption,
-  $1 - e^{-2k_0 \operatorname{Im}(n_\text{eff}) L}$ over a length $L$ (`absorbed_fraction`). A
+  $1 - e^{-2k_0 \mathop{\mathrm{Im}}(n_\text{eff}) L}$ over a length $L$ (`absorbed_fraction`). A
   slab of 110 nm silicon on silica under air with a 4.1 nm absorbing film on top
   ($n = 5.817 + 6.033i$, Reddy et al.'s MoSi) has the multilayer's exact complex root; the
   full-vector solver on a cross-section between electric walls (the slab uniform across it)
@@ -1045,7 +1045,7 @@ emission goes into the guide, the rest radiates.
 
 The detectors' hold likewise: in Reddy et al.'s stack each film's absorption from the flux
 between its faces is its Joule heat from the field inside it, to round-off
-(`quantum/detector-stack-joule`); the film slab's $\operatorname{Im} n_\text{eff}$ = 0.2105085 by the
+(`quantum/detector-stack-joule`); the film slab's $\mathop{\mathrm{Im}} n_\text{eff}$ = 0.2105085 by the
 multilayer is reached by the full-vector solver to $2 \times 10^{-5}$, $3.7 \times 10^{-6}$ and
 $9.8 \times 10^{-7}$ on 8, 4 and 2 nm nodes (`quantum/detector-film-slab`,
 `quantum/detector-film-order`, order 1.92).
@@ -1122,7 +1122,7 @@ fringe is that complete across the pumps' band; how balanced theirs was is their
   above, silicon and silica at room temperature) and `absorbed_fraction` the attenuation. The
   result is about twice theirs (the table below). Not a case.
 
-| Nodes | $\operatorname{Im} n_\text{eff}$, 3.5 nm of NbN | dB/µm, 3.5 nm | dB/µm, 4 nm |
+| Nodes | $\mathop{\mathrm{Im}} n_\text{eff}$, 3.5 nm of NbN | dB/µm, 3.5 nm | dB/µm, 4 nm |
 |---|---|---|---|
 | 8 nm | 0.06018 | 2.119 | |
 | 4 nm | 0.05947 | 2.094 | 2.325 |
@@ -1137,7 +1137,7 @@ that order gives 1.86 dB/µm. So the converged value lies between about 1.86 and
 twice Pernice et al.'s 1.01 ± 0.02 dB/µm simulated and 0.98 ± 0.10 dB/µm measured; the
 difference is nine to ten times their measurement's uncertainty. Their Methods give the film as
 3.5 nm and their Fig. 1a draws 4 nm; at 4 nm ours is higher still. The real part checks out:
-the wires lower $\operatorname{Re} n_\text{eff}$ by 0.25 % against the bare strip (1.9775 on
+the wires lower $\mathop{\mathrm{Re}} n_\text{eff}$ by 0.25 % against the bare strip (1.9775 on
 1 nm nodes), and Pernice et al. found the two "identical within 0.4%" (p. 4). What makes the
 factor of two isn't known. Their NbN is a fit to a thesis not in hand, measured at a temperature
 they don't state; their film's oxide and any resist left on it aren't given; the strip's etch

@@ -9,7 +9,7 @@
   import { api, duration, formatOfText, type Example } from "../lib/api";
   import { app, fabricate, openCustom, toast } from "../lib/app.svelte";
   import { catalog, jobExample, loadCatalog } from "../lib/catalog.svelte";
-  import { devices, loadDevices, openDevice } from "../lib/device.svelte";
+  import { devices, fabricateDevice, loadDevices } from "../lib/device.svelte";
   import { startTask, stopTask, tasks } from "../lib/tasks.svelte";
   import Tip from "./Tip.svelte";
 
@@ -38,7 +38,7 @@
     }),
   );
   const current = $derived(examples.find((e) => e.name === (chosen ?? examples[0]?.name)));
-  // the library device whose design an example computes, if one: its Fabricate opens that device's Fabrication tab
+  // the library device whose design an example computes, if one: its Fabricate opens that device on the Fabrication page
   loadDevices();
   const designed = $derived(current ? devices.list.find((d) => d.examples.includes(current.name)) : undefined);
   const task = $derived(current ? tasks[`example:${current.name}`] : undefined);
@@ -122,7 +122,7 @@
             <button class="btn btn-primary gap-2" onclick={() => runExample(current)}><Play size={16} /> Run on this machine</button>
           {/if}
           {#if designed}
-            <button class="btn btn-outline gap-2" onclick={() => openDevice(designed.id, "fabrication")} title="How the {designed.kind} this example computes could be made: its process flow, animated step by step, on its page's Fabrication tab"><Factory size={16} /> Fabricate</button>
+            <button class="btn btn-outline gap-2" onclick={() => fabricateDevice(designed.id)} title="How the {designed.kind} this example computes could be made: its process flow from the bare wafer, step by step in 2D and 3D, on the Fabrication page"><Factory size={16} /> Fabricate</button>
           {/if}
         </div>
 

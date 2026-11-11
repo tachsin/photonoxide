@@ -185,6 +185,10 @@ pub enum Block {
         /// The design as a job (TOML), which the Fabrication page reads.
         job: String,
     },
+    /// `::lithography <tool> <tool> ...`: the lithography machines in 2D and 3D, animated, the
+    /// first shown and the rest to compare (studio/src/lib/litho.ts), each by its process id in
+    /// the library (`ebl` for the electron-beam writer every e-beam resist shares).
+    Lithography { tools: Vec<String> },
 }
 
 /// A section still to be written (`::coming <example> ...` under its heading, then one
@@ -566,10 +570,41 @@ fn block(directive: &str) -> Result<Block, String> {
             device: rest.to_owned(),
         }),
         "fabrication" if !rest.is_empty() => fabrication_block(rest),
+        "lithography" if !rest.is_empty() => lithography_block(rest),
         _ => Err(format!(
-            "::{directive} isn't a block: ::diagram <id>, ::chart <id>{{...}}, ::example <name>, ::validation <id> ..., ::device <id>, ::fabrication <id>{{...}}, ::timeline, ::coming <example> ..."
+            "::{directive} isn't a block: ::diagram <id>, ::chart <id>{{...}}, ::example <name>, ::validation <id> ..., ::device <id>, ::fabrication <id>{{...}}, ::lithography <tool> ..., ::timeline, ::coming <example> ..."
         )),
     }
+}
+
+/// The lithography tools a lesson can show, as the studio draws them (studio/src/lib/litho.ts).
+const LITHOGRAPHY_TOOLS: [&str; 8] = [
+    "uv-photolithography",
+    "i-line",
+    "duv-248",
+    "duv-193",
+    "duv-193i",
+    "euv",
+    "ebl",
+    "nanoimprint",
+];
+
+/// `::lithography <tool> <tool> ...`, without `::lithography `: tools the studio draws, each once.
+fn lithography_block(rest: &str) -> Result<Block, String> {
+    let mut tools: Vec<String> = Vec::new();
+    for t in rest.split([' ', ',']).filter(|s| !s.is_empty()) {
+        if !LITHOGRAPHY_TOOLS.contains(&t) {
+            return Err(format!(
+                "::lithography: no tool {t:?}; the tools are {}",
+                LITHOGRAPHY_TOOLS.join(", ")
+            ));
+        }
+        if tools.iter().any(|x| x == t) {
+            return Err(format!("::lithography: {t} given twice"));
+        }
+        tools.push(t.to_owned());
+    }
+    Ok(Block::Lithography { tools })
 }
 
 /// `::fabrication <id>{key=value, ...}`, without `::fabrication `: a library device by its id,
@@ -1151,8 +1186,30 @@ mod tests {
             }
         );
 
+        let with_tools = text.replace(
+            "::timeline\n",
+            "::timeline\n::lithography euv duv-193, ebl\n",
+        );
+        assert_eq!(
+            parse("x.md", &with_tools).unwrap().sections[2].blocks[1],
+            Block::Lithography {
+                tools: vec!["euv".to_owned(), "duv-193".to_owned(), "ebl".to_owned()]
+            }
+        );
+        // every tool a lesson can name is one the studio draws
+        let litho = include_str!("../../src/lib/litho.ts");
+        for t in LITHOGRAPHY_TOOLS {
+            assert!(
+                litho.contains(&format!("id: \"{t}\"")),
+                "the studio draws no tool {t}"
+            );
+        }
+
         let broken = |body: &str| parse("x.md", &text.replace("::timeline\n", body)).is_err();
         assert!(broken("::fabrication no-such\n"), "not a library device");
+        assert!(broken("::lithography no-such\n"), "not a tool");
+        assert!(broken("::lithography euv euv\n"), "a tool twice");
+        assert!(broken("::lithography\n"), "no tool");
         assert!(broken("::fabrication waveguide{width}\n"));
         assert!(broken("::fabrication waveguide{width=1, width=2}\n"));
         assert!(broken("::fabrication waveguide{width=\"1\"}\n"));

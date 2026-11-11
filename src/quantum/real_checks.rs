@@ -1399,7 +1399,7 @@ pub(crate) fn cases() -> Vec<Case> {
             id: "quantum/spectral-hom",
             title: r"Quantum: two photons (2 and 3 nm wide, centred 1 nm apart) through a dispersive interferometer's swept $S(\omega)$ (couplers of 0.5 and 0.35, arms of 60 and 40 µm): the spectral formula's coincidences at 11 delays against the Hong–Ou–Mandel integrals of `hom_dip` (largest difference shown)",
             tier: Tier::Analytic,
-            source: r"the spectral formula for two photons is the coincidence $\int \lvert A \rvert^2 \int \lvert B \rvert^2 + \int \lvert C \rvert^2 \int \lvert D \rvert^2 + 2 \operatorname{Re}(\int A \bar D \int B \bar C)$ (docs/methods/quantum.md)",
+            source: r"the spectral formula for two photons is the coincidence $\int \lvert A \rvert^2 \int \lvert B \rvert^2 + \int \lvert C \rvert^2 \int \lvert D \rvert^2 + 2 \mathop{\mathrm{Re}}(\int A \bar D \int B \bar C)$ (docs/methods/quantum.md)",
             run: spectral_hom_case,
         },
         Case {
@@ -1488,21 +1488,21 @@ pub(crate) fn cases() -> Vec<Case> {
         },
         Case {
             id: "quantum/detector-stack-joule",
-            title: r"Quantum: Reddy et al.'s detector stack (anti-reflection coating, 4.1 nm MoSi as a whole film, 13-layer Bragg mirror on silicon) at 1550 nm, TE at 0° and 40°: each film's absorption from the flux between its faces against its Joule heat $k \operatorname{Im}(n^2)\int \lvert E \rvert^2 dz$ (largest difference shown)",
+            title: r"Quantum: Reddy et al.'s detector stack (anti-reflection coating, 4.1 nm MoSi as a whole film, 13-layer Bragg mirror on silicon) at 1550 nm, TE at 0° and 40°: each film's absorption from the flux between its faces against its Joule heat $k \mathop{\mathrm{Im}}(n^2)\int \lvert E \rvert^2 dz$ (largest difference shown)",
             tier: Tier::Analytic,
             source: "Poynting's theorem in each film; the stack from D. V. Reddy et al., Optica 7, 1649 (2020), doi:10.1364/OPTICA.400751, p. 1650, and its Supplement 1, Section 2 (the indices, the 2 nm Si cap's 2.274 among them)",
             run: stack_joule_case,
         },
         Case {
             id: "quantum/detector-film-slab",
-            title: r"Quantum: a 110 nm silicon slab on silica under air with a 4.1 nm film of $n$ = 5.817 + 6.033i on top, at 1.55 µm: its TE mode's $\operatorname{Im} n_\text{eff}$ by the full-vector solver between electric walls on 2 nm nodes against the multilayer's exact root (shown)",
+            title: r"Quantum: a 110 nm silicon slab on silica under air with a 4.1 nm film of $n$ = 5.817 + 6.033i on top, at 1.55 µm: its TE mode's $\mathop{\mathrm{Im}} n_\text{eff}$ by the full-vector solver between electric walls on 2 nm nodes against the multilayer's exact root (shown)",
             tier: Tier::Analytic,
             source: "the exact multilayer (J. Chilwell, I. Hodgkinson, J. Opt. Soc. Am. A 1, 742 (1984), doi:10.1364/JOSAA.1.000742)",
             run: film_slab_case,
         },
         Case {
             id: "quantum/detector-film-order",
-            title: r"Quantum: the film slab's $\operatorname{Im} n_\text{eff}$ on 4 and 2 nm nodes against the exact root: its order of convergence (shown, to two decimals)",
+            title: r"Quantum: the film slab's $\mathop{\mathrm{Im}} n_\text{eff}$ on 4 and 2 nm nodes against the exact root: its order of convergence (shown, to two decimals)",
             tier: Tier::Analytic,
             source: "the full-vector scheme's second order where interfaces are straight",
             run: film_order,

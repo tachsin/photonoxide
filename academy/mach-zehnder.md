@@ -7,7 +7,7 @@ minutes: 30
 prerequisites: []
 examples: [mzi_dwivedi, circuit_splitter]
 jobs: [mzi-mmi.yaml]
-circuits: [mzi.toml]
+circuits: [mzi.toml, switch-1x4.toml]
 methods: [components.md, circuits.md, circuit-adjoint.md]
 validation:
   - components/mzi-closed-form

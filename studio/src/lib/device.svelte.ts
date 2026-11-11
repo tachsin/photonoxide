@@ -2,8 +2,8 @@
 // it is being edited (its stack, its parameters' expressions, its fidelity), where it was saved,
 // and the solves started from it, which go on in the background while the page is left.
 
-import { api, formatOfText, type Aim, type Bound, type Compute, type DeviceDerived, type DeviceFigure, type DeviceInfo, type DeviceMethod, type DeviceSpec, type DeviceSpectrum, type FabStart, type JobForm, type JobFormat, type LayerSpec, type RunItem, type SavedDevice, type StackSpec, type StudyIn } from "./api";
-import { app, go, startRun, startRunHere, toast } from "./app.svelte";
+import { api, formatOfText, type Aim, type Bound, type Compute, type DeviceDerived, type DeviceFigure, type DeviceInfo, type DeviceMethod, type DeviceSpec, type DeviceSpectrum, type JobForm, type JobFormat, type LayerSpec, type RunItem, type SavedDevice, type StackSpec, type StudyIn } from "./api";
+import { app, fabricate, go, startRun, startRunHere, toast } from "./app.svelte";
 import { designNameOf } from "./designs";
 
 export const devices = $state({
@@ -35,7 +35,7 @@ export function deviceOf(id: string | null | undefined): DeviceInfo | undefined 
 }
 
 /** A device page's tabs. */
-export type Tab = "overview" | "design" | "job" | "model" | "simulate" | "study" | "optimize" | "fabrication";
+export type Tab = "overview" | "design" | "job" | "model" | "simulate" | "study" | "optimize";
 
 /** A device's page: its design as edited, its tab, and the file it was saved to or opened from. */
 export interface Draft {
@@ -63,8 +63,6 @@ export interface Draft {
   jobText?: string | null;
   /** The format the page's job texts are shown in: the Job tab's and the Simulate tab's. */
   jobFormat?: JobFormat;
-  /** Where the Fabrication tab's flow starts: the bought wafer unless Smart Cut was chosen. */
-  fabStart?: FabStart;
 }
 
 export const drafts = $state<Record<string, Draft>>({});
@@ -397,6 +395,15 @@ export function openDevice(id: string, tab?: Draft["tab"]) {
   const d = deviceOf(id);
   if (d && tab) draftOf(d).tab = tab;
   go("components");
+}
+
+/** Shows device `id` on the Fabrication page: its design as on its page (the library's defaults
+ *  when it was never opened), its flow from the bare wafer in 2D and 3D. */
+export function fabricateDevice(id: string) {
+  const d = deviceOf(id);
+  if (!d) return;
+  const spec = $state.snapshot(draftOf(d).spec) as DeviceSpec;
+  fabricate({ kind: "device", spec }, `${d.kind[0].toUpperCase()}${d.kind.slice(1)}, as on its page`);
 }
 
 /** Opens a run: a device's study on that device's Study tab, one that computes a device on its Simulate tab, in place; any other in the run view. */

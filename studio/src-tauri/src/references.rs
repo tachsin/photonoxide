@@ -343,7 +343,7 @@ impl Source {
     }
 
     /// `Marcatili 1969`, `Snyder and Love 1983`, `Zhang et al. 2013`.
-    fn label(&self) -> String {
+    pub fn label(&self) -> String {
         let names: Vec<&str> = self.authors.split(", ").collect();
         let family = |name: &str| {
             let words: Vec<&str> = name.split_whitespace().collect();

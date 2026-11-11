@@ -1252,3 +1252,44 @@ pub fn reading_list_save(
 
 #[cfg(test)]
 mod tests;
+
+/// A source photonoxide cites (docs/references.yaml), and every place it cites it
+/// (docs/references.md, as the program carries it).
+#[derive(Clone, Debug, Serialize)]
+pub struct CitedSource {
+    /// `Marcatili 1969`, `Snyder and Love 1983`, `Zhang et al. 2013`.
+    pub label: String,
+    /// Its DOI, in lower case; none for a source cited by its key.
+    pub doi: Option<String>,
+    pub key: Option<String>,
+    pub authors: String,
+    pub title: String,
+    pub venue: String,
+    pub year: String,
+    /// A copy anyone can read, when there is one.
+    pub open: Option<String>,
+    pub ours: Vec<Cited>,
+}
+
+/// Every source photonoxide cites, by its first author, with where: the Papers page's Cited tab.
+#[tauri::command]
+pub fn cited_sources() -> Vec<CitedSource> {
+    let (sources, _) = crate::references::parse(include_str!("../../../docs/references.yaml"));
+    sources
+        .into_iter()
+        .map(|s| {
+            let doi = (!s.doi.is_empty()).then(|| s.doi.to_ascii_lowercase());
+            CitedSource {
+                label: s.label(),
+                ours: ours_of(doi.as_deref()),
+                doi,
+                key: (!s.key.is_empty()).then(|| s.key.clone()),
+                open: (!s.open.is_empty()).then(|| s.open.clone()),
+                authors: s.authors,
+                title: s.title,
+                venue: s.venue,
+                year: s.year,
+            }
+        })
+        .collect()
+}

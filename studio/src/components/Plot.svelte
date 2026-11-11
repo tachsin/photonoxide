@@ -154,6 +154,11 @@
     {/if}
     <text x={14} y={(T + height - B) / 2} text-anchor="middle" transform="rotate(-90 14 {(T + height - B) / 2})" class="fill-base-content/70 text-[12px]">{yLabel}</text>
     {#each visible as s (s.label)}
+      {@const pts = drawable(s.points)}
+      <!-- a series of one point (or the same point repeated) has no line: it is drawn as a dot -->
+      {#if pts.length > 0 && pts.every(([x, y]) => x === pts[0][0] && y === pts[0][1])}
+        <circle cx={X(pts[0][0])} cy={Y(pts[0][1])} r="5" fill={s.colour} class="stroke-base-100" stroke-width="1.5" />
+      {/if}
       <polyline
         points={drawable(s.points).map(([x, y]) => `${X(x)},${Y(y)}`).join(" ")}
         fill="none"

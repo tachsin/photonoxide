@@ -9,10 +9,10 @@
 
   import MathText from "../MathText.svelte";
   import { api } from "../../lib/api";
-  import { app, go, showPublished, toast } from "../../lib/app.svelte";
+  import { toast } from "../../lib/app.svelte";
   import { openUrl } from "../../lib/open";
   import { age, paperUrl, safeMath, shortDate, type PaperPage } from "../../lib/paperText";
-  import { isStarred, openPaper, paperBack, papers, setNote, toggleStar, updateStarred } from "../../lib/papers.svelte";
+  import { isStarred, openCited, OPENED_HERE, openPaper, paperBack, papers, setNote, toggleStar, updateStarred } from "../../lib/papers.svelte";
   import PaperRow from "./PaperRow.svelte";
 
   let { id }: { id: string } = $props();
@@ -47,14 +47,8 @@
   const authors = $derived(p ? (allAuthors ? p.authors : p.authors.slice(0, 12)) : []);
   const refs = $derived(page ? (allRefs ? page.references : page.references.slice(0, 40)) : []);
 
-  /** A place photonoxide cites it, opened where it lives. */
-  function openOurs(place: string, name: string) {
-    if (place === "Examples" && name.endsWith(".rs")) showPublished(name.replace(/\.rs$/, ""));
-    else if (place === "Academy lessons") {
-      app.lesson = name.replace(/\.md$/, "");
-      go("academy");
-    } else if (place === "Validation cases") go("validation");
-  }
+  /** A place photonoxide cites it, opened where it lives (lib/papers.svelte.ts). */
+  const openOurs = (place: string, name: string) => void openCited(place, name);
 
   async function copyCitation() {
     if (!p) return;
@@ -116,10 +110,10 @@
           <Star size={14} fill={starred ? "currentColor" : "none"} />{starred ? "In your reading list" : "Keep in reading list"}
         </button>
         {#if page.oa_url}
-          <button class="btn btn-sm gap-1.5" onclick={() => openUrl(page!.oa_url!)} title={page.oa_url}><FileText size={14} />{p.arxiv && !p.doi ? "PDF on arXiv" : "Free full text"}</button>
+          <button class="btn btn-sm gap-1.5" onclick={() => openUrl(page!.oa_url!, { external: true })} title={page.oa_url}><FileText size={14} />{p.arxiv && !p.doi ? "PDF on arXiv" : "Free full text"}</button>
         {/if}
         {#if url}
-          <button class="btn btn-ghost btn-sm gap-1.5" onclick={() => openUrl(url)} title={url}><ExternalLink size={14} />{p.doi ? `doi:${p.doi}` : "arXiv page"}</button>
+          <button class="btn btn-ghost btn-sm gap-1.5" onclick={() => openUrl(url, { external: true })} title={url}><ExternalLink size={14} />{p.doi ? `doi:${p.doi}` : "arXiv page"}</button>
         {/if}
         {#if page.journal_doi}
           <button class="btn btn-ghost btn-sm gap-1.5" onclick={() => openPaper(`doi:${page!.journal_doi}`)}><BookOpen size={14} /> Published version</button>
@@ -145,7 +139,7 @@
                 <span class="faint">{c.names[0]} file{c.names[0] === "1" ? "" : "s"}</span>
               {:else}
                 {#each c.names as n (n)}
-                  {#if ["Examples", "Academy lessons", "Validation cases"].includes(c.place)}
+                  {#if OPENED_HERE.includes(c.place)}
                     <button class="badge badge-sm badge-success badge-soft font-mono hover:brightness-110" onclick={() => openOurs(c.place, n)}>{n}</button>
                   {:else}
                     <span class="badge badge-sm badge-ghost font-mono">{n}</span>

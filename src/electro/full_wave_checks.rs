@@ -269,7 +269,7 @@ pub(crate) fn cases() -> Vec<Case> {
         },
         Case {
             id: "line/full-wave-balance",
-            title: r"The same line on a uniform grid of 10 nm: the eigenvalue's loss $\alpha$ against the power the metal and the gap absorb over twice the power carried, $\tfrac12\int\omega\varepsilon_0\varepsilon''\lvert E\rvert^2 dA / (2 \operatorname{Re} P)$, in a window that radiates nothing (relative difference shown)",
+            title: r"The same line on a uniform grid of 10 nm: the eigenvalue's loss $\alpha$ against the power the metal and the gap absorb over twice the power carried, $\tfrac12\int\omega\varepsilon_0\varepsilon''\lvert E\rvert^2 dA / (2 \mathop{\mathrm{Re}} P)$, in a window that radiates nothing (relative difference shown)",
             tier: Tier::Analytic,
             source: r"Poynting's theorem for a mode decaying as $e^{-\alpha z}$: $2\alpha P$ is the power absorbed per unit length; on the lattice the discrete fields keep it to the eigensolver's tolerance, 1e-10 on β², over its conditioning: 1e-7",
             run: || outcome(plates_balance(), 0.0, 1e-7),

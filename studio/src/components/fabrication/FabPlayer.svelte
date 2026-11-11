@@ -3,8 +3,8 @@
   // FabCut) and as a chip (3D, Fab3D), from the same frames, one timeline for both (play, pause,
   // step, the bare wafer again, a scrubber and a speed), the cut the 2D view shows and the 3D view
   // marks, and the frame's words. The rail's Fabrication page and a run's Fabrication tab both
-  // show it. `frame` is bound, so the page around it can follow the step shown; `show(k)` plays
-  // frame k's work from the frame before. Keys (Space, ← →, Home, End) work while `active`.
+  // show it. `frame` is bound, so the page around it can follow the step shown; `show(k)` shows
+  // frame k as its step leaves the wafer, at once. Keys (Space, ← →, Home, End) work while `active`.
   import { Columns2, Pause, Play, SkipBack, SkipForward, Square } from "@lucide/svelte";
   import { untrack } from "svelte";
 
@@ -12,7 +12,7 @@
   import FabCut from "./FabCut.svelte";
   import { app } from "../../lib/app.svelte";
   import type { FabricationPage } from "../../lib/api";
-  import { playFrom, progress } from "../../lib/fabanim";
+  import { playFrom } from "../../lib/fabanim";
   import { num, PHASE } from "../../lib/flow";
 
   let {
@@ -32,20 +32,17 @@
     compact?: boolean;
   } = $props();
 
-  /** A frame's time at speed 1, ms, and the pause after it while playing. */
+  /** How long each frame is held while playing, at speed 1, ms: its time and the pause after it. */
   const DURATION = 1500;
   const PAUSE = 450;
-  const reduced = typeof window !== "undefined" && !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
   /** How far the frame shown has done its step's work, 0 to 1. */
   let t = $state(1);
   let playing = $state(false);
   let speed = $state(1);
-  let raf = 0;
   let wait: ReturnType<typeof setTimeout> | undefined;
   const frames = $derived(page.view.frames);
 
   function halt() {
-    cancelAnimationFrame(raf);
     clearTimeout(wait);
   }
 
@@ -66,23 +63,13 @@
     });
   });
 
-  /** Shows frame `k`, its step doing its work from the frame before. */
+  /** Shows frame `k` as it is once its step's work is done, at once: no fade from the frame
+   *  before. Playing, the next frame follows after a frame's time. */
   export function show(k: number) {
     halt();
     frame = Math.max(0, Math.min(frames.length - 1, k));
-    if (reduced || frame === 0) {
-      t = 1;
-      if (playing) wait = setTimeout(next, (reduced ? PAUSE * 2 : PAUSE) / speed);
-      return;
-    }
-    t = 0;
-    const start = performance.now();
-    const tick = (now: number) => {
-      t = progress(now - start, speed, DURATION);
-      if (t < 1) raf = requestAnimationFrame(tick);
-      else if (playing) wait = setTimeout(next, PAUSE / speed);
-    };
-    raf = requestAnimationFrame(tick);
+    t = 1;
+    if (playing) wait = setTimeout(next, (DURATION + PAUSE) / speed);
   }
 
   /** Stops playing and shows frame `k`, animated. */
@@ -183,64 +170,96 @@
 
   const shownFrame = $derived(frames[frame] ?? null);
   const stepNow = $derived(shownFrame?.step ?? 0);
-  const height = $derived(compact ? 260 : 300);
+  const height = $derived(compact ? 260 : 340);
+  /** The frames by step, in order: the track's segments, each a cell per frame. */
+  const track = $derived.by(() => {
+    const out: { step: number; name: string; cells: { i: number; label: string; phase: string }[] }[] = [];
+    frames.forEach((f, i) => {
+      const last = out[out.length - 1];
+      const cell = { i, label: f.label, phase: f.phase };
+      if (last && last.step === f.step) last.cells.push(cell);
+      else out.push({ step: f.step, name: page.view.flow.steps[f.step]?.name ?? `step ${f.step + 1}`, cells: [cell] });
+    });
+    return out;
+  });
+  /** The cut's axis: the cross-section is across the other one. */
+  function setNormal(n: "x" | "y") {
+    normal = n;
+    centreCut(page);
+  }
 </script>
 
 <svelte:window onkeydown={keys} />
 
-<section class="rounded-box border border-base-content/10 bg-base-100 p-2 sm:p-3" aria-label="The wafer at this step">
-  <div class="mb-2 flex flex-wrap items-center gap-2">
+<section class="rounded-2xl border border-base-content/8 bg-base-100 p-3" aria-label="The wafer at this step">
+  <!-- the views, and the cut the 2D view shows -->
+  <div class="mb-2 flex flex-wrap items-center gap-x-4 gap-y-2">
     <div class="join" role="group" aria-label="The views">
-      <button class="btn join-item btn-xs {mode === '2d' ? 'btn-active' : ''}" onclick={() => setMode("2d")} aria-pressed={mode === "2d"}>2D</button>
-      <button class="btn join-item btn-xs {mode === '3d' ? 'btn-active' : ''}" onclick={() => setMode("3d")} aria-pressed={mode === "3d"}>3D</button>
+      <button class="btn join-item btn-xs {mode === '2d' ? 'btn-active' : ''}" onclick={() => setMode("2d")} aria-pressed={mode === "2d"} title="The cross-section">2D</button>
+      <button class="btn join-item btn-xs {mode === '3d' ? 'btn-active' : ''}" onclick={() => setMode("3d")} aria-pressed={mode === "3d"} title="The chip">3D</button>
       <button class="btn join-item btn-xs gap-1 {mode === 'both' ? 'btn-active' : ''}" onclick={() => setMode("both")} aria-pressed={mode === "both"} title="Side by side"><Columns2 size={12} /> Both</button>
     </div>
-    <label class="flex min-w-0 flex-wrap items-center gap-1 text-xs faint">
-      cut at
-      <select class="select select-xs w-14" bind:value={normal} onchange={() => centreCut(page)} aria-label="The cut's axis">
-        <option value="x">x</option>
-        <option value="y">y</option>
-      </select>
-      =
-      <input type="range" class="range range-xs w-24 min-w-0 sm:w-36" min={win[0]} max={win[1]} step={(win[1] - win[0]) / 400 || 0.01} value={cutAt ?? 0} oninput={(e) => (cutAt = Number((e.currentTarget as HTMLInputElement).value))} aria-label="Where the cross-section is cut" />
-      <span class="num whitespace-nowrap">{num(cutAt ?? 0)} µm</span>
-    </label>
+    <div class="flex min-w-0 items-center gap-2 text-xs">
+      <span class="faint">cut across</span>
+      <div class="join" role="group" aria-label="The cut's axis">
+        <button class="btn join-item btn-xs {normal === 'x' ? 'btn-active' : ''}" onclick={() => setNormal("x")} aria-pressed={normal === "x"} title="A cross-section at a fixed x">x</button>
+        <button class="btn join-item btn-xs {normal === 'y' ? 'btn-active' : ''}" onclick={() => setNormal("y")} aria-pressed={normal === "y"} title="A cross-section at a fixed y">y</button>
+      </div>
+      <input type="range" class="range range-primary range-xs w-28 min-w-0 sm:w-40 [--range-thumb:var(--color-base-100)]" min={win[0]} max={win[1]} step={(win[1] - win[0]) / 400 || 0.01} value={cutAt ?? 0} oninput={(e) => (cutAt = Number((e.currentTarget as HTMLInputElement).value))} aria-label="Where the cross-section is cut" />
+      <span class="w-16 num whitespace-nowrap faint">{normal} = {num(cutAt ?? 0)} µm</span>
+    </div>
   </div>
+
   <div class="grid gap-2 {mode === 'both' ? 'xl:grid-cols-2' : ''}">
     {#if mode !== "3d" && shownFrame}
-      <div class="min-w-0" aria-label="The cross-section">
+      <div class="min-w-0 rounded-xl bg-base-200/40 p-1" aria-label="The cross-section">
         <FabCut {frames} {frame} {t} {normal} at={cutAt ?? 0} colours={page.colours} {height} />
       </div>
     {/if}
     {#if mode !== "2d"}
-      <div class="min-w-0 rounded-box bg-base-200/60">
+      <div class="min-w-0 rounded-xl bg-base-200/60">
         <Fab3D {page} {frame} {t} {normal} at={cutAt ?? 0} height={mode === "3d" ? height + 120 : height} />
       </div>
     {/if}
   </div>
-  <!-- one timeline for both -->
-  <div class="mt-2 flex flex-wrap items-center gap-1" role="group" aria-label="The timeline">
-    <button class="btn btn-ghost btn-sm btn-square" disabled={frame === 0} onclick={() => step(-1)} title="The step before (←)" aria-label="The step before"><SkipBack size={15} /></button>
-    <button class="btn btn-primary btn-sm btn-square" onclick={toggle} title={playing ? "Pause (Space)" : "Play from here (Space)"} aria-label={playing ? "Pause" : "Play"}>
+
+  <!-- one timeline for both: the controls, then the steps as a track, a cell for each moment -->
+  <div class="mt-3 flex items-center gap-1" role="group" aria-label="The timeline">
+    <button class="btn btn-ghost btn-sm btn-square" onclick={() => scrub(0)} title="Back to the bare wafer (Home)" aria-label="Back to the bare wafer"><Square size={13} /></button>
+    <button class="btn btn-ghost btn-sm btn-square" disabled={frame === 0} onclick={() => step(-1)} title="The moment before (←)" aria-label="The moment before"><SkipBack size={15} /></button>
+    <button class="btn btn-primary btn-sm btn-circle" onclick={toggle} title={playing ? "Pause (Space)" : "Play from here (Space)"} aria-label={playing ? "Pause" : "Play"}>
       {#if playing}<Pause size={15} />{:else}<Play size={15} />{/if}
     </button>
-    <button class="btn btn-ghost btn-sm btn-square" disabled={frame + 1 >= frames.length} onclick={() => step(1)} title="The next step (→)" aria-label="The next step"><SkipForward size={15} /></button>
-    <button class="btn btn-ghost btn-sm btn-square" onclick={() => scrub(0)} title="Back to the bare wafer (Home)" aria-label="Back to the bare wafer"><Square size={13} /></button>
-    <input type="range" class="range range-primary range-xs min-w-32 flex-1" min="0" max={Math.max(0, frames.length - 1)} step="1" value={frame} oninput={(e) => scrub(Number((e.currentTarget as HTMLInputElement).value))} aria-label="The moment shown" />
-    <span class="num w-14 text-right text-xs faint">{frame + 1} / {frames.length}</span>
-    <label class="flex items-center gap-1 text-xs faint">
-      speed
-      <select class="select select-xs w-16" bind:value={speed} aria-label="Speed">
-        <option value={0.5}>0.5×</option>
-        <option value={1}>1×</option>
-        <option value={2}>2×</option>
-        <option value={4}>4×</option>
-      </select>
-    </label>
+    <button class="btn btn-ghost btn-sm btn-square" disabled={frame + 1 >= frames.length} onclick={() => step(1)} title="The next moment (→)" aria-label="The next moment"><SkipForward size={15} /></button>
+    <div class="ml-2 flex min-w-0 flex-1 gap-1" aria-label="The steps">
+      {#each track as seg (seg.step)}
+        {@const on = seg.step === stepNow}
+        <div class="flex min-w-0 gap-px" style="flex: {seg.cells.length} 1 0" title="Step {seg.step + 1}: {seg.name}">
+          {#each seg.cells as c (c.i)}
+            <button
+              class="h-2.5 min-w-1 flex-1 rounded-full transition-colors {c.i === frame ? 'bg-primary' : c.i < frame ? 'bg-primary/40' : on ? 'bg-base-content/25' : 'bg-base-content/12'} hover:bg-primary/70"
+              onclick={() => jump(c.i)}
+              aria-label="Step {seg.step + 1}, {PHASE[c.phase] ?? c.phase}"
+              aria-current={c.i === frame ? "step" : undefined}
+            ></button>
+          {/each}
+        </div>
+      {/each}
+    </div>
+    <span class="ml-2 w-12 text-right text-xs num faint">{frame + 1}/{frames.length}</span>
+    <select class="select select-xs w-16" bind:value={speed} aria-label="Speed" title="Speed">
+      <option value={0.5}>0.5×</option>
+      <option value={1}>1×</option>
+      <option value={2}>2×</option>
+      <option value={4}>4×</option>
+    </select>
   </div>
   {#if shownFrame}
-    <p class="mt-1 text-sm"><span class="font-medium">Step {stepNow + 1}{shownFrame.phase in PHASE ? `, ${PHASE[shownFrame.phase]}` : ""}:</span> {shownFrame.label}</p>
-    {#if shownFrame.note}<p class="text-xs text-warning selectable">{shownFrame.note}</p>{/if}
+    <p class="mt-2 flex flex-wrap items-baseline gap-x-2 text-sm">
+      <span class="rounded-md bg-primary/10 px-1.5 py-0.5 text-xs font-medium text-primary">Step {stepNow + 1}{shownFrame.phase in PHASE ? ` · ${PHASE[shownFrame.phase]}` : ""}</span>
+      <span class="min-w-0">{shownFrame.label}</span>
+    </p>
+    {#if shownFrame.note}<p class="mt-1 text-xs text-warning selectable">{shownFrame.note}</p>{/if}
   {/if}
   {#if page.thinned}<p class="mt-1 text-xs faint">{page.thinned}</p>{/if}
 </section>

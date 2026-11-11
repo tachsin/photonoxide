@@ -235,8 +235,8 @@ symmetry, and its y up the stack from the core layer's mid-plane. A `Mesh` says 
 are:
 
 - **fitted** (`Cells::Fitted { step, margin }`): along each axis the uniform spacing nearest
-  `step` that puts a strip's faces on nodes, $d = (w/2)/\operatorname{round}(w/2\,/\,\text{step})$,
-  and $\operatorname{round}((w/2 + \text{margin})/d)$ cells from the centre, as the `mzi_dwivedi`
+  `step` that puts a strip's faces on nodes, $d = (w/2)/\mathop{\mathrm{round}}(w/2\,/\,\text{step})$,
+  and $\mathop{\mathrm{round}}((w/2 + \text{margin})/d)$ cells from the centre, as the `mzi_dwivedi`
   example fitted its grids; a coupler's gap, guides and margin each have their own spacing, so
   that every face is on a node; a bend's window is a whole number of widths inward (short of the
   bend's centre) and outward past the radiation's turning point, so that halving the step halves
@@ -1660,7 +1660,7 @@ is the same on any number of threads, and reads back from its file to the bit.
 was fitted from (its `[device]` table), the source fidelity and the grid its runs name, the
 covered parameters and their ranges, the values of the others, the band, how it was sampled, its
 largest $\lvert\Delta S_{qp}\rvert$ at its samples and at the held-out ones, the largest
-$\operatorname{Re} a / \lvert a \rvert$ of its poles over its range (`ParametricModel::stability`)
+$\mathop{\mathrm{Re}} a / \lvert a \rvert$ of its poles over its range (`ParametricModel::stability`)
 and its largest singular value over its band and range (`passivity`), each sampled at 21 values
 a parameter. The held-out error is the one quoted: the error where it wasn't fitted.
 

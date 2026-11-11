@@ -57,7 +57,7 @@ pub(crate) fn cases() -> Vec<Case> {
             id: "quantum/permanent-ones",
             title: r"Quantum: the permanent of the $n \times n$ all-ones matrix is $n!$, by Ryser's and Glynn's formulas, $n$ = 1 to 14 (largest relative error shown)",
             tier: Tier::Analytic,
-            source: r"$\operatorname{Per}(J_n) = n!$: every permutation's product is 1",
+            source: r"$\mathop{\mathrm{Per}}(J_n) = n!$: every permutation's product is 1",
             run: permanent_ones,
         },
         Case {
@@ -120,7 +120,7 @@ pub(crate) fn cases() -> Vec<Case> {
             id: "quantum/full-bunching",
             title: r"Quantum: $n$ indistinguishable photons all leaving by one mode are $n!$ times as likely as distinguishable ones, $n$ = 2 to 6 in a Haar-random $8 \times 8$ unitary (largest relative difference from $n!$ shown)",
             tier: Tier::Analytic,
-            source: r"$\lvert \operatorname{Per} \rvert^2 / n! = n! \prod_p \lvert U_{qp} \rvert^2$ against $\operatorname{Per}(\lvert U \rvert^2)/n! = \prod_p \lvert U_{qp} \rvert^2$ for $n$ equal rows",
+            source: r"$\lvert \mathop{\mathrm{Per}} \rvert^2 / n! = n! \prod_p \lvert U_{qp} \rvert^2$ against $\mathop{\mathrm{Per}}(\lvert U \rvert^2)/n! = \prod_p \lvert U_{qp} \rvert^2$ for $n$ equal rows",
             run: full_bunching,
         },
         Case {

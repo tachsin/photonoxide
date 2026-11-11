@@ -94,7 +94,7 @@ in $n_\text{eff}$, the ellipse $n(\theta) = c + a\cos\theta + i b\sin\theta$, an
 $\beta^2$ plane by the map itself: $z(\theta) = k_0^2 n(\theta)^2$,
 $z'(\theta) = 2 k_0^2 n(\theta) n'(\theta)$, weights $w_j = z'(\theta_j)/(iN)$. The map is one to
 one on a region that doesn't hold $n_\text{eff} = 0$, so a region must not, and it must lie in
-$\operatorname{Re} n_\text{eff} \geq 0$, the forward modes' half. `Region::between(low, high)`
+$\mathop{\mathrm{Re}} n_\text{eff} \geq 0$, the forward modes' half. `Region::between(low, high)`
 is the guided modes' ellipse on the real axis, half as tall as it is wide.
 
 **The iteration** is FEAST's (Polizzi, Fig. 2): filter the block, orthonormalize it, solve the
@@ -131,7 +131,7 @@ inside filling it) is an error that says so.
 **When it can't.** A filtered block whose rank stays below its size spans more than 14 decades:
 eigenvalues near the boundary, or of enormous condition, swamp the rest, and the residuals stall.
 It happens when a region cuts a PML's own branch of modes, the line of discrete eigenvalues that
-rises from the cladding's or substrate's index into $\operatorname{Im} n_\text{eff}$. The search
+rises from the cladding's or substrate's index into $\mathop{\mathrm{Im}} n_\text{eff}$. The search
 stops and says so; a region below the branch, or more points, finds the leaky waves (as the
 validation's regions do).
 

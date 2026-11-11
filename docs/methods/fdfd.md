@@ -87,7 +87,7 @@ thread, 0.11 s on 20 (faer's LU, before 0.4.3: 0.58 s and 0.85 s), and each furt
 
 ## The power flux
 
-`Field2d::flux_y` sums $\tfrac12 \operatorname{Re}(E \times \tilde H^*)_y$ across a row, with the in-plane
+`Field2d::flux_y` sums $\tfrac12 \mathop{\mathrm{Re}}(E \times \tilde H^*)_y$ across a row, with the in-plane
 component and the field along z both taken on the face between two rows. This is the scheme's
 own flux. It obeys a discrete Poynting theorem exactly, so in a lossless region without sources
 it is the same through every row to round-off, interfaces included. Reflectance and

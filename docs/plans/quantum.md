@@ -201,7 +201,7 @@ modes to keep the commutators: $\hat b = S \hat a + L \hat c$ with $L L^\dagger 
 the vacuum entering through the loss. Every quantity below follows from $S(\omega)$:
 
 - **Single photons:** n photons in input modes $T$ leave in modes $R$ with probability
-  $\lvert \operatorname{Per}(S_{R,T}) \rvert^2 / \prod_r m_r!$, for occupation numbers $m_r$
+  $\lvert \mathop{\mathrm{Per}}(S_{R,T}) \rvert^2 / \prod_r m_r!$, for occupation numbers $m_r$
   (Aaronson & Arkhipov 2013). Partly distinguishable photons and frequency-dependent $S$ enter
   through the photons' spectra.
 - **Gaussian states:** a covariance matrix $\sigma$ goes to $S \sigma S^\dagger$ plus the
@@ -307,8 +307,8 @@ must be read before a tolerance is set.
 
 **Validation.**
 
-- *Analytic:* $V = 2RT/(R^2+T^2)$, and no coincidences at $R = 1/2$; $\operatorname{Per}(J_n) =
-  n!$ for the all-ones matrix and $\operatorname{Per}(J_n - I_n)$ the number of derangements;
+- *Analytic:* $V = 2RT/(R^2+T^2)$, and no coincidences at $R = 1/2$; $\mathop{\mathrm{Per}}(J_n) =
+  n!$ for the all-ones matrix and $\mathop{\mathrm{Per}}(J_n - I_n)$ the number of derangements;
   Ryser, Glynn and the defining sum agree to round-off for n ≤ 8; the probabilities of all
   $\binom{m+n-1}{n}$ patterns sum to 1 for a unitary; distinguishable photons give the classical
   probabilities, permanents of $\lvert S \rvert^2$; a Gaussian-spectrum HOM dip against its closed
@@ -341,7 +341,7 @@ must be read before a tolerance is set.
 
 - *Analytic:* single-mode squeezed vacuum has only even photon numbers, with
   $P(2k) = \frac{(2k)!}{4^k (k!)^2} \frac{\tanh^{2k} r}{\cosh r}$ and mean $\sinh^2 r$; each half of
-  a two-mode squeezed vacuum is thermal; $\operatorname{Haf}(J_{2n}) = (2n-1)!!$; loss $\eta$
+  a two-mode squeezed vacuum is thermal; $\mathop{\mathrm{Haf}}(J_{2n}) = (2n-1)!!$; loss $\eta$
   turns a quadrature variance $e^{-2r}$ into $\eta e^{-2r} + 1 - \eta$; the purity of a Gaussian
   JSA against its closed form.
 - *Published:* Paesani et al. (2020)'s source: the purity predicted from the multimode

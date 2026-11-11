@@ -50,19 +50,19 @@ $$
 where $A$ holds the waves going into every port.
 
 **The objective** F is real, and S complex. Its change is
-$dF = 2 \operatorname{Re} \sum_{qp} G_{qp}\thinspace dS_{qp}$, with $G_{qp} = \partial F/\partial S_{qp}$
-the Wirtinger derivative, $\frac{1}{2}(\partial F/\partial \operatorname{Re} S_{qp} - i\thinspace\partial F/\partial \operatorname{Im} S_{qp})$.
+$dF = 2 \mathop{\mathrm{Re}} \sum_{qp} G_{qp}\thinspace dS_{qp}$, with $G_{qp} = \partial F/\partial S_{qp}$
+the Wirtinger derivative, $\frac{1}{2}(\partial F/\partial \mathop{\mathrm{Re}} S_{qp} - i\thinspace\partial F/\partial \mathop{\mathrm{Im}} S_{qp})$.
 For the power $F = \lvert S_{qp} \rvert^2$, $G_{qp} = \overline{S_{qp}}$. Then
 
 $$
-\frac{\partial F}{\partial \theta} = 2 \operatorname{Re} \operatorname{tr}\negthinspace\left(\Lambda^\mathsf{T}\thinspace \partial_\theta S_b\thinspace A\right),
+\frac{\partial F}{\partial \theta} = 2 \mathop{\mathrm{Re}} \mathop{\mathrm{tr}}\negthinspace\left(\Lambda^\mathsf{T}\thinspace \partial_\theta S_b\thinspace A\right),
 \qquad
 M^\mathsf{T} \Lambda = E\thinspace G .
 $$
 
 This is Veronis, Dutton and Fan's Eqs. 2–4 for a system $M b = r$ whose right-hand side depends
-on $\theta$ too: their $-2 \operatorname{Re}(\lambda^\mathsf{T}\thinspace \partial_\theta A\thinspace u)$
-becomes $2 \operatorname{Re}(\lambda^\mathsf{T} (\partial_\theta r - \partial_\theta M\thinspace b))$, and the two terms
+on $\theta$ too: their $-2 \mathop{\mathrm{Re}}(\lambda^\mathsf{T}\thinspace \partial_\theta A\thinspace u)$
+becomes $2 \mathop{\mathrm{Re}}(\lambda^\mathsf{T} (\partial_\theta r - \partial_\theta M\thinspace b))$, and the two terms
 combine into $\partial_\theta S_b\thinspace a$. Hughes, Minkov, Shi and Fan apply the same adjoint to a
 mesh of interferometers, where it is backpropagation through the mesh.
 
@@ -72,16 +72,16 @@ Three points of the formulation:
   through G. So the adjoint system is $M^\mathsf{T}$, solved with the LU factors of M that the
   circuit solve made: `solve_transpose`, and one step of iterative refinement, as in FDFD.
   (The conjugated form, $M^\dagger \tilde\Lambda = E \bar G$ with
-  $2 \operatorname{Re} \operatorname{tr}(\tilde\Lambda^\dagger \ldots)$, is the same number and
+  $2 \mathop{\mathrm{Re}} \mathop{\mathrm{tr}}(\tilde\Lambda^\dagger \ldots)$, is the same number and
   needs a conjugated solve.)
 - **Real parameters.** Every component parameter is real, so the gradient is
-  $2 \operatorname{Re}(\ldots)$, with no separate derivatives for the real and imaginary parts.
+  $2 \mathop{\mathrm{Re}}(\ldots)$, with no separate derivatives for the real and imaginary parts.
 - **One column per input.** $\Lambda$ has a column per external input the objective depends on, a
   column of G with an entry other than 0: one, for the power from one port. A sum over
   wavelengths is the sum of each wavelength's terms.
 
 **The cost per parameter** is a product the size of its component: $\partial_\theta S_b$ is one
-block, so $\operatorname{tr}(\Lambda^\mathsf{T} \partial_\theta S_b A)$ touches only that block's rows of
+block, so $\mathop{\mathrm{tr}}(\Lambda^\mathsf{T} \partial_\theta S_b A)$ touches only that block's rows of
 $\Lambda$ and A. The whole gradient costs the circuit solve, one transposed back-substitution
 per input, and a component's derivative per parameter.
 

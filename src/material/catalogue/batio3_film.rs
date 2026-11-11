@@ -157,7 +157,7 @@ pub(super) fn suceava_model() -> IndexModel {
         id: "suceava-2025".into(),
         name: "Suceava et al. 2025, strained film on GdScO₃".into(),
         axes: vec![Axis::Ordinary],
-        equation: r"\varepsilon = \varepsilon_\infty + \frac{A_{UV}}{E_{UV}^2 - E^2} - \frac{A_{IR}}{E^2} + \sum_{i=1}^{4} A_i\left\{\frac{2}{\sqrt\pi}\left[F\!\left(\tfrac{E+E_i}{\sigma_i}\right) - F\!\left(\tfrac{E-E_i}{\sigma_i}\right)\right] + i\left[e^{-((E-E_i)/\sigma_i)^2} - e^{-((E+E_i)/\sigma_i)^2}\right]\right\}, \quad n_o = \operatorname{Re}\sqrt{\varepsilon}".into(),
+        equation: r"\varepsilon = \varepsilon_\infty + \frac{A_{UV}}{E_{UV}^2 - E^2} - \frac{A_{IR}}{E^2} + \sum_{i=1}^{4} A_i\left\{\frac{2}{\sqrt\pi}\left[F\!\left(\tfrac{E+E_i}{\sigma_i}\right) - F\!\left(\tfrac{E-E_i}{\sigma_i}\right)\right] + i\left[e^{-((E-E_i)/\sigma_i)^2} - e^{-((E+E_i)/\sigma_i)^2}\right]\right\}, \quad n_o = \mathop{\mathrm{Re}}\sqrt{\varepsilon}".into(),
         symbols: r"$E = 1.239842/\lambda$ in eV ($\lambda$ in µm); $A_i$, $E_i$ and the width $B_i$ (eV, full width at half maximum) of Gaussian oscillator $i$, $\sigma_i = B_i/(2\sqrt{\ln 2})$; $F$ Dawson's integral, which gives the Kramers–Kronig $\varepsilon_1$ of the Gaussian $\varepsilon_2$".into(),
         coefficients: vec![table(
             "Supporting Information, Note S3, Table S1: the Gaussian oscillator model, room temperature (film 36.53 nm)",

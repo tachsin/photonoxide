@@ -142,7 +142,7 @@ analysis of the matrix's sparsity for a sweep.
 
 ## The power flux
 
-`Field3d::flux` sums $\tfrac12 \operatorname{Re}(\mathbf E \times \tilde{\mathbf H}^*)\cdot\hat n$ over a
+`Field3d::flux` sums $\tfrac12 \mathop{\mathrm{Re}}(\mathbf E \times \tilde{\mathbf H}^*)\cdot\hat n$ over a
 plane halfway between two planes of nodes. That is where the tangential H lives: the tangential
 E is averaged across the plane, and each E pairs with the H that shares its place. This is the
 scheme's own flux. Its difference between two planes is exactly the power the discrete
@@ -715,14 +715,14 @@ A 16-wavelength sweep takes 3.3 times fewer iterations by the multigrid, 2.5 by 
 What makes QMR slow here is less the silicon than the PMLs: in vacuum the 40³ problem takes 122
 iterations with periodic sides and 1 231 with PMLs (the table above). A PML stretches its normal
 coordinate by $s = 1 + i\sigma$, and its second difference along the normal by $1/s^2$. Where
-$\sigma \gt 1$, $\operatorname{Re}(s^2) \lt 0$: the operator turns the wrong way along the normal,
+$\sigma \gt 1$, $\mathop{\mathrm{Re}}(s^2) \lt 0$: the operator turns the wrong way along the normal,
 and its spectrum wraps around the origin, which no Krylov method likes. Shin and Fan's grading
 reaches $\sigma = 114$ for 10 cells of 10 nm graded to $R = 10^{-8}$.
 
-**Stretched PMLs.** Any stretch with $\operatorname{Im} s \gt 0$ is a PML (Chew and Weedon): the
+**Stretched PMLs.** Any stretch with $\mathop{\mathrm{Im}} s \gt 0$ is a PML (Chew and Weedon): the
 field outside it is the same, and only the discretization's reflection changes.
 `Boundaries3d::stretched_pml` adds as much real stretching as absorption, $s = 1 + (1 + i)\sigma$
-(`real_stretch` = 1), which keeps $s$ within 45° of the real axis and $\operatorname{Re}(1/s^2) \gt 0$.
+(`real_stretch` = 1), which keeps $s$ within 45° of the real axis and $\mathop{\mathrm{Re}}(1/s^2) \gt 0$.
 On a grid the layer's mesh width becomes complex, $h_c = s h$, at the angle of $s$. Reps, Vanroose and bin
 Zubair bound the spectrum of the Laplacian on such a grid for angles below π/4 (their Section 3:
 $h_c/h = 1 + i\epsilon$ with $0 \lt \epsilon \lt 1$, before their Eq. 3.6), and run their

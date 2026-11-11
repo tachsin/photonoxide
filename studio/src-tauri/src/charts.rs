@@ -3219,7 +3219,9 @@ mod tests {
                 s.id
             );
             for c in &data.series {
-                assert!(c.points.len() >= 2, "{}: {}", s.id, c.label);
+                // one point is a dot, as a lithography of one cited aperture draws (EUV's in
+                // fab-resolution); no point at all draws nothing
+                assert!(!c.points.is_empty(), "{}: {}", s.id, c.label);
                 assert!(
                     c.points
                         .iter()

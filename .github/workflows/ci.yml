@@ -159,6 +159,8 @@ jobs:
       - uses: actions/checkout@v7
       # every relative link in the Markdown points at something that exists
       - run: bash .github/scripts/check-links.sh
+      # no math macro GitHub refuses to render, such as \operatorname
+      - run: bash .github/scripts/check-math.sh
       # the references index (docs/references.md, docs/references-by-file.md) is the one its
       # generator writes, every cited source has an entry in docs/references.yaml and every entry
       # is cited, every DOI is well formed: the studio's references module, which uses the

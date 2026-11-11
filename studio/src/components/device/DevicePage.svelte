@@ -6,7 +6,7 @@
   //
   // - Design: its geometry as parameters and expressions, its stack, its figures, live.
   // - Job: the design as its job's text in the shared editor, the page and the text kept in step
-  //   both ways (JobTab), across the page's width.
+  //   both ways (JobTab), in the panel like every tab, the design in the view beside it.
   // - Overview: its S-parameters with their model and grid, its figures, the model with its
   //   equation, papers and stated error, its ports with their modes, its lesson, its symbol and
   //   the published results on it.
@@ -20,7 +20,7 @@
   //
   // At the analytic fidelity everything follows every change, 60 ms after it; a 2D or 3D model
   // is a solve, started by a button and run in the background. Every number names its model.
-  import { BookOpen, BookOpenCheck, CircleCheck, CirclePlus, Cpu, ExternalLink, Factory, FileDown, Play, Save } from "@lucide/svelte";
+  import { BookOpen, BookOpenCheck, Box, ChartLine, CircleCheck, CirclePlus, Columns2, Cpu, ExternalLink, Factory, FileCode, FileDown, LayoutDashboard, PanelLeft, PencilRuler, Play, Save, Target } from "@lucide/svelte";
   import { ask } from "@tauri-apps/plugin-dialog";
   import { openUrl } from "../../lib/open";
   import katex from "katex";
@@ -32,7 +32,7 @@
   import { catalog, loadCatalog } from "../../lib/catalog.svelte";
   import { addInstance, chipLink, exportTouchstone, library, partKey, placeDesign, returnToChip } from "../../lib/chip.svelte";
   import { sweepProblem, type Quantity } from "../../lib/circuit";
-  import { designMethods, dirty, draftOf, setDesignMethods, drafts, keep, key, methodsOf, optimizePreview, pending, shownRun, solve, solves, took, type Rung } from "../../lib/device.svelte";
+  import { designMethods, dirty, draftOf, fabricateDevice, setDesignMethods, drafts, keep, key, methodsOf, optimizePreview, pending, shownRun, solve, solves, took, type Rung } from "../../lib/device.svelte";
   import Viewer from "../../pages/Viewer.svelte";
   import SolvedView from "./SolvedView.svelte";
   import { FIDELITY_ABOUT, plain } from "../../lib/deviceview";
@@ -51,7 +51,6 @@
   import OptimizeTab from "./OptimizeTab.svelte";
   import StudyTab from "./StudyTab.svelte";
   import ElectrodeFieldView from "./ElectrodeFieldView.svelte";
-  import FabricationTab from "./FabricationTab.svelte";
   import JobTab from "./JobTab.svelte";
   import { MODULATOR } from "./ModulatorSweeps.svelte";
   import TemperatureView from "./TemperatureView.svelte";
@@ -134,7 +133,7 @@
   });
   /** What the view draws: the optimization's design while the Optimize tab shows one, the design otherwise. */
   const shownDrawn = $derived(previewDrawn ?? drawn);
-  // the tab shown in sight in the tab bar, however it was chosen (Fabricate picks the last one)
+  // the tab shown in sight in the tab bar, however it was chosen
   $effect(() => {
     void draft.tab;
     requestAnimationFrame(() => document.querySelector('[role="tablist"] .tab-active')?.scrollIntoView({ block: "nearest", inline: "nearest" }));
@@ -245,6 +244,62 @@
   let viewHeight = $state(400);
   /** A narrow page (a 960 px window): the panel goes under the view. */
   const stacked = $derived(bodyWidth > 0 && bodyWidth < 1000);
+
+  // ---- the body: the panel and the view side by side, or either alone; the split remembered ----
+
+  type Layout = "split" | "panel" | "view";
+  const remembered = (k: string): string | null => {
+    try {
+      return localStorage.getItem(k);
+    } catch {
+      return null;
+    }
+  };
+  const remember = (k: string, v: string) => {
+    try {
+      localStorage.setItem(k, v);
+    } catch {
+      // storage blocked: the page just forgets
+    }
+  };
+  let layout = $state<Layout>(((l) => (l === "panel" || l === "view" ? l : "split"))(remembered("device-layout")));
+  function setLayout(l: Layout) {
+    layout = l;
+    remember("device-layout", l);
+  }
+  /** The panel's share of the body's width when side by side. */
+  let share = $state(((v) => (Number.isFinite(v) && v >= 0.3 && v <= 0.72 ? v : 0.5))(Number(remembered("device-panel-share"))));
+  const clampShare = (v: number) => Math.min(0.72, Math.max(0.3, v));
+  /** Drags the divider: the panel's edge follows the pointer. */
+  function dragSplit(e: PointerEvent) {
+    const bar = e.currentTarget as HTMLElement;
+    const body = bar.parentElement!.getBoundingClientRect();
+    bar.setPointerCapture(e.pointerId);
+    const move = (ev: PointerEvent) => (share = clampShare((ev.clientX - body.left) / body.width));
+    const up = () => {
+      bar.removeEventListener("pointermove", move);
+      bar.removeEventListener("pointerup", up);
+      remember("device-panel-share", String(share));
+    };
+    bar.addEventListener("pointermove", move);
+    bar.addEventListener("pointerup", up);
+  }
+  function keySplit(e: KeyboardEvent) {
+    const by = e.key === "ArrowLeft" ? -0.02 : e.key === "ArrowRight" ? 0.02 : 0;
+    if (!by) return;
+    e.preventDefault();
+    share = clampShare(share + by);
+    remember("device-panel-share", String(share));
+  }
+  const TABS = [
+    ["design", "Design", PencilRuler],
+    ["job", "Job", FileCode],
+    ["overview", "Overview", LayoutDashboard],
+    ["model", "Model", Cpu],
+    ["simulate", "Simulate", Play],
+    ["study", "Study", ChartLine],
+    ["optimize", "Optimize", Target],
+  ] as const;
   /** Whether the run the window follows is one this page started or opened. */
   const runHere = $derived(!!run.info?.dir && shownRun[info.id] === run.info.dir);
   let normal = $state<"x" | "y">("x");
@@ -265,7 +320,6 @@
 
   // ---- saving ----
   let saving = $state<{ name: string; about: string; busy: boolean; problem: string } | null>(null);
-  const changed = $derived(dirty(draft, info));
   const title = $derived(draft.name ?? kind?.title ?? info.kind);
 
   function startSave() {
@@ -425,31 +479,50 @@
 {/snippet}
 
 {#snippet tabBar()}
-  <div role="tablist" class="tabs tabs-border tabs-sm shrink-0 flex-wrap border-b border-base-content/8 px-3">
-    {#each [["design", "Design"], ["job", "Job"], ["overview", "Overview"], ["model", "Model"], ["simulate", "Simulate"], ["study", "Study"], ["optimize", "Optimize"], ["fabrication", "Fabrication"]] as const as [t, label] (t)}
-      <button role="tab" class="tab {draft.tab === t ? 'tab-active' : ''}" onclick={() => (draft.tab = t)} title={t === "job" ? "The design as its job's text, beside its view: edit either, the other follows" : undefined}>{label}</button>
-    {/each}
+  <!-- the tabs across the page, one line; at the right, how the body is laid out -->
+  <div class="flex shrink-0 items-center gap-2 border-b border-base-content/8 px-4">
+    <div role="tablist" class="flex min-w-0 flex-1 gap-1 overflow-x-auto">
+      {#each TABS as [t, label, Icon] (t)}
+        <button
+          role="tab"
+          aria-selected={draft.tab === t}
+          class="-mb-px flex shrink-0 items-center gap-1.5 border-b-2 px-3 py-2.5 text-sm transition-colors {draft.tab === t ? 'border-primary font-medium text-primary' : 'border-transparent text-base-content/60 hover:text-base-content'}"
+          onclick={() => {
+            draft.tab = t;
+            if (layout === "view") setLayout("split");
+          }}
+          title={t === "job" ? "The design as its job's text, beside its view: edit either, the other follows" : undefined}
+        >
+          <Icon size={14} />
+          {label}
+        </button>
+      {/each}
+    </div>
+    {#if !stacked}
+      <div class="join shrink-0" role="group" aria-label="The layout">
+        <button class="btn join-item btn-ghost btn-xs {layout === 'panel' ? 'btn-active' : ''}" aria-pressed={layout === "panel"} onclick={() => setLayout("panel")} title="The panel alone, across the page"><PanelLeft size={14} /></button>
+        <button class="btn join-item btn-ghost btn-xs {layout === 'split' ? 'btn-active' : ''}" aria-pressed={layout === "split"} onclick={() => setLayout("split")} title="The panel and the view side by side: drag the line between them"><Columns2 size={14} /></button>
+        <button class="btn join-item btn-ghost btn-xs {layout === 'view' ? 'btn-active' : ''}" aria-pressed={layout === "view"} onclick={() => setLayout("view")} title="The view alone, across the page"><Box size={14} /></button>
+      </div>
+    {/if}
   </div>
 {/snippet}
 
 <div class="flex h-full min-h-0 flex-col">
   <!-- the header -->
-  <div class="glow shrink-0 border-b border-base-content/8 px-6 {stacked ? 'py-2.5' : 'py-4'}">
-    <div class="flex flex-wrap items-start {stacked ? 'gap-3' : 'gap-5'}">
-      {#if kind?.symbol && !stacked}
+  <!-- one row: its symbol, its model, ports and parameters, its other models, and what to do with
+       it; its name and its line about it are in the top bar (Components › its name) -->
+  <div class="shrink-0 border-b border-base-content/8 px-4 py-2">
+    <div class="flex flex-wrap items-center gap-x-3 gap-y-2">
+      {#if kind?.symbol}
         {@const s = kind.symbol}
-        <div class="grid size-12 shrink-0 place-items-center rounded-2xl bg-primary/12 text-primary">
-          <svg width="36" height="24" viewBox="{-s.width / 2 - 6} {-s.height / 2 - 6} {s.width + 12} {s.height + 12}"><Glyph symbol={s} /></svg>
+        <div class="grid size-8 shrink-0 place-items-center rounded-lg bg-primary/12 text-primary" title="{title} ({info.kind})">
+          <svg width="24" height="16" viewBox="{-s.width / 2 - 6} {-s.height / 2 - 6} {s.width + 12} {s.height + 12}"><Glyph symbol={s} /></svg>
         </div>
       {/if}
-      <div class="min-w-[16rem] flex-1">
-        <h2 class="flex flex-wrap items-baseline gap-x-2 text-xl font-semibold tracking-tight">
-          {title}
-          {#if changed}<span class="text-base text-warning" title="Changed since it was {draft.path ? 'saved' : 'opened'}">●</span>{/if}
-          <span class="text-sm font-normal muted">{info.kind}</span>
-        </h2>
-        {#if !stacked}<p class="mt-0.5 line-clamp-1 max-w-3xl text-sm muted" title={info.about}>{info.about}</p>{/if}
-        <div class="mt-2 flex flex-wrap items-center gap-1.5 text-xs">
+      <div class="min-w-0 flex-1">
+        <div class="flex flex-wrap items-center gap-1.5 text-xs">
+          <span class="mr-1 font-mono text-[11px] faint" title="Its kind, as a job names it">{info.kind}</span>
           <div class="dropdown">
             <div tabindex="0" role="button" class="badge badge-sm cursor-pointer gap-1 {live ? 'badge-secondary' : 'badge-primary'}" title="The model in use: {FIDELITY_ABOUT[fidelity]}">
               <Cpu size={11} /> {fidelity}
@@ -486,7 +559,7 @@
           }}
           title="Run the design as a job, as the Simulate tab sets it: by its {fidelity} model unless it says otherwise"><Play size={15} /> Run</button
         >
-        <button class="btn btn-sm gap-1.5" onclick={() => (draft.tab = "fabrication")} title="How this design could be made: the steps from published processes, each with its reason and sources (the Fabrication tab)"><Factory size={15} /> Fabricate</button>
+        <button class="btn btn-sm gap-1.5" onclick={() => fabricateDevice(info.id)} title="How this design could be made, on the Fabrication page: its flow from the bare wafer in 2D and 3D, each step with its reason and sources"><Factory size={15} /> Fabricate</button>
         <button class="btn btn-sm gap-1.5" onclick={startSave} title="Save the design as a job file in the workspace's jobs/ (Ctrl+S)"><Save size={15} /> Save</button>
         <button class="btn btn-primary btn-sm gap-1.5" onclick={place} title="Add this design to the chip being edited, at its {fidelity} model: the instance carries the design and its fidelity"><CirclePlus size={15} /> Place on the chip</button>
       </div>
@@ -505,16 +578,12 @@
     </div>
   {/if}
 
-  {#if draft.tab === "job"}
-    <!-- the Job tab: the text and the design beside it, across the page -->
-    <div class="flex min-h-0 flex-1 flex-col">
-      {@render tabBar()}
-      <JobTab {info} {draft} scene={drawn?.scene ?? null} fields={view?.fields ?? []} />
-    </div>
-  {:else}
-  <!-- the view, always on screen, and the panel beside it (under it in a narrow window) -->
-  <div class="grid min-h-0 flex-1 {stacked ? 'grid-rows-[minmax(13rem,1fr)_minmax(10rem,1fr)]' : 'grid-cols-[minmax(0,1fr)_minmax(24rem,36%)]'}" bind:clientWidth={bodyWidth}>
-    <section class="flex min-h-0 min-w-0 flex-col border-base-content/8 {stacked ? 'border-b' : 'border-r'}">
+  {@render tabBar()}
+  <!-- the panel and the view side by side (the panel first, its share dragged on the line between
+       them), or either alone; in a narrow window the view, then the panel under it -->
+  <div class="flex min-h-0 flex-1 {stacked ? 'flex-col' : ''}" bind:clientWidth={bodyWidth}>
+    {#if stacked || layout !== "panel"}
+    <section class="flex min-h-0 min-w-0 flex-1 flex-col border-base-content/8 {stacked ? 'order-1 min-h-52 border-b' : 'order-3'}">
       <div class="relative min-h-0 flex-1 overflow-hidden" bind:clientHeight={viewHeight}>
         {#if mainView === "run" && runHere}
           <div class="absolute inset-0"><Viewer embedded active={app.page === "components"} /></div>
@@ -574,13 +643,35 @@
         {/if}
       </div>
     </section>
+    {/if}
 
-    <aside class="flex min-h-0 min-w-0 flex-col">
-      {@render tabBar()}
-      <div class="min-h-0 flex-1 overflow-y-auto p-4">
-        {#if draft.tab === "design"}
-          <div class="space-y-4">
-            <section class="panel p-4">
+    {#if !stacked && layout === "split"}
+      <!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions -->
+      <div
+        role="separator"
+        aria-orientation="vertical"
+        aria-label="The panel's width: drag, or ← →"
+        aria-valuenow={Math.round(share * 100)}
+        tabindex="0"
+        class="group order-2 flex w-2 shrink-0 cursor-col-resize justify-center outline-none"
+        onpointerdown={dragSplit}
+        onkeydown={keySplit}
+      >
+        <span class="w-px bg-base-content/10 transition-colors group-hover:w-0.5 group-hover:bg-primary/60 group-focus-visible:bg-primary"></span>
+      </div>
+    {/if}
+
+    {#if stacked || layout !== "view"}
+    <aside class="flex min-h-0 min-w-0 flex-col {stacked ? 'order-2 min-h-40 flex-1' : layout === 'panel' ? 'order-1 flex-1' : 'order-1 shrink-0'}" style={!stacked && layout === "split" ? `width: ${(share * 100).toFixed(1)}%` : undefined}>
+      <div class="@container min-h-0 flex-1 {draft.tab === 'job' ? 'flex flex-col overflow-hidden' : 'overflow-y-auto p-4 sm:p-5'}">
+        {#if draft.tab === "job"}
+          <!-- the job's text, filling the panel like every tab's content: the design is in the page's view beside it -->
+          <div class="flex min-h-0 flex-1 flex-col overflow-hidden">
+            <JobTab {info} {draft} fields={view?.fields ?? []} />
+          </div>
+        {:else if draft.tab === "design"}
+          <div class="grid gap-4 @4xl:grid-cols-2">
+            <section class="panel p-4 @4xl:col-span-2">
               <h3 class="panel-title">Geometry</h3>
               <div class="mt-3">
                 <ParameterForm {info} fields={view?.fields ?? []} bind:parameters={draft.spec.parameters} />
@@ -606,8 +697,8 @@
             </section>
           </div>
         {:else if draft.tab === "overview"}
-          <div class="space-y-4">
-            {@render spectrumPanel(220)}
+          <div class="grid gap-4 @4xl:grid-cols-2">
+            <div class="@4xl:col-span-2">{@render spectrumPanel(220)}</div>
             <section class="panel p-4">
               <div class="flex flex-wrap items-center gap-2">
                 <h3 class="panel-title mr-auto">Figures</h3>
@@ -752,15 +843,13 @@
           <SimulateTab {info} {draft} {designKey} {values} onshow={() => (mainView = "run")} />
         {:else if draft.tab === "study"}
           <StudyTab {info} {draft} {designKey} {values} fields={view?.fields ?? []} />
-        {:else if draft.tab === "fabrication"}
-          <FabricationTab spec={draft.spec} {designKey} {normal} at={cutAt ?? 0} start={draft.fabStart ?? "bought"} onstart={(s) => (draft.fabStart = s)} />
         {:else}
           <OptimizeTab {info} {draft} {designKey} {values} fields={view?.fields ?? []} />
         {/if}
       </div>
     </aside>
+    {/if}
   </div>
-  {/if}
 </div>
 
 <dialog class="modal" class:modal-open={!!saving}>

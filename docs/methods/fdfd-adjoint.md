@@ -27,7 +27,7 @@ The [FDFD](fdfd.md) system is $A(\varepsilon)\thinspace u = b$, with the source 
 objective F(u), Veronis, Dutton and Fan's Eqs. 2–4 give
 
 $$
-\frac{\partial F}{\partial \varepsilon_k} = -2\thinspace\operatorname{Re}\negthinspace\left(\lambda^{\mathsf T}\thinspace\frac{\partial A}{\partial \varepsilon_k}\thinspace u\right),
+\frac{\partial F}{\partial \varepsilon_k} = -2\thinspace\mathop{\mathrm{Re}}\negthinspace\left(\lambda^{\mathsf T}\thinspace\frac{\partial A}{\partial \varepsilon_k}\thinspace u\right),
 \qquad A^{\mathsf T}\lambda = \frac{\partial F}{\partial u}.
 $$
 

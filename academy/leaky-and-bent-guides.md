@@ -180,17 +180,17 @@ $$
 \alpha_s^2 = n_s^2 - n'^2 + n''^2 - 2in'n'' .
 $$
 
-The wave leaves the guide, so $\operatorname{Re}\alpha_s \gt 0$; then
-$\operatorname{Im}\alpha_s = -n'n''/\operatorname{Re}\alpha_s \lt 0$, and the field's size,
-$e^{-k\operatorname{Im}\alpha_s\thinspace x}$, grows with $x$. The rays say the same: the light at
-depth $x$ left the guide a distance $x\tan\theta$ upstream, $\tan\theta = n'/\operatorname{Re}\alpha_s$,
-where the mode was stronger by $e^{kn''x\tan\theta}$, and $kn''\tan\theta = -k\operatorname{Im}\alpha_s$.
+The wave leaves the guide, so $\mathop{\mathrm{Re}}\alpha_s \gt 0$; then
+$\mathop{\mathrm{Im}}\alpha_s = -n'n''/\mathop{\mathrm{Re}}\alpha_s \lt 0$, and the field's size,
+$e^{-k\mathop{\mathrm{Im}}\alpha_s\thinspace x}$, grows with $x$. The rays say the same: the light at
+depth $x$ left the guide a distance $x\tan\theta$ upstream, $\tan\theta = n'/\mathop{\mathrm{Re}}\alpha_s$,
+where the mode was stronger by $e^{kn''x\tan\theta}$, and $kn''\tan\theta = -k\mathop{\mathrm{Im}}\alpha_s$.
 For TE₄ that is $9.929 \times 0.007156 \times \tan 77.0° = 0.308$ per µm, the chart's figure.
 
 [Tamir and Oliner (1963)](https://doi.org/10.1049/piee.1963.0044) say the same of any wave guided
 along an open interface. $k\alpha_s$ is the wavenumber across the interface, and a field that dies
 away from it needs a positive imaginary part, their radiation condition (Part 1, Eq. 3a): a root
-with $\operatorname{Im}\alpha_s \lt 0$, as every leaky wave here has, is **improper**. In a
+with $\mathop{\mathrm{Im}}\alpha_s \lt 0$, as every leaky wave here has, is **improper**. In a
 lossless medium it is a plane wave whose planes of equal amplitude are normal to its planes of
 equal phase, so it runs along $\theta$ undiminished (their Section 3.2.2), which is the rays'
 argument above; their angle $\xi_p$ is this $\theta$.
@@ -265,8 +265,8 @@ $$
 
 $\alpha_c$ and $\alpha_s$ are square roots, so $\chi$ lives on four sheets, one for each choice of
 sign. A bound mode takes the root that decays away from the stack in both outer media,
-$\operatorname{Im}\alpha \gt 0$; a leaky wave takes, in a medium whose index is above $n'$, the
-outgoing root, $\operatorname{Re}\alpha \gt 0$ (their Section 3.C), which is the growing field of
+$\mathop{\mathrm{Im}}\alpha \gt 0$; a leaky wave takes, in a medium whose index is above $n'$, the
+outgoing root, $\mathop{\mathrm{Re}}\alpha \gt 0$ (their Section 3.C), which is the growing field of
 Section 1. `Multilayer::bound_modes` brackets and bisects the real roots;
 `Multilayer::modes_in` finds the complex ones in a rectangle of the plane from the minima of
 $|\chi|$ on a grid, each refined by secant iteration; the field is their Eq. 34 and each layer's
@@ -327,7 +327,7 @@ $$
 $$
 
 $u$ the depth into a layer of thickness $d$. The outgoing wave $e^{ik\alpha_s\tilde x}$ gains the
-factor $e^{-k\operatorname{Re}\alpha_s\thinspace\alpha u^3/3d^2}$, which overwhelms the leaky wave's
+factor $e^{-k\mathop{\mathrm{Re}}\alpha_s\thinspace\alpha u^3/3d^2}$, which overwhelms the leaky wave's
 growth and brings it to nothing at the window's edge. In the full-vector solver this is complex
 grid spacings in the layer, which the solver's equations take as they are
 ([the PML](../docs/methods/pml.md)). A wave whose phase runs towards the guide, as $m = 8$'s does in
@@ -392,7 +392,7 @@ $1.8 \times 10^{-8}$ with 6, 12 and 24 points: exponential in $N$. The points ar
 side and summed in order, so the result is the same bits on any number of threads.
 
 A PML has modes of its own: a line of discrete eigenvalues rising from the substrate's index into
-$\operatorname{Im} n_\text{eff}$. A region that cuts that branch holds eigenvalues of enormous
+$\mathop{\mathrm{Im}} n_\text{eff}$. A region that cuts that branch holds eigenvalues of enormous
 condition, the filtered block loses rank and the residuals stall; the search stops and says so,
 and a region below the branch finds the leaky waves, as the validation's do. In 1D the exact
 stack needs no projector: `Multilayer::modes_in` searches the rectangle of the plane, the

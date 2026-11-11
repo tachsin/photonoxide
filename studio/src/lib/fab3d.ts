@@ -78,18 +78,22 @@ export class FabView3D {
     this.draw();
   }
 
-  /** The solids' extent: half the plan's span along x and y, µm, and the bottom and top. */
-  private extent(page: FabricationPage): { x: number; y: number; lo: number; hi: number } {
-    let [x, y, lo, hi] = [0, 0, Infinity, -Infinity];
+  /** The solids' extent: half the plan's span along x and y and its middle, µm (the positions are
+   *  about the window's centre, which needn't be the solids'), and the bottom and top. */
+  private extent(page: FabricationPage): { x: number; y: number; mid: [number, number]; lo: number; hi: number } {
+    let [x0, x1, y0, y1, lo, hi] = [Infinity, -Infinity, Infinity, -Infinity, Infinity, -Infinity];
     for (const s of page.solids) {
       lo = Math.min(lo, s.z_um[0]);
       hi = Math.max(hi, s.z_um[1]);
       for (let i = 0; i < s.positions.length; i += 3) {
-        x = Math.max(x, Math.abs(s.positions[i]));
-        y = Math.max(y, Math.abs(s.positions[i + 1]));
+        x0 = Math.min(x0, s.positions[i]);
+        x1 = Math.max(x1, s.positions[i]);
+        y0 = Math.min(y0, s.positions[i + 1]);
+        y1 = Math.max(y1, s.positions[i + 1]);
       }
     }
-    return { x, y, lo, hi };
+    if (!Number.isFinite(x0)) return { x: 0, y: 0, mid: [0, 0], lo: 0, hi: 0 };
+    return { x: (x1 - x0) / 2, y: (y1 - y0) / 2, mid: [(x0 + x1) / 2, (y0 + y1) / 2], lo, hi };
   }
 
   /**
@@ -100,11 +104,13 @@ export class FabView3D {
   private focus(page: FabricationPage): { half: number; at: [number, number] } {
     const e = this.extent(page);
     const [long, short] = [Math.max(e.x, e.y), Math.min(e.x, e.y)];
-    if (long <= 4 * short || !this.cutAt) return { half: long, at: [0, 0] };
+    // the solids' own middle: the camera turns about it
+    if (long <= 4 * short || !this.cutAt) return { half: long, at: e.mid };
     const half = Math.max(4 * short, (e.hi - e.lo) * 2);
     const [normal, u] = this.cutAt;
-    const along = (normal === "x") === e.x >= e.y ? Math.max(-long + half, Math.min(long - half, u)) : 0;
-    return { half, at: e.x >= e.y ? [along, 0] : [0, along] };
+    const centre = e.x >= e.y ? e.mid[0] : e.mid[1];
+    const along = (normal === "x") === e.x >= e.y ? Math.max(centre - long + half, Math.min(centre + long - half, u)) : centre;
+    return { half, at: e.x >= e.y ? [along, e.mid[1]] : [e.mid[0], along] };
   }
 
   /** The cut the camera centres on for a long design: its axis and where, about the page's centre. */

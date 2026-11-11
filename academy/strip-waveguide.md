@@ -554,7 +554,7 @@ $n_g$, the term $-\lambda\thinspace\partial n_\text{eff}/\partial\lambda$, comes
 Under the buried oxide is the silicon substrate, whose index, 3.48, is above any strip mode's.
 The mode's field decays across the oxide, and what reaches the substrate is a wave travelling
 away: the mode is leaky. Its effective index has an imaginary part, and its power falls as
-$e^{-2k \operatorname{Im}(n_\text{eff}) z}$. A closed window can't hold such a wave; a perfectly
+$e^{-2k \mathop{\mathrm{Im}}(n_\text{eff}) z}$. A closed window can't hold such a wave; a perfectly
 matched layer in the substrate absorbs it ([the PML](../docs/methods/pml.md)), and the solver
 then finds the leaky mode with its loss
 ([Hu and Menyuk, 2009](https://doi.org/10.1364/AOP.1.000058), on what a leaky mode is).
@@ -562,7 +562,7 @@ then finds the leaky mode with its loss
 [Bienstman et al. (2006)](https://doi.org/10.1007/s11082-006-9025-9) compared many mode solvers on
 one such wire: 500 × 220 nm of silicon (3.5) on 1 µm of oxide (1.45) on silicon, under air, at
 1.55 µm. Its consensus is $2.412372 + 2.9135 \times 10^{-8} i$, a loss of
-$10\log_{10}(e) \cdot 2k\operatorname{Im}(n_\text{eff}) = 0.0103$ dB/cm.
+$10\log_{10}(e) \cdot 2k\mathop{\mathrm{Im}}(n_\text{eff}) = 0.0103$ dB/cm.
 [leaky_wire_benchmark](../examples/leaky_wire_benchmark.rs) solves it with a PML in the substrate
 on core grids of 5, 2.5 and 1.25 nm, and extrapolates:
 
@@ -670,6 +670,12 @@ fills around it and clads it. The etch leaves walls at 82°, not the drawn 90° 
 from the bare wafer:
 
 ::fabrication waveguide
+
+The scanner that exposes the resist, in 2D and 3D: the laser's light spread evenly over the mask,
+the mask's image made smaller by the lens, and the wafer scanned under it field by field. The
+electron beam, which writes the strip with no mask, to compare:
+
+::lithography duv-193 ebl
 
 [How a chip is made](how-a-chip-is-made.md) takes each step in turn: the wafer, the lithography
 and what limits it, the etch stop, the films, and what the flow checks.

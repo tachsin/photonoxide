@@ -499,14 +499,14 @@ pub(crate) fn cases() -> Vec<Case> {
             id: "nonlinear/pairs-heralding-gaussian",
             title: r"The heralding efficiency of photon pairs through filters: a Gaussian joint spectrum $\lvert f\rvert^2 = e^{-z^\mathsf{T}Mz}$, $M = [[1, -0.9], [-0.9, 1]] \times 10^6$ µm², through Gaussian filters 0.8 and 1.2 × 10⁻³ /µm wide, on 201 × 201 points: the signal's, heralded by the idler (shown)",
             tier: Tier::Analytic,
-            source: r"each sum a Gaussian integral, $\pi/\sqrt{\det}$: $\eta_s = (\det(M + D_i)/\det(M + D_s + D_i))^{1/2}$, $D_s = \operatorname{diag}(1/w_s^2, 0)$, $D_i = \operatorname{diag}(0, 1/w_i^2)$",
+            source: r"each sum a Gaussian integral, $\pi/\sqrt{\det}$: $\eta_s = (\det(M + D_i)/\det(M + D_s + D_i))^{1/2}$, $D_s = \mathop{\mathrm{diag}}(1/w_s^2, 0)$, $D_i = \mathop{\mathrm{diag}}(0, 1/w_i^2)$",
             run: heralding_case,
         },
         Case {
             id: "nonlinear/pairs-filtered-purity",
             title: r"The same pairs' purity after the filters, by the Schmidt decomposition of the filtered amplitude (shown)",
             tier: Tier::Analytic,
-            source: r"the filtered amplitude is the Gaussian $e^{-\frac{1}{2}z^\mathsf{T}(M + D)z}$, $D = \operatorname{diag}(1/w_s^2, 1/w_i^2)$: $P = (1 - c^2/(a'b'))^{1/2}$ with $a' = a + 1/w_s^2$, $b' = b + 1/w_i^2$",
+            source: r"the filtered amplitude is the Gaussian $e^{-\frac{1}{2}z^\mathsf{T}(M + D)z}$, $D = \mathop{\mathrm{diag}}(1/w_s^2, 1/w_i^2)$: $P = (1 - c^2/(a'b'))^{1/2}$ with $a' = a + 1/w_s^2$, $b' = b + 1/w_i^2$",
             run: filtered_purity_case,
         },
         Case {

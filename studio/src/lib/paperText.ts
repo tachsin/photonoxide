@@ -265,3 +265,18 @@ export function toCsv(list: Starred[]): string {
   }
   return rows.map((r) => r.map(cell).join(",")).join("\r\n") + "\r\n";
 }
+
+/** A source photonoxide cites (docs/references.yaml), with every place it cites it. */
+export interface CitedSource {
+  /** `Marcatili 1969`, `Snyder and Love 1983`, `Zhang et al. 2013`. */
+  label: string;
+  doi: string | null;
+  key: string | null;
+  authors: string;
+  title: string;
+  venue: string;
+  year: string;
+  /** A copy anyone can read, when there is one. */
+  open: string | null;
+  ours: Cited[];
+}

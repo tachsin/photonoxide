@@ -176,7 +176,7 @@ $$
 right side is largest, $\sum_i 1/\Delta_i^2$, for $k_i\Delta_i = \pi$ on every axis. A real
 $\omega$ needs the left side's sine at most 1, so $\Delta t^2\sum_i 1/\Delta_i^2 \le n^2$: the
 limit above, in vacuum. Past it, with $s = (\Delta t/n)\sqrt{\sum_i\sin^2(k_i\Delta_i/2)/\Delta_i^2} \gt 1$,
-the root is $\omega\Delta t = \pi + 2i\operatorname{acosh}s$, and the wave grows by
+the root is $\omega\Delta t = \pi + 2i\mathop{\mathrm{acosh}}s$, and the wave grows by
 $(s + \sqrt{s^2 - 1})^2$ every step. photonoxide gives the relation as `fdtd::grid_frequency`
 and the step as `fdtd::time_step`; the chart's figures are these.
 

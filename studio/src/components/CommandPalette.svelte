@@ -13,6 +13,7 @@
   import { checkForUpdate } from "../lib/updater.svelte";
   import { paperIdOf, shortDate } from "../lib/paperText";
   import { openPaper, papers, showPapers } from "../lib/papers.svelte";
+  import { chipTitle } from "../lib/circuit";
 
   interface Item {
     group: string;
@@ -42,8 +43,8 @@
     }
   });
 
-  /** Every page: the rail's, the System group's, Settings, and the run view, reached from a run. */
-  const pages: Page[] = [...RAIL, ...SYSTEM, "settings", "viewer"];
+  /** Every page: the rail's, the System group's (Settings among them), and the run view, reached from a run. */
+  const pages: Page[] = [...RAIL, ...SYSTEM, "viewer"];
 
   function newJob(kind: Kind) {
     newCustom(kind);
@@ -86,10 +87,10 @@
       all.push({ group: "Open a template in the Custom device", label: j.name, detail: j.about, run: () => openText(j.text) });
     }
     for (const c of circuitExamples) {
-      all.push({ group: "Built-in circuits", label: c.chip.name, detail: c.chip.about, run: () => showChip(c.chip) });
+      all.push({ group: "Built-in circuits", label: chipTitle(c.chip.name), detail: c.chip.about, run: () => showChip(c.chip) });
     }
     for (const c of circuits) {
-      all.push({ group: "Your circuits", label: c.name, detail: c.about || `${c.instances} parts`, run: () => openChipFile(c.path) });
+      all.push({ group: "Your circuits", label: chipTitle(c.name), detail: c.about || `${c.instances} parts`, run: () => openChipFile(c.path) });
     }
     all.push({ group: "Actions", label: "Import a Touchstone file", detail: "S-parameters as a measured component", run: () => importTouchstone().then((k) => k && ((app.component = partKey(k)), go("components"))) });
     for (const k of library.kinds as KindInfo[]) {

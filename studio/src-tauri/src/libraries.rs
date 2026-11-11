@@ -124,6 +124,10 @@ pub struct Guide {
     pub installs: &'static [Install],
     /// The systems it has no build for, with the alternative.
     pub unsupported: &'static [(&'static str, &'static str)],
+    /// The systems (`macos`) or platforms (`macos-aarch64`) its vendor makes no build for, so
+    /// it can never run there: the Libraries page folds it away, greyed. Narrower than
+    /// `unsupported`, which also says what to do where no package manager has it.
+    pub no_build: &'static [&'static str],
     /// Whether it is part of photonoxide, always present.
     pub built_in: bool,
 }
@@ -132,6 +136,7 @@ const CUDA_UNSUPPORTED: &[(&str, &str)] = &[(
     "macos",
     "NVIDIA's libraries have no macOS build: photonoxide's own solvers run there.",
 )];
+const CUDA_NO_BUILD: &[&str] = &["macos"];
 
 /// The libraries photonoxide knows, its own first. Each install command says where it was run
 /// on a clean machine ([`Checked`]): the Libraries workflow runs them again every week, and
@@ -149,6 +154,7 @@ pub const GUIDES: &[Guide] = &[
         download: "https://github.com/tachsin/photonoxide",
         installs: &[],
         unsupported: &[],
+        no_build: &[],
         built_in: true,
     },
     Guide {
@@ -162,6 +168,7 @@ pub const GUIDES: &[Guide] = &[
         download: "https://codeberg.org/sarah-quinones/faer",
         installs: &[],
         unsupported: &[],
+        no_build: &[],
         built_in: true,
     },
     Guide {
@@ -256,6 +263,7 @@ pub const GUIDES: &[Guide] = &[
             "macos-aarch64",
             "oneMKL has no build for Apple silicon: photonoxide's own solvers run there.",
         )],
+        no_build: &["macos-aarch64"],
         built_in: false,
     },
     Guide {
@@ -324,6 +332,7 @@ pub const GUIDES: &[Guide] = &[
             },
         ],
         unsupported: CUDA_UNSUPPORTED,
+        no_build: CUDA_NO_BUILD,
         built_in: false,
     },
     Guide {
@@ -392,6 +401,7 @@ pub const GUIDES: &[Guide] = &[
             },
         ],
         unsupported: CUDA_UNSUPPORTED,
+        no_build: CUDA_NO_BUILD,
         built_in: false,
     },
     Guide {
@@ -452,6 +462,7 @@ pub const GUIDES: &[Guide] = &[
             },
         ],
         unsupported: CUDA_UNSUPPORTED,
+        no_build: CUDA_NO_BUILD,
         built_in: false,
     },
     Guide {
@@ -515,6 +526,7 @@ pub const GUIDES: &[Guide] = &[
             "windows",
             "conda-forge has no superlu for Windows (the install fails with PackagesNotFoundInChannelsError, 2026-10-09), and no package there names SuperLU's library by its release, which is how photonoxide tells the releases apart: photonoxide's own solvers run there.",
         )],
+        no_build: &[],
         built_in: false,
     },
     Guide {
@@ -582,6 +594,7 @@ pub const GUIDES: &[Guide] = &[
             },
         ],
         unsupported: &[],
+        no_build: &[],
         built_in: false,
     },
     Guide {
@@ -608,6 +621,7 @@ pub const GUIDES: &[Guide] = &[
                 "Accelerate is part of macOS: photonoxide's own solvers run here.",
             ),
         ],
+        no_build: &["windows", "linux"],
         built_in: false,
     },
     Guide {
@@ -720,6 +734,7 @@ pub const GUIDES: &[Guide] = &[
             },
         ],
         unsupported: &[],
+        no_build: &[],
         built_in: false,
     },
     Guide {
@@ -743,6 +758,7 @@ pub const GUIDES: &[Guide] = &[
             ),
             ("macos", "AMD has no macOS build."),
         ],
+        no_build: &["macos"],
         built_in: false,
     },
     Guide {
@@ -776,6 +792,7 @@ pub const GUIDES: &[Guide] = &[
             "linux",
             "Arm's .deb or .rpm, from its page, for AArch64: into /opt/arm, where photonoxide looks, or set ARMPL_DIR or PHOTONOXIDE_ARMPL.",
         )],
+        no_build: &["windows-x86_64", "linux-x86_64", "macos-x86_64"],
         built_in: false,
     },
     Guide {
@@ -844,6 +861,7 @@ pub const GUIDES: &[Guide] = &[
             },
         ],
         unsupported: &[],
+        no_build: &[],
         built_in: false,
     },
     Guide {
@@ -912,6 +930,7 @@ pub const GUIDES: &[Guide] = &[
             },
         ],
         unsupported: &[],
+        no_build: &[],
         built_in: false,
     },
 ];
@@ -1592,13 +1611,68 @@ struct InstallLine {
     line: String,
 }
 
-/// Installs `library` by its guide's install `id`, after the user confirmed the licence in the
-/// window: its output goes to the window line by line (`library-install`) as it runs. Only the
-/// guide's own installs run, never a command the window sends.
-#[tauri::command(async)]
-pub fn library_install(app: tauri::AppHandle, library: String, id: String) -> Result<(), String> {
+/// How far a download of an install is, for the window's bar.
+#[derive(Clone, Serialize)]
+struct InstallProgress {
+    library: String,
+    /// Bytes so far.
+    done: u64,
+    /// Bytes in all, when the server says.
+    total: Option<u64>,
+}
+
+/// Sends a download's progress to the window (`library-progress`).
+fn progress_to(app: &tauri::AppHandle, library: &str) -> impl FnMut(u64, Option<u64>) {
     use tauri::Emitter;
+    let (app, library) = (app.clone(), library.to_owned());
+    move |done, total| {
+        let _ = app.emit(
+            "library-progress",
+            InstallProgress {
+                library: library.clone(),
+                done,
+                total,
+            },
+        );
+    }
+}
+
+/// Stops the install or removal under way: its download, or the command it runs.
+#[tauri::command]
+pub fn library_cancel() {
+    environment::cancel();
+}
+
+/// Installs `library` by its guide's install `id`, after the user confirmed the licence in the
+/// window: its output goes to the window line by line (`library-install`) as it runs, a
+/// download's progress too (`library-progress`), and Cancel stops it. Only the guide's own
+/// installs run, never a command the window sends.
+#[tauri::command]
+pub async fn library_install(
+    app: tauri::AppHandle,
+    library: String,
+    id: String,
+) -> Result<(), String> {
+    off_the_runtime(move || install_now(&app, &library, &id)).await
+}
+
+/// Runs `work` on a thread that may block: the download's blocking client panics on the async
+/// runtime's own threads, and the window would wait for an answer that never comes.
+async fn off_the_runtime(
+    work: impl FnOnce() -> Result<(), String> + Send + 'static,
+) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(work)
+        .await
+        .map_err(|e| format!("the install stopped: {e}"))?
+}
+
+/// [`library_install`]'s work: its download and the command it runs.
+fn install_now(app: &tauri::AppHandle, library: &str, id: &str) -> Result<(), String> {
+    use tauri::Emitter;
+    let (library, id) = (library.to_owned(), id.to_owned());
+    environment::begin();
     let install = runnable(&library, &id)?;
+    let mut progress = progress_to(app, &library);
     let mut say = |line: &str| {
         let _ = app.emit(
             "library-install",
@@ -1610,7 +1684,7 @@ pub fn library_install(app: tauri::AppHandle, library: String, id: String) -> Re
     };
     if install.manager == "conda-forge" {
         let packages = environment::packages_of(install.command);
-        return environment::install(&library, &id, &packages, &mut say);
+        return environment::install(&library, &id, &packages, &mut say, &mut progress);
     }
     let (program, args) = vendor_command(install);
     say(&format!("{program} {}", args.join(" ")));
@@ -1640,9 +1714,16 @@ fn vendor_uninstall(install: &Install) -> (String, Vec<String>) {
 
 /// Removes what the program installed for `library`: from its own environment, or by the
 /// vendor's manager that installed it.
-#[tauri::command(async)]
-pub fn library_remove(app: tauri::AppHandle, library: String) -> Result<(), String> {
+#[tauri::command]
+pub async fn library_remove(app: tauri::AppHandle, library: String) -> Result<(), String> {
+    off_the_runtime(move || remove_now(&app, library)).await
+}
+
+/// [`library_remove`]'s work, on a thread that may block.
+fn remove_now(app: &tauri::AppHandle, library: String) -> Result<(), String> {
     use tauri::Emitter;
+    environment::begin();
+    let mut progress = progress_to(app, &library);
     let mut say = |line: &str| {
         let _ = app.emit(
             "library-install",
@@ -1658,7 +1739,7 @@ pub fn library_remove(app: tauri::AppHandle, library: String) -> Result<(), Stri
         .cloned()
         .ok_or_else(|| format!("photonoxide didn't install {library}"))?;
     if record.manager == "conda-forge" {
-        return environment::remove(&library, &mut say);
+        return environment::remove(&library, &mut say, &mut progress);
     }
     let install = runnable(&library, &record.id)?;
     let (program, args) = vendor_uninstall(install);
@@ -1781,6 +1862,20 @@ mod tests {
             }
             for need in g.needs {
                 assert!(GUIDES.iter().any(|n| n.library == *need), "{need}");
+            }
+            // a system, or a platform as `platform()` names it: what the Libraries page matches
+            for p in g.no_build {
+                let (os, arch) = p.split_once('-').unwrap_or((p, ""));
+                assert!(
+                    ["windows", "linux", "macos"].contains(&os),
+                    "{}: {p}",
+                    g.library
+                );
+                assert!(
+                    ["", "x86_64", "aarch64"].contains(&arch),
+                    "{}: {p}",
+                    g.library
+                );
             }
             let mut ids = std::collections::HashSet::new();
             for i in g.installs {

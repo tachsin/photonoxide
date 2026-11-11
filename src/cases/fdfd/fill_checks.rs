@@ -667,7 +667,7 @@ pub(crate) fn cases() -> Vec<Case> {
             id: "fdfd/fill-derivative-ez",
             title: r"2D FDFD, $E$ along $z$, averaged from the fill: the derivative of a guide's transmitted power with respect to the radius of a disk beside it (0.13 µm, 20 nm grid) by the adjoint, from the matrices at $r \pm$ 0.1 nm, against central differences of the power over the same $\pm$ 0.1 nm (largest relative difference over the mean, diagonal and tensor shown)",
             tier: Tier::Analytic,
-            source: r"the adjoint variable method (G. Veronis, R. W. Dutton, S. Fan, Opt. Lett. 29, 2288 (2004), doi:10.1364/OL.29.002288): $\mathrm{d}F/\mathrm{d}p = -2\operatorname{Re}(\lambda^T (\mathrm{d}A/\mathrm{d}p) u)$; the fill makes $A$ a smooth function of the radius",
+            source: r"the adjoint variable method (G. Veronis, R. W. Dutton, S. Fan, Opt. Lett. 29, 2288 (2004), doi:10.1364/OL.29.002288): $\mathrm{d}F/\mathrm{d}p = -2\mathop{\mathrm{Re}}(\lambda^T (\mathrm{d}A/\mathrm{d}p) u)$; the fill makes $A$ a smooth function of the radius",
             run: || {
                 let e = derivative_error(Polarization::Ez);
                 Outcome {

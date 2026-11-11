@@ -208,7 +208,7 @@ An endless stack is periodic, and its waves are Bloch waves: a wave that crosses
 out multiplied by $e^{iK\Lambda}$, the Bloch phase, as electrons do in a crystal
 ([Bloch, 1929](https://doi.org/10.1007/BF01339455)). So $e^{iK\Lambda}$ is an eigenvalue of the
 period's matrix $M_H M_L$, whose determinant is 1, and the eigenvalues of such a matrix satisfy
-$\cos K\Lambda = \tfrac{1}{2}\operatorname{tr}(M_H M_L)$
+$\cos K\Lambda = \tfrac{1}{2}\mathop{\mathrm{tr}}(M_H M_L)$
 ([Yeh, Yariv and Hong, 1977](https://doi.org/10.1364/JOSA.67.000423)). Multiplying out the two
 layer matrices,
 
@@ -263,7 +263,7 @@ they are accurate; the transfer matrices are exact at any contrast.
 
 The solid curve finds the band's edges numerically, from one period's transmission $t$ by the
 transfer matrices: for a symmetric, lossless period the half trace of its matrix is
-$\operatorname{Re}(1/t)$, so $\cos K\Lambda = \operatorname{Re}(1/t)$. It lies on the closed form at
+$\mathop{\mathrm{Re}}(1/t)$, so $\cos K\Lambda = \mathop{\mathrm{Re}}(1/t)$. It lies on the closed form at
 every contrast, and the coupled-mode line leaves them only at contrasts no waveguide grating has.
 
 What the band doesn't tell you is how much a grating of finite length reflects. When $\kappa L$ is

@@ -35,7 +35,7 @@
 //!   between them, $\lambda_0$ the point midway, $Q = \lambda_0/\mathrm{FWHM}$.
 //!
 //! The ring loses almost nothing but what it couples out: its Euler bends' radiation is below
-//! what the mode solver resolves ($\operatorname{Im} n_\mathrm{eff} < 10^{-14}$ at their 7.06 µm minimum radius). Its loaded Q
+//! what the mode solver resolves ($\mathop{\mathrm{Im}} n_\mathrm{eff} < 10^{-14}$ at their 7.06 µm minimum radius). Its loaded Q
 //! is about 8500 (the straight pair's supermodes, 5 nm grid, give $\kappa^2 = 0.14$ through the coupler's
 //! gap profile; Bogaerts et al. 2011's equations, doi:10.1002/lpor.201100017), so its energy falls
 //! by $1/e$ every 2100 µm/c and the record ends with nearly half of it still in the ring. A lossless
