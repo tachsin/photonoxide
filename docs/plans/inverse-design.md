@@ -229,9 +229,15 @@ damping term differ, said), MMA on the worst of the six cases, β (5, 2.5) to (1
 stages of 80. All six reach 0.980–0.986 of the power entering, against Table 7's 0.69–0.86,
 checked as targets met; crosstalk at most 0.14 %, the outputs' flux consistent, 5 nm within
 0.002. The d_WG of Fig. 7 are taken to the waveguides' centres (the figure doesn't settle it).
-*Left for I4:* `optimize_foundry_bend`, which needs Hammond et al.'s minimum-area and
-enclosed-area constraints (their Section 4) and the bend's waveguide width and polarization,
-which the paper's text doesn't state.
+*Done 2026-11-12, `optimize_foundry_bend`:* Hammond et al.'s minimum area and enclosed area
+(`topology::AreaConstraints`, `topology/area-shapes`) and, since the bend's output runs along y,
+FDFD's adjoint for any linear functional and a mode measured on rows
+(`functional_power_gradient`, `row_mode_functional`, `fdfd/adjoint-gradient-row`). The bend under
+Fig. 8's rulebook (a 0.5 µm guide and E along z, which the paper doesn't state): mean transmission
+0.961 (worst 0.959) over 1.50–1.60 µm, a measured 87 nm, no small island or hole; above every
+rulebook's 89 % of Fig. 9. Each stage keeps its own best design, since MMA's iterates sit just
+outside the epigraph and genoxide's best feasible genome stayed the start; the area constraints
+are counted in pixels for MMA's scaling. *I4 is done.*
 
 ### I5: The topology job and the studio's design view
 

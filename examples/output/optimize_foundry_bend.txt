@@ -1,0 +1,17 @@
+Setup
+  domain: x from −1.5 to 3.5 µm and y from −0.5 to 4.5 µm of oxide, 20 nm cells, PMLs of 20 cells; a 3 × 3 µm design region from (0, 0)
+  guides: 0.5 µm wide: the input along x into the region's west side at y = 1.5 µm, the output along y out of its north side at x = 1.5 µm; E along z
+  wavelengths: ten from 1.50 to 1.60 µm
+  rules: linewidth and spacing 90 nm, minimum area 0.08 µm², minimum enclosed area 0.2 µm² (Fig. 8's rulebook)
+  design: 150 × 150 densities, a conic filter of 90 nm, projection at η = ½, β 8 and 16 with 70 MMA evaluations each and 32 with 150, the rules from β = 32; the epigraph of the worst 1 − T
+  tolerance: the band-average transmission at least 0.89 (Section 6.2); the measured minimum length within 20 % of 90 nm (Chen et al.); no island or hole below its minimum
+  materials:
+    silicon: ε 11.56
+    oxide: ε 2.0736
+
+The design, binary: transmission over 1.50–1.60 µm 0.959, 0.963, 0.961, 0.961, 0.962, 0.962, 0.961, 0.960, 0.960, 0.959 (mean 0.961, worst 0.959); minimum length 87 nm; islands and holes below their minimum: 0 and 0
+  1 − mean transmission                  0.039294   paper below 0.11             ok
+  minimum length (nm)                   86.933594   paper 90         ± 1.8e1     ok
+  islands below 0.08 µm²                        0   paper 0                      ok
+  holes below 0.2 µm²                           0   paper 0                      ok
+all 4 within tolerance of the paper
