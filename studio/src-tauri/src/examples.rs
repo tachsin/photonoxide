@@ -67,6 +67,7 @@ examples!(
     optimize_ybranch: "../../../examples/optimize_ybranch.rs",
     optimize_grating_pareto: "../../../examples/optimize_grating_pareto.rs",
     optimize_mode_converter: "../../../examples/optimize_mode_converter.rs",
+    optimize_demux_robust: "../../../examples/optimize_demux_robust.rs",
     directional_coupler: "../../../examples/directional_coupler.rs",
     ring_q_factor: "../../../examples/ring_q_factor.rs",
     mzi_dwivedi: "../../../examples/mzi_dwivedi.rs",
@@ -210,6 +211,10 @@ fn title(name: &str) -> (&'static str, &'static str) {
             "A Y-branch's taper by a particle swarm",
             "Zhang et al. 2013",
         ),
+        "optimize_demux_robust" => (
+            "A demultiplexer robust to a ±8 nm etch",
+            "Christiansen & Sigmund 2021",
+        ),
         "optimize_mode_converter" => (
             "A mode converter by topology optimization, 50 nm features",
             "Chen et al. 2024",
@@ -298,6 +303,7 @@ fn seconds(name: &str) -> f64 {
         "optimize_ybranch" => 150.0,
         "optimize_grating_pareto" => 120.0,
         "optimize_mode_converter" => 20.0,
+        "optimize_demux_robust" => 10.0,
         "bend_loss" | "leaky_waves" | "strip_waveguide" => 10.0,
         "lorentz_okoniewski" | "subpixel_holes" => 15.0,
         "directional_coupler" | "tfsf_square_cylinder" => 20.0,

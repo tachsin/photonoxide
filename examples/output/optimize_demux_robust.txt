@@ -1,0 +1,25 @@
+Setup
+  domain: 6 × 3 µm of air, 10 nm cells, PMLs of 20 cells all round; a 2 × 2 µm design region at the centre
+  waveguides: input 299 nm thick on the axis; outputs 299 nm thick 511 nm above it (1300 nm) and 356 nm thick 483 nm below (1550 nm), centres; a cell an edge crosses has its share of silicon
+  wavelengths: 1300 and 1550 nm; E along z
+  ports: the input's fundamental mode launched at x = −2.5 µm; each output's fundamental mode at x = 2.5 µm
+  design: 200 × 200 densities, Helmholtz filters of 100 and 50 nm, projections at η = ½ and at 0.7, 0.5 and 0.3 (eroded, nominal, dilated); genoxide's MMA on the worst of the six, β (5, 2.5) to (160, 80), six stages of 80
+  tolerance: each realization's T/(1 − R) at least Table 7's T_Rel for it
+  materials:
+    silicon: ε 12.1104
+    air: ε 1
+
+Each realization binarized, at 10 nm: the wanted output's mode over the input's (T), its reflection (R), T/(1 − R) against Table 7, the other output's mode, and the flux through the outputs' plane:
+  eroded at 1300 nm: T 0.984, R 0.0001, T/(1 − R) 0.984 (Table 7 ≈ 0.82), other output 0.0014, flux 0.990
+  eroded, 1300 nm: 1 − T_Rel             0.016350   paper below 0.18             ok
+  eroded at 1550 nm: T 0.981, R 0.0006, T/(1 − R) 0.982 (Table 7 ≈ 0.81), other output 0.0009, flux 0.985
+  eroded, 1550 nm: 1 − T_Rel             0.018089   paper below 0.19             ok
+  nominal at 1300 nm: T 0.984, R 0.0007, T/(1 − R) 0.985 (Table 7 ≈ 0.69), other output 0.0003, flux 0.987
+  nominal, 1300 nm: 1 − T_Rel            0.015326   paper below 0.31             ok
+  nominal at 1550 nm: T 0.985, R 0.0012, T/(1 − R) 0.986 (Table 7 ≈ 0.85), other output 0.0002, flux 0.988
+  nominal, 1550 nm: 1 − T_Rel            0.014321   paper below 0.15             ok
+  dilated at 1300 nm: T 0.982, R 0.0002, T/(1 − R) 0.982 (Table 7 ≈ 0.86), other output 0.0006, flux 0.988
+  dilated, 1300 nm: 1 − T_Rel            0.017970   paper below 0.14             ok
+  dilated at 1550 nm: T 0.978, R 0.0025, T/(1 − R) 0.980 (Table 7 ≈ 0.83), other output 0.0003, flux 0.982
+  dilated, 1550 nm: 1 − T_Rel            0.019730   paper below 0.17             ok
+all 6 within tolerance of the paper

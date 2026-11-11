@@ -220,7 +220,18 @@ mode into the odd one, and the gradient there is zero, so the start breaks the s
 measures), both constraints met (g/ε 0.83 and 0.99): within Chen et al.'s 20 % of the imposed
 length and within the published designs' range at 55 to 76 nm, checked; 13 % short of 50 nm,
 said. The plain run measures the recorded design in 17 s; `--full` optimizes it again (6.5 min).
-*Left for I4:* `optimize_demux_robust` and `optimize_foundry_bend`.
+*Done 2026-11-11, `optimize_demux_robust`:* the Helmholtz filter by the cosine transform
+(`topology::HelmholtzFilter`, exact on mirrored edges) and Christiansen & Sigmund's double
+filtering (`DoubleFiltered`), three cases (`topology/helmholtz-*`, `double-filter-gradient`); the
+demultiplexer of their Fig. 7 and Tables 4–6 on our 2D FDFD (PMLs, the input's mode launched and
+each output's mode measured, a real permittivity: their absorbing boundaries, Gaussian beam and
+damping term differ, said), MMA on the worst of the six cases, β (5, 2.5) to (160, 80) in six
+stages of 80. All six reach 0.980–0.986 of the power entering, against Table 7's 0.69–0.86,
+checked as targets met; crosstalk at most 0.14 %, the outputs' flux consistent, 5 nm within
+0.002. The d_WG of Fig. 7 are taken to the waveguides' centres (the figure doesn't settle it).
+*Left for I4:* `optimize_foundry_bend`, which needs Hammond et al.'s minimum-area and
+enclosed-area constraints (their Section 4) and the bend's waveguide width and polarization,
+which the paper's text doesn't state.
 
 ### I5: The topology job and the studio's design view
 

@@ -40,7 +40,7 @@ It is released milestone by milestone ([changelog](CHANGELOG.md), [roadmap](ROAD
 
 - **[Methods](docs/README.md#methods):** 55 write-ups in 10 topics, from waveguide modes to
   fabrication, each setting out its method, its limits and the papers it implements; their
-  front matter cites 307 distinct sources by DOI.
+  front matter cites 308 distinct sources by DOI.
 - **[Academy](academy/README.md):** lessons on devices and numerical methods at three depths,
   each opening on a drawing of its device, with charts the library computes live; 24 written,
   and 10 more laid out section by section, read on GitHub or in the studio. New to rings?
@@ -50,7 +50,7 @@ It is released milestone by milestone ([changelog](CHANGELOG.md), [roadmap](ROAD
   it; 56 processes on 5 platforms, every flow executed back to its design and shown step by step
   in the studio. New platforms and exports are in progress.
 - **[The library, the Python package and the studio](#install):** the code that runs a design,
-  with 56 examples that each compute a published result and print it beside the paper's, 43 job files ready to run, and 950 validation
+  with 57 examples that each compute a published result and print it beside the paper's, 43 job files ready to run, and 950 validation
   cases that check it.
 
 ## What it computes

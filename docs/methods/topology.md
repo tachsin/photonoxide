@@ -263,6 +263,17 @@ $\tilde c = c/R^2$, L the strip's length and |Ω| the region's size (their Eq. 1
 parts; their Eq. 19 keeps the first term): `geometric_threshold(c_tilde, share)`, about 1e-8 for
 $\tilde c = 64$ and R a hundredth of the region. They hold the constraint as g/ε − 1 ≤ 0.
 
+## In use
+
+Two examples put the pieces together on 2D FDFD with genoxide's MMA, each on published problems:
+[`optimize_mode_converter`](../../examples/optimize_mode_converter.rs) (the testbed's mode
+converter: the conic filter, β continuation, the epigraph, then 50 nm linewidth and spacing with
+Arrieta et al.'s hyperparameters, measured by the testbed's metric) and
+[`optimize_demux_robust`](../../examples/optimize_demux_robust.rs) (Christiansen & Sigmund's
+demultiplexer: double Helmholtz filtering and the eroded, nominal and dilated realizations
+optimized together). Each records its design, which the plain run solves and `--full` optimizes
+again.
+
 ## Validation
 
 | Case | What | Measured |
