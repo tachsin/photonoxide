@@ -1,0 +1,33 @@
+Setup
+  domain: 350 × 300 cells of 10 nm (the testbed's model), 20 cells of PML; a 1.6 × 1.6 µm design region from (0.95, 0.70) µm between two 400 nm waveguides 0.75 µm long
+  wavelengths: 1265, 1270, 1275, 1285, 1290 and 1295 nm
+  ports: 1.9 µm windows at x = 0.25 and 3.25 µm: the fundamental mode in on the left, the second mode out on the right; E along z
+  our design: 160 × 160 densities, a conic filter of 50 nm, tanh projection at η = ½, β 8 to 256 in six stages of 30 evaluations, then 50 nm linewidth and spacing (Zhou et al., Arrieta et al.'s c = 64 R² and ε) for 60; genoxide's MMA on the epigraph of the worst R and 1 − T
+  tolerance: the published transmissions to the README's printed digits (0.005 dB); our length within 20 % of 50 nm (Chen et al.); our R and T within the published range at 55 to 76 nm
+  materials:
+    silicon: ε 12.25
+    oxide: ε 2.25
+
+The testbed's published designs, worst over the six wavelengths, ours at 10 nm against the README's (Ceviche, 10 nm):
+  circle_10_x47530832_w11_s483: R -22.61 dB (README -22.50), T -0.187 dB
+  T, circle_10_x47530832_w11_s483 (dB)    -0.186812   paper -0.19      ± 5e-3    ok
+  circle_10_x47530832_w27_s681: R -26.90 dB (README -27.17), T -0.186 dB
+  T, circle_10_x47530832_w27_s681 (dB)    -0.185998   paper -0.19      ± 5e-3    ok
+  circle_12_x47530832_w12_s248: R -28.32 dB (README -28.49), T -0.347 dB
+  T, circle_12_x47530832_w12_s248 (dB)    -0.347213   paper -0.35      ± 5e-3    ok
+  circle_14_x47530832_w13_s793: R -34.24 dB (README -33.62), T -0.188 dB
+  T, circle_14_x47530832_w13_s793 (dB)    -0.187710   paper -0.19      ± 5e-3    ok
+  circle_16_x47530832_w14_s150: R -21.07 dB (README -21.23), T -0.812 dB
+  T, circle_16_x47530832_w14_s150 (dB)    -0.812366   paper -0.81      ± 5e-3    ok
+  circle_18_x47530832_w15_s879: R -23.46 dB (README -23.66), T -0.928 dB
+  T, circle_18_x47530832_w15_s879 (dB)    -0.927537   paper -0.93      ± 5e-3    ok
+  circle_20_x47530832_w16_s416: R -18.47 dB (README -18.43), T -1.232 dB
+  T, circle_20_x47530832_w16_s416 (dB)    -1.232108   paper -1.23      ± 5e-3    ok
+  circle_20_x47530832_w40_s988: R -18.18 dB (README -18.16), T -1.344 dB
+  T, circle_20_x47530832_w40_s988 (dB)    -1.344273   paper -1.34      ± 5e-3    ok
+  10 to 5 nm, the first three (recorded by --full): R +0.04, +0.17, +0.54 dB; T −0.004, −0.005, +0.009 dB
+Our design (recorded), binarized: minimum length 43.6 nm, worst R -32.89 dB, worst T -0.154 dB
+  minimum length (nm)                   43.579102   paper 50         ± 1e1       ok
+  worst R (dB)                         -32.890458   paper below -25.88           ok
+  worst insertion loss, −T (dB)          0.153767   paper below 0.26             ok
+all 11 within tolerance of the paper

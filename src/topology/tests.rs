@@ -456,6 +456,165 @@ mod converter {
         }
     }
 
+    /// The epigraph's arrays at `y` = (ρ, t): objective t, constraints R_k − t and 1 − T_k − t.
+    fn epigraph(
+        c: &Converter,
+        y: &[f64],
+        gradient: &mut [f64],
+        g: &mut [f64],
+        jacobian: &mut [f64],
+    ) -> (f64, f64, f64) {
+        let n = y.len() - 1;
+        let v = c.evaluate(&y[..n]);
+        let mut values = Vec::with_capacity(12);
+        let mut gradients = Vec::with_capacity(12 * n);
+        for (r, t, dr, dt) in &v {
+            values.push(*r);
+            gradients.extend_from_slice(dr);
+            values.push(1.0 - t);
+            gradients.extend(dt.iter().map(|d| -d));
+        }
+        let form = crate::topology::Epigraph::new(n, 12).unwrap();
+        let obj = form
+            .evaluate(y, &values, &gradients, gradient, g, jacobian)
+            .unwrap();
+        let worst_r = v.iter().map(|x| x.0).fold(0.0, f64::max);
+        let worst_t = v.iter().map(|x| x.1).fold(1.0, f64::min);
+        let _ = obj;
+        (crate::topology::Epigraph::start(&values), worst_r, worst_t)
+    }
+
+    #[test]
+    #[ignore = "I4's MMA prototype: β from 8 to 256, unconstrained, prints"]
+    fn the_converter_mma_prototype() {
+        use genoxide::prelude::*;
+        let start = std::time::Instant::now();
+        let n = 160 * 160;
+        // a start that breaks the mirror symmetry across the guides' axis: a uniform 0.5 can't
+        // turn the even mode into the odd one, and its gradient there is zero
+        let mut rho: Vec<f64> = (0..n)
+            .map(|p| {
+                let (i, j) = ((p % 160) as f64 / 160.0, (p / 160) as f64 / 160.0);
+                0.5 + 0.25
+                    * (std::f64::consts::PI * (j - 0.5)).sin()
+                    * (std::f64::consts::PI * i).sin()
+            })
+            .collect();
+        for beta in [8.0, 16.0, 32.0, 64.0, 128.0, 256.0] {
+            let c = Converter::new(5.0, beta);
+            // t starts at the worst objective
+            let (mut gr, mut g, mut j) = (vec![0.0; n + 1], vec![0.0; 12], vec![0.0; 12 * (n + 1)]);
+            let mut y = rho.clone();
+            y.push(1.0);
+            let (worst, _, _) = epigraph(&c, &y, &mut gr, &mut g, &mut j);
+            y[n] = worst;
+            let fitness = Constrained::differentiable(
+                12,
+                |x: &Reals, gradient: &mut [f64], g: &mut [f64], jacobian: &mut [f64]| {
+                    epigraph(&c, x, gradient, g, jacobian);
+                    x[n]
+                },
+            );
+            let mma = Mma::builder(Real::new(vec![0.0..=1.0; n + 1]).unwrap())
+                .initial_genome(Reals::from(y))
+                .minimize()
+                .build()
+                .unwrap();
+            let outcome = Engine::new(mma, fitness)
+                .stop_when(Stop::evaluations(30))
+                .run()
+                .unwrap();
+            let best = outcome.best_genome();
+            rho = best[..n].to_vec();
+            let mut y = rho.clone();
+            y.push(best[n]);
+            let (worst, r, t) = epigraph(&c, &y, &mut gr, &mut g, &mut j);
+            println!(
+                "β {beta:>5}: worst objective {worst:.4e}, worst R {:.2} dB, worst T {:.3} dB, {:.0} s",
+                10.0 * r.log10(),
+                10.0 * t.log10(),
+                start.elapsed().as_secs_f64()
+            );
+        }
+        let report = |c: &Converter, rho: &[f64], what: &str| {
+            let phys = c.density.physical(rho).unwrap();
+            let pattern = crate::topology::ruler::Pattern::binarized([160, 160], &phys).unwrap();
+            let len = crate::topology::ruler::minimum_length(&pattern, [10.0, 10.0]).unwrap();
+            let grey = phys.iter().filter(|v| **v > 0.05 && **v < 0.95).count() as f64 / n as f64;
+            println!("{what}: minimum length {len:.1} nm, grey share {grey:.4}");
+        };
+        report(&Converter::new(5.0, 256.0), &rho, "unconstrained");
+        // then the 50 nm linewidth and spacing (Arrieta et al.: R = ℓ_t = 50 nm, c = 64 R², ε of
+        // Eq. 18 for a strip across the 1.6 µm region), each as g/ε − 1 ≤ 0 beside the epigraph's
+        let c = Converter::new(5.0, 256.0);
+        let lc = crate::topology::LengthConstraints::new(&c.density, 0.05, 0.05)
+            .unwrap()
+            .with_arrieta_decay();
+        let eps = crate::topology::geometric_threshold(64.0, 50.0 / 1600.0).unwrap();
+        println!("ε {eps:.3e}, thresholds {:?}", lc.thresholds());
+        let m = 14;
+        let constrained = |x: &[f64], gradient: &mut [f64], g: &mut [f64], jacobian: &mut [f64]| {
+            let w = n + 1;
+            epigraph(&c, x, gradient, &mut g[..12], &mut jacobian[..12 * w]);
+            let l = lc.evaluate(&x[..n]).unwrap();
+            for s in 0..2 {
+                g[12 + s] = l.values[s] / eps - 1.0;
+                let row = &mut jacobian[(12 + s) * w..(13 + s) * w];
+                for (r, d) in row[..n].iter_mut().zip(&l.gradients[s]) {
+                    *r = d / eps;
+                }
+                row[n] = 0.0;
+            }
+            (l.values[0] / eps, l.values[1] / eps)
+        };
+        let (mut gr, mut g, mut j) = (vec![0.0; n + 1], vec![0.0; m], vec![0.0; m * (n + 1)]);
+        let mut y = rho.clone();
+        y.push(1.0);
+        let (worst, _, _) = epigraph(&c, &y, &mut gr, &mut g[..12], &mut j[..12 * (n + 1)]);
+        y[n] = worst;
+        let (s0, v0) = constrained(&y, &mut gr, &mut g, &mut j);
+        println!("before: g_LW/ε {s0:.3e}, g_LS/ε {v0:.3e}");
+        {
+            use genoxide::prelude::*;
+            let fitness = Constrained::differentiable(
+                m,
+                |x: &Reals, gradient: &mut [f64], g: &mut [f64], jacobian: &mut [f64]| {
+                    constrained(x, gradient, g, jacobian);
+                    x[n]
+                },
+            );
+            let mma = Mma::builder(Real::new(vec![0.0..=1.0; n + 1]).unwrap())
+                .initial_genome(Reals::from(y))
+                .minimize()
+                .build()
+                .unwrap();
+            let outcome = Engine::new(mma, fitness)
+                .stop_when(Stop::evaluations(60))
+                .run()
+                .unwrap();
+            let best = outcome.best_genome();
+            rho = best[..n].to_vec();
+            let mut y = rho.clone();
+            y.push(best[n]);
+            let (s1, v1) = constrained(&y, &mut gr, &mut g, &mut j);
+            let (worst, r, t) = epigraph(&c, &y, &mut gr, &mut g[..12], &mut j[..12 * (n + 1)]);
+            println!(
+                "constrained: worst objective {worst:.4e}, worst R {:.2} dB, worst T {:.3} dB, g_LW/ε {s1:.3e}, g_LS/ε {v1:.3e}, {:.0} s",
+                10.0 * r.log10(),
+                10.0 * t.log10(),
+                start.elapsed().as_secs_f64()
+            );
+        }
+        report(&c, &rho, "constrained");
+        // the design binarized, and its minimum length
+        let c = Converter::new(5.0, 256.0);
+        let phys = c.density.physical(&rho).unwrap();
+        let pattern = crate::topology::ruler::Pattern::binarized([160, 160], &phys).unwrap();
+        let len = crate::topology::ruler::minimum_length(&pattern, [10.0, 10.0]).unwrap();
+        let grey = phys.iter().filter(|v| **v > 0.05 && **v < 0.95).count() as f64 / n as f64;
+        println!("minimum length {len:.1} nm, grey share {grey:.3}");
+    }
+
     #[test]
     #[ignore = "I4's prototype: the converter's gradient against differences and its cost, prints"]
     fn the_converter_prototype() {

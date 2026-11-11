@@ -88,9 +88,9 @@ area fdfd \
 # inverse design's densities (0.7, #761): filters, projections and the gradient pulled back to
 # the densities; its chain case runs 2D FDFD's adjoint
 area topology \
-  "src/topology/* src/cases/topology/* src/validation/topology.rs" \
+  "src/topology/* src/cases/topology/* src/validation/topology.rs examples/designs/*" \
   "fdfd" \
-  "topology::" "topology/" ""
+  "topology::" "topology/" "optimize_mode_converter"
 
 # eigenmode expansion (#432): slab stacks' modes and their S-matrices; its taper case runs 2D FDFD
 area eme \

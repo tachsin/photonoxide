@@ -209,6 +209,19 @@ though both codes ran the same 10 nm pixels; the deep reflections are grid-limit
 honest options are a case compared at equal grids with the grid study stated beside it, or the
 numbers as a gap in #595. Nothing is loosened meanwhile.
 
+*Done 2026-11-11, `optimize_mode_converter`:* the published designs as above, their
+transmissions checked to the printed digits and their reflections printed beside the grid study;
+then our design: the conic filter of 50 nm, β 8 to 256 in six stages of 30 MMA evaluations on the
+epigraph (twelve constraints), then Zhou et al.'s linewidth and spacing with Arrieta et al.'s
+hyperparameters for 60 more, values and gradients rounded to 12 digits so that `--full` repeats
+the recorded design. A uniform start is stuck: a mirror-symmetric device can't convert the even
+mode into the odd one, and the gradient there is zero, so the start breaks the symmetry. Found:
+−32.89 dB and −0.154 dB at a measured 43.6 nm (on the model's whole domain, as the testbed
+measures), both constraints met (g/ε 0.83 and 0.99): within Chen et al.'s 20 % of the imposed
+length and within the published designs' range at 55 to 76 nm, checked; 13 % short of 50 nm,
+said. The plain run measures the recorded design in 17 s; `--full` optimizes it again (6.5 min).
+*Left for I4:* `optimize_demux_robust` and `optimize_foundry_bend`.
+
 ### I5: The topology job and the studio's design view
 
 - A density design region in the `optimize` job: the region, its materials, the filter, the
