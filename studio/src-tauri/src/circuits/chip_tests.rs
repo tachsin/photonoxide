@@ -3,6 +3,7 @@
 
 use std::path::Path;
 
+use photonoxide::device::Spec;
 use photonoxide::run::Job;
 
 use super::chip::{DeviceRef, apply, chip_of_job, design, job_text};
@@ -28,21 +29,32 @@ fn bits(chip: &Chip, root: &Path) -> Vec<u64> {
 }
 
 /// `chip` with every instance of a library kind that is a device (a waveguide, a Y-branch) made
-/// an instance of that device's design at its defaults, its values the design's parameters.
+/// an instance of that device's design at its defaults. The kind's component takes every one of
+/// its values, a default where the file gives none, as the chip's own design does (`instance_of`):
+/// those the design has a parameter of become its parameters, the others (an add-drop ring's
+/// couplings, which its design has from a gap) stay the instance's values.
 fn of_devices(chip: &Chip) -> Chip {
     let mut out = chip.clone();
     for inst in &mut out.instances {
         if let Some(kind) = super::chip::kind_of(&inst.kind) {
+            let model = (super::library::entry(&inst.kind).unwrap().build)().unwrap();
+            let mut values = inst.values.clone();
+            for p in model.parameters() {
+                values.entry(p.name.clone()).or_insert(p.default);
+            }
+            let (_, design) = Spec::new(kind).build().unwrap();
+            let (parameters, rest): (Vec<_>, Vec<_>) = values
+                .into_iter()
+                .partition(|(n, _)| design.values().get(n).is_some());
             inst.device = Some(DeviceRef {
                 kind: Some(kind.to_owned()),
-                parameters: inst
-                    .values
-                    .iter()
-                    .map(|(n, v)| (n.clone(), format!("{v:?}")))
+                parameters: parameters
+                    .into_iter()
+                    .map(|(n, v)| (n, format!("{v:?}")))
                     .collect(),
                 ..DeviceRef::default()
             });
-            inst.values.clear();
+            inst.values = rest.into_iter().collect();
         }
     }
     out

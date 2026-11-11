@@ -169,7 +169,7 @@ fn every_page_is_drawn_named_and_reachable() {
             "{p}: App.svelte doesn't draw it"
         );
     }
-    // the rail, the System group and Settings, and the run view, reached from what it shows; the
+    // the rail, the System group (Settings in it), and the run view, reached from what it shows; the
     // job builder is no page of its own: it is the Custom device, on Components
     let mut rest: Vec<&str> = all
         .iter()
@@ -177,14 +177,14 @@ fn every_page_is_drawn_named_and_reachable() {
         .map(String::as_str)
         .collect();
     rest.sort_unstable();
-    assert_eq!(rest, ["settings", "viewer"]);
+    assert_eq!(rest, ["viewer"]);
     assert!(
         !source("App.svelte").contains("Builder"),
         "the builder page is gone"
     );
     holds(
         "components/CommandPalette.svelte",
-        r#"const pages: Page[] = [...RAIL, ...SYSTEM, "settings", "viewer"];"#,
+        r#"const pages: Page[] = [...RAIL, ...SYSTEM, "viewer"];"#,
         "Ctrl+K finds every page",
     );
     // Home reaches the Custom device (Start a simulation, an example's Open) and the run view
@@ -385,15 +385,19 @@ fn every_circuit_has_a_home() {
         .collect();
     listed.sort();
     assert_eq!(listed, files("circuits", "toml"), "the built-in circuits");
-    // each in the rail's Chip list, under New chip, after the empty chip
+    // each in the rail's Chip list, under Start from an example, after the new empty chip
     let chip = source("components/rail/ChipTree.svelte");
-    let menu = &chip[chip
-        .find(r#"<TreeGroup key="chip/new" title="New chip""#)
-        .expect("no New chip in the rail's Chip list")..];
+    let at = chip
+        .find("A new chip")
+        .expect("no new chip in the rail's Chip list");
+    let menu = &chip[at
+        + chip[at..]
+            .find(r#"<TreeGroup key="chip/examples" title="Start from an example""#)
+            .expect("no Start from an example after the new chip in the rail's Chip list")..];
     let menu = &menu[..menu.find("</TreeGroup>").unwrap()];
     assert!(
-        menu.contains("An empty chip") && menu.contains("{#each starts as ex (ex.file)}"),
-        "the Chip list's New chip lists every built-in circuit"
+        menu.contains("{#each starts as ex (ex.file)}"),
+        "the Chip list's Start from an example lists every built-in circuit"
     );
     holds(
         "components/rail/ChipTree.svelte",
@@ -447,7 +451,7 @@ fn a_run_opens_its_view_and_is_pinned_while_it_goes() {
     );
     holds(
         "components/device/DevicePage.svelte",
-        r#"["study", "Study"]"#,
+        r#"["study", "Study", "#,
         "every device has Study",
     );
     holds(
