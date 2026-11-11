@@ -202,3 +202,47 @@ fn the_robust_realizations_and_the_epigraph() {
             .is_err()
     );
 }
+
+/// The ruler's study: shapes of known length and the testbed's designs, printed.
+#[test]
+#[ignore = "the ruler's study: prints, in release"]
+fn the_ruler_study() {
+    for (name, measured, want) in super::checks::ruler_shapes() {
+        println!("{name}: measured {measured:.4} px, its own {want}");
+    }
+    let start = std::time::Instant::now();
+    for (name, measured, printed) in super::checks::testbed_lengths() {
+        println!(
+            "{name}: measured {measured} nm, printed {printed} nm, difference {:.4}",
+            measured - printed
+        );
+    }
+    println!("{:.1} s", start.elapsed().as_secs_f64());
+}
+
+#[test]
+fn the_ruler_measures_what_it_should_and_refuses_what_it_cant() {
+    use super::ruler::{Pattern, minimum_length, violates};
+    assert!(Pattern::new([0, 4], vec![]).is_err());
+    assert!(Pattern::new([2, 2], vec![true; 3]).is_err());
+    assert!(Pattern::binarized([2, 1], &[0.0, f64::NAN]).is_err());
+    // binarized at the middle of its range: 0.2 and 0.6 of [0, 0.8]
+    let p = Pattern::binarized([3, 1], &[0.0, 0.2, 0.8]).unwrap();
+    assert!(!p.is_solid(0, 0) && !p.is_solid(1, 0) && p.is_solid(2, 0));
+    // a uniform pattern: the image's shorter side
+    let uniform = Pattern::new([10, 6], vec![true; 60]).unwrap();
+    assert_eq!(minimum_length(&uniform, [1.0, 2.0]).unwrap(), 10.0);
+    assert!(minimum_length(&uniform, [0.0, 1.0]).is_err());
+    // a 9-pixel bar in a 40 × 40 void: no violation at 5 pixels, one at 15
+    let bar = Pattern::new(
+        [40, 40],
+        (0..1600).map(|p| (16..25).contains(&(p % 40))).collect(),
+    )
+    .unwrap();
+    assert!(!violates(&bar, [1.0, 1.0], 5.0) && violates(&bar, [1.0, 1.0], 15.0));
+    let d = minimum_length(&bar, [1.0, 1.0]).unwrap();
+    assert!((d - 9.0).abs() <= 1.0, "{d}");
+    // the same bar with pixels 10 wide: ten times the length
+    let d10 = minimum_length(&bar, [10.0, 10.0]).unwrap();
+    assert!((d10 - 10.0 * d).abs() < 1e-9, "{d10} {d}");
+}

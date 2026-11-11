@@ -96,5 +96,25 @@ pub(crate) fn rules() -> Vec<(&'static str, Rule)> {
                 "fourth-order differences of each realization's power: at δ = 1e-3, 2e-3, 4e-3 and 8e-3 every error (3.9e-8, 2.5e-8, 8.1e-9, 1.4e-8) is below their resolution (2.7e-7, 1.4e-7, 6.7e-8, 3.4e-8), coarser than topology/fdfd-gradient's as the realizations' smallest gradients are smaller (the_robust_study); at δ = 4e-3 the resolution, 6.7e-8, is noted; held to 3e-7, above the report's three times it",
             ),
         ),
+        (
+            "topology/ruler-shapes",
+            Rule::new(
+                Absolute,
+                Discretisation,
+                1.0,
+                Measured,
+                "a disc drawn on round(d/Δ) pixels still fits a feature w pixels wide up to d near w + ½, and the bisection stops within a quarter pixel of the first violation: within a pixel (0.63, 0.34 and 0.19 for the bar, the gap and the ring)",
+            ),
+        ),
+        (
+            "topology/ruler-testbed",
+            Rule::new(
+                Absolute,
+                Reference,
+                5e-11,
+                Exact,
+                "the README prints each length to ten decimals of a nanometre: half a unit of the last, 5e-11 nm; the bisection's lengths are dyadic numbers of nanometres, reproduced bit for bit",
+            ),
+        ),
     ]
 }

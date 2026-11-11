@@ -1,7 +1,7 @@
 ---
-title: "Densities, filters, projections and robust designs"
+title: "Densities, filters, projections, robust designs and length scales"
 module: topology
-summary: "A design region's pixels, each with a density between 0 and 1, filtered by a cone and projected towards 0 or 1 to the permittivity a solver sees; the solver's adjoint gradient pulled back through the projection and the filter's transpose to the densities, checked against finite differences in 2D FDFD; and robust designs: the eroded, nominal and dilated realizations, the length scale and edge displacement their thresholds impose, and the epigraph form of their worst case."
+summary: "A design region's pixels, each with a density between 0 and 1, filtered by a cone and projected towards 0 or 1 to the permittivity a solver sees; the solver's adjoint gradient pulled back through the projection and the filter's transpose to the densities, checked against finite differences in 2D FDFD; robust designs: the eroded, nominal and dilated realizations, the length scale and edge displacement their thresholds impose, and the epigraph form of their worst case; and the minimum length scale of any binary design, measured after the fact by morphological opening and closing, which reproduces the testbed's published lengths bit for bit."
 order: 23.7
 papers:
   - cite: "F. Wang, B. S. Lazarov, O. Sigmund, Struct. Multidiscip. Optim. 43, 767 (published online 24 December 2010; the June 2011 issue) (the filter, Eqs. 4–5; the chain rule, Eq. 7; the projection, Eq. 9)"
@@ -14,6 +14,8 @@ papers:
     doi: 10.1007/s10409-009-0240-z
   - cite: "X. Qian, O. Sigmund, Comput. Methods Appl. Mech. Engrg. 253, 237 (2013) (the minimum length, Appendix, Eq. 29)"
     doi: 10.1016/j.cma.2012.08.020
+  - cite: "M. Chen et al., J. Opt. Soc. Am. B 41, A161 (2024) (the a-posteriori minimum length scale, Section 2, Eqs. 1–3; the testbed's mode converter, Section 3.C)"
+    doi: 10.1364/JOSAB.506412
 validation:
   - topology/projection-derivative
   - topology/projection-identities
@@ -24,6 +26,8 @@ validation:
   - topology/robust-edge-2d
   - topology/robust-length
   - topology/robust-epigraph
+  - topology/ruler-shapes
+  - topology/ruler-testbed
 ---
 
 Topology optimization gives every pixel of a design region its own variable, a density ρ
@@ -32,7 +36,7 @@ adjoint gradient. Left alone, the densities form features a pixel wide and settl
 between the two materials, neither of which can be made. Two operations before the solver keep
 the design smooth and then push it towards 0 or 1 (Wang, Lazarov & Sigmund 2010, Section 3;
 Christiansen & Sigmund 2021, Section 8.C). The plan they belong to is
-[docs/plans/inverse-design.md](../plans/inverse-design.md), phases I1 and I2.
+[docs/plans/inverse-design.md](../plans/inverse-design.md), phases I1 to I3.
 
 ## The filter
 
@@ -147,6 +151,34 @@ constraints and their Jacobian in the arrays an optimizer with constraints takes
 `Mma` and `Constrained`), and `Epigraph::start(values)` starts t at the worst value. The same
 form takes the worst over wavelengths and corners.
 
+## The minimum length scale of a design
+
+A design is finally made from its binary pattern, and what a foundry checks is its smallest
+feature and its narrowest gap. Chen et al. (2024, Section 2) measure both after the fact, whatever
+algorithm made the design: the morphological opening of the pattern by a disc of diameter d
+erases solid features narrower than d and keeps the rest, and the closing fills voids narrower
+than d. Where the two differ inside the solid or the void (the pixels next to an interface left
+out, so a staircased edge is no violation), the pattern violates d (their Eq. 3); its minimum
+length scale is the smallest d with a violation, the smaller of the solid's and the void's, found
+by bisection.
+
+`ruler::minimum_length(&pattern, pixel)` measures a `ruler::Pattern` (a binary image, or
+`Pattern::binarized` from densities at the midpoint of their range) in the pixel's unit, with the
+discretisation of the paper's software, imageruler, in the version the testbed's published lengths
+were measured with (April to November 2023): the disc drawn on round(d/Δ) pixels, a full square
+below 3; the opening padded with solid and the closing with void; the interior a plus-shaped
+kernel's erosion of the solid and dilation's complement in the void; the bisection between a pixel
+and the image's shorter side, stopped at half a pixel. Each of the disc's rows is a run of pixels,
+so an erosion or a dilation is a count per row from a prefix sum: a 350 × 300 image, measured from
+a 300-pixel disc down, takes a quarter of a second. `ruler::violates(&pattern, pixel, d)` says
+whether one d is violated.
+
+The testbed's waveguide mode converter (Chen et al., Section 3.C) publishes its designs and each
+one's minimum length scale, measured on the model's whole domain: the 1.6 µm design between its
+two waveguides, at 10 nm. Eight of them, with lengths from 90.30 to 207.09 nm, are in the
+repository as data (MIT licence; `src/cases/topology/testbed/`), and their measured lengths are the
+printed ones to the last bit (`topology/ruler-testbed`).
+
 ## Validation
 
 | Case | What | Measured |
@@ -159,6 +191,8 @@ form takes the worst over wavelengths and corners.
 | `topology/robust-edge-1d` | the 1D hat's density across an edge on a pixel boundary against ½ (1 − t)² less the pixels' exact offset (Δ/R)²/8, at R/Δ = 5, 20 and 80 | within round-off (1.1e-16; held to 1e-14) |
 | `topology/robust-edge-2d` | the cone's density across a straight edge against the closed form above, at R/Δ = 40 | 3.5e-5 (held to (Δ/R)²/8 = 7.8e-5) |
 | `topology/robust-length` | Eq. 29's b/R against bars of whole pixels at R/Δ = 100, η from 0.1 to 0.45 | 9.3e-5 (held to 4 (Δ/R)² = 4e-4) |
+| `topology/ruler-shapes` | a 20-pixel bar, a 30-pixel gap and a 15-pixel ring against their own widths | 0.63 pixel at most (held to a pixel; the bar 20.63, the gap 30.34, the ring 15.19) |
+| `topology/ruler-testbed` | eight of the testbed's mode converters, in their domain at 10 nm, against the README's printed lengths, 90.2978515625 to 207.0947265625 nm | 0 (held to 5e-11 nm, half the last printed digit) |
 | `topology/robust-epigraph` | the epigraph's Jacobian through the three realizations' FDFD gradients (thresholds 0.75, 0.5, 0.25) against differences of each realization's power, δ = 4 × 10⁻³ | 8.1e-9 relative, below the resolution of 6.7e-8 (held to 3e-7) |
 
 **The complex step** takes no difference, so it checks the derivative to round-off at every
@@ -215,6 +249,8 @@ threshold, since a bar rounded up to a whole pixel would move b by up to two pix
 - One pixel per solver cell. A coarser design grid is a linear map before the filter, and its
   gradient that map's transpose.
 - The permittivities are real: the solvers' gradients are with respect to its real part.
+- The length scale is measured in 2D, on a binary pattern: a grey design is binarized first, and
+  a 3D design's layers would be measured one by one.
 - The closed forms of the edge and of Eq. 29 are for a straight edge and a bar: corners and
   curved edges move by other amounts, which I3's length-scale metric measures on the design.
 - The conic filter only. The Helmholtz-equation filter of Lazarov & Sigmund (the one Christiansen

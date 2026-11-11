@@ -81,6 +81,20 @@ pub(crate) fn cases() -> Vec<Case> {
             source: r"Wang et al. 2010, Eq. 14 and Section 5.1 (the three realizations); the epigraph form of a min-max, $\min t$ subject to $f_k(x) - t \le 0$; the adjoint variable method, G. Veronis, R. W. Dutton, S. Fan, Opt. Lett. 29, 2288 (2004), doi:10.1364/OL.29.002288, Eqs. 2–4",
             run: robust_epigraph,
         },
+        Case {
+            id: "topology/ruler-shapes",
+            title: r"The a-posteriori minimum length scale (morphological opening and closing by a disc, bisection to half a pixel) of shapes whose length is known, on 200 × 200 pixels: a solid bar 20 pixels wide in void, a void gap 30 pixels wide between solids, and a solid ring 15 pixels wide (radii 40 and 55) (largest difference from the shape's own, in pixels, shown)",
+            tier: Tier::Analytic,
+            source: r"M. Chen et al., J. Opt. Soc. Am. B 41, A161 (2024), doi:10.1364/JOSAB.506412, Section 2 and Eqs. 1–3: the minimum length is the smallest diameter at which the opening and closing differ inside the solid or the void; a straight bar or gap of width $w$ has $w$, and a ring its width",
+            run: ruler_shapes_case,
+        },
+        Case {
+            id: "topology/ruler-testbed",
+            title: r"The same minimum length scale of eight of the testbed's waveguide mode converter designs (Ceviche's circle-brush designs, 6 to 20 pixel brushes), each placed in its 350 × 300 domain of 10 nm pixels with the two waveguides, against the lengths the testbed's README prints, from 90.2978515625 to 207.0947265625 nm (largest difference shown, nm)",
+            tier: Tier::Published,
+            source: r"NanoComp/photonics-opt-testbed, waveguide_mode_converter/README.md (commit a06518872de6, written on 2023-05-11 with imageruler's minimum_length on the model's density and its domain's size), the designs under the MIT licence (src/cases/topology/testbed/); Chen et al. 2024, Section 3.C",
+            run: ruler_testbed_case,
+        },
     ]
 }
 
@@ -550,4 +564,143 @@ fn robust_epigraph() -> Outcome {
     let (worst, resolution) = robust_epigraph_error(4e-3);
     crate::verdict::note_numerical(resolution);
     zero(worst, 3e-7)
+}
+
+/// The testbed's waveguide mode converter designs the length case measures, with the minimum
+/// length scale its README prints for each, nm (NanoComp/photonics-opt-testbed, MIT licence, at
+/// commit a06518872de6ec82bb4511190e544211539f55f1; testbed/README.md).
+pub(crate) const TESTBED: [(&str, &str, f64); 8] = [
+    (
+        "converter_generator_circle_10_x47530832_w11_s483",
+        include_str!("testbed/converter_generator_circle_10_x47530832_w11_s483.hex"),
+        90.2978515625,
+    ),
+    (
+        "converter_generator_circle_10_x47530832_w27_s681",
+        include_str!("testbed/converter_generator_circle_10_x47530832_w27_s681.hex"),
+        101.9775390625,
+    ),
+    (
+        "converter_generator_circle_12_x47530832_w12_s248",
+        include_str!("testbed/converter_generator_circle_12_x47530832_w12_s248.hex"),
+        119.4970703125,
+    ),
+    (
+        "converter_generator_circle_14_x47530832_w13_s793",
+        include_str!("testbed/converter_generator_circle_14_x47530832_w13_s793.hex"),
+        142.8564453125,
+    ),
+    (
+        "converter_generator_circle_16_x47530832_w14_s150",
+        include_str!("testbed/converter_generator_circle_16_x47530832_w14_s150.hex"),
+        166.2158203125,
+    ),
+    (
+        "converter_generator_circle_18_x47530832_w15_s879",
+        include_str!("testbed/converter_generator_circle_18_x47530832_w15_s879.hex"),
+        169.1357421875,
+    ),
+    (
+        "converter_generator_circle_20_x47530832_w16_s416",
+        include_str!("testbed/converter_generator_circle_20_x47530832_w16_s416.hex"),
+        204.1748046875,
+    ),
+    (
+        "converter_generator_circle_20_x47530832_w40_s988",
+        include_str!("testbed/converter_generator_circle_20_x47530832_w40_s988.hex"),
+        207.0947265625,
+    ),
+];
+
+/// A testbed design's 160 × 160 pixels from its rows of hex digits (each row a design row along
+/// x, its first value the first digit's highest bit), placed as the testbed's model places it
+/// in its 350 × 300 domain at 10 nm (ceviche-challenges' mode_converter_spec_12 with the
+/// testbed's sizes): 20 pixels of PML, 75-pixel waveguides 40 pixels wide on y = 130 to 169 on
+/// either side (the right one from x = 254), the design over x = 95 to 254 and y = 70 to 229.
+pub(crate) fn testbed_domain(hex: &str) -> crate::topology::ruler::Pattern {
+    let (ni, nj) = (350usize, 300usize);
+    let mut solid = vec![false; ni * nj];
+    for i in 0..ni {
+        for j in 130..170 {
+            if i < 95 || i >= ni - 96 {
+                solid[j * ni + i] = true;
+            }
+        }
+    }
+    for (row, line) in hex.lines().enumerate() {
+        for (k, c) in line.trim().chars().enumerate() {
+            let nibble = c.to_digit(16).expect("a hex digit");
+            for q in 0..4 {
+                let col = 4 * k + q;
+                solid[(70 + col) * ni + 95 + row] = nibble & (8 >> q) != 0;
+            }
+        }
+    }
+    crate::topology::ruler::Pattern::new([ni, nj], solid).expect("a pattern")
+}
+
+/// Each testbed design's measured minimum length against its printed one, nm.
+pub(crate) fn testbed_lengths() -> Vec<(&'static str, f64, f64)> {
+    TESTBED
+        .iter()
+        .map(|&(name, hex, printed)| {
+            let measured =
+                crate::topology::ruler::minimum_length(&testbed_domain(hex), [10.0, 10.0])
+                    .expect("a length");
+            (name, measured, printed)
+        })
+        .collect()
+}
+
+/// A shape: its name, whether a point (x, y) is solid, and its own minimum length in pixels.
+type Shape = (&'static str, Box<dyn Fn(f64, f64) -> bool>, f64);
+
+/// Shapes whose minimum length is known: a solid bar 20 pixels wide across a void image, a void
+/// gap 30 pixels wide between solids, and a solid ring 15 pixels wide (radii 40 and 55) on a
+/// 200 × 200 image of 1-pixel pixels: each shape's measured length and its own.
+pub(crate) fn ruler_shapes() -> Vec<(&'static str, f64, f64)> {
+    let n = 200usize;
+    let pattern = |f: &dyn Fn(f64, f64) -> bool| {
+        let solid = (0..n * n)
+            .map(|p| f((p % n) as f64 + 0.5, (p / n) as f64 + 0.5))
+            .collect();
+        crate::topology::ruler::Pattern::new([n, n], solid).expect("a pattern")
+    };
+    let c = n as f64 / 2.0;
+    let shapes: [Shape; 3] = [
+        ("bar", Box::new(move |x, _| (x - c).abs() < 10.0), 20.0),
+        ("gap", Box::new(move |x, _| (x - c).abs() >= 15.0), 30.0),
+        (
+            "ring",
+            Box::new(move |x, y| {
+                let r = ((x - c).powi(2) + (y - c).powi(2)).sqrt();
+                (40.0..55.0).contains(&r)
+            }),
+            15.0,
+        ),
+    ];
+    shapes
+        .iter()
+        .map(|(name, f, want)| {
+            let measured = crate::topology::ruler::minimum_length(&pattern(f.as_ref()), [1.0, 1.0])
+                .expect("a length");
+            (*name, measured, *want)
+        })
+        .collect()
+}
+
+fn ruler_shapes_case() -> Outcome {
+    let worst = ruler_shapes()
+        .iter()
+        .map(|(_, measured, own)| (measured - own).abs())
+        .fold(0.0, f64::max);
+    zero(worst, 1.0)
+}
+
+fn ruler_testbed_case() -> Outcome {
+    let worst = testbed_lengths()
+        .iter()
+        .map(|(_, measured, printed)| (measured - printed).abs())
+        .fold(0.0, f64::max);
+    zero(worst, 5e-11)
 }

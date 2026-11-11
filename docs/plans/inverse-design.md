@@ -146,7 +146,14 @@ read for this phase: Qian & Sigmund's Appendix and Table 1, Wang et al.'s Sectio
 a ring, a gap), within a pixel; the metric on the testbed's published mode-converter designs
 against the length scales its `run.py` prints (decision 2); the constraints' gradients against
 differences; a constraint satisfied exactly by a pattern built to its length scale. *Papers:*
-Chen 2024 and Hammond 2021 (in hand); Zhou 2015 and Arrieta 2026 (to get, section 5).
+Chen 2024 and Hammond 2021 (in hand); Zhou 2015 (in hand); Arrieta 2026 (to get, section 5).
+*Done 2026-11-11, the metric:* `topology::ruler`, written from Chen et al.'s Section 2 with the
+discretisation of imageruler's 2023 version (MIT), which the testbed's README used on 2023-05-11
+(`minimum_length` on ceviche-challenges' whole domain, 350 × 300 at 10 nm, not the 160 × 160
+design alone; the testbed's `run.py` moved to imageruler's integer rewrite in April 2024, after
+its README's numbers). Eight of the circle-brush designs are in `src/cases/topology/testbed/`
+(MIT, commit a06518872de6) and reproduce the printed lengths bit for bit (`topology/ruler-testbed`);
+shapes of known width within a pixel (`topology/ruler-shapes`). *Left for I3:* the constraints.
 
 ### I4: 2D topology optimization, the published devices (#244's phase 9)
 

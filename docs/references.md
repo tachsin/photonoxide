@@ -2,7 +2,7 @@
 
 <!-- Written by `photonoxide references --write` (or `just references`) from docs/references.yaml and the citations in the repository: edit those, not this page. -->
 
-Every paper, book and data set photonoxide cites, with every place in the repository that cites it, by file and line. 644 sources, 638 with a DOI and 6 without, are cited at 3849 places in 442 files. The sources are listed by their first author; [references-by-file.md](references-by-file.md) lists each methods page, lesson, example and source file with the sources it cites, and the [validation report](validation.md) gives each case's source on its row. How to cite a source is in [CONTRIBUTING.md](../CONTRIBUTING.md#citing-a-source); the list of sources is [references.yaml](references.yaml).
+Every paper, book and data set photonoxide cites, with every place in the repository that cites it, by file and line. 644 sources, 638 with a DOI and 6 without, are cited at 3854 places in 443 files. The sources are listed by their first author; [references-by-file.md](references-by-file.md) lists each methods page, lesson, example and source file with the sources it cites, and the [validation report](validation.md) gives each case's source on its row. How to cite a source is in [CONTRIBUTING.md](../CONTRIBUTING.md#citing-a-source); the list of sources is [references.yaml](references.yaml).
 
 [A](#a) · [B](#b) · [C](#c) · [D](#d) · [E](#e) · [F](#f) · [G](#g) · [H](#h) · [I](#i) · [J](#j) · [K](#k) · [L](#l) · [M](#m) · [N](#n) · [O](#o) · [P](#p) · [Q](#q) · [R](#r) · [S](#s) · [T](#t) · [U](#u) · [V](#v) · [W](#w) · [X](#x) · [Y](#y) · [Z](#z)
 
@@ -767,7 +767,9 @@ X. Chen, C. Li, C. K. Y. Fung, S. M. G. Lo, H. K. Tsang, "Apodized Waveguide Gra
 
 M. Chen, R. E. Christiansen, J. A. Fan, G. Işiklar, J. Jiang, S. G. Johnson, W. Ma, O. D. Miller, A. Oskooi, M. F. Schubert, et al., "Validation and characterization of algorithms and software for photonics inverse design", J. Opt. Soc. Am. B 41, A161 (2024). [doi:10.1364/JOSAB.506412](https://doi.org/10.1364/JOSAB.506412)
 
+- Methods pages: [topology.md:18](methods/topology.md?plain=1#L18)
 - Academy lessons: [metasurfaces.md:77](../academy/metasurfaces.md?plain=1#L77), [530](../academy/metasurfaces.md?plain=1#L530), [612](../academy/metasurfaces.md?plain=1#L612)
+- Code: [src/cases/topology/checks.rs:88](../src/cases/topology/checks.rs#L88)
 - Other documents: [ROADMAP.md:845](../ROADMAP.md?plain=1#L845), [docs/plans/optimization.md:601](plans/optimization.md?plain=1#L601)
 
 #### Cheng and Chrostowski 2021
@@ -3541,7 +3543,7 @@ H. Qi, D. J. Brod, N. Quesada, R. García-Patrón, "Regimes of Classical Simulab
 X. Qian, O. Sigmund, "Topological design of electromechanical actuators with robustness toward over- and under-etching", Computer Methods in Applied Mechanics and Engineering 253, 237 (2013). [doi:10.1016/j.cma.2012.08.020](https://doi.org/10.1016/j.cma.2012.08.020)
 
 - Methods pages: [topology.md:16](methods/topology.md?plain=1#L16)
-- Code: [src/cases/topology/checks.rs:74](../src/cases/topology/checks.rs#L74)
+- Code: [src/cases/topology/checks.rs:74](../src/cases/topology/checks.rs#L74), [src/topology/robust.rs:13](../src/topology/robust.rs#L13)
 - Other documents: [docs/plans/inverse-design.md:315](plans/inverse-design.md?plain=1#L315)
 
 #### Quesada et al. 2018
@@ -3966,6 +3968,7 @@ S. Y. Siew, B. Li, F. Gao, H. Y. Zheng, W. Zhang, P. Guo, S. W. Xie, A. Song, B.
 O. Sigmund, "Manufacturing tolerant topology optimization", Acta Mech Sin 25, 227 (2009). [doi:10.1007/s10409-009-0240-z](https://doi.org/10.1007/s10409-009-0240-z)
 
 - Methods pages: [topology.md:14](methods/topology.md?plain=1#L14)
+- Code: [src/topology/robust.rs:10](../src/topology/robust.rs#L10)
 - Other documents: [docs/plans/optimization.md:590](plans/optimization.md?plain=1#L590)
 
 #### Sigmund 2011
@@ -4484,7 +4487,7 @@ F. Wang, B. S. Lazarov, O. Sigmund, "On projection methods, convergence and robu
 
 - Methods pages: [optimization.md:34](methods/optimization.md?plain=1#L34), [219](methods/optimization.md?plain=1#L219), [topology.md:8](methods/topology.md?plain=1#L8)
 - Academy lessons: [fdfd-and-adjoints.md:79](../academy/fdfd-and-adjoints.md?plain=1#L79), [648](../academy/fdfd-and-adjoints.md?plain=1#L648), [778](../academy/fdfd-and-adjoints.md?plain=1#L778)
-- Code: [src/cases/topology/checks.rs:25](../src/cases/topology/checks.rs#L25), [67](../src/cases/topology/checks.rs#L67), [src/topology/mod.rs:7](../src/topology/mod.rs#L7)
+- Code: [src/cases/topology/checks.rs:25](../src/cases/topology/checks.rs#L25), [67](../src/cases/topology/checks.rs#L67), [src/topology/mod.rs:7](../src/topology/mod.rs#L7), [src/topology/robust.rs:7](../src/topology/robust.rs#L7)
 - Other documents: [ROADMAP.md:778](../ROADMAP.md?plain=1#L778), [docs/plans/optimization.md:591](plans/optimization.md?plain=1#L591)
 
 #### Wang et al. 2011

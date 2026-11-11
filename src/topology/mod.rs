@@ -35,6 +35,7 @@ use crate::{Error, Result};
 #[path = "../cases/topology/checks.rs"]
 pub(crate) mod checks;
 mod robust;
+pub mod ruler;
 #[cfg(test)]
 mod tests;
 
