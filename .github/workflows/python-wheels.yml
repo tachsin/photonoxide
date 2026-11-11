@@ -87,9 +87,14 @@ jobs:
     outputs:
       matrix: ${{ steps.pick.outputs.matrix }}
     steps:
+      - uses: actions/checkout@v7
+        if: github.event_name == 'pull_request'
+        with:
+          fetch-depth: 0
       - id: pick
         env:
           EVENT: ${{ github.event_name }}
+          BASE: ${{ github.event.pull_request.base.sha }}
         run: |
           all='[
             {"id": "linux-x86_64", "runner": "ubuntu-latest", "target": "x86_64", "manylinux": "auto", "test": true, "pr": true},
@@ -102,6 +107,20 @@ jobs:
           ]'
           if [ "$EVENT" = pull_request ]; then
             matrix=$(jq -c '[.[] | select(.pr)]' <<<"$all")
+            # a pull request that changes only write-ups (docs/methods/, docs/design.md) builds
+            # wheels only when it changes their Python, the blocks python/tests/test_methods.py runs
+            changed=$(git diff --name-only "$BASE...$GITHUB_SHA")
+            if ! grep -qvE '^docs/(methods/[^/]+|design)\.md$' <<<"$changed"; then
+              blocks() { git show "$1:$2" 2>/dev/null | awk '/^```python$/ { on = 1 } on { print } /^```$/ { on = 0 }'; }
+              python=false
+              for f in $changed; do
+                [ "$(blocks "$BASE" "$f")" = "$(blocks "$GITHUB_SHA" "$f")" ] || python=true
+              done
+              if [ "$python" = false ]; then
+                echo "only the write-ups' prose changed: no wheels"
+                matrix='[]'
+              fi
+            fi
           else
             matrix=$(jq -c '.' <<<"$all")
           fi
@@ -110,6 +129,7 @@ jobs:
   wheels:
     name: Wheel (${{ matrix.platform.id }})
     needs: platforms
+    if: needs.platforms.outputs.matrix != '[]'
     strategy:
       fail-fast: false
       matrix:
