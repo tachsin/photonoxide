@@ -157,8 +157,11 @@ shapes of known width within a pixel (`topology/ruler-shapes`). *Done 2026-11-11
 constraints:* `topology::LengthConstraints` (Zhou et al.'s Eqs. 8–11, c = (R/Δ)⁴) with Hammond et
 al.'s thresholds (Eqs. 14 and 15, checked against Eq. 29's inverse to round-off) and the gradients
 against differences (3.9e-11). Zhou's c = r⁴ is in pixels; Hammond et al. write r as the grid's
-resolution, a different scale, so c is a setting (`with_decay`). *Left for I3:* Arrieta et al.
-2026's hyperparameters, whose paper isn't in the folder yet.
+resolution, a different scale, so c is a setting (`with_decay`). *Done 2026-11-11, the
+hyperparameters:* Arrieta et al. 2026's (the arXiv version, 2507.16108v2): `with_arrieta_decay`
+(c = 64 R² in µm, 64 (R/Δ)² per pixel) and `geometric_threshold` (their Eq. 18, integrated by parts
+here), the pixels' sum at the critical strip against Eq. 18 to 0.21 % at R/Δ = 200, second order
+(`topology/constraint-arrieta`). I3 is done.
 
 ### I4: 2D topology optimization, the published devices (#244's phase 9)
 

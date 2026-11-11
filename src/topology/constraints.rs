@@ -22,6 +22,20 @@
 //! Eq. 30): η_e = ¼(l_w/R)² + ½ for l_w ≤ R, l_w/R − ¼(l_w/R)² for R ≤ l_w ≤ 2R, and 1 above;
 //! η_d = ½ − ¼(l_s/R)², 1 + ¼(l_s/R)² − l_s/R, and 0 likewise. They are the inverse of
 //! [`super::minimum_length`].
+//!
+//! R. Arrieta, G. Romano, S. G. Johnson, "Hyperparameter-free minimum-lengthscale constraints for
+//! topology optimization", Struct. Multidiscip. Optim. 69, 210 (2026),
+//! doi:10.1007/s00158-026-04388-6, Section 4.1 and Table 1: with a conic filter, the radius the
+//! target length itself (R = ℓ_t, so η_e = ¾), the decay c = 64 R² with ∇ρ̃ in physical units (so
+//! the sum is a Riemann sum and the constraint doesn't change with the grid), and the threshold ε
+//! the constraint's value at a strip whose width is exactly ℓ_t: across it ρ̃ = ¾ − x̃² (x̃ = x/R),
+//! and in the limit of resolution
+//!
+//! ε = (L^(d−1) R / |Ω|) ∫ x̃⁴ e^(−4c̃x̃²) dx̃ over |x̃| ≤ ½
+//!   = (L^(d−1) R / |Ω|) (3√π erf(√c̃) / (128 c̃^(5/2)) − e^(−c̃) (3/(64 c̃²) + 1/(32 c̃))),
+//!
+//! c̃ = c/R² (their Eq. 18, here integrated by parts; Eq. 19 drops the e^(−c̃) terms), L the strip's
+//! length and |Ω| the region's size: about 1e-8 for c̃ = 64 and R a hundredth of the region.
 
 use super::Density;
 use crate::{Error, Result};
@@ -122,9 +136,26 @@ impl LengthConstraints {
         })
     }
 
-    /// The same with the indicators' decay `c` in place of (R/Δ)⁴.
+    /// The same with the indicators' decay `c` in place of (R/Δ)⁴, per pixel: the gradient is
+    /// taken in pixels, so a decay c_phys for ∇ρ̃ in µm⁻¹ is c_phys/Δ² here.
     pub fn with_decay(self, c: f64) -> LengthConstraints {
         LengthConstraints { decay: c, ..self }
+    }
+
+    /// The same with Arrieta et al.'s decay, c = 64 R² for ∇ρ̃ in µm⁻¹ (Table 1): 64 (R/Δ)² per
+    /// pixel. Their threshold is [`geometric_threshold`].
+    pub fn with_arrieta_decay(self) -> LengthConstraints {
+        let r = self.radius_px();
+        LengthConstraints {
+            decay: 64.0 * r * r,
+            ..self
+        }
+    }
+
+    fn radius_px(&self) -> f64 {
+        self.density
+            .filter()
+            .map_or(0.0, |f| f.radius_um() / self.density.pixel_um())
     }
 
     /// The thresholds η_e and η_d.
@@ -242,4 +273,28 @@ fn scatter_diff(k: usize, len: usize, w: f64, add: &mut dyn FnMut(usize, f64)) {
         add(k + 1, 0.5 * w);
         add(k - 1, -0.5 * w);
     }
+}
+
+/// Arrieta et al.'s threshold ε for the conic filter (their Eq. 18): the constraint's value at a
+/// strip exactly as wide as the target length with R = ℓ_t, for a normalized decay
+/// `c_tilde` = c/R² (64 in their Table 1) and `share` = L^(d−1) R / |Ω|, the strip's length to the
+/// power d − 1 times the radius over the region's size (R over the region's side, in 2D, for a
+/// strip across it).
+///
+/// # Errors
+///
+/// [`Error::InvalidValue`] for a decay or share that isn't positive and finite.
+pub fn geometric_threshold(c_tilde: f64, share: f64) -> Result<f64> {
+    if !(c_tilde.is_finite() && c_tilde > 0.0 && share.is_finite() && share > 0.0) {
+        return Err(Error::invalid(
+            "geometric threshold",
+            format!(
+                "the decay and the share must be positive and finite, got {c_tilde} and {share}"
+            ),
+        ));
+    }
+    let integral = 3.0 * std::f64::consts::PI.sqrt() * libm::erf(c_tilde.sqrt())
+        / (128.0 * c_tilde.powf(2.5))
+        - (-c_tilde).exp() * (3.0 / (64.0 * c_tilde * c_tilde) + 1.0 / (32.0 * c_tilde));
+    Ok(share * integral)
 }

@@ -109,6 +109,13 @@ pub(crate) fn cases() -> Vec<Case> {
             source: r"M. Zhou, B. S. Lazarov, F. Wang, O. Sigmund, Comput. Methods Appl. Mech. Engrg. 293, 266 (2015), doi:10.1016/j.cma.2015.05.003, Eqs. 8–11 and Section 2.2; Hammond et al. 2021, Eqs. 10–13",
             run: constraint_gradient_case,
         },
+        Case {
+            id: "topology/constraint-arrieta",
+            title: r"The solid constraint at a strip exactly as wide as the target length, Arrieta et al.'s choices for a conic filter ($R = \ell_t$, $\eta_e = 3/4$, $c = 64R^2$ with $\nabla\tilde\rho$ in µm⁻¹, a step projection): a 1D bar of whole pixels $R$ wide in a region $6R$ long, summed over pixels at $R/\Delta = 200$, against their Eq. 18, $\epsilon = 2.113 \times 10^{-7}$ at this share $R/\lvert\Omega\rvert = 1/6$ (relative difference shown)",
+            tier: Tier::Analytic,
+            source: r"R. Arrieta, G. Romano, S. G. Johnson, Struct. Multidiscip. Optim. 69, 210 (2026), doi:10.1007/s00158-026-04388-6, Section 4.1, Eqs. 14–19 and Table 1: across the strip $\tilde\rho = 3/4 - \tilde x^2$, and $\epsilon$ is $\int \tilde x^4 e^{-4\tilde c \tilde x^2} d\tilde x$ over $\lvert\tilde x\rvert \le 1/2$, in closed form with erf (Eq. 18)",
+            run: constraint_arrieta_case,
+        },
     ]
 }
 
@@ -787,6 +794,16 @@ fn constraint_thresholds_case() -> Outcome {
     zero(constraint_thresholds_error(), 1e-14)
 }
 
+fn constraint_arrieta_case() -> Outcome {
+    let (g, want) = arrieta_strip(200.0);
+    Outcome {
+        measured: g,
+        expected: want,
+        tolerance: 100.0 / (200.0 * 200.0) * want,
+        error: (g - want).abs(),
+    }
+}
+
 fn constraint_gradient_case() -> Outcome {
     let (worst, resolution) = constraint_gradient_error(1e-3);
     crate::verdict::note_numerical(resolution);
@@ -865,4 +882,34 @@ pub(crate) fn testbed_spectrum_at(hex: &str, scale: usize) -> (f64, f64) {
         worst_t = worst_t.min(20.0 * s[1][0].norm().log10());
     }
     (worst_r, worst_t)
+}
+
+/// Arrieta et al.'s critical strip in 1D: a bar of whole pixels R wide (`r_px` pixels) in the
+/// middle of a region 6R long, the conic filter of radius R, a projection sharp enough to be a
+/// step (β = 10⁶), the target length R (η_e = ¾) and their decay c = 64 R²: the solid constraint
+/// as the pixels sum it, and their Eq. 18 for it (the share R/|Ω| = 1/6).
+pub(crate) fn arrieta_strip(r_px: f64) -> (f64, f64) {
+    let r = r_px as usize;
+    let n = 6 * r;
+    let h = 1e-3;
+    let density = Density::new([n, 1, 1], h, [1.0, 2.0])
+        .and_then(|d| d.with_filter(r_px * h, Edge::Renormalized))
+        .map(|d| d.with_projection(Projection::new(1e6, 0.5).expect("a projection")))
+        .expect("a density");
+    let c = crate::topology::LengthConstraints::new(&density, r_px * h, r_px * h)
+        .expect("constraints")
+        .with_arrieta_decay();
+    let start = (n - r) / 2;
+    let rho: Vec<f64> = (0..n)
+        .map(|i| {
+            if (start..start + r).contains(&i) {
+                1.0
+            } else {
+                0.0
+            }
+        })
+        .collect();
+    let g = c.evaluate(&rho).expect("evaluated").values[0];
+    let want = crate::topology::geometric_threshold(64.0, 1.0 / 6.0).expect("a threshold");
+    (g, want)
 }

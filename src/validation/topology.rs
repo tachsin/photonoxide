@@ -136,5 +136,15 @@ pub(crate) fn rules() -> Vec<(&'static str, Rule)> {
                 "fourth-order differences of the densities: at δ = 1e-5, 1e-4, 1e-3 and 1e-2 the errors are 5.2e-8, 1.1e-9, 3.9e-11 and 7.7e-8 against a resolution of 7.0e-8, 7.0e-9, 7.0e-10 and 7.0e-11 (relative to the smallest gradient probed, 1.9e-5; the_constraint_study): below it up to 1e-3, the truncation above; at δ = 1e-3 the resolution is noted; held to 3e-9, above the report's three times it",
             ),
         ),
+        (
+            "topology/constraint-arrieta",
+            Rule::new(
+                Relative,
+                Discretisation,
+                100.0 / (200.0 * 200.0),
+                Measured,
+                "the pixels' sum against the integral, second order in Δ/R: 80, 83, 85 and 85 (Δ/R)² at R/Δ = 25, 50, 100 and 200 (the_arrieta_study; Richardson from the last two gives Eq. 18 to 1.4e-5); held to 100 (Δ/R)², 2.5e-3 at R/Δ = 200",
+            ),
+        ),
     ]
 }

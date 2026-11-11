@@ -347,3 +347,167 @@ fn the_testbed_grid_study() {
     }
     println!("{:.1} s", start.elapsed().as_secs_f64());
 }
+
+/// I4's prototype: the testbed's mode converter as an objective, its gradient and its cost.
+mod converter {
+    use num_complex::Complex64 as c64;
+
+    use crate::fdfd::{Boundaries, Direction, Grid, Polarization, PortMode, Solver2d};
+    use crate::topology::{Density, Edge, Placement, Projection};
+    use crate::units::Wavelength;
+
+    pub(crate) const NM: [f64; 6] = [1265.0, 1270.0, 1275.0, 1285.0, 1290.0, 1295.0];
+
+    pub(crate) struct Converter {
+        pub(crate) density: Density,
+        placement: Placement,
+        background: Vec<c64>,
+        grid: Grid,
+        /// per wavelength: the solver at the background, the two ports' modes, P₂/P₁
+        bands: Vec<(Wavelength, Solver2d, PortMode, PortMode, f64)>,
+    }
+
+    impl Converter {
+        pub(crate) fn new(radius_px: f64, beta: f64) -> Converter {
+            let (ni, nj, h) = (350usize, 300usize, 0.01);
+            let grid = Grid {
+                nx: ni,
+                ny: nj,
+                dx: h,
+                dy: h,
+                x0: 0.0,
+                y0: 0.0,
+            };
+            let background: Vec<c64> = (0..ni * nj)
+                .map(|p| {
+                    let (i, j) = (p % ni, p / ni);
+                    let guide = (130..170).contains(&j) && (i < 95 || i >= ni - 96);
+                    c64::new(if guide { 12.25 } else { 2.25 }, 0.0)
+                })
+                .collect();
+            let placement = Placement {
+                origin: [95, 70, 0],
+                shape: [160, 160, 1],
+                grid: [ni, nj, 1],
+            };
+            let density = Density::new([160, 160, 1], h, [2.25, 12.25])
+                .unwrap()
+                .with_filter(radius_px * h, Edge::Renormalized)
+                .unwrap()
+                .with_projection(Projection::new(beta, 0.5).unwrap());
+            let bands = NM
+                .iter()
+                .map(|&nm| {
+                    let lam = Wavelength::um(nm * 1e-3).unwrap();
+                    let s = Solver2d::from_cells(
+                        grid,
+                        Polarization::Ez,
+                        lam,
+                        &background,
+                        Boundaries::pml(20),
+                    )
+                    .unwrap();
+                    let left = s.port_modes_within(25, 55..245, 1).unwrap().remove(0);
+                    let right = s.port_modes_within(325, 55..245, 2).unwrap().remove(1);
+                    let ratio = right.power(h) / left.power(h);
+                    (lam, s, left, right, ratio)
+                })
+                .collect();
+            Converter {
+                density,
+                placement,
+                background,
+                grid,
+                bands,
+            }
+        }
+
+        fn cells(&self, rho: &[f64]) -> Vec<c64> {
+            let mut cells = self.background.clone();
+            let eps = self.density.permittivity(rho).unwrap();
+            self.placement.embed(&eps, &mut cells).unwrap();
+            cells
+        }
+
+        /// Per wavelength: R, T and their gradients in the densities.
+        pub(crate) fn evaluate(&self, rho: &[f64]) -> Vec<(f64, f64, Vec<f64>, Vec<f64>)> {
+            let cells = self.cells(rho);
+            let _ = self.grid;
+            self.bands
+                .iter()
+                .map(|(lam, base, left, right, ratio)| {
+                    let s = base.reuse_cells(*lam, &cells).unwrap();
+                    let src = s.mode_source(left, Direction::Forward);
+                    let field = s.solve_system(&src).unwrap();
+                    let (r, dr) = s
+                        .mode_power_gradient(&field, left, Direction::Backward)
+                        .unwrap();
+                    let (t, dt) = s
+                        .mode_power_gradient(&field, right, Direction::Forward)
+                        .unwrap();
+                    let pull = |d: Vec<f64>, scale: f64| {
+                        let d_eps: Vec<f64> = self.placement.restrict(&d).unwrap();
+                        let g = self.density.gradient(rho, &d_eps).unwrap();
+                        g.into_iter().map(|v| v * scale).collect::<Vec<f64>>()
+                    };
+                    (r, t * ratio, pull(dr, 1.0), pull(dt, *ratio))
+                })
+                .collect()
+        }
+    }
+
+    #[test]
+    #[ignore = "I4's prototype: the converter's gradient against differences and its cost, prints"]
+    fn the_converter_prototype() {
+        let start = std::time::Instant::now();
+        let c = Converter::new(5.0, 8.0);
+        println!("set up in {:.1} s", start.elapsed().as_secs_f64());
+        // a start: the design's middle half grey, its edges void, the guides' rows solid
+        let rho: Vec<f64> = (0..160 * 160)
+            .map(|p| {
+                let (i, j) = ((p % 160) as f64, (p / 160) as f64);
+                0.5 + 0.3 * (0.11 * i).sin() * (0.07 * j + 0.5).cos()
+            })
+            .collect();
+        let t0 = std::time::Instant::now();
+        let v = c.evaluate(&rho);
+        println!(
+            "one evaluation (6 wavelengths, 3 solves each): {:.2} s",
+            t0.elapsed().as_secs_f64()
+        );
+        for (k, (r, t, _, _)) in v.iter().enumerate() {
+            println!("  λ {} nm: R {r:.4e}, T {t:.4e}", super::converter::NM[k]);
+        }
+        // the gradient at three pixels against fourth-order differences, at the first wavelength
+        let delta = 2e-3;
+        for p in [0usize, 80 * 160 + 80, 159 * 160 + 3] {
+            let at = |d: f64| {
+                let mut r = rho.clone();
+                r[p] += d;
+                let v = c.evaluate(&r);
+                (v[0].0, v[0].1)
+            };
+            let [m2, m1, p1, p2] = [-2.0, -1.0, 1.0, 2.0].map(|s| at(s * delta));
+            let fd = |a: f64, b: f64, c: f64, d: f64| (a - 8.0 * b + 8.0 * c - d) / (12.0 * delta);
+            let (dr, dt) = (v[0].2[p], v[0].3[p]);
+            println!(
+                "  pixel {p}: dR {dr:+.6e} (differences {:+.6e}), dT {dt:+.6e} (differences {:+.6e})",
+                fd(m2.0, m1.0, p1.0, p2.0),
+                fd(m2.1, m1.1, p1.1, p2.1)
+            );
+        }
+    }
+}
+
+/// Arrieta et al.'s threshold against the discrete constraint at the critical strip: prints.
+#[test]
+#[ignore = "the Arrieta study: prints, in release"]
+fn the_arrieta_study() {
+    for r_px in [25.0, 50.0, 100.0, 200.0] {
+        let (g, want) = super::checks::arrieta_strip(r_px);
+        println!(
+            "R = {r_px} px: discrete {g:.6e}, Eq. 18 {want:.6e}, relative {:.3e}",
+            (g - want).abs() / want
+        );
+    }
+}

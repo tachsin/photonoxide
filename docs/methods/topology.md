@@ -18,6 +18,8 @@ papers:
     doi: 10.1016/j.cma.2015.05.003
   - cite: "A. M. Hammond, A. Oskooi, S. G. Johnson, S. E. Ralph, Opt. Express 29, 23916 (2021) (minimum linewidth and spacing, Eqs. 10–15)"
     doi: 10.1364/OE.431188
+  - cite: "R. Arrieta, G. Romano, S. G. Johnson, Struct. Multidiscip. Optim. 69, 210 (2026) (the constraints' hyperparameters for a conic filter, Section 4.1, Eqs. 14–19, Table 1)"
+    doi: 10.1007/s00158-026-04388-6
   - cite: "M. Chen et al., J. Opt. Soc. Am. B 41, A161 (2024) (the a-posteriori minimum length scale, Section 2, Eqs. 1–3; the testbed's mode converter, Section 3.C)"
     doi: 10.1364/JOSAB.506412
 validation:
@@ -34,6 +36,7 @@ validation:
   - topology/ruler-testbed
   - topology/constraint-thresholds
   - topology/constraint-gradient
+  - topology/constraint-arrieta
 ---
 
 Topology optimization gives every pixel of a design region its own variable, a density ρ
@@ -220,6 +223,21 @@ zero rather than to it: at a wide bar's edges the indicator is still about 0.1 (
 bar narrower than the linewidth scores about 26 times one wider, not infinitely more; an optimizer
 lowers ε in stages, as Hammond et al. do.
 
+**Without tuning.** Arrieta et al. (2026, Section 4.1 and Table 1) derive the conic filter's
+settings from the length alone: the filter's radius the target length itself (R = ℓ_t, so
+η_e = ¾), the decay c = 64 R² with ∇ρ̃ in µm⁻¹, which makes the sum a Riemann sum whose value
+doesn't change with the grid (`with_arrieta_decay`, 64 (R/Δ)² per pixel), and the threshold ε the
+constraint's own value at a strip exactly ℓ_t wide. Across that strip $\tilde\rho = 3/4 - \tilde x^2$ ($\tilde x = x/R$), so
+
+$$
+\epsilon = \frac{L^{d-1} R}{\lvert\Omega\rvert} \int_{-1/2}^{1/2} \tilde x^4 e^{-4\tilde c \tilde x^2} d\tilde x
+= \frac{L^{d-1} R}{\lvert\Omega\rvert} \left( \frac{3\sqrt\pi\, \mathrm{erf}\sqrt{\tilde c}}{128\, \tilde c^{5/2}} - e^{-\tilde c} \Bigl( \frac{3}{64 \tilde c^2} + \frac{1}{32 \tilde c} \Bigr) \right),
+$$
+
+$\tilde c = c/R^2$, L the strip's length and |Ω| the region's size (their Eq. 18, here integrated by
+parts; their Eq. 19 keeps the first term): `geometric_threshold(c_tilde, share)`, about 1e-8 for
+$\tilde c = 64$ and R a hundredth of the region. They hold the constraint as g/ε − 1 ≤ 0.
+
 ## Validation
 
 | Case | What | Measured |
@@ -236,6 +254,7 @@ lowers ε in stages, as Hammond et al. do.
 | `topology/ruler-testbed` | eight of the testbed's mode converters, in their domain at 10 nm, against the README's printed lengths, 90.2978515625 to 207.0947265625 nm | 0 (held to 5e-11 nm, half the last printed digit) |
 | `topology/constraint-thresholds` | Hammond et al.'s thresholds of Eq. 29's length at 97 values of η, against 1 − η and η | within round-off (1.1e-16; held to 1e-14) |
 | `topology/constraint-gradient` | the two constraints' gradients on a 24 × 20 region (90 nm lines and gaps, R = 60 nm) against fourth-order differences, δ = 10⁻³, at five pixels | 3.9e-11 relative, below the resolution of 7.0e-10 (held to 3e-9) |
+| `topology/constraint-arrieta` | the solid constraint at Arrieta et al.'s critical strip (R = ℓ_t, c = 64 R², a step projection) summed over pixels at R/Δ = 200, against their Eq. 18 | 0.21 % (held to 100 (Δ/R)² = 0.25 %; second order, 80 to 85 (Δ/R)² from 25 to 200 pixels, Richardson to 1.4e-5) |
 | `topology/robust-epigraph` | the epigraph's Jacobian through the three realizations' FDFD gradients (thresholds 0.75, 0.5, 0.25) against differences of each realization's power, δ = 4 × 10⁻³ | 8.1e-9 relative, below the resolution of 6.7e-8 (held to 3e-7) |
 
 **The complex step** takes no difference, so it checks the derivative to round-off at every
