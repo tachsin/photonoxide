@@ -20,6 +20,8 @@ papers:
     doi: 10.1364/OE.431188
   - cite: "R. Arrieta, G. Romano, S. G. Johnson, Struct. Multidiscip. Optim. 69, 210 (2026) (the constraints' hyperparameters for a conic filter, Section 4.1, Eqs. 14–19, Table 1)"
     doi: 10.1007/s00158-026-04388-6
+  - cite: "B. S. Lazarov, O. Sigmund, Int. J. Numer. Methods Eng. 86, 765 (published online 2010) (the Helmholtz filter, Eqs. 11, 12 and 34)"
+    doi: 10.1002/nme.3072
   - cite: "M. Chen et al., J. Opt. Soc. Am. B 41, A161 (2024) (the a-posteriori minimum length scale, Section 2, Eqs. 1–3; the testbed's mode converter, Section 3.C)"
     doi: 10.1364/JOSAB.506412
 validation:
@@ -37,6 +39,9 @@ validation:
   - topology/constraint-thresholds
   - topology/constraint-gradient
   - topology/constraint-arrieta
+  - topology/helmholtz-residual
+  - topology/helmholtz-edge
+  - topology/double-filter-gradient
 ---
 
 Topology optimization gives every pixel of a design region its own variable, a density ρ
@@ -160,6 +165,26 @@ constraints and their Jacobian in the arrays an optimizer with constraints takes
 `Mma` and `Constrained`), and `Epigraph::start(values)` starts t at the worst value. The same
 form takes the worst over wavelengths and corners.
 
+## The Helmholtz filter and double filtering
+
+Lazarov & Sigmund (2010, Eqs. 11 and 12) filter by a PDE instead of a convolution: the filtered
+density solves $-r^2\nabla^2\tilde\rho + \tilde\rho = \rho$ with $\partial\tilde\rho/\partial n = 0$ on the
+region's edges, which keeps the volume, and $r = R/2\sqrt3$ makes it comparable to a conic filter of
+radius R (their Eq. 34). On a regular grid with the edges mirrored, the cell-centred second
+difference is diagonal in the cosine transform (DCT-II): along an axis of n pixels its eigenvectors
+are $\cos(\pi k(i + \frac12)/n)$ and its eigenvalues $-4\sin^2(\pi k/2n)/\Delta^2$. So
+`HelmholtzFilter` filters by a transform, a division by $1 + (r/\Delta)^2 \sum 4\sin^2(\pi k/2n)$
+over the axes, and the transform back: exact, with no iteration and no sparse solver, symmetric (its
+own transpose), and a constant kept. Across a straight edge its density is $\frac12 e^{-x/r}$
+outside a solid half-space, so a threshold η moves the edge by $r\ln(1/2\eta)$.
+
+Christiansen & Sigmund's demultiplexer (2021, Section 9 and Eq. 22) filters twice: a filter of
+100 nm and a projection, then a filter of 50 nm and a projection at three thresholds, 0.3, 0.5 and
+0.7, the dilated, nominal and eroded realizations of a near-uniform etch; the second filter's
+$r\ln(1/2\eta)$ at η = 0.3 is 7.37 nm, the ±8 nm they design for. `DoubleFiltered` is that pipeline,
+`robust(eta)` its three realizations, and `pullback` and `gradient` its chain rule back through
+both projections and both filters.
+
 ## The minimum length scale of a design
 
 A design is finally made from its binary pattern, and what a foundry checks is its smallest
@@ -255,6 +280,9 @@ $\tilde c = 64$ and R a hundredth of the region. They hold the constraint as g/�
 | `topology/constraint-thresholds` | Hammond et al.'s thresholds of Eq. 29's length at 97 values of η, against 1 − η and η | within round-off (1.1e-16; held to 1e-14) |
 | `topology/constraint-gradient` | the two constraints' gradients on a 24 × 20 region (90 nm lines and gaps, R = 60 nm) against fourth-order differences, δ = 10⁻³, at five pixels | 3.9e-11 relative, below the resolution of 7.0e-10 (held to 3e-9) |
 | `topology/constraint-arrieta` | the solid constraint at Arrieta et al.'s critical strip (R = ℓ_t, c = 64 R², a step projection) summed over pixels at R/Δ = 200, against their Eq. 18 | 0.21 % (held to 100 (Δ/R)² = 0.25 %; second order, 80 to 85 (Δ/R)² from 25 to 200 pixels, Richardson to 1.4e-5) |
+| `topology/helmholtz-residual` | the cosine-transform solve in its own discrete equation, mirrored edges, 2D and 3D | within round-off (1.5e-14; held to 1e-12) |
+| `topology/helmholtz-edge` | where the filter's density crosses η = 0.3 across a straight edge, 50 nm radius on 1.25 nm pixels, against r ln(1/2η) = 7.373 nm | 1.7e-3 nm (held to 0.1 (h/r)² r = 0.011 nm; second order from 10 nm, where it is 7.19 nm) |
+| `topology/double-filter-gradient` | the double filtering's gradient against fourth-order differences, δ = 10⁻³ | 4.0e-10 relative (held to 1e-8) |
 | `topology/robust-epigraph` | the epigraph's Jacobian through the three realizations' FDFD gradients (thresholds 0.75, 0.5, 0.25) against differences of each realization's power, δ = 4 × 10⁻³ | 8.1e-9 relative, below the resolution of 6.7e-8 (held to 3e-7) |
 
 **The complex step** takes no difference, so it checks the derivative to round-off at every

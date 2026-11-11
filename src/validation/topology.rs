@@ -146,5 +146,37 @@ pub(crate) fn rules() -> Vec<(&'static str, Rule)> {
                 "the pixels' sum against the integral, second order in Δ/R: 80, 83, 85 and 85 (Δ/R)² at R/Δ = 25, 50, 100 and 200 (the_arrieta_study; Richardson from the last two gives Eq. 18 to 1.4e-5); held to 100 (Δ/R)², 2.5e-3 at R/Δ = 200",
             ),
         ),
+        (
+            "topology/helmholtz-residual",
+            Rule::new(
+                Absolute,
+                RoundOff,
+                1e-12,
+                Exact,
+                "a direct solve by two orthogonal transforms of up to 48 terms a sum: their round-off, about 1e-14 of densities below 1, held to 1e-12",
+            ),
+        ),
+        (
+            "topology/helmholtz-edge",
+            Rule::new(
+                Absolute,
+                Discretisation,
+                0.1 * (1.25 / 14.433_756_729_740_644)
+                    * (1.25 / 14.433_756_729_740_644)
+                    * 14.433_756_729_740_644,
+                Measured,
+                "the pixels' second difference and the crossing's interpolation, second order in h/r: 0.026, 0.076, 0.019 and 0.016 (h/r)² r at h = 10, 5, 2.5 and 1.25 nm (the_helmholtz_study; 7.19 nm at the paper's 10 nm, against their ±8 nm); held to 0.1 (h/r)² r, 0.011 nm at 1.25 nm",
+            ),
+        ),
+        (
+            "topology/double-filter-gradient",
+            Rule::new(
+                Relative,
+                Discretisation,
+                1e-8,
+                Measured,
+                "fourth-order differences of a function of the densities alone: 1.0e-8, 4.0e-10 and 1.7e-9 at δ = 1e-4, 1e-3 and 1e-2 (the_helmholtz_study), round-off below and truncation above; at δ = 1e-3 held to 1e-8",
+            ),
+        ),
     ]
 }

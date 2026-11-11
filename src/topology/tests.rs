@@ -670,3 +670,28 @@ fn the_arrieta_study() {
         );
     }
 }
+
+/// The Helmholtz filter's study: its residual, its edge against the closed form as the pixel
+/// shrinks, and the double filter's gradient per δ: prints.
+#[test]
+#[ignore = "the Helmholtz study: prints, in release"]
+fn the_helmholtz_study() {
+    use super::checks::{double_filter_error, helmholtz_edge, helmholtz_residual};
+    println!("residual {:.3e}", helmholtz_residual());
+    for h in [10.0, 5.0, 2.5, 1.25, 0.625] {
+        let (x3, want3) = helmholtz_edge(h, 0.3);
+        let r = 50.0 / (2.0 * 3f64.sqrt());
+        println!(
+            "h {h} nm: η 0.3 shift {x3:.4} nm (closed {want3:.4}), error {:.2e} nm = {:.3} (h/r)² r",
+            x3 - want3,
+            (x3 - want3).abs() / ((h / r).powi(2) * r)
+        );
+    }
+    for delta in [1e-4, 1e-3, 1e-2] {
+        println!(
+            "δ {delta:.0e}: double filter error {:.2e} (η 0.5), {:.2e} (η 0.3)",
+            double_filter_error(delta, 0.5),
+            double_filter_error(delta, 0.3)
+        );
+    }
+}

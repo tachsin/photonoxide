@@ -116,6 +116,27 @@ pub(crate) fn cases() -> Vec<Case> {
             source: r"R. Arrieta, G. Romano, S. G. Johnson, Struct. Multidiscip. Optim. 69, 210 (2026), doi:10.1007/s00158-026-04388-6, Section 4.1, Eqs. 14–19 and Table 1: across the strip $\tilde\rho = 3/4 - \tilde x^2$, and $\epsilon$ is $\int \tilde x^4 e^{-4\tilde c \tilde x^2} d\tilde x$ over $\lvert\tilde x\rvert \le 1/2$, in closed form with erf (Eq. 18)",
             run: constraint_arrieta_case,
         },
+        Case {
+            id: "topology/helmholtz-residual",
+            title: r"The Helmholtz filter by the cosine transform solves its own discrete equation, $(1 - r^2\Delta_h)\tilde\rho = \rho$ with the region's edges mirrored, on 48 × 36 and 14 × 12 × 10 pixels of varied densities (largest residual shown)",
+            tier: Tier::Analytic,
+            source: r"B. S. Lazarov, O. Sigmund, Int. J. Numer. Methods Eng. 86, 765 (published online 2010), doi:10.1002/nme.3072, Eqs. 11 and 12; the cell-centred second difference with mirrored edges is diagonal in the DCT-II, its eigenvalues $-4\sin^2(\pi k/2n)/\Delta^2$",
+            run: helmholtz_residual_case,
+        },
+        Case {
+            id: "topology/helmholtz-edge",
+            title: r"The Helmholtz filter (radius 50 nm, so $r = 14.43$ nm) across a straight edge of a solid half-space, on 1.25 nm pixels: where its density crosses $\eta = 0.3$, the dilated threshold of Christiansen & Sigmund's demultiplexer, against $r \ln(1/2\eta) = 7.373$ nm (difference shown, nm)",
+            tier: Tier::Analytic,
+            source: r"the 1D Green's function of $-r^2\tilde\rho'' + \tilde\rho = \rho$, $e^{-\lvert x\rvert/r}/2r$, integrated over a half-space: $\tilde\rho = \frac12 e^{-x/r}$ outside; Lazarov & Sigmund's Eq. 34 for $r = R/2\sqrt3$; R. E. Christiansen, O. Sigmund, J. Opt. Soc. Am. B 38, 496 (2021), doi:10.1364/JOSAB.406048, Section 9: the ±8 nm the thresholds 0.3 and 0.7 impose",
+            run: helmholtz_edge_case,
+        },
+        Case {
+            id: "topology/double-filter-gradient",
+            title: r"Christiansen & Sigmund's double filtering (Helmholtz filters of 100 and 50 nm, projections at $\beta$ = 5 and 2.5, the second at $\eta$ = 0.5 and 0.3) on a 30 × 24 region of 10 nm pixels: the gradient of $F = \sum_i w_i \hat\rho_i$ (fixed varied weights) back through both projections and both filters, against fourth-order differences ($\delta = 10^{-3}$) at five pixels (largest relative difference shown)",
+            tier: Tier::Analytic,
+            source: r"Christiansen & Sigmund 2021, Eq. 22; the chain rule through each stage, each filter its own transpose (symmetric)",
+            run: double_filter_case,
+        },
     ]
 }
 
@@ -912,4 +933,126 @@ pub(crate) fn arrieta_strip(r_px: f64) -> (f64, f64) {
     let g = c.evaluate(&rho).expect("evaluated").values[0];
     let want = crate::topology::geometric_threshold(64.0, 1.0 / 6.0).expect("a threshold");
     (g, want)
+}
+
+/// The Helmholtz filter's residual in its own discrete equation, (1 − r²Δ_h) ρ̃ − ρ with the
+/// edges mirrored, relative to the largest density, on 2D and 3D regions with varied densities.
+pub(crate) fn helmholtz_residual() -> f64 {
+    let mut worst = 0.0f64;
+    for (shape, h, radius) in [([48usize, 36, 1], 0.01, 0.07), ([14, 12, 10], 0.02, 0.09)] {
+        let f = crate::topology::HelmholtzFilter::new(shape, h, radius).expect("a filter");
+        let [ni, nj, nk] = shape;
+        let n = ni * nj * nk;
+        let rho: Vec<f64> = (0..n)
+            .map(|p| 0.5 + 0.4 * ((0.37 * p as f64).sin() * (0.011 * p as f64).cos()))
+            .collect();
+        let t = f.apply(&rho).expect("filtered");
+        let r = f.length_um() / h;
+        let at = |i: isize, j: isize, k: isize| -> f64 {
+            // the mirrored ghost: the neighbour inside
+            let c = |v: isize, n: usize| v.clamp(0, n as isize - 1) as usize;
+            t[(c(k, nk) * nj + c(j, nj)) * ni + c(i, ni)]
+        };
+        for k in 0..nk as isize {
+            for j in 0..nj as isize {
+                for i in 0..ni as isize {
+                    let mut lap = 0.0;
+                    for (d, n) in [(0, ni), (1, nj), (2, nk)] {
+                        if n == 1 {
+                            continue;
+                        }
+                        let (a, b) = match d {
+                            0 => (at(i - 1, j, k), at(i + 1, j, k)),
+                            1 => (at(i, j - 1, k), at(i, j + 1, k)),
+                            _ => (at(i, j, k - 1), at(i, j, k + 1)),
+                        };
+                        lap += a + b - 2.0 * at(i, j, k);
+                    }
+                    let q = ((k as usize) * nj + j as usize) * ni + i as usize;
+                    worst = worst.max((at(i, j, k) - r * r * lap - rho[q]).abs());
+                }
+            }
+        }
+    }
+    worst
+}
+
+/// The Helmholtz filter's edge: a solid half of a 1D region of 1.6 µm, the edge on a pixel
+/// boundary in the middle, radius 50 nm, `h_nm` pixels: where the filtered density crosses `eta`
+/// (by linear interpolation), nm from the edge, against r ln(1/2η).
+pub(crate) fn helmholtz_edge(h_nm: f64, eta: f64) -> (f64, f64) {
+    let n = (1600.0 / h_nm).round() as usize;
+    let f = crate::topology::HelmholtzFilter::new([n, 1, 1], h_nm * 1e-3, 0.05).expect("a filter");
+    let rho: Vec<f64> = (0..n).map(|i| if i < n / 2 { 1.0 } else { 0.0 }).collect();
+    let t = f.apply(&rho).expect("filtered");
+    let edge = (n / 2) as f64;
+    let mut x = f64::NAN;
+    for i in n / 2 - 1..n - 1 {
+        if t[i] >= eta && t[i + 1] < eta {
+            x = i as f64 + 0.5 + (t[i] - eta) / (t[i] - t[i + 1]);
+            break;
+        }
+    }
+    let r = f.length_um() * 1e3;
+    ((x - edge) * h_nm, r * (1.0 / (2.0 * eta)).ln())
+}
+
+/// The double filter's gradient against fourth-order differences of F = Σ wᵢ ρ̂ᵢ (fixed varied
+/// weights) on a 30 × 24 region at 10 nm (radii 100 and 50 nm, β 5 and 2.5, the second
+/// projection at `eta`), at five pixels: the largest relative difference.
+pub(crate) fn double_filter_error(delta: f64, eta: f64) -> f64 {
+    let (ni, nj) = (30usize, 24usize);
+    let d = crate::topology::DoubleFiltered::new(
+        [ni, nj, 1],
+        0.01,
+        [1.0, 12.11],
+        [0.1, 0.05],
+        [
+            Projection::new(5.0, 0.5).expect("a projection"),
+            Projection::new(2.5, eta).expect("a projection"),
+        ],
+    )
+    .expect("a pipeline");
+    let n = ni * nj;
+    let rho: Vec<f64> = (0..n)
+        .map(|p| 0.5 + 0.35 * (0.3 * (p % ni) as f64).sin() * (0.23 * (p / ni) as f64 + 0.2).cos())
+        .collect();
+    let w: Vec<f64> = (0..n).map(|p| (0.71 * p as f64).sin()).collect();
+    let f = |r: &[f64]| -> f64 {
+        d.physical(r)
+            .expect("physical")
+            .iter()
+            .zip(&w)
+            .map(|(a, b)| a * b)
+            .sum()
+    };
+    let g = d.pullback(&rho, &w).expect("pulled back");
+    let mut worst = 0.0f64;
+    for p in [0usize, 13, 361, 400, n - 1] {
+        let at = |s: f64| {
+            let mut r = rho.clone();
+            r[p] += s * delta;
+            f(&r)
+        };
+        let fd = (at(-2.0) - 8.0 * at(-1.0) + 8.0 * at(1.0) - at(2.0)) / (12.0 * delta);
+        worst = worst.max((g[p] - fd).abs() / g[p].abs());
+    }
+    worst
+}
+
+fn helmholtz_residual_case() -> Outcome {
+    zero(helmholtz_residual(), 1e-12)
+}
+
+fn helmholtz_edge_case() -> Outcome {
+    let (x, want) = helmholtz_edge(1.25, 0.3);
+    let r = 50.0 / (2.0 * 3f64.sqrt());
+    zero((x - want).abs(), 0.1 * (1.25 / r) * (1.25 / r) * r)
+}
+
+fn double_filter_case() -> Outcome {
+    zero(
+        double_filter_error(1e-3, 0.5).max(double_filter_error(1e-3, 0.3)),
+        1e-8,
+    )
 }
