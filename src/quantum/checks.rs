@@ -57,7 +57,7 @@ pub(crate) fn cases() -> Vec<Case> {
             id: "quantum/permanent-ones",
             title: r"Quantum: the permanent of the $n \times n$ all-ones matrix is $n!$, by Ryser's and Glynn's formulas, $n$ = 1 to 14 (largest relative error shown)",
             tier: Tier::Analytic,
-            source: r"$\operatorname{Per}(J_n) = n!$: every permutation's product is 1",
+            source: r"$\mathop{\mathrm{Per}}(J_n) = n!$: every permutation's product is 1",
             run: permanent_ones,
         },
         Case {
@@ -120,7 +120,7 @@ pub(crate) fn cases() -> Vec<Case> {
             id: "quantum/full-bunching",
             title: r"Quantum: $n$ indistinguishable photons all leaving by one mode are $n!$ times as likely as distinguishable ones, $n$ = 2 to 6 in a Haar-random $8 \times 8$ unitary (largest relative difference from $n!$ shown)",
             tier: Tier::Analytic,
-            source: r"$\lvert \operatorname{Per} \rvert^2 / n! = n! \prod_p \lvert U_{qp} \rvert^2$ against $\operatorname{Per}(\lvert U \rvert^2)/n! = \prod_p \lvert U_{qp} \rvert^2$ for $n$ equal rows",
+            source: r"$\lvert \mathop{\mathrm{Per}} \rvert^2 / n! = n! \prod_p \lvert U_{qp} \rvert^2$ against $\mathop{\mathrm{Per}}(\lvert U \rvert^2)/n! = \prod_p \lvert U_{qp} \rvert^2$ for $n$ equal rows",
             run: full_bunching,
         },
         Case {
@@ -734,4 +734,32 @@ fn coupler_hom_order() -> Outcome {
         .abs()
         .log2();
     outcome((order * 100.0).round() / 100.0, 1.0, 0.5)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The tallest Γ of Peruzzo et al.'s four simulated panels over the pairs they measured
+    /// (q − r even: their fibre arrays have twice the output pitch), as docs/methods/quantum.md
+    /// gives them against the paper's 0.0178, 0.0237, 0.0147 and 0.0266.
+    #[test]
+    fn peruzzo_tallest_on_the_measured_pairs() {
+        let u = peruzzo_array();
+        let panels = [
+            (10, 11, Photons::Distinguishable, 0.0176),
+            (10, 11, Photons::Indistinguishable, 0.0239),
+            (9, 11, Photons::Distinguishable, 0.0162),
+            (9, 11, Photons::Indistinguishable, 0.0264),
+        ];
+        for (a, b, photons, docs) in panels {
+            let g = gamma(&u, a, b, &photons);
+            let tallest = (0..21)
+                .flat_map(|q| (0..21).map(move |r| (q, r)))
+                .filter(|(q, r)| (q + r) % 2 == 0)
+                .map(|(q, r)| g[q][r])
+                .fold(0.0, f64::max);
+            assert!((tallest - docs).abs() < 5e-5, "{tallest} against {docs}");
+        }
+    }
 }

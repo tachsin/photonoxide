@@ -53,8 +53,8 @@ open boundary.
 
 - **Exact substrate leakage:** 220 nm SOI on 0.5 µm of buried oxide leaks into the silicon
   substrate. The [multilayer slab](multilayer.md) gives its exact complex index. The loss,
-  $\operatorname{Im} n_\text{eff}$, is within 0.68 %, 0.17 % and 0.04 % at 10, 5 and 2.5 nm (TE): second order,
-  and the same for TM. On 0.8 µm of oxide the TE loss is $\operatorname{Im} n = 4.9 \times 10^{-8}$, still
+  $\mathop{\mathrm{Im}} n_\text{eff}$, is within 0.68 %, 0.17 % and 0.04 % at 10, 5 and 2.5 nm (TE): second order,
+  and the same for TM. On 0.8 µm of oxide the TE loss is $\mathop{\mathrm{Im}} n = 4.9 \times 10^{-8}$, still
   within 0.3 %.
 - **Insensitive to the layer:** strength 3–10 and 0.5–2 µm change the result by under 1e-4
   relative; strength 1 is weaker (0.9 %).
@@ -81,7 +81,7 @@ all 0, too thin, that fill the window, or that reach the guide's layer or every 
   1.5 µm by 2.9e-6, strength 10 by 2.8e-5.
 - **Bienstman et al.'s leaky wire, through a job** (`jobs/leaky-wire.yaml`, fixed indices in a
   `[task.stack]`, a window of 2 × 3.6 µm): on uniform grids of 20, 10 and 5 nm,
-  $\operatorname{Re} n_\text{eff}$ is 8.8e-3, 6.4e-3 and 4.0e-3 above their 2.412372 and the loss
+  $\mathop{\mathrm{Re}} n_\text{eff}$ is 8.8e-3, 6.4e-3 and 4.0e-3 above their 2.412372 and the loss
   0.94, 0.95 and 0.963 of their 2.9135e-8: the core's corners converge slowly, as on the
   library's graded grids (+4.0e-3 and 0.97 at 5 nm, before extrapolation).
 - **The same guided modes with and without it:** a 500 × 220 nm strip in oxide, its window

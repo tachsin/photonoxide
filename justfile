@@ -217,6 +217,14 @@ codebase-report:
 codebase-report-crates:
     CODEBASE_REPORT_BLOAT=1 bash .github/codebase-report.sh
 
+# the release's marks (ROADMAP ✅, README status row, the site's FALLBACK_MILESTONES, CHANGELOG), as the release PR's check; `--at v0.6.3` checks a tag (needs bash)
+release-marks *args:
+    bash .github/scripts/release-marks.sh {{args}}
+
+# after a release and a deploy: does tachsin.gr show the latest release? Reads the live pages, deploys nothing (`--wait 15` keeps trying)
+site-check *args:
+    node .github/scripts/site-check.mjs {{args}}
+
 # run the full suite after every merge and rebase, and the lints before every push (an agent's
 # worktree under .claude/worktrees/ skips the suite and builds the lints in a target folder of its own,
 # <main checkout>/target/agents/<name>)

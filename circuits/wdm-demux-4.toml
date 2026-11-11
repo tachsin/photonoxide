@@ -1,0 +1,111 @@
+# A four-channel demultiplexer: four add-drop rings along one bus, each 20 nm larger in radius
+# than the one before (their round trips, `length`, 2π times 10, 10.02, 10.04 and 10.06 µm), so
+# each resonates at its own wavelength and drops it to its own port; what no ring takes goes on
+# to through. The add ports are terminated.
+format = 1
+name = "wdm-demux-4"
+about = "A four-channel ring demultiplexer: four add-drop rings on one bus, their radii 20 nm apart, each dropping its own wavelength to its own port."
+
+connections = [
+    ["r1.through", "r2.in"],
+    ["r2.through", "r3.in"],
+    ["r3.through", "r4.in"],
+    ["r1.add", "t1.o1"],
+    ["r2.add", "t2.o1"],
+    ["r3.add", "t3.o1"],
+    ["r4.add", "t4.o1"],
+]
+
+[sweep]
+from_um = 1.545
+to_um = 1.565
+points = 4001
+
+[[instance]]
+name = "r1"
+kind = "ring-add-drop"
+x = 0
+y = 0
+values = { length = 62.83185307179586 }
+
+[[instance]]
+name = "r2"
+kind = "ring-add-drop"
+x = 160
+y = 0
+values = { length = 62.957516777939 }
+
+[[instance]]
+name = "r3"
+kind = "ring-add-drop"
+x = 320
+y = 0
+values = { length = 63.083180484083 }
+
+[[instance]]
+name = "r4"
+kind = "ring-add-drop"
+x = 480
+y = 0
+values = { length = 63.208844190227 }
+
+[[instance]]
+name = "t1"
+kind = "terminator"
+x = 40
+y = -90
+
+[[instance]]
+name = "t2"
+kind = "terminator"
+x = 200
+y = -90
+
+[[instance]]
+name = "t3"
+kind = "terminator"
+x = 360
+y = -90
+
+[[instance]]
+name = "t4"
+kind = "terminator"
+x = 520
+y = -90
+
+[[port]]
+name = "in"
+at = "r1.in"
+x = -110
+y = 0
+
+[[port]]
+name = "drop1"
+at = "r1.drop"
+x = -40
+y = 110
+
+[[port]]
+name = "drop2"
+at = "r2.drop"
+x = 120
+y = 110
+
+[[port]]
+name = "drop3"
+at = "r3.drop"
+x = 280
+y = 110
+
+[[port]]
+name = "drop4"
+at = "r4.drop"
+x = 440
+y = 110
+
+[[port]]
+name = "through"
+at = "r4.through"
+x = 590
+y = 0
+rotation = 180

@@ -264,7 +264,10 @@ at a gap of 5 µm and 0.0435 at 15 µm. photonoxide's cross-section of the chip,
 725 µm thick and ±2 mm wide, gives 0.183 and 0.0582, 30 % and 34 % above: the cross-section has no
 length, and the measured victim's far arm is warmed too, and both lower the measured share. The
 gap splits in about equal parts: the section's own Pπ, 26.09 mW against the measured 22.8 mW,
-makes the heater's own phase 14 % low, and the victim's phase per mW is 14 % and 17 % high. A deep
+makes the heater's own phase 14 % low, and the victim's phase per mW is 14 % and 17 % high. With
+the heater's 320 µm length solved (its heat's Fourier components along the guides, the victim's
+near arm as long), the shares fall to 0.166 and 0.0403, 18 % above and 7 % below: the length is
+the size of the gap at 15 µm but steepens the decay, so the rest needs the victim's layout. A deep
 trench between them, through the buried oxide into the substrate, divides the crosstalk by 3.48
 against the measured 3.13.
 

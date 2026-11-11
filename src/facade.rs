@@ -848,7 +848,8 @@ pub fn write_touchstone(
 ) -> Result<()> {
     let convention = parse_convention(convention)?;
     let precision = significant_digits.map_or(Precision::RoundTrip, Precision::Significant);
-    Touchstone::from_spectrum(&spectrum.to_library()?, convention)?.write_file(path, precision)
+    Touchstone::from_spectrum(&spectrum.to_library()?, convention)?
+        .write_file_stating(path, precision, convention)
 }
 
 /// A column of a run's table: its numbers, or its text where it holds any that isn't one.

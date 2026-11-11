@@ -39,9 +39,9 @@ $$
 $$
 
 In the cover and substrate, α takes the root that decays away from the stack
-($\operatorname{Im}\alpha \gt 0$), except for a **leaky wave**: where $\operatorname{Re}\beta$ is below that medium's
-index, the outgoing root ($\operatorname{Re}\alpha \gt 0$), which grows away from the stack (Section 3.C).
-The paper's convention, $e^{i(k\beta y - \omega t)}$ with $\operatorname{Im}\beta \gt 0$, is photonoxide's.
+($\mathop{\mathrm{Im}}\alpha \gt 0$), except for a **leaky wave**: where $\mathop{\mathrm{Re}}\beta$ is below that medium's
+index, the outgoing root ($\mathop{\mathrm{Re}}\alpha \gt 0$), which grows away from the stack (Section 3.C).
+The paper's convention, $e^{i(k\beta y - \omega t)}$ with $\mathop{\mathrm{Im}}\beta \gt 0$, is photonoxide's.
 
 - **Bound modes** of a lossless stack: real roots between the largest bounding index and the
   largest film index, bracketed and bisected.
@@ -57,7 +57,7 @@ angle θ (so $\beta = n_c \sin\theta$), with χ the left side of Eq. 26 (Eqs. 13
 $$
 r = \frac{\gamma_c m_{11} + \gamma_c \gamma_s m_{12} - m_{21} - \gamma_s m_{22}}{\chi}, \qquad
 t = \frac{2\gamma_c}{\chi}, \qquad
-R = |r|^2, \qquad T = \frac{\operatorname{Re}\gamma_s}{\operatorname{Re}\gamma_c}\thinspace|t|^2 .
+R = |r|^2, \qquad T = \frac{\mathop{\mathrm{Re}}\gamma_s}{\mathop{\mathrm{Re}}\gamma_c}\thinspace|t|^2 .
 $$
 
 r and t are ratios of U: the tangential E for TE, the tangential H for TM. Beyond total internal
@@ -80,7 +80,7 @@ film). In a film, $\Phi = k\alpha d$: $\partial\Phi/\partial d = k\alpha$ with �
 the index $\partial\alpha/\partial n = n/\alpha$, $\partial\gamma/\partial n$ the same for TE and
 $(\partial\alpha/\partial n)/n^2 - 2\alpha/n^3$ for TM. r and t are quotients of quantities
 linear in M, so $dr = (dN - r\thinspace d\chi)/\chi$, $dt = -t\thinspace d\chi/\chi$, and
-$dR = 2\operatorname{Re}(\bar r\thinspace dr)$, $dT = (\operatorname{Re}\gamma_s/\operatorname{Re}\gamma_c)\thinspace 2\operatorname{Re}(\bar t\thinspace dt)$.
+$dR = 2\mathop{\mathrm{Re}}(\bar r\thinspace dr)$, $dT = (\mathop{\mathrm{Re}}\gamma_s/\mathop{\mathrm{Re}}\gamma_c)\thinspace 2\mathop{\mathrm{Re}}(\bar t\thinspace dt)$.
 A film at the incident wave's in-plane index (α = 0) has no derivative in its index there, and
 is refused. Their sin and cos are libm's ([conventions](conventions.md), "The same numbers on every
 system"), so an optimization on them takes the same path on every system.

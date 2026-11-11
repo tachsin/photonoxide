@@ -192,7 +192,7 @@ pub(crate) fn cases() -> Vec<Case> {
             id: "job/nonlinear-pulse-soliton",
             title: r"The fundamental soliton through a nonlinear job's `[task.pulse]` ($\beta_2 = -0.05$ ps²/m, γ = 1 /(W·m), $T_0 = 0.1$ ps, $P_0 = 5$ W) over five soliton periods, 4000 split steps, 1024 points across 50 $T_0$: the largest difference from the closed form over $\sqrt{P_0}$ (shown)",
             tier: Tier::Analytic,
-            source: r"Agrawal (2019), doi:10.1016/C2018-0-01168-8, Eqs. (5.2.16) and (5.2.20): $u = \operatorname{sech}\tau\thinspace e^{i\xi/2}$, as `nonlinear/nlse-fundamental-soliton`",
+            source: r"Agrawal (2019), doi:10.1016/C2018-0-01168-8, Eqs. (5.2.16) and (5.2.20): $u = \mathop{\mathrm{sech}}\tau\thinspace e^{i\xi/2}$, as `nonlinear/nlse-fundamental-soliton`",
             run: || absolute(soliton(4000), 2e-5),
         },
         Case {

@@ -4,8 +4,10 @@
   // the pairs' joint spectral amplitude. The Materials page's nonlinear view and the run view
   // both draw them from the run's events.
   import type { NonlinearResult } from "../../lib/nonlinear";
+  import { acceptanceText } from "../../lib/acceptance";
   import type { Series } from "../../lib/plot";
   import Plot from "../Plot.svelte";
+  import MathText from "../MathText.svelte";
   import HeatMap from "./HeatMap.svelte";
 
   let { result }: { result: NonlinearResult } = $props();
@@ -36,6 +38,9 @@
     })),
   );
 
+  /** The phase-matching response, as the readouts and the map's switch write it. */
+  const SINC2 = String.raw`$\mathrm{sinc}^2(\Delta k L/2)$`;
+
   const fixed = (v: number | null | undefined, digits = 4) => (v === null || v === undefined || !Number.isFinite(v) ? "–" : v.toPrecision(digits));
 </script>
 
@@ -53,24 +58,24 @@
       </table>
     </div>
     <dl class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-0.5 text-sm">
-      <dt class="faint">Δk₀, no grating</dt><dd class="num">{setup.mismatch_per_um.toPrecision(6)} rad/µm; coherence length {setup.coherence_length_um.toPrecision(5)} µm</dd>
+      <dt class="faint"><MathText text={String.raw`$\Delta k_0$, no grating`} /></dt><dd class="num">{setup.mismatch_per_um.toPrecision(6)} rad/µm; coherence length {setup.coherence_length_um.toPrecision(5)} µm</dd>
       {#if setup.grating}
         <dt class="faint">grating</dt>
-        <dd class="num">period {setup.grating.period_um.toPrecision(6)} µm ({setup.grating.designed ? "designed for the operating point" : "given"}), order {setup.grating.order}, duty {setup.grating.duty}, G_m {setup.grating.fourier_coefficient.toFixed(4)}</dd>
+        <dd class="num">period {setup.grating.period_um.toPrecision(6)} µm ({setup.grating.designed ? "designed for the operating point" : "given"}), order {setup.grating.order}, duty {setup.grating.duty}, <MathText text={`$G_m$ = ${setup.grating.fourier_coefficient.toFixed(4)}`} /></dd>
       {/if}
-      <dt class="faint">Δk at the operating point</dt><dd class="num">{setup.residual_per_um.toPrecision(4)} rad/µm; sinc²(ΔkL/2) {setup.response.toFixed(6)}</dd>
+      <dt class="faint"><MathText text={String.raw`$\Delta k$ at the operating point`} /></dt><dd class="num">{setup.residual_per_um.toPrecision(4)} rad/µm; <MathText text={`${SINC2} = ${setup.response.toFixed(6)}`} /></dd>
       {#if setup.efficiency_percent_per_w_cm2 !== null}
-        <dt class="faint">efficiency η</dt>
+        <dt class="faint"><MathText text={String.raw`efficiency $\eta$`} /></dt>
         <dd class="num">{setup.efficiency_percent_per_w_cm2.toPrecision(5)} %/(W·cm²){setup.overlap_percent_per_w_cm2 !== null ? ` (the overlap's ${setup.overlap_percent_per_w_cm2.toPrecision(5)}, unpoled)` : ""}: {setup.efficiency_from}</dd>
       {/if}
-      {#if setup.gamma_per_w_m !== null}<dt class="faint">γ</dt><dd class="num">{setup.gamma_per_w_m} /(W·m)</dd>{/if}
+      {#if setup.gamma_per_w_m !== null}<dt class="faint"><MathText text={String.raw`$\gamma$`} /></dt><dd class="num">{setup.gamma_per_w_m} /(W·m)</dd>{/if}
       {#if setup.wavelength_acceptance_nm}
         <dt class="faint">acceptance in λ ({setup.tuned})</dt>
-        <dd class="num">{setup.wavelength_acceptance_nm.estimate.toPrecision(4)} nm (Fejer et al.'s estimate){setup.wavelength_acceptance_nm.numerical !== null ? `, ${setup.wavelength_acceptance_nm.numerical.toPrecision(4)} nm between the half maxima` : ""}</dd>
+        <dd class="num">{acceptanceText("wavelength", setup.wavelength_acceptance_nm, setup, map)}</dd>
       {/if}
       {#if setup.temperature_acceptance_k}
         <dt class="faint">acceptance in temperature</dt>
-        <dd class="num">{setup.temperature_acceptance_k.estimate.toPrecision(4)} K{setup.temperature_acceptance_k.numerical !== null ? `, ${setup.temperature_acceptance_k.numerical.toPrecision(4)} K between the half maxima` : ""}</dd>
+        <dd class="num">{acceptanceText("temperature", setup.temperature_acceptance_k, setup)}</dd>
       {/if}
       {#if setup.matched_um !== null}<dt class="faint">phase matched at</dt><dd class="num">{setup.matched_um.toFixed(5)} µm ({setup.tuned})</dd>{/if}
     </dl>
@@ -87,8 +92,8 @@
     <div class="flex items-center gap-2">
       <h3 class="text-sm font-medium">Phase matching</h3>
       <div class="join ml-auto">
-        <button class="btn join-item btn-xs {shown === 'response' ? 'btn-active' : ''}" onclick={() => (shown = "response")}>sinc²(ΔkL/2)</button>
-        <button class="btn join-item btn-xs {shown === 'mismatch' ? 'btn-active' : ''}" onclick={() => (shown = "mismatch")}>Δk</button>
+        <button class="btn join-item btn-xs {shown === 'response' ? 'btn-active' : ''}" onclick={() => (shown = "response")}><MathText text={SINC2} /></button>
+        <button class="btn join-item btn-xs {shown === 'mismatch' ? 'btn-active' : ''}" onclick={() => (shown = "mismatch")}><MathText text={String.raw`$\Delta k$`} /></button>
       </div>
     </div>
     {#if map.across && map.across_values.length}
@@ -120,7 +125,7 @@
 {#if pairs}
   <section class="space-y-1">
     <h3 class="text-sm font-medium">Joint spectral amplitude</h3>
-    <p class="text-xs muted num">purity {pairs.purity.toFixed(4)}, Schmidt number {pairs.schmidt_number.toFixed(3)}; the pump {pairs.pump_bandwidth_nm} nm wide; phase matching {pairs.matching === "sinc" ? "sinc(ΔkL/2)" : "its Gaussian stand-in"}</p>
+    <p class="text-xs muted num">purity {pairs.purity.toFixed(4)}, Schmidt number {pairs.schmidt_number.toFixed(3)}; the pump {pairs.pump_bandwidth_nm} nm wide; phase matching <MathText text={pairs.matching === "sinc" ? String.raw`$\mathrm{sinc}(\Delta k L/2)$` : "its Gaussian stand-in"} /></p>
     <HeatMap x={pairs.idler_um} y={pairs.signal_um} values={pairs.amplitude} xLabel="idler wavelength (µm)" yLabel="signal wavelength (µm)" quantity="|f|" height={300} />
   </section>
 {/if}

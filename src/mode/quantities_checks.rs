@@ -1029,7 +1029,7 @@ pub(crate) fn cases() -> Vec<Case> {
         },
         Case {
             id: "mode/confinement-slab-te",
-            title: r"Confinement of the same slab's TE₀ mode in the silicon, $\int_\text{Si} \operatorname{Re} S_z dA / \int \operatorname{Re} S_z dA$, from the full-vector fields at 2.5 nm",
+            title: r"Confinement of the same slab's TE₀ mode in the silicon, $\int_\text{Si} \mathop{\mathrm{Re}} S_z dA / \int \mathop{\mathrm{Re}} S_z dA$, from the full-vector fields at 2.5 nm",
             tier: Tier::Analytic,
             source: r"the core's share of the exact slab's power (mode::multilayer's power fractions, $\int \lvert E_y \rvert^2$ by layer, the tails in closed form)",
             run: || {
@@ -1068,7 +1068,7 @@ pub(crate) fn cases() -> Vec<Case> {
         },
         Case {
             id: "mode/orthogonality-slab",
-            title: r"Orthogonality of a 1 µm silicon slab's four TE modes of highest index (3.473 in 1.444, 1.55 µm) at 2.5 nm: the largest $\lvert O_{ab} \rvert$ between two of them, $O_{ab} = \langle a, b\rangle / (\operatorname{Re}\langle a, a\rangle \operatorname{Re}\langle b, b\rangle)^{1/2}$, $\langle a, b\rangle = \int (\mathbf E_a \times \mathbf H_b^*)\cdot\hat z \thinspace dA$ (shown)",
+            title: r"Orthogonality of a 1 µm silicon slab's four TE modes of highest index (3.473 in 1.444, 1.55 µm) at 2.5 nm: the largest $\lvert O_{ab} \rvert$ between two of them, $O_{ab} = \langle a, b\rangle / (\mathop{\mathrm{Re}}\langle a, a\rangle \mathop{\mathrm{Re}}\langle b, b\rangle)^{1/2}$, $\langle a, b\rangle = \int (\mathbf E_a \times \mathbf H_b^*)\cdot\hat z \thinspace dA$ (shown)",
             tier: Tier::Analytic,
             source: r"0: a lossless guide's modes carry power independently; on the grid, the product of the fields at the cells' centres leaves the scheme's second-order error",
             run: || {

@@ -8,7 +8,7 @@
 //! G. B. Hocker, W. K. Burns, Appl. Opt. 16, 113 (1977).
 //!
 //! The method assumes the field separates, which a strip's corners break. Its error against
-//! photonoxide's full-vector modes (6.25 × 5 nm grid, quarter domain), for n_eff and for the
+//! photonoxide's full-vector modes (6.25 × 5 nm grid, quarter domain), for $n_\mathrm{eff}$ and for the
 //! group index (from 1.54, 1.55, 1.56 µm, no material dispersion), is printed for each width;
 //! the book states 1.2 % and 2.7 % for 500 nm, against a 2D solver whose 2.443 its own 2.489 is
 //! 1.9 % above.

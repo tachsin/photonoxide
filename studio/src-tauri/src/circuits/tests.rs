@@ -204,7 +204,7 @@ fn a_spectrum_has_every_element_at_every_wavelength() {
 #[test]
 fn every_built_in_circuit_is_complete_and_simulates() {
     let examples = circuit_examples().unwrap();
-    assert_eq!(examples.len(), 4);
+    assert_eq!(examples.len(), 7);
     for e in examples {
         assert_eq!(format!("{}.toml", e.chip.name), e.file);
         assert!(!e.chip.about.is_empty(), "{}", e.file);

@@ -137,14 +137,14 @@ $$
 $$
 
 where $\varepsilon_\infty$ collects the resonances far above $\omega$, 1 in vacuum. With the
-$e^{-i\omega t}$ convention a lossy material has $\operatorname{Im}\varepsilon \gt 0$
+$e^{-i\omega t}$ convention a lossy material has $\mathop{\mathrm{Im}}\varepsilon \gt 0$
 ([conventions](../docs/methods/conventions.md)). The real part,
 $\Delta\varepsilon\thinspace\omega_0^2(\omega_0^2 - \omega^2)/[(\omega_0^2 - \omega^2)^2 + \gamma^2\omega^2]$,
 is positive below the resonance and negative above it; the imaginary part is a line of width
 $\gamma$ at $\omega_0$. For a weak oscillator, $n \approx 1 + \chi/2$, and the real part's extremes
 lie near $\omega_0(1 \mp \gamma/2)$: $n$ falls with rising frequency over a band about $\gamma$ wide,
 the anomalous dispersion Sellmeier explained. For a strong one with little damping,
-$\operatorname{Re}\varepsilon \lt 0$ from $\omega_0$ to
+$\mathop{\mathrm{Re}}\varepsilon \lt 0$ from $\omega_0$ to
 $\omega_0\sqrt{(\varepsilon_\infty + \Delta\varepsilon)/\varepsilon_\infty}$, where
 $\varepsilon = 0$ when $\gamma = 0$: across that band $n$ is small, $\kappa$ large, and the
 material reflects. Several resonances add, $\varepsilon = \varepsilon_\infty + \sum_j$, which is

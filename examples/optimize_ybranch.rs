@@ -10,8 +10,9 @@
 //!
 //! **The problem** (Zhang, Section 2.1, Fig. 1(a)): a 500 × 220 nm silicon strip in oxide
 //! widening over a 2 µm taper to 1.2 µm, where two 500 nm arms leave it 200 nm apart (their
-//! minimum feature). The taper's width is the spline through w1 … w13 at 13 points of equal
-//! spacing; w1 and w13 are its stated ends, 0.5 and 1.2 µm, and w2 … w12 are the variables, each
+//! minimum feature). The taper's width is the spline through $w_1, \dots, w_{13}$ at 13 points of
+//! equal spacing; $w_1$ and $w_{13}$ are its stated ends, 0.5 and 1.2 µm, and $w_2, \dots, w_{12}$
+//! are the variables, each
 //! between 0.5 and 1.6 µm here (the paper gives no bounds; its Table 1 runs from 0.5 to 1.4 µm).
 //! The figure of merit is "the power in the TE0 mode at either branch", "at wavelength 1550 nm".
 //! The device is photonoxide's Y-branch (`device::StripYBranch`): the not-a-knot spline, with the
@@ -23,7 +24,7 @@
 //! evaluations, its default coefficients (Clerc and Kennedy's: inertia 0.7298, both
 //! accelerations 1.49618; the paper gives none). Each evaluation is a 2D FDFD on the device's
 //! plane: the effective index method's, the 220 nm slab's TE index inside the silicon and the
-//! oxide's outside, H along z, on 20 nm cells, each cell's permittivity its area's mean (the
+//! oxide's outside, $H$ along $z$, on 20 nm cells, each cell's permittivity its area's mean (the
 //! taper's and the leads' areas exactly along each of 8 sub-columns, the arms' from 4 × 4
 //! points of the device's drawing). That is the device's own 2D model assembled for speed: a
 //! solve takes about 0.1 s where the device's takes seconds. Its figure is rounded to 1e-9, so
@@ -32,7 +33,7 @@
 //!
 //! **What is compared.** In 2D, Zhang et al.'s design reached "sub-0.2 dB" (Section 2.1): the
 //! device's 2D model of ours against that. Zhang et al. found 0.13 dB of insertion loss in 3D
-//! FDTD at a mesh of λ/34 for their design; #244 asks for our 3D loss of the optimized taper
+//! FDTD at a mesh of $\lambda/34$ for their design; #244 asks for our 3D loss of the optimized taper
 //! within 0.05 dB of it, on a converged grid. `--full` solves it in 3D FDFD on the grids of the
 //! devices.md study (cubic cells of 44, 31.4 and 22 nm, the film in 5, 7 and 10 cells, stretched
 //! PMLs of 8, 11 and 16 cells, 0.4 µm of oxide around, each port to a relative residual of 1e-9;
@@ -47,7 +48,7 @@
 //! 0.05 dB asked. Reported, not checked, and listed for #595; the grids' uncertainty is also
 //! above a third of that tolerance, so a check would want a finer grid. Table 1's design is
 //! better in 3D (0.168 dB) than the swarm's: the swarm has found the 2D plane's errors, which
-//! for Table 1's design are 0.12 dB of loss (devices.md), and the dip it puts at w4 doesn't
+//! for Table 1's design are 0.12 dB of loss (devices.md), and the dip it puts at $w_4$ doesn't
 //! survive in 3D.
 //!
 //! **A gap we keep open.** The same study finds Zhang et al.'s own design, Table 1, at

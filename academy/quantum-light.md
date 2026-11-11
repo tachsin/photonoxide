@@ -464,7 +464,7 @@ Loss is where the two designs differ. In Reck's triangle the paths cross differe
 cells, so a uniform loss per cell becomes an unbalanced loss between paths, which no reprogramming
 removes. In the rectangle every path crosses the same number of cells, so the loss is a common
 factor and the unitary keeps its shape. The chart is the fidelity
-$\lvert\operatorname{tr}(U^\dagger U_\text{exp})\rvert^2/(N\operatorname{tr}(U_\text{exp}^\dagger U_\text{exp}))$
+$\lvert\mathop{\mathrm{tr}}(U^\dagger U_\text{exp})\rvert^2/(N\mathop{\mathrm{tr}}(U_\text{exp}^\dagger U_\text{exp}))$
 (Clements et al., Eq. 6), averaged over Haar-random unitaries, as each cell loses the same power on
 both outputs.
 
@@ -527,12 +527,12 @@ outputs sums over every way the photons can reach it, and the sum is a permanent
 in the inputs $c_1 \ldots c_n$ and the outputs $r_1 \ldots r_n$,
 
 $$
-P = \frac{\lvert\operatorname{Per}(M)\rvert^2}{\prod_r m_r!}, \qquad M_{jk} = U_{r_j c_k},
+P = \frac{\lvert\mathop{\mathrm{Per}}(M)\rvert^2}{\prod_r m_r!}, \qquad M_{jk} = U_{r_j c_k},
 $$
 
 $m_r$ the photons in output $r$ ([Aaronson and Arkhipov, 2013](https://doi.org/10.4086/toc.2013.v009a004)).
-The permanent is the determinant without its signs, $\operatorname{Per}(M) = \sum_\sigma\prod_j M_{j\sigma(j)}$
-over the $n!$ permutations. Photons told apart give $\operatorname{Per}(\lvert M\rvert^2)/\prod m_r!$, the
+The permanent is the determinant without its signs, $\mathop{\mathrm{Per}}(M) = \sum_\sigma\prod_j M_{j\sigma(j)}$
+over the $n!$ permutations. Photons told apart give $\mathop{\mathrm{Per}}(\lvert M\rvert^2)/\prod m_r!$, the
 probabilities of classical particles, each photon going its own way.
 
 ::chart boson-distribution
@@ -541,14 +541,14 @@ The two distributions differ most where photons share a mode. Three photons in a
 unitary of six modes (seed 1) leave with two or more in one output with probability 0.566 when
 alike and 0.328 when told apart, and all three in one output is exactly $3! = 6$ times as likely
 alike: for that pattern every term of the permanent is the same product, so
-$\lvert\operatorname{Per}\rvert^2 = (n!)^2\prod\lvert U\rvert^2$ against $n!\prod\lvert U\rvert^2$.
+$\lvert\mathop{\mathrm{Per}}\rvert^2 = (n!)^2\prod\lvert U\rvert^2$ against $n!\prod\lvert U\rvert^2$.
 This **bunching** is the many-photon version of the coupler's dip.
 
 ### Why it is hard {theory}
 
 The determinant is easy because Gaussian elimination keeps it: adding a multiple of one row to
 another leaves it unchanged. The permanent has no such invariance. Ryser's formula,
-$\operatorname{Per}(A) = (-1)^n\sum_{S\subseteq[n]}(-1)^{\lvert S\rvert}\prod_i\sum_{j\in S}a_{ij}$,
+$\mathop{\mathrm{Per}}(A) = (-1)^n\sum_{S\subseteq[n]}(-1)^{\lvert S\rvert}\prod_i\sum_{j\in S}a_{ij}$,
 sums over the $2^n$ subsets of columns, and Glynn's over half as many sign vectors; in Gray-code
 order consecutive terms differ by one column or one sign, so each costs $n$ operations and the
 whole about $n2^n$ ([Lundow and Markström, 2022](https://doi.org/10.1016/j.jcp.2022.110990);
@@ -574,11 +574,13 @@ were the first many-mode test on a chip: their correlations violated a classical
 standard deviations. photonoxide's coupled-mode array with their coupling, $C = 5$ per mm over an
 effective 782 µm, gives their Eq. 4 for the correlations as the permanent formula to $10^{-17}$,
 and the bound violated at 70 pairs of guides for inputs (0, 1) and 56 for (−1, 1) by photons alike
-and nowhere by photons told apart, as they report. Their simulated correlation matrices are **not
-reproduced**: the tallest bars of their Figs. 3B, 3D and 4B are 0.0178, 0.0237 and 0.0147, ours
-0.0236, 0.0361 and 0.0162; only Fig. 4D agrees, 0.0266 against our 0.0264. No single coupling
-length from 2 to 6 matches all four, so their simulation's array differs from the one their text
-gives; their supplement, which describes the spreading regions, isn't in hand.
+and nowhere by photons told apart, as they report. Their simulated correlation matrices show only
+the 121 pairs of guides they measured, those whose numbers differ by an even number, since their
+fibre arrays have twice the pitch of the output guides. On those pairs their Figs. 3B, 3D and 4D
+agree with ours bar by bar to 2.4% of the tallest bar (0.0178, 0.0237 and 0.0266 against our
+0.0176, 0.0239 and 0.0264). Their Fig. 4B, the same input as 4D with photons told apart, is
+**not reproduced**: its tallest bar is 0.0147 against our 0.0162, and its bars fit a 3% longer
+array than the other three panels'.
 
 ::validation quantum/peruzzo-correlations quantum/peruzzo-classical-bound
 
@@ -870,7 +872,7 @@ u = \begin{pmatrix} 1 - \sqrt 2 & 2^{-1/4} & (3/\sqrt 2 - 2)^{1/2} \\ 2^{-1/4} &
 $$
 
 kept when the second mode holds one photon and the third none. The amplitude for $k$ photons in the
-first mode is $\langle k, 1, 0\rvert U\lvert k, 1, 0\rangle = \operatorname{Per}(u_{[k\cdot 1, 2]})/k!$, the
+first mode is $\langle k, 1, 0\rvert U\lvert k, 1, 0\rangle = \mathop{\mathrm{Per}}(u_{[k\cdot 1, 2]})/k!$, the
 permanent of $u$'s rows and columns of mode 1 repeated $k$ times and of mode 2: $u_{22} = 1/2$ for
 $k = 0$, $u_{11}u_{22} + u_{12}u_{21} = 1/2$ for $k = 1$, and $u_{11}^2u_{22} + 2u_{11}u_{12}u_{21} = -1/2$ for
 $k = 2$. The sign flips, and the gate succeeds with $(1/2)^2 = 1/4$. Two of them make a conditional
@@ -939,7 +941,7 @@ The Chip page's **Quantum** tab computes every part of this lesson on a chip of 
 S-matrices its components compute at their fidelities; open [the Mach–Zehnder chip](../circuits/mzi.toml)
 to try it.
 
-- **Photons:** photons on each port (up to 8), every output pattern for photons alike ($\lvert\operatorname{Per}\rvert^2$)
+- **Photons:** photons on each port (up to 8), every output pattern for photons alike ($\lvert\mathop{\mathrm{Per}}\rvert^2$)
   and told apart, the bunching, each port's photon numbers, and $\lvert S\rvert$ between the ports;
   the chip's loss dilated to loss modes.
 - **HOM dip:** two Gaussian photons, one delayed, through the chip's own $S(\omega)$ over its sweep,
@@ -957,14 +959,16 @@ to try it.
 The Materials page's **Photon-pair sources** designs a source: a guide, a catalogue crystal, a ring
 (with a second channel at the pump) or a guide pumped in two modes; its joint spectrum, Schmidt
 weights, purity, brightness where the library defines one, heralding through each arm's filter and
-coupler, and pairs per pulse with $g^{(2)}$ and the multi-pair share.
+coupler, and pairs per pulse with $g^{(2)}$ and the multi-pair share. For a guide or a crystal,
+its **Squeezing at high gain** cuts the source into slices along its length and shows how far the
+squeezing and the squeezed modes leave the Schmidt model's as the gain grows.
 
 What the library does not do: it has no single-photon emitters beyond their Purcell and β factors
 from FDTD, and no quantum-dot sources; detectors are their absorption, from transfer matrices and the
 mode solver, not their timing or dark counts; an S-matrix from FDTD isn't a device's fidelity yet,
 one launch a port; squeezing is lossless in the amplifier, and broadband squeezing at high gain,
-whose modes change with the gain, is a dense map of a few hundred frequencies, not yet in the
-studio; and it computes no GKP or other non-Gaussian
+whose modes change with the gain, is a dense map of a few hundred frequencies, lossless and with
+an undepleted pump; and it computes no GKP or other non-Gaussian
 states, decoders or thresholds of its own. Two comparisons on the detector side don't agree:
 Pernice et al.'s (2012) NbN wires on a silicon strip absorb
 1.01 ± 0.02 dB/µm by their simulation and 0.98 ± 0.10 measured, where the mode solver with the

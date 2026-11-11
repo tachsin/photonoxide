@@ -4,6 +4,7 @@
   // search over the papers kept (the feed, the reading list and every paper opened).
   import { Search } from "@lucide/svelte";
 
+  import CitedList from "../components/papers/CitedList.svelte";
   import PaperFeed from "../components/papers/PaperFeed.svelte";
   import PaperRow from "../components/papers/PaperRow.svelte";
   import PaperView from "../components/papers/PaperView.svelte";
@@ -80,6 +81,7 @@
       <div role="tablist" aria-label="Papers" class="tabs tabs-border mt-6">
         <button role="tab" class="tab" class:tab-active={papers.tab === "feed"} aria-selected={papers.tab === "feed"} onclick={() => (papers.tab = "feed")}>Latest</button>
         <button role="tab" class="tab" class:tab-active={papers.tab === "list"} aria-selected={papers.tab === "list"} onclick={() => (papers.tab = "list")}>Reading list{papers.list.length ? ` (${papers.list.length})` : ""}</button>
+        <button role="tab" class="tab" class:tab-active={papers.tab === "cited"} aria-selected={papers.tab === "cited"} onclick={() => (papers.tab = "cited")} title="Every source photonoxide cites, and where">Cited</button>
         {#if papers.query.trim() && !pastedId}
           <button role="tab" class="tab" class:tab-active={papers.tab === "search"} aria-selected={papers.tab === "search"} onclick={() => (papers.tab = "search")}>Search</button>
         {/if}
@@ -90,6 +92,8 @@
           <PaperFeed />
         {:else if papers.tab === "list"}
           <ReadingList />
+        {:else if papers.tab === "cited"}
+          <CitedList />
         {:else}
           <div class="-mx-3">
             {#each results ?? [] as r (r.id)}

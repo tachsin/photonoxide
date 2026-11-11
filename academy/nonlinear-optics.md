@@ -216,7 +216,7 @@ papers:
     doi: 10.1364/OPTICA.3.000020
     year: 2016
     role: current
-    note: "Silicon nitride rings made by filling trenches and polishing, Q to 3.7 × 10⁶, and a single-soliton comb in a 238.2 µm ring with a 1.75 × 0.85 µm guide, its measured D₂/2π 0.49 MHz against 0.26 simulated."
+    note: "Silicon nitride rings made by filling trenches and polishing, Q to 3.7 × 10⁶, and a single-soliton comb in a 238.2 µm ring with a 1.75 × 0.85 µm guide, its measured D₂/2π 0.49 MHz in the text (1.90 MHz by the polynomial drawn in its Fig. 5(c)) against 0.26 simulated."
   - cite: "M. Pu, L. Ottaviano, E. Semenova, K. Yvind, Optica 3, 823 (2016)"
     title: "Efficient frequency comb generation in AlGaAs-on-insulator"
     doi: 10.1364/OPTICA.3.000823
@@ -313,7 +313,7 @@ tabulated by $d_{ijk} = \tfrac12\chi^{(2)}_{ijk}$ (Boyd, Eq. 1.5.22), written $d
 pair $jk$ contracted to one index $l$ (Voigt's notation: $xx \to 1$, $yy \to 2$, $zz \to 3$,
 $yz \to 4$, $xz \to 5$, $xy \to 6$). Lithium niobate's largest is $d_{33}$, which couples fields
 all along its $c$ axis. photonoxide writes each wave's field as the real part of a complex
-amplitude, $\operatorname{Re}(E e^{-i\omega t})$; in that convention the polarization's amplitude
+amplitude, $\mathop{\mathrm{Re}}(E e^{-i\omega t})$; in that convention the polarization's amplitude
 at $2\omega$ is $\varepsilon_0\sum d_{ijk}E_jE_k$, and at a sum frequency
 $2\varepsilon_0\sum d_{ijk}E_{1j}E_{2k}$, since $\tfrac14(E_1e^{-i\omega_1t} + E_2e^{-i\omega_2t} + \text{c.c.})^2$ holds $\tfrac14E_1^2$ at $2\omega_1$ and $\tfrac12E_1E_2$ at $\omega_1 + \omega_2$. A crystal is put on the chip by turning its tensor into the guide's frame, $d'_{abc} = \sum M_{ai}M_{bj}M_{ck}d_{ijk}$ ([the write-up](../docs/methods/nonlinear.md#in-waveguides)).
 
@@ -402,7 +402,7 @@ photonoxide's convention.
 
 ### The derivation {theory}
 
-Take plane waves along $z$, each $\operatorname{Re}[A_j(z)e^{i(k_jz - \omega_jt)}]$ with $k_j = n_j\omega_j/c$. The wave equation with the nonlinear polarization as a source,
+Take plane waves along $z$, each $\mathop{\mathrm{Re}}[A_j(z)e^{i(k_jz - \omega_jt)}]$ with $k_j = n_j\omega_j/c$. The wave equation with the nonlinear polarization as a source,
 $\nabla^2E - (n^2/c^2)\,\partial_t^2E = \mu_0\,\partial_t^2P_\text{NL}$, for the amplitude at
 $\omega_j$ reads
 
@@ -848,9 +848,11 @@ and differentiated; silica's come out as its Sellmeier formula's Taylor series t
 The silicon nitride strip of Section 8 has $\beta_2 = -0.1547$ ps²/m for TE₀ (10 nm cells, 0.24 %
 from 20 nm), and its fundamental soliton of 100 fs needs 18.1 W. In a ring of
 [Pfeiffer et al. (2016)](https://doi.org/10.1364/OPTICA.3.000020)'s free spectral range, 95.65 GHz,
-this straight guide gives $D_2/2\pi = 1.426$ MHz for TM₀; they measured 0.49 MHz and simulated
-0.26 for their 238.2 µm ring. Their bend and the indices they simulated with aren't given, so the
-factor of three is not reproduced.
+this straight guide gives $D_2/2\pi = 1.426$ MHz for TM₀. Their text gives 0.49 MHz measured
+and 0.26 simulated for their 238.2 µm ring, but the polynomial they drew through their measured
+resonances (their Fig. 5(c), read from the PDF's vector paths) is 1.90 MHz: the text and the
+figure disagree by 3.9 times. Against the figure ours is 25 % low; their bend and the indices
+they simulated with aren't given.
 
 ## 10. What does four-wave mixing need for gain?
 
@@ -961,7 +963,7 @@ an MgF₂ resonance to the red: past noisy comb states, the transmission fell in
 a state of pulses on a weak background, dissipative Kerr solitons; a single soliton's spectrum had
 a sech² envelope 1.6 THz wide at 3 dB. Without loss and drive the equation's soliton is
 $\sqrt{2\zeta_0}\,\mathrm{sech}(\sqrt{2\zeta_0}\,\theta)$ in the angle, $W = (d_2/\zeta_0)^{1/2}$
-wide with $d_2 = D_2/\kappa$, and the drive must make up its loss, $2\int\lvert\psi\rvert^2 = 2\operatorname{Re} \int f\psi^*$, which gives $\cos\varphi_0 = (8\zeta_0)^{1/2}/(\pi f)$ for its phase against the
+wide with $d_2 = D_2/\kappa$, and the drive must make up its loss, $2\int\lvert\psi\rvert^2 = 2\mathop{\mathrm{Re}} \int f\psi^*$, which gives $\cos\varphi_0 = (8\zeta_0)^{1/2}/(\pi f)$ for its phase against the
 drive: a root only up to $\zeta_0 = \pi^2f^2/8$. The chart settles the soliton from that
 approximation by split-step on 512 lines: at $f = 3$, $d_2 = 0.004$ and $\zeta_0 = 10$ its peak is
 20.74 and its width 0.03423 rad, against the approximation's 19.50 and 0.03525.

@@ -1,41 +1,56 @@
 <script lang="ts">
-  // The navigation rail: the seven pages where work happens, and at its foot the System group
-  // (Validation, Libraries, Benchmarks), folded, beside Settings. It folds to its icons and back
+  // The navigation rail: the seven pages where work happens, and at its foot the More group (the System pages)
+  // (Validation, Libraries, Benchmarks, Settings), folded. It folds to its icons and back
   // with one animation of its width: the icons stay where they are and the labels are clipped
-  // and faded, so nothing in it moves. At its very foot, what is running (RailActivity). Folded, an item says what it is in a hint beside it.
+  // and faded, so nothing in it moves. At its very foot, one row: what is running (RailActivity)
+  // and the arrow that folds it. Folded, an item says what it is in a hint beside it.
   // Under Components, Chip, the Academy and Materials, while that page is shown, its tree (its
   // parts, its lessons, its materials) opens in a card of its own: the pages stay in sight and only the tree scrolls.
-  import { ChevronRight, ChevronsLeft, MonitorCog } from "@lucide/svelte";
+  // Its foot drags it taller or shorter, a height kept for every tree; a double click fits it back.
+  import { ChevronRight, ChevronsLeft, LayoutGrid } from "@lucide/svelte";
   import { untrack, type Component } from "svelte";
 
   import { app, go, type Page } from "../lib/app.svelte";
   import { PAGES, RAIL, SYSTEM } from "../lib/pages";
-  import { rail, toggleTree, unfold } from "../lib/rail.svelte";
+  import { rail, setCollapsed, setTreeHeight, toggleTree, unfold } from "../lib/rail.svelte";
   import Logo from "./Logo.svelte";
   import RailActivity from "./RailActivity.svelte";
   import AcademyTree from "./rail/AcademyTree.svelte";
   import ChipTree from "./rail/ChipTree.svelte";
   import ComponentsTree from "./rail/ComponentsTree.svelte";
+  import FabricationTree from "./rail/FabricationTree.svelte";
   import MaterialsTree from "./rail/MaterialsTree.svelte";
 
-  let collapsed = $state(stored("rail") === "collapsed");
+  const collapsed = $derived(rail.collapsed);
 
   /** The pages with a tree in the rail. */
-  const TREES: Partial<Record<Page, Component>> = { components: ComponentsTree, chip: ChipTree, academy: AcademyTree, materials: MaterialsTree };
+  const TREES: Partial<Record<Page, Component>> = { components: ComponentsTree, chip: ChipTree, fabrication: FabricationTree, academy: AcademyTree, materials: MaterialsTree };
   /** The tree open: the shown page's, unless it was folded away or the rail is folded to its icons. */
   const tree = $derived(!collapsed && TREES[app.page] && !rail.shut[app.page] ? app.page : null);
 
-  /** An item of a page with a tree: going to it opens its tree; on it, the click folds or opens the tree. */
+  /** A page's item clicked. A page with a tree: going to it opens the rail on its tree (folded
+   *  to its icons, it opens); on it, the click folds or opens the tree. A page without one: the
+   *  rail stays as it is. A press in the page folds the rail (App.svelte). */
   function pick(page: Page) {
     if (!TREES[page]) return go(page);
     if (app.page !== page) {
       go(page);
-      toggleTree(page, true);
-    } else if (collapsed) {
-      toggle();
+      // its list is what it is picked from: the rail opens on it, folded to its icons or not
+      if (collapsed) setCollapsed(false);
       toggleTree(page, true);
     } else {
-      toggleTree(page);
+      toggleShownTree();
+    }
+  }
+
+  /** The shown page's tree folded away and back (Ctrl+B, or its item clicked); the rail opened
+   *  for it when folded to its icons. */
+  function toggleShownTree() {
+    if (collapsed) {
+      toggle();
+      toggleTree(app.page, true);
+    } else {
+      toggleTree(app.page);
     }
   }
 
@@ -43,7 +58,7 @@
     // Ctrl+B folds the shown page's tree away and back
     if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !app.palette && e.key.toLowerCase() === "b" && TREES[app.page]) {
       e.preventDefault();
-      pick(app.page);
+      toggleShownTree();
     }
   }
 
@@ -71,12 +86,19 @@
   }
 
   function toggle() {
-    collapsed = !collapsed;
+    setCollapsed(!collapsed);
     hint = null;
-    store("rail", collapsed ? "collapsed" : "open");
   }
 
   function toggleSystem() {
+    // the rail folded to its icons: it opens on the group's pages, named, to pick from
+    if (collapsed) {
+      setCollapsed(false);
+      systemOpen = true;
+      hint = null;
+      store("rail-system", "open");
+      return;
+    }
     // folding it while one of its pages is shown leaves that page shown: the group's row is lit
     systemOpen = !systemOpen;
     hint = null;
@@ -112,6 +134,46 @@
     onblur: () => hide(label),
   });
 
+  /** The open tree's box, measured when a drag of its foot starts. */
+  let treeBox = $state<HTMLElement>();
+  /** A dragged height kept between a short list and the window's. */
+  const fit = (h: number) => Math.min(Math.max(h, 96), Math.max(96, window.innerHeight - 120));
+
+  /** Drags the tree's foot: taller than the pages leave it, the pages under it scroll. */
+  function resizeTree(e: PointerEvent) {
+    if (e.button !== 0 || !treeBox) return;
+    e.preventDefault();
+    const handle = e.currentTarget as HTMLElement;
+    handle.setPointerCapture(e.pointerId);
+    const [start, from] = [e.clientY, treeBox.getBoundingClientRect().height];
+    const cursor = document.body.style.cursor;
+    document.body.style.cursor = "row-resize";
+    const move = (m: PointerEvent) => setTreeHeight(fit(from + m.clientY - start), false);
+    const done = () => {
+      handle.removeEventListener("pointermove", move);
+      handle.removeEventListener("pointerup", done);
+      handle.removeEventListener("pointercancel", done);
+      document.body.style.cursor = cursor;
+      if (rail.treeHeight !== null) setTreeHeight(rail.treeHeight);
+    };
+    handle.addEventListener("pointermove", move);
+    handle.addEventListener("pointerup", done);
+    handle.addEventListener("pointercancel", done);
+  }
+
+  /** The arrow keys on the tree's foot move it by a row or two; Enter fits it back to the pages. */
+  function resizeTreeKey(e: KeyboardEvent) {
+    if (!treeBox) return;
+    const step = e.key === "ArrowDown" ? 24 : e.key === "ArrowUp" ? -24 : 0;
+    if (step) {
+      e.preventDefault();
+      setTreeHeight(fit(treeBox.getBoundingClientRect().height + step));
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      setTreeHeight(null);
+    }
+  }
+
   // a label: clipped by the rail as it narrows, and faded, never taken out of the layout
   const LABEL = "min-w-0 flex-1 overflow-hidden text-left whitespace-nowrap transition-opacity duration-200 motion-reduce:transition-none";
   const ITEM = "relative flex w-full items-center gap-3 rounded-lg px-3 py-2 text-[13.5px] transition-colors";
@@ -134,7 +196,7 @@
     aria-expanded={hasTree && on ? tree === page : undefined}
     {...hinted(p.label, p.hint)}
   >
-    {#if on}<span class="absolute top-1.5 bottom-1.5 left-0 w-[3px] rounded-full bg-primary"></span>{/if}
+    {#if on}<span class="absolute top-1.5 bottom-1.5 left-0 w-0.75 rounded-full bg-primary"></span>{/if}
     <span class="shrink-0"><Icon size={18} strokeWidth={on ? 2.2 : 1.8} /></span>
     <span class={LABEL} class:opacity-0={collapsed}>{p.label}</span>
     {#if hasTree && on}
@@ -149,41 +211,65 @@
   style="width: {collapsed ? 58 : tree ? 264 : 224}px"
   aria-label="Pages"
 >
-  <button class="flex items-center gap-2.5 py-4 pr-2 pb-5 pl-3.5 text-left" onclick={() => go("home")} {...hinted("photonoxide", `studio ${app.state?.version ?? ""}`)} title={collapsed ? undefined : "photonoxide"}>
-    <span class="shrink-0"><Logo size={30} /></span>
-    <span class="{LABEL} leading-tight" class:opacity-0={collapsed}>
-      <span class="block text-[15px] font-semibold tracking-tight">photonoxide</span>
-      <span class="block text-[11px] faint">studio {app.state?.version}</span>
+  <!-- the mark, 40 px with its warm glow, centred on the folded rail's 58 px (9 px in); beside
+       it the name, and under it the program and its version -->
+  <button class="group flex items-center gap-3 pt-4 pr-2 pb-3.5 pl-2.25 text-left" onclick={() => go("home")} {...hinted("photonoxide", `studio ${app.state?.version ?? ""}`)} title={collapsed ? undefined : "photonoxide: home"}>
+    <span class="shrink-0 transition-transform duration-200 drop-shadow-[0_3px_8px_rgba(183,65,14,0.35)] group-hover:scale-105 motion-reduce:transition-none"><Logo size={40} /></span>
+    <span class={LABEL} class:opacity-0={collapsed}>
+      <span class="block text-[17px] leading-none font-bold tracking-tight">photonoxide</span>
+      <span class="mt-1.5 flex items-center gap-1.5">
+        <span class="text-[10px] leading-none font-semibold tracking-[0.16em] text-base-content/50 uppercase">Studio</span>
+        {#if app.state?.version}<span class="rounded-full bg-base-content/8 px-1.5 py-px text-[10px] leading-tight num text-base-content/60">v{app.state.version}</span>{/if}
+      </span>
     </span>
   </button>
+  <div class="mx-3 mb-2 border-t border-base-content/8"></div>
 
-  <!-- the pages, always in sight; the open tree takes the height left and is the only part that scrolls -->
-  <div class="flex min-h-0 flex-1 flex-col gap-0.5 overflow-hidden px-2">
+  <!-- the pages, always in sight; the open tree takes the height left and is the only part that
+       scrolls, unless its foot was dragged: then it keeps that height, and taller than the pages
+       leave it, the pages under it scroll with it -->
+  <div class="flex min-h-0 flex-1 flex-col gap-0.5 px-2 {rail.treeHeight === null ? 'overflow-hidden' : 'overflow-x-hidden overflow-y-auto'}">
     {#each RAIL as page (page)}
       <div class="shrink-0">{@render item(page)}</div>
       {#if tree === page}
         {@const Tree = TREES[page]!}
-        <div class="flex min-h-0 flex-1 flex-col py-1 pl-2" transition:unfold={{ duration: 220 }}>
+        <div
+          bind:this={treeBox}
+          class="flex min-h-0 flex-col pt-1 pl-2 {rail.treeHeight === null ? 'flex-1' : 'shrink-0'}"
+          style={rail.treeHeight === null ? undefined : `height: ${rail.treeHeight}px`}
+          transition:unfold={{ duration: 220 }}
+        >
           <div class="min-h-0 flex-1 overflow-x-hidden overflow-y-auto rounded-xl border border-base-content/8 bg-base-100/70 p-1.5 shadow-sm" aria-label="{PAGES[page].label}: its list">
             <Tree />
           </div>
+          <!-- its foot: dragged, the list keeps its height; a double click fits it back to the pages -->
+          <button
+            class="group flex h-2.5 w-full shrink-0 cursor-row-resize touch-none items-center justify-center"
+            onpointerdown={resizeTree}
+            ondblclick={() => setTreeHeight(null)}
+            onkeydown={resizeTreeKey}
+            title="Drag to resize the list; double-click to fit it to the menu"
+            aria-label="Resize the list (arrow keys; Enter fits it to the menu)"
+          >
+            <span class="h-0.75 w-10 rounded-full bg-base-content/20 opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100"></span>
+          </button>
         </div>
       {/if}
     {/each}
   </div>
 
   <div class="shrink-0 space-y-0.5 overflow-x-hidden px-2 pt-2 pb-3">
-    <!-- the System group: a row that folds its pages away, lit while one of them is shown and they are folded -->
+    <!-- the More group (the System pages): a row that folds its pages away, lit while one of them is shown and they are folded -->
     <button
       class="{ITEM} {tone(inSystem && !systemOpen)}"
       onclick={toggleSystem}
-      title={collapsed ? undefined : "Validation, Libraries and Benchmarks"}
-      aria-label="System"
+      title={collapsed ? undefined : "Mission, Validation, Libraries, Benchmarks and Settings"}
+      aria-label="More"
       aria-expanded={systemOpen}
-      {...hinted("System", systemOpen ? "Fold Validation, Libraries and Benchmarks away" : "Validation, Libraries and Benchmarks")}
+      {...hinted("More", systemOpen ? "Fold Mission, Validation, Libraries, Benchmarks and Settings away" : "Mission, Validation, Libraries, Benchmarks and Settings")}
     >
-      <span class="shrink-0"><MonitorCog size={18} strokeWidth={1.8} /></span>
-      <span class={LABEL} class:opacity-0={collapsed}>System</span>
+      <span class="shrink-0"><LayoutGrid size={18} strokeWidth={1.8} /></span>
+      <span class={LABEL} class:opacity-0={collapsed}>More</span>
       <span class="shrink-0 transition-[transform,opacity] duration-200 motion-reduce:transition-none" class:rotate-90={systemOpen} class:opacity-0={collapsed}><ChevronRight size={15} /></span>
     </button>
     {#if systemOpen}
@@ -192,21 +278,21 @@
         {#each SYSTEM as page (page)}{@render item(page)}{/each}
       </div>
     {/if}
-    <div class="mx-3 my-1.5 border-t border-base-content/8"></div>
-    {@render item("settings")}
-    <button
-      class="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-[13px] text-base-content/50 hover:bg-base-content/5"
-      onclick={toggle}
-      title={collapsed ? undefined : "Fold the menu to its icons"}
-      aria-label={collapsed ? "Expand the menu" : "Collapse the menu"}
-      aria-expanded={!collapsed}
-      {...hinted("Expand the menu", "Show the pages' names")}
-    >
-      <!-- one arrow, turned: it points the way the rail will go -->
-      <span class="shrink-0 transition-transform duration-200 motion-reduce:transition-none" class:rotate-180={collapsed}><ChevronsLeft size={18} /></span>
-      <span class={LABEL} class:opacity-0={collapsed}>Collapse</span>
-    </button>
-    <RailActivity {collapsed} />
+    <!-- one row: what is running, and the arrow that folds the rail; stacked when it is folded -->
+    <div class="mt-1 flex gap-0.5 border-t border-base-content/8 pt-1.5 {collapsed ? 'flex-col' : 'items-center'}">
+      <div class="min-w-0 flex-1"><RailActivity {collapsed} /></div>
+      <button
+        class="grid h-9 shrink-0 place-items-center rounded-lg text-base-content/50 transition-colors hover:bg-base-content/5 hover:text-base-content {collapsed ? 'w-full' : 'w-9'}"
+        onclick={toggle}
+        title={collapsed ? undefined : "Fold the menu to its icons"}
+        aria-label={collapsed ? "Expand the menu" : "Collapse the menu"}
+        aria-expanded={!collapsed}
+        {...hinted("Expand the menu", "Show the pages' names")}
+      >
+        <!-- one arrow, turned: it points the way the rail will go -->
+        <span class="transition-transform duration-200 motion-reduce:transition-none" class:rotate-180={collapsed}><ChevronsLeft size={18} /></span>
+      </button>
+    </div>
   </div>
 </nav>
 

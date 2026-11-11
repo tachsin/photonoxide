@@ -18,7 +18,8 @@
 //    so the status bar shows no one's home folder, with a WebView2 profile of its own in a temporary
 //    folder and the DevTools port 9228 (--port changes it).
 // 3. Plays each scene with a drawn pointer that moves smoothly, screencasting the page at
-//    1280 x 760. A long run is recorded as a time-lapse, with a badge saying how much faster.
+//    1440 x 900 (the window sized and placed to fit the screen's work area, behind the others).
+//    A long run is recorded as a time-lapse, with a badge saying how much faster.
 // 4. Closes the program (by its process id), then resamples each scene to a steady frame rate,
 //    crossfades between takes and from the end back to the start (so each GIF loops seamlessly),
 //    scales with Lanczos (ffmpeg) and encodes with gifski.
@@ -52,12 +53,26 @@ const KEEP = argv.includes("--keep");
 /** A folder kept by an earlier --keep: compose its takes again without recording. */
 const REUSE = opt("frames", null);
 /** The page's size while recording, in CSS pixels. */
-const VIEW = { width: 1280, height: 760 };
+const VIEW = { width: 1440, height: 900 };
 
 const GIFS = {
-  // the README's top: a strip's mode travelling while the camera orbits; a ring's spectrum
-  // building up and the ring lit at resonance; an MZI wired on the chip and its spectrum
-  hero: { width: 1040, fps: 15, fade: 9, quality: [78, 65, 55], takes: ["wave", "ring", "chip"] },
+  // the README's top, under 35 s, eight scenes of at least 3.5 s each, crossfades left out, and no captions: an MMI's
+  // FDTD run; a ring's spectrum building up, then the ring lit at resonance (two takes, crossfaded);
+  // a directional coupler's and a Y-branch's design moved by their sliders; an MZI wired on the
+  // chip; a heater switched on, its heat spreading; the ring's fabrication flow; a lesson's live
+  // chart taken to critical coupling
+  hero: {
+    width: 1000,
+    fps: 12,
+    fade: 5,
+    // full motion quality: with less, a page left lingers faintly under the next one's text
+    quality: [72, 100, 50],
+    takes: ["fdtd", "ring", "ring3d", "coupler", "ybranch", "chip", "heater", "fab", "lesson"],
+    // the takes that make one scene, for the seconds each scene is on screen
+    // the ring's sweep: its time-lapse's last seconds only, however long this machine took
+    lapse: { ring: 2.6 },
+    scenes: [["fdtd"], ["ring", "ring3d"], ["coupler"], ["ybranch"], ["chip"], ["heater"], ["fab"], ["lesson"]],
+  },
   device: { width: 860, fps: 12, fade: 8, quality: [85, 75, 70], takes: ["device"] },
   materials: { width: 860, fps: 12, fade: 8, quality: [85, 75, 70], takes: ["materials"] },
   validation: { width: 860, fps: 12, fade: 8, quality: [85, 75, 70], takes: ["validation"] },
@@ -242,7 +257,8 @@ if (!window.__rec) {
       display: none; align-items: center; gap: 6px; padding: 5px 12px 5px 10px; border-radius: 999px;
       font: 600 13px/1 Inter Variable, Inter, system-ui, sans-serif; color: #e8edf5; letter-spacing: 0.01em;
       background: rgb(15 17 21 / 0.82); border: 1px solid rgb(255 255 255 / 0.14); box-shadow: 0 6px 20px rgb(0 0 0 / 0.35); }
-    /* no toasts in the recordings */
+    /* no toasts in the recordings, and no busy spinner flickering by a chart while its slider moves */
+    [aria-label=Computing] { visibility: hidden !important; }
     div.pointer-events-none.fixed.z-50.w-96 { display: none !important; }
   ${"`"};
   document.head.append(style);
@@ -276,8 +292,9 @@ if (!window.__rec) {
       cursor.style.display = on ? "" : "none";
       if (on && x !== undefined) at(x, y);
     },
-    badge(text) {
+    badge(text, top = 64) {
       badge.style.display = text ? "flex" : "none";
+      badge.style.top = top + "px";
       badge.innerHTML = text ? '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#6cb4ff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 19 22 12 13 5 13 19"/><polygon points="2 19 11 12 2 5 2 19"/></svg>' + text : "";
     },
     /** The visible element matching a selector, by its text when given (an exact match first), and which of them. */
@@ -407,8 +424,10 @@ const railless = () =>
 /** Folds the navigation rail to its icons, or opens it again. */
 async function fold(folded) {
   const now = await js(`return document.querySelector("nav").getBoundingClientRect().width < 120;`);
-  // the rail's last button folds and opens it
-  if (now !== folded) await js(`[...document.querySelectorAll("nav button")].at(-1).click();`);
+  // the rail's Collapse button folds it (its label goes when folded: the one before the status then)
+  if (now !== folded)
+    await js(`const all = [...document.querySelectorAll("nav button")];
+              (all.find((b) => b.textContent.trim() === "Collapse") ?? all.at(-2)).click();`);
   await sleep(300);
 }
 
@@ -500,57 +519,182 @@ async function showIndexPlot() {
 
 let rec;
 
-/** Finds a template's card on Home, and which of the cards' buttons is its Run or Open. */
-async function exampleCard(name, button) {
+/** Runs a template from Home's examples (every topic of its accordion opened), unrecorded. */
+async function runExample(name) {
   await goTo("Home");
-  await until(`return __rec.find("article h3", args[0]);`, `the ${name} card`, 20000, name);
-  await js(`__rec.find("article h3", args[0]).closest("article").scrollIntoView({ block: "center" });`, name);
-  await sleep(400);
-  const nth = await js(
-    `const cards = [...document.querySelectorAll("article")].filter((a) => a.querySelector("h3")?.textContent.trim() === args[0]);
-     const b = [...cards[0].querySelectorAll("button")].find((x) => x.textContent.trim() === args[1]);
-     return [...document.querySelectorAll("article button")].filter((x) => x.getBoundingClientRect().width).indexOf(b);`,
+  await until(`return document.querySelector("[id^=ex-head-]");`, "the examples", 20000);
+  await js(`for (const b of document.querySelectorAll("[id^=ex-head-]")) if (b.getAttribute("aria-expanded") === "false") b.click();`);
+  await until(
+    `const li = [...document.querySelectorAll("li")].find((l) => l.querySelector("span.font-medium")?.textContent.trim() === args[0]);
+     return li && [...li.querySelectorAll("button")].some((b) => b.textContent.trim() === "Run");`,
+    `the ${name} example`,
+    20000,
     name,
-    button,
   );
-  return { selector: "article button", nth };
+  await js(
+    `const li = [...document.querySelectorAll("li")].find((l) => l.querySelector("span.font-medium")?.textContent.trim() === args[0]);
+     [...li.querySelectorAll("button")].find((b) => b.textContent.trim() === "Run").click();`,
+    name,
+  );
+  // its run's page, open on it
+  await until(`return [...document.querySelectorAll("h1")].some((h) => h.textContent.replace(/\\s+/g, " ").trim() === "Run · " + args[0]);`, `the ${name} run`, 30000, name);
+  await sleep(300);
 }
+
+/**
+ * What the hero keeps of every take, the same for all: the page down to the top of the rail's
+ * Collapse row, measured once with the rail open. The rail's last two rows (Collapse, and the runs'
+ * status) and the status bar beside them (the scratch workspace's path) are left out whole, so no
+ * line is cut at the foot.
+ */
+let heroCrop = null;
+const measureHeroCrop = async () => {
+  heroCrop = await js(`const all = [...document.querySelectorAll("nav button")];
+     const collapse = all.find((b) => b.textContent.trim() === "Collapse") ?? all.at(-2);
+     return { x: 0, y: 0, width: innerWidth, height: Math.floor(collapse.getBoundingClientRect().top) - 2 };`);
+  log(`  the hero keeps the page's top ${heroCrop.height} px`);
+};
+
+/**
+ * Scrolls each of the page's scrolling panes a few pixels, the least that does it, so no line of
+ * text is cut through by the hero's foot or by the pane's own top.
+ */
+const tidyFoot = () =>
+  js(
+    `const foot = args[0];
+     const boxes = [...document.querySelectorAll("main *")].filter((b) => {
+       const s = getComputedStyle(b);
+       return b.scrollHeight > b.clientHeight + 4 && /auto|scroll/.test(s.overflowY) && b.getBoundingClientRect().bottom > foot;
+     });
+     const said = [];
+     for (const box of boxes) {
+       const r = box.getBoundingClientRect();
+       // the lines of text inside it, each line of a paragraph on its own, and its fields
+       const lines = [...box.querySelectorAll("input, select, textarea")].map((e) => e.getBoundingClientRect());
+       const walk = document.createTreeWalker(box, NodeFilter.SHOW_TEXT);
+       const range = document.createRange();
+       for (let n = walk.nextNode(); n; n = walk.nextNode()) {
+         if (!n.textContent.trim()) continue;
+         range.selectNodeContents(n);
+         lines.push(...range.getClientRects());
+       }
+       const near = lines.filter((q) => q.height > 0 && q.width > 0 && q.bottom > r.top - 60 && q.top < foot + 60);
+       const cuts = (d) => near.filter((q) => {
+         const top = q.top - d, bottom = q.bottom - d;
+         return (top < foot + 3 && bottom > foot - 3) || (top < r.top + 2 && bottom > r.top - 2);
+       }).length;
+       if (!cuts(0)) continue;
+       let best = null;
+       for (let k = 1; k <= 48 && best === null; k++) {
+         for (const d of [k, -k]) {
+           const to = box.scrollTop + d;
+           if (to < 0 || to > box.scrollHeight - box.clientHeight) continue;
+           if (!cuts(d)) { best = d; break; }
+         }
+       }
+       if (best !== null) { box.scrollTop += best; said.push(best); }
+     }
+     return said;`,
+    // the crop's height as the take keeps it (even)
+    heroCrop.height & ~1,
+  );
+
+async function tidy() {
+  const moved = await tidyFoot();
+  if (moved.length) {
+    log(`  panes scrolled ${moved.join(", ")} px so no line is cut`);
+    await sleep(250);
+  }
+}
+
+/**
+ * Begins a take of the hero, cropped as every other, its panes tidied at the foot first (a scene
+ * that puts the pointer on something tidies before it, so the pointer stays on it).
+ */
+async function heroTake(name) {
+  await tidy();
+  await rec.begin(name);
+  rec.crop(heroCrop);
+}
+async function heroEnd() {
+  await rec.end();
+  await cursor(false);
+}
+
+/** Opens a component from the Components page's list, unrecorded (the list unfolded first when it is folded). */
+async function openComponent(name) {
+  await goTo("Components");
+  await sleep(600);
+  // pressing Components again, on its page, unfolds its list
+  await js(`if (!__rec.find("nav button, aside button", args[0])) document.querySelector("nav button[aria-label='Components']").click();`, name);
+  await until(`return __rec.find("nav button, aside button", args[0]);`, `${name} in the list`, 20000, name);
+  await js(`__rec.find("nav button, aside button", args[0]).click();`, name);
+  await until(`return [...document.querySelectorAll("main h1, main h2")].some((h) => h.textContent.replace(/\\s+/g, " ").trim().startsWith(args[0]));`, `the ${name}'s page`, 20000, name);
+  await sleep(1200);
+}
+
+/** Scrolls a design's panel so the field `name` sits `margin` below the panel's top. */
+const fieldIntoView = (name, margin = 80) =>
+  js(
+    `const e = document.getElementById("field-" + args[0]);
+     let box = e.parentElement;
+     while (box && !(box.scrollHeight > box.clientHeight + 4 && /auto|scroll/.test(getComputedStyle(box).overflowY))) box = box.parentElement;
+     if (!box) return false;
+     box.scrollTo({ top: box.scrollTop + e.getBoundingClientRect().top - box.getBoundingClientRect().top - args[1] });
+     return true;`,
+    name,
+    margin,
+  );
+
+/** A design's slider, by its field's name: where it lies, its range and its value. */
+const designSlider = (name) =>
+  js(
+    `const e = document.getElementById("field-" + args[0]).closest("div").parentElement.querySelector("input[type=range]");
+     const r = e.getBoundingClientRect();
+     return { left: r.left + r.height / 2, width: r.width - r.height, y: r.top + r.height / 2, min: Number(e.min), max: Number(e.max), value: Number(e.value) };`,
+    name,
+  );
+
+/** Where a design's slider's thumb is. */
+const designThumb = async (name) => {
+  const s = await designSlider(name);
+  return { x: s.left + (s.width * (s.value - s.min)) / (s.max - s.min), y: s.y };
+};
+
+/** Drags a design's slider from its value to a fraction of its range. */
+async function dragDesign(name, to, ms, approach = 450) {
+  const s = await designSlider(name);
+  await drag(await designThumb(name), { x: s.left + s.width * to, y: s.y }, ms, ease, approach);
+}
+
+/** Scrolls the nearest scrolling box around the element `selector` finds, so the element's top sits `margin` below the box's. */
+const scrollTo = (selector, text, margin = 12, smooth = true) =>
+  js(
+    `const e = __rec.find(args[0], args[1]);
+     let box = e.parentElement;
+     while (box && !(box.scrollHeight > box.clientHeight + 4 && /auto|scroll/.test(getComputedStyle(box).overflowY))) box = box.parentElement;
+     if (!box) return false;
+     box.scrollTo({ top: box.scrollTop + e.getBoundingClientRect().top - box.getBoundingClientRect().top - args[2], behavior: args[3] ? "smooth" : "instant" });
+     return true;`,
+    selector,
+    text ?? null,
+    margin,
+    smooth,
+  );
 
 const finished = () => until(`return __rec.find("span.badge", "finished in");`, "the run to finish", 20 * 60 * 1000);
 
 const SCENES = {
-  /** A strip's first mode travelling along it, the camera orbiting slowly. */
-  async wave() {
-    const card = await exampleCard("strip-modes", "Run");
-    await js(`[...document.querySelectorAll(args[0])].filter((x) => x.getBoundingClientRect().width)[args[1]].click();`, card.selector, card.nth);
-    await finished();
-    await sleep(800);
-    // the 3D view, a little closer
-    const view = await box("main canvas");
-    await moveTo(view.x, view.y, 10);
-    for (let i = 0; i < 4; i++) {
-      await cdp.send("Input.dispatchMouseEvent", { type: "mouseWheel", x: view.x, y: view.y, deltaX: 0, deltaY: -120 });
-      await sleep(60);
-    }
-    await sleep(600);
-    await cursor(true);
-    await moveTo(view.x - 120, view.y + 90, 10);
-    await rec.begin("wave");
-    await sleep(400);
-    // a slow orbit, a quarter turn at most
-    await drag({ x: view.x - 120, y: view.y + 90 }, { x: view.x + 70, y: view.y + 80 }, 4300, (t) => t * t * (3 - 2 * t));
-    await moveTo(view.x + 150, view.y + 150, 500);
-    await sleep(300);
-    await rec.end();
-    await cursor(false);
-  },
-
-  /** A ring's spectrum building up live (a time-lapse), then the ring lit at resonance. */
+  /**
+   * A ring's spectrum building up live (a time-lapse); its take ends on the spectrum. The 3D view
+   * is then opened and drawn off the record, and `ring3d` begins on it, so the GIF crossfades from
+   * the spectrum straight to the ring: the field's 2D picture, hidden while the sweep runs, never
+   * shows between them.
+   */
   async ring() {
-    const card = await exampleCard("ring-fdfd", "Run");
     await moveTo(VIEW.width / 2, VIEW.height / 2, 10);
-    await js(`[...document.querySelectorAll(args[0])].filter((x) => x.getBoundingClientRect().width)[args[1]].click();`, card.selector, card.nth);
-    await until(`return __rec.find("main button", "2D");`, "the viewer");
+    await runExample("ring-fdfd");
+    await until(`return [...document.querySelectorAll("main button")].some((b) => b.textContent.trim() === "2D" && b.getBoundingClientRect().width);`, "the viewer");
     await js(`__rec.find("main button", "2D").click();`);
     // the spectrum alone while the run plays: the field's picture, which arrives above it, hidden
     await until(`return __rec.find("h3", "S-parameters");`, "the first S-parameters", 120000);
@@ -561,39 +705,95 @@ const SCENES = {
          for (let p = s?.previousElementSibling; p; p = p.previousElementSibling) p.style.display = "none";
        }, 50);`,
     );
-    // how fast it goes on this machine: the time-lapse fills about LAPSE seconds of the GIF
+    // the time-lapse plays RING_SPEED times faster and fills about LAPSE seconds of the GIF: its
+    // take begins once the sweep's last LAPSE × RING_SPEED seconds are left, by the pace of the
+    // last few seconds (so a machine busy with something else still gives a take of that length)
     const solved = () => js(`return Number(__rec.find("h3", "S-parameters")?.textContent.match(/(\\d+) wavelength/)?.[1] ?? 0);`);
     const total = Number(/\n  sweep:\n(?:    .*\n)*?    points:\s*(\d+)/.exec(fs.readFileSync(path.join(repo, "jobs", "ring-fdfd.yaml"), "utf8").replace(/\r\n/g, "\n"))[1]);
-    const t0 = Date.now();
-    const n0 = await solved();
-    await sleep(6000);
-    const n1 = await solved();
-    const left = ((total - n1) / Math.max(n1 - n0, 1)) * ((Date.now() - t0) / 1000);
-    const nice = [10, 15, 20, 25, 30, 40, 50, 60, 75, 80, 100, 120, 150, 200, 250, 300];
-    const speed = nice.reduce((best, s) => (Math.abs(left / s - LAPSE) < Math.abs(left / best - LAPSE) ? s : best));
-    log(`  ${n1} of ${total} wavelengths, about ${left.toFixed(0)} s to go: played ${speed}× faster`);
-    await rec.begin("ring");
-    await js(`__rec.badge(args[0]);`, `${speed}× faster`);
+    const speed = RING_SPEED;
+    const seen = [{ t: Date.now(), n: await solved() }];
+    for (;;) {
+      await sleep(500);
+      seen.push({ t: Date.now(), n: await solved() });
+      const a = seen.find((s) => s.t >= Date.now() - 8000) ?? seen[0];
+      const b = seen.at(-1);
+      if (b.t - a.t < 3000 || b.n === a.n) continue;
+      const left = ((total - b.n) / (b.n - a.n)) * ((b.t - a.t) / 1000);
+      // begun a little early: the GIF keeps the time-lapse's last LAPSE seconds (spec.lapse)
+      if (left <= 1.3 * LAPSE * speed) {
+        log(`  ${b.n} of ${total} wavelengths, about ${left.toFixed(0)} s to go: played ${speed}× faster`);
+        break;
+      }
+    }
+    await heroTake("ring");
+    // the badge under the run's bar, where it hides none of the sweep's progress
+    await js(`__rec.badge(args[0], 102);`, `${speed}× faster`);
     await rec.speed(speed, GIFS.hero.fps);
     await finished();
     await rec.speed(1);
-    await js(`__rec.badge(null); clearInterval(window.__pin);
-              for (const s of document.querySelectorAll("main section")) s.style.display = "";`);
-    await sleep(700);
-    await rec.cut();
-    // the ring at resonance, in 3D
-    await js(`__rec.find("main button", "3D").click();`);
-    await sleep(900);
+    // the whole spectrum held a moment, the badge gone; the take ends before anything else shows
+    await js(`__rec.badge(null);`);
+    await sleep(500);
+    await rec.end();
+    // off the record: the hidden sections back, the 3D view opened and drawn
+    await js(`clearInterval(window.__pin);
+              for (const s of document.querySelectorAll("main section")) s.style.display = "";
+              __rec.find("main button", "3D").click();`);
+    await until(`return __rec.find("main canvas");`, "the ring in 3D", 20000);
+    await js(`await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));`);
+    await sleep(1800);
     const view = await box("main canvas");
     await moveTo(view.x - 120, view.y + 110, 10);
-    await rec.speed(1);
     await cursor(true);
+    await heroTake("ring3d");
     await sleep(300);
     // turned slowly, then held: the light circling the ring at resonance is what this shows
-    await drag({ x: view.x - 120, y: view.y + 110 }, { x: view.x + 10, y: view.y + 100 }, 4000, (t) => t * t * (3 - 2 * t));
-    await sleep(1200);
-    await rec.end();
-    await cursor(false);
+    await drag({ x: view.x - 120, y: view.y + 110 }, { x: view.x + 10, y: view.y + 100 }, 1800, (t) => t * t * (3 - 2 * t));
+    await moveTo(view.x + 120, view.y + 190, 500);
+    await sleep(400);
+    await heroEnd();
+  },
+
+  /** A directional coupler designed: its gap opened, then its coupled length shortened, the 3D view following. */
+  async coupler() {
+    await openComponent("Directional coupler");
+    await js(`__rec.find("main button", "Design")?.click();`);
+    await sleep(400);
+    await fieldIntoView("gap", 60);
+    await sleep(1500);
+    // the pointer on the gap's thumb as the take begins
+    await tidy();
+    const gap = await designThumb("gap");
+    await moveTo(gap.x, gap.y, 10);
+    await cursor(true);
+    await heroTake("coupler");
+    await sleep(250);
+    await dragDesign("gap", 0.85, 1300);
+    await sleep(250);
+    await dragDesign("length", 0.3, 1200);
+    await sleep(450);
+    await heroEnd();
+  },
+
+  /** A Y-branch designed: its arms spread apart, then lengthened, the 3D view following. */
+  async ybranch() {
+    await openComponent("Y-branch");
+    await js(`__rec.find("main button", "Design")?.click();`);
+    await sleep(400);
+    await fieldIntoView("arm_length", 60);
+    await sleep(1500);
+    // the pointer on the separation's thumb as the take begins
+    await tidy();
+    const sep = await designThumb("separation");
+    await moveTo(sep.x, sep.y, 10);
+    await cursor(true);
+    await heroTake("ybranch");
+    await sleep(250);
+    await dragDesign("separation", 0.55, 1300);
+    await sleep(250);
+    await dragDesign("arm_length", 0.5, 1200);
+    await sleep(450);
+    await heroEnd();
   },
 
   /** An MZI's last two wires drawn on the chip, then simulated: its spectrum and its checks. */
@@ -606,8 +806,8 @@ const SCENES = {
       .replace('    ["lower.o2", "combine.o1"],\n', "");
     fs.writeFileSync(path.join(WORKSPACE, "circuits", "mzi.toml"), mzi);
     await goTo("Chip");
-    await until(`return __rec.find("aside button", "mzi");`, "the saved MZI");
-    await js(`__rec.find("aside button", "mzi").click();`);
+    await until(`return __rec.find("nav button", "mzi");`, "the saved MZI");
+    await js(`__rec.find("nav button", "mzi").click();`);
     await until(`return document.querySelector('[data-pin="upper.o2"]');`, "the MZI on the chip");
     // more room for the canvas, and the chip a little closer
     await fold(true);
@@ -622,19 +822,153 @@ const SCENES = {
     const pin = (ref) => js(`const r = document.querySelector('[data-pin="' + args[0] + '"]').getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 };`, ref);
     const start = await pin("upper.o2");
     await moveTo(start.x - 60, start.y + 90, 10);
-    await rec.begin("chip");
-    await sleep(300);
-    await drag(await pin("upper.o2"), await pin("combine.o2"), 750, ease, 350);
-    await sleep(150);
-    await drag(await pin("lower.o2"), await pin("combine.o1"), 750, ease, 350);
-    await sleep(250);
-    await click("button", "Simulate", { ms: 600 });
+    await heroTake("chip");
+    await rec.speed(1.3);
+    await drag(await pin("upper.o2"), await pin("combine.o2"), 650, ease, 300);
+    await sleep(120);
+    await drag(await pin("lower.o2"), await pin("combine.o1"), 650, ease, 300);
+    await sleep(200);
+    await click("button", "Simulate", { ms: 550 });
     await until(`return __rec.find("span.badge", "σ");`, "the spectrum", 20000);
-    await moveTo(mouse.x - 40, mouse.y + 330, 700);
-    await sleep(1900);
-    await rec.end();
-    await cursor(false);
+    await moveTo(mouse.x - 40, mouse.y + 330, 600);
+    await sleep(1200);
+    await heroEnd();
     await fold(false);
+  },
+
+  /** An MMI's FDTD run, live: the pulse entering, filling the MMI and leaving by its two arms (a time-lapse). */
+  async fdtd() {
+    await moveTo(VIEW.width / 2, VIEW.height / 2, 10);
+    await runExample("mmi-fdtd");
+    await until(`return [...document.querySelectorAll("main h3")].find((h) => h.textContent.trim().startsWith("Field"));`, "the FDTD field", 60000);
+    await until(`return Number(document.querySelector("main").innerText.match(/(\\d+) \\/ \\d+\\s/)?.[1] ?? 0) >= 2;`, "the first frames", 60000);
+    await heroTake("fdtd");
+    const speed = FDTD_SPEED;
+    await js(`__rec.badge(args[0]);`, `${speed}× faster`);
+    await rec.speed(speed, GIFS.hero.fps);
+    await sleep(FDTD_SECONDS * 1000);
+    await rec.speed(1);
+    await rec.end();
+    await js(`__rec.badge(null); document.querySelector("button[aria-label='Stop the run']")?.click();`);
+    await sleep(800);
+  },
+
+  /**
+   * A thermo-optic phase shifter switched on, at a pace to follow: its 2D model's cross-section
+   * first, cold (the heater and the guide outlined), then played from the turn-on, the heat
+   * spreading down to the guide as the curve of the rise the guide feels fills in, the time read
+   * beside it.
+   */
+  async heater() {
+    await openComponent("Thermo-optic phase shifter");
+    await js(`__rec.find("main button", "Temperature").click();`);
+    await until(`return __rec.find("main button", "In time");`, "the temperature view", 60000);
+    await js(`__rec.find("main button", "In time").click();`);
+    await until(`return __rec.find("main button[aria-label=Play]") && !document.querySelector("[aria-label='Turning the heater on']");`, "the heater turned on", 120000);
+    await sleep(800);
+    // the first picture: the turn-on, nothing heated yet
+    await js(`const r = document.querySelector("main input[aria-label='The time of the picture']");
+              Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set.call(r, "0");
+              r.dispatchEvent(new Event("input", { bubbles: true }));`);
+    await sleep(1200);
+    // the view scrolled to the curve's top, so the cross-section under it shows whole above the
+    // hero's foot (the sentence above the curve, its numbers, scrolled out)
+    await js(
+      `const r = document.querySelector("main input[aria-label='The time of the picture']");
+       const curve = r.closest("div.space-y-3");
+       let box = curve.parentElement;
+       while (box && !(box.scrollHeight > box.clientHeight + 4 && /auto|scroll/.test(getComputedStyle(box).overflowY))) box = box.parentElement;
+       if (box) box.scrollTo({ top: box.scrollTop + curve.getBoundingClientRect().top - box.getBoundingClientRect().top - 6 });`,
+    );
+    await sleep(600);
+    // the pointer by the time's slider, off the curve (whose read-out would follow it)
+    await tidy();
+    const play = await box("main button[aria-label=Play]");
+    await moveTo(play.x + 110, play.y + 2, 10);
+    await cursor(true);
+    await heroTake("heater");
+    await sleep(700);
+    await click("main button[aria-label=Play]", null, { ms: 450 });
+    // the pictures play a few a second; a little brisker here, still several seconds of heating
+    await rec.speed(HEATER_SPEED);
+    // to the time read beside the slider
+    const reading = await box("main span[aria-live=polite]", " of ");
+    await moveTo(reading.left - 40, reading.y + 1, 900);
+    await until(`return __rec.find("main button[aria-label=Play]");`, "the end of the turn-on", 30000);
+    await rec.speed(1);
+    await sleep(450);
+    await heroEnd();
+  },
+
+  /** An all-pass ring made from the bare wafer, step by step in 3D. */
+  async fab() {
+    await goTo("Fabrication");
+    await until(`return document.querySelector("main select");`, "the design picker", 30000);
+    await js(`const s = document.querySelector("main select");
+              s.value = "lib:ring-all-pass";
+              s.dispatchEvent(new Event("change", { bubbles: true }));`);
+    await until(`return __rec.find("main div", "5 steps, from the bare wafer") && __rec.find("main button", "3D");`, "the ring's flow", 60000);
+    await js(`__rec.find("main button", "3D").click();
+              const sp = document.querySelector("main select[aria-label=Speed]");
+              sp.value = "2";
+              sp.dispatchEvent(new Event("change", { bubbles: true }));
+              document.querySelector("main button[aria-label='Back to the bare wafer']").click();`);
+    await sleep(1500);
+    await scrollTo("main div", "5 steps, from the bare wafer", 22, false);
+    await sleep(800);
+    const play = await box("main button[aria-label=Play]");
+    await moveTo(play.x + 120, play.y - 160, 10);
+    await cursor(true);
+    await heroTake("fab");
+    await rec.speed(FAB_SPEED);
+    await sleep(200);
+    await click("main button[aria-label=Play]", null, { ms: 500 });
+    await moveTo(play.x + 420, play.y - 260, 900);
+    await until(`return __rec.find("main button[aria-label=Play]") && /7 \\/ 7/.test(document.querySelector("main").innerText);`, "the flow played", 60000);
+    await sleep(600);
+    await heroEnd();
+  },
+
+  /** The ring resonator's lesson: its live chart brought to critical coupling. */
+  async lesson() {
+    await goTo("Academy");
+    await until(`return __rec.find("nav button, aside button", "The ring resonator");`, "the lessons");
+    await js(`__rec.find("nav button, aside button", "The ring resonator").click();`);
+    await until(`return __rec.find("figure.panel:not([data-diagram])");`, "the ring's chart");
+    await sleep(800);
+    await js(`const fig = __rec.find("figure.panel:not([data-diagram])");
+       const art = fig.closest("article");
+       const head = fig.firstElementChild.getBoundingClientRect();
+       art.scrollTo({ top: art.scrollTop + head.bottom - art.getBoundingClientRect().top });`);
+    await sleep(900);
+    await cursor(true);
+    await slideTo("radius", RING_RADIUS, 200);
+    await slideTo("window", 50, 200);
+    await slideTo("coupling", 730, 200);
+    await sleep(900);
+    const critical = await js(
+      `const label = [...document.querySelectorAll("figure.panel p")].find((p) => p.textContent.includes("Critical coupling"));
+       const sup = "⁰¹²³⁴⁵⁶⁷⁸⁹";
+       const text = label.nextElementSibling.textContent.replace(/\\s/g, "").replace(/[⁰¹²³⁴⁵⁶⁷⁸⁹⁻]/g, (c) => (c === "⁻" ? "-" : String(sup.indexOf(c))));
+       const m = /^([\\d.]+)(?:×10(-?\\d+))?/.exec(text);
+       return Number(m[1]) * 10 ** Number(m[2] ?? 0);`,
+    );
+    const at = Math.round((1000 * Math.log(critical / 1e-4)) / Math.log(0.5 / 1e-4));
+    // the chart whole: its title, plot, sliders and figures
+    await js(`const fig = __rec.find("figure.panel:not([data-diagram])");
+       const art = fig.closest("article");
+       art.scrollTo({ top: art.scrollTop + fig.getBoundingClientRect().top - art.getBoundingClientRect().top - 8 });`);
+    await sleep(700);
+    await tidy();
+    const thumb = await slider("coupling");
+    await moveTo(thumb.left + ((thumb.value - thumb.min) / (thumb.max - thumb.min)) * thumb.width + 40, thumb.y + 70, 10);
+    await heroTake("lesson");
+    await sleep(500);
+    // the input coupling slid down to critical: the dip deepens to zero, the figures following
+    await slideTo("coupling", at, 1900, (t) => t * t * (3 - 2 * t));
+    await moveTo(mouse.x + 60, mouse.y + 90, 400);
+    await sleep(700);
+    await heroEnd();
   },
 
   /** A directional coupler's page: its gap and length moved, the view following; then its cut. */
@@ -828,14 +1162,39 @@ async function slideTo(key, to, ms = 1000, curve = ease) {
   }
 }
 
-/** How long the ring's run lasts in the hero GIF, in seconds: its speed-up follows from it. */
-const LAPSE = 5;
+/** The ring's sweep in the hero: played this many times faster, for about this many seconds of the GIF. */
+const RING_SPEED = 15;
+const LAPSE = GIFS.hero.lapse.ring;
+
+/** The MMI's FDTD run in the hero: played this many times faster, for this many seconds of the run. */
+const FDTD_SPEED = 6;
+const FDTD_SECONDS = 26;
+
+/** The heater's pictures (a few a second in the studio), played this many times faster in the hero. */
+const HEATER_SPEED = 1.9;
+
+/** The fabrication flow (at the player's own speed of 2), played this many times faster in the hero. */
+const FAB_SPEED = 1.75;
 
 // ---- composing the GIFs ----
 
-/** The take's frames resampled to `fps`, following its speed marks: the files to show, in order. */
-function resampleTake(take, fps) {
-  const marks = [...take.marks, { t: take.end, speed: 1 }];
+/**
+ * The take's frames resampled to `fps`, following its speed marks: the files to show, in order.
+ * A time-lapse longer than `lapse` seconds (of the GIF) keeps only its last `lapse` seconds, at
+ * its speed: its start is left out.
+ */
+function resampleTake(take, fps, lapse = Infinity) {
+  const marks = [...take.marks, { t: take.end, speed: 1 }].map((m) => ({ ...m }));
+  for (let i = 0; i + 1 < marks.length; i++) {
+    const a = marks[i];
+    const b = marks[i + 1];
+    if (a.speed > 3 && Number.isFinite(a.speed) && (b.t - a.t) / a.speed > lapse) {
+      // what comes before it, and its start, cut
+      for (let k = 0; k < i; k++) marks[k].speed = Infinity;
+      a.t = b.t - lapse * a.speed;
+      break;
+    }
+  }
   const frames = take.frames;
   const pick = (t) => {
     let lo = 0;
@@ -927,11 +1286,62 @@ function encode(name, spec, frames, width, height) {
   log(`${path.relative(repo, gif)}: ${(frames.length / spec.fps).toFixed(1)} s, ${frames.length} frames, ${width} x ${height}, ${mb.toFixed(2)} MB`);
 }
 
+// ---- the window ----
+
+/**
+ * Sizes the studio's window so its page is VIEW in CSS pixels at the window's display scale, and
+ * puts it in the bottom-right corner of the primary display's work area, behind the other windows
+ * and without taking the focus (it keeps rendering there: occlusion is off). A window that can't
+ * hold VIEW at that scale is made as large as the work area allows; the page is still laid out at
+ * VIEW by the emulation, so the recording is the same and only the window on the screen shows less.
+ */
+function placeWindow(pid) {
+  const script = String.raw`
+$ErrorActionPreference = "Stop"
+Add-Type @"
+using System; using System.Runtime.InteropServices;
+public static class HeroWin {
+  [StructLayout(LayoutKind.Sequential)] public struct R { public int L, T, Ri, B; }
+  [DllImport("user32.dll")] public static extern IntPtr SetThreadDpiAwarenessContext(IntPtr c);
+  [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr h, out R r);
+  [DllImport("user32.dll")] public static extern bool GetClientRect(IntPtr h, out R r);
+  [DllImport("user32.dll")] public static extern uint GetDpiForWindow(IntPtr h);
+  [DllImport("user32.dll")] public static extern bool SystemParametersInfo(uint a, uint b, out R r, uint c);
+  [DllImport("user32.dll")] public static extern bool SetWindowPos(IntPtr h, IntPtr after, int x, int y, int cx, int cy, uint f);
+}
+"@
+[void][HeroWin]::SetThreadDpiAwarenessContext([IntPtr](-4))
+$h = [IntPtr]::Zero
+for ($i = 0; $i -lt 50 -and $h -eq [IntPtr]::Zero; $i++) { $h = (Get-Process -Id ${pid}).MainWindowHandle; if ($h -eq [IntPtr]::Zero) { Start-Sleep -Milliseconds 200 } }
+if ($h -eq [IntPtr]::Zero) { "no window"; exit 1 }
+$w = New-Object HeroWin+R; $c = New-Object HeroWin+R; $a = New-Object HeroWin+R
+[void][HeroWin]::GetWindowRect($h, [ref]$w); [void][HeroWin]::GetClientRect($h, [ref]$c)
+[void][HeroWin]::SystemParametersInfo(0x30, 0, [ref]$a, 0)
+$scale = [HeroWin]::GetDpiForWindow($h) / 96.0
+$fw = ($w.Ri - $w.L) - ($c.Ri - $c.L); $fh = ($w.B - $w.T) - ($c.B - $c.T)
+$ow = [Math]::Min([int][Math]::Round(${VIEW.width} * $scale) + $fw, $a.Ri - $a.L)
+$oh = [Math]::Min([int][Math]::Round(${VIEW.height} * $scale) + $fh, $a.B - $a.T)
+# HWND_BOTTOM, SWP_NOACTIVATE
+[void][HeroWin]::SetWindowPos($h, [IntPtr]1, $a.Ri - $ow, $a.B - $oh, $ow, $oh, 0x10)
+[void][HeroWin]::GetClientRect($h, [ref]$c)
+"scale {0}, page {1} x {2} CSS px in a work area of {3} x {4} px" -f $scale, [Math]::Round(($c.Ri - $c.L) / $scale), [Math]::Round(($c.B - $c.T) / $scale), ($a.Ri - $a.L), ($a.B - $a.T)
+`;
+  const r = spawnSync("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", script], { encoding: "utf8" });
+  const said = `${r.stdout ?? ""}${r.stderr ?? ""}`.trim();
+  if (r.status !== 0) {
+    log(`  couldn't place the window: ${said}`);
+    return;
+  }
+  log(`  the window: ${said}${/page (\d+) x (\d+)/.exec(said)?.slice(1).join("x") === `${VIEW.width}x${VIEW.height}` ? "" : ` (the recording is laid out at ${VIEW.width} x ${VIEW.height} all the same)`}`);
+}
+
 // ---- the session ----
 
 async function record() {
   fs.mkdirSync(CONFIG, { recursive: true });
   fs.writeFileSync(path.join(CONFIG, "settings.json"), JSON.stringify(RECORDING_SETTINGS, null, 2));
+  // no window size or place kept from an earlier session (put back at the end with the settings)
+  fs.rmSync(path.join(CONFIG, ".window-state.json"), { force: true });
   log(`starting ${path.relative(repo, EXE)} in ${WORKSPACE}`);
   child = spawn(EXE, [], {
     cwd: WORKSPACE,
@@ -950,19 +1360,23 @@ async function record() {
     target = list.find((t) => t.type === "page" && t.url.includes("tauri.localhost"));
   }
   if (!target) throw new Error(`no studio window on port ${PORT}`);
+  placeWindow(child.pid);
   cdp = new Cdp(target.webSocketDebuggerUrl);
   await cdp.open();
+  // the page laid out at VIEW whatever the window's size, so every recording is the same
   await cdp.send("Emulation.setDeviceMetricsOverride", { ...VIEW, deviceScaleFactor: 1, mobile: false });
   await until(`return document.querySelector("nav button");`, "the window");
   await js(PAGE_HELPERS);
   await cursor(false);
   const workspace = await js(`return document.querySelector("footer span.truncate")?.textContent;`);
   if (workspace !== WORKSPACE) throw new Error(`the workspace is ${workspace}, not ${WORKSPACE}`);
+  await measureHeroCrop();
   rec = new Recorder();
 
-  const order = ["wave", "ring", "device", "chip", "materials", "validation", "academy"];
+  const order = ["fdtd", "ring", "ring3d", "coupler", "ybranch", "chip", "heater", "fab", "lesson", "device", "materials", "validation", "academy"];
   for (const name of order) {
-    if (wanted.has(name)) await SCENES[name]();
+    // a take another scene records (ring3d, the ring's) has no scene of its own
+    if (wanted.has(name) && SCENES[name]) await SCENES[name]();
   }
   closeProgram();
   restoreSettings();
@@ -986,11 +1400,22 @@ for (const name of only) {
   log(`composing ${name}`);
   let size = null;
   const clips = spec.takes.map((t) => {
-    const files = resampleTake(takes[t], spec.fps);
+    const files = resampleTake(takes[t], spec.fps, spec.lapse?.[t]);
     const d = decode(files, spec.width, path.join(FRAMES, t), takes[t].crop);
     size = d;
     return d.frames;
   });
+  // each scene's seconds in the GIF: its takes less the crossfades, half of each at either end
+  // (so the scenes add up to the whole), and the time it is on screen alone, the fades left out
+  if (spec.scenes) {
+    const frames = Object.fromEntries(spec.takes.map((t, k) => [t, clips[k].length]));
+    for (const scene of spec.scenes) {
+      const all = scene.reduce((sum, t) => sum + frames[t], 0);
+      const shared = (all - spec.fade * scene.length) / spec.fps;
+      const alone = (all - spec.fade * (scene.length + 1)) / spec.fps;
+      log(`  ${scene.join(" + ")}: ${shared.toFixed(2)} s, ${alone.toFixed(2)} s without the crossfades`);
+    }
+  }
   encode(name, spec, compose(clips, spec.fade), size.width, size.height);
 }
 log(REUSE ? "done" : `done; the settings in ${CONFIG} are as they were`);

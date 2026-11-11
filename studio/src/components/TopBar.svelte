@@ -1,19 +1,24 @@
 <script lang="ts">
   // The top bar: where you are, the search, an update when there is one, help and the theme.
-  import { ArrowLeft, Download, GitBranch, Hammer, Moon, RefreshCw, Search, Sun } from "@lucide/svelte";
+  import { ArrowLeft, ChevronRight, Download, GitBranch, Hammer, Moon, RefreshCw, Search, Sun } from "@lucide/svelte";
 
   import { app, go, run, updateSettings } from "../lib/app.svelte";
+  import CrumbSwitch from "./CrumbSwitch.svelte";
   import { PAGES, RAIL, SYSTEM } from "../lib/pages";
   import { editor } from "../lib/chip.svelte";
   import { available, building, nightly, onNightly } from "../lib/nightly.svelte";
   import { updater } from "../lib/updater.svelte";
+  import { chipTitle } from "../lib/circuit";
 
   const title = $derived(PAGES[app.page]);
+  /** What the page shows inside itself, named after it: only on the page that set it. */
+  const crumb = $derived(app.crumb?.page === app.page ? app.crumb : null);
   const onRail = $derived(app.page === "settings" || RAIL.includes(app.page) || SYSTEM.includes(app.page));
   const mac = navigator.platform.toLowerCase().includes("mac");
 </script>
 
-<header class="flex h-14 items-center gap-4 border-b border-base-content/8 bg-base-100/60 px-5 backdrop-blur">
+<!-- above the page (its own layers and the views under it), so the breadcrumb's menu opens over them -->
+<header class="relative z-40 flex h-14 items-center gap-4 border-b border-base-content/8 bg-base-100/60 px-5 backdrop-blur">
   {#if !onRail}
     <!-- the run view isn't on the rail: the way back to the page it was opened from -->
     <div class="tooltip tooltip-bottom tooltip-right" data-tip="Back to {PAGES[app.back].label}">
@@ -21,12 +26,23 @@
     </div>
   {/if}
   <div class="min-w-0">
-    <h1 class="truncate text-[15px] font-semibold tracking-tight">
-      {title.label}
-      {#if app.page === "viewer" && run.job}<span class="font-normal muted"> · {run.job.job}</span>{/if}
-      {#if app.page === "chip"}<span class="font-normal muted"> · {editor.chip.name}</span>{/if}
-    </h1>
-    <p class="truncate text-xs faint">{title.about}</p>
+    {#if crumb}
+      <!-- the page, then what it shows: Components › Waveguide, and a line about that -->
+      <h1 class="flex min-w-0 items-center gap-1 text-[15px] tracking-tight">
+        <span class="shrink-0 font-normal muted">{title.label}</span>
+        <ChevronRight size={14} class="shrink-0 faint" />
+        <CrumbSwitch {crumb} />
+        {#if crumb.changed}<span class="shrink-0 text-warning" title="Changed since it was opened or saved">●</span>{/if}
+      </h1>
+      <p class="truncate text-xs faint" title={crumb.about}>{crumb.about}</p>
+    {:else}
+      <h1 class="truncate text-[15px] font-semibold tracking-tight">
+        {title.label}
+        {#if app.page === "viewer" && run.job}<span class="font-normal muted"> · {run.job.job}</span>{/if}
+        {#if app.page === "chip"}<span class="font-normal muted"> · {chipTitle(editor.chip.name)}</span>{/if}
+      </h1>
+      <p class="truncate text-xs faint">{title.about}</p>
+    {/if}
   </div>
   <span class="flex-1"></span>
 

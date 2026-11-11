@@ -25,7 +25,7 @@
 //! | excess loss at 15, 20, 25 | −0.1925, −0.191, −0.1915 dB | −0.183, −0.1965, −0.1925 dB |
 //! | at 1.54 and 1.56 µm, 15 cells, 20 nm | 0.9525, 0.9596 | 0.9542, 0.9613 |
 //!
-//! Here (`pdk`'s run, on photonoxide's grid at N cells a wavelength in silicon):
+//! Here (`pdk`'s run, on photonoxide's grid at $N$ cells a wavelength in silicon):
 //!
 //! - **At 15 and 20 cells a wavelength** (`--full`), the through port at 1550 nm is checked
 //!   against the span of both codes' values from 15 to 25 cells, its middle within half its
@@ -56,7 +56,7 @@
 //! | 20 | 0.95944 | −0.1797 dB | 0.95596, 0.96209 |
 //!
 //! The tensor shrinks the rise from 15 to 20 cells (0.0012 at 1550 nm against the diagonal's
-//! 0.0020) but doesn't remove it, and both pairs, taking the error as h², extrapolate to the same
+//! 0.0020) but doesn't remove it, and both pairs, taking the error as $h^2$, extrapolate to the same
 //! through port, 0.961: the rise is the grid's convergence, not the diagonal's. On this grid the
 //! crossing settles about 0.002 above the codes' 0.957 to 0.959. With the tensor, every check
 //! passes at 15 cells; at 20 the through port is 0.0001 and the excess loss 0.0023 dB past them.

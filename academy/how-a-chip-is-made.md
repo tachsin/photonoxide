@@ -44,6 +44,12 @@ papers:
     year: 2005
     role: milestone
     note: "Photonic wires and photonic crystals made on a CMOS line with 248 nm deep-UV lithography: the step that put silicon photonics on electronics' tools, wires losing 0.24 dB/mm."
+  - cite: "C. Mack, Fundamental Principles of Optical Lithography, Wiley (2007)"
+    title: "Fundamental Principles of Optical Lithography: The Science of Microfabrication"
+    doi: 10.1002/9780470723876
+    year: 2007
+    role: review
+    note: "Optical lithography from the image to the resist: the lens's numerical aperture, water immersion that takes it past 1, and the resolution and depth of focus that follow."
   - cite: "S. K. Selvaraja, P. Jaenen, W. Bogaerts, D. Van Thourhout, P. Dumon, R. Baets, J. Lightwave Technol. 27, 4076 (2009)"
     title: "Fabrication of Photonic Wire and Crystal Circuits in Silicon-on-Insulator Using 193-nm Optical Lithography"
     doi: 10.1109/JLT.2009.2022282
@@ -203,6 +209,13 @@ The exposure is by light through a mask or by an electron beam:
 - **Nanoimprint** presses a mould into the resist: 25 nm features ([Chou et al.,
   1996](https://doi.org/10.1126/science.272.5258.85)).
 
+The machines, cut through in 2D and built in 3D: the 193 nm scanner the strip's flow chooses
+first, the others to compare. Each moves as it works: the scanners sweep a slit over one field
+after another, the mask and the wafer moving opposite ways; the electron beam fills a strip and a
+bend line by line, blanked between lines; the contact aligner aligns, then opens its shutter.
+
+::lithography duv-193 duv-248 i-line duv-193i euv uv-photolithography ebl nanoimprint
+
 The silicon strip, 500 nm by 220 nm, at the library's defaults. Step 2 plays in three frames:
 the resist spun on, the pattern exposed, the resist developed and kept only on the strip.
 
@@ -232,6 +245,16 @@ lithography of the library over the numerical apertures its sources cite. Moving
 curve; the figures give the $k_1$ the feature asks of each at its highest NA.
 
 ::chart fab-resolution
+
+Besides $k_1$, the criterion leaves two levers. A larger NA: water between the last lens and the
+wafer lets it pass 1, to 1.35 for today's water-immersion lenses ([Mack,
+2007](https://doi.org/10.1002/9780470723876), Chapter 1, p. 22). A shorter $\lambda$:
+extreme-ultraviolet light of 13.4 nm, which every material absorbs, so it is reflected off mirrors
+coated with many alternating thin layers onto a reflective mask and then the resist, all in
+vacuum; prototype step-and-scan cameras had NA 0.1 and resolved better than 100 nm ([Madou,
+2018](https://doi.org/10.1201/9781315274164), Vol. II, Chapter 2, p. 96).
+
+::lithography euv duv-193i duv-193
 
 The engine measures each layer's narrowest line and gap and picks the first lithography whose
 cited minimum feature reaches them. A design no lithography of the library reaches is refused,

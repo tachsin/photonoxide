@@ -1,10 +1,10 @@
 # Quantum photonics: a survey and a plan
 
-*A survey and a plan, 2026-10-08. It is on the roadmap since 2026-10-09 (decisions, section 5). Built so far: Q1 (#738), Q2 (#742) and Q3 (#743), part of #737, with what each leaves for #595 stated on the methods page; Q4 and Q5 are not.*
+*A survey and a plan, 2026-10-08. It is on the roadmap since 2026-10-09 (decisions, section 5). Built, and released as 0.6.3: Q1 (#738), Q2 (#742) and Q3 (#743), part of #737, with what each leaves for #595 stated on the methods page; the studio's quantum views (#746, #749, #765) and the Academy's lesson (#751). Q4 and Q5 are not built.*
 
-The roadmap has photon pairs in 0.6.1 (SPDC and SFWM, the joint spectral amplitude, purity,
-brightness and heralding) and one line in 0.16, "Quantum photonics: linear optical circuits and
-their statistics". This page asks what photonic quantum computing and quantum photonics need from
+When this was written, the roadmap had photon pairs in 0.6.1 (SPDC and SFWM, the joint spectral
+amplitude, purity, brightness and heralding) and one line in 0.16, "Quantum photonics: linear
+optical circuits and their statistics" (since removed, as decision 8 says). This page asks what photonic quantum computing and quantum photonics need from
 a validated photonics library, and proposes how photonoxide, its studio and its Academy could
 serve them. It has five parts:
 
@@ -201,7 +201,7 @@ modes to keep the commutators: $\hat b = S \hat a + L \hat c$ with $L L^\dagger 
 the vacuum entering through the loss. Every quantity below follows from $S(\omega)$:
 
 - **Single photons:** n photons in input modes $T$ leave in modes $R$ with probability
-  $\lvert \operatorname{Per}(S_{R,T}) \rvert^2 / \prod_r m_r!$, for occupation numbers $m_r$
+  $\lvert \mathop{\mathrm{Per}}(S_{R,T}) \rvert^2 / \prod_r m_r!$, for occupation numbers $m_r$
   (Aaronson & Arkhipov 2013). Partly distinguishable photons and frequency-dependent $S$ enter
   through the photons' spectra.
 - **Gaussian states:** a covariance matrix $\sigma$ goes to $S \sigma S^\dagger$ plus the
@@ -307,8 +307,8 @@ must be read before a tolerance is set.
 
 **Validation.**
 
-- *Analytic:* $V = 2RT/(R^2+T^2)$, and no coincidences at $R = 1/2$; $\operatorname{Per}(J_n) =
-  n!$ for the all-ones matrix and $\operatorname{Per}(J_n - I_n)$ the number of derangements;
+- *Analytic:* $V = 2RT/(R^2+T^2)$, and no coincidences at $R = 1/2$; $\mathop{\mathrm{Per}}(J_n) =
+  n!$ for the all-ones matrix and $\mathop{\mathrm{Per}}(J_n - I_n)$ the number of derangements;
   Ryser, Glynn and the defining sum agree to round-off for n ≤ 8; the probabilities of all
   $\binom{m+n-1}{n}$ patterns sum to 1 for a unitary; distinguishable photons give the classical
   probabilities, permanents of $\lvert S \rvert^2$; a Gaussian-spectrum HOM dip against its closed
@@ -341,7 +341,7 @@ must be read before a tolerance is set.
 
 - *Analytic:* single-mode squeezed vacuum has only even photon numbers, with
   $P(2k) = \frac{(2k)!}{4^k (k!)^2} \frac{\tanh^{2k} r}{\cosh r}$ and mean $\sinh^2 r$; each half of
-  a two-mode squeezed vacuum is thermal; $\operatorname{Haf}(J_{2n}) = (2n-1)!!$; loss $\eta$
+  a two-mode squeezed vacuum is thermal; $\mathop{\mathrm{Haf}}(J_{2n}) = (2n-1)!!$; loss $\eta$
   turns a quadrature variance $e^{-2r}$ into $\eta e^{-2r} + 1 - \eta$; the purity of a Gaussian
   JSA against its closed form.
 - *Published:* Paesani et al. (2020)'s source: the purity predicted from the multimode
@@ -463,7 +463,8 @@ today's components plus the visibility formula.
    squeezing with Q3; KLM and fusion, and GKP, as theory lessons whenever written.
    *Recommended: as listed.*
 8. **0.16's line.** Replace "Quantum photonics: linear optical circuits and their statistics" by
-   Q5 as Academy material, or remove it. *Recommended: remove it once 0.6.2 is on the roadmap.*
+   Q5 as Academy material, or remove it. *Recommended: remove it once 0.6.2 is on the roadmap.* Done: the milestone went onto the roadmap as 0.6.3, and
+   the line is gone.
 
 ## References
 

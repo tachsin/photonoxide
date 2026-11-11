@@ -1,45 +1,69 @@
 <script lang="ts">
-  // A lesson: its header, the depth it reads to, and its sections. Intuition is always open;
-  // theory and research open with the depth switch, or one section at a time. Its text is the
-  // lesson's Markdown with KaTeX; its charts, examples, validation cases and timeline are blocks.
+  // A lesson: its header (its track and its place on it, and the path followed), its contents (a
+  // column at the left, at the top on a narrow window), its sections, every one open until folded
+  // at its heading, theory and research labelled, and at its end what comes next on the path or
+  // track. Its text is the lesson's Markdown with KaTeX; its charts, examples, validation cases
+  // and timeline are blocks.
   import "katex/dist/katex.min.css";
+  import { tick } from "svelte";
 
-  import { BookOpen, Boxes, ChevronDown, ChevronRight, CircleCheck, CircleX, CircuitBoard, Clock, Eye, Factory, ListOrdered, Play, ShieldCheck, SquarePen, TableOfContents } from "@lucide/svelte";
+  import { ArrowLeft, ArrowRight, BookOpen, Boxes, ChevronDown, ChevronRight, CircleCheck, CircleX, CircuitBoard, Clock, Eye, Factory, ListOrdered, Play, Route, ShieldCheck, SquarePen, TableOfContents, X } from "@lucide/svelte";
   import { openUrl } from "../lib/open";
 
-  import { academy, DEPTHS, numbered, type ChartSpec, type DiagramSpec, type Depth, type Lesson, type LessonSection } from "../lib/academy.svelte";
+  import { academy, numbered, pathOf, placeIn, trackOf, type Academy, type Depth, type Lesson, type LessonSection } from "../lib/academy.svelte";
   import { api, type CircuitExample } from "../lib/api";
   import { openCustom, showCases, showPublished, toast } from "../lib/app.svelte";
   import { catalog, jobExample, loadCatalog } from "../lib/catalog.svelte";
   import { showChip } from "../lib/chip.svelte";
-  import { deviceOf, devices, loadDevices, openDevice } from "../lib/device.svelte";
+  import { deviceOf, devices, fabricateDevice, loadDevices, openDevice } from "../lib/device.svelte";
   import { methodHtml, type MethodDoc } from "../lib/methods";
   import { startTask } from "../lib/tasks.svelte";
   import LessonChart from "./LessonChart.svelte";
   import LessonDiagram from "./LessonDiagram.svelte";
   import LessonExample from "./LessonExample.svelte";
   import LessonFabrication from "./LessonFabrication.svelte";
+  import LithoTool from "./fabrication/LithoTool.svelte";
   import MathText from "./MathText.svelte";
   import PaperTimeline from "./PaperTimeline.svelte";
-  import Tip from "./Tip.svelte";
 
   let {
     lesson,
-    lessons,
-    diagrams,
-    charts,
+    data,
     docs,
     onlesson,
+    onopen,
     ondoc,
   }: {
     lesson: Lesson;
-    lessons: Lesson[];
-    diagrams: DiagramSpec[];
-    charts: ChartSpec[];
+    /** The lessons, their tracks and paths, and the diagrams and charts. */
+    data: Academy;
     docs: MethodDoc[];
+    /** Opens a lesson from a link in it: on the path followed it keeps to it. */
     onlesson: (id: string) => void;
+    /** Opens a lesson from the track's or the path's Next: following that path, or none. */
+    onopen: (id: string, path: string | null) => void;
     ondoc: (doc: MethodDoc) => void;
   } = $props();
+
+  const lessons = $derived(data.lessons);
+  const diagrams = $derived(data.diagrams);
+  const charts = $derived(data.charts);
+
+  // where the lesson stands: on its track, and on the path followed when it is on it
+  const track = $derived(trackOf(data, lesson.id));
+  const onTrack = $derived(track ? placeIn(track.lessons, lesson.id) : null);
+  const path = $derived(pathOf(data, lesson.id));
+  const onPath = $derived(path ? placeIn(path.lessons, lesson.id) : null);
+  /** The sections the path reads of this lesson, when it reads only some. */
+  const partOf = $derived(path?.sections[lesson.id] ?? null);
+  /** What comes next and before: on the path followed, else on the track. */
+  const along = $derived(onPath && path ? { name: path.title, place: onPath, path: path.id } : onTrack && track ? { name: track.title, place: onTrack, path: null } : null);
+  /** The track's next too, when following a path leads elsewhere. */
+  const trackNext = $derived(onPath && onTrack?.next && onTrack.next !== onPath.next ? onTrack.next : null);
+  const sectionsNote = (id: string) => {
+    const n = path?.sections[id];
+    return n ? `sections ${n.join(" and ")}` : "";
+  };
 
   loadCatalog();
   let circuits = $state<CircuitExample[]>([]);
@@ -48,42 +72,109 @@
     .then((c) => (circuits = c))
     .catch(() => {});
 
-  const DEPTH: Record<Depth, { label: string; about: string; badge: string }> = {
-    intuition: { label: "Intuition", about: "what it does, in pictures and words", badge: "badge-ghost" },
-    theory: { label: "Theory", about: "the derivations, equation by equation", badge: "badge-info" },
-    research: { label: "Research", about: "history, today's papers, open problems", badge: "badge-secondary" },
+  /** What kind of section it is: a label on theory's and research's headings. */
+  const DEPTH: Record<Depth, { label: string; badge: string; dot: string }> = {
+    intuition: { label: "Intuition", badge: "badge-ghost", dot: "" },
+    theory: { label: "Theory", badge: "badge-info", dot: "bg-info" },
+    research: { label: "Research", badge: "badge-secondary", dot: "bg-secondary" },
   };
 
   /** Laid out with its subsections, still to be written. */
   const coming = $derived(lesson.status === "coming");
-  const depth = $derived(academy.depth[lesson.id] ?? "intuition");
-  const reach = $derived(DEPTHS.indexOf(depth));
   const key = (s: LessonSection) => `${lesson.id}#${s.id}`;
-  /** Open: within the depth read to and not closed, or opened by itself. */
-  const isOpen = (s: LessonSection) => (DEPTHS.indexOf(s.depth) <= reach && !academy.closed.includes(key(s))) || academy.opened.includes(key(s));
+  /** The `##` section a part (`###`) belongs to: the one before it. */
+  const parentOf = $derived.by(() => {
+    const out = new Map<string, LessonSection>();
+    let last: LessonSection | null = null;
+    for (const s of lesson.sections) {
+      if (s.level === 2) last = s;
+      else if (last) out.set(s.id, last);
+    }
+    return out;
+  });
+  /** Every section is open until folded; a part shows only while its section is open. */
+  const folded = (s: LessonSection) => academy.closed.includes(key(s));
+  const isOpen = (s: LessonSection) => !folded(s);
+  const shown = (s: LessonSection) => {
+    const p = parentOf.get(s.id);
+    return !p || !folded(p);
+  };
 
   function toggle(s: LessonSection) {
     const k = key(s);
-    const without = (list: string[]) => list.filter((o) => o !== k);
-    if (academy.opened.includes(k)) academy.opened = without(academy.opened);
-    else if (academy.closed.includes(k)) academy.closed = without(academy.closed);
-    else if (isOpen(s)) academy.closed = [...academy.closed, k];
-    else academy.opened = [...academy.opened, k];
+    academy.closed = folded(s) ? academy.closed.filter((o) => o !== k) : [...academy.closed, k];
+  }
+  const mine = (o: string) => o.startsWith(`${lesson.id}#`);
+  const anyFolded = $derived(academy.closed.some(mine));
+  /** Folds every chapter to its heading, or opens them all. */
+  function foldAll(fold: boolean) {
+    const rest = academy.closed.filter((o) => !mine(o));
+    academy.closed = fold ? [...rest, ...lesson.sections.filter((s) => s.title && s.level === 2).map(key)] : rest;
   }
 
-  /** Reads the lesson to `d`, forgetting the sections opened or closed one by one. */
-  function setDepth(d: Depth) {
-    academy.depth[lesson.id] = d;
-    const mine = (o: string) => o.startsWith(`${lesson.id}#`);
-    academy.opened = academy.opened.filter((o) => !mine(o));
-    academy.closed = academy.closed.filter((o) => !mine(o));
-  }
-
-  /** Scrolls to a section, opening it first. */
+  /** Scrolls to a section, opening it (and the section it is a part of) first. */
   function reveal(s: LessonSection) {
-    if (!isOpen(s)) toggle(s);
+    const p = parentOf.get(s.id);
+    if (p && folded(p)) toggle(p);
+    if (folded(s)) toggle(s);
     requestAnimationFrame(() => document.getElementById(`section-${s.id}`)?.scrollIntoView({ behavior: "smooth", block: "start" }));
   }
+
+  // the section being read, lit in the contents: the last whose heading has passed the top. The
+  // contents keep it in sight, moved by no more than it takes, and are at their top or their end
+  // when the lesson is at its top or its end
+  let scroller: HTMLElement;
+  let contentsBox: HTMLElement | undefined = $state();
+  let current = $state("");
+  let spying = 0;
+  function spy() {
+    if (spying) return;
+    spying = requestAnimationFrame(() => {
+      spying = 0;
+      const top = scroller.getBoundingClientRect().top + 96;
+      const titled = lesson.sections.filter((s) => s.title);
+      const atEnd = scroller.scrollTop + scroller.clientHeight >= scroller.scrollHeight - 4;
+      let at = "";
+      for (const s of titled) {
+        const el = document.getElementById(`section-${s.id}`);
+        if (el && !el.hidden && el.getBoundingClientRect().top <= top) at = s.id;
+      }
+      current = at;
+      // the contents follow once the scrolling settles
+      clearTimeout(settle);
+      settle = setTimeout(() => void tick().then(() => follow(atEnd)), 120);
+    });
+  }
+  let settle: ReturnType<typeof setTimeout> | undefined;
+  $effect(() => () => clearTimeout(settle));
+  /** Scrolls the contents so the section lit is in sight; to their top or end at the lesson's. */
+  function follow(atEnd: boolean) {
+    const box = contentsBox;
+    if (!box || box.scrollHeight <= box.clientHeight) return;
+    const to = (top: number) => {
+      const t = Math.max(0, Math.min(box.scrollHeight - box.clientHeight, top));
+      if (Math.abs(t - box.scrollTop) > 1) box.scrollTop = t;
+    };
+    if (scroller.scrollTop <= 4) return to(0);
+    if (atEnd) return to(box.scrollHeight);
+    const item = box.querySelector<HTMLElement>('[data-here="true"]');
+    if (!item) return;
+    const [b, r] = [box.getBoundingClientRect(), item.getBoundingClientRect()];
+    // in sight, nothing moves; out of it, just enough to bring it to the nearer edge
+    if (r.top < b.top) to(box.scrollTop - (b.top - r.top) - 8);
+    else if (r.bottom > b.bottom) to(box.scrollTop + (r.bottom - b.bottom) + 8);
+  }
+  // a path reading the lesson in part opens it at its first section
+  $effect(() => {
+    const n = academy.at;
+    if (n === null) return;
+    academy.at = null;
+    const s = lesson.sections.find((x) => x.level === 2 && numbered(x.title)[0] === String(n));
+    if (s) void tick().then(() => reveal(s));
+  });
+
+  /** The contents on a narrow window, at the top: folded until asked for. */
+  let contentsOpen = $state(false);
 
   /** Answers shown, by section and block. */
   let revealed = $state<string[]>([]);
@@ -126,7 +217,7 @@
   const actions = $derived([
     { label: "Run the example", icon: Play, primary: true, items: lesson.examples.map((e) => ({ label: exampleTitle(e), run: () => runExample(e) })) },
     { label: "Open the device", icon: Boxes, primary: false, items: taught.map((d) => ({ label: deviceName(d.kind), run: () => openDevice(d.id) })) },
-    { label: "Fabricate", icon: Factory, primary: false, items: taught.map((d) => ({ label: `How ${deviceName(d.kind).replace(/^The /, "the ")} is made`, run: () => openDevice(d.id, "fabrication") })) },
+    { label: "Fabricate", icon: Factory, primary: false, items: taught.map((d) => ({ label: `How ${deviceName(d.kind).replace(/^The /, "the ")} is made`, run: () => fabricateDevice(d.id) })) },
     { label: "Open in the Custom device", icon: SquarePen, primary: false, items: lesson.jobs.map((j) => ({ label: jobExample(j)?.name ?? j, run: () => openJob(j) })) },
     { label: "Open on the chip", icon: CircuitBoard, primary: false, items: lesson.circuits.map((c) => ({ label: circuits.find((x) => x.file === c)?.chip.name ?? c, run: () => openCircuit(c) })) },
     { label: "The methods", icon: BookOpen, primary: false, items: methodDocs.map((d) => ({ label: d.title, run: () => ondoc(d) })) },
@@ -152,25 +243,32 @@
 </script>
 
 <div class="relative flex h-full min-h-0">
-  <!-- the outline, under a button floating at the lesson's lower right while the side one is
-       hidden; a lesson coming soon is its outline already -->
-  {#if !coming}
-    <div class="dropdown dropdown-end dropdown-top absolute right-5 bottom-4 z-20 2xl:hidden">
-      <div tabindex="0" role="button" class="btn gap-1.5 border-base-content/10 bg-base-100/90 btn-sm shadow-md backdrop-blur" title="Jump to a section">
-        <TableOfContents size={14} /> Contents
-      </div>
-      <div tabindex="-1" class="dropdown-content mb-1 max-h-[70vh] w-72 overflow-y-auto rounded-box border border-base-content/10 bg-base-100 p-1.5 shadow-xl">
-        {@render outline(blur)}
-      </div>
-    </div>
-  {/if}
+  <!-- the contents on a wide window: a column of their own beside the lesson, scrolling apart from
+       it (a sticky column inside the lesson's scroll jumped as its lit row changed while the
+       lesson scrolled), the section being read lit; never a scroll anchor -->
+  <nav bind:this={contentsBox} class="hidden w-64 shrink-0 overflow-y-auto border-r border-base-content/8 px-3 pt-6 pb-8 [overflow-anchor:none] lg:block" aria-label="Contents">
+    {@render contentsHead()}
+    {@render outline()}
+  </nav>
   <!-- the links in the lesson's text are buttons in all but name; the click is delegated -->
   <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_noninteractive_element_interactions -->
-  <article class="min-w-0 flex-1 overflow-y-auto" onclick={click}>
+  <article bind:this={scroller} class="min-w-0 flex-1 overflow-y-auto" onclick={click} onscroll={spy}>
     <header class="glow border-b border-base-content/8">
-      <div class="mx-auto max-w-3xl px-5 pt-6 pb-6 sm:px-8">
+      <div class="mx-auto max-w-250 px-5 pt-6 pb-6 sm:px-8">
+        {#if path && onPath}
+          <div class="mb-3 flex w-fit max-w-full items-center gap-2 rounded-full border border-primary/25 bg-primary/6 py-0.5 pr-1 pl-2.5 text-xs">
+            <Route size={12} class="shrink-0 text-primary" />
+            <span class="min-w-0 truncate"><span class="font-medium text-primary">{path.title}</span> <span class="faint">· {onPath.k} of {onPath.n}{partOf ? ` · ${sectionsNote(lesson.id)} on this path` : ""}</span></span>
+            <button class="btn btn-circle shrink-0 btn-ghost btn-xs" onclick={() => (academy.path = null)} title="Stop following this path" aria-label="Stop following this path"><X size={11} /></button>
+          </div>
+        {/if}
         <div class="flex flex-wrap items-center gap-2 text-xs">
-          <span class="font-medium text-primary">{lesson.topic}</span>
+          {#if track && onTrack}
+            <button class="font-medium text-primary hover:underline" onclick={() => (academy.lesson = null)} title="{track.title}: {track.summary} All the tracks on the overview">{track.title}</button>
+            <span class="faint num">{onTrack.k} of {onTrack.n}</span>
+            <span class="faint">·</span>
+          {/if}
+          <span class="badge badge-ghost badge-sm">{lesson.topic}</span>
           <span class="badge badge-soft badge-sm {LEVEL[lesson.level]}">{lesson.level}</span>
           {#if coming}
             <span class="coming-chip">coming soon{lesson.milestone ? ` · with ${lesson.milestone}` : ""}</span>
@@ -189,18 +287,7 @@
           </p>
         {/if}
 
-        <div class="mt-5 flex flex-wrap items-center gap-x-3 gap-y-2" class:hidden={coming}>
-          <div class="join" role="group" aria-label="How deep to read">
-            {#each DEPTHS as d (d)}
-              <button class="btn join-item btn-sm {DEPTHS.indexOf(d) <= reach ? 'btn-primary' : ''} {d === depth ? '' : 'btn-soft'}" aria-pressed={d === depth} onclick={() => setDepth(d)} title={DEPTH[d].about}>
-                {DEPTH[d].label}
-              </button>
-            {/each}
-          </div>
-          <span class="text-xs faint">Reading to {DEPTH[depth].label.toLowerCase()}: {DEPTH[depth].about}</span>
-        </div>
-
-        <div class="mt-4 flex flex-wrap gap-2">
+        <div class="mt-5 flex flex-wrap gap-2">
           {#each actions.filter((a) => a.items.length) as a (a.label)}
             {@const Icon = a.icon}
             {#if a.items.length === 1}
@@ -224,16 +311,17 @@
             {/if}
           {/each}
         </div>
-        <div class="mt-4 empty:hidden" class:hidden={coming}>
-          <Tip id="academy-depth" title="Read as deep as you like">
-            A lesson opens on its intuition. <strong>Theory</strong> opens the derivations and <strong>Research</strong> the history and today's papers; a section's heading opens it alone. Every chart
-            is computed by photonoxide as you move its sliders.
-          </Tip>
-        </div>
       </div>
     </header>
 
-    <div class="lesson mx-auto max-w-3xl px-5 pb-20 sm:px-8">
+    <div class="mx-auto max-w-250 px-5 pb-20 sm:px-8">
+      <!-- the contents on a narrow window: at the top, folded until asked for -->
+      <nav class="mt-6 rounded-xl border border-base-content/8 p-2 lg:hidden" aria-label="Contents">
+        {@render contentsHead(true)}
+        {#if contentsOpen}{@render outline()}{/if}
+      </nav>
+
+      <div class="lesson min-w-0">
       {#each lesson.sections as s, k (s.id || k)}
         {@const open = isOpen(s)}
         {#if s.coming}
@@ -244,7 +332,7 @@
               {#if n}<span class="mt-px grid size-6 shrink-0 place-items-center rounded-full bg-base-content/6 text-xs font-semibold num muted">{n}</span>{/if}
               <div class="min-w-0 flex-1">
                 <div class="flex flex-wrap items-center gap-x-2.5 gap-y-1">
-                  <h3 class="text-[15.5px] leading-snug font-semibold tracking-tight">{question}</h3>
+                  <h3 class="text-[15.5px] leading-snug font-semibold tracking-tight"><MathText text={question} /></h3>
                   <span class="coming-chip">coming soon</span>
                 </div>
                 <div class="coming-text mt-1 muted selectable">{@html methodHtml(s.coming.answers)}</div>
@@ -260,30 +348,23 @@
             </div>
           </section>
         {:else}
-          <section id="section-{s.id}" class="scroll-mt-4">
-            {#if s.title && s.depth === "intuition"}
-              {#if s.level === 3}
-                <h4 class="mt-7 mb-1 text-base font-semibold tracking-tight">{s.title}</h4>
-              {:else}
-                <h3 class="mt-10 mb-2 text-xl font-semibold tracking-tight">{s.title}</h3>
-              {/if}
-            {:else if s.title}
-              <button class="group {s.level === 3 ? 'mt-7' : 'mt-10'} flex w-full items-center gap-3 text-left" onclick={() => toggle(s)} aria-expanded={open}>
+          <section id="section-{s.id}" class="scroll-mt-4" hidden={!shown(s)}>
+            {#if s.title}
+              <!-- every chapter folds at its heading; a part (###) folds within its chapter -->
+              <button
+                class="group flex w-full items-center gap-3 text-left {s.level === 3 ? 'mt-7' : 'mt-12 border-b border-base-content/8 pb-2'}"
+                onclick={() => toggle(s)}
+                aria-expanded={open}
+                title={open ? "Fold this section" : "Open this section"}
+              >
+                <ChevronDown size={s.level === 3 ? 15 : 18} class="shrink-0 faint transition-transform group-hover:text-base-content {open ? '' : '-rotate-90'}" />
                 {#if s.level === 3}
-                  <h4 class="text-base font-semibold tracking-tight">{s.title}</h4>
+                  <h4 class="min-w-0 text-base font-semibold tracking-tight"><MathText text={s.title} /></h4>
                 {:else}
-                  <h3 class="text-xl font-semibold tracking-tight">{s.title}</h3>
+                  <h3 class="min-w-0 text-[22px] font-semibold tracking-tight"><MathText text={s.title} /></h3>
                 {/if}
-                <span class="badge badge-soft badge-sm {DEPTH[s.depth].badge}">{DEPTH[s.depth].label.toLowerCase()}</span>
-                <span class="flex-1 border-t border-base-content/8"></span>
-                <span class="flex items-center gap-1 text-xs faint group-hover:text-base-content">
-                  {open ? "close" : "open"}
-                  <ChevronDown size={15} class="transition-transform {open ? 'rotate-180' : ''}" />
-                </span>
+                {#if s.depth !== "intuition"}<span class="badge shrink-0 badge-soft badge-sm {DEPTH[s.depth].badge}">{DEPTH[s.depth].label.toLowerCase()}</span>{/if}
               </button>
-              {#if !open}
-                <p class="mt-1.5 text-sm faint">{DEPTH[s.depth].about[0].toUpperCase() + DEPTH[s.depth].about.slice(1)}.</p>
-              {/if}
             {:else}
               <div class="mt-8"></div>
             {/if}
@@ -337,11 +418,13 @@
                       </span>
                       <span class="flex shrink-0 items-center gap-1 text-xs font-medium text-primary">Open the device <ChevronRight size={14} /></span>
                     </button>
-                    <button class="panel flex shrink-0 flex-col items-center justify-center gap-1 px-3 text-xs font-medium text-primary transition-colors hover:bg-base-content/3" onclick={() => openDevice(d.id, "fabrication")} title="How this device could be made: its process flow, animated step by step, on its page's Fabrication tab"><Factory size={16} /> Fabricate</button>
+                    <button class="panel flex shrink-0 flex-col items-center justify-center gap-1 px-3 text-xs font-medium text-primary transition-colors hover:bg-base-content/3" onclick={() => fabricateDevice(d.id)} title="How this device could be made: its process flow from the bare wafer, step by step in 2D and 3D, on the Fabrication page"><Factory size={16} /> Fabricate</button>
                     </div>
                   {/if}
                 {:else if b.kind === "fabrication"}
                   <LessonFabrication device={b.device} label={b.label} parameters={b.parameters} job={b.job} />
+                {:else if b.kind === "lithography"}
+                  <div class="panel my-6 p-3"><LithoTool process={b.tools[0] === "ebl" ? "ebl-hsq" : b.tools[0]} tone="keep" layer={null} shapes={[]} optics={[]} tools={b.tools} lesson /></div>
                 {:else if b.kind === "timeline"}
                   <PaperTimeline papers={lesson.papers} />
                 {:else if b.kind === "answer"}
@@ -357,38 +440,93 @@
           </section>
         {/if}
       {/each}
+      </div>
+
+      <!-- what comes next: on the path followed, else on the track; and the track's next too when the path leads elsewhere -->
+      {#if along && (along.place.next || along.place.previous)}
+        <nav class="mt-16 border-t border-base-content/8 pt-6" aria-label="Next lesson">
+          <p class="mb-3 flex items-center gap-1.5 text-xs faint">
+            {#if along.path}<Route size={12} class="text-primary" />{/if}
+            <span class="font-medium text-base-content/75">{along.name}</span> · {along.place.k} of {along.place.n}
+          </p>
+          <div class="grid gap-3 sm:grid-cols-2">
+            {#if along.place.previous}
+              {@render step(along.place.previous, along.path, "previous")}
+            {:else}
+              <span class="hidden sm:block"></span>
+            {/if}
+            {#if along.place.next}
+              {@render step(along.place.next, along.path, "next")}
+            {:else}
+              <p class="panel flex items-center px-4 py-3 text-sm muted">The last lesson {along.path ? "on this path" : "on this track"}. <button class="ml-1 text-primary hover:underline" onclick={() => (academy.lesson = null)}>All the tracks</button></p>
+            {/if}
+          </div>
+          {#if trackNext && track}
+            <p class="mt-3 text-xs faint">Next on its track, {track.title}: <button class="text-primary hover:underline" onclick={() => onopen(trackNext, null)}>{title(trackNext)}</button></p>
+          {/if}
+        </nav>
+      {/if}
     </div>
   </article>
-
-  <!-- a lesson coming soon is its outline already -->
-  <nav class="hidden w-60 shrink-0 overflow-y-auto border-l border-base-content/8 px-3 py-6 {coming ? '' : '2xl:block'}" aria-label="On this page">
-    <p class="mb-2 px-2 panel-title">On this page</p>
-    {@render outline()}
-  </nav>
 </div>
 
-<!-- the lesson's sections and their parts, to jump to: beside the lesson on a wide window, from
-     the Contents button otherwise -->
-{#snippet outline(after?: () => void)}
+<!-- a neighbour on the track or path: its title, and its sections when the path reads it in part -->
+{#snippet step(id: string, via: string | null, way: "previous" | "next")}
+  {@const l = lessons.find((x) => x.id === id)}
+  {#if l}
+    <button class="panel group flex items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-base-content/3 {way === 'next' ? 'sm:flex-row-reverse sm:text-right' : ''}" onclick={() => onopen(id, via)}>
+      {#if way === "next"}<ArrowRight size={16} class="shrink-0 text-primary transition-transform group-hover:translate-x-0.5" />{:else}<ArrowLeft size={16} class="shrink-0 faint transition-transform group-hover:-translate-x-0.5" />{/if}
+      <span class="min-w-0 flex-1">
+        <span class="block text-[11px] tracking-wide uppercase faint">{way === "next" ? "Next" : "Before"}</span>
+        <span class="block text-sm font-semibold">{l.title}</span>
+        <span class="block text-[11.5px] faint">{l.status === "coming" ? "coming soon" : `${l.level} · ${l.minutes} min`}{via && sectionsNote(id) ? ` · ${sectionsNote(id)}` : ""}</span>
+      </span>
+    </button>
+  {/if}
+{/snippet}
+
+<!-- the contents' heading: their name (on a narrow window, the button that opens them), and Fold all -->
+{#snippet contentsHead(narrow = false)}
+  <div class="flex items-center gap-2 px-2 pb-1.5">
+    {#if narrow}
+      <button class="flex min-w-0 flex-1 items-center gap-1.5 text-left" onclick={() => (contentsOpen = !contentsOpen)} aria-expanded={contentsOpen}>
+        <TableOfContents size={14} class="faint" />
+        <span class="panel-title">Contents</span>
+        <ChevronDown size={14} class="faint transition-transform {contentsOpen ? 'rotate-180' : ''}" />
+      </button>
+    {:else}
+      <span class="flex min-w-0 flex-1 items-center gap-1.5"><TableOfContents size={14} class="faint" /><span class="panel-title">Contents</span></span>
+    {/if}
+    {#if !coming}
+      <button class="text-[11px] whitespace-nowrap text-primary hover:underline" onclick={() => foldAll(!anyFolded)}>{anyFolded ? "Open all" : "Fold all"}</button>
+    {/if}
+  </div>
+{/snippet}
+
+<!-- the lesson's chapters and their parts, to jump to: a column at the left on a wide window, at
+     the top otherwise; the one being read lit, a folded one faint -->
+{#snippet outline()}
   {#each lesson.sections.filter((s) => s.title) as s (s.id)}
+    {@const here = s.id === current || (parentOf.get(current)?.id === s.id && s.level === 2)}
     <button
-      class="flex w-full items-center gap-2 rounded-md py-1.5 pr-2 text-left hover:bg-base-content/5 {s.level === 3 ? 'pl-5 text-[12px]' : 'pl-2 text-[13px]'} {isOpen(s) && !s.coming ? '' : 'faint'}"
+      data-here={s.id === current}
+      class="flex w-full items-start gap-2 rounded-md border-l-2 py-1.5 pr-2 text-left leading-snug transition-colors {s.level === 3 ? 'pl-6 text-[12px]' : 'pl-2.5 text-[13px] font-medium'} {here ? 'border-primary bg-primary/6 text-primary' : 'border-transparent hover:bg-base-content/5'} {(folded(s) || !shown(s) || s.coming) && !here ? 'faint' : ''}"
       onclick={() => {
-        after?.();
+        contentsOpen = false;
         reveal(s);
       }}
     >
-      <span class="min-w-0 flex-1 truncate">{s.title}</span>
-      {#if s.coming}<span class="size-1.5 shrink-0 rounded-full border border-dashed border-base-content/40" title="Coming soon"></span>
-      {:else if s.depth !== "intuition"}<span class="size-1.5 shrink-0 rounded-full {s.depth === 'theory' ? 'bg-info' : 'bg-secondary'}" title={DEPTH[s.depth].label}></span>{/if}
+      <span class="min-w-0 flex-1"><MathText text={s.title} /></span>
+      {#if s.coming}<span class="mt-1.5 size-1.5 shrink-0 rounded-full border border-dashed border-base-content/40" title="Coming soon"></span>
+      {:else if s.depth !== "intuition"}<span class="mt-1.5 size-1.5 shrink-0 rounded-full {DEPTH[s.depth].dot}" title={DEPTH[s.depth].label}></span>{/if}
     </button>
   {/each}
 {/snippet}
 
 <style>
   .lesson-text {
-    font-size: 14.5px;
-    line-height: 1.7;
+    font-size: 15px;
+    line-height: 1.72;
   }
   .lesson-text :global(p) {
     margin-block: 0.7em;

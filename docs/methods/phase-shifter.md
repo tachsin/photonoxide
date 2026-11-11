@@ -167,6 +167,20 @@ above changes only the level:
   about 30 µm and about 300 µm from the heater, so no one arm spacing fits both. The same holds
   for a gap measured from somewhere other than the N++ edge: matching both needs 1.6 µm more at
   5 µm and 15 µm more at 15 µm.
+- **The heater's length, solved** (an ignored test,
+  `thermal::crosstalk_checks::tests::print_jacques_length_averaged`). The heater, its guide and
+  the victim's near arm L long and side by side (Fig. 5(a) draws the victim's arm along the
+  heater) on the 725 µm chip. Each Fourier component $e^{ik_z z}$ of the heat along the guides is
+  a 2D problem with $k k_z^2 T$ added, 57 of them from $k_z$ = 10 to 10⁸ per metre (each one
+  backward-Euler step of $1/k_z^2$ s with the heat capacities set to the conductivities), and a
+  guide's mean over the length is its 2D value times
+  $R = \frac{2}{\pi}\int_0^\infty \mathop{\mathrm{sinc}}^2 u\,\tau(2u/L)\,du$, $\tau(k)$ its
+  temperature at $k_z = k$ over its 2D one. At the paper's 320 µm R is 0.972 for the heated
+  guide, 0.884 at 5 µm and 0.673 at 15 µm: the crosstalk falls to 0.166 and 0.0403, 18 % above
+  and 7 % below the measured, a ratio of 4.12 against 3.24, and the chip's own Pπ rises from
+  24.82 to 25.53 mW. 160, 640 and 1280 µm give 0.159 and 0.0332 (ratio 4.79), 0.172 and 0.0467
+  (3.69), 0.177 and 0.0517 (3.42). The length is the right size for the gap at 15 µm, but like
+  the thin substrate it steepens the decay, so no length fits both gaps.
 
 What does fit both is a factor: the measured are 0.774 and 0.747 of ours. The gap splits in two
 about equal parts. The heater's own phase: our section's Pπ is 26.09 mW (`shifter/jacques-npp`;
@@ -174,7 +188,10 @@ the paper's own simulation 25.5 mW) against the measured 22.8 mW, so our s₁₁
 victim's phase per mW: ours, 0.183 × π/26.09 mW = 0.0220 rad/mW at 5 µm and 0.0070 at 15 µm,
 is 14 % and 17 % above the measured 0.0194 and 0.0060 (Fig. 9(b)). The first part is the heater
 itself, which the paper's simulation misses too. The second is what the length and the far arm
-would remove, but their sizes need the layout: the gap stays open.
+would remove. The length, solved above, takes the chip's victim phase per mW from 0.0232 and
+0.0074 rad/mW (19 % and 23 % above the measured) to 0.0204 and 0.0050 (5 % above, 17 % below):
+too much at 15 µm, so what is left needs the victim's layout (its arms' lengths beside the
+heater and where its far arm runs), which the paper doesn't print: the gap stays open.
 
 **The deep trench** is air from the cladding's top through the silicon and the buried oxide into
 the substrate ("partially": 2 µm taken), 0.5 µm clear of the heater and the victim: it cuts the

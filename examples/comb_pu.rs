@@ -3,22 +3,24 @@
 //! M. Pu, L. Ottaviano, E. Semenova, K. Yvind, "Efficient frequency comb generation in
 //! AlGaAs-on-insulator", Optica 3, 823 (2016),
 //! [doi:10.1364/OPTICA.3.000823](https://doi.org/10.1364/OPTICA.3.000823): a ring 25 µm across
-//! with an FSR of 995 GHz and a loaded Q of about 10⁵ (Fig. 4(a), p. 825), its guide 320 × 630 nm
-//! with γ ∼ 660 /(W·m) (p. 823), reached the threshold of parametric oscillation at 3.1 mW in the
-//! bus (Fig. 4(b)). The paper's own estimate is a band, from critical coupling (Q_C = 2Q_L) to
-//! under-coupling (Q_C = 10Q_L), and the measured thresholds lie in it (Fig. 4(d)); the
-//! comb and the Q were measured near 1590 nm (p. 824).
+//! with an FSR of 995 GHz and a loaded $Q$ of about $10^5$ (Fig. 4(a), p. 825), its guide
+//! 320 × 630 nm with $\gamma \sim 660\ \mathrm{W^{-1}\,m^{-1}}$ (p. 823), reached the threshold of
+//! parametric oscillation at 3.1 mW in the bus (Fig. 4(b)). The paper's own estimate is a band,
+//! from critical coupling ($Q_C = 2Q_L$) to under-coupling ($Q_C = 10Q_L$), and the measured
+//! thresholds lie in it (Fig. 4(d)); the comb and the $Q$ were measured near 1590 nm (p. 824).
 //!
 //! Here the same band from the ring's mean-field equation (Coen et al.'s, `nonlinear::resonator`):
-//! the homogeneous state turns unstable at |ψ|² = 1, which the drive reaches first at ζ₀ = 1 with
-//! f² = 1, so the threshold in the bus is P_th = α³/(θγL), α the field's loss per round trip
-//! (θ/2 and the intrinsic loss: ω₀t_R/(2Q_L)) and θ the coupler's power transmission
-//! (ω₀t_R/Q_C). The library's instability rate checks that the homogeneous state is stable just
-//! below and unstable just above that drive. The measured 3.1 mW must lie in the band.
+//! the homogeneous state turns unstable at $|\psi|^2 = 1$, which the drive reaches first at
+//! $\zeta_0 = 1$ with $f^2 = 1$, so the threshold in the bus is $P_\mathrm{th} = \alpha^3/(\theta\gamma L)$,
+//! $\alpha$ the field's loss per round trip ($\theta/2$ and the intrinsic loss:
+//! $\omega_0 t_R/(2Q_L)$) and $\theta$ the coupler's power transmission ($\omega_0 t_R/Q_C$). The
+//! library's instability rate checks that the homogeneous state is stable just below and
+//! unstable just above that drive. The measured 3.1 mW must lie in the band.
 //!
-//! Pu et al.'s own formula (from their Ref. [29]), 1.54(π/2)(Q_C/2Q_L)n²LA_eff/(n₂λQ_L²), is
-//! 1.54n²/n_g² times ours: their 1.54, which the mean-field equation's minimum doesn't have,
-//! and the material's index n = 3.3 where the round trip takes the group index n_g = c/(FSR·L).
+//! Pu et al.'s own formula (from their Ref. 29),
+//! $1.54\,(\pi/2)(Q_C/2Q_L)\,n^2 L A_\mathrm{eff}/(n_2 \lambda Q_L^2)$, is $1.54\,n^2/n_g^2$ times
+//! ours: their 1.54, which the mean-field equation's minimum doesn't have, and the material's
+//! index $n = 3.3$ where the round trip takes the group index $n_g = c/(\mathrm{FSR} \cdot L)$.
 //!
 //! ```sh
 //! cargo run --release --example comb_pu

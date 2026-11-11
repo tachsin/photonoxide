@@ -9,7 +9,7 @@
   import { inOrder } from "../../lib/designs";
   import { literal, literalAt, plain, showExpression, takeExpression, valueText } from "../../lib/deviceview";
   import { label } from "../../lib/plot";
-  import { isMicrometres, showIn } from "../../lib/units";
+  import { isMicrometres, showIn, unitText } from "../../lib/units";
   import UnitChip from "../UnitChip.svelte";
 
   let {
@@ -99,7 +99,8 @@
   </div>
 </div>
 
-<div class="mt-3 space-y-4">
+<!-- in two columns where the panel is wide -->
+<div class="mt-3 grid gap-x-8 gap-y-4 @2xl:grid-cols-2">
   {#each deviceRows as f (f.name)}
     {@const p = parameter(f.name)}
     {@const lit = literal(f)}
@@ -125,9 +126,10 @@
             aria-label={f.name}
           />
         {/if}
+        <span class="input input-xs w-36 {f.error ? 'input-error' : ''}">
         <input
           id="field-{f.name}"
-          class="input input-xs w-32 num {f.error ? 'input-error' : ''}"
+          class="num"
           value={editing[f.name] ?? showExpression(f)}
           spellcheck="false"
           autocomplete="off"
@@ -137,7 +139,8 @@
           }}
           onblur={() => delete editing[f.name]}
           aria-label="{f.name}: a number or an expression"
-        />
+        />{#if isMicrometres(f.unit)}<span class="faint" title="A number without a unit is in {unitText()}">{unitText()}</span>{/if}
+        </span>
       </div>
       {#if !lit && f.value !== null && !f.error}<div class="mt-1 text-xs muted num">= {valueText(f.value, f.unit)}</div>{/if}
       {@render error(f)}

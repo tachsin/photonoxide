@@ -261,3 +261,76 @@ export function resultOf(events: Event[]): NonlinearResult {
 export function marks(setup: NonlinearSetup | null): { label: string; um: number }[] {
   return (setup?.waves ?? []).map((w) => ({ label: w.role, um: w.wavelength_um }));
 }
+
+/** Each process explained for the view's card: its name, its photons' energy, what it does; math in $…$ (TeX, set by KaTeX). */
+export const GUIDES: Record<Process, { title: string; energy: string; what: string }> = {
+  shg: {
+    title: "Second-harmonic generation",
+    energy: "$\\omega + \\omega \\to 2\\omega$",
+    what: "Two pump photons merge into one at twice the frequency, half the wavelength: 1064 nm becomes 532 nm. It needs a crystal without a centre of symmetry ($\\chi^{(2)}$), such as LiNbO₃ or KTP.",
+  },
+  sfg: {
+    title: "Sum-frequency generation",
+    energy: "$\\omega_1 + \\omega_2 \\to \\omega_3$",
+    what: "A photon of each input merges into one at the sum of their frequencies; SHG is the case of two equal inputs. It brings infrared light to the visible, or detects it there.",
+  },
+  dfg: {
+    title: "Difference-frequency generation",
+    energy: "$\\omega_3 - \\omega_2 \\to \\omega_1$",
+    what: "The pump gives up a photon to the signal and makes a new wave, the idler, at the difference of their frequencies: a way to reach the mid-infrared.",
+  },
+  opa: {
+    title: "Optical parametric amplification",
+    energy: "$\\omega_3 \\to \\omega_2 + \\omega_1$",
+    what: "A strong pump amplifies a weak signal, making an idler as it does. Put in a cavity, it becomes an optical parametric oscillator.",
+  },
+  spdc: {
+    title: "Spontaneous parametric down-conversion",
+    energy: "$\\omega_p \\to \\omega_s + \\omega_i$",
+    what: "With nothing sent in but the pump, a pump photon now and then splits into two, a signal and an idler, born at the same moment: the usual source of heralded single photons and entangled pairs.",
+  },
+  fwm: {
+    title: "Four-wave mixing",
+    energy: "$\\omega_p + \\omega_p \\to \\omega_s + \\omega_i$",
+    what: "A third-order ($\\chi^{(3)}$, Kerr) process: two pump photons become a signal and an idler on either side of the pump. It works in centrosymmetric materials such as silicon and silicon nitride, with $\\gamma$ setting its strength.",
+  },
+};
+
+/** A photon of the process: its wave's role and its wavelength in µm (null: not known yet). */
+export interface Photon {
+  role: string;
+  wavelength_um: number | null;
+}
+
+/** The photons one event of the form's process takes in and gives out. A stimulated process
+ *  (DFG, OPA, FWM with a signal sent in) gives back the signal photon that stimulated it, and one
+ *  more like it: that is the amplification. */
+export function photons(f: NonlinearForm): { inputs: Photon[]; outputs: Photon[] } {
+  const p = f.pump.wavelength_um;
+  const s = f.signal.wavelength_um;
+  /** The wavelength of a frequency sum: 1/λ = Σ ± 1/λᵢ, null when it isn't positive. */
+  const sum = (...terms: [number, number | null][]): number | null => {
+    if (terms.some(([, l]) => !l)) return null;
+    const inv = terms.reduce((a, [sign, l]) => a + sign / (l as number), 0);
+    return inv > 0 ? 1 / inv : null;
+  };
+  const one = (role: string, wavelength_um: number | null): Photon => ({ role, wavelength_um });
+  switch (f.process) {
+    case "shg":
+      return { inputs: [one("fundamental", p), one("fundamental", p)], outputs: [one("harmonic", p / 2)] };
+    case "sfg":
+      return { inputs: [one("first", p), one("second", s)], outputs: [one("sum", sum([1, p], [1, s]))] };
+    case "dfg":
+    case "opa":
+      return { inputs: [one("pump", p), one("signal", s)], outputs: [one("signal", s), one("signal", s), one("idler", sum([1, p], [-1, s]))] };
+    case "spdc": {
+      const signal = s ?? 2 * p;
+      return { inputs: [one("pump", p)], outputs: [one("signal", signal), one("idler", sum([1, p], [-1, signal]))] };
+    }
+    case "fwm":
+      return { inputs: [one("pump", p), one("pump", p), one("signal", s)], outputs: [one("signal", s), one("signal", s), one("idler", sum([2, p], [-1, s]))] };
+  }
+}
+
+/** A photon's energy in eV, from its wavelength in µm (hc = 1.239842 eV·µm). */
+export const electronVolts = (wavelength_um: number) => 1.239842 / wavelength_um;

@@ -608,6 +608,21 @@ in a drawer opened from the status bar.
       modes are the low-gain ones: above 0.1 it says the gain may reshape them). It says when
       the amplitude is still above 1% of its peak at the grid's edge, or above half its peak on
       fewer than 3 points, since the purity is then the grid's; every refusal gives its numbers.
+    - **Squeezing at high gain**, under it, for a guide or a crystal: the source cut into
+      slices along its length, each slice coupling the photons by the pump's amplitude and the
+      device's own phase mismatch there (`photonoxide::quantum::Broadband`), against the
+      Schmidt model, whose modes stay the low-gain ones, squeezed by g√λ_k. Given the gain g,
+      the slices and the points, a moment after any change it draws each pair of modes'
+      squeezing in dB both ways, the signal's photons and the effective number of modes both
+      ways, the first two signal modes' shapes with how far the gain has moved each from its
+      Schmidt mode, the first squeezing's change from half the slices (the slicing's error) and
+      the map's symplectic error. The slices are the device's sinc even when the maps above
+      draw its Gaussian stand-in, and it says so; for four-wave mixing it says that the pump's
+      self- and cross-phase modulation are left out. Up to g = 5, 2 to 200 slices (an even
+      number) and 11 to 101 points (a map of (2 × points)² entries per slice); it says when the
+      first squeezing moves by more than 1% from half the slices, or the first mode's amplitude
+      is still above 1% of its peak at the grid's edge. A ring and two pumps in two modes aren't
+      sliced: a ring's pairs are its resonances', and two pumps' overlap changes along the guide.
 - **Validation** (in System), in two tabs:
   - **Cases:** the release's report, searchable, its math rendered, and the same report run on
     this machine.
@@ -645,9 +660,13 @@ in a drawer opened from the status bar.
 - **Lengths in µm or nm:** every length and wavelength the studio shows or asks for (the
   Custom device's fields, a component's or an instance's parameters, the chip's wavelengths, the
   run view's readouts, the plots' axes, hover values and CSV files, the Materials page) is in one
-  unit, µm or nm, app-wide. Click the unit beside any value to switch it everywhere, or choose
-  it in the settings. Only the window converts, exactly: job and chip files keep their units
-  (µm, and nm where a field's name says so).
+  unit, µm or nm, app-wide. Click the unit beside any value to switch it everywhere (a toast
+  says so), or choose it in the settings; a length field shows its unit inside it as you type.
+  Only the window converts, exactly: job and chip files keep their units (µm, and nm where a
+  field's name says so).
+- **Number fields count as you type:** a value takes effect after a short pause in typing, and
+  at once when you press anywhere else, so a click on Run straight after typing runs the value
+  shown, and labels such as "Run 21 points" follow the typing.
 
 Help is built in:
 - a welcome on the first start, which asks for the channel, Stable or Nightly (Settings › Updates
@@ -1035,12 +1054,28 @@ node scripts/record-gifs.mjs --only hero,academy  # some: hero, device, material
 - **What it touches:** it backs up the studio's settings (`%APPDATA%gr.tachsin.photonoxide`),
   records with photonoxide dark, no tips and no welcome, and puts them back as they were when it
   ends or fails. The program runs in an empty workspace, `C:photonoxide-demo`, removed
-  afterwards, with a WebView2 profile of its own. The window shows on screen while it records.
-- **How:** each scene is played with a drawn pointer and screencast at 1280 × 760; the ring's run
-  is a time-lapse whose speed-up follows from how fast this machine solves it, and says so in a
-  badge. The frames are resampled to a steady rate, crossfaded between scenes and from the end
-  back to the start, scaled by ffmpeg and encoded by gifski. `--keep` keeps the frames, and
-  `--frames <folder>` composes kept frames again without recording.
+  afterwards, with a WebView2 profile of its own. The window shows on screen while it records:
+  it is sized so its page is 1440 × 900 at the display's scale (as large as the work area allows
+  when that doesn't fit), put in the work area's bottom-right corner, behind the other windows and
+  without the focus. Any window size and place the settings kept from before are left out, and
+  put back with them.
+- **How:** each scene is played with a drawn pointer and screencast at 1440 × 900 (the page is
+  laid out at that size whatever the window's); the MMI's FDTD run and the ring's sweep are
+  time-lapses, each saying so in a badge. The ring's sweep plays 15 times faster and the GIF
+  keeps its last 2.6 seconds, however long this machine takes; its take ends on the spectrum,
+  and the 3D view is opened and drawn off the record before the next take begins on it, so the
+  two crossfade with nothing between. The frames are resampled to a steady rate, crossfaded
+  between scenes and from the end back to the start, scaled by ffmpeg and encoded by gifski.
+  `--keep` keeps the frames, and `--frames <folder>` composes kept frames again without
+  recording.
+- **The hero:** eight scenes, no captions, under 35 seconds, each scene on screen at least
+  3.5 seconds with the crossfades left out (the recorder prints each scene's seconds). Every take
+  is cropped the same, down to the top of the rail's Collapse row, so the rail's last two rows and
+  the status bar beside them are left out whole; before each take the page's scrolling panes are
+  moved a few pixels, the least that does it, so no line of text is cut by that foot or by a
+  pane's top. Toasts, and a chart's busy spinner as its slider moves, are hidden. Record it with
+  `--workspace` set to a folder with a short, neutral path (`C:\Users\Public\photonoxide-demo`):
+  the Chip page shows the circuit file's path.
 
 ## Layout
 
@@ -1055,7 +1090,8 @@ node scripts/record-gifs.mjs --only hero,academy  # some: hero, device, material
   - `materials.rs`: the Materials page's commands; `nonlinear.rs` its nonlinear view's (a
     `"nonlinear"` job computed in place, and every material's transparency window);
     `sources.rs` its source designer's (a photon-pair source, computed by
-    `photonoxide::nonlinear::pairs` and `photonoxide::quantum`).
+    `photonoxide::nonlinear::pairs` and `photonoxide::quantum`), and `sources/squeezing.rs`
+    a guide's or a crystal's squeezing at high gain (`quantum::Broadband`).
   - `circuits.rs`: the Components and Chip pages' commands, and chip files; `circuits/chip.rs`
     an instance's device design and the chip's jobs (the library's chip of a chip file, the
     Study and Optimize panels' jobs, a chip's job opened on the page); `circuits/library.rs`

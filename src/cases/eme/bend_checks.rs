@@ -476,9 +476,9 @@ pub(crate) fn cases() -> Vec<Case> {
         },
         Case {
             id: "eme/bend-loss",
-            title: r"The same bends' radiation loss, $\operatorname{Im} n_\text{eff}$ (so the loss in dB per 90°) where it is above the arithmetic's reach: TE at 2 µm (3.1e-7 dB per 90°), TM at 2, 3 and 5 µm (0.19, 0.017 and 8.0e-5 dB per 90°), Richardson's limit against the exact (largest relative error shown)",
+            title: r"The same bends' radiation loss, $\mathop{\mathrm{Im}} n_\text{eff}$ (so the loss in dB per 90°) where it is above the arithmetic's reach: TE at 2 µm (3.1e-7 dB per 90°), TM at 2, 3 and 5 µm (0.19, 0.017 and 8.0e-5 dB per 90°), Richardson's limit against the exact (largest relative error shown)",
             tier: Tier::Analytic,
-            source: r"as `eme/bend-index`: the exact bent slab's $\operatorname{Im}\nu$, the light it radiates through the outgoing Hankel function; here through the PML, the mapped profile continued analytically into it",
+            source: r"as `eme/bend-index`: the exact bent slab's $\mathop{\mathrm{Im}}\nu$, the light it radiates through the outgoing Hankel function; here through the PML, the mapped profile continued analytically into it",
             run: || {
                 let (measured, own) = loss_case();
                 crate::verdict::note_numerical(own);
@@ -527,7 +527,7 @@ pub(crate) fn cases() -> Vec<Case> {
         },
         Case {
             id: "eme/bend-joint-leaky",
-            title: r"The same joint where the bend radiates: TM at 2, 3 and 5 µm ($\operatorname{Im} n_\text{eff}$ 1.3e-3, 8.5e-5 and 2.9e-7), the coupling $\eta$ by the expansion's overlaps (Richardson's limit) against the exact bent field's, the light it radiates integrated through the PML (largest $\lvert \Delta \eta \rvert$ shown; $1 - \eta$ is 3.1e-2 at 2 µm)",
+            title: r"The same joint where the bend radiates: TM at 2, 3 and 5 µm ($\mathop{\mathrm{Im}} n_\text{eff}$ 1.3e-3, 8.5e-5 and 2.9e-7), the coupling $\eta$ by the expansion's overlaps (Richardson's limit) against the exact bent field's, the light it radiates integrated through the PML (largest $\lvert \Delta \eta \rvert$ shown; $1 - \eta$ is 3.1e-2 at 2 µm)",
             tier: Tier::Analytic,
             source: r"as `eme/bend-joint`: the exact bend closed by the same walls and PML, so that the field the expansion puts into its PML is integrated on both sides; with the window only, TM at 5 µm was 7.6e-7 off",
             run: || {

@@ -18,33 +18,89 @@ macro_rules! lessons {
     };
 }
 
-// In the library's order, which is the order to read them in: materials, waveguides, couplers,
-// interferometers, rings, gratings and filters, and how such a chip is made; then multimode
-// devices, nanophotonics, the numerical methods, and the active and quantum devices the roadmap
-// brings.
+// In the tracks' order (academy/tracks.yaml), track by track, which is the order to read them in.
 lessons!(
     "material-dispersion.md",
     "slab-waveguide.md",
     "strip-waveguide.md",
     "leaky-and-bent-guides.md",
+    "loss-in-silicon-waveguides.md",
     "directional-coupler.md",
+    "mmi.md",
+    "crossings-and-converters.md",
     "mach-zehnder.md",
     "ring-resonator.md",
     "bragg-gratings.md",
-    "grating-couplers.md",
-    "how-a-chip-is-made.md",
-    "mmi.md",
-    "crossings-and-converters.md",
+    "wavelength-multiplexers.md",
     "photonic-crystals.md",
-    "plasmonics.md",
-    "metasurfaces.md",
+    "grating-couplers.md",
+    "edge-couplers.md",
+    "modulators.md",
+    "carrier-depletion-modulators.md",
+    "germanium-photodetectors.md",
+    "lasers-on-silicon.md",
+    "nonlinear-optics.md",
+    "from-components-to-circuits.md",
+    "programmable-photonics.md",
+    "optical-links-and-co-packaged-optics.md",
+    "photonic-neural-networks.md",
+    "quantum-light.md",
     "how-fdtd-works.md",
     "fdfd-and-adjoints.md",
+    "eigenmode-expansion.md",
+    "how-a-chip-is-made.md",
+    "tolerances-corners-and-yield.md",
+    "layout-pdks-and-design-rules.md",
     "inverse-design.md",
-    "modulators.md",
-    "nonlinear-optics.md",
-    "quantum-light.md",
+    "plasmonics.md",
+    "metasurfaces.md",
 );
+
+/// The tracks and paths (academy/tracks.yaml), as the program was built with them.
+const TRACKS: &str = include_str!("../../../academy/tracks.yaml");
+
+/// A shelf of lessons in the order to read them; every lesson is on exactly one.
+#[derive(Deserialize, Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct Track {
+    pub id: String,
+    pub title: String,
+    /// One line: what the track's lessons are about.
+    pub summary: String,
+    /// A shelf beside the tracks, not a step on the way through them.
+    #[serde(default)]
+    pub shelf: bool,
+    /// Its lessons, by file name without `.md`, in order.
+    pub lessons: Vec<String>,
+}
+
+/// A way through the tracks for one kind of reader.
+#[derive(Deserialize, Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct LearningPath {
+    pub id: String,
+    pub title: String,
+    pub summary: String,
+    /// Its lessons, by file name without `.md`, in order.
+    pub lessons: Vec<String>,
+    /// The numbered sections to read of a lesson read only in part, by its id; the others whole.
+    #[serde(default)]
+    pub sections: BTreeMap<String, Vec<u32>>,
+}
+
+/// academy/tracks.yaml.
+#[derive(Deserialize, Serialize, Clone, Debug, Default)]
+#[serde(deny_unknown_fields)]
+pub struct Tracks {
+    pub tracks: Vec<Track>,
+    #[serde(default)]
+    pub paths: Vec<LearningPath>,
+}
+
+/// The tracks and paths, read; none where the file doesn't parse (the tests refuse it).
+pub fn tracks() -> Result<Tracks, String> {
+    serde_saphyr::from_str(TRACKS).map_err(|e| format!("academy/tracks.yaml: {e}"))
+}
 
 /// How far into a subject a lesson goes.
 #[derive(Deserialize, Serialize, Clone, Copy, Debug, PartialEq, Eq)]
@@ -185,6 +241,10 @@ pub enum Block {
         /// The design as a job (TOML), which the Fabrication page reads.
         job: String,
     },
+    /// `::lithography <tool> <tool> ...`: the lithography machines in 2D and 3D, animated, the
+    /// first shown and the rest to compare (studio/src/lib/litho.ts), each by its process id in
+    /// the library (`ebl` for the electron-beam writer every e-beam resist shares).
+    Lithography { tools: Vec<String> },
 }
 
 /// A section still to be written (`::coming <example> ...` under its heading, then one
@@ -237,10 +297,12 @@ pub struct Lesson {
     pub cases: Vec<CaseRow>,
 }
 
-/// The lessons, and the diagrams and charts they can show.
+/// The lessons, their tracks and paths, and the diagrams and charts they can show.
 #[derive(Serialize)]
 pub struct Academy {
     pub lessons: Vec<Lesson>,
+    pub tracks: Vec<Track>,
+    pub paths: Vec<LearningPath>,
     pub diagrams: Vec<DiagramSpec>,
     pub charts: Vec<ChartSpec>,
 }
@@ -249,11 +311,14 @@ pub struct Academy {
 /// the tests refuse it.
 #[tauri::command]
 pub fn academy() -> Academy {
+    let Tracks { tracks, paths } = tracks().unwrap_or_default();
     Academy {
         lessons: LESSONS
             .iter()
             .filter_map(|(file, text)| parse(file, text).ok())
             .collect(),
+        tracks,
+        paths,
         diagrams: diagrams::specs(),
         charts: charts::specs(),
     }
@@ -566,10 +631,41 @@ fn block(directive: &str) -> Result<Block, String> {
             device: rest.to_owned(),
         }),
         "fabrication" if !rest.is_empty() => fabrication_block(rest),
+        "lithography" if !rest.is_empty() => lithography_block(rest),
         _ => Err(format!(
-            "::{directive} isn't a block: ::diagram <id>, ::chart <id>{{...}}, ::example <name>, ::validation <id> ..., ::device <id>, ::fabrication <id>{{...}}, ::timeline, ::coming <example> ..."
+            "::{directive} isn't a block: ::diagram <id>, ::chart <id>{{...}}, ::example <name>, ::validation <id> ..., ::device <id>, ::fabrication <id>{{...}}, ::lithography <tool> ..., ::timeline, ::coming <example> ..."
         )),
     }
+}
+
+/// The lithography tools a lesson can show, as the studio draws them (studio/src/lib/litho.ts).
+const LITHOGRAPHY_TOOLS: [&str; 8] = [
+    "uv-photolithography",
+    "i-line",
+    "duv-248",
+    "duv-193",
+    "duv-193i",
+    "euv",
+    "ebl",
+    "nanoimprint",
+];
+
+/// `::lithography <tool> <tool> ...`, without `::lithography `: tools the studio draws, each once.
+fn lithography_block(rest: &str) -> Result<Block, String> {
+    let mut tools: Vec<String> = Vec::new();
+    for t in rest.split([' ', ',']).filter(|s| !s.is_empty()) {
+        if !LITHOGRAPHY_TOOLS.contains(&t) {
+            return Err(format!(
+                "::lithography: no tool {t:?}; the tools are {}",
+                LITHOGRAPHY_TOOLS.join(", ")
+            ));
+        }
+        if tools.iter().any(|x| x == t) {
+            return Err(format!("::lithography: {t} given twice"));
+        }
+        tools.push(t.to_owned());
+    }
+    Ok(Block::Lithography { tools })
 }
 
 /// `::fabrication <id>{key=value, ...}`, without `::fabrication `: a library device by its id,
@@ -715,6 +811,143 @@ mod tests {
                 "{file} is a method's write-up's name too"
             );
         }
+    }
+
+    #[test]
+    fn every_lesson_is_on_one_track_and_every_path_leads_somewhere() {
+        let Tracks { tracks, paths } = tracks().unwrap_or_else(|e| panic!("{e}"));
+        let lessons = all();
+        let ids: Vec<&str> = lessons.iter().map(|l| l.id.as_str()).collect();
+        let mut seen = std::collections::BTreeSet::new();
+        for t in &tracks {
+            assert!(
+                !t.id.is_empty() && !t.title.is_empty() && !t.summary.is_empty(),
+                "track {:?} needs an id, a title and a summary",
+                t.id
+            );
+            assert!(seen.insert(t.id.clone()), "two tracks are called {}", t.id);
+            assert!(!t.lessons.is_empty(), "track {} has no lessons", t.id);
+        }
+        // every lesson on exactly one track, and the tracks name only lessons
+        for id in &ids {
+            let on: Vec<&str> = tracks
+                .iter()
+                .filter(|t| t.lessons.iter().any(|l| l == id))
+                .map(|t| t.id.as_str())
+                .collect();
+            assert_eq!(
+                on.len(),
+                1,
+                "{id} is on {on:?}: a lesson is on exactly one track"
+            );
+        }
+        for t in &tracks {
+            for l in &t.lessons {
+                assert!(
+                    ids.contains(&l.as_str()),
+                    "track {} names {l}, which isn't a lesson",
+                    t.id
+                );
+            }
+        }
+        // the program lists them in the tracks' order, the shelves apart last
+        let order: Vec<&str> = tracks
+            .iter()
+            .filter(|t| !t.shelf)
+            .chain(tracks.iter().filter(|t| t.shelf))
+            .flat_map(|t| t.lessons.iter().map(String::as_str))
+            .collect();
+        assert_eq!(
+            ids, order,
+            "lessons!() lists the lessons in academy/tracks.yaml's order"
+        );
+
+        for p in &paths {
+            assert!(
+                !p.id.is_empty() && !p.title.is_empty() && !p.summary.is_empty(),
+                "path {:?} needs an id, a title and a summary",
+                p.id
+            );
+            assert!(
+                seen.insert(p.id.clone()),
+                "{} names a track and a path",
+                p.id
+            );
+            assert!(!p.lessons.is_empty(), "path {} has no lessons", p.id);
+            for l in &p.lessons {
+                assert!(
+                    ids.contains(&l.as_str()),
+                    "path {} names {l}, which isn't a lesson",
+                    p.id
+                );
+                assert_eq!(
+                    p.lessons.iter().filter(|o| *o == l).count(),
+                    1,
+                    "path {} reads {l} twice",
+                    p.id
+                );
+            }
+            for (l, numbers) in &p.sections {
+                assert!(
+                    p.lessons.contains(l),
+                    "path {} names sections of {l}, which it doesn't read",
+                    p.id
+                );
+                let lesson = lessons.iter().find(|x| &x.id == l).unwrap();
+                assert!(
+                    !numbers.is_empty(),
+                    "path {}: no sections of {l} named",
+                    p.id
+                );
+                for n in numbers {
+                    assert!(
+                        lesson
+                            .sections
+                            .iter()
+                            .any(|s| s.level == 2
+                                && numbered(&s.title).is_some_and(|(k, _)| k == *n)),
+                        "path {}: {l} has no section {n}",
+                        p.id
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn the_readme_lists_the_lessons_by_track() {
+        let readme = std::fs::read_to_string(root().join("academy/README.md")).unwrap();
+        let Tracks { tracks, .. } = tracks().unwrap();
+        for t in &tracks {
+            // the track's heading, then its table, which runs to the next heading
+            let at = readme
+                .lines()
+                .position(|l| l.starts_with("### ") && l.ends_with(&t.title))
+                .unwrap_or_else(|| {
+                    panic!("academy/README.md has no heading for the track {}", t.title)
+                });
+            let listed: Vec<String> = readme
+                .lines()
+                .skip(at + 1)
+                .take_while(|l| !l.starts_with('#'))
+                .filter(|l| l.starts_with("| ["))
+                .filter_map(|l| {
+                    let target = links(l).into_iter().next()?;
+                    Some(target.trim_end_matches(".md").to_owned())
+                })
+                .collect();
+            assert_eq!(
+                listed, t.lessons,
+                "academy/README.md's table for {} lists its lessons in tracks.yaml's order",
+                t.title
+            );
+        }
+    }
+
+    /// A numbered heading's number and the rest: "2. Why …?" is (2, "Why …?").
+    fn numbered(title: &str) -> Option<(u32, &str)> {
+        let (n, rest) = title.split_once(". ")?;
+        Some((n.parse().ok()?, rest))
     }
 
     #[test]
@@ -1151,8 +1384,30 @@ mod tests {
             }
         );
 
+        let with_tools = text.replace(
+            "::timeline\n",
+            "::timeline\n::lithography euv duv-193, ebl\n",
+        );
+        assert_eq!(
+            parse("x.md", &with_tools).unwrap().sections[2].blocks[1],
+            Block::Lithography {
+                tools: vec!["euv".to_owned(), "duv-193".to_owned(), "ebl".to_owned()]
+            }
+        );
+        // every tool a lesson can name is one the studio draws
+        let litho = include_str!("../../src/lib/litho.ts");
+        for t in LITHOGRAPHY_TOOLS {
+            assert!(
+                litho.contains(&format!("id: \"{t}\"")),
+                "the studio draws no tool {t}"
+            );
+        }
+
         let broken = |body: &str| parse("x.md", &text.replace("::timeline\n", body)).is_err();
         assert!(broken("::fabrication no-such\n"), "not a library device");
+        assert!(broken("::lithography no-such\n"), "not a tool");
+        assert!(broken("::lithography euv euv\n"), "a tool twice");
+        assert!(broken("::lithography\n"), "no tool");
         assert!(broken("::fabrication waveguide{width}\n"));
         assert!(broken("::fabrication waveguide{width=1, width=2}\n"));
         assert!(broken("::fabrication waveguide{width=\"1\"}\n"));

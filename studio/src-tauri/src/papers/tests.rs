@@ -796,3 +796,23 @@ fn a_figure_too_large_is_left_out_and_the_cache_keeps_to_its_cap() {
         images::Lookup::Kept(_)
     ));
 }
+
+/// The Cited tab lists every source of docs/references.yaml, each named, and with where the
+/// repository cites it for those that have a DOI.
+#[test]
+fn every_cited_source_is_listed_with_where_it_is_cited() {
+    let all = cited_sources();
+    let (sources, _) = crate::references::parse(include_str!("../../../../docs/references.yaml"));
+    assert_eq!(all.len(), sources.len());
+    assert!(
+        all.iter()
+            .all(|s| !s.label.is_empty() && !s.title.is_empty()),
+        "a source without a name"
+    );
+    let placed = all.iter().filter(|s| !s.ours.is_empty()).count();
+    assert!(
+        placed * 10 > all.len() * 9,
+        "{placed} of {} have their places",
+        all.len()
+    );
+}

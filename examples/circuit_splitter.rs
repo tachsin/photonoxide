@@ -4,10 +4,10 @@
 //!
 //! W. R. Clements et al., Optica 3, 1460 (2016),
 //! [doi:10.1364/OPTICA.3.001460](https://doi.org/10.1364/OPTICA.3.001460), Eq. 1 and Fig. 1(c):
-//! two 50:50 couplers with a phase θ between them are a variable beam splitter. Straight through
-//! both couplers, r e^(iθ) r + (iκ)(iκ) = (e^(iθ) − 1)/2, so the bar port carries sin²(θ/2) and
-//! 30% needs θ = 2 arcsin √0.3 = 1.159279 rad, the closed form the result is checked against
-//! (to 1e-6 rad).
+//! two 50:50 couplers with a phase $\theta$ between them are a variable beam splitter. Straight
+//! through both couplers, $r e^{i\theta} r + (i\kappa)(i\kappa) = (e^{i\theta} - 1)/2$, so the bar
+//! port carries $\sin^2(\theta/2)$ and 30% needs $\theta = 2\arcsin\sqrt{0.3} = 1.159279$ rad, the
+//! closed form the result is checked against (to $10^{-6}$ rad).
 //!
 //! ```sh
 //! cargo run --release --example circuit_splitter

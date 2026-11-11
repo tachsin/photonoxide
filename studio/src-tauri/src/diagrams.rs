@@ -43,10 +43,10 @@ pub fn specs() -> Vec<DiagramSpec> {
             title: "A leaky multilayer, and a bend from above",
             caption: "At the left, a planar guide in section: a cover $n_c$, films $n_1 \\ldots \
                       n_J$, and a substrate $n_s$ whose index is above the mode's \
-                      $\\operatorname{Re} n_\\text{eff}$. The mode travels along $z$ as \
+                      $\\mathop{\\mathrm{Re}} n_\\text{eff}$. The mode travels along $z$ as \
                       $e^{ikn_\\text{eff}z}$ and sheds a plane wave into the substrate at an \
                       angle $\\theta$ from the faces' normal, weaker further along as the mode \
-                      loses power, so $\\operatorname{Im} n_\\text{eff} \\gt 0$. Its field \
+                      loses power, so $\\mathop{\\mathrm{Im}} n_\\text{eff} \\gt 0$. Its field \
                       $\\lvert\\psi(x)\\rvert$ decays into the cover and grows into the \
                       substrate as $e^{ik\\alpha_s x}$. At the right, a guide of index $n_1$ in a \
                       cladding $n_2$, bent at a radius $R$ about $O$, seen from above: the mode \
@@ -387,6 +387,68 @@ pub fn specs() -> Vec<DiagramSpec> {
                       reflectance $R$ and transmittance $T$; alike and on time, they leave \
                       together by one output or the other, and their coincidences dip against \
                       $\\tau$ as $R^2 + T^2 - 2RT e^{-\\sigma^2\\tau^2}$. Not to scale.",
+            job: None,
+            caption_3d: "",
+        },
+        DiagramSpec {
+            id: "loss",
+            title: "Where a silicon waveguide's light goes",
+            caption: "Above, a strip seen from above, its sidewalls rough: they stray from straight \
+                      by $\\sigma$ (rms), and a stretch of wall $L_c$ long (the correlation length) \
+                      strays alike. Each bump scatters a little of the guided light out, at an \
+                      angle $\\theta$ from the axis that the roughness's spatial frequencies \
+                      choose. At the right the strip bends at a radius $R$ about the dot, and the \
+                      bend radiates outwards. Below, the strip in section: the core $w$ wide and \
+                      $t$ thick on a buried oxide (BOX) $h$ thick over the silicon substrate, the \
+                      mode's field (contours) reaching through the oxide and leaking into the \
+                      substrate, weaker as $e^{-2\\gamma h}$ for a field decaying as $e^{-\\gamma \
+                      y}$ across it, and free carriers in the core absorbing. The power falls as \
+                      $P_0 e^{-\\alpha z}$, and the four losses add up to $\\alpha$; in dB/cm, \
+                      $\\alpha$ per µm times $4.34 \\times 10^4$. Not to scale.",
+            job: None,
+            caption_3d: "",
+        },
+        DiagramSpec {
+            id: "circuit",
+            title: "A circuit from its components",
+            caption: "At the top left, a component as a box with ports $o_1 \\ldots o_4$: a wave \
+                      $a_p$ goes in at each port and a wave $b_q$ comes out, and the component is \
+                      the matrix $S$ between them, $\\mathbf{b} = S\\,\\mathbf{a}$. Below, a \
+                      netlist: a splitter and a combiner joined by two arms, the upper \
+                      $\\Delta L$ longer, each dot a place where two ports meet (written \
+                      splitter.o3 — upper.o1), and the circuit's own ports $o_1$ to $o_4$ left \
+                      open; solved together they give one $S$ for the whole circuit. At the \
+                      right, a compact model: a response's samples (dots) against wavelength, \
+                      with two resonances, and the sum of poles $c_n/(s - a_n)$ and a constant $d$ \
+                      fitted through them, a pole for each resonance. Not to scale.",
+            job: None,
+            caption_3d: "",
+        },
+        DiagramSpec {
+            id: "edge",
+            title: "An edge coupler from above",
+            caption: "A silicon strip $w$ wide narrows over a length $L$ to a tip $w_t$ wide at the \
+                      chip's facet. Its mode (dashed) is held less and less by the narrowing \
+                      silicon and spreads into the cladding, largest at the tip. Across a gap \
+                      filled with index-matching gel, a fibre's core and cladding meet the facet, \
+                      its axis (dashed) tilted a little. Below, the two modes' profiles across \
+                      the facet, the chip's $2w_c$ and the fibre's $2w_f$ across, their axes $d$ \
+                      apart, and the share of the power that crosses, $\\eta$, their overlap. Not \
+                      to scale.",
+            job: None,
+            caption_3d: "",
+        },
+        DiagramSpec {
+            id: "tolerance",
+            title: "A design, and the process that makes it",
+            caption: "At the left, a silicon strip in section as drawn, $w$ wide and $t$ thick \
+                      (solid), and as the process may make it (dashed): $\\Delta w$ wider or \
+                      narrower and $\\Delta t$ thicker or thinner, the corners between which a \
+                      design must work. In the middle, a ring's through port against \
+                      wavelength at the nominal design (solid) and at a corner (dashed): the \
+                      resonance moved by $\\Delta\\lambda = \\lambda\\,\\Delta n_\\text{eff}/n_g$. At \
+                      the right, a wafer whose film is thicker where it is darker, its chips \
+                      alike where they are near each other and different across it. Not to scale.",
             job: None,
             caption_3d: "",
         },

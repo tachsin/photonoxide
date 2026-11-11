@@ -69,6 +69,8 @@ export interface Guide {
   installs: Install[];
   /** [system, what to do instead]: `macos`, or a platform such as `macos-aarch64`. */
   unsupported: [string, string][];
+  /** The systems or platforms its vendor makes no build for: it can never run there. */
+  no_build: string[];
   built_in: boolean;
 }
 
@@ -80,12 +82,33 @@ export interface LibraryReport {
   conda: string | null;
 }
 
+/** An install or removal: its output as it came, how it went, and what changed. */
+export interface LibraryJob {
+  library: string;
+  verb: string;
+  lines: string[];
+  state: "running" | "done" | "failed" | "cancelled";
+  error: string;
+  /** After it, what this computer has that it didn't before, and what it no longer has. */
+  changed: { gained: string[]; lost: string[] };
+  /** A download under way: bytes so far, and of how many when the server says. */
+  progress: { done: number; total: number | null } | null;
+  /** Cancel was pressed, and the program is stopping it. */
+  stopping: boolean;
+  /** When it started and ended, ms. */
+  started: number;
+  ended: number;
+}
+
 export const libraries = $state({
   report: null as LibraryReport | null,
   loading: false,
   error: null as string | null,
   /** When it was last asked, in ms since 1970. */
   at: 0,
+  /** An install or removal under way, or just done: kept here, so leaving the page leaves it
+   *  going and the rail's foot shows it running. */
+  job: null as LibraryJob | null,
 });
 
 /** Finds the libraries again, in a fresh process. */

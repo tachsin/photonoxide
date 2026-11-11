@@ -2,14 +2,17 @@
   // The rail's foot: what is running, at a glance. A ring fills with the followed run's progress
   // (its sweep's points, an FDTD run's time, a study's points, an optimization's evaluations), or
   // spins where a run can't say how far it is; a click opens a card beside the rail with each
-  // thing going (the run, a device's solve in the background, the nightly build), its time and
-  // what to do with it, and the runs drawer.
+  // thing going (the run, a device's solve in the background, the nightly build, the benchmarks,
+  // the validation report, an example, a library's install), its time and what to do with it,
+  // and the runs drawer.
   import { ArrowRight, CircleCheck, Square } from "@lucide/svelte";
 
   import { api, duration } from "../lib/api";
-  import { app, go, run, sweepAxis, toast } from "../lib/app.svelte";
+  import { app, go, run, showCases, showPublished, sweepAxis, toast } from "../lib/app.svelte";
   import { devices, openDevice, solves } from "../lib/device.svelte";
+  import { libraries } from "../lib/libraries.svelte";
   import { building, nightly } from "../lib/nightly.svelte";
+  import { stopTask, tasks } from "../lib/tasks.svelte";
 
   let { collapsed }: { collapsed: boolean } = $props();
 
@@ -37,7 +40,45 @@
       .filter(([, s]) => s.running)
       .map(([id, s]) => ({ id, s, device: devices.list.find((d) => d.id === id) })),
   );
-  const count = $derived((live ? 1 : 0) + background.length + (building() ? 1 : 0));
+
+  /** The rest going: the benchmarks, the validation report and the examples (tasks in processes
+   *  of their own), and a library's install or removal; each with where it is shown, and its stop. */
+  const others = $derived.by(() => {
+    void now; // the clocks tick
+    const out: { key: string; label: string; detail: string; fraction: number | null; open: () => void; stop: (() => void) | null; stopLabel: string }[] = [];
+    for (const [key, t] of Object.entries(tasks)) {
+      if (t.code !== null) continue;
+      const example = key.startsWith("example:") ? key.slice("example:".length) : null;
+      out.push({
+        key,
+        label: key === "bench" ? "Benchmarks" : key === "validation" ? "The validation report" : example ? `Example ${example}` : key,
+        detail: `${t.lines.at(-1)?.trim().slice(0, 60) || "starting"} · ${duration(t.seconds)}`,
+        fraction: null,
+        open: () => (key === "bench" ? go("benchmarks") : key === "validation" ? showCases() : example ? showPublished(example) : undefined),
+        stop: () => stopTask(key),
+        stopLabel: "Stop",
+      });
+    }
+    const job = libraries.job;
+    if (job?.state === "running") {
+      const p = job.progress;
+      out.push({
+        key: "library",
+        label: `${job.verb} ${job.library}`,
+        detail: `${p ? `${(p.done / 1e6).toFixed(1)}${p.total ? ` of ${(p.total / 1e6).toFixed(1)}` : ""} MB · ` : ""}${duration((Date.now() - job.started) / 1000)}${job.stopping ? " · cancelling" : ""}`,
+        fraction: p?.total ? p.done / p.total : null,
+        open: () => go("libraries"),
+        stop: job.stopping ? null : () => void api.libraryCancel().catch((e) => toast(String(e), "error")),
+        stopLabel: "Cancel",
+      });
+    }
+    return out;
+  });
+  const count = $derived((live ? 1 : 0) + background.length + (building() ? 1 : 0) + others.length);
+  /** The one thing going, when it is one of the rest: the row names it. */
+  const single = $derived(count === 1 && others.length === 1 ? others[0] : null);
+  /** The ring's fill: the followed run's, or the one thing going's when it can say. */
+  const ring = $derived(live ? fraction : (single?.fraction ?? null));
 
   let open = $state(false);
   let at = $state({ left: 0, bottom: 0 });
@@ -76,12 +117,12 @@
   aria-label="What is running"
   title={collapsed ? (count ? `${count} running` : "Nothing running") : undefined}
 >
-  <span class="relative grid size-[18px] shrink-0 place-items-center">
+  <span class="relative grid size-4.5 shrink-0 place-items-center">
     {#if count}
       <svg width="18" height="18" viewBox="0 0 18 18" class="-rotate-90" aria-hidden="true">
         <circle cx="9" cy="9" r={R} fill="none" class="stroke-base-content/15" stroke-width="2" />
-        {#if fraction !== null}
-          <circle cx="9" cy="9" r={R} fill="none" class="stroke-primary transition-[stroke-dasharray] duration-500" stroke-width="2" stroke-linecap="round" stroke-dasharray="{C * Math.min(1, fraction)} {C}" />
+        {#if ring !== null}
+          <circle cx="9" cy="9" r={R} fill="none" class="stroke-primary transition-[stroke-dasharray] duration-500" stroke-width="2" stroke-linecap="round" stroke-dasharray="{C * Math.min(1, ring)} {C}" />
         {:else}
           <circle cx="9" cy="9" r={R} fill="none" class="spin stroke-primary" stroke-width="2" stroke-linecap="round" stroke-dasharray="{C / 4} {C}" />
         {/if}
@@ -91,7 +132,7 @@
     {/if}
   </span>
   <span class="min-w-0 flex-1 truncate text-left transition-opacity duration-200 motion-reduce:transition-none" class:opacity-0={collapsed}>
-    {#if !count}Nothing running{:else if count === 1 && live}{fraction !== null ? `${pct(fraction)} · ` : ""}{run.job?.job ?? run.info?.name}{:else}{count} running{/if}
+    {#if !count}Nothing running{:else if count === 1 && live}{fraction !== null ? `${pct(fraction)} · ` : ""}{run.job?.job ?? run.info?.name}{:else if single}{single.fraction !== null ? `${pct(single.fraction)} · ` : ""}{single.label}{:else}{count} running{/if}
   </span>
 </button>
 
@@ -138,6 +179,22 @@
         </span>
       </button>
     {/if}
+    {#each others as o (o.key)}
+      <div class="rounded-lg px-2 py-2 hover:bg-base-content/4">
+        <div class="flex items-center gap-2">
+          <span class="loading loading-spinner loading-xs text-primary"></span>
+          <span class="min-w-0 flex-1">
+            <span class="block truncate text-sm">{o.label}</span>
+            <span class="block truncate text-[11px] faint">{o.detail}</span>
+          </span>
+        </div>
+        {#if o.fraction !== null}<progress class="progress progress-primary mt-1.5 h-1.5 w-full" value={Math.min(1, o.fraction)} max="1"></progress>{/if}
+        <div class="mt-1 flex gap-1 pl-6">
+          <button class="btn btn-ghost btn-xs gap-1" onclick={() => ((open = false), o.open())}>Show <ArrowRight size={12} /></button>
+          {#if o.stop}<button class="btn btn-ghost btn-xs gap-1 text-error" onclick={o.stop}><Square size={11} /> {o.stopLabel}</button>{/if}
+        </div>
+      </div>
+    {/each}
     {#if !count}
       <p class="px-2 pb-2 text-sm faint">Nothing is running.{run.finished && run.info ? ` The last run, ${run.job?.job ?? run.info.name}, finished in ${duration(run.finished.seconds)}.` : ""}</p>
     {/if}

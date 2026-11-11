@@ -23,6 +23,18 @@ papers:
     year: 1900
     role: origin
     note: "The electron theory of metals: free electrons that carry the current and heat, and, for gold's and copper's optical constants, bound electrons as well."
+  - cite: "E. Hagen, H. Rubens, Ann. Phys. 313, 1 (1902)"
+    title: "Das Reflexionsvermögen einiger Metalle für ultraviolette und ultrarote Strahlen"
+    doi: 10.1002/andp.19023130502
+    year: 1902
+    role: milestone
+    note: "The normal reflectivity of gold, silver, copper, platinum, nickel, steel and other metals from 251 nm to 1.5 µm (their Table 4); for gold, 0.27 to 0.33 from 357 to 450 nm and 0.889 at 650 nm, the reflectivity Mie took his gold's index from."
+  - cite: "E. Hagen, H. Rubens, Ann. Phys. 313, 432 (1902)"
+    title: "Die Absorption ultravioletter, sichtbarer und ultraroter Strahlen in dünnen Metallschichten"
+    doi: 10.1002/andp.19023130613
+    year: 1902
+    role: milestone
+    note: "The absorption of thin metal films, and from it the imaginary part of the index; for gold, films 53 to 101 nm thick from 0.33 to 2.5 µm, nκ = 3.58 at 650 nm, the other half of Mie's gold."
   - cite: "G. Mie, Ann. Phys. 330, 377 (1908)"
     title: "Beiträge zur Optik trüber Medien, speziell kolloidaler Metallösungen"
     doi: 10.1002/andp.19083300302
@@ -202,9 +214,9 @@ frequency and shortens its wavelength.
 ## 3. How far does a surface plasmon travel, and how tightly is it held?
 
 The metal's loss makes $k$ complex. Its imaginary part sets the **propagation length**
-$L = 1/(2\operatorname{Im} k)$, over which the power falls by $e$; the decay constants
+$L = 1/(2\mathop{\mathrm{Im}} k)$, over which the power falls by $e$; the decay constants
 $\kappa_d$ and $\kappa_m$ set how far the field reaches into the dielectric and into the metal,
-$\delta_d = 1/\operatorname{Re}\kappa_d$ and $\delta_m = 1/\operatorname{Re}\kappa_m$. The chart
+$\delta_d = 1/\mathop{\mathrm{Re}}\kappa_d$ and $\delta_m = 1/\mathop{\mathrm{Re}}\kappa_m$. The chart
 draws the three against frequency up to $\omega_\text{sp}$, in units of the plasma wavelength
 $\lambda_p = 2\pi c/\omega_p$, for vacuum over a Drude metal with $\gamma = 0.01\thinspace\omega_p$
 (exact, no grid):
@@ -234,10 +246,10 @@ expand $k^2 = k_0^2\varepsilon_m\varepsilon_d/(\varepsilon_m + \varepsilon_d)$ t
 $\varepsilon''$: its derivative in $\varepsilon_m$ is $k_0^2\varepsilon_d^2/(\varepsilon_m + \varepsilon_d)^2$, so
 
 $$
-\operatorname{Im}(k^2) \approx k_0^2\frac{\varepsilon_d^2\varepsilon''}{(\varepsilon' + \varepsilon_d)^2},
+\mathop{\mathrm{Im}}(k^2) \approx k_0^2\frac{\varepsilon_d^2\varepsilon''}{(\varepsilon' + \varepsilon_d)^2},
 \qquad
-L = \frac{1}{2\operatorname{Im}k} = \frac{\operatorname{Re}k}{\operatorname{Im}(k^2)}
-\approx \frac{\operatorname{Re}k\thinspace(\varepsilon' + \varepsilon_d)^2}{k_0^2\varepsilon_d^2\varepsilon''} .
+L = \frac{1}{2\mathop{\mathrm{Im}}k} = \frac{\mathop{\mathrm{Re}}k}{\mathop{\mathrm{Im}}(k^2)}
+\approx \frac{\mathop{\mathrm{Re}}k\thinspace(\varepsilon' + \varepsilon_d)^2}{k_0^2\varepsilon_d^2\varepsilon''} .
 $$
 
 $L$ grows as $1/\varepsilon''$, and, for a Drude metal, as $1/\gamma$: with
@@ -277,7 +289,7 @@ has them in photonoxide's convention). The power the sphere takes from the wave 
 scatters, over its shadow $\pi\rho^2$, are its extinction and scattering efficiencies,
 
 $$
-Q_\text{ext} = \frac{2}{\alpha^2}\sum_\nu (2\nu + 1)\operatorname{Re}(a_\nu + b_\nu),
+Q_\text{ext} = \frac{2}{\alpha^2}\sum_\nu (2\nu + 1)\mathop{\mathrm{Re}}(a_\nu + b_\nu),
 \qquad
 Q_\text{sca} = \frac{2}{\alpha^2}\sum_\nu (2\nu + 1)\left(\lvert a_\nu\rvert^2 + \lvert b_\nu\rvert^2\right) ,
 $$
@@ -360,11 +372,11 @@ $$
 
 the field of a dipole $p = 4\pi\varepsilon_0\varepsilon_d C$ outside. Its polarizability
 $\alpha_p = 4\pi\rho^3 F$, $F = (\varepsilon - \varepsilon_d)/(\varepsilon + 2\varepsilon_d)$,
-absorbs $C_\text{abs} = k\operatorname{Im}\alpha_p$ and scatters $C_\text{sca} = k^4\lvert\alpha_p\rvert^2/6\pi$,
+absorbs $C_\text{abs} = k\mathop{\mathrm{Im}}\alpha_p$ and scatters $C_\text{sca} = k^4\lvert\alpha_p\rvert^2/6\pi$,
 $k = n_d k_0$; over $\pi\rho^2$, with $x = k\rho$,
 
 $$
-Q_\text{abs} = 4x\operatorname{Im}F, \qquad Q_\text{sca} = \frac{8}{3}x^4\lvert F\rvert^2 ,
+Q_\text{abs} = 4x\mathop{\mathrm{Im}}F, \qquad Q_\text{sca} = \frac{8}{3}x^4\lvert F\rvert^2 ,
 $$
 
 Mie's first electric term for small $\alpha$, his $(\mathfrak{a}_1)_0 = (m'^2 - 1)/(m'^2 + 2)$ (p. 418),
@@ -438,8 +450,35 @@ and every row peaks at his wavelength but the last, where his 550 and 600 nm dif
 Mie's numbers for spheres of 20 to 60 nm at 650 nm are not reproduced: he has 8.0, 11.3 and 16.4 ‰,
 the series 7.4, 9.4 and 14.7, 17 % below at 40 nm. Keeping only the first two electric and
 magnetic terms, which hold his three, changes the series' numbers there by less than 0.1 ‰, so his
-truncation isn't the cause; he read these numbers off curves drawn through his hand-computed
-tables, and the gap is unexplained here.
+truncation isn't the cause. His curves are. He computed the absorption only at the sizes of his
+Tables I to III, $\alpha^2$ = 0, 0.2, 0.4 and on, which at 650 nm are spheres 0, 69, 98 nm across
+and larger, and read the table off curves drawn through those points against the diameter
+(p. 437). Between 0 and 69 nm the series' extinction bends upward, as the sphere's resonance moves
+towards the red, so a curve through the two points that starts flat (a straight line in
+$\alpha^2$) stands above it: through the series' own value at $\alpha^2$ = 0.2 it gives 7.9, 11.0 and
+16.1 ‰ at 20, 40 and 60 nm, and through his, $\mathfrak{a}_1$ = 1.920 − 0.515i where the series has
+1.815 − 0.484i (one of the five entries of his Table I that the series doesn't reproduce), 8.0,
+11.4 and 17.0. His 8.0, 11.3 and 16.4 lie on or between the two.
+
+Nor is the gold the cause. [Hagen and Rubens (1902)](https://doi.org/10.1002/andp.19023130502)
+measured gold's reflectivity $R$ (their Table 4, p. 17), and from thin films [its absorption
+(1902)](https://doi.org/10.1002/andp.19023130613), $g = n\kappa$ (Table 4, p. 447); Mie's table on
+p. 417 quotes both columns digit for digit. Their formula on p. 453 of the second paper gives the
+index from the two, $n = a - \sqrt{a^2 - g^2 - 1}$ with $a = (1 + R)/(1 - R)$:
+
+| λ, nm | 420 | 450 | 500 | 550 | 600 | 650 |
+|---|---|---|---|---|---|---|
+| $R$, measured | 0.293 | 0.331 | 0.470 | 0.740 | 0.844 | 0.889 |
+| $g = n\kappa$, measured | 1.72 | 1.73 | 2.07 | 2.32 | 2.91 | 3.58 |
+| $n$ from them | none | none | 1.22 | 0.50 | 0.41 | 0.41 |
+| $n + i\kappa$, Mie | 1.70 + 1.70i | 1.73 + 1.72i | 1.10 + 2.02i | 0.57 + 2.45i | 0.38 + 2.96i | 0.41 + 3.54i |
+
+At 420 and 450 nm the measured pair has no real $n$, the root being imaginary; Hagen and Rubens
+thought their violet reflectivities too small (p. 453), and Mie raised them. With the measured $n$
+and $\kappa$ from 500 to 650 nm in place of his, the series' median difference from his 70 numbers
+grows from 1.4 % to 2.9 %, and his 650 nm spheres of 20, 40 and 60 nm come out at 7.1, 9.1 and
+14.3 ‰, further from his than with his own gold. His table follows his smoothed gold, as it should,
+and the series reproduces it but for those curves.
 
 ::chart mie-gold{diameter=100nm}
 

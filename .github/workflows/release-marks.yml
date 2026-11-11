@@ -1,0 +1,36 @@
+name: Release marks
+
+# The release PR (release-plz's branch, "chore: release vX.Y.Z") must carry the release's marks:
+# the milestone's ✅ in ROADMAP.md, its "✅ released" row in README.md's status table, the same
+# heading in the site's FALLBACK_MILESTONES and the version's CHANGELOG.md section. The tag the
+# merge makes is what tachsin.gr, crates.io and GitHub show, so its files have to say the release
+# is done (0.6.0 and 0.6.3 were tagged without the ✅). A patch release without a milestone of its
+# own (a release of fixes) is checked against the newest milestone at or below it, which must
+# already carry those marks, and its own CHANGELOG.md section. .github/scripts/release-marks.sh.
+#
+# release-plz's own pushes start no workflow; closing and reopening the release PR, which runs its
+# CI before the merge, runs this too.
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, edited]
+
+permissions:
+  contents: read
+
+jobs:
+  marks:
+    name: Release marks
+    # quoted: "chore: release v" has a ": ", which YAML would read as a mapping in a bare value
+    if: "startsWith(github.head_ref, 'release-plz-') || startsWith(github.event.pull_request.title, 'chore: release v')"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - env:
+          TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          set -euo pipefail
+          # the version in the title when it names one, else Cargo.toml's
+          version=$(sed -nE 's/^chore: release v([0-9]+\.[0-9]+\.[0-9]+)$/\1/p' <<<"$TITLE")
+          bash .github/scripts/release-marks.sh ${version:+"$version"}

@@ -24,14 +24,17 @@ use photonoxide::mode::multilayer::Multilayer;
 use photonoxide::units::{Length, Wavelength};
 use serde::Serialize;
 
+mod circuit;
 mod converter;
 mod coupler;
 mod crossing;
 mod crystal;
+mod edge;
 mod fabrication;
 mod fdfd;
 mod grating;
 mod leaky;
+mod loss;
 mod material;
 mod meta;
 mod mmi;
@@ -41,6 +44,7 @@ mod plasmon;
 mod quantum;
 mod slab;
 mod strip;
+mod tolerance;
 mod yee;
 
 /// A chart's parameter: what a slider sets.
@@ -1102,6 +1106,10 @@ pub fn specs() -> Vec<ChartSpec> {
     .chain(converter::specs())
     .chain(yee::specs())
     .chain(quantum::specs())
+    .chain(loss::specs())
+    .chain(circuit::specs())
+    .chain(edge::specs())
+    .chain(tolerance::specs())
     .collect()
 }
 
@@ -1545,6 +1553,10 @@ pub fn evaluate(id: &str, given: &BTreeMap<String, f64>) -> Result<ChartData, St
         _ => match plasmon::evaluate(id, at)
             .or_else(|| yee::evaluate(id, at))
             .or_else(|| quantum::evaluate(id, at))
+            .or_else(|| loss::evaluate(id, at))
+            .or_else(|| circuit::evaluate(id, at))
+            .or_else(|| edge::evaluate(id, at))
+            .or_else(|| tolerance::evaluate(id, at))
         {
             Some(result) => result,
             None => return Err(format!("chart {id} has no function")),
@@ -3219,7 +3231,9 @@ mod tests {
                 s.id
             );
             for c in &data.series {
-                assert!(c.points.len() >= 2, "{}: {}", s.id, c.label);
+                // one point is a dot, as a lithography of one cited aperture draws (EUV's in
+                // fab-resolution); no point at all draws nothing
+                assert!(!c.points.is_empty(), "{}: {}", s.id, c.label);
                 assert!(
                     c.points
                         .iter()

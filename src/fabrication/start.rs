@@ -336,9 +336,9 @@ fn route_steps(
             "The donor is turned over and bonded, oxide down, onto the handle at room \
              temperature (bruel-1995, Fig. 1, step 2). From here the handle is the wafer below, \
              and the donor's {} of silicon between the oxide and the implanted plane is the film \
-             the split will leave. The drawing shows the design's {} of it; the {} beyond, which \
-             the polish and the sacrificial oxide take off, isn't drawn, as a deposit's excess \
-             before its polish isn't, nor is the rest of the donor.",
+             the split will leave: the design's {} of it and the {} beyond, which the polish and \
+             the sacrificial oxide take off. The drawing shows it, and the rest of the donor \
+             above the implanted plane, cut short.",
             um(r.split),
             um(f),
             um(r.excess)
@@ -390,7 +390,7 @@ fn route_steps(
             "The film is thinned to the design's {} by a sacrificial oxide: {} grown in wet \
              oxygen at 1100 °C, {} hours (deal-grove-1965, Table I), consumes {} of the silicon \
              (about 44 %: campbell-2008, p. 74), the second straggle of damaged silicon. The \
-             oxide isn't drawn; it comes off next.",
+             oxide comes off next.",
             um(f),
             um(r.sacrificial),
             number(r.sacrificial_hours),
@@ -484,8 +484,8 @@ fn simox_steps(
              (celler-cristoloveanu-2003, p. 4959), which is not the oxygen's projected range \
              (about 0.40 µm measured at 200 keV, desouza-2001, p. 48); the depth isn't computed \
              from the range. The drawing shows the buried \
-             oxide here, as an implant this heavy already makes one (hemment-1984, p. 204), and \
-             the silicon over it at the anneal, which heals it.",
+             oxide here, as an implant this heavy already makes one (hemment-1984, p. 204), under \
+             the silicon the oxygen damaged on its way, which the anneal heals.",
             number(r.energy),
             power(r.dose),
             number(r.implant_temperature),
@@ -521,8 +521,8 @@ fn simox_steps(
              4959–4960: ∼1350 °C, 4 h). Above 1300 °C the oxide precipitates dissolve and only \
              the planar buried oxide remains, and the damaged silicon over it heals into a \
              single-crystal film, about {} thick at 200 keV (celler-cristoloveanu-2003, p. 4959; \
-             lam-1987, p. 6: 100–300 nm). The drawing shows the design's {} of it; the {} \
-             beyond, which a sacrificial oxide takes off, isn't drawn.",
+             lam-1987, p. 6: 100–300 nm): the design's {} of it, and the {} beyond, which a \
+             sacrificial oxide takes off.",
             number(r.anneal_temperature),
             number(r.anneal_hours),
             um(r.made),
@@ -546,8 +546,8 @@ fn simox_steps(
                 "The film is thinned to the design's {} by a sacrificial oxide, as Izumi thinned \
                  his (izumi-1978, p. 593: 600 Å grown and etched off took 300 Å of the surface): \
                  {} grown in wet oxygen at 1100 °C, {} hours (deal-grove-1965, Table I), \
-                 consumes {} of the silicon (about 44 %: campbell-2008, p. 74). The oxide isn't \
-                 drawn; it comes off next.",
+                 consumes {} of the silicon (about 44 %: campbell-2008, p. 74). The oxide comes \
+                 off next.",
                 um(f),
                 um(r.sacrificial),
                 number(r.sacrificial_hours),

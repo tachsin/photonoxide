@@ -1,6 +1,8 @@
 # Cross-code comparison
 
-photonoxide's solvers, each checked against an established code that solves the same physics.
+Two of photonoxide's solvers, the static solver and the RF line, each checked against an established code that
+solves the same physics. The other solvers are checked in the validation report, against closed forms, published
+results and, in its cross-code rows, a second method of photonoxide's own.
 Each comparison is a pair. Where both codes solve the same equations on the same mesh, the pair
 compares accuracy and speed; where they solve the physics differently, it compares accuracy
 only. The crate in [crosscode/](../crosscode/README.md) runs the other codes as external programs;

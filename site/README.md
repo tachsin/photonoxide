@@ -14,36 +14,46 @@ goes live when the app pins a commit that has it (`pnpm sync:photonoxide --updat
 latest), and the app is deployed.
 
 **The content follows releases by itself.** The pages read the repository's files (the methods,
-the examples, the validation report, the roadmap) at the tag of GitHub's latest release, looked
-up daily (`github.js`), and show that release's version (`release.js`). A release appears on the
-site within a day, with no new pin and no deploy. Only when GitHub can't be reached do they read
-the pinned commit instead.
+the examples, the validation report, the roadmap) at the tag of GitHub's latest release, and show
+that release's version (`release.js`). The tag is looked up at most every ten minutes and kept in
+the server's memory (`latest.js`), not in Next's data cache, which lives on disk, outlives
+deploys and restarts, and serves a stale answer to the first visit after its time is up (0.6.3's
+release waited on it for most of a day, through a deploy). A release appears on the site within
+ten minutes, with no new pin and no deploy, and a deploy always asks GitHub again. Only when
+GitHub can't be reached do they read the pinned commit instead. The files themselves are read at
+the tag, which never moves, so they stay in Next's data cache.
+
+The latest release's milestone, and every older one, shows as done on the roadmap and the
+overview (`milestones.js`), whatever its heading in ROADMAP.md at the tag says; the release PR
+still marks it (✅, and the README's status row), and CI checks that it does
+(`.github/scripts/release-marks.sh`). After a deploy, `just site-check` compares the live pages
+with the latest release (below).
 
 | Folder | In the app |
 | --- | --- |
 | `app/projects/photonoxide/` | the routes: the overview, `/docs` (getting started), `/docs/python`, `/docs/python/reference` (the Python API reference) and `/docs/languages` (the guides beside it), `/methods` and `/methods/[slug]`, `/examples` and `/examples/[slug]`, `/validation`, `/roadmap`, `/dependencies`, the sub-navigation layout (the registry's sections, then `EXTRA_SECTIONS` of `meta.js`: a page of ours the app's registry doesn't list yet) and the Open Graph image |
-| `lib/projects/photonoxide/` | the data: static facts and copy (`meta.js`), and the repository's files read from GitHub at the latest release's tag (`github.js`): the methods, the examples, the validation report, the roadmap and the release's version, and Markdown with TeX math (`markdown.js`); the Dependencies page's data (`dependencies/`, below) |
-| `components/projects/photonoxide/` | the components only these pages use: `HeroLight`, the overview's light animation, `ValidationRows`, the report's table, and the Dependencies page's `DependencyChangelog` and `NewSinceLastVisit` |
+| `lib/projects/photonoxide/` | the data: static facts and copy (`meta.js`), and the repository's files read from GitHub at the latest release's tag (`github.js`): the methods, the examples, the validation report, the roadmap and the release's version, Markdown with TeX math (`markdown.js`), the small text pieces with no import at all (`inline.js`: issue chips, short DOI links, a card's inline Markdown, a long title's head) and ROADMAP.md read into sections and milestones (`milestones.js`); the Dependencies page's data (`dependencies/`, below) |
+| `components/projects/photonoxide/` | the components only these pages use: `HeroLight`, the overview's light animation, `ValidationRows`, the report's table, `RoadmapControls`, the roadmap's Expand all and Collapse all, `RichText.module.css`, the styles of the chips, short links, notes and checklists in rendered Markdown, and the Dependencies page's `DependencyChangelog` and `NewSinceLastVisit` |
 
 What the pages read from the repository, at the latest release's tag (or the pinned commit):
 
 | File | Page |
 | --- | --- |
 | `docs/methods/<slug>.md` | a method: front matter (title, module, summary, order, papers with DOIs, validation case ids, examples) and its write-up in Markdown with `$…$` and `$$…$$` math; its category is in `methods.js` (see "The methods' categories" below), and without a title its first `# ` heading is its title |
-| `examples/<name>.rs`, `examples/output/<name>.txt` | an example: its doc comment (the first sentence is the title), its code, and what it prints, which CI checks |
+| `examples/<name>.rs`, `examples/output/<name>.txt` | an example: its doc comment (the first sentence is the title), its code, and what it prints, which CI checks. The doc comment is Markdown with `$…$` math, as a method's write-up (its formulas are TeX between dollars; rustdoc shows them as text). A title longer than 90 characters is shown as its head, up to its first colon or else comma, with the rest under it (`splitTitle`); the card prints the summary's Markdown, its DOI a short link |
 | `docs/validation.md` | the validation report, which `photonoxide validate` writes and CI checks; its cases' math is `$…$` |
 | `docs/getting-started.md` | the docs page |
 | `docs/python.md` | the Python page |
 | the Python API reference: the app's copy in `photonoxide-python-reference/` (`photonoxide.html`, `photonoxide/errors.html`, `index.html`, `VERSION`), else the release's assets `python-reference-<page>.html` | `/docs/python/reference`, which opens `photonoxide.html`; `/docs/python/reference/photonoxide.html` and `.../photonoxide/errors.html` serve the pages as pdoc made them (`python-reference.js`, `github.js`'s `getPythonReferencePage`) |
 | `docs/languages.md` | the page for every other language: the program run on a job file, its run's folder read |
-| `ROADMAP.md` | the roadmap, the overview's milestones, and its highlights' status and hero line (each highlight in `meta.js` names its milestone) |
+| `ROADMAP.md` | the roadmap, the overview's milestones, and its highlights' status and hero line (each highlight in `meta.js` names its milestone). The roadmap page prints all of it, in parts that open and close (native `<details>`, so they work without JavaScript): its sections as cards (Vision open), and the milestones as a timeline, done ones collapsed with a check, the next open and marked, planned ones quieter, each open one with its done/total; a link to a milestone's anchor (`#054-geometry-and-devices`, as when the page printed the file whole) opens it. In the text, `#584` and `(#583: #584)` are chips linking to the issue or pull request, a link whose text is a DOI shows "DOI", and an italic `*( … )*` note is set under its line |
 | `CHANGELOG.md` | the latest release's version when GitHub's releases can't be read: its first `## [x.y.z]` heading, on the overview (`release.js`) |
 
-The Python API reference is the one page not read from a file of the repository. pdoc makes it from the docstrings and type stubs of the Linux wheel in every run of `python-wheels.yml`: one self-contained HTML file per module (styles inline, no scripts, no search index), kept 90 days as the run's `python-reference` artifact. Nothing is attached to the release. The app keeps a copy of the latest release's, committed in the app:
+The Python API reference is the one page not read from a file of the repository. pdoc makes it from the docstrings and type stubs of the Linux wheel in every run of `python-wheels.yml`: one self-contained HTML file per module (styles inline, no scripts, no search index), kept 90 days as the run's `python-reference` artifact. Since 0.6.3 nothing is attached to the release (releases up to 0.6.2 still have their assets). The app keeps a copy of the latest release's, committed in the app:
 
 - **Where:** `photonoxide-python-reference/` at the app's root, beside `photonoxide-site.json`: pdoc's pages at their own paths (`photonoxide.html`, `photonoxide/errors.html`, `index.html`) and `VERSION`, the release's tag (`v0.6.3`), written last. The site sync's folders are elsewhere, so it never touches this one. pdoc's footer on each page names the version too.
-- **How it gets there:** `pnpm sync:photonoxide --python-reference` in the app (with `gh` signed in) looks up the latest release, downloads the `python-reference` artifact of the `python-wheels.yml` run that published it (a `workflow_dispatch` run at the tag), and replaces the folder's pages with it; then the folder is committed. When there is no such artifact (a release made before this, or one older than 90 days), it keeps the committed copy and says so. `--dry-run` downloads and lists what it would write, and writes nothing.
-- **How the page reads it** (`python-reference.js`, checked by the studio's `tests/site-python-reference.test.ts`): the app's copy first; a copy without `VERSION` counts as none. Else, for a page the copy doesn't have, the latest release's asset `python-reference-<path with "/" as ".">`, which the releases up to 0.6.2 have; with neither, the landing page says the reference isn't available. So a new release's reference reaches the site when its copy is synced, committed and deployed, not by itself as the other pages do.
+- **How it gets there:** `pnpm sync:photonoxide --python-reference` in the app (with `gh` signed in) looks up the latest release, downloads the `python-reference` artifact of the `python-wheels.yml` run that published it (a `workflow_dispatch` run at the tag), and replaces the folder's pages with it; then the folder is committed. `pnpm run deploy` in the app runs this first (`scripts/sync-python-reference.sh`), and if the folder changed it commits and pushes just that folder from `main`, so the site serves the new reference after the deploy. When there is no such artifact (a release made before this, or one older than 90 days), it keeps the committed copy and says so. `--dry-run` downloads and lists what it would write, and writes nothing.
+- **How the page reads it** (`python-reference.js`, checked by the studio's `tests/site-python-reference.test.ts`): the app's copy first; a copy without `VERSION` counts as none. Else, for a page the copy doesn't have, the latest release's asset `python-reference-<path with "/" as ".">`, which the releases up to 0.6.2 have; with neither, the landing page says the reference isn't available. So a new release's reference reaches the site when its copy is synced, committed and deployed (which `pnpm run deploy` does), not by itself as the other pages do.
 
 Links between method write-ups (`pml.md`), and to the three guides, become links between their pages; other relative links go to GitHub.
 
@@ -74,7 +84,13 @@ Its plain functions are checked by the studio's tests (`studio/tests/site-depend
 Nothing else in `site/` is copied. Imports use the app's `@/` alias, which is the app's root.
 
 To see edits on the app's dev server: `pnpm dev` there, then
-`pnpm sync:photonoxide --from <this folder> --watch`.
+`pnpm sync:photonoxide --from <this folder> --watch`. To see edits to the repository's files too (an example's doc
+comment, ROADMAP.md) before a release, start it with `PHOTONOXIDE_LOCAL_REPO=<this checkout>`: the pages then read
+that checkout's files instead of GitHub's (`github.js`). It is never set on tachsin.gr.
+
+The plain functions of `inline.js` and `milestones.js` are checked by the studio's tests
+(`studio/tests/site-inline.test.ts`), on the repository's own ROADMAP.md, and every `$…$` in the examples'
+doc comments is rendered there with KaTeX.
 
 ## What the pages use from the app
 
@@ -100,8 +116,9 @@ The contract between the two repositories: these have to exist in the app, with 
 Also from the app: the `/projects` layout around these pages, the `proj-*` classes of
 `app/projects/projects.css`, Tailwind and daisyUI utilities (the app's `app/globals.css` lists the
 three folders with `@source`), and the npm packages `next`, `react`, `lucide-react`, `react-icons`,
-`yaml` and `katex` (its stylesheet, `katex/dist/katex.min.css`, is imported by the methods' layout
-and the validation page).
+`yaml` and `katex` (its stylesheet, `katex/dist/katex.min.css`, is imported by the methods' layout,
+the validation page, the roadmap and the examples' pages). `RichText.module.css` is a CSS module,
+which Next builds in.
 
 The other way, the app uses `photonoxidePaths` from `lib/projects/photonoxide/paths.js` for its
 sitemap (the registry's `extraPaths`).
@@ -114,6 +131,17 @@ works today and what is to come follow its `milestone` in ROADMAP.md at the late
 them with no edit here. The studio's tests (`studio/src-tauri/tests/site.rs`) fail when a
 highlight names a milestone ROADMAP.md doesn't have, or `FALLBACK_MILESTONES` isn't ROADMAP.md's
 headings. When a release adds something worth a highlight, add one with its milestone.
+
+## Checking the live site
+
+`just site-check` (`.github/scripts/site-check.mjs`) reads the live pages as anyone sees them and
+compares them with GitHub's latest release: the overview's "x.y.z is the latest release", every
+milestone's status on the roadmap page and the overview's cards against ROADMAP.md at the
+release's tag (with `milestones.js`, as the pages read it), and the Python API reference's
+`__version__`. It fails with what the pages show and what to do; `--wait 15` keeps trying for a
+quarter of an hour, `--release vX.Y.Z` checks against another release. It never deploys, and it
+can't see which commit of this folder the site is built from, only what the pages say. The Site
+check workflow runs it daily.
 
 ## The methods' categories
 

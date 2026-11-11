@@ -189,7 +189,7 @@
   const labels = { preview: "Preview", reference: "Reference", problems: "Problems" } as const;
 </script>
 
-<div class="grid min-h-0 flex-1 {stacked ? 'grid-rows-[minmax(13rem,3fr)_minmax(10rem,2fr)]' : 'grid-cols-[minmax(0,1fr)_minmax(24rem,38%)]'}" bind:clientWidth={width}>
+<div class="grid min-h-0 flex-1 {stacked ? 'grid-rows-[minmax(16rem,3fr)_minmax(9rem,1fr)]' : 'grid-cols-[minmax(0,1fr)_minmax(24rem,38%)]'}" bind:clientWidth={width}>
   <!-- the text -->
   <section class="flex min-h-0 min-w-0 flex-col border-base-content/8 {stacked ? 'border-b' : 'border-r'}">
     <div class="min-h-0 flex-1 overflow-hidden">

@@ -51,6 +51,8 @@ papers:
     doi: 10.1364/OE.19.003163
   - cite: "K. Luke, A. Dutt, C. B. Poitras, M. Lipson, Opt. Express 21, 22829 (2013) (thick nitride: its cracks, crack-stop trenches, the etch, the 1200 °C anneal and the cladding, PDF pp. 2–4)"
     doi: 10.1364/OE.21.022829
+  - cite: "J. G. E. Gardeniers, H. A. C. Tilmans, C. C. G. Visser, J. Vac. Sci. Technol. A 14, 2879 (1996) (LPCVD nitride from dichlorosilane and ammonia: the stress of near-stoichiometric films, Table VII, p. 2887)"
+    doi: 10.1116/1.580239
   - cite: "M. H. P. Pfeiffer et al., Optica 3, 20 (2016) (the photonic Damascene process, PDF pp. 2–3)"
     doi: 10.1364/OPTICA.3.000020
   - cite: "C. Ríos et al., Nat. Photonics 9, 725 (2015) (GST cells on nitride guides, sputtered and lifted off; Methods, PDF p. 9)"
@@ -530,7 +532,13 @@ the library's, with its source; where no source gives one, the engine says "not 
   deposited thicker and polished flat. A layer patterned over an unpolished step is flagged:
   lift-off needs a smooth or planarized surface (Campbell, Section 11.9).
 - **Film thickness.** A film thicker than its process makes is flagged: LPCVD nitride over about
-  200 nm cracks under its own stress (Campbell, p. 373).
+  200 nm cracks under its own stress (Campbell, p. 373). That stress is about 1 GPa, tensile:
+  Gardeniers et al. measured 790 ± 110 to 1110 ± 40 MPa on near-stoichiometric films made from
+  dichlorosilane and ammonia (Table VII, p. 2887). Campbell prints it as "typically 12 to 18 GPa",
+  ten times as much. A stress that high would stretch a film of Young's modulus 250 to 280 GPa
+  (Campbell, pp. 241 and 581) by several percent; in the book's own unit for film stress,
+  12 to 18 × 10⁹ dyn/cm² is 1.2 to 1.8 GPa, close to the measured values. The rule uses only the
+  thickness, so the stress's value changes no flow.
 - **Registration.** Each patterned layer's edges are measured against those of the patterned
   layer below, at the cut through the middle of the design, and compared with its lithography's
   cited overlay (193 nm: 12 nm; immersion: 7 nm; 248 nm: 8–25 nm; electron beam: 5 nm field
@@ -602,7 +610,7 @@ not a case of its own.
 An SOI design's flow starts from the wafer as bought: its silicon film on its buried oxide over
 a silicon handle. It can start from bare silicon instead, opted into as the flow's start
 (`Start::SmartCut`; a job's `start: smart_cut`; Python's `start="smart_cut"`; in the studio,
-**Start from** on the Fabrication tab and page, see "In the studio"). The steps that make the SOI
+**Start from** on the Fabrication page, see "In the studio"). The steps that make the SOI
 wafer then take the bought wafer's place, and the rest of the flow is unchanged. Without the
 option, a flow is exactly what it was.
 
@@ -913,9 +921,9 @@ These are listed in every flow that meets them, and wait for a source:
 
 ## In the studio
 
-A component's page has a **Fabrication** tab, opened by the **Fabricate** button beside Run. It
-shows the flow for the design as it stands, read-only: the steps in order, and the wafer's
-cross-section at the design view's cut, animated step by step (`fabrication::stages`, air where
+A component's **Fabricate** button, beside Run, opens the design as it stands on the rail's
+**Fabrication** page (below). The page shows its flow, read-only: the steps in order, and the
+wafer's cross-section and the chip in 3D, played step by step (`fabrication::stages`, air where
 nothing is yet, and air over a bare wafer): a deposition, an evaporation or a sputtered film
 revealed from below as the film grows, an etch, a lift-off, a polish or the resist's removal from
 above as material goes, a lithography or an anneal faded in; play, pause,
@@ -924,15 +932,15 @@ by the film that is there, so the heater reads TiN and the electrodes Cu/Au, dra
 colour, though the optical model draws them as oxide; a table lists the layers from the top down,
 the substrate last. The **Fabricate** button also stands beside each published result that
 computes a library device (Validation's Published results) and beside each device a lesson
-shows. For the step shown:
+shows, each opening the page on that device. For the step shown:
 what the process does, why it was chosen, what else could do it, what it can achieve with each
 number's source on hover, and what isn't certain, with the glossary's definitions of the words
 it uses, each following a textbook's or paper's section (`fabrication::glossary`); then the
 warnings, what no source states, the round trip and the references. For a projection
 lithography the step also shows its optics (wavelength, numerical apertures, and the lines it
 prints by the Rayleigh criterion); every step with alternatives shows them ranked, the chosen
-first, each with what it would gain (+) or cost (−); and the rules' checks of the step. Under the
-steps, a table gives how accurately each dimension is made (the design's value, ± the combined
+first, each with what it would gain (+) or cost (−); and the rules' checks of the step. The flow's
+notes give how accurately each dimension is made (the design's value, ± the combined
 contributions, and the worst case; hovering a row lists the contributions and their sources),
 and a list gives what the rules flag. A scene draws an etched layer in bands, its
 sloped walls a staircase; the design view's cross-section and the flow's stages draw each of its
@@ -942,9 +950,10 @@ shapes exactly instead, a trapezoid from its top face down to its etch's floor
 ### The Fabrication page
 
 The rail's **Fabrication** page shows the same flow from the bare wafer, for the design open on a
-component's page (the tab's **In 3D, from the bare wafer** leads there), any device of the
-library at its defaults, a template, or a job file whose `[device]` or `structure` task draws the
-design (`job::fabrication_of_job`, every material of a structure task the film there). It names
+component's page (its **Fabricate** leads there, and **Run as a job** runs its flow), any device
+of the library at its defaults, a template, or a job file whose `[device]` or `structure` task
+draws the design (`job::fabrication_of_job`, every material of a structure task the film there).
+It names
 the design's platform (`fabrication::platform`: one a design, set by its films), lists the steps
 with each one's reason, parameters, every number's citation or "not specified" and the rules'
 checks, and remakes the flow with an alternative a step ranks (**Use instead**, a preference the
@@ -952,18 +961,22 @@ library's choices take). A run of a design (a device's job, or a structure task'
 views and timeline in the run view's **Fabrication** tab, on the design the run's folder keeps,
 with **On the Fabrication page** leading here.
 
-**Where the flow starts.** For a design on silicon on insulator, the tab and the page offer
+**Where the flow starts.** For a design on silicon on insulator, the page and a run's tab offer
 **Start from: a bought SOI wafer | bare silicon (Smart Cut)** (`FabricationView::starts`: the
 bought wafer, and Smart Cut when that wafer is a film on its buried oxide that a proton energy of
 the range table reaches). The bought wafer is the default. With Smart Cut, the flow begins with
 the bare donor and the nine steps of "Making the SOI wafer" above. Each has its stage and frame,
 its narration and the glossary's words (Smart Cut, donor, handle, buried oxide, Deal and Grove,
-implant, projected range, straggle, bond, hydrofluoric acid). Under the choice, the tab and the
-page give the route's numbers for the design's film and buried oxide
+implant, projected range, straggle, bond, hydrofluoric acid). Under the choice, the page and the
+tab give the route's numbers for the design's film and buried oxide
 (`FabricationView::smart_cut`), which the design's stack sets: on a component's page, its Design
-tab. The animation draws the bond as the film laid on in one piece, faded in. It draws the
-sacrificial oxidation as the silicon it uses up, going from the film's top; the oxide itself
-isn't drawn. The implant, the split, the anneal and the strip change no drawn shape.
+tab. Every step draws something of its own, from the route's numbers, over the stages the round
+trip compares (which keep the design's film throughout): the implanted hydrogen as a plane at its
+depth below the oxide, one straggle to each side; at the bond, the donor turned over onto the
+handle, its excess up to the implanted plane and the rest of the donor above it (drawn
+0.8 µm thick: a wafer is hundreds of micrometres), and the bonded interface as a line at the
+oxide's foot; at the split, the excess alone; at the anneal, the interface gone; the excess
+less the polish; the sacrificial oxide over the film; and the film bare after the strip.
 
 The third choice, **bare silicon (SIMOX)**, is shown for every SOI design. It is disabled where
 SIMOX's published conditions don't make the design's film and oxide, with the reason under the
@@ -974,8 +987,9 @@ film is the 0.2 µm the anneal leaves). Under the choice are the route's inputs 
 published ranges (`FabricationView::simox`): 200 keV (150–200), the dose (1.2–2.2×10¹⁸ cm⁻²),
 the wafer at 600 °C (400–600), and the anneal of 4 h at 1350 °C (at least 1300). Then the film
 the anneal leaves (about 0.2 µm, 100–300 nm) and what the sacrificial oxide takes off. The
-animation fades in the buried oxide at the implant and the film at the anneal; the glossary adds
-SIMOX, dose, dose balance and oxide precipitates.
+implant draws the buried oxide under the silicon the oxygen damaged, which the anneal heals into
+the film and its excess; the sacrificial oxide is drawn over the film until the strip. The
+glossary adds SIMOX, dose, dose balance and oxide precipitates.
 
 The tab's **The job** shows the flow as a job, with `start: smart_cut` or `start: simox` in its
 task when a route is chosen (`job::from_fabrication_from`), and **Run as a job** runs it. A job's own start,

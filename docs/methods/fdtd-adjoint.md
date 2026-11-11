@@ -69,16 +69,16 @@ with $\mu = D y$: no transposed scheme is needed.
 
 ## The gradient
 
-For a real objective F of the transforms, $dF = 2\operatorname{Re}(g^{\mathsf T} dx)$ with $g = \partial F/\partial x$, the
+For a real objective F of the transforms, $dF = 2\mathop{\mathrm{Re}}(g^{\mathsf T} dx)$ with $g = \partial F/\partial x$, the
 Wirtinger derivative ($\bar x$ held fixed). Veronis, Dutton and Fan's Eqs. 2–4 then give
 
 $$
-\frac{\partial F}{\partial \varepsilon_r} = -2\operatorname{Re}\negthinspace\left(\mu^{\mathsf T}\frac{\partial K}{\partial\varepsilon_r}x\right)
-= \sum_\omega 2\operatorname{Re}\negthinspace\left(i\tilde\omega\thinspace\hat E_{\text{adj},r}\thinspace\hat E_r\right),
+\frac{\partial F}{\partial \varepsilon_r} = -2\mathop{\mathrm{Re}}\negthinspace\left(\mu^{\mathsf T}\frac{\partial K}{\partial\varepsilon_r}x\right)
+= \sum_\omega 2\mathop{\mathrm{Re}}\negthinspace\left(i\tilde\omega\thinspace\hat E_{\text{adj},r}\thinspace\hat E_r\right),
 $$
 
 summed over the objective's frequencies. This is Lalau-Keraly et al.'s Eq. 5,
-$\operatorname{Re}(E_\text{adj}\cdot E_\text{old})$, from the transforms of both runs over the design region. The
+$\mathop{\mathrm{Re}}(E_\text{adj}\cdot E_\text{old})$, from the transforms of both runs over the design region. The
 adjoint run's sources are $J = -g_E$ and $M = g_H$ at the monitors. Hughes et al. (Eqs. 9–13)
 give the same structure for FDFD.
 
@@ -86,7 +86,7 @@ give the same structure for FDFD.
 - A mode's amplitude is linear in Ê: $a = \sum_r \omega_r \hat E_r$, the weights of FDFD's Lorentz form
   ([FDFD in 3D](fdfd-3d.md)). So $g = (\partial F/\partial a)\thinspace\omega$, with the mode's whole complex profile and the
   form's phase. Nothing of the mode's imaginary part is dropped.
-- A flux $\tfrac12\operatorname{Re}(E\times\tilde H^*)$ sums $\kappa\operatorname{Re}(E\bar H)$ over pairs of values. It gives
+- A flux $\tfrac12\mathop{\mathrm{Re}}(E\times\tilde H^*)$ sums $\kappa\mathop{\mathrm{Re}}(E\bar H)$ over pairs of values. It gives
   $g_E = \tfrac12\kappa\bar H$ and $g_H = \tfrac12\kappa\bar E$. The pairs are the monitor's own, so g reaches
   into the CPMLs wherever the plane does, and D takes care of that.
 - A transform's value gives itself.
@@ -100,7 +100,7 @@ the second a quarter period after the first. A small real system, one per field 
 at different times), gives the β from the pulses' transforms. Each pulse is odd about its peak,
 so its mean is zero, to round-off even on the grid's samples. A current with a mean leaves a
 charge behind, and its static field never dies away: complex amplitudes on one pulse,
-$\operatorname{Re}(\alpha w)$, have a cosine part with a mean of $e^{-(\omega\tau/2)^2}$. In the strip below
+$\mathop{\mathrm{Re}}(\alpha w)$, have a cosine part with a mean of $e^{-(\omega\tau/2)^2}$. In the strip below
 that field held the adjoint's energy near $10^{-12}$ of its peak, where the pulses above let it
 fall below $10^{-16}$.
 

@@ -93,6 +93,8 @@ git diff --name-only origin/main...HEAD | AREAS_RANGE=origin/main...HEAD bash .g
 git diff --name-only origin/main...HEAD | AREAS_RANGE=origin/main...HEAD bash .github/areas.sh | bash .github/shards.sh 1   # and its jobs
 cargo semver-checks check-release -p photonoxide --baseline-rev origin/main   # a branch's own breaks (CI's Semver job on a PR)
 cargo semver-checks check-release -p photonoxide        # the public API against the latest release (the release PR's check)
+just release-marks                                     # the release PR's marks: the milestone's ✅ in ROADMAP.md, README's status row, FALLBACK_MILESTONES, CHANGELOG (--at <tag>)
+just site-check                                        # after a release and a deploy: tachsin.gr's overview, roadmap and Python reference against the latest release
 ```
 
 CI runs in tiers (issue #315). **Tier 1**, every PR and push to main: on Linux, lint, MSRV, and the
@@ -105,7 +107,7 @@ or test-read file gets its line in the map. A PR that changes the library (`src/
 PR answers for its own breaks only; the release PR is checked against the latest release on
 crates.io.
 **Tier 2**, the release PR, a PR labelled `full-ci`, and
-a change to `ci.yml`, `.github/shards.sh`, `Cargo.toml` or `Cargo.lock`: every test on Linux, Windows and macOS (and on
+a change to `Cargo.toml` or `Cargo.lock`: every test on Linux, Windows and macOS (and on
 one thread), every example on the three systems, the 3D devices, the whole validation report. The
 shards ([.github/shards.sh](.github/shards.sh)) split a run's tests, cases and examples among its
 jobs by measured times, each in exactly one job (the "What changed" job fails otherwise). **Tier

@@ -1,0 +1,199 @@
+# A 1×4 switch: a tree of three Mach–Zehnder switches, each two ideal 3 dB couplers and two equal
+# strip arms, a phase shifter on the upper one. A switch's phase φ sends sin²(φ/2) of the power to
+# its upper output and cos²(φ/2) to its lower one: at 0 all goes down, at π all goes up. Set as it
+# is, A at 0 and C at π, the input leaves at out3, the same at every wavelength, the arms being
+# equal. The couplers' spare inputs are terminated.
+format = 1
+name = "switch-1x4"
+about = "A 1×4 switch: a tree of three Mach–Zehnder switches with phase shifters, set to send the input to out3; change a phase (0 or π) to route it elsewhere."
+
+connections = [
+    ["a_split.o3", "a_upper.o1"],
+    ["a_upper.o2", "a_phase.o1"],
+    ["a_phase.o2", "a_join.o2"],
+    ["a_split.o4", "a_lower.o1"],
+    ["a_lower.o2", "a_join.o1"],
+    ["a_join.o3", "b_split.o2"],
+    ["a_join.o4", "c_split.o2"],
+    ["b_split.o3", "b_upper.o1"],
+    ["b_upper.o2", "b_phase.o1"],
+    ["b_phase.o2", "b_join.o2"],
+    ["b_split.o4", "b_lower.o1"],
+    ["b_lower.o2", "b_join.o1"],
+    ["c_split.o3", "c_upper.o1"],
+    ["c_upper.o2", "c_phase.o1"],
+    ["c_phase.o2", "c_join.o2"],
+    ["c_split.o4", "c_lower.o1"],
+    ["c_lower.o2", "c_join.o1"],
+    ["a_split.o1", "a_end.o1"],
+    ["b_split.o1", "b_end.o1"],
+    ["c_split.o1", "c_end.o1"],
+]
+
+[sweep]
+from_um = 1.5
+to_um = 1.6
+points = 201
+
+# switch A: the input's
+
+[[instance]]
+name = "a_split"
+kind = "coupler"
+x = -260
+y = 0
+values = { coupling = 0.5 }
+
+[[instance]]
+name = "a_upper"
+kind = "waveguide"
+x = -190
+y = -40
+values = { length = 50.0 }
+
+[[instance]]
+name = "a_phase"
+kind = "phase-shifter"
+x = -120
+y = -40
+values = { phase = 0.0 }
+
+[[instance]]
+name = "a_lower"
+kind = "waveguide"
+x = -155
+y = 40
+values = { length = 50.0 }
+
+[[instance]]
+name = "a_join"
+kind = "coupler"
+x = -50
+y = 0
+values = { coupling = 0.5 }
+
+[[instance]]
+name = "a_end"
+kind = "terminator"
+x = -330
+y = 30
+
+# switch B: out1 and out2
+
+[[instance]]
+name = "b_split"
+kind = "coupler"
+x = 60
+y = -160
+values = { coupling = 0.5 }
+
+[[instance]]
+name = "b_upper"
+kind = "waveguide"
+x = 130
+y = -200
+values = { length = 50.0 }
+
+[[instance]]
+name = "b_phase"
+kind = "phase-shifter"
+x = 200
+y = -200
+values = { phase = 0.0 }
+
+[[instance]]
+name = "b_lower"
+kind = "waveguide"
+x = 165
+y = -120
+values = { length = 50.0 }
+
+[[instance]]
+name = "b_join"
+kind = "coupler"
+x = 270
+y = -160
+values = { coupling = 0.5 }
+
+[[instance]]
+name = "b_end"
+kind = "terminator"
+x = -10
+y = -130
+
+# switch C: out3 and out4
+
+[[instance]]
+name = "c_split"
+kind = "coupler"
+x = 60
+y = 160
+values = { coupling = 0.5 }
+
+[[instance]]
+name = "c_upper"
+kind = "waveguide"
+x = 130
+y = 120
+values = { length = 50.0 }
+
+[[instance]]
+name = "c_phase"
+kind = "phase-shifter"
+x = 200
+y = 120
+values = { phase = 3.141592653589793 }
+
+[[instance]]
+name = "c_lower"
+kind = "waveguide"
+x = 165
+y = 200
+values = { length = 50.0 }
+
+[[instance]]
+name = "c_join"
+kind = "coupler"
+x = 270
+y = 160
+values = { coupling = 0.5 }
+
+[[instance]]
+name = "c_end"
+kind = "terminator"
+x = -10
+y = 190
+
+[[port]]
+name = "in"
+at = "a_split.o2"
+x = -350
+y = -10
+
+[[port]]
+name = "out1"
+at = "b_join.o3"
+x = 360
+y = -170
+rotation = 180
+
+[[port]]
+name = "out2"
+at = "b_join.o4"
+x = 360
+y = -150
+rotation = 180
+
+[[port]]
+name = "out3"
+at = "c_join.o3"
+x = 360
+y = 150
+rotation = 180
+
+[[port]]
+name = "out4"
+at = "c_join.o4"
+x = 360
+y = 170
+rotation = 180

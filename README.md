@@ -14,9 +14,9 @@
 **Light meets Rust. Photonics design and simulation with a live desktop studio, a Rust library and Python bindings: mode solvers, FDFD, FDTD, inverse design, circuits and fabrication flows. Open to everyone.**
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/tachsin/photonoxide/main/assets/studio/hero.gif" alt="The photonoxide studio: a silicon strip's first mode travelling along it in 3D as the camera orbits; a ring resonator's transmission spectrum building up point by point, then the ring lit at resonance in 3D; a Mach-Zehnder interferometer wired on the chip and its spectrum appearing" width="100%">
+  <img src="https://raw.githubusercontent.com/tachsin/photonoxide/main/assets/studio/hero.gif" alt="The photonoxide studio, scene by scene: an FDTD run of a 1 × 2 MMI, a pulse entering it and leaving by both arms (sped up); a ring resonator's transmission spectrum by 2D FDFD building up point by point (sped up), then the ring lit at resonance in 3D; a directional coupler designed, its gap opened and its coupled length shortened by their sliders as its 3D view follows; a Y-branch's arms spread apart and lengthened the same way; a Mach-Zehnder interferometer wired port to port on the chip and simulated; a thermo-optic phase shifter switched on, the heat spreading from its heater down to the guide on its 2D model's cross-section as the rise the guide feels climbs; an all-pass ring's fabrication flow played in 3D from the bare wafer; the Academy's ring lesson, its input-coupling slider dragged down to critical coupling as the live chart's dip deepens to zero" width="100%">
 </p>
-<p align="center"><sub>The studio: a strip's mode travelling in 3D; a ring's spectrum by 2D FDFD building up live (sped up) and the ring lit at resonance; an MZI wired on the chip and simulated.</sub></p>
+<p align="center"><sub>The studio: a pulse through an MMI by FDTD and a ring's spectrum by 2D FDFD, both live (sped up), then the ring lit at resonance; a coupler and a Y-branch designed with sliders; an MZI wired on the chip and simulated; a heater switched on; the ring's fabrication flow; a lesson's live chart.</sub></p>
 
 photonoxide is software for designing and simulating photonic devices and circuits: a desktop
 studio that shows every run live, a Rust library and Python bindings, all running the same
@@ -40,16 +40,17 @@ It is released milestone by milestone ([changelog](CHANGELOG.md), [roadmap](ROAD
 
 - **[Methods](docs/README.md#methods):** 54 write-ups in 10 topics, from waveguide modes to
   fabrication, each setting out its method, its limits and the papers it implements; their
-  front matter cites 298 distinct sources by DOI.
+  front matter cites 300 distinct sources by DOI.
 - **[Academy](academy/README.md):** lessons on devices and numerical methods at three depths,
-  each opening on a drawing of its device, with charts the library computes live; 20 written,
-  and 1 more laid out section by section, read on GitHub or in the studio.
+  each opening on a drawing of its device, with charts the library computes live; 24 written,
+  and 10 more laid out section by section, read on GitHub or in the studio. New to rings?
+  [Start the lesson](academy/ring-resonator.md).
 - **[Fabrication](docs/methods/fabrication.md):** the process flow that would make a design, each
   step with its reason, its alternatives and what its process can achieve, as its source states
   it; 56 processes on 5 platforms, every flow executed back to its design and shown step by step
   in the studio. New platforms and exports are in progress.
 - **[The library, the Python package and the studio](#install):** the code that runs a design,
-  with 55 examples that each reproduce a paper, 43 job files ready to run, and 946 validation
+  with 55 examples that each compute a published result and print it beside the paper's, 43 job files ready to run, and 950 validation
   cases that check it.
 
 ## What it computes
@@ -195,10 +196,12 @@ for polarization in ("te", "tm"):
 ```
 
 Both print `TE0: n_eff = 2.8475` and `TM0: n_eff = 2.0531`. Each of the
-[examples](examples/README.md) reproduces one paper's numbers and fails when it disagrees:
+[examples](examples/README.md) computes one paper's numbers, prints them beside the paper's and exits 1
+outside its stated tolerance:
 
 ```sh
-cargo run --release --example strip_waveguide   # or: just example strip_waveguide
+photonoxide example strip_waveguide             # the installed program; `photonoxide example --list` lists them
+cargo run --release --example strip_waveguide   # from a checkout, or: just example strip_waveguide
 ```
 
 Every example prints its setup first: the layers from the top down, the shapes with their
@@ -242,9 +245,11 @@ The optimized build profiles (`release`, `dist` and `fastest`) are described in
 
 Nothing is merged without an analytic test, a reproduction of a published result and a
 convergence test; adjoint gradients are checked against finite differences. The
-[report](docs/validation.md) has 946 cases: 642 against closed forms, 291 against published
-results and 13 against another code on a shared problem. Each states its source, tolerance and
-grid. CI fails when a case fails or the committed report isn't the one the code writes. CI
+[report](docs/validation.md) has 950 cases: 646 against closed forms, 291 against published
+results and 13 against a second method of photonoxide's own on a shared problem. Each states its source,
+tolerance and grid; a published case is a number a paper prints or a formula re-implemented from its
+equations, and a few are bounds, not equalities. The comparisons with other codes (Elmer for the static
+solver, openEMS for the RF line) are in [docs/cross-code.md](docs/cross-code.md) and run locally. CI fails when a case fails or the committed report isn't the one the code writes. CI
 checks every example's output too.
 
 ## Status
@@ -263,19 +268,19 @@ checks every example's output too.
 | 0.6.2 Eigenmode expansion and the mode solver's tools | 2D eigenmode expansion, convergence to a tolerance, adaptive sweeps, effective area and confinement, sidewall-roughness loss; 3D expansion, bends, periodic sections, drawn shapes and Gaussian beams followed in 0.6.3 | ✅ released |
 | 0.6.3 Quantum light | Linear-optical statistics, photon-pair sources, Gaussian states and broadband squeezing, loss budgets of quantum circuits, the quantum view in the studio; 3D eigenmode expansion with bends, periodic sections, drawn shapes and beams; a 1D RCWA | ✅ released |
 | 0.7 Inverse design | Topology and shape optimization with fabrication constraints | 🚧 next |
-| 0.7.1 – 0.16 | Distributed memory, carrier modulators, layout, RCWA and beam propagation, a device library, photonic crystals, plasmonics, nonlinear FDTD | planned |
+| 0.7.1 – 0.16 | Distributed memory, carrier modulators, layout, RCWA in full (a 1D RCWA is in 0.6.3) and beam propagation, a device library, photonic crystals, plasmonics, nonlinear FDTD | planned |
 | 1.0 | A stable API | planned |
 
 [ROADMAP.md](ROADMAP.md) has the details, with what each item measured.
 
 ## Principles
 
-- **Validated:** every number from a checked method, with its grid.
+- **Validated:** each method is checked against closed forms or published results, and a result names the grid it came from.
 - **Cited:** every methods page and every written lesson names the papers it rests on, and every
   stated process capability its source, by DOI where the source has one.
 - **Pure Rust:** libraries you install yourself are optional backends, loaded at run time and
   never required ([the plan](docs/plans/backends.md)).
-- **Reproducible:** the same bits on any number of threads; every run replays.
+- **Reproducible:** a rerun gives the same bits and every run replays; across thread counts the parallel kernels match bit for bit and the dense ones to round-off (n_eff to about 3e-15).
 - **Visible:** the studio and the command line run the same job.
 
 ## Contributing

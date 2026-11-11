@@ -7,7 +7,7 @@
 //! region, Table 3's materials) and measured on the same die, 320 µm long.
 //!
 //! - **The N++ heater:** two N++ strips 1.0 µm wide in the 90 nm slab, 0.8 µm beyond a 500 ×
-//!   220 nm rib: simulated P_π 25.5 mW (Section 2.2, Fig. 1(e)), measured 22.8 mW (Section 3.1,
+//!   220 nm rib: simulated $P_\pi$ 25.5 mW (Section 2.2, Fig. 1(e)), measured 22.8 mW (Section 3.1,
 //!   Fig. 8, the MZI's arms 200 µm apart).
 //! - **The TiN heater** as fabricated: 7.5 µm wide, 2 µm above a 500 × 220 nm strip: measured
 //!   29.2 mW, their simulation 3.0 mW above it (Section 3.1).
@@ -19,7 +19,7 @@
 //! thickness or the oxide over the heaters: the devices take 100 nm of TiN under 1 µm of oxide,
 //! and the oxide's top 3.32 µm over the buried oxide's for the N++.
 //!
-//! P_π is a 2D number, a straight section's (any length): the devices' 2D model is the paper's
+//! $P_\pi$ is a 2D number, a straight section's (any length): the devices' 2D model is the paper's
 //! own kind of simulation. The tolerances are 10% against their simulations (what the paper
 //! doesn't state) and the devices' stated errors: 15% for the 2D model against the measurement,
 //! and for the analytic against the 2D. The time constants and bandwidths are printed: the

@@ -433,8 +433,12 @@ than narrowing it.
 
 Taillaert et al. made theirs in two lithography and etch steps on 200 mm wafers: the grooves
 etched 70 nm deep first, then the guides etched through the 220 nm film, both by 248 nm
-lithography at NA 0.63, which makes periods down to 400 nm (Section 3.1). Each dimension errs
-differently:
+lithography at NA 0.63, which makes periods down to 400 nm (Section 3.1). Projection
+lithography at 248 nm, the mask's grooves imaged smaller onto the resist one field after another:
+
+::lithography duv-248 duv-193
+
+Each dimension errs differently:
 
 - **The period** is the mask's, drawn exactly: it doesn't drift.
 - **The etch depth** is timed, since no film below stops it. photonoxide's fabrication engine
@@ -483,9 +487,11 @@ structures where the paper evaluated 2 × 10⁴. All its numbers are 2D:
 - **The bandwidths.** Re-solved on 10 × 5 nm cells with the fibre at its height in the paper's
   files, the paper's designs couple within 0.10 to 0.52 points of its efficiencies at 4 µm, but
   every bandwidth comes out wider than the paper's, by 3.3 to 4.7 nm (3 to 5 %) at 4 µm and 1.6 to
-  3.6 nm (2 to 4 %) at 6 µm. **Passoni et al.'s bandwidths are not reproduced**, and we don't yet
-  know why: the grid's error is at most 0.4 nm, and a beam whose profile is set at the centre
-  wavelength only brings the 4 µm bandwidths within 0 to 2.9 % but overshoots at 6 µm.
+  3.6 nm (2 to 4 %) at 6 µm, beyond the grid's error of at most 0.4 nm. The paper prints its
+  indices as constants, 3.47 and 1.44; with silicon's and silica's own dispersion added about
+  those values (the catalogue's), every bandwidth narrows by 2.5 to 2.9 % at 4 µm and 3.3 % at
+  6 µm, and they end +0.2 to +1.9 % (4 µm) and −1.8 to +0.9 % (6 µm) from the paper's, about its
+  files' 1.5 nm steps: **the bandwidths are those of dispersive silicon and silica.**
 
 The run CI checks re-solves the recorded designs on both grids:
 

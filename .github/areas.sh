@@ -267,7 +267,7 @@ area python \
 # its tests check the project site's static copy against the roadmap, its methods' categories
 # against docs/methods, and the README's counts against the files and the fabrication library
 area studio \
-  "studio/* academy/* docs/methods/* docs/libraries.md examples/README.md CHANGELOG.md ROADMAP.md README.md docs/README.md jobs/* tests/jobs-toml/* circuits/* site/lib/projects/photonoxide/meta.js site/lib/projects/photonoxide/methods.js site/lib/projects/photonoxide/dependencies/*" \
+  "studio/* academy/* docs/methods/* docs/libraries.md examples/README.md CHANGELOG.md ROADMAP.md README.md docs/README.md jobs/* tests/jobs-toml/* circuits/* site/lib/projects/photonoxide/meta.js site/lib/projects/photonoxide/methods.js site/lib/projects/photonoxide/latest.js site/lib/projects/photonoxide/milestones.js site/lib/projects/photonoxide/python-reference.js site/lib/projects/photonoxide/dependencies/*" \
   "material sparse mode fdfd fdtd job circuit device generator compact facade bench native" \
   "" "" ""
 

@@ -1,6 +1,6 @@
 # A fabrication engine: the process flow of a design, suggested and animated
 
-*A plan, 2026-10-30. I review it first; the work is tracked in #622.*
+*A plan, 2026-10-30. The engine shipped in 0.6.1 and grew in 0.6.2 and 0.6.3; what is left is under 0.10 in the roadmap, tracked in #622.*
 
 A design in photonoxide is a stack of layers and the shapes drawn on them, with each etch's depth
 and sidewall angle. That is also what a cleanroom makes. This page plans an engine that reads a
@@ -617,7 +617,7 @@ fabrication engine". Open copies are noted only where one was seen.
 **Textbooks**
 
 - J. D. Plummer, M. D. Deal, P. B. Griffin, *Silicon VLSI Technology: Fundamentals, Practice and Modeling*, 1st ed., Prentice Hall (2000). ISBN 9780130850379 (Open Library; not on Crossref).
-- S. A. Campbell, *Fabrication Engineering at the Micro- and Nanoscale*, Oxford University Press (2012). ISBN 9780199861224 (Open Library; not on Crossref).
+- S. A. Campbell, *Fabrication Engineering at the Micro- and Nanoscale*, 3rd ed., Oxford University Press (2008). ISBN 9780195320176 (Open Library; not on Crossref). The edition in the folder and the one the pages cited here refer to; the 4th edition (2012, ISBN 9780199861224) is not in the folder.
 - M. J. Madou, *Fundamentals of Microfabrication and Nanotechnology*, three-volume set, CRC Press (2018). [10.1201/9781315274164](https://doi.org/10.1201/9781315274164)
 - S. Franssila, *Introduction to Microfabrication*, Wiley (2010). [10.1002/9781119990413](https://doi.org/10.1002/9781119990413)
 - C. Mack, *Fundamental Principles of Optical Lithography*, Wiley (2007). [10.1002/9780470723876](https://doi.org/10.1002/9780470723876)

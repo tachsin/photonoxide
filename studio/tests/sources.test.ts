@@ -1,9 +1,11 @@
 // The source designer's helpers (src/lib/sources.ts), run by `pnpm test`: its starting points,
-// the empty fields it waits on, the Schmidt bars, the numbers it prints and the maps' layout.
+// the empty fields it waits on, the Schmidt bars, the numbers it prints, the maps' layout, and
+// squeezing at high gain's limits, bars and mode curves.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { axisLabel, defaults, emptyField, figure, KINDS, PRESETS, schmidtBars, share, transposed } from "../src/lib/sources.ts";
+import type { PairSqueezing } from "../src/lib/api.ts";
+import { axisLabel, defaultGain, defaults, emptyField, figure, gainProblem, KINDS, MOST_GAIN, MOST_GAIN_POINTS, MOST_SLICES, modeSeries, pairedBars, PRESETS, schmidtBars, share, sliceable, transposed } from "../src/lib/sources.ts";
 
 test("every kind of source has a design, and every preset is complete", () => {
   const d = defaults();
@@ -66,6 +68,55 @@ test("numbers and shares print as the view shows them", () => {
   assert.equal(share(2e-7), "2.0×10⁻⁵%");
   assert.equal(axisLabel("signal", "GHz"), "signal detuning (GHz)");
   assert.equal(axisLabel("idler", "nm"), "idler wavelength (nm)");
+});
+
+test("squeezing at high gain slices a guide or a crystal, and starts within its limits", () => {
+  const d = defaults();
+  assert.deepEqual(
+    KINDS.map((k) => sliceable(d[k.id].medium)),
+    [true, true, false, false],
+  );
+  const g = defaultGain();
+  assert.equal(gainProblem(g), null);
+  assert.ok(g.gain > 0 && g.gain <= MOST_GAIN);
+  assert.ok(g.slices % 2 === 0 && g.slices <= MOST_SLICES);
+  assert.ok(g.points >= 11 && g.points <= MOST_GAIN_POINTS);
+  assert.match(gainProblem({ ...g, slices: 51 }) ?? "", /even/);
+  assert.match(gainProblem({ ...g, gain: Number.NaN }) ?? "", /gain/);
+});
+
+test("the squeezing's paired bars share one scale", () => {
+  assert.deepEqual(pairedBars([4, 2], [2, 1, 0.5]), [
+    { k: 0, sliced: 4, schmidt: 2, heights: [1, 0.5] },
+    { k: 1, sliced: 2, schmidt: 1, heights: [0.5, 0.25] },
+    { k: 2, sliced: 0, schmidt: 0.5, heights: [0, 0.125] },
+  ]);
+  assert.deepEqual(pairedBars([], []), []);
+});
+
+test("each signal mode is drawn sliced and in the Schmidt model, in one colour", () => {
+  const s = {
+    signal_axis: [1549, 1550, 1551],
+    modes: [
+      { sliced: [0.2, 0.6, 0.2], schmidt: [0.25, 0.5, 0.25], shift: 0.01 },
+      { sliced: [0.5, 0, 0.5], schmidt: [0.4, 0.2, 0.4], shift: 0.1 },
+    ],
+  } as PairSqueezing;
+  const series = modeSeries(s, ["a", "b"]);
+  assert.deepEqual(
+    series.map((x) => [x.label, x.colour, x.dashed ?? false]),
+    [
+      ["mode 1, sliced", "a", false],
+      ["mode 1, Schmidt model", "a", true],
+      ["mode 2, sliced", "b", false],
+      ["mode 2, Schmidt model", "b", true],
+    ],
+  );
+  assert.deepEqual(series[3].points, [
+    [1549, 0.4],
+    [1550, 0.2],
+    [1551, 0.4],
+  ]);
 });
 
 test("the maps' rows become the idler's", () => {

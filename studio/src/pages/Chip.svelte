@@ -21,6 +21,7 @@
   import { onMount } from "svelte";
 
   import ChipOptimize from "../components/chip/ChipOptimize.svelte";
+  import ChipParts from "../components/chip/ChipParts.svelte";
   import ChipQuantum from "../components/chip/ChipQuantum.svelte";
   import ChipStudy from "../components/chip/ChipStudy.svelte";
   import InstanceDevice from "../components/chip/InstanceDevice.svelte";
@@ -28,7 +29,7 @@
   import SpectrumPlot from "../components/SpectrumPlot.svelte";
   import Tip from "../components/Tip.svelte";
   import UnitChip from "../components/UnitChip.svelte";
-  import { api, type Chip, type ChipOptimizeInfo, type KindInfo, type Problem } from "../lib/api";
+  import { api, type Chip, type ChipOptimizeInfo, type CircuitExample, type CircuitItem, type KindInfo, type Problem } from "../lib/api";
   import { app, go, toast } from "../lib/app.svelte";
   import { COMPACT,
     palette,
@@ -38,6 +39,10 @@
     allParts,
     editor,
     exportTouchstone,
+    chipOpened,
+    openChip,
+    openChipFile,
+    showChip,
     kindOf,
     library,
     loadLibrary,
@@ -51,6 +56,8 @@
   } from "../lib/chip.svelte";
   import {
     bounds,
+    chipTitle,
+    emptyChip,
     externalPin,
     freshPortName,
     nameProblem,
@@ -68,7 +75,7 @@
     type WorldPin,
   } from "../lib/circuit";
   import { label } from "../lib/plot";
-  import { isMicrometres, len, lenUnit, showIn, shown, storeIn, stored, unitOf } from "../lib/units";
+  import { isMicrometres, len, lenUnit, showIn, shown, storeIn, stored, unitOf, unitText } from "../lib/units";
 
   loadLibrary();
 
@@ -315,7 +322,7 @@
     change(apply);
   }
 
-  // ---- placing a part dragged in from the rail (palette.placing, lib/chip.svelte.ts) ----
+  // ---- placing a part dragged in from the Parts beside the canvas (palette.placing, lib/chip.svelte.ts) ----
 
   function placeMove(e: PointerEvent) {
     if (!palette.placing || !svg) return;
@@ -413,6 +420,51 @@
       editor.selection = null;
     }
   }
+
+  // the top bar names the chip shown (Chip › Ring filter), with a new chip, the examples and the
+  // chips saved in circuits/ to switch to, as the rail lists them
+  let examples = $state<CircuitExample[]>([]);
+  let circuitFiles = $state<CircuitItem[]>([]);
+  api
+    .circuitExamples()
+    .then((e) => {
+      examples = e;
+      // nothing opened yet: the first example, so the page starts on a working circuit
+      if (!chipOpened.yes && !editor.path && !editor.chip.instance.length && e[0]) {
+        openChip(e[0].chip, null);
+      }
+    })
+    .catch(() => {});
+  $effect(() => {
+    void app.workspaceVersion;
+    api
+      .circuits()
+      .then((c) => (circuitFiles = c))
+      .catch(() => {});
+  });
+  $effect(() => {
+    app.crumb = {
+      page: "chip",
+      label: chipTitle(editor.chip.name),
+      about: editor.chip.about || "Components placed and wired port to port",
+      changed: dirty(),
+      groups: [
+        { title: "New", items: [{ id: "#new", label: "A new chip", hint: "nothing on it" }] },
+        { title: "Start from an example", items: examples.map((e) => ({ id: `example:${e.file}`, label: chipTitle(e.chip.name), hint: e.chip.about })) },
+        { title: "Your chips", items: circuitFiles.map((c) => ({ id: `file:${c.path}`, label: chipTitle(c.name), hint: c.about })) },
+      ].filter((g) => g.items.length),
+      pick: (id) => {
+        if (id === "#new") showChip(emptyChip(), null);
+        else if (id.startsWith("example:")) {
+          const e = examples.find((x) => `example:${x.file}` === id);
+          if (e) showChip(e.chip, null);
+        } else if (id.startsWith("file:")) openChipFile(id.slice(5));
+      },
+    };
+  });
+  $effect(() => () => {
+    if (app.crumb?.page === "chip") app.crumb = null;
+  });
 
   onMount(() => {
     // an external wheel listener, so the page doesn't scroll as the canvas zooms
@@ -522,8 +574,12 @@
 
 <svelte:window onkeydown={keys} onpointermove={placeMove} onpointerup={placeUp} />
 
-<!-- the parts and the circuits are in the rail, under Chip (components/rail/ChipTree.svelte) -->
-<div class="grid h-full grid-cols-[minmax(0,1fr)_19rem] max-xl:grid-cols-[minmax(0,1fr)_16rem]">
+<!-- the parts beside the canvas (components/chip/ChipParts.svelte), the circuits to open in the
+     rail, under Chip (components/rail/ChipTree.svelte) -->
+<div class="grid h-full grid-cols-[14rem_minmax(0,1fr)_19rem] max-xl:grid-cols-[12.5rem_minmax(0,1fr)_16rem]">
+  <aside class="min-h-0 border-r border-base-content/8 bg-base-100/40" aria-label="The parts">
+    <ChipParts />
+  </aside>
   <!-- the canvas -->
   <div class="flex min-h-0 min-w-0 flex-col">
     <!-- Save and Simulate stay in view; too narrow for the rest, the tools beside them scroll
@@ -946,8 +1002,8 @@
       </label>
       <p class="panel-title mt-5">Wavelengths</p>
       <div class="mt-2 grid grid-cols-3 gap-2 text-xs">
-        <label class="flex flex-col gap-1"><span class="muted">From (<UnitChip />)</span><input class="input input-xs num" type="number" step={shown(0.01)} value={shown(chip.sweep.from_um)} onchange={(e) => change((c) => (c.sweep.from_um = stored(Number(e.currentTarget.value))))} /></label>
-        <label class="flex flex-col gap-1"><span class="muted">To (<UnitChip />)</span><input class="input input-xs num" type="number" step={shown(0.01)} value={shown(chip.sweep.to_um)} onchange={(e) => change((c) => (c.sweep.to_um = stored(Number(e.currentTarget.value))))} /></label>
+        <label class="flex flex-col gap-1"><span class="muted">From (<UnitChip />)</span><span class="input input-xs w-28"><input class="num" type="number" step={shown(0.01)} value={shown(chip.sweep.from_um)} onchange={(e) => change((c) => (c.sweep.from_um = stored(Number(e.currentTarget.value))))} /><span class="faint">{unitText()}</span></span></label>
+        <label class="flex flex-col gap-1"><span class="muted">To (<UnitChip />)</span><span class="input input-xs w-28"><input class="num" type="number" step={shown(0.01)} value={shown(chip.sweep.to_um)} onchange={(e) => change((c) => (c.sweep.to_um = stored(Number(e.currentTarget.value))))} /><span class="faint">{unitText()}</span></span></label>
         <label class="flex flex-col gap-1"><span class="muted">Points</span><input class="input input-xs num" type="number" step="100" value={chip.sweep.points} onchange={(e) => change((c) => (c.sweep.points = Math.round(Number(e.currentTarget.value))))} /></label>
       </div>
       {#if sweepProblem(chip.sweep)}<p class="mt-1 text-xs text-warning">{sweepProblem(chip.sweep)}</p>{/if}

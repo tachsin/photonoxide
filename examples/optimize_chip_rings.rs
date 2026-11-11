@@ -1,27 +1,30 @@
 //! A maximally flat filter of two coupled rings co-designed from devices on a chip: each ring a
 //! strip's two half-circle bends between directional couplers, the inner coupler's gap and each
 //! ring's radius the variables of the chip's `optimize` job, fitted by genoxide's L-BFGS-B until
-//! the drop port's response is the Butterworth shape 1/(1 + (δ/δ_c)⁴), and the ring-to-ring
-//! coupling compared with Little's synthesis.
+//! the drop port's response is the Butterworth shape $1/(1 + (\delta/\delta_c)^4)$, and the
+//! ring-to-ring coupling compared with Little's synthesis.
 //!
 //! B. E. Little, S. T. Chu, H. A. Haus, J. Foresi, J.-P. Laine, J. Lightwave Technol. 15, 998
 //! (1997), [doi:10.1109/50.588673](https://doi.org/10.1109/50.588673), Table I: the maximally
-//! flat filter of two rings has μ₁²/μ⁴ = 0.250, μ the bus's coupling (μ² = κ_b²/T for a round
-//! trip T) and μ₁ the rings' (μ₁ = κ₁/T), so κ₁²/κ_b⁴ = 0.250 for rings of the same round trip.
+//! flat filter of two rings has $\mu_1^2/\mu^4 = 0.250$, $\mu$ the bus's coupling
+//! ($\mu^2 = \kappa_b^2/T$ for a round trip $T$) and $\mu_1$ the rings' ($\mu_1 = \kappa_1/T$), so
+//! $\kappa_1^2/\kappa_b^4 = 0.250$ for rings of the same round trip.
 //!
 //! **The chip.** Lossless 500 × 220 nm silicon strips on 220 nm SOI, every device at its
-//! analytic fidelity: the buses' couplers 200 nm apart for κ_b² = 1e-3, the rings' coupler 100 nm
-//! long, each ring a bend of 10 µm radius and one of radius R (a design parameter offset by u,
-//! R = R₀ + u × 1e-6 µm). The variables are the rings' coupler's gap and each ring's u: the gap
-//! sets κ₁² through the coupler's coupled-mode model (its coupling's fit over the gap, exact: no
-//! grid beyond the fit's), and the radii bring both rings onto resonance at 1.55 µm. The devices
-//! give no exact derivative in a gap or a radius (each builds another component), so the job
-//! takes central differences in them; its objective is the misfit to the Butterworth shape at 61
-//! wavelengths over ±3κ_b² of round-trip phase about 1.55 µm, δ_c = κ_b²/√2 (the prototype's g₁/2
-//! of the bus's coupling in coupled-mode theory, Little's Eq. 9 with N = 2).
+//! analytic fidelity: the buses' couplers 200 nm apart for $\kappa_b^2 = 10^{-3}$, the rings'
+//! coupler 100 nm long, each ring a bend of 10 µm radius and one of radius $R$ (a design
+//! parameter offset by $u$, $R = R_0 + u \times 10^{-6}$ µm). The variables are the rings'
+//! coupler's gap and each ring's $u$: the gap sets $\kappa_1^2$ through the coupler's
+//! coupled-mode model (its coupling's fit over the gap, exact: no grid beyond the fit's), and the
+//! radii bring both rings onto resonance at 1.55 µm. The devices give no exact derivative in a
+//! gap or a radius (each builds another component), so the job takes central differences in
+//! them; its objective is the misfit to the Butterworth shape at 61 wavelengths over
+//! $\pm 3\kappa_b^2$ of round-trip phase about 1.55 µm, $\delta_c = \kappa_b^2/\sqrt{2}$ (the
+//! prototype's $g_1/2$ of the bus's coupling in coupled-mode theory, Little's Eq. 9 with $N = 2$).
 //!
-//! The circuit's exact couplers differ from coupled-mode theory at O(κ_b²): at κ_b² = 1e-3 the
-//! circuit's maximally flat ratio is 0.2502 (`optimize_ring_flat` finds 0.25025 with δ_c free),
+//! The circuit's exact couplers differ from coupled-mode theory at $O(\kappa_b^2)$: at
+//! $\kappa_b^2 = 10^{-3}$ the circuit's maximally flat ratio is 0.2502 (`optimize_ring_flat` finds
+//! 0.25025 with $\delta_c$ free),
 //! within the printed digits of 0.250. The circuit solve: exact, no grid.
 //!
 //! ```sh

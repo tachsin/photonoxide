@@ -42,6 +42,8 @@ papers:
     doi: 10.1002/nme.995
   - cite: "M. Delaney, I. Zeimpekis, D. Lawson, D. W. Hewak, O. L. Muskens, Adv. Funct. Mater. 30, 2002447 (2020) (the phase-change shifters: the two states' indices, the 25 nm film and the figure of merit, Eq. 1)"
     doi: 10.1002/adfm.202002447
+  - cite: "H. Zhang, L. Zhou, B. M. A. Rahman, X. Wu, L. Lu, Y. Xu, J. Xu, J. Song, Z. Hu, L. Xu, J. Chen, IEEE Photonics J. 10, 2200110 (2018) (Delaney et al.'s ref. 58: a 20 nm GST patch's measured and simulated index change and loss)"
+    doi: 10.1109/JPHOT.2017.2781710
   - cite: "J. A. Frantz et al., Opt. Mater. Express 13, 3631 (2023) (a part-crystallized film as the linear effective medium of the two states)"
     doi: 10.1364/OME.506019
   - cite: "J. Chilwell, I. Hodgkinson, J. Opt. Soc. Am. A 1, 742 (1984) (the exact complex slab modes of the effective index method)"
@@ -233,8 +235,8 @@ symmetry, and its y up the stack from the core layer's mid-plane. A `Mesh` says 
 are:
 
 - **fitted** (`Cells::Fitted { step, margin }`): along each axis the uniform spacing nearest
-  `step` that puts a strip's faces on nodes, $d = (w/2)/\operatorname{round}(w/2\,/\,\text{step})$,
-  and $\operatorname{round}((w/2 + \text{margin})/d)$ cells from the centre, as the `mzi_dwivedi`
+  `step` that puts a strip's faces on nodes, $d = (w/2)/\mathop{\mathrm{round}}(w/2\,/\,\text{step})$,
+  and $\mathop{\mathrm{round}}((w/2 + \text{margin})/d)$ cells from the centre, as the `mzi_dwivedi`
   example fitted its grids; a coupler's gap, guides and margin each have their own spacing, so
   that every face is on a node; a bend's window is a whole number of widths inward (short of the
   bend's centre) and outward past the radiation's turning point, so that halving the step halves
@@ -413,6 +415,31 @@ caption, about 0.7, agrees with the reading); the grid's error (3 % for the TE-l
 doesn't close it either. Their Fig. 11's ratio to the 2D theory, about 0.11 for silicon's
 TE-like mode, is 0.10 with the printed Green's function and 0.072 without (that figure not read
 in the way above). The differences are unexplained: Fig. 12 is not a validation case.
+
+**Against Barwicz & Haus's Fig. 13**, the loss over its value at $L_c$ = 50 nm against $L_c$ for
+three guides (SiON 1.5 × 3.0 µm, Si₃N₄ 0.4 × 0.8 µm, Si 0.195 × 0.390 µm): the ratio cancels the
+field at the walls and the mode's power, and keeps the radiation's pattern and the roughness's
+spectrum. The figure is a 1-bit raster of 2050 × 1645 pixels, its axes placed by the frame, a
+pixel 0.0016 up, the curves 3 to 4 pixels thick. At $L_c$ = 147 nm, the last column clear of
+the frame, where the six curves part (the TM-like ones by the labels' arrows), and ours (an
+ignored test, `mode::roughness::tests::print_barwicz_haus_fig13`, Hadley's equations on 25, 5
+and 2.5 nm):
+
+| Guide | Mode | Fig. 13, read | Ours | With the printed Green's function |
+|---|---|---|---|---|
+| SiON | TE-like | 2.036 | 2.033 (−0.1 %) | 2.033 |
+| SiON | TM-like | 1.984 | 1.983 (−0.0 %) | 1.982 |
+| Si₃N₄ | TE-like | 1.852 | 1.845 (−0.3 %) | 1.842 |
+| Si₃N₄ | TM-like | 1.883 | 1.869 (−0.7 %) | 1.868 |
+| Si | TE-like | 1.479 | 1.483 (+0.2 %) | 1.479 (0.0 %) |
+| Si | TM-like | 1.819 | 1.862 (+2.4 %) | 1.840 (+1.1 %) |
+
+At 20 nm the figure's silicon TE-like curve is 0.463 (ours 0.462) and the other five lie
+together at 0.438 (ours 0.435 to 0.439). So on SiON and Si₃N₄ the radiation and its spectrum
+agree to under 1 %, and Fig. 12's −6 to +13 % there is in what the ratio cancels. A factor in
+the loss's prefactor would be common to every guide, and the differences change sign, so what is
+left is the field at the walls over the mode's power, ∫|E|² along the wall and γ, from their
+vectorial mode solver, which the paper doesn't tabulate.
 
 ## Bend
 
@@ -913,14 +940,58 @@ thick; outside that the equation is carried on (towards $\rho_0 + \rho_\mathrm{g
 TiN's resistivity depends on how it was made far more than on its thickness (45 to 350 µΩ·cm
 in Tsai et al.'s Table II, 70 and 78 µΩ·cm for Kearney et al.'s films), so $R$ is that of a
 film made as Tsai et al.'s best: at the defaults (320 × 7.5 µm, 100 nm) 193.2 Ω, and $P_\pi$
-of 29.9 mW (analytic) is 2.40 V. The temperature coefficient (Tsai et al.'s Table III, 1.4e-3/K
-for these films, 5 to 280 K) is left out: $R$ is the film's at room temperature. A power and a
-voltage together are refused. The voltage's derivative is exact,
+of 29.9 mW (analytic) is 2.40 V. The voltage's derivative is exact,
 $\partial P/\partial V = 2V/R$; under a voltage the power has none, and the other way round.
 The device's $R$ at 100 and 50 nm of TiN (193.2 and 457.0 Ω) is Eq. (3) and $\rho L/(wt)$ by
 hand, and at 2.4 V its power, the rise its mode feels and its phase are the hand's from $V^2/R$
 and the device's own $s$, $dn_\mathrm{eff}/dT$ and $P_\pi$, and the same device's given that
 power, all to round-off (`device/thermo-tin-resistance`, `device/thermo-voltage-drive`).
+
+**A choice of film, and a resistance that follows the heater's temperature.**
+`ThermoShifter::with_film` takes one of six TiN films (`catalogue::TinFilm`), each with its
+temperature coefficient of resistance α and the temperatures that coefficient was measured over:
+
+| Film | How it was made | ρ at room temperature | α | Over |
+|---|---|---|---|---|
+| `tsai-biased` (the default) | Tsai et al., collimated, 500 °C, −100 V of bias | Eq. (3): ρ_grain 14 µΩ·cm, l₀ 96 nm; 45.3 µΩ·cm at 100 nm | 1355 ppm/K | 5 to 280 K |
+| `tsai-hot` | collimated, 500 °C, no bias | 31 µΩ·cm, 72 nm; 60.2 at 100 nm | 1018 ppm/K | 5 to 280 K |
+| `tsai-collimated` | collimated, 40 °C | 181 µΩ·cm, 41 nm; 207.5 at 100 nm | 264 ppm/K | 5 to 280 K |
+| `tsai-uncollimated` | uncollimated, 40 °C | 232 µΩ·cm, 39 nm; 258.4 at 100 nm | 228 ppm/K | 5 to 280 K |
+| `kearney-hot` | Kearney et al.'s sample F, RF sputtered on fused silica at 600 °C, 58 nm | 70.2 µΩ·cm | 0.095 %/K | 293 to 773 K |
+| `kearney-annealed` | sample D, 350 °C, annealed at 600 °C for 4 h in vacuum, 62.5 nm | 78.0 µΩ·cm | 0.099 %/K | 293 to 773 K |
+
+Tsai et al.'s ρ follows the film's thickness by their Eq. (3) and Table IV (J. Appl. Phys. 73,
+4462 (1993), doi:10.1063/1.352785); Kearney et al.'s is their measured value whatever the
+thickness (Thin Solid Films 661, 78 (2018), doi:10.1016/j.tsf.2018.07.001, Section 3, p. 80).
+Tsai et al.'s coefficients (Table III) were measured from 5 to 280 K, all below a heater's
+temperatures, so a heater of those films keeps its room-temperature $R$. Kearney et al.'s were
+measured from room temperature to 500 °C, so with those films $R$ follows the heater's mean
+temperature, $R = R_0(1 + \alpha(T - 293\,\mathrm{K}))$, $T$ the 300 K ambient plus the heater's
+own mean rise $zP/L$ (the figure `z_heater`, K·m/W: the analytic model's sheet averaged over
+itself in closed form, or the 2D model's rise averaged over the heater's cells; a measured
+device takes the analytic one's). The heat is linear in the power, so the power and the
+temperature are solved together in closed form: with $R_a$ the resistance at the ambient and
+$a = \alpha' z/L$ ($\alpha' = \alpha/(1 + 7\alpha)$, the coefficient on the rise above the
+ambient), a voltage gives $aP^2 + P = V^2/R_a$ and a current $P = I^2R_a/(1 - aI^2R_a)$. A heater
+above 773 K is refused, as is a current with $aI^2R_a \ge 1$, where the resistance rises faster
+than the heat leaves and no steady state exists. A drive is one of `power`, `voltage` and
+`current` (mA); the others are refused alongside it. The derivatives in the voltage and the
+current are exact: $\partial P/\partial V = 2V/(R_a(1 + 2aP))$, $\partial P/\partial I =
+2IR_a/(1 - aI^2R_a)^2$. With Kearney et al.'s sample F at the defaults, $R$ is 299.5 Ω at room
+temperature; at 3 V the heater takes 29.2 mW and rises 23.9 K (analytic), 308.3 Ω.
+
+Each film's undriven $R$ is $\rho L/(wt)$ by hand at 100 and 50 nm (`device/thermo-tin-films`),
+and the closed form's power, rise, resistance and phase at 3 V and at 10 mA are Picard's
+iteration on the same steady state to round-off (`device/thermo-tcr-drive`). The heater's own
+rise, analytic against 2D, is 6.1 % above at the fabricated design and at most 6.8 % off over
+the TiN 1, 7.5 and 10 µm wide (`device/thermo-heater-rise`, the analytic fidelity's 15 %): the
+closed form leaves out the TiN's own conductivity. The doped
+and in-guide heaters stay driven by a power: Jacques et al.'s N++ strips have no sheet
+resistance the device holds, and Harris et al.'s in-guide heater's sheet resistances in series
+across the averaged section (the ridge, the p and p++ slab, the channels at their share of the
+length) give about 170 Ω for the 61.6 µm device against the 769 Ω they measured (Section 4.1:
+$V_\pi$ = 4.36 V at 24.77 mW): the current's path through the periodic channels and into the
+contacts is 3D, and a drive from that resistance would be off by a factor of 4.5.
 
 Its **component** is the phase the heater adds and the guide's loss: ports `o1` and `o2`,
 parameters `phase` (rad) and `loss` (dB), $S_{21} = S_{12} = 10^{-\mathrm{IL}/20}\, e^{i\varphi\lambda_0/\lambda}$
@@ -928,13 +999,15 @@ with $\varphi = \pi P/P_\pi$ (Jacques et al.'s Eqs. 4 and 5) and IL the loss ove
 or at the measured fidelity the measured device's insertion loss where it gives one (Harris et
 al.'s 0.23 dB).
 The unheated guide's own propagation is a waveguide's: a circuit puts one beside it. Its
-derivatives in the power (or the metal heater's voltage), the loss and the length are exact. The figures, each with its
+derivatives in the power (or the metal heater's voltage or current), the loss and the length are exact. The figures, each with its
 fidelity and grid: `P_pi` (mW), `tau` (the phase's 1/e time turned on, µs), `f_3dB` (kHz), `X`
 (the crosstalk on a neighbour at the pitch: the share of the guide's phase it takes), `s`
 ($\partial n_\mathrm{eff}/\partial P'$, m/W), `dneff_dT`, `n_eff`, `phi`, `dT` (the
 temperature rise the guide's mode feels at the power, $(s/(dn_\mathrm{eff}/dT))\thinspace P/L$,
-K; at the analytic and 2D fidelities) and `IL`, and the metal heater's `R_heater` (Ω, with
-the film's resistivity and its source in its grid) and, under a voltage, `P_V` (mW). $P_\pi$ is
+K; at the analytic and 2D fidelities) and `IL`, and the metal heater's `z_heater` (its own
+mean rise per power, K·m/W), `R_heater` (Ω, at its temperature, with the film's resistivity and
+its source in its grid), under a drive `dT_heater` (its own mean rise, K), and under a voltage
+`P_V`, under a current `P_I` (mW). $P_\pi$ is
 a 2D number, a straight section's of any length (the length cancels: Jacques et al.'s Section
 2.1): a device's bends, leads and ends aren't in it.
 
@@ -1108,10 +1181,13 @@ nothing in the fits, so the losses of the table are the materials' alone. Delane
 measured 0.01 and 0.028 dB/µm in their crystalline cells, far above what the materials absorb
 (they point to grain boundaries and voids), so their figures of merit (29.0 and 5.15 rad/dB,
 from their measured losses) are not comparable with the table's. For GST they quote 0.282 rad/dB
-from another group's 20 nm patch on an SOI waveguide (3.72 dB/µm and $\Delta n_\mathrm{eff}$ 0.259,
-their ref. 58, which we don't have). Ours is 0.20 rad/dB (2D), 29 % below, from an index change
-3.2 times and a loss 4.4 times theirs, for 25 nm. We have not explained the gap, so GST is not a
-case.
+from another group's 20 nm patch on an SOI waveguide (their ref. 58, H. Zhang et al. 2018):
+$2\pi \cdot 0.259/(1.55\ \mu\mathrm{m} \times 3.72\ \mathrm{dB/\mu m})$, the $\Delta
+n_\mathrm{eff}$ and crystalline loss that paper extracts from its measurements (its Table 1),
+against the bare guide's loss. That paper's own simulation (VFEM, p. 4) takes $n_\mathrm{eff}$
+from 2.6328 to 2.8324 and the loss from 0.013 to 4.038 dB/µm between the states, about
+0.20 rad/dB, as ours (0.20, 2D). GST is not a case: neither paper gives a simulated figure of
+merit for a 25 nm film.
 
 **A film that follows the guide, and the TM-like mode.** Ours, 25 nm films at 1.55 µm on the
 default 500 × 220 nm guide (a strip, or a rib with a 100 nm slab), the film on the top alone or
@@ -1177,6 +1253,27 @@ assumption), in TE: the film on the top and the slab, as their Fig. 7 draws it, 
 so their numbers are TE-like ones, or of another rib. No single geometry we tried gives both of
 theirs (Sb₂Se₃ 3.6 % above with the conformal film, where Sb₂S₃ is 29 % above), so this stays
 not a case.
+
+**Fig. 7 read by pixel.** Delaney et al.'s Fig. 7(c)–(f) draws the simulated sections to scale,
+their outlines in white (a raster of 1501 × 1061 pixels, 2.62 nm a pixel from the 220 nm of
+silicon, the lines 3 pixels wide): the rib 193 pixels wide (505 nm), etched 45 pixels (118 nm,
+a 102 nm slab); the film 9 pixels thick (24 nm) on the rib's top, as wide as the rib, and over
+the slab from the walls to the panel's edges; no film on the walls wider than a pixel. That is
+the rib with a 100 nm slab and the film on the top and the slab above, TE-like (the rib's
+TM-like mode leaks; their bare rib's field is brightest at the foot of the walls, as a TE-like
+field is). There ours is 0.0613 and 0.0371 (`pcm_delaney --fig7`), 14.5 % below and 4.2 % above
+their 0.0717 and 0.0356: opposite signs, so no film thickness, mesh or solver's scale moves both
+to theirs, and their ratio of 2.01 against our 1.65 on their own geometry needs other indices
+than their Table 1's. (Sec. 2.5 gives the made films as 22 nm, the figure and the text 25 nm.)
+Their overlaps with the bare rib (supplement Table S1, the formula of its Sec. S3,
+$|\int E_1 E_2\,dA|^2/(\int|E_1|^2dA \int|E_2|^2dA)$; amorphous, crystalline): Sb₂S₃ 0.995,
+0.987, Sb₂Se₃ 0.978, 0.968, GST 0.956, 0.342 (the main text's crystalline 0.989, 0.972 and
+0.335). Ours on Fig. 7's geometry with every component of E: 0.987, 0.973 and 0.974, 0.942; with
+the main component $E_x$ alone, as a scalar $E_1E_2$ reads, 0.993, 0.985 and 0.985, 0.966,
+within 0.007 of theirs. GST over the slab raises it above the guide and ours leaks; on the rib
+with GST on the top alone, $E_x$ alone gives 0.951, 0.370. So the figure's geometry and the
+overlaps agree with ours; the index change is what doesn't, and the indices their mode solver
+took for it aren't given.
 
 Each lower model against the next one up (`device/pcm-*`), stated 15 %: the analytic
 $\Delta n_\mathrm{eff}$ within 12.5 % of the 2D model's over its validity (the three materials
@@ -1563,7 +1660,7 @@ is the same on any number of threads, and reads back from its file to the bit.
 was fitted from (its `[device]` table), the source fidelity and the grid its runs name, the
 covered parameters and their ranges, the values of the others, the band, how it was sampled, its
 largest $\lvert\Delta S_{qp}\rvert$ at its samples and at the held-out ones, the largest
-$\operatorname{Re} a / \lvert a \rvert$ of its poles over its range (`ParametricModel::stability`)
+$\mathop{\mathrm{Re}} a / \lvert a \rvert$ of its poles over its range (`ParametricModel::stability`)
 and its largest singular value over its band and range (`passivity`), each sampled at 21 values
 a parameter. The held-out error is the one quoted: the error where it wasn't fitted.
 

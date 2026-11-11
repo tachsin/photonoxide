@@ -1,0 +1,72 @@
+# A Vernier filter: two add-drop rings in series, 10 and 11 µm in radius (their round trips,
+# `length`, 2π times 10 and 11 µm), the first's drop feeding the second. Their free spectral
+# ranges differ, so their resonances line up only now and then: the light reaches out only where
+# both rings resonate together, and the filter's free spectral range is far wider than either
+# ring's. What the first ring doesn't drop leaves at through; the second ring's through and both
+# add ports are terminated.
+format = 1
+name = "vernier-filter"
+about = "A Vernier filter: two add-drop rings, 10 and 11 µm, in series: the light reaches out only where both resonate, for a free spectral range far wider than either ring's."
+
+connections = [
+    ["first.drop", "second.in"],
+    ["first.add", "first_end.o1"],
+    ["second.add", "second_end.o1"],
+    ["second.through", "spare_end.o1"],
+]
+
+[sweep]
+from_um = 1.5
+to_um = 1.6
+points = 10001
+
+[[instance]]
+name = "first"
+kind = "ring-add-drop"
+x = 0
+y = 0
+values = { length = 62.83185307179586 }
+
+[[instance]]
+name = "second"
+kind = "ring-add-drop"
+x = 200
+y = 120
+values = { length = 69.115038378975 }
+
+[[instance]]
+name = "first_end"
+kind = "terminator"
+x = 60
+y = -90
+
+[[instance]]
+name = "second_end"
+kind = "terminator"
+x = 280
+y = 30
+
+[[instance]]
+name = "spare_end"
+kind = "terminator"
+x = 320
+y = 120
+
+[[port]]
+name = "in"
+at = "first.in"
+x = -110
+y = 0
+
+[[port]]
+name = "through"
+at = "first.through"
+x = 110
+y = 0
+rotation = 180
+
+[[port]]
+name = "out"
+at = "second.drop"
+x = 120
+y = 230

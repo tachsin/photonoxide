@@ -211,3 +211,25 @@ export function sweepProblem(s: Sweep): string | null {
   if (!(s.points >= 2 && s.points <= 20001)) return "2 to 20 001 points";
   return null;
 }
+
+/** The built-in circuits' titles, by their file's name (circuits/<name>.toml). */
+const CHIP_TITLES: Record<string, string> = {
+  mzi: "Mach–Zehnder interferometer",
+  "ring-all-pass": "All-pass ring",
+  "ring-add-drop": "Add-drop ring from parts",
+  "splitter-1x4": "1 × 4 splitter",
+  "wdm-demux-4": "Four-channel ring demultiplexer",
+  "switch-1x4": "1 × 4 optical switch",
+  "vernier-filter": "Vernier ring filter",
+};
+
+/** A chip's name as people read it: a built-in circuit's title, or the file's name in words
+ *  ("my-ring_filter-1x2" is "My ring filter 1 × 2"). */
+export function chipTitle(name: string): string {
+  if (CHIP_TITLES[name]) return CHIP_TITLES[name];
+  const words = name
+    .replace(/[-_]+/g, " ")
+    .replace(/(\d)\s*x\s*(\d)/gi, "$1 × $2")
+    .trim();
+  return words ? words[0].toUpperCase() + words.slice(1) : "Untitled chip";
+}

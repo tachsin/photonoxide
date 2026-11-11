@@ -120,6 +120,8 @@ pub use thermo::{ThermoShifter, TurnOn};
 pub use waveguide::StripWaveguide;
 pub use ybranch::StripYBranch;
 
+pub(crate) use guide::check_analytic_band;
+
 use std::fmt;
 
 use crate::circuit::{Component, Fidelity, Parameter, SMatrix};

@@ -216,7 +216,7 @@ the studio and read on GitHub as ordinary Markdown.
 
 - [Fabrication](methods/fabrication.md): the engine and its rules.
 - [A fabrication engine: the plan](plans/fabrication.md): the plan and its phases.
-- The studio shows a design's flow in the Fabrication tab of a device's page.
+- The studio shows a design's flow on its Fabrication page, which a device's Fabricate opens.
 
 ## Validation
 
@@ -230,8 +230,8 @@ the studio and read on GitHub as ordinary Markdown.
   CI fails when they are out of date.
 - [Validation report: the GPU](validation-gpu.md): the GPU's cases, written before each release
   on a computer with a GPU.
-- [Cross-code comparison](cross-code.md): each solver against an established code that solves
-  the same physics; the reports from other codes are [openEMS](validation-openems.md),
+- [Cross-code comparison](cross-code.md): the static solver against Elmer and the RF line against
+  openEMS, established codes that solve the same physics; the reports from other codes are [openEMS](validation-openems.md),
   [openEMS on more lines](validation-openems-lines.md) and [Elmer](validation-elmer.md), and the
   programs that run the other codes are in [crosscode/](../crosscode/README.md).
 - [Direct solvers](baselines.md): photonoxide's sparse direct solves against PARDISO and MUMPS.
@@ -255,6 +255,7 @@ the studio and read on GitHub as ordinary Markdown.
 - [Roadmap](../ROADMAP.md): what each release holds and what comes next.
 - Plans, each reviewed before work on it starts:
   - [External backends and the in-app benchmark](plans/backends.md)
+  - [Carrier modulators, signals and programmable circuits (0.8)](plans/carrier-modulators.md)
   - [Python bindings, and every other language through the program](plans/bindings.md)
   - [A fabrication engine](plans/fabrication.md)
   - [Optimization in photonic design](plans/optimization.md)

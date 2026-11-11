@@ -187,6 +187,12 @@ largest error relative to the peak is 1.08e-3 on 40 rows and 2.70e-4 on 80, orde
 conductivity to zero or below is an error, as is an iteration that hasn't settled; a Newton
 step, and $k(T)$ in time, are not in yet.
 
+The Elmer pair E5 holds Elmer's HeatSolver to the same closed form on the same mesh lines
+(`crosscode/e5/e5.py` and its `case.sif`: $k(T)$ as a table linear in $T$, Elmer's own Picard
+iteration to $10^{-12}$, 40 and 80 rows), within the cross-code pairs' 0.5 % of the peak. Its
+input is ready and it has not been run yet; [crosscode/README.md](../../crosscode/README.md#running-it)
+says how.
+
 ## In time
 
 Heat also has a transient (#413): $\rho c_p\,\partial T/\partial t = \nabla\cdot(k\nabla T) + Q$.

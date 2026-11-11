@@ -112,9 +112,11 @@ pub fn show(dir: Option<&Path>, live: Option<Live>) -> Result<(), String> {
             task_output,
             stop_task,
             changelog,
+            roadmap,
             crate::papers::papers_feed,
             crate::papers::papers_refresh,
             crate::papers::paper_open,
+            crate::papers::cited_sources,
             crate::papers::papers_search,
             crate::papers::paper_image,
             crate::papers::paper_images_kept,
@@ -134,6 +136,7 @@ pub fn show(dir: Option<&Path>, live: Option<Live>) -> Result<(), String> {
             crate::libraries::library_install,
             crate::libraries::library_install_plan,
             crate::libraries::library_remove,
+            crate::libraries::library_cancel,
             crate::libraries::libraries_installed,
             crate::libraries::hardware_advice,
             crate::libraries::performance_on_start,
@@ -165,6 +168,7 @@ pub fn show(dir: Option<&Path>, live: Option<Live>) -> Result<(), String> {
             crate::nonlinear::nonlinear_compute,
             crate::nonlinear::transparency_windows,
             crate::sources::pair_source,
+            crate::sources::squeezing::pair_squeezing,
             crate::devices::device_library,
             crate::devices::device_geometry,
             crate::devices::device_fabrication,
@@ -1477,6 +1481,13 @@ fn stop_task(state: tauri::State<'_, Studio>, id: u64) {
 #[tauri::command]
 fn changelog() -> &'static str {
     include_str!("../../../CHANGELOG.md")
+}
+
+/// The roadmap as this program was built with it (ROADMAP.md): the vision, the principles and the
+/// milestones the System › Mission page draws, read as the project site reads the same file.
+#[tauri::command]
+fn roadmap() -> &'static str {
+    include_str!("../../../ROADMAP.md")
 }
 
 /// The validation report as this release's CI wrote it (docs/validation.md).

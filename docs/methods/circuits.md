@@ -141,7 +141,7 @@ resonances, found as minima of the through power, are $9.081493$ nm apart agains
 $9.081571$ nm at the midpoint, the difference that error predicts ($7.8 \times 10^{-5}$ nm).
 
 A Mach-Zehnder interferometer of two couplers and two arms is the product of their transfer
-matrices, $C \operatorname{diag}(t_1, t_2)\thinspace C$, which the circuit reproduces to
+matrices, $C \mathop{\mathrm{diag}}(t_1, t_2)\thinspace C$, which the circuit reproduces to
 $2 \times 10^{-16}$.
 
 ## Limits

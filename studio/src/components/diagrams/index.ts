@@ -5,13 +5,16 @@
 import type { Component } from "svelte";
 
 import Bragg from "./Bragg.svelte";
+import Circuit from "./Circuit.svelte";
 import Coupler from "./Coupler.svelte";
 import Crossing from "./Crossing.svelte";
 import Crystal from "./Crystal.svelte";
 import Dispersion from "./Dispersion.svelte";
+import Edge from "./Edge.svelte";
 import Fdfd from "./Fdfd.svelte";
 import Grating from "./Grating.svelte";
 import Leaky from "./Leaky.svelte";
+import Loss from "./Loss.svelte";
 import Metalens from "./Metalens.svelte";
 import Mmi from "./Mmi.svelte";
 import Modulator from "./Modulator.svelte";
@@ -23,17 +26,21 @@ import Quantum from "./Quantum.svelte";
 import Ring from "./Ring.svelte";
 import Slab from "./Slab.svelte";
 import Strip from "./Strip.svelte";
+import Tolerance from "./Tolerance.svelte";
 import Yee from "./Yee.svelte";
 
 export const DRAWINGS: Record<string, Component> = {
   "bragg": Bragg,
+  "circuit": Circuit,
   "coupler": Coupler,
   "crossing": Crossing,
   "crystal": Crystal,
   "dispersion": Dispersion,
+  "edge": Edge,
   "fdfd": Fdfd,
   "grating": Grating,
   "leaky": Leaky,
+  "loss": Loss,
   "metalens": Metalens,
   "mmi": Mmi,
   "modulator": Modulator,
@@ -44,6 +51,7 @@ export const DRAWINGS: Record<string, Component> = {
   "ring": Ring,
   "slab": Slab,
   "strip": Strip,
+  "tolerance": Tolerance,
   "yee": Yee,
   "quantum": Quantum,
 };

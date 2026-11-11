@@ -284,7 +284,7 @@ subject of [Surface plasmons and Mie scattering](plasmonics.md).
 
 A rectangular fin is birefringent: light polarized along its length and across it travel through
 it with different effective indices, so a fin aligned with $x$ transmits with the Jones matrix
-$T_0 = \operatorname{diag}(t_x, t_y)$. Rotate it by $\alpha$:
+$T_0 = \mathop{\mathrm{diag}}(t_x, t_y)$. Rotate it by $\alpha$:
 
 $$
 T(\alpha) = R(\alpha)\,T_0\,R(-\alpha)
@@ -538,6 +538,11 @@ A metasurface is one lithography and one etch, the steps that make a strip waveg
 outline is. The strip's flow in photonoxide's fabrication engine shows them:
 
 ::fabrication waveguide
+
+Arbabi et al. and Lalanne et al. wrote their pillars by electron beam, below, which needs no mask:
+the writer fills each shape line by line, the beam blanked between lines and between shapes.
+
+::lithography ebl
 
 The pillars are taller and narrower than a strip, and three processes in this lesson's papers make
 them:

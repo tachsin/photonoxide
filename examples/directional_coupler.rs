@@ -2,13 +2,14 @@
 //!
 //! L. Chrostowski, M. Hochberg, *Silicon Photonics Design*, Cambridge University Press (2015),
 //! [doi:10.1017/CBO9781316084168](https://doi.org/10.1017/CBO9781316084168), Section 4.1:
-//! two 500 × 220 nm silicon strips in oxide, a gap g apart, carry a symmetric and an
-//! antisymmetric supermode whose effective indices differ by Δn; the light crosses from one
-//! guide to the other over L_x = λ/(2Δn) (Eq. 4.5), and a coupler L long sends sin²(πΔn L/λ)
-//! of the power across (Eqs. 4.1 and 4.3). Their Lumerical MODE solutions (Listings 4.5–4.7:
-//! a 5.5 µm wide, 1.22 µm tall window with metal walls, 10 nm mesh, oxide 2 µm above and below)
-//! fitted against the gap give L_x = 10^(0.0037645 g[nm] + 0.799434) µm (Eq. 4.14), "for
-//! example, the coupler with gap g = 200 nm has a cross-over length of L_x = 37.5 µm".
+//! two 500 × 220 nm silicon strips in oxide, a gap $g$ apart, carry a symmetric and an
+//! antisymmetric supermode whose effective indices differ by $\Delta n$; the light crosses from
+//! one guide to the other over $L_x = \lambda/(2\Delta n)$ (Eq. 4.5), and a coupler $L$ long sends
+//! $\sin^2(\pi \Delta n L/\lambda)$ of the power across (Eqs. 4.1 and 4.3). Their Lumerical MODE
+//! solutions (Listings 4.5–4.7: a 5.5 µm wide, 1.22 µm tall window with metal walls, 10 nm mesh,
+//! oxide 2 µm above and below) fitted against the gap give
+//! $L_x = 10^{0.0037645\,g/\mathrm{nm} + 0.799434}$ µm (Eq. 4.14), "for example, the coupler
+//! with gap $g = 200$ nm has a cross-over length of $L_x = 37.5$ µm".
 //!
 //! The coupler is photonoxide's directional coupler device ([`StripCoupler`]) on the book's
 //! materials (Listing 3.1: its Lorentz fit to silicon, and oxide of index 1.444), its 3D model

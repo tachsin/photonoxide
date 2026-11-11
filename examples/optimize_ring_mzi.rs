@@ -7,36 +7,40 @@
 //! [doi:10.1038/s41598-021-04598-6](https://doi.org/10.1038/s41598-021-04598-6).
 //!
 //! **The elliptic low-pass, derived here.** The paper takes its targets from MATLAB's `ellip`
-//! (its ref. 21): order 4, the passband edge at 0.5π rad/sample, 2 dB of ripple and 40 dB of
+//! (its ref. 21): order 4, the passband edge at $0.5\pi$ rad/sample, 2 dB of ripple and 40 dB of
 //! attenuation (p. 5), and then 1 dB and 60 dB (p. 6). No filter-synthesis text is in our papers
 //! folder, so the design is derived here from the standard construction. An elliptic low-pass
-//! of even order N has |H(Ω)|² = 1/(1 + ε² R_N(Ω)²), with ε² = 10^(A_p/10) − 1 and R_N the
-//! elliptic rational function, equiripple between ±1 in the passband |Ω| ≤ 1 and at least
-//! 1/k₁ beyond Ω_s = 1/k, where k₁ = ε/√(10^(A_s/10) − 1). The selectivity k follows from the
-//! degree equation, k' = k₁'^N Π sn⁴(u_i K', k₁') with u_i = (2i − 1)/N, i = 1 … N/2. The zeros
-//! are j/(k cd(u_i K, k)) and the poles j cd((u_i − j v₀)K, k), with v₀ = sn⁻¹(j/ε, k₁)/(jN)
-//! in units of K₁. The Jacobi functions come from Landen's descending transformation, k_{n+1} =
-//! (k_n/(1 + k_n'))², taken until k_n < 1e-16: cd(uK, k) is cos(uπ/2) carried back up the
-//! sequence by w ← (1 + k_{n+1}) w/(1 + k_{n+1} w²), and sn alike from sin(uπ/2). This is the
-//! construction of S. J. Orfanidis's lecture notes on elliptic filter design (Rutgers, 2006).
-//! Along the imaginary axis the inverse stays imaginary, so v₀ needs only a real inverse
-//! hyperbolic sine. The bilinear transform s = (1 − z⁻¹)/(1 + z⁻¹) with Ω scaled by
-//! tan(ω_p/2) maps it to the digital filter, and the gain makes the DC value the ripple's floor,
-//! 10^(−A_p/20), as for any even order. Its check is exact: at ω_p the response is −A_p and at
-//! ω_s = 2 arctan(tan(ω_p/2)/k) it is −A_s, an identity of R_N that tests the degree equation,
-//! the zeros and the poles together.
+//! of even order $N$ has $|H(\Omega)|^2 = 1/(1 + \varepsilon^2 R_N(\Omega)^2)$, with
+//! $\varepsilon^2 = 10^{A_p/10} - 1$ and $R_N$ the elliptic rational function, equiripple between
+//! $\pm 1$ in the passband $|\Omega| \le 1$ and at least $1/k_1$ beyond $\Omega_s = 1/k$, where
+//! $k_1 = \varepsilon/\sqrt{10^{A_s/10} - 1}$. The selectivity $k$ follows from the degree
+//! equation, $k' = k_1'^N \prod_i \mathrm{sn}^4(u_i K', k_1')$ with $u_i = (2i - 1)/N$,
+//! $i = 1, \dots, N/2$. The zeros are $j/(k\,\mathrm{cd}(u_i K, k))$ and the poles
+//! $j\,\mathrm{cd}((u_i - j v_0)K, k)$, with $v_0 = \mathrm{sn}^{-1}(j/\varepsilon, k_1)/(jN)$ in
+//! units of $K_1$. The Jacobi functions come from Landen's descending transformation,
+//! $k_{n+1} = (k_n/(1 + k_n'))^2$, taken until $k_n < 10^{-16}$: $\mathrm{cd}(uK, k)$ is
+//! $\cos(u\pi/2)$ carried back up the sequence by
+//! $w \leftarrow (1 + k_{n+1})\,w/(1 + k_{n+1} w^2)$, and $\mathrm{sn}$ alike from $\sin(u\pi/2)$.
+//! This is the construction of S. J. Orfanidis's lecture notes on elliptic filter design
+//! (Rutgers, 2006). Along the imaginary axis the inverse stays imaginary, so $v_0$ needs only a
+//! real inverse hyperbolic sine. The bilinear transform $s = (1 - z^{-1})/(1 + z^{-1})$ with
+//! $\Omega$ scaled by $\tan(\omega_p/2)$ maps it to the digital filter, and the gain makes the DC
+//! value the ripple's floor, $10^{-A_p/20}$, as for any even order. Its check is exact: at
+//! $\omega_p$ the response is $-A_p$ and at $\omega_s = 2\arctan(\tan(\omega_p/2)/k)$ it is
+//! $-A_s$, an identity of $R_N$ that tests the degree equation, the zeros and the poles together.
 //!
 //! **The paper's transfer functions.** Eq. 10, printed as the 40 dB filter, has about 1 dB of
-//! ripple and only 20 dB of attenuation at ω = π, and its decomposition into Eq. 11's two
+//! ripple and only 20 dB of attenuation at $\omega = \pi$, and its decomposition into Eq. 11's two
 //! sections doesn't multiply back to it. Neither is the filter its text specifies. Both are
 //! printed, not checked.
 //!
 //! **The circuit** (Fig. 1c and Fig. 4, pp. 3 and 5). Two stages between three tunable couplers
 //! (k1, k5, k9). In each stage a phase on each arm, then a ring coupled to the upper arm, a
 //! second ring coupled to the first and to the lower arm, then a phase on each arm again. Each
-//! ring is one unit of delay, z⁻¹ = e^(−jω) a round trip, with its couplers half a ring apart
-//! and its own phase zero, as the paper uses it ("no phase change in the ring is required",
-//! p. 3). The couplers are photonoxide's (through √(1 − k), across j√k, k the power coupling).
+//! ring is one unit of delay, $z^{-1} = e^{-j\omega}$ a round trip, with its couplers half a ring
+//! apart and its own phase zero, as the paper uses it ("no phase change in the ring is required",
+//! p. 3). The couplers are photonoxide's (through $\sqrt{1 - k}$, across $j\sqrt{k}$, $k$ the
+//! power coupling).
 //! The low-pass is the cross port. Our 2 × 2 model of it is checked against photonoxide's
 //! circuit solve of the same circuit built as a netlist of couplers, phase shifters and half
 //! rings, to round-off.
@@ -47,9 +51,9 @@
 //! checked, and the gap is left open. From Fig. 4's values the paper's Nelder–Mead reached the
 //! 40 dB filter (Fig. 6) and then a 60 dB filter with 1 dB of ripple (Fig. 7, p. 6). Here
 //! genoxide's Nelder–Mead runs from Fig. 4's values on the paper's target function, Eq. 12,
-//! T = w₁ x_lin + w₂ x_dB with its "typical" weights 1 and 100 (p. 7). x_lin is the mean
-//! difference of the field magnitudes and x_dB the mean difference in dB, both over 501
-//! frequencies from 0 to π, the dB floored at −100. It gets 20 000 evaluations for each target.
+//! $T = w_1 x_\mathrm{lin} + w_2 x_\mathrm{dB}$ with its "typical" weights 1 and 100 (p. 7).
+//! $x_\mathrm{lin}$ is the mean difference of the field magnitudes and $x_\mathrm{dB}$ the mean
+//! difference in dB, both over 501 frequencies from 0 to $\pi$, the dB floored at −100. It gets 20 000 evaluations for each target.
 //! What it reaches is printed beside the paper's figures, not checked: the paper's runs are
 //! read off figures, without their weights' second step or evaluation counts.
 //!

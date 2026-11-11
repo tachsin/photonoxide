@@ -1264,6 +1264,7 @@ impl Problem {
             }
             _ => band_of(task.from_um, task.to_um, task.points, 5, &design)?,
         };
+        crate::device::check_analytic_band(&spec.kind, spec.fidelity, &wavelengths)?;
         if wavelengths.len() > 1001 {
             return Err(task_error(format!(
                 "an optimization takes each quantity at most at 1001 wavelengths, got {}",

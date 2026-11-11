@@ -268,14 +268,14 @@ pub(crate) fn cases() -> Vec<Case> {
         },
         Case {
             id: "eme/bloch-grating-lossless",
-            title: r"A guided Bloch mode below the light line is lossless: the slab grating of `eme/grating-squaring` at 1.55 µm (its fundamental Bloch mode at $K/k_0 \approx 2.6035$, above the cladding's 1.444), half of it in a closed window 1.5 µm wide (an electric wall, no PML), with 10, 20, 40 and 80 even modes: the largest $\lvert \operatorname{Im} K/k_0 \rvert$ (shown)",
+            title: r"A guided Bloch mode below the light line is lossless: the slab grating of `eme/grating-squaring` at 1.55 µm (its fundamental Bloch mode at $K/k_0 \approx 2.6035$, above the cladding's 1.444), half of it in a closed window 1.5 µm wide (an electric wall, no PML), with 10, 20, 40 and 80 even modes: the largest $\lvert \mathop{\mathrm{Im}} K/k_0 \rvert$ (shown)",
             tier: Tier::Analytic,
-            source: r"$\operatorname{Im} K = 0$: in a lossless closed window each interface conserves power for any number of modes (`eme/lossless-power`), so the period's transfer matrix keeps the power and a propagating Bloch mode's $\lvert\lambda\rvert = \lvert e^{iK\Lambda} \rvert$ stays 1; at 80 modes the highest decay by $e^{-46}$ in a period, and the guided mode is still the first: round-off",
+            source: r"$\mathop{\mathrm{Im}} K = 0$: in a lossless closed window each interface conserves power for any number of modes (`eme/lossless-power`), so the period's transfer matrix keeps the power and a propagating Bloch mode's $\lvert\lambda\rvert = \lvert e^{iK\Lambda} \rvert$ stays 1; at 80 modes the highest decay by $e^{-46}$ in a period, and the guided mode is still the first: round-off",
             run: || zero(closed_grating_loss(), 1e-12),
         },
         Case {
             id: "eme/bloch-grating-pml-order",
-            title: r"With a PML the same Bloch mode's $\operatorname{Im} K$ is the PML's absorption of the expansion's truncation error: the grating above, a PML 4 µm thick inside the wall, 20 and 40 modes, $\operatorname{Im} K/k_0$ at strengths 0.0125 and 0.00625 (9.2e-6 and 4.6e-6 with 20 modes, 2.5e-5 and 1.3e-5 with 40): its order in the strength, the one farther from 1 (shown)",
+            title: r"With a PML the same Bloch mode's $\mathop{\mathrm{Im}} K$ is the PML's absorption of the expansion's truncation error: the grating above, a PML 4 µm thick inside the wall, 20 and 40 modes, $\mathop{\mathrm{Im}} K/k_0$ at strengths 0.0125 and 0.00625 (9.2e-6 and 4.6e-6 with 20 modes, 2.5e-5 and 1.3e-5 with 40): its order in the strength, the one farther from 1 (shown)",
             tier: Tier::Analytic,
             source: r"first order: to first order in its strength $\sigma$ a PML absorbs the part of the field that oscillates across it, $\sigma$ times its energy there, and with no PML the loss is 0 (`eme/bloch-grating-lossless`); the guided mode's own field is evanescent there, which a complex stretch leaves as it is, so what the PML absorbs is the expansion's truncation error",
             run: || {

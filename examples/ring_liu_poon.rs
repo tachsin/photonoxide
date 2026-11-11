@@ -7,16 +7,16 @@
 //!
 //! - **The device:** gdsfactory's generic `ring_single`: a 500 × 220 nm silicon bus and, 200 nm
 //!   from it along a 4 µm straight, a ring of the same guide: four Euler bends of radius 10 µm
-//!   (p = 0.5, the arc's footprint) joined by straights of 4 µm and 0.6 µm, 75.75 µm round; in
+//!   ($p = 0.5$, the arc's footprint) joined by straights of 4 µm and 0.6 µm, 75.75 µm round; in
 //!   silica. TE₀ enters the bus.
 //! - **The result:** a resonance in 1540 to 1560 nm, its full width at half maximum from the
-//!   through port's spectrum, and Q = λ₀/FWHM (Eq. 2), against the resolution (Fig. 26(a) to
+//!   through port's spectrum, and $Q = \lambda_0/\mathrm{FWHM}$ (Eq. 2), against the resolution (Fig. 26(a) to
 //!   (c)); the free spectral range, about 7.4 nm (Lumerical) and 7.6 nm (Tidy3D).
 //!
-//! The paper's numbers, read off Fig. 26 (arXiv's PNG), good to ±0.02 nm in λ₀, ±0.002 nm in the
+//! The paper's numbers, read off Fig. 26 (arXiv's PNG), good to ±0.02 nm in $\lambda_0$, ±0.002 nm in the
 //! width and ±3 in Q:
 //!
-//! | Cells a wavelength | Lumerical λ₀, FWHM, Q | Tidy3D λ₀, FWHM, Q |
+//! | Cells a wavelength | Lumerical $\lambda_0$, FWHM, Q | Tidy3D $\lambda_0$, FWHM, Q |
 //! |---|---|---|
 //! | 6 | 1546.65 nm, 0.84 nm, 1839 | 1547.28 nm, 0.88 nm, 1757 |
 //! | 15 | 1547.73, 0.86, 1798 | 1545.77, 0.90, 1716 |
@@ -32,27 +32,27 @@
 //!   c/1540 nm (0.2 nm apart), over its maximum, through a cubic spline on 1000 points.
 //! - **The dip:** the level halfway from the spline's minimum to 1; the first fall through it
 //!   beyond 1541 nm and the first rise through it between 1545 and 1555 nm; FWHM the width
-//!   between them, λ₀ the point midway, Q = λ₀/FWHM.
+//!   between them, $\lambda_0$ the point midway, $Q = \lambda_0/\mathrm{FWHM}$.
 //!
 //! The ring loses almost nothing but what it couples out: its Euler bends' radiation is below
-//! what the mode solver resolves (Im n_eff < 1e-14 at their 7.06 µm minimum radius). Its loaded Q
-//! is about 8500 (the straight pair's supermodes, 5 nm grid, give κ² = 0.14 through the coupler's
+//! what the mode solver resolves ($\mathop{\mathrm{Im}} n_\mathrm{eff} < 10^{-14}$ at their 7.06 µm minimum radius). Its loaded Q
+//! is about 8500 (the straight pair's supermodes, 5 nm grid, give $\kappa^2 = 0.14$ through the coupler's
 //! gap profile; Bogaerts et al. 2011's equations, doi:10.1002/lpor.201100017), so its energy falls
-//! by 1/e every 2100 µm/c and the record ends with nearly half of it still in the ring. A lossless
+//! by $1/e$ every 2100 µm/c and the record ends with nearly half of it still in the ring. A lossless
 //! ring's through port has no dip in steady state; the dip in a spectrum taken over 1920 µm/c is
 //! the record's, and its width is set mostly by the record's length (issue #256 has a model of
-//! it: 0.93 nm over 1920 µm/c, 0.46 nm over 4000, for κ² of 0.12 to 0.14 alike).
+//! it: 0.93 nm over 1920 µm/c, 0.46 nm over 4000, for $\kappa^2$ of 0.12 to 0.14 alike).
 //!
 //! Here, with the materials at 1.545 µm:
 //!
-//! - **The free spectral range** (what CI runs, seconds): λ²/(n_g L) at 1.545 µm, the ring's
-//!   centre line L = 75.747 µm long (its four Euler bends drawn here) and n_g the 500 × 220 nm
+//! - **The free spectral range** (what CI runs, seconds): $\lambda^2/(n_g L)$ at 1.545 µm, the ring's
+//!   centre line $L = 75.747$ µm long (its four Euler bends drawn here) and $n_g$ the 500 × 220 nm
 //!   strip's group index with silicon's (Li) and silica's (Malitson) dispersion, from the
 //!   full-vector mode solver (6.25 × 5 nm grid, quarter domain), against the paper's "around 7.4
 //!   nm" and "7.6 nm", within half their difference and the text's last digit. The bends' own
 //!   group index, a little above the straight's, is left out.
 //! - **The 3D run** (`--full`: 15 and 20 cells a wavelength; hours on 20 threads, so not in CI) to
-//!   the paper's 1920 µm/c. E_y on the bus's centre line 0.3 µm out of the input port and out of
+//!   the paper's 1920 µm/c. $E_y$ on the bus's centre line 0.3 µm out of the input port and out of
 //!   the through port (where the mode monitors are) gives the through port's spectrum at the
 //!   paper's 101 frequencies over the same record: the same guide and the same point of its
 //!   cross-section, so the mode's profile divides out (checked against the mode monitor at 1550
@@ -61,11 +61,11 @@
 //!   µm/c too, to show what the record does.
 //! - **The ring's own Q**, beside it: the field in the ring after the pulse, from 200 to 1920
 //!   µm/c, by harmonic inversion (`fdtd::harmonic_inversion`) between 1525 and 1575 nm: each
-//!   resonance's wavelength and decay, Q = ω/2γ, and λ₀/Q. The material dispersion the run
+//!   resonance's wavelength and decay, $Q = \omega/2\gamma$, and $\lambda_0/Q$. The material dispersion the run
 //!   leaves out lengthens the round trip's group delay, so this Q is scaled by the ratio of the
 //!   strip's group index with and without it (4.1792 and 4.0421, 1.0339); the wavelengths need
 //!   no correction. The paper gives no such number, so it isn't checked.
-//! - **The check** (`--full`): λ₀, the width and Q read the paper's way against the span of both
+//! - **The check** (`--full`): $\lambda_0$, the width and Q read the paper's way against the span of both
 //!   codes' values at 20 and 25 cells, where the paper finds the ring settled, its middle within
 //!   half its width plus the reading. Until #256 these checks took the ring's own Q and the
 //!   lowest resonance at or above 1540 nm; they now take what the paper measures, with the same
@@ -73,10 +73,10 @@
 //!   about 96 µm/c: in a model of the record the dip's width moves by under 0.01 nm for that.
 //!
 //! The resonance: the full-vector mode solver (Hadley's equations, 2.5 nm grid, extrapolated:
-//! n_eff 2.450691 at 1.545 µm) and the bends' and the coupler's shifts put the ring's order 120
+//! $n_\mathrm{eff}$ 2.450691 at 1.545 µm) and the bends' and the coupler's shifts put the ring's order 120
 //! at 1546.44 nm with the materials at 1.545 µm (1546.40 nm with their dispersion; 1545.65 nm
 //! with Tidy3D's silicon, 1546.68 nm with Lumerical's), order 121 at 1538.69 nm. The codes' line
-//! is order 120, 0.6 to 1.1 nm short of that. The uniform grid here makes the guide's n_eff
+//! is order 120, 0.6 to 1.1 nm short of that. The uniform grid here makes the guide's $n_\mathrm{eff}$
 //! long: the bus alone in FDTD gives 2.45669 at 15 cells and 2.45441 at 20, against 2.45069,
 //! about +2.3 nm and +1.4 nm on a resonance.
 //!
@@ -100,7 +100,7 @@
 //!
 //! All three checks still fail: the width by 0.018 nm and Q by 31 at both grids, the resonance by
 //! 2.5 nm at 15 cells and 1.2 nm at 20. The resonance moves 1.30 nm from 15 to 20 cells; taken as
-//! h², it would settle near 1545.2 nm, inside the codes' span and 1.2 nm below the mode solver's
+//! $h^2$, it would settle near 1545.2 nm, inside the codes' span and 1.2 nm below the mode solver's
 //! 1546.44 nm (above). A run at 25 cells would tell which is closer.
 //!
 //! The other resonances by harmonic inversion (dispersive Q):
@@ -118,8 +118,8 @@
 //! - **20 cells:** 199.7 million cells, 26.4 h of stepping (316 million cell-updates/s), 162 s of
 //!   smoothing, 84 s of mode solves.
 //!
-//! Silicon's index sets λ₀: the paper's Palik silicon is 3.4738 at 1550 nm in Tidy3D's fit and
-//! about 3.4764 in Lumerical's data, ours 3.4757. A difference of 0.0026 moves λ₀ by about 1.0
+//! Silicon's index sets $\lambda_0$: the paper's Palik silicon is 3.4738 at 1550 nm in Tidy3D's fit and
+//! about 3.4764 in Lumerical's data, ours 3.4757. A difference of 0.0026 moves $\lambda_0$ by about 1.0
 //! nm, the codes' own difference.
 //!
 //! ```sh

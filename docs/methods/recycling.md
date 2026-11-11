@@ -80,7 +80,7 @@ $\mathcal{A} = A M^{-1}$:
 
 - **The recycled space** (their Eqs. 2.5 and 2.6): $U_k$, $C_k$ with $\mathcal{A} U_k = C_k$
   and $C_k^\mathsf{H} C_k = I$. For a new operator (the next wavelength's, with its own
-  multigrid) $C_k$ is rebuilt from the last system's $U_k$: $[Q, R] = \operatorname{qr}(\mathcal{A}
+  multigrid) $C_k$ is rebuilt from the last system's $U_k$: $[Q, R] = \mathop{\mathrm{qr}}(\mathcal{A}
   U_k)$, $C_k = Q$, $U_k \leftarrow U_k R^{-1}$ (their Eq. 2.7, Appendix lines 3 to 5), $k$
   cycles of the new multigrid. For the same operator (the adjoint, the next port) it is used as
   it is, at no cost: each solver has a number, renewed when its preconditioner changes, that
@@ -96,10 +96,10 @@ $\mathcal{A} = A M^{-1}$:
   stops as soon as the tolerance is met. The iterate's correction $U_k(d - B y) + V y$ takes one
   more cycle of the multigrid, and the true residual is computed after each cycle.
 - **What is kept** (lines 30 to 34): the $k$ harmonic Ritz vectors of $\mathcal{A}$ over
-  $\operatorname{range}([U_k\;V])$ of smallest harmonic Ritz value,
+  $\mathop{\mathrm{range}}([U_k\;V])$ of smallest harmonic Ritz value,
   $G^\mathsf{H} G z = \theta\, G^\mathsf{H} W^\mathsf{H} \hat V z$ with $W = [C_k\;V^+]$ and
   $\hat V = [U_k D_k\;V]$ (Eq. 2.16; the small pencil by faer's QZ), then $Y = \hat V P$,
-  $[Q, R] = \operatorname{qr}(G P)$, $C_k = W Q$, $U_k = Y R^{-1}$. The first cycle of the
+  $[Q, R] = \mathop{\mathrm{qr}}(G P)$, $C_k = W Q$, $U_k = Y R^{-1}$. The first cycle of the
   first system, with no $U_k$, is GMRES($m$), and the same formula with $k = 0$ gives
   GMRES-DR's harmonic Ritz vectors (line 14). After the last cycle $U_k$ is kept for the next
   system (line 36).

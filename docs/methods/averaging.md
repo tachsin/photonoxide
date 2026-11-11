@@ -134,7 +134,7 @@ exact where their columns cross no slanted interface, as ports do.
 a shape's parameters (between the values at which a boundary passes a cell's corner, where its
 second derivative jumps). `Solver2d::mode_power_derivative` gives a port mode's power and its
 derivative with respect to a parameter $p$ by the adjoint method, $\mathrm{d}F/\mathrm{d}p =
--2\operatorname{Re}(\lambda^T (\mathrm{d}A/\mathrm{d}p)\thinspace u)$, $A^T\lambda = \overline{a}\thinspace c$
+-2\mathop{\mathrm{Re}}(\lambda^T (\mathrm{d}A/\mathrm{d}p)\thinspace u)$, $A^T\lambda = \overline{a}\thinspace c$
 (Veronis et al., [adjoint gradients](fdfd-adjoint.md)), with $\mathrm{d}A/\mathrm{d}p$ the
 difference of the matrices assembled from the geometry at $p \pm \delta$: two assemblies and one
 back-substitution, no factorization. With samples or points the same difference is zero or a

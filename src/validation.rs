@@ -88,14 +88,14 @@ pub fn cases() -> Vec<Case> {
     let mut cases = vec![
         Case {
             id: "units/amplitude-convention",
-            title: r"The amplitude of a real signal $\operatorname{Re}(A e^{-i\omega t})$ is recovered with the kernel $e^{+i\omega t}$ (magnitude shown)",
+            title: r"The amplitude of a real signal $\mathop{\mathrm{Re}}(A e^{-i\omega t})$ is recovered with the kernel $e^{+i\omega t}$ (magnitude shown)",
             tier: Tier::Analytic,
-            source: r"the $e^{-i\omega t}$ convention: $\frac{2}{T}\int_0^T \operatorname{Re}(A e^{-i\omega t})\thinspace e^{i\omega t}\thinspace dt = A$ over whole periods",
+            source: r"the $e^{-i\omega t}$ convention: $\frac{2}{T}\int_0^T \mathop{\mathrm{Re}}(A e^{-i\omega t})\thinspace e^{i\omega t}\thinspace dt = A$ over whole periods",
             run: amplitude_convention,
         },
         Case {
             id: "units/lossy-attenuation",
-            title: r"A wave in a medium with $\operatorname{Im}\varepsilon \gt 0$ decays over one wavelength by $\exp(-2\pi\kappa)$ (decay shown)",
+            title: r"A wave in a medium with $\mathop{\mathrm{Im}}\varepsilon \gt 0$ decays over one wavelength by $\exp(-2\pi\kappa)$ (decay shown)",
             tier: Tier::Analytic,
             source: r"$e^{i n k_0 x}$ with $n = n' + i\kappa$, $\kappa \geq 0$",
             run: lossy_attenuation,
@@ -844,14 +844,14 @@ pub fn cases() -> Vec<Case> {
         },
         Case {
             id: "mode/pml-soi-leakage-te",
-            title: r"The loss of 220 nm SOI's TE mode leaking through 0.5 µm of buried oxide into the substrate, full-vector with a PML (1 µm, strength 3), 2.5 nm grid (relative error in $\operatorname{Im} n_\text{eff}$ shown)",
+            title: r"The loss of 220 nm SOI's TE mode leaking through 0.5 µm of buried oxide into the substrate, full-vector with a PML (1 µm, strength 3), 2.5 nm grid (relative error in $\mathop{\mathrm{Im}} n_\text{eff}$ shown)",
             tier: Tier::Analytic,
             source: "the exact leaky mode of the same stack by transfer matrices (mode::multilayer); PML by complex coordinate stretching, W. C. Chew et al., Microw. Opt. Technol. Lett. 15, 363 (1997)",
             run: pml_soi_te,
         },
         Case {
             id: "mode/pml-soi-leakage-tm",
-            title: r"The same for the TM mode (relative error in $\operatorname{Im} n_\text{eff}$ shown)",
+            title: r"The same for the TM mode (relative error in $\mathop{\mathrm{Im}} n_\text{eff}$ shown)",
             tier: Tier::Analytic,
             source: "the exact leaky mode of the same stack by transfer matrices (mode::multilayer); PML by complex coordinate stretching, W. C. Chew et al., Microw. Opt. Technol. Lett. 15, 363 (1997)",
             run: pml_soi_tm,
@@ -860,7 +860,7 @@ pub fn cases() -> Vec<Case> {
             id: "mode/pml-leaky-chilwell",
             title: r"Chilwell and Hodgkinson's TE leaky waves $m = 4, \ldots, 7$, full-vector with a PML (2 µm, strength 5) in the substrate, 2.5 nm grid (largest deviation of a real or imaginary part shown)",
             tier: Tier::Published,
-            source: r"J. Chilwell, I. Hodgkinson, J. Opt. Soc. Am. A 1, 742 (1984), doi:10.1364/JOSAA.1.000742, Table 2, to 5 decimals; $m = 8$ ($\operatorname{Re} n_\text{eff} = 1.00304$, just above the cover's 1.0) has a slowly decaying, inward-phased field in the cover and is checked only in the leaky_waves example, within 2e-4",
+            source: r"J. Chilwell, I. Hodgkinson, J. Opt. Soc. Am. A 1, 742 (1984), doi:10.1364/JOSAA.1.000742, Table 2, to 5 decimals; $m = 8$ ($\mathop{\mathrm{Re}} n_\text{eff} = 1.00304$, just above the cover's 1.0) has a slowly decaying, inward-phased field in the cover and is checked only in the leaky_waves example, within 2e-4",
             run: pml_leaky_chilwell,
         },
         Case {
@@ -879,7 +879,7 @@ pub fn cases() -> Vec<Case> {
         },
         Case {
             id: "mode/bend-slab-te-loss",
-            title: r"The same bend's radiation loss, $\operatorname{Im} n_\text{eff} = 9.29 \times 10^{-4}$ (relative error shown)",
+            title: r"The same bend's radiation loss, $\mathop{\mathrm{Im}} n_\text{eff} = 9.29 \times 10^{-4}$ (relative error shown)",
             tier: Tier::Analytic,
             source: "the exact bent slab (mode::bend); the PML starts at 2.5 µm, outside the bend's turning point",
             run: bend_te_loss,
@@ -900,14 +900,14 @@ pub fn cases() -> Vec<Case> {
         },
         Case {
             id: "mode/leaky-wire-bienstman",
-            title: r"The leaky SOI wire benchmark ($500 \times 220$ nm Si 3.5 on 1 µm SiO₂ 1.45 on Si, air above, 1.55 µm), TE: $\operatorname{Re} n_\text{eff}$, Richardson-extrapolated from core grids of 5, 2.5 and 1.25 nm (order $\approx 0.67$, the corners'), with a PML in the substrate",
+            title: r"The leaky SOI wire benchmark ($500 \times 220$ nm Si 3.5 on 1 µm SiO₂ 1.45 on Si, air above, 1.55 µm), TE: $\mathop{\mathrm{Re}} n_\text{eff}$, Richardson-extrapolated from core grids of 5, 2.5 and 1.25 nm (order $\approx 0.67$, the corners'), with a PML in the substrate",
             tier: Tier::Published,
             source: "P. Bienstman et al., Opt. Quantum Electron. 38, 731 (2006), doi:10.1007/s11082-006-9025-9, Table 6: 2.412372, from CAMFR and the aperiodic Fourier modal method (7 digits); raw errors +4.0e-3, +2.5e-3, +1.5e-3",
             run: bienstman_re,
         },
         Case {
             id: "mode/leaky-wire-bienstman-loss",
-            title: r"The same wire's substrate leakage, $\operatorname{Im} n_\text{eff} \times 10^8$, extrapolated alike",
+            title: r"The same wire's substrate leakage, $\mathop{\mathrm{Im}} n_\text{eff} \times 10^8$, extrapolated alike",
             tier: Tier::Published,
             source: "P. Bienstman et al., Opt. Quantum Electron. 38, 731 (2006), doi:10.1007/s11082-006-9025-9, Table 6: 2.9135 (CAMFR) and 2.91348 (aperiodic Fourier modal method); the raw results are 0.97, 0.98 and 0.99 of it",
             run: bienstman_im,
@@ -1056,7 +1056,7 @@ pub fn cases() -> Vec<Case> {
             id: "fdfd/adjoint-gradient-ez",
             title: r"2D FDFD, $E$ along $z$: the adjoint gradient of the power a silicon slab with a bump beside it delivers into its right port's mode, against fourth-order central finite differences ($\delta = 4 \times 10^{-3}$) on a cell each in the bump, the core and the oxide (largest relative difference shown)",
             tier: Tier::Analytic,
-            source: r"the adjoint variable method, G. Veronis, R. W. Dutton, S. Fan, Opt. Lett. 29, 2288 (2004), doi:10.1364/OL.29.002288, Eqs. 2-4: $\nabla F = -2\operatorname{Re}(\lambda^T \mathrm{d}A\thinspace u)$, $A^T\lambda = \mathrm{d}F/\mathrm{d}u$; the differences resolve the derivative $g$ to $\frac{18}{12}\thinspace \epsilon P/(\delta g)$, the powers' precision $\epsilon$ (twice the solve's relative residual, rounded up to a power of ten) through the formula's weights; their truncation, measured $2.4 \times 10^{-3}\thinspace \delta^4$ where it shows, meets it at $\delta = 3 \times 10^{-2}$ and is $4 \times 10^{-5}$ of it at this $\delta$; an error within that on every probe is shown as it, the error at most it, since below it the error is round-off whose digits are each platform's",
+            source: r"the adjoint variable method, G. Veronis, R. W. Dutton, S. Fan, Opt. Lett. 29, 2288 (2004), doi:10.1364/OL.29.002288, Eqs. 2-4: $\nabla F = -2\mathop{\mathrm{Re}}(\lambda^T \mathrm{d}A\thinspace u)$, $A^T\lambda = \mathrm{d}F/\mathrm{d}u$; the differences resolve the derivative $g$ to $\frac{18}{12}\thinspace \epsilon P/(\delta g)$, the powers' precision $\epsilon$ (twice the solve's relative residual, rounded up to a power of ten) through the formula's weights; their truncation, measured $2.4 \times 10^{-3}\thinspace \delta^4$ where it shows, meets it at $\delta = 3 \times 10^{-2}$ and is $4 \times 10^{-5}$ of it at this $\delta$; an error within that on every probe is shown as it, the error at most it, since below it the error is round-off whose digits are each platform's",
             run: fdfd_adjoint_ez,
         },
         Case {
@@ -1273,7 +1273,7 @@ pub fn cases() -> Vec<Case> {
             id: "fdfd3d/pml-reflection-stretched",
             title: r"3D FDFD: what a 20-cell PML graded to $R = 10^{-8}$ ($m = 3$) and stretched as much as it absorbs, $s = 1 + (1 + i)\sigma$, sends back of a plane wave 17 degrees off its normal, in oxide on a 20 nm grid, both polarizations (largest amplitude shown)",
             tier: Tier::Analytic,
-            source: r"W. C. Chew, W. H. Weedon, Microw. Opt. Technol. Lett. 7, 599 (1994), doi:10.1002/mop.4650071304: any stretch with $\operatorname{Im} s \gt 0$ absorbs without reflecting, so the real part changes only the discretization's reflection: 3.6e-6, against 2.5e-6 without it (fdfd3d/pml-reflection); thinner, it reflects more (10 cells of 10 nm: 2.3e-4 against 4e-5)",
+            source: r"W. C. Chew, W. H. Weedon, Microw. Opt. Technol. Lett. 7, 599 (1994), doi:10.1002/mop.4650071304: any stretch with $\mathop{\mathrm{Im}} s \gt 0$ absorbs without reflecting, so the real part changes only the discretization's reflection: 3.6e-6, against 2.5e-6 without it (fdfd3d/pml-reflection); thinner, it reflects more (10 cells of 10 nm: 2.3e-4 against 4e-5)",
             run: fdfd3d_pml_reflection_stretched,
         },
         Case {
@@ -1567,7 +1567,7 @@ pub fn cases() -> Vec<Case> {
             id: "fdtd/lorentz-group-delay",
             title: r"FDTD's Lorentz medium: a pulse through a slab 10 µm thick of $\varepsilon = 2.25 + \omega_0^2/(\omega_0^2 - \omega^2 - i\gamma\omega)$ ($f_0 = 2$ c/µm, $\gamma/2\pi = 0.02$ c/µm) in a column of 2.5 nm cells: the first pass's group delay, $d \arg/d\omega$ of its DFT less the empty run's, as a group index $1 + \tau/d$, at 0.8 to 1.2 c/µm, against the first pass's exact delay (largest difference shown)",
             tier: Tier::Analytic,
-            source: r"the delay of $t_{12} t_{21} e^{i(n - 1)\omega d}$, which is $(n_g - 1)d$ with $n_g = \operatorname{Re} d(n\omega)/d\omega$ to 3e-5: $n_g$ from 1.977 to 2.402; second order in the cells to a floor of about 1e-4: 3.0e-3 at 10 nm, 8.8e-4 at 5, 3.6e-4 at 2.5 (measured)",
+            source: r"the delay of $t_{12} t_{21} e^{i(n - 1)\omega d}$, which is $(n_g - 1)d$ with $n_g = \mathop{\mathrm{Re}} d(n\omega)/d\omega$ to 3e-5: $n_g$ from 1.977 to 2.402; second order in the cells to a floor of about 1e-4: 3.0e-3 at 10 nm, 8.8e-4 at 5, 3.6e-4 at 2.5 (measured)",
             run: fdtd_lorentz_group_delay,
         },
         Case {
@@ -1630,7 +1630,7 @@ pub fn cases() -> Vec<Case> {
             id: "fdtd/smoothing-oblique",
             title: r"FDTD's subpixel smoothing at interfaces oblique to the grid: layers of $\varepsilon = 12$ and 1, half a period each, the period $1/\sqrt 5$ µm along $(1, 2)/\sqrt 5$, periodic on a square of 1 µm, 128 cells a µm; the lowest mode along the layers with $E$ across them, $\tilde H_z \propto \cos 2\pi(2x - y)$, the off-diagonal entries of $\tilde\varepsilon^{-1}$ at each value of $E$ (`Coupling::Points`): its frequency against the transfer matrices (relative difference shown)",
             tier: Tier::Analytic,
-            source: r"the exact layers by their transfer matrices of $(\tilde H_z, \varepsilon^{-1}\partial_s \tilde H_z)$, $\frac12 \operatorname{tr} M_1 M_2 = 1$, 0.885677 c/µm; second order with Farjadpour et al.'s placement, error times $n^2$ $-2.1$, $-2.8$, $-3.3$, $-3.5$ at $n$ = 16 to 128; with Werner and Cary's (`Coupling::Nodes`) first order, error times $n$ $-0.56$, $-0.39$, $-0.28$, $-0.26$, like the mean $\langle\varepsilon\rangle$ ($-0.23$ at 128); sampled, erratic (measured; docs/methods/fdtd.md)",
+            source: r"the exact layers by their transfer matrices of $(\tilde H_z, \varepsilon^{-1}\partial_s \tilde H_z)$, $\frac12 \mathop{\mathrm{tr}} M_1 M_2 = 1$, 0.885677 c/µm; second order with Farjadpour et al.'s placement, error times $n^2$ $-2.1$, $-2.8$, $-3.3$, $-3.5$ at $n$ = 16 to 128; with Werner and Cary's (`Coupling::Nodes`) first order, error times $n$ $-0.56$, $-0.39$, $-0.28$, $-0.26$, like the mean $\langle\varepsilon\rangle$ ($-0.23$ at 128); sampled, erratic (measured; docs/methods/fdtd.md)",
             run: fdtd_smoothing_oblique,
         },
         Case {
@@ -1749,7 +1749,7 @@ pub fn cases() -> Vec<Case> {
             id: "fdtd/monitor-flux",
             title: r"FDTD's flux monitors: the same lossy box, the flux through a whole plane and out of a box around the source at 1.55 µm, from the transforms divided by the pulse's spectrum, against FDFD's field for a unit current at the leapfrog's frequency (largest difference relative to the plane's flux shown)",
             tier: Tier::Analytic,
-            source: r"once the fields have died away, the transforms solve FDFD's equations at $\tilde\omega = (2/\Delta t)\sin(\omega\Delta t/2)$, $\tilde H = \nabla \times E/(i\tilde\omega)$ exactly, so their flux $\tfrac12 \operatorname{Re}(E \times \tilde H^*)$ on Yee's grid is FDFD's; measured 1.2e-11",
+            source: r"once the fields have died away, the transforms solve FDFD's equations at $\tilde\omega = (2/\Delta t)\sin(\omega\Delta t/2)$, $\tilde H = \nabla \times E/(i\tilde\omega)$ exactly, so their flux $\tfrac12 \mathop{\mathrm{Re}}(E \times \tilde H^*)$ on Yee's grid is FDFD's; measured 1.2e-11",
             run: fdtd_monitor_flux,
         },
         Case {
@@ -1805,7 +1805,7 @@ pub fn cases() -> Vec<Case> {
             id: "fdtd/mie-balance",
             title: r"Mie's series: a lossless sphere takes from the wave what it scatters, $Q_\text{ext} = Q_\text{sca}$, for $\alpha$ from 0.1 to 1000 and $m$ from 1.05 to 3.5 (largest relative difference shown)",
             tier: Tier::Analytic,
-            source: r"energy conservation: Mie's §26, his parts II and III of the flux through a large sphere, $\operatorname{Re}(a_\nu) = \lvert a_\nu \rvert^2$ and the same for $b_\nu$ when $m$ is real; round-off",
+            source: r"energy conservation: Mie's §26, his parts II and III of the flux through a large sphere, $\mathop{\mathrm{Re}}(a_\nu) = \lvert a_\nu \rvert^2$ and the same for $b_\nu$ when $m$ is real; round-off",
             run: fdtd_mie_balance,
         },
         Case {
@@ -1903,14 +1903,14 @@ pub fn cases() -> Vec<Case> {
             id: "fdtd/adjoint-modes",
             title: r"FDTD adjoint gradients in 3D: a strip guide (core $\varepsilon = 6$, $0.3 \times 0.3$ µm, in vacuum; $36 \times 20 \times 20$ cells of 50 nm, CPMLs of 6) with a design of $3 \times 2 \times 2$ cells in its core at uneven densities ($\varepsilon$ 1 to 6), its mode launched by a pulse; $F = \lvert a_+(f_0)\rvert^2 + \lvert a_+(f_1)\rvert^2 - \frac12\lvert a_-(f_0)\rvert^2$ at 1 and 1.06 c/µm: the gradient with respect to every cell's density against fourth-order central differences ($\delta = 10^{-3}$) (largest difference relative to the largest gradient shown)",
             tier: Tier::Analytic,
-            source: r"the run's transforms solve $K x = b$ exactly; $K^T D = D K$, $D$ the CPMLs' stretches, so the adjoint is a run; $\partial F/\partial\varepsilon = \sum 2\operatorname{Re}(i\tilde\omega\thinspace\hat E_\text{adj}\hat E)$ (G. Veronis, R. W. Dutton, S. Fan, Opt. Lett. 29, 2288 (2004), doi:10.1364/OL.29.002288; C. M. Lalau-Keraly et al., Opt. Express 21, 21693 (2013), doi:10.1364/OE.21.021693, Eq. 5); the mode's complex profile whole (dropped, the gradient is wrong by orders of magnitude); measured below the differences' resolution of 1.5e-8 (the transforms settled to 1e-11, weighed by (8 + 8 + 1 + 1)/12 over $\delta$), shown as it; 0.49 with the imaginary parts dropped",
+            source: r"the run's transforms solve $K x = b$ exactly; $K^T D = D K$, $D$ the CPMLs' stretches, so the adjoint is a run; $\partial F/\partial\varepsilon = \sum 2\mathop{\mathrm{Re}}(i\tilde\omega\thinspace\hat E_\text{adj}\hat E)$ (G. Veronis, R. W. Dutton, S. Fan, Opt. Lett. 29, 2288 (2004), doi:10.1364/OL.29.002288; C. M. Lalau-Keraly et al., Opt. Express 21, 21693 (2013), doi:10.1364/OE.21.021693, Eq. 5); the mode's complex profile whole (dropped, the gradient is wrong by orders of magnitude); measured below the differences' resolution of 1.5e-8 (the transforms settled to 1e-11, weighed by (8 + 8 + 1 + 1)/12 over $\delta$), shown as it; 0.49 with the imaginary parts dropped",
             run: fdtd_adjoint_modes,
         },
         Case {
             id: "fdtd/adjoint-flux",
             title: r"The same strip with the flux through a plane ahead (its window reaching into the CPMLs) at 1 c/µm plus $\lvert E_y\rvert^2$ at a point ahead at 1.06 c/µm (shown)",
             tier: Tier::Analytic,
-            source: r"as above; the flux $\frac12\operatorname{Re}(E \times \tilde H^*)$ gives sources of both $J$ and $M$; measured below the differences' resolution of 1.5e-8, shown as it",
+            source: r"as above; the flux $\frac12\mathop{\mathrm{Re}}(E \times \tilde H^*)$ gives sources of both $J$ and $M$; measured below the differences' resolution of 1.5e-8, shown as it",
             run: fdtd_adjoint_flux,
         },
         Case {
@@ -1959,7 +1959,7 @@ pub fn cases() -> Vec<Case> {
             id: "circuit/mzi-closed-form",
             title: r"Circuits: a Mach-Zehnder interferometer of two lossless couplers ($\kappa^2$ = 0.5 and 0.3) and arms of 100 and 120 µm, 1.54 to 1.56 µm: its four transmissions (largest $\lvert \Delta S \rvert$ shown)",
             tier: Tier::Analytic,
-            source: r"the product of the transfer matrices, $C \operatorname{diag}(t_1, t_2)\thinspace C$ with $C_{11} = C_{22} = r$ and $C_{12} = C_{21} = i\kappa$, $r^2 + \kappa^2 = 1$",
+            source: r"the product of the transfer matrices, $C \mathop{\mathrm{diag}}(t_1, t_2)\thinspace C$ with $C_{11} = C_{22} = r$ and $C_{12} = C_{21} = i\kappa$, $r^2 + \kappa^2 = 1$",
             run: circuit_mzi,
         },
         Case {
@@ -2008,7 +2008,7 @@ pub fn cases() -> Vec<Case> {
             id: "circuit/adjoint-mzi",
             title: r"Circuit adjoint: an MZI's bar power summed over five wavelengths, 1.549 to 1.551 µm, its gradient with respect to both couplers' $\kappa^2$ and both arms' lengths against fourth-order central finite differences of the whole circuit ($\delta$ = 1e-3 and 1e-4 µm; the largest difference relative to the largest component shown)",
             tier: Tier::Analytic,
-            source: r"the adjoint variable method, G. Veronis, R. W. Dutton, S. Fan, Opt. Lett. 29, 2288 (2004), doi:10.1364/OL.29.002288, Eqs. 2-4, on the circuit's system $M = I - S_b \Gamma$: $\partial F/\partial \theta = 2 \operatorname{Re} \operatorname{tr}(\Lambda^\mathsf{T} \thinspace \partial_\theta S_b \thinspace A)$ with $M^\mathsf{T} \Lambda = E G$; the differences' own round-off and truncation, about 1e-10",
+            source: r"the adjoint variable method, G. Veronis, R. W. Dutton, S. Fan, Opt. Lett. 29, 2288 (2004), doi:10.1364/OL.29.002288, Eqs. 2-4, on the circuit's system $M = I - S_b \Gamma$: $\partial F/\partial \theta = 2 \mathop{\mathrm{Re}} \mathop{\mathrm{tr}}(\Lambda^\mathsf{T} \thinspace \partial_\theta S_b \thinspace A)$ with $M^\mathsf{T} \Lambda = E G$; the differences' own round-off and truncation, about 1e-10",
             run: circuit_adjoint_mzi,
         },
         Case {
@@ -2085,7 +2085,7 @@ pub fn cases() -> Vec<Case> {
             id: "components/mzi-closed-form",
             title: r"Components: a Mach-Zehnder interferometer netlist of two directional couplers (17 and 23 µm) and arms of 150 and 50 µm (3 dB/cm), 1.54 to 1.56 µm, against its transfer matrices (largest $\lvert \Delta S \rvert$ shown)",
             tier: Tier::Analytic,
-            source: r"$C_2 \operatorname{diag}(t_\text{lower}, t_\text{upper})\thinspace C_1$, each coupler's $C$ its through and across fields",
+            source: r"$C_2 \mathop{\mathrm{diag}}(t_\text{lower}, t_\text{upper})\thinspace C_1$, each coupler's $C$ its through and across fields",
             run: components::mzi_netlist,
         },
         Case {

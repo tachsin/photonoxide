@@ -39,7 +39,7 @@ sqrt(w^2 + h^2)      r0*(1 + 0.1*cos(4*t))      piecewise(x < 0, 0, x < w, x/w, 
   round erf tanh sinc smoothstep`, `if(c, a, b)`, `piecewise(c₁, a₁, c₂, a₂, …, otherwise)` and
   `spline(x, [x₀, …, xₙ], [y₀, …, yₙ])` (below); `pi`. `sinc(x)` is $\sin x / x$; `smoothstep(e0, e1, x)` is $3u^2 - 2u^3$ for
   $u = (x - e_0)/(e_1 - e_0)$ clamped to [0, 1]. The error function is the series of positive
-  terms $\operatorname{erf} x = \frac{2}{\sqrt\pi} e^{-x^2} \sum_n 2^n x^{2n+1}/(2n+1)!!$ (DLMF
+  terms $\mathop{\mathrm{erf}} x = \frac{2}{\sqrt\pi} e^{-x^2} \sum_n 2^n x^{2n+1}/(2n+1)!!$ (DLMF
   7.6.2) for $\lvert x\rvert < 3$, which has no cancellation, and erfc's continued fraction (DLMF
   7.9.2) beyond: within 5e-16 of the tables.
 - **Splines:** `spline(x, [x₀, …, xₙ], [y₀, …, yₙ])` is the not-a-knot cubic spline through the

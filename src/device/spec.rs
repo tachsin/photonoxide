@@ -355,6 +355,125 @@ impl Spec {
         super::method(device.kind(), device.fidelities(), self.fidelity)?;
         Ok((device, design))
     }
+
+    /// What is wrong with each of its parameters' names that is neither one of `device`'s
+    /// parameters nor used by another's expression: a misspelled parameter (`gapp`), which
+    /// would otherwise be left out and take its default without a word. Each in a sentence
+    /// naming the device's parameters and the nearest of them.
+    pub(crate) fn unused_names(&self, device: &dyn Device) -> Vec<String> {
+        let names: Vec<&str> = device
+            .parameters()
+            .iter()
+            .map(|p| p.name.as_str())
+            .collect();
+        let used: Vec<String> = self
+            .parameters
+            .iter()
+            .flat_map(|(_, e)| names_in(e))
+            .collect();
+        self.parameters
+            .iter()
+            .map(|(n, _)| n)
+            .filter(|n| !names.contains(&n.as_str()) && !used.contains(n))
+            .map(|n| {
+                let hint = nearest(n, &names)
+                    .map_or_else(String::new, |near| format!(" (did you mean {near}?)"));
+                format!(
+                    "{} has no parameter {n}{hint}; its parameters are {}, and no other \
+                     parameter's expression uses {n}",
+                    with_article(device.kind()),
+                    names.join(", ")
+                )
+            })
+            .collect()
+    }
+
+    /// Refuses a name among its parameters that is neither one of `device`'s nor used by
+    /// another's expression ([`Spec::unused_names`]).
+    ///
+    /// # Errors
+    ///
+    /// [`Error::InvalidValue`] naming the first such name.
+    pub(crate) fn check_names(&self, device: &dyn Device) -> Result<()> {
+        match self.unused_names(device).into_iter().next() {
+            None => Ok(()),
+            Some(reason) => Err(Error::invalid("device", reason)),
+        }
+    }
+}
+
+/// The names an expression's text mentions: each run of letters, digits and underscores that
+/// starts with a letter or an underscore (a number's exponent, `1e-6`, is part of the number).
+/// Units and functions are among them, which only makes a name more often taken as used.
+fn names_in(text: &str) -> Vec<String> {
+    text.split(|c: char| !(c.is_alphanumeric() || c == '_'))
+        .filter(|t| t.starts_with(|c: char| c.is_alphabetic() || c == '_'))
+        .map(str::to_owned)
+        .collect()
+}
+
+/// The name among `names` nearest to `name`, if one is near: at most two edits away (one for
+/// a name of up to four letters), ignoring case, or the only one it begins (`R` for `radius`).
+fn nearest<'a>(name: &str, names: &[&'a str]) -> Option<&'a str> {
+    let lower = name.to_lowercase();
+    let reach = if lower.chars().count() <= 4 { 1 } else { 2 };
+    let best = names
+        .iter()
+        .map(|n| (edits(&lower, &n.to_lowercase()), *n))
+        .min_by_key(|(d, _)| *d)
+        .filter(|(d, _)| *d <= reach)
+        .map(|(_, n)| n);
+    best.or_else(|| {
+        let begun: Vec<&str> = names
+            .iter()
+            .copied()
+            .filter(|n| !lower.is_empty() && n.to_lowercase().starts_with(&lower))
+            .collect();
+        // one name it begins; of several, the one word among compounds (radius, not
+        // round_trip_loss)
+        let words: Vec<&str> = begun.iter().copied().filter(|n| !n.contains('_')).collect();
+        match (begun.as_slice(), words.as_slice()) {
+            ([n], _) | (_, [n]) => Some(*n),
+            _ => None,
+        }
+    })
+}
+
+/// `kind` with its indefinite article: "an all-pass ring", "an MZI", "a waveguide".
+pub(crate) fn with_article(kind: &str) -> String {
+    let mut chars = kind.chars();
+    let first = chars.next().unwrap_or(' ');
+    // an initialism read letter by letter (MZI, MMI) starts with a vowel's sound
+    let initialism = first == 'M' && chars.next().is_some_and(char::is_uppercase);
+    if "aeiouAEIOU".contains(first) || initialism {
+        format!("an {kind}")
+    } else {
+        format!("a {kind}")
+    }
+}
+
+/// The edits (insertions, deletions, substitutions and swaps of neighbours) taking `a` to `b`:
+/// the optimal string alignment distance.
+fn edits(a: &str, b: &str) -> usize {
+    let (a, b): (Vec<char>, Vec<char>) = (a.chars().collect(), b.chars().collect());
+    let mut d = vec![vec![0usize; b.len() + 1]; a.len() + 1];
+    for (i, row) in d.iter_mut().enumerate() {
+        row[0] = i;
+    }
+    d[0] = (0..=b.len()).collect();
+    for i in 1..=a.len() {
+        for j in 1..=b.len() {
+            let cost = usize::from(a[i - 1] != b[j - 1]);
+            let mut v = (d[i - 1][j] + 1)
+                .min(d[i][j - 1] + 1)
+                .min(d[i - 1][j - 1] + cost);
+            if i > 1 && j > 1 && a[i - 1] == b[j - 2] && a[i - 2] == b[j - 1] {
+                v = v.min(d[i - 2][j - 2] + 1);
+            }
+            d[i][j] = v;
+        }
+    }
+    d[a.len()][b.len()]
 }
 
 /// The grids a job sets on a device's solves (a `"spectrum"` task, [`crate::job`]): the cells'

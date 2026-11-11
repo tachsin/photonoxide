@@ -4,6 +4,8 @@
 
   import CommandPalette from "./components/CommandPalette.svelte";
   import NavRail from "./components/NavRail.svelte";
+  import MethodDocDialog from "./components/MethodDocDialog.svelte";
+  import { rail, setCollapsed } from "./lib/rail.svelte";
   import RunsDrawer from "./components/RunsDrawer.svelte";
   import StatusBar from "./components/StatusBar.svelte";
   import Toasts from "./components/Toasts.svelte";
@@ -19,6 +21,7 @@
   import { checkForUpdate, updater } from "./lib/updater.svelte";
   import Academy from "./pages/Academy.svelte";
   import Benchmarks from "./pages/Benchmarks.svelte";
+  import Mission from "./pages/Mission.svelte";
   import ChipPage from "./pages/Chip.svelte";
   import Components from "./pages/Components.svelte";
   import Fabrication from "./pages/Fabrication.svelte";
@@ -90,7 +93,9 @@
   <div class="grid h-full grid-cols-[auto_minmax(0,1fr)] grid-rows-[auto_1fr_auto]">
     <div class="row-span-3"><NavRail /></div>
     <TopBar />
-    <main class="min-h-0 min-w-0 overflow-hidden">
+    <!-- a press in the page folds the rail open beside it: the page has the focus, and the room -->
+    <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+    <main class="min-h-0 min-w-0 overflow-hidden" onpointerdowncapture={() => rail.collapsed || setCollapsed(true)}>
       {#if app.page === "home"}
         <Home />
       {:else if app.page === "materials"}
@@ -99,6 +104,8 @@
         <Components />
       {:else if app.page === "chip"}
         <ChipPage />
+      {:else if app.page === "mission"}
+        <Mission />
       {:else if app.page === "validation"}
         <Validation />
       {:else if app.page === "libraries"}
@@ -124,6 +131,8 @@
   <UpdateDialog />
   <NightlyDialog />
   <TouchstoneImport />
+  <!-- a methods page opened from a citation, over whatever page -->
+  <MethodDocDialog file={app.methodDoc} onclose={() => (app.methodDoc = null)} />
   <Welcome />
   <Toasts />
 {:else}

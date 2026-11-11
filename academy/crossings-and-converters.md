@@ -583,7 +583,17 @@ cladding a 130 nm tip gives 0.960 and a 120 nm tip 0.954. A real fibre's mode ha
 than a Gaussian. A step-index fibre in 1.46 with index 1.468 and an MFD of 4.9 µm (Petermann's,
 a core of 1.877 µm radius and index 1.481) couples best at 140 nm too: 0.946 (0.24 dB), against
 their 94 % (0.26 dB) at 120 nm. The best coupling agrees, but our tip is 20 nm wider than theirs:
-at 120 nm ours couples only 0.765. Their simulation window isn't given.
+at 120 nm ours couples only 0.765. TM₀ is shifted the same way: ours is best at 75 nm, 0.941
+(0.26 dB), theirs at 50 nm, 0.4 dB (p. 1304). The window isn't the cause: with 20 µm of cladding
+instead of 12 the best tips and their couplings don't move (0.945 at 140 nm, 0.941 at 75 nm),
+and a window small enough to move them (5 µm puts TE₀'s best at 130 nm) makes the narrowest tips
+couple 0.90 or more, where their Fig. 2 climbs to 3.3 dB at 90 nm. Where the mode is tight and no
+window reaches it, the gap is the same or a little larger: their Fig. 2, read by pixel, gives
+1.9 dB at 150 nm, which ours reaches at 175 nm, and 5.2 dB at 180 nm, where ours is 2.4 dB. The
+270 nm film they measured,
+in place of the 250 nm they simulated, moves our best tips by 5 nm (TE₀, 135 nm) and 10 nm (TM₀,
+65 nm), not 20. So their tip guides as ours does about 20 nm wider, at both polarizations; what in
+their simulation's cross-section does that, its sidewalls or its grid, the letter doesn't say.
 
 The chart below solves the tip's mode, 220 nm thick in silica with 5 µm of silica beyond it, and
 sums its overlap with a Gaussian beam focused on the facet, of waist $w_0 = \lambda/(\pi\,\mathrm{NA})$,

@@ -18,6 +18,9 @@
 //! `JointSpectrum::heralding`), and the pairs at a mean number per pulse (`quantum::Source`):
 //! the multi-pair probability and the unheralded g⁽²⁾.
 //!
+//! A guide's or a crystal's squeezing at high gain, where the gain reshapes the modes, is
+//! [`squeezing`]'s: the source cut into slices along its length (`quantum::Broadband`).
+//!
 //! The library does the physics; this module checks the design against its limits, hands it to
 //! the library, and returns what comes back as the view draws it.
 
@@ -329,52 +332,7 @@ fn err(e: photonoxide::Error) -> String {
 
 pub(crate) fn designed(d: &Design) -> Result<Designed, String> {
     let start = Instant::now();
-    if !(FEWEST_POINTS..=MOST_POINTS).contains(&d.points) {
-        return Err(format!(
-            "the grid takes {FEWEST_POINTS} to {MOST_POINTS} points across each axis, not {}: \
-             fewer don't resolve a Schmidt decomposition, and more aren't live",
-            d.points
-        ));
-    }
-    within(
-        d.pump.wavelength_um,
-        0.3,
-        5.0,
-        "the pump's wavelength",
-        " µm",
-    )?;
-    positive(
-        d.mean_pairs,
-        MOST_MEAN_PAIRS,
-        "the mean number of pairs per pulse",
-        "",
-    )?;
-    for (arm, name) in d.arms.iter().zip(["signal", "idler"]) {
-        positive(
-            arm.detector,
-            1.0,
-            &format!("the {name}'s detector's efficiency"),
-            "",
-        )?;
-        if let Some(k2) = arm.coupler {
-            positive(k2, 1.0, &format!("the {name}'s coupler's share"), "")?;
-        }
-        within(
-            arm.coupler_loss_db,
-            0.0,
-            20.0,
-            &format!("the {name}'s coupler's excess loss"),
-            " dB",
-        )?;
-    }
-    let lp = d.pump.wavelength_um;
-    let bandwidth = positive(
-        d.pump.bandwidth_nm,
-        0.1 * lp * 1e3,
-        "the pump's bandwidth",
-        " nm",
-    )? * 1e-3
-        / (lp * lp);
+    let bandwidth = checked(d)?;
     let mut built = match &d.medium {
         Medium::Guide { .. } | Medium::Crystal { .. } => made_in_guide(d, bandwidth)?,
         Medium::Ring { .. } => made_in_ring(d, bandwidth)?,
@@ -393,10 +351,16 @@ pub(crate) fn designed(d: &Design) -> Result<Designed, String> {
     let schmidt = s.schmidt().map_err(err)?;
     let source = Source::new(&schmidt.weights, d.mean_pairs).map_err(err)?;
     if d.mean_pairs > LOW_GAIN {
+        let sliced = matches!(d.medium, Medium::Guide { .. } | Medium::Crystal { .. });
         built.notes.push(format!(
             "at {} pairs per pulse the gain may reshape the Schmidt modes, which are the low-gain \
-             ones here: the pairs' numbers are then a guide",
-            d.mean_pairs
+             ones here: the pairs' numbers are then a guide{}",
+            d.mean_pairs,
+            if sliced {
+                " (Squeezing at high gain, below, follows the modes as the gain grows)"
+            } else {
+                ""
+            }
         ));
     }
     let heralding = herald(s, &d.arms, [built.signal_um, built.idler_um])?;
@@ -473,6 +437,57 @@ pub(crate) fn designed(d: &Design) -> Result<Designed, String> {
     })
 }
 
+/// The design's limits, every kind's: its grid, its pump, its pairs and its arms. Returns the
+/// pump's bandwidth, the FWHM of its intensity in 1/µm.
+pub(crate) fn checked(d: &Design) -> Result<f64, String> {
+    if !(FEWEST_POINTS..=MOST_POINTS).contains(&d.points) {
+        return Err(format!(
+            "the grid takes {FEWEST_POINTS} to {MOST_POINTS} points across each axis, not {}: \
+             fewer don't resolve a Schmidt decomposition, and more aren't live",
+            d.points
+        ));
+    }
+    within(
+        d.pump.wavelength_um,
+        0.3,
+        5.0,
+        "the pump's wavelength",
+        " µm",
+    )?;
+    positive(
+        d.mean_pairs,
+        MOST_MEAN_PAIRS,
+        "the mean number of pairs per pulse",
+        "",
+    )?;
+    for (arm, name) in d.arms.iter().zip(["signal", "idler"]) {
+        positive(
+            arm.detector,
+            1.0,
+            &format!("the {name}'s detector's efficiency"),
+            "",
+        )?;
+        if let Some(k2) = arm.coupler {
+            positive(k2, 1.0, &format!("the {name}'s coupler's share"), "")?;
+        }
+        within(
+            arm.coupler_loss_db,
+            0.0,
+            20.0,
+            &format!("the {name}'s coupler's excess loss"),
+            " dB",
+        )?;
+    }
+    let lp = d.pump.wavelength_um;
+    Ok(positive(
+        d.pump.bandwidth_nm,
+        0.1 * lp * 1e3,
+        "the pump's bandwidth",
+        " nm",
+    )? * 1e-3
+        / (lp * lp))
+}
+
 /// The grid's half width (1/µm) from `half_nm` in the signal's wavelength, within
 /// [`MOST_HALF`] of both photons' frequencies.
 fn half_of(d: &Design, signal_um: f64, idler_um: f64) -> Result<f64, String> {
@@ -544,8 +559,86 @@ fn wavelengths(d: &Design, four: bool) -> Result<(f64, f64), String> {
     Ok((ls, li))
 }
 
+/// A guide's or a crystal's device, as its joint spectrum and its slices take it.
+pub(crate) struct GuideSource {
+    pub device: Device,
+    /// The pump's spectrum, the two photons' for four-wave mixing (`Pump::two_photon`).
+    pub pump: Pump,
+    pub four: bool,
+    pub matching: Shape,
+    pub efficiency: Option<f64>,
+    pub signal_um: f64,
+    pub idler_um: f64,
+    /// The grid's half width, 1/µm.
+    pub half: f64,
+    pub facts: Vec<Fact>,
+    pub notes: Vec<String>,
+}
+
+impl GuideSource {
+    /// ΔkL/2 at a signal's and an idler's frequency (1/µm): down-conversion's waves (signal,
+    /// idler, pump) or four-wave mixing's (pump, pump, signal, idler), each pump photon at half
+    /// their sum, as `pairs::joint_spectrum` takes it.
+    pub fn mismatch(&self, s: f64, i: f64) -> photonoxide::Result<f64> {
+        let state = *self.device.state();
+        if self.four {
+            let p = 0.5 * (s + i);
+            self.device.phase_at_frequencies(&[p, p, s, i], &state)
+        } else {
+            self.device.phase_at_frequencies(&[s, i, s + i], &state)
+        }
+    }
+}
+
 /// A guide's or a crystal's pairs: `pairs::joint_spectrum` of its device.
 fn made_in_guide(d: &Design, bandwidth: f64) -> Result<Built, String> {
+    let GuideSource {
+        device,
+        pump,
+        four,
+        matching,
+        efficiency,
+        signal_um,
+        idler_um,
+        half,
+        facts,
+        notes,
+    } = guide_source(d, bandwidth)?;
+    let spectrum =
+        pairs::joint_spectrum(&device, pump, matching.matching(), half, d.points).map_err(err)?;
+    let (brightness, brightness_note) = if four {
+        (
+            None,
+            Some(
+                "the library gives a pair rate for down-conversion only: for four-wave mixing \
+                 the mean number of pairs per pulse is set here"
+                    .to_owned(),
+            ),
+        )
+    } else if let Some(eta) = efficiency {
+        positive(eta, 1e6, "η", " %/(W·cm²)")?;
+        (Some(brightness(&device, eta, &spectrum)?), None)
+    } else {
+        (
+            None,
+            Some("give η, the guide's normalized efficiency, for the pairs' rate".to_owned()),
+        )
+    };
+    Ok(Built {
+        spectrum,
+        pump_um: d.pump.wavelength_um,
+        signal_um,
+        idler_um,
+        ghz: false,
+        brightness,
+        brightness_note,
+        facts,
+        notes,
+    })
+}
+
+/// A guide's or a crystal's device and pump, checked against their limits.
+pub(crate) fn guide_source(d: &Design, bandwidth: f64) -> Result<GuideSource, String> {
     let lp = d.pump.wavelength_um;
     let (process, length_mm, matching, efficiency) = match &d.medium {
         Medium::Guide {
@@ -659,34 +752,15 @@ fn made_in_guide(d: &Design, bandwidth: f64) -> Result<Built, String> {
     if four {
         pump = pump.two_photon();
     }
-    let spectrum =
-        pairs::joint_spectrum(&device, pump, matching.matching(), half, d.points).map_err(err)?;
-    let (brightness, brightness_note) = if four {
-        (
-            None,
-            Some(
-                "the library gives a pair rate for down-conversion only: for four-wave mixing \
-                 the mean number of pairs per pulse is set here"
-                    .to_owned(),
-            ),
-        )
-    } else if let Some(eta) = efficiency {
-        positive(eta, 1e6, "η", " %/(W·cm²)")?;
-        (Some(brightness(&device, eta, &spectrum)?), None)
-    } else {
-        (
-            None,
-            Some("give η, the guide's normalized efficiency, for the pairs' rate".to_owned()),
-        )
-    };
-    Ok(Built {
-        spectrum,
-        pump_um: lp,
+    Ok(GuideSource {
+        device,
+        pump,
+        four,
+        matching,
+        efficiency,
         signal_um: ls,
         idler_um: li,
-        ghz: false,
-        brightness,
-        brightness_note,
+        half,
         facts,
         notes,
     })
@@ -1066,6 +1140,8 @@ fn herald(s: &JointSpectrum, arms: &[Arm; 2], centres_um: [f64; 2]) -> Result<He
         facts,
     })
 }
+
+pub mod squeezing;
 
 #[cfg(test)]
 #[path = "sources_tests.rs"]

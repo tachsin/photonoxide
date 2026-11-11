@@ -172,7 +172,7 @@ along a direction, and `fdtd::time_step` gives the step for a Courant number; a 
 $\tfrac12\sum\varepsilon E^2 + \tfrac12\sum\tilde H^{n-1/2}\cdot\tilde H^{n+1/2}$ exactly, because
 Yee's two curls are each other's transposes (`fdtd/energy`, 2.4e-15 over 300 steps).
 
-**FDFD's field, exactly.** A current $\operatorname{Re}(\hat J e^{-i\omega t})$, sampled at the half steps where it enters
+**FDFD's field, exactly.** A current $\mathop{\mathrm{Re}}(\hat J e^{-i\omega t})$, sampled at the half steps where it enters
 E's update, settles to a field that solves FDFD's equations at the leapfrog's frequency:
 
 $$
@@ -313,7 +313,7 @@ layers of a stack is oblique incidence, each frequency at its own angle, $\sin\t
   that obeys it, so the fields are complex (`Simulation::is_complex`). They are not two
   separate real runs: the real and imaginary parts are the "sine and cosine" runs of a Bloch
   problem, but each part's boundary reads the other's at every step,
-  $\operatorname{Re} F(x + L) = \cos(kL)\operatorname{Re} F(x) - \sin(kL)\operatorname{Im} F(x)$.
+  $\mathop{\mathrm{Re}} F(x + L) = \cos(kL)\mathop{\mathrm{Re}} F(x) - \sin(kL)\mathop{\mathrm{Im}} F(x)$.
   The parts are stored as two real runs stepped side by side: Yee's update is real everywhere
   but where a difference reaches across a Bloch side, so each part steps with the real update,
   the same kernel as a periodic run, and only the values next to a Bloch side are coupled after
@@ -676,7 +676,7 @@ circle beyond); Drude terms are stable at any $\omega_p\Delta t$ (a unit test sw
 - **A Lorentz slab** 10 µm thick ($\varepsilon = 2.25 + \omega_0^2/(\omega_0^2 - \omega^2 - i\gamma\omega)$,
   $f_0 = 2$ c/µm): the group delay of a pulse's first pass, cut before its first echo arrives,
   as a group index, against the first pass's exact delay, which is the bulk
-  $n_g = \operatorname{Re}\thinspace d(n\omega)/d\omega$ (1.977 to 2.402 over 0.8 to 1.2 c/µm) to
+  $n_g = \mathop{\mathrm{Re}}\thinspace d(n\omega)/d\omega$ (1.977 to 2.402 over 0.8 to 1.2 c/µm) to
   3e-5. Second order to a floor near 1e-4: 3.0e-3 at 10 nm, 8.8e-4 at 5 and 3.6e-4 at 2.5
   (`fdtd/lorentz-group-delay`). The pulse is 0.3 c/µm wide: a wider one reaches the resonance,
   where light is slow enough to be cut off with the echo, and the cut's leakage shows.
@@ -838,7 +838,7 @@ it goes, so a run needs no stored history:
   $\nabla \times \hat E/(i\tilde\omega)$ exactly: summing $\tilde H^{n+1/2} - \tilde H^{n-1/2} =
   -\Delta t\,\nabla \times E^n$ against $e^{i\omega n\Delta t}$ gives $-2i\sin(\omega\Delta t/2)\hat H
   = -\Delta t\,\nabla \times \hat E$. Complex runs (a Bloch phase) transform the whole field.
-- **Flux** (`add_flux`, `add_flux_box`): $\tfrac12\operatorname{Re}(E \times \tilde H^*)$ through
+- **Flux** (`add_flux`, `add_flux_box`): $\tfrac12\mathop{\mathrm{Re}}(E \times \tilde H^*)$ through
   a plane halfway between two planes of nodes, where H̃'s tangential components are, the
   tangential E the mean of its values on the nodes either side: FDFD's `Field3d::flux`, now
   within a window. It is exact for the scheme. Summation by parts of
@@ -956,7 +956,7 @@ the conjugate with m conjugated. His sums become
 
 $$
 Q_\text{sca} = \frac{2}{\alpha^2}\sum_\nu (2\nu+1)\left(\lvert a_\nu\rvert^2 + \lvert b_\nu\rvert^2\right),\qquad
-Q_\text{ext} = \frac{2}{\alpha^2}\sum_\nu (2\nu+1)\operatorname{Re}(a_\nu + b_\nu),
+Q_\text{ext} = \frac{2}{\alpha^2}\sum_\nu (2\nu+1)\mathop{\mathrm{Re}}(a_\nu + b_\nu),
 $$
 
 the cross-sections over πρ², and absorption is their difference. A perfect conductor is the limit

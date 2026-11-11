@@ -5,10 +5,12 @@
 //! FDTD", IEEE Microw. Guided Wave Lett. 7, 121 (1997),
 //! [doi:10.1109/75.569723](https://doi.org/10.1109/75.569723), Section III and Fig. 1:
 //!
-//! - **The problem:** a TEM wave from vacuum onto a half-space of a Lorentz medium, P = 2,
-//!   ε_s = 3, ε∞ = 1.5, ω₁ = 40π Grad/s and ω₂ = 100π Grad/s (20 and 50 GHz), δ₁ = 0.1ω₁ and
-//!   δ₂ = 0.1ω₂, A₁ = 0.4 and A₂ = 0.6, on cells of Δz = 37.5 µm: ε(ω) = ε∞ +
-//!   Σ (ε_s − ε∞)A_p ω_p² / (ω_p² + 2jωδ_p − ω²) (their Eq. 1, e^(+jωt)).
+//! - **The problem:** a TEM wave from vacuum onto a half-space of a Lorentz medium, $P = 2$,
+//!   $\varepsilon_s = 3$, $\varepsilon_\infty = 1.5$, $\omega_1 = 40\pi$ Grad/s and
+//!   $\omega_2 = 100\pi$ Grad/s (20 and 50 GHz), $\delta_1 = 0.1\,\omega_1$ and
+//!   $\delta_2 = 0.1\,\omega_2$, $A_1 = 0.4$ and $A_2 = 0.6$, on cells of $\Delta z = 37.5$ µm:
+//!   $\varepsilon(\omega) = \varepsilon_\infty + \sum_p (\varepsilon_s - \varepsilon_\infty) A_p \omega_p^2 / (\omega_p^2 + 2j\omega\delta_p - \omega^2)$
+//!   (their Eq. 1, $e^{+j\omega t}$).
 //! - **The measurement:** the absolute errors of the reflection coefficient's magnitude and
 //!   phase against the analytic one, 0 to 60 GHz, for their three schemes; this is their
 //!   synchronized Lorentz scheme (LADES), the dashed curves. Their time step and the length of
@@ -22,13 +24,13 @@
 //! 1.6 × 10⁻³ at 56 and 2.1 × 10⁻³ at 57. The paper doesn't explain the ripples (its Debye
 //! curve has none); with its time step and run unknown, the curves are read as bounds.
 //!
-//! Here, with the paper's grid and medium: a line of Δz = 37.5 µm cells (one cell across and
-//! periodic across, a CPML of 40 cells at each end), the medium's face halfway between two
-//! values of E, a differentiated Gaussian from a current sheet 100 cells before it, and the
+//! Here, with the paper's grid and medium: a line of $\Delta z = 37.5$ µm cells (one cell across
+//! and periodic across, a CPML of 40 cells at each end), the medium's face halfway between two
+//! values of $E$, a differentiated Gaussian from a current sheet 100 cells before it, and the
 //! reflection from the run with the medium and the run without, its phase referred to the face
-//! with the grid's own wavenumber. At a Courant number of 1 and of 0.5, and at Δz/2 to see the
-//! grid's error.
-//! Every |Δr| and phase error must be within the paper's curve (its smooth part plus its
+//! with the grid's own wavenumber. At a Courant number of 1 and of 0.5, and at $\Delta z/2$ to see
+//! the grid's error.
+//! Every $|\Delta r|$ and phase error must be within the paper's curve (its smooth part plus its
 //! ripple, 0.8 × 10⁻³, below 45 GHz; the values read above beyond).
 //!
 //! ```sh

@@ -1,5 +1,6 @@
-// The Academy (studio/src-tauri/src/academy.rs and charts.rs): its lessons, loaded once, and what
-// the page remembers between visits: the lesson open, how deep it reads, and the sections opened.
+// The Academy (studio/src-tauri/src/academy.rs and charts.rs): its lessons, tracks and paths,
+// loaded once, and what the page remembers between visits: the lesson open, the path followed,
+// and the sections folded.
 
 import { api } from "./api";
 import type { Raster } from "./events";
@@ -28,7 +29,9 @@ export type LessonBlock =
   | { kind: "answer"; markdown: string }
   | { kind: "device"; device: string }
   /** How a library device is made: its flow played step by step, from `job` (TOML), as the Fabrication page plays it. */
-  | { kind: "fabrication"; device: string; label: string; parameters: Record<string, string>; job: string };
+  | { kind: "fabrication"; device: string; label: string; parameters: Record<string, string>; job: string }
+  /** Lithography machines in 2D and 3D, animated (components/fabrication/LithoTool.svelte): the first shown, the rest to compare. */
+  | { kind: "lithography"; tools: string[] };
 
 /** A section still to be written: what it will answer, and the examples it will use. */
 export interface Coming {
@@ -149,14 +152,59 @@ export interface DiagramSpec {
   caption_3d: string;
 }
 
+/** A shelf of lessons in the order to read them (academy/tracks.yaml); every lesson is on exactly one. */
+export interface Track {
+  id: string;
+  title: string;
+  /** One line: what its lessons are about. */
+  summary: string;
+  /** A shelf beside the tracks, not a step on the way through them. */
+  shelf: boolean;
+  /** Its lessons' ids, in order. */
+  lessons: string[];
+}
+
+/** A way through the tracks for one kind of reader. */
+export interface LearningPath {
+  id: string;
+  title: string;
+  summary: string;
+  /** Its lessons' ids, in order. */
+  lessons: string[];
+  /** The numbered sections to read of a lesson read only in part, by its id; the others whole. */
+  sections: Record<string, number[]>;
+}
+
 export interface Academy {
   lessons: Lesson[];
+  tracks: Track[];
+  paths: LearningPath[];
   diagrams: DiagramSpec[];
   charts: ChartSpec[];
 }
 
-/** The depths in order: reading to "theory" opens intuition and theory. */
-export const DEPTHS: Depth[] = ["intuition", "theory", "research"];
+/** Where a lesson stands on a list of lessons (a track's or a path's): its place, 1 to n, and its neighbours. */
+export interface Place {
+  k: number;
+  n: number;
+  previous: string | null;
+  next: string | null;
+}
+
+/** A lesson's place among `ids`, or null when it isn't one of them. */
+export function placeIn(ids: string[], id: string): Place | null {
+  const k = ids.indexOf(id);
+  return k < 0 ? null : { k: k + 1, n: ids.length, previous: ids[k - 1] ?? null, next: ids[k + 1] ?? null };
+}
+
+/** The track a lesson is on. */
+export const trackOf = (data: Academy, id: string) => data.tracks.find((t) => t.lessons.includes(id)) ?? null;
+
+/** The path followed, when the lesson is on it. */
+export const pathOf = (data: Academy, id: string) => {
+  const p = data.paths.find((x) => x.id === academy.path);
+  return p && p.lessons.includes(id) ? p : null;
+};
 
 export const LEVELS: Level[] = ["introductory", "intermediate", "advanced"];
 
@@ -172,13 +220,13 @@ export const unitName = (unit: string) => (unit === "um" ? "µm" : unit);
 export const academy = $state({
   data: null as Academy | null,
   error: "",
-  /** The lesson open, by id. */
+  /** The lesson open, by id; none for the overview of the tracks. */
   lesson: null as string | null,
-  /** How deep each lesson reads, by its id. */
-  depth: {} as Record<string, Depth>,
-  /** Sections opened one by one beyond that depth, as "lesson#section". */
-  opened: [] as string[],
-  /** Sections closed one by one within it. */
+  /** The path being followed, by id: a lesson on it says where it stands on it, and what comes next. */
+  path: null as string | null,
+  /** A section to open the next lesson at, by its number (a path reading a lesson in part). */
+  at: null as number | null,
+  /** The sections folded, as "lesson#section": every section is open until folded. */
   closed: [] as string[],
 });
 

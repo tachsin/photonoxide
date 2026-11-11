@@ -97,11 +97,11 @@
   <rect x={left} y={bottom} width={right - left} height={lower - bottom} class="fill-base-content/10" />
   <Label x={left + 6} y={upper + 16} anchor="start" size={14} text="cover $n_c$" width={110} />
   <Label x={left + 6} y={top - 12} anchor="start" size={13} text={String.raw`films $n_1 \ldots n_J$`} width={130} class="text-base-content/80" />
-  <Label x={left + 6} y={lower - 14} anchor="start" size={14} text={String.raw`substrate $n_s \gt \operatorname{Re} n_\text{eff}$`} width={200} />
+  <Label x={left + 6} y={lower - 14} anchor="start" size={14} text={String.raw`substrate $n_s \gt \mathop{\mathrm{Re}} n_\text{eff}$`} width={200} />
 
   <!-- the mode along z, losing power -->
   <Wave x1={left + 18} y1={(top + bottom) / 2} x2={176} y2={(top + bottom) / 2} amplitude={5} cycles={5} />
-  <Label x={left + 20} y={upper + 44} anchor="start" size={13} text={String.raw`$e^{i k n_\text{eff} z}$, $\operatorname{Im} n_\text{eff} \gt 0$`} width={190} class="text-accent" />
+  <Label x={left + 20} y={upper + 44} anchor="start" size={13} text={String.raw`$e^{i k n_\text{eff} z}$, $\mathop{\mathrm{Im}} n_\text{eff} \gt 0$`} width={190} class="text-accent" />
 
   <!-- the plane wave shed into the substrate, weaker along z -->
   {#each rays as r (r.x)}

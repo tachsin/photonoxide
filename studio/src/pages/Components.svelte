@@ -25,9 +25,9 @@
   import { addInstance, exportTouchstone, library, loadLibrary, partKey, partOf } from "../lib/chip.svelte";
   import { sweepProblem, type Quantity } from "../lib/circuit";
   import { DESIGN } from "../lib/designpage.svelte";
-  import { deviceOf, loadDevices } from "../lib/device.svelte";
+  import { deviceOf, dirty, drafts, loadDevices } from "../lib/device.svelte";
   import { label } from "../lib/plot";
-  import { isMicrometres, len, showIn, shown as inUnit, storeIn, stored, unitOf } from "../lib/units";
+  import { isMicrometres, len, showIn, shown as inUnit, storeIn, stored, unitOf, unitText } from "../lib/units";
 
   loadLibrary();
   loadDevices();
@@ -120,6 +120,25 @@
   function choose(id: string) {
     app.component = id;
   }
+
+  // the top bar names the component shown (Components › Waveguide), with the others to switch to,
+  // grouped as the rail's list groups them: one item a component, its first model
+  $effect(() => {
+    const d = device ? drafts[device.id] : undefined;
+    const label = custom ? "Custom device" : designing ? "Design" : kind ? (d?.name ?? kind.title) : "";
+    const about = custom ? "Any structure no device describes, as a job" : designing ? "Every component as its job file" : (device?.about ?? kind?.about ?? "");
+    const groups = [
+      { title: "Build your own", items: [{ id: CUSTOM, label: "Custom device", hint: "a structure as a job" }, { id: DESIGN, label: "Design", hint: "every component as its job file" }] },
+      ...[...new Set(everything.map((k) => k.category))].map((title) => ({
+        title,
+        items: everything.filter((k) => k.category === title && familyOf(k)[0] === k).map((k) => ({ id: partKey(k), label: k.title, hint: [...new Set(familyOf(k).map((f) => f.provenance.fidelity))].join(", ") })),
+      })),
+    ];
+    app.crumb = label ? { page: "components", label, about, changed: !!(d && device && dirty(d, device)), current: custom ? CUSTOM : designing ? DESIGN : kind ? partKey(familyOf(kind)[0]) : undefined, groups, pick: (id) => (app.component = id) } : null;
+  });
+  $effect(() => () => {
+    if (app.crumb?.page === "components") app.crumb = null;
+  });
   // a component chosen (here, in the rail, from Ctrl+K or the chip) starts from its first port
   $effect(() => {
     void app.component;
@@ -229,11 +248,11 @@
             <div class="mt-3 flex flex-wrap items-end gap-4">
               <label class="flex flex-col gap-1 text-xs">
                 <span class="muted">From (<UnitChip />)</span>
-                <input class="input input-xs w-24 num" type="number" step={inUnit(0.01)} min={inUnit(0.1)} value={inUnit(sweep.from_um)} oninput={(e) => typed(e, (v) => (sweep.from_um = v))} />
+                <span class="input input-xs w-28"><input class="num" type="number" step={inUnit(0.01)} min={inUnit(0.1)} value={inUnit(sweep.from_um)} oninput={(e) => typed(e, (v) => (sweep.from_um = v))} /><span class="faint">{unitText()}</span></span>
               </label>
               <label class="flex flex-col gap-1 text-xs">
                 <span class="muted">To (<UnitChip />)</span>
-                <input class="input input-xs w-24 num" type="number" step={inUnit(0.01)} min={inUnit(0.1)} value={inUnit(sweep.to_um)} oninput={(e) => typed(e, (v) => (sweep.to_um = v))} />
+                <span class="input input-xs w-28"><input class="num" type="number" step={inUnit(0.01)} min={inUnit(0.1)} value={inUnit(sweep.to_um)} oninput={(e) => typed(e, (v) => (sweep.to_um = v))} /><span class="faint">{unitText()}</span></span>
               </label>
               <label class="flex flex-col gap-1 text-xs">
                 <span class="muted">Points</span>
