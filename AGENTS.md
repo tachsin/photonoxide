@@ -107,7 +107,7 @@ or test-read file gets its line in the map. A PR that changes the library (`src/
 PR answers for its own breaks only; the release PR is checked against the latest release on
 crates.io.
 **Tier 2**, the release PR, a PR labelled `full-ci`, and
-a change to `ci.yml`, `.github/shards.sh`, `Cargo.toml` or `Cargo.lock`: every test on Linux, Windows and macOS (and on
+a change to `Cargo.toml` or `Cargo.lock`: every test on Linux, Windows and macOS (and on
 one thread), every example on the three systems, the 3D devices, the whole validation report. The
 shards ([.github/shards.sh](.github/shards.sh)) split a run's tests, cases and examples among its
 jobs by measured times, each in exactly one job (the "What changed" job fails otherwise). **Tier
