@@ -100,3 +100,105 @@ fn the_chain_step_study() {
         );
     }
 }
+
+/// The robust cases' study (their rules): the discrete filters' values across a straight edge
+/// against the closed forms, and Eq. 29 on bars of whole pixels, as the radius grows in pixels.
+#[test]
+#[ignore = "the robust cases' study: prints, in release"]
+fn the_robust_study() {
+    use crate::topology::checks::{bar_length, edge_values_error};
+    for r_px in [5.0, 10.0, 20.0, 40.0, 80.0] {
+        let (e1, e2) = (edge_values_error(1, r_px), edge_values_error(2, r_px));
+        println!(
+            "R = {r_px:4} px: 1D {e1:.3e} (1/(8R²) {:.3e}), 2D {e2:.3e}, 2D × (R/Δ)² {:.3}",
+            1.0 / (8.0 * r_px * r_px),
+            e2 * r_px * r_px
+        );
+    }
+    for r_px in [25.0, 50.0, 100.0, 200.0] {
+        let worst = super::checks::ETAS_ROBUST
+            .iter()
+            .map(|&eta| (bar_length(r_px, eta) - super::minimum_length(eta).unwrap()).abs())
+            .fold(0.0, f64::max);
+        println!(
+            "R = {r_px:5} px: Eq. 29 worst {worst:.3e}, × (R/Δ)² {:.2}",
+            worst * r_px * r_px
+        );
+    }
+    for delta in [1e-3, 2e-3, 4e-3, 8e-3] {
+        let (worst, resolution) = super::checks::robust_epigraph_error(delta);
+        println!("epigraph, δ {delta:.0e}: largest error {worst:.2e}, resolution {resolution:.2e}");
+    }
+}
+
+#[test]
+fn the_edge_shifts_solve_their_closed_forms() {
+    for eta in [0.01, 0.1, 0.25, 0.5, 0.75, 0.9, 0.99] {
+        let t = super::edge_shift_2d(eta).unwrap();
+        assert!((super::across_edge_2d(t) - eta).abs() < 1e-15, "{eta}: {t}");
+        let t1 = super::edge_shift_1d(eta).unwrap();
+        assert!(
+            (super::across_edge_1d(t1) - eta).abs() < 1e-15,
+            "{eta}: {t1}"
+        );
+    }
+    assert!(super::edge_shift_2d(0.5).unwrap().abs() < 1e-15);
+    // the closed form's ends, and its slope, −(3/π)(√(1 − t²) − t² arcosh(1/t)), against
+    // central differences
+    assert_eq!(super::across_edge_2d(0.0), 0.5);
+    assert_eq!(super::across_edge_2d(1.0), 0.0);
+    for t in [0.1, 0.3, 0.5, 0.7, 0.9] {
+        let h = 1e-5;
+        let fd = (super::across_edge_2d(t + h) - super::across_edge_2d(t - h)) / (2.0 * h);
+        let slope =
+            -3.0 / std::f64::consts::PI * ((1.0 - t * t).sqrt() - t * t * (1.0f64 / t).acosh());
+        assert!((fd - slope).abs() < 1e-9, "{t}: {fd} {slope}");
+    }
+    assert!(super::edge_shift_2d(0.0).is_err() && super::edge_shift_1d(1.0).is_err());
+    // the shift is a fraction of the radius: 2D moves less than 1D at the same threshold
+    let (s1, s2) = (
+        super::edge_shift_1d(0.25).unwrap(),
+        super::edge_shift_2d(0.25).unwrap(),
+    );
+    assert!(s2 > 0.0 && s2 < s1, "{s1} {s2}");
+    // the page's numbers: 0.293 R and 0.283 R at η = ¼
+    assert!(
+        (s1 - 0.2929).abs() < 1e-4 && (s2 - 0.2828).abs() < 1e-4,
+        "{s1} {s2}"
+    );
+}
+
+#[test]
+fn the_robust_realizations_and_the_epigraph() {
+    let d = super::Density::new([4, 4, 1], 0.02, [2.0, 12.0])
+        .unwrap()
+        .with_filter(0.05, super::Edge::Renormalized)
+        .unwrap();
+    assert!(d.robust(0.25).is_err(), "no projection");
+    let d = d.with_projection(super::Projection::new(8.0, 0.5).unwrap());
+    let r = d.robust(0.25).unwrap();
+    let etas = r.all().map(|x| x.projection().unwrap().eta());
+    assert_eq!(etas, [0.75, 0.5, 0.25]);
+    assert!(d.robust(0.5).is_err() && d.robust(0.0).is_err());
+    // a uniform 0.6: eroded below nominal below dilated
+    let rho = vec![0.6; 16];
+    let at = |x: &super::Density| x.physical(&rho).unwrap()[5];
+    assert!(at(&r.eroded) < at(&r.nominal) && at(&r.nominal) < at(&r.dilated));
+    // Eq. 29's branches meet at η = ¼, and its value at Wang et al.'s η = 0.2
+    assert!((super::minimum_length(0.25).unwrap() - 1.0).abs() < 1e-15);
+    assert!((super::minimum_length(0.2).unwrap() - 1.1055728).abs() < 1e-7);
+    // the epigraph: objective t, constraints f − t, rows [∇f, −1]
+    let e = super::Epigraph::new(2, 3).unwrap();
+    let (values, gradients) = ([1.0, 3.0, 2.0], [1.0, 2.0, 3.0, 4.0, 5.0, 6.0]);
+    let t = super::Epigraph::start(&values);
+    let (mut gr, mut g, mut j) = ([0.0; 3], [0.0; 3], [0.0; 9]);
+    let f = e
+        .evaluate(&[0.1, 0.2, t], &values, &gradients, &mut gr, &mut g, &mut j)
+        .unwrap();
+    assert_eq!((f, gr, g), (3.0, [0.0, 0.0, 1.0], [-2.0, 0.0, -1.0]));
+    assert_eq!(j, [1.0, 2.0, -1.0, 3.0, 4.0, -1.0, 5.0, 6.0, -1.0]);
+    assert!(
+        e.evaluate(&[0.0; 2], &values, &gradients, &mut gr, &mut g, &mut j)
+            .is_err()
+    );
+}

@@ -113,23 +113,24 @@ diagonalizes it, so it needs no sparse solver.
 - **Eroded, nominal and dilated designs** from one density by three thresholds, 1 − η, ½ and η
   (Wang et al. 2010, Section 5.1 and Eq. 14; Sigmund 2009), and the relation between a threshold
   and the edge's displacement. In 1D (the hat kernel R − |x|) it is exact: a solid bar that the
-  eroded threshold η_e just removes has width h = 2R(1 − √(1 − η_e)), and the nominal design's
-  width b equals it, so b/2R = 1 − √(1 − η_e) for η_e ≥ ¾ and √(η_e − ½) below (worked out for
-  this plan; the same relation as the conic-radius formula of Qian & Sigmund 2013, to be checked
-  against that paper). Wang et al.'s worked example (Section 6) gives b/2R = 1.1055 at η = 0.2;
-  this analysis gives 2(1 − √0.2) = 1.1056 for b/R at that threshold, so the two differ by the
-  factor 2 in R. Which reading their Fig. 12 uses is to be settled before the number is a
-  reference. On a 2D pixel grid the cone's
-  marginal across a straight edge is m(x) = aR − x² ln((R + a)/|x|), a = √(R² − x²), not the
-  hat, so the 2D edge shift is computed from it, and the discrete filter's shift is checked
-  against that at second order in the pixel.
+  eroded threshold η_e just removes has width h = 2R(1 − √(1 − η_e)), and the nominal design keeps
+  a width b with b/R = 2 − 2√(1 − η_e) for η_e ≥ ¾ and 2√(η_e − ½) below: Qian & Sigmund 2013's
+  Eq. 29 (Appendix). *Settled 2026-11-11:* Wang et al.'s Fig. 12 and their 1.1055 at η = 0.2 are
+  b/R, though the axis reads b/2R; Qian & Sigmund's Table 1 and Fig. 19 read Wang et al.'s curve
+  as b/R, and the bars of `topology/robust-length` agree with Eq. 29 as b/R. (Wang et al.'s
+  worked numbers, b = 0.092L and R = 8.4L/200, give b/2R = 1.095, not their 1.1055.) On a 2D
+  pixel grid the cone's marginal across a straight edge is m(x) = aR − x² ln((R + a)/|x|),
+  a = √(R² − x²), not the hat; its integral is the closed form of `topology::across_edge_2d`,
+  and the discrete filter's values are checked against it at second order in the pixel.
 - **The epigraph form** of min-max over wavelengths, corners and the three designs: the variables
   (x, t), the objective t, the constraints f_k(x) − t ≤ 0 with their Jacobians, in the form
   genoxide's `Mma` and `Constrained` take.
 
 *Validation:* the edge displacement against the closed form on a straight edge, the pixels' own
 error stated (discretisation, with its order); the epigraph's Jacobian against differences.
-*Papers:* Sigmund 2009, Wang 2010, Christiansen & Sigmund 2021 (in hand); Qian & Sigmund 2013\n(to get).
+*Papers:* Sigmund 2009, Wang 2010, Christiansen & Sigmund 2021, Qian & Sigmund 2013 (in hand;
+read for this phase: Qian & Sigmund's Appendix and Table 1, Wang et al.'s Section 6 and Fig. 12).
+*Done 2026-11-11:* `topology::robust` and four cases (the methods page, topology.md).
 
 ### I3: Length scales: the metric and the constraints
 

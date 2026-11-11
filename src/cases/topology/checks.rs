@@ -1,10 +1,15 @@
 //! The validation cases of densities ([`super`]): the projection's derivative and identities,
 //! the filter's transpose and what it reproduces exactly, and the whole chain's gradient from 2D
-//! FDFD's adjoint against finite differences.
+//! FDFD's adjoint against finite differences; and of robust designs: the filter's density across
+//! a straight edge against its closed forms, the minimum length of Qian & Sigmund's Eq. 29 on
+//! bars of whole pixels, and the epigraph's Jacobian through the three realizations' gradients.
 
 use num_complex::Complex64 as c64;
 
-use super::{ConicFilter, Density, Edge, Placement, Projection};
+use super::{
+    ConicFilter, Density, Edge, Epigraph, Placement, Projection, across_edge_1d, across_edge_2d,
+    minimum_length,
+};
 use crate::fdfd::checks::{Probe, two_ports};
 use crate::fdfd::{Boundaries, Direction, Grid, Polarization, Solver2d};
 use crate::units::Wavelength;
@@ -47,6 +52,34 @@ pub(crate) fn cases() -> Vec<Case> {
             tier: Tier::Analytic,
             source: r"G. Veronis, R. W. Dutton, S. Fan, Opt. Lett. 29, 2288 (2004), doi:10.1364/OL.29.002288, Eqs. 2–4, through Wang et al. 2010's chain rule, Eq. 7",
             run: fdfd_gradient,
+        },
+        Case {
+            id: "topology/robust-edge-1d",
+            title: r"The 1D hat filter's density across a solid half-line's edge on a pixel boundary, at every pixel centre within a radius of it, against $\frac12(1 - t)^2$ ($t$ the distance in radii, outside; its reflection inside) less the pixels' own offset $\frac18(\Delta/R)^2$, for $R/\Delta$ = 5, 20 and 80 (largest departure shown)",
+            tier: Tier::Analytic,
+            source: r"the hat's share of weight beyond a distance $x$, $\int_x^R (R - s)\,ds / R^2$; on pixels, the sum $\sum_{k > i} (R - k)$ over whole pixels is the integral less $\Delta^2/8$, exactly, when $R/\Delta$ is whole (the discrete midpoint rule on a linear function cut at a pixel boundary)",
+            run: robust_edge_1d,
+        },
+        Case {
+            id: "topology/robust-edge-2d",
+            title: r"The 2D conic filter's density across a solid half-plane's straight edge on a pixel boundary, at the pixel centres within a radius of it on a row far from the region's ends, against the closed form $\frac12 - (2t\sqrt{1 - t^2} + \arcsin t - t^3 \mathop{\mathrm{arcosh}}(1/t))/\pi$, at $R/\Delta = 40$ (largest departure shown)",
+            tier: Tier::Analytic,
+            source: r"the cone $R - r$ over a disc integrated across a straight edge: its marginal is $m(s) = R\sqrt{R^2 - s^2} - s^2 \mathop{\mathrm{arcosh}}(R/s)$, and its share beyond a distance $x$ is the closed form, ½ at the edge and 0 at one radius (photonoxide's derivation in topology::robust); the conic filter of F. Wang, B. S. Lazarov, O. Sigmund, Struct. Multidiscip. Optim. 43, 767 (2010), doi:10.1007/s00158-010-0602-y, Eqs. 4 and 5",
+            run: robust_edge_2d,
+        },
+        Case {
+            id: "topology/robust-length",
+            title: r"The minimum width $b$ the nominal design keeps when the eroded design (threshold $1 - \eta$) just loses a bar, over the 1D hat filter's radius: bars of whole pixels at $R/\Delta = 100$, the width at ½ of the last bar erosion removes and of the first it keeps interpolated in their peaks to the threshold, for $\eta$ = 0.1 to 0.45 in steps of 0.05, against Eq. 29 (largest difference in $b/R$ shown)",
+            tier: Tier::Published,
+            source: r"X. Qian, O. Sigmund, Comput. Methods Appl. Mech. Engrg. 253, 237 (2013), doi:10.1016/j.cma.2012.08.020, Appendix, Eq. 29: $b/R = 2 - 2\sqrt{\eta}$ for $\eta \le 1/4$ and $2\sqrt{1/2 - \eta}$ above; Wang et al. 2010's Fig. 12 and Section 6 (1.1055 at $\eta = 0.2$, labelled $b/2R$ there and read as $b/R$ by Qian & Sigmund's Table 1)",
+            run: robust_length,
+        },
+        Case {
+            id: "topology/robust-epigraph",
+            title: r"The epigraph form of the robust problem, min over the densities of the worst of the eroded, nominal and dilated designs' $-P$ (thresholds 0.75, 0.5 and 0.25 at $\beta = 8$, the 2D FDFD problem of topology/fdfd-gradient): its constraints' Jacobian in the densities, each realization's adjoint gradient pulled back through its own projection and the filter's transpose, against fourth-order differences of that realization's power ($\delta = 4 \times 10^{-3}$) at a corner, an edge and the middle; its column in $t$ and its constraints exact (largest relative difference shown)",
+            tier: Tier::Analytic,
+            source: r"Wang et al. 2010, Eq. 14 and Section 5.1 (the three realizations); the epigraph form of a min-max, $\min t$ subject to $f_k(x) - t \le 0$; the adjoint variable method, G. Veronis, R. W. Dutton, S. Fan, Opt. Lett. 29, 2288 (2004), doi:10.1364/OL.29.002288, Eqs. 2–4",
+            run: robust_epigraph,
         },
     ]
 }
@@ -265,21 +298,33 @@ pub(crate) fn chain() -> Chain {
 }
 
 impl Chain {
-    fn cells_at(&self, rho: &[f64]) -> Vec<c64> {
+    fn cells_at(&self, density: &Density, rho: &[f64]) -> Vec<c64> {
         let mut cells = self.cells.clone();
-        let eps = self.density.permittivity(rho).expect("a permittivity");
+        let eps = density.permittivity(rho).expect("a permittivity");
         self.placement.embed(&eps, &mut cells).expect("placed");
         cells
     }
 
     /// The probes at pixels `pixels`, the densities' differences `delta` wide.
     pub(crate) fn probes(&self, pixels: &[usize], delta: f64) -> Vec<Probe> {
+        self.probes_of(&self.density, pixels, delta).1
+    }
+
+    /// With `density` in place of the chain's own (a robust realization): the power and its
+    /// gradient in every density, and the probes at `pixels`, the densities' differences `delta`
+    /// wide.
+    pub(crate) fn probes_of(
+        &self,
+        density: &Density,
+        pixels: &[usize],
+        delta: f64,
+    ) -> (Vec<f64>, Vec<Probe>) {
         let lam = Wavelength::um(LAMBDA_UM).expect("a wavelength");
         let base = Solver2d::from_cells(
             self.grid,
             Polarization::Ez,
             lam,
-            &self.cells_at(&self.rho),
+            &self.cells_at(density, &self.rho),
             Boundaries::pml(20),
         )
         .expect("a problem");
@@ -294,12 +339,9 @@ impl Chain {
             .mode_power_gradient(&field, &ports[1].mode, Direction::Forward)
             .expect("a gradient");
         let d_eps = self.placement.restrict(&per_cell).expect("restricted");
-        let gradient = self
-            .density
-            .gradient(&self.rho, &d_eps)
-            .expect("pulled back");
+        let gradient = density.gradient(&self.rho, &d_eps).expect("pulled back");
         let residual = base.residual(&field, &source).expect("a residual");
-        pixels
+        let probes = pixels
             .iter()
             .map(|&p| {
                 let at = |d: f64| {
@@ -307,7 +349,7 @@ impl Chain {
                     rho[p] += d;
                     power(
                         &base
-                            .reuse_cells(lam, &self.cells_at(&rho))
+                            .reuse_cells(lam, &self.cells_at(density, &rho))
                             .expect("a problem"),
                     )
                 };
@@ -319,7 +361,8 @@ impl Chain {
                     residual,
                 }
             })
-            .collect()
+            .collect();
+        (gradient, probes)
     }
 }
 
@@ -336,4 +379,175 @@ fn fdfd_gradient() -> Outcome {
             .fold(0.0, f64::max),
         1e-8,
     )
+}
+
+/// The robust η the length case runs.
+pub(crate) const ETAS_ROBUST: [f64; 8] = [0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45];
+
+/// A solid half-space (the pixels left of a pixel boundary) filtered by the conic filter of
+/// `r_px` pixels in `dims` dimensions: the middle row's filtered densities, and each pixel
+/// centre's distance from the edge in radii, within a radius of the edge.
+fn across_edge(dims: usize, r_px: f64) -> Vec<(f64, f64)> {
+    let margin = (r_px.ceil() as usize) + 2;
+    let nx = 4 * margin;
+    let ny = if dims == 2 { 2 * margin + 1 } else { 1 };
+    let edge = 2 * margin;
+    let filter = ConicFilter::new([nx, ny, 1], 1.0, r_px, Edge::Renormalized).expect("a filter");
+    let rho: Vec<f64> = (0..nx * ny)
+        .map(|p| if p % nx < edge { 1.0 } else { 0.0 })
+        .collect();
+    let f = filter.apply(&rho).expect("filtered");
+    let row = ny / 2;
+    (0..nx)
+        .map(|i| ((i as f64 + 0.5 - edge as f64) / r_px, f[row * nx + i]))
+        .filter(|(t, _)| t.abs() < 1.0)
+        .collect()
+}
+
+/// The largest difference between the discrete filter's density across an edge and the closed
+/// form, in `dims` dimensions at `r_px` pixels per radius.
+pub(crate) fn edge_values_error(dims: usize, r_px: f64) -> f64 {
+    let closed = if dims == 1 {
+        across_edge_1d
+    } else {
+        across_edge_2d
+    };
+    across_edge(dims, r_px)
+        .into_iter()
+        .map(|(t, v)| (v - closed(t)).abs())
+        .fold(0.0, f64::max)
+}
+
+/// The 1D filter's density across an edge against the closed form less its exact pixel offset,
+/// (Δ/R)²/8 below it outside the edge and above it inside.
+fn edge_1d_exact_error() -> f64 {
+    let mut worst = 0.0f64;
+    for r_px in [5.0, 20.0, 80.0] {
+        let offset = 1.0 / (8.0 * r_px * r_px);
+        for (t, v) in across_edge(1, r_px) {
+            worst = worst.max((v - (across_edge_1d(t) - offset * t.signum())).abs());
+        }
+    }
+    worst
+}
+
+fn robust_edge_1d() -> Outcome {
+    zero(edge_1d_exact_error(), 1e-14)
+}
+
+fn robust_edge_2d() -> Outcome {
+    let r_px = 40.0;
+    zero(edge_values_error(2, r_px), 1.0 / (8.0 * r_px * r_px))
+}
+
+/// b/R for a robust η on the 1D hat filter of `r_px` pixels: bars of whole pixels, the width at ½
+/// (by linear interpolation between pixel centres) of the last bar the eroded threshold 1 − η
+/// removes and of the first it keeps, interpolated in their peaks to the threshold itself.
+pub(crate) fn bar_length(r_px: f64, eta: f64) -> f64 {
+    let n = (6.0 * r_px) as usize;
+    let filter = ConicFilter::new([n, 1, 1], 1.0, r_px, Edge::Renormalized).expect("a filter");
+    // a bar of h pixels: its filtered peak and its width at ½, in pixels
+    let bar = |h: usize| -> (f64, f64) {
+        let start = n / 2 - h / 2;
+        let rho: Vec<f64> = (0..n)
+            .map(|i| {
+                if (start..start + h).contains(&i) {
+                    1.0
+                } else {
+                    0.0
+                }
+            })
+            .collect();
+        let f = filter.apply(&rho).expect("filtered");
+        let peak = f.iter().copied().fold(0.0, f64::max);
+        if peak < 0.5 {
+            return (peak, 0.0);
+        }
+        let cross = |i: usize, j: usize| {
+            i as f64 + 0.5 + (f[i] - 0.5) / (f[i] - f[j]) * (j as f64 - i as f64)
+        };
+        let left = (1..n)
+            .find(|&i| f[i - 1] < 0.5 && f[i] >= 0.5)
+            .expect("a left edge");
+        let right = (0..n - 1)
+            .rev()
+            .find(|&i| f[i + 1] < 0.5 && f[i] >= 0.5)
+            .expect("a right edge");
+        (peak, cross(right, right + 1) - cross(left, left - 1))
+    };
+    let threshold = 1.0 - eta;
+    let mut last = bar(1);
+    for h in 2..n / 2 {
+        let next = bar(h);
+        if next.0 >= threshold {
+            let ((p1, b1), (p2, b2)) = (last, next);
+            return (b1 + (b2 - b1) * (threshold - p1) / (p2 - p1)) / r_px;
+        }
+        last = next;
+    }
+    f64::NAN
+}
+
+fn robust_length() -> Outcome {
+    let r_px = 100.0;
+    let worst = ETAS_ROBUST
+        .iter()
+        .map(|&eta| (bar_length(r_px, eta) - minimum_length(eta).expect("an η")).abs())
+        .fold(0.0, f64::max);
+    zero(worst, 4.0 / (r_px * r_px))
+}
+
+/// The epigraph's Jacobian against differences: the largest relative difference, and the
+/// differences' resolution (noted).
+pub(crate) fn robust_epigraph_error(delta: f64) -> (f64, f64) {
+    let c = chain();
+    let realizations = c.density.robust(0.25).expect("a projection");
+    let n = c.rho.len();
+    let (mut values, mut gradients, mut probes) = (Vec::new(), Vec::new(), Vec::new());
+    for density in realizations.all() {
+        let (gradient, p) = c.probes_of(density, &PIXELS, delta);
+        // the robust problem maximizes the worst power: f = −P
+        values.push(-p[0].power);
+        gradients.extend(gradient.iter().map(|g| -g));
+        probes.push(p);
+    }
+    let form = Epigraph::new(n, 3).expect("a form");
+    let t = Epigraph::start(&values);
+    let mut y = c.rho.clone();
+    y.push(t);
+    let (mut gradient, mut g, mut jacobian) =
+        (vec![0.0; n + 1], vec![0.0; 3], vec![0.0; 3 * (n + 1)]);
+    let objective = form
+        .evaluate(
+            &y,
+            &values,
+            &gradients,
+            &mut gradient,
+            &mut g,
+            &mut jacobian,
+        )
+        .expect("evaluated");
+    // the exact parts: the objective t, its gradient e_t, g = f − t and the t column −1
+    let mut exact = (objective - t).abs() + (gradient[n] - 1.0).abs();
+    exact += gradient[..n].iter().map(|v| v.abs()).sum::<f64>();
+    for (k, &v) in values.iter().enumerate() {
+        exact += (g[k] - (v - t)).abs() + (jacobian[k * (n + 1) + n] + 1.0).abs();
+    }
+    let mut worst = if exact == 0.0 { 0.0 } else { f64::INFINITY };
+    let mut resolution = 0.0f64;
+    for (k, ps) in probes.iter().enumerate() {
+        for (probe, &p) in ps.iter().zip(&PIXELS) {
+            let row = jacobian[k * (n + 1) + p];
+            // the row is −dP/dρ: against −(the differences of P)
+            worst = worst.max((row + probe.differences()).abs() / row.abs());
+            resolution = resolution.max(probe.resolution());
+        }
+    }
+    (worst, resolution)
+}
+
+fn robust_epigraph() -> Outcome {
+    let (worst, resolution) = robust_epigraph_error(4e-3);
+    crate::verdict::note_numerical(resolution);
+    zero(worst, 3e-7)
 }
