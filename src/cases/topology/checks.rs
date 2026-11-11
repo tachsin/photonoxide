@@ -794,6 +794,7 @@ fn constraint_gradient_case() -> Outcome {
 }
 
 /// The testbed's wavelengths for the mode converter, nm (its run.py: six over 1265–1295 nm).
+#[cfg(test)]
 pub(crate) const TESTBED_WAVELENGTHS_NM: [f64; 6] =
     [1265.0, 1270.0, 1275.0, 1285.0, 1290.0, 1295.0];
 
@@ -801,12 +802,14 @@ pub(crate) const TESTBED_WAVELENGTHS_NM: [f64; 6] =
 /// (E along z, 20 cells of PML, the domain of [`testbed_domain`], ε 2.25 and 12.25): the left
 /// port's fundamental mode in, its reflection in the same mode, and the right port's second mode
 /// out, each port a 190-cell window (1.9 µm, the model's) at columns 25 and 325.
+#[cfg(test)]
 pub(crate) fn testbed_spectrum(hex: &str) -> (f64, f64) {
     testbed_spectrum_at(hex, 1)
 }
 
 /// [`testbed_spectrum`] on a grid `scale` times finer: each 10 nm pixel `scale` × `scale` cells,
 /// the PML, the ports' columns and their windows scaled with it.
+#[cfg(test)]
 pub(crate) fn testbed_spectrum_at(hex: &str, scale: usize) -> (f64, f64) {
     use crate::fdfd::{Port, Side};
     let pattern = testbed_domain(hex);
