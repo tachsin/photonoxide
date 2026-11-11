@@ -792,3 +792,74 @@ fn constraint_gradient_case() -> Outcome {
     crate::verdict::note_numerical(resolution);
     zero(worst, 3e-9)
 }
+
+/// The testbed's wavelengths for the mode converter, nm (its run.py: six over 1265–1295 nm).
+pub(crate) const TESTBED_WAVELENGTHS_NM: [f64; 6] =
+    [1265.0, 1270.0, 1275.0, 1285.0, 1290.0, 1295.0];
+
+/// A testbed design's worst reflection and transmission, dB, on photonoxide's 2D FDFD at 10 nm
+/// (E along z, 20 cells of PML, the domain of [`testbed_domain`], ε 2.25 and 12.25): the left
+/// port's fundamental mode in, its reflection in the same mode, and the right port's second mode
+/// out, each port a 190-cell window (1.9 µm, the model's) at columns 25 and 325.
+pub(crate) fn testbed_spectrum(hex: &str) -> (f64, f64) {
+    testbed_spectrum_at(hex, 1)
+}
+
+/// [`testbed_spectrum`] on a grid `scale` times finer: each 10 nm pixel `scale` × `scale` cells,
+/// the PML, the ports' columns and their windows scaled with it.
+pub(crate) fn testbed_spectrum_at(hex: &str, scale: usize) -> (f64, f64) {
+    use crate::fdfd::{Port, Side};
+    let pattern = testbed_domain(hex);
+    let [pi, pj] = pattern.shape();
+    let (ni, nj) = (pi * scale, pj * scale);
+    let h = 0.01 / scale as f64;
+    let grid = Grid {
+        nx: ni,
+        ny: nj,
+        dx: h,
+        dy: h,
+        x0: 0.0,
+        y0: 0.0,
+    };
+    let cells: Vec<c64> = (0..ni * nj)
+        .map(|p| {
+            let solid = pattern.is_solid((p % ni) / scale, (p / ni) / scale);
+            c64::new(if solid { 12.25 } else { 2.25 }, 0.0)
+        })
+        .collect();
+    let (mut worst_r, mut worst_t) = (f64::NEG_INFINITY, f64::INFINITY);
+    for nm in TESTBED_WAVELENGTHS_NM {
+        let lam = Wavelength::um(nm * 1e-3).expect("a wavelength");
+        let solver = Solver2d::from_cells(
+            grid,
+            Polarization::Ez,
+            lam,
+            &cells,
+            Boundaries::pml(20 * scale),
+        )
+        .expect("a problem");
+        let window = 55 * scale..245 * scale;
+        let left = solver
+            .port_modes_within(25 * scale, window.clone(), 1)
+            .expect("modes")
+            .remove(0);
+        let right = solver
+            .port_modes_within(325 * scale, window, 2)
+            .expect("modes")
+            .remove(1);
+        let ports = [
+            Port {
+                mode: left,
+                side: Side::Left,
+            },
+            Port {
+                mode: right,
+                side: Side::Right,
+            },
+        ];
+        let s = solver.s_matrix(&ports).expect("an S-matrix");
+        worst_r = worst_r.max(20.0 * s[0][0].norm().log10());
+        worst_t = worst_t.min(20.0 * s[1][0].norm().log10());
+    }
+    (worst_r, worst_t)
+}

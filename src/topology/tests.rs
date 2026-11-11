@@ -308,3 +308,42 @@ fn a_bar_narrower_than_the_linewidth_violates_and_a_wider_one_does_not() {
     assert_eq!(super::eroded_threshold(0.2, 0.06).unwrap(), 1.0);
     assert_eq!(super::dilated_threshold(0.2, 0.06).unwrap(), 0.0);
 }
+
+/// The testbed's designs on photonoxide's 2D FDFD at 10 nm against the README's numbers.
+#[test]
+#[ignore = "I4's first study: the published designs re-evaluated, prints, in release"]
+fn the_testbed_spectrum_study() {
+    let printed = [
+        (-22.50, -0.19),
+        (-27.17, -0.19),
+        (-28.49, -0.35),
+        (-33.62, -0.19),
+        (-21.23, -0.81),
+        (-23.66, -0.93),
+        (-18.43, -1.23),
+        (-18.16, -1.34),
+    ];
+    let start = std::time::Instant::now();
+    for ((name, hex, _), (pr, pt)) in super::checks::TESTBED.iter().zip(printed) {
+        let (r, t) = super::checks::testbed_spectrum(hex);
+        println!("{name}: R {r:+.2} dB (printed {pr:+.2}), T {t:+.3} dB (printed {pt:+.2})");
+    }
+    println!("{:.1} s", start.elapsed().as_secs_f64());
+}
+
+/// The same at 5 nm, for the grid's own error beside the comparison.
+#[test]
+#[ignore = "I4's grid study: prints, in release"]
+fn the_testbed_grid_study() {
+    let start = std::time::Instant::now();
+    for (name, hex, _) in super::checks::TESTBED.iter().take(3) {
+        let (r1, t1) = super::checks::testbed_spectrum_at(hex, 1);
+        let (r2, t2) = super::checks::testbed_spectrum_at(hex, 2);
+        println!(
+            "{name}: 10 nm R {r1:+.3} T {t1:+.4}; 5 nm R {r2:+.3} T {t2:+.4}; changes R {:+.3} T {:+.4} dB",
+            r2 - r1,
+            t2 - t1
+        );
+    }
+    println!("{:.1} s", start.elapsed().as_secs_f64());
+}

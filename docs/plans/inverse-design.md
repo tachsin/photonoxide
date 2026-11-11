@@ -179,6 +179,33 @@ beside them (the rule's third-of-the-tolerance test decides whether each is a ca
 gap); our designs against the papers' stated targets. FEM and Meep are other discretizations, so
 each comparison carries our own grid study.
 
+*In progress 2026-11-11, the published designs re-evaluated* (`the_testbed_spectrum_study` and
+`the_testbed_grid_study`, ignored tests in `topology::tests`; `checks::testbed_spectrum_at`): the
+eight circle-brush designs of `src/cases/topology/testbed/` in the model's domain on our 2D FDFD
+(E along z, 20 cells of PML, ports as 1.9 µm windows at columns 25 and 325, the fundamental mode
+in and the second out), worst over the six wavelengths, against the testbed README's numbers
+(Ceviche, also at 10 nm):
+
+| Design | R, ours at 10 nm (dB) | R, printed | T, ours (dB) | T, printed |
+|---|---|---|---|---|
+| circle_10 w11 | −22.61 | −22.50 | −0.187 | −0.19 |
+| circle_10 w27 | −26.90 | −27.17 | −0.186 | −0.19 |
+| circle_12 w12 | −28.32 | −28.49 | −0.347 | −0.35 |
+| circle_14 w13 | −34.24 | −33.62 | −0.188 | −0.19 |
+| circle_16 w14 | −21.07 | −21.23 | −0.812 | −0.81 |
+| circle_18 w15 | −23.46 | −23.66 | −0.928 | −0.93 |
+| circle_20 w16 | −18.47 | −18.43 | −1.232 | −1.23 |
+| circle_20 w40 | −18.18 | −18.16 | −1.344 | −1.34 |
+
+Every transmission rounds to the printed digits; the reflections differ by 0.02 to 0.62 dB. Our
+own grid moves them as much: from 10 to 5 nm (each pixel 2 × 2 cells) the first three designs'
+R changes by +0.04, +0.17 and +0.54 dB and T by −0.004, −0.005 and +0.009 dB. *Open, for
+tachsin:* whether these become cases. Against the printed digits (half a unit, 0.005 dB for T)
+the rule's third-of-the-tolerance test fails on our 10 nm grid's own change (up to 0.009 dB),
+though both codes ran the same 10 nm pixels; the deep reflections are grid-limited in both. The
+honest options are a case compared at equal grids with the grid study stated beside it, or the
+numbers as a gap in #595. Nothing is loosened meanwhile.
+
 ### I5: The topology job and the studio's design view
 
 - A density design region in the `optimize` job: the region, its materials, the filter, the
