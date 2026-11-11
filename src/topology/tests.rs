@@ -246,3 +246,65 @@ fn the_ruler_measures_what_it_should_and_refuses_what_it_cant() {
     let d10 = minimum_length(&bar, [10.0, 10.0]).unwrap();
     assert!((d10 - 10.0 * d).abs() < 1e-9, "{d10} {d}");
 }
+
+/// The constraints' study: their values, and the gradient against differences per δ.
+#[test]
+#[ignore = "the constraints' study: prints, in release"]
+fn the_constraint_study() {
+    let (c, rho) = super::checks::constraint_problem();
+    let v = c.evaluate(&rho).unwrap();
+    println!(
+        "thresholds {:?}, c {}, values {:?}",
+        c.thresholds(),
+        c.decay(),
+        v.values
+    );
+    for &p in &super::checks::CONSTRAINT_PIXELS {
+        println!(
+            "  pixel {p}: ∂g_LW {:+.3e}, ∂g_LS {:+.3e}",
+            v.gradients[0][p], v.gradients[1][p]
+        );
+    }
+    for delta in [1e-5, 1e-4, 1e-3, 1e-2] {
+        let (worst, resolution) = super::checks::constraint_gradient_error(delta);
+        println!("δ {delta:.0e}: largest error {worst:.2e}, resolution {resolution:.2e}");
+    }
+}
+
+#[test]
+fn a_bar_narrower_than_the_linewidth_violates_and_a_wider_one_does_not() {
+    let (ni, nj, h) = (60usize, 8usize, 0.02);
+    let density = super::Density::new([ni, nj, 1], h, [2.085, 12.08])
+        .unwrap()
+        .with_filter(3.0 * h, super::Edge::Renormalized)
+        .unwrap()
+        .with_projection(super::Projection::new(8.0, 0.5).unwrap());
+    let c = super::LengthConstraints::new(&density, 0.09, 0.09).unwrap();
+    // a bar along j, `w` pixels wide, in the middle of the void
+    let bar = |w: usize| -> Vec<f64> {
+        (0..ni * nj)
+            .map(|p| {
+                let i = p % ni;
+                if (30 - w / 2..30 - w / 2 + w).contains(&i) {
+                    1.0
+                } else {
+                    0.0
+                }
+            })
+            .collect()
+    };
+    let narrow = c.evaluate(&bar(3)).unwrap().values[0];
+    let wide = c.evaluate(&bar(12)).unwrap().values[0];
+    // the wide bar isn't 0: at its edges, with c = (R/Δ)⁴ = 81 and a gradient near 1/6 a pixel,
+    // the indicator is e^-2.25, about 0.1 (Zhou et al.'s c keeps it finite at any flat point)
+    assert!(
+        narrow > 1e-4 && narrow > 10.0 * wide,
+        "narrow {narrow}, wide {wide}"
+    );
+    // and the refusals
+    let bare = super::Density::new([4, 4, 1], h, [1.0, 2.0]).unwrap();
+    assert!(super::LengthConstraints::new(&bare, 0.09, 0.09).is_err());
+    assert!(super::eroded_threshold(0.0, 0.06).is_err());
+    assert_eq!(super::eroded_threshold(0.2, 0.06).unwrap(), 1.0);
+    assert_eq!(super::dilated_threshold(0.2, 0.06).unwrap(), 0.0);
+}

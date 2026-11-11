@@ -153,7 +153,12 @@ discretisation of imageruler's 2023 version (MIT), which the testbed's README us
 design alone; the testbed's `run.py` moved to imageruler's integer rewrite in April 2024, after
 its README's numbers). Eight of the circle-brush designs are in `src/cases/topology/testbed/`
 (MIT, commit a06518872de6) and reproduce the printed lengths bit for bit (`topology/ruler-testbed`);
-shapes of known width within a pixel (`topology/ruler-shapes`). *Left for I3:* the constraints.
+shapes of known width within a pixel (`topology/ruler-shapes`). *Done 2026-11-11, the
+constraints:* `topology::LengthConstraints` (Zhou et al.'s Eqs. 8–11, c = (R/Δ)⁴) with Hammond et
+al.'s thresholds (Eqs. 14 and 15, checked against Eq. 29's inverse to round-off) and the gradients
+against differences (3.9e-11). Zhou's c = r⁴ is in pixels; Hammond et al. write r as the grid's
+resolution, a different scale, so c is a setting (`with_decay`). *Left for I3:* Arrieta et al.
+2026's hyperparameters, whose paper isn't in the folder yet.
 
 ### I4: 2D topology optimization, the published devices (#244's phase 9)
 

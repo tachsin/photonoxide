@@ -116,5 +116,25 @@ pub(crate) fn rules() -> Vec<(&'static str, Rule)> {
                 "the README prints each length to ten decimals of a nanometre: half a unit of the last, 5e-11 nm; the bisection's lengths are dyadic numbers of nanometres, reproduced bit for bit",
             ),
         ),
+        (
+            "topology/constraint-thresholds",
+            Rule::new(
+                Absolute,
+                RoundOff,
+                1e-14,
+                Exact,
+                "an exact inverse: a square root and its square, a few ulps of 1, held to 1e-14",
+            ),
+        ),
+        (
+            "topology/constraint-gradient",
+            Rule::new(
+                Relative,
+                Discretisation,
+                3e-9,
+                Noted,
+                "fourth-order differences of the densities: at δ = 1e-5, 1e-4, 1e-3 and 1e-2 the errors are 5.2e-8, 1.1e-9, 3.9e-11 and 7.7e-8 against a resolution of 7.0e-8, 7.0e-9, 7.0e-10 and 7.0e-11 (relative to the smallest gradient probed, 1.9e-5; the_constraint_study): below it up to 1e-3, the truncation above; at δ = 1e-3 the resolution is noted; held to 3e-9, above the report's three times it",
+            ),
+        ),
     ]
 }

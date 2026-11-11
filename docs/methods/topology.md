@@ -1,7 +1,7 @@
 ---
 title: "Densities, filters, projections, robust designs and length scales"
 module: topology
-summary: "A design region's pixels, each with a density between 0 and 1, filtered by a cone and projected towards 0 or 1 to the permittivity a solver sees; the solver's adjoint gradient pulled back through the projection and the filter's transpose to the densities, checked against finite differences in 2D FDFD; robust designs: the eroded, nominal and dilated realizations, the length scale and edge displacement their thresholds impose, and the epigraph form of their worst case; and the minimum length scale of any binary design, measured after the fact by morphological opening and closing, which reproduces the testbed's published lengths bit for bit."
+summary: "A design region's pixels, each with a density between 0 and 1, filtered by a cone and projected towards 0 or 1 to the permittivity a solver sees; the solver's adjoint gradient pulled back through the projection and the filter's transpose to the densities, checked against finite differences in 2D FDFD; robust designs: the eroded, nominal and dilated realizations, the length scale and edge displacement their thresholds impose, and the epigraph form of their worst case; and the minimum length scale of any binary design, measured after the fact by morphological opening and closing, which reproduces the testbed's published lengths bit for bit; and minimum linewidth and spacing as constraints with their gradients."
 order: 23.7
 papers:
   - cite: "F. Wang, B. S. Lazarov, O. Sigmund, Struct. Multidiscip. Optim. 43, 767 (published online 24 December 2010; the June 2011 issue) (the filter, Eqs. 4–5; the chain rule, Eq. 7; the projection, Eq. 9)"
@@ -14,6 +14,10 @@ papers:
     doi: 10.1007/s10409-009-0240-z
   - cite: "X. Qian, O. Sigmund, Comput. Methods Appl. Mech. Engrg. 253, 237 (2013) (the minimum length, Appendix, Eq. 29)"
     doi: 10.1016/j.cma.2012.08.020
+  - cite: "M. Zhou, B. S. Lazarov, F. Wang, O. Sigmund, Comput. Methods Appl. Mech. Engrg. 293, 266 (2015) (the geometric constraints, Eqs. 8–11)"
+    doi: 10.1016/j.cma.2015.05.003
+  - cite: "A. M. Hammond, A. Oskooi, S. G. Johnson, S. E. Ralph, Opt. Express 29, 23916 (2021) (minimum linewidth and spacing, Eqs. 10–15)"
+    doi: 10.1364/OE.431188
   - cite: "M. Chen et al., J. Opt. Soc. Am. B 41, A161 (2024) (the a-posteriori minimum length scale, Section 2, Eqs. 1–3; the testbed's mode converter, Section 3.C)"
     doi: 10.1364/JOSAB.506412
 validation:
@@ -28,6 +32,8 @@ validation:
   - topology/robust-epigraph
   - topology/ruler-shapes
   - topology/ruler-testbed
+  - topology/constraint-thresholds
+  - topology/constraint-gradient
 ---
 
 Topology optimization gives every pixel of a design region its own variable, a density ρ
@@ -179,6 +185,41 @@ two waveguides, at 10 nm. Eight of them, with lengths from 90.30 to 207.09 nm, a
 repository as data (MIT licence; `src/cases/topology/testbed/`), and their measured lengths are the
 printed ones to the last bit (`topology/ruler-testbed`).
 
+## Minimum linewidth and spacing as constraints
+
+The robust designs impose a length through three solves; Zhou et al. (2015) impose it with no
+solve at all, by two constraints on the filtered field. Where ρ̃ is flat inside the solid it must
+reach the eroded threshold η_e, and where it is flat inside the void stay below the dilated
+threshold η_d; indicators find those places (their Eqs. 8 and 9),
+
+$$
+I_s = \bar\rho\, e^{-c\lvert\nabla\tilde\rho\rvert^2}, \qquad I_v = (1 - \bar\rho)\, e^{-c\lvert\nabla\tilde\rho\rvert^2},
+$$
+
+and the constraints (Eqs. 10 and 11) are
+
+$$
+g_s = \frac1n \sum_i I_{s,i} \min(\tilde\rho_i - \eta_e, 0)^2 \le \epsilon, \qquad g_v = \frac1n \sum_i I_{v,i} \min(\eta_d - \tilde\rho_i, 0)^2 \le \epsilon .
+$$
+
+Hammond et al. (2021, Section 3.1) name them a foundry's minimum linewidth $g_{LW}$ and spacing
+$g_{LS}$ and give the thresholds from the filter's radius R and the linewidth $l_w$ or spacing
+$l_s$ (their Eqs. 14 and 15, Qian & Sigmund's Eq. 30): $\eta_e = \frac14 (l_w/R)^2 + \frac12$ up
+to $l_w = R$, $l_w/R - \frac14 (l_w/R)^2$ up to 2R, and 1 above, and $\eta_d$ the same reflected,
+$1 - \eta_e$ of $l_s$; they are the inverse of the robust `minimum_length` above
+(`eroded_threshold`, `dilated_threshold`).
+
+`LengthConstraints::new(&density, linewidth, spacing)` takes a 2D density with its filter and
+projection (the indicators weigh its physical field ρ̄) and the lengths in µm; `evaluate(rho)`
+returns both values and their gradients in the densities, through the min, the indicator's
+exponential (∇ρ̃ per pixel by central differences, one-sided at the region's edges), the
+projection and the filter's transpose. The decay is Zhou et al.'s c = (R/Δ)⁴ (their Section 2.2:
+0.4 to 1.4 (R/Δ)⁴ keeps the indicator finite over at least a pixel at any flat point of a
+discrete field), `with_decay(c)` another. With it the constraints are a penalty that falls near
+zero rather than to it: at a wide bar's edges the indicator is still about 0.1 (R = 3 pixels), so a
+bar narrower than the linewidth scores about 26 times one wider, not infinitely more; an optimizer
+lowers ε in stages, as Hammond et al. do.
+
 ## Validation
 
 | Case | What | Measured |
@@ -193,6 +234,8 @@ printed ones to the last bit (`topology/ruler-testbed`).
 | `topology/robust-length` | Eq. 29's b/R against bars of whole pixels at R/Δ = 100, η from 0.1 to 0.45 | 9.3e-5 (held to 4 (Δ/R)² = 4e-4) |
 | `topology/ruler-shapes` | a 20-pixel bar, a 30-pixel gap and a 15-pixel ring against their own widths | 0.63 pixel at most (held to a pixel; the bar 20.63, the gap 30.34, the ring 15.19) |
 | `topology/ruler-testbed` | eight of the testbed's mode converters, in their domain at 10 nm, against the README's printed lengths, 90.2978515625 to 207.0947265625 nm | 0 (held to 5e-11 nm, half the last printed digit) |
+| `topology/constraint-thresholds` | Hammond et al.'s thresholds of Eq. 29's length at 97 values of η, against 1 − η and η | within round-off (1.1e-16; held to 1e-14) |
+| `topology/constraint-gradient` | the two constraints' gradients on a 24 × 20 region (90 nm lines and gaps, R = 60 nm) against fourth-order differences, δ = 10⁻³, at five pixels | 3.9e-11 relative, below the resolution of 7.0e-10 (held to 3e-9) |
 | `topology/robust-epigraph` | the epigraph's Jacobian through the three realizations' FDFD gradients (thresholds 0.75, 0.5, 0.25) against differences of each realization's power, δ = 4 × 10⁻³ | 8.1e-9 relative, below the resolution of 6.7e-8 (held to 3e-7) |
 
 **The complex step** takes no difference, so it checks the derivative to round-off at every

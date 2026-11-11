@@ -95,6 +95,20 @@ pub(crate) fn cases() -> Vec<Case> {
             source: r"NanoComp/photonics-opt-testbed, waveguide_mode_converter/README.md (commit a06518872de6, written on 2023-05-11 with imageruler's minimum_length on the model's density and its domain's size), the designs under the MIT licence (src/cases/topology/testbed/); Chen et al. 2024, Section 3.C",
             run: ruler_testbed_case,
         },
+        Case {
+            id: "topology/constraint-thresholds",
+            title: r"The eroded and dilated thresholds that keep a minimum linewidth and spacing with a conic filter of radius $R$ (Hammond et al.'s Eqs. 14 and 15) against the minimum length the robust thresholds impose (Qian & Sigmund's Eq. 29, topology/robust-length): at 97 values of $\eta$ from 0.01 to 0.49, the threshold of the length $b(\eta)$ is $1 - \eta$ and $\eta$ (largest difference shown)",
+            tier: Tier::Analytic,
+            source: r"A. M. Hammond, A. Oskooi, S. G. Johnson, S. E. Ralph, Opt. Express 29, 23916 (2021), doi:10.1364/OE.431188, Eqs. 14 and 15; X. Qian, O. Sigmund 2013, Eq. 30 (the inverse of their Eq. 29), exact",
+            run: constraint_thresholds_case,
+        },
+        Case {
+            id: "topology/constraint-gradient",
+            title: r"The minimum linewidth and spacing constraints (Zhou et al.'s Eqs. 10 and 11, indicators $\bar\rho\, e^{-c\lvert\nabla\tilde\rho\rvert^2}$ and $(1 - \bar\rho)\, e^{-c\lvert\nabla\tilde\rho\rvert^2}$, $c = (R/\Delta)^4$) on a 24 × 20 region (20 nm pixels, a conic filter of 3 pixels, $\beta = 8$, 90 nm lines and gaps, so $\eta_e = 0.9375$ and $\eta_d = 0.0625$): their gradients through the min, the indicator's exponential, the projection and the filter's transpose, against fourth-order differences of the densities ($\delta = 10^{-3}$) at five pixels, corners and edges among them (largest relative difference shown)",
+            tier: Tier::Analytic,
+            source: r"M. Zhou, B. S. Lazarov, F. Wang, O. Sigmund, Comput. Methods Appl. Mech. Engrg. 293, 266 (2015), doi:10.1016/j.cma.2015.05.003, Eqs. 8–11 and Section 2.2; Hammond et al. 2021, Eqs. 10–13",
+            run: constraint_gradient_case,
+        },
     ]
 }
 
@@ -703,4 +717,78 @@ fn ruler_testbed_case() -> Outcome {
         .map(|(_, measured, printed)| (measured - printed).abs())
         .fold(0.0, f64::max);
     zero(worst, 5e-11)
+}
+
+/// The constraints' problem: a 24 × 20 region of 20 nm pixels, a conic filter of 3 pixels and a
+/// projection at β = 8, a minimum linewidth and spacing of 90 nm (1.5 R), and densities varied
+/// across both phases with features narrower than that.
+pub(crate) fn constraint_problem() -> (crate::topology::LengthConstraints, Vec<f64>) {
+    let (ni, nj, h) = (24usize, 20usize, 0.02);
+    let density = Density::new([ni, nj, 1], h, [2.085, 12.08])
+        .and_then(|d| d.with_filter(3.0 * h, Edge::Renormalized))
+        .map(|d| d.with_projection(Projection::new(8.0, 0.5).expect("a projection")))
+        .expect("a density");
+    let constraints =
+        crate::topology::LengthConstraints::new(&density, 0.09, 0.09).expect("constraints");
+    let rho = (0..ni * nj)
+        .map(|p| {
+            let (i, j) = ((p % ni) as f64, (p / ni) as f64);
+            (0.5 + 0.45 * (0.9 * i).sin() * (0.7 * j + 0.4).cos()).clamp(0.0, 1.0)
+        })
+        .collect();
+    (constraints, rho)
+}
+
+/// The pixels the constraints' gradient case probes: a corner, an edge, the middle and two
+/// others.
+pub(crate) const CONSTRAINT_PIXELS: [usize; 5] = [0, 11, 250, 263, 479];
+
+/// The constraints' gradients against fourth-order differences `delta` wide: the largest relative
+/// difference over both constraints at the probed pixels, and the differences' resolution there
+/// (the values' round-off over δ, relative to the gradient).
+pub(crate) fn constraint_gradient_error(delta: f64) -> (f64, f64) {
+    let (c, rho) = constraint_problem();
+    let base = c.evaluate(&rho).expect("evaluated");
+    let (mut worst, mut resolution) = (0.0f64, 0.0f64);
+    for &p in &CONSTRAINT_PIXELS {
+        let at = |d: f64| {
+            let mut r = rho.clone();
+            r[p] += d;
+            c.evaluate(&r).expect("evaluated").values
+        };
+        let [m2, m1, p1, p2] = [-2.0, -1.0, 1.0, 2.0].map(|s| at(s * delta));
+        for s in 0..2 {
+            let fd = (m2[s] - 8.0 * m1[s] + 8.0 * p1[s] - p2[s]) / (12.0 * delta);
+            let g = base.gradients[s][p];
+            let scale = g.abs().max(1e-300);
+            worst = worst.max((g - fd).abs() / scale);
+            // the four values' round-off through the stencil's weights, 18/12 of ε|g|/δ
+            resolution = resolution.max(1.5 * f64::EPSILON * base.values[s].abs() / delta / scale);
+        }
+    }
+    (worst, resolution)
+}
+
+/// Hammond et al.'s thresholds of Eq. 29's lengths against the robust thresholds themselves.
+pub(crate) fn constraint_thresholds_error() -> f64 {
+    let radius = 0.06;
+    (1..=97)
+        .map(|k| 0.01 + 0.005 * (k - 1) as f64)
+        .map(|eta| {
+            let b = minimum_length(eta).expect("an η") * radius;
+            let e = crate::topology::eroded_threshold(b, radius).expect("a threshold");
+            let d = crate::topology::dilated_threshold(b, radius).expect("a threshold");
+            (e - (1.0 - eta)).abs().max((d - eta).abs())
+        })
+        .fold(0.0, f64::max)
+}
+
+fn constraint_thresholds_case() -> Outcome {
+    zero(constraint_thresholds_error(), 1e-14)
+}
+
+fn constraint_gradient_case() -> Outcome {
+    let (worst, resolution) = constraint_gradient_error(1e-3);
+    crate::verdict::note_numerical(resolution);
+    zero(worst, 3e-9)
 }

@@ -34,11 +34,13 @@ use crate::{Error, Result};
 
 #[path = "../cases/topology/checks.rs"]
 pub(crate) mod checks;
+mod constraints;
 mod robust;
 pub mod ruler;
 #[cfg(test)]
 mod tests;
 
+pub use constraints::{Constrained, LengthConstraints, dilated_threshold, eroded_threshold};
 pub use robust::{
     Epigraph, Realizations, across_edge_1d, across_edge_2d, edge_shift_1d, edge_shift_2d,
     minimum_length,
