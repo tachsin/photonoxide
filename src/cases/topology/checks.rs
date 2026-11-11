@@ -17,7 +17,7 @@ pub(crate) fn cases() -> Vec<Case> {
             id: "topology/projection-derivative",
             title: r"The threshold projection's derivative $d\hat\rho/d\tilde\rho$ against complex-step differentiation of its value, at 201 points of $[0, 1]$ for $\beta$ = 1, 8, 64 and 256 and $\eta$ = 0.25, 0.5 and 0.75 (largest difference relative to the largest derivative, shown)",
             tier: Tier::Analytic,
-            source: r"F. Wang, B. S. Lazarov, O. Sigmund, Struct. Multidiscip. Optim. 43, 767 (2010), doi:10.1007/s00158-010-0602-y, Eq. 9; the complex step, $f'(x) = \operatorname{Im} f(x + ih)/h$, is exact to round-off for an analytic $f$ (no difference is taken)",
+            source: r"F. Wang, B. S. Lazarov, O. Sigmund, Struct. Multidiscip. Optim. 43, 767 (2010), doi:10.1007/s00158-010-0602-y, Eq. 9; the complex step, $f'(x) = \mathop{\mathrm{Im}} f(x + ih)/h$, is exact to round-off for an analytic $f$ (no difference is taken)",
             run: projection_derivative,
         },
         Case {
@@ -43,7 +43,7 @@ pub(crate) fn cases() -> Vec<Case> {
         },
         Case {
             id: "topology/fdfd-gradient",
-            title: r"2D FDFD, $E$ along $z$: the gradient of a port mode's power with respect to a 10 × 10 design region's densities (conic filter of 3 pixels, projection at $\beta = 8$, $\eta = 1/2$, silicon in oxide beside a 220 nm slab, 20 nm grid), from the adjoint pulled back through the projection and the filter's transpose, against fourth-order central differences of the densities ($\delta = 10^{-3}$) at a corner, an edge and the middle (largest relative difference shown)",
+            title: r"2D FDFD, $E$ along $z$: the gradient of a port mode's power with respect to a 10 × 10 design region's densities (conic filter of 3 pixels, projection at $\beta = 8$, $\eta = 1/2$, silicon in oxide beside a 220 nm slab, 20 nm grid), from the adjoint pulled back through the projection and the filter's transpose, against fourth-order central differences of the densities ($\delta = 2 \times 10^{-3}$) at a corner, an edge and the middle (largest relative difference shown)",
             tier: Tier::Analytic,
             source: r"G. Veronis, R. W. Dutton, S. Fan, Opt. Lett. 29, 2288 (2004), doi:10.1364/OL.29.002288, Eqs. 2–4, through Wang et al. 2010's chain rule, Eq. 7",
             run: fdfd_gradient,
@@ -327,13 +327,13 @@ impl Chain {
 pub(crate) const PIXELS: [usize; 3] = [0, 5, 55];
 
 fn fdfd_gradient() -> Outcome {
-    let probes = chain().probes(&PIXELS, 1e-3);
+    let probes = chain().probes(&PIXELS, 2e-3);
     crate::verdict::note_numerical(probes.iter().map(Probe::resolution).fold(0.0, f64::max));
     zero(
         probes
             .iter()
             .map(|p| (p.gradient - p.differences()).abs() / p.gradient.abs())
             .fold(0.0, f64::max),
-        1e-6,
+        1e-8,
     )
 }

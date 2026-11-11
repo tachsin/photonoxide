@@ -61,7 +61,7 @@ step at η. An optimization raises β in stages, the optimize job's
 finite β and η in [0, 1]; `Projection::derivative` is
 
 $$
-\frac{d\hat\rho}{d\tilde\rho} = \frac{\beta\operatorname{sech}^2\beta(\tilde\rho - \eta)}{\tanh\beta\eta + \tanh\beta(1 - \eta)},
+\frac{d\hat\rho}{d\tilde\rho} = \frac{\beta\mathop{\mathrm{sech}}\nolimits^2\beta(\tilde\rho - \eta)}{\tanh\beta\eta + \tanh\beta(1 - \eta)},
 $$
 
 0 far from η where the cosh overflows. The tanh and cosh are the `libm` crate's, so a design's
@@ -98,20 +98,39 @@ for `Solver2d::from_cells` or `reuse_cells`, and `restrict` takes the region's p
 
 | Case | What | Measured |
 |---|---|---|
-| `topology/projection-derivative` | the derivative against the complex step, Im ρ̂(x + ih)/h, at 201 points for β = 1, 8, 64, 256 and η = ¼, ½, ¾, relative to the largest | RESULT_PD |
-| `topology/projection-identities` | ρ̂(0) = 0, ρ̂(1) = 1, and ρ̂(1 − x) = 1 − ρ̂(x) at η = ½ | RESULT_PI |
-| `topology/filter-transpose` | ⟨Fx, y⟩ against ⟨x, Fᵀy⟩ on 160 × 160 and 24 × 20 × 16 pixels, renormalized and padded | RESULT_FT |
-| `topology/filter-preserves-linear` | a uniform density everywhere, and a linear ramp a radius from the edges | RESULT_FL |
-| `topology/fdfd-gradient` | 2D FDFD (E along z, 20 nm): a port mode's power against a 10 × 10 region's densities beside a 220 nm slab, filtered over 3 pixels and projected at β = 8, against fourth-order differences of the densities (δ = 10⁻³) at a corner, an edge and the middle | RESULT_FG |
+| `topology/projection-derivative` | the derivative against the complex step, Im ρ̂(x + ih)/h, at 201 points for β = 1, 8, 64, 256 and η = ¼, ½, ¾, relative to the largest | 4.1e-16 (held to 1e-12) |
+| `topology/projection-identities` | ρ̂(0) = 0, ρ̂(1) = 1, and ρ̂(1 − x) = 1 − ρ̂(x) at η = ½ | 2.2e-16 (held to 1e-14) |
+| `topology/filter-transpose` | ⟨Fx, y⟩ against ⟨x, Fᵀy⟩ on 160 × 160 and 24 × 20 × 16 pixels, renormalized and padded | 1.2e-14 relative (held to 1e-12) |
+| `topology/filter-preserves-linear` | a uniform density everywhere, and a linear ramp a radius from the edges | 7.2e-16 (held to 1e-14) |
+| `topology/fdfd-gradient` | 2D FDFD (E along z, 20 nm): a port mode's power against a 10 × 10 region's densities beside a 220 nm slab, filtered over 3 pixels and projected at β = 8, against fourth-order differences of the densities (δ = 2 × 10⁻³) at a corner, an edge and the middle | 4.9e-10 relative, below the differences' resolution of 2.8e-9 (held to 1e-8) |
 
 **The complex step** takes no difference, so it checks the derivative to round-off at every
-β: $f'(x) = \operatorname{Im} f(x + ih)/h$ with $h = 10^{-30}$ for any analytic f.
+β: $f'(x) = \mathop{\mathrm{Im}} f(x + ih)/h$ with $h = 10^{-30}$ for any analytic f.
 
 **The filter's identities.** The weights are normalized, so a uniform density is kept everywhere,
 padded or not; they are symmetric about the pixel, so a linear function's first moment cancels
 wherever the whole neighbourhood is inside. Both hold to round-off.
 
-**The chain against differences.** STEP_STUDY
+**The chain against differences.** Fourth-order central differences of the densities resolve
+the gradient only so far: the powers' own precision, divided by δ through the stencil's weights,
+gives a resolution that falls as 1/δ, and the stencil's truncation rises as δ⁴. A step study at
+nine values of δ from 10⁻⁴ to 3.2 × 10⁻² (`the_chain_step_study`, an ignored test, in release)
+on the case's three pixels, 2D FDFD at 20 nm:
+
+| δ | largest error | largest resolution |
+|---|---|---|
+| 10⁻⁴ | 1.3e-8 | 5.6e-8 |
+| 10⁻³ | 1.5e-9 | 5.6e-9 |
+| 2 × 10⁻³ | 4.9e-10 | 2.8e-9 |
+| 4 × 10⁻³ | 5.9e-10 | 1.4e-9 |
+| 1.6 × 10⁻² | 1.1e-7 | 3.5e-10 |
+| 3.2 × 10⁻² | 1.7e-6 | 1.8e-10 |
+
+Up to 4 × 10⁻³ every error is below the resolution: the adjoint and the differences agree as far
+as the differences can tell. Above it the truncation shows, 1.6 δ⁴ at the corner pixel (×15.9 for
+a doubled δ, against the 16 of δ⁴); it meets the resolution, 5.6 × 10⁻¹²/δ there, near
+δ = 5 × 10⁻³. The case takes δ = 2 × 10⁻³, where the truncation is 1 % of the resolution, and holds
+the error to 10⁻⁸, a few times the resolution.
 
 ## Limits
 
