@@ -137,6 +137,13 @@ pub(crate) fn cases() -> Vec<Case> {
             source: r"Christiansen & Sigmund 2021, Eq. 22; the chain rule through each stage, each filter its own transpose (symmetric)",
             run: double_filter_case,
         },
+        Case {
+            id: "topology/area-shapes",
+            title: r"Hammond et al.'s minimum-area and minimum-enclosed-area constraints on binary shapes in a 1 µm² region of 10 nm pixels, the minimums 0.08 and 0.2 µm²: a square island of 0.04 µm² (its $g_A$ is its area's share, 0.04), one of 0.16 µm² (0), a square hole of 0.09 µm² in solid (its $g_{EA}$, 0.09) and an island of 0.04 µm² touching the region's edge (0, it continues outside) (largest difference shown)",
+            tier: Tier::Analytic,
+            source: r"A. M. Hammond, A. Oskooi, S. G. Johnson, S. E. Ralph, Opt. Express 29, 23916 (2021), doi:10.1364/OE.431188, Section 4, Eqs. 21 and 22: on a binary pattern the dilated ring around a region adds nothing ($\bar\rho = 0$ outside an island, 1 outside a hole), so each value is the small regions' area",
+            run: area_shapes_case,
+        },
     ]
 }
 
@@ -1055,4 +1062,39 @@ fn double_filter_case() -> Outcome {
         double_filter_error(1e-3, 0.5).max(double_filter_error(1e-3, 0.3)),
         1e-8,
     )
+}
+
+/// The area constraints' shapes: the largest difference from their exact values.
+pub(crate) fn area_shapes_error() -> f64 {
+    let n = 100usize;
+    let c = crate::topology::AreaConstraints::new([n, n], 0.01, 0.08, 0.2).expect("constraints");
+    let square = |lo: usize, side: usize, value: f64, background: f64| -> Vec<f64> {
+        (0..n * n)
+            .map(|p| {
+                let (i, j) = (p % n, p / n);
+                if (lo..lo + side).contains(&i) && (lo..lo + side).contains(&j) {
+                    value
+                } else {
+                    background
+                }
+            })
+            .collect()
+    };
+    let cases = [
+        (square(40, 20, 1.0, 0.0), [0.04, 0.0]),
+        (square(30, 40, 1.0, 0.0), [0.0, 0.0]),
+        (square(35, 30, 0.0, 1.0), [0.0, 0.09]),
+        (square(0, 20, 1.0, 0.0), [0.0, 0.0]),
+    ];
+    cases
+        .iter()
+        .map(|(pattern, want)| {
+            let v = c.evaluate(pattern).expect("evaluated").values;
+            (v[0] - want[0]).abs().max((v[1] - want[1]).abs())
+        })
+        .fold(0.0, f64::max)
+}
+
+fn area_shapes_case() -> Outcome {
+    zero(area_shapes_error(), 1e-14)
 }

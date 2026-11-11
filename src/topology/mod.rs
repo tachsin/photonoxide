@@ -32,6 +32,7 @@ use rayon::prelude::*;
 
 use crate::{Error, Result};
 
+mod area;
 #[path = "../cases/topology/checks.rs"]
 pub(crate) mod checks;
 mod constraints;
@@ -41,6 +42,7 @@ pub mod ruler;
 #[cfg(test)]
 mod tests;
 
+pub use area::{AreaConstraints, Areas};
 pub use constraints::{
     Constrained, LengthConstraints, dilated_threshold, eroded_threshold, geometric_threshold,
 };

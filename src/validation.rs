@@ -1067,6 +1067,13 @@ pub fn cases() -> Vec<Case> {
             run: fdfd_adjoint_hz,
         },
         Case {
+            id: "fdfd/adjoint-gradient-row",
+            title: r"2D FDFD, $E$ along $z$: a sharp 90° bend of a 0.4 µm guide ($n = 3.4$ in 1.444, 20 nm cells), the power into its output's mode measured on two rows (the output runs along $y$), the mode solved on a straight guide turned onto the bend's columns: the adjoint gradient of that linear functional's power against fourth-order central differences ($\delta = 1.6 \times 10^{-2}$) at a cell in the corner, one in the vertical guide and one in the cladding (largest relative difference shown)",
+            tier: Tier::Analytic,
+            source: r"the adjoint variable method as fdfd/adjoint-gradient-ez, for any linear functional $a = c^T u$: $A^T\lambda = \bar a\, c$; with $E$ along $z$ a guide turned by 90° carries its straight self's mode, measured on rows as on columns (a unit test turns a straight guide's field onto such a grid and finds the column port's amplitude to 1e-12)",
+            run: fdfd_adjoint_row,
+        },
+        Case {
             id: "mode/hadley-uniform-box",
             title: r"Hadley's high-accuracy equations in a uniform region: the box of Hadley I, Fig. 5 ($n = 3.44$, $2 \times 2$ µm, 1.15 µm) on an $8 \times 8$ grid (250 nm; effective index shown)",
             tier: Tier::Analytic,
@@ -4332,6 +4339,32 @@ fn fdfd_adjoint_ez() -> Outcome {
 
 fn fdfd_adjoint_hz() -> Outcome {
     fdfd_adjoint(crate::fdfd::Polarization::Hz)
+}
+
+fn fdfd_adjoint_row() -> Outcome {
+    let probes = crate::fdfd::checks::row_gradient_probes(1.6e-2);
+    let errors: Vec<(f64, f64)> = probes
+        .iter()
+        .map(|p| {
+            (
+                (p.gradient - p.differences()).abs() / p.gradient.abs(),
+                p.resolution(),
+            )
+        })
+        .collect();
+    let resolution = errors.iter().map(|&(_, r)| r).fold(0.0, f64::max);
+    note_numerical(resolution);
+    let error = if errors.iter().all(|(e, r)| e <= r) {
+        resolution
+    } else {
+        errors.iter().map(|&(e, _)| e).fold(0.0, f64::max)
+    };
+    Outcome {
+        measured: error,
+        expected: 0.0,
+        tolerance: 2e-6,
+        error,
+    }
 }
 
 fn amplitude_convention() -> Outcome {

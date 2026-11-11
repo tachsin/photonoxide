@@ -42,6 +42,7 @@ validation:
   - topology/helmholtz-residual
   - topology/helmholtz-edge
   - topology/double-filter-gradient
+  - topology/area-shapes
 ---
 
 Topology optimization gives every pixel of a design region its own variable, a density ρ
@@ -248,6 +249,17 @@ zero rather than to it: at a wide bar's edges the indicator is still about 0.1 (
 bar narrower than the linewidth scores about 26 times one wider, not infinitely more; an optimizer
 lowers ε in stages, as Hammond et al. do.
 
+**Minimum area and enclosed area.** A foundry also refuses islands too small to print and holes
+too small to open. Hammond et al. (Section 4, Eqs. 21 and 22) constrain them by
+$g_A = \int \bar\rho\, I_A$ and $g_{EA} = \int (1 - \bar\rho)\, I_{EA}$, the indicators marking the
+islands whose area (their solid density summed) is below the minimum and the holes whose enclosed
+area is, each dilated by a pixel, and held fixed in the gradient: it erodes a small island and
+fills a small hole. `AreaConstraints::new(shape, pixel, min_area, min_hole)` and `evaluate(physical)`
+take the physical density and give both values (shares of the region's area) and their gradients
+in it, for `Density::pullback`. The regions are the 4-connected components of the pixels above 0.6
+and below 0.4 (Hammond et al. use marching squares at 0.6: the same regions on a pixel grid), a
+region touching the design region's edge left out, since it continues outside.
+
 **Without tuning.** Arrieta et al. (2026, Section 4.1 and Table 1) derive the conic filter's
 settings from the length alone: the filter's radius the target length itself (R = ℓ_t, so
 η_e = ¾), the decay c = 64 R² with ∇ρ̃ in µm⁻¹, which makes the sum a Riemann sum whose value
@@ -294,6 +306,7 @@ again.
 | `topology/helmholtz-residual` | the cosine-transform solve in its own discrete equation, mirrored edges, 2D and 3D | within round-off (1.5e-14; held to 1e-12) |
 | `topology/helmholtz-edge` | where the filter's density crosses η = 0.3 across a straight edge, 50 nm radius on 1.25 nm pixels, against r ln(1/2η) = 7.373 nm | 1.7e-3 nm (held to 0.1 (h/r)² r = 0.011 nm; second order from 10 nm, where it is 7.19 nm) |
 | `topology/double-filter-gradient` | the double filtering's gradient against fourth-order differences, δ = 10⁻³ | 4.0e-10 relative (held to 1e-8) |
+| `topology/area-shapes` | the area constraints on binary squares: an island of 0.04 µm² below a 0.08 µm² minimum, one of 0.16 µm², a hole of 0.09 µm² below 0.2 µm², an island touching the edge | within round-off (each its area's share or 0; held to 1e-14) |
 | `topology/robust-epigraph` | the epigraph's Jacobian through the three realizations' FDFD gradients (thresholds 0.75, 0.5, 0.25) against differences of each realization's power, δ = 4 × 10⁻³ | 8.1e-9 relative, below the resolution of 6.7e-8 (held to 3e-7) |
 
 **The complex step** takes no difference, so it checks the derivative to round-off at every

@@ -385,3 +385,30 @@ fn the_helmholtz_study() {
         );
     }
 }
+
+#[test]
+fn the_area_constraints_erode_islands_and_fill_holes() {
+    let c = super::AreaConstraints::new([20, 20], 0.01, 0.005, 0.005).unwrap();
+    // a 4 × 4 island (0.0016 µm²) in void: violated, its gradient positive on it and its ring
+    let island: Vec<f64> = (0..400)
+        .map(|p| {
+            if (8..12).contains(&(p % 20)) && (8..12).contains(&(p / 20)) {
+                1.0
+            } else {
+                0.0
+            }
+        })
+        .collect();
+    let a = c.evaluate(&island).unwrap();
+    assert_eq!(a.violations, [1, 0]);
+    assert!((a.values[0] - 16.0 / 400.0).abs() < 1e-15);
+    assert!(a.gradients[0][9 * 20 + 9] > 0.0 && a.gradients[0][7 * 20 + 9] > 0.0);
+    assert_eq!(a.gradients[0][0], 0.0);
+    // the same as a hole in solid: the hole's gradient negative (filling raises ρ̄)
+    let hole: Vec<f64> = island.iter().map(|x| 1.0 - x).collect();
+    let h = c.evaluate(&hole).unwrap();
+    assert_eq!(h.violations, [0, 1]);
+    assert!(h.gradients[1][9 * 20 + 9] < 0.0);
+    assert!(super::AreaConstraints::new([0, 3], 0.01, 1.0, 1.0).is_err());
+    assert!(c.evaluate(&[0.0; 3]).is_err());
+}

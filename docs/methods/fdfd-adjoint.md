@@ -13,6 +13,7 @@ papers:
 validation:
   - fdfd/adjoint-gradient-ez
   - fdfd/adjoint-gradient-hz
+  - fdfd/adjoint-gradient-row
   - fdfd3d/adjoint-gradient
 ---
 
@@ -74,6 +75,23 @@ Their ratio goes as $\delta^5$, so at $4 \times 10^{-3}$ the truncation is 4e-5 
 the other probes it stays under their round-off even at $6.4 \times 10^{-2}$. At $\delta = 10^{-3}$
 the bounds were four times larger, 6.6e-7 and 8.4e-7, against the cases' tolerance of 1e-6. The
 differences all lie within what they resolve, so the adjoint gradient is exact to that.
+
+## Any linear functional, and a mode on a row
+
+The port's amplitude is a linear functional of the field, $a = c^T u$, and nothing in the method
+needs more: `Solver2d::functional_power_gradient(&field, &c)` returns $|c^T u|^2$ and its gradient
+for any coefficients c, one per cell (`mode_power_gradient` is this with a column port's). A 2D
+port is a column, so light leaves along x; a 90° bend's output runs along y. With E along z the
+field is the same scalar whichever way a guide runs, so the output guide's mode is a straight
+guide's: solved as a column port on a problem whose cells along y are the bend's along x, and
+measured on two rows by the same projection, `Solver2d::row_mode_functional(&mode, row,
+first_column, direction)` giving its c. A unit test turns a straight guide's field onto such a
+grid and finds the column port's amplitude to 1e-12; `fdfd/adjoint-gradient-row` checks the
+gradient on a sharp 90° bend (a 0.4 µm guide of n = 3.4 in 1.444, 20 nm cells) at a cell in the
+corner, one in the vertical guide and one in the cladding, against fourth-order differences
+($\delta = 1.6 \times 10^{-2}$): every error below what the differences resolve, the coarsest 5.2e-7
+(the cladding's gradient is 3.4e-8), with no truncation showing up to $6.4 \times 10^{-2}$. With H
+along z a turned guide's fields are not the same components, and the row's functional is refused.
 
 ## In 3D
 
