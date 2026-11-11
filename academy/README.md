@@ -28,6 +28,7 @@ What silicon and silica do to light, and how a film, a strip and a bend hold it.
 | [The slab waveguide](slab-waveguide.md) | introductory | `slab` | `slab-fields`, `slab-bv`, `slab-neff`, `slab-confinement` |
 | [The strip waveguide and its cross-section](strip-waveguide.md) | intermediate | `strip` | `strip-fields`, `strip-neff`, `strip-models`, `strip-corners`, `strip-group-index` |
 | [Leaky and bent guides, and multilayers](leaky-and-bent-guides.md) | advanced | `leaky` | `leaky-field`, `leaky-substrate`, `bend-loss` |
+| [Loss in silicon waveguides](loss-in-silicon-waveguides.md) | intermediate | `loss` | `loss-roughness`, `loss-correlation`, `leaky-substrate`, `bend-loss`, `loss-cutback`, `ring-identify` |
 
 ### 2. Splitting and steering light
 
@@ -48,6 +49,7 @@ Interference and feedback picking wavelengths out, in interferometers, rings, gr
 | [The Mach–Zehnder interferometer](mach-zehnder.md) | introductory | `mzi` | `mzi-spectrum`, `mzi-extinction` |
 | [The ring resonator](ring-resonator.md) | introductory | `ring` | `ring-spectrum`, `ring-extinction`, `ring-coupling`, `ring-q-length`, `ring-identify` |
 | [Bragg gratings and mirrors](bragg-gratings.md) | intermediate | `bragg` | `bragg-reflectance`, `bragg-bandwidth` |
+| [Wavelength multiplexers](wavelength-multiplexers.md) | intermediate, **coming soon** with 0.13 | | |
 | [Photonic crystals and band gaps](photonic-crystals.md) | advanced | `crystal` | `crystal-stack`, `crystal-bands`, `crystal-group-index` |
 
 ### 4. Coupling to the chip
@@ -57,14 +59,18 @@ Bringing light from a fibre onto the chip and back.
 | Lesson | Level | Diagram | Charts |
 |---|---|---|---|
 | [Grating couplers](grating-couplers.md) | intermediate | `grating` | `grating-angle`, `grating-overlap`, `grating-apodization`, `grating-directionality`, `grating-band` |
+| [Edge couplers and spot-size converters](edge-couplers.md) | intermediate | `edge` | `edge-overlap`, `spot-size`, `taper-length` |
 
 ### 5. Active devices
 
-Changing light with heat, fields and its own intensity.
+Making, changing and detecting light: heat, fields and carriers, detectors, lasers, and light's own intensity.
 
 | Lesson | Level | Diagram | Charts |
 |---|---|---|---|
 | [Modulators and phase shifters](modulators.md) | intermediate | `modulator` | `heater-power`, `mzm-transfer`, `modulator-response`, `pcm-shift` |
+| [Carrier-depletion modulators](carrier-depletion-modulators.md) | advanced, **coming soon** with 0.8 | | |
+| [Germanium photodetectors](germanium-photodetectors.md) | advanced, **coming soon** with 0.13 | | |
+| [Lasers on silicon](lasers-on-silicon.md) | advanced, **coming soon** | | |
 | [Nonlinear integrated optics](nonlinear-optics.md) | advanced | `nonlinear` | `nl-miller`, `nl-coupled`, `nl-acceptance`, `nl-qpm`, `nl-ridge`, `nl-spm`, `nl-soliton`, `nl-fwm`, `nl-lle-states`, `nl-comb`, `nl-jsa` |
 
 ### 6. Circuits and systems
@@ -73,6 +79,10 @@ Devices joined into circuits that compute, switch and carry quantum states.
 
 | Lesson | Level | Diagram | Charts |
 |---|---|---|---|
+| [From components to circuits](from-components-to-circuits.md) | intermediate | `circuit` | `mzi-spectrum`, `circuit-fit`, `ring-identify` |
+| [Programmable photonics](programmable-photonics.md) | advanced, **coming soon** with 0.8 | | |
+| [Optical links and co-packaged optics](optical-links-and-co-packaged-optics.md) | intermediate, **coming soon** with 0.8 | | |
+| [Photonic neural networks](photonic-neural-networks.md) | advanced, **coming soon** with 0.8 | | |
 | [Quantum light on a chip](quantum-light.md) | advanced | `quantum` | `hom-visibility`, `hom-dip`, `mesh-fidelity`, `boson-distribution`, `permanent-cost`, `loss-varnava`, `nl-jsa`, `pair-statistics`, `ring-pairs`, `squeezing-loss`, `squeezed-photons`, `gbs-simulability`, `fusion-loss` |
 
 ### 7. Simulating, designing and making it
@@ -83,7 +93,10 @@ How the solvers work, how a design is found, and how a chip is made.
 |---|---|---|---|
 | [How FDTD works](how-fdtd-works.md) | intermediate | `yee` | `fdtd-stability`, `fdtd-dispersion`, `fdtd-pml` |
 | [FDFD and adjoint gradients](fdfd-and-adjoints.md) | advanced | `fdfd` | `fdfd-convergence`, `fdfd-gradient`, `fdfd-difference-step` |
+| [Eigenmode expansion](eigenmode-expansion.md) | advanced, **coming soon** | | |
 | [How a chip is made](how-a-chip-is-made.md) | introductory | `process` | `fab-resolution`, `fab-oxidation` |
+| [Tolerances, corners and yield](tolerances-corners-and-yield.md) | intermediate | `tolerance` | `tolerance-ring`, `mmi-tolerance`, `coupler-gap` |
+| [Layout, PDKs and design rules](layout-pdks-and-design-rules.md) | intermediate, **coming soon** with 0.9 | | |
 | [Inverse design](inverse-design.md) | advanced, **coming soon** with 0.7 | | |
 
 ### Beside the tracks: Beyond the waveguide
@@ -98,12 +111,12 @@ Light held by metals and shaped by surfaces, beside the silicon chip.
 ### Paths
 
 **Silicon photonics from zero**: from what silicon does to light to a working filter, coupled to a
-fibre, made and tuned. [Silicon, silica and dispersion](material-dispersion.md),
+fibre, made, tuned and joined into a circuit. [Silicon, silica and dispersion](material-dispersion.md),
 [the slab waveguide](slab-waveguide.md), [the strip waveguide](strip-waveguide.md),
 [the directional coupler](directional-coupler.md), [the Mach–Zehnder](mach-zehnder.md),
 [the ring resonator](ring-resonator.md), [grating couplers](grating-couplers.md),
-[how a chip is made](how-a-chip-is-made.md), and [modulators](modulators.md), its sections 2 and
-3 on heaters.
+[how a chip is made](how-a-chip-is-made.md), [modulators](modulators.md), its sections 2 and
+3 on heaters, and [from components to circuits](from-components-to-circuits.md).
 
 ### The file
 
@@ -300,6 +313,10 @@ shows first.
 | `crossing` | a waveguide crossing from above, two guides $w$ wide widened to $W$ over tapers $L_t$ long either side of the centre over two dashed ellipses of thinner slab, TE₀ in, the through port and the side ports' crosstalk; an asymmetric coupler, a guide $w_a$ wide a gap $g$ from one $W$ wide over $L$, the narrow guide's TE₀ in and the wide guide's TE₁ out, $n_{\mathrm{eff},0}(w_a) = n_{\mathrm{eff},1}(W)$; and a splitter-rotator from above, its guide widened from $w_1$ to $w_2$ over $L$ under silicon nitride, TM₀ in turning into TE₁ and passed to the upper guide as TE₀, beside its cross-section, silicon on silica under Si₃N₄ ($n = 2.0$) | none |
 | `quantum` | a quantum photonic chip from above: a pump $\omega_p$ split onto two guides, a ring on each making pairs, $2\omega_p = \omega_s + \omega_i$, a mesh of Mach–Zehnder cells $T_{m,m+1}(\theta, \phi)$ acting on four modes as $U = D\prod T$, its loss as $\hat b = S\hat a + L\hat c$, and four detectors $\eta_D$; beneath, two photons, one delayed by $\tau$, on a coupler of $R$ and $T$, leaving together, and the dip $R^2 + T^2 - 2RTe^{-\sigma^2\tau^2}$ | none |
 | `yee` | one cell of Yee's grid, $\Delta x$ by $\Delta y$ by $\Delta z$ in an oblique view, $E_x$, $E_y$, $E_z$ at the middles of its edges and $\tilde H_x$, $\tilde H_y$, $\tilde H_z$ at the centres of its faces; beside it the leapfrog in time, E at the steps $n - 1$, $n$, $n + 1$ and $\tilde H$ at the half steps, each from the other's curl, $\Delta t$, and $c\Delta t \le 1/\sqrt{\sum_i 1/\Delta_i^2}$ | none |
+| `loss` | a strip from above with rough sidewalls, their rms $\sigma$ and correlation length $L_c$, light scattered out at $\theta$, a bend of radius $R$ radiating outwards; the strip in section, $w$ by $t$ on a buried oxide $h$ thick, its field leaking into the substrate as $e^{-2\gamma h}$, carriers absorbing; $P_0 e^{-\alpha z}$ and the four losses adding up to $\alpha$ | |
+| `circuit` | a component as a box with ports $o_1 \ldots o_4$, waves $a_p$ in and $b_q$ out, $\mathbf{b} = S\,\mathbf{a}$; a netlist of a splitter, two arms and a combiner, its connections and its own ports; a responses samples and the sum of poles $c_n/(s - a_n) + d$ fitted through them | |
+| `edge` | an edge coupler from above: a strip $w$ wide narrowing over $L$ to a tip $w_t$ at the facet, its mode growing; a fibres core and cladding beyond a gap, tilted by $	heta$; the two modes profiles $2w_c$ and $2w_f$ offset by $d$, and their overlap $\eta$ | |
+| `tolerance` | a strip in section as drawn, $w$ by $t$, and its corners $\pm\Delta w$, $\pm\Delta t$; a rings through port at the nominal design and at a corner, its resonance moved by $\Delta\lambda = \lambda\,\Delta n_	ext{eff}/n_g$; a wafer whose film varies across it | |
 
 Each diagram is an entry in `studio/src-tauri/src/diagrams.rs` (its title, its captions, and its
 job if it has one) and an SVG drawn by a component in `studio/src/components/diagrams/`, named
@@ -410,6 +427,12 @@ code; the window only draws what it returns, and asks again as a slider moves.
 | `squeezed-photons` | `squeezing` dB (6), `transmission` η (1) | `Gaussian::probability` (hafnians) for 0 to 30 photons; the closed form without loss, thermal and Poisson light of the same mean |
 | `gbs-simulability` | `squeezing` $r$ (0.38), `modes` $K$ (6), `detector` $\eta_D$ (0.75), `dark` $p_D$ (10⁻⁴) | `quantum::qi_simulable_error` at 200 transmissions, `qi_exact_transmission`; Qi et al.'s two experiments |
 | `fusion-loss` | `boost` (2: $p_\text{fail} = 1/4$) | `quantum::fusion_loss` for fusions failing with 1/2, 1/4 and 1/8 against the loss a photon; `quantum::permanent` on Knill et al.'s 3 × 3 sign gate and on a balanced coupler of two polarizations |
+| `loss-roughness` | `sigma` nm (2), `correlation` nm (50), `core` $n_1$ (3.5), `thickness` nm (220) | `mode::roughness::slab_loss` (the volume current on the exact slab mode) and `payne_lacey` (their Eqs. 8–12) at 160 thicknesses from 40 nm to 1 µm, both walls rough, in silica at 1.55 µm |
+| `loss-correlation` | `sigma` nm (2), `core` $n_1$ (3.5), `thickness` nm (220), `correlation` nm (50) | the same at 120 correlation lengths from 5 nm to 5 µm; $1/(\beta - n_2 k_0)$ beside the lossiest |
+| `loss-cutback` | `loss` dB/cm (2), `facet` dB (4), `longest` cm (2), `scatter` dB (0.3) | `circuit::components::Waveguide::s_matrix` at six lengths minus two facets, each off the line by a fixed share of the scatter; the line by least squares with its slopes standard error; $Q_i = 2\pi n_g/(\lambdalpha)$ |
+| `circuit-fit` | `poles` $N$ (6), `radius` µm (10), `coupling` κ² (0.1), `window` nm (30) | `AddDropRing::s_matrix` at 401 wavelengths, through and drop fitted together by `compact::fit::vector_fit` with $N$ common poles and a constant |
+| `edge-overlap` | `chip` $2w_c$ µm (3), `fibre` $2w_f$ µm (10.4), `offset` µm (0.5), `tilt` ° (0) | `eme::Beam::gaussian` and `tilted` for each field, their overlap summed on 2401 points, times the vertical overlap; Marcuses closed form as the check |
+| `tolerance-ring` | `width` nm (500), `thickness` nm (220), `bias` $\pm\Delta w$ nm (10), `film` $\pm\Delta t$ nm (5) | `mode::eim::Ridge::strip` (TE) on `material::silicon` and `material::silica` at every error from −20 to 20 nm, $n_g$ from λ ± 10 nm, $\Delta\lambda = \lambda\Delta n_\text{eff}/n_g$; the four corners |
 
 The ranges are in `charts.rs` (the coupler's in `charts/coupler.rs`), and the window's sliders keep
 to them. A chart may draw its y axis on a logarithmic scale (`y_log`), and give curves that belong

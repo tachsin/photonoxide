@@ -9,7 +9,7 @@ tracks:
   - id: waveguides
     title: Waveguides and materials
     summary: What silicon and silica do to light, and how a film, a strip and a bend hold it.
-    lessons: [material-dispersion, slab-waveguide, strip-waveguide, leaky-and-bent-guides]
+    lessons: [material-dispersion, slab-waveguide, strip-waveguide, leaky-and-bent-guides, loss-in-silicon-waveguides]
 
   - id: splitting
     title: Splitting and steering light
@@ -19,27 +19,27 @@ tracks:
   - id: filters
     title: Filters and resonators
     summary: Interference and feedback picking wavelengths out, in interferometers, rings, gratings and crystals.
-    lessons: [mach-zehnder, ring-resonator, bragg-gratings, photonic-crystals]
+    lessons: [mach-zehnder, ring-resonator, bragg-gratings, wavelength-multiplexers, photonic-crystals]
 
   - id: coupling
     title: Coupling to the chip
     summary: Bringing light from a fibre onto the chip and back.
-    lessons: [grating-couplers]
+    lessons: [grating-couplers, edge-couplers]
 
   - id: active
     title: Active devices
-    summary: Changing light with heat, fields and its own intensity.
-    lessons: [modulators, nonlinear-optics]
+    summary: "Making, changing and detecting light: heat, fields and carriers, detectors, lasers, and light's own intensity."
+    lessons: [modulators, carrier-depletion-modulators, germanium-photodetectors, lasers-on-silicon, nonlinear-optics]
 
   - id: systems
     title: Circuits and systems
     summary: Devices joined into circuits that compute, switch and carry quantum states.
-    lessons: [quantum-light]
+    lessons: [from-components-to-circuits, programmable-photonics, optical-links-and-co-packaged-optics, photonic-neural-networks, quantum-light]
 
   - id: methods
     title: Simulating, designing and making it
     summary: How the solvers work, how a design is found, and how a chip is made.
-    lessons: [how-fdtd-works, fdfd-and-adjoints, how-a-chip-is-made, inverse-design]
+    lessons: [how-fdtd-works, fdfd-and-adjoints, eigenmode-expansion, how-a-chip-is-made, tolerances-corners-and-yield, layout-pdks-and-design-rules, inverse-design]
 
   - id: beyond
     title: Beyond the waveguide
@@ -50,7 +50,7 @@ tracks:
 paths:
   - id: from-zero
     title: Silicon photonics from zero
-    summary: From what silicon does to light to a working filter, coupled to a fibre, made and tuned.
-    lessons: [material-dispersion, slab-waveguide, strip-waveguide, directional-coupler, mach-zehnder, ring-resonator, grating-couplers, how-a-chip-is-made, modulators]
+    summary: From what silicon does to light to a working filter, coupled to a fibre, made, tuned and joined into a circuit.
+    lessons: [material-dispersion, slab-waveguide, strip-waveguide, directional-coupler, mach-zehnder, ring-resonator, grating-couplers, how-a-chip-is-made, modulators, from-components-to-circuits]
     sections:
       modulators: [2, 3]

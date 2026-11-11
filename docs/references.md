@@ -2613,7 +2613,7 @@ S. Lischke, D. Knoll, C. Mai, L. Zimmermann, A. Peczek, M. Kroh, A. Trusch, E. K
 B. Little, S. Chu, H. Haus, J. Foresi, J.-P. Laine, "Microring resonator channel dropping filters", J. Lightwave Technol. 15, 998 (1997). [doi:10.1109/50.588673](https://doi.org/10.1109/50.588673)
 
 - Methods pages: [devices.md:12](methods/devices.md?plain=1#L12), [optimization.md:12](methods/optimization.md?plain=1#L12), [314](methods/optimization.md?plain=1#L314)
-- Academy lessons: [README.md:62](../academy/README.md?plain=1#L62), [124](../academy/README.md?plain=1#L124), [ring-resonator.md:31](../academy/ring-resonator.md?plain=1#L31), [595](../academy/ring-resonator.md?plain=1#L595)
+- Academy lessons: [README.md:165](../academy/README.md?plain=1#L165), [227](../academy/README.md?plain=1#L227), [ring-resonator.md:31](../academy/ring-resonator.md?plain=1#L31), [595](../academy/ring-resonator.md?plain=1#L595)
 - Examples: [README.md:52](../examples/README.md?plain=1#L52), [56](../examples/README.md?plain=1#L56), [optimize_chip_rings.rs:8](../examples/optimize_chip_rings.rs#L8), [optimize_ring_flat.rs:8](../examples/optimize_ring_flat.rs#L8)
 - Code: [src/device/ring.rs:289](../src/device/ring.rs#L289)
 - Other documents: [docs/plans/optimization.md:620](plans/optimization.md?plain=1#L620)
