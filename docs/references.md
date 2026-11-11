@@ -2,7 +2,7 @@
 
 <!-- Written by `photonoxide references --write` (or `just references`) from docs/references.yaml and the citations in the repository: edit those, not this page. -->
 
-Every paper, book and data set photonoxide cites, with every place in the repository that cites it, by file and line. 626 sources, 620 with a DOI and 6 without, are cited at 3751 places in 434 files. The sources are listed by their first author; [references-by-file.md](references-by-file.md) lists each methods page, lesson, example and source file with the sources it cites, and the [validation report](validation.md) gives each case's source on its row. How to cite a source is in [CONTRIBUTING.md](../CONTRIBUTING.md#citing-a-source); the list of sources is [references.yaml](references.yaml).
+Every paper, book and data set photonoxide cites, with every place in the repository that cites it, by file and line. 639 sources, 633 with a DOI and 6 without, are cited at 3825 places in 438 files. The sources are listed by their first author; [references-by-file.md](references-by-file.md) lists each methods page, lesson, example and source file with the sources it cites, and the [validation report](validation.md) gives each case's source on its row. How to cite a source is in [CONTRIBUTING.md](../CONTRIBUTING.md#citing-a-source); the list of sources is [references.yaml](references.yaml).
 
 [A](#a) · [B](#b) · [C](#c) · [D](#d) · [E](#e) · [F](#f) · [G](#g) · [H](#h) · [I](#i) · [J](#j) · [K](#k) · [L](#l) · [M](#m) · [N](#n) · [O](#o) · [P](#p) · [Q](#q) · [R](#r) · [S](#s) · [T](#t) · [U](#u) · [V](#v) · [W](#w) · [X](#x) · [Y](#y) · [Z](#z)
 
@@ -150,7 +150,7 @@ R. Alferness, "Waveguide Electrooptic Modulators", IEEE Trans. Microwave Theory 
 
 V. R. Almeida, R. R. Panepucci, M. Lipson, "Nanotaper for compact mode conversion", Opt. Lett. 28, 1302 (2003). [doi:10.1364/OL.28.001302](https://doi.org/10.1364/OL.28.001302)
 
-- Academy lessons: [crossings-and-converters.md:36](../academy/crossings-and-converters.md?plain=1#L36), [571](../academy/crossings-and-converters.md?plain=1#L571), [653](../academy/crossings-and-converters.md?plain=1#L653)
+- Academy lessons: [crossings-and-converters.md:36](../academy/crossings-and-converters.md?plain=1#L36), [571](../academy/crossings-and-converters.md?plain=1#L571), [653](../academy/crossings-and-converters.md?plain=1#L653), [edge-couplers.md:33](../academy/edge-couplers.md?plain=1#L33), [131](../academy/edge-couplers.md?plain=1#L131), [201](../academy/edge-couplers.md?plain=1#L201)
 
 #### Amestoy et al. 2001
 
@@ -349,6 +349,7 @@ S. Bartolucci, P. Birchall, H. Bombín, H. Cable, C. Dawson, M. Gimeno-Segovia, 
 T. Barwicz, H. Haus, "Three-dimensional analysis of scattering losses due to sidewall roughness in microphotonic waveguides", J. Lightwave Technol. 23, 2719 (2005). [doi:10.1109/JLT.2005.850816](https://doi.org/10.1109/JLT.2005.850816)
 
 - Methods pages: [devices.md:66](methods/devices.md?plain=1#L66)
+- Academy lessons: [loss-in-silicon-waveguides.md:68](../academy/loss-in-silicon-waveguides.md?plain=1#L68), [187](../academy/loss-in-silicon-waveguides.md?plain=1#L187), [333](../academy/loss-in-silicon-waveguides.md?plain=1#L333)
 - Validation cases: [`roughness/payne-lacey-eq9`](validation.md?plain=1#L758)
 - Code: [src/mode/roughness.rs:9](../src/mode/roughness.rs#L9), [src/mode/roughness_checks.rs:148](../src/mode/roughness_checks.rs#L148)
 - Other documents: [ROADMAP.md:752](../ROADMAP.md?plain=1#L752), [docs/plans/fabrication.md:646](plans/fabrication.md?plain=1#L646)
@@ -366,6 +367,7 @@ C. A. Bauer, G. R. Werner, J. R. Cary, "A second-order 3D electromagnetics algor
 J. F. Bauters, M. J. R. Heck, D. John, D. Dai, M.-C. Tien, J. S. Barton, A. Leinse, R. G. Heideman, D. J. Blumenthal, J. E. Bowers, "Ultra-low-loss high-aspect-ratio Si\_3N\_4 waveguides", Opt. Express 19, 3163 (2011). [doi:10.1364/OE.19.003163](https://doi.org/10.1364/OE.19.003163)
 
 - Methods pages: [fabrication.md:51](methods/fabrication.md?plain=1#L51)
+- Academy lessons: [loss-in-silicon-waveguides.md:80](../academy/loss-in-silicon-waveguides.md?plain=1#L80), [118](../academy/loss-in-silicon-waveguides.md?plain=1#L118), [337](../academy/loss-in-silicon-waveguides.md?plain=1#L337)
 - Code: [src/fabrication/references.rs:280](../src/fabrication/references.rs#L280), [282](../src/fabrication/references.rs#L282)
 - Other documents: [docs/plans/fabrication.md:663](plans/fabrication.md?plain=1#L663)
 
@@ -474,6 +476,7 @@ D. J. Blumenthal, R. Heideman, D. Geuzebroek, A. Leinse, C. Roeloffzen, "Silicon
 
 W. Bogaerts, L. Chrostowski, "Silicon Photonics Circuit Design: Methods, Tools and Challenges", Laser & Photonics Reviews 12, 1700237 (2018). [doi:10.1002/lpor.201700237](https://doi.org/10.1002/lpor.201700237)
 
+- Academy lessons: [from-components-to-circuits.md:48](../academy/from-components-to-circuits.md?plain=1#L48), [229](../academy/from-components-to-circuits.md?plain=1#L229)
 - Other documents: [ROADMAP.md:764](../ROADMAP.md?plain=1#L764)
 
 #### Bogaerts and Selvaraja 2011
@@ -506,6 +509,12 @@ W. Bogaerts, P. De Heyn, T. Van Vaerenbergh, K. De Vos, S. Kumar Selvaraja, T. C
 - Code: [python/tests/test_api.py:47](../python/tests/test_api.py#L47), [src/cases/compact/checks.rs:128](../src/cases/compact/checks.rs#L128), [740](../src/cases/compact/checks.rs#L740), [src/circuit/components/coupler.rs:37](../src/circuit/components/coupler.rs#L37), [111](../src/circuit/components/coupler.rs#L111), [src/circuit/components/ring.rs:3](../src/circuit/components/ring.rs#L3), [388](../src/circuit/components/ring.rs#L388), [644](../src/circuit/components/ring.rs#L644), [src/device/checks.rs:68](../src/device/checks.rs#L68), [145](../src/device/checks.rs#L145), [180](../src/device/checks.rs#L180), [src/device/ring.rs:286](../src/device/ring.rs#L286), [src/job/fit_checks.rs:429](../src/job/fit_checks.rs#L429), [src/nonlinear/cavity_checks.rs:488](../src/nonlinear/cavity_checks.rs#L488), [src/validation.rs:1968](../src/validation.rs#L1968), [1975](../src/validation.rs#L1975), [1982](../src/validation.rs#L1982), [2052](../src/validation.rs#L2052), [2059](../src/validation.rs#L2059), [2066](../src/validation.rs#L2066), [2073](../src/validation.rs#L2073), [2080](../src/validation.rs#L2080), [tests/jobs-toml/chip-fit.toml:2](../tests/jobs-toml/chip-fit.toml#L2), [tests/jobs-toml/chip-ring-critical.toml:1](../tests/jobs-toml/chip-ring-critical.toml#L1)
 - Jobs and circuits: [jobs/chip-fit.yaml:2](../jobs/chip-fit.yaml#L2), [jobs/chip-ring-critical.yaml:1](../jobs/chip-ring-critical.yaml#L1)
 - Other documents: [ROADMAP.md:763](../ROADMAP.md?plain=1#L763), [docs/plans/optimization.md:625](plans/optimization.md?plain=1#L625)
+
+#### Bogaerts et al. 2019
+
+W. Bogaerts, Y. Xing, U. Khan, "Layout-Aware Variability Analysis, Yield Prediction, and Optimization in Photonic Integrated Circuits", IEEE J. Select. Topics Quantum Electron. 25, 1 (2019). [doi:10.1109/JSTQE.2019.2906271](https://doi.org/10.1109/JSTQE.2019.2906271)
+
+- Academy lessons: [tolerances-corners-and-yield.md:47](../academy/tolerances-corners-and-yield.md?plain=1#L47), [192](../academy/tolerances-corners-and-yield.md?plain=1#L192)
 
 #### Bogaerts et al. 2020
 
@@ -660,6 +669,12 @@ Calma Company, "GDSII Stream Format Manual, release 6.0" (1987)., open access.
 C. Campos, J. E. Roman, "NEP: A Module for the Parallel Solution of Nonlinear Eigenvalue Problems in SLEPc", ACM Trans. Math. Softw. 47, 36 (2021). [doi:10.1145/3447544](https://doi.org/10.1145/3447544)
 
 - Other documents: [docs/plans/performance.md:601](plans/performance.md?plain=1#L601)
+
+#### Cardenas et al. 2014
+
+J. Cardenas, C. B. Poitras, K. Luke, L.-W. Luo, P. A. Morton, M. Lipson, "High Coupling Efficiency Etched Facet Tapers in Silicon Waveguides", IEEE Photon. Technol. Lett. 26, 2380 (2014). [doi:10.1109/LPT.2014.2357177](https://doi.org/10.1109/LPT.2014.2357177)
+
+- Academy lessons: [edge-couplers.md:45](../academy/edge-couplers.md?plain=1#L45), [174](../academy/edge-couplers.md?plain=1#L174), [203](../academy/edge-couplers.md?plain=1#L203)
 
 #### Carolan et al. 2015
 
@@ -1257,6 +1272,7 @@ R. Ferrini, G. Guizzetti, M. Patrini, A. Parisini, L. Tarricone, B. Valenti, "Op
 
 M. Fiers, T. Van Vaerenbergh, K. Caluwaerts, D. Vande Ginste, B. Schrauwen, J. Dambre, P. Bienstman, "Time-domain and frequency-domain modeling of nonlinear optical components at the circuit-level using a node-based approach", J. Opt. Soc. Am. B 29, 896 (2012). [doi:10.1364/JOSAB.29.000896](https://doi.org/10.1364/JOSAB.29.000896)
 
+- Academy lessons: [from-components-to-circuits.md:36](../academy/from-components-to-circuits.md?plain=1#L36), [227](../academy/from-components-to-circuits.md?plain=1#L227)
 - Other documents: [ROADMAP.md:832](../ROADMAP.md?plain=1#L832), [docs/plans/carrier-modulators.md:582](plans/carrier-modulators.md?plain=1#L582)
 
 #### Filipsson 1981
@@ -1611,7 +1627,7 @@ B. V. Gurses, R. Fatemi, A. Khachaturian, A. Hajimiri, "Large-Scale Crosstalk-Co
 B. Gustavsen, A. Semlyen, "Rational approximation of frequency domain responses by vector fitting", IEEE Trans. Power Delivery 14, 1052 (1999). [doi:10.1109/61.772353](https://doi.org/10.1109/61.772353)
 
 - Methods pages: [compact.md:8](methods/compact.md?plain=1#L8)
-- Academy lessons: [ring-resonator.md:37](../academy/ring-resonator.md?plain=1#L37), [487](../academy/ring-resonator.md?plain=1#L487)
+- Academy lessons: [from-components-to-circuits.md:30](../academy/from-components-to-circuits.md?plain=1#L30), [152](../academy/from-components-to-circuits.md?plain=1#L152), [225](../academy/from-components-to-circuits.md?plain=1#L225), [ring-resonator.md:37](../academy/ring-resonator.md?plain=1#L37), [487](../academy/ring-resonator.md?plain=1#L487)
 - Validation cases: [`compact/vf-paper-rms`](validation.md?plain=1#L376)
 - Code: [src/cases/compact/checks.rs:705](../src/cases/compact/checks.rs#L705), [src/compact/fit.rs:6](../src/compact/fit.rs#L6), [src/compact/mod.rs:4](../src/compact/mod.rs#L4), [src/compact/model.rs:269](../src/compact/model.rs#L269), [src/compact/model/tests.rs:76](../src/compact/model/tests.rs#L76), [src/compact/param.rs:14](../src/compact/param.rs#L14), [1369](../src/compact/param.rs#L1369), [src/device/compact.rs:703](../src/device/compact.rs#L703)
 - Other documents: [ROADMAP.md:829](../ROADMAP.md?plain=1#L829), [docs/plans/carrier-modulators.md:556](plans/carrier-modulators.md?plain=1#L556)
@@ -2404,7 +2420,19 @@ J. Krupka, J. Breeze, A. Centeno, N. Alford, T. Claussen, L. Jensen, "Measuremen
 - Validation cases: [`material/rf-krupka-table-1`](validation.md?plain=1#L43)
 - Code: [src/material/catalogue/references.rs:641](../src/material/catalogue/references.rs#L641), [src/material/catalogue/rf.rs:9](../src/material/catalogue/rf.rs#L9), [src/validation.rs:330](../src/validation.rs#L330)
 
+#### Kurokawa 1965
+
+K. Kurokawa, "Power Waves and the Scattering Matrix", IEEE Trans. Microwave Theory Techn. 13, 194 (1965). [doi:10.1109/TMTT.1965.1125964](https://doi.org/10.1109/TMTT.1965.1125964)
+
+- Academy lessons: [from-components-to-circuits.md:24](../academy/from-components-to-circuits.md?plain=1#L24), [85](../academy/from-components-to-circuits.md?plain=1#L85), [223](../academy/from-components-to-circuits.md?plain=1#L223)
+
 ### L
+
+#### Lacey and Payne 1990
+
+J. Lacey, F. Payne, "Radiation loss from planar waveguides with random wall imperfections", IEE Proc. J Optoelectron. UK 137, 282 (1990). [doi:10.1049/ip-j.1990.0047](https://doi.org/10.1049/ip-j.1990.0047)
+
+- Academy lessons: [loss-in-silicon-waveguides.md:38](../academy/loss-in-silicon-waveguides.md?plain=1#L38), [174](../academy/loss-in-silicon-waveguides.md?plain=1#L174), [327](../academy/loss-in-silicon-waveguides.md?plain=1#L327)
 
 #### Lalanne and Chavel 2017
 
@@ -2503,11 +2531,17 @@ C. C. Lee, H. Y. Fan, "Second-harmonic generation in InSb, InP, and AlSb", Phys.
 
 - Code: [src/material/catalogue/references.rs:361](../src/material/catalogue/references.rs#L361)
 
+#### Lee et al. 2000
+
+K. K. Lee, D. R. Lim, H.-C. Luan, A. Agarwal, J. Foresi, L. C. Kimerling, "Effect of size and roughness on light transmission in a Si/SiO2 waveguide: Experiments and model", Applied Physics Letters 77, 1617 (2000). [doi:10.1063/1.1308532](https://doi.org/10.1063/1.1308532)
+
+- Academy lessons: [loss-in-silicon-waveguides.md:50](../academy/loss-in-silicon-waveguides.md?plain=1#L50), [196](../academy/loss-in-silicon-waveguides.md?plain=1#L196)
+
 #### Lee et al. 2001
 
 K. K. Lee, D. R. Lim, L. C. Kimerling, J. Shin, F. Cerrina, "Fabrication of ultralow-loss Si/SiO\_2 waveguides by roughness reduction", Opt. Lett. 26, 1888 (2001). [doi:10.1364/OL.26.001888](https://doi.org/10.1364/OL.26.001888)
 
-- Academy lessons: [strip-waveguide.md:70](../academy/strip-waveguide.md?plain=1#L70), [617](../academy/strip-waveguide.md?plain=1#L617), [703](../academy/strip-waveguide.md?plain=1#L703)
+- Academy lessons: [loss-in-silicon-waveguides.md:56](../academy/loss-in-silicon-waveguides.md?plain=1#L56), [215](../academy/loss-in-silicon-waveguides.md?plain=1#L215), [331](../academy/loss-in-silicon-waveguides.md?plain=1#L331), [strip-waveguide.md:70](../academy/strip-waveguide.md?plain=1#L70), [617](../academy/strip-waveguide.md?plain=1#L617), [703](../academy/strip-waveguide.md?plain=1#L703)
 - Other documents: [docs/plans/fabrication.md:645](plans/fabrication.md?plain=1#L645)
 
 #### Leidinger et al. 2015
@@ -2613,7 +2647,7 @@ S. Lischke, D. Knoll, C. Mai, L. Zimmermann, A. Peczek, M. Kroh, A. Trusch, E. K
 B. Little, S. Chu, H. Haus, J. Foresi, J.-P. Laine, "Microring resonator channel dropping filters", J. Lightwave Technol. 15, 998 (1997). [doi:10.1109/50.588673](https://doi.org/10.1109/50.588673)
 
 - Methods pages: [devices.md:12](methods/devices.md?plain=1#L12), [optimization.md:12](methods/optimization.md?plain=1#L12), [314](methods/optimization.md?plain=1#L314)
-- Academy lessons: [README.md:62](../academy/README.md?plain=1#L62), [124](../academy/README.md?plain=1#L124), [ring-resonator.md:31](../academy/ring-resonator.md?plain=1#L31), [595](../academy/ring-resonator.md?plain=1#L595)
+- Academy lessons: [README.md:165](../academy/README.md?plain=1#L165), [227](../academy/README.md?plain=1#L227), [ring-resonator.md:31](../academy/ring-resonator.md?plain=1#L31), [595](../academy/ring-resonator.md?plain=1#L595)
 - Examples: [README.md:52](../examples/README.md?plain=1#L52), [56](../examples/README.md?plain=1#L56), [optimize_chip_rings.rs:8](../examples/optimize_chip_rings.rs#L8), [optimize_ring_flat.rs:8](../examples/optimize_ring_flat.rs#L8)
 - Code: [src/device/ring.rs:289](../src/device/ring.rs#L289)
 - Other documents: [docs/plans/optimization.md:620](plans/optimization.md?plain=1#L620)
@@ -2689,6 +2723,7 @@ Z. Lu, H. Yun, Y. Wang, Z. Chen, F. Zhang, N. A. F. Jaeger, L. Chrostowski, "Bro
 
 Z. Lu, J. Jhoja, J. Klein, X. Wang, A. Liu, J. Flueckiger, J. Pond, L. Chrostowski, "Performance prediction for silicon photonics integrated circuits with layout-dependent correlated manufacturing variability", Opt. Express 25, 9712 (2017). [doi:10.1364/OE.25.009712](https://doi.org/10.1364/OE.25.009712)
 
+- Academy lessons: [tolerances-corners-and-yield.md:35](../academy/tolerances-corners-and-yield.md?plain=1#L35), [190](../academy/tolerances-corners-and-yield.md?plain=1#L190)
 - Other documents: [ROADMAP.md:839](../ROADMAP.md?plain=1#L839)
 
 #### Lugiato and Lefever 1987
@@ -2855,7 +2890,13 @@ E. A. J. Marcatili, "Dielectric Rectangular Waveguide and Directional Coupler fo
 
 R. Marchetti, C. Lacava, L. Carroll, K. Gradkowski, P. Minzioni, "Coupling strategies for silicon photonics integrated chips \[Invited\]", Photon. Res. 7, 201 (2019). [doi:10.1364/PRJ.7.000201](https://doi.org/10.1364/PRJ.7.000201)
 
-- Academy lessons: [grating-couplers.md:71](../academy/grating-couplers.md?plain=1#L71), [98](../academy/grating-couplers.md?plain=1#L98), [541](../academy/grating-couplers.md?plain=1#L541), [548](../academy/grating-couplers.md?plain=1#L548)
+- Academy lessons: [edge-couplers.md:51](../academy/edge-couplers.md?plain=1#L51), [73](../academy/edge-couplers.md?plain=1#L73), [205](../academy/edge-couplers.md?plain=1#L205), [grating-couplers.md:71](../academy/grating-couplers.md?plain=1#L71), [98](../academy/grating-couplers.md?plain=1#L98), [541](../academy/grating-couplers.md?plain=1#L541), [548](../academy/grating-couplers.md?plain=1#L548)
+
+#### Marcuse 1969
+
+D. Marcuse, "Mode Conversion Caused by Surface Imperfections of a Dielectric Slab Waveguide", Bell System Technical Journal 48, 3187 (1969). [doi:10.1002/j.1538-7305.1969.tb01742.x](https://doi.org/10.1002/j.1538-7305.1969.tb01742.x)
+
+- Academy lessons: [loss-in-silicon-waveguides.md:26](../academy/loss-in-silicon-waveguides.md?plain=1#L26), [325](../academy/loss-in-silicon-waveguides.md?plain=1#L325)
 
 #### Marcuse 1971
 
@@ -2867,6 +2908,12 @@ D. Marcuse, "Bending Losses of the Asymmetric Slab Waveguide", Bell System Techn
 - Examples: [README.md:39](../examples/README.md?plain=1#L39), [bend_loss.rs:5](../examples/bend_loss.rs#L5)
 - Code: [src/cases/eme/bend_checks.rs:470](../src/cases/eme/bend_checks.rs#L470), [src/circuit/components/waveguide.rs:539](../src/circuit/components/waveguide.rs#L539), [src/device/bend.rs:247](../src/device/bend.rs#L247), [425](../src/device/bend.rs#L425), [src/device/checks.rs:159](../src/device/checks.rs#L159), [src/mode/bend.rs:8](../src/mode/bend.rs#L8), [src/validation.rs:876](../src/validation.rs#L876), [897](../src/validation.rs#L897), [2080](../src/validation.rs#L2080), [studio/src-tauri/src/charts/leaky.rs:13](../studio/src-tauri/src/charts/leaky.rs#L13)
 - Other documents: [docs/plans/eme-bends.md:21](plans/eme-bends.md?plain=1#L21)
+
+#### Marcuse 1977
+
+D. Marcuse, "Loss Analysis of Single-Mode Fiber Splices", Bell System Technical Journal 56, 703 (1977). [doi:10.1002/j.1538-7305.1977.tb00534.x](https://doi.org/10.1002/j.1538-7305.1977.tb00534.x)
+
+- Academy lessons: [edge-couplers.md:21](../academy/edge-couplers.md?plain=1#L21), [92](../academy/edge-couplers.md?plain=1#L92), [197](../academy/edge-couplers.md?plain=1#L197)
 
 #### Marcuse 1991
 
@@ -2897,7 +2944,7 @@ M. D. McKay, R. J. Beckman, W. J. Conover, "Comparison of Three Methods for Sele
 
 W. R. McKinnon, D. X. Xu, C. Storey, E. Post, A. Densmore, A. Delâge, P. Waldron, J. H. Schmid, S. Janz, "Extracting coupling and loss coefficients from a ring resonator", Opt. Express 17, 18971 (2009). [doi:10.1364/OE.17.018971](https://doi.org/10.1364/OE.17.018971)
 
-- Academy lessons: [ring-resonator.md:79](../academy/ring-resonator.md?plain=1#L79), [531](../academy/ring-resonator.md?plain=1#L531)
+- Academy lessons: [loss-in-silicon-waveguides.md:74](../academy/loss-in-silicon-waveguides.md?plain=1#L74), [300](../academy/loss-in-silicon-waveguides.md?plain=1#L300), [ring-resonator.md:79](../academy/ring-resonator.md?plain=1#L79), [531](../academy/ring-resonator.md?plain=1#L531)
 
 #### Meixner 1972
 
@@ -3038,6 +3085,12 @@ K. Moutzouris, G. Hloupis, I. Stavrakas, D. Triantis, M.-H. Chou, "Temperature-d
 - Methods pages: [catalogue.md:26](methods/catalogue.md?plain=1#L26)
 - Validation cases: [`material/litao3-moutzouris-fit`](validation.md?plain=1#L75)
 - Code: [src/material/catalogue/litao3_dndt.rs:5](../src/material/catalogue/litao3_dndt.rs#L5), [src/material/catalogue/references.rs:557](../src/material/catalogue/references.rs#L557), [558](../src/material/catalogue/references.rs#L558), [src/validation.rs:554](../src/validation.rs#L554)
+
+#### Mu et al. 2020
+
+X. Mu, S. Wu, L. Cheng, H. Fu, "Edge Couplers in Silicon Photonic Integrated Circuits: A Review", Applied Sciences 10, 1538 (2020). [doi:10.3390/app10041538](https://doi.org/10.3390/app10041538), open access.
+
+- Academy lessons: [edge-couplers.md:57](../academy/edge-couplers.md?plain=1#L57), [168](../academy/edge-couplers.md?plain=1#L168), [202](../academy/edge-couplers.md?plain=1#L202)
 
 ### N
 
@@ -3270,6 +3323,7 @@ Pauline Bennet, "Ellawin/tuto\_global\_optimization\_photonics: v2", Zenodo (202
 F. P. Payne, J. P. R. Lacey, "A theoretical analysis of scattering loss from planar optical waveguides", Opt Quant Electron 26, 977 (1994). [doi:10.1007/BF00708339](https://doi.org/10.1007/BF00708339)
 
 - Methods pages: [devices.md:64](methods/devices.md?plain=1#L64)
+- Academy lessons: [loss-in-silicon-waveguides.md:44](../academy/loss-in-silicon-waveguides.md?plain=1#L44), [175](../academy/loss-in-silicon-waveguides.md?plain=1#L175), [328](../academy/loss-in-silicon-waveguides.md?plain=1#L328)
 - Validation cases: [`roughness/payne-lacey-eq9`](validation.md?plain=1#L758), [`roughness/payne-lacey-slab`](validation.md?plain=1#L759)
 - Code: [src/mode/roughness.rs:11](../src/mode/roughness.rs#L11), [src/mode/roughness_checks.rs:148](../src/mode/roughness_checks.rs#L148), [163](../src/mode/roughness_checks.rs#L163)
 - Other documents: [ROADMAP.md:751](../ROADMAP.md?plain=1#L751)
@@ -3423,6 +3477,12 @@ PsiQuantum team, K. Alexander, A. Benyamini, D. Black, D. Bonneau, S. Burgos, B.
 
 - Academy lessons: [quantum-light.md:303](../academy/quantum-light.md?plain=1#L303), [431](../academy/quantum-light.md?plain=1#L431), [926](../academy/quantum-light.md?plain=1#L926), [1019](../academy/quantum-light.md?plain=1#L1019)
 - Other documents: [docs/plans/quantum.md:526](plans/quantum.md?plain=1#L526)
+
+#### Pu et al. 2010
+
+M. Pu, L. Liu, H. Ou, K. Yvind, J. M. Hvam, "Ultra-low-loss inverted taper coupler for silicon-on-insulator ridge waveguide", Optics Communications 283, 3678 (2010). [doi:10.1016/j.optcom.2010.05.034](https://doi.org/10.1016/j.optcom.2010.05.034)
+
+- Academy lessons: [edge-couplers.md:39](../academy/edge-couplers.md?plain=1#L39), [171](../academy/edge-couplers.md?plain=1#L171)
 
 #### Pu et al. 2016
 
@@ -3758,7 +3818,7 @@ S. Seltzer, "Stopping-Powers and Range Tables for Electrons, Protons, and Helium
 S. Selvaraja, P. Jaenen, W. Bogaerts, D. Van Thourhout, P. Dumon, R. Baets, "Fabrication of Photonic Wire and Crystal Circuits in Silicon-on-Insulator Using 193-nm Optical Lithography", J. Lightwave Technol. 27, 4076 (2009). [doi:10.1109/JLT.2009.2022282](https://doi.org/10.1109/JLT.2009.2022282)
 
 - Methods pages: [fabrication.md:27](methods/fabrication.md?plain=1#L27)
-- Academy lessons: [how-a-chip-is-made.md:55](../academy/how-a-chip-is-made.md?plain=1#L55), [140](../academy/how-a-chip-is-made.md?plain=1#L140)
+- Academy lessons: [how-a-chip-is-made.md:55](../academy/how-a-chip-is-made.md?plain=1#L55), [140](../academy/how-a-chip-is-made.md?plain=1#L140), [tolerances-corners-and-yield.md:17](../academy/tolerances-corners-and-yield.md?plain=1#L17), [185](../academy/tolerances-corners-and-yield.md?plain=1#L185)
 - Validation cases: [`fabrication/etch-stop-or-timed`](validation.md?plain=1#L799), [`fabrication/lithography-choice`](validation.md?plain=1#L800), [`fabrication/reported-flows`](validation.md?plain=1#L802), [`fabrication/rule-choices`](validation.md?plain=1#L806)
 - Code: [src/fabrication/checks.rs:440](../src/fabrication/checks.rs#L440), [447](../src/fabrication/checks.rs#L447), [461](../src/fabrication/checks.rs#L461), [src/fabrication/references.rs:88](../src/fabrication/references.rs#L88), [src/fabrication/rule_checks.rs:335](../src/fabrication/rule_checks.rs#L335)
 - Other documents: [docs/plans/fabrication.md:643](plans/fabrication.md?plain=1#L643)
@@ -3828,7 +3888,13 @@ I. Shoji, T. Kondo, A. Kitamoto, M. Shirane, R. Ito, "Absolute scale of second-o
 - Code: [src/material/catalogue/references.rs:207](../src/material/catalogue/references.rs#L207), [src/nonlinear/data_checks.rs:333](../src/nonlinear/data_checks.rs#L333), [340](../src/nonlinear/data_checks.rs#L340), [347](../src/nonlinear/data_checks.rs#L347), [354](../src/nonlinear/data_checks.rs#L354), [src/validation.rs:498](../src/validation.rs#L498)
 - Other documents: [ROADMAP.md:860](../ROADMAP.md?plain=1#L860)
 
-#### Shoji et al. 2002
+#### Shoji et al. 2002a
+
+T. Shoji, T. Tsuchizawa, T. Watanabe, K. Yamada, H. Morita, "Low loss mode size converter from 0.3 µm square Si wire waveguides to singlemode fibres", Electron. Lett. 38, 1669 (2002). [doi:10.1049/el:20021185](https://doi.org/10.1049/el:20021185)
+
+- Academy lessons: [edge-couplers.md:27](../academy/edge-couplers.md?plain=1#L27), [170](../academy/edge-couplers.md?plain=1#L170), [200](../academy/edge-couplers.md?plain=1#L200)
+
+#### Shoji et al. 2002b
 
 I. Shoji, T. Kondo, R. Ito, "Second-order nonlinear susceptibilities of various dielectric and semiconductor materials", Optical and Quantum Electronics 34, 797 (2002). [doi:10.1023/A:1016545417478](https://doi.org/10.1023/A:1016545417478)
 
@@ -3948,7 +4014,7 @@ R. Soref, "The Past, Present, and Future of Silicon Photonics", IEEE J. Select. 
 
 R. Soref, B. Bennett, "Electrooptical effects in silicon", IEEE J. Quantum Electron. 23, 123 (1987). [doi:10.1109/JQE.1987.1073206](https://doi.org/10.1109/JQE.1987.1073206)
 
-- Academy lessons: [mach-zehnder.md:34](../academy/mach-zehnder.md?plain=1#L34), [297](../academy/mach-zehnder.md?plain=1#L297), [modulators.md:49](../academy/modulators.md?plain=1#L49), [570](../academy/modulators.md?plain=1#L570), [699](../academy/modulators.md?plain=1#L699)
+- Academy lessons: [loss-in-silicon-waveguides.md:32](../academy/loss-in-silicon-waveguides.md?plain=1#L32), [mach-zehnder.md:34](../academy/mach-zehnder.md?plain=1#L34), [297](../academy/mach-zehnder.md?plain=1#L297), [modulators.md:49](../academy/modulators.md?plain=1#L49), [570](../academy/modulators.md?plain=1#L570), [699](../academy/modulators.md?plain=1#L699)
 - Other documents: [ROADMAP.md:761](../ROADMAP.md?plain=1#L761), [docs/plans/carrier-modulators.md:548](plans/carrier-modulators.md?plain=1#L548)
 
 #### Soref et al. 1991
@@ -4355,7 +4421,7 @@ G. Veronis, R. W. Dutton, S. Fan, "Method for sensitivity analysis of photonic c
 
 Y. A. Vlasov, S. J. McNab, "Losses in single-mode silicon-on-insulator strip waveguides and bends", Opt. Express 12, 1622 (2004). [doi:10.1364/OPEX.12.001622](https://doi.org/10.1364/OPEX.12.001622)
 
-- Academy lessons: [leaky-and-bent-guides.md:95](../academy/leaky-and-bent-guides.md?plain=1#L95), [537](../academy/leaky-and-bent-guides.md?plain=1#L537), [575](../academy/leaky-and-bent-guides.md?plain=1#L575), [strip-waveguide.md:88](../academy/strip-waveguide.md?plain=1#L88), [619](../academy/strip-waveguide.md?plain=1#L619), [704](../academy/strip-waveguide.md?plain=1#L704)
+- Academy lessons: [leaky-and-bent-guides.md:95](../academy/leaky-and-bent-guides.md?plain=1#L95), [537](../academy/leaky-and-bent-guides.md?plain=1#L537), [575](../academy/leaky-and-bent-guides.md?plain=1#L575), [loss-in-silicon-waveguides.md:62](../academy/loss-in-silicon-waveguides.md?plain=1#L62), [116](../academy/loss-in-silicon-waveguides.md?plain=1#L116), [332](../academy/loss-in-silicon-waveguides.md?plain=1#L332), [strip-waveguide.md:88](../academy/strip-waveguide.md?plain=1#L88), [619](../academy/strip-waveguide.md?plain=1#L619), [704](../academy/strip-waveguide.md?plain=1#L704)
 
 #### Vogelbacher et al. 2019
 
@@ -4460,6 +4526,7 @@ X. Wang, J. Song, F. Yu, R. Shen, X. Wang, C. Yang, T. Xia, F. Yang, H. Zhao, W.
 
 A. Waqas, D. Melati, P. Manfredi, A. Melloni, "Stochastic process design kits for photonic circuits based on polynomial chaos augmented macro-modelling", Opt. Express 26, 5894 (2018). [doi:10.1364/OE.26.005894](https://doi.org/10.1364/OE.26.005894)
 
+- Academy lessons: [tolerances-corners-and-yield.md:41](../academy/tolerances-corners-and-yield.md?plain=1#L41), [189](../academy/tolerances-corners-and-yield.md?plain=1#L189)
 - Other documents: [ROADMAP.md:841](../ROADMAP.md?plain=1#L841)
 
 #### Wasilewski et al. 2006
@@ -4491,6 +4558,7 @@ C. Wen, "Coplanar Waveguide: A Surface Strip Transmission Line Suitable for Nonr
 
 T.-W. Weng, Z. Zhang, Z. Su, Y. Marzouk, A. Melloni, L. Daniel, "Uncertainty quantification of silicon photonic devices with correlated and non-Gaussian random parameters", Opt. Express 23, 4242 (2015). [doi:10.1364/OE.23.004242](https://doi.org/10.1364/OE.23.004242)
 
+- Academy lessons: [tolerances-corners-and-yield.md:29](../academy/tolerances-corners-and-yield.md?plain=1#L29), [188](../academy/tolerances-corners-and-yield.md?plain=1#L188)
 - Other documents: [ROADMAP.md:840](../ROADMAP.md?plain=1#L840)
 
 #### Wengert 1964
@@ -4553,6 +4621,12 @@ E. Wooten, K. Kissa, A. Yi-Yan, E. Murphy, D. Lafaw, P. Hallemeier, D. Maack, D.
 
 ### X
 
+#### Xing et al. 2022
+
+Y. Xing, J. Dong, U. Khan, W. Bogaerts, "Capturing the Effects of Spatial Process Variations in Silicon Photonic Circuits", ACS Photonics, acsphotonics.2c01194 (2022). [doi:10.1021/acsphotonics.2c01194](https://doi.org/10.1021/acsphotonics.2c01194), open access.
+
+- Academy lessons: [tolerances-corners-and-yield.md:53](../academy/tolerances-corners-and-yield.md?plain=1#L53), [193](../academy/tolerances-corners-and-yield.md?plain=1#L193)
+
 #### Xiong et al. 2012
 
 C. Xiong, W. H. P. Pernice, H. X. Tang, "Low-Loss, Silicon Integrated, Aluminum Nitride Photonic Circuits and Their Use for Electro-Optic Signal Processing", Nano Lett. 12, 3562 (2012). [doi:10.1021/nl3011885](https://doi.org/10.1021/nl3011885)
@@ -4599,6 +4673,7 @@ A. Yariv, P. Yeh, "Photonics: Optical Electronics in Modern Communications, 6th 
 Y. Ye, D. Spina, Y. Xing, W. Bogaerts, T. Dhaene, "Numerical modeling of a linear photonic system for accurate and efficient time-domain simulations", Photon. Res. 6, 560 (2018). [doi:10.1364/PRJ.6.000560](https://doi.org/10.1364/PRJ.6.000560)
 
 - Methods pages: [compact.md:157](methods/compact.md?plain=1#L157)
+- Academy lessons: [from-components-to-circuits.md:42](../academy/from-components-to-circuits.md?plain=1#L42), [171](../academy/from-components-to-circuits.md?plain=1#L171), [228](../academy/from-components-to-circuits.md?plain=1#L228)
 - Examples: [README.md:80](../examples/README.md?plain=1#L80), [compact_mzi_ye.rs:7](../examples/compact_mzi_ye.rs#L7)
 - Other documents: [ROADMAP.md:830](../ROADMAP.md?plain=1#L830), [docs/plans/carrier-modulators.md:557](plans/carrier-modulators.md?plain=1#L557)
 
@@ -4607,6 +4682,12 @@ Y. Ye, D. Spina, Y. Xing, W. Bogaerts, T. Dhaene, "Numerical modeling of a linea
 Y. Ye, T. Ullrick, W. Bogaerts, T. Dhaene, D. Spina, "SPICE-Compatible Equivalent Circuit Models for Accurate Time-Domain Simulations of Passive Photonic Integrated Circuits", J. Lightwave Technol. 40, 7856 (2022). [doi:10.1109/JLT.2022.3206818](https://doi.org/10.1109/JLT.2022.3206818)
 
 - Other documents: [ROADMAP.md:831](../ROADMAP.md?plain=1#L831), [docs/plans/carrier-modulators.md:581](plans/carrier-modulators.md?plain=1#L581)
+
+#### Ye et al. 2023
+
+Z. Ye, H. Jia, Z. Huang, C. Shen, J. Long, B. Shi, Y.-H. Luo, L. Gao, W. Sun, H. Guo, et al., "Foundry manufacturing of tight-confinement, dispersion-engineered, ultralow-loss silicon nitride photonic integrated circuits", Photon. Res. 11, 558 (2023). [doi:10.1364/PRJ.486379](https://doi.org/10.1364/PRJ.486379)
+
+- Academy lessons: [loss-in-silicon-waveguides.md:86](../academy/loss-in-silicon-waveguides.md?plain=1#L86), [338](../academy/loss-in-silicon-waveguides.md?plain=1#L338)
 
 #### Yeh et al. 1977
 
@@ -4744,3 +4825,9 @@ D. Zhu, L. Shao, M. Yu, R. Cheng, B. Desiatov, C. J. Xin, Y. Hu, J. Holzgrafe, S
 - Validation cases: [`pockels/overlap-gamma`](validation.md?plain=1#L554)
 - Code: [src/cases/mode/pockels/checks.rs:1019](../src/cases/mode/pockels/checks.rs#L1019), [src/mode/pockels.rs:290](../src/mode/pockels.rs#L290)
 - Other documents: [docs/plans/fabrication.md:657](plans/fabrication.md?plain=1#L657)
+
+#### Zortman et al. 2010
+
+W. A. Zortman, D. C. Trotter, M. R. Watts, "Silicon photonics manufacturing", Opt. Express 18, 23598 (2010). [doi:10.1364/OE.18.023598](https://doi.org/10.1364/OE.18.023598)
+
+- Academy lessons: [tolerances-corners-and-yield.md:23](../academy/tolerances-corners-and-yield.md?plain=1#L23), [187](../academy/tolerances-corners-and-yield.md?plain=1#L187)

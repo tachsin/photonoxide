@@ -412,6 +412,12 @@
   venue: "Laser & Photonics Reviews 6, 47"
   year: 2011
 
+- doi: 10.1109/JSTQE.2019.2906271
+  authors: "W. Bogaerts, Y. Xing, U. Khan"
+  title: "Layout-Aware Variability Analysis, Yield Prediction, and Optimization in Photonic Integrated Circuits"
+  venue: "IEEE J. Select. Topics Quantum Electron. 25, 1"
+  year: 2019
+
 - doi: 10.1038/s41586-020-2764-0
   authors: "W. Bogaerts, D. Pérez, J. Capmany, D. A. B. Miller, J. Poon, D. Englund, F. Morichetti, A. Melloni"
   title: "Programmable photonic circuits"
@@ -542,6 +548,12 @@
   title: "NEP: A Module for the Parallel Solution of Nonlinear Eigenvalue Problems in SLEPc"
   venue: "ACM Trans. Math. Softw. 47, 36"
   year: 2021
+
+- doi: 10.1109/LPT.2014.2357177
+  authors: "J. Cardenas, C. B. Poitras, K. Luke, L.-W. Luo, P. A. Morton, M. Lipson"
+  title: "High Coupling Efficiency Etched Facet Tapers in Silicon Waveguides"
+  venue: "IEEE Photon. Technol. Lett. 26, 2380"
+  year: 2014
 
 - doi: 10.1126/science.aab3642
   authors: "J. Carolan, C. Harrold, C. Sparrow, E. Martín-López, N. J. Russell, J. W. Silverstone, P. J. Shadbolt, N. Matsuda, M. Oguma, M. Itoh, et al."
@@ -1928,6 +1940,18 @@
   venue: "IEEE Trans. Microwave Theory Techn. 54, 3995"
   year: 2006
 
+- doi: 10.1109/TMTT.1965.1125964
+  authors: "K. Kurokawa"
+  title: "Power Waves and the Scattering Matrix"
+  venue: "IEEE Trans. Microwave Theory Techn. 13, 194"
+  year: 1965
+
+- doi: 10.1049/ip-j.1990.0047
+  authors: "J. Lacey, F. Payne"
+  title: "Radiation loss from planar waveguides with random wall imperfections"
+  venue: "IEE Proc. J Optoelectron. UK 137, 282"
+  year: 1990
+
 - doi: 10.1002/lpor.201600295
   authors: "P. Lalanne, P. Chavel"
   title: "Metalenses at visible wavelengths: past, present, perspectives"
@@ -2007,6 +2031,12 @@
   title: "Second-harmonic generation in InSb, InP, and AlSb"
   venue: "Phys. Rev. B 10, 703"
   year: 1974
+
+- doi: 10.1063/1.1308532
+  authors: "K. K. Lee, D. R. Lim, H.-C. Luan, A. Agarwal, J. Foresi, L. C. Kimerling"
+  title: "Effect of size and roughness on light transmission in a Si/SiO2 waveguide: Experiments and model"
+  venue: "Applied Physics Letters 77, 1617"
+  year: 2000
 
 - doi: 10.1364/OL.26.001888
   authors: "K. K. Lee, D. R. Lim, L. C. Kimerling, J. Shin, F. Cerrina"
@@ -2281,11 +2311,23 @@
   venue: "Photon. Res. 7, 201"
   year: 2019
 
+- doi: 10.1002/j.1538-7305.1969.tb01742.x
+  authors: "D. Marcuse"
+  title: "Mode Conversion Caused by Surface Imperfections of a Dielectric Slab Waveguide"
+  venue: "Bell System Technical Journal 48, 3187"
+  year: 1969
+
 - doi: 10.1002/j.1538-7305.1971.tb02620.x
   authors: "D. Marcuse"
   title: "Bending Losses of the Asymmetric Slab Waveguide"
   venue: "Bell System Technical Journal 50, 2551"
   year: 1971
+
+- doi: 10.1002/j.1538-7305.1977.tb00534.x
+  authors: "D. Marcuse"
+  title: "Loss Analysis of Single-Mode Fiber Splices"
+  venue: "Bell System Technical Journal 56, 703"
+  year: 1977
 
 - doi: 10.1016/B978-0-12-470951-5.50007-X
   authors: "D. Marcuse"
@@ -2438,6 +2480,13 @@
   title: "Temperature-dependent visible to near-infrared optical properties of 8 mol% Mg-doped lithium tantalate"
   venue: "Opt. Mater. Express 1, 458"
   year: 2011
+
+- doi: 10.3390/app10041538
+  authors: "X. Mu, S. Wu, L. Cheng, H. Fu"
+  title: "Edge Couplers in Silicon Photonic Integrated Circuits: A Review"
+  venue: "Applied Sciences 10, 1538"
+  year: 2020
+  open: https://doi.org/10.3390/app10041538
 
 - doi: 10.1109/IEMBS.2011.6090128
   authors: "T. Nagaoka, S. Watanabe"
@@ -2748,6 +2797,12 @@
   venue: "Nature 641, 876"
   year: 2025
   open: https://doi.org/10.1038/s41586-025-08820-7
+
+- doi: 10.1016/j.optcom.2010.05.034
+  authors: "M. Pu, L. Liu, H. Ou, K. Yvind, J. M. Hvam"
+  title: "Ultra-low-loss inverted taper coupler for silicon-on-insulator ridge waveguide"
+  venue: "Optics Communications 283, 3678"
+  year: 2010
 
 - doi: 10.1364/OPTICA.3.000823
   authors: "M. Pu, L. Ottaviano, E. Semenova, K. Yvind"
@@ -3069,6 +3124,12 @@
   title: "Absolute scale of second-order nonlinear-optical coefficients"
   venue: "J. Opt. Soc. Am. B 14, 2268"
   year: 1997
+
+- doi: 10.1049/el:20021185
+  authors: "T. Shoji, T. Tsuchizawa, T. Watanabe, K. Yamada, H. Morita"
+  title: "Low loss mode size converter from 0.3 µm square Si wire waveguides to singlemode fibres"
+  venue: "Electron. Lett. 38, 1669"
+  year: 2002
 
 - doi: 10.1023/A:1016545417478
   authors: "I. Shoji, T. Kondo, R. Ito"
@@ -3674,6 +3735,13 @@
   venue: "IEEE J. Select. Topics Quantum Electron. 6, 69"
   year: 2000
 
+- doi: 10.1021/acsphotonics.2c01194
+  authors: "Y. Xing, J. Dong, U. Khan, W. Bogaerts"
+  title: "Capturing the Effects of Spatial Process Variations in Silicon Photonic Circuits"
+  venue: "ACS Photonics, acsphotonics.2c01194"
+  year: 2022
+  open: https://doi.org/10.1021/acsphotonics.2c01194
+
 - doi: 10.1021/nl3011885
   authors: "C. Xiong, W. H. P. Pernice, H. X. Tang"
   title: "Low-Loss, Silicon Integrated, Aluminum Nitride Photonic Circuits and Their Use for Electro-Optic Signal Processing"
@@ -3721,6 +3789,12 @@
   title: "SPICE-Compatible Equivalent Circuit Models for Accurate Time-Domain Simulations of Passive Photonic Integrated Circuits"
   venue: "J. Lightwave Technol. 40, 7856"
   year: 2022
+
+- doi: 10.1364/PRJ.486379
+  authors: "Z. Ye, H. Jia, Z. Huang, C. Shen, J. Long, B. Shi, Y.-H. Luo, L. Gao, W. Sun, H. Guo, et al."
+  title: "Foundry manufacturing of tight-confinement, dispersion-engineered, ultralow-loss silicon nitride photonic integrated circuits"
+  venue: "Photon. Res. 11, 558"
+  year: 2023
 
 - doi: 10.1364/JOSA.67.000423
   authors: "P. Yeh, A. Yariv, C.-S. Hong"
@@ -3819,3 +3893,9 @@
   title: "Integrated photonics on thin-film lithium niobate"
   venue: "Adv. Opt. Photon. 13, 242"
   year: 2021
+
+- doi: 10.1364/OE.18.023598
+  authors: "W. A. Zortman, D. C. Trotter, M. R. Watts"
+  title: "Silicon photonics manufacturing"
+  venue: "Opt. Express 18, 23598"
+  year: 2010

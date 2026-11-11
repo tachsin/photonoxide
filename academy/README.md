@@ -7,36 +7,139 @@ paper, opens on a drawing of its device, and draws charts that photonoxide compu
 moving a slider shows the physics the library computes, the code the
 [validation report](../docs/validation.md) checks.
 
+## Tracks
+
+The lessons sit on tracks, each a shelf of lessons in the order to read them, every lesson on
+exactly one ([tracks.yaml](tracks.yaml)); a shelf beside the tracks holds lessons off the way
+through them. A path is a way through the tracks for one kind of reader. The studio's Academy
+lists the lessons by track, says on a lesson where it stands on its track (and on the path
+followed) and what comes next, and opens on an overview of them all. The whole curriculum is laid
+out: a lesson still to be written is on its track too, **coming soon**, with its numbered
+subsections, what each will answer and the examples each will use, so writing it is filling
+them in.
+
+### 1. Waveguides and materials
+
+What silicon and silica do to light, and how a film, a strip and a bend hold it.
+
 | Lesson | Level | Diagram | Charts |
 |---|---|---|---|
 | [Silicon, silica and dispersion](material-dispersion.md) | introductory | `dispersion` | `material-oscillator`, `material-cauchy`, `material-index`, `material-gvd` |
-| [The ring resonator](ring-resonator.md) | introductory | `ring` | `ring-spectrum`, `ring-extinction`, `ring-coupling`, `ring-q-length`, `ring-identify` |
-| [Bragg gratings and mirrors](bragg-gratings.md) | intermediate | `bragg` | `bragg-reflectance`, `bragg-bandwidth` |
-| [Grating couplers](grating-couplers.md) | intermediate | `grating` | `grating-angle`, `grating-overlap`, `grating-apodization`, `grating-directionality`, `grating-band` |
-| [The Mach–Zehnder interferometer](mach-zehnder.md) | introductory | `mzi` | `mzi-spectrum`, `mzi-extinction` |
-| [The directional coupler and splitters](directional-coupler.md) | intermediate | `coupler` | `coupler-power`, `coupler-supermodes`, `coupler-gap`, `coupler-spectrum`, `coupler-mismatch` |
 | [The slab waveguide](slab-waveguide.md) | introductory | `slab` | `slab-fields`, `slab-bv`, `slab-neff`, `slab-confinement` |
 | [The strip waveguide and its cross-section](strip-waveguide.md) | intermediate | `strip` | `strip-fields`, `strip-neff`, `strip-models`, `strip-corners`, `strip-group-index` |
 | [Leaky and bent guides, and multilayers](leaky-and-bent-guides.md) | advanced | `leaky` | `leaky-field`, `leaky-substrate`, `bend-loss` |
-| [How a chip is made](how-a-chip-is-made.md) | introductory | `process` | `fab-resolution`, `fab-oxidation` |
+| [Loss in silicon waveguides](loss-in-silicon-waveguides.md) | intermediate | `loss` | `loss-roughness`, `loss-correlation`, `leaky-substrate`, `bend-loss`, `loss-cutback`, `ring-identify` |
+
+### 2. Splitting and steering light
+
+Moving light between waveguides, dividing it, crossing it and turning its polarization.
+
+| Lesson | Level | Diagram | Charts |
+|---|---|---|---|
+| [The directional coupler and splitters](directional-coupler.md) | intermediate | `coupler` | `coupler-power`, `coupler-supermodes`, `coupler-gap`, `coupler-spectrum`, `coupler-mismatch` |
 | [Multimode interference couplers](mmi.md) | intermediate | `mmi` | `mmi-field`, `mmi-modes`, `mmi-length`, `mmi-spectrum`, `mmi-tolerance` |
-| [Photonic crystals and band gaps](photonic-crystals.md) | advanced | `crystal` | `crystal-stack`, `crystal-bands`, `crystal-group-index` |
-| [Metasurfaces and metalenses](metasurfaces.md) | advanced | `metalens` | `meta-orders`, `meta-pillar`, `meta-focus`, `meta-axis`, `meta-bandwidth` |
-| [FDFD and adjoint gradients](fdfd-and-adjoints.md) | advanced | `fdfd` | `fdfd-convergence`, `fdfd-gradient`, `fdfd-difference-step` |
-| [Modulators and phase shifters](modulators.md) | intermediate | `modulator` | `heater-power`, `mzm-transfer`, `modulator-response`, `pcm-shift` |
-| [Nonlinear integrated optics](nonlinear-optics.md) | advanced | `nonlinear` | `nl-miller`, `nl-coupled`, `nl-acceptance`, `nl-qpm`, `nl-ridge`, `nl-spm`, `nl-soliton`, `nl-fwm`, `nl-lle-states`, `nl-comb`, `nl-jsa` |
-| [Surface plasmons and Mie scattering](plasmonics.md) | advanced | `plasmon` | `plasmon-drude`, `plasmon-dispersion`, `plasmon-length`, `mie-efficiency`, `mie-plasmon`, `mie-gold` |
 | [Crossings, mode converters and the polarization splitter-rotator](crossings-and-converters.md) | advanced | `crossing` | `crossing-field`, `crossing-width`, `mmi-field`, `taper-length`, `converter-match`, `converter-coupler`, `rotator-hybrid`, `spot-size` |
-| [How FDTD works](how-fdtd-works.md) | intermediate | `yee` | `fdtd-stability`, `fdtd-dispersion`, `fdtd-pml` |
+
+### 3. Filters and resonators
+
+Interference and feedback picking wavelengths out, in interferometers, rings, gratings and crystals.
+
+| Lesson | Level | Diagram | Charts |
+|---|---|---|---|
+| [The Mach–Zehnder interferometer](mach-zehnder.md) | introductory | `mzi` | `mzi-spectrum`, `mzi-extinction` |
+| [The ring resonator](ring-resonator.md) | introductory | `ring` | `ring-spectrum`, `ring-extinction`, `ring-coupling`, `ring-q-length`, `ring-identify` |
+| [Bragg gratings and mirrors](bragg-gratings.md) | intermediate | `bragg` | `bragg-reflectance`, `bragg-bandwidth` |
+| [Wavelength multiplexers](wavelength-multiplexers.md) | intermediate, **coming soon** with 0.13 | | |
+| [Photonic crystals and band gaps](photonic-crystals.md) | advanced | `crystal` | `crystal-stack`, `crystal-bands`, `crystal-group-index` |
+
+### 4. Coupling to the chip
+
+Bringing light from a fibre onto the chip and back.
+
+| Lesson | Level | Diagram | Charts |
+|---|---|---|---|
+| [Grating couplers](grating-couplers.md) | intermediate | `grating` | `grating-angle`, `grating-overlap`, `grating-apodization`, `grating-directionality`, `grating-band` |
+| [Edge couplers and spot-size converters](edge-couplers.md) | intermediate | `edge` | `edge-overlap`, `spot-size`, `taper-length` |
+
+### 5. Active devices
+
+Making, changing and detecting light: heat, fields and carriers, detectors, lasers, and light's own intensity.
+
+| Lesson | Level | Diagram | Charts |
+|---|---|---|---|
+| [Modulators and phase shifters](modulators.md) | intermediate | `modulator` | `heater-power`, `mzm-transfer`, `modulator-response`, `pcm-shift` |
+| [Carrier-depletion modulators](carrier-depletion-modulators.md) | advanced, **coming soon** with 0.8 | | |
+| [Germanium photodetectors](germanium-photodetectors.md) | advanced, **coming soon** with 0.13 | | |
+| [Lasers on silicon](lasers-on-silicon.md) | advanced, **coming soon** | | |
+| [Nonlinear integrated optics](nonlinear-optics.md) | advanced | `nonlinear` | `nl-miller`, `nl-coupled`, `nl-acceptance`, `nl-qpm`, `nl-ridge`, `nl-spm`, `nl-soliton`, `nl-fwm`, `nl-lle-states`, `nl-comb`, `nl-jsa` |
+
+### 6. Circuits and systems
+
+Devices joined into circuits that compute, switch and carry quantum states.
+
+| Lesson | Level | Diagram | Charts |
+|---|---|---|---|
+| [From components to circuits](from-components-to-circuits.md) | intermediate | `circuit` | `mzi-spectrum`, `circuit-fit`, `ring-identify` |
+| [Programmable photonics](programmable-photonics.md) | advanced, **coming soon** with 0.8 | | |
+| [Optical links and co-packaged optics](optical-links-and-co-packaged-optics.md) | intermediate, **coming soon** with 0.8 | | |
+| [Photonic neural networks](photonic-neural-networks.md) | advanced, **coming soon** with 0.8 | | |
 | [Quantum light on a chip](quantum-light.md) | advanced | `quantum` | `hom-visibility`, `hom-dip`, `mesh-fidelity`, `boson-distribution`, `permanent-cost`, `loss-varnava`, `nl-jsa`, `pair-statistics`, `ring-pairs`, `squeezing-loss`, `squeezed-photons`, `gbs-simulability`, `fusion-loss` |
 
-The whole curriculum is laid out: every lesson still to be written is here too, **coming soon**,
-with its numbered subsections, what each will answer and the examples each will use, so writing
-it is filling them in. The library lists them in this order, the order to read them in.
+### 7. Simulating, designing and making it
 
-| Lesson coming soon | Topic | Level | Examples |
+How the solvers work, how a design is found, and how a chip is made.
+
+| Lesson | Level | Diagram | Charts |
 |---|---|---|---|
-| [Inverse design](inverse-design.md), with 0.7 | Numerical methods | advanced | `circuit_splitter`, `circuit_ring_critical`, `circuit_fit` |
+| [How FDTD works](how-fdtd-works.md) | intermediate | `yee` | `fdtd-stability`, `fdtd-dispersion`, `fdtd-pml` |
+| [FDFD and adjoint gradients](fdfd-and-adjoints.md) | advanced | `fdfd` | `fdfd-convergence`, `fdfd-gradient`, `fdfd-difference-step` |
+| [Eigenmode expansion](eigenmode-expansion.md) | advanced, **coming soon** | | |
+| [How a chip is made](how-a-chip-is-made.md) | introductory | `process` | `fab-resolution`, `fab-oxidation` |
+| [Tolerances, corners and yield](tolerances-corners-and-yield.md) | intermediate | `tolerance` | `tolerance-ring`, `mmi-tolerance`, `coupler-gap` |
+| [Layout, PDKs and design rules](layout-pdks-and-design-rules.md) | intermediate, **coming soon** with 0.9 | | |
+| [Inverse design](inverse-design.md) | advanced, **coming soon** with 0.7 | | |
+
+### Beside the tracks: Beyond the waveguide
+
+Light held by metals and shaped by surfaces, beside the silicon chip.
+
+| Lesson | Level | Diagram | Charts |
+|---|---|---|---|
+| [Surface plasmons and Mie scattering](plasmonics.md) | advanced | `plasmon` | `plasmon-drude`, `plasmon-dispersion`, `plasmon-length`, `mie-efficiency`, `mie-plasmon`, `mie-gold` |
+| [Metasurfaces and metalenses](metasurfaces.md) | advanced | `metalens` | `meta-orders`, `meta-pillar`, `meta-focus`, `meta-axis`, `meta-bandwidth` |
+
+### Paths
+
+**Silicon photonics from zero**: from what silicon does to light to a working filter, coupled to a
+fibre, made, tuned and joined into a circuit. [Silicon, silica and dispersion](material-dispersion.md),
+[the slab waveguide](slab-waveguide.md), [the strip waveguide](strip-waveguide.md),
+[the directional coupler](directional-coupler.md), [the Mach–Zehnder](mach-zehnder.md),
+[the ring resonator](ring-resonator.md), [grating couplers](grating-couplers.md),
+[how a chip is made](how-a-chip-is-made.md), [modulators](modulators.md), its sections 2 and
+3 on heaters, and [from components to circuits](from-components-to-circuits.md).
+
+### The file
+
+```yaml
+tracks:
+  - id: filters                 # a name for links and the studio's memory
+    title: Filters and resonators
+    summary: One line, what its lessons are about.
+    lessons: [mach-zehnder, ring-resonator]  # by file name without .md, in order
+  - id: beyond
+    title: Beyond the waveguide
+    summary: One line.
+    shelf: true                 # beside the tracks, listed after them
+    lessons: [plasmonics]
+paths:
+  - id: from-zero
+    title: Silicon photonics from zero
+    summary: One line.
+    lessons: [material-dispersion, modulators]
+    sections:                   # a lesson read in part: its numbered sections
+      modulators: [2, 3]
+```
+
 
 ## A lesson's file
 
@@ -46,7 +149,7 @@ Front matter in YAML between `---` lines, then the body in Markdown with TeX mat
 ---
 title: "The ring resonator"
 summary: "One sentence for the library's card."
-topic: Rings                  # what the library groups it under
+topic: Rings                  # a label beside its title; its track is in tracks.yaml
 level: introductory           # introductory, intermediate or advanced
 minutes: 25                   # about how long it takes to read
 prerequisites: []             # other lessons, by file name without .md
@@ -210,6 +313,10 @@ shows first.
 | `crossing` | a waveguide crossing from above, two guides $w$ wide widened to $W$ over tapers $L_t$ long either side of the centre over two dashed ellipses of thinner slab, TE₀ in, the through port and the side ports' crosstalk; an asymmetric coupler, a guide $w_a$ wide a gap $g$ from one $W$ wide over $L$, the narrow guide's TE₀ in and the wide guide's TE₁ out, $n_{\mathrm{eff},0}(w_a) = n_{\mathrm{eff},1}(W)$; and a splitter-rotator from above, its guide widened from $w_1$ to $w_2$ over $L$ under silicon nitride, TM₀ in turning into TE₁ and passed to the upper guide as TE₀, beside its cross-section, silicon on silica under Si₃N₄ ($n = 2.0$) | none |
 | `quantum` | a quantum photonic chip from above: a pump $\omega_p$ split onto two guides, a ring on each making pairs, $2\omega_p = \omega_s + \omega_i$, a mesh of Mach–Zehnder cells $T_{m,m+1}(\theta, \phi)$ acting on four modes as $U = D\prod T$, its loss as $\hat b = S\hat a + L\hat c$, and four detectors $\eta_D$; beneath, two photons, one delayed by $\tau$, on a coupler of $R$ and $T$, leaving together, and the dip $R^2 + T^2 - 2RTe^{-\sigma^2\tau^2}$ | none |
 | `yee` | one cell of Yee's grid, $\Delta x$ by $\Delta y$ by $\Delta z$ in an oblique view, $E_x$, $E_y$, $E_z$ at the middles of its edges and $\tilde H_x$, $\tilde H_y$, $\tilde H_z$ at the centres of its faces; beside it the leapfrog in time, E at the steps $n - 1$, $n$, $n + 1$ and $\tilde H$ at the half steps, each from the other's curl, $\Delta t$, and $c\Delta t \le 1/\sqrt{\sum_i 1/\Delta_i^2}$ | none |
+| `loss` | a strip from above with rough sidewalls, their rms $\sigma$ and correlation length $L_c$, light scattered out at $\theta$, a bend of radius $R$ radiating outwards; the strip in section, $w$ by $t$ on a buried oxide $h$ thick, its field leaking into the substrate as $e^{-2\gamma h}$, carriers absorbing; $P_0 e^{-\alpha z}$ and the four losses adding up to $\alpha$ | |
+| `circuit` | a component as a box with ports $o_1 \ldots o_4$, waves $a_p$ in and $b_q$ out, $\mathbf{b} = S\,\mathbf{a}$; a netlist of a splitter, two arms and a combiner, its connections and its own ports; a responses samples and the sum of poles $c_n/(s - a_n) + d$ fitted through them | |
+| `edge` | an edge coupler from above: a strip $w$ wide narrowing over $L$ to a tip $w_t$ at the facet, its mode growing; a fibres core and cladding beyond a gap, tilted by $	heta$; the two modes profiles $2w_c$ and $2w_f$ offset by $d$, and their overlap $\eta$ | |
+| `tolerance` | a strip in section as drawn, $w$ by $t$, and its corners $\pm\Delta w$, $\pm\Delta t$; a rings through port at the nominal design and at a corner, its resonance moved by $\Delta\lambda = \lambda\,\Delta n_	ext{eff}/n_g$; a wafer whose film varies across it | |
 
 Each diagram is an entry in `studio/src-tauri/src/diagrams.rs` (its title, its captions, and its
 job if it has one) and an SVG drawn by a component in `studio/src/components/diagrams/`, named
@@ -320,6 +427,12 @@ code; the window only draws what it returns, and asks again as a slider moves.
 | `squeezed-photons` | `squeezing` dB (6), `transmission` η (1) | `Gaussian::probability` (hafnians) for 0 to 30 photons; the closed form without loss, thermal and Poisson light of the same mean |
 | `gbs-simulability` | `squeezing` $r$ (0.38), `modes` $K$ (6), `detector` $\eta_D$ (0.75), `dark` $p_D$ (10⁻⁴) | `quantum::qi_simulable_error` at 200 transmissions, `qi_exact_transmission`; Qi et al.'s two experiments |
 | `fusion-loss` | `boost` (2: $p_\text{fail} = 1/4$) | `quantum::fusion_loss` for fusions failing with 1/2, 1/4 and 1/8 against the loss a photon; `quantum::permanent` on Knill et al.'s 3 × 3 sign gate and on a balanced coupler of two polarizations |
+| `loss-roughness` | `sigma` nm (2), `correlation` nm (50), `core` $n_1$ (3.5), `thickness` nm (220) | `mode::roughness::slab_loss` (the volume current on the exact slab mode) and `payne_lacey` (their Eqs. 8–12) at 160 thicknesses from 40 nm to 1 µm, both walls rough, in silica at 1.55 µm |
+| `loss-correlation` | `sigma` nm (2), `core` $n_1$ (3.5), `thickness` nm (220), `correlation` nm (50) | the same at 120 correlation lengths from 5 nm to 5 µm; $1/(\beta - n_2 k_0)$ beside the lossiest |
+| `loss-cutback` | `loss` dB/cm (2), `facet` dB (4), `longest` cm (2), `scatter` dB (0.3) | `circuit::components::Waveguide::s_matrix` at six lengths minus two facets, each off the line by a fixed share of the scatter; the line by least squares with its slopes standard error; $Q_i = 2\pi n_g/(\lambdalpha)$ |
+| `circuit-fit` | `poles` $N$ (6), `radius` µm (10), `coupling` κ² (0.1), `window` nm (30) | `AddDropRing::s_matrix` at 401 wavelengths, through and drop fitted together by `compact::fit::vector_fit` with $N$ common poles and a constant |
+| `edge-overlap` | `chip` $2w_c$ µm (3), `fibre` $2w_f$ µm (10.4), `offset` µm (0.5), `tilt` ° (0) | `eme::Beam::gaussian` and `tilted` for each field, their overlap summed on 2401 points, times the vertical overlap; Marcuses closed form as the check |
+| `tolerance-ring` | `width` nm (500), `thickness` nm (220), `bias` $\pm\Delta w$ nm (10), `film` $\pm\Delta t$ nm (5) | `mode::eim::Ridge::strip` (TE) on `material::silicon` and `material::silica` at every error from −20 to 20 nm, $n_g$ from λ ± 10 nm, $\Delta\lambda = \lambda\Delta n_\text{eff}/n_g$; the four corners |
 
 The ranges are in `charts.rs` (the coupler's in `charts/coupler.rs`), and the window's sliders keep
 to them. A chart may draw its y axis on a logarithmic scale (`y_log`), and give curves that belong
@@ -402,6 +515,8 @@ side with one colour scale, as `strip-fields` does.
 
 `cargo test -p photonoxide-studio` fails when a lesson:
 
+- isn't on exactly one track, or `lessons!` doesn't list it in the tracks' order, or its track's
+  table above doesn't list it there;
 - doesn't parse, or, written, lacks an intuition, a theory or a research section, or a timeline;
 - is coming soon and has an opening, a section written, sections not numbered 1, 2, 3 in order, a
   reading time or charts, an example no subsection's `::coming` line names, or a milestone the
@@ -422,7 +537,8 @@ side with one colour scale, as `strip-fields` does.
   link leads nowhere;
 - has unpaired math delimiters.
 
-It fails too when a diagram has no drawing in `studio/src/components/diagrams/`, or names a job
+It fails too when a track or path names a lesson that doesn't exist, a path reads a lesson twice
+or names a section a lesson doesn't have, or a diagram has no drawing in `studio/src/components/diagrams/`, or names a job
 that isn't built in. Every chart has a unit test against the library function it wraps. `pnpm build` in `studio/`
 renders every formula of every lesson with KaTeX and fails on an error (`vite.config.ts`).
 
@@ -435,5 +551,5 @@ renders every formula of every lesson with KaTeX and fails on an error (`vite.co
   validation report, shown by an `::example` or `::validation` block rather than retyped where
   that is possible. A 2D result is never a device's performance.
 - New papers go into tachsin's papers list, ticked or needed, so their PDFs can be fetched.
-- Add the file to `lessons!` in `studio/src-tauri/src/academy.rs` where it falls in the reading
-  order, and a row to the tables above; a lesson coming soon moves to the first table once written.
+- Put the lesson on its track in [tracks.yaml](tracks.yaml), add the file to `lessons!` in
+  `studio/src-tauri/src/academy.rs` at the same place, and a row to its track's table above.
