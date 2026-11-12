@@ -65,12 +65,15 @@ pub(crate) struct Runtime {
     mem_get_info: unsafe extern "C" fn(*mut usize, *mut usize) -> c_int,
     device_attribute: Option<unsafe extern "C" fn(*mut c_int, c_int, c_int) -> c_int>,
     /// Memory another API (Vulkan) allocated, seen by CUDA: for the multigrid's stencil.
+    // the multigrid's stencil runs on Windows and Linux only (no CUDA on macOS)
+    #[cfg_attr(not(any(windows, target_os = "linux")), allow(dead_code))]
     pub(crate) external: Option<External>,
     // last: the functions above must not outlive it
     _library: Library,
 }
 
 /// The runtime's functions for memory another API exported, and for which GPU is CUDA's.
+#[cfg_attr(not(any(windows, target_os = "linux")), allow(dead_code))]
 pub(crate) struct External {
     /// `cudaImportExternalMemory(cudaExternalMemory_t*, const cudaExternalMemoryHandleDesc*)`
     pub(crate) import: unsafe extern "C" fn(*mut Opaque, *const c_void) -> c_int,
@@ -143,6 +146,7 @@ impl Runtime {
 
     /// The PCI bus id of CUDA's current GPU, as `0000:01:00.0` in lower case: which GPU Vulkan
     /// must open to share memory with it.
+    #[cfg_attr(not(any(windows, target_os = "linux")), allow(dead_code))]
     pub(crate) fn bus_id(&self) -> Result<String> {
         let external = self
             .external
@@ -203,6 +207,7 @@ impl Buffer {
     ///
     /// `ptr` must be device memory of at least `bytes` that `cudaFree` releases (from
     /// `cudaMalloc`, or a mapped external buffer), owned by nothing else.
+    #[cfg_attr(not(any(windows, target_os = "linux")), allow(dead_code))]
     pub(crate) unsafe fn adopt(runtime: &Arc<Runtime>, ptr: Opaque, bytes: usize) -> Buffer {
         Buffer {
             runtime: runtime.clone(),

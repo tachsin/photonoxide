@@ -414,6 +414,7 @@ impl Session {
     }
 
     /// A vector of `n` values in `buffer`, which it frees, at most the session's n of them.
+    #[cfg_attr(not(any(windows, target_os = "linux")), allow(dead_code))]
     pub(crate) fn vector_over(&self, buffer: Buffer, n: usize) -> Result<DeviceVector> {
         DeviceVector::over(&self.api, buffer, n, &self.indices)
     }
