@@ -8,8 +8,9 @@ use faer::linalg::matmul::triangular::{BlockStructure, matmul as triangular};
 use faer::linalg::triangular_solve::{
     solve_lower_triangular_in_place, solve_unit_lower_triangular_in_place,
 };
+use faer::traits::ComplexField;
 use faer::{Accum, MatMut, MatRef, Par};
-use num_complex::Complex64 as c64;
+use num_complex::{Complex32 as c32, Complex64 as c64};
 
 /// How a backend's threads are set.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -237,26 +238,7 @@ impl DenseKernels for Faer {
         alpha: c64,
         threaded: bool,
     ) {
-        let b = if product.transposed {
-            b.0.transpose()
-        } else {
-            b.0
-        };
-        if product.lower {
-            triangular(
-                c.0,
-                BlockStructure::TriangularLower,
-                Accum::Add,
-                a.0,
-                BlockStructure::Rectangular,
-                b,
-                BlockStructure::Rectangular,
-                alpha,
-                par(threaded),
-            );
-        } else {
-            matmul(c.0, Accum::Add, a.0, b, alpha, par(threaded));
-        }
+        faer_multiply(c.0, a.0, b.0, product, alpha, threaded);
     }
 
     fn solve_unit_lower(&self, l: Block<'_>, b: BlockMut<'_>, threaded: bool) {
@@ -264,8 +246,7 @@ impl DenseKernels for Faer {
     }
 
     fn solve_upper_from_right(&self, u: Block<'_>, b: BlockMut<'_>, threaded: bool) {
-        // X U = B is Uᵀ Xᵀ = Bᵀ, and Uᵀ is lower
-        solve_lower_triangular_in_place(u.0.transpose(), b.0.transpose_mut(), par(threaded));
+        faer_solve_upper_from_right(u.0, b.0, threaded);
     }
 
     fn solve_unit_lower_transposed_from_right(
@@ -274,8 +255,7 @@ impl DenseKernels for Faer {
         b: BlockMut<'_>,
         threaded: bool,
     ) {
-        // X Lᵀ = B is L Xᵀ = Bᵀ
-        solve_unit_lower_triangular_in_place(l.0, b.0.transpose_mut(), par(threaded));
+        faer_solve_unit_lower_transposed_from_right(l.0, b.0, threaded);
     }
 
     fn lu(&self, a: BlockMut<'_>, threaded: bool) -> Vec<usize> {
@@ -283,14 +263,309 @@ impl DenseKernels for Faer {
     }
 }
 
+/// [`DenseKernels::multiply`] by faer, in any of its scalars.
+fn faer_multiply<T: ComplexField>(
+    c: MatMut<'_, T>,
+    a: MatRef<'_, T>,
+    b: MatRef<'_, T>,
+    product: Product,
+    alpha: T,
+    threaded: bool,
+) {
+    let b = if product.transposed { b.transpose() } else { b };
+    if product.lower {
+        triangular(
+            c,
+            BlockStructure::TriangularLower,
+            Accum::Add,
+            a,
+            BlockStructure::Rectangular,
+            b,
+            BlockStructure::Rectangular,
+            alpha,
+            par(threaded),
+        );
+    } else {
+        matmul(c, Accum::Add, a, b, alpha, par(threaded));
+    }
+}
+
+/// [`DenseKernels::solve_upper_from_right`] by faer, in any of its scalars.
+fn faer_solve_upper_from_right<T: ComplexField>(
+    u: MatRef<'_, T>,
+    b: MatMut<'_, T>,
+    threaded: bool,
+) {
+    // X U = B is Uᵀ Xᵀ = Bᵀ, and Uᵀ is lower
+    solve_lower_triangular_in_place(u.transpose(), b.transpose_mut(), par(threaded));
+}
+
+/// [`DenseKernels::solve_unit_lower_transposed_from_right`] by faer, in any of its scalars.
+fn faer_solve_unit_lower_transposed_from_right<T: ComplexField>(
+    l: MatRef<'_, T>,
+    b: MatMut<'_, T>,
+    threaded: bool,
+) {
+    // X Lᵀ = B is L Xᵀ = Bᵀ
+    solve_unit_lower_triangular_in_place(l, b.transpose_mut(), par(threaded));
+}
+
+/// The number a sparse factorization is computed and stored in: double precision (c64), as
+/// photonoxide's own direct solver always has, or single (c32), whose factors take half the
+/// memory and are refined in double ([`crate::sparse::refine`]). The fronts' dense operations
+/// are faer's in either; a library's kernels ([`DenseKernels`]) take c64 only, and a c32
+/// factorization is never given any.
+pub(crate) trait Scalar:
+    ComplexField
+    + Copy
+    + PartialEq
+    + std::fmt::Debug
+    + Send
+    + Sync
+    + 'static
+    + std::ops::Add<Output = Self>
+    + std::ops::Sub<Output = Self>
+    + std::ops::Mul<Output = Self>
+    + std::ops::Div<Output = Self>
+    + std::ops::AddAssign
+    + std::ops::SubAssign
+    + std::ops::DivAssign
+{
+    /// Static pivoting's threshold relative to ‖A‖: a pivot below it is perturbed to it (Li and
+    /// Demmel's √ε, double precision's in both).
+    fn pivot_threshold() -> f64;
+
+    /// `v`, rounded to this precision.
+    fn from_c64(v: c64) -> Self;
+
+    /// The real number `x`, rounded to this precision.
+    fn real(x: f64) -> Self;
+
+    /// |self|.
+    fn modulus(self) -> f64;
+
+    /// self × `x`.
+    fn times(self, x: f64) -> Self;
+
+    /// self / `x`.
+    fn over(self, x: f64) -> Self;
+
+    /// C ← C + α A B or C + α A Bᵀ, by `kernels` if given.
+    fn multiply(
+        c: MatMut<'_, Self>,
+        a: MatRef<'_, Self>,
+        b: MatRef<'_, Self>,
+        product: Product,
+        alpha: Self,
+        threaded: bool,
+        kernels: Option<&dyn DenseKernels>,
+    );
+
+    /// B ← L⁻¹ B, L unit lower, by `kernels` if given.
+    fn solve_unit_lower(
+        l: MatRef<'_, Self>,
+        b: MatMut<'_, Self>,
+        threaded: bool,
+        kernels: Option<&dyn DenseKernels>,
+    );
+
+    /// B ← B U⁻¹, by `kernels` if given.
+    fn solve_upper_from_right(
+        u: MatRef<'_, Self>,
+        b: MatMut<'_, Self>,
+        threaded: bool,
+        kernels: Option<&dyn DenseKernels>,
+    );
+
+    /// B ← B L⁻ᵀ, L unit lower, by `kernels` if given.
+    fn solve_unit_lower_transposed_from_right(
+        l: MatRef<'_, Self>,
+        b: MatMut<'_, Self>,
+        threaded: bool,
+        kernels: Option<&dyn DenseKernels>,
+    );
+
+    /// The LU of the square block with partial pivoting, by `kernels` if given.
+    fn lu(a: MatMut<'_, Self>, threaded: bool, kernels: Option<&dyn DenseKernels>) -> Vec<usize>;
+}
+
+impl Scalar for c64 {
+    fn pivot_threshold() -> f64 {
+        f64::EPSILON.sqrt()
+    }
+
+    fn from_c64(v: c64) -> c64 {
+        v
+    }
+
+    fn real(x: f64) -> c64 {
+        c64::new(x, 0.0)
+    }
+
+    fn modulus(self) -> f64 {
+        self.norm()
+    }
+
+    fn times(self, x: f64) -> c64 {
+        self * x
+    }
+
+    fn over(self, x: f64) -> c64 {
+        self / x
+    }
+
+    fn multiply(
+        c: MatMut<'_, c64>,
+        a: MatRef<'_, c64>,
+        b: MatRef<'_, c64>,
+        product: Product,
+        alpha: c64,
+        threaded: bool,
+        kernels: Option<&dyn DenseKernels>,
+    ) {
+        match kernels {
+            Some(k) => k.multiply(
+                BlockMut::new(c),
+                Block::new(a),
+                Block::new(b),
+                product,
+                alpha,
+                threaded,
+            ),
+            None => faer_multiply(c, a, b, product, alpha, threaded),
+        }
+    }
+
+    fn solve_unit_lower(
+        l: MatRef<'_, c64>,
+        b: MatMut<'_, c64>,
+        threaded: bool,
+        kernels: Option<&dyn DenseKernels>,
+    ) {
+        match kernels {
+            Some(k) => k.solve_unit_lower(Block::new(l), BlockMut::new(b), threaded),
+            None => solve_unit_lower_triangular_in_place(l, b, par(threaded)),
+        }
+    }
+
+    fn solve_upper_from_right(
+        u: MatRef<'_, c64>,
+        b: MatMut<'_, c64>,
+        threaded: bool,
+        kernels: Option<&dyn DenseKernels>,
+    ) {
+        match kernels {
+            Some(k) => k.solve_upper_from_right(Block::new(u), BlockMut::new(b), threaded),
+            None => faer_solve_upper_from_right(u, b, threaded),
+        }
+    }
+
+    fn solve_unit_lower_transposed_from_right(
+        l: MatRef<'_, c64>,
+        b: MatMut<'_, c64>,
+        threaded: bool,
+        kernels: Option<&dyn DenseKernels>,
+    ) {
+        match kernels {
+            Some(k) => {
+                k.solve_unit_lower_transposed_from_right(Block::new(l), BlockMut::new(b), threaded)
+            }
+            None => faer_solve_unit_lower_transposed_from_right(l, b, threaded),
+        }
+    }
+
+    fn lu(a: MatMut<'_, c64>, threaded: bool, kernels: Option<&dyn DenseKernels>) -> Vec<usize> {
+        match kernels {
+            Some(k) => k.lu(BlockMut::new(a), threaded),
+            None => faer_lu(a, par(threaded)),
+        }
+    }
+}
+
+impl Scalar for c32 {
+    /// Double precision's, as photonoxide's own factors have it, not single's √ε (3.5 × 10⁻⁴):
+    /// a perturbation enters the refinement's convergence as u_f ρₙ + ε (Amestoy et al.,
+    /// 2023, Theorem 4.1), so at single's √ε it would dominate u_f = 6 × 10⁻⁸ a thousand times
+    /// over, and at double's (1.5 × 10⁻⁸) it doesn't. Measured on the guide of
+    /// docs/methods/mixed-precision.md at 24³: single's √ε perturbed 4 210 pivots, the L D Lᵀ
+    /// gave way to the LU and GMRES took 45 to 50 iterations a step; double's perturbed none, two
+    /// iterations a step.
+    fn pivot_threshold() -> f64 {
+        f64::EPSILON.sqrt()
+    }
+
+    fn from_c64(v: c64) -> c32 {
+        c32::new(v.re as f32, v.im as f32)
+    }
+
+    fn real(x: f64) -> c32 {
+        c32::new(x as f32, 0.0)
+    }
+
+    fn modulus(self) -> f64 {
+        f64::from(self.norm())
+    }
+
+    fn times(self, x: f64) -> c32 {
+        self * (x as f32)
+    }
+
+    fn over(self, x: f64) -> c32 {
+        self / (x as f32)
+    }
+
+    fn multiply(
+        c: MatMut<'_, c32>,
+        a: MatRef<'_, c32>,
+        b: MatRef<'_, c32>,
+        product: Product,
+        alpha: c32,
+        threaded: bool,
+        _: Option<&dyn DenseKernels>,
+    ) {
+        faer_multiply(c, a, b, product, alpha, threaded);
+    }
+
+    fn solve_unit_lower(
+        l: MatRef<'_, c32>,
+        b: MatMut<'_, c32>,
+        threaded: bool,
+        _: Option<&dyn DenseKernels>,
+    ) {
+        solve_unit_lower_triangular_in_place(l, b, par(threaded));
+    }
+
+    fn solve_upper_from_right(
+        u: MatRef<'_, c32>,
+        b: MatMut<'_, c32>,
+        threaded: bool,
+        _: Option<&dyn DenseKernels>,
+    ) {
+        faer_solve_upper_from_right(u, b, threaded);
+    }
+
+    fn solve_unit_lower_transposed_from_right(
+        l: MatRef<'_, c32>,
+        b: MatMut<'_, c32>,
+        threaded: bool,
+        _: Option<&dyn DenseKernels>,
+    ) {
+        faer_solve_unit_lower_transposed_from_right(l, b, threaded);
+    }
+
+    fn lu(a: MatMut<'_, c32>, threaded: bool, _: Option<&dyn DenseKernels>) -> Vec<usize> {
+        faer_lu(a, par(threaded))
+    }
+}
+
 /// faer's LU with partial pivoting of the square block in place: the rows' order, entry i the
 /// row of the block that the factors' row i was.
-pub(crate) fn faer_lu(a: MatMut<'_, c64>, par: Par) -> Vec<usize> {
+pub(crate) fn faer_lu<T: ComplexField>(a: MatMut<'_, T>, par: Par) -> Vec<usize> {
     let k = a.nrows();
     let mut forward = vec![0usize; k];
     let mut inverse = vec![0usize; k];
     let mut stack = MemBuffer::new(
-        faer::linalg::lu::partial_pivoting::factor::lu_in_place_scratch::<usize, c64>(
+        faer::linalg::lu::partial_pivoting::factor::lu_in_place_scratch::<usize, T>(
             k,
             k,
             par,

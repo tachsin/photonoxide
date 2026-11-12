@@ -27,7 +27,6 @@
 
 use std::sync::{Arc, OnceLock};
 
-use faer::linalg::matmul::matmul;
 use faer::linalg::triangular_solve::{
     solve_lower_triangular_in_place, solve_unit_lower_triangular_in_place,
     solve_unit_upper_triangular_in_place, solve_upper_triangular_in_place,
@@ -38,15 +37,15 @@ use faer::sparse::linalg::cholesky::{
     CholeskySymbolicParams, SymbolicCholeskyRaw, SymmetricOrdering, factorize_symbolic_cholesky,
 };
 use faer::sparse::{SparseColMat, SparseColMatRef, Triplet};
-use faer::{Accum, Mat, MatMut, Par, Side};
-use num_complex::Complex64 as c64;
+use faer::{Mat, MatMut, MatRef, Par, Side};
+use num_complex::{Complex32 as c32, Complex64 as c64};
 use rayon::prelude::*;
 
 use super::matching::{Matching, matching};
 use super::{adjacency, nested_dissection};
 use crate::{Error, Result};
 
-use crate::dense::{Block, BlockMut, DenseKernels, Product, faer_lu};
+use crate::dense::{DenseKernels, Product, Scalar};
 
 fn failed(what: &str, why: impl std::fmt::Display) -> Error {
     Error::invalid("the multifrontal LU", format!("{what}: {why}"))
@@ -319,28 +318,31 @@ impl Analysis {
 /// inside the block. L D Lᵀ: the block's L (unit, strictly below) and D (on the diagonal) with
 /// L's panel below, and no U.
 #[derive(Debug)]
-struct Factors {
+struct Factors<T> {
     /// m × k: [L₁₁\U₁₁; L₂₁], or [L₁₁\D; L₂₁].
-    lower: Mat<c64>,
+    lower: Mat<T>,
     /// k × (m − k): U₁₂ (empty for L D Lᵀ).
-    upper: Mat<c64>,
+    upper: Mat<T>,
     /// Row i of the pivoted block is the front's row `rows[i]` (0..k); empty for L D Lᵀ.
     rows: Vec<usize>,
 }
 
 /// The LU factorization of [`Analysis`]'s matrix: B = P Pr Dr A Dc Pᵀ = L U, P the elimination
-/// order, Pr the matching, Dr and Dc its scaling.
+/// order, Pr the matching, Dr and Dc its scaling. In double precision, as photonoxide's own
+/// direct solver has it, or in single ([`Multifrontal::single`]): the same fronts and the same
+/// operations, in half the memory.
 #[derive(Debug)]
-pub(crate) struct Multifrontal {
+pub(crate) struct Multifrontal<T = c64> {
     analysis: Arc<Analysis>,
-    factors: Vec<Factors>,
-    /// Pivots perturbed to √ε ‖B‖₁: 0 on a matrix the matching made safe.
+    factors: Vec<Factors<T>>,
+    /// Pivots perturbed to √ε ‖B‖₁ (double precision's ε, whatever the factors'): 0 on a matrix
+    /// the matching made safe.
     perturbed: usize,
 }
 
 /// A front's Schur complement, passed to its parent: rows and columns `below`.
-struct Update {
-    values: Mat<c64>,
+struct Update<T> {
+    values: Mat<T>,
 }
 
 /// Fronts with more work than this have their children factorized side by side, and their own
@@ -372,72 +374,28 @@ impl Multifrontal {
         a: SparseColMatRef<'_, usize, c64>,
         kernels: Option<&dyn DenseKernels>,
     ) -> Result<Multifrontal> {
-        let n = analysis.n;
-        if a.nrows() != n || a.ncols() != n {
-            return Err(failed(
-                "the matrix",
-                format!("{} × {}, analysed {n} × {n}", a.nrows(), a.ncols()),
-            ));
-        }
-        // B's entries, by B's columns and by B's rows
-        let m = &analysis.matching;
-        let mut new_row = vec![0usize; n];
-        for (j, &r) in m.rows.iter().enumerate() {
-            new_row[r] = j;
-        }
-        let mut by_column: Vec<Vec<(usize, c64)>> = vec![Vec::new(); n];
-        let mut by_row: Vec<Vec<(usize, c64)>> = vec![Vec::new(); n];
-        let mut norm = vec![0.0f64; n];
-        for j in 0..n {
-            for (i, &v) in a.row_idx_of_col(j).zip(a.val_of_col(j)) {
-                let value = v * (m.row_scale[i] * m.column_scale[j]);
-                let (r, c) = (analysis.step[new_row[i]], analysis.step[j]);
-                norm[c] += value.norm();
-                if r >= c {
-                    by_column[c].push((r, value));
-                } else if !analysis.symmetric {
-                    // L D Lᵀ reads the lower half only: this entry's mirror is in it
-                    by_row[r].push((c, value));
-                }
-            }
-        }
-        let tiny = f64::EPSILON.sqrt() * norm.iter().copied().fold(0.0, f64::max);
-        let slots: Vec<OnceLock<(Factors, usize)>> = (0..analysis.fronts.len())
-            .map(|_| OnceLock::new())
-            .collect();
-        let context = Context {
-            analysis: &analysis,
-            by_column: &by_column,
-            by_row: &by_row,
-            tiny,
-            slots: &slots,
-            kernels,
-        };
-        let roots = &analysis.roots;
-        let run = || -> Result<()> {
-            roots
-                .par_iter()
-                .map(|&s| context.subtree(s).map(|_| ()))
-                .collect::<Result<Vec<()>>>()
-                .map(|_| ())
-        };
-        run()?;
-        let mut perturbed = 0;
-        let factors = slots
-            .into_iter()
-            .map(|slot| {
-                let (f, p) = slot.into_inner().expect("every front factorized");
-                perturbed += p;
-                f
-            })
-            .collect();
-        Ok(Multifrontal {
-            analysis,
-            factors,
-            perturbed,
-        })
+        factorize_in(analysis, a, kernels)
     }
+}
 
+impl Multifrontal<c32> {
+    /// [`Multifrontal::new`] in single precision: B's entries rounded to it after the scaling,
+    /// the fronts assembled, eliminated and stored in it, small pivots perturbed to √ε ‖B‖₁ as in
+    /// double ([Scalar::pivot_threshold] says why). Its solves run in double precision on the stored factors
+    /// ([`Multifrontal::<c32>::solve`]).
+    ///
+    /// # Errors
+    ///
+    /// As [`Multifrontal::new`].
+    pub(crate) fn single(
+        analysis: Arc<Analysis>,
+        a: SparseColMatRef<'_, usize, c64>,
+    ) -> Result<Multifrontal<c32>> {
+        factorize_in(analysis, a, None)
+    }
+}
+
+impl<T> Multifrontal<T> {
     /// The analysis, for another matrix of the same structure.
     pub(crate) fn analysis(&self) -> &Arc<Analysis> {
         &self.analysis
@@ -448,6 +406,92 @@ impl Multifrontal {
         self.perturbed
     }
 
+    /// The bytes the factors take as stored (each front's whole diagonal block and its
+    /// panels): what single precision halves.
+    #[cfg(test)]
+    pub(crate) fn factor_bytes(&self) -> usize {
+        self.factors
+            .iter()
+            .map(|f| f.lower.nrows() * f.lower.ncols() + f.upper.nrows() * f.upper.ncols())
+            .sum::<usize>()
+            * std::mem::size_of::<T>()
+    }
+}
+
+/// The factorization of `a` in the precision `T`, the fronts' dense operations by `kernels` if
+/// given (c64 only), by faer's otherwise.
+fn factorize_in<T: Scalar>(
+    analysis: Arc<Analysis>,
+    a: SparseColMatRef<'_, usize, c64>,
+    kernels: Option<&dyn DenseKernels>,
+) -> Result<Multifrontal<T>> {
+    let n = analysis.n;
+    if a.nrows() != n || a.ncols() != n {
+        return Err(failed(
+            "the matrix",
+            format!("{} × {}, analysed {n} × {n}", a.nrows(), a.ncols()),
+        ));
+    }
+    // B's entries, by B's columns and by B's rows
+    let m = &analysis.matching;
+    let mut new_row = vec![0usize; n];
+    for (j, &r) in m.rows.iter().enumerate() {
+        new_row[r] = j;
+    }
+    let mut by_column: Vec<Vec<(usize, T)>> = vec![Vec::new(); n];
+    let mut by_row: Vec<Vec<(usize, T)>> = vec![Vec::new(); n];
+    let mut norm = vec![0.0f64; n];
+    for j in 0..n {
+        for (i, &v) in a.row_idx_of_col(j).zip(a.val_of_col(j)) {
+            let value = v * (m.row_scale[i] * m.column_scale[j]);
+            let (r, c) = (analysis.step[new_row[i]], analysis.step[j]);
+            norm[c] += value.norm();
+            if r >= c {
+                by_column[c].push((r, T::from_c64(value)));
+            } else if !analysis.symmetric {
+                // L D Lᵀ reads the lower half only: this entry's mirror is in it
+                by_row[r].push((c, T::from_c64(value)));
+            }
+        }
+    }
+    let tiny = T::pivot_threshold() * norm.iter().copied().fold(0.0, f64::max);
+    let slots: Vec<OnceLock<(Factors<T>, usize)>> = (0..analysis.fronts.len())
+        .map(|_| OnceLock::new())
+        .collect();
+    let context = Context {
+        analysis: &analysis,
+        by_column: &by_column,
+        by_row: &by_row,
+        tiny,
+        slots: &slots,
+        kernels,
+    };
+    let roots = &analysis.roots;
+    let run = || -> Result<()> {
+        roots
+            .par_iter()
+            .map(|&s| context.subtree(s).map(|_| ()))
+            .collect::<Result<Vec<()>>>()
+            .map(|_| ())
+    };
+    run()?;
+    let mut perturbed = 0;
+    let factors = slots
+        .into_iter()
+        .map(|slot| {
+            let (f, p) = slot.into_inner().expect("every front factorized");
+            perturbed += p;
+            f
+        })
+        .collect();
+    Ok(Multifrontal {
+        analysis,
+        factors,
+        perturbed,
+    })
+}
+
+impl Multifrontal {
     /// x with A x = `b`.
     pub(crate) fn solve(&self, b: &[c64]) -> Vec<c64> {
         if self.analysis.symmetric {
@@ -617,24 +661,235 @@ impl Multifrontal {
     }
 }
 
+/// A single-precision factor's entry, widened: exact.
+fn wide(v: c32) -> c64 {
+    c64::new(f64::from(v.re), f64::from(v.im))
+}
+
+/// x ← L⁻¹ x, L the unit lower triangle of the k × k `l`, in double precision.
+fn unit_lower(l: MatRef<'_, c32>, x: &mut [c64]) {
+    let k = x.len();
+    for j in 0..k {
+        let xj = x[j];
+        let column = l.col(j);
+        for i in j + 1..k {
+            x[i] -= wide(column[i]) * xj;
+        }
+    }
+}
+
+/// x ← L⁻ᵀ x, L as in [`unit_lower`].
+fn unit_lower_transposed(l: MatRef<'_, c32>, x: &mut [c64]) {
+    let k = x.len();
+    for j in (0..k).rev() {
+        let column = l.col(j);
+        let mut sum = c64::new(0.0, 0.0);
+        for i in j + 1..k {
+            sum += wide(column[i]) * x[i];
+        }
+        x[j] -= sum;
+    }
+}
+
+/// x ← U⁻¹ x, U the upper triangle of the k × k `u`, its diagonal with it.
+fn upper(u: MatRef<'_, c32>, x: &mut [c64]) {
+    for j in (0..x.len()).rev() {
+        let column = u.col(j);
+        x[j] /= wide(column[j]);
+        let xj = x[j];
+        for i in 0..j {
+            x[i] -= wide(column[i]) * xj;
+        }
+    }
+}
+
+/// x ← U⁻ᵀ x, U as in [`upper`].
+fn upper_transposed(u: MatRef<'_, c32>, x: &mut [c64]) {
+    for j in 0..x.len() {
+        let column = u.col(j);
+        let mut sum = c64::new(0.0, 0.0);
+        for i in 0..j {
+            sum += wide(column[i]) * x[i];
+        }
+        x[j] = (x[j] - sum) / wide(column[j]);
+    }
+}
+
+/// `w[below[t]] −= Σᵢ panel[(t, i)] x[i]`: a front's panel of L (rows below its block) times
+/// the block's values, column after column.
+fn subtract_panel(panel: MatRef<'_, c32>, x: &[c64], below: &[usize], w: &mut [c64]) {
+    let mut sum = vec![c64::new(0.0, 0.0); below.len()];
+    for (i, &xi) in x.iter().enumerate() {
+        for (t, &v) in panel.col(i).iter().enumerate() {
+            sum[t] += wide(v) * xi;
+        }
+    }
+    for (&r, s) in below.iter().zip(sum) {
+        w[r] -= s;
+    }
+}
+
+/// `x[i] −= Σₜ panel[(t, i)] w[below[t]]`: the transposed panel's product.
+fn subtract_panel_transposed(panel: MatRef<'_, c32>, below: &[usize], w: &[c64], x: &mut [c64]) {
+    for (i, xi) in x.iter_mut().enumerate() {
+        let mut sum = c64::new(0.0, 0.0);
+        for (&v, &r) in panel.col(i).iter().zip(below) {
+            sum += wide(v) * w[r];
+        }
+        *xi -= sum;
+    }
+}
+
+impl Multifrontal<c32> {
+    /// x with A x = `b`, by the single-precision factors in double-precision arithmetic: every
+    /// entry widened as it is read, so the solve adds no rounding of its own beyond double's.
+    /// Amestoy et al. (2023, Section 5.1) describe the same cast "on the fly", which keeps the
+    /// factors' memory at single precision.
+    pub(crate) fn solve(&self, b: &[c64]) -> Vec<c64> {
+        if self.analysis.symmetric {
+            return self.solve_symmetric(b);
+        }
+        let a = &self.analysis;
+        let m = &a.matching;
+        let mut w: Vec<c64> = a
+            .order
+            .iter()
+            .map(|&j| {
+                let r = m.rows[j];
+                b[r] * m.row_scale[r]
+            })
+            .collect();
+        for (f, s) in a.fronts.iter().zip(&self.factors) {
+            let k = f.end - f.begin;
+            let mut x: Vec<c64> = (0..k).map(|i| w[f.begin + s.rows[i]]).collect();
+            unit_lower(s.lower.as_ref().subrows(0, k), &mut x);
+            subtract_panel(
+                s.lower.as_ref().subrows(k, f.below.len()),
+                &x,
+                &f.below,
+                &mut w,
+            );
+            w[f.begin..f.end].copy_from_slice(&x);
+        }
+        for (f, s) in a.fronts.iter().zip(&self.factors).rev() {
+            let k = f.end - f.begin;
+            let mut x = w[f.begin..f.end].to_vec();
+            for (t, &r) in f.below.iter().enumerate() {
+                let wt = w[r];
+                for (xi, &u) in x.iter_mut().zip(s.upper.col(t).iter()) {
+                    *xi -= wide(u) * wt;
+                }
+            }
+            upper(s.lower.as_ref().subrows(0, k), &mut x);
+            w[f.begin..f.end].copy_from_slice(&x);
+        }
+        let mut x = vec![c64::new(0.0, 0.0); a.n];
+        for (k, &j) in a.order.iter().enumerate() {
+            x[j] = w[k] * m.column_scale[j];
+        }
+        x
+    }
+
+    /// x with Aᵀ x = `b`, as [`Multifrontal::<c32>::solve`].
+    pub(crate) fn solve_transpose(&self, b: &[c64]) -> Vec<c64> {
+        if self.analysis.symmetric {
+            return self.solve_symmetric(b);
+        }
+        let a = &self.analysis;
+        let m = &a.matching;
+        let mut w: Vec<c64> = a.order.iter().map(|&j| b[j] * m.column_scale[j]).collect();
+        for (f, s) in a.fronts.iter().zip(&self.factors) {
+            let k = f.end - f.begin;
+            let mut x = w[f.begin..f.end].to_vec();
+            upper_transposed(s.lower.as_ref().subrows(0, k), &mut x);
+            for (t, &r) in f.below.iter().enumerate() {
+                let mut sum = c64::new(0.0, 0.0);
+                for (&u, &xi) in s.upper.col(t).iter().zip(&x) {
+                    sum += wide(u) * xi;
+                }
+                w[r] -= sum;
+            }
+            w[f.begin..f.end].copy_from_slice(&x);
+        }
+        for (f, s) in a.fronts.iter().zip(&self.factors).rev() {
+            let k = f.end - f.begin;
+            let mut x = w[f.begin..f.end].to_vec();
+            subtract_panel_transposed(
+                s.lower.as_ref().subrows(k, f.below.len()),
+                &f.below,
+                &w,
+                &mut x,
+            );
+            unit_lower_transposed(s.lower.as_ref().subrows(0, k), &mut x);
+            for i in 0..k {
+                w[f.begin + s.rows[i]] = x[i];
+            }
+        }
+        let mut x = vec![c64::new(0.0, 0.0); a.n];
+        for (k, &j) in a.order.iter().enumerate() {
+            let r = m.rows[j];
+            x[r] = w[k] * m.row_scale[r];
+        }
+        x
+    }
+
+    /// x with A x = `b` (= Aᵀ x) for L D Lᵀ, as [`Multifrontal::<c32>::solve`].
+    fn solve_symmetric(&self, b: &[c64]) -> Vec<c64> {
+        let a = &self.analysis;
+        let scale = &a.matching.row_scale;
+        let mut w: Vec<c64> = a.order.iter().map(|&j| b[j] * scale[j]).collect();
+        for (f, s) in a.fronts.iter().zip(&self.factors) {
+            let k = f.end - f.begin;
+            let mut x = w[f.begin..f.end].to_vec();
+            unit_lower(s.lower.as_ref().subrows(0, k), &mut x);
+            subtract_panel(
+                s.lower.as_ref().subrows(k, f.below.len()),
+                &x,
+                &f.below,
+                &mut w,
+            );
+            for (i, xi) in x.iter().enumerate() {
+                w[f.begin + i] = xi / wide(s.lower[(i, i)]);
+            }
+        }
+        for (f, s) in a.fronts.iter().zip(&self.factors).rev() {
+            let k = f.end - f.begin;
+            let mut x = w[f.begin..f.end].to_vec();
+            subtract_panel_transposed(
+                s.lower.as_ref().subrows(k, f.below.len()),
+                &f.below,
+                &w,
+                &mut x,
+            );
+            unit_lower_transposed(s.lower.as_ref().subrows(0, k), &mut x);
+            w[f.begin..f.end].copy_from_slice(&x);
+        }
+        let mut x = vec![c64::new(0.0, 0.0); a.n];
+        for (k, &j) in a.order.iter().enumerate() {
+            x[j] = w[k] * scale[j];
+        }
+        x
+    }
+}
+
 /// What every front's factorization reads.
-struct Context<'a> {
+struct Context<'a, T> {
     analysis: &'a Analysis,
-    by_column: &'a [Vec<(usize, c64)>],
-    by_row: &'a [Vec<(usize, c64)>],
+    by_column: &'a [Vec<(usize, T)>],
+    by_row: &'a [Vec<(usize, T)>],
     tiny: f64,
-    slots: &'a [OnceLock<(Factors, usize)>],
+    slots: &'a [OnceLock<(Factors<T>, usize)>],
     /// Another library's dense kernels, or faer's called as ever.
     kernels: Option<&'a dyn DenseKernels>,
 }
 
-impl Context<'_> {
+impl<T: Scalar> Context<'_, T> {
     /// Factorizes the subtree under front `s`, its factors into their slots, and returns its
     /// update.
-    fn subtree(&self, s: usize) -> Result<Update> {
+    fn subtree(&self, s: usize) -> Result<Update<T>> {
         let front = &self.analysis.fronts[s];
         let parallel = front.work > PARALLEL_WORK && rayon::current_num_threads() > 1;
-        let updates: Vec<Update> = if parallel {
+        let updates: Vec<Update<T>> = if parallel {
             front
                 .children
                 .par_iter()
@@ -642,7 +897,7 @@ impl Context<'_> {
                 .collect::<Result<_>>()?
         } else {
             // a sequential subtree, depth first without recursion: deep trees don't overflow
-            let mut done: Vec<Update> = Vec::with_capacity(front.children.len());
+            let mut done: Vec<Update<T>> = Vec::with_capacity(front.children.len());
             for &c in &front.children {
                 done.push(self.sequential(c)?);
             }
@@ -652,10 +907,10 @@ impl Context<'_> {
     }
 
     /// The subtree under `s` on this thread, in postorder with an explicit stack.
-    fn sequential(&self, s: usize) -> Result<Update> {
+    fn sequential(&self, s: usize) -> Result<Update<T>> {
         let fronts = &self.analysis.fronts;
         // (front, its children's updates so far)
-        let mut stack: Vec<(usize, Vec<Update>)> = vec![(s, Vec::new())];
+        let mut stack: Vec<(usize, Vec<Update<T>>)> = vec![(s, Vec::new())];
         loop {
             let (top, got) = {
                 let (t, u) = stack
@@ -679,14 +934,13 @@ impl Context<'_> {
 
     /// Front `s`: assembled from B's entries and its children's updates, its columns
     /// eliminated, its factors stored, its update returned.
-    fn factorize(&self, s: usize, updates: Vec<Update>, parallel: bool) -> Result<Update> {
+    fn factorize(&self, s: usize, updates: Vec<Update<T>>, parallel: bool) -> Result<Update<T>> {
         let front = &self.analysis.fronts[s];
         let fronts = &self.analysis.fronts;
         let (begin, end) = (front.begin, front.end);
         let k = end - begin;
         let p = front.below.len();
         let m = k + p;
-        let par = if parallel { Par::rayon(0) } else { Par::Seq };
         let local = |r: usize| -> usize {
             if r < end {
                 r - begin
@@ -697,7 +951,7 @@ impl Context<'_> {
                     .expect("B's structure is inside the analysed one")
             }
         };
-        let mut f = Mat::<c64>::zeros(m, m);
+        let mut f = Mat::<T>::zeros(m, m);
         for c in begin..end {
             for &(r, v) in &self.by_column[c] {
                 f[(local(r), c - begin)] += v;
@@ -753,47 +1007,24 @@ impl Context<'_> {
             parallel,
             self.kernels,
         );
-        let permuted = Mat::<c64>::from_fn(k, p, |i, j| f[(rows[i], k + j)]);
+        let permuted = Mat::<T>::from_fn(k, p, |i, j| f[(rows[i], k + j)]);
         f.as_mut().submatrix_mut(0, k, k, p).copy_from(&permuted);
         let (top, bottom) = f.as_mut().split_at_row_mut(k);
         let (l11u11, mut u12) = top.split_at_col_mut(k);
         let (mut l21, mut f22) = bottom.split_at_col_mut(k);
-        // U₁₂ = L₁₁⁻¹ F₁₂, L₂₁ = F₂₁ U₁₁⁻¹, S = F₂₂ − L₂₁ U₁₂
-        if let Some(kernels) = self.kernels {
-            if k > 0 && p > 0 {
-                kernels.solve_unit_lower(
-                    Block::new(l11u11.as_ref()),
-                    BlockMut::new(u12.as_mut()),
-                    parallel,
-                );
-                kernels.solve_upper_from_right(
-                    Block::new(l11u11.as_ref()),
-                    BlockMut::new(l21.as_mut()),
-                    parallel,
-                );
-                kernels.multiply(
-                    BlockMut::new(f22.as_mut()),
-                    Block::new(l21.as_ref()),
-                    Block::new(u12.as_ref()),
-                    Product::default(),
-                    c64::new(-1.0, 0.0),
-                    parallel,
-                );
-            }
-        } else {
-            solve_unit_lower_triangular_in_place(l11u11.as_ref(), u12.as_mut(), par);
-            solve_lower_triangular_in_place(
-                l11u11.as_ref().transpose(),
-                l21.as_mut().transpose_mut(),
-                par,
-            );
-            matmul(
+        // U₁₂ = L₁₁⁻¹ F₁₂, L₂₁ = F₂₁ U₁₁⁻¹, S = F₂₂ − L₂₁ U₁₂; a library's kernels aren't called
+        // on empty blocks
+        if self.kernels.is_none() || (k > 0 && p > 0) {
+            T::solve_unit_lower(l11u11.as_ref(), u12.as_mut(), parallel, self.kernels);
+            T::solve_upper_from_right(l11u11.as_ref(), l21.as_mut(), parallel, self.kernels);
+            T::multiply(
                 f22.as_mut(),
-                Accum::Add,
                 l21.as_ref(),
                 u12.as_ref(),
-                c64::new(-1.0, 0.0),
-                par,
+                Product::default(),
+                T::real(-1.0),
+                parallel,
+                self.kernels,
             );
         }
         let lower = f.as_ref().submatrix(0, 0, m, k).to_owned();
@@ -814,15 +1045,13 @@ const PANEL: usize = 64;
 /// pivoting, its first k columns eliminated: L and D in place of the first k columns (D on the
 /// diagonal, L unit and below it), the Schur complement's lower half in place of the rest. A
 /// pivot smaller than `tiny` is set to it (with its own phase, or 1's); returns how many were.
-fn eliminate_symmetric(
-    mut f: MatMut<'_, c64>,
+fn eliminate_symmetric<T: Scalar>(
+    mut f: MatMut<'_, T>,
     k: usize,
     tiny: f64,
     parallel: bool,
     kernels: Option<&dyn DenseKernels>,
 ) -> usize {
-    use faer::linalg::matmul::triangular::{BlockStructure, matmul as triangular};
-    let par = if parallel { Par::rayon(0) } else { Par::Seq };
     let transposed = Product {
         transposed: true,
         lower: false,
@@ -832,7 +1061,7 @@ fn eliminate_symmetric(
         lower: true,
     };
     let m = f.nrows();
-    let minus = c64::new(-1.0, 0.0);
+    let minus = T::real(-1.0);
     let mut perturbed = 0;
     let mut j0 = 0;
     while j0 < k {
@@ -840,11 +1069,11 @@ fn eliminate_symmetric(
         // the panel's diagonal block, one column after another
         for j in j0..j1 {
             let mut d = f[(j, j)];
-            if d.norm() < tiny {
-                d = if d.norm() > 0.0 {
-                    d / d.norm() * tiny
+            if d.modulus() < tiny {
+                d = if d.modulus() > 0.0 {
+                    d.over(d.modulus()).times(tiny)
                 } else {
-                    c64::new(tiny, 0.0)
+                    T::real(tiny)
                 };
                 f[(j, j)] = d;
                 perturbed += 1;
@@ -867,18 +1096,13 @@ fn eliminate_symmetric(
             .as_mut()
             .submatrix_mut(j0, j0, m - j0, width)
             .split_at_row_mut(width);
-        match kernels {
-            Some(kernels) if rows > 0 => kernels.solve_unit_lower_transposed_from_right(
-                Block::new(diagonal.as_ref()),
-                BlockMut::new(below.as_mut()),
-                parallel,
-            ),
-            Some(_) => {}
-            None => solve_unit_lower_triangular_in_place(
+        if kernels.is_none() || rows > 0 {
+            T::solve_unit_lower_transposed_from_right(
                 diagonal.as_ref(),
-                below.as_mut().transpose_mut(),
-                par,
-            ),
+                below.as_mut(),
+                parallel,
+                kernels,
+            );
         }
         let ld = below.as_ref().to_owned();
         for c in 0..width {
@@ -891,44 +1115,24 @@ fn eliminate_symmetric(
         if j1 < k {
             let (left, mut right) = f.as_mut().split_at_col_mut(j1);
             let l = left.as_ref().submatrix(j1, j0, k - j1, width);
-            if let Some(kernels) = kernels {
-                kernels.multiply(
-                    BlockMut::new(right.as_mut().submatrix_mut(j1, 0, k - j1, k - j1)),
-                    Block::new(ld.as_ref().subrows(0, k - j1)),
-                    Block::new(l),
-                    lower,
+            T::multiply(
+                right.as_mut().submatrix_mut(j1, 0, k - j1, k - j1),
+                ld.as_ref().subrows(0, k - j1),
+                l,
+                lower,
+                minus,
+                parallel,
+                kernels,
+            );
+            if kernels.is_none() || m > k {
+                T::multiply(
+                    right.as_mut().submatrix_mut(k, 0, m - k, k - j1),
+                    ld.as_ref().subrows(k - j1, m - k),
+                    l,
+                    transposed,
                     minus,
                     parallel,
-                );
-                if m > k {
-                    kernels.multiply(
-                        BlockMut::new(right.as_mut().submatrix_mut(k, 0, m - k, k - j1)),
-                        Block::new(ld.as_ref().subrows(k - j1, m - k)),
-                        Block::new(l),
-                        transposed,
-                        minus,
-                        parallel,
-                    );
-                }
-            } else {
-                triangular(
-                    right.as_mut().submatrix_mut(j1, 0, k - j1, k - j1),
-                    BlockStructure::TriangularLower,
-                    Accum::Add,
-                    ld.as_ref().subrows(0, k - j1),
-                    BlockStructure::Rectangular,
-                    l.transpose(),
-                    BlockStructure::Rectangular,
-                    minus,
-                    par,
-                );
-                matmul(
-                    right.as_mut().submatrix_mut(k, 0, m - k, k - j1),
-                    Accum::Add,
-                    ld.as_ref().subrows(k - j1, m - k),
-                    l.transpose(),
-                    minus,
-                    par,
+                    kernels,
                 );
             }
         }
@@ -937,29 +1141,18 @@ fn eliminate_symmetric(
     // the Schur complement's lower half: F₂₂ − L₂₁ D L₂₁ᵀ
     let p = m - k;
     if p > 0 {
-        let ld = Mat::<c64>::from_fn(p, k, |r, c| f[(k + r, c)] * f[(c, c)]);
+        let ld = Mat::<T>::from_fn(p, k, |r, c| f[(k + r, c)] * f[(c, c)]);
         let (left, mut right) = f.as_mut().split_at_col_mut(k);
-        match kernels {
-            Some(kernels) if k > 0 => kernels.multiply(
-                BlockMut::new(right.as_mut().submatrix_mut(k, 0, p, p)),
-                Block::new(ld.as_ref()),
-                Block::new(left.as_ref().submatrix(k, 0, p, k)),
+        if kernels.is_none() || k > 0 {
+            T::multiply(
+                right.as_mut().submatrix_mut(k, 0, p, p),
+                ld.as_ref(),
+                left.as_ref().submatrix(k, 0, p, k),
                 lower,
                 minus,
                 parallel,
-            ),
-            Some(_) => {}
-            None => triangular(
-                right.as_mut().submatrix_mut(k, 0, p, p),
-                BlockStructure::TriangularLower,
-                Accum::Add,
-                ld.as_ref(),
-                BlockStructure::Rectangular,
-                left.as_ref().submatrix(k, 0, p, k).transpose(),
-                BlockStructure::Rectangular,
-                minus,
-                par,
-            ),
+                kernels,
+            );
         }
     }
     perturbed
@@ -968,23 +1161,20 @@ fn eliminate_symmetric(
 /// LU with partial pivoting of the k × k block in place, rows swapped only among its own: the
 /// block's rows in their new order, and how many pivots were smaller than `tiny` and set to it
 /// (with their own phase, or 1's).
-fn pivot_block(
-    mut a: MatMut<'_, c64>,
+fn pivot_block<T: Scalar>(
+    mut a: MatMut<'_, T>,
     tiny: f64,
     parallel: bool,
     kernels: Option<&dyn DenseKernels>,
 ) -> (Vec<usize>, usize) {
     let k = a.nrows();
     let backup = a.to_owned();
-    let forward = match kernels {
-        Some(kernels) if k > 0 => kernels.lu(BlockMut::new(a.as_mut()), parallel),
-        Some(_) => Vec::new(),
-        None => {
-            let par = if parallel { Par::rayon(0) } else { Par::Seq };
-            faer_lu(a.as_mut(), par)
-        }
+    let forward = if kernels.is_none() || k > 0 {
+        T::lu(a.as_mut(), parallel, kernels)
+    } else {
+        Vec::new()
     };
-    if (0..k).all(|i| a[(i, i)].norm() >= tiny) {
+    if (0..k).all(|i| a[(i, i)].modulus() >= tiny) {
         return (forward, 0);
     }
     // a small pivot: again, unblocked, perturbing the small ones
@@ -993,7 +1183,7 @@ fn pivot_block(
     let mut perturbed = 0;
     for j in 0..k {
         let (best, size) = (j..k)
-            .map(|i| (i, a[(i, j)].norm()))
+            .map(|i| (i, a[(i, j)].modulus()))
             .fold((j, -1.0), |b, x| if x.1 > b.1 { x } else { b });
         if best != j {
             for c in 0..k {
@@ -1005,18 +1195,18 @@ fn pivot_block(
         }
         if size < tiny {
             let phase = if size > 0.0 {
-                a[(j, j)] / size
+                a[(j, j)].over(size)
             } else {
-                c64::new(1.0, 0.0)
+                T::real(1.0)
             };
-            a[(j, j)] = phase * tiny;
+            a[(j, j)] = phase.times(tiny);
             perturbed += 1;
         }
         let pivot = a[(j, j)];
         for i in j + 1..k {
             let l = a[(i, j)] / pivot;
             a[(i, j)] = l;
-            if l != c64::new(0.0, 0.0) {
+            if l != T::real(0.0) {
                 for c in j + 1..k {
                     let u = a[(j, c)];
                     a[(i, c)] -= l * u;
@@ -1030,6 +1220,8 @@ fn pivot_block(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use faer::Accum;
+    use faer::linalg::matmul::matmul;
 
     #[test]
     fn the_threaded_product_of_a_fronts_update_is_the_plain_one() {

@@ -145,9 +145,9 @@ const CUDA_NO_BUILD: &[&str] = &["macos"];
 pub const GUIDES: &[Guide] = &[
     Guide {
         library: "photonoxide",
-        about: "photonoxide's own multifrontal LU and L D Lᵀ, and its QMR: the default and the reference every other backend is checked against.",
+        about: "photonoxide's own multifrontal LU and L D Lᵀ, and its QMR: the default and the reference every other backend is checked against; and the same factorization in single precision, refined in double (photonoxide-mixed), at half the memory.",
         provides: &["direct", "iterative", "eigen", "dense"],
-        backends: &["photonoxide"],
+        backends: &["photonoxide", "photonoxide-mixed"],
         needs: &[],
         licence: "MIT OR Apache-2.0",
         licence_url: "https://github.com/tachsin/photonoxide/blob/main/LICENSE-MIT",

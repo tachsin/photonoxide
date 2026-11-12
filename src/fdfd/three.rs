@@ -905,6 +905,15 @@ impl Solver3d {
                 values: vec![c64::new(0.0, 0.0); n],
             });
         }
+        // a backend that refines its own solves (photonoxide-mixed) has done what follows, and
+        // more: its solve is a field whose backward error is at double precision's rounding, or
+        // an error
+        if self.lu.refined() {
+            return Ok(Field3d {
+                lattice: self.lattice.clone(),
+                values,
+            });
+        }
         let residual = |values: &[c64]| -> Vec<c64> {
             let applied = self.apply(values);
             rhs.iter().zip(&applied).map(|(b, a)| b - a).collect()
@@ -1158,6 +1167,9 @@ pub(crate) mod checks;
 pub(crate) mod fill;
 mod iterative;
 mod matrix_free;
+#[cfg(test)]
+#[path = "../cases/fdfd/three/mixed_tests.rs"]
+mod mixed_tests;
 mod multigrid;
 #[path = "../cases/fdfd/three/port_checks.rs"]
 pub(crate) mod port_checks;

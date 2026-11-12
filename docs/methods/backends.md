@@ -43,7 +43,9 @@ Each backend declares:
   registered);
 - whether it takes the symmetric form, and whether it solves with the transpose;
 - how its threads are set: one, rayon's, or the library's own;
-- whether a solve gives the same bits on every run and any number of threads.
+- whether a solve gives the same bits on every run and any number of threads;
+- whether its factors are kept in a lower precision than its solves (`refined`), each solve
+  refined to double precision by the backend itself and an error where it can't be.
 
 ## The backends there are
 
@@ -51,8 +53,9 @@ Each backend declares:
 |---|---|---|---|
 | `photonoxide` | the multifrontal LU and L D Lᵀ of `crate::sparse`, the default and the reference | general, symmetric | yes |
 | `faer` | faer's sparse LU in its own ordering, the baseline of [docs/baselines.md](../baselines.md) | general | not declared |
+| `photonoxide-mixed` | photonoxide's own in single precision, half the factors' memory, each solve refined to double by GMRES ([mixed precision](mixed-precision.md)) | general, symmetric | yes |
 
-Both are always registered. `backend::register` adds another under its name;
+All three are always registered. `backend::register` adds another under its name;
 `backend::register_unavailable` records one that was looked for and can't be had, with the
 reason. `backend::direct_solvers` lists them all.
 
@@ -96,12 +99,18 @@ Benchmarks page). The rule, `auto::choose`, is a function of those records alone
   there.
 - **Never** a backend that isn't registered and available (its library gone, a failed smoke
   test), nor one that missed an accuracy check in that family and form on this machine. A run
-  that didn't finish says nothing either way.
+  that didn't finish says nothing either way. Nor one that refines lower-precision factors
+  (`photonoxide-mixed`): it fails, by design and saying so, on a system too ill-conditioned for
+  them, so it is taken only when a solver or a job names it, and its records are left out.
 - **Memory:** a backend whose peak, scaled from its record to the problem's size (as the
   factors of a nested dissection grow: n log₂ n in 2D, n^(4/3) in 3D), is beyond the free
   memory is passed over for the next that fits.
 - **No records:** photonoxide's own. The library alone, the tests and the validation report
   have none, so there `auto` is what it always was, to the bit.
+- **A preference:** `backend::prefer_direct` makes `auto` stand for a named backend in the
+  process, whatever the records say, to run photonoxide's own checks on it (the validation
+  cases on `photonoxide-mixed`, tests/mixed_precision.rs), as `backend::prefer_iterative` does
+  for iterative backends. Nothing in photonoxide calls it.
 
 The decision comes with its reason, which the run's record keeps:
 

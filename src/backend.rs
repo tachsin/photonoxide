@@ -8,12 +8,17 @@
 //! declares its [`Capabilities`]: the forms it takes, how its threads are set, whether it gives
 //! the same bits on every run, and its library's name, version and licence.
 //!
-//! Two backends are always registered:
+//! Three backends are always registered:
 //!
 //! - `photonoxide`: the multifrontal LU and L D Lᵀ of this crate, the default and the
 //!   reference. It gives the same bits on any number of threads.
 //! - `faer`: faer's sparse LU, the baseline photonoxide's own was measured against
 //!   (docs/baselines.md). General matrices only.
+//! - `photonoxide-mixed`: photonoxide's own factorization in single precision, half the
+//!   factors' memory, each solve refined to double precision by GMRES
+//!   (docs/methods/mixed-precision.md). A system too ill-conditioned
+//!   for single-precision factors is an error that says so, with the refinement's history.
+//!   Only by name: `auto` never chooses it.
 //!
 //! Others are registered at run time by whoever has them ([`register`]); photonoxide itself
 //! links no external library. A library that was looked for and not found, or that failed its
@@ -35,7 +40,7 @@ use std::time::Instant;
 use faer::Mat;
 use faer::linalg::solvers::Solve;
 use faer::sparse::{SparseColMat, SparseColMatRef, SymbolicSparseColMatRef, Triplet};
-use num_complex::Complex64 as c64;
+use num_complex::{Complex32 as c32, Complex64 as c64};
 
 use crate::sparse;
 use crate::{Error, Result};
@@ -208,6 +213,11 @@ pub struct Capabilities {
     pub threads: Threads,
     /// Whether a solve gives the same bits on every run and any number of threads.
     pub deterministic: bool,
+    /// Whether its factors are kept in a lower precision than its solves, each solve refined
+    /// to double precision by the backend itself, and an error where it can't be (as
+    /// `photonoxide-mixed`'s): `auto` never chooses one, and a solver doesn't refine its
+    /// solves again.
+    pub refined: bool,
 }
 
 impl Capabilities {
@@ -227,6 +237,7 @@ impl Capabilities {
             transpose: false,
             threads: Threads::One,
             deterministic: false,
+            refined: false,
         }
     }
 }
@@ -352,6 +363,9 @@ impl fmt::Display for Choice {
 
 const OWN: &str = "photonoxide";
 const FAER: &str = "faer";
+/// The name of photonoxide's own factorization in single precision, each solve refined to
+/// double precision (see the module's list): what a solver's [`Choice`] names to take it.
+pub const MIXED: &str = "photonoxide-mixed";
 
 fn check_name(name: &str) -> Result<()> {
     let valid = |c: char| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-' || c == '_';
@@ -385,6 +399,7 @@ fn registry() -> &'static RwLock<Vec<Entry>> {
         RwLock::new(vec![
             Entry::Available(Arc::new(Photonoxide { kernels: None })),
             Entry::Available(Arc::new(Faer)),
+            Entry::Available(Arc::new(Mixed)),
         ])
     })
 }
@@ -433,7 +448,7 @@ pub fn direct_solvers() -> Result<Vec<Listed>> {
 
 fn place(name: &str, entry: Entry) -> Result<()> {
     check_name(name)?;
-    if matches!(name, "auto" | OWN | FAER) {
+    if matches!(name, "auto" | OWN | FAER | MIXED) {
         return Err(invalid(format!("{name:?} is photonoxide's own name")));
     }
     let mut entries = registry().write().map_err(poisoned)?;
@@ -451,7 +466,7 @@ fn place(name: &str, entry: Entry) -> Result<()> {
 /// # Errors
 ///
 /// [`Error::InvalidValue`] for a name that isn't lower-case letters, digits, `-` and `_`, for
-/// `auto`, `photonoxide` or `faer`, and for a solver that isn't complex.
+/// `auto`, `photonoxide`, `faer` or `photonoxide-mixed`, and for a solver that isn't complex.
 pub fn register(solver: Arc<dyn DirectSolver>) -> Result<()> {
     let capabilities = solver.capabilities();
     if !capabilities.complex {
@@ -480,16 +495,21 @@ pub fn register_unavailable(name: &str, reason: impl Into<String>) -> Result<()>
     )
 }
 
-/// The direct solver of a choice: photonoxide's own for `auto`.
+/// The direct solver of a choice: photonoxide's own for `auto`, unless the process prefers
+/// another ([`prefer_direct`]).
 ///
 /// # Errors
 ///
 /// [`Error::InvalidValue`] for a name nothing is registered under, and for a backend
 /// registered as unavailable, with its reason. Never another backend in its place.
 pub fn direct(choice: &Choice) -> Result<Arc<dyn DirectSolver>> {
-    let name = match choice {
-        Choice::Auto | Choice::Photonoxide => OWN,
-        Choice::Named(name) => name,
+    let preferred = matches!(choice, Choice::Auto)
+        .then(preferred_direct)
+        .flatten();
+    let name = match (choice, &preferred) {
+        (_, Some(preferred)) => preferred.as_str(),
+        (Choice::Auto | Choice::Photonoxide, None) => OWN,
+        (Choice::Named(name), None) => name,
     };
     let entries = registry().read().map_err(poisoned)?;
     match entries.iter().find(|e| e.name() == name) {
@@ -505,6 +525,40 @@ pub fn direct(choice: &Choice) -> Result<Arc<dyn DirectSolver>> {
             )))
         }
     }
+}
+
+fn direct_preference() -> &'static RwLock<Option<String>> {
+    static PREFERRED: OnceLock<RwLock<Option<String>>> = OnceLock::new();
+    PREFERRED.get_or_init(|| RwLock::new(None))
+}
+
+/// Makes `auto` stand for the direct backend `choice` names, in this process: every solver
+/// that names no backend then factorizes with it ([`auto::decide`] and [`direct`] both say
+/// so), whatever the machine's measurements say;
+/// `auto` and `photonoxide` make `auto` photonoxide's own choice again, as it is until this is
+/// called. For running photonoxide's own checks on a backend (the validation cases with
+/// `photonoxide-mixed`, tests/mixed_precision.rs), as [`prefer_iterative`] is for iterative
+/// ones: nothing in photonoxide calls it.
+///
+/// # Errors
+///
+/// As [`direct`], and nothing changes.
+pub fn prefer_direct(choice: &Choice) -> Result<()> {
+    let name = match choice {
+        Choice::Auto | Choice::Photonoxide => None,
+        Choice::Named(name) => {
+            direct(choice)?;
+            Some(name.clone())
+        }
+    };
+    *direct_preference().write().map_err(poisoned)? = name;
+    Ok(())
+}
+
+/// The direct backend `auto` stands for ([`prefer_direct`]): `None`, `auto`'s own choice,
+/// unless one was preferred.
+pub fn preferred_direct() -> Option<String> {
+    direct_preference().read().ok().and_then(|p| p.clone())
 }
 
 /// photonoxide's own: the multifrontal LU and L D Lᵀ of [`crate::sparse`], with faer's dense
@@ -540,17 +594,11 @@ impl DirectSolver for Photonoxide {
     }
 
     fn analyse(&self, matrix: &Matrix<'_>) -> Result<Option<Arc<dyn Analysis>>> {
-        let clock = Instant::now();
-        let a = matrix.as_faer();
-        let analysis = match matrix.form() {
-            Form::General => Some(sparse::Analysis::new(a, matrix.positions())?),
-            Form::Symmetric => sparse::Analysis::new_symmetric(a, matrix.positions())?,
-        };
-        Ok(analysis.map(|analysis| {
+        Ok(own_analysis(matrix)?.map(|(analysis, seconds)| {
             Arc::new(OwnAnalysis {
                 analysis: Arc::new(analysis),
                 kernels: self.kernels.clone(),
-                seconds: clock.elapsed().as_secs_f64(),
+                seconds,
             }) as Arc<dyn Analysis>
         }))
     }
@@ -562,6 +610,18 @@ impl DirectSolver for Photonoxide {
                 .unwrap_or_else(|| Arc::new(dense::Faer) as Arc<dyn dense::DenseKernels>),
         )
     }
+}
+
+/// photonoxide's own analysis of `matrix` in its form, and the seconds it took: `None` for a
+/// symmetric form it can't keep its pivots on the diagonal of.
+fn own_analysis(matrix: &Matrix<'_>) -> Result<Option<(sparse::Analysis, f64)>> {
+    let clock = Instant::now();
+    let a = matrix.as_faer();
+    let analysis = match matrix.form() {
+        Form::General => Some(sparse::Analysis::new(a, matrix.positions())?),
+        Form::Symmetric => sparse::Analysis::new_symmetric(a, matrix.positions())?,
+    };
+    Ok(analysis.map(|analysis| (analysis, clock.elapsed().as_secs_f64())))
 }
 
 impl Analysis for OwnAnalysis {
@@ -703,6 +763,160 @@ impl Factorization for FaerFactors {
             factorization_seconds: self.seconds,
             ..Report::default()
         }
+    }
+}
+
+/// photonoxide's own multifrontal factorization in single precision, each solve refined to
+/// double precision by GMRES ([`sparse::refine`]): the same analysis, fronts and order as
+/// photonoxide's own, the factors in half its memory.
+struct Mixed;
+
+struct MixedFactors {
+    factors: sparse::Multifrontal<c32>,
+    /// The matrix in double precision, for the residuals: a small part of the factors' memory.
+    matrix: SparseColMat<usize, c64>,
+    /// ‖A‖∞ and ‖Aᵀ‖∞, and the most entries in a row and in a column.
+    norms: [f64; 2],
+    entries: [usize; 2],
+    report: Report,
+}
+
+impl DirectSolver for Mixed {
+    fn capabilities(&self) -> Capabilities {
+        Capabilities {
+            symmetric: true,
+            transpose: true,
+            threads: Threads::Rayon,
+            deterministic: true,
+            refined: true,
+            ..Capabilities::new(MIXED, env!("CARGO_PKG_VERSION"), "MIT OR Apache-2.0")
+        }
+    }
+
+    fn analyse(&self, matrix: &Matrix<'_>) -> Result<Option<Arc<dyn Analysis>>> {
+        Ok(own_analysis(matrix)?.map(|(analysis, seconds)| {
+            Arc::new(MixedAnalysis(OwnAnalysis {
+                analysis: Arc::new(analysis),
+                kernels: None,
+                seconds,
+            })) as Arc<dyn Analysis>
+        }))
+    }
+}
+
+/// photonoxide's own analysis, which doesn't depend on the factors' precision.
+struct MixedAnalysis(OwnAnalysis);
+
+impl Analysis for MixedAnalysis {
+    fn form(&self) -> Form {
+        self.0.form()
+    }
+
+    fn factorize(&self, matrix: &Matrix<'_>) -> Result<Box<dyn Factorization>> {
+        let clock = Instant::now();
+        let own = &self.0;
+        let factors = sparse::Multifrontal::single(own.analysis.clone(), matrix.as_faer())?;
+        let a = matrix.as_faer();
+        let n = a.ncols();
+        let matrix = SparseColMat::new(
+            faer::sparse::SymbolicSparseColMat::new_checked(
+                n,
+                n,
+                matrix.column_starts().to_vec(),
+                None,
+                matrix.row_indices().to_vec(),
+            ),
+            matrix.values().to_vec(),
+        );
+        let (mut rows, mut columns) = (vec![0.0f64; n], vec![0.0f64; n]);
+        let (mut row_entries, mut column_entries) = (vec![0usize; n], 0usize);
+        for (j, column) in columns.iter_mut().enumerate() {
+            let mut count = 0;
+            for (i, v) in a.row_idx_of_col(j).zip(a.val_of_col(j)) {
+                rows[i] += v.norm();
+                *column += v.norm();
+                row_entries[i] += 1;
+                count += 1;
+            }
+            column_entries = column_entries.max(count);
+        }
+        let report = Report {
+            factor_entries: Some(own.analysis.factor_entries()),
+            peak_memory_bytes: None,
+            perturbed_pivots: factors.perturbed(),
+            analysis_seconds: own.seconds,
+            factorization_seconds: clock.elapsed().as_secs_f64(),
+        };
+        let largest = |v: &[f64]| v.iter().copied().fold(0.0, f64::max);
+        Ok(Box::new(MixedFactors {
+            factors,
+            matrix,
+            norms: [largest(&rows), largest(&columns)],
+            entries: [row_entries.into_iter().max().unwrap_or(0), column_entries],
+            report,
+        }))
+    }
+}
+
+impl MixedFactors {
+    /// x with A x = `b`, or Aᵀ x = `b`, refined to double precision.
+    fn refined(&self, b: &[c64], transpose: bool) -> Result<Vec<c64>> {
+        check_rhs(b, self.factors.analysis().n())?;
+        let a = self.matrix.as_ref();
+        let product = |x: &[c64]| -> Vec<c64> {
+            let mut out = vec![c64::new(0.0, 0.0); x.len()];
+            for j in 0..a.ncols() {
+                for (i, v) in a.row_idx_of_col(j).zip(a.val_of_col(j)) {
+                    if transpose {
+                        out[j] += v * x[i];
+                    } else {
+                        out[i] += v * x[j];
+                    }
+                }
+            }
+            out
+        };
+        let inverse = |v: &[c64]| -> Vec<c64> {
+            if transpose {
+                self.factors.solve_transpose(v)
+            } else {
+                self.factors.solve(v)
+            }
+        };
+        let side = usize::from(transpose);
+        let system = sparse::refine::System {
+            product: &product,
+            inverse: &inverse,
+            norm: self.norms[side],
+            row_entries: self.entries[side],
+        };
+        sparse::refine::refine(&system, b)
+            .map(|(x, _)| x)
+            .map_err(|history| {
+                invalid(format!(
+                    "photonoxide-mixed's single-precision factors, refined in double precision, \
+                     didn't reach a double-precision solution: {}. The system is too \
+                     ill-conditioned for single-precision factors (or they perturbed too many \
+                     pivots: {}); solve it with photonoxide's own double-precision factors \
+                     (`photonoxide`)",
+                    history.history(),
+                    self.report.perturbed_pivots
+                ))
+            })
+    }
+}
+
+impl Factorization for MixedFactors {
+    fn solve(&self, b: &[c64]) -> Result<Vec<c64>> {
+        self.refined(b, false)
+    }
+
+    fn solve_transpose(&self, b: &[c64]) -> Result<Vec<c64>> {
+        self.refined(b, true)
+    }
+
+    fn report(&self) -> Report {
+        self.report.clone()
     }
 }
 
@@ -899,7 +1113,7 @@ pub(crate) mod tests {
         let b: Vec<c64> = (0..n)
             .map(|i| c64::new((i % 7) as f64 - 3.0, (i % 4) as f64))
             .collect();
-        for name in [OWN, FAER] {
+        for name in [OWN, FAER, MIXED] {
             let solver = direct(&Choice::parse(name).unwrap()).unwrap();
             let capabilities = solver.capabilities();
             assert_eq!(capabilities.name, name);
@@ -985,10 +1199,13 @@ pub(crate) mod tests {
 
     #[test]
     fn the_registry_names_what_it_has_and_refuses_what_it_hasnt() {
-        // photonoxide's own first, then faer's
+        // photonoxide's own first, then faer's, then photonoxide's own in single precision
         let listed = direct_solvers().unwrap();
         assert_eq!(listed[0].name, OWN);
         assert_eq!(listed[1].name, FAER);
+        assert_eq!(listed[2].name, MIXED);
+        let mixed = listed[2].capabilities.clone().unwrap();
+        assert!(mixed.refined && !listed[0].capabilities.clone().unwrap().refined);
         let own = listed[0].capabilities.clone().unwrap();
         assert!(own.deterministic && own.symmetric && own.transpose);
         assert_eq!(own.threads, Threads::Rayon);
@@ -1027,7 +1244,7 @@ pub(crate) mod tests {
             "registry-test-library"
         );
         // names: photonoxide's own can't be taken, nor one that isn't a name
-        for name in ["auto", OWN, FAER, "", "Has Capitals", "a b"] {
+        for name in ["auto", OWN, FAER, MIXED, "", "Has Capitals", "a b"] {
             assert!(register_unavailable(name, "no").is_err(), "{name:?}");
         }
         assert!(Choice::parse("MKL").is_err());

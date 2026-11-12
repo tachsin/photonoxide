@@ -14,7 +14,11 @@
 //! - **A margin:** a backend is taken only if it is at least [`MARGIN`] faster than
 //!   photonoxide's own there. Otherwise, and with no records, photonoxide's own.
 //! - **Never** a backend that isn't registered and available, nor one that missed an accuracy
-//!   check in that family and form on this machine.
+//!   check in that family and form on this machine, nor one that refines lower-precision
+//!   factors ([`super::Capabilities::refined`], `photonoxide-mixed`), which fails by design on
+//!   a system too ill-conditioned for them: that one is taken only when named.
+//! - **A preference** set in the process ([`super::prefer_direct`], for running photonoxide's
+//!   own checks on a backend) stands in for all of this.
 //! - **Memory:** a backend whose peak, scaled from its record to the problem's size, is beyond
 //!   the machine's free memory is passed over for the next that fits.
 //!
@@ -352,22 +356,44 @@ pub fn free_memory() -> Option<u64> {
 /// What `auto` chooses for `problem` now: [`choose`] on the configured measurements, the
 /// direct solvers registered and available, rayon's threads and the free memory.
 pub fn decide(problem: Problem<'_>) -> Decision {
+    if let Some(name) = super::preferred_direct() {
+        return Decision {
+            backend: name,
+            reason: "preferred in this process (backend::prefer_direct)".into(),
+        };
+    }
     let current = current();
     if current.records.is_empty() {
         return Decision::own("no benchmark records on this machine");
     }
-    let available: Vec<String> = super::direct_solvers()
-        .map(|all| {
-            all.into_iter()
-                .filter(|l| l.capabilities.is_some())
-                .map(|l| l.name)
-                .collect()
-        })
-        .unwrap_or_else(|_| vec![OWN.into()]);
+    let listed = super::direct_solvers().unwrap_or_default();
+    // a backend that refines lower-precision factors fails, by design, on a system too
+    // ill-conditioned for them: it is taken when named, never chosen, and its records say
+    // nothing here
+    let refined: Vec<&str> = listed
+        .iter()
+        .filter(|l| l.capabilities.as_ref().is_some_and(|c| c.refined))
+        .map(|l| l.name.as_str())
+        .collect();
+    let records: Vec<Measured> = current
+        .records
+        .iter()
+        .filter(|r| !refined.contains(&r.backend.as_str()))
+        .cloned()
+        .collect();
+    let available: Vec<String> = if listed.is_empty() {
+        vec![OWN.into()]
+    } else {
+        listed
+            .iter()
+            .filter(|l| l.capabilities.is_some())
+            .map(|l| l.name.clone())
+            .collect()
+    };
     let free = current.free_memory.as_ref().and_then(|read| read());
     choose(
         problem,
-        &current.records,
+        &records,
         &available,
         rayon::current_num_threads(),
         free,
