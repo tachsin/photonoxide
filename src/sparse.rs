@@ -16,6 +16,7 @@
 
 mod matching;
 mod multifrontal;
+pub(crate) mod refine;
 
 pub(crate) use multifrontal::{Analysis, Multifrontal};
 

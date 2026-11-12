@@ -23,7 +23,7 @@ use crate::runner::{self, Machine, Record};
 
 /// The backends that are part of photonoxide: nothing to load for them.
 fn built_in(name: &str) -> bool {
-    matches!(name, "photonoxide" | "faer")
+    matches!(name, "photonoxide" | "faer" | "photonoxide-mixed")
 }
 
 /// The form a catalogue problem is factorized in, if it is a direct one.

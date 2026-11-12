@@ -203,6 +203,12 @@ impl Direct {
         self.similarity.is_some()
     }
 
+    /// Whether the backend refines its own solves to double precision
+    /// ([`crate::backend::Capabilities::refined`]): a step of refinement after it adds nothing.
+    pub(crate) fn refined(&self) -> bool {
+        self.solver.capabilities().refined
+    }
+
     /// The backend and the analysis, for a matrix of the same structure.
     pub(crate) fn plan(&self) -> Plan {
         Plan {
