@@ -11,7 +11,7 @@
   // A design on silicon on insulator can start from a bought SOI wafer or from bare silicon, the
   // SOI wafer made first by Smart Cut or SIMOX: as the design's job says (`start: smart_cut`,
   // `start: simox`), as the
-  // component's tab sent it, or as picked here.
+  // component's Fabricate button sent it, or as picked here.
   import { open } from "@tauri-apps/plugin-dialog";
   import { CircleCheck, FileUp, Layers, Play, TriangleAlert } from "@lucide/svelte";
   import { onMount, untrack } from "svelte";
