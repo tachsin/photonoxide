@@ -942,8 +942,9 @@ fn by_circuit(mesh: &Mesh, h: &[[[c64; 2]; 2]], z: c64) -> photonoxide::Result<S
             net.connect(&name(p), &name(q))?;
         }
     }
-    for n in 1..=PORTS {
-        net.expose(&format!("p{n}"), &name(mesh.ports[n]))?;
+    // ports 1 … PORTS (index 0 unused)
+    for (n, &port) in mesh.ports.iter().enumerate().skip(1) {
+        net.expose(&format!("p{n}"), &name(port))?;
     }
     let circuit = net.compile()?;
     let s = circuit.s_matrix(Wavelength::um(1.55)?)?;

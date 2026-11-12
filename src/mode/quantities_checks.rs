@@ -929,8 +929,8 @@ pub(crate) fn facade_quantities() -> (f64, f64) {
                 m.confinement(&cs, &Region::Material(si))
                     .expect("a confinement"),
             ));
-        for b in 0..library.len() {
-            gap = gap.max((f.orthogonality[b] - products.get(a, b)).norm());
+        for (b, &overlap) in f.orthogonality.iter().enumerate().take(library.len()) {
+            gap = gap.max((overlap - products.get(a, b)).norm());
         }
     }
     (gap, facade[0].effective_area_um2)
