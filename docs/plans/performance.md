@@ -519,7 +519,18 @@ solve; iteration counts against the number of subdomains (flat with a working co
 **Benchmarks.** Strong and weak scaling over processes on one machine, then over machines; time to
 a field error of 1e-8 against Phase A's single-machine solver; memory per process.
 
-**From me.** Machines to test on; the MPI decision; where the milestone goes (decision 5).
+**Testing without a cluster.** Correctness needs no cluster: the Slurm cluster in Docker of #805
+(a controller and compute containers on one machine, Debian's `slurm-wlm`) runs the
+communicator's TCP and MPI back ends across containers under `srun` and `mpirun`. There the
+validation's bit-identity is checked on 1, 2, 4 and 7 processes (an uneven split too); network
+delay and loss are added with `tc netem`; a process killed mid-solve must end the run with an
+error, not a hang; and Slurm's time limit must stop it cleanly. Containers share one machine's
+cores, memory and network, so they say nothing about speed: the interconnect, two sockets'
+memory and a parallel file system are measured on a real cluster only, and the containers'
+timings are never quoted.
+
+**From me.** Machines to test on (a rented or allocated cluster, for the scaling only); the MPI
+decision; where the milestone goes (decision 5).
 
 ### Phase F: compressed direct solvers (research, optional)
 
