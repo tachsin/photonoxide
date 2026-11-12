@@ -10,9 +10,10 @@
 //!   to count its factorizations, which shows which cases solved through it.
 //! - **An iterative backend** (`cusparse`): the process prefers it for `auto`
 //!   (`backend::prefer_iterative`), so every QMR and GMRES solve it runs as photonoxide would
-//!   (one right-hand side, by the matrix, plain, with ILU(0) or by the multigrid) goes to it,
-//!   and the others stay photonoxide's (block QMR, recycling, without the matrix); it is
-//!   wrapped to count its runs.
+//!   (one right-hand side, by the matrix, plain, with ILU(0) or by the multigrid, and the
+//!   multigrid without its finest matrix if it runs it) goes to it, and the others stay
+//!   photonoxide's (block QMR, recycling, plain QMR without the matrix); it is wrapped to count
+//!   its runs.
 //!
 //! A case that made no call through the backend isn't listed. Each listed case is then run
 //! again on photonoxide's own, and the two printed as a Markdown table: the values each
@@ -30,8 +31,8 @@ use num_complex::Complex64 as c64;
 use photonoxide::Result;
 use photonoxide::backend::auto::{self, Measured, Outcome as Ran};
 use photonoxide::backend::{
-    self, Analysis, Capabilities, Choice, DirectSolver, Factorization, Form, IluFactors,
-    IterativeSolver, Matrix, MultigridCycle, QmrRun, RowMatrix,
+    self, Analysis, Capabilities, Choice, DirectSolver, Factorization, Fine, Form, IluFactors,
+    IterativeSolver, Matrix, MultigridCycle, PreparedMultigrid, QmrRun, RowMatrix,
 };
 use photonoxide::fdfd::{Convergence, Stopping};
 use photonoxide::validation::{self, Outcome};
@@ -105,6 +106,36 @@ impl IterativeSolver for CountingRuns {
     ) -> Result<(Vec<c64>, Convergence)> {
         CALLS.fetch_add(1, Ordering::Relaxed);
         self.0.gmres_multigrid(matrix, cycle, b, stopping)
+    }
+
+    fn runs_multigrid_stencil(&self) -> bool {
+        self.0.runs_multigrid_stencil()
+    }
+
+    fn prepare_multigrid(
+        &self,
+        fine: Fine<'_>,
+        cycle: &MultigridCycle<'_>,
+    ) -> Result<Option<Box<dyn PreparedMultigrid>>> {
+        Ok(self
+            .0
+            .prepare_multigrid(fine, cycle)?
+            .map(|p| Box::new(CountingSolves(p)) as Box<dyn PreparedMultigrid>))
+    }
+}
+
+/// A prepared hierarchy that counts its solves.
+struct CountingSolves(Box<dyn PreparedMultigrid>);
+
+impl PreparedMultigrid for CountingSolves {
+    fn gmres(
+        &self,
+        cycle: &MultigridCycle<'_>,
+        b: &[c64],
+        stopping: Stopping,
+    ) -> Result<(Vec<c64>, Convergence)> {
+        CALLS.fetch_add(1, Ordering::Relaxed);
+        self.0.gmres(cycle, b, stopping)
     }
 }
 

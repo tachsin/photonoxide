@@ -469,7 +469,7 @@ impl IterativeSolver3d {
             ));
         }
         // without the matrix, only the multigrid of a backend that runs it from the stencil
-        if self.free.is_some() && !(multigrid && solver.runs_multigrid_stencil()) {
+        if self.free.is_some() && !(multigrid && solver.runs_multigrid() && solver.runs_multigrid_stencil()) {
             if multigrid {
                 return Err(Error::invalid(
                     "iterative backend",
@@ -501,9 +501,9 @@ impl IterativeSolver3d {
             Preconditioning::None => true,
             Preconditioning::Ilu(ilu) => ilu.has_factors(),
             Preconditioning::Multigrid(h) => {
-                let stencil = solver.runs_multigrid_stencil();
+                let stencil = h.needs_stencil();
                 solver.runs_multigrid()
-                    && (self.free.is_none() || stencil)
+                    && (!stencil || solver.runs_multigrid_stencil())
                     && h.cycle_for_backend(stencil).is_ok()
             }
         };

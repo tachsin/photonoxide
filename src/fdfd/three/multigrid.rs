@@ -1382,6 +1382,15 @@ impl Hierarchy {
         })
     }
 
+    /// Whether a backend needs to run the multigrid without its finest matrix to take this
+    /// cycle ([`crate::backend::IterativeSolver::runs_multigrid_stencil`]): its finest level has
+    /// no matrix, or its coarse levels are discretized again.
+    pub(crate) fn needs_stencil(&self) -> bool {
+        self.levels
+            .iter()
+            .any(|l| l.scaling.is_some() || matches!(l.stage, Stage::Stencil { .. }))
+    }
+
     /// GMRES with this hierarchy's cycle on `solver`, GMRES's operator `fine`: through what the
     /// backend made of it the first time ([`crate::backend::IterativeSolver::prepare_multigrid`]),
     /// kept for the next solves on the same backend; or, if it keeps nothing, by
@@ -1397,7 +1406,8 @@ impl Hierarchy {
         b: &[c64],
         stopping: crate::fdfd::krylov::Stopping,
     ) -> Result<(Vec<c64>, crate::fdfd::krylov::Convergence)> {
-        let cycle = self.cycle_for_backend(solver.runs_multigrid_stencil())?;
+        let cycle =
+            self.cycle_for_backend(self.needs_stencil() && solver.runs_multigrid_stencil())?;
         // the backend, by its object: the same one keeps what it made
         let key = Arc::as_ptr(solver).cast::<()>() as usize;
         let mut kept = self.prepared.lock().unwrap_or_else(|p| p.into_inner());

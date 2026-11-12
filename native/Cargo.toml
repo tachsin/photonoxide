@@ -16,6 +16,15 @@ libloading = "0.9.0"
 num-complex = "0.4"
 rayon = "1.12.0"
 
+# The multigrid without its finest matrix on cuSPARSE (#337): the finest level's stencil is a
+# compute shader of photonoxide's own on Vulkan, through wgpu (as photonoxide's `gpu` feature
+# has it: the same version and features, so the tests' builds share it), on buffers Vulkan
+# exports and CUDA imports, made with ash (wgpu's Vulkan bindings). Both load the system's Vulkan
+# at run time; nothing is linked. Not on macOS, which has no CUDA.
+[target.'cfg(any(windows, target_os = "linux"))'.dependencies]
+wgpu = { version = "30.0.1", default-features = false, features = ["std", "parking_lot", "wgsl", "vulkan", "dx12", "metal"] }
+ash = "0.38"
+
 # None of these is used here. They make `cargo test --all-features -p photonoxide-native` resolve
 # every crate it shares with photonoxide's tests to the same features as `cargo test
 # --all-features` of photonoxide does (photonoxide with all its features, and photonoxide's own

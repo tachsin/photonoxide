@@ -59,6 +59,24 @@ fn it_solves_the_3d_guides_with_multigrid_as_photonoxide_does() {
     ]);
 }
 
+/// The guide and the strip with ports by GMRES with the multigrid without its finest matrix
+/// (#337), both coarse operators: the finest level's stencil on Vulkan, on vectors it shares
+/// with cuSPARSE, which runs the rest; the hierarchy prepared once for the strip's two ports.
+#[test]
+fn it_solves_without_the_finest_matrix_as_photonoxide_does() {
+    let Some(gpu) = gpu() else { return };
+    if let Err(reason) = gpu.stencil_device() {
+        println!("skipped: no Vulkan device shares memory with CUDA here: {reason}");
+        return;
+    }
+    guides(&[
+        "fdfd3d-iterative/guide-multigrid-stencil-44",
+        "fdfd3d-iterative/guide-multigrid-rediscretized-44",
+        "fdfd3d-iterative/strip-ports-multigrid-stencil-40nm",
+        "fdfd3d-iterative/strip-ports-multigrid-rediscretized-40nm",
+    ]);
+}
+
 /// The guide of 44 cells a side too: over an hour, most of it its reference fields to 1e-12.
 #[test]
 #[ignore]

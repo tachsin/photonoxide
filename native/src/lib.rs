@@ -32,6 +32,8 @@ mod gpu_multigrid;
 mod gpu_qmr;
 pub mod hdf5;
 pub mod intel;
+#[cfg(any(windows, target_os = "linux"))]
+mod interop;
 mod library;
 pub mod mumps;
 pub mod nvidia;
