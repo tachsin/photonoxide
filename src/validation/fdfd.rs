@@ -194,6 +194,16 @@ pub(crate) fn rules() -> Vec<(&'static str, Rule)> {
                 "as fdfd/adjoint-gradient-ez",
             ),
         ),
+        (
+            "fdfd/adjoint-gradient-row",
+            Rule::new(
+                Relative,
+                Discretisation,
+                2e-6,
+                Noted,
+                "as fdfd/adjoint-gradient-ez: at δ = 1e-3, 4e-3, 1.6e-2 and 6.4e-2 every probe's error is below its resolution, with no truncation showing (the_row_gradient_step_study); the cladding probe's small gradient (3.4e-8) makes its resolution the coarsest, 5.2e-7 at δ = 1.6e-2, noted; held to 2e-6, above three times it",
+            ),
+        ),
         // ---- 3D: the exact stack, the flux, the PML and the 2D scheme ----
         (
             "fdfd3d/film-reflection-te",

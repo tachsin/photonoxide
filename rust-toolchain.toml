@@ -1,0 +1,9 @@
+# The Rust toolchain every build of this repository uses: the maintainers' workstations, the agents'
+# worktrees and CI (the composite action .github/actions/rust-toolchain reads this file, so a bump
+# is this one edit). A newer Rust is adopted on purpose, in a pull request of its own: CONTRIBUTING.md,
+# "How to bump Rust". The library's minimum, `rust-version` in Cargo.toml, is a separate matter,
+# checked by CI's MSRV job on its own toolchain.
+[toolchain]
+channel = "1.100.0"
+components = ["clippy", "rustfmt"]
+profile = "minimal"

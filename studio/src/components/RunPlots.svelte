@@ -19,6 +19,7 @@
   import UnitChip from "./UnitChip.svelte";
   import OptimizeResults from "./device/OptimizeResults.svelte";
   import StudyResults from "./device/StudyResults.svelte";
+  import TopologyResults from "./device/TopologyResults.svelte";
 
   const db = (re: number, im: number) => 10 * Math.log10(Math.max(re * re + im * im, 1e-30));
   /** Spectra as power (linear, the default: dips read as they are) or in dB (small values show). */
@@ -222,6 +223,13 @@
     <section class="panel p-5">
       <h3 class="mb-3 font-semibold">The {run.optimization.device}'s optimization <span class="font-normal faint">· genoxide's {run.optimization.optimizer} on its {run.optimization.fidelity} model</span></h3>
       <OptimizeResults record={{ optimization: run.optimization, evaluations: run.evaluations, front: run.front, hypervolumes: run.hypervolumes, optimum: run.optimum }} dir={run.info?.dir ?? null} running={!run.finished} height={260} />
+    </section>
+  {/if}
+
+  {#if run.topology}
+    <section class="panel p-5">
+      <h3 class="mb-3 font-semibold">The design region's optimization <span class="font-normal faint">· genoxide's {run.topology.topology.optimizer}, every gradient by the adjoint</span></h3>
+      <TopologyResults record={run.topology} running={!run.finished} height={240} />
     </section>
   {/if}
 

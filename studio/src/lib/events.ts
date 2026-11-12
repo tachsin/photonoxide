@@ -633,6 +633,89 @@ export interface Evaluation {
   error: string | null;
 }
 
+/** A term of a design region's optimization: one objective's value at one wavelength (and one realization of a robust design). */
+export interface TopologyTerm {
+  label: string;
+  /** Its objective, from 0. */
+  objective: number;
+  port: string;
+  /** The port's mode, from 1. */
+  mode: number;
+  /** Measured at the source's own port. */
+  reflection: boolean;
+  /** The term is 1 − P (maximized) or P (minimized). */
+  maximize: boolean;
+  wavelength_um: number;
+  realization: "eroded" | "nominal" | "dilated" | null;
+}
+
+/** A design region's optimization about to run (photonoxide::job::Topology). */
+export interface Topology {
+  type: "topology";
+  method: string;
+  optimizer: string;
+  paper: string;
+  timeout_minutes: number;
+  /** The region's pixels along x and y. */
+  pixels: [number, number];
+  pixel_nm: number;
+  region_um: [[number, number], [number, number]];
+  filter_nm: number;
+  eta: number;
+  beta: number[];
+  evaluations: number[];
+  robust_eta: number | null;
+  terms: TopologyTerm[];
+  rules: string[];
+  rules_from: number;
+  record_every: number;
+}
+
+/** An evaluation of a design region's optimization. */
+export interface TopologyEvaluation {
+  type: "topology_evaluation";
+  index: number;
+  stage: number;
+  beta: number;
+  /** The epigraph's t; null where the solve failed. */
+  t: number | null;
+  /** The worst term; null where the solve failed. */
+  worst: number | null;
+  /** Each term, in the order of the problem's terms. */
+  values: number[];
+  /** Each rule's g, ≤ 0 when met; none before the rules' stage. */
+  rules: number[];
+  feasible: boolean;
+  /** The stage's best evaluation so far. */
+  best: number | null;
+  error: string | null;
+}
+
+/** A design region's density, physical, from 0 (the cladding) to 1 (the core). */
+export interface Density {
+  type: "density";
+  index: number;
+  stage: number;
+  label: string;
+  raster: Raster;
+}
+
+/** A design region's optimization's end: the last stage's best design, binary, solved. */
+export interface TopologyOptimum {
+  type: "topology_optimum";
+  index: number | null;
+  stage: number;
+  /** Each term's P (the mode's power over the source's) of the binary design, nominal. */
+  powers: number[];
+  wavelengths_um: number[];
+  objectives: number[];
+  length_nm: number;
+  islands: number | null;
+  holes: number | null;
+  stop: string;
+  evaluations: number;
+}
+
 /** A continuation's stage begins: its parameter's value, and what the optimizer kept. */
 export interface Stage {
   type: "stage";
@@ -919,6 +1002,10 @@ export type Event =
   | Optimization
   | Evaluation
   | Stage
+  | Topology
+  | TopologyEvaluation
+  | Density
+  | TopologyOptimum
   | Front
   | Optimum
   | DeviceModel

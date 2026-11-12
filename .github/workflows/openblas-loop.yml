@@ -102,7 +102,7 @@ jobs:
                    /usr/lib/x86_64-linux-gnu/libopenblas.so.0; do
             if [ -f "$f" ]; then "$python" "$RUNNER_TEMP/says.py" "$f" || true; break; fi
           done
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: ./.github/actions/rust-toolchain
       - uses: Swatinem/rust-cache@v2
       - name: What photonoxide finds
         run: cargo run -p photonoxide-native --example libraries | grep -A5 -E '^OpenBLAS'

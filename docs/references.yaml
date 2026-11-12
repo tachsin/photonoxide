@@ -454,6 +454,12 @@
   venue: "Cambridge University Press"
   year: 1999
 
+- doi: 10.1002/nme.116
+  authors: "B. Bourdin"
+  title: "Filters in topology optimization"
+  venue: "Numerical Meth Engineering 50, 2143"
+  year: 2001
+
 - doi: 10.1016/C2015-0-05510-1
   authors: "R. W. Boyd"
   title: "Nonlinear Optics"
@@ -1294,6 +1300,12 @@
   venue: "Phys. Rev. A 56, 1627"
   year: 1997
 
+- doi: 10.1002/nme.1064
+  authors: "J. K. Guest, J. H. Prévost, T. Belytschko"
+  title: "Achieving minimum length scale in topology optimization using nodal design variables and projection functions"
+  venue: "Numerical Meth Engineering 61, 238"
+  year: 2004
+
 - doi: 10.1109/T-ED.1964.15364
   authors: "H. Gummel"
   title: "A self-consistent iterative scheme for one-dimensional steady state transistor calculations"
@@ -1403,6 +1415,12 @@
   title: "Photonic topology optimization with semiconductor-foundry design-rule constraints"
   venue: "Opt. Express 29, 23916"
   year: 2021
+
+- doi: 10.1364/OE.563512
+  authors: "A. M. Hammond, A. Oskooi, I. M. Hammond, M. Chen, S. E. Ralph, S. G. Johnson"
+  title: "Unifying and accelerating level-set and density-based topology optimization by subpixel-smoothed projection"
+  venue: "Opt. Express 33, 33620"
+  year: 2025
 
 - doi: 10.1126/sciadv.adi5339
   authors: "C. Han, Z. Zheng, H. Shu, M. Jin, J. Qin, R. Chen, Y. Tao, B. Shen, B. Bai, F. Yang, et al."
@@ -2025,6 +2043,12 @@
   venue: "J. Opt. 24, 064013"
   year: 2022
   open: https://doi.org/10.1088/2040-8986/ac5ece
+
+- doi: 10.1002/nme.3072
+  authors: "B. S. Lazarov, O. Sigmund"
+  title: "Filters in topology optimization based on Helmholtz‐type differential equations"
+  venue: "Numerical Meth Engineering 86, 765"
+  year: 2010
 
 - doi: 10.1063/1.1399305
   authors: "M. Lee"
@@ -2828,6 +2852,12 @@
   title: "Regimes of Classical Simulability for Noisy Gaussian Boson Sampling"
   venue: "Phys. Rev. Lett. 124, 100502"
   year: 2020
+
+- doi: 10.1016/j.cma.2012.08.020
+  authors: "X. Qian, O. Sigmund"
+  title: "Topological design of electromechanical actuators with robustness toward over- and under-etching"
+  venue: "Computer Methods in Applied Mechanics and Engineering 253, 237"
+  year: 2013
 
 - doi: 10.1103/PhysRevA.98.062322
   authors: "N. Quesada, J. M. Arrazola, N. Killoran"

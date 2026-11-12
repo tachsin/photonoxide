@@ -57,7 +57,7 @@ pub struct PortMode {
     pub(super) weights: Vec<c64>,
     /// For H along z, ε_y on the face between the column and the next; 1 for E along z.
     eps_face: Vec<c64>,
-    polarization: Polarization,
+    pub(super) polarization: Polarization,
 }
 
 impl PortMode {

@@ -616,7 +616,9 @@ impl Form {
                 kept_task.insert(k.clone(), task[k].clone());
             }
         }
+        // a kind the form doesn't edit (an "optimize" task's, say) is kept whole, its kind with it
         if !KINDS.contains(&kind.as_str()) {
+            kept_task.clone_from(&task);
             kept_task.insert(
                 "kind".into(),
                 task.get("kind")
@@ -728,8 +730,11 @@ impl Form {
         }
         out.push(String::new());
         out.push("[task]".into());
+        // a task of a kind the form doesn't edit is kept whole (its kind with it): none of the
+        // form's own values
+        let foreign = has("kind");
         let mut line = |k: &str, v: String| {
-            if !has(k) {
+            if !has(k) && !foreign {
                 out.push(format!("{k} = {v}"));
             }
         };

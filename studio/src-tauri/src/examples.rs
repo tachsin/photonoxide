@@ -66,6 +66,10 @@ examples!(
     optimize_mesh_selfconfig: "../../../examples/optimize_mesh_selfconfig.rs",
     optimize_ybranch: "../../../examples/optimize_ybranch.rs",
     optimize_grating_pareto: "../../../examples/optimize_grating_pareto.rs",
+    optimize_mode_converter: "../../../examples/optimize_mode_converter.rs",
+    optimize_demux_robust: "../../../examples/optimize_demux_robust.rs",
+    optimize_foundry_bend: "../../../examples/optimize_foundry_bend.rs",
+    optimize_crossing_ssp: "../../../examples/optimize_crossing_ssp.rs",
     directional_coupler: "../../../examples/directional_coupler.rs",
     ring_q_factor: "../../../examples/ring_q_factor.rs",
     mzi_dwivedi: "../../../examples/mzi_dwivedi.rs",
@@ -209,6 +213,22 @@ fn title(name: &str) -> (&'static str, &'static str) {
             "A Y-branch's taper by a particle swarm",
             "Zhang et al. 2013",
         ),
+        "optimize_foundry_bend" => (
+            "A broadband bend under a foundry's design rules",
+            "Hammond et al. 2021",
+        ),
+        "optimize_crossing_ssp" => (
+            "A waveguide crossing optimized to a level set",
+            "Hammond et al. 2025",
+        ),
+        "optimize_demux_robust" => (
+            "A demultiplexer robust to a ±8 nm etch",
+            "Christiansen & Sigmund 2021",
+        ),
+        "optimize_mode_converter" => (
+            "A mode converter by topology optimization, 50 nm features",
+            "Chen et al. 2024",
+        ),
         "optimize_grating_pareto" => (
             "Grating couplers' efficiency against bandwidth",
             "Passoni et al. 2017",
@@ -292,6 +312,10 @@ fn seconds(name: &str) -> f64 {
         "optimize_mesh_selfconfig" => 50.0,
         "optimize_ybranch" => 150.0,
         "optimize_grating_pareto" => 120.0,
+        "optimize_mode_converter" => 20.0,
+        "optimize_demux_robust" => 10.0,
+        "optimize_foundry_bend" => 10.0,
+        "optimize_crossing_ssp" => 5.0,
         "bend_loss" | "leaky_waves" | "strip_waveguide" => 10.0,
         "lorentz_okoniewski" | "subpixel_holes" => 15.0,
         "directional_coupler" | "tfsf_square_cylinder" => 20.0,
@@ -490,6 +514,10 @@ pub fn jobs() -> Vec<JobExample> {
         (
             "crosstalk-correction.yaml",
             include_str!("../../../jobs/crosstalk-correction.yaml"),
+        ),
+        (
+            "topology-bend.yaml",
+            include_str!("../../../jobs/topology-bend.yaml"),
         ),
         ("ppln-shg.yaml", include_str!("../../../jobs/ppln-shg.yaml")),
         (

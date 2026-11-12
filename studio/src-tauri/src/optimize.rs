@@ -46,7 +46,10 @@ pub fn exporters() {
 /// What the job refuses, or the run's errors.
 pub fn execute(job: &Job, run: &mut Run, stop: &Stop) -> photonoxide::Result<()> {
     exporters();
-    if job::optimizes(job) {
+    if job::Topology::designs(job) {
+        let outcome = topology::run(job, run, stop);
+        job::conclude(run, outcome)
+    } else if job::optimizes(job) {
         // its failure recorded and its results written, as job::execute does for the rest
         let outcome = optimize(job, run, stop);
         job::conclude(run, outcome)
@@ -486,6 +489,8 @@ fn run_multi<A: genoxide::multi::MultiObjectiveAlgorithm<2, Genome = Reals>>(
         .run()?;
     Ok(outcome.stop_reason())
 }
+
+mod topology;
 
 #[cfg(test)]
 mod tests;

@@ -53,15 +53,99 @@ impl Solver2d {
         mode: &PortMode,
         direction: Direction,
     ) -> Result<(f64, Vec<f64>)> {
-        let g = self.grid;
-        let (nx, ny) = (g.nx, g.ny);
         if self.polarization == Polarization::Hz && !self.cellwise {
             return Err(Error::invalid(
                 "fdfd gradient",
                 "with H along z the gradient is for a problem given cell by cell (from_cells)",
             ));
         }
-        let (a, lambda) = self.mode_adjoint(field, mode, direction)?;
+        let c = self.mode_coefficients(field, mode, direction)?;
+        self.power_gradient(field, &c)
+    }
+
+    /// The power of any linear functional of the field, |cᵀu|² with `c` one coefficient per
+    /// cell (`[j * nx + i]`), and its gradient with respect to each cell's relative permittivity
+    /// (its real part): a mode's amplitude measured anywhere, on a row as well as a column
+    /// ([`Solver2d::row_mode_functional`]). [`Solver2d::mode_power_gradient`] is this with a
+    /// column port's coefficients.
+    ///
+    /// # Errors
+    ///
+    /// As [`Solver2d::mode_power_gradient`], and [`Error::InvalidValue`] for coefficients that
+    /// aren't one per cell.
+    pub fn functional_power_gradient(&self, field: &Field2d, c: &[c64]) -> Result<(f64, Vec<f64>)> {
+        let g = self.grid;
+        if self.polarization == Polarization::Hz && !self.cellwise {
+            return Err(Error::invalid(
+                "fdfd gradient",
+                "with H along z the gradient is for a problem given cell by cell (from_cells)",
+            ));
+        }
+        if c.len() != g.nx * g.ny || field.values.len() != g.nx * g.ny {
+            return Err(Error::invalid(
+                "fdfd gradient",
+                "the field and the coefficients must be one per cell of this problem",
+            ));
+        }
+        self.power_gradient(field, c)
+    }
+
+    /// The coefficients of the amplitude of `mode` (one solved as a column port of a straight
+    /// guide, [`Solver2d::port_modes_within`], on a problem whose cells along y are this one's
+    /// along x) travelling `direction` along y on rows `row` and `row + 1` of this problem, its
+    /// profile laid along x from `first_column`: forward is +y. With E along z the field is the
+    /// same scalar whichever way the guide runs, so a mode of the guide turned by 90° is the
+    /// straight guide's mode; the projection is [`Field2d::mode_amplitudes`]'s, across rows.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::InvalidValue`] with H along z, for a mode whose step isn't this grid's along y,
+    /// or for a row or a profile past the grid.
+    pub fn row_mode_functional(
+        &self,
+        mode: &PortMode,
+        row: usize,
+        first_column: usize,
+        direction: Direction,
+    ) -> Result<Vec<c64>> {
+        let g = self.grid;
+        if self.polarization != Polarization::Ez || mode.polarization != Polarization::Ez {
+            return Err(Error::invalid(
+                "fdfd row mode",
+                "a mode turned to run along y is the same field only with E along z",
+            ));
+        }
+        if (mode.dx - g.dy).abs() > 1e-12 * g.dy {
+            return Err(Error::invalid(
+                "fdfd row mode",
+                format!(
+                    "the mode's step {} µm isn't this grid's {} µm along y",
+                    mode.dx, g.dy
+                ),
+            ));
+        }
+        if row + 1 >= g.ny || first_column + mode.profile.len() > g.nx {
+            return Err(Error::invalid(
+                "fdfd row mode",
+                "the rows or the profile reach past the grid",
+            ));
+        }
+        let (on_c, on_next) = projection(mode, direction);
+        let mut c = vec![c64::new(0.0, 0.0); g.nx * g.ny];
+        for (t, (&w, &phi)) in mode.weights.iter().zip(&mode.profile).enumerate() {
+            let wp = w * phi;
+            c[row * g.nx + first_column + t] = wp * on_c;
+            c[(row + 1) * g.nx + first_column + t] = wp * on_next;
+        }
+        Ok(c)
+    }
+
+    /// |cᵀu|² and its gradient, from the adjoint field λ of Aᵀ λ = conj(a) c, a = cᵀ u.
+    fn power_gradient(&self, field: &Field2d, c: &[c64]) -> Result<(f64, Vec<f64>)> {
+        let (nx, ny) = (self.grid.nx, self.grid.ny);
+        let a: c64 = c.iter().zip(&field.values).map(|(c, u)| c * u).sum();
+        let adjoint_source: Vec<c64> = c.iter().map(|c| a.conj() * c).collect();
+        let lambda = self.solve_transposed(&adjoint_source)?;
         let u = &field.values;
         let mut gradient = vec![0.0; nx * ny];
         match self.polarization {
@@ -88,6 +172,23 @@ impl Solver2d {
         mode: &PortMode,
         direction: Direction,
     ) -> Result<(c64, Vec<c64>)> {
+        let c = self.mode_coefficients(field, mode, direction)?;
+        let a: c64 = c.iter().zip(&field.values).map(|(c, u)| c * u).sum();
+        let adjoint_source: Vec<c64> = c.iter().map(|c| a.conj() * c).collect();
+        Ok((a, self.solve_transposed(&adjoint_source)?))
+    }
+
+    /// The coefficients c of the amplitude a = cᵀ u of `mode` going `direction` at its column.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::InvalidValue`] for a field or mode of another problem.
+    pub(super) fn mode_coefficients(
+        &self,
+        field: &Field2d,
+        mode: &PortMode,
+        direction: Direction,
+    ) -> Result<Vec<c64>> {
         let g = self.grid;
         let (nx, ny) = (g.nx, g.ny);
         if field.values.len() != nx * ny || mode.profile.len() != ny {
@@ -97,21 +198,14 @@ impl Solver2d {
             ));
         }
         // a = cᵀu: the projection on columns c and c + 1 (see mode_amplitudes)
-        let step = (c64::new(0.0, 1.0) * mode.beta * mode.dx).exp();
-        let d = step - 1.0 / step;
-        let (on_c, on_next) = match direction {
-            Direction::Forward => (-1.0 / (step * d), 1.0 / d),
-            Direction::Backward => (1.0 + 1.0 / (step * d), -1.0 / d),
-        };
+        let (on_c, on_next) = projection(mode, direction);
         let mut c = vec![c64::new(0.0, 0.0); nx * ny];
         for j in 0..ny {
             let wp = mode.weights[j] * mode.profile[j];
             c[j * nx + mode.column] = wp * on_c;
             c[j * nx + mode.column + 1] = wp * on_next;
         }
-        let a: c64 = c.iter().zip(&field.values).map(|(c, u)| c * u).sum();
-        let adjoint_source: Vec<c64> = c.iter().map(|c| a.conj() * c).collect();
-        Ok((a, self.solve_transposed(&adjoint_source)?))
+        Ok(c)
     }
 
     /// −2 Re(λᵀ (∂A/∂ε_cell) u) with H along z, face by face, as `assemble` couples them.
@@ -215,5 +309,16 @@ impl Solver2d {
                 }
             }
         }
+    }
+}
+
+/// The weights of a mode's projections on its two neighbouring lines that give its amplitude
+/// going `direction` at the first (see [`Field2d::mode_amplitudes`]).
+fn projection(mode: &PortMode, direction: Direction) -> (c64, c64) {
+    let step = (c64::new(0.0, 1.0) * mode.beta * mode.dx).exp();
+    let d = step - 1.0 / step;
+    match direction {
+        Direction::Forward => (-1.0 / (step * d), 1.0 / d),
+        Direction::Backward => (1.0 + 1.0 / (step * d), -1.0 / d),
     }
 }

@@ -448,6 +448,9 @@ The plan, with its survey, sources and scope, is [docs/plans/quantum.md](docs/pl
 - [ ] **Validation:** each item analytic (HOM visibility, permanents of known matrices, squeezed-vacuum statistics), a published result (Peruzzo 2010, Paesani 2020, Vernon 2017, Vaidya 2020, Nehra 2022, Silverstone 2013, Arcari 2014, Pernice 2012) and a convergence test, as the plan details. *(In part (#738, #742, #743): Clements 2016, Peruzzo's Eq. 4, Helt 2010, Vernon's equal linewidths, Vaidya's number-difference squeezing, Nehra's inferred squeezing and Silverstone's degenerate fringe are cases. Left: the numbers named under Q1 to Q3 as not yet reproduced (#595), and Q4 and Q5's.)*
 
 ### 0.7: Inverse design
+
+The plan, with what is built, the phases I1 to I12, their validation and the decisions, is [docs/plans/inverse-design.md](docs/plans/inverse-design.md) (#761).
+
 - [ ] **Quantum objectives** with gradients (purity, heralding, HOM visibility, a unitary's fidelity), from the circuit adjoint and the minors' permanents ([docs/plans/quantum.md](docs/plans/quantum.md), Q4).
 - [ ] **Optimization examples before 0.7:** #244's phases 1 to 4 run on today's solvers ([docs/plans/optimization.md](docs/plans/optimization.md)).
 - [ ] **Adjoint gradients** for every solver (Lalau-Keraly 2013; nonlinear: Hughes 2018); forward-mode where it pays (Hughes 2019).

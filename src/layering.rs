@@ -47,6 +47,7 @@ const LAYERS: &[Layer] = &[
             "raster",
             "etch",
             "fabrication",
+            "topology",
         ],
         may_use: &["core"],
     },

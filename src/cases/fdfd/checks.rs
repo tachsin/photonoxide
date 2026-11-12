@@ -413,3 +413,115 @@ pub(crate) fn gradient_probes(polarization: Polarization, delta: f64) -> Vec<Pro
         })
         .collect()
 }
+
+/// A sharp 90° bend, 2D with E along z on 20 nm cells: a 0.4 µm guide of n = 3.4 in 1.444 along
+/// x at y from 0.8 to 1.2 µm, turning up at x from 0.8 to 1.2 µm; its output mode measured on two
+/// rows near the top (`Solver2d::row_mode_functional`), the mode solved on a straight guide whose
+/// cells along y are the bend's along x. The base problem, its source, the output's coefficients
+/// and the ratio of the output mode's power to the input's.
+pub(crate) fn bend(h: f64) -> (Solver2d, Vec<c64>, Vec<c64>, Vec<c64>, f64) {
+    let pml = 20;
+    let n = (3.0 / h).round() as usize + 2 * pml;
+    let grid = Grid {
+        nx: n,
+        ny: n,
+        dx: h,
+        dy: h,
+        x0: -(pml as f64) * h,
+        y0: -(pml as f64) * h,
+    };
+    let (core, clad) = (3.4f64 * 3.4, 1.444f64 * 1.444);
+    let guide = |v: f64| (0.8..1.2).contains(&v);
+    let cells: Vec<c64> = (0..n * n)
+        .map(|p| {
+            let (x, y) = (grid.x(p % n), grid.y(p / n));
+            let si = (guide(y) && x < 1.2) || (guide(x) && y >= 0.8);
+            c64::new(if si { core } else { clad }, 0.0)
+        })
+        .collect();
+    let lam = Wavelength::um(1.55).unwrap();
+    let base =
+        Solver2d::from_cells(grid, Polarization::Ez, lam, &cells, Boundaries::pml(pml)).unwrap();
+    let window =
+        |a: f64, b: f64| ((a - grid.y0) / h).round() as usize..((b - grid.y0) / h).round() as usize;
+    let input = base
+        .port_modes_within(((0.3 - grid.x0) / h).round() as usize, window(0.2, 1.8), 1)
+        .unwrap()
+        .remove(0);
+    // the straight guide turned: its rows the bend's columns
+    let aux_grid = Grid {
+        nx: 2 * pml + 10,
+        ny: n,
+        dx: h,
+        dy: h,
+        x0: 0.0,
+        y0: grid.x0,
+    };
+    let aux_cells: Vec<c64> = (0..aux_grid.nx * n)
+        .map(|p| {
+            let x_of_bend = aux_grid.y(p / aux_grid.nx);
+            c64::new(if guide(x_of_bend) { core } else { clad }, 0.0)
+        })
+        .collect();
+    let aux = Solver2d::from_cells(
+        aux_grid,
+        Polarization::Ez,
+        lam,
+        &aux_cells,
+        Boundaries::pml(pml),
+    )
+    .unwrap();
+    let output = aux
+        .port_modes_within(pml + 4, window(0.2, 1.8), 1)
+        .unwrap()
+        .remove(0);
+    let row = ((2.5 - grid.y0) / h).round() as usize;
+    let c = base
+        .row_mode_functional(&output, row, 0, Direction::Forward)
+        .unwrap();
+    let ratio = output.power(h) / input.power(h);
+    let source = base.mode_source(&input, Direction::Forward);
+    (base, cells, source, c, ratio)
+}
+
+/// The bend's probes: the adjoint's derivative of the output mode's power, measured on a row, at
+/// a cell in the corner, one in the vertical guide and one in the cladding by the corner, against
+/// the power with the cell's permittivity moved, `delta` wide.
+pub(crate) fn row_gradient_probes(delta: f64) -> Vec<Probe> {
+    let h = 0.02;
+    let (base, cells, source, c, _) = bend(h);
+    let grid = base.grid();
+    let lam = Wavelength::um(1.55).unwrap();
+    let power = |s: &Solver2d| -> f64 {
+        let f = s.solve_system(&source).unwrap();
+        f.values
+            .iter()
+            .zip(&c)
+            .map(|(u, c)| u * c)
+            .sum::<c64>()
+            .norm_sqr()
+    };
+    let field = base.solve_system(&source).unwrap();
+    let (p0, gradient) = base.functional_power_gradient(&field, &c).unwrap();
+    let residual = base.residual(&field, &source).unwrap();
+    let cell = |x: f64, y: f64| {
+        (((y - grid.y0) / h).floor() as usize) * grid.nx + ((x - grid.x0) / h).floor() as usize
+    };
+    [cell(1.0, 1.0), cell(1.0, 2.0), cell(1.4, 1.4)]
+        .iter()
+        .map(|&k| {
+            let at = |d: f64| {
+                let mut varied = cells.clone();
+                varied[k] += d;
+                power(&base.reuse_cells(lam, &varied).unwrap())
+            };
+            Probe {
+                gradient: gradient[k],
+                power: p0,
+                delta,
+                at: [-2.0, -1.0, 1.0, 2.0].map(|s| at(s * delta)),
+                residual,
+            }
+        })
+        .collect()
+}

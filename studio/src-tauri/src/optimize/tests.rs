@@ -462,3 +462,85 @@ fn every_continuing_method_runs_a_continuation_through() {
         );
     }
 }
+
+/// A straight guide broken by a 1 × 1 µm design region on 50 nm cells: MMA's two stages.
+const STRAIGHT: &str = r#"
+name = "straight"
+timeout_minutes = 5
+
+[task]
+kind = "optimize"
+x_um = [-1.5, 1.5]
+y_um = [-1.5, 1.5]
+step_nm = 50
+pml_cells = 10
+core_index = 3.4
+cladding_index = 1.44
+source = "in"
+record_every = 4
+
+[[task.guide]]
+x_um = [-2.0, -0.5]
+y_um = [-0.25, 0.25]
+
+[[task.guide]]
+x_um = [0.5, 2.0]
+y_um = [-0.25, 0.25]
+
+[[task.port]]
+name = "in"
+side = "west"
+at_um = -0.8
+window_um = [-0.6, 0.6]
+
+[[task.port]]
+name = "out"
+side = "east"
+at_um = 0.8
+window_um = [-0.6, 0.6]
+
+[[task.objective]]
+port = "out"
+from_um = 1.5
+to_um = 1.6
+points = 2
+
+[task.design]
+x_um = [-0.5, 0.5]
+y_um = [-0.5, 0.5]
+filter_nm = 100
+beta = [4, 16]
+evaluations = [12, 8]
+"#;
+
+#[test]
+fn a_design_regions_run_is_the_same_bits_on_one_and_four_threads_and_improves_its_start() {
+    let j = Job::parse(STRAIGHT).expect("a job");
+    let one = lines(&j, Some(1));
+    assert_eq!(one, lines(&j, Some(4)));
+    let events: Vec<Event> = one
+        .iter()
+        .map(|l| serde_json::from_str(l).expect("an event"))
+        .collect();
+    let worst: Vec<f64> = events
+        .iter()
+        .filter_map(|e| match e {
+            Event::TopologyEvaluation { worst, .. } => *worst,
+            _ => None,
+        })
+        .collect();
+    // the start, 12 evaluations; the second stage's start, 8
+    assert_eq!(worst.len(), 22);
+    let Some(Event::TopologyOptimum { powers, stop, .. }) = events.last() else {
+        panic!("no optimum");
+    };
+    assert_eq!(stop, "evaluations");
+    // the grey start loses a lot in the region; the binary design carries most across it
+    assert!(1.0 - worst[0] < 0.9, "{}", worst[0]);
+    assert!(
+        powers.iter().all(|p| *p > 1.0 - worst[0]),
+        "{powers:?} against {}",
+        worst[0]
+    );
+    assert!(events.iter().any(|e| matches!(e, Event::Density { .. })));
+}

@@ -117,7 +117,9 @@ jobs:
           node-version: 24
           cache: pnpm
           cache-dependency-path: studio/pnpm-lock.yaml
-      - uses: dtolnay/rust-toolchain@stable
+      # the toolchain rust-toolchain.toml pins, in the checked-out tag (a tag from before the pin has
+      # neither the file nor this action: this workflow builds the tags from the pin on)
+      - uses: ./.github/actions/rust-toolchain
         with:
           targets: ${{ matrix.target && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
       - uses: Swatinem/rust-cache@v2
