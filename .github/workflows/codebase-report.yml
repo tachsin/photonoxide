@@ -67,7 +67,7 @@ jobs:
           pnpm exec vite build
       # cargo package only, for the crate's size
       - if: steps.pr.outputs.number != ''
-        uses: dtolnay/rust-toolchain@stable
+        uses: ./.github/actions/rust-toolchain
       - if: steps.pr.outputs.number != ''
         uses: Swatinem/rust-cache@v2
       - if: steps.pr.outputs.number != ''

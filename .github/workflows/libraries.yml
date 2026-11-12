@@ -124,7 +124,7 @@ jobs:
       - name: The library is there
         if: matrix.file != ''
         run: grep -E '${{ matrix.file }}' landed.txt
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: ./.github/actions/rust-toolchain
       - uses: Swatinem/rust-cache@v2
       - name: What photonoxide finds
         run: cargo run -p photonoxide-native --example libraries | tee found.txt
@@ -190,7 +190,7 @@ jobs:
           root="$(python -c 'import sys; print(sys.prefix)')"
           echo "sys.prefix=$root"
           find "$root" -iname "*mkl_rt*" -o -iname "*cudss*" -o -iname "*cudart*" -o -iname "*cusparse*" -o -iname "*scipy_openblas*" 2>/dev/null | grep -v -E "\.(py|pyc|h|txt)$|dist-info" | head -40 || true
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: ./.github/actions/rust-toolchain
       - uses: Swatinem/rust-cache@v2
       - name: What photonoxide finds
         run: cargo run -p photonoxide-native --example libraries | tee found.txt
@@ -243,7 +243,7 @@ jobs:
       - name: The library is there
         if: matrix.file != ''
         run: grep -E '${{ matrix.file }}' landed.txt
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: ./.github/actions/rust-toolchain
       - uses: Swatinem/rust-cache@v2
       - name: What photonoxide finds
         run: cargo run -p photonoxide-native --example libraries | tee found.txt
@@ -314,7 +314,7 @@ jobs:
           time make -j4 PLAT=_seq zshared > build.log 2>&1 || { tail -50 build.log; exit 1; }
       - name: Where it landed
         run: ls mumps/lib | tee landed.txt && grep -E '^libzmumps_seq\.so$' landed.txt
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: ./.github/actions/rust-toolchain
       - uses: Swatinem/rust-cache@v2
       - name: What photonoxide finds
         run: LD_LIBRARY_PATH="$PWD/mumps/lib" cargo run -p photonoxide-native --example libraries | tee found.txt
@@ -346,7 +346,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - run: sw_vers
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: ./.github/actions/rust-toolchain
       - uses: Swatinem/rust-cache@v2
       - name: What photonoxide finds
         run: cargo run -p photonoxide-native --example libraries | tee found.txt
@@ -378,7 +378,7 @@ jobs:
       - name: Where it landed
         run: |
           find /opt/arm -iname "*armpl_lp64*" 2>/dev/null | head -20 || true
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: ./.github/actions/rust-toolchain
       - uses: Swatinem/rust-cache@v2
       - name: What photonoxide finds
         run: cargo run -p photonoxide-native --example libraries | tee found.txt

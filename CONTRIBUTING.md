@@ -240,6 +240,16 @@ photonoxide follows [Semantic Versioning](https://semver.org/). Before 1.0, Carg
 
 The minimum Rust follows the dependencies: when a dependency's current release needs a newer Rust, `rust-version` and the CI's MSRV job are raised with it (`build!: …`).
 
+### How to bump Rust
+
+The Rust that builds photonoxide is pinned: [`rust-toolchain.toml`](rust-toolchain.toml) names one version (with clippy and rustfmt), and every build in the checkout uses it, on the maintainers' machines, in the agents' worktrees and in CI (the composite action [`.github/actions/rust-toolchain`](.github/actions/rust-toolchain/action.yml) reads that file, so CI has no second copy). A new Rust release therefore changes nothing until it is adopted, in a pull request of its own:
+
+1. Update on the workstation (`rustup update`), then change `channel` in `rust-toolchain.toml` to the version it installed. That is the only place the version is written; `rustup toolchain install` in the checkout fetches it.
+2. Fix the new lints and errors in the same pull request.
+3. Run the MSRV job, which builds on the `rust-version` of `Cargo.toml` on its own toolchain (it sets `RUSTUP_TOOLCHAIN` for it), and, before merging, the Weekly workflow's "Rust stable ahead of the pin" job (Run workflow), which builds on the newest stable.
+
+That job also runs every Monday: when it fails, a new Rust release has brought a lint or an error, and the bump is due. The [Dependencies](https://tachsin.gr/projects/photonoxide/dependencies) page lists the toolchain beside the newest stable release.
+
 Every library and dependency photonoxide uses is on one page, [Dependencies](https://tachsin.gr/projects/photonoxide/dependencies), each beside its newest release: the external libraries photonoxide-native loads ([docs/libraries.md](docs/libraries.md#new-releases)), and our own Rust crates, studio pnpm packages, Python requirements, GitHub Actions and toolchain. It reads our files on `main` when it is opened, at most once in five minutes, and the registries at most once in fifteen, so a release or a merged bump shows within minutes. It marks a newer release and a major one, and shows what changed in between from each release's notes. No workflow or bot updates them: an update is adopted in a pull request, a major one on purpose and in a pull request of its own.
 
 ## Releases

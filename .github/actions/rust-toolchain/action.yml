@@ -1,0 +1,87 @@
+name: Rust toolchain
+description: >-
+  Installs the Rust toolchain that rust-toolchain.toml at the repository's root pins (its channel
+  and components), and makes it the default. Run it after actions/checkout. The one place CI names
+  the Rust version is that file.
+
+# What it does, as dtolnay/rust-toolchain (which every workflow used before) did:
+#   - rustup toolchain install, minimal profile, no rustup self-update, the pinned channel with the
+#     pinned components and the `targets` input, retried (5 attempts, 30 s apart) when rustup's
+#     download fails its checksum while the official release server is being updated;
+#   - rustup default, so every cargo and rustc in the job is the pinned one;
+#   - CARGO_INCREMENTAL=0 when the job has not set it (sccache cannot cache incremental builds),
+#     CARGO_TERM_COLOR=always when it has not set that, and RUSTUP_PERMIT_COPY_RENAME=1 for the
+#     install (rustup falls back to copying where Windows locks a file it would rename).
+# What it leaves out, because nothing here needs it: installing rustup (every job runs on a
+# GitHub-hosted runner, which has it: no container, no self-hosted runner); --force-non-host; the
+# "stable N releases ago" versions (the file names one version); the sparse-registry and curl 8.0
+# workarounds (they concern Rust before 1.71); the `cachekey` and `name` outputs (no workflow reads
+# them: Swatinem/rust-cache keys on rustc itself). Another toolchain for one job (the MSRV job) is
+# not this action's: that job sets RUSTUP_TOOLCHAIN and uses dtolnay/rust-toolchain@1.95.
+
+inputs:
+  targets:
+    description: Extra compilation targets to install, comma separated (for a cross build).
+    default: ""
+
+outputs:
+  version:
+    description: The pinned version, as rust-toolchain.toml gives it.
+    value: ${{ steps.pin.outputs.version }}
+
+runs:
+  using: composite
+  steps:
+    - id: pin
+      shell: bash
+      env:
+        TARGETS: ${{ inputs.targets }}
+        RUSTUP_PERMIT_COPY_RENAME: "1"
+      run: |
+        set -euo pipefail
+        set -f # split the lists on commas and spaces, without glob expansion
+        file="$GITHUB_WORKSPACE/rust-toolchain.toml"
+        if [ ! -f "$file" ]; then
+          echo "::error::$file is missing: the Rust toolchain is pinned there"
+          exit 1
+        fi
+        version=$(sed -n "s/^channel *= *[\"']\([^\"']*\)[\"'].*/\1/p" "$file" | head -n 1)
+        if [ -z "$version" ]; then
+          echo "::error::rust-toolchain.toml has no channel = \"...\" line"
+          exit 1
+        fi
+        # the components array, on one line or several: the quoted names from `components = [` to `]`
+        components=""
+        if grep -q '^components *=' "$file"; then
+          components=$(awk '/^components *=/ { on = 1 } on { print } on && /]/ { exit }' "$file" |
+            sed 's/#.*//' | { grep -o '"[^"]*"' || true; } | tr -d '"' | paste -sd, -)
+          if [ -z "$components" ]; then
+            echo "::error::rust-toolchain.toml has a components line, but no component names could be read from it"
+            exit 1
+          fi
+        fi
+        echo "rust-toolchain.toml: channel $version, components [${components:-none}], extra targets [${TARGETS:-none}]"
+        flags=(--profile minimal --no-self-update)
+        for c in ${components//,/ }; do flags+=(--component "$c"); done
+        for t in ${TARGETS//,/ }; do flags+=(--target "$t"); done
+        log=$(mktemp)
+        trap 'rm -f "$log"' EXIT
+        for attempt in 1 2 3 4 5; do
+          if rustup toolchain install "$version" "${flags[@]}" 2>&1 | tee "$log"; then
+            break
+          else
+            status=$?
+          fi
+          if [[ $attempt == 5 ]] || ! grep -Fq 'checksum failed for ' "$log" ||
+            ! grep -Fq 'this is likely due to an ongoing update of the official release server' "$log"; then
+            exit "$status"
+          fi
+          echo "Retrying rustup toolchain install in 30 seconds (retry $attempt of 4)" >&2
+          sleep 30
+        done
+        rustup default "$version"
+        rustc --version --verbose
+        cargo --version
+        if [ -z "${CARGO_INCREMENTAL+set}" ]; then echo CARGO_INCREMENTAL=0 >> "$GITHUB_ENV"; fi
+        if [ -z "${CARGO_TERM_COLOR+set}" ]; then echo CARGO_TERM_COLOR=always >> "$GITHUB_ENV"; fi
+        echo "version=$version" >> "$GITHUB_OUTPUT"
