@@ -306,9 +306,20 @@ contact lithography of their 2020 paper.
 ### Aluminium nitride (a 1 µm guide in 650 nm of AlN)
 
 Aluminium nitride is sputtered, like titanium nitride, at a low temperature. The catalogue's AlN
-is uniaxial, which a library device's layer can't take yet, so its flows are made for the
-library's devices drawn in AlN (their nitride layer's film made aluminium nitride); the studio's
-device pages can't show one yet.
+is uniaxial. Sputtered, it grows "with c-axis orientation ([0002] direction) normal to the film
+plane" (Xiong et al. 2012, PDF p. 2), so a device's layer takes it by its ordinary index n_o,
+the one a TE mode's in-plane field sees, as Xiong et al. quote it (2.12 at 1550 nm). A TM mode,
+its field mostly along the c axis, would see more of n_e, about 0.05 higher (Rigler et al.
+2015); the layer's material says so, and a modes, structure, FDFD or FDTD job's `[task.stack]`
+takes the crystal with both indices. Any wurtzite film (AlN, AlGaN) is taken the same way; any
+other uniaxial crystal still needs its orientation. The flows below are the library's devices
+drawn in AlN. The studio shows one: the template `jobs/aln-flow.yaml`, Xiong et al.'s 1 µm guide.
+The catalogue's AlN model (Rigler et al. 2015) covers 0.4 to 0.9 µm and its silicon (Li 1980)
+1.2 to 14 µm, so no wavelength has both: an AlN guide on a silicon wafer can't be solved until
+the catalogue has an AlN model in the near infrared or a silicon one in the visible. A flow
+solves nothing. Its pictures take each film's permittivity at 1.55 µm only to tell the films
+apart, and where a film's model stops short of it, at the end of its range nearest 1.55 µm, AlN's
+at 0.9 µm; the Fabrication page and the view (`FabricationView::indices_elsewhere`) say which.
 
 | Layer | Film | Thickness | Drawn |
 |---|---|---|---|
@@ -1043,10 +1054,17 @@ outline moved in or out at its top:
   drawn flat, as the stage draws it; over sloped walls each ridge's loft is its own, so the films
   of two ridges that would meet overlap instead of merging; and the corners are mitred, so a
   film's section has, at each convex corner, (1 − π/4)n² more area than a rounded one's.
-- **A film evaporated for a lift-off,** on the resist and in its openings, at the top the design
-  draws its layer at. Where an opening lies over a region etched open, the design (planar) still
-  draws the layer on top, and so does the frame, saying that the film would land on the floor
-  there.
+- **A film evaporated for a lift-off,** on the resist and in its openings, where it lands. On the
+  wafer's top it lies at the top the design draws its layer at. Where an opening lies over a
+  region of the top layer etched open (around a ridge, or in a trench), it lands on that
+  region's floor, the slab's top beside a partially etched rib, and is drawn there; evaporation's
+  poor step coverage, which lift-off relies on (Campbell, Section 11.9), puts nothing on the
+  walls. Around a sloped ridge the piece on the floor runs to the ridge's top outline, over the
+  wall's foot, which the picture draws over it. From the lift-off on, every frame draws what it
+  leaves where it landed, and the planar layer the design draws it on as what fills that layer
+  around it: the TFLN modulator's electrodes rest on the slab, 0.3 µm below the film's top, the
+  design's planar metal layer above the film drawn as the oxide (air until the cladding). The
+  stages keep the design's planar layer, so the round trip is unchanged, and the frame says so.
 
 The window of the frames grows to hold a conformal film reaching past the 1 µm it keeps around
 the shapes, with 0.5 µm to spare, so it can be wider than the window the design view and the
