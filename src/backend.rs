@@ -1107,7 +1107,7 @@ pub(crate) mod tests {
         let b: Vec<c64> = (0..n)
             .map(|i| c64::new((i % 7) as f64 - 3.0, (i % 4) as f64))
             .collect();
-        for name in [OWN, FAER] {
+        for name in [OWN, FAER, MIXED] {
             let solver = direct(&Choice::parse(name).unwrap()).unwrap();
             let capabilities = solver.capabilities();
             assert_eq!(capabilities.name, name);
@@ -1193,10 +1193,13 @@ pub(crate) mod tests {
 
     #[test]
     fn the_registry_names_what_it_has_and_refuses_what_it_hasnt() {
-        // photonoxide's own first, then faer's
+        // photonoxide's own first, then faer's, then photonoxide's own in single precision
         let listed = direct_solvers().unwrap();
         assert_eq!(listed[0].name, OWN);
         assert_eq!(listed[1].name, FAER);
+        assert_eq!(listed[2].name, MIXED);
+        let mixed = listed[2].capabilities.clone().unwrap();
+        assert!(mixed.refined && !listed[0].capabilities.clone().unwrap().refined);
         let own = listed[0].capabilities.clone().unwrap();
         assert!(own.deterministic && own.symmetric && own.transpose);
         assert_eq!(own.threads, Threads::Rayon);
@@ -1235,7 +1238,7 @@ pub(crate) mod tests {
             "registry-test-library"
         );
         // names: photonoxide's own can't be taken, nor one that isn't a name
-        for name in ["auto", OWN, FAER, "", "Has Capitals", "a b"] {
+        for name in ["auto", OWN, FAER, MIXED, "", "Has Capitals", "a b"] {
             assert!(register_unavailable(name, "no").is_err(), "{name:?}");
         }
         assert!(Choice::parse("MKL").is_err());

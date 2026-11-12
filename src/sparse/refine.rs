@@ -120,6 +120,16 @@ pub(crate) fn refine(
     system: &System<'_>,
     b: &[c64],
 ) -> std::result::Result<(Vec<c64>, Refinement), Refinement> {
+    refine_observed(system, b, &mut |_| {})
+}
+
+/// [`refine`], each iterate shown to `observe` as it is made: the first solve's, then each
+/// step's.
+pub(crate) fn refine_observed(
+    system: &System<'_>,
+    b: &[c64],
+    observe: &mut dyn FnMut(&[c64]),
+) -> std::result::Result<(Vec<c64>, Refinement), Refinement> {
     let target = (system.row_entries + 1) as f64 * UNIT_ROUNDOFF;
     let mut history = Refinement {
         backward_errors: Vec::new(),
@@ -135,6 +145,7 @@ pub(crate) fn refine(
     }
     let mut x = (system.inverse)(b);
     loop {
+        observe(&x);
         let applied = (system.product)(&x);
         let r: Vec<c64> = b.iter().zip(&applied).map(|(b, a)| b - a).collect();
         let eta = norm_inf(&r) / (system.norm * norm_inf(&x) + b_norm);

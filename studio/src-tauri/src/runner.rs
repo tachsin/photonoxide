@@ -463,7 +463,7 @@ fn spawn(id: &str, backend: &str, threads: usize, timeout: Duration) -> Result<R
 
 /// The child: runs `id` with `backend` and writes a [`Report`] to `out`.
 fn child(id: &str, backend: &str, out: &Path) -> ExitCode {
-    if !matches!(backend, "photonoxide" | "faer") {
+    if !matches!(backend, "photonoxide" | "faer" | "photonoxide-mixed") {
         photonoxide_native::register_all();
     }
     let Some(entry) = catalogue::entry(id) else {

@@ -405,6 +405,17 @@ impl<T> Multifrontal<T> {
     pub(crate) fn perturbed(&self) -> usize {
         self.perturbed
     }
+
+    /// The bytes the factors take as stored (each front's whole diagonal block and its
+    /// panels): what single precision halves.
+    #[cfg(test)]
+    pub(crate) fn factor_bytes(&self) -> usize {
+        self.factors
+            .iter()
+            .map(|f| f.lower.nrows() * f.lower.ncols() + f.upper.nrows() * f.upper.ncols())
+            .sum::<usize>()
+            * std::mem::size_of::<T>()
+    }
 }
 
 /// The factorization of `a` in the precision `T`, the fronts' dense operations by `kernels` if
@@ -858,14 +869,6 @@ impl Multifrontal<c32> {
             x[j] = w[k] * scale[j];
         }
         x
-    }
-
-    /// The bytes the factors take: what single precision halves.
-    pub(crate) fn factor_bytes(&self) -> usize {
-        self.factors
-            .iter()
-            .map(|f| (f.lower.nrows() * f.lower.ncols() + f.upper.nrows() * f.upper.ncols()) * 8)
-            .sum()
     }
 }
 
