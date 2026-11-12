@@ -596,11 +596,7 @@ impl<'a> MultigridLevel<'a> {
 }
 
 /// The residual `r` restricted by `restriction`, weighted by `scaling` if it has one.
-fn restrict(
-    restriction: RowMatrix<'_>,
-    scaling: Option<(&[c64], &[c64])>,
-    r: &[c64],
-) -> Vec<c64> {
+fn restrict(restriction: RowMatrix<'_>, scaling: Option<(&[c64], &[c64])>, r: &[c64]) -> Vec<c64> {
     match scaling {
         Some((fine, coarse)) => {
             let scaled: Vec<c64> = r.iter().zip(fine).map(|(p, q)| p * q).collect();

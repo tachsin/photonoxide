@@ -252,13 +252,7 @@ impl Stencil {
 
     /// y = A x by operator `which`: x copied into the input on cuSPARSE, CUDA's work finished,
     /// the product run on Vulkan and waited for, and the output copied to y.
-    fn product(
-        &self,
-        s: &Session,
-        which: usize,
-        x: &DeviceVector,
-        y: &DeviceVector,
-    ) -> Result<()> {
+    fn product(&self, s: &Session, which: usize, x: &DeviceVector, y: &DeviceVector) -> Result<()> {
         s.copy(x, &self.input)?;
         s.api.runtime.synchronize("the stencil's input")?;
         self.kernel.apply(which)?;
@@ -268,7 +262,11 @@ impl Stencil {
 
 #[cfg(not(any(windows, target_os = "linux")))]
 impl Stencil {
-    fn new(_: &Session, device: &Device, _: &[photonoxide::backend::Stencil<'_>]) -> Result<Stencil> {
+    fn new(
+        _: &Session,
+        device: &Device,
+        _: &[photonoxide::backend::Stencil<'_>],
+    ) -> Result<Stencil> {
         match *device {}
     }
 
@@ -391,7 +389,9 @@ impl Prepared {
         }
         if let Fine::Stencil(st) = fine {
             if stencils.is_empty() {
-                return Err(error("GMRES on a stencil with a cycle whose finest level has a matrix"));
+                return Err(error(
+                    "GMRES on a stencil with a cycle whose finest level has a matrix",
+                ));
             }
             stencils.push(st);
         }
@@ -919,7 +919,10 @@ mod tests {
             assert!(e.to_string().contains("probed"), "{name}: {e}");
             let (shifted, plain, repeats) = probe.found.lock().unwrap().pop().unwrap();
             println!("{name}: the cycle's {shifted:.1e} and GMRES's {plain:.1e} from the CPU's");
-            assert!(shifted < 1e-13 && plain < 1e-13, "{name}: {shifted:e}, {plain:e}");
+            assert!(
+                shifted < 1e-13 && plain < 1e-13,
+                "{name}: {shifted:e}, {plain:e}"
+            );
             assert!(repeats, "{name}: a repeated product differs");
         }
     }
@@ -1042,16 +1045,13 @@ mod tests {
                     interop.queue.submit([k.encode(0, 20)]);
                     interop.wait().unwrap();
                 }) / 20.0;
-                out.push(format!("the kernel alone in {precision:?}: {ms:.3} ms a product"));
+                out.push(format!(
+                    "the kernel alone in {precision:?}: {ms:.3} ms a product"
+                ));
             }
             // (b) a product as the cycle takes it, on the buffers CUDA shares: copies in and out
             // on cuSPARSE and both sides' waits
-            let prepared = super::Prepared::new(
-                &self.gpu.api,
-                Some(interop.clone()),
-                fine,
-                cycle,
-            )?;
+            let prepared = super::Prepared::new(&self.gpu.api, Some(interop.clone()), fine, cycle)?;
             let s = &prepared.s;
             let stencil = prepared.stencil.as_ref().unwrap();
             let v: Vec<c64> = (0..n)
@@ -1135,10 +1135,14 @@ mod tests {
             ));
             let b: Vec<c64> = v.clone();
             let t = std::time::Instant::now();
-            let (_, how) = prepared.run(cycle, &b, Stopping {
-                tolerance: 1e-8,
-                max_iterations: 1000,
-            })?;
+            let (_, how) = prepared.run(
+                cycle,
+                &b,
+                Stopping {
+                    tolerance: 1e-8,
+                    max_iterations: 1000,
+                },
+            )?;
             let solve = t.elapsed().as_secs_f64() * 1e3;
             out.push(format!(
                 "GMRES to 1e-8: {} iterations in {solve:.0} ms, {:.2} ms an iteration (with the vector up and the field down)",

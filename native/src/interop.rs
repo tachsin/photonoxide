@@ -239,7 +239,10 @@ impl Interop {
             }
         });
         if let Some(e) = wait(scope.pop()) {
-            return Err(format!("{}: the stencil's kernels don't compile: {e}", info.name));
+            return Err(format!(
+                "{}: the stencil's kernels don't compile: {e}",
+                info.name
+            ));
         }
         Ok(Interop {
             runtime: runtime.clone(),
@@ -247,7 +250,10 @@ impl Interop {
             queue,
             layout,
             kernels,
-            name: format!("{} (Vulkan, {} {})", info.name, info.driver, info.driver_info),
+            name: format!(
+                "{} (Vulkan, {} {})",
+                info.name, info.driver, info.driver_info
+            ),
         })
     }
 
@@ -296,18 +302,17 @@ impl Interop {
             unsafe { wgpu::hal::vulkan::Buffer::from_raw_managed(buffer, memory, 0, size) };
         // SAFETY: made from this device's handle, as `desc` says, never mapped, not empty
         let wgpu_buffer = unsafe {
-            self.device
-                .create_buffer_from_hal::<Vulkan>(
-                    hal_buffer,
-                    &wgpu::BufferDescriptor {
-                        label: Some("shared with CUDA"),
-                        size: bytes,
-                        usage: wgpu::BufferUsages::STORAGE
-                            | wgpu::BufferUsages::COPY_DST
-                            | wgpu::BufferUsages::COPY_SRC,
-                        mapped_at_creation: false,
-                    },
-                )
+            self.device.create_buffer_from_hal::<Vulkan>(
+                hal_buffer,
+                &wgpu::BufferDescriptor {
+                    label: Some("shared with CUDA"),
+                    size: bytes,
+                    usage: wgpu::BufferUsages::STORAGE
+                        | wgpu::BufferUsages::COPY_DST
+                        | wgpu::BufferUsages::COPY_SRC,
+                    mapped_at_creation: false,
+                },
+            )
         };
         let (external, ptr) = self.import(handle, size, bytes)?;
         Ok(Shared {
@@ -416,7 +421,12 @@ impl Interop {
         check(
             // SAFETY: the description is cudaExternalMemoryHandleDesc's layout (driver_types.h),
             // its handle valid; the out-pointer writable
-            unsafe { (external.import)(&mut imported, (&description as *const HandleDescription).cast()) },
+            unsafe {
+                (external.import)(
+                    &mut imported,
+                    (&description as *const HandleDescription).cast(),
+                )
+            },
             "cudaImportExternalMemory",
         )?;
         // the handle isn't CUDA's on Windows: closed now (on Linux CUDA owns the descriptor)
@@ -478,7 +488,8 @@ struct BufferDescription {
 const DEDICATED: u32 = 1;
 
 #[cfg(windows)]
-const HANDLE_TYPE: vk::ExternalMemoryHandleTypeFlags = vk::ExternalMemoryHandleTypeFlags::OPAQUE_WIN32;
+const HANDLE_TYPE: vk::ExternalMemoryHandleTypeFlags =
+    vk::ExternalMemoryHandleTypeFlags::OPAQUE_WIN32;
 #[cfg(not(windows))]
 const HANDLE_TYPE: vk::ExternalMemoryHandleTypeFlags = vk::ExternalMemoryHandleTypeFlags::OPAQUE_FD;
 
@@ -634,7 +645,9 @@ impl GpuStencil {
         let [nx, ny, nz] = first.cells();
         let cells = nx * ny * nz;
         if ny > 65_535 || nz > 65_535 || nx.div_ceil(64) > 65_535 {
-            return Err(error(format!("a grid of {nx} × {ny} × {nz} cells is too large")));
+            return Err(error(format!(
+                "a grid of {nx} × {ny} × {nz} cells is too large"
+            )));
         }
         let complex = precision.complex();
         let device = &interop.device;
@@ -694,7 +707,13 @@ impl GpuStencil {
                 Some(&precision.bytes(&consts)),
             );
             let entries: Vec<wgpu::BindGroupEntry<'_>> = [
-                &buffers[4], input, output, &buffers[2], &buffers[3], &buffers[0], &buffers[1],
+                &buffers[4],
+                input,
+                output,
+                &buffers[2],
+                &buffers[3],
+                &buffers[0],
+                &buffers[1],
                 &buffer,
             ]
             .into_iter()
