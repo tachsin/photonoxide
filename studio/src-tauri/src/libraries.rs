@@ -17,7 +17,10 @@
 //!   photonoxide-native accepts, the table the Dependencies page on tachsin.gr sets each
 //!   library's newest release beside.
 
-use std::process::{Command, ExitCode, Stdio};
+#[cfg(feature = "window")]
+use std::process::Stdio;
+use std::process::{Command, ExitCode};
+#[cfg(feature = "window")]
 use std::time::{Duration, Instant};
 
 use photonoxide::backend::{self, Listed, Threads};
@@ -26,10 +29,15 @@ use photonoxide_native::{
 };
 use serde::Serialize;
 
+// the window's installs and its suggestions for this machine
+#[cfg(feature = "window")]
 pub mod environment;
+#[cfg(feature = "window")]
 pub mod hardware;
+#[cfg(feature = "window")]
 pub mod measured;
 pub mod releases;
+#[cfg(feature = "window")]
 pub mod topology;
 
 /// A command that installs a library.
@@ -1455,9 +1463,11 @@ pub fn run(args: &[String]) -> ExitCode {
 
 /// How long probing may take before it is given up: loading CUDA the first time can take a
 /// while.
+#[cfg(feature = "window")]
 const PROBE_TIMEOUT: Duration = Duration::from_secs(120);
 
 /// Asks a child process (`photonoxide libraries --json`) what is found here.
+#[cfg(feature = "window")]
 fn probe_in_a_child() -> Result<serde_json::Value, String> {
     let exe = std::env::current_exe().map_err(|e| format!("can't find the program: {e}"))?;
     let mut command = Command::new(exe);
@@ -1506,6 +1516,7 @@ fn probe_in_a_child() -> Result<serde_json::Value, String> {
 }
 
 /// Every library and backend as found now, in a fresh process.
+#[cfg(feature = "window")]
 #[tauri::command(async)]
 pub fn libraries() -> Result<serde_json::Value, String> {
     probe_in_a_child()
@@ -1515,6 +1526,7 @@ pub fn libraries() -> Result<serde_json::Value, String> {
 /// photonoxide's own environment anywhere, the vendors' package managers where they are this
 /// system's (winget on Windows, Homebrew on macOS, apt on Linux). pip's is copied: each library
 /// it installs has a conda-forge install too.
+#[cfg(any(test, feature = "window"))]
 fn runs_here(install: &Install) -> bool {
     match install.manager {
         "conda-forge" => true,
@@ -1526,6 +1538,7 @@ fn runs_here(install: &Install) -> bool {
 }
 
 /// The install `id` of `library`'s guide, if it can be run on this system.
+#[cfg(any(test, feature = "window"))]
 fn runnable(library: &str, id: &str) -> Result<&'static Install, String> {
     let guide = GUIDES
         .iter()
@@ -1548,6 +1561,7 @@ fn runnable(library: &str, id: &str) -> Result<&'static Install, String> {
 /// The program and arguments a vendor's package manager runs, without asking anything in a
 /// terminal: winget accepts the agreements the user confirmed in the window; apt goes through
 /// pkexec, which asks for the password in a window of its own.
+#[cfg(any(test, feature = "window"))]
 fn vendor_command(install: &Install) -> (String, Vec<String>) {
     let words: Vec<String> = install
         .command
@@ -1584,6 +1598,7 @@ fn vendor_command(install: &Install) -> (String, Vec<String>) {
 }
 
 /// What the window shows for an install before it runs: the command, as it will run.
+#[cfg(feature = "window")]
 #[tauri::command]
 pub fn library_install_plan(library: String, id: String) -> Result<String, String> {
     let install = runnable(&library, &id)?;
@@ -1605,6 +1620,7 @@ pub fn library_install_plan(library: String, id: String) -> Result<String, Strin
 }
 
 /// A line of an install's output, for the window.
+#[cfg(feature = "window")]
 #[derive(Clone, Serialize)]
 struct InstallLine {
     library: String,
@@ -1612,6 +1628,7 @@ struct InstallLine {
 }
 
 /// How far a download of an install is, for the window's bar.
+#[cfg(feature = "window")]
 #[derive(Clone, Serialize)]
 struct InstallProgress {
     library: String,
@@ -1622,6 +1639,7 @@ struct InstallProgress {
 }
 
 /// Sends a download's progress to the window (`library-progress`).
+#[cfg(feature = "window")]
 fn progress_to(app: &tauri::AppHandle, library: &str) -> impl FnMut(u64, Option<u64>) {
     use tauri::Emitter;
     let (app, library) = (app.clone(), library.to_owned());
@@ -1638,6 +1656,7 @@ fn progress_to(app: &tauri::AppHandle, library: &str) -> impl FnMut(u64, Option<
 }
 
 /// Stops the install or removal under way: its download, or the command it runs.
+#[cfg(feature = "window")]
 #[tauri::command]
 pub fn library_cancel() {
     environment::cancel();
@@ -1647,6 +1666,7 @@ pub fn library_cancel() {
 /// window: its output goes to the window line by line (`library-install`) as it runs, a
 /// download's progress too (`library-progress`), and Cancel stops it. Only the guide's own
 /// installs run, never a command the window sends.
+#[cfg(feature = "window")]
 #[tauri::command]
 pub async fn library_install(
     app: tauri::AppHandle,
@@ -1658,6 +1678,7 @@ pub async fn library_install(
 
 /// Runs `work` on a thread that may block: the download's blocking client panics on the async
 /// runtime's own threads, and the window would wait for an answer that never comes.
+#[cfg(feature = "window")]
 async fn off_the_runtime(
     work: impl FnOnce() -> Result<(), String> + Send + 'static,
 ) -> Result<(), String> {
@@ -1667,6 +1688,7 @@ async fn off_the_runtime(
 }
 
 /// [`library_install`]'s work: its download and the command it runs.
+#[cfg(feature = "window")]
 fn install_now(app: &tauri::AppHandle, library: &str, id: &str) -> Result<(), String> {
     use tauri::Emitter;
     let (library, id) = (library.to_owned(), id.to_owned());
@@ -1699,6 +1721,7 @@ fn install_now(app: &tauri::AppHandle, library: &str, id: &str) -> Result<(), St
 
 /// The command that removes what a vendor's manager installed: its own uninstall, as the
 /// install ran (winget's agreements accepted, apt through pkexec).
+#[cfg(any(test, feature = "window"))]
 fn vendor_uninstall(install: &Install) -> (String, Vec<String>) {
     let (program, mut args) = vendor_command(install);
     match install.manager {
@@ -1714,12 +1737,14 @@ fn vendor_uninstall(install: &Install) -> (String, Vec<String>) {
 
 /// Removes what the program installed for `library`: from its own environment, or by the
 /// vendor's manager that installed it.
+#[cfg(feature = "window")]
 #[tauri::command]
 pub async fn library_remove(app: tauri::AppHandle, library: String) -> Result<(), String> {
     off_the_runtime(move || remove_now(&app, library)).await
 }
 
 /// [`library_remove`]'s work, on a thread that may block.
+#[cfg(feature = "window")]
 fn remove_now(app: &tauri::AppHandle, library: String) -> Result<(), String> {
     use tauri::Emitter;
     environment::begin();
@@ -1753,6 +1778,7 @@ fn remove_now(app: &tauri::AppHandle, library: String) -> Result<(), String> {
 /// what this machine's benchmark records measured ([`measured`]). With the records, how many
 /// there are and the latest's day; a database that can't be read leaves the hardware's
 /// suggestions, and says why.
+#[cfg(feature = "window")]
 #[tauri::command(async)]
 pub fn hardware_advice() -> serde_json::Value {
     let hardware = hardware::here();
@@ -1785,12 +1811,14 @@ pub fn hardware_advice() -> serde_json::Value {
 
 /// Whether the setup's Advanced path asked for the performance step at this start: read once,
 /// then forgotten.
+#[cfg(feature = "window")]
 #[tauri::command]
 pub fn performance_on_start() -> bool {
     environment::take_performance_marker()
 }
 
 /// What the program installed into its own environment, and where that is.
+#[cfg(feature = "window")]
 #[tauri::command]
 pub fn libraries_installed() -> serde_json::Value {
     serde_json::json!({

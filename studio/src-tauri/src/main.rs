@@ -3,38 +3,66 @@
 //! studio; runs the built-in examples; checks the validation report; times the benchmark
 //! problems.
 
-mod academy;
+// the headless program's modules: every command but the window's
 mod auto;
 mod bench;
-mod benchmarks;
-mod channels;
-mod charts;
-mod circuits;
-mod devices;
-mod diagrams;
-mod drawn;
 mod examples;
-mod expressions;
-mod fabrication;
+mod exports;
 mod farm;
-mod form;
-mod frames;
+#[cfg(any(test, feature = "window"))]
+mod job_text;
 mod libraries;
-mod materials;
-mod media;
-#[cfg(test)]
-mod navigation;
-mod nonlinear;
 mod optimize;
-mod papers;
 mod references;
 mod runner;
-mod settings;
-mod setup;
-mod sources;
-mod studio;
-mod tasks;
+mod signals;
 mod watch;
+// the window's modules (the `window` feature, on by default): the studio, its pages, the
+// nightly channel and the Windows setup
+#[cfg(feature = "window")]
+mod academy;
+#[cfg(feature = "window")]
+mod benchmarks;
+#[cfg(feature = "window")]
+mod channels;
+#[cfg(feature = "window")]
+mod charts;
+#[cfg(feature = "window")]
+mod circuits;
+#[cfg(feature = "window")]
+mod devices;
+#[cfg(feature = "window")]
+mod diagrams;
+#[cfg(feature = "window")]
+mod drawn;
+#[cfg(feature = "window")]
+mod expressions;
+#[cfg(feature = "window")]
+mod fabrication;
+#[cfg(feature = "window")]
+mod form;
+#[cfg(feature = "window")]
+mod frames;
+#[cfg(feature = "window")]
+mod materials;
+#[cfg(feature = "window")]
+mod media;
+#[cfg(all(test, feature = "window"))]
+mod navigation;
+#[cfg(feature = "window")]
+mod nonlinear;
+#[cfg(feature = "window")]
+mod papers;
+#[cfg(feature = "window")]
+mod settings;
+#[cfg(feature = "window")]
+mod setup;
+#[cfg(feature = "window")]
+mod sources;
+#[cfg(feature = "window")]
+mod studio;
+#[cfg(feature = "window")]
+mod tasks;
 
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
@@ -131,6 +159,8 @@ const USAGE: &str = "usage:
 
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
+    // SIGTERM and SIGINT: a run stops and keeps its record, anything else ends (Unix)
+    signals::listen();
     // a job's check and its run may ask for Zstandard: the user's libzstd, when it is here
     if matches!(
         args.first().map(String::as_str),
@@ -151,29 +181,62 @@ fn main() -> ExitCode {
         Some("example") => example(&args[1..]),
         Some("bench") => bench::run(&args[1..]),
         Some("libraries") => libraries::run(&args[1..]),
+        #[cfg(feature = "window")]
         Some("nightly") => channels::run(&args[1..]),
+        #[cfg(feature = "window")]
         Some("setup") => setup::run(&args[1..]),
+        #[cfg(feature = "window")]
         Some("uninstall") => setup::remove(&args[1..]),
+        #[cfg(not(feature = "window"))]
+        Some(command @ ("nightly" | "setup" | "uninstall")) => no_window(&format!("`{command}`")),
         Some("--version" | "-V") => {
-            let build = channels::this_build();
-            match (build.nightly(), build.short) {
-                (false, Some(commit)) => println!(
-                    "photonoxide {} ({commit}{})",
-                    build.label,
-                    if build.dirty {
-                        ", with changes not committed"
-                    } else {
-                        ""
-                    }
-                ),
-                _ => println!("photonoxide {}", build.label),
-            }
+            println!("photonoxide {}", version());
             ExitCode::SUCCESS
         }
         _ => usage(),
     }
 }
 
+/// This build's version: a release's, or a nightly's, with the commit it was built from when
+/// known.
+#[cfg(feature = "window")]
+fn version() -> String {
+    let build = channels::this_build();
+    match (build.nightly(), build.short) {
+        (false, Some(commit)) => format!(
+            "{} ({commit}{})",
+            build.label,
+            if build.dirty {
+                ", with changes not committed"
+            } else {
+                ""
+            }
+        ),
+        _ => build.label,
+    }
+}
+
+/// This build's version, with the commit it was built from when known (`build.rs`; a build
+/// without the window is never the nightly channel's).
+#[cfg(not(feature = "window"))]
+fn version() -> String {
+    let commit = env!("PHOTONOXIDE_COMMIT");
+    let dirty = env!("PHOTONOXIDE_DIRTY") == "true";
+    match commit.get(..7) {
+        Some(short) if commit.chars().all(|c| c.is_ascii_hexdigit()) => format!(
+            "{} ({short}{}, without the window)",
+            photonoxide::VERSION,
+            if dirty {
+                ", with changes not committed"
+            } else {
+                ""
+            }
+        ),
+        _ => format!("{} (without the window)", photonoxide::VERSION),
+    }
+}
+
+#[cfg(feature = "window")]
 fn open() -> ExitCode {
     console::release();
     setup::at_start();
@@ -181,6 +244,20 @@ fn open() -> ExitCode {
         Ok(()) => ExitCode::SUCCESS,
         Err(e) => fail(e),
     }
+}
+
+#[cfg(not(feature = "window"))]
+fn open() -> ExitCode {
+    no_window("the studio")
+}
+
+/// What a build without the window says of what needs it: exit 2, as a command it doesn't know.
+#[cfg(not(feature = "window"))]
+fn no_window(what: &str) -> ExitCode {
+    eprintln!(
+        "this build of photonoxide has no window: {what} needs the studio's build (studio/README.md).          Every headless command is here: `photonoxide --help` lists them"
+    );
+    ExitCode::from(2)
 }
 
 fn usage() -> ExitCode {
@@ -230,6 +307,9 @@ fn run(args: &[String]) -> ExitCode {
     let Some(job_path) = job_path else {
         return usage();
     };
+    if cfg!(not(feature = "window")) && !headless {
+        eprintln!("this build of photonoxide has no window: the run is headless");
+    }
     let job = match Job::load(&job_path) {
         Ok(j) => j,
         Err(e) => return fail(e),
@@ -285,6 +365,9 @@ fn run(args: &[String]) -> ExitCode {
             result.map(|()| stopped)
         })
     };
+    // SIGTERM or SIGINT stops it as the window closing does
+    signals::stop_run(&stop);
+    #[cfg(feature = "window")]
     if !headless {
         // the window runs on the main thread (some platforms require it) while the job works,
         // and closes `linger` after the job finished
@@ -301,6 +384,8 @@ fn run(args: &[String]) -> ExitCode {
         // closed early: the job stops at its next check
         stop.request();
     }
+    #[cfg(not(feature = "window"))]
+    let _ = (headless, linger, finished);
     match worker.join() {
         Ok(Ok(stopped)) => {
             // what results.json says of grids not known to have converged, said here too
@@ -349,9 +434,16 @@ fn view(args: &[String]) -> ExitCode {
     if !dir.join("events.jsonl").is_file() {
         return fail(format!("{} has no events.jsonl", dir.display()));
     }
-    match studio::show(Some(dir), None) {
-        Ok(()) => ExitCode::SUCCESS,
-        Err(e) => fail(e),
+    #[cfg(feature = "window")]
+    {
+        match studio::show(Some(dir), None) {
+            Ok(()) => ExitCode::SUCCESS,
+            Err(e) => fail(e),
+        }
+    }
+    #[cfg(not(feature = "window"))]
+    {
+        no_window("`view`")
     }
 }
 
@@ -400,7 +492,7 @@ fn export(args: &[String]) -> ExitCode {
         }
     }
     if list {
-        let exports = match studio::run_exports(dir) {
+        let exports = match exports::run_exports(dir) {
             Ok(e) => e,
             Err(e) => return fail(e),
         };
@@ -594,6 +686,7 @@ fn validate(args: &[String]) -> ExitCode {
 }
 
 /// The console a bare `photonoxide` was given.
+#[cfg(feature = "window")]
 mod console {
     /// Lets go of the console when it was made for this program alone (it was started from
     /// Explorer, not from a terminal), so it doesn't sit open beside the window.

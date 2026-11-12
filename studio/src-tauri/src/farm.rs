@@ -55,9 +55,14 @@ pub fn worker(args: &[String]) -> ExitCode {
     // the first line on standard output says where it listens: what a coordinator that
     // started it reads
     println!("listening on {here}");
+    // SIGTERM or SIGINT (`docker stop`, a scheduler's limit): its tasks dropped, it exits 4, and
+    // its coordinator drops it as it drops a worker that was killed
+    crate::signals::end_worker();
     if attached {
         // started by a coordinator: it ends when the coordinator does, whose end closes the
-        // pipe to its standard input
+        // pipe to its standard input; a signal is the coordinator's to act on (Ctrl-C reaches
+        // both, and the run stops and keeps its record)
+        crate::signals::ignore();
         std::thread::spawn(|| {
             let mut sink = Vec::new();
             let _ = std::io::stdin().read_to_end(&mut sink);
