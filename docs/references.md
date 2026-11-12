@@ -2,7 +2,7 @@
 
 <!-- Written by `photonoxide references --write` (or `just references`) from docs/references.yaml and the citations in the repository: edit those, not this page. -->
 
-Every paper, book and data set photonoxide cites, with every place in the repository that cites it, by file and line. 649 sources, 641 with a DOI and 8 without, are cited at 3937 places in 457 files. The sources are listed by their first author; [references-by-file.md](references-by-file.md) lists each methods page, lesson, example and source file with the sources it cites, and the [validation report](validation.md) gives each case's source on its row. How to cite a source is in [CONTRIBUTING.md](../CONTRIBUTING.md#citing-a-source); the list of sources is [references.yaml](references.yaml).
+Every paper, book and data set photonoxide cites, with every place in the repository that cites it, by file and line. 649 sources, 641 with a DOI and 8 without, are cited at 3943 places in 458 files. The sources are listed by their first author; [references-by-file.md](references-by-file.md) lists each methods page, lesson, example and source file with the sources it cites, and the [validation report](validation.md) gives each case's source on its row. How to cite a source is in [CONTRIBUTING.md](../CONTRIBUTING.md#citing-a-source); the list of sources is [references.yaml](references.yaml).
 
 [A](#a) · [B](#b) · [C](#c) · [D](#d) · [E](#e) · [F](#f) · [G](#g) · [H](#h) · [I](#i) · [J](#j) · [K](#k) · [L](#l) · [M](#m) · [N](#n) · [O](#o) · [P](#p) · [Q](#q) · [R](#r) · [S](#s) · [T](#t) · [U](#u) · [V](#v) · [W](#w) · [X](#x) · [Y](#y) · [Z](#z)
 
@@ -1738,7 +1738,7 @@ R. Halir, P. Cheben, J. M. Luque‐González, J. D. Sarmiento‐Merenguel, J. H.
 
 - Methods pages: [eme.md:1239](methods/eme.md?plain=1#L1239)
 - Academy lessons: [directional-coupler.md:100](../academy/directional-coupler.md?plain=1#L100), [515](../academy/directional-coupler.md?plain=1#L515), [mmi.md:35](../academy/mmi.md?plain=1#L35), [141](../academy/mmi.md?plain=1#L141), [224](../academy/mmi.md?plain=1#L224), [409](../academy/mmi.md?plain=1#L409), [505](../academy/mmi.md?plain=1#L505)
-- Examples: [README.md:65](../examples/README.md?plain=1#L65)
+- Examples: [README.md:65](../examples/README.md?plain=1#L65), [optimize_swg_converter.rs:18](../examples/optimize_swg_converter.rs#L18)
 
 #### Hall 1952
 
@@ -1784,7 +1784,7 @@ A. M. Hammond, A. Oskooi, S. G. Johnson, S. E. Ralph, "Photonic topology optimiz
 A. M. Hammond, A. Oskooi, I. M. Hammond, M. Chen, S. E. Ralph, S. G. Johnson, "Unifying and accelerating level-set and density-based topology optimization by subpixel-smoothed projection", Opt. Express 33, 33620 (2025). [doi:10.1364/OE.563512](https://doi.org/10.1364/OE.563512)
 
 - Methods pages: [topology.md:28](methods/topology.md?plain=1#L28)
-- Validation cases: [`topology/ssp-plane`](validation.md?plain=1#L978)
+- Validation cases: [`topology/ssp-plane`](validation.md?plain=1#L978), [`topology/litho-print-edge`](validation.md?plain=1#L989)
 - Examples: [README.md:64](../examples/README.md?plain=1#L64), [optimize_crossing_ssp.rs:8](../examples/optimize_crossing_ssp.rs#L8)
 - Code: [src/cases/topology/checks.rs:151](../src/cases/topology/checks.rs#L151), [228](../src/cases/topology/checks.rs#L228), [src/topology/smoothed.rs:7](../src/topology/smoothed.rs#L7)
 - Other documents: [docs/plans/inverse-design.md:480](plans/inverse-design.md?plain=1#L480)
@@ -3640,7 +3640,8 @@ L. Rayleigh, "XVII. On the maintenance of vibrations by forces of double frequen
 S. Raza, M. Hammood, N. A. F. Jaeger, L. Chrostowski, "Fabrication-aware inverse design with shape optimization for photonic integrated circuits", Opt. Lett. 50, 117 (2024). [doi:10.1364/OL.543961](https://doi.org/10.1364/OL.543961)
 
 - Methods pages: [topology.md:34](methods/topology.md?plain=1#L34)
-- Examples: [README.md:59](../examples/README.md?plain=1#L59), [65](../examples/README.md?plain=1#L65), [optimize_ybranch.rs:78](../examples/optimize_ybranch.rs#L78)
+- Validation cases: [`topology/litho-blur`](validation.md?plain=1#L987)
+- Examples: [README.md:59](../examples/README.md?plain=1#L59), [65](../examples/README.md?plain=1#L65), [optimize_swg_converter.rs:7](../examples/optimize_swg_converter.rs#L7), [optimize_ybranch.rs:78](../examples/optimize_ybranch.rs#L78)
 - Code: [src/cases/topology/checks.rs:214](../src/cases/topology/checks.rs#L214), [src/topology/litho.rs:7](../src/topology/litho.rs#L7)
 - Other documents: [ROADMAP.md:848](../ROADMAP.md?plain=1#L848), [docs/plans/optimization.md:603](plans/optimization.md?plain=1#L603)
 
@@ -3904,7 +3905,7 @@ S. Selvaraja, P. Jaenen, W. Bogaerts, D. Van Thourhout, P. Dumon, R. Baets, "Fab
 - Methods pages: [fabrication.md:33](methods/fabrication.md?plain=1#L33), [topology.md:36](methods/topology.md?plain=1#L36)
 - Academy lessons: [how-a-chip-is-made.md:55](../academy/how-a-chip-is-made.md?plain=1#L55), [140](../academy/how-a-chip-is-made.md?plain=1#L140), [tolerances-corners-and-yield.md:17](../academy/tolerances-corners-and-yield.md?plain=1#L17), [185](../academy/tolerances-corners-and-yield.md?plain=1#L185)
 - Validation cases: [`fabrication/etch-stop-or-timed`](validation.md?plain=1#L800), [`fabrication/lithography-choice`](validation.md?plain=1#L801), [`fabrication/reported-flows`](validation.md?plain=1#L803), [`fabrication/rule-choices`](validation.md?plain=1#L807)
-- Examples: [README.md:65](../examples/README.md?plain=1#L65), [optimize_ybranch.rs:85](../examples/optimize_ybranch.rs#L85)
+- Examples: [README.md:65](../examples/README.md?plain=1#L65), [optimize_swg_converter.rs:26](../examples/optimize_swg_converter.rs#L26), [optimize_ybranch.rs:85](../examples/optimize_ybranch.rs#L85)
 - Code: [src/fabrication/checks.rs:440](../src/fabrication/checks.rs#L440), [447](../src/fabrication/checks.rs#L447), [461](../src/fabrication/checks.rs#L461), [src/fabrication/references.rs:88](../src/fabrication/references.rs#L88), [src/fabrication/rule_checks.rs:335](../src/fabrication/rule_checks.rs#L335)
 - Other documents: [docs/plans/fabrication.md:644](plans/fabrication.md?plain=1#L644)
 
@@ -4503,7 +4504,7 @@ G. Veronis, R. W. Dutton, S. Fan, "Method for sensitivity analysis of photonic c
 
 - Methods pages: [averaging.md:14](methods/averaging.md?plain=1#L14), [circuit-adjoint.md:8](methods/circuit-adjoint.md?plain=1#L8), [fdfd-adjoint.md:8](methods/fdfd-adjoint.md?plain=1#L8), [fdtd-adjoint.md:8](methods/fdtd-adjoint.md?plain=1#L8), [topology.md:12](methods/topology.md?plain=1#L12)
 - Academy lessons: [fdfd-and-adjoints.md:73](../academy/fdfd-and-adjoints.md?plain=1#L73), [496](../academy/fdfd-and-adjoints.md?plain=1#L496), [773](../academy/fdfd-and-adjoints.md?plain=1#L773)
-- Validation cases: [`fdfd/adjoint-gradient-ez`](validation.md?plain=1#L147), [`fdfd3d/adjoint-gradient`](validation.md?plain=1#L169), [`fdfd3d/recycle-adjoint`](validation.md?plain=1#L192), [`fdtd/adjoint-modes`](validation.md?plain=1#L269), [`circuit/adjoint-mzi`](validation.md?plain=1#L284), [`chip/adjoint`](validation.md?plain=1#L374), [`fdfd/fill-derivative-ez`](validation.md?plain=1#L505), [`topology/fdfd-gradient`](validation.md?plain=1#L964), [`topology/robust-epigraph`](validation.md?plain=1#L968)
+- Validation cases: [`fdfd/adjoint-gradient-ez`](validation.md?plain=1#L147), [`fdfd3d/adjoint-gradient`](validation.md?plain=1#L169), [`fdfd3d/recycle-adjoint`](validation.md?plain=1#L192), [`fdtd/adjoint-modes`](validation.md?plain=1#L269), [`circuit/adjoint-mzi`](validation.md?plain=1#L284), [`chip/adjoint`](validation.md?plain=1#L374), [`fdfd/fill-derivative-ez`](validation.md?plain=1#L505), [`topology/fdfd-gradient`](validation.md?plain=1#L964), [`topology/robust-epigraph`](validation.md?plain=1#L968), [`topology/litho-gradient`](validation.md?plain=1#L990)
 - Code: [src/cases/fdfd/fill_checks.rs:670](../src/cases/fdfd/fill_checks.rs#L670), [src/cases/topology/checks.rs:53](../src/cases/topology/checks.rs#L53), [81](../src/cases/topology/checks.rs#L81), [235](../src/cases/topology/checks.rs#L235), [src/circuit/adjoint.rs:17](../src/circuit/adjoint.rs#L17), [src/fdfd/adjoint.rs:5](../src/fdfd/adjoint.rs#L5), [src/fdfd/three/adjoint.rs:5](../src/fdfd/three/adjoint.rs#L5), [src/fdtd/adjoint.rs:26](../src/fdtd/adjoint.rs#L26), [src/job/chip_checks.rs:37](../src/job/chip_checks.rs#L37), [src/validation.rs:1059](../src/validation.rs#L1059), [1213](../src/validation.rs#L1213), [1374](../src/validation.rs#L1374), [1913](../src/validation.rs#L1913), [2018](../src/validation.rs#L2018)
 - Other documents: [docs/plans/optimization.md:588](plans/optimization.md?plain=1#L588)
 

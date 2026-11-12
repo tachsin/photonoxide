@@ -131,6 +131,7 @@ Each methods page, lesson, example, job, document and source file that cites a s
 - [`optimize_ring_flat.rs`](../examples/optimize_ring_flat.rs): [Little et al. 1997](references.md#little-et-al-1997)
 - [`optimize_ring_mzi.rs`](../examples/optimize_ring_mzi.rs): [Wang et al. 2022](references.md#wang-et-al-2022)
 - [`optimize_ring_pareto.rs`](../examples/optimize_ring_pareto.rs): [Bogaerts et al. 2011](references.md#bogaerts-et-al-2011)
+- [`optimize_swg_converter.rs`](../examples/optimize_swg_converter.rs): [Halir et al. 2016](references.md#halir-et-al-2016), [Raza et al. 2024](references.md#raza-et-al-2024), [Selvaraja et al. 2009](references.md#selvaraja-et-al-2009)
 - [`optimize_ybranch.rs`](../examples/optimize_ybranch.rs): [Lalau-Keraly et al. 2013](references.md#lalau-keraly-et-al-2013), [Raza et al. 2024](references.md#raza-et-al-2024), [Selvaraja et al. 2009](references.md#selvaraja-et-al-2009), [Zhang et al. 2013](references.md#zhang-et-al-2013)
 - [`pairs_zhao.rs`](../examples/pairs_zhao.rs): [Zhao et al. 2020](references.md#zhao-et-al-2020)
 - [`pcm_delaney.rs`](../examples/pcm_delaney.rs): [Delaney et al. 2020a](references.md#delaney-et-al-2020a), [Delaney et al. 2021](references.md#delaney-et-al-2021)
