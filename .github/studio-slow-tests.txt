@@ -1,0 +1,26 @@
+# The studio's slow tests: the physics solves among `cargo test -p photonoxide-studio`, each over
+# a minute on CI's Linux runner (69 to 564 s in the runs of 12 November 2026; the other tests
+# of the studio take seconds). CI's "What changed" job (.github/areas.sh) skips them in the studio's
+# fast tier, which a pull request runs when it changes only what the studio reads as text (the
+# README, the roadmap, the changelog, the Academy, the methods pages, the web view); they run
+# whenever the studio's Rust code (studio/src-tauri), a job or circuit file, or a library area the
+# studio uses changes, on every push to main, on the release pull request, with the `full-ci`
+# label and in the Weekly run. Nothing marks them #[ignore]: `cargo test -p photonoxide-studio`
+# runs them all, here and on your own machine.
+#
+# One test a line: its full name, as `cargo test -- --list` prints it (CI skips it by exact name,
+# `--exact --skip NAME`), then the globs of the files that make it run in the fast tier too (the
+# Academy's lessons evaluate their charts, so a lesson's change runs that test). A test renamed
+# without its line here only runs in the fast tier again, slower, never less; the studio job warns
+# of a name here that no test has.
+academy::tests::everything_a_lesson_names_exists academy/* docs/methods/* docs/validation.md
+charts::crossing::tests::the_expansion_agrees_with_fdfd
+charts::crossing::tests::the_taper_agrees_with_fdfd
+charts::meta::tests::the_unit_cell_converges_and_has_rung_down
+charts::tests::every_spec_is_sound_and_evaluates_at_its_defaults
+devices::modulator::tests::the_line_field_is_the_library_s_and_its_numbers_the_device_s_figures
+devices::tests::the_temperature_in_time_is_the_2d_model_s_turn_on_its_times_the_device_s_figures
+devices::tests::the_temperature_view_is_the_2d_model_s_heat_at_the_design_s_power
+examples::tests::the_wire_jobs_give_mzi_dwivedis_numbers_to_the_bit
+fabrication::tests::every_frame_of_every_device_is_closed_and_holds_its_outlines_volume_and_the_designs_areas
+a_farmed_run_records_what_the_run_alone_does_on_any_number_of_workers
