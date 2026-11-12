@@ -753,8 +753,19 @@ pub(super) fn computed(
     stop: &Stop,
     body: impl FnOnce(&Job, &mut Run, &Stop, Event) -> Result<()>,
 ) -> Result<()> {
+    computed_with(job, run, stop, super::device_scene, body)
+}
+
+/// [`computed`], its design's scene drawn by `scene`.
+pub(super) fn computed_with(
+    job: &Job,
+    run: &mut Run,
+    stop: &Stop,
+    scene: fn(&Job) -> Result<Event>,
+    body: impl FnOnce(&Job, &mut Run, &Stop, Event) -> Result<()>,
+) -> Result<()> {
     super::check(job)?;
-    let scene = super::device_scene(job)?;
+    let scene = scene(job)?;
     keep_compact(job, run)?;
     run.record(&Event::Started {
         job: job.name().to_owned(),

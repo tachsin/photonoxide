@@ -31,7 +31,10 @@
 //!    p. 25), within about 6 % of SRIM's from 50 to 200 keV. The depth the oxide forms at isn't
 //!    computed from the energy: going from Rp to the film would need how the oxide grows about
 //!    the implanted profile, which no source in hand gives as a number. The model is calibrated
-//!    on published points, not predictive: it refuses what they don't cover ([`route`]).
+//!    on published points, not predictive: it refuses what they don't cover ([`route`]). The
+//!    range model, [`super::ion_range`], computes Rp and ΔRp by Smith's tables and by PRAL (371.8
+//!    and 483.6 nm at 150 and 200 keV, 21–29 % above de Souza et al.'s from 50 to 200 keV); the
+//!    route doesn't use them.
 //! 3. **Thinning** to the design's film by a sacrificial oxide stripped in hydrofluoric acid, as
 //!    Izumi did (600 Å of oxide grown and etched off, taking 300 Å of the surface, p. 593), with
 //!    the oxidation of [`super::smart_cut`]'s thinning.

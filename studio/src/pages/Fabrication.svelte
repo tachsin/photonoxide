@@ -351,6 +351,12 @@
             <Hint text="A design has one platform in the process library: its films decide it (its single-crystal film, or the guide film deposited on a bare silicon wafer)." />
           </span>
         {/if}
+        {#if page?.view.indices_elsewhere.length}
+          <span class="inline-flex items-center gap-1 rounded-lg bg-base-content/6 px-2 py-1 text-xs">
+            {page.view.indices_elsewhere.map(([film, at]) => `${film} at ${at} µm`).join(", ")}
+            <Hint text="The pictures take each film's permittivity at 1.55 µm, only to tell the films apart. These films' index models stop short of it, so theirs is taken at the end of the model's range nearest 1.55 µm." />
+          </span>
+        {/if}
         {#if prefer.length}
           <span class="inline-flex items-center gap-1 rounded-lg bg-primary/10 px-2 py-1 text-xs text-primary" title={prefer.join(", ")}>
             preferring {prefer.length} process{prefer.length === 1 ? "" : "es"}

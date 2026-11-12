@@ -434,21 +434,11 @@ fn pcm_reported_flows() -> Outcome {
     exact(pcm_reported_missing().len())
 }
 
-/// Aluminium nitride, as a design's isotropic film: the catalogue's ordinary index (the guides'
-/// in-plane field), under the film's name. The catalogue's AlN is uniaxial, which a device's layer
-/// can't take; the fabrication engine reads only the film.
+/// Aluminium nitride as a device's layer takes it: the catalogue's ordinary index (the guides'
+/// in-plane field, the film's c axis normal to the wafer), under the film's name
+/// ([`crate::device::MaterialSpec::material`]).
 pub(crate) fn aln_material() -> Option<crate::material::Material> {
-    let entry = crate::material::catalogue::entry("aln")?;
-    let [o, _, _] = entry.principal(None, Default::default()).ok()?;
-    let (shortest, longest) = o.range();
-    crate::material::Material::new(
-        "AlN",
-        o.model().clone(),
-        shortest,
-        longest,
-        o.provenance().clone(),
-    )
-    .ok()
+    crate::device::MaterialSpec::id("aln").material().ok()
 }
 
 /// A design on the nitride stack with its nitride layer made aluminium nitride, every shape and
