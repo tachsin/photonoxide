@@ -355,6 +355,39 @@ insertion losses (0.836 dB as designed, 0.111 dB designed with the model) within
 digits with our grid study. Measured numbers are context only. *Papers:* Khan 2024 (in hand; the
 manuscript, not the typeset version).
 
+*Read 2026-11-13:* Khan et al. state no parameter of either model: the DUV one is UBC's in Mentor
+Graphics Calibre (their ref. 11, Lin et al. 2020), the EBL one PreFab's neural network (ref. 13,
+Gostimirovic et al. 2022), and neither is open; the devices' dimensions aren't published ("Data
+... not publicly available"). Table 1's numbers are 3D FDTD of their own devices at 1320 nm under
+those models (and 0.836 dB is the standard design *printed*, 0.034 dB as designed). So Table 1
+can't be reproduced here, at any digits: what it would need is listed in section 5 and the gap in
+#595.
+
+*Done 2026-11-13:* `topology::GaussianBlur` and `topology::Lithography` (docs/methods/topology.md,
+"Lithography inside the loop"): a Gaussian blur, each pixel's weight the Gaussian's integral over
+it so that a pixelated mask's blur is its exact convolution, renormalized or padded at the
+region's edges; the threshold by the subpixel-smoothed projection at η = t, sharp by default;
+the gradient through the threshold's and the blur's transposes (their Eq. 2); the closed forms of
+a straight edge's shift, √2σ erfc⁻¹(2t), and an isolated line's printed width. Cases:
+`topology/litho-blur` (a half-plane, a corner and a line against the exact convolution, 7.8e-16),
+`-transpose` (1.8e-15), `-print-edge` (the printed edge against the closed form at t = 0.3, 0.5
+and 0.7, 0.125 pixel, the smoothed threshold's own row error, 0.1217 pixel, plus the blur's
+curvature) and `-gradient` (2D FDFD through the proxy against fourth-order differences, 9.2e-10,
+below their resolution). The proxy's σ in the examples, 58.16 nm, is the widest that prints a
+150 nm line within 1 % at t = ½ (Selvaraja et al. 2009, Section II-B and Fig. 6: 193 nm
+lithography on target from 150 nm, and photonic circuits ask 1 %): a bound, not a calibration.
+`optimize_ybranch` designs its taper on the printed model too (L-BFGS-B, 51 evaluations from
+Table 1's): the standard design loses 0.0387 dB drawn and 0.0543 dB printed, the one designed
+printed 0.0357 dB printed (0.0670 drawn). `optimize_swg_converter`, Khan et al.'s second device on
+Halir et al. 2016's SWG (Table 1: 190 nm, 50 %, 0.5 µm, 30 periods) at 1.55 µm, two back to back,
+the 30 gratings' widths and lengths and the bridge's edge (their Fig. 2): per converter the
+standard design 0.0001 dB drawn and 0.0403 dB printed, the one designed printed 0.0017 dB printed
+(10 nm beside: 0.0015, 0.0437, 0.0029). In both, the design made with the model prints better
+than the standard one, Khan et al.'s test of a simulation, checked; Table 1 is printed beside as
+context. Both examples' derivatives are checked against fourth-order differences of the power
+along each variable's change of the cells' shares, within what they resolve. *Left:* Table 1's
+comparison (above); the job and the studio take no lithography yet (the plan asks for none).
+
 ### I9: Adjoints for the other solvers
 
 - **The mode solvers:** dn_eff/dp by the eigenproblem's own adjoint (Hellmann–Feynman for the
@@ -478,6 +511,29 @@ year online (most important first):
   Eng. 61, 238 (2004), doi:10.1002/nme.1064 (I1, the projection's origin): `guest-2004.pdf`,
   optional.
 
+For I8's Table 1, each DOI checked on Crossref on 2026-11-13 (the journal versions):
+
+- S. Lin, M. Hammood, H. Yun, E. Luan, N. A. F. Jaeger, L. Chrostowski, "Computational
+  lithography for silicon photonics design", IEEE J. Sel. Top. Quantum Electron. 26(2), 1 (the
+  March 2020 issue; Crossref gives no online date, so the year is the issue's),
+  doi:10.1109/JSTQE.2019.2958931: UBC's DUV model, Khan et al.'s ref. 11: `lin-2020.pdf`.
+- D. Gostimirovic, D.-X. Xu, O. Liboiron-Ladouceur, Y. Grinberg, "Deep learning-based prediction
+  of fabrication-process-induced structural variations in nanophotonic devices", ACS Photonics 9,
+  2623 (published online 20 July 2022), doi:10.1021/acsphotonics.1c01973: PreFab, their ref. 13:
+  `gostimirovic-2022.pdf`.
+- M. Zhou, B. S. Lazarov, O. Sigmund, "Topology optimization for optical projection lithography
+  with manufacturing uncertainties", Appl. Opt. 53, 2720 (published online 18 April 2014),
+  doi:10.1364/AO.53.002720: a physical projection-lithography model (an aerial image and a
+  resist's threshold) inside topology optimization, the open alternative to the proxy:
+  `zhou-2014.pdf`.
+- V. Donzella, A. Sherwali, J. Flueckiger, S. Talebi Fard, S. Grist, L. Chrostowski,
+  "Sub-wavelength grating components for integrated optics applications on SOI chips", Opt.
+  Express 22, 21037 (published online 22 August 2014), doi:10.1364/OE.22.021037: UBC's SWG-to-strip
+  converter, Khan et al.'s ref. 21, with dimensions: `donzella-2014.pdf`.
+
+Even with these, Khan et al.'s own dimensions and their models' settings are unpublished; the
+comparison wants them from the authors or a decision to compare on Donzella et al.'s converter.
+
 Mason et al.'s co-optimized multiplexers (I11's target) have no journal version on Crossref yet;
 the preprint is arXiv 2509.07233. Khan 2024 in the folder is the manuscript; the typeset version
 (Opt. Lett. 50, 117) would replace it.
@@ -492,7 +548,9 @@ from here on another machine.*
 - I4: the mode converter, the robust demultiplexer and the foundry bend;
 - I5: the topology job and its view in the run's window;
 - I6: the subpixel-smoothed projection, with the crossing;
-- I7: level sets, Vercruysse et al.'s penalty and the Y-branch's adjoint half.
+- I7: level sets, Vercruysse et al.'s penalty and the Y-branch's adjoint half;
+- I8 (2026-11-13, its own pull request): the lithography proxy inside the loop, the Y-branch and
+  the SWG-to-strip converter designed printed; Table 1's comparison left open (I8 above).
 
 The validation report has 27 topology cases and `fdfd/adjoint-gradient-row` to add.
 
@@ -513,7 +571,6 @@ The validation report has 27 topology cases and `fdfd/adjoint-gradient-row` to a
 
 **Left of the plan, after #796** (each its own pull request, part of #761; the phases above say
 what each holds and how it is validated):
-- I8: lithography inside the loop;
 - I9: adjoints for the other solvers;
 - I10: quantum objectives;
 - I11: device and circuit co-design;

@@ -61,8 +61,9 @@
 //! genoxide's L-BFGS-B from Table 1's, each evaluation one solve of the swarm's 2D model and its
 //! adjoint (`Solver2d::mode_power_gradient`, ∂P/∂ε at every cell), each width's ∂ε/∂w by central
 //! differences of the cells' exact areas (geometry, no solve), within their budget: 51
-//! evaluations, 102 solves. The derivatives agree with central differences of the power to
-//! 1.8e-4 (the areas are piecewise linear in the widths). It reaches 0.0390 dB in the device's 2D
+//! evaluations, 102 solves. The derivatives agree with fourth-order differences of the power along
+//! each width's change of the cells' shares, within what they resolve (differences in the width
+//! itself cross the areas' kinks, where an edge crosses a row of cells). It reaches 0.0390 dB in the device's 2D
 //! model, 0.011 dB above the swarm's 0.0280 dB from its 1500 evaluations, in 15 times fewer
 //! solves; checked: within 0.02 dB of the swarm's. Its taper is smooth, without the swarm's dip at
 //! w4. `--full` solves it in 3D on the same grids, reported beside their −0.07 dB, which is a level
@@ -412,6 +413,33 @@ impl Model {
         Ok((p * scale, gradient))
     }
 
+    /// The power into the upper arm for the cells' shares `drawn`, as drawn (printed first if the
+    /// model prints).
+    fn power_of(&self, drawn: &[f64]) -> photonoxide::Result<f64> {
+        let shares = match &self.litho {
+            Some(l) => l.print(drawn)?,
+            None => drawn.to_vec(),
+        };
+        let s = self.template.reuse_cells(
+            Wavelength::um(WAVELENGTH)?,
+            &permittivities(&shares, (self.core, self.clad)),
+        )?;
+        let field = s.solve_system(&s.mode_source(&self.input, Direction::Forward))?;
+        let dy = self.grid.dy;
+        let (forward, _) = field.mode_amplitudes(&self.outputs[0]);
+        Ok(forward.norm_sqr() * self.outputs[0].power(dy) / self.input.power(dy))
+    }
+
+    /// The forward solve's relative residual for the taper's widths `w`.
+    fn residual(&self, w: &[f64]) -> photonoxide::Result<f64> {
+        let s = self
+            .template
+            .reuse_cells(Wavelength::um(WAVELENGTH)?, &self.cells(w)?)?;
+        let source = s.mode_source(&self.input, Direction::Forward);
+        let field = s.solve_system(&source)?;
+        s.residual(&field, &source)
+    }
+
     /// The power into the upper and the lower arm's TE0 for the taper's widths `w`.
     fn power(&self, w: &[f64]) -> photonoxide::Result<[f64; 2]> {
         let s = self
@@ -501,27 +529,48 @@ fn mask(g: &Grid, arms: &[f64], w: &[f64]) -> Vec<f64> {
     shares
 }
 
-/// The adjoint's derivatives of `model`'s power at Table 1's widths against central differences
-/// of the power at four of them: the largest relative difference.
-fn check_derivatives(model: &Model) -> photonoxide::Result<f64> {
-    let (_, exact) = model.power_gradient(&TABLE)?;
-    let mut worst = 0.0f64;
+/// The adjoint's derivatives of `model`'s power at Table 1's widths, at four of them, against
+/// fourth-order differences of the power along the same change of the cells' shares, the
+/// derivative ∂m/∂w that the adjoint is dotted with (δ = 1e-5 µm of the width): each within
+/// what the differences resolve, the powers' precision u (twice the solve's residual, rounded up
+/// to a power of ten) through the formula's weights, (18/12) u P/(δ |g|). How many are within
+/// it, of four (the differences' last digits are each platform's, so only the count is printed).
+/// Differences in the width itself would cross the areas' kinks, where a width's edge crosses a
+/// row of cells; along the shares the power is smooth.
+fn check_derivatives(model: &Model) -> photonoxide::Result<usize> {
+    let (p, exact) = model.power_gradient(&TABLE)?;
+    let u = 10f64.powf((2.0 * model.residual(&TABLE)?).log10().ceil());
+    let delta = 1e-5;
+    let drawn = mask(&model.grid, &model.arms, &TABLE);
+    let mut within = 0;
     for k in [1usize, 4, 7, 10] {
-        let at = |d: f64| -> photonoxide::Result<f64> {
+        let shifted = |d: f64| {
             let mut w = TABLE.to_vec();
             w[k] += d;
-            Ok(model.power(&w)?[0])
+            mask(&model.grid, &model.arms, &w)
         };
-        let differences = (at(1e-4)? - at(-1e-4)?) / 2e-4;
+        let (up, down) = (shifted(SHAPE_STEP), shifted(-SHAPE_STEP));
+        let at = |s: f64| -> photonoxide::Result<f64> {
+            let m: Vec<f64> = drawn
+                .iter()
+                .zip(up.iter().zip(&down))
+                .map(|(m, (a, b))| m + s * (a - b) / (2.0 * SHAPE_STEP))
+                .collect();
+            model.power_of(&m)
+        };
+        let differences = (-at(2.0 * delta)? + 8.0 * at(delta)? - 8.0 * at(-delta)?
+            + at(-2.0 * delta)?)
+            / (12.0 * delta);
         let relative = (exact[k - 1] - differences).abs() / exact[k - 1].abs();
+        let resolution = 18.0 / 12.0 * u * p / (delta * exact[k - 1].abs());
         println!(
-            "  dP/dw{} at Table 1's: adjoint {:.6e}, central differences {differences:.6e} ({relative:.1e})",
+            "  dP/dw{} at Table 1's: adjoint {:.5e}, fourth-order differences {differences:.5e} (resolved to {resolution:.0e})",
             k + 1,
             exact[k - 1]
         );
-        worst = worst.max(relative);
+        within += usize::from(relative <= resolution);
     }
-    Ok(worst)
+    Ok(within)
 }
 
 /// Genoxide's L-BFGS-B on `model`'s power into the upper arm from Table 1's widths, at most
@@ -592,12 +641,8 @@ fn lithography_in_the_loop(
         1000.0 * Lithography::line_width(LINEAR_FROM, sigma, THRESHOLD)
     );
     let printing = Model::new(device, Some((sigma, THRESHOLD)))?;
-    let worst = check_derivatives(&printing)?;
-    checks.at_most(
-        "adjoint through the proxy against differences (relative)",
-        worst,
-        1e-3,
-    );
+    let within = check_derivatives(&printing)?;
+    checks.count("through the proxy, within the resolution", within, 4);
     let (aware, evaluations, solves) = adjoint_search(&printing);
     println!(
         "  designed printed (Khan et al.'s FAID): the same L-BFGS-B from Table 1's on the printed model, {evaluations} evaluations, {solves} solves"
@@ -891,8 +936,8 @@ pub fn main() -> photonoxide::Result<ExitCode> {
         "Lalau-Keraly et al.'s adjoint search: the same widths by genoxide's L-BFGS-B from Table 1's, each evaluation a solve and its adjoint, at most {ADJOINT} ({} solves)",
         2 * ADJOINT
     );
-    let worst = check_derivatives(&model)?;
-    checks.at_most("adjoint against differences (relative)", worst, 1e-3);
+    let within = check_derivatives(&model)?;
+    checks.count("derivatives within the differences' resolution", within, 4);
     let (adjoint, evaluations, solves) = adjoint_search(&model);
     let ours = model.power(&adjoint)?;
     println!(

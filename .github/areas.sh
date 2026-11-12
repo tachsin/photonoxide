@@ -86,11 +86,12 @@ area fdfd \
   "bump_oskooi cpml_roden_gedney lorentz_okoniewski pml_oskooi subpixel_holes tfsf_square_cylinder optimize_grating_pareto"
 
 # inverse design's densities (0.7, #761): filters, projections and the gradient pulled back to
-# the densities; its chain case runs 2D FDFD's adjoint
+# the densities; its chain case runs 2D FDFD's adjoint; the lithography proxy (I8) with the Y-branch
+# and the SWG converter that use it
 area topology \
   "src/topology/* src/cases/topology/* src/validation/topology.rs examples/designs/*" \
   "fdfd" \
-  "topology::" "topology/" "optimize_mode_converter optimize_demux_robust optimize_foundry_bend optimize_crossing_ssp"
+  "topology::" "topology/" "optimize_mode_converter optimize_demux_robust optimize_foundry_bend optimize_crossing_ssp optimize_swg_converter optimize_ybranch"
 
 # eigenmode expansion (#432): slab stacks' modes and their S-matrices; its taper case runs 2D FDFD
 area eme \
