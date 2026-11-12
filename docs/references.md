@@ -2,7 +2,7 @@
 
 <!-- Written by `photonoxide references --write` (or `just references`) from docs/references.yaml and the citations in the repository: edit those, not this page. -->
 
-Every paper, book and data set photonoxide cites, with every place in the repository that cites it, by file and line. 639 sources, 633 with a DOI and 6 without, are cited at 3825 places in 438 files. The sources are listed by their first author; [references-by-file.md](references-by-file.md) lists each methods page, lesson, example and source file with the sources it cites, and the [validation report](validation.md) gives each case's source on its row. How to cite a source is in [CONTRIBUTING.md](../CONTRIBUTING.md#citing-a-source); the list of sources is [references.yaml](references.yaml).
+Every paper, book and data set photonoxide cites, with every place in the repository that cites it, by file and line. 639 sources, 633 with a DOI and 6 without, are cited at 3837 places in 440 files. The sources are listed by their first author; [references-by-file.md](references-by-file.md) lists each methods page, lesson, example and source file with the sources it cites, and the [validation report](validation.md) gives each case's source on its row. How to cite a source is in [CONTRIBUTING.md](../CONTRIBUTING.md#citing-a-source); the list of sources is [references.yaml](references.yaml).
 
 [A](#a) · [B](#b) · [C](#c) · [D](#d) · [E](#e) · [F](#f) · [G](#g) · [H](#h) · [I](#i) · [J](#j) · [K](#k) · [L](#l) · [M](#m) · [N](#n) · [O](#o) · [P](#p) · [Q](#q) · [R](#r) · [S](#s) · [T](#t) · [U](#u) · [V](#v) · [W](#w) · [X](#x) · [Y](#y) · [Z](#z)
 
@@ -114,7 +114,7 @@ L. C. Ahler, L. Wang, L. Thiel, P. H. Godoy, A. Qarar, J. Castro, X. Li, Y. Pang
 
 W. Ahrens, J. Demmel, H. D. Nguyen, "Algorithms for Efficient Reproducible Floating Point Summation", ACM Trans. Math. Softw. 46, 1 (2020). [doi:10.1145/3389360](https://doi.org/10.1145/3389360)
 
-- Other documents: [docs/plans/performance.md:589](plans/performance.md?plain=1#L589)
+- Other documents: [docs/plans/performance.md:594](plans/performance.md?plain=1#L594)
 
 #### Aitchison et al. 1997
 
@@ -157,27 +157,29 @@ V. R. Almeida, R. R. Panepucci, M. Lipson, "Nanotaper for compact mode conversio
 P. R. Amestoy, I. S. Duff, J.-Y. L'Excellent, J. Koster, "A Fully Asynchronous Multifrontal Solver Using Distributed Dynamic Scheduling", SIAM J. Matrix Anal. Appl. 23, 15 (2001). [doi:10.1137/S0895479899358194](https://doi.org/10.1137/S0895479899358194)
 
 - Code: [native/src/mumps.rs:3](../native/src/mumps.rs#L3), [698](../native/src/mumps.rs#L698), [707](../native/src/mumps.rs#L707), [native/tests/mumps.rs:38](../native/tests/mumps.rs#L38), [src/bench/export.rs:5](../src/bench/export.rs#L5)
-- Other documents: [docs/baselines.md:6](baselines.md?plain=1#L6), [docs/plans/performance.md:590](plans/performance.md?plain=1#L590)
+- Other documents: [docs/baselines.md:6](baselines.md?plain=1#L6), [docs/plans/performance.md:595](plans/performance.md?plain=1#L595)
 
 #### Amestoy et al. 2015
 
 P. Amestoy, C. Ashcraft, O. Boiteau, A. Buttari, J.-Y. L'Excellent, C. Weisbecker, "Improving Multifrontal Methods by Means of Block Low-Rank Representations", SIAM J. Sci. Comput. 37, A1451 (2015). [doi:10.1137/120903476](https://doi.org/10.1137/120903476)
 
 - Code: [native/src/mumps.rs:51](../native/src/mumps.rs#L51), [707](../native/src/mumps.rs#L707), [native/tests/mumps.rs:295](../native/tests/mumps.rs#L295)
-- Other documents: [docs/baselines.md:405](baselines.md?plain=1#L405), [docs/plans/performance.md:591](plans/performance.md?plain=1#L591)
+- Other documents: [docs/baselines.md:405](baselines.md?plain=1#L405), [docs/plans/performance.md:596](plans/performance.md?plain=1#L596)
 
 #### Amestoy et al. 2019
 
 P. R. Amestoy, A. Buttari, J.-Y. L'Excellent, T. Mary, "Performance and Scalability of the Block Low-Rank Multifrontal Factorization on Multicore Architectures", ACM Trans. Math. Softw. 45, 1 (2019). [doi:10.1145/3242094](https://doi.org/10.1145/3242094)
 
 - Code: [native/src/mumps.rs:6](../native/src/mumps.rs#L6), [698](../native/src/mumps.rs#L698), [708](../native/src/mumps.rs#L708)
-- Other documents: [docs/baselines.md:8](baselines.md?plain=1#L8), [docs/plans/performance.md:592](plans/performance.md?plain=1#L592)
+- Other documents: [docs/baselines.md:8](baselines.md?plain=1#L8), [docs/plans/performance.md:597](plans/performance.md?plain=1#L597)
 
 #### Amestoy et al. 2023
 
 P. Amestoy, A. Buttari, N. J. Higham, J.-Y. L’Excellent, T. Mary, B. Vieublé, "Combining Sparse Approximate Factorizations with Mixed-precision Iterative Refinement", ACM Trans. Math. Softw. 49, 1 (2023). [doi:10.1145/3582493](https://doi.org/10.1145/3582493)
 
-- Other documents: [docs/plans/performance.md:593](plans/performance.md?plain=1#L593)
+- Methods pages: [mixed-precision.md:10](methods/mixed-precision.md?plain=1#L10), [65](methods/mixed-precision.md?plain=1#L65)
+- Code: [src/sparse/refine.rs:7](../src/sparse/refine.rs#L7)
+- Other documents: [docs/plans/performance.md:598](plans/performance.md?plain=1#L598)
 
 #### Anant et al. 2008
 
@@ -198,13 +200,13 @@ H. Anzt, E. Chow, J. Dongarra, "Iterative Sparse Triangular Solves for Precondit
 
 - Methods pages: [fdfd-3d.md:44](methods/fdfd-3d.md?plain=1#L44), [864](methods/fdfd-3d.md?plain=1#L864)
 - Code: [src/backend/krylov.rs:1297](../src/backend/krylov.rs#L1297)
-- Other documents: [docs/plans/performance.md:594](plans/performance.md?plain=1#L594)
+- Other documents: [docs/plans/performance.md:599](plans/performance.md?plain=1#L599)
 
 #### Anzt et al. 2022
 
 H. Anzt, T. Cojean, G. Flegar, F. Göbel, T. Grützmacher, P. Nayak, T. Ribizel, Y. M. Tsai, E. S. Quintana-Ortí, "Ginkgo : A Modern Linear Operator Algebra Framework for High Performance Computing", ACM Trans. Math. Softw. 48, 1 (2022). [doi:10.1145/3480935](https://doi.org/10.1145/3480935)
 
-- Other documents: [docs/plans/performance.md:595](plans/performance.md?plain=1#L595)
+- Other documents: [docs/plans/performance.md:600](plans/performance.md?plain=1#L600)
 
 #### Arbabi and Goddard 2013
 
@@ -375,7 +377,7 @@ J. F. Bauters, M. J. R. Heck, D. John, D. Dai, M.-C. Tien, J. S. Barton, A. Lein
 
 N. Bell, M. Garland, "Implementing sparse matrix-vector multiplication on throughput-oriented processors", Proceedings of the Conference on High Performance Computing Networking, Storage and Analysis (2009). [doi:10.1145/1654059.1654078](https://doi.org/10.1145/1654059.1654078)
 
-- Other documents: [docs/plans/performance.md:596](plans/performance.md?plain=1#L596)
+- Other documents: [docs/plans/performance.md:601](plans/performance.md?plain=1#L601)
 
 #### Bennet et al. 2024
 
@@ -408,7 +410,7 @@ C.-A. Berseth, C. Wuethrich, F. K. Reinhart, "The electro-optic coefficients of 
 D. Bertaccini, F. Durastante, "Iterative Methods and Preconditioning for Large and Sparse Linear Systems with Applications", Chapman and Hall/CRC (2018). [doi:10.1201/9781315153575](https://doi.org/10.1201/9781315153575)
 
 - Methods pages: [recycling.md:12](methods/recycling.md?plain=1#L12), [255](methods/recycling.md?plain=1#L255)
-- Other documents: [docs/plans/performance.md:580](plans/performance.md?plain=1#L580)
+- Other documents: [docs/plans/performance.md:585](plans/performance.md?plain=1#L585)
 
 #### Beume et al. 2007
 
@@ -422,7 +424,7 @@ N. Beume, B. Naujoks, M. Emmerich, "SMS-EMOA: Multiobjective selection based on 
 W.-J. Beyn, "An integral method for solving nonlinear eigenvalue problems", Linear Algebra and its Applications 436, 3839 (2012). [doi:10.1016/j.laa.2011.03.030](https://doi.org/10.1016/j.laa.2011.03.030)
 
 - Methods pages: [contour.md:192](methods/contour.md?plain=1#L192)
-- Other documents: [docs/plans/performance.md:597](plans/performance.md?plain=1#L597)
+- Other documents: [docs/plans/performance.md:602](plans/performance.md?plain=1#L602)
 
 #### Bienstman and Baets 2001
 
@@ -536,7 +538,7 @@ R. J. Bojko, J. Li, L. He, T. Baehr-Jones, M. Hochberg, Y. Aida, "Electron beam 
 
 M. Bonazzoli, V. Dolean, I. G. Graham, E. A. Spence, P.-H. Tournier, "Domain decomposition preconditioning for the high-frequency time-harmonic Maxwell equations with absorption", Math. Comp. 88, 2559 (2019). [doi:10.1090/mcom/3447](https://doi.org/10.1090/mcom/3447)
 
-- Other documents: [docs/plans/performance.md:598](plans/performance.md?plain=1#L598)
+- Other documents: [docs/plans/performance.md:603](plans/performance.md?plain=1#L603)
 
 #### Bond 1965
 
@@ -549,7 +551,7 @@ W. L. Bond, "Measurement of the Refractive Indices of Several Crystals", Journal
 
 N. Bootland, V. Dolean, P. Jolivet, P.-H. Tournier, "A comparison of coarse spaces for Helmholtz problems in the high frequency regime", Computers & Mathematics with Applications 98, 239 (2021). [doi:10.1016/j.camwa.2021.07.011](https://doi.org/10.1016/j.camwa.2021.07.011)
 
-- Other documents: [docs/plans/performance.md:599](plans/performance.md?plain=1#L599)
+- Other documents: [docs/plans/performance.md:604](plans/performance.md?plain=1#L604)
 
 #### Born et al. 1999
 
@@ -650,7 +652,7 @@ R. H. Byrd, P. Lu, J. Nocedal, C. Zhu, "A Limited Memory Algorithm for Bound Con
 
 X.-C. Cai, M. Sarkis, "A Restricted Additive Schwarz Preconditioner for General Sparse Linear Systems", SIAM J. Sci. Comput. 21, 792 (1999). [doi:10.1137/S106482759732678X](https://doi.org/10.1137/S106482759732678X)
 
-- Other documents: [docs/plans/performance.md:600](plans/performance.md?plain=1#L600)
+- Other documents: [docs/plans/performance.md:605](plans/performance.md?plain=1#L605)
 
 #### Cai et al. 2000
 
@@ -668,7 +670,7 @@ Calma Company, "GDSII Stream Format Manual, release 6.0" (1987)., open access.
 
 C. Campos, J. E. Roman, "NEP: A Module for the Parallel Solution of Nonlinear Eigenvalue Problems in SLEPc", ACM Trans. Math. Softw. 47, 36 (2021). [doi:10.1145/3447544](https://doi.org/10.1145/3447544)
 
-- Other documents: [docs/plans/performance.md:601](plans/performance.md?plain=1#L601)
+- Other documents: [docs/plans/performance.md:606](plans/performance.md?plain=1#L606)
 
 #### Cardenas et al. 2014
 
@@ -687,7 +689,9 @@ J. Carolan, C. Harrold, C. Sparrow, E. Martín-López, N. J. Russell, J. W. Silv
 
 E. Carson, N. J. Higham, "Accelerating the Solution of Linear Systems by Iterative Refinement in Three Precisions", SIAM J. Sci. Comput. 40, A817 (2018). [doi:10.1137/17M1140819](https://doi.org/10.1137/17M1140819)
 
-- Other documents: [docs/plans/performance.md:602](plans/performance.md?plain=1#L602)
+- Methods pages: [mixed-precision.md:8](methods/mixed-precision.md?plain=1#L8), [63](methods/mixed-precision.md?plain=1#L63)
+- Code: [src/sparse/refine.rs:4](../src/sparse/refine.rs#L4)
+- Other documents: [docs/plans/performance.md:607](plans/performance.md?plain=1#L607)
 
 #### Casson et al. 2004
 
@@ -819,7 +823,7 @@ S. Y. Chou, P. R. Krauss, P. J. Renstrom, "Imprint Lithography with 25-Nanometer
 E. Chow, A. Patel, "Fine-Grained Parallel Incomplete LU Factorization", SIAM J. Sci. Comput. 37, C169 (2015). [doi:10.1137/140968896](https://doi.org/10.1137/140968896)
 
 - Methods pages: [fdfd-3d.md:42](methods/fdfd-3d.md?plain=1#L42), [858](methods/fdfd-3d.md?plain=1#L858)
-- Other documents: [docs/plans/performance.md:603](plans/performance.md?plain=1#L603)
+- Other documents: [docs/plans/performance.md:608](plans/performance.md?plain=1#L608)
 
 #### Choy and Byer 1976
 
@@ -919,7 +923,7 @@ Y. Collet, "Zstandard Compression and the 'application/zstd' Media Type", RFC Ed
 
 S. Cools, W. Vanroose, "The communication-hiding pipelined BiCGstab method for the parallel solution of large unsymmetric linear systems", Parallel Computing 65, 1 (2017). [doi:10.1016/j.parco.2017.04.005](https://doi.org/10.1016/j.parco.2017.04.005)
 
-- Other documents: [docs/plans/performance.md:604](plans/performance.md?plain=1#L604)
+- Other documents: [docs/plans/performance.md:609](plans/performance.md?plain=1#L609)
 
 #### Cools et al. 2013
 
@@ -1036,7 +1040,7 @@ M. Delaney, I. Zeimpekis, H. Du, X. Yan, M. Banakar, D. J. Thomson, D. W. Hewak,
 
 J. Demmel, H. D. Nguyen, "Parallel Reproducible Summation", IEEE Trans. Comput. 64, 2060 (2015). [doi:10.1109/TC.2014.2345391](https://doi.org/10.1109/TC.2014.2345391)
 
-- Other documents: [docs/plans/performance.md:605](plans/performance.md?plain=1#L605)
+- Other documents: [docs/plans/performance.md:610](plans/performance.md?plain=1#L610)
 
 #### Demmel et al. 1999
 
@@ -1088,13 +1092,13 @@ R. Ding, Y. Liu, Y. Ma, Y. Yang, Q. Li, A. E.-J. Lim, G.-Q. Lo, K. Bergman, T. B
 
 V. Dolean, M. Gander, L. Gerardo-Giorda, "Optimized Schwarz Methods for Maxwell's Equations", SIAM J. Sci. Comput. 31, 2193 (2009). [doi:10.1137/080728536](https://doi.org/10.1137/080728536)
 
-- Other documents: [docs/plans/performance.md:606](plans/performance.md?plain=1#L606)
+- Other documents: [docs/plans/performance.md:611](plans/performance.md?plain=1#L611)
 
 #### Dolean et al. 2015
 
 V. Dolean, P. Jolivet, F. Nataf, "An Introduction to Domain Decomposition Methods: Algorithms, Theory, and Parallel Implementation", Society for Industrial and Applied Mathematics (2015). [doi:10.1137/1.9781611974065](https://doi.org/10.1137/1.9781611974065)
 
-- Other documents: [docs/plans/performance.md:607](plans/performance.md?plain=1#L607)
+- Other documents: [docs/plans/performance.md:612](plans/performance.md?plain=1#L612)
 
 #### Dolev et al. 2009
 
@@ -1202,7 +1206,7 @@ F. Eltes, C. Mai, D. Caimi, M. Kroh, Y. Popoff, G. Winzer, D. Petousi, S. Lischk
 B. Engquist, L. Ying, "Sweeping Preconditioner for the Helmholtz Equation: Moving Perfectly Matched Layers", Multiscale Model. Simul. 9, 686 (2011). [doi:10.1137/100804644](https://doi.org/10.1137/100804644)
 
 - Methods pages: [fdfd-3d.md:887](methods/fdfd-3d.md?plain=1#L887)
-- Other documents: [docs/plans/performance.md:581](plans/performance.md?plain=1#L581)
+- Other documents: [docs/plans/performance.md:586](plans/performance.md?plain=1#L586)
 
 #### Erdogan 1997
 
@@ -1217,7 +1221,7 @@ Y. A. Erlangga, C. W. Oosterlee, C. Vuik, "A Novel Multigrid Based Preconditione
 - Methods pages: [fdfd-3d.md:50](methods/fdfd-3d.md?plain=1#L50), [819](methods/fdfd-3d.md?plain=1#L819), [multigrid-stencil.md:8](methods/multigrid-stencil.md?plain=1#L8)
 - Validation cases: [`fdfd3d/gmres-multigrid-direct`](validation.md?plain=1#L180), [`fdfd3d/multigrid-stencil-direct`](validation.md?plain=1#L195), [`fdfd3d/multigrid-stencil-refinement`](validation.md?plain=1#L198), [`fdfd3d/multigrid-stencil-plane-waves`](validation.md?plain=1#L199), [`fdfd3d/multigrid-stencil-smoothing-factors`](validation.md?plain=1#L200)
 - Code: [src/fdfd/three/iterative.rs:380](../src/fdfd/three/iterative.rs#L380), [src/fdfd/three/multigrid.rs:8](../src/fdfd/three/multigrid.rs#L8), [src/fdfd/three/stencil_checks.rs:13](../src/fdfd/three/stencil_checks.rs#L13), [src/validation.rs:1289](../src/validation.rs#L1289), [1394](../src/validation.rs#L1394), [1415](../src/validation.rs#L1415), [1422](../src/validation.rs#L1422), [1429](../src/validation.rs#L1429)
-- Other documents: [docs/plans/performance.md:582](plans/performance.md?plain=1#L582)
+- Other documents: [docs/plans/performance.md:587](plans/performance.md?plain=1#L587)
 
 #### Ewert and van Loock 2014
 
@@ -1291,7 +1295,7 @@ P. F. Fischer, "Projection techniques for iterative solution of with successive 
 - Methods pages: [recycling.md:10](methods/recycling.md?plain=1#L10), [58](methods/recycling.md?plain=1#L58)
 - Validation cases: [`fdfd3d/recycle-s-matrix`](validation.md?plain=1#L188), [`fdfd3d/recycle-convergence`](validation.md?plain=1#L190)
 - Code: [src/backend/krylov/recycle.rs:30](../src/backend/krylov/recycle.rs#L30), [181](../src/backend/krylov/recycle.rs#L181), [src/fdfd/three/recycling.rs:21](../src/fdfd/three/recycling.rs#L21), [src/validation.rs:1345](../src/validation.rs#L1345), [1359](../src/validation.rs#L1359)
-- Other documents: [docs/plans/performance.md:608](plans/performance.md?plain=1#L608)
+- Other documents: [docs/plans/performance.md:613](plans/performance.md?plain=1#L613)
 
 #### Foster et al. 2006
 
@@ -1343,10 +1347,10 @@ L. F. Frellsen, Y. Ding, O. Sigmund, L. H. Frandsen, "Topology optimized mode mu
 
 R. W. Freund, "Conjugate Gradient-Type Methods for Linear Systems with Complex Symmetric Coefficient Matrices", SIAM J. Sci. and Stat. Comput. 13, 425 (1992). [doi:10.1137/0913023](https://doi.org/10.1137/0913023)
 
-- Methods pages: [backends.md:344](methods/backends.md?plain=1#L344), [block-qmr.md:14](methods/block-qmr.md?plain=1#L14), [fdfd-3d.md:20](methods/fdfd-3d.md?plain=1#L20), [417](methods/fdfd-3d.md?plain=1#L417)
+- Methods pages: [backends.md:353](methods/backends.md?plain=1#L353), [block-qmr.md:14](methods/block-qmr.md?plain=1#L14), [fdfd-3d.md:20](methods/fdfd-3d.md?plain=1#L20), [417](methods/fdfd-3d.md?plain=1#L417)
 - Validation cases: [`fdfd3d/qmr-symmetric-direct`](validation.md?plain=1#L173), [`fdfd3d/block-qmr-s-matrix`](validation.md?plain=1#L181)
 - Code: [src/backend/iterative.rs:13](../src/backend/iterative.rs#L13), [src/backend/krylov.rs:880](../src/backend/krylov.rs#L880), [src/validation.rs:1240](../src/validation.rs#L1240), [1296](../src/validation.rs#L1296)
-- Other documents: [docs/plans/performance.md:609](plans/performance.md?plain=1#L609)
+- Other documents: [docs/plans/performance.md:614](plans/performance.md?plain=1#L614)
 
 #### Freund and Malhotra 1997
 
@@ -1355,13 +1359,13 @@ R. W. Freund, M. Malhotra, "A block QMR algorithm for non-Hermitian linear syste
 - Methods pages: [block-qmr.md:8](methods/block-qmr.md?plain=1#L8), [49](methods/block-qmr.md?plain=1#L49)
 - Validation cases: [`fdfd3d/block-qmr-s-matrix`](validation.md?plain=1#L181), [`fdfd3d/block-qmr-ilu-s-matrix`](validation.md?plain=1#L182), [`fdfd3d/block-qmr-iterations`](validation.md?plain=1#L183), [`fdfd3d/block-qmr-dependent`](validation.md?plain=1#L184), [`fdfd3d/block-qmr-freund-malhotra`](validation.md?plain=1#L186)
 - Code: [src/backend/krylov/block.rs:6](../src/backend/krylov/block.rs#L6), [src/backend/krylov/example.rs:10](../src/backend/krylov/example.rs#L10), [src/fdfd/three/iterative.rs:679](../src/fdfd/three/iterative.rs#L679), [src/validation.rs:1296](../src/validation.rs#L1296), [1303](../src/validation.rs#L1303), [1310](../src/validation.rs#L1310), [1317](../src/validation.rs#L1317), [1331](../src/validation.rs#L1331)
-- Other documents: [docs/plans/performance.md:610](plans/performance.md?plain=1#L610)
+- Other documents: [docs/plans/performance.md:615](plans/performance.md?plain=1#L615)
 
 #### Freund and Nachtigal 1991
 
 R. W. Freund, N. M. Nachtigal, "QMR: a quasi-minimal residual method for non-Hermitian linear systems", Numer. Math. 60, 315 (1991). [doi:10.1007/BF01385726](https://doi.org/10.1007/BF01385726)
 
-- Methods pages: [backends.md:346](methods/backends.md?plain=1#L346), [block-qmr.md:12](methods/block-qmr.md?plain=1#L12), [fdfd-3d.md:18](methods/fdfd-3d.md?plain=1#L18)
+- Methods pages: [backends.md:355](methods/backends.md?plain=1#L355), [block-qmr.md:12](methods/block-qmr.md?plain=1#L12), [fdfd-3d.md:18](methods/fdfd-3d.md?plain=1#L18)
 - Academy lessons: [fdfd-and-adjoints.md:61](../academy/fdfd-and-adjoints.md?plain=1#L61), [415](../academy/fdfd-and-adjoints.md?plain=1#L415), [768](../academy/fdfd-and-adjoints.md?plain=1#L768)
 - Validation cases: [`fdfd3d/qmr-direct`](validation.md?plain=1#L172), [`fdfd3d/block-qmr-ilu-s-matrix`](validation.md?plain=1#L182)
 - Code: [src/backend/iterative.rs:12](../src/backend/iterative.rs#L12), [src/backend/krylov.rs:4](../src/backend/krylov.rs#L4), [src/fdfd/three/iterative.rs:106](../src/fdfd/three/iterative.rs#L106), [src/validation.rs:1233](../src/validation.rs#L1233), [1303](../src/validation.rs#L1303)
@@ -1387,7 +1391,7 @@ I. Friedrich, V. Weidenhof, W. Njoroge, P. Franz, M. Wuttig, "Structural transfo
 
 A. Frommer, U. Glässner, "Restarted GMRES for Shifted Linear Systems", SIAM J. Sci. Comput. 19, 15 (1998). [doi:10.1137/S1064827596304563](https://doi.org/10.1137/S1064827596304563)
 
-- Other documents: [docs/plans/performance.md:611](plans/performance.md?plain=1#L611)
+- Other documents: [docs/plans/performance.md:616](plans/performance.md?plain=1#L616)
 
 #### Fujisawa et al. 2017
 
@@ -1410,13 +1414,13 @@ K. Fukui, A. Tomita, A. Okamoto, K. Fujii, "High-Threshold Fault-Tolerant Quantu
 
 M. J. Gander, H. Zhang, "A Class of Iterative Solvers for the Helmholtz Equation: Factorizations, Sweeping Preconditioners, Source Transfer, Single Layer Potentials, Polarized Traces, and Optimized Schwarz Methods", SIAM Rev. 61, 3 (2019). [doi:10.1137/16M109781X](https://doi.org/10.1137/16M109781X)
 
-- Other documents: [docs/plans/performance.md:613](plans/performance.md?plain=1#L613)
+- Other documents: [docs/plans/performance.md:618](plans/performance.md?plain=1#L618)
 
 #### Gander et al. 2002
 
 M. J. Gander, F. Magoulès, F. Nataf, "Optimized Schwarz Methods without Overlap for the Helmholtz Equation", SIAM J. Sci. Comput. 24, 38 (2002). [doi:10.1137/S1064827501387012](https://doi.org/10.1137/S1064827501387012)
 
-- Other documents: [docs/plans/performance.md:612](plans/performance.md?plain=1#L612)
+- Other documents: [docs/plans/performance.md:617](plans/performance.md?plain=1#L617)
 
 #### Gao et al. 2023
 
@@ -1461,7 +1465,7 @@ A. George, "Nested Dissection of a Regular Finite Element Mesh", SIAM J. Numer. 
 - Methods pages: [fdfd-3d.md:30](methods/fdfd-3d.md?plain=1#L30), [340](methods/fdfd-3d.md?plain=1#L340), [fdfd.md:16](methods/fdfd.md?plain=1#L16), [static.md:20](methods/static.md?plain=1#L20)
 - Academy lessons: [fdfd-and-adjoints.md:49](../academy/fdfd-and-adjoints.md?plain=1#L49), [384](../academy/fdfd-and-adjoints.md?plain=1#L384), [764](../academy/fdfd-and-adjoints.md?plain=1#L764)
 - Code: [src/sparse.rs:4](../src/sparse.rs#L4)
-- Other documents: [docs/plans/performance.md:614](plans/performance.md?plain=1#L614)
+- Other documents: [docs/plans/performance.md:619](plans/performance.md?plain=1#L619)
 
 #### George 2009
 
@@ -1499,13 +1503,13 @@ G. Ghione, C. Naldi, "Analytical formulas for coplanar lines in hybrid and monol
 
 P. Ghysels, W. Vanroose, "Hiding global synchronization latency in the preconditioned Conjugate Gradient algorithm", Parallel Computing 40, 224 (2014). [doi:10.1016/j.parco.2013.06.001](https://doi.org/10.1016/j.parco.2013.06.001)
 
-- Other documents: [docs/plans/performance.md:616](plans/performance.md?plain=1#L616)
+- Other documents: [docs/plans/performance.md:621](plans/performance.md?plain=1#L621)
 
 #### Ghysels et al. 2016
 
 P. Ghysels, X. S. Li, F.-H. Rouet, S. Williams, A. Napov, "An Efficient Multicore Implementation of a Novel HSS-Structured Multifrontal Solver Using Randomized Sampling", SIAM J. Sci. Comput. 38, S358 (2016). [doi:10.1137/15M1010117](https://doi.org/10.1137/15M1010117)
 
-- Other documents: [docs/plans/performance.md:615](plans/performance.md?plain=1#L615)
+- Other documents: [docs/plans/performance.md:620](plans/performance.md?plain=1#L620)
 
 #### Glassbrenner and Slack 1964
 
@@ -1638,13 +1642,13 @@ S. Güttel, F. Tisseur, "The nonlinear eigenvalue problem", Acta Numerica 26, 1 
 
 - Methods pages: [hadley.md:12](methods/hadley.md?plain=1#L12)
 - Code: [src/mode/hadley.rs:32](../src/mode/hadley.rs#L32)
-- Other documents: [docs/plans/performance.md:618](plans/performance.md?plain=1#L618)
+- Other documents: [docs/plans/performance.md:623](plans/performance.md?plain=1#L623)
 
 #### Güttel et al. 2014
 
 S. Güttel, R. Van Beeumen, K. Meerbergen, W. Michiels, "NLEIGS: A Class of Fully Rational Krylov Methods for Nonlinear Eigenvalue Problems", SIAM J. Sci. Comput. 36, A2842 (2014). [doi:10.1137/130935045](https://doi.org/10.1137/130935045)
 
-- Other documents: [docs/plans/performance.md:617](plans/performance.md?plain=1#L617)
+- Other documents: [docs/plans/performance.md:622](plans/performance.md?plain=1#L622)
 
 ### H
 
@@ -1825,13 +1829,13 @@ P. L. F. Hemment, E. Maydell-Ondrusz, K. G. Stevens, J. A. Kilner, J. Butcher, "
 
 V. E. Henson, U. M. Yang, "BoomerAMG: A parallel algebraic multigrid solver and preconditioner", Applied Numerical Mathematics 41, 155 (2002). [doi:10.1016/S0168-9274(01)00115-5](https://doi.org/10.1016/S0168-9274(01)00115-5)
 
-- Other documents: [docs/plans/performance.md:619](plans/performance.md?plain=1#L619)
+- Other documents: [docs/plans/performance.md:624](plans/performance.md?plain=1#L624)
 
 #### Hernandez et al. 2005
 
 V. Hernandez, J. E. Roman, V. Vidal, "SLEPc: A scalable and flexible toolkit for the solution of eigenvalue problems", ACM Trans. Math. Softw. 31, 351 (2005). [doi:10.1145/1089014.1089019](https://doi.org/10.1145/1089014.1089019)
 
-- Other documents: [docs/plans/performance.md:620](plans/performance.md?plain=1#L620)
+- Other documents: [docs/plans/performance.md:625](plans/performance.md?plain=1#L625)
 
 #### Herr et al. 2013
 
@@ -1864,7 +1868,9 @@ N. J. Higham, "Accuracy and Stability of Numerical Algorithms: Second Edition", 
 
 N. J. Higham, T. Mary, "Mixed precision algorithms in numerical linear algebra", Acta Numerica 31, 347 (2022). [doi:10.1017/S0962492922000022](https://doi.org/10.1017/S0962492922000022), open access.
 
-- Other documents: [docs/plans/performance.md:621](plans/performance.md?plain=1#L621)
+- Methods pages: [mixed-precision.md:12](methods/mixed-precision.md?plain=1#L12), [89](methods/mixed-precision.md?plain=1#L89)
+- Code: [src/sparse/refine.rs:23](../src/sparse/refine.rs#L23)
+- Other documents: [docs/plans/performance.md:626](plans/performance.md?plain=1#L626)
 
 #### Hill et al. 1978
 
@@ -1877,14 +1883,14 @@ K. O. Hill, Y. Fujii, D. C. Johnson, B. S. Kawasaki, "Photosensitivity in optica
 R. Hiptmair, "Multigrid Method for Maxwell's Equations", SIAM J. Numer. Anal. 36, 204 (1998). [doi:10.1137/S0036142997326203](https://doi.org/10.1137/S0036142997326203)
 
 - Methods pages: [multigrid-stencil.md:14](methods/multigrid-stencil.md?plain=1#L14)
-- Other documents: [docs/plans/performance.md:622](plans/performance.md?plain=1#L622)
+- Other documents: [docs/plans/performance.md:627](plans/performance.md?plain=1#L627)
 
 #### Hiptmair and Xu 2007
 
 R. Hiptmair, J. Xu, "Nodal Auxiliary Space Preconditioning in H(curl) and H(div) Spaces", SIAM J. Numer. Anal. 45, 2483 (2007). [doi:10.1137/060660588](https://doi.org/10.1137/060660588)
 
 - Methods pages: [multigrid-stencil.md:18](methods/multigrid-stencil.md?plain=1#L18)
-- Other documents: [docs/plans/performance.md:623](plans/performance.md?plain=1#L623)
+- Other documents: [docs/plans/performance.md:628](plans/performance.md?plain=1#L628)
 
 #### Hjaltason and Samet 1999
 
@@ -1987,7 +1993,7 @@ T. W. Hughes, I. A. D. Williamson, M. Minkov, S. Fan, "Forward-Mode Differentiat
 T. W. Hughes, M. Minkov, V. Liu, Z. Yu, S. Fan, "A perspective on the pathway toward full wave simulation of large area metalenses", Applied Physics Letters 119, 150502 (2021). [doi:10.1063/5.0071245](https://doi.org/10.1063/5.0071245), open access.
 
 - Academy lessons: [metasurfaces.md:71](../academy/metasurfaces.md?plain=1#L71), [507](../academy/metasurfaces.md?plain=1#L507), [614](../academy/metasurfaces.md?plain=1#L614)
-- Other documents: [docs/plans/performance.md:624](plans/performance.md?plain=1#L624)
+- Other documents: [docs/plans/performance.md:629](plans/performance.md?plain=1#L629)
 
 ### I
 
@@ -2119,13 +2125,13 @@ P. Jolivet, P.-H. Tournier, "Block Iterative Methods and Recycling for Improved 
 
 - Methods pages: [block-qmr.md:10](methods/block-qmr.md?plain=1#L10), [111](methods/block-qmr.md?plain=1#L111)
 - Code: [src/backend/krylov.rs:318](../src/backend/krylov.rs#L318)
-- Other documents: [docs/plans/performance.md:626](plans/performance.md?plain=1#L626)
+- Other documents: [docs/plans/performance.md:631](plans/performance.md?plain=1#L631)
 
 #### Jolivet et al. 2021
 
 P. Jolivet, J. E. Roman, S. Zampini, "KSPHPDDM and PCHPDDM: Extending PETSc with advanced Krylov methods and robust multilevel overlapping Schwarz preconditioners", Computers & Mathematics with Applications 84, 277 (2021). [doi:10.1016/j.camwa.2021.01.003](https://doi.org/10.1016/j.camwa.2021.01.003)
 
-- Other documents: [docs/plans/performance.md:625](plans/performance.md?plain=1#L625)
+- Other documents: [docs/plans/performance.md:630](plans/performance.md?plain=1#L630)
 
 #### Jones et al. 1998
 
@@ -2214,7 +2220,7 @@ Kane Yee, "Numerical solution of initial boundary value problems involving maxwe
 
 G. Karypis, V. Kumar, "A Fast and High Quality Multilevel Scheme for Partitioning Irregular Graphs", SIAM J. Sci. Comput. 20, 359 (1998). [doi:10.1137/S1064827595287997](https://doi.org/10.1137/S1064827595287997)
 
-- Other documents: [docs/plans/performance.md:627](plans/performance.md?plain=1#L627)
+- Other documents: [docs/plans/performance.md:632](plans/performance.md?plain=1#L632)
 
 #### Kassem et al. 2023
 
@@ -2289,7 +2295,7 @@ J. Kestyn, E. Polizzi, P. T. Peter Tang, "Feast Eigensolver for Non-Hermitian Pr
 - Academy lessons: [leaky-and-bent-guides.md:131](../academy/leaky-and-bent-guides.md?plain=1#L131), [382](../academy/leaky-and-bent-guides.md?plain=1#L382), [582](../academy/leaky-and-bent-guides.md?plain=1#L582)
 - Validation cases: [`mode/contour-leaky-shift-invert`](validation.md?plain=1#L464)
 - Code: [src/eigen/contour.rs:6](../src/eigen/contour.rs#L6), [src/mode/region.rs:12](../src/mode/region.rs#L12), [src/mode/region/checks.rs:366](../src/mode/region/checks.rs#L366)
-- Other documents: [docs/plans/performance.md:628](plans/performance.md?plain=1#L628)
+- Other documents: [docs/plans/performance.md:633](plans/performance.md?plain=1#L633)
 
 #### Kharel et al. 2021a
 
@@ -2825,7 +2831,7 @@ T. Malas, G. Hager, H. Ltaief, H. Stengel, G. Wellein, D. Keyes, "Multicore-Opti
 
 - Methods pages: [fdtd.md:48](methods/fdtd.md?plain=1#L48)
 - Code: [src/fdtd/kernel/blocked.rs:2](../src/fdtd/kernel/blocked.rs#L2)
-- Other documents: [docs/plans/performance.md:630](plans/performance.md?plain=1#L630)
+- Other documents: [docs/plans/performance.md:635](plans/performance.md?plain=1#L635)
 
 #### Malas et al. 2016
 
@@ -2833,7 +2839,7 @@ T. M. Malas, J. Hornich, G. Hager, H. Ltaief, C. Pflaum, D. E. Keyes, "Optimizat
 
 - Methods pages: [fdtd.md:50](methods/fdtd.md?plain=1#L50)
 - Code: [src/fdtd/kernel/blocked.rs:3](../src/fdtd/kernel/blocked.rs#L3)
-- Other documents: [docs/plans/performance.md:631](plans/performance.md?plain=1#L631)
+- Other documents: [docs/plans/performance.md:636](plans/performance.md?plain=1#L636)
 
 #### Malitson 1965
 
@@ -2986,7 +2992,7 @@ P. Micikevicius, "3D finite difference computation on GPUs using CUDA", Proceedi
 
 - Methods pages: [fdtd.md:38](methods/fdtd.md?plain=1#L38)
 - Code: [src/fdtd/gpu.rs:9](../src/fdtd/gpu.rs#L9), [src/fdtd/gpu/yee.wgsl:11](../src/fdtd/gpu/yee.wgsl#L11)
-- Other documents: [docs/plans/performance.md:632](plans/performance.md?plain=1#L632)
+- Other documents: [docs/plans/performance.md:637](plans/performance.md?plain=1#L637)
 
 #### Mie 1908
 
@@ -3030,7 +3036,7 @@ R. C. Miller, W. A. Nordland, P. M. Bridenbaugh, "Dependence of Second-Harmonic-
 
 R. T. Mills, M. F. Adams, S. Balay, J. Brown, A. Dener, M. Knepley, S. E. Kruger, H. Morgan, T. Munson, K. Rupp, et al., "Toward performance-portable PETSc for GPU-based exascale systems", Parallel Computing 108, 102831 (2021). [doi:10.1016/j.parco.2021.102831](https://doi.org/10.1016/j.parco.2021.102831)
 
-- Other documents: [docs/plans/performance.md:633](plans/performance.md?plain=1#L633)
+- Other documents: [docs/plans/performance.md:638](plans/performance.md?plain=1#L638)
 
 #### Minkov and Savona 2014
 
@@ -3098,7 +3104,7 @@ X. Mu, S. Wu, L. Cheng, H. Fu, "Edge Couplers in Silicon Photonic Integrated Cir
 
 T. Nagaoka, S. Watanabe, "Multi-GPU accelerated three-dimensional FDTD method for electromagnetic simulation", 2011 Annual International Conference of the IEEE Engineering in Medicine and Biology Society (2011). [doi:10.1109/IEMBS.2011.6090128](https://doi.org/10.1109/IEMBS.2011.6090128)
 
-- Other documents: [docs/plans/performance.md:634](plans/performance.md?plain=1#L634)
+- Other documents: [docs/plans/performance.md:639](plans/performance.md?plain=1#L639)
 
 #### Nakano et al. 2017
 
@@ -3220,7 +3226,7 @@ A. F. Oskooi, D. Roundy, M. Ibanescu, P. Bermel, J. Joannopoulos, S. G. Johnson,
 - Validation cases: [`fdtd/spectrum`](validation.md?plain=1#L209), [`fdtd/meep-pml-rates`](validation.md?plain=1#L259)
 - Examples: [README.md:68](../examples/README.md?plain=1#L68), [bump_oskooi.rs:6](../examples/bump_oskooi.rs#L6), [pml_oskooi.rs:6](../examples/pml_oskooi.rs#L6)
 - Code: [src/fdtd.rs:43](../src/fdtd.rs#L43), [src/fdtd/meep_checks.rs:2](../src/fdtd/meep_checks.rs#L2), [src/fdtd/sources.rs:9](../src/fdtd/sources.rs#L9), [src/units.rs:8](../src/units.rs#L8), [src/validation.rs:1492](../src/validation.rs#L1492), [1842](../src/validation.rs#L1842)
-- Other documents: [ROADMAP.md:735](../ROADMAP.md?plain=1#L735), [docs/plans/performance.md:585](plans/performance.md?plain=1#L585)
+- Other documents: [ROADMAP.md:735](../ROADMAP.md?plain=1#L735), [docs/plans/performance.md:590](plans/performance.md?plain=1#L590)
 
 ### P
 
@@ -3270,7 +3276,7 @@ M. L. Parks, E. de Sturler, G. Mackey, D. D. Johnson, S. Maiti, "Recycling Krylo
 - Methods pages: [recycling.md:8](methods/recycling.md?plain=1#L8), [77](methods/recycling.md?plain=1#L77)
 - Validation cases: [`fdfd3d/recycle-s-matrix`](validation.md?plain=1#L188), [`fdfd3d/recycle-deflation`](validation.md?plain=1#L189), [`fdfd3d/recycle-adjoint`](validation.md?plain=1#L191), [`fdfd3d/recycle-parks-table`](validation.md?plain=1#L201), [`fdfd3d/recycle-parks-rerun`](validation.md?plain=1#L202)
 - Code: [src/backend/krylov/recycle.rs:6](../src/backend/krylov/recycle.rs#L6), [src/backend/krylov/recycle_example.rs:13](../src/backend/krylov/recycle_example.rs#L13), [src/fdfd/three/recycling.rs:29](../src/fdfd/three/recycling.rs#L29), [src/validation.rs:1345](../src/validation.rs#L1345), [1352](../src/validation.rs#L1352), [1366](../src/validation.rs#L1366), [1436](../src/validation.rs#L1436), [1443](../src/validation.rs#L1443)
-- Other documents: [docs/plans/performance.md:635](plans/performance.md?plain=1#L635)
+- Other documents: [docs/plans/performance.md:640](plans/performance.md?plain=1#L640)
 
 #### Parlett 1998
 
@@ -3433,7 +3439,7 @@ E. Polizzi, "Density-matrix-based algorithm for solving eigenvalue problems", Ph
 - Academy lessons: [leaky-and-bent-guides.md:107](../academy/leaky-and-bent-guides.md?plain=1#L107), [387](../academy/leaky-and-bent-guides.md?plain=1#L387), [569](../academy/leaky-and-bent-guides.md?plain=1#L569)
 - Validation cases: [`mode/contour-uniform-box`](validation.md?plain=1#L461)
 - Code: [src/eigen/contour.rs:17](../src/eigen/contour.rs#L17), [src/mode/region.rs:10](../src/mode/region.rs#L10), [src/mode/region/checks.rs:341](../src/mode/region/checks.rs#L341)
-- Other documents: [docs/plans/performance.md:636](plans/performance.md?plain=1#L636)
+- Other documents: [docs/plans/performance.md:641](plans/performance.md?plain=1#L641)
 
 #### Polyanskiy 2024
 
@@ -3448,7 +3454,7 @@ M. N. Polyanskiy, "Refractiveindex.info database of optical constants", Sci Data
 
 J. Poulson, B. Engquist, S. Li, L. Ying, "A Parallel Sweeping Preconditioner for Heterogeneous 3D Helmholtz Equations", SIAM J. Sci. Comput. 35, C194 (2013). [doi:10.1137/120871985](https://doi.org/10.1137/120871985)
 
-- Other documents: [docs/plans/performance.md:637](plans/performance.md?plain=1#L637)
+- Other documents: [docs/plans/performance.md:642](plans/performance.md?plain=1#L642)
 
 #### Powell et al. 1966
 
@@ -3593,7 +3599,7 @@ B. Reps, W. Vanroose, H. B. Zubair, "On the indefinite Helmholtz equation: Compl
 - Methods pages: [fdfd-3d.md:48](methods/fdfd-3d.md?plain=1#L48), [809](methods/fdfd-3d.md?plain=1#L809), [multigrid-stencil.md:10](methods/multigrid-stencil.md?plain=1#L10)
 - Validation cases: [`fdfd3d/gmres-multigrid-direct`](validation.md?plain=1#L180), [`device/fdfd-3d-iterative`](validation.md?plain=1#L336)
 - Code: [src/device/splitter_checks.rs:110](../src/device/splitter_checks.rs#L110), [src/fdfd/three/iterative.rs:378](../src/fdfd/three/iterative.rs#L378), [src/fdfd/three/multigrid.rs:5](../src/fdfd/three/multigrid.rs#L5), [src/validation.rs:1289](../src/validation.rs#L1289)
-- Other documents: [docs/plans/performance.md:583](plans/performance.md?plain=1#L583)
+- Other documents: [docs/plans/performance.md:588](plans/performance.md?plain=1#L588)
 
 #### Requicha 1980
 
@@ -3710,10 +3716,10 @@ S. Afshar V., T. M. Monro, "A full vectorial model for pulse propagation in emer
 
 Y. Saad, "Iterative Methods for Sparse Linear Systems", Society for Industrial and Applied Mathematics (2003). [doi:10.1137/1.9780898718003](https://doi.org/10.1137/1.9780898718003)
 
-- Methods pages: [backends.md:350](methods/backends.md?plain=1#L350), [fdfd-3d.md:46](methods/fdfd-3d.md?plain=1#L46), [recycling.md:14](methods/recycling.md?plain=1#L14)
+- Methods pages: [backends.md:359](methods/backends.md?plain=1#L359), [fdfd-3d.md:46](methods/fdfd-3d.md?plain=1#L46), [mixed-precision.md:14](methods/mixed-precision.md?plain=1#L14), [71](methods/mixed-precision.md?plain=1#L71), [recycling.md:14](methods/recycling.md?plain=1#L14)
 - Validation cases: [`fdfd3d/qmr-ilu-direct`](validation.md?plain=1#L179), [`fdfd3d/gmres-multigrid-direct`](validation.md?plain=1#L180), [`fdfd3d/block-qmr-ilu-s-matrix`](validation.md?plain=1#L182)
-- Code: [src/backend/iterative.rs:89](../src/backend/iterative.rs#L89), [src/backend/krylov.rs:487](../src/backend/krylov.rs#L487), [1384](../src/backend/krylov.rs#L1384), [src/fdfd/three/iterative.rs:334](../src/fdfd/three/iterative.rs#L334), [375](../src/fdfd/three/iterative.rs#L375), [src/validation.rs:1282](../src/validation.rs#L1282), [1289](../src/validation.rs#L1289), [1303](../src/validation.rs#L1303)
-- Other documents: [docs/plans/performance.md:578](plans/performance.md?plain=1#L578)
+- Code: [src/backend/iterative.rs:89](../src/backend/iterative.rs#L89), [src/backend/krylov.rs:487](../src/backend/krylov.rs#L487), [1384](../src/backend/krylov.rs#L1384), [src/fdfd/three/iterative.rs:334](../src/fdfd/three/iterative.rs#L334), [375](../src/fdfd/three/iterative.rs#L375), [src/sparse/refine.rs:38](../src/sparse/refine.rs#L38), [src/validation.rs:1282](../src/validation.rs#L1282), [1289](../src/validation.rs#L1289), [1303](../src/validation.rs#L1303)
+- Other documents: [docs/plans/performance.md:583](plans/performance.md?plain=1#L583)
 
 #### Saad 2011
 
@@ -3722,7 +3728,7 @@ Y. Saad, "Numerical Methods for Large Eigenvalue Problems: Revised Edition", Soc
 - Methods pages: [eigen.md:8](methods/eigen.md?plain=1#L8)
 - Validation cases: [`mode/contour-strip-shift-invert`](validation.md?plain=1#L463), [`mode/contour-leaky-shift-invert`](validation.md?plain=1#L464), [`mode/krylov-schur-growing`](validation.md?plain=1#L472)
 - Code: [src/cases/eigen/checks.rs:339](../src/cases/eigen/checks.rs#L339), [src/eigen.rs:5](../src/eigen.rs#L5), [src/mode/region/checks.rs:359](../src/mode/region/checks.rs#L359), [366](../src/mode/region/checks.rs#L366)
-- Other documents: [ROADMAP.md:743](../ROADMAP.md?plain=1#L743), [docs/plans/performance.md:579](plans/performance.md?plain=1#L579)
+- Other documents: [ROADMAP.md:743](../ROADMAP.md?plain=1#L743), [docs/plans/performance.md:584](plans/performance.md?plain=1#L584)
 
 #### Sacher and Poon 2008
 
@@ -3738,7 +3744,7 @@ T. Sakurai, H. Sugiura, "A projection method for generalized eigenvalue problems
 - Academy lessons: [leaky-and-bent-guides.md:89](../academy/leaky-and-bent-guides.md?plain=1#L89)
 - Validation cases: [`mode/contour-exponential`](validation.md?plain=1#L467), [`mode/contour-sakurai-sugiura`](validation.md?plain=1#L469)
 - Code: [src/eigen/contour.rs:11](../src/eigen/contour.rs#L11), [src/mode/region.rs:8](../src/mode/region.rs#L8), [src/mode/region/checks.rs:387](../src/mode/region/checks.rs#L387), [401](../src/mode/region/checks.rs#L401)
-- Other documents: [docs/plans/performance.md:638](plans/performance.md?plain=1#L638)
+- Other documents: [docs/plans/performance.md:643](plans/performance.md?plain=1#L643)
 
 #### Sanathanan and Koerner 1963
 
@@ -3771,7 +3777,7 @@ D. Scharfetter, H. Gummel, "Large-signal analysis of a silicon Read diode oscill
 O. Schenk, K. Gärtner, "Solving unsymmetric sparse systems of linear equations with PARDISO", Future Generation Computer Systems 20, 475 (2004). [doi:10.1016/j.future.2003.07.011](https://doi.org/10.1016/j.future.2003.07.011)
 
 - Code: [native/src/pardiso.rs:3](../native/src/pardiso.rs#L3), [src/bench/export.rs:4](../src/bench/export.rs#L4)
-- Other documents: [docs/baselines.md:5](baselines.md?plain=1#L5), [docs/plans/performance.md:639](plans/performance.md?plain=1#L639)
+- Other documents: [docs/baselines.md:5](baselines.md?plain=1#L5), [docs/plans/performance.md:644](plans/performance.md?plain=1#L644)
 
 #### Schneider et al. 2019
 
@@ -3839,7 +3845,7 @@ C. Shang, J. Yang, A. M. Hammond, Z. Chen, M. Chen, Z. Lin, S. G. Johnson, C. Wa
 
 D. V. Shantsev, P. Jaysaval, S. de la Kethulle de Ryhove, P. R. Amestoy, A. Buttari, J.-Y. L’Excellent, T. Mary, "Large-scale 3-D EM modelling with a Block Low-Rank multifrontal direct solver", Geophysical Journal International 209, 1558 (2017). [doi:10.1093/gji/ggx106](https://doi.org/10.1093/gji/ggx106)
 
-- Other documents: [docs/baselines.md:406](baselines.md?plain=1#L406), [docs/plans/performance.md:640](plans/performance.md?plain=1#L640)
+- Other documents: [docs/baselines.md:406](baselines.md?plain=1#L406), [docs/plans/performance.md:645](plans/performance.md?plain=1#L645)
 
 #### Shen et al. 2015
 
@@ -3870,7 +3876,7 @@ W. Shin, S. Fan, "Accelerated solution of the frequency-domain Maxwell’s equat
 - Methods pages: [fdfd-3d.md:16](methods/fdfd-3d.md?plain=1#L16), [multigrid-stencil.md:12](methods/multigrid-stencil.md?plain=1#L12)
 - Validation cases: [`fdfd3d/qmr-direct`](validation.md?plain=1#L172), [`fdfd3d/qmr-plateau`](validation.md?plain=1#L175), [`fdfd3d/qmr-iterations-curl-curl`](validation.md?plain=1#L176), [`fdfd3d/qmr-iterations-shin-fan`](validation.md?plain=1#L177), [`device/fdfd-3d-iterative`](validation.md?plain=1#L336)
 - Code: [src/device/splitter_checks.rs:110](../src/device/splitter_checks.rs#L110), [src/fdfd/mod.rs:21](../src/fdfd/mod.rs#L21), [src/fdfd/three.rs:392](../src/fdfd/three.rs#L392), [src/fdfd/three/iterative.rs:105](../src/fdfd/three/iterative.rs#L105), [src/validation.rs:1233](../src/validation.rs#L1233), [1254](../src/validation.rs#L1254), [1261](../src/validation.rs#L1261), [1268](../src/validation.rs#L1268)
-- Other documents: [docs/plans/performance.md:584](plans/performance.md?plain=1#L584)
+- Other documents: [docs/plans/performance.md:589](plans/performance.md?plain=1#L589)
 
 #### Shockley and Read 1952
 
@@ -4002,7 +4008,7 @@ S. Somekh, E. Garmire, A. Yariv, H. Garvin, R. Hunsperger, "Channel optical wave
 
 P. Sonneveld, M. B. van Gijzen, "IDR( s ): A Family of Simple and Fast Algorithms for Solving Large Nonsymmetric Systems of Linear Equations", SIAM J. Sci. Comput. 31, 1035 (2008). [doi:10.1137/070685804](https://doi.org/10.1137/070685804)
 
-- Other documents: [docs/plans/performance.md:641](plans/performance.md?plain=1#L641)
+- Other documents: [docs/plans/performance.md:646](plans/performance.md?plain=1#L646)
 
 #### Soref 2006
 
@@ -4027,7 +4033,7 @@ R. Soref, J. Schmidtchen, K. Petermann, "Large single-mode rib waveguides in GeS
 
 N. Spillane, V. Dolean, P. Hauret, F. Nataf, C. Pechstein, R. Scheichl, "Abstract robust coarse spaces for systems of PDEs via generalized eigenproblems in the overlaps", Numer. Math. 126, 741 (2013). [doi:10.1007/s00211-013-0576-y](https://doi.org/10.1007/s00211-013-0576-y)
 
-- Other documents: [docs/plans/performance.md:642](plans/performance.md?plain=1#L642)
+- Other documents: [docs/plans/performance.md:647](plans/performance.md?plain=1#L647)
 
 #### Spring et al. 2013
 
@@ -4039,7 +4045,7 @@ J. B. Spring, B. J. Metcalf, P. C. Humphreys, W. S. Kolthammer, X.-M. Jin, M. Ba
 
 A. St-Cyr, M. J. Gander, S. J. Thomas, "Optimized Multiplicative, Additive, and Restricted Additive Schwarz Preconditioning", SIAM J. Sci. Comput. 29, 2402 (2007). [doi:10.1137/060652610](https://doi.org/10.1137/060652610)
 
-- Other documents: [docs/plans/performance.md:643](plans/performance.md?plain=1#L643)
+- Other documents: [docs/plans/performance.md:648](plans/performance.md?plain=1#L648)
 
 #### Steele et al. 2014
 
@@ -4054,13 +4060,13 @@ G. W. Stewart, "A Krylov--Schur Algorithm for Large Eigenproblems", SIAM J. Matr
 - Methods pages: [eigen.md:10](methods/eigen.md?plain=1#L10)
 - Validation cases: [`mode/krylov-schur-box`](validation.md?plain=1#L470), [`mode/every-guided-mode`](validation.md?plain=1#L476)
 - Code: [src/cases/eigen/checks.rs:325](../src/cases/eigen/checks.rs#L325), [367](../src/cases/eigen/checks.rs#L367), [src/eigen.rs:11](../src/eigen.rs#L11)
-- Other documents: [docs/plans/performance.md:644](plans/performance.md?plain=1#L644)
+- Other documents: [docs/plans/performance.md:649](plans/performance.md?plain=1#L649)
 
 #### Stolk 2013
 
 C. C. Stolk, "A rapidly converging domain decomposition method for the Helmholtz equation", Journal of Computational Physics 241, 240 (2013). [doi:10.1016/j.jcp.2013.01.039](https://doi.org/10.1016/j.jcp.2013.01.039)
 
-- Other documents: [docs/plans/performance.md:645](plans/performance.md?plain=1#L645)
+- Other documents: [docs/plans/performance.md:650](plans/performance.md?plain=1#L650)
 
 #### Storn and Price 1997
 
@@ -4213,7 +4219,7 @@ B. Tatian, "Fitting refractive-index data with the Sellmeier dispersion formula"
 
 M. Taus, L. Zepeda-Núñez, R. J. Hewett, L. Demanet, "L-Sweeps: A scalable, parallel preconditioner for the high-frequency Helmholtz equation", Journal of Computational Physics 420, 109706 (2020). [doi:10.1016/j.jcp.2020.109706](https://doi.org/10.1016/j.jcp.2020.109706)
 
-- Other documents: [docs/plans/performance.md:646](plans/performance.md?plain=1#L646)
+- Other documents: [docs/plans/performance.md:651](plans/performance.md?plain=1#L651)
 
 #### Tian et al. 2026
 
@@ -4273,7 +4279,7 @@ W. Tsai, M. Delfino, J. A. Fair, D. Hodul, "Temperature dependence of the electr
 
 P. Tsuji, B. Engquist, L. Ying, "A sweeping preconditioner for time-harmonic Maxwell’s equations with finite elements", Journal of Computational Physics 231, 3770 (2012). [doi:10.1016/j.jcp.2012.01.025](https://doi.org/10.1016/j.jcp.2012.01.025)
 
-- Other documents: [docs/plans/performance.md:647](plans/performance.md?plain=1#L647)
+- Other documents: [docs/plans/performance.md:652](plans/performance.md?plain=1#L652)
 
 #### Turner et al. 2006
 
@@ -4354,13 +4360,13 @@ H. van der Vorst, J. Melissen, "A Petrov-Galerkin type method for solving Axk=b,
 
 - Methods pages: [fdfd-3d.md:22](methods/fdfd-3d.md?plain=1#L22), [445](methods/fdfd-3d.md?plain=1#L445)
 - Code: [src/cases/fdfd/three/tests.rs:1404](../src/cases/fdfd/three/tests.rs#L1404)
-- Other documents: [docs/plans/performance.md:648](plans/performance.md?plain=1#L648)
+- Other documents: [docs/plans/performance.md:653](plans/performance.md?plain=1#L653)
 
 #### Van Gijzen and Sonneveld 2011
 
 M. B. Van Gijzen, P. Sonneveld, "Algorithm 913: An elegant IDR( s ) variant that efficiently exploits biorthogonality properties", ACM Trans. Math. Softw. 38, 1 (2011). [doi:10.1145/2049662.2049667](https://doi.org/10.1145/2049662.2049667)
 
-- Other documents: [docs/plans/performance.md:649](plans/performance.md?plain=1#L649)
+- Other documents: [docs/plans/performance.md:654](plans/performance.md?plain=1#L654)
 
 #### Varnava et al. 2008
 
@@ -4376,7 +4382,7 @@ M. Varnava, D. E. Browne, T. Rudolph, "How Good Must Single Photon Sources and D
 
 Tzanio V. Kolev  & Panayot S. Vassilevski, "Parallel Auxiliary Space AMG for \$\\boldsymbol{H}\$(Curl) Problems", JCM 27, 604 (2018). [doi:10.4208/jcm.2009.27.5.013](https://doi.org/10.4208/jcm.2009.27.5.013)
 
-- Other documents: [docs/plans/performance.md:629](plans/performance.md?plain=1#L629)
+- Other documents: [docs/plans/performance.md:634](plans/performance.md?plain=1#L634)
 
 #### Vatti 1992
 
@@ -4605,7 +4611,7 @@ P. R. Wiecha, A. Arbouet, C. Girard, O. L. Muskens, "Deep learning in nano-photo
 S. Williams, A. Waterman, D. Patterson, "Roofline: an insightful visual performance model for multicore architectures", Commun. ACM 52, 65 (2009). [doi:10.1145/1498765.1498785](https://doi.org/10.1145/1498765.1498785)
 
 - Code: [src/bench.rs:10](../src/bench.rs#L10), [src/traffic.rs:3](../src/traffic.rs#L3)
-- Other documents: [docs/plans/performance.md:650](plans/performance.md?plain=1#L650)
+- Other documents: [docs/plans/performance.md:655](plans/performance.md?plain=1#L655)
 
 #### Witzens 2018
 

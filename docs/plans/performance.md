@@ -485,7 +485,7 @@ path (decision 6).
 **Status (#789).** The first part is in: `photonoxide-mixed`, photonoxide's own multifrontal
 factorization in single precision, each solve refined to double by GMRES-IR, and an error with
 the refinement's history where single precision isn't enough ([mixed
-precision](../methods/mixed-precision.md)). PHASE_D_NUMBERS The GPU's QMR is still to do.
+precision](../methods/mixed-precision.md)). Measured on the 40³ guide (192 000 unknowns, 6 threads): the process's peak 1.86 GB against 3.08 GB, a field error of 1e-8 in 4.3 s against 6.5 s, and the converged field (4e-14 from double's) in 5.5 s; at 56³ (527 000 unknowns) 6.6 GB against 12.0 GB. All 27 3D validation cases that factorize pass on it with their own tolerances, and a closed box at a wavelength 20 000 cells long fails, saying so. The GPU's QMR is still to do.
 
 ### Phase E: distributed memory (a new milestone after 0.7)
 
