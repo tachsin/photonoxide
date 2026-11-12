@@ -1079,9 +1079,13 @@ impl MaterialSpec {
 
     /// The material.
     ///
+    /// A wurtzite crystal (aluminium nitride, AlGaN) is a film grown with its c axis, its optic
+    /// axis, normal to the wafer, and a layer takes it as its ordinary index n_o, the index a TE
+    /// mode's in-plane field sees ([`c_axis_film`]).
+    ///
     /// # Errors
     ///
-    /// [`Error::InvalidValue`] for an unknown entry or model, an anisotropic model, or
+    /// [`Error::InvalidValue`] for an unknown entry or model, any other anisotropic model, or
     /// conditions outside its range.
     pub fn material(&self) -> Result<Material> {
         let entry = catalogue::entry(&self.id).ok_or_else(|| {
@@ -1108,6 +1112,9 @@ impl MaterialSpec {
             temperature: self.temperature,
             composition: self.composition,
         })?;
+        if let Some(o) = c_axis_film(&entry, &model, &materials)? {
+            return Ok(o);
+        }
         if materials.len() != 1 {
             return Err(Error::invalid(
                 "material",
@@ -1158,6 +1165,53 @@ impl MaterialSpec {
         }
         Value::Table(t)
     }
+}
+
+/// What a wurtzite crystal (aluminium nitride, AlGaN) is as a device's layer: its ordinary
+/// index n_o, named by its formula, or `None` for any other entry or a model with one index.
+///
+/// A wurtzite film grows with its c axis, its optic axis, normal to the wafer: Xiong et al.'s
+/// sputtered AlN is "a columnar micrograin structure with c-axis orientation ([0002] direction)
+/// normal to the film plane" (Nano Lett. 12, 3562 (2012), p. 3563), and Rigler et al.'s AlN and
+/// AlGaN films are grown by MOCVD on c-plane sapphire. A TE mode's field lies in the plane, across
+/// the c axis, and sees n_o (Xiong et al. take n_o = 2.12 at 1550 nm, p. 3563). A device's layer
+/// takes one index, so it takes n_o: a TM mode, whose field is mostly along the c axis, would see
+/// more of n_e (AlN's n_e − n_o is about 0.05, Rigler et al. 2015), which the material's notes
+/// say. A modes, structure, FDFD or FDTD job's `[task.stack]` takes the crystal with its
+/// orientation and both indices.
+fn c_axis_film(
+    entry: &catalogue::Entry,
+    model: &catalogue::IndexModel,
+    materials: &[Material],
+) -> Result<Option<Material>> {
+    let uniaxial = matches!(
+        entry.crystal.optical,
+        catalogue::OpticalClass::Uniaxial { .. }
+    );
+    if entry.crystal.structure != "wurtzite" || !uniaxial || materials.len() != 2 {
+        return Ok(None);
+    }
+    let Some(k) = model
+        .axes
+        .iter()
+        .position(|a| *a == catalogue::Axis::Ordinary)
+    else {
+        return Ok(None);
+    };
+    let o = &materials[k];
+    let name = o.name().strip_suffix(" (o)").unwrap_or(o.name());
+    let (shortest, longest) = o.range();
+    let mut provenance = o.provenance().clone();
+    let said = "the ordinary index n_o, as a device's layer takes this wurtzite film: grown with \
+                its c axis normal to the wafer (Xiong et al. 2012, p. 3563), it gives a TE mode's \
+                in-plane field n_o; a TM mode's field, mostly along the c axis, would see more of \
+                n_e";
+    provenance.notes = if provenance.notes.is_empty() {
+        said.to_owned()
+    } else {
+        format!("{}; {said}", provenance.notes)
+    };
+    Material::new(name, o.model().clone(), shortest, longest, provenance).map(Some)
 }
 
 /// The keys a `[device]` table takes.
