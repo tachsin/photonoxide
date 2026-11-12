@@ -38,6 +38,7 @@ mod execute;
 mod flow;
 mod generate;
 mod glossary;
+pub mod ion_range;
 mod library;
 pub mod measure;
 pub mod oxidation;
