@@ -319,7 +319,8 @@ fn histories() {
 }
 
 /// Reads `MP_CELLS` (the guide's n, 24 by default), `MP_MODE` (`double` or `mixed`) and
-/// `MP_REFERENCE` (a file: the double run writes its field there, the mixed run reads it).
+/// `MP_REFERENCE` (a file, tests/data/mp-reference.bin by default: the double run writes its
+/// field there, the mixed run reads it).
 /// Each mode in a process of its own, whose peak memory is read from outside.
 #[test]
 #[ignore = "a measurement, one mode per process, for docs/methods/mixed-precision.md: MP_CELLS=40 MP_MODE=double MP_REFERENCE=<file> cargo test --release --lib fdfd::three::mixed_tests::benchmark -- --ignored --nocapture, then MP_MODE=mixed"]
@@ -327,7 +328,9 @@ fn benchmark() {
     let var = |name: &str, default: &str| std::env::var(name).unwrap_or(default.into());
     let n: usize = var("MP_CELLS", "24").parse().unwrap();
     let mode = var("MP_MODE", "double");
-    let reference_file = var("MP_REFERENCE", "mp-reference.bin");
+    let default_reference = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("tests/data/mp-reference.bin");
+    let reference_file = var("MP_REFERENCE", default_reference.to_str().unwrap());
     let (grid, boundaries, eps) = guide(n);
     let wavelength = Wavelength::um(1.55).unwrap();
     let threads = rayon::current_num_threads();
