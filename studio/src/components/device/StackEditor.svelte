@@ -21,7 +21,11 @@
    */
   const cAxisFilm = (m: MaterialEntry) => m.crystal.structure === "wurtzite" && m.crystal.optical.kind === "uniaxial";
   /** The index models a layer takes: one index, or a c-axis film's with its ordinary index. */
-  const layerModels = (m: MaterialEntry | undefined) => m?.index.filter((i) => i.axes.length === 1 || (cAxisFilm(m) && i.axes.includes("ordinary"))) ?? [];
+  const layerModels = (m: MaterialEntry | undefined) => {
+    if (!m) return [];
+    const film = cAxisFilm(m);
+    return m.index.filter((i) => i.axes.length === 1 || (film && i.axes.includes("ordinary")));
+  };
 
   // the catalogue's materials a layer takes, loaded once and shared
   const shared = globalThis as { __layered?: Promise<MaterialEntry[]> };

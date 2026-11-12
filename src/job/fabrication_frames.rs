@@ -687,11 +687,10 @@ pub(crate) fn moments(
                         let mut note: Vec<String> = r.note().into_iter().collect();
                         if let Some(o) = floor {
                             note.push(format!(
-                                "Where an opening lies over the region etched open around the \
-                                 {}, the {} lands on its floor, {} µm below the top: it is drawn \
-                                 there, and so is what the lift-off leaves, though the design \
-                                 (planar, as the model has every layer) draws its {} layer on \
-                                 the top.",
+                                "Where an opening lies over a region of the {} etched open, the \
+                                 {} lands on its floor, {} µm below the top: it is drawn there, \
+                                 and so is what the lift-off leaves, though the design (planar, \
+                                 as the model has every layer) draws its {} layer on the top.",
                                 o.name,
                                 film.name,
                                 num(o.z[1] - o.floor),
