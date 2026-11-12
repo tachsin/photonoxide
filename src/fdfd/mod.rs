@@ -780,11 +780,14 @@ impl Solver2d {
         }
         let mut values = self.lu.solve(rhs)?;
         // one step of iterative refinement: the factorization's rounding, PMLs and strong
-        // contrasts make it worth it
-        let applied = self.apply(&values);
-        let r: Vec<c64> = rhs.iter().zip(&applied).map(|(b, a)| b - a).collect();
-        for (v, d) in values.iter_mut().zip(self.lu.solve(&r)?) {
-            *v += d;
+        // contrasts make it worth it; a backend that refines its own solves (photonoxide-mixed)
+        // has done it
+        if !self.lu.refined() {
+            let applied = self.apply(&values);
+            let r: Vec<c64> = rhs.iter().zip(&applied).map(|(b, a)| b - a).collect();
+            for (v, d) in values.iter_mut().zip(self.lu.solve(&r)?) {
+                *v += d;
+            }
         }
         Ok(Field2d {
             grid: self.grid,

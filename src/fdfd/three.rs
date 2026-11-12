@@ -909,6 +909,14 @@ impl Solver3d {
             let applied = self.apply(values);
             rhs.iter().zip(&applied).map(|(b, a)| b - a).collect()
         };
+        // a backend that refines its own solves (photonoxide-mixed) has done what the step
+        // below does, and more; it gets the step only if its residual is above the bar
+        if self.lu.refined() && norm(&residual(&values)) / scale <= ACCURATE {
+            return Ok(Field3d {
+                lattice: self.lattice.clone(),
+                values,
+            });
+        }
         let r = residual(&values);
         let correction = super::krylov::Preconditioner::solve(&LuInverse(&self.lu), &r);
         for (v, d) in values.iter_mut().zip(&correction) {
