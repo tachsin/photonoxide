@@ -423,6 +423,8 @@ fi
 slow_skips() {
   local name globs f run skip=""
   while read -r name globs; do
+    # a checkout with Windows' line ends
+    name=${name%$'\r'} globs=${globs%$'\r'}
     case "$name" in '' | '#'*) continue ;; esac
     run=false
     if [ "${#changed[@]}" -gt 0 ]; then
