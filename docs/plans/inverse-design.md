@@ -202,12 +202,12 @@ in and the second out), worst over the six wavelengths, against the testbed READ
 
 Every transmission rounds to the printed digits; the reflections differ by 0.02 to 0.62 dB. Our
 own grid moves them as much: from 10 to 5 nm (each pixel 2 × 2 cells) the first three designs'
-R changes by +0.04, +0.17 and +0.54 dB and T by −0.004, −0.005 and +0.009 dB. *Open, for
-tachsin:* whether these become cases. Against the printed digits (half a unit, 0.005 dB for T)
-the rule's third-of-the-tolerance test fails on our 10 nm grid's own change (up to 0.009 dB),
-though both codes ran the same 10 nm pixels; the deep reflections are grid-limited in both. The
-honest options are a case compared at equal grids with the grid study stated beside it, or the
-numbers as a gap in #595. Nothing is loosened meanwhile.
+R changes by +0.04, +0.17 and +0.54 dB and T by −0.004, −0.005 and +0.009 dB. Against the
+printed digits (half a unit, 0.005 dB for T) the rule's third-of-the-tolerance test fails on our
+10 nm grid's own change (up to 0.009 dB), though both codes ran the same 10 nm pixels; the deep
+reflections are grid-limited in both. *Decided 2026-11-10 (decision 7): no validation case; the
+gap is kept open in #595.* The numbers are reported here and in `optimize_mode_converter`'s
+output, and nothing is loosened.
 
 *Done 2026-11-11, `optimize_mode_converter`:* the published designs as above, their
 transmissions checked to the printed digits and their reflections printed beside the grid study;
@@ -506,11 +506,11 @@ The validation report has 27 topology cases and `fdfd/adjoint-gradient-row` to a
    design into `RECORDED_3D_ADJOINT` in `examples/optimize_ybranch.rs`. Then rewrite its output:
    `cargo run --release --quiet --example optimize_ybranch > examples/output/optimize_ybranch.txt`.
    Its 3D loss is reported beside Lalau-Keraly et al.'s −0.07 dB, not checked.
-3. **A decision for tachsin: the testbed's eight published designs.** Their transmissions at the
-   testbed's 10 nm against the README's printed digits are in the ignored studies
-   `the_testbed_spectrum_study` and `the_testbed_grid_study`. They could become a validation case
-   at equal grids, but our grid's own change (0.009 dB) is above a third of the printed digits'
-   0.005 dB. The other choice is to list them in #595 as a gap.
+3. **The testbed's eight published designs: decided, the gap kept open in #595.** Their
+   transmissions at the testbed's 10 nm against the README's printed digits are in the ignored
+   studies `the_testbed_spectrum_study` and `the_testbed_grid_study`. Our grid's own change
+   (0.009 dB) is above a third of the printed digits' 0.005 dB, so by decision 7 they are not a
+   validation case: the numbers are reported (I4 above) and the gap is listed in #595.
 
 **Left of the plan, after #796** (each its own pull request, part of #761; the phases above say
 what each holds and how it is validated):
