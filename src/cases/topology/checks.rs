@@ -146,24 +146,23 @@ pub(crate) fn cases() -> Vec<Case> {
         },
         Case {
             id: "topology/ssp-plane",
-            title: r"Hammond et al. 2025's subpixel-smoothed projection across a straight interface: their fill (d/\hat R)20 20 102 502 12 61 79 80 81 98 503 701 33 100 204 250 395 398 399 400Eq. 10) against the parabolic kernel's share of a half-space at 201 distances across hat R and the projection at eta = \infty a linear 	ilde\rho20 20 102 502 12 61 79 80 81 98 503 701 33 100 204 250 395 398 399 400a ramp at 17° on 40 × 30 pixels of 10 nm) against  each pixel's exact distance to its level set (largest difference shown)",
+            title: r"Hammond et al. 2025's subpixel-smoothed projection across a straight interface: their fill $F_2(d/\hat R)$ (Eq. 10) against the parabolic kernel's share of a half-space at 201 distances across $\hat R$, and the projection at $\beta = \infty$ of a linear $\tilde\rho$ (a ramp at 17° on 40 × 30 pixels of 10 nm) against $F_2$ of each pixel's exact distance to its level set (largest difference shown)",
             tier: Tier::Analytic,
-            source: r"A. M. Hammond, A. Oskooi, I. M. Hammond, M. Chen, S. E. Ralph, S. G. Johnson, Opt. Express 33, 33620 (2025), doi:10.1364/OE.563512, Eqs. 7, 9–12 and 23: the kernel hat k_2 \propto 1 - (r/\hat R)^2 along the third axis is (\hat R^2 - \rho^2)^{3/2}/2\pi\hat R^5 the plane, integrated over the half-space by quadrature; a linear 	ilde\rho its gradient exactly by differences, so  exact",
+            source: r"A. M. Hammond, A. Oskooi, I. M. Hammond, M. Chen, S. E. Ralph, S. G. Johnson, Opt. Express 33, 33620 (2025), doi:10.1364/OE.563512, Eqs. 7, 9–12 and 23: the kernel $\hat k_2 \propto 1 - (r/\hat R)^2$ extruded along the third axis is $5(\hat R^2 - \rho^2)^{3/2}/2\pi\hat R^5$ in the plane, integrated over the half-space by quadrature; a linear $\tilde\rho$ has its gradient exactly by differences, so $d$ is exact",
             run: ssp_plane_case,
         },
         Case {
             id: "topology/ssp-disc",
-            title: r"The subpixel-smoothed projection at eta = \infty a curved interface: a disc of radius 60 0.25 µm, 	ilde\rho cone about its centre, on 5 nm pixels (hat R60 2.75 nm); each pixel within hat R the circle against the kernel's share of the disc there, the exact smoothed disc (largest difference shown)",
+            title: r"The subpixel-smoothed projection at $\beta = \infty$ across a curved interface: a disc of radius $a$ = 0.25 µm, $\tilde\rho$ a cone about its centre, on 5 nm pixels ($\hat R$ = 2.75 nm); each pixel within $\hat R$ of the circle against the kernel's share of the disc there, the exact smoothed disc (largest difference shown)",
             tier: Tier::Analytic,
-            source: r"Hammond et al. 2025, Eq. 6: the fill takes the interface as a plane across the smoothing sphere, an error first order in hat R/a a curve; the exact smoothed disc by quadrature of the kernel over arcs of the circle",
+            source: r"Hammond et al. 2025, Eq. 6: the fill takes the interface as a plane across the smoothing sphere, an error first order in $\hat R/a$ on a curve; the exact smoothed disc by quadrature of the kernel over arcs of the circle",
             run: ssp_disc_case,
         },
         Case {
             id: "topology/ssp-gradient",
-            title: r"The subpixel-smoothed projection's gradient through a conic filter of 50 nm on a 30 × 24 region of 10 nm pixels, at eta60 64 and infty 
-- of  = \sum_i w_i \hat{\tilde\rho}_i20 20 102 502 12 61 79 80 81 98 503 701 33 100 204 250 395 398 399 400fixed varied weights) against fourth-order differences (delta = 10^{-4}20 20 102 502 12 61 79 80 81 98 503 701 33 100 204 250 395 398 399 400 at every seventh pixel (largest difference relative to the largest derivative, shown)",
+            title: r"The subpixel-smoothed projection's gradient through a conic filter of 50 nm on a 30 × 24 region of 10 nm pixels, at $\beta$ = 64 and $\infty$: of $F = \sum_i w_i \hat{\tilde\rho}_i$ (fixed varied weights) against fourth-order differences ($\delta = 10^{-4}$) at every seventh pixel (largest difference relative to the largest derivative, shown)",
             tier: Tier::Analytic,
-            source: r"Hammond et al. 2025, Eqs. 7, 10–12: the chain rule through each pixel's value and the differences of its gradient;  twice differentiable, so the projection is too, even at eta = \infty from changes in topology",
+            source: r"Hammond et al. 2025, Eqs. 7, 10–12: the chain rule through each pixel's value and the differences of its gradient; $F_2$ is twice differentiable, so the projection is too, even at $\beta = \infty$ away from changes in topology",
             run: ssp_gradient_case,
         },
     ]

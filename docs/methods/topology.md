@@ -393,7 +393,7 @@ image to a south port give the same powers in each mode to 10⁻⁹ (the job's t
 | `topology/double-filter-gradient` | the double filtering's gradient against fourth-order differences, δ = 10⁻³ | 4.0e-10 relative (held to 1e-8) |
 | `topology/area-shapes` | the area constraints on binary squares: an island of 0.04 µm² below a 0.08 µm² minimum, one of 0.16 µm², a hole of 0.09 µm² below 0.2 µm², an island touching the edge | within round-off (each its area's share or 0; held to 1e-14) |
 | `topology/robust-epigraph` | the epigraph's Jacobian through the three realizations' FDFD gradients (thresholds 0.75, 0.5, 0.25) against differences of each realization's power, δ = 4 × 10⁻³ | 8.1e-9 relative, below the resolution of 6.7e-8 (held to 3e-7) |
-| `topology/ssp-plane` | the smoothed projection's fill  the parabolic kernel's share of a half-space at 201 distances, and the projection at β = ∞ of a linear field on 40 × 30 pixels against  each pixel's exact distance | 1.0e-11 (held to 1e-9; the quadrature's) |
+| `topology/ssp-plane` | the smoothed projection's fill $F_2$ against the parabolic kernel's share of a half-space at 201 distances, and the projection at β = ∞ of a linear field on 40 × 30 pixels against $F_2$ of each pixel's exact distance | 1.0e-11 (held to 1e-9; the quadrature's) |
 | `topology/ssp-disc` | at β = ∞, each pixel within R̂ of a 0.25 µm circle against the exact smoothed disc, 5 nm pixels | 8.5e-4 = 0.077 R̂/a (held to 0.1 R̂/a = 1.1e-3; first order on a curve) |
 | `topology/ssp-gradient` | the smoothed projection's gradient through a 50 nm filter against fourth-order differences, δ = 10⁻⁴, at β = 64 and ∞ | 1.6e-10 relative (held to 1e-8) |
 
