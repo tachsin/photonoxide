@@ -138,7 +138,7 @@ pub(crate) fn fresnel(polarization: Polarization) -> f64 {
         .expect("the step's S-matrix");
     let k = lam().wavenumber();
     let mut worst: f64 = 0.0;
-    for i in 0..m {
+    for (i, row) in s.s11.iter().enumerate().take(m) {
         let kx = (i + 1) as f64 * std::f64::consts::PI / w;
         let beta = |n: f64| {
             let b = re(n * n * k * k - kx * kx).sqrt();
@@ -149,9 +149,9 @@ pub(crate) fn fresnel(polarization: Polarization) -> f64 {
             Polarization::Te => (b1 - b2) / (b1 + b2),
             Polarization::Tm => (n1 * n1 * b2 - n2 * n2 * b1) / (n1 * n1 * b2 + n2 * n2 * b1),
         };
-        for j in 0..m {
+        for (j, &entry) in row.iter().enumerate().take(m) {
             let expected = if i == j { r } else { c64::new(0.0, 0.0) };
-            worst = worst.max((s.s11[i][j] - expected).norm());
+            worst = worst.max((entry - expected).norm());
         }
     }
     worst

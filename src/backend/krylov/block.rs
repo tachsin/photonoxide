@@ -777,8 +777,8 @@ impl<A: Operator> Run<'_, A> {
         }
         // the earlier columns' rotations, in order (their Eq. 5.6): column jj's turn rows jj
         // and jj + k; those before r0 meet only zeros
-        for jj in r0..j {
-            for (k, &g) in self.rotations[jj].iter().enumerate() {
+        for (jj, earlier) in (r0..j).zip(&self.rotations[r0..j]) {
+            for (k, &g) in earlier.iter().enumerate() {
                 let (p, q) = (jj - r0, jj + k + 1 - r0);
                 (col[p], col[q]) = rotate(g, col[p], col[q]);
             }

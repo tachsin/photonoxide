@@ -100,9 +100,9 @@ pub(crate) fn fresnel() -> f64 {
         } else {
             (e1 * b2 - e2 * b1) / (e1 * b2 + e2 * b1)
         };
-        for j in 0..n {
+        for (j, &entry) in s.s11[i].iter().enumerate().take(n) {
             let expected = if i == j { r } else { c64::new(0.0, 0.0) };
-            worst = worst.max((s.s11[i][j] - expected).norm());
+            worst = worst.max((entry - expected).norm());
         }
     }
     worst

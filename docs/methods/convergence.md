@@ -190,7 +190,7 @@ the same staircase driven to 2e-4 from 10 nm at second order:
 
 The expansion gives 9.18194e-5 with an estimated error of 7.1e-5 relative. FDFD gives
 Richardson's limit 9.18173e-5, with an estimated error of 3.9e-7 relative. They differ by
-2.2e-5 relative, inside the expansion's estimate. With 250 modes or more, the expansion's mode
+2.2e-5 relative, inside the expansion's estimate. With more than about 230 modes, the expansion's mode
 finder fails on this structure, so 1e-4 relative, which would need 400, can't be reached yet.
 
 A smooth taper shows the steps study at work: a slab widening linearly from 220 to 600 nm over

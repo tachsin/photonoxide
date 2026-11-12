@@ -1145,7 +1145,8 @@ What it does not do yet (#432):
   or of layers in 2D, or strips on a plane in 3D, or cuts a `[device]` or its own drawing into
   planes ([a device's sections](#a-devices-sections), [a job's own drawing](#a-jobs-own-drawing)),
   and Python and the studio take what a run records ([from Python](#from-python),
-  [in the studio](#in-the-studio)); nothing builds sections from a GDS file's cells yet. A
+  [in the studio](#in-the-studio)), and a drawing may be read from a GDSII file's cell by a
+  `type = "gds"` shape (`eme/3d-drawing-gds`). A
   device or a drawing is cut along x
   only, its ports facing ±x; a sloped etch's walls, which lean with z, are cut in steps, not
   exactly; the cut takes no bodies over the stack, and a drawing takes no `[[task.component]]`
