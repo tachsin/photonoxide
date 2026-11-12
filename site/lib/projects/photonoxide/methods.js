@@ -57,7 +57,7 @@ export const CATEGORIES = [
     id: "gradients",
     title: "Gradients",
     blurb: "A response's derivative with respect to every parameter at the cost of one more solve, by adjoints, each checked against finite differences; and a device's objectives and constraints, optimized on them by genoxide's methods.",
-    groups: [{ title: null, slugs: ["fdfd-adjoint", "fdtd-adjoint", "circuit-adjoint", "optimization"] }],
+    groups: [{ title: null, slugs: ["fdfd-adjoint", "fdtd-adjoint", "circuit-adjoint", "optimization", "topology"] }],
   },
   {
     id: "static",

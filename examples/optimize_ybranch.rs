@@ -56,8 +56,21 @@
 //! likely cause is the arms (theirs run on nearly straight, Fig. 1(b)); it isn't shown, and the
 //! gap is listed in #595. The optimized taper's 3D loss is printed beside it.
 //!
-//! Lalau-Keraly et al.'s adjoint shape optimization (−0.07 dB in 102 simulations, their Fig. 3)
-//! needs shape derivatives, which photonoxide doesn't have yet: not run here.
+//! **The adjoint half** (Lalau-Keraly et al., Section 3 and Fig. 3: −0.07 dB in 3D after 102
+//! simulations, 41 iterations in 2D and 10 in 3D, a level set's shape). The same 11 widths by
+//! genoxide's L-BFGS-B from Table 1's, each evaluation one solve of the swarm's 2D model and its
+//! adjoint (`Solver2d::mode_power_gradient`, ∂P/∂ε at every cell), each width's ∂ε/∂w by central
+//! differences of the cells' exact areas (geometry, no solve), within their budget: 51
+//! evaluations, 102 solves. The derivatives agree with central differences of the power to
+//! 1.8e-4 (the areas are piecewise linear in the widths). It reaches 0.0390 dB in the device's 2D
+//! model, 0.011 dB above the swarm's 0.0280 dB from its 1500 evaluations, in 15 times fewer
+//! solves; checked: within 0.02 dB of the swarm's. Its taper is smooth, without the swarm's dip at
+//! w4. `--full` solves it in 3D on the same grids, reported beside their −0.07 dB, which is a level
+//! set's shape optimized in 3D for its last ten iterations where ours is a spline's widths in 2D.
+//! In 3D (`--full`, 2026-11-12, 17 minutes) it puts 0.474312, 0.477102 and 0.479050 into each
+//! arm on the three grids, extrapolated 0.4809 ± 0.0027: 0.169 ± 0.024 dB, 0.033 dB below the
+//! swarm's 0.202 dB and level with Table 1's 0.168 dB, 0.10 dB above their 0.07 dB. Reported, not
+//! checked.
 //!
 //! ```sh
 //! cargo run --release --example optimize_ybranch             # the 2D search
@@ -95,6 +108,10 @@ const SWARM: usize = 30;
 const EVALUATIONS: u64 = 1500;
 /// The wavelength, µm.
 const WAVELENGTH: f64 = 1.55;
+/// The adjoint search's budget: Lalau-Keraly et al.'s 102 simulations, a forward and an adjoint
+/// solve each evaluation; and the widths' step for the cells' ∂ε/∂w, µm.
+const ADJOINT: u64 = 51;
+const SHAPE_STEP: f64 = 1e-4;
 /// The taper's length, the arms' length and their ports' separation, µm.
 const TAPER: f64 = 2.0;
 const ARMS: (f64, f64) = (3.0, 1.5);
@@ -114,6 +131,10 @@ const STUDY_3D: (f64, f64) = (0.168, 0.003);
 const GRIDS_3D: [(f64, usize); 3] = [(0.044, 8), (0.0314, 11), (0.022, 16)];
 /// What `--full` found in 3D for the swarm's design: the power into each arm on each grid.
 const RECORDED_3D: [f64; 3] = [0.46872531214085456, 0.4731107712154683, 0.47522441087637496];
+/// What `--full` found in 3D for the adjoint search's design: the power into each arm on each grid.
+const RECORDED_3D_ADJOINT: [f64; 3] = [0.47431246309412595, 0.4771019364481287, 0.4790499665941155];
+/// Lalau-Keraly et al.'s 3D insertion loss, dB (their Fig. 3, a level set's shape).
+const LALAU_KERALY_3D: f64 = 0.07;
 
 /// The device's values with the taper's widths `w` (w1 … w13).
 fn values(device: &StripYBranch, w: &[f64]) -> photonoxide::Result<Values> {
@@ -287,6 +308,42 @@ impl Model {
         })
     }
 
+    /// The power into the upper arm and its derivatives in w2 … w12: one solve and its adjoint
+    /// (`Solver2d::mode_power_gradient`, ∂P/∂ε at every cell), each width's ∂ε/∂w by central
+    /// differences of the cells' exact areas, which take no solve.
+    fn power_gradient(&self, w: &[f64]) -> photonoxide::Result<(f64, Vec<f64>)> {
+        let cells = |w: &[f64]| {
+            let mut eps = vec![c64::new(0.0, 0.0); self.grid.nx * self.grid.ny];
+            fill(&self.grid, &self.arms, (self.core, self.clad), w, &mut eps);
+            eps
+        };
+        let lam = Wavelength::um(WAVELENGTH)?;
+        let s = self.template.reuse_cells(lam, &cells(w))?;
+        let field = s.solve_system(&s.mode_source(&self.input, Direction::Forward))?;
+        let upper = &self.outputs[0];
+        let (p, per_cell) = s.mode_power_gradient(&field, upper, Direction::Forward)?;
+        let dy = self.grid.dy;
+        let scale = upper.power(dy) / self.input.power(dy);
+        let gradient = (1..w.len() - 1)
+            .into_par_iter()
+            .map(|k| {
+                let at = |d: f64| {
+                    let mut v = w.to_vec();
+                    v[k] += d;
+                    cells(&v)
+                };
+                let (up, down) = (at(SHAPE_STEP), at(-SHAPE_STEP));
+                let d: f64 = per_cell
+                    .iter()
+                    .zip(up.iter().zip(&down))
+                    .map(|(g, (a, b))| g * (a.re - b.re))
+                    .sum();
+                d * scale / (2.0 * SHAPE_STEP)
+            })
+            .collect();
+        Ok((p * scale, gradient))
+    }
+
     /// The power into the upper and the lower arm's TE0 for the taper's widths `w`.
     fn power(&self, w: &[f64]) -> photonoxide::Result<[f64; 2]> {
         let mut eps = vec![c64::new(0.0, 0.0); self.grid.nx * self.grid.ny];
@@ -418,6 +475,24 @@ fn extrapolated(p: &[f64]) -> (f64, f64, Option<f64>) {
         spread = spread.max((at_order(q) - second).abs());
     }
     (second, spread, order)
+}
+
+/// The adjoint design's 3D powers, reported beside Lalau-Keraly et al.'s 3D loss: theirs is a
+/// level set's shape optimized in 3D for its last ten iterations, ours a spline's widths in 2D.
+fn adjoint_3d(powers: &[f64]) {
+    for (&(h, _), &p) in GRIDS_3D.iter().zip(powers) {
+        println!(
+            "  {:.1} nm cells: {p:.6} into each arm, {:.4} dB",
+            1000.0 * h,
+            loss(p)
+        );
+    }
+    let (p, spread, _) = extrapolated(powers);
+    let l = loss(p);
+    println!(
+        "  extrapolated: {p:.4} ± {spread:.4} into each arm, {l:.3} ± {:.3} dB (Lalau-Keraly et al.'s 3D FDTD: {LALAU_KERALY_3D} dB; reported, not checked)",
+        loss(p - spread) - l
+    );
 }
 
 /// The 3D powers against Zhang et al.'s 3D loss.
@@ -596,6 +671,79 @@ pub fn main() -> photonoxide::Result<ExitCode> {
     );
     checks.at_most("insertion loss, 2D, 20 nm (dB)", loss(p), 0.2);
 
+    // Lalau-Keraly et al.'s adjoint half: the same widths by L-BFGS-B on the adjoint derivatives
+    println!(
+        "Lalau-Keraly et al.'s adjoint search: the same widths by genoxide's L-BFGS-B from Table 1's, each evaluation a solve and its adjoint, at most {ADJOINT} ({} solves)",
+        2 * ADJOINT
+    );
+    let (_, exact) = model.power_gradient(&TABLE)?;
+    let mut worst = 0.0f64;
+    for k in [1usize, 4, 7, 10] {
+        let at = |d: f64| -> photonoxide::Result<f64> {
+            let mut w = TABLE.to_vec();
+            w[k] += d;
+            Ok(model.power(&w)?[0])
+        };
+        let differences = (at(1e-4)? - at(-1e-4)?) / 2e-4;
+        let relative = (exact[k - 1] - differences).abs() / exact[k - 1].abs();
+        println!(
+            "  dP/dw{} at Table 1's: adjoint {:.6e}, central differences {differences:.6e} ({relative:.1e})",
+            k + 1,
+            exact[k - 1]
+        );
+        worst = worst.max(relative);
+    }
+    checks.at_most("adjoint against differences (relative)", worst, 1e-3);
+    let solves = std::sync::atomic::AtomicUsize::new(0);
+    let gradient_fitness = |x: &Reals, gradient: &mut [f64]| -> f64 {
+        solves.fetch_add(2, std::sync::atomic::Ordering::Relaxed);
+        match model.power_gradient(&widths(x)) {
+            Ok((p, g)) => {
+                for (a, b) in gradient.iter_mut().zip(&g) {
+                    *a = -(b * 1e9).round() / 1e9;
+                }
+                -(p * 1e9).round() / 1e9
+            }
+            Err(_) => f64::NAN,
+        }
+    };
+    let lbfgsb = Lbfgsb::builder(Real::new(vec![BOUNDS.0..=BOUNDS.1; 11]).expect("bounds"))
+        .initial_genome(Reals::from(TABLE[1..12].to_vec()))
+        .gradient_tolerance(0.0)
+        .function_tolerance(0.0)
+        .minimize()
+        .build()
+        .expect("a valid L-BFGS-B");
+    let outcome = Engine::new(lbfgsb, Differentiable(&gradient_fitness))
+        .stop_when(Stop::evaluations(ADJOINT))
+        .run()
+        .expect("a run");
+    let adjoint = widths(outcome.best_genome());
+    let ours = model.power(&adjoint)?;
+    println!(
+        "  {} evaluations, {} solves; its best, {:.6} into the upper arm in the swarm's model (the swarm's, after {EVALUATIONS}: {:.6})",
+        outcome.evaluations(),
+        solves.load(std::sync::atomic::Ordering::Relaxed),
+        ours[0],
+        swarm[0]
+    );
+    let shown: Vec<String> = adjoint.iter().map(|w| format!("{w:.4}")).collect();
+    println!("  the widths w1–w13 (µm): {}", shown.join(", "));
+    let (u, l, _) = device_power(&device, &adjoint, Fidelity::TwoD)?;
+    let pa = 0.5 * (u + l);
+    println!(
+        "  the device's 2D model: {pa:.6} into each arm, {:.4} dB (the swarm's {:.4} dB)",
+        loss(pa),
+        loss(p)
+    );
+    checks.at_most("insertion loss, 2D, adjoint (dB)", loss(pa), 0.2);
+    // Lalau-Keraly et al.: as good as the swarm, from far fewer simulations
+    checks.at_most(
+        "adjoint's 2D loss above the swarm's (dB)",
+        loss(pa) - loss(p),
+        0.02,
+    );
+
     println!("3D FDFD of the swarm's design, TE-like, at {WAVELENGTH} µm:");
     if full {
         let path = std::env::var("YBRANCH_LOG").unwrap_or_else(|_| "optimize_ybranch.log".into());
@@ -608,9 +756,17 @@ pub fn main() -> photonoxide::Result<ExitCode> {
         let powers = three_d(&best, &mut log)?;
         println!("  recorded: {powers:?}");
         compare_3d(&mut checks, &powers);
+        println!("3D FDFD of the adjoint search's design:");
+        let powers = three_d(&adjoint, &mut log)?;
+        println!("  recorded: {powers:?}");
+        adjoint_3d(&powers);
     } else if RECORDED_3D.iter().all(|p| p.is_finite()) {
         println!("  what --full found (recorded):");
         compare_3d(&mut checks, &RECORDED_3D);
+        if RECORDED_3D_ADJOINT.iter().all(|p| p.is_finite()) {
+            println!("3D FDFD of the adjoint search's design, what --full found (recorded):");
+            adjoint_3d(&RECORDED_3D_ADJOINT);
+        }
     }
     Ok(checks.finish())
 }

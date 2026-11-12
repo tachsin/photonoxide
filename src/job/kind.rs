@@ -25,8 +25,7 @@ use super::fdtd::FdtdKind;
 use super::fit::FitKind;
 use super::modes::ModesKind;
 use super::nonlinear::NonlinearKind;
-use super::optimize::crosstalk::CrosstalkKind;
-use super::optimize::{ChipOptimizeKind, DeviceOptimizeKind};
+use super::optimize::{ChipOptimizeKind, DeviceOptimizeKind, SolverOptimizeKind};
 use super::quantum::QuantumKind;
 use super::statics::StaticKind;
 use super::structure::StructureKind;
@@ -105,7 +104,7 @@ static SOLVER: [&dyn TaskKind; 8] = [
     &FdfdKind,
     &FdtdKind,
     &StaticKind,
-    &CrosstalkKind,
+    &SolverOptimizeKind,
     &NonlinearKind,
     &EmeKind,
 ];

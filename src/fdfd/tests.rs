@@ -761,3 +761,71 @@ fn auto_takes_the_backend_this_machines_records_say_and_says_why() {
     // and the bits of photonoxide's own when the records leave the choice with it
     assert_eq!(named.solve(&source).unwrap().values, a.values);
 }
+
+#[test]
+fn a_mode_measured_on_rows_of_the_turned_grid_is_the_column_ports_amplitude() {
+    use super::checks::guide;
+    // a straight slab along x; its field turned onto a grid whose rows are its columns
+    let s = guide(Polarization::Ez, 0.02, 2.0, (3.476, 1.444), |_| 0.22);
+    let ports = super::checks::two_ports(&s);
+    let field = s
+        .solve_system(&s.mode_source(&ports[0].mode, Direction::Forward))
+        .unwrap();
+    let g = s.grid();
+    let turned = Grid {
+        nx: g.ny,
+        ny: g.nx,
+        dx: g.dy,
+        dy: g.dx,
+        x0: g.y0,
+        y0: g.x0,
+    };
+    let cells = vec![num_complex::Complex64::new(1.0, 0.0); turned.nx * turned.ny];
+    let t = Solver2d::from_cells(
+        turned,
+        Polarization::Ez,
+        Wavelength::um(1.55).unwrap(),
+        &cells,
+        Boundaries::pml(20),
+    )
+    .unwrap();
+    let mode = &ports[1].mode;
+    let c = t
+        .row_mode_functional(mode, mode.column(), 0, Direction::Forward)
+        .unwrap();
+    // the field turned: (i, j) of the slab at (j, i) of the turned grid
+    let u: Vec<num_complex::Complex64> = (0..turned.nx * turned.ny)
+        .map(|p| field.at(p / turned.nx, p % turned.nx))
+        .collect();
+    let a: num_complex::Complex64 = c.iter().zip(&u).map(|(c, u)| c * u).sum();
+    let want = field.mode_amplitudes(mode).0;
+    assert!((a - want).norm() < 1e-12 * want.norm(), "{a} {want}");
+    // and H along z is refused
+    let h = Solver2d::from_cells(
+        turned,
+        Polarization::Hz,
+        Wavelength::um(1.55).unwrap(),
+        &cells,
+        Boundaries::pml(20),
+    )
+    .unwrap();
+    assert!(
+        h.row_mode_functional(mode, 3, 0, Direction::Forward)
+            .is_err()
+    );
+}
+
+#[test]
+#[ignore = "the row gradient's step study: prints, in release"]
+fn the_row_gradient_step_study() {
+    for delta in [1e-3, 4e-3, 1.6e-2, 6.4e-2] {
+        for (k, p) in super::checks::row_gradient_probes(delta).iter().enumerate() {
+            println!(
+                "δ {delta:.1e} probe {k}: gradient {:+.6e}, error {:.2e}, resolution {:.2e}",
+                p.gradient,
+                (p.gradient - p.differences()).abs() / p.gradient.abs(),
+                p.resolution()
+            );
+        }
+    }
+}

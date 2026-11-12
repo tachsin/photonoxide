@@ -12526,6 +12526,747 @@
       ],
       "description": "A section's core thickness: one for a straight, [from, to] for a taper."
     },
+    "TopologyDesign": {
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "not": {
+            "required": [
+              "filter",
+              "filter_nm"
+            ]
+          }
+        },
+        {
+          "anyOf": [
+            {
+              "required": [
+                "filter_nm"
+              ]
+            },
+            {
+              "required": [
+                "filter"
+              ]
+            }
+          ]
+        },
+        {
+          "not": {
+            "required": [
+              "linewidth",
+              "linewidth_nm"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "spacing",
+              "spacing_nm"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "x",
+              "x_um"
+            ]
+          }
+        },
+        {
+          "anyOf": [
+            {
+              "required": [
+                "x_um"
+              ]
+            },
+            {
+              "required": [
+                "x"
+              ]
+            }
+          ]
+        },
+        {
+          "not": {
+            "required": [
+              "y",
+              "y_um"
+            ]
+          }
+        },
+        {
+          "anyOf": [
+            {
+              "required": [
+                "y_um"
+              ]
+            },
+            {
+              "required": [
+                "y"
+              ]
+            }
+          ]
+        }
+      ],
+      "description": "The design region and its schedule.",
+      "properties": {
+        "asymmetry": {
+          "description": "An amplitude a: the start gains a sin(π(v − ½)) sin(π u), u and v the pixel's place across the region along x and y, odd across its middle along y, to break a mirror symmetry the ports have (0 by default).",
+          "type": "number"
+        },
+        "beta": {
+          "description": "The projection's β at each stage.",
+          "items": {
+            "type": "number"
+          },
+          "type": "array"
+        },
+        "eta": {
+          "description": "The projection's threshold η: ½ by default.",
+          "type": "number"
+        },
+        "evaluations": {
+          "description": "Each stage's MMA evaluations, one per stage.",
+          "items": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "type": "array"
+        },
+        "filter": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "The conic filter's radius, nm. With its unit in the value, in place of filter_nm: a length with its unit, e.g. \"20 nm\"."
+        },
+        "filter_nm": {
+          "description": "The conic filter's radius, nm.",
+          "type": "number"
+        },
+        "hole_um2": {
+          "description": "The minimum enclosed area of a hole, µm², with `island_um2`.",
+          "type": "number"
+        },
+        "island_um2": {
+          "description": "The minimum area of an island, µm², with `hole_um2`.",
+          "type": "number"
+        },
+        "linewidth": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "The minimum linewidth, nm, with `spacing_nm`. With its unit in the value, in place of linewidth_nm: a length with its unit, e.g. \"20 nm\"."
+        },
+        "linewidth_nm": {
+          "description": "The minimum linewidth, nm, with `spacing_nm`.",
+          "type": "number"
+        },
+        "robust_eta": {
+          "description": "The robust realizations' threshold η in (0, ½): the worst over the design projected at 1 − η (eroded), ½ and η (dilated); none by default.",
+          "type": "number"
+        },
+        "rules_from": {
+          "description": "The first stage (from 0) the rules hold at: the last by default.",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "spacing": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "The minimum spacing, nm, with `linewidth_nm`. With its unit in the value, in place of spacing_nm: a length with its unit, e.g. \"20 nm\"."
+        },
+        "spacing_nm": {
+          "description": "The minimum spacing, nm, with `linewidth_nm`.",
+          "type": "number"
+        },
+        "start": {
+          "description": "The start's density: ½ by default.",
+          "type": "number"
+        },
+        "x": {
+          "description": "From and to along x, µm: on the grid's lines, inside the PMLs. With its unit in the value, in place of x_um: a length with its unit, e.g. \"1.55 um\".",
+          "items": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "$ref": "#/$defs/Expression"
+              }
+            ]
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
+        "x_um": {
+          "description": "From and to along x, µm: on the grid's lines, inside the PMLs.",
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
+        "y": {
+          "description": "Along y, µm. With its unit in the value, in place of y_um: a length with its unit, e.g. \"1.55 um\".",
+          "items": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "$ref": "#/$defs/Expression"
+              }
+            ]
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
+        "y_um": {
+          "description": "Along y, µm.",
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        }
+      },
+      "required": [
+        "beta",
+        "evaluations"
+      ],
+      "type": "object"
+    },
+    "TopologyGuide": {
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "not": {
+            "required": [
+              "x",
+              "x_um"
+            ]
+          }
+        },
+        {
+          "anyOf": [
+            {
+              "required": [
+                "x_um"
+              ]
+            },
+            {
+              "required": [
+                "x"
+              ]
+            }
+          ]
+        },
+        {
+          "not": {
+            "required": [
+              "y",
+              "y_um"
+            ]
+          }
+        },
+        {
+          "anyOf": [
+            {
+              "required": [
+                "y_um"
+              ]
+            },
+            {
+              "required": [
+                "y"
+              ]
+            }
+          ]
+        }
+      ],
+      "description": "A guide: a rectangle of the core.",
+      "properties": {
+        "x": {
+          "description": "From and to along x, µm. With its unit in the value, in place of x_um: a length with its unit, e.g. \"1.55 um\".",
+          "items": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "$ref": "#/$defs/Expression"
+              }
+            ]
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
+        "x_um": {
+          "description": "From and to along x, µm.",
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
+        "y": {
+          "description": "Along y, µm. With its unit in the value, in place of y_um: a length with its unit, e.g. \"1.55 um\".",
+          "items": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "$ref": "#/$defs/Expression"
+              }
+            ]
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
+        "y_um": {
+          "description": "Along y, µm.",
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "TopologyObjective": {
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "not": {
+            "required": [
+              "from",
+              "from_um"
+            ]
+          }
+        },
+        {
+          "anyOf": [
+            {
+              "required": [
+                "from_um"
+              ]
+            },
+            {
+              "required": [
+                "from"
+              ]
+            }
+          ]
+        },
+        {
+          "not": {
+            "required": [
+              "to",
+              "to_um"
+            ]
+          }
+        }
+      ],
+      "description": "An objective: a port's mode's power over the source's, at each of its wavelengths.",
+      "properties": {
+        "from": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "Its first wavelength, µm. With its unit in the value, in place of from_um: a length with its unit, e.g. \"1.55 um\"."
+        },
+        "from_um": {
+          "description": "Its first wavelength, µm.",
+          "type": "number"
+        },
+        "goal": {
+          "description": "`\"maximize\"` (the default) or `\"minimize\"`.",
+          "type": "string"
+        },
+        "mode": {
+          "description": "The port's mode, from 1: the fundamental (1) by default.",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "points": {
+          "description": "How many wavelengths from `from_um` to `to_um`, evenly spaced: 1 by default, at least 2 when they differ.",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "port": {
+          "description": "The port it is measured at: the source's own for a reflection.",
+          "type": "string"
+        },
+        "to": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "Its last, µm: `from_um` by default. With its unit in the value, in place of to_um: a length with its unit, e.g. \"1.55 um\"."
+        },
+        "to_um": {
+          "description": "Its last, µm: `from_um` by default.",
+          "type": "number"
+        }
+      },
+      "required": [
+        "port"
+      ],
+      "type": "object"
+    },
+    "TopologyPort": {
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "not": {
+            "required": [
+              "at",
+              "at_um"
+            ]
+          }
+        },
+        {
+          "anyOf": [
+            {
+              "required": [
+                "at_um"
+              ]
+            },
+            {
+              "required": [
+                "at"
+              ]
+            }
+          ]
+        },
+        {
+          "not": {
+            "required": [
+              "window",
+              "window_um"
+            ]
+          }
+        },
+        {
+          "anyOf": [
+            {
+              "required": [
+                "window_um"
+              ]
+            },
+            {
+              "required": [
+                "window"
+              ]
+            }
+          ]
+        }
+      ],
+      "description": "A port: a line across a guide, where a mode is launched or measured.",
+      "properties": {
+        "at": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "Where its line is, µm: x for a west or east port, y for a south or north one. With its unit in the value, in place of at_um: a length with its unit, e.g. \"1.55 um\"."
+        },
+        "at_um": {
+          "description": "Where its line is, µm: x for a west or east port, y for a south or north one.",
+          "type": "number"
+        },
+        "name": {
+          "description": "Its name, which `source` and the objectives use.",
+          "type": "string"
+        },
+        "side": {
+          "description": "`\"west\"` or `\"east\"` (a column, light along x), `\"south\"` or `\"north\"` (two rows, light along y): the side of the design the light leaves or enters by.",
+          "type": "string"
+        },
+        "window": {
+          "description": "Its window along the line, µm (y for a west or east port, x for a south or north one): the guide and its evanescent tails, clear of any other guide. With its unit in the value, in place of window_um: a length with its unit, e.g. \"1.55 um\".",
+          "items": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "$ref": "#/$defs/Expression"
+              }
+            ]
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
+        "window_um": {
+          "description": "Its window along the line, µm (y for a west or east port, x for a south or north one): the guide and its evanescent tails, clear of any other guide.",
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        }
+      },
+      "required": [
+        "name",
+        "side"
+      ],
+      "type": "object"
+    },
+    "TopologyTask": {
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "not": {
+            "required": [
+              "step",
+              "step_nm"
+            ]
+          }
+        },
+        {
+          "anyOf": [
+            {
+              "required": [
+                "step_nm"
+              ]
+            },
+            {
+              "required": [
+                "step"
+              ]
+            }
+          ]
+        },
+        {
+          "not": {
+            "required": [
+              "x",
+              "x_um"
+            ]
+          }
+        },
+        {
+          "anyOf": [
+            {
+              "required": [
+                "x_um"
+              ]
+            },
+            {
+              "required": [
+                "x"
+              ]
+            }
+          ]
+        },
+        {
+          "not": {
+            "required": [
+              "y",
+              "y_um"
+            ]
+          }
+        },
+        {
+          "anyOf": [
+            {
+              "required": [
+                "y_um"
+              ]
+            },
+            {
+              "required": [
+                "y"
+              ]
+            }
+          ]
+        }
+      ],
+      "description": "A density design region's `\"optimize\"` task.",
+      "properties": {
+        "cladding_index": {
+          "description": "The cladding's: around them, and the design's void.",
+          "type": "number"
+        },
+        "core_index": {
+          "description": "The core's refractive index: the guides' and the design's solid.",
+          "type": "number"
+        },
+        "design": {
+          "$ref": "#/$defs/TopologyDesign",
+          "description": "The design region and its schedule."
+        },
+        "guide": {
+          "description": "The guides, rectangles of the core.",
+          "items": {
+            "$ref": "#/$defs/TopologyGuide"
+          },
+          "type": "array"
+        },
+        "kind": {
+          "description": "`\"optimize\"`.",
+          "type": "string"
+        },
+        "method": {
+          "description": "genoxide's method: `\"mma\"` (the default and the one), which takes the epigraph's many constraints.",
+          "type": "string"
+        },
+        "objective": {
+          "description": "What is optimized, one or more.",
+          "items": {
+            "$ref": "#/$defs/TopologyObjective"
+          },
+          "type": "array"
+        },
+        "pml_cells": {
+          "description": "PML cells on each side, inside the window: 20 by default.",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "port": {
+          "description": "The ports.",
+          "items": {
+            "$ref": "#/$defs/TopologyPort"
+          },
+          "type": "array"
+        },
+        "record_every": {
+          "description": "The design and the field recorded every this many evaluations (10 by default), and at each stage's end.",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "source": {
+          "description": "The port the light enters by: a west or east one.",
+          "type": "string"
+        },
+        "source_mode": {
+          "description": "Its mode, from 1: the fundamental (1) by default.",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "step": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "The cell, nm: the design's pixel too. With its unit in the value, in place of step_nm: a length with its unit, e.g. \"20 nm\"."
+        },
+        "step_nm": {
+          "description": "The cell, nm: the design's pixel too.",
+          "type": "number"
+        },
+        "x": {
+          "description": "The window along x, µm, its PMLs inside it. With its unit in the value, in place of x_um: a length with its unit, e.g. \"1.55 um\".",
+          "items": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "$ref": "#/$defs/Expression"
+              }
+            ]
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
+        "x_um": {
+          "description": "The window along x, µm, its PMLs inside it.",
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
+        "y": {
+          "description": "Along y, µm. With its unit in the value, in place of y_um: a length with its unit, e.g. \"1.55 um\".",
+          "items": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "$ref": "#/$defs/Expression"
+              }
+            ]
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
+        "y_um": {
+          "description": "Along y, µm.",
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        }
+      },
+      "required": [
+        "kind",
+        "core_index",
+        "cladding_index",
+        "port",
+        "source",
+        "objective",
+        "design"
+      ],
+      "type": "object"
+    },
     "TransientSpec": {
       "additionalProperties": false,
       "description": "`[task.transient]`.",
@@ -13144,7 +13885,14 @@
                   ]
                 },
                 "then": {
-                  "$ref": "#/$defs/CrosstalkTask"
+                  "oneOf": [
+                    {
+                      "$ref": "#/$defs/CrosstalkTask"
+                    },
+                    {
+                      "$ref": "#/$defs/TopologyTask"
+                    }
+                  ]
                 }
               },
               {

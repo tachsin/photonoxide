@@ -70,6 +70,7 @@ pub fn rules() -> Vec<(&'static str, Rule)> {
     rules.extend(quantum_light::rules());
     rules.extend(quantum_real::rules());
     rules.extend(rcwa::rules());
+    rules.extend(topology::rules());
     rules
 }
 
@@ -1064,6 +1065,13 @@ pub fn cases() -> Vec<Case> {
             tier: Tier::Analytic,
             source: "the adjoint variable method, as above; the faces' permittivity the mean of their two cells; an error within what the differences resolve shown as that, as above",
             run: fdfd_adjoint_hz,
+        },
+        Case {
+            id: "fdfd/adjoint-gradient-row",
+            title: r"2D FDFD, $E$ along $z$: a sharp 90° bend of a 0.4 µm guide ($n = 3.4$ in 1.444, 20 nm cells), the power into its output's mode measured on two rows (the output runs along $y$), the mode solved on a straight guide turned onto the bend's columns: the adjoint gradient of that linear functional's power against fourth-order central differences ($\delta = 1.6 \times 10^{-2}$) at a cell in the corner, one in the vertical guide and one in the cladding (largest relative difference shown)",
+            tier: Tier::Analytic,
+            source: r"the adjoint variable method as fdfd/adjoint-gradient-ez, for any linear functional $a = c^T u$: $A^T\lambda = \bar a c$; with $E$ along $z$ a guide turned by 90° carries its straight self's mode, measured on rows as on columns (a unit test turns a straight guide's field onto such a grid and finds the column port's amplitude to 1e-12)",
+            run: fdfd_adjoint_row,
         },
         Case {
             id: "mode/hadley-uniform-box",
@@ -2311,6 +2319,8 @@ pub fn cases() -> Vec<Case> {
     cases.extend(crate::quantum::real_checks::cases());
     // and rigorous coupled-wave analysis: lamellar gratings, Li's rules, the static limit
     cases.extend(crate::mode::rcwa_checks::cases());
+    // and inverse design's densities: the filter, the projection and the chain's gradient (0.7)
+    cases.extend(crate::topology::checks::cases());
     cases
 }
 
@@ -4331,6 +4341,32 @@ fn fdfd_adjoint_hz() -> Outcome {
     fdfd_adjoint(crate::fdfd::Polarization::Hz)
 }
 
+fn fdfd_adjoint_row() -> Outcome {
+    let probes = crate::fdfd::checks::row_gradient_probes(1.6e-2);
+    let errors: Vec<(f64, f64)> = probes
+        .iter()
+        .map(|p| {
+            (
+                (p.gradient - p.differences()).abs() / p.gradient.abs(),
+                p.resolution(),
+            )
+        })
+        .collect();
+    let resolution = errors.iter().map(|&(_, r)| r).fold(0.0, f64::max);
+    note_numerical(resolution);
+    let error = if errors.iter().all(|(e, r)| e <= r) {
+        resolution
+    } else {
+        errors.iter().map(|&(e, _)| e).fold(0.0, f64::max)
+    };
+    Outcome {
+        measured: error,
+        expected: 0.0,
+        tolerance: 2e-6,
+        error,
+    }
+}
+
 fn amplitude_convention() -> Outcome {
     let a = Complex64::new(0.7, -0.4);
     let w = TAU * 0.65;
@@ -5398,6 +5434,7 @@ mod quantum_real;
 mod rcwa;
 mod roughness;
 mod sweep;
+mod topology;
 #[cfg(feature = "gpu")]
 pub use gpu::gpu_report;
 

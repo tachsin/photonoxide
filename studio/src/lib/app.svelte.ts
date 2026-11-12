@@ -5,6 +5,7 @@ import type { ChipEvent, CompactFit, CompactPlan, ChipPoint, ChipStudy, DeviceMo
 import { template, type Kind } from "./job";
 import type { Looks } from "./layers";
 import type { EmeRecord } from "./eme";
+import type { TopologyRecord } from "./topology";
 import type { NonlinearResult } from "./nonlinear";
 import type { QuantumRecord } from "./quantum";
 import { themeName } from "./themes";
@@ -251,6 +252,8 @@ export const run = $state({
   /** Each front's hypervolume against the evaluations so far. */
   hypervolumes: [] as [number, number][],
   optimum: null as Optimum | null,
+  /** A design region's optimization: the problem, its evaluations, its designs and latest field as they come, and its end. */
+  topology: null as TopologyRecord | null,
   /** A chip's run: its instances and ports, a study's plan and its points as they come. */
   chip: null as ChipEvent | null,
   chipStudy: null as ChipStudy | null,
@@ -409,7 +412,21 @@ function take(e: Event) {
       if (run.following) run.point = e.point;
       break;
     case "field":
-      run.fields.push(e);
+      // a design region's field follows its design: the latest one, not a list
+      if (run.topology) run.topology.field = e;
+      else run.fields.push(e);
+      break;
+    case "topology":
+      run.topology = { topology: e, evaluations: [], densities: [], field: null, optimum: null };
+      break;
+    case "topology_evaluation":
+      run.topology?.evaluations.push(e);
+      break;
+    case "density":
+      run.topology?.densities.push(e);
+      break;
+    case "topology_optimum":
+      if (run.topology) run.topology.optimum = e;
       break;
     case "s_parameters":
       run.sparams.push(e);
@@ -569,6 +586,7 @@ function reset(info: Info) {
     front: null,
     hypervolumes: [],
     optimum: null,
+    topology: null,
     chip: null,
     chipStudy: null,
     chipPoints: [],

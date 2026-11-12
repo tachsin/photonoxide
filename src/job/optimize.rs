@@ -1188,7 +1188,10 @@ fn derivative_name(method: &Method, exact: bool) -> &'static str {
 /// Whether `job` optimizes its device (a `[device]` with a task of kind `"optimize"`): a job
 /// the `photonoxide` program runs, its optimizer genoxide's.
 pub fn optimizes(job: &Job) -> bool {
-    (job.device().is_some() || job.circuit().is_some() || crosstalk::corrects(job))
+    (job.device().is_some()
+        || job.circuit().is_some()
+        || crosstalk::corrects(job)
+        || topology::designs(job))
         && job.task().get("kind").and_then(Value::as_str) == Some("optimize")
 }
 
@@ -2718,10 +2721,60 @@ pub fn design_of(job: &Job, x: &[f64]) -> Result<Spec> {
     Problem::of(job)?.design_at(x)
 }
 
+/// The `"optimize"` kind of a task alone: a heater array's crosstalk corrected
+/// (`[task.crosstalk]`, [`crosstalk`]) or a density design region optimized (`[task.design]`,
+/// [`Topology`]).
+pub(super) struct SolverOptimizeKind;
+
+impl TaskKind for SolverOptimizeKind {
+    fn name(&self) -> &'static str {
+        "optimize"
+    }
+
+    fn schema(&self, g: &mut SchemaGenerator) -> serde_json::Value {
+        serde_json::json!({ "oneOf": [crosstalk::schema(g), topology::schema(g)] })
+    }
+
+    fn check(&self, job: &Job) -> Result<()> {
+        if topology::designs(job) {
+            topology::check(job)
+        } else if crosstalk::corrects(job) {
+            check(job)
+        } else {
+            Err(task_error(
+                "an \"optimize\" task optimizes a [device], a [circuit], a heater array's \
+                 [task.crosstalk] or a design region, [task.design]",
+            ))
+        }
+    }
+
+    fn preview(&self, job: &Job) -> Result<Event> {
+        if topology::designs(job) {
+            return topology::preview(job);
+        }
+        super::check(job)?;
+        // no scene of its own: as before, what reading the task as an fdfd job's refuses
+        super::fdfd::preview(job)
+    }
+
+    fn execute(&self, job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
+        super::execute::solver_run(job, run, stop, self.name(), |job, _, _| {
+            super::check(job)?;
+            Err(runs_elsewhere())
+        })
+    }
+
+    fn exports(&self, _: &Job) -> (&'static str, &'static [&'static str]) {
+        ("this job", &[])
+    }
+}
+
 mod chip;
 pub(super) use chip::ChipOptimizeKind;
 pub use chip::optimize_from_chip;
 pub(super) mod crosstalk;
+mod topology;
+pub use topology::{Topology, TopologyPoint, TopologyRecorder, TopologyStage, TopologyTerm};
 
 #[cfg(test)]
 mod tests;

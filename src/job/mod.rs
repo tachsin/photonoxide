@@ -602,7 +602,8 @@ pub use nonlinear::{
 };
 pub use optimize::{
     Aim, Bound, Evaluation, GradientCheck, Keep, Optimization, Problem, Recorder, Schedule,
-    Variable, design_of, optimize_from_chip, optimize_from_device, optimizes,
+    Topology, TopologyPoint, TopologyRecorder, TopologyStage, TopologyTerm, Variable, design_of,
+    optimize_from_chip, optimize_from_device, optimizes,
 };
 pub use quantum::{
     DipTask, LegTask, PhotonsOn, QuantumBudget, QuantumCount, QuantumDip, QuantumLeg,
