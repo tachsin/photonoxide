@@ -808,24 +808,26 @@ Cristoloveanu, p. 4959). Lam gives 100–300 nm over doses of 1.2–2.2×10¹⁸
   units; the book says the first order reproduces LSS's ranges and Q_n mainly raises ΔRp
   (p. 10-13). The equations are integrated by fourth-order Runge–Kutta in ln E; for power-law
   stopping a test gives the book's closed forms (Eqs. 10-14 and 10-15) to 1e-7. For ¹⁸O the
-  ranges are 1–2 % longer at 75–200 keV, as de Souza et al. say (p. 47). Its Rp is 3–7 % above our
-  LSS arithmetic, −4 to +10 % from SRIM's (+1.2 % at 150 keV), 5–13 % above TRIM's, and its ΔRp
-  is within 10 % of TRIM's (at 150 and 200 keV within 2 %).
+  ranges differ by under 2 % (−0.5 % at 25 keV to +1.7 % at 200 keV), within the 2 % de Souza et
+  al. allow (p. 47). Its Rp is 3–7 % above our LSS arithmetic, −4 to +10 % from SRIM's (+1.2 % at
+  150 keV) and 5–13 % above TRIM's; its ΔRp is within 11 % of TRIM's (at 150 and 200 keV within
+  2 %).
 
 **Against the measurement, a gap kept open.** PRAL's Rp is 14 % above de Souza et al.'s at
 25 keV and 21–29 % above from 50 to 200 keV (27.4 % at 150 keV, 21.4 % at 200 keV); its ΔRp
 12–65 % above. A validation case against Table 1 would take the measurement's stated error as its
-rule (relative, a reference: 3 nm at low energy and 5 % above 75 keV, p. 48), and PRAL lies four
-to six times that away, so it isn't a case: the tolerance isn't widened to fit. The electronic
+rule (relative, a reference: 3 nm at low energy and 5 % above 75 keV, p. 48), and PRAL lies 2.6
+to 9 times that away (4 to 6 times above 75 keV), so it isn't a case: the tolerance isn't
+widened to fit. The electronic
 stopping is where the difference would come from: Rp moves by −9 % and +12 % at 150 keV for a
 ±20 % change in it (336.8 and 416.5 nm), and the measured 291.8 nm needs about 1.5 times
-Lindhard and Scharff's (296.2 nm), the measured 398.2 nm at 200 keV about 1.35 times. De Souza et
+Lindhard and Scharff's (296.2 nm), the measured 398.2 nm at 200 keV about 1.4 times. De Souza et
 al. read their result the same way: stopping powers of oxygen in amorphous silicon measured
 higher than TRIM's below 400 keV (p. 49). The book's own example uses 1.59 times Lindhard and
 Scharff's for boron in silicon (Fig. 10-3, p. 10-8). Which measurement the route follows, de
 Souza et al.'s or Izumi's, is a decision, not the model's: the calculations (Smith's table, LSS,
-SRIM and PRAL) agree with Izumi's 370–380 nm at 150 keV within 2–9 %, and de Souza et al.'s
-291.8 nm, measured beyond the 280 nm their silicon was amorphized to, is 21–27 % below them all.
+SRIM and PRAL) agree with Izumi's 370–380 nm at 150 keV within 9 %, and de Souza et al.'s
+291.8 nm, measured beyond the 280 nm their silicon was amorphized to, is 18–27 % below them all.
 
 So at 200 keV the range is about 400–470 nm, the spread of these rows, and the measured values
 sit below every calculation. That still doesn't give the film. Going from Rp to the film would
