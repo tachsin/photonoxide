@@ -50,7 +50,7 @@ export const CATEGORIES = [
     blurb: "The algorithms under the solvers: eigenvalues near a shift or inside a contour, Krylov solves for many sources and long sequences, and sparse direct solves, photonoxide's own or another library's.",
     groups: [
       { title: "Eigenvalues", slugs: ["eigen", "contour"] },
-      { title: "Linear systems", slugs: ["block-qmr", "recycling", "multigrid-stencil", "backends"] },
+      { title: "Linear systems", slugs: ["block-qmr", "recycling", "multigrid-stencil", "backends", "mixed-precision"] },
     ],
   },
   {
@@ -122,7 +122,7 @@ export const ALGORITHMS = [
   { name: "Eigenmode expansion", does: "a structure cut into uniform sections, joined by their modes' S-matrices", methods: ["eme"] },
   { name: "Elliptical slices of quadrics", does: "a sphere's, an ellipsoid's or a cone's exact share of a cell", methods: ["bodies"] },
   { name: "GCRO-DR", does: "Krylov recycling across a sequence of solves", methods: ["recycling"] },
-  { name: "Hadley's interface and corner equations", does: "high-order differences across interfaces and corners", methods: ["hadley"] },
+  { name: "GMRES-based iterative refinement", does: "single-precision factors refined to a double-precision solution, or an error that says why not", methods: ["mixed-precision"] }, does: "high-order differences across interfaces and corners", methods: ["hadley"] },
   { name: "Harmonic inversion", does: "resonances and their Q from a short signal, by filter diagonalization", methods: ["fdtd"] },
   { name: "Krylov–Schur restarts", does: "a fixed-size Krylov space restarted without losing what converged", methods: ["eigen"] },
   { name: "Marcatili's approximation", does: "a rectangular guide from two slab-like equations", methods: ["marcatili"] },

@@ -114,6 +114,8 @@ The pages are grouped as the project site groups them.
   level is never assembled as a matrix, to save memory.
 - [backends](methods/backends.md): the one place where the solvers ask for a sparse direct
   solve, by photonoxide's own factorizations or by another library registered at run time.
+- [mixed-precision](methods/mixed-precision.md): photonoxide's own factorization in single
+  precision, half its memory, each solve refined to double precision or an error that says why.
 
 ### Gradients
 

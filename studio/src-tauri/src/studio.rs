@@ -1540,6 +1540,7 @@ method_docs!(
     "hadley.md",
     "marcatili.md",
     "materials.md",
+    "mixed-precision.md",
     "multigrid-stencil.md",
     "multilayer.md",
     "nonlinear.md",

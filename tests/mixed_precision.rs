@@ -131,6 +131,18 @@ fn the_validation_cases_pass_on_single_precision_factors() {
     let mut rows = Vec::new();
     let mut failed = 0;
     let mut unused = Vec::new();
+    let begun = Instant::now();
+    let progress = |k: usize| {
+        let elapsed = begun.elapsed().as_secs_f64();
+        let done = (k + 1) as f64 / cases.len() as f64;
+        format!(
+            "[{}/{}, {:.0}%, {elapsed:.0} s, about {:.0} s to go]",
+            k + 1,
+            cases.len(),
+            100.0 * done,
+            elapsed / done - elapsed
+        )
+    };
     for (k, case) in cases.iter().enumerate() {
         CALLS.store(0, Ordering::Relaxed);
         let (theirs, their_seconds) = run(case, &Choice::Named(COUNTED.into()));
@@ -138,9 +150,8 @@ fn the_validation_cases_pass_on_single_precision_factors() {
         if calls == 0 {
             unused.push(case.id);
             eprintln!(
-                "[{}/{}] {}: no factorization ({their_seconds:.1} s)",
-                k + 1,
-                cases.len(),
+                "{} {}: no factorization ({their_seconds:.1} s)",
+                progress(k),
                 case.id
             );
             continue;
@@ -183,9 +194,8 @@ fn the_validation_cases_pass_on_single_precision_factors() {
             }
         };
         eprintln!(
-            "[{}/{}] {row} (own {own_seconds:.1} s, mixed {their_seconds:.1} s)",
-            k + 1,
-            cases.len()
+            "{} {row} (own {own_seconds:.1} s, mixed {their_seconds:.1} s)",
+            progress(k)
         );
         rows.push(row);
     }

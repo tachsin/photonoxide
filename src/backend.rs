@@ -495,16 +495,21 @@ pub fn register_unavailable(name: &str, reason: impl Into<String>) -> Result<()>
     )
 }
 
-/// The direct solver of a choice: photonoxide's own for `auto`.
+/// The direct solver of a choice: photonoxide's own for `auto`, unless the process prefers
+/// another ([`prefer_direct`]).
 ///
 /// # Errors
 ///
 /// [`Error::InvalidValue`] for a name nothing is registered under, and for a backend
 /// registered as unavailable, with its reason. Never another backend in its place.
 pub fn direct(choice: &Choice) -> Result<Arc<dyn DirectSolver>> {
-    let name = match choice {
-        Choice::Auto | Choice::Photonoxide => OWN,
-        Choice::Named(name) => name,
+    let preferred = matches!(choice, Choice::Auto)
+        .then(preferred_direct)
+        .flatten();
+    let name = match (choice, &preferred) {
+        (_, Some(preferred)) => preferred.as_str(),
+        (Choice::Auto | Choice::Photonoxide, None) => OWN,
+        (Choice::Named(name), None) => name,
     };
     let entries = registry().read().map_err(poisoned)?;
     match entries.iter().find(|e| e.name() == name) {
@@ -528,7 +533,8 @@ fn direct_preference() -> &'static RwLock<Option<String>> {
 }
 
 /// Makes `auto` stand for the direct backend `choice` names, in this process: every solver
-/// that names no backend then factorizes with it, whatever the machine's measurements say;
+/// that names no backend then factorizes with it ([`auto::decide`] and [`direct`] both say
+/// so), whatever the machine's measurements say;
 /// `auto` and `photonoxide` make `auto` photonoxide's own choice again, as it is until this is
 /// called. For running photonoxide's own checks on a backend (the validation cases with
 /// `photonoxide-mixed`, tests/mixed_precision.rs), as [`prefer_iterative`] is for iterative

@@ -112,7 +112,7 @@ fn single_precision_factors_refined_give_the_double_precision_solution() {
         assert!(*history.backward_errors.last().unwrap() <= history.target);
         // each step at least halves the backward error, the first solve's single precision
         // to the target in a few steps
-        for pair in history.backward_errors.windows(2) {
+        for pair in history.backward_errors[..history.backward_errors.len() - 1].windows(2) {
             assert!(pair[1] <= 0.5 * pair[0], "{history:?}");
         }
         assert!(history.backward_errors[0] > 1e-12, "{history:?}");

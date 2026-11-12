@@ -482,6 +482,11 @@ in single precision its vectors and permittivity take under 2 GB, so it would fi
 **From me.** Whether f32 on the GPU with f64 refinement is acceptable as the default GPU
 path (decision 6).
 
+**Status (#789).** The first part is in: `photonoxide-mixed`, photonoxide's own multifrontal
+factorization in single precision, each solve refined to double by GMRES-IR, and an error with
+the refinement's history where single precision isn't enough ([mixed
+precision](../methods/mixed-precision.md)). PHASE_D_NUMBERS The GPU's QMR is still to do.
+
 ### Phase E: distributed memory (a new milestone after 0.7)
 
 **Goal.** 3D devices larger than one machine's memory, and fewer hours per 3D solve, with the

@@ -26,10 +26,13 @@
 //! **When it stops.** Each iterate's normwise backward error,
 //! η(x) = ‖b − A x‖∞ / (‖A‖∞ ‖x‖∞ + ‖b‖∞) (Carson and Higham's Section 2), is computed in
 //! double. The refinement has converged when η ≤ p u, p the most nonzeros in a row of [A b]:
-//! the rounding of the residual itself, below which a computed η says nothing more (the p of
-//! Higham and Mary's limiting accuracy, their Eq. 6.4). A step that doesn't halve η, or
-//! [`STEPS`] steps without converging, is a failure, returned with every η and GMRES's
-//! iterations in every step: never an iterate that only looks like an answer.
+//! the rounding of the residual itself (the p of Higham and Mary's limiting accuracy, their
+//! Eq. 6.4). It goes on from there while each step still halves η, to the limiting accuracy
+//! (Higham and Mary's Theorem 6.1, Carson and Higham's Corollary 3.3: the error falls by a
+//! factor each step until it reaches that accuracy), and keeps the better of the last two
+//! iterates. Before η ≤ p u,
+//! a step that doesn't halve η, or [`STEPS`] steps, is a failure, returned with every η and
+//! GMRES's iterations in every step: never an iterate that only looks like an answer.
 //!
 //! GMRES itself (Y. Saad, *Iterative Methods for Sparse Linear Systems*, 2nd ed., SIAM (2003),
 //! doi:10.1137/1.9780898718003, Algorithm 9.4: left preconditioned, modified Gram–Schmidt; its
@@ -144,6 +147,8 @@ pub(crate) fn refine_observed(
         return Ok((vec![c64::new(0.0, 0.0); b.len()], history));
     }
     let mut x = (system.inverse)(b);
+    // the last iterate at p u and its η, kept while a step might not improve on it
+    let mut best: Option<(f64, Vec<c64>)> = None;
     loop {
         observe(&x);
         let applied = (system.product)(&x);
@@ -151,12 +156,22 @@ pub(crate) fn refine_observed(
         let eta = norm_inf(&r) / (system.norm * norm_inf(&x) + b_norm);
         let before = history.backward_errors.last().copied();
         history.backward_errors.push(eta);
-        if eta <= target {
-            history.converged = true;
-            return Ok((x, history));
-        }
         let stalled = before.is_some_and(|before| eta > 0.5 * before);
-        if !eta.is_finite() || stalled || history.inner.len() == STEPS {
+        let last = history.inner.len() == STEPS;
+        if eta <= target {
+            // at p u: on to the limiting accuracy, while the steps still halve η
+            if eta == 0.0 || stalled || last {
+                history.converged = true;
+                // the better of the last two
+                if let Some((earlier, previous)) = best.take()
+                    && earlier < eta
+                {
+                    return Ok((previous, history));
+                }
+                return Ok((x, history));
+            }
+            best = Some((eta, x.clone()));
+        } else if !eta.is_finite() || stalled || last {
             return Err(history);
         }
         let (d, iterations) = gmres(system, &r);

@@ -222,7 +222,7 @@ fn refined_as_photonoxides_own(
             "{name}: {history:?} ({perturbed} pivots perturbed)"
         );
         assert!(history.backward_errors[0] > 1e-10, "{name}: {history:?}");
-        for pair in history.backward_errors.windows(2) {
+        for pair in history.backward_errors[..history.backward_errors.len() - 1].windows(2) {
             assert!(pair[1] <= 0.5 * pair[0], "{name}: {history:?}");
         }
         assert!(history.inner.len() <= 3, "{name}: {history:?}");
