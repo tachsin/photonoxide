@@ -880,8 +880,9 @@ fn averaged_eps(
         // above: up to the coarse node after (or the wall, or the period's end)
         let high = c.ends[m + 1] as f64;
         let width = high - at;
-        for q in nodes[b][m] + 1..nodes[b][m + 1].min(nf) {
-            out.push((q, 1.0 - (f.ends[q] as f64 - at) / width));
+        let (first, end) = (nodes[b][m] + 1, nodes[b][m + 1].min(nf));
+        for (q, &place) in f.ends.iter().enumerate().take(end).skip(first) {
+            out.push((q, 1.0 - (place as f64 - at) / width));
         }
         out
     };

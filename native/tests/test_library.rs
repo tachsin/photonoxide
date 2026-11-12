@@ -30,9 +30,16 @@ const FILE: &str = if cfg!(windows) {
 fn folder() -> &'static Path {
     static FOLDER: OnceLock<PathBuf> = OnceLock::new();
     FOLDER.get_or_init(|| {
-        // target/<profile>/deps/this-test → target/<profile>
+        // target/<profile>/deps/this-test, or since Cargo 1.100's layout
+        // target/<profile>/build/<package>/<hash>/out/this-test → target/<profile>
         let exe = std::env::current_exe().unwrap();
-        let profile = exe.parent().unwrap().parent().unwrap().to_path_buf();
+        let profile = exe
+            .ancestors()
+            .skip(1)
+            .find(|a| a.file_name().is_some_and(|n| n == "deps" || n == "build"))
+            .and_then(Path::parent)
+            .unwrap_or_else(|| panic!("no target/<profile> above {}", exe.display()))
+            .to_path_buf();
         let mut cargo = Command::new(env!("CARGO"));
         cargo.args(["build", "-q", "-p", "photonoxide-native-testlib"]);
         if profile.file_name().unwrap() == "release" {
