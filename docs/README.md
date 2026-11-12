@@ -127,6 +127,9 @@ The pages are grouped as the project site groups them.
   parameter of every component, from one more back-substitution with the transposed system.
 - [optimization](methods/optimization.md): a device's objectives and constraints, their
   derivatives, and the `optimize` job that moves its parameters with genoxide's optimizers.
+- [topology](methods/topology.md): a design region's densities, filtered and projected to the
+  permittivity a solver sees; robust designs, length scales and level sets, each with its
+  gradient back from the solver's adjoint.
 
 ### Heat and static fields
 
