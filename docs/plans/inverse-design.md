@@ -233,11 +233,18 @@ checked as targets met; crosstalk at most 0.14 %, the outputs' flux consistent, 
 (`topology::AreaConstraints`, `topology/area-shapes`) and, since the bend's output runs along y,
 FDFD's adjoint for any linear functional and a mode measured on rows
 (`functional_power_gradient`, `row_mode_functional`, `fdfd/adjoint-gradient-row`). The bend under
-Fig. 8's rulebook (a 0.5 µm guide and E along z, which the paper doesn't state): mean transmission
-0.961 (worst 0.959) over 1.50–1.60 µm, a measured 87 nm, no small island or hole; above every
-rulebook's 89 % of Fig. 9. Each stage keeps its own best design, since MMA's iterates sit just
-outside the epigraph and genoxide's best feasible genome stayed the start; the area constraints
-are counted in pixels for MMA's scaling. *I4 is done.*
+Fig. 8's rulebook (a 0.5 µm guide and E along z, which the paper doesn't state): transmission
+into the fundamental mode 0.998 to 0.999 over 1.50–1.60 µm, a measured 110 nm, no small island or
+hole; above every rulebook's 89 % of Fig. 9. Each stage keeps its own best design, ranked: one
+that meets every rule first, then the least worst objective, then the least violation (MMA's
+iterates sit just outside the epigraph, and genoxide's best feasible genome stayed the start);
+the area constraints are counted in pixels for MMA's scaling; the filter is 135 nm, 1.5 times the
+rules (at 90 nm the unconstrained design's 58 nm features never met the rules in 300 evaluations).
+*Corrected 2026-11-12, with I5:* the first record measured the output on a window shifted by
+1 µm across the guide (the turned grid's rows placed by y's origin, not x's), half the guide and
+a wall at its centre, which read about the power in all three of the guide's modes (0.96) where
+the fundamental's was 0.35; the topology job's row ports found it (a bend and its mirror image
+agree to 10⁻⁹, and the modes' powers sum to what the bend passes). *I4 is done.*
 
 ### I5: The topology job and the studio's design view
 

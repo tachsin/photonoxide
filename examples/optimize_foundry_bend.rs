@@ -17,31 +17,34 @@
 //! mode is measured on two rows (`Solver2d::row_mode_functional`, `fdfd/adjoint-gradient-row`).
 //!
 //! **The rules and the schedule** (Sections 3.1, 4 and 6; Fig. 8's rulebook). A conic filter of
-//! 90 nm and a projection at η = ½; 70 MMA evaluations at β = 8 and 16 and 150 at 32, the rules
-//! imposed only at β = 32, as theirs (theirs: 70 at each). The linewidth and spacing by Zhou et al.'s geometric
-//! constraints with Arrieta et al.'s hyperparameters (R = ℓ_t = 90 nm, c = 64 R², ε of their
-//! Eq. 18 for a strip across the region), each held as g/ε − 1 ≤ 0, where Hammond et al. hold
+//! 135 nm, 1.5 times the rules' 90 nm, and a projection at η = ½; 70 MMA evaluations at β = 8 and
+//! 16 and 150 at 32, the rules imposed only at β = 32, as theirs (theirs: 70 at each). The linewidth
+//! and spacing by Zhou et al.'s geometric constraints with Arrieta et al.'s hyperparameters
+//! (c = 64 R², ε of their Eq. 18 for a strip across the region, R the filter's radius), each held as g/ε − 1 ≤ 0, where Hammond et al. hold
 //! theirs to G = 10⁻⁵ t; the minimum area and enclosed area by their Eqs. 21–22
 //! (`topology::AreaConstraints`) held to their G = 10⁻⁵ t, shrinking with the objective t.
 //!
 //! **What is compared.** Their Fig. 9's nine bends, one per rulebook, all have an average
 //! transmission above 89 % (Section 6.2); the figure prints each one's, not this rulebook's alone.
 //! Ours: the band-average transmission at least 0.89; the measured minimum length (the testbed's
-//! metric, `topology::ruler`) within Chen et al.'s 20 % of 90 nm; no island or hole left below its
-//! minimum.
+//! metric, `topology::ruler`) at least 90 nm, less Chen et al.'s 20 % for the metric (the rule is
+//! a minimum: a longer one keeps it); no island or hole left below its minimum.
 //!
-//! **What it found** (`--full`, 2026-11-12, 9 minutes on 12 threads here). The unconstrained
-//! stages reach a worst transmission of 0.956 at β = 16; with the rules, 0.960 at β = 32. The
-//! design, binary: 0.959 to 0.963 over the band (mean 0.961), a measured minimum length of 87 nm,
+//! **What it found** (`--full`, 2026-11-12, 8 minutes on 12 threads here). The unconstrained
+//! stages reach a worst transmission of 0.998 at β = 16; with the rules, 0.999 at β = 32. The
+//! design, binary: 0.998 to 0.999 over the band (mean 0.998), a measured minimum length of 110 nm,
 //! and no island or hole below its minimum, against every rulebook's 89 % in Hammond et al.'s
-//! Fig. 9 (their most constrained, 98.2 %, is another rulebook's). Two things the run needed:
-//! MMA's iterates sit just outside the epigraph's constraints, so genoxide's best feasible genome
-//! stayed the start, and each stage keeps its own best design, the least worst objective with
-//! every rule met; and the area constraints, shares of the region, were too small for MMA's
-//! scaling until counted in pixels (g n ≤ a t n, the same rule). The ruled stage has 150
-//! evaluations. The design is recorded in `examples/designs/optimize_foundry_bend.hex`, which the
-//! plain run solves; `--full` optimizes it again and checks it repeats it pixel for pixel, its
-//! values and gradients rounded to 12 digits.
+//! Fig. 9 (their most constrained, 98.2 %, is another rulebook's). The 0.5 µm guide carries three
+//! modes in 2D (E along z), and the transmission is into the fundamental alone. What the run
+//! needed: each stage keeps its own best design, its start included, ranked as the topology job
+//! ranks them (one that meets every rule first, then the least worst objective, then the least
+//! violation), since MMA's iterates sit just outside the epigraph's constraints and genoxide's
+//! best feasible genome stayed the start; the area constraints counted in pixels for MMA's
+//! scaling (g n ≤ a t n, the same rule); and a filter wider than the rules: with a 90 nm filter
+//! the unconstrained stages' design has 58 nm features, and no evaluation of the ruled stage met
+//! every rule in 300. The design is recorded in `examples/designs/optimize_foundry_bend.hex`,
+//! which the plain run solves; `--full` optimizes it again and checks it repeats it pixel for
+//! pixel, its values and gradients rounded to 12 digits.
 //!
 //! ```sh
 //! cargo run --release --example optimize_foundry_bend                    # the recorded design, solved
@@ -78,6 +81,9 @@ const HALF: f64 = 0.25;
 const CENTRE: f64 = 1.5;
 /// The rules: linewidth and spacing (µm), minimum area and enclosed area (µm²).
 const LINE: f64 = 0.09;
+/// The conic filter's radius, µm: 1.5 times the rules' length, so that the unconstrained stages'
+/// features are near the rules before they are imposed.
+const FILTER: f64 = 0.135;
 const AREA: f64 = 0.08;
 const HOLE: f64 = 0.2;
 /// The schedule.
@@ -143,9 +149,9 @@ fn band(
     lam: Wavelength,
 ) -> photonoxide::Result<(Solver2d, PortMode, Vec<c64>, f64)> {
     let s = Solver2d::from_cells(*g, Polarization::Ez, lam, background, Boundaries::pml(PML))?;
-    let window = index(g.y0, CENTRE - 1.0)..index(g.y0, CENTRE + 1.0);
+    let rows = index(g.y0, CENTRE - 1.0)..index(g.y0, CENTRE + 1.0);
     let input = s
-        .port_modes_within(index(g.x0, X0 + 0.5), window.clone(), 1)?
+        .port_modes_within(index(g.x0, X0 + 0.5), rows, 1)?
         .remove(0);
     // the output guide turned: a straight guide whose cells along y are the bend's along x
     let aux_grid = Grid {
@@ -169,7 +175,9 @@ fn band(
         &aux_cells,
         Boundaries::pml(PML),
     )?;
-    let output = aux.port_modes_within(PML + 4, window, 1)?.remove(0);
+    // the turned guide's rows are the bend's columns: its window along x
+    let columns = index(g.x0, CENTRE - 1.0)..index(g.x0, CENTRE + 1.0);
+    let output = aux.port_modes_within(PML + 4, columns, 1)?.remove(0);
     let c = s.row_mode_functional(&output, index(g.y0, 4.0), 0, Direction::Forward)?;
     let ratio = output.power(H) / input.power(H);
     Ok((s, input, c, ratio))
@@ -213,7 +221,7 @@ impl Bend {
         let g = grid();
         let background = cells(&g, None);
         let density = Density::new([SIDE, SIDE, 1], H, [OX, SI])?
-            .with_filter(LINE, Edge::Renormalized)?
+            .with_filter(FILTER, Edge::Renormalized)?
             .with_projection(Projection::new(beta, 0.5)?);
         let mut bands = Vec::new();
         for um in wavelengths() {
@@ -265,7 +273,16 @@ fn optimize() -> photonoxide::Result<Vec<bool>> {
     let form = Epigraph::new(n, 10)?;
     // MMA's iterates sit a little outside the epigraph's constraints (t just below the worst
     // objective), so genoxide's best feasible genome can stay the start: the stage keeps its own
-    // best, the evaluated design whose worst objective is least with every rule met
+    // best, its start included: of the designs that meet every rule the least worst objective, of
+    // those that don't (when none does) the least violation; a key that sorts them so
+    let rank = |worst: f64, rules: &[f64]| -> (bool, f64) {
+        let violation: f64 = rules.iter().map(|v| v.max(0.0)).sum();
+        if violation > 0.0 {
+            (true, violation)
+        } else {
+            (false, worst)
+        }
+    };
     let run = |b: &Bend,
                rho: &[f64],
                extra: usize,
@@ -273,9 +290,12 @@ fn optimize() -> photonoxide::Result<Vec<bool>> {
                more: Extra|
      -> photonoxide::Result<Vec<f64>> {
         let (values, _) = b.evaluate(rho)?;
-        let best = std::sync::Mutex::new((Epigraph::start(&values), rho.to_vec()));
         let mut y = rho.to_vec();
         y.push(Epigraph::start(&values));
+        // the start ranks as any evaluation does: its rules too
+        let mut rules = vec![0.0; extra];
+        more(&y, &mut rules, &mut vec![0.0; extra * w]);
+        let best = std::sync::Mutex::new((rank(Epigraph::start(&values), &rules), rho.to_vec()));
         let fitness = Constrained::differentiable(
             10 + extra,
             |x: &Reals, gradient: &mut [f64], g: &mut [f64], jacobian: &mut [f64]| {
@@ -297,11 +317,10 @@ fn optimize() -> photonoxide::Result<Vec<bool>> {
                 }
                 more(x, &mut g[10..], &mut jacobian[10 * w..]);
                 let worst = values.iter().copied().fold(f64::MIN, f64::max);
-                if g[10..].iter().all(|v| *v <= 0.0) {
-                    let mut kept = best.lock().expect("the best");
-                    if worst < kept.0 {
-                        *kept = (worst, x[..n].to_vec());
-                    }
+                let r = rank(worst, &g[10..]);
+                let mut kept = best.lock().expect("the best");
+                if r < kept.0 {
+                    *kept = (r, x[..n].to_vec());
                 }
                 x[n]
             },
@@ -335,7 +354,7 @@ fn optimize() -> photonoxide::Result<Vec<bool>> {
     }
     let b = Bend::new(BETAS[2])?;
     let lengths = LengthConstraints::new(&b.density, LINE, LINE)?.with_arrieta_decay();
-    let eps = geometric_threshold(64.0, LINE / 3.0)?;
+    let eps = geometric_threshold(64.0, FILTER / 3.0)?;
     let areas = AreaConstraints::new([SIDE, SIDE], H, AREA, HOLE)?;
     let more = |x: &[f64], g: &mut [f64], jacobian: &mut [f64]| {
         let rho = &x[..n];
@@ -425,11 +444,11 @@ pub fn main() -> photonoxide::Result<ExitCode> {
     );
     setup.item(
         "design",
-        "150 × 150 densities, a conic filter of 90 nm, projection at η = ½, β 8 and 16 with 70 MMA evaluations each and 32 with 150, the rules from β = 32; the epigraph of the worst 1 − T",
+        "150 × 150 densities, a conic filter of 135 nm, projection at η = ½, β 8 and 16 with 70 MMA evaluations each and 32 with 150, the rules from β = 32; the epigraph of the worst 1 − T",
     );
     setup.item(
         "tolerance",
-        "the band-average transmission at least 0.89 (Section 6.2); the measured minimum length within 20 % of 90 nm (Chen et al.); no island or hole below its minimum",
+        "the band-average transmission at least 0.89 (Section 6.2); the measured minimum length at least 90 nm, less Chen et al.'s 20 % for the metric; no island or hole below its minimum",
     );
     setup.print();
 
@@ -474,7 +493,12 @@ pub fn main() -> photonoxide::Result<ExitCode> {
         1.0 - mean,
         ((1.0 - FLOOR) * 100.0).round() / 100.0,
     );
-    checks.compare("minimum length (nm)", length, LINE * 1e3, 0.2 * LINE * 1e3);
+    // the rule is a minimum: a longer minimum length keeps it; the metric's 20 % below it
+    checks.at_most(
+        "minimum length's shortfall below the rule (nm)",
+        (LINE * 1e3 - length).max(0.0),
+        0.2 * LINE * 1e3,
+    );
     checks.count("islands below 0.08 µm²", areas.violations[0], 0);
     checks.count("holes below 0.2 µm²", areas.violations[1], 0);
     Ok(checks.finish())
