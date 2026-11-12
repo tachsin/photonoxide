@@ -289,10 +289,10 @@ impl Interop {
     pub(crate) fn shared(&self, bytes: u64) -> Result<Shared> {
         let bytes = bytes.max(16);
         let (buffer, memory, size, handle) = self.exported(bytes)?;
-        // wgpu takes the buffer and its memory over, and frees them with it
+        // wgpu takes the buffer and its memory over, and frees them with it.
+        // SAFETY: the buffer was made on this device with STORAGE, TRANSFER_SRC and TRANSFER_DST
+        // and bound to `memory` (size bytes) at 0; nothing else owns them
         let hal_buffer =
-            // SAFETY: the buffer was made on this device with STORAGE, TRANSFER_SRC and
-            // TRANSFER_DST and bound to `memory` (size bytes) at 0; nothing else owns them
             unsafe { wgpu::hal::vulkan::Buffer::from_raw_managed(buffer, memory, 0, size) };
         // SAFETY: made from this device's handle, as `desc` says, never mapped, not empty
         let wgpu_buffer = unsafe {
@@ -509,11 +509,15 @@ impl Handle {
         d.handle[0] = usize::from_ne_bytes(first) as *mut c_void;
     }
 
-    /// After CUDA's import: closed on Windows (the import doesn't take it); on Linux CUDA owns
-    /// the descriptor.
+    /// After CUDA's import: closed on Windows (the import doesn't take it).
+    #[cfg(windows)]
     fn release(self) {
-        drop(self);
+        drop(self.0);
     }
+
+    /// After CUDA's import: on Linux CUDA owns the descriptor.
+    #[cfg(not(windows))]
+    fn release(self) {}
 }
 
 #[cfg(windows)]

@@ -800,7 +800,7 @@ mod tests {
                 })
                 .collect();
             let (x, y) = (s.vector(&v)?, s.vector(&vec![ZERO; n])?);
-            let mut found = Vec::new();
+            let mut found = (0.0, 0.0, true);
             for (which, operator) in [(0, shifted), (1, plain)] {
                 stencil.product(&s, which, &x, &y)?;
                 let first = y.read()?;
@@ -811,9 +811,15 @@ mod tests {
                         .flat_map(|z| [z.re.to_bits(), z.im.to_bits()])
                         .collect::<Vec<_>>()
                 };
-                found.push((off(&first, &operator.apply(&v)), 0.0, bits(&first) == bits(&again)));
+                let apart = off(&first, &operator.apply(&v));
+                if which == 0 {
+                    found.0 = apart;
+                } else {
+                    found.1 = apart;
+                }
+                found.2 &= bits(&first) == bits(&again);
             }
-            self.found.lock().unwrap().push((found[0].0, found[1].0, found[0].2 && found[1].2));
+            self.found.lock().unwrap().push(found);
             Err(error("probed"))
         }
     }

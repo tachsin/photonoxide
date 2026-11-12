@@ -431,21 +431,27 @@ impl IterativeSolver3d {
     /// GPU's, say. photonoxide's own for `auto` and `photonoxide`. A backend runs plain QMR, QMR
     /// with ILU(0) on factors photonoxide computes ([`backend::IluFactors`]), and, if it says so
     /// ([`IterativeSolver::runs_multigrid`]), GMRES with the multigrid cycle photonoxide builds
-    /// ([`backend::MultigridCycle`]). photonoxide keeps the restarts and the similar matrix's
-    /// tolerance around QMR's runs, and checks GMRES's solution on its own residual, so the
-    /// solution is held to the same residual as photonoxide's own.
+    /// ([`backend::MultigridCycle`]); and, if it runs it
+    /// ([`IterativeSolver::runs_multigrid_stencil`]), the multigrid without its finest matrix,
+    /// GMRES's operator and the finest level given as their stencil ([`backend::Stencil`]).
+    /// What the backend makes of a hierarchy is kept for the solver's next solves
+    /// ([`IterativeSolver::prepare_multigrid`]). photonoxide keeps the restarts and the similar
+    /// matrix's tolerance around QMR's runs, and checks GMRES's solution on its own residual, so
+    /// the solution is held to the same residual as photonoxide's own.
     ///
     /// `auto`, the default, is photonoxide's own unless the process prefers a backend
     /// ([`backend::prefer_iterative`]); then that backend runs the solves it runs as photonoxide
     /// would (one right-hand side, by the matrix, plain, with ILU(0)'s exact solves, or by the
-    /// multigrid if it runs it and the hierarchy has every level's matrix and Galerkin's coarse
-    /// operators), and photonoxide's own the others (block QMR, GCRO-DR's recycling, and any
-    /// solve without the matrix).
+    /// multigrid if it runs it: with every level's matrix and Galerkin's coarse operators, or,
+    /// if it runs that too, without the finest matrix or with coarse levels discretized again),
+    /// and photonoxide's own the others (block QMR, GCRO-DR's recycling, and plain QMR without
+    /// the matrix).
     ///
     /// # Errors
     ///
-    /// [`Error::InvalidValue`] for a backend that isn't registered or available, and for a
-    /// solver preconditioned by multigrid with a backend that doesn't run it.
+    /// [`Error::InvalidValue`] for a backend that isn't registered or available, for a solver
+    /// preconditioned by multigrid with a backend that doesn't run it, and for a solver without
+    /// the matrix unless its multigrid is one the backend runs without the finest matrix.
     pub fn with_iterative_backend(mut self, choice: &Choice) -> Result<IterativeSolver3d> {
         self.backend = backend::iterative(choice)?;
         self.auto = *choice == Choice::Auto;
