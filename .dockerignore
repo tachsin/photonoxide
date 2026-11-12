@@ -1,0 +1,23 @@
+# What docker/Dockerfile's build doesn't need from the repository: build outputs, the history,
+# runs, and what only the window, the site, the Academy or the brand use. The workspace's
+# manifests and sources stay (cargo reads every member's), and docs/, jobs/, examples/ and
+# tests/ too, which the program builds in.
+.git
+**/target
+runs
+.claude
+academy
+assets
+circuits
+crosscode
+site
+studio/node_modules
+studio/dist
+studio/src
+studio/tests
+studio/src-tauri/gen
+python/dist
+python/.pytest_cache
+**/__pycache__
+**/*.so
+**/*.pyd

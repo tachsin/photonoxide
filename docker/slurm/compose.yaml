@@ -1,0 +1,45 @@
+# A Slurm cluster in Docker, on one machine: a controller and three compute nodes, each a
+# container with munge, Debian's Slurm and the photonoxide image's program, sharing /work.
+# docker/slurm/README.md says how to start it and what it is for: correctness, signals and the
+# scheduler, never speed (the containers share the machine's cores, memory and network).
+#
+#   docker compose -f docker/slurm/compose.yaml build --build-arg IMAGE=<the photonoxide image>
+#   docker compose -f docker/slurm/compose.yaml up -d
+x-node: &node
+  image: photonoxide-slurm:local
+  build:
+    context: ../..
+    dockerfile: docker/slurm/Dockerfile
+    args:
+      IMAGE: ${PHOTONOXIDE_IMAGE:-photonoxide:dev}
+  volumes:
+    - work:/work
+  # each node 2 CPUs, as slurm.conf says, and the solvers' threads to match
+  cpus: 2
+  mem_limit: 2g
+  environment:
+    RAYON_NUM_THREADS: "2"
+
+services:
+  slurmctld:
+    <<: *node
+    hostname: slurmctld
+    command: ["slurmctld"]
+  c1:
+    <<: *node
+    hostname: c1
+    command: ["slurmd"]
+    depends_on: [slurmctld]
+  c2:
+    <<: *node
+    hostname: c2
+    command: ["slurmd"]
+    depends_on: [slurmctld]
+  c3:
+    <<: *node
+    hostname: c3
+    command: ["slurmd"]
+    depends_on: [slurmctld]
+
+volumes:
+  work:

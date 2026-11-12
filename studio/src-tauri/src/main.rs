@@ -255,7 +255,8 @@ fn open() -> ExitCode {
 #[cfg(not(feature = "window"))]
 fn no_window(what: &str) -> ExitCode {
     eprintln!(
-        "this build of photonoxide has no window: {what} needs the studio's build (studio/README.md).          Every headless command is here: `photonoxide --help` lists them"
+        "this build of photonoxide has no window, which {what} needs: install the program with \
+         it (studio/README.md). Every headless command is here: `photonoxide --help` lists them"
     );
     ExitCode::from(2)
 }

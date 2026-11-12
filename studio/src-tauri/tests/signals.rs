@@ -164,7 +164,10 @@ fn a_run_sent_sigterm_mid_sweep_stops_with_exit_4_and_a_whole_record() {
     assert_eq!(output.status.code(), Some(4), "{stderr}");
     assert!(stderr.contains("SIGTERM"), "{stderr}");
     let done = points(&run);
-    assert!((2..24).contains(&done), "{done} points: it didn't stop mid-sweep");
+    assert!(
+        (2..24).contains(&done),
+        "{done} points: it didn't stop mid-sweep"
+    );
     // the record ends in its stopped event, as the window closing ends it
     let events = std::fs::read_to_string(run.join("events.jsonl")).unwrap();
     let last: serde_json::Value = serde_json::from_str(events.lines().last().unwrap()).unwrap();

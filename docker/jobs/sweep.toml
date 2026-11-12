@@ -1,0 +1,38 @@
+# A 2D FDFD wavelength sweep: a strip between two ports, 300 × 200 cells of 20 nm, 24 points.
+# The image's and the Slurm cluster's checks run it (docker/check.sh, docker/slurm/test.sh): its
+# points farm, it stops on SIGTERM between two points, and a longer one (more points) gives a
+# signal time to come mid-sweep. It names photonoxide's own direct solver, so that every worker
+# solves as the run does (docs/farming.md).
+name = "sweep"
+timeout_minutes = 30
+
+[solver]
+direct = "photonoxide"
+
+[task]
+kind = "fdfd"
+stack = "soi_220"
+wavelength_um = 1.55
+layer = "Si"
+x_um = [-3.0, 3.0]
+y_um = [-2.0, 2.0]
+step_nm = 20.0
+
+[[task.rect]]
+layer = "Si"
+center_um = [0.0, 0.0]
+size_um = [8.0, 0.5]
+
+[[task.port]]
+x_um = -2.0
+side = "left"
+
+[[task.port]]
+x_um = 2.0
+side = "right"
+
+[task.sweep]
+parameter = "wavelength"
+from = 1.5
+to = 1.6
+points = 24
