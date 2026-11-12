@@ -13,7 +13,9 @@
 //! own is right in the whole report. The report's head and its list of cases, in order, are
 //! checked whole every time, which runs nothing; so the runs of a set of prefixes that between
 //! them cover every case check the whole report, as the release pull request's and the weekly
-//! run's shards do.
+//! run's shards do. With `PHOTONOXIDE_VALIDATION_ROWS_ONLY` set too (not empty), the head and
+//! the list of cases are left to another run (CI checks them in one of its jobs, not in each),
+//! and each selected case's row is compared with the committed row of its id.
 //!
 //! With `--nocapture`, each case's time is printed as it finishes.
 
@@ -89,35 +91,58 @@ fn some_cases(committed: &str, prefixes: &[&str]) {
     let all = cases();
     let stale =
         "docs/validation.md is out of date: run `photonoxide validate --write docs/validation.md`";
-    assert!(head == header(), "{stale} (its head)");
-    let whole: String = committed_rows
-        .iter()
-        .map(|(_, l)| format!("{l}\n"))
-        .collect();
-    assert!(rows == whole, "{stale} (a row isn't a line of its own)");
     let ids: Vec<&str> = all.iter().map(|c| c.id).collect();
     let committed_ids: Vec<&str> = committed_rows.iter().map(|(id, _)| *id).collect();
-    assert!(
-        ids == committed_ids,
-        "{stale} (its cases: {} in the code, {} in the report, or in another order)",
-        ids.len(),
-        committed_ids.len()
-    );
+    let rows_only =
+        std::env::var_os("PHOTONOXIDE_VALIDATION_ROWS_ONLY").is_some_and(|v| !v.is_empty());
+    if rows_only {
+        eprintln!(
+            "the report's head and its list of cases: another job's check (PHOTONOXIDE_VALIDATION_ROWS_ONLY)"
+        );
+    } else {
+        assert!(head == header(), "{stale} (its head)");
+        let whole: String = committed_rows
+            .iter()
+            .map(|(_, l)| format!("{l}\n"))
+            .collect();
+        assert!(rows == whole, "{stale} (a row isn't a line of its own)");
+        assert!(
+            ids == committed_ids,
+            "{stale} (its cases: {} in the code, {} in the report, or in another order)",
+            ids.len(),
+            committed_ids.len()
+        );
+    }
+    // the committed row of each case: the one in its place, or, where the lists differ (rows
+    // only), the one of its id (none: the row is new, and out of date)
+    let committed_line: Vec<&str> = if ids == committed_ids {
+        committed_rows.iter().map(|(_, l)| *l).collect()
+    } else {
+        ids.iter()
+            .map(|id| {
+                committed_rows
+                    .iter()
+                    .find(|(c, _)| c == id)
+                    .map_or("", |(_, l)| *l)
+            })
+            .collect()
+    };
 
     let mut failed = Vec::new();
     let mut out_of_date = Vec::new();
     let mut made = String::new();
     let mut ran = 0;
-    for (case, (_, line)) in all.iter().zip(&committed_rows) {
+    for (i, case) in all.iter().enumerate() {
         if !selected(case.id) {
             continue;
         }
+        let line = committed_line[i];
         ran += 1;
         let (row, passed) = timed(case);
         if !passed {
             failed.push(row.clone());
         }
-        if row.trim_end() != *line {
+        if row.trim_end() != line {
             out_of_date.push(format!("committed: {line}\nnow:       {row}"));
         }
         made.push_str(&row);

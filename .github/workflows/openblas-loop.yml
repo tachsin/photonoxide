@@ -67,14 +67,8 @@ jobs:
       - name: Install
         run: |
           if [ -n "${{ matrix.apt }}" ]; then
-            # an Ubuntu mirror can stall apt-get update for over an hour: each try stops after 3
-            # minutes, and the third failure fails the step
-            for try in 1 2 3; do
-              sudo timeout 180 apt-get update -q && break
-              [ "$try" -lt 3 ] || exit 1
-              echo "apt-get update: try $try of 3 failed or ran past 3 minutes; again in 15 s"
-              sleep 15
-            done
+            # an Ubuntu mirror can stall apt-get update for over an hour: retried, each try bounded
+            bash .github/apt-get-update.sh -q
             sudo DEBIAN_FRONTEND=noninteractive apt-get install -y ${{ matrix.apt }}
             dpkg -l | grep -i -E "openblas|libgomp" || true
             update-alternatives --display libopenblas.so.0-x86_64-linux-gnu || true
