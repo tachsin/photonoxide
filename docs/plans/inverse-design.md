@@ -339,9 +339,10 @@ disc's radius d/2) and `-gradient`. The Y-branch's adjoint half in `optimize_ybr
 on the taper's widths from Table 1's, the derivatives from the swarm's 2D model's adjoint and
 the cells' exact areas (within 1.8e-4 of differences), 0.039 dB in the device's 2D model after
 their 102 solves against the swarm's 0.028 dB after 1500 evaluations. Its 3D loss, to go beside
-their −0.07 dB (a level set's shape, its last ten iterations in 3D), is `--full`'s and not run
-yet: the 22 nm grid needs about 34 GB, more than this machine had free; left for a larger one
-(`RECORDED_3D_ADJOINT`). *I7 is done.*
+their −0.07 dB (a level set's shape, its last ten iterations in 3D), is `--full`'s, run
+2026-11-12 (`RECORDED_3D_ADJOINT`): 0.474312, 0.477102 and 0.479050 into each arm on the 44,
+31.4 and 22 nm grids, extrapolated 0.169 ± 0.024 dB, against the swarm's 0.202 ± 0.027 dB and
+Table 1's 0.168 dB; 0.10 dB above theirs, reported and not checked. *I7 is done.*
 
 ### I8: Lithography inside the loop
 
@@ -500,12 +501,10 @@ The validation report has 27 topology cases and `fdfd/adjoint-gradient-row` to a
 1. **The validation report.** `docs/validation.md` doesn't have the new cases yet: rewrite it with
    `cargo run -p photonoxide-studio --release -- validate --write docs/validation.md` (every case,
    some 3D; hours). Until then the report's check and the studio's `tests/methods.rs` fail.
-2. **The Y-branch's adjoint design in 3D.** `cargo run --release --example optimize_ybranch --
-   --full` solves the swarm's design and then the adjoint search's on the 44, 31.4 and 22 nm
-   grids; the 22 nm grid needs about 34 GB. Put the three numbers it prints for the adjoint
-   design into `RECORDED_3D_ADJOINT` in `examples/optimize_ybranch.rs`. Then rewrite its output:
-   `cargo run --release --quiet --example optimize_ybranch > examples/output/optimize_ybranch.txt`.
-   Its 3D loss is reported beside Lalau-Keraly et al.'s −0.07 dB, not checked.
+2. **The Y-branch's adjoint design in 3D: done 2026-11-12.** `--full` solved the swarm's design
+   and then the adjoint search's on the 44, 31.4 and 22 nm grids (36 minutes on 6 threads, a
+   peak of 33 GB); the swarm's three powers repeat the recorded ones, and the adjoint design's
+   are in `RECORDED_3D_ADJOINT` (0.169 ± 0.024 dB, I7 above) and the plain run's output.
 3. **The testbed's eight published designs: decided, the gap kept open in #595.** Their
    transmissions at the testbed's 10 nm against the README's printed digits are in the ignored
    studies `the_testbed_spectrum_study` and `the_testbed_grid_study`. Our grid's own change

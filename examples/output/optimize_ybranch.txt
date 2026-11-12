@@ -55,4 +55,9 @@ Lalau-Keraly et al.'s adjoint search: the same widths by genoxide's L-BFGS-B fro
   extrapolated: 0.4773 ± 0.0029 into each arm, 0.202 ± 0.027 dB (Zhang et al.'s 3D FDTD: 0.13 dB, 48.5 % into each arm)
   Table 1's design in 3D on the same grids (docs/methods/devices.md): 0.168 ± 0.003 dB, +0.038 dB from Zhang et al.'s, a gap listed in #595
   insertion loss, 3D: 0.202 dB against 0.13 dB, +0.072 dB, beyond 0.05: a gap, reported and not checked
+3D FDFD of the adjoint search's design, what --full found (recorded):
+  44.0 nm cells: 0.474312 into each arm, 0.2291 dB
+  31.4 nm cells: 0.477102 into each arm, 0.2036 dB
+  22.0 nm cells: 0.479050 into each arm, 0.1859 dB
+  extrapolated: 0.4809 ± 0.0027 into each arm, 0.169 ± 0.024 dB (Lalau-Keraly et al.'s 3D FDTD: 0.07 dB; reported, not checked)
 all 4 within tolerance of the paper

@@ -66,8 +66,11 @@
 //! model, 0.011 dB above the swarm's 0.0280 dB from its 1500 evaluations, in 15 times fewer
 //! solves; checked: within 0.02 dB of the swarm's. Its taper is smooth, without the swarm's dip at
 //! w4. `--full` solves it in 3D on the same grids, reported beside their −0.07 dB, which is a level
-//! set's shape optimized in 3D for its last ten iterations where ours is a spline's widths in 2D;
-//! not run yet (the 22 nm grid needs about 34 GB), so nothing is recorded.
+//! set's shape optimized in 3D for its last ten iterations where ours is a spline's widths in 2D.
+//! In 3D (`--full`, 2026-11-12, 17 minutes) it puts 0.474312, 0.477102 and 0.479050 into each
+//! arm on the three grids, extrapolated 0.4809 ± 0.0027: 0.169 ± 0.024 dB, 0.033 dB below the
+//! swarm's 0.202 dB and level with Table 1's 0.168 dB, 0.10 dB above their 0.07 dB. Reported, not
+//! checked.
 //!
 //! ```sh
 //! cargo run --release --example optimize_ybranch             # the 2D search
@@ -128,8 +131,8 @@ const STUDY_3D: (f64, f64) = (0.168, 0.003);
 const GRIDS_3D: [(f64, usize); 3] = [(0.044, 8), (0.0314, 11), (0.022, 16)];
 /// What `--full` found in 3D for the swarm's design: the power into each arm on each grid.
 const RECORDED_3D: [f64; 3] = [0.46872531214085456, 0.4731107712154683, 0.47522441087637496];
-/// What `--full` found in 3D for the adjoint search's design (NaN until it has run).
-const RECORDED_3D_ADJOINT: [f64; 3] = [f64::NAN; 3];
+/// What `--full` found in 3D for the adjoint search's design: the power into each arm on each grid.
+const RECORDED_3D_ADJOINT: [f64; 3] = [0.47431246309412595, 0.4771019364481287, 0.4790499665941155];
 /// Lalau-Keraly et al.'s 3D insertion loss, dB (their Fig. 3, a level set's shape).
 const LALAU_KERALY_3D: f64 = 0.07;
 
