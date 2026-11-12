@@ -296,6 +296,9 @@ impl Level {
     }
 }
 
+/// What a backend kept of a hierarchy, if it keeps anything.
+type Kept = Option<Box<dyn crate::backend::PreparedMultigrid>>;
+
 /// The cycle's levels, finest first, and the coarsest's factorization.
 pub(crate) struct Hierarchy {
     levels: Vec<Level>,
@@ -310,7 +313,7 @@ pub(crate) struct Hierarchy {
     /// What an iterative backend made of the hierarchy, kept for its next solves
     /// ([`Hierarchy::gmres_on`]): the backend's address, and its prepared object (`None` where
     /// it keeps nothing).
-    prepared: std::sync::Mutex<Option<(usize, Option<Box<dyn crate::backend::PreparedMultigrid>>)>>,
+    prepared: std::sync::Mutex<Option<(usize, Kept)>>,
     /// One thread, for the solves with the coarsest factors: their sums then come in one
     /// order whatever the machine. A pool isn't `RefUnwindSafe`, but one that a panic left stays
     /// usable, so this keeps `IterativeSolver3d` unwind-safe, as it was before the multigrid.

@@ -1102,29 +1102,29 @@ mod tests {
                 "a cycle {full:.3} ms, of which the levels below the finest {below:.3} ms"
             ));
             // the first coarse level's smoother on cuSPARSE, and its level schedule's depth
-            if let (Some(l1), Some(level)) = (prepared.levels.get(1), cycle.levels().first()) {
-                if let super::Smoother::Ilu { l, u } = &l1.smoother {
-                    let spsv = fastest(5, || {
-                        l.solve(s, &l1.r, &l1.t).unwrap();
-                        u.solve(s, &l1.t, &l1.r).unwrap();
-                        s.api.runtime.synchronize("the triangles").unwrap();
-                    });
-                    let operator = level.operator();
-                    let spmv = fastest(5, || {
-                        if let super::Operator::Matrix(a) = &l1.operator {
-                            s.product(a, &l1.x, &l1.r).unwrap();
-                        }
-                        s.api.runtime.synchronize("a product").unwrap();
-                    });
-                    let f = level.smoother();
-                    out.push(format!(
+            if let (Some(l1), Some(level)) = (prepared.levels.get(1), cycle.levels().first())
+                && let super::Smoother::Ilu { l, u } = &l1.smoother
+            {
+                let spsv = fastest(5, || {
+                    l.solve(s, &l1.r, &l1.t).unwrap();
+                    u.solve(s, &l1.t, &l1.r).unwrap();
+                    s.api.runtime.synchronize("the triangles").unwrap();
+                });
+                let operator = level.operator();
+                let spmv = fastest(5, || {
+                    if let super::Operator::Matrix(a) = &l1.operator {
+                        s.product(a, &l1.x, &l1.r).unwrap();
+                    }
+                    s.api.runtime.synchronize("a product").unwrap();
+                });
+                let f = level.smoother();
+                out.push(format!(
                         "the first coarse level: {} rows, {} entries; a product {spmv:.3} ms, ILU(0)'s two triangular solves {spsv:.3} ms on cuSPARSE; their level schedules {} and {} deep",
                         operator.rows(),
                         operator.values().len(),
                         depth(f.lower(), true),
                         depth(f.upper(), false),
                     ));
-                }
             }
             // a dispatch's cost on Vulkan, in a chain each waiting for the one before (as a
             // level schedule's would): one invocation adding to one value
