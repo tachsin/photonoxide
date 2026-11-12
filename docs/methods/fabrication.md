@@ -1002,8 +1002,13 @@ These are listed in every flow that meets them, and wait for a source:
 - for a flow that makes its SOI wafer by SIMOX, the film the anneal leaves for each dose (the
   flow takes about 0.2 µm at 200 keV for every dose of 1.2–2.2×10¹⁸ cm⁻²), and so what the
   sacrificial oxide takes off; the oxide's depth, which the oxygen's projected range alone
-  doesn't give (the range is measured, about 400 nm at 200 keV, but how the oxide grows about the
-  implanted profile isn't in hand); and the oxide after an anneal below 1300 °C.
+  doesn't give (the range is measured, 398 nm at 200 keV, and computed, 484 nm by PRAL and
+  516–528 nm from Smith's table, but how the oxide grows about the implanted profile isn't in
+  hand); which of the two measured ranges, de Souza et al.'s or Izumi's, the route follows; and
+  the oxide after an anneal below 1300 °C;
+- an index model of aluminium nitride in the near infrared, or of silicon in the visible: the
+  catalogue's have no wavelength in common, so an AlN guide on silicon can't be solved, and a
+  flow's pictures take AlN's index at 0.9 µm.
 
 ## In the studio
 
