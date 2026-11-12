@@ -452,24 +452,20 @@ fn log_slope(points: &[[f64; 2]]) -> f64 {
 /// The cross-over length against the gap.
 pub fn gap_chart(l: f64) -> photonoxide::Result<ChartData> {
     let gs = gaps();
+    // the gaps on as many threads as there are cores (at most 12), not a thread each: each new
+    // thread that factorizes commits the dense kernels' own buffer, twice the L3 cache they read
+    // (960 MiB a thread on GitHub's Windows runner), and 39 solves at once ran out of memory there
     let (results, strip) = std::thread::scope(|s| {
-        let handles: Vec<_> = gs
-            .iter()
-            .map(|&g| s.spawn(move || pair(g * 1e-3, l)))
-            .collect();
-        let strip = single(l);
-        let results: Vec<photonoxide::Result<Pair>> = handles
-            .into_iter()
-            .map(|h| {
-                h.join()
-                    .unwrap_or_else(|_| Err(invalid("coupler chart", "a solve panicked")))
-            })
-            .collect();
+        let strip = s.spawn(|| single(l));
+        let results = super::crossing::parallel(&gs, |&g| pair(g * 1e-3, l));
+        let strip = strip
+            .join()
+            .unwrap_or_else(|_| Err(invalid("coupler chart", "a solve panicked")));
         (results, strip)
     });
     let mut lengths = Vec::with_capacity(gs.len());
-    for (g, r) in gs.iter().zip(results) {
-        lengths.push([*g, r?.cross_over(l)]);
+    for (g, p) in gs.iter().zip(results?) {
+        lengths.push([*g, p.cross_over(l)]);
     }
     let n = strip?;
     let ox = silica().refractive_index(wavelength(l)?)?.re;
